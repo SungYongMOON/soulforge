@@ -1,0 +1,5 @@
+local_entries:
+  - key: cache
+    path: .project_agent/_local/cache
+    purpose: local cache
+    tracked: false

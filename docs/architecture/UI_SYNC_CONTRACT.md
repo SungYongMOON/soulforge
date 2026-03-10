@@ -46,6 +46,8 @@ flowchart LR
 - 3차에서는 workspace `.project_agent` 에 대해 `resolve-workspaces` 와 workspace 통합 `validate` 를 구현한다.
 - 4차에서는 `derive-ui-state` 로 `Derive` 단계를 실제 구현한다.
 - 5차에서는 `.agent_class/tools/local_cli/ui_viewer/ui_viewer.py` 로 `Render` 단계의 read-only prototype 을 구현한다.
+- 6차에서는 첫 happy-path reference sample 1세트를 실제 library roots 와 `_workspaces/company/` 아래에 도입한다.
+- 7차에서는 첫 invalid reference sample 1세트를 `_workspaces/company/` 아래에 도입해 validate FAIL 과 partial/error render 경로를 실제 입력으로 검증한다.
 - `sync-body-state` 는 `.agent/body.yaml` 과 실제 `.agent/` 구조를 스캔해 `.agent/body_state.yaml` 을 재생성한다.
 - `resolve-loadout` 는 `.agent_class/class.yaml` 의 `modules.*` 와 installed `module.yaml` manifest 를 스캔해 catalog 를 구성하고 `loadout.yaml` 의 equipped module id 를 resolve 한다.
 - `resolve-workspaces` 는 `_workspaces/company|personal` 아래 프로젝트 폴더를 스캔하고 `.project_agent` 4파일을 resolve 해 `bound`, `unbound`, `invalid` 상태를 분류한다.
@@ -54,6 +56,7 @@ flowchart LR
 - `derive-ui-state` 는 body/class/workspace resolve 결과를 `overview`, `body`, `class`, `workspaces`, `diagnostics` 구조로 합친다.
 - `derive-ui-state` 는 text/json 출력을 지원하지만 기본적으로 저장소 파일을 새로 쓰지 않는다.
 - `ui_viewer.py` 는 `derive-ui-state --json` 만 읽고 4탭 UI 와 diagnostics 패널을 read-only 로 렌더링한다.
+- `ui_viewer.py` 는 `derive-ui-state` 가 non-zero exit code 를 반환해도 JSON payload 가 있으면 partial render 를 유지한다.
 
 ## 동기화 트리거
 

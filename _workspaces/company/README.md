@@ -24,5 +24,6 @@
 ## 상태
 
 - Draft
-- `sample_reference_project/` 는 `_workspaces/company/` 아래에 둔 첫 bound reference sample project 다.
-- 이 sample project 는 운영용이 아니라 구조 검증과 happy-path 회귀 입력 baseline 이다.
+- `sample_reference_project/` 는 `_workspaces/company/` 아래에 둔 bound baseline reference sample project 다.
+- `sample_invalid_project/` 는 `_workspaces/company/` 아래에 둔 invalid baseline reference sample project 다.
+- 두 sample project 모두 운영용이 아니라 구조 검증과 회귀 입력 baseline 이다.

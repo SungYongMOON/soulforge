@@ -35,11 +35,12 @@ flowchart TD
 - 4차에서는 `derive-ui-state` 와 `UI_DERIVED_STATE_CONTRACT.md` 로 `Derive` 단계를 실제 구현한다.
 - 5차에서는 `.agent_class/tools/local_cli/ui_viewer/ui_viewer.py` 로 `Render` 단계를 read-only prototype 으로 도입한다.
 - 6차에서는 실제 library roots 와 `_workspaces/company/` 아래에 첫 reference sample 1세트를 도입한다.
+- 7차에서는 `_workspaces/company/sample_invalid_project/` 로 첫 invalid reference sample 1세트를 도입한다.
 - renderer 는 정본 파일 직접 소비자가 아니라 derived state 소비자로 본다.
 - derived state top-level 구조는 `ui`, `overview`, `body`, `class`, `workspaces`, `diagnostics` 로 고정한다.
 - UI source map 과 UI sync contract 를 루트 문서 세트에 포함한다.
 - UI derived state contract 를 루트 문서 세트에 포함한다.
-- reference sample 은 fixture bundle 이 아니라 repo-tracked happy-path baseline 을 하나씩 추가하는 전략으로 관리한다.
+- reference sample 은 fixture bundle 이 아니라 repo-tracked happy-path baseline 다음 invalid baseline 을 하나씩 추가하는 전략으로 관리한다.
 - 프로젝트별 상태는 프로젝트 폴더 내부에 유지한다.
 - body 운영 문서는 `.agent/docs/` 아래에 둔다.
 - `.agent_class` 아래 `_local/` 은 무시되는 로컬 전용 데이터를 위해 남겨 둔다.

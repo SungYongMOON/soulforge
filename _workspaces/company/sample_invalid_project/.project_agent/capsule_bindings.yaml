@@ -1,0 +1,6 @@
+bindings:
+  - capsule_id: docs_reference
+    source_ref: .agent_class/docs
+    target_path: docs/agent_reference
+    mode: read_only
+
