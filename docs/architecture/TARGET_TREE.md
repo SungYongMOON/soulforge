@@ -84,6 +84,10 @@ flowchart TD
 | `.agent_class/loadout.yaml` | 현재 장착 상태 정의 |
 | `.agent_class/skills/` | 설치된 스킬 |
 | `.agent_class/tools/` | 외부 도구와 연결 계층 |
+| `.agent_class/tools/adapters/` | 공통 도구 인터페이스로 정렬하는 어댑터 |
+| `.agent_class/tools/connectors/` | 외부 연결과 인증 진입점 |
+| `.agent_class/tools/local_cli/` | 로컬 CLI 기반 도구 래퍼와 실행 바인딩 |
+| `.agent_class/tools/mcp/` | MCP 서버 연결과 프로토콜 바인딩 |
 | `.agent_class/workflows/` | 운용 절차 |
 | `.agent_class/knowledge/` | 설치형 지식 팩 |
 | `.agent_class/docs/` | 직업 내부 문서 |

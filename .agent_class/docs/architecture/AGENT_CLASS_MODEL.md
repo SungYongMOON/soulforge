@@ -68,6 +68,21 @@ flowchart TD
 - `knowledge/` 는 설치형 지식 팩을 둔다
 - `_local/` 은 비추적 로컬 전용 상태를 둔다
 
+## tools/ 하위 역할
+
+```mermaid
+flowchart TD
+  T["tools/"] --> A["adapters/<br/>공통 도구 인터페이스 정렬"]
+  T --> C["connectors/<br/>외부 연결과 인증 진입점"]
+  T --> L["local_cli/<br/>로컬 CLI 실행 바인딩"]
+  T --> M["mcp/<br/>MCP 연결과 프로토콜 바인딩"]
+```
+
+- `adapters/` 는 도구별 실행 인터페이스 차이를 공통 도구 인터페이스로 정렬하는 어댑터를 둔다
+- `connectors/` 는 외부 서비스와 원격 시스템 연결 정의, 인증 진입점을 둔다
+- `local_cli/` 는 호스트 로컬 CLI 기반 도구 래퍼와 실행 바인딩을 둔다
+- `mcp/` 는 MCP 기반 도구 서버 연결과 프로토콜 바인딩을 둔다
+
 ## 메타 파일
 
 - `class.yaml` 은 설치된 class 의 정적 정의를 둔다
