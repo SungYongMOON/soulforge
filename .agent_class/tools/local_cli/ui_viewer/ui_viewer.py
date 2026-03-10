@@ -34,9 +34,9 @@ __STYLE__
 <body>
   <div class="app-shell">
     <header class="page-header">
-      <div>
-        <p class="eyebrow">Soulforge</p>
-        <h1>Read-only UI prototype</h1>
+      <div class="header-copy">
+        <p class="eyebrow"><span class="header-seal">✦</span><span>Soulforge renderer</span></p>
+        <h1>Read-only field codex</h1>
         <p class="subtitle">renderer 는 derived state 소비자이며 정본 파일을 직접 읽지 않는다.</p>
       </div>
       <div class="header-actions">
@@ -48,8 +48,11 @@ __STYLE__
     <nav id="tab-nav" class="tab-nav" aria-label="UI tabs"></nav>
     <main id="tab-panels" class="tab-panels"></main>
     <section class="diagnostics-panel">
-      <div class="section-title-row">
-        <h2>diagnostics</h2>
+      <div class="section-heading">
+        <div class="section-copy">
+          <p class="section-kicker"><span class="glyph">🕯</span><span>diagnostics</span></p>
+          <p class="section-subtitle">Warnings and failures carried forward from validate.</p>
+        </div>
       </div>
       <div id="diagnostics-content"></div>
     </section>
@@ -65,67 +68,131 @@ __SCRIPT__
 STYLE = """
 :root {
   color-scheme: light;
-  --bg: #f5efe6;
-  --bg-accent: #e8ddd0;
-  --panel: #fffdf9;
-  --surface: #ffffff;
-  --border: #d8c8b6;
-  --text: #241d17;
-  --muted: #6f655b;
-  --accent: #0f6c73;
-  --accent-soft: rgba(15, 108, 115, 0.12);
-  --pass: #2f855a;
-  --warn: #b7791f;
-  --fail: #c53030;
-  --bound: #1f6f57;
-  --unbound: #9c6b00;
-  --invalid: #c53030;
-  --missing: #718096;
-  --shadow: 0 18px 40px rgba(36, 29, 23, 0.08);
-  --radius: 18px;
+  --paper: #f3eadc;
+  --paper-edge: #e4d6c1;
+  --paper-strong: #fbf7ef;
+  --slate: #48565c;
+  --slate-soft: #66757b;
+  --ink: #221c17;
+  --ink-soft: #6b625a;
+  --border: rgba(126, 108, 86, 0.24);
+  --border-strong: rgba(126, 108, 86, 0.42);
+  --brass: #8b6b34;
+  --brass-soft: rgba(139, 107, 52, 0.12);
+  --teal: #2f6d6b;
+  --teal-soft: rgba(47, 109, 107, 0.13);
+  --moss: #5c6c50;
+  --moss-soft: rgba(92, 108, 80, 0.13);
+  --burgundy: #7a413c;
+  --burgundy-soft: rgba(122, 65, 60, 0.12);
+  --pass: #466745;
+  --warn: #8b6b34;
+  --fail: #8a3f3a;
+  --bound: #2f6d6b;
+  --unbound: #9a6f2c;
+  --invalid: #7a413c;
+  --missing: #71757a;
+  --shadow: 0 20px 50px rgba(34, 28, 23, 0.08);
+  --shadow-soft: 0 10px 24px rgba(34, 28, 23, 0.05);
+  --radius: 20px;
+  --radius-sm: 14px;
+  --heading-font: "Iowan Old Style", "Palatino Linotype", "Book Antiqua", "Noto Serif KR", serif;
+  --body-font: "IBM Plex Sans KR", "IBM Plex Sans", "Pretendard", "Noto Sans KR", sans-serif;
+  --mono-font: "IBM Plex Mono", "SFMono-Regular", "SF Mono", Consolas, monospace;
 }
 
 * {
   box-sizing: border-box;
 }
 
+html {
+  background: #ede4d7;
+}
+
 body {
   margin: 0;
   background:
-    radial-gradient(circle at top left, rgba(15, 108, 115, 0.10), transparent 28rem),
-    linear-gradient(180deg, var(--bg) 0%, #f8f3ed 100%);
-  color: var(--text);
-  font-family: "IBM Plex Sans KR", "IBM Plex Sans", "Pretendard", "Noto Sans KR", sans-serif;
-  line-height: 1.5;
+    radial-gradient(circle at top left, rgba(47, 109, 107, 0.11), transparent 24rem),
+    radial-gradient(circle at top right, rgba(139, 107, 52, 0.08), transparent 28rem),
+    linear-gradient(180deg, #f6efe3 0%, #f0e7da 100%);
+  color: var(--ink);
+  font-family: var(--body-font);
+  line-height: 1.55;
+}
+
+button,
+input,
+select,
+textarea {
+  font: inherit;
 }
 
 code,
 pre,
 .mono {
-  font-family: "IBM Plex Mono", "SFMono-Regular", "SF Mono", Consolas, monospace;
+  font-family: var(--mono-font);
 }
 
 .app-shell {
-  max-width: 1240px;
+  max-width: 1280px;
   margin: 0 auto;
-  padding: 32px 20px 56px;
+  padding: 28px 20px 60px;
+}
+
+.app-shell > * {
+  min-width: 0;
+}
+
+h1,
+h2,
+h3,
+.card-value,
+.meta-value,
+.state-count {
+  font-family: var(--heading-font);
+  letter-spacing: 0.01em;
 }
 
 .page-header {
   display: flex;
   justify-content: space-between;
   align-items: flex-start;
-  gap: 16px;
+  gap: 20px;
   margin-bottom: 18px;
+  padding: 22px 24px;
+  background:
+    radial-gradient(circle at top left, rgba(47, 109, 107, 0.12), transparent 20rem),
+    radial-gradient(circle at bottom right, rgba(139, 107, 52, 0.10), transparent 18rem),
+    var(--paper-strong);
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  box-shadow: var(--shadow-soft);
+}
+
+.header-copy {
+  display: grid;
+  gap: 12px;
+  min-width: 0;
 }
 
 .eyebrow {
-  margin: 0 0 8px;
-  color: var(--accent);
+  margin: 0;
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  width: fit-content;
+  padding: 6px 10px;
+  border-radius: 999px;
+  background: var(--brass-soft);
+  color: var(--brass);
   font-size: 12px;
   font-weight: 700;
-  letter-spacing: 0.12em;
+  letter-spacing: 0.16em;
   text-transform: uppercase;
+}
+
+.header-seal {
+  font-size: 0.95rem;
 }
 
 h1,
@@ -136,31 +203,47 @@ h3 {
 }
 
 h1 {
-  font-size: clamp(2rem, 4vw, 3rem);
-  line-height: 1.05;
+  font-size: clamp(2.2rem, 4vw, 3.35rem);
+  line-height: 0.98;
 }
 
 h2 {
-  font-size: 1rem;
+  font-size: 1.08rem;
 }
 
 h3 {
-  font-size: 0.95rem;
+  font-size: 1.02rem;
 }
 
 .subtitle {
-  margin: 10px 0 0;
-  color: var(--muted);
-  max-width: 54rem;
+  margin: 0;
+  color: var(--ink-soft);
+  max-width: 62rem;
+}
+
+.header-actions {
+  display: flex;
+  align-items: flex-start;
 }
 
 .refresh-button {
-  border: 1px solid var(--border);
-  background: var(--surface);
-  color: var(--text);
-  padding: 11px 16px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  border: 1px solid rgba(72, 86, 92, 0.16);
+  background: linear-gradient(180deg, rgba(255, 255, 255, 0.92), rgba(244, 237, 226, 0.96));
+  color: var(--ink);
+  padding: 12px 18px;
   border-radius: 999px;
   cursor: pointer;
+  box-shadow: var(--shadow-soft);
+  transition: transform 120ms ease, border-color 120ms ease, box-shadow 120ms ease;
+}
+
+.refresh-button:hover:not(:disabled) {
+  transform: translateY(-1px);
+  border-color: var(--border-strong);
   box-shadow: var(--shadow);
 }
 
@@ -178,42 +261,166 @@ h3 {
 }
 
 .meta-strip,
-.diagnostics-panel,
-.panel,
-.notice-card {
-  background: rgba(255, 253, 249, 0.92);
-  border: 1px solid var(--border);
-  border-radius: var(--radius);
-  box-shadow: var(--shadow);
+.notice-strip,
+.hero-grid,
+.summary-grid,
+.card-grid,
+.module-grid,
+.workflow-grid,
+.project-grid,
+.finding-grid,
+.loadout-grid,
+.project-file-grid,
+.family-grid,
+.dependency-grid {
+  display: grid;
+  gap: 14px;
 }
 
 .meta-strip {
-  display: flex;
-  flex-wrap: wrap;
+  grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
+}
+
+.meta-card,
+.notice-card,
+.panel,
+.diagnostics-panel,
+.card,
+.module-card,
+.workflow-card,
+.project-card,
+.finding-card,
+.family-card,
+.loadout-card,
+.file-card,
+.table-shell {
+  background:
+    linear-gradient(180deg, rgba(255, 255, 255, 0.66), rgba(255, 255, 255, 0.2)),
+    var(--paper-strong);
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  box-shadow: var(--shadow-soft);
+}
+
+.meta-card,
+.card,
+.module-card,
+.workflow-card,
+.project-card,
+.finding-card,
+.family-card,
+.loadout-card,
+.file-card {
+  position: relative;
+  padding: 16px;
+  display: grid;
   gap: 12px;
-  padding: 14px 16px;
+  min-width: 0;
+  overflow: hidden;
+}
+
+.meta-card::before,
+.card::before,
+.module-card::before,
+.workflow-card::before,
+.project-card::before,
+.finding-card::before,
+.family-card::before,
+.loadout-card::before {
+  content: "";
+  position: absolute;
+  inset: 0 0 auto;
+  height: 3px;
+  background: linear-gradient(90deg, rgba(139, 107, 52, 0.55), rgba(47, 109, 107, 0.35));
+}
+
+.tone-pass {
+  border-color: rgba(92, 108, 80, 0.34);
+}
+
+.tone-pass::before {
+  background: linear-gradient(90deg, rgba(92, 108, 80, 0.65), rgba(47, 109, 107, 0.25));
+}
+
+.tone-bound {
+  border-color: rgba(47, 109, 107, 0.32);
+}
+
+.tone-bound::before {
+  background: linear-gradient(90deg, rgba(47, 109, 107, 0.68), rgba(92, 108, 80, 0.28));
+}
+
+.tone-unbound {
+  border-color: rgba(139, 107, 52, 0.32);
+}
+
+.tone-unbound::before {
+  background: linear-gradient(90deg, rgba(139, 107, 52, 0.7), rgba(72, 86, 92, 0.24));
+}
+
+.tone-invalid,
+.tone-fail {
+  border-color: rgba(122, 65, 60, 0.34);
+}
+
+.tone-invalid::before,
+.tone-fail::before {
+  background: linear-gradient(90deg, rgba(122, 65, 60, 0.72), rgba(139, 107, 52, 0.22));
+}
+
+.meta-card--command {
+  grid-column: 1 / -1;
 }
 
 .meta-item {
   display: inline-flex;
   gap: 8px;
   align-items: center;
-  color: var(--muted);
+  color: var(--ink-soft);
   font-size: 0.92rem;
 }
 
 .meta-label {
-  color: var(--text);
-  font-weight: 600;
+  color: var(--ink-soft);
+  font-size: 0.78rem;
+  font-weight: 700;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
 }
 
-.meta-command {
-  width: 100%;
-  background: var(--surface);
-  border: 1px dashed var(--border);
-  border-radius: 12px;
+.meta-value-row {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 10px;
+  align-items: center;
+  min-width: 0;
+}
+
+.meta-value {
+  font-size: clamp(1.2rem, 2vw, 1.55rem);
+  line-height: 1.1;
+}
+
+.meta-note {
+  color: var(--ink-soft);
+  font-size: 0.92rem;
+}
+
+.meta-command,
+.path-block,
+.module-id,
+.project-path,
+.finding-code {
+  margin: 0;
   padding: 10px 12px;
-  overflow-x: auto;
+  border-radius: 14px;
+  border: 1px solid rgba(72, 86, 92, 0.1);
+  background: rgba(72, 86, 92, 0.05);
+  overflow: auto;
+  max-width: 100%;
+  white-space: pre-wrap;
+  word-break: break-word;
+  overflow-wrap: anywhere;
 }
 
 .notice-strip {
@@ -223,16 +430,22 @@ h3 {
 
 .notice-card {
   padding: 14px 16px;
+  display: grid;
+  gap: 8px;
 }
 
 .notice-card.is-warn {
-  border-color: rgba(183, 121, 31, 0.35);
-  background: rgba(255, 248, 235, 0.95);
+  border-color: rgba(139, 107, 52, 0.35);
+  background:
+    linear-gradient(180deg, rgba(255, 255, 255, 0.64), rgba(255, 255, 255, 0.18)),
+    #fdf7ec;
 }
 
 .notice-card.is-fail {
-  border-color: rgba(197, 48, 48, 0.35);
-  background: rgba(255, 241, 241, 0.95);
+  border-color: rgba(122, 65, 60, 0.35);
+  background:
+    linear-gradient(180deg, rgba(255, 255, 255, 0.62), rgba(255, 255, 255, 0.18)),
+    #fdf0ee;
 }
 
 .tab-nav {
@@ -243,16 +456,17 @@ h3 {
 
 .tab-button {
   border: 1px solid var(--border);
-  background: rgba(255, 253, 249, 0.88);
-  color: var(--text);
+  background: rgba(255, 251, 244, 0.9);
+  color: var(--ink);
   padding: 12px 16px;
   border-radius: 999px;
   cursor: pointer;
+  box-shadow: var(--shadow-soft);
 }
 
 .tab-button[aria-selected="true"] {
-  background: var(--accent);
-  border-color: var(--accent);
+  background: linear-gradient(180deg, var(--teal), #245a58);
+  border-color: rgba(36, 90, 88, 0.95);
   color: #ffffff;
 }
 
@@ -268,102 +482,176 @@ h3 {
 
 .panel {
   display: none;
-  padding: 18px;
+  padding: 20px;
 }
 
 .panel.is-active {
   display: grid;
-  gap: 18px;
+  gap: 20px;
 }
 
-.section-title-row {
+.section-heading,
+.surface-title-row {
   display: flex;
   justify-content: space-between;
-  align-items: center;
-  gap: 12px;
-  margin-bottom: 10px;
+  align-items: flex-start;
+  gap: 16px;
+  flex-wrap: wrap;
 }
 
-.card-grid,
-.module-grid,
-.project-grid,
-.finding-grid,
-.workflow-grid,
-.summary-grid {
+.section-copy,
+.surface-title-copy {
   display: grid;
-  gap: 12px;
+  gap: 6px;
+  min-width: 0;
 }
 
-.card-grid,
-.summary-grid {
-  grid-template-columns: repeat(auto-fit, minmax(190px, 1fr));
+.section-kicker,
+.surface-label {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  color: var(--teal);
+  font-size: 0.8rem;
+  font-weight: 700;
+  letter-spacing: 0.12em;
+  text-transform: uppercase;
+}
+
+.surface-label {
+  color: var(--brass);
+}
+
+.section-subtitle,
+.surface-subtitle {
+  color: var(--ink-soft);
+  max-width: 64rem;
+  overflow-wrap: anywhere;
+}
+
+.section-anchor,
+.badge-cluster,
+.inline-list {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  min-width: 0;
+  align-items: center;
+}
+
+.hero-grid {
+  grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
+}
+
+.summary-grid,
+.card-grid {
+  grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
 }
 
 .module-grid,
 .workflow-grid,
 .project-grid {
-  grid-template-columns: repeat(auto-fit, minmax(260px, 1fr));
+  grid-template-columns: repeat(auto-fit, minmax(300px, 1fr));
 }
 
 .finding-grid {
   grid-template-columns: repeat(auto-fit, minmax(280px, 1fr));
 }
 
-.card,
-.module-card,
-.workflow-card,
-.project-card,
-.finding-card,
-.family-card {
-  background: var(--surface);
-  border: 1px solid var(--border);
-  border-radius: 16px;
-  padding: 14px;
+.loadout-grid,
+.family-grid {
+  grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
+}
+
+.project-file-grid {
+  grid-template-columns: repeat(auto-fit, minmax(180px, 1fr));
+}
+
+.dependency-grid {
+  grid-template-columns: repeat(auto-fit, minmax(160px, 1fr));
+}
+
+.glyph {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 1.25rem;
+  min-width: 1.25rem;
+  font-size: 1rem;
+  line-height: 1;
+}
+
+.card-heading {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
 }
 
 .card-title {
-  margin: 0 0 6px;
-  color: var(--muted);
-  font-size: 0.82rem;
+  margin: 0;
+  color: var(--ink-soft);
+  font-size: 0.78rem;
   text-transform: uppercase;
-  letter-spacing: 0.08em;
+  letter-spacing: 0.1em;
 }
 
 .card-value {
-  font-size: 1.15rem;
+  font-size: clamp(1.12rem, 1.8vw, 1.55rem);
   font-weight: 700;
+  line-height: 1.12;
+  overflow-wrap: anywhere;
   word-break: break-word;
 }
 
 .card-subvalue {
-  margin-top: 6px;
-  color: var(--muted);
+  color: var(--ink-soft);
   font-size: 0.92rem;
+  overflow-wrap: anywhere;
+}
+
+.stack {
+  display: grid;
+  gap: 12px;
+  min-width: 0;
+}
+
+.table-shell {
+  padding: 4px 0 0;
+  overflow: hidden;
 }
 
 .table-wrap {
-  overflow-x: auto;
+  overflow: auto;
+  max-width: 100%;
 }
 
 table {
   width: 100%;
   border-collapse: collapse;
+  table-layout: fixed;
 }
 
 th,
 td {
-  padding: 10px 12px;
-  border-bottom: 1px solid rgba(216, 200, 182, 0.7);
+  padding: 12px 14px;
+  border-bottom: 1px solid rgba(126, 108, 86, 0.14);
   text-align: left;
   vertical-align: top;
+  overflow-wrap: anywhere;
+  word-break: break-word;
 }
 
 th {
-  color: var(--muted);
-  font-size: 0.84rem;
-  font-weight: 600;
+  color: var(--ink-soft);
+  font-size: 0.78rem;
+  font-weight: 700;
   text-transform: uppercase;
-  letter-spacing: 0.06em;
+  letter-spacing: 0.08em;
+  background: rgba(72, 86, 92, 0.04);
+}
+
+tbody tr:last-child td {
+  border-bottom: none;
 }
 
 .badge {
@@ -371,80 +659,114 @@ th {
   align-items: center;
   gap: 6px;
   border-radius: 999px;
-  padding: 4px 10px;
-  font-size: 0.82rem;
+  padding: 5px 11px;
+  font-size: 0.79rem;
   font-weight: 700;
-  background: rgba(113, 128, 150, 0.12);
-  color: var(--text);
+  letter-spacing: 0.02em;
+  background: rgba(72, 86, 92, 0.08);
+  color: var(--slate);
+  border: 1px solid rgba(72, 86, 92, 0.12);
 }
 
-.badge.is-pass {
-  background: rgba(47, 133, 90, 0.14);
+.badge.is-pass,
+.badge.is-resolved {
+  background: rgba(92, 108, 80, 0.14);
   color: var(--pass);
+  border-color: rgba(92, 108, 80, 0.18);
 }
 
 .badge.is-warn,
 .badge.is-unbound {
-  background: rgba(183, 121, 31, 0.15);
+  background: rgba(139, 107, 52, 0.14);
   color: var(--warn);
+  border-color: rgba(139, 107, 52, 0.18);
 }
 
 .badge.is-fail,
 .badge.is-invalid {
-  background: rgba(197, 48, 48, 0.15);
+  background: rgba(122, 65, 60, 0.14);
   color: var(--fail);
+  border-color: rgba(122, 65, 60, 0.18);
 }
 
-.badge.is-bound {
-  background: rgba(31, 111, 87, 0.14);
+.badge.is-bound,
+.badge.is-equipped {
+  background: rgba(47, 109, 107, 0.14);
   color: var(--bound);
+  border-color: rgba(47, 109, 107, 0.18);
 }
 
 .badge.is-missing {
-  background: rgba(113, 128, 150, 0.15);
+  background: rgba(113, 117, 122, 0.12);
   color: var(--missing);
+  border-color: rgba(113, 117, 122, 0.18);
 }
 
-.badge.is-neutral {
-  background: var(--accent-soft);
-  color: var(--accent);
-}
-
-.stack {
-  display: grid;
-  gap: 10px;
+.badge.is-neutral,
+.badge.is-catalog {
+  background: var(--brass-soft);
+  color: var(--brass);
+  border-color: rgba(139, 107, 52, 0.18);
 }
 
 .muted {
-  color: var(--muted);
+  color: var(--ink-soft);
+  overflow-wrap: anywhere;
 }
 
 .inline-list {
-  display: flex;
-  flex-wrap: wrap;
-  gap: 8px;
+  align-items: stretch;
 }
 
 .pill {
   display: inline-flex;
   align-items: center;
   gap: 6px;
-  background: rgba(15, 108, 115, 0.08);
-  color: var(--accent);
+  max-width: 100%;
+  background: rgba(47, 109, 107, 0.08);
+  color: var(--teal);
+  border: 1px solid rgba(47, 109, 107, 0.12);
   border-radius: 999px;
-  padding: 5px 10px;
+  padding: 6px 10px;
   font-size: 0.84rem;
 }
 
-.key-value {
-  display: grid;
-  gap: 6px;
+.pill code,
+code,
+pre,
+.mono,
+.card-value,
+.meta-command,
+.body-copy,
+.finding-message,
+.kv-value {
+  overflow-wrap: anywhere;
+  word-break: break-word;
 }
 
-.key-value div {
-  display: flex;
-  justify-content: space-between;
-  gap: 12px;
+.pill code,
+td code,
+.path-block code,
+.module-id code,
+.project-path code {
+  white-space: pre-wrap;
+}
+
+.key-value,
+.kv-list {
+  display: grid;
+  gap: 10px;
+  min-width: 0;
+}
+
+.meta-row,
+.key-value div,
+.kv-list div {
+  display: grid;
+  grid-template-columns: minmax(0, 12rem) minmax(0, 1fr);
+  gap: 10px 14px;
+  align-items: start;
+  min-width: 0;
 }
 
 .key-value dt,
@@ -452,42 +774,151 @@ th {
   margin: 0;
 }
 
+.kv-label,
 .key-value dt {
-  color: var(--muted);
+  color: var(--ink-soft);
+  font-size: 0.88rem;
+}
+
+.kv-value {
+  color: var(--ink);
+  min-width: 0;
 }
 
 .empty-state {
-  border: 1px dashed var(--border);
-  border-radius: 14px;
+  border: 1px dashed rgba(126, 108, 86, 0.35);
+  border-radius: var(--radius-sm);
   padding: 18px;
-  color: var(--muted);
-  background: rgba(255, 255, 255, 0.7);
+  color: var(--ink-soft);
+  background: rgba(255, 255, 255, 0.42);
 }
 
-.finding-card pre,
-.meta-command {
-  margin: 0;
-  white-space: pre-wrap;
-  word-break: break-word;
+.loadout-card {
+  gap: 10px;
+}
+
+.state-count {
+  font-size: 1.35rem;
+}
+
+.dependency-column {
+  display: grid;
+  gap: 8px;
+  padding: 12px;
+  border-radius: 16px;
+  background: rgba(72, 86, 92, 0.04);
+  border: 1px solid rgba(72, 86, 92, 0.08);
+  min-width: 0;
+}
+
+.dependency-label {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  color: var(--ink-soft);
+  font-size: 0.8rem;
+  text-transform: uppercase;
+  letter-spacing: 0.08em;
+}
+
+.project-title {
+  font-size: 1.1rem;
+  line-height: 1.25;
+  overflow-wrap: anywhere;
+}
+
+.file-card {
+  padding: 12px;
+  gap: 8px;
+  border-radius: 16px;
+  background: rgba(255, 255, 255, 0.58);
+}
+
+.file-card::before {
+  content: none;
+}
+
+.file-title,
+.finding-head {
+  display: flex;
+  justify-content: space-between;
+  align-items: flex-start;
+  gap: 10px;
+  flex-wrap: wrap;
+}
+
+.file-label {
+  color: var(--ink-soft);
+  font-size: 0.78rem;
+  font-weight: 700;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+}
+
+.finding-code {
+  font-weight: 700;
+  color: var(--ink);
+}
+
+.finding-message {
+  color: var(--ink);
+}
+
+.diagnostics-panel {
+  padding: 20px;
+  display: grid;
+  gap: 18px;
 }
 
 @media (max-width: 720px) {
   .app-shell {
-    padding: 24px 14px 40px;
+    padding: 18px 12px 44px;
   }
 
   .page-header {
     flex-direction: column;
   }
 
-  .meta-strip {
-    flex-direction: column;
-    align-items: flex-start;
+  .header-actions {
+    width: 100%;
+  }
+
+  .refresh-button {
+    width: 100%;
   }
 
   .tab-nav {
-    overflow-x: auto;
+    overflow: auto;
     padding-bottom: 4px;
+    flex-wrap: nowrap;
+  }
+
+  .tab-button {
+    flex: 0 0 auto;
+  }
+
+  .panel,
+  .diagnostics-panel {
+    padding: 16px;
+  }
+
+  th,
+  td {
+    padding: 10px 12px;
+  }
+}
+
+@media (max-width: 960px) {
+  .meta-row,
+  .key-value div,
+  .kv-list div {
+    grid-template-columns: minmax(0, 1fr);
+  }
+
+  .module-grid,
+  .workflow-grid,
+  .project-grid {
+    grid-template-columns: 1fr;
   }
 }
 """
@@ -500,6 +931,27 @@ SCRIPT = """
     { id: "class", label: "직업(.agent_class)", enabled: true },
     { id: "workspaces", label: "워크스페이스(_workspaces)", enabled: true }
   ];
+  const ICONS = {
+    overview: "✦",
+    body: "◈",
+    class: "⚔",
+    workspaces: "🗺",
+    diagnostics: "🕯",
+    installed: "⚒",
+    equipped: "🛡",
+    skills: "✦",
+    tools: "⚒",
+    workflows: "⛓",
+    knowledge: "📖",
+    company: "🏰",
+    personal: "⛺",
+    adapters: "⇄",
+    connectors: "⎋",
+    local_cli: "⌘",
+    mcp: "◎",
+    warnings: "⚠",
+    errors: "✕"
+  };
 
   const initialStateNode = document.getElementById("initial-state");
   const refreshButton = document.getElementById("refresh-button");
@@ -557,11 +1009,16 @@ SCRIPT = """
     return typeof value === "number" ? value : 0;
   }
 
+  function iconGlyph(icon) {
+    return `<span class="glyph" aria-hidden="true">${escapeHtml(icon || "✦")}</span>`;
+  }
+
   function toneForStatus(value) {
     switch (String(value)) {
       case "PASS":
+      case "valid":
       case "resolved":
-        return "is-pass";
+        return "is-pass is-resolved";
       case "WARN":
       case "unbound":
         return "is-warn is-unbound";
@@ -570,7 +1027,10 @@ SCRIPT = """
         return "is-fail is-invalid";
       case "bound":
       case "present":
+      case "equipped":
         return "is-bound";
+      case "catalog":
+        return "is-neutral is-catalog";
       case "missing":
         return "is-missing";
       default:
@@ -578,8 +1038,54 @@ SCRIPT = """
     }
   }
 
-  function statusBadge(value) {
-    return `<span class="badge ${toneForStatus(value)}">${escapeHtml(asText(value))}</span>`;
+  function cardTone(value) {
+    switch (String(value)) {
+      case "PASS":
+      case "valid":
+      case "resolved":
+        return "tone-pass";
+      case "bound":
+      case "present":
+      case "equipped":
+        return "tone-bound";
+      case "WARN":
+      case "unbound":
+        return "tone-unbound";
+      case "FAIL":
+      case "invalid":
+        return "tone-invalid";
+      default:
+        return "";
+    }
+  }
+
+  function statusIcon(value) {
+    switch (String(value)) {
+      case "PASS":
+      case "valid":
+      case "resolved":
+        return "✦";
+      case "WARN":
+        return "⚠";
+      case "FAIL":
+      case "invalid":
+        return "✕";
+      case "bound":
+      case "present":
+      case "equipped":
+        return "◉";
+      case "unbound":
+      case "missing":
+        return "◌";
+      case "catalog":
+        return "◌";
+      default:
+        return "•";
+    }
+  }
+
+  function statusBadge(value, label = null) {
+    return `<span class="badge ${toneForStatus(value)}">${iconGlyph(statusIcon(value))}<span>${escapeHtml(label || asText(value))}</span></span>`;
   }
 
   function booleanCell(value) {
@@ -599,14 +1105,52 @@ SCRIPT = """
     return `<div class="inline-list">${items.map((item) => `<span class="pill"><code>${escapeHtml(item)}</code></span>`).join("")}</div>`;
   }
 
-  function summaryCard(title, value, subvalue = "") {
+  function sectionHeading(title, subtitle, options = {}) {
+    const badgeHtml = options.badgeHtml ? `<div class="section-anchor">${options.badgeHtml}</div>` : "";
     return `
-      <article class="card">
-        <p class="card-title">${escapeHtml(title)}</p>
-        <div class="card-value">${escapeHtml(value)}</div>
-        ${subvalue ? `<div class="card-subvalue">${subvalue}</div>` : ""}
+      <div class="section-heading">
+        <div class="section-copy">
+          <p class="section-kicker">${iconGlyph(options.icon || ICONS.overview)}<span>${escapeHtml(title)}</span></p>
+          ${subtitle ? `<p class="section-subtitle">${escapeHtml(subtitle)}</p>` : ""}
+        </div>
+        ${badgeHtml}
+      </div>
+    `;
+  }
+
+  function summaryCard(title, value, subvalue = "", options = {}) {
+    const tone = options.tone ? ` ${options.tone}` : "";
+    const valueClass = options.valueClass ? ` ${options.valueClass}` : "";
+    const valueHtml = options.valueHtml === true ? value : escapeHtml(value);
+    const subvalueHtml = options.subvalueHtml === true ? subvalue : escapeHtml(subvalue);
+    return `
+      <article class="card${tone}">
+        <div class="card-heading">
+          ${iconGlyph(options.icon || ICONS.overview)}
+          <p class="card-title">${escapeHtml(title)}</p>
+        </div>
+        <div class="card-value${valueClass}">${valueHtml}</div>
+        ${subvalue ? `<div class="card-subvalue">${subvalueHtml}</div>` : ""}
       </article>
     `;
+  }
+
+  function metaCard(label, valueHtml, options = {}) {
+    const tone = options.tone ? ` ${options.tone}` : "";
+    const extraClass = options.className ? ` ${options.className}` : "";
+    return `
+      <article class="meta-card${tone}${extraClass}">
+        <div class="surface-title-copy">
+          <p class="surface-label">${iconGlyph(options.icon || ICONS.overview)}<span>${escapeHtml(label)}</span></p>
+          ${options.note ? `<div class="meta-note">${escapeHtml(options.note)}</div>` : ""}
+        </div>
+        ${valueHtml}
+      </article>
+    `;
+  }
+
+  function codeValue(value) {
+    return `<code class="mono">${escapeHtml(asText(value))}</code>`;
   }
 
   function renderMeta() {
@@ -614,21 +1158,43 @@ SCRIPT = """
     const payload = asObject(viewerState.payload);
     const overview = asObject(payload.overview);
     const status = asObject(overview.status);
-    metaStrip.innerHTML = `
-      <div class="meta-item">
-        <span class="meta-label">render status</span>
-        ${statusBadge(asText(status.result, "FAIL"))}
-      </div>
-      <div class="meta-item">
-        <span class="meta-label">generated</span>
-        <span class="mono">${escapeHtml(asText(meta.generated_at))}</span>
-      </div>
-      <div class="meta-item">
-        <span class="meta-label">derive exit</span>
-        <span class="mono">${escapeHtml(asText(meta.command_exit_code))}</span>
-      </div>
-      <pre class="meta-command">${escapeHtml(asText(meta.command, "-"))}</pre>
-    `;
+    metaStrip.innerHTML = [
+      metaCard(
+        "render status",
+        `<div class="meta-value-row">${statusBadge(asText(status.result, "FAIL"))}</div>`,
+        {
+          icon: ICONS.overview,
+          tone: cardTone(asText(status.result, "FAIL")),
+          note: "Derived verdict from overview.status.result"
+        }
+      ),
+      metaCard(
+        "generated",
+        `<div class="meta-value-row"><div class="meta-value mono">${escapeHtml(asText(meta.generated_at))}</div></div>`,
+        {
+          icon: ICONS.diagnostics,
+          note: "Viewer snapshot timestamp"
+        }
+      ),
+      metaCard(
+        "derive exit",
+        `<div class="meta-value-row"><div class="meta-value mono">${escapeHtml(asText(meta.command_exit_code))}</div></div>`,
+        {
+          icon: ICONS.installed,
+          tone: meta.command_exit_code ? "tone-unbound" : "tone-bound",
+          note: "Non-zero still allows partial render when JSON payload exists"
+        }
+      ),
+      metaCard(
+        "source command",
+        `<pre class="meta-command">${escapeHtml(asText(meta.command, "-"))}</pre>`,
+        {
+          icon: ICONS.class,
+          className: "meta-card--command",
+          note: "Horizontal scroll is allowed, but wrapping keeps the shell intact"
+        }
+      )
+    ].join("");
   }
 
   function renderNoticeStrip() {
@@ -637,7 +1203,9 @@ SCRIPT = """
     if (meta.command_exit_code && viewerState.payload) {
       notices.push(`
         <div class="notice-card is-warn">
-          <strong>Partial render</strong>
+          <div class="badge-cluster">
+            ${statusBadge("WARN", "partial render")}
+          </div>
           <div class="muted">derive-ui-state returned a non-zero exit code, but the viewer rendered the available JSON payload.</div>
         </div>
       `);
@@ -645,7 +1213,9 @@ SCRIPT = """
     if (meta.stderr) {
       notices.push(`
         <div class="notice-card is-warn">
-          <strong>stderr</strong>
+          <div class="badge-cluster">
+            ${statusBadge("WARN", "stderr")}
+          </div>
           <pre>${escapeHtml(meta.stderr)}</pre>
         </div>
       `);
@@ -653,7 +1223,9 @@ SCRIPT = """
     if (meta.fatal) {
       notices.push(`
         <div class="notice-card is-fail">
-          <strong>Viewer load failure</strong>
+          <div class="badge-cluster">
+            ${statusBadge("FAIL", "viewer load failure")}
+          </div>
           <div class="muted">${escapeHtml(meta.fatal)}</div>
         </div>
       `);
@@ -697,23 +1269,64 @@ SCRIPT = """
     const equipped = asObject(counts.equipped);
     const projects = asObject(counts.projects);
     const status = asObject(overview.status);
+    const diagnosticsSubvalue = `
+      <div class="badge-cluster">
+        ${statusBadge("WARN", `warnings ${asCount(status.warning_count)}`)}
+        ${statusBadge("FAIL", `errors ${asCount(status.error_count)}`)}
+      </div>
+    `;
+    const projectsSubvalue = `
+      <div class="badge-cluster">
+        ${statusBadge("bound", `bound ${asCount(projects.bound)}`)}
+        ${statusBadge("unbound", `unbound ${asCount(projects.unbound)}`)}
+        ${statusBadge("invalid", `invalid ${asCount(projects.invalid)}`)}
+      </div>
+    `;
     return `
       <div class="stack">
-        <div class="section-title-row">
-          <h2>overview</h2>
-          ${statusBadge(asText(status.result, "FAIL"))}
-        </div>
-        <div class="summary-grid">
-          ${summaryCard("body id", asText(overview.body_id))}
-          ${summaryCard("class id", asText(overview.class_id))}
-          ${summaryCard("active profile", asText(overview.active_profile))}
-          ${summaryCard("diagnostics", `${asCount(status.warning_count)} warn / ${asCount(status.error_count)} error`)}
+        ${sectionHeading("overview", "Character sheet summary rendered from derived state only.", {
+          icon: ICONS.overview,
+          badgeHtml: statusBadge(asText(status.result, "FAIL"))
+        })}
+        <div class="hero-grid">
+          ${summaryCard("body id", codeValue(overview.body_id), "", {
+            icon: ICONS.body,
+            tone: "tone-bound",
+            valueHtml: true
+          })}
+          ${summaryCard("class id", codeValue(overview.class_id), "", {
+            icon: ICONS.class,
+            tone: "tone-bound",
+            valueHtml: true
+          })}
+          ${summaryCard("active profile", codeValue(overview.active_profile), "", {
+            icon: ICONS.equipped,
+            tone: "tone-pass",
+            valueHtml: true
+          })}
+          ${summaryCard("diagnostics", `${asCount(status.warning_count)} warn / ${asCount(status.error_count)} error`, diagnosticsSubvalue, {
+            icon: ICONS.diagnostics,
+            tone: cardTone(asText(status.result, "FAIL")),
+            subvalueHtml: true
+          })}
         </div>
         <div class="card-grid">
-          ${summaryCard("installed", `skills ${asCount(installed.skills)} / tools ${asCount(installed.tools)}`, `workflows ${asCount(installed.workflows)} / knowledge ${asCount(installed.knowledge)}`)}
-          ${summaryCard("equipped", `skills ${asCount(equipped.skills)} / tools ${asCount(equipped.tools)}`, `workflows ${asCount(equipped.workflows)} / knowledge ${asCount(equipped.knowledge)}`)}
-          ${summaryCard("projects", `total ${asCount(projects.total)}`, `bound ${asCount(projects.bound)} / unbound ${asCount(projects.unbound)} / invalid ${asCount(projects.invalid)}`)}
-          ${summaryCard("body sections present", String(asCount(counts.body_sections_present)))}
+          ${summaryCard("installed", `skills ${asCount(installed.skills)} / tools ${asCount(installed.tools)}`, `workflows ${asCount(installed.workflows)} / knowledge ${asCount(installed.knowledge)}`, {
+            icon: ICONS.installed
+          })}
+          ${summaryCard("equipped", `skills ${asCount(equipped.skills)} / tools ${asCount(equipped.tools)}`, `workflows ${asCount(equipped.workflows)} / knowledge ${asCount(equipped.knowledge)}`, {
+            icon: ICONS.equipped,
+            tone: "tone-bound"
+          })}
+          ${summaryCard("projects", `total ${asCount(projects.total)}`, projectsSubvalue, {
+            icon: ICONS.workspaces,
+            tone: asCount(projects.invalid) ? "tone-invalid" : asCount(projects.unbound) ? "tone-unbound" : "tone-bound",
+            subvalueHtml: true
+          })}
+          ${summaryCard("body sections present", String(asCount(counts.body_sections_present)), "Present sections rendered from body ledger.", {
+            icon: ICONS.body,
+            tone: "tone-pass"
+          })}
         </div>
       </div>
     `;
@@ -723,7 +1336,8 @@ SCRIPT = """
     const body = asObject(payload.body);
     const sections = asArray(body.sections);
     const sectionTable = sections.length ? `
-      <div class="table-wrap">
+      <div class="table-shell">
+        <div class="table-wrap">
         <table>
           <thead>
             <tr>
@@ -742,27 +1356,40 @@ SCRIPT = """
             `).join("")}
           </tbody>
         </table>
+        </div>
       </div>
     ` : emptyState("No body sections were derived.");
 
     return `
       <div class="stack">
+        ${sectionHeading("body", "Body ledger for the current shell and section presence.", {
+          icon: ICONS.body
+        })}
         <div class="summary-grid">
-          ${summaryCard("body id", asText(body.id))}
-          ${summaryCard("name", asText(body.name))}
-          ${summaryCard("sections", String(sections.length))}
+          ${summaryCard("body id", codeValue(body.id), "", {
+            icon: ICONS.body,
+            tone: "tone-bound",
+            valueHtml: true
+          })}
+          ${summaryCard("name", asText(body.name), "Static body identity from body metadata.", {
+            icon: ICONS.overview
+          })}
+          ${summaryCard("sections", String(sections.length), "Tracked sections in body.yaml order.", {
+            icon: ICONS.body,
+            tone: sections.length ? "tone-pass" : ""
+          })}
         </div>
         <div>
-          <div class="section-title-row">
-            <h2>sections</h2>
-          </div>
+          ${sectionHeading("sections", "present indicates whether the section exists in the current body shell.", {
+            icon: ICONS.body
+          })}
           ${sectionTable}
         </div>
       </div>
     `;
   }
 
-  function renderModuleCards(modules, emptyMessage) {
+  function renderModuleCards(modules, emptyMessage, libraryKey) {
     if (!modules.length) {
       return emptyState(emptyMessage);
     }
@@ -770,15 +1397,22 @@ SCRIPT = """
       <div class="module-grid">
         ${modules.map((module) => `
           <article class="module-card stack">
-            <div>
-              <h3>${escapeHtml(asText(module.name, module.id))}</h3>
-              <div class="muted"><code>${escapeHtml(asText(module.id))}</code> · v${escapeHtml(asText(module.version, "-"))}</div>
+            <div class="surface-title-row">
+              <div class="surface-title-copy">
+                <p class="surface-label">${iconGlyph(ICONS[libraryKey] || ICONS.installed)}<span>${escapeHtml(libraryKey)}</span></p>
+                <h3>${escapeHtml(asText(module.name, module.id))}</h3>
+              </div>
+              <div class="badge-cluster">
+                <span class="badge is-neutral">v${escapeHtml(asText(module.version, "-"))}</span>
+                ${module.family ? `<span class="badge is-neutral">${escapeHtml(asText(module.family))}</span>` : ""}
+              </div>
             </div>
+            <div class="module-id"><code>${escapeHtml(asText(module.id))}</code></div>
             <div class="muted">${escapeHtml(asText(module.description))}</div>
-            <div class="key-value">
-              <div><span class="muted">manifest_path</span><code>${escapeHtml(asText(module.manifest_path))}</code></div>
-              ${module.family ? `<div><span class="muted">family</span><code>${escapeHtml(asText(module.family))}</code></div>` : ""}
-              ${module.entrypoint ? `<div><span class="muted">entrypoint</span><code>${escapeHtml(asText(module.entrypoint))}</code></div>` : ""}
+            <div class="kv-list">
+              <div><span class="kv-label">manifest_path</span><code class="kv-value">${escapeHtml(asText(module.manifest_path))}</code></div>
+              ${module.entrypoint ? `<div><span class="kv-label">entrypoint</span><code class="kv-value">${escapeHtml(asText(module.entrypoint))}</code></div>` : ""}
+              ${module.content_path ? `<div><span class="kv-label">content_path</span><code class="kv-value">${escapeHtml(asText(module.content_path))}</code></div>` : ""}
             </div>
           </article>
         `).join("")}
@@ -789,16 +1423,43 @@ SCRIPT = """
   function renderFamilyCards(toolsByFamily) {
     const families = ["adapters", "connectors", "local_cli", "mcp"];
     return `
-      <div class="module-grid">
+      <div class="family-grid">
         ${families.map((family) => {
           const tools = asArray(toolsByFamily[family]);
           return `
             <article class="family-card stack">
-              <div class="section-title-row">
-                <h3>${family}</h3>
+              <div class="surface-title-row">
+                <div class="surface-title-copy">
+                  <p class="surface-label">${iconGlyph(ICONS[family] || ICONS.tools)}<span>${family}</span></p>
+                  <h3>${family}</h3>
+                </div>
                 <span class="badge is-neutral">${tools.length}</span>
               </div>
               ${tools.length ? inlineList(tools.map((tool) => asText(tool.id)), "No tools in this family.") : emptyState("No tools in this family.")}
+            </article>
+          `;
+        }).join("")}
+      </div>
+    `;
+  }
+
+  function renderLoadoutCards(equipped) {
+    const libraryKeys = ["skills", "tools", "workflows", "knowledge"];
+    return `
+      <div class="loadout-grid">
+        ${libraryKeys.map((key) => {
+          const modules = asArray(equipped[key]);
+          return `
+            <article class="loadout-card stack ${modules.length ? "tone-bound" : ""}">
+              <div class="surface-title-row">
+                <div class="surface-title-copy">
+                  <p class="surface-label">${iconGlyph(ICONS[key] || ICONS.equipped)}<span>${key}</span></p>
+                  <h3>${key}</h3>
+                </div>
+                <span class="badge ${modules.length ? "is-equipped" : "is-neutral"}">${modules.length}</span>
+              </div>
+              <div class="state-count">${modules.length ? `${modules.length} equipped` : "0 equipped"}</div>
+              ${inlineList(modules.map((module) => asText(module.id)), `No equipped ${key}.`)}
             </article>
           `;
         }).join("")}
@@ -814,28 +1475,36 @@ SCRIPT = """
       <div class="workflow-grid">
         ${workflowCards.map((workflow) => {
           const requires = asObject(workflow.requires);
+          const tone = cardTone(asText(workflow.dependency_status, "invalid"));
           return `
-            <article class="workflow-card stack">
-              <div class="section-title-row">
-                <h3>${escapeHtml(asText(workflow.name, workflow.id))}</h3>
-                ${statusBadge(asText(workflow.dependency_status, "invalid"))}
+            <article class="workflow-card stack ${tone}">
+              <div class="surface-title-row">
+                <div class="surface-title-copy">
+                  <p class="surface-label">${iconGlyph(ICONS.workflows)}<span>workflow_card</span></p>
+                  <h3>${escapeHtml(asText(workflow.name, workflow.id))}</h3>
+                </div>
+                <div class="badge-cluster">
+                  ${statusBadge(asText(workflow.dependency_status, "invalid"))}
+                  ${statusBadge(workflow.equipped === true ? "equipped" : "catalog")}
+                </div>
               </div>
-              <div class="muted"><code>${escapeHtml(asText(workflow.id))}</code></div>
-              <div class="key-value">
-                <div><span class="muted">entrypoint</span><code>${escapeHtml(asText(workflow.entrypoint))}</code></div>
-                <div><span class="muted">equipped</span><span class="mono">${workflow.equipped === true ? "true" : "false"}</span></div>
+              <div class="module-id"><code>${escapeHtml(asText(workflow.id))}</code></div>
+              <div class="muted">${escapeHtml(asText(workflow.description))}</div>
+              <div class="kv-list">
+                <div><span class="kv-label">entrypoint</span><code class="kv-value">${escapeHtml(asText(workflow.entrypoint))}</code></div>
+                <div><span class="kv-label">version</span><span class="kv-value">v${escapeHtml(asText(workflow.version, "-"))}</span></div>
               </div>
-              <div class="stack">
-                <div>
-                  <div class="muted">requires.skills</div>
+              <div class="dependency-grid">
+                <div class="dependency-column">
+                  <div class="dependency-label">${iconGlyph(ICONS.skills)}<span>requires.skills</span></div>
                   ${inlineList(asArray(requires.skills).map((item) => asText(item)), "No skill dependencies.")}
                 </div>
-                <div>
-                  <div class="muted">requires.tools</div>
+                <div class="dependency-column">
+                  <div class="dependency-label">${iconGlyph(ICONS.tools)}<span>requires.tools</span></div>
                   ${inlineList(asArray(requires.tools).map((item) => asText(item)), "No tool dependencies.")}
                 </div>
-                <div>
-                  <div class="muted">requires.knowledge</div>
+                <div class="dependency-column">
+                  <div class="dependency-label">${iconGlyph(ICONS.knowledge)}<span>requires.knowledge</span></div>
                   ${inlineList(asArray(requires.knowledge).map((item) => asText(item)), "No knowledge dependencies.")}
                 </div>
               </div>
@@ -856,53 +1525,81 @@ SCRIPT = """
 
     return `
       <div class="stack">
+        ${sectionHeading("class", "Installed inventory, equipped loadout, and workflow combo cards.", {
+          icon: ICONS.class
+        })}
         <div class="summary-grid">
-          ${summaryCard("class id", asText(classState.id))}
-          ${summaryCard("active profile", asText(classState.active_profile))}
-          ${summaryCard("installed total", String(libraryKeys.reduce((sum, key) => sum + asArray(installed[key]).length, 0)))}
-          ${summaryCard("equipped total", String(libraryKeys.reduce((sum, key) => sum + asArray(equipped[key]).length, 0)))}
+          ${summaryCard("class id", codeValue(classState.id), "", {
+            icon: ICONS.class,
+            tone: "tone-bound",
+            valueHtml: true
+          })}
+          ${summaryCard("active profile", codeValue(classState.active_profile), "Current loadout profile.", {
+            icon: ICONS.equipped,
+            tone: "tone-pass",
+            valueHtml: true
+          })}
+          ${summaryCard("installed total", String(libraryKeys.reduce((sum, key) => sum + asArray(installed[key]).length, 0)), "Catalog entries across all module libraries.", {
+            icon: ICONS.installed
+          })}
+          ${summaryCard("equipped total", String(libraryKeys.reduce((sum, key) => sum + asArray(equipped[key]).length, 0)), "Modules carried in the active loadout.", {
+            icon: ICONS.equipped,
+            tone: "tone-bound"
+          })}
         </div>
         <div class="stack">
-          <div class="section-title-row">
-            <h2>installed</h2>
-          </div>
+          ${sectionHeading("installed", "Inventory catalog grouped by module kind.", {
+            icon: ICONS.installed
+          })}
           ${libraryKeys.map((key) => `
             <section class="stack">
-              <div class="section-title-row">
-                <h3>${key}</h3>
-                <span class="badge is-neutral">${asArray(installed[key]).length}</span>
-              </div>
-              ${renderModuleCards(asArray(installed[key]), `No installed ${key}.`)}
+              ${sectionHeading(key, "", {
+                icon: ICONS[key],
+                badgeHtml: `<span class="badge is-neutral">${asArray(installed[key]).length}</span>`
+              })}
+              ${renderModuleCards(asArray(installed[key]), `No installed ${key}.`, key)}
             </section>
           `).join("")}
         </div>
         <div class="stack">
-          <div class="section-title-row">
-            <h2>equipped</h2>
-          </div>
-          ${libraryKeys.map((key) => `
-            <section class="stack">
-              <div class="section-title-row">
-                <h3>${key}</h3>
-                <span class="badge is-neutral">${asArray(equipped[key]).length}</span>
-              </div>
-              ${inlineList(asArray(equipped[key]).map((module) => asText(module.id)), `No equipped ${key}.`)}
-            </section>
-          `).join("")}
+          ${sectionHeading("equipped", "Active loadout grouped as carried modules.", {
+            icon: ICONS.equipped
+          })}
+          ${renderLoadoutCards(equipped)}
         </div>
         <div class="stack">
-          <div class="section-title-row">
-            <h2>tools_by_family</h2>
-          </div>
+          ${sectionHeading("tools_by_family", "Tool chests grouped by execution family.", {
+            icon: ICONS.tools
+          })}
           ${renderFamilyCards(toolsByFamily)}
         </div>
         <div class="stack">
-          <div class="section-title-row">
-            <h2>workflow_cards</h2>
-          </div>
+          ${sectionHeading("workflow_cards", "Combo cards for installed workflows and dependency readiness.", {
+            icon: ICONS.workflows
+          })}
           ${renderWorkflowCards(workflowCards)}
         </div>
       </div>
+    `;
+  }
+
+  function renderProjectFileCard(label, item, countKey = null, countLabel = null) {
+    const record = asObject(item);
+    const badges = [statusBadge(record.present === true ? "present" : "missing")];
+    if (record.present === true) {
+      badges.push(statusBadge(record.valid === true ? "valid" : "invalid"));
+    }
+    if (countKey && typeof record[countKey] === "number") {
+      badges.push(`<span class="badge is-neutral">${escapeHtml(countLabel || countKey)} ${record[countKey]}</span>`);
+    }
+    return `
+      <article class="file-card stack">
+        <div class="file-title">
+          <span class="file-label">${escapeHtml(label)}</span>
+          <div class="badge-cluster">${badges.join("")}</div>
+        </div>
+        ${record.path ? `<div class="path-block"><code>${escapeHtml(asText(record.path))}</code></div>` : emptyState("No path was derived.")}
+      </article>
     `;
   }
 
@@ -910,33 +1607,51 @@ SCRIPT = """
     const contract = asObject(project.contract);
     const warningCount = asArray(project.warnings).length;
     const errorCount = asArray(project.errors).length;
+    const fileStatus = asObject(project.file_status);
+    const projectName = asText(contract.project_name, contract.project_id || project.project_path);
     return `
-      <article class="project-card stack">
-        <div class="section-title-row">
-          <h3><code>${escapeHtml(asText(project.project_path))}</code></h3>
-          ${statusBadge(asText(project.state, "invalid"))}
+      <article class="project-card stack ${cardTone(asText(project.state, "invalid"))}">
+        <div class="surface-title-row">
+          <div class="surface-title-copy">
+            <p class="surface-label">${iconGlyph(ICONS[project.workspace_kind] || ICONS.workspaces)}<span>${escapeHtml(asText(project.workspace_kind))}</span></p>
+            <h3 class="project-title">${escapeHtml(projectName)}</h3>
+          </div>
+          <div class="badge-cluster">
+            ${statusBadge(asText(project.state, "invalid"))}
+            ${statusBadge(project.project_agent_present === true ? "present" : "missing", project.project_agent_present === true ? "project_agent present" : "project_agent missing")}
+          </div>
         </div>
-        <div class="key-value">
-          <div><span class="muted">project_agent_present</span><span class="mono">${project.project_agent_present === true ? "true" : "false"}</span></div>
-          <div><span class="muted">contract.project_id</span><code>${escapeHtml(asText(contract.project_id))}</code></div>
-          <div><span class="muted">contract.project_name</span><span>${escapeHtml(asText(contract.project_name))}</span></div>
-          <div><span class="muted">contract.default_loadout</span><code>${escapeHtml(asText(contract.default_loadout))}</code></div>
-          <div><span class="muted">capsule_binding_count</span><span class="mono">${asCount(project.capsule_binding_count)}</span></div>
-          <div><span class="muted">workflow_binding_count</span><span class="mono">${asCount(project.workflow_binding_count)}</span></div>
-          <div><span class="muted">local_state_entry_count</span><span class="mono">${asCount(project.local_state_entry_count)}</span></div>
-          <div><span class="muted">project warnings / errors</span><span class="mono">${warningCount} / ${errorCount}</span></div>
+        <div class="project-path"><code>${escapeHtml(asText(project.project_path))}</code></div>
+        <div class="kv-list">
+          <div><span class="kv-label">contract.project_id</span><code class="kv-value">${escapeHtml(asText(contract.project_id))}</code></div>
+          <div><span class="kv-label">contract.project_name</span><span class="kv-value">${escapeHtml(asText(contract.project_name))}</span></div>
+          <div><span class="kv-label">contract.default_loadout</span><code class="kv-value">${escapeHtml(asText(contract.default_loadout))}</code></div>
+          <div><span class="kv-label">capsule_binding_count</span><span class="kv-value mono">${asCount(project.capsule_binding_count)}</span></div>
+          <div><span class="kv-label">workflow_binding_count</span><span class="kv-value mono">${asCount(project.workflow_binding_count)}</span></div>
+          <div><span class="kv-label">local_state_entry_count</span><span class="kv-value mono">${asCount(project.local_state_entry_count)}</span></div>
+          <div><span class="kv-label">project warnings / errors</span><span class="kv-value mono">${warningCount} / ${errorCount}</span></div>
+        </div>
+        <div class="stack">
+          <p class="surface-label">${iconGlyph(ICONS.workspaces)}<span>file status</span></p>
+          <div class="project-file-grid">
+            ${renderProjectFileCard("contract", contract)}
+            ${renderProjectFileCard("capsule_bindings", fileStatus.capsule_bindings, "binding_count", "bindings")}
+            ${renderProjectFileCard("workflow_bindings", fileStatus.workflow_bindings, "binding_count", "bindings")}
+            ${renderProjectFileCard("local_state", fileStatus.local_state, "entry_count", "entries")}
+          </div>
         </div>
       </article>
     `;
   }
 
-  function renderWorkspaceGroup(title, projects) {
+  function renderWorkspaceGroup(title, projects, workspaceKind) {
+    const subtitle = workspaceKind === "company" ? "Company field status and contract condition." : "Personal field status and contract condition.";
     return `
       <section class="stack">
-        <div class="section-title-row">
-          <h2>${title}</h2>
-          <span class="badge is-neutral">${projects.length}</span>
-        </div>
+        ${sectionHeading(title, subtitle, {
+          icon: ICONS[workspaceKind] || ICONS.workspaces,
+          badgeHtml: `<span class="badge is-neutral">${projects.length}</span>`
+        })}
         ${projects.length ? `<div class="project-grid">${projects.map((project) => projectCard(project)).join("")}</div>` : emptyState(`No ${title.toLowerCase()} projects were discovered.`)}
       </section>
     `;
@@ -949,44 +1664,64 @@ SCRIPT = """
     const personalProjects = asArray(asObject(workspaces.personal).projects);
     return `
       <div class="stack">
+        ${sectionHeading("workspaces", "Field status across company and personal project camps.", {
+          icon: ICONS.workspaces
+        })}
         <div class="summary-grid">
-          ${summaryCard("total", String(asCount(summary.total)))}
-          ${summaryCard("bound", String(asCount(summary.bound)), statusBadge("bound"))}
-          ${summaryCard("unbound", String(asCount(summary.unbound)), statusBadge("unbound"))}
-          ${summaryCard("invalid", String(asCount(summary.invalid)), statusBadge("invalid"))}
+          ${summaryCard("total", String(asCount(summary.total)), "All discovered project roots.", {
+            icon: ICONS.workspaces
+          })}
+          ${summaryCard("bound", String(asCount(summary.bound)), statusBadge("bound"), {
+            icon: ICONS.company,
+            tone: "tone-bound",
+            subvalueHtml: true
+          })}
+          ${summaryCard("unbound", String(asCount(summary.unbound)), statusBadge("unbound"), {
+            icon: ICONS.personal,
+            tone: "tone-unbound",
+            subvalueHtml: true
+          })}
+          ${summaryCard("invalid", String(asCount(summary.invalid)), statusBadge("invalid"), {
+            icon: ICONS.errors,
+            tone: "tone-invalid",
+            subvalueHtml: true
+          })}
         </div>
-        ${renderWorkspaceGroup("company.projects", companyProjects)}
-        ${renderWorkspaceGroup("personal.projects", personalProjects)}
+        ${renderWorkspaceGroup("company.projects", companyProjects, "company")}
+        ${renderWorkspaceGroup("personal.projects", personalProjects, "personal")}
       </div>
     `;
   }
 
   function renderFindingGroup(title, items, emptyMessage) {
+    const isError = title === "errors";
+    const icon = ICONS[title] || ICONS.diagnostics;
+    const badgeTone = isError ? "FAIL" : "WARN";
     if (!items.length) {
       return `
         <section class="stack">
-          <div class="section-title-row">
-            <h3>${title}</h3>
-            <span class="badge is-neutral">0</span>
-          </div>
+          ${sectionHeading(title, "", {
+            icon,
+            badgeHtml: `<span class="badge is-neutral">0</span>`
+          })}
           ${emptyState(emptyMessage)}
         </section>
       `;
     }
     return `
       <section class="stack">
-        <div class="section-title-row">
-          <h3>${title}</h3>
-          <span class="badge is-neutral">${items.length}</span>
-        </div>
+        ${sectionHeading(title, "", {
+          icon,
+          badgeHtml: statusBadge(badgeTone, `${title} ${items.length}`)
+        })}
         <div class="finding-grid">
           ${items.map((item) => `
-            <article class="finding-card stack">
-              <div class="section-title-row">
-                <div class="mono">${escapeHtml(asText(item.code))}</div>
+            <article class="finding-card stack ${cardTone(asText(item.level))}">
+              <div class="finding-head">
+                <div class="finding-code mono">${escapeHtml(asText(item.code))}</div>
                 ${statusBadge(asText(item.level))}
               </div>
-              <div>${escapeHtml(asText(item.message))}</div>
+              <div class="finding-message">${escapeHtml(asText(item.message))}</div>
             </article>
           `).join("")}
         </div>

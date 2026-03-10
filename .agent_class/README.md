@@ -33,3 +33,4 @@
 - local CLI 는 workspace `.project_agent` 계약도 스캔해 `bound`, `unbound`, `invalid` 상태를 분류한다.
 - local CLI 는 body/class/workspace resolve 결과를 renderer 입력용 derived state 로도 조합한다.
 - local CLI 는 `.agent_class/tools/local_cli/ui_viewer/` 에서 derived state 소비자 역할의 read-only UI prototype 도 제공한다.
+- read-only viewer 의 9차 개선은 표현 계층 한정이며, class 정본 구조나 derive 계약을 바꾸지 않는다.
