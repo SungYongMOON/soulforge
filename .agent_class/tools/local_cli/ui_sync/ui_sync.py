@@ -57,6 +57,12 @@ TOOL_FAMILIES = ("adapters", "connectors", "local_cli", "mcp")
 PATH_LIKE_SUFFIXES = (".yaml", ".yml", ".py")
 CAPSULE_BINDING_MODES = ("read_only", "read_write", "copy")
 WORKFLOW_TRIGGERS = ("manual", "on_demand", "scheduled")
+TAB_SPECS = (
+    ("overview", "종합(Overview)"),
+    ("body", "본체(.agent)"),
+    ("class", "직업(.agent_class)"),
+    ("workspaces", "워크스페이스(_workspaces)"),
+)
 INLINE_MAPPING_RE = re.compile(r"^[A-Za-z0-9_.-]+\s*:")
 
 
@@ -470,6 +476,14 @@ def load_required_mapping(path: Path) -> dict[str, Any]:
     if not isinstance(data, dict):
         raise YamlParseError(f"{path}: root must be a mapping")
     return data
+
+
+def safe_load_mapping(path: Path) -> dict[str, Any] | None:
+    try:
+        data = load_yaml(path)
+    except (FileNotFoundError, YamlParseError):
+        return None
+    return data if isinstance(data, dict) else None
 
 
 def validate_repo() -> tuple[list[Finding], ResolveResult | None, WorkspaceResolveResult]:
@@ -1847,6 +1861,315 @@ def split_findings(findings: list[Finding]) -> tuple[list[Finding], list[Finding
     return warnings, errors
 
 
+def derive_result_level(warnings: list[Any], errors: list[Any]) -> str:
+    if errors:
+        return "FAIL"
+    if warnings:
+        return "WARN"
+    return "PASS"
+
+
+def build_diagnostics_payload(findings: list[Finding]) -> dict[str, list[dict[str, str]]]:
+    warnings, errors = split_findings(findings)
+    return {
+        "warnings": [finding.as_dict() for finding in warnings],
+        "errors": [finding.as_dict() for finding in errors],
+    }
+
+
+def build_ui_payload() -> dict[str, list[dict[str, Any]]]:
+    return {
+        "tabs": [{"id": tab_id, "label": label, "enabled": True} for tab_id, label in TAB_SPECS]
+    }
+
+
+def build_body_payload(body_data: dict[str, Any] | None, body_state_data: dict[str, Any] | None) -> dict[str, Any]:
+    body_sections = body_data.get("sections") if isinstance(body_data, dict) else None
+    state_sections = body_state_data.get("sections") if isinstance(body_state_data, dict) else None
+
+    section_entries: list[dict[str, Any]] = []
+    if isinstance(body_sections, dict):
+        for section_id, relative_path in body_sections.items():
+            if not isinstance(section_id, str) or not isinstance(relative_path, str):
+                continue
+            state_entry = state_sections.get(section_id) if isinstance(state_sections, dict) else None
+            present = (
+                state_entry.get("present")
+                if isinstance(state_entry, dict) and isinstance(state_entry.get("present"), bool)
+                else (AGENT_ROOT / relative_path).is_dir()
+            )
+            section_entries.append(
+                {
+                    "id": section_id,
+                    "path": relative_path,
+                    "present": present,
+                }
+            )
+    elif isinstance(state_sections, dict):
+        for section_id, state_entry in state_sections.items():
+            if not isinstance(section_id, str) or not isinstance(state_entry, dict):
+                continue
+            path_value = state_entry.get("path")
+            if not isinstance(path_value, str):
+                continue
+            present = (
+                state_entry.get("present")
+                if isinstance(state_entry.get("present"), bool)
+                else (AGENT_ROOT / path_value).is_dir()
+            )
+            section_entries.append(
+                {
+                    "id": section_id,
+                    "path": path_value,
+                    "present": present,
+                }
+            )
+
+    body_id = None
+    if isinstance(body_data, dict) and isinstance(body_data.get("id"), str):
+        body_id = body_data["id"]
+    elif isinstance(body_state_data, dict) and isinstance(body_state_data.get("body_id"), str):
+        body_id = body_state_data["body_id"]
+
+    name = body_data.get("name") if isinstance(body_data, dict) and isinstance(body_data.get("name"), str) else None
+
+    return {
+        "id": body_id,
+        "name": name,
+        "sections": section_entries,
+    }
+
+
+def records_to_sorted_payload(records: dict[str, ModuleRecord]) -> list[dict[str, Any]]:
+    return [record.as_dict() for record in sorted(records.values(), key=lambda item: item.module_id)]
+
+
+def workflow_dependency_status(
+    workflow: ModuleRecord,
+    catalog: dict[str, dict[str, ModuleRecord]],
+    duplicate_ids: dict[str, set[str]],
+) -> str:
+    requires = workflow.requires or {key: [] for key in WORKFLOW_REQUIRE_KEYS}
+    for dependency_key in WORKFLOW_REQUIRE_KEYS:
+        for module_id in requires.get(dependency_key, []):
+            if module_id in duplicate_ids[dependency_key]:
+                return "invalid"
+            if catalog[dependency_key].get(module_id) is None:
+                return "invalid"
+    return "resolved"
+
+
+def build_class_payload(
+    class_data: dict[str, Any] | None,
+    loadout_data: dict[str, Any] | None,
+    resolve_result: ResolveResult | None,
+) -> dict[str, Any]:
+    installed = {key: [] for key in REQUIRED_EQUIPPED_KEYS}
+    equipped = {key: [] for key in REQUIRED_EQUIPPED_KEYS}
+    tools_by_family = {family: [] for family in TOOL_FAMILIES}
+    workflow_cards: list[dict[str, Any]] = []
+
+    if resolve_result is not None:
+        installed = {key: records_to_sorted_payload(resolve_result.catalog[key]) for key in REQUIRED_EQUIPPED_KEYS}
+        equipped = {
+            key: [record.as_dict() for record in resolve_result.equipped_resolved.get(key, [])]
+            for key in REQUIRED_EQUIPPED_KEYS
+        }
+        for tool in sorted(resolve_result.catalog["tools"].values(), key=lambda item: item.module_id):
+            if tool.family in tools_by_family:
+                tools_by_family[tool.family].append(tool.as_dict())
+
+        equipped_workflow_ids = {
+            record.module_id for record in resolve_result.equipped_resolved.get("workflows", [])
+        }
+        for workflow in sorted(resolve_result.catalog["workflows"].values(), key=lambda item: item.module_id):
+            workflow_cards.append(
+                {
+                    "id": workflow.module_id,
+                    "name": workflow.name,
+                    "version": workflow.version,
+                    "description": workflow.description,
+                    "entrypoint": workflow.entrypoint,
+                    "equipped": workflow.module_id in equipped_workflow_ids,
+                    "requires": workflow.requires or {key: [] for key in WORKFLOW_REQUIRE_KEYS},
+                    "dependency_status": workflow_dependency_status(
+                        workflow,
+                        resolve_result.catalog,
+                        resolve_result.duplicate_ids,
+                    ),
+                }
+            )
+
+    class_id = None
+    if isinstance(class_data, dict) and isinstance(class_data.get("id"), str):
+        class_id = class_data["id"]
+    elif isinstance(loadout_data, dict) and isinstance(loadout_data.get("class_id"), str):
+        class_id = loadout_data["class_id"]
+    elif resolve_result is not None:
+        class_id = resolve_result.class_id
+
+    active_profile = None
+    if isinstance(loadout_data, dict) and isinstance(loadout_data.get("active_profile"), str):
+        active_profile = loadout_data["active_profile"]
+    elif resolve_result is not None:
+        active_profile = resolve_result.active_profile
+
+    return {
+        "id": class_id,
+        "active_profile": active_profile,
+        "installed": installed,
+        "equipped": equipped,
+        "tools_by_family": tools_by_family,
+        "workflow_cards": workflow_cards,
+    }
+
+
+def build_project_derived_payload(project: WorkspaceProjectRecord) -> dict[str, Any]:
+    return {
+        "project_path": project.project_path,
+        "workspace_kind": project.workspace_kind,
+        "state": project.state,
+        "project_agent_present": project.project_agent_present,
+        "contract": {
+            "project_id": project.contract.get("project_id"),
+            "project_name": project.contract.get("project_name"),
+            "default_loadout": project.contract.get("default_loadout"),
+            "body_ref": project.contract.get("body_ref"),
+            "class_ref": project.contract.get("class_ref"),
+            "path": project.contract.get("path"),
+            "present": project.contract.get("present"),
+            "valid": project.contract.get("valid"),
+        },
+        "capsule_binding_count": project.capsule_bindings.get("binding_count", 0),
+        "workflow_binding_count": project.workflow_bindings.get("binding_count", 0),
+        "local_state_entry_count": project.local_state.get("entry_count", 0),
+        "file_status": {
+            "capsule_bindings": project.capsule_bindings,
+            "workflow_bindings": project.workflow_bindings,
+            "local_state": project.local_state,
+        },
+        "warnings": [finding.as_dict() for finding in project.warnings],
+        "errors": [finding.as_dict() for finding in project.errors],
+    }
+
+
+def build_workspaces_payload(workspace_result: WorkspaceResolveResult) -> dict[str, Any]:
+    return {
+        "summary": workspace_result.summary,
+        "company": {
+            "projects": [
+                build_project_derived_payload(project) for project in workspace_result.workspaces["company"]
+            ]
+        },
+        "personal": {
+            "projects": [
+                build_project_derived_payload(project) for project in workspace_result.workspaces["personal"]
+            ]
+        },
+    }
+
+
+def build_overview_payload(
+    body_payload: dict[str, Any],
+    class_payload: dict[str, Any],
+    workspace_payload: dict[str, Any],
+    diagnostics_payload: dict[str, list[dict[str, str]]],
+) -> dict[str, Any]:
+    warnings = diagnostics_payload["warnings"]
+    errors = diagnostics_payload["errors"]
+    return {
+        "body_id": body_payload.get("id"),
+        "class_id": class_payload.get("id"),
+        "active_profile": class_payload.get("active_profile"),
+        "counts": {
+            "body_sections_present": sum(
+                1 for section in body_payload.get("sections", []) if section.get("present") is True
+            ),
+            "installed": {
+                key: len(class_payload["installed"].get(key, [])) for key in REQUIRED_EQUIPPED_KEYS
+            },
+            "equipped": {
+                key: len(class_payload["equipped"].get(key, [])) for key in REQUIRED_EQUIPPED_KEYS
+            },
+            "projects": {
+                "total": workspace_payload["summary"].get("total", 0),
+                "bound": workspace_payload["summary"].get("bound", 0),
+                "unbound": workspace_payload["summary"].get("unbound", 0),
+                "invalid": workspace_payload["summary"].get("invalid", 0),
+            },
+        },
+        "status": {
+            "result": derive_result_level(warnings, errors),
+            "warning_count": len(warnings),
+            "error_count": len(errors),
+        },
+    }
+
+
+def build_derived_state_payload(
+    findings: list[Finding],
+    body_data: dict[str, Any] | None,
+    body_state_data: dict[str, Any] | None,
+    class_data: dict[str, Any] | None,
+    loadout_data: dict[str, Any] | None,
+    resolve_result: ResolveResult | None,
+    workspace_result: WorkspaceResolveResult,
+) -> dict[str, Any]:
+    diagnostics_payload = build_diagnostics_payload(findings)
+    body_payload = build_body_payload(body_data, body_state_data)
+    class_payload = build_class_payload(class_data, loadout_data, resolve_result)
+    workspace_payload = build_workspaces_payload(workspace_result)
+    return {
+        "ui": build_ui_payload(),
+        "overview": build_overview_payload(
+            body_payload,
+            class_payload,
+            workspace_payload,
+            diagnostics_payload,
+        ),
+        "body": body_payload,
+        "class": class_payload,
+        "workspaces": workspace_payload,
+        "diagnostics": diagnostics_payload,
+    }
+
+
+def render_derived_state_text(payload: dict[str, Any]) -> str:
+    overview = payload["overview"]
+    counts = overview["counts"]
+    status = overview["status"]
+    return "\n".join(
+        [
+            f"{status['result']} derive-ui-state",
+            f"  body: {overview['body_id'] or '-'}",
+            f"  class: {overview['class_id'] or '-'}",
+            f"  active_profile: {overview['active_profile'] or '-'}",
+            (
+                "  installed: "
+                f"skills {counts['installed']['skills']}, "
+                f"tools {counts['installed']['tools']}, "
+                f"workflows {counts['installed']['workflows']}, "
+                f"knowledge {counts['installed']['knowledge']}"
+            ),
+            (
+                "  equipped: "
+                f"skills {counts['equipped']['skills']}, "
+                f"tools {counts['equipped']['tools']}, "
+                f"workflows {counts['equipped']['workflows']}, "
+                f"knowledge {counts['equipped']['knowledge']}"
+            ),
+            (
+                "  projects: "
+                f"total {counts['projects']['total']}, "
+                f"bound {counts['projects']['bound']}, "
+                f"unbound {counts['projects']['unbound']}, "
+                f"invalid {counts['projects']['invalid']}"
+            ),
+            f"  diagnostics: warn {status['warning_count']}, error {status['error_count']}",
+        ]
+    )
+
+
 def sync_body_state(check: bool, as_json: bool) -> int:
     body_data = load_required_mapping(BODY_YAML)
 
@@ -2015,9 +2338,34 @@ def run_validate(as_json: bool) -> int:
     return exit_code
 
 
+def run_derive_ui_state(as_json: bool) -> int:
+    findings, resolve_result, workspace_result = validate_repo()
+    body_data = safe_load_mapping(BODY_YAML)
+    body_state_data = safe_load_mapping(BODY_STATE_YAML)
+    class_data = safe_load_mapping(CLASS_YAML)
+    loadout_data = safe_load_mapping(LOADOUT_YAML)
+    payload = build_derived_state_payload(
+        findings,
+        body_data,
+        body_state_data,
+        class_data,
+        loadout_data,
+        resolve_result,
+        workspace_result,
+    )
+    exit_code = 1 if payload["overview"]["status"]["error_count"] else 0
+
+    if as_json:
+        print(json.dumps(payload, ensure_ascii=False, indent=2))
+        return exit_code
+
+    print(render_derived_state_text(payload))
+    return exit_code
+
+
 def build_parser() -> argparse.ArgumentParser:
     parser = argparse.ArgumentParser(
-        description="Soulforge body sync and class/workspace resolve/validate local CLI."
+        description="Soulforge body sync, resolve, derive, and validate local CLI."
     )
     subparsers = parser.add_subparsers(dest="command", required=True)
 
@@ -2049,6 +2397,14 @@ def build_parser() -> argparse.ArgumentParser:
         "--json", action="store_true", help="Print machine-readable JSON output."
     )
 
+    derive_parser = subparsers.add_parser(
+        "derive-ui-state",
+        help="Derive stable renderer input JSON from body, class/loadout, and workspace resolve results.",
+    )
+    derive_parser.add_argument(
+        "--json", action="store_true", help="Print machine-readable JSON output."
+    )
+
     validate_parser = subparsers.add_parser(
         "validate",
         help="Validate body/class/loadout metadata, body_state consistency, loadout resolve, and workspace project contracts.",
@@ -2071,6 +2427,8 @@ def main(argv: list[str] | None = None) -> int:
             return run_resolve_loadout(as_json=args.json)
         if args.command == "resolve-workspaces":
             return run_resolve_workspaces(as_json=args.json)
+        if args.command == "derive-ui-state":
+            return run_derive_ui_state(as_json=args.json)
         if args.command == "validate":
             return run_validate(as_json=args.json)
     except (FileNotFoundError, YamlParseError) as error:

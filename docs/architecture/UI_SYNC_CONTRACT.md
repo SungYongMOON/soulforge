@@ -39,18 +39,20 @@ flowchart LR
 - `Derive` = 화면용 상태를 계산한다.
 - `Render` = 계산된 상태로 UI를 출력한다.
 
-## 1차, 2차, 3차 local CLI 범위
+## 1차, 2차, 3차, 4차 local CLI 범위
 
 - 1차에서는 `sync-body-state` 와 body/class/loadout 최소 구조 검증만 구현했다.
 - 2차에서는 class installed/loadout 에 대해 `Resolve` + `Validate` 를 실제 구현한다.
 - 3차에서는 workspace `.project_agent` 에 대해 `resolve-workspaces` 와 workspace 통합 `validate` 를 구현한다.
+- 4차에서는 `derive-ui-state` 로 `Derive` 단계를 실제 구현한다.
 - `sync-body-state` 는 `.agent/body.yaml` 과 실제 `.agent/` 구조를 스캔해 `.agent/body_state.yaml` 을 재생성한다.
 - `resolve-loadout` 는 `.agent_class/class.yaml` 의 `modules.*` 와 installed `module.yaml` manifest 를 스캔해 catalog 를 구성하고 `loadout.yaml` 의 equipped module id 를 resolve 한다.
 - `resolve-workspaces` 는 `_workspaces/company|personal` 아래 프로젝트 폴더를 스캔하고 `.project_agent` 4파일을 resolve 해 `bound`, `unbound`, `invalid` 상태를 분류한다.
 - `validate` 는 body 메타 정합성, `body_state.yaml` 정합성, class/loadout 구조, class installed/loadout resolve 결과, workspace project contract resolve 결과를 함께 검사한다.
 - equipped workflow 의 `requires.skills/tools/knowledge` 는 installed 여부 기준으로 먼저 resolve 한다.
-- `Derive` 와 `Render` 단계는 이후 차수로 미룬다.
-- workspace renderer 입력 스키마와 derive state 생성은 이후 차수다.
+- `derive-ui-state` 는 body/class/workspace resolve 결과를 `overview`, `body`, `class`, `workspaces`, `diagnostics` 구조로 합친다.
+- `derive-ui-state` 는 text/json 출력을 지원하지만 기본적으로 저장소 파일을 새로 쓰지 않는다.
+- `Render` 단계는 여전히 후속 차수다.
 
 ## 동기화 트리거
 
@@ -71,8 +73,19 @@ flowchart LR
 7. `.project_agent` resolve 는 `PROJECT_AGENT_RESOLVE_CONTRACT.md` 의 상태 분류와 파일별 규칙을 따른다.
 8. `unbound` 프로젝트는 FAIL 이 아니라 상태 분류 결과다.
 9. `invalid` 프로젝트는 FAIL 이다.
-10. workspace binding resolve 는 project 계약 수준까지만 다루고 renderer/derive 는 이후 차수로 미룬다.
+10. workspace binding resolve 는 project 계약 수준까지만 다루고 `derive-ui-state` 는 그 결과를 renderer 입력 상태로만 정리한다.
 11. dangling reference 가 하나라도 있으면 UI patch 와 파생 상태 갱신을 진행하지 않는다.
+
+## derive 규칙
+
+1. `derive-ui-state` 는 `UI_DERIVED_STATE_CONTRACT.md` 의 top-level 구조를 따른다.
+2. `body.sections` 는 `body.yaml.sections` 순서를 유지한다.
+3. `class.installed.*` 는 installed manifest catalog 기준이다.
+4. `class.equipped.*` 는 resolve 된 installed module object list 기준이다.
+5. `class.workflow_cards` 는 installed workflow catalog 기준으로 만들고 `equipped` 와 `dependency_status` 를 포함한다.
+6. `workspaces` 는 `resolve-workspaces` 결과를 summary 와 project list 로 보존한다.
+7. diagnostics 는 validate findings 와 호환되는 `warnings`, `errors` 만 renderer 입력에 남긴다.
+8. validate FAIL 이 있어도 `derive-ui-state --json` 은 partial output 을 반환할 수 있다.
 
 ## 커밋 규칙
 
@@ -85,3 +98,4 @@ flowchart LR
 - 상단 탭은 `종합(Overview)`, `본체(.agent)`, `직업(.agent_class)`, `워크스페이스(_workspaces)` 로 고정한다.
 - 내부 섹션명은 실제 구조명에 맞춰 영어를 유지한다.
 - workflow 는 `연계기 카드` 표현을 우선한다.
+- renderer 는 정본 파일 직접 읽기보다 derived state 소비자를 우선한다.

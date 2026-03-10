@@ -10,6 +10,7 @@ flowchart TD
   D --> B["body 메타<br/>body.yaml / body_state.yaml"]
   D --> C2["class loadout 참조<br/>module id / module.yaml"]
   D --> U["UI 파생 규칙<br/>source map / sync contract"]
+  D --> UD["UI derived state<br/>overview / body / class / workspaces / diagnostics"]
   D --> P["프로젝트별 상태는 프로젝트 폴더 내부 유지"]
   D --> L[".agent_class/_local/<br/>로컬 전용 데이터"]
   D --> R["루트 문서 세트 기준 유지"]
@@ -31,9 +32,13 @@ flowchart TD
 - `.project_agent` 공통 resolve 규칙은 root owner 문서 `PROJECT_AGENT_RESOLVE_CONTRACT.md` 로 관리한다.
 - `unbound` 프로젝트는 허용하고, `invalid` 프로젝트만 FAIL 로 본다.
 - UI는 정본이 아니라 메타와 구조에서 파생되는 결과다.
+- 4차에서는 `derive-ui-state` 와 `UI_DERIVED_STATE_CONTRACT.md` 로 `Derive` 단계를 실제 구현한다.
+- renderer 는 정본 파일 직접 소비자가 아니라 derived state 소비자로 본다.
+- derived state top-level 구조는 `ui`, `overview`, `body`, `class`, `workspaces`, `diagnostics` 로 고정한다.
 - UI source map 과 UI sync contract 를 루트 문서 세트에 포함한다.
+- UI derived state contract 를 루트 문서 세트에 포함한다.
 - 프로젝트별 상태는 프로젝트 폴더 내부에 유지한다.
 - body 운영 문서는 `.agent/docs/` 아래에 둔다.
 - `.agent_class` 아래 `_local/` 은 무시되는 로컬 전용 데이터를 위해 남겨 둔다.
 - class 운영 문서는 `.agent_class/docs/` 아래에 둔다.
-- 루트 문서 세트는 `REPOSITORY_PURPOSE`, `AGENT_WORLD_MODEL`, `WORKSPACE_PROJECT_MODEL`, `PROJECT_AGENT_MINIMUM_SCHEMA`, `PROJECT_AGENT_RESOLVE_CONTRACT`, `TARGET_TREE`, `DOCUMENT_OWNERSHIP`, `CURRENT_DECISIONS`, `UI_SOURCE_MAP`, `UI_SYNC_CONTRACT`, `MIGRATION_REFERENCE` 를 기준으로 유지한다.
+- 루트 문서 세트는 `REPOSITORY_PURPOSE`, `AGENT_WORLD_MODEL`, `WORKSPACE_PROJECT_MODEL`, `PROJECT_AGENT_MINIMUM_SCHEMA`, `PROJECT_AGENT_RESOLVE_CONTRACT`, `TARGET_TREE`, `DOCUMENT_OWNERSHIP`, `CURRENT_DECISIONS`, `UI_SOURCE_MAP`, `UI_SYNC_CONTRACT`, `UI_DERIVED_STATE_CONTRACT`, `MIGRATION_REFERENCE` 를 기준으로 유지한다.

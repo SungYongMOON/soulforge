@@ -28,6 +28,7 @@ flowchart TD
 - UI source map 과 UI sync contract 를 먼저 고정한다
 - class installed/loadout resolve 가 module reference contract 위에 올라가도록 기준을 닫는다
 - workspace resolve 계약이 UI derive 이전 단계의 전제로 올라가도록 기준을 닫는다
+- UI derive state 가 renderer 이전 단계의 공식 산출물로 올라가도록 기준을 닫는다
 - 향후 구현과 UI가 붙을 수 있도록 최소 메타 구조를 준비한다
 
 ## 이 저장소가 지금 하지 않는 일
@@ -46,6 +47,7 @@ flowchart TD
 - 루트 `docs/` 는 저장소 전체 설명만 둔다
 - `memory(장기 기억)` 와 `knowledge(설치형 지식 팩)` 는 서로 다르다
 - UI는 정본이 아니라 메타와 구조에서 파생되는 결과다
+- renderer 는 정본 파일을 직접 읽는 대신 derived state 를 읽는 소비자다
 
 ## 자주 찾는 파일
 
@@ -55,6 +57,7 @@ flowchart TD
 - `docs/architecture/AGENT_WORLD_MODEL.md`
 - `docs/architecture/PROJECT_AGENT_MINIMUM_SCHEMA.md`
 - `docs/architecture/PROJECT_AGENT_RESOLVE_CONTRACT.md`
+- `docs/architecture/UI_DERIVED_STATE_CONTRACT.md`
 - `docs/architecture/TARGET_TREE.md`
 - `docs/architecture/CURRENT_DECISIONS.md`
 - `.agent/docs/architecture/AGENT_BODY_MODEL.md`
