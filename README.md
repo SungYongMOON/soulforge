@@ -119,16 +119,16 @@ The current focus is:
 
 - defining the body model
 - defining the class model
-- defining workspace and project structure
+- defining workspace/project structure
 - preparing installable skills, tools, knowledge packs, and workflows
 - documenting migration from earlier agent structures
 
-UI comes later.
-Architecture and contracts come first.
+UI will come later.
+The architecture and contracts come first.
 
 ---
 
-## Architecture Documents
+## Planned Documents
 
 - [`docs/architecture/AGENT_BODY_MODEL.md`](docs/architecture/AGENT_BODY_MODEL.md)
 - [`docs/architecture/AGENT_CLASS_MODEL.md`](docs/architecture/AGENT_CLASS_MODEL.md)
