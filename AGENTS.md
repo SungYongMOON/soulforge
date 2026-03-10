@@ -64,7 +64,8 @@ flowchart TD
 ### 2.6 로컬 상태는 추적하지 않는다
 
 - `.agent_class/_local/` 은 host-local 전용 영역이다.
-- 기본적으로 `.gitignore` 만 추적하고 나머지는 무시한다.
+- 실제 로컬 상태는 기본적으로 추적하지 않는다.
+- 구조 설명과 ignore 정책 고정을 위해 `README.md` 와 `.gitignore` 만 예외적으로 추적한다.
 
 ## 3. 문서 소유 원칙
 
