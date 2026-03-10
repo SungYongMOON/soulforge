@@ -1,5 +1,17 @@
 # 현재 결정 사항
 
+## 결정 구조도
+
+```mermaid
+flowchart TD
+  D["현재 결정 사항"] --> S["저장소 축<br/>.agent / .agent_class / _workspaces"]
+  D --> O["문서 소유<br/>root docs / body docs / class docs"]
+  D --> M["분리 기준<br/>memory / knowledge / skills / tools / workflows"]
+  D --> P["프로젝트별 상태는 프로젝트 폴더 내부 유지"]
+  D --> L[".agent_class/_local/<br/>로컬 전용 데이터"]
+  D --> R["루트 문서 세트 기준 유지"]
+```
+
 - Soulforge를 저장소명과 아키텍처명으로 사용한다.
 - 저장소는 `.agent`, `.agent_class`, `_workspaces` 를 중심으로 구성한다.
 - 루트 `docs/` 는 저장소 전체 설명만 소유한다.

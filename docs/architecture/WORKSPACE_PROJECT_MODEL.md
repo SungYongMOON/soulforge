@@ -6,6 +6,20 @@
 
 워크스페이스에는 추상적인 역량 정의가 아니라 실제 프로젝트 파일, 산출물, 프로젝트별 상태가 들어간다.
 
+## 구조 개요도
+
+```mermaid
+flowchart TD
+  W["_workspaces/"] --> K["company/ 또는 personal/"]
+  K --> P["&lt;project&gt;/"]
+  P --> F["실제 프로젝트 파일과 산출물"]
+  P --> PA[".project_agent/"]
+  PA --> C["contract.yaml"]
+  PA --> CB["capsule_bindings.yaml"]
+  PA --> WB["workflow_bindings.yaml"]
+  PA --> LS["local_state_map.yaml"]
+```
+
 ## 워크스페이스 구조
 
 ```text

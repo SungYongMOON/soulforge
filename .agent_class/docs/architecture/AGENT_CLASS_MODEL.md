@@ -6,6 +6,28 @@
 
 본체 자체를 다시 정의하지 않으면서, 특정 환경에서 무엇을 수행하도록 장착되어 있는지를 설명한다.
 
+## 구조 개요도
+
+```mermaid
+flowchart TD
+  C[".agent_class/"] --> D["docs/"]
+  D --> DA["architecture/"]
+  D --> DD["devlog/"]
+  D --> DP["plans/"]
+  D --> DR["prompts/"]
+  C --> K["knowledge/"]
+  C --> S["skills/"]
+  C --> T["tools/"]
+  T --> TA["adapters/"]
+  T --> TC["connectors/"]
+  T --> TL["local_cli/"]
+  T --> TM["mcp/"]
+  C --> W["workflows/"]
+  C --> CY["class.yaml"]
+  C --> LY["loadout.yaml"]
+  C --> L["_local/"]
+```
+
 ## 책임
 
 - 클래스 정의

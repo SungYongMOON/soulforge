@@ -12,6 +12,18 @@ Soulforge는 새 정본 구조를 정의하는 설계 저장소다.
 
 현재 단계에서는 구현보다 문서와 메타 구조를 먼저 확정한다.
 
+## 구조 개요도
+
+```mermaid
+flowchart TD
+  S["Soulforge"] --> B[".agent<br/>몸"]
+  S --> C[".agent_class<br/>직업"]
+  S --> W["_workspaces<br/>실제 프로젝트 현장"]
+  B --> M["memory<br/>장기 기억"]
+  C --> K["knowledge<br/>설치형 지식 팩"]
+  W --> P[".project_agent<br/>프로젝트 연결 규약"]
+```
+
 ## 1. 현재 단계
 
 - 문서가 코드보다 먼저다.
@@ -60,6 +72,8 @@ Soulforge는 새 정본 구조를 정의하는 설계 저장소다.
 - body 문서는 `.agent/docs/` 아래에 둔다.
 - class 문서는 `.agent_class/docs/` 아래에 둔다.
 - 특정 프로젝트 전용 문서는 `_workspaces/.../<project>/.project_agent/` 아래에 둔다.
+- 구조, 계층, 경로 배치를 설명하는 문서는 경로와 폴더를 텍스트로만 나열하지 않는다.
+- 실제 구조 설명은 별도 그림 문서를 만들기보다 해당 문서 안에 Markdown/Mermaid 기반의 `구조 개요도` 또는 `관계도` 를 직접 포함하고, 실행 순서가 핵심이면 `흐름도` 를 추가한다.
 
 문서가 다른 계층의 소유권을 침범하면 relocation 계획을 먼저 세운다.
 

@@ -6,6 +6,17 @@
 
 `soulforge.base` 는 최종 직업이 아니라 bootstrap scaffold 로 유지한다.
 
+## 관계도
+
+```mermaid
+flowchart LR
+  CY["class.yaml"] --> CD["설치된 class 의 정적 정의"]
+  CD --> CF["id, name, version, description,<br/>body_root, workspace_roots, modules.*"]
+  LY["loadout.yaml"] --> LD["현재 장착 상태표"]
+  LD --> LF["class_id, active_profile,<br/>equipped.*, bindings.*"]
+  CY -. "같은 class 정의를 유지해도" .-> LY
+```
+
 ## 1. `class.yaml`
 
 `class.yaml` 은 설치된 class 의 정적 정의를 둔다.

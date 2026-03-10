@@ -7,6 +7,23 @@
 클래스 변경, 프로젝트 변경, 워크플로우 교체 이후에도 유지되어야 하는 요소를 담기 위해 존재한다.
 이 문서는 body 소유 정본 문서다.
 
+## 구조 개요도
+
+```mermaid
+flowchart TD
+  B[".agent/"] --> I["identity/"]
+  B --> E["engine/"]
+  B --> M["memory/"]
+  B --> S["sessions/"]
+  B --> C["communication/"]
+  B --> A["autonomic/"]
+  B --> P["policy/"]
+  B --> R["registry/"]
+  B --> AR["artifacts/"]
+  B --> EX["export/"]
+  B --> D["docs/architecture/"]
+```
+
 ## 책임
 
 - 정체성

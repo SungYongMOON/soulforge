@@ -6,6 +6,17 @@ Soulforge는 에이전트 구조를 `.agent(에이전트 본체)`, `.agent_class
 
 이 저장소는 구현 코드 저장소가 아니라, 구조와 문서를 먼저 확정하는 설계 저장소에 가깝다.
 
+## 구조 개요도
+
+```mermaid
+flowchart TD
+  S["Soulforge"] --> B[".agent<br/>본체 계층"]
+  S --> C[".agent_class<br/>직업 계층"]
+  S --> W["_workspaces<br/>실제 프로젝트 현장"]
+  W --> P[".project_agent<br/>프로젝트 연결 규약"]
+  S --> D["docs/architecture<br/>저장소 전체 설명"]
+```
+
 ## 이 저장소가 하는 일
 
 - 새 기준 저장소 구조를 문서로 정의한다

@@ -7,6 +7,16 @@
 현재 단계의 목표는 구현이 아니라 구조 정본 확정이다.
 따라서 이 문서는 네 개의 핵심 파일이 무엇을 설명해야 하는지와 최소 필드만 먼저 고정한다.
 
+## 구조 개요도
+
+```mermaid
+flowchart TD
+  PA[".project_agent/"] --> C["contract.yaml<br/>body, class, loadout 연결"]
+  PA --> CB["capsule_bindings.yaml<br/>body/class 자산 연결"]
+  PA --> WB["workflow_bindings.yaml<br/>workflow 연결과 진입점"]
+  PA --> LS["local_state_map.yaml<br/>host-local 상태와 비추적 경로"]
+```
+
 ## 최소 파일 세트
 
 ```text

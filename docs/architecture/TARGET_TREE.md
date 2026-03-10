@@ -1,5 +1,27 @@
 # 목표 트리
 
+## 구조 개요도
+
+```mermaid
+flowchart TD
+  Root["./"] --> A[".agent/"]
+  Root --> C[".agent_class/"]
+  Root --> W["_workspaces/"]
+  Root --> D["docs/architecture/"]
+  Root --> R["README.md"]
+  A --> AD["docs/architecture/"]
+  C --> CD["docs/architecture/"]
+  C --> SK["skills/"]
+  C --> TL["tools/"]
+  C --> WF["workflows/"]
+  C --> KN["knowledge/"]
+  C --> CY["class.yaml"]
+  C --> LY["loadout.yaml"]
+  C --> CL["_local/"]
+  W --> WC["company/"]
+  W --> WP["personal/"]
+```
+
 ```text
 ./
 ├── .agent/

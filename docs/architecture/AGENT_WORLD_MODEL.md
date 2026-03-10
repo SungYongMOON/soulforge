@@ -7,6 +7,48 @@
 세계관 비유는 설명을 돕기 위한 장치다.
 실제 소유 경계와 경로 구조가 항상 우선한다.
 
+## 대응 관계도
+
+```mermaid
+flowchart LR
+  subgraph M["세계관 개념"]
+    M1["Body / Species"]
+    M2["Class / Profession"]
+    M3["Skills"]
+    M4["Tools"]
+    M5["Workflows"]
+    M6["Knowledge Pack"]
+    M7["Active Loadout"]
+    M8["Class Definition"]
+    M9["Project Field"]
+    M10["Project Contract"]
+  end
+
+  subgraph R["실제 구조"]
+    R1[".agent/"]
+    R2[".agent_class/"]
+    R3[".agent_class/skills/"]
+    R4[".agent_class/tools/"]
+    R5[".agent_class/workflows/"]
+    R6[".agent_class/knowledge/"]
+    R7[".agent_class/loadout.yaml"]
+    R8[".agent_class/class.yaml"]
+    R9["_workspaces/"]
+    R10[".project_agent/"]
+  end
+
+  M1 --> R1
+  M2 --> R2
+  M3 --> R3
+  M4 --> R4
+  M5 --> R5
+  M6 --> R6
+  M7 --> R7
+  M8 --> R8
+  M9 --> R9
+  M10 --> R10
+```
+
 ## 대응표
 
 | 세계관 개념 | 실제 구조 | 의미 |

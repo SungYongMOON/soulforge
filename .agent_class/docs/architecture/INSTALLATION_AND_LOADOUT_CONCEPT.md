@@ -5,6 +5,21 @@
 Soulforge는 클래스 콘텐츠를 설치 가능한 모듈로 다룬다.
 이 문서는 class 소유 메타 규약 문서다.
 
+## 관계도
+
+```mermaid
+flowchart LR
+  I["설치 가능한 구성"] --> S["스킬"]
+  I --> T["도구"]
+  I --> W["워크플로우"]
+  I --> K["지식 팩"]
+  I --> D["클래스 문서"]
+  CY["class.yaml"] --> CD["설치된 class 의 정적 정의"]
+  LY["loadout.yaml"] --> LD["현재 활성화된 장착 상태표"]
+  LD --> LA["활성 클래스, 활성 프로필,<br/>장착된 skills/tools/workflows/knowledge,<br/>workspace 바인딩"]
+  CD -. "서로 다른 책임" .-> LD
+```
+
 설치 가능한 구성은 다음을 포함한다.
 
 - 스킬
