@@ -7,6 +7,7 @@
 │   ├── autonomic/
 │   ├── communication/
 │   ├── docs/
+│   │   └── architecture/
 │   ├── engine/
 │   ├── export/
 │   ├── identity/
@@ -55,6 +56,7 @@
 | `.agent/artifacts/` | 본체 측 산출물 |
 | `.agent/export/` | 내보내기 구조와 패키징 |
 | `.agent/docs/` | 본체 내부 문서 |
+| `.agent/docs/architecture/` | body 구조 문서 |
 | `.agent_class/` | 직업 계층의 정본 |
 | `.agent_class/class.yaml` | 직업 정의 메타 파일 |
 | `.agent_class/loadout.yaml` | 현재 장착 상태 정의 |
@@ -72,4 +74,5 @@
 | `_workspaces/company/` | 회사 프로젝트 |
 | `_workspaces/personal/` | 개인 프로젝트 |
 | `docs/architecture/` | 저장소 전체 구조 문서 |
+| `docs/architecture/DOCUMENT_OWNERSHIP.md` | 문서 소유권 기준 |
 | `README.md` | 저장소 진입 문서 |

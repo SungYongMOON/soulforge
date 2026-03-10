@@ -87,6 +87,7 @@ Soulforge는 새 정본 구조를 정의하는 설계 저장소다.
 ## 6. 참조 문서
 
 - 목표 구조: `docs/architecture/TARGET_TREE.md`
+- 문서 소유 원칙: `docs/architecture/DOCUMENT_OWNERSHIP.md`
 - 세계관 대응: `docs/architecture/AGENT_WORLD_MODEL.md`
 - 프로젝트 연결 규약: `docs/architecture/PROJECT_AGENT_MINIMUM_SCHEMA.md`
 - class 운영 문서: `.agent_class/docs/`

@@ -35,10 +35,14 @@ Soulforge는 에이전트 구조를 `.agent(에이전트 본체)`, `.agent_class
 
 - `README.md`
 - `AGENTS.md`
+- `docs/architecture/DOCUMENT_OWNERSHIP.md`
 - `docs/architecture/AGENT_WORLD_MODEL.md`
 - `docs/architecture/PROJECT_AGENT_MINIMUM_SCHEMA.md`
 - `docs/architecture/TARGET_TREE.md`
 - `docs/architecture/CURRENT_DECISIONS.md`
+- `.agent/docs/architecture/AGENT_BODY_MODEL.md`
+- `.agent_class/docs/architecture/AGENT_CLASS_MODEL.md`
+- `.agent_class/docs/architecture/INSTALLATION_AND_LOADOUT_CONCEPT.md`
 - `.agent_class/class.yaml`
 - `.agent_class/loadout.yaml`
 

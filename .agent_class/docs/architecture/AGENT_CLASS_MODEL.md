@@ -55,7 +55,8 @@
 ## class 문서 소유
 
 - class 구조 설명, 메타 규약, 운영 계획, 작업 로그, 재사용 프롬프트는 `.agent_class/docs/` 아래에 둔다
-- 이 문서는 저장소 루트 관점의 요약 문서이며, 상세 class 문서는 단계적으로 `.agent_class/docs/architecture/` 로 정리한다
+- 이 문서는 `.agent_class/docs/architecture/` 아래에서 유지되는 class 소유 정본 문서다
+- 루트 문서에서는 owner 위치에 대한 링크와 색인만 유지한다
 
 ## 설계 규칙
 

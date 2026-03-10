@@ -89,7 +89,7 @@ Soulforge는 설명을 위해 진지한 판타지 기반 모델을 사용한다.
 - class 문서는 `.agent_class/docs/` 아래에 둔다.
 - project 전용 문서는 각 프로젝트의 `.project_agent/` 아래에 둔다.
 
-현재 root `docs/architecture/` 에는 과도기 문서가 남아 있으며, 이동은 계획 문서를 먼저 세운 뒤 진행한다.
+root `docs/architecture/` 는 레포 전체 설명 문서만 유지한다.
 
 ---
 
@@ -127,16 +127,16 @@ UI와 runtime 구현은 나중 작업이다.
 
 - [`docs/architecture/REPOSITORY_PURPOSE.md`](docs/architecture/REPOSITORY_PURPOSE.md)
 - [`docs/architecture/AGENT_WORLD_MODEL.md`](docs/architecture/AGENT_WORLD_MODEL.md)
-- [`docs/architecture/AGENT_BODY_MODEL.md`](docs/architecture/AGENT_BODY_MODEL.md)
-- [`docs/architecture/AGENT_CLASS_MODEL.md`](docs/architecture/AGENT_CLASS_MODEL.md)
+- [`docs/architecture/DOCUMENT_OWNERSHIP.md`](docs/architecture/DOCUMENT_OWNERSHIP.md)
+- [`.agent/docs/architecture/AGENT_BODY_MODEL.md`](.agent/docs/architecture/AGENT_BODY_MODEL.md)
+- [`.agent_class/docs/architecture/AGENT_CLASS_MODEL.md`](.agent_class/docs/architecture/AGENT_CLASS_MODEL.md)
 - [`docs/architecture/WORKSPACE_PROJECT_MODEL.md`](docs/architecture/WORKSPACE_PROJECT_MODEL.md)
 - [`docs/architecture/PROJECT_AGENT_MINIMUM_SCHEMA.md`](docs/architecture/PROJECT_AGENT_MINIMUM_SCHEMA.md)
 - [`docs/architecture/TARGET_TREE.md`](docs/architecture/TARGET_TREE.md)
-- [`docs/architecture/INSTALLATION_AND_LOADOUT_CONCEPT.md`](docs/architecture/INSTALLATION_AND_LOADOUT_CONCEPT.md)
+- [`.agent_class/docs/architecture/INSTALLATION_AND_LOADOUT_CONCEPT.md`](.agent_class/docs/architecture/INSTALLATION_AND_LOADOUT_CONCEPT.md)
 - [`docs/architecture/CURRENT_DECISIONS.md`](docs/architecture/CURRENT_DECISIONS.md)
 - [`docs/architecture/MIGRATION_REFERENCE.md`](docs/architecture/MIGRATION_REFERENCE.md)
 - [`.agent_class/docs/architecture/CLASS_METADATA_CONTRACT.md`](.agent_class/docs/architecture/CLASS_METADATA_CONTRACT.md)
-- [`.agent_class/docs/architecture/DOCUMENT_OWNERSHIP.md`](.agent_class/docs/architecture/DOCUMENT_OWNERSHIP.md)
 
 ---
 
