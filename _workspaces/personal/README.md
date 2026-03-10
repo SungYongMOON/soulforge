@@ -24,4 +24,6 @@
 ## 상태
 
 - Draft
-- 프로젝트 분류 기준과 샘플 구조는 추후 정의 예정이다.
+- `sample_unbound_project/` 는 `_workspaces/personal/` 아래에 둔 첫 unbound reference sample project 다.
+- `sample_unbound_project/` 는 프로젝트 폴더만 존재하고 `.project_agent/` 는 의도적으로 두지 않는다.
+- personal root 의 sample 역시 운영용 실프로젝트가 아니라 상태판 회귀 검증용 baseline 이다.

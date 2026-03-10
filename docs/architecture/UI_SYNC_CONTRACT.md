@@ -48,6 +48,7 @@ flowchart LR
 - 5차에서는 `.agent_class/tools/local_cli/ui_viewer/ui_viewer.py` 로 `Render` 단계의 read-only prototype 을 구현한다.
 - 6차에서는 첫 happy-path reference sample 1세트를 실제 library roots 와 `_workspaces/company/` 아래에 도입한다.
 - 7차에서는 첫 invalid reference sample 1세트를 `_workspaces/company/` 아래에 도입해 validate FAIL 과 partial/error render 경로를 실제 입력으로 검증한다.
+- 8차에서는 첫 unbound reference sample 1세트를 `_workspaces/personal/` 아래에 도입해 `bound / invalid / unbound` 세 상태가 모두 실제 입력으로 검증되게 한다.
 - `sync-body-state` 는 `.agent/body.yaml` 과 실제 `.agent/` 구조를 스캔해 `.agent/body_state.yaml` 을 재생성한다.
 - `resolve-loadout` 는 `.agent_class/class.yaml` 의 `modules.*` 와 installed `module.yaml` manifest 를 스캔해 catalog 를 구성하고 `loadout.yaml` 의 equipped module id 를 resolve 한다.
 - `resolve-workspaces` 는 `_workspaces/company|personal` 아래 프로젝트 폴더를 스캔하고 `.project_agent` 4파일을 resolve 해 `bound`, `unbound`, `invalid` 상태를 분류한다.

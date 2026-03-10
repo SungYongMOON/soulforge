@@ -63,7 +63,7 @@ flowchart TD
 
 - Draft
 - README 기반 설명 체계와 body/class 메타 골격은 정리 중이다. `Derive` 이후 `Render` 단계는 read-only prototype 으로 처음 연결되었다.
-- class library roots 와 `_workspaces/company/` 아래에 첫 repo-tracked reference sample 1세트가 도입되었다.
-- read-only viewer 와 `derive-ui-state` 는 empty state 뿐 아니라 최소 happy-path sample baseline 에 대해서도 검증된다.
+- class library roots 와 `_workspaces/company/`, `_workspaces/personal/` 아래에 repo-tracked reference sample baseline 이 단계적으로 도입되었다.
 - happy-path baseline 다음 단계로 첫 invalid reference sample 1세트가 추가되어 `resolve-workspaces`, `validate`, `derive-ui-state`, `ui_viewer` 의 실패 경로도 실제 입력으로 검증된다.
-- read-only viewer 와 `derive-ui-state` 는 partial/error state 도 derived JSON 기반으로 계속 렌더링되는지 함께 검증한다.
+- `_workspaces/personal/sample_unbound_project/` 가 추가되어 reference sample 은 이제 happy-path(`bound`), invalid(`invalid`), unbound(`unbound`) 세 상태를 실제 입력으로 포함한다.
+- read-only viewer 와 `derive-ui-state` 는 세 상태를 모두 derived JSON 기반 실입력으로 검증하고, invalid 에 대해서만 partial/error state 를 유지한다.

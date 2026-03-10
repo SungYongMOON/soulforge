@@ -26,4 +26,5 @@
 - Draft
 - `sample_reference_project/` 는 `_workspaces/company/` 아래에 둔 bound baseline reference sample project 다.
 - `sample_invalid_project/` 는 `_workspaces/company/` 아래에 둔 invalid baseline reference sample project 다.
+- `bound` 와 `invalid` baseline 은 company root 에 유지하고, `unbound` baseline 은 `_workspaces/personal/sample_unbound_project/` 로 분리해 전체 상태 축을 닫는다.
 - 두 sample project 모두 운영용이 아니라 구조 검증과 회귀 입력 baseline 이다.
