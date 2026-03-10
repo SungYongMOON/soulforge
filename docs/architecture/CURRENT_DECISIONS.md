@@ -8,3 +8,4 @@
 - 워크플로우는 운영 규범으로 취급한다.
 - 프로젝트별 상태는 프로젝트 폴더 내부에 유지한다.
 - `.agent_class` 아래 `_local/` 은 무시되는 로컬 전용 데이터를 위해 남겨 둔다.
+- 문서 세트는 `REPOSITORY_PURPOSE`, `AGENT_BODY_MODEL`, `AGENT_CLASS_MODEL`, `WORKSPACE_PROJECT_MODEL`, `TARGET_TREE`, `INSTALLATION_AND_LOADOUT_CONCEPT`, `CURRENT_DECISIONS`, `MIGRATION_REFERENCE` 를 기준으로 유지한다.

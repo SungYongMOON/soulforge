@@ -14,7 +14,14 @@ _workspaces/
 └── personal/
 ```
 
-각 프로젝트 폴더에는 프로젝트별 바인딩, 지침, 또는 본체와 활성 클래스 간의 로컬 합의를 담는 `.project_agent/` 계약 디렉터리가 포함될 수 있다.
+각 프로젝트 폴더에는 `.project_agent(프로젝트 연결 규약)` 디렉터리가 포함될 수 있다.
+
+이 디렉터리에는 예를 들어 다음 파일이 들어간다.
+
+- `contract.yaml`
+- `capsule_bindings.yaml`
+- `workflow_bindings.yaml`
+- `local_state_map.yaml`
 
 ## 설계 규칙
 
