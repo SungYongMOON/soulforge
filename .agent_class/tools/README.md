@@ -13,7 +13,7 @@
 - `connectors/` = 외부 접속과 인증 진입점
 - `local_cli/` = 로컬 CLI 실행 래퍼
 - `mcp/` = MCP 서버 바인딩
-- 현재 `local_cli/ui_sync/` 는 body 메타 동기화와 class installed/loadout resolve/검증용 최소 CLI 를 제공한다.
+- 현재 `local_cli/ui_sync/` 는 body 메타 동기화, class installed/loadout resolve, workspace `.project_agent` resolve/검증용 최소 CLI 를 제공한다.
 
 ## 제외 대상
 
@@ -33,4 +33,4 @@
 
 - Draft
 - 도구 계층의 하위 분리는 고정한다.
-- 2차에서는 `local_cli/ui_sync/` 로 class module reference contract 기준 loadout resolve/validate 를 닫는다.
+- `local_cli/ui_sync/` 는 `sync-body-state`, `resolve-loadout`, `resolve-workspaces`, `validate` 네 명령으로 정본 메타 Scan/Resolve/Validate 를 수행한다.

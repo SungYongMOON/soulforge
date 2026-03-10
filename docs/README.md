@@ -27,3 +27,4 @@
 
 - Stable
 - root owner 문서만 유지한다.
+- workspace 공통 resolve 계약은 `docs/architecture/PROJECT_AGENT_RESOLVE_CONTRACT.md` 에서 관리한다.

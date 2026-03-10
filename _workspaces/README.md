@@ -25,4 +25,5 @@
 ## 상태
 
 - Stable
-- 실제 프로젝트 폴더는 이 경계 안에 둔다. 프로젝트별 세부 구조는 추후 정의될 수 있다.
+- 실제 프로젝트 폴더는 이 경계 안에 둔다.
+- workspace project 상태는 `.project_agent` resolve 결과에 따라 `bound`, `unbound`, `invalid` 로 분류할 수 있다.

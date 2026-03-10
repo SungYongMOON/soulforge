@@ -27,6 +27,7 @@ flowchart TD
 - 설치와 로드아웃 개념을 분리해 설명한다
 - UI source map 과 UI sync contract 를 먼저 고정한다
 - class installed/loadout resolve 가 module reference contract 위에 올라가도록 기준을 닫는다
+- workspace resolve 계약이 UI derive 이전 단계의 전제로 올라가도록 기준을 닫는다
 - 향후 구현과 UI가 붙을 수 있도록 최소 메타 구조를 준비한다
 
 ## 이 저장소가 지금 하지 않는 일
@@ -53,6 +54,7 @@ flowchart TD
 - `docs/architecture/DOCUMENT_OWNERSHIP.md`
 - `docs/architecture/AGENT_WORLD_MODEL.md`
 - `docs/architecture/PROJECT_AGENT_MINIMUM_SCHEMA.md`
+- `docs/architecture/PROJECT_AGENT_RESOLVE_CONTRACT.md`
 - `docs/architecture/TARGET_TREE.md`
 - `docs/architecture/CURRENT_DECISIONS.md`
 - `.agent/docs/architecture/AGENT_BODY_MODEL.md`

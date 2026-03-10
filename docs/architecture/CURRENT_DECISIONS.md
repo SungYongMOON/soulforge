@@ -27,10 +27,13 @@ flowchart TD
 - `.agent_class/loadout.yaml` 의 `equipped.*` 는 path 가 아니라 module id 목록이다.
 - `.agent_class` 의 installed module 은 `module.yaml` manifest 기준으로만 인정한다.
 - 2차에서는 class installed/loadout resolve 규칙을 `MODULE_REFERENCE_CONTRACT.md` 와 local CLI 로 닫는다.
+- 3차에서는 workspace project 상태를 `bound`, `unbound`, `invalid` 로 분류한다.
+- `.project_agent` 공통 resolve 규칙은 root owner 문서 `PROJECT_AGENT_RESOLVE_CONTRACT.md` 로 관리한다.
+- `unbound` 프로젝트는 허용하고, `invalid` 프로젝트만 FAIL 로 본다.
 - UI는 정본이 아니라 메타와 구조에서 파생되는 결과다.
 - UI source map 과 UI sync contract 를 루트 문서 세트에 포함한다.
 - 프로젝트별 상태는 프로젝트 폴더 내부에 유지한다.
 - body 운영 문서는 `.agent/docs/` 아래에 둔다.
 - `.agent_class` 아래 `_local/` 은 무시되는 로컬 전용 데이터를 위해 남겨 둔다.
 - class 운영 문서는 `.agent_class/docs/` 아래에 둔다.
-- 루트 문서 세트는 `REPOSITORY_PURPOSE`, `AGENT_WORLD_MODEL`, `WORKSPACE_PROJECT_MODEL`, `PROJECT_AGENT_MINIMUM_SCHEMA`, `TARGET_TREE`, `DOCUMENT_OWNERSHIP`, `CURRENT_DECISIONS`, `UI_SOURCE_MAP`, `UI_SYNC_CONTRACT`, `MIGRATION_REFERENCE` 를 기준으로 유지한다.
+- 루트 문서 세트는 `REPOSITORY_PURPOSE`, `AGENT_WORLD_MODEL`, `WORKSPACE_PROJECT_MODEL`, `PROJECT_AGENT_MINIMUM_SCHEMA`, `PROJECT_AGENT_RESOLVE_CONTRACT`, `TARGET_TREE`, `DOCUMENT_OWNERSHIP`, `CURRENT_DECISIONS`, `UI_SOURCE_MAP`, `UI_SYNC_CONTRACT`, `MIGRATION_REFERENCE` 를 기준으로 유지한다.

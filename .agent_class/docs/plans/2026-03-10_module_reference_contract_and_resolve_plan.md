@@ -2,7 +2,7 @@
 
 ## 상태
 
-- 진행 상태: 검증 완료, 커밋 대기
+- 진행 상태: 완료
 - 작업 유형: class 정본 계약 신설 + local CLI resolve/validate 확장
 - 계획 저장 위치: `.agent_class/docs/plans/`
 
@@ -21,7 +21,7 @@
 - [x] root architecture 문서와 루트 README 갱신
 - [x] `.agent_class/tools/local_cli/ui_sync/ui_sync.py` 확장
 - [x] `.agent_class/tools/**` 와 `.agent_class/docs/**` README 최신화
-- [ ] 검증 후 커밋/푸시
+- [x] 검증 후 커밋/푸시
 
 ## 고정 결정
 
@@ -83,8 +83,8 @@
 - [x] `git status --short`
 - [x] README 링크/명령 예시 확인
 - [x] 문서 간 용어 일관성 확인
-- [ ] 커밋
-- [ ] 푸시
+- [x] 커밋
+- [x] 푸시
 
 ## owner 체크
 
@@ -100,3 +100,9 @@
 - [x] `3. 검증 결과`
 - [x] `4. owner 체크`
 - [x] `5. 커밋/푸시 정보`
+
+## 커밋 기록
+
+- [x] 커밋 메시지: `모듈 참조 계약과 loadout resolve 기반 도입`
+- [x] 커밋 SHA: `3099b82`
+- [x] 푸시 대상 브랜치: `origin/main`

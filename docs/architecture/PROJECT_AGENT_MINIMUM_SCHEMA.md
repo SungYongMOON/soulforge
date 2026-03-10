@@ -5,7 +5,8 @@
 이 문서는 각 프로젝트 폴더 아래에 둘 수 있는 `.project_agent/` 의 최소 계약을 정의한다.
 
 현재 단계의 목표는 구현이 아니라 구조 정본 확정이다.
-따라서 이 문서는 네 개의 핵심 파일이 무엇을 설명해야 하는지와 최소 필드만 먼저 고정한다.
+따라서 이 문서는 네 개의 핵심 파일이 무엇을 설명해야 하는지와 최소 필드를 먼저 고정한다.
+상세 resolve/validate 규칙은 root owner 문서 `docs/architecture/PROJECT_AGENT_RESOLVE_CONTRACT.md` 로 위임한다.
 
 ## 구조 개요도
 
@@ -26,6 +27,9 @@ flowchart TD
 ├── workflow_bindings.yaml
 └── local_state_map.yaml
 ```
+
+이 문서는 최소 파일 세트와 최소 필드만 다룬다.
+`bound`, `unbound`, `invalid` 상태 분류와 local CLI resolve/validate 규칙은 `PROJECT_AGENT_RESOLVE_CONTRACT.md` 를 따른다.
 
 ## 파일별 역할
 
@@ -65,6 +69,8 @@ class_ref: .agent_class
 default_loadout: core
 ```
 
+예시의 `default_loadout` 은 현재 단계에서는 `.agent_class/loadout.yaml.active_profile` 과 비교되는 기본 프로필 이름이다.
+
 ## 2. `capsule_bindings.yaml`
 
 ### 최소 역할
@@ -85,7 +91,7 @@ default_loadout: core
 bindings:
   - capsule_id: docs_reference
     source_ref: .agent_class/docs
-    target_path: ./docs/agent_reference
+    target_path: docs/agent_reference
     mode: read_only
 ```
 
@@ -108,7 +114,7 @@ bindings:
 ```yaml
 bindings:
   - workflow_id: docs_integrity
-    entrypoint: .agent_class/workflows/docs_integrity.yaml
+    entrypoint: run
     trigger: manual
     enabled: true
 ```
@@ -133,7 +139,7 @@ bindings:
 ```yaml
 local_entries:
   - key: cache
-    path: ./.project_agent/_local/cache
+    path: .project_agent/_local/cache
     purpose: local cache
     tracked: false
 ```
@@ -144,3 +150,4 @@ local_entries:
 2. 실제 프로젝트 실자료는 여전히 프로젝트 루트 아래에 남는다.
 3. host-local 상태는 `local_state_map.yaml` 에 명시하고 기본적으로 비추적 처리한다.
 4. 스키마를 확장하더라도 네 파일의 역할 경계는 유지한다.
+5. 공통 resolve/validate 규칙은 `PROJECT_AGENT_RESOLVE_CONTRACT.md` 에서 관리한다.

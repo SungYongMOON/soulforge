@@ -5,6 +5,7 @@ from __future__ import annotations
 
 import argparse
 import json
+import re
 import sys
 from collections import Counter
 from dataclasses import dataclass
@@ -24,6 +25,26 @@ MODULE_LIBRARY_KEYS = ("skills", "tools", "workflows", "knowledge")
 REQUIRED_MODULE_KEYS = MODULE_LIBRARY_KEYS + ("docs",)
 REQUIRED_EQUIPPED_KEYS = MODULE_LIBRARY_KEYS
 REQUIRED_BINDING_KEYS = ("body", "company_workspace", "personal_workspace")
+WORKSPACE_KINDS = ("company", "personal")
+WORKSPACE_ROOT = REPO_ROOT / "_workspaces"
+PROJECT_AGENT_DIRNAME = ".project_agent"
+PROJECT_AGENT_REQUIRED_FILES = (
+    "contract.yaml",
+    "capsule_bindings.yaml",
+    "workflow_bindings.yaml",
+    "local_state_map.yaml",
+)
+PROJECT_CONTRACT_KEYS = (
+    "project_id",
+    "project_name",
+    "workspace_kind",
+    "body_ref",
+    "class_ref",
+    "default_loadout",
+)
+CAPSULE_BINDING_KEYS = ("capsule_id", "source_ref", "target_path", "mode")
+WORKFLOW_BINDING_KEYS = ("workflow_id", "entrypoint", "trigger", "enabled")
+LOCAL_STATE_KEYS = ("key", "path", "purpose", "tracked")
 MODULE_KIND_BY_LIBRARY_KEY = {
     "skills": "skill",
     "tools": "tool",
@@ -34,6 +55,9 @@ COMMON_MANIFEST_KEYS = ("id", "kind", "name", "version", "description")
 WORKFLOW_REQUIRE_KEYS = ("skills", "tools", "knowledge")
 TOOL_FAMILIES = ("adapters", "connectors", "local_cli", "mcp")
 PATH_LIKE_SUFFIXES = (".yaml", ".yml", ".py")
+CAPSULE_BINDING_MODES = ("read_only", "read_write", "copy")
+WORKFLOW_TRIGGERS = ("manual", "on_demand", "scheduled")
+INLINE_MAPPING_RE = re.compile(r"^[A-Za-z0-9_.-]+\s*:")
 
 
 class YamlParseError(ValueError):
@@ -81,6 +105,50 @@ class ModuleRecord:
         if self.requires is not None:
             payload["requires"] = self.requires
         return payload
+
+
+@dataclass
+class WorkspaceProjectRecord:
+    project_path: str
+    workspace_kind: str
+    state: str
+    project_agent_present: bool
+    contract: dict[str, Any]
+    capsule_bindings: dict[str, Any]
+    workflow_bindings: dict[str, Any]
+    local_state: dict[str, Any]
+    warnings: list[Finding]
+    errors: list[Finding]
+
+    def as_dict(self) -> dict[str, Any]:
+        return {
+            "project_path": self.project_path,
+            "workspace_kind": self.workspace_kind,
+            "state": self.state,
+            "project_agent_present": self.project_agent_present,
+            "contract": self.contract,
+            "capsule_bindings": self.capsule_bindings,
+            "workflow_bindings": self.workflow_bindings,
+            "local_state": self.local_state,
+            "warnings": [finding.as_dict() for finding in self.warnings],
+            "errors": [finding.as_dict() for finding in self.errors],
+        }
+
+
+@dataclass
+class WorkspaceResolveResult:
+    findings: list[Finding]
+    workspaces: dict[str, list[WorkspaceProjectRecord]]
+    summary: dict[str, int]
+
+    def as_dict(self) -> dict[str, Any]:
+        return {
+            "workspaces": {
+                kind: {"projects": [project.as_dict() for project in self.workspaces[kind]]}
+                for kind in WORKSPACE_KINDS
+            },
+            "summary": self.summary,
+        }
 
 
 @dataclass
@@ -188,7 +256,11 @@ def parse_list(
         index += 1
 
         if value_text:
-            items.append(parse_scalar(value_text))
+            if looks_like_inline_mapping(value_text):
+                item, index = parse_inline_mapping_item(path, tokens, index, indent, value_text, line_number)
+                items.append(item)
+            else:
+                items.append(parse_scalar(value_text))
             continue
 
         if index < len(tokens) and tokens[index][0] > indent:
@@ -199,6 +271,46 @@ def parse_list(
             items.append(None)
 
     return items, index
+
+
+def looks_like_inline_mapping(value: str) -> bool:
+    return bool(INLINE_MAPPING_RE.match(value))
+
+
+def parse_inline_mapping_item(
+    path: Path,
+    tokens: list[tuple[int, str, int]],
+    index: int,
+    indent: int,
+    value_text: str,
+    line_number: int,
+) -> tuple[dict[str, Any], int]:
+    if ":" not in value_text:
+        raise YamlParseError(f"{path}: line {line_number}: expected inline mapping entry")
+
+    key, remainder = value_text.split(":", 1)
+    key = key.strip()
+    remainder = remainder.strip()
+    if not key:
+        raise YamlParseError(f"{path}: line {line_number}: empty inline mapping key")
+
+    mapping: dict[str, Any] = {}
+    if remainder:
+        mapping[key] = parse_scalar(remainder)
+    else:
+        if index < len(tokens) and tokens[index][0] > indent:
+            child_indent = tokens[index][0]
+            child_value, index = parse_block(path, tokens, index, child_indent)
+            mapping[key] = child_value
+        else:
+            mapping[key] = {}
+
+    if index < len(tokens) and tokens[index][0] > indent:
+        extra_indent = tokens[index][0]
+        extra_mapping, index = parse_mapping(path, tokens, index, extra_indent)
+        mapping.update(extra_mapping)
+
+    return mapping, index
 
 
 def parse_scalar(value: str) -> Any:
@@ -360,7 +472,7 @@ def load_required_mapping(path: Path) -> dict[str, Any]:
     return data
 
 
-def validate_repo() -> tuple[list[Finding], ResolveResult | None]:
+def validate_repo() -> tuple[list[Finding], ResolveResult | None, WorkspaceResolveResult]:
     findings: list[Finding] = []
 
     body_data = load_optional_yaml(BODY_YAML, findings, "body_yaml_missing", "body metadata exists")
@@ -379,22 +491,12 @@ def validate_repo() -> tuple[list[Finding], ResolveResult | None]:
     if isinstance(body_data, dict) and isinstance(body_state_data, dict):
         validate_body_state(body_data, body_state_data, actual_presence_by_path, findings, expected_body_state)
 
-    class_data = load_optional_yaml(CLASS_YAML, findings, "class_yaml_missing", "class metadata exists")
-    loadout_data = load_optional_yaml(
-        LOADOUT_YAML, findings, "loadout_yaml_missing", "loadout metadata exists"
-    )
+    resolve_result = prepare_loadout_context(findings)
 
-    resolve_result: ResolveResult | None = None
-    if isinstance(class_data, dict) and isinstance(loadout_data, dict):
-        resolve_result = resolve_loadout_contract(class_data, loadout_data)
-        findings.extend(resolve_result.findings)
-    else:
-        if isinstance(class_data, dict):
-            validate_class_modules(class_data, findings)
-        if isinstance(loadout_data, dict):
-            validate_loadout_structure(loadout_data, findings)
+    workspace_result = resolve_workspace_contracts(resolve_result)
+    findings.extend(workspace_result.findings)
 
-    return findings, resolve_result
+    return findings, resolve_result, workspace_result
 
 
 def load_optional_yaml(
@@ -416,6 +518,614 @@ def load_optional_yaml(
 
     add(findings, "PASS", f"{path.name}_exists", pass_message)
     return data
+
+
+def load_project_mapping(path: Path, findings: list[Finding], label: str) -> dict[str, Any] | None:
+    if not path.exists():
+        add(findings, "FAIL", f"{label}_missing", f"missing required file: {relative_to_repo(path)}")
+        return None
+
+    try:
+        data = load_yaml(path)
+    except (FileNotFoundError, YamlParseError) as error:
+        add(findings, "FAIL", f"{label}_parse_error", str(error))
+        return None
+
+    if not isinstance(data, dict):
+        add(findings, "FAIL", f"{label}_root_type", f"{relative_to_repo(path)} root must be a mapping")
+        return None
+
+    return data
+
+
+def prepare_loadout_context(findings: list[Finding]) -> ResolveResult | None:
+    class_data = load_optional_yaml(CLASS_YAML, findings, "class_yaml_missing", "class metadata exists")
+    loadout_data = load_optional_yaml(
+        LOADOUT_YAML, findings, "loadout_yaml_missing", "loadout metadata exists"
+    )
+
+    if isinstance(class_data, dict) and isinstance(loadout_data, dict):
+        resolve_result = resolve_loadout_contract(class_data, loadout_data)
+        findings.extend(resolve_result.findings)
+        return resolve_result
+
+    if isinstance(class_data, dict):
+        validate_class_modules(class_data, findings)
+    if isinstance(loadout_data, dict):
+        validate_loadout_structure(loadout_data, findings)
+    return None
+
+
+def resolve_workspace_contracts(loadout_result: ResolveResult | None) -> WorkspaceResolveResult:
+    findings: list[Finding] = []
+    workspaces = {kind: [] for kind in WORKSPACE_KINDS}
+    project_agent_seen = False
+
+    for workspace_kind in WORKSPACE_KINDS:
+        workspace_root = WORKSPACE_ROOT / workspace_kind
+        if not workspace_root.is_dir():
+            add(
+                findings,
+                "FAIL",
+                f"workspace_root_{workspace_kind}",
+                f"missing workspace root: {relative_to_repo(workspace_root)}",
+            )
+            continue
+
+        add(
+            findings,
+            "PASS",
+            f"workspace_root_{workspace_kind}",
+            f"workspace root exists: {relative_to_repo(workspace_root)}",
+        )
+        project_dirs = list_project_dirs(workspace_root)
+        add(
+            findings,
+            "PASS",
+            f"workspace_scan_{workspace_kind}",
+            f"scanned {len(project_dirs)} project directories under {relative_to_repo(workspace_root)}",
+        )
+        for project_dir in project_dirs:
+            record = resolve_project_contract(project_dir, workspace_kind, loadout_result)
+            workspaces[workspace_kind].append(record)
+            findings.extend(record.warnings)
+            findings.extend(record.errors)
+            project_agent_seen = project_agent_seen or record.project_agent_present
+
+    if project_agent_seen:
+        add(
+            findings,
+            "WARN",
+            "workspace_default_loadout_scope",
+            "contract.default_loadout currently validates only against .agent_class/loadout.yaml active_profile until multi-profile support is introduced",
+        )
+
+    summary = build_workspace_summary(workspaces)
+    return WorkspaceResolveResult(findings=findings, workspaces=workspaces, summary=summary)
+
+
+def list_project_dirs(workspace_root: Path) -> list[Path]:
+    return sorted(
+        [
+            entry
+            for entry in workspace_root.iterdir()
+            if entry.is_dir() and not entry.name.startswith(".")
+        ],
+        key=lambda path: path.name,
+    )
+
+
+def resolve_project_contract(
+    project_dir: Path, workspace_kind: str, loadout_result: ResolveResult | None
+) -> WorkspaceProjectRecord:
+    warnings: list[Finding] = []
+    errors: list[Finding] = []
+    project_path = relative_to_repo(project_dir)
+    project_agent_dir = project_dir / PROJECT_AGENT_DIRNAME
+    project_agent_present = project_agent_dir.exists()
+    contract_path = project_agent_dir / "contract.yaml"
+    capsule_path = project_agent_dir / "capsule_bindings.yaml"
+    workflow_path = project_agent_dir / "workflow_bindings.yaml"
+    local_state_path = project_agent_dir / "local_state_map.yaml"
+    contract = make_project_section(contract_path)
+    capsule_bindings = make_project_section(capsule_path)
+    workflow_bindings = make_project_section(workflow_path)
+    local_state = make_project_section(local_state_path)
+
+    if not project_agent_present:
+        return WorkspaceProjectRecord(
+            project_path=project_path,
+            workspace_kind=workspace_kind,
+            state="unbound",
+            project_agent_present=False,
+            contract=contract,
+            capsule_bindings=capsule_bindings,
+            workflow_bindings=workflow_bindings,
+            local_state=local_state,
+            warnings=warnings,
+            errors=errors,
+        )
+
+    if not project_agent_dir.is_dir():
+        add(
+            errors,
+            "FAIL",
+            "project_agent_dir_type",
+            f"{project_path}/.project_agent exists but is not a directory",
+        )
+        return WorkspaceProjectRecord(
+            project_path=project_path,
+            workspace_kind=workspace_kind,
+            state="invalid",
+            project_agent_present=True,
+            contract=contract,
+            capsule_bindings=capsule_bindings,
+            workflow_bindings=workflow_bindings,
+            local_state=local_state,
+            warnings=warnings,
+            errors=errors,
+        )
+
+    contract_data = validate_project_contract_file(contract_path, project_dir, workspace_kind, loadout_result, errors)
+    contract["present"] = contract_path.exists()
+    contract["valid"] = contract_data is not None
+    if contract_data is not None:
+        contract.update(
+            {
+                "project_id": contract_data["project_id"].strip(),
+                "project_name": contract_data["project_name"].strip(),
+                "body_ref": contract_data["body_ref"].strip(),
+                "class_ref": contract_data["class_ref"].strip(),
+                "default_loadout": contract_data["default_loadout"].strip(),
+            }
+        )
+
+    capsule_data = validate_capsule_bindings_file(capsule_path, project_dir, errors)
+    capsule_bindings["present"] = capsule_path.exists()
+    capsule_bindings["valid"] = capsule_data is not None
+    if capsule_data is not None:
+        capsule_bindings["binding_count"] = len(capsule_data.get("bindings", []))
+
+    workflow_data = validate_workflow_bindings_file(workflow_path, project_dir, loadout_result, errors)
+    workflow_bindings["present"] = workflow_path.exists()
+    workflow_bindings["valid"] = workflow_data is not None
+    if workflow_data is not None:
+        workflow_bindings["binding_count"] = len(workflow_data.get("bindings", []))
+
+    local_state_data = validate_local_state_map_file(local_state_path, project_dir, errors)
+    local_state["present"] = local_state_path.exists()
+    local_state["valid"] = local_state_data is not None
+    if local_state_data is not None:
+        local_state["entry_count"] = len(local_state_data.get("local_entries", []))
+
+    state = "bound" if not errors else "invalid"
+
+    return WorkspaceProjectRecord(
+        project_path=project_path,
+        workspace_kind=workspace_kind,
+        state=state,
+        project_agent_present=True,
+        contract=contract,
+        capsule_bindings=capsule_bindings,
+        workflow_bindings=workflow_bindings,
+        local_state=local_state,
+        warnings=warnings,
+        errors=errors,
+    )
+
+
+def make_project_section(path: Path) -> dict[str, Any]:
+    return {"path": relative_to_repo(path), "present": path.exists(), "valid": False}
+
+
+def validate_project_contract_file(
+    path: Path, project_dir: Path, workspace_kind: str, loadout_result: ResolveResult | None, findings: list[Finding]
+) -> dict[str, Any] | None:
+    del project_dir
+
+    data = load_project_mapping(path, findings, "project_contract")
+    if data is None:
+        return None
+
+    valid = True
+    missing_keys = [key for key in PROJECT_CONTRACT_KEYS if key not in data]
+    if missing_keys:
+        add(
+            findings,
+            "FAIL",
+            "project_contract_missing_keys",
+            f"{relative_to_repo(path)} missing required fields: " + ", ".join(missing_keys),
+        )
+        valid = False
+
+    invalid_string_keys = [
+        key
+        for key in PROJECT_CONTRACT_KEYS
+        if key in data and (not isinstance(data[key], str) or not data[key].strip())
+    ]
+    if invalid_string_keys:
+        add(
+            findings,
+            "FAIL",
+            "project_contract_field_type",
+            f"{relative_to_repo(path)} requires non-empty string fields: " + ", ".join(invalid_string_keys),
+        )
+        valid = False
+
+    if not valid:
+        return None
+
+    if data["workspace_kind"].strip() != workspace_kind:
+        add(
+            findings,
+            "FAIL",
+            "project_contract_workspace_kind",
+            f"{relative_to_repo(path)} workspace_kind {data['workspace_kind']} does not match parent root {workspace_kind}",
+        )
+        valid = False
+
+    if not resolves_exact_repo_path(data["body_ref"].strip(), AGENT_ROOT):
+        add(
+            findings,
+            "FAIL",
+            "project_contract_body_ref",
+            f"{relative_to_repo(path)} body_ref must resolve to .agent",
+        )
+        valid = False
+
+    if not resolves_exact_repo_path(data["class_ref"].strip(), CLASS_ROOT):
+        add(
+            findings,
+            "FAIL",
+            "project_contract_class_ref",
+            f"{relative_to_repo(path)} class_ref must resolve to .agent_class",
+        )
+        valid = False
+
+    active_profile = loadout_result.active_profile if loadout_result is not None else None
+    if active_profile is None:
+        add(
+            findings,
+            "FAIL",
+            "project_contract_default_loadout_context",
+            f"{relative_to_repo(path)} cannot validate default_loadout because .agent_class/loadout.yaml active_profile is unavailable",
+        )
+        valid = False
+    elif data["default_loadout"].strip() != active_profile:
+        add(
+            findings,
+            "FAIL",
+            "project_contract_default_loadout",
+            f"{relative_to_repo(path)} default_loadout {data['default_loadout']} does not match active_profile {active_profile}",
+        )
+        valid = False
+
+    if valid:
+        add(
+            findings,
+            "PASS",
+            "project_contract_resolve",
+            f"{relative_to_repo(path)} resolves cleanly",
+        )
+        return data
+
+    return None
+
+
+def validate_capsule_bindings_file(path: Path, project_dir: Path, findings: list[Finding]) -> dict[str, Any] | None:
+    data = load_project_mapping(path, findings, "capsule_bindings")
+    if data is None:
+        return None
+
+    bindings = data.get("bindings")
+    if not isinstance(bindings, list):
+        add(
+            findings,
+            "FAIL",
+            "capsule_bindings_list_type",
+            f"{relative_to_repo(path)} bindings must be a list",
+        )
+        return None
+
+    valid = True
+    for index, binding in enumerate(bindings, start=1):
+        if not isinstance(binding, dict):
+            add(
+                findings,
+                "FAIL",
+                "capsule_bindings_entry_type",
+                f"{relative_to_repo(path)} bindings[{index}] must be a mapping",
+            )
+            valid = False
+            continue
+
+        if not validate_required_string_fields(
+            binding,
+            CAPSULE_BINDING_KEYS,
+            findings,
+            f"{relative_to_repo(path)} bindings[{index}]",
+            "capsule_bindings",
+        ):
+            valid = False
+            continue
+
+        if not resolves_owner_ref(binding["source_ref"].strip()):
+            add(
+                findings,
+                "FAIL",
+                "capsule_bindings_source_ref",
+                f"{relative_to_repo(path)} bindings[{index}].source_ref must resolve under .agent or .agent_class",
+            )
+            valid = False
+
+        if not is_relative_project_path(binding["target_path"].strip(), project_dir):
+            add(
+                findings,
+                "FAIL",
+                "capsule_bindings_target_path",
+                f"{relative_to_repo(path)} bindings[{index}].target_path must be a relative path inside the project root",
+            )
+            valid = False
+
+        if binding["mode"].strip() not in CAPSULE_BINDING_MODES:
+            add(
+                findings,
+                "FAIL",
+                "capsule_bindings_mode",
+                f"{relative_to_repo(path)} bindings[{index}].mode must be one of: {', '.join(CAPSULE_BINDING_MODES)}",
+            )
+            valid = False
+
+    if valid:
+        add(findings, "PASS", "capsule_bindings_resolve", f"{relative_to_repo(path)} resolves cleanly")
+        return data
+    return None
+
+
+def validate_workflow_bindings_file(
+    path: Path, project_dir: Path, loadout_result: ResolveResult | None, findings: list[Finding]
+) -> dict[str, Any] | None:
+    del project_dir
+
+    data = load_project_mapping(path, findings, "workflow_bindings")
+    if data is None:
+        return None
+
+    bindings = data.get("bindings")
+    if not isinstance(bindings, list):
+        add(
+            findings,
+            "FAIL",
+            "workflow_bindings_list_type",
+            f"{relative_to_repo(path)} bindings must be a list",
+        )
+        return None
+
+    valid = True
+    workflow_catalog = loadout_result.catalog["workflows"] if loadout_result is not None else {}
+    duplicate_workflow_ids = loadout_result.duplicate_ids["workflows"] if loadout_result is not None else set()
+    for index, binding in enumerate(bindings, start=1):
+        entry_valid = True
+        if not isinstance(binding, dict):
+            add(
+                findings,
+                "FAIL",
+                "workflow_bindings_entry_type",
+                f"{relative_to_repo(path)} bindings[{index}] must be a mapping",
+            )
+            valid = False
+            continue
+
+        if not validate_required_string_fields(
+            {key: binding.get(key) for key in ("workflow_id", "entrypoint", "trigger")},
+            ("workflow_id", "entrypoint", "trigger"),
+            findings,
+            f"{relative_to_repo(path)} bindings[{index}]",
+            "workflow_bindings",
+        ):
+            valid = False
+            entry_valid = False
+
+        if "enabled" not in binding or not isinstance(binding["enabled"], bool):
+            add(
+                findings,
+                "FAIL",
+                "workflow_bindings_enabled_type",
+                f"{relative_to_repo(path)} bindings[{index}].enabled must be a bool",
+            )
+            valid = False
+            entry_valid = False
+
+        if not entry_valid:
+            continue
+
+        workflow_id = binding["workflow_id"].strip()
+        if workflow_id in duplicate_workflow_ids:
+            add(
+                findings,
+                "FAIL",
+                "workflow_bindings_workflow_id_duplicate",
+                f"{relative_to_repo(path)} bindings[{index}].workflow_id {workflow_id} is duplicated in the installed workflow catalog",
+            )
+            valid = False
+            entry_valid = False
+        elif workflow_id not in workflow_catalog:
+            add(
+                findings,
+                "FAIL",
+                "workflow_bindings_workflow_id_unknown",
+                f"{relative_to_repo(path)} bindings[{index}].workflow_id {workflow_id} is not in the installed workflow catalog",
+            )
+            valid = False
+            entry_valid = False
+        elif binding["entrypoint"].strip() != workflow_catalog[workflow_id].entrypoint:
+            manifest_entrypoint = workflow_catalog[workflow_id].entrypoint
+            add(
+                findings,
+                "FAIL",
+                "workflow_bindings_entrypoint_mismatch",
+                f"{relative_to_repo(path)} bindings[{index}].entrypoint {binding['entrypoint']} does not match workflow manifest entrypoint {manifest_entrypoint}",
+            )
+            valid = False
+            entry_valid = False
+
+        if binding["trigger"].strip() not in WORKFLOW_TRIGGERS:
+            add(
+                findings,
+                "FAIL",
+                "workflow_bindings_trigger",
+                f"{relative_to_repo(path)} bindings[{index}].trigger must be one of: {', '.join(WORKFLOW_TRIGGERS)}",
+            )
+            valid = False
+            entry_valid = False
+
+    if valid:
+        add(findings, "PASS", "workflow_bindings_resolve", f"{relative_to_repo(path)} resolves cleanly")
+        return data
+    return None
+
+
+def validate_local_state_map_file(path: Path, project_dir: Path, findings: list[Finding]) -> dict[str, Any] | None:
+    data = load_project_mapping(path, findings, "local_state_map")
+    if data is None:
+        return None
+
+    local_entries = data.get("local_entries")
+    if not isinstance(local_entries, list):
+        add(
+            findings,
+            "FAIL",
+            "local_state_map_list_type",
+            f"{relative_to_repo(path)} local_entries must be a list",
+        )
+        return None
+
+    valid = True
+    for index, entry in enumerate(local_entries, start=1):
+        if not isinstance(entry, dict):
+            add(
+                findings,
+                "FAIL",
+                "local_state_map_entry_type",
+                f"{relative_to_repo(path)} local_entries[{index}] must be a mapping",
+            )
+            valid = False
+            continue
+
+        string_subset = {key: entry.get(key) for key in ("key", "path", "purpose")}
+        if not validate_required_string_fields(
+            string_subset,
+            ("key", "path", "purpose"),
+            findings,
+            f"{relative_to_repo(path)} local_entries[{index}]",
+            "local_state_map",
+        ):
+            valid = False
+
+        if "tracked" not in entry or not isinstance(entry["tracked"], bool):
+            add(
+                findings,
+                "FAIL",
+                "local_state_map_tracked_type",
+                f"{relative_to_repo(path)} local_entries[{index}].tracked must be a bool",
+            )
+            valid = False
+
+        path_value = entry.get("path")
+        if isinstance(path_value, str) and not is_relative_project_path(path_value.strip(), project_dir):
+            add(
+                findings,
+                "FAIL",
+                "local_state_map_path",
+                f"{relative_to_repo(path)} local_entries[{index}].path must be a relative path inside the project root",
+            )
+            valid = False
+
+    if valid:
+        add(findings, "PASS", "local_state_map_resolve", f"{relative_to_repo(path)} resolves cleanly")
+        return data
+    return None
+
+
+def validate_required_string_fields(
+    data: dict[str, Any], required_keys: tuple[str, ...], findings: list[Finding], location: str, code_prefix: str
+) -> bool:
+    valid = True
+    missing_keys = [key for key in required_keys if key not in data]
+    if missing_keys:
+        add(
+            findings,
+            "FAIL",
+            f"{code_prefix}_missing_keys",
+            f"{location} missing required fields: " + ", ".join(missing_keys),
+        )
+        valid = False
+
+    invalid_keys = [
+        key for key in required_keys if key in data and (not isinstance(data[key], str) or not data[key].strip())
+    ]
+    if invalid_keys:
+        add(
+            findings,
+            "FAIL",
+            f"{code_prefix}_field_type",
+            f"{location} requires non-empty string fields: " + ", ".join(invalid_keys),
+        )
+        valid = False
+
+    return valid
+
+
+def resolves_exact_repo_path(ref: str, expected_path: Path) -> bool:
+    if not ref:
+        return False
+    if Path(ref).is_absolute():
+        return False
+    resolved_path = (REPO_ROOT / ref).resolve()
+    try:
+        resolved_path.relative_to(REPO_ROOT.resolve())
+    except ValueError:
+        return False
+    return resolved_path == expected_path.resolve()
+
+
+def resolves_owner_ref(ref: str) -> bool:
+    if not ref:
+        return False
+    ref_path = Path(ref)
+    if ref_path.is_absolute():
+        return False
+    if not ref_path.parts or ref_path.parts[0] not in (".agent", ".agent_class"):
+        return False
+    resolved_path = (REPO_ROOT / ref_path).resolve()
+    allowed_root = AGENT_ROOT if ref_path.parts[0] == ".agent" else CLASS_ROOT
+    try:
+        resolved_path.relative_to(allowed_root.resolve())
+    except ValueError:
+        return False
+    return resolved_path.exists()
+
+
+def is_relative_project_path(path_value: str, project_dir: Path) -> bool:
+    if not path_value:
+        return False
+    candidate = Path(path_value)
+    if candidate.is_absolute():
+        return False
+    resolved_path = (project_dir / candidate).resolve()
+    try:
+        resolved_path.relative_to(project_dir.resolve())
+    except ValueError:
+        return False
+    return True
+
+
+def build_workspace_summary(workspaces: dict[str, list[WorkspaceProjectRecord]]) -> dict[str, int]:
+    bound = sum(1 for kind in WORKSPACE_KINDS for project in workspaces[kind] if project.state == "bound")
+    unbound = sum(1 for kind in WORKSPACE_KINDS for project in workspaces[kind] if project.state == "unbound")
+    invalid = sum(1 for kind in WORKSPACE_KINDS for project in workspaces[kind] if project.state == "invalid")
+    total = sum(len(workspaces[kind]) for kind in WORKSPACE_KINDS)
+    return {"bound": bound, "unbound": unbound, "invalid": invalid, "total": total}
 
 
 def validate_body(
@@ -1224,8 +1934,53 @@ def run_resolve_loadout(as_json: bool) -> int:
     return exit_code
 
 
+def run_resolve_workspaces(as_json: bool) -> int:
+    findings: list[Finding] = []
+    resolve_result = prepare_loadout_context(findings)
+    workspace_result = resolve_workspace_contracts(resolve_result)
+    findings.extend(workspace_result.findings)
+    validation = summarize_findings(findings)
+    warnings, errors = split_findings(findings)
+    exit_code = 1 if validation["fail"] else 0
+
+    if as_json:
+        print(
+            json.dumps(
+                {
+                    "command": "resolve-workspaces",
+                    **workspace_result.as_dict(),
+                    "warnings": [finding.as_dict() for finding in warnings],
+                    "errors": [finding.as_dict() for finding in errors],
+                    "validation": validation,
+                },
+                ensure_ascii=False,
+                indent=2,
+            )
+        )
+        return exit_code
+
+    for finding in findings:
+        if finding.level in ("WARN", "FAIL"):
+            print(f"{finding.level} {finding.message}")
+    for workspace_kind in WORKSPACE_KINDS:
+        for project in workspace_result.workspaces[workspace_kind]:
+            print(f"{project.state.upper()} {project.project_path}")
+    print(
+        f"{validation['result']} resolve-workspaces validation: "
+        f"{validation['pass']} pass, {validation['warn']} warn, {validation['fail']} fail"
+    )
+    print(
+        "  workspace summary: "
+        f"total {workspace_result.summary['total']}, "
+        f"bound {workspace_result.summary['bound']}, "
+        f"unbound {workspace_result.summary['unbound']}, "
+        f"invalid {workspace_result.summary['invalid']}"
+    )
+    return exit_code
+
+
 def run_validate(as_json: bool) -> int:
-    findings, resolve_result = validate_repo()
+    findings, resolve_result, workspace_result = validate_repo()
     summary = summarize_findings(findings)
     warnings, errors = split_findings(findings)
     exit_code = 1 if summary["fail"] else 0
@@ -1240,6 +1995,7 @@ def run_validate(as_json: bool) -> int:
         }
         if resolve_result is not None:
             payload["resolve_loadout"] = build_resolve_payload(resolve_result)
+        payload["resolve_workspaces"] = workspace_result.as_dict()
         print(json.dumps(payload, ensure_ascii=False, indent=2))
     else:
         for finding in findings:
@@ -1248,13 +2004,20 @@ def run_validate(as_json: bool) -> int:
             f"{summary['result']} validation summary: "
             f"{summary['pass']} pass, {summary['warn']} warn, {summary['fail']} fail"
         )
+        print(
+            "  workspace summary: "
+            f"total {workspace_result.summary['total']}, "
+            f"bound {workspace_result.summary['bound']}, "
+            f"unbound {workspace_result.summary['unbound']}, "
+            f"invalid {workspace_result.summary['invalid']}"
+        )
 
     return exit_code
 
 
 def build_parser() -> argparse.ArgumentParser:
     parser = argparse.ArgumentParser(
-        description="Soulforge body sync and class loadout resolve/validate local CLI."
+        description="Soulforge body sync and class/workspace resolve/validate local CLI."
     )
     subparsers = parser.add_subparsers(dest="command", required=True)
 
@@ -1278,8 +2041,17 @@ def build_parser() -> argparse.ArgumentParser:
         "--json", action="store_true", help="Print machine-readable JSON output."
     )
 
+    resolve_workspaces_parser = subparsers.add_parser(
+        "resolve-workspaces",
+        help="Resolve workspace project contracts from _workspaces and classify bound/unbound/invalid states.",
+    )
+    resolve_workspaces_parser.add_argument(
+        "--json", action="store_true", help="Print machine-readable JSON output."
+    )
+
     validate_parser = subparsers.add_parser(
-        "validate", help="Validate body/class/loadout metadata, body_state consistency, and loadout resolve."
+        "validate",
+        help="Validate body/class/loadout metadata, body_state consistency, loadout resolve, and workspace project contracts.",
     )
     validate_parser.add_argument(
         "--json", action="store_true", help="Print machine-readable JSON output."
@@ -1297,6 +2069,8 @@ def main(argv: list[str] | None = None) -> int:
             return sync_body_state(check=args.check, as_json=args.json)
         if args.command == "resolve-loadout":
             return run_resolve_loadout(as_json=args.json)
+        if args.command == "resolve-workspaces":
+            return run_resolve_workspaces(as_json=args.json)
         if args.command == "validate":
             return run_validate(as_json=args.json)
     except (FileNotFoundError, YamlParseError) as error:

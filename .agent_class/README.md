@@ -29,3 +29,4 @@
 - Draft
 - 클래스 계층 경계는 정의되었다.
 - installed library 는 `module.yaml` manifest 기준으로 해석하고, loadout 는 module id 기준으로 장착한다.
+- local CLI 는 workspace `.project_agent` 계약도 스캔해 `bound`, `unbound`, `invalid` 상태를 분류한다.

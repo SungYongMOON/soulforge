@@ -27,3 +27,4 @@
 - Stable
 - class owner 문서의 기본 위치다.
 - architecture 에 module reference contract 정본을 포함한다.
+- plans 는 root workspace 계약을 구현하기 위한 class 측 작업 계획도 함께 관리한다.

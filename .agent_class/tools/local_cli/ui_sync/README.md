@@ -3,14 +3,15 @@
 ## 목적
 
 - `ui_sync/` 는 Soulforge 메타 동기화와 구조 검증을 위한 최소 로컬 CLI 도구를 둔다.
-- 이번 차수에서는 UI renderer 가 아니라 `body_state.yaml` 재생성과 class installed/loadout 의 Scan/Resolve/Validate 흐름까지 책임진다.
+- 이번 차수에서는 UI renderer 가 아니라 `body_state.yaml` 재생성, class installed/loadout resolve, workspace `.project_agent` resolve/validate 흐름까지 책임진다.
 
 ## 현재 포함 도구
 
 - `ui_sync.py`
 - `sync-body-state` = `.agent/body.yaml` 과 실제 `.agent/` 구조를 기준으로 `.agent/body_state.yaml` 을 결정론적으로 재생성한다.
 - `resolve-loadout` = class installed module manifest catalog 를 만들고 `loadout.yaml` 의 equipped module id 를 resolve 한다.
-- `validate` = body, class, loadout 메타와 resolve 결과의 정합성을 검사한다.
+- `resolve-workspaces` = `_workspaces/company|personal` 를 스캔해 프로젝트를 `bound`, `unbound`, `invalid` 로 분류한다.
+- `validate` = body, class, loadout 메타와 resolve 결과, workspace project contract 정합성을 검사한다.
 
 ## 실행 예시
 
@@ -19,6 +20,8 @@ python .agent_class/tools/local_cli/ui_sync/ui_sync.py sync-body-state
 python .agent_class/tools/local_cli/ui_sync/ui_sync.py sync-body-state --check
 python .agent_class/tools/local_cli/ui_sync/ui_sync.py resolve-loadout
 python .agent_class/tools/local_cli/ui_sync/ui_sync.py resolve-loadout --json
+python .agent_class/tools/local_cli/ui_sync/ui_sync.py resolve-workspaces
+python .agent_class/tools/local_cli/ui_sync/ui_sync.py resolve-workspaces --json
 python .agent_class/tools/local_cli/ui_sync/ui_sync.py validate
 python .agent_class/tools/local_cli/ui_sync/ui_sync.py validate --json
 ```
@@ -29,7 +32,11 @@ python .agent_class/tools/local_cli/ui_sync/ui_sync.py validate --json
 - `class.yaml.modules.*` 경로를 기준으로 installed module manifest catalog 를 구성한다.
 - `loadout.equipped.*` 를 module id 기준으로 resolve 한다.
 - `equipped.workflows` 에 포함된 workflow 의 `requires.skills/tools/knowledge` 를 installed catalog 기준으로 resolve 한다.
+- `_workspaces/company|personal` 아래 직접 하위 프로젝트 폴더를 스캔한다.
+- `.project_agent/` 가 없으면 `unbound`, 최소 파일 세트와 핵심 참조가 resolve 되면 `bound`, 계약이 깨지면 `invalid` 로 분류한다.
+- `.project_agent/contract.yaml`, `capsule_bindings.yaml`, `workflow_bindings.yaml`, `local_state_map.yaml` 의 최소 구조와 resolve 규칙을 검사한다.
 - validate 는 duplicate id, path-like equipped ref, kind mismatch, tool family/path mismatch, unknown equipped id, equipped workflow dependency unresolved 를 FAIL 로 본다.
+- validate 는 `invalid` workspace project 를 FAIL 로 보고, `unbound` 는 상태 분류 결과로 허용한다.
 - 실제 설치 모듈이 없으면 빈 catalog 로 통과한다.
 
 ## JSON 출력 최소 구조
@@ -43,9 +50,15 @@ python .agent_class/tools/local_cli/ui_sync/ui_sync.py validate --json
 - `equipped.workflows`
 - `equipped.knowledge`
 - `workflow_dependencies`
+- `workspaces.company.projects`
+- `workspaces.personal.projects`
+- `summary.bound`
+- `summary.unbound`
+- `summary.invalid`
+- `summary.total`
 - `warnings`
 - `errors`
-- `summary`
+- `validation`
 
 ## YAML 지원 범위
 
@@ -54,13 +67,14 @@ python .agent_class/tools/local_cli/ui_sync/ui_sync.py validate --json
 - 작은따옴표/큰따옴표 문자열
 - 빈 collection 표기 `[]`, `{}`
 - 단순 scalar inline list `[a, b]`
+- list item inline mapping (`- key: value`) 과 그 하위 mapping
 - 위 범위를 벗어나는 복잡한 YAML 기능은 지원하지 않는다.
 
 ## 제외 범위
 
 - 웹 UI, TUI, renderer, runtime 구현
 - host-local 상태, 캐시, 실행 중 임시 상태
-- workspace `.project_agent` resolve
+- workspace renderer 입력 스키마와 derive state 생성
 - path-based fallback 이나 자동 normalize
 
 ## 관련 경로

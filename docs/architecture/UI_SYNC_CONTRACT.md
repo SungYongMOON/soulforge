@@ -39,16 +39,18 @@ flowchart LR
 - `Derive` = 화면용 상태를 계산한다.
 - `Render` = 계산된 상태로 UI를 출력한다.
 
-## 1차와 2차 local CLI 범위
+## 1차, 2차, 3차 local CLI 범위
 
 - 1차에서는 `sync-body-state` 와 body/class/loadout 최소 구조 검증만 구현했다.
 - 2차에서는 class installed/loadout 에 대해 `Resolve` + `Validate` 를 실제 구현한다.
+- 3차에서는 workspace `.project_agent` 에 대해 `resolve-workspaces` 와 workspace 통합 `validate` 를 구현한다.
 - `sync-body-state` 는 `.agent/body.yaml` 과 실제 `.agent/` 구조를 스캔해 `.agent/body_state.yaml` 을 재생성한다.
 - `resolve-loadout` 는 `.agent_class/class.yaml` 의 `modules.*` 와 installed `module.yaml` manifest 를 스캔해 catalog 를 구성하고 `loadout.yaml` 의 equipped module id 를 resolve 한다.
-- `validate` 는 body 메타 정합성, `body_state.yaml` 정합성, class/loadout 구조, class installed/loadout resolve 결과를 함께 검사한다.
+- `resolve-workspaces` 는 `_workspaces/company|personal` 아래 프로젝트 폴더를 스캔하고 `.project_agent` 4파일을 resolve 해 `bound`, `unbound`, `invalid` 상태를 분류한다.
+- `validate` 는 body 메타 정합성, `body_state.yaml` 정합성, class/loadout 구조, class installed/loadout resolve 결과, workspace project contract resolve 결과를 함께 검사한다.
 - equipped workflow 의 `requires.skills/tools/knowledge` 는 installed 여부 기준으로 먼저 resolve 한다.
 - `Derive` 와 `Render` 단계는 이후 차수로 미룬다.
-- workspace binding resolve 와 `.project_agent` resolve 는 이후 차수다.
+- workspace renderer 입력 스키마와 derive state 생성은 이후 차수다.
 
 ## 동기화 트리거
 
@@ -66,8 +68,11 @@ flowchart LR
 4. class installed/loadout 에서 아래는 FAIL 이다: contract 경로 위반 manifest, duplicate id, path-like equipped reference.
 5. class installed/loadout 에서 아래는 FAIL 이다: kind mismatch, tool family mismatch, path-family mismatch, unknown equipped id.
 6. equipped workflow dependency 는 installed catalog 기준으로 resolve 하고, unknown dependency id 는 FAIL 이다.
-7. workspace binding resolve 와 workflow binding 의 project 측 resolve 는 이후 차수다.
-8. dangling reference 가 하나라도 있으면 UI patch 와 파생 상태 갱신을 진행하지 않는다.
+7. `.project_agent` resolve 는 `PROJECT_AGENT_RESOLVE_CONTRACT.md` 의 상태 분류와 파일별 규칙을 따른다.
+8. `unbound` 프로젝트는 FAIL 이 아니라 상태 분류 결과다.
+9. `invalid` 프로젝트는 FAIL 이다.
+10. workspace binding resolve 는 project 계약 수준까지만 다루고 renderer/derive 는 이후 차수로 미룬다.
+11. dangling reference 가 하나라도 있으면 UI patch 와 파생 상태 갱신을 진행하지 않는다.
 
 ## 커밋 규칙
 
