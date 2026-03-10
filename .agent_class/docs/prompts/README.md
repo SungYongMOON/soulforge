@@ -1,23 +1,27 @@
-# prompts 운영 규칙
+# .agent_class/docs/prompts
 
 ## 목적
 
-`prompts/` 는 class 개발과 문서 패치에 반복해서 사용할 프롬프트 자산을 저장한다.
+- `prompts/` 는 class 개발과 문서 패치에 반복해서 사용할 프롬프트 자산을 둔다.
+- 재사용 가능한 클래스 계층 프롬프트만 모은다.
 
-## 파일명 규칙
+## 포함 대상
 
-- `PROMPT_<topic>.md`
+- 재사용 프롬프트 자산
+- `PROMPT_<topic>.md` 형식의 프롬프트 파일
+- class 개발, 문서 패치, 정리 작업용 프롬프트
 
-## 저장 대상
+## 제외 대상
 
-- 새 class bootstrap 프롬프트
-- class 문서 패치 프롬프트
-- loadout 정리 프롬프트
-- skill 메타 정리 프롬프트
-- docs 감리 프롬프트
+- 실행 로그와 수행 계획
+- 프로젝트 전용 프롬프트와 로컬 상태 메모
 
-## 사용 규칙
+## 관련 경로
 
-1. 스케줄이나 실행 로그는 프롬프트 파일에 넣지 않는다.
-2. project 전용 프롬프트는 project 의 `.project_agent/` 아래에서 관리한다.
-3. 재사용 범위가 class 계층 이상일 때만 이 폴더에 저장한다.
+- [`.agent_class/docs/README.md`](../README.md)
+- [`.agent_class/docs/devlog/README.md`](../devlog/README.md)
+
+## 상태
+
+- Stable
+- 재사용 범위가 class 계층 이상일 때만 이 폴더에 저장한다.

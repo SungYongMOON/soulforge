@@ -1,0 +1,28 @@
+# docs
+
+## 목적
+
+- `docs/` 는 저장소 공용 문서를 둔다.
+- 특정 owner 전용 문서가 아니라 저장소 전체 구조와 운영 원칙을 안내한다.
+
+## 포함 대상
+
+- 저장소 전체 관점의 설명 문서
+- `architecture/` 아래의 구조 원칙, 목표 트리, 소유 규칙
+
+## 제외 대상
+
+- `.agent` 전용 문서
+- `.agent_class` 전용 문서
+- 특정 프로젝트 전용 문서와 로그
+
+## 관련 경로
+
+- [루트 README](../README.md)
+- [`docs/architecture/README.md`](architecture/README.md)
+- [`docs/architecture/DOCUMENT_OWNERSHIP.md`](architecture/DOCUMENT_OWNERSHIP.md)
+
+## 상태
+
+- Stable
+- root owner 문서만 유지한다.

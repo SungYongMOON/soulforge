@@ -62,6 +62,12 @@ flowchart TD
 └── README.md
 ```
 
+## README 운영 규칙
+
+- 루트 `README.md` 는 저장소 전체 진입문과 상위 지도만 둔다.
+- 주요 디렉터리는 각 경로 바로 아래 `README.md` 를 정본 설명으로 둔다.
+- 이 문서는 목표 트리와 책임 경계만 요약한다. 폴더별 상세 운영은 로컬 `README.md` 를 따른다.
+
 ## 폴더별 책임
 
 | 경로 | 책임 |
@@ -101,4 +107,4 @@ flowchart TD
 | `_workspaces/personal/` | 개인 프로젝트 |
 | `docs/architecture/` | 저장소 전체 구조 문서 |
 | `docs/architecture/DOCUMENT_OWNERSHIP.md` | 문서 소유권 기준 |
-| `README.md` | 저장소 진입 문서 |
+| `README.md` | 저장소 전체 개요와 상위 지도 |

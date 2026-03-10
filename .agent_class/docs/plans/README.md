@@ -1,0 +1,26 @@
+# .agent_class/docs/plans
+
+## 목적
+
+- `plans/` 는 class 계층 작업의 수행 전 계획을 둔다.
+- 실제 수행 로그와 분리해서 변경 의도와 작업 범위를 관리한다.
+
+## 포함 대상
+
+- 작업 계획 문서
+- relocation 계획과 수정 계획
+
+## 제외 대상
+
+- 수행 후 결과 로그
+- 저장소 전체 원칙 문서와 프로젝트 전용 계획
+
+## 관련 경로
+
+- [`.agent_class/docs/README.md`](../README.md)
+- [`.agent_class/docs/devlog/README.md`](../devlog/README.md)
+
+## 상태
+
+- Stable
+- 현재 파일명은 `YYYY-MM-DD_<topic>_plan.md` 형식을 우선 사용한다.
