@@ -22,6 +22,10 @@
 .agent_class/
 ├── _local/
 ├── docs/
+│   ├── architecture/
+│   ├── devlog/
+│   ├── plans/
+│   └── prompts/
 ├── knowledge/
 ├── skills/
 ├── tools/
@@ -41,6 +45,17 @@
 - `workflows/` 는 운용 절차를 둔다
 - `knowledge/` 는 설치형 지식 팩을 둔다
 - `_local/` 은 비추적 로컬 전용 상태를 둔다
+
+## 메타 파일
+
+- `class.yaml` 은 설치된 class 의 정적 정의를 둔다
+- `loadout.yaml` 은 현재 활성 장착 상태를 둔다
+- 세부 필드 정의는 `.agent_class/docs/architecture/CLASS_METADATA_CONTRACT.md` 를 기준으로 관리한다
+
+## class 문서 소유
+
+- class 구조 설명, 메타 규약, 운영 계획, 작업 로그, 재사용 프롬프트는 `.agent_class/docs/` 아래에 둔다
+- 이 문서는 저장소 루트 관점의 요약 문서이며, 상세 class 문서는 단계적으로 `.agent_class/docs/architecture/` 로 정리한다
 
 ## 설계 규칙
 

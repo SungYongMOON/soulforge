@@ -17,6 +17,10 @@
 ├── .agent_class/
 │   ├── _local/
 │   ├── docs/
+│   │   ├── architecture/
+│   │   ├── devlog/
+│   │   ├── plans/
+│   │   └── prompts/
 │   ├── knowledge/
 │   ├── skills/
 │   ├── tools/
@@ -59,9 +63,13 @@
 | `.agent_class/workflows/` | 운용 절차 |
 | `.agent_class/knowledge/` | 설치형 지식 팩 |
 | `.agent_class/docs/` | 직업 내부 문서 |
+| `.agent_class/docs/architecture/` | class 구조와 메타 규약 |
+| `.agent_class/docs/plans/` | class 변경 계획 |
+| `.agent_class/docs/devlog/` | class 작업 로그 |
+| `.agent_class/docs/prompts/` | class 재사용 프롬프트 |
 | `.agent_class/_local/` | 비추적 로컬 전용 상태 |
 | `_workspaces/` | 실제 프로젝트 운영 현장 |
 | `_workspaces/company/` | 회사 프로젝트 |
 | `_workspaces/personal/` | 개인 프로젝트 |
-| `docs/architecture/` | 구조 설계 문서의 정본 |
+| `docs/architecture/` | 저장소 전체 구조 문서 |
 | `README.md` | 저장소 진입 문서 |

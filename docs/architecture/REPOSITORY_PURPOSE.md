@@ -11,6 +11,7 @@ Soulforge는 에이전트 구조를 `.agent(에이전트 본체)`, `.agent_class
 - 새 기준 저장소 구조를 문서로 정의한다
 - 본체 계층과 직업 계층의 책임 경계를 정리한다
 - 실제 프로젝트 현장과 연결 규약의 위치를 정리한다
+- 문서 소유 원칙을 정리한다
 - 설치와 로드아웃 개념을 분리해 설명한다
 - 향후 구현과 UI가 붙을 수 있도록 최소 메타 구조를 준비한다
 
@@ -27,12 +28,15 @@ Soulforge는 에이전트 구조를 `.agent(에이전트 본체)`, `.agent_class
 - `.agent_class(직업 계층)` 는 직업이다
 - `_workspaces(실제 프로젝트 현장)` 는 실제 프로젝트의 운영 공간이다
 - `.project_agent(프로젝트 연결 규약)` 는 각 프로젝트 안에 둔다
+- 루트 `docs/` 는 저장소 전체 설명만 둔다
 - `memory(장기 기억)` 와 `knowledge(설치형 지식 팩)` 는 서로 다르다
 
 ## 자주 찾는 파일
 
 - `README.md`
 - `AGENTS.md`
+- `docs/architecture/AGENT_WORLD_MODEL.md`
+- `docs/architecture/PROJECT_AGENT_MINIMUM_SCHEMA.md`
 - `docs/architecture/TARGET_TREE.md`
 - `docs/architecture/CURRENT_DECISIONS.md`
 - `.agent_class/class.yaml`

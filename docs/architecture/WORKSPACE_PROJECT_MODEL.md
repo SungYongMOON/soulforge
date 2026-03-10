@@ -16,14 +16,17 @@ _workspaces/
 
 각 프로젝트 폴더에는 `.project_agent(프로젝트 연결 규약)` 디렉터리가 포함될 수 있다.
 
-이 디렉터리에는 예를 들어 다음 파일이 들어간다.
+최소 파일 세트는 아래 네 개를 기준으로 한다.
 
 - `contract.yaml`
 - `capsule_bindings.yaml`
 - `workflow_bindings.yaml`
 - `local_state_map.yaml`
 
+세부 역할과 최소 필드는 `docs/architecture/PROJECT_AGENT_MINIMUM_SCHEMA.md` 를 기준으로 본다.
+
 ## 설계 규칙
 
 프로젝트 파일은 프로젝트 현장 안에 남아 있어야 한다.
 본체와 클래스 계층은 워크스페이스를 참조해야 하며, 이를 흡수해서는 안 된다.
+프로젝트 전용 계획과 로그는 각 프로젝트의 `.project_agent/` 아래에서 소유한다.
