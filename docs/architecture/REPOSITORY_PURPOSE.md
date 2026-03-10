@@ -26,6 +26,7 @@ flowchart TD
 - body 정의와 body 상태 스냅샷을 분리해 설명한다
 - 설치와 로드아웃 개념을 분리해 설명한다
 - UI source map 과 UI sync contract 를 먼저 고정한다
+- class installed/loadout resolve 가 module reference contract 위에 올라가도록 기준을 닫는다
 - 향후 구현과 UI가 붙을 수 있도록 최소 메타 구조를 준비한다
 
 ## 이 저장소가 지금 하지 않는 일
@@ -60,6 +61,7 @@ flowchart TD
 - `.agent/body_state.yaml`
 - `.agent_class/docs/architecture/AGENT_CLASS_MODEL.md`
 - `.agent_class/docs/architecture/INSTALLATION_AND_LOADOUT_CONCEPT.md`
+- `.agent_class/docs/architecture/MODULE_REFERENCE_CONTRACT.md`
 - `.agent_class/class.yaml`
 - `.agent_class/loadout.yaml`
 - `docs/architecture/UI_SOURCE_MAP.md`

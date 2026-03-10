@@ -8,6 +8,7 @@ flowchart TD
   D --> O["문서 소유<br/>root docs / body docs / class docs"]
   D --> M["분리 기준<br/>memory / knowledge / skills / tools / workflows"]
   D --> B["body 메타<br/>body.yaml / body_state.yaml"]
+  D --> C2["class loadout 참조<br/>module id / module.yaml"]
   D --> U["UI 파생 규칙<br/>source map / sync contract"]
   D --> P["프로젝트별 상태는 프로젝트 폴더 내부 유지"]
   D --> L[".agent_class/_local/<br/>로컬 전용 데이터"]
@@ -23,6 +24,9 @@ flowchart TD
 - 워크플로우는 운영 규범으로 취급한다.
 - `.agent` 는 `body.yaml` 과 `body_state.yaml` 의 2파일 메타 체계를 사용한다.
 - `body_state.yaml` 은 저장소 추적 대상이지만 재생성 가능한 파생 상태 파일로 본다.
+- `.agent_class/loadout.yaml` 의 `equipped.*` 는 path 가 아니라 module id 목록이다.
+- `.agent_class` 의 installed module 은 `module.yaml` manifest 기준으로만 인정한다.
+- 2차에서는 class installed/loadout resolve 규칙을 `MODULE_REFERENCE_CONTRACT.md` 와 local CLI 로 닫는다.
 - UI는 정본이 아니라 메타와 구조에서 파생되는 결과다.
 - UI source map 과 UI sync contract 를 루트 문서 세트에 포함한다.
 - 프로젝트별 상태는 프로젝트 폴더 내부에 유지한다.

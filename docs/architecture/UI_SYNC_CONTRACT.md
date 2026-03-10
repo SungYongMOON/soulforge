@@ -19,6 +19,7 @@
 - `.agent/body_state.yaml`
 - `.agent_class/class.yaml`
 - `.agent_class/loadout.yaml`
+- `.agent_class/**/module.yaml`
 - `.agent_class/{skills,tools,workflows,knowledge}/`
 - `_workspaces/**/.project_agent/*.yaml`
 
@@ -38,13 +39,16 @@ flowchart LR
 - `Derive` = 화면용 상태를 계산한다.
 - `Render` = 계산된 상태로 UI를 출력한다.
 
-## 1차 local CLI 범위
+## 1차와 2차 local CLI 범위
 
-- 이번 차수의 실제 구현 범위는 `Scan` 과 `Validate` 중심이다.
+- 1차에서는 `sync-body-state` 와 body/class/loadout 최소 구조 검증만 구현했다.
+- 2차에서는 class installed/loadout 에 대해 `Resolve` + `Validate` 를 실제 구현한다.
 - `sync-body-state` 는 `.agent/body.yaml` 과 실제 `.agent/` 구조를 스캔해 `.agent/body_state.yaml` 을 재생성한다.
-- `validate` 는 body 메타 정합성, `body_state.yaml` 정합성, class/loadout 의 구조적 필드만 검사한다.
-- `Resolve`, `Derive`, `Render` 단계는 이후 차수로 미룬다.
-- `loadout.equipped.*` 엔트리가 비어 있지 않으면, 현재 차수에서는 resolve 를 시도하지 않고 `module reference contract not defined yet` 경고로 분류한다.
+- `resolve-loadout` 는 `.agent_class/class.yaml` 의 `modules.*` 와 installed `module.yaml` manifest 를 스캔해 catalog 를 구성하고 `loadout.yaml` 의 equipped module id 를 resolve 한다.
+- `validate` 는 body 메타 정합성, `body_state.yaml` 정합성, class/loadout 구조, class installed/loadout resolve 결과를 함께 검사한다.
+- equipped workflow 의 `requires.skills/tools/knowledge` 는 installed 여부 기준으로 먼저 resolve 한다.
+- `Derive` 와 `Render` 단계는 이후 차수로 미룬다.
+- workspace binding resolve 와 `.project_agent` resolve 는 이후 차수다.
 
 ## 동기화 트리거
 
@@ -56,11 +60,14 @@ flowchart LR
 
 ## 검증 규칙
 
-1. 최종 계약에서는 loadout 참조가 실제 모듈로 resolve 되어야 한다.
-2. 1차 local CLI 에서는 resolve 계약이 아직 없으므로 `equipped.*` 가 비어 있지 않은 경우 명시적 경고로 보고한다.
+1. loadout 참조는 실제 installed module manifest catalog 로 resolve 되어야 한다.
+2. non-empty `equipped.*` 를 blanket WARN 으로 넘기지 않는다.
 3. `body_state.yaml` 은 실제 `.agent/` 구조와 일치해야 한다.
-4. workflow binding 은 최종 계약에서 실제 workflow 와 entrypoint 로 resolve 되어야 한다.
-5. dangling reference 가 하나라도 있으면 UI patch 와 파생 상태 갱신을 진행하지 않는다.
+4. class installed/loadout 에서 아래는 FAIL 이다: contract 경로 위반 manifest, duplicate id, path-like equipped reference.
+5. class installed/loadout 에서 아래는 FAIL 이다: kind mismatch, tool family mismatch, path-family mismatch, unknown equipped id.
+6. equipped workflow dependency 는 installed catalog 기준으로 resolve 하고, unknown dependency id 는 FAIL 이다.
+7. workspace binding resolve 와 workflow binding 의 project 측 resolve 는 이후 차수다.
+8. dangling reference 가 하나라도 있으면 UI patch 와 파생 상태 갱신을 진행하지 않는다.
 
 ## 커밋 규칙
 

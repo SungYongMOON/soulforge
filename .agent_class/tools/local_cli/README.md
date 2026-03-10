@@ -9,7 +9,7 @@
 
 - 로컬 CLI 실행 래퍼
 - 명령 경로, 인자 규약, 실행 메타
-- `ui_sync/` = body 메타 동기화와 구조 검증을 수행하는 저장소 로컬 CLI
+- `ui_sync/` = body 메타 동기화와 class installed/loadout resolve/검증을 수행하는 저장소 로컬 CLI
 
 ## 제외 대상
 
@@ -28,4 +28,4 @@
 
 - Draft
 - 현재 지원 도구는 `ui_sync/` 이다.
-- `ui_sync.py` 는 `sync-body-state`, `validate` 두 명령으로 body 상태 재생성과 최소 검증을 수행한다.
+- `ui_sync.py` 는 `sync-body-state`, `resolve-loadout`, `validate` 세 명령으로 body 상태 재생성과 class resolve/검증을 수행한다.

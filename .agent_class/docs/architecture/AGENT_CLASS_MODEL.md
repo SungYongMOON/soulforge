@@ -63,11 +63,19 @@ flowchart TD
 
 ## 중요한 구분
 
-- `skills/` 는 설치된 행동 패턴을 둔다
-- `tools/` 는 외부 장비와 연결 계층을 둔다
-- `workflows/` 는 운용 절차를 둔다
-- `knowledge/` 는 설치형 지식 팩을 둔다
+- `skills/` 는 installed skill module manifest 기반 library 를 둔다
+- `tools/` 는 installed tool module manifest 기반 library 와 연결 계층을 둔다
+- `workflows/` 는 installed workflow module manifest 기반 library 를 둔다
+- `knowledge/` 는 installed knowledge module manifest 기반 library 를 둔다
 - `_local/` 은 기본적으로 비추적 로컬 전용 상태를 둔다
+
+## 설치된 module manifest 기준
+
+- class 의 installed library 는 디렉터리 이름만으로 확정하지 않는다.
+- installed module 로 인정하는 기준은 각 엔트리의 `module.yaml` manifest 존재 여부다.
+- `skills`, `tools`, `workflows`, `knowledge` 는 각각 설치된 module manifest 집합으로 해석한다.
+- `loadout.yaml` 은 위 installed library 안의 module id 를 장착 상태로 참조한다.
+- 세부 path/id/resolve 규칙은 `.agent_class/docs/architecture/MODULE_REFERENCE_CONTRACT.md` 를 따른다.
 
 ## tools/ 하위 역할
 
@@ -90,6 +98,7 @@ flowchart TD
 - `class.yaml` 은 설치된 class 의 정적 정의를 둔다
 - `loadout.yaml` 은 현재 활성 장착 상태를 둔다
 - 세부 필드 정의는 `.agent_class/docs/architecture/CLASS_METADATA_CONTRACT.md` 를 기준으로 관리한다
+- installed module manifest 와 loadout resolve 규칙은 `.agent_class/docs/architecture/MODULE_REFERENCE_CONTRACT.md` 를 기준으로 관리한다
 
 ## class 문서 소유
 

@@ -9,6 +9,7 @@
 
 - `architecture/`, `plans/`, `devlog/`, `prompts/`
 - 클래스 소유 설명 문서와 운영 기록
+- class 계약 변경 시 수행 계획과 완료 체크리스트
 
 ## 제외 대상
 
@@ -25,3 +26,4 @@
 
 - Stable
 - class owner 문서의 기본 위치다.
+- architecture 에 module reference contract 정본을 포함한다.

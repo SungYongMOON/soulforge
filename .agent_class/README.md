@@ -3,7 +3,7 @@
 ## 목적
 
 - `.agent_class/` 는 현재 환경에 설치된 직업 계층의 정본을 둔다.
-- 본체를 바꾸지 않고 어떤 역량과 장비를 장착했는지 관리한다.
+- 본체를 바꾸지 않고 어떤 installed module 이 있고 어떤 module id 를 장착했는지 관리한다.
 
 ## 포함 대상
 
@@ -21,9 +21,11 @@
 - [루트 README](../README.md)
 - [`.agent_class/docs/README.md`](docs/README.md)
 - [`.agent_class/docs/architecture/AGENT_CLASS_MODEL.md`](docs/architecture/AGENT_CLASS_MODEL.md)
+- [`.agent_class/docs/architecture/MODULE_REFERENCE_CONTRACT.md`](docs/architecture/MODULE_REFERENCE_CONTRACT.md)
 - [`.agent/README.md`](../.agent/README.md)
 
 ## 상태
 
 - Draft
-- 클래스 계층 경계는 정의되었다. 모듈별 세부 규약은 추후 정의 예정이다.
+- 클래스 계층 경계는 정의되었다.
+- installed library 는 `module.yaml` manifest 기준으로 해석하고, loadout 는 module id 기준으로 장착한다.

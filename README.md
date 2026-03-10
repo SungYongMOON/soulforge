@@ -33,7 +33,8 @@ flowchart TD
 
 - `.agent` 는 몸이다. `body.yaml` 과 `body_state.yaml` 으로 본체 메타를 관리하고 `memory` 는 여기에 둔다.
 - `.agent_class` 는 직업이다. `skills`, `tools`, `workflows`, `knowledge` 는 여기에 둔다.
-- `.agent_class` 는 `class.yaml` 과 `loadout.yaml` 으로 직업 메타를 관리한다.
+- `.agent_class` 는 `class.yaml`, `loadout.yaml`, 그리고 installed module `module.yaml` 로 직업 메타를 관리한다.
+- `.agent_class/loadout.yaml` 의 `equipped.*` 는 경로가 아니라 module id 목록이다.
 - `_workspaces` 는 실제 프로젝트 운영 현장이다. 프로젝트별 연결 규약은 각 프로젝트의 `.project_agent/` 에 둔다.
 - 루트 `docs/` 는 저장소 공용 구조 문서만 둔다.
 - UI는 위 정본 파일과 실제 구조에서 재생성되어야 한다.
@@ -46,6 +47,7 @@ flowchart TD
 - [`.agent/docs/architecture/AGENT_BODY_MODEL.md`](.agent/docs/architecture/AGENT_BODY_MODEL.md)
 - [`.agent/docs/architecture/BODY_METADATA_CONTRACT.md`](.agent/docs/architecture/BODY_METADATA_CONTRACT.md)
 - [`.agent_class/docs/architecture/AGENT_CLASS_MODEL.md`](.agent_class/docs/architecture/AGENT_CLASS_MODEL.md)
+- [`.agent_class/docs/architecture/MODULE_REFERENCE_CONTRACT.md`](.agent_class/docs/architecture/MODULE_REFERENCE_CONTRACT.md)
 - [`docs/architecture/WORKSPACE_PROJECT_MODEL.md`](docs/architecture/WORKSPACE_PROJECT_MODEL.md)
 - [`docs/architecture/PROJECT_AGENT_MINIMUM_SCHEMA.md`](docs/architecture/PROJECT_AGENT_MINIMUM_SCHEMA.md)
 - [`docs/architecture/UI_SOURCE_MAP.md`](docs/architecture/UI_SOURCE_MAP.md)
