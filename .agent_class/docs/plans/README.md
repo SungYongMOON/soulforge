@@ -26,4 +26,4 @@
 - Stable
 - 현재 파일명은 `YYYY-MM-DD_<topic>_plan.md` 형식을 우선 사용한다.
 - 계획 문서는 완료 후 실제 수행 결과에 맞게 체크 상태를 갱신한다.
-- 현재 계획 세트에는 class loadout resolve 확장, workspace project contract resolve 확장, UI derive state generator 단계가 포함된다.
+- 현재 계획 세트에는 class loadout resolve 확장, workspace project contract resolve 확장, UI derive state generator 단계, read-only UI prototype 단계가 포함된다.

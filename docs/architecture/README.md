@@ -12,6 +12,7 @@
 - 저장소 전체 결정 기록과 마이그레이션 참고 문서
 - UI source map 과 UI sync contract 같은 저장소 공용 파생 규약
 - `derive-ui-state` 와 derived state schema 같은 저장소 공용 UI 파생 계약
+- read-only renderer prototype 이 derived state 소비자로 머무는 경계 설명
 
 ## 제외 대상
 
@@ -33,5 +34,6 @@
 - 저장소 공용 아키텍처 문서의 정본 위치다.
 - 현재 공용 문서는 `REPOSITORY_PURPOSE.md`, `TARGET_TREE.md`, `DOCUMENT_OWNERSHIP.md`, `UI_SOURCE_MAP.md`, `UI_SYNC_CONTRACT.md` 등을 포함한다.
 - 현재 공용 문서는 `UI_DERIVED_STATE_CONTRACT.md` 를 포함해 renderer 이전 단계의 파생 상태 계약도 함께 관리한다.
+- 현재 공용 문서는 `UI_SYNC_CONTRACT.md` 를 통해 read-only renderer prototype 의 경계도 함께 관리한다.
 - 현재 공용 문서는 `PROJECT_AGENT_RESOLVE_CONTRACT.md` 를 포함해 workspace 공통 resolve 계약도 함께 관리한다.
 - class installed/loadout 세부 계약은 class owner 문서 `MODULE_REFERENCE_CONTRACT.md` 를 참조한다.

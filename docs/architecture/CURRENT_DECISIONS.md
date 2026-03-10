@@ -33,6 +33,7 @@ flowchart TD
 - `unbound` 프로젝트는 허용하고, `invalid` 프로젝트만 FAIL 로 본다.
 - UI는 정본이 아니라 메타와 구조에서 파생되는 결과다.
 - 4차에서는 `derive-ui-state` 와 `UI_DERIVED_STATE_CONTRACT.md` 로 `Derive` 단계를 실제 구현한다.
+- 5차에서는 `.agent_class/tools/local_cli/ui_viewer/ui_viewer.py` 로 `Render` 단계를 read-only prototype 으로 도입한다.
 - renderer 는 정본 파일 직접 소비자가 아니라 derived state 소비자로 본다.
 - derived state top-level 구조는 `ui`, `overview`, `body`, `class`, `workspaces`, `diagnostics` 로 고정한다.
 - UI source map 과 UI sync contract 를 루트 문서 세트에 포함한다.

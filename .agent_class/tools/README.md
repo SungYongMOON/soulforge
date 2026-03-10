@@ -14,6 +14,7 @@
 - `local_cli/` = 로컬 CLI 실행 래퍼
 - `mcp/` = MCP 서버 바인딩
 - 현재 `local_cli/ui_sync/` 는 body 메타 동기화, class installed/loadout resolve, workspace `.project_agent` resolve/검증, UI derived state 생성을 위한 최소 CLI 를 제공한다.
+- 현재 `local_cli/ui_viewer/` 는 `derive-ui-state --json` 을 읽는 read-only renderer prototype 을 제공한다.
 
 ## 제외 대상
 
@@ -34,3 +35,4 @@
 - Draft
 - 도구 계층의 하위 분리는 고정한다.
 - `local_cli/ui_sync/` 는 `sync-body-state`, `resolve-loadout`, `resolve-workspaces`, `derive-ui-state`, `validate` 다섯 명령으로 정본 메타 Scan/Resolve/Validate/Derive 를 수행한다.
+- `local_cli/ui_viewer/` 는 `Render` 단계를 read-only prototype 으로 시작하며, 정본 파일 직접 읽기 없이 derived state 소비자로만 동작한다.

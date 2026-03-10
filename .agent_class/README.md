@@ -31,3 +31,4 @@
 - installed library 는 `module.yaml` manifest 기준으로 해석하고, loadout 는 module id 기준으로 장착한다.
 - local CLI 는 workspace `.project_agent` 계약도 스캔해 `bound`, `unbound`, `invalid` 상태를 분류한다.
 - local CLI 는 body/class/workspace resolve 결과를 renderer 입력용 derived state 로도 조합한다.
+- local CLI 는 `.agent_class/tools/local_cli/ui_viewer/` 에서 derived state 소비자 역할의 read-only UI prototype 도 제공한다.

@@ -39,12 +39,13 @@ flowchart LR
 - `Derive` = 화면용 상태를 계산한다.
 - `Render` = 계산된 상태로 UI를 출력한다.
 
-## 1차, 2차, 3차, 4차 local CLI 범위
+## 1차, 2차, 3차, 4차, 5차 구현 범위
 
 - 1차에서는 `sync-body-state` 와 body/class/loadout 최소 구조 검증만 구현했다.
 - 2차에서는 class installed/loadout 에 대해 `Resolve` + `Validate` 를 실제 구현한다.
 - 3차에서는 workspace `.project_agent` 에 대해 `resolve-workspaces` 와 workspace 통합 `validate` 를 구현한다.
 - 4차에서는 `derive-ui-state` 로 `Derive` 단계를 실제 구현한다.
+- 5차에서는 `.agent_class/tools/local_cli/ui_viewer/ui_viewer.py` 로 `Render` 단계의 read-only prototype 을 구현한다.
 - `sync-body-state` 는 `.agent/body.yaml` 과 실제 `.agent/` 구조를 스캔해 `.agent/body_state.yaml` 을 재생성한다.
 - `resolve-loadout` 는 `.agent_class/class.yaml` 의 `modules.*` 와 installed `module.yaml` manifest 를 스캔해 catalog 를 구성하고 `loadout.yaml` 의 equipped module id 를 resolve 한다.
 - `resolve-workspaces` 는 `_workspaces/company|personal` 아래 프로젝트 폴더를 스캔하고 `.project_agent` 4파일을 resolve 해 `bound`, `unbound`, `invalid` 상태를 분류한다.
@@ -52,7 +53,7 @@ flowchart LR
 - equipped workflow 의 `requires.skills/tools/knowledge` 는 installed 여부 기준으로 먼저 resolve 한다.
 - `derive-ui-state` 는 body/class/workspace resolve 결과를 `overview`, `body`, `class`, `workspaces`, `diagnostics` 구조로 합친다.
 - `derive-ui-state` 는 text/json 출력을 지원하지만 기본적으로 저장소 파일을 새로 쓰지 않는다.
-- `Render` 단계는 여전히 후속 차수다.
+- `ui_viewer.py` 는 `derive-ui-state --json` 만 읽고 4탭 UI 와 diagnostics 패널을 read-only 로 렌더링한다.
 
 ## 동기화 트리거
 
@@ -99,3 +100,4 @@ flowchart LR
 - 내부 섹션명은 실제 구조명에 맞춰 영어를 유지한다.
 - workflow 는 `연계기 카드` 표현을 우선한다.
 - renderer 는 정본 파일 직접 읽기보다 derived state 소비자를 우선한다.
+- 첫 renderer 는 편집 기능 없는 로컬 read-only prototype 으로 시작한다.
