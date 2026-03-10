@@ -23,7 +23,9 @@ flowchart TD
 - 본체 계층과 직업 계층의 책임 경계를 정리한다
 - 실제 프로젝트 현장과 연결 규약의 위치를 정리한다
 - 문서 소유 원칙을 정리한다
+- body 정의와 body 상태 스냅샷을 분리해 설명한다
 - 설치와 로드아웃 개념을 분리해 설명한다
+- UI source map 과 UI sync contract 를 먼저 고정한다
 - 향후 구현과 UI가 붙을 수 있도록 최소 메타 구조를 준비한다
 
 ## 이 저장소가 지금 하지 않는 일
@@ -41,6 +43,7 @@ flowchart TD
 - `.project_agent(프로젝트 연결 규약)` 는 각 프로젝트 안에 둔다
 - 루트 `docs/` 는 저장소 전체 설명만 둔다
 - `memory(장기 기억)` 와 `knowledge(설치형 지식 팩)` 는 서로 다르다
+- UI는 정본이 아니라 메타와 구조에서 파생되는 결과다
 
 ## 자주 찾는 파일
 
@@ -52,10 +55,15 @@ flowchart TD
 - `docs/architecture/TARGET_TREE.md`
 - `docs/architecture/CURRENT_DECISIONS.md`
 - `.agent/docs/architecture/AGENT_BODY_MODEL.md`
+- `.agent/docs/architecture/BODY_METADATA_CONTRACT.md`
+- `.agent/body.yaml`
+- `.agent/body_state.yaml`
 - `.agent_class/docs/architecture/AGENT_CLASS_MODEL.md`
 - `.agent_class/docs/architecture/INSTALLATION_AND_LOADOUT_CONCEPT.md`
 - `.agent_class/class.yaml`
 - `.agent_class/loadout.yaml`
+- `docs/architecture/UI_SOURCE_MAP.md`
+- `docs/architecture/UI_SYNC_CONTRACT.md`
 
 ## 이식 관점
 

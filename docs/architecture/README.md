@@ -10,6 +10,7 @@
 - 목표 트리, 문서 소유 원칙, 저장소 목적
 - 워크스페이스와 `.project_agent` 같은 저장소 공용 구조 규약
 - 저장소 전체 결정 기록과 마이그레이션 참고 문서
+- UI source map 과 UI sync contract 같은 저장소 공용 파생 규약
 
 ## 제외 대상
 
@@ -28,3 +29,4 @@
 
 - Stable
 - 저장소 공용 아키텍처 문서의 정본 위치다.
+- 현재 공용 문서는 `REPOSITORY_PURPOSE.md`, `TARGET_TREE.md`, `DOCUMENT_OWNERSHIP.md`, `UI_SOURCE_MAP.md`, `UI_SYNC_CONTRACT.md` 등을 포함한다.

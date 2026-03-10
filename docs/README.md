@@ -9,6 +9,7 @@
 
 - 저장소 전체 관점의 설명 문서
 - `architecture/` 아래의 구조 원칙, 목표 트리, 소유 규칙
+- UI source map 과 UI sync contract 같은 저장소 공용 파생 규칙
 
 ## 제외 대상
 

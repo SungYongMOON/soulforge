@@ -67,6 +67,18 @@ flowchart TD
 - 실제 로컬 상태는 기본적으로 추적하지 않는다.
 - 구조 설명과 ignore 정책 고정을 위해 `README.md` 와 `.gitignore` 만 예외적으로 추적한다.
 
+### 2.7 body 메타를 분리한다
+
+- `.agent/body.yaml` 은 body 정적 정의다.
+- `.agent/body_state.yaml` 은 구조와 메타에서 재생성 가능한 현재 상태 스냅샷이다.
+- body 메타는 `.agent` 소유로 유지한다.
+
+### 2.8 UI는 정본이 아니라 파생물이다
+
+- UI는 `.agent`, `.agent_class`, `_workspaces` 의 정본 파일과 실제 구조에서 파생한다.
+- UI 표현은 정본을 대체하지 않는다.
+- 정본 변경 시 관련 메타와 동기화 규칙을 같은 변경 안에서 갱신한다.
+
 ## 3. 문서 소유 원칙
 
 - 루트 `docs/` 는 저장소 전체 구조와 루트 설명만 둔다.
@@ -95,6 +107,7 @@ flowchart TD
 - 어떤 폴더에 파일, 하위 폴더, 책임, 운영 방식이 추가·변경·삭제되면 같은 변경 안에서 해당 폴더의 `README.md` 를 확인하고 최신화한다.
 - 해당 폴더에 `README.md` 가 없으면 먼저 신설한다.
 - 변경이 owner 경계나 상위 구조 설명까지 영향을 주면 루트 `README.md` 또는 관련 `docs/architecture/` 문서도 함께 갱신한다.
+- `.agent/body.yaml`, `.agent/body_state.yaml`, `.agent_class/class.yaml`, `.agent_class/loadout.yaml`, `_workspaces/**/.project_agent/*.yaml` 같이 UI 파생 기준 파일이 바뀌면 관련 계약 문서와 동기화 문서도 같은 변경 안에서 갱신한다.
 - 캐시, 임시 파일, 생성 산출물처럼 문서 정합성 대상이 아닌 항목은 예외로 둘 수 있다.
 - 폴더 내용이 바뀌었는데 해당 `README.md` 가 그대로면 문서 누락으로 본다.
 
@@ -112,7 +125,10 @@ flowchart TD
 - 목표 구조: `docs/architecture/TARGET_TREE.md`
 - 문서 소유 원칙: `docs/architecture/DOCUMENT_OWNERSHIP.md`
 - 세계관 대응: `docs/architecture/AGENT_WORLD_MODEL.md`
+- body 메타 계약: `.agent/docs/architecture/BODY_METADATA_CONTRACT.md`
 - 프로젝트 연결 규약: `docs/architecture/PROJECT_AGENT_MINIMUM_SCHEMA.md`
+- UI source map: `docs/architecture/UI_SOURCE_MAP.md`
+- UI 동기화 계약: `docs/architecture/UI_SYNC_CONTRACT.md`
 - class 운영 문서: `.agent_class/docs/`
 
 ## 7. 커밋 원칙

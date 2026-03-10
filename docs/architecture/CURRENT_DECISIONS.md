@@ -7,6 +7,8 @@ flowchart TD
   D["현재 결정 사항"] --> S["저장소 축<br/>.agent / .agent_class / _workspaces"]
   D --> O["문서 소유<br/>root docs / body docs / class docs"]
   D --> M["분리 기준<br/>memory / knowledge / skills / tools / workflows"]
+  D --> B["body 메타<br/>body.yaml / body_state.yaml"]
+  D --> U["UI 파생 규칙<br/>source map / sync contract"]
   D --> P["프로젝트별 상태는 프로젝트 폴더 내부 유지"]
   D --> L[".agent_class/_local/<br/>로컬 전용 데이터"]
   D --> R["루트 문서 세트 기준 유지"]
@@ -19,8 +21,12 @@ flowchart TD
 - 지식은 클래스 계층에 속한다.
 - 스킬과 도구는 분리된 모델로 다룬다.
 - 워크플로우는 운영 규범으로 취급한다.
+- `.agent` 는 `body.yaml` 과 `body_state.yaml` 의 2파일 메타 체계를 사용한다.
+- `body_state.yaml` 은 저장소 추적 대상이지만 재생성 가능한 파생 상태 파일로 본다.
+- UI는 정본이 아니라 메타와 구조에서 파생되는 결과다.
+- UI source map 과 UI sync contract 를 루트 문서 세트에 포함한다.
 - 프로젝트별 상태는 프로젝트 폴더 내부에 유지한다.
 - body 운영 문서는 `.agent/docs/` 아래에 둔다.
 - `.agent_class` 아래 `_local/` 은 무시되는 로컬 전용 데이터를 위해 남겨 둔다.
 - class 운영 문서는 `.agent_class/docs/` 아래에 둔다.
-- 루트 문서 세트는 `REPOSITORY_PURPOSE`, `AGENT_WORLD_MODEL`, `WORKSPACE_PROJECT_MODEL`, `PROJECT_AGENT_MINIMUM_SCHEMA`, `TARGET_TREE`, `DOCUMENT_OWNERSHIP`, `CURRENT_DECISIONS`, `MIGRATION_REFERENCE` 를 기준으로 유지한다.
+- 루트 문서 세트는 `REPOSITORY_PURPOSE`, `AGENT_WORLD_MODEL`, `WORKSPACE_PROJECT_MODEL`, `PROJECT_AGENT_MINIMUM_SCHEMA`, `TARGET_TREE`, `DOCUMENT_OWNERSHIP`, `CURRENT_DECISIONS`, `UI_SOURCE_MAP`, `UI_SYNC_CONTRACT`, `MIGRATION_REFERENCE` 를 기준으로 유지한다.

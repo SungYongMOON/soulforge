@@ -7,6 +7,7 @@
 
 ## 포함 대상
 
+- `body.yaml`, `body_state.yaml`
 - `identity/`, `engine/`, `sessions/`, `memory/`, `communication/`, `autonomic/`, `policy/`, `registry/`, `artifacts/`, `export/`
 - 본체 소유 문서와 구조 설명
 
@@ -20,8 +21,9 @@
 - [루트 README](../README.md)
 - [`.agent/docs/README.md`](docs/README.md)
 - [`.agent/docs/architecture/AGENT_BODY_MODEL.md`](docs/architecture/AGENT_BODY_MODEL.md)
+- [`.agent/docs/architecture/BODY_METADATA_CONTRACT.md`](docs/architecture/BODY_METADATA_CONTRACT.md)
 
 ## 상태
 
 - Draft
-- 본체 경계는 정의되었다. 하위 폴더별 세부 스키마는 추후 정의 예정이다.
+- 본체 경계와 body 메타 2파일은 정의되었다. 하위 폴더별 세부 스키마는 추후 정의 예정이다.

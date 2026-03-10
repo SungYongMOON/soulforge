@@ -12,8 +12,8 @@ flowchart TD
   O2["body"] --> P2[".agent/docs/architecture/"]
   O3["class"] --> P3[".agent_class/docs/architecture/"]
   O4["project"] --> P4["_workspaces/.../&lt;project&gt;/.project_agent/"]
-  P1 --> E1["REPOSITORY_PURPOSE<br/>TARGET_TREE<br/>DOCUMENT_OWNERSHIP"]
-  P2 --> E2["AGENT_BODY_MODEL"]
+  P1 --> E1["REPOSITORY_PURPOSE<br/>TARGET_TREE<br/>DOCUMENT_OWNERSHIP<br/>UI_SOURCE_MAP<br/>UI_SYNC_CONTRACT"]
+  P2 --> E2["AGENT_BODY_MODEL<br/>BODY_METADATA_CONTRACT"]
   P3 --> E3["AGENT_CLASS_MODEL<br/>INSTALLATION_AND_LOADOUT_CONCEPT<br/>CLASS_METADATA_CONTRACT"]
   P4 --> E4["contract.yaml<br/>프로젝트 전용 메모/로그"]
 ```
@@ -42,8 +42,8 @@ flowchart TD
 
 | owner | 기본 위치 | 예시 문서 |
 | --- | --- | --- |
-| root | `docs/architecture/` | `REPOSITORY_PURPOSE`, `TARGET_TREE`, `DOCUMENT_OWNERSHIP` |
-| body | `.agent/docs/architecture/` | `AGENT_BODY_MODEL` |
+| root | `docs/architecture/` | `REPOSITORY_PURPOSE`, `TARGET_TREE`, `DOCUMENT_OWNERSHIP`, `UI_SOURCE_MAP`, `UI_SYNC_CONTRACT` |
+| body | `.agent/docs/architecture/` | `AGENT_BODY_MODEL`, `BODY_METADATA_CONTRACT` |
 | class | `.agent_class/docs/architecture/` | `AGENT_CLASS_MODEL`, `INSTALLATION_AND_LOADOUT_CONCEPT`, `CLASS_METADATA_CONTRACT` |
 | project | `_workspaces/.../<project>/.project_agent/` | `contract.yaml`, 프로젝트 전용 메모/로그 |
 

@@ -1,0 +1,38 @@
+body_id: soulforge.body
+sections:
+  identity:
+    path: identity
+    present: true
+  engine:
+    path: engine
+    present: true
+  memory:
+    path: memory
+    present: true
+  sessions:
+    path: sessions
+    present: true
+  communication:
+    path: communication
+    present: true
+  autonomic:
+    path: autonomic
+    present: true
+  policy:
+    path: policy
+    present: true
+  registry:
+    path: registry
+    present: true
+  artifacts:
+    path: artifacts
+    present: true
+  export:
+    path: export
+    present: true
+  docs:
+    path: docs
+    present: true
+status:
+  summary: ready
+  warnings: []

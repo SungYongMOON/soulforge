@@ -9,6 +9,7 @@
 
 - 본체 구조 설명 문서
 - 본체 owner 기준의 메모와 규약 문서
+- `body.yaml` 과 `body_state.yaml` 을 설명하는 메타 계약 문서
 
 ## 제외 대상
 
@@ -19,6 +20,7 @@
 
 - [`.agent/README.md`](../README.md)
 - [`.agent/docs/architecture/README.md`](architecture/README.md)
+- [`.agent/docs/architecture/BODY_METADATA_CONTRACT.md`](architecture/BODY_METADATA_CONTRACT.md)
 - [`docs/architecture/DOCUMENT_OWNERSHIP.md`](../../docs/architecture/DOCUMENT_OWNERSHIP.md)
 
 ## 상태

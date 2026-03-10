@@ -11,7 +11,9 @@
 
 ```mermaid
 flowchart TD
-  B[".agent/"] --> I["identity/"]
+  B[".agent/"] --> BY["body.yaml"]
+  B --> BS["body_state.yaml"]
+  B --> I["identity/"]
   B --> E["engine/"]
   B --> M["memory/"]
   B --> S["sessions/"]
@@ -21,11 +23,15 @@ flowchart TD
   B --> R["registry/"]
   B --> AR["artifacts/"]
   B --> EX["export/"]
-  B --> D["docs/architecture/"]
+  B --> D["docs/"]
+  D --> DA["architecture/"]
+  DA --> DM["AGENT_BODY_MODEL.md"]
+  DA --> DC["BODY_METADATA_CONTRACT.md"]
 ```
 
 ## 책임
 
+- 본체 메타 정의와 상태 스냅샷
 - 정체성
 - 엔진 설정
 - 메모리
@@ -41,10 +47,15 @@ flowchart TD
 
 ```text
 .agent/
+├── body.yaml
+├── body_state.yaml
 ├── artifacts/
 ├── autonomic/
 ├── communication/
 ├── docs/
+│   └── architecture/
+│       ├── AGENT_BODY_MODEL.md
+│       └── BODY_METADATA_CONTRACT.md
 ├── engine/
 ├── export/
 ├── identity/
@@ -53,6 +64,18 @@ flowchart TD
 ├── registry/
 └── sessions/
 ```
+
+## 메타 파일
+
+- `body.yaml` 은 body 의 정적 정의를 둔다.
+- `body_state.yaml` 은 현재 `.agent/` 구조와 동기화한 상태 스냅샷을 둔다.
+- 세부 필드 정의는 `.agent/docs/architecture/BODY_METADATA_CONTRACT.md` 를 기준으로 관리한다.
+
+## 중요한 구분
+
+- `body.yaml` 은 본체 섹션의 기준 경로를 설명한다.
+- `body_state.yaml` 은 현재 구조와 동기화한 파생 상태를 설명한다.
+- 두 파일 모두 `.agent` 소유 메타지만, host-local 상태는 담지 않는다.
 
 ## 설계 규칙
 

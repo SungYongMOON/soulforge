@@ -1,0 +1,16 @@
+id: soulforge.body
+name: Soulforge 기본 본체
+version: 0.1.0
+description: Soulforge 아키텍처 저장소를 위한 기본 본체 계층.
+sections:
+  identity: identity
+  engine: engine
+  memory: memory
+  sessions: sessions
+  communication: communication
+  autonomic: autonomic
+  policy: policy
+  registry: registry
+  artifacts: artifacts
+  export: export
+  docs: docs

@@ -13,28 +13,32 @@
 flowchart LR
   subgraph M["세계관 개념"]
     M1["Body / Species"]
-    M2["Class / Profession"]
-    M3["Skills"]
-    M4["Tools"]
-    M5["Workflows"]
-    M6["Knowledge Pack"]
-    M7["Active Loadout"]
-    M8["Class Definition"]
-    M9["Project Field"]
-    M10["Project Contract"]
+    M2["Body Definition"]
+    M3["Body State"]
+    M4["Class / Profession"]
+    M5["Skills"]
+    M6["Tools"]
+    M7["Workflows"]
+    M8["Knowledge Pack"]
+    M9["Active Loadout"]
+    M10["Class Definition"]
+    M11["Project Field"]
+    M12["Project Contract"]
   end
 
   subgraph R["실제 구조"]
     R1[".agent/"]
-    R2[".agent_class/"]
-    R3[".agent_class/skills/"]
-    R4[".agent_class/tools/"]
-    R5[".agent_class/workflows/"]
-    R6[".agent_class/knowledge/"]
-    R7[".agent_class/loadout.yaml"]
-    R8[".agent_class/class.yaml"]
-    R9["_workspaces/"]
-    R10[".project_agent/"]
+    R2[".agent/body.yaml"]
+    R3[".agent/body_state.yaml"]
+    R4[".agent_class/"]
+    R5[".agent_class/skills/"]
+    R6[".agent_class/tools/"]
+    R7[".agent_class/workflows/"]
+    R8[".agent_class/knowledge/"]
+    R9[".agent_class/loadout.yaml"]
+    R10[".agent_class/class.yaml"]
+    R11["_workspaces/"]
+    R12[".project_agent/"]
   end
 
   M1 --> R1
@@ -47,6 +51,8 @@ flowchart LR
   M8 --> R8
   M9 --> R9
   M10 --> R10
+  M11 --> R11
+  M12 --> R12
 ```
 
 ## 대응표
@@ -54,6 +60,8 @@ flowchart LR
 | 세계관 개념 | 실제 구조 | 의미 |
 | --- | --- | --- |
 | Body / Species | `.agent/` | 지속되는 몸, 정체성, 기관, 기억을 담는 본체 |
+| Body Definition | `.agent/body.yaml` | body 정적 정의 |
+| Body State | `.agent/body_state.yaml` | body 현재 상태 스냅샷 |
 | Class / Profession | `.agent_class/` | 현재 환경에서 장착된 직업 계층 |
 | Skills | `.agent_class/skills/` | 설치된 행동 패턴 |
 | Tools | `.agent_class/tools/` | 외부 장비와 연결 계층 |
@@ -69,6 +77,8 @@ flowchart LR
 ### 몸과 직업
 
 - `.agent` 는 몸이다.
+- `body.yaml` 은 몸의 정적 정의다.
+- `body_state.yaml` 은 몸의 현재 상태 스냅샷이다.
 - `.agent_class` 는 직업이다.
 - 몸은 지속되고, 직업은 교체 가능하다.
 
@@ -89,6 +99,12 @@ flowchart LR
 - `class.yaml` 은 class 의 정적 정의다.
 - `loadout.yaml` 은 지금 무엇이 장착되어 있는지 보여주는 상태표다.
 - 같은 class 정의라도 loadout 은 상황에 따라 달라질 수 있다.
+
+### 본체 정의와 본체 상태
+
+- `body.yaml` 은 body 섹션의 기준 경로를 설명한다.
+- `body_state.yaml` 은 실제 `.agent/` 구조와 동기화한 상태를 설명한다.
+- 둘 다 설명용 은유보다 실제 경로 구조를 우선해 읽는다.
 
 ### 프로젝트 현장과 연결 규약
 
