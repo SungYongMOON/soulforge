@@ -54,6 +54,7 @@ flowchart TD
 │   ├── adapters/
 │   ├── connectors/
 │   ├── local_cli/
+│   │   └── ui_sync/
 │   └── mcp/
 ├── workflows/
 ├── class.yaml
@@ -81,6 +82,7 @@ flowchart TD
 - `adapters/` 는 도구별 입출력과 호출 차이를 공통 도구 인터페이스로 정렬한다
 - `connectors/` 는 외부 서비스 접속 정보와 인증 진입점을 둔다
 - `local_cli/` 는 호스트 로컬 CLI 자체를 실행하는 래퍼를 둔다
+- `local_cli/ui_sync/` 는 body 메타 동기화와 구조 검증을 수행하는 현재 차수의 최소 로컬 CLI 구현이다
 - `mcp/` 는 MCP 서버를 도구 계층에 연결하는 프로토콜 바인딩을 둔다
 
 ## 메타 파일

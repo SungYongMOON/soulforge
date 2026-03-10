@@ -38,6 +38,14 @@ flowchart LR
 - `Derive` = 화면용 상태를 계산한다.
 - `Render` = 계산된 상태로 UI를 출력한다.
 
+## 1차 local CLI 범위
+
+- 이번 차수의 실제 구현 범위는 `Scan` 과 `Validate` 중심이다.
+- `sync-body-state` 는 `.agent/body.yaml` 과 실제 `.agent/` 구조를 스캔해 `.agent/body_state.yaml` 을 재생성한다.
+- `validate` 는 body 메타 정합성, `body_state.yaml` 정합성, class/loadout 의 구조적 필드만 검사한다.
+- `Resolve`, `Derive`, `Render` 단계는 이후 차수로 미룬다.
+- `loadout.equipped.*` 엔트리가 비어 있지 않으면, 현재 차수에서는 resolve 를 시도하지 않고 `module reference contract not defined yet` 경고로 분류한다.
+
 ## 동기화 트리거
 
 - body 구조 변경
@@ -48,10 +56,11 @@ flowchart LR
 
 ## 검증 규칙
 
-1. loadout 참조는 실제 모듈로 resolve 되어야 한다.
-2. `body_state.yaml` 은 실제 `.agent/` 구조와 일치해야 한다.
-3. workflow binding 은 실제 workflow 와 entrypoint 로 resolve 되어야 한다.
-4. dangling reference 가 하나라도 있으면 UI patch 와 파생 상태 갱신을 진행하지 않는다.
+1. 최종 계약에서는 loadout 참조가 실제 모듈로 resolve 되어야 한다.
+2. 1차 local CLI 에서는 resolve 계약이 아직 없으므로 `equipped.*` 가 비어 있지 않은 경우 명시적 경고로 보고한다.
+3. `body_state.yaml` 은 실제 `.agent/` 구조와 일치해야 한다.
+4. workflow binding 은 최종 계약에서 실제 workflow 와 entrypoint 로 resolve 되어야 한다.
+5. dangling reference 가 하나라도 있으면 UI patch 와 파생 상태 갱신을 진행하지 않는다.
 
 ## 커밋 규칙
 

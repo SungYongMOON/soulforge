@@ -13,6 +13,7 @@
 - `connectors/` = 외부 접속과 인증 진입점
 - `local_cli/` = 로컬 CLI 실행 래퍼
 - `mcp/` = MCP 서버 바인딩
+- 현재 `local_cli/ui_sync/` 는 body 메타 동기화와 구조 검증용 최소 CLI 를 제공한다.
 
 ## 제외 대상
 
@@ -31,4 +32,5 @@
 ## 상태
 
 - Draft
-- 도구 계층의 하위 분리는 고정한다. 각 하위 폴더의 세부 규약은 추후 정의 예정이다.
+- 도구 계층의 하위 분리는 고정한다.
+- 1차에서는 `local_cli/ui_sync/` 로 `body_state.yaml` 재생성과 body/class/loadout 최소 검증 흐름을 먼저 고정한다.
