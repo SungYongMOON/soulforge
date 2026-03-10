@@ -1,0 +1,11 @@
+class_id: soulforge.base
+active_profile: core
+equipped:
+  skills: []
+  tools: []
+  workflows: []
+  knowledge: []
+bindings:
+  body: ../.agent
+  company_workspace: ../_workspaces/company
+  personal_workspace: ../_workspaces/personal

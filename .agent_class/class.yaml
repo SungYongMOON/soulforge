@@ -1,0 +1,14 @@
+id: soulforge.base
+name: Soulforge Base Class
+version: 0.1.0
+description: Base class layer for the Soulforge architecture repository.
+body_root: ../.agent
+workspace_roots:
+  - ../_workspaces/company
+  - ../_workspaces/personal
+modules:
+  skills: skills
+  tools: tools
+  workflows: workflows
+  knowledge: knowledge
+  docs: docs
