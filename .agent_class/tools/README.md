@@ -34,5 +34,6 @@
 
 - Draft
 - 도구 계층의 하위 분리는 고정한다.
+- `local_cli/` 아래에는 resolver/viewer 외에도 happy-path baseline 검증용 `sample_tool_status/` 같은 repo-tracked reference sample 도구가 들어올 수 있다.
 - `local_cli/ui_sync/` 는 `sync-body-state`, `resolve-loadout`, `resolve-workspaces`, `derive-ui-state`, `validate` 다섯 명령으로 정본 메타 Scan/Resolve/Validate/Derive 를 수행한다.
 - `local_cli/ui_viewer/` 는 `Render` 단계를 read-only prototype 으로 시작하며, 정본 파일 직접 읽기 없이 derived state 소비자로만 동작한다.

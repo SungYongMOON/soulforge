@@ -25,3 +25,4 @@
 
 - Draft
 - memory 와 knowledge 의 경계는 고정한다. 팩 구조는 추후 정의 예정이다.
+- `sample_` prefix 지식 팩은 운영 지식이 아니라 resolve/derive/render happy-path 회귀 입력용 baseline 으로 둘 수 있다.

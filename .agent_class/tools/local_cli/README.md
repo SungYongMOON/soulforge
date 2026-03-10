@@ -29,6 +29,6 @@
 ## 상태
 
 - Draft
-- 현재 지원 도구는 `ui_sync/` 과 `ui_viewer/` 이다.
+- 현재 지원 도구는 `ui_sync/`, `ui_viewer/`, 그리고 reference sample baseline 검증용 `sample_tool_status/` 이다.
 - `ui_sync.py` 는 `sync-body-state`, `resolve-loadout`, `resolve-workspaces`, `derive-ui-state`, `validate` 다섯 명령으로 body 상태 재생성, class resolve, workspace 상태 분류/검증, renderer 입력용 derived state 생성을 수행한다.
 - `ui_viewer.py` 는 `derive-ui-state --json` 을 subprocess 로 호출해 4탭 read-only UI 와 diagnostics 패널을 렌더링한다.

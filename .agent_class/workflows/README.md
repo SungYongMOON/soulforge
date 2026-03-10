@@ -25,3 +25,4 @@
 
 - Draft
 - workflow 포맷과 트리거 규약은 추후 정의 예정이다.
+- `sample_` prefix workflow 는 repo-tracked reference sample baseline 으로 둘 수 있으며 실제 운영 workflow 와 구분한다.

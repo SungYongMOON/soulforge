@@ -634,6 +634,7 @@ def resolve_project_contract(
 ) -> WorkspaceProjectRecord:
     warnings: list[Finding] = []
     errors: list[Finding] = []
+    project_findings: list[Finding] = []
     project_path = relative_to_repo(project_dir)
     project_agent_dir = project_dir / PROJECT_AGENT_DIRNAME
     project_agent_present = project_agent_dir.exists()
@@ -680,7 +681,9 @@ def resolve_project_contract(
             errors=errors,
         )
 
-    contract_data = validate_project_contract_file(contract_path, project_dir, workspace_kind, loadout_result, errors)
+    contract_data = validate_project_contract_file(
+        contract_path, project_dir, workspace_kind, loadout_result, project_findings
+    )
     contract["present"] = contract_path.exists()
     contract["valid"] = contract_data is not None
     if contract_data is not None:
@@ -694,24 +697,27 @@ def resolve_project_contract(
             }
         )
 
-    capsule_data = validate_capsule_bindings_file(capsule_path, project_dir, errors)
+    capsule_data = validate_capsule_bindings_file(capsule_path, project_dir, project_findings)
     capsule_bindings["present"] = capsule_path.exists()
     capsule_bindings["valid"] = capsule_data is not None
     if capsule_data is not None:
         capsule_bindings["binding_count"] = len(capsule_data.get("bindings", []))
 
-    workflow_data = validate_workflow_bindings_file(workflow_path, project_dir, loadout_result, errors)
+    workflow_data = validate_workflow_bindings_file(
+        workflow_path, project_dir, loadout_result, project_findings
+    )
     workflow_bindings["present"] = workflow_path.exists()
     workflow_bindings["valid"] = workflow_data is not None
     if workflow_data is not None:
         workflow_bindings["binding_count"] = len(workflow_data.get("bindings", []))
 
-    local_state_data = validate_local_state_map_file(local_state_path, project_dir, errors)
+    local_state_data = validate_local_state_map_file(local_state_path, project_dir, project_findings)
     local_state["present"] = local_state_path.exists()
     local_state["valid"] = local_state_data is not None
     if local_state_data is not None:
         local_state["entry_count"] = len(local_state_data.get("local_entries", []))
 
+    warnings, errors = split_findings(project_findings)
     state = "bound" if not errors else "invalid"
 
     return WorkspaceProjectRecord(

@@ -24,4 +24,5 @@
 ## 상태
 
 - Draft
-- 프로젝트 분류 기준과 샘플 구조는 추후 정의 예정이다.
+- `sample_reference_project/` 는 `_workspaces/company/` 아래에 둔 첫 bound reference sample project 다.
+- 이 sample project 는 운영용이 아니라 구조 검증과 happy-path 회귀 입력 baseline 이다.

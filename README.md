@@ -63,3 +63,5 @@ flowchart TD
 
 - Draft
 - README 기반 설명 체계와 body/class 메타 골격은 정리 중이다. `Derive` 이후 `Render` 단계는 read-only prototype 으로 처음 연결되었다.
+- class library roots 와 `_workspaces/company/` 아래에 첫 repo-tracked reference sample 1세트가 도입되었다.
+- read-only viewer 와 `derive-ui-state` 는 empty state 뿐 아니라 최소 happy-path sample baseline 에 대해서도 검증된다.

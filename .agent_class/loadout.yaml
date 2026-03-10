@@ -1,10 +1,14 @@
 class_id: soulforge.base
 active_profile: core
 equipped:
-  skills: []
-  tools: []
-  workflows: []
-  knowledge: []
+  skills:
+    - sample.skill.echo
+  tools:
+    - sample.tool.local_cli.status
+  workflows:
+    - sample.workflow.briefing
+  knowledge:
+    - sample.knowledge.reference
 bindings:
   body: ../.agent
   company_workspace: ../_workspaces/company

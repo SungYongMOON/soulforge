@@ -1,0 +1,6 @@
+id: sample.skill.echo
+kind: skill
+name: Sample Echo Skill
+version: 0.1.0
+description: 최소 happy-path 회귀 검증용 샘플 스킬
+entrypoint: run

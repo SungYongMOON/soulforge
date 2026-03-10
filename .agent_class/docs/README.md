@@ -28,3 +28,4 @@
 - class owner 문서의 기본 위치다.
 - architecture 에 module reference contract 정본을 포함한다.
 - plans 는 root workspace 계약과 UI derive generator, read-only UI prototype 같은 class 측 구현 계획도 함께 관리한다.
+- plans 는 repo-tracked reference sample baseline 단계의 계획과 완료 체크도 함께 관리한다.

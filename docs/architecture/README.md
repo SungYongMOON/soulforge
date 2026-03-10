@@ -36,4 +36,5 @@
 - 현재 공용 문서는 `UI_DERIVED_STATE_CONTRACT.md` 를 포함해 renderer 이전 단계의 파생 상태 계약도 함께 관리한다.
 - 현재 공용 문서는 `UI_SYNC_CONTRACT.md` 를 통해 read-only renderer prototype 의 경계도 함께 관리한다.
 - 현재 공용 문서는 `PROJECT_AGENT_RESOLVE_CONTRACT.md` 를 포함해 workspace 공통 resolve 계약도 함께 관리한다.
+- 현재 공용 문서는 `CURRENT_DECISIONS.md` 를 통해 repo-tracked reference sample baseline 도입 전략도 함께 고정한다.
 - class installed/loadout 세부 계약은 class owner 문서 `MODULE_REFERENCE_CONTRACT.md` 를 참조한다.

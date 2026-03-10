@@ -27,3 +27,4 @@
 - Stable
 - 실제 프로젝트 폴더는 이 경계 안에 둔다.
 - workspace project 상태는 `.project_agent` resolve 결과에 따라 `bound`, `unbound`, `invalid` 로 분류할 수 있다.
+- `_workspaces/company/sample_reference_project/` 는 운영용 실프로젝트가 아니라 repo-tracked reference sample project 로 유지한다.

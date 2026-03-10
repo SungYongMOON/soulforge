@@ -1,0 +1,13 @@
+id: sample.workflow.briefing
+kind: workflow
+name: Sample Briefing Workflow
+version: 0.1.0
+description: 최소 happy-path 회귀 검증용 샘플 워크플로우
+entrypoint: run
+requires:
+  skills:
+    - sample.skill.echo
+  tools:
+    - sample.tool.local_cli.status
+  knowledge:
+    - sample.knowledge.reference

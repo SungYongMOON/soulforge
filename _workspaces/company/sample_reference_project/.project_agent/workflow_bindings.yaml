@@ -1,0 +1,5 @@
+bindings:
+  - workflow_id: sample.workflow.briefing
+    entrypoint: run
+    trigger: manual
+    enabled: true
