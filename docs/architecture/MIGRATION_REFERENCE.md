@@ -1,17 +1,17 @@
-# Migration Reference
+# 마이그레이션 참고
 
-## Purpose
+## 목적
 
-This document tracks migration from earlier agent repository layouts into the Soulforge body-and-class model.
+이 문서는 이전 에이전트 저장소 구조에서 Soulforge 본체-클래스 모델로 옮겨 오는 기준을 정리한다.
 
-## Migration Direction
+## 마이그레이션 방향
 
-- move persistent identity and memory into `.agent/`
-- move installable capabilities into `.agent_class/`
-- move project-specific files into `_workspaces/`
-- introduce `.project_agent/` only inside actual project folders
+- 지속되는 정체성과 메모리를 `.agent/` 로 이동
+- 설치 가능한 역량을 `.agent_class/` 로 이동
+- 프로젝트 전용 파일을 `_workspaces/` 로 이동
+- `.project_agent/` 는 실제 프로젝트 폴더 내부에서만 도입
 
-## Current Status
+## 현재 상태
 
-Migration rules are still being formalized.
-This file serves as the initial reference point for future mapping decisions.
+마이그레이션 규칙은 아직 구체화 중이다.
+이 파일은 이후 매핑 결정을 위한 초기 참고점 역할을 한다.

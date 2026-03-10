@@ -1,3 +1,3 @@
-# Worklog
+# 작업 기록
 
-- 2026-03-10: Initialized the Soulforge repository structure, README, and architecture document skeleton.
+- 2026-03-10: Soulforge 저장소 구조, README, 아키텍처 문서 골격을 초기화했다.

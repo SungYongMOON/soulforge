@@ -1,12 +1,12 @@
-# Workspace Project Model
+# 워크스페이스 프로젝트 모델
 
-## Purpose
+## 목적
 
-Workspaces are the real operating field for Soulforge.
+워크스페이스는 Soulforge의 실제 운영 현장이다.
 
-They contain actual project files, deliverables, and project-specific state instead of abstract capability definitions.
+워크스페이스에는 추상적인 역량 정의가 아니라 실제 프로젝트 파일, 산출물, 프로젝트별 상태가 들어간다.
 
-## Workspace Layout
+## 워크스페이스 구조
 
 ```text
 _workspaces/
@@ -14,9 +14,9 @@ _workspaces/
 └── personal/
 ```
 
-Each project folder may include a `.project_agent/` contract directory for project-specific bindings, instructions, or local agreements between the body and the active class.
+각 프로젝트 폴더에는 프로젝트별 바인딩, 지침, 또는 본체와 활성 클래스 간의 로컬 합의를 담는 `.project_agent/` 계약 디렉터리가 포함될 수 있다.
 
-## Design Rule
+## 설계 규칙
 
-Project files stay inside the project field.
-The body and class layers should reference workspaces, not absorb them.
+프로젝트 파일은 프로젝트 현장 안에 남아 있어야 한다.
+본체와 클래스 계층은 워크스페이스를 참조해야 하며, 이를 흡수해서는 안 된다.

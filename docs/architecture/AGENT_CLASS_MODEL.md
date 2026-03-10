@@ -1,22 +1,22 @@
-# Agent Class Model
+# 에이전트 클래스 모델
 
-## Purpose
+## 목적
 
-The class layer is the installable and replaceable job definition for a Soulforge body.
+클래스 계층은 Soulforge 본체를 위한 설치 가능하고 교체 가능한 직무 정의다.
 
-It describes what the body is equipped to do in a given environment without redefining the body itself.
+본체 자체를 다시 정의하지 않으면서, 특정 환경에서 무엇을 수행하도록 장착되어 있는지를 설명한다.
 
-## Responsibilities
+## 책임
 
-- class definition
-- loadout selection
-- installed skills
-- equipped tools
-- operational workflows
-- knowledge packs
-- class documentation
+- 클래스 정의
+- 로드아웃 선택
+- 설치된 스킬
+- 장착된 도구
+- 운영 워크플로우
+- 지식 팩
+- 클래스 문서
 
-## Current Class Areas
+## 현재 클래스 영역
 
 ```text
 .agent_class/
@@ -34,7 +34,7 @@ It describes what the body is equipped to do in a given environment without rede
 └── loadout.yaml
 ```
 
-## Design Rule
+## 설계 규칙
 
-The class is installable and replaceable.
-Memory remains with the body even when the class changes.
+클래스는 설치 가능하며 교체 가능하다.
+클래스가 바뀌어도 메모리는 본체에 남는다.

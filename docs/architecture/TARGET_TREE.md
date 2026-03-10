@@ -1,4 +1,4 @@
-# Target Tree
+# 목표 트리
 
 ```text
 ./

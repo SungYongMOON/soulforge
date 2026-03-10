@@ -1,25 +1,25 @@
-# Agent Body Model
+# 에이전트 본체 모델
 
-## Purpose
+## 목적
 
-The agent body is the persistent layer of Soulforge.
+에이전트 본체는 Soulforge의 지속 계층이다.
 
-It exists to hold the parts of an agent that should survive class changes, project changes, and workflow swaps.
+클래스 변경, 프로젝트 변경, 워크플로우 교체 이후에도 유지되어야 하는 요소를 담기 위해 존재한다.
 
-## Responsibilities
+## 책임
 
-- identity
-- engine configuration
-- memory
-- session continuity
-- communication
-- autonomic behavior
-- policy
-- registry
-- artifacts and export
-- body-facing documentation
+- 정체성
+- 엔진 설정
+- 메모리
+- 세션 연속성
+- 커뮤니케이션
+- 자율 동작
+- 정책
+- 레지스트리
+- 산출물과 내보내기
+- 본체 관련 문서
 
-## Current Body Areas
+## 현재 본체 영역
 
 ```text
 .agent/
@@ -36,7 +36,7 @@ It exists to hold the parts of an agent that should survive class changes, proje
 └── sessions/
 ```
 
-## Design Rule
+## 설계 규칙
 
-Body data is persistent.
-Installed knowledge, skills, tools, and workflows do not belong here unless they are body-level defaults.
+본체 데이터는 지속성을 가진다.
+설치된 지식, 스킬, 도구, 워크플로우는 본체 기본값이 아닌 한 여기에 속하지 않는다.

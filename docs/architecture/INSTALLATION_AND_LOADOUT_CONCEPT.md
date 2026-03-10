@@ -1,32 +1,32 @@
-# Installation And Loadout Concept
+# 설치와 로드아웃 개념
 
-## Installation
+## 설치
 
-Soulforge treats class content as installable modules.
+Soulforge는 클래스 콘텐츠를 설치 가능한 모듈로 다룬다.
 
-The installable set includes:
+설치 가능한 구성은 다음을 포함한다.
 
-- skills
-- tools
-- workflows
-- knowledge packs
-- class documentation
+- 스킬
+- 도구
+- 워크플로우
+- 지식 팩
+- 클래스 문서
 
-## Loadout
+## 로드아웃
 
-`loadout.yaml` defines the currently active equipment for the installed class.
+`loadout.yaml` 은 설치된 클래스에서 현재 활성화된 장비 구성을 정의한다.
 
-At minimum, a loadout should identify:
+최소한 로드아웃은 다음을 식별해야 한다.
 
-- the active class
-- the active profile
-- equipped skills
-- equipped tools
-- equipped workflows
-- equipped knowledge packs
-- workspace bindings
+- 활성 클래스
+- 활성 프로필
+- 장착된 스킬
+- 장착된 도구
+- 장착된 워크플로우
+- 장착된 지식 팩
+- 워크스페이스 바인딩
 
-## Design Rule
+## 설계 규칙
 
-Installation describes what is available.
-Loadout describes what is currently equipped.
+설치는 무엇을 사용할 수 있는지를 설명한다.
+로드아웃은 무엇이 현재 장착되어 있는지를 설명한다.

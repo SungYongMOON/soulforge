@@ -1,7 +1,7 @@
 id: soulforge.base
-name: Soulforge Base Class
+name: Soulforge 기본 클래스
 version: 0.1.0
-description: Base class layer for the Soulforge architecture repository.
+description: Soulforge 아키텍처 저장소를 위한 기본 클래스 계층.
 body_root: ../.agent
 workspace_roots:
   - ../_workspaces/company
