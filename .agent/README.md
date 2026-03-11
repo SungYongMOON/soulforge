@@ -8,7 +8,7 @@
 ## 포함 대상
 
 - `body.yaml`, `body_state.yaml`
-- `identity/`, `engine/`, `sessions/`, `memory/`, `communication/`, `autonomic/`, `policy/`, `registry/`, `artifacts/`, `export/`
+- `identity/`, `engine/`, `sessions/`, `memory/`, `communication/`, `autonomic/`, `policy/`, `registry/`, `artifacts/`
 - 본체 소유 문서와 구조 설명
 
 ## 제외 대상

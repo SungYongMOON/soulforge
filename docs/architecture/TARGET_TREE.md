@@ -42,7 +42,6 @@ flowchart TD
 │   │       ├── AGENT_BODY_MODEL.md
 │   │       └── BODY_METADATA_CONTRACT.md
 │   ├── engine/
-│   ├── export/
 │   ├── identity/
 │   ├── memory/
 │   ├── policy/
@@ -100,7 +99,6 @@ flowchart TD
 | `.agent/policy/` | 정책과 안전 규칙 |
 | `.agent/registry/` | 등록 정보와 색인 정보 |
 | `.agent/artifacts/` | 본체 측 산출물 |
-| `.agent/export/` | 내보내기 구조와 패키징 |
 | `.agent/docs/` | 본체 내부 문서 |
 | `.agent/docs/architecture/` | body 구조 문서 |
 | `.agent/docs/architecture/BODY_METADATA_CONTRACT.md` | body 메타 계약 |

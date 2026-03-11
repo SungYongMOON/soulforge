@@ -47,7 +47,6 @@ flowchart LR
 | `sections.policy` | policy 섹션 경로 |
 | `sections.registry` | registry 섹션 경로 |
 | `sections.artifacts` | artifacts 섹션 경로 |
-| `sections.export` | export 섹션 경로 |
 | `sections.docs` | docs 섹션 경로 |
 
 ### `body_state.yaml`
@@ -73,8 +72,6 @@ flowchart LR
 | `sections.registry.present` | registry 존재 여부 |
 | `sections.artifacts.path` | artifacts 실제 경로 |
 | `sections.artifacts.present` | artifacts 존재 여부 |
-| `sections.export.path` | export 실제 경로 |
-| `sections.export.present` | export 존재 여부 |
 | `sections.docs.path` | docs 실제 경로 |
 | `sections.docs.present` | docs 존재 여부 |
 | `status.summary` | 현재 스냅샷 요약 상태 |

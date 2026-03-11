@@ -12,5 +12,4 @@ sections:
   policy: policy
   registry: registry
   artifacts: artifacts
-  export: export
   docs: docs

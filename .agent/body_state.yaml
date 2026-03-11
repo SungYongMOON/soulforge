@@ -27,9 +27,6 @@ sections:
   artifacts:
     path: artifacts
     present: true
-  export:
-    path: export
-    present: true
   docs:
     path: docs
     present: true

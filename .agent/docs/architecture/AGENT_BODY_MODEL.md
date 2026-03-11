@@ -22,7 +22,6 @@ flowchart TD
   B --> P["policy/"]
   B --> R["registry/"]
   B --> AR["artifacts/"]
-  B --> EX["export/"]
   B --> D["docs/"]
   D --> DA["architecture/"]
   DA --> DM["AGENT_BODY_MODEL.md"]
@@ -40,7 +39,7 @@ flowchart TD
 - 자율 동작
 - 정책
 - 레지스트리
-- 산출물과 내보내기
+- 산출물
 - 본체 관련 문서
 
 ## 현재 본체 영역
@@ -57,7 +56,6 @@ flowchart TD
 │       ├── AGENT_BODY_MODEL.md
 │       └── BODY_METADATA_CONTRACT.md
 ├── engine/
-├── export/
 ├── identity/
 ├── memory/
 ├── policy/

@@ -18,7 +18,6 @@
 ## 관련 경로
 
 - [`.agent/README.md`](../README.md)
-- [`.agent/export/README.md`](../export/README.md)
 - [`_workspaces/README.md`](../../_workspaces/README.md)
 
 ## 상태
