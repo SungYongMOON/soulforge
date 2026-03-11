@@ -6,7 +6,7 @@
 
 이력의 핵심은 아래 한 문장으로 요약된다.
 
-> Soulforge를 **`.agent / .agent_class / _workspaces` 3축 구조** 위에서,  
+> Soulforge를 **`.agent / .agent_class / _workspaces` 3축 구조** 위에서,
 > **메타 계약 → resolve/validate → derived state → read-only viewer → baseline 3종 → v1 closeout**까지 닫는 방향으로 확장했다.
 
 - 기준 범위: `6b6ee87` 이후 `6b4de5d` 까지의 연속 작업
@@ -83,8 +83,8 @@
 
 ## 최종 결과를 한 줄로 요약하면
 
-이번 대화에서 Soulforge는  
-**문서 정합화 → 메타 계약 → local CLI resolve/validate → derived state → read-only viewer → baseline 3종 → v1 closeout**  
+이번 대화에서 Soulforge는
+**문서 정합화 → 메타 계약 → local CLI resolve/validate → derived state → read-only viewer → baseline 3종 → v1 closeout**
 순서로 확장되었고, 현재는 **v1 최소 완결 상태**다.
 
 ---
