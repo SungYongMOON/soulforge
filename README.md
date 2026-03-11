@@ -32,6 +32,7 @@ flowchart TD
 - [`.agent_class/README.md`](.agent_class/README.md): 직업 계층 개요
 - [`_workspaces/README.md`](_workspaces/README.md): 실제 프로젝트 현장 개요
 - [`docs/README.md`](docs/README.md): 저장소 공용 문서 개요
+- [`dev/README.md`](dev/README.md): 개발 기록 문서 개요
 
 ## 핵심 경계
 
@@ -69,3 +70,4 @@ flowchart TD
 - 현재 v1 범위는 `구조 + 상태판 + read-only viewer + baseline 3종` 기준으로 닫혔다.
 - `sample_reference_project`, `sample_invalid_project`, `sample_unbound_project` 는 각각 `bound`, `invalid`, `unbound` baseline 으로 유지한다.
 - 종료 기준은 `V1_CLOSEOUT_CHECKLIST.md`, known warnings / limitations 는 `KNOWN_LIMITATIONS.md` 에서 운영 기준으로 관리한다.
+- 루트 `dev/log/`, `dev/plan/` 아래에는 구조/계약/UI 기준선의 개발 이력과 계획 문서를 별도로 관리한다.

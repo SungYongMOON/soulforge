@@ -9,10 +9,12 @@
 ```mermaid
 flowchart TD
   O1["root"] --> P1["docs/architecture/"]
+  O1 --> P5["dev/"]
   O2["body"] --> P2[".agent/docs/architecture/"]
   O3["class"] --> P3[".agent_class/docs/architecture/"]
   O4["project"] --> P4["_workspaces/.../&lt;project&gt;/.project_agent/"]
   P1 --> E1["REPOSITORY_PURPOSE<br/>TARGET_TREE<br/>DOCUMENT_OWNERSHIP<br/>PROJECT_AGENT_RESOLVE_CONTRACT<br/>UI_SOURCE_MAP<br/>UI_SYNC_CONTRACT<br/>UI_DERIVED_STATE_CONTRACT<br/>V1_CLOSEOUT_CHECKLIST<br/>KNOWN_LIMITATIONS"]
+  P5 --> E5["plan/<br/>log/"]
   P2 --> E2["AGENT_BODY_MODEL<br/>BODY_METADATA_CONTRACT"]
   P3 --> E3["AGENT_CLASS_MODEL<br/>INSTALLATION_AND_LOADOUT_CONCEPT<br/>CLASS_METADATA_CONTRACT<br/>MODULE_REFERENCE_CONTRACT"]
   P4 --> E4["contract.yaml<br/>프로젝트 전용 메모/로그"]
@@ -25,6 +27,7 @@ flowchart TD
 - class 문서는 `.agent_class/docs/` 아래에 둔다.
 - project 전용 문서는 각 프로젝트의 `.project_agent/` 아래에 둔다.
 - 저장소 공용 closeout / 운영 문서(`V1_CLOSEOUT_CHECKLIST`, `KNOWN_LIMITATIONS`) 는 root owner 문서로 둔다.
+- 저장소 공용 개발 계획과 개발 이력 문서는 루트 `dev/plan/`, `dev/log/` 아래에 둔다.
 - 구조, 계층, 경로 배치를 설명하는 문서는 경로와 폴더를 텍스트로만 나열하지 않는다.
 - 실제 구조 설명은 별도 그림 문서를 만들기보다 해당 문서 안에 Markdown/Mermaid 기반의 `구조 개요도` 또는 `관계도` 를 직접 포함하고, 실행 순서가 핵심이면 `흐름도` 를 추가한다.
 
@@ -44,6 +47,7 @@ flowchart TD
 | owner | 기본 위치 | 예시 문서 |
 | --- | --- | --- |
 | root | `docs/architecture/` | `REPOSITORY_PURPOSE`, `TARGET_TREE`, `DOCUMENT_OWNERSHIP`, `PROJECT_AGENT_RESOLVE_CONTRACT`, `UI_SOURCE_MAP`, `UI_SYNC_CONTRACT`, `UI_DERIVED_STATE_CONTRACT`, `V1_CLOSEOUT_CHECKLIST`, `KNOWN_LIMITATIONS` |
+| root-dev | `dev/{plan,log}/` | 저장소 공용 개발 계획, 개발 이력 |
 | body | `.agent/docs/architecture/` | `AGENT_BODY_MODEL`, `BODY_METADATA_CONTRACT` |
 | class | `.agent_class/docs/architecture/` | `AGENT_CLASS_MODEL`, `INSTALLATION_AND_LOADOUT_CONCEPT`, `CLASS_METADATA_CONTRACT`, `MODULE_REFERENCE_CONTRACT` |
 | project | `_workspaces/.../<project>/.project_agent/` | `contract.yaml`, 프로젝트 전용 메모/로그 |
@@ -53,25 +57,32 @@ flowchart TD
 ```text
 .agent_class/docs/
 ├── architecture/
-├── plans/
-├── devlog/
 └── prompts/
+```
+
+## 루트 `dev/` 운영 구조
+
+```text
+dev/
+├── log/
+└── plan/
 ```
 
 ## 폴더별 역할
 
 - `architecture/` = class 구조 설명, 메타 규약, 소유 원칙
-- `plans/` = 아직 수행 전인 계획, 수정 계획, relocation 계획
-- `devlog/` = 실제 수행 결과, 변경 이유, 남은 리스크
 - `prompts/` = 반복 사용 가능한 class 작업 프롬프트
+- `dev/plan/` = 저장소 공용 개발 계획, 수정 계획, relocation 계획
+- `dev/log/` = 저장소 공용 실제 수행 결과, 변경 이유, 남은 리스크
 
 ## 적용 규칙
 
 1. 루트 `README.md` 에는 저장소 전체 설명만 남긴다.
 2. 주요 폴더는 각 경로 바로 아래 `README.md` 를 두고 그 폴더 설명을 정본으로 관리한다.
 3. body 전용 문서는 `.agent/docs/` 아래에서 정본으로 관리한다.
-4. class 전용 문서는 `.agent_class/docs/` 아래에서 정본으로 관리한다.
+4. class 전용 구조 문서와 프롬프트는 `.agent_class/docs/` 아래에서 정본으로 관리한다.
 5. root `docs/` 에 owner 전용 문서가 남아 있으면 relocation 계획 또는 즉시 정리 대상으로 본다.
 6. project 전용 변경 계획과 로그는 class 문서 공간으로 끌어오지 않는다.
 7. `.project_agent` 의 공통 resolve 계약은 root owner 문서로 둘 수 있지만, 프로젝트 전용 메모와 로그는 여전히 각 프로젝트 안에 둔다.
 8. 저장소 공용 마감 기준과 운영상 제한을 고정하는 문서는 root owner 문서로 유지한다.
+9. 저장소 공용 개발 계획과 개발 이력은 루트 `dev/plan/`, `dev/log/` 에 둔다.

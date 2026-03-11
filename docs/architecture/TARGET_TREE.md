@@ -7,6 +7,7 @@ flowchart TD
   Root["./"] --> A[".agent/"]
   Root --> C[".agent_class/"]
   Root --> W["_workspaces/"]
+  Root --> V["dev/"]
   Root --> D["docs/architecture/"]
   Root --> R["README.md"]
   A --> AY["body.yaml"]
@@ -50,8 +51,6 @@ flowchart TD
 │   ├── _local/
 │   ├── docs/
 │   │   ├── architecture/
-│   │   ├── devlog/
-│   │   ├── plans/
 │   │   └── prompts/
 │   ├── knowledge/
 │   ├── skills/
@@ -66,6 +65,9 @@ flowchart TD
 ├── _workspaces/
 │   ├── company/
 │   └── personal/
+├── dev/
+│   ├── log/
+│   └── plan/
 ├── docs/
 │   └── architecture/
 │       ├── UI_SOURCE_MAP.md
@@ -112,13 +114,13 @@ flowchart TD
 | `.agent_class/knowledge/` | 설치형 지식 팩 |
 | `.agent_class/docs/` | 직업 내부 문서 |
 | `.agent_class/docs/architecture/` | class 구조와 메타 규약 |
-| `.agent_class/docs/plans/` | class 변경 계획 |
-| `.agent_class/docs/devlog/` | class 작업 로그 |
 | `.agent_class/docs/prompts/` | class 재사용 프롬프트 |
 | `.agent_class/_local/` | 비추적 로컬 전용 상태 |
 | `_workspaces/` | 실제 프로젝트 운영 현장 |
 | `_workspaces/company/` | 회사 프로젝트 |
 | `_workspaces/personal/` | 개인 프로젝트 |
+| `dev/log/` | 저장소 공용 개발 이력 |
+| `dev/plan/` | 저장소 공용 개발 계획 |
 | `docs/architecture/` | 저장소 전체 구조 문서 |
 | `docs/architecture/UI_SOURCE_MAP.md` | UI source 정본 지도 |
 | `docs/architecture/UI_SYNC_CONTRACT.md` | UI 동기화 계약 |

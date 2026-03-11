@@ -35,3 +35,4 @@
 - local CLI 는 `.agent_class/tools/local_cli/ui_viewer/` 에서 derived state 소비자 역할의 read-only UI prototype 도 제공한다.
 - read-only viewer 의 9차 개선은 표현 계층 한정이며, class 정본 구조나 derive 계약을 바꾸지 않는다.
 - 현재 v1 closeout 범위는 installed/loadout resolve, derived state, read-only viewer, baseline 3종 연동까지로 닫혀 있다.
+- 저장소 공용 개발 계획과 개발 이력 문서는 `.agent_class/docs/` 가 아니라 루트 `dev/plan/`, `dev/log/` 아래에서 관리한다.
