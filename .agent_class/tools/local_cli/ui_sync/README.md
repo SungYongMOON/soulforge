@@ -4,6 +4,7 @@
 
 - `ui_sync/` 는 Soulforge 메타 동기화와 구조 검증을 위한 최소 로컬 CLI 도구를 둔다.
 - 이번 차수에서는 UI renderer 가 아니라 `body_state.yaml` 재생성, class installed/loadout resolve, workspace `.project_agent` resolve/validate, renderer 입력용 derived state 생성까지 책임진다.
+- v1 closeout 기준에서 local CLI 범위는 여기까지로 닫고, 새 명령 추가보다 현재 동작과 문서 정합성을 우선한다.
 
 ## 현재 포함 도구
 
@@ -44,6 +45,7 @@ python .agent_class/tools/local_cli/ui_sync/ui_sync.py validate --json
 - validate 는 duplicate id, path-like equipped ref, kind mismatch, tool family/path mismatch, unknown equipped id, equipped workflow dependency unresolved 를 FAIL 로 본다.
 - validate 는 `invalid` workspace project 를 FAIL 로 보고, `unbound` 는 상태 분류 결과로 허용한다.
 - 실제 설치 모듈이 없으면 빈 catalog 로 통과한다.
+- 현재 baseline 에 invalid sample 이 포함되어 있으므로 `resolve-workspaces`, `validate`, `derive-ui-state --json` 은 known behavior 로 non-zero 를 반환할 수 있다.
 
 ## JSON 출력 최소 구조
 

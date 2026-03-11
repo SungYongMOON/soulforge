@@ -11,6 +11,7 @@ flowchart TD
   D --> C2["class loadout 참조<br/>module id / module.yaml"]
   D --> U["UI 파생 규칙<br/>source map / sync contract"]
   D --> UD["UI derived state<br/>overview / body / class / workspaces / diagnostics"]
+  D --> VC["v1 closeout<br/>checklist / limitations"]
   D --> P["프로젝트별 상태는 프로젝트 폴더 내부 유지"]
   D --> L[".agent_class/_local/<br/>로컬 전용 데이터"]
   D --> R["루트 문서 세트 기준 유지"]
@@ -37,13 +38,14 @@ flowchart TD
 - 6차에서는 실제 library roots 와 `_workspaces/company/` 아래에 첫 reference sample 1세트를 도입한다.
 - 7차에서는 `_workspaces/company/sample_invalid_project/` 로 첫 invalid reference sample 1세트를 도입한다.
 - 8차에서는 `_workspaces/personal/sample_unbound_project/` 로 첫 unbound reference sample 1세트를 도입한다.
+- 10차에서는 `V1_CLOSEOUT_CHECKLIST.md` 와 `KNOWN_LIMITATIONS.md` 를 도입해 v1 종료 기준과 운영상 남는 제한을 root owner 문서로 고정한다.
 - renderer 는 정본 파일 직접 소비자가 아니라 derived state 소비자로 본다.
 - derived state top-level 구조는 `ui`, `overview`, `body`, `class`, `workspaces`, `diagnostics` 로 고정한다.
 - UI source map 과 UI sync contract 를 루트 문서 세트에 포함한다.
 - UI derived state contract 를 루트 문서 세트에 포함한다.
-- reference sample 은 fixture bundle 이 아니라 repo-tracked happy-path, invalid, unbound baseline 을 상태 축별로 하나씩 추가하는 전략으로 관리한다.
+- reference sample 전략은 fixture bundle 이 아니라 repo-tracked `bound`, `invalid`, `unbound` baseline 3종으로 닫는다.
 - 프로젝트별 상태는 프로젝트 폴더 내부에 유지한다.
 - body 운영 문서는 `.agent/docs/` 아래에 둔다.
 - `.agent_class` 아래 `_local/` 은 무시되는 로컬 전용 데이터를 위해 남겨 둔다.
 - class 운영 문서는 `.agent_class/docs/` 아래에 둔다.
-- 루트 문서 세트는 `REPOSITORY_PURPOSE`, `AGENT_WORLD_MODEL`, `WORKSPACE_PROJECT_MODEL`, `PROJECT_AGENT_MINIMUM_SCHEMA`, `PROJECT_AGENT_RESOLVE_CONTRACT`, `TARGET_TREE`, `DOCUMENT_OWNERSHIP`, `CURRENT_DECISIONS`, `UI_SOURCE_MAP`, `UI_SYNC_CONTRACT`, `UI_DERIVED_STATE_CONTRACT`, `MIGRATION_REFERENCE` 를 기준으로 유지한다.
+- 루트 문서 세트는 `REPOSITORY_PURPOSE`, `AGENT_WORLD_MODEL`, `WORKSPACE_PROJECT_MODEL`, `PROJECT_AGENT_MINIMUM_SCHEMA`, `PROJECT_AGENT_RESOLVE_CONTRACT`, `TARGET_TREE`, `DOCUMENT_OWNERSHIP`, `CURRENT_DECISIONS`, `UI_SOURCE_MAP`, `UI_SYNC_CONTRACT`, `UI_DERIVED_STATE_CONTRACT`, `V1_CLOSEOUT_CHECKLIST`, `KNOWN_LIMITATIONS`, `MIGRATION_REFERENCE` 를 기준으로 유지한다.

@@ -30,4 +30,5 @@
 - `_workspaces/company/sample_reference_project/` 는 운영용 실프로젝트가 아니라 repo-tracked reference sample project 로 유지한다.
 - `_workspaces/company/sample_invalid_project/` 는 운영용 실프로젝트가 아니라 diagnostics 와 partial/error state 검증용 invalid reference sample project 로 유지한다.
 - `_workspaces/personal/sample_unbound_project/` 는 `.project_agent/` 가 의도적으로 없는 unbound reference sample project 로 유지한다.
-- 세 sample project 는 모두 운영용 실프로젝트가 아니라 상태 분류와 회귀 검증용 baseline 이다.
+- baseline 상태 세트는 `sample_reference_project = bound`, `sample_invalid_project = invalid`, `sample_unbound_project = unbound` 로 고정한다.
+- 세 sample project 는 모두 운영용 실프로젝트가 아니라 v1 상태판과 viewer 검증의 기준선 baseline 이다.

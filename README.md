@@ -1,7 +1,8 @@
 # Soulforge
 
 Soulforge는 `.agent`, `.agent_class`, `_workspaces` 세 축으로 새 정본 구조를 정의하는 설계 저장소다.
-현재 단계에서는 구현보다 문서와 메타 구조를 먼저 확정한다.
+현재 v1 범위는 body/class/workspace 구조, resolve/validate/derive 흐름, read-only viewer, reference sample baseline 3종까지로 닫혀 있다.
+이 저장소는 새 기능을 계속 늘리는 단계가 아니라, 위 범위를 운영 가능한 기준선으로 고정한 `v1 closeout` 상태를 다룬다.
 
 ## 운영 원칙
 
@@ -59,13 +60,12 @@ flowchart TD
 - [`docs/architecture/UI_SOURCE_MAP.md`](docs/architecture/UI_SOURCE_MAP.md)
 - [`docs/architecture/UI_SYNC_CONTRACT.md`](docs/architecture/UI_SYNC_CONTRACT.md)
 - [`docs/architecture/UI_DERIVED_STATE_CONTRACT.md`](docs/architecture/UI_DERIVED_STATE_CONTRACT.md)
+- [`docs/architecture/V1_CLOSEOUT_CHECKLIST.md`](docs/architecture/V1_CLOSEOUT_CHECKLIST.md)
+- [`docs/architecture/KNOWN_LIMITATIONS.md`](docs/architecture/KNOWN_LIMITATIONS.md)
 
 ## 상태
 
-- Draft
-- README 기반 설명 체계와 body/class 메타 골격은 정리 중이다. `Derive` 이후 `Render` 단계는 read-only prototype 으로 처음 연결되었다.
-- class library roots 와 `_workspaces/company/`, `_workspaces/personal/` 아래에 repo-tracked reference sample baseline 이 단계적으로 도입되었다.
-- happy-path baseline 다음 단계로 첫 invalid reference sample 1세트가 추가되어 `resolve-workspaces`, `validate`, `derive-ui-state`, `ui_viewer` 의 실패 경로도 실제 입력으로 검증된다.
-- `_workspaces/personal/sample_unbound_project/` 가 추가되어 reference sample 은 이제 happy-path(`bound`), invalid(`invalid`), unbound(`unbound`) 세 상태를 실제 입력으로 포함한다.
-- read-only viewer 와 `derive-ui-state` 는 세 상태를 모두 derived JSON 기반 실입력으로 검증하고, invalid 에 대해서만 partial/error state 를 유지한다.
-- read-only viewer 는 9차에서 parchment / brass / slate / teal 기반의 절제된 게임풍 UI, 상태 뱃지 정리, 긴 텍스트 wrap/overflow-safe 표현을 반영했지만 여전히 `derive-ui-state --json` 소비자다.
+- v1 closeout completed
+- 현재 v1 범위는 `구조 + 상태판 + read-only viewer + baseline 3종` 기준으로 닫혔다.
+- `sample_reference_project`, `sample_invalid_project`, `sample_unbound_project` 는 각각 `bound`, `invalid`, `unbound` baseline 으로 유지한다.
+- 종료 기준은 `V1_CLOSEOUT_CHECKLIST.md`, known warnings / limitations 는 `KNOWN_LIMITATIONS.md` 에서 운영 기준으로 관리한다.

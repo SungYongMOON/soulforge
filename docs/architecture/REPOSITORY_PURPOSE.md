@@ -5,6 +5,8 @@
 Soulforge는 에이전트 구조를 `.agent(에이전트 본체)`, `.agent_class(직업 계층)`, `_workspaces(실제 프로젝트 현장)` 로 나누어 정리하는 정본 저장소다.
 
 이 저장소는 구현 코드 저장소가 아니라, 구조와 문서를 먼저 확정하는 설계 저장소에 가깝다.
+현재 단계는 `v1 closeout completed` 로 본다.
+다음 반복은 선택적 후속 작업이며, 현재 v1 범위는 이미 `구조 + 상태판 + read-only viewer + baseline 3종` 기준으로 닫혀 있다.
 
 ## 구조 개요도
 
@@ -29,6 +31,7 @@ flowchart TD
 - class installed/loadout resolve 가 module reference contract 위에 올라가도록 기준을 닫는다
 - workspace resolve 계약이 UI derive 이전 단계의 전제로 올라가도록 기준을 닫는다
 - UI derive state 가 renderer 이전 단계의 공식 산출물로 올라가도록 기준을 닫는다
+- v1 종료 체크리스트와 known limitations 문서로 현재 운영 기준을 고정한다
 - 향후 구현과 UI가 붙을 수 있도록 최소 메타 구조를 준비한다
 
 ## 이 저장소가 지금 하지 않는 일
@@ -58,6 +61,8 @@ flowchart TD
 - `docs/architecture/PROJECT_AGENT_MINIMUM_SCHEMA.md`
 - `docs/architecture/PROJECT_AGENT_RESOLVE_CONTRACT.md`
 - `docs/architecture/UI_DERIVED_STATE_CONTRACT.md`
+- `docs/architecture/V1_CLOSEOUT_CHECKLIST.md`
+- `docs/architecture/KNOWN_LIMITATIONS.md`
 - `docs/architecture/TARGET_TREE.md`
 - `docs/architecture/CURRENT_DECISIONS.md`
 - `.agent/docs/architecture/AGENT_BODY_MODEL.md`

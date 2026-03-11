@@ -7,6 +7,7 @@
 - viewer 는 구조 검증용 로컬 프로토타입이며 배포용 앱이 아니다.
 - 9차에서는 구조 계약을 바꾸지 않고 typography, card hierarchy, badge tone, icon language, long-text overflow 안전성을 다듬는다.
 - 게임풍 감성은 renderer 표현 계층에만 얹고, derive 계약과 owner 경계는 그대로 유지한다.
+- v1 closeout 기준에서도 viewer 는 read-only prototype 으로 유지하며, richer panel 이나 편집 기능은 범위 밖으로 둔다.
 
 ## 현재 포함 도구
 
@@ -31,6 +32,7 @@ python .agent_class/tools/local_cli/ui_viewer/ui_viewer.py --once --output /tmp/
 - empty state, partial render, `bound/unbound/invalid`, `present`, `dependency_status` 를 구분해 표시한다.
 - 긴 path, command/code strip, diagnostics message, workflow dependency list 가 카드 폭을 깨지 않도록 wrap/scroll-safe 처리를 유지한다.
 - body/class/workspace 를 game-flavored professional viewer 톤으로만 표현한다.
+- invalid baseline 이 있는 현재 저장소 상태에서는 derive 명령이 non-zero 여도 viewer snapshot 이 partial payload 로 계속 생성될 수 있다.
 
 ## 제외 범위
 
