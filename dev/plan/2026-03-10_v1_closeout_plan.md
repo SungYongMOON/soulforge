@@ -68,8 +68,8 @@
 - [x] `python .agent_class/tools/local_cli/ui_sync/ui_sync.py resolve-workspaces`
 - [x] `python .agent_class/tools/local_cli/ui_sync/ui_sync.py validate`
 - [x] `python .agent_class/tools/local_cli/ui_sync/ui_sync.py derive-ui-state --json`
-- [x] `python .agent_class/tools/local_cli/ui_viewer/ui_viewer.py --once --output /tmp/soulforge-v1-closeout.html`
-- [x] `python -m py_compile .agent_class/tools/local_cli/ui_sync/ui_sync.py .agent_class/tools/local_cli/ui_viewer/ui_viewer.py`
+- [x] `python ui/viewer/ui_viewer.py --once --output /tmp/soulforge-v1-closeout.html`
+- [x] `python -m py_compile .agent_class/tools/local_cli/ui_sync/ui_sync.py ui/viewer/ui_viewer.py`
 - [x] `git diff --check`
 - [x] baseline 3종 상태 유지 확인
 - [x] README 및 architecture 문서의 closeout 링크 유효성 확인

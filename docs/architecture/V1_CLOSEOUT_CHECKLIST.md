@@ -30,7 +30,7 @@ flowchart LR
 - class installed/loadout resolve
 - workspace `.project_agent` resolve
 - `derive-ui-state` 기반 derived state generator
-- `ui_viewer.py` read-only viewer
+- `ui/viewer/ui_viewer.py` read-only viewer
 - reference sample baseline 3종
 
 ## baseline 상태 세트
@@ -48,8 +48,8 @@ python .agent_class/tools/local_cli/ui_sync/ui_sync.py resolve-loadout
 python .agent_class/tools/local_cli/ui_sync/ui_sync.py resolve-workspaces
 python .agent_class/tools/local_cli/ui_sync/ui_sync.py validate
 python .agent_class/tools/local_cli/ui_sync/ui_sync.py derive-ui-state --json
-python .agent_class/tools/local_cli/ui_viewer/ui_viewer.py --once --output /tmp/soulforge-v1-closeout.html
-python -m py_compile .agent_class/tools/local_cli/ui_sync/ui_sync.py .agent_class/tools/local_cli/ui_viewer/ui_viewer.py
+python ui/viewer/ui_viewer.py --once --output /tmp/soulforge-v1-closeout.html
+python -m py_compile .agent_class/tools/local_cli/ui_sync/ui_sync.py ui/viewer/ui_viewer.py
 git diff --check
 ```
 

@@ -17,7 +17,7 @@
 
 ## 범위
 
-- [x] `.agent_class/tools/local_cli/ui_viewer/` 신설
+- [x] `ui/viewer/` 신설
 - [x] `ui_viewer.py` 구현
 - [x] viewer README 작성
 - [x] root/class/tools/docs README 최신화
@@ -54,25 +54,25 @@
 
 ## 실행 방식
 
-- [x] 기본 실행 명령: `python .agent_class/tools/local_cli/ui_viewer/ui_viewer.py`
-- [x] 포트 지정 실행: `python .agent_class/tools/local_cli/ui_viewer/ui_viewer.py --port 8765`
-- [x] 1회 HTML 생성: `python .agent_class/tools/local_cli/ui_viewer/ui_viewer.py --once`
+- [x] 기본 실행 명령: `python ui/viewer/ui_viewer.py`
+- [x] 포트 지정 실행: `python ui/viewer/ui_viewer.py --port 8765`
+- [x] 1회 HTML 생성: `python ui/viewer/ui_viewer.py --once`
 - [x] viewer 는 Python 표준 라이브러리 HTTP 서버와 정적 HTML 렌더링만 사용한다.
 - [x] viewer 는 `sys.executable` 로 `ui_sync.py derive-ui-state --json` 을 호출한다.
 
 ## 검증 체크리스트
 
 - [x] `python .agent_class/tools/local_cli/ui_sync/ui_sync.py derive-ui-state --json`
-- [x] `python .agent_class/tools/local_cli/ui_viewer/ui_viewer.py --once`
+- [x] `python ui/viewer/ui_viewer.py --once`
 - [x] viewer 실행 후 4탭 HTML 확인
 - [x] empty state 와 diagnostics 출력 확인
-- [x] `python -m py_compile .agent_class/tools/local_cli/ui_sync/ui_sync.py .agent_class/tools/local_cli/ui_viewer/ui_viewer.py`
+- [x] `python -m py_compile .agent_class/tools/local_cli/ui_sync/ui_sync.py ui/viewer/ui_viewer.py`
 - [x] `git diff --check`
 - [x] README 링크와 명령 예시 확인
 
 ## owner 체크
 
-- [x] viewer 구현은 `.agent_class/tools/local_cli/ui_viewer/` 아래에 둔다.
+- [x] viewer 구현은 `ui/viewer/` 아래에 둔다.
 - [x] `ui_sync.py` 는 derived state producer 로 유지한다.
 - [x] render 단계 경계 설명은 root owner 문서 `UI_SYNC_CONTRACT.md` 에 최소 반영한다.
 - [x] class owner README 는 viewer leaf 와 실행 방법만 다룬다.

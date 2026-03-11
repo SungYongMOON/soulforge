@@ -69,12 +69,12 @@
 - [x] `python .agent_class/tools/local_cli/ui_sync/ui_sync.py validate --json`
 - [x] `python .agent_class/tools/local_cli/ui_sync/ui_sync.py derive-ui-state`
 - [x] `python .agent_class/tools/local_cli/ui_sync/ui_sync.py derive-ui-state --json`
-- [x] `python .agent_class/tools/local_cli/ui_viewer/ui_viewer.py --once --output /tmp/soulforge-unbound-sample.html`
-- [x] 가능하면 `python .agent_class/tools/local_cli/ui_viewer/ui_viewer.py --port 8765` 실행 후 `/`, `/api/state`, `/healthz` 확인
+- [x] `python ui/viewer/ui_viewer.py --once --output /tmp/soulforge-unbound-sample.html`
+- [x] 가능하면 `python ui/viewer/ui_viewer.py --port 8765` 실행 후 `/`, `/api/state`, `/healthz` 확인
 - [x] `sample_reference_project` 가 계속 `bound` 인지 확인
 - [x] `sample_invalid_project` 가 계속 `invalid` 인지 확인
 - [x] `sample_unbound_project` 가 `unbound` 인지 확인
-- [x] `python -m py_compile .agent_class/tools/local_cli/ui_sync/ui_sync.py .agent_class/tools/local_cli/ui_viewer/ui_viewer.py`
+- [x] `python -m py_compile .agent_class/tools/local_cli/ui_sync/ui_sync.py ui/viewer/ui_viewer.py`
 - [x] `git diff --check`
 
 ## owner 체크

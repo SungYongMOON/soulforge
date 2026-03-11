@@ -16,7 +16,7 @@ from typing import Any
 from urllib.parse import urlparse
 
 
-REPO_ROOT = Path(__file__).resolve().parents[4]
+REPO_ROOT = Path(__file__).resolve().parents[2]
 UI_SYNC_SCRIPT = REPO_ROOT / ".agent_class" / "tools" / "local_cli" / "ui_sync" / "ui_sync.py"
 DEFAULT_HOST = "127.0.0.1"
 DEFAULT_PORT = 8765

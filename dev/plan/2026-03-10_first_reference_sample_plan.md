@@ -80,10 +80,10 @@
 - [x] `python .agent_class/tools/local_cli/ui_sync/ui_sync.py derive-ui-state`
 - [x] `python .agent_class/tools/local_cli/ui_sync/ui_sync.py derive-ui-state --json`
 - [x] `python .agent_class/tools/local_cli/ui_sync/ui_sync.py validate`
-- [x] `python .agent_class/tools/local_cli/ui_viewer/ui_viewer.py --once --output /tmp/soulforge-reference-sample.html`
-- [x] `python .agent_class/tools/local_cli/ui_viewer/ui_viewer.py --port 8765`
+- [x] `python ui/viewer/ui_viewer.py --once --output /tmp/soulforge-reference-sample.html`
+- [x] `python ui/viewer/ui_viewer.py --port 8765`
 - [x] `/`, `/api/state`, `/healthz` 응답 확인
-- [x] `python -m py_compile .agent_class/tools/local_cli/ui_sync/ui_sync.py .agent_class/tools/local_cli/ui_viewer/ui_viewer.py`
+- [x] `python -m py_compile .agent_class/tools/local_cli/ui_sync/ui_sync.py ui/viewer/ui_viewer.py`
 - [x] `git diff --check`
 
 ## owner 체크

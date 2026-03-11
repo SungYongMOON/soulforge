@@ -7,6 +7,7 @@ flowchart TD
   Root["./"] --> A[".agent/"]
   Root --> C[".agent_class/"]
   Root --> W["_workspaces/"]
+  Root --> U["ui/"]
   Root --> V["dev/"]
   Root --> D["docs/architecture/"]
   Root --> R["README.md"]
@@ -65,6 +66,8 @@ flowchart TD
 ├── _workspaces/
 │   ├── company/
 │   └── personal/
+├── ui/
+│   └── viewer/
 ├── dev/
 │   ├── log/
 │   └── plan/
@@ -119,6 +122,8 @@ flowchart TD
 | `_workspaces/` | 실제 프로젝트 운영 현장 |
 | `_workspaces/company/` | 회사 프로젝트 |
 | `_workspaces/personal/` | 개인 프로젝트 |
+| `ui/` | 저장소 공용 UI surface |
+| `ui/viewer/` | `derive-ui-state --json` 소비자 renderer |
 | `dev/log/` | 저장소 공용 개발 이력 |
 | `dev/plan/` | 저장소 공용 개발 계획 |
 | `docs/architecture/` | 저장소 전체 구조 문서 |

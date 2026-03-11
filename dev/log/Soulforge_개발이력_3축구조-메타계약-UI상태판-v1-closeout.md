@@ -171,7 +171,7 @@
 - 커밋: `ae7b130`
 - 목적: `derive-ui-state --json`을 읽는 4탭 read-only viewer를 도입
 - 핵심 변경:
-  - `.agent_class/tools/local_cli/ui_viewer/ui_viewer.py` 신설
+  - `ui/viewer/ui_viewer.py` 신설
   - 로컬 HTTP viewer + `--once` HTML snapshot 생성 지원
   - 4탭(`Overview / Body / Class / Workspaces`) + diagnostics 렌더
 - 의미:

@@ -34,7 +34,7 @@ flowchart TD
 - `unbound` 프로젝트는 허용하고, `invalid` 프로젝트만 FAIL 로 본다.
 - UI는 정본이 아니라 메타와 구조에서 파생되는 결과다.
 - 4차에서는 `derive-ui-state` 와 `UI_DERIVED_STATE_CONTRACT.md` 로 `Derive` 단계를 실제 구현한다.
-- 5차에서는 `.agent_class/tools/local_cli/ui_viewer/ui_viewer.py` 로 `Render` 단계를 read-only prototype 으로 도입한다.
+- 5차에서는 `ui/viewer/ui_viewer.py` 로 `Render` 단계를 read-only prototype 으로 도입한다.
 - 6차에서는 실제 library roots 와 `_workspaces/company/` 아래에 첫 reference sample 1세트를 도입한다.
 - 7차에서는 `_workspaces/company/sample_invalid_project/` 로 첫 invalid reference sample 1세트를 도입한다.
 - 8차에서는 `_workspaces/personal/sample_unbound_project/` 로 첫 unbound reference sample 1세트를 도입한다.

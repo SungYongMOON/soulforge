@@ -45,7 +45,7 @@ flowchart LR
 - 2차에서는 class installed/loadout 에 대해 `Resolve` + `Validate` 를 실제 구현한다.
 - 3차에서는 workspace `.project_agent` 에 대해 `resolve-workspaces` 와 workspace 통합 `validate` 를 구현한다.
 - 4차에서는 `derive-ui-state` 로 `Derive` 단계를 실제 구현한다.
-- 5차에서는 `.agent_class/tools/local_cli/ui_viewer/ui_viewer.py` 로 `Render` 단계의 read-only prototype 을 구현한다.
+- 5차에서는 `ui/viewer/ui_viewer.py` 로 `Render` 단계의 read-only prototype 을 구현한다.
 - 6차에서는 첫 happy-path reference sample 1세트를 실제 library roots 와 `_workspaces/company/` 아래에 도입한다.
 - 7차에서는 첫 invalid reference sample 1세트를 `_workspaces/company/` 아래에 도입해 validate FAIL 과 partial/error render 경로를 실제 입력으로 검증한다.
 - 8차에서는 첫 unbound reference sample 1세트를 `_workspaces/personal/` 아래에 도입해 `bound / invalid / unbound` 세 상태가 모두 실제 입력으로 검증되게 한다.
@@ -56,8 +56,8 @@ flowchart LR
 - equipped workflow 의 `requires.skills/tools/knowledge` 는 installed 여부 기준으로 먼저 resolve 한다.
 - `derive-ui-state` 는 body/class/workspace resolve 결과를 `overview`, `body`, `class`, `workspaces`, `diagnostics` 구조로 합친다.
 - `derive-ui-state` 는 text/json 출력을 지원하지만 기본적으로 저장소 파일을 새로 쓰지 않는다.
-- `ui_viewer.py` 는 `derive-ui-state --json` 만 읽고 4탭 UI 와 diagnostics 패널을 read-only 로 렌더링한다.
-- `ui_viewer.py` 는 `derive-ui-state` 가 non-zero exit code 를 반환해도 JSON payload 가 있으면 partial render 를 유지한다.
+- `ui/viewer/ui_viewer.py` 는 `derive-ui-state --json` 만 읽고 4탭 UI 와 diagnostics 패널을 read-only 로 렌더링한다.
+- `ui/viewer/ui_viewer.py` 는 `derive-ui-state` 가 non-zero exit code 를 반환해도 JSON payload 가 있으면 partial render 를 유지한다.
 
 ## 동기화 트리거
 

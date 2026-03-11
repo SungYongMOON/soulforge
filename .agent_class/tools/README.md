@@ -14,8 +14,7 @@
 - `local_cli/` = 로컬 CLI 실행 래퍼
 - `mcp/` = MCP 서버 바인딩
 - 현재 `local_cli/ui_sync/` 는 body 메타 동기화, class installed/loadout resolve, workspace `.project_agent` resolve/검증, UI derived state 생성을 위한 최소 CLI 를 제공한다.
-- 현재 `local_cli/ui_viewer/` 는 `derive-ui-state --json` 을 읽는 read-only renderer prototype 을 제공한다.
-- renderer 감성 조정은 `local_cli/ui_viewer/` 표현 계층 안에서만 수행하고, 도구 계층 계약이나 derive 입력 구조는 여기서 바꾸지 않는다.
+- renderer entrypoint 는 루트 `ui/viewer/` 에서 분리 관리한다.
 
 ## 제외 대상
 
@@ -30,12 +29,13 @@
 - [`.agent_class/tools/connectors/README.md`](connectors/README.md)
 - [`.agent_class/tools/local_cli/README.md`](local_cli/README.md)
 - [`.agent_class/tools/mcp/README.md`](mcp/README.md)
+- [`ui/viewer/README.md`](../../ui/viewer/README.md)
 
 ## 상태
 
 - Draft
 - 도구 계층의 하위 분리는 고정한다.
-- `local_cli/` 아래에는 resolver/viewer 외에도 happy-path baseline 검증용 `sample_tool_status/` 같은 repo-tracked reference sample 도구가 들어올 수 있다.
+- `local_cli/` 아래에는 resolver 와 happy-path baseline 검증용 `sample_tool_status/` 같은 repo-tracked reference sample 도구가 들어올 수 있다.
 - `local_cli/ui_sync/` 는 `sync-body-state`, `resolve-loadout`, `resolve-workspaces`, `derive-ui-state`, `validate` 다섯 명령으로 정본 메타 Scan/Resolve/Validate/Derive 를 수행한다.
-- `local_cli/ui_viewer/` 는 `Render` 단계를 read-only prototype 으로 시작하며, 정본 파일 직접 읽기 없이 derived state 소비자로만 동작한다.
-- 9차 renderer polish 는 게임풍 감성과 가독성 개선만 포함하며, 편집/저장/patch 기능이나 새 viewer backend 계약은 포함하지 않는다.
+- `ui/viewer/` 는 `Render` 단계를 read-only prototype 으로 시작하며, 정본 파일 직접 읽기 없이 derived state 소비자로만 동작한다.
+- 9차 renderer polish 는 `ui/viewer/` 표현 계층에서만 다루고, 도구 계층 계약이나 derive 입력 구조는 여기서 바꾸지 않는다.
