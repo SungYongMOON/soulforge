@@ -2,8 +2,13 @@
 
 ## 목적
 
-- `.agent_class/` 는 현재 환경에 설치된 직업 계층의 정본을 둔다.
+- `.agent_class/` 는 현재 환경에 장착된 loadout 계층의 정본을 둔다.
 - 본체를 바꾸지 않고 어떤 installed module 이 있고 어떤 module id 를 장착했는지 관리한다.
+
+## 범위
+
+- installed library catalog 와 현재 장착 상태를 다룬다.
+- body durable organ 이나 mission site 실자료는 범위 밖이다.
 
 ## 포함 대상
 
@@ -15,6 +20,11 @@
 
 - 본체 장기 기억과 본체 정책
 - 실제 프로젝트 파일과 프로젝트별 `.project_agent/`
+
+## 미래 확장 방향
+
+- loadout 이 늘어나도 협업 shared 자산은 `.agent_class` 안이 아니라 루트 `_teams/shared/` 와 분리한다.
+- mission 특화 조합은 `_workspaces` 연결 계약으로만 묶고 loadout owner 는 유지한다.
 
 ## 관련 경로
 

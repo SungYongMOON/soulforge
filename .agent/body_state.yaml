@@ -15,6 +15,9 @@ sections:
   communication:
     path: communication
     present: true
+  protocols:
+    path: protocols
+    present: true
   autonomic:
     path: autonomic
     present: true

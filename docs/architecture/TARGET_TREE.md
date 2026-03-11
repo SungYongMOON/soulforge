@@ -1,5 +1,27 @@
 # 목표 트리
 
+## 목적
+
+- 저장소의 목표 구조와 owner 경계를 한눈에 보여준다.
+- `.agent` private operating system, `.agent_class` loadout, `_workspaces` mission site 의 배치를 고정한다.
+
+## 범위
+
+- 현재 목표 트리와 각 경로의 책임만 요약한다.
+- shared team 확장과 major rename 은 미래 방향으로만 다룬다.
+
+## 포함 대상
+
+- 루트 구조
+- `.agent` 핵심 기관
+- `.agent_class`, `_workspaces`, `docs`, `ui`, `dev` 의 상위 책임
+
+## 제외 대상
+
+- 세부 스키마와 resolve 알고리즘
+- 협업용 `_teams/shared/` 실제 폴더 생성
+- 독립 `export/` 기관
+
 ## 구조 개요도
 
 ```mermaid
@@ -14,6 +36,7 @@ flowchart TD
   A --> AY["body.yaml"]
   A --> AS["body_state.yaml"]
   A --> AD["docs/architecture/"]
+  A --> AP["protocols/"]
   AD --> AB["BODY_METADATA_CONTRACT.md"]
   C --> CD["docs/architecture/"]
   C --> SK["skills/"]
@@ -45,6 +68,7 @@ flowchart TD
 │   ├── identity/
 │   ├── memory/
 │   ├── policy/
+│   ├── protocols/
 │   ├── registry/
 │   └── sessions/
 ├── .agent_class/
@@ -87,22 +111,23 @@ flowchart TD
 
 | 경로 | 책임 |
 | --- | --- |
-| `.agent/` | 에이전트 본체의 지속 계층 |
+| `.agent/` | durable agent unit 의 private operating system |
 | `.agent/body.yaml` | 본체 정적 정의 메타 파일 |
 | `.agent/body_state.yaml` | 본체 현재 상태 스냅샷 |
-| `.agent/identity/` | 정체성, 종별 정보, 기본 식별 정보 |
-| `.agent/engine/` | 엔진 설정과 실행 기반 |
-| `.agent/sessions/` | 세션 상태와 세션 기록 |
+| `.agent/identity/` | durable identity default 와 species baseline |
+| `.agent/engine/` | 현재 경로명은 `engine` 이지만 의미는 runtime layer |
+| `.agent/sessions/` | transcript 가 아닌 continuity 저장소 |
 | `.agent/memory/` | 장기 기억 |
 | `.agent/communication/` | 외부와의 상호작용 규칙 |
-| `.agent/autonomic/` | 자율 동작과 자동 반응 규칙 |
-| `.agent/policy/` | 정책과 안전 규칙 |
+| `.agent/protocols/` | body 공통 operating protocol |
+| `.agent/autonomic/` | 저소음 품질 보정 루틴 |
+| `.agent/policy/` | species-free floor |
 | `.agent/registry/` | 등록 정보와 색인 정보 |
-| `.agent/artifacts/` | 본체 측 산출물 |
+| `.agent/artifacts/` | 본체 측 파생 산출물, 단 `export/` 는 별도 기관으로 두지 않음 |
 | `.agent/docs/` | 본체 내부 문서 |
 | `.agent/docs/architecture/` | body 구조 문서 |
 | `.agent/docs/architecture/BODY_METADATA_CONTRACT.md` | body 메타 계약 |
-| `.agent_class/` | 직업 계층의 정본 |
+| `.agent_class/` | installed library 와 equipped state 를 다루는 loadout 계층 |
 | `.agent_class/class.yaml` | 직업 정의 메타 파일 |
 | `.agent_class/loadout.yaml` | 현재 장착 상태 정의 |
 | `.agent_class/skills/` | 설치된 스킬 |
@@ -129,3 +154,9 @@ flowchart TD
 | `docs/architecture/UI_SYNC_CONTRACT.md` | UI 동기화 계약 |
 | `docs/architecture/DOCUMENT_OWNERSHIP.md` | 문서 소유권 기준 |
 | `README.md` | 저장소 전체 개요와 상위 지도 |
+
+## 미래 확장 방향
+
+- 미래 팀 협업은 `.agent` 안이 아니라 루트 `_teams/shared/` 로 확장한다.
+- `engine/` 은 runtime 의미를 유지하고 major 정리에서 `runtime/` rename 을 검토한다.
+- `protocols/` 는 body 공통 운영 계약의 고정 경계로 유지한다.

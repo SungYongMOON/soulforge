@@ -1,53 +1,69 @@
 # Soulforge
 
 Soulforge는 `.agent`, `.agent_class`, `_workspaces` 세 축으로 새 정본 구조를 정의하는 설계 저장소다.
-현재 v1 범위는 body/class/workspace 구조, resolve/validate/derive 흐름, read-only viewer, reference sample baseline 3종까지로 닫혀 있다.
-이 저장소는 새 기능을 계속 늘리는 단계가 아니라, 위 범위를 운영 가능한 기준선으로 고정한 `v1 closeout` 상태를 다룬다.
 
-## 운영 원칙
+## 목적
 
-- 루트 `README.md` 는 저장소 전체 개요와 상위 지도만 다룬다.
-- 주요 폴더의 상세 설명은 각 폴더 바로 아래 `README.md` 를 정본으로 삼는다.
-- 구조 원칙과 메타 규약은 `docs/architecture/` 또는 해당 owner 의 `docs/` 아래에서 관리한다.
-- 폴더 내용이 바뀌면 같은 변경 안에서 해당 폴더 `README.md` 도 함께 최신화한다.
-- UI는 정본이 아니라 메타와 구조에서 파생되는 결과로 다룬다.
-- UI renderer 는 정본 파일 직접 읽기보다 derived state 소비자를 우선한다.
-- read-only UI prototype 은 루트 `ui/viewer/` 에 두고 `derive-ui-state --json` 만 읽는다.
-- 9차 renderer polish 는 read-only viewer 의 표현과 가독성만 조정하며, 정본/resolve/derive 계약은 그대로 유지한다.
+- `.agent` 를 한 명의 durable agent unit 의 private operating system 으로 정의한다.
+- `.agent_class` 를 body 바깥에서 장착되는 loadout 계층으로 정리한다.
+- `_workspaces` 를 실제 프로젝트가 실행되는 mission site 로 고정한다.
+
+## 범위
+
+- body/class/workspace 구조, resolve/validate/derive 흐름, read-only viewer, reference sample baseline 3종까지를 다룬다.
+- 구현 확장보다 구조와 문서 정합성 고정이 우선이다.
+
+## 포함 대상
+
+- body/class/workspace 정본 구조와 메타 계약
+- `.project_agent` 기반 workspace resolve 계약
+- `derive-ui-state --json` 을 입력으로 쓰는 read-only viewer
+
+## 제외 대상
+
+- 대규모 runtime 구현 이전
+- `.agent` 내부 team collaboration 설계
+- 독립 top-level body 기관으로서의 `export/`
 
 ## 구조 개요도
 
 ```mermaid
 flowchart TD
-  S["Soulforge"] --> B[".agent<br/>에이전트 본체"]
-  S --> C[".agent_class<br/>직업 계층"]
-  S --> W["_workspaces<br/>실제 프로젝트 현장"]
+  S["Soulforge"] --> B[".agent<br/>private operating system"]
+  S --> C[".agent_class<br/>loadout"]
+  S --> W["_workspaces<br/>mission site"]
   S --> U["ui<br/>저장소 UI surface"]
   S --> D["docs<br/>저장소 공용 문서"]
   W --> P[".project_agent<br/>프로젝트 연결 규약"]
+  S -. "future expansion" .-> T["_teams/shared"]
 ```
 
 ## 상위 지도
 
 - [`.agent/README.md`](.agent/README.md): 본체 계층 개요
-- [`.agent_class/README.md`](.agent_class/README.md): 직업 계층 개요
-- [`_workspaces/README.md`](_workspaces/README.md): 실제 프로젝트 현장 개요
+- [`.agent_class/README.md`](.agent_class/README.md): loadout 계층 개요
+- [`_workspaces/README.md`](_workspaces/README.md): mission site 개요
 - [`ui/README.md`](ui/README.md): 저장소 공용 UI surface 개요
 - [`docs/README.md`](docs/README.md): 저장소 공용 문서 개요
 - [`dev/README.md`](dev/README.md): 개발 기록 문서 개요
 
 ## 핵심 경계
 
-- `.agent` 는 몸이다. `body.yaml` 과 `body_state.yaml` 으로 본체 메타를 관리하고 `memory` 는 여기에 둔다.
-- `.agent_class` 는 직업이다. `skills`, `tools`, `workflows`, `knowledge` 는 여기에 둔다.
-- `.agent_class` 는 `class.yaml`, `loadout.yaml`, 그리고 installed module `module.yaml` 로 직업 메타를 관리한다.
-- `.agent_class/loadout.yaml` 의 `equipped.*` 는 경로가 아니라 module id 목록이다.
-- `_workspaces` 는 실제 프로젝트 운영 현장이다. 프로젝트별 연결 규약은 각 프로젝트의 `.project_agent/` 에 둔다.
-- `_workspaces` 의 workspace UI 상태는 실제 프로젝트 폴더 스캔과 `.project_agent` resolve 결과를 바탕으로 `bound`, `unbound`, `invalid` 로 파생한다.
-- `ui/` 는 저장소 전체 derived state 를 소비하는 renderer surface 다.
-- 루트 `docs/` 는 저장소 공용 구조 문서만 둔다.
-- UI는 위 정본 파일과 실제 구조에서 재생성되어야 하며, renderer 는 `derive-ui-state` 가 만든 derived state 를 입력으로 삼는다.
-- 첫 renderer prototype 은 `ui/viewer/ui_viewer.py` 에서 로컬 read-only 화면으로만 제공한다.
+- `.agent` 는 몸이 아니라 body-owned private operating system 이다.
+- `.agent_class` 는 직업 일반론보다 현재 장착 구성을 다루는 loadout 계층이다.
+- `_workspaces` 는 실제 프로젝트 운영 현장인 mission site 다.
+- 미래 팀 협업은 `.agent` 안이 아니라 루트 `_teams/shared/` 로 확장한다.
+- `species` 는 `identity` 의 durable default 만 담당한다.
+- `policy` 는 species-free floor 다.
+- `sessions` 는 transcript 가 아니라 continuity 저장소다.
+- `autonomic` 은 저소음 품질 보정 루틴이다.
+- `engine/` 는 현재 경로를 유지하되 runtime 의미를 우선한다.
+
+## 미래 확장 방향
+
+- `engine/` 의 `runtime/` rename 여부는 major 문서 정리에서 결정한다.
+- team shared 문서와 프로토콜은 `_teams/shared/` 경계에서 설계한다.
+- `protocols/` 는 body 공통 운영 계약을 담는 신규 기관으로 확장한다.
 
 ## 주요 문서
 
@@ -70,7 +86,5 @@ flowchart TD
 ## 상태
 
 - v1 closeout completed
-- 현재 v1 범위는 `구조 + 상태판 + read-only viewer + baseline 3종` 기준으로 닫혔다.
+- 현재 v1 범위는 `구조 + 상태판 + read-only viewer + baseline 3종` 기준으로 닫혀 있다.
 - `sample_reference_project`, `sample_invalid_project`, `sample_unbound_project` 는 각각 `bound`, `invalid`, `unbound` baseline 으로 유지한다.
-- 종료 기준은 `V1_CLOSEOUT_CHECKLIST.md`, known warnings / limitations 는 `KNOWN_LIMITATIONS.md` 에서 운영 기준으로 관리한다.
-- 루트 `dev/log/`, `dev/plan/` 아래에는 구조/계약/UI 기준선의 개발 이력과 계획 문서를 별도로 관리한다.

@@ -2,8 +2,13 @@
 
 ## 목적
 
-- `_workspaces/` 는 실제 프로젝트 운영 현장을 둔다.
+- `_workspaces/` 는 실제 프로젝트 운영 현장인 mission site 를 둔다.
 - 추상 구조가 아니라 프로젝트 실자료와 결과물이 놓이는 공간이다.
+
+## 범위
+
+- 실제 프로젝트 폴더와 project 연결 규약만 다룬다.
+- body organ, loadout 설치물, team shared 자산은 범위 밖이다.
 
 ## 포함 대상
 
@@ -14,6 +19,11 @@
 
 - 본체 메모리와 클래스 지식 팩
 - 저장소 전체 구조 문서와 클래스 운영 로그
+
+## 미래 확장 방향
+
+- 팀 단위 공유 자산은 `_workspaces` 가 아니라 루트 `_teams/shared/` 에서 확장한다.
+- mission site 는 실제 현장 자료 owner 로 유지하고 shared baseline 은 분리한다.
 
 ## 관련 경로
 
