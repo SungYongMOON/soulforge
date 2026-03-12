@@ -18,10 +18,10 @@
 
 ## 관련 경로
 
-- [루트 README](/Users/seabotmoon-air/Workspace/Soulforge/README.md)
-- [docs/README.md](/Users/seabotmoon-air/Workspace/Soulforge/docs/README.md)
-- [dev/log/README.md](/Users/seabotmoon-air/Workspace/Soulforge/dev/log/README.md)
-- [dev/plan/README.md](/Users/seabotmoon-air/Workspace/Soulforge/dev/plan/README.md)
+ - [루트 README](../README.md)
+ - [docs/README.md](../docs/README.md)
+ - [dev/log/README.md](log/README.md)
+ - [dev/plan/README.md](plan/README.md)
 
 ## 상태
 

@@ -19,8 +19,8 @@
 ## 관련 경로
 
 - [`.agent_class/docs/README.md`](../README.md)
-- [dev/plan/README.md](/Users/seabotmoon-air/Workspace/Soulforge/dev/plan/README.md)
-- [dev/log/README.md](/Users/seabotmoon-air/Workspace/Soulforge/dev/log/README.md)
+ - [dev/plan/README.md](../../../dev/plan/README.md)
+ - [dev/log/README.md](../../../dev/log/README.md)
 
 ## 상태
 

@@ -21,7 +21,7 @@
 - [`.agent_class/README.md`](../README.md)
 - [`.agent_class/docs/architecture/README.md`](architecture/README.md)
 - [`docs/architecture/DOCUMENT_OWNERSHIP.md`](../../docs/architecture/DOCUMENT_OWNERSHIP.md)
-- [dev/README.md](/Users/seabotmoon-air/Workspace/Soulforge/dev/README.md)
+ - [dev/README.md](../../dev/README.md)
 
 ## 상태
 

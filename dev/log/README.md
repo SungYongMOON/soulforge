@@ -18,8 +18,8 @@
 
 ## 관련 경로
 
-- [dev/README.md](/Users/seabotmoon-air/Workspace/Soulforge/dev/README.md)
-- [dev/plan/README.md](/Users/seabotmoon-air/Workspace/Soulforge/dev/plan/README.md)
+ - [dev/README.md](../README.md)
+ - [dev/plan/README.md](../plan/README.md)
 
 ## 상태
 
