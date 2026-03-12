@@ -1,4 +1,4 @@
-assembly_id: soulforge.engine.context_assembly
+assembly_id: soulforge.runtime.context_assembly
 mode: deterministic_static_order
 sources:
   - order: 10
@@ -10,7 +10,7 @@ sources:
   - order: 40
     ref: ../identity/species_profile.yaml
   - order: 50
-    ref: ../identity/trait_bindings.yaml
+    ref: ../registry/trait_bindings.yaml
   - order: 60
     ref: ../registry/active_class_binding.yaml
   - order: 70

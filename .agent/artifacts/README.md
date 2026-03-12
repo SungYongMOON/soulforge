@@ -2,36 +2,32 @@
 
 ## 목적
 
-- `artifacts/` 는 본체 소유 산출물을 둔다.
-- mission site 원본 결과물과 구분되는 body 측 파생 산출물을 관리한다.
+- `artifacts/` 는 이 agent 가 재사용 가능한 공용 산출물로 보관하는 서가다.
+- body 자체에 귀속되는 reusable output 을 workspace deliverable 과 분리해 둔다.
 
 ## 포함 대상
 
-- 본체가 생성한 공용 산출물
-- 본체 산출물 메타와 보관 구조
-- body 문서나 continuity 를 보조하는 파생 결과물
+- `templates/`, `playbooks/`, `rubrics/`, `reports/`
+- reusable reports 와 body-level reusable outputs
+- template 와 운영 playbook
 
 ## 제외 대상
 
-- 프로젝트별 결과물 원본
-- class 문서와 class 지식 팩
-- 별도 `.agent/export/` 폴더
+- 특정 workspace 의 현장 납품물
+- 임시 scratch
+- export packaging 규칙
+- policy 문서
 
 ## 대표 파일
 
-- [`README.md`](README.md): artifacts owner 경계와 body-owned derived output 범위를 정의하는 현재 정본
-- [`.agent/body.yaml`](../body.yaml): body 가 artifacts section 을 소유함을 고정하는 메타
+- [`README.md`](README.md): artifacts owner 경계
 
 ## 참조 관계
 
-- `artifacts/` vs `export/`: `artifacts/` 는 본체가 보관하는 파생 산출물 저장 경계이고, `export/` 는 전달 포맷이나 반출 행위에 가까운 관심사라 별도 body 폴더로 두지 않는다.
-- project deliverable 원본은 `_workspaces/` owner 로 남고, 여기에는 body 측 복제본이나 파생본만 둘 수 있다.
-- [`.agent/README.md`](../README.md)
-- [`_workspaces/README.md`](../../_workspaces/README.md)
-- [`.agent/docs/architecture/AGENT_BODY_MODEL.md`](../docs/architecture/AGENT_BODY_MODEL.md)
+- `artifacts/` vs `export/`: 재사용 가치가 body 자체에 귀속되면 `artifacts/` 다. 전달 포맷 concern 은 별도 `export/` 기관으로 두지 않는다.
+- mission 결과물은 `_workspaces/` 로 가고, body reusable output 만 여기에 남긴다.
 
 ## 변경 원칙
 
-- 전달 포맷이 늘어나도 body 핵심 기관으로서 `.agent/export/` 폴더를 새로 만들지 않는다.
-- mission deliverable 공유가 필요하면 owner 를 `_workspaces/` 또는 `_teams/shared/` 로 두고, body 사본만 여기에 남긴다.
-- artifacts 분류 체계가 늘어나면 보관 구조와 README 를 같은 변경 안에서 함께 갱신한다.
+- reusable output 만 두고 mission-specific deliverable 은 `_workspaces/` 로 분리한다.
+- export profile 이 필요해도 별도 top-level body section 을 만들지 않는다.

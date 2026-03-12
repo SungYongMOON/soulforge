@@ -1,4 +1,4 @@
-profile_id: soulforge.engine.tool_scope
+profile_id: soulforge.runtime.tool_scope
 ownership:
   body_owned_tools: []
   class_tool_root_ref: ../../.agent_class/tools

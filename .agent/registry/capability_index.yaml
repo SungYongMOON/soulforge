@@ -9,6 +9,10 @@ entries:
     kind: manifest
     owner_section: identity
     ref: ../identity/identity_manifest.yaml
+  - capability_id: registry.trait_bindings
+    kind: binding
+    owner_section: registry
+    ref: trait_bindings.yaml
   - capability_id: policy.precedence
     kind: policy
     owner_section: policy
@@ -29,10 +33,14 @@ entries:
     kind: contract
     owner_section: protocols
     ref: ../protocols/request_contract.yaml
-  - capability_id: engine.context_assembly
+  - capability_id: runtime.context_assembly
     kind: runtime_profile
-    owner_section: engine
-    ref: ../engine/context_assembly.yaml
+    owner_section: runtime
+    ref: ../runtime/context_assembly.yaml
+  - capability_id: runtime.delivery_profile
+    kind: runtime_profile
+    owner_section: runtime
+    ref: ../runtime/delivery_profile.yaml
   - capability_id: sessions.checkpoint_template
     kind: continuity_template
     owner_section: sessions

@@ -1,50 +1,65 @@
-id: soulforge.body
-name: Soulforge 기본 본체
+id: soulforge-main-body
+name: Soulforge Main Body
 version: 0.1.0
-description: Soulforge 아키텍처 저장소를 위한 durable agent private operating system.
-operating_constraints:
-  identity_mode: species_only
-  policy_mode: species_free_floor
-  sessions_mode: continuity_only
-  memory_mode: private_first
-  shared_memory_inside_body: false
+description: Durable agent unit for mission-oriented work
+operating_context: ide
+identity_assets:
+  species_profile: .agent/identity/species_profile.yaml
+  trait_bindings: .agent/registry/trait_bindings.yaml
+operating_profiles:
+  sessions: continuity_first
+  memory: private_first
+  autonomic: low_noise
 sections:
-  identity: identity
-  engine: engine
-  memory: memory
-  sessions: sessions
-  communication: communication
-  protocols: protocols
-  autonomic: autonomic
-  policy: policy
-  registry: registry
-  artifacts: artifacts
-  docs: docs
+  identity:
+    path: .agent/identity
+  registry:
+    path: .agent/registry
+  policy:
+    path: .agent/policy
+  communication:
+    path: .agent/communication
+  protocols:
+    path: .agent/protocols
+  runtime:
+    path: .agent/runtime
+  memory:
+    path: .agent/memory
+  sessions:
+    path: .agent/sessions
+  autonomic:
+    path: .agent/autonomic
+  artifacts:
+    path: .agent/artifacts
 section_files:
   identity:
-    - identity/species_profile.yaml
-    - identity/identity_manifest.yaml
-    - identity/trait_bindings.yaml
-  engine:
-    - engine/context_assembly.yaml
-    - engine/tool_scope.yaml
-    - engine/sandbox_profile.yaml
-  sessions:
-    - sessions/checkpoint_template.yaml
-  communication:
-    - communication/human_channel_profile.yaml
-    - communication/peer_channel_profile.yaml
-  protocols:
-    - protocols/request_contract.yaml
-    - protocols/handoff_contract.yaml
-    - protocols/decision_contract.yaml
-    - protocols/incident_contract.yaml
-    - protocols/escalation_contract.yaml
-  policy:
-    - policy/precedence.yaml
-    - policy/approval_matrix.yaml
-    - policy/scope_rules.yaml
+    - .agent/identity/species_profile.yaml
+    - .agent/identity/identity_manifest.yaml
   registry:
-    - registry/active_class_binding.yaml
-    - registry/workspace_binding.yaml
-    - registry/capability_index.yaml
+    - .agent/registry/active_class_binding.yaml
+    - .agent/registry/workspace_binding.yaml
+    - .agent/registry/capability_index.yaml
+    - .agent/registry/trait_bindings.yaml
+  policy:
+    - .agent/policy/precedence.yaml
+    - .agent/policy/approval_matrix.yaml
+    - .agent/policy/scope_rules.yaml
+  communication:
+    - .agent/communication/human_channel_profile.yaml
+    - .agent/communication/peer_channel_profile.yaml
+  protocols:
+    - .agent/protocols/request_contract.yaml
+    - .agent/protocols/handoff_contract.yaml
+    - .agent/protocols/decision_contract.yaml
+    - .agent/protocols/incident_contract.yaml
+    - .agent/protocols/escalation_contract.yaml
+  runtime:
+    - .agent/runtime/context_assembly.yaml
+    - .agent/runtime/tool_scope.yaml
+    - .agent/runtime/sandbox_profile.yaml
+    - .agent/runtime/delivery_profile.yaml
+  sessions:
+    - .agent/sessions/checkpoint_template.yaml
+future_expansion:
+  team_ready: true
+  shared_memory_inside_body: false

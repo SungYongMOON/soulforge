@@ -1,5 +1,5 @@
-profile_id: soulforge.engine.sandbox
-mode: runtime_declares_actual_sandbox
+profile_id: soulforge.runtime.sandbox
+mode: runtime_declares_capability_envelope
 declared_defaults:
   filesystem: runtime_defined
   network: runtime_defined

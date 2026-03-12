@@ -1,14 +1,16 @@
 manifest_id: soulforge.identity.manifest
-body_ref: ../body.yaml
+body_id: soulforge-main-body
+body_name: Soulforge Main Body
+body_version: 0.1.0
 identity_kind: durable_agent_unit
-canonical_name: Soulforge 기본 본체
-namespace: soulforge.body
 species_profile_ref: species_profile.yaml
-trait_bindings_ref: trait_bindings.yaml
+trait_bindings_ref: ../registry/trait_bindings.yaml
+identity_synopsis: species only baseline with optional class and workspace overlays
 defaults:
   species_only: true
   class_binding_required: false
   workspace_binding_required: false
 references:
+  body_ref: ../body.yaml
   policy_floor_ref: ../policy/precedence.yaml
   capability_index_ref: ../registry/capability_index.yaml

@@ -4,14 +4,16 @@ applies_to:
   - peer
 required_fields:
   - request_id
-  - requester_kind
-  - intent
+  - requester
+  - mission
   - scope
-  - constraints
+  - expected_output
+  - deadline
+  - escalation_rule
 optional_fields:
+  - constraints
   - file_refs
   - decision_refs
-  - continuity_ref
 normalization:
   runtime_state_must_be_observed_or_declared: true
   implicit_class_binding: false

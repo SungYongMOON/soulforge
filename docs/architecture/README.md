@@ -25,7 +25,7 @@
 
 - [루트 README](../../README.md)
 - [`docs/README.md`](../README.md)
-- [`.agent/docs/architecture/README.md`](../../.agent/docs/architecture/README.md)
+- [`.agent/docs/architecture/AGENT_BODY_MODEL.md`](../../.agent/docs/architecture/AGENT_BODY_MODEL.md)
 - [`.agent_class/docs/architecture/README.md`](../../.agent_class/docs/architecture/README.md)
 - [`.agent_class/docs/architecture/MODULE_REFERENCE_CONTRACT.md`](../../.agent_class/docs/architecture/MODULE_REFERENCE_CONTRACT.md)
 

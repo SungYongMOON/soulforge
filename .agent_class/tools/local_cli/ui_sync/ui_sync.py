@@ -20,7 +20,7 @@ BODY_YAML = AGENT_ROOT / "body.yaml"
 BODY_STATE_YAML = AGENT_ROOT / "body_state.yaml"
 CLASS_YAML = CLASS_ROOT / "class.yaml"
 LOADOUT_YAML = CLASS_ROOT / "loadout.yaml"
-REQUIRED_BODY_STATE_KEYS = ("body_id", "sections", "status")
+REQUIRED_BODY_STATE_KEYS = ("body_id", "operating_context", "sections", "operating_profiles", "status")
 MODULE_LIBRARY_KEYS = ("skills", "tools", "workflows", "knowledge")
 REQUIRED_MODULE_KEYS = MODULE_LIBRARY_KEYS + ("docs",)
 REQUIRED_EQUIPPED_KEYS = MODULE_LIBRARY_KEYS
@@ -431,6 +431,18 @@ def make_body_state(body_data: dict[str, Any]) -> dict[str, Any]:
     if not isinstance(body_id, str) or not body_id:
         raise YamlParseError(f"{BODY_YAML}: id must be a non-empty string")
 
+    operating_context = body_data.get("operating_context")
+    if not isinstance(operating_context, str) or not operating_context:
+        raise YamlParseError(f"{BODY_YAML}: operating_context must be a non-empty string")
+
+    operating_profiles = body_data.get("operating_profiles")
+    if not isinstance(operating_profiles, dict):
+        raise YamlParseError(f"{BODY_YAML}: operating_profiles must be a mapping")
+
+    future_expansion = body_data.get("future_expansion", {})
+    if not isinstance(future_expansion, dict):
+        raise YamlParseError(f"{BODY_YAML}: future_expansion must be a mapping")
+
     sections = body_data.get("sections")
     if not isinstance(sections, dict):
         raise YamlParseError(f"{BODY_YAML}: sections must be a mapping")
@@ -438,10 +450,11 @@ def make_body_state(body_data: dict[str, Any]) -> dict[str, Any]:
     state_sections: dict[str, dict[str, Any]] = {}
     warnings: list[str] = []
 
-    for section_name, relative_path in sections.items():
-        if not isinstance(relative_path, str):
-            raise YamlParseError(f"{BODY_YAML}: sections.{section_name} must be a string path")
-        present = (AGENT_ROOT / relative_path).is_dir()
+    for section_name, section_value in sections.items():
+        relative_path = get_body_section_path(section_value)
+        if relative_path is None:
+            raise YamlParseError(f"{BODY_YAML}: sections.{section_name} must be a string path or mapping with path")
+        present = resolve_body_section_path(relative_path).is_dir()
         state_sections[section_name] = {"path": relative_path, "present": present}
         if not present:
             warnings.append(f"missing section: {section_name} ({relative_path})")
@@ -449,7 +462,10 @@ def make_body_state(body_data: dict[str, Any]) -> dict[str, Any]:
     summary = "ready" if not warnings else "degraded"
     return {
         "body_id": body_id,
+        "operating_context": operating_context,
         "sections": state_sections,
+        "operating_profiles": {"summary": operating_profiles},
+        "future_expansion": future_expansion,
         "status": {
             "summary": summary,
             "warnings": warnings,
@@ -469,6 +485,25 @@ def add(finding_list: list[Finding], level: str, code: str, message: str) -> Non
 
 def relative_to_repo(path: Path) -> str:
     return str(path.relative_to(REPO_ROOT))
+
+
+def get_body_section_path(section_value: Any) -> str | None:
+    if isinstance(section_value, str) and section_value:
+        return section_value
+    if isinstance(section_value, dict):
+        path_value = section_value.get("path")
+        if isinstance(path_value, str) and path_value:
+            return path_value
+    return None
+
+
+def resolve_body_section_path(path_value: str) -> Path:
+    candidate = Path(path_value)
+    if candidate.is_absolute():
+        return candidate
+    if candidate.parts and candidate.parts[0] == ".agent":
+        return REPO_ROOT / candidate
+    return AGENT_ROOT / candidate
 
 
 def load_required_mapping(path: Path) -> dict[str, Any]:
@@ -1156,9 +1191,22 @@ def validate_body(
         add(findings, "FAIL", "body_sections_type", "body.yaml sections must be a mapping")
         return
 
-    section_paths = list(sections.values())
-    if not all(isinstance(path, str) for path in section_paths):
-        add(findings, "FAIL", "body_sections_path_type", "every body.yaml section path must be a string")
+    section_paths: list[str] = []
+    invalid_sections: list[str] = []
+    for section_name, section_value in sections.items():
+        relative_path = get_body_section_path(section_value)
+        if relative_path is None:
+            invalid_sections.append(section_name)
+            continue
+        section_paths.append(relative_path)
+
+    if invalid_sections:
+        add(
+            findings,
+            "FAIL",
+            "body_sections_path_type",
+            "every body.yaml section path must be a string or mapping with path (" + ", ".join(invalid_sections) + ")",
+        )
         return
 
     duplicates = [path for path, count in Counter(section_paths).items() if count > 1]
@@ -1169,8 +1217,11 @@ def validate_body(
         add(findings, "PASS", "body_sections_unique", "body section paths are unique")
 
     missing_sections = []
-    for section_name, relative_path in sections.items():
-        present = (AGENT_ROOT / relative_path).is_dir()
+    for section_name, section_value in sections.items():
+        relative_path = get_body_section_path(section_value)
+        if relative_path is None:
+            continue
+        present = resolve_body_section_path(relative_path).is_dir()
         actual_presence_by_path[relative_path] = present
         if not present:
             missing_sections.append(f"{section_name} ({relative_path})")
@@ -1228,7 +1279,11 @@ def validate_body_state(
 
     path_errors = []
     present_errors = []
-    for section_name, relative_path in sections.items():
+    for section_name, section_value in sections.items():
+        relative_path = get_body_section_path(section_value)
+        if relative_path is None:
+            path_errors.append(section_name)
+            continue
         state_entry = state_sections.get(section_name)
         if not isinstance(state_entry, dict):
             path_errors.append(section_name)
@@ -1237,7 +1292,7 @@ def validate_body_state(
         state_present = state_entry.get("present")
         if state_path != relative_path:
             path_errors.append(section_name)
-        actual_present = actual_presence_by_path.get(relative_path, (AGENT_ROOT / relative_path).is_dir())
+        actual_present = actual_presence_by_path.get(relative_path, resolve_body_section_path(relative_path).is_dir())
         if state_present != actual_present:
             present_errors.append(section_name)
 
@@ -1895,14 +1950,15 @@ def build_body_payload(body_data: dict[str, Any] | None, body_state_data: dict[s
 
     section_entries: list[dict[str, Any]] = []
     if isinstance(body_sections, dict):
-        for section_id, relative_path in body_sections.items():
-            if not isinstance(section_id, str) or not isinstance(relative_path, str):
+        for section_id, section_value in body_sections.items():
+            relative_path = get_body_section_path(section_value)
+            if not isinstance(section_id, str) or relative_path is None:
                 continue
             state_entry = state_sections.get(section_id) if isinstance(state_sections, dict) else None
             present = (
                 state_entry.get("present")
                 if isinstance(state_entry, dict) and isinstance(state_entry.get("present"), bool)
-                else (AGENT_ROOT / relative_path).is_dir()
+                else resolve_body_section_path(relative_path).is_dir()
             )
             section_entries.append(
                 {

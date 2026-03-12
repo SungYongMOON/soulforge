@@ -32,7 +32,7 @@ python .agent_class/tools/local_cli/ui_sync/ui_sync.py validate --json
 
 ## 범위
 
-- `body_state.yaml` 의 `body_id`, `sections.*.path`, `sections.*.present`, `status.summary`, `status.warnings` 를 재생성한다.
+- `body_state.yaml` 의 `body_id`, `operating_context`, `sections.*.path`, `sections.*.present`, `operating_profiles`, `status.summary`, `status.warnings` 를 재생성한다.
 - `class.yaml.modules.*` 경로를 기준으로 installed module manifest catalog 를 구성한다.
 - `loadout.equipped.*` 를 module id 기준으로 resolve 한다.
 - `equipped.workflows` 에 포함된 workflow 의 `requires.skills/tools/knowledge` 를 installed catalog 기준으로 resolve 한다.

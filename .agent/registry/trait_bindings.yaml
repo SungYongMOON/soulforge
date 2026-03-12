@@ -1,0 +1,15 @@
+binding_set_id: soulforge.registry.traits
+species_profile_ref: ../identity/species_profile.yaml
+communication:
+  tone_profile: from.default_traits.communication_tone
+  question_budget_style: from.default_traits.risk_posture
+sessions:
+  checkpoint_style: from.default_traits.decision_tempo
+memory:
+  recall_priority: from.default_traits.memory_bias
+autonomic:
+  reminder_noise: from.default_traits.autonomy_noise
+artifacts:
+  render_profile: from.default_traits.artifact_style
+notes:
+  - registry는 정본을 복제하지 않고 trait to subsystem binding만 둔다

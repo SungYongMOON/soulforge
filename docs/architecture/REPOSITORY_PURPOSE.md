@@ -75,7 +75,7 @@ flowchart TD
 
 ## 미래 확장 방향
 
-- `engine/` 경로는 현재 유지하고 runtime 의미를 우선하는 재정의로 고정한다.
+- body runtime layer 는 현재 `runtime/` 경로로 정리한다.
 - 팀 shared 자산과 canonical shared protocol 은 `_teams/shared/` 로 분리한다.
 - 본체 `protocols/` 는 현재 private default 중심의 body 공통 운영 계약 경계로 유지한다.
 

@@ -1,0 +1,10 @@
+profile_id: soulforge.runtime.delivery
+mode: structured_delivery
+defaults:
+  include_summary_first: true
+  include_constraints_when_relevant: true
+  include_file_refs_when_changed: true
+  avoid_raw_tool_dump: true
+boundaries:
+  export_is_not_body_core_section: true
+  workspace_deliverables_stay_outside_body: true

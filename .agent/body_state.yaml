@@ -1,38 +1,44 @@
-body_id: soulforge.body
+body_id: soulforge-main-body
+operating_context: ide
 sections:
   identity:
-    path: identity
-    present: true
-  engine:
-    path: engine
-    present: true
-  memory:
-    path: memory
-    present: true
-  sessions:
-    path: sessions
-    present: true
-  communication:
-    path: communication
-    present: true
-  protocols:
-    path: protocols
-    present: true
-  autonomic:
-    path: autonomic
-    present: true
-  policy:
-    path: policy
+    path: .agent/identity
     present: true
   registry:
-    path: registry
+    path: .agent/registry
+    present: true
+  policy:
+    path: .agent/policy
+    present: true
+  communication:
+    path: .agent/communication
+    present: true
+  protocols:
+    path: .agent/protocols
+    present: true
+  runtime:
+    path: .agent/runtime
+    present: true
+  memory:
+    path: .agent/memory
+    present: true
+  sessions:
+    path: .agent/sessions
+    present: true
+  autonomic:
+    path: .agent/autonomic
     present: true
   artifacts:
-    path: artifacts
+    path: .agent/artifacts
     present: true
-  docs:
-    path: docs
-    present: true
+operating_profiles:
+  summary:
+    sessions: continuity_first
+    memory: private_first
+    autonomic: low_noise
+future_expansion:
+  team_ready: true
+  shared_memory_inside_body: false
 status:
   summary: ready
   warnings: []

@@ -13,14 +13,14 @@
 ## 포함 대상
 
 - `body.yaml`, `body_state.yaml`
-- `identity/`, `engine/`, `memory/`, `sessions/`, `communication/`, `protocols/`, `autonomic/`, `policy/`, `registry/`, `artifacts/`, `docs/`
-- section-owned YAML 메타 파일, 본체 기관별 README, body 메타 계약
+- `identity/`, `registry/`, `policy/`, `communication/`, `protocols/`, `runtime/`, `memory/`, `sessions/`, `autonomic/`, `artifacts/`, `docs/`
+- section-owned YAML 메타 파일과 기관별 README
 
 ## 제외 대상
 
 - installed `skills`, `tools`, `workflows`, `knowledge` 와 현재 장착 상태
-- 실제 프로젝트 원본, project contract, mission 결과물 원본
-- team shared 문서와 공용 프로세스
+- 실제 프로젝트 원본과 project contract
+- `_teams/shared` 실제 협업 자료
 - 별도 top-level body 폴더로서의 `.agent/export/`
 
 ## 구조 개요도
@@ -30,26 +30,16 @@ flowchart TD
   B[".agent/"] --> BY["body.yaml"]
   B --> BS["body_state.yaml"]
   B --> I["identity/"]
-  B --> E["engine/ (runtime layer)"]
-  B --> M["memory/"]
-  B --> S["sessions/"]
+  B --> R["registry/"]
+  B --> P["policy/"]
   B --> C["communication/"]
   B --> PR["protocols/"]
+  B --> RT["runtime/"]
+  B --> M["memory/"]
+  B --> S["sessions/"]
   B --> A["autonomic/"]
-  B --> P["policy/"]
-  B --> R["registry/"]
   B --> AR["artifacts/"]
-  B --> D["docs/"]
-  I --> IY["species_profile.yaml<br/>identity_manifest.yaml<br/>trait_bindings.yaml"]
-  E --> EY["context_assembly.yaml<br/>tool_scope.yaml<br/>sandbox_profile.yaml"]
-  S --> SY["checkpoint_template.yaml"]
-  C --> CY["human_channel_profile.yaml<br/>peer_channel_profile.yaml"]
-  PR --> PY["request / handoff / decision /<br/>incident / escalation contracts"]
-  P --> PF["precedence.yaml<br/>approval_matrix.yaml<br/>scope_rules.yaml"]
-  R --> RY["active_class_binding.yaml<br/>workspace_binding.yaml<br/>capability_index.yaml"]
-  D --> DA["architecture/"]
-  DA --> DM["AGENT_BODY_MODEL.md"]
-  DA --> DC["BODY_METADATA_CONTRACT.md"]
+  B --> D["docs/architecture/"]
 ```
 
 ## 현재 본체 영역
@@ -58,64 +48,87 @@ flowchart TD
 .agent/
 ├── body.yaml
 ├── body_state.yaml
-├── artifacts/
-├── autonomic/
-├── communication/
-│   ├── human_channel_profile.yaml
-│   └── peer_channel_profile.yaml
 ├── docs/
 │   └── architecture/
 │       ├── AGENT_BODY_MODEL.md
-│       └── BODY_METADATA_CONTRACT.md
-├── engine/
-│   ├── context_assembly.yaml
-│   ├── sandbox_profile.yaml
-│   └── tool_scope.yaml
+│       ├── BODY_METADATA_CONTRACT.md
+│       ├── RUNTIME_MODEL.md
+│       ├── MEMORY_MODEL.md
+│       ├── TEAM_EXPANSION_MODEL.md
+│       └── COORDINATION_PROTOCOLS.md
 ├── identity/
-│   ├── identity_manifest.yaml
+│   ├── README.md
 │   ├── species_profile.yaml
-│   └── trait_bindings.yaml
-├── memory/
-├── policy/
-│   ├── approval_matrix.yaml
-│   ├── precedence.yaml
-│   └── scope_rules.yaml
-├── protocols/
-│   ├── decision_contract.yaml
-│   ├── escalation_contract.yaml
-│   ├── handoff_contract.yaml
-│   ├── incident_contract.yaml
-│   └── request_contract.yaml
+│   └── identity_manifest.yaml
 ├── registry/
+│   ├── README.md
 │   ├── active_class_binding.yaml
+│   ├── workspace_binding.yaml
 │   ├── capability_index.yaml
-│   └── workspace_binding.yaml
-└── sessions/
-    └── checkpoint_template.yaml
+│   └── trait_bindings.yaml
+├── policy/
+│   ├── README.md
+│   ├── precedence.yaml
+│   ├── safety_rules.md
+│   ├── approval_matrix.yaml
+│   └── scope_rules.yaml
+├── communication/
+│   ├── README.md
+│   ├── human_channel_profile.yaml
+│   ├── peer_channel_profile.yaml
+│   └── response_contract.md
+├── protocols/
+│   ├── README.md
+│   ├── request_contract.yaml
+│   ├── handoff_contract.yaml
+│   ├── decision_contract.yaml
+│   ├── incident_contract.yaml
+│   └── escalation_contract.yaml
+├── runtime/
+│   ├── README.md
+│   ├── bootstrap_order.md
+│   ├── context_assembly.yaml
+│   ├── tool_scope.yaml
+│   ├── sandbox_profile.yaml
+│   └── delivery_profile.yaml
+├── memory/
+│   ├── README.md
+│   ├── self/
+│   ├── project/
+│   ├── decisions/
+│   └── handoffs/
+├── sessions/
+│   ├── README.md
+│   ├── checkpoints/
+│   ├── checkpoint_template.yaml
+│   └── active_session.example.yaml
+├── autonomic/
+│   ├── README.md
+│   ├── checks/
+│   ├── reminders/
+│   └── rules/
+└── artifacts/
+    ├── README.md
+    ├── templates/
+    ├── playbooks/
+    ├── rubrics/
+    └── reports/
 ```
 
 ## 기관별 책임
 
-| 기관 | 책임 | 대표 YAML |
+| 기관 | 책임 | 대표 파일 |
 | --- | --- | --- |
-| `identity/` | durable identity default 와 species baseline | `species_profile.yaml`, `identity_manifest.yaml`, `trait_bindings.yaml` |
-| `engine/` | 현재 경로명은 `engine/` 이지만 의미는 body runtime layer | `context_assembly.yaml`, `tool_scope.yaml`, `sandbox_profile.yaml` |
-| `memory/` | loadout 교체 후에도 남는 장기 기억. 현재 원칙은 private-first | body `operating_constraints.memory_mode` 참조 |
-| `sessions/` | transcript 가 아닌 continuity 저장소 | `checkpoint_template.yaml` |
-| `communication/` | 외부 상호작용 규범과 채널 semantics | `human_channel_profile.yaml`, `peer_channel_profile.yaml` |
+| `identity/` | durable identity default 와 species baseline | `species_profile.yaml`, `identity_manifest.yaml` |
+| `registry/` | binding, index, reference 계층 | `active_class_binding.yaml`, `workspace_binding.yaml`, `capability_index.yaml`, `trait_bindings.yaml` |
+| `policy/` | species-free floor | `precedence.yaml`, `approval_matrix.yaml`, `scope_rules.yaml`, `safety_rules.md` |
+| `communication/` | 외부 상호작용 규범과 채널 semantics | `human_channel_profile.yaml`, `peer_channel_profile.yaml`, `response_contract.md` |
 | `protocols/` | body 공통 operating contract 와 handoff 규칙 | `request_contract.yaml`, `handoff_contract.yaml`, `decision_contract.yaml`, `incident_contract.yaml`, `escalation_contract.yaml` |
-| `autonomic/` | 저소음 품질 보정 루틴 | 추후 YAML meta 확장 가능 |
-| `policy/` | species-free floor | `precedence.yaml`, `approval_matrix.yaml`, `scope_rules.yaml` |
-| `registry/` | body 내부 자산의 binding, index, reference 계층 | `active_class_binding.yaml`, `workspace_binding.yaml`, `capability_index.yaml` |
-| `artifacts/` | body 소유 파생 산출물, 단 별도 `.agent/export/` 폴더는 두지 않음 | 추후 YAML meta 확장 가능 |
-| `docs/` | body owner 문서와 계약 | `AGENT_BODY_MODEL.md`, `BODY_METADATA_CONTRACT.md` |
-
-## body 메타
-
-- `body.yaml` 은 private operating system 의 정적 기관 배치와 operating constraints 를 정의한다.
-- `body.yaml.section_files` 는 section-owned YAML 정본 파일 목록을 고정한다.
-- `body_state.yaml` 은 실제 `.agent/` 구조와 동기화한 현재 상태 스냅샷이다.
-- 세부 필드 정의는 [`.agent/docs/architecture/BODY_METADATA_CONTRACT.md`](BODY_METADATA_CONTRACT.md) 를 기준으로 관리한다.
+| `runtime/` | 기관 조립과 실행 순서 | `bootstrap_order.md`, `context_assembly.yaml`, `tool_scope.yaml`, `sandbox_profile.yaml`, `delivery_profile.yaml` |
+| `memory/` | private 장기 기억 | `self/`, `project/`, `decisions/`, `handoffs/` |
+| `sessions/` | transcript 가 아닌 continuity 저장소 | `checkpoint_template.yaml`, `active_session.example.yaml` |
+| `autonomic/` | 저소음 품질 보정 루틴 | `checks/`, `reminders/`, `rules/` |
+| `artifacts/` | body 소유 재사용 산출물 | `templates/`, `playbooks/`, `rubrics/`, `reports/` |
 
 ## 중요한 구분
 
@@ -129,6 +142,6 @@ flowchart TD
 
 ## 미래 확장 방향
 
-- `engine/` 경로는 현재 유지하고 runtime 의미를 우선 사용한다. 실제 rename 은 별도 coordinated migration 으로만 다룬다.
-- `protocols/` 는 private default 중심으로 유지하고, shared 프로토콜 표준은 `_teams/shared/` 로 확장한다.
-- continuity, autonomic, policy floor 의 세부 파일 세트는 후속 문서로 나눈다.
+- shared collaboration 표준은 `_teams/shared/` 로 확장한다.
+- runtime, memory, protocol 세부 규칙은 각각의 세부 모델 문서에서 분리 유지한다.
+- export 전달 포맷이 생겨도 별도 `.agent/export/` 는 도입하지 않는다.

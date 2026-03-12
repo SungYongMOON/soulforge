@@ -165,5 +165,5 @@ flowchart LR
 ## 미래 확장 방향
 
 - 협업 shared 세계관은 `.agent` 안이 아니라 루트 `_teams/shared/` 에서 확장한다.
-- `engine/` 경로는 현재 유지하고 runtime 의미를 우선 사용한다. 실제 rename 은 별도 coordinated migration 으로만 다룬다.
+- body runtime layer 는 현재 `runtime/` 경로를 사용한다.
 - body export 는 독립 세계관 기관으로 두지 않는다.

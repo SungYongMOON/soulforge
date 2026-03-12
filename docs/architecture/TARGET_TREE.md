@@ -22,22 +22,6 @@
 - 협업용 `_teams/shared/` 실제 폴더 생성
 - 별도 `.agent/export/` 폴더
 
-## 구조 개요도
-
-```mermaid
-flowchart TD
-  Root["./"] --> A[".agent/"]
-  Root --> C[".agent_class/"]
-  Root --> W["_workspaces/"]
-  Root --> U["ui/"]
-  Root --> V["dev/"]
-  Root --> D["docs/architecture/"]
-  A --> AY["body.yaml"]
-  A --> AS["body_state.yaml"]
-  A --> AP["protocols/"]
-  A --> AD["docs/architecture/"]
-```
-
 ## 최종 `.agent` target tree
 
 ```text
@@ -45,52 +29,79 @@ flowchart TD
 ├── README.md
 ├── body.yaml
 ├── body_state.yaml
-├── artifacts/
-│   └── README.md
-├── autonomic/
-│   └── README.md
-├── communication/
-│   ├── README.md
-│   ├── human_channel_profile.yaml
-│   └── peer_channel_profile.yaml
 ├── docs/
-│   ├── README.md
 │   └── architecture/
 │       ├── AGENT_BODY_MODEL.md
 │       ├── BODY_METADATA_CONTRACT.md
-│       └── README.md
-├── engine/
-│   ├── README.md
-│   ├── context_assembly.yaml
-│   ├── sandbox_profile.yaml
-│   └── tool_scope.yaml
+│       ├── RUNTIME_MODEL.md
+│       ├── MEMORY_MODEL.md
+│       ├── TEAM_EXPANSION_MODEL.md
+│       └── COORDINATION_PROTOCOLS.md
 ├── identity/
 │   ├── README.md
-│   ├── identity_manifest.yaml
 │   ├── species_profile.yaml
-│   └── trait_bindings.yaml
-├── memory/
-│   └── README.md
-├── policy/
-│   ├── README.md
-│   ├── approval_matrix.yaml
-│   ├── precedence.yaml
-│   └── scope_rules.yaml
-├── protocols/
-│   ├── README.md
-│   ├── decision_contract.yaml
-│   ├── escalation_contract.yaml
-│   ├── handoff_contract.yaml
-│   ├── incident_contract.yaml
-│   └── request_contract.yaml
+│   └── identity_manifest.yaml
 ├── registry/
 │   ├── README.md
 │   ├── active_class_binding.yaml
+│   ├── workspace_binding.yaml
 │   ├── capability_index.yaml
-│   └── workspace_binding.yaml
-└── sessions/
+│   └── trait_bindings.yaml
+├── policy/
+│   ├── README.md
+│   ├── precedence.yaml
+│   ├── safety_rules.md
+│   ├── approval_matrix.yaml
+│   └── scope_rules.yaml
+├── communication/
+│   ├── README.md
+│   ├── human_channel_profile.yaml
+│   ├── peer_channel_profile.yaml
+│   └── response_contract.md
+├── protocols/
+│   ├── README.md
+│   ├── request_contract.yaml
+│   ├── handoff_contract.yaml
+│   ├── decision_contract.yaml
+│   ├── incident_contract.yaml
+│   └── escalation_contract.yaml
+├── runtime/
+│   ├── README.md
+│   ├── bootstrap_order.md
+│   ├── context_assembly.yaml
+│   ├── tool_scope.yaml
+│   ├── sandbox_profile.yaml
+│   └── delivery_profile.yaml
+├── memory/
+│   ├── README.md
+│   ├── self/
+│   │   └── README.md
+│   ├── project/
+│   │   └── README.md
+│   ├── decisions/
+│   │   └── README.md
+│   └── handoffs/
+│       └── README.md
+├── sessions/
+│   ├── README.md
+│   ├── checkpoints/
+│   │   └── README.md
+│   ├── checkpoint_template.yaml
+│   └── active_session.example.yaml
+├── autonomic/
+│   ├── README.md
+│   ├── checks/
+│   │   └── README.md
+│   ├── reminders/
+│   │   └── README.md
+│   └── rules/
+│       └── README.md
+└── artifacts/
     ├── README.md
-    └── checkpoint_template.yaml
+    ├── templates/
+    ├── playbooks/
+    ├── rubrics/
+    └── reports/
 ```
 
 ## 저장소 상위 구조
@@ -137,7 +148,7 @@ flowchart TD
 | 경로 | 상위 책임 |
 | --- | --- |
 | `.agent/` | durable agent unit 의 private operating system |
-| `.agent/engine/` | 현재 경로명은 `engine` 이지만 의미는 runtime layer |
+| `.agent/runtime/` | body runtime layer |
 | `.agent/protocols/` | body 공통 operating contract |
 | `.agent/registry/` | binding, index, reference 계층 |
 | `.agent/docs/architecture/` | body 구조와 body 메타 계약의 정본 문서 |
