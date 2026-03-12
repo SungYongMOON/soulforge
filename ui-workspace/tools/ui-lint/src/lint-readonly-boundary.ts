@@ -1,4 +1,4 @@
-import { findLineMatches, walkFiles, type LintResult } from "./shared";
+import { findLineMatches, themePackages, walkFiles, type LintResult } from "./shared";
 
 const CODE_FILES = [
   ...walkFiles("apps/renderer-web", (repoPath) => /\.(ts|tsx)$/.test(repoPath)),
@@ -6,7 +6,7 @@ const CODE_FILES = [
   ...walkFiles("packages/renderer-core", (repoPath) => /\.(ts|tsx)$/.test(repoPath)),
   ...walkFiles("packages/renderer-react", (repoPath) => /\.(ts|tsx)$/.test(repoPath)),
   ...walkFiles("packages/theme-contract", (repoPath) => /\.(ts|tsx)$/.test(repoPath)),
-  ...walkFiles("packages/theme-adventurers-desk", (repoPath) => /\.(ts|tsx)$/.test(repoPath))
+  ...themePackages.flatMap(({ repoDir }) => walkFiles(repoDir, (repoPath) => /\.(ts|tsx)$/.test(repoPath)))
 ];
 
 const CANONICAL_PATTERN = /(?:\.agent\/|\.agent_class\/|_workspaces\/)/;

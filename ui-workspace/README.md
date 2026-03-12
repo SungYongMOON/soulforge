@@ -11,7 +11,7 @@
 - `schemas/`: UI state schema 정본
 - `fixtures/`: fixture-first 개발용 sample state
 - `tools/`: UI lint 와 optional legacy integration tool
-- `packages/`: contract, core, react, theme package
+- `packages/`: contract, core, react, theme package 들
 - `apps/`: renderer web shell, skin lab preview app
 
 ## 원칙
@@ -36,12 +36,14 @@
 ## workflow
 
 1. 구조/contract 변경 시 `docs/`, `schemas/`, `fixtures/` 를 먼저 맞춘다.
-2. renderer/theme 변경 후 `npm run lint:all` 과 `npm run build` 를 돌린다.
-3. 마감 전에는 `npm run done:check` 로 acceptance 세트를 한 번에 확인한다.
+2. skin/theme 변경은 `docs/SKIN_DEVELOPMENT_WORKFLOW.md` 기준으로 `skin-lab` preview 와 theme smoke test 를 먼저 통과시킨다.
+3. renderer/theme 변경 후 `npm run lint:all` 과 `npm run build` 를 돌린다.
+4. 마감 전에는 `npm run done:check` 로 acceptance 세트를 한 번에 확인한다.
 
 ## 완료 문서
 
 - [DONE.md](./DONE.md)
+- [docs/SKIN_DEVELOPMENT_WORKFLOW.md](./docs/SKIN_DEVELOPMENT_WORKFLOW.md)
 - [docs/UI_NEXT_PHASE_BACKLOG.md](./docs/UI_NEXT_PHASE_BACKLOG.md)
 
 ## 관련 경로

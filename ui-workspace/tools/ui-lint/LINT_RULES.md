@@ -35,7 +35,7 @@
 - web shell 이 `packages/renderer-core/src/*`, `fixtures/`, `schemas/`, canonical tree 를 직접 import 하면 FAIL 로 본다.
 - `packages/renderer-core` 는 `apps/renderer-web` 를 import 하지 못한다.
 - `packages/renderer-react` 는 concrete theme package, app shell, fixtures, schema 를 직접 import 하지 못한다.
-- `packages/theme-contract`, `packages/theme-adventurers-desk` 는 renderer package, app shell, canonical tree 에 직접 의존하지 못한다.
+- `packages/theme-contract`, `packages/theme-*` 는 renderer package, app shell, canonical tree 에 직접 의존하지 못한다.
 - `packages/renderer-core/src/fixtures.ts` 의 repo fixture import 만 예외적으로 허용한다.
 
 ## fixture coverage lint

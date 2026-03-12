@@ -11,7 +11,7 @@
 - `renderer-core/`
 - `renderer-react/`
 - `theme-contract/`
-- `theme-adventurers-desk/`
+- `theme-*/`
 
 ## 제외 대상
 

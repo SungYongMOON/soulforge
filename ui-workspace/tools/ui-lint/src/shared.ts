@@ -23,19 +23,46 @@ export interface FixtureFile {
   payload: Record<string, unknown>;
 }
 
+export interface ThemePackageInfo {
+  dirName: string;
+  repoDir: string;
+  absoluteDir: string;
+  packageName: string;
+  cssRepoPath: string | null;
+}
+
 const srcDir = path.dirname(fileURLToPath(import.meta.url));
 const canonicalRootOverride = process.env.UI_LINT_CANONICAL_ROOT?.trim() || null;
 
 export const repoRoot = path.resolve(srcDir, "../../..");
+export const packagesDir = path.resolve(repoRoot, "packages");
 export const fixtureDir = path.resolve(repoRoot, "fixtures/ui-state");
 export const schemaPath = path.resolve(repoRoot, "schemas/ui-state.schema.json");
 export const rendererCoreDir = path.resolve(repoRoot, "packages/renderer-core");
 export const rendererReactDir = path.resolve(repoRoot, "packages/renderer-react");
 export const rendererWebDir = path.resolve(repoRoot, "apps/renderer-web");
 export const themeContractDir = path.resolve(repoRoot, "packages/theme-contract");
-export const themeDeskDir = path.resolve(repoRoot, "packages/theme-adventurers-desk");
 export const skinLabDir = path.resolve(repoRoot, "apps/skin-lab-storybook");
 export const canonicalRoot = canonicalRootOverride ? path.resolve(repoRoot, canonicalRootOverride) : null;
+
+export const themePackages = readdirSync(packagesDir, { withFileTypes: true })
+  .filter((entry) => entry.isDirectory() && entry.name.startsWith("theme-") && entry.name !== "theme-contract")
+  .map((entry) => {
+    const absoluteDir = path.resolve(packagesDir, entry.name);
+    const repoDir = repoRelative(absoluteDir);
+    const packageJsonPath = path.resolve(absoluteDir, "package.json");
+    const packageJson = JSON.parse(readFileSync(packageJsonPath, "utf-8")) as { name?: string };
+    const cssAbsolutePath = path.resolve(absoluteDir, "theme.css");
+
+    return {
+      dirName: entry.name,
+      repoDir,
+      absoluteDir,
+      packageName: packageJson.name ?? entry.name,
+      cssRepoPath: existsSync(cssAbsolutePath) ? repoRelative(cssAbsolutePath) : null
+    } satisfies ThemePackageInfo;
+  })
+  .sort((left, right) => left.repoDir.localeCompare(right.repoDir));
 
 export const EXPECTED_FIXTURES = ["integrated", "overview", "body", "class", "workspaces"] as const;
 export const EXPECTED_TABS = ["overview", "body", "class", "workspaces"] as const;

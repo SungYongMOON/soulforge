@@ -9,7 +9,7 @@ import {
   resolveRepoPath,
   skinLabDir,
   themeContractDir,
-  themeDeskDir,
+  themePackages,
   walkFiles,
   type LintResult
 } from "./shared";
@@ -39,8 +39,14 @@ function isThemeContractFile(file: string) {
   return file.startsWith("packages/theme-contract/");
 }
 
-function isThemeDeskFile(file: string) {
-  return file.startsWith("packages/theme-adventurers-desk/");
+function getThemePackageForFile(file: string) {
+  return themePackages.find(({ repoDir }) => file.startsWith(`${repoDir}/`)) ?? null;
+}
+
+function isConcreteThemePackageSpecifier(specifier: string) {
+  return themePackages.some(
+    ({ packageName, repoDir }) => specifier.includes(packageName) || specifier.includes(repoDir)
+  );
 }
 
 function isDirectFixtureOrSchemaImport(specifier: string) {
@@ -59,7 +65,7 @@ export function runPackageBoundaryLint() {
     ...walkFiles(repoRelative(rendererCoreDir), (repoPath) => /\.(ts|tsx)$/.test(repoPath)),
     ...walkFiles(repoRelative(rendererReactDir), (repoPath) => /\.(ts|tsx)$/.test(repoPath)),
     ...walkFiles(repoRelative(themeContractDir), (repoPath) => /\.(ts|tsx)$/.test(repoPath)),
-    ...walkFiles(repoRelative(themeDeskDir), (repoPath) => /\.(ts|tsx)$/.test(repoPath))
+    ...themePackages.flatMap(({ repoDir }) => walkFiles(repoDir, (repoPath) => /\.(ts|tsx)$/.test(repoPath)))
   ];
 
   for (const file of [...new Set(files)].sort()) {
@@ -161,8 +167,7 @@ export function runPackageBoundaryLint() {
           specifier.includes("apps/renderer-web") ||
           specifier.includes("apps/skin-lab-storybook") ||
           isDirectFixtureOrSchemaImport(specifier) ||
-          specifier.includes("@soulforge/theme-adventurers-desk") ||
-          specifier.includes("packages/theme-adventurers-desk")
+          isConcreteThemePackageSpecifier(specifier)
         ) {
           issues.push({
             rule: "react-package-boundary",
@@ -213,7 +218,8 @@ export function runPackageBoundaryLint() {
         }
       }
 
-      if (isThemeDeskFile(file)) {
+      const themePackage = getThemePackageForFile(file);
+      if (themePackage) {
         if (
           specifier.includes("@soulforge/renderer-core") ||
           specifier.includes("@soulforge/renderer-react") ||
@@ -227,17 +233,17 @@ export function runPackageBoundaryLint() {
           issues.push({
             rule: "theme-package-boundary",
             file,
-            message: `theme-adventurers-desk must stay independent from renderer app shells and canonical state: ${specifier}`
+            message: `${themePackage.dirName} must stay independent from renderer app shells and canonical state: ${specifier}`
           });
         }
 
         if (specifier.startsWith(".")) {
           const resolved = resolveImportTarget(file, specifier);
-          if (!resolved.startsWith("packages/theme-adventurers-desk/")) {
+          if (!resolved.startsWith(`${themePackage.repoDir}/`)) {
             issues.push({
               rule: "theme-package-boundary",
               file,
-              message: `relative import escapes theme-adventurers-desk package: ${specifier}`
+              message: `relative import escapes ${themePackage.dirName} package: ${specifier}`
             });
           }
         }

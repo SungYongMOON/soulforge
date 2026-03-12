@@ -11,6 +11,7 @@
 - UI state contract 문서
 - selection model 문서
 - Adventurer's Desk theme 문서
+- skin development workflow 문서
 - theme package split 문서
 - renderer 구현 계획 문서
 - next-phase backlog 문서
@@ -27,6 +28,7 @@
 - [ui-workspace README](../README.md)
 - [packages/renderer-core/README.md](../packages/renderer-core/README.md)
 - [packages/renderer-react/README.md](../packages/renderer-react/README.md)
+- [SKIN_DEVELOPMENT_WORKFLOW.md](./SKIN_DEVELOPMENT_WORKFLOW.md)
 - [schemas/ui-state.schema.json](../schemas/ui-state.schema.json)
 - [fixtures/ui-state/README.md](../fixtures/ui-state/README.md)
 

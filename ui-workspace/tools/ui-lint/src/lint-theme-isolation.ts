@@ -1,11 +1,17 @@
-import { readText, walkFiles, type LintResult } from "./shared";
+import { readText, themePackages, walkFiles, type LintResult } from "./shared";
 
 const RAW_COLOR_PATTERN = /#[0-9a-fA-F]{3,8}\b|\brgba?\(|\bhsla?\(/;
 const TOKEN_DEFINITION_PATTERN = /--sf-[a-z0-9-]+\s*:/i;
-const THEME_CSS_IMPORT_PATTERN = /import\s+["']@soulforge\/theme-adventurers-desk\/theme\.css["'];?/;
-const THEME_FILES = ["packages/theme-adventurers-desk/theme.css"];
+const THEME_CSS_IMPORT_PATTERNS = themePackages.map(
+  ({ packageName }) => new RegExp(`import\\s+["']${packageName.replace(/[.*+?^${}()|[\]\\]/g, "\\$&")}\\/theme\\.css["'];?`)
+);
+const THEME_FILES = themePackages.flatMap(({ cssRepoPath }) => (cssRepoPath ? [cssRepoPath] : []));
 const MAIN_ENTRY_FILES = ["apps/renderer-web/src/main.tsx", "apps/skin-lab-storybook/src/main.tsx"];
 const THEME_REGISTRY_FILES = ["apps/renderer-web/src/themes.ts", "apps/skin-lab-storybook/src/themes.ts"];
+
+function hasConcreteThemeCssImport(sourceText: string) {
+  return THEME_CSS_IMPORT_PATTERNS.some((pattern) => pattern.test(sourceText));
+}
 
 export function runThemeIsolationLint() {
   const issues = [];
@@ -19,7 +25,7 @@ export function runThemeIsolationLint() {
     ...walkFiles("apps/renderer-web/src", (repoPath) => /\.(ts|tsx)$/.test(repoPath)),
     ...walkFiles("apps/skin-lab-storybook/src", (repoPath) => /\.(ts|tsx)$/.test(repoPath)),
     ...walkFiles("packages/renderer-react/src", (repoPath) => /\.(ts|tsx)$/.test(repoPath)),
-    ...walkFiles("packages/theme-adventurers-desk/src", (repoPath) => /\.(ts|tsx)$/.test(repoPath)),
+    ...themePackages.flatMap(({ repoDir }) => walkFiles(`${repoDir}/src`, (repoPath) => /\.(ts|tsx)$/.test(repoPath))),
     ...walkFiles("packages/theme-contract/src", (repoPath) => /\.(ts|tsx)$/.test(repoPath))
   ];
 
@@ -55,7 +61,11 @@ export function runThemeIsolationLint() {
       });
     }
 
-    if (file !== "apps/renderer-web/src/themes.ts" && file !== "apps/skin-lab-storybook/src/themes.ts" && THEME_CSS_IMPORT_PATTERN.test(sourceText)) {
+    if (
+      file !== "apps/renderer-web/src/themes.ts" &&
+      file !== "apps/skin-lab-storybook/src/themes.ts" &&
+      hasConcreteThemeCssImport(sourceText)
+    ) {
       issues.push({
         rule: "theme-css-registry",
         file,
@@ -80,7 +90,7 @@ export function runThemeIsolationLint() {
 
   for (const file of THEME_REGISTRY_FILES) {
     const sourceText = readText(file);
-    if (!THEME_CSS_IMPORT_PATTERN.test(sourceText)) {
+    if (!hasConcreteThemeCssImport(sourceText)) {
       issues.push({
         rule: "theme-registry-css",
         file,
