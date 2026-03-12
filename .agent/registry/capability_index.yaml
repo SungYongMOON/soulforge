@@ -29,6 +29,14 @@ entries:
     kind: catalog
     owner_section: catalog
     ref: ../catalog/class/skills/skills_catalog.yaml
+  - capability_id: catalog.class.tools.adapters
+    kind: catalog
+    owner_section: catalog
+    ref: ../catalog/class/tools/adapters_catalog.yaml
+  - capability_id: catalog.class.tools.connectors
+    kind: catalog
+    owner_section: catalog
+    ref: ../catalog/class/tools/connectors_catalog.yaml
   - capability_id: catalog.class.tools.local_cli
     kind: catalog
     owner_section: catalog
