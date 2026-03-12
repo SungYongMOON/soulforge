@@ -30,6 +30,11 @@
 | `.agent_class/profiles/` | `.agent_class/profiles/README.md` | `.agent_class/profiles/README.md`, `.agent_class/docs/architecture/CLASS_PROFILE_MODEL.md` |
 | `.agent_class/manifests/` | `.agent_class/manifests/README.md` | `.agent_class/manifests/README.md`, `.agent_class/docs/architecture/CLASS_VALIDATION_RULES.md` |
 | `.agent_class/docs/plans/` | `.agent_class/docs/plans/README.md` | `.agent_class/docs/plans/*.md` |
+| `apps/` | `README.md` | `apps/README.md`, `apps/renderer-web/README.md` |
+| `packages/` | `README.md` | `packages/README.md`, `packages/renderer-core/README.md` |
+| `fixtures/` | `README.md` | `fixtures/README.md`, `fixtures/ui-state/README.md` |
+| `schemas/` | `README.md` | `schemas/README.md`, `schemas/ui-state.schema.json` |
+| `docs/ui/` | `README.md` | `docs/ui/*.md` |
 | `_workspaces/` | `_workspaces/README.md` | `_workspaces/README.md` |
 | `_workspaces/.../<project>/.project_agent/` | 해당 프로젝트 문서 | `contract.yaml` 과 같은 project-owned 계약 파일 |
 | `ui/` | `ui/README.md` | `ui/viewer/README.md` |
@@ -41,4 +46,5 @@
 1. 루트 문서에는 owner-local 세부 운영을 장문으로 복제하지 않는다.
 2. `.agent/catalog/class/**` 는 selection index 이므로 canonical asset 설명을 `.agent_class/**` 에서 복제하지 않는다.
 3. `.agent_class/profiles/**` 는 canonical profile 정본이고 `.agent/identity/**` 는 hero overlay 를 포함한 active identity 정본이다.
-4. 폴더 구조나 책임이 바뀌면 같은 변경 안에서 해당 README 와 owner 문서를 함께 갱신한다.
+4. renderer consumer 문서와 구현은 `docs/ui/`, `packages/renderer-core/`, `apps/renderer-web/`, `fixtures/ui-state/`, `schemas/` 로 나눠 유지한다.
+5. 폴더 구조나 책임이 바뀌면 같은 변경 안에서 해당 README 와 owner 문서를 함께 갱신한다.

@@ -100,14 +100,24 @@
 │   ├── workflows/
 │   ├── class.yaml
 │   └── loadout.yaml
+├── apps/
+│   └── renderer-web/
 ├── _workspaces/
+├── fixtures/
+│   └── ui-state/
+├── packages/
+│   └── renderer-core/
+├── schemas/
+│   └── ui-state.schema.json
 ├── ui/
 │   └── viewer/
 ├── docs/
-│   └── architecture/
+│   ├── architecture/
+│   └── ui/
 ├── dev/
 │   ├── log/
 │   └── plan/
+├── package.json
 └── README.md
 ```
 
@@ -121,6 +131,11 @@
 | `.agent_class/` | reusable loadout template 와 canonical asset owner |
 | `.agent_class/profiles/` | canonical default preference modes |
 | `.agent_class/manifests/` | canonical capability index, equip rule, dependency graph |
+| `apps/renderer-web/` | portable renderer web shell |
 | `_workspaces/` | 실제 프로젝트 운영 현장 |
-| `ui/` | derived state 소비자 surface |
+| `packages/renderer-core/` | portable renderer contract consumer core |
+| `fixtures/ui-state/` | renderer fixture baseline |
+| `schemas/` | renderer contract schema |
+| `ui/` | legacy read-only viewer prototype |
 | `docs/architecture/` | 저장소 전체 구조와 root-owned 계약 문서 |
+| `docs/ui/` | renderer consumer 문서군 |

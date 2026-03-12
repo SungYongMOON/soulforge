@@ -9,6 +9,7 @@
 
 - 저장소 전체 관점의 설명 문서
 - `architecture/` 아래의 구조 원칙, 목표 트리, 소유 규칙
+- `ui/` 아래의 renderer consumer 문서
 - UI source map, UI sync contract, UI derived state contract 같은 저장소 공용 파생 규칙
 
 ## 제외 대상
@@ -21,6 +22,7 @@
 
 - [루트 README](../README.md)
 - [`docs/architecture/README.md`](architecture/README.md)
+- [`docs/ui/README.md`](ui/README.md)
 - [`docs/architecture/DOCUMENT_OWNERSHIP.md`](architecture/DOCUMENT_OWNERSHIP.md)
 
 ## 상태
@@ -29,3 +31,4 @@
 - root owner 문서만 유지한다.
 - workspace 공통 resolve 계약은 `docs/architecture/PROJECT_AGENT_RESOLVE_CONTRACT.md` 에서 관리한다.
 - derived state 공통 계약은 `docs/architecture/UI_DERIVED_STATE_CONTRACT.md` 에서 관리한다.
+- renderer consumer 문서군은 `docs/ui/` 에서 관리한다.

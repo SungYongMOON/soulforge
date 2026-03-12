@@ -1,0 +1,18 @@
+{
+  "name": "soulforge",
+  "private": true,
+  "packageManager": "npm@11.9.0",
+  "workspaces": [
+    "apps/*",
+    "packages/*"
+  ],
+  "devDependencies": {
+    "@types/node": "^25.4.0"
+  },
+  "scripts": {
+    "ui:validate": "npm run validate:fixtures --workspace @soulforge/renderer-core",
+    "renderer:web:dev": "npm run dev --workspace @soulforge/renderer-web --",
+    "renderer:web:build": "npm run build --workspace @soulforge/renderer-web",
+    "renderer:web:preview": "npm run preview --workspace @soulforge/renderer-web"
+  }
+}

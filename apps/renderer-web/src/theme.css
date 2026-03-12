@@ -1,0 +1,52 @@
+:root {
+  color-scheme: light;
+  font-family: "Avenir Next", "Trebuchet MS", sans-serif;
+  --desk-ink: #1f1a17;
+  --desk-ink-soft: rgba(31, 26, 23, 0.72);
+  --desk-warm: #f2e7d1;
+  --desk-paper: rgba(250, 243, 228, 0.88);
+  --desk-wood: #5b3c2b;
+  --desk-wood-deep: #3e271b;
+  --desk-brass: #b98b45;
+  --desk-leather: #6b4a33;
+  --desk-orb: #9fc3d9;
+  --desk-cool: #6e8ea1;
+  --desk-shelf: #7a5a45;
+  --desk-warning: #a96034;
+  --desk-error: #8f3c2d;
+  --desk-border: rgba(92, 62, 42, 0.28);
+  --shadow-soft: 0 16px 36px rgba(46, 29, 18, 0.18);
+  --shadow-hover: 0 22px 42px rgba(46, 29, 18, 0.22);
+}
+
+* {
+  box-sizing: border-box;
+}
+
+body {
+  margin: 0;
+  min-height: 100vh;
+  color: var(--desk-ink);
+  background:
+    radial-gradient(circle at top left, rgba(255, 248, 232, 0.84), transparent 34%),
+    radial-gradient(circle at 80% 10%, rgba(158, 194, 214, 0.22), transparent 22%),
+    linear-gradient(135deg, rgba(91, 60, 43, 0.95), rgba(62, 39, 27, 0.98)),
+    repeating-linear-gradient(
+      120deg,
+      rgba(255, 255, 255, 0.03) 0,
+      rgba(255, 255, 255, 0.03) 2px,
+      transparent 2px,
+      transparent 14px
+    );
+}
+
+button,
+input,
+select,
+textarea {
+  font: inherit;
+}
+
+#root {
+  min-height: 100vh;
+}

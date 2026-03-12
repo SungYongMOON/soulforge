@@ -1,0 +1,515 @@
+{
+  "schema_version": "ui-state.v1",
+  "generated_at": "2026-03-12T09:00:00Z",
+  "source": {
+    "producer": "fixture",
+    "mode": "fixture",
+    "adapter": "normalized-v1",
+    "fixture_name": "overview",
+    "notes": [
+      "Overview-first fixture for the renderer v1 contract.",
+      "Uses the current Soulforge baseline with the overview tab highlighted as the default entry."
+    ]
+  },
+  "overview": {
+    "body_id": "soulforge-main-body",
+    "class_id": "soulforge.base",
+    "active_profile": "soulforge.profile.default",
+    "active_species": {
+      "id": "soulforge.species.default",
+      "display_name": "Soulforge Default Species",
+      "summary": "구조 우선, 검증 우선, 저소음 운용을 선호하는 durable species default.",
+      "source_ref": ".agent/identity/species_profile.yaml",
+      "active": true
+    },
+    "active_hero": {
+      "id": "soulforge.identity.hero.none",
+      "display_name": "Hero Overlay Disabled",
+      "summary": "Optional hero overlay is currently inactive and species default remains dominant.",
+      "source_ref": ".agent/identity/hero_imprint.yaml",
+      "active": false
+    },
+    "sections_present": {
+      "present": 11,
+      "total": 11
+    },
+    "installed_counts": {
+      "skills": 1,
+      "tools": 1,
+      "knowledge": 1,
+      "workflows": 1
+    },
+    "equipped_counts": {
+      "skills": 1,
+      "tools": 1,
+      "knowledge": 1,
+      "workflows": 1
+    },
+    "workspace_counts": {
+      "total": 3,
+      "bound": 2,
+      "unbound": 1,
+      "invalid": 0
+    },
+    "warnings": 1,
+    "errors": 0,
+    "overall_status": "warning",
+    "status_note": "Workspace contracts are healthy; one scope warning remains for default_loadout validation."
+  },
+  "body": {
+    "meta": {
+      "body_id": "soulforge-main-body",
+      "display_name": "Soulforge Main Body",
+      "version": "0.2.0",
+      "operating_context": "ide",
+      "status": "ready"
+    },
+    "active_species": {
+      "id": "soulforge.species.default",
+      "display_name": "Soulforge Default Species",
+      "summary": "Durable body baseline for structure-first, cautious, low-noise work.",
+      "source_ref": ".agent/identity/species_profile.yaml",
+      "active": true
+    },
+    "active_hero": {
+      "id": "soulforge.identity.hero.none",
+      "display_name": "Hero Overlay Disabled",
+      "summary": "Hero overlay remains available as a candidate but is not active in the current body state.",
+      "source_ref": ".agent/identity/hero_imprint.yaml",
+      "active": false
+    },
+    "section_presence": [
+      {
+        "id": "identity",
+        "path": ".agent/identity",
+        "present": true,
+        "status": "present"
+      },
+      {
+        "id": "catalog",
+        "path": ".agent/catalog",
+        "present": true,
+        "status": "present"
+      },
+      {
+        "id": "registry",
+        "path": ".agent/registry",
+        "present": true,
+        "status": "present"
+      },
+      {
+        "id": "policy",
+        "path": ".agent/policy",
+        "present": true,
+        "status": "present"
+      },
+      {
+        "id": "communication",
+        "path": ".agent/communication",
+        "present": true,
+        "status": "present"
+      },
+      {
+        "id": "protocols",
+        "path": ".agent/protocols",
+        "present": true,
+        "status": "present"
+      },
+      {
+        "id": "runtime",
+        "path": ".agent/runtime",
+        "present": true,
+        "status": "present"
+      },
+      {
+        "id": "memory",
+        "path": ".agent/memory",
+        "present": true,
+        "status": "present"
+      },
+      {
+        "id": "sessions",
+        "path": ".agent/sessions",
+        "present": true,
+        "status": "present"
+      },
+      {
+        "id": "autonomic",
+        "path": ".agent/autonomic",
+        "present": true,
+        "status": "present"
+      },
+      {
+        "id": "artifacts",
+        "path": ".agent/artifacts",
+        "present": true,
+        "status": "present"
+      }
+    ],
+    "section_summaries": [
+      {
+        "section_id": "identity",
+        "title": "Identity Layer",
+        "summary": "Active species is declared and hero overlay remains optional.",
+        "status": "ready",
+        "present": true
+      },
+      {
+        "section_id": "catalog",
+        "title": "Catalog Layer",
+        "summary": "Identity and class candidate catalogs remain body-owned and selection oriented.",
+        "status": "ready",
+        "present": true
+      },
+      {
+        "section_id": "registry",
+        "title": "Registry Layer",
+        "summary": "Class binding is active and workspace binding remains unset at body level.",
+        "status": "ready",
+        "present": true
+      },
+      {
+        "section_id": "runtime",
+        "title": "Runtime Layer",
+        "summary": "Declared runtime profile stays in the body and is not read directly by the renderer.",
+        "status": "ready",
+        "present": true
+      },
+      {
+        "section_id": "memory",
+        "title": "Memory Layer",
+        "summary": "Private-first memory remains present and separate from installed knowledge.",
+        "status": "ready",
+        "present": true
+      },
+      {
+        "section_id": "autonomic",
+        "title": "Autonomic Layer",
+        "summary": "Low-noise hygiene and reminder rules remain available as body-owned support.",
+        "status": "ready",
+        "present": true
+      }
+    ],
+    "current_bindings": {
+      "class_binding": {
+        "status": "bound",
+        "class_id": "soulforge.base",
+        "active_profile": "soulforge.profile.default",
+        "source_ref": ".agent/registry/active_class_binding.yaml"
+      },
+      "workspace_binding": {
+        "status": "unbound",
+        "active_workspace": null,
+        "candidate_count": 2,
+        "source_ref": ".agent/registry/workspace_binding.yaml"
+      },
+      "precedence": [
+        "workflow.required",
+        "profile.preferred",
+        "hero.bias",
+        "species.default"
+      ]
+    }
+  },
+  "class_view": {
+    "class_id": "soulforge.base",
+    "class_name": "Soulforge 기본 클래스",
+    "class_version": "0.2.0",
+    "active_profile": {
+      "id": "soulforge.profile.default",
+      "display_name": "Default Preference Mode",
+      "summary": "명시적 workflow가 없을 때 검증 우선과 구조 우선을 먼저 제안하는 기본 profile.",
+      "source_ref": ".agent_class/profiles/default.profile.yaml",
+      "active": true
+    },
+    "rows": {
+      "skills": [
+        {
+          "id": "sample.skill.echo",
+          "display_name": "Sample Echo Skill",
+          "summary": "최소 happy-path 회귀 검증용 샘플 스킬.",
+          "installed": true,
+          "equipped": true,
+          "active": true,
+          "required": true,
+          "preferred": true,
+          "dependency_status": "resolved",
+          "family": null,
+          "category": "skill",
+          "source_ref": ".agent_class/skills/sample_skill_echo/module.yaml",
+          "source_hint": "canonical manifest",
+          "catalog_ref": ".agent/catalog/class/skills/skills_catalog.yaml",
+          "selectable_candidate": true
+        }
+      ],
+      "tools": [
+        {
+          "id": "sample.tool.local_cli.status",
+          "display_name": "Sample Status Tool",
+          "summary": "최소 happy-path 회귀 검증용 local_cli 샘플 도구.",
+          "installed": true,
+          "equipped": true,
+          "active": true,
+          "required": true,
+          "preferred": true,
+          "dependency_status": "resolved",
+          "family": "local_cli",
+          "category": "tool",
+          "source_ref": ".agent_class/tools/local_cli/sample_tool_status/module.yaml",
+          "source_hint": "canonical manifest",
+          "catalog_ref": ".agent/catalog/class/tools/local_cli_catalog.yaml",
+          "selectable_candidate": true
+        }
+      ],
+      "knowledge": [
+        {
+          "id": "sample.knowledge.reference",
+          "display_name": "Sample Reference Knowledge",
+          "summary": "최소 happy-path 회귀 검증용 샘플 지식.",
+          "installed": true,
+          "equipped": true,
+          "active": true,
+          "required": true,
+          "preferred": true,
+          "dependency_status": "resolved",
+          "family": null,
+          "category": "knowledge",
+          "source_ref": ".agent_class/knowledge/sample_knowledge_reference/module.yaml",
+          "source_hint": "canonical manifest",
+          "catalog_ref": ".agent/catalog/class/knowledge/knowledge_catalog.yaml",
+          "selectable_candidate": true
+        }
+      ],
+      "workflows": [
+        {
+          "id": "sample.workflow.briefing",
+          "display_name": "Sample Briefing Workflow",
+          "summary": "sample skill, tool, knowledge 조합을 required 로 묶는 샘플 workflow.",
+          "installed": true,
+          "equipped": true,
+          "active": true,
+          "required": true,
+          "preferred": true,
+          "dependency_status": "resolved",
+          "family": null,
+          "category": "workflow",
+          "source_ref": ".agent_class/workflows/sample_workflow_briefing/module.yaml",
+          "source_hint": "canonical manifest",
+          "catalog_ref": ".agent/catalog/class/workflows/workflows_catalog.yaml",
+          "selectable_candidate": true
+        }
+      ]
+    },
+    "row_order": [
+      "skills",
+      "tools",
+      "knowledge",
+      "workflows"
+    ],
+    "legend": [
+      {
+        "id": "installed",
+        "label": "Installed",
+        "summary": "현재 class/body 맥락에서 사용 가능한 자산."
+      },
+      {
+        "id": "equipped",
+        "label": "Equipped",
+        "summary": "현재 loadout 에 장착된 자산."
+      },
+      {
+        "id": "required",
+        "label": "Required",
+        "summary": "현재 workflow 가 명시적으로 요구하는 자산."
+      },
+      {
+        "id": "preferred",
+        "label": "Preferred",
+        "summary": "active profile 이 기본 선호로 밀어주는 자산."
+      }
+    ]
+  },
+  "workspaces": {
+    "summary": {
+      "total": 3,
+      "bound": 2,
+      "unbound": 1,
+      "invalid": 0,
+      "binding_status": "mixed",
+      "active_workspace": null
+    },
+    "grouped_projects": {
+      "company": [
+        {
+          "project_id": "sample_bound_project",
+          "project_name": "Sample Bound Project",
+          "project_path": "_workspaces/company/sample_bound_project",
+          "workspace_kind": "company",
+          "state": "bound",
+          "project_agent_present": true,
+          "default_loadout": "soulforge.profile.default",
+          "binding_status": "bound",
+          "capsule_binding_count": 1,
+          "workflow_binding_count": 1,
+          "local_state_entry_count": 1,
+          "contract_ref": "_workspaces/company/sample_bound_project/.project_agent/contract.yaml"
+        },
+        {
+          "project_id": "sample_reference_project",
+          "project_name": "Sample Reference Project",
+          "project_path": "_workspaces/company/sample_reference_project",
+          "workspace_kind": "company",
+          "state": "bound",
+          "project_agent_present": true,
+          "default_loadout": "soulforge.profile.default",
+          "binding_status": "bound",
+          "capsule_binding_count": 1,
+          "workflow_binding_count": 1,
+          "local_state_entry_count": 1,
+          "contract_ref": "_workspaces/company/sample_reference_project/.project_agent/contract.yaml"
+        }
+      ],
+      "personal": [
+        {
+          "project_id": null,
+          "project_name": "Sample Unbound Project",
+          "project_path": "_workspaces/personal/sample_unbound_project",
+          "workspace_kind": "personal",
+          "state": "unbound",
+          "project_agent_present": false,
+          "default_loadout": null,
+          "binding_status": "unbound",
+          "capsule_binding_count": 0,
+          "workflow_binding_count": 0,
+          "local_state_entry_count": 0,
+          "contract_ref": "_workspaces/personal/sample_unbound_project/.project_agent/contract.yaml"
+        }
+      ]
+    }
+  },
+  "diagnostics": {
+    "summary": {
+      "warnings": 1,
+      "errors": 0,
+      "highest_severity": "warning"
+    },
+    "warnings": [
+      {
+        "code": "workspace_default_loadout_scope",
+        "message": "contract.default_loadout currently validates only against .agent_class/loadout.yaml active_profile until multi-profile support is introduced",
+        "severity": "warning",
+        "location_hint": "_workspaces/**/.project_agent/contract.yaml"
+      }
+    ],
+    "errors": []
+  },
+  "catalogs": {
+    "identity": {
+      "status": "ready",
+      "species_candidates": [
+        {
+          "id": "soulforge.species.default",
+          "display_name": "Soulforge Default Species",
+          "summary": "구조 우선, 검증 우선, 저소음 운용을 선호하는 durable species default.",
+          "source_ref": ".agent/catalog/identity/species/soulforge-default.species.yaml",
+          "active": true,
+          "candidate": true
+        }
+      ],
+      "hero_candidates": [
+        {
+          "id": "soulforge.hero.craft_sage",
+          "display_name": "Craft Sage Imprint",
+          "summary": "구조화, 검증 우선, pre-mortem 성향을 강화하는 motif imprint.",
+          "source_ref": ".agent/catalog/identity/heroes/soulforge_default/craft_sage.hero.yaml",
+          "active": false,
+          "candidate": true
+        }
+      ]
+    },
+    "class": {
+      "status": "ready",
+      "profiles_catalog": [
+        {
+          "id": "soulforge.profile.default",
+          "display_name": "Default Preference Mode",
+          "summary": "명시적 workflow가 없을 때 검증 우선과 구조 우선을 먼저 제안하는 기본 profile.",
+          "source_ref": ".agent/catalog/class/profiles/profiles_catalog.yaml",
+          "active": true,
+          "candidate": true
+        }
+      ],
+      "skills_catalog": [
+        {
+          "id": "sample.skill.echo",
+          "display_name": "Sample Echo Skill",
+          "summary": "최소 happy-path 검증용 샘플 스킬.",
+          "source_ref": ".agent/catalog/class/skills/skills_catalog.yaml",
+          "active": true,
+          "candidate": true
+        }
+      ],
+      "tools_catalog": [
+        {
+          "id": "sample.tool.local_cli.status",
+          "display_name": "Sample Status Tool",
+          "summary": "최소 happy-path 검증용 local_cli 샘플 도구.",
+          "source_ref": ".agent/catalog/class/tools/local_cli_catalog.yaml",
+          "active": true,
+          "candidate": true
+        }
+      ],
+      "knowledge_catalog": [
+        {
+          "id": "sample.knowledge.reference",
+          "display_name": "Sample Reference Knowledge",
+          "summary": "최소 happy-path 검증용 샘플 지식.",
+          "source_ref": ".agent/catalog/class/knowledge/knowledge_catalog.yaml",
+          "active": true,
+          "candidate": true
+        }
+      ],
+      "workflows_catalog": [
+        {
+          "id": "sample.workflow.briefing",
+          "display_name": "Sample Briefing Workflow",
+          "summary": "sample skill, tool, knowledge 조합을 required 로 묶는 샘플 workflow.",
+          "source_ref": ".agent/catalog/class/workflows/workflows_catalog.yaml",
+          "active": true,
+          "candidate": true
+        }
+      ]
+    }
+  },
+  "ui_hints": {
+    "theme": "adventurers_desk",
+    "phase": "ui-1",
+    "default_tab": "overview",
+    "layout": {
+      "left_ratio": 25,
+      "right_ratio": 70,
+      "gutter_ratio": 5
+    },
+    "material_hints": {
+      "skills": "frosted-orb",
+      "tools": "belt-slot",
+      "knowledge": "bookshelf-spine",
+      "workflows": "combo-card",
+      "diagnostics": "warning-paper",
+      "info_dock": "leather-folio"
+    },
+    "icon_hints": {
+      "skills": "orb",
+      "tools": "hook",
+      "knowledge": "spine",
+      "workflows": "combo",
+      "diagnostics": "telegram",
+      "overview": "compass"
+    },
+    "renderer_notes": [
+      "Use placeholder silhouette assets only in v1.",
+      "Keep diagnostics inside overview strip and info dock.",
+      "Do not persist selection state."
+    ]
+  }
+}

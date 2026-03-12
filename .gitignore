@@ -1,6 +1,9 @@
 .DS_Store
 *.swp
 *.swo
+node_modules/
+dist/
+.vite/
 
 .agent_class/_local/*
 !.agent_class/_local/.gitignore

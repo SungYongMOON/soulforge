@@ -16,7 +16,8 @@ flowchart TD
   S --> C[".agent_class<br/>loadout"]
   S --> W["_workspaces<br/>mission site"]
   S --> D["docs/architecture<br/>root-owned docs"]
-  S --> U["ui<br/>viewer surface"]
+  S --> U["docs/ui + renderer packages<br/>renderer contract and shell"]
+  S --> V2["ui<br/>legacy prototype viewer"]
   S --> V["dev<br/>plan / log"]
   W --> P[".project_agent<br/>project contract"]
 ```
@@ -28,6 +29,9 @@ flowchart TD
 - [`_workspaces/README.md`](_workspaces/README.md): `_workspaces` 상위 개요
 - [`docs/architecture/TARGET_TREE.md`](docs/architecture/TARGET_TREE.md): 저장소 목표 트리와 최종 `.agent` target tree
 - [`docs/architecture/DOCUMENT_OWNERSHIP.md`](docs/architecture/DOCUMENT_OWNERSHIP.md): 폴더별 정본 문서 소유 기준
+- [`docs/ui/README.md`](docs/ui/README.md): renderer v1 문서군
+- [`packages/renderer-core/README.md`](packages/renderer-core/README.md): renderer-core 개요
+- [`apps/renderer-web/README.md`](apps/renderer-web/README.md): renderer-web shell 개요
 
 ## 정본 안내
 
@@ -43,3 +47,5 @@ flowchart TD
 - [`docs/architecture/DOCUMENT_OWNERSHIP.md`](docs/architecture/DOCUMENT_OWNERSHIP.md): 문서 소유 기준
 - [`docs/architecture/UI_SOURCE_MAP.md`](docs/architecture/UI_SOURCE_MAP.md): UI source 정본 지도
 - [`docs/architecture/UI_SYNC_CONTRACT.md`](docs/architecture/UI_SYNC_CONTRACT.md): UI 동기화 계약
+- [`docs/ui/UI_RENDERER_MODEL.md`](docs/ui/UI_RENDERER_MODEL.md): renderer v1 경계
+- [`docs/ui/UI_STATE_CONTRACT.md`](docs/ui/UI_STATE_CONTRACT.md): normalized UI state contract
