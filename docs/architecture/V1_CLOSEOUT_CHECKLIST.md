@@ -12,7 +12,7 @@ flowchart LR
   SRC["정본 구조<br/>.agent / .agent_class / _workspaces"] --> R["Resolve / Validate"]
   R --> D["derive-ui-state"]
   D --> V["read-only viewer"]
-  SRC --> B["baseline 3종<br/>bound / invalid / unbound"]
+  SRC --> B["sample projects 3개<br/>bound / bound / unbound"]
   B --> R
 ```
 
@@ -20,7 +20,7 @@ flowchart LR
 
 - `.agent / .agent_class / _workspaces` 3축 구조와 owner 경계를 정본으로 고정한다.
 - body/class/workspace 의 `resolve`, `validate`, `derive`, `render(read-only)` 흐름을 v1의 운영 범위로 본다.
-- 실제 입력 기준선은 reference sample baseline 3종으로 닫는다.
+- 실제 입력 기준선은 repo-tracked sample project 3개로 닫는다.
 - v1은 배포용 앱이나 편집 UI가 아니라, 로컬 검증 가능한 구조/상태판 기준선까지를 다룬다.
 
 ## 포함된 핵심 구성
@@ -31,14 +31,14 @@ flowchart LR
 - workspace `.project_agent` resolve
 - `derive-ui-state` 기반 derived state generator
 - `ui/viewer/ui_viewer.py` read-only viewer
-- reference sample baseline 3종
+- repo-tracked sample project 3개
 
 ## baseline 상태 세트
 
 | project | workspace | 기대 상태 | 역할 |
 | --- | --- | --- | --- |
 | `sample_reference_project` | `company` | `bound` | happy-path baseline |
-| `sample_invalid_project` | `company` | `invalid` | diagnostics / partial render baseline |
+| `sample_bound_project` | `company` | `bound` | 두 번째 happy-path baseline |
 | `sample_unbound_project` | `personal` | `unbound` | 허용 상태 분류 baseline |
 
 ## 검증 명령 목록
@@ -55,17 +55,17 @@ git diff --check
 
 운영 메모:
 
-- 현재 저장소 상태에서는 `sample_invalid_project` 가 의도적으로 남아 있으므로 `resolve-workspaces`, `validate`, `derive-ui-state --json` 은 non-zero 동작을 보일 수 있다.
-- 그 경우에도 `derive-ui-state --json` payload 와 `ui_viewer --once` HTML snapshot 은 baseline 3종과 diagnostics 를 계속 보여줘야 한다.
+- 현재 저장소 상태에서는 repo-tracked invalid sample 이 없으므로 `resolve-workspaces`, `validate`, `derive-ui-state --json` 은 zero exit code 를 유지해야 한다.
+- `derive-ui-state --json` payload 와 `ui_viewer --once` HTML snapshot 은 bound 2건과 unbound 1건을 함께 보여줘야 한다.
 
 ## 종료 판단 기준
 
 - `resolve-loadout` 가 sample module baseline 을 인식하고 installed/equipped 를 모두 resolve 한다.
-- `resolve-workspaces` 가 `bound / invalid / unbound` 세 상태를 실제 프로젝트 입력에서 분류한다.
-- `validate` 는 `invalid` baseline 을 FAIL 로, `unbound` baseline 을 허용 상태로 유지한다.
+- `resolve-workspaces` 가 현재 sample 입력에서 `bound / unbound` 상태를 올바르게 분류한다.
+- `validate` 는 현재 sample set 에서 zero exit code 를 반환하고, `unbound` 를 허용 상태로 유지한다.
 - `derive-ui-state --json` 이 diagnostics 를 포함한 payload 구조를 유지한다.
-- `ui_viewer` 가 세 상태를 시각적으로 구분하고 partial render 를 유지한다.
-- `invalid` 는 diagnostics error 로 남고, `unbound` 는 상태 분류 결과로 남는다.
+- `ui_viewer` 가 bound 와 unbound 상태를 시각적으로 구분한다.
+- `invalid` 는 계약상 지원되는 오류 상태로 남고, `unbound` 는 상태 분류 결과로 남는다.
 - `workspace_default_loadout_scope` 경고는 숨기지 않고 노출된 상태로 유지한다.
 
 ## 제외 범위

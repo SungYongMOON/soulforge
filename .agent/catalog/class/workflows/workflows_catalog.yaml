@@ -1,5 +1,7 @@
 catalog_id: soulforge.agent.catalog.class.workflows
 catalog_kind: class_workflows
+index_mode: source_ref_only
+selection_semantics: required
 selection_state_source: ../../../registry/active_class_binding.yaml
 canonical_root_ref: ../../../../.agent_class/workflows
 items:

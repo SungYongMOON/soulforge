@@ -38,7 +38,7 @@
 - 실제 프로젝트 폴더는 이 경계 안에 둔다.
 - workspace project 상태는 `.project_agent` resolve 결과에 따라 `bound`, `unbound`, `invalid` 로 분류할 수 있다.
 - `_workspaces/company/sample_reference_project/` 는 운영용 실프로젝트가 아니라 repo-tracked reference sample project 로 유지한다.
-- `_workspaces/company/sample_invalid_project/` 는 운영용 실프로젝트가 아니라 diagnostics 와 partial/error state 검증용 invalid reference sample project 로 유지한다.
+- `_workspaces/company/sample_bound_project/` 는 운영용 실프로젝트가 아니라 두 번째 bound reference sample project 로 유지한다.
 - `_workspaces/personal/sample_unbound_project/` 는 `.project_agent/` 가 의도적으로 없는 unbound reference sample project 로 유지한다.
-- baseline 상태 세트는 `sample_reference_project = bound`, `sample_invalid_project = invalid`, `sample_unbound_project = unbound` 로 고정한다.
+- 현재 repo-tracked sample 상태 세트는 `sample_reference_project = bound`, `sample_bound_project = bound`, `sample_unbound_project = unbound` 다.
 - 세 sample project 는 모두 운영용 실프로젝트가 아니라 v1 상태판과 viewer 검증의 기준선 baseline 이다.

@@ -2,6 +2,8 @@ hero_id: soulforge.hero.craft_sage
 display_name: Craft Sage Imprint
 species_id: soulforge.species.default
 summary: 구조적 질문과 검증 우선 시선을 강화하는 normalized hero imprint
+storage_model: motif_imprint
+selection_role: identity_overlay
 motif:
   archetype: craft_sage
   normalized_imprint: strategy_bias_without_character_copy

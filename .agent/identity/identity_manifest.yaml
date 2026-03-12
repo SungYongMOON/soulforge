@@ -19,6 +19,11 @@ selection_metadata:
   catalog_layer_owner: ../catalog/identity
   canonical_class_owner: ../../.agent_class
   generator_scope: catalog_population_only
+semantics:
+  species_role: durable_default
+  hero_role: identity_overlay
+  profile_role: preferred_mode_via_active_class_binding
+  workflow_role: required_via_class_workflow
 references:
   body_ref: ../body.yaml
   policy_floor_ref: ../policy/precedence.yaml

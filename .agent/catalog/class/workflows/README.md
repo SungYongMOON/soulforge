@@ -8,4 +8,5 @@
 ## 규칙
 
 - workflow 는 `required` 조합식을 정의한다.
+- catalog item 은 `source_ref` 로만 canonical workflow 를 가리킨다.
 - active profile 은 workflow 부재 시 preferred 제안을 제공한다.

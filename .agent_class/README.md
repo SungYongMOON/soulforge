@@ -4,6 +4,7 @@
 
 - `.agent_class/` 는 durable agent unit 이 장착하는 reusable loadout template 의 canonical owner 다.
 - 본체를 바꾸지 않고 어떤 installed asset 이 있고 어떤 workflow/profile/loadout semantics 를 가지는지 관리한다.
+- 이번 라운드 기준 canonical loadout layer 는 `.agent_class/**` 로 고정한다.
 
 ## 범위
 
@@ -15,6 +16,7 @@
 - `class.yaml`, `loadout.yaml`
 - `skills/`, `tools/`, `workflows/`, `knowledge/`, `profiles/`, `manifests/`
 - class owner 문서와 비추적 로컬 상태 경계
+- class selection UI 가 참조할 canonical source 와 loadout semantics
 
 ## 제외 대상
 
@@ -37,11 +39,12 @@
 
 ## 상태
 
-- Draft
+- Stable
 - 클래스 계층 경계는 정의되었다.
 - installed library 는 `module.yaml` manifest 기준으로 해석하고, loadout 는 module id 기준으로 장착한다.
 - profiles 는 hero 대체재가 아니라 default preference mode 다.
 - workflows 는 explicit required 조합식이다.
+- `class.yaml` 은 canonical loadout root 와 semantics 를 선언하고, `loadout.yaml` 은 active profile 과 equipped module id 만 고정한다.
 - `.agent/catalog/class/**` 는 selection index 이고 canonical asset 정본은 `.agent_class/**` 에 남는다.
 - installed library roots 아래에는 `sample_` prefix 디렉터리와 `sample.` module id 를 쓰는 repo-tracked reference sample baseline 이 들어올 수 있다.
 - local CLI 는 workspace `.project_agent` 계약도 스캔해 `bound`, `unbound`, `invalid` 상태를 분류한다.

@@ -1,7 +1,9 @@
 hero_imprint_id: soulforge.identity.hero.none
 active: false
 hero_candidate_ref: null
+storage_model: motif_imprint_overlay
 overlay_mode: optional_identity_overlay
+precedence_role: hero_overlay
 overlay_bias:
   communication_tone_bias: neutral
   question_style_bias: neutral
@@ -12,6 +14,10 @@ guardrails:
   changes_factual_validation: false
   changes_policy_floor: false
   disables_installed_assets: false
+semantics:
+  identity_role: overlay
+  interacts_with_profile_as: bias_only
+  species_role_below_overlay: durable_default
 notes:
   - hero는 optional identity overlay다
   - 비활성 상태에서는 species default만 사용한다

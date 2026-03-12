@@ -1,5 +1,7 @@
 catalog_id: soulforge.agent.catalog.identity.species
 catalog_kind: species_candidates
+index_mode: source_ref_only
+selection_semantics: durable_default_candidates
 selection_state_source: ../../../identity/identity_manifest.yaml
 items:
   - item_id: soulforge.species.default

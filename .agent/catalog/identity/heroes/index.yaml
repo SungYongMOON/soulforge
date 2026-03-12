@@ -1,5 +1,8 @@
 catalog_id: soulforge.agent.catalog.identity.heroes
 catalog_kind: hero_candidates
+index_mode: source_ref_only
+storage_model: motif_imprint
+selection_semantics: identity_overlay_candidates
 selection_state_source: ../../../identity/hero_imprint.yaml
 items:
   - item_id: soulforge.hero.craft_sage

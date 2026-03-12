@@ -5,6 +5,7 @@
 - `tools/` 는 family 별 selectable tool catalog 를 둔다.
 - canonical tool 정본은 `.agent_class/tools/<family>/**/module.yaml` 이 소유한다.
 - active, selected, installed 같은 상태값은 catalog item 안에 중복 저장하지 않고 `../../../registry/active_class_binding.yaml`, `../../../body_state.yaml` 에서 유도한다.
+- 각 catalog item 은 `source_ref` 로만 canonical tool manifest 를 가리킨다.
 
 ## family
 

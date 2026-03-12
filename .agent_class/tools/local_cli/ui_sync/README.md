@@ -45,7 +45,7 @@ python .agent_class/tools/local_cli/ui_sync/ui_sync.py validate --json
 - validate 는 duplicate id, path-like equipped ref, kind mismatch, tool family/path mismatch, unknown equipped id, equipped workflow dependency unresolved 를 FAIL 로 본다.
 - validate 는 `invalid` workspace project 를 FAIL 로 보고, `unbound` 는 상태 분류 결과로 허용한다.
 - 실제 설치 모듈이 없으면 빈 catalog 로 통과한다.
-- 현재 baseline 에 invalid sample 이 포함되어 있으므로 `resolve-workspaces`, `validate`, `derive-ui-state --json` 은 known behavior 로 non-zero 를 반환할 수 있다.
+- 현재 repo-tracked sample set 은 bound 2건과 unbound 1건으로 유지되므로 `resolve-workspaces`, `validate`, `derive-ui-state --json` 은 zero exit code 를 기대한다.
 
 ## JSON 출력 최소 구조
 

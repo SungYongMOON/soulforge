@@ -1,9 +1,11 @@
 index_id: soulforge.class.capability_index
 class_ref: ../class.yaml
+canonical_scope: canonical_loadout
 entries:
   - item_id: soulforge.profile.default
     kind: profile
     source_ref: ../profiles/default.profile.yaml
+    selection_semantics: preferred
   - item_id: sample.skill.echo
     kind: skill
     source_ref: ../skills/sample_skill_echo/module.yaml
@@ -16,3 +18,4 @@ entries:
   - item_id: sample.workflow.briefing
     kind: workflow
     source_ref: ../workflows/sample_workflow_briefing/module.yaml
+    selection_semantics: required

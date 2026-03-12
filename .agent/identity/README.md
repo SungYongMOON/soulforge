@@ -39,6 +39,7 @@
 
 - species 는 durable default 다.
 - hero 는 optional overlay 다.
+- profile 은 `identity/` 가 아니라 class binding 에서 읽는 preferred mode 다.
 - hero candidate 는 실존 인물이나 특정 IP 복제본이 아니라 motif/imprint 계약으로 정규화한다.
 - species 외 durable default facet 이 필요하면 여기서 추가하되, selectable candidate 정본은 `catalog/identity/` 에 두고 lookup 용 키 체계는 `registry/` 로 분리한다.
 - 상황별 역할 전환 규칙, temporary persona, project-facing identifier 는 이 폴더로 넣지 않는다.

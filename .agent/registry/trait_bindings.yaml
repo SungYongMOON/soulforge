@@ -2,6 +2,11 @@ binding_set_id: soulforge.registry.traits
 policy_floor_ref: ../policy/precedence.yaml
 species_profile_ref: ../identity/species_profile.yaml
 hero_imprint_ref: ../identity/hero_imprint.yaml
+semantic_layers:
+  species: durable_default
+  hero: identity_overlay
+  profile: preferred_mode_via_active_class_binding
+  workflow: required_rule_via_class_workflow
 communication:
   species_default:
     tone_profile: from.species.default_traits.communication_tone

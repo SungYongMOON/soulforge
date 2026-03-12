@@ -1,6 +1,7 @@
 species_id: soulforge.species.default
 display_name: Soulforge Default Species
 summary: 구조를 먼저 세우고 안정적인 결과물을 선호하는 durable body baseline
+selection_role: durable_default
 default_traits:
   decision_tempo: moderate
   risk_posture: cautious

@@ -1,10 +1,14 @@
 ruleset_id: soulforge.class.equip_rules
+canonical_scope: canonical_loadout
 install_semantics:
   installed_assets_available_by_default: true
 profile_semantics:
+  selection_role: preferred
   preferred_only: true
+  used_when_workflow_absent: true
   restrictive: false
 workflow_semantics:
+  selection_role: required
   required_overrides_profile_preference: true
 notes:
   - profile does not disable installed assets

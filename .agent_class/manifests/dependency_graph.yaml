@@ -1,4 +1,7 @@
 graph_id: soulforge.class.dependency_graph
+selection_semantics:
+  workflows: required
+  profiles: preferred
 workflow_dependencies:
   - workflow_id: sample.workflow.briefing
     source_ref: ../workflows/sample_workflow_briefing/module.yaml

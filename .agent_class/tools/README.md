@@ -4,6 +4,7 @@
 
 - `tools/` 는 클래스가 사용하는 외부 장비와 연결 계층을 둔다.
 - `skills/`, `workflows/`, `knowledge/` 와 구분되는 실행 접점만 관리한다.
+- canonical tool source 는 family 별 하위 폴더의 `module.yaml` 이다.
 
 ## 포함 대상
 
@@ -33,7 +34,7 @@
 
 ## 상태
 
-- Draft
+- Stable
 - 도구 계층의 하위 분리는 고정한다.
 - `local_cli/` 아래에는 resolver 와 happy-path baseline 검증용 `sample_tool_status/` 같은 repo-tracked reference sample 도구가 들어올 수 있다.
 - `local_cli/ui_sync/` 는 `sync-body-state`, `resolve-loadout`, `resolve-workspaces`, `derive-ui-state`, `validate` 다섯 명령으로 정본 메타 Scan/Resolve/Validate/Derive 를 수행한다.

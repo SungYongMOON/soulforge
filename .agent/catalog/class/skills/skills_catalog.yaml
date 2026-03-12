@@ -1,5 +1,6 @@
 catalog_id: soulforge.agent.catalog.class.skills
 catalog_kind: class_skills
+index_mode: source_ref_only
 selection_state_source: ../../../registry/active_class_binding.yaml
 canonical_root_ref: ../../../../.agent_class/skills
 items:

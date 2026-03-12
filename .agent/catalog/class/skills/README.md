@@ -4,3 +4,4 @@
 
 - `skills/` 는 selectable skill index 를 둔다.
 - canonical skill 정본은 `.agent_class/skills/**/module.yaml` 이 소유한다.
+- catalog item 은 source-ref only entry 로 유지한다.

@@ -42,5 +42,6 @@
 
 - registry 스키마가 늘어나도 source of truth 는 body owner 자산에만 두고, registry 에는 색인과 참조만 남긴다.
 - profile 은 preferred semantics 이지 installed asset allowlist 가 아니라는 점을 registry 설명과 바인딩 메타에서 유지한다.
+- hero overlay 와 species default 의 적용 관계는 binding 으로만 연결하고 identity 본문을 여기서 복제하지 않는다.
 - binding 파일은 실제 선언이 없을 때 unset 상태를 유지하고, 추정된 active binding 을 적지 않는다.
 - class, workspace, shared lookup 이 필요하면 각 owner 아래에 별도 registry 를 만들고 여기와 섞지 않는다.
