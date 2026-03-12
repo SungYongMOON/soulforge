@@ -30,7 +30,7 @@
 - [루트 README](../README.md)
 - [`_workspaces/company/README.md`](company/README.md)
 - [`_workspaces/personal/README.md`](personal/README.md)
-- [`docs/architecture/WORKSPACE_PROJECT_MODEL.md`](../docs/architecture/WORKSPACE_PROJECT_MODEL.md)
+- [`docs/architecture/workspace/WORKSPACE_PROJECT_MODEL.md`](../docs/architecture/workspace/WORKSPACE_PROJECT_MODEL.md)
 
 ## 상태
 

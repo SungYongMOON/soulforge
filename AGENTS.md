@@ -122,14 +122,14 @@ flowchart TD
 
 ## 6. 참조 문서
 
-- 목표 구조: `docs/architecture/TARGET_TREE.md`
-- 문서 소유 원칙: `docs/architecture/DOCUMENT_OWNERSHIP.md`
-- 세계관 대응: `docs/architecture/AGENT_WORLD_MODEL.md`
-- body finalization report: `docs/architecture/agent_body_finalization_report.md`
+- 목표 구조: `docs/architecture/foundation/TARGET_TREE.md`
+- 문서 소유 원칙: `docs/architecture/foundation/DOCUMENT_OWNERSHIP.md`
+- 세계관 대응: `docs/architecture/foundation/AGENT_WORLD_MODEL.md`
+- body finalization report: `docs/architecture/foundation/agent_body_finalization_report.md`
 - body 메타 계약: `.agent/docs/architecture/BODY_METADATA_CONTRACT.md`
-- 프로젝트 연결 규약: `docs/architecture/PROJECT_AGENT_MINIMUM_SCHEMA.md`
-- UI source map: `docs/architecture/UI_SOURCE_MAP.md`
-- UI 동기화 계약: `docs/architecture/UI_SYNC_CONTRACT.md`
+- 프로젝트 연결 규약: `docs/architecture/workspace/PROJECT_AGENT_MINIMUM_SCHEMA.md`
+- UI source map: `docs/architecture/ui/UI_SOURCE_MAP.md`
+- UI 동기화 계약: `docs/architecture/ui/UI_SYNC_CONTRACT.md`
 - class 운영 문서: `.agent_class/docs/`
 
 ## 7. 커밋 원칙

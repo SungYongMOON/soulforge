@@ -4,17 +4,14 @@
 
 - `docs/architecture/` 는 저장소 전체 구조 원칙과 메타 규약을 둔다.
 - 루트 README가 다루지 않는 구조 기준 문서를 이곳에서 관리한다.
+- 문서 수가 늘어난 만큼 root-owned 문서를 성격별 하위 묶음으로 나눠 탐색성을 유지한다.
 
-## 포함 대상
+## 구성
 
-- 목표 트리, 문서 소유 원칙, 저장소 목적
-- body finalization report 와 세계관 대응 문서
-- 워크스페이스와 `.project_agent` 같은 저장소 공용 구조 규약
-- 저장소 전체 결정 기록과 마이그레이션 참고 문서
-- UI source map 과 UI sync contract 같은 저장소 공용 파생 규약
-- `derive-ui-state` 와 derived state schema 같은 저장소 공용 UI 파생 계약
-- renderer bridge 와 legacy prototype 의 source-side 경계 설명
-- v1 closeout checklist 와 known limitations 같은 저장소 공용 마감/운영 문서
+- `foundation/`: 저장소 목적, 목표 구조, 문서 소유 기준, 현재 결정, 세계관, 마이그레이션, body 확정 보고서
+- `workspace/`: `_workspaces` 와 `.project_agent` 공용 구조/resolve 계약
+- `ui/`: root-owned UI source, sync, derived state 계약
+- `lifecycle/`: v1 closeout, limitation, 운영 경고 문서
 
 ## 제외 대상
 
@@ -22,10 +19,23 @@
 - `.agent_class` 전용 구조 문서
 - 특정 프로젝트 전용 문서
 
+## 읽는 순서
+
+1. [`foundation/REPOSITORY_PURPOSE.md`](foundation/REPOSITORY_PURPOSE.md)
+2. [`foundation/TARGET_TREE.md`](foundation/TARGET_TREE.md)
+3. [`foundation/DOCUMENT_OWNERSHIP.md`](foundation/DOCUMENT_OWNERSHIP.md)
+4. [`workspace/README.md`](workspace/README.md)
+5. [`ui/README.md`](ui/README.md)
+6. [`lifecycle/README.md`](lifecycle/README.md)
+
 ## 관련 경로
 
 - [루트 README](../../README.md)
 - [`docs/README.md`](../README.md)
+- [`foundation/README.md`](foundation/README.md)
+- [`workspace/README.md`](workspace/README.md)
+- [`ui/README.md`](ui/README.md)
+- [`lifecycle/README.md`](lifecycle/README.md)
 - [`.agent/docs/architecture/AGENT_BODY_MODEL.md`](../../.agent/docs/architecture/AGENT_BODY_MODEL.md)
 - [`.agent_class/docs/architecture/README.md`](../../.agent_class/docs/architecture/README.md)
 - [`.agent_class/docs/architecture/MODULE_REFERENCE_CONTRACT.md`](../../.agent_class/docs/architecture/MODULE_REFERENCE_CONTRACT.md)
@@ -35,10 +45,6 @@
 
 - Stable
 - 저장소 공용 아키텍처 문서의 정본 위치다.
-- 현재 공용 문서는 `REPOSITORY_PURPOSE.md`, `TARGET_TREE.md`, `DOCUMENT_OWNERSHIP.md`, `AGENT_WORLD_MODEL.md`, `agent_body_finalization_report.md`, `UI_SOURCE_MAP.md`, `UI_SYNC_CONTRACT.md` 등을 포함한다.
-- 현재 공용 문서는 `UI_DERIVED_STATE_CONTRACT.md` 를 포함해 renderer 이전 단계의 파생 상태 계약도 함께 관리한다.
-- renderer consumer model, selection model, theme plan 정본은 `ui-workspace/docs/` 로 분리 관리한다.
-- 현재 공용 문서는 `PROJECT_AGENT_RESOLVE_CONTRACT.md` 를 포함해 workspace 공통 resolve 계약도 함께 관리한다.
-- 현재 공용 문서는 `CURRENT_DECISIONS.md` 를 통해 hero/profile/catalog 최신 구조 결정도 함께 고정한다.
-- 현재 공용 문서는 `V1_CLOSEOUT_CHECKLIST.md`, `KNOWN_LIMITATIONS.md` 를 포함해 v1 closeout 문서군도 함께 관리한다.
+- root 에는 index 역할의 `README.md` 만 두고, 실제 문서는 하위 묶음에서 owner 성격별로 읽게 한다.
+- renderer consumer model, selection model, theme plan 정본은 계속 `ui-workspace/docs/` 에서 분리 관리한다.
 - class installed/loadout 세부 계약은 class owner 문서 `MODULE_REFERENCE_CONTRACT.md` 를 참조한다.

@@ -1,7 +1,7 @@
 # Soulforge `.agent` 구조 확정 보고서 v2
 
 이 문서는 `.agent` 와 `.agent_class` 구조를 최신 개념에 맞춰 다시 정렬한 body finalization report 다.
-현재 정본은 `docs/architecture/TARGET_TREE.md`, `.agent/body.yaml`, `.agent_class/class.yaml`, 각 폴더 README 를 따른다.
+현재 정본은 `docs/architecture/foundation/TARGET_TREE.md`, `.agent/body.yaml`, `.agent_class/class.yaml`, 각 폴더 README 를 따른다.
 
 ## 이번 확정의 핵심
 

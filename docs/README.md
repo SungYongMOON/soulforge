@@ -24,12 +24,13 @@
 - [`docs/architecture/README.md`](architecture/README.md)
 - [`docs/ui/README.md`](ui/README.md)
 - [`ui-workspace/docs/README.md`](../ui-workspace/docs/README.md)
-- [`docs/architecture/DOCUMENT_OWNERSHIP.md`](architecture/DOCUMENT_OWNERSHIP.md)
+- [`docs/architecture/foundation/DOCUMENT_OWNERSHIP.md`](architecture/foundation/DOCUMENT_OWNERSHIP.md)
 
 ## 상태
 
 - Stable
 - root owner 문서만 유지한다.
-- workspace 공통 resolve 계약은 `docs/architecture/PROJECT_AGENT_RESOLVE_CONTRACT.md` 에서 관리한다.
-- derived state 공통 계약은 `docs/architecture/UI_DERIVED_STATE_CONTRACT.md` 에서 관리한다.
+- `docs/architecture/` 아래는 `foundation/`, `workspace/`, `ui/`, `lifecycle/` 네 묶음으로 정리한다.
+- workspace 공통 resolve 계약은 `docs/architecture/workspace/PROJECT_AGENT_RESOLVE_CONTRACT.md` 에서 관리한다.
+- derived state 공통 계약은 `docs/architecture/ui/UI_DERIVED_STATE_CONTRACT.md` 에서 관리한다.
 - renderer consumer 문서군 정본은 `ui-workspace/docs/` 에서 관리하고, `docs/ui/` 는 relocation 안내만 유지한다.

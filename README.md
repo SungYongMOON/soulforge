@@ -28,8 +28,9 @@ flowchart TD
 - [`.agent/README.md`](.agent/README.md): `.agent` 상위 개요
 - [`.agent_class/README.md`](.agent_class/README.md): `.agent_class` 상위 개요
 - [`_workspaces/README.md`](_workspaces/README.md): `_workspaces` 상위 개요
-- [`docs/architecture/TARGET_TREE.md`](docs/architecture/TARGET_TREE.md): 저장소 목표 트리와 최종 `.agent` target tree
-- [`docs/architecture/DOCUMENT_OWNERSHIP.md`](docs/architecture/DOCUMENT_OWNERSHIP.md): 폴더별 정본 문서 소유 기준
+- [`docs/architecture/README.md`](docs/architecture/README.md): root-owned architecture 문서 색인
+- [`docs/architecture/foundation/TARGET_TREE.md`](docs/architecture/foundation/TARGET_TREE.md): 저장소 목표 트리와 최종 `.agent` target tree
+- [`docs/architecture/foundation/DOCUMENT_OWNERSHIP.md`](docs/architecture/foundation/DOCUMENT_OWNERSHIP.md): 폴더별 정본 문서 소유 기준
 - [`ui-workspace/README.md`](ui-workspace/README.md): UI 전용 workspace 개요
 - [`ui-workspace/DONE.md`](ui-workspace/DONE.md): UI workspace closeout 선언
 - [`ui-workspace/docs/README.md`](ui-workspace/docs/README.md): renderer v1 문서군
@@ -47,11 +48,11 @@ flowchart TD
 
 ## 루트 문서
 
-- [`docs/architecture/REPOSITORY_PURPOSE.md`](docs/architecture/REPOSITORY_PURPOSE.md): 저장소 전체 목적
-- [`docs/architecture/TARGET_TREE.md`](docs/architecture/TARGET_TREE.md): 목표 구조
-- [`docs/architecture/DOCUMENT_OWNERSHIP.md`](docs/architecture/DOCUMENT_OWNERSHIP.md): 문서 소유 기준
-- [`docs/architecture/UI_SOURCE_MAP.md`](docs/architecture/UI_SOURCE_MAP.md): UI source 정본 지도
-- [`docs/architecture/UI_SYNC_CONTRACT.md`](docs/architecture/UI_SYNC_CONTRACT.md): UI 동기화 계약
+- [`docs/architecture/foundation/REPOSITORY_PURPOSE.md`](docs/architecture/foundation/REPOSITORY_PURPOSE.md): 저장소 전체 목적
+- [`docs/architecture/foundation/TARGET_TREE.md`](docs/architecture/foundation/TARGET_TREE.md): 목표 구조
+- [`docs/architecture/foundation/DOCUMENT_OWNERSHIP.md`](docs/architecture/foundation/DOCUMENT_OWNERSHIP.md): 문서 소유 기준
+- [`docs/architecture/ui/UI_SOURCE_MAP.md`](docs/architecture/ui/UI_SOURCE_MAP.md): UI source 정본 지도
+- [`docs/architecture/ui/UI_SYNC_CONTRACT.md`](docs/architecture/ui/UI_SYNC_CONTRACT.md): UI 동기화 계약
 - [`ui-workspace/docs/UI_RENDERER_MODEL.md`](ui-workspace/docs/UI_RENDERER_MODEL.md): renderer v1 경계
 - [`ui-workspace/docs/UI_STATE_CONTRACT.md`](ui-workspace/docs/UI_STATE_CONTRACT.md): normalized UI state contract
 

@@ -60,12 +60,13 @@ flowchart TD
 
 - `README.md`
 - `AGENTS.md`
-- `docs/architecture/DOCUMENT_OWNERSHIP.md`
-- `docs/architecture/AGENT_WORLD_MODEL.md`
-- `docs/architecture/PROJECT_AGENT_MINIMUM_SCHEMA.md`
-- `docs/architecture/PROJECT_AGENT_RESOLVE_CONTRACT.md`
-- `docs/architecture/UI_DERIVED_STATE_CONTRACT.md`
-- `docs/architecture/TARGET_TREE.md`
+- `docs/architecture/README.md`
+- `docs/architecture/foundation/DOCUMENT_OWNERSHIP.md`
+- `docs/architecture/foundation/AGENT_WORLD_MODEL.md`
+- `docs/architecture/workspace/PROJECT_AGENT_MINIMUM_SCHEMA.md`
+- `docs/architecture/workspace/PROJECT_AGENT_RESOLVE_CONTRACT.md`
+- `docs/architecture/ui/UI_DERIVED_STATE_CONTRACT.md`
+- `docs/architecture/foundation/TARGET_TREE.md`
 - `.agent/docs/architecture/AGENT_BODY_MODEL.md`
 - `.agent/docs/architecture/BODY_METADATA_CONTRACT.md`
 - `.agent/body.yaml`

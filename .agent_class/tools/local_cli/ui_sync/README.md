@@ -75,5 +75,5 @@ python .agent_class/tools/local_cli/ui_sync/ui_sync.py validate --json
 
 - [`.agent_class/tools/local_cli/README.md`](../README.md)
 - [`.agent/docs/architecture/BODY_METADATA_CONTRACT.md`](../../../../.agent/docs/architecture/BODY_METADATA_CONTRACT.md)
-- [`docs/architecture/UI_DERIVED_STATE_CONTRACT.md`](../../../../docs/architecture/UI_DERIVED_STATE_CONTRACT.md)
-- [`docs/architecture/UI_SYNC_CONTRACT.md`](../../../../docs/architecture/UI_SYNC_CONTRACT.md)
+- [`docs/architecture/ui/UI_DERIVED_STATE_CONTRACT.md`](../../../../docs/architecture/ui/UI_DERIVED_STATE_CONTRACT.md)
+- [`docs/architecture/ui/UI_SYNC_CONTRACT.md`](../../../../docs/architecture/ui/UI_SYNC_CONTRACT.md)

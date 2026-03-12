@@ -18,8 +18,8 @@
 ## 관련 경로
 
 - [`_workspaces/README.md`](../README.md)
-- [`docs/architecture/WORKSPACE_PROJECT_MODEL.md`](../../docs/architecture/WORKSPACE_PROJECT_MODEL.md)
-- [`docs/architecture/PROJECT_AGENT_MINIMUM_SCHEMA.md`](../../docs/architecture/PROJECT_AGENT_MINIMUM_SCHEMA.md)
+- [`docs/architecture/workspace/WORKSPACE_PROJECT_MODEL.md`](../../docs/architecture/workspace/WORKSPACE_PROJECT_MODEL.md)
+- [`docs/architecture/workspace/PROJECT_AGENT_MINIMUM_SCHEMA.md`](../../docs/architecture/workspace/PROJECT_AGENT_MINIMUM_SCHEMA.md)
 
 ## 상태
 

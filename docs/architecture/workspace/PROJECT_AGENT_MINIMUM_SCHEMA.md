@@ -6,7 +6,7 @@
 
 현재 단계의 목표는 구현이 아니라 구조 정본 확정이다.
 따라서 이 문서는 네 개의 핵심 파일이 무엇을 설명해야 하는지와 최소 필드를 먼저 고정한다.
-상세 resolve/validate 규칙은 root owner 문서 `docs/architecture/PROJECT_AGENT_RESOLVE_CONTRACT.md` 로 위임한다.
+상세 resolve/validate 규칙은 root owner 문서 `docs/architecture/workspace/PROJECT_AGENT_RESOLVE_CONTRACT.md` 로 위임한다.
 
 ## 구조 개요도
 
