@@ -17,6 +17,7 @@ flowchart TD
   S --> W["_workspaces<br/>mission site"]
   S --> D["docs/architecture<br/>root-owned docs"]
   S --> U["docs/ui + renderer packages<br/>renderer contract and shell"]
+  S --> T["tools/ui-lint<br/>UI guardrails"]
   S --> V2["ui<br/>legacy prototype viewer"]
   S --> V["dev<br/>plan / log"]
   W --> P[".project_agent<br/>project contract"]
@@ -32,6 +33,7 @@ flowchart TD
 - [`docs/ui/README.md`](docs/ui/README.md): renderer v1 문서군
 - [`packages/renderer-core/README.md`](packages/renderer-core/README.md): renderer-core 개요
 - [`apps/renderer-web/README.md`](apps/renderer-web/README.md): renderer-web shell 개요
+- [`tools/ui-lint/README.md`](tools/ui-lint/README.md): UI/catalog lint suite
 
 ## 정본 안내
 
@@ -49,3 +51,13 @@ flowchart TD
 - [`docs/architecture/UI_SYNC_CONTRACT.md`](docs/architecture/UI_SYNC_CONTRACT.md): UI 동기화 계약
 - [`docs/ui/UI_RENDERER_MODEL.md`](docs/ui/UI_RENDERER_MODEL.md): renderer v1 경계
 - [`docs/ui/UI_STATE_CONTRACT.md`](docs/ui/UI_STATE_CONTRACT.md): normalized UI state contract
+
+## UI lint
+
+- `npm run ui:lint:catalog`
+- `npm run ui:lint:ui-state`
+- `npm run ui:lint:read-only`
+- `npm run ui:lint:packages`
+- `npm run ui:lint:fixtures`
+- `npm run ui:lint:theme`
+- `npm run ui:lint:all`

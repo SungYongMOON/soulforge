@@ -1,0 +1,22 @@
+{
+  "name": "@soulforge/ui-lint",
+  "version": "0.1.0",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "lint:catalog": "tsx src/cli/lint-catalog.ts",
+    "lint:ui-state": "tsx src/cli/lint-ui-state.ts",
+    "lint:boundary:readonly": "tsx src/cli/lint-readonly-boundary.ts",
+    "lint:boundary:packages": "tsx src/cli/lint-package-boundary.ts",
+    "lint:fixtures": "tsx src/cli/lint-fixture-coverage.ts",
+    "lint:theme": "tsx src/cli/lint-theme-isolation.ts",
+    "lint:all": "tsx src/cli/lint-all.ts"
+  },
+  "dependencies": {
+    "ajv": "^8.18.0",
+    "yaml": "^2.8.1"
+  },
+  "devDependencies": {
+    "tsx": "^4.21.0"
+  }
+}

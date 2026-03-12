@@ -32,6 +32,7 @@
 | `.agent_class/docs/plans/` | `.agent_class/docs/plans/README.md` | `.agent_class/docs/plans/*.md` |
 | `apps/` | `README.md` | `apps/README.md`, `apps/renderer-web/README.md` |
 | `packages/` | `README.md` | `packages/README.md`, `packages/renderer-core/README.md` |
+| `tools/` | `README.md` | `tools/README.md`, `tools/ui-lint/README.md`, `tools/ui-lint/LINT_RULES.md` |
 | `fixtures/` | `README.md` | `fixtures/README.md`, `fixtures/ui-state/README.md` |
 | `schemas/` | `README.md` | `schemas/README.md`, `schemas/ui-state.schema.json` |
 | `docs/ui/` | `README.md` | `docs/ui/*.md` |

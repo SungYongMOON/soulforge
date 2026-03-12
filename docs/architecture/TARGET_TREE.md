@@ -107,6 +107,8 @@
 │   └── ui-state/
 ├── packages/
 │   └── renderer-core/
+├── tools/
+│   └── ui-lint/
 ├── schemas/
 │   └── ui-state.schema.json
 ├── ui/
@@ -134,6 +136,7 @@
 | `apps/renderer-web/` | portable renderer web shell |
 | `_workspaces/` | 실제 프로젝트 운영 현장 |
 | `packages/renderer-core/` | portable renderer contract consumer core |
+| `tools/ui-lint/` | UI contract / catalog / boundary lint suite |
 | `fixtures/ui-state/` | renderer fixture baseline |
 | `schemas/` | renderer contract schema |
 | `ui/` | legacy read-only viewer prototype |
