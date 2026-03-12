@@ -1,0 +1,23 @@
+matrix_id: soulforge.policy.approval
+defaults:
+  runtime_state_fabrication: forbidden
+  explicit_human_required_for_binding_changes: true
+entries:
+  - action_id: read_body_metadata
+    scope: .agent/**
+    approval: none
+  - action_id: write_body_metadata
+    scope: .agent/**
+    approval: explicit_human
+  - action_id: change_class_binding
+    scope: registry/active_class_binding.yaml
+    approval: explicit_human
+  - action_id: change_workspace_binding
+    scope: registry/workspace_binding.yaml
+    approval: explicit_human
+  - action_id: write_workspace_project_files
+    scope: _workspaces/**
+    approval: explicit_human
+  - action_id: create_runtime_state
+    scope: runtime
+    approval: forbidden

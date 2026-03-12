@@ -2,87 +2,66 @@
 
 ## 목적
 
-이 문서는 Soulforge에서 문서가 어느 계층에 소유되어야 하는지 저장소 전체 관점에서 정리한다.
+- 이 문서는 Soulforge에서 어떤 문서가 어느 폴더 설명의 정본인지 저장소 전체 관점에서 고정한다.
+- 루트 문서와 owner-local 문서의 역할을 분리해 중복 설명을 줄인다.
 
 ## owner 관계도
 
 ```mermaid
 flowchart TD
-  O1["root"] --> P1["docs/architecture/"]
-  O1 --> P5["dev/"]
-  O2["body"] --> P2[".agent/docs/architecture/"]
-  O3["class"] --> P3[".agent_class/docs/architecture/"]
-  O4["project"] --> P4["_workspaces/.../&lt;project&gt;/.project_agent/"]
-  P1 --> E1["REPOSITORY_PURPOSE<br/>TARGET_TREE<br/>DOCUMENT_OWNERSHIP<br/>PROJECT_AGENT_RESOLVE_CONTRACT<br/>UI_SOURCE_MAP<br/>UI_SYNC_CONTRACT<br/>UI_DERIVED_STATE_CONTRACT<br/>V1_CLOSEOUT_CHECKLIST<br/>KNOWN_LIMITATIONS"]
-  P5 --> E5["plan/<br/>log/"]
-  P2 --> E2["AGENT_BODY_MODEL<br/>BODY_METADATA_CONTRACT"]
-  P3 --> E3["AGENT_CLASS_MODEL<br/>INSTALLATION_AND_LOADOUT_CONCEPT<br/>CLASS_METADATA_CONTRACT<br/>MODULE_REFERENCE_CONTRACT"]
-  P4 --> E4["contract.yaml<br/>프로젝트 전용 메모/로그"]
+  Root["root-owned docs"] --> R1["README.md"]
+  Root --> R2["docs/architecture/"]
+  Body["body-owned docs"] --> B1[".agent/README.md"]
+  Body --> B2[".agent/docs/architecture/"]
+  Body --> B3[".agent/**/README.md"]
+  Class["class-owned docs"] --> C1[".agent_class/README.md"]
+  Class --> C2[".agent_class/docs/architecture/"]
+  Class --> C3[".agent_class/**/README.md"]
+  Work["workspace-owned docs"] --> W1["_workspaces/README.md"]
+  Work --> W2["_workspaces/**/README.md"]
+  Project["project-owned docs"] --> P1["_workspaces/.../<project>/.project_agent/"]
 ```
 
 ## 기본 원칙
 
-- 루트 `docs/` 는 저장소 전체 구조와 루트 설명만 둔다.
-- body 문서는 `.agent/docs/` 아래에 둔다.
-- class 문서는 `.agent_class/docs/` 아래에 둔다.
-- project 전용 문서는 각 프로젝트의 `.project_agent/` 아래에 둔다.
-- 저장소 공용 closeout / 운영 문서(`V1_CLOSEOUT_CHECKLIST`, `KNOWN_LIMITATIONS`) 는 root owner 문서로 둔다.
-- 저장소 공용 개발 계획과 개발 이력 문서는 루트 `dev/plan/`, `dev/log/` 아래에 둔다.
-- 구조, 계층, 경로 배치를 설명하는 문서는 경로와 폴더를 텍스트로만 나열하지 않는다.
-- 실제 구조 설명은 별도 그림 문서를 만들기보다 해당 문서 안에 Markdown/Mermaid 기반의 `구조 개요도` 또는 `관계도` 를 직접 포함하고, 실행 순서가 핵심이면 `흐름도` 를 추가한다.
+- 루트 `README.md` 는 저장소 전체 상위 지도만 다룬다.
+- 각 폴더 바로 아래 `README.md` 는 그 폴더 개요의 정본이다.
+- `.agent` 상세 운영과 구조 의미의 정본은 `.agent/docs/architecture/*` 와 각 `.agent/**/README.md` 다.
+- root `docs/architecture/` 는 저장소 전체 구조, root-owned 계약, owner 경계만 다룬다.
+- owner-local 문서 본문을 root 문서에 장문으로 복제하지 않는다.
 
-## README 운영 원칙
+## 폴더별 정본 문서
 
-- 루트 `README.md` 는 저장소 전체 개요와 상위 지도만 다룬다.
-- 주요 폴더의 `README.md` 는 해당 폴더 설명의 정본이다.
-- 중앙 문서는 구조 원칙, owner 경계, 메타 규약을 유지한다.
-- 동일 설명을 중앙 문서와 로컬 `README.md` 에 장문으로 중복하지 않는다.
-- 폴더에 파일, 하위 폴더, 책임, 운영 방식이 추가·변경·삭제되면 같은 변경 안에서 해당 폴더 `README.md` 를 함께 최신화한다.
-- 해당 폴더에 `README.md` 가 없으면 먼저 신설한다.
-- 캐시, 임시 파일, 생성 산출물처럼 문서 정합성 대상이 아닌 항목은 예외로 둘 수 있다.
-- `.agent_class/_local/` 은 비추적 로컬 상태 공간으로 본다. 다만 구조 설명과 ignore 정책 고정을 위해 `README.md` 와 `.gitignore` 만 예외적으로 추적한다.
-
-## owner 기준 배치
-
-| owner | 기본 위치 | 예시 문서 |
+| 대상 폴더/범위 | 상위 지도 정본 | 상세 정본 |
 | --- | --- | --- |
-| root | `docs/architecture/` | `REPOSITORY_PURPOSE`, `TARGET_TREE`, `DOCUMENT_OWNERSHIP`, `PROJECT_AGENT_RESOLVE_CONTRACT`, `UI_SOURCE_MAP`, `UI_SYNC_CONTRACT`, `UI_DERIVED_STATE_CONTRACT`, `V1_CLOSEOUT_CHECKLIST`, `KNOWN_LIMITATIONS` |
-| root-dev | `dev/{plan,log}/` | 저장소 공용 개발 계획, 개발 이력 |
-| body | `.agent/docs/architecture/` | `AGENT_BODY_MODEL`, `BODY_METADATA_CONTRACT` |
-| class | `.agent_class/docs/architecture/` | `AGENT_CLASS_MODEL`, `INSTALLATION_AND_LOADOUT_CONCEPT`, `CLASS_METADATA_CONTRACT`, `MODULE_REFERENCE_CONTRACT` |
-| project | `_workspaces/.../<project>/.project_agent/` | `contract.yaml`, 프로젝트 전용 메모/로그 |
-
-## `.agent_class/docs/` 운영 구조
-
-```text
-.agent_class/docs/
-├── architecture/
-└── prompts/
-```
-
-## 루트 `dev/` 운영 구조
-
-```text
-dev/
-├── log/
-└── plan/
-```
-
-## 폴더별 역할
-
-- `architecture/` = class 구조 설명, 메타 규약, 소유 원칙
-- `prompts/` = 반복 사용 가능한 class 작업 프롬프트
-- `dev/plan/` = 저장소 공용 개발 계획, 수정 계획, relocation 계획
-- `dev/log/` = 저장소 공용 실제 수행 결과, 변경 이유, 남은 리스크
+| 저장소 루트 `./` | `README.md` | `docs/architecture/REPOSITORY_PURPOSE.md`, `docs/architecture/TARGET_TREE.md`, `docs/architecture/DOCUMENT_OWNERSHIP.md` |
+| `.agent/` | `.agent/README.md` | `.agent/docs/architecture/AGENT_BODY_MODEL.md`, `.agent/docs/architecture/BODY_METADATA_CONTRACT.md` |
+| `.agent/identity/` | `.agent/identity/README.md` | `.agent/identity/README.md` |
+| `.agent/engine/` | `.agent/engine/README.md` | `.agent/engine/README.md` |
+| `.agent/memory/` | `.agent/memory/README.md` | `.agent/memory/README.md` |
+| `.agent/sessions/` | `.agent/sessions/README.md` | `.agent/sessions/README.md` |
+| `.agent/communication/` | `.agent/communication/README.md` | `.agent/communication/README.md` |
+| `.agent/protocols/` | `.agent/protocols/README.md` | `.agent/protocols/README.md` |
+| `.agent/policy/` | `.agent/policy/README.md` | `.agent/policy/README.md` |
+| `.agent/registry/` | `.agent/registry/README.md` | `.agent/registry/README.md` |
+| `.agent/artifacts/` | `.agent/artifacts/README.md` | `.agent/artifacts/README.md` |
+| `.agent/autonomic/` | `.agent/autonomic/README.md` | `.agent/autonomic/README.md` |
+| `.agent/docs/` | `.agent/docs/README.md` | `.agent/docs/README.md` |
+| `.agent/docs/architecture/` | `.agent/docs/architecture/README.md` | `.agent/docs/architecture/AGENT_BODY_MODEL.md`, `.agent/docs/architecture/BODY_METADATA_CONTRACT.md` |
+| `.agent_class/` | `.agent_class/README.md` | `.agent_class/docs/architecture/AGENT_CLASS_MODEL.md`, `.agent_class/docs/architecture/MODULE_REFERENCE_CONTRACT.md` |
+| `.agent_class/docs/architecture/` | `.agent_class/docs/architecture/README.md` 가 있으면 그 문서, 없으면 `.agent_class/docs/README.md` | 해당 architecture 문서 세트 |
+| `_workspaces/` | `_workspaces/README.md` | `_workspaces/README.md` |
+| `_workspaces/company/` | `_workspaces/company/README.md` | 각 project 로컬 문서와 `.project_agent/` |
+| `_workspaces/personal/` | `_workspaces/personal/README.md` | 각 project 로컬 문서와 `.project_agent/` |
+| `_workspaces/.../<project>/.project_agent/` | 해당 프로젝트 문서 | `contract.yaml` 과 같은 project-owned 계약 파일 |
+| `docs/architecture/` | `docs/README.md` | root-owned architecture 문서 세트 |
+| `ui/` | `ui/README.md` | `ui` 하위 로컬 문서 |
+| `dev/` | `dev/README.md` | `dev/plan/`, `dev/log/` 하위 문서 |
 
 ## 적용 규칙
 
-1. 루트 `README.md` 에는 저장소 전체 설명만 남긴다.
-2. 주요 폴더는 각 경로 바로 아래 `README.md` 를 두고 그 폴더 설명을 정본으로 관리한다.
-3. body 전용 문서는 `.agent/docs/` 아래에서 정본으로 관리한다.
-4. class 전용 구조 문서와 프롬프트는 `.agent_class/docs/` 아래에서 정본으로 관리한다.
-5. root `docs/` 에 owner 전용 문서가 남아 있으면 relocation 계획 또는 즉시 정리 대상으로 본다.
-6. project 전용 변경 계획과 로그는 class 문서 공간으로 끌어오지 않는다.
-7. `.project_agent` 의 공통 resolve 계약은 root owner 문서로 둘 수 있지만, 프로젝트 전용 메모와 로그는 여전히 각 프로젝트 안에 둔다.
-8. 저장소 공용 마감 기준과 운영상 제한을 고정하는 문서는 root owner 문서로 유지한다.
-9. 저장소 공용 개발 계획과 개발 이력은 루트 `dev/plan/`, `dev/log/` 에 둔다.
+1. 루트 `README.md` 에는 저장소 전체 설명과 상위 링크만 남긴다.
+2. `.agent` 상세 운영은 루트 문서가 아니라 `.agent/docs/architecture/*` 와 각 로컬 `README.md` 를 정본으로 삼는다.
+3. `TARGET_TREE.md` 는 구조 배치의 정본이고, 폴더 운영 규칙 본문은 각 owner-local 문서가 정본이다.
+4. 폴더에 파일, 하위 폴더, 책임, 운영 방식이 추가·변경·삭제되면 같은 변경 안에서 그 폴더의 정본 문서를 함께 갱신한다.
+5. root `docs/architecture/` 에 owner-local 세부 운영을 장문으로 중복하지 않는다.

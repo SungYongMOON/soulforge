@@ -3,39 +3,40 @@
 ## 목적
 
 - `protocols/` 는 body 공통 운영 프로토콜을 둔다.
-- communication, runtime, continuity, policy 사이를 잇는 durable operating contract 를 본체 소유 경계에서 관리한다.
-
-## 범위
-
-- body owner 기본 운영 프로토콜과 handoff 규칙만 다룬다.
-- class workflow, project contract, team shared process 표준은 범위 밖이다.
+- request intake, handoff, decision, incident, escalation 사이를 잇는 durable operating contract 를 본체 소유 경계에서 관리한다.
 
 ## 포함 대상
 
+- `request_contract.yaml`, `handoff_contract.yaml`, `decision_contract.yaml`, `incident_contract.yaml`, `escalation_contract.yaml`
 - 본체 공통 운영 프로토콜
-- handoff, resume, escalation 같은 durable operating contract
 - `policy/`, `communication/`, `engine/`, `sessions/` 를 잇는 참조 규칙
 
 ## 제외 대상
 
+- 채널 tone 과 reply shape 자체
+- species-free floor 자체
 - class workflow 정의
 - 프로젝트별 `.project_agent/` 계약
 - team shared collaboration playbook
 
-## 미래 확장 방향
+## 대표 파일
 
-- 협업용 shared 프로토콜이 생기면 canonical owner 는 `_teams/shared/` 가 되고, 여기에는 private default 만 남긴다.
-- runtime rename 이 확정되면 관련 프로토콜 참조도 함께 정리한다.
-- 운영 프로토콜이 세분화되면 계약 문서를 추가해 폴더 내부를 나눈다.
+- [`request_contract.yaml`](request_contract.yaml): human/peer 요청을 정규화할 필수 필드를 정의하는 intake 계약
+- [`handoff_contract.yaml`](handoff_contract.yaml): continuity only handoff 를 위한 필수 필드와 금지 필드를 정의하는 계약
+- [`escalation_contract.yaml`](escalation_contract.yaml): escalation 시 필요한 trigger, target, approval basis 를 고정하는 계약
 
-## 관련 경로
+## 참조 관계
 
-- [`.agent/README.md`](../README.md)
-- [`.agent/communication/README.md`](../communication/README.md)
-- [`.agent/policy/README.md`](../policy/README.md)
-- [`docs/architecture/PROJECT_AGENT_MINIMUM_SCHEMA.md`](../../docs/architecture/PROJECT_AGENT_MINIMUM_SCHEMA.md)
+- `communication/` vs `protocols/`: `communication/` 이 채널 semantics 와 표현 규범을 소유하면, `protocols/` 는 그 규범을 언제 어떤 request/handoff 절차로 사용할지의 operating contract 를 소유한다.
+- `protocols/` 는 `policy/` 와 `engine/` 을 참조하지만, runtime 설정이나 floor 정책을 직접 소유하지 않는다.
+- `sessions/` 의 continuity template 는 handoff contract 의 입력이 될 수 있지만, raw transcript 는 protocol canonical data 가 아니다.
+- [`../README.md`](../README.md)
+- [`../communication/README.md`](../communication/README.md)
+- [`../policy/README.md`](../policy/README.md)
+- [`../sessions/README.md`](../sessions/README.md)
 
-## 상태
+## 변경 원칙
 
-- Draft
-- 폴더는 도입했고 세부 프로토콜 파일 세트는 추후 정의한다.
+- 협업용 shared 프로토콜이 생기면 canonical owner 는 `_teams/shared/` 로 두고, 여기에는 body private default 만 남긴다.
+- contract YAML 에는 runtime 관측 결과를 넣지 않고, 필수 필드와 금지 필드, 참조 규칙만 선언한다.
+- 운영 프로토콜이 세분화되면 protocol 문서군을 추가하되, channel semantics 나 floor rule 본문을 이 폴더로 흡수하지 않는다.

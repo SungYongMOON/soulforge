@@ -1,0 +1,14 @@
+profile_id: soulforge.identity.species.default
+body_id: soulforge.body
+mode: species_only
+species_id: soulforge.species.default
+display_name: Soulforge 기본 종
+summary: durable agent unit 의 class/workspace 미결합 baseline 종 프로필
+traits:
+  durable_identity: true
+  structure_first: true
+  private_operating_system: true
+constraints:
+  shared_memory_inside_body: false
+  sessions_mode: continuity_only
+  memory_mode: private_first

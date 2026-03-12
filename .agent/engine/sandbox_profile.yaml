@@ -1,0 +1,12 @@
+profile_id: soulforge.engine.sandbox
+mode: runtime_declares_actual_sandbox
+declared_defaults:
+  filesystem: runtime_defined
+  network: runtime_defined
+  approvals: runtime_defined
+invariants:
+  do_not_assume_capabilities_without_observation: true
+  host_local_state_is_out_of_scope_by_default: true
+references:
+  approval_matrix_ref: ../policy/approval_matrix.yaml
+  tool_scope_ref: tool_scope.yaml

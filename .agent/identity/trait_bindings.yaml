@@ -1,0 +1,15 @@
+binding_set_id: soulforge.identity.traits
+species_profile_ref: species_profile.yaml
+bindings:
+  - trait_id: identity.species_only
+    value: true
+    source: species_profile
+  - trait_id: sessions.continuity_only
+    value: true
+    source: species_profile
+  - trait_id: memory.private_first
+    value: true
+    source: species_profile
+  - trait_id: memory.shared_inside_body
+    value: false
+    source: species_profile

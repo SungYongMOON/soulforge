@@ -1,0 +1,15 @@
+binding_id: soulforge.registry.active_class
+body_ref: ../body.yaml
+binding_mode: species_only
+binding_required: false
+active_binding:
+  class_ref: null
+  loadout_ref: null
+  profile: null
+candidates:
+  - class_ref: ../../.agent_class/class.yaml
+    loadout_ref: ../../.agent_class/loadout.yaml
+    default_profile: core
+    selected: false
+notes:
+  - species_only baseline keeps class binding optional and currently unset

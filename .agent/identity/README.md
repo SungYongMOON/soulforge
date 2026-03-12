@@ -3,37 +3,37 @@
 ## 목적
 
 - `identity/` 는 본체의 durable identity default 를 둔다.
-- species 는 여기서만 관리하며, situational role 이 아니라 오래 유지되는 기본 정체성만 담당한다.
-
-## 범위
-
-- body 차원의 기본 식별자와 durable default 만 다룬다.
-- loadout, mission site, session 문맥에 따라 바뀌는 역할 상태는 범위 밖이다.
+- 현재 baseline 은 species only 이며, class/workspace binding 이전에 유지되는 기본 정체성만 담당한다.
 
 ## 포함 대상
 
-- 본체 식별 메타
+- `species_profile.yaml`, `identity_manifest.yaml`, `trait_bindings.yaml`
 - durable default species, naming, baseline identity 선언
-- 장기적으로 유지되는 참조용 identity 기준값
+- 장기적으로 유지되는 self-description 기준값
 
 ## 제외 대상
 
 - `class.yaml`, `loadout.yaml` 같은 loadout 메타
+- body 자산 색인, active class/workspace binding, lookup registry
 - 프로젝트별 식별자, 현장 계약, 임시 persona
 - session continuity 나 transcript 성 자산
 
-## 미래 확장 방향
+## 대표 파일
 
-- species 외 durable default facet 이 필요하면 이 경계 안에서 명시적으로 추가한다.
-- 상황별 역할 전환 규칙은 `identity/` 가 아니라 loadout 또는 mission 계층에서 다룬다.
-- 협업 정체성이나 shared roster 는 `_teams/shared/` 에서 별도 owner 를 가진다.
+- [`species_profile.yaml`](species_profile.yaml): species only baseline 과 body-level identity 제약을 정의하는 종 프로필
+- [`identity_manifest.yaml`](identity_manifest.yaml): canonical name, body ref, identity baseline 참조를 고정하는 manifest
+- [`trait_bindings.yaml`](trait_bindings.yaml): species 에서 파생되는 trait binding 을 정리하는 바인딩 세트
 
-## 관련 경로
+## 참조 관계
 
-- [`.agent/README.md`](../README.md)
-- [`.agent/docs/architecture/AGENT_BODY_MODEL.md`](../docs/architecture/AGENT_BODY_MODEL.md)
+- `identity/` vs `registry/`: `identity/` 는 "누구인가" 를 정의하는 durable baseline 이고, `registry/` 는 "무엇이 어디에 있는가" 를 찾기 위한 참조 계층이다.
+- `identity/` 는 active class 나 workspace 를 직접 바인딩하지 않으며, 그런 overlay 는 `registry/active_class_binding.yaml`, `registry/workspace_binding.yaml` 에서만 선언한다.
+- [`../README.md`](../README.md)
+- [`../registry/README.md`](../registry/README.md)
+- [`../docs/architecture/AGENT_BODY_MODEL.md`](../docs/architecture/AGENT_BODY_MODEL.md)
 
-## 상태
+## 변경 원칙
 
-- Draft
-- species 를 포함한 durable default identity 경계만 우선 고정했다.
+- species 외 durable default facet 이 필요하면 여기서 추가하되, lookup 용 키 체계는 `registry/` 로 분리한다.
+- 상황별 역할 전환 규칙, temporary persona, project-facing identifier 는 이 폴더로 넣지 않는다.
+- species only baseline 을 바꾸면 `species_profile.yaml`, `trait_bindings.yaml`, `body.yaml` operating constraints 를 같은 변경 안에서 함께 갱신한다.

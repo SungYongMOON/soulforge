@@ -1,0 +1,39 @@
+index_id: soulforge.registry.capabilities
+body_ref: ../body.yaml
+entries:
+  - capability_id: identity.species_profile
+    kind: profile
+    owner_section: identity
+    ref: ../identity/species_profile.yaml
+  - capability_id: identity.manifest
+    kind: manifest
+    owner_section: identity
+    ref: ../identity/identity_manifest.yaml
+  - capability_id: policy.precedence
+    kind: policy
+    owner_section: policy
+    ref: ../policy/precedence.yaml
+  - capability_id: policy.scope_rules
+    kind: policy
+    owner_section: policy
+    ref: ../policy/scope_rules.yaml
+  - capability_id: communication.human
+    kind: channel_profile
+    owner_section: communication
+    ref: ../communication/human_channel_profile.yaml
+  - capability_id: communication.peer
+    kind: channel_profile
+    owner_section: communication
+    ref: ../communication/peer_channel_profile.yaml
+  - capability_id: protocols.request
+    kind: contract
+    owner_section: protocols
+    ref: ../protocols/request_contract.yaml
+  - capability_id: engine.context_assembly
+    kind: runtime_profile
+    owner_section: engine
+    ref: ../engine/context_assembly.yaml
+  - capability_id: sessions.checkpoint_template
+    kind: continuity_template
+    owner_section: sessions
+    ref: ../sessions/checkpoint_template.yaml

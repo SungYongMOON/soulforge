@@ -1,0 +1,17 @@
+template_id: soulforge.sessions.checkpoint
+mode: continuity_only
+required_sections:
+  - request_summary
+  - active_constraints
+  - next_action
+  - referenced_files
+  - open_questions
+optional_sections:
+  - handoff_target
+  - decision_refs
+  - incident_refs
+excluded_sections:
+  - raw_transcript
+  - long_term_memory_dump
+  - host_local_runtime_state
+  - tool_output_verbatim

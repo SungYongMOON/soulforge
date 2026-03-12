@@ -1,0 +1,14 @@
+profile_id: soulforge.communication.peer
+channel: peer
+audience: peer_agent_or_system
+style:
+  payload_order:
+    - intent
+    - constraints
+    - referenced_files
+    - unresolved_items
+  prefer_structured_handoff: true
+  omit_tone_decoration: true
+boundaries:
+  continuity_only_handoff: true
+  raw_transcript_exchange: false

@@ -21,7 +21,7 @@
 
 - 기존 저장소 구현 대량 이식
 - `.agent` 내부 팀 협업 구조
-- 독립 `export/` body 기관
+- 별도 `.agent/export/` body 폴더
 
 ## 구조 개요도
 
@@ -75,9 +75,9 @@ flowchart TD
 
 ## 미래 확장 방향
 
-- `engine/` runtime rename 여부를 major 문서 정리 때 결정한다.
+- `engine/` 경로는 현재 유지하고 runtime 의미를 우선하는 재정의로 고정한다.
 - 팀 shared 자산과 canonical shared protocol 은 `_teams/shared/` 로 분리한다.
-- 본체 `protocols/` 는 private default 중심으로 확장한다.
+- 본체 `protocols/` 는 현재 private default 중심의 body 공통 운영 계약 경계로 유지한다.
 
 ## 이식 관점
 

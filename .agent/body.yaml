@@ -2,6 +2,12 @@ id: soulforge.body
 name: Soulforge 기본 본체
 version: 0.1.0
 description: Soulforge 아키텍처 저장소를 위한 durable agent private operating system.
+operating_constraints:
+  identity_mode: species_only
+  policy_mode: species_free_floor
+  sessions_mode: continuity_only
+  memory_mode: private_first
+  shared_memory_inside_body: false
 sections:
   identity: identity
   engine: engine
@@ -14,3 +20,31 @@ sections:
   registry: registry
   artifacts: artifacts
   docs: docs
+section_files:
+  identity:
+    - identity/species_profile.yaml
+    - identity/identity_manifest.yaml
+    - identity/trait_bindings.yaml
+  engine:
+    - engine/context_assembly.yaml
+    - engine/tool_scope.yaml
+    - engine/sandbox_profile.yaml
+  sessions:
+    - sessions/checkpoint_template.yaml
+  communication:
+    - communication/human_channel_profile.yaml
+    - communication/peer_channel_profile.yaml
+  protocols:
+    - protocols/request_contract.yaml
+    - protocols/handoff_contract.yaml
+    - protocols/decision_contract.yaml
+    - protocols/incident_contract.yaml
+    - protocols/escalation_contract.yaml
+  policy:
+    - policy/precedence.yaml
+    - policy/approval_matrix.yaml
+    - policy/scope_rules.yaml
+  registry:
+    - registry/active_class_binding.yaml
+    - registry/workspace_binding.yaml
+    - registry/capability_index.yaml

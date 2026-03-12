@@ -1,0 +1,14 @@
+manifest_id: soulforge.identity.manifest
+body_ref: ../body.yaml
+identity_kind: durable_agent_unit
+canonical_name: Soulforge 기본 본체
+namespace: soulforge.body
+species_profile_ref: species_profile.yaml
+trait_bindings_ref: trait_bindings.yaml
+defaults:
+  species_only: true
+  class_binding_required: false
+  workspace_binding_required: false
+references:
+  policy_floor_ref: ../policy/precedence.yaml
+  capability_index_ref: ../registry/capability_index.yaml
