@@ -31,7 +31,9 @@ flowchart TD
 - [`docs/architecture/TARGET_TREE.md`](docs/architecture/TARGET_TREE.md): 저장소 목표 트리와 최종 `.agent` target tree
 - [`docs/architecture/DOCUMENT_OWNERSHIP.md`](docs/architecture/DOCUMENT_OWNERSHIP.md): 폴더별 정본 문서 소유 기준
 - [`ui-workspace/README.md`](ui-workspace/README.md): UI 전용 workspace 개요
+- [`ui-workspace/DONE.md`](ui-workspace/DONE.md): UI workspace closeout 선언
 - [`ui-workspace/docs/README.md`](ui-workspace/docs/README.md): renderer v1 문서군
+- [`ui-workspace/docs/UI_NEXT_PHASE_BACKLOG.md`](ui-workspace/docs/UI_NEXT_PHASE_BACKLOG.md): 다음 단계 backlog
 - [`ui-workspace/packages/renderer-core/README.md`](ui-workspace/packages/renderer-core/README.md): renderer-core 개요
 - [`ui-workspace/apps/renderer-web/README.md`](ui-workspace/apps/renderer-web/README.md): renderer-web shell 개요
 - [`ui-workspace/tools/ui-lint/README.md`](ui-workspace/tools/ui-lint/README.md): UI/catalog lint suite
@@ -62,9 +64,14 @@ flowchart TD
 - `npm run ui:lint:fixtures`
 - `npm run ui:lint:theme`
 - `npm run ui:lint:all`
+- `npm run ui:docs:check`
+- `npm run ui:done:check`
 
 ## UI workspace 실행
 
 - `npm run ui:workspace:install`
 - `npm run ui:dev`
 - `npm run ui:build`
+- `npm run ui:skin-lab:dev`
+- `npm run ui:skin-lab:build`
+- `npm run ui:smoke:theme-pack`

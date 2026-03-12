@@ -31,10 +31,10 @@
 | `.agent_class/manifests/` | `.agent_class/manifests/README.md` | `.agent_class/manifests/README.md`, `.agent_class/docs/architecture/CLASS_VALIDATION_RULES.md` |
 | `.agent_class/docs/plans/` | `.agent_class/docs/plans/README.md` | `.agent_class/docs/plans/*.md` |
 | `apps/`, `packages/`, `tools/`, `fixtures/`, `schemas/` | `README.md` | relocation 안내용 `README.md` |
-| `ui-workspace/` | `README.md` | `ui-workspace/README.md`, `ui-workspace/docs/README.md` |
+| `ui-workspace/` | `README.md` | `ui-workspace/README.md`, `ui-workspace/DONE.md`, `ui-workspace/docs/README.md` |
 | `ui-workspace/apps/` | `ui-workspace/README.md` | `ui-workspace/apps/README.md`, `ui-workspace/apps/renderer-web/README.md` |
 | `ui-workspace/packages/` | `ui-workspace/README.md` | `ui-workspace/packages/README.md`, `ui-workspace/packages/*/README.md` |
-| `ui-workspace/tools/` | `ui-workspace/README.md` | `ui-workspace/tools/README.md`, `ui-workspace/tools/ui-lint/README.md`, `ui-workspace/tools/ui-lint/LINT_RULES.md` |
+| `ui-workspace/tools/` | `ui-workspace/README.md` | `ui-workspace/tools/README.md`, `ui-workspace/tools/ui-lint/README.md`, `ui-workspace/tools/ui-lint/LINT_RULES.md`, `ui-workspace/tools/scripts/*` |
 | `ui-workspace/fixtures/` | `ui-workspace/README.md` | `ui-workspace/fixtures/README.md`, `ui-workspace/fixtures/ui-state/README.md` |
 | `ui-workspace/schemas/` | `ui-workspace/README.md` | `ui-workspace/schemas/README.md`, `ui-workspace/schemas/ui-state.schema.json` |
 | `docs/ui/` | `README.md` | relocation 안내 문서 세트 |

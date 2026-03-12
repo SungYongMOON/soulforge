@@ -29,6 +29,20 @@
 - `npm run skin-lab:build`
 - `npm run validate`
 - `npm run lint:all`
+- `npm run docs:check-links`
+- `npm run smoke:theme-pack`
+- `npm run done:check`
+
+## workflow
+
+1. 구조/contract 변경 시 `docs/`, `schemas/`, `fixtures/` 를 먼저 맞춘다.
+2. renderer/theme 변경 후 `npm run lint:all` 과 `npm run build` 를 돌린다.
+3. 마감 전에는 `npm run done:check` 로 acceptance 세트를 한 번에 확인한다.
+
+## 완료 문서
+
+- [DONE.md](./DONE.md)
+- [docs/UI_NEXT_PHASE_BACKLOG.md](./docs/UI_NEXT_PHASE_BACKLOG.md)
 
 ## 관련 경로
 

@@ -9,6 +9,7 @@
 
 - `ui-lint/`
 - `legacy-python-viewer/`
+- `scripts/`
 
 ## 제외 대상
 
@@ -20,3 +21,4 @@
 - [ui-workspace README](../README.md)
 - [docs/UI_RENDERER_MODEL.md](../docs/UI_RENDERER_MODEL.md)
 - [packages/README.md](../packages/README.md)
+- [DONE.md](../DONE.md)

@@ -13,6 +13,7 @@
 - Adventurer's Desk theme 문서
 - theme package split 문서
 - renderer 구현 계획 문서
+- next-phase backlog 문서
 - workspace split / migration 문서
 
 ## 제외 대상
@@ -31,5 +32,5 @@
 
 ## 상태
 
-- Draft
-- renderer v1 의 contract-first 문서군과 workspace split 정본을 유지한다.
+- Active
+- renderer v1 의 contract-first 문서군, closeout 기준, next backlog 를 유지한다.

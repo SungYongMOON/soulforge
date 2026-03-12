@@ -16,6 +16,18 @@
 
 ## 실행
 
+workspace local:
+- `npm run lint:catalog`
+- `npm run lint:ui-state`
+- `npm run lint:read-only`
+- `npm run lint:packages`
+- `npm run lint:fixtures`
+- `npm run lint:theme`
+- `npm run lint:all`
+- `npm run docs:check-links`
+- `npm run done:check`
+
+root proxy:
 - `npm run ui:lint:catalog`
 - `npm run ui:lint:ui-state`
 - `npm run ui:lint:read-only`
@@ -23,6 +35,7 @@
 - `npm run ui:lint:fixtures`
 - `npm run ui:lint:theme`
 - `npm run ui:lint:all`
+- `npm run ui:done:check`
 
 root canonical tree 와 함께 stricter catalog overlay 검사를 하려면:
 
