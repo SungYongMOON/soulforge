@@ -32,6 +32,9 @@ export const schemaPath = path.resolve(repoRoot, "schemas/ui-state.schema.json")
 export const rendererCoreDir = path.resolve(repoRoot, "packages/renderer-core");
 export const rendererReactDir = path.resolve(repoRoot, "packages/renderer-react");
 export const rendererWebDir = path.resolve(repoRoot, "apps/renderer-web");
+export const themeContractDir = path.resolve(repoRoot, "packages/theme-contract");
+export const themeDeskDir = path.resolve(repoRoot, "packages/theme-adventurers-desk");
+export const skinLabDir = path.resolve(repoRoot, "apps/skin-lab-storybook");
 export const canonicalRoot = canonicalRootOverride ? path.resolve(repoRoot, canonicalRootOverride) : null;
 
 export const EXPECTED_FIXTURES = ["integrated", "overview", "body", "class", "workspaces"] as const;

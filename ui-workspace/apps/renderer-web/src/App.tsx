@@ -1,28 +1,36 @@
 import { useEffect, useState } from "react";
 import { loadUiState } from "@soulforge/renderer-core";
 import { RendererDesk } from "@soulforge/renderer-react";
-import { FIXTURE_NAMES, type FixtureName, type UiState, type UiStateRequest } from "@soulforge/ui-contract";
+import { FIXTURE_NAMES, type FixtureName, type UiState } from "@soulforge/ui-contract";
+import { AVAILABLE_THEMES, applyThemeSelection, selectTheme } from "./themes";
+
+interface RendererRouteState {
+  fixture: FixtureName;
+  themeId: string;
+}
 
 const FIXTURE_OPTIONS: FixtureName[] = [...FIXTURE_NAMES];
 
-function requestFromSearch(search: string): UiStateRequest {
+function routeFromSearch(search: string): RendererRouteState {
   const params = new URLSearchParams(search);
   const fixture = params.get("fixture") as FixtureName | null;
+  const themeId = params.get("theme");
 
   return {
-    kind: "fixture",
-    fixture: fixture && FIXTURE_OPTIONS.includes(fixture) ? fixture : "integrated"
+    fixture: fixture && FIXTURE_OPTIONS.includes(fixture) ? fixture : "integrated",
+    themeId: selectTheme(themeId).id
   };
 }
 
-function searchFromRequest(request: UiStateRequest) {
+function searchFromRoute(route: RendererRouteState) {
   const params = new URLSearchParams();
-  params.set("fixture", request.fixture || "integrated");
+  params.set("fixture", route.fixture);
+  params.set("theme", route.themeId);
   return `?${params.toString()}`;
 }
 
 function App() {
-  const [request, setRequest] = useState<UiStateRequest>(() => requestFromSearch(window.location.search));
+  const [route, setRoute] = useState<RendererRouteState>(() => routeFromSearch(window.location.search));
   const [uiState, setUiState] = useState<UiState | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
@@ -34,7 +42,7 @@ function App() {
 
     loadUiState({
       kind: "fixture",
-      fixture: request.fixture || "integrated"
+      fixture: route.fixture
     })
       .then((nextState) => {
         if (!cancelled) {
@@ -53,20 +61,59 @@ function App() {
         }
       });
 
-    window.history.replaceState(null, "", searchFromRequest(request));
+    applyThemeSelection(route.themeId);
+    window.history.replaceState(null, "", searchFromRoute(route));
 
     return () => {
       cancelled = true;
     };
-  }, [request]);
+  }, [route]);
+
+  const theme = selectTheme(route.themeId);
 
   return (
     <RendererDesk
+      chrome={{
+        eyebrow: "UI Workspace / Renderer v1",
+        title: "Adventurer's Desk",
+        subtitle: "Fixture-first read-only renderer shell. Theme package selection stays outside renderer logic.",
+        modeLabel: "Fixture Workspace"
+      }}
+      controls={[
+        {
+          id: "fixture",
+          label: "Fixture",
+          options: FIXTURE_OPTIONS.map((fixture) => ({
+            id: fixture,
+            label: fixture,
+            active: route.fixture === fixture
+          })),
+          onSelect(nextFixture) {
+            setRoute((current) => ({
+              ...current,
+              fixture: nextFixture as FixtureName
+            }));
+          }
+        },
+        {
+          id: "theme",
+          label: "Theme",
+          options: AVAILABLE_THEMES.map((candidate) => ({
+            id: candidate.id,
+            label: candidate.label,
+            active: theme.id === candidate.id
+          })),
+          onSelect(nextThemeId) {
+            setRoute((current) => ({
+              ...current,
+              themeId: selectTheme(nextThemeId).id
+            }));
+          }
+        }
+      ]}
       error={error}
-      fixtureOptions={FIXTURE_OPTIONS}
       loading={loading}
-      onRequestChange={setRequest}
-      request={request}
+      theme={theme}
       uiState={uiState}
     />
   );

@@ -1,0 +1,60 @@
+.skin-lab-shell {
+  display: grid;
+  gap: 18px;
+}
+
+.skin-lab-note {
+  margin: 24px 24px 0;
+  padding: 18px 20px;
+  border: 1px solid var(--sf-border-regular);
+  border-radius: var(--sf-radius-frame);
+  background: var(--sf-surface-panel);
+  box-shadow: var(--sf-shadow-soft);
+}
+
+.skin-lab-note[data-material="parchment-ribbon"] {
+  background: var(--sf-material-parchment-ribbon-surface);
+  border-color: var(--sf-material-parchment-ribbon-border);
+}
+
+.skin-lab-note__eyebrow {
+  margin: 0 0 8px;
+  font-size: 0.74rem;
+  letter-spacing: 0.12em;
+  text-transform: uppercase;
+  color: var(--sf-text-muted);
+}
+
+.skin-lab-note h1 {
+  margin: 0;
+  font-family: var(--sf-font-display);
+  color: var(--sf-text-primary);
+}
+
+.skin-lab-note p {
+  margin: 10px 0 0;
+  color: var(--sf-text-muted);
+}
+
+.skin-lab-note__chips {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  margin-top: 14px;
+}
+
+.skin-lab-note__chips span {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  padding: 6px 10px;
+  border-radius: var(--sf-radius-pill);
+  background: var(--sf-surface-chip-active);
+  color: var(--sf-text-primary);
+}
+
+@media (max-width: 760px) {
+  .skin-lab-note {
+    margin: 14px 14px 0;
+  }
+}

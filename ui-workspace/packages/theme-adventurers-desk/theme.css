@@ -1,52 +1,201 @@
-:root {
+:root[data-sf-theme="adventurers_desk"],
+:root[data-sf-theme="adventurers_archive"] {
   color-scheme: light;
-  font-family: "Avenir Next", "Trebuchet MS", sans-serif;
-  --desk-ink: #1f1a17;
-  --desk-ink-soft: rgba(31, 26, 23, 0.72);
-  --desk-warm: #f2e7d1;
-  --desk-paper: rgba(250, 243, 228, 0.88);
-  --desk-wood: #5b3c2b;
-  --desk-wood-deep: #3e271b;
-  --desk-brass: #b98b45;
-  --desk-leather: #6b4a33;
-  --desk-orb: #9fc3d9;
-  --desk-cool: #6e8ea1;
-  --desk-shelf: #7a5a45;
-  --desk-warning: #a96034;
-  --desk-error: #8f3c2d;
-  --desk-border: rgba(92, 62, 42, 0.28);
-  --shadow-soft: 0 16px 36px rgba(46, 29, 18, 0.18);
-  --shadow-hover: 0 22px 42px rgba(46, 29, 18, 0.22);
+  --sf-font-sans: "Avenir Next", "Trebuchet MS", sans-serif;
+  --sf-font-display: "Iowan Old Style", "Palatino Linotype", "Book Antiqua", Georgia, serif;
+  --sf-font-mono: ui-monospace, "SFMono-Regular", Consolas, monospace;
+  --sf-radius-frame: 24px;
+  --sf-radius-card: 18px;
+  --sf-radius-pill: 999px;
+  --sf-shadow-soft: 0 16px 36px var(--sf-shadow-soft-color);
+  --sf-shadow-hover: 0 22px 42px var(--sf-shadow-hover-color);
+  --sf-root-grain-image: url("./assets/paper-grain.svg");
 }
 
-* {
-  box-sizing: border-box;
-}
-
-body {
-  margin: 0;
-  min-height: 100vh;
-  color: var(--desk-ink);
-  background:
+:root[data-sf-theme="adventurers_desk"] {
+  --sf-text-primary: #1f1a17;
+  --sf-text-muted: rgba(31, 26, 23, 0.72);
+  --sf-text-strong: #2a211b;
+  --sf-border-regular: rgba(92, 62, 42, 0.28);
+  --sf-border-strong: rgba(96, 62, 34, 0.38);
+  --sf-shadow-soft-color: rgba(46, 29, 18, 0.18);
+  --sf-shadow-hover-color: rgba(46, 29, 18, 0.22);
+  --sf-surface-frame: linear-gradient(180deg, rgba(250, 243, 228, 0.88), rgba(239, 228, 207, 0.8));
+  --sf-surface-panel: rgba(250, 243, 228, 0.9);
+  --sf-surface-card: rgba(255, 252, 246, 0.86);
+  --sf-surface-card-muted: rgba(255, 255, 255, 0.4);
+  --sf-surface-chip: rgba(255, 252, 246, 0.86);
+  --sf-surface-chip-active: rgba(185, 139, 69, 0.15);
+  --sf-surface-empty: rgba(255, 255, 255, 0.36);
+  --sf-surface-empty-border: rgba(91, 60, 43, 0.3);
+  --sf-surface-summary: rgba(250, 243, 228, 0.92);
+  --sf-surface-metric: rgba(255, 255, 255, 0.46);
+  --sf-surface-glyph: rgba(159, 195, 217, 0.2);
+  --sf-surface-badge: rgba(91, 60, 43, 0.08);
+  --sf-surface-badge-active: rgba(185, 139, 69, 0.18);
+  --sf-surface-mode-chip: rgba(185, 139, 69, 0.15);
+  --sf-surface-mode-chip-secondary: rgba(159, 195, 217, 0.18);
+  --sf-surface-diagnostics-button: rgba(169, 96, 52, 0.1);
+  --sf-border-diagnostics-button: rgba(169, 96, 52, 0.35);
+  --sf-surface-telegram-warning: rgba(169, 96, 52, 0.12);
+  --sf-surface-telegram-error: rgba(143, 60, 45, 0.12);
+  --sf-surface-tone-ready: rgba(110, 142, 161, 0.14);
+  --sf-surface-tone-warning: rgba(169, 96, 52, 0.14);
+  --sf-surface-tone-error: rgba(143, 60, 45, 0.14);
+  --sf-surface-tone-bound: rgba(185, 139, 69, 0.16);
+  --sf-surface-tone-ok: rgba(159, 195, 217, 0.16);
+  --sf-state-active-surface: rgba(185, 139, 69, 0.16);
+  --sf-state-active-border: rgba(185, 139, 69, 0.34);
+  --sf-state-installed-surface: rgba(110, 142, 161, 0.12);
+  --sf-state-installed-border: rgba(110, 142, 161, 0.24);
+  --sf-state-required-surface: rgba(169, 96, 52, 0.16);
+  --sf-state-required-border: rgba(169, 96, 52, 0.3);
+  --sf-state-preferred-surface: rgba(159, 195, 217, 0.18);
+  --sf-state-preferred-border: rgba(159, 195, 217, 0.32);
+  --sf-state-invalid-surface: rgba(143, 60, 45, 0.16);
+  --sf-state-invalid-border: rgba(143, 60, 45, 0.34);
+  --sf-state-partial-surface: rgba(121, 109, 90, 0.12);
+  --sf-state-partial-border: rgba(121, 109, 90, 0.24);
+  --sf-state-unknown-surface: rgba(255, 255, 255, 0.4);
+  --sf-state-unknown-border: rgba(92, 62, 42, 0.18);
+  --sf-silhouette-plate: radial-gradient(circle at center, rgba(159, 195, 217, 0.18), transparent 58%), linear-gradient(180deg, rgba(91, 60, 43, 0.11), rgba(91, 60, 43, 0.03));
+  --sf-silhouette-border: rgba(159, 195, 217, 0.34);
+  --sf-silhouette-fill: linear-gradient(180deg, rgba(91, 60, 43, 0.58), rgba(62, 39, 27, 0.86));
+  --sf-silhouette-shadow: rgba(62, 39, 27, 0.52);
+  --sf-root-background:
     radial-gradient(circle at top left, rgba(255, 248, 232, 0.84), transparent 34%),
     radial-gradient(circle at 80% 10%, rgba(158, 194, 214, 0.22), transparent 22%),
-    linear-gradient(135deg, rgba(91, 60, 43, 0.95), rgba(62, 39, 27, 0.98)),
-    repeating-linear-gradient(
-      120deg,
-      rgba(255, 255, 255, 0.03) 0,
-      rgba(255, 255, 255, 0.03) 2px,
-      transparent 2px,
-      transparent 14px
-    );
+    linear-gradient(135deg, rgba(91, 60, 43, 0.95), rgba(62, 39, 27, 0.98));
+  --sf-root-overlay:
+    linear-gradient(120deg, rgba(255, 255, 255, 0.03), rgba(255, 255, 255, 0.03));
+  --sf-material-atlas-frame-surface: rgba(255, 252, 246, 0.1);
+  --sf-material-atlas-frame-border: rgba(185, 139, 69, 0.32);
+  --sf-material-parchment-panel-surface: rgba(248, 239, 222, 0.72);
+  --sf-material-parchment-panel-border: rgba(92, 62, 42, 0.26);
+  --sf-material-paper-card-surface: rgba(255, 252, 246, 0.9);
+  --sf-material-paper-card-border: rgba(92, 62, 42, 0.2);
+  --sf-material-parchment-ribbon-surface: rgba(247, 237, 218, 0.9);
+  --sf-material-parchment-ribbon-border: rgba(185, 139, 69, 0.28);
+  --sf-material-frosted-orb-surface: rgba(159, 195, 217, 0.13);
+  --sf-material-frosted-orb-border: rgba(159, 195, 217, 0.34);
+  --sf-material-belt-slot-surface: rgba(107, 74, 51, 0.1);
+  --sf-material-belt-slot-border: rgba(107, 74, 51, 0.24);
+  --sf-material-bookshelf-spine-surface: rgba(122, 90, 69, 0.12);
+  --sf-material-bookshelf-spine-border: rgba(122, 90, 69, 0.28);
+  --sf-material-combo-card-surface: rgba(185, 139, 69, 0.12);
+  --sf-material-combo-card-border: rgba(185, 139, 69, 0.26);
+  --sf-material-warning-paper-surface: rgba(169, 96, 52, 0.1);
+  --sf-material-warning-paper-border: rgba(169, 96, 52, 0.24);
+  --sf-material-leather-folio-surface: rgba(107, 74, 51, 0.12);
+  --sf-material-leather-folio-border: rgba(107, 74, 51, 0.28);
+  --sf-material-silhouette-plinth-surface: rgba(62, 39, 27, 0.08);
+  --sf-material-silhouette-plinth-border: rgba(159, 195, 217, 0.28);
 }
 
-button,
-input,
-select,
-textarea {
+:root[data-sf-theme="adventurers_archive"] {
+  --sf-text-primary: #1b1d1f;
+  --sf-text-muted: rgba(27, 29, 31, 0.7);
+  --sf-text-strong: #111518;
+  --sf-border-regular: rgba(60, 73, 80, 0.26);
+  --sf-border-strong: rgba(70, 87, 94, 0.34);
+  --sf-shadow-soft-color: rgba(26, 36, 45, 0.18);
+  --sf-shadow-hover-color: rgba(26, 36, 45, 0.22);
+  --sf-surface-frame: linear-gradient(180deg, rgba(236, 241, 242, 0.9), rgba(216, 227, 230, 0.8));
+  --sf-surface-panel: rgba(244, 247, 247, 0.92);
+  --sf-surface-card: rgba(251, 252, 253, 0.88);
+  --sf-surface-card-muted: rgba(250, 252, 252, 0.48);
+  --sf-surface-chip: rgba(248, 251, 251, 0.88);
+  --sf-surface-chip-active: rgba(91, 122, 139, 0.16);
+  --sf-surface-empty: rgba(247, 251, 252, 0.4);
+  --sf-surface-empty-border: rgba(60, 73, 80, 0.26);
+  --sf-surface-summary: rgba(238, 244, 245, 0.94);
+  --sf-surface-metric: rgba(251, 253, 253, 0.54);
+  --sf-surface-glyph: rgba(122, 168, 182, 0.16);
+  --sf-surface-badge: rgba(71, 90, 96, 0.08);
+  --sf-surface-badge-active: rgba(88, 134, 148, 0.18);
+  --sf-surface-mode-chip: rgba(88, 134, 148, 0.14);
+  --sf-surface-mode-chip-secondary: rgba(183, 160, 116, 0.16);
+  --sf-surface-diagnostics-button: rgba(173, 114, 73, 0.1);
+  --sf-border-diagnostics-button: rgba(173, 114, 73, 0.3);
+  --sf-surface-telegram-warning: rgba(173, 114, 73, 0.12);
+  --sf-surface-telegram-error: rgba(143, 76, 68, 0.12);
+  --sf-surface-tone-ready: rgba(88, 134, 148, 0.12);
+  --sf-surface-tone-warning: rgba(173, 114, 73, 0.14);
+  --sf-surface-tone-error: rgba(143, 76, 68, 0.14);
+  --sf-surface-tone-bound: rgba(183, 160, 116, 0.16);
+  --sf-surface-tone-ok: rgba(122, 168, 182, 0.14);
+  --sf-state-active-surface: rgba(88, 134, 148, 0.14);
+  --sf-state-active-border: rgba(88, 134, 148, 0.28);
+  --sf-state-installed-surface: rgba(122, 168, 182, 0.1);
+  --sf-state-installed-border: rgba(122, 168, 182, 0.22);
+  --sf-state-required-surface: rgba(173, 114, 73, 0.14);
+  --sf-state-required-border: rgba(173, 114, 73, 0.3);
+  --sf-state-preferred-surface: rgba(183, 160, 116, 0.16);
+  --sf-state-preferred-border: rgba(183, 160, 116, 0.3);
+  --sf-state-invalid-surface: rgba(143, 76, 68, 0.16);
+  --sf-state-invalid-border: rgba(143, 76, 68, 0.32);
+  --sf-state-partial-surface: rgba(84, 102, 109, 0.12);
+  --sf-state-partial-border: rgba(84, 102, 109, 0.24);
+  --sf-state-unknown-surface: rgba(250, 252, 252, 0.42);
+  --sf-state-unknown-border: rgba(60, 73, 80, 0.16);
+  --sf-silhouette-plate: radial-gradient(circle at center, rgba(122, 168, 182, 0.18), transparent 58%), linear-gradient(180deg, rgba(63, 76, 84, 0.1), rgba(63, 76, 84, 0.03));
+  --sf-silhouette-border: rgba(122, 168, 182, 0.34);
+  --sf-silhouette-fill: linear-gradient(180deg, rgba(63, 76, 84, 0.58), rgba(37, 48, 55, 0.84));
+  --sf-silhouette-shadow: rgba(37, 48, 55, 0.48);
+  --sf-root-background:
+    radial-gradient(circle at top left, rgba(246, 250, 250, 0.84), transparent 34%),
+    radial-gradient(circle at 82% 8%, rgba(183, 160, 116, 0.18), transparent 20%),
+    linear-gradient(135deg, rgba(55, 67, 74, 0.96), rgba(36, 47, 54, 0.98));
+  --sf-root-overlay:
+    linear-gradient(120deg, rgba(255, 255, 255, 0.025), rgba(255, 255, 255, 0.025));
+  --sf-material-atlas-frame-surface: rgba(251, 253, 253, 0.1);
+  --sf-material-atlas-frame-border: rgba(183, 160, 116, 0.28);
+  --sf-material-parchment-panel-surface: rgba(241, 246, 246, 0.72);
+  --sf-material-parchment-panel-border: rgba(60, 73, 80, 0.22);
+  --sf-material-paper-card-surface: rgba(252, 253, 253, 0.9);
+  --sf-material-paper-card-border: rgba(60, 73, 80, 0.18);
+  --sf-material-parchment-ribbon-surface: rgba(233, 240, 241, 0.92);
+  --sf-material-parchment-ribbon-border: rgba(88, 134, 148, 0.24);
+  --sf-material-frosted-orb-surface: rgba(122, 168, 182, 0.12);
+  --sf-material-frosted-orb-border: rgba(122, 168, 182, 0.3);
+  --sf-material-belt-slot-surface: rgba(95, 83, 70, 0.1);
+  --sf-material-belt-slot-border: rgba(95, 83, 70, 0.22);
+  --sf-material-bookshelf-spine-surface: rgba(95, 111, 118, 0.1);
+  --sf-material-bookshelf-spine-border: rgba(95, 111, 118, 0.24);
+  --sf-material-combo-card-surface: rgba(183, 160, 116, 0.14);
+  --sf-material-combo-card-border: rgba(183, 160, 116, 0.28);
+  --sf-material-warning-paper-surface: rgba(173, 114, 73, 0.1);
+  --sf-material-warning-paper-border: rgba(173, 114, 73, 0.24);
+  --sf-material-leather-folio-surface: rgba(95, 83, 70, 0.12);
+  --sf-material-leather-folio-border: rgba(95, 83, 70, 0.24);
+  --sf-material-silhouette-plinth-surface: rgba(37, 48, 55, 0.08);
+  --sf-material-silhouette-plinth-border: rgba(122, 168, 182, 0.24);
+}
+
+:root[data-sf-theme="adventurers_desk"] body,
+:root[data-sf-theme="adventurers_archive"] body {
+  margin: 0;
+  min-height: 100vh;
+  color: var(--sf-text-primary);
+  font-family: var(--sf-font-sans);
+  background-image: var(--sf-root-background), var(--sf-root-overlay), var(--sf-root-grain-image);
+  background-size: auto, auto, 160px 160px;
+  background-repeat: no-repeat, repeat, repeat;
+  background-attachment: fixed;
+}
+
+:root[data-sf-theme="adventurers_desk"] button,
+:root[data-sf-theme="adventurers_desk"] input,
+:root[data-sf-theme="adventurers_desk"] select,
+:root[data-sf-theme="adventurers_desk"] textarea,
+:root[data-sf-theme="adventurers_archive"] button,
+:root[data-sf-theme="adventurers_archive"] input,
+:root[data-sf-theme="adventurers_archive"] select,
+:root[data-sf-theme="adventurers_archive"] textarea {
   font: inherit;
 }
 
-#root {
+:root[data-sf-theme="adventurers_desk"] #root,
+:root[data-sf-theme="adventurers_archive"] #root {
   min-height: 100vh;
 }

@@ -1,8 +1,12 @@
 {
   "name": "@soulforge/theme-contract",
   "version": "0.1.0",
-  "private": true,
+  "private": false,
   "type": "module",
+  "files": [
+    "src",
+    "README.md"
+  ],
   "exports": {
     ".": "./src/index.ts"
   }

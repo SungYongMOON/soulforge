@@ -11,6 +11,7 @@
 - UI state contract 문서
 - selection model 문서
 - Adventurer's Desk theme 문서
+- theme package split 문서
 - renderer 구현 계획 문서
 - workspace split / migration 문서
 

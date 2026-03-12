@@ -12,7 +12,7 @@
 - `fixtures/`: fixture-first 개발용 sample state
 - `tools/`: UI lint 와 optional legacy integration tool
 - `packages/`: contract, core, react, theme package
-- `apps/`: renderer web shell, skin lab placeholder
+- `apps/`: renderer web shell, skin lab preview app
 
 ## 원칙
 
@@ -25,6 +25,8 @@
 - `npm install`
 - `npm run dev`
 - `npm run build`
+- `npm run skin-lab:dev`
+- `npm run skin-lab:build`
 - `npm run validate`
 - `npm run lint:all`
 

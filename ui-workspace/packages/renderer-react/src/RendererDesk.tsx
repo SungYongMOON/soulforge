@@ -1,4 +1,4 @@
-import { startTransition, useEffect, useReducer } from "react";
+import { useEffect, useReducer } from "react";
 import {
   TAB_LABELS,
   TAB_ORDER,
@@ -13,19 +13,48 @@ import {
   rowKey,
   selectionReducer
 } from "@soulforge/renderer-core";
-import type { FixtureName, RowId, UiState, UiStateRequest } from "@soulforge/ui-contract";
+import type { ThemeManifest } from "@soulforge/theme-contract";
+import type { RowId, RowItem, StatusTone, UiState } from "@soulforge/ui-contract";
+
+export interface RendererDeskControlOption {
+  id: string;
+  label: string;
+  active: boolean;
+}
+
+export interface RendererDeskControlGroup {
+  id: string;
+  label: string;
+  options: RendererDeskControlOption[];
+  onSelect(nextId: string): void;
+}
+
+export interface RendererDeskChrome {
+  eyebrow: string;
+  title: string;
+  subtitle: string;
+  modeLabel: string;
+}
 
 export interface RendererDeskProps {
   uiState: UiState | null;
   loading: boolean;
   error: string | null;
-  request: UiStateRequest;
-  fixtureOptions: readonly FixtureName[];
-  onRequestChange(request: UiStateRequest): void;
+  theme: ThemeManifest;
+  chrome?: Partial<RendererDeskChrome>;
+  controls?: RendererDeskControlGroup[];
 }
 
-export function RendererDesk({ uiState, loading, error, request, fixtureOptions, onRequestChange }: RendererDeskProps) {
+const DEFAULT_CHROME: RendererDeskChrome = {
+  eyebrow: "UI Workspace / Renderer v1",
+  title: "Adventurer's Desk",
+  subtitle: "Read-only renderer surface. Theme packages remain swappable through the theme contract.",
+  modeLabel: "Renderer Surface"
+};
+
+export function RendererDesk({ uiState, loading, error, theme, chrome, controls = [] }: RendererDeskProps) {
   const [selection, dispatch] = useReducer(selectionReducer, createInitialSelectionState("overview"));
+  const resolvedChrome = { ...DEFAULT_CHROME, ...chrome };
 
   useEffect(() => {
     dispatch({
@@ -45,15 +74,6 @@ export function RendererDesk({ uiState, loading, error, request, fixtureOptions,
     : null;
   const diagnosticsTone = uiState ? buildDiagnosticsTone(uiState.diagnostics) : "ready";
 
-  function setFixture(fixture: FixtureName) {
-    startTransition(() => {
-      onRequestChange({
-        kind: "fixture",
-        fixture
-      });
-    });
-  }
-
   function renderMainContent() {
     if (!uiState) {
       return null;
@@ -65,6 +85,8 @@ export function RendererDesk({ uiState, loading, error, request, fixtureOptions,
           {uiState.body.section_presence.map((section) => (
             <button
               className="section-card"
+              data-material={theme.material_hooks.card ?? "paper-card"}
+              data-status-tone={section.status}
               key={section.id}
               type="button"
               onClick={() => dispatch({ type: "select-item", key: `row:body:${section.id}` })}
@@ -84,13 +106,21 @@ export function RendererDesk({ uiState, loading, error, request, fixtureOptions,
       return (
         <section className="workspace-grid">
           {workspaceGroups.map((group) => (
-            <div className="workspace-column" key={group.id}>
+            <div
+              className="workspace-column"
+              data-material={theme.material_hooks.card ?? "paper-card"}
+              key={group.id}
+            >
               <div className="panel-heading">
                 <h3>{group.label}</h3>
                 <span>{group.projects.length} projects</span>
               </div>
               {group.projects.map((project) => (
-                <article className="workspace-card" key={`${group.id}:${project.project_path}`}>
+                <article
+                  className="workspace-card"
+                  data-status-tone={project.binding_status}
+                  key={`${group.id}:${project.project_path}`}
+                >
                   <div className="workspace-card__top">
                     <h4>{project.project_name || project.project_path}</h4>
                     <StatusPill tone={project.binding_status}>{project.state}</StatusPill>
@@ -111,88 +141,105 @@ export function RendererDesk({ uiState, loading, error, request, fixtureOptions,
 
     return (
       <section className="row-surface">
-        {rowGroups.map((group) => (
-          <div className="row-group" key={group.id}>
-            <div className="panel-heading">
-              <div className="panel-heading__title">
-                <Glyph kind={group.icon} />
-                <div>
-                  <h3>{group.label}</h3>
-                  <p>{group.hint}</p>
+        {rowGroups.map((group) => {
+          const rowMaterial = materialForRow(uiState, theme, group.id, group.material);
+          const rowIcon = iconForRow(uiState, theme, group.id, group.icon);
+
+          return (
+            <div className="row-group" data-material={rowMaterial} key={group.id}>
+              <div className="panel-heading">
+                <div className="panel-heading__title">
+                  <Glyph kind={rowIcon} material={rowMaterial} />
+                  <div>
+                    <h3>{group.label}</h3>
+                    <p>{group.hint}</p>
+                  </div>
                 </div>
-              </div>
-              <button
-                className="text-button"
-                type="button"
-                onClick={() => dispatch({ type: "open-catalog", catalog: group.id })}
-              >
-                Browse Catalog
-              </button>
-            </div>
-            <div className={`card-list card-list--${group.id}`}>
-              {group.items.map((item) => (
                 <button
-                  className="asset-card"
-                  key={item.id}
+                  className="text-button"
                   type="button"
-                  onClick={() => dispatch({ type: "select-item", key: rowKey(group.id as RowId, item.id) })}
+                  onClick={() => dispatch({ type: "open-catalog", catalog: group.id })}
                 >
-                  <div className="asset-card__title">
-                    <span>{item.display_name}</span>
-                    {item.family ? <span className="family-pill">{item.family}</span> : null}
-                  </div>
-                  <p>{item.summary}</p>
-                  <div className="asset-card__badges">
-                    <Badge active={item.installed}>Installed</Badge>
-                    <Badge active={item.equipped}>Equipped</Badge>
-                    <Badge active={item.required === true}>Required</Badge>
-                    <Badge active={item.preferred === true}>Preferred</Badge>
-                  </div>
+                  Browse Catalog
                 </button>
-              ))}
-              {group.items.length === 0 ? <EmptyTile label="No installed asset yet." /> : null}
+              </div>
+              <div className={`card-list card-list--${group.id}`}>
+                {group.items.map((item) => (
+                  <button
+                    className="asset-card"
+                    data-asset-state={assetState(item)}
+                    data-dependency-status={item.dependency_status ?? "none"}
+                    data-material={rowMaterial}
+                    key={item.id}
+                    type="button"
+                    onClick={() => dispatch({ type: "select-item", key: rowKey(group.id as RowId, item.id) })}
+                  >
+                    <div className="asset-card__title">
+                      <span>{item.display_name}</span>
+                      {item.family ? <span className="family-pill">{item.family}</span> : null}
+                    </div>
+                    <p>{item.summary}</p>
+                    <div className="asset-card__badges">
+                      <Badge active={item.installed}>Installed</Badge>
+                      <Badge active={item.equipped}>Equipped</Badge>
+                      <Badge active={item.required === true}>Required</Badge>
+                      <Badge active={item.preferred === true}>Preferred</Badge>
+                    </div>
+                  </button>
+                ))}
+                {group.items.length === 0 ? <EmptyTile label="No installed asset yet." /> : null}
+              </div>
             </div>
-          </div>
-        ))}
+          );
+        })}
       </section>
     );
   }
 
   return (
-    <div className="app-shell">
-      <header className="top-frame">
+    <div className="app-shell" data-theme-family={theme.family} data-theme-id={theme.id} data-theme-phase={theme.phase}>
+      <header className="top-frame" data-material={theme.material_hooks.frame ?? "atlas-frame"}>
         <div>
-          <p className="eyebrow">UI Workspace / Renderer v1</p>
-          <h1>Adventurer&apos;s Desk</h1>
-          <p className="subtitle">Fixture-first read-only renderer shell. Canonical integration remains an optional provider concern.</p>
+          <p className="eyebrow">{resolvedChrome.eyebrow}</p>
+          <h1>{resolvedChrome.title}</h1>
+          <p className="subtitle">{resolvedChrome.subtitle}</p>
         </div>
         <div className="toolbar">
-          <div className="mode-chip">Fixture Workspace</div>
-          <div className="fixture-switcher">
-            {fixtureOptions.map((fixture) => (
-              <button
-                className={request.fixture === fixture ? "fixture-button is-active" : "fixture-button"}
-                key={fixture}
-                type="button"
-                onClick={() => setFixture(fixture)}
-              >
-                {fixture}
-              </button>
-            ))}
+          <div className="toolbar-chip-row">
+            <div className="mode-chip">{resolvedChrome.modeLabel}</div>
+            <div className="mode-chip mode-chip--secondary">{theme.label}</div>
+            <div className="mode-chip mode-chip--secondary">{theme.phase}</div>
           </div>
+          {controls.map((group) => (
+            <div className="toolbar-group" data-control-group={group.id} key={group.id}>
+              <span className="toolbar-group__label">{group.label}</span>
+              <div className="fixture-switcher">
+                {group.options.map((option) => (
+                  <button
+                    className={option.active ? "fixture-button is-active" : "fixture-button"}
+                    key={option.id}
+                    type="button"
+                    onClick={() => group.onSelect(option.id)}
+                  >
+                    {option.label}
+                  </button>
+                ))}
+              </div>
+            </div>
+          ))}
         </div>
       </header>
 
       <div className="desk-layout">
-        <aside className="left-panel">
+        <aside className="left-panel" data-material={theme.material_hooks.panel ?? "parchment-panel"}>
           {uiState ? (
             <>
-              <div className="character-card">
+              <div className="character-card" data-material={theme.material_hooks.card ?? "paper-card"}>
                 <div className="character-card__header">
                   <p className="eyebrow">Body / Character</p>
                   <StatusPill tone={uiState.body.meta.status}>{uiState.body.meta.status}</StatusPill>
                 </div>
-                <SilhouettePlate />
+                <SilhouettePlate material={theme.material_hooks.character_plate ?? "silhouette-plinth"} />
                 <div className="identity-block">
                   <h2>{uiState.body.meta.display_name}</h2>
                   <p>{uiState.overview.active_species?.display_name ?? "Species pending from fixture"}</p>
@@ -214,7 +261,7 @@ export function RendererDesk({ uiState, loading, error, request, fixtureOptions,
                 </div>
               </div>
 
-              <div className="catalog-card">
+              <div className="catalog-card" data-material={theme.material_hooks.catalog ?? "bookshelf-spine"}>
                 <div className="panel-heading">
                   <h3>Catalog Shelf</h3>
                   <span>Read-only preview</span>
@@ -234,6 +281,8 @@ export function RendererDesk({ uiState, loading, error, request, fixtureOptions,
                 {activeCatalogSection?.items.map((item) => (
                   <button
                     className="catalog-pill"
+                    data-asset-state={item.active ? "active" : item.candidate ? "installed" : "unknown"}
+                    data-material={theme.material_hooks.catalog ?? "bookshelf-spine"}
                     key={`${activeCatalogSection.id}:${item.id}`}
                     type="button"
                     onClick={() => dispatch({ type: "preview-candidate", key: catalogKey(activeCatalogSection.id, item.id) })}
@@ -248,7 +297,7 @@ export function RendererDesk({ uiState, loading, error, request, fixtureOptions,
           )}
         </aside>
 
-        <main className="main-panel">
+        <main className="main-panel" data-material={theme.material_hooks.panel ?? "parchment-panel"}>
           <nav className="tab-row" aria-label="Root tabs">
             {TAB_ORDER.map((tab) => (
               <button
@@ -262,12 +311,16 @@ export function RendererDesk({ uiState, loading, error, request, fixtureOptions,
             ))}
           </nav>
 
-          <section className={`summary-strip tone-${diagnosticsTone}`}>
+          <section
+            className={`summary-strip tone-${diagnosticsTone}`}
+            data-material={theme.material_hooks.summary_strip ?? "parchment-ribbon"}
+            data-status-tone={diagnosticsTone}
+          >
             {uiState ? (
               <>
                 <div className="summary-strip__metrics">
                   {metrics.map((metric) => (
-                    <article className={`metric-card tone-${metric.tone}`} key={metric.id}>
+                    <article className={`metric-card tone-${metric.tone}`} data-status-tone={metric.tone} key={metric.id}>
                       <span>{metric.label}</span>
                       <strong>{metric.value}</strong>
                     </article>
@@ -288,10 +341,10 @@ export function RendererDesk({ uiState, loading, error, request, fixtureOptions,
         </main>
       </div>
 
-      <footer className="info-dock">
+      <footer className="info-dock" data-material={theme.material_hooks.info_dock ?? "leather-folio"}>
         {uiState ? (
           <>
-            <div className="dock-section">
+            <div className="dock-section" data-material={theme.material_hooks.info_dock ?? "leather-folio"}>
               <div className="panel-heading">
                 <h3>Info Dock</h3>
                 <span>{selection.infoDockSection}</span>
@@ -320,7 +373,11 @@ export function RendererDesk({ uiState, loading, error, request, fixtureOptions,
               )}
             </div>
 
-            <div className="dock-section">
+            <div
+              className="dock-section"
+              data-material={theme.material_hooks.diagnostics ?? "warning-paper"}
+              data-status-tone={diagnosticsTone}
+            >
               <div className="panel-heading">
                 <h3>Diagnostics</h3>
                 <StatusPill tone={diagnosticsTone}>{diagnosticsTone}</StatusPill>
@@ -330,13 +387,21 @@ export function RendererDesk({ uiState, loading, error, request, fixtureOptions,
               ) : (
                 <>
                   {uiState.diagnostics.warnings.map((item) => (
-                    <article className="telegram warning" key={`warning:${item.code}`}>
+                    <article
+                      className="telegram warning"
+                      data-material={theme.material_hooks.diagnostics ?? "warning-paper"}
+                      key={`warning:${item.code}`}
+                    >
                       <strong>{item.code}</strong>
                       <p>{item.message}</p>
                     </article>
                   ))}
                   {uiState.diagnostics.errors.map((item) => (
-                    <article className="telegram error" key={`error:${item.code}`}>
+                    <article
+                      className="telegram error"
+                      data-material={theme.material_hooks.diagnostics ?? "warning-paper"}
+                      key={`error:${item.code}`}
+                    >
                       <strong>{item.code}</strong>
                       <p>{item.message}</p>
                     </article>
@@ -353,10 +418,52 @@ export function RendererDesk({ uiState, loading, error, request, fixtureOptions,
   );
 }
 
-function Glyph({ kind }: { kind: string }) {
+function materialForRow(uiState: UiState, theme: ThemeManifest, rowId: RowId, fallback: string) {
+  const hint = uiState.ui_hints.material_hints[rowId];
+  if (typeof hint === "string" && hint.length > 0) {
+    return hint;
+  }
+
+  const semanticKey = `${rowId}_row` as const;
+  const themeHook = theme.material_hooks[semanticKey];
+  return themeHook ?? fallback;
+}
+
+function iconForRow(uiState: UiState, theme: ThemeManifest, rowId: RowId, fallback: string) {
+  const hint = uiState.ui_hints.icon_hints[rowId];
+  if (typeof hint === "string" && hint.length > 0) {
+    return hint;
+  }
+
+  return theme.icon_hooks[rowId] ?? fallback;
+}
+
+function assetState(item: RowItem) {
+  if (item.dependency_status === "invalid") {
+    return "invalid";
+  }
+  if (item.required) {
+    return "required";
+  }
+  if (item.active || item.equipped) {
+    return "active";
+  }
+  if (item.preferred) {
+    return "preferred";
+  }
+  if (item.installed) {
+    return "installed";
+  }
+  if (item.dependency_status === "partial") {
+    return "partial";
+  }
+  return "unknown";
+}
+
+function Glyph({ kind, material }: { kind: string; material: string }) {
   return (
-    <span className={`glyph glyph-${kind}`} aria-hidden="true">
-      {kind === "orb" ? "◌" : kind === "hook" ? "⌁" : kind === "spine" ? "▥" : kind === "combo" ? "⟡" : "•"}
+    <span className={`glyph glyph-${kind}`} data-icon-kind={kind} data-material={material} aria-hidden="true">
+      {kind === "orb" ? "◌" : kind === "hook" ? "⌁" : kind === "spine" ? "▥" : kind === "combo" ? "⟡" : kind === "compass" ? "✦" : "•"}
     </span>
   );
 }
@@ -365,13 +472,17 @@ function Badge({ active, children }: { active: boolean; children: string }) {
   return <span className={active ? "badge is-active" : "badge"}>{children}</span>;
 }
 
-function StatusPill({ tone, children }: { tone: string; children: string }) {
-  return <span className={`status-pill tone-${tone}`}>{children}</span>;
+function StatusPill({ tone, children }: { tone: StatusTone | string; children: string }) {
+  return (
+    <span className={`status-pill tone-${tone}`} data-status-tone={tone}>
+      {children}
+    </span>
+  );
 }
 
-function SilhouettePlate() {
+function SilhouettePlate({ material }: { material: string }) {
   return (
-    <div className="silhouette-plate" aria-hidden="true">
+    <div className="silhouette-plate" data-material={material} aria-hidden="true">
       <div className="silhouette silhouette-head" />
       <div className="silhouette silhouette-body" />
       <div className="silhouette silhouette-base" />

@@ -15,6 +15,11 @@
 - canonical source resolver
 - package-shared normalization logic
 
+## 상태
+
+- `renderer-web` 는 fixture host shell 이다.
+- `skin-lab-storybook` 는 isolated story/theme preview app 이다.
+
 ## 관련 경로
 
 - [ui-workspace README](../README.md)

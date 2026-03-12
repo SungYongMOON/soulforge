@@ -1,5 +1,18 @@
 import path from "node:path";
-import { extractImportSpecifiers, readText, repoRelative, rendererCoreDir, rendererReactDir, rendererWebDir, resolveRepoPath, walkFiles, type LintResult } from "./shared";
+import {
+  extractImportSpecifiers,
+  readText,
+  repoRelative,
+  rendererCoreDir,
+  rendererReactDir,
+  rendererWebDir,
+  resolveRepoPath,
+  skinLabDir,
+  themeContractDir,
+  themeDeskDir,
+  walkFiles,
+  type LintResult
+} from "./shared";
 
 function resolveImportTarget(file: string, specifier: string) {
   const fileAbsolutePath = resolveRepoPath(file);
@@ -10,6 +23,10 @@ function isRendererWebFile(file: string) {
   return file.startsWith("apps/renderer-web/");
 }
 
+function isSkinLabFile(file: string) {
+  return file.startsWith("apps/skin-lab-storybook/");
+}
+
 function isRendererCoreFile(file: string) {
   return file.startsWith("packages/renderer-core/");
 }
@@ -18,12 +35,31 @@ function isRendererReactFile(file: string) {
   return file.startsWith("packages/renderer-react/");
 }
 
+function isThemeContractFile(file: string) {
+  return file.startsWith("packages/theme-contract/");
+}
+
+function isThemeDeskFile(file: string) {
+  return file.startsWith("packages/theme-adventurers-desk/");
+}
+
+function isDirectFixtureOrSchemaImport(specifier: string) {
+  return specifier.includes("fixtures/ui-state") || specifier.includes("schemas/");
+}
+
+function isCanonicalSpecifier(specifier: string) {
+  return specifier.includes(".agent/") || specifier.includes(".agent_class/") || specifier.includes("_workspaces/");
+}
+
 export function runPackageBoundaryLint() {
   const issues = [];
   const files = [
     ...walkFiles(repoRelative(rendererWebDir), (repoPath) => /\.(ts|tsx)$/.test(repoPath)),
+    ...walkFiles(repoRelative(skinLabDir), (repoPath) => /\.(ts|tsx)$/.test(repoPath)),
     ...walkFiles(repoRelative(rendererCoreDir), (repoPath) => /\.(ts|tsx)$/.test(repoPath)),
-    ...walkFiles(repoRelative(rendererReactDir), (repoPath) => /\.(ts|tsx)$/.test(repoPath))
+    ...walkFiles(repoRelative(rendererReactDir), (repoPath) => /\.(ts|tsx)$/.test(repoPath)),
+    ...walkFiles(repoRelative(themeContractDir), (repoPath) => /\.(ts|tsx)$/.test(repoPath)),
+    ...walkFiles(repoRelative(themeDeskDir), (repoPath) => /\.(ts|tsx)$/.test(repoPath))
   ];
 
   for (const file of [...new Set(files)].sort()) {
@@ -38,11 +74,19 @@ export function runPackageBoundaryLint() {
           });
         }
 
-        if (specifier.includes("fixtures/ui-state") || specifier.includes("schemas/")) {
+        if (specifier.includes("apps/skin-lab-storybook")) {
           issues.push({
-            rule: "web-direct-fixture-import",
+            rule: "web-import-skin-lab",
             file,
-            message: `web shell must not import root fixtures or schemas directly: ${specifier}`
+            message: `renderer-web must not import skin-lab internals: ${specifier}`
+          });
+        }
+
+        if (isDirectFixtureOrSchemaImport(specifier) || isCanonicalSpecifier(specifier)) {
+          issues.push({
+            rule: "web-direct-state-import",
+            file,
+            message: `renderer-web must not import fixtures, schemas, or canonical tree directly: ${specifier}`
           });
         }
 
@@ -58,12 +102,41 @@ export function runPackageBoundaryLint() {
         }
       }
 
-      if (isRendererCoreFile(file)) {
+      if (isSkinLabFile(file)) {
         if (specifier.includes("apps/renderer-web")) {
+          issues.push({
+            rule: "skin-lab-import-app",
+            file,
+            message: `skin-lab must not import renderer-web internals: ${specifier}`
+          });
+        }
+
+        if (isDirectFixtureOrSchemaImport(specifier) || isCanonicalSpecifier(specifier)) {
+          issues.push({
+            rule: "skin-lab-direct-state-import",
+            file,
+            message: `skin-lab must not import fixtures, schemas, or canonical tree directly: ${specifier}`
+          });
+        }
+
+        if (specifier.startsWith(".")) {
+          const resolved = resolveImportTarget(file, specifier);
+          if (!resolved.startsWith("apps/skin-lab-storybook/")) {
+            issues.push({
+              rule: "skin-lab-package-boundary",
+              file,
+              message: `relative import escapes skin-lab package: ${specifier}`
+            });
+          }
+        }
+      }
+
+      if (isRendererCoreFile(file)) {
+        if (specifier.includes("apps/renderer-web") || specifier.includes("apps/skin-lab-storybook")) {
           issues.push({
             rule: "core-import-app",
             file,
-            message: `renderer-core must not import renderer-web: ${specifier}`
+            message: `renderer-core must not import app shells: ${specifier}`
           });
         }
 
@@ -84,11 +157,17 @@ export function runPackageBoundaryLint() {
       }
 
       if (isRendererReactFile(file)) {
-        if (specifier.includes("apps/renderer-web") || specifier.includes("fixtures/ui-state") || specifier.includes("schemas/")) {
+        if (
+          specifier.includes("apps/renderer-web") ||
+          specifier.includes("apps/skin-lab-storybook") ||
+          isDirectFixtureOrSchemaImport(specifier) ||
+          specifier.includes("@soulforge/theme-adventurers-desk") ||
+          specifier.includes("packages/theme-adventurers-desk")
+        ) {
           issues.push({
             rule: "react-package-boundary",
             file,
-            message: `renderer-react must not import app shell, fixtures, or schemas directly: ${specifier}`
+            message: `renderer-react must not import app shells, direct fixture/schema state, or concrete theme packages: ${specifier}`
           });
         }
 
@@ -99,6 +178,66 @@ export function runPackageBoundaryLint() {
               rule: "react-package-boundary",
               file,
               message: `relative import escapes renderer-react package: ${specifier}`
+            });
+          }
+        }
+      }
+
+      if (isThemeContractFile(file)) {
+        if (
+          specifier.includes("@soulforge/renderer-core") ||
+          specifier.includes("@soulforge/renderer-react") ||
+          specifier.includes("@soulforge/renderer-web") ||
+          specifier.includes("@soulforge/skin-lab-storybook") ||
+          specifier.includes("@soulforge/ui-contract") ||
+          specifier.includes(".agent/") ||
+          specifier.includes(".agent_class/") ||
+          specifier.includes("_workspaces/")
+        ) {
+          issues.push({
+            rule: "theme-contract-boundary",
+            file,
+            message: `theme-contract must stay independent from renderer or canonical packages: ${specifier}`
+          });
+        }
+
+        if (specifier.startsWith(".")) {
+          const resolved = resolveImportTarget(file, specifier);
+          if (!resolved.startsWith("packages/theme-contract/")) {
+            issues.push({
+              rule: "theme-contract-boundary",
+              file,
+              message: `relative import escapes theme-contract package: ${specifier}`
+            });
+          }
+        }
+      }
+
+      if (isThemeDeskFile(file)) {
+        if (
+          specifier.includes("@soulforge/renderer-core") ||
+          specifier.includes("@soulforge/renderer-react") ||
+          specifier.includes("@soulforge/renderer-web") ||
+          specifier.includes("@soulforge/skin-lab-storybook") ||
+          specifier.includes("@soulforge/ui-contract") ||
+          specifier.includes("fixtures/ui-state") ||
+          specifier.includes("schemas/") ||
+          isCanonicalSpecifier(specifier)
+        ) {
+          issues.push({
+            rule: "theme-package-boundary",
+            file,
+            message: `theme-adventurers-desk must stay independent from renderer app shells and canonical state: ${specifier}`
+          });
+        }
+
+        if (specifier.startsWith(".")) {
+          const resolved = resolveImportTarget(file, specifier);
+          if (!resolved.startsWith("packages/theme-adventurers-desk/")) {
+            issues.push({
+              rule: "theme-package-boundary",
+              file,
+              message: `relative import escapes theme-adventurers-desk package: ${specifier}`
             });
           }
         }

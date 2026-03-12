@@ -12,7 +12,7 @@
   },
   "scripts": {
     "dev": "npm run dev --workspace @soulforge/renderer-web --",
-    "build": "npm run build --workspace @soulforge/renderer-web",
+    "build": "npm run build --workspace @soulforge/renderer-web && npm run build --workspace @soulforge/skin-lab-storybook",
     "preview": "npm run preview --workspace @soulforge/renderer-web --",
     "validate": "npm run validate:fixtures --workspace @soulforge/renderer-core",
     "lint:catalog": "npm run lint:catalog --workspace @soulforge/ui-lint",
@@ -22,7 +22,9 @@
     "lint:fixtures": "npm run lint:fixtures --workspace @soulforge/ui-lint",
     "lint:theme": "npm run lint:theme --workspace @soulforge/ui-lint",
     "lint:all": "npm run lint:all --workspace @soulforge/ui-lint",
-    "storybook:dev": "npm run dev --workspace @soulforge/skin-lab-storybook",
-    "storybook:build": "npm run build --workspace @soulforge/skin-lab-storybook"
+    "skin-lab:dev": "npm run dev --workspace @soulforge/skin-lab-storybook --",
+    "skin-lab:build": "npm run build --workspace @soulforge/skin-lab-storybook",
+    "storybook:dev": "npm run skin-lab:dev",
+    "storybook:build": "npm run skin-lab:build"
   }
 }

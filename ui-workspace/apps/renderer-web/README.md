@@ -10,6 +10,7 @@
 - Vite dev server shell
 - fixture request parsing
 - renderer-react surface mount
+- theme registry / swap wiring
 - Adventurer's Desk Phase UI-1 theme wiring
 
 ## 제외 대상

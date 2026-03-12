@@ -36,11 +36,11 @@ ui-workspace/
 
 - `ui-contract`: 타입과 식별자 계약
 - `renderer-core`: normalize, loader, selection, view-model
-- `renderer-react`: presentational layer
-- `theme-contract`: theme metadata 타입
+- `renderer-react`: presentational layer + semantic theme hook consumer
+- `theme-contract`: theme metadata / hook / root attribute contract
 - `theme-adventurers-desk`: Adventurer's Desk token package
 - `renderer-web`: fixture-first host shell
-- `skin-lab-storybook`: placeholder skin lab
+- `skin-lab-storybook`: isolated skin preview app
 
 ## renderer-core 책임
 
@@ -58,6 +58,14 @@ ui-workspace/
 - renderer-react mount
 - query-driven fixture selection
 - theme package wiring
+- theme selector
+
+## skin-lab 책임
+
+- story state selection
+- theme package preview
+- isolated visual review without canonical integration
+- packaging smoke path for skin developers
 
 ## optional integration provider 책임
 
@@ -76,8 +84,10 @@ ui-workspace/
 1. schema validate fixtures
 2. load normalized state in renderer-core
 3. run web build
-4. run web dev shell
-5. confirm read-only boundary
+4. run skin-lab build
+5. run web dev shell
+6. confirm read-only boundary
+7. confirm theme package packaging smoke test
 
 ## update 규칙
 

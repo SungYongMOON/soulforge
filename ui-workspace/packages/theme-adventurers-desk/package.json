@@ -1,8 +1,14 @@
 {
   "name": "@soulforge/theme-adventurers-desk",
   "version": "0.1.0",
-  "private": true,
+  "private": false,
   "type": "module",
+  "files": [
+    "src",
+    "theme.css",
+    "assets",
+    "README.md"
+  ],
   "exports": {
     ".": "./src/index.ts",
     "./theme.css": "./theme.css"

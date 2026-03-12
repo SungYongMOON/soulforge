@@ -24,16 +24,18 @@
 
 ## read-only boundary lint
 
-- `packages/renderer-core/`, `packages/renderer-react/`, `apps/renderer-web/` 안에서 `.agent`, `.agent_class`, `_workspaces` 정본을 직접 읽거나 import 하지 못하게 한다.
+- `packages/renderer-core/`, `packages/renderer-react/`, `packages/theme-*`, `apps/renderer-web/`, `apps/skin-lab-storybook/` 안에서 `.agent`, `.agent_class`, `_workspaces` 정본을 직접 읽거나 import 하지 못하게 한다.
 - 허용 예외는 optional tool `tools/legacy-python-viewer/` 뿐이다.
 - canonical 경로 문자열이 있어도 producer bridge 가 아니면 FAIL 로 본다.
 
 ## package boundary lint
 
 - `apps/renderer-web` 는 `renderer-core`, `renderer-react`, `theme-*`, `ui-contract` package 경계만 사용해야 한다.
+- `apps/skin-lab-storybook` 는 story/theme preview app 으로만 동작하고 다른 app shell internals 를 import 하지 않는다.
 - web shell 이 `packages/renderer-core/src/*`, `fixtures/`, `schemas/`, canonical tree 를 직접 import 하면 FAIL 로 본다.
 - `packages/renderer-core` 는 `apps/renderer-web` 를 import 하지 못한다.
-- `packages/renderer-react` 는 app shell, fixtures, schema 를 직접 import 하지 못한다.
+- `packages/renderer-react` 는 concrete theme package, app shell, fixtures, schema 를 직접 import 하지 못한다.
+- `packages/theme-contract`, `packages/theme-adventurers-desk` 는 renderer package, app shell, canonical tree 에 직접 의존하지 못한다.
 - `packages/renderer-core/src/fixtures.ts` 의 repo fixture import 만 예외적으로 허용한다.
 
 ## fixture coverage lint
@@ -46,9 +48,10 @@
 
 ## theme isolation lint
 
-- palette token 정의는 `packages/theme-adventurers-desk/theme.css` 에만 둔다.
-- `packages/renderer-react/src/renderer.css` 와 TSX 파일에 raw hex color 를 넣지 못하게 한다.
-- `apps/renderer-web/src/main.tsx` 에서 theme css 를 renderer css 보다 먼저 import 하는지 검사한다.
+- palette token 정의는 theme package CSS 에만 둔다.
+- `packages/renderer-react/src/renderer.css`, `apps/renderer-web/src`, `apps/skin-lab-storybook/src` 는 raw color literal 을 직접 넣지 못하게 한다.
+- concrete theme CSS import 는 각 app 의 `src/themes.ts` registry 에만 둔다.
+- `apps/renderer-web/src/main.tsx`, `apps/skin-lab-storybook/src/main.tsx` 에서 theme registry import 를 renderer css 보다 먼저 가져오는지 검사한다.
 
 ## 예외 원칙
 

@@ -10,9 +10,11 @@
 - React renderer surface component
 - local selection state
 - renderer structural CSS
+- theme-contract driven theme hook consumption
 
 ## 제외 대상
 
 - fixture loading
 - canonical integration bridge
 - theme token definition
+- theme package registry

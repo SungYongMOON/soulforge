@@ -35,18 +35,23 @@
 
 | 토큰 | 값 | 용도 |
 | --- | --- | --- |
-| `desk-ink` | `#1f1a17` | 본문 텍스트 |
-| `desk-warm` | `#f2e7d1` | 종이 바탕 |
-| `desk-wood` | `#5b3c2b` | 책상/프레임 |
-| `desk-brass` | `#b98b45` | 강조선, tab accent |
-| `desk-leather` | `#6b4a33` | dock / belt 계열 |
-| `desk-orb` | `#9fc3d9` | skill row accent |
-| `desk-shelf` | `#7a5a45` | knowledge row accent |
-| `desk-warning` | `#a96034` | warning paper |
-| `desk-error` | `#8f3c2d` | error seal |
-| `desk-cool` | `#6e8ea1` | 차가운 30% 보조 톤 |
+| `--sf-text-primary` | theme-specific | 본문 텍스트 |
+| `--sf-surface-frame` | theme-specific | desk frame / chrome surface |
+| `--sf-surface-panel` | theme-specific | panel / parchment base |
+| `--sf-surface-chip-active` | theme-specific | active chip / tab accent |
+| `--sf-state-required-surface` | theme-specific | required 강조 |
+| `--sf-state-preferred-surface` | theme-specific | preferred 강조 |
+| `--sf-state-invalid-surface` | theme-specific | invalid dependency 강조 |
+| `--sf-material-frosted-orb-surface` | theme-specific | skills row accent |
+| `--sf-material-bookshelf-spine-surface` | theme-specific | knowledge row accent |
+| `--sf-material-leather-folio-surface` | theme-specific | info dock 재질 |
 
 따뜻한 톤 70%, 차가운 톤 30% 비율을 유지한다.
+
+현재 package 는 아래 theme id 를 제공한다.
+
+- `adventurers_desk`
+- `adventurers_archive`
 
 ## material mapping
 
@@ -115,3 +120,9 @@ Phase UI-1 에서는 shape-first placeholder 로만 표현해도 된다.
 - character art 는 silhouette / sigil / placeholder plate 로 시작한다.
 - tool attachment 은 body 주변에 직접 배치하지 않는다.
 - empty family 는 장식적 더미 대신 "available later" 또는 "no installed asset" 으로 드러낸다.
+
+## package split 메모
+
+- theme token 정본은 `packages/theme-adventurers-desk/` 에 둔다.
+- renderer structural CSS 는 `packages/renderer-react/` 에 둔다.
+- swap mechanism 과 hook contract 는 [THEME_PACKAGE_MODEL.md](./THEME_PACKAGE_MODEL.md) 를 따른다.

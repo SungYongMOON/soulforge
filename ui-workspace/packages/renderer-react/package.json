@@ -9,6 +9,7 @@
   },
   "dependencies": {
     "@soulforge/renderer-core": "0.1.0",
+    "@soulforge/theme-contract": "0.1.0",
     "@soulforge/ui-contract": "0.1.0",
     "react": "^19.2.4"
   }

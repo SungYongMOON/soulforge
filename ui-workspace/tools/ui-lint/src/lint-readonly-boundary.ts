@@ -2,8 +2,11 @@ import { findLineMatches, walkFiles, type LintResult } from "./shared";
 
 const CODE_FILES = [
   ...walkFiles("apps/renderer-web", (repoPath) => /\.(ts|tsx)$/.test(repoPath)),
+  ...walkFiles("apps/skin-lab-storybook", (repoPath) => /\.(ts|tsx)$/.test(repoPath)),
   ...walkFiles("packages/renderer-core", (repoPath) => /\.(ts|tsx)$/.test(repoPath)),
-  ...walkFiles("packages/renderer-react", (repoPath) => /\.(ts|tsx)$/.test(repoPath))
+  ...walkFiles("packages/renderer-react", (repoPath) => /\.(ts|tsx)$/.test(repoPath)),
+  ...walkFiles("packages/theme-contract", (repoPath) => /\.(ts|tsx)$/.test(repoPath)),
+  ...walkFiles("packages/theme-adventurers-desk", (repoPath) => /\.(ts|tsx)$/.test(repoPath))
 ];
 
 const CANONICAL_PATTERN = /(?:\.agent\/|\.agent_class\/|_workspaces\/)/;
