@@ -2,25 +2,21 @@
   "name": "soulforge",
   "private": true,
   "packageManager": "npm@11.9.0",
-  "workspaces": [
-    "apps/*",
-    "packages/*",
-    "tools/*"
-  ],
-  "devDependencies": {
-    "@types/node": "^25.4.0"
-  },
   "scripts": {
-    "ui:validate": "npm run ui:lint:ui-state",
-    "ui:lint:catalog": "npm run lint:catalog --workspace @soulforge/ui-lint",
-    "ui:lint:ui-state": "npm run lint:ui-state --workspace @soulforge/ui-lint",
-    "ui:lint:read-only": "npm run lint:boundary:readonly --workspace @soulforge/ui-lint",
-    "ui:lint:packages": "npm run lint:boundary:packages --workspace @soulforge/ui-lint",
-    "ui:lint:fixtures": "npm run lint:fixtures --workspace @soulforge/ui-lint",
-    "ui:lint:theme": "npm run lint:theme --workspace @soulforge/ui-lint",
-    "ui:lint:all": "npm run lint:all --workspace @soulforge/ui-lint",
-    "renderer:web:dev": "npm run dev --workspace @soulforge/renderer-web --",
-    "renderer:web:build": "npm run build --workspace @soulforge/renderer-web",
-    "renderer:web:preview": "npm run preview --workspace @soulforge/renderer-web"
+    "ui:workspace:install": "npm install --prefix ui-workspace",
+    "ui:dev": "npm --prefix ui-workspace run dev",
+    "ui:build": "npm --prefix ui-workspace run build",
+    "ui:preview": "npm --prefix ui-workspace run preview --",
+    "ui:validate": "npm --prefix ui-workspace run validate",
+    "ui:lint:catalog": "UI_LINT_CANONICAL_ROOT=.. npm --prefix ui-workspace run lint:catalog",
+    "ui:lint:ui-state": "UI_LINT_CANONICAL_ROOT=.. npm --prefix ui-workspace run lint:ui-state",
+    "ui:lint:read-only": "UI_LINT_CANONICAL_ROOT=.. npm --prefix ui-workspace run lint:read-only",
+    "ui:lint:packages": "UI_LINT_CANONICAL_ROOT=.. npm --prefix ui-workspace run lint:packages",
+    "ui:lint:fixtures": "UI_LINT_CANONICAL_ROOT=.. npm --prefix ui-workspace run lint:fixtures",
+    "ui:lint:theme": "UI_LINT_CANONICAL_ROOT=.. npm --prefix ui-workspace run lint:theme",
+    "ui:lint:all": "UI_LINT_CANONICAL_ROOT=.. npm --prefix ui-workspace run lint:all",
+    "renderer:web:dev": "npm run ui:dev",
+    "renderer:web:build": "npm run ui:build",
+    "renderer:web:preview": "npm run ui:preview"
   }
 }

@@ -1,0 +1,10 @@
+{
+  "name": "@soulforge/skin-lab-storybook",
+  "version": "0.1.0",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "dev": "node -e \"console.log('skin-lab-storybook placeholder: use renderer-web for active development')\"",
+    "build": "node -e \"console.log('skin-lab-storybook placeholder build')\""
+  }
+}

@@ -1,0 +1,26 @@
+{
+  "name": "@soulforge/renderer-web",
+  "version": "0.1.0",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "dev": "vite",
+    "build": "vite build",
+    "preview": "vite preview"
+  },
+  "dependencies": {
+    "@soulforge/renderer-core": "0.1.0",
+    "@soulforge/renderer-react": "0.1.0",
+    "@soulforge/theme-adventurers-desk": "0.1.0",
+    "@soulforge/ui-contract": "0.1.0",
+    "react": "^19.2.4",
+    "react-dom": "^19.2.4"
+  },
+  "devDependencies": {
+    "@types/react": "^19.2.14",
+    "@types/react-dom": "^19.2.3",
+    "@vitejs/plugin-react": "^5.1.4",
+    "typescript": "^5.9.3",
+    "vite": "^7.3.1"
+  }
+}

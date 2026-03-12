@@ -1,21 +1,4 @@
 # fixtures
 
-## 목적
-
-- `fixtures/` 는 schema validate 가능한 renderer input baseline 을 둔다.
-- canonical source 의 대체물이 아니라 UI 개발과 회귀 검증용 파생 입력을 제공한다.
-
-## 포함 대상
-
-- `ui-state/` fixture 세트
-
-## 제외 대상
-
-- canonical YAML sample
-- host-local scratch data
-
-## 관련 경로
-
-- [루트 README](../README.md)
-- [schemas/ui-state.schema.json](../schemas/ui-state.schema.json)
-- [docs/ui/UI_IMPLEMENTATION_PLAN.md](../docs/ui/UI_IMPLEMENTATION_PLAN.md)
+UI fixture 정본은 [`ui-workspace/fixtures/`](../ui-workspace/fixtures/README.md) 로 이동했다.
+루트 `fixtures/` 는 relocation 안내만 유지한다.

@@ -1,21 +1,4 @@
 # tools
 
-## 목적
-
-- `tools/` 는 renderer 와 root-owned 검증용 보조 도구를 둔다.
-- 앱이나 reusable package 바깥에서 저장소 정합성을 검사하는 lint/validator 를 관리한다.
-
-## 포함 대상
-
-- `ui-lint/`
-
-## 제외 대상
-
-- canonical source 의 정본 정의
-- renderer runtime package
-
-## 관련 경로
-
-- [루트 README](../README.md)
-- [docs/ui/UI_RENDERER_MODEL.md](../docs/ui/UI_RENDERER_MODEL.md)
-- [packages/README.md](../packages/README.md)
+UI tooling 정본은 [`ui-workspace/tools/`](../ui-workspace/tools/README.md) 로 이동했다.
+루트 `tools/` 는 더 이상 active source owner 가 아니며, relocation 안내만 유지한다.

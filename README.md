@@ -2,6 +2,7 @@
 
 Soulforge는 `.agent`, `.agent_class`, `_workspaces` 세 축을 중심으로 정본 구조를 관리하는 설계 저장소다.
 `.agent` 는 active identity 와 selection catalog 를 소유하고, `.agent_class` 는 canonical loadout asset 을 소유한다.
+UI consumer layer 는 이제 [`ui-workspace/`](ui-workspace/README.md) 아래에서 별도 workspace 로 관리한다.
 
 ## 목적
 
@@ -16,9 +17,8 @@ flowchart TD
   S --> C[".agent_class<br/>loadout"]
   S --> W["_workspaces<br/>mission site"]
   S --> D["docs/architecture<br/>root-owned docs"]
-  S --> U["docs/ui + renderer packages<br/>renderer contract and shell"]
-  S --> T["tools/ui-lint<br/>UI guardrails"]
-  S --> V2["ui<br/>legacy prototype viewer"]
+  S --> U["ui-workspace<br/>portable UI workspace"]
+  S --> V2["ui<br/>relocation / legacy pointer"]
   S --> V["dev<br/>plan / log"]
   W --> P[".project_agent<br/>project contract"]
 ```
@@ -30,10 +30,11 @@ flowchart TD
 - [`_workspaces/README.md`](_workspaces/README.md): `_workspaces` 상위 개요
 - [`docs/architecture/TARGET_TREE.md`](docs/architecture/TARGET_TREE.md): 저장소 목표 트리와 최종 `.agent` target tree
 - [`docs/architecture/DOCUMENT_OWNERSHIP.md`](docs/architecture/DOCUMENT_OWNERSHIP.md): 폴더별 정본 문서 소유 기준
-- [`docs/ui/README.md`](docs/ui/README.md): renderer v1 문서군
-- [`packages/renderer-core/README.md`](packages/renderer-core/README.md): renderer-core 개요
-- [`apps/renderer-web/README.md`](apps/renderer-web/README.md): renderer-web shell 개요
-- [`tools/ui-lint/README.md`](tools/ui-lint/README.md): UI/catalog lint suite
+- [`ui-workspace/README.md`](ui-workspace/README.md): UI 전용 workspace 개요
+- [`ui-workspace/docs/README.md`](ui-workspace/docs/README.md): renderer v1 문서군
+- [`ui-workspace/packages/renderer-core/README.md`](ui-workspace/packages/renderer-core/README.md): renderer-core 개요
+- [`ui-workspace/apps/renderer-web/README.md`](ui-workspace/apps/renderer-web/README.md): renderer-web shell 개요
+- [`ui-workspace/tools/ui-lint/README.md`](ui-workspace/tools/ui-lint/README.md): UI/catalog lint suite
 
 ## 정본 안내
 
@@ -49,8 +50,8 @@ flowchart TD
 - [`docs/architecture/DOCUMENT_OWNERSHIP.md`](docs/architecture/DOCUMENT_OWNERSHIP.md): 문서 소유 기준
 - [`docs/architecture/UI_SOURCE_MAP.md`](docs/architecture/UI_SOURCE_MAP.md): UI source 정본 지도
 - [`docs/architecture/UI_SYNC_CONTRACT.md`](docs/architecture/UI_SYNC_CONTRACT.md): UI 동기화 계약
-- [`docs/ui/UI_RENDERER_MODEL.md`](docs/ui/UI_RENDERER_MODEL.md): renderer v1 경계
-- [`docs/ui/UI_STATE_CONTRACT.md`](docs/ui/UI_STATE_CONTRACT.md): normalized UI state contract
+- [`ui-workspace/docs/UI_RENDERER_MODEL.md`](ui-workspace/docs/UI_RENDERER_MODEL.md): renderer v1 경계
+- [`ui-workspace/docs/UI_STATE_CONTRACT.md`](ui-workspace/docs/UI_STATE_CONTRACT.md): normalized UI state contract
 
 ## UI lint
 
@@ -61,3 +62,9 @@ flowchart TD
 - `npm run ui:lint:fixtures`
 - `npm run ui:lint:theme`
 - `npm run ui:lint:all`
+
+## UI workspace 실행
+
+- `npm run ui:workspace:install`
+- `npm run ui:dev`
+- `npm run ui:build`

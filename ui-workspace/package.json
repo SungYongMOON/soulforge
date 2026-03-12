@@ -1,0 +1,28 @@
+{
+  "name": "soulforge-ui-workspace",
+  "private": true,
+  "packageManager": "npm@11.9.0",
+  "workspaces": [
+    "apps/*",
+    "packages/*",
+    "tools/*"
+  ],
+  "devDependencies": {
+    "@types/node": "^25.4.0"
+  },
+  "scripts": {
+    "dev": "npm run dev --workspace @soulforge/renderer-web --",
+    "build": "npm run build --workspace @soulforge/renderer-web",
+    "preview": "npm run preview --workspace @soulforge/renderer-web --",
+    "validate": "npm run validate:fixtures --workspace @soulforge/renderer-core",
+    "lint:catalog": "npm run lint:catalog --workspace @soulforge/ui-lint",
+    "lint:ui-state": "npm run lint:ui-state --workspace @soulforge/ui-lint",
+    "lint:read-only": "npm run lint:boundary:readonly --workspace @soulforge/ui-lint",
+    "lint:packages": "npm run lint:boundary:packages --workspace @soulforge/ui-lint",
+    "lint:fixtures": "npm run lint:fixtures --workspace @soulforge/ui-lint",
+    "lint:theme": "npm run lint:theme --workspace @soulforge/ui-lint",
+    "lint:all": "npm run lint:all --workspace @soulforge/ui-lint",
+    "storybook:dev": "npm run dev --workspace @soulforge/skin-lab-storybook",
+    "storybook:build": "npm run build --workspace @soulforge/skin-lab-storybook"
+  }
+}

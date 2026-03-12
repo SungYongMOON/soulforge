@@ -37,7 +37,7 @@
 - 저장소 공용 아키텍처 문서의 정본 위치다.
 - 현재 공용 문서는 `REPOSITORY_PURPOSE.md`, `TARGET_TREE.md`, `DOCUMENT_OWNERSHIP.md`, `AGENT_WORLD_MODEL.md`, `agent_body_finalization_report.md`, `UI_SOURCE_MAP.md`, `UI_SYNC_CONTRACT.md` 등을 포함한다.
 - 현재 공용 문서는 `UI_DERIVED_STATE_CONTRACT.md` 를 포함해 renderer 이전 단계의 파생 상태 계약도 함께 관리한다.
-- renderer consumer model, selection model, theme plan 은 `docs/ui/` 로 분리 관리한다.
+- renderer consumer model, selection model, theme plan 정본은 `ui-workspace/docs/` 로 분리 관리한다.
 - 현재 공용 문서는 `PROJECT_AGENT_RESOLVE_CONTRACT.md` 를 포함해 workspace 공통 resolve 계약도 함께 관리한다.
 - 현재 공용 문서는 `CURRENT_DECISIONS.md` 를 통해 hero/profile/catalog 최신 구조 결정도 함께 고정한다.
 - 현재 공용 문서는 `V1_CLOSEOUT_CHECKLIST.md`, `KNOWN_LIMITATIONS.md` 를 포함해 v1 closeout 문서군도 함께 관리한다.

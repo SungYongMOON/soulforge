@@ -100,17 +100,30 @@
 │   ├── workflows/
 │   ├── class.yaml
 │   └── loadout.yaml
-├── apps/
-│   └── renderer-web/
 ├── _workspaces/
+├── apps/
 ├── fixtures/
-│   └── ui-state/
 ├── packages/
-│   └── renderer-core/
-├── tools/
-│   └── ui-lint/
 ├── schemas/
-│   └── ui-state.schema.json
+├── tools/
+├── ui-workspace/
+│   ├── apps/
+│   │   ├── renderer-web/
+│   │   └── skin-lab-storybook/
+│   ├── packages/
+│   │   ├── ui-contract/
+│   │   ├── renderer-core/
+│   │   ├── renderer-react/
+│   │   ├── theme-contract/
+│   │   └── theme-adventurers-desk/
+│   ├── tools/
+│   │   ├── ui-lint/
+│   │   └── legacy-python-viewer/
+│   ├── fixtures/
+│   │   └── ui-state/
+│   ├── schemas/
+│   │   └── ui-state.schema.json
+│   └── docs/
 ├── ui/
 │   └── viewer/
 ├── docs/
@@ -133,12 +146,14 @@
 | `.agent_class/` | reusable loadout template 와 canonical asset owner |
 | `.agent_class/profiles/` | canonical default preference modes |
 | `.agent_class/manifests/` | canonical capability index, equip rule, dependency graph |
-| `apps/renderer-web/` | portable renderer web shell |
 | `_workspaces/` | 실제 프로젝트 운영 현장 |
-| `packages/renderer-core/` | portable renderer contract consumer core |
-| `tools/ui-lint/` | UI contract / catalog / boundary lint suite |
-| `fixtures/ui-state/` | renderer fixture baseline |
-| `schemas/` | renderer contract schema |
-| `ui/` | legacy read-only viewer prototype |
+| `apps/`, `packages/`, `tools/`, `fixtures/`, `schemas/` | ui-workspace relocation stub |
+| `ui-workspace/` | portable UI 전용 workspace |
+| `ui-workspace/apps/renderer-web/` | fixture-first renderer web shell |
+| `ui-workspace/packages/renderer-core/` | portable renderer contract consumer core |
+| `ui-workspace/tools/ui-lint/` | UI contract / catalog / boundary lint suite |
+| `ui-workspace/fixtures/ui-state/` | renderer fixture baseline |
+| `ui-workspace/schemas/` | renderer contract schema |
+| `ui/` | relocation / legacy pointer |
 | `docs/architecture/` | 저장소 전체 구조와 root-owned 계약 문서 |
-| `docs/ui/` | renderer consumer 문서군 |
+| `docs/ui/` | ui-workspace relocation 문서군 |
