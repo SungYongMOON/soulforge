@@ -1,16 +1,29 @@
 manifest_id: soulforge.identity.manifest
 body_id: soulforge-main-body
 body_name: Soulforge Main Body
-body_version: 0.1.0
+body_version: 0.2.0
 identity_kind: durable_agent_unit
-species_profile_ref: species_profile.yaml
+active_identity:
+  species_profile_ref: species_profile.yaml
+  hero_imprint_ref: hero_imprint.yaml
+  hero_optional: true
+active_class_binding_ref: ../registry/active_class_binding.yaml
 trait_bindings_ref: ../registry/trait_bindings.yaml
-identity_synopsis: species only baseline with optional class and workspace overlays
-defaults:
-  species_only: true
-  class_binding_required: false
-  workspace_binding_required: false
+catalog_refs:
+  species_catalog_ref: ../catalog/identity/species/index.yaml
+  hero_catalog_ref: ../catalog/identity/heroes/index.yaml
+  class_catalog_ref: ../catalog/class
+identity_synopsis: active species with optional hero overlay and class selection catalogs kept inside .agent
+selection_metadata:
+  identity_layer: active
+  catalog_layer_owner: ../catalog/identity
+  canonical_class_owner: ../../.agent_class
+  generator_scope: catalog_population_only
 references:
   body_ref: ../body.yaml
   policy_floor_ref: ../policy/precedence.yaml
   capability_index_ref: ../registry/capability_index.yaml
+notes:
+  - species is the durable default
+  - hero is an optional identity overlay
+  - hero candidates are stored as normalized motif or imprint data, not direct character copies

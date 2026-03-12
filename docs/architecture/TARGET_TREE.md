@@ -3,24 +3,7 @@
 ## 목적
 
 - 저장소의 목표 구조와 owner 경계를 한눈에 보여준다.
-- 특히 최종 `.agent` target tree 를 루트 문서 기준으로 고정한다.
-
-## 범위
-
-- 현재 목표 트리와 각 경로의 상위 책임만 요약한다.
-- 세부 운영 절차와 low-level 계약 본문은 각 owner 문서로 위임한다.
-
-## 포함 대상
-
-- 루트 구조
-- 최종 `.agent` target tree
-- `.agent_class`, `_workspaces`, `docs`, `ui`, `dev` 의 상위 책임
-
-## 제외 대상
-
-- 세부 스키마와 resolve 알고리즘
-- 협업용 `_teams/shared/` 실제 폴더 생성
-- 별도 `.agent/export/` 폴더
+- 특히 `.agent` 의 active/catalog layer 와 `.agent_class` 의 canonical loadout layer 를 같이 고정한다.
 
 ## 최종 `.agent` target tree
 
@@ -33,6 +16,8 @@
 │   └── architecture/
 │       ├── AGENT_BODY_MODEL.md
 │       ├── BODY_METADATA_CONTRACT.md
+│       ├── AGENT_CATALOG_LAYER_MODEL.md
+│       ├── HERO_OVERLAY_MODEL.md
 │       ├── RUNTIME_MODEL.md
 │       ├── MEMORY_MODEL.md
 │       ├── TEAM_EXPANSION_MODEL.md
@@ -40,7 +25,42 @@
 ├── identity/
 │   ├── README.md
 │   ├── species_profile.yaml
+│   ├── hero_imprint.yaml
 │   └── identity_manifest.yaml
+├── catalog/
+│   ├── README.md
+│   ├── identity/
+│   │   ├── README.md
+│   │   ├── species/
+│   │   │   ├── README.md
+│   │   │   ├── index.yaml
+│   │   │   └── soulforge-default.species.yaml
+│   │   └── heroes/
+│   │       ├── README.md
+│   │       ├── index.yaml
+│   │       └── soulforge_default/
+│   │           ├── README.md
+│   │           └── craft_sage.hero.yaml
+│   └── class/
+│       ├── README.md
+│       ├── profiles/
+│       │   ├── README.md
+│       │   └── profiles_catalog.yaml
+│       ├── skills/
+│       │   ├── README.md
+│       │   └── skills_catalog.yaml
+│       ├── tools/
+│       │   ├── README.md
+│       │   ├── adapters_catalog.yaml
+│       │   ├── connectors_catalog.yaml
+│       │   ├── local_cli_catalog.yaml
+│       │   └── mcp_catalog.yaml
+│       ├── knowledge/
+│       │   ├── README.md
+│       │   └── knowledge_catalog.yaml
+│       └── workflows/
+│           ├── README.md
+│           └── workflows_catalog.yaml
 ├── registry/
 │   ├── README.md
 │   ├── active_class_binding.yaml
@@ -48,60 +68,13 @@
 │   ├── capability_index.yaml
 │   └── trait_bindings.yaml
 ├── policy/
-│   ├── README.md
-│   ├── precedence.yaml
-│   ├── safety_rules.md
-│   ├── approval_matrix.yaml
-│   └── scope_rules.yaml
 ├── communication/
-│   ├── README.md
-│   ├── human_channel_profile.yaml
-│   ├── peer_channel_profile.yaml
-│   └── response_contract.md
 ├── protocols/
-│   ├── README.md
-│   ├── request_contract.yaml
-│   ├── handoff_contract.yaml
-│   ├── decision_contract.yaml
-│   ├── incident_contract.yaml
-│   └── escalation_contract.yaml
 ├── runtime/
-│   ├── README.md
-│   ├── bootstrap_order.md
-│   ├── context_assembly.yaml
-│   ├── tool_scope.yaml
-│   ├── sandbox_profile.yaml
-│   └── delivery_profile.yaml
 ├── memory/
-│   ├── README.md
-│   ├── self/
-│   │   └── README.md
-│   ├── project/
-│   │   └── README.md
-│   ├── decisions/
-│   │   └── README.md
-│   └── handoffs/
-│       └── README.md
 ├── sessions/
-│   ├── README.md
-│   ├── checkpoints/
-│   │   └── README.md
-│   ├── checkpoint_template.yaml
-│   └── active_session.example.yaml
 ├── autonomic/
-│   ├── README.md
-│   ├── checks/
-│   │   └── README.md
-│   ├── reminders/
-│   │   └── README.md
-│   └── rules/
-│       └── README.md
 └── artifacts/
-    ├── README.md
-    ├── templates/
-    ├── playbooks/
-    ├── rubrics/
-    └── reports/
 ```
 
 ## 저장소 상위 구조
@@ -113,8 +86,11 @@
 │   ├── _local/
 │   ├── docs/
 │   │   ├── architecture/
+│   │   ├── plans/
 │   │   └── prompts/
 │   ├── knowledge/
+│   ├── manifests/
+│   ├── profiles/
 │   ├── skills/
 │   ├── tools/
 │   │   ├── adapters/
@@ -125,35 +101,26 @@
 │   ├── class.yaml
 │   └── loadout.yaml
 ├── _workspaces/
-│   ├── company/
-│   └── personal/
 ├── ui/
 │   └── viewer/
+├── docs/
+│   └── architecture/
 ├── dev/
 │   ├── log/
 │   └── plan/
-├── docs/
-│   └── architecture/
 └── README.md
 ```
-
-## README 운영 규칙
-
-- 루트 `README.md` 는 저장소 전체 상위 지도만 둔다.
-- `.agent` 상세 구조와 운영은 `.agent/docs/architecture/*` 와 각 로컬 `README.md` 를 정본으로 본다.
-- 이 문서는 구조 배치와 owner 경계만 요약하고, low-level 규칙 본문은 중복하지 않는다.
 
 ## 폴더별 상위 책임
 
 | 경로 | 상위 책임 |
 | --- | --- |
-| `.agent/` | durable agent unit 의 private operating system |
-| `.agent/runtime/` | body runtime layer |
-| `.agent/protocols/` | body 공통 operating contract |
-| `.agent/registry/` | binding, index, reference 계층 |
-| `.agent/docs/architecture/` | body 구조와 body 메타 계약의 정본 문서 |
-| `.agent_class/` | installed library 와 equipped state 를 다루는 loadout 계층 |
+| `.agent/identity/` | active species 와 optional hero overlay |
+| `.agent/catalog/` | body-owned selection catalog layer |
+| `.agent/registry/` | active binding, index, reference |
+| `.agent_class/` | reusable loadout template 와 canonical asset owner |
+| `.agent_class/profiles/` | canonical default preference modes |
+| `.agent_class/manifests/` | canonical capability index, equip rule, dependency graph |
 | `_workspaces/` | 실제 프로젝트 운영 현장 |
+| `ui/` | derived state 소비자 surface |
 | `docs/architecture/` | 저장소 전체 구조와 root-owned 계약 문서 |
-| `ui/viewer/` | `derive-ui-state --json` 소비자 renderer |
-| `dev/{plan,log}/` | 저장소 공용 계획과 이력 |

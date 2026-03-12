@@ -1,0 +1,11 @@
+ruleset_id: soulforge.class.equip_rules
+install_semantics:
+  installed_assets_available_by_default: true
+profile_semantics:
+  preferred_only: true
+  restrictive: false
+workflow_semantics:
+  required_overrides_profile_preference: true
+notes:
+  - profile does not disable installed assets
+  - workflow defines required combinations

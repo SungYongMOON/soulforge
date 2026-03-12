@@ -1,0 +1,13 @@
+catalog_id: soulforge.agent.catalog.class.workflows
+catalog_kind: class_workflows
+selection_state_source: ../../../registry/active_class_binding.yaml
+canonical_root_ref: ../../../../.agent_class/workflows
+items:
+  - item_id: sample.workflow.briefing
+    display_name: Sample Briefing Workflow
+    source_ref: ../../../../.agent_class/workflows/sample_workflow_briefing/module.yaml
+    summary: sample skill, tool, knowledge 조합을 required 로 묶는 샘플 workflow
+    tags:
+      - sample
+      - workflow
+      - required

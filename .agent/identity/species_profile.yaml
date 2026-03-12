@@ -1,6 +1,7 @@
 species_id: soulforge.species.default
 display_name: Soulforge Default Species
 body_id: soulforge-main-body
+source_ref: ../catalog/identity/species/soulforge-default.species.yaml
 synopsis: 구조를 먼저 세우고 안정적인 결과물을 선호하는 durable body baseline
 default_traits:
   decision_tempo: moderate
@@ -9,6 +10,8 @@ default_traits:
   communication_tone: direct_clear
   autonomy_noise: low
   artifact_style: structured
+precedence_role: species_default
 notes:
   - species는 policy를 우회하지 않는다
   - species는 runtime 구조 자체를 바꾸지 않는다
+  - species는 hero/profile/workflow 위가 아니라 아래의 durable default다

@@ -8,6 +8,9 @@ UI는 정본이 아니다.
 정본은 메타 파일과 실제 구조에 남고, 화면은 그 결과를 재구성한 파생물로 본다.
 renderer 는 정본 파일을 직접 읽는 대신 `derive-ui-state` 가 만든 derived state 를 읽는 소비자로 본다.
 
+selection UI 가 붙는 경우의 catalog source 는 `.agent/catalog/**` 다.
+현재 read-only viewer 는 selection persistence 를 구현하지 않으므로 canonical installed/equipped 해석은 계속 `.agent_class/**` 와 `loadout.yaml` 을 기준으로 둔다.
+
 ## 구조 개요도
 
 ```mermaid
@@ -22,6 +25,7 @@ flowchart TD
   SRC --> B1[".agent/body.yaml"]
   SRC --> B2[".agent/body_state.yaml"]
   SRC --> B3[".agent/ 하위 섹션"]
+  SRC --> B4[".agent/catalog/**"]
   SRC --> C1[".agent_class/class.yaml"]
   SRC --> C2[".agent_class/loadout.yaml"]
   SRC --> C3[".agent_class/**/module.yaml"]
@@ -56,6 +60,7 @@ flowchart TD
 | --- | --- | --- |
 | `종합(Overview)` | 단일 정본 없음 | body, class, workspace 정본을 합성한 뒤 `derive-ui-state` 가 counts 중심 요약으로 만든다 |
 | `본체(.agent)` | `.agent/body.yaml`, `.agent/body_state.yaml`, `.agent/` 하위 섹션 | body 정적 정의, 현재 상태 스냅샷, 실제 섹션 구조를 함께 읽고 `derive-ui-state` 가 탭 상태로 정리한다 |
+| `선택 catalog(future)` | `.agent/catalog/**` | future selection UI 가 species, hero, profile, skill, tool, knowledge, workflow 후보를 읽는 selection layer 다. 현재 read-only viewer 의 installed/equipped 표시는 이 catalog 를 직접 소비하지 않는다 |
 | `직업(.agent_class)` | `.agent_class/class.yaml`, `.agent_class/loadout.yaml`, `.agent_class/**/module.yaml`, `.agent_class/{skills,tools,workflows,knowledge}/` | class 정적 정의, 현재 장착 상태, installed module manifest, 라이브러리 구조를 함께 읽고 `derive-ui-state` 가 installed/equipped/workflow card 로 정리한다 |
 | `워크스페이스(_workspaces)` | `_workspaces/company|personal` 아래 실제 프로젝트 폴더, `_workspaces/**/.project_agent/contract.yaml`, `capsule_bindings.yaml`, `workflow_bindings.yaml`, `local_state_map.yaml` | 프로젝트 존재 여부, `.project_agent` resolve 결과, 상태 분류를 함께 읽고 `derive-ui-state` 가 summary 와 project list 로 정리한다 |
 

@@ -1,0 +1,18 @@
+hero_imprint_id: soulforge.identity.hero.none
+active: false
+hero_candidate_ref: null
+overlay_mode: optional_identity_overlay
+overlay_bias:
+  communication_tone_bias: neutral
+  question_style_bias: neutral
+  risk_lens_bias: neutral
+  artifact_signature_bias: neutral
+  workflow_selection_bias: neutral
+guardrails:
+  changes_factual_validation: false
+  changes_policy_floor: false
+  disables_installed_assets: false
+notes:
+  - hero는 optional identity overlay다
+  - 비활성 상태에서는 species default만 사용한다
+  - 활성 상태에서도 실존 인물 또는 특정 IP 캐릭터의 직접 복제본을 저장하지 않는다

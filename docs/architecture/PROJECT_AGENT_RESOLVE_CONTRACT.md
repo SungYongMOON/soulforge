@@ -65,6 +65,7 @@ resolve 규칙:
 - `body_ref` 는 repo root 기준 `.agent` 경로로 resolve 가능해야 한다.
 - `class_ref` 는 repo root 기준 `.agent_class` 경로로 resolve 가능해야 한다.
 - `default_loadout` 은 현재 단계에서 `.agent_class/loadout.yaml.active_profile` 과 기본 일치 여부를 검사한다.
+- 현재 `default_loadout` 값은 active profile id 로 해석한다.
 - 다중 profile 구조가 도입되기 전까지 `default_loadout` 비교 기준은 `active_profile` 하나로 제한한다.
 
 ### 3.2 `capsule_bindings.yaml`

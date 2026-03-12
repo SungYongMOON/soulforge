@@ -2,23 +2,24 @@
 
 ## 목적
 
-- `.agent_class/` 는 현재 환경에 장착된 loadout 계층의 정본을 둔다.
-- 본체를 바꾸지 않고 어떤 installed module 이 있고 어떤 module id 를 장착했는지 관리한다.
+- `.agent_class/` 는 durable agent unit 이 장착하는 reusable loadout template 의 canonical owner 다.
+- 본체를 바꾸지 않고 어떤 installed asset 이 있고 어떤 workflow/profile/loadout semantics 를 가지는지 관리한다.
 
 ## 범위
 
-- installed library catalog 와 현재 장착 상태를 다룬다.
+- canonical skills, tools, knowledge, workflows, profiles, manifests 와 현재 loadout 상태를 다룬다.
 - body durable organ 이나 mission site 실자료는 범위 밖이다.
 
 ## 포함 대상
 
 - `class.yaml`, `loadout.yaml`
-- `skills/`, `tools/`, `workflows/`, `knowledge/`
+- `skills/`, `tools/`, `workflows/`, `knowledge/`, `profiles/`, `manifests/`
 - class owner 문서와 비추적 로컬 상태 경계
 
 ## 제외 대상
 
 - 본체 장기 기억과 본체 정책
+- active identity, hero overlay, body catalog selection layer
 - 실제 프로젝트 파일과 프로젝트별 `.project_agent/`
 
 ## 미래 확장 방향
@@ -39,6 +40,9 @@
 - Draft
 - 클래스 계층 경계는 정의되었다.
 - installed library 는 `module.yaml` manifest 기준으로 해석하고, loadout 는 module id 기준으로 장착한다.
+- profiles 는 hero 대체재가 아니라 default preference mode 다.
+- workflows 는 explicit required 조합식이다.
+- `.agent/catalog/class/**` 는 selection index 이고 canonical asset 정본은 `.agent_class/**` 에 남는다.
 - installed library roots 아래에는 `sample_` prefix 디렉터리와 `sample.` module id 를 쓰는 repo-tracked reference sample baseline 이 들어올 수 있다.
 - local CLI 는 workspace `.project_agent` 계약도 스캔해 `bound`, `unbound`, `invalid` 상태를 분류한다.
 - local CLI 는 body/class/workspace resolve 결과를 renderer 입력용 derived state 로도 조합한다.

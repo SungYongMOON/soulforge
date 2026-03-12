@@ -25,6 +25,20 @@
 - [`scope_rules.yaml`](scope_rules.yaml): body 범위 제약
 - [`safety_rules.md`](safety_rules.md): hard boundary 와 금지 규칙 요약
 
+## 우선순위 해석
+
+1. 저장소 규칙과 policy floor
+2. 현재 작업의 명시 지시
+3. 선택된 workflow 의 `required`
+4. active profile 의 `preferred`
+5. active hero overlay 의 bias
+6. species default
+
+- policy floor 는 species, hero, profile 보다 앞선다.
+- workflow 는 required 조합식을 강제한다.
+- profile 은 default preference mode 이며 restrictive allowlist 가 아니다.
+- hero overlay 는 결을 바꾸지만 사실 판정과 안전선을 바꾸지 않는다.
+
 ## 참조 관계
 
 - `policy/` vs `communication/`: `policy/` 는 허용/금지 floor 를 두고, `communication/` 은 그 안에서 tone 과 reply shape 를 정한다.
@@ -35,5 +49,6 @@
 ## 변경 원칙
 
 - policy floor 는 species 나 class overlay 에 따라 낮아지지 않는다.
+- policy floor 는 active profile, hero overlay, species default 보다 우선한다.
 - runtime 관측 결과를 `precedence.yaml`, `approval_matrix.yaml`, `scope_rules.yaml` 에 적지 않는다.
 - 제약이 늘어나면 `communication/`, `protocols/`, `runtime/` 과의 연결 규칙을 같은 변경 안에서 갱신한다.

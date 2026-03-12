@@ -1,6 +1,7 @@
 # Soulforge
 
-Soulforge는 `.agent`, `.agent_class`, `_workspaces` 세 축으로 정본 구조를 관리하는 설계 저장소다.
+Soulforge는 `.agent`, `.agent_class`, `_workspaces` 세 축을 중심으로 정본 구조를 관리하는 설계 저장소다.
+`.agent` 는 active identity 와 selection catalog 를 소유하고, `.agent_class` 는 canonical loadout asset 을 소유한다.
 
 ## 목적
 

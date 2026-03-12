@@ -2,79 +2,69 @@
 
 ## 목적
 
-- 이 문서는 `.agent/body.yaml` 과 `.agent/body_state.yaml` 의 기준 필드와 의미를 설명한다.
-- body 메타가 private operating system 의 어떤 기관과 section-owned YAML 메타를 추적하는지, 무엇을 추적하지 않는지 고정한다.
+- `.agent/body.yaml` 과 `.agent/body_state.yaml` 의 기준 필드와 의미를 설명한다.
+- active selection 과 catalog layer 가 body 메타에서 어떻게 드러나는지 고정한다.
 
 ## 범위
 
-- body 정적 정의와 body 현재 상태 스냅샷만 다룬다.
-- loadout 상태, mission 자료, host-local 임시 상태, raw transcript, actual runtime capability 관측값은 범위 밖이다.
-
-## 포함 대상
-
-- `body.yaml` 의 정적 기관 정의
-- `operating_context`, `identity_assets`, `operating_profiles`, `sections`, `future_expansion`
-- `body_state.yaml` 의 `path/present` 기반 동기화 스냅샷
-
-## 제외 대상
-
-- `.agent_class` installed/loadout 메타
-- `_workspaces` 현장 상태와 `.project_agent/`
-- `_teams/shared` 협업 상태
-- 별도 `.agent/export/` 폴더 정의
+- body 정적 정의와 body 상태 스냅샷만 다룬다.
+- canonical class asset 본문, generator 구현, runtime 임시 상태는 범위 밖이다.
 
 ## `body.yaml`
 
-- `body.yaml` 은 body 의 정적 정의를 둔다.
-- 어떤 본체 기관이 어떤 경로를 기준으로 배치되는지, 어떤 identity asset 과 operating profile 을 canonical 로 볼지 설명하는 기준 파일이다.
+`body.yaml` 은 body 의 정적 정의다.
 
-### `body.yaml` 필드
+### 핵심 필드
 
 | 필드 | 의미 |
 | --- | --- |
-| `id` | body 식별자 |
-| `name` | 사람이 읽는 body 이름 |
-| `version` | body 메타 버전 |
-| `description` | body 설명 |
-| `operating_context` | body operating context. 현재값은 `ide` |
-| `identity_assets.species_profile` | species profile 정본 경로 |
-| `identity_assets.trait_bindings` | trait binding 정본 경로 |
-| `operating_profiles.sessions` | sessions 운영 프로필. 현재값은 `continuity_first` |
-| `operating_profiles.memory` | memory 운영 프로필. 현재값은 `private_first` |
-| `operating_profiles.autonomic` | autonomic 운영 프로필. 현재값은 `low_noise` |
-| `sections.<section>.path` | body section 의 canonical 경로 |
-| `section_files.<section>` | section-owned YAML metadata file list |
-| `future_expansion.team_ready` | team 확장 준비 여부 |
-| `future_expansion.shared_memory_inside_body` | body 내부 shared memory 허용 여부. 현재값은 `false` |
+| `identity_assets.*` | active identity 와 trait binding 정본 경로 |
+| `active_selection.*` | active species / hero / class binding / profile ref |
+| `catalog_layer.path` | `.agent/catalog` root |
+| `catalog_layer.roots.identity` | identity selection catalog root |
+| `catalog_layer.roots.class` | class selection catalog root |
+| `operating_profiles.*` | sessions/memory/autonomic 와 profile semantics 요약 |
+| `sections.*.path` | body section canonical path |
+| `section_files.*` | section-owned YAML 정본 목록 |
+
+### 규칙
+
+1. `identity_assets` 는 active identity 파일을 가리킨다.
+2. `active_selection` 은 현재 적용 중인 species/hero/class/profile ref 를 요약한다.
+3. `catalog_layer` 는 UI selection layer 의 존재와 root 를 설명한다.
+4. `section_files` 는 catalog index 를 포함한 section-owned YAML 정본 목록이다.
+5. canonical class asset 본문은 `body.yaml` 에 직접 복제하지 않는다.
 
 ## `body_state.yaml`
 
-- `body_state.yaml` 은 body 의 현재 상태 스냅샷이다.
-- 같은 body 정의를 유지하더라도 실제 `.agent/` 구조와 동기화한 결과는 이 파일에서 확인한다.
+`body_state.yaml` 은 `sync-body-state` 로 재생성 가능한 body 상태 스냅샷이다.
 
-### `body_state.yaml` 필드
+### 핵심 필드
 
 | 필드 | 의미 |
 | --- | --- |
-| `body_id` | 연결된 body 식별자 |
-| `operating_context` | 현재 body operating context |
-| `sections.<section>.path` | section 실제 경로 |
-| `sections.<section>.present` | section 존재 여부 |
+| `sections.*.path` | 실제 section 경로 |
+| `sections.*.present` | section 존재 여부 |
+| `active_selection.*` | active species / hero / class / profile ref 요약 |
+| `catalog_layer.path` | catalog root 경로 |
+| `catalog_layer.present` | catalog root 존재 여부 |
+| `catalog_layer.roots.*.present` | identity/class catalog root 존재 여부 |
 | `operating_profiles.summary` | 현재 body operating profile 요약 |
-| `future_expansion` | team/shared 확장 요약 |
-| `status.summary` | 현재 스냅샷 요약 상태 |
-| `status.warnings` | 구조 불일치 경고 목록 |
+| `status.summary` | `ready` 또는 `degraded` |
+| `status.warnings` | missing section 경고 목록 |
+
+### 규칙
+
+1. `body_state.yaml` 은 저장소 추적 대상이지만 재생성 가능한 상태 파일이다.
+2. 관측하지 않은 runtime 임시 상태를 넣지 않는다.
+3. `active_selection` 은 선언된 ref 요약이지 live runtime fact 추측이 아니다.
+4. `catalog_layer.present` 는 실제 폴더 존재 여부만 반영한다.
+5. `body_state.yaml` 은 `.agent_class/**` canonical asset 세부 내용을 복제하지 않는다.
 
 ## 설계 규칙
 
 1. body 메타는 `.agent` 가 소유한다.
-2. `body_state.yaml` 은 구조와 메타에서 재생성 가능한 저장소 추적 상태 파일이다.
-3. host-local 상태와 실행 시점 임시 상태는 `body_state.yaml` 에 넣지 않는다.
-4. runtime 상태를 관측 없이 추정해 `body.yaml` 이나 `body_state.yaml` 에 적지 않는다.
-5. `section_files` 는 section-owned YAML 정본 파일 목록이지 runtime discovery 결과가 아니다.
-6. collaboration shared state 는 body 메타가 아니라 루트 `_teams/shared/` 확장 경계에서 다룬다.
-
-## 미래 확장 방향
-
-- runtime, memory, autonomic, artifacts 의 YAML file set 이 늘어나면 먼저 `section_files` 와 해당 README 를 갱신한다.
-- export 전달 포맷이 늘어나도 별도 `sections.export` 나 `.agent/export/` 폴더는 도입하지 않는다.
+2. profile 은 preferred semantics 이고 restrictive allowlist 가 아니다.
+3. hero 는 identity overlay 이며 class profile 로 해석하지 않는다.
+4. workflow required semantics 는 `.agent_class/workflows/` 와 `registry/active_class_binding.yaml` 에서 해석한다.
+5. future generator 는 catalog population concern 이므로 `body_state.yaml` 에 runtime job 상태를 넣지 않는다.

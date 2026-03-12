@@ -1,0 +1,12 @@
+catalog_id: soulforge.agent.catalog.class.knowledge
+catalog_kind: class_knowledge
+selection_state_source: ../../../registry/active_class_binding.yaml
+canonical_root_ref: ../../../../.agent_class/knowledge
+items:
+  - item_id: sample.knowledge.reference
+    display_name: Sample Reference Knowledge
+    source_ref: ../../../../.agent_class/knowledge/sample_knowledge_reference/module.yaml
+    summary: 최소 happy-path 검증용 샘플 지식
+    tags:
+      - sample
+      - knowledge

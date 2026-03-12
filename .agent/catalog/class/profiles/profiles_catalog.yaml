@@ -1,0 +1,13 @@
+catalog_id: soulforge.agent.catalog.class.profiles
+catalog_kind: class_profiles
+selection_state_source: ../../../registry/active_class_binding.yaml
+canonical_root_ref: ../../../../.agent_class/profiles
+items:
+  - item_id: soulforge.profile.default
+    display_name: Default Preference Mode
+    source_ref: ../../../../.agent_class/profiles/default.profile.yaml
+    summary: 명시적 workflow가 없을 때 검증 우선과 구조 우선을 먼저 제안하는 기본 profile
+    tags:
+      - default
+      - preference-mode
+      - non-restrictive

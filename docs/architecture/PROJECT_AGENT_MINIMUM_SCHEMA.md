@@ -66,10 +66,10 @@ project_name: Sample Project
 workspace_kind: company
 body_ref: .agent
 class_ref: .agent_class
-default_loadout: core
+default_loadout: soulforge.profile.default
 ```
 
-예시의 `default_loadout` 은 현재 단계에서는 `.agent_class/loadout.yaml.active_profile` 과 비교되는 기본 프로필 이름이다.
+예시의 `default_loadout` 은 현재 단계에서는 `.agent_class/loadout.yaml.active_profile` 과 비교되는 기본 profile id 다.
 
 ## 2. `capsule_bindings.yaml`
 

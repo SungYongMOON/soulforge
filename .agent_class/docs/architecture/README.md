@@ -8,6 +8,9 @@
 ## 포함 대상
 
 - `AGENT_CLASS_MODEL.md`
+- `CLASS_LOADOUT_MODEL.md`
+- `CLASS_PROFILE_MODEL.md`
+- `CLASS_VALIDATION_RULES.md`
 - 클래스 메타 계약, 설치와 로드아웃 개념 문서
 - installed module manifest 와 loadout resolve 계약 문서
 
@@ -26,4 +29,4 @@
 ## 상태
 
 - Stable
-- 현재 정본 문서는 `AGENT_CLASS_MODEL.md`, `CLASS_METADATA_CONTRACT.md`, `INSTALLATION_AND_LOADOUT_CONCEPT.md`, `MODULE_REFERENCE_CONTRACT.md` 다.
+- 현재 정본 문서는 `AGENT_CLASS_MODEL.md`, `CLASS_LOADOUT_MODEL.md`, `CLASS_PROFILE_MODEL.md`, `CLASS_VALIDATION_RULES.md`, `CLASS_METADATA_CONTRACT.md`, `INSTALLATION_AND_LOADOUT_CONCEPT.md`, `MODULE_REFERENCE_CONTRACT.md` 다.

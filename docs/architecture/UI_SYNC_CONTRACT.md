@@ -17,6 +17,7 @@
 
 - `.agent/body.yaml`
 - `.agent/body_state.yaml`
+- `.agent/catalog/**`
 - `.agent_class/class.yaml`
 - `.agent_class/loadout.yaml`
 - `.agent_class/**/module.yaml`
@@ -72,14 +73,15 @@ flowchart LR
 1. loadout 참조는 실제 installed module manifest catalog 로 resolve 되어야 한다.
 2. non-empty `equipped.*` 를 blanket WARN 으로 넘기지 않는다.
 3. `body_state.yaml` 은 실제 `.agent/` 구조와 일치해야 한다.
-4. class installed/loadout 에서 아래는 FAIL 이다: contract 경로 위반 manifest, duplicate id, path-like equipped reference.
-5. class installed/loadout 에서 아래는 FAIL 이다: kind mismatch, tool family mismatch, path-family mismatch, unknown equipped id.
-6. equipped workflow dependency 는 installed catalog 기준으로 resolve 하고, unknown dependency id 는 FAIL 이다.
-7. `.project_agent` resolve 는 `PROJECT_AGENT_RESOLVE_CONTRACT.md` 의 상태 분류와 파일별 규칙을 따른다.
-8. `unbound` 프로젝트는 FAIL 이 아니라 상태 분류 결과다.
-9. `invalid` 프로젝트는 FAIL 이다.
-10. workspace binding resolve 는 project 계약 수준까지만 다루고 `derive-ui-state` 는 그 결과를 renderer 입력 상태로만 정리한다.
-11. dangling reference 가 하나라도 있으면 UI patch 와 파생 상태 갱신을 진행하지 않는다.
+4. `body_state.yaml.active_selection`, `body_state.yaml.catalog_layer` 는 `body.yaml` 정의와 일치해야 한다.
+5. class installed/loadout 에서 아래는 FAIL 이다: contract 경로 위반 manifest, duplicate id, path-like equipped reference.
+6. class installed/loadout 에서 아래는 FAIL 이다: kind mismatch, tool family mismatch, path-family mismatch, unknown equipped id.
+7. equipped workflow dependency 는 installed catalog 기준으로 resolve 하고, unknown dependency id 는 FAIL 이다.
+8. `.project_agent` resolve 는 `PROJECT_AGENT_RESOLVE_CONTRACT.md` 의 상태 분류와 파일별 규칙을 따른다.
+9. `unbound` 프로젝트는 FAIL 이 아니라 상태 분류 결과다.
+10. `invalid` 프로젝트는 FAIL 이다.
+11. workspace binding resolve 는 project 계약 수준까지만 다루고 `derive-ui-state` 는 그 결과를 renderer 입력 상태로만 정리한다.
+12. dangling reference 가 하나라도 있으면 UI patch 와 파생 상태 갱신을 진행하지 않는다.
 
 ## derive 규칙
 

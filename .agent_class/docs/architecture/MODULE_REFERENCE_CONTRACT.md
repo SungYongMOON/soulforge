@@ -30,6 +30,7 @@ flowchart TD
 - installed module 로 인정하는 기준은 `module.yaml` 존재 여부다.
 - `README.md`, 임시 파일, 예시 텍스트는 installed module 로 취급하지 않는다.
 - `loadout.equipped.*` 는 경로가 아니라 module id 문자열 목록이다.
+- profile 은 이 계약의 installed module kind 가 아니며 `.agent_class/profiles/` canonical asset 으로 별도 관리한다.
 - resolve 대상 kind 는 `skill`, `tool`, `workflow`, `knowledge` 네 종류다.
 - `class.yaml.modules.*` 는 각 installed library root 를 가리키는 class 기준 경로다.
 - module id 는 사람이 읽기 쉬운 이름이 아니라 계약용 식별자다.
@@ -129,4 +130,5 @@ tool family 는 아래 네 값만 허용한다.
 - 새 필드는 먼저 이 문서를 갱신한 뒤 추가한다.
 - UI 전용 장식 필드는 아직 추가하지 않는다.
 - runtime/host-local 상태는 module manifest 에 넣지 않는다.
+- profile preferred semantics 와 selection catalog 는 이 문서가 아니라 `CLASS_PROFILE_MODEL.md`, `.agent/catalog/class/**` 에서 다룬다.
 - 새로운 module kind 를 추가할 때는 경로 규약, 필수 필드, resolve 규칙, validate 규칙을 함께 갱신한다.

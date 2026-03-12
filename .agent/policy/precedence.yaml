@@ -1,23 +1,32 @@
 policy_id: soulforge.policy.precedence
-model: species_free_floor
+model: species_free_floor_with_selection_stack
 layers:
   - layer_id: policy.floor
     rank: 10
     owner_section: policy
-    description: species, class, workspace 이전에 적용되는 floor
-  - layer_id: identity.species
+    description: 저장소 규칙과 policy floor
+  - layer_id: task.directive
     rank: 20
-    owner_section: identity
-    description: 현재 baseline 은 species only
-  - layer_id: class.binding
+    owner_section: protocols
+    description: 현재 작업의 명시 지시
+  - layer_id: workflow.required
     rank: 30
     owner_section: registry
-    applies_when: active_class_binding_declared
-  - layer_id: workspace.binding
+    description: 선택된 workflow 의 required
+  - layer_id: profile.preferred
     rank: 40
     owner_section: registry
-    applies_when: active_workspace_binding_declared
-  - layer_id: session.continuity
+    description: active profile 의 preferred
+  - layer_id: hero.bias
     rank: 50
-    owner_section: sessions
-    description: continuity 는 floor 를 보조하지만 override 하지 않음
+    owner_section: identity
+    description: active hero overlay 의 bias
+  - layer_id: species.default
+    rank: 60
+    owner_section: identity
+    description: durable species default
+notes:
+  - workflow is required
+  - profile is preferred, not restrictive
+  - hero is identity overlay, not class profile
+  - species is the durable default

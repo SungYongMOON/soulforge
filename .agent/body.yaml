@@ -1,18 +1,34 @@
 id: soulforge-main-body
 name: Soulforge Main Body
-version: 0.1.0
-description: Durable agent unit for mission-oriented work
+version: 0.2.0
+description: Durable agent unit for mission-oriented work with active identity and selection catalogs
 operating_context: ide
 identity_assets:
   species_profile: .agent/identity/species_profile.yaml
+  hero_imprint: .agent/identity/hero_imprint.yaml
+  identity_manifest: .agent/identity/identity_manifest.yaml
   trait_bindings: .agent/registry/trait_bindings.yaml
+active_selection:
+  species_ref: .agent/identity/species_profile.yaml
+  hero_ref: .agent/identity/hero_imprint.yaml
+  hero_optional: true
+  active_class_binding_ref: .agent/registry/active_class_binding.yaml
+  active_profile_ref: .agent_class/profiles/default.profile.yaml
+catalog_layer:
+  path: .agent/catalog
+  roots:
+    identity: .agent/catalog/identity
+    class: .agent/catalog/class
 operating_profiles:
   sessions: continuity_first
   memory: private_first
   autonomic: low_noise
+  class_profile_semantics: preferred_not_restrictive
 sections:
   identity:
     path: .agent/identity
+  catalog:
+    path: .agent/catalog
   registry:
     path: .agent/registry
   policy:
@@ -34,7 +50,21 @@ sections:
 section_files:
   identity:
     - .agent/identity/species_profile.yaml
+    - .agent/identity/hero_imprint.yaml
     - .agent/identity/identity_manifest.yaml
+  catalog:
+    - .agent/catalog/identity/species/index.yaml
+    - .agent/catalog/identity/species/soulforge-default.species.yaml
+    - .agent/catalog/identity/heroes/index.yaml
+    - .agent/catalog/identity/heroes/soulforge_default/craft_sage.hero.yaml
+    - .agent/catalog/class/profiles/profiles_catalog.yaml
+    - .agent/catalog/class/skills/skills_catalog.yaml
+    - .agent/catalog/class/tools/adapters_catalog.yaml
+    - .agent/catalog/class/tools/connectors_catalog.yaml
+    - .agent/catalog/class/tools/local_cli_catalog.yaml
+    - .agent/catalog/class/tools/mcp_catalog.yaml
+    - .agent/catalog/class/knowledge/knowledge_catalog.yaml
+    - .agent/catalog/class/workflows/workflows_catalog.yaml
   registry:
     - .agent/registry/active_class_binding.yaml
     - .agent/registry/workspace_binding.yaml
@@ -63,3 +93,4 @@ section_files:
 future_expansion:
   team_ready: true
   shared_memory_inside_body: false
+  teams_layer_reserved: true

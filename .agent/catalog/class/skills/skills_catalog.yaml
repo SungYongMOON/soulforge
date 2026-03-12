@@ -1,0 +1,12 @@
+catalog_id: soulforge.agent.catalog.class.skills
+catalog_kind: class_skills
+selection_state_source: ../../../registry/active_class_binding.yaml
+canonical_root_ref: ../../../../.agent_class/skills
+items:
+  - item_id: sample.skill.echo
+    display_name: Sample Echo Skill
+    source_ref: ../../../../.agent_class/skills/sample_skill_echo/module.yaml
+    summary: 최소 happy-path 검증용 샘플 스킬
+    tags:
+      - sample
+      - skill

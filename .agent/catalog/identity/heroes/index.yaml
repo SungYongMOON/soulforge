@@ -1,0 +1,13 @@
+catalog_id: soulforge.agent.catalog.identity.heroes
+catalog_kind: hero_candidates
+selection_state_source: ../../../identity/hero_imprint.yaml
+items:
+  - item_id: soulforge.hero.craft_sage
+    display_name: Craft Sage Imprint
+    species_id: soulforge.species.default
+    source_ref: soulforge_default/craft_sage.hero.yaml
+    summary: 구조화, 검증 우선, pre-mortem 성향을 강화하는 motif imprint
+    tags:
+      - motif
+      - overlay
+      - structured

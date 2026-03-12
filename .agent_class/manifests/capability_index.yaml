@@ -1,0 +1,18 @@
+index_id: soulforge.class.capability_index
+class_ref: ../class.yaml
+entries:
+  - item_id: soulforge.profile.default
+    kind: profile
+    source_ref: ../profiles/default.profile.yaml
+  - item_id: sample.skill.echo
+    kind: skill
+    source_ref: ../skills/sample_skill_echo/module.yaml
+  - item_id: sample.tool.local_cli.status
+    kind: tool
+    source_ref: ../tools/local_cli/sample_tool_status/module.yaml
+  - item_id: sample.knowledge.reference
+    kind: knowledge
+    source_ref: ../knowledge/sample_knowledge_reference/module.yaml
+  - item_id: sample.workflow.briefing
+    kind: workflow
+    source_ref: ../workflows/sample_workflow_briefing/module.yaml

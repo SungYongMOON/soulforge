@@ -1,15 +1,28 @@
 binding_id: soulforge.registry.active_class
 body_ref: ../body.yaml
-binding_mode: species_only
+binding_mode: active_loadout
 binding_required: false
 active_binding:
-  class_ref: null
-  loadout_ref: null
-  profile: null
+  selected: true
+  class_ref: ../../.agent_class/class.yaml
+  loadout_ref: ../../.agent_class/loadout.yaml
+  active_profile_id: soulforge.profile.default
+  active_profile_ref: ../../.agent_class/profiles/default.profile.yaml
+  install_semantics: installed_assets_available_by_default
+  profile_semantics: preferred_not_restrictive
+  workflow_semantics: required_overrides_profile_preference
+installed_assets:
+  canonical_root_ref: ../../.agent_class
+  all_installed_assets_available: true
+  disabled_by_profile: false
+  required_defined_by_workflow: true
+  preferred_defined_by_profile: true
 candidates:
   - class_ref: ../../.agent_class/class.yaml
     loadout_ref: ../../.agent_class/loadout.yaml
-    default_profile: core
-    selected: false
+    default_profile_id: soulforge.profile.default
+    default_profile_ref: ../../.agent_class/profiles/default.profile.yaml
+    selected: true
 notes:
-  - species_only baseline keeps class binding optional and currently unset
+  - profile is preferred, not restrictive
+  - workflow required semantics override profile preferences when both are present

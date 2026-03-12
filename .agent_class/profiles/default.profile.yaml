@@ -1,0 +1,19 @@
+profile_id: soulforge.profile.default
+display_name: Default Preference Mode
+summary: 명시적 workflow가 없을 때 검증 우선과 구조 우선을 먼저 제안하는 기본 profile
+preferred:
+  workflows:
+    - sample.workflow.briefing
+  skills:
+    - sample.skill.echo
+  tools:
+    - sample.tool.local_cli.status
+  knowledge:
+    - sample.knowledge.reference
+behavior:
+  verify_first: true
+  report_style: concise_structured
+non_restrictive: true
+notes:
+  - profile is preferred, not restrictive
+  - installed assets remain available unless a workflow explicitly requires a narrower set

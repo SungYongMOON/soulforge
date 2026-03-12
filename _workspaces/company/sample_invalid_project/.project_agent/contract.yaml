@@ -3,5 +3,4 @@ project_name: Sample Invalid Project
 workspace_kind: company
 body_ref: .agent
 class_ref: .agent_class
-default_loadout: core
-
+default_loadout: soulforge.profile.default

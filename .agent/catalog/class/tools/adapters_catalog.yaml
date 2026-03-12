@@ -1,0 +1,6 @@
+catalog_id: soulforge.agent.catalog.class.tools.adapters
+catalog_kind: class_tools
+tool_family: adapters
+selection_state_source: ../../../registry/active_class_binding.yaml
+canonical_root_ref: ../../../../.agent_class/tools/adapters
+items: []

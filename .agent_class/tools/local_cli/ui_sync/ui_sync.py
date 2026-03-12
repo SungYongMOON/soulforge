@@ -20,7 +20,15 @@ BODY_YAML = AGENT_ROOT / "body.yaml"
 BODY_STATE_YAML = AGENT_ROOT / "body_state.yaml"
 CLASS_YAML = CLASS_ROOT / "class.yaml"
 LOADOUT_YAML = CLASS_ROOT / "loadout.yaml"
-REQUIRED_BODY_STATE_KEYS = ("body_id", "operating_context", "sections", "operating_profiles", "status")
+REQUIRED_BODY_STATE_KEYS = (
+    "body_id",
+    "operating_context",
+    "sections",
+    "active_selection",
+    "catalog_layer",
+    "operating_profiles",
+    "status",
+)
 MODULE_LIBRARY_KEYS = ("skills", "tools", "workflows", "knowledge")
 REQUIRED_MODULE_KEYS = MODULE_LIBRARY_KEYS + ("docs",)
 REQUIRED_EQUIPPED_KEYS = MODULE_LIBRARY_KEYS
@@ -439,6 +447,14 @@ def make_body_state(body_data: dict[str, Any]) -> dict[str, Any]:
     if not isinstance(operating_profiles, dict):
         raise YamlParseError(f"{BODY_YAML}: operating_profiles must be a mapping")
 
+    active_selection = body_data.get("active_selection")
+    if not isinstance(active_selection, dict):
+        raise YamlParseError(f"{BODY_YAML}: active_selection must be a mapping")
+
+    catalog_layer = body_data.get("catalog_layer")
+    if not isinstance(catalog_layer, dict):
+        raise YamlParseError(f"{BODY_YAML}: catalog_layer must be a mapping")
+
     future_expansion = body_data.get("future_expansion", {})
     if not isinstance(future_expansion, dict):
         raise YamlParseError(f"{BODY_YAML}: future_expansion must be a mapping")
@@ -464,6 +480,8 @@ def make_body_state(body_data: dict[str, Any]) -> dict[str, Any]:
         "body_id": body_id,
         "operating_context": operating_context,
         "sections": state_sections,
+        "active_selection": active_selection,
+        "catalog_layer": build_catalog_layer_state(catalog_layer),
         "operating_profiles": {"summary": operating_profiles},
         "future_expansion": future_expansion,
         "status": {
@@ -495,6 +513,31 @@ def get_body_section_path(section_value: Any) -> str | None:
         if isinstance(path_value, str) and path_value:
             return path_value
     return None
+
+
+def build_catalog_layer_state(catalog_layer: dict[str, Any]) -> dict[str, Any]:
+    relative_path = catalog_layer.get("path")
+    if not isinstance(relative_path, str) or not relative_path:
+        raise YamlParseError(f"{BODY_YAML}: catalog_layer.path must be a non-empty string")
+
+    roots = catalog_layer.get("roots")
+    if not isinstance(roots, dict):
+        raise YamlParseError(f"{BODY_YAML}: catalog_layer.roots must be a mapping")
+
+    state_roots: dict[str, dict[str, Any]] = {}
+    for root_name, root_path in roots.items():
+        if not isinstance(root_path, str) or not root_path:
+            raise YamlParseError(f"{BODY_YAML}: catalog_layer.roots.{root_name} must be a non-empty string")
+        state_roots[root_name] = {
+            "path": root_path,
+            "present": resolve_body_section_path(root_path).is_dir(),
+        }
+
+    return {
+        "path": relative_path,
+        "present": resolve_body_section_path(relative_path).is_dir(),
+        "roots": state_roots,
+    }
 
 
 def resolve_body_section_path(path_value: str) -> Path:
@@ -1334,6 +1377,14 @@ def validate_body_state(
         add(findings, "PASS", "body_state_warnings", "body_state warnings match expected missing-section warnings")
     else:
         add(findings, "FAIL", "body_state_warnings", "body_state warnings do not match expected missing-section warnings")
+
+    for key in ("active_selection", "catalog_layer"):
+        expected_value = expected_body_state.get(key) if expected_body_state else None
+        actual_value = body_state_data.get(key)
+        if actual_value == expected_value:
+            add(findings, "PASS", f"body_state_{key}", f"body_state {key} matches body definition")
+        else:
+            add(findings, "FAIL", f"body_state_{key}", f"body_state {key} does not match body definition")
 
 
 def validate_class_modules(class_data: dict[str, Any], findings: list[Finding]) -> dict[str, Path]:

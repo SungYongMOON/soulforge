@@ -4,6 +4,9 @@ sections:
   identity:
     path: .agent/identity
     present: true
+  catalog:
+    path: .agent/catalog
+    present: true
   registry:
     path: .agent/registry
     present: true
@@ -31,14 +34,32 @@ sections:
   artifacts:
     path: .agent/artifacts
     present: true
+active_selection:
+  species_ref: .agent/identity/species_profile.yaml
+  hero_ref: .agent/identity/hero_imprint.yaml
+  hero_optional: true
+  active_class_binding_ref: .agent/registry/active_class_binding.yaml
+  active_profile_ref: .agent_class/profiles/default.profile.yaml
+catalog_layer:
+  path: .agent/catalog
+  present: true
+  roots:
+    identity:
+      path: .agent/catalog/identity
+      present: true
+    class:
+      path: .agent/catalog/class
+      present: true
 operating_profiles:
   summary:
     sessions: continuity_first
     memory: private_first
     autonomic: low_noise
+    class_profile_semantics: preferred_not_restrictive
 future_expansion:
   team_ready: true
   shared_memory_inside_body: false
+  teams_layer_reserved: true
 status:
   summary: ready
   warnings: []
