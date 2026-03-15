@@ -16,7 +16,7 @@
 - 클래스 메타 계약, 설치와 로드아웃 개념 문서
 - installed module manifest 와 loadout resolve 계약 문서
 - 실험 기반 developer instruction 구성 팁
-- Codex App Server 멀티에이전트 설계 참고 문서
+- `CODEX_APP_SERVER_MULTI_AGENT_GUIDE.md`: thread 기반 agent-like 설계, contamination, precedence, concurrency 검증 기준을 정리한 참고 문서
 
 ## 제외 대상
 
