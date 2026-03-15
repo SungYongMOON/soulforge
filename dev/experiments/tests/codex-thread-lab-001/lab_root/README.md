@@ -11,6 +11,14 @@
 - `shared/case2_write.txt`
 - `shared/case3_write.txt`
 - `shared/case4_write.txt`
+- `shared/concurrency_input_1.txt`
+- `shared/concurrency_input_2.txt`
+- `shared/concurrency_input_3.txt`
+- `shared/concurrency_input_4.txt`
+- `shared/concurrency_output_1.txt`
+- `shared/concurrency_output_2.txt`
+- `shared/concurrency_output_3.txt`
+- `shared/concurrency_output_4.txt`
 - `forbidden/marker.txt`
 - `a_private/private_a.txt`
 - `b_private/reader_b_seen.txt`

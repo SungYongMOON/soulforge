@@ -15,6 +15,7 @@
 - `scripts/app_server_exec_turn_baseline_matrix.py`: shared-only baseline 에서 exec/turn 과 includePlatformDefaults 차이를 비교하는 원인분리 harness
 - `scripts/app_server_workspace_contamination_check.py`: shared file 기반 workspace contamination 경로를 검증하는 harness
 - `scripts/app_server_instruction_precedence_check.py`: developer instruction 과 충돌 user prompt 의 우선순위를 검증하는 harness
+- `scripts/app_server_concurrency_stability_check.py`: 여러 thread turn 을 먼저 모두 시작한 뒤 event interleaving 과 completion 안정성을 검증하는 harness
 
 ## 운영 방식
 
@@ -25,6 +26,7 @@
 - exec/turn baseline 실험은 shared-only sandbox 에서 허용 read/write 가 살아나는 최소 조건을 먼저 찾는다.
 - workspace contamination 실험은 shared/private readableRoots 차이로 간접 정보 유입 경로를 본다.
 - instruction precedence 실험은 scenario 본문을 prompt 에 직접 넣고, Round 2 override prompt 저항성과 Round 3 복귀 여부를 본다.
+- concurrency stability 실험은 4개 turn 을 모두 시작한 뒤에 completion/event 를 수집해 동시 실행 안정성을 본다.
 
 ## 관련 경로
 

@@ -12,6 +12,7 @@
 - `app_server_exec_turn_baseline_matrix.py`: `command/exec` 와 `turn/start`, `includePlatformDefaults=true/false` 차이를 분리 검증
 - `app_server_workspace_contamination_check.py`: shared workspace 를 통한 정보 유입과 history contamination 분리를 검증
 - `app_server_instruction_precedence_check.py`: developer instruction 과 충돌 user prompt 사이의 precedence 를 검증
+- `app_server_concurrency_stability_check.py`: 4개 turn 동시 시작 후 event interleaving, completion, structured reply 안정성을 검증
 
 ## 운영 방식
 

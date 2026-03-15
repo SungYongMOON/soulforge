@@ -46,5 +46,11 @@
 - `precedence_thread_1_read.json` ~ `precedence_thread_3_read.json`
 - `instruction_precedence_eval.json`
 - `INSTRUCTION_PRECEDENCE_REPORT.md`
+- `concurrency_raw_messages.jsonl`
+- `concurrency_app_server_stderr.log`
+- `concurrency_turn_1_reply.txt` ~ `concurrency_turn_4_reply.txt`
+- `concurrency_thread_1_read.json` ~ `concurrency_thread_4_read.json`
+- `concurrency_stability_eval.json`
+- `CONCURRENCY_STABILITY_REPORT.md`
 
 실험 harness 가 매 실행 시 내용을 재초기화한다.
