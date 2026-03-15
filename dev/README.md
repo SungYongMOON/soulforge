@@ -9,6 +9,7 @@
 
 - `log/` 아래의 개발 이력 문서
 - `plan/` 아래의 개발 계획 문서
+- `experiments/` 아래의 폐기 가능한 실험 harness 와 전용 lab
 - closeout 성격의 회고 문서와 변경 기록
 
 ## 제외 대상
@@ -22,9 +23,10 @@
  - [docs/README.md](../docs/README.md)
  - [dev/log/README.md](log/README.md)
  - [dev/plan/README.md](plan/README.md)
+ - [dev/experiments/README.md](experiments/README.md)
 
 ## 상태
 
 - Draft
-- 현재는 `log/` 와 `plan/` 아래에서 저장소 공용 개발 이력과 계획 문서를 관리한다.
+- 현재는 `log/`, `plan/`, `experiments/` 아래에서 저장소 공용 개발 이력, 계획, 폐기 가능한 실험 harness 를 관리한다.
 - 최근 변경 이력은 `.agent` 최종 구조 정합화와 root 문서 정본 기준 정리를 포함한다.

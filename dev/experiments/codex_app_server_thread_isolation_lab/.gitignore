@@ -1,0 +1,8 @@
+artifacts/*
+!artifacts/README.md
+
+lab_root/*
+!lab_root/README.md
+
+scripts/__pycache__/
+scripts/*.pyc
