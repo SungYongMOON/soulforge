@@ -16,7 +16,7 @@
 - `DEVELOPER_INSTRUCTION_TIPS.md`
 - 클래스 메타 계약, 설치와 로드아웃 개념 문서
 - installed module manifest 와 loadout resolve 계약 문서
-- Codex App Server thread / multi-instance 설계 참고 문서
+- Codex App Server 1EA thread / 2EA multi-instance 설계 참고 문서
 - 실험 기반 developer instruction 구성 팁
 
 ## 제외 대상

@@ -85,11 +85,12 @@
 ### separate workspace 실험 요약
 
 - `two_instance_separate_workspace_eval.json` 기준 `PASS`, `blocked=false`
+- decision summary 기준 `separate_local_baseline_ok=true`
 - local baseline 성공
   A/B 둘 다 completed, JSON parse 성공, local input text 일치, output file 내용 일치
 - history contamination 없음
 - parallel dispatch attempted, overlap_window_observed 둘 다 true
-- cross-workspace probe 는 관측상 blocked
+- cross-workspace probe 는 decision summary 기준 관측상 blocked
 
 ### shared workspace 실험 요약
 
@@ -132,6 +133,7 @@ throughput 향상은 있을 수 있지만, 현재 artifact 기준 1차 이유로
 - process split 의 실익은 throughput 하나가 아니라 failure domain, event stream, 해석 가능성에 있었다.
 - separate workspace 실험은 process 분리 baseline 과 해석 가능성을 보여줬다.
 - shared workspace 실험은 process 분리 후에도 shared contamination 이 남을 수 있음을 보여줬다.
+- 이번 run 기준 `parallel_dispatch_observed=true` 였고, separate workspace 에서는 overlap 도 함께 관측됐다.
 - 따라서 process 분리와 workspace 공유는 서로 다른 축임이 확인됐다.
 
 ## process split 으로도 남는 리스크

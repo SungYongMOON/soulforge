@@ -41,10 +41,10 @@ throughput 향상은 있을 수 있지만, 현재 artifact 기준 1차 실익으
 - `separate_local_baseline_ok = true`
 - `history contamination 없음`
 - `parallel dispatch / overlap 관측`
-- cross-workspace probe 는 관측상 blocked
+- cross-workspace probe 는 decision summary 기준 관측상 blocked
 
 해석:
-- process 분리 baseline 은 현재 build 에서 해석 가능했다.
+- process 분리 baseline 은 이번 run 기준 현재 build 에서 해석 가능했다.
 - 두 server / 두 workspace 조합은 local read/write, reply, host-side verification 을 안정적으로 분리해서 읽는 데 도움이 됐다.
 
 ## shared workspace 실험에서 관측된 것

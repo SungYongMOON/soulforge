@@ -63,7 +63,7 @@
    process split 은 failure domain, event stream, history/session 해석을 위한 축이고, role/style source 는 여전히 `developer instruction` 이다.
 
 6. 2EA 결과는 process 분리만으로 contamination 이 자동 해결되지 않음을 보여줬다.
-   `shared_workspace_contamination_via_shared=true`, `shared_private_contamination_blocked=false` 였다.
+   이번 run 기준 `shared_workspace_contamination_via_shared=true`, `shared_private_contamination_blocked=false` 였다.
 
 ## 아직 미해결인 가설
 
@@ -72,6 +72,8 @@
 2. build 가 바뀌면 같은 충돌 prompt 에 대한 저항성과 structured reply 안정성이 달라질 수 있다.
 
 3. cross-instance 조건에서 precedence 와 concurrency 가 1EA 와 다르게 흔들리는지는 추가 실험이 더 필요하다.
+
+4. guide 문서로 승격할 만큼 결과는 충분했지만, `run_cross_instance_forbidden_probe` 는 여전히 미해결 항목으로 남아 있다.
 
 ## agent 구성 시 바로 쓰는 팁
 
