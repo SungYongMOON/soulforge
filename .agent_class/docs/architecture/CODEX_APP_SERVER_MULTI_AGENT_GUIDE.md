@@ -69,6 +69,51 @@
 10. `PASS`, `FAIL`, `BLOCKED`, `INCONCLUSIVE` 를 분리한다.
    응답 미완료나 timeout 은 동작 실패가 아니라 수집 실패일 수 있다.
 
+## workflow가 오케스트레이터일 때 넣어야 할 책임
+
+1. lane 배치 책임
+   어떤 작업을 어떤 thread 에 보낼지, 어떤 thread 를 새로 만들지, 어떤 thread 를 재사용할지 workflow 가 결정해야 한다.
+
+2. role source 분리 책임
+   안정적으로 유지되어야 하는 역할, 우선순위, 필수 섹션은 `developer instruction` 에 두고, 이번 turn 에만 바뀌는 작업 내용은 user prompt 에 둔다.
+   현재 precedence 실험에서는 이 분리가 가장 안정적으로 동작했다.
+
+3. 입력 계약 책임
+   worker 에 넘기는 prompt, output schema, 기대 산출물, 기대 파일 경로를 workflow 가 명시해야 한다.
+   Codex App Server 는 worker/runtime 이지, 상위 작업 계약을 스스로 설계해 주는 계층은 아니다.
+
+4. handoff 경로 통제 책임
+   어떤 정보가 history 로만 가야 하는지, 어떤 정보가 artifact ref 로 가야 하는지, 어떤 정보는 shared workspace 로 보내면 안 되는지 workflow 가 정해야 한다.
+   현재 workspace contamination 실험에서는 shared relay 경로가 실제 오염 경로가 될 수 있음을 보였다.
+
+5. sandbox 배치 책임
+   thread 또는 turn 별 readableRoots, writableRoots, cwd, networkAccess 를 workflow 가 작업 성격에 맞게 정해야 한다.
+   baseline 성공과 경계 보장은 별개였으므로, 허용 작업 성공만 보고 안전하다고 판단하면 안 된다.
+
+6. 상태기계 책임
+   `queued / running / completed / failed / blocked / retrying` 같은 상위 상태는 workflow 가 가져가야 한다.
+   app-server turn 완료 여부만으로는 handoff, 재시도, 후속 단계 조건을 충분히 표현하지 못한다.
+
+7. timeout / retry 책임
+   turn timeout, partial completion, `thread/read` 복구, 재시도 기준은 workflow 가 소유해야 한다.
+   현재 실험에서도 response 수집과 evaluator 해석은 상위 harness 가 맡아야 했다.
+
+8. host-side verification 책임
+   structured reply 만 믿지 말고, output file, artifact, expected token, expected field 를 host 쪽에서 다시 검증해야 한다.
+   현재 baseline, workspace, concurrency 실험은 모두 host-side verification 을 같이 두었을 때 해석이 안정적이었다.
+
+9. contamination 감시 책임
+   workflow 는 history contamination 과 workspace contamination 을 별도 신호로 수집해야 한다.
+   history 가 깨끗해도 shared workspace 를 통한 간접 오염은 발생할 수 있다.
+
+10. concurrency 제어 책임
+   fan-out 개수, 동시 turn 시작 방식, turn id 추적, event interleaving 허용 범위, starvation 기준은 workflow 가 소유해야 한다.
+   현재 concurrency 실험은 4-turn 동시 시작까지는 안정적이었지만, 더 큰 병렬성은 아직 workflow 차원에서 제한을 두는 편이 안전하다.
+
+11. 감사 추적 책임
+   raw event log, stderr, final reply, `thread/read`, host-side verification 결과를 workflow 가 묶어서 남겨야 한다.
+   그래야 `FAIL` 과 `BLOCKED`, evaluator false negative, precedence 오판을 나중에 분리할 수 있다.
+
 ## 현재 build 계열에서 관측된 항목
 
 ### A. persona 실험
