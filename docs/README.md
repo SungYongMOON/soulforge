@@ -10,7 +10,7 @@
 - 저장소 전체 관점의 설명 문서
 - `architecture/` 아래의 구조 원칙, 목표 트리, 소유 규칙
 - `ui/` 아래의 relocation 문서
-- UI source map, UI sync contract, UI derived state contract 같은 저장소 공용 파생 규칙
+- UI source map, UI sync contract, UI derived state contract, control center model 같은 저장소 공용 UI 규칙
 
 ## 제외 대상
 
@@ -33,4 +33,5 @@
 - `docs/architecture/` 아래는 `foundation/`, `workspace/`, `ui/`, `lifecycle/` 네 묶음으로 정리한다.
 - workspace 공통 resolve 계약은 `docs/architecture/workspace/PROJECT_AGENT_RESOLVE_CONTRACT.md` 에서 관리한다.
 - derived state 공통 계약은 `docs/architecture/ui/UI_DERIVED_STATE_CONTRACT.md` 에서 관리한다.
+- file-based editing shell 기준은 `docs/architecture/ui/UI_CONTROL_CENTER_MODEL.md` 에서 관리한다.
 - renderer consumer 문서군 정본은 `ui-workspace/docs/` 에서 관리하고, `docs/ui/` 는 relocation 안내만 유지한다.

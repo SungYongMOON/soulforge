@@ -26,6 +26,16 @@
 - profile 은 explicit workflow 가 없을 때 동작하는 default `preferred` mode 다.
 - policy 는 species/hero/profile 위에 있는 species-free floor 다.
 
+## 현재 고정 결정
+
+- Soulforge의 기본 축은 `.agent`, `.agent_class`, `_workspaces` 다.
+- `.agent` 는 durable agent unit 이며 private operating system 이다.
+- `.agent_class` 는 reusable loadout template 이다.
+- `_workspaces` 는 mission site 다.
+- `_teams` 는 미래 협업 계층으로 예약만 한다.
+- hero 와 profile 은 installed asset 을 disable 하지 않는다.
+- `.agent/catalog/class/**` 는 `.agent_class/**` 를 가리키는 selection index 다.
+
 ## 우선순위
 
 1. 저장소 규칙과 policy floor

@@ -11,6 +11,7 @@
 - local selection state
 - renderer structural CSS
 - theme-contract driven theme hook consumption
+- theme-driven glyph and character plate presentation
 
 ## 제외 대상
 

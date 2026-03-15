@@ -8,10 +8,11 @@
 
 ## 구성
 
-- `foundation/`: 저장소 목적, 목표 구조, 문서 소유 기준, 현재 결정, 세계관, 마이그레이션, body 확정 보고서
+- `foundation/`: 저장소 목적, 목표 구조, 문서 소유 기준, 세계관 같은 활성 기준 문서
 - `workspace/`: `_workspaces` 와 `.project_agent` 공용 구조/resolve 계약
-- `ui/`: root-owned UI source, sync, derived state 계약
+- `ui/`: root-owned UI source, sync, derived state, control center 편집 모델 계약
 - `lifecycle/`: v1 closeout, limitation, 운영 경고 문서
+- `archive/`: 과거 보고서, 초기 이행 참고, 활성 정본에서 내려온 배경 문서
 
 ## 제외 대상
 
@@ -27,6 +28,7 @@
 4. [`workspace/README.md`](workspace/README.md)
 5. [`ui/README.md`](ui/README.md)
 6. [`lifecycle/README.md`](lifecycle/README.md)
+7. 필요 시 [`archive/README.md`](archive/README.md)
 
 ## 관련 경로
 
@@ -36,6 +38,7 @@
 - [`workspace/README.md`](workspace/README.md)
 - [`ui/README.md`](ui/README.md)
 - [`lifecycle/README.md`](lifecycle/README.md)
+- [`archive/README.md`](archive/README.md)
 - [`.agent/docs/architecture/AGENT_BODY_MODEL.md`](../../.agent/docs/architecture/AGENT_BODY_MODEL.md)
 - [`.agent_class/docs/architecture/README.md`](../../.agent_class/docs/architecture/README.md)
 - [`.agent_class/docs/architecture/MODULE_REFERENCE_CONTRACT.md`](../../.agent_class/docs/architecture/MODULE_REFERENCE_CONTRACT.md)
@@ -46,5 +49,6 @@
 - Stable
 - 저장소 공용 아키텍처 문서의 정본 위치다.
 - root 에는 index 역할의 `README.md` 만 두고, 실제 문서는 하위 묶음에서 owner 성격별로 읽게 한다.
+- manual 기준선으로 쓰는 활성 문서와, 배경 설명용 archive 문서를 분리한다.
 - renderer consumer model, selection model, theme plan 정본은 계속 `ui-workspace/docs/` 에서 분리 관리한다.
 - class installed/loadout 세부 계약은 class owner 문서 `MODULE_REFERENCE_CONTRACT.md` 를 참조한다.

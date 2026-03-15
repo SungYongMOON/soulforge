@@ -10,6 +10,7 @@
 - `UI_SOURCE_MAP.md`
 - `UI_SYNC_CONTRACT.md`
 - `UI_DERIVED_STATE_CONTRACT.md`
+- `UI_CONTROL_CENTER_MODEL.md`
 
 ## 제외 대상
 
@@ -23,9 +24,11 @@
 - [`UI_SOURCE_MAP.md`](UI_SOURCE_MAP.md)
 - [`UI_SYNC_CONTRACT.md`](UI_SYNC_CONTRACT.md)
 - [`UI_DERIVED_STATE_CONTRACT.md`](UI_DERIVED_STATE_CONTRACT.md)
+- [`UI_CONTROL_CENTER_MODEL.md`](UI_CONTROL_CENTER_MODEL.md)
 - [`../../../ui-workspace/docs/README.md`](../../../ui-workspace/docs/README.md)
 
 ## 상태
 
 - Stable
 - root-owned source/sync/derive 계약만 유지하고 renderer consumer 문서는 `ui-workspace/docs/` 로 분리한다.
+- file-based editing shell 과 저장 액션 모델은 `UI_CONTROL_CENTER_MODEL.md` 에서 관리한다.

@@ -250,6 +250,13 @@
   align-items: flex-start;
 }
 
+.asset-card__lead {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  min-width: 0;
+}
+
 .silhouette-plate {
   height: 200px;
   border-radius: 20px;
@@ -260,11 +267,33 @@
   overflow: hidden;
 }
 
+.silhouette-plate::before,
+.silhouette-plate::after {
+  content: "";
+  position: absolute;
+  inset: 0;
+  pointer-events: none;
+}
+
+.silhouette-plate::before {
+  background-image: var(--sf-character-plate-image);
+  background-position: var(--sf-character-plate-position);
+  background-repeat: no-repeat;
+  background-size: var(--sf-character-plate-size);
+  opacity: var(--sf-character-plate-opacity);
+}
+
+.silhouette-plate::after {
+  background: var(--sf-character-plate-overlay);
+}
+
 .silhouette {
   position: absolute;
   left: 50%;
   transform: translateX(-50%);
   background: var(--sf-silhouette-fill);
+  opacity: var(--sf-silhouette-figure-opacity);
+  z-index: 1;
 }
 
 .silhouette-head {
@@ -392,6 +421,57 @@
   border-radius: var(--sf-radius-pill);
   background: var(--sf-surface-glyph);
   color: var(--sf-text-primary);
+  position: relative;
+  overflow: hidden;
+  flex: 0 0 auto;
+}
+
+.glyph::before {
+  content: "";
+  position: absolute;
+  inset: 5px;
+  background-position: center;
+  background-repeat: no-repeat;
+  background-size: contain;
+  opacity: var(--sf-glyph-image-opacity);
+}
+
+.glyph__symbol {
+  position: relative;
+  z-index: 1;
+  opacity: var(--sf-glyph-symbol-opacity);
+}
+
+.glyph[data-icon-kind="compass"]::before {
+  background-image: var(--sf-icon-compass-image);
+}
+
+.glyph[data-icon-kind="orb"]::before {
+  background-image: var(--sf-icon-orb-image);
+}
+
+.glyph[data-icon-kind="hook"]::before {
+  background-image: var(--sf-icon-hook-image);
+}
+
+.glyph[data-icon-kind="spine"]::before {
+  background-image: var(--sf-icon-spine-image);
+}
+
+.glyph[data-icon-kind="combo"]::before {
+  background-image: var(--sf-icon-combo-image);
+}
+
+.glyph[data-icon-kind="telegram"]::before {
+  background-image: var(--sf-icon-telegram-image);
+}
+
+.glyph[data-icon-kind="sigil"]::before {
+  background-image: var(--sf-icon-sigil-image);
+}
+
+.glyph[data-icon-kind="pin"]::before {
+  background-image: var(--sf-icon-pin-image);
 }
 
 .workspace-card {

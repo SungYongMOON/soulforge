@@ -17,7 +17,7 @@
 
 | 대상 폴더/범위 | 상위 지도 정본 | 상세 정본 |
 | --- | --- | --- |
-| 저장소 루트 `./` | `README.md` | `docs/architecture/foundation/TARGET_TREE.md`, `docs/architecture/foundation/DOCUMENT_OWNERSHIP.md`, `docs/architecture/foundation/agent_body_finalization_report.md` |
+| 저장소 루트 `./` | `README.md` | `docs/architecture/foundation/REPOSITORY_PURPOSE.md`, `docs/architecture/foundation/TARGET_TREE.md`, `docs/architecture/foundation/DOCUMENT_OWNERSHIP.md` |
 | `.agent/` | `.agent/README.md` | `.agent/docs/architecture/AGENT_BODY_MODEL.md`, `.agent/docs/architecture/BODY_METADATA_CONTRACT.md` |
 | `.agent/identity/` | `.agent/identity/README.md` | `.agent/identity/README.md`, `.agent/docs/architecture/HERO_OVERLAY_MODEL.md` |
 | `.agent/catalog/` | `.agent/catalog/README.md` | `.agent/catalog/README.md`, `.agent/docs/architecture/AGENT_CATALOG_LAYER_MODEL.md` |
@@ -42,10 +42,12 @@
 | `_workspaces/.../<project>/.project_agent/` | 해당 프로젝트 문서 | `contract.yaml` 과 같은 project-owned 계약 파일 |
 | `ui/` | `ui/README.md` | `ui/viewer/README.md` |
 | `docs/architecture/` | `README.md` | `docs/architecture/README.md`, `docs/architecture/foundation/README.md`, `docs/architecture/workspace/README.md`, `docs/architecture/ui/README.md`, `docs/architecture/lifecycle/README.md` |
-| `docs/architecture/foundation/` | `docs/architecture/README.md` | `docs/architecture/foundation/REPOSITORY_PURPOSE.md`, `docs/architecture/foundation/TARGET_TREE.md`, `docs/architecture/foundation/DOCUMENT_OWNERSHIP.md`, `docs/architecture/foundation/CURRENT_DECISIONS.md`, `docs/architecture/foundation/AGENT_WORLD_MODEL.md`, `docs/architecture/foundation/MIGRATION_REFERENCE.md`, `docs/architecture/foundation/agent_body_finalization_report.md` |
+| `docs/architecture/foundation/` | `docs/architecture/README.md` | `docs/architecture/foundation/REPOSITORY_PURPOSE.md`, `docs/architecture/foundation/TARGET_TREE.md`, `docs/architecture/foundation/DOCUMENT_OWNERSHIP.md`, `docs/architecture/foundation/AGENT_WORLD_MODEL.md` |
 | `docs/architecture/workspace/` | `docs/architecture/README.md` | `docs/architecture/workspace/WORKSPACE_PROJECT_MODEL.md`, `docs/architecture/workspace/PROJECT_AGENT_MINIMUM_SCHEMA.md`, `docs/architecture/workspace/PROJECT_AGENT_RESOLVE_CONTRACT.md` |
-| `docs/architecture/ui/` | `docs/architecture/README.md` | `docs/architecture/ui/UI_SOURCE_MAP.md`, `docs/architecture/ui/UI_SYNC_CONTRACT.md`, `docs/architecture/ui/UI_DERIVED_STATE_CONTRACT.md` |
+| `docs/architecture/ui/` | `docs/architecture/README.md` | `docs/architecture/ui/UI_SOURCE_MAP.md`, `docs/architecture/ui/UI_SYNC_CONTRACT.md`, `docs/architecture/ui/UI_DERIVED_STATE_CONTRACT.md`, `docs/architecture/ui/UI_CONTROL_CENTER_MODEL.md` |
 | `docs/architecture/lifecycle/` | `docs/architecture/README.md` | `docs/architecture/lifecycle/V1_CLOSEOUT_CHECKLIST.md`, `docs/architecture/lifecycle/KNOWN_LIMITATIONS.md` |
+| `docs/architecture/archive/` | `docs/architecture/README.md` | `docs/architecture/archive/README.md`, `docs/architecture/archive/foundation/README.md` |
+| `docs/architecture/archive/foundation/` | `docs/architecture/archive/README.md` | `docs/architecture/archive/foundation/MIGRATION_REFERENCE.md`, `docs/architecture/archive/foundation/agent_body_finalization_report.md` |
 | `dev/` | `dev/README.md` | `dev/plan/`, `dev/log/` 하위 문서 |
 
 ## 적용 규칙

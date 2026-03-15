@@ -175,7 +175,10 @@ export function RendererDesk({ uiState, loading, error, theme, chrome, controls 
                     onClick={() => dispatch({ type: "select-item", key: rowKey(group.id as RowId, item.id) })}
                   >
                     <div className="asset-card__title">
-                      <span>{item.display_name}</span>
+                      <div className="asset-card__lead">
+                        <Glyph kind={rowIcon} material={rowMaterial} />
+                        <span>{item.display_name}</span>
+                      </div>
                       {item.family ? <span className="family-pill">{item.family}</span> : null}
                     </div>
                     <p>{item.summary}</p>
@@ -461,9 +464,11 @@ function assetState(item: RowItem) {
 }
 
 function Glyph({ kind, material }: { kind: string; material: string }) {
+  const symbol = kind === "orb" ? "◌" : kind === "hook" ? "⌁" : kind === "spine" ? "▥" : kind === "combo" ? "⟡" : kind === "compass" ? "✦" : "•";
+
   return (
     <span className={`glyph glyph-${kind}`} data-icon-kind={kind} data-material={material} aria-hidden="true">
-      {kind === "orb" ? "◌" : kind === "hook" ? "⌁" : kind === "spine" ? "▥" : kind === "combo" ? "⟡" : kind === "compass" ? "✦" : "•"}
+      <span className="glyph__symbol">{symbol}</span>
     </span>
   );
 }

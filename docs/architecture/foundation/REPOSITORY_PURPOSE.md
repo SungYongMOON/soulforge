@@ -74,6 +74,11 @@ flowchart TD
 - `.agent_class/class.yaml`
 - `.agent_class/loadout.yaml`
 
+배경 참고 문서:
+
+- `docs/architecture/archive/foundation/MIGRATION_REFERENCE.md`
+- `docs/architecture/archive/foundation/agent_body_finalization_report.md`
+
 ## 미래 확장 방향
 
 - body runtime layer 는 현재 `runtime/` 경로로 정리한다.

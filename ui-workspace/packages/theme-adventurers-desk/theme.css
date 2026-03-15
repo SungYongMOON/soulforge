@@ -1,5 +1,6 @@
 :root[data-sf-theme="adventurers_desk"],
-:root[data-sf-theme="adventurers_archive"] {
+:root[data-sf-theme="adventurers_archive"],
+:root[data-sf-theme="moonlight_sculptor"] {
   color-scheme: light;
   --sf-font-sans: "Avenir Next", "Trebuchet MS", sans-serif;
   --sf-font-display: "Iowan Old Style", "Palatino Linotype", "Book Antiqua", Georgia, serif;
@@ -10,6 +11,41 @@
   --sf-shadow-soft: 0 16px 36px var(--sf-shadow-soft-color);
   --sf-shadow-hover: 0 22px 42px var(--sf-shadow-hover-color);
   --sf-root-grain-image: url("./assets/paper-grain.svg");
+  --sf-character-plate-image: none;
+  --sf-character-plate-overlay: none;
+  --sf-character-plate-opacity: 0;
+  --sf-character-plate-position: center;
+  --sf-character-plate-size: cover;
+  --sf-silhouette-figure-opacity: 1;
+  --sf-glyph-image-opacity: 0;
+  --sf-glyph-symbol-opacity: 1;
+  --sf-icon-compass-image: none;
+  --sf-icon-orb-image: none;
+  --sf-icon-hook-image: none;
+  --sf-icon-spine-image: none;
+  --sf-icon-combo-image: none;
+  --sf-icon-telegram-image: none;
+  --sf-icon-sigil-image: none;
+  --sf-icon-pin-image: none;
+  --cc-menu-line-color: var(--sf-text-primary);
+  --cc-brand-name-color: var(--sf-text-strong);
+  --cc-brand-subtitle-color: var(--sf-text-muted);
+  --cc-rail-heading-color: var(--sf-text-muted);
+  --cc-rail-heading-hover-color: var(--sf-text-primary);
+  --cc-rail-toggle-color: var(--sf-text-strong);
+  --cc-rail-toggle-hover-color: var(--sf-text-primary);
+  --cc-rail-toggle-hover-surface: var(--sf-surface-card-muted);
+  --cc-rail-child-color: var(--sf-text-primary);
+  --cc-rail-child-icon-color: var(--sf-text-muted);
+  --cc-rail-child-hover-surface: var(--sf-surface-chip-active);
+  --cc-rail-child-active-surface: var(--sf-surface-card);
+  --cc-rail-child-active-border: var(--sf-border-regular);
+  --cc-rail-child-active-color: var(--sf-text-strong);
+  --cc-rail-child-active-icon-color: var(--sf-text-strong);
+  --cc-brand-icon-shadow: drop-shadow(0 0 8px var(--sf-shadow-soft-color));
+  --cc-brand-text-shadow: 0 1px 0 rgba(255, 255, 255, 0.12);
+  --cc-header-pill-shadow: 0 8px 18px var(--sf-shadow-soft-color);
+  --cc-theme-button-shadow: 0 1px 2px var(--sf-shadow-soft-color);
 }
 
 :root[data-sf-theme="adventurers_desk"] {
@@ -90,6 +126,120 @@
   --sf-material-leather-folio-border: rgba(107, 74, 51, 0.28);
   --sf-material-silhouette-plinth-surface: rgba(62, 39, 27, 0.08);
   --sf-material-silhouette-plinth-border: rgba(159, 195, 217, 0.28);
+}
+
+:root[data-sf-theme="moonlight_sculptor"] {
+  --sf-text-primary: #16202b;
+  --sf-text-muted: rgba(22, 32, 43, 0.7);
+  --sf-text-strong: #0d1722;
+  --sf-border-regular: rgba(93, 111, 134, 0.28);
+  --sf-border-strong: rgba(129, 150, 176, 0.36);
+  --sf-shadow-soft-color: rgba(13, 22, 33, 0.3);
+  --sf-shadow-hover-color: rgba(13, 22, 33, 0.38);
+  --sf-surface-frame: linear-gradient(180deg, rgba(234, 241, 248, 0.86), rgba(200, 214, 228, 0.76));
+  --sf-surface-panel: rgba(231, 239, 247, 0.82);
+  --sf-surface-card: rgba(246, 250, 255, 0.88);
+  --sf-surface-card-muted: rgba(235, 242, 249, 0.46);
+  --sf-surface-chip: rgba(246, 250, 255, 0.84);
+  --sf-surface-chip-active: rgba(194, 210, 229, 0.22);
+  --sf-surface-empty: rgba(228, 236, 245, 0.34);
+  --sf-surface-empty-border: rgba(106, 123, 145, 0.28);
+  --sf-surface-summary: rgba(223, 232, 241, 0.9);
+  --sf-surface-metric: rgba(243, 248, 253, 0.44);
+  --sf-surface-glyph: rgba(196, 221, 240, 0.22);
+  --sf-surface-badge: rgba(84, 101, 123, 0.09);
+  --sf-surface-badge-active: rgba(198, 218, 238, 0.2);
+  --sf-surface-mode-chip: rgba(195, 213, 232, 0.2);
+  --sf-surface-mode-chip-secondary: rgba(115, 132, 154, 0.14);
+  --sf-surface-diagnostics-button: rgba(168, 132, 95, 0.11);
+  --sf-border-diagnostics-button: rgba(168, 132, 95, 0.28);
+  --sf-surface-telegram-warning: rgba(168, 132, 95, 0.12);
+  --sf-surface-telegram-error: rgba(146, 92, 88, 0.12);
+  --sf-surface-tone-ready: rgba(148, 180, 206, 0.16);
+  --sf-surface-tone-warning: rgba(168, 132, 95, 0.14);
+  --sf-surface-tone-error: rgba(146, 92, 88, 0.14);
+  --sf-surface-tone-bound: rgba(192, 211, 233, 0.16);
+  --sf-surface-tone-ok: rgba(173, 196, 216, 0.16);
+  --sf-state-active-surface: rgba(200, 220, 240, 0.22);
+  --sf-state-active-border: rgba(172, 198, 226, 0.38);
+  --sf-state-installed-surface: rgba(173, 196, 216, 0.14);
+  --sf-state-installed-border: rgba(148, 180, 206, 0.28);
+  --sf-state-required-surface: rgba(168, 132, 95, 0.14);
+  --sf-state-required-border: rgba(168, 132, 95, 0.28);
+  --sf-state-preferred-surface: rgba(210, 222, 238, 0.2);
+  --sf-state-preferred-border: rgba(182, 200, 221, 0.34);
+  --sf-state-invalid-surface: rgba(146, 92, 88, 0.16);
+  --sf-state-invalid-border: rgba(146, 92, 88, 0.32);
+  --sf-state-partial-surface: rgba(107, 122, 142, 0.14);
+  --sf-state-partial-border: rgba(107, 122, 142, 0.28);
+  --sf-state-unknown-surface: rgba(240, 246, 252, 0.36);
+  --sf-state-unknown-border: rgba(106, 123, 145, 0.18);
+  --sf-silhouette-plate: radial-gradient(circle at center, rgba(196, 221, 240, 0.24), transparent 58%), linear-gradient(180deg, rgba(83, 99, 123, 0.12), rgba(83, 99, 123, 0.03));
+  --sf-silhouette-border: rgba(188, 214, 238, 0.4);
+  --sf-silhouette-fill: linear-gradient(180deg, rgba(82, 98, 121, 0.56), rgba(38, 51, 67, 0.88));
+  --sf-silhouette-shadow: rgba(18, 26, 37, 0.58);
+  --sf-root-background:
+    radial-gradient(circle at 16% 12%, rgba(240, 245, 252, 0.3), transparent 18%),
+    radial-gradient(circle at 18% 16%, rgba(208, 224, 242, 0.16), transparent 28%),
+    radial-gradient(circle at 82% 10%, rgba(171, 194, 219, 0.16), transparent 22%),
+    linear-gradient(140deg, rgba(21, 29, 41, 0.98), rgba(31, 43, 58, 0.97) 46%, rgba(59, 73, 92, 0.94));
+  --sf-root-overlay:
+    linear-gradient(120deg, rgba(255, 255, 255, 0.02), rgba(255, 255, 255, 0.01));
+  --sf-material-atlas-frame-surface: rgba(233, 241, 249, 0.11);
+  --sf-material-atlas-frame-border: rgba(188, 214, 238, 0.28);
+  --sf-material-parchment-panel-surface: rgba(228, 237, 246, 0.68);
+  --sf-material-parchment-panel-border: rgba(106, 123, 145, 0.24);
+  --sf-material-paper-card-surface: rgba(247, 251, 255, 0.9);
+  --sf-material-paper-card-border: rgba(106, 123, 145, 0.18);
+  --sf-material-parchment-ribbon-surface: rgba(223, 232, 241, 0.9);
+  --sf-material-parchment-ribbon-border: rgba(168, 193, 218, 0.26);
+  --sf-material-frosted-orb-surface: rgba(188, 214, 238, 0.14);
+  --sf-material-frosted-orb-border: rgba(173, 196, 216, 0.34);
+  --sf-material-belt-slot-surface: rgba(78, 94, 116, 0.12);
+  --sf-material-belt-slot-border: rgba(98, 116, 139, 0.24);
+  --sf-material-bookshelf-spine-surface: rgba(96, 112, 134, 0.12);
+  --sf-material-bookshelf-spine-border: rgba(120, 140, 164, 0.24);
+  --sf-material-combo-card-surface: rgba(194, 210, 229, 0.16);
+  --sf-material-combo-card-border: rgba(172, 198, 226, 0.28);
+  --sf-material-warning-paper-surface: rgba(168, 132, 95, 0.1);
+  --sf-material-warning-paper-border: rgba(168, 132, 95, 0.22);
+  --sf-material-leather-folio-surface: rgba(70, 84, 104, 0.16);
+  --sf-material-leather-folio-border: rgba(109, 128, 152, 0.24);
+  --sf-material-silhouette-plinth-surface: rgba(30, 41, 55, 0.12);
+  --sf-material-silhouette-plinth-border: rgba(188, 214, 238, 0.28);
+  --sf-character-plate-image: url("./assets/moonlight-character.png");
+  --sf-character-plate-overlay:
+    radial-gradient(circle at 20% 14%, rgba(246, 250, 255, 0.22), transparent 18%),
+    linear-gradient(180deg, rgba(255, 255, 255, 0.02), rgba(8, 12, 18, 0.1));
+  --sf-character-plate-opacity: 1;
+  --sf-character-plate-position: center 30%;
+  --sf-character-plate-size: auto 118%;
+  --sf-silhouette-figure-opacity: 0;
+  --sf-glyph-image-opacity: 1;
+  --sf-glyph-symbol-opacity: 0;
+  --sf-icon-compass-image: url("./assets/icon-compass.svg");
+  --sf-icon-orb-image: url("./assets/icon-orb.png");
+  --sf-icon-hook-image: url("./assets/icon-hook.png");
+  --sf-icon-spine-image: url("./assets/icon-spine.png");
+  --sf-icon-combo-image: url("./assets/icon-combo.png");
+  --sf-icon-telegram-image: url("./assets/icon-telegram.svg");
+  --sf-icon-sigil-image: url("./assets/icon-sigil.svg");
+  --sf-icon-pin-image: url("./assets/icon-pin.svg");
+  --cc-menu-line-color: rgba(231, 239, 247, 0.82);
+  --cc-brand-name-color: rgba(246, 250, 255, 0.94);
+  --cc-brand-subtitle-color: rgba(231, 239, 247, 0.66);
+  --cc-rail-heading-color: rgba(231, 239, 247, 0.74);
+  --cc-rail-heading-hover-color: rgba(246, 250, 255, 0.96);
+  --cc-rail-toggle-color: rgba(246, 250, 255, 0.88);
+  --cc-rail-toggle-hover-color: rgba(246, 250, 255, 0.98);
+  --cc-rail-toggle-hover-surface: rgba(235, 242, 249, 0.12);
+  --cc-rail-child-color: rgba(231, 239, 247, 0.88);
+  --cc-rail-child-icon-color: rgba(231, 239, 247, 0.68);
+  --cc-rail-child-hover-surface: rgba(194, 210, 229, 0.16);
+  --cc-rail-child-active-surface: rgba(246, 250, 255, 0.9);
+  --cc-rail-child-active-border: rgba(188, 214, 238, 0.34);
+  --cc-rail-child-active-color: #12202d;
+  --cc-rail-child-active-icon-color: #12202d;
 }
 
 :root[data-sf-theme="adventurers_archive"] {
@@ -173,7 +323,8 @@
 }
 
 :root[data-sf-theme="adventurers_desk"] body,
-:root[data-sf-theme="adventurers_archive"] body {
+:root[data-sf-theme="adventurers_archive"] body,
+:root[data-sf-theme="moonlight_sculptor"] body {
   margin: 0;
   min-height: 100vh;
   color: var(--sf-text-primary);
@@ -191,11 +342,16 @@
 :root[data-sf-theme="adventurers_archive"] button,
 :root[data-sf-theme="adventurers_archive"] input,
 :root[data-sf-theme="adventurers_archive"] select,
-:root[data-sf-theme="adventurers_archive"] textarea {
+:root[data-sf-theme="adventurers_archive"] textarea,
+:root[data-sf-theme="moonlight_sculptor"] button,
+:root[data-sf-theme="moonlight_sculptor"] input,
+:root[data-sf-theme="moonlight_sculptor"] select,
+:root[data-sf-theme="moonlight_sculptor"] textarea {
   font: inherit;
 }
 
 :root[data-sf-theme="adventurers_desk"] #root,
-:root[data-sf-theme="adventurers_archive"] #root {
+:root[data-sf-theme="adventurers_archive"] #root,
+:root[data-sf-theme="moonlight_sculptor"] #root {
   min-height: 100vh;
 }

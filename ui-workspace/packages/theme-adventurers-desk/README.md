@@ -7,10 +7,11 @@
 
 ## 포함 대상
 
-- swappable theme manifest (`adventurers_desk`, `adventurers_archive`)
+- swappable theme manifest (`moonlight_sculptor`, `adventurers_desk`, `adventurers_archive`)
 - CSS variables
 - material/icon hook mapping
 - package-local asset
+- original portrait/icon artwork for moonlight variant
 
 ## 제외 대상
 
@@ -21,4 +22,6 @@
 ## 상태
 
 - Phase UI-1 token 과 background skin 만 포함한다.
+- `moonlight_sculptor` 변형은 은빛 밤안개와 석재 atelier 분위기를 우선한다.
+- `moonlight_sculptor` 변형은 투명 PNG 캐릭터 portrait 와 전용 아이콘 asset 을 사용한다.
 - Phase UI-2 material refinement 는 후속 작업으로 둔다.

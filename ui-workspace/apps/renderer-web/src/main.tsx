@@ -3,6 +3,7 @@ import { createRoot } from "react-dom/client";
 import App from "./App";
 import { applyThemeSelection } from "./themes";
 import "@soulforge/renderer-react/renderer.css";
+import "./control-center.css";
 
 const container = document.getElementById("root");
 

@@ -53,6 +53,7 @@ flowchart TD
 - [`docs/architecture/foundation/DOCUMENT_OWNERSHIP.md`](docs/architecture/foundation/DOCUMENT_OWNERSHIP.md): 문서 소유 기준
 - [`docs/architecture/ui/UI_SOURCE_MAP.md`](docs/architecture/ui/UI_SOURCE_MAP.md): UI source 정본 지도
 - [`docs/architecture/ui/UI_SYNC_CONTRACT.md`](docs/architecture/ui/UI_SYNC_CONTRACT.md): UI 동기화 계약
+- [`docs/architecture/ui/UI_CONTROL_CENTER_MODEL.md`](docs/architecture/ui/UI_CONTROL_CENTER_MODEL.md): file-based control center 편집 모델
 - [`ui-workspace/docs/UI_RENDERER_MODEL.md`](ui-workspace/docs/UI_RENDERER_MODEL.md): renderer v1 경계
 - [`ui-workspace/docs/UI_STATE_CONTRACT.md`](ui-workspace/docs/UI_STATE_CONTRACT.md): normalized UI state contract
 
