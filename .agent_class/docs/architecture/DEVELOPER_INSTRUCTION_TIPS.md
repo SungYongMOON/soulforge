@@ -53,3 +53,25 @@
 
 - 이 문서는 `dev/experiments/tests/codex-thread-lab-001` 의 multi-persona 검증 결과를 요약한 것이다.
 - 수치나 build 특이사항은 바뀔 수 있으므로, 다음 실험에서도 `blocked` 여부와 evaluator 오판 가능성을 먼저 확인한다.
+
+## 추가 실험 메모
+
+### exec-turn-baseline-matrix
+
+- 실험 범위:
+  - `command/exec` 와 `turn/start` 를 같은 shared-only sandbox 에서 비교했다.
+  - 비교 변수는 `includePlatformDefaults=true/false` 였다.
+- 실제로 확인된 것:
+  - `includePlatformDefaults=true` 일 때는 `command/exec` 와 `turn/start` 모두 shared 경로의 허용 read/write 가 성공했다.
+  - `includePlatformDefaults=false` 일 때는 `command/exec` 가 `sandbox error: command was killed by a signal` 로 실패했고, `turn/start` 는 `turn/completed` 없이 timeout 났다.
+  - 이번 run 의 1차 가설은 `include_platform_defaults_gate` 였다.
+  - 즉 shell/command 기반 전체가 죽은 것은 아니고, turn 내부 loop 전체가 항상 죽는 것도 아니었다.
+- 이번 build 또는 harness 에서만 보인 주의점:
+  - 허용 read/write 성공과 sandbox 경계 보장은 같은 의미가 아니었다.
+  - 선택 실험에서 `command/exec + includePlatformDefaults=true` 조합은 shared-only 설정인데도 `forbidden/marker.txt` 를 읽었다.
+  - 따라서 "baseline success" 를 얻은 뒤에는 반드시 별도 경계 검증을 추가해야 한다.
+- 다음 agent 구성 시 바로 쓸 수 있는 팁:
+  - access-scope 원인분리는 먼저 허용 작업이 살아나는 최소 조건부터 찾고, 그 다음에 금지 경로 차단을 검증한다.
+  - `includePlatformDefaults=false` 가 들어간 엄격 sandbox 에서는 `FAIL`, `timeout`, `killed by a signal` 을 같은 bucket 으로 뭉개지 말고 계층별로 기록한다.
+  - `command/exec` 와 `turn/start` 를 반드시 같은 cwd, 같은 readable/writable roots 에서 짝으로 비교해야 원인을 좁히기 쉽다.
+  - baseline 성공만 보고 sandbox 가 안전하다고 결론 내리면 안 된다. 성공 다음 단계로 forbidden read/write probe 를 별도 기록해야 한다.
