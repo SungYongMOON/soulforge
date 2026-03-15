@@ -4,6 +4,13 @@
 
 - `shared/root.txt`
 - `shared/counter.txt`
+- `shared/persona_scenario.md`
+- `shared/baseline_read.txt`
+- `shared/case1_write.txt`
+- `shared/case2_write.txt`
+- `shared/case3_write.txt`
+- `shared/case4_write.txt`
+- `forbidden/marker.txt`
 - `outputs/a_seen.txt`
 - `outputs/b_seen.txt`
 - `a_only/marker_a.txt`
