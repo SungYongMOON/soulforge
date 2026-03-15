@@ -1,0 +1,12 @@
+{
+  "name": "SungYongMOON/soulforge",
+  "description": "Soulforge is an agent body-and-class architecture for installed skills, tools, knowledge packs, and workflows across real project workspaces.",
+  "accepts": [
+    {
+      "network": "eip155:8453",
+      "asset": "USDC",
+      "address": "YOUR_WALLET_ADDRESS"
+    }
+  ],
+  "resources": []
+}
