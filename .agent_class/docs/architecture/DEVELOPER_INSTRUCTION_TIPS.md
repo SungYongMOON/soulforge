@@ -13,14 +13,14 @@
 
 ## artifact 기준
 
-- 1EA thread 실험:
-  - `dev/experiments/tests/codex-thread-lab-001/artifacts/persona_eval.json`
-  - `dev/experiments/tests/codex-thread-lab-001/artifacts/PERSONA_EXPERIMENT_REPORT.md`
-  - `dev/experiments/tests/codex-thread-lab-001/artifacts/instruction_precedence_eval.json`
-  - `dev/experiments/tests/codex-thread-lab-001/artifacts/INSTRUCTION_PRECEDENCE_REPORT.md`
-- 2EA multi-instance 실험:
-  - `dev/experiments/tests/codex-multi-instance-lab-001/artifacts/MULTI_INSTANCE_DECISION_SUMMARY.json`
-  - `dev/experiments/tests/codex-multi-instance-lab-001/artifacts/MULTI_INSTANCE_DECISION_REPORT.md`
+- 1EA thread 실험 artifact:
+  - `persona_eval.json`
+  - `PERSONA_EXPERIMENT_REPORT.md`
+  - `instruction_precedence_eval.json`
+  - `INSTRUCTION_PRECEDENCE_REPORT.md`
+- 최근 2EA multi-instance 실험 artifact:
+  - `MULTI_INSTANCE_DECISION_SUMMARY.json`
+  - `MULTI_INSTANCE_DECISION_REPORT.md`
 
 ## 확정적으로 쓰는 운영 팁
 
