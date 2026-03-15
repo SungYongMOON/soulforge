@@ -13,6 +13,8 @@
 - `artifacts/`: raw message log, turn 응답, summary 같은 산출물
 - `scripts/app_server_multi_persona_check.py`: thread 별 developer instruction 성향 분리 검증 harness
 - `scripts/app_server_exec_turn_baseline_matrix.py`: shared-only baseline 에서 exec/turn 과 includePlatformDefaults 차이를 비교하는 원인분리 harness
+- `scripts/app_server_workspace_contamination_check.py`: shared file 기반 workspace contamination 경로를 검증하는 harness
+- `scripts/app_server_instruction_precedence_check.py`: developer instruction 과 충돌 user prompt 의 우선순위를 검증하는 harness
 
 ## 운영 방식
 
@@ -21,6 +23,8 @@
 - 실험은 가능한 한 `codex app-server` 프로세스 1개만 사용한다.
 - persona 실험은 같은 model, 같은 cwd, 같은 sandbox policy 를 유지하고 developer instruction 만 바꾼다.
 - exec/turn baseline 실험은 shared-only sandbox 에서 허용 read/write 가 살아나는 최소 조건을 먼저 찾는다.
+- workspace contamination 실험은 shared/private readableRoots 차이로 간접 정보 유입 경로를 본다.
+- instruction precedence 실험은 scenario 본문을 prompt 에 직접 넣고, Round 2 override prompt 저항성과 Round 3 복귀 여부를 본다.
 
 ## 관련 경로
 

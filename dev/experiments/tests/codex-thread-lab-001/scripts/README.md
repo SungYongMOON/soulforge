@@ -10,6 +10,8 @@
 - `app_server_access_scope_check.py`: sandbox policy 기반 접근 제한 검증 전용 harness
 - `app_server_multi_persona_check.py`: 4개 thread 에 서로 다른 developer instruction 을 고정하고 공통 prompt 저항성과 멀티턴 일관성을 검증
 - `app_server_exec_turn_baseline_matrix.py`: `command/exec` 와 `turn/start`, `includePlatformDefaults=true/false` 차이를 분리 검증
+- `app_server_workspace_contamination_check.py`: shared workspace 를 통한 정보 유입과 history contamination 분리를 검증
+- `app_server_instruction_precedence_check.py`: developer instruction 과 충돌 user prompt 사이의 precedence 를 검증
 
 ## 운영 방식
 

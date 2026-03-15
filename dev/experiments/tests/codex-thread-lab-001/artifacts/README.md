@@ -30,5 +30,21 @@
 - `turn_case_4_ipd_false_reply.txt`
 - `exec_turn_baseline_matrix.json`
 - `EXEC_TURN_BASELINE_REPORT.md`
+- `workspace_contam_raw_messages.jsonl`
+- `workspace_contam_app_server_stderr.log`
+- `workspace_contam_a_reply.txt`
+- `workspace_contam_b_reply.txt`
+- `workspace_contam_c_reply.txt`
+- `workspace_contam_thread_a_read.json`
+- `workspace_contam_thread_b_read.json`
+- `workspace_contam_thread_c_read.json`
+- `workspace_contamination_eval.json`
+- `WORKSPACE_CONTAMINATION_REPORT.md`
+- `precedence_raw_messages.jsonl`
+- `precedence_app_server_stderr.log`
+- `precedence_round1_agent1.txt` ~ `precedence_round3_agent3.txt`
+- `precedence_thread_1_read.json` ~ `precedence_thread_3_read.json`
+- `instruction_precedence_eval.json`
+- `INSTRUCTION_PRECEDENCE_REPORT.md`
 
 실험 harness 가 매 실행 시 내용을 재초기화한다.
