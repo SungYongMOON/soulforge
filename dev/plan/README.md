@@ -27,3 +27,4 @@
 
 - Draft
 - 현재 파일명은 `YYYY-MM-DD_<topic>_plan.md` 형식을 우선 사용한다.
+- 새 정본 vNext canon 재정의와 migration planning 도 이 경계에서 관리한다.
