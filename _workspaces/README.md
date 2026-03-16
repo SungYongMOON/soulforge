@@ -1,45 +1,51 @@
 # _workspaces
 
-## 목적
+## 정본 의미
 
-- `_workspaces/` 는 실제 프로젝트 운영 현장인 mission site 를 둔다.
-- 추상 구조가 아니라 프로젝트 실자료와 결과물이 놓이는 공간이다.
+- `_workspaces/` 는 public repo 에서 reserved/local-only mission site mount point 다.
+- public GitHub 에서는 `_workspaces/README.md` 만 추적한다.
+- 실제 `_workspaces/<project_code>/` 는 로컬 환경에서만 materialize 되는 private mission site 다.
+- `company/`, `personal` 분기는 새 정본에 포함하지 않는다.
 
-## 범위
+## public repo view
 
-- 실제 프로젝트 폴더와 project 연결 규약만 다룬다.
-- body organ, loadout 설치물, team shared 자산은 범위 밖이다.
+```text
+_workspaces/
+└── README.md
+```
 
-## 포함 대상
+## local mission site view
 
-- `company/`, `personal/` 아래의 실제 프로젝트 폴더
-- 각 프로젝트 아래의 선택적 `.project_agent/` 연결 규약
+```text
+_workspaces/
+└── <project_code>/
+    ├── ... actual project files ...
+    └── .project_agent/
+        ├── contract.yaml
+        ├── bindings/
+        ├── runs/
+        ├── dungeons/
+        ├── analytics/
+        ├── nightly_healing/
+        ├── reports/
+        └── artifacts/
+```
 
-## 제외 대상
+## owner 경계
 
-- 본체 메모리와 클래스 지식 팩
-- 저장소 전체 구조 문서와 클래스 운영 로그
+- `_workspaces/<project_code>/` 는 실제 프로젝트 파일, 산출물, 운영 상태의 owner 다.
+- raw execution truth 는 `_workspaces/<project_code>/.project_agent/runs/<run_id>/` 아래에 남긴다.
+- `dungeons/`, `analytics/`, `nightly_healing/`, `reports/`, `artifacts/` 는 public tracking 대상이 아니다.
+- `.agent`, `.unit`, `.agent_class`, `.workflow`, `.party` 는 `_workspaces` 를 참조할 수 있지만 per-project 실자료를 흡수하지 않는다.
 
-## 미래 확장 방향
+## tracking 규칙
 
-- 팀 단위 공유 자산은 `_workspaces` 가 아니라 루트 `_teams/shared/` 에서 확장한다.
-- mission site 는 실제 현장 자료 owner 로 유지하고 shared baseline 은 분리한다.
+- 실제 project code 와 실제 프로젝트 디렉터리를 public repo 에 추가하지 않는다.
+- `_workspaces/<project_code>/` 안의 `.project_agent/` 계약 파일도 public tracking 대상이 아니다.
+- repo 안에 남아 있는 legacy sample 또는 과거 경로 흔적은 정본이 아니며 후속 cleanup 범위다.
 
 ## 관련 경로
 
 - [루트 README](../README.md)
-- [`_workspaces/company/README.md`](company/README.md)
-- [`_workspaces/personal/README.md`](personal/README.md)
+- [`docs/architecture/foundation/TARGET_TREE.md`](../docs/architecture/foundation/TARGET_TREE.md)
 - [`docs/architecture/workspace/WORKSPACE_PROJECT_MODEL.md`](../docs/architecture/workspace/WORKSPACE_PROJECT_MODEL.md)
-
-## 상태
-
-- Stable
-- 실제 프로젝트 폴더는 이 경계 안에 둔다.
-- workspace project 상태는 `.project_agent` resolve 결과에 따라 `bound`, `unbound`, `invalid` 로 분류할 수 있다.
-- `bound` project 의 `workflow_bindings.yaml` 는 workflow 연결과 선택적 mutation scope 를 함께 가질 수 있다.
-- `_workspaces/company/sample_reference_project/` 는 운영용 실프로젝트가 아니라 repo-tracked reference sample project 로 유지한다.
-- `_workspaces/company/sample_bound_project/` 는 운영용 실프로젝트가 아니라 두 번째 bound reference sample project 로 유지한다.
-- `_workspaces/personal/sample_unbound_project/` 는 `.project_agent/` 가 의도적으로 없는 unbound reference sample project 로 유지한다.
-- 현재 repo-tracked sample 상태 세트는 `sample_reference_project = bound`, `sample_bound_project = bound`, `sample_unbound_project = unbound` 다.
-- 세 sample project 는 모두 운영용 실프로젝트가 아니라 v1 상태판과 viewer 검증의 기준선 baseline 이다.

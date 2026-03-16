@@ -1,0 +1,9 @@
+species_id: human
+kind: species
+status: template
+title: Human
+summary: Placeholder species template for the vNext catalog.
+heroes_index: heroes/index.yaml
+notes:
+  - Template only. Replace with canon metadata when the species catalog materializes.
+  - Do not place unit runtime state or project-local data in this file.

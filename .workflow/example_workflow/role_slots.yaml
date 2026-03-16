@@ -1,0 +1,7 @@
+workflow_id: example_workflow
+kind: role_slots
+status: template
+slots:
+  - slot_id: guide
+    title: Guide
+    summary: Placeholder role slot for the example workflow.

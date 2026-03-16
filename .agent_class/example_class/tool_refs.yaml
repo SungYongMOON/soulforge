@@ -1,0 +1,6 @@
+class_id: example_class
+kind: tool_refs
+status: template
+tool_refs: []
+notes:
+  - Template only. Add reusable tool package refs here when the class package materializes.

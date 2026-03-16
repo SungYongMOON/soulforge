@@ -1,79 +1,49 @@
 # Soulforge
 
-Soulforge는 `.agent`, `.agent_class`, `_workspaces` 세 축을 중심으로 정본 구조를 관리하는 설계 저장소다.
-`.agent` 는 active identity 와 selection catalog 를 소유하고, `.agent_class` 는 canonical loadout asset 을 소유한다.
-UI consumer layer 는 이제 [`ui-workspace/`](ui-workspace/README.md) 아래에서 별도 workspace 로 관리한다.
+Soulforge는 새 정본 vNext 구조를 문서로 고정하는 설계 저장소다.
+루트는 여섯 축의 owner 경계와 public/private tracking 원칙만 관리한다.
+실제 루트 materialization, validator refactor, fixture 정리는 별도 migration 단계에서 수행한다.
 
-## 목적
+## 새 정본 6축
 
-- 루트에서는 저장소 전체의 상위 지도와 owner 경계만 제공한다.
-- 세부 운영 규칙과 계층별 메타 계약은 각 owner 문서에서 관리한다.
+- `.agent`: species / hero catalog
+- `.unit`: active agent unit owner
+- `.agent_class`: class / package catalog
+- `.workflow`: workflow canon + curated learning history
+- `.party`: reusable party template + template-level stats
+- `_workspaces`: reserved/local-only mission site mount point
 
 ## 구조 개요도
 
 ```mermaid
 flowchart TD
-  S["Soulforge"] --> B[".agent<br/>private operating system"]
-  S --> C[".agent_class<br/>loadout"]
-  S --> W["_workspaces<br/>mission site"]
-  S --> D["docs/architecture<br/>root-owned docs"]
-  S --> U["ui-workspace<br/>portable UI workspace"]
-  S --> V2["ui<br/>relocation / legacy pointer"]
-  S --> V["dev<br/>plan / log"]
-  W --> P[".project_agent<br/>project contract"]
+  S["Soulforge"] --> A[".agent<br/>species / hero catalog"]
+  S --> U[".unit<br/>active agent unit owner"]
+  S --> C[".agent_class<br/>class / package catalog"]
+  S --> W[".workflow<br/>workflow canon + curated learning history"]
+  S --> P[".party<br/>reusable party template + template-level stats"]
+  S --> M["_workspaces<br/>reserved / local-only mission site mount point"]
+  S --> D["docs/architecture<br/>root-owned canon docs"]
+  S --> V["dev<br/>migration plans and logs"]
+  S --> UI["ui-workspace<br/>derived UI consumer workspace"]
+  M --> PA["<project_code>/.project_agent<br/>local-only contract and run truth"]
 ```
 
 ## 상위 지도
 
-- [`.agent/README.md`](.agent/README.md): `.agent` 상위 개요
-- [`.agent_class/README.md`](.agent_class/README.md): `.agent_class` 상위 개요
-- [`_workspaces/README.md`](_workspaces/README.md): `_workspaces` 상위 개요
+- [`docs/architecture/foundation/TARGET_TREE.md`](docs/architecture/foundation/TARGET_TREE.md): 새 정본 6축 target tree
+- [`docs/architecture/foundation/DOCUMENT_OWNERSHIP.md`](docs/architecture/foundation/DOCUMENT_OWNERSHIP.md): 새 owner 기준 문서 소유 원칙
+- [`_workspaces/README.md`](_workspaces/README.md): `_workspaces` local-only mount point 정책
+- [`docs/architecture/workspace/WORKSPACE_PROJECT_MODEL.md`](docs/architecture/workspace/WORKSPACE_PROJECT_MODEL.md): `_workspaces/<project_code>/` 구조와 보안 경계
+- [`dev/plan/2026-03-16_vnext_canon_migration_plan.md`](dev/plan/2026-03-16_vnext_canon_migration_plan.md): frozen decisions 와 migration phase
 - [`docs/architecture/README.md`](docs/architecture/README.md): root-owned architecture 문서 색인
-- [`docs/architecture/foundation/TARGET_TREE.md`](docs/architecture/foundation/TARGET_TREE.md): 저장소 목표 트리와 최종 `.agent` target tree
-- [`docs/architecture/foundation/DOCUMENT_OWNERSHIP.md`](docs/architecture/foundation/DOCUMENT_OWNERSHIP.md): 폴더별 정본 문서 소유 기준
-- [`ui-workspace/README.md`](ui-workspace/README.md): UI 전용 workspace 개요
-- [`ui-workspace/DONE.md`](ui-workspace/DONE.md): UI workspace closeout 선언
-- [`ui-workspace/docs/README.md`](ui-workspace/docs/README.md): renderer v1 문서군
-- [`ui-workspace/docs/UI_NEXT_PHASE_BACKLOG.md`](ui-workspace/docs/UI_NEXT_PHASE_BACKLOG.md): 다음 단계 backlog
-- [`ui-workspace/packages/renderer-core/README.md`](ui-workspace/packages/renderer-core/README.md): renderer-core 개요
-- [`ui-workspace/apps/renderer-web/README.md`](ui-workspace/apps/renderer-web/README.md): renderer-web shell 개요
-- [`ui-workspace/tools/ui-lint/README.md`](ui-workspace/tools/ui-lint/README.md): UI/catalog lint suite
+- [`ui-workspace/README.md`](ui-workspace/README.md): UI consumer workspace 개요
 
-## 정본 안내
+## 루트 정본 규칙
 
 - 루트 `README.md` 는 상위 지도만 유지한다.
-- `.agent` 상세 운영과 구조 의미의 정본은 [`.agent/docs/architecture/AGENT_BODY_MODEL.md`](.agent/docs/architecture/AGENT_BODY_MODEL.md), [`.agent/docs/architecture/BODY_METADATA_CONTRACT.md`](.agent/docs/architecture/BODY_METADATA_CONTRACT.md), 그리고 각 `.agent` 하위 로컬 `README.md` 에 둔다.
-- `.agent_class` 상세 운영의 정본은 [`.agent_class/docs/architecture/`](.agent_class/docs/architecture) 문서와 각 로컬 `README.md` 에 둔다.
-- `_workspaces` 상세 운영의 정본은 [`_workspaces/README.md`](_workspaces/README.md) 와 각 workspace/project 로컬 문서에 둔다.
-
-## 루트 문서
-
-- [`docs/architecture/foundation/REPOSITORY_PURPOSE.md`](docs/architecture/foundation/REPOSITORY_PURPOSE.md): 저장소 전체 목적
-- [`docs/architecture/foundation/TARGET_TREE.md`](docs/architecture/foundation/TARGET_TREE.md): 목표 구조
-- [`docs/architecture/foundation/DOCUMENT_OWNERSHIP.md`](docs/architecture/foundation/DOCUMENT_OWNERSHIP.md): 문서 소유 기준
-- [`docs/architecture/ui/UI_SOURCE_MAP.md`](docs/architecture/ui/UI_SOURCE_MAP.md): UI source 정본 지도
-- [`docs/architecture/ui/UI_SYNC_CONTRACT.md`](docs/architecture/ui/UI_SYNC_CONTRACT.md): UI 동기화 계약
-- [`docs/architecture/ui/UI_CONTROL_CENTER_MODEL.md`](docs/architecture/ui/UI_CONTROL_CENTER_MODEL.md): file-based control center 편집 모델
-- [`ui-workspace/docs/UI_RENDERER_MODEL.md`](ui-workspace/docs/UI_RENDERER_MODEL.md): renderer v1 경계
-- [`ui-workspace/docs/UI_STATE_CONTRACT.md`](ui-workspace/docs/UI_STATE_CONTRACT.md): normalized UI state contract
-
-## UI lint
-
-- `npm run ui:lint:catalog`
-- `npm run ui:lint:ui-state`
-- `npm run ui:lint:read-only`
-- `npm run ui:lint:packages`
-- `npm run ui:lint:fixtures`
-- `npm run ui:lint:theme`
-- `npm run ui:lint:all`
-- `npm run ui:docs:check`
-- `npm run ui:done:check`
-
-## UI workspace 실행
-
-- `npm run ui:workspace:install`
-- `npm run ui:dev`
-- `npm run ui:build`
-- `npm run ui:skin-lab:dev`
-- `npm run ui:skin-lab:build`
-- `npm run ui:smoke:theme-pack`
+- `.agent` 는 더 이상 single active body owner 가 아니다.
+- `.agent_class` 는 더 이상 canonical loadout root 나 workflow owner 가 아니다.
+- `.run/` 루트는 새 정본에 포함하지 않는다.
+- `_workspaces/<project_code>/` 실제 과제 내용은 public GitHub 에 올리지 않으며, 로컬 환경에서만 materialize 한다.
+- `.unit`, `.workflow`, `.party` 의 실제 루트 생성과 owner-local README 작성은 후속 migration 범위다.

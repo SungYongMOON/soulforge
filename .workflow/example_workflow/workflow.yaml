@@ -1,0 +1,12 @@
+workflow_id: example_workflow
+kind: workflow
+status: template
+title: Example Workflow
+summary: Placeholder workflow canon template for vNext.
+role_slots: role_slots.yaml
+step_graph: step_graph.yaml
+handoff_rules: handoff_rules.yaml
+monster_rules: monster_rules.yaml
+party_compatibility: party_compatibility.yaml
+notes:
+  - Template only. This file does not store raw execution truth.

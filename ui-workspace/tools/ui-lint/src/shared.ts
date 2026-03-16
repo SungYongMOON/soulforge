@@ -66,6 +66,7 @@ export const themePackages = readdirSync(packagesDir, { withFileTypes: true })
 
 export const EXPECTED_FIXTURES = ["integrated", "overview", "body", "class", "workspaces"] as const;
 export const EXPECTED_TABS = ["overview", "body", "class", "workspaces"] as const;
+export const REQUIRED_AXES = ["species", "units", "classes", "workflows", "parties", "workspaces"] as const;
 export const ALLOWED_TOOL_FAMILIES = new Set(["adapters", "connectors", "local_cli", "mcp"]);
 
 export const ROW_RULES = {

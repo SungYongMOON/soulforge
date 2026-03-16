@@ -1,0 +1,9 @@
+version: vnext
+owner: .agent_class
+kind: class_package_catalog
+status: template
+entries:
+  - class_id: example_class
+    path: example_class/class.yaml
+notes:
+  - Template catalog only. Do not store active loadout state, project data, or raw execution logs here.

@@ -1,0 +1,5 @@
+party_id: example_party
+kind: allowed_species
+status: template
+species_ids:
+  - human

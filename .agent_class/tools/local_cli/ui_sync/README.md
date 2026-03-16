@@ -3,17 +3,17 @@
 ## 목적
 
 - `ui_sync/` 는 Soulforge 메타 동기화와 구조 검증을 위한 최소 로컬 CLI 도구를 둔다.
-- 이번 차수에서는 UI renderer 가 아니라 `body_state.yaml` 재생성, class installed/loadout resolve, workspace `.project_agent` resolve/validate, renderer 입력용 derived state 생성까지 책임진다.
-- v1 closeout 기준에서 local CLI 범위는 여기까지로 닫고, 새 명령 추가보다 현재 동작과 문서 정합성을 우선한다.
+- 새 정본 vNext 에서는 `.agent`, `.unit`, `.agent_class`, `.workflow`, `.party`, `_workspaces` 6축을 기준으로 validator 와 synthetic derived state 만 책임진다.
+- `body/loadout/company|personal` 전제는 더 이상 정본이 아니므로 이 도구에서도 canonical requirement 로 취급하지 않는다.
 
 ## 현재 포함 도구
 
 - `ui_sync.py`
-- `sync-body-state` = `.agent/body.yaml` 과 실제 `.agent/` 구조를 기준으로 `.agent/body_state.yaml` 을 결정론적으로 재생성한다.
-- `resolve-loadout` = class installed module manifest catalog 를 만들고 `loadout.yaml` 의 equipped module id 를 resolve 한다.
-- `resolve-workspaces` = `_workspaces/company|personal` 를 스캔해 프로젝트를 `bound`, `unbound`, `invalid` 로 분류한다.
-- `derive-ui-state` = body/class/workspace resolve 결과를 4탭 UI가 바로 읽을 수 있는 stable JSON 으로 합친다.
-- `validate` = body, class, loadout 메타와 resolve 결과, workspace project contract 정합성을 검사한다.
+- `sync-body-state` = compatibility no-op. `.agent/body_state.yaml` 은 vNext 정본이 아니므로 더 이상 재생성하지 않는다.
+- `resolve-loadout` = compatibility alias. active loadout 이 아니라 reusable class/package, workflow, party surface만 요약한다.
+- `resolve-workspaces` = `_workspaces` 를 local-only mission site mount point 로 보고 public repo 기본 모드에서는 실제 project scan 을 하지 않는다. `--local-workspaces` 를 준 경우에만 opt-in local smoke 를 수행한다.
+- `derive-ui-state` = 새 6축 top-level (`species`, `units`, `classes`, `workflows`, `parties`, `workspaces`) 을 산출하고, 현재 renderer 소비층을 위해 compatibility projection (`overview`, `body`, `class_view`) 도 함께 내보낸다.
+- `validate` = 새 owner roots 의 최소 파일 세트와 cross-ref 를 검사한다.
 
 ## 실행 예시
 
@@ -23,36 +23,33 @@ python .agent_class/tools/local_cli/ui_sync/ui_sync.py sync-body-state --check
 python .agent_class/tools/local_cli/ui_sync/ui_sync.py resolve-loadout
 python .agent_class/tools/local_cli/ui_sync/ui_sync.py resolve-loadout --json
 python .agent_class/tools/local_cli/ui_sync/ui_sync.py resolve-workspaces
+python .agent_class/tools/local_cli/ui_sync/ui_sync.py resolve-workspaces --local-workspaces
 python .agent_class/tools/local_cli/ui_sync/ui_sync.py resolve-workspaces --json
 python .agent_class/tools/local_cli/ui_sync/ui_sync.py derive-ui-state
 python .agent_class/tools/local_cli/ui_sync/ui_sync.py derive-ui-state --json
+python .agent_class/tools/local_cli/ui_sync/ui_sync.py derive-ui-state --local-workspaces
 python .agent_class/tools/local_cli/ui_sync/ui_sync.py validate
 python .agent_class/tools/local_cli/ui_sync/ui_sync.py validate --json
+python .agent_class/tools/local_cli/ui_sync/ui_sync.py validate --local-workspaces
 ```
 
 ## 범위
 
-- `body_state.yaml` 의 `body_id`, `operating_context`, `sections.*.path`, `sections.*.present`, `active_selection`, `catalog_layer`, `operating_profiles`, `status.summary`, `status.warnings` 를 재생성한다.
-- `class.yaml.modules.*` 경로를 기준으로 installed module manifest catalog 를 구성한다.
-- `loadout.equipped.*` 를 module id 기준으로 resolve 한다.
-- `equipped.workflows` 에 포함된 workflow 의 `requires.skills/tools/knowledge` 를 installed catalog 기준으로 resolve 한다.
-- `_workspaces/company|personal` 아래 직접 하위 프로젝트 폴더를 스캔한다.
-- `.project_agent/` 가 없으면 `unbound`, 최소 파일 세트와 핵심 참조가 resolve 되면 `bound`, 계약이 깨지면 `invalid` 로 분류한다.
-- `.project_agent/contract.yaml`, `capsule_bindings.yaml`, `workflow_bindings.yaml`, `local_state_map.yaml` 의 최소 구조와 resolve 규칙을 검사한다.
-- `derive-ui-state` 는 `ui`, `overview`, `body`, `class`, `workspaces`, `diagnostics` top-level 구조를 고정한다.
-- `derive-ui-state` 는 `body.sections`, `class.installed/equipped`, `class.workflow_cards`, `workspaces.summary/project list`, `diagnostics` 를 한 번에 조합한다.
-- `derive-ui-state --json` 은 partial output 을 허용하지만 기본적으로 저장소 파일을 새로 쓰지 않는다.
-- validate 는 duplicate id, path-like equipped ref, kind mismatch, tool family/path mismatch, unknown equipped id, equipped workflow dependency unresolved 를 FAIL 로 본다.
-- validate 는 `invalid` workspace project 를 FAIL 로 보고, `unbound` 는 상태 분류 결과로 허용한다.
-- 실제 설치 모듈이 없으면 빈 catalog 로 통과한다.
-- 현재 repo-tracked sample set 은 bound 2건과 unbound 1건으로 유지되므로 `resolve-workspaces`, `validate`, `derive-ui-state --json` 은 zero exit code 를 기대한다.
+- `.agent/index.yaml` 과 `species/<species>/species.yaml`, `heroes/index.yaml`, hero template 를 species/hero canon 으로 검사한다.
+- `.unit/<unit_id>/unit.yaml` 과 `policy/`, `protocols/`, `runtime/`, `memory/`, `sessions/`, `autonomic/`, `artifacts/` minimum skeleton 을 active unit owner surface 로 검사한다.
+- `.agent_class/index.yaml` 과 각 class package 의 `class.yaml`, `knowledge_refs.yaml`, `skill_refs.yaml`, `tool_refs.yaml`, `profiles/`, `manifests/` 를 reusable package canon 으로 검사한다.
+- `.workflow/index.yaml` 과 각 workflow 의 `workflow.yaml`, `role_slots.yaml`, `step_graph.yaml`, `handoff_rules.yaml`, `monster_rules.yaml`, `party_compatibility.yaml`, `history/README.md` 를 workflow canon 으로 검사한다.
+- `.party/index.yaml` 과 각 party template 의 `party.yaml`, `member_slots.yaml`, `allowed_species.yaml`, `allowed_classes.yaml`, `allowed_workflows.yaml`, `appserver_profile.yaml`, `stats/README.md` 를 party template canon 으로 검사한다.
+- unit/class/workflow/party cross-ref 가 새 roots 에서 resolve 되는지 검사한다.
+- `_workspaces` 는 public repo 에서 `README.md` 만 기대하고, 실제 `<project_code>` scan 은 기본적으로 수행하지 않는다.
+- `derive-ui-state` 는 public repo 기본 모드에서 synthetic local-only workspace summary 만 내보내며, local scan 결과가 필요할 때만 `--local-workspaces` 를 사용한다.
 
 ## JSON 출력 최소 구조
 
-- `resolve-loadout --json` = `catalog.*`, `equipped.*`, `workflow_dependencies`, `warnings`, `errors`, `summary`
-- `resolve-workspaces --json` = `workspaces.company.projects`, `workspaces.personal.projects`, `summary`, `warnings`, `errors`, `validation`
-- `derive-ui-state --json` = `ui`, `overview`, `body`, `class`, `workspaces`, `diagnostics`
-- `validate --json` = `summary`, `warnings`, `errors`, `findings`, `resolve_loadout`, `resolve_workspaces`
+- `resolve-loadout --json` = `classes`, `workflows`, `parties`, `summary`
+- `resolve-workspaces --json` = `workspaces.mode`, `workspaces.local_scan_enabled`, `workspaces.projects`, `summary`, `findings`
+- `derive-ui-state --json` = `species`, `units`, `classes`, `workflows`, `parties`, `workspaces`, `overview`, `body`, `class_view`, `diagnostics`, `ui_hints`
+- `validate --json` = `summary`, `findings`, `axes`
 
 ## YAML 지원 범위
 
@@ -67,13 +64,12 @@ python .agent_class/tools/local_cli/ui_sync/ui_sync.py validate --json
 ## 제외 범위
 
 - 웹 UI, TUI, renderer, runtime 구현
-- host-local 상태, 캐시, 실행 중 임시 상태
+- 실제 `_workspaces/<project_code>` 운영 데이터, run log, 민감 project 자료
+- host-local 캐시와 실행 중 임시 상태
 - 실제 renderer 컴포넌트, CSS, theme, icon 세부 규칙
-- path-based fallback 이나 자동 normalize
 
 ## 관련 경로
 
 - [`.agent_class/tools/local_cli/README.md`](../README.md)
-- [`.agent/docs/architecture/BODY_METADATA_CONTRACT.md`](../../../../.agent/docs/architecture/BODY_METADATA_CONTRACT.md)
 - [`docs/architecture/ui/UI_DERIVED_STATE_CONTRACT.md`](../../../../docs/architecture/ui/UI_DERIVED_STATE_CONTRACT.md)
 - [`docs/architecture/ui/UI_SYNC_CONTRACT.md`](../../../../docs/architecture/ui/UI_SYNC_CONTRACT.md)

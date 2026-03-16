@@ -1,0 +1,14 @@
+unit_id: example_unit
+kind: active_unit
+status: template
+title: Example Unit
+species_ref: .agent/species/human/species.yaml
+hero_ref: .agent/species/human/heroes/example_hero/hero.yaml
+class_package_refs:
+  - .agent_class/example_class/class.yaml
+workflow_refs:
+  - .workflow/example_workflow/workflow.yaml
+party_template_refs:
+  - .party/example_party/party.yaml
+notes:
+  - Template only. Do not store secrets, raw runtime state, or project-local execution logs here.

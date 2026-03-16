@@ -1,4 +1,12 @@
-import { asObject, asString, expectedDefaultTab, loadFixtures, loadSchemaValidator, type LintResult } from "./shared";
+import {
+  REQUIRED_AXES,
+  asObject,
+  asString,
+  expectedDefaultTab,
+  loadFixtures,
+  loadSchemaValidator,
+  type LintResult
+} from "./shared";
 
 export function runUiStateLint() {
   const issues = [];
@@ -20,6 +28,7 @@ export function runUiStateLint() {
 
     const source = asObject(fixture.payload.source);
     const uiHints = asObject(fixture.payload.ui_hints);
+    const workspaces = asObject(fixture.payload.workspaces);
 
     if (fixture.payload.schema_version !== "ui-state.v1") {
       issues.push({
@@ -60,6 +69,24 @@ export function runUiStateLint() {
         rule: "default-tab",
         file: fixture.repoPath,
         message: `expected ui_hints.default_tab ${expectedTab}, got ${String(defaultTab)}`
+      });
+    }
+
+    for (const axis of REQUIRED_AXES) {
+      if (!asObject(fixture.payload[axis])) {
+        issues.push({
+          rule: "required-axis",
+          file: fixture.repoPath,
+          message: `missing required axis object ${axis}`
+        });
+      }
+    }
+
+    if (asString(workspaces?.mode) !== "local_only_mount") {
+      issues.push({
+        rule: "workspace-mode",
+        file: fixture.repoPath,
+        message: `expected workspaces.mode local_only_mount, got ${String(workspaces?.mode)}`
       });
     }
   }

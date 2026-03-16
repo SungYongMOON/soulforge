@@ -1,0 +1,5 @@
+party_id: example_party
+kind: allowed_classes
+status: template
+class_ids:
+  - example_class

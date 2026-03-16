@@ -1,0 +1,15 @@
+workflow_id: example_workflow
+kind: step_graph
+status: template
+steps:
+  - step_id: scout
+    title: Scout
+    next:
+      - decide
+  - step_id: decide
+    title: Decide
+    next:
+      - deliver
+  - step_id: deliver
+    title: Deliver
+    next: []

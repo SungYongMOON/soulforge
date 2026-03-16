@@ -1,55 +1,55 @@
 # .agent_class
 
-## 목적
+## 정본 의미
 
-- `.agent_class/` 는 durable agent unit 이 장착하는 reusable loadout template 의 canonical owner 다.
-- 본체를 바꾸지 않고 어떤 installed asset 이 있고 어떤 workflow/profile/loadout semantics 를 가지는지 관리한다.
-- 이번 라운드 기준 canonical loadout layer 는 `.agent_class/**` 로 고정한다.
+- `.agent_class/` 는 class/package catalog 의 정본 루트다.
+- `.agent_class/` 는 더 이상 canonical loadout root 가 아니며 workflow canon owner 도 아니다.
+- reusable capability package 정의만 소유하고, active unit state 와 project execution state 는 소유하지 않는다.
 
-## 범위
+## 무엇을 둔다
 
-- canonical skills, tools, knowledge, workflows, profiles, manifests 와 현재 loadout 상태를 다룬다.
-- body durable organ 이나 mission site 실자료는 범위 밖이다.
+- `index.yaml`
+- `<class_id>/class.yaml`
+- `<class_id>/knowledge_refs.yaml`
+- `<class_id>/skill_refs.yaml`
+- `<class_id>/tool_refs.yaml`
+- `<class_id>/profiles/`
+- `<class_id>/manifests/`
+- class/package 설명 문서와 template/example 수준의 refs
 
-## 포함 대상
+## 무엇을 두지 않는다
 
-- `class.yaml`, `loadout.yaml`
-- `skills/`, `tools/`, `workflows/`, `knowledge/`, `profiles/`, `manifests/`
-- class owner 문서와 비추적 로컬 상태 경계
-- class selection UI 가 참조할 canonical source 와 loadout semantics
+- active loadout state, active profile state, equipped runtime dump
+- workflow canon, workflow history, raw run log, project-local battle log
+- `_workspaces/<project_code>/` 실자료와 `.project_agent/` 실행 truth
 
-## 제외 대상
+## 왜 이렇게 둔다
 
-- 본체 장기 기억과 본체 정책
-- active identity, hero overlay, body catalog selection layer
-- 실제 프로젝트 파일과 프로젝트별 `.project_agent/`
+- class/package 는 재사용 가능한 capability catalog 이고, 실제 운영 선택과 실행 로그까지 끌어오면 owner 경계가 무너진다.
+- active unit 구성은 `.unit/`, workflow canon 은 `.workflow/`, mission site truth 는 `_workspaces/` 로 분리해야 새 canon 이 유지된다.
 
-## 미래 확장 방향
+## vNext skeleton
 
-- loadout 이 늘어나도 협업 shared 자산은 `.agent_class` 안이 아니라 루트 `_teams/shared/` 와 분리한다.
-- mission 특화 조합은 `_workspaces` 연결 계약으로만 묶고 loadout owner 는 유지한다.
+- [`index.yaml`](index.yaml): class/package catalog index template
+- [`example_class/class.yaml`](example_class/class.yaml): placeholder class definition
+- [`example_class/knowledge_refs.yaml`](example_class/knowledge_refs.yaml): placeholder knowledge refs
+- [`example_class/skill_refs.yaml`](example_class/skill_refs.yaml): placeholder skill refs
+- [`example_class/tool_refs.yaml`](example_class/tool_refs.yaml): placeholder tool refs
+- [`example_class/profiles/README.md`](example_class/profiles/README.md): profile directory rule
+- [`example_class/manifests/README.md`](example_class/manifests/README.md): manifest directory rule
+
+## legacy bridge
+
+- 기존 `class.yaml`, `loadout.yaml`, `knowledge/`, `skills/`, `tools/`, `workflows/`, `profiles/`, `manifests/` 는 현 저장소에 남아 있는 bridge/legacy 경로다.
+- 위 경로들은 후속 migration 전까지 참고 자료와 bridge 역할만 가지며, vNext owner 의미를 다시 정의하지 않는다.
+
+## 변경 원칙
+
+- `.agent_class` catalog 구조가 바뀌면 같은 변경 안에서 이 README, `index.yaml`, 관련 foundation 문서를 함께 갱신한다.
+- template/example YAML 에 실제 운영 loadout, 민감 로그, project code, run id 는 넣지 않는다.
 
 ## 관련 경로
 
 - [루트 README](../README.md)
-- [`.agent_class/docs/README.md`](docs/README.md)
-- [`.agent_class/docs/architecture/AGENT_CLASS_MODEL.md`](docs/architecture/AGENT_CLASS_MODEL.md)
-- [`.agent_class/docs/architecture/MODULE_REFERENCE_CONTRACT.md`](docs/architecture/MODULE_REFERENCE_CONTRACT.md)
 - [`.agent/README.md`](../.agent/README.md)
-
-## 상태
-
-- Stable
-- 클래스 계층 경계는 정의되었다.
-- installed library 는 `module.yaml` manifest 기준으로 해석하고, loadout 는 module id 기준으로 장착한다.
-- profiles 는 hero 대체재가 아니라 default preference mode 다.
-- workflows 는 explicit required 조합식이다.
-- `class.yaml` 은 canonical loadout root 와 semantics 를 선언하고, `loadout.yaml` 은 active profile 과 equipped module id 만 고정한다.
-- `.agent/catalog/class/**` 는 selection index 이고 canonical asset 정본은 `.agent_class/**` 에 남는다.
-- installed library roots 아래에는 `sample_` prefix 디렉터리와 `sample.` module id 를 쓰는 repo-tracked reference sample baseline 이 들어올 수 있다.
-- local CLI 는 workspace `.project_agent` 계약도 스캔해 `bound`, `unbound`, `invalid` 상태를 분류한다.
-- local CLI 는 body/class/workspace resolve 결과를 renderer 입력용 derived state 로도 조합한다.
-- derived state 소비자 역할의 read-only UI prototype 은 루트 `ui/viewer/` 에서 제공한다.
-- read-only viewer 의 9차 개선은 표현 계층 한정이며, class 정본 구조나 derive 계약을 바꾸지 않는다.
-- 현재 v1 closeout 범위는 installed/loadout resolve, derived state, read-only viewer, baseline 3종 연동까지로 닫혀 있다.
-- 저장소 공용 개발 계획과 개발 이력 문서는 `.agent_class/docs/` 가 아니라 루트 `dev/plan/`, `dev/log/` 아래에서 관리한다.
+- [`../docs/architecture/foundation/TARGET_TREE.md`](../docs/architecture/foundation/TARGET_TREE.md)

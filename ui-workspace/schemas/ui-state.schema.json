@@ -1,25 +1,25 @@
 {
   "$schema": "https://json-schema.org/draft/2020-12/schema",
   "$id": "https://soulforge.local/schemas/ui-state.schema.json",
-  "title": "Soulforge UI State",
+  "title": "Soulforge UI State vNext",
   "type": "object",
   "required": [
     "schema_version",
     "generated_at",
     "source",
-    "overview",
-    "body",
-    "class_view",
+    "species",
+    "units",
+    "classes",
+    "workflows",
+    "parties",
     "workspaces",
     "diagnostics",
-    "catalogs",
     "ui_hints"
   ],
   "additionalProperties": true,
   "properties": {
     "schema_version": {
-      "type": "string",
-      "minLength": 1
+      "const": "ui-state.v1"
     },
     "generated_at": {
       "type": [
@@ -30,14 +30,20 @@
     "source": {
       "$ref": "#/$defs/source"
     },
-    "overview": {
-      "$ref": "#/$defs/overview"
+    "species": {
+      "$ref": "#/$defs/axisCollection"
     },
-    "body": {
-      "$ref": "#/$defs/body"
+    "units": {
+      "$ref": "#/$defs/axisCollection"
     },
-    "class_view": {
-      "$ref": "#/$defs/classView"
+    "classes": {
+      "$ref": "#/$defs/axisCollection"
+    },
+    "workflows": {
+      "$ref": "#/$defs/axisCollection"
+    },
+    "parties": {
+      "$ref": "#/$defs/axisCollection"
     },
     "workspaces": {
       "$ref": "#/$defs/workspaces"
@@ -45,11 +51,20 @@
     "diagnostics": {
       "$ref": "#/$defs/diagnostics"
     },
-    "catalogs": {
-      "$ref": "#/$defs/catalogs"
-    },
     "ui_hints": {
       "$ref": "#/$defs/uiHints"
+    },
+    "overview": {
+      "type": "object"
+    },
+    "body": {
+      "type": "object"
+    },
+    "class_view": {
+      "type": "object"
+    },
+    "catalogs": {
+      "type": "object"
     }
   },
   "$defs": {
@@ -59,65 +74,13 @@
         "null"
       ]
     },
-    "nullableBoolean": {
-      "type": [
-        "boolean",
-        "null"
-      ]
-    },
-    "statusText": {
-      "type": "string",
-      "enum": [
-        "ok",
-        "ready",
-        "warning",
-        "error",
-        "missing",
-        "partial",
-        "present",
-        "inactive",
-        "bound",
-        "unbound",
-        "mixed",
-        "resolved"
-      ]
-    },
-    "identityRef": {
-      "type": "object",
-      "required": [
-        "id",
-        "display_name",
-        "summary",
-        "source_ref",
-        "active"
-      ],
-      "additionalProperties": true,
-      "properties": {
-        "id": {
-          "type": "string",
-          "minLength": 1
-        },
-        "display_name": {
-          "type": "string",
-          "minLength": 1
-        },
-        "summary": {
-          "type": "string"
-        },
-        "source_ref": {
-          "$ref": "#/$defs/nullableString"
-        },
-        "active": {
-          "type": "boolean"
-        }
-      }
-    },
     "source": {
       "type": "object",
       "required": [
         "producer",
         "mode",
         "adapter",
+        "fixture_name",
         "notes"
       ],
       "additionalProperties": true,
@@ -149,152 +112,13 @@
         }
       }
     },
-    "countBlock": {
-      "type": "object",
-      "required": [
-        "skills",
-        "tools",
-        "knowledge",
-        "workflows"
-      ],
-      "additionalProperties": true,
-      "properties": {
-        "skills": {
-          "type": "integer",
-          "minimum": 0
-        },
-        "tools": {
-          "type": "integer",
-          "minimum": 0
-        },
-        "knowledge": {
-          "type": "integer",
-          "minimum": 0
-        },
-        "workflows": {
-          "type": "integer",
-          "minimum": 0
-        }
-      }
-    },
-    "overview": {
-      "type": "object",
-      "required": [
-        "body_id",
-        "class_id",
-        "active_profile",
-        "active_species",
-        "active_hero",
-        "sections_present",
-        "installed_counts",
-        "equipped_counts",
-        "workspace_counts",
-        "warnings",
-        "errors",
-        "overall_status"
-      ],
-      "additionalProperties": true,
-      "properties": {
-        "body_id": {
-          "$ref": "#/$defs/nullableString"
-        },
-        "class_id": {
-          "$ref": "#/$defs/nullableString"
-        },
-        "active_profile": {
-          "$ref": "#/$defs/nullableString"
-        },
-        "active_species": {
-          "oneOf": [
-            {
-              "$ref": "#/$defs/identityRef"
-            },
-            {
-              "type": "null"
-            }
-          ]
-        },
-        "active_hero": {
-          "oneOf": [
-            {
-              "$ref": "#/$defs/identityRef"
-            },
-            {
-              "type": "null"
-            }
-          ]
-        },
-        "sections_present": {
-          "type": "object",
-          "required": [
-            "present",
-            "total"
-          ],
-          "additionalProperties": true,
-          "properties": {
-            "present": {
-              "type": "integer",
-              "minimum": 0
-            },
-            "total": {
-              "type": "integer",
-              "minimum": 0
-            }
-          }
-        },
-        "installed_counts": {
-          "$ref": "#/$defs/countBlock"
-        },
-        "equipped_counts": {
-          "$ref": "#/$defs/countBlock"
-        },
-        "workspace_counts": {
-          "type": "object",
-          "required": [
-            "total",
-            "bound",
-            "unbound",
-            "invalid"
-          ],
-          "additionalProperties": true,
-          "properties": {
-            "total": {
-              "type": "integer",
-              "minimum": 0
-            },
-            "bound": {
-              "type": "integer",
-              "minimum": 0
-            },
-            "unbound": {
-              "type": "integer",
-              "minimum": 0
-            },
-            "invalid": {
-              "type": "integer",
-              "minimum": 0
-            }
-          }
-        },
-        "warnings": {
-          "type": "integer",
-          "minimum": 0
-        },
-        "errors": {
-          "type": "integer",
-          "minimum": 0
-        },
-        "overall_status": {
-          "$ref": "#/$defs/statusText"
-        }
-      }
-    },
-    "sectionPresence": {
+    "catalogItem": {
       "type": "object",
       "required": [
         "id",
-        "path",
-        "present",
+        "display_name",
+        "summary",
+        "source_ref",
         "status"
       ],
       "additionalProperties": true,
@@ -303,192 +127,6 @@
           "type": "string",
           "minLength": 1
         },
-        "path": {
-          "type": "string",
-          "minLength": 1
-        },
-        "present": {
-          "type": "boolean"
-        },
-        "status": {
-          "$ref": "#/$defs/statusText"
-        }
-      }
-    },
-    "sectionSummary": {
-      "type": "object",
-      "required": [
-        "section_id",
-        "title",
-        "summary",
-        "status",
-        "present"
-      ],
-      "additionalProperties": true,
-      "properties": {
-        "section_id": {
-          "type": "string",
-          "minLength": 1
-        },
-        "title": {
-          "type": "string",
-          "minLength": 1
-        },
-        "summary": {
-          "type": "string"
-        },
-        "status": {
-          "$ref": "#/$defs/statusText"
-        },
-        "present": {
-          "type": "boolean"
-        }
-      }
-    },
-    "body": {
-      "type": "object",
-      "required": [
-        "meta",
-        "active_species",
-        "active_hero",
-        "section_presence",
-        "section_summaries",
-        "current_bindings"
-      ],
-      "additionalProperties": true,
-      "properties": {
-        "meta": {
-          "type": "object",
-          "required": [
-            "body_id",
-            "display_name",
-            "operating_context",
-            "status"
-          ],
-          "additionalProperties": true,
-          "properties": {
-            "body_id": {
-              "$ref": "#/$defs/nullableString"
-            },
-            "display_name": {
-              "$ref": "#/$defs/nullableString"
-            },
-            "version": {
-              "$ref": "#/$defs/nullableString"
-            },
-            "operating_context": {
-              "$ref": "#/$defs/nullableString"
-            },
-            "status": {
-              "$ref": "#/$defs/statusText"
-            }
-          }
-        },
-        "active_species": {
-          "oneOf": [
-            {
-              "$ref": "#/$defs/identityRef"
-            },
-            {
-              "type": "null"
-            }
-          ]
-        },
-        "active_hero": {
-          "oneOf": [
-            {
-              "$ref": "#/$defs/identityRef"
-            },
-            {
-              "type": "null"
-            }
-          ]
-        },
-        "section_presence": {
-          "type": "array",
-          "items": {
-            "$ref": "#/$defs/sectionPresence"
-          }
-        },
-        "section_summaries": {
-          "type": "array",
-          "items": {
-            "$ref": "#/$defs/sectionSummary"
-          }
-        },
-        "current_bindings": {
-          "type": "object",
-          "required": [
-            "class_binding",
-            "workspace_binding",
-            "precedence"
-          ],
-          "additionalProperties": true,
-          "properties": {
-            "class_binding": {
-              "type": "object",
-              "required": [
-                "status",
-                "class_id",
-                "active_profile"
-              ],
-              "additionalProperties": true,
-              "properties": {
-                "status": {
-                  "$ref": "#/$defs/statusText"
-                },
-                "class_id": {
-                  "$ref": "#/$defs/nullableString"
-                },
-                "active_profile": {
-                  "$ref": "#/$defs/nullableString"
-                }
-              }
-            },
-            "workspace_binding": {
-              "type": "object",
-              "required": [
-                "status"
-              ],
-              "additionalProperties": true,
-              "properties": {
-                "status": {
-                  "$ref": "#/$defs/statusText"
-                },
-                "active_workspace": {
-                  "$ref": "#/$defs/nullableString"
-                },
-                "candidate_count": {
-                  "type": "integer",
-                  "minimum": 0
-                }
-              }
-            },
-            "precedence": {
-              "type": "array",
-              "items": {
-                "type": "string"
-              }
-            }
-          }
-        }
-      }
-    },
-    "profileRef": {
-      "type": "object",
-      "required": [
-        "id",
-        "display_name",
-        "summary",
-        "source_ref",
-        "active"
-      ],
-      "additionalProperties": true,
-      "properties": {
-        "id": {
-          "type": "string",
-          "minLength": 1
-        },
         "display_name": {
           "type": "string",
           "minLength": 1
@@ -497,289 +135,92 @@
           "type": "string"
         },
         "source_ref": {
-          "$ref": "#/$defs/nullableString"
+          "type": "string",
+          "minLength": 1
         },
-        "active": {
-          "type": "boolean"
+        "status": {
+          "type": "string",
+          "minLength": 1
         }
       }
     },
-    "rowItem": {
+    "axisCollection": {
       "type": "object",
       "required": [
-        "id",
-        "display_name",
-        "summary",
-        "installed",
-        "equipped",
-        "active",
-        "required",
-        "preferred",
-        "dependency_status",
-        "family",
-        "category",
-        "source_ref",
-        "source_hint",
-        "catalog_ref",
-        "selectable_candidate"
+        "root",
+        "owner",
+        "items"
       ],
       "additionalProperties": true,
       "properties": {
-        "id": {
+        "root": {
           "type": "string",
           "minLength": 1
         },
-        "display_name": {
+        "owner": {
           "type": "string",
           "minLength": 1
-        },
-        "summary": {
-          "type": "string"
-        },
-        "installed": {
-          "type": "boolean"
-        },
-        "equipped": {
-          "type": "boolean"
-        },
-        "active": {
-          "$ref": "#/$defs/nullableBoolean"
-        },
-        "required": {
-          "$ref": "#/$defs/nullableBoolean"
-        },
-        "preferred": {
-          "$ref": "#/$defs/nullableBoolean"
-        },
-        "dependency_status": {
-          "type": [
-            "string",
-            "null"
-          ],
-          "enum": [
-            "resolved",
-            "invalid",
-            "partial",
-            "unknown",
-            null
-          ]
-        },
-        "family": {
-          "$ref": "#/$defs/nullableString"
-        },
-        "category": {
-          "$ref": "#/$defs/nullableString"
-        },
-        "source_ref": {
-          "$ref": "#/$defs/nullableString"
-        },
-        "source_hint": {
-          "$ref": "#/$defs/nullableString"
         },
         "catalog_ref": {
           "$ref": "#/$defs/nullableString"
         },
-        "selectable_candidate": {
-          "type": "boolean"
-        }
-      }
-    },
-    "classView": {
-      "type": "object",
-      "required": [
-        "class_id",
-        "class_name",
-        "class_version",
-        "active_profile",
-        "rows"
-      ],
-      "additionalProperties": true,
-      "properties": {
-        "class_id": {
-          "$ref": "#/$defs/nullableString"
-        },
-        "class_name": {
-          "$ref": "#/$defs/nullableString"
-        },
-        "class_version": {
-          "$ref": "#/$defs/nullableString"
-        },
-        "active_profile": {
-          "oneOf": [
-            {
-              "$ref": "#/$defs/profileRef"
-            },
-            {
-              "type": "null"
-            }
-          ]
-        },
-        "rows": {
-          "type": "object",
-          "required": [
-            "skills",
-            "tools",
-            "knowledge",
-            "workflows"
-          ],
-          "additionalProperties": true,
-          "properties": {
-            "skills": {
-              "type": "array",
-              "items": {
-                "$ref": "#/$defs/rowItem"
-              }
-            },
-            "tools": {
-              "type": "array",
-              "items": {
-                "$ref": "#/$defs/rowItem"
-              }
-            },
-            "knowledge": {
-              "type": "array",
-              "items": {
-                "$ref": "#/$defs/rowItem"
-              }
-            },
-            "workflows": {
-              "type": "array",
-              "items": {
-                "$ref": "#/$defs/rowItem"
-              }
-            }
+        "items": {
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/catalogItem"
           }
-        }
-      }
-    },
-    "workspaceProject": {
-      "type": "object",
-      "required": [
-        "project_id",
-        "project_name",
-        "project_path",
-        "workspace_kind",
-        "state",
-        "project_agent_present",
-        "default_loadout",
-        "binding_status",
-        "capsule_binding_count",
-        "workflow_binding_count",
-        "local_state_entry_count"
-      ],
-      "additionalProperties": true,
-      "properties": {
-        "project_id": {
-          "$ref": "#/$defs/nullableString"
         },
-        "project_name": {
-          "$ref": "#/$defs/nullableString"
-        },
-        "project_path": {
-          "type": "string",
-          "minLength": 1
-        },
-        "workspace_kind": {
-          "type": "string",
-          "enum": [
-            "company",
-            "personal"
-          ]
-        },
-        "state": {
-          "type": "string",
-          "enum": [
-            "bound",
-            "unbound",
-            "invalid"
-          ]
-        },
-        "project_agent_present": {
-          "type": "boolean"
-        },
-        "default_loadout": {
-          "$ref": "#/$defs/nullableString"
-        },
-        "binding_status": {
-          "$ref": "#/$defs/statusText"
-        },
-        "capsule_binding_count": {
-          "type": "integer",
-          "minimum": 0
-        },
-        "workflow_binding_count": {
-          "type": "integer",
-          "minimum": 0
-        },
-        "local_state_entry_count": {
-          "type": "integer",
-          "minimum": 0
+        "heroes": {
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/catalogItem"
+          }
         }
       }
     },
     "workspaces": {
       "type": "object",
       "required": [
-        "summary",
-        "grouped_projects"
+        "root",
+        "owner",
+        "mode",
+        "mount_status",
+        "local_scan_enabled",
+        "projects",
+        "notes"
       ],
       "additionalProperties": true,
       "properties": {
-        "summary": {
-          "type": "object",
-          "required": [
-            "total",
-            "bound",
-            "unbound",
-            "invalid",
-            "binding_status"
-          ],
-          "additionalProperties": true,
-          "properties": {
-            "total": {
-              "type": "integer",
-              "minimum": 0
-            },
-            "bound": {
-              "type": "integer",
-              "minimum": 0
-            },
-            "unbound": {
-              "type": "integer",
-              "minimum": 0
-            },
-            "invalid": {
-              "type": "integer",
-              "minimum": 0
-            },
-            "binding_status": {
-              "$ref": "#/$defs/statusText"
-            },
-            "active_workspace": {
-              "$ref": "#/$defs/nullableString"
-            }
+        "root": {
+          "type": "string",
+          "const": "_workspaces"
+        },
+        "owner": {
+          "type": "string",
+          "const": "_workspaces"
+        },
+        "mode": {
+          "type": "string",
+          "const": "local_only_mount"
+        },
+        "mount_status": {
+          "type": "string",
+          "minLength": 1
+        },
+        "local_scan_enabled": {
+          "type": "boolean"
+        },
+        "projects": {
+          "type": "array",
+          "items": {
+            "type": "object",
+            "additionalProperties": true
           }
         },
-        "grouped_projects": {
-          "type": "object",
-          "required": [
-            "company",
-            "personal"
-          ],
-          "additionalProperties": true,
-          "properties": {
-            "company": {
-              "type": "array",
-              "items": {
-                "$ref": "#/$defs/workspaceProject"
-              }
-            },
-            "personal": {
-              "type": "array",
-              "items": {
-                "$ref": "#/$defs/workspaceProject"
-              }
-            }
+        "notes": {
+          "type": "array",
+          "items": {
+            "type": "string"
           }
         }
       }
@@ -799,8 +240,7 @@
           "minLength": 1
         },
         "message": {
-          "type": "string",
-          "minLength": 1
+          "type": "string"
         },
         "severity": {
           "type": "string",
@@ -864,128 +304,12 @@
         }
       }
     },
-    "catalogItem": {
-      "type": "object",
-      "required": [
-        "id",
-        "display_name",
-        "summary",
-        "source_ref",
-        "active",
-        "candidate"
-      ],
-      "additionalProperties": true,
-      "properties": {
-        "id": {
-          "type": "string",
-          "minLength": 1
-        },
-        "display_name": {
-          "type": "string",
-          "minLength": 1
-        },
-        "summary": {
-          "type": "string"
-        },
-        "source_ref": {
-          "$ref": "#/$defs/nullableString"
-        },
-        "active": {
-          "type": "boolean"
-        },
-        "candidate": {
-          "type": "boolean"
-        }
-      }
-    },
-    "catalogs": {
-      "type": "object",
-      "required": [
-        "identity",
-        "class"
-      ],
-      "additionalProperties": true,
-      "properties": {
-        "identity": {
-          "type": "object",
-          "required": [
-            "status",
-            "species_candidates",
-            "hero_candidates"
-          ],
-          "additionalProperties": true,
-          "properties": {
-            "status": {
-              "$ref": "#/$defs/statusText"
-            },
-            "species_candidates": {
-              "type": "array",
-              "items": {
-                "$ref": "#/$defs/catalogItem"
-              }
-            },
-            "hero_candidates": {
-              "type": "array",
-              "items": {
-                "$ref": "#/$defs/catalogItem"
-              }
-            }
-          }
-        },
-        "class": {
-          "type": "object",
-          "required": [
-            "status",
-            "profiles_catalog",
-            "skills_catalog",
-            "tools_catalog",
-            "knowledge_catalog",
-            "workflows_catalog"
-          ],
-          "additionalProperties": true,
-          "properties": {
-            "status": {
-              "$ref": "#/$defs/statusText"
-            },
-            "profiles_catalog": {
-              "type": "array",
-              "items": {
-                "$ref": "#/$defs/catalogItem"
-              }
-            },
-            "skills_catalog": {
-              "type": "array",
-              "items": {
-                "$ref": "#/$defs/catalogItem"
-              }
-            },
-            "tools_catalog": {
-              "type": "array",
-              "items": {
-                "$ref": "#/$defs/catalogItem"
-              }
-            },
-            "knowledge_catalog": {
-              "type": "array",
-              "items": {
-                "$ref": "#/$defs/catalogItem"
-              }
-            },
-            "workflows_catalog": {
-              "type": "array",
-              "items": {
-                "$ref": "#/$defs/catalogItem"
-              }
-            }
-          }
-        }
-      }
-    },
     "uiHints": {
       "type": "object",
       "required": [
         "theme",
         "phase",
+        "default_tab",
         "layout",
         "material_hints",
         "icon_hints"
@@ -1013,16 +337,13 @@
           "additionalProperties": true,
           "properties": {
             "left_ratio": {
-              "type": "number",
-              "minimum": 0
+              "type": "number"
             },
             "right_ratio": {
-              "type": "number",
-              "minimum": 0
+              "type": "number"
             },
             "gutter_ratio": {
-              "type": "number",
-              "minimum": 0
+              "type": "number"
             }
           }
         },
@@ -1035,12 +356,6 @@
         "icon_hints": {
           "type": "object",
           "additionalProperties": {
-            "type": "string"
-          }
-        },
-        "renderer_notes": {
-          "type": "array",
-          "items": {
             "type": "string"
           }
         }

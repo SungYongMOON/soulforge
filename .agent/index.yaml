@@ -1,0 +1,9 @@
+version: vnext
+owner: .agent
+kind: species_hero_catalog
+status: template
+entries:
+  - species_id: human
+    path: species/human/species.yaml
+notes:
+  - Template catalog only. Do not store runtime state, run ids, or project-local data here.

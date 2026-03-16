@@ -1,0 +1,6 @@
+class_id: example_class
+kind: skill_refs
+status: template
+skill_refs: []
+notes:
+  - Template only. Add reusable skill package refs here when the class package materializes.

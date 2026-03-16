@@ -2,160 +2,115 @@
 
 ## 목적
 
-- 저장소의 목표 구조와 owner 경계를 한눈에 보여준다.
-- 특히 `.agent` 의 active/catalog layer 와 `.agent_class` 의 canonical loadout layer 를 같이 고정한다.
+- vNext frozen decisions 기준의 새 정본 루트 구조를 고정한다.
+- 여섯 축의 owner 경계와 `_workspaces` public/private tracking 원칙을 같은 문서에서 본다.
 
-## 최종 `.agent` target tree
-
-```text
-.agent/
-├── README.md
-├── body.yaml
-├── body_state.yaml
-├── docs/
-│   └── architecture/
-│       ├── AGENT_BODY_MODEL.md
-│       ├── BODY_METADATA_CONTRACT.md
-│       ├── AGENT_CATALOG_LAYER_MODEL.md
-│       ├── HERO_OVERLAY_MODEL.md
-│       ├── RUNTIME_MODEL.md
-│       ├── MEMORY_MODEL.md
-│       ├── TEAM_EXPANSION_MODEL.md
-│       └── COORDINATION_PROTOCOLS.md
-├── identity/
-│   ├── README.md
-│   ├── species_profile.yaml
-│   ├── hero_imprint.yaml
-│   └── identity_manifest.yaml
-├── catalog/
-│   ├── README.md
-│   ├── identity/
-│   │   ├── README.md
-│   │   ├── species/
-│   │   │   ├── README.md
-│   │   │   ├── index.yaml
-│   │   │   └── soulforge-default.species.yaml
-│   │   └── heroes/
-│   │       ├── README.md
-│   │       ├── index.yaml
-│   │       └── soulforge_default/
-│   │           ├── README.md
-│   │           └── craft_sage.hero.yaml
-│   └── class/
-│       ├── README.md
-│       ├── profiles/
-│       │   ├── README.md
-│       │   └── profiles_catalog.yaml
-│       ├── skills/
-│       │   ├── README.md
-│       │   └── skills_catalog.yaml
-│       ├── tools/
-│       │   ├── README.md
-│       │   ├── adapters_catalog.yaml
-│       │   ├── connectors_catalog.yaml
-│       │   ├── local_cli_catalog.yaml
-│       │   └── mcp_catalog.yaml
-│       ├── knowledge/
-│       │   ├── README.md
-│       │   └── knowledge_catalog.yaml
-│       └── workflows/
-│           ├── README.md
-│           └── workflows_catalog.yaml
-├── registry/
-│   ├── README.md
-│   ├── active_class_binding.yaml
-│   ├── workspace_binding.yaml
-│   ├── capability_index.yaml
-│   └── trait_bindings.yaml
-├── policy/
-├── communication/
-├── protocols/
-├── runtime/
-├── memory/
-├── sessions/
-├── autonomic/
-└── artifacts/
-```
-
-## 저장소 상위 구조
+## 새 정본 루트 트리
 
 ```text
 ./
 ├── .agent/
-├── .agent_class/
-│   ├── _local/
-│   ├── docs/
-│   │   ├── architecture/
-│   │   ├── plans/
-│   │   └── prompts/
-│   ├── knowledge/
-│   ├── manifests/
-│   ├── profiles/
-│   ├── skills/
-│   ├── tools/
-│   │   ├── adapters/
-│   │   ├── connectors/
-│   │   ├── local_cli/
-│   │   └── mcp/
-│   ├── workflows/
-│   ├── class.yaml
-│   └── loadout.yaml
-├── _workspaces/
-├── apps/
-├── fixtures/
-├── packages/
-├── schemas/
-├── tools/
-├── ui-workspace/
-│   ├── DONE.md
-│   ├── apps/
-│   │   ├── renderer-web/
-│   │   └── skin-lab-storybook/
-│   ├── packages/
-│   │   ├── ui-contract/
-│   │   ├── renderer-core/
-│   │   ├── renderer-react/
-│   │   ├── theme-contract/
-│   │   └── theme-adventurers-desk/
-│   ├── tools/
-│   │   ├── ui-lint/
-│   │   └── legacy-python-viewer/
-│   ├── fixtures/
-│   │   └── ui-state/
-│   ├── schemas/
-│   │   └── ui-state.schema.json
+│   ├── index.yaml
+│   ├── species/
+│   │   └── <species_id>/
+│   │       ├── species.yaml
+│   │       └── heroes/
+│   │           └── <hero_id>/
+│   │               └── hero.yaml
 │   └── docs/
-│       └── UI_NEXT_PHASE_BACKLOG.md
-├── ui/
-│   └── viewer/
+│       └── architecture/
+├── .unit/
+│   └── <unit_id>/
+│       ├── unit.yaml
+│       ├── policy/
+│       ├── protocols/
+│       ├── runtime/
+│       ├── memory/
+│       ├── sessions/
+│       ├── autonomic/
+│       └── artifacts/
+├── .agent_class/
+│   ├── index.yaml
+│   └── <class_id>/
+│       ├── class.yaml
+│       ├── knowledge_refs.yaml
+│       ├── skill_refs.yaml
+│       ├── tool_refs.yaml
+│       ├── profiles/
+│       └── manifests/
+├── .workflow/
+│   ├── index.yaml
+│   └── <workflow_id>/
+│       ├── workflow.yaml
+│       ├── role_slots.yaml
+│       ├── step_graph.yaml
+│       ├── handoff_rules.yaml
+│       ├── monster_rules.yaml
+│       ├── party_compatibility.yaml
+│       └── history/
+├── .party/
+│   ├── index.yaml
+│   └── <party_id>/
+│       ├── party.yaml
+│       ├── member_slots.yaml
+│       ├── allowed_species.yaml
+│       ├── allowed_classes.yaml
+│       ├── allowed_workflows.yaml
+│       ├── appserver_profile.yaml
+│       └── stats/
+├── _workspaces/
+│   └── README.md
 ├── docs/
-│   ├── architecture/
-│   └── ui/
+│   └── architecture/
+│       ├── foundation/
+│       ├── workspace/
+│       └── ui/
 ├── dev/
 │   ├── log/
 │   └── plan/
-├── package.json
+├── ui-workspace/
 └── README.md
 ```
 
-## 폴더별 상위 책임
+## `_workspaces` local materialization
 
-| 경로 | 상위 책임 |
-| --- | --- |
-| `.agent/identity/` | active species 와 optional hero overlay |
-| `.agent/catalog/` | body-owned selection catalog layer |
-| `.agent/registry/` | active binding, index, reference |
-| `.agent_class/` | reusable loadout template 와 canonical asset owner |
-| `.agent_class/profiles/` | canonical default preference modes |
-| `.agent_class/manifests/` | canonical capability index, equip rule, dependency graph |
-| `_workspaces/` | 실제 프로젝트 운영 현장 |
-| `apps/`, `packages/`, `tools/`, `fixtures/`, `schemas/` | ui-workspace relocation stub |
-| `ui-workspace/` | portable UI 전용 workspace |
-| `ui-workspace/apps/renderer-web/` | fixture-first renderer web shell |
-| `ui-workspace/packages/renderer-core/` | portable renderer contract consumer core |
-| `ui-workspace/tools/ui-lint/` | UI contract / catalog / boundary lint suite |
-| `ui-workspace/fixtures/ui-state/` | renderer fixture baseline |
-| `ui-workspace/schemas/` | renderer contract schema |
-| `ui/` | relocation / legacy pointer |
-| `docs/architecture/` | 저장소 전체 구조와 root-owned 계약 문서 |
-| `docs/ui/` | ui-workspace relocation 문서군 |
+```text
+_workspaces/
+├── README.md
+└── <project_code>/
+    ├── ... actual project files ...
+    └── .project_agent/
+        ├── contract.yaml
+        ├── bindings/
+        ├── runs/
+        │   └── <run_id>/
+        ├── dungeons/
+        ├── analytics/
+        ├── nightly_healing/
+        ├── reports/
+        └── artifacts/
+```
+
+- public repo 에서는 `_workspaces/README.md` 만 추적한다.
+- `_workspaces/<project_code>/` 는 local/private mission site 로만 materialize 한다.
+- raw execution truth 의 owner 는 `_workspaces/<project_code>/.project_agent/runs/<run_id>/` 다.
+- `dungeons/`, `analytics/`, `nightly_healing/`, `reports/`, `artifacts/` 도 public tracking 대상이 아니다.
+
+## 루트별 owner 의미
+
+| 루트 | owner 의미 | public repo 허용 범위 | public repo 금지 범위 |
+| --- | --- | --- | --- |
+| `.agent/` | species / hero catalog | species, hero, catalog 문서와 메타 | active runtime, memory, sessions, raw run |
+| `.unit/` | active agent unit owner | owner 계약 문서와 구조 설명 | 실전 운영 상태, 민감 로그, raw artifacts 자동 반영 |
+| `.agent_class/` | class / package catalog | class 정의, refs, profiles, manifests | workflow owner 역할, project run data |
+| `.workflow/` | workflow canon + curated learning history | workflow 정의와 sanitized history | raw run dump, project-local battle log |
+| `.party/` | reusable party template + template-level stats | party template 와 fit/observation summary | raw battle log, project-specific operational metrics |
+| `_workspaces/` | local-only mission site mount point | `README.md` only | per-project 내용 전체 |
+
+## 고정 규칙
+
+- `.agent` 는 더 이상 single active body 나 runtime owner 가 아니다.
+- `.agent_class` 는 더 이상 canonical loadout root 가 아니다.
+- `company/`, `personal/` 분기는 새 정본에 포함하지 않는다.
+- `.run/` 루트는 새 정본에 포함하지 않는다.
+- repo 에 남아 있는 legacy sample 또는 과거 경로 흔적은 정본을 정의하지 않는다.

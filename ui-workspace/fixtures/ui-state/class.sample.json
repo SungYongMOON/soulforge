@@ -1,301 +1,356 @@
 {
   "schema_version": "ui-state.v1",
-  "generated_at": "2026-03-12T09:00:00Z",
+  "generated_at": "2026-03-16T00:00:00Z",
   "source": {
     "producer": "fixture",
     "mode": "fixture",
-    "adapter": "normalized-v1",
+    "adapter": "vnext-6-axis",
     "fixture_name": "class",
     "notes": [
-      "Class-first fixture for the renderer v1 contract.",
-      "Uses the current Soulforge baseline with installed/equipped/required/preferred legend coverage."
+      "Class-compatibility synthetic fixture for the vNext 6-axis contract.",
+      "The visible class panel is driven by reusable package canon plus unit bindings."
+    ]
+  },
+  "species": {
+    "root": ".agent",
+    "owner": ".agent",
+    "catalog_ref": ".agent/index.yaml",
+    "items": [
+      {
+        "id": "human",
+        "display_name": "Human",
+        "summary": "vNext species catalog baseline for public fixtures.",
+        "source_ref": ".agent/species/human/species.yaml",
+        "status": "template",
+        "hero_catalog_ref": ".agent/species/human/heroes/index.yaml",
+        "hero_count": 1
+      }
+    ],
+    "heroes": [
+      {
+        "id": "example_hero",
+        "display_name": "Example Hero",
+        "summary": "Template hero overlay kept in the public species catalog.",
+        "source_ref": ".agent/species/human/heroes/example_hero/hero.yaml",
+        "status": "template",
+        "species_id": "human"
+      }
+    ]
+  },
+  "units": {
+    "root": ".unit",
+    "owner": ".unit",
+    "items": [
+      {
+        "id": "example_unit",
+        "display_name": "Example Unit",
+        "summary": "Active unit owner template with sanitized bindings only.",
+        "source_ref": ".unit/example_unit/unit.yaml",
+        "status": "template",
+        "species_ref": ".agent/species/human/species.yaml",
+        "hero_ref": ".agent/species/human/heroes/example_hero/hero.yaml",
+        "class_package_refs": [
+          ".agent_class/example_class/class.yaml"
+        ],
+        "workflow_refs": [
+          ".workflow/example_workflow/workflow.yaml"
+        ],
+        "party_template_refs": [
+          ".party/example_party/party.yaml"
+        ],
+        "required_dirs": [
+          "policy",
+          "protocols",
+          "runtime",
+          "memory",
+          "sessions",
+          "autonomic",
+          "artifacts"
+        ]
+      }
+    ]
+  },
+  "classes": {
+    "root": ".agent_class",
+    "owner": ".agent_class",
+    "catalog_ref": ".agent_class/index.yaml",
+    "items": [
+      {
+        "id": "example_class",
+        "display_name": "Example Class",
+        "summary": "Reusable class/package template without active loadout semantics.",
+        "source_ref": ".agent_class/example_class/class.yaml",
+        "status": "template",
+        "knowledge_refs_source_ref": ".agent_class/example_class/knowledge_refs.yaml",
+        "knowledge_refs_count": 0,
+        "skill_refs_source_ref": ".agent_class/example_class/skill_refs.yaml",
+        "skill_refs_count": 0,
+        "tool_refs_source_ref": ".agent_class/example_class/tool_refs.yaml",
+        "tool_refs_count": 0,
+        "profiles_dir": ".agent_class/example_class/profiles",
+        "manifests_dir": ".agent_class/example_class/manifests"
+      }
+    ]
+  },
+  "workflows": {
+    "root": ".workflow",
+    "owner": ".workflow",
+    "catalog_ref": ".workflow/index.yaml",
+    "items": [
+      {
+        "id": "example_workflow",
+        "display_name": "Example Workflow",
+        "summary": "Reusable workflow canon template with curated history only.",
+        "source_ref": ".workflow/example_workflow/workflow.yaml",
+        "status": "template",
+        "role_slots_ref": ".workflow/example_workflow/role_slots.yaml",
+        "step_graph_ref": ".workflow/example_workflow/step_graph.yaml",
+        "handoff_rules_ref": ".workflow/example_workflow/handoff_rules.yaml",
+        "monster_rules_ref": ".workflow/example_workflow/monster_rules.yaml",
+        "party_compatibility_ref": ".workflow/example_workflow/party_compatibility.yaml",
+        "history_policy": "curated_summary_only",
+        "history_ref": ".workflow/example_workflow/history/README.md"
+      }
+    ]
+  },
+  "parties": {
+    "root": ".party",
+    "owner": ".party",
+    "catalog_ref": ".party/index.yaml",
+    "items": [
+      {
+        "id": "example_party",
+        "display_name": "Example Party",
+        "summary": "Reusable party template with sanitized stats guidance only.",
+        "source_ref": ".party/example_party/party.yaml",
+        "status": "template",
+        "member_slots_ref": ".party/example_party/member_slots.yaml",
+        "allowed_species_ref": ".party/example_party/allowed_species.yaml",
+        "allowed_classes_ref": ".party/example_party/allowed_classes.yaml",
+        "allowed_workflows_ref": ".party/example_party/allowed_workflows.yaml",
+        "appserver_profile_ref": ".party/example_party/appserver_profile.yaml",
+        "stats_policy": "curated_summary_only",
+        "stats_ref": ".party/example_party/stats/README.md"
+      }
+    ]
+  },
+  "workspaces": {
+    "root": "_workspaces",
+    "owner": "_workspaces",
+    "mode": "local_only_mount",
+    "mount_status": "reserved_public_root",
+    "local_scan_enabled": false,
+    "projects": [],
+    "notes": [
+      "Public fixtures never materialize _workspaces/<project_code>/.",
+      "Synthetic workspaces payloads describe the reserved local-only mount only."
     ]
   },
   "overview": {
-    "body_id": "soulforge-main-body",
-    "class_id": "soulforge.base",
-    "active_profile": "soulforge.profile.default",
+    "body_id": null,
+    "class_id": "example_class",
+    "active_profile": null,
     "active_species": {
-      "id": "soulforge.species.default",
-      "display_name": "Soulforge Default Species",
-      "summary": "구조 우선, 검증 우선, 저소음 운용을 선호하는 durable species default.",
-      "source_ref": ".agent/identity/species_profile.yaml",
+      "id": "human",
+      "display_name": "Human",
+      "summary": "vNext species catalog baseline for public fixtures.",
+      "source_ref": ".agent/species/human/species.yaml",
       "active": true
     },
     "active_hero": {
-      "id": "soulforge.identity.hero.none",
-      "display_name": "Hero Overlay Disabled",
-      "summary": "Optional hero overlay is currently inactive and species default remains dominant.",
-      "source_ref": ".agent/identity/hero_imprint.yaml",
-      "active": false
+      "id": "example_hero",
+      "display_name": "Example Hero",
+      "summary": "Template hero overlay kept in the public species catalog.",
+      "source_ref": ".agent/species/human/heroes/example_hero/hero.yaml",
+      "active": true
     },
     "sections_present": {
-      "present": 11,
-      "total": 11
+      "present": 5,
+      "total": 5
     },
     "installed_counts": {
-      "skills": 1,
-      "tools": 1,
-      "knowledge": 1,
+      "skills": 0,
+      "tools": 0,
+      "knowledge": 0,
       "workflows": 1
     },
     "equipped_counts": {
-      "skills": 1,
-      "tools": 1,
-      "knowledge": 1,
+      "skills": 0,
+      "tools": 0,
+      "knowledge": 0,
       "workflows": 1
     },
     "workspace_counts": {
-      "total": 3,
-      "bound": 2,
-      "unbound": 1,
+      "total": 0,
+      "bound": 0,
+      "unbound": 0,
       "invalid": 0
     },
     "warnings": 1,
     "errors": 0,
     "overall_status": "warning",
-    "status_note": "Workspace contracts are healthy; one scope warning remains for default_loadout validation."
+    "status_note": "Public fixtures project only the reserved local-only workspace mount."
   },
   "body": {
     "meta": {
-      "body_id": "soulforge-main-body",
-      "display_name": "Soulforge Main Body",
-      "version": "0.2.0",
-      "operating_context": "ide",
+      "body_id": null,
+      "display_name": "Example Unit",
+      "version": null,
+      "operating_context": "unit_owner_projection",
       "status": "ready"
     },
     "active_species": {
-      "id": "soulforge.species.default",
-      "display_name": "Soulforge Default Species",
-      "summary": "Durable body baseline for structure-first, cautious, low-noise work.",
-      "source_ref": ".agent/identity/species_profile.yaml",
+      "id": "human",
+      "display_name": "Human",
+      "summary": "vNext species catalog baseline for public fixtures.",
+      "source_ref": ".agent/species/human/species.yaml",
       "active": true
     },
     "active_hero": {
-      "id": "soulforge.identity.hero.none",
-      "display_name": "Hero Overlay Disabled",
-      "summary": "Hero overlay remains available as a candidate but is not active in the current body state.",
-      "source_ref": ".agent/identity/hero_imprint.yaml",
-      "active": false
+      "id": "example_hero",
+      "display_name": "Example Hero",
+      "summary": "Template hero overlay kept in the public species catalog.",
+      "source_ref": ".agent/species/human/heroes/example_hero/hero.yaml",
+      "active": true
     },
     "section_presence": [
       {
-        "id": "identity",
-        "path": ".agent/identity",
-        "present": true,
-        "status": "present"
-      },
-      {
-        "id": "catalog",
-        "path": ".agent/catalog",
-        "present": true,
-        "status": "present"
-      },
-      {
-        "id": "registry",
-        "path": ".agent/registry",
-        "present": true,
-        "status": "present"
-      },
-      {
         "id": "policy",
-        "path": ".agent/policy",
-        "present": true,
-        "status": "present"
-      },
-      {
-        "id": "communication",
-        "path": ".agent/communication",
+        "path": ".unit/example_unit/policy",
         "present": true,
         "status": "present"
       },
       {
         "id": "protocols",
-        "path": ".agent/protocols",
+        "path": ".unit/example_unit/protocols",
         "present": true,
         "status": "present"
       },
       {
         "id": "runtime",
-        "path": ".agent/runtime",
+        "path": ".unit/example_unit/runtime",
         "present": true,
         "status": "present"
       },
       {
         "id": "memory",
-        "path": ".agent/memory",
+        "path": ".unit/example_unit/memory",
         "present": true,
         "status": "present"
       },
       {
         "id": "sessions",
-        "path": ".agent/sessions",
+        "path": ".unit/example_unit/sessions",
         "present": true,
         "status": "present"
       },
       {
         "id": "autonomic",
-        "path": ".agent/autonomic",
+        "path": ".unit/example_unit/autonomic",
         "present": true,
         "status": "present"
       },
       {
         "id": "artifacts",
-        "path": ".agent/artifacts",
+        "path": ".unit/example_unit/artifacts",
         "present": true,
         "status": "present"
       }
     ],
     "section_summaries": [
       {
-        "section_id": "identity",
-        "title": "Identity Layer",
-        "summary": "Active species is declared and hero overlay remains optional.",
-        "status": "ready",
+        "section_id": "policy",
+        "title": "Policy",
+        "summary": "Unit-owned operating boundary template.",
+        "status": "present",
         "present": true
       },
       {
-        "section_id": "catalog",
-        "title": "Catalog Layer",
-        "summary": "Identity and class candidate catalogs remain body-owned and selection oriented.",
-        "status": "ready",
-        "present": true
-      },
-      {
-        "section_id": "registry",
-        "title": "Registry Layer",
-        "summary": "Class binding is active and workspace binding remains unset at body level.",
-        "status": "ready",
+        "section_id": "protocols",
+        "title": "Protocols",
+        "summary": "Unit-owned handoff and request contract template.",
+        "status": "present",
         "present": true
       },
       {
         "section_id": "runtime",
-        "title": "Runtime Layer",
-        "summary": "Declared runtime profile stays in the body and is not read directly by the renderer.",
-        "status": "ready",
+        "title": "Runtime",
+        "summary": "Unit assembly template without raw runs.",
+        "status": "present",
         "present": true
       },
       {
         "section_id": "memory",
-        "title": "Memory Layer",
-        "summary": "Private-first memory remains present and separate from installed knowledge.",
-        "status": "ready",
+        "title": "Memory",
+        "summary": "Curated unit continuity surface only.",
+        "status": "present",
+        "present": true
+      },
+      {
+        "section_id": "sessions",
+        "title": "Sessions",
+        "summary": "Session template surface without transcripts.",
+        "status": "present",
         "present": true
       },
       {
         "section_id": "autonomic",
-        "title": "Autonomic Layer",
-        "summary": "Low-noise hygiene and reminder rules remain available as body-owned support.",
-        "status": "ready",
+        "title": "Autonomic",
+        "summary": "Self-check and healing template surface.",
+        "status": "present",
+        "present": true
+      },
+      {
+        "section_id": "artifacts",
+        "title": "Artifacts",
+        "summary": "Sanitized reusable artifacts only.",
+        "status": "present",
         "present": true
       }
     ],
     "current_bindings": {
       "class_binding": {
-        "status": "bound",
-        "class_id": "soulforge.base",
-        "active_profile": "soulforge.profile.default",
-        "source_ref": ".agent/registry/active_class_binding.yaml"
+        "status": "present",
+        "class_id": "example_class",
+        "active_profile": null
       },
       "workspace_binding": {
-        "status": "unbound",
+        "status": "inactive",
         "active_workspace": null,
-        "candidate_count": 2,
-        "source_ref": ".agent/registry/workspace_binding.yaml"
+        "candidate_count": 0
       },
       "precedence": [
-        "workflow.required",
-        "profile.preferred",
-        "hero.bias",
-        "species.default"
+        ".unit owns active bindings",
+        ".agent_class provides reusable packages only",
+        "_workspaces is opt-in local-only mount"
       ]
     }
   },
   "class_view": {
-    "class_id": "soulforge.base",
-    "class_name": "Soulforge 기본 클래스",
-    "class_version": "0.2.0",
-    "active_profile": {
-      "id": "soulforge.profile.default",
-      "display_name": "Default Preference Mode",
-      "summary": "명시적 workflow가 없을 때 검증 우선과 구조 우선을 먼저 제안하는 기본 profile.",
-      "source_ref": ".agent_class/profiles/default.profile.yaml",
-      "active": true
-    },
+    "class_id": "example_class",
+    "class_name": "Example Class",
+    "class_version": null,
+    "active_profile": null,
     "rows": {
-      "skills": [
-        {
-          "id": "sample.skill.echo",
-          "display_name": "Sample Echo Skill",
-          "summary": "최소 happy-path 회귀 검증용 샘플 스킬.",
-          "installed": true,
-          "equipped": true,
-          "active": true,
-          "required": true,
-          "preferred": true,
-          "dependency_status": "resolved",
-          "family": null,
-          "category": "skill",
-          "source_ref": ".agent_class/skills/sample_skill_echo/module.yaml",
-          "source_hint": "canonical manifest",
-          "catalog_ref": ".agent/catalog/class/skills/skills_catalog.yaml",
-          "selectable_candidate": true
-        }
-      ],
-      "tools": [
-        {
-          "id": "sample.tool.local_cli.status",
-          "display_name": "Sample Status Tool",
-          "summary": "최소 happy-path 회귀 검증용 local_cli 샘플 도구.",
-          "installed": true,
-          "equipped": true,
-          "active": true,
-          "required": true,
-          "preferred": true,
-          "dependency_status": "resolved",
-          "family": "local_cli",
-          "category": "tool",
-          "source_ref": ".agent_class/tools/local_cli/sample_tool_status/module.yaml",
-          "source_hint": "canonical manifest",
-          "catalog_ref": ".agent/catalog/class/tools/local_cli_catalog.yaml",
-          "selectable_candidate": true
-        }
-      ],
-      "knowledge": [
-        {
-          "id": "sample.knowledge.reference",
-          "display_name": "Sample Reference Knowledge",
-          "summary": "최소 happy-path 회귀 검증용 샘플 지식.",
-          "installed": true,
-          "equipped": true,
-          "active": true,
-          "required": true,
-          "preferred": true,
-          "dependency_status": "resolved",
-          "family": null,
-          "category": "knowledge",
-          "source_ref": ".agent_class/knowledge/sample_knowledge_reference/module.yaml",
-          "source_hint": "canonical manifest",
-          "catalog_ref": ".agent/catalog/class/knowledge/knowledge_catalog.yaml",
-          "selectable_candidate": true
-        }
-      ],
+      "skills": [],
+      "tools": [],
+      "knowledge": [],
       "workflows": [
         {
-          "id": "sample.workflow.briefing",
-          "display_name": "Sample Briefing Workflow",
-          "summary": "sample skill, tool, knowledge 조합을 required 로 묶는 샘플 workflow.",
+          "id": "example_workflow",
+          "display_name": "Example Workflow",
+          "summary": "Reusable workflow canon template with curated history only.",
           "installed": true,
           "equipped": true,
           "active": true,
           "required": true,
-          "preferred": true,
+          "preferred": false,
           "dependency_status": "resolved",
           "family": null,
           "category": "workflow",
-          "source_ref": ".agent_class/workflows/sample_workflow_briefing/module.yaml",
-          "source_hint": "canonical manifest",
-          "catalog_ref": ".agent/catalog/class/workflows/workflows_catalog.yaml",
+          "source_ref": ".workflow/example_workflow/workflow.yaml",
+          "source_hint": "vnext-template",
+          "catalog_ref": ".workflow/example_workflow/workflow.yaml",
           "selectable_candidate": true
         }
       ]
@@ -310,79 +365,50 @@
       {
         "id": "installed",
         "label": "Installed",
-        "summary": "현재 class/body 맥락에서 사용 가능한 자산."
+        "summary": "Reusable canon present in catalog."
       },
       {
         "id": "equipped",
         "label": "Equipped",
-        "summary": "현재 loadout 에 장착된 자산."
-      },
-      {
-        "id": "required",
-        "label": "Required",
-        "summary": "현재 workflow 가 명시적으로 요구하는 자산."
-      },
-      {
-        "id": "preferred",
-        "label": "Preferred",
-        "summary": "active profile 이 기본 선호로 밀어주는 자산."
+        "summary": "Referenced by the active unit owner."
       }
     ]
   },
-  "workspaces": {
-    "summary": {
-      "total": 3,
-      "bound": 2,
-      "unbound": 1,
-      "invalid": 0,
-      "binding_status": "mixed",
-      "active_workspace": null
-    },
-    "grouped_projects": {
-      "company": [
+  "catalogs": {
+    "identity": {
+      "status": "present",
+      "species_candidates": [
         {
-          "project_id": "sample_bound_project",
-          "project_name": "Sample Bound Project",
-          "project_path": "_workspaces/company/sample_bound_project",
-          "workspace_kind": "company",
-          "state": "bound",
-          "project_agent_present": true,
-          "default_loadout": "soulforge.profile.default",
-          "binding_status": "bound",
-          "capsule_binding_count": 1,
-          "workflow_binding_count": 1,
-          "local_state_entry_count": 1,
-          "contract_ref": "_workspaces/company/sample_bound_project/.project_agent/contract.yaml"
-        },
-        {
-          "project_id": "sample_reference_project",
-          "project_name": "Sample Reference Project",
-          "project_path": "_workspaces/company/sample_reference_project",
-          "workspace_kind": "company",
-          "state": "bound",
-          "project_agent_present": true,
-          "default_loadout": "soulforge.profile.default",
-          "binding_status": "bound",
-          "capsule_binding_count": 1,
-          "workflow_binding_count": 1,
-          "local_state_entry_count": 1,
-          "contract_ref": "_workspaces/company/sample_reference_project/.project_agent/contract.yaml"
+          "id": "human",
+          "display_name": "Human",
+          "summary": "vNext species catalog baseline for public fixtures.",
+          "source_ref": ".agent/species/human/species.yaml",
+          "active": false
         }
       ],
-      "personal": [
+      "hero_candidates": [
         {
-          "project_id": null,
-          "project_name": "Sample Unbound Project",
-          "project_path": "_workspaces/personal/sample_unbound_project",
-          "workspace_kind": "personal",
-          "state": "unbound",
-          "project_agent_present": false,
-          "default_loadout": null,
-          "binding_status": "unbound",
-          "capsule_binding_count": 0,
-          "workflow_binding_count": 0,
-          "local_state_entry_count": 0,
-          "contract_ref": "_workspaces/personal/sample_unbound_project/.project_agent/contract.yaml"
+          "id": "example_hero",
+          "display_name": "Example Hero",
+          "summary": "Template hero overlay kept in the public species catalog.",
+          "source_ref": ".agent/species/human/heroes/example_hero/hero.yaml",
+          "active": false
+        }
+      ]
+    },
+    "class": {
+      "status": "present",
+      "profiles_catalog": [],
+      "skills_catalog": [],
+      "tools_catalog": [],
+      "knowledge_catalog": [],
+      "workflows_catalog": [
+        {
+          "id": "example_workflow",
+          "display_name": "Example Workflow",
+          "summary": "Reusable workflow canon template with curated history only.",
+          "source_ref": ".workflow/example_workflow/workflow.yaml",
+          "active": false
         }
       ]
     }
@@ -395,121 +421,42 @@
     },
     "warnings": [
       {
-        "code": "workspace_default_loadout_scope",
-        "message": "contract.default_loadout currently validates only against .agent_class/loadout.yaml active_profile until multi-profile support is introduced",
+        "code": "synthetic-local-workspaces",
+        "message": "Public fixtures expose only the reserved local-only workspace mount and never scan project directories.",
         "severity": "warning",
-        "location_hint": "_workspaces/**/.project_agent/contract.yaml"
+        "location_hint": "_workspaces/README.md"
       }
     ],
     "errors": []
   },
-  "catalogs": {
-    "identity": {
-      "status": "ready",
-      "species_candidates": [
-        {
-          "id": "soulforge.species.default",
-          "display_name": "Soulforge Default Species",
-          "summary": "구조 우선, 검증 우선, 저소음 운용을 선호하는 durable species default.",
-          "source_ref": ".agent/catalog/identity/species/soulforge-default.species.yaml",
-          "active": true,
-          "candidate": true
-        }
-      ],
-      "hero_candidates": [
-        {
-          "id": "soulforge.hero.craft_sage",
-          "display_name": "Craft Sage Imprint",
-          "summary": "구조화, 검증 우선, pre-mortem 성향을 강화하는 motif imprint.",
-          "source_ref": ".agent/catalog/identity/heroes/soulforge_default/craft_sage.hero.yaml",
-          "active": false,
-          "candidate": true
-        }
-      ]
-    },
-    "class": {
-      "status": "ready",
-      "profiles_catalog": [
-        {
-          "id": "soulforge.profile.default",
-          "display_name": "Default Preference Mode",
-          "summary": "명시적 workflow가 없을 때 검증 우선과 구조 우선을 먼저 제안하는 기본 profile.",
-          "source_ref": ".agent/catalog/class/profiles/profiles_catalog.yaml",
-          "active": true,
-          "candidate": true
-        }
-      ],
-      "skills_catalog": [
-        {
-          "id": "sample.skill.echo",
-          "display_name": "Sample Echo Skill",
-          "summary": "최소 happy-path 검증용 샘플 스킬.",
-          "source_ref": ".agent/catalog/class/skills/skills_catalog.yaml",
-          "active": true,
-          "candidate": true
-        }
-      ],
-      "tools_catalog": [
-        {
-          "id": "sample.tool.local_cli.status",
-          "display_name": "Sample Status Tool",
-          "summary": "최소 happy-path 검증용 local_cli 샘플 도구.",
-          "source_ref": ".agent/catalog/class/tools/local_cli_catalog.yaml",
-          "active": true,
-          "candidate": true
-        }
-      ],
-      "knowledge_catalog": [
-        {
-          "id": "sample.knowledge.reference",
-          "display_name": "Sample Reference Knowledge",
-          "summary": "최소 happy-path 검증용 샘플 지식.",
-          "source_ref": ".agent/catalog/class/knowledge/knowledge_catalog.yaml",
-          "active": true,
-          "candidate": true
-        }
-      ],
-      "workflows_catalog": [
-        {
-          "id": "sample.workflow.briefing",
-          "display_name": "Sample Briefing Workflow",
-          "summary": "sample skill, tool, knowledge 조합을 required 로 묶는 샘플 workflow.",
-          "source_ref": ".agent/catalog/class/workflows/workflows_catalog.yaml",
-          "active": true,
-          "candidate": true
-        }
-      ]
-    }
-  },
   "ui_hints": {
-    "theme": "adventurers_desk",
-    "phase": "ui-1",
+    "theme": "adventurers-desk",
+    "phase": "vnext-canon",
     "default_tab": "class",
     "layout": {
-      "left_ratio": 25,
-      "right_ratio": 70,
-      "gutter_ratio": 5
+      "left_ratio": 0.32,
+      "right_ratio": 0.68,
+      "gutter_ratio": 0.04
     },
     "material_hints": {
-      "skills": "frosted-orb",
-      "tools": "belt-slot",
-      "knowledge": "bookshelf-spine",
-      "workflows": "combo-card",
-      "diagnostics": "warning-paper",
-      "info_dock": "leather-folio"
+      "species": "catalog parchment",
+      "units": "owner dossier",
+      "classes": "package ledger",
+      "workflows": "canon grimoire",
+      "parties": "template roster",
+      "workspaces": "sealed mission mount"
     },
     "icon_hints": {
-      "skills": "orb",
-      "tools": "hook",
-      "knowledge": "spine",
-      "workflows": "combo",
-      "diagnostics": "telegram",
-      "overview": "compass"
+      "species": "leaf",
+      "units": "shield",
+      "classes": "hammer",
+      "workflows": "map",
+      "parties": "banner",
+      "workspaces": "lock"
     },
     "renderer_notes": [
-      "Use placeholder silhouette assets only in v1.",
-      "Keep diagnostics inside overview strip and info dock.",
-      "Do not persist selection state."
+      "Legacy overview/body/class panels are compatibility projections only.",
+      "The authoritative payload surface is the vNext 6-axis top level."
     ]
   }
 }

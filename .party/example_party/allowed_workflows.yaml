@@ -1,0 +1,5 @@
+party_id: example_party
+kind: allowed_workflows
+status: template
+workflow_ids:
+  - example_workflow

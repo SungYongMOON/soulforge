@@ -1,0 +1,6 @@
+class_id: example_class
+kind: knowledge_refs
+status: template
+knowledge_refs: []
+notes:
+  - Template only. Add reusable knowledge package refs here when the class package materializes.

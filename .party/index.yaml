@@ -1,0 +1,9 @@
+version: vnext
+owner: .party
+kind: party_template_catalog
+status: template
+entries:
+  - party_id: example_party
+    path: example_party/party.yaml
+notes:
+  - Template party catalog only. Raw battle logs and project metrics do not belong here.

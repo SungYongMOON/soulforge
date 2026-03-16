@@ -54,7 +54,14 @@ function isDirectFixtureOrSchemaImport(specifier: string) {
 }
 
 function isCanonicalSpecifier(specifier: string) {
-  return specifier.includes(".agent/") || specifier.includes(".agent_class/") || specifier.includes("_workspaces/");
+  return (
+    specifier.includes(".agent/") ||
+    specifier.includes(".unit/") ||
+    specifier.includes(".agent_class/") ||
+    specifier.includes(".workflow/") ||
+    specifier.includes(".party/") ||
+    specifier.includes("_workspaces/")
+  );
 }
 
 export function runPackageBoundaryLint() {

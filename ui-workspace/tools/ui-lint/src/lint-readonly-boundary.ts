@@ -9,7 +9,7 @@ const CODE_FILES = [
   ...themePackages.flatMap(({ repoDir }) => walkFiles(repoDir, (repoPath) => /\.(ts|tsx)$/.test(repoPath)))
 ];
 
-const CANONICAL_PATTERN = /(?:\.agent\/|\.agent_class\/|_workspaces\/)/;
+const CANONICAL_PATTERN = /(?:\.agent\/|\.unit\/|\.agent_class\/|\.workflow\/|\.party\/|_workspaces\/)/;
 const DIRECT_READ_PATTERN = /\b(import|from|readFile|readFileSync|fs\.|spawn|spawnSync|exec|fetch)\b/;
 
 function isAllowedReference(file: string, line: string) {

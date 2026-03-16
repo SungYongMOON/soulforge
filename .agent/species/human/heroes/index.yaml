@@ -1,0 +1,8 @@
+species_id: human
+kind: hero_catalog
+status: template
+entries:
+  - hero_id: example_hero
+    path: example_hero/hero.yaml
+notes:
+  - Template hero index only. Hero entries are overlays, not active unit state.

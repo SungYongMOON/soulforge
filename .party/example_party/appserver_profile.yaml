@@ -1,0 +1,6 @@
+party_id: example_party
+kind: appserver_profile
+status: template
+profile:
+  mode: template
+  summary: Placeholder appserver profile for the example party.

@@ -1,469 +1,173 @@
 import { existsSync } from "node:fs";
+import path from "node:path";
 import {
-  ALLOWED_TOOL_FAMILIES,
-  ROW_RULES,
   addIssue,
   asArray,
-  asBoolean,
   asObject,
   asString,
-  canonicalRoot,
-  existsCanonicalPath,
-  extractCanonicalId,
   loadFixtures,
-  readCanonicalYamlFile,
-  resolveCanonicalReference,
-  resolveReference,
+  repoRoot,
   type LintIssue,
   type LintResult
 } from "./shared";
 
-interface CatalogManifestItem {
-  id: string;
-  sourceRef: string;
+const AXIS_PREFIX: Record<string, string> = {
+  species: ".agent/",
+  units: ".unit/",
+  classes: ".agent_class/",
+  workflows: ".workflow/",
+  parties: ".party/"
+};
+
+function existsSoulforgePath(repoPath: string) {
+  return !path.isAbsolute(repoPath) && existsSync(path.resolve(repoRoot, "..", repoPath));
 }
 
-interface CatalogManifest {
-  file: string;
-  family: string | null;
-  items: Map<string, CatalogManifestItem>;
-}
-
-function expectedCatalogKind(file: string) {
-  if (file.includes("/profiles/")) {
-    return "class_profiles";
-  }
-  if (file.includes("/skills/")) {
-    return "class_skills";
-  }
-  if (file.includes("/tools/")) {
-    return "class_tools";
-  }
-  if (file.includes("/knowledge/")) {
-    return "class_knowledge";
-  }
-  if (file.includes("/workflows/")) {
-    return "class_workflows";
-  }
-  return null;
-}
-
-function parseCanonicalId(repoPath: string, issues: LintIssue[], contextFile: string, expectedId: string) {
-  if (!canonicalRoot) {
-    return;
-  }
-
-  if (!existsCanonicalPath(repoPath)) {
-    addIssue(issues, "source-ref-target", contextFile, `${repoPath} does not exist`);
-    return;
-  }
-
-  const document = readCanonicalYamlFile<Record<string, unknown>>(repoPath);
-  const canonicalId = extractCanonicalId(repoPath, document);
-  if (!canonicalId) {
-    addIssue(issues, "canonical-id", contextFile, `unable to derive canonical id from ${repoPath}`);
-    return;
-  }
-
-  if (canonicalId !== expectedId) {
-    addIssue(issues, "canonical-id", contextFile, `${repoPath} id ${canonicalId} does not match ${expectedId}`);
-  }
-}
-
-function buildClassCatalogs(issues: LintIssue[]) {
-  const manifests = new Map<string, CatalogManifest>();
-  if (!canonicalRoot) {
-    return manifests;
-  }
-
-  const files = [
-    ".agent/catalog/class/profiles/profiles_catalog.yaml",
-    ".agent/catalog/class/skills/skills_catalog.yaml",
-    ".agent/catalog/class/tools/adapters_catalog.yaml",
-    ".agent/catalog/class/tools/connectors_catalog.yaml",
-    ".agent/catalog/class/tools/local_cli_catalog.yaml",
-    ".agent/catalog/class/tools/mcp_catalog.yaml",
-    ".agent/catalog/class/knowledge/knowledge_catalog.yaml",
-    ".agent/catalog/class/workflows/workflows_catalog.yaml"
-  ];
-
-  for (const file of files) {
-    if (!existsCanonicalPath(file)) {
-      continue;
-    }
-
-    const document = readCanonicalYamlFile<Record<string, unknown>>(file);
-    const items = asArray<Record<string, unknown>>(document.items);
-    const seenIds = new Set<string>();
-    const expectedKind = expectedCatalogKind(file);
-    const declaredKind = asString(document.catalog_kind);
-    const selectionStateSource = asString(document.selection_state_source);
-    const canonicalRootRef = asString(document.canonical_root_ref);
-
-    if (!asString(document.catalog_id)) {
-      addIssue(issues, "required-field", file, "catalog_id is required");
-    }
-
-    if (!declaredKind) {
-      addIssue(issues, "required-field", file, "catalog_kind is required");
-    } else if (expectedKind && declaredKind !== expectedKind) {
-      addIssue(issues, "catalog-kind", file, `expected catalog_kind ${expectedKind}, got ${declaredKind}`);
-    }
-
-    if (selectionStateSource) {
-      const resolved = resolveCanonicalReference(selectionStateSource, file);
-      if (!resolved || !existsSync(resolved.absolutePath)) {
-        addIssue(issues, "selection-state-source", file, `${selectionStateSource} does not resolve from ${file}`);
-      }
-    }
-
-    if (canonicalRootRef) {
-      const resolved = resolveCanonicalReference(canonicalRootRef, file);
-      if (!resolved || !existsSync(resolved.absolutePath)) {
-        addIssue(issues, "canonical-root-ref", file, `${canonicalRootRef} does not resolve from ${file}`);
-      }
-    }
-
-    const family = file.includes("/tools/") ? file.split("/").at(-1)?.replace("_catalog.yaml", "") ?? null : null;
-    const declaredFamily = asString(document.tool_family);
-    if (family) {
-      if (!ALLOWED_TOOL_FAMILIES.has(family)) {
-        addIssue(issues, "tool-family", file, `unexpected tool family ${family}`);
-      }
-      if (declaredFamily !== family) {
-        addIssue(issues, "tool-family", file, `tool_family must match file family ${family}`);
-      }
-    } else if (declaredFamily) {
-      addIssue(issues, "tool-family", file, `non-tool catalog must not declare tool_family ${declaredFamily}`);
-    }
-
-    const manifest: CatalogManifest = {
-      file,
-      family,
-      items: new Map()
-    };
-
-    for (const item of items) {
-      const itemId = asString(item.item_id);
-      const displayName = asString(item.display_name);
-      const sourceRef = asString(item.source_ref);
-      const summary = asString(item.summary);
-
-      if (!itemId || !displayName || !sourceRef || !summary) {
-        addIssue(issues, "required-field", file, "catalog items require item_id, display_name, source_ref, summary");
-        continue;
-      }
-
-      if (seenIds.has(itemId)) {
-        addIssue(issues, "item-id-unique", file, `duplicate catalog item_id ${itemId}`);
-        continue;
-      }
-      seenIds.add(itemId);
-
-      const resolvedSource = resolveCanonicalReference(sourceRef, file);
-      if (!resolvedSource || !existsSync(resolvedSource.absolutePath)) {
-        addIssue(issues, "source-ref-target", file, `${sourceRef} does not resolve from ${file}`);
-      } else {
-        parseCanonicalId(resolvedSource.repoPath, issues, file, itemId);
-      }
-
-      manifest.items.set(itemId, {
-        id: itemId,
-        sourceRef: resolvedSource.repoPath
-      });
-    }
-
-    manifests.set(file, manifest);
-  }
-
-  return manifests;
-}
-
-function expectedCatalogCandidateForRow(payload: Record<string, unknown>, rowKey: keyof typeof ROW_RULES, itemId: string) {
-  const classCatalogs = asObject(asObject(payload.catalogs)?.class);
-  const items = asArray<Record<string, unknown>>(classCatalogs?.[ROW_RULES[rowKey].catalogKey]);
-  return items.find((item) => asString(item.id) === itemId) ?? null;
-}
-
-function validateFixtureClassRows(
+function validateAxisItems(
   fixturePath: string,
-  payload: Record<string, unknown>,
-  classCatalogs: Map<string, CatalogManifest>,
+  axisName: keyof typeof AXIS_PREFIX,
+  items: Record<string, unknown>[],
   issues: LintIssue[]
 ) {
-  const rows = asObject(asObject(payload.class_view)?.rows);
-  const activeRowIds = new Map<string, Set<string>>();
+  for (const item of items) {
+    const itemId = asString(item.id);
+    const displayName = asString(item.display_name);
+    const summary = asString(item.summary);
+    const sourceRef = asString(item.source_ref);
+    const status = asString(item.status);
 
-  for (const [rowKey, rowRule] of Object.entries(ROW_RULES) as Array<[keyof typeof ROW_RULES, (typeof ROW_RULES)[keyof typeof ROW_RULES]]>) {
-    const seenIds = new Set<string>();
-    const rowItems = asArray<Record<string, unknown>>(rows?.[rowKey]);
-    activeRowIds.set(rowKey, new Set());
-
-    for (const item of rowItems) {
-      const itemId = asString(item.id);
-      const displayName = asString(item.display_name);
-      const summary = asString(item.summary);
-      const sourceRef = asString(item.source_ref);
-      const catalogRef = asString(item.catalog_ref);
-      const category = asString(item.category);
-      const family = asString(item.family);
-
-      if (!itemId || !displayName || !summary || !sourceRef || !catalogRef || !category) {
-        addIssue(issues, "required-field", fixturePath, `${rowKey} items require id, display_name, summary, source_ref, catalog_ref, category`);
-        continue;
-      }
-
-      if (seenIds.has(itemId)) {
-        addIssue(issues, "item-id-unique", fixturePath, `duplicate ${rowKey} item id ${itemId}`);
-        continue;
-      }
-      seenIds.add(itemId);
-
-      if (category !== rowRule.category) {
-        addIssue(issues, "category", fixturePath, `${itemId} category must be ${rowRule.category}, got ${category}`);
-      }
-
-      if (rowKey === "tools") {
-        if (!family || !ALLOWED_TOOL_FAMILIES.has(family)) {
-          addIssue(issues, "tool-family", fixturePath, `${itemId} must declare a valid tool family`);
-        }
-      } else if (family !== null) {
-        addIssue(issues, "tool-family", fixturePath, `${itemId} must not declare family outside tools row`);
-      }
-
-      parseCanonicalId(sourceRef, issues, fixturePath, itemId);
-
-      const manifest = classCatalogs.get(catalogRef);
-      if (canonicalRoot && !manifest) {
-        addIssue(issues, "catalog-ref", fixturePath, `${itemId} catalog_ref ${catalogRef} does not match a known class catalog`);
-      } else if (manifest) {
-        if (!manifest.items.has(itemId)) {
-          addIssue(issues, "canonical-id", fixturePath, `${itemId} is missing from catalog ${catalogRef}`);
-        }
-        if (rowKey === "tools" && family && manifest.family !== family) {
-          addIssue(issues, "tool-family", fixturePath, `${itemId} family ${family} does not match catalog family ${manifest.family}`);
-        }
-      }
-
-      const candidate = expectedCatalogCandidateForRow(payload, rowKey, itemId);
-      if (asBoolean(item.selectable_candidate) === true && !candidate) {
-        addIssue(issues, "orphan-entry", fixturePath, `${itemId} is selectable but missing from fixture catalog ${rowRule.catalogKey}`);
-      }
-
-      if (asBoolean(item.active) === true) {
-        activeRowIds.get(rowKey)?.add(itemId);
-      }
-    }
-  }
-
-  const classCatalogsState = asObject(asObject(payload.catalogs)?.class);
-  const activeProfile = asObject(asObject(payload.class_view)?.active_profile);
-  const profileCatalog = asArray<Record<string, unknown>>(classCatalogsState?.profiles_catalog);
-  const activeProfileId = asString(activeProfile?.id);
-
-  if (activeProfileId && !profileCatalog.some((item) => asString(item.id) === activeProfileId)) {
-    addIssue(issues, "active-ref", fixturePath, `active profile ${activeProfileId} is missing from profiles_catalog`);
-  }
-
-  for (const [rowKey, rowRule] of Object.entries(ROW_RULES) as Array<[keyof typeof ROW_RULES, (typeof ROW_RULES)[keyof typeof ROW_RULES]]>) {
-    const catalogItems = asArray<Record<string, unknown>>(classCatalogsState?.[rowRule.catalogKey]);
-    const rowIds = new Set(asArray<Record<string, unknown>>(rows?.[rowKey]).map((item) => asString(item.id)).filter(Boolean) as string[]);
-
-    for (const catalogItem of catalogItems) {
-      const itemId = asString(catalogItem.id);
-      if (!itemId) {
-        continue;
-      }
-
-      if (asBoolean(catalogItem.active) === true && !rowIds.has(itemId)) {
-        addIssue(issues, "active-ref", fixturePath, `active catalog item ${itemId} has no installed row entry in ${rowKey}`);
-      }
-    }
-  }
-}
-
-function validateFixtureCatalogs(
-  fixturePath: string,
-  payload: Record<string, unknown>,
-  classCatalogs: Map<string, CatalogManifest>,
-  issues: LintIssue[]
-) {
-  const catalogs = asObject(payload.catalogs);
-  const identityCatalogs = asObject(catalogs?.identity);
-  const classCatalogsState = asObject(catalogs?.class);
-  const body = asObject(payload.body);
-  const overview = asObject(payload.overview);
-  const bodyActiveSpecies = asObject(body?.active_species);
-  const overviewActiveSpecies = asObject(overview?.active_species);
-  const classActiveProfile = asObject(asObject(payload.class_view)?.active_profile);
-
-  const sections: Array<{ items: Record<string, unknown>[]; scope: string; sourceType: "canonical" | "catalog" }> = [
-    {
-      items: asArray<Record<string, unknown>>(identityCatalogs?.species_candidates),
-      scope: "identity.species_candidates",
-      sourceType: "canonical"
-    },
-    {
-      items: asArray<Record<string, unknown>>(identityCatalogs?.hero_candidates),
-      scope: "identity.hero_candidates",
-      sourceType: "canonical"
-    },
-    {
-      items: asArray<Record<string, unknown>>(classCatalogsState?.profiles_catalog),
-      scope: "class.profiles_catalog",
-      sourceType: "catalog"
-    },
-    {
-      items: asArray<Record<string, unknown>>(classCatalogsState?.skills_catalog),
-      scope: "class.skills_catalog",
-      sourceType: "catalog"
-    },
-    {
-      items: asArray<Record<string, unknown>>(classCatalogsState?.tools_catalog),
-      scope: "class.tools_catalog",
-      sourceType: "catalog"
-    },
-    {
-      items: asArray<Record<string, unknown>>(classCatalogsState?.knowledge_catalog),
-      scope: "class.knowledge_catalog",
-      sourceType: "catalog"
-    },
-    {
-      items: asArray<Record<string, unknown>>(classCatalogsState?.workflows_catalog),
-      scope: "class.workflows_catalog",
-      sourceType: "catalog"
-    }
-  ];
-
-  for (const section of sections) {
-    const seenIds = new Set<string>();
-
-    for (const item of section.items) {
-      const itemId = asString(item.id);
-      const displayName = asString(item.display_name);
-      const summary = asString(item.summary);
-      const sourceRef = asString(item.source_ref);
-
-      if (!itemId || !displayName || !summary || !sourceRef) {
-        addIssue(issues, "required-field", fixturePath, `${section.scope} items require id, display_name, summary, source_ref`);
-        continue;
-      }
-
-      if (seenIds.has(itemId)) {
-        addIssue(issues, "item-id-unique", fixturePath, `duplicate catalog item id ${itemId} in ${section.scope}`);
-        continue;
-      }
-      seenIds.add(itemId);
-
-      if (canonicalRoot && !existsCanonicalPath(sourceRef)) {
-        addIssue(issues, "source-ref-target", fixturePath, `${section.scope} source_ref ${sourceRef} does not exist`);
-        continue;
-      }
-
-      if (section.sourceType === "canonical") {
-        parseCanonicalId(sourceRef, issues, fixturePath, itemId);
-      } else {
-        const manifest = classCatalogs.get(sourceRef);
-        if (canonicalRoot && !manifest) {
-          addIssue(issues, "source-ref-target", fixturePath, `${section.scope} source_ref ${sourceRef} is not a known catalog file`);
-        } else if (manifest && !manifest.items.has(itemId)) {
-          addIssue(issues, "canonical-id", fixturePath, `${section.scope} item ${itemId} is missing from ${sourceRef}`);
-        }
-      }
-    }
-  }
-
-  if (asString(bodyActiveSpecies?.id) !== asString(overviewActiveSpecies?.id)) {
-    addIssue(issues, "active-ref", fixturePath, "overview.active_species and body.active_species must match");
-  }
-
-  const speciesCandidates = asArray<Record<string, unknown>>(identityCatalogs?.species_candidates);
-  const activeSpeciesId = asString(bodyActiveSpecies?.id);
-  if (activeSpeciesId && !speciesCandidates.some((item) => asString(item.id) === activeSpeciesId)) {
-    addIssue(issues, "active-ref", fixturePath, `active species ${activeSpeciesId} is missing from species_candidates`);
-  }
-
-  const activeProfileId = asString(classActiveProfile?.id);
-  const profilesCatalog = asArray<Record<string, unknown>>(classCatalogsState?.profiles_catalog);
-  if (activeProfileId && !profilesCatalog.some((item) => asString(item.id) === activeProfileId)) {
-    addIssue(issues, "active-ref", fixturePath, `active profile ${activeProfileId} is missing from profiles_catalog`);
-  }
-}
-
-function validateFixtureTopLevelRefs(fixturePath: string, payload: Record<string, unknown>, issues: LintIssue[]) {
-  const overview = asObject(payload.overview);
-  const body = asObject(payload.body);
-  const classView = asObject(payload.class_view);
-  const overviewActiveSpecies = asObject(overview?.active_species);
-  const overviewActiveHero = asObject(overview?.active_hero);
-  const bodyActiveSpecies = asObject(body?.active_species);
-  const bodyActiveHero = asObject(body?.active_hero);
-  const activeProfile = asObject(classView?.active_profile);
-
-  const refs = [
-    {
-      label: "overview.active_species",
-      object: overviewActiveSpecies,
-      expectedId: asString(overviewActiveSpecies?.id)
-    },
-    {
-      label: "overview.active_hero",
-      object: overviewActiveHero,
-      expectedId: asString(overviewActiveHero?.id)
-    },
-    {
-      label: "body.active_species",
-      object: bodyActiveSpecies,
-      expectedId: asString(bodyActiveSpecies?.id)
-    },
-    {
-      label: "body.active_hero",
-      object: bodyActiveHero,
-      expectedId: asString(bodyActiveHero?.id)
-    },
-    {
-      label: "class_view.active_profile",
-      object: activeProfile,
-      expectedId: asString(activeProfile?.id)
-    }
-  ];
-
-  for (const ref of refs) {
-    if (!ref.object) {
+    if (!itemId || !displayName || !summary || !sourceRef || !status) {
+      addIssue(issues, "required-field", fixturePath, `${axisName} items require id, display_name, summary, source_ref, status`);
       continue;
     }
 
-    const sourceRef = asString(ref.object.source_ref);
-    if (!sourceRef) {
-      addIssue(issues, "source-ref", fixturePath, `${ref.label} source_ref is required`);
-      continue;
+    if (!sourceRef.startsWith(AXIS_PREFIX[axisName])) {
+      addIssue(issues, "source-ref-prefix", fixturePath, `${itemId} source_ref must stay under ${AXIS_PREFIX[axisName]}`);
     }
 
-    if (!ref.expectedId) {
-      addIssue(issues, "required-field", fixturePath, `${ref.label} id is required`);
-      continue;
+    if (!existsSoulforgePath(sourceRef)) {
+      addIssue(issues, "source-ref-target", fixturePath, `${itemId} source_ref target does not exist: ${sourceRef}`);
     }
-
-    parseCanonicalId(sourceRef, issues, fixturePath, ref.expectedId);
-  }
-
-  if (asString(overview?.class_id) !== asString(classView?.class_id)) {
-    addIssue(issues, "active-ref", fixturePath, "overview.class_id and class_view.class_id must match");
-  }
-
-  if (asString(overview?.active_profile) !== asString(activeProfile?.id)) {
-    addIssue(issues, "active-ref", fixturePath, "overview.active_profile and class_view.active_profile.id must match");
   }
 }
 
 export function runCatalogLint() {
   const issues: LintIssue[] = [];
-  const classCatalogs = buildClassCatalogs(issues);
+  const fixtures = loadFixtures();
 
-  for (const fixture of loadFixtures()) {
-    validateFixtureTopLevelRefs(fixture.repoPath, fixture.payload, issues);
-    validateFixtureCatalogs(fixture.repoPath, fixture.payload, classCatalogs, issues);
-    validateFixtureClassRows(fixture.repoPath, fixture.payload, classCatalogs, issues);
+  for (const fixture of fixtures) {
+    const payload = fixture.payload;
+    const species = asObject(payload.species);
+    const units = asObject(payload.units);
+    const classes = asObject(payload.classes);
+    const workflows = asObject(payload.workflows);
+    const parties = asObject(payload.parties);
+    const workspaces = asObject(payload.workspaces);
+
+    validateAxisItems(fixture.repoPath, "species", asArray<Record<string, unknown>>(species?.items), issues);
+    validateAxisItems(fixture.repoPath, "units", asArray<Record<string, unknown>>(units?.items), issues);
+    validateAxisItems(fixture.repoPath, "classes", asArray<Record<string, unknown>>(classes?.items), issues);
+    validateAxisItems(fixture.repoPath, "workflows", asArray<Record<string, unknown>>(workflows?.items), issues);
+    validateAxisItems(fixture.repoPath, "parties", asArray<Record<string, unknown>>(parties?.items), issues);
+
+    const heroes = asArray<Record<string, unknown>>(species?.heroes);
+    for (const hero of heroes) {
+      const heroId = asString(hero.id);
+      const heroSourceRef = asString(hero.source_ref);
+      const speciesId = asString(hero.species_id);
+
+      if (!heroId || !heroSourceRef || !speciesId) {
+        addIssue(issues, "required-field", fixture.repoPath, "species.heroes entries require id, source_ref, species_id");
+        continue;
+      }
+      if (!heroSourceRef.startsWith(".agent/species/")) {
+        addIssue(issues, "source-ref-prefix", fixture.repoPath, `${heroId} hero source_ref must stay under .agent/species/`);
+      }
+      if (!existsSoulforgePath(heroSourceRef)) {
+        addIssue(issues, "source-ref-target", fixture.repoPath, `${heroId} hero source_ref target does not exist: ${heroSourceRef}`);
+      }
+    }
+
+    const speciesRefs = new Set(
+      asArray<Record<string, unknown>>(species?.items)
+        .map((item) => asString(item.source_ref))
+        .filter((value): value is string => Boolean(value))
+    );
+    const heroRefs = new Set(
+      heroes.map((item) => asString(item.source_ref)).filter((value): value is string => Boolean(value))
+    );
+    const classRefs = new Set(
+      asArray<Record<string, unknown>>(classes?.items)
+        .map((item) => asString(item.source_ref))
+        .filter((value): value is string => Boolean(value))
+    );
+    const workflowRefs = new Set(
+      asArray<Record<string, unknown>>(workflows?.items)
+        .map((item) => asString(item.source_ref))
+        .filter((value): value is string => Boolean(value))
+    );
+    const partyRefs = new Set(
+      asArray<Record<string, unknown>>(parties?.items)
+        .map((item) => asString(item.source_ref))
+        .filter((value): value is string => Boolean(value))
+    );
+
+    for (const unit of asArray<Record<string, unknown>>(units?.items)) {
+      const unitId = asString(unit.id) ?? "<unknown-unit>";
+      const speciesRef = asString(unit.species_ref);
+      const heroRef = asString(unit.hero_ref);
+      const classPackageRefs = asArray<string>(unit.class_package_refs);
+      const workflowUnitRefs = asArray<string>(unit.workflow_refs);
+      const partyTemplateRefs = asArray<string>(unit.party_template_refs);
+
+      if (speciesRef && !speciesRefs.has(speciesRef)) {
+        addIssue(issues, "unit-ref", fixture.repoPath, `${unitId} species_ref does not resolve within fixture: ${speciesRef}`);
+      }
+      if (heroRef && !heroRefs.has(heroRef)) {
+        addIssue(issues, "unit-ref", fixture.repoPath, `${unitId} hero_ref does not resolve within fixture: ${heroRef}`);
+      }
+      for (const ref of classPackageRefs) {
+        if (!classRefs.has(ref)) {
+          addIssue(issues, "unit-ref", fixture.repoPath, `${unitId} class_package_ref does not resolve within fixture: ${ref}`);
+        }
+      }
+      for (const ref of workflowUnitRefs) {
+        if (!workflowRefs.has(ref)) {
+          addIssue(issues, "unit-ref", fixture.repoPath, `${unitId} workflow_ref does not resolve within fixture: ${ref}`);
+        }
+      }
+      for (const ref of partyTemplateRefs) {
+        if (!partyRefs.has(ref)) {
+          addIssue(issues, "unit-ref", fixture.repoPath, `${unitId} party_template_ref does not resolve within fixture: ${ref}`);
+        }
+      }
+    }
+
+    for (const workflow of asArray<Record<string, unknown>>(workflows?.items)) {
+      const workflowId = asString(workflow.id) ?? "<unknown-workflow>";
+      if (asString(workflow.history_policy) !== "curated_summary_only") {
+        addIssue(issues, "workflow-history", fixture.repoPath, `${workflowId} must declare history_policy curated_summary_only`);
+      }
+      const historyRef = asString(workflow.history_ref);
+      if (!historyRef || !existsSoulforgePath(historyRef)) {
+        addIssue(issues, "workflow-history", fixture.repoPath, `${workflowId} history_ref must exist in repo`);
+      }
+    }
+
+    for (const party of asArray<Record<string, unknown>>(parties?.items)) {
+      const partyId = asString(party.id) ?? "<unknown-party>";
+      if (asString(party.stats_policy) !== "curated_summary_only") {
+        addIssue(issues, "party-stats", fixture.repoPath, `${partyId} must declare stats_policy curated_summary_only`);
+      }
+      const statsRef = asString(party.stats_ref);
+      if (!statsRef || !existsSoulforgePath(statsRef)) {
+        addIssue(issues, "party-stats", fixture.repoPath, `${partyId} stats_ref must exist in repo`);
+      }
+    }
+
+    if (asString(workspaces?.mode) !== "local_only_mount") {
+      addIssue(issues, "workspace-mode", fixture.repoPath, "workspaces.mode must be local_only_mount");
+    }
   }
 
   return {

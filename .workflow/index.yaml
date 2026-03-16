@@ -1,0 +1,9 @@
+version: vnext
+owner: .workflow
+kind: workflow_canon
+status: template
+entries:
+  - workflow_id: example_workflow
+    path: example_workflow/workflow.yaml
+notes:
+  - Template workflow catalog only. Raw run ids and execution dumps do not belong here.

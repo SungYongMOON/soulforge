@@ -5,6 +5,8 @@ import overviewFixture from "../../../fixtures/ui-state/overview.sample.json";
 import workspacesFixture from "../../../fixtures/ui-state/workspaces.sample.json";
 import type { FixtureName, UiState } from "@soulforge/ui-contract";
 
+export const FIXTURE_AXES = ["species", "units", "classes", "workflows", "parties", "workspaces"] as const;
+
 export const FIXTURE_MAP: Record<FixtureName, UiState> = {
   integrated: integratedFixture as UiState,
   overview: overviewFixture as UiState,

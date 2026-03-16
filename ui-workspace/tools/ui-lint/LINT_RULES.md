@@ -7,24 +7,20 @@
 
 ## catalog lint
 
-- fixture projection 이 실제 canonical catalog/module/profile/identity 파일을 올바르게 가리키는지 검사한다.
-- canonical source tree 가 workspace 바깥에 있으면 `UI_LINT_CANONICAL_ROOT` 를 통해 optional overlay 검사로 붙인다.
-- `source_ref` 존재 여부와 target file 존재 여부를 검사한다.
-- catalog `item_id` 와 fixture row/catalog item `id` 중복을 검사한다.
-- row `category` 와 tool `family` 가 허용된 값인지 검사한다.
-- row item `catalog_ref` 와 fixture catalog item 이 실제 `.agent/catalog/**` 에서 resolve 되는지 검사한다.
-- canonical target YAML 의 id 와 fixture/catalog id 가 일치하는지 검사한다.
-- active species/profile 와 active catalog item 이 orphan reference 를 만들지 않는지 검사한다.
+- fixture projection 이 새 owner roots (`.agent`, `.unit`, `.agent_class`, `.workflow`, `.party`) 의 실제 template 파일을 올바르게 가리키는지 검사한다.
+- axis item `source_ref` 존재 여부와 target file 존재 여부를 검사한다.
+- unit refs 가 species/class/workflow/party axis 안에서 resolve 되는지 검사한다.
+- workflow `history_policy`, party `stats_policy` 가 curated summary only 인지 검사한다.
 
 ## ui-state contract lint
 
 - `schemas/ui-state.schema.json` 으로 모든 `fixtures/ui-state/*.json` 을 validate 한다.
 - fixture mode 에서는 `source.mode = fixture`, `source.fixture_name` 존재, `schema_version = ui-state.v1` 을 함께 검사한다.
-- `ui_hints.default_tab` 이 renderer tab 집합 안에 있는지 검사한다.
+- `species`, `units`, `classes`, `workflows`, `parties`, `workspaces` axis 존재와 `workspaces.mode = local_only_mount` 를 함께 검사한다.
 
 ## read-only boundary lint
 
-- `packages/renderer-core/`, `packages/renderer-react/`, `packages/theme-*`, `apps/renderer-web/`, `apps/skin-lab-storybook/` 안에서 `.agent`, `.agent_class`, `_workspaces` 정본을 직접 읽거나 import 하지 못하게 한다.
+- `packages/renderer-core/`, `packages/renderer-react/`, `packages/theme-*`, `apps/renderer-web/`, `apps/skin-lab-storybook/` 안에서 `.agent`, `.unit`, `.agent_class`, `.workflow`, `.party`, `_workspaces` 정본을 직접 읽거나 import 하지 못하게 한다.
 - 허용 예외는 optional tool `tools/legacy-python-viewer/` 뿐이다.
 - canonical 경로 문자열이 있어도 producer bridge 가 아니면 FAIL 로 본다.
 
@@ -42,9 +38,10 @@
 
 - fixture set 이 `integrated`, `overview`, `body`, `class`, `workspaces` 를 모두 포함하는지 검사한다.
 - `packages/renderer-core/src/fixtures.ts` 의 export map 이 fixture 파일 세트와 맞는지 검사한다.
-- fixture default tab 커버리지와 row/catalog coverage 를 검사한다.
-- `installed`, `equipped`, `required`, `preferred`, `selectable_candidate` 상태가 fixture 집합에 최소 한 번 이상 나타나는지 검사한다.
-- workspace `bound` 와 `unbound`, diagnostics warning/error summary presence 를 검사한다.
+- fixture default tab 커버리지와 새 6축 axis coverage 를 검사한다.
+- public fixture 가 `workspaces.local_scan_enabled = false`, `projects = []` 를 유지하는지 검사한다.
+- `.agent/body.yaml`, `.agent_class/loadout.yaml`, `.agent_class/workflows`, `company/personal`, `.project_agent/runs` 같은 legacy/private 흔적이 fixture payload 에 남지 않았는지 검사한다.
+- synthetic workspace policy 경고가 diagnostics 에 드러나는지 검사한다.
 
 ## theme isolation lint
 

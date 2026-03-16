@@ -1,23 +1,44 @@
-import { EXPECTED_FIXTURES, EXPECTED_TABS, ROW_RULES, asArray, asBoolean, asObject, asString, expectedDefaultTab, loadFixtures, readText, type LintResult } from "./shared";
+import {
+  EXPECTED_FIXTURES,
+  EXPECTED_TABS,
+  REQUIRED_AXES,
+  asArray,
+  asBoolean,
+  asObject,
+  asString,
+  expectedDefaultTab,
+  loadFixtures,
+  readText,
+  type LintResult
+} from "./shared";
+
+const FORBIDDEN_PATTERNS: Array<{ label: string; pattern: RegExp }> = [
+  { label: ".agent/body.yaml", pattern: /\.agent\/body\.yaml/ },
+  { label: ".agent_class/loadout.yaml", pattern: /\.agent_class\/loadout\.yaml/ },
+  { label: ".agent_class/workflows", pattern: /\.agent_class\/workflows/ },
+  { label: "_workspaces/company", pattern: /_workspaces\/company\b/ },
+  { label: "_workspaces/personal", pattern: /_workspaces\/personal\b/ },
+  { label: ".project_agent/runs", pattern: /\.project_agent\/runs/ },
+  { label: "battle log", pattern: /battle log/i },
+  { label: "real feedback events", pattern: /real feedback events/i },
+  { label: "analytics", pattern: /\banalytics\b/i },
+  { label: "nightly healing", pattern: /nightly healing/i },
+  { label: "workflow run index", pattern: /workflow run index/i },
+  { label: "actual party performance metrics", pattern: /actual party performance metrics/i }
+];
+
+function axisItems(payload: Record<string, unknown>, axis: string) {
+  const collection = asObject(payload[axis]);
+  return asArray<Record<string, unknown>>(collection?.items);
+}
 
 export function runFixtureCoverageLint() {
   const issues = [];
   const fixtures = loadFixtures();
   const fixtureNames = new Set(fixtures.map((fixture) => fixture.name));
   const defaultTabs = new Set<string>();
-  const rowCoverage = new Set<string>();
-  const classCatalogCoverage = new Set<string>();
-  const workspaceStates = new Set<string>();
-  const flags = {
-    installed: false,
-    equipped: false,
-    required: false,
-    preferred: false,
-    selectable_candidate: false
-  };
-  let hasDiagnosticsSignal = false;
-  let hasSpeciesCandidates = false;
-  let hasHeroCandidates = false;
+  const axisCoverage = new Set<string>();
+  let hasDiagnosticWarning = false;
 
   for (const expectedFixture of EXPECTED_FIXTURES) {
     if (!fixtureNames.has(expectedFixture)) {
@@ -32,14 +53,11 @@ export function runFixtureCoverageLint() {
   for (const fixture of fixtures) {
     const source = asObject(fixture.payload.source);
     const uiHints = asObject(fixture.payload.ui_hints);
-    const rows = asObject(asObject(fixture.payload.class_view)?.rows);
     const diagnostics = asObject(fixture.payload.diagnostics);
     const diagnosticSummary = asObject(diagnostics?.summary);
     const workspaces = asObject(fixture.payload.workspaces);
-    const groupedProjects = asObject(workspaces?.grouped_projects);
-    const catalogs = asObject(fixture.payload.catalogs);
-    const classCatalogs = asObject(catalogs?.class);
-    const identityCatalogs = asObject(catalogs?.identity);
+    const workspaceProjects = asArray<Record<string, unknown>>(workspaces?.projects);
+    const payloadText = JSON.stringify(fixture.payload);
 
     const fixtureName = asString(source?.fixture_name);
     if (fixtureName && fixtureName !== fixture.name) {
@@ -62,59 +80,72 @@ export function runFixtureCoverageLint() {
       });
     }
 
-    for (const [rowKey, rowRule] of Object.entries(ROW_RULES)) {
-      const items = asArray<Record<string, unknown>>(rows?.[rowKey]);
+    for (const axis of REQUIRED_AXES) {
+      const axisObject = asObject(fixture.payload[axis]);
+      if (!axisObject) {
+        issues.push({
+          rule: "required-axis",
+          file: fixture.repoPath,
+          message: `missing required axis object ${axis}`
+        });
+        continue;
+      }
+
+      if (axis === "workspaces") {
+        continue;
+      }
+
+      const items = axisItems(fixture.payload, axis);
       if (items.length > 0) {
-        rowCoverage.add(rowKey);
-      }
-
-      for (const item of items) {
-        if (asBoolean(item.installed) === true) {
-          flags.installed = true;
-        }
-        if (asBoolean(item.equipped) === true) {
-          flags.equipped = true;
-        }
-        if (asBoolean(item.required) === true) {
-          flags.required = true;
-        }
-        if (asBoolean(item.preferred) === true) {
-          flags.preferred = true;
-        }
-        if (asBoolean(item.selectable_candidate) === true) {
-          flags.selectable_candidate = true;
-        }
-      }
-
-      const catalogItems = asArray<Record<string, unknown>>(classCatalogs?.[rowRule.catalogKey]);
-      if (catalogItems.length > 0) {
-        classCatalogCoverage.add(rowRule.catalogKey);
+        axisCoverage.add(axis);
       }
     }
 
-    const speciesCandidates = asArray<Record<string, unknown>>(identityCatalogs?.species_candidates);
-    const heroCandidates = asArray<Record<string, unknown>>(identityCatalogs?.hero_candidates);
-    hasSpeciesCandidates ||= speciesCandidates.length > 0;
-    hasHeroCandidates ||= heroCandidates.length > 0;
-
-    const companyProjects = asArray<Record<string, unknown>>(groupedProjects?.company);
-    const personalProjects = asArray<Record<string, unknown>>(groupedProjects?.personal);
-    for (const project of [...companyProjects, ...personalProjects]) {
-      const state = asString(project.state);
-      if (state) {
-        workspaceStates.add(state);
-      }
+    if (asString(workspaces?.mode) !== "local_only_mount") {
+      issues.push({
+        rule: "workspace-mode",
+        file: fixture.repoPath,
+        message: `expected workspaces.mode local_only_mount, got ${String(workspaces?.mode)}`
+      });
     }
 
-    const warningCount = diagnostics?.warnings;
-    const errorCount = diagnostics?.errors;
-    const summaryWarnings = Number(diagnosticSummary?.warnings ?? 0);
-    const summaryErrors = Number(diagnosticSummary?.errors ?? 0);
-    hasDiagnosticsSignal ||=
-      summaryWarnings > 0 ||
-      summaryErrors > 0 ||
-      asArray(warningCount).length > 0 ||
-      asArray(errorCount).length > 0;
+    if (asBoolean(workspaces?.local_scan_enabled) !== false) {
+      issues.push({
+        rule: "workspace-local-scan",
+        file: fixture.repoPath,
+        message: "public fixtures must keep workspaces.local_scan_enabled false"
+      });
+    }
+
+    if (workspaceProjects.length > 0) {
+      issues.push({
+        rule: "workspace-projects",
+        file: fixture.repoPath,
+        message: "public fixtures must not materialize local workspace projects"
+      });
+    }
+
+    const workspaceNotes = asArray<string>(workspaces?.notes);
+    if (!workspaceNotes.some((note) => note.includes("local-only") || note.includes("local_only"))) {
+      issues.push({
+        rule: "workspace-notes",
+        file: fixture.repoPath,
+        message: "workspaces.notes must explain the local-only mount policy"
+      });
+    }
+
+    const warningCount = Number(diagnosticSummary?.warnings ?? 0);
+    hasDiagnosticWarning ||= warningCount > 0 || asArray(diagnostics?.warnings).length > 0;
+
+    for (const forbidden of FORBIDDEN_PATTERNS) {
+      if (forbidden.pattern.test(payloadText)) {
+        issues.push({
+          rule: "forbidden-payload",
+          file: fixture.repoPath,
+          message: `fixture payload must not contain ${forbidden.label}`
+        });
+      }
+    }
   }
 
   for (const expectedTab of EXPECTED_TABS) {
@@ -127,73 +158,24 @@ export function runFixtureCoverageLint() {
     }
   }
 
-  for (const rowKey of Object.keys(ROW_RULES)) {
-    if (!rowCoverage.has(rowKey)) {
+  for (const axis of REQUIRED_AXES) {
+    if (axis === "workspaces") {
+      continue;
+    }
+    if (!axisCoverage.has(axis)) {
       issues.push({
-        rule: "row-coverage",
+        rule: "axis-coverage",
         file: "fixtures/ui-state",
-        message: `row coverage missing ${rowKey}`
+        message: `fixture coverage missing ${axis}`
       });
     }
   }
 
-  for (const rowRule of Object.values(ROW_RULES)) {
-    if (!classCatalogCoverage.has(rowRule.catalogKey)) {
-      issues.push({
-        rule: "catalog-coverage",
-        file: "fixtures/ui-state",
-        message: `catalog coverage missing ${rowRule.catalogKey}`
-      });
-    }
-  }
-
-  for (const [flagName, covered] of Object.entries(flags)) {
-    if (!covered) {
-      issues.push({
-        rule: "state-coverage",
-        file: "fixtures/ui-state",
-        message: `fixture coverage missing ${flagName}=true`
-      });
-    }
-  }
-
-  if (!workspaceStates.has("bound")) {
-    issues.push({
-      rule: "workspace-coverage",
-      file: "fixtures/ui-state",
-      message: "workspace coverage missing bound state"
-    });
-  }
-
-  if (!workspaceStates.has("unbound")) {
-    issues.push({
-      rule: "workspace-coverage",
-      file: "fixtures/ui-state",
-      message: "workspace coverage missing unbound state"
-    });
-  }
-
-  if (!hasDiagnosticsSignal) {
+  if (!hasDiagnosticWarning) {
     issues.push({
       rule: "diagnostics-coverage",
       file: "fixtures/ui-state",
-      message: "diagnostics coverage missing warning or error signal"
-    });
-  }
-
-  if (!hasSpeciesCandidates) {
-    issues.push({
-      rule: "catalog-coverage",
-      file: "fixtures/ui-state",
-      message: "species candidate coverage missing"
-    });
-  }
-
-  if (!hasHeroCandidates) {
-    issues.push({
-      rule: "catalog-coverage",
-      file: "fixtures/ui-state",
-      message: "hero candidate coverage missing"
+      message: "diagnostics coverage must include at least one warning for synthetic workspace policy"
     });
   }
 
@@ -212,6 +194,16 @@ export function runFixtureCoverageLint() {
         rule: "fixture-map-entry",
         file: "packages/renderer-core/src/fixtures.ts",
         message: `fixture map must export key ${fixtureName}`
+      });
+    }
+  }
+
+  for (const axis of REQUIRED_AXES) {
+    if (!fixtureSourceText.includes(`"${axis}"`)) {
+      issues.push({
+        rule: "fixture-axes",
+        file: "packages/renderer-core/src/fixtures.ts",
+        message: `fixture map should declare canonical axis ${axis}`
       });
     }
   }
