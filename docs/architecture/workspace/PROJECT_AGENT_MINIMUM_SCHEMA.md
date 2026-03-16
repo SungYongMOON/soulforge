@@ -133,6 +133,8 @@ bindings:
 
 `read_paths` 와 `write_paths` 는 프로젝트 루트 기준 상대 경로 목록이다.
 `mutation_mode` 는 `read_only`, `append_only`, `overwrite_owned` 중 하나로 해석한다.
+`write_paths` 에 선언된 경로 subtree 는 해당 binding 의 mutation ownership 범위로 본다.
+`overwrite_owned` 는 이 binding 이 선언한 `write_paths` subtree 안에서만 overwrite 를 허용한다.
 
 ## 4. `local_state_map.yaml`
 

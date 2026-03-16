@@ -31,6 +31,7 @@
 
 - `runtime/` vs `policy/`: `runtime/` 은 실행 기반과 조립 순서를 소유하고, `policy/` 는 그 runtime 이 넘지 말아야 할 floor 를 소유한다.
 - `communication/` 과 `protocols/` 는 runtime 출력 형식과 handoff 절차를 참조할 수 있지만, runtime 자체를 대체하지 않는다.
+- `context_assembly.yaml` 은 request contract, execution contract, checkpoint template 을 함께 조립해 transportable workflow runtime 입력으로 사용한다.
 - [`../policy/README.md`](../policy/README.md)
 - [`../protocols/README.md`](../protocols/README.md)
 - [`../docs/architecture/RUNTIME_MODEL.md`](../docs/architecture/RUNTIME_MODEL.md)

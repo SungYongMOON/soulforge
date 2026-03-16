@@ -26,6 +26,7 @@ normalization:
   implicit_class_binding: false
   implicit_workspace_binding: false
   species_only_default_when_unbound: true
+  run_id_assigned_after_request_normalization: true
 outputs:
   - normalized_request
   - open_questions

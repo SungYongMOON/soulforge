@@ -23,6 +23,8 @@ sources:
     ref: ../communication/peer_channel_profile.yaml
   - order: 110
     ref: ../protocols/request_contract.yaml
+  - order: 115
+    ref: ../runtime/execution_contract.yaml
   - order: 120
     ref: ../sessions/checkpoint_template.yaml
 rules:

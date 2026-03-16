@@ -111,6 +111,8 @@ resolve 규칙:
 - `read_paths` 가 있으면 list 여야 하고, 각 항목은 프로젝트 루트 안의 상대 경로여야 한다.
 - `write_paths` 가 있으면 list 여야 하고, 각 항목은 프로젝트 루트 안의 상대 경로여야 한다.
 - `mutation_mode` 가 있으면 `read_only`, `append_only`, `overwrite_owned` 중 하나여야 한다.
+- `write_paths` 는 해당 binding 의 mutation ownership subtree 선언으로 해석한다.
+- `mutation_mode` 가 `overwrite_owned` 이면 선언된 `write_paths` subtree 안에서만 overwrite 를 허용한다.
 - `write_paths` 가 있으면 `mutation_mode` 도 함께 있어야 한다.
 - `mutation_mode` 가 `read_only` 이면 `write_paths` 를 둘 수 없다.
 
