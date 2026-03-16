@@ -68,6 +68,8 @@
 - public-safe 기본 경로는 실제 `_workspaces/<project_code>/` materialization 없이도 동작한다.
 - opt-in local smoke 는 `--local-workspaces` 와 `--workspace-root` 또는 `SOULFORGE_LOCAL_WORKSPACE_ROOT` 가 있을 때만 수행한다.
 - local smoke 는 `_workspaces/<project_code>/` 직행 구조를 기대하고, legacy `company/`, `personal/` 는 canonical project 로 취급하지 않는다.
+- local-only smoke sample 로 `_workspaces/P00-000/` 를 materialize 해 `project_agent_present=true` 인식까지 확인했다.
+- `_workspaces/P00-000/**` 는 `.gitignore` 에 의해 public tracking 대상이 아니며 감리용 local sample 로만 사용한다.
 
 ## 현재 검증 상태
 
@@ -79,6 +81,12 @@
 - `npm run lint:catalog --workspace @soulforge/ui-lint`
 - `npm run lint:fixtures --workspace @soulforge/ui-lint`
 - repo 내부 `_workspaces` 기준 local smoke 명령 자체는 정상 실행된다.
+- `python .agent_class/tools/local_cli/ui_sync/ui_sync.py resolve-workspaces --local-workspaces --workspace-root /Users/seabotmoon-air/Workspace/Soulforge/_workspaces --json`
+  - local-only sample `P00-000` 인식
+  - `project_count = 1`
+- `python .agent_class/tools/local_cli/ui_sync/ui_sync.py derive-ui-state --local-workspaces --workspace-root /Users/seabotmoon-air/Workspace/Soulforge/_workspaces --json`
+  - `workspace_counts.total = 1`
+  - `candidate_count = 1`
 
 ### WARN
 
@@ -86,9 +94,7 @@
   - `workspace-root-default`
   - `legacy-workspace-bridge`: `_workspaces/company`
   - `legacy-workspace-bridge`: `_workspaces/personal`
-- `python .agent_class/tools/local_cli/ui_sync/ui_sync.py resolve-workspaces --local-workspaces --workspace-root /Users/seabotmoon-air/Workspace/Soulforge/_workspaces --json`
-  - `project_count = 0`
-  - 이유: 현재 repo 내부 `_workspaces` 아래에는 새 canon 의 `_workspaces/<project_code>/` 가 없고 legacy bridge 만 존재한다.
+- repo 내부 `_workspaces` 는 여전히 canonical private mount root 가 아니라 legacy bridge 와 local sample 이 함께 있는 혼합 상태다.
 - live 문서와 일부 UI consumer code 에는 out-of-scope legacy vocabulary 가 일부 남아 있다.
 
 ### FAIL
