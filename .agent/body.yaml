@@ -88,6 +88,7 @@ section_files:
     - .agent/runtime/tool_scope.yaml
     - .agent/runtime/sandbox_profile.yaml
     - .agent/runtime/delivery_profile.yaml
+    - .agent/runtime/execution_contract.yaml
   sessions:
     - .agent/sessions/checkpoint_template.yaml
 future_expansion:

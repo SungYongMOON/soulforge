@@ -10,6 +10,9 @@ optional_sections:
   - handoff_target
   - decision_refs
   - incident_refs
+  - artifact_refs
+  - task_lineage
+  - verification_summary
 excluded_sections:
   - raw_transcript
   - long_term_memory_dump

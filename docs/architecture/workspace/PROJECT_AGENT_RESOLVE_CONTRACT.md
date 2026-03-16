@@ -95,6 +95,12 @@ resolve 규칙:
 - `trigger`
 - `enabled`
 
+선택 확장 필드:
+
+- `read_paths`
+- `write_paths`
+- `mutation_mode`
+
 resolve 규칙:
 
 - `bindings` 는 list 여야 한다.
@@ -102,6 +108,11 @@ resolve 규칙:
 - `entrypoint` 는 resolve 된 workflow manifest 의 `entrypoint` 와 일치해야 한다.
 - `trigger` 는 `manual`, `on_demand`, `scheduled` 중 하나여야 한다.
 - `enabled` 는 bool 이어야 한다.
+- `read_paths` 가 있으면 list 여야 하고, 각 항목은 프로젝트 루트 안의 상대 경로여야 한다.
+- `write_paths` 가 있으면 list 여야 하고, 각 항목은 프로젝트 루트 안의 상대 경로여야 한다.
+- `mutation_mode` 가 있으면 `read_only`, `append_only`, `overwrite_owned` 중 하나여야 한다.
+- `write_paths` 가 있으면 `mutation_mode` 도 함께 있어야 한다.
+- `mutation_mode` 가 `read_only` 이면 `write_paths` 를 둘 수 없다.
 
 ### 3.4 `local_state_map.yaml`
 

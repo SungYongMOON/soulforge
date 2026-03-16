@@ -10,6 +10,7 @@
 - `checkpoints/`, `checkpoint_template.yaml`, `active_session.example.yaml`
 - 현재 task id, 현재 목표, 마지막 결정, 다음 액션, 열린 리스크
 - continuity checkpoint 와 handoff 메타
+- task lineage, artifact refs, verification summary 같은 carry-forward 요약
 
 ## 제외 대상
 
@@ -20,7 +21,7 @@
 
 ## 대표 파일
 
-- [`checkpoint_template.yaml`](checkpoint_template.yaml): continuity only checkpoint 템플릿
+- [`checkpoint_template.yaml`](checkpoint_template.yaml): continuity only 원칙 안에서 lineage 와 verification summary 를 담는 checkpoint 템플릿
 - [`active_session.example.yaml`](active_session.example.yaml): active session 예시
 - [`checkpoints/README.md`](checkpoints/README.md): checkpoint 저장 경계
 

@@ -3,3 +3,8 @@ bindings:
     entrypoint: run
     trigger: manual
     enabled: true
+    read_paths:
+      - README.md
+    write_paths:
+      - deliverables/briefings
+    mutation_mode: append_only

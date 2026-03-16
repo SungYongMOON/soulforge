@@ -37,7 +37,7 @@ flowchart TD
 | --- | --- |
 | `contract.yaml` | 이 프로젝트가 어떤 body, class, loadout 과 연결되는지 정의 |
 | `capsule_bindings.yaml` | body/class 자산이 프로젝트 내부 어디에 연결되는지 정의 |
-| `workflow_bindings.yaml` | 프로젝트에서 활성화할 workflow 연결과 진입점을 정의 |
+| `workflow_bindings.yaml` | 프로젝트에서 활성화할 workflow 연결, 진입점, 선택적 mutation scope 를 정의 |
 | `local_state_map.yaml` | host-local 상태와 비추적 경로를 명시 |
 
 ## 1. `contract.yaml`
@@ -100,6 +100,7 @@ bindings:
 ### 최소 역할
 
 - 프로젝트에서 어떤 workflow 를 어떤 방식으로 사용할지 정의
+- transportable workflow 가 읽고 쓸 workspace scope 를 선택적으로 명시
 
 ### 최소 필드
 
@@ -109,6 +110,12 @@ bindings:
 - 각 항목의 `trigger`
 - 각 항목의 `enabled`
 
+### 선택 확장 필드
+
+- `read_paths`
+- `write_paths`
+- `mutation_mode`
+
 ### 예시
 
 ```yaml
@@ -117,7 +124,15 @@ bindings:
     entrypoint: run
     trigger: manual
     enabled: true
+    read_paths:
+      - README.md
+    write_paths:
+      - deliverables/briefings
+    mutation_mode: append_only
 ```
+
+`read_paths` 와 `write_paths` 는 프로젝트 루트 기준 상대 경로 목록이다.
+`mutation_mode` 는 `read_only`, `append_only`, `overwrite_owned` 중 하나로 해석한다.
 
 ## 4. `local_state_map.yaml`
 

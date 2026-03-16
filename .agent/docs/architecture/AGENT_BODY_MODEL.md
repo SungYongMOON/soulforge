@@ -106,7 +106,7 @@ flowchart TD
 | `policy/` | species-free floor | `precedence.yaml`, `approval_matrix.yaml` |
 | `communication/` | 외부 상호작용 규범 | `human_channel_profile.yaml`, `peer_channel_profile.yaml` |
 | `protocols/` | request/handoff/decision/escalation contract | `request_contract.yaml`, `handoff_contract.yaml` |
-| `runtime/` | 기관 조립과 실행 순서 | `context_assembly.yaml`, `tool_scope.yaml` |
+| `runtime/` | 기관 조립과 실행 순서 | `context_assembly.yaml`, `tool_scope.yaml`, `execution_contract.yaml` |
 | `memory/` | private 장기 기억 | `self/`, `project/`, `decisions/`, `handoffs/` |
 | `sessions/` | continuity 저장소 | `checkpoint_template.yaml`, `active_session.example.yaml` |
 | `autonomic/` | 저소음 품질 보정 루틴 | `checks/`, `reminders/`, `rules/` |

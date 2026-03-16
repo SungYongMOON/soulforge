@@ -22,3 +22,4 @@
 
 - Stable
 - workspace 구조와 `.project_agent` 계약의 root-owned 정본 묶음이다.
+- `workflow_bindings.yaml` 는 workflow 연결뿐 아니라 선택적 mutation scope 도 함께 설명할 수 있다.

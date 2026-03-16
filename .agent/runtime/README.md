@@ -7,7 +7,7 @@
 
 ## 포함 대상
 
-- `bootstrap_order.md`, `context_assembly.yaml`, `tool_scope.yaml`, `sandbox_profile.yaml`, `delivery_profile.yaml`
+- `bootstrap_order.md`, `context_assembly.yaml`, `tool_scope.yaml`, `sandbox_profile.yaml`, `delivery_profile.yaml`, `execution_contract.yaml`
 - runtime 기본 순서와 실행 phase
 - declared runtime profile
 
@@ -25,6 +25,7 @@
 - [`tool_scope.yaml`](tool_scope.yaml): tool ownership 과 approval gated scope
 - [`sandbox_profile.yaml`](sandbox_profile.yaml): actual state 가 아니라 runtime 이 제공해야 할 선언 프로필
 - [`delivery_profile.yaml`](delivery_profile.yaml): body 출력 전달 기본값
+- [`execution_contract.yaml`](execution_contract.yaml): transportable workflow 의 lineage, verification, idempotency 기본 계약
 
 ## 참조 관계
 

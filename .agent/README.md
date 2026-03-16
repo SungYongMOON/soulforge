@@ -35,6 +35,7 @@
 - `artifacts/` vs `export/`: `artifacts/` 는 body 소유 재사용 산출물 서가이고, `export/` 는 별도 body 기관이 아니라 전달 concern 이다.
 - `communication/` vs `protocols/`: `communication/` 은 사람과 채널 표현을, `protocols/` 는 request, handoff, decision, incident, escalation 계약을 다룬다.
 - `runtime/` vs `policy/`: `runtime/` 은 기관 조립과 실행 순서를, `policy/` 는 runtime 이 넘지 말아야 할 경계를 고정한다.
+- `protocols/` + `runtime/` + `sessions/`: transportable workflow 를 위해 request/handoff ref, execution contract, continuity summary 를 나눠 유지한다.
 
 ## 우선순위
 

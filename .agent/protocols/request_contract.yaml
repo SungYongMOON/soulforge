@@ -14,6 +14,13 @@ optional_fields:
   - constraints
   - file_refs
   - decision_refs
+  - workflow_id
+  - task_id
+  - parent_task_id
+  - input_refs
+  - output_expectation
+  - idempotency_key
+  - verification_expectation
 normalization:
   runtime_state_must_be_observed_or_declared: true
   implicit_class_binding: false

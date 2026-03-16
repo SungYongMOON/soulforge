@@ -21,8 +21,8 @@
 
 ## 대표 파일
 
-- [`request_contract.yaml`](request_contract.yaml): human/peer 요청을 정규화할 intake 계약
-- [`handoff_contract.yaml`](handoff_contract.yaml): continuity only handoff 계약
+- [`request_contract.yaml`](request_contract.yaml): human/peer 요청을 정규화하고 transportable run ref 를 함께 담을 수 있는 intake 계약
+- [`handoff_contract.yaml`](handoff_contract.yaml): continuity only 원칙을 유지하되 artifact ref 와 lineage 를 포함할 수 있는 handoff 계약
 - [`escalation_contract.yaml`](escalation_contract.yaml): escalation trigger 와 target 계약
 
 ## 참조 관계

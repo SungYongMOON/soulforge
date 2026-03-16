@@ -38,6 +38,7 @@ _workspaces/
 - `workflow_bindings.yaml`
 - `local_state_map.yaml`
 
+`workflow_bindings.yaml` 는 workflow 연결뿐 아니라 선택적 mutation scope 도 담을 수 있다.
 세부 역할과 최소 필드는 `docs/architecture/workspace/PROJECT_AGENT_MINIMUM_SCHEMA.md` 를 기준으로 본다.
 공통 resolve/validate 규칙과 상태 분류는 `docs/architecture/workspace/PROJECT_AGENT_RESOLVE_CONTRACT.md` 를 기준으로 본다.
 

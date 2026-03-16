@@ -37,6 +37,7 @@
 - Stable
 - 실제 프로젝트 폴더는 이 경계 안에 둔다.
 - workspace project 상태는 `.project_agent` resolve 결과에 따라 `bound`, `unbound`, `invalid` 로 분류할 수 있다.
+- `bound` project 의 `workflow_bindings.yaml` 는 workflow 연결과 선택적 mutation scope 를 함께 가질 수 있다.
 - `_workspaces/company/sample_reference_project/` 는 운영용 실프로젝트가 아니라 repo-tracked reference sample project 로 유지한다.
 - `_workspaces/company/sample_bound_project/` 는 운영용 실프로젝트가 아니라 두 번째 bound reference sample project 로 유지한다.
 - `_workspaces/personal/sample_unbound_project/` 는 `.project_agent/` 가 의도적으로 없는 unbound reference sample project 로 유지한다.

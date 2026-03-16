@@ -65,6 +65,7 @@ TOOL_FAMILIES = ("adapters", "connectors", "local_cli", "mcp")
 PATH_LIKE_SUFFIXES = (".yaml", ".yml", ".py")
 CAPSULE_BINDING_MODES = ("read_only", "read_write", "copy")
 WORKFLOW_TRIGGERS = ("manual", "on_demand", "scheduled")
+WORKFLOW_MUTATION_MODES = ("read_only", "append_only", "overwrite_owned")
 TAB_SPECS = (
     ("overview", "종합(Overview)"),
     ("body", "본체(.agent)"),
@@ -983,8 +984,6 @@ def validate_capsule_bindings_file(path: Path, project_dir: Path, findings: list
 def validate_workflow_bindings_file(
     path: Path, project_dir: Path, loadout_result: ResolveResult | None, findings: list[Finding]
 ) -> dict[str, Any] | None:
-    del project_dir
-
     data = load_project_mapping(path, findings, "workflow_bindings")
     if data is None:
         return None
@@ -1073,6 +1072,71 @@ def validate_workflow_bindings_file(
                 "FAIL",
                 "workflow_bindings_trigger",
                 f"{relative_to_repo(path)} bindings[{index}].trigger must be one of: {', '.join(WORKFLOW_TRIGGERS)}",
+            )
+            valid = False
+            entry_valid = False
+
+        if "read_paths" in binding and not validate_optional_project_path_list(
+            binding["read_paths"],
+            project_dir,
+            findings,
+            f"{relative_to_repo(path)} bindings[{index}].read_paths",
+            "workflow_bindings_read_paths",
+        ):
+            valid = False
+            entry_valid = False
+
+        if "write_paths" in binding and not validate_optional_project_path_list(
+            binding["write_paths"],
+            project_dir,
+            findings,
+            f"{relative_to_repo(path)} bindings[{index}].write_paths",
+            "workflow_bindings_write_paths",
+        ):
+            valid = False
+            entry_valid = False
+
+        mutation_mode = binding.get("mutation_mode")
+        if mutation_mode is not None:
+            if not isinstance(mutation_mode, str) or not mutation_mode.strip():
+                add(
+                    findings,
+                    "FAIL",
+                    "workflow_bindings_mutation_mode_type",
+                    f"{relative_to_repo(path)} bindings[{index}].mutation_mode must be a non-empty string",
+                )
+                valid = False
+                entry_valid = False
+            elif mutation_mode.strip() not in WORKFLOW_MUTATION_MODES:
+                add(
+                    findings,
+                    "FAIL",
+                    "workflow_bindings_mutation_mode",
+                    f"{relative_to_repo(path)} bindings[{index}].mutation_mode must be one of: {', '.join(WORKFLOW_MUTATION_MODES)}",
+                )
+                valid = False
+                entry_valid = False
+
+        if "write_paths" in binding and mutation_mode is None:
+            add(
+                findings,
+                "FAIL",
+                "workflow_bindings_write_paths_requires_mutation_mode",
+                f"{relative_to_repo(path)} bindings[{index}].write_paths requires mutation_mode",
+            )
+            valid = False
+            entry_valid = False
+
+        if (
+            isinstance(mutation_mode, str)
+            and mutation_mode.strip() == "read_only"
+            and "write_paths" in binding
+        ):
+            add(
+                findings,
+                "FAIL",
+                "workflow_bindings_read_only_write_paths",
+                f"{relative_to_repo(path)} bindings[{index}] cannot declare write_paths with mutation_mode read_only",
             )
             valid = False
             entry_valid = False
@@ -1216,6 +1280,40 @@ def is_relative_project_path(path_value: str, project_dir: Path) -> bool:
     except ValueError:
         return False
     return True
+
+
+def validate_optional_project_path_list(
+    value: Any, project_dir: Path, findings: list[Finding], location: str, code_prefix: str
+) -> bool:
+    if not isinstance(value, list) or not value:
+        add(
+            findings,
+            "FAIL",
+            f"{code_prefix}_type",
+            f"{location} must be a non-empty list of relative project paths",
+        )
+        return False
+
+    valid = True
+    for index, entry in enumerate(value, start=1):
+        if not isinstance(entry, str) or not entry.strip():
+            add(
+                findings,
+                "FAIL",
+                f"{code_prefix}_entry_type",
+                f"{location}[{index}] must be a non-empty string",
+            )
+            valid = False
+            continue
+        if not is_relative_project_path(entry.strip(), project_dir):
+            add(
+                findings,
+                "FAIL",
+                f"{code_prefix}_entry_path",
+                f"{location}[{index}] must be a relative path inside the project root",
+            )
+            valid = False
+    return valid
 
 
 def build_workspace_summary(workspaces: dict[str, list[WorkspaceProjectRecord]]) -> dict[str, int]:
