@@ -5,6 +5,7 @@ from __future__ import annotations
 
 import argparse
 import json
+import os
 import re
 import sys
 from dataclasses import dataclass
@@ -20,6 +21,8 @@ WORKFLOW_ROOT = REPO_ROOT / ".workflow"
 PARTY_ROOT = REPO_ROOT / ".party"
 WORKSPACES_ROOT = REPO_ROOT / "_workspaces"
 WORKSPACES_README = WORKSPACES_ROOT / "README.md"
+LOCAL_WORKSPACE_ROOT_ENV = "SOULFORGE_LOCAL_WORKSPACE_ROOT"
+LEGACY_WORKSPACE_DIRS = ("company", "personal")
 
 SCHEMA_VERSION = "ui-state.v1"
 INLINE_MAPPING_RE = re.compile(r"^[A-Za-z0-9_.-]+\s*:")
@@ -819,27 +822,85 @@ def validate_cross_refs(
                     add(findings, "error", f"party-{file_suffix}", f"{source_ref} references unknown id {item_id}")
 
 
-def load_workspaces_axis(findings: list[Finding], local_scan: bool) -> dict[str, Any]:
+def resolve_local_workspace_root(workspace_root: str | None) -> tuple[Path, str]:
+    if workspace_root is not None and workspace_root.strip():
+        return Path(workspace_root).expanduser().resolve(), "cli"
+
+    env_value = os.environ.get(LOCAL_WORKSPACE_ROOT_ENV)
+    if env_value and env_value.strip():
+        return Path(env_value).expanduser().resolve(), "env"
+
+    return WORKSPACES_ROOT, "repo_default"
+
+
+def render_workspace_root_ref(path: Path) -> str:
+    try:
+        return relative_to_repo(path)
+    except ValueError:
+        return path.as_posix()
+
+
+def load_workspaces_axis(
+    findings: list[Finding],
+    local_scan: bool,
+    workspace_root: str | None = None,
+) -> dict[str, Any]:
     if not WORKSPACES_README.exists():
         add(findings, "error", "workspaces-readme", "missing required file _workspaces/README.md")
 
     projects: list[dict[str, Any]] = []
-    if local_scan and WORKSPACES_ROOT.exists():
-        for child in sorted(WORKSPACES_ROOT.iterdir()):
-            if not child.is_dir() or child.name.startswith("."):
-                continue
-            project_agent_dir = child / ".project_agent"
-            project_state = "local_detected"
-            if project_agent_dir.is_dir():
-                project_state = "project_agent_present"
-            projects.append(
-                {
-                    "project_code": child.name,
-                    "project_root_ref": f"_workspaces/{child.name}",
-                    "state": project_state,
-                    "project_agent_present": project_agent_dir.is_dir(),
-                }
+    local_root_ref = None
+    local_root_source = None
+    if local_scan:
+        local_root, local_root_source = resolve_local_workspace_root(workspace_root)
+        local_root_ref = render_workspace_root_ref(local_root)
+        if not local_root.exists():
+            add(
+                findings,
+                "error",
+                "workspace-root-missing",
+                f"local workspace root does not exist: {local_root_ref}",
             )
+        elif not local_root.is_dir():
+            add(
+                findings,
+                "error",
+                "workspace-root-type",
+                f"local workspace root must be a directory: {local_root_ref}",
+            )
+        else:
+            if local_root == WORKSPACES_ROOT:
+                add(
+                    findings,
+                    "warning",
+                    "workspace-root-default",
+                    "local smoke uses repo _workspaces/ by default; prefer --workspace-root or SOULFORGE_LOCAL_WORKSPACE_ROOT for a private mission site mount.",
+                )
+
+        if local_root.exists() and local_root.is_dir():
+            for child in sorted(local_root.iterdir()):
+                if not child.is_dir() or child.name.startswith("."):
+                    continue
+                if local_root == WORKSPACES_ROOT and child.name in LEGACY_WORKSPACE_DIRS:
+                    add(
+                        findings,
+                        "warning",
+                        "legacy-workspace-bridge",
+                        f"skipping legacy bridge directory during local smoke scan: {render_workspace_root_ref(child)}",
+                    )
+                    continue
+                project_agent_dir = child / ".project_agent"
+                project_state = "local_detected"
+                if project_agent_dir.is_dir():
+                    project_state = "project_agent_present"
+                projects.append(
+                    {
+                        "project_code": child.name,
+                        "project_root_ref": render_workspace_root_ref(child),
+                        "state": project_state,
+                        "project_agent_present": project_agent_dir.is_dir(),
+                    }
+                )
 
     return {
         "root": "_workspaces",
@@ -847,10 +908,13 @@ def load_workspaces_axis(findings: list[Finding], local_scan: bool) -> dict[str,
         "mode": "local_only_mount",
         "mount_status": "reserved_public_root",
         "local_scan_enabled": local_scan,
+        "local_workspace_root": local_root_ref,
+        "local_workspace_root_source": local_root_source,
         "projects": projects,
         "notes": [
             "Public repo payloads do not require _workspaces/<project_code>/ materialization.",
             "Local mission site inspection is opt-in and never used by repo fixtures.",
+            f"Opt-in local smoke root can be provided via --workspace-root or {LOCAL_WORKSPACE_ROOT_ENV}.",
         ],
     }
 
@@ -1152,7 +1216,11 @@ def build_ui_hints(default_tab: str | None = None) -> dict[str, Any]:
     }
 
 
-def build_derived_state(local_scan: bool, default_tab: str | None = None) -> tuple[dict[str, Any], list[Finding]]:
+def build_derived_state(
+    local_scan: bool,
+    default_tab: str | None = None,
+    workspace_root: str | None = None,
+) -> tuple[dict[str, Any], list[Finding]]:
     findings: list[Finding] = []
     species_axis = load_agent_axis(findings)
     unit_axis = load_unit_axis(findings)
@@ -1160,7 +1228,7 @@ def build_derived_state(local_scan: bool, default_tab: str | None = None) -> tup
     workflow_axis = load_workflow_axis(findings)
     party_axis = load_party_axis(findings)
     validate_cross_refs(findings, species_axis, unit_axis, class_axis, workflow_axis, party_axis)
-    workspaces_axis = load_workspaces_axis(findings, local_scan)
+    workspaces_axis = load_workspaces_axis(findings, local_scan, workspace_root)
 
     overview = build_overview_payload(
         findings, species_axis, unit_axis, class_axis, workflow_axis, workspaces_axis
@@ -1226,6 +1294,8 @@ def render_workspaces_text(workspaces: dict[str, Any]) -> str:
         "Soulforge vNext workspace summary",
         f"  mode: {workspaces['mode']}",
         f"  local_scan_enabled: {str(workspaces['local_scan_enabled']).lower()}",
+        f"  local_workspace_root: {workspaces['local_workspace_root'] or '-'}",
+        f"  local_workspace_root_source: {workspaces['local_workspace_root_source'] or '-'}",
         f"  project_count: {len(workspaces['projects'])}",
     ]
     for project in workspaces["projects"]:
@@ -1281,9 +1351,9 @@ def run_resolve_loadout(as_json: bool) -> int:
     return 1 if result["summary"]["errors"] else 0
 
 
-def run_resolve_workspaces(as_json: bool, local_scan: bool) -> int:
+def run_resolve_workspaces(as_json: bool, local_scan: bool, workspace_root: str | None) -> int:
     findings: list[Finding] = []
-    workspaces = load_workspaces_axis(findings, local_scan)
+    workspaces = load_workspaces_axis(findings, local_scan, workspace_root)
     result = {
         "workspaces": workspaces,
         "summary": {
@@ -1302,8 +1372,8 @@ def run_resolve_workspaces(as_json: bool, local_scan: bool) -> int:
     return 1 if result["summary"]["errors"] else 0
 
 
-def run_validate(as_json: bool, local_scan: bool) -> int:
-    payload, findings = build_derived_state(local_scan=local_scan)
+def run_validate(as_json: bool, local_scan: bool, workspace_root: str | None) -> int:
+    payload, findings = build_derived_state(local_scan=local_scan, workspace_root=workspace_root)
     warnings, errors = split_findings(findings)
     result = {
         "summary": {
@@ -1333,8 +1403,17 @@ def run_validate(as_json: bool, local_scan: bool) -> int:
     return 1 if errors else 0
 
 
-def run_derive_ui_state(as_json: bool, local_scan: bool, default_tab: str | None) -> int:
-    payload, findings = build_derived_state(local_scan=local_scan, default_tab=default_tab)
+def run_derive_ui_state(
+    as_json: bool,
+    local_scan: bool,
+    default_tab: str | None,
+    workspace_root: str | None,
+) -> int:
+    payload, findings = build_derived_state(
+        local_scan=local_scan,
+        default_tab=default_tab,
+        workspace_root=workspace_root,
+    )
     if as_json:
         print(json.dumps(payload, ensure_ascii=False, indent=2))
     else:
@@ -1365,6 +1444,7 @@ def build_parser() -> argparse.ArgumentParser:
     )
     resolve_workspaces_parser.add_argument("--json", action="store_true")
     resolve_workspaces_parser.add_argument("--local-workspaces", action="store_true")
+    resolve_workspaces_parser.add_argument("--workspace-root", default=None)
 
     derive_parser = subparsers.add_parser(
         "derive-ui-state",
@@ -1372,6 +1452,7 @@ def build_parser() -> argparse.ArgumentParser:
     )
     derive_parser.add_argument("--json", action="store_true")
     derive_parser.add_argument("--local-workspaces", action="store_true")
+    derive_parser.add_argument("--workspace-root", default=None)
     derive_parser.add_argument(
         "--default-tab",
         choices=("overview", "body", "class", "workspaces"),
@@ -1384,6 +1465,7 @@ def build_parser() -> argparse.ArgumentParser:
     )
     validate_parser.add_argument("--json", action="store_true")
     validate_parser.add_argument("--local-workspaces", action="store_true")
+    validate_parser.add_argument("--workspace-root", default=None)
 
     return parser
 
@@ -1397,14 +1479,23 @@ def main(argv: list[str] | None = None) -> int:
     if args.command == "resolve-loadout":
         return run_resolve_loadout(as_json=args.json)
     if args.command == "resolve-workspaces":
-        return run_resolve_workspaces(as_json=args.json, local_scan=args.local_workspaces)
+        return run_resolve_workspaces(
+            as_json=args.json,
+            local_scan=args.local_workspaces,
+            workspace_root=args.workspace_root,
+        )
     if args.command == "validate":
-        return run_validate(as_json=args.json, local_scan=args.local_workspaces)
+        return run_validate(
+            as_json=args.json,
+            local_scan=args.local_workspaces,
+            workspace_root=args.workspace_root,
+        )
     if args.command == "derive-ui-state":
         return run_derive_ui_state(
             as_json=args.json,
             local_scan=args.local_workspaces,
             default_tab=args.default_tab,
+            workspace_root=args.workspace_root,
         )
 
     parser.error(f"unknown command {args.command}")

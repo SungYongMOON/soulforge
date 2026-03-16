@@ -11,7 +11,7 @@
 - `ui_sync.py`
 - `sync-body-state` = compatibility no-op. `.agent/body_state.yaml` 은 vNext 정본이 아니므로 더 이상 재생성하지 않는다.
 - `resolve-loadout` = compatibility alias. active loadout 이 아니라 reusable class/package, workflow, party surface만 요약한다.
-- `resolve-workspaces` = `_workspaces` 를 local-only mission site mount point 로 보고 public repo 기본 모드에서는 실제 project scan 을 하지 않는다. `--local-workspaces` 를 준 경우에만 opt-in local smoke 를 수행한다.
+- `resolve-workspaces` = `_workspaces` 를 local-only mission site mount point 로 보고 public repo 기본 모드에서는 실제 project scan 을 하지 않는다. `--local-workspaces` 를 준 경우에만 opt-in local smoke 를 수행하고, 필요하면 `--workspace-root` 또는 `SOULFORGE_LOCAL_WORKSPACE_ROOT` 로 private mount 경로를 따로 준다.
 - `derive-ui-state` = 새 6축 top-level (`species`, `units`, `classes`, `workflows`, `parties`, `workspaces`) 을 산출하고, 현재 renderer 소비층을 위해 compatibility projection (`overview`, `body`, `class_view`) 도 함께 내보낸다.
 - `validate` = 새 owner roots 의 최소 파일 세트와 cross-ref 를 검사한다.
 
@@ -24,13 +24,16 @@ python .agent_class/tools/local_cli/ui_sync/ui_sync.py resolve-loadout
 python .agent_class/tools/local_cli/ui_sync/ui_sync.py resolve-loadout --json
 python .agent_class/tools/local_cli/ui_sync/ui_sync.py resolve-workspaces
 python .agent_class/tools/local_cli/ui_sync/ui_sync.py resolve-workspaces --local-workspaces
+python .agent_class/tools/local_cli/ui_sync/ui_sync.py resolve-workspaces --local-workspaces --workspace-root ~/private/soulforge-workspaces
 python .agent_class/tools/local_cli/ui_sync/ui_sync.py resolve-workspaces --json
 python .agent_class/tools/local_cli/ui_sync/ui_sync.py derive-ui-state
 python .agent_class/tools/local_cli/ui_sync/ui_sync.py derive-ui-state --json
 python .agent_class/tools/local_cli/ui_sync/ui_sync.py derive-ui-state --local-workspaces
+python .agent_class/tools/local_cli/ui_sync/ui_sync.py derive-ui-state --local-workspaces --workspace-root ~/private/soulforge-workspaces
 python .agent_class/tools/local_cli/ui_sync/ui_sync.py validate
 python .agent_class/tools/local_cli/ui_sync/ui_sync.py validate --json
 python .agent_class/tools/local_cli/ui_sync/ui_sync.py validate --local-workspaces
+python .agent_class/tools/local_cli/ui_sync/ui_sync.py validate --local-workspaces --workspace-root ~/private/soulforge-workspaces
 ```
 
 ## 범위
@@ -43,6 +46,7 @@ python .agent_class/tools/local_cli/ui_sync/ui_sync.py validate --local-workspac
 - unit/class/workflow/party cross-ref 가 새 roots 에서 resolve 되는지 검사한다.
 - `_workspaces` 는 public repo 에서 `README.md` 만 기대하고, 실제 `<project_code>` scan 은 기본적으로 수행하지 않는다.
 - `derive-ui-state` 는 public repo 기본 모드에서 synthetic local-only workspace summary 만 내보내며, local scan 결과가 필요할 때만 `--local-workspaces` 를 사용한다.
+- local smoke 는 private mount path 를 `--workspace-root` 또는 `SOULFORGE_LOCAL_WORKSPACE_ROOT` 로 주는 것을 권장한다. repo `_workspaces/` 를 그대로 스캔할 경우 legacy `company/`, `personal/` bridge 디렉터리는 자동으로 건너뛴다.
 
 ## JSON 출력 최소 구조
 
