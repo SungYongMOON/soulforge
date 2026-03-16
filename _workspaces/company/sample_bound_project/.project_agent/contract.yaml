@@ -1,6 +1,0 @@
-project_id: sample_bound_project
-project_name: Sample Bound Project
-workspace_kind: company
-body_ref: .agent
-class_ref: .agent_class
-default_loadout: soulforge.profile.default

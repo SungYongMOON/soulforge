@@ -99,8 +99,12 @@
 
 ### FAIL
 
-- `git ls-files _workspaces` 결과상 `_workspaces/company/**`, `_workspaces/personal/**` sample baseline 이 여전히 tracked 상태다.
-- 따라서 “public repo 에는 `_workspaces/README.md` 외 실제 mission site 내용이 없어야 한다”는 최종 보안 기준은 아직 완전히 달성되지 않았다.
+- 없음. tracked legacy `_workspaces/company/**`, `_workspaces/personal/**` baseline 은 git index 에서 제거했다.
+
+### POST-CLEANUP CHECK
+
+- `git ls-files _workspaces` 결과는 `_workspaces/README.md` 만 남는다.
+- `_workspaces/company/**`, `_workspaces/personal/**`, `_workspaces/P00-000/**` 는 로컬 디렉터리로는 남아 있지만 `.gitignore` 에 의해 public tracking 대상이 아니다.
 
 ## 감리 시 확인할 포인트
 
@@ -122,9 +126,9 @@
 
 ### 4. 남은 migration 작업
 
-- tracked legacy `_workspaces/company/**`, `_workspaces/personal/**` cleanup
 - live 문서와 UI consumer 에 남아 있는 legacy vocabulary 정리
 - 실제 local mission site 를 새 `_workspaces/<project_code>/` 구조로 materialize 할 때의 smoke path 재검증
+- `_workspaces` 재추적 방지 guard 추가 여부 결정
 
 ## 감리용 명령 목록
 

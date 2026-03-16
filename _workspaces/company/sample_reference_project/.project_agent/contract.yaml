@@ -1,6 +1,0 @@
-project_id: sample_reference_project
-project_name: Sample Reference Project
-workspace_kind: company
-body_ref: .agent
-class_ref: .agent_class
-default_loadout: soulforge.profile.default
