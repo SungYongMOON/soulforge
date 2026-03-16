@@ -5,8 +5,8 @@
 ## 목적
 
 - 2026-03-16 vNext 정본 전환에서 실제로 반영된 범위를 감리 관점에서 한 문서로 정리한다.
-- public repo 정본, owner-local skeleton, validator/fixture 전환, local-only smoke 경계까지 현재 상태를 요약한다.
-- 아직 남아 있는 legacy bridge 와 out-of-scope 변경을 분리해서 기록한다.
+- public repo 정본, owner-local skeleton, validator/fixture 전환, local-only smoke 경계, tracked legacy cleanup 까지 현재 상태를 요약한다.
+- historical record 와 local-only residue 를 분리해서 기록한다.
 
 ## 반영 완료 커밋
 
@@ -30,6 +30,23 @@
   - public-safe 기본 검증과 opt-in local smoke 경로를 분리했다.
   - repo `_workspaces/` 를 default 로 스캔할 경우 legacy `company/`, `personal/` bridge 를 warning 후 skip 하도록 했다.
 
+### 3. tracked legacy canonical cleanup
+
+- 커밋: `8f8c09d`
+- 메시지: `vNext 감리 정리와 운영 나침반 추가`
+- 요약:
+  - `.agent` 의 body/runtime-era tracked tree 와 `.agent_class` 의 single-root class/loadout/workflow-era tracked tree 를 저장소 정본에서 제거했다.
+  - owner-local README 와 감리 문서를 cleanup 이후 상태에 맞게 갱신했다.
+  - Soulforge 장기 운영 비전은 `guild / dungeon runtime compass` 초안으로 분리 기록했다.
+
+### 4. second cleanup for live owner docs
+
+- 현재 worktree cleanup
+- 요약:
+  - `.agent/docs/architecture/` 와 `.agent_class/docs/architecture/` 에 남아 있던 body/loadout-era live 문서를 제거했다.
+  - live owner path 에서는 current vNext owner 설명과 app server 운영 참고 문서만 유지한다.
+  - historical 설명은 `dev/log/**`, `dev/plan/**`, `docs/architecture/archive/**` 로 한정했다.
+
 ## 이번 전환에서 고정된 정본
 
 - `.agent` = species / hero catalog
@@ -38,6 +55,15 @@
 - `.workflow` = workflow canon + curated learning history
 - `.party` = reusable party template + template-level stats
 - `_workspaces` = reserved / local-only mission site mount point
+
+## cleanup 이후 루트 상태
+
+- `.agent/` tracked 정본 surface: `README.md`, `index.yaml`, `species/**`, `docs/**`
+- `.agent/docs/architecture/` tracked live surface: `README.md` only
+- `.agent_class/` tracked 정본 surface: `README.md`, `index.yaml`, `example_class/**`, `tools/**`, `docs/**`, `_local/`
+- `.agent_class/docs/architecture/` tracked live surface: app server 운영 문서 + `README.md`
+- `_workspaces/` tracked 정본 surface: `README.md` only
+- `company/`, `personal/`, `P00-000/` 는 로컬 디렉터리로 남을 수 있지만 public tracking 대상은 아니다.
 
 ## 반영된 핵심 결과
 
@@ -96,6 +122,7 @@
   - `legacy-workspace-bridge`: `_workspaces/personal`
 - repo 내부 `_workspaces` 는 여전히 canonical private mount root 가 아니라 legacy bridge 와 local sample 이 함께 있는 혼합 상태다.
 - repo 내부 `_workspaces` 를 실제 mount root 로 계속 쓸지, 외부 private root 로 분리할지는 운영 선택으로 남아 있다.
+- tracked repo tree 에서는 `.agent/body.yaml`, `.agent/body_state.yaml`, `.agent_class/class.yaml`, `.agent_class/loadout.yaml`, `.agent_class/workflows/**` 가 제거됐다.
 
 ### FAIL
 
@@ -105,6 +132,7 @@
 
 - `git ls-files _workspaces` 결과는 `_workspaces/README.md` 만 남는다.
 - `_workspaces/company/**`, `_workspaces/personal/**`, `_workspaces/P00-000/**` 는 로컬 디렉터리로는 남아 있지만 `.gitignore` 에 의해 public tracking 대상이 아니다.
+- `git ls-files .agent .agent_class` 기준 single-root body/loadout canonical files 는 더 이상 추적되지 않는다.
 
 ## 감리 시 확인할 포인트
 
@@ -157,6 +185,7 @@ npm run ui:lint:all
 - vNext 정본 6축, owner-local skeleton, validator/fixture 전환, local-only smoke 분리는 반영 완료 상태다.
 - public-safe 기본 경로와 synthetic fixture 정책은 정상 동작한다.
 - live 문서 / UI consumer vocabulary cleanup 과 `_workspaces` 재추적 방지 guard 도 반영됐다.
+- tracked canonical cleanup 도 반영됐다.
 - 남은 논점은 구조 오류보다 운영 표준 mount root 선택과 외부 private smoke 재검증 여부다.
 
 ## ASSUMPTIONS

@@ -28,6 +28,6 @@
 
 - Stable
 - class owner 문서의 기본 위치다.
-- architecture 에 canonical loadout 규약 정본을 포함한다.
+- architecture 에 current owner guide 와 app server 운영 참고 문서를 둔다.
 - `plans/` 는 `.agent_class` 관련 정렬 작업의 수행 전 계획을 둔다.
 - 저장소 공용 개발 계획과 개발 이력은 루트 `dev/plan/`, `dev/log/` 아래로 이동해 관리한다.

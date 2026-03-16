@@ -3,23 +3,18 @@
 ## 목적
 
 - `.agent_class/docs/architecture/` 는 클래스 구조 문서의 정본 위치다.
-- 클래스 계층의 모델과 메타 규약을 루트 문서와 분리해서 관리한다.
+- 클래스 계층의 문서와 app server 설계 문서를 루트 문서와 분리해서 관리한다.
 
 ## 포함 대상
 
-- `AGENT_CLASS_MODEL.md`
-- `CLASS_LOADOUT_MODEL.md`
-- `CLASS_PROFILE_MODEL.md`
-- `CLASS_VALIDATION_RULES.md`
-- `CODEX_APP_SERVER_MULTI_AGENT_GUIDE.md`
 - `CODEX_APP_SERVER_AGENT_START_CHECKLIST.md`
+- `CODEX_APP_SERVER_MULTI_AGENT_GUIDE.md`
 - `CODEX_APP_SERVER_MULTI_INSTANCE_GUIDE.md`
 - `DEVELOPER_INSTRUCTION_TIPS.md`
-- 클래스 메타 계약, 설치와 로드아웃 개념 문서
-- installed module manifest 와 loadout resolve 계약 문서
 - Codex App Server 1EA thread / 2EA multi-instance 설계 참고 문서
 - Codex App Server 실전 설계 시작 체크리스트
 - 실험 기반 developer instruction 구성 팁
+- 현재 운영에 필요한 class owner / tooling 참고 문서
 
 ## 제외 대상
 
@@ -29,15 +24,15 @@
 ## 관련 경로
 
 - [`.agent_class/docs/README.md`](../README.md)
-- [`.agent_class/docs/architecture/AGENT_CLASS_MODEL.md`](AGENT_CLASS_MODEL.md)
 - [`.agent_class/docs/architecture/CODEX_APP_SERVER_AGENT_START_CHECKLIST.md`](CODEX_APP_SERVER_AGENT_START_CHECKLIST.md)
 - [`.agent_class/docs/architecture/CODEX_APP_SERVER_MULTI_AGENT_GUIDE.md`](CODEX_APP_SERVER_MULTI_AGENT_GUIDE.md)
 - [`.agent_class/docs/architecture/CODEX_APP_SERVER_MULTI_INSTANCE_GUIDE.md`](CODEX_APP_SERVER_MULTI_INSTANCE_GUIDE.md)
 - [`.agent_class/docs/architecture/DEVELOPER_INSTRUCTION_TIPS.md`](DEVELOPER_INSTRUCTION_TIPS.md)
-- [`.agent_class/docs/architecture/MODULE_REFERENCE_CONTRACT.md`](MODULE_REFERENCE_CONTRACT.md)
 - [`docs/architecture/README.md`](../../../docs/architecture/README.md)
 
 ## 상태
 
 - Stable
-- 현재 정본 문서는 `AGENT_CLASS_MODEL.md`, `CLASS_LOADOUT_MODEL.md`, `CLASS_PROFILE_MODEL.md`, `CLASS_VALIDATION_RULES.md`, `CLASS_METADATA_CONTRACT.md`, `INSTALLATION_AND_LOADOUT_CONCEPT.md`, `MODULE_REFERENCE_CONTRACT.md`, `DEVELOPER_INSTRUCTION_TIPS.md`, `CODEX_APP_SERVER_AGENT_START_CHECKLIST.md`, `CODEX_APP_SERVER_MULTI_AGENT_GUIDE.md`, `CODEX_APP_SERVER_MULTI_INSTANCE_GUIDE.md` 다.
+- `CODEX_APP_SERVER_AGENT_START_CHECKLIST.md`, `CODEX_APP_SERVER_MULTI_AGENT_GUIDE.md`, `CODEX_APP_SERVER_MULTI_INSTANCE_GUIDE.md`, `DEVELOPER_INSTRUCTION_TIPS.md` 는 현재 운영 참고 문서다.
+- loadout-era architecture 문서는 live owner path 에서 제거했다.
+- historical 설명이 필요하면 `dev/log/**`, `dev/plan/**`, `docs/architecture/archive/**` 를 참조한다.

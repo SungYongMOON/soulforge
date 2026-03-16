@@ -1,6 +1,0 @@
-id: sample.knowledge.reference
-kind: knowledge
-name: Sample Reference Knowledge
-version: 0.1.0
-description: 최소 happy-path 회귀 검증용 샘플 지식
-content_path: content.md

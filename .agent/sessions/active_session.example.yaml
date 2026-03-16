@@ -1,7 +1,0 @@
-task_id: body-finalization
-goal: .agent 구조를 durable unit 기준으로 확정
-last_decision: export 제거와 runtime 경로 확정을 실제 구조에 반영했다
-next_action: body 메타와 subdirectory README 를 target tree 기준으로 검증한다
-open_risks:
-  - protocols 범위를 너무 크게 잡지 않도록 주의
-  - shared team 확장 문서를 body 내부 설계와 섞지 않도록 주의

@@ -39,9 +39,9 @@
 - [`ui/README.md`](ui/README.md)
 - [`lifecycle/README.md`](lifecycle/README.md)
 - [`archive/README.md`](archive/README.md)
-- [`.agent/docs/architecture/AGENT_BODY_MODEL.md`](../../.agent/docs/architecture/AGENT_BODY_MODEL.md)
+- [`.agent/README.md`](../../.agent/README.md)
 - [`.agent_class/docs/architecture/README.md`](../../.agent_class/docs/architecture/README.md)
-- [`.agent_class/docs/architecture/MODULE_REFERENCE_CONTRACT.md`](../../.agent_class/docs/architecture/MODULE_REFERENCE_CONTRACT.md)
+- [`.agent_class/README.md`](../../.agent_class/README.md)
 - [`docs/ui/README.md`](../ui/README.md)
 
 ## 상태
@@ -51,4 +51,4 @@
 - root 에는 index 역할의 `README.md` 만 두고, 실제 문서는 하위 묶음에서 owner 성격별로 읽게 한다.
 - manual 기준선으로 쓰는 활성 문서와, 배경 설명용 archive 문서를 분리한다.
 - renderer consumer model, selection model, theme plan 정본은 계속 `ui-workspace/docs/` 에서 분리 관리한다.
-- class installed/loadout 세부 계약은 class owner 문서 `MODULE_REFERENCE_CONTRACT.md` 를 참조한다.
+- owner-local body/loadout-era 문서는 historical reference 로만 취급한다.

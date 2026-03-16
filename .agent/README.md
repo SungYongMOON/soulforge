@@ -32,10 +32,11 @@
 - [`species/human/heroes/index.yaml`](species/human/heroes/index.yaml): hero catalog index template
 - [`species/human/heroes/example_hero/hero.yaml`](species/human/heroes/example_hero/hero.yaml): placeholder hero overlay template
 
-## legacy bridge
+## cleanup status
 
-- 기존 `body.yaml`, `body_state.yaml`, `identity/`, `catalog/`, `registry/`, `policy/`, `communication/`, `protocols/`, `runtime/`, `memory/`, `sessions/`, `autonomic/`, `artifacts/` 는 현재 저장소에 남아 있는 bridge/legacy 경로다.
-- 위 경로들은 후속 migration 전까지 참고 자료와 bridge 역할만 가지며, vNext owner 의미를 다시 정의하지 않는다.
+- tracked canonical bridge 파일과 디렉터리(`body.yaml`, `body_state.yaml`, active body/runtime subtree)는 저장소 정본 트리에서 제거했다.
+- 현재 `.agent/` 에 남는 정본 surface 는 `index.yaml`, `species/**`, 그리고 owner-local 설명 문서뿐이다.
+- 과거 body-era 설명은 일부 historical 문서와 로그에만 남아 있으며, 더 이상 `.agent/` owner 의미를 정의하지 않는다.
 
 ## 변경 원칙
 
