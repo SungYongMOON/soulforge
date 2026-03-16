@@ -87,16 +87,16 @@ function legacyRequires(record: LegacyModuleRecord | undefined) {
 
 function catalogRefFor(category: string | null, family: string | null): string | null {
   if (category === "skill") {
-    return ".agent/catalog/class/skills/skills_catalog.yaml";
+    return ".agent_class/example_class/skill_refs.yaml";
   }
   if (category === "knowledge") {
-    return ".agent/catalog/class/knowledge/knowledge_catalog.yaml";
+    return ".agent_class/example_class/knowledge_refs.yaml";
   }
   if (category === "workflow") {
-    return ".agent/catalog/class/workflows/workflows_catalog.yaml";
+    return ".workflow/example_workflow/workflow.yaml";
   }
   if (category === "tool" && family) {
-    return `.agent/catalog/class/tools/${family}_catalog.yaml`;
+    return ".agent_class/example_class/tool_refs.yaml";
   }
   return null;
 }

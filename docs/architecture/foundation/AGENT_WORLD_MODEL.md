@@ -9,44 +9,43 @@
 
 | 세계관 개념 | 실제 구조 | 의미 |
 | --- | --- | --- |
-| Body / Private Operating System | `.agent/` | durable agent unit |
-| Active Identity | `.agent/identity/` | active species 와 optional hero overlay |
-| Selection Catalog | `.agent/catalog/` | UI selection layer |
-| Canonical Identity Candidates | `.agent/catalog/identity/**` | selectable species 와 hero candidate 정본 |
-| Loadout Template | `.agent_class/` | reusable class/loadout template |
-| Canonical Class Assets | `.agent_class/**` | skills, tools, workflows, knowledge, profiles, manifests |
-| Mission Site | `_workspaces/` | 실제 프로젝트 현장 |
+| Species Catalog | `.agent/species/**` | selectable species 와 hero candidate 정본 |
+| Active Unit | `.unit/<unit_id>/` | active owner surface |
+| Class Package Catalog | `.agent_class/<class_id>/**` | reusable class / package canon |
+| Workflow Canon | `.workflow/<workflow_id>/` | reusable workflow canon |
+| Party Template | `.party/<party_id>/` | reusable party template |
+| Mission Site | `_workspaces/<project_code>/` | 실제 프로젝트 현장 |
 
 ## 핵심 해석
 
-- species 는 durable default 다.
-- hero 는 species 위에 얹히는 optional identity overlay 다.
-- class 는 설치 가능한 능력 패키지다.
-- workflow 는 explicit `required` 조합식이다.
-- profile 은 explicit workflow 가 없을 때 동작하는 default `preferred` mode 다.
-- policy 는 species/hero/profile 위에 있는 species-free floor 다.
+- species 는 durable catalog baseline 이다.
+- hero 는 species 위에 얹히는 optional overlay 다.
+- unit 은 실제 binding 과 active owner surface 다.
+- class 는 재사용 가능한 능력 패키지다.
+- workflow 는 reusable 공략서 / 처리 규칙이다.
+- party 는 reusable 투입 조합이다.
 
 ## 현재 고정 결정
 
-- Soulforge의 기본 축은 `.agent`, `.agent_class`, `_workspaces` 다.
-- `.agent` 는 durable agent unit 이며 private operating system 이다.
-- `.agent_class` 는 reusable loadout template 이다.
-- `_workspaces` 는 mission site 다.
-- `_teams` 는 미래 협업 계층으로 예약만 한다.
-- hero 와 profile 은 installed asset 을 disable 하지 않는다.
-- `.agent/catalog/class/**` 는 `.agent_class/**` 를 가리키는 selection index 다.
+- Soulforge의 기본 축은 `.agent`, `.unit`, `.agent_class`, `.workflow`, `.party`, `_workspaces` 다.
+- `.agent` 는 species / hero catalog owner 다.
+- `.unit` 는 active owner surface 다.
+- `.agent_class` 는 reusable class / package catalog 다.
+- `.workflow` 는 workflow canon owner 다.
+- `.party` 는 reusable party template owner 다.
+- `_workspaces` 는 local-only mission site 다.
 
 ## 우선순위
 
-1. 저장소 규칙과 policy floor
+1. 저장소 규칙과 owner 경계
 2. 현재 작업의 명시 지시
-3. workflow required
-4. profile preferred
+3. workflow rule
+4. party / unit binding
 5. hero bias
 6. species default
 
 ## owner 경계
 
-- `.agent/catalog/class/**` 는 canonical class asset 정본이 아니다.
-- `.agent_class/profiles/**` 는 hero 대체재가 아니다.
-- `.agent/identity/**` 는 current active identity 를 담고 `.agent_class/**` 는 identity 를 소유하지 않는다.
+- `.agent/**` 는 active unit state 를 소유하지 않는다.
+- `.unit/**` 가 active binding 과 owner surface 를 가진다.
+- `.workflow/**` 와 `.party/**` 는 `.agent_class/**` 하위가 아니라 독립 root 다.
