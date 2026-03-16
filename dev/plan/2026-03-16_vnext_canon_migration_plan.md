@@ -68,15 +68,45 @@
 - `_workspaces/<project_code>/**` 실제 내용은 public GitHub 에 올리지 않는다.
 - `_workspaces/` 는 local/private mission site mount point 로 취급한다.
 
+## vNext frozen decisions
+
+### A. `.unit`
+
+- `.unit` 를 새 루트로 도입한다.
+- `.unit` 는 실제 active agent unit 의 owner 다.
+- 기존 `.agent` 가 소유하던 `policy`, `protocols`, `runtime`, `memory`, `sessions`, `autonomic`, `artifacts` 는 새 canon 에서 `.unit/<unit_id>/` 아래로 이동한다.
+
+### B. `_workspaces`
+
+- public repo 에서는 `_workspaces/README.md` 만 추적한다.
+- `_workspaces/<project_code>/` 실제 과제 폴더는 local/private mission site mount 로만 존재한다.
+- 실제 project tree, `.project_agent/runs`, `dungeons`, `analytics`, `nightly_healing`, `reports`, `artifacts` 는 public tracking 대상이 아니다.
+
+### C. `.workflow/history`
+
+- `.workflow/history` 는 run index 나 raw run identifier 를 소유하지 않는다.
+- `.workflow/history` 는 curated/sanitized learning summary 만 소유한다.
+
+### D. `.party/stats`
+
+- `.party/stats` 는 template-level fit / observation 만 소유한다.
+- 실제 operational performance metrics 는 local workspace analytics 에만 남긴다.
+
+### E. `run`
+
+- run 은 root owner 가 아니라 local mission site execution instance 다.
+- public repo 에는 run record 를 자동 동기화하지 않는다.
+
 ## 새 owner model
 
 | 루트 | 새 owner 의미 | 최소 필수 파일 | raw data 금지 | summary/history 허용 |
 | --- | --- | --- | --- | --- |
 | `.agent` | species / hero catalog | `index.yaml`, `<species>/species.yaml`, `<species>/heroes/<hero>/hero.yaml` | runtime state, raw run, battle log, memory dump | species/hero 설명 문서만 허용 |
+| `.unit` | active agent unit owner | `<unit>/unit.yaml`, `policy/`, `protocols/`, `runtime/`, `memory/`, `sessions/`, `autonomic/`, `artifacts/` | public repo에 실전 운영 상태와 민감 로그 자동 반영 금지 | curated owner 문서만 허용 |
 | `.agent_class` | class / capability package catalog | `index.yaml`, `<class>/class.yaml`, `knowledge_refs.yaml`, `skill_refs.yaml`, `tool_refs.yaml`, `profiles/`, `manifests/` | workflow raw log, battle log, project run data | class profile/manifests 요약 허용 |
-| `.workflow` | workflow canon + learning history | `index.yaml`, `<workflow>/workflow.yaml`, `role_slots.yaml`, `step_graph.yaml`, `handoff_rules.yaml`, `monster_rules.yaml`, `party_compatibility.yaml`, `history/` | raw run dump, raw artifact, project-local battle log | `history/` 아래 개선 요약만 허용 |
-| `.party` | reusable party template + stats | `index.yaml`, `<party>/party.yaml`, `member_slots.yaml`, `allowed_species.yaml`, `allowed_classes.yaml`, `allowed_workflows.yaml`, `appserver_profile.yaml`, `stats/` | raw battle log, raw feedback dump | `stats/` 아래 집계/관찰만 허용 |
-| `_workspaces/<project>` | 실제 mission site + `.project_agent` raw execution truth | local project root, `.project_agent/contract.yaml`, `capsule_bindings.yaml`, `workflow_bindings.yaml`, `local_state_map.yaml`, `runs/<run_id>/...` | public repo 추적 금지 | local summary 는 허용하되 public canon 으로 승격 금지 |
+| `.workflow` | workflow canon + curated learning history | `index.yaml`, `<workflow>/workflow.yaml`, `role_slots.yaml`, `step_graph.yaml`, `handoff_rules.yaml`, `monster_rules.yaml`, `party_compatibility.yaml`, `history/` | raw run dump, raw artifact, project-local battle log, run index | `history/` 아래 curated 개선 요약만 허용 |
+| `.party` | reusable party template + template-level stats | `index.yaml`, `<party>/party.yaml`, `member_slots.yaml`, `allowed_species.yaml`, `allowed_classes.yaml`, `allowed_workflows.yaml`, `appserver_profile.yaml`, `stats/` | raw battle log, raw feedback dump, project-specific operational metrics | `stats/` 아래 fit/observation 요약만 허용 |
+| `_workspaces` | local-only mission site mount point | `README.md` only in public repo | public repo에서 per-project 내용 추적 금지 | docs/example snippet 만 허용 |
 
 ## 현재 구조와의 충돌 지점
 
@@ -141,7 +171,8 @@
 3. 새 루트 의미를 고정하기 전에는 validator 를 억지로 맞추지 않는다.
 4. `_workspaces` 는 public sample 저장소가 아니라 local mount point 로 재정의한다.
 5. raw execution truth 는 `_workspaces/<project>/.project_agent/` 에만 남기고 public repo 에는 summary/template 만 남긴다.
-6. 판타지 용어는 유지하되 owner 와 실행 책임을 먼저 닫는다.
+6. `.workflow/history` 와 `.party/stats` 는 curated/sanitized summary 만 public repo 에 남긴다.
+7. 판타지 용어는 유지하되 owner 와 실행 책임을 먼저 닫는다.
 
 ## 단계별 migration plan
 
@@ -154,6 +185,7 @@
 ### Phase 1. foundation canon rewrite
 
 - [ ] `README.md` 를 새 5축 구조로 재작성한다.
+- [ ] `README.md` 를 새 6축 구조(`.agent`, `.unit`, `.agent_class`, `.workflow`, `.party`, `_workspaces`)로 재작성한다.
 - [ ] `docs/architecture/foundation/TARGET_TREE.md` 를 vNext 트리 기준으로 재작성한다.
 - [ ] `docs/architecture/foundation/DOCUMENT_OWNERSHIP.md` 를 새 owner 모델 기준으로 재작성한다.
 - [ ] `docs/architecture/foundation/REPOSITORY_PURPOSE.md` 와 `AGENT_WORLD_MODEL.md` 도 새 해석에 맞춰 갱신한다.
@@ -162,22 +194,25 @@
 ### Phase 2. owner-local docs rewrite
 
 - [ ] `.agent/README.md` 를 species/hero catalog owner 문서로 재작성한다.
+- [ ] `.unit/README.md` 를 active agent unit owner 문서로 신설한다.
 - [ ] `.agent_class/README.md` 를 class/package catalog owner 문서로 재작성한다.
 - [ ] `.workflow/README.md` 와 `.party/README.md` 를 신설한다.
-- [ ] `.agent` 와 `.agent_class` 의 기존 body/loadout 문서 중 유지할 문서는 legacy bridge 로 강등하고, 새 owner-local 문서를 추가한다.
+- [ ] `.agent` 와 `.agent_class` 의 기존 body/loadout 문서 중 유지할 문서는 legacy bridge 로 강등하고, `.unit` 기준 새 owner-local 문서를 추가한다.
 - [ ] `_workspaces/README.md` 를 local-only mission site mount point 문서로 재작성한다.
 
 ### Phase 3. 루트 구조 생성
 
+- [ ] `.unit/` 루트를 만든다.
 - [ ] `.workflow/` 루트를 만든다.
 - [ ] `.party/` 루트를 만든다.
 - [ ] `.agent/` 를 species 디렉터리 구조로 재편한다.
 - [ ] `.agent_class/` 를 class 디렉터리 구조로 재편한다.
-- [ ] `_workspaces/company`, `_workspaces/personal` 를 제거하고 `_workspaces/<project_code>/` 직행 구조로 전환한다.
+- [ ] `_workspaces/company`, `_workspaces/personal` 를 제거하고 `_workspaces/` 를 local-only mission site mount point 로 전환한다.
 
 ### Phase 4. 참조 경로와 contract redesign
 
 - [ ] `.project_agent/contract.yaml` 에서 `body_ref`, `class_ref`, `default_loadout` 전제를 재검토하고 새 필드 집합을 정의한다.
+- [ ] `.project_agent/contract.yaml` 이 `.unit`, `.agent_class`, `.workflow`, `.party` 를 어떻게 참조하는지 새 binding vocabulary 를 정의한다.
 - [ ] `workflow_bindings.yaml` 의 `workflow_id` resolution source 를 `.agent_class/workflows` 에서 `.workflow/<workflow_id>` 로 바꾼다.
 - [ ] run-level binding 파일 스키마를 정의한다.
   - `party_binding.yaml`
@@ -189,18 +224,18 @@
 
 ### Phase 5. public/private 분리와 `.gitignore`
 
-- [ ] `_workspaces/*` 전체 ignore 기본 정책을 설계한다.
-- [ ] public repo 에 남길 `_workspaces/README.md`, template, schema, example 만 예외 허용한다.
+- [ ] `_workspaces/**` 전체 ignore 기본 정책을 설계한다.
+- [ ] public repo 에 남길 `_workspaces/README.md` 와 최소 placeholder 만 예외 허용한다.
 - [ ] 민감 경로, artifact, battle log, analytics, nightly healing, reports, attachments 가 public tracking 되지 않게 guard rule 을 둔다.
 - [ ] local mount 예시와 host-local setup 가이드를 문서화한다.
 
 ### Phase 6. tooling / validator refactor
 
-- [ ] `ui_sync.py` 의 `body.yaml`, `body_state.yaml`, `class.yaml`, `loadout.yaml` 의존을 제거한다.
+- [ ] `ui_sync.py` 의 `body.yaml`, `body_state.yaml`, `class.yaml`, `loadout.yaml` 의존을 제거하고 `.unit` 루트 인식을 추가한다.
 - [ ] `_workspaces/company|personal` scan 을 flat `_workspaces/<project>` scan 으로 바꾼다.
 - [ ] `default_loadout == active_profile` 검증을 제거한다.
 - [ ] `.agent_class/workflows` module resolution 을 `.workflow` canon resolution 으로 바꾼다.
-- [ ] UI derived payload 를 `.agent/.agent_class/.workflow/.party/_workspaces` 5축 구조로 바꾼다.
+- [ ] UI derived payload 를 `.agent/.unit/.agent_class/.workflow/.party/_workspaces` 6축 구조로 바꾼다.
 - [ ] 필요하면 `sync-body-state` 명령은 제거하거나 새 index sync 로 교체한다.
 
 ### Phase 7. sample / fixture 전략 전환
@@ -210,6 +245,7 @@
 - [ ] workspace contract 예시는 docs 아래 example snippet 으로 옮긴다.
 - [ ] local smoke 검증은 gitignored `_workspaces/<project>` 나 repo 밖 private mount 로 수행한다.
 - [ ] fixture 가 참조하는 경로도 `company/personal` 대신 flat project code 구조로 갱신한다.
+- [ ] workflow history 와 party stats fixture 도 project/run id 가 없는 sanitized synthetic fixture 로 제한한다.
 
 ### Phase 8. cutover / cleanup
 
@@ -233,6 +269,7 @@
 - `docs/architecture/workspace/PROJECT_AGENT_MINIMUM_SCHEMA.md`
 - `docs/architecture/workspace/PROJECT_AGENT_RESOLVE_CONTRACT.md`
 - `.agent/README.md`
+- `.unit/README.md`
 - `.agent_class/README.md`
 - 새 `.workflow/README.md`
 - 새 `.party/README.md`
@@ -258,6 +295,7 @@
 ### validator 재설계 요구
 
 - body validation 은 species/hero catalog validation 으로 바뀌어야 한다.
+- unit validation 은 `.unit/<unit_id>/` 구조와 owner 경계 검증으로 새로 들어가야 한다.
 - class validation 은 class package ref validation 으로 바뀌어야 한다.
 - workflow validation 은 `.workflow/<workflow>` 최소 파일 세트 검증을 추가해야 한다.
 - party validation 은 `.party/<party>` 최소 파일 세트 검증을 추가해야 한다.
@@ -267,7 +305,7 @@
 ### UI derived state 영향
 
 - 현재 `overview/body/class/workspaces` 탭만 있는 derived state 는 insufficient 하다.
-- 최소한 `species`, `classes`, `workflows`, `parties`, `workspaces` 표면을 separate payload 로 만들어야 한다.
+- 최소한 `species`, `units`, `classes`, `workflows`, `parties`, `workspaces` 표면을 separate payload 로 만들어야 한다.
 - `_workspaces` 가 local-only 이므로 fixture 생성은 실제 파일 스캔보다 synthetic sample 우선으로 바뀌어야 한다.
 
 ## sample / fixture 전략
@@ -287,24 +325,24 @@
 - battle logs
 - real feedback events
 - analytics, nightly healing, artifacts, reports
+- actual party performance metrics
+- workflow run index
 
 ### 대체 전략
 
-- `_workspaces` baseline 은 repo-tracked sample project 대신 문서형 예시로 바꾼다.
+- `_workspaces` baseline 은 repo-tracked sample project 대신 docs/example snippet 으로만 유지한다.
 - renderer 와 lint 는 synthetic fixture JSON 을 기준으로 계속 검증한다.
 - local smoke script 는 gitignored local mission site 를 읽는 별도 경로로 분리한다.
+- workflow history 와 party stats 도 synthetic curated fixture 만 사용한다.
 
 ## 남은 위험 / 열린 질문
 
-1. `.agent` 가 species catalog 로 바뀌면, 기존 `.agent` 가 소유하던 `policy`, `protocols`, `runtime`, `memory`, `sessions`, `autonomic`, `artifacts` 의 새 owner 를 어디로 둘지 결정이 아직 필요하다.
-2. `.agent_class/*_refs.yaml` 가 가리킬 canonical `.skills`, `.tools`, `.knowledge` 루트를 새 canon 에 포함할지 여부가 아직 비어 있다.
-3. `_workspaces/<project>` 를 모두 gitignored local mount 로 두면 public CI 에서 workspace validator 를 어떻게 검증할지 추가 설계가 필요하다.
-4. `battle_log.ndjson` 같은 raw truth 를 local-only 로 둘 때, public repo 에 어떤 수준의 run summary 를 남길지 결정해야 한다.
-5. `body.yaml`, `body_state.yaml`, `class.yaml`, `loadout.yaml` 를 bridge 로 잠시 유지할지, 한 번에 제거할지 cutover 방식이 아직 열려 있다.
+1. `.agent_class/*_refs.yaml` 가 가리킬 canonical `.skills`, `.tools`, `.knowledge` 루트를 새 canon 에 포함할지 여부가 아직 비어 있다.
+2. `body.yaml`, `body_state.yaml`, `class.yaml`, `loadout.yaml` 를 bridge 로 잠시 유지할지, 한 번에 제거할지 cutover 방식이 아직 열려 있다.
 
 ## 다음 액션 제안
 
 1. foundation 3문서와 `_workspaces/README.md` 를 먼저 새 canon 으로 재작성한다.
 2. 동시에 `.gitignore` 와 `_workspaces` local-only 정책 문서를 닫는다.
-3. 그 다음 `.workflow`, `.party` 루트와 owner 문서를 추가한다.
-4. 마지막으로 validator / UI fixture 를 새 canon 에 맞게 교체한다.
+3. 그 다음 `.unit`, `.workflow`, `.party` 루트와 owner 문서를 추가한다.
+4. 마지막으로 validator / UI fixture 를 새 canon 과 security-first policy 에 맞게 교체한다.
