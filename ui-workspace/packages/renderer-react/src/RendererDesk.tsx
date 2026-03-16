@@ -259,7 +259,7 @@ export function RendererDesk({ uiState, loading, error, theme, chrome, controls 
                   </div>
                   <div>
                     <span>Workspace</span>
-                    <strong>{uiState.workspaces.summary.binding_status}</strong>
+                    <strong>{uiState.body.current_bindings.workspace_binding.status}</strong>
                   </div>
                 </div>
               </div>

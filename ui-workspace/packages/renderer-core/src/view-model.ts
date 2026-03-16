@@ -11,6 +11,51 @@ import type {
   WorkspaceProject
 } from "@soulforge/ui-contract";
 
+function workspaceProjects(state: UiState): WorkspaceProject[] {
+  if (Array.isArray(state.workspaces.projects) && state.workspaces.projects.length > 0) {
+    return state.workspaces.projects;
+  }
+
+  const grouped = state.workspaces.grouped_projects;
+  if (!grouped) {
+    return [];
+  }
+
+  return [...(grouped.company ?? []), ...(grouped.personal ?? [])];
+}
+
+function workspaceTone(project: WorkspaceProject) {
+  if (project.binding_status) {
+    return project.binding_status;
+  }
+
+  if (project.state === "invalid") {
+    return "error";
+  }
+  if (project.state === "unbound" || project.state === "local_detected") {
+    return "warning";
+  }
+  return "bound";
+}
+
+function normalizedWorkspaceProject(project: WorkspaceProject): WorkspaceProject {
+  return {
+    ...project,
+    project_name:
+      project.project_name ??
+      project.project_code ??
+      project.project_id ??
+      project.project_root_ref ??
+      project.project_path ??
+      "Workspace",
+    project_path: project.project_path ?? project.project_root_ref ?? "_workspaces/unknown",
+    binding_status: workspaceTone(project),
+    capsule_binding_count: Number(project.capsule_binding_count ?? 0),
+    workflow_binding_count: Number(project.workflow_binding_count ?? 0),
+    local_state_entry_count: Number(project.local_state_entry_count ?? 0)
+  };
+}
+
 export function buildOverviewMetrics(state: UiState): OverviewMetric[] {
   return [
     {
@@ -88,18 +133,30 @@ export function buildCatalogSections(state: UiState) {
 }
 
 export function buildWorkspaceGroups(state: UiState): Array<{ id: string; label: string; projects: WorkspaceProject[] }> {
-  return [
-    {
-      id: "company",
-      label: "Company",
-      projects: state.workspaces.grouped_projects.company
-    },
-    {
-      id: "personal",
-      label: "Personal",
-      projects: state.workspaces.grouped_projects.personal
-    }
-  ];
+  const projects = workspaceProjects(state).map(normalizedWorkspaceProject);
+  if (projects.length === 0) {
+    return [
+      {
+        id: "local_projects",
+        label: "Local Projects",
+        projects: []
+      }
+    ];
+  }
+
+  const groupedByKind = new Map<string, WorkspaceProject[]>();
+  for (const project of projects) {
+    const groupId = project.workspace_kind ?? "local_projects";
+    const current = groupedByKind.get(groupId) ?? [];
+    current.push(project);
+    groupedByKind.set(groupId, current);
+  }
+
+  return [...groupedByKind.entries()].map(([groupId, groupProjects]) => ({
+    id: groupId,
+    label: groupId === "local_projects" ? "Local Projects" : groupId,
+    projects: groupProjects
+  }));
 }
 
 export function buildDiagnosticsTone(diagnostics: DiagnosticsState) {

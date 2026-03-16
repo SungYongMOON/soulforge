@@ -23,6 +23,7 @@ workspace local:
 - `npm run lint:packages`
 - `npm run lint:fixtures`
 - `npm run lint:theme`
+- `npm run lint:workspaces`
 - `npm run lint:all`
 - `npm run docs:check-links`
 - `npm run done:check`
@@ -34,6 +35,7 @@ root proxy:
 - `npm run ui:lint:packages`
 - `npm run ui:lint:fixtures`
 - `npm run ui:lint:theme`
+- `npm run ui:lint:workspaces`
 - `npm run ui:lint:all`
 - `npm run ui:done:check`
 

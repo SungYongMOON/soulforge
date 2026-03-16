@@ -413,15 +413,15 @@ function validationTone(result: ValidationRunResult | null) {
 
 function ownerFolderName(ownerId: ControlCenterOwnerId) {
   if (ownerId === "body") {
-    return "Agent";
+    return "IdentityUnit";
   }
 
   if (ownerId === "class") {
-    return "Agent_Class";
+    return "Catalogs";
   }
 
   if (ownerId === "workspaces") {
-    return "Workspace";
+    return "MissionMount";
   }
 
   return "Docs";

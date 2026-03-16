@@ -1,0 +1,5 @@
+2026-03-15T10:31:07.281896Z ERROR codex_core::skills::loader: failed to stat skills entry /Users/seabotmoon-air/.codex/skills/cap-meta-thread-orchestrator (symlink): No such file or directory (os error 2)
+2026-03-15T10:31:07.282201Z ERROR codex_core::skills::loader: failed to stat skills entry /Users/seabotmoon-air/.codex/skills/arch-review-openclaw (symlink): No such file or directory (os error 2)
+2026-03-15T10:31:07.282227Z ERROR codex_core::skills::loader: failed to stat skills entry /Users/seabotmoon-air/.codex/skills/cap-result-card-writer (symlink): No such file or directory (os error 2)
+2026-03-15T10:31:10.734504Z  WARN codex_core::shell_snapshot: Failed to delete shell snapshot at "/Users/seabotmoon-air/.codex/shell_snapshots/019cf10c-be3b-7690-a600-578e08897a69.tmp-1773570670185283000": Os { code: 2, kind: NotFound, message: "No such file or directory" }
+2026-03-15T10:31:11.123584Z  WARN codex_core::shell_snapshot: Failed to delete shell snapshot at "/Users/seabotmoon-air/.codex/shell_snapshots/019cf10c-bef2-77a1-a9b0-bdb4b3763ae5.tmp-1773570670323387000": Os { code: 2, kind: NotFound, message: "No such file or directory" }

@@ -56,10 +56,6 @@ function isEditableFile(repoPath: string) {
     return false;
   }
 
-  if (repoPath === ".agent/body_state.yaml") {
-    return false;
-  }
-
   if (repoPath.startsWith("docs/architecture/archive/")) {
     return false;
   }
@@ -68,10 +64,6 @@ function isEditableFile(repoPath: string) {
 }
 
 function fileCategoryFor(repoPath: string): ControlCenterFileRecord["category"] {
-  if (repoPath === ".agent/body_state.yaml") {
-    return "generated";
-  }
-
   if (repoPath.startsWith("docs/architecture/archive/")) {
     return "archive";
   }
@@ -81,6 +73,10 @@ function fileCategoryFor(repoPath: string): ControlCenterFileRecord["category"] 
   }
 
   return "canonical";
+}
+
+function isLegacyWorkspaceBridgeDir(name: string) {
+  return name === "company" || name === "personal";
 }
 
 async function statFile(repoPath: string) {
@@ -177,52 +173,32 @@ async function buildBodyOwner(): Promise<ControlCenterOwner> {
   sections.push(
     await buildSection(
       "body",
-      "body-core",
-      "Body Core",
-      "Primary body metadata and root guide.",
-      await existingFiles([".agent/README.md", ".agent/body.yaml", ".agent/body_state.yaml"])
+      "identity-core",
+      "Identity Catalog",
+      "Species and hero catalog root.",
+      await existingFiles([".agent/README.md", ".agent/index.yaml"])
     )
   );
 
   sections.push(
     await buildSection(
       "body",
-      "body-identity",
-      "Identity",
-      "Active identity overlays and manifests.",
-      await walkFiles(".agent/identity", (repoPath) => isTextFile(repoPath))
+      "species-catalog",
+      "Species / Heroes",
+      "Species and hero catalog entries.",
+      await walkFiles(".agent/species", (repoPath) => isTextFile(repoPath))
     )
   );
 
   sections.push(
     await buildSection(
       "body",
-      "body-catalog",
-      "Catalog",
-      "Selectable candidates and class catalog indices.",
-      await walkFiles(".agent/catalog", (repoPath) => isTextFile(repoPath))
-    )
-  );
-
-  sections.push(
-    await buildSection(
-      "body",
-      "body-registry",
-      "Registry",
-      "Active bindings and registry state.",
-      await walkFiles(".agent/registry", (repoPath) => isTextFile(repoPath))
-    )
-  );
-
-  sections.push(
-    await buildSection(
-      "body",
-      "body-rules",
-      "Policy / Protocols",
-      "Policy floors and operating protocols.",
+      "unit-core",
+      "Unit Owner",
+      "Active unit owner root and unit-owned surfaces.",
       [
-        ...(await walkFiles(".agent/policy", (repoPath) => isTextFile(repoPath))),
-        ...(await walkFiles(".agent/protocols", (repoPath) => isTextFile(repoPath)))
+        ...(await existingFiles([".unit/README.md"])),
+        ...(await walkFiles(".unit", (repoPath) => isTextFile(repoPath)))
       ]
     )
   );
@@ -231,16 +207,16 @@ async function buildBodyOwner(): Promise<ControlCenterOwner> {
     await buildSection(
       "body",
       "body-docs",
-      "Body Docs",
-      "Body-owned architecture references.",
+      "Agent Docs",
+      "Agent-owned architecture references.",
       await walkFiles(".agent/docs/architecture", (repoPath) => isTextFile(repoPath))
     )
   );
 
   return {
     id: "body",
-    label: "Body",
-    description: "Canonical files owned by .agent.",
+    label: "Identity / Unit",
+    description: "Species catalogs and active unit owner files.",
     sections: sections.filter((section) => section.files.length > 0)
   };
 }
@@ -252,33 +228,34 @@ async function buildClassOwner(): Promise<ControlCenterOwner> {
     await buildSection(
       "class",
       "class-core",
-      "Class Core",
-      "Primary class metadata and root guide.",
-      await existingFiles([".agent_class/README.md", ".agent_class/class.yaml", ".agent_class/loadout.yaml"])
+      "Class Catalog",
+      "Primary class catalog metadata and root guide.",
+      await existingFiles([".agent_class/README.md", ".agent_class/index.yaml"])
     )
   );
 
   sections.push(
     await buildSection(
       "class",
-      "class-profiles",
-      "Profiles",
-      "Preferred profile definitions.",
-      await walkFiles(".agent_class/profiles", (repoPath) => isTextFile(repoPath))
+      "class-packages",
+      "Class Packages",
+      "Reusable class package definitions.",
+      await walkFiles(
+        ".agent_class",
+        (repoPath) => isTextFile(repoPath) && !repoPath.startsWith(".agent_class/docs/") && !repoPath.startsWith(".agent_class/tools/")
+      )
     )
   );
 
   sections.push(
     await buildSection(
       "class",
-      "class-libraries",
-      "Libraries",
-      "Skills, tools, workflows, and knowledge packs.",
+      "workflow-canon",
+      "Workflow Canon",
+      "Workflow canon files and curated history.",
       [
-        ...(await walkFiles(".agent_class/skills", (repoPath) => isTextFile(repoPath))),
-        ...(await walkFiles(".agent_class/tools", (repoPath) => isTextFile(repoPath))),
-        ...(await walkFiles(".agent_class/workflows", (repoPath) => isTextFile(repoPath))),
-        ...(await walkFiles(".agent_class/knowledge", (repoPath) => isTextFile(repoPath)))
+        ...(await existingFiles([".workflow/README.md", ".workflow/index.yaml"])),
+        ...(await walkFiles(".workflow", (repoPath) => isTextFile(repoPath)))
       ]
     )
   );
@@ -286,10 +263,13 @@ async function buildClassOwner(): Promise<ControlCenterOwner> {
   sections.push(
     await buildSection(
       "class",
-      "class-manifests",
-      "Manifests",
-      "Capability indices and dependency rules.",
-      await walkFiles(".agent_class/manifests", (repoPath) => isTextFile(repoPath))
+      "party-templates",
+      "Party Templates",
+      "Reusable party templates and stats notes.",
+      [
+        ...(await existingFiles([".party/README.md", ".party/index.yaml"])),
+        ...(await walkFiles(".party", (repoPath) => isTextFile(repoPath)))
+      ]
     )
   );
 
@@ -297,16 +277,16 @@ async function buildClassOwner(): Promise<ControlCenterOwner> {
     await buildSection(
       "class",
       "class-docs",
-      "Class Docs",
-      "Class-owned architecture references.",
+      "Catalog Docs",
+      "Catalog-owned architecture references.",
       await walkFiles(".agent_class/docs/architecture", (repoPath) => isTextFile(repoPath))
     )
   );
 
   return {
     id: "class",
-    label: "Class",
-    description: "Canonical files owned by .agent_class.",
+    label: "Catalogs",
+    description: "Class, workflow, and party canon files.",
     sections: sections.filter((section) => section.files.length > 0)
   };
 }
@@ -319,26 +299,21 @@ async function buildWorkspaceOwner(): Promise<ControlCenterOwner> {
       "workspaces",
       "workspace-core",
       "Workspace Guides",
-      "Workspace root guides and samples.",
-      await existingFiles(["_workspaces/README.md", "_workspaces/company/README.md", "_workspaces/personal/README.md"])
+      "Workspace root guide and local-only mount policy.",
+      await existingFiles(["_workspaces/README.md"])
     )
   );
 
-  for (const workspaceKind of ["company", "personal"] as const) {
-    const workspaceDir = resolveRepoPath(`_workspaces/${workspaceKind}`);
-
-    if (!existsSync(workspaceDir)) {
-      continue;
-    }
-
-    const projectEntries = await fs.readdir(workspaceDir, { withFileTypes: true });
+  const workspaceRoot = resolveRepoPath("_workspaces");
+  if (existsSync(workspaceRoot)) {
+    const projectEntries = await fs.readdir(workspaceRoot, { withFileTypes: true });
 
     for (const projectEntry of projectEntries.sort((left, right) => left.name.localeCompare(right.name))) {
-      if (!projectEntry.isDirectory()) {
+      if (!projectEntry.isDirectory() || projectEntry.name.startsWith(".") || isLegacyWorkspaceBridgeDir(projectEntry.name)) {
         continue;
       }
 
-      const projectDir = `_workspaces/${workspaceKind}/${projectEntry.name}`;
+      const projectDir = `_workspaces/${projectEntry.name}`;
       const projectFiles = [
         ...(await existingFiles([`${projectDir}/README.md`])),
         ...(await walkFiles(`${projectDir}/.project_agent`, (repoPath) => isTextFile(repoPath)))
@@ -351,9 +326,9 @@ async function buildWorkspaceOwner(): Promise<ControlCenterOwner> {
       sections.push(
         await buildSection(
           "workspaces",
-          `workspace-${workspaceKind}-${projectEntry.name}`,
-          `${workspaceKind} / ${projectEntry.name}`,
-          "Project connection files and local project guide.",
+          `workspace-${projectEntry.name}`,
+          projectEntry.name,
+          "Direct local-only project mount surface.",
           projectFiles
         )
       );
@@ -363,7 +338,7 @@ async function buildWorkspaceOwner(): Promise<ControlCenterOwner> {
   return {
     id: "workspaces",
     label: "Workspaces",
-    description: "Project-owned files under _workspaces.",
+    description: "Local-only project files under _workspaces.",
     sections: sections.filter((section) => section.files.length > 0)
   };
 }

@@ -50,6 +50,12 @@
 - concrete theme CSS import 는 각 app 의 `src/themes.ts` registry 에만 둔다.
 - `apps/renderer-web/src/main.tsx`, `apps/skin-lab-storybook/src/main.tsx` 에서 theme registry import 를 renderer css 보다 먼저 가져오는지 검사한다.
 
+## workspace tracking lint
+
+- canonical root 에서 `git ls-files _workspaces` 결과가 `_workspaces/README.md` 만 남는지 검사한다.
+- `.gitignore` 에 `_workspaces/**` 와 `!_workspaces/README.md` 규칙이 함께 있는지 검사한다.
+- `_workspaces/company/**`, `_workspaces/personal/**`, `_workspaces/<project_code>/**` 가 다시 public tracking 되면 FAIL 로 본다.
+
 ## 예외 원칙
 
 - lint 예외는 inline broad allowlist 로 늘리지 않는다.

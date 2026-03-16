@@ -163,22 +163,33 @@ export interface ClassViewState {
 }
 
 export interface WorkspaceProject {
-  project_id: string | null;
-  project_name: string | null;
-  project_path: string;
-  workspace_kind: "company" | "personal";
-  state: "bound" | "unbound" | "invalid";
+  project_code?: string | null;
+  project_id?: string | null;
+  project_name?: string | null;
+  project_root_ref?: string | null;
+  project_path?: string | null;
+  workspace_kind?: string | null;
+  state: string;
   project_agent_present: boolean;
-  default_loadout: string | null;
-  binding_status: StatusTone;
-  capsule_binding_count: number;
-  workflow_binding_count: number;
-  local_state_entry_count: number;
+  default_loadout?: string | null;
+  binding_status?: StatusTone;
+  capsule_binding_count?: number;
+  workflow_binding_count?: number;
+  local_state_entry_count?: number;
   [key: string]: unknown;
 }
 
 export interface WorkspacesState {
-  summary: {
+  root: string;
+  owner: string;
+  mode: string;
+  mount_status: string;
+  local_scan_enabled: boolean;
+  local_workspace_root?: string | null;
+  local_workspace_root_source?: string | null;
+  projects: WorkspaceProject[];
+  notes: string[];
+  summary?: {
     total: number;
     bound: number;
     unbound: number;
@@ -187,7 +198,7 @@ export interface WorkspacesState {
     active_workspace?: string | null;
     [key: string]: unknown;
   };
-  grouped_projects: {
+  grouped_projects?: {
     company: WorkspaceProject[];
     personal: WorkspaceProject[];
     [key: string]: WorkspaceProject[];

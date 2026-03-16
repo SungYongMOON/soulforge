@@ -95,7 +95,7 @@
   - `legacy-workspace-bridge`: `_workspaces/company`
   - `legacy-workspace-bridge`: `_workspaces/personal`
 - repo 내부 `_workspaces` 는 여전히 canonical private mount root 가 아니라 legacy bridge 와 local sample 이 함께 있는 혼합 상태다.
-- live 문서와 일부 UI consumer code 에는 out-of-scope legacy vocabulary 가 일부 남아 있다.
+- repo 내부 `_workspaces` 를 실제 mount root 로 계속 쓸지, 외부 private root 로 분리할지는 운영 선택으로 남아 있다.
 
 ### FAIL
 
@@ -126,9 +126,8 @@
 
 ### 4. 남은 migration 작업
 
-- live 문서와 UI consumer 에 남아 있는 legacy vocabulary 정리
 - 실제 local mission site 를 새 `_workspaces/<project_code>/` 구조로 materialize 할 때의 smoke path 재검증
-- `_workspaces` 재추적 방지 guard 추가 여부 결정
+- 외부 private mount root 를 표준 운영 경로로 고정할지 결정
 
 ## 감리용 명령 목록
 
@@ -141,6 +140,8 @@ python .agent_class/tools/local_cli/ui_sync/ui_sync.py derive-ui-state --json
 python .agent_class/tools/local_cli/ui_sync/ui_sync.py validate --local-workspaces --workspace-root /Users/seabotmoon-air/Workspace/Soulforge/_workspaces --json
 python .agent_class/tools/local_cli/ui_sync/ui_sync.py resolve-workspaces --local-workspaces --workspace-root /Users/seabotmoon-air/Workspace/Soulforge/_workspaces --json
 git ls-files _workspaces
+npm run ui:lint:workspaces
+npm run ui:lint:all
 ```
 
 ## 현재 작업 트리의 제외 대상
@@ -155,7 +156,8 @@ git ls-files _workspaces
 
 - vNext 정본 6축, owner-local skeleton, validator/fixture 전환, local-only smoke 분리는 반영 완료 상태다.
 - public-safe 기본 경로와 synthetic fixture 정책은 정상 동작한다.
-- 다만 repo 에 남아 있는 legacy `_workspaces/company|personal` tracked baseline 은 감리에서 반드시 residual risk 로 보고해야 한다.
+- live 문서 / UI consumer vocabulary cleanup 과 `_workspaces` 재추적 방지 guard 도 반영됐다.
+- 남은 논점은 구조 오류보다 운영 표준 mount root 선택과 외부 private smoke 재검증 여부다.
 
 ## ASSUMPTIONS
 

@@ -27,8 +27,31 @@ function setDiagnostics(state: UiState, warnings: UiState["diagnostics"]["warnin
   state.diagnostics.errors = errors;
 }
 
+function workspaceProjects(state: UiState) {
+  if (!Array.isArray(state.workspaces.projects)) {
+    state.workspaces.projects = [];
+  }
+
+  if (state.workspaces.projects.length === 0) {
+    state.workspaces.projects.push({
+      project_code: "P00-000",
+      project_root_ref: "_workspaces/P00-000",
+      project_path: "_workspaces/P00-000",
+      project_name: "Local Smoke Sample",
+      state: "project_agent_present",
+      project_agent_present: true,
+      binding_status: "bound",
+      capsule_binding_count: 0,
+      workflow_binding_count: 0,
+      local_state_entry_count: 0
+    });
+  }
+
+  return state.workspaces.projects;
+}
+
 function setWorkspaceState(state: UiState, status: "bound" | "unbound" | "invalid") {
-  for (const project of [...state.workspaces.grouped_projects.company, ...state.workspaces.grouped_projects.personal]) {
+  for (const project of workspaceProjects(state)) {
     project.state = status;
     project.binding_status = status === "invalid" ? "error" : status === "unbound" ? "warning" : "bound";
   }
@@ -56,14 +79,14 @@ function refreshDerivedFields(state: UiState, storyId: string, statusNote: strin
     total: state.body.section_presence.length
   };
 
-  const allProjects = [...state.workspaces.grouped_projects.company, ...state.workspaces.grouped_projects.personal];
+  const allProjects = workspaceProjects(state);
   const bound = allProjects.filter((project) => project.state === "bound").length;
   const unbound = allProjects.filter((project) => project.state === "unbound").length;
   const invalid = allProjects.filter((project) => project.state === "invalid").length;
   const workspaceTone: StatusTone = invalid > 0 ? "error" : unbound > 0 ? "warning" : "bound";
 
   state.workspaces.summary = {
-    ...state.workspaces.summary,
+    ...(state.workspaces.summary ?? {}),
     total: allProjects.length,
     bound,
     unbound,
@@ -189,7 +212,7 @@ function makeInvalidDependencyStory() {
       code: "workflow_dependency_invalid",
       message: "Workflow combo card requires a knowledge pack that is not installed in the current preview state.",
       severity: "error",
-      location_hint: ".agent_class/workflows/sample_workflow_briefing/module.yaml"
+      location_hint: ".workflow/example_workflow/workflow.yaml"
     }
   ]);
   setWorkspaceState(state, "invalid");

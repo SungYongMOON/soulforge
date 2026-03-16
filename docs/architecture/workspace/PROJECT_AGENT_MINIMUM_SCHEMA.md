@@ -2,169 +2,82 @@
 
 ## 목적
 
-이 문서는 각 프로젝트 폴더 아래에 둘 수 있는 `.project_agent/` 의 최소 계약을 정의한다.
-
-현재 단계의 목표는 구현이 아니라 구조 정본 확정이다.
-따라서 이 문서는 네 개의 핵심 파일이 무엇을 설명해야 하는지와 최소 필드를 먼저 고정한다.
-상세 resolve/validate 규칙은 root owner 문서 `docs/architecture/workspace/PROJECT_AGENT_RESOLVE_CONTRACT.md` 로 위임한다.
+- 이 문서는 `_workspaces/<project_code>/` 가 local environment 에 materialize 될 때 둘 수 있는 `.project_agent/` 의 최소 shape 를 정리한다.
+- public repo 기본 모드에서는 이 내용을 강제하지 않고, local-only contract 안내로만 유지한다.
 
 ## 구조 개요도
 
 ```mermaid
 flowchart TD
-  PA[".project_agent/"] --> C["contract.yaml<br/>body, class, loadout 연결"]
-  PA --> CB["capsule_bindings.yaml<br/>body/class 자산 연결"]
-  PA --> WB["workflow_bindings.yaml<br/>workflow 연결과 진입점"]
-  PA --> LS["local_state_map.yaml<br/>host-local 상태와 비추적 경로"]
+  P["_workspaces/&lt;project_code&gt;/"] --> PA[".project_agent/"]
+  PA --> C["contract.yaml"]
+  PA --> B["bindings/"]
+  PA --> R["runs/"]
+  PA --> D["dungeons/"]
+  PA --> A["analytics/"]
+  PA --> N["nightly_healing/"]
+  PA --> RP["reports/"]
+  PA --> AR["artifacts/"]
 ```
 
-## 최소 파일 세트
+## 최소 shape
 
 ```text
 .project_agent/
 ├── contract.yaml
-├── capsule_bindings.yaml
-├── workflow_bindings.yaml
-└── local_state_map.yaml
+├── bindings/
+├── runs/
+├── dungeons/
+├── analytics/
+├── nightly_healing/
+├── reports/
+└── artifacts/
 ```
 
-이 문서는 최소 파일 세트와 최소 필드만 다룬다.
-`bound`, `unbound`, `invalid` 상태 분류와 local CLI resolve/validate 규칙은 `PROJECT_AGENT_RESOLVE_CONTRACT.md` 를 따른다.
+현재 local smoke 는 `.project_agent/` 존재 여부까지만 사용한다.
+`contract.yaml` 과 reserved dir 의미는 future local harness 와 운영 contract 를 위해 이 문서에 고정한다.
 
-## 파일별 역할
+## 파일 / 디렉터리 역할
 
-| 파일 | 역할 |
+| 경로 | 역할 |
 | --- | --- |
-| `contract.yaml` | 이 프로젝트가 어떤 body, class, loadout 과 연결되는지 정의 |
-| `capsule_bindings.yaml` | body/class 자산이 프로젝트 내부 어디에 연결되는지 정의 |
-| `workflow_bindings.yaml` | 프로젝트에서 활성화할 workflow 연결, 진입점, 선택적 mutation scope 를 정의 |
-| `local_state_map.yaml` | host-local 상태와 비추적 경로를 명시 |
+| `contract.yaml` | project 와 unit/class/workflow/party binding 을 설명하는 local-only contract |
+| `bindings/` | project-specific binding notes 또는 split contract 파일 |
+| `runs/` | raw execution truth |
+| `dungeons/` | local-only mission dungeon data |
+| `analytics/` | local-only analytics |
+| `nightly_healing/` | local-only healing output |
+| `reports/` | local-only reports |
+| `artifacts/` | local-only artifacts |
 
-## 1. `contract.yaml`
+## `contract.yaml` 최소 필드
 
-### 최소 역할
+- `project_code`
+- `display_name`
+- `status`
+- `unit_ref`
+- `class_package_refs`
+- `workflow_refs`
+- `party_template_refs`
 
-- 프로젝트 식별
-- workspace 종류 식별
-- 연결할 body 와 class 식별
-- 기본 loadout 프로필 식별
-
-### 최소 필드
-
-- `project_id`
-- `project_name`
-- `workspace_kind`
-- `body_ref`
-- `class_ref`
-- `default_loadout`
-
-### 예시
+## 예시
 
 ```yaml
-project_id: company.sample
-project_name: Sample Project
-workspace_kind: company
-body_ref: .agent
-class_ref: .agent_class
-default_loadout: soulforge.profile.default
+project_code: P00-000
+display_name: Local Smoke Sample
+status: local_smoke_template
+unit_ref: .unit/example_unit/unit.yaml
+class_package_refs:
+  - .agent_class/example_class/class.yaml
+workflow_refs:
+  - .workflow/example_workflow/workflow.yaml
+party_template_refs:
+  - .party/example_party/party.yaml
 ```
 
-예시의 `default_loadout` 은 현재 단계에서는 `.agent_class/loadout.yaml.active_profile` 과 비교되는 기본 profile id 다.
+## 규칙
 
-## 2. `capsule_bindings.yaml`
-
-### 최소 역할
-
-- class 또는 body 자산이 프로젝트 안에서 어떤 이름과 경로로 노출되는지 기록
-
-### 최소 필드
-
-- `bindings`
-- 각 항목의 `capsule_id`
-- 각 항목의 `source_ref`
-- 각 항목의 `target_path`
-- 각 항목의 `mode`
-
-### 예시
-
-```yaml
-bindings:
-  - capsule_id: docs_reference
-    source_ref: .agent_class/docs
-    target_path: docs/agent_reference
-    mode: read_only
-```
-
-## 3. `workflow_bindings.yaml`
-
-### 최소 역할
-
-- 프로젝트에서 어떤 workflow 를 어떤 방식으로 사용할지 정의
-- transportable workflow 가 읽고 쓸 workspace scope 를 선택적으로 명시
-
-### 최소 필드
-
-- `bindings`
-- 각 항목의 `workflow_id`
-- 각 항목의 `entrypoint`
-- 각 항목의 `trigger`
-- 각 항목의 `enabled`
-
-### 선택 확장 필드
-
-- `read_paths`
-- `write_paths`
-- `mutation_mode`
-
-### 예시
-
-```yaml
-bindings:
-  - workflow_id: docs_integrity
-    entrypoint: run
-    trigger: manual
-    enabled: true
-    read_paths:
-      - README.md
-    write_paths:
-      - deliverables/briefings
-    mutation_mode: append_only
-```
-
-`read_paths` 와 `write_paths` 는 프로젝트 루트 기준 상대 경로 목록이다.
-`mutation_mode` 는 `read_only`, `append_only`, `overwrite_owned` 중 하나로 해석한다.
-`write_paths` 에 선언된 경로 subtree 는 해당 binding 의 mutation ownership 범위로 본다.
-`overwrite_owned` 는 이 binding 이 선언한 `write_paths` subtree 안에서만 overwrite 를 허용한다.
-
-## 4. `local_state_map.yaml`
-
-### 최소 역할
-
-- 프로젝트 안의 host-local 경로와 비추적 상태를 명시
-- 무엇이 Git 추적 대상이 아니어야 하는지 설명
-
-### 최소 필드
-
-- `local_entries`
-- 각 항목의 `key`
-- 각 항목의 `path`
-- 각 항목의 `purpose`
-- 각 항목의 `tracked`
-
-### 예시
-
-```yaml
-local_entries:
-  - key: cache
-    path: .project_agent/_local/cache
-    purpose: local cache
-    tracked: false
-```
-
-## 설계 규칙
-
-1. `.project_agent/` 는 프로젝트별 연결 계약만 다룬다.
-2. 실제 프로젝트 실자료는 여전히 프로젝트 루트 아래에 남는다.
-3. host-local 상태는 `local_state_map.yaml` 에 명시하고 기본적으로 비추적 처리한다.
-4. 스키마를 확장하더라도 네 파일의 역할 경계는 유지한다.
-5. 공통 resolve/validate 규칙은 `PROJECT_AGENT_RESOLVE_CONTRACT.md` 에서 관리한다.
+1. `.project_agent/` 는 local-only owner surface 다.
+2. public repo 에는 actual `.project_agent/` content 를 추적하지 않는다.
+3. `runs/`, `analytics/`, `nightly_healing/`, `reports/`, `artifacts/` 는 모두 public fixture 입력이 아니다.
+4. detailed file schema 는 future local smoke harness 에서 확장할 수 있다.

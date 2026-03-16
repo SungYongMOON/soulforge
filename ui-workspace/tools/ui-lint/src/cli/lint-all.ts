@@ -5,6 +5,7 @@ import { runPackageBoundaryLint } from "../lint-package-boundary";
 import { runReadOnlyBoundaryLint } from "../lint-readonly-boundary";
 import { runThemeIsolationLint } from "../lint-theme-isolation";
 import { runUiStateLint } from "../lint-ui-state";
+import { runWorkspaceTrackingLint } from "../lint-workspace-tracking";
 
 const results = [
   runCatalogLint(),
@@ -12,7 +13,8 @@ const results = [
   runReadOnlyBoundaryLint(),
   runPackageBoundaryLint(),
   runFixtureCoverageLint(),
-  runThemeIsolationLint()
+  runThemeIsolationLint(),
+  runWorkspaceTrackingLint()
 ];
 
 let failures = 0;

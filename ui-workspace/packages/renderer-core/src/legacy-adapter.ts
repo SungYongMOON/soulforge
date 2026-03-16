@@ -15,6 +15,7 @@ import type {
   RowItem,
   StatusTone,
   UiState,
+  WorkspaceProject,
   WorkspacesState
 } from "@soulforge/ui-contract";
 
@@ -299,11 +300,16 @@ function buildBodyState(raw: LegacyDerivedState, classId: string | null, activeP
   };
 }
 
-function mapLegacyProject(project: LegacyWorkspaceProject): WorkspacesState["grouped_projects"]["company"][number] {
+function mapLegacyProject(project: LegacyWorkspaceProject): WorkspaceProject {
+  const projectPath = asString(project.project_path) ?? "_workspaces/unknown";
+  const projectCode = projectPath.split("/").filter(Boolean).at(-1) ?? "workspace";
+
   return {
+    project_code: projectCode,
     project_id: project.contract?.project_id ?? null,
     project_name: project.contract?.project_name ?? humanizeId(project.project_path ?? "workspace"),
-    project_path: asString(project.project_path) ?? "_workspaces/unknown",
+    project_root_ref: projectPath,
+    project_path: projectPath,
     workspace_kind: project.workspace_kind === "personal" ? "personal" : "company",
     state: project.state === "invalid" ? "invalid" : project.state === "unbound" ? "unbound" : "bound",
     project_agent_present: asBoolean(project.project_agent_present) ?? false,
@@ -321,8 +327,20 @@ function buildWorkspacesState(raw: LegacyDerivedState): WorkspacesState {
   const bound = Number(summary.bound ?? 0);
   const unbound = Number(summary.unbound ?? 0);
   const invalid = Number(summary.invalid ?? 0);
+  const companyProjects = asArray<LegacyWorkspaceProject>(raw.workspaces?.company?.projects).map(mapLegacyProject);
+  const personalProjects = asArray<LegacyWorkspaceProject>(raw.workspaces?.personal?.projects).map(mapLegacyProject);
 
   return {
+    root: "_workspaces",
+    owner: "_workspaces",
+    mode: "local_only_mount",
+    mount_status: "legacy_compat_projection",
+    local_scan_enabled: false,
+    projects: [...companyProjects, ...personalProjects],
+    notes: [
+      "Legacy workspace payload normalized for renderer compatibility.",
+      "Company and personal grouping is legacy-only and not part of the vNext canon."
+    ],
     summary: {
       total,
       bound,
@@ -332,8 +350,8 @@ function buildWorkspacesState(raw: LegacyDerivedState): WorkspacesState {
       active_workspace: null
     },
     grouped_projects: {
-      company: asArray<LegacyWorkspaceProject>(raw.workspaces?.company?.projects).map(mapLegacyProject),
-      personal: asArray<LegacyWorkspaceProject>(raw.workspaces?.personal?.projects).map(mapLegacyProject)
+      company: companyProjects,
+      personal: personalProjects
     }
   };
 }

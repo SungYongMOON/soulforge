@@ -17,6 +17,7 @@
     "ui:lint:packages": "UI_LINT_CANONICAL_ROOT=.. npm --prefix ui-workspace run lint:packages",
     "ui:lint:fixtures": "UI_LINT_CANONICAL_ROOT=.. npm --prefix ui-workspace run lint:fixtures",
     "ui:lint:theme": "UI_LINT_CANONICAL_ROOT=.. npm --prefix ui-workspace run lint:theme",
+    "ui:lint:workspaces": "UI_LINT_CANONICAL_ROOT=.. npm --prefix ui-workspace run lint:workspaces",
     "ui:lint:all": "UI_LINT_CANONICAL_ROOT=.. npm --prefix ui-workspace run lint:all",
     "ui:smoke:theme-pack": "npm --prefix ui-workspace run smoke:theme-pack",
     "ui:done:check": "UI_LINT_CANONICAL_ROOT=.. npm --prefix ui-workspace run done:check",

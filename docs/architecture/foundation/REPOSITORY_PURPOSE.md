@@ -2,90 +2,77 @@
 
 ## 목적
 
-- Soulforge를 `.agent(private operating system)`, `.agent_class(loadout)`, `_workspaces(mission site)` 세 축으로 정리하는 정본 저장소로 고정한다.
-- 구현보다 문서와 구조를 먼저 닫아 이후 runtime 과 UI 가 같은 기준을 읽게 만든다.
+- Soulforge를 새 정본 vNext 6축을 고정하는 설계 저장소로 유지한다.
+- 구현보다 owner 경계, 구조, derive/validate 계약, public/private tracking 원칙을 먼저 닫는다.
 
-## 범위
+## 정본 6축
 
-- 구조 문서, 메타 계약, resolve/validate/derive 기준선, read-only viewer 기준까지만 다룬다.
-- 협업 shared 영역과 대규모 runtime 이전은 미래 확장으로 남긴다.
-
-## 포함 대상
-
-- body/class/workspace 구조 정의
-- `.project_agent` 연결 규약
-- UI source map, sync contract, derived state contract
-- v1 운영 기준과 known limitation
-
-## 제외 대상
-
-- 기존 저장소 구현 대량 이식
-- `.agent` 내부 팀 협업 구조
-- 별도 `.agent/export/` body 폴더
+- `.agent` = species / hero catalog
+- `.unit` = active agent unit owner
+- `.agent_class` = class / package catalog
+- `.workflow` = workflow canon + curated learning history
+- `.party` = reusable party template + template-level stats
+- `_workspaces` = reserved / local-only mission site mount point
 
 ## 구조 개요도
 
 ```mermaid
 flowchart TD
-  S["Soulforge"] --> B[".agent<br/>private operating system"]
-  S --> C[".agent_class<br/>loadout"]
-  S --> W["_workspaces<br/>mission site"]
-  W --> P[".project_agent<br/>프로젝트 연결 규약"]
-  S --> D["docs/architecture<br/>저장소 전체 설명"]
-  S -. "future expansion" .-> T["_teams/shared"]
+  S["Soulforge"] --> A[".agent<br/>species / hero catalog"]
+  S --> U[".unit<br/>active unit owner"]
+  S --> C[".agent_class<br/>class / package catalog"]
+  S --> W[".workflow<br/>workflow canon"]
+  S --> P[".party<br/>party template"]
+  S --> M["_workspaces<br/>local-only mission mount"]
+  M --> PA["&lt;project_code&gt;/.project_agent<br/>local-only contract boundary"]
+  S --> D["docs/architecture<br/>root-owned canon docs"]
 ```
+
+## 포함 대상
+
+- foundation / workspace / UI canon 문서
+- owner-local skeleton 과 template 메타
+- validator / fixture / derived state 기준선
+- local-only smoke 경계와 public repo tracking 정책
+
+## 제외 대상
+
+- 실제 `_workspaces/<project_code>/` 운영 데이터
+- raw run, analytics, nightly healing, reports, artifacts
+- 대규모 runtime 이전
+- 외부 private mount path 자체의 materialization 전략
 
 ## 이 저장소가 하는 일
 
-- 새 기준 저장소 구조를 문서로 정의한다
-- body, loadout, mission site 의 책임 경계를 정리한다
-- species, policy floor, continuity, protocol, quality correction 같은 body 의미를 고정한다
-- 실제 프로젝트 현장과 연결 규약의 위치를 정리한다
-- UI source map 과 UI sync contract 를 먼저 고정한다
-- class installed/loadout resolve 가 module reference contract 위에 올라가도록 기준을 닫는다
-- workspace resolve 계약이 UI derive 이전 단계의 전제로 올라가도록 기준을 닫는다
+- 정본 6축의 owner 경계를 문서와 skeleton 으로 고정한다.
+- UI가 정본을 대체하지 않고, 6축 정본에서 파생된 소비층임을 고정한다.
+- `_workspaces` 를 public tracked data root 가 아니라 local-only mission site mount point 로 고정한다.
+- validator 와 fixture 가 synthetic/public-safe 기준에서도 깨지지 않게 기준선을 유지한다.
 
 ## 중요한 경계
 
-- `.agent` 는 durable agent body 의 private operating system 이다
-- `.agent_class` 는 직업 일반론보다 현재 장착 구성인 loadout 계층이다
-- `_workspaces` 는 실제 프로젝트가 수행되는 mission site 다
-- 미래 팀 협업은 `.agent` 안이 아니라 `_teams/shared/` 로 확장한다
-- `species` 는 `identity` 의 durable default 만 담당한다
-- `policy` 는 species-free floor 다
-- `sessions` 는 transcript 가 아니라 continuity 저장소다
-- `autonomic` 은 저소음 품질 보정 루틴이다
+- `.agent` 는 single active body root 가 아니라 species / hero catalog owner 다.
+- `.unit` 이 active binding 과 owner surface 를 가진다.
+- `.agent_class` 는 reusable class / package catalog owner 다.
+- `.workflow` 와 `.party` 는 class 하위가 아니라 독립 root 다.
+- `_workspaces/<project_code>/` actual content 는 public repo 정본이 아니다.
+- `.run/` 루트는 새 정본에 포함하지 않는다.
 
-## 자주 찾는 파일
+## 자주 찾는 문서
 
 - `README.md`
 - `AGENTS.md`
-- `docs/architecture/README.md`
+- `docs/architecture/foundation/TARGET_TREE.md`
 - `docs/architecture/foundation/DOCUMENT_OWNERSHIP.md`
-- `docs/architecture/foundation/AGENT_WORLD_MODEL.md`
+- `docs/architecture/workspace/WORKSPACE_PROJECT_MODEL.md`
 - `docs/architecture/workspace/PROJECT_AGENT_MINIMUM_SCHEMA.md`
 - `docs/architecture/workspace/PROJECT_AGENT_RESOLVE_CONTRACT.md`
-- `docs/architecture/ui/UI_DERIVED_STATE_CONTRACT.md`
-- `docs/architecture/foundation/TARGET_TREE.md`
-- `.agent/docs/architecture/AGENT_BODY_MODEL.md`
-- `.agent/docs/architecture/BODY_METADATA_CONTRACT.md`
-- `.agent/body.yaml`
-- `.agent/body_state.yaml`
-- `.agent_class/class.yaml`
-- `.agent_class/loadout.yaml`
-
-배경 참고 문서:
-
-- `docs/architecture/archive/foundation/MIGRATION_REFERENCE.md`
-- `docs/architecture/archive/foundation/agent_body_finalization_report.md`
-
-## 미래 확장 방향
-
-- body runtime layer 는 현재 `runtime/` 경로로 정리한다.
-- 팀 shared 자산과 canonical shared protocol 은 `_teams/shared/` 로 분리한다.
-- 본체 `protocols/` 는 현재 private default 중심의 body 공통 운영 계약 경계로 유지한다.
+- `docs/architecture/ui/UI_SOURCE_MAP.md`
+- `docs/architecture/ui/UI_SYNC_CONTRACT.md`
+- `docs/architecture/ui/UI_CONTROL_CENTER_MODEL.md`
 
 ## 이식 관점
 
 - 기존 저장소는 참고용이다.
-- 새 구조의 기준은 Soulforge 문서 세트에 두고, 필요한 요소만 선별적으로 이식한다.
+- 과거 body/loadout/company/personal vocabulary 는 archive 나 migration history 에만 남긴다.
+- live 문서와 live consumer 는 vNext 6축 vocabulary 를 정본으로 사용한다.

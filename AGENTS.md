@@ -4,11 +4,14 @@
 
 Soulforge는 새 정본 구조를 정의하는 설계 저장소다.
 
-핵심 축은 아래 세 가지다.
+핵심 축은 아래 여섯 가지다.
 
-1. `.agent` = 에이전트 본체
-2. `.agent_class` = 현재 업무환경의 직업 계층
-3. `_workspaces` = 실제 프로젝트 현장
+1. `.agent` = species / hero catalog
+2. `.unit` = active agent unit owner
+3. `.agent_class` = class / package catalog
+4. `.workflow` = workflow canon + curated learning history
+5. `.party` = reusable party template + template-level stats
+6. `_workspaces` = local-only mission site mount point
 
 현재 단계에서는 구현보다 문서와 메타 구조를 먼저 확정한다.
 
@@ -16,12 +19,15 @@ Soulforge는 새 정본 구조를 정의하는 설계 저장소다.
 
 ```mermaid
 flowchart TD
-  S["Soulforge"] --> B[".agent<br/>몸"]
-  S --> C[".agent_class<br/>직업"]
-  S --> W["_workspaces<br/>실제 프로젝트 현장"]
-  B --> M["memory<br/>장기 기억"]
+  S["Soulforge"] --> A[".agent<br/>species / hero"]
+  S --> U[".unit<br/>active owner"]
+  S --> C[".agent_class<br/>class / package"]
+  S --> WF[".workflow<br/>canon"]
+  S --> P[".party<br/>template"]
+  S --> W["_workspaces<br/>local-only mission site"]
+  U --> M["memory<br/>장기 기억"]
   C --> K["knowledge<br/>설치형 지식 팩"]
-  W --> P[".project_agent<br/>프로젝트 연결 규약"]
+  W --> PA[".project_agent<br/>로컬 계약 경계"]
 ```
 
 ## 1. 현재 단계
@@ -39,11 +45,14 @@ flowchart TD
 - 기존 경로를 정답처럼 전제하지 않는다.
 - 필요한 요소만 선별적으로 참고한다.
 
-### 2.2 세 축의 책임을 섞지 않는다
+### 2.2 여섯 축의 책임을 섞지 않는다
 
-- `.agent` 는 몸이다.
-- `.agent_class` 는 직업이다.
-- `_workspaces` 는 실제 프로젝트 현장이다.
+- `.agent` 는 species / hero catalog 다.
+- `.unit` 는 active owner 다.
+- `.agent_class` 는 reusable class / package catalog 다.
+- `.workflow` 는 workflow canon 이다.
+- `.party` 는 reusable party template 다.
+- `_workspaces` 는 local-only mission site 다.
 
 ### 2.3 `memory` 와 `knowledge` 를 분리한다
 
@@ -67,15 +76,15 @@ flowchart TD
 - 실제 로컬 상태는 기본적으로 추적하지 않는다.
 - 구조 설명과 ignore 정책 고정을 위해 `README.md` 와 `.gitignore` 만 예외적으로 추적한다.
 
-### 2.7 body 메타를 분리한다
+### 2.7 catalog 와 owner 를 분리한다
 
-- `.agent/body.yaml` 은 body 정적 정의다.
-- `.agent/body_state.yaml` 은 구조와 메타에서 재생성 가능한 현재 상태 스냅샷이다.
-- body 메타는 `.agent` 소유로 유지한다.
+- `.agent` 는 species / hero catalog 만 소유한다.
+- `.unit` 가 active owner surface 와 binding 을 소유한다.
+- `.agent_class`, `.workflow`, `.party` 는 reusable canon 만 소유한다.
 
 ### 2.8 UI는 정본이 아니라 파생물이다
 
-- UI는 `.agent`, `.agent_class`, `_workspaces` 의 정본 파일과 실제 구조에서 파생한다.
+- UI는 `.agent`, `.unit`, `.agent_class`, `.workflow`, `.party`, `_workspaces` 의 정본 파일과 실제 구조에서 파생한다.
 - UI 표현은 정본을 대체하지 않는다.
 - 정본 변경 시 관련 메타와 동기화 규칙을 같은 변경 안에서 갱신한다.
 
@@ -107,7 +116,7 @@ flowchart TD
 - 어떤 폴더에 파일, 하위 폴더, 책임, 운영 방식이 추가·변경·삭제되면 같은 변경 안에서 해당 폴더의 `README.md` 를 확인하고 최신화한다.
 - 해당 폴더에 `README.md` 가 없으면 먼저 신설한다.
 - 변경이 owner 경계나 상위 구조 설명까지 영향을 주면 루트 `README.md` 또는 관련 `docs/architecture/` 문서도 함께 갱신한다.
-- `.agent/body.yaml`, `.agent/body_state.yaml`, `.agent_class/class.yaml`, `.agent_class/loadout.yaml`, `_workspaces/**/.project_agent/*.yaml` 같이 UI 파생 기준 파일이 바뀌면 관련 계약 문서와 동기화 문서도 같은 변경 안에서 갱신한다.
+- `.agent/index.yaml`, `.unit/**/unit.yaml`, `.agent_class/index.yaml`, `.workflow/index.yaml`, `.party/index.yaml`, `_workspaces/**/.project_agent/*.yaml` 같이 UI 파생 기준 파일이 바뀌면 관련 계약 문서와 동기화 문서도 같은 변경 안에서 갱신한다.
 - 캐시, 임시 파일, 생성 산출물처럼 문서 정합성 대상이 아닌 항목은 예외로 둘 수 있다.
 - 폴더 내용이 바뀌었는데 해당 `README.md` 가 그대로면 문서 누락으로 본다.
 
@@ -126,7 +135,6 @@ flowchart TD
 - 문서 소유 원칙: `docs/architecture/foundation/DOCUMENT_OWNERSHIP.md`
 - 세계관 대응: `docs/architecture/foundation/AGENT_WORLD_MODEL.md`
 - body finalization report archive: `docs/architecture/archive/foundation/agent_body_finalization_report.md`
-- body 메타 계약: `.agent/docs/architecture/BODY_METADATA_CONTRACT.md`
 - 프로젝트 연결 규약: `docs/architecture/workspace/PROJECT_AGENT_MINIMUM_SCHEMA.md`
 - UI source map: `docs/architecture/ui/UI_SOURCE_MAP.md`
 - UI 동기화 계약: `docs/architecture/ui/UI_SYNC_CONTRACT.md`
@@ -143,4 +151,4 @@ flowchart TD
 
 ## 8. 한 줄 규칙
 
-Soulforge에서는 몸은 `.agent`, 직업은 `.agent_class`, 실제 프로젝트 현장은 `_workspaces` 이다.
+Soulforge에서는 `.agent`, `.unit`, `.agent_class`, `.workflow`, `.party`, `_workspaces` 의 여섯 축이 정본이다.

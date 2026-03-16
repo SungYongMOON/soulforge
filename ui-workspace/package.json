@@ -22,6 +22,7 @@
     "lint:packages": "npm run lint:boundary:packages --workspace @soulforge/ui-lint",
     "lint:fixtures": "npm run lint:fixtures --workspace @soulforge/ui-lint",
     "lint:theme": "npm run lint:theme --workspace @soulforge/ui-lint",
+    "lint:workspaces": "npm run lint:workspaces --workspace @soulforge/ui-lint",
     "lint:all": "npm run lint:all --workspace @soulforge/ui-lint",
     "smoke:theme-pack": "node ./tools/scripts/smoke-theme-pack.mjs",
     "done:check": "node ./tools/scripts/run-ui-workspace-acceptance.mjs",

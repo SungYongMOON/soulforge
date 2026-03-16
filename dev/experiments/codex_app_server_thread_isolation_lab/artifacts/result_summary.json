@@ -1,0 +1,22 @@
+{
+  "pass": true,
+  "root_abs": "/Users/seabotmoon-air/Workspace/Soulforge/dev/experiments/codex_app_server_thread_isolation_lab/lab_root",
+  "thread_ids": {
+    "A": "019cf10c-be3b-7690-a600-578e08897a69",
+    "B": "019cf10c-bef2-77a1-a9b0-bdb4b3763ae5"
+  },
+  "thread_models": {
+    "A": "gpt-5.4",
+    "B": "gpt-5.4"
+  },
+  "thread_ids_different": true,
+  "same_root_shared": true,
+  "a_can_read_root": true,
+  "b_can_read_root": true,
+  "b_can_see_a_counter_update": true,
+  "a_history_isolated": true,
+  "b_history_isolated": true,
+  "a_token_not_in_b_history": true,
+  "b_token_not_in_a_history": true,
+  "notes": []
+}

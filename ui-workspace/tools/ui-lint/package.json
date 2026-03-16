@@ -10,6 +10,7 @@
     "lint:boundary:packages": "tsx src/cli/lint-package-boundary.ts",
     "lint:fixtures": "tsx src/cli/lint-fixture-coverage.ts",
     "lint:theme": "tsx src/cli/lint-theme-isolation.ts",
+    "lint:workspaces": "tsx src/cli/lint-workspace-tracking.ts",
     "lint:all": "tsx src/cli/lint-all.ts"
   },
   "dependencies": {
