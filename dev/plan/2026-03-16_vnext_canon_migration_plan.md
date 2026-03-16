@@ -80,6 +80,7 @@
 
 - public repo 에서는 `_workspaces/README.md` 만 추적한다.
 - `_workspaces/<project_code>/` 실제 과제 폴더는 local/private mission site mount 로만 존재한다.
+- `_workspaces/` 는 public repo 에서 reserved/local-only mount point 로만 남고, 실제 `<project_code>/` 디렉터리는 local environment 에서만 materialize 된다.
 - 실제 project tree, `.project_agent/runs`, `dungeons`, `analytics`, `nightly_healing`, `reports`, `artifacts` 는 public tracking 대상이 아니다.
 
 ### C. `.workflow/history`
@@ -184,7 +185,6 @@
 
 ### Phase 1. foundation canon rewrite
 
-- [ ] `README.md` 를 새 5축 구조로 재작성한다.
 - [ ] `README.md` 를 새 6축 구조(`.agent`, `.unit`, `.agent_class`, `.workflow`, `.party`, `_workspaces`)로 재작성한다.
 - [ ] `docs/architecture/foundation/TARGET_TREE.md` 를 vNext 트리 기준으로 재작성한다.
 - [ ] `docs/architecture/foundation/DOCUMENT_OWNERSHIP.md` 를 새 owner 모델 기준으로 재작성한다.
