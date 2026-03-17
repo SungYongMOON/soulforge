@@ -37,14 +37,13 @@
 | Field | Required | Type | Rule |
 | --- | --- | --- | --- |
 | `unit_id` | yes | string | active subject id |
-| `kind` | yes | string | `unit` 고정 |
 | `status` | yes | enum | `draft | active | archived` |
-| `title` | yes | string | unit 표시명 |
 | `summary` | yes | string | 짧은 설명 |
-| `profile_ref` | yes | string | string id |
-| `species_ref` | yes | string | `.registry/species/<species_id>/species.yaml` pointer |
-| `hero_id` | yes | string | 선택한 species 내부에서만 resolve |
-| `class_refs` | yes | list[string] | `.registry/classes/<class_id>/class.yaml` pointers |
+| `identity` | yes | object | active subject identity block |
+| `identity.profile_ref` | yes | string | string id |
+| `identity.species_id` | yes | string | canonical species id |
+| `identity.hero_id` | yes | string | 선택한 species 안에서만 resolve |
+| `class_ids` | yes | list[string] | canonical class ids |
 | `notes` | no | list[string] | 설명 메모 |
 
 ## class-local `*_refs.yaml`

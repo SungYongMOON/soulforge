@@ -88,57 +88,51 @@ export function runCatalogLint() {
       }
     }
 
-    const speciesRefs = new Set(
+    const speciesIds = new Set(
       asArray<Record<string, unknown>>(species?.items)
-        .map((item) => asString(item.source_ref))
+        .map((item) => asString(item.id))
         .filter((value): value is string => Boolean(value))
     );
-    const heroRefs = new Set(
-      heroes.map((item) => asString(item.source_ref)).filter((value): value is string => Boolean(value))
-    );
-    const classRefs = new Set(
+    const heroIdsBySpecies = new Map<string, Set<string>>();
+    for (const hero of heroes) {
+      const heroId = asString(hero.id);
+      const speciesId = asString(hero.species_id);
+
+      if (!heroId || !speciesId) {
+        continue;
+      }
+
+      const heroIds = heroIdsBySpecies.get(speciesId) ?? new Set<string>();
+      heroIds.add(heroId);
+      heroIdsBySpecies.set(speciesId, heroIds);
+    }
+    const classIds = new Set(
       asArray<Record<string, unknown>>(classes?.items)
-        .map((item) => asString(item.source_ref))
-        .filter((value): value is string => Boolean(value))
-    );
-    const workflowRefs = new Set(
-      asArray<Record<string, unknown>>(workflows?.items)
-        .map((item) => asString(item.source_ref))
-        .filter((value): value is string => Boolean(value))
-    );
-    const partyRefs = new Set(
-      asArray<Record<string, unknown>>(parties?.items)
-        .map((item) => asString(item.source_ref))
+        .map((item) => asString(item.id))
         .filter((value): value is string => Boolean(value))
     );
 
     for (const unit of asArray<Record<string, unknown>>(units?.items)) {
       const unitId = asString(unit.id) ?? "<unknown-unit>";
-      const speciesRef = asString(unit.species_ref);
-      const heroRef = asString(unit.hero_ref);
-      const classPackageRefs = asArray<string>(unit.class_package_refs);
-      const workflowUnitRefs = asArray<string>(unit.workflow_refs);
-      const partyTemplateRefs = asArray<string>(unit.party_template_refs);
+      const identity = asObject(unit.identity);
+      const profileRef = asString(identity?.profile_ref);
+      const speciesId = asString(identity?.species_id);
+      const heroId = asString(identity?.hero_id);
+      const unitClassIds = asArray<string>(unit.class_ids);
 
-      if (speciesRef && !speciesRefs.has(speciesRef)) {
-        addIssue(issues, "unit-ref", fixture.repoPath, `${unitId} species_ref does not resolve within fixture: ${speciesRef}`);
+      if (!profileRef || !speciesId || !heroId) {
+        addIssue(issues, "required-field", fixture.repoPath, `${unitId} units.items entries require identity.profile_ref, identity.species_id, identity.hero_id`);
+        continue;
       }
-      if (heroRef && !heroRefs.has(heroRef)) {
-        addIssue(issues, "unit-ref", fixture.repoPath, `${unitId} hero_ref does not resolve within fixture: ${heroRef}`);
+      if (!speciesIds.has(speciesId)) {
+        addIssue(issues, "unit-ref", fixture.repoPath, `${unitId} identity.species_id does not resolve within fixture: ${speciesId}`);
       }
-      for (const ref of classPackageRefs) {
-        if (!classRefs.has(ref)) {
-          addIssue(issues, "unit-ref", fixture.repoPath, `${unitId} class_package_ref does not resolve within fixture: ${ref}`);
-        }
+      if (!heroIdsBySpecies.get(speciesId)?.has(heroId)) {
+        addIssue(issues, "unit-ref", fixture.repoPath, `${unitId} identity.hero_id does not resolve within species ${speciesId}: ${heroId}`);
       }
-      for (const ref of workflowUnitRefs) {
-        if (!workflowRefs.has(ref)) {
-          addIssue(issues, "unit-ref", fixture.repoPath, `${unitId} workflow_ref does not resolve within fixture: ${ref}`);
-        }
-      }
-      for (const ref of partyTemplateRefs) {
-        if (!partyRefs.has(ref)) {
-          addIssue(issues, "unit-ref", fixture.repoPath, `${unitId} party_template_ref does not resolve within fixture: ${ref}`);
+      for (const classId of unitClassIds) {
+        if (!classIds.has(classId)) {
+          addIssue(issues, "unit-ref", fixture.repoPath, `${unitId} class_id does not resolve within fixture: ${classId}`);
         }
       }
     }

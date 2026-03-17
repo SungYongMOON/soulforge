@@ -8,7 +8,7 @@
     "fixture_name": "integrated",
     "notes": [
       "Integrated synthetic fixture for the current six-axis public contract.",
-      "Uses owner-local template roots only and never materializes local mission sites."
+      "Uses tracked owner roots only and never materializes local mission sites."
     ]
   },
   "species": {
@@ -42,21 +42,18 @@
     "owner": ".unit",
     "items": [
       {
-        "id": "example_unit",
-        "display_name": "Example Unit",
-        "summary": "Active unit owner template with sanitized bindings only.",
-        "source_ref": ".unit/example_unit/unit.yaml",
-        "status": "template",
-        "species_ref": ".registry/species/human/species.yaml",
-        "hero_ref": ".registry/species/human/species.yaml",
-        "class_package_refs": [
-          ".registry/classes/knight/class.yaml"
-        ],
-        "workflow_refs": [
-          ".workflow/frontline_assault/workflow.yaml"
-        ],
-        "party_template_refs": [
-          ".party/vanguard_strike/party.yaml"
+        "id": "vanguard_01",
+        "display_name": "Vanguard 01",
+        "summary": "Canonical active unit sample with sanitized owner surfaces only.",
+        "source_ref": ".unit/vanguard_01/unit.yaml",
+        "status": "active",
+        "identity": {
+          "profile_ref": "vanguard_field_alpha",
+          "species_id": "human",
+          "hero_id": "wandering_knight"
+        },
+        "class_ids": [
+          "knight"
         ],
         "required_dirs": [
           "policy",
@@ -194,7 +191,7 @@
   "body": {
     "meta": {
       "body_id": null,
-      "display_name": "Example Unit",
+      "display_name": "Vanguard 01",
       "version": null,
       "operating_context": "unit_owner_projection",
       "status": "ready"
@@ -216,43 +213,43 @@
     "section_presence": [
       {
         "id": "policy",
-        "path": ".unit/example_unit/policy",
+        "path": ".unit/vanguard_01/policy",
         "present": true,
         "status": "present"
       },
       {
         "id": "protocols",
-        "path": ".unit/example_unit/protocols",
+        "path": ".unit/vanguard_01/protocols",
         "present": true,
         "status": "present"
       },
       {
         "id": "runtime",
-        "path": ".unit/example_unit/runtime",
+        "path": ".unit/vanguard_01/runtime",
         "present": true,
         "status": "present"
       },
       {
         "id": "memory",
-        "path": ".unit/example_unit/memory",
+        "path": ".unit/vanguard_01/memory",
         "present": true,
         "status": "present"
       },
       {
         "id": "sessions",
-        "path": ".unit/example_unit/sessions",
+        "path": ".unit/vanguard_01/sessions",
         "present": true,
         "status": "present"
       },
       {
         "id": "autonomic",
-        "path": ".unit/example_unit/autonomic",
+        "path": ".unit/vanguard_01/autonomic",
         "present": true,
         "status": "present"
       },
       {
         "id": "artifacts",
-        "path": ".unit/example_unit/artifacts",
+        "path": ".unit/vanguard_01/artifacts",
         "present": true,
         "status": "present"
       }
@@ -261,21 +258,21 @@
       {
         "section_id": "policy",
         "title": "Policy",
-        "summary": "Unit-owned operating boundary template.",
+        "summary": "Unit-owned operating boundary surface.",
         "status": "present",
         "present": true
       },
       {
         "section_id": "protocols",
         "title": "Protocols",
-        "summary": "Unit-owned handoff and request contract template.",
+        "summary": "Unit-owned handoff and request contract.",
         "status": "present",
         "present": true
       },
       {
         "section_id": "runtime",
         "title": "Runtime",
-        "summary": "Unit assembly template without raw runs.",
+        "summary": "Unit assembly surface without raw runs.",
         "status": "present",
         "present": true
       },
@@ -289,14 +286,14 @@
       {
         "section_id": "sessions",
         "title": "Sessions",
-        "summary": "Session template surface without transcripts.",
+        "summary": "Session continuity surface without transcripts.",
         "status": "present",
         "present": true
       },
       {
         "section_id": "autonomic",
         "title": "Autonomic",
-        "summary": "Self-check and healing template surface.",
+        "summary": "Self-check and healing surface.",
         "status": "present",
         "present": true
       },

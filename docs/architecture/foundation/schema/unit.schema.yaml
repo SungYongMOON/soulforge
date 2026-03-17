@@ -7,46 +7,36 @@ required_fields:
   - name: unit_id
     type: string
     description: Active subject identifier.
-  - name: kind
-    type: string
-    fixed: unit
   - name: status
     type: enum
     allowed:
       - draft
       - active
       - archived
-  - name: title
-    type: string
   - name: summary
     type: string
-  - name: profile_ref
-    type: string
-    description: String id for the unit's active-default profile.
-  - name: species_ref
-    type: string
-    description: Canonical pointer to species.yaml.
-  - name: hero_id
-    type: string
-    description: Inline hero selection within species_ref.
-  - name: class_refs
+  - name: identity
+    type: object
+    description: Active subject identity block carrying profile_ref, species_id, hero_id.
+  - name: class_ids
     type: list[string]
-    description: Canonical class pointers.
+    description: Canonical class ids assigned to the unit.
 optional_fields:
   - name: notes
     type: list[string]
     description: Human-readable owner notes.
 field_rules:
-  - field: profile_ref
+  - field: identity.profile_ref
     rule: String id, not a path.
-  - field: species_ref
-    rule: Points to .registry/species/<species_id>/species.yaml.
-  - field: hero_id
-    rule: Resolves only within the selected species_ref.
-  - field: class_refs
-    rule: Canonical class pointers to .registry/classes/<class_id>/class.yaml.
+  - field: identity.species_id
+    rule: Canonical species id resolving to .registry/species/<species_id>/species.yaml.
+  - field: identity.hero_id
+    rule: Resolves only within the selected identity.species_id.
+  - field: class_ids
+    rule: Canonical class ids resolving to .registry/classes/<class_id>/class.yaml.
   - field: status
     rule: Use only draft, active, archived.
 notes:
   - Unit is the active subject root. It does not own workflow, party, or project-local runtime truth.
+  - unit.yaml keeps the active subject shape compact and avoids generic catalog metadata fields.
   - Runtime truth remains under runs/<run_id>/ in local workspaces.

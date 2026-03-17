@@ -8,6 +8,7 @@
 ## 무엇을 둔다
 
 - `<unit_id>/unit.yaml`
+  현재 active subject의 `status`, `summary`, `identity`, `class_ids` 를 둔다.
 - `<unit_id>/policy/`
 - `<unit_id>/protocols/`
 - `<unit_id>/runtime/`
@@ -29,10 +30,10 @@
 
 ## Canonical sample
 
-- [`vanguard_01/unit.yaml`](vanguard_01/unit.yaml)은 현재 운영 중인 canonical active subject sample이다. 이 파일은 `vanguard_field_alpha` 프로파일을 기준으로 영웅이 운영되는 현황을 나타내며, `.unit/`를 봤을 때 가장 먼저 참고할 실제 unit이다.
-- [`example_unit/unit.yaml`](example_unit/unit.yaml)은 경계 설명용으로 유지되는 deprecated placeholder다. 실제 운영 unit 이 아니며, 민감 데이터를 포함하지 말고 본 저장소 외부에서 복제해 사용하지 않아야 한다.
+- [`vanguard_01/unit.yaml`](vanguard_01/unit.yaml)은 현재 운영 중인 canonical active subject sample이다. 이 파일은 `identity.profile_ref`, `identity.species_id`, `identity.hero_id`, `class_ids` 로 active subject shape 를 고정하며, `.unit/`를 봤을 때 가장 먼저 참고할 실제 unit이다.
+- [`vanguard_01/`](vanguard_01/) 아래의 owner surface 디렉터리는 policy, protocols, runtime, memory, sessions, autonomic, artifacts 의 tracked baseline 을 함께 제공한다.
 
 ## tracking 원칙
 
-- 이 저장소에는 canonical active unit 과 boundary-only placeholder 수준의 파일만 둔다.
-- 민감 데이터, 실제 session transcript, 비밀값, private runtime dump 는 template 에 넣지 않는다.
+- 이 저장소에는 canonical active unit 과 그 owner surface baseline 만 둔다.
+- 민감 데이터, 실제 session transcript, 비밀값, private runtime dump 는 tracked unit sample 에 넣지 않는다.
