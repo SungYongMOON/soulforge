@@ -260,28 +260,24 @@ export function expectedDefaultTab(fixtureName: string) {
 }
 
 export function extractCanonicalId(repoPathValue: string, document: Record<string, unknown>) {
-  if (repoPathValue.startsWith(".agent_class/")) {
-    return asString(document.id);
+  if (repoPathValue.startsWith(".registry/classes/")) {
+    return asString(document.class_id) ?? asString(document.id);
   }
 
   if (repoPathValue.startsWith(".unit/")) {
-    return asString(document.id);
+    return asString(document.unit_id) ?? asString(document.id);
   }
 
   if (repoPathValue.startsWith(".workflow/")) {
-    return asString(document.id);
+    return asString(document.workflow_id) ?? asString(document.id);
   }
 
   if (repoPathValue.startsWith(".party/")) {
-    return asString(document.id);
+    return asString(document.party_id) ?? asString(document.id);
   }
 
-  if (repoPathValue.startsWith(".agent/species/") && !repoPathValue.includes("/heroes/")) {
+  if (repoPathValue.startsWith(".registry/species/")) {
     return asString(document.species_id);
-  }
-
-  if (repoPathValue.includes("/heroes/")) {
-    return asString(document.hero_id);
   }
 
   return null;

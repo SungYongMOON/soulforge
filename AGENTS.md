@@ -1,155 +1,59 @@
-# Soulforge — 저장소 작업 헌장 (v0)
+# Soulforge — 저장소 작업 헌장
 
-## 0. 목적
+## 목적
 
-Soulforge는 새 정본 구조를 정의하는 설계 저장소다.
+Soulforge는 현재 canonical 구조와 public/private 경계를 고정하는 설계 저장소다.
+과거 이행 흔적이나 relocation pointer 는 정본으로 취급하지 않는다.
 
-핵심 축은 아래 여섯 가지다.
+## 정본 구조
 
-1. `.agent` = species / hero catalog
-2. `.unit` = active agent unit owner
-3. `.agent_class` = class / package catalog
-4. `.workflow` = workflow canon + curated learning history
-5. `.party` = reusable party template + template-level stats
-6. `_workspaces` = local-only mission site mount point
+1. `.registry` = outer canon/store
+2. `.unit` = active subject owner
+3. `.workflow` = orchestration canon
+4. `.party` = reusable orchestration template
+5. `_workspaces` = local-only runtime site
 
-현재 단계에서는 구현보다 문서와 메타 구조를 먼저 확정한다.
+보조 루트:
 
-## 구조 개요도
+- `docs/architecture/` = root-owned canon docs
+- `ui-workspace/` = derived UI consumer workspace
 
-```mermaid
-flowchart TD
-  S["Soulforge"] --> A[".agent<br/>species / hero"]
-  S --> U[".unit<br/>active owner"]
-  S --> C[".agent_class<br/>class / package"]
-  S --> WF[".workflow<br/>canon"]
-  S --> P[".party<br/>template"]
-  S --> W["_workspaces<br/>local-only mission site"]
-  U --> M["memory<br/>장기 기억"]
-  C --> K["knowledge<br/>설치형 지식 팩"]
-  W --> PA[".project_agent<br/>로컬 계약 경계"]
-```
+## 핵심 원칙
 
-## 1. 현재 단계
+- species canon 은 `.registry/species/<species_id>/species.yaml` 와 inline `heroes:` 를 사용한다.
+- class canon 은 `.registry/classes/<class_id>/class.yaml` 와 class-local `*_refs.yaml` 를 사용한다.
+- raw truth 는 `_workspaces/<project_code>/.project_agent/runs/<run_id>/` 아래에만 둔다.
+- tracked workspace sample 은 `_workspaces/` 아래가 아니라 `docs/architecture/workspace/examples/` 아래에 둔다.
+- `.workflow` 와 `.party` 는 `.registry` 아래로 흡수하지 않는다.
+- relocation stub, old bridge, old work log, archive pointer 를 새 정본처럼 되살리지 않는다.
 
-- 문서가 코드보다 먼저다.
-- 구조가 기능보다 먼저다.
-- UI와 runtime 구현은 아직 우선순위가 아니다.
-- 기존 저장소는 참고용이며, Soulforge는 새 구조의 정본이다.
+## 문서 원칙
 
-## 2. 비가역 원칙
+- 루트 `README.md` 는 상위 지도만 유지한다.
+- `docs/architecture/foundation/` 는 구조 목적, 목표 트리, owner 경계를 고정한다.
+- `docs/architecture/workspace/` 는 `_workspaces` 와 `.project_agent` 계약을 다룬다.
+- `docs/architecture/ui/` 는 root-owned UI 계약만 다룬다.
+- owner-local 설명은 각 루트 `README.md` 아래에 둔다.
 
-### 2.1 기존 구조를 복사하지 않는다
+## README 동기화 규칙
 
-- 기존 top-level 구조를 그대로 가져오지 않는다.
-- 기존 경로를 정답처럼 전제하지 않는다.
-- 필요한 요소만 선별적으로 참고한다.
+- 폴더 책임이나 구조가 바뀌면 같은 변경 안에서 해당 `README.md` 를 갱신한다.
+- 구조 변경이 상위 owner 경계에 영향을 주면 루트 `README.md` 와 `docs/architecture/**` 문서도 함께 갱신한다.
+- `.registry/**`, `.unit/**/unit.yaml`, `.workflow/**`, `.party/**`, `docs/architecture/workspace/examples/**` 가 바뀌면 관련 계약 문서도 같은 변경 안에서 맞춘다.
 
-### 2.2 여섯 축의 책임을 섞지 않는다
+## 제외 원칙
 
-- `.agent` 는 species / hero catalog 다.
-- `.unit` 는 active owner 다.
-- `.agent_class` 는 reusable class / package catalog 다.
-- `.workflow` 는 workflow canon 이다.
-- `.party` 는 reusable party template 다.
-- `_workspaces` 는 local-only mission site 다.
+- top-level relocation stub 를 다시 만들지 않는다.
+- old archive, old checklist, working log 를 active canon 으로 남기지 않는다.
+- `_workspaces/<project_code>/` 실자료를 public tracked tree 로 올리지 않는다.
 
-### 2.3 `memory` 와 `knowledge` 를 분리한다
+## 커밋 원칙
 
-- `memory` 는 `.unit/<unit_id>/memory/` 의 owner-local continuity surface 다.
-- `knowledge` 는 `.agent_class` 의 설치형 지식 팩이다.
+1. 문서와 구조를 같은 커밋에 묶는다.
+2. 범위를 넘는 정리는 따로 쪼갠다.
+3. 커밋 전에 status 와 diff 를 다시 확인한다.
+4. 커밋 메시지는 한글 우선이지만, scope 가 분명하면 영어 prefix 도 허용한다.
 
-### 2.4 `skills`, `tools`, `workflows` 를 분리한다
+## 한 줄 규칙
 
-- `skills` = 몸이 익힌 행동 패턴
-- `tools` = 몸 밖 외부 장비
-- `workflows` = 절차와 운용 교범
-
-### 2.5 프로젝트 실자료는 `_workspaces/` 안에 둔다
-
-- 실제 프로젝트 자료는 루트에 흩뿌리지 않는다.
-- 각 프로젝트는 필요하면 `.project_agent/` 를 가진다.
-
-### 2.6 로컬 상태는 추적하지 않는다
-
-- `.agent_class/_local/` 은 host-local 전용 영역이다.
-- 실제 로컬 상태는 기본적으로 추적하지 않는다.
-- 구조 설명과 ignore 정책 고정을 위해 `README.md` 와 `.gitignore` 만 예외적으로 추적한다.
-
-### 2.7 catalog 와 owner 를 분리한다
-
-- `.agent` 는 species / hero catalog 만 소유한다.
-- `.unit` 가 active owner surface 와 binding 을 소유한다.
-- `.agent_class`, `.workflow`, `.party` 는 reusable canon 만 소유한다.
-
-### 2.8 UI는 정본이 아니라 파생물이다
-
-- UI는 `.agent`, `.unit`, `.agent_class`, `.workflow`, `.party`, `_workspaces` 의 정본 파일과 실제 구조에서 파생한다.
-- UI 표현은 정본을 대체하지 않는다.
-- 정본 변경 시 관련 메타와 동기화 규칙을 같은 변경 안에서 갱신한다.
-
-## 3. 문서 소유 원칙
-
-- 루트 `docs/` 는 저장소 전체 구조와 루트 설명만 둔다.
-- species / hero catalog owner 문서는 `.agent/docs/` 아래에 둔다.
-- active owner 문서는 `.unit/` 아래에 둔다.
-- class 문서는 `.agent_class/docs/` 아래에 둔다.
-- 특정 프로젝트 전용 문서는 `_workspaces/.../<project>/.project_agent/` 아래에 둔다.
-- 구조, 계층, 경로 배치를 설명하는 문서는 경로와 폴더를 텍스트로만 나열하지 않는다.
-- 실제 구조 설명은 별도 그림 문서를 만들기보다 해당 문서 안에 Markdown/Mermaid 기반의 `구조 개요도` 또는 `관계도` 를 직접 포함하고, 실행 순서가 핵심이면 `흐름도` 를 추가한다.
-
-문서가 다른 계층의 소유권을 침범하면 relocation 계획을 먼저 세운다.
-
-## 4. 문서 우선 변경 순서
-
-구조 변경은 아래 순서를 따른다.
-
-1. 문서 초안 작성
-2. 목표 구조 반영
-3. 폴더 생성
-4. 예시 메타 파일 생성
-5. 마지막에 구현
-
-문서와 실제 구조가 다르면, 먼저 문서를 갱신한 뒤 구조를 맞춘다.
-
-## 4.1 README 최신화 규칙
-
-- 어떤 폴더에 파일, 하위 폴더, 책임, 운영 방식이 추가·변경·삭제되면 같은 변경 안에서 해당 폴더의 `README.md` 를 확인하고 최신화한다.
-- 해당 폴더에 `README.md` 가 없으면 먼저 신설한다.
-- 변경이 owner 경계나 상위 구조 설명까지 영향을 주면 루트 `README.md` 또는 관련 `docs/architecture/` 문서도 함께 갱신한다.
-- `.agent/index.yaml`, `.unit/**/unit.yaml`, `.agent_class/index.yaml`, `.workflow/index.yaml`, `.party/index.yaml`, `_workspaces/**/.project_agent/*.yaml` 같이 UI 파생 기준 파일이 바뀌면 관련 계약 문서와 동기화 문서도 같은 변경 안에서 갱신한다.
-- 캐시, 임시 파일, 생성 산출물처럼 문서 정합성 대상이 아닌 항목은 예외로 둘 수 있다.
-- 폴더 내용이 바뀌었는데 해당 `README.md` 가 그대로면 문서 누락으로 본다.
-
-## 5. 이번 단계에서 하지 않는 것
-
-1. 기존 저장소 구현 코드를 대량 복사하지 않는다.
-2. top-level `configs/`, `scripts/`, `tests/` 를 습관적으로 만들지 않는다.
-3. UI를 먼저 만들지 않는다.
-4. runtime 구현을 먼저 옮기지 않는다.
-5. 구조 문서 없이 폴더만 먼저 늘리지 않는다.
-6. `soulforge.base` 를 최종 직업처럼 고정하지 않는다.
-
-## 6. 참조 문서
-
-- 목표 구조: `docs/architecture/foundation/TARGET_TREE.md`
-- 문서 소유 원칙: `docs/architecture/foundation/DOCUMENT_OWNERSHIP.md`
-- 세계관 대응: `docs/architecture/foundation/AGENT_WORLD_MODEL.md`
-- body finalization report archive: `docs/architecture/archive/foundation/agent_body_finalization_report.md`
-- 프로젝트 연결 규약: `docs/architecture/workspace/PROJECT_AGENT_MINIMUM_SCHEMA.md`
-- UI source map: `docs/architecture/ui/UI_SOURCE_MAP.md`
-- UI 동기화 계약: `docs/architecture/ui/UI_SYNC_CONTRACT.md`
-- class 운영 문서: `.agent_class/docs/`
-
-## 7. 커밋 원칙
-
-1. 작은 단위 커밋
-2. 문서와 구조를 같은 커밋에 묶기
-3. 구조를 바꿨으면 관련 문서를 함께 갱신
-4. 구현보다 문서 정합성을 우선
-
-커밋 메시지는 한글을 우선한다.
-
-## 8. 한 줄 규칙
-
-Soulforge에서는 `.agent`, `.unit`, `.agent_class`, `.workflow`, `.party`, `_workspaces` 의 여섯 축이 정본이다.
+Soulforge의 정본은 `.registry`, `.unit`, `.workflow`, `.party`, `_workspaces` 와 그 계약 문서다.

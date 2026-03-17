@@ -45,4 +45,4 @@
 
 - `apps/skin-lab-storybook` 는 story state 와 theme selector 로만 동작한다.
 - preview state 는 `active`, `installed only`, `required`, `preferred`, `invalid dependency`, `none/unknown/partial` 를 모두 포함한다.
-- canonical integration bridge 없이도 theme package 개발과 packaging smoke test 를 반복할 수 있다.
+- repository integration layer 없이도 theme package 개발과 packaging smoke test 를 반복할 수 있다.

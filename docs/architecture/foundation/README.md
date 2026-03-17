@@ -14,10 +14,6 @@
 - `schema/`
 - `SCHEMA_FIELD_MATRIX.md`
 
-## archive 링크
-
-- [`../archive/README.md`](../archive/README.md)
-
 ## 관련 경로
 
 - [`../README.md`](../README.md)
@@ -33,4 +29,4 @@
 - Stable
 - 저장소 전체 기준선과 장기 참조 문서를 묶는다.
 - active owner-local canon 은 `.registry/`, `.unit/`, `.workflow/`, `.party/`, `_workspaces/` 에서 읽는다.
-- active semantics 는 `AGENT_WORLD_MODEL.md` 에 통합하고, 배경 보고서는 archive 링크로 분리한다.
+- active semantics 는 `AGENT_WORLD_MODEL.md` 에 통합한다.

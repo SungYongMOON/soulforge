@@ -12,4 +12,3 @@ paths:
 notes:
   - Phase 1 cutover skeleton only.
   - Species canon uses species/<species_id>/species.yaml with heroes inline.
-  - Do not treat .agent or .agent_class as canonical roots.

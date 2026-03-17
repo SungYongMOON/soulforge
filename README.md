@@ -25,7 +25,6 @@ flowchart TD
   S --> P[".party<br/>independent orchestration template"]
   S --> M["_workspaces<br/>local-only runtime site"]
   S --> D["docs/architecture<br/>root-owned canon docs"]
-  S --> V["dev<br/>working notes"]
   S --> UI["ui-workspace<br/>derived UI consumer workspace"]
   M --> PA["<project_code>/.project_agent<br/>local-only contract and run truth"]
 ```
@@ -49,6 +48,5 @@ flowchart TD
 - species canon 은 `species/<species_id>/species.yaml` 와 `heroes:` inline 모델을 사용한다.
 - `_workspaces/<project_code>/` 실제 과제 내용은 public GitHub 에 올리지 않으며, 로컬 환경에서만 materialize 한다.
 - tracked workspace sample 은 `_workspaces/` 아래가 아니라 `docs/architecture/workspace/examples/` 아래로만 둘 수 있다.
-- `.agent/` 와 `.agent_class/` 는 transition bridge 다. 새 canonical entry 를 그 아래에 추가하지 않는다.
 - `.run/` 루트는 새 정본에 포함하지 않는다.
 - 상세 owner 규칙은 각 루트 `README.md` 와 `docs/architecture/**` 문서를 따른다.

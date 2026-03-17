@@ -13,7 +13,7 @@
 
 ## non-goals
 
-- `.agent`, `.agent_class`, `_workspaces` 정본 파일 직접 읽기
+- `.registry`, `.unit`, `.workflow`, `.party`, `_workspaces` 정본 파일 직접 읽기
 - canonical YAML 저장, patch, write-back, mutation
 - workflow 실행, runtime control-plane, team-agent orchestration
 - selection persistence, host-local session restore
@@ -22,7 +22,7 @@
 
 ```mermaid
 flowchart LR
-  SRC["Canonical source<br/>.agent / .agent_class / _workspaces"] --> DERIVE["derive-ui-state --json"]
+  SRC["Canonical source<br/>.registry / .unit / .workflow / .party / _workspaces"] --> DERIVE["derive-ui-state --json"]
   FIX["fixture JSON"] --> CORE["renderer-core"]
   DERIVE --> CORE
   CORE --> WEB["renderer-web shell"]
@@ -48,11 +48,11 @@ flowchart LR
 - generator 부재나 partial generator 상태에서도 UI 개발을 계속할 수 있다.
 - visual/theme/interaction 작업의 기본 모드다.
 
-### optional integration mode
+### provider mode
 
-- integration bridge 는 renderer-web 기본 shell 에 넣지 않는다.
-- 필요 시 별도 provider 또는 tool 이 raw payload 를 제공하고, renderer-core 는 그 payload 를 v1 contract 로 normalize 한다.
-- fixture-first 개발 흐름은 integration provider 유무와 무관하게 유지된다.
+- renderer-web 기본 shell 은 provider 구현을 내장하지 않는다.
+- 필요 시 별도 provider 또는 tool 이 payload 를 제공하고, renderer-core 는 그 payload 를 v1 contract 로 normalize 한다.
+- fixture-first 개발 흐름은 provider 유무와 무관하게 유지된다.
 
 ## local selection vs persistence
 
@@ -80,7 +80,7 @@ v1 은 local selection 만 가진다.
 
 ## 구조 병행 개발이 가능한 이유
 
-- `.agent`, `.agent_class`, `_workspaces` 구조는 계속 자랄 수 있다.
+- `.registry`, `.unit`, `.workflow`, `.party`, `_workspaces` 구조는 계속 자랄 수 있다.
 - producer 는 canonical source 를 scan/resolve/derive 한다.
 - renderer 는 normalized contract 만 신뢰한다.
 - 따라서 canonical 구조 변경은 producer/fixture 갱신으로 흡수하고, renderer surface 자체는 느슨하게 유지할 수 있다.
@@ -93,8 +93,6 @@ v1 은 local selection 만 가진다.
 - 하단 info dock
 - diagnostics summary area 통합
 
-## optional legacy viewer 와의 관계
+## optional viewer 와의 관계
 
-- `tools/legacy-python-viewer/` 는 historical integration-oriented prototype 이다.
 - `apps/renderer-web/` 는 fixture-first portable renderer v1 shell 이다.
-- legacy python viewer 는 optional tool 이며, workspace 기본 dev/build 경로에 포함하지 않는다.

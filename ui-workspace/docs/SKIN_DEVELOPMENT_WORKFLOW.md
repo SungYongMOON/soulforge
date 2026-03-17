@@ -11,7 +11,7 @@
 - `packages/renderer-react/` 는 `theme-contract` 만 알고 concrete theme package 는 직접 알지 않는다.
 - `apps/renderer-web/`, `apps/skin-lab-storybook/` 는 registry 로 theme package 를 설치한다.
 - palette token, raw color literal, asset path 는 theme package 내부에만 둔다.
-- canonical `.agent`, `.agent_class`, `_workspaces` 정본은 skin 코드에서 직접 읽지 않는다.
+- canonical `.registry`, `.unit`, `.workflow`, `.party`, `_workspaces` 정본은 skin 코드에서 직접 읽지 않는다.
 
 ## 최소 골격
 

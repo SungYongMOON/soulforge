@@ -1,6 +1,5 @@
-import { adaptLegacyDerivedState } from "./legacy-adapter";
 import { DEFAULT_UI_HINTS } from "./constants";
-import type { LegacyDerivedState, UiState } from "@soulforge/ui-contract";
+import type { UiState } from "@soulforge/ui-contract";
 
 function asRecord(value: unknown): Record<string, unknown> | null {
   return value !== null && typeof value === "object" && !Array.isArray(value)
@@ -27,15 +26,6 @@ export function isUiState(value: unknown): value is UiState {
   );
 }
 
-export function isLegacyDerivedState(value: unknown): value is LegacyDerivedState {
-  const record = asRecord(value);
-  if (!record) {
-    return false;
-  }
-
-  return !!record.overview && !!record.body && !!record.class && !!record.workspaces && !!record.diagnostics;
-}
-
 export function normalizeUiState(value: unknown): UiState {
   if (isUiState(value)) {
     return {
@@ -52,9 +42,5 @@ export function normalizeUiState(value: unknown): UiState {
     };
   }
 
-  if (isLegacyDerivedState(value)) {
-    return adaptLegacyDerivedState(value);
-  }
-
-  throw new Error("Unsupported UI state payload. Expected v1 UI state or legacy derive-ui-state output.");
+  throw new Error("Unsupported UI state payload. Expected a v1 UI state document.");
 }

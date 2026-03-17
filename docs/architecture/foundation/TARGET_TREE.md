@@ -64,16 +64,12 @@
 │       ├── foundation/
 │       ├── workspace/
 │       └── ui/
-├── dev/
-│   ├── log/
-│   └── plan/
 ├── ui-workspace/
 └── README.md
 ```
 
 - `.registry/species/<species_id>/species.yaml` 가 species truth 와 `heroes:` inline set 을 함께 가진다.
 - `.registry/skills/`, `.registry/tools/`, `.registry/knowledge/` 는 이번 phase 에서 skeleton 만 만든다.
-- `.agent/`, `.agent_class/` 는 canonical target tree 에 포함하지 않는다. transition bridge 로만 남긴다.
 
 ## `_workspaces` local materialization
 
@@ -112,7 +108,6 @@ _workspaces/
 
 ## 고정 규칙
 
-- `.registry` 가 `.agent` 와 `.agent_class` 의 canonical 역할을 통합한다.
 - species canon 은 `species.yaml + heroes inline` 모델을 사용한다.
 - `.workflow` 와 `.party` 는 `.registry` 아래로 들어가지 않는다.
 - project candidate root 는 `_workspaces/<project_code>/` direct child 구조를 사용한다.

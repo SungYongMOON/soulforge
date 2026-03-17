@@ -1,9 +1,0 @@
-hero_id: example_hero
-kind: hero
-status: draft
-species_id: human
-title: Example Hero
-summary: Legacy bridge hero sample kept only until bridge cleanup.
-notes:
-  - Legacy bridge only. Canonical hero selections now live inline inside .registry species files.
-  - Template only. This file does not grant runtime capability or store active unit state.

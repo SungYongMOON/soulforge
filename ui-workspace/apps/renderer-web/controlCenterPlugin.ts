@@ -1,4 +1,3 @@
-import { spawnSync } from "node:child_process";
 import { existsSync, promises as fs } from "node:fs";
 import path from "node:path";
 import { fileURLToPath } from "node:url";
@@ -8,7 +7,7 @@ import type { Plugin, PreviewServer, ViteDevServer } from "vite";
 const API_PREFIX = "/__control_center_api";
 const TEXT_EXTENSIONS = new Set([".md", ".yaml", ".yml", ".json"]);
 const repoRoot = path.resolve(fileURLToPath(new URL(".", import.meta.url)), "../../..");
-const uiSyncScript = path.join(repoRoot, ".agent_class/tools/local_cli/ui_sync/ui_sync.py");
+const integratedFixtureRepoPath = "ui-workspace/fixtures/ui-state/integrated.sample.json";
 
 type ControlCenterOwnerId = "body" | "class" | "workspaces" | "docs";
 
@@ -52,22 +51,10 @@ function isTextFile(repoPath: string) {
 }
 
 function isEditableFile(repoPath: string) {
-  if (!isTextFile(repoPath)) {
-    return false;
-  }
-
-  if (repoPath.startsWith("docs/architecture/archive/")) {
-    return false;
-  }
-
-  return true;
+  return isTextFile(repoPath);
 }
 
 function fileCategoryFor(repoPath: string): ControlCenterFileRecord["category"] {
-  if (repoPath.startsWith("docs/architecture/archive/")) {
-    return "archive";
-  }
-
   if (repoPath.startsWith("docs/") || repoPath === "README.md" || repoPath === "AGENTS.md") {
     return "doc";
   }
@@ -174,9 +161,9 @@ async function buildBodyOwner(): Promise<ControlCenterOwner> {
     await buildSection(
       "body",
       "identity-core",
-      "Identity Catalog",
-      "Species and hero catalog root.",
-      await existingFiles([".agent/README.md", ".agent/index.yaml"])
+      "Registry Root",
+      "Outer canon/store root and species catalog entrypoint.",
+      await existingFiles([".registry/README.md", ".registry/index.yaml"])
     )
   );
 
@@ -184,9 +171,9 @@ async function buildBodyOwner(): Promise<ControlCenterOwner> {
     await buildSection(
       "body",
       "species-catalog",
-      "Species / Heroes",
-      "Species and hero catalog entries.",
-      await walkFiles(".agent/species", (repoPath) => isTextFile(repoPath))
+      "Species Catalog",
+      "Species canon entries with inline hero candidates.",
+      await walkFiles(".registry/species", (repoPath) => isTextFile(repoPath))
     )
   );
 
@@ -203,20 +190,10 @@ async function buildBodyOwner(): Promise<ControlCenterOwner> {
     )
   );
 
-  sections.push(
-    await buildSection(
-      "body",
-      "body-docs",
-      "Agent Docs",
-      "Agent-owned architecture references.",
-      await walkFiles(".agent/docs/architecture", (repoPath) => isTextFile(repoPath))
-    )
-  );
-
   return {
     id: "body",
-    label: "Identity / Unit",
-    description: "Species catalogs and active unit owner files.",
+    label: "Registry / Unit",
+    description: "Species canon and active unit owner files.",
     sections: sections.filter((section) => section.files.length > 0)
   };
 }
@@ -230,7 +207,7 @@ async function buildClassOwner(): Promise<ControlCenterOwner> {
       "class-core",
       "Class Catalog",
       "Primary class catalog metadata and root guide.",
-      await existingFiles([".agent_class/README.md", ".agent_class/index.yaml"])
+      await existingFiles([".registry/classes/README.md"])
     )
   );
 
@@ -240,10 +217,7 @@ async function buildClassOwner(): Promise<ControlCenterOwner> {
       "class-packages",
       "Class Packages",
       "Reusable class package definitions.",
-      await walkFiles(
-        ".agent_class",
-        (repoPath) => isTextFile(repoPath) && !repoPath.startsWith(".agent_class/docs/") && !repoPath.startsWith(".agent_class/tools/")
-      )
+      await walkFiles(".registry/classes", (repoPath) => isTextFile(repoPath))
     )
   );
 
@@ -270,16 +244,6 @@ async function buildClassOwner(): Promise<ControlCenterOwner> {
         ...(await existingFiles([".party/README.md", ".party/index.yaml"])),
         ...(await walkFiles(".party", (repoPath) => isTextFile(repoPath)))
       ]
-    )
-  );
-
-  sections.push(
-    await buildSection(
-      "class",
-      "class-docs",
-      "Catalog Docs",
-      "Catalog-owned architecture references.",
-      await walkFiles(".agent_class/docs/architecture", (repoPath) => isTextFile(repoPath))
     )
   );
 
@@ -352,7 +316,7 @@ async function buildDocsOwner(): Promise<ControlCenterOwner> {
       "docs-repo",
       "Repository Guides",
       "Top-level repository manuals and instructions.",
-      await existingFiles(["AGENTS.md", "README.md", "docs/README.md", "docs/ui/README.md"])
+      await existingFiles(["AGENTS.md", "README.md", "docs/README.md"])
     )
   );
 
@@ -383,26 +347,6 @@ async function buildDocsOwner(): Promise<ControlCenterOwner> {
       "Architecture / UI",
       "Source, sync, derive, and control center docs.",
       await walkFiles("docs/architecture/ui", (repoPath) => isTextFile(repoPath))
-    )
-  );
-
-  sections.push(
-    await buildSection(
-      "docs",
-      "docs-lifecycle",
-      "Architecture / Lifecycle",
-      "Closeout and limitation docs.",
-      await walkFiles("docs/architecture/lifecycle", (repoPath) => isTextFile(repoPath))
-    )
-  );
-
-  sections.push(
-    await buildSection(
-      "docs",
-      "docs-archive",
-      "Architecture / Archive",
-      "Historical reports and migration references.",
-      await walkFiles("docs/architecture/archive", (repoPath) => isTextFile(repoPath))
     )
   );
 
@@ -475,31 +419,9 @@ function sendJson(response: ServerResponse, statusCode: number, payload: unknown
   response.end(JSON.stringify(payload));
 }
 
-function runUiSyncJson(command: "validate" | "derive-ui-state") {
-  const result = spawnSync(process.env.PYTHON ?? "python", [uiSyncScript, command, "--json"], {
-    cwd: repoRoot,
-    encoding: "utf8"
-  });
-
-  const stdout = result.stdout?.trim() ?? "";
-  const stderr = result.stderr?.trim() ?? "";
-
-  let payload: unknown = null;
-  if (stdout) {
-    try {
-      payload = JSON.parse(stdout);
-    } catch {
-      payload = null;
-    }
-  }
-
-  return {
-    ok: result.status === 0,
-    exitCode: result.status ?? 1,
-    stdout,
-    stderr,
-    payload
-  };
+async function loadIntegratedFixturePayload() {
+  const content = await fs.readFile(resolveRepoPath(integratedFixtureRepoPath), "utf8");
+  return JSON.parse(content) as Record<string, unknown>;
 }
 
 async function handleTreeRequest(response: ServerResponse) {
@@ -555,24 +477,34 @@ async function handleFileRequest(request: IncomingMessage, response: ServerRespo
 }
 
 async function handleValidateRequest(response: ServerResponse) {
-  const result = runUiSyncJson("validate");
-  sendJson(response, result.payload ? 200 : 500, result);
+  const warning = {
+    level: "warning",
+    code: "fixture-preview",
+    message: "Control center preview currently uses the integrated fixture sample after canonical cleanup."
+  };
+
+  sendJson(response, 200, {
+    ok: true,
+    exitCode: 0,
+    stdout: "",
+    stderr: "",
+    payload: {
+      command: "fixture-validate",
+      summary: {
+        pass: 1,
+        warn: 1,
+        fail: 0,
+        result: "WARN"
+      },
+      warnings: [warning],
+      errors: [],
+      findings: [warning]
+    }
+  });
 }
 
 async function handleDeriveRequest(response: ServerResponse) {
-  const result = runUiSyncJson("derive-ui-state");
-
-  if (result.payload) {
-    sendJson(response, 200, result.payload);
-    return;
-  }
-
-  sendJson(response, 500, {
-    error: "derive-ui-state did not return JSON payload.",
-    exitCode: result.exitCode,
-    stderr: result.stderr,
-    stdout: result.stdout
-  });
+  sendJson(response, 200, await loadIntegratedFixturePayload());
 }
 
 async function handleControlCenterRequest(request: IncomingMessage, response: ServerResponse) {

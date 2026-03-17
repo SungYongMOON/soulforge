@@ -3,7 +3,7 @@
 ## 목적
 
 - `ui-workspace/docs/` 는 renderer v1 의 구조, 계약, selection model, theme, workspace split 을 고정한다.
-- root `docs/` 는 relocation 안내와 저장소 전체 owner 경계만 남기고, UI consumer 정본은 여기서 관리한다.
+- root `docs/` 는 저장소 전체 owner 경계만 다루고, UI consumer 정본은 여기서 관리한다.
 
 ## 포함 대상
 
@@ -15,13 +15,13 @@
 - theme package split 문서
 - renderer 구현 계획 문서
 - next-phase backlog 문서
-- workspace split / migration 문서
+- workspace split 문서
 
 ## 제외 대상
 
-- canonical `.agent`, `.agent_class`, `_workspaces` 정본 구조 설명
+- canonical `.registry`, `.unit`, `.workflow`, `.party`, `_workspaces` 정본 구조 설명
 - `derive-ui-state` producer 구현 세부
-- legacy `ui/viewer/` 구현 설명
+- 별도 viewer 도구 구현 설명
 
 ## 관련 경로
 
@@ -35,4 +35,4 @@
 ## 상태
 
 - Active
-- renderer v1 의 contract-first 문서군, closeout 기준, next backlog 를 유지한다.
+- renderer v1 의 contract-first 문서군을 유지한다.

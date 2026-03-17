@@ -7,31 +7,31 @@
     "adapter": "vnext-6-axis",
     "fixture_name": "overview",
     "notes": [
-      "Overview-first synthetic fixture for the vNext 6-axis contract.",
+      "Overview-first synthetic fixture for the current six-axis contract.",
       "Highlights the compatibility overview panel while keeping 6-axis data authoritative."
     ]
   },
   "species": {
-    "root": ".agent",
-    "owner": ".agent",
-    "catalog_ref": ".agent/index.yaml",
+    "root": ".registry",
+    "owner": ".registry",
+    "catalog_ref": ".registry/index.yaml",
     "items": [
       {
         "id": "human",
         "display_name": "Human",
         "summary": "vNext species catalog baseline for public fixtures.",
-        "source_ref": ".agent/species/human/species.yaml",
+        "source_ref": ".registry/species/human/species.yaml",
         "status": "template",
-        "hero_catalog_ref": ".agent/species/human/heroes/index.yaml",
+        "hero_catalog_ref": ".registry/species/human/species.yaml",
         "hero_count": 1
       }
     ],
     "heroes": [
       {
-        "id": "example_hero",
-        "display_name": "Example Hero",
-        "summary": "Template hero overlay kept in the public species catalog.",
-        "source_ref": ".agent/species/human/heroes/example_hero/hero.yaml",
+        "id": "wandering_knight",
+        "display_name": "Wandering Knight",
+        "summary": "Inline hero candidate carried by the species canon sample.",
+        "source_ref": ".registry/species/human/species.yaml",
         "status": "template",
         "species_id": "human"
       }
@@ -47,10 +47,10 @@
         "summary": "Active unit owner template with sanitized bindings only.",
         "source_ref": ".unit/example_unit/unit.yaml",
         "status": "template",
-        "species_ref": ".agent/species/human/species.yaml",
-        "hero_ref": ".agent/species/human/heroes/example_hero/hero.yaml",
+        "species_ref": ".registry/species/human/species.yaml",
+        "hero_ref": ".registry/species/human/species.yaml",
         "class_package_refs": [
-          ".agent_class/example_class/class.yaml"
+          ".registry/classes/knight/class.yaml"
         ],
         "workflow_refs": [
           ".workflow/example_workflow/workflow.yaml"
@@ -71,24 +71,24 @@
     ]
   },
   "classes": {
-    "root": ".agent_class",
-    "owner": ".agent_class",
-    "catalog_ref": ".agent_class/index.yaml",
+    "root": ".registry",
+    "owner": ".registry",
+    "catalog_ref": ".registry/index.yaml",
     "items": [
       {
-        "id": "example_class",
-        "display_name": "Example Class",
-        "summary": "Reusable class/package template without active loadout semantics.",
-        "source_ref": ".agent_class/example_class/class.yaml",
+        "id": "knight",
+        "display_name": "Knight",
+        "summary": "Reusable class canon sample with class-local assign/ref files.",
+        "source_ref": ".registry/classes/knight/class.yaml",
         "status": "template",
-        "knowledge_refs_source_ref": ".agent_class/example_class/knowledge_refs.yaml",
+        "knowledge_refs_source_ref": ".registry/classes/knight/knowledge_refs.yaml",
         "knowledge_refs_count": 0,
-        "skill_refs_source_ref": ".agent_class/example_class/skill_refs.yaml",
+        "skill_refs_source_ref": ".registry/classes/knight/skill_refs.yaml",
         "skill_refs_count": 0,
-        "tool_refs_source_ref": ".agent_class/example_class/tool_refs.yaml",
+        "tool_refs_source_ref": ".registry/classes/knight/tool_refs.yaml",
         "tool_refs_count": 0,
-        "profiles_dir": ".agent_class/example_class/profiles",
-        "manifests_dir": ".agent_class/example_class/manifests"
+        "profiles_dir": ".registry/classes/knight",
+        "manifests_dir": ".registry/classes/knight"
       }
     ]
   },
@@ -148,20 +148,20 @@
   },
   "overview": {
     "body_id": null,
-    "class_id": "example_class",
+    "class_id": "knight",
     "active_profile": null,
     "active_species": {
       "id": "human",
       "display_name": "Human",
       "summary": "vNext species catalog baseline for public fixtures.",
-      "source_ref": ".agent/species/human/species.yaml",
+      "source_ref": ".registry/species/human/species.yaml",
       "active": true
     },
     "active_hero": {
-      "id": "example_hero",
-      "display_name": "Example Hero",
-      "summary": "Template hero overlay kept in the public species catalog.",
-      "source_ref": ".agent/species/human/heroes/example_hero/hero.yaml",
+      "id": "wandering_knight",
+      "display_name": "Wandering Knight",
+      "summary": "Inline hero candidate carried by the species canon sample.",
+      "source_ref": ".registry/species/human/species.yaml",
       "active": true
     },
     "sections_present": {
@@ -203,14 +203,14 @@
       "id": "human",
       "display_name": "Human",
       "summary": "vNext species catalog baseline for public fixtures.",
-      "source_ref": ".agent/species/human/species.yaml",
+      "source_ref": ".registry/species/human/species.yaml",
       "active": true
     },
     "active_hero": {
-      "id": "example_hero",
-      "display_name": "Example Hero",
-      "summary": "Template hero overlay kept in the public species catalog.",
-      "source_ref": ".agent/species/human/heroes/example_hero/hero.yaml",
+      "id": "wandering_knight",
+      "display_name": "Wandering Knight",
+      "summary": "Inline hero candidate carried by the species canon sample.",
+      "source_ref": ".registry/species/human/species.yaml",
       "active": true
     },
     "section_presence": [
@@ -311,7 +311,7 @@
     "current_bindings": {
       "class_binding": {
         "status": "present",
-        "class_id": "example_class",
+        "class_id": "knight",
         "active_profile": null
       },
       "workspace_binding": {
@@ -321,14 +321,14 @@
       },
       "precedence": [
         ".unit owns active bindings",
-        ".agent_class provides reusable packages only",
+        ".registry/classes provides reusable packages only",
         "_workspaces is opt-in local-only mount"
       ]
     }
   },
   "class_view": {
-    "class_id": "example_class",
-    "class_name": "Example Class",
+    "class_id": "knight",
+    "class_name": "Knight",
     "class_version": null,
     "active_profile": null,
     "rows": {
@@ -382,16 +382,16 @@
           "id": "human",
           "display_name": "Human",
           "summary": "vNext species catalog baseline for public fixtures.",
-          "source_ref": ".agent/species/human/species.yaml",
+          "source_ref": ".registry/species/human/species.yaml",
           "active": false
         }
       ],
       "hero_candidates": [
         {
-          "id": "example_hero",
-          "display_name": "Example Hero",
-          "summary": "Template hero overlay kept in the public species catalog.",
-          "source_ref": ".agent/species/human/heroes/example_hero/hero.yaml",
+          "id": "wandering_knight",
+          "display_name": "Wandering Knight",
+          "summary": "Inline hero candidate carried by the species canon sample.",
+          "source_ref": ".registry/species/human/species.yaml",
           "active": false
         }
       ]
@@ -456,7 +456,7 @@
     },
     "renderer_notes": [
       "Legacy overview/body/class panels are compatibility projections only.",
-      "The authoritative payload surface is the vNext 6-axis top level."
+      "The authoritative payload surface is the current six-axis top level."
     ]
   }
 }

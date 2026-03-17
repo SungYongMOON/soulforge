@@ -1,7 +1,0 @@
-class_id: example_class
-kind: tool_refs
-status: draft
-tool_refs: []
-notes:
-  - Legacy bridge only. Canonical class-local assign/ref files now live under .registry/classes/<class_id>/.
-  - Template only. Add reusable tool package refs here when the class package materializes.

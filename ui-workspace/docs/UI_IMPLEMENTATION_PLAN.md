@@ -45,8 +45,8 @@ ui-workspace/
 ## renderer-core 책임
 
 - normalized state types
-- legacy derive adapter
-- fixture / URL / host bridge loader
+- derive adapter
+- fixture / URL / host loader
 - local selection reducer
 - icon / material mapping
 - view-model helper
@@ -69,15 +69,15 @@ ui-workspace/
 
 ## optional integration provider 책임
 
-- future `derive-ui-state --json` bridge
+- `derive-ui-state --json` provider hookup
 - external URL/provider fetch
 - canonical repo integration
 
 ## integration point
 
 - fixture mode 는 `fixtures/ui-state/*.json` 을 바로 읽는다.
-- future integration mode 는 optional provider 가 raw payload 를 제공한다.
-- raw payload 가 legacy shape 이면 renderer-core adapter 가 v1 contract 로 normalize 한다.
+- provider mode 는 optional provider 가 raw payload 를 제공한다.
+- raw payload 는 renderer-core adapter 가 v1 contract 로 normalize 한다.
 
 ## validation workflow
 

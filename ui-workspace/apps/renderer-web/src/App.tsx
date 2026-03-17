@@ -113,7 +113,7 @@ const CATEGORY_LABELS: Record<ControlCenterCategory, string> = {
 const PREVIEW_CHROME = {
   eyebrow: "Control Center / Derived Preview",
   title: "Derived UI Preview",
-  subtitle: "ui_sync derive-ui-state output normalized through renderer-core and rendered in renderer-react.",
+  subtitle: "Integrated fixture sample normalized through renderer-core and rendered in renderer-react.",
   modeLabel: "Derived Preview"
 } as const;
 const CONTROL_CENTER_VERSION = appPackage.version;
@@ -751,7 +751,7 @@ function App() {
     }));
     setNotice({
       tone: "info",
-      message: "Running ui_sync validate."
+      message: "Running fixture-backed validate."
     });
 
     try {
@@ -1067,7 +1067,7 @@ function App() {
           {route.activePane === "preview" ? (
             <section className="cc-pane">
               <div className="cc-pane-toolbar">
-                <p>Preview updates from saved canonical files through `ui_sync derive-ui-state --json`.</p>
+                <p>Preview uses the integrated fixture sample while canonical cleanup is in progress.</p>
                 <button className="cc-button" type="button" onClick={() => void handlePreviewRefresh(true)} disabled={preview.loading}>
                   {preview.loading ? "Refreshing..." : "Refresh Preview"}
                 </button>

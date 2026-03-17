@@ -7,7 +7,7 @@
 
 ## catalog lint
 
-- fixture projection 이 새 owner roots (`.agent`, `.unit`, `.agent_class`, `.workflow`, `.party`) 의 실제 template 파일을 올바르게 가리키는지 검사한다.
+- fixture projection 이 새 owner roots (`.registry`, `.unit`, `.workflow`, `.party`) 의 실제 template 파일을 올바르게 가리키는지 검사한다.
 - axis item `source_ref` 존재 여부와 target file 존재 여부를 검사한다.
 - unit refs 가 species/class/workflow/party axis 안에서 resolve 되는지 검사한다.
 - workflow `history_policy`, party `stats_policy` 가 curated summary only 인지 검사한다.
@@ -20,8 +20,7 @@
 
 ## read-only boundary lint
 
-- `packages/renderer-core/`, `packages/renderer-react/`, `packages/theme-*`, `apps/renderer-web/`, `apps/skin-lab-storybook/` 안에서 `.agent`, `.unit`, `.agent_class`, `.workflow`, `.party`, `_workspaces` 정본을 직접 읽거나 import 하지 못하게 한다.
-- 허용 예외는 optional tool `tools/legacy-python-viewer/` 뿐이다.
+- `packages/renderer-core/`, `packages/renderer-react/`, `packages/theme-*`, `apps/renderer-web/`, `apps/skin-lab-storybook/` 안에서 `.registry`, `.unit`, `.workflow`, `.party`, `_workspaces` 정본을 직접 읽거나 import 하지 못하게 한다.
 - canonical 경로 문자열이 있어도 producer bridge 가 아니면 FAIL 로 본다.
 
 ## package boundary lint
@@ -40,7 +39,7 @@
 - `packages/renderer-core/src/fixtures.ts` 의 export map 이 fixture 파일 세트와 맞는지 검사한다.
 - fixture default tab 커버리지와 새 6축 axis coverage 를 검사한다.
 - public fixture 가 `workspaces.local_scan_enabled = false`, `projects = []` 를 유지하는지 검사한다.
-- `.agent/body.yaml`, `.agent_class/loadout.yaml`, `.agent_class/workflows`, `company/personal`, `.project_agent/runs` 같은 legacy/private 흔적이 fixture payload 에 남지 않았는지 검사한다.
+- `.agent/`, `.agent_class/`, `company/personal`, `.project_agent/runs` 같은 stale/private 흔적이 fixture payload 에 남지 않았는지 검사한다.
 - synthetic workspace policy 경고가 diagnostics 에 드러나는지 검사한다.
 
 ## theme isolation lint

@@ -11,4 +11,3 @@ class_refs:
 notes:
   - Draft template only. Do not store secrets, raw runtime state, or project-local execution logs here.
   - hero_id resolves within the selected species_ref.
-  - Legacy bridge references to .agent and .agent_class are no longer canonical here.

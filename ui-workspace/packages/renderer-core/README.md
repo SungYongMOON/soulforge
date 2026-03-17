@@ -3,13 +3,12 @@
 ## 목적
 
 - `renderer-core/` 는 renderer v1 의 framework-neutral consumer core 를 둔다.
-- raw fixture 또는 legacy derive payload 를 normalized UI state 로 바꾸고, shell 이 쓰는 view-model helper 를 제공한다.
+- raw fixture 또는 v1 UI state payload 를 normalized UI state 로 바꾸고, shell 이 쓰는 view-model helper 를 제공한다.
 
 ## 포함 대상
 
 - state types
 - ui-contract re-export
-- legacy derive adapter
 - state loader
 - selection reducer
 - icon/material mapping

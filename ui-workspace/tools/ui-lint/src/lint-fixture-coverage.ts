@@ -13,9 +13,8 @@ import {
 } from "./shared";
 
 const FORBIDDEN_PATTERNS: Array<{ label: string; pattern: RegExp }> = [
-  { label: ".agent/body.yaml", pattern: /\.agent\/body\.yaml/ },
-  { label: ".agent_class/loadout.yaml", pattern: /\.agent_class\/loadout\.yaml/ },
-  { label: ".agent_class/workflows", pattern: /\.agent_class\/workflows/ },
+  { label: ".agent/", pattern: /\.agent\// },
+  { label: ".agent_class/", pattern: /\.agent_class\// },
   { label: "_workspaces/company", pattern: /_workspaces\/company\b/ },
   { label: "_workspaces/personal", pattern: /_workspaces\/personal\b/ },
   { label: ".project_agent/runs", pattern: /\.project_agent\/runs/ },

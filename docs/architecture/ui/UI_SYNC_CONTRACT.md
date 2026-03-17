@@ -3,22 +3,21 @@
 ## 목적
 
 - 이 문서는 Soulforge UI가 어떤 정본을 어떤 순서로 읽고 파생해야 하는지 고정한다.
-- current renderer 와 control center 는 모두 정본의 소비층이며, 정본을 대체하지 않는다.
+- renderer 와 control center 는 모두 정본 파일을 읽는 소비층이다.
 
 ## 기본 원칙
 
-1. UI는 정본이 아니다.
-2. 정본 owner root 는 `.agent`, `.unit`, `.agent_class`, `.workflow`, `.party`, `_workspaces` 다.
-3. `derive-ui-state` 는 6축 top-level payload 를 우선하고, 현재 소비층을 위해 `overview`, `body`, `class_view` compatibility projection 을 함께 낸다.
+1. UI는 정본 파일을 읽고 파생 상태를 소비한다.
+2. 정본 owner root 는 `.registry`, `.unit`, `.workflow`, `.party`, `_workspaces` 다.
+3. `derive-ui-state` 는 6축 top-level payload 와 renderer surface (`overview`, `body`, `class_view`, `catalogs`, `ui_hints`) 를 함께 낸다.
 4. `_workspaces/<project_code>/` 실자료 스캔은 기본 동작이 아니라 opt-in local smoke 다.
 
 ## 정본 계층
 
-- `.agent/index.yaml`
-- `.agent/species/**`
+- `.registry/index.yaml`
+- `.registry/species/**`
 - `.unit/**/unit.yaml`
-- `.agent_class/index.yaml`
-- `.agent_class/**/class.yaml`
+- `.registry/classes/**/class.yaml`
 - `.workflow/index.yaml`
 - `.workflow/**/workflow.yaml`
 - `.party/index.yaml`
@@ -37,18 +36,18 @@ flowchart LR
 ```
 
 - `Scan` = owner roots 와 local-only mount policy 를 읽는다.
-- `Resolve` = catalog ref, unit binding, workflow/party compatibility 를 해석한다.
+- `Resolve` = catalog ref, unit binding, workflow/party relation 을 해석한다.
 - `Validate` = owner root 최소 파일 세트와 cross-ref 를 검사한다.
-- `Derive` = 6축 top-level payload 와 compatibility projection 을 계산한다.
+- `Derive` = 6축 top-level payload 와 renderer surface 를 계산한다.
 - `Render` = derived state 를 소비한다.
 
 ## 현재 구현 범위
 
-- `sync-body-state` = compatibility no-op
-- `resolve-loadout` = compatibility alias
+- `sync-body-state` = 상태 보고용 no-op
+- `resolve-loadout` = class/workflow/party summary
 - `resolve-workspaces` = local-only mount inspector
 - `validate` = 6축 owner root 최소 검증
-- `derive-ui-state` = 6축 payload + compatibility projection
+- `derive-ui-state` = 6축 payload + renderer surface
 - renderer = `derive-ui-state --json` 소비자
 
 ## local-only workspace 규칙
@@ -56,11 +55,11 @@ flowchart LR
 - public repo 기본 모드는 `_workspaces/README.md` 만 기대한다.
 - 실제 `_workspaces/<project_code>/` scan 은 `--local-workspaces` 가 있을 때만 수행한다.
 - `--workspace-root` 또는 `SOULFORGE_LOCAL_WORKSPACE_ROOT` 로 private mount root 를 바꿀 수 있다.
-- repo 내부 `_workspaces/` 를 scan 하면 legacy `company`, `personal` bridge 는 warning 후 skip 한다.
+- repo 내부 `_workspaces/` 를 scan 하면 `company`, `personal` 디렉터리는 project 후보가 아니므로 warning 후 skip 한다.
 
 ## 검증 규칙
 
-1. `.agent/body.yaml`, `.agent/body_state.yaml`, `.agent_class/loadout.yaml`, `.agent_class/workflows` 는 더 이상 canonical requirement 가 아니다.
+1. `.registry`, `.unit`, `.workflow`, `.party` 는 각 owner root 의 현재 파일 세트로 검사한다.
 2. `.unit` 는 active binding owner surface 로 검사한다.
 3. `.workflow/history` 는 curated summary only 여야 한다.
 4. `.party/stats` 는 template-level observation only 여야 한다.
@@ -70,7 +69,7 @@ flowchart LR
 ## derive 규칙
 
 1. `derive-ui-state` 는 `species`, `units`, `classes`, `workflows`, `parties`, `workspaces` top-level axis 를 낸다.
-2. `overview`, `body`, `class_view` 는 renderer v1 compatibility projection 이다.
+2. `overview`, `body`, `class_view`, `catalogs`, `ui_hints` 는 renderer surface 다.
 3. `workspaces.projects` 는 direct `<project_code>` detection 결과만 가진다.
 4. `workspaces.local_scan_enabled = false` 인 fixture 는 synthetic public-safe baseline 이어야 한다.
 

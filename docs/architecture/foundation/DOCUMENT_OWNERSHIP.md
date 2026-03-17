@@ -22,7 +22,6 @@
 | `.workflow/` | workflow canon + curated learning history | `docs/architecture/foundation/TARGET_TREE.md`, `docs/architecture/foundation/DOCUMENT_OWNERSHIP.md` | `.workflow/README.md`, `.workflow/docs/` |
 | `.party/` | reusable party template + template-level stats | `docs/architecture/foundation/TARGET_TREE.md`, `docs/architecture/foundation/DOCUMENT_OWNERSHIP.md` | `.party/README.md`, `.party/docs/` |
 | `_workspaces/` | local-only mission site mount point | `_workspaces/README.md`, `docs/architecture/workspace/WORKSPACE_PROJECT_MODEL.md` | `_workspaces/<project_code>/.project_agent/` 와 project-local 문서 |
-| `.agent/`, `.agent_class/` | transition bridge | 각 루트 README 의 migration note | cleanup 전까지의 legacy 참고 문서 |
 | `docs/architecture/foundation/` | 저장소 차원의 구조 canon | `docs/architecture/foundation/README.md`, `docs/architecture/foundation/*.md` | 해당 없음 |
 | `docs/architecture/workspace/` | `_workspaces` 구조와 보안 정책 canon | `docs/architecture/workspace/README.md`, `docs/architecture/workspace/WORKSPACE_PROJECT_MODEL.md` | 해당 없음 |
 | `ui-workspace/` | 파생 UI consumer workspace | `ui-workspace/README.md` 와 하위 README | 각 하위 패키지/앱 로컬 README |
@@ -36,7 +35,6 @@
 | `.workflow` | workflow 정의와 curated learning history | raw run log, run index, project-local battle log |
 | `.party` | reusable party template 와 template-level stats | raw feedback dump, project operational metrics |
 | `_workspaces` | local-only mission site mount 정책, `_workspaces/<project_code>/` 구조 | helper directory 를 project root 로 문서화, per-project 실자료 public 추적 |
-| `.agent`, `.agent_class` | transition bridge 와 cleanup 범위 | active canonical owner root 처럼 설명하는 서술 |
 
 ## 적용 규칙
 
@@ -45,5 +43,4 @@
 3. `.workflow/history` 는 curated/sanitized learning summary 만 public repo 에 남긴다.
 4. `.party/stats` 는 template-level fit/observation summary 만 public repo 에 남긴다.
 5. `_workspaces/README.md` 를 제외한 per-project 문서와 실자료는 public tracking 대상이 아니다.
-6. `.agent` 와 `.agent_class` 에 새 canonical entry 를 추가하지 않는다.
-7. 폴더 구조나 owner 책임이 바뀌면 같은 변경 안에서 해당 README 와 foundation 문서를 함께 갱신한다.
+6. 폴더 구조나 owner 책임이 바뀌면 같은 변경 안에서 해당 README 와 foundation 문서를 함께 갱신한다.

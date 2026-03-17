@@ -12,9 +12,9 @@ import {
 } from "./shared";
 
 const AXIS_PREFIX: Record<string, string> = {
-  species: ".agent/",
+  species: ".registry/species/",
   units: ".unit/",
-  classes: ".agent_class/",
+  classes: ".registry/classes/",
   workflows: ".workflow/",
   parties: ".party/"
 };
@@ -80,8 +80,8 @@ export function runCatalogLint() {
         addIssue(issues, "required-field", fixture.repoPath, "species.heroes entries require id, source_ref, species_id");
         continue;
       }
-      if (!heroSourceRef.startsWith(".agent/species/")) {
-        addIssue(issues, "source-ref-prefix", fixture.repoPath, `${heroId} hero source_ref must stay under .agent/species/`);
+      if (!heroSourceRef.startsWith(".registry/species/")) {
+        addIssue(issues, "source-ref-prefix", fixture.repoPath, `${heroId} hero source_ref must stay under .registry/species/`);
       }
       if (!existsSoulforgePath(heroSourceRef)) {
         addIssue(issues, "source-ref-target", fixture.repoPath, `${heroId} hero source_ref target does not exist: ${heroSourceRef}`);

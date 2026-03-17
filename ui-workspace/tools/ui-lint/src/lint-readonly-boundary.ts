@@ -9,12 +9,8 @@ const CODE_FILES = [
   ...themePackages.flatMap(({ repoDir }) => walkFiles(repoDir, (repoPath) => /\.(ts|tsx)$/.test(repoPath)))
 ];
 
-const CANONICAL_PATTERN = /(?:\.agent\/|\.unit\/|\.agent_class\/|\.workflow\/|\.party\/|_workspaces\/)/;
+const CANONICAL_PATTERN = /(?:\.registry\/|\.unit\/|\.workflow\/|\.party\/|_workspaces\/)/;
 const DIRECT_READ_PATTERN = /\b(import|from|readFile|readFileSync|fs\.|spawn|spawnSync|exec|fetch)\b/;
-
-function isAllowedReference(file: string, line: string) {
-  return file.startsWith("tools/legacy-python-viewer/") && line.includes(".agent_class/tools/local_cli/ui_sync/ui_sync.py");
-}
 
 export function runReadOnlyBoundaryLint() {
   const issues = [];
@@ -22,10 +18,6 @@ export function runReadOnlyBoundaryLint() {
   for (const file of CODE_FILES) {
     for (const match of findLineMatches(file, CANONICAL_PATTERN)) {
       if (!DIRECT_READ_PATTERN.test(match.line)) {
-        continue;
-      }
-
-      if (isAllowedReference(file, match.line)) {
         continue;
       }
 

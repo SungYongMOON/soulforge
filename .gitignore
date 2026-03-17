@@ -7,6 +7,3 @@ dist/
 
 _workspaces/**
 !_workspaces/README.md
-
-.agent_class/_local/*
-!.agent_class/_local/.gitignore

@@ -10,7 +10,6 @@
 - UI state types
 - fixture / tab / row identifier constants
 - selection action contract
-- legacy derive payload typing
 
 ## 제외 대상
 

@@ -1,2 +1,0 @@
-agent=A
-root=ROOT_SHARED_V1

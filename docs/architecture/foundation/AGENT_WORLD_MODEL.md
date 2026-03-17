@@ -35,7 +35,6 @@
 - `.workflow` 는 workflow canon owner 다.
 - `.party` 는 reusable party template owner 다.
 - `_workspaces` 는 local-only mission site 다.
-- `.agent` 와 `.agent_class` 는 cleanup 전까지의 transition bridge 다.
 
 ## 우선순위
 

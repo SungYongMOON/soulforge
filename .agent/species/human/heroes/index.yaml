@@ -1,9 +1,0 @@
-species_id: human
-kind: hero_catalog
-status: draft
-entries:
-  - hero_id: example_hero
-    path: example_hero/hero.yaml
-notes:
-  - Legacy bridge only. Separate heroes/ directories are not canonical anymore.
-  - Template hero index only. Hero entries are overlays, not active unit state.

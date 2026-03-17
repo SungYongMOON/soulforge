@@ -57,7 +57,6 @@ flowchart TD
 - `.workflow` 와 `.party` 는 `.registry` 하위가 아니라 독립 root 다.
 - species/hero canon 은 `.registry/species/<species_id>/species.yaml` 와 inline `heroes:` 에 둔다.
 - `_workspaces/<project_code>/` actual content 는 local-only mission site content 로 관리한다.
-- `.agent` 와 `.agent_class` 는 transition bridge 일 뿐 canonical root 가 아니다.
 - `.run/` 루트는 새 정본에 포함하지 않는다.
 
 ## 자주 찾는 문서

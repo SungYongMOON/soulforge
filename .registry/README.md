@@ -31,8 +31,6 @@
 - party template canon
 - project-local runtime truth
 
-## 전환 메모
+## owner 문서 메모
 
-- `.agent/` 와 `.agent_class/` 는 transition bridge 로만 남아 있다.
-- 새 canonical entry 를 그 두 경로 아래에 추가하지 않는다.
-- owner-local 설명 문서는 앞으로 `.registry/docs/architecture/` 를 기준으로 맞춘다.
+- owner-local 설명 문서는 `.registry/docs/architecture/` 를 기준으로 맞춘다.
