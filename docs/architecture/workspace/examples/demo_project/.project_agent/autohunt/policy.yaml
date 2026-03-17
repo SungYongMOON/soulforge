@@ -1,0 +1,12 @@
+kind: autohunt_policy
+status: active
+mode: supervised
+auto_execute_known_monsters: true
+auto_execute_unknown_monsters: false
+max_retry_per_monster: 1
+escalate_on_first_failure: true
+record_manual_hunts: true
+promote_manual_hunts_automatically: false
+notes:
+  - supervised mode keeps known monsters on autohunt but escalates unknown cases directly to a human.
+  - actual retry counters and queue state remain local runtime data.

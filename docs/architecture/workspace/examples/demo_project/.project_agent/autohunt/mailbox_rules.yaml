@@ -1,0 +1,18 @@
+kind: mailbox_rules
+status: active
+rules:
+  - match:
+      - 가계도
+      - 계통도
+      - lineage
+      - family tree
+    monster_type: lineage_request
+  - match:
+      - 요약 보고서
+      - summary report
+      - 보고서
+    monster_type: summary_report_request
+default_action: escalate_to_human
+notes:
+  - mailbox rules classify messages into monster types before routing.
+  - unknown messages escalate instead of auto-executing.

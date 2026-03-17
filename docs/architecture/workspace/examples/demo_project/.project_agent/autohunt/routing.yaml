@@ -1,0 +1,12 @@
+kind: autohunt_routing
+status: active
+routes:
+  - monster_type: lineage_request
+    workflow_id: build_lineage_map
+    party_id: lineage_strike
+  - monster_type: summary_report_request
+    workflow_id: build_lineage_map
+    party_id: lineage_strike
+notes:
+  - routing picks reusable workflow and party canon only.
+  - actual run execution and failure history remain local runtime truth.

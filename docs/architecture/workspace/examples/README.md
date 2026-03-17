@@ -11,3 +11,4 @@
 - 여기의 sample 은 사람이 읽는 계약 예시다.
 - raw truth, runs, analytics, reports, artifacts 는 여기에 materialize 하지 않는다.
 - installed skill name, model id, MCP/tool hint 는 example binding 으로 둘 수 있지만 host-local path 는 넣지 않는다.
+- `autohunt/` sample 은 policy, routing, mailbox rule 같은 public-safe 운영 예시만 둔다.
