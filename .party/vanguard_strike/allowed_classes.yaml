@@ -1,5 +1,5 @@
-party_id: example_party
+party_id: vanguard_strike
 kind: allowed_classes
-status: template
+status: active
 class_ids:
   - knight

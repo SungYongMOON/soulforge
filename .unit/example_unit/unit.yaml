@@ -1,13 +1,13 @@
 unit_id: example_unit
 kind: unit
-status: draft
-title: Example Unit
-summary: Draft template unit kept only for owner-boundary examples.
+status: deprecated
+title: Deprecated Example Unit
+summary: Deprecated placeholder kept solely for owner-boundary documentation; remove from active use.
 profile_ref: example_unit_profile
 species_ref: .registry/species/human/species.yaml
 hero_id: wandering_knight
 class_refs:
   - .registry/classes/knight/class.yaml
 notes:
-  - Draft template only. Do not store secrets, raw runtime state, or project-local execution logs here.
+  - Deprecated placeholder for boundary explanation. Do not copy into production or store secrets, runtime state, or project logs here.
   - hero_id resolves within the selected species_ref.

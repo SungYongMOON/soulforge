@@ -1,0 +1,7 @@
+party_id: vanguard_strike
+kind: member_slots
+status: active
+slots:
+  - slot_id: leader
+    title: Leader
+    summary: Core member slot definition for the Vanguard Strike template.

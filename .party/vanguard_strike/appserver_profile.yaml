@@ -1,0 +1,6 @@
+party_id: vanguard_strike
+kind: appserver_profile
+status: active
+profile:
+  mode: active
+  summary: Canonical appserver profile describing Vanguard Strike operations.

@@ -1,6 +1,6 @@
-workflow_id: example_workflow
+workflow_id: frontline_assault
 kind: step_graph
-status: template
+status: active
 steps:
   - step_id: scout
     title: Scout

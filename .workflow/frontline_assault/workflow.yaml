@@ -1,0 +1,12 @@
+workflow_id: frontline_assault
+kind: workflow
+status: active
+title: Frontline Assault
+summary: Canonical workflow for coordinating the frontline assault, keeping curated lessons distinct from mission runtime truth.
+role_slots: role_slots.yaml
+step_graph: step_graph.yaml
+handoff_rules: handoff_rules.yaml
+monster_rules: monster_rules.yaml
+party_compatibility: party_compatibility.yaml
+notes:
+  - Curated lessons live in the workflow canon while raw execution truth remains with `_workspaces/<project_code>`.

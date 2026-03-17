@@ -1,0 +1,8 @@
+workflow_id: frontline_assault
+kind: handoff_rules
+status: active
+rules:
+  - from: guide
+    to: guide
+    condition: manual_review
+    summary: Canonical handoff rule for Frontline Assault coordination.

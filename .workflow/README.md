@@ -29,8 +29,7 @@
 - workflow 는 여러 unit 과 party 가 재사용하는 공략서이므로 raw 실행 결과와 분리되어야 한다.
 - public repo 에 남길 수 있는 것은 curated learning summary 뿐이고, raw run 은 mission site 가 소유한다.
 
-## template skeleton
+## 샘플 구성
 
-- [`index.yaml`](index.yaml): workflow catalog index template
-- [`example_workflow/workflow.yaml`](example_workflow/workflow.yaml): placeholder workflow definition
-- [`example_workflow/history/README.md`](example_workflow/history/README.md): curated history only rule
+- [`frontline_assault/workflow.yaml`](frontline_assault/workflow.yaml): Frontline Assault workflow canon for coordinated assault operations.
+- [`frontline_assault/history/README.md`](frontline_assault/history/README.md): history guidance that keeps curated lessons outside raw runtime truth.

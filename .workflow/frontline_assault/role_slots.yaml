@@ -1,0 +1,7 @@
+workflow_id: frontline_assault
+kind: role_slots
+status: active
+slots:
+  - slot_id: guide
+    title: Guide
+    summary: Primary role slot definition for the Frontline Assault workflow canon.

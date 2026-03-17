@@ -1,0 +1,7 @@
+workflow_id: frontline_assault
+kind: party_compatibility
+status: active
+compatible_party_ids:
+  - vanguard_strike
+notes:
+  - Canonical compatibility guidance; party performance truth remains in `_workspaces/<project_code>/`.

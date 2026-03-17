@@ -3,7 +3,22 @@
 ## 목적
 
 - renderer v1 이 정본 파일을 직접 소비하지 않으면서도 fixture 와 shell 이 느슨하게 유지되도록 guardrail 을 고정한다.
-- lint 는 예쁜 구현보다 contract 와 boundary 정합성을 먼저 검사한다.
+- lint 는 contract 와 boundary 정합성을 예쁜 구현보다 먼저 검사하며 canonical 경계를 지금 상태 그대로 유지한다.
+
+## read-only boundary lint
+
+- `packages/renderer-core/`, `packages/renderer-react/`, `packages/theme-*`, `apps/renderer-web/`, `apps/skin-lab-storybook/` 안에서는 `.registry`, `.unit`, `.workflow`, `.party`, `_workspaces` 정본을 직접 읽거나 import 하지 못하게 한다.
+- canonical 경로 문자열이 있어도 producer bridge 상황이 아니면 FAIL 처리하여 read-only boundary 를 유지한다.
+
+## package boundary lint
+
+- `apps/renderer-web` 은 `renderer-core`, `renderer-react`, `theme-*`, `ui-contract` package 경계만 사용한다.
+- `apps/skin-lab-storybook` 은 story/theme preview app 으로만 동작하고 다른 app shell internals 를 import 하지 않는다.
+- web shell 이 `packages/renderer-core/src/*`, `fixtures/`, `schemas/`, canonical tree 를 직접 import 하면 FAIL 처리를 받는다.
+- `packages/renderer-core` 는 `apps/renderer-web` 을 import 하지 않는다.
+- `packages/renderer-react` 는 concrete theme package, app shell, fixtures, schema 를 직접 import 하지 않는다.
+- `packages/theme-contract`, `packages/theme-*` 는 renderer package, app shell, canonical tree 에 직접 의존하지 않는다.
+- `packages/renderer-core/src/fixtures.ts` 의 repo fixture import 만 예외적으로 허용한다.
 
 ## catalog lint
 
@@ -17,21 +32,6 @@
 - `schemas/ui-state.schema.json` 으로 모든 `fixtures/ui-state/*.json` 을 validate 한다.
 - fixture mode 에서는 `source.mode = fixture`, `source.fixture_name` 존재, `schema_version = ui-state.v1` 을 함께 검사한다.
 - `species`, `units`, `classes`, `workflows`, `parties`, `workspaces` axis 존재와 `workspaces.mode = local_only_mount` 를 함께 검사한다.
-
-## read-only boundary lint
-
-- `packages/renderer-core/`, `packages/renderer-react/`, `packages/theme-*`, `apps/renderer-web/`, `apps/skin-lab-storybook/` 안에서 `.registry`, `.unit`, `.workflow`, `.party`, `_workspaces` 정본을 직접 읽거나 import 하지 못하게 한다.
-- canonical 경로 문자열이 있어도 producer bridge 가 아니면 FAIL 로 본다.
-
-## package boundary lint
-
-- `apps/renderer-web` 는 `renderer-core`, `renderer-react`, `theme-*`, `ui-contract` package 경계만 사용해야 한다.
-- `apps/skin-lab-storybook` 는 story/theme preview app 으로만 동작하고 다른 app shell internals 를 import 하지 않는다.
-- web shell 이 `packages/renderer-core/src/*`, `fixtures/`, `schemas/`, canonical tree 를 직접 import 하면 FAIL 로 본다.
-- `packages/renderer-core` 는 `apps/renderer-web` 를 import 하지 못한다.
-- `packages/renderer-react` 는 concrete theme package, app shell, fixtures, schema 를 직접 import 하지 못한다.
-- `packages/theme-contract`, `packages/theme-*` 는 renderer package, app shell, canonical tree 에 직접 의존하지 못한다.
-- `packages/renderer-core/src/fixtures.ts` 의 repo fixture import 만 예외적으로 허용한다.
 
 ## fixture coverage lint
 
@@ -53,7 +53,7 @@
 
 - canonical root 에서 `git ls-files _workspaces` 결과가 `_workspaces/README.md` 만 남는지 검사한다.
 - `.gitignore` 에 `_workspaces/**` 와 `!_workspaces/README.md` 규칙이 함께 있는지 검사한다.
-- `_workspaces/company/**`, `_workspaces/personal/**`, `_workspaces/<project_code>/**` 가 다시 public tracking 되면 FAIL 로 본다.
+- `_workspaces/company/**`, `_workspaces/personal/**`, `_workspaces/<project_code>/**` 가 public tracking 으로 다시 올라오면 FAIL 처리한다.
 
 ## 예외 원칙
 

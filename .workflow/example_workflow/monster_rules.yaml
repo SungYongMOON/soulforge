@@ -1,7 +1,0 @@
-workflow_id: example_workflow
-kind: monster_rules
-status: template
-rules:
-  - monster_id: ambiguity
-    response: clarify_scope_before_mutation
-    summary: Placeholder monster rule for the example workflow.

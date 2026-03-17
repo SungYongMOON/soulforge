@@ -212,7 +212,7 @@ function makeInvalidDependencyStory() {
       code: "workflow_dependency_invalid",
       message: "Workflow combo card requires a knowledge pack that is not installed in the current preview state.",
       severity: "error",
-      location_hint: ".workflow/example_workflow/workflow.yaml"
+      location_hint: ".workflow/frontline_assault/workflow.yaml"
     }
   ]);
   setWorkspaceState(state, "invalid");

@@ -1,0 +1,7 @@
+workflow_id: frontline_assault
+kind: monster_rules
+status: active
+rules:
+  - monster_id: ambiguity
+    response: clarify_scope_before_mutation
+    summary: Frontline Assault guardrail for ambiguity response.

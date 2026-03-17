@@ -1,8 +1,0 @@
-workflow_id: example_workflow
-kind: handoff_rules
-status: template
-rules:
-  - from: guide
-    to: guide
-    condition: manual_review
-    summary: Placeholder handoff rule for the example workflow.

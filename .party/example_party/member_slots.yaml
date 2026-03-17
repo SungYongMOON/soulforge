@@ -1,7 +1,0 @@
-party_id: example_party
-kind: member_slots
-status: template
-slots:
-  - slot_id: leader
-    title: Leader
-    summary: Placeholder member slot for the example party.

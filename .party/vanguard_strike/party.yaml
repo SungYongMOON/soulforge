@@ -1,0 +1,12 @@
+party_id: vanguard_strike
+kind: party_template
+status: active
+title: Vanguard Strike
+summary: Canonical party template for Vanguard Strike formations, keeping reusable fit notes separate from mission runtime performance data.
+member_slots: member_slots.yaml
+allowed_species: allowed_species.yaml
+allowed_classes: allowed_classes.yaml
+allowed_workflows: allowed_workflows.yaml
+appserver_profile: appserver_profile.yaml
+notes:
+  - Observations stay in the party canon while raw battle logs and performance truth remain in `_workspaces/<project_code>/`.

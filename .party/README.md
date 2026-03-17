@@ -29,8 +29,7 @@
 - party 는 조합 템플릿이므로 reusable fit 정보만 공개 정본에 남기고 실제 전투 기록은 mission site 에 남겨야 한다.
 - template-level stats 만 유지해야 party canon 과 project performance data 의 owner 경계가 분리된다.
 
-## template skeleton
+## 샘플 구성
 
-- [`index.yaml`](index.yaml): party template index
-- [`example_party/party.yaml`](example_party/party.yaml): placeholder party definition
-- [`example_party/stats/README.md`](example_party/stats/README.md): template-level stats only rule
+- [`vanguard_strike/party.yaml`](vanguard_strike/party.yaml): Vanguard Strike party template for reusable member combinations.
+- [`vanguard_strike/stats/README.md`](vanguard_strike/stats/README.md): canonical stats guidance that keeps observational notes outside project runtime truth.

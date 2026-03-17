@@ -53,10 +53,10 @@
           ".registry/classes/knight/class.yaml"
         ],
         "workflow_refs": [
-          ".workflow/example_workflow/workflow.yaml"
+          ".workflow/frontline_assault/workflow.yaml"
         ],
         "party_template_refs": [
-          ".party/example_party/party.yaml"
+          ".party/vanguard_strike/party.yaml"
         ],
         "required_dirs": [
           "policy",
@@ -98,18 +98,18 @@
     "catalog_ref": ".workflow/index.yaml",
     "items": [
       {
-        "id": "example_workflow",
-        "display_name": "Example Workflow",
-        "summary": "Reusable workflow canon template with curated history only.",
-        "source_ref": ".workflow/example_workflow/workflow.yaml",
-        "status": "template",
-        "role_slots_ref": ".workflow/example_workflow/role_slots.yaml",
-        "step_graph_ref": ".workflow/example_workflow/step_graph.yaml",
-        "handoff_rules_ref": ".workflow/example_workflow/handoff_rules.yaml",
-        "monster_rules_ref": ".workflow/example_workflow/monster_rules.yaml",
-        "party_compatibility_ref": ".workflow/example_workflow/party_compatibility.yaml",
+        "id": "frontline_assault",
+        "display_name": "Frontline Assault",
+        "summary": "Frontline Assault workflow canon with curated history only.",
+        "source_ref": ".workflow/frontline_assault/workflow.yaml",
+        "status": "active",
+        "role_slots_ref": ".workflow/frontline_assault/role_slots.yaml",
+        "step_graph_ref": ".workflow/frontline_assault/step_graph.yaml",
+        "handoff_rules_ref": ".workflow/frontline_assault/handoff_rules.yaml",
+        "monster_rules_ref": ".workflow/frontline_assault/monster_rules.yaml",
+        "party_compatibility_ref": ".workflow/frontline_assault/party_compatibility.yaml",
         "history_policy": "curated_summary_only",
-        "history_ref": ".workflow/example_workflow/history/README.md"
+        "history_ref": ".workflow/frontline_assault/history/README.md"
       }
     ]
   },
@@ -119,18 +119,18 @@
     "catalog_ref": ".party/index.yaml",
     "items": [
       {
-        "id": "example_party",
-        "display_name": "Example Party",
-        "summary": "Reusable party template with sanitized stats guidance only.",
-        "source_ref": ".party/example_party/party.yaml",
-        "status": "template",
-        "member_slots_ref": ".party/example_party/member_slots.yaml",
-        "allowed_species_ref": ".party/example_party/allowed_species.yaml",
-        "allowed_classes_ref": ".party/example_party/allowed_classes.yaml",
-        "allowed_workflows_ref": ".party/example_party/allowed_workflows.yaml",
-        "appserver_profile_ref": ".party/example_party/appserver_profile.yaml",
+        "id": "vanguard_strike",
+        "display_name": "Vanguard Strike",
+        "summary": "Vanguard Strike party template with sanitized stats guidance only.",
+        "source_ref": ".party/vanguard_strike/party.yaml",
+        "status": "active",
+        "member_slots_ref": ".party/vanguard_strike/member_slots.yaml",
+        "allowed_species_ref": ".party/vanguard_strike/allowed_species.yaml",
+        "allowed_classes_ref": ".party/vanguard_strike/allowed_classes.yaml",
+        "allowed_workflows_ref": ".party/vanguard_strike/allowed_workflows.yaml",
+        "appserver_profile_ref": ".party/vanguard_strike/appserver_profile.yaml",
         "stats_policy": "curated_summary_only",
-        "stats_ref": ".party/example_party/stats/README.md"
+        "stats_ref": ".party/vanguard_strike/stats/README.md"
       }
     ]
   },
@@ -337,9 +337,9 @@
       "knowledge": [],
       "workflows": [
         {
-          "id": "example_workflow",
-          "display_name": "Example Workflow",
-          "summary": "Reusable workflow canon template with curated history only.",
+          "id": "frontline_assault",
+          "display_name": "Frontline Assault",
+          "summary": "Frontline Assault workflow canon with curated history only.",
           "installed": true,
           "equipped": true,
           "active": true,
@@ -348,9 +348,9 @@
           "dependency_status": "resolved",
           "family": null,
           "category": "workflow",
-          "source_ref": ".workflow/example_workflow/workflow.yaml",
-          "source_hint": "vnext-template",
-          "catalog_ref": ".workflow/example_workflow/workflow.yaml",
+          "source_ref": ".workflow/frontline_assault/workflow.yaml",
+          "source_hint": "vnext-canon",
+          "catalog_ref": ".workflow/frontline_assault/workflow.yaml",
           "selectable_candidate": true
         }
       ]
@@ -404,10 +404,10 @@
       "knowledge_catalog": [],
       "workflows_catalog": [
         {
-          "id": "example_workflow",
-          "display_name": "Example Workflow",
-          "summary": "Reusable workflow canon template with curated history only.",
-          "source_ref": ".workflow/example_workflow/workflow.yaml",
+          "id": "frontline_assault",
+          "display_name": "Frontline Assault",
+          "summary": "Frontline Assault workflow canon with curated history only.",
+          "source_ref": ".workflow/frontline_assault/workflow.yaml",
           "active": false
         }
       ]

@@ -1,7 +1,0 @@
-workflow_id: example_workflow
-kind: party_compatibility
-status: template
-compatible_party_ids:
-  - example_party
-notes:
-  - Template only. Compatibility here is curated canon, not run performance data.
