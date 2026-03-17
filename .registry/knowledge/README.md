@@ -1,4 +1,5 @@
 # .registry/knowledge
 
-- `knowledge/` 는 reusable knowledge canon 을 위한 reserved skeleton 이다.
-- 이번 phase에서는 폴더와 설명만 만들고 sample YAML 과 상세 스키마는 만들지 않는다.
+- `knowledge/` 는 reusable knowledge canon 을 두는 registry surface 다.
+- 각 knowledge folder 는 `knowledge.yaml` 을 canon entry 로 사용한다.
+- class-local `knowledge_refs.yaml` 는 여기의 knowledge id 를 assign/ref 로 연결한다.

@@ -1,0 +1,12 @@
+knowledge_id: escort_etiquette
+kind: knowledge
+status: active
+title: Escort Etiquette
+summary: Protection posture rules for guarding a ward, convoy, or noncombatant line.
+focus:
+  primary_domain: escort conduct
+  applied_to:
+    - protected movement
+    - rear and flank coverage
+notes:
+  - `escort_etiquette` is the canonical knowledge behind `knight.escort_code`.

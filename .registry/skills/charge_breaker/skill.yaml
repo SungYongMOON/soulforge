@@ -1,0 +1,18 @@
+skill_id: charge_breaker
+kind: skill
+status: active
+title: Charge Breaker
+summary: Convert a confirmed opening into controlled forward pressure.
+behavior:
+  intent: Move through a bounded opening without widening scope unnecessarily.
+  use_when:
+    - the blocking point is already localized
+    - the next direct change is clear
+  avoid_when:
+    - requirements are still ambiguous
+    - the active boundary is not yet understood
+  expected_outcome:
+    - the immediate blocker is removed
+    - momentum continues without scope spread
+notes:
+  - `charge_breaker` is the canonical skill behind `knight.breach_entry`.

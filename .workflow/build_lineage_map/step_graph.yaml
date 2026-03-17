@@ -1,0 +1,83 @@
+workflow_id: build_lineage_map
+kind: step_graph
+status: active
+steps:
+  - step_id: investigate_sources
+    actor_slot: active_unit
+    action:
+      kind: skill
+      skill_id: shield_wall
+    inputs:
+      - source_documents
+      - source_notes
+    outputs:
+      - research_notes.md
+    summary: Inspect the source set, localize ambiguity, and establish the safest factual boundary.
+    next:
+      on_success: build_pbs
+      on_fail: stop
+  - step_id: build_pbs
+    actor_slot: active_unit
+    action:
+      kind: skill
+      skill_id: pbs_design
+    inputs:
+      - research_notes.md
+    outputs:
+      - lineage_pbs.md
+    summary: Break the lineage task into a clear PBS before diagram drafting.
+    next:
+      on_success: draft_mermaid
+      on_fail: stop
+  - step_id: draft_mermaid
+    actor_slot: active_unit
+    action:
+      kind: skill
+      skill_id: lineage_mermaid
+    inputs:
+      - lineage_pbs.md
+    outputs:
+      - lineage_map.md
+    summary: Draft the lineage graph in Mermaid markdown form.
+    next:
+      on_success: render_drawio
+      on_fail: stop
+  - step_id: render_drawio
+    actor_slot: active_unit
+    action:
+      kind: skill
+      skill_id: drawio_composition
+    inputs:
+      - lineage_map.md
+    outputs:
+      - lineage_map.drawio
+    summary: Convert the Mermaid draft into a draw.io diagram.
+    next:
+      on_success: export_svg
+      on_fail: stop
+  - step_id: export_svg
+    actor_slot: active_unit
+    action:
+      kind: skill
+      skill_id: svg_export
+    inputs:
+      - lineage_map.drawio
+    outputs:
+      - lineage_map.svg
+    summary: Export the finalized diagram as SVG.
+    next:
+      on_success: notify_completion
+      on_fail: stop
+  - step_id: notify_completion
+    actor_slot: active_unit
+    action:
+      kind: skill
+      skill_id: telegram_delivery
+    inputs:
+      - lineage_map.svg
+    outputs:
+      - completion_message.md
+    summary: Send a completion message with the final artifact reference.
+    next:
+      on_success: complete
+      on_fail: stop

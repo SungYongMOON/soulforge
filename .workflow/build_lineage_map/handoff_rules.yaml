@@ -1,0 +1,8 @@
+workflow_id: build_lineage_map
+kind: handoff_rules
+status: active
+rules:
+  - from: active_unit
+    to: active_unit
+    condition: single_unit_sequence
+    summary: Prototype workflow keeps every handoff on the same active unit.

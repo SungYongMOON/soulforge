@@ -1,0 +1,19 @@
+skill_id: shield_wall
+kind: skill
+status: active
+title: Shield Wall
+summary: Stabilize the frontline before advancing or widening scope.
+behavior:
+  intent: Reduce risk and establish a safe boundary before forward action.
+  use_when:
+    - uncertainty is high
+    - boundary violations are still being localized
+    - the next change path is not yet safe
+  avoid_when:
+    - the fix path is already clear and low-risk
+  expected_outcome:
+    - the active boundary is understood
+    - the safest next step is explicit
+notes:
+  - `shield_wall` is the canonical skill behind `knight.frontline_guard`.
+  - behavior is canon; runtime tool selection belongs to the execution layer.

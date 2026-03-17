@@ -1,0 +1,12 @@
+knowledge_id: frontline_doctrine
+kind: knowledge
+status: active
+title: Frontline Doctrine
+summary: Shared doctrine for first-contact order, spacing, and controlled advance.
+focus:
+  primary_domain: first contact discipline
+  applied_to:
+    - formation spacing
+    - risk-first advance
+notes:
+  - `frontline_doctrine` is the canonical knowledge behind `knight.line_doctrine`.

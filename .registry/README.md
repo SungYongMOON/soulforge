@@ -22,7 +22,8 @@
 - hero 는 species 내부의 `heroes:` inline entry 로만 표현한다.
 - class canon entry 와 assign/ref 입구는 `classes/<class_id>/class.yaml` 이다.
 - `species/human/species.yaml`, `classes/knight/**`, `.unit/vanguard_01/unit.yaml` 는 canonical sample 1세트로 유지한다.
-- `skills/`, `tools/`, `knowledge/` 는 skeleton 만 만들고 standalone sample YAML 은 아직 만들지 않는다.
+- `skills/`, `tools/`, `knowledge/` 는 reusable canon surface 이며, class-local refs 가 가리키는 entry 를 둘 수 있다.
+- `skills/shield_wall`, `skills/charge_breaker`, `tools/kite_shield`, `tools/field_lance`, `knowledge/frontline_doctrine`, `knowledge/escort_etiquette` 는 `knight` sample 을 해석하기 위한 minimal canon entry 다.
 
 ## 무엇을 두지 않는다
 

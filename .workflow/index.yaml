@@ -1,9 +1,12 @@
-version: vnext
+version: v1
 owner: .workflow
 kind: workflow_canon
-status: template
+status: active
 entries:
-  - workflow_id: example_workflow
-    path: example_workflow/workflow.yaml
+  - workflow_id: frontline_assault
+    path: frontline_assault/workflow.yaml
+  - workflow_id: build_lineage_map
+    path: build_lineage_map/workflow.yaml
 notes:
-  - Template workflow catalog only. Raw run ids and execution dumps do not belong here.
+  - Workflow catalog only. Raw run ids and execution dumps do not belong here.
+  - Authoring templates live under `authoring/` and are not workflow canon entries.

@@ -1,0 +1,12 @@
+tool_id: kite_shield
+kind: tool
+status: active
+title: Kite Shield
+summary: Standard frontal defense tool for absorbing first contact pressure.
+use_case:
+  primary_role: frontal guard
+  preferred_context:
+    - frontline stabilization
+    - escort posture
+notes:
+  - `kite_shield` is the canonical tool behind `knight.primary_guard`.

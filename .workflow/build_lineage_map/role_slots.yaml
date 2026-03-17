@@ -1,0 +1,7 @@
+workflow_id: build_lineage_map
+kind: role_slots
+status: active
+slots:
+  - slot_id: active_unit
+    title: Active Unit
+    summary: Single-unit prototype slot for running the lineage-map workflow end to end.

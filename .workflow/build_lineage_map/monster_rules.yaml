@@ -1,0 +1,7 @@
+workflow_id: build_lineage_map
+kind: monster_rules
+status: active
+rules:
+  - monster_type: lineage_request
+    response: run_build_lineage_map
+    summary: Use this workflow when the encounter contains a lineage-map request.

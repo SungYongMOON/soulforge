@@ -1,0 +1,23 @@
+workflow_id: build_lineage_map
+kind: workflow
+status: active
+title: Build Lineage Map
+summary: Build a lineage package from source documents, intermediate planning, rendered diagrams, and completion delivery.
+entrypoint: run
+execution_mode: single_unit
+role_slots: role_slots.yaml
+step_graph: step_graph.yaml
+handoff_rules: handoff_rules.yaml
+monster_rules: monster_rules.yaml
+party_compatibility: party_compatibility.yaml
+inputs:
+  - source_documents
+  - source_notes
+outputs:
+  - lineage_map.md
+  - lineage_map.drawio
+  - lineage_map.svg
+  - completion_message.md
+notes:
+  - This sample models a work procedure workflow rather than a battle-only routine.
+  - Runtime truth and produced artifacts still belong under `_workspaces/<project_code>/.project_agent/runs/<run_id>/`.

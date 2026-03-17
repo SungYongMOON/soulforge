@@ -1,0 +1,27 @@
+workflow_id: draft_workflow_id
+kind: workflow
+status: draft
+title: Draft Workflow Title
+summary: One-line summary of the job this workflow performs.
+entrypoint: run
+execution_mode: single_unit
+inputs:
+  - input_ref: required_input
+outputs:
+  - output_ref: final_artifact
+notes:
+  - Draft workflow built from a real task note.
+
+steps:
+  - step_id: first_step
+    actor_slot: active_unit
+    action:
+      kind: skill
+      skill_id: canonical_skill_id
+    inputs:
+      - required_input
+    outputs:
+      - intermediate_artifact
+    next:
+      on_success: next_step
+      on_fail: stop

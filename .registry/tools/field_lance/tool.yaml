@@ -1,0 +1,12 @@
+tool_id: field_lance
+kind: tool
+status: active
+title: Field Lance
+summary: Reach tool used to test and widen a controlled opening from the front.
+use_case:
+  primary_role: advance reach
+  preferred_context:
+    - breach pressure
+    - mounted or extended engagement
+notes:
+  - `field_lance` is the canonical tool behind `knight.advance_reach`.

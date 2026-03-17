@@ -1,0 +1,7 @@
+workflow_id: build_lineage_map
+kind: party_compatibility
+status: active
+compatible_party_ids:
+  - vanguard_strike
+notes:
+  - Single-unit prototype compatibility only. Runtime party assignment still belongs to the mission site.
