@@ -30,6 +30,7 @@ flowchart TD
 - `workflow` 는 절차와 step 순서를 소유한다.
 - `party` 는 slot 과 unit composition 을 소유한다.
 - `autohunt` 는 어떤 monster 를 어떤 workflow / party 로 자동 보낼지 소유한다.
+- `autohunt` 는 필요하면 runner 로 넘길 dispatch request 를 만든다.
 - `runner` 는 workflow 와 party 를 읽어 실제 sub-agent execution 을 수행한다.
 - raw truth 는 언제나 `runs/<run_id>/` 아래에 남긴다.
 

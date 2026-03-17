@@ -41,7 +41,8 @@ flowchart TD
 4. `skill_execution_binding.yaml` 이 canonical `skill_id` 를 installed Codex skill name 으로 resolve 한다.
 5. `execution_profile_binding.yaml` 이 `execution_profile_ref` 를 model, reasoning, attached skill name, preferred MCP/tool set 으로 resolve 한다.
 6. sub-agent spawn payload 는 workflow step, resolved unit, resolved Codex skill name, execution profile, input file set 을 합쳐 생성한다.
-7. 실행 결과와 intermediate truth 는 `runs/<run_id>/` 아래에 남긴다.
+7. tracked example 에서는 이 중간 상태를 `runner/run_packet.yaml` 같은 public-safe packet example 로만 보여줄 수 있다.
+8. 실행 결과와 intermediate truth 는 `runs/<run_id>/` 아래에 남긴다.
 
 ## tracked example 과 local materialization
 

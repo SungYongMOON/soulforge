@@ -9,6 +9,7 @@
 
 - `WORKSPACE_PROJECT_MODEL.md`
 - `AUTOHUNT_MODEL.md`
+- `RUNNER_EXECUTION_MODEL.md`
 - `WORKFLOW_EXECUTION_BINDING_MODEL.md`
 - `PROJECT_AGENT_MINIMUM_SCHEMA.md`
 - `PROJECT_AGENT_RESOLVE_CONTRACT.md`
@@ -21,6 +22,7 @@
 - [`../README.md`](../README.md)
 - [`WORKSPACE_PROJECT_MODEL.md`](WORKSPACE_PROJECT_MODEL.md)
 - [`AUTOHUNT_MODEL.md`](AUTOHUNT_MODEL.md)
+- [`RUNNER_EXECUTION_MODEL.md`](RUNNER_EXECUTION_MODEL.md)
 - [`WORKFLOW_EXECUTION_BINDING_MODEL.md`](WORKFLOW_EXECUTION_BINDING_MODEL.md)
 - [`PROJECT_AGENT_MINIMUM_SCHEMA.md`](PROJECT_AGENT_MINIMUM_SCHEMA.md)
 - [`PROJECT_AGENT_RESOLVE_CONTRACT.md`](PROJECT_AGENT_RESOLVE_CONTRACT.md)
@@ -36,3 +38,4 @@
 - split binding 파일은 `bindings/*.yaml` 상대 경로 포인터 규칙을 사용한다.
 - workflow step 의 `execution_profile_ref` 와 `action.skill_id` 는 local runtime binding 을 통해 model, skill package, MCP/tool preset 으로 resolve 할 수 있다.
 - `autohunt/` 는 mailbox routing, workflow-party selection, retry-escalation policy 를 설명하는 local operating layer 다.
+- runner 는 autohunt 가 고른 workflow/party 를 실제 execution packet 으로 잇는 local execution role 이다.

@@ -1,0 +1,26 @@
+kind: runner_run_packet
+status: active
+dispatch_id: lineage_dispatch_demo
+workflow_id: build_lineage_map
+party_id: lineage_strike
+step_id: investigate_sources
+actor_slot: stabilizer
+selected_unit_id: vanguard_01
+selection_reason: lineage_strike.stabilizer resolves vanguard_01 for the opening stabilizer step.
+skill_id: shield_wall
+codex_skill_name: soulforge-shield-wall
+execution_profile_ref: analysis_heavy
+model: gpt-5.1-codex-mini
+reasoning_effort: medium
+attached_skill_names:
+  - soulforge-shield-wall
+preferred_mcps: []
+preferred_tools:
+  - rg
+input_refs:
+  - mail/incoming_request.md
+  - sources/lineage_source_notes.md
+next_on_success: build_pbs
+notes:
+  - run packet is resolved execution metadata, not raw execution truth.
+  - actual run output, transcripts, and artifacts remain under runs/<run_id>/ only.

@@ -1,0 +1,13 @@
+kind: runner_dispatch_request
+status: active
+dispatch_id: lineage_dispatch_demo
+monster_type: lineage_request
+workflow_id: build_lineage_map
+party_id: lineage_strike
+entry_step_id: investigate_sources
+source_refs:
+  - mail/incoming_request.md
+  - sources/lineage_source_notes.md
+notes:
+  - dispatch request is the public-safe handoff from autohunt routing into runner execution.
+  - actual mailbox payload and raw source dump remain local runtime truth.
