@@ -1,0 +1,6 @@
+party_id: lineage_strike
+kind: appserver_profile
+status: active
+profile:
+  mode: active
+  summary: Canonical appserver profile for lineage-production coordination and delivery.

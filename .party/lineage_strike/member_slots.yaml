@@ -1,0 +1,16 @@
+party_id: lineage_strike
+kind: member_slots
+status: active
+slots:
+  - slot_id: investigator
+    title: Investigator
+    unit_id: scribe_01
+    class_ids:
+      - archivist
+    summary: Evidence-first investigator slot for source inspection and relationship stitching.
+  - slot_id: stabilizer
+    title: Stabilizer
+    unit_id: vanguard_01
+    class_ids:
+      - knight
+    summary: Boundary-first stabilizer slot for risk control before the workflow widens scope.

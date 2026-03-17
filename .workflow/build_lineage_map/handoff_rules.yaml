@@ -2,7 +2,11 @@ workflow_id: build_lineage_map
 kind: handoff_rules
 status: active
 rules:
-  - from: active_unit
-    to: active_unit
-    condition: single_unit_sequence
-    summary: Prototype workflow keeps every handoff on the same active unit.
+  - from: stabilizer
+    to: investigator
+    condition: boundary_stabilized
+    summary: Once the safe factual boundary is explicit, the investigator can draft the first lineage structure.
+  - from: investigator
+    to: investigator
+    condition: investigator_continues
+    summary: Later drafting steps may stay on the investigator until a richer party is attached.

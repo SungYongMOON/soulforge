@@ -4,7 +4,7 @@ status: active
 title: Build Lineage Map
 summary: Build a lineage package from source documents, intermediate planning, rendered diagrams, and completion delivery.
 entrypoint: run
-execution_mode: single_unit
+execution_mode: party_sequence
 role_slots: role_slots.yaml
 step_graph: step_graph.yaml
 handoff_rules: handoff_rules.yaml
@@ -20,4 +20,5 @@ outputs:
   - completion_message.md
 notes:
   - This sample models a work procedure workflow rather than a battle-only routine.
+  - The opening handoff uses the party's `stabilizer` slot to bound risk before the `investigator` slot drafts the first structure.
   - Runtime truth and produced artifacts still belong under `_workspaces/<project_code>/.project_agent/runs/<run_id>/`.

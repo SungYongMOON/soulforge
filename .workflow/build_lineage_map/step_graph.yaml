@@ -3,7 +3,7 @@ kind: step_graph
 status: active
 steps:
   - step_id: investigate_sources
-    actor_slot: active_unit
+    actor_slot: stabilizer
     execution_profile_ref: analysis_heavy
     action:
       kind: skill
@@ -18,16 +18,16 @@ steps:
       on_success: build_pbs
       on_fail: stop
   - step_id: build_pbs
-    actor_slot: active_unit
+    actor_slot: investigator
     execution_profile_ref: structured_planning
     action:
       kind: skill
-      skill_id: pbs_design
+      skill_id: record_stitch
     inputs:
       - research_notes.md
     outputs:
       - lineage_pbs.md
-    summary: Break the lineage task into a clear PBS before diagram drafting.
+    summary: Turn bounded lineage notes into a coherent draft structure before diagram drafting.
     next:
       on_success: draft_mermaid
       on_fail: stop

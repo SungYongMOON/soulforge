@@ -1,0 +1,7 @@
+interface:
+  display_name: "Record Stitch"
+  short_description: "Bounded evidence-to-draft structuring"
+  default_prompt: "Use $soulforge-record-stitch to turn bounded evidence into a coherent intermediate draft without inventing unsupported relations."
+
+policy:
+  allow_implicit_invocation: true

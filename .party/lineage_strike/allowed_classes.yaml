@@ -1,0 +1,6 @@
+party_id: lineage_strike
+kind: allowed_classes
+status: active
+class_ids:
+  - archivist
+  - knight

@@ -4,4 +4,7 @@ status: active
 slots:
   - slot_id: leader
     title: Leader
-    summary: Core member slot definition for the Vanguard Strike template.
+    unit_id: vanguard_01
+    class_ids:
+      - knight
+    summary: Frontline lead slot anchored to the active knight unit for assault workflows.

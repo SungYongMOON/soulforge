@@ -13,5 +13,15 @@ behavior:
   expected_outcome:
     - a coherent draft exists
     - speculative edges remain explicitly labeled
+execution_requirements:
+  required_capabilities:
+    - structured_drafting
+  preferred_capabilities:
+    - evidence_review
+  preferred_tools:
+    - rg
+    - markdown_editor
+  notes:
+    - actual model, attached skill package, and tool choice resolve in local runtime execution bindings.
 notes:
   - `record_stitch` is the canonical skill behind `archivist.record_stitch`.
