@@ -2,7 +2,7 @@ schema_id: soulforge.workspace.project_agent_contract.v1
 kind: canonical_schema
 applies_to:
   owner: .project_agent
-  path: docs/architecture/workspace/examples/<project_code>/.project_agent/contract.yaml
+  path: .project_agent/contract.yaml
 required_fields:
   - name: project_code
     type: string
@@ -36,6 +36,8 @@ optional_fields:
     type: list[string]
     description: Human-readable notes.
 field_rules:
+  - field: unit_ref
+    rule: Pointer to .unit/<unit_id>/unit.yaml. The referenced unit uses unit_id, status, summary, identity, class_ids.
   - field: bindings.workflow
     rule: Relative path file pointer from contract.yaml to workflow_binding.yaml.
   - field: bindings.party
@@ -49,5 +51,6 @@ field_rules:
   - field: status
     rule: Use only draft, active, archived.
 notes:
+  - The same contract shape applies to local _workspaces/<project_code>/.project_agent/contract.yaml and to tracked examples under docs/architecture/workspace/examples/.
   - Tracked example contracts live under docs/architecture/workspace/examples/, not under _workspaces/.
-  - Actual runtime data remains local-only.
+  - Actual runtime data remains local-only under runs/<run_id>/.

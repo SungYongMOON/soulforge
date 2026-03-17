@@ -4,4 +4,6 @@ status: active
 profile_ref: strike_front_v1
 formation_role: spearhead
 notes:
+  - party_id resolves to .party/vanguard_strike/party.yaml.
   - profile_ref is a string id.
+  - party binding remains orchestration metadata and does not own raw truth.

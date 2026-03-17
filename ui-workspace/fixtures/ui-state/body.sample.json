@@ -7,7 +7,7 @@
     "adapter": "vnext-6-axis",
     "fixture_name": "body",
     "notes": [
-      "Body-compatibility synthetic fixture for the current six-axis contract.",
+      "Body-compatibility synthetic fixture for the current six-axis consumer contract derived from five canonical roots.",
       "The visible body panel is a unit-owner projection, not a body root canon."
     ]
   },
@@ -19,7 +19,7 @@
       {
         "id": "human",
         "display_name": "Human",
-        "summary": "vNext species catalog baseline for public fixtures.",
+        "summary": "Canonical species catalog baseline for public fixtures.",
         "source_ref": ".registry/species/human/species.yaml",
         "status": "template",
         "hero_catalog_ref": ".registry/species/human/species.yaml",
@@ -150,7 +150,7 @@
     "active_species": {
       "id": "human",
       "display_name": "Human",
-      "summary": "vNext species catalog baseline for public fixtures.",
+        "summary": "Canonical species catalog baseline for public fixtures.",
       "source_ref": ".registry/species/human/species.yaml",
       "active": true
     },
@@ -199,7 +199,7 @@
     "active_species": {
       "id": "human",
       "display_name": "Human",
-      "summary": "vNext species catalog baseline for public fixtures.",
+      "summary": "Canonical species catalog baseline for public fixtures.",
       "source_ref": ".registry/species/human/species.yaml",
       "active": true
     },
@@ -378,7 +378,7 @@
         {
           "id": "human",
           "display_name": "Human",
-          "summary": "vNext species catalog baseline for public fixtures.",
+          "summary": "Canonical species catalog baseline for public fixtures.",
           "source_ref": ".registry/species/human/species.yaml",
           "active": false
         }

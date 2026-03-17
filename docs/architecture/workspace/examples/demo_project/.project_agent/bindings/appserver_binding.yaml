@@ -5,3 +5,4 @@ profile_ref: codex_surface_v1
 surface: codex_app_server
 notes:
   - profile_ref is a string id.
+  - appserver binding stays under .project_agent/bindings/ and does not own run truth.

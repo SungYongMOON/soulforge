@@ -9,6 +9,7 @@
 
 - `derive-ui-state --json` 또는 fixture JSON 을 읽는다.
 - normalized UI state contract 를 기준으로 overview, body, class, workspaces, diagnostics surface 를 렌더링한다.
+- producer 가 5 canonical root 에서 풀어낸 6 consumer axis projection metadata 를 함께 읽을 수 있다.
 - local selection state 를 통해 탭 전환, item focus, catalog preview, info dock context 를 관리한다.
 
 ## non-goals
@@ -22,7 +23,7 @@
 
 ```mermaid
 flowchart LR
-  SRC["Canonical source<br/>.registry / .unit / .workflow / .party / _workspaces"] --> DERIVE["derive-ui-state --json"]
+  SRC["5 canonical roots<br/>.registry / .unit / .workflow / .party / _workspaces"] --> DERIVE["derive-ui-state --json"]
   FIX["fixture JSON"] --> CORE["renderer-core"]
   DERIVE --> CORE
   CORE --> WEB["renderer-web shell"]
@@ -30,6 +31,7 @@ flowchart LR
 ```
 
 - canonical source scan/resolve/validate/derive 는 producer concern 이다.
+- producer 는 5 canonical root 를 6 consumer axis 와 renderer surface 입력으로 정리한다.
 - renderer-core 는 producer output 을 normalize 하고 view-model 로 변환하는 consumer concern 이다.
 - renderer-web 는 shell, theme, interaction surface 만 가진다.
 
@@ -81,7 +83,7 @@ v1 은 local selection 만 가진다.
 ## 구조 병행 개발이 가능한 이유
 
 - `.registry`, `.unit`, `.workflow`, `.party`, `_workspaces` 구조는 계속 자랄 수 있다.
-- producer 는 canonical source 를 scan/resolve/derive 한다.
+- producer 는 canonical source 를 scan/resolve/derive 하며 6 consumer axis projection 을 만든다.
 - renderer 는 normalized contract 만 신뢰한다.
 - 따라서 canonical 구조 변경은 producer/fixture 갱신으로 흡수하고, renderer surface 자체는 느슨하게 유지할 수 있다.
 

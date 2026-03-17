@@ -10,5 +10,6 @@ bindings:
   mailbox: bindings/mailbox_binding.yaml
 runtime_truth_root: runs/
 notes:
+  - unit_ref points to the canonical active unit sample under .unit/.
   - bindings.* are relative path file pointers from contract.yaml.
   - raw truth always materializes under runs/<run_id>/ in local workspaces.

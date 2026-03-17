@@ -5,3 +5,4 @@ profile_ref: dispatch_triage_v1
 routing_mode: dispatch_queue
 notes:
   - profile_ref is a string id.
+  - mailbox binding is routing metadata only; run truth remains under runs/<run_id>/.
