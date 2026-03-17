@@ -11,21 +11,26 @@
 - `TARGET_TREE.md`
 - `DOCUMENT_OWNERSHIP.md`
 - `AGENT_WORLD_MODEL.md`
+- `schema/`
+- `SCHEMA_FIELD_MATRIX.md`
 
-## archive 로 분리한 문서
+## archive 링크
 
-- [`../archive/foundation/MIGRATION_REFERENCE.md`](../archive/foundation/MIGRATION_REFERENCE.md)
-- [`../archive/foundation/agent_body_finalization_report.md`](../archive/foundation/agent_body_finalization_report.md)
+- [`../archive/README.md`](../archive/README.md)
 
 ## 관련 경로
 
 - [`../README.md`](../README.md)
+- [`.registry/README.md`](../../../.registry/README.md)
 - [`REPOSITORY_PURPOSE.md`](REPOSITORY_PURPOSE.md)
 - [`TARGET_TREE.md`](TARGET_TREE.md)
 - [`DOCUMENT_OWNERSHIP.md`](DOCUMENT_OWNERSHIP.md)
+- [`schema/README.md`](schema/README.md)
+- [`SCHEMA_FIELD_MATRIX.md`](SCHEMA_FIELD_MATRIX.md)
 
 ## 상태
 
 - Stable
 - 저장소 전체 기준선과 장기 참조 문서를 묶는다.
-- active semantics 는 `AGENT_WORLD_MODEL.md` 에 통합하고, 보고서/이행 참고는 archive 로 분리한다.
+- active owner-local canon 은 `.registry/`, `.unit/`, `.workflow/`, `.party/`, `_workspaces/` 에서 읽는다.
+- active semantics 는 `AGENT_WORLD_MODEL.md` 에 통합하고, 배경 보고서는 archive 링크로 분리한다.

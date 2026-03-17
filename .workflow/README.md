@@ -4,6 +4,7 @@
 
 - `.workflow/` 는 workflow canon 과 curated learning history 의 정본 루트다.
 - 각 workflow 는 작업 공략서, 협업 절차, handoff 규칙을 소유한다.
+- `.workflow/` 는 `.registry` 아래로 들어가지 않는 독립 orchestration root 다.
 - `.workflow/` 는 raw run dump, project-local battle log, run index owner 가 아니다.
 
 ## 무엇을 둔다

@@ -1,0 +1,16 @@
+species_id: human
+kind: species
+status: active
+title: Human
+summary: Adaptable baseline species for disciplined frontline units.
+heroes:
+  - hero_id: wandering_knight
+    title: Wandering Knight
+    summary: A roaming frontline exemplar who stabilizes the first breach.
+    profile_ref: wandering_knight_field
+    biases:
+      frontline_assault: 0.95
+      vanguard_strike: 0.9
+notes:
+  - hero_id is unique only within this species.
+  - biases are recommendation weights, not policy.

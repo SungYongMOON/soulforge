@@ -10,6 +10,9 @@
 - `WORKSPACE_PROJECT_MODEL.md`
 - `PROJECT_AGENT_MINIMUM_SCHEMA.md`
 - `PROJECT_AGENT_RESOLVE_CONTRACT.md`
+- `schema/`
+- `examples/`
+- `PROJECT_AGENT_SCHEMA_FIELD_MATRIX.md`
 
 ## 관련 경로
 
@@ -17,9 +20,13 @@
 - [`WORKSPACE_PROJECT_MODEL.md`](WORKSPACE_PROJECT_MODEL.md)
 - [`PROJECT_AGENT_MINIMUM_SCHEMA.md`](PROJECT_AGENT_MINIMUM_SCHEMA.md)
 - [`PROJECT_AGENT_RESOLVE_CONTRACT.md`](PROJECT_AGENT_RESOLVE_CONTRACT.md)
+- [`schema/README.md`](schema/README.md)
+- [`examples/README.md`](examples/README.md)
+- [`PROJECT_AGENT_SCHEMA_FIELD_MATRIX.md`](PROJECT_AGENT_SCHEMA_FIELD_MATRIX.md)
 
 ## 상태
 
 - Stable
 - workspace 구조와 `.project_agent` 계약의 root-owned 정본 묶음이다.
-- `workflow_bindings.yaml` 는 workflow 연결뿐 아니라 선택적 mutation scope 도 함께 설명할 수 있다.
+- tracked workspace sample 은 `examples/` 아래에서만 유지한다.
+- split binding 파일은 `bindings/*.yaml` 상대 경로 포인터 규칙을 사용한다.

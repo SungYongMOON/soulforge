@@ -1,0 +1,13 @@
+unit_id: vanguard_01
+kind: unit
+status: active
+title: Vanguard 01
+summary: Active frontline subject aligned to the wandering knight pattern.
+profile_ref: vanguard_field_alpha
+species_ref: .registry/species/human/species.yaml
+hero_id: wandering_knight
+class_refs:
+  - .registry/classes/knight/class.yaml
+notes:
+  - hero_id resolves within the selected species_ref.
+  - profile_ref is a string id.

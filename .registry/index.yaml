@@ -1,0 +1,15 @@
+version: phase1
+owner: .registry
+kind: outer_canon_store
+status: skeleton
+paths:
+  species: species/
+  classes: classes/
+  skills: skills/
+  tools: tools/
+  knowledge: knowledge/
+  docs: docs/architecture/
+notes:
+  - Phase 1 cutover skeleton only.
+  - Species canon uses species/<species_id>/species.yaml with heroes inline.
+  - Do not treat .agent or .agent_class as canonical roots.

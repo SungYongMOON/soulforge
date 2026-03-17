@@ -1,0 +1,12 @@
+class_id: knight
+kind: knowledge_refs
+status: active
+assign:
+  - assign: line_doctrine
+    ref: frontline_doctrine
+    summary: Shared doctrine for first-contact order.
+  - assign: escort_code
+    ref: escort_etiquette
+    summary: Canon knowledge for escort and protection posture.
+notes:
+  - assign/ref pairs are class-local bindings into canonical knowledge ids.

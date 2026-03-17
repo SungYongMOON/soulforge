@@ -16,8 +16,7 @@
 
 ## 제외 대상
 
-- `.agent` 전용 구조 문서
-- `.agent_class` 전용 구조 문서
+- `.registry` owner-local 구조 문서
 - 특정 프로젝트 전용 문서
 
 ## 읽는 순서
@@ -39,9 +38,8 @@
 - [`ui/README.md`](ui/README.md)
 - [`lifecycle/README.md`](lifecycle/README.md)
 - [`archive/README.md`](archive/README.md)
-- [`.agent/README.md`](../../.agent/README.md)
-- [`.agent_class/docs/architecture/README.md`](../../.agent_class/docs/architecture/README.md)
-- [`.agent_class/README.md`](../../.agent_class/README.md)
+- [`.registry/README.md`](../../.registry/README.md)
+- [`.registry/docs/architecture/README.md`](../../.registry/docs/architecture/README.md)
 - [`docs/ui/README.md`](../ui/README.md)
 
 ## 상태
@@ -49,6 +47,6 @@
 - Stable
 - 저장소 공용 아키텍처 문서의 정본 위치다.
 - root 에는 index 역할의 `README.md` 만 두고, 실제 문서는 하위 묶음에서 owner 성격별로 읽게 한다.
-- manual 기준선으로 쓰는 활성 문서와, 배경 설명용 archive 문서를 분리한다.
+- active 구조 문서와 archive 문서를 분리한다.
+- `.agent` 와 `.agent_class` 는 active canon 이 아니라 transition bridge 로 본다.
 - renderer consumer model, selection model, theme plan 정본은 계속 `ui-workspace/docs/` 에서 분리 관리한다.
-- owner-local body/loadout-era 문서는 historical reference 로만 취급한다.

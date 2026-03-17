@@ -1,0 +1,52 @@
+schema_id: soulforge.foundation.species.v1
+kind: canonical_schema
+applies_to:
+  owner: .registry
+  path: .registry/species/<species_id>/species.yaml
+required_fields:
+  - name: species_id
+    type: string
+    description: Species canon identifier.
+  - name: kind
+    type: string
+    fixed: species
+  - name: status
+    type: enum
+    allowed:
+      - draft
+      - active
+      - archived
+  - name: title
+    type: string
+    description: Human-readable species title.
+  - name: summary
+    type: string
+    description: Short canonical description.
+  - name: heroes
+    type: list
+    item_type: object
+    item_required_fields:
+      - hero_id
+      - title
+      - summary
+      - profile_ref
+optional_fields:
+  - name: notes
+    type: list[string]
+    description: Human-readable canon notes.
+field_rules:
+  - field: species_id
+    rule: Folder name and file payload must match.
+  - field: heroes
+    rule: Heroes are inline entries inside species.yaml. Separate heroes/ directory is not canonical.
+  - field: heroes[].hero_id
+    rule: Unique only within the enclosing species.
+  - field: heroes[].profile_ref
+    rule: String id, not a path.
+  - field: heroes[].biases
+    rule: Optional mapping of recommendation weights. It is not policy.
+  - field: status
+    rule: Use only draft, active, archived.
+notes:
+  - This is a human-readable canonical schema document, not a formal JSON Schema.
+  - Raw truth never belongs here; runtime truth stays under runs/<run_id>/ in local workspaces.

@@ -1,14 +1,14 @@
 unit_id: example_unit
-kind: active_unit
-status: template
+kind: unit
+status: draft
 title: Example Unit
-species_ref: .agent/species/human/species.yaml
-hero_ref: .agent/species/human/heroes/example_hero/hero.yaml
-class_package_refs:
-  - .agent_class/example_class/class.yaml
-workflow_refs:
-  - .workflow/example_workflow/workflow.yaml
-party_template_refs:
-  - .party/example_party/party.yaml
+summary: Draft template unit kept only for owner-boundary examples.
+profile_ref: example_unit_profile
+species_ref: .registry/species/human/species.yaml
+hero_id: wandering_knight
+class_refs:
+  - .registry/classes/knight/class.yaml
 notes:
-  - Template only. Do not store secrets, raw runtime state, or project-local execution logs here.
+  - Draft template only. Do not store secrets, raw runtime state, or project-local execution logs here.
+  - hero_id resolves within the selected species_ref.
+  - Legacy bridge references to .agent and .agent_class are no longer canonical here.

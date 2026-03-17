@@ -1,0 +1,7 @@
+appserver_id: vanguard_console
+kind: appserver_binding
+status: active
+profile_ref: codex_surface_v1
+surface: codex_app_server
+notes:
+  - profile_ref is a string id.

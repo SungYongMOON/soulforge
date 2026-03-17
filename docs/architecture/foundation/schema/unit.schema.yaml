@@ -1,0 +1,52 @@
+schema_id: soulforge.foundation.unit.v1
+kind: canonical_schema
+applies_to:
+  owner: .unit
+  path: .unit/<unit_id>/unit.yaml
+required_fields:
+  - name: unit_id
+    type: string
+    description: Active subject identifier.
+  - name: kind
+    type: string
+    fixed: unit
+  - name: status
+    type: enum
+    allowed:
+      - draft
+      - active
+      - archived
+  - name: title
+    type: string
+  - name: summary
+    type: string
+  - name: profile_ref
+    type: string
+    description: String id for the unit's active-default profile.
+  - name: species_ref
+    type: string
+    description: Canonical pointer to species.yaml.
+  - name: hero_id
+    type: string
+    description: Inline hero selection within species_ref.
+  - name: class_refs
+    type: list[string]
+    description: Canonical class pointers.
+optional_fields:
+  - name: notes
+    type: list[string]
+    description: Human-readable owner notes.
+field_rules:
+  - field: profile_ref
+    rule: String id, not a path.
+  - field: species_ref
+    rule: Points to .registry/species/<species_id>/species.yaml.
+  - field: hero_id
+    rule: Resolves only within the selected species_ref.
+  - field: class_refs
+    rule: Canonical class pointers to .registry/classes/<class_id>/class.yaml.
+  - field: status
+    rule: Use only draft, active, archived.
+notes:
+  - Unit is the active subject root. It does not own workflow, party, or project-local runtime truth.
+  - Runtime truth remains under runs/<run_id>/ in local workspaces.

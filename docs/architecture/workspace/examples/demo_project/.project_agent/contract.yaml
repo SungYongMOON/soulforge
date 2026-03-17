@@ -1,0 +1,14 @@
+project_code: demo_project
+kind: project_agent_contract
+status: active
+display_name: Demo Project
+unit_ref: ../../../../../../.unit/vanguard_01/unit.yaml
+bindings:
+  workflow: bindings/workflow_binding.yaml
+  party: bindings/party_binding.yaml
+  appserver: bindings/appserver_binding.yaml
+  mailbox: bindings/mailbox_binding.yaml
+runtime_truth_root: runs/
+notes:
+  - bindings.* are relative path file pointers from contract.yaml.
+  - raw truth always materializes under runs/<run_id>/ in local workspaces.

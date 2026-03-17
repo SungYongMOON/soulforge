@@ -1,0 +1,8 @@
+workflow_id: frontline_assault
+kind: workflow_binding
+status: active
+profile_ref: assault_opening_v1
+entrypoint: run
+notes:
+  - profile_ref is a string id.
+  - runtime truth belongs under runs/<run_id>/.

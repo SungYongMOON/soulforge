@@ -1,0 +1,12 @@
+class_id: knight
+kind: tool_refs
+status: active
+assign:
+  - assign: primary_guard
+    ref: kite_shield
+    summary: Standard frontal defense tool.
+  - assign: advance_reach
+    ref: field_lance
+    summary: Reach tool for controlled opening pressure.
+notes:
+  - assign/ref pairs are class-local bindings into canonical tool ids.

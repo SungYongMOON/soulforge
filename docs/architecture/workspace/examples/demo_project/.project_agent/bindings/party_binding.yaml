@@ -1,0 +1,7 @@
+party_id: vanguard_strike
+kind: party_binding
+status: active
+profile_ref: strike_front_v1
+formation_role: spearhead
+notes:
+  - profile_ref is a string id.

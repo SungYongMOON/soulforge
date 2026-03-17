@@ -1,9 +1,10 @@
 species_id: human
 kind: species
-status: template
+status: draft
 title: Human
-summary: Placeholder species template for the vNext catalog.
+summary: Legacy bridge species sample kept only until bridge cleanup.
 heroes_index: heroes/index.yaml
 notes:
+  - Legacy bridge only. Canonical species now live in .registry/species/<species_id>/species.yaml with heroes inline.
   - Template only. Replace with canon metadata when the species catalog materializes.
   - Do not place unit runtime state or project-local data in this file.

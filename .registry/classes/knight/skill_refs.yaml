@@ -1,0 +1,12 @@
+class_id: knight
+kind: skill_refs
+status: active
+assign:
+  - assign: frontline_guard
+    ref: shield_wall
+    summary: Hold the front line while the party closes distance.
+  - assign: breach_entry
+    ref: charge_breaker
+    summary: Convert the first opening into controlled forward pressure.
+notes:
+  - assign/ref pairs are class-local bindings into canonical skill ids.

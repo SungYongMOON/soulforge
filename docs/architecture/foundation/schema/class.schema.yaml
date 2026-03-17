@@ -1,0 +1,56 @@
+schema_id: soulforge.foundation.class.v1
+kind: canonical_schema
+applies_to:
+  owner: .registry
+  path: .registry/classes/<class_id>/class.yaml
+required_fields:
+  - name: class_id
+    type: string
+    description: Class canon identifier.
+  - name: kind
+    type: string
+    fixed: class
+  - name: status
+    type: enum
+    allowed:
+      - draft
+      - active
+      - archived
+  - name: title
+    type: string
+  - name: summary
+    type: string
+  - name: profile_ref
+    type: string
+    description: Active-default profile id.
+  - name: skill_refs
+    type: string
+    description: Relative pointer to skill_refs.yaml.
+  - name: tool_refs
+    type: string
+    description: Relative pointer to tool_refs.yaml.
+  - name: knowledge_refs
+    type: string
+    description: Relative pointer to knowledge_refs.yaml.
+optional_fields:
+  - name: notes
+    type: list[string]
+    description: Human-readable canon notes.
+field_rules:
+  - field: class_id
+    rule: Folder name and file payload must match.
+  - field: profile_ref
+    rule: String id, not a path.
+  - field: skill_refs
+    rule: Relative file pointer to a class-local assign/ref document.
+  - field: tool_refs
+    rule: Relative file pointer to a class-local assign/ref document.
+  - field: knowledge_refs
+    rule: Relative file pointer to a class-local assign/ref document.
+  - field: class-local *_refs.yaml
+    rule: Use assign/ref pairs. The class file is the canon entry and those sibling files are the assign/ref entrance.
+  - field: status
+    rule: Use only draft, active, archived.
+notes:
+  - The schema for class-local refs is documented by convention in the sample YAML and field matrix.
+  - Workflow and party canon remain outside .registry.

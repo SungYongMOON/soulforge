@@ -1,6 +1,7 @@
 class_id: example_class
 kind: knowledge_refs
-status: template
+status: draft
 knowledge_refs: []
 notes:
+  - Legacy bridge only. Canonical class-local assign/ref files now live under .registry/classes/<class_id>/.
   - Template only. Add reusable knowledge package refs here when the class package materializes.

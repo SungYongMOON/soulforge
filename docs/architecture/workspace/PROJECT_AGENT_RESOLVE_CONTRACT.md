@@ -26,9 +26,10 @@ flowchart TD
 ## 공통 원칙
 
 - canonical project root 는 `_workspaces/<project_code>/` 직행 구조다.
-- `company/`, `personal/` 는 legacy bridge 였고 새 정본 기준에서는 canonical root 가 아니다.
 - public repo 기본 동작은 `_workspaces/README.md` 만 전제한다.
 - local workspace scan 은 `--local-workspaces` 또는 explicit workspace root 가 있을 때만 수행한다.
+- project 후보는 workspace root 의 direct child directory 로만 읽는다.
+- `company/`, `personal/` 는 project 후보가 아닌 보조 디렉터리로 취급한다.
 
 ## 현재 resolve 규칙
 
@@ -42,19 +43,19 @@ flowchart TD
 
 - workspace root 의 direct child directory 를 project 후보로 읽는다.
 - hidden dir 는 건너뛴다.
-- repo `_workspaces/` 를 scan 할 경우 `company`, `personal` bridge 는 warning 후 skip 한다.
+- repo `_workspaces/` 를 scan 할 경우 `company`, `personal` 디렉터리는 warning 후 skip 한다.
 - child dir 아래 `.project_agent/` 가 있으면 `state = project_agent_present` 로 기록한다.
 - `.project_agent/` 가 없으면 `state = local_detected` 로 기록한다.
 
 ## 현재 validate 범위
 
 - `.project_agent/` deep schema validation 은 public-safe validator 의 기본 책임이 아니다.
-- current validator 는 owner roots, cross-ref, local mount summary 위주로 동작한다.
-- local-only `.project_agent` contract depth validation 은 future harness 에서 확장한다.
+- validator 는 owner roots, cross-ref, local mount summary 위주로 동작한다.
+- local-only `.project_agent` contract depth validation 은 별도 local harness 문서가 다룬다.
 
-## future local harness 규칙
+## 확장 순서
 
-future local smoke harness 를 붙일 때 아래 순서를 따른다.
+local-only harness 문서를 확장할 때 아래 순서를 따른다.
 
 1. `_workspaces/<project_code>/` direct child 구조 확인
 2. `.project_agent/` 존재 확인
@@ -64,6 +65,6 @@ future local smoke harness 를 붙일 때 아래 순서를 따른다.
 
 ## 금지
 
-- `_workspaces/company/<project>/`, `_workspaces/personal/<project>/` 를 canonical source 로 복귀시키는 것
+- `_workspaces/company/<project>/`, `_workspaces/personal/<project>/` 를 project root 로 문서화하는 것
 - public fixture 에 actual `.project_agent/runs`, analytics, reports, artifacts 를 포함하는 것
 - public validator 가 private workspace content 를 기본 입력으로 요구하는 것

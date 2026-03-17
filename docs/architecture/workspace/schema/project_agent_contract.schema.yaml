@@ -1,0 +1,53 @@
+schema_id: soulforge.workspace.project_agent_contract.v1
+kind: canonical_schema
+applies_to:
+  owner: .project_agent
+  path: docs/architecture/workspace/examples/<project_code>/.project_agent/contract.yaml
+required_fields:
+  - name: project_code
+    type: string
+    description: Workspace project identifier.
+  - name: kind
+    type: string
+    fixed: project_agent_contract
+  - name: status
+    type: enum
+    allowed:
+      - draft
+      - active
+      - archived
+  - name: display_name
+    type: string
+  - name: unit_ref
+    type: string
+    description: Pointer to .unit/<unit_id>/unit.yaml.
+  - name: bindings
+    type: object
+    required_children:
+      - workflow
+      - party
+      - appserver
+      - mailbox
+  - name: runtime_truth_root
+    type: string
+    description: Directory name for raw truth.
+optional_fields:
+  - name: notes
+    type: list[string]
+    description: Human-readable notes.
+field_rules:
+  - field: bindings.workflow
+    rule: Relative path file pointer from contract.yaml to workflow_binding.yaml.
+  - field: bindings.party
+    rule: Relative path file pointer from contract.yaml to party_binding.yaml.
+  - field: bindings.appserver
+    rule: Relative path file pointer from contract.yaml to appserver_binding.yaml.
+  - field: bindings.mailbox
+    rule: Relative path file pointer from contract.yaml to mailbox_binding.yaml.
+  - field: runtime_truth_root
+    rule: Use runs/. Raw truth always materializes under runs/<run_id>/.
+  - field: status
+    rule: Use only draft, active, archived.
+notes:
+  - Tracked example contracts live under docs/architecture/workspace/examples/, not under _workspaces/.
+  - Actual runtime data remains local-only.

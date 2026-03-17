@@ -4,6 +4,7 @@
 
 - `.party/` 는 reusable party template 와 template-level stats 의 정본 루트다.
 - party 는 member slot, allowed species/class/workflow, appserver profile 을 소유한다.
+- `.party/` 는 `.registry` 아래로 들어가지 않는 독립 orchestration root 다.
 - `.party/` 는 raw battle log, project-specific operational metrics owner 가 아니다.
 
 ## 무엇을 둔다
