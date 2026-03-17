@@ -1,0 +1,23 @@
+kind: execution_profile_binding
+status: active
+profiles:
+  - execution_profile_ref: analysis_heavy
+    model: gpt-5.1-codex-mini
+    reasoning_effort: medium
+    attached_skill_names: []
+    preferred_mcps: []
+    preferred_tools:
+      - rg
+  - execution_profile_ref: pdf_evidence_review
+    model: gpt-5.4
+    reasoning_effort: medium
+    attached_skill_names:
+      - pdf
+    preferred_mcps:
+      - pdf
+    preferred_tools:
+      - pdftoppm
+      - pdfplumber
+notes:
+  - execution_profile_ref matches the workflow step field of the same name.
+  - tracked examples keep installed skill names only; local runtime may resolve them to host-local paths.

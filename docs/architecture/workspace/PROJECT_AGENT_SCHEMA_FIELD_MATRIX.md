@@ -13,6 +13,8 @@
 | `bindings.party` | yes | string | contract 기준 상대 경로 파일 포인터 |
 | `bindings.appserver` | yes | string | contract 기준 상대 경로 파일 포인터 |
 | `bindings.mailbox` | yes | string | contract 기준 상대 경로 파일 포인터 |
+| `bindings.execution_profiles` | no | string | contract 기준 상대 경로 파일 포인터 |
+| `bindings.skill_execution` | no | string | contract 기준 상대 경로 파일 포인터 |
 | `runtime_truth_root` | yes | string | `runs/` 고정 |
 | `notes` | no | list[string] | 설명 메모 |
 
@@ -58,4 +60,29 @@
 | `status` | yes | enum | `draft | active | archived` |
 | `profile_ref` | yes | string | string id |
 | `routing_mode` | yes | string | routing mode 이름 |
+| `notes` | no | list[string] | 설명 메모 |
+
+## `execution_profile_binding.yaml`
+
+| Field | Required | Type | Rule |
+| --- | --- | --- | --- |
+| `kind` | yes | string | `execution_profile_binding` 고정 |
+| `status` | yes | enum | `draft | active | archived` |
+| `profiles[*].execution_profile_ref` | yes | string | workflow step 의 `execution_profile_ref` 와 매칭 |
+| `profiles[*].model` | yes | string | local runtime model id |
+| `profiles[*].reasoning_effort` | yes | string | local runtime reasoning preset |
+| `profiles[*].attached_skill_names` | no | list[string] | installed Codex skill name list |
+| `profiles[*].preferred_mcps` | no | list[string] | local capability 또는 MCP name |
+| `profiles[*].preferred_tools` | no | list[string] | tool / command hint |
+| `notes` | no | list[string] | 설명 메모 |
+
+## `skill_execution_binding.yaml`
+
+| Field | Required | Type | Rule |
+| --- | --- | --- | --- |
+| `kind` | yes | string | `skill_execution_binding` 고정 |
+| `status` | yes | enum | `draft | active | archived` |
+| `skill_bindings[*].skill_id` | yes | string | canonical skill id |
+| `skill_bindings[*].codex_skill_name` | yes | string | installed Codex skill name |
+| `skill_bindings[*].notes` | no | list[string] | 설명 메모 |
 | `notes` | no | list[string] | 설명 메모 |

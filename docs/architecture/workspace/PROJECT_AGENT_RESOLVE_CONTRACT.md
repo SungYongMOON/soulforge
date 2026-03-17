@@ -52,6 +52,7 @@ flowchart TD
 - `.project_agent/` deep schema validation 은 public-safe validator 의 기본 책임이 아니다.
 - validator 는 owner roots, cross-ref, local mount summary 위주로 동작한다.
 - local-only `.project_agent` contract depth validation 은 별도 local harness 문서가 다룬다.
+- local runtime harness 는 필요하면 `bindings/execution_profile_binding.yaml` 과 `bindings/skill_execution_binding.yaml` 을 추가로 resolve 할 수 있다.
 
 ## 확장 순서
 
@@ -60,8 +61,9 @@ local-only harness 문서를 확장할 때 아래 순서를 따른다.
 1. `_workspaces/<project_code>/` direct child 구조 확인
 2. `.project_agent/` 존재 확인
 3. `contract.yaml` 최소 필드 확인
-4. reserved dir existence 또는 policy presence 확인
-5. raw/private data 는 요약 수치로만 보고하고 본문은 출력하지 않음
+4. optional runtime binding (`execution_profile_binding.yaml`, `skill_execution_binding.yaml`) 존재 여부 확인
+5. reserved dir existence 또는 policy presence 확인
+6. raw/private data 는 요약 수치로만 보고하고 본문은 출력하지 않음
 
 ## 금지
 

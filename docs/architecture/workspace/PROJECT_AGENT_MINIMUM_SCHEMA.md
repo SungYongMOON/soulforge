@@ -61,6 +61,8 @@ flowchart TD
 - `bindings.party`
 - `bindings.appserver`
 - `bindings.mailbox`
+- `bindings.execution_profiles` (optional)
+- `bindings.skill_execution` (optional)
 - `runtime_truth_root`
 
 ## 예시
@@ -76,6 +78,8 @@ bindings:
   party: bindings/party_binding.yaml
   appserver: bindings/appserver_binding.yaml
   mailbox: bindings/mailbox_binding.yaml
+  execution_profiles: bindings/execution_profile_binding.yaml
+  skill_execution: bindings/skill_execution_binding.yaml
 runtime_truth_root: runs/
 ```
 
@@ -85,5 +89,6 @@ runtime_truth_root: runs/
 2. public repo 에는 actual `.project_agent/` content 를 추적하지 않는다.
 3. tracked example contract 와 binding set 은 `_workspaces/` 아래가 아니라 `docs/architecture/workspace/examples/` 아래에 둔다.
 4. `bindings.*` 는 contract 기준 상대 경로 파일 포인터다.
-5. `runtime_truth_root` 는 `runs/` 를 사용하고 raw truth 는 항상 `runs/<run_id>/` 아래에 둔다.
-6. `runs/`, `analytics/`, `nightly_healing/`, `reports/`, `artifacts/` 는 모두 public fixture 입력이 아니다.
+5. `bindings.execution_profiles` 와 `bindings.skill_execution` 은 optional runtime binding 이며 model, attached skill, MCP/tool preference 를 local execution layer 에서 resolve 한다.
+6. `runtime_truth_root` 는 `runs/` 를 사용하고 raw truth 는 항상 `runs/<run_id>/` 아래에 둔다.
+7. `runs/`, `analytics/`, `nightly_healing/`, `reports/`, `artifacts/` 는 모두 public fixture 입력이 아니다.

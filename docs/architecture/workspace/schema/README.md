@@ -12,6 +12,8 @@
 - `party_binding.schema.yaml`
 - `appserver_binding.schema.yaml`
 - `mailbox_binding.schema.yaml`
+- `execution_profile_binding.schema.yaml`
+- `skill_execution_binding.schema.yaml`
 - `PROJECT_AGENT_SCHEMA_FIELD_MATRIX.md` 와 함께 읽는 field rule anchor
 
 ## 규칙

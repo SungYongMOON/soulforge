@@ -35,6 +35,12 @@ optional_fields:
   - name: notes
     type: list[string]
     description: Human-readable notes.
+  - name: bindings.execution_profiles
+    type: string
+    description: Relative path file pointer to execution_profile_binding.yaml.
+  - name: bindings.skill_execution
+    type: string
+    description: Relative path file pointer to skill_execution_binding.yaml.
 field_rules:
   - field: unit_ref
     rule: Pointer to .unit/<unit_id>/unit.yaml. The referenced unit uses unit_id, status, summary, identity, class_ids.
@@ -46,6 +52,10 @@ field_rules:
     rule: Relative path file pointer from contract.yaml to appserver_binding.yaml.
   - field: bindings.mailbox
     rule: Relative path file pointer from contract.yaml to mailbox_binding.yaml.
+  - field: bindings.execution_profiles
+    rule: Optional relative path file pointer from contract.yaml to execution_profile_binding.yaml.
+  - field: bindings.skill_execution
+    rule: Optional relative path file pointer from contract.yaml to skill_execution_binding.yaml.
   - field: runtime_truth_root
     rule: Use runs/. Raw truth always materializes under runs/<run_id>/.
   - field: status
@@ -54,3 +64,4 @@ notes:
   - The same contract shape applies to local _workspaces/<project_code>/.project_agent/contract.yaml and to tracked examples under docs/architecture/workspace/examples/.
   - Tracked example contracts live under docs/architecture/workspace/examples/, not under _workspaces/.
   - Actual runtime data remains local-only under runs/<run_id>/.
+  - Optional runtime execution bindings can refine how workflow steps choose models, attached skills, and MCP/tool preferences.

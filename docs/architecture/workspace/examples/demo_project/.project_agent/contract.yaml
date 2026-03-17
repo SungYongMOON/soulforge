@@ -8,8 +8,11 @@ bindings:
   party: bindings/party_binding.yaml
   appserver: bindings/appserver_binding.yaml
   mailbox: bindings/mailbox_binding.yaml
+  execution_profiles: bindings/execution_profile_binding.yaml
+  skill_execution: bindings/skill_execution_binding.yaml
 runtime_truth_root: runs/
 notes:
   - unit_ref points to the canonical active unit sample under .unit/.
   - bindings.* are relative path file pointers from contract.yaml.
   - raw truth always materializes under runs/<run_id>/ in local workspaces.
+  - optional runtime bindings can resolve workflow steps to models, attached skills, and MCP/tool preferences.

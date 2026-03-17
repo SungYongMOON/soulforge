@@ -1,0 +1,10 @@
+kind: skill_execution_binding
+status: active
+skill_bindings:
+  - skill_id: shield_wall
+    codex_skill_name: soulforge-shield-wall
+    notes:
+      - shield_wall resolves to the installed boundary-first Codex skill package.
+notes:
+  - canonical skill ids stay in .registry/skills/.
+  - local runtime resolves installed Codex skill names and any host-local paths.
