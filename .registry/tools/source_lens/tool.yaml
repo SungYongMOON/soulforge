@@ -1,0 +1,12 @@
+tool_id: source_lens
+kind: tool
+status: active
+title: Source Lens
+summary: Inspection tool for following evidence provenance and tracing uncertain claims.
+use_case:
+  primary_role: evidence inspection
+  preferred_context:
+    - source review
+    - provenance checks
+notes:
+  - `source_lens` is the canonical tool behind `archivist.source_lens`.

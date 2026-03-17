@@ -24,6 +24,7 @@
 - `species/human/species.yaml`, `classes/knight/**`, `.unit/vanguard_01/unit.yaml` 는 canonical sample 1세트로 유지한다.
 - `skills/`, `tools/`, `knowledge/` 는 reusable canon surface 이며, class-local refs 가 가리키는 entry 를 둘 수 있다.
 - `skills/shield_wall`, `skills/charge_breaker`, `tools/kite_shield`, `tools/field_lance`, `knowledge/frontline_doctrine`, `knowledge/escort_etiquette` 는 `knight` sample 을 해석하기 위한 minimal canon entry 다.
+- skill canon 은 behavior 와 execution requirement 를 기록할 수 있지만, 실제 모델/MCP/tool 장착은 runtime binding 에서 최종 resolve 한다.
 
 ## 무엇을 두지 않는다
 

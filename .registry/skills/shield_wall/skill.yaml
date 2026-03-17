@@ -14,6 +14,19 @@ behavior:
   expected_outcome:
     - the active boundary is understood
     - the safest next step is explicit
+execution_requirements:
+  required_capabilities:
+    - boundary_review
+  preferred_capabilities:
+    - evidence_review
+  preferred_mcps:
+    - pdf
+  preferred_tools:
+    - rg
+    - git_diff
+  notes:
+    - preferred_mcps and preferred_tools are execution hints, not runtime truth.
+    - actual model, MCP, and tool choice resolves in runtime execution bindings.
 notes:
   - `shield_wall` is the canonical skill behind `knight.frontline_guard`.
   - behavior is canon; runtime tool selection belongs to the execution layer.

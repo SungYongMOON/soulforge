@@ -1,0 +1,17 @@
+skill_id: evidence_sift
+kind: skill
+status: active
+title: Evidence Sift
+summary: Separate confirmed facts from weak claims before drafting outputs.
+behavior:
+  intent: Establish a trustworthy factual floor before synthesis.
+  use_when:
+    - source claims are mixed-strength
+    - the next artifact depends on evidence confidence
+  avoid_when:
+    - the input is already normalized and verified
+  expected_outcome:
+    - confirmed claims are separated from speculative claims
+    - the drafting boundary is explicit
+notes:
+  - `evidence_sift` is the canonical skill behind `archivist.evidence_scan`.

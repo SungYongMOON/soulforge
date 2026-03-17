@@ -9,5 +9,5 @@
 
 - `class.yaml` 는 canon entry 이자 assign/ref 입구다.
 - class-local `skill_refs.yaml`, `tool_refs.yaml`, `knowledge_refs.yaml` 패턴은 유지한다.
-- [`knight/class.yaml`](knight/class.yaml) 과 sibling `*_refs.yaml` 은 canonical sample 1세트다.
+- [`knight/class.yaml`](knight/class.yaml) 과 [`archivist/class.yaml`](archivist/class.yaml) 은 contrasting canonical sample pair 다.
 - 세부 확장 스키마는 schema 문서와 field matrix 에서 이어서 고정한다.

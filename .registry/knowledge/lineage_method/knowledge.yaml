@@ -1,0 +1,12 @@
+knowledge_id: lineage_method
+kind: knowledge
+status: active
+title: Lineage Method
+summary: Method for building family and relationship maps from partial source evidence.
+focus:
+  primary_domain: lineage construction
+  applied_to:
+    - relationship normalization
+    - graph drafting
+notes:
+  - `lineage_method` is the canonical knowledge behind `archivist.lineage_method`.

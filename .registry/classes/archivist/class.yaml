@@ -1,0 +1,12 @@
+class_id: archivist
+kind: class
+status: active
+title: Archivist
+summary: Evidence-first class focused on source inspection, relationship stitching, and careful drafting.
+profile_ref: archivist_core
+skill_refs: skill_refs.yaml
+tool_refs: tool_refs.yaml
+knowledge_refs: knowledge_refs.yaml
+notes:
+  - profile_ref is a string id.
+  - class-local *_refs.yaml carry assign/ref pairs.

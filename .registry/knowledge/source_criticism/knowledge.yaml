@@ -1,0 +1,12 @@
+knowledge_id: source_criticism
+kind: knowledge
+status: active
+title: Source Criticism
+summary: Knowledge for separating corroborated facts from weakly supported assertions.
+focus:
+  primary_domain: evidence evaluation
+  applied_to:
+    - confidence labeling
+    - provenance review
+notes:
+  - `source_criticism` is the canonical knowledge behind `archivist.source_criticism`.

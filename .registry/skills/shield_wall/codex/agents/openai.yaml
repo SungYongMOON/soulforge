@@ -1,0 +1,13 @@
+interface:
+  display_name: "Shield Wall"
+  short_description: "Boundary-first review and stabilization"
+  default_prompt: "Use $soulforge-shield-wall to inspect the current boundary before making changes."
+
+dependencies:
+  tools:
+    - type: "mcp"
+      value: "pdf"
+      description: "Preferred PDF inspection capability when evidence arrives as a PDF document."
+
+policy:
+  allow_implicit_invocation: true

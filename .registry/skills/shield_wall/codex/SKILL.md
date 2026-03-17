@@ -14,11 +14,18 @@ Use this skill when the unit lens calls for `shield_wall`.
 - If no edit is required, say so directly and give the safest next step.
 - If an edit is required, keep it minimal and explain why it is the lowest-risk change.
 
+## Execution requirements
+
+- Required capability: `boundary_review`
+- Preferred capability: `evidence_review`
+- Preferred MCP/tooling: `pdf`
+
 ## Soulforge mapping
 
 - Canon skill id: `shield_wall`
 - Typical class binding: `knight.frontline_guard`
 - Canon file: `/Users/seabotmoon-air/Workspace/Soulforge/.registry/skills/shield_wall/skill.yaml`
+- UI metadata file: `/Users/seabotmoon-air/Workspace/Soulforge/.registry/skills/shield_wall/codex/agents/openai.yaml`
 
 ## Output shape
 

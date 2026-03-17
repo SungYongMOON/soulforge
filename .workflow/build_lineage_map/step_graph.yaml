@@ -4,6 +4,7 @@ status: active
 steps:
   - step_id: investigate_sources
     actor_slot: active_unit
+    execution_profile_ref: analysis_heavy
     action:
       kind: skill
       skill_id: shield_wall
@@ -18,6 +19,7 @@ steps:
       on_fail: stop
   - step_id: build_pbs
     actor_slot: active_unit
+    execution_profile_ref: structured_planning
     action:
       kind: skill
       skill_id: pbs_design
@@ -31,6 +33,7 @@ steps:
       on_fail: stop
   - step_id: draft_mermaid
     actor_slot: active_unit
+    execution_profile_ref: diagram_drafting
     action:
       kind: skill
       skill_id: lineage_mermaid
@@ -44,6 +47,7 @@ steps:
       on_fail: stop
   - step_id: render_drawio
     actor_slot: active_unit
+    execution_profile_ref: diagram_rendering
     action:
       kind: skill
       skill_id: drawio_composition
@@ -57,6 +61,7 @@ steps:
       on_fail: stop
   - step_id: export_svg
     actor_slot: active_unit
+    execution_profile_ref: artifact_export
     action:
       kind: skill
       skill_id: svg_export
@@ -70,6 +75,7 @@ steps:
       on_fail: stop
   - step_id: notify_completion
     actor_slot: active_unit
+    execution_profile_ref: delivery_light
     action:
       kind: skill
       skill_id: telegram_delivery

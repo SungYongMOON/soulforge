@@ -1,0 +1,13 @@
+unit_id: scribe_01
+status: active
+summary: Contrasting active subject reference for evidence-first research and document assembly work.
+identity:
+  profile_ref: scribe_archive_alpha
+  species_id: human
+  hero_id: quiet_archivist
+class_ids:
+  - archivist
+notes:
+  - identity.profile_ref is a string id.
+  - identity.hero_id resolves within identity.species_id.
+  - class_ids list canonical class ids for the active subject loadout.

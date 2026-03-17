@@ -1,0 +1,17 @@
+skill_id: record_stitch
+kind: skill
+status: active
+title: Record Stitch
+summary: Turn confirmed fragments into a coherent structure without overreaching beyond evidence.
+behavior:
+  intent: Compose a stable structure from validated pieces.
+  use_when:
+    - source fragments are already sifted
+    - an intermediate structure or map must be drafted
+  avoid_when:
+    - key relations remain unverified
+  expected_outcome:
+    - a coherent draft exists
+    - speculative edges remain explicitly labeled
+notes:
+  - `record_stitch` is the canonical skill behind `archivist.record_stitch`.

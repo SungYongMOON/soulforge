@@ -15,6 +15,7 @@ notes:
 steps:
   - step_id: first_step
     actor_slot: active_unit
+    execution_profile_ref: execution_profile_name
     action:
       kind: skill
       skill_id: canonical_skill_id

@@ -1,0 +1,12 @@
+tool_id: annotation_tablet
+kind: tool
+status: active
+title: Annotation Tablet
+summary: Structured note-taking tool for preserving evidence comments while drafting outputs.
+use_case:
+  primary_role: structured annotation
+  preferred_context:
+    - note capture
+    - draft markup
+notes:
+  - `annotation_tablet` is the canonical tool behind `archivist.annotation_tablet`.

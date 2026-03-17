@@ -1,0 +1,12 @@
+class_id: archivist
+kind: knowledge_refs
+status: active
+assign:
+  - assign: lineage_method
+    ref: lineage_method
+    summary: Canon method for building lineage structures from partial evidence.
+  - assign: source_criticism
+    ref: source_criticism
+    summary: Canon guidance for distinguishing confirmed and speculative claims.
+notes:
+  - assign/ref pairs are class-local bindings into canonical knowledge ids.
