@@ -2,7 +2,7 @@
 
 Soulforge는 새 정본 vNext 구조를 문서로 고정하는 설계 저장소다.
 루트는 여섯 축의 owner 경계와 public/private tracking 원칙만 관리한다.
-실제 루트 materialization, validator refactor, fixture 정리는 별도 migration 단계에서 수행한다.
+실제 local mission site 운영 데이터와 private runtime truth 는 별도 local-only 단계에서 다룬다.
 
 ## 새 정본 6축
 
@@ -46,4 +46,4 @@ flowchart TD
 - `.agent_class` 는 더 이상 canonical loadout root 나 workflow owner 가 아니다.
 - `.run/` 루트는 새 정본에 포함하지 않는다.
 - `_workspaces/<project_code>/` 실제 과제 내용은 public GitHub 에 올리지 않으며, 로컬 환경에서만 materialize 한다.
-- `.unit`, `.workflow`, `.party` 의 실제 루트 생성과 owner-local README 작성은 후속 migration 범위다.
+- `.unit`, `.workflow`, `.party` 는 이미 materialize 되었고, 상세 owner 규칙은 각 루트 `README.md` 를 따른다.

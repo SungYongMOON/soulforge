@@ -56,7 +56,7 @@ flowchart TD
 
 ### 2.3 `memory` 와 `knowledge` 를 분리한다
 
-- `memory` 는 `.agent` 의 장기 기억이다.
+- `memory` 는 `.unit/<unit_id>/memory/` 의 owner-local continuity surface 다.
 - `knowledge` 는 `.agent_class` 의 설치형 지식 팩이다.
 
 ### 2.4 `skills`, `tools`, `workflows` 를 분리한다
@@ -91,7 +91,8 @@ flowchart TD
 ## 3. 문서 소유 원칙
 
 - 루트 `docs/` 는 저장소 전체 구조와 루트 설명만 둔다.
-- body 문서는 `.agent/docs/` 아래에 둔다.
+- species / hero catalog owner 문서는 `.agent/docs/` 아래에 둔다.
+- active owner 문서는 `.unit/` 아래에 둔다.
 - class 문서는 `.agent_class/docs/` 아래에 둔다.
 - 특정 프로젝트 전용 문서는 `_workspaces/.../<project>/.project_agent/` 아래에 둔다.
 - 구조, 계층, 경로 배치를 설명하는 문서는 경로와 폴더를 텍스트로만 나열하지 않는다.
