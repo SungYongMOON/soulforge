@@ -73,6 +73,7 @@ sequenceDiagram
 - `step_graph.yaml` 의 각 step 는 필요하면 `execution_profile_ref` 를 가질 수 있고, 실제 모델/도구 preset 은 `.project_agent/bindings/execution_profile_binding.yaml` 에서 resolve 한다.
 - `step_graph.yaml` 의 `action.skill_id` 는 `.registry/skills/<skill_id>/skill.yaml` 을 가리키며, local runtime 에서는 `.project_agent/bindings/skill_execution_binding.yaml` 이 installed Codex skill name 을 resolve 할 수 있다.
 - skill authoring 같은 운영 workflow 는 tracked package draft 와 install handoff note 를 만들 수 있지만, 실제 installed mirror sync 는 local operation 절차로 남길 수 있다.
+- `author_skill_package` 는 현재 skill authoring lane 의 canonical sample 이자 current default workflow 이지만, future authoring path 전체의 universal standard 로 잠근 것은 아니다.
 
 ## 샘플 구성
 
@@ -80,6 +81,7 @@ sequenceDiagram
 - [`frontline_assault/history/README.md`](frontline_assault/history/README.md): history guidance that keeps curated lessons outside raw runtime truth.
 - [`build_lineage_map/workflow.yaml`](build_lineage_map/workflow.yaml): bounded lineage-map opening workflow sample with explicit step sequence and planning artifacts.
 - [`author_skill_package/workflow.yaml`](author_skill_package/workflow.yaml): guild-master authoring workflow sample for deciding when a request should become a reusable skill package.
+- [`author_skill_package/positioning.md`](author_skill_package/positioning.md): current guild-master authoring lane positioning note.
 - [`authoring/task_note.template.md`](authoring/task_note.template.md): raw task memo template for converting real work into workflow drafts.
 - [`authoring/workflow_draft.template.yaml`](authoring/workflow_draft.template.yaml): workflow draft template for step sequencing, actors, skills, and outputs.
 - [`authoring/SKILL_WORKFLOW_GUIDE.md`](authoring/SKILL_WORKFLOW_GUIDE.md): user-facing guide for deciding when to route work into a skill-authoring workflow.

@@ -59,6 +59,7 @@ sequenceDiagram
 - template-level stats 만 유지해야 party canon 과 project performance data 의 owner 경계가 분리된다.
 - workflow 는 밖에 있는 절차 canon 이고, party 는 그 workflow 를 수행할 출전 조합이다.
 - 그래서 `party.yaml` 은 `default_workflow_id`, `allowed_workflows.yaml`, `preferred_monster_types` 같은 운영 힌트만 소유하고 step 순서 자체는 소유하지 않는다.
+- `guild_master_cell` 은 현재 skill authoring lane 의 canonical sample 이자 current default party composition 이지만, 모든 future authoring path 의 universal party standard 는 아니다.
 
 ## 샘플 구성
 

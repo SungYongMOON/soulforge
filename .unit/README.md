@@ -46,6 +46,7 @@ flowchart TD
 - [`vanguard_01/`](vanguard_01/) 아래의 owner surface 디렉터리는 policy, protocols, runtime, memory, sessions, autonomic, artifacts 의 tracked baseline 을 함께 제공한다.
 - [`scribe_01/unit.yaml`](scribe_01/unit.yaml)은 research/documentation 성향의 contrasting unit sample 이다. capability comparison 과 unit-selection 실험에서 `vanguard_01`와 구분되는 owner lens 를 제공한다.
 - [`guild_master_01/unit.yaml`](guild_master_01/unit.yaml)은 skill package authoring, boundary review, promotion handoff 성향의 administrative sample 이다. `author_skill_package` 와 `guild_master_cell` 조합의 canonical demo unit 으로 본다.
+- `guild_master_01` 은 현재 skill authoring lane 의 canonical sample 이자 current default authoring unit 이지만, future guild-master 운영 전반의 universal default unit 으로 확정한 것은 아니다.
 
 ## tracking 원칙
 
