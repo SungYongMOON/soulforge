@@ -1,0 +1,39 @@
+skill_id: pptx_autofill_conversion
+kind: skill
+status: active
+title: PPTX Autofill Conversion
+summary: Preserve a user-provided PPTX template and replace only bounded text content for a new topic without rewriting slide structure.
+behavior:
+  intent: Analyze PPTX slide XML, keep layout and object geometry stable, and update only requested text while preserving the original template package.
+  use_when:
+    - the task includes a `.pptx` template and asks for new content in the same layout
+    - the user asks to keep the slide structure, tables, and shapes while changing the topic
+    - a lecture proposal, lecture plan, or similar presentation form must be adapted from an existing PPTX
+  avoid_when:
+    - the task needs a brand-new presentation rather than a template-preserving revision
+    - the user explicitly wants a full visual redesign or slide-count change
+    - a generic markdown or text outline is sufficient
+  expected_outcome:
+    - the output PPTX keeps the source slide count and core OOXML structure unless the user explicitly widens scope
+    - text replacements are bounded, reviewable, and validated before handoff
+execution_requirements:
+  required_capabilities:
+    - slide_structure_analysis
+    - xml_document_authoring
+    - structured_artifact_validation
+  preferred_capabilities:
+    - template_content_mapping
+    - table_and_shape_inspection
+  preferred_tools:
+    - python3
+    - unzip
+    - rg
+  notes:
+    - "Use the bundled PPTX helper scripts for unpack, pack, outline extraction, template analysis, bounded text replacement, and validation."
+    - "Treat user-provided PPTX files as the canonical template source; do not hardcode local sample paths into tracked package files."
+    - "The bundled replacement helper currently supports exact-text and trim-normalized exact-text replacement on slide `<a:t>` nodes."
+    - "Preserve table grids, row heights, shape geometry, media, and relationships unless the user explicitly asks to widen scope."
+    - "actual model, MCP, and tool choice resolves in runtime execution bindings."
+notes:
+  - "`pptx_autofill_conversion` is the Soulforge package for template-preserving PPTX adaptation."
+  - "This package is adapted from the user-provided upstream Claude skill `pptx-autofill-conversion.skill` and its supporting PPTX examples."

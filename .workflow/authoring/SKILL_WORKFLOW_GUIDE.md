@@ -30,9 +30,11 @@ flowchart TD
   B -- no --> W
   B -- yes --> S["route to author_skill_package workflow"]
   S --> P["tracked skill package draft"]
-  P --> C["boundary review"]
+  P --> R["resource bundle review"]
+  R --> C["boundary review"]
   C --> H["install sync handoff prep"]
-  H --> F["final release review"]
+  H --> M["smoke check"]
+  M --> F["final release review"]
 ```
 
 ## author_skill_package workflow 가 필요한 입력
@@ -51,8 +53,10 @@ flowchart TD
 
 - `skill_boundary_brief.md`
 - `skill_package_draft.md`
+- `skill_resource_bundle_review.md`
 - `skill_boundary_review.md`
 - `skill_install_sync_request.md`
+- `skill_smoke_check.md`
 - `skill_release_review.md`
 
 ## 관련 canon

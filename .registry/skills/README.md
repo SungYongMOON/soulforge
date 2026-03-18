@@ -10,4 +10,5 @@
 - 다른 PC 에서 실제 Codex installed mirror 가 필요하면 tracked `codex/` bridge 를 local `~/.codex/skills/` 로 sync 한다. baseline 절차는 [`.registry/docs/operations/SKILL_INSTALL_SYNC.md`](../docs/operations/SKILL_INSTALL_SYNC.md) 를 따른다.
 - `skill_check/` 는 tracked skill package 가 canon, optional executor bridge, local runtime binding owner 를 섞지 않는지 검토하는 active authoring-aid sample 이다.
 - `hwpx_document/` 는 lean bridge 문서만이 아니라 bundled `scripts/`, `templates/`, `references/` 도 함께 sync 하는 resource-heavy skill package sample 이다.
+- `pptx_autofill_conversion/` 는 user-provided template PPTX 를 runtime input 으로 받고, bundled helper scripts 와 XML guardrails 를 통해 bounded text replacement 를 수행하는 presentation skill sample 이다.
 - boundary 규칙은 [`.registry/docs/architecture/SKILL_CANON_BOUNDARY.md`](../docs/architecture/SKILL_CANON_BOUNDARY.md) 를 따른다.

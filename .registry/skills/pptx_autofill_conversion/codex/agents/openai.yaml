@@ -1,0 +1,10 @@
+interface:
+  display_name: "PPTX Autofill Conversion"
+  short_description: "Template-preserving PPTX adaptation with XML-level text replacement and validation"
+  default_prompt: "Use $soulforge-pptx-autofill-conversion to keep this PPTX template structure intact while changing only the requested content."
+
+dependencies:
+  tools:
+    - type: "local"
+      value: "python3"
+      description: "Runs bundled PPTX helper scripts."

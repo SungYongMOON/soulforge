@@ -30,6 +30,22 @@ steps:
       - skill_package_draft.md
     summary: Turn the bounded request into a coherent tracked package draft with canon, bridge, and mapping responsibilities separated.
     next:
+      on_success: review_resource_bundle
+      on_fail: stop
+  - step_id: review_resource_bundle
+    actor_slot: reviewer
+    execution_profile_ref: analysis_heavy
+    action:
+      kind: skill
+      skill_id: evidence_sift
+    inputs:
+      - skill_boundary_brief.md
+      - skill_package_draft.md
+      - supporting_examples
+    outputs:
+      - skill_resource_bundle_review.md
+    summary: Decide which examples, scripts, templates, and references belong in the tracked package versus local runtime input.
+    next:
       on_success: check_boundary
       on_fail: stop
   - step_id: check_boundary
@@ -40,6 +56,7 @@ steps:
       skill_id: skill_check
     inputs:
       - skill_package_draft.md
+      - skill_resource_bundle_review.md
     outputs:
       - skill_boundary_review.md
     summary: Review the tracked package draft against Soulforge boundary rules and local runtime ownership limits.
@@ -54,13 +71,30 @@ steps:
       skill_id: record_stitch
     inputs:
       - skill_boundary_review.md
+      - skill_resource_bundle_review.md
     outputs:
       - skill_install_sync_request.md
     summary: Prepare the exact install handoff note for syncing the optional Codex bridge into the local installed mirror.
     next:
-      on_success: final_check_boundary
+      on_success: smoke_check_package
       on_fail: stop
-  - step_id: final_check_boundary
+  - step_id: smoke_check_package
+    actor_slot: reviewer
+    execution_profile_ref: analysis_heavy
+    action:
+      kind: skill
+      skill_id: evidence_sift
+    inputs:
+      - skill_package_draft.md
+      - skill_install_sync_request.md
+      - supporting_examples
+    outputs:
+      - skill_smoke_check.md
+    summary: Record the smallest local smoke path, expected runtime inputs, and validation evidence before release.
+    next:
+      on_success: final_release_review
+      on_fail: stop
+  - step_id: final_release_review
     actor_slot: checker
     execution_profile_ref: analysis_heavy
     action:
@@ -69,9 +103,10 @@ steps:
     inputs:
       - skill_boundary_review.md
       - skill_install_sync_request.md
+      - skill_smoke_check.md
     outputs:
       - skill_release_review.md
-    summary: Confirm that the tracked package draft and the prepared install handoff still preserve canon, bridge, and runtime ownership boundaries at release time.
+    summary: Confirm that the tracked package, resource split, install handoff, and smoke record still preserve canon, bridge, and runtime ownership boundaries at release time.
     next:
       on_success: complete
       on_fail: stop

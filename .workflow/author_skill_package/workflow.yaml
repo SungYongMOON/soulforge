@@ -2,7 +2,7 @@ workflow_id: author_skill_package
 kind: workflow
 status: active
 title: Author Skill Package
-summary: Decide when a request should become a reusable Soulforge skill package, draft the tracked package, and prepare the install handoff.
+summary: Decide when a request should become a reusable Soulforge skill package, draft the tracked package, review the bundle split, and carry the package through install handoff and smoke-ready release review.
 entrypoint: run
 execution_mode: party_sequence
 role_slots: role_slots.yaml
@@ -17,10 +17,12 @@ inputs:
 outputs:
   - skill_boundary_brief.md
   - skill_package_draft.md
+  - skill_resource_bundle_review.md
   - skill_boundary_review.md
   - skill_install_sync_request.md
+  - skill_smoke_check.md
   - skill_release_review.md
 notes:
   - This workflow governs the authoring lane for reusable skill packages, not a project-local run dump.
   - Tracked package files still live under `.registry/skills/<skill_id>/`; the workflow only defines the procedural lane that leads to those edits and the later install handoff.
-  - Actual local installed mirror sync remains an operating procedure under `.registry/docs/operations/SKILL_INSTALL_SYNC.md`.
+  - Actual local installed mirror sync remains an operating procedure under `.registry/docs/operations/SKILL_INSTALL_SYNC.md`, but release review now expects the smoke path and runtime-input split to be explicit.

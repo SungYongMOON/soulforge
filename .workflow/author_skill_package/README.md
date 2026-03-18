@@ -9,6 +9,8 @@
 
 - `templates/skill_boundary_brief.template.md` -> `skill_boundary_brief.md`
 - `templates/skill_package_draft.template.md` -> `skill_package_draft.md`
+- `templates/skill_resource_bundle_review.template.md` -> `skill_resource_bundle_review.md`
 - `templates/skill_boundary_review.template.md` -> `skill_boundary_review.md`
 - `templates/skill_install_sync_request.template.md` -> `skill_install_sync_request.md`
+- `templates/skill_smoke_check.template.md` -> `skill_smoke_check.md`
 - `templates/skill_release_review.template.md` -> `skill_release_review.md`

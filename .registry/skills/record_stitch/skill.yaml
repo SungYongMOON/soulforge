@@ -8,6 +8,7 @@ behavior:
   use_when:
     - source fragments are already sifted
     - an intermediate structure or map must be drafted
+    - a package draft or install handoff note must be assembled from already-bounded review outputs
   avoid_when:
     - key relations remain unverified
   expected_outcome:
@@ -23,5 +24,6 @@ execution_requirements:
     - markdown_editor
   notes:
     - "actual model, attached skill package, and tool choice resolve in local runtime execution bindings."
+    - "Use `record_stitch` for intermediate package or handoff drafting only after the request has already been bounded by review."
 notes:
   - "`record_stitch` is the canonical skill behind `archivist.record_stitch`."

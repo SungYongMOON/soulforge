@@ -4,10 +4,10 @@ status: active
 slots:
   - slot_id: reviewer
     title: Reviewer
-    summary: Determines whether the request merits a reusable skill package and bounds the source material.
+    summary: Determines whether the request merits a reusable skill package, bounds the source material, and reviews resource split and smoke evidence.
   - slot_id: drafter
     title: Drafter
     summary: Assembles the tracked package draft and the later install handoff note.
   - slot_id: checker
     title: Checker
-    summary: Validates canon, optional bridge, and runtime binding boundaries before promotion.
+    summary: Validates canon, optional bridge, resource split, and runtime binding boundaries before promotion.

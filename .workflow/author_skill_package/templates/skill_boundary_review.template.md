@@ -15,6 +15,7 @@
 - `skill.yaml` stays canon-only: pass/fix
 - `codex/` stays optional bridge-only: pass/fix
 - `agents/openai.yaml` stays UI/dependency hint-only: pass/fix
+- Runtime input vs tracked bundle split stays valid: pass/fix
 - Runtime model/MCP/tool choice stays outside tracked package: pass/fix
 
 ## Findings
