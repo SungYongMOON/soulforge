@@ -29,6 +29,11 @@ _workspaces/
         ├── analytics/
         ├── nightly_healing/
         ├── reports/
+        │   ├── nightly_report/
+        │   └── morning_report/
+        ├── log/
+        │   ├── nightly_sweep/
+        │   └── battle_log/
         └── artifacts/
 ```
 
@@ -38,7 +43,7 @@ _workspaces/
 - held mission plan 과 readiness owner 는 이 경로가 아니라 루트 `.mission/` 이 소유한다.
 - raw execution truth 는 `_workspaces/<project_code>/.project_agent/runs/<run_id>/` 아래에 남긴다.
 - `.project_agent/` 는 local contract, bindings, autohunt metadata, raw run truth 를 두는 실행 surface 이며 mission owner 가 아니다.
-- `dungeons/`, `analytics/`, `nightly_healing/`, `reports/`, `artifacts/` 는 public tracking 대상이 아니다.
+- `dungeons/`, `analytics/`, `nightly_healing/`, `reports/`, `log/`, `artifacts/` 는 public tracking 대상이 아니다.
 - `.registry`, `.unit`, `.workflow`, `.party` 는 `_workspaces` 를 참조할 수 있지만 per-project 실자료를 흡수하지 않는다.
 
 ## tracking 규칙

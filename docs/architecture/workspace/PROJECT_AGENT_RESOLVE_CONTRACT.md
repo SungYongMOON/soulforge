@@ -18,6 +18,7 @@ flowchart TD
   PA --> A["analytics/"]
   PA --> N["nightly_healing/"]
   PA --> RP["reports/"]
+  PA --> LOG["log/"]
   PA --> AR["artifacts/"]
   P --> RW["resolve-workspaces"]
   RW --> VD["validate"]
@@ -68,5 +69,5 @@ local-only harness 문서를 확장할 때 아래 순서를 따른다.
 ## 금지
 
 - `_workspaces/company/<project>/`, `_workspaces/personal/<project>/` 를 project root 로 문서화하는 것
-- public fixture 에 actual `.project_agent/runs`, analytics, reports, artifacts 를 포함하는 것
+- public fixture 에 actual `.project_agent/runs`, analytics, reports, log, artifacts 를 포함하는 것
 - public validator 가 private workspace content 를 기본 입력으로 요구하는 것

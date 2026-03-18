@@ -27,6 +27,10 @@ flowchart TD
 - `index.yaml`
 - `DECISION_LOG.md`
 - `OPS_NOTES.md`
+- `GOVERNANCE_PACKET_MISSION_PROMOTION_RULES.md`
+- `FUTURE_AGGREGATION_PLAN.md`
+- `NIGHTLY_SWEEP_PLAN.md`
+- `MORNING_PROJECT_REPORT_CONTRACT.md`
 - `<mission_id>/mission.yaml`
 - `<mission_id>/readiness.yaml`
 - `<mission_id>/dispatch_request.yaml`
@@ -51,5 +55,9 @@ flowchart TD
 - `.mission/` 은 새 owner root 로 도입된 baseline 이다.
 - 현재는 public-safe sample mission 2건과 owner-local 운영 초안 문서군을 포함한다.
 - `DECISION_LOG.md`, `OPS_NOTES.md` 는 러프해도 계속 누적하는 owner-local operating draft 다.
+- `GOVERNANCE_PACKET_MISSION_PROMOTION_RULES.md` 는 현재 phase 의 승격 규칙 잠금 작업 패킷이다.
+- `FUTURE_AGGREGATION_PLAN.md` 는 나중에 만들 종합 기능을 위한 owner-local planning note 다.
+- `NIGHTLY_SWEEP_PLAN.md` 는 nightly sweep 의 역할과 보고 항목을 정리하는 owner-local planning note 다.
+- `MORNING_PROJECT_REPORT_CONTRACT.md` 는 아침에 볼 project report 의 local-only contract 초안이다.
 - mission 절차형 매뉴얼 초안은 [`docs/architecture/workspace/MISSION_MANUAL_DRAFT.md`](/Users/seabotmoon-air/Workspace/Soulforge/docs/architecture/workspace/MISSION_MANUAL_DRAFT.md) 에 둔다.
 - 실제 local/private run truth 는 계속 `_workspaces/<project_code>/.project_agent/runs/<run_id>/` 아래에 남긴다.

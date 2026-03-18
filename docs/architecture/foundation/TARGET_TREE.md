@@ -97,6 +97,11 @@ _workspaces/
         ├── analytics/
         ├── nightly_healing/
         ├── reports/
+        │   ├── nightly_report/
+        │   └── morning_report/
+        ├── log/
+        │   ├── nightly_sweep/
+        │   └── battle_log/
         └── artifacts/
 ```
 
@@ -104,7 +109,7 @@ _workspaces/
 - `_workspaces/<project_code>/` 는 local/private project worksite 로만 materialize 한다.
 - assigned execution plan owner 는 `_workspaces/` 나 `.project_agent/` 가 아니라 `.mission/` 이 소유한다.
 - raw execution truth 의 owner 는 `_workspaces/<project_code>/.project_agent/runs/<run_id>/` 다.
-- `dungeons/`, `analytics/`, `nightly_healing/`, `reports/`, `artifacts/` 도 public tracking 대상이 아니다.
+- `dungeons/`, `analytics/`, `nightly_healing/`, `reports/`, `log/`, `artifacts/` 도 public tracking 대상이 아니다.
 - tracked workspace sample 이 필요하면 `_workspaces/` 아래가 아니라 `docs/architecture/workspace/examples/` 아래에 둔다.
 
 ## 루트별 owner 의미

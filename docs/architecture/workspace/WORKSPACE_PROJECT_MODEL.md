@@ -31,6 +31,7 @@ flowchart TD
   PA --> A["analytics/"]
   PA --> N["nightly_healing/"]
   PA --> RP["reports/"]
+  PA --> LOG["log/"]
   PA --> AR["artifacts/"]
 ```
 
@@ -57,6 +58,11 @@ _workspaces/
         ├── analytics/
         ├── nightly_healing/
         ├── reports/
+        │   ├── nightly_report/
+        │   └── morning_report/
+        ├── log/
+        │   ├── nightly_sweep/
+        │   └── battle_log/
         └── artifacts/
 ```
 
@@ -76,7 +82,7 @@ _workspaces/
 - `.mission/<mission_id>/mission.yaml` 은 workflow, party, unit assignment 를 묶은 held execution plan owner 다.
 - binding file 과 appserver/mailbox/execution operating metadata 는 orchestration contract 이며 raw truth owner 가 아니다.
 - `autohunt/` 는 run queue 와 routing policy 를 다루지만 raw truth owner 가 아니다.
-- `dungeons/`, `analytics/`, `nightly_healing/`, `reports/`, `artifacts/` 는 모두 local/private owner 영역이다.
+- `dungeons/`, `analytics/`, `nightly_healing/`, `reports/`, `log/`, `artifacts/` 는 모두 local/private owner 영역이다.
 - tracked contract example 은 `docs/architecture/workspace/examples/<project_code>/.project_agent/` 아래에만 둔다.
 
 ## owner 경계
