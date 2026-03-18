@@ -1,0 +1,42 @@
+mission_id: author_hwpx_document_001
+kind: resolved_mission_plan
+status: blocked
+workflow:
+  workflow_id: author_skill_package
+  role_slots:
+    reviewer: reviewer
+    drafter: drafter
+    checker: checker
+party:
+  party_id: guild_master_cell
+unit_assignments:
+  reviewer:
+    unit_id: guild_master_01
+    class_ids:
+      - administrator
+    execution_profile_ref: analysis_heavy
+  drafter:
+    unit_id: guild_master_01
+    class_ids:
+      - administrator
+    execution_profile_ref: structured_planning
+  checker:
+    unit_id: guild_master_01
+    class_ids:
+      - administrator
+    execution_profile_ref: analysis_heavy
+step_outputs:
+  - skill_boundary_brief.md
+  - skill_package_draft.md
+  - skill_boundary_review.md
+  - skill_install_sync_request.md
+  - skill_release_review.md
+missing_outputs:
+  - skill_resource_bundle_review.md
+  - skill_smoke_check.md
+run_refs:
+  latest_run_id: author_skill_package_hwpx_document_001
+  raw_truth_root: _workspaces/demo_project/.project_agent/runs/author_skill_package_hwpx_document_001/
+notes:
+  - This plan is a public-safe resolved view for the held mission.
+  - The historical run produced a valid smoke-backed package, but the mission sample does not yet carry the newer explicit resource bundle review and smoke-check artifacts.

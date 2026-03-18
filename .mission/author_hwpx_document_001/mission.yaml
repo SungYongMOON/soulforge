@@ -1,0 +1,28 @@
+mission_id: author_hwpx_document_001
+kind: mission
+status: blocked
+title: Author HWPX Document
+summary: Held mission sample for importing the upstream `Canine89/hwpxskill` package into a Soulforge tracked skill package through the author_skill_package lane.
+project_code: demo_project
+workflow_id: author_skill_package
+party_id: guild_master_cell
+request_mode: import_upstream
+monster_type: skill_authoring_request
+target_skill_id: hwpx_document
+unit_assignments:
+  reviewer: guild_master_01
+  drafter: guild_master_01
+  checker: guild_master_01
+input_refs:
+  skill_request: upstream `Canine89/hwpxskill`
+  supporting_examples:
+    - upstream HWPX XML-first workflow material
+    - bundled report template smoke path
+  existing_skill_package: null
+run_refs:
+  latest_run_id: author_skill_package_hwpx_document_001
+  runtime_truth_root: _workspaces/demo_project/.project_agent/runs/
+notes:
+  - Mission owns the held execution plan and public-safe resolved assignment only.
+  - This sample predates the current explicit resource-bundle-review and smoke-check artifact split in `author_skill_package`.
+  - Local smoke output remains under the project worksite and is not duplicated under `.mission/`.

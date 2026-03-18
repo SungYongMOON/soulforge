@@ -10,6 +10,13 @@ entries:
     party_id: guild_master_cell
     project_code: demo_project
     readiness_status: completed
+  - mission_id: author_hwpx_document_001
+    title: Author HWPX Document
+    status: blocked
+    workflow_id: author_skill_package
+    party_id: guild_master_cell
+    project_code: demo_project
+    readiness_status: blocked
 notes:
   - `.mission/` owns held mission plans and readiness metadata.
   - Raw execution truth remains under `_workspaces/<project_code>/.project_agent/runs/<run_id>/`.

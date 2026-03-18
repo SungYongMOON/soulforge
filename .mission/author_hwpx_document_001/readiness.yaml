@@ -1,0 +1,22 @@
+mission_id: author_hwpx_document_001
+kind: mission_readiness
+status: blocked
+summary: The mission has a valid workflow, party, unit assignment, and smoke-backed release history, but it predates the current explicit artifact split for resource bundle review and smoke check.
+checks:
+  workflow_present: pass
+  party_present: pass
+  actor_slots_resolved: pass
+  unit_assignments_present: pass
+  tracked_package_drafted: pass
+  resource_bundle_split_reviewed: missing
+  boundary_review_passed: pass
+  install_sync_prepared: pass
+  smoke_recorded: pass
+  current_release_artifact_split: missing
+blockers:
+  - "`skill_resource_bundle_review.md` is not recorded as a separate tracked mission artifact under the current `author_skill_package` lane."
+  - "`skill_smoke_check.md` is not recorded as a separate tracked mission artifact under the current `author_skill_package` lane."
+latest_run_id: author_skill_package_hwpx_document_001
+notes:
+  - This is a historical mission sample carried forward into the newer mission/readiness model.
+  - Actual run logs and generated HWPX output remain under the project-local worksite.
