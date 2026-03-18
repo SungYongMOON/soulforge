@@ -25,6 +25,9 @@ flowchart TD
 ## 무엇을 둔다
 
 - `index.yaml`
+- `DECISION_LOG.md`
+- `OPS_NOTES.md`
+- `MISSION_MANUAL_DRAFT.md`
 - `<mission_id>/mission.yaml`
 - `<mission_id>/readiness.yaml`
 - `<mission_id>/dispatch_request.yaml`
@@ -47,5 +50,6 @@ flowchart TD
 ## 현재 상태
 
 - `.mission/` 은 새 owner root 로 도입된 baseline 이다.
-- 현재는 public-safe sample mission 1건을 포함한다.
+- 현재는 public-safe sample mission 2건과 owner-local 운영 초안 문서군을 포함한다.
+- `DECISION_LOG.md`, `OPS_NOTES.md`, `MISSION_MANUAL_DRAFT.md` 는 러프해도 계속 누적하는 owner-local operating draft 다.
 - 실제 local/private run truth 는 계속 `_workspaces/<project_code>/.project_agent/runs/<run_id>/` 아래에 남긴다.

@@ -112,4 +112,5 @@ flowchart TD
 
 - 이 문서는 `.mission/` 도입 phase 의 baseline 이다.
 - 기존 prototype run 은 계속 `_workspaces/<project_code>/.project_agent/runs/` 아래에 남긴다.
-- 이후 phase 에서 `mission_check` 와 sample mission entry 를 추가할 수 있다.
+- 현재는 `mission_check` 와 completed / blocked sample mission entry 가 함께 존재한다.
+- owner-local 운영 초안은 `.mission/DECISION_LOG.md`, `.mission/OPS_NOTES.md`, `.mission/MISSION_MANUAL_DRAFT.md` 에서 누적한다.

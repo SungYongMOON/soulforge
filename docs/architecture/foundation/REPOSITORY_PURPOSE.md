@@ -69,6 +69,7 @@ flowchart TD
 
 - `README.md`
 - `AGENTS.md`
+- `docs/architecture/foundation/VISION_AND_GOALS.md`
 - `.registry/README.md`
 - `docs/architecture/foundation/TARGET_TREE.md`
 - `docs/architecture/foundation/DOCUMENT_OWNERSHIP.md`

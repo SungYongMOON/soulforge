@@ -8,6 +8,7 @@
 ## 포함 대상
 
 - `REPOSITORY_PURPOSE.md`
+- `VISION_AND_GOALS.md`
 - `TARGET_TREE.md`
 - `DOCUMENT_OWNERSHIP.md`
 - `AGENT_WORLD_MODEL.md`
@@ -19,6 +20,7 @@
 - [`../README.md`](../README.md)
 - [`.registry/README.md`](../../../.registry/README.md)
 - [`REPOSITORY_PURPOSE.md`](REPOSITORY_PURPOSE.md)
+- [`VISION_AND_GOALS.md`](VISION_AND_GOALS.md)
 - [`TARGET_TREE.md`](TARGET_TREE.md)
 - [`DOCUMENT_OWNERSHIP.md`](DOCUMENT_OWNERSHIP.md)
 - [`schema/README.md`](schema/README.md)
