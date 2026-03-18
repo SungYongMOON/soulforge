@@ -5,6 +5,18 @@
 - `.unit/` 는 활성 unit 운영자가 책임지는 canonical root다. 각 unit owner 는 policy, protocols, runtime, memory, sessions, autonomic, artifacts 를 `/Users/seabotmoon-air/Workspace/Soulforge/.unit/<unit_id>/` 아래에서 직접 관리한다.
 - `.unit/` 는 `.registry`, `.workflow`, `.party`, `_workspaces` 와 구분되어 catalog, workflow, party, private project data 를 번갈아 처리하지 않는다.
 
+## 관계도
+
+```mermaid
+flowchart TD
+  U[".unit/<unit_id>/unit.yaml"] --> ID["identity.profile_ref<br/>identity.species_id<br/>identity.hero_id"]
+  U --> CID["class_ids"]
+  ID --> SP[".registry/species/<species_id>/species.yaml"]
+  CID --> CL[".registry/classes/<class_id>/class.yaml"]
+  U --> OS["policy / protocols / runtime / memory / sessions / autonomic / artifacts"]
+  WS["_workspaces/<project_code>/.project_agent/contract.yaml"] --> U
+```
+
 ## 무엇을 둔다
 
 - `<unit_id>/unit.yaml`
@@ -38,3 +50,10 @@
 
 - 이 저장소에는 canonical active unit 과 그 owner surface baseline 만 둔다.
 - 민감 데이터, 실제 session transcript, 비밀값, private runtime dump 는 tracked unit sample 에 넣지 않는다.
+
+## Future direction
+
+- 향후 human-operated `guild master` unit 를 별도 active unit 로 둘 수 있다.
+- 이 unit 는 mailbox escalation, manual hunt review, workflow/skill promotion approval 같은 상위 운영 판단을 맡는다.
+- Soulforge 전용 `skill creator` 또는 `skill checker` 같은 authoring aid 가 필요해지면, 그 책임은 우선 `guild master` unit owner surface 에 두는 방향을 기본안으로 본다.
+- 현재 `guild master` unit 는 아직 정본 sample 로 materialize 하지 않았고, future operator note 로만 기록한다.

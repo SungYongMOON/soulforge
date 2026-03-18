@@ -7,6 +7,35 @@
 - `.party/` 는 `.registry` 아래로 들어가지 않는 독립 orchestration root 다.
 - `.party/` 는 raw battle log, project-specific operational metrics owner 가 아니다.
 
+## 관계도
+
+```mermaid
+flowchart TD
+  P["party.yaml"] --> DW["default_workflow_id"]
+  P --> PM["preferred_monster_types"]
+  P --> MS["member_slots.yaml"]
+  P --> AW["allowed_workflows.yaml"]
+  MS --> U[".unit/<unit_id>/unit.yaml"]
+  AW --> WF[".workflow/<workflow_id>/workflow.yaml"]
+  DW --> WF
+```
+
+## 실행 시퀀스
+
+```mermaid
+sequenceDiagram
+  participant AH as autohunt
+  participant RUN as runner
+  participant PT as party
+  participant WF as workflow
+  participant U as unit
+  AH->>RUN: choose workflow_id + party_id
+  RUN->>WF: read actor_slot for current step
+  RUN->>PT: resolve actor_slot -> unit_id
+  PT-->>RUN: selected unit
+  RUN->>U: load unit lens
+```
+
 ## 무엇을 둔다
 
 - `index.yaml`

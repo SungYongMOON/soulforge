@@ -69,7 +69,7 @@
 ```
 
 - `.registry/species/<species_id>/species.yaml` 가 species truth 와 `heroes:` inline set 을 함께 가진다.
-- `.registry/skills/`, `.registry/tools/`, `.registry/knowledge/` 는 이번 phase 에서 skeleton 만 만든다.
+- `.registry/skills/`, `.registry/tools/`, `.registry/knowledge/` 는 reusable canon bucket 이며, class/unit/workflow sample 을 뒷받침하는 minimal seed entry 를 가질 수 있다.
 
 ## `_workspaces` local materialization
 

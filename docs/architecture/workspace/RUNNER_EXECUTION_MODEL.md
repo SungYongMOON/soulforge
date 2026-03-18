@@ -29,6 +29,24 @@ flowchart TD
   AG --> RAW["runs/<run_id>/ raw truth"]
 ```
 
+## 시퀀스
+
+```mermaid
+sequenceDiagram
+  participant AH as autohunt
+  participant RUN as runner
+  participant WF as workflow
+  participant PT as party
+  participant BD as bindings
+  participant SA as sub-agent
+  AH->>RUN: dispatch_request
+  RUN->>WF: read current step
+  RUN->>PT: resolve actor_slot -> unit_id
+  RUN->>BD: resolve skill_id and execution_profile_ref
+  RUN->>SA: spawn payload
+  SA-->>RUN: result + artifacts
+```
+
 ## runner 가 소유하는 것
 
 - dispatch 입력을 현재 execution packet 으로 해석하는 절차

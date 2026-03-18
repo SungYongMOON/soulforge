@@ -25,6 +25,22 @@ flowchart TD
   RUN --> RT["runs/&lt;run_id&gt;/ raw truth"]
 ```
 
+## 시퀀스
+
+```mermaid
+sequenceDiagram
+  participant WF as workflow step
+  participant SK as skill canon
+  participant SB as skill binding
+  participant EB as execution profile binding
+  participant SA as sub-agent
+  WF->>SK: read action.skill_id
+  WF->>SB: resolve codex skill name
+  WF->>EB: resolve model / MCP / tools
+  SB-->>SA: attached skill name
+  EB-->>SA: model + reasoning + tool hint
+```
+
 ## 공통 원칙
 
 - workflow step 는 `action.skill_id` 와 `execution_profile_ref` 같은 추상 ref 만 가진다.

@@ -1,7 +1,7 @@
 version: phase1
 owner: .registry
 kind: outer_canon_store
-status: skeleton
+status: active
 paths:
   species: species/
   classes: classes/
@@ -10,5 +10,6 @@ paths:
   knowledge: knowledge/
   docs: docs/architecture/
 notes:
-  - Phase 1 cutover skeleton only.
+  - `.registry` is now an active seeded canon surface, not a skeleton-only placeholder.
   - Species canon uses species/<species_id>/species.yaml with heroes inline.
+  - Classes, skills, tools, and knowledge buckets may contain minimal seed entries that support unit, workflow, and execution examples.

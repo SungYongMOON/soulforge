@@ -7,6 +7,40 @@
 - `.workflow/` 는 `.registry` 아래로 들어가지 않는 독립 orchestration root 다.
 - `.workflow/` 는 raw run dump, project-local battle log, run index owner 가 아니다.
 
+## 관계도
+
+```mermaid
+flowchart TD
+  WF["workflow.yaml"] --> SG["step_graph.yaml"]
+  WF --> RS["role_slots.yaml"]
+  WF --> HH["handoff_rules.yaml"]
+  WF --> PC["party_compatibility.yaml"]
+  SG --> SLOT["actor_slot"]
+  SG --> SK["action.skill_id"]
+  SG --> EP["execution_profile_ref"]
+  SLOT --> PT[".party/<party_id>/member_slots.yaml"]
+  SK --> REG[".registry/skills/<skill_id>/skill.yaml"]
+  EP --> BIND[".project_agent/bindings/execution_profile_binding.yaml"]
+```
+
+## 실행 시퀀스
+
+```mermaid
+sequenceDiagram
+  participant AH as autohunt
+  participant RUN as runner
+  participant WF as workflow
+  participant PT as party
+  participant BD as bindings
+  participant SA as sub-agent
+  AH->>RUN: workflow_id + party_id + entry_step_id
+  RUN->>WF: read actor_slot, skill_id, execution_profile_ref
+  RUN->>PT: resolve actor_slot -> unit_id
+  RUN->>BD: resolve skill_id / execution_profile_ref
+  RUN->>SA: spawn payload
+  SA-->>RUN: result
+```
+
 ## 무엇을 둔다
 
 - `index.yaml`

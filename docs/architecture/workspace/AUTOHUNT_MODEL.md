@@ -25,6 +25,25 @@ flowchart TD
   ESC --> LEARN["manual hunt notes / workflow promotion"]
 ```
 
+## 시퀀스
+
+```mermaid
+sequenceDiagram
+  participant MB as mailbox
+  participant AH as autohunt
+  participant RUN as runner
+  participant SA as sub-agent
+  participant RAW as runs/<run_id>
+  MB->>AH: incoming request
+  AH->>AH: classify monster_type
+  AH->>AH: route to workflow_id + party_id
+  AH->>RUN: dispatch_request
+  RUN->>SA: resolved run packet
+  SA-->>RUN: execution result
+  RUN->>RAW: save raw truth
+  RUN-->>AH: success or escalation
+```
+
 ## 책임
 
 - `workflow` 는 절차와 step 순서를 소유한다.
@@ -32,6 +51,7 @@ flowchart TD
 - `autohunt` 는 어떤 monster 를 어떤 workflow / party 로 자동 보낼지 소유한다.
 - `autohunt` 는 필요하면 runner 로 넘길 dispatch request 를 만든다.
 - `runner` 는 workflow 와 party 를 읽어 실제 sub-agent execution 을 수행한다.
+- human `guild master` 는 실패한 hunt 의 escalation 을 받고, manual hunt 기록과 canon promotion 판단을 맡는 상위 운영 주체가 될 수 있다.
 - raw truth 는 언제나 `runs/<run_id>/` 아래에 남긴다.
 
 ## 최소 파일
@@ -50,6 +70,12 @@ flowchart TD
 - unknown monster 는 바로 human escalation
 - 실패는 1회만 재시도
 - manual hunt 기록은 남기되 자동 승격은 하지 않음
+
+## human escalation lane
+
+- supervised autohunt 의 기본 human receiver 는 future `guild master` unit 를 상정한다.
+- 이 lane 에서는 사람이 직접 hunt 를 수행하고, 그 흔적을 workflow/skill/tool promotion 재료로 남긴다.
+- Soulforge 전용 `skill creator` 나 `skill checker` 같은 authoring aid 가 필요해지면, 우선 이 human guild-master lane 아래에서 운용하는 것을 기본안으로 본다.
 
 ## tracked mirror 와 local runtime
 
