@@ -1,0 +1,5 @@
+party_id: guild_master_cell
+kind: allowed_classes
+status: active
+class_ids:
+  - administrator

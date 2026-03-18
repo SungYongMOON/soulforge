@@ -7,6 +7,8 @@ entries:
     path: frontline_assault/workflow.yaml
   - workflow_id: build_lineage_map
     path: build_lineage_map/workflow.yaml
+  - workflow_id: author_skill_package
+    path: author_skill_package/workflow.yaml
 notes:
   - Workflow catalog only. Raw run ids and execution dumps do not belong here.
   - Authoring templates live under `authoring/` and are not workflow canon entries.

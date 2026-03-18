@@ -1,0 +1,5 @@
+party_id: guild_master_cell
+kind: allowed_species
+status: active
+species_ids:
+  - human

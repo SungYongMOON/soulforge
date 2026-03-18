@@ -1,0 +1,39 @@
+workflow_id: author_skill_package
+kind: handoff_rules
+status: active
+rules:
+  - from_step: review_request
+    to_step: draft_skill_package
+    handoff:
+      required_outputs:
+        - skill_boundary_brief.md
+      notes:
+        - Carry forward only repeated reusable behavior, boundary notes, and required outputs.
+  - from_step: draft_skill_package
+    to_step: check_boundary
+    handoff:
+      required_outputs:
+        - skill_package_draft.md
+      notes:
+        - The draft should already separate `skill.yaml`, optional `codex/` bridge, and local runtime concerns.
+  - from_step: check_boundary
+    to_step: prepare_install_sync
+    handoff:
+      required_outputs:
+        - skill_boundary_review.md
+      notes:
+        - If the checker localizes a mismatch to tracked canon or bridge, fix that owner first before preparing install sync.
+  - from_step: prepare_install_sync
+    to_step: final_check_boundary
+    handoff:
+      required_outputs:
+        - skill_install_sync_request.md
+      notes:
+        - The prepared install handoff note must not add runtime truth or host-local install ownership back into the tracked skill package draft.
+  - from_step: final_check_boundary
+    to_step: complete
+    handoff:
+      required_outputs:
+        - skill_release_review.md
+      notes:
+        - Completion of this workflow means the package draft passed both authoring-time review and final release-time boundary review; actual mirror sync is still a local operating step described in `.registry/docs/operations/SKILL_INSTALL_SYNC.md`.

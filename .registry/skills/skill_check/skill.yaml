@@ -1,6 +1,6 @@
 skill_id: skill_check
 kind: skill
-status: draft
+status: active
 title: Skill Check
 summary: Check a Soulforge skill package against canon, bridge, and runtime boundary ownership before broader rollout.
 behavior:
@@ -28,5 +28,5 @@ execution_requirements:
   notes:
     - "actual model, attached skill package, MCP, and tool choice resolve in local `.project_agent/bindings/`."
 notes:
-  - "`skill_check` is a draft canonical skill for Soulforge skill package review."
-  - "no class-local assign/ref is attached yet; bind it only when a class canon owns that lane."
+  - "`skill_check` is the canonical review skill for Soulforge skill package boundary checks."
+  - "`administrator.boundary_check` is the current canonical class-local binding for this skill."

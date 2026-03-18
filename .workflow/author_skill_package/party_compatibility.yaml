@@ -1,0 +1,13 @@
+workflow_id: author_skill_package
+kind: party_compatibility
+status: active
+allowed_party_ids:
+  - guild_master_cell
+required_slots:
+  - reviewer
+  - drafter
+  - checker
+recommended_classes:
+  - administrator
+notes:
+  - Authoring workflow compatibility is expressed in slots and reusable class capability, not project-local runtime truth.

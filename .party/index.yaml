@@ -7,6 +7,8 @@ entries:
     path: vanguard_strike/party.yaml
   - party_id: lineage_strike
     path: lineage_strike/party.yaml
+  - party_id: guild_master_cell
+    path: guild_master_cell/party.yaml
 notes:
   - Party catalog lists reusable team compositions.
   - Raw battle logs and project metrics do not belong here.

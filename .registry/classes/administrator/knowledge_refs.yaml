@@ -1,0 +1,12 @@
+class_id: administrator
+kind: knowledge_refs
+status: active
+assign:
+  - assign: source_criticism
+    ref: source_criticism
+    summary: Separate grounded package requirements from weak or speculative requests.
+  - assign: boundary_governance
+    ref: boundary_governance
+    summary: Keep canon, executor bridge, and runtime binding ownership separated.
+notes:
+  - assign/ref pairs are class-local bindings into canonical knowledge ids.

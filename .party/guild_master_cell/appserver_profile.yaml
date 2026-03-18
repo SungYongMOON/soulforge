@@ -1,0 +1,6 @@
+party_id: guild_master_cell
+kind: appserver_profile
+status: active
+profile:
+  mode: active
+  summary: Canonical appserver profile for guild-master authoring and promotion handoff coordination.

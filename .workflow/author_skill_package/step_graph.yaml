@@ -1,0 +1,77 @@
+workflow_id: author_skill_package
+kind: step_graph
+status: active
+steps:
+  - step_id: review_request
+    actor_slot: reviewer
+    execution_profile_ref: analysis_heavy
+    action:
+      kind: skill
+      skill_id: evidence_sift
+    inputs:
+      - skill_request
+      - supporting_examples
+      - existing_skill_package
+    outputs:
+      - skill_boundary_brief.md
+    summary: Decide whether the request should become a reusable skill package and bound the request to grounded repeated behavior.
+    next:
+      on_success: draft_skill_package
+      on_fail: stop
+  - step_id: draft_skill_package
+    actor_slot: drafter
+    execution_profile_ref: structured_planning
+    action:
+      kind: skill
+      skill_id: record_stitch
+    inputs:
+      - skill_boundary_brief.md
+    outputs:
+      - skill_package_draft.md
+    summary: Turn the bounded request into a coherent tracked package draft with canon, bridge, and mapping responsibilities separated.
+    next:
+      on_success: check_boundary
+      on_fail: stop
+  - step_id: check_boundary
+    actor_slot: checker
+    execution_profile_ref: analysis_heavy
+    action:
+      kind: skill
+      skill_id: skill_check
+    inputs:
+      - skill_package_draft.md
+    outputs:
+      - skill_boundary_review.md
+    summary: Review the tracked package draft against Soulforge boundary rules and local runtime ownership limits.
+    next:
+      on_success: prepare_install_sync
+      on_fail: stop
+  - step_id: prepare_install_sync
+    actor_slot: drafter
+    execution_profile_ref: delivery_light
+    action:
+      kind: skill
+      skill_id: record_stitch
+    inputs:
+      - skill_boundary_review.md
+    outputs:
+      - skill_install_sync_request.md
+    summary: Prepare the exact install handoff note for syncing the optional Codex bridge into the local installed mirror.
+    next:
+      on_success: final_check_boundary
+      on_fail: stop
+  - step_id: final_check_boundary
+    actor_slot: checker
+    execution_profile_ref: analysis_heavy
+    action:
+      kind: skill
+      skill_id: skill_check
+    inputs:
+      - skill_boundary_review.md
+      - skill_install_sync_request.md
+    outputs:
+      - skill_release_review.md
+    summary: Confirm that the tracked package draft and the prepared install handoff still preserve canon, bridge, and runtime ownership boundaries at release time.
+    next:
+      on_success: complete
+      on_fail: stop

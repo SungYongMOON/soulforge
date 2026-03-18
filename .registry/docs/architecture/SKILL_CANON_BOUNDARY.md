@@ -85,9 +85,9 @@ flowchart TD
 
 위 항목은 canonical skill folder 가 아니라 local `.project_agent/bindings/` 가 최종 owner 다.
 
-## draft authoring-aid example
+## authoring-aid example
 
-- `skill_check` 는 tracked `.registry/skills/<skill_id>/` package 와 optional `codex/` bridge 가 boundary 규칙을 지키는지 검토하는 draft sample 이다.
+- `skill_check` 는 tracked `.registry/skills/<skill_id>/` package 와 optional `codex/` bridge 가 boundary 규칙을 지키는지 검토하는 active authoring-aid sample 이다.
 - 이 skill 은 owner mismatch 나 과잉 중복을 지적할 수 있지만, local `.project_agent/bindings/` 값을 tracked canon 안으로 materialize 하지는 않는다.
 
 ## tracked repo guardrail
@@ -100,6 +100,6 @@ flowchart TD
 
 - `shield_wall`
 - `record_stitch`
-- `skill_check` (draft authoring-aid sample)
+- `skill_check` (active authoring-aid sample)
 
-`shield_wall` 와 `record_stitch` 는 active baseline example 이고, `skill_check` 는 같은 lean `SKILL.md + references/` split 을 따르는 draft authoring-aid sample 이다.
+`shield_wall`, `record_stitch`, `skill_check` 는 active baseline example 이고, `skill_check` 는 같은 lean `SKILL.md + references/` split 을 따르는 authoring-aid sample 이다.

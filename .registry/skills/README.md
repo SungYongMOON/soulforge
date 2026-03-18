@@ -8,5 +8,5 @@
 - `codex/SKILL.md` 는 lean bridge 로 유지하고, detailed mapping 과 output shape 는 `codex/references/` 로 분리한다.
 - Codex-facing package 를 둘 때는 `codex/SKILL.md` 와 `codex/agents/openai.yaml` 조합으로 UI metadata 와 dependency hint 를 함께 둔다.
 - 다른 PC 에서 실제 Codex installed mirror 가 필요하면 tracked `codex/` bridge 를 local `~/.codex/skills/` 로 sync 한다. baseline 절차는 [`.registry/docs/operations/SKILL_INSTALL_SYNC.md`](../docs/operations/SKILL_INSTALL_SYNC.md) 를 따른다.
-- `skill_check/` 는 tracked skill package 가 canon, optional executor bridge, local runtime binding owner 를 섞지 않는지 검토하는 draft authoring-aid sample 이다.
+- `skill_check/` 는 tracked skill package 가 canon, optional executor bridge, local runtime binding owner 를 섞지 않는지 검토하는 active authoring-aid sample 이다.
 - boundary 규칙은 [`.registry/docs/architecture/SKILL_CANON_BOUNDARY.md`](../docs/architecture/SKILL_CANON_BOUNDARY.md) 를 따른다.

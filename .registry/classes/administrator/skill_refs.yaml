@@ -1,0 +1,15 @@
+class_id: administrator
+kind: skill_refs
+status: active
+assign:
+  - assign: request_review
+    ref: evidence_sift
+    summary: Bound the request and separate repeated reusable behavior from one-off work.
+  - assign: package_draft
+    ref: record_stitch
+    summary: Turn bounded requirements into a coherent skill package draft and handoff note.
+  - assign: boundary_check
+    ref: skill_check
+    summary: Review tracked canon and optional executor bridge against Soulforge boundary rules.
+notes:
+  - assign/ref pairs are class-local bindings into canonical skill ids.

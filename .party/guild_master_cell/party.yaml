@@ -1,0 +1,18 @@
+party_id: guild_master_cell
+kind: party_template
+status: active
+title: Guild Master Cell
+summary: Canonical party template for deciding when a request becomes a reusable skill package and carrying it through review handoff.
+default_workflow_id: author_skill_package
+preferred_monster_types:
+  - skill_authoring_request
+  - skill_revision_request
+  - skill_boundary_review_request
+member_slots: member_slots.yaml
+allowed_species: allowed_species.yaml
+allowed_classes: allowed_classes.yaml
+allowed_workflows: allowed_workflows.yaml
+appserver_profile: appserver_profile.yaml
+notes:
+  - Party owns composition and routing hints only; skill package content still belongs to `.registry/skills/`.
+  - Slot to unit assignment is reusable canon for the guild-master authoring lane, not project-local run truth.

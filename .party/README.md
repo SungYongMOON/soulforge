@@ -64,4 +64,5 @@ sequenceDiagram
 
 - [`vanguard_strike/party.yaml`](vanguard_strike/party.yaml): Vanguard Strike party template for reusable member combinations.
 - [`lineage_strike/party.yaml`](lineage_strike/party.yaml): lineage-map production party template that binds workflow-facing slots to canonical units.
+- [`guild_master_cell/party.yaml`](guild_master_cell/party.yaml): guild-master authoring party template for skill package review, drafting, and promotion handoff.
 - [`vanguard_strike/stats/README.md`](vanguard_strike/stats/README.md): canonical stats guidance that keeps observational notes outside project runtime truth.

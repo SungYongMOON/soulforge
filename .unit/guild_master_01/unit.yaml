@@ -1,0 +1,13 @@
+unit_id: guild_master_01
+status: active
+summary: Administrative active subject sample for skill package review, workflow promotion, and install handoff work.
+identity:
+  profile_ref: guild_master_ops_alpha
+  species_id: human
+  hero_id: guild_master_operator
+class_ids:
+  - administrator
+notes:
+  - identity.profile_ref is a string id.
+  - identity.hero_id resolves within identity.species_id.
+  - class_ids list canonical class ids for the active subject loadout.

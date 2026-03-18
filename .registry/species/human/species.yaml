@@ -18,6 +18,13 @@ heroes:
     biases:
       build_lineage_map: 0.97
       frontline_assault: 0.15
+  - hero_id: guild_master_operator
+    title: Guild Master Operator
+    summary: A careful administrative exemplar who promotes repeated work into reusable packages without crossing owner boundaries.
+    profile_ref: guild_master_ops_field
+    biases:
+      author_skill_package: 0.99
+      build_lineage_map: 0.25
 notes:
   - hero_id is unique only within this species.
   - biases are recommendation weights, not policy.

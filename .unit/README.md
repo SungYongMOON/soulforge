@@ -45,6 +45,7 @@ flowchart TD
 - [`vanguard_01/unit.yaml`](vanguard_01/unit.yaml)은 현재 운영 중인 canonical active subject sample이다. 이 파일은 `identity.profile_ref`, `identity.species_id`, `identity.hero_id`, `class_ids` 로 active subject shape 를 고정하며, `.unit/`를 봤을 때 가장 먼저 참고할 실제 unit이다.
 - [`vanguard_01/`](vanguard_01/) 아래의 owner surface 디렉터리는 policy, protocols, runtime, memory, sessions, autonomic, artifacts 의 tracked baseline 을 함께 제공한다.
 - [`scribe_01/unit.yaml`](scribe_01/unit.yaml)은 research/documentation 성향의 contrasting unit sample 이다. capability comparison 과 unit-selection 실험에서 `vanguard_01`와 구분되는 owner lens 를 제공한다.
+- [`guild_master_01/unit.yaml`](guild_master_01/unit.yaml)은 skill package authoring, boundary review, promotion handoff 성향의 administrative sample 이다. `author_skill_package` 와 `guild_master_cell` 조합의 canonical demo unit 으로 본다.
 
 ## tracking 원칙
 
@@ -53,7 +54,6 @@ flowchart TD
 
 ## Future direction
 
-- 향후 human-operated `guild master` unit 를 별도 active unit 로 둘 수 있다.
-- 이 unit 는 mailbox escalation, manual hunt review, workflow/skill promotion approval 같은 상위 운영 판단을 맡는다.
-- Soulforge 전용 `skill creator` 또는 `skill checker` 같은 authoring aid 가 필요해지면, 그 책임은 우선 `guild master` unit owner surface 에 두는 방향을 기본안으로 본다.
-- 현재 `guild master` unit 는 아직 정본 sample 로 materialize 하지 않았고, future operator note 로만 기록한다.
+- 현재 `guild_master_01` 는 AI-operated authoring lane sample 이고, 향후 human-operated `guild master` unit 를 별도 active unit 로 둘 수 있다.
+- human guild master lane 은 mailbox escalation, manual hunt review, workflow/skill promotion approval 같은 상위 운영 판단을 맡는다.
+- Soulforge 전용 `skill creator` 또는 `skill checker` 같은 authoring aid 는 우선 `guild_master_01` 같은 guild-master owner surface 와 workflow lane 아래에서 운용하는 것을 기본안으로 본다.

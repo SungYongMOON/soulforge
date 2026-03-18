@@ -1,0 +1,13 @@
+knowledge_id: boundary_governance
+kind: knowledge
+status: active
+title: Boundary Governance
+summary: Knowledge for keeping canon, optional executor bridge, and local runtime binding ownership separated.
+focus:
+  primary_domain: owner-boundary review
+  applied_to:
+    - skill package review
+    - bridge separation
+    - promotion handoff
+notes:
+  - `boundary_governance` is the canonical knowledge behind `administrator.boundary_governance`.

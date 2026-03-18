@@ -1,0 +1,9 @@
+workflow_id: author_skill_package
+kind: monster_rules
+status: active
+monster_types:
+  - skill_authoring_request
+  - skill_revision_request
+  - skill_boundary_review_request
+notes:
+  - These monster types describe requests that should route into the guild-master skill authoring lane.
