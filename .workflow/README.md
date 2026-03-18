@@ -22,6 +22,7 @@ flowchart TD
   WF --> RS["role_slots.yaml"]
   WF --> HH["handoff_rules.yaml"]
   WF --> PC["party_compatibility.yaml"]
+  WF --> MI[".mission/<mission_id>/mission.yaml"]
   SG --> SLOT["actor_slot"]
   SG --> SK["action.skill_id"]
   SG --> EP["execution_profile_ref"]
@@ -69,7 +70,7 @@ sequenceDiagram
 ## 왜 이렇게 둔다
 
 - workflow 는 여러 unit 과 party 가 재사용하는 공략서이므로 raw 실행 결과와 분리되어야 한다.
-- public repo 에 남길 수 있는 것은 curated learning summary 뿐이고, raw run 은 mission site 가 소유한다.
+- public repo 에 남길 수 있는 것은 curated learning summary 뿐이고, held mission assignment 는 `.mission/` 이, raw run 은 `_workspaces/<project_code>/.project_agent/runs/<run_id>/` 가 소유한다.
 - `step_graph.yaml` 의 각 step 는 필요하면 `execution_profile_ref` 를 가질 수 있고, 실제 모델/도구 preset 은 `.project_agent/bindings/execution_profile_binding.yaml` 에서 resolve 한다.
 - `step_graph.yaml` 의 `action.skill_id` 는 `.registry/skills/<skill_id>/skill.yaml` 을 가리키며, local runtime 에서는 `.project_agent/bindings/skill_execution_binding.yaml` 이 installed Codex skill name 을 resolve 할 수 있다.
 - skill authoring 같은 운영 workflow 는 tracked package draft 와 install handoff note 를 만들 수 있지만, 실제 installed mirror sync 는 local operation 절차로 남길 수 있다.

@@ -55,7 +55,7 @@ sequenceDiagram
 
 ## 왜 이렇게 둔다
 
-- party 는 조합 템플릿이므로 reusable fit 정보만 공개 정본에 남기고 실제 전투 기록은 mission site 에 남겨야 한다.
+- party 는 조합 템플릿이므로 reusable fit 정보만 공개 정본에 남기고, held mission assignment 는 `.mission/` 에, 실제 전투 기록은 `_workspaces/<project_code>/.project_agent/runs/<run_id>/` 에 남겨야 한다.
 - template-level stats 만 유지해야 party canon 과 project performance data 의 owner 경계가 분리된다.
 - workflow 는 밖에 있는 절차 canon 이고, party 는 그 workflow 를 수행할 출전 조합이다.
 - 그래서 `party.yaml` 은 `default_workflow_id`, `allowed_workflows.yaml`, `preferred_monster_types` 같은 운영 힌트만 소유하고 step 순서 자체는 소유하지 않는다.

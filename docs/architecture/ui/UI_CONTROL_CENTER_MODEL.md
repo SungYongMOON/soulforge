@@ -9,7 +9,7 @@
 
 1. UI는 정본 파일의 편집 surface 다.
 2. derived preview 는 보조 surface 다.
-3. owner 경계는 `.registry`, `.unit`, `.workflow`, `.party`, `_workspaces` 기준을 따른다.
+3. owner 경계는 `.registry`, `.unit`, `.workflow`, `.party`, `.mission`, `_workspaces` 기준을 따른다.
 4. 저장은 파일 단위 명시 액션으로만 수행한다.
 5. local-only `_workspaces/<project_code>` 는 opt-in surface 로만 다룬다.
 
@@ -31,7 +31,7 @@ control center 는 아래 네 묶음으로 owner 파일을 탐색한다.
 
 - `Identity / Unit` = `.registry/species` + `.unit`
 - `Catalogs` = `.registry/classes` + `.workflow` + `.party`
-- `Workspaces` = `_workspaces`
+- `Operations` = `.mission` + `_workspaces`
 - `Docs / Diagnostics` = root 문서와 검증 결과
 
 이 grouping 은 탐색 편의를 위한 navigation 구성이고 source owner 자체를 바꾸지 않는다.
@@ -51,7 +51,10 @@ control center 는 아래 네 묶음으로 owner 파일을 탐색한다.
   - `.workflow/**`
   - `.party/README.md`
   - `.party/**`
-- `Workspaces`
+- `Operations`
+  - `.mission/README.md`
+  - `.mission/index.yaml`
+  - `.mission/**`
   - `_workspaces/README.md`
   - opt-in local-only `_workspaces/<project_code>/.project_agent/**`
 
@@ -66,6 +69,7 @@ control center 는 아래 네 묶음으로 owner 파일을 탐색한다.
   - `.registry/classes/**/class.yaml`
   - `.workflow/**/workflow.yaml`
   - `.party/**/party.yaml`
+  - `.mission/**/mission.yaml`
   - `_workspaces/<project_code>/.project_agent/contract.yaml`
 
 ### 기본 읽기 전용

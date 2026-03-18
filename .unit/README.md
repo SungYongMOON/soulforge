@@ -3,7 +3,7 @@
 ## Canonical purpose
 
 - `.unit/` 는 활성 unit 운영자가 책임지는 canonical root다. 각 unit owner 는 policy, protocols, runtime, memory, sessions, autonomic, artifacts 를 `/Users/seabotmoon-air/Workspace/Soulforge/.unit/<unit_id>/` 아래에서 직접 관리한다.
-- `.unit/` 는 `.registry`, `.workflow`, `.party`, `_workspaces` 와 구분되어 catalog, workflow, party, private project data 를 번갈아 처리하지 않는다.
+- `.unit/` 는 `.registry`, `.workflow`, `.party`, `.mission`, `_workspaces` 와 구분되어 catalog, workflow, party, mission plan, private project data 를 번갈아 처리하지 않는다.
 
 ## 관계도
 
@@ -38,7 +38,7 @@ flowchart TD
 ## 왜 이렇게 둔다
 
 - 현재 운영 중인 unit 은 catalog 와 달리 책임 경계를 명시해야 하므로 `.unit/` 별도 루트를 유지한다.
-- 운영 경계를 `.registry`, `.workflow`, `.party`, `_workspaces` 와 분리함으로써 재사용성과 책임 경계를 명확히 한다.
+- 운영 경계를 `.registry`, `.workflow`, `.party`, `.mission`, `_workspaces` 와 분리함으로써 재사용성과 책임 경계를 명확히 한다.
 
 ## Canonical sample
 

@@ -1,0 +1,19 @@
+mission_id: author_pptx_autofill_conversion_001
+kind: mission_readiness
+status: completed
+summary: The mission completed through authoring, bundle review, boundary review, install handoff preparation, and smoke-backed release review.
+checks:
+  workflow_present: pass
+  party_present: pass
+  actor_slots_resolved: pass
+  unit_assignments_present: pass
+  tracked_package_drafted: pass
+  resource_bundle_split_reviewed: pass
+  boundary_review_passed: pass
+  install_sync_prepared: pass
+  smoke_recorded: pass
+blockers: []
+latest_run_id: author_skill_package_pptx_autofill_conversion_001
+notes:
+  - `completed` here means the public-safe mission sample reached a release-ready state.
+  - Actual run logs and smoke files remain under the project-local worksite.

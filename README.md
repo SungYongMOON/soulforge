@@ -1,16 +1,17 @@
 # Soulforge
 
-Soulforge는 다섯 개의 canonical root 와 local-only runtime site 정책을 고정하는 설계 저장소다.
+Soulforge는 여섯 개의 canonical root 와 project-local materialization 정책을 고정하는 설계 저장소다.
 루트는 owner 경계, public/private tracking 원칙, 파생 UI 계약을 관리한다.
-실제 프로젝트 현장 데이터와 private runtime truth 는 `_workspaces/<project_code>/` local-only materialization 에서 다룬다.
+현재 보유한 mission plan 은 `.mission/` 이 들고, 실제 프로젝트 현장 데이터와 private runtime truth 는 `_workspaces/<project_code>/` local-only materialization 에서 다룬다.
 
-## 정본 5축
+## 정본 6축
 
 - `.registry`: outer canon/store
 - `.unit`: active agent unit owner
 - `.workflow`: orchestration canon
 - `.party`: reusable orchestration template
-- `_workspaces`: dungeon-like local-only runtime site
+- `.mission`: held mission plan owner
+- `_workspaces`: project-local materialization site
 
 ## 구조 개요도
 
@@ -23,10 +24,12 @@ flowchart TD
   S --> U[".unit<br/>active agent unit owner"]
   S --> W[".workflow<br/>independent orchestration canon"]
   S --> P[".party<br/>independent orchestration template"]
-  S --> M["_workspaces<br/>local-only runtime site"]
+  S --> MI[".mission<br/>held mission plan"]
+  S --> M["_workspaces<br/>project-local materialization site"]
   S --> D["docs/architecture<br/>root-owned canon docs"]
   S --> UI["ui-workspace<br/>derived UI consumer workspace"]
-  M --> PA["<project_code>/.project_agent<br/>local-only contract and run truth"]
+  MI --> MP["mission.yaml / readiness.yaml<br/>resolved plan owner"]
+  M --> PA["<project_code>/.project_agent<br/>local contract, bindings, and run truth"]
 ```
 
 ## 상위 지도
@@ -45,8 +48,10 @@ flowchart TD
 - `.registry` 는 outer canon/store owner 다.
 - `.unit` 는 active agent unit owner 다.
 - `.workflow` 와 `.party` 는 `.registry` 아래로 넣지 않는 독립 orchestration root 다.
+- `.mission` 은 held mission plan 과 readiness owner 다.
 - species canon 은 `species/<species_id>/species.yaml` 와 `heroes:` inline 모델을 사용한다.
 - `_workspaces/<project_code>/` 실제 과제 내용은 public GitHub 에 올리지 않으며, 로컬 환경에서만 materialize 한다.
+- assigned execution plan 과 mission-level 배정 owner 는 `_workspaces/` 나 `.project_agent/` 가 아니라 `.mission/` 이 소유한다.
 - tracked workspace sample 은 `_workspaces/` 아래가 아니라 `docs/architecture/workspace/examples/` 아래로만 둘 수 있다.
 - `.run/` 루트는 새 정본에 포함하지 않는다.
 - 상세 owner 규칙은 각 루트 `README.md` 와 `docs/architecture/**` 문서를 따른다.

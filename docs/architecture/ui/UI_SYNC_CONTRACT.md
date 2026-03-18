@@ -8,8 +8,8 @@
 ## 기본 원칙
 
 1. UI는 정본 파일을 읽고 파생 상태를 소비한다.
-2. 정본 owner root 는 `.registry`, `.unit`, `.workflow`, `.party`, `_workspaces` 다.
-3. `derive-ui-state` 는 6축 top-level payload 와 renderer surface (`overview`, `body`, `class_view`, `catalogs`, `ui_hints`) 를 함께 낸다.
+2. 정본 owner root 는 `.registry`, `.unit`, `.workflow`, `.party`, `.mission`, `_workspaces` 다.
+3. `derive-ui-state` 는 7축 top-level payload 와 renderer surface (`overview`, `body`, `class_view`, `catalogs`, `ui_hints`) 를 함께 낸다.
 4. `_workspaces/<project_code>/` 실자료 스캔은 기본 동작이 아니라 opt-in local smoke 다.
 
 ## 정본 계층
@@ -22,6 +22,9 @@
 - `.workflow/**/workflow.yaml`
 - `.party/index.yaml`
 - `.party/**/party.yaml`
+- `.mission/index.yaml`
+- `.mission/**/mission.yaml`
+- `.mission/**/readiness.yaml`
 - `_workspaces/README.md`
 - opt-in local-only `_workspaces/<project_code>/.project_agent/**`
 
@@ -38,7 +41,7 @@ flowchart LR
 - `Scan` = owner roots 와 local-only mount policy 를 읽는다.
 - `Resolve` = catalog ref, unit binding, workflow/party relation 을 해석한다.
 - `Validate` = owner root 최소 파일 세트와 cross-ref 를 검사한다.
-- `Derive` = 6축 top-level payload 와 renderer surface 를 계산한다.
+- `Derive` = 7축 top-level payload 와 renderer surface 를 계산한다.
 - `Render` = derived state 를 소비한다.
 
 ## 현재 구현 범위
@@ -46,8 +49,8 @@ flowchart LR
 - `sync-body-state` = 상태 보고용 no-op
 - `resolve-loadout` = class/workflow/party summary
 - `resolve-workspaces` = local-only mount inspector
-- `validate` = 6축 owner root 최소 검증
-- `derive-ui-state` = 6축 payload + renderer surface
+- `validate` = 7축 owner root 최소 검증
+- `derive-ui-state` = 7축 payload + renderer surface
 - renderer = `derive-ui-state --json` 소비자
 
 ## local-only workspace 규칙
@@ -59,7 +62,7 @@ flowchart LR
 
 ## 검증 규칙
 
-1. `.registry`, `.unit`, `.workflow`, `.party` 는 각 owner root 의 현재 파일 세트로 검사한다.
+1. `.registry`, `.unit`, `.workflow`, `.party`, `.mission` 은 각 owner root 의 현재 파일 세트로 검사한다.
 2. `.unit` 는 active binding owner surface 로 검사한다.
 3. `.workflow/history` 는 curated summary only 여야 한다.
 4. `.party/stats` 는 template-level observation only 여야 한다.
@@ -68,7 +71,7 @@ flowchart LR
 
 ## derive 규칙
 
-1. `derive-ui-state` 는 `species`, `units`, `classes`, `workflows`, `parties`, `workspaces` top-level axis 를 낸다.
+1. `derive-ui-state` 는 `species`, `units`, `classes`, `workflows`, `parties`, `missions`, `workspaces` top-level axis 를 낸다.
 2. `overview`, `body`, `class_view`, `catalogs`, `ui_hints` 는 renderer surface 다.
 3. `workspaces.projects` 는 direct `<project_code>` detection 결과만 가진다.
 4. `workspaces.local_scan_enabled = false` 인 fixture 는 synthetic public-safe baseline 이어야 한다.
@@ -78,6 +81,7 @@ flowchart LR
 - catalog root 변경
 - unit owner 변경
 - workflow / party canon 변경
+- mission plan canon 변경
 - `_workspaces` local-only 정책 변경
 - local smoke harness 변경
 

@@ -1,0 +1,28 @@
+mission_id: author_pptx_autofill_conversion_001
+kind: mission
+status: completed
+title: Author PPTX Autofill Conversion
+summary: Held mission sample for importing an upstream Claude PPTX autofill skill into a Soulforge tracked package through the author_skill_package lane.
+project_code: demo_project
+workflow_id: author_skill_package
+party_id: guild_master_cell
+request_mode: import_upstream
+monster_type: skill_authoring_request
+target_skill_id: pptx_autofill_conversion
+unit_assignments:
+  reviewer: guild_master_01
+  drafter: guild_master_01
+  checker: guild_master_01
+input_refs:
+  skill_request: user-provided upstream Claude skill `pptx-autofill-conversion.skill`
+  supporting_examples:
+    - lecture proposal blank PPTX form
+    - lecture plan similar PPTX form
+    - hybrid PPT template
+  existing_skill_package: null
+run_refs:
+  latest_run_id: author_skill_package_pptx_autofill_conversion_001
+  runtime_truth_root: _workspaces/demo_project/.project_agent/runs/
+notes:
+  - Mission owns the held execution plan and public-safe resolved assignment only.
+  - Sample PPTX binaries remain local runtime inputs and are not tracked under `.mission/`.

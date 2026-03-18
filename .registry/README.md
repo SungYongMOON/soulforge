@@ -4,7 +4,7 @@
 
 - `.registry/` 는 Soulforge의 outer canon/store 정본 루트다.
 - species, classes, skills, tools, knowledge 는 이 경로 아래에서만 canonical 의미를 가진다.
-- `.unit/`, `.workflow/`, `.party/`, `_workspaces/` 는 `.registry/` 를 참조할 수 있지만 그 내용을 소유하지 않는다.
+- `.unit/`, `.workflow/`, `.party/`, `.mission/`, `_workspaces/` 는 `.registry/` 를 참조할 수 있지만 그 내용을 소유하지 않는다.
 
 ## 관계도
 

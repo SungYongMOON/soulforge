@@ -7,8 +7,8 @@
 
 ## 핵심 원칙
 
-- canonical source root 는 5개다: `.registry`, `.unit`, `.workflow`, `.party`, `_workspaces`.
-- consumer axis 는 6개다: `species`, `units`, `classes`, `workflows`, `parties`, `workspaces`.
+- canonical source root 는 6개다: `.registry`, `.unit`, `.workflow`, `.party`, `.mission`, `_workspaces`.
+- consumer axis 는 7개다: `species`, `units`, `classes`, `workflows`, `parties`, `missions`, `workspaces`.
 - derived state 는 source 를 읽은 뒤 producer 가 계산한 결과다.
 - renderer 는 source 를 직접 스캔하지 않는다.
 - local-only workspace scan 은 opt-in 이며 public fixture 는 synthetic 만 사용한다.
@@ -17,20 +17,21 @@
 
 ```mermaid
 flowchart TD
-  SRC["5 canonical roots"] --> DR["derive-ui-state"]
+  SRC["6 canonical roots"] --> DR["derive-ui-state"]
   DR --> DS["derived state JSON"]
   DS --> UI["renderer / UI"]
   SRC --> A[".registry/**<br/>species / class canon"]
   SRC --> U[".unit/**/unit.yaml<br/>active unit owner"]
   SRC --> W[".workflow/**/workflow.yaml<br/>workflow canon"]
   SRC --> P[".party/**/party.yaml<br/>party template"]
+  SRC --> M[".mission/**/mission.yaml<br/>held mission plan"]
   SRC --> X["_workspaces/&lt;project_code&gt;/<br/>opt-in local-only"]
 ```
 
 ## source 와 derived state 구분
 
-- source 는 5 canonical root 와 local-only mount policy 에 있다.
-- producer 는 5 canonical root 를 읽어 6 consumer axis projection 과 renderer surface 입력을 함께 만든다.
+- source 는 6 canonical root 와 local-only mount policy 에 있다.
+- producer 는 6 canonical root 를 읽어 7 consumer axis projection 과 renderer surface 입력을 함께 만든다.
 - derived state 는 `derive-ui-state` 가 만든 소비층 입력이다.
 - renderer 는 direct root scan 대신 derived state 와 axis projection metadata 만 소비한다.
 
@@ -43,7 +44,8 @@ flowchart TD
 | `classes` | `.registry/index.yaml`, `.registry/classes/**/class.yaml`, refs | reusable class / package catalog |
 | `workflows` | `.workflow/index.yaml`, `.workflow/**/workflow.yaml`, related canon files | workflow canon + curated history |
 | `parties` | `.party/index.yaml`, `.party/**/party.yaml`, related template files | reusable party template |
-| `workspaces` | `_workspaces/README.md`, opt-in local-only `_workspaces/<project_code>/.project_agent/**` | local-only mission site mount view |
+| `missions` | `.mission/index.yaml`, `.mission/**/{mission,readiness,resolved_plan}.yaml` | held mission plan + readiness view |
+| `workspaces` | `_workspaces/README.md`, opt-in local-only `_workspaces/<project_code>/.project_agent/**` | local-only project worksite view |
 
 ## renderer surface
 
@@ -51,9 +53,10 @@ flowchart TD
 - `body` = `.registry/species` 와 `.unit` 를 함께 읽는 unit-centric surface
 - `class_view` = `.registry/classes`, `.workflow`, `.party` 를 함께 읽는 class/workflow surface
 - `catalogs` = read-only candidate surface
+- `missions` = held mission readiness summary
 - `workspaces` = local-only mount summary
 
-renderer 탭은 이 surface 를 소비하고, source owner 의미는 producer 가 5 canonical root 에서 6 consumer axis 로 풀어낸 결과를 통해 전달된다.
+renderer 탭은 이 surface 를 소비하고, source owner 의미는 producer 가 6 canonical root 에서 7 consumer axis 로 풀어낸 결과를 통해 전달된다.
 
 ## 표현 기준
 

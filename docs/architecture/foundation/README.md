@@ -28,5 +28,5 @@
 
 - Stable
 - 저장소 전체 기준선과 장기 참조 문서를 묶는다.
-- active owner-local canon 은 `.registry/`, `.unit/`, `.workflow/`, `.party/`, `_workspaces/` 에서 읽는다.
+- active owner-local canon 은 `.registry/`, `.unit/`, `.workflow/`, `.party/`, `.mission/`, `_workspaces/` 에서 읽는다.
 - active semantics 는 `AGENT_WORLD_MODEL.md` 에 통합한다.

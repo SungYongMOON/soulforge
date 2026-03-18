@@ -15,7 +15,8 @@
 | Class Package Catalog | `.registry/classes/<class_id>/**` | reusable class / package canon |
 | Workflow Canon | `.workflow/<workflow_id>/` | reusable workflow canon |
 | Party Template | `.party/<party_id>/` | reusable party template |
-| Mission Site | `_workspaces/<project_code>/` | 실제 프로젝트 현장 |
+| Mission Plan | `.mission/<mission_id>/` | 내가 현재 보유한 실행 계획 |
+| Project Worksite | `_workspaces/<project_code>/` | 실제 프로젝트 파일과 local run truth 를 담는 현장 |
 
 ## 핵심 해석
 
@@ -26,15 +27,18 @@
 - class 는 재사용 가능한 능력 패키지다.
 - workflow 는 reusable 공략서 / 처리 규칙이다.
 - party 는 reusable 투입 조합이다.
+- mission 은 workflow/party/unit 을 실제 실행 계획으로 묶은 owner surface 다.
 
 ## 현재 고정 결정
 
-- Soulforge의 canonical root 는 `.registry`, `.unit`, `.workflow`, `.party`, `_workspaces` 다.
+- Soulforge의 canonical root 는 `.registry`, `.unit`, `.workflow`, `.party`, `.mission`, `_workspaces` 다.
 - `.registry` 는 outer canon/store owner 다.
 - `.unit` 는 active owner surface 다.
 - `.workflow` 는 workflow canon owner 다.
 - `.party` 는 reusable party template owner 다.
-- `_workspaces` 는 local-only mission site 다.
+- `.mission` 은 held mission plan owner 다.
+- `_workspaces` 는 local-only project worksite 다.
+- assigned execution plan owner 는 `_workspaces` 가 아니라 `.mission` 이 소유한다.
 
 ## 우선순위
 
@@ -50,3 +54,4 @@
 - `.registry/**` 는 active unit state 와 project-local truth 를 소유하지 않는다.
 - `.unit/**` 가 active binding 과 owner surface 를 가진다.
 - `.workflow/**` 와 `.party/**` 는 `.registry/**` 하위가 아니라 독립 root 다.
+- `.mission/**` 는 held mission metadata 와 readiness 를 소유한다.

@@ -1,0 +1,15 @@
+version: v1
+owner: .mission
+kind: mission_catalog
+status: active
+entries:
+  - mission_id: author_pptx_autofill_conversion_001
+    title: Author PPTX Autofill Conversion
+    status: completed
+    workflow_id: author_skill_package
+    party_id: guild_master_cell
+    project_code: demo_project
+    readiness_status: completed
+notes:
+  - `.mission/` owns held mission plans and readiness metadata.
+  - Raw execution truth remains under `_workspaces/<project_code>/.project_agent/runs/<run_id>/`.

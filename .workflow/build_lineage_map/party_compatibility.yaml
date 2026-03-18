@@ -5,4 +5,4 @@ compatible_party_ids:
   - lineage_strike
 notes:
   - `lineage_strike` is the canonical demo party for this workflow.
-  - Runtime party assignment still belongs to the mission site.
+  - Runtime party assignment belongs to the mission owner, while raw run truth stays in the project worksite.

@@ -2,16 +2,17 @@
 
 ## 목적
 
-- Soulforge를 canonical root 와 local-only runtime site 경계를 고정하는 설계 저장소로 유지한다.
+- Soulforge를 canonical root 와 project-local worksite 경계를 고정하는 설계 저장소로 유지한다.
 - 구현보다 owner 경계, 구조, derive/validate 계약, public/private tracking 원칙을 먼저 닫는다.
 
-## 정본 5축
+## 정본 6축
 
 - `.registry` = outer canon/store
 - `.unit` = active agent unit owner
 - `.workflow` = independent orchestration canon
 - `.party` = independent orchestration template
-- `_workspaces` = dungeon-like local-only runtime site
+- `.mission` = held mission plan owner
+- `_workspaces` = project-local materialization site
 
 ## 구조 개요도
 
@@ -24,8 +25,10 @@ flowchart TD
   S --> U[".unit<br/>active unit owner"]
   S --> W[".workflow<br/>independent orchestration canon"]
   S --> P[".party<br/>independent orchestration template"]
-  S --> M["_workspaces<br/>local-only runtime site"]
-  M --> PA["&lt;project_code&gt;/.project_agent<br/>local-only contract boundary"]
+  S --> MI[".mission<br/>held mission plan"]
+  S --> M["_workspaces<br/>project-local materialization site"]
+  MI --> MP["mission.yaml / readiness.yaml<br/>resolved plan owner"]
+  M --> PA["&lt;project_code&gt;/.project_agent<br/>local contract and runtime boundary"]
   S --> D["docs/architecture<br/>root-owned canon docs"]
 ```
 
@@ -47,7 +50,8 @@ flowchart TD
 
 - canonical roots 의 owner 경계를 문서와 skeleton 으로 고정한다.
 - UI가 canonical roots 에서 파생된 소비층임을 고정한다.
-- `_workspaces` 를 public tracked data root 가 아니라 local-only mission site mount point 로 고정한다.
+- `.mission` 을 held mission plan owner 로 고정한다.
+- `_workspaces` 를 public tracked data root 가 아니라 local-only project materialization mount point 로 고정한다.
 - validator 와 fixture 가 synthetic/public-safe 기준에서도 깨지지 않게 기준선을 유지한다.
 
 ## 중요한 경계
@@ -55,8 +59,10 @@ flowchart TD
 - `.registry` 는 outer canon/store owner 다.
 - `.unit` 이 active binding 과 owner surface 를 가진다.
 - `.workflow` 와 `.party` 는 `.registry` 하위가 아니라 독립 root 다.
+- `.mission` 은 workflow/party/unit resolve 결과를 소유하는 독립 root 다.
 - species/hero canon 은 `.registry/species/<species_id>/species.yaml` 와 inline `heroes:` 에 둔다.
-- `_workspaces/<project_code>/` actual content 는 local-only mission site content 로 관리한다.
+- `_workspaces/<project_code>/` actual content 는 local-only project materialization content 로 관리한다.
+- assigned execution plan 과 mission-level 배정 owner 는 `.mission` 이 소유한다.
 - `.run/` 루트는 새 정본에 포함하지 않는다.
 
 ## 자주 찾는 문서

@@ -1,0 +1,14 @@
+mission_id: author_pptx_autofill_conversion_001
+kind: mission_dispatch_request
+status: recorded
+request:
+  source: user request
+  request_mode: import_upstream
+  monster_type: skill_authoring_request
+  workflow_id: author_skill_package
+  party_id: guild_master_cell
+  project_code: demo_project
+  target_skill_id: pptx_autofill_conversion
+  summary: Convert the user-provided Claude PPTX autofill skill into a Soulforge tracked package while keeping local sample PPTX files out of tracked canon.
+notes:
+  - This file is a public-safe dispatch view, not raw run truth.
