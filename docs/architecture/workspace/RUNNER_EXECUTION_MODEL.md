@@ -7,7 +7,7 @@
 
 ## 한 줄 정의
 
-- runner 는 autohunt 가 선택한 `workflow_id` 와 `party_id` 를 받아, 현재 step 에 필요한 unit, skill, execution profile 을 resolve 하고 실제 sub-agent execution payload 를 만드는 local execution orchestrator 다.
+- runner 는 autohunt 가 선택한 `workflow_id` 와 `party_id` 를 받아, 현재 step 에 필요한 unit, skill, execution profile 을 resolve 하고 실제 sub-agent execution payload 를 만드는 local execution role 이다.
 
 ## 관계도
 
@@ -70,6 +70,8 @@ sequenceDiagram
 - `runner/run_packet.yaml`
   - runner 가 current step 기준으로 resolve 한 public-safe execution packet example
 
+위 `runner/` 는 tracked example packet bundle 이며, local runtime 의 required owner folder 를 뜻하지 않는다.
+
 ## resolve 순서
 
 1. autohunt 가 `monster_type` 를 `workflow_id + party_id` 로 routing 한다.
@@ -85,6 +87,8 @@ sequenceDiagram
 ## tracked mirror 와 local runtime
 
 - tracked repo 는 `dispatch_request.yaml` 과 `run_packet.yaml` 같은 public-safe packet example 만 둔다.
+- tracked example 의 `runner/` 는 설명용 sample packet 묶음이다.
+- actual local runner implementation 은 dedicated `runner/` folder 대신 `.project_agent/tools/` 아래 prototype script 형태로 존재할 수 있다.
 - actual queue state, actual spawn payload, transcripts, intermediate artifact 는 `_workspaces/<project_code>/.project_agent/runs/<run_id>/` 아래에만 둔다.
 - runner 는 execution role 이지 top-level canonical root 나 required local folder 이름이 아니다.
 

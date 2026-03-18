@@ -36,6 +36,7 @@ flowchart TD
 
 현재 public-safe validator 는 `.project_agent/` 존재 여부까지만 확인한다.
 `contract.yaml` 과 reserved dir 의미는 local-only contract baseline 으로 이 문서에 고정하고, tracked example 은 `docs/architecture/workspace/examples/` 아래에 둔다.
+tracked example 에 보이는 `runner/` packet sample 은 설명용 mirror 이며, local runtime 의 required directory 는 아니다.
 
 ## 파일 / 디렉터리 역할
 
@@ -92,3 +93,4 @@ runtime_truth_root: runs/
 5. `bindings.execution_profiles` 와 `bindings.skill_execution` 은 optional runtime binding 이며 model, attached skill, MCP/tool preference 를 local execution layer 에서 resolve 한다.
 6. `runtime_truth_root` 는 `runs/` 를 사용하고 raw truth 는 항상 `runs/<run_id>/` 아래에 둔다.
 7. `runs/`, `analytics/`, `nightly_healing/`, `reports/`, `artifacts/` 는 모두 public fixture 입력이 아니다.
+8. runner 역할은 local `.project_agent/tools/` prototype script 로 구현될 수 있으며, `runner/` folder materialization 은 필수 규칙이 아니다.
