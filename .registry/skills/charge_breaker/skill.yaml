@@ -15,4 +15,4 @@ behavior:
     - the immediate blocker is removed
     - momentum continues without scope spread
 notes:
-  - `charge_breaker` is the canonical skill behind `knight.breach_entry`.
+  - "`charge_breaker` is the canonical skill behind `knight.breach_entry`."

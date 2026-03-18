@@ -25,8 +25,8 @@ execution_requirements:
     - rg
     - git_diff
   notes:
-    - preferred_mcps and preferred_tools are execution hints, not runtime truth.
-    - actual model, MCP, and tool choice resolves in runtime execution bindings.
+    - "preferred_mcps and preferred_tools are execution hints, not runtime truth."
+    - "actual model, MCP, and tool choice resolves in runtime execution bindings."
 notes:
-  - `shield_wall` is the canonical skill behind `knight.frontline_guard`.
-  - behavior is canon; runtime tool selection belongs to the execution layer.
+  - "`shield_wall` is the canonical skill behind `knight.frontline_guard`."
+  - "behavior is canon; runtime tool selection belongs to the execution layer."

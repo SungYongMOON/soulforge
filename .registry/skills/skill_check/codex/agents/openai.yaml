@@ -1,0 +1,7 @@
+interface:
+  display_name: "Skill Check"
+  short_description: "Boundary-safe review for Soulforge skill packages"
+  default_prompt: "Use $soulforge-skill-check to inspect a Soulforge skill package and keep canon, optional codex bridge, and local runtime bindings separated."
+
+policy:
+  allow_implicit_invocation: true

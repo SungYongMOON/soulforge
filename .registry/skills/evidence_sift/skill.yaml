@@ -14,4 +14,4 @@ behavior:
     - confirmed claims are separated from speculative claims
     - the drafting boundary is explicit
 notes:
-  - `evidence_sift` is the canonical skill behind `archivist.evidence_scan`.
+  - "`evidence_sift` is the canonical skill behind `archivist.evidence_scan`."

@@ -1,0 +1,32 @@
+skill_id: skill_check
+kind: skill
+status: draft
+title: Skill Check
+summary: Check a Soulforge skill package against canon, bridge, and runtime boundary ownership before broader rollout.
+behavior:
+  intent: Validate that a tracked skill package keeps canon, optional executor bridge, and runtime binding concerns separated.
+  use_when:
+    - a Soulforge skill is being drafted or revised
+    - the canon/bridge/runtime ownership split needs review
+    - a minimal boundary-safe fix must be identified before rollout
+  avoid_when:
+    - the task is pure runtime execution with no tracked skill package change
+    - the issue is already localized to a non-skill owner
+  expected_outcome:
+    - boundary violations are localized to the owning layer
+    - the smallest boundary-safe correction is explicit
+execution_requirements:
+  required_capabilities:
+    - boundary_review
+    - skill_package_review
+  preferred_capabilities:
+    - structured_drafting
+  preferred_tools:
+    - rg
+    - git_diff
+    - markdown_editor
+  notes:
+    - "actual model, attached skill package, MCP, and tool choice resolve in local `.project_agent/bindings/`."
+notes:
+  - "`skill_check` is a draft canonical skill for Soulforge skill package review."
+  - "no class-local assign/ref is attached yet; bind it only when a class canon owns that lane."
