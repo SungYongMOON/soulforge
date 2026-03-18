@@ -41,6 +41,12 @@ flowchart TD
 - `supporting_examples`
 - `existing_skill_package` (optional)
 
+## 요청 분류 메모
+
+- `request_mode` 는 보통 `create`, `revise`, `import_upstream` 중 하나로 적는다.
+- script, template, reference 를 함께 가져와야 하면 `resource_bundle_scope` 를 같이 적는다.
+- class binding 은 skill 등록 시점에 **반드시 고정할 필요는 없다**. 반복 사용 맥락이 아직 좁으면 `binding_followup` 으로 남기고, 나중에 class/workflow/party 쪽에서 붙여도 된다.
+
 ## 결과물
 
 - `skill_boundary_brief.md`

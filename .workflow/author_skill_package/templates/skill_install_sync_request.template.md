@@ -24,3 +24,4 @@ ruby .registry/docs/operations/scripts/sync_codex_skill.rb <skill_id>
 - This request prepares local installed mirror sync only.
 - Actual install path and local runtime state remain host-local.
 - Post-sync smoke check to run:
+- Resource bundle expected in installed mirror:

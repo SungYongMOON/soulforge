@@ -1,0 +1,36 @@
+skill_id: hwpx_document
+kind: skill
+status: active
+title: HWPX Document
+summary: Create, inspect, and revise HWPX documents through XML-first editing with reference-preserving reconstruction.
+behavior:
+  intent: Handle HWPX documents by preserving structure first, preferring reference-based reconstruction when a source document exists, and validating the rebuilt package before handoff.
+  use_when:
+    - the task involves creating, reading, editing, or validating `.hwpx` documents
+    - a Hancom Office HWPX document must preserve formatting and structure while changing content
+    - XML-level control is needed because higher-level APIs are unreliable
+  avoid_when:
+    - the task does not involve HWPX or OWPML content
+    - a generic text or markdown workflow is sufficient
+  expected_outcome:
+    - the requested HWPX content is produced or revised with structure preserved as far as possible
+    - validation and page-drift checks are explicit when a reference document exists
+execution_requirements:
+  required_capabilities:
+    - xml_document_authoring
+    - structured_artifact_validation
+  preferred_capabilities:
+    - reference_restoration
+    - document_structure_analysis
+  preferred_tools:
+    - python3
+    - rg
+    - unzip
+  notes:
+    - "Use bundled `codex/scripts/` and `codex/templates/` resources instead of re-deriving HWPX XML flows from scratch."
+    - "When a reference HWPX exists, prefer analyze -> reconstruct -> validate -> page-guard over freeform regeneration."
+    - "Current bundled scripts use Python syntax that assumes Python 3.10+; smoke was confirmed under Python 3.12 with `lxml` installed."
+    - "actual model, MCP, and tool choice resolves in runtime execution bindings."
+notes:
+  - "`hwpx_document` is the canonical Soulforge skill package for XML-first HWPX document work."
+  - "This package is based on the upstream `Canine89/hwpxskill` workflow, adapted to Soulforge canon/bridge/runtime ownership boundaries."

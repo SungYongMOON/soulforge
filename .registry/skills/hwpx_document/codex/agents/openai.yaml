@@ -1,0 +1,10 @@
+interface:
+  display_name: "HWPX Document"
+  short_description: "XML-first HWPX document creation, editing, extraction, and validation"
+  default_prompt: "Use $soulforge-hwpx-document to handle this HWPX task with reference-preserving reconstruction and bundled validation scripts."
+
+dependencies:
+  tools:
+    - type: "local"
+      value: "python3"
+      description: "Runs bundled HWPX helper scripts."

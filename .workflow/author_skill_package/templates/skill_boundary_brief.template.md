@@ -4,6 +4,7 @@
 
 - Requested skill/package:
 - Request source:
+- Request mode: `create | revise | import_upstream`
 - Why this should become a reusable skill:
 
 ## Repeated Behavior
@@ -17,6 +18,7 @@
 - `skill_request`:
 - `supporting_examples`:
 - `existing_skill_package`:
+- Resource bundle scope: `none | references | scripts | templates | mixed`
 
 ## Out Of Scope
 
@@ -28,3 +30,5 @@
 
 - Proceed to tracked package draft: yes/no
 - Reason:
+- Class binding required now: yes/no
+- Binding follow-up if deferred:
