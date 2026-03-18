@@ -27,7 +27,6 @@ flowchart TD
 - `index.yaml`
 - `DECISION_LOG.md`
 - `OPS_NOTES.md`
-- `MISSION_MANUAL_DRAFT.md`
 - `<mission_id>/mission.yaml`
 - `<mission_id>/readiness.yaml`
 - `<mission_id>/dispatch_request.yaml`
@@ -51,5 +50,6 @@ flowchart TD
 
 - `.mission/` 은 새 owner root 로 도입된 baseline 이다.
 - 현재는 public-safe sample mission 2건과 owner-local 운영 초안 문서군을 포함한다.
-- `DECISION_LOG.md`, `OPS_NOTES.md`, `MISSION_MANUAL_DRAFT.md` 는 러프해도 계속 누적하는 owner-local operating draft 다.
+- `DECISION_LOG.md`, `OPS_NOTES.md` 는 러프해도 계속 누적하는 owner-local operating draft 다.
+- mission 절차형 매뉴얼 초안은 [`docs/architecture/workspace/MISSION_MANUAL_DRAFT.md`](/Users/seabotmoon-air/Workspace/Soulforge/docs/architecture/workspace/MISSION_MANUAL_DRAFT.md) 에 둔다.
 - 실제 local/private run truth 는 계속 `_workspaces/<project_code>/.project_agent/runs/<run_id>/` 아래에 남긴다.

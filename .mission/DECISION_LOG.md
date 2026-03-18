@@ -3,7 +3,7 @@
 ## 목적
 
 - 이 문서는 `.mission/` 운영에서 나온 owner 판단, 용어 정리, readiness 기준을 누적하는 결정 로그다.
-- 아직 완전히 정식 매뉴얼로 잠기지 않은 내용도 먼저 남기고, 반복되면 `MISSION_MANUAL_DRAFT.md` 나 architecture 문서로 승격한다.
+- 아직 완전히 정식 매뉴얼로 잠기지 않은 내용도 먼저 남기고, 반복되면 `docs/architecture/workspace/MISSION_MANUAL_DRAFT.md` 나 architecture 문서로 승격한다.
 
 ## 기록 원칙
 
