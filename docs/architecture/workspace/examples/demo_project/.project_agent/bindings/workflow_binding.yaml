@@ -1,9 +1,9 @@
-workflow_id: frontline_assault
+workflow_id: build_lineage_map
 kind: workflow_binding
 status: active
-profile_ref: assault_opening_v1
+profile_ref: lineage_opening_v1
 entrypoint: run
 notes:
-  - workflow_id resolves to .workflow/frontline_assault/workflow.yaml.
+  - workflow_id resolves to .workflow/build_lineage_map/workflow.yaml.
   - profile_ref is a string id.
   - runtime truth belongs under runs/<run_id>/.

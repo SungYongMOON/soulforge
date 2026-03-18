@@ -8,6 +8,14 @@ profiles:
     preferred_mcps: []
     preferred_tools:
       - rg
+  - execution_profile_ref: structured_planning
+    model: gpt-5.1-codex-mini
+    reasoning_effort: medium
+    attached_skill_names: []
+    preferred_mcps: []
+    preferred_tools:
+      - rg
+      - markdown_editor
   - execution_profile_ref: pdf_evidence_review
     model: gpt-5.4
     reasoning_effort: medium
@@ -19,5 +27,6 @@ profiles:
       - pdftoppm
       - pdfplumber
 notes:
-  - execution_profile_ref matches the workflow step field of the same name.
+  - analysis_heavy and structured_planning match the current tracked workflow step fields of the same name.
+  - pdf_evidence_review stays as a tracked override example for PDF-heavy evidence review.
   - tracked examples keep installed skill names only; local runtime may resolve them to host-local paths.

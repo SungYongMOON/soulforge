@@ -5,6 +5,10 @@ skill_bindings:
     codex_skill_name: soulforge-shield-wall
     notes:
       - shield_wall resolves to the installed boundary-first Codex skill package.
+  - skill_id: record_stitch
+    codex_skill_name: soulforge-record-stitch
+    notes:
+      - record_stitch resolves to the installed bounded drafting Codex skill package.
 notes:
   - canonical skill ids stay in .registry/skills/.
   - local runtime resolves installed Codex skill names and any host-local paths.

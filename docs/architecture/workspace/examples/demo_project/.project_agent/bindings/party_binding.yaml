@@ -1,9 +1,9 @@
-party_id: vanguard_strike
+party_id: lineage_strike
 kind: party_binding
 status: active
-profile_ref: strike_front_v1
-formation_role: spearhead
+profile_ref: lineage_opening_party_v1
+formation_role: bounded_opening
 notes:
-  - party_id resolves to .party/vanguard_strike/party.yaml.
+  - party_id resolves to .party/lineage_strike/party.yaml.
   - profile_ref is a string id.
   - party binding remains orchestration metadata and does not own raw truth.

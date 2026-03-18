@@ -2,7 +2,7 @@ workflow_id: build_lineage_map
 kind: workflow
 status: active
 title: Build Lineage Map
-summary: Build a lineage package from source documents, intermediate planning, rendered diagrams, and completion delivery.
+summary: Bounded opening workflow for lineage-map production that stops at evidence-backed planning artifacts.
 entrypoint: run
 execution_mode: party_sequence
 role_slots: role_slots.yaml
@@ -14,11 +14,9 @@ inputs:
   - source_documents
   - source_notes
 outputs:
-  - lineage_map.md
-  - lineage_map.drawio
-  - lineage_map.svg
-  - completion_message.md
+  - research_notes.md
+  - lineage_pbs.md
 notes:
-  - This sample models a work procedure workflow rather than a battle-only routine.
+  - This sample models the bounded opening phase of a work procedure workflow rather than a fully materialized delivery pipeline.
   - The opening handoff uses the party's `stabilizer` slot to bound risk before the `investigator` slot drafts the first structure.
   - Runtime truth and produced artifacts still belong under `_workspaces/<project_code>/.project_agent/runs/<run_id>/`.
