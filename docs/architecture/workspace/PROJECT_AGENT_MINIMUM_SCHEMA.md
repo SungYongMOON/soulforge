@@ -93,4 +93,4 @@ runtime_truth_root: runs/
 5. `bindings.execution_profiles` 와 `bindings.skill_execution` 은 optional runtime binding 이며 model, attached skill, MCP/tool preference 를 local execution layer 에서 resolve 한다.
 6. `runtime_truth_root` 는 `runs/` 를 사용하고 raw truth 는 항상 `runs/<run_id>/` 아래에 둔다.
 7. `runs/`, `analytics/`, `nightly_healing/`, `reports/`, `artifacts/` 는 모두 public fixture 입력이 아니다.
-8. runner 역할은 local `.project_agent/tools/` prototype script 로 구현될 수 있으며, `runner/` folder materialization 은 필수 규칙이 아니다.
+8. runner 역할은 예시적으로 local `.project_agent/tools/` 아래 prototype script 로 구현될 수 있지만, 이 경로는 설명용 구현 위치일 뿐 고정 규칙이 아니다. `runner/` folder materialization 은 필수 규칙이 아니다.

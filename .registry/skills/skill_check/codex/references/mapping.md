@@ -16,5 +16,7 @@
 
 ## Boundary note
 
-- This skill reviews tracked skill canon and optional executor bridge structure.
+- Keep `skill.yaml` canon-only and keep `codex/SKILL.md` lean by putting detailed mapping here.
+- Treat `required_capabilities`, `preferred_capabilities`, and preferred MCP/tool hints inside `execution_requirements` as allowed canon guidance when they stop short of final runtime binding values.
+- Keep `agents/openai.yaml` limited to UI metadata and dependency hints.
 - Actual model, MCP, tool, attached skill package, and install path remain local runtime binding concerns.

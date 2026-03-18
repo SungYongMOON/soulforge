@@ -1,19 +1,20 @@
 ---
 name: soulforge-skill-check
-description: Use when a Soulforge task needs to review or draft a skill package without crossing canon, executor bridge, and runtime binding boundaries.
+description: Use when a Soulforge task needs to review or draft a skill package while keeping canon, executor bridge, and runtime binding ownership separated.
 ---
 
 # Soulforge Skill Check
 
-Use this skill when the current task is validating or drafting a Soulforge skill package.
+Review the skill package in owner order: `skill.yaml`, optional `codex/` bridge, then runtime boundary.
 
 ## Core rules
 
-- Start the final answer with `Applied skill: soulforge-skill-check`.
-- Inspect `skill.yaml` first, then the optional `codex/` bridge, and keep local runtime binding concerns out of tracked edits.
-- If canon and bridge diverge, fix the smallest layer that owns the mismatch instead of duplicating the same rule in both places.
-- If the missing data belongs to local `.project_agent/bindings/`, stop at the boundary and state that owner explicitly.
+- Treat `skill.yaml` as the canon source of behavior and keep executor-neutral rules there.
+- Allow `execution_requirements` to carry capability-level and hint-level guidance, including preferred MCP/tool hints, as long as they are not final runtime-bound values.
+- Keep `codex/SKILL.md` lean; read [`references/mapping.md`](references/mapping.md) for mapping, output shape, and executor-specific notes.
+- Keep `agents/openai.yaml` limited to UI metadata and dependency hints.
+- If a missing value belongs to local runtime bindings, stop at the boundary and name that owner instead of materializing it in tracked files.
 
 ## Load on demand
 
-- For Soulforge mapping, canon linkage, and output shape, read [`references/mapping.md`](references/mapping.md).
+- Read [`references/mapping.md`](references/mapping.md) for Soulforge mapping, canon linkage, and expected output shape.

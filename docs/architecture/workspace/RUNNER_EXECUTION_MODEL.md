@@ -13,7 +13,7 @@
 
 ```mermaid
 flowchart TD
-  AH["autohunt/routing result"] --> DR["runner/dispatch_request.yaml"]
+  AH["autohunt/routing result"] --> DR["tracked example runner/dispatch_request.yaml"]
   DR --> WF["workflow step"]
   DR --> PT["party slots"]
   WF --> SLOT["actor_slot"]
@@ -22,7 +22,7 @@ flowchart TD
   WF --> EP["execution_profile_ref"]
   SK --> SB["skill_execution_binding.yaml"]
   EP --> EB["execution_profile_binding.yaml"]
-  UNIT --> RP["runner/run_packet.yaml"]
+  UNIT --> RP["tracked example runner/run_packet.yaml"]
   SB --> RP
   EB --> RP
   RP --> AG["sub-agent spawn payload"]
@@ -65,9 +65,9 @@ sequenceDiagram
 
 ## 최소 tracked sample
 
-- `runner/dispatch_request.yaml`
+- tracked example bundle 의 `runner/dispatch_request.yaml`
   - autohunt 가 runner 에 넘기는 public-safe dispatch example
-- `runner/run_packet.yaml`
+- tracked example bundle 의 `runner/run_packet.yaml`
   - runner 가 current step 기준으로 resolve 한 public-safe execution packet example
 
 위 `runner/` 는 tracked example packet bundle 이며, local runtime 의 required owner folder 를 뜻하지 않는다.
@@ -88,7 +88,7 @@ sequenceDiagram
 
 - tracked repo 는 `dispatch_request.yaml` 과 `run_packet.yaml` 같은 public-safe packet example 만 둔다.
 - tracked example 의 `runner/` 는 설명용 sample packet 묶음이다.
-- actual local runner implementation 은 dedicated `runner/` folder 대신 `.project_agent/tools/` 아래 prototype script 형태로 존재할 수 있다.
+- actual local runner implementation 은 한 예시로 dedicated `runner/` folder 대신 `.project_agent/tools/` 아래 prototype script 형태로 존재할 수 있다.
 - actual queue state, actual spawn payload, transcripts, intermediate artifact 는 `_workspaces/<project_code>/.project_agent/runs/<run_id>/` 아래에만 둔다.
 - runner 는 execution role 이지 top-level canonical root 나 required local folder 이름이 아니다.
 

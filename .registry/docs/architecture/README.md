@@ -13,3 +13,4 @@
 - sample schema 와 example YAML 세트는 필요한 범위만 점진적으로 추가한다.
 - active boundary note:
   - [`SKILL_CANON_BOUNDARY.md`](SKILL_CANON_BOUNDARY.md)
+- operational install/sync 절차는 sibling `../operations/` 아래에서 다룬다.
