@@ -11,5 +11,8 @@ assign:
   - assign: boundary_check
     ref: skill_check
     summary: Review tracked canon and optional executor bridge against Soulforge boundary rules.
+  - assign: mission_readiness_check
+    ref: mission_check
+    summary: Review mission readiness and keep mission plan ownership separate from local runtime truth.
 notes:
   - assign/ref pairs are class-local bindings into canonical skill ids.

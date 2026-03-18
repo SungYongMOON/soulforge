@@ -1,0 +1,34 @@
+skill_id: mission_check
+kind: skill
+status: active
+title: Mission Check
+summary: Review whether a Soulforge mission is ready to move forward without collapsing mission ownership into runtime truth.
+behavior:
+  intent: Validate mission readiness in owner order so blockers stay on the mission surface and runtime-bound values stay out of tracked mission review.
+  use_when:
+    - a `.mission/<mission_id>/readiness.yaml` review is needed before dispatch or execution
+    - a guild-master or administrator lane must confirm that workflow, party, and unit assignments are coherently staged
+    - readiness blockers must be localized to mission plan, tracked package, or local runtime owner
+  avoid_when:
+    - the task is already inside a live run transcript or raw run log
+    - the issue is only about editing a tracked skill package with no mission-level readiness question
+  expected_outcome:
+    - readiness status is stated with explicit blockers or pass conditions
+    - missing runtime-bound values are named by owner instead of materialized in tracked mission files
+execution_requirements:
+  required_capabilities:
+    - mission_readiness_review
+    - boundary_review
+  preferred_capabilities:
+    - orchestration_review
+    - structured_drafting
+  preferred_tools:
+    - rg
+    - markdown_editor
+    - yaml_reader
+  notes:
+    - "Mission readiness stays on `.mission/<mission_id>/readiness.yaml` and related mission plan files."
+    - "Actual attached skill package, model choice, MCP/tool set, and raw run truth stay with local runtime owners."
+notes:
+  - "`mission_check` is the canonical readiness review skill for mission-level go/no-go checks."
+  - "`administrator.mission_readiness_check` is the current canonical class-local binding for this skill."

@@ -1,0 +1,4 @@
+interface:
+  display_name: "Mission Check"
+  short_description: "Boundary-safe readiness review for Soulforge missions"
+  default_prompt: "Use $soulforge-mission-check to review a Soulforge mission for readiness while keeping mission plan ownership separate from local runtime truth."
