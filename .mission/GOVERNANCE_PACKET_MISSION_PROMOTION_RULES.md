@@ -31,7 +31,7 @@
 - 수동 절차도 mission 이고 자동 절차도 mission 이다.
 - `mission_check` 는 guild master / administrator lane 의 공식 readiness review skill 이다.
 - runner 는 실행 직전 preflight 재확인자이지 readiness owner 가 아니다.
-- `author_skill_package + guild_master_cell + guild_master_01` 조합은 current default 이지만, universal standard 로 잠기지는 않았다.
+- `author_skill_package + guild_master_cell + guild_master` 조합은 current default 이지만, universal standard 로 잠기지는 않았다.
 - sample mission 은 completed 와 blocked 를 함께 유지한다.
 
 ## 핵심 검토 가설

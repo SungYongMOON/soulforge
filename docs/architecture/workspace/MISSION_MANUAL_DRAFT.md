@@ -31,7 +31,7 @@ flowchart TD
 
 - workflow: [`author_skill_package`](/Users/seabotmoon-air/Workspace/Soulforge/.workflow/author_skill_package/workflow.yaml)
 - party: [`guild_master_cell`](/Users/seabotmoon-air/Workspace/Soulforge/.party/guild_master_cell/party.yaml)
-- unit: [`guild_master_01`](/Users/seabotmoon-air/Workspace/Soulforge/.unit/guild_master_01/unit.yaml)
+- unit: [`guild_master`](/Users/seabotmoon-air/Workspace/Soulforge/.unit/guild_master/unit.yaml)
 - class: [`administrator`](/Users/seabotmoon-air/Workspace/Soulforge/.registry/classes/administrator/class.yaml)
 - readiness skill: [`mission_check`](/Users/seabotmoon-air/Workspace/Soulforge/.registry/skills/mission_check/skill.yaml)
 

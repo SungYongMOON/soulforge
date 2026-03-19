@@ -1,6 +1,6 @@
-unit_id: guild_master_01
+unit_id: guild_master
 status: active
-summary: Administrative active subject sample for skill package review, workflow promotion, and install handoff work.
+summary: Current-default guild master unit for intake, mission review, nightly oversight, promotion handoff, and delegation.
 identity:
   profile_ref: guild_master_ops_alpha
   species_id: human

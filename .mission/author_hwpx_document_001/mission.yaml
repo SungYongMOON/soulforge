@@ -10,9 +10,9 @@ request_mode: import_upstream
 monster_type: skill_authoring_request
 target_skill_id: hwpx_document
 unit_assignments:
-  reviewer: guild_master_01
-  drafter: guild_master_01
-  checker: guild_master_01
+  reviewer: guild_master
+  drafter: guild_master
+  checker: guild_master
 input_refs:
   skill_request: upstream `Canine89/hwpxskill`
   supporting_examples:

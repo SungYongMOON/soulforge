@@ -3,11 +3,11 @@
 ## 목적
 
 - 이 문서는 Soulforge의 `nightly sweep` 를 어떻게 정의할지에 대한 owner-local planning note 다.
-- nightly sweep 는 밤 동안 프로젝트 전체를 점검하고, 다음 날 owner 가 볼 수 있는 판단 재료를 남기는 local operating layer 로 본다.
+- nightly sweep 는 길드마스터 lane 이 밤 동안 프로젝트 전체를 점검하고, 다음 날 owner 가 볼 수 있는 판단 재료를 남기는 local operating layer 로 본다.
 
 ## 한 줄 정의
 
-- `nightly sweep` 는 mission, repo boundary, UI workspace, dependency/runtime health 를 밤에 훑고 advisory report 를 남기는 운영층이다.
+- `nightly sweep` 는 guild master / administrator lane 의 자동 실행 가능한 운영 mission/workflow 로서, mission, repo boundary, code health, dependency/runtime health 를 밤에 훑고 다음 날 `morning_report` 를 준비하는 운영층이다.
 
 ## 현재 phase 해석
 
@@ -18,10 +18,12 @@
 ## 경계
 
 - nightly sweep 는 top-level canonical root 가 아니다.
+- nightly sweep 의 임무 owner 는 guild master / administrator lane 으로 본다.
 - nightly sweep 는 승격 authority 를 가지지 않는다.
 - nightly sweep 는 최종 readiness owner 가 아니다.
 - nightly sweep 는 `mission_check` 같은 readiness logic 을 재사용할 수 있지만, 공식 `ready / blocked / completed` 판정을 대신하지 않는다.
 - nightly sweep 는 raw run truth 나 local binding dump 를 tracked mission surface 로 복제하지 않는다.
+- nightly sweep 는 자동으로 돌 수 있지만, 최종 승격과 상태 판정 authority 를 가져가지는 않는다.
 
 ## 권장 역할
 
@@ -45,10 +47,19 @@
   - `npm run ui:validate`
   - `npm run ui:lint:all`
   - `npm run ui:docs:check`
-  - `npm run ui:smoke:theme-pack`
-- 필요하면 다음도 확장 후보로 본다.
   - `npm run ui:build`
   - `npm run ui:done:check`
+- Soulforge nightly v0 에서는 아래를 nightly core code-health bundle 로 본다.
+  - `npm run ui:validate`
+  - `npm run ui:lint:all`
+  - `npm run ui:docs:check`
+  - `npm run ui:build`
+  - `npm run ui:done:check`
+- `npm run ui:smoke:theme-pack` 는 nightly conditional check 로 본다.
+  - renderer, theme pack, fixture serialization 같은 UI surface 변경이 있었을 때
+  - release 직전이거나 package acceptance 를 더 강하게 보고 싶을 때
+- 현재 top-level 에서 명시적인 `typecheck` / `test` script 는 아직 잠기지 않았다.
+- 그래서 nightly 기본값은 "없는 검사를 가정해 돌리는 것"이 아니라, 저장소에 실제 있는 `validate / lint / docs / build / done` 세트를 먼저 굳히는 쪽으로 본다.
 
 ### 4. dependency / runtime risk 검사
 
@@ -67,7 +78,7 @@
 - 전날 대비 blocker 가 늘어난 mission
 - current lane artifact split 이 빠진 mission
 - owner boundary 위반 신호
-- UI validate / lint / docs check 실패
+- UI validate / lint / docs / build / done check 실패
 - dependency 또는 runtime breakage 의심 신호
 
 ### 보면 좋은 것
@@ -87,25 +98,31 @@
    - `canon_gap`
    - `runtime_gap`
 4. project boundary / docs link 검사
-5. UI validate / lint / smoke 검사
-6. dependency/runtime risk 신호 분류
-7. owner 가 볼 advisory report 작성
+5. `npm run ui:validate`
+6. `npm run ui:lint:all`
+7. `npm run ui:docs:check`
+8. `npm run ui:build`
+9. `npm run ui:done:check`
+10. 필요시 `npm run ui:smoke:theme-pack`
+11. dependency/runtime risk 신호 분류
+12. 다음 날 owner 가 볼 morning report 준비
 
 ## 권장 출력 형태
 
-- nightly sweep 의 owner-facing report 는 local-only `reports/` 아래에 남기는 쪽이 자연스럽다.
-- nightly sweep 자체의 시간순 trace 는 local-only `log/` 아래에 남길 수 있다.
+- `nightly_sweep` 는 owner-facing `nightly_report` 파일을 별도로 남기지 않는다.
+- nightly sweep 자체의 시간순 trace 는 local-only `log/` 아래에 남긴다.
+- nightly sweep 의 최종 산출물은 다음 날 owner 가 보는 `morning_report` 를 준비하거나 갱신하는 것이다.
 - 예시:
-  - `_workspaces/<project_code>/.project_agent/reports/nightly_report/<date>.md`
-  - `_workspaces/<project_code>/.project_agent/reports/nightly_report/latest.md`
   - `_workspaces/<project_code>/.project_agent/log/nightly_sweep/<date>.md`
   - `_workspaces/<project_code>/.project_agent/log/nightly_sweep/latest.md`
-- 아침에 owner 가 보는 briefing 은 별도 morning report contract 로 분리할 수 있다.
+  - `_workspaces/<project_code>/.project_agent/reports/morning_report/<date>.md`
+  - `_workspaces/<project_code>/.project_agent/reports/morning_report/latest.md`
+- 아침에 owner 가 보는 briefing contract 는 별도 morning report contract 로 둔다.
 - 현재 연결 문서는 [`MORNING_PROJECT_REPORT_CONTRACT.md`](/Users/seabotmoon-air/Workspace/Soulforge/.mission/MORNING_PROJECT_REPORT_CONTRACT.md) 이다.
 - tracked repo 에는 실제 report dump 를 두지 않는다.
 - tracked repo 쪽에는 필요하면 public-safe sample report example 만 둔다.
 
-## 권장 report 섹션
+## morning report 준비 시 권장 섹션
 
 1. Executive snapshot
    - active / blocked / completed counts
@@ -117,7 +134,7 @@
 4. Boundary and docs health
    - owner boundary / link / contract 문제
 5. UI workspace health
-   - validate / lint / docs / smoke 결과
+   - validate / lint / docs / build / done 결과
 6. Dependency and runtime risk
    - build/install/audit 계열 신호
 7. Tomorrow actions
@@ -128,19 +145,21 @@
 - nightly sweep v0 에서는 아래만 먼저 한다.
   - mission surface 검사
   - `mission_check` 기반 advisory review
-  - UI `validate`, `lint:all`, `docs:check`
+  - UI `validate`, `lint:all`, `docs:check`, `build`, `done:check`
+  - 변경량이 큰 날만 `smoke:theme-pack`
   - local report 작성
 - 아래는 v1 이후로 미룬다.
-  - build / done check
   - dependency audit
   - 종합 기능 연동
+  - explicit `typecheck` / `test` lane 도입
 
 ## 아직 미정인 것
 
 - nightly sweep 가 readiness 상태 변경을 제안만 할지, 별도 suggestion surface 를 둘지
 - 어떤 mission 까지 sweep 대상에 포함할지
 - dependency audit 을 기본값으로 넣을지
-- UI build 를 매일 필수로 돌릴지
+- `ui:smoke:theme-pack` 를 nightly 기본값으로 올릴지
+- explicit `typecheck` / `test` script 를 어디 owner surface 에 둘지
 - future 종합 기능이 어떤 메타를 실제로 읽을지
 
 ## ASSUMPTIONS

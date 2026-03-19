@@ -97,7 +97,6 @@ _workspaces/
         ├── analytics/
         ├── nightly_healing/
         ├── reports/
-        │   ├── nightly_report/
         │   └── morning_report/
         ├── log/
         │   ├── nightly_sweep/

@@ -40,7 +40,7 @@
 
 ### 6. `author_skill_package` 는 current default lane 이지만 universal standard 는 아직 아니다
 
-- 결정: `author_skill_package + guild_master_cell + guild_master_01` 조합은 current default 이다.
+- 결정: `author_skill_package + guild_master_cell + guild_master` 조합은 current default 이다.
 - 이유: 사례는 충분히 쌓였지만, future 모든 authoring path 의 universal standard 로 잠그기엔 아직 이르다.
 
 ### 7. mission sample 은 pass 와 blocked 둘 다 유지한다

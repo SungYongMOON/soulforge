@@ -3,11 +3,11 @@
 ## 목적
 
 - 이 문서는 아침에 owner 가 볼 `project report` 의 local-only contract 초안이다.
-- 보고서는 nightly sweep 가 밤 동안 모은 advisory 결과를 다음 날 빠르게 읽을 수 있게 정리하는 용도다.
+- 보고서는 guild master lane 의 nightly sweep mission 이 밤 동안 모은 advisory 결과를 다음 날 빠르게 읽을 수 있게 정리하는 용도다.
 
 ## 한 줄 정의
 
-- `morning project report` 는 mission, code health, boundary drift, battle ledger 를 한 번에 훑는 owner-facing briefing 이다.
+- `morning project report` 는 guild master lane 의 nightly mission 결과를 바탕으로 mission, code health, boundary drift, battle ledger 를 한 번에 훑는 owner-facing briefing 이다.
 
 ## 경계
 
@@ -50,10 +50,16 @@
 
 ### 3. Code Health
 
-- `ui:validate`
-- `ui:lint:all`
-- `ui:docs:check`
-- 필요하면 `ui:smoke:theme-pack`, `ui:build`, `ui:done:check`
+- Soulforge nightly core code-health bundle
+  - `ui:validate`
+  - `ui:lint:all`
+  - `ui:docs:check`
+  - `ui:build`
+  - `ui:done:check`
+- conditional check
+  - `ui:smoke:theme-pack`
+- advisory note
+  - 현재는 top-level `typecheck` / `test` contract 가 아직 잠기지 않았다는 메모
 - dependency/runtime breakage 의심 신호
 
 ### 4. Boundary And Docs Health
@@ -97,6 +103,10 @@
   - check name
   - result
   - short note
+  - check bucket
+    - `core_nightly`
+    - `conditional`
+    - `advisory`
 - `top_actions`
   - owner 가 오늘 먼저 볼 일
 
@@ -105,6 +115,7 @@
 - report 는 markdown 한 장으로 시작한다.
 - machine-readable schema 는 아직 잠그지 않는다.
 - 우선 사람이 아침에 3-5분 안에 읽을 수 있는 briefing 을 목표로 한다.
+- Code Health 섹션은 Soulforge nightly core bundle 의 결과를 먼저 보여주고, conditional check 는 분리해서 보여준다.
 
 ## battle ledger 작성 원칙
 

@@ -45,8 +45,8 @@ flowchart TD
 - [`vanguard_01/unit.yaml`](vanguard_01/unit.yaml)은 현재 운영 중인 canonical active subject sample이다. 이 파일은 `identity.profile_ref`, `identity.species_id`, `identity.hero_id`, `class_ids` 로 active subject shape 를 고정하며, `.unit/`를 봤을 때 가장 먼저 참고할 실제 unit이다.
 - [`vanguard_01/`](vanguard_01/) 아래의 owner surface 디렉터리는 policy, protocols, runtime, memory, sessions, autonomic, artifacts 의 tracked baseline 을 함께 제공한다.
 - [`scribe_01/unit.yaml`](scribe_01/unit.yaml)은 research/documentation 성향의 contrasting unit sample 이다. capability comparison 과 unit-selection 실험에서 `vanguard_01`와 구분되는 owner lens 를 제공한다.
-- [`guild_master_01/unit.yaml`](guild_master_01/unit.yaml)은 skill package authoring, boundary review, promotion handoff 성향의 administrative sample 이다. `author_skill_package` 와 `guild_master_cell` 조합의 canonical demo unit 으로 본다.
-- `guild_master_01` 은 현재 skill authoring lane 의 canonical sample 이자 current default authoring unit 이지만, future guild-master 운영 전반의 universal default unit 으로 확정한 것은 아니다.
+- [`guild_master/unit.yaml`](guild_master/unit.yaml)은 intake, mission review, boundary review, nightly oversight, promotion handoff, delegation 성향의 administrative sample 이다. `author_skill_package`, `mission_check`, `nightly_sweep` 같은 guild-master operating lane 과 잘 맞는 canonical demo unit 으로 본다.
+- `guild_master` 은 현재 사용자가 기본적으로 대화하는 current-default guild master unit 으로 본다. 다만 Soulforge 전반의 universal default unit 으로 확정한 것은 아니다.
 
 ## tracking 원칙
 
@@ -55,6 +55,7 @@ flowchart TD
 
 ## Future direction
 
-- 현재 `guild_master_01` 는 AI-operated authoring lane sample 이고, 향후 human-operated `guild master` unit 를 별도 active unit 로 둘 수 있다.
+- 현재 `guild_master` 는 사용자의 기본 상위 창구로 쓰는 guild master unit 이다.
+- 향후 human-operated / AI-operated variation 을 더 쪼갤 수는 있지만, 지금 phase 에서는 별도 guild master unit 을 중복 생성하지 않는다.
 - human guild master lane 은 mailbox escalation, manual hunt review, workflow/skill promotion approval 같은 상위 운영 판단을 맡는다.
-- Soulforge 전용 `skill creator` 또는 `skill checker` 같은 authoring aid 는 우선 `guild_master_01` 같은 guild-master owner surface 와 workflow lane 아래에서 운용하는 것을 기본안으로 본다.
+- Soulforge 전용 `skill creator` 또는 `skill checker` 같은 authoring aid 는 우선 `guild_master` 같은 guild-master owner surface 와 workflow lane 아래에서 운용하는 것을 기본안으로 본다.

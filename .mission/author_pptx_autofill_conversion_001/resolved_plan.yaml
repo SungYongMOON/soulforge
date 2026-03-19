@@ -11,17 +11,17 @@ party:
   party_id: guild_master_cell
 unit_assignments:
   reviewer:
-    unit_id: guild_master_01
+    unit_id: guild_master
     class_ids:
       - administrator
     execution_profile_ref: analysis_heavy
   drafter:
-    unit_id: guild_master_01
+    unit_id: guild_master
     class_ids:
       - administrator
     execution_profile_ref: structured_planning
   checker:
-    unit_id: guild_master_01
+    unit_id: guild_master
     class_ids:
       - administrator
     execution_profile_ref: analysis_heavy
