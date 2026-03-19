@@ -86,7 +86,8 @@
    - candidate 는 "지금 처리 가능한 bounded work item 인가" 를 먼저 본다.
    - v0 에서는 첫 분류축 `자동화 가능성` 으로만 tier 를 나눈다.
    - candidate 판정 규칙과 판정 이유는 [`MONSTER_CANDIDATE_CONTRACT_V0.md`](/Users/seabotmoon-air/Workspace/Soulforge/docs/architecture/workspace/MONSTER_CANDIDATE_CONTRACT_V0.md) 와 local candidate note 에 남기고, `battle_log` 에서 owner 로 다루지 않는다.
-   - known/unknown 과 상관없이 모두 workspace intake inbox 안에 남긴다.
+   - 기존 monster 와 match 되는 mail 은 새 monster 를 만들지 않고 기존 monster 를 갱신한다.
+   - 새로 materialize 된 known/unknown monster 만 workspace intake inbox 안에 남긴다.
 
 4. `dungeon / stage assignment`
    - candidate 는 현재 집중 중인 `1개 project dungeon` 아래에 배치한다.

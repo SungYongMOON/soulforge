@@ -74,6 +74,7 @@ async function runIntake(args) {
   const monstersFile = path.join(inboxDir, "monsters.json");
   const historyFile = path.join(inboxDir, "history.jsonl");
   const now = new Date().toISOString();
+  const monsterIndex = await loadMonsterIndex();
 
   if (await pathExists(inboxFile)) {
     const existingInbox = await readJson(inboxFile);
@@ -90,7 +91,12 @@ async function runIntake(args) {
     return;
   }
 
-  const normalizedMonsters = normalizeMonsters(payload.monsters ?? [], inboxId, now);
+  const {
+    createdMonsters,
+    linkedExistingMonsterIds,
+    resolutionStatus,
+    linkedEvents,
+  } = await resolveIncomingMonsters(payload.monsters ?? [], inboxId, payload, now, monsterIndex);
   const from = normalizeAddressEntries(payload.from);
   const to = normalizeAddressEntries(payload.to);
   const cc = normalizeAddressEntries(payload.cc);
@@ -107,21 +113,24 @@ async function runIntake(args) {
     received_at: payload.received_at,
     mailbox_id: payload.mailbox_id,
     intake_owner: payload.intake_owner ?? "guild_master",
-    assignment_status: computeInboxAssignmentStatus(normalizedMonsters),
+    assignment_status: computeInboxAssignmentStatus(createdMonsters),
+    resolution_status: resolutionStatus,
     subject: payload.subject ?? null,
     from,
     to,
     cc,
     body_excerpt: payload.body_excerpt ?? null,
-    monster_count: normalizedMonsters.length,
-    monster_ids: normalizedMonsters.map((monster) => monster.monster_id),
+    monster_count: createdMonsters.length,
+    monster_ids: createdMonsters.map((monster) => monster.monster_id),
+    linked_existing_count: linkedExistingMonsterIds.length,
+    linked_existing_monster_ids: linkedExistingMonsterIds,
     created_at: now,
     updated_at: now,
   };
 
   await fs.mkdir(inboxDir, { recursive: true });
   await writeJson(inboxFile, inboxDocument);
-  await writeJson(monstersFile, { monsters: normalizedMonsters });
+  await writeJson(monstersFile, { monsters: createdMonsters });
 
   const intakeEvent = {
     event_type: "mail_intake_received",
@@ -134,12 +143,19 @@ async function runIntake(args) {
     to,
     cc,
     body_excerpt: payload.body_excerpt ?? null,
-    monster_count: normalizedMonsters.length,
+    created_monster_count: createdMonsters.length,
+    linked_existing_count: linkedExistingMonsterIds.length,
+    resolution_status: resolutionStatus,
   };
   await appendJsonl(historyFile, intakeEvent);
   await appendGlobalEvent(intakeEvent);
 
-  for (const monster of normalizedMonsters) {
+  for (const event of linkedEvents) {
+    await appendJsonl(historyFile, event);
+    await appendGlobalEvent(event);
+  }
+
+  for (const monster of createdMonsters) {
     const createdEvent = {
       event_type: "monster_created",
       at: now,
@@ -149,6 +165,7 @@ async function runIntake(args) {
       monster_family: monster.monster_family,
       monster_name: monster.monster_name,
       work_pattern: monster.work_pattern,
+      dedupe_key: monster.dedupe_key,
       due_state: monster.due_state,
       known_status: monster.known_status,
       objective: monster.objective,
@@ -169,8 +186,10 @@ async function runIntake(args) {
     workspace_intake_inbox_id: inboxId,
     workspace_intake_inbox_ref: relativeToRepo(inboxDir),
     source_ref: payload.event_id,
-    monster_ids: normalizedMonsters.map((monster) => monster.monster_id),
-    assignment_status: "pending_dungeon_assignment",
+    monster_ids: createdMonsters.map((monster) => monster.monster_id),
+    linked_existing_monster_ids: linkedExistingMonsterIds,
+    resolution_status: resolutionStatus,
+    assignment_status: inboxDocument.assignment_status,
   });
 }
 
@@ -377,25 +396,143 @@ function validateIntakePayload(payload) {
   }
 }
 
+async function resolveIncomingMonsters(monsters, inboxId, payload, now, monsterIndex) {
+  const inboxDir = path.join(intakeInboxRoot, inboxId);
+  const createdMonsters = [];
+  const linkedExistingMonsterIds = [];
+  const linkedEvents = [];
+
+  for (let index = 0; index < monsters.length; index += 1) {
+    const rawMonster = monsters[index];
+    const match = findExistingMonsterMatch(rawMonster, monsterIndex);
+
+    if (rawMonster.match_existing_monster_id && !match) {
+      throw new Error(`matched monster not found: ${rawMonster.match_existing_monster_id}`);
+    }
+
+    if (match) {
+      const touchResult = await touchExistingMonster(match, rawMonster, payload, now);
+      linkedExistingMonsterIds.push(match.monster_id);
+      linkedEvents.push({
+        event_type: "mail_linked_to_existing_monster",
+        at: now,
+        inbox_id: inboxId,
+        source_ref: payload.event_id,
+        linked_monster_id: match.monster_id,
+        matched_by: touchResult.matched_by,
+        dedupe_key: normalizeDedupeKey(rawMonster.dedupe_key),
+        mail_role: normalizeMailRole(rawMonster.mail_role),
+      });
+      continue;
+    }
+
+    const normalized = normalizeMonster(rawMonster, index, inboxId, now, payload);
+    createdMonsters.push(normalized);
+    registerMonsterInIndex(monsterIndex, normalized, { inbox_id: inboxId, inbox_dir: inboxDir });
+  }
+
+  return {
+    createdMonsters,
+    linkedExistingMonsterIds,
+    linkedEvents,
+    resolutionStatus: computeResolutionStatus(createdMonsters, linkedExistingMonsterIds),
+  };
+}
+
+function findExistingMonsterMatch(monster, monsterIndex) {
+  if (monster.match_existing_monster_id) {
+    return monsterIndex.byId.get(monster.match_existing_monster_id) ?? null;
+  }
+
+  const dedupeKey = normalizeDedupeKey(monster.dedupe_key);
+  if (dedupeKey) {
+    return monsterIndex.byDedupeKey.get(dedupeKey) ?? null;
+  }
+
+  return null;
+}
+
+async function touchExistingMonster(match, rawMonster, payload, now) {
+  const inboxFile = path.join(match.inbox_dir, "inbox.json");
+  const monstersFile = path.join(match.inbox_dir, "monsters.json");
+  const historyFile = path.join(match.inbox_dir, "history.jsonl");
+  const inboxDocument = await readJson(inboxFile);
+  const monsterDocument = await readJson(monstersFile);
+  const monsterIndex = monsterDocument.monsters.findIndex((candidate) => candidate.monster_id === match.monster_id);
+
+  if (monsterIndex === -1) {
+    throw new Error(`linked monster not found in inbox: ${match.monster_id}`);
+  }
+
+  const before = monsterDocument.monsters[monsterIndex];
+  const nextSourceRefs = appendUnique(normalizeArray(before.source_refs), [payload.event_id]);
+  const alreadySeen = normalizeArray(before.source_refs).includes(payload.event_id);
+  const baseTouchCount =
+    typeof before.mail_touch_count === "number" ? before.mail_touch_count : normalizeArray(before.source_refs).length;
+  const after = {
+    ...before,
+    dedupe_key: before.dedupe_key ?? normalizeDedupeKey(rawMonster.dedupe_key),
+    source_refs: nextSourceRefs,
+    last_mail_at: payload.received_at,
+    last_mail_role: normalizeMailRole(rawMonster.mail_role),
+    mail_touch_count: alreadySeen ? baseTouchCount : baseTouchCount + 1,
+    updated_at: now,
+  };
+  const changes = collectChanges(before, after);
+
+  if (changes.length > 0) {
+    monsterDocument.monsters[monsterIndex] = after;
+    inboxDocument.updated_at = now;
+    await writeJson(monstersFile, monsterDocument);
+    await writeJson(inboxFile, inboxDocument);
+
+    const touchEvent = {
+      event_type: "monster_touched_by_mail",
+      at: now,
+      inbox_id: match.inbox_id,
+      source_ref: payload.event_id,
+      monster_id: match.monster_id,
+      matched_by: rawMonster.match_existing_monster_id ? "monster_id" : "dedupe_key",
+      mail_role: normalizeMailRole(rawMonster.mail_role),
+      changes,
+      before: pickFields(before, changes),
+      after: pickFields(after, changes),
+    };
+    await appendJsonl(historyFile, touchEvent);
+    await appendGlobalEvent(touchEvent);
+  }
+
+  return {
+    matched_by: rawMonster.match_existing_monster_id ? "monster_id" : "dedupe_key",
+  };
+}
+
 function normalizeMonsters(monsters, inboxId, now) {
   return monsters.map((monster, index) => normalizeMonster(monster, index, inboxId, now));
 }
 
-function normalizeMonster(monster, index, inboxId, now) {
+function normalizeMonster(monster, index, inboxId, now, payload = null) {
   const monsterId = monster.monster_id ?? `${inboxId}_${String(index + 1).padStart(3, "0")}`;
   const monsterFamily = monster.monster_family ?? "unknown_monster";
   const knownStatus = monster.known_status ?? (monsterFamily === "unknown_monster" ? "unknown" : "known");
   const dDay = monster.d_day ?? null;
+  const sourceRef = payload?.event_id ?? null;
+  const sourceRefs = appendUnique(normalizeArray(monster.source_refs), sourceRef ? [sourceRef] : []);
 
   return {
     monster_id: monsterId,
     monster_family: monsterFamily,
     monster_name: monster.monster_name ?? null,
     work_pattern: monster.work_pattern ?? null,
+    dedupe_key: normalizeDedupeKey(monster.dedupe_key),
     objective: monster.objective ?? "",
     d_day: dDay,
     due_state: monster.due_state ?? computeDueState(dDay),
     known_status: knownStatus,
+    source_refs: sourceRefs,
+    last_mail_at: monster.last_mail_at ?? payload?.received_at ?? null,
+    mail_touch_count: monster.mail_touch_count ?? sourceRefs.length,
+    last_mail_role: normalizeMailRole(monster.last_mail_role ?? monster.mail_role),
     project_hints: normalizeArray(monster.project_hints),
     stage_hints: normalizeArray(monster.stage_hints),
     assignment_status: monster.assignment_status ?? "pending_dungeon_assignment",
@@ -420,7 +557,7 @@ function normalizeMonster(monster, index, inboxId, now) {
 
 function computeInboxAssignmentStatus(monsters) {
   if (monsters.length === 0) {
-    return "pending_dungeon_assignment";
+    return "not_required";
   }
 
   const statuses = monsters.map((monster) => monster.assignment_status ?? "pending_dungeon_assignment");
@@ -442,6 +579,22 @@ function computeInboxAssignmentStatus(monsters) {
   }
 
   return "pending_dungeon_assignment";
+}
+
+function computeResolutionStatus(createdMonsters, linkedExistingMonsterIds) {
+  if (createdMonsters.length > 0 && linkedExistingMonsterIds.length > 0) {
+    return "mixed";
+  }
+
+  if (linkedExistingMonsterIds.length > 0) {
+    return "linked_existing_only";
+  }
+
+  if (createdMonsters.length > 0) {
+    return "created_only";
+  }
+
+  return "empty";
 }
 
 function hasAssignmentState(monster) {
@@ -512,6 +665,87 @@ function normalizeArray(value) {
     return [];
   }
   return Array.isArray(value) ? value : [value];
+}
+
+function appendUnique(items, additions) {
+  const merged = [...normalizeArray(items), ...normalizeArray(additions)];
+  return [...new Set(merged.filter(Boolean))];
+}
+
+function normalizeMailRole(value) {
+  if (!value) {
+    return "new_request";
+  }
+
+  const normalized = String(value).trim();
+  return normalized || "new_request";
+}
+
+function normalizeDedupeKey(value) {
+  if (!value) {
+    return null;
+  }
+
+  const normalized = String(value).trim();
+  return normalized || null;
+}
+
+async function loadMonsterIndex() {
+  const index = {
+    byId: new Map(),
+    byDedupeKey: new Map(),
+  };
+
+  if (!(await pathExists(intakeInboxRoot))) {
+    return index;
+  }
+
+  const entries = await fs.readdir(intakeInboxRoot, { withFileTypes: true });
+  for (const entry of entries) {
+    if (!entry.isDirectory()) {
+      continue;
+    }
+
+    const inboxDir = path.join(intakeInboxRoot, entry.name);
+    const monstersFile = path.join(inboxDir, "monsters.json");
+    if (!(await pathExists(monstersFile))) {
+      continue;
+    }
+
+    const monsterDocument = await readJson(monstersFile);
+    for (const monster of normalizeArray(monsterDocument.monsters)) {
+      registerMonsterInIndex(index, monster, { inbox_id: entry.name, inbox_dir: inboxDir });
+    }
+  }
+
+  return index;
+}
+
+function registerMonsterInIndex(index, monster, location) {
+  const record = {
+    monster_id: monster.monster_id,
+    inbox_id: location.inbox_id,
+    inbox_dir: location.inbox_dir,
+    updated_at: monster.updated_at ?? null,
+  };
+
+  index.byId.set(monster.monster_id, record);
+
+  const dedupeKey = normalizeDedupeKey(monster.dedupe_key);
+  if (!dedupeKey) {
+    return;
+  }
+
+  const existing = index.byDedupeKey.get(dedupeKey);
+  if (!existing || compareTimestamps(record.updated_at, existing.updated_at) >= 0) {
+    index.byDedupeKey.set(dedupeKey, record);
+  }
+}
+
+function compareTimestamps(left, right) {
+  const leftTime = left ? new Date(left).getTime() : 0;
+  const rightTime = right ? new Date(right).getTime() : 0;
+  return leftTime - rightTime;
 }
 
 function normalizeAddressEntries(value) {

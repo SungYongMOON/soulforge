@@ -45,6 +45,15 @@
 - `body_excerpt`
   - optional short body snapshot
 
+### per-monster optional fields
+
+- `dedupe_key`
+  - 같은 실제 일인지 판정할 때 쓰는 stable match key
+- `match_existing_monster_id`
+  - 이미 알고 있는 기존 monster id 가 있으면 explicit match 용으로 쓴다
+- `mail_role`
+  - 예: `new_request`, `reminder`, `escalation`
+
 ## 출력 최소 필드
 
 - `request_id`
@@ -54,15 +63,21 @@
 - `workspace_intake_inbox_ref`
 - `source_ref`
 - `monster_ids`
+- `linked_existing_monster_ids`
+- `resolution_status`
+  - 예: `created_only`, `linked_existing_only`, `mixed`, `empty`
 - `assignment_status`
-  - v0 기본값: `pending_dungeon_assignment`
+  - 새 몬스터가 없으면 `not_required` 일 수 있다
 
 ## v0 규칙
 
 - idempotency key 는 `event_id` 다.
 - 같은 `event_id` 를 다시 받으면 duplicate container 를 만들지 않는다.
 - payload 는 ref 중심으로 넘기고, mail 본문 전체나 attachment binary 를 inline payload 로 들고 오지 않는다.
-- 첫 성공 조건은 `workspace_intake_inbox` 와 `monster_ids[]` 가 생기는 것이다.
+- 첫 성공 조건은 `workspace_intake_inbox` 가 생기고, 요청이 새 monster 생성 또는 기존 monster 연결 중 하나로 materialize 되는 것이다.
+- `match_existing_monster_id` 가 맞으면 새 몬스터를 만들지 않고 기존 몬스터를 갱신한다.
+- `dedupe_key` 가 기존 몬스터와 exact match 되면 새 몬스터를 만들지 않고 기존 몬스터를 갱신한다.
+- explicit match 도 없고 `dedupe_key` match 도 없을 때만 새 `spawned` monster 를 만든다.
 
 ## sample request
 
@@ -101,6 +116,8 @@ source_ref: hiworks_2026_03_19_001
 monster_ids:
   - monster_hiworks_2026_03_19_001_a
   - monster_hiworks_2026_03_19_001_b
+linked_existing_monster_ids: []
+resolution_status: created_only
 assignment_status: pending_dungeon_assignment
 ```
 

@@ -29,6 +29,26 @@
 - party 는 reusable 투입 조합이다.
 - mission 은 workflow/party/unit 을 실제 실행 계획으로 묶은 owner surface 다.
 
+## 업무 세계관 고정안
+
+- project 는 `던전` 이다.
+- 큰 milestone 은 `스테이지` 다.
+- 스테이지 안의 개별 업무는 `몬스터` 다.
+- mail 에서 새로 유입된 업무는 `스폰 몬스터` 다.
+- schedule 에 원래 들어 있던 업무는 `고정 몬스터` 다.
+- 반복적으로 다시 나타나는 같은 성격의 업무는 `리젠 몬스터` 로 볼 수 있다.
+- 스테이지를 끝내는 최종 납품, 승인, 완료 조건은 `보스` 다.
+- 기한 자체는 `타이머` 다.
+
+## 최소 분류축
+
+- `origin`
+  - 예: `mail`, `schedule`, `manual`
+- `spawn_kind`
+  - 예: `spawned`, `fixed`, `respawn`
+- `encounter_role`
+  - 예: `normal`, `elite`, `boss`
+
 ## 현재 고정 결정
 
 - Soulforge의 canonical root 는 `.registry`, `.unit`, `.workflow`, `.party`, `.mission`, `_workspaces` 다.

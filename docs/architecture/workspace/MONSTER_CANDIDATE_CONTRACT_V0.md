@@ -53,8 +53,9 @@
 2. 메일에서 bounded work item 1건 이상을 추린다.
 3. 각 work item 에 `monster_family`, `project_hints`, `stage_hints`, `automation_possibility` 를 붙인다.
 4. 판정 이유는 candidate note 에 적는다.
-5. candidate 는 먼저 workspace intake inbox 에 남긴다.
-6. dungeon assignment 가 끝난 뒤에만 `.mission/**` draft handoff 로 넘어간다.
+5. candidate 가 기존 monster 와 exact match 되면 새 monster 대신 기존 monster 를 갱신한다.
+6. 새로 materialize 된 candidate 만 workspace intake inbox 에 남긴다.
+7. dungeon assignment 가 끝난 뒤에만 `.mission/**` draft handoff 로 넘어간다.
 
 ## battle_log 와의 분리 규칙
 

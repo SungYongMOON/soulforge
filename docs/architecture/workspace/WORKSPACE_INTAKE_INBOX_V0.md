@@ -53,6 +53,9 @@
 - `assignment_status`
 - `monster_count`
 - `monster_ids`
+- `linked_existing_count`
+- `linked_existing_monster_ids`
+- `resolution_status`
 - `created_at`
 - `updated_at`
 
@@ -92,6 +95,8 @@
 - `assigned_target_inbox_ref`
 - `project_monster_ref`
 - `transferred_at`
+- `dedupe_key`
+- `mail_role`
 - `change_source`
   - optional
 - `reason_code`
@@ -108,6 +113,7 @@
 7. `assignment_status: transferred` 인 monster 는 `project_monster_ref` 와 `transferred_at` 를 반드시 가진다.
 8. project 쪽 monster record 는 `captured` 이후에도 삭제하지 않고 상태만 바꾼다.
 9. reconciliation 기본식은 `project-side monster record count == monster_house transferred monster count` 다.
+10. mail 은 먼저 기존 monster match 를 본다. `match_existing_monster_id` 또는 `dedupe_key` 가 맞으면 새 monster 를 만들지 않는다.
 
 ## 최소 구조
 
@@ -129,8 +135,11 @@
 - `cc`
 - `body_excerpt`
 - `assignment_status`
-  - 예: `pending_dungeon_assignment`, `partially_assigned`, `assigned`
+  - 예: `pending_dungeon_assignment`, `partially_assigned`, `assigned`, `not_required`
+- `resolution_status`
+  - 예: `created_only`, `linked_existing_only`, `mixed`, `empty`
 - `monsters`
+- `linked_existing_monster_ids`
 
 ### monster 최소 필드
 
@@ -148,6 +157,10 @@
   - 예: `no_due`, `scheduled`, `at_risk`, `missed`
 - `known_status`
   - 예: `known`, `unknown`
+- `source_refs`
+- `last_mail_at`
+- `mail_touch_count`
+- `last_mail_role`
 - `project_hints`
 - `stage_hints`
 - `assignment_status`
@@ -157,6 +170,7 @@
 - `assigned_target_inbox_ref`
 - `project_monster_ref`
 - `transferred_at`
+- `dedupe_key`
 - `assignment_block_reason`
 - `assignment_updated_at`
 - `unresolved_reason`
@@ -167,9 +181,10 @@
 
 1. request-bearing mail 1건은 inbox container 1개가 된다.
 2. mail 안의 요청이 여러 개면 몬스터도 여러 마리다.
-3. 몬스터는 known/unknown 과 상관없이 모두 inbox container 안에 남긴다.
-4. project/stage resolve 가 안 되어도 저장은 허용한다.
-5. 이 surface 의 기본 종료 상태는 `pending_dungeon_assignment` 다.
+3. 기존 monster 와 match 된 mail 요청은 새 monster 를 만들지 않고 `linked_existing_monster_ids` 로만 남긴다.
+4. 새로 materialize 된 monster 는 known/unknown 과 상관없이 모두 inbox container 안에 남긴다.
+5. project/stage resolve 가 안 되어도 저장은 허용한다.
+6. 새 monster 가 하나도 없으면 inbox `assignment_status` 는 `not_required` 일 수 있다.
 
 ## sample
 
