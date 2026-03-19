@@ -53,6 +53,13 @@ flowchart TD
 3. `ready` 면 runner/autohunt 가 실행한다.
 4. `blocked` 면 길마에게 남기거나 다음 sweep 까지 보류한다.
 
+## mission terminal / mission_close
+
+- `skill` 종료와 `mission` 종료는 같은 뜻이 아니다.
+- mission 내부 여러 skill 과 workflow step 이 끝나도, mission 전체 terminal 조건이 맞기 전에는 mission 을 닫지 않는다.
+- current-default v0 에서 `mission terminal` 은 `required workflow steps done + mission-level battle_event persisted + no open blocker` 로 본다.
+- mission 전체가 terminal 일 때만 mission-level `battle_event` 를 1건 persist 하고, 그 다음 `mission_close` 가 1회 호출된다.
+
 ## readiness 상태 해석
 
 - `draft`

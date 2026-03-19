@@ -31,6 +31,7 @@ flowchart TD
 - `FUTURE_AGGREGATION_PLAN.md`
 - `NIGHTLY_SWEEP_PLAN.md`
 - `MORNING_PROJECT_REPORT_CONTRACT.md`
+- `PLAY_LOOP_V0.md`
 - `<mission_id>/mission.yaml`
 - `<mission_id>/readiness.yaml`
 - `<mission_id>/dispatch_request.yaml`
@@ -59,5 +60,7 @@ flowchart TD
 - `FUTURE_AGGREGATION_PLAN.md` 는 나중에 만들 종합 기능을 위한 owner-local planning note 다.
 - `NIGHTLY_SWEEP_PLAN.md` 는 nightly sweep 의 역할과 보고 항목을 정리하는 owner-local planning note 다.
 - `MORNING_PROJECT_REPORT_CONTRACT.md` 는 아침에 볼 project report 의 local-only contract 초안이다.
+- `PLAY_LOOP_V0.md` 는 current-default dogfood loop 를 잠그는 owner-local planning note 다.
+- `BATTLE_LOG_STORAGE_PLAN.md`, `MISSION_CLOSE_PROVENANCE_V0.md`, `MAILBOX_CONCRETE_CONTRACT_V0.md` 는 mission owner-local note 가 아니라 workspace contract draft 로 보고 [`docs/architecture/workspace/`](/Users/seabotmoon-air/Workspace/Soulforge/docs/architecture/workspace/README.md) 아래로 이동했다.
 - mission 절차형 매뉴얼 초안은 [`docs/architecture/workspace/MISSION_MANUAL_DRAFT.md`](/Users/seabotmoon-air/Workspace/Soulforge/docs/architecture/workspace/MISSION_MANUAL_DRAFT.md) 에 둔다.
 - 실제 local/private run truth 는 계속 `_workspaces/<project_code>/.project_agent/runs/<run_id>/` 아래에 남긴다.
