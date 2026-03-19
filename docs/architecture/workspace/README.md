@@ -10,6 +10,9 @@
 - `WORKSPACE_PROJECT_MODEL.md`
 - `MISSION_MODEL.md`
 - `MISSION_MANUAL_DRAFT.md`
+- `MAIL_INTAKE_REQUEST_V0.md`
+- `WORKSPACE_INTAKE_INBOX_V0.md`
+- `DUNGEON_ASSIGNMENT_REQUEST_V0.md`
 - `MAIL_TO_MISSION_HANDOFF_V0.md`
 - `MONSTER_FAMILY_LINEUP_V0.md`
 - `MONSTER_CANDIDATE_CONTRACT_V0.md`
@@ -31,6 +34,9 @@
 - [`WORKSPACE_PROJECT_MODEL.md`](WORKSPACE_PROJECT_MODEL.md)
 - [`MISSION_MODEL.md`](MISSION_MODEL.md)
 - [`MISSION_MANUAL_DRAFT.md`](MISSION_MANUAL_DRAFT.md)
+- [`MAIL_INTAKE_REQUEST_V0.md`](MAIL_INTAKE_REQUEST_V0.md)
+- [`WORKSPACE_INTAKE_INBOX_V0.md`](WORKSPACE_INTAKE_INBOX_V0.md)
+- [`DUNGEON_ASSIGNMENT_REQUEST_V0.md`](DUNGEON_ASSIGNMENT_REQUEST_V0.md)
 - [`MAIL_TO_MISSION_HANDOFF_V0.md`](MAIL_TO_MISSION_HANDOFF_V0.md)
 - [`MONSTER_FAMILY_LINEUP_V0.md`](MONSTER_FAMILY_LINEUP_V0.md)
 - [`MONSTER_CANDIDATE_CONTRACT_V0.md`](MONSTER_CANDIDATE_CONTRACT_V0.md)
@@ -50,7 +56,8 @@
 
 - Stable
 - mission/workspace 구조와 `.project_agent` 계약의 root-owned 정본 묶음이다.
-- current-default v0 workspace contract draft 는 `MAIL_TO_MISSION_HANDOFF_V0.md`, `MONSTER_FAMILY_LINEUP_V0.md`, `MONSTER_CANDIDATE_CONTRACT_V0.md`, `BATTLE_LOG_STORAGE_PLAN.md`, `MISSION_CLOSE_PROVENANCE_V0.md`, `MAILBOX_CONCRETE_CONTRACT_V0.md` 에서 추가로 잠근다.
+- current-default v0 workspace contract draft 는 `MAIL_INTAKE_REQUEST_V0.md`, `WORKSPACE_INTAKE_INBOX_V0.md`, `DUNGEON_ASSIGNMENT_REQUEST_V0.md`, `MAIL_TO_MISSION_HANDOFF_V0.md`, `MONSTER_FAMILY_LINEUP_V0.md`, `MONSTER_CANDIDATE_CONTRACT_V0.md`, `BATTLE_LOG_STORAGE_PLAN.md`, `MISSION_CLOSE_PROVENANCE_V0.md`, `MAILBOX_CONCRETE_CONTRACT_V0.md` 에서 추가로 잠근다.
+- `WORKSPACE_INTAKE_INBOX_V0.md` 는 `monster_house` intake logging 의 source-of-truth shape 를 `JSON` current state + monthly `JSONL` event stream 기준으로 잠그고, `CSV` 는 파생 export 로만 다룬다.
 - tracked workspace sample 은 `examples/` 아래에서만 유지한다.
 - split binding 파일은 `bindings/*.yaml` 상대 경로 포인터 규칙을 사용한다.
 - workflow step 의 `execution_profile_ref` 와 `action.skill_id` 는 local runtime binding 을 통해 model, skill package, MCP/tool preset 으로 resolve 할 수 있다.

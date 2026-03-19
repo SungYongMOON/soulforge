@@ -3,6 +3,8 @@
   "private": true,
   "packageManager": "npm@11.9.0",
   "scripts": {
+    "monster-house:intake": "node scripts/monster-house.mjs intake",
+    "monster-house:update": "node scripts/monster-house.mjs update-monster",
     "ui:workspace:install": "npm install --prefix ui-workspace",
     "ui:dev": "npm --prefix ui-workspace run dev",
     "ui:build": "npm --prefix ui-workspace run build",

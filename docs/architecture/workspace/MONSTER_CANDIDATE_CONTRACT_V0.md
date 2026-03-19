@@ -2,7 +2,7 @@
 
 ## 목적
 
-- 이 문서는 current-default v0 에서 `mail intake -> monster candidate` 변환을 어디에 어떤 최소 필드로 남길지 잠그는 workspace contract draft 다.
+- 이 문서는 current-default v0 에서 `mail intake -> workspace intake inbox monster candidate` 변환을 어디에 어떤 최소 필드로 남길지 잠그는 workspace contract draft 다.
 - `monster candidate` 판정 규칙과 판정 근거를 `battle_log` 에서 분리하는 것이 목적이다.
 
 ## 한 줄 정의
@@ -11,15 +11,18 @@
 
 ## 경계
 
-- raw mail body, attachment, mailbox cursor, live mailbox state 는 `_workspaces/<project_code>/.project_agent/**` 아래에 남긴다.
-- `monster candidate` note 는 intake 판정과 routing hint 를 남기는 local-only surface 다.
+- raw mail body, attachment, mailbox cursor, live mailbox state 는 `_workspaces/**/.project_agent/**` 아래에 남긴다.
+- `monster candidate` note 는 workspace-level intake 판정과 routing hint 를 남기는 local-only surface 다.
 - `battle_log` 는 전투 배치와 전투 결과를 남기는 surface 이며, candidate 판정 규칙 owner 가 아니다.
 - `battle_event` 나 `battle_log` 가 candidate snapshot 일부를 복사해 들 수는 있지만, 상세 판정 이유와 규칙은 `monster candidate` 쪽에서 소유한다.
 
 ## 권장 경로
 
-- `_workspaces/<project_code>/.project_agent/log/monster_candidate/latest.md`
-- `_workspaces/<project_code>/.project_agent/log/monster_candidate/daily/YYYY-MM-DD.md`
+- workspace intake inbox container 옆 local candidate note 를 기본안으로 본다.
+
+- 예시:
+  - `_workspaces/monster_house/.project_agent/intake_inbox/<inbox_id>/monster_candidate/latest.md`
+  - `_workspaces/monster_house/.project_agent/intake_inbox/<inbox_id>/monster_candidate/daily/YYYY-MM-DD.md`
 
 ## v0 최소 필드
 
@@ -33,22 +36,25 @@
 - `monster_family`
   - family 를 모르면 `unknown_monster`
 - `request_summary`
-- `project_code`
-- `stage`
+- `project_hints`
+- `stage_hints`
 - `automation_possibility`
 - `judgment_reason`
+- `assignment_status`
+  - 예: `pending_dungeon_assignment`, `partially_assigned`, `assigned`
 - `mission_handoff_status`
-  - 예: `queued`, `drafted`, `blocked`
+  - 예: `not_started`, `queued`, `drafted`, `blocked`
 - `tracked_mission_ref`
-  - 있으면 `.mission/<mission_id>/mission.yaml`
+  - 있으면 `.mission/<mission_id>/mission.yaml`, 없으면 `null`
 
 ## 최소 변환 규칙
 
 1. 메일 원본을 로컬 payload surface 에 저장한다.
 2. 메일에서 bounded work item 1건 이상을 추린다.
-3. 각 work item 에 `project_code`, `stage`, `automation_possibility` 를 붙인다.
+3. 각 work item 에 `monster_family`, `project_hints`, `stage_hints`, `automation_possibility` 를 붙인다.
 4. 판정 이유는 candidate note 에 적는다.
-5. 그 다음에만 `.mission/**` draft handoff 로 넘어간다.
+5. candidate 는 먼저 workspace intake inbox 에 남긴다.
+6. dungeon assignment 가 끝난 뒤에만 `.mission/**` draft handoff 로 넘어간다.
 
 ## battle_log 와의 분리 규칙
 
@@ -74,16 +80,22 @@ received_at: 2026-03-19T08:40:00+09:00
 intake_owner: guild_master
 monster_family: unknown_monster
 request_summary: demo 프로젝트 kickoff 상태 자료 갱신과 stage 문구 확인 요청
-project_code: demo_project
-stage: 1-1 kickoff alignment
+project_hints:
+  - demo_project
+stage_hints:
+  - 1-1 kickoff alignment
 automation_possibility: manual_assist_needed
 judgment_reason: 요청 범위는 bounded 하지만 stage wording 과 최신 attachment version 확인이 먼저 필요하다.
-mission_handoff_status: drafted
-tracked_mission_ref: .mission/play_loop_mail_intake_demo_project_001/mission.yaml
+assignment_status: pending_dungeon_assignment
+mission_handoff_status: not_started
+tracked_mission_ref: null
 ```
 
 ## 연결 문서
 
+- [`MAIL_INTAKE_REQUEST_V0.md`](/Users/seabotmoon-air/Workspace/Soulforge/docs/architecture/workspace/MAIL_INTAKE_REQUEST_V0.md)
+- [`WORKSPACE_INTAKE_INBOX_V0.md`](/Users/seabotmoon-air/Workspace/Soulforge/docs/architecture/workspace/WORKSPACE_INTAKE_INBOX_V0.md)
+- [`DUNGEON_ASSIGNMENT_REQUEST_V0.md`](/Users/seabotmoon-air/Workspace/Soulforge/docs/architecture/workspace/DUNGEON_ASSIGNMENT_REQUEST_V0.md)
 - [`MONSTER_FAMILY_LINEUP_V0.md`](/Users/seabotmoon-air/Workspace/Soulforge/docs/architecture/workspace/MONSTER_FAMILY_LINEUP_V0.md)
 - [`MAIL_TO_MISSION_HANDOFF_V0.md`](/Users/seabotmoon-air/Workspace/Soulforge/docs/architecture/workspace/MAIL_TO_MISSION_HANDOFF_V0.md)
 - [`BATTLE_LOG_STORAGE_PLAN.md`](/Users/seabotmoon-air/Workspace/Soulforge/docs/architecture/workspace/BATTLE_LOG_STORAGE_PLAN.md)

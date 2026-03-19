@@ -7,12 +7,13 @@
 
 ## 한 줄 정의
 
-- v0 에서는 메일이 bounded work item 으로 판정되면, workflow selection 이 아직 끝나지 않았더라도 `.mission/<mission_id>/` 에 tracked draft mission 을 먼저 만들 수 있다.
+- v0 에서는 workspace intake inbox 의 몬스터가 dungeon/stage assignment 를 마친 뒤, workflow selection 이 아직 끝나지 않았더라도 `.mission/<mission_id>/` 에 tracked draft mission 을 만들 수 있다.
 
 ## 경계
 
-- raw mailbox payload, live mailbox cursor, attachment binary, private message body 전체는 `_workspaces/<project_code>/.project_agent/**` 아래에 남긴다.
+- raw mailbox payload, live mailbox cursor, attachment binary, private message body 전체는 `_workspaces/**/.project_agent/**` 아래에 남긴다.
 - `.mission/**` 는 raw mail dump owner 가 아니라, mail intake 로부터 파생된 held mission draft 와 readiness pointer 를 소유한다.
+- 이 contract 는 `MAIL_INTAKE_REQUEST_V0` 와 `WORKSPACE_INTAKE_INBOX_V0`, `DUNGEON_ASSIGNMENT_REQUEST_V0` 뒤에서만 적용한다.
 - `workflow_id` 가 아직 확정되지 않아도 first tracked handoff 는 허용한다.
 - 다만 `workflow_id` 가 비어 있으면 `readiness.yaml` 은 반드시 `blocked` 로 남고, blocker owner 를 명시해야 한다.
 
@@ -130,6 +131,9 @@ input_refs:
 
 ## 연결 문서
 
+- [`MAIL_INTAKE_REQUEST_V0.md`](/Users/seabotmoon-air/Workspace/Soulforge/docs/architecture/workspace/MAIL_INTAKE_REQUEST_V0.md)
+- [`WORKSPACE_INTAKE_INBOX_V0.md`](/Users/seabotmoon-air/Workspace/Soulforge/docs/architecture/workspace/WORKSPACE_INTAKE_INBOX_V0.md)
+- [`DUNGEON_ASSIGNMENT_REQUEST_V0.md`](/Users/seabotmoon-air/Workspace/Soulforge/docs/architecture/workspace/DUNGEON_ASSIGNMENT_REQUEST_V0.md)
 - [`MISSION_MODEL.md`](/Users/seabotmoon-air/Workspace/Soulforge/docs/architecture/workspace/MISSION_MODEL.md)
 - [`MISSION_MANUAL_DRAFT.md`](/Users/seabotmoon-air/Workspace/Soulforge/docs/architecture/workspace/MISSION_MANUAL_DRAFT.md)
 - [`MAILBOX_CONCRETE_CONTRACT_V0.md`](/Users/seabotmoon-air/Workspace/Soulforge/docs/architecture/workspace/MAILBOX_CONCRETE_CONTRACT_V0.md)
