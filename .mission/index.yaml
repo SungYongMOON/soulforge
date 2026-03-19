@@ -17,6 +17,13 @@ entries:
     party_id: guild_master_cell
     project_code: demo_project
     readiness_status: blocked
+  - mission_id: play_loop_mail_intake_demo_project_001
+    title: Demo Project Kickoff Deck Refresh Intake
+    status: blocked
+    workflow_id: null
+    party_id: guild_master_cell
+    project_code: demo_project
+    readiness_status: blocked
 notes:
-  - `.mission/` owns held mission plans and readiness metadata.
-  - Raw execution truth remains under `_workspaces/<project_code>/.project_agent/runs/<run_id>/`.
+  - "`.mission/` owns held mission plans and readiness metadata."
+  - "Raw execution truth remains under `_workspaces/<project_code>/.project_agent/runs/<run_id>/`."

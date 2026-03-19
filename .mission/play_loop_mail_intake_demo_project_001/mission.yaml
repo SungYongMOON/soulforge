@@ -1,0 +1,24 @@
+mission_id: play_loop_mail_intake_demo_project_001
+kind: mission
+status: blocked
+title: Demo Project Kickoff Deck Refresh Intake
+summary: Held mission draft created from the synthetic PLAY_LOOP_V0 mail intake. The request is bounded to the kickoff alignment stage and recorded in tracked mission form before reusable workflow selection is finalized.
+project_code: demo_project
+workflow_id: null
+party_id: guild_master_cell
+request_mode: mail_intake
+monster_type: mail_intake_request
+target_skill_id: null
+unit_assignments:
+  intake_owner: guild_master
+  reviewer: guild_master
+input_refs:
+  source_mail: synthetic-mail-2026-03-19-001
+  mailbox_payload: _workspaces/demo_project/.project_agent/autohunt/mailbox_payload_sample.yaml
+  stage_hint: 1-1 kickoff alignment
+run_refs:
+  latest_run_id: null
+  runtime_truth_root: _workspaces/demo_project/.project_agent/runs/
+notes:
+  - This mission is a public-safe tracked handoff sample created after the local PLAY_LOOP_V0 dry-run.
+  - "`workflow_id` remains null until the reusable workflow selection is explicit, so readiness stays blocked."

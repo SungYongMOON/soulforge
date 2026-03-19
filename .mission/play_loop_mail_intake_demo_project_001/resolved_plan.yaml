@@ -1,0 +1,26 @@
+mission_id: play_loop_mail_intake_demo_project_001
+kind: resolved_mission_plan
+status: blocked
+workflow:
+  workflow_id: null
+  selection_status: pending
+  note: Reusable workflow selection is intentionally deferred until after the first tracked mail-to-mission handoff is in place.
+party:
+  party_id: guild_master_cell
+unit_assignments:
+  intake_owner:
+    unit_id: guild_master
+    class_ids:
+      - administrator
+    execution_profile_ref: intake_review
+  reviewer:
+    unit_id: guild_master
+    class_ids:
+      - administrator
+    execution_profile_ref: analysis_heavy
+step_outputs: []
+run_refs:
+  latest_run_id: null
+  raw_truth_root: _workspaces/demo_project/.project_agent/runs/
+notes:
+  - This plan freezes the current-default party and unit assignment while workflow selection is still pending.

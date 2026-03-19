@@ -1,0 +1,20 @@
+mission_id: play_loop_mail_intake_demo_project_001
+kind: mission_readiness
+status: blocked
+summary: The synthetic mail intake is now tracked as a held mission draft, but the mission remains blocked until workflow selection and attachment confirmation are explicit.
+checks:
+  source_mail_bound: pass
+  project_code_assigned: pass
+  stage_assigned: pass
+  automation_possibility_classified: pass
+  party_present: pass
+  unit_assignments_present: pass
+  workflow_present: missing
+  attachment_version_confirmed: missing
+blockers:
+  - "`workflow_id` is not yet resolved for this mail-intake mission."
+  - "The latest attachment version still needs human confirmation before execution."
+latest_run_id: null
+notes:
+  - This readiness state intentionally shows that first tracked handoff can happen before workflow selection is complete.
+  - Runtime execution evidence still belongs under `_workspaces/<project_code>/.project_agent/runs/<run_id>/`.

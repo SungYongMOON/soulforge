@@ -1,0 +1,16 @@
+mission_id: play_loop_mail_intake_demo_project_001
+kind: mission_dispatch_request
+status: recorded
+request:
+  source: mail intake
+  request_mode: mail_intake
+  monster_type: mail_intake_request
+  workflow_id: null
+  party_id: guild_master_cell
+  project_code: demo_project
+  source_ref: synthetic-mail-2026-03-19-001
+  automation_possibility: manual_assist_needed
+  stage: 1-1 kickoff alignment
+  summary: Accept the bounded kickoff deck refresh request as a held mission draft and keep execution blocked until workflow selection and attachment confirmation are explicit.
+notes:
+  - This file records the tracked handoff decision, not the raw mailbox payload.

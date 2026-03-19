@@ -56,8 +56,11 @@ flowchart TD
 
 - `.mission/<mission_id>/mission.yaml` 은 `workflow_id`, `party_id`, `project_code`, `unit_assignments` 같은 held mission metadata 를 소유한다.
 - `.mission/<mission_id>/readiness.yaml` 은 `draft`, `blocked`, `ready`, `running`, `completed`, `failed` 같은 현재 준비 상태와 blocking reason 을 소유한다.
+- current-default v0 에서 `.mission/<mission_id>/readiness.yaml` 은 `terminal_provenance` pointer 로 `closed_via`, `closed_at`, `terminal_result`, `run_id`, `battle_event_id` 를 함께 둘 수 있다.
 - `.mission/<mission_id>/resolved_plan.yaml` 은 current execution plan 의 public-safe resolved view 다.
 - raw execution truth 는 `.mission/` 에 두지 않고 `_workspaces/<project_code>/.project_agent/runs/<run_id>/` 아래에 둔다.
+- current-default v0 에서 `mission terminal` 은 `required workflow steps done + mission-level battle_event persisted + no open blocker` 로 해석한다.
+- current-default v0 mail handoff 에서는 first tracked mission draft 를 먼저 만들 수 있으며, 이때 `workflow_id: null` 은 `readiness.yaml` 이 `blocked` 인 동안에만 허용한다.
 
 ## readiness 판단 예시
 
@@ -96,6 +99,11 @@ flowchart TD
 - `checks`
 - `blockers`
 - `latest_run_id`
+- `terminal_provenance.closed_via`
+- `terminal_provenance.closed_at`
+- `terminal_provenance.terminal_result`
+- `terminal_provenance.run_id`
+- `terminal_provenance.battle_event_id`
 
 ### `resolved_plan.yaml`
 
