@@ -7,7 +7,7 @@
 
 ## 한 줄 정의
 
-- `mail_intake_request` 는 "새 메일 event 1건을 읽어 `_workspaces/monster_house/.project_agent/intake_inbox/` 아래 inbox container 와 monster list 를 만든다" 는 시작 호출이다.
+- `mail_intake_request` 는 "새 메일 event 1건을 읽어 `_workspaces/gateway/.project_agent/intake_inbox/` 아래 inbox container 와 monster list 를 만든다" 는 시작 호출이다.
 
 ## 경계
 
@@ -111,7 +111,7 @@ body_excerpt: 내부 케이블 제작 전 IPS 검토 요청용 배선 식별자 
 request_id: mail_intake_request_hiworks_2026_03_19_001
 status: materialized
 workspace_intake_inbox_id: hiworks_2026_03_19_001
-workspace_intake_inbox_ref: _workspaces/monster_house/.project_agent/intake_inbox/hiworks_2026_03_19_001/
+workspace_intake_inbox_ref: _workspaces/gateway/.project_agent/intake_inbox/hiworks_2026_03_19_001/
 source_ref: hiworks_2026_03_19_001
 monster_ids:
   - monster_hiworks_2026_03_19_001_a
@@ -125,6 +125,7 @@ assignment_status: pending_dungeon_assignment
 
 - [`WORKSPACE_INTAKE_INBOX_V0.md`](/Users/seabotmoon-air/Workspace/Soulforge/docs/architecture/workspace/WORKSPACE_INTAKE_INBOX_V0.md)
 - [`DUNGEON_ASSIGNMENT_REQUEST_V0.md`](/Users/seabotmoon-air/Workspace/Soulforge/docs/architecture/workspace/DUNGEON_ASSIGNMENT_REQUEST_V0.md)
+- [`examples/gateway/README.md`](/Users/seabotmoon-air/Workspace/Soulforge/docs/architecture/workspace/examples/gateway/README.md)
 - [`PLAY_LOOP_V0.md`](/Users/seabotmoon-air/Workspace/Soulforge/.mission/PLAY_LOOP_V0.md)
 
 ## ASSUMPTIONS

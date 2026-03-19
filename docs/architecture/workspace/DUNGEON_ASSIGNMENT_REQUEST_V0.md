@@ -37,7 +37,7 @@
 - project/stage 를 resolve 하지 못한 몬스터는 `workspace intake inbox` 에 남겨도 된다.
 - assignment 는 monster 단위로 부분 성공을 허용한다.
 - assignment 이후에야 project-local inbox 와 `.mission/**` handoff 가 가능하다.
-- assignment 결과는 `monster_house` current state 에도 반영되어야 한다.
+- assignment 결과는 `gateway` current state 에도 반영되어야 한다.
   - 각 monster 는 `assignment_status`, `assigned_project_code`, `assigned_stage`, `assigned_target_inbox_ref` 를 현재 상태로 가진다.
   - project 쪽 monster record 가 실제로 materialize 되면 `project_monster_ref`, `transferred_at` 도 함께 채운다.
   - 전역 event stream 에는 `assigned_to_dungeon`, `assignment_blocked`, `monster_reassigned`, `transferred_to_project` 같은 semantic event 를 남긴다.

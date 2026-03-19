@@ -14,3 +14,5 @@
 - installed skill name, model id, MCP/tool hint 는 example binding 으로 둘 수 있지만 host-local path 는 넣지 않는다.
 - `autohunt/` sample 은 policy, routing, mailbox rule 같은 public-safe 운영 예시만 둔다.
 - `runner/` sample 은 dispatch request 와 resolved run packet 같은 public-safe execution packet 예시만 둔다.
+- `gateway/` sample 은 mail intake, dedupe, existing monster link 처럼 다른 PC 나 다른 LLM 이 그대로 따라볼 수 있는 public-safe mirror example 을 둔다.
+- 다른 PC 세팅 순서는 [`../MULTI_PC_DEVELOPMENT_V0.md`](/Users/seabotmoon-air/Workspace/Soulforge/docs/architecture/workspace/MULTI_PC_DEVELOPMENT_V0.md) 를 먼저 본다.

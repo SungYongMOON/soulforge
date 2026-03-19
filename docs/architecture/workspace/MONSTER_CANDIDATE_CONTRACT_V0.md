@@ -21,8 +21,8 @@
 - workspace intake inbox container 옆 local candidate note 를 기본안으로 본다.
 
 - 예시:
-  - `_workspaces/monster_house/.project_agent/intake_inbox/<inbox_id>/monster_candidate/latest.md`
-  - `_workspaces/monster_house/.project_agent/intake_inbox/<inbox_id>/monster_candidate/daily/YYYY-MM-DD.md`
+  - `_workspaces/gateway/.project_agent/intake_inbox/<inbox_id>/monster_candidate/latest.md`
+  - `_workspaces/gateway/.project_agent/intake_inbox/<inbox_id>/monster_candidate/daily/YYYY-MM-DD.md`
 
 ## v0 최소 필드
 

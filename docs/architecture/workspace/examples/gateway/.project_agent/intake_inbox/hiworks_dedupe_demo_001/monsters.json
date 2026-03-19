@@ -1,0 +1,41 @@
+{
+  "monsters": [
+    {
+      "monster_id": "hiworks_dedupe_demo_001_001",
+      "monster_family": "dragon",
+      "monster_name": "green_dragon",
+      "work_pattern": "pdr_completion",
+      "dedupe_key": "pdr-completion-demo-project",
+      "objective": "Complete and submit the PDR package.",
+      "d_day": null,
+      "due_state": "no_due",
+      "known_status": "known",
+      "source_refs": [
+        "hiworks_dedupe_demo_001",
+        "hiworks_dedupe_demo_002"
+      ],
+      "last_mail_at": "2026-03-20T13:00:00+09:00",
+      "mail_touch_count": 2,
+      "last_mail_role": "reminder",
+      "project_hints": [
+        "demo_project"
+      ],
+      "stage_hints": [
+        "PDR"
+      ],
+      "assignment_status": "pending_dungeon_assignment",
+      "assigned_project_code": null,
+      "assigned_stage": null,
+      "assigned_target_inbox_ref": null,
+      "project_monster_ref": null,
+      "transferred_at": null,
+      "assignment_block_reason": null,
+      "assignment_updated_at": null,
+      "unresolved_reason": null,
+      "mission_ref": null,
+      "source_quote": null,
+      "created_at": "2026-03-19T16:15:15.202Z",
+      "updated_at": "2026-03-19T16:15:15.351Z"
+    }
+  ]
+}

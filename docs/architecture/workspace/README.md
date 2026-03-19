@@ -13,6 +13,7 @@
 - `MAIL_INTAKE_REQUEST_V0.md`
 - `WORKSPACE_INTAKE_INBOX_V0.md`
 - `DUNGEON_ASSIGNMENT_REQUEST_V0.md`
+- `MULTI_PC_DEVELOPMENT_V0.md`
 - `MAIL_TO_MISSION_HANDOFF_V0.md`
 - `MONSTER_FAMILY_LINEUP_V0.md`
 - `MONSTER_CANDIDATE_CONTRACT_V0.md`
@@ -37,6 +38,7 @@
 - [`MAIL_INTAKE_REQUEST_V0.md`](MAIL_INTAKE_REQUEST_V0.md)
 - [`WORKSPACE_INTAKE_INBOX_V0.md`](WORKSPACE_INTAKE_INBOX_V0.md)
 - [`DUNGEON_ASSIGNMENT_REQUEST_V0.md`](DUNGEON_ASSIGNMENT_REQUEST_V0.md)
+- [`MULTI_PC_DEVELOPMENT_V0.md`](MULTI_PC_DEVELOPMENT_V0.md)
 - [`MAIL_TO_MISSION_HANDOFF_V0.md`](MAIL_TO_MISSION_HANDOFF_V0.md)
 - [`MONSTER_FAMILY_LINEUP_V0.md`](MONSTER_FAMILY_LINEUP_V0.md)
 - [`MONSTER_CANDIDATE_CONTRACT_V0.md`](MONSTER_CANDIDATE_CONTRACT_V0.md)
@@ -57,8 +59,10 @@
 - Stable
 - mission/workspace 구조와 `.project_agent` 계약의 root-owned 정본 묶음이다.
 - current-default v0 workspace contract draft 는 `MAIL_INTAKE_REQUEST_V0.md`, `WORKSPACE_INTAKE_INBOX_V0.md`, `DUNGEON_ASSIGNMENT_REQUEST_V0.md`, `MAIL_TO_MISSION_HANDOFF_V0.md`, `MONSTER_FAMILY_LINEUP_V0.md`, `MONSTER_CANDIDATE_CONTRACT_V0.md`, `BATTLE_LOG_STORAGE_PLAN.md`, `MISSION_CLOSE_PROVENANCE_V0.md`, `MAILBOX_CONCRETE_CONTRACT_V0.md` 에서 추가로 잠근다.
-- `WORKSPACE_INTAKE_INBOX_V0.md` 는 `monster_house` intake logging 의 source-of-truth shape 를 `JSON` current state + monthly `JSONL` event stream 기준으로 잠그고, `CSV` 는 파생 export 로만 다룬다.
+- `WORKSPACE_INTAKE_INBOX_V0.md` 는 `gateway` intake logging 의 source-of-truth shape 를 `JSON` current state + monthly `JSONL` event stream 기준으로 잠그고, `CSV` 는 파생 export 로만 다룬다.
 - tracked workspace sample 은 `examples/` 아래에서만 유지한다.
+- `examples/gateway/` 는 다른 PC 나 다른 LLM 이 `mail_intake_request -> intake_inbox -> linked_existing_only` 흐름을 그대로 따라볼 수 있는 public-safe mirror sample 이다.
+- `MULTI_PC_DEVELOPMENT_V0.md` 는 다른 PC 에서 `clone -> local runtime materialize -> push` 하는 최소 운영 절차를 잠근다.
 - split binding 파일은 `bindings/*.yaml` 상대 경로 포인터 규칙을 사용한다.
 - workflow step 의 `execution_profile_ref` 와 `action.skill_id` 는 local runtime binding 을 통해 model, skill package, MCP/tool preset 으로 resolve 할 수 있다.
 - `autohunt/` 는 mailbox routing, workflow-party selection, retry-escalation policy 를 설명하는 local operating layer 다.

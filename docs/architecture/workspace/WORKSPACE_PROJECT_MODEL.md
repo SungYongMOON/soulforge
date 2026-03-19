@@ -3,7 +3,7 @@
 ## 목적
 
 - `_workspaces/<project_code>/` 직행 구조를 고정한다.
-- `_workspaces/monster_house/` workspace-level staging site 를 함께 고정한다.
+- `_workspaces/gateway/` workspace-level ingress/staging site 를 함께 고정한다.
 - public repo 와 local/private project worksite 의 경계를 명확히 한다.
 - `.project_agent/` 가 소유하는 운영 계약, binding, raw execution truth 의 위치를 고정한다.
 - held mission plan owner 는 `.mission/` 이고, `_workspaces/` 는 project-local worksite owner 임을 고정한다.
@@ -15,9 +15,10 @@ flowchart TD
   MI[".mission/"] --> MP["<mission_id>/mission.yaml<br/>held mission owner"]
   MP --> PJ["project_code"]
   W["_workspaces/"] --> R["README.md<br/>public tracked"]
-  W --> MH["monster_house/<br/>workspace-level staging"]
+  W --> MH["gateway/<br/>workspace-level ingress + staging"]
   W --> P["&lt;project_code&gt;/<br/>local-only materialization"]
   MH --> MPA[".project_agent/"]
+  MPA --> MBX["mailbox/"]
   MPA --> MIH["intake_inbox/"]
   P --> F["actual project files"]
   P --> PA[".project_agent/"]
@@ -50,9 +51,11 @@ _workspaces/
 
 ```text
 _workspaces/
-├── monster_house/
+├── gateway/
 │   └── .project_agent/
-│       └── intake_inbox/
+│       ├── mailbox/
+│       ├── intake_inbox/
+│       └── log/
 └── <project_code>/
     ├── ... actual project files ...
     └── .project_agent/
@@ -75,9 +78,9 @@ _workspaces/
 ## 정본 규칙
 
 - `_workspaces/<project_code>/` 가 실제 과제 현장 materialization root 다.
-- `_workspaces/monster_house/` 는 project assignment 전 몬스터 staging root 다.
+- `_workspaces/gateway/` 는 mail fetch 와 project assignment 전 intake staging 을 함께 담는 workspace-level ingress root 다.
 - held mission plan 과 readiness owner 는 루트 `.mission/` 이다.
-- project 후보는 `_workspaces/<project_code>/` direct child 구조를 사용하고, `monster_house` 는 reserved staging site 로 둔다.
+- project 후보는 `_workspaces/<project_code>/` direct child 구조를 사용하고, `gateway` 는 reserved ingress/staging site 로 둔다.
 - `.project_agent/` 는 분리된 registry 가 아니라 현장 안의 local contract, binding, raw execution truth 보관 위치다.
 - assigned execution plan 과 mission-level 배정 owner 는 `.project_agent/` 가 아니라 `.mission/` 이 소유한다.
 - `.project_agent/autohunt/` 는 mailbox routing, workflow-party selection, retry-escalation 같은 자동사냥 운영 정책을 두는 local operating surface 다.

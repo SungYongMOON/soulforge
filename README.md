@@ -40,6 +40,7 @@ flowchart TD
 - [`docs/architecture/foundation/DOCUMENT_OWNERSHIP.md`](docs/architecture/foundation/DOCUMENT_OWNERSHIP.md): 새 owner 기준 문서 소유 원칙
 - [`_workspaces/README.md`](_workspaces/README.md): `_workspaces` local-only mount point 정책
 - [`docs/architecture/workspace/WORKSPACE_PROJECT_MODEL.md`](docs/architecture/workspace/WORKSPACE_PROJECT_MODEL.md): `_workspaces/<project_code>/` 구조와 보안 경계
+- [`docs/architecture/workspace/MULTI_PC_DEVELOPMENT_V0.md`](docs/architecture/workspace/MULTI_PC_DEVELOPMENT_V0.md): 다른 PC clone, local runtime materialization, Git push/pull 운영 절차
 - [`docs/architecture/README.md`](docs/architecture/README.md): root-owned architecture 문서 색인
 - [`ui-workspace/README.md`](ui-workspace/README.md): UI consumer workspace 개요
 

@@ -7,9 +7,9 @@ import { fileURLToPath } from "node:url";
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 const repoRoot = path.resolve(__dirname, "..");
-const monsterHouseRoot = path.join(repoRoot, "_workspaces", "monster_house", ".project_agent");
-const intakeInboxRoot = path.join(monsterHouseRoot, "intake_inbox");
-const globalEventRoot = path.join(monsterHouseRoot, "log", "monster_events");
+const gatewayRoot = path.join(repoRoot, "_workspaces", "gateway", ".project_agent");
+const intakeInboxRoot = path.join(gatewayRoot, "intake_inbox");
+const globalEventRoot = path.join(gatewayRoot, "log", "monster_events");
 
 async function main() {
   const [command, ...rest] = process.argv.slice(2);
@@ -56,8 +56,8 @@ function printUsageAndExit() {
   console.error(
     [
       "Usage:",
-      "  node scripts/monster-house.mjs intake --payload-file <path>",
-      "  node scripts/monster-house.mjs update-monster --inbox-id <id> --monster-id <id> --patch-file <path>",
+      "  node scripts/gateway.mjs intake --payload-file <path>",
+      "  node scripts/gateway.mjs update-monster --inbox-id <id> --monster-id <id> --patch-file <path>",
     ].join("\n"),
   );
   process.exit(1);

@@ -49,7 +49,7 @@
   - normalized mail event 를 받아 intake / assignment / review 흐름으로 연결한다
 - `workspace intake inbox`
   - project assignment 전의 staging surface
-  - v0 에서는 `_workspaces/monster_house/.project_agent/intake_inbox/` 로 고정한다
+  - v0 에서는 `_workspaces/gateway/.project_agent/intake_inbox/` 로 고정한다
 - `monster candidate`
   - mail intake 로부터 파생된 bounded work item
 - `project dungeon`
@@ -147,7 +147,7 @@
 ## source of truth
 
 - mission plan / readiness / assignment 상태는 계속 `.mission/**` 를 본다.
-- workspace intake inbox 와 intake-side candidate note 는 `_workspaces/monster_house/.project_agent/intake_inbox/` 아래 staging surface 를 본다.
+- workspace intake inbox 와 intake-side candidate note 는 `_workspaces/gateway/.project_agent/intake_inbox/` 아래 staging surface 를 본다.
 - local battle trace / logs / reports 는 `_workspaces/<project_code>/.project_agent/**` 를 본다.
 - project 쪽 monster surface 는 `_workspaces/<project_code>/.project_agent/**` 에 남기고, `captured` 이후에도 삭제하지 않는다.
 - 외부 보드, inbox mirror, helper dashboard 는 있더라도 보조 surface 로만 다룬다.

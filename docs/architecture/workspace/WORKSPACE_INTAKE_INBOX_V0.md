@@ -9,7 +9,7 @@
 
 - `workspace intake inbox` 는 project 무관한 배치 전 대기장이다.
 - mail 1건은 inbox container 1개가 되고, 그 안에 `monsters[]` 가 들어간다.
-- v0 의 실제 위치는 `_workspaces/monster_house/.project_agent/intake_inbox/` 로 고정한다.
+- v0 의 실제 위치는 `_workspaces/gateway/.project_agent/intake_inbox/` 로 고정한다.
 
 ## 경계
 
@@ -17,14 +17,14 @@
 - 이 inbox 는 dungeon/stage assignment 가 끝나기 전의 staging surface 다.
 - known monster 와 `unknown_monster` 는 모두 여기에 들어간다.
 - `.mission/**` 는 이 inbox 단계 뒤에서만 시작한다.
-- `monster_house` 는 project code 가 아니라 workspace-level staging site 다.
+- `gateway` 는 project code 가 아니라 workspace-level ingress/staging site 다.
 
 ## 권장 파일
 
-- `_workspaces/monster_house/.project_agent/intake_inbox/<inbox_id>/inbox.json`
-- `_workspaces/monster_house/.project_agent/intake_inbox/<inbox_id>/monsters.json`
-- `_workspaces/monster_house/.project_agent/intake_inbox/<inbox_id>/history.jsonl`
-- `_workspaces/monster_house/.project_agent/log/monster_events/YYYY/YYYY-MM.jsonl`
+- `_workspaces/gateway/.project_agent/intake_inbox/<inbox_id>/inbox.json`
+- `_workspaces/gateway/.project_agent/intake_inbox/<inbox_id>/monsters.json`
+- `_workspaces/gateway/.project_agent/intake_inbox/<inbox_id>/history.jsonl`
+- `_workspaces/gateway/.project_agent/log/monster_events/YYYY/YYYY-MM.jsonl`
 
 ## logging storage model
 
@@ -112,7 +112,7 @@
 6. `monster_id` 는 intake 와 project 쪽을 잇는 stable cross-surface key 다. 배치와 이동 후에도 바꾸지 않는다.
 7. `assignment_status: transferred` 인 monster 는 `project_monster_ref` 와 `transferred_at` 를 반드시 가진다.
 8. project 쪽 monster record 는 `captured` 이후에도 삭제하지 않고 상태만 바꾼다.
-9. reconciliation 기본식은 `project-side monster record count == monster_house transferred monster count` 다.
+9. reconciliation 기본식은 `project-side monster record count == gateway transferred monster count` 다.
 10. mail 은 먼저 기존 monster match 를 본다. `match_existing_monster_id` 또는 `dedupe_key` 가 맞으면 새 monster 를 만들지 않는다.
 
 ## 최소 구조
@@ -260,8 +260,9 @@ monsters:
 
 - [`MAIL_INTAKE_REQUEST_V0.md`](/Users/seabotmoon-air/Workspace/Soulforge/docs/architecture/workspace/MAIL_INTAKE_REQUEST_V0.md)
 - [`DUNGEON_ASSIGNMENT_REQUEST_V0.md`](/Users/seabotmoon-air/Workspace/Soulforge/docs/architecture/workspace/DUNGEON_ASSIGNMENT_REQUEST_V0.md)
+- [`examples/gateway/README.md`](/Users/seabotmoon-air/Workspace/Soulforge/docs/architecture/workspace/examples/gateway/README.md)
 - [`MONSTER_CANDIDATE_CONTRACT_V0.md`](/Users/seabotmoon-air/Workspace/Soulforge/docs/architecture/workspace/MONSTER_CANDIDATE_CONTRACT_V0.md)
 
 ## ASSUMPTIONS
 
-- v0 에서는 `monster_house` 를 단일 workspace-level intake staging site 로 고정하고, 나중에 필요하면 rename 또는 split 할 수 있다고 본다.
+- v0 에서는 `gateway` 를 단일 workspace-level ingress/staging site 로 고정하고, 그 아래 `mailbox/`, `intake_inbox/`, `log/` 가 함께 자랄 수 있다고 본다.
