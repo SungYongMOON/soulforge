@@ -426,6 +426,10 @@ function townCrierLogRoot(repoRoot) {
   return path.join(townCrierRoot(repoRoot), "log");
 }
 
+function townCrierStateRoot(repoRoot) {
+  return path.join(townCrierRoot(repoRoot), "state");
+}
+
 async function listJsonFiles(rootPath) {
   if (!(await pathExists(rootPath))) {
     return [];
