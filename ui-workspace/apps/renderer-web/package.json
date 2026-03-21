@@ -15,7 +15,8 @@
     "@soulforge/theme-contract": "0.1.0",
     "@soulforge/ui-contract": "0.1.0",
     "react": "^19.2.4",
-    "react-dom": "^19.2.4"
+    "react-dom": "^19.2.4",
+    "yaml": "^2.8.1"
   },
   "devDependencies": {
     "@types/react": "^19.2.14",

@@ -3,10 +3,10 @@
 ## 목적
 
 - `_workspaces/<project_code>/` 직행 구조를 고정한다.
-- `_workspaces/gateway/` workspace-level ingress/staging site 를 함께 고정한다.
 - public repo 와 local/private project worksite 의 경계를 명확히 한다.
 - `.project_agent/` 가 소유하는 운영 계약, binding, raw execution truth 의 위치를 고정한다.
 - held mission plan owner 는 `.mission/` 이고, `_workspaces/` 는 project-local worksite owner 임을 고정한다.
+- cross-project ingress/staging 은 `_workspaces/` 가 아니라 `guild_hall/state/gateway/**` 가 맡는다는 기준을 같이 잠근다.
 
 ## 구조 개요도
 
@@ -14,16 +14,14 @@
 flowchart TD
   MI[".mission/"] --> MP["<mission_id>/mission.yaml<br/>held mission owner"]
   MP --> PJ["project_code"]
+  GH["guild_hall/state/gateway/<br/>cross-project ingress + staging"] --> GHI["intake_inbox/"]
   W["_workspaces/"] --> R["README.md<br/>public tracked"]
-  W --> MH["gateway/<br/>workspace-level ingress + staging"]
   W --> P["&lt;project_code&gt;/<br/>local-only materialization"]
-  MH --> MPA[".project_agent/"]
-  MPA --> MBX["mailbox/"]
-  MPA --> MIH["intake_inbox/"]
   P --> F["actual project files"]
   P --> PA[".project_agent/"]
   PA --> C["contract.yaml"]
   PA --> B["bindings/"]
+  PA --> PM["monsters/"]
   PA --> AH["autohunt/"]
   B --> WB["workflow_binding.yaml"]
   B --> PB["party_binding.yaml"]
@@ -51,16 +49,12 @@ _workspaces/
 
 ```text
 _workspaces/
-├── gateway/
-│   └── .project_agent/
-│       ├── mailbox/
-│       ├── intake_inbox/
-│       └── log/
 └── <project_code>/
     ├── ... actual project files ...
     └── .project_agent/
         ├── contract.yaml
         ├── bindings/
+        ├── monsters/
         ├── autohunt/
         ├── runs/
         │   └── <run_id>/
@@ -78,10 +72,11 @@ _workspaces/
 ## 정본 규칙
 
 - `_workspaces/<project_code>/` 가 실제 과제 현장 materialization root 다.
-- `_workspaces/gateway/` 는 mail fetch 와 project assignment 전 intake staging 을 함께 담는 workspace-level ingress root 다.
+- `guild_hall/state/gateway/` 가 mail fetch 와 project assignment 전 intake staging 을 함께 담는 cross-project ingress root 다.
 - held mission plan 과 readiness owner 는 루트 `.mission/` 이다.
-- project 후보는 `_workspaces/<project_code>/` direct child 구조를 사용하고, `gateway` 는 reserved ingress/staging site 로 둔다.
+- project 후보는 `_workspaces/<project_code>/` direct child 구조를 사용한다.
 - `.project_agent/` 는 분리된 registry 가 아니라 현장 안의 local contract, binding, raw execution truth 보관 위치다.
+- `.project_agent/monsters/` 는 project-side monster current state owner 다.
 - assigned execution plan 과 mission-level 배정 owner 는 `.project_agent/` 가 아니라 `.mission/` 이 소유한다.
 - `.project_agent/autohunt/` 는 mailbox routing, workflow-party selection, retry-escalation 같은 자동사냥 운영 정책을 두는 local operating surface 다.
 - runner 는 `.project_agent/` contract, binding, workflow, party 를 읽어 current step execution packet 을 만드는 execution role 이며 별도 canonical root 나 required local folder 가 아니다.
@@ -98,8 +93,9 @@ _workspaces/
 ## owner 경계
 
 - 프로젝트 실자료와 산출물은 `_workspaces/<project_code>/` 안에 남긴다.
+- `gateway` inbox / mailbox / monster event staging 은 `guild_hall/state/gateway/` 안에 남긴다.
 - held mission metadata 와 readiness 는 `.mission/<mission_id>/` 아래에 남긴다.
-- `.registry`, `.unit`, `.workflow`, `.party` 는 project binding 대상일 뿐, per-project 실자료 owner 가 아니다.
+- `.registry`, `.unit`, `.workflow`, `.party`, `guild_hall` 은 project binding 대상 또는 운영 owner 일 뿐, per-project 실자료 owner 가 아니다.
 - `.mission` 은 workflow/party/unit resolve 결과를 project-local run truth 와 분리해 소유한다.
 - `.project_agent/` 도 local execution surface 일 뿐 mission assignment owner 는 아니다.
 - tracked example contract 와 binding YAML 은 local `.project_agent/` shape 를 public-safe 하게 보여주는 mirror 일 뿐, runtime owner 가 아니다.

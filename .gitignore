@@ -7,3 +7,6 @@ dist/
 
 _workspaces/**
 !_workspaces/README.md
+
+guild_hall/state/**
+!guild_hall/state/README.md

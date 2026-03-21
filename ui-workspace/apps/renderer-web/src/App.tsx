@@ -3,11 +3,12 @@ import { normalizeUiState } from "@soulforge/renderer-core";
 import { RendererDesk } from "@soulforge/renderer-react";
 import { SOULFORGE_SIGIL_ICON } from "@soulforge/theme-adventurers-desk";
 import type { UiState } from "@soulforge/ui-contract";
+import YAML from "yaml";
 import { applyThemeSelection, selectTheme } from "./themes";
 import appPackage from "../package.json";
 
-type ControlCenterOwnerId = "body" | "class" | "workspaces" | "docs";
-type ControlCenterPaneId = "editor" | "preview" | "diagnostics";
+type ControlCenterOwnerId = "body" | "class" | "guild_hall" | "operations" | "docs";
+type ControlCenterPaneId = "editor" | "notifications" | "preview" | "diagnostics";
 type ControlCenterCategory = "canonical" | "generated" | "doc" | "archive";
 type HeaderThemeMode = "system" | "dark" | "white";
 
@@ -101,9 +102,11 @@ interface PreviewState {
 }
 
 const API_PREFIX = "/__control_center_api";
-const OWNER_IDS: ControlCenterOwnerId[] = ["body", "class", "workspaces", "docs"];
-const VISIBLE_OWNER_IDS: ControlCenterOwnerId[] = ["body", "class", "workspaces", "docs"];
-const PANE_IDS: ControlCenterPaneId[] = ["editor", "preview", "diagnostics"];
+const OWNER_IDS: ControlCenterOwnerId[] = ["body", "class", "guild_hall", "operations", "docs"];
+const VISIBLE_OWNER_IDS: ControlCenterOwnerId[] = ["body", "class", "guild_hall", "operations", "docs"];
+const PANE_IDS: ControlCenterPaneId[] = ["editor", "notifications", "preview", "diagnostics"];
+const GATEWAY_NOTIFY_EVENTS = ["monster_created", "intake_failed", "mail_fetch_failed"] as const;
+const MISSION_NOTIFY_EVENTS = ["mission_blocked", "mission_ready", "mission_closed", "mission_failed"] as const;
 const CATEGORY_LABELS: Record<ControlCenterCategory, string> = {
   canonical: "Canonical",
   generated: "Generated",
@@ -230,6 +233,9 @@ function searchFromRoute(route: ControlCenterRouteState) {
 }
 
 function parseOwnerId(value: string | null): ControlCenterOwnerId | null {
+  if (value === "workspaces") {
+    return "operations";
+  }
   return value && OWNER_IDS.includes(value as ControlCenterOwnerId) ? (value as ControlCenterOwnerId) : null;
 }
 
@@ -383,6 +389,153 @@ function formatBytes(bytes: number) {
   return `${(bytes / (1024 * 1024)).toFixed(1)} MB`;
 }
 
+function isGatewayNotifyPolicy(filePath: string | null) {
+  return filePath === "guild_hall/state/gateway/bindings/notify_policy.yaml";
+}
+
+function isMissionYaml(filePath: string | null) {
+  return Boolean(filePath && filePath.startsWith(".mission/") && filePath.endsWith("/mission.yaml"));
+}
+
+function defaultGatewayNotifyPolicy() {
+  return {
+    kind: "gateway_notify_policy",
+    scope: "gateway",
+    channels: {
+      telegram: {
+        enabled: true,
+        env_file: "guild_hall/state/town_crier/telegram_notify.env"
+      }
+    },
+    events: Object.fromEntries(GATEWAY_NOTIFY_EVENTS.map((event) => [event, { telegram: false }])),
+    updated_at: null
+  };
+}
+
+function defaultMissionNotifications() {
+  return {
+    telegram: Object.fromEntries(MISSION_NOTIFY_EVENTS.map((event) => [event, false]))
+  };
+}
+
+function parseYamlObject(content: string) {
+  const parsed = YAML.parse(content);
+  return parsed && typeof parsed === "object" ? parsed : {};
+}
+
+function normalizeGatewayNotifyPolicy(raw: unknown) {
+  const base = defaultGatewayNotifyPolicy();
+  if (!raw || typeof raw !== "object" || Array.isArray(raw)) {
+    return base;
+  }
+
+  const candidate = raw as Record<string, unknown>;
+  const telegramChannel = candidate.channels && typeof candidate.channels === "object" && !Array.isArray(candidate.channels)
+    ? (candidate.channels as Record<string, unknown>).telegram
+    : null;
+  const rawEvents = candidate.events && typeof candidate.events === "object" && !Array.isArray(candidate.events)
+    ? (candidate.events as Record<string, unknown>)
+    : {};
+
+  return {
+    ...base,
+    kind: typeof candidate.kind === "string" && candidate.kind.trim() ? candidate.kind.trim() : base.kind,
+    scope: typeof candidate.scope === "string" && candidate.scope.trim() ? candidate.scope.trim() : base.scope,
+    channels: {
+      telegram: {
+        enabled:
+          telegramChannel && typeof telegramChannel === "object" && !Array.isArray(telegramChannel) && typeof (telegramChannel as Record<string, unknown>).enabled === "boolean"
+            ? Boolean((telegramChannel as Record<string, unknown>).enabled)
+            : base.channels.telegram.enabled,
+        env_file:
+          telegramChannel && typeof telegramChannel === "object" && !Array.isArray(telegramChannel) && typeof (telegramChannel as Record<string, unknown>).env_file === "string"
+            ? String((telegramChannel as Record<string, unknown>).env_file)
+            : base.channels.telegram.env_file
+      }
+    },
+    events: Object.fromEntries(
+      GATEWAY_NOTIFY_EVENTS.map((event) => {
+        const rawEvent = rawEvents[event];
+        const telegramEnabled =
+          rawEvent && typeof rawEvent === "object" && !Array.isArray(rawEvent) && typeof (rawEvent as Record<string, unknown>).telegram === "boolean"
+            ? Boolean((rawEvent as Record<string, unknown>).telegram)
+            : false;
+        return [event, { telegram: telegramEnabled }];
+      })
+    ),
+    updated_at: typeof candidate.updated_at === "string" ? candidate.updated_at : null
+  };
+}
+
+function normalizeMissionNotifications(raw: unknown) {
+  const base = defaultMissionNotifications();
+  if (!raw || typeof raw !== "object" || Array.isArray(raw)) {
+    return base;
+  }
+
+  const telegram = (raw as Record<string, unknown>).telegram;
+  if (!telegram || typeof telegram !== "object" || Array.isArray(telegram)) {
+    return base;
+  }
+
+  return {
+    telegram: Object.fromEntries(
+      MISSION_NOTIFY_EVENTS.map((event) => [event, typeof (telegram as Record<string, unknown>)[event] === "boolean" ? Boolean((telegram as Record<string, unknown>)[event]) : false])
+    )
+  };
+}
+
+function getNotificationPaneModel(filePath: string | null, content: string) {
+  if (!filePath) {
+    return { kind: "none", error: null } as const;
+  }
+
+  try {
+    const parsed = parseYamlObject(content);
+
+    if (isGatewayNotifyPolicy(filePath)) {
+      return {
+        kind: "gateway",
+        error: null,
+        document: parsed,
+        policy: normalizeGatewayNotifyPolicy(parsed)
+      } as const;
+    }
+
+    if (isMissionYaml(filePath)) {
+      const missionDocument = parsed as Record<string, unknown>;
+      return {
+        kind: "mission",
+        error: null,
+        document: missionDocument,
+        notifications: normalizeMissionNotifications(missionDocument.notifications),
+      } as const;
+    }
+
+    return { kind: "unsupported", error: null } as const;
+  } catch (error) {
+    return {
+      kind: "invalid",
+      error: error instanceof Error ? error.message : "Failed to parse YAML."
+    } as const;
+  }
+}
+
+function updateGatewayNotifyToggle(content: string, eventId: (typeof GATEWAY_NOTIFY_EVENTS)[number], enabled: boolean) {
+  const parsed = parseYamlObject(content) as Record<string, unknown>;
+  const policy = normalizeGatewayNotifyPolicy(parsed);
+  policy.events[eventId].telegram = enabled;
+  policy.updated_at = new Date().toISOString();
+  return YAML.stringify(policy);
+}
+
+function updateMissionNotifyToggle(content: string, eventId: (typeof MISSION_NOTIFY_EVENTS)[number], enabled: boolean) {
+  const parsed = parseYamlObject(content) as Record<string, unknown>;
+  parsed.notifications = normalizeMissionNotifications(parsed.notifications);
+  (parsed.notifications as { telegram: Record<string, boolean> }).telegram[eventId] = enabled;
+  return YAML.stringify(parsed);
+}
+
 function readOnlyReason(file: ControlCenterFileRecord | null) {
   if (!file || file.editable) {
     return null;
@@ -420,8 +573,12 @@ function ownerFolderName(ownerId: ControlCenterOwnerId) {
     return "Catalogs";
   }
 
-  if (ownerId === "workspaces") {
-    return "MissionMount";
+  if (ownerId === "operations") {
+    return "Operations";
+  }
+
+  if (ownerId === "guild_hall") {
+    return "Guild Hall";
   }
 
   return "Docs";
@@ -460,9 +617,11 @@ function App() {
   const [collapsedOwners, setCollapsedOwners] = useState<Record<ControlCenterOwnerId, boolean>>({
     body: false,
     class: false,
-    workspaces: false,
+    guild_hall: false,
+    operations: false,
     docs: false
   });
+  const notificationPane = getNotificationPaneModel(route.filePath, editorContent);
 
   const theme = selectTheme(themeManifestIdForMode(route.themeId, prefersDark));
   const selectedOwner = findOwner(tree, route.ownerId);
@@ -736,6 +895,36 @@ function App() {
       });
     } finally {
       setSaving(false);
+    }
+  }
+
+  function handleGatewayNotifyToggle(eventId: (typeof GATEWAY_NOTIFY_EVENTS)[number], enabled: boolean) {
+    try {
+      setEditorContent(updateGatewayNotifyToggle(editorContent, eventId, enabled));
+      setNotice({
+        tone: "info",
+        message: `Queued ${eventId} notification ${enabled ? "on" : "off"} in the editor buffer.`
+      });
+    } catch (error) {
+      setNotice({
+        tone: "error",
+        message: error instanceof Error ? error.message : "Failed to update gateway notification."
+      });
+    }
+  }
+
+  function handleMissionNotifyToggle(eventId: (typeof MISSION_NOTIFY_EVENTS)[number], enabled: boolean) {
+    try {
+      setEditorContent(updateMissionNotifyToggle(editorContent, eventId, enabled));
+      setNotice({
+        tone: "info",
+        message: `Queued ${eventId} notification ${enabled ? "on" : "off"} in the editor buffer.`
+      });
+    } catch (error) {
+      setNotice({
+        tone: "error",
+        message: error instanceof Error ? error.message : "Failed to update mission notification."
+      });
     }
   }
 
@@ -1044,7 +1233,13 @@ function App() {
                   }))
                 }
               >
-                {paneId === "editor" ? "Editor" : paneId === "preview" ? "Preview" : "Diagnostics"}
+                {paneId === "editor"
+                  ? "Editor"
+                  : paneId === "notifications"
+                    ? "Notifications"
+                    : paneId === "preview"
+                      ? "Preview"
+                      : "Diagnostics"}
               </button>
             ))}
           </div>
@@ -1061,6 +1256,84 @@ function App() {
                 readOnly={!selectedFileRecord?.editable || fileLoading || saving}
                 placeholder={fileLoading ? "Loading file..." : "Select a file to inspect or edit."}
               />
+            </section>
+          ) : null}
+
+          {route.activePane === "notifications" ? (
+            <section className="cc-pane">
+              <div className="cc-pane-toolbar">
+                <p>Toggle notification flags in the file buffer, then save to persist them.</p>
+              </div>
+
+              {notificationPane.kind === "gateway" ? (
+                <div className="cc-notify-stack">
+                  <div className="cc-summary-card">
+                    <strong>Gateway / Telegram</strong>
+                    <span>Env {notificationPane.policy.channels.telegram.env_file}</span>
+                    <span>{notificationPane.policy.channels.telegram.enabled ? "Channel enabled" : "Channel disabled"}</span>
+                  </div>
+
+                  <section className="cc-notify-block">
+                    <h3>Gateway Events</h3>
+                    <div className="cc-notify-grid">
+                      {GATEWAY_NOTIFY_EVENTS.map((eventId) => (
+                        <label className="cc-notify-card" key={eventId}>
+                          <div className="cc-notify-card__copy">
+                            <strong>{eventId}</strong>
+                            <span>Send Telegram when `{eventId}` is emitted.</span>
+                          </div>
+                          <input
+                            checked={notificationPane.policy.events[eventId].telegram}
+                            type="checkbox"
+                            onChange={(event) => handleGatewayNotifyToggle(eventId, event.currentTarget.checked)}
+                          />
+                        </label>
+                      ))}
+                    </div>
+                  </section>
+                </div>
+              ) : null}
+
+              {notificationPane.kind === "mission" ? (
+                <div className="cc-notify-stack">
+                  <div className="cc-summary-card">
+                    <strong>Mission / Telegram</strong>
+                    <span>Mission-scoped tracked toggle set</span>
+                    <span>Save writes back into `mission.yaml`.</span>
+                  </div>
+
+                  <section className="cc-notify-block">
+                    <h3>Mission Events</h3>
+                    <div className="cc-notify-grid">
+                      {MISSION_NOTIFY_EVENTS.map((eventId) => (
+                        <label className="cc-notify-card" key={eventId}>
+                          <div className="cc-notify-card__copy">
+                            <strong>{eventId}</strong>
+                            <span>Emit Telegram when `{eventId}` is triggered for this mission.</span>
+                          </div>
+                          <input
+                            checked={notificationPane.notifications.telegram[eventId]}
+                            type="checkbox"
+                            onChange={(event) => handleMissionNotifyToggle(eventId, event.currentTarget.checked)}
+                          />
+                        </label>
+                      ))}
+                    </div>
+                  </section>
+                </div>
+              ) : null}
+
+              {notificationPane.kind === "invalid" ? (
+                <div className="cc-empty-state">
+                  <p>YAML parse failed: {notificationPane.error}</p>
+                </div>
+              ) : null}
+
+              {notificationPane.kind === "unsupported" || notificationPane.kind === "none" ? (
+                <div className="cc-empty-state">
+                  <p>Select `gateway` notify policy or a mission `mission.yaml` to edit notification toggles.</p>
+                </div>
+              ) : null}
             </section>
           ) : null}
 

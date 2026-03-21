@@ -9,6 +9,7 @@
 ## 구성
 
 - `foundation/`: 저장소 목적, 목표 구조, 문서 소유 기준, 세계관 같은 활성 기준 문서
+- `guild_hall/`: `gateway`, `town_crier`, `night_watch`, `dungeon_assignment` 같은 cross-project 운영 owner 문서
 - `workspace/`: `_workspaces` 와 `.project_agent` 공용 구조/resolve 계약
 - `ui/`: root-owned UI source, sync, derived state, control center 편집 모델 계약
 
@@ -22,14 +23,16 @@
 1. [`foundation/REPOSITORY_PURPOSE.md`](foundation/REPOSITORY_PURPOSE.md)
 2. [`foundation/TARGET_TREE.md`](foundation/TARGET_TREE.md)
 3. [`foundation/DOCUMENT_OWNERSHIP.md`](foundation/DOCUMENT_OWNERSHIP.md)
-4. [`workspace/README.md`](workspace/README.md)
-5. [`ui/README.md`](ui/README.md)
+4. [`guild_hall/README.md`](guild_hall/README.md)
+5. [`workspace/README.md`](workspace/README.md)
+6. [`ui/README.md`](ui/README.md)
 
 ## 관련 경로
 
 - [루트 README](../../README.md)
 - [`docs/README.md`](../README.md)
 - [`foundation/README.md`](foundation/README.md)
+- [`guild_hall/README.md`](guild_hall/README.md)
 - [`workspace/README.md`](workspace/README.md)
 - [`ui/README.md`](ui/README.md)
 - [`.registry/README.md`](../../.registry/README.md)

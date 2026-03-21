@@ -9,16 +9,17 @@
 
 1. UI는 정본 파일의 편집 surface 다.
 2. derived preview 는 보조 surface 다.
-3. owner 경계는 `.registry`, `.unit`, `.workflow`, `.party`, `.mission`, `_workspaces` 기준을 따른다.
+3. owner 경계는 `.registry`, `.unit`, `.workflow`, `.party`, `.mission`, `guild_hall`, `_workspaces` 기준을 따른다.
 4. 저장은 파일 단위 명시 액션으로만 수행한다.
 5. local-only `_workspaces/<project_code>` 는 opt-in surface 로만 다룬다.
+6. toggle 같은 구조화 편집이 필요할 때도 UI 는 file buffer 를 직접 바꾸고 Save 전까지는 디스크에 쓰지 않는다.
 
 ## 구조 개요도
 
 ```mermaid
 flowchart LR
   NAV["Owner Navigation"] --> FILES["File List"]
-  FILES --> EDITOR["Editor Pane"]
+  FILES --> EDITOR["Editor / Notifications Pane"]
   EDITOR --> ACTIONS["Refresh / Reset / Save / Validate"]
   ACTIONS --> SRC["Canonical files"]
   SRC --> DERIVE["Resolve / Validate / Derive"]
@@ -27,10 +28,11 @@ flowchart LR
 
 ## owner navigation
 
-control center 는 아래 네 묶음으로 owner 파일을 탐색한다.
+control center 는 아래 다섯 묶음으로 owner 파일을 탐색한다.
 
 - `Identity / Unit` = `.registry/species` + `.unit`
 - `Catalogs` = `.registry/classes` + `.workflow` + `.party`
+- `Guild Hall` = `guild_hall`
 - `Operations` = `.mission` + `_workspaces`
 - `Docs / Diagnostics` = root 문서와 검증 결과
 
@@ -51,6 +53,13 @@ control center 는 아래 네 묶음으로 owner 파일을 탐색한다.
   - `.workflow/**`
   - `.party/README.md`
   - `.party/**`
+- `Guild Hall`
+  - `guild_hall/README.md`
+  - `guild_hall/gateway/**`
+  - `guild_hall/town_crier/**`
+  - `guild_hall/night_watch/**`
+  - `guild_hall/dungeon_assignment/**`
+  - opt-in local-only `guild_hall/state/**`
 - `Operations`
   - `.mission/README.md`
   - `.mission/index.yaml`

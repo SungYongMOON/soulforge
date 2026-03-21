@@ -135,7 +135,7 @@
   - `_workspaces/<project_code>/.project_agent/reports/morning_report/<date>.md`
   - `_workspaces/<project_code>/.project_agent/reports/morning_report/latest.md`
 - 아침에 owner 가 보는 briefing contract 는 별도 morning report contract 로 둔다.
-- 현재 연결 문서는 [`MORNING_PROJECT_REPORT_CONTRACT.md`](/Users/seabotmoon-air/Workspace/Soulforge/.mission/MORNING_PROJECT_REPORT_CONTRACT.md) 이다.
+- 현재 연결 문서는 [`MORNING_PROJECT_REPORT_CONTRACT.md`](../.mission/MORNING_PROJECT_REPORT_CONTRACT.md) 이다.
 - tracked repo 에는 실제 report dump 를 두지 않는다.
 - tracked repo 쪽에는 필요하면 public-safe sample report example 만 둔다.
 

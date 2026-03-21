@@ -29,11 +29,11 @@ flowchart TD
 
 ## current default lane
 
-- workflow: [`author_skill_package`](/Users/seabotmoon-air/Workspace/Soulforge/.workflow/author_skill_package/workflow.yaml)
-- party: [`guild_master_cell`](/Users/seabotmoon-air/Workspace/Soulforge/.party/guild_master_cell/party.yaml)
-- unit: [`guild_master`](/Users/seabotmoon-air/Workspace/Soulforge/.unit/guild_master/unit.yaml)
-- class: [`administrator`](/Users/seabotmoon-air/Workspace/Soulforge/.registry/classes/administrator/class.yaml)
-- readiness skill: [`mission_check`](/Users/seabotmoon-air/Workspace/Soulforge/.registry/skills/mission_check/skill.yaml)
+- workflow: [`author_skill_package`](../../../.workflow/author_skill_package/workflow.yaml)
+- party: [`guild_master_cell`](../../../.party/guild_master_cell/party.yaml)
+- unit: [`guild_master`](../../../.unit/guild_master/unit.yaml)
+- class: [`administrator`](../../../.registry/classes/administrator/class.yaml)
+- readiness skill: [`mission_check`](../../../.registry/skills/mission_check/skill.yaml)
 
 ## 수동 mission 절차
 
@@ -86,12 +86,12 @@ flowchart TD
 
 ### completed sample
 
-- [`author_pptx_autofill_conversion_001`](/Users/seabotmoon-air/Workspace/Soulforge/.mission/author_pptx_autofill_conversion_001/mission.yaml)
+- [`author_pptx_autofill_conversion_001`](../../../.mission/author_pptx_autofill_conversion_001/mission.yaml)
 - 현재 lane 기준 artifact split 을 갖춘 completed sample 이다.
 
 ### blocked sample
 
-- [`author_hwpx_document_001`](/Users/seabotmoon-air/Workspace/Soulforge/.mission/author_hwpx_document_001/mission.yaml)
+- [`author_hwpx_document_001`](../../../.mission/author_hwpx_document_001/mission.yaml)
 - 실제 smoke-backed success 는 있었지만, 최신 mission artifact split 기준이 부족한 historical blocked sample 이다.
 
 ## 앞으로 정식 매뉴얼로 승격할 후보

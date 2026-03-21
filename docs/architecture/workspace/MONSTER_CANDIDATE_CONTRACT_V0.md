@@ -11,7 +11,7 @@
 
 ## 경계
 
-- raw mail body, attachment, mailbox cursor, live mailbox state 는 `_workspaces/**/.project_agent/**` 아래에 남긴다.
+- raw mail body, attachment, mailbox cursor, live mailbox state 는 `guild_hall/state/gateway/**` 아래에 남긴다.
 - `monster candidate` note 는 workspace-level intake 판정과 routing hint 를 남기는 local-only surface 다.
 - `battle_log` 는 전투 배치와 전투 결과를 남기는 surface 이며, candidate 판정 규칙 owner 가 아니다.
 - `battle_event` 나 `battle_log` 가 candidate snapshot 일부를 복사해 들 수는 있지만, 상세 판정 이유와 규칙은 `monster candidate` 쪽에서 소유한다.
@@ -21,8 +21,8 @@
 - workspace intake inbox container 옆 local candidate note 를 기본안으로 본다.
 
 - 예시:
-  - `_workspaces/gateway/.project_agent/intake_inbox/<inbox_id>/monster_candidate/latest.md`
-  - `_workspaces/gateway/.project_agent/intake_inbox/<inbox_id>/monster_candidate/daily/YYYY-MM-DD.md`
+  - `guild_hall/state/gateway/intake_inbox/<inbox_id>/monster_candidate/latest.md`
+  - `guild_hall/state/gateway/intake_inbox/<inbox_id>/monster_candidate/daily/YYYY-MM-DD.md`
 
 ## v0 최소 필드
 
@@ -78,7 +78,7 @@ source_kind: mail
 source_ref: synthetic-mail-2026-03-19-001
 mailbox_id: synthetic_inbox
 received_at: 2026-03-19T08:40:00+09:00
-intake_owner: guild_master
+intake_owner: gateway
 monster_family: unknown_monster
 request_summary: demo 프로젝트 kickoff 상태 자료 갱신과 stage 문구 확인 요청
 project_hints:
@@ -94,13 +94,13 @@ tracked_mission_ref: null
 
 ## 연결 문서
 
-- [`MAIL_INTAKE_REQUEST_V0.md`](/Users/seabotmoon-air/Workspace/Soulforge/docs/architecture/workspace/MAIL_INTAKE_REQUEST_V0.md)
-- [`WORKSPACE_INTAKE_INBOX_V0.md`](/Users/seabotmoon-air/Workspace/Soulforge/docs/architecture/workspace/WORKSPACE_INTAKE_INBOX_V0.md)
-- [`DUNGEON_ASSIGNMENT_REQUEST_V0.md`](/Users/seabotmoon-air/Workspace/Soulforge/docs/architecture/workspace/DUNGEON_ASSIGNMENT_REQUEST_V0.md)
-- [`MONSTER_FAMILY_LINEUP_V0.md`](/Users/seabotmoon-air/Workspace/Soulforge/docs/architecture/workspace/MONSTER_FAMILY_LINEUP_V0.md)
-- [`MAIL_TO_MISSION_HANDOFF_V0.md`](/Users/seabotmoon-air/Workspace/Soulforge/docs/architecture/workspace/MAIL_TO_MISSION_HANDOFF_V0.md)
-- [`BATTLE_LOG_STORAGE_PLAN.md`](/Users/seabotmoon-air/Workspace/Soulforge/docs/architecture/workspace/BATTLE_LOG_STORAGE_PLAN.md)
-- [`PLAY_LOOP_V0.md`](/Users/seabotmoon-air/Workspace/Soulforge/.mission/PLAY_LOOP_V0.md)
+- [`MAIL_INTAKE_REQUEST_V0.md`](../../../docs/architecture/workspace/MAIL_INTAKE_REQUEST_V0.md)
+- [`WORKSPACE_INTAKE_INBOX_V0.md`](../../../docs/architecture/workspace/WORKSPACE_INTAKE_INBOX_V0.md)
+- [`DUNGEON_ASSIGNMENT_REQUEST_V0.md`](../../../docs/architecture/workspace/DUNGEON_ASSIGNMENT_REQUEST_V0.md)
+- [`MONSTER_FAMILY_LINEUP_V0.md`](../../../docs/architecture/workspace/MONSTER_FAMILY_LINEUP_V0.md)
+- [`MAIL_TO_MISSION_HANDOFF_V0.md`](../../../docs/architecture/workspace/MAIL_TO_MISSION_HANDOFF_V0.md)
+- [`BATTLE_LOG_STORAGE_PLAN.md`](../../../docs/architecture/workspace/BATTLE_LOG_STORAGE_PLAN.md)
+- [`PLAY_LOOP_V0.md`](../../../.mission/PLAY_LOOP_V0.md)
 
 ## ASSUMPTIONS
 

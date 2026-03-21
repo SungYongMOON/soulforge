@@ -78,8 +78,8 @@ objective: 점검장비 자료를 최신 기준으로 갱신한다.
 
 ## 연결 문서
 
-- [`MONSTER_CANDIDATE_CONTRACT_V0.md`](/Users/seabotmoon-air/Workspace/Soulforge/docs/architecture/workspace/MONSTER_CANDIDATE_CONTRACT_V0.md)
-- [`AUTOHUNT_MODEL.md`](/Users/seabotmoon-air/Workspace/Soulforge/docs/architecture/workspace/AUTOHUNT_MODEL.md)
+- [`MONSTER_CANDIDATE_CONTRACT_V0.md`](../../../docs/architecture/workspace/MONSTER_CANDIDATE_CONTRACT_V0.md)
+- [`AUTOHUNT_MODEL.md`](../../../docs/architecture/workspace/AUTOHUNT_MODEL.md)
 
 ## ASSUMPTIONS
 

@@ -1,0 +1,10 @@
+kind: gateway_notify_policy
+scope: gateway
+channels:
+  telegram:
+    enabled: true
+    env_file: guild_hall/state/town_crier/telegram_notify.env
+events:
+  monster_created:
+    telegram: false
+updated_at: null

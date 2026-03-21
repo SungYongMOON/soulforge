@@ -22,6 +22,12 @@ input_refs:
 run_refs:
   latest_run_id: author_skill_package_hwpx_document_001
   runtime_truth_root: _workspaces/demo_project/.project_agent/runs/
+notifications:
+  telegram:
+    mission_blocked: false
+    mission_ready: false
+    mission_closed: false
+    mission_failed: false
 notes:
   - Mission owns the held execution plan and public-safe resolved assignment only.
   - This sample predates the current explicit resource-bundle-review and smoke-check artifact split in `author_skill_package`.

@@ -125,10 +125,10 @@
 
 ## 연결 문서
 
-- [`NIGHTLY_SWEEP_PLAN.md`](/Users/seabotmoon-air/Workspace/Soulforge/.mission/NIGHTLY_SWEEP_PLAN.md)
-- [`FUTURE_AGGREGATION_PLAN.md`](/Users/seabotmoon-air/Workspace/Soulforge/.mission/FUTURE_AGGREGATION_PLAN.md)
-- [`GOVERNANCE_PACKET_MISSION_PROMOTION_RULES.md`](/Users/seabotmoon-air/Workspace/Soulforge/.mission/GOVERNANCE_PACKET_MISSION_PROMOTION_RULES.md)
-- tracked example: [`docs/architecture/workspace/examples/demo_project/.project_agent/morning_project_report_example.md`](/Users/seabotmoon-air/Workspace/Soulforge/docs/architecture/workspace/examples/demo_project/.project_agent/morning_project_report_example.md)
+- [`NIGHTLY_SWEEP_PLAN.md`](../.mission/NIGHTLY_SWEEP_PLAN.md)
+- [`FUTURE_AGGREGATION_PLAN.md`](../.mission/FUTURE_AGGREGATION_PLAN.md)
+- [`GOVERNANCE_PACKET_MISSION_PROMOTION_RULES.md`](../.mission/GOVERNANCE_PACKET_MISSION_PROMOTION_RULES.md)
+- tracked example: [`docs/architecture/workspace/examples/demo_project/.project_agent/morning_project_report_example.md`](../docs/architecture/workspace/examples/demo_project/.project_agent/morning_project_report_example.md)
 
 ## ASSUMPTIONS
 

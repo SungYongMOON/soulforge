@@ -4,6 +4,7 @@
 
 - `workspace/` 는 `.mission/`, `_workspaces`, `.project_agent` 에 대한 저장소 공용 문서를 모은다.
 - project-local materialization 모델과 공통 resolve 규칙을 한곳에서 찾게 한다.
+- `guild_hall` cross-project 운영 owner 문서는 `docs/architecture/guild_hall/` 에서 색인하고, 여기서는 그 owner 가 `_workspaces/<project_code>/` 와 만나는 계약만 다룬다.
 
 ## 포함 대상
 
@@ -13,6 +14,11 @@
 - `MAIL_INTAKE_REQUEST_V0.md`
 - `WORKSPACE_INTAKE_INBOX_V0.md`
 - `DUNGEON_ASSIGNMENT_REQUEST_V0.md`
+- `INSTALLATION_MANUAL_V0.md`
+- `GATEWAY_MAIL_FETCH_V0.md`
+- `GATEWAY_NOTIFY_V0.md`
+- `NOTIFY_MODEL_V0.md`
+- `NOTEBOOKLM_MCP_SETUP_V0.md`
 - `MULTI_PC_DEVELOPMENT_V0.md`
 - `MAIL_TO_MISSION_HANDOFF_V0.md`
 - `MONSTER_FAMILY_LINEUP_V0.md`
@@ -32,12 +38,18 @@
 ## 관련 경로
 
 - [`../README.md`](../README.md)
+- [`../guild_hall/README.md`](../guild_hall/README.md)
 - [`WORKSPACE_PROJECT_MODEL.md`](WORKSPACE_PROJECT_MODEL.md)
 - [`MISSION_MODEL.md`](MISSION_MODEL.md)
 - [`MISSION_MANUAL_DRAFT.md`](MISSION_MANUAL_DRAFT.md)
 - [`MAIL_INTAKE_REQUEST_V0.md`](MAIL_INTAKE_REQUEST_V0.md)
 - [`WORKSPACE_INTAKE_INBOX_V0.md`](WORKSPACE_INTAKE_INBOX_V0.md)
 - [`DUNGEON_ASSIGNMENT_REQUEST_V0.md`](DUNGEON_ASSIGNMENT_REQUEST_V0.md)
+- [`INSTALLATION_MANUAL_V0.md`](INSTALLATION_MANUAL_V0.md)
+- [`GATEWAY_MAIL_FETCH_V0.md`](GATEWAY_MAIL_FETCH_V0.md)
+- [`GATEWAY_NOTIFY_V0.md`](GATEWAY_NOTIFY_V0.md)
+- [`NOTIFY_MODEL_V0.md`](NOTIFY_MODEL_V0.md)
+- [`NOTEBOOKLM_MCP_SETUP_V0.md`](NOTEBOOKLM_MCP_SETUP_V0.md)
 - [`MULTI_PC_DEVELOPMENT_V0.md`](MULTI_PC_DEVELOPMENT_V0.md)
 - [`MAIL_TO_MISSION_HANDOFF_V0.md`](MAIL_TO_MISSION_HANDOFF_V0.md)
 - [`MONSTER_FAMILY_LINEUP_V0.md`](MONSTER_FAMILY_LINEUP_V0.md)
@@ -60,8 +72,11 @@
 - mission/workspace 구조와 `.project_agent` 계약의 root-owned 정본 묶음이다.
 - current-default v0 workspace contract draft 는 `MAIL_INTAKE_REQUEST_V0.md`, `WORKSPACE_INTAKE_INBOX_V0.md`, `DUNGEON_ASSIGNMENT_REQUEST_V0.md`, `MAIL_TO_MISSION_HANDOFF_V0.md`, `MONSTER_FAMILY_LINEUP_V0.md`, `MONSTER_CANDIDATE_CONTRACT_V0.md`, `BATTLE_LOG_STORAGE_PLAN.md`, `MISSION_CLOSE_PROVENANCE_V0.md`, `MAILBOX_CONCRETE_CONTRACT_V0.md` 에서 추가로 잠근다.
 - `WORKSPACE_INTAKE_INBOX_V0.md` 는 `gateway` intake logging 의 source-of-truth shape 를 `JSON` current state + monthly `JSONL` event stream 기준으로 잠그고, `CSV` 는 파생 export 로만 다룬다.
+- `GATEWAY_MAIL_FETCH_V0.md`, `GATEWAY_NOTIFY_V0.md`, `NOTIFY_MODEL_V0.md` 는 `guild_hall` owner 의 runtime 계약이지만, `_workspaces/<project_code>/` handoff 와 clone/bootstrap 흐름 때문에 workspace 문서군에서도 함께 참조한다.
+- `NOTEBOOKLM_MCP_SETUP_V0.md` 는 NotebookLM MCP 를 대상 PC 에서 재설치하는 절차만 Soulforge 쪽 runbook 으로 들고 간다.
+- `INSTALLATION_MANUAL_V0.md` 는 다른 PC 에서 clone 후 무엇을 어떤 순서로 설치해야 하는지 한 장짜리 상위 bootstrap 문서다.
 - tracked workspace sample 은 `examples/` 아래에서만 유지한다.
-- `examples/gateway/` 는 다른 PC 나 다른 LLM 이 `mail_intake_request -> intake_inbox -> linked_existing_only` 흐름을 그대로 따라볼 수 있는 public-safe mirror sample 이다.
+- `examples/guild_hall/state/gateway/` 는 다른 PC 나 다른 LLM 이 `mail fetch -> mail_intake_request -> intake_inbox -> linked_existing_only` 흐름을 그대로 따라볼 수 있는 public-safe mirror sample 이다.
 - `MULTI_PC_DEVELOPMENT_V0.md` 는 다른 PC 에서 `clone -> local runtime materialize -> push` 하는 최소 운영 절차를 잠근다.
 - split binding 파일은 `bindings/*.yaml` 상대 경로 포인터 규칙을 사용한다.
 - workflow step 의 `execution_profile_ref` 와 `action.skill_id` 는 local runtime binding 을 통해 model, skill package, MCP/tool preset 으로 resolve 할 수 있다.

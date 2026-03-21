@@ -23,6 +23,12 @@ input_refs:
 run_refs:
   latest_run_id: author_skill_package_pptx_autofill_conversion_001
   runtime_truth_root: _workspaces/demo_project/.project_agent/runs/
+notifications:
+  telegram:
+    mission_blocked: false
+    mission_ready: false
+    mission_closed: false
+    mission_failed: false
 notes:
   - Mission owns the held execution plan and public-safe resolved assignment only.
   - Sample PPTX binaries remain local runtime inputs and are not tracked under `.mission/`.

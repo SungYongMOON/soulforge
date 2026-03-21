@@ -126,7 +126,7 @@
 
 - 무엇을 종합할지는 아직 잠그지 않는다.
 - 다만 나중에 만들 종합 기능이 참고할 메타 아이디어는 owner-local note 로 미리 적어둘 수 있다.
-- 현재 연결 문서는 [`FUTURE_AGGREGATION_PLAN.md`](/Users/seabotmoon-air/Workspace/Soulforge/.mission/FUTURE_AGGREGATION_PLAN.md) 이다.
+- 현재 연결 문서는 [`FUTURE_AGGREGATION_PLAN.md`](../.mission/FUTURE_AGGREGATION_PLAN.md) 이다.
 
 ## 이번 phase 에서 잠글 질문
 
@@ -172,15 +172,15 @@
 
 ## 우선 참고 문서
 
-- [`docs/architecture/foundation/VISION_AND_GOALS.md`](/Users/seabotmoon-air/Workspace/Soulforge/docs/architecture/foundation/VISION_AND_GOALS.md)
-- [`docs/architecture/foundation/REPOSITORY_PURPOSE.md`](/Users/seabotmoon-air/Workspace/Soulforge/docs/architecture/foundation/REPOSITORY_PURPOSE.md)
-- [`docs/architecture/foundation/TARGET_TREE.md`](/Users/seabotmoon-air/Workspace/Soulforge/docs/architecture/foundation/TARGET_TREE.md)
-- [`docs/architecture/foundation/DOCUMENT_OWNERSHIP.md`](/Users/seabotmoon-air/Workspace/Soulforge/docs/architecture/foundation/DOCUMENT_OWNERSHIP.md)
-- [`docs/architecture/workspace/MISSION_MODEL.md`](/Users/seabotmoon-air/Workspace/Soulforge/docs/architecture/workspace/MISSION_MODEL.md)
-- [`docs/architecture/workspace/MISSION_MANUAL_DRAFT.md`](/Users/seabotmoon-air/Workspace/Soulforge/docs/architecture/workspace/MISSION_MANUAL_DRAFT.md)
-- [`/Users/seabotmoon-air/Workspace/Soulforge/.mission/README.md`](/Users/seabotmoon-air/Workspace/Soulforge/.mission/README.md)
-- [`/Users/seabotmoon-air/Workspace/Soulforge/.mission/DECISION_LOG.md`](/Users/seabotmoon-air/Workspace/Soulforge/.mission/DECISION_LOG.md)
-- [`/Users/seabotmoon-air/Workspace/Soulforge/.mission/OPS_NOTES.md`](/Users/seabotmoon-air/Workspace/Soulforge/.mission/OPS_NOTES.md)
+- [`docs/architecture/foundation/VISION_AND_GOALS.md`](../docs/architecture/foundation/VISION_AND_GOALS.md)
+- [`docs/architecture/foundation/REPOSITORY_PURPOSE.md`](../docs/architecture/foundation/REPOSITORY_PURPOSE.md)
+- [`docs/architecture/foundation/TARGET_TREE.md`](../docs/architecture/foundation/TARGET_TREE.md)
+- [`docs/architecture/foundation/DOCUMENT_OWNERSHIP.md`](../docs/architecture/foundation/DOCUMENT_OWNERSHIP.md)
+- [`docs/architecture/workspace/MISSION_MODEL.md`](../docs/architecture/workspace/MISSION_MODEL.md)
+- [`docs/architecture/workspace/MISSION_MANUAL_DRAFT.md`](../docs/architecture/workspace/MISSION_MANUAL_DRAFT.md)
+- [`.mission/README.md`](README.md)
+- [`.mission/DECISION_LOG.md`](DECISION_LOG.md)
+- [`.mission/OPS_NOTES.md`](OPS_NOTES.md)
 
 ## ASSUMPTIONS
 

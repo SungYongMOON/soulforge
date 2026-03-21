@@ -9,7 +9,7 @@ const TEXT_EXTENSIONS = new Set([".md", ".yaml", ".yml", ".json"]);
 const repoRoot = path.resolve(fileURLToPath(new URL(".", import.meta.url)), "../../..");
 const integratedFixtureRepoPath = "ui-workspace/fixtures/ui-state/integrated.sample.json";
 
-type ControlCenterOwnerId = "body" | "class" | "workspaces" | "docs";
+type ControlCenterOwnerId = "body" | "class" | "guild_hall" | "operations" | "docs";
 
 interface ControlCenterFileRecord {
   path: string;
@@ -255,12 +255,28 @@ async function buildClassOwner(): Promise<ControlCenterOwner> {
   };
 }
 
-async function buildWorkspaceOwner(): Promise<ControlCenterOwner> {
+async function buildOperationsOwner(): Promise<ControlCenterOwner> {
   const sections: ControlCenterSection[] = [];
 
   sections.push(
     await buildSection(
-      "workspaces",
+      "operations",
+      "mission-core",
+      "Mission Plans",
+      "Held mission plans and readiness owner surfaces.",
+      [
+        ...(await existingFiles([".mission/README.md", ".mission/index.yaml"])),
+        ...(await walkFiles(
+          ".mission",
+          (repoPath) => isTextFile(repoPath) && repoPath !== ".mission/README.md" && repoPath !== ".mission/index.yaml"
+        ))
+      ]
+    )
+  );
+
+  sections.push(
+    await buildSection(
+      "operations",
       "workspace-core",
       "Workspace Guides",
       "Workspace root guide and local-only mount policy.",
@@ -289,7 +305,7 @@ async function buildWorkspaceOwner(): Promise<ControlCenterOwner> {
 
       sections.push(
         await buildSection(
-          "workspaces",
+          "operations",
           `workspace-${projectEntry.name}`,
           projectEntry.name,
           "Direct local-only project mount surface.",
@@ -300,9 +316,57 @@ async function buildWorkspaceOwner(): Promise<ControlCenterOwner> {
   }
 
   return {
-    id: "workspaces",
-    label: "Workspaces",
-    description: "Local-only project files under _workspaces.",
+    id: "operations",
+    label: "Operations",
+    description: "Mission plans and local-only workspace files.",
+    sections: sections.filter((section) => section.files.length > 0)
+  };
+}
+
+async function buildGuildHallOwner(): Promise<ControlCenterOwner> {
+  const sections: ControlCenterSection[] = [];
+
+  sections.push(
+    await buildSection(
+      "guild_hall",
+      "guild-hall-core",
+      "Guild Hall",
+      "Cross-project operating root and owner guide.",
+      await existingFiles(["guild_hall/README.md"])
+    )
+  );
+
+  for (const [sectionId, sectionLabel, relativeDir, description] of [
+    ["guild-hall-gateway", "Gateway", "guild_hall/gateway", "Ingress source and staging owner."],
+    ["guild-hall-town-crier", "Town Crier", "guild_hall/town_crier", "Notify queue and outbound transport owner."],
+    ["guild-hall-night-watch", "Night Watch", "guild_hall/night_watch", "Nightly review owner."],
+    ["guild-hall-dungeon-assignment", "Dungeon Assignment", "guild_hall/dungeon_assignment", "Cross-project assignment owner."],
+  ] as const) {
+    const files = await walkFiles(relativeDir, (repoPath) => isTextFile(repoPath));
+    if (files.length === 0) {
+      continue;
+    }
+
+    sections.push(await buildSection("guild_hall", sectionId, sectionLabel, description, files));
+  }
+
+  const stateFiles = await walkFiles("guild_hall/state", (repoPath) => isTextFile(repoPath));
+  if (stateFiles.length > 0) {
+    sections.push(
+      await buildSection(
+        "guild_hall",
+        "guild-hall-state",
+        "State",
+        "Local-only guild hall state mounts discovered on this machine.",
+        stateFiles
+      )
+    );
+  }
+
+  return {
+    id: "guild_hall",
+    label: "Guild Hall",
+    description: "Cross-project operating root and local state files.",
     sections: sections.filter((section) => section.files.length > 0)
   };
 }
@@ -359,7 +423,7 @@ async function buildDocsOwner(): Promise<ControlCenterOwner> {
 }
 
 async function buildTree() {
-  const owners = [await buildBodyOwner(), await buildClassOwner(), await buildWorkspaceOwner(), await buildDocsOwner()];
+  const owners = [await buildBodyOwner(), await buildClassOwner(), await buildGuildHallOwner(), await buildOperationsOwner(), await buildDocsOwner()];
 
   return {
     generatedAt: new Date().toISOString(),

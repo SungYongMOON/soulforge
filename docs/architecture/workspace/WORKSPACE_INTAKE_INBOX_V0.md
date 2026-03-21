@@ -9,7 +9,7 @@
 
 - `workspace intake inbox` 는 project 무관한 배치 전 대기장이다.
 - mail 1건은 inbox container 1개가 되고, 그 안에 `monsters[]` 가 들어간다.
-- v0 의 실제 위치는 `_workspaces/gateway/.project_agent/intake_inbox/` 로 고정한다.
+- v0 의 실제 위치는 `guild_hall/state/gateway/intake_inbox/` 로 고정한다.
 
 ## 경계
 
@@ -21,10 +21,10 @@
 
 ## 권장 파일
 
-- `_workspaces/gateway/.project_agent/intake_inbox/<inbox_id>/inbox.json`
-- `_workspaces/gateway/.project_agent/intake_inbox/<inbox_id>/monsters.json`
-- `_workspaces/gateway/.project_agent/intake_inbox/<inbox_id>/history.jsonl`
-- `_workspaces/gateway/.project_agent/log/monster_events/YYYY/YYYY-MM.jsonl`
+- `guild_hall/state/gateway/intake_inbox/<inbox_id>/inbox.json`
+- `guild_hall/state/gateway/intake_inbox/<inbox_id>/monsters.json`
+- `guild_hall/state/gateway/intake_inbox/<inbox_id>/history.jsonl`
+- `guild_hall/state/gateway/log/monster_events/YYYY/YYYY-MM.jsonl`
 
 ## logging storage model
 
@@ -192,13 +192,13 @@
 workspace_intake_inbox_id: hiworks_2026_03_19_001
 source_kind: mail
 source_ref: hiworks_2026_03_19_001
-event_ref: _inbox/company/mail/events/hiworks/2026/2026-03.jsonl#event_id=hiworks_2026_03_19_001
-raw_ref: _inbox/company/mail/raw/hiworks/2026/2026-03.jsonl#message_id=002801dcb212$b79a2400$26ce6c00$@sonartech.com
+event_ref: guild_hall/state/gateway/mailbox/company/mail/events/hiworks/2026/2026-03.jsonl#event_id=hiworks_2026_03_19_001
+raw_ref: guild_hall/state/gateway/mailbox/company/mail/raw/hiworks/2026/2026-03.jsonl#message_id=002801dcb212$b79a2400$26ce6c00$@sonartech.com
 attachment_refs:
-  - _inbox/company/mail/attachments/hiworks/example_attachment_001
+  - guild_hall/state/gateway/mailbox/company/mail/attachments/hiworks/example_attachment_001
 received_at: 2026-03-19T09:12:00+09:00
 mailbox_id: company_mailbox
-intake_owner: guild_master
+intake_owner: gateway
 subject: 음탐기영상처리장치 IPS 검토를 위한 배선식별자 작성 요청
 from:
   - name: 조영남
@@ -258,10 +258,10 @@ monsters:
 
 ## 연결 문서
 
-- [`MAIL_INTAKE_REQUEST_V0.md`](/Users/seabotmoon-air/Workspace/Soulforge/docs/architecture/workspace/MAIL_INTAKE_REQUEST_V0.md)
-- [`DUNGEON_ASSIGNMENT_REQUEST_V0.md`](/Users/seabotmoon-air/Workspace/Soulforge/docs/architecture/workspace/DUNGEON_ASSIGNMENT_REQUEST_V0.md)
-- [`examples/gateway/README.md`](/Users/seabotmoon-air/Workspace/Soulforge/docs/architecture/workspace/examples/gateway/README.md)
-- [`MONSTER_CANDIDATE_CONTRACT_V0.md`](/Users/seabotmoon-air/Workspace/Soulforge/docs/architecture/workspace/MONSTER_CANDIDATE_CONTRACT_V0.md)
+- [`MAIL_INTAKE_REQUEST_V0.md`](../../../docs/architecture/workspace/MAIL_INTAKE_REQUEST_V0.md)
+- [`DUNGEON_ASSIGNMENT_REQUEST_V0.md`](../../../docs/architecture/workspace/DUNGEON_ASSIGNMENT_REQUEST_V0.md)
+- [`examples/guild_hall/state/gateway/README.md`](../../../docs/architecture/workspace/examples/guild_hall/state/gateway/README.md)
+- [`MONSTER_CANDIDATE_CONTRACT_V0.md`](../../../docs/architecture/workspace/MONSTER_CANDIDATE_CONTRACT_V0.md)
 
 ## ASSUMPTIONS
 

@@ -271,7 +271,7 @@
       },
       {
         "section_id": "runtime",
-        "title": "Runtime",
+        "title": "State",
         "summary": "Unit assembly surface without raw runs.",
         "status": "present",
         "present": true

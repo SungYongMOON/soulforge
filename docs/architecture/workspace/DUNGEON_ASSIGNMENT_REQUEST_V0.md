@@ -68,8 +68,8 @@ blocked_reasons:
 
 ## 연결 문서
 
-- [`WORKSPACE_INTAKE_INBOX_V0.md`](/Users/seabotmoon-air/Workspace/Soulforge/docs/architecture/workspace/WORKSPACE_INTAKE_INBOX_V0.md)
-- [`MAIL_TO_MISSION_HANDOFF_V0.md`](/Users/seabotmoon-air/Workspace/Soulforge/docs/architecture/workspace/MAIL_TO_MISSION_HANDOFF_V0.md)
+- [`WORKSPACE_INTAKE_INBOX_V0.md`](../../../docs/architecture/workspace/WORKSPACE_INTAKE_INBOX_V0.md)
+- [`MAIL_TO_MISSION_HANDOFF_V0.md`](../../../docs/architecture/workspace/MAIL_TO_MISSION_HANDOFF_V0.md)
 
 ## ASSUMPTIONS
 

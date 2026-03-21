@@ -1,0 +1,82 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "email.fetch.event.v1",
+  "title": "Email Fetch Event",
+  "type": "object",
+  "required": [
+    "schema_version",
+    "event_id",
+    "source",
+    "provider_message_id",
+    "subject",
+    "from",
+    "to",
+    "cc",
+    "received_at",
+    "attachments",
+    "ingested_at",
+    "ingest_status"
+  ],
+  "properties": {
+    "schema_version": { "const": "email.fetch.event.v1" },
+    "event_id": { "type": "string", "minLength": 1 },
+    "source": { "type": "string", "enum": ["gmail", "hiworks", "o365"] },
+    "provider_message_id": { "type": "string", "minLength": 1 },
+    "thread_id": { "type": ["string", "null"] },
+    "subject": { "type": "string" },
+    "from": {
+      "type": "array",
+      "items": { "$ref": "#/$defs/address" }
+    },
+    "to": {
+      "type": "array",
+      "items": { "$ref": "#/$defs/address" }
+    },
+    "cc": {
+      "type": "array",
+      "items": { "$ref": "#/$defs/address" }
+    },
+    "received_at": { "type": "string", "format": "date-time" },
+    "body_text": { "type": ["string", "null"] },
+    "body_html": { "type": ["string", "null"] },
+    "attachments": {
+      "type": "array",
+      "items": { "$ref": "#/$defs/attachment" }
+    },
+    "ingested_at": { "type": "string", "format": "date-time" },
+    "ingest_status": { "type": "string", "enum": ["ok", "partial", "failed"] },
+    "raw": { "type": ["object", "null"] },
+    "metadata": { "type": ["object", "null"] }
+  },
+  "$defs": {
+    "address": {
+      "type": "object",
+      "required": ["name", "address"],
+      "properties": {
+        "name": { "type": "string" },
+        "address": { "type": "string" }
+      },
+      "additionalProperties": false
+    },
+    "attachment": {
+      "type": "object",
+      "required": ["type"],
+      "properties": {
+        "type": {
+          "type": "string",
+          "enum": ["binary_attachment", "reference_attachment", "body_link"]
+        },
+        "name": { "type": ["string", "null"] },
+        "mime": { "type": ["string", "null"] },
+        "size": { "type": ["integer", "null"], "minimum": 0 },
+        "url": { "type": ["string", "null"] },
+        "content_sha256": { "type": ["string", "null"] },
+        "local_path": { "type": ["string", "null"] },
+        "provider_attachment_id": { "type": ["string", "null"] },
+        "metadata": { "type": ["object", "null"] }
+      },
+      "additionalProperties": true
+    }
+  },
+  "additionalProperties": false
+}

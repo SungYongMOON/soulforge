@@ -55,6 +55,7 @@ flowchart TD
 ## owner 규칙
 
 - `.mission/<mission_id>/mission.yaml` 은 `workflow_id`, `party_id`, `project_code`, `unit_assignments` 같은 held mission metadata 를 소유한다.
+- `.mission/<mission_id>/mission.yaml` 은 mission-scoped `notifications.telegram.*` toggle 도 함께 소유할 수 있다.
 - `.mission/<mission_id>/readiness.yaml` 은 `draft`, `blocked`, `ready`, `running`, `completed`, `failed` 같은 현재 준비 상태와 blocking reason 을 소유한다.
 - current-default v0 에서 `.mission/<mission_id>/readiness.yaml` 은 `terminal_provenance` pointer 로 `closed_via`, `closed_at`, `terminal_result`, `run_id`, `battle_event_id` 를 함께 둘 수 있다.
 - `.mission/<mission_id>/resolved_plan.yaml` 은 current execution plan 의 public-safe resolved view 다.
@@ -89,6 +90,10 @@ flowchart TD
 - `unit_assignments`
 - `input_refs`
 - `run_refs`
+- `notifications.telegram.mission_blocked`
+- `notifications.telegram.mission_ready`
+- `notifications.telegram.mission_closed`
+- `notifications.telegram.mission_failed`
 
 ### `readiness.yaml`
 

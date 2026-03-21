@@ -4,7 +4,27 @@
   "packageManager": "npm@11.9.0",
   "scripts": {
     "skills:sync": "ruby .registry/docs/operations/scripts/sync_codex_skill.rb",
+    "guild-hall:gateway:fetch": "python3 guild_hall/gateway/mail_fetch/cli.py",
+    "guild-hall:gateway:fetch:healthcheck": "python3 guild_hall/gateway/mail_fetch/healthcheck.py",
+    "guild-hall:gateway:fetch:retention": "python3 guild_hall/gateway/mail_fetch/retention_cleanup.py",
+    "guild-hall:gateway:fetch:state-backup": "python3 guild_hall/gateway/mail_fetch/state_backup.py",
+    "guild-hall:gateway:fetch:state-restore": "python3 guild_hall/gateway/mail_fetch/state_restore.py",
+    "guild-hall:gateway:intake": "node guild_hall/gateway/cli.mjs intake",
+    "guild-hall:gateway:update": "node guild_hall/gateway/cli.mjs update-monster",
+    "guild-hall:town-crier:run": "node guild_hall/town_crier/cli.mjs run",
+    "guild-hall:town-crier:status": "node guild_hall/town_crier/cli.mjs status",
+    "guild-hall:town-crier:send": "node guild_hall/town_crier/cli.mjs send",
+    "gateway:fetch": "python3 scripts/gateway_mail_fetch/cli.py",
+    "gateway:fetch:healthcheck": "python3 scripts/gateway_mail_fetch/healthcheck.py",
+    "gateway:fetch:retention": "python3 scripts/gateway_mail_fetch/retention_cleanup.py",
+    "gateway:fetch:state-backup": "python3 scripts/gateway_mail_fetch/state_backup.py",
+    "gateway:fetch:state-restore": "python3 scripts/gateway_mail_fetch/state_restore.py",
     "gateway:intake": "node scripts/gateway.mjs intake",
+    "gateway:notify:telegram": "python3 scripts/gateway_notify/telegram_send.py",
+    "notify:emit": "node scripts/gateway.mjs notify-emit",
+    "notify:gateway": "node scripts/gateway.mjs notify-gateway",
+    "notify:mission": "node scripts/gateway.mjs notify-mission",
+    "notify:status": "node scripts/gateway.mjs notify-status",
     "gateway:update": "node scripts/gateway.mjs update-monster",
     "ui:workspace:install": "npm install --prefix ui-workspace",
     "ui:dev": "npm --prefix ui-workspace run dev",
@@ -27,5 +47,8 @@
     "renderer:web:dev": "npm run ui:dev",
     "renderer:web:build": "npm run ui:build",
     "renderer:web:preview": "npm run ui:preview"
+  },
+  "dependencies": {
+    "yaml": "^2.8.1"
   }
 }

@@ -3,7 +3,7 @@
 ## 목적
 
 - 이 문서는 어떤 요청이 reusable skill package 로 승격될 만큼 반복성과 경계 가치를 가지는지 판단하는 기준을 제공한다.
-- 판단이 맞으면 [`author_skill_package`](/Users/seabotmoon-air/Workspace/Soulforge/.workflow/author_skill_package/workflow.yaml) workflow 로 넘기는 것을 기본안으로 한다.
+- 판단이 맞으면 [`author_skill_package`](../../.workflow/author_skill_package/workflow.yaml) workflow 로 넘기는 것을 기본안으로 한다.
 
 ## 언제 skill 을 만든다
 
@@ -61,7 +61,7 @@ flowchart TD
 
 ## 관련 canon
 
-- workflow: [`author_skill_package`](/Users/seabotmoon-air/Workspace/Soulforge/.workflow/author_skill_package/workflow.yaml)
-- party: [`guild_master_cell`](/Users/seabotmoon-air/Workspace/Soulforge/.party/guild_master_cell/party.yaml)
-- unit: [`guild_master_01`](/Users/seabotmoon-air/Workspace/Soulforge/.unit/guild_master_01/unit.yaml)
-- class: [`administrator`](/Users/seabotmoon-air/Workspace/Soulforge/.registry/classes/administrator/class.yaml)
+- workflow: [`author_skill_package`](../../.workflow/author_skill_package/workflow.yaml)
+- party: [`guild_master_cell`](../../.party/guild_master_cell/party.yaml)
+- unit: [`guild_master_01`](../../.unit/guild_master_01/unit.yaml)
+- class: [`administrator`](../../.registry/classes/administrator/class.yaml)

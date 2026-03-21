@@ -131,14 +131,14 @@ input_refs:
 
 ## 연결 문서
 
-- [`MAIL_INTAKE_REQUEST_V0.md`](/Users/seabotmoon-air/Workspace/Soulforge/docs/architecture/workspace/MAIL_INTAKE_REQUEST_V0.md)
-- [`WORKSPACE_INTAKE_INBOX_V0.md`](/Users/seabotmoon-air/Workspace/Soulforge/docs/architecture/workspace/WORKSPACE_INTAKE_INBOX_V0.md)
-- [`DUNGEON_ASSIGNMENT_REQUEST_V0.md`](/Users/seabotmoon-air/Workspace/Soulforge/docs/architecture/workspace/DUNGEON_ASSIGNMENT_REQUEST_V0.md)
-- [`MISSION_MODEL.md`](/Users/seabotmoon-air/Workspace/Soulforge/docs/architecture/workspace/MISSION_MODEL.md)
-- [`MISSION_MANUAL_DRAFT.md`](/Users/seabotmoon-air/Workspace/Soulforge/docs/architecture/workspace/MISSION_MANUAL_DRAFT.md)
-- [`MAILBOX_CONCRETE_CONTRACT_V0.md`](/Users/seabotmoon-air/Workspace/Soulforge/docs/architecture/workspace/MAILBOX_CONCRETE_CONTRACT_V0.md)
-- [`BATTLE_LOG_STORAGE_PLAN.md`](/Users/seabotmoon-air/Workspace/Soulforge/docs/architecture/workspace/BATTLE_LOG_STORAGE_PLAN.md)
-- [`PLAY_LOOP_V0.md`](/Users/seabotmoon-air/Workspace/Soulforge/.mission/PLAY_LOOP_V0.md)
+- [`MAIL_INTAKE_REQUEST_V0.md`](../../../docs/architecture/workspace/MAIL_INTAKE_REQUEST_V0.md)
+- [`WORKSPACE_INTAKE_INBOX_V0.md`](../../../docs/architecture/workspace/WORKSPACE_INTAKE_INBOX_V0.md)
+- [`DUNGEON_ASSIGNMENT_REQUEST_V0.md`](../../../docs/architecture/workspace/DUNGEON_ASSIGNMENT_REQUEST_V0.md)
+- [`MISSION_MODEL.md`](../../../docs/architecture/workspace/MISSION_MODEL.md)
+- [`MISSION_MANUAL_DRAFT.md`](../../../docs/architecture/workspace/MISSION_MANUAL_DRAFT.md)
+- [`MAILBOX_CONCRETE_CONTRACT_V0.md`](../../../docs/architecture/workspace/MAILBOX_CONCRETE_CONTRACT_V0.md)
+- [`BATTLE_LOG_STORAGE_PLAN.md`](../../../docs/architecture/workspace/BATTLE_LOG_STORAGE_PLAN.md)
+- [`PLAY_LOOP_V0.md`](../../../.mission/PLAY_LOOP_V0.md)
 
 ## ASSUMPTIONS
 

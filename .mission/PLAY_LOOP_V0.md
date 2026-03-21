@@ -20,7 +20,7 @@
 
 - `PLAY_LOOP_V0` 는 top-level canonical root 가 아니다.
 - 이 문서는 `.mission/` owner-local draft 이며, 현재 default 운영 감각을 정리하는 planning note 다.
-- 정본/source of truth 는 계속 `.mission/**` 와 `_workspaces/**/.project_agent/**` 에 남긴다.
+- 정본/source of truth 는 계속 `.mission/**`, `guild_hall/state/**`, `_workspaces/<project_code>/.project_agent/**` 에 남긴다.
 - 외부 보드나 보조 surface 는 써도 되지만, canonical mission surface 나 runtime truth owner 로 올리지 않는다.
 - raw execution truth, private input dump, project-local battle trace 는 tracked repo 로 복제하지 않는다.
 
@@ -39,8 +39,8 @@
 - 여기서 첫 `end-to-end` 는 실제 메일 연동 전체를 뜻하지 않고, `mail event -> workspace intake inbox -> dungeon assignment -> .mission draft -> local battle_log/morning_report reference` 가 끊기지 않는지를 본다.
 - `workflow_id` 가 아직 안 잠겼더라도 `.mission/**` 에 first tracked draft 를 쓰는 것은 허용한다.
 - 다만 그 경우 `readiness` 는 `blocked` 로 남고, blocker owner 를 명시해야 한다.
-- current-default 시작 호출과 staging surface 는 [`MAIL_INTAKE_REQUEST_V0.md`](/Users/seabotmoon-air/Workspace/Soulforge/docs/architecture/workspace/MAIL_INTAKE_REQUEST_V0.md), [`WORKSPACE_INTAKE_INBOX_V0.md`](/Users/seabotmoon-air/Workspace/Soulforge/docs/architecture/workspace/WORKSPACE_INTAKE_INBOX_V0.md), [`DUNGEON_ASSIGNMENT_REQUEST_V0.md`](/Users/seabotmoon-air/Workspace/Soulforge/docs/architecture/workspace/DUNGEON_ASSIGNMENT_REQUEST_V0.md) 에서 잠근다.
-- `.mission/**` handoff 최소 필드는 [`MAIL_TO_MISSION_HANDOFF_V0.md`](/Users/seabotmoon-air/Workspace/Soulforge/docs/architecture/workspace/MAIL_TO_MISSION_HANDOFF_V0.md) 에서 잠근다.
+- current-default 시작 호출과 staging surface 는 [`MAIL_INTAKE_REQUEST_V0.md`](../docs/architecture/workspace/MAIL_INTAKE_REQUEST_V0.md), [`WORKSPACE_INTAKE_INBOX_V0.md`](../docs/architecture/workspace/WORKSPACE_INTAKE_INBOX_V0.md), [`DUNGEON_ASSIGNMENT_REQUEST_V0.md`](../docs/architecture/workspace/DUNGEON_ASSIGNMENT_REQUEST_V0.md) 에서 잠근다.
+- `.mission/**` handoff 최소 필드는 [`MAIL_TO_MISSION_HANDOFF_V0.md`](../docs/architecture/workspace/MAIL_TO_MISSION_HANDOFF_V0.md) 에서 잠근다.
 
 ## v0 최소 모델
 
@@ -49,7 +49,7 @@
   - normalized mail event 를 받아 intake / assignment / review 흐름으로 연결한다
 - `workspace intake inbox`
   - project assignment 전의 staging surface
-  - v0 에서는 `_workspaces/gateway/.project_agent/intake_inbox/` 로 고정한다
+  - v0 에서는 `guild_hall/state/gateway/intake_inbox/` 로 고정한다
 - `monster candidate`
   - mail intake 로부터 파생된 bounded work item
 - `project dungeon`
@@ -79,13 +79,13 @@
 2. `workspace intake inbox`
    - mail 1건은 workspace-level inbox container 1개가 된다.
    - 이 container 는 project/stage 가 아직 안 정해졌어도 만들어질 수 있다.
-   - current-default 최소 필드는 [`WORKSPACE_INTAKE_INBOX_V0.md`](/Users/seabotmoon-air/Workspace/Soulforge/docs/architecture/workspace/WORKSPACE_INTAKE_INBOX_V0.md) 에서 잠근다.
+   - current-default 최소 필드는 [`WORKSPACE_INTAKE_INBOX_V0.md`](../docs/architecture/workspace/WORKSPACE_INTAKE_INBOX_V0.md) 에서 잠근다.
 
 3. `monster candidate / monster list`
    - 각 mail 은 하나 이상의 `monster candidate` 로 정리될 수 있다.
    - candidate 는 "지금 처리 가능한 bounded work item 인가" 를 먼저 본다.
    - v0 에서는 첫 분류축 `자동화 가능성` 으로만 tier 를 나눈다.
-   - candidate 판정 규칙과 판정 이유는 [`MONSTER_CANDIDATE_CONTRACT_V0.md`](/Users/seabotmoon-air/Workspace/Soulforge/docs/architecture/workspace/MONSTER_CANDIDATE_CONTRACT_V0.md) 와 local candidate note 에 남기고, `battle_log` 에서 owner 로 다루지 않는다.
+   - candidate 판정 규칙과 판정 이유는 [`MONSTER_CANDIDATE_CONTRACT_V0.md`](../docs/architecture/workspace/MONSTER_CANDIDATE_CONTRACT_V0.md) 와 local candidate note 에 남기고, `battle_log` 에서 owner 로 다루지 않는다.
    - 기존 monster 와 match 되는 mail 은 새 monster 를 만들지 않고 기존 monster 를 갱신한다.
    - 새로 materialize 된 known/unknown monster 만 workspace intake inbox 안에 남긴다.
 
@@ -98,7 +98,7 @@
 
 5. `.mission draft handoff`
    - assignment 가 끝난 monster 만 `.mission/**` 아래 held mission plan 으로 넘어간다.
-   - current-default v0 handoff 최소 필드는 [`MAIL_TO_MISSION_HANDOFF_V0.md`](/Users/seabotmoon-air/Workspace/Soulforge/docs/architecture/workspace/MAIL_TO_MISSION_HANDOFF_V0.md) 최소 필드로 맞춘다.
+   - current-default v0 handoff 최소 필드는 [`MAIL_TO_MISSION_HANDOFF_V0.md`](../docs/architecture/workspace/MAIL_TO_MISSION_HANDOFF_V0.md) 최소 필드로 맞춘다.
 
 6. `battle execution`
    - `guild_master` 가 current-default party `guild_master_cell` 과 현재 unit assignment 로 실행 방식을 정한다.
@@ -147,7 +147,7 @@
 ## source of truth
 
 - mission plan / readiness / assignment 상태는 계속 `.mission/**` 를 본다.
-- workspace intake inbox 와 intake-side candidate note 는 `_workspaces/gateway/.project_agent/intake_inbox/` 아래 staging surface 를 본다.
+- workspace intake inbox 와 intake-side candidate note 는 `guild_hall/state/gateway/intake_inbox/` 아래 staging surface 를 본다.
 - local battle trace / logs / reports 는 `_workspaces/<project_code>/.project_agent/**` 를 본다.
 - project 쪽 monster surface 는 `_workspaces/<project_code>/.project_agent/**` 에 남기고, `captured` 이후에도 삭제하지 않는다.
 - 외부 보드, inbox mirror, helper dashboard 는 있더라도 보조 surface 로만 다룬다.

@@ -3,15 +3,16 @@
 ## 목적
 
 - 이 문서는 Soulforge 를 다른 PC 에서 `clone -> local runtime materialize -> 다시 push` 하는 최소 절차를 잠근다.
-- public tracked tree 와 local-only `_workspaces/` runtime 을 섞지 않고, 여러 PC 에서 같은 정본을 이어서 개발하는 방법을 고정한다.
+- public tracked tree 와 local-only `guild_hall/state/**` / `_workspaces/<project_code>/**` runtime 을 섞지 않고, 여러 PC 에서 같은 정본을 이어서 개발하는 방법을 고정한다.
 
 ## 한 줄 정의
 
-- Soulforge 의 정본 코드와 문서는 GitHub 로 동기화하고, 실제 `_workspaces/**` runtime 상태는 각 PC 의 local-only data 로 유지한다.
+- Soulforge 의 정본 코드와 문서는 GitHub 로 동기화하고, 실제 `guild_hall/state/**` 와 `_workspaces/<project_code>/**` runtime 상태는 각 PC 의 local-only data 로 유지한다.
 
 ## Git 으로 따라오는 것
 
 - `.mission/`
+- `guild_hall/`
 - `docs/architecture/`
 - `.registry/`, `.unit/`, `.workflow/`, `.party/`
 - `scripts/`
@@ -21,9 +22,12 @@
 ## Git 으로 따라오지 않는 것
 
 - `_workspaces/<project_code>/` 실제 프로젝트 파일
-- `_workspaces/gateway/` 실제 mailbox, intake inbox, event log
+- `guild_hall/state/gateway/` 실제 mailbox, intake inbox, event log
+- `guild_hall/state/town_crier/` 실제 queue, send log, telegram env
 - `.project_agent/runs/`, `battle_log/`, `morning_report/` 같은 local runtime truth
 - host-local skill install, local binding, private mailbox dump
+- local NotebookLM auth/session
+- local Telegram bot token/chat id
 
 ## 다른 PC 첫 세팅
 
@@ -31,15 +35,18 @@
 2. repo root 에서 `npm install` 을 1회 실행한다.
 3. UI 를 만질 예정이면 `npm run ui:workspace:install` 을 1회 실행한다.
 4. 필요한 Soulforge skill 을 local Codex 에 sync 한다.
-5. 실제 runtime 을 만들기 전에 [`examples/gateway/README.md`](/Users/seabotmoon-air/Workspace/Soulforge/docs/architecture/workspace/examples/gateway/README.md) 를 먼저 읽어 intake 흐름을 확인한다.
-6. 첫 `gateway:intake` 실행 시 `_workspaces/gateway/.project_agent/**` local runtime 폴더는 스크립트가 자동으로 만든다.
-7. 실제 프로젝트별 `_workspaces/<project_code>/` 와 폴더 트리는 그 PC 의 현장 구조에 맞춰 따로 만든다.
+5. 필요하면 NotebookLM MCP 를 [`NOTEBOOKLM_MCP_SETUP_V0.md`](../../../docs/architecture/workspace/NOTEBOOKLM_MCP_SETUP_V0.md) 기준으로 대상 PC 에 재설치한다.
+6. 실제 runtime 을 만들기 전에 [`examples/guild_hall/state/gateway/README.md`](../../../docs/architecture/workspace/examples/guild_hall/state/gateway/README.md) 를 먼저 읽어 fetch/intake 흐름을 확인한다.
+7. `guild_hall/gateway/mail_fetch/email_fetch.env.example` 를 참고해 local env file 을 만든다.
+8. `docs/architecture/workspace/examples/guild_hall/state/gateway/bindings/notify_policy.yaml` 를 local `guild_hall/state/gateway/bindings/notify_policy.yaml` 로 복사하거나, `notify:gateway` 명령으로 첫 policy file 을 만든다.
+9. 첫 `guild-hall:gateway:fetch` 또는 `guild-hall:gateway:intake` 실행 시 `guild_hall/state/gateway/**` local runtime 폴더는 스크립트가 자동으로 만든다.
+10. 실제 프로젝트별 `_workspaces/<project_code>/` 와 폴더 트리는 그 PC 의 현장 구조에 맞춰 따로 만든다.
 
 ## 다른 PC skill 세팅
 
 1. canonical `skill_id` 는 저장소가 들고 간다.
 2. 실제 Codex installed skill 은 각 PC 에서 따로 materialize 해야 한다.
-3. baseline sync 문서는 [`SKILL_INSTALL_SYNC.md`](/Users/seabotmoon-air/Workspace/Soulforge/.registry/docs/operations/SKILL_INSTALL_SYNC.md) 다.
+3. baseline sync 문서는 [`SKILL_INSTALL_SYNC.md`](../../../.registry/docs/operations/SKILL_INSTALL_SYNC.md) 다.
 4. repo root 에서 아래처럼 sync 한다.
 
 ```bash
@@ -68,8 +75,8 @@ skill_bindings:
 
 ## 중요한 운영 규칙
 
-1. `_workspaces/**` 는 공유 저장소가 아니라 각 PC 의 local runtime 이다.
-2. 다른 PC 로 옮길 때 현재 intake 상태나 project runtime 상태가 꼭 필요하면 `_workspaces/**` 는 Git 이 아니라 별도 복사로 이동한다.
+1. `guild_hall/state/**` 와 `_workspaces/**` 는 공유 저장소가 아니라 각 PC 의 local runtime 이다.
+2. 다른 PC 로 옮길 때 현재 intake 상태나 project runtime 상태가 꼭 필요하면 `guild_hall/state/**` 와 `_workspaces/**` 는 Git 이 아니라 별도 복사로 이동한다.
 3. canonical 구조, 계약 문서, public-safe sample 은 Git 으로 옮긴다.
 4. local mailbox dump, private attachment, project 실자료는 GitHub 에 올리지 않는다.
 5. 다른 PC 의 경로가 달라도 `docs/architecture/workspace/examples/**` 와 contract 문서만으로 같은 구조를 재현할 수 있어야 한다.
@@ -80,12 +87,31 @@ skill_bindings:
 git clone <repo-url>
 cd Soulforge
 npm install
-npm run gateway:intake -- --payload-file docs/architecture/workspace/examples/gateway/requests/mail_intake_request_created_only.json
+npm run guild-hall:gateway:intake -- --payload-file docs/architecture/workspace/examples/guild_hall/state/gateway/requests/mail_intake_request_created_only.json
+```
+
+메일 intake 기본 예시:
+
+```bash
+npm run guild-hall:gateway:intake -- --payload-file docs/architecture/workspace/examples/guild_hall/state/gateway/requests/mail_intake_request_created_only.json
+```
+
+메일 fetch 기본 예시:
+
+```bash
+npm run guild-hall:gateway:fetch -- --once --json
+npm run guild-hall:gateway:fetch:healthcheck -- --json
 ```
 
 ## 스크립트 기준
 
-- `gateway:intake` 는 `_workspaces/gateway/.project_agent/intake_inbox/**` 와 `log/monster_events/**` 를 자동 생성한다.
+- `guild-hall:gateway:fetch` 는 `guild_hall/state/gateway/mailbox/**` 와 `log/mail_fetch/**` 를 자동 생성한다.
+- `guild-hall:gateway:fetch:healthcheck` 는 `log/mail_fetch/logs/last_run_summary.json` 기반 이상 감지를 수행한다.
+- `guild-hall:gateway:intake` 는 `guild_hall/state/gateway/intake_inbox/**` 와 `log/monster_events/**` 를 자동 생성한다.
+- `guild-hall:town-crier:send` 는 local env file 기준으로 단발 Telegram 알림을 전송한다.
+- `notify:gateway` 는 local gateway notify policy 에서 event on/off 를 바꾼다.
+- `notify:mission` 은 tracked `.mission/<mission_id>/mission.yaml` 안의 notify toggle 을 바꾼다.
+- `notify:emit` 은 enabled 상태일 때만 scope/event 기준으로 `town_crier` queue 에 notify request 를 적재한다.
 - `gateway:update` 는 이미 생긴 inbox/monster record 를 갱신한다.
 - `skills:sync` 는 tracked `.registry/skills/<skill_id>/codex/**` bridge 를 local `~/.codex/skills/soulforge-<skill-id>/` 로 materialize 한다.
 - 실제 프로젝트 쪽 `_workspaces/<project_code>/` materialization 은 별도 assignment/execution 단계가 맡는다.
@@ -98,13 +124,18 @@ npm run gateway:intake -- --payload-file docs/architecture/workspace/examples/ga
 
 ## 연결 문서
 
-- [`README.md`](/Users/seabotmoon-air/Workspace/Soulforge/README.md)
-- [`_workspaces/README.md`](/Users/seabotmoon-air/Workspace/Soulforge/_workspaces/README.md)
-- [`MAIL_INTAKE_REQUEST_V0.md`](/Users/seabotmoon-air/Workspace/Soulforge/docs/architecture/workspace/MAIL_INTAKE_REQUEST_V0.md)
-- [`WORKSPACE_INTAKE_INBOX_V0.md`](/Users/seabotmoon-air/Workspace/Soulforge/docs/architecture/workspace/WORKSPACE_INTAKE_INBOX_V0.md)
-- [`examples/gateway/README.md`](/Users/seabotmoon-air/Workspace/Soulforge/docs/architecture/workspace/examples/gateway/README.md)
-- [`SKILL_INSTALL_SYNC.md`](/Users/seabotmoon-air/Workspace/Soulforge/.registry/docs/operations/SKILL_INSTALL_SYNC.md)
+- [`README.md`](../../../README.md)
+- [`INSTALLATION_MANUAL_V0.md`](../../../docs/architecture/workspace/INSTALLATION_MANUAL_V0.md)
+- [`_workspaces/README.md`](../../../_workspaces/README.md)
+- [`MAIL_INTAKE_REQUEST_V0.md`](../../../docs/architecture/workspace/MAIL_INTAKE_REQUEST_V0.md)
+- [`WORKSPACE_INTAKE_INBOX_V0.md`](../../../docs/architecture/workspace/WORKSPACE_INTAKE_INBOX_V0.md)
+- [`GATEWAY_MAIL_FETCH_V0.md`](../../../docs/architecture/workspace/GATEWAY_MAIL_FETCH_V0.md)
+- [`GATEWAY_NOTIFY_V0.md`](../../../docs/architecture/workspace/GATEWAY_NOTIFY_V0.md)
+- [`NOTEBOOKLM_MCP_SETUP_V0.md`](../../../docs/architecture/workspace/NOTEBOOKLM_MCP_SETUP_V0.md)
+- [`examples/guild_hall/state/gateway/README.md`](../../../docs/architecture/workspace/examples/guild_hall/state/gateway/README.md)
+- [`guild_hall/README.md`](../../../guild_hall/README.md)
+- [`SKILL_INSTALL_SYNC.md`](../../../.registry/docs/operations/SKILL_INSTALL_SYNC.md)
 
 ## ASSUMPTIONS
 
-- canonical tracked tree 는 계속 GitHub 로 sync 하고, `_workspaces/**` 는 local-only runtime 원칙을 유지한다고 본다.
+- canonical tracked tree 는 계속 GitHub 로 sync 하고, `guild_hall/state/**` 와 `_workspaces/**` 는 local-only runtime 원칙을 유지한다고 본다.
