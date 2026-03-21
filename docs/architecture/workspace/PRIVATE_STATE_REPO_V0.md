@@ -15,6 +15,7 @@
 2. private state repo 는 `../Soulforge-private-state` 같은 sibling 경로에 별도로 clone 한다.
 3. private state repo 는 자격증명과 raw mailbox dump 가 아니라, 다른 PC 에서 이어서 볼 가치가 있는 파생 기록만 담는다.
 4. private state repo 에도 토큰, `.env`, 세션, NotebookLM auth 같은 비밀값은 넣지 않는다.
+5. project canon, shared runtime projection 의 정본 판단, 장기 정본 문서는 private state repo 에 두지 않는다.
 
 ## v0 포함 대상
 
@@ -90,6 +91,7 @@ rsync -a ../Soulforge-private-state/_workspaces/ _workspaces/
 ## 운영 규칙
 
 - private state repo 는 public repo 대체물이 아니다.
+- canon 판단과 owner boundary 정본은 계속 public `Soulforge` 계약 문서와 tracked 구조가 owner 다.
 - `guild_hall/state/**` 와 `_workspaces/**` 전체를 무조건 Git 으로 보내지 않는다.
 - clone 대상 PC 에서는 자격증명과 local env 를 먼저 재생성하고, 그다음 선택 기록만 복원한다.
 - outbound mail 기록은 `mailbox/outbound/**` snapshot 과 `log/mail_send/**` append-only log 를 같이 본다.

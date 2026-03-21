@@ -11,6 +11,7 @@ const __dirname = path.dirname(fileURLToPath(import.meta.url));
 const repoRoot = path.resolve(__dirname, "../..");
 const checklistPath = path.join(repoRoot, "docs", "architecture", "bootstrap", "BOOTSTRAP_CHECKLIST_V0.json");
 const statusFilePath = path.join(repoRoot, "guild_hall", "state", "doctor", "status.json");
+const doctorSchemaVersion = "bootstrap.doctor.v0";
 
 async function main() {
   const args = parseArgs(process.argv.slice(2));
@@ -119,6 +120,21 @@ async function runDoctor(checklist, options = {}) {
     }
   }
 
+  for (const item of checklist.optional_local_files ?? []) {
+    const filePath = path.join(repoRoot, item.path);
+    const exists = await pathExists(filePath);
+    results.push({
+      id: item.id,
+      label: item.label,
+      category: "optional_local_file",
+      required: false,
+      status: exists ? "ok" : "missing",
+      path: item.path,
+      template: item.template ?? null,
+      detail: exists ? "present" : item.note ?? "missing",
+    });
+  }
+
   for (const item of checklist.optional_local_paths ?? []) {
     const targetPath = path.resolve(repoRoot, item.path);
     const exists = await pathExists(targetPath);
@@ -169,16 +185,9 @@ async function runDoctor(checklist, options = {}) {
   let liveSmokeResults = [];
 
   if (options.live) {
-    const liveResult = runCommandCheck({
-      id: "live_checks",
-      label: "live external checks",
-      category: "live_smoke",
-      command: ["python3", "guild_hall/doctor/live_checks.py", "--json"],
-      required: true,
-    });
-    results.push(liveResult);
-    liveSmokeResults = [liveResult];
-    if (liveResult.status !== "ok") {
+    liveSmokeResults = runLiveChecks(checklist.live_smokes ?? []);
+    results.push(...liveSmokeResults);
+    if (!liveSmokeResults.every((item) => item.status === "ok")) {
       nextSteps.push("live 외부 인증/연결 상태를 확인한다.");
     }
   } else {
@@ -193,7 +202,9 @@ async function runDoctor(checklist, options = {}) {
   }
 
   return {
+    schema_version: doctorSchemaVersion,
     doctor_version: checklist.version ?? "v0",
+    checklist_version: checklist.checklist_version ?? checklist.version ?? "v0",
     mode: options.live ? "safe+live" : "safe",
     generated_at: new Date().toISOString(),
     repo_root: repoRoot,
@@ -246,6 +257,72 @@ function runCommandCheck({ id, label, category, command, required }) {
   };
 }
 
+function runLiveChecks(checklistItems) {
+  const execution = spawnSync("python3", ["guild_hall/doctor/live_checks.py", "--json"], {
+    cwd: repoRoot,
+    encoding: "utf8",
+  });
+
+  if (execution.error?.code === "ENOENT") {
+    return buildLiveFallbackResults(checklistItems, "command not found: python3");
+  }
+
+  const stdout = String(execution.stdout ?? "").trim();
+  const stderr = String(execution.stderr ?? "").trim();
+  const payload = tryParseJson(stdout);
+
+  if (!payload || !Array.isArray(payload.results)) {
+    const detail = stderr || stdout || `exit ${execution.status ?? "unknown"}`;
+    return buildLiveFallbackResults(checklistItems, `live check output parse failed: ${detail}`);
+  }
+
+  const byId = new Map(
+    payload.results
+      .filter((item) => item && typeof item === "object" && typeof item.id === "string")
+      .map((item) => [
+        item.id,
+        {
+          id: item.id,
+          label: item.label ?? item.id,
+          category: "live_smoke",
+          required: true,
+          status: item.status ?? "failed",
+          detail: item.detail ?? (execution.status === 0 ? "ok" : `exit ${execution.status ?? "unknown"}`),
+        },
+      ]),
+  );
+
+  return checklistItems.map((item) => {
+    const result = byId.get(item.id);
+    if (result) {
+      return {
+        ...result,
+        label: item.label ?? result.label,
+      };
+    }
+
+    return {
+      id: item.id,
+      label: item.label,
+      category: "live_smoke",
+      required: true,
+      status: "blocked",
+      detail: `missing live result: ${item.id}`,
+    };
+  });
+}
+
+function buildLiveFallbackResults(checklistItems, detail) {
+  return checklistItems.map((item) => ({
+    id: item.id,
+    label: item.label,
+    category: "live_smoke",
+    required: true,
+    status: "failed",
+    detail,
+  }));
+}
+
 async function writeStatus(report) {
   await fs.mkdir(path.dirname(statusFilePath), { recursive: true });
   await fs.writeFile(statusFilePath, `${JSON.stringify(report, null, 2)}\n`, "utf8");
@@ -285,6 +362,17 @@ function printHuman(report) {
 
 function printJson(value) {
   process.stdout.write(`${JSON.stringify(value, null, 2)}\n`);
+}
+
+function tryParseJson(value) {
+  if (!value) {
+    return null;
+  }
+  try {
+    return JSON.parse(value);
+  } catch {
+    return null;
+  }
 }
 
 async function pathExists(targetPath) {
@@ -330,6 +418,21 @@ function dedupePreserveOrder(items) {
 }
 
 main().catch((error) => {
-  console.error(error.message);
-  process.exit(1);
+  const args = parseArgs(process.argv.slice(2));
+  const detail = error instanceof Error ? error.message : String(error);
+  const payload = {
+    schema_version: doctorSchemaVersion,
+    mode: args.live ? "safe+live" : "safe",
+    ready: false,
+    fatal: true,
+    detail,
+  };
+
+  if (args.json) {
+    printJson(payload);
+  } else {
+    process.stderr.write(`Soulforge Bootstrap Doctor fatal: ${detail}\n`);
+  }
+
+  process.exitCode = 2;
 });

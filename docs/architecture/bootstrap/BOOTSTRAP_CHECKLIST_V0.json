@@ -1,5 +1,6 @@
 {
   "version": "v0",
+  "checklist_version": "bootstrap.checklist.v0",
   "required_tools": [
     { "id": "git", "label": "Git", "command": ["git", "--version"] },
     { "id": "node", "label": "Node.js", "command": ["node", "--version"] },
@@ -23,12 +24,6 @@
       "template": "guild_hall/gateway/mail_fetch/email_fetch.env.example"
     },
     {
-      "id": "mail_send_env",
-      "label": "gateway outbound mail env",
-      "path": "guild_hall/state/gateway/mailbox/state/mail_send.env",
-      "template": "guild_hall/gateway/mail_send/mail_send.env.example"
-    },
-    {
       "id": "telegram_notify_env",
       "label": "town_crier telegram env",
       "path": "guild_hall/state/town_crier/telegram_notify.env",
@@ -39,6 +34,15 @@
       "label": "gateway notify policy",
       "path": "guild_hall/state/gateway/bindings/notify_policy.yaml",
       "template": "docs/architecture/workspace/examples/guild_hall/state/gateway/bindings/notify_policy.yaml"
+    }
+  ],
+  "optional_local_files": [
+    {
+      "id": "mail_send_env",
+      "label": "gateway outbound mail env",
+      "path": "guild_hall/state/gateway/mailbox/state/mail_send.env",
+      "template": "guild_hall/gateway/mail_send/mail_send.env.example",
+      "note": "outbound mail slot-only until sender runner exists"
     }
   ],
   "optional_local_paths": [

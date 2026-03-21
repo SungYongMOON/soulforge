@@ -60,7 +60,7 @@ mkdir -p guild_hall/state/town_crier
 cp guild_hall/town_crier/telegram_notify.env.example guild_hall/state/town_crier/telegram_notify.env
 ```
 
-Outbound mail env:
+Optional outbound mail env:
 
 ```bash
 mkdir -p guild_hall/state/gateway/mailbox/state
@@ -79,6 +79,7 @@ cp docs/architecture/workspace/examples/guild_hall/state/gateway/bindings/notify
 - Gmail token 또는 token file
 - Hiworks POP3 host / username / password
 - Telegram bot token / chat id
+- outbound mail 을 바로 쓸 계획이 있으면 Hiworks SMTP host / username / password
 
 선택된 업무 기록을 이어서 가져갈 경우, 첫 bootstrap 실행 전에 private state repo 에서 필요한 subset 만 복원한다.
 

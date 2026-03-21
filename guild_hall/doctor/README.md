@@ -11,11 +11,20 @@
   - `guild-hall:doctor` canonical 실행 진입점
 - `live_checks.py`
   - `guild-hall:doctor --live` 가 쓰는 외부 인증/연결 점검기
+  - Hiworks POP3 / Hiworks SMTP / Telegram 을 개별 live check 로 보고한다
 
 ## local state
 
 - doctor status file 은 `guild_hall/state/doctor/status.json` 에 남긴다.
 - 이 경로 아래 실자료는 Git 으로 추적하지 않는다.
+
+## 실행 계약
+
+- 기본 exit code:
+  - `0` = requested readiness checks passed
+  - `1` = readiness fail
+  - `2` = fatal config / internal error
+- `--json` 출력은 `schema_version`, `summary`, `results`, `next_steps` 를 포함하는 bootstrap doctor v0 계약을 따른다.
 
 ## 관련 경로
 

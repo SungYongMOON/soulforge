@@ -40,9 +40,11 @@ npm run guild-hall:doctor -- --live
 - optional Soulforge skill 설치 여부
 - local env / policy file 존재 여부
   - `email_fetch.env`
-  - `mail_send.env`
   - `telegram_notify.env`
   - `notify_policy.yaml`
+- optional local env 존재 여부
+  - `mail_send.env`
+  - sender runner 가 실제 생기기 전까지는 future-ready slot 로만 본다
 - safe smoke test
   - `node --check guild_hall/gateway/cli.mjs`
   - `node guild_hall/town_crier/cli.mjs status`
@@ -51,13 +53,52 @@ npm run guild-hall:doctor -- --live
   - Hiworks POP3 로그인 확인
   - Hiworks SMTP 로그인 확인
   - Telegram `getMe` 확인
+  - `--live` 결과는 위 3개를 각각 개별 check 로 보고한다
 
 ## 출력과 종료 코드
 
 - doctor 는 local status file `guild_hall/state/doctor/status.json` 을 쓴다.
-- required check 가 모두 통과하면 exit code `0`
-- 하나라도 빠지면 exit code `1`
+- required check 와 요청된 live check 가 모두 통과하면 exit code `0`
+- readiness fail 이면 exit code `1`
+- checklist parse 실패나 내부 fatal error 는 exit code `2`
 - default 출력은 사람이 읽기 좋은 text 요약이고, `--json` 을 주면 구조화된 JSON 을 출력한다.
+
+### JSON 출력 계약 v0
+
+top-level:
+
+- `schema_version`
+- `doctor_version`
+- `checklist_version`
+- `mode`
+- `generated_at`
+- `repo_root`
+- `ready`
+- `summary`
+- `status_file`
+- `checklist_file`
+- `results`
+- `next_steps`
+
+result item:
+
+- `id`
+- `label`
+- `category`
+- `required`
+- `status`
+- `detail`
+- optional `path`
+- optional `command`
+- optional `template`
+
+현재 `status` 값은 아래 중 하나다.
+
+- `ok`
+- `missing`
+- `failed`
+- `blocked`
+- `skipped`
 
 ## 기본 원칙
 
