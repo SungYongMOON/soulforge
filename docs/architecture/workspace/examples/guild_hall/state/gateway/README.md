@@ -3,6 +3,8 @@
 - `gateway/` 는 `guild_hall/state/gateway/**` 의 tracked example mirror 다.
 - 실제 local runtime `guild_hall/state/gateway/**` 를 Git 으로 올리지 않고, 따라보기 쉬운 public-safe sample 만 이 경로에 둔다.
 - mailbox event shape sample 은 [`mailbox/README.md`](../../../../../../../docs/architecture/workspace/examples/guild_hall/state/gateway/mailbox/README.md) 와 [`2026-03.jsonl`](../../../../../../../docs/architecture/workspace/examples/guild_hall/state/gateway/mailbox/company/mail/events/hiworks/2026/2026-03.jsonl) 을 본다.
+- outbound snapshot sample 은 [`outbound/README.md`](../../../../../../../docs/architecture/workspace/examples/guild_hall/state/gateway/outbound/README.md) 를 본다.
+- send log sample 은 [`log/mail_send/README.md`](../../../../../../../docs/architecture/workspace/examples/guild_hall/state/gateway/log/mail_send/README.md) 를 본다.
 - 다른 PC 나 다른 LLM 은 이 예시를 기준으로 `mail_intake_request -> intake_inbox -> monster_events -> town_crier brief` 흐름을 따라하면 된다.
 - 다른 PC clone 과 local runtime materialization 순서는 [`MULTI_PC_DEVELOPMENT_V0.md`](../../../../../../../docs/architecture/workspace/MULTI_PC_DEVELOPMENT_V0.md) 를 먼저 본다.
 

@@ -8,7 +8,9 @@
 ## 포함 대상
 
 - `gateway/`
-  - mailbox, intake_inbox, local bindings, monster event log
+  - mailbox, intake_inbox, local bindings, monster event log, local outbound mail env, outbound snapshot, send log
+- `doctor/`
+  - bootstrap doctor local status
 - `town_crier/`
   - queue, Telegram env, send log, runner state
 - `night_watch/`
@@ -19,5 +21,6 @@
 ## 규칙
 
 - 이 경로 아래 실자료는 Git 으로 추적하지 않는다.
-- 다른 PC 에서 필요하면 Git 이 아니라 별도 복사로 옮긴다.
+- public repo 로는 추적하지 않는다.
+- 다른 PC 에서 필요하면 선택된 파생 기록만 별도 private state repo 또는 별도 복사로 옮긴다.
 - public-safe mirror sample 은 `docs/architecture/workspace/examples/guild_hall/state/` 아래에 둔다.

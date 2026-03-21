@@ -8,6 +8,7 @@
 ## 한 줄 정의
 
 - Soulforge 의 정본 코드와 문서는 GitHub 로 동기화하고, 실제 `guild_hall/state/**` 와 `_workspaces/<project_code>/**` runtime 상태는 각 PC 의 local-only data 로 유지한다.
+- 필요한 경우 선택된 파생 기록만 별도 private state repo 에 mirror 할 수 있다.
 
 ## Git 으로 따라오는 것
 
@@ -32,15 +33,19 @@
 ## 다른 PC 첫 세팅
 
 1. 저장소를 clone 한다.
-2. repo root 에서 `npm install` 을 1회 실행한다.
-3. UI 를 만질 예정이면 `npm run ui:workspace:install` 을 1회 실행한다.
-4. 필요한 Soulforge skill 을 local Codex 에 sync 한다.
-5. 필요하면 NotebookLM MCP 를 [`NOTEBOOKLM_MCP_SETUP_V0.md`](../../../docs/architecture/workspace/NOTEBOOKLM_MCP_SETUP_V0.md) 기준으로 대상 PC 에 재설치한다.
-6. 실제 runtime 을 만들기 전에 [`examples/guild_hall/state/gateway/README.md`](../../../docs/architecture/workspace/examples/guild_hall/state/gateway/README.md) 를 먼저 읽어 fetch/intake 흐름을 확인한다.
-7. `guild_hall/gateway/mail_fetch/email_fetch.env.example` 를 참고해 local env file 을 만든다.
-8. `docs/architecture/workspace/examples/guild_hall/state/gateway/bindings/notify_policy.yaml` 를 local `guild_hall/state/gateway/bindings/notify_policy.yaml` 로 복사하거나, `guild-hall:notify:gateway` 명령으로 첫 policy file 을 만든다.
-9. 첫 `guild-hall:gateway:fetch` 또는 `guild-hall:gateway:intake` 실행 시 `guild_hall/state/gateway/**` local runtime 폴더는 스크립트가 자동으로 만든다.
-10. 실제 프로젝트별 `_workspaces/<project_code>/` 와 폴더 트리는 그 PC 의 현장 구조에 맞춰 따로 만든다.
+2. 선택 기록을 이어서 쓸 필요가 있으면 별도 private state repo 를 sibling 경로에 clone 한다.
+3. repo root 에서 `npm install` 을 1회 실행한다.
+4. UI 를 만질 예정이면 `npm run ui:workspace:install` 을 1회 실행한다.
+5. 필요한 Soulforge skill 을 local Codex 에 sync 한다.
+6. 필요하면 NotebookLM MCP 를 [`NOTEBOOKLM_MCP_SETUP_V0.md`](../../../docs/architecture/workspace/NOTEBOOKLM_MCP_SETUP_V0.md) 기준으로 대상 PC 에 재설치한다.
+7. 실제 runtime 을 만들기 전에 [`examples/guild_hall/state/gateway/README.md`](../../../docs/architecture/workspace/examples/guild_hall/state/gateway/README.md) 를 먼저 읽어 fetch/intake 흐름을 확인한다.
+8. `guild_hall/gateway/mail_fetch/email_fetch.env.example` 를 참고해 local env file 을 만든다.
+9. `guild_hall/gateway/mail_send/mail_send.env.example` 를 참고해 local outbound mail env file 을 만든다.
+10. `docs/architecture/workspace/examples/guild_hall/state/gateway/bindings/notify_policy.yaml` 를 local `guild_hall/state/gateway/bindings/notify_policy.yaml` 로 복사하거나, `guild-hall:notify:gateway` 명령으로 첫 policy file 을 만든다.
+11. private state repo 를 쓴다면 [`PRIVATE_STATE_REPO_V0.md`](../../../docs/architecture/workspace/PRIVATE_STATE_REPO_V0.md) 기준으로 선택 기록만 먼저 복원한다.
+12. `npm run guild-hall:doctor` 로 bootstrap readiness 를 먼저 확인한다.
+13. 첫 `guild-hall:gateway:fetch` 또는 `guild-hall:gateway:intake` 실행 시 `guild_hall/state/gateway/**` local runtime 폴더는 스크립트가 자동으로 만든다.
+14. 실제 프로젝트별 `_workspaces/<project_code>/` 와 폴더 트리는 그 PC 의 현장 구조에 맞춰 따로 만든다.
 
 ## 다른 PC skill 세팅
 
@@ -76,7 +81,7 @@ skill_bindings:
 ## 중요한 운영 규칙
 
 1. `guild_hall/state/**` 와 `_workspaces/**` 는 공유 저장소가 아니라 각 PC 의 local runtime 이다.
-2. 다른 PC 로 옮길 때 현재 intake 상태나 project runtime 상태가 꼭 필요하면 `guild_hall/state/**` 와 `_workspaces/**` 는 Git 이 아니라 별도 복사로 이동한다.
+2. 다른 PC 로 옮길 때 현재 intake 상태나 project runtime 상태가 꼭 필요하면 `guild_hall/state/**` 와 `_workspaces/**` 전체를 public Git 으로 올리지 않고, 필요한 subset 만 별도 private state repo 또는 별도 복사로 이동한다.
 3. canonical 구조, 계약 문서, public-safe sample 은 Git 으로 옮긴다.
 4. local mailbox dump, private attachment, project 실자료는 GitHub 에 올리지 않는다.
 5. 다른 PC 의 경로가 달라도 `docs/architecture/workspace/examples/**` 와 contract 문서만으로 같은 구조를 재현할 수 있어야 한다.
@@ -106,6 +111,7 @@ npm run guild-hall:gateway:fetch:healthcheck -- --json
 ## 스크립트 기준
 
 - `guild-hall:gateway:fetch` 는 `guild_hall/state/gateway/mailbox/**` 와 `log/mail_fetch/**` 를 자동 생성한다.
+- `guild-hall:doctor` 는 필수 도구, local env, safe smoke test 를 확인하고 `guild_hall/state/doctor/status.json` 을 남긴다.
 - `guild-hall:gateway:fetch:healthcheck` 는 `log/mail_fetch/logs/last_run_summary.json` 기반 이상 감지를 수행한다.
 - `guild-hall:gateway:intake` 는 `guild_hall/state/gateway/intake_inbox/**` 와 `log/monster_events/**` 를 자동 생성한다.
 - `guild-hall:town-crier:send` 는 local env file 기준으로 단발 Telegram 알림을 전송한다.
@@ -130,7 +136,11 @@ npm run guild-hall:gateway:fetch:healthcheck -- --json
 - [`MAIL_INTAKE_REQUEST_V0.md`](../../../docs/architecture/workspace/MAIL_INTAKE_REQUEST_V0.md)
 - [`WORKSPACE_INTAKE_INBOX_V0.md`](../../../docs/architecture/workspace/WORKSPACE_INTAKE_INBOX_V0.md)
 - [`GATEWAY_MAIL_FETCH_V0.md`](../../../docs/architecture/workspace/GATEWAY_MAIL_FETCH_V0.md)
+- [`MAIL_SEND_V0.md`](../../../docs/architecture/workspace/MAIL_SEND_V0.md)
 - [`GATEWAY_NOTIFY_V0.md`](../../../docs/architecture/workspace/GATEWAY_NOTIFY_V0.md)
+- [`PRIVATE_STATE_REPO_V0.md`](../../../docs/architecture/workspace/PRIVATE_STATE_REPO_V0.md)
+- [`../bootstrap/README.md`](../../../docs/architecture/bootstrap/README.md)
+- [`../bootstrap/BOOTSTRAP_DOCTOR_V0.md`](../../../docs/architecture/bootstrap/BOOTSTRAP_DOCTOR_V0.md)
 - [`NOTEBOOKLM_MCP_SETUP_V0.md`](../../../docs/architecture/workspace/NOTEBOOKLM_MCP_SETUP_V0.md)
 - [`examples/guild_hall/state/gateway/README.md`](../../../docs/architecture/workspace/examples/guild_hall/state/gateway/README.md)
 - [`guild_hall/README.md`](../../../guild_hall/README.md)

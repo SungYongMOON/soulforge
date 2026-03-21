@@ -69,6 +69,7 @@
 ├── guild_hall/
 │   ├── README.md
 │   ├── gateway/
+│   ├── doctor/
 │   ├── town_crier/
 │   ├── night_watch/
 │   ├── dungeon_assignment/
@@ -78,6 +79,7 @@
 ├── docs/
 │   └── architecture/
 │       ├── foundation/
+│       ├── bootstrap/
 │       ├── guild_hall/
 │       ├── workspace/
 │       └── ui/
@@ -95,6 +97,7 @@
 ```text
 guild_hall/
 ├── gateway/
+├── doctor/
 ├── town_crier/
 ├── night_watch/
 ├── dungeon_assignment/
@@ -104,6 +107,8 @@ guild_hall/
     │   ├── intake_inbox/
     │   ├── bindings/
     │   └── log/
+    ├── doctor/
+    │   └── status.json
     ├── town_crier/
     │   ├── queue/
     │   ├── state/
@@ -115,6 +120,7 @@ guild_hall/
 
 - `guild_hall/state/**` 는 local-only state 이며 public repo 에 올리지 않는다.
 - `gateway` 는 mail fetch 와 intake staging 을 소유한다.
+- `doctor` 는 clone 된 PC 의 bootstrap readiness 점검과 local doctor status 를 소유한다.
 - `town_crier` 는 notify queue 와 Telegram transport 를 소유한다.
 - `night_watch` 와 `dungeon_assignment` 는 cross-project 운영 자리만 먼저 잠근다.
 

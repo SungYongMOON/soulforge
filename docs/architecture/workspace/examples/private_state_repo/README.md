@@ -1,0 +1,29 @@
+# examples/private_state_repo
+
+- 이 경로는 `Soulforge-private-state` 같은 sibling private repo 를 만들 때 복사해서 쓸 최소 템플릿 예시다.
+- public `Soulforge` 저장소 안에 nested Git repo 를 만들지 않고, 별도 private repo 에서 선택 기록만 mirror 하는 방식을 전제로 한다.
+- 실제 비밀값은 이 템플릿에도 넣지 않는다.
+
+## 포함 대상
+
+- `guild_hall/state/gateway/intake_inbox/**`
+- `guild_hall/state/gateway/log/monster_events/**`
+- `guild_hall/state/gateway/mailbox/outbound/**`
+- `guild_hall/state/gateway/log/mail_send/**`
+- `_workspaces/<project_code>/.project_agent/monsters/**`
+- `_workspaces/<project_code>/.project_agent/log/battle_log/**`
+- `_workspaces/<project_code>/.project_agent/reports/morning_report/**`
+
+## 제외 대상
+
+- 모든 `.env`, token, cookie, session, key
+- `guild_hall/state/gateway/mailbox/**/raw/**`
+- `guild_hall/state/gateway/mailbox/**/events/**`
+- `guild_hall/state/gateway/mailbox/**/attachments/**`
+- `guild_hall/state/town_crier/**`
+- `_workspaces/<project_code>/.project_agent/runs/**`
+
+## 관련 경로
+
+- [`../../PRIVATE_STATE_REPO_V0.md`](../../PRIVATE_STATE_REPO_V0.md)
+- [`gitignore.example`](gitignore.example)

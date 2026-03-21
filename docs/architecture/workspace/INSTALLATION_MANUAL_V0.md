@@ -11,6 +11,7 @@
 2. 실제 `guild_hall/state/**` 와 `_workspaces/<project_code>/**` runtime 은 각 PC 에서 새로 materialize 한다.
 3. 인증 정보와 `.env` 는 다른 PC 에서 다시 만든다.
 4. NotebookLM 로그인 상태와 Telegram/Gmail/Hiworks 자격증명은 Git 으로 옮기지 않는다.
+5. 필요한 업무 기록만 이어서 가져갈 때는 public repo 대신 별도 private state repo 를 쓴다.
 
 ## 1. 저장소 준비
 
@@ -24,6 +25,13 @@ UI 를 만질 예정이면:
 
 ```bash
 npm run ui:workspace:install
+```
+
+선택 기록을 이어서 복원할 예정이면 private state repo 는 public repo 밖 sibling 경로에 둔다.
+
+```bash
+cd ..
+git clone <private-state-repo-url> Soulforge-private-state
 ```
 
 ## 2. Soulforge skill 설치
@@ -52,6 +60,13 @@ mkdir -p guild_hall/state/town_crier
 cp guild_hall/town_crier/telegram_notify.env.example guild_hall/state/town_crier/telegram_notify.env
 ```
 
+Outbound mail env:
+
+```bash
+mkdir -p guild_hall/state/gateway/mailbox/state
+cp guild_hall/gateway/mail_send/mail_send.env.example guild_hall/state/gateway/mailbox/state/mail_send.env
+```
+
 Gateway notify policy:
 
 ```bash
@@ -64,6 +79,16 @@ cp docs/architecture/workspace/examples/guild_hall/state/gateway/bindings/notify
 - Gmail token 또는 token file
 - Hiworks POP3 host / username / password
 - Telegram bot token / chat id
+
+선택된 업무 기록을 이어서 가져갈 경우, 첫 bootstrap 실행 전에 private state repo 에서 필요한 subset 만 복원한다.
+
+```bash
+rsync -a ../Soulforge-private-state/guild_hall/state/gateway/intake_inbox/ guild_hall/state/gateway/intake_inbox/
+rsync -a ../Soulforge-private-state/guild_hall/state/gateway/log/monster_events/ guild_hall/state/gateway/log/monster_events/
+rsync -a ../Soulforge-private-state/guild_hall/state/gateway/mailbox/outbound/ guild_hall/state/gateway/mailbox/outbound/
+rsync -a ../Soulforge-private-state/guild_hall/state/gateway/log/mail_send/ guild_hall/state/gateway/log/mail_send/
+rsync -a ../Soulforge-private-state/_workspaces/ _workspaces/
+```
 
 ## 4. NotebookLM MCP 설치
 
@@ -115,12 +140,27 @@ npm run guild-hall:notify:gateway -- --event monster_created --on
 
 ## 6. 설치 후 확인
 
+bootstrap doctor:
+
+```bash
+npm run guild-hall:doctor
+```
+
+외부 인증/연결 live 점검은 자격증명을 채운 뒤에만 별도로 돌린다.
+
+```bash
+npm run guild-hall:doctor -- --live
+```
+
 아래 경로가 local 에 생기면 bootstrap 이 맞다.
 
 - `guild_hall/state/gateway/mailbox/`
+- `guild_hall/state/gateway/mailbox/outbound/`
 - `guild_hall/state/gateway/intake_inbox/`
 - `guild_hall/state/gateway/log/mail_fetch/`
 - `guild_hall/state/gateway/log/monster_events/`
+- `guild_hall/state/gateway/log/mail_send/`
+- `guild_hall/state/doctor/status.json`
 - `guild_hall/state/town_crier/`
 - `guild_hall/state/gateway/bindings/notify_policy.yaml`
 
@@ -128,12 +168,16 @@ npm run guild-hall:notify:gateway -- --event monster_created --on
 
 - `guild_hall/state/**` 와 `_workspaces/**` 는 Git 으로 안 따라온다.
 - 기존 PC 의 auth/session 을 새 PC 로 복사하지 않는다.
-- 꼭 필요한 경우에도 `_workspaces/**` 실자료는 Git 이 아니라 별도 복사로 옮긴다.
+- 꼭 필요한 경우에도 `_workspaces/**` 와 `guild_hall/state/**` 는 public Git 으로 보내지 않고, [`PRIVATE_STATE_REPO_V0.md`](../../../docs/architecture/workspace/PRIVATE_STATE_REPO_V0.md) 기준의 별도 private repo 또는 별도 복사로 옮긴다.
 
 ## 연결 문서
 
 - [MULTI_PC_DEVELOPMENT_V0.md](../../../docs/architecture/workspace/MULTI_PC_DEVELOPMENT_V0.md)
+- [PRIVATE_STATE_REPO_V0.md](../../../docs/architecture/workspace/PRIVATE_STATE_REPO_V0.md)
+- [../bootstrap/README.md](../../../docs/architecture/bootstrap/README.md)
+- [../bootstrap/BOOTSTRAP_DOCTOR_V0.md](../../../docs/architecture/bootstrap/BOOTSTRAP_DOCTOR_V0.md)
 - [GATEWAY_MAIL_FETCH_V0.md](../../../docs/architecture/workspace/GATEWAY_MAIL_FETCH_V0.md)
+- [MAIL_SEND_V0.md](../../../docs/architecture/workspace/MAIL_SEND_V0.md)
 - [GATEWAY_NOTIFY_V0.md](../../../docs/architecture/workspace/GATEWAY_NOTIFY_V0.md)
 - [NOTEBOOKLM_MCP_SETUP_V0.md](../../../docs/architecture/workspace/NOTEBOOKLM_MCP_SETUP_V0.md)
 - [_workspaces/README.md](../../../_workspaces/README.md)

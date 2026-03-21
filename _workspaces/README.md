@@ -10,6 +10,7 @@
 - tracked sample 이 필요하면 `_workspaces/` 아래가 아니라 `docs/architecture/workspace/examples/` 아래에 둔다.
 - 다른 PC 나 다른 LLM 이 runtime shape 를 따라야 하면 `docs/architecture/workspace/examples/guild_hall/state/gateway/` 와 `docs/architecture/workspace/examples/` 의 public-safe mirror sample 을 먼저 읽는다.
 - 다른 PC 에서 repo 를 clone 해도 실제 `_workspaces/**` 실자료는 따라오지 않으며, local runtime 은 각 PC 에서 다시 materialize 해야 한다.
+- 선택된 project-side 기록만 이어서 보존해야 하면 public repo 가 아니라 별도 private state repo 로 mirror 한다.
 
 ## public repo view
 
@@ -57,6 +58,7 @@ _workspaces/
 - `_workspaces/<project_code>/` 안의 `.project_agent/` 계약 파일도 public tracking 대상이 아니다.
 - repo 안에 남아 있는 legacy sample 또는 과거 경로 흔적은 정본이 아니며 후속 cleanup 범위다.
 - `guild_hall/state/**` 는 `guild-hall:gateway:*` 또는 `guild-hall:town-crier:*` 첫 실행 시 필요한 local runtime 폴더가 자동으로 materialize 된다.
+- `_workspaces/**` 전체를 public Git 으로 올리지 않으며, 필요한 subset 만 `PRIVATE_STATE_REPO_V0.md` 기준으로 별도 private repo 에 넣는다.
 
 ## 관련 경로
 
@@ -67,3 +69,4 @@ _workspaces/
 - [`docs/architecture/foundation/TARGET_TREE.md`](../docs/architecture/foundation/TARGET_TREE.md)
 - [`docs/architecture/workspace/WORKSPACE_PROJECT_MODEL.md`](../docs/architecture/workspace/WORKSPACE_PROJECT_MODEL.md)
 - [`docs/architecture/workspace/MULTI_PC_DEVELOPMENT_V0.md`](../docs/architecture/workspace/MULTI_PC_DEVELOPMENT_V0.md)
+- [`docs/architecture/workspace/PRIVATE_STATE_REPO_V0.md`](../docs/architecture/workspace/PRIVATE_STATE_REPO_V0.md)

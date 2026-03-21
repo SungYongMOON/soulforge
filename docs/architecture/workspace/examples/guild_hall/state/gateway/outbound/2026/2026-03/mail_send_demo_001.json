@@ -1,0 +1,16 @@
+{
+  "message_id": "mail_send_demo_001",
+  "provider": "hiworks",
+  "status": "sent",
+  "sent_at": "2026-03-21T17:10:00+09:00",
+  "from": "seabot.moon@sonartech.com",
+  "to": [
+    "seabot.moon@sonartech.com"
+  ],
+  "cc": [],
+  "bcc": [],
+  "subject": "[Soulforge sample] SMTP test",
+  "body_text": "Soulforge mail_send.env SMTP sample test.",
+  "attachment_refs": [],
+  "source_ref": null
+}
