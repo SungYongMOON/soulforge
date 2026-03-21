@@ -8,6 +8,11 @@
 ## 포함 대상
 
 - `GUILD_HALL_MODEL_V0.md`
+- `gateway/README.md`
+- `gateway/mail_fetch/README.md`
+- `gateway/mail_fetch/runbooks/**`
+- `gateway/mail_fetch/policies/**`
+- `gateway/mail_fetch/spec/**`
 - `../workspace/GATEWAY_MAIL_FETCH_V0.md`
 - `../workspace/GATEWAY_NOTIFY_V0.md`
 - `../workspace/NOTIFY_MODEL_V0.md`

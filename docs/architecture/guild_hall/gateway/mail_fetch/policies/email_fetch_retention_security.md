@@ -111,4 +111,4 @@ npm run guild-hall:gateway:fetch:retention -- --apply --json
 
 - [email_fetch_state_recovery.md](../runbooks/email_fetch_state_recovery.md)
 - [email_fetch_ops_monitoring.md](../runbooks/email_fetch_ops_monitoring.md)
-- [email_fetch.env.example](../email_fetch.env.example)
+- [gateway mail fetch capsule README](../../../../../../guild_hall/gateway/mail_fetch/README.md)

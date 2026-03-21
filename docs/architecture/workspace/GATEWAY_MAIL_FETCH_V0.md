@@ -11,7 +11,8 @@
 - launcher: `guild_hall/gateway/mail_fetch/cli.py`
 - healthcheck: `guild_hall/gateway/mail_fetch/healthcheck.py`
 - env example: `guild_hall/gateway/mail_fetch/email_fetch.env.example`
-- specs/tests/runbooks/policies: 같은 캡슐 아래에 둔다.
+- collector tests: 같은 캡슐 아래에 둔다.
+- spec/runbook/policy 정본: `docs/architecture/guild_hall/gateway/mail_fetch/` 아래에 둔다.
 
 ## local runtime 위치
 
@@ -66,3 +67,4 @@ npm run guild-hall:gateway:fetch:healthcheck -- --json
 - [`MAIL_INTAKE_REQUEST_V0.md`](../../../docs/architecture/workspace/MAIL_INTAKE_REQUEST_V0.md)
 - [`WORKSPACE_INTAKE_INBOX_V0.md`](../../../docs/architecture/workspace/WORKSPACE_INTAKE_INBOX_V0.md)
 - [`guild_hall/gateway/mail_fetch/README.md`](../../../guild_hall/gateway/mail_fetch/README.md)
+- [`docs/architecture/guild_hall/gateway/mail_fetch/README.md`](../../../docs/architecture/guild_hall/gateway/mail_fetch/README.md)
