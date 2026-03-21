@@ -129,6 +129,7 @@
 - [`FUTURE_AGGREGATION_PLAN.md`](../.mission/FUTURE_AGGREGATION_PLAN.md)
 - [`GOVERNANCE_PACKET_MISSION_PROMOTION_RULES.md`](../.mission/GOVERNANCE_PACKET_MISSION_PROMOTION_RULES.md)
 - tracked example: [`docs/architecture/workspace/examples/demo_project/.project_agent/morning_project_report_example.md`](../docs/architecture/workspace/examples/demo_project/.project_agent/morning_project_report_example.md)
+- chain example: [`docs/architecture/workspace/examples/demo_project/.project_agent/morning_project_report_chain_example.md`](../docs/architecture/workspace/examples/demo_project/.project_agent/morning_project_report_chain_example.md)
 
 ## ASSUMPTIONS
 

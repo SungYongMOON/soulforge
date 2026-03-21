@@ -34,9 +34,11 @@ npm run guild-hall:notify:emit -- --scope gateway --event monster_created --text
 - full Telegram conversational gateway, session state, channel runtime 은 현재 Soulforge 범위에 포함하지 않는다.
 - 실제 bot token/chat id 는 local env 만 사용한다.
 - gateway 자동 Telegram 알림은 v0 에서 `monster_created` 하나만 남긴다.
+- brief 표시 규칙은 [`NOTIFY_BRIEF_FORMAT_V0.md`](../../../docs/architecture/workspace/NOTIFY_BRIEF_FORMAT_V0.md) 에서 따로 잠근다.
 
 ## 관련 경로
 
 - [`MULTI_PC_DEVELOPMENT_V0.md`](../../../docs/architecture/workspace/MULTI_PC_DEVELOPMENT_V0.md)
 - [`NOTIFY_MODEL_V0.md`](../../../docs/architecture/workspace/NOTIFY_MODEL_V0.md)
+- [`NOTIFY_BRIEF_FORMAT_V0.md`](../../../docs/architecture/workspace/NOTIFY_BRIEF_FORMAT_V0.md)
 - [`guild_hall/town_crier/README.md`](../../../guild_hall/town_crier/README.md)

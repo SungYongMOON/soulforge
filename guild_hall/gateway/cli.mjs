@@ -977,11 +977,12 @@ function renderMonsterCreatedMessage({ inboxId, sourceRef, subject, bodyExcerpt,
 
 function formatMonsterHeadline(monster) {
   const family = normalizeMonsterFamilyLabel(monster.monster_family);
-  const name = normalizeMonsterNameLabel(monster.monster_name);
-  if (!name) {
+  const rawName = String(monster.monster_name ?? "").trim();
+  if (!rawName) {
     return family;
   }
 
+  const name = normalizeMonsterNameLabel(rawName);
   if (name.toLowerCase() === family.toLowerCase()) {
     return name;
   }
@@ -995,7 +996,12 @@ function formatMonsterObjective(monster) {
     return objectiveKo;
   }
 
-  return localizeInstruction(monster.objective ?? "", "task");
+  const objective = String(monster.objective ?? "").trim();
+  if (!objective) {
+    return "미정";
+  }
+
+  return localizeInstruction(objective, "task");
 }
 
 function summarizeMailBody(bodyExcerpt) {
@@ -1004,7 +1010,7 @@ function summarizeMailBody(bodyExcerpt) {
     return null;
   }
 
-  return truncateLine(localizeInstruction(normalized, "summary"), 120);
+  return truncateLine(localizeInstruction(stripSummaryDueHint(normalized), "summary"), 120);
 }
 
 function localizeInstruction(value, mode) {
@@ -1056,6 +1062,10 @@ function localizeInstruction(value, mode) {
       task: (target) => `${target}를 확인합니다.`,
       summary: (target) => `${target} 확인 요청입니다.`,
     }) ||
+    matchInstruction(stripped, /^Complete and submit (.+)$/i, {
+      task: (target) => `${target}를 완료하고 제출합니다.`,
+      summary: (target) => `${target} 완료 및 제출 요청입니다.`,
+    }) ||
     matchInstruction(stripped, /^Complete (.+)$/i, {
       task: (target) => `${target}를 완료합니다.`,
       summary: (target) => `${target} 완료 요청입니다.`,
@@ -1105,7 +1115,7 @@ function formatMonsterDue(monster) {
 function formatDueLabel(dDay, dueState) {
   const date = parseDueDate(dDay);
   if (!date) {
-    return "미확인";
+    return "기한 미정";
   }
 
   const dayName = ["일", "월", "화", "수", "목", "금", "토"][date.getDay()];
@@ -1173,7 +1183,7 @@ function matchInstruction(value, pattern, renderers) {
   }
 
   const rawTarget = match.at(-1) ?? "";
-  const target = normalizeSentence(rawTarget);
+  const target = normalizeInstructionTarget(rawTarget);
   if (!target) {
     return null;
   }
@@ -1201,6 +1211,20 @@ function normalizeSentence(value) {
     .replace(/[.]+$/, "");
 }
 
+function normalizeInstructionTarget(value) {
+  return normalizeSentence(value)
+    .replace(/^(the|a|an)\s+/i, "")
+    .replace(/\bpackage\b/gi, "패키지")
+    .replace(/\bdocument\b/gi, "문서")
+    .replace(/\bfile\b/gi, "파일")
+    .replace(/\breport\b/gi, "보고서")
+    .replace(/\bchecklist\b/gi, "체크리스트")
+    .replace(/\bdraft\b/gi, "초안")
+    .replace(/\bsubmission\b/gi, "제출본")
+    .replace(/\s+/g, " ")
+    .trim();
+}
+
 function truncateLine(value, maxLength) {
   const text = String(value ?? "").trim();
   if (!text || text.length <= maxLength) {
@@ -1208,6 +1232,13 @@ function truncateLine(value, maxLength) {
   }
 
   return `${text.slice(0, Math.max(0, maxLength - 1)).trimEnd()}…`;
+}
+
+function stripSummaryDueHint(value) {
+  return String(value ?? "")
+    .replace(/\s+(by|before|until|due)\s+[^.]+$/i, "")
+    .replace(/\s+기한[:\s][^.]+$/i, "")
+    .trim();
 }
 
 function normalizeMonsterFamilyLabel(value) {

@@ -1,0 +1,49 @@
+{
+  "action": "mail_intake_request",
+  "event_id": "pdr_brief_chain_demo_001",
+  "source": "hiworks",
+  "mailbox_id": "company_mailbox",
+  "provider_message_id": "pdr-brief-chain-demo-001",
+  "received_at": "2026-03-20T09:10:00+09:00",
+  "event_ref": "demo://mail/events/pdr_brief_chain_demo_001",
+  "raw_ref": "demo://mail/raw/pdr_brief_chain_demo_001",
+  "thread_ref": "demo://mail/thread/pdr_brief_chain_demo_001",
+  "subject": "PDR 완료 요청",
+  "from": [
+    {
+      "name": "김도윤",
+      "email": "doyun.kim@example.com"
+    }
+  ],
+  "to": [
+    {
+      "name": "Soulforge",
+      "email": "soulforge@example.com"
+    }
+  ],
+  "cc": [],
+  "body_excerpt": "Please complete and submit the PDR package by March 24.",
+  "attachment_refs": [
+    "demo://attachments/pdr-package-checklist.xlsx"
+  ],
+  "monsters": [
+    {
+      "monster_id": "pdr_brief_chain_demo_001_001",
+      "monster_family": "dragon",
+      "monster_name": "green_dragon",
+      "work_pattern": "pdr_completion",
+      "dedupe_key": "demo-project-pdr-completion",
+      "objective": "Complete and submit the PDR package.",
+      "objective_ko": "PDR 패키지를 마무리하고 제출합니다.",
+      "d_day": "2026-03-24T18:00:00+09:00",
+      "known_status": "known",
+      "project_hints": [
+        "demo_project"
+      ],
+      "stage_hints": [
+        "PDR"
+      ],
+      "assignment_status": "pending_dungeon_assignment"
+    }
+  ]
+}

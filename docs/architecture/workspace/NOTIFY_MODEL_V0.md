@@ -97,6 +97,7 @@ mission_file: optional
 ## 연결 문서
 
 - [`GATEWAY_NOTIFY_V0.md`](../../../docs/architecture/workspace/GATEWAY_NOTIFY_V0.md)
+- [`NOTIFY_BRIEF_FORMAT_V0.md`](../../../docs/architecture/workspace/NOTIFY_BRIEF_FORMAT_V0.md)
 - [`MISSION_MODEL.md`](../../../docs/architecture/workspace/MISSION_MODEL.md)
 - [`INSTALLATION_MANUAL_V0.md`](../../../docs/architecture/workspace/INSTALLATION_MANUAL_V0.md)
 - [`examples/guild_hall/state/gateway/README.md`](../../../docs/architecture/workspace/examples/guild_hall/state/gateway/README.md)
