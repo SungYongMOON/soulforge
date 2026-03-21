@@ -62,6 +62,7 @@ flowchart TD
 - `.workflow` 와 `.party` 는 `.registry` 아래로 넣지 않는 독립 orchestration root 다.
 - `.mission` 은 held mission plan 과 readiness owner 다.
 - `guild_hall` 은 `gateway`, `town_crier`, `night_watch`, `dungeon_assignment` 같은 cross-project 운영 owner 다.
+- cross-project 운영 명령 표면은 `guild-hall:*` 만 canonical 로 사용한다.
 - `guild_hall/state/**` 는 local-only cross-project state 이며 public repo 에 올리지 않는다.
 - species canon 은 `species/<species_id>/species.yaml` 와 `heroes:` inline 모델을 사용한다.
 - `_workspaces/<project_code>/` 실제 과제 내용은 public GitHub 에 올리지 않으며, 로컬 환경에서만 materialize 한다.

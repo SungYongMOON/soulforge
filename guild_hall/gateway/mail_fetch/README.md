@@ -24,8 +24,8 @@
 ## 기본 실행
 
 ```bash
-python3 scripts/gateway_mail_fetch/cli.py --once --json
-python3 scripts/gateway_mail_fetch/healthcheck.py --json
+python3 guild_hall/gateway/mail_fetch/cli.py --once --json
+python3 guild_hall/gateway/mail_fetch/healthcheck.py --json
 ```
 
 ## 주의

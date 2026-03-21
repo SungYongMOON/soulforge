@@ -84,12 +84,12 @@ function printUsageAndExit() {
   console.error(
     [
       "Usage:",
-      "  node scripts/gateway.mjs intake --payload-file <path>",
-      "  node scripts/gateway.mjs update-monster --inbox-id <id> --monster-id <id> --patch-file <path>",
-      "  node scripts/gateway.mjs notify-gateway --event <event> (--on | --off)",
-      "  node scripts/gateway.mjs notify-mission --mission-id <id> --event <event> (--on | --off)",
-      "  node scripts/gateway.mjs notify-status --scope <gateway|mission> --event <event> [--mission-id <id>]",
-      "  node scripts/gateway.mjs notify-emit --scope <gateway|mission> --event <event> --text <message> [--mission-id <id>]",
+      "  node guild_hall/gateway/cli.mjs intake --payload-file <path>",
+      "  node guild_hall/gateway/cli.mjs update-monster --inbox-id <id> --monster-id <id> --patch-file <path>",
+      "  node guild_hall/gateway/cli.mjs notify-gateway --event <event> (--on | --off)",
+      "  node guild_hall/gateway/cli.mjs notify-mission --mission-id <id> --event <event> (--on | --off)",
+      "  node guild_hall/gateway/cli.mjs notify-status --scope <gateway|mission> --event <event> [--mission-id <id>]",
+      "  node guild_hall/gateway/cli.mjs notify-emit --scope <gateway|mission> --event <event> --text <message> [--mission-id <id>]",
     ].join("\n"),
   );
   process.exit(1);

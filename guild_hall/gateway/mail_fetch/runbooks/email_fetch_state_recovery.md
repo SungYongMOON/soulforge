@@ -26,7 +26,7 @@
 ## 1) 백업 생성
 
 ```bash
-npm run gateway:fetch:state-backup -- --json
+npm run guild-hall:gateway:fetch:state-backup -- --json
 ```
 
 옵션:
@@ -45,13 +45,13 @@ npm run gateway:fetch:state-backup -- --json
 특정 스냅샷 복구:
 
 ```bash
-npm run gateway:fetch:state-restore -- --snapshot <snapshot_id> --json
+npm run guild-hall:gateway:fetch:state-restore -- --snapshot <snapshot_id> --json
 ```
 
 최신 스냅샷 복구:
 
 ```bash
-npm run gateway:fetch:state-restore -- --latest --json
+npm run guild-hall:gateway:fetch:state-restore -- --latest --json
 ```
 
 복구 동작:
@@ -65,7 +65,7 @@ npm run gateway:fetch:state-restore -- --latest --json
 ## 3) 복구 후 확인
 
 ```bash
-npm run gateway:fetch -- --once --json
+npm run guild-hall:gateway:fetch -- --once --json
 ```
 
 확인 기준:

@@ -110,7 +110,7 @@ Telegram notify 점검 예시:
 
 ```bash
 npm run guild-hall:town-crier:send -- --text "gateway ready"
-npm run notify:gateway -- --event monster_created --on
+npm run guild-hall:notify:gateway -- --event monster_created --on
 ```
 
 ## 6. 설치 후 확인

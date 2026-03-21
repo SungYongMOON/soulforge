@@ -23,8 +23,8 @@
 
 ```bash
 npm run guild-hall:town-crier:send -- --text "gateway ready"
-npm run notify:gateway -- --event monster_created --on
-npm run notify:emit -- --scope gateway --event monster_created --text "monster ready"
+npm run guild-hall:notify:gateway -- --event monster_created --on
+npm run guild-hall:notify:emit -- --scope gateway --event monster_created --text "monster ready"
 ```
 
 ## 경계

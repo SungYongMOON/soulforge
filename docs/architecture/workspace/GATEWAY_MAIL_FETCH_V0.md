@@ -3,7 +3,7 @@
 ## 목적
 
 - 이 문서는 `Seabot_AI` 없이도 Soulforge clone 만으로 메일 수집 edge 를 다시 세팅할 수 있게 `gateway mail fetch` 캡슐의 tracked source 와 local runtime 경계를 잠근다.
-- 수집기는 `guild_hall/state/gateway/` 아래 mailbox raw/events/attachments 를 materialize 하고, 이후 `gateway:intake` 가 그 결과를 monster intake 로 소비한다고 본다.
+- 수집기는 `guild_hall/state/gateway/` 아래 mailbox raw/events/attachments 를 materialize 하고, 이후 `guild-hall:gateway:intake` 가 그 결과를 monster intake 로 소비한다고 본다.
 
 ## tracked source 위치
 

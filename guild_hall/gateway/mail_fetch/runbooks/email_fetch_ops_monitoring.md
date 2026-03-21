@@ -18,7 +18,7 @@
 ## healthcheck 실행
 
 ```bash
-npm run gateway:fetch:healthcheck -- --json
+npm run guild-hall:gateway:fetch:healthcheck -- --json
 ```
 
 산출 파일:
@@ -53,8 +53,8 @@ npm run gateway:fetch:healthcheck -- --json
 - launchd/crontab/systemd 중 어떤 스케줄러를 쓰더라도 명령은 아래 두 개만 호출하면 된다.
 
 ```bash
-npm run gateway:fetch -- --once --json
-npm run gateway:fetch:healthcheck -- --json
+npm run guild-hall:gateway:fetch -- --once --json
+npm run guild-hall:gateway:fetch:healthcheck -- --json
 ```
 
 ---

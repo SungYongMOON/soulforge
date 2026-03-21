@@ -8,7 +8,7 @@
 ## 한 줄 정의
 
 - `mail_intake_request` 는 "새 메일 event 1건을 읽어 `guild_hall/state/gateway/intake_inbox/` 아래 inbox container 와 monster list 를 만든다" 는 시작 호출이다.
-- v0 에서는 upstream `gateway:fetch` 가 `guild_hall/state/gateway/mailbox/**` 에 raw/events/attachments 를 먼저 materialize 한다고 본다.
+- v0 에서는 upstream `guild-hall:gateway:fetch` 가 `guild_hall/state/gateway/mailbox/**` 에 raw/events/attachments 를 먼저 materialize 한다고 본다.
 
 ## 경계
 

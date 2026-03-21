@@ -42,7 +42,7 @@
 - 기본 모드: `report-only`
   - `EMAIL_FETCH_RETENTION_REPORT_ONLY=true`
 - 실제 적용은 명시 실행 시에만 수행
-  - `npm run gateway:fetch:retention -- --apply --json`
+  - `npm run guild-hall:gateway:fetch:retention -- --apply --json`
 - 즉시 삭제 금지
   - 만료 파일은 `guild_hall/state/gateway/mailbox/_trash/email-fetch/<YYYYMMDD>/`로 이동
 - trash 보류 기간
@@ -52,8 +52,8 @@
 실행 예시:
 
 ```bash
-npm run gateway:fetch:retention -- --json
-npm run gateway:fetch:retention -- --apply --json
+npm run guild-hall:gateway:fetch:retention -- --json
+npm run guild-hall:gateway:fetch:retention -- --apply --json
 ```
 
 리포트:

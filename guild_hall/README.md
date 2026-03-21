@@ -18,6 +18,7 @@
 
 - `guild_hall/` 은 공용 운영 기능만 소유한다.
 - 실제 프로젝트 파일, project-side monster status, raw run truth 는 계속 `_workspaces/<project_code>/` 가 소유한다.
+- cross-project 운영 명령 표면은 `guild-hall:*` 만 canonical 로 사용한다.
 - `guild_hall/state/**` 는 local-only state 이며 public repo 에 올리지 않는다.
 
 ## 관련 경로
