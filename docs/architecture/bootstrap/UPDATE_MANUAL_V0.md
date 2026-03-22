@@ -9,6 +9,8 @@
 
 - 업데이트는 `doctor --remote` 로 현재 상태를 먼저 확인하고, behind 인 repo 만 `git pull --rebase origin main` 으로 갱신한 뒤, `skills:sync` 와 `doctor` 로 마무리한다.
 
+owner 가 회사/집 사이를 오가며 handoff 할 때의 체크리스트는 [`OWNER_HANDOFF_CHECKLIST_V0.md`](OWNER_HANDOFF_CHECKLIST_V0.md) 를 canonical guide 로 사용한다.
+
 ## Chapter 1. 적용 대상
 
 - `public-only`
@@ -144,6 +146,7 @@ rsync -a private-state/_workspaces/ _workspaces/
 - [`README.md`](README.md)
 - [`BOOTSTRAP_PROFILES_V0.md`](BOOTSTRAP_PROFILES_V0.md)
 - [`BOOTSTRAP_DOCTOR_V0.md`](BOOTSTRAP_DOCTOR_V0.md)
+- [`OWNER_HANDOFF_CHECKLIST_V0.md`](OWNER_HANDOFF_CHECKLIST_V0.md)
 - [`../workspace/INSTALLATION_MANUAL_V0.md`](../workspace/INSTALLATION_MANUAL_V0.md)
 - [`../workspace/MULTI_PC_DEVELOPMENT_V0.md`](../workspace/MULTI_PC_DEVELOPMENT_V0.md)
 - [`../workspace/PRIVATE_STATE_REPO_V0.md`](../workspace/PRIVATE_STATE_REPO_V0.md)

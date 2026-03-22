@@ -1,0 +1,135 @@
+# OWNER_HANDOFF_CHECKLIST_V0
+
+## 목적
+
+- 이 문서는 owner 가 회사 PC 와 집 PC 사이를 오가며 Soulforge 를 이어서 작업할 때의 최소 handoff 체크를 잠근다.
+- public 기능 변경과 private continuity data 변경을 같은 프로젝트 안에서 안전하게 이어받도록 한다.
+
+## 한 줄 정의
+
+- owner handoff 는 `public push + private-state push` 로 마감하고, 다음 PC 에서는 `doctor --remote -> pull -> restore -> doctor` 순서로 시작한다.
+
+## 기본 원칙
+
+1. 기능 코드와 구조 문서는 public repo 에만 push 한다.
+2. 보호 대상 업무 데이터와 continuity record 는 nested `private-state/` repo 에만 push 한다.
+3. private continuity data 는 사실상 한 시점에 한 PC 가 owner 처럼 쓰는 baton 방식으로 넘긴다.
+4. 다른 PC 에서 작업을 시작하기 전에는 먼저 `npm run guild-hall:doctor -- --profile owner-with-state --remote` 를 실행한다.
+5. `.env`, token, password, cookie, session, credential JSON 은 handoff 대상이 아니다.
+
+## Chapter 1. 작업을 마치고 넘길 때
+
+현재 PC 에서 아래를 확인한다.
+
+- public repo 변경이 있으면 commit/push
+- continuity data 변경이 있으면 `private-state/` 로 sync 후 commit/push
+- public/private 둘 다 `git status -sb` 가 clean 인지 확인
+
+최소 순서:
+
+```bash
+cd Soulforge
+git status -sb
+git -C private-state status -sb
+```
+
+public 변경이 있으면:
+
+```bash
+git add <public changed files>
+git commit -m "<message>"
+git push origin main
+```
+
+private continuity data 가 있으면:
+
+```bash
+rsync -a guild_hall/state/gateway/intake_inbox/ private-state/guild_hall/state/gateway/intake_inbox/
+rsync -a guild_hall/state/gateway/log/monster_events/ private-state/guild_hall/state/gateway/log/monster_events/
+rsync -a guild_hall/state/gateway/mailbox/outbound/ private-state/guild_hall/state/gateway/mailbox/outbound/
+rsync -a guild_hall/state/gateway/log/mail_send/ private-state/guild_hall/state/gateway/log/mail_send/
+rsync -a _workspaces/ private-state/_workspaces/
+
+cd private-state
+git add .
+git commit -m "chore: continuity data sync"
+git push origin main
+cd ..
+```
+
+## Chapter 2. 다른 PC 에서 작업 시작 전
+
+먼저 원격 상태부터 확인한다.
+
+```bash
+cd Soulforge
+npm run guild-hall:doctor -- --profile owner-with-state --remote
+```
+
+그다음 behind 인 repo 만 pull 한다.
+
+```bash
+git pull --rebase origin main
+cd private-state
+git pull --rebase origin main
+cd ..
+```
+
+필수 skill 을 다시 맞춘다.
+
+```bash
+npm run skills:sync -- shield_wall record_stitch skill_check
+```
+
+private continuity data 를 active runtime 으로 복원한다.
+
+```bash
+rsync -a private-state/guild_hall/state/gateway/intake_inbox/ guild_hall/state/gateway/intake_inbox/
+rsync -a private-state/guild_hall/state/gateway/log/monster_events/ guild_hall/state/gateway/log/monster_events/
+rsync -a private-state/guild_hall/state/gateway/mailbox/outbound/ guild_hall/state/gateway/mailbox/outbound/
+rsync -a private-state/guild_hall/state/gateway/log/mail_send/ guild_hall/state/gateway/log/mail_send/
+rsync -a private-state/_workspaces/ _workspaces/
+```
+
+마지막으로 safe readiness 를 다시 확인한다.
+
+```bash
+npm run guild-hall:doctor -- --profile owner-with-state
+```
+
+필요할 때만:
+
+```bash
+npm run guild-hall:doctor -- --profile owner-with-state --live
+```
+
+## Chapter 3. 충돌 회피 규칙
+
+- 같은 날 두 PC 에서 동시에 public repo 를 오래 수정하지 않는다.
+- private continuity data 는 동시에 두 PC 에서 쓰지 않는다.
+- 작업을 이어받기 전에는 항상 먼저 pull 하고, 작업을 넘기기 전에는 항상 push 한다.
+- `doctor --remote` 에서 `ahead>0` 또는 `behind>0` 가 보이면, 그 상태를 정리한 뒤에만 다음 작업으로 넘어간다.
+
+## Chapter 4. 빠른 체크리스트
+
+### 4.1 퇴근/이동 직전
+
+- public 변경을 push 했다
+- private continuity data 를 sync/push 했다
+- public `git status -sb` 가 clean 이다
+- `private-state git status -sb` 가 clean 이다
+
+### 4.2 집/회사에서 작업 시작 직전
+
+- `npm run guild-hall:doctor -- --profile owner-with-state --remote` 를 돌렸다
+- public/private 둘 다 pull 했다
+- `skills:sync` 를 다시 돌렸다
+- `private-state -> active runtime` restore 를 했다
+- `npm run guild-hall:doctor -- --profile owner-with-state` 를 돌렸다
+
+## 관련 문서
+
+- [`UPDATE_MANUAL_V0.md`](UPDATE_MANUAL_V0.md)
+- [`BOOTSTRAP_DOCTOR_V0.md`](BOOTSTRAP_DOCTOR_V0.md)
+- [`../workspace/PRIVATE_STATE_REPO_V0.md`](../workspace/PRIVATE_STATE_REPO_V0.md)
+- [`../workspace/MULTI_PC_DEVELOPMENT_V0.md`](../workspace/MULTI_PC_DEVELOPMENT_V0.md)

@@ -46,6 +46,7 @@ flowchart TD
 - [`docs/architecture/bootstrap/README.md`](docs/architecture/bootstrap/README.md): clone 이후 설치, doctor, private state restore 가이드 묶음
 - [`docs/architecture/bootstrap/BOOTSTRAP_PROFILES_V0.md`](docs/architecture/bootstrap/BOOTSTRAP_PROFILES_V0.md): 팀원용 public-only clone, owner-with-state clone, AI 위임 bootstrap 프로필
 - [`docs/architecture/bootstrap/UPDATE_MANUAL_V0.md`](docs/architecture/bootstrap/UPDATE_MANUAL_V0.md): 설치 후 GitHub 최신 상태 확인, public/private pull, skill sync, doctor 재점검 절차
+- [`docs/architecture/bootstrap/OWNER_HANDOFF_CHECKLIST_V0.md`](docs/architecture/bootstrap/OWNER_HANDOFF_CHECKLIST_V0.md): 회사/집 사이 owner handoff 체크리스트와 시작 전 `doctor --remote` 절차
 - [`_workspaces/README.md`](_workspaces/README.md): `_workspaces` local-only mount point 정책
 - [`docs/architecture/workspace/WORKSPACE_PROJECT_MODEL.md`](docs/architecture/workspace/WORKSPACE_PROJECT_MODEL.md): `_workspaces/<project_code>/` 구조와 보안 경계
 - [`docs/architecture/workspace/INSTALLATION_MANUAL_V0.md`](docs/architecture/workspace/INSTALLATION_MANUAL_V0.md): 다른 PC 첫 설치와 gateway bootstrap 순서
