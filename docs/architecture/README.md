@@ -36,6 +36,7 @@
 - [`foundation/README.md`](foundation/README.md)
 - [`bootstrap/README.md`](bootstrap/README.md)
 - [`bootstrap/BOOTSTRAP_PROFILES_V0.md`](bootstrap/BOOTSTRAP_PROFILES_V0.md)
+- [`bootstrap/UPDATE_MANUAL_V0.md`](bootstrap/UPDATE_MANUAL_V0.md)
 - [`guild_hall/README.md`](guild_hall/README.md)
 - [`workspace/README.md`](workspace/README.md)
 - [`ui/README.md`](ui/README.md)

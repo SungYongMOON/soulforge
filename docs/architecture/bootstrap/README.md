@@ -10,7 +10,9 @@
 - `BOOTSTRAP_PROFILES_V0.md`
 - `BOOTSTRAP_DOCTOR_V0.md`
 - `BOOTSTRAP_CHECKLIST_V0.json`
+- `UPDATE_MANUAL_V0.md`
 - `CODEX_OWNER_BOOTSTRAP_PROMPT_V0.md`
+- `CODEX_OWNER_UPDATE_PROMPT_V0.md`
 - `../workspace/INSTALLATION_MANUAL_V0.md`
 - `../workspace/MULTI_PC_DEVELOPMENT_V0.md`
 - `../workspace/PRIVATE_STATE_REPO_V0.md`
@@ -21,8 +23,10 @@
 2. [`../workspace/INSTALLATION_MANUAL_V0.md`](../workspace/INSTALLATION_MANUAL_V0.md)
 3. [`../workspace/PRIVATE_STATE_REPO_V0.md`](../workspace/PRIVATE_STATE_REPO_V0.md)
 4. [`BOOTSTRAP_DOCTOR_V0.md`](BOOTSTRAP_DOCTOR_V0.md)
-5. [`../workspace/MULTI_PC_DEVELOPMENT_V0.md`](../workspace/MULTI_PC_DEVELOPMENT_V0.md)
-6. [`CODEX_OWNER_BOOTSTRAP_PROMPT_V0.md`](CODEX_OWNER_BOOTSTRAP_PROMPT_V0.md)
+5. [`UPDATE_MANUAL_V0.md`](UPDATE_MANUAL_V0.md)
+6. [`../workspace/MULTI_PC_DEVELOPMENT_V0.md`](../workspace/MULTI_PC_DEVELOPMENT_V0.md)
+7. [`CODEX_OWNER_BOOTSTRAP_PROMPT_V0.md`](CODEX_OWNER_BOOTSTRAP_PROMPT_V0.md)
+8. [`CODEX_OWNER_UPDATE_PROMPT_V0.md`](CODEX_OWNER_UPDATE_PROMPT_V0.md)
 
 ## 실행 가이드
 
@@ -30,6 +34,7 @@
 - 팀원/공유 대상은 public `Soulforge` 만 clone 하고 private state repo 는 받지 않는다.
 - owner 본인만 명시적으로 Soulforge root 아래 `private-state/` repo 를 함께 clone 하고 허용된 subset 만 restore 한다.
 - clone 후 AI 에게 bootstrap 을 맡길 때도 먼저 어떤 프로필인지 말한 뒤 `npm run guild-hall:doctor` 를 canonical entrypoint 로 사용한다.
+- 설치 후 최신 상태 점검과 pull 절차는 [`UPDATE_MANUAL_V0.md`](UPDATE_MANUAL_V0.md) 를 canonical guide 로 사용한다.
 - bootstrap 전 필수 프로그램은 `git`, `gh`, `node`, `npm`, `python3`, `uv` 다.
 - bootstrap 전 필수 Soulforge skill 은 `shield_wall`, `record_stitch`, `skill_check` 이고, `npm run skills:sync -- shield_wall record_stitch skill_check` 로 먼저 맞춘다.
 - clone 후 첫 readiness 점검은 `npm run guild-hall:doctor` 를 canonical entrypoint 로 쓴다.
@@ -46,7 +51,9 @@
 - [`BOOTSTRAP_PROFILES_V0.md`](BOOTSTRAP_PROFILES_V0.md)
 - [`BOOTSTRAP_DOCTOR_V0.md`](BOOTSTRAP_DOCTOR_V0.md)
 - [`BOOTSTRAP_CHECKLIST_V0.json`](BOOTSTRAP_CHECKLIST_V0.json)
+- [`UPDATE_MANUAL_V0.md`](UPDATE_MANUAL_V0.md)
 - [`CODEX_OWNER_BOOTSTRAP_PROMPT_V0.md`](CODEX_OWNER_BOOTSTRAP_PROMPT_V0.md)
+- [`CODEX_OWNER_UPDATE_PROMPT_V0.md`](CODEX_OWNER_UPDATE_PROMPT_V0.md)
 - [`../workspace/INSTALLATION_MANUAL_V0.md`](../workspace/INSTALLATION_MANUAL_V0.md)
 - [`../workspace/MULTI_PC_DEVELOPMENT_V0.md`](../workspace/MULTI_PC_DEVELOPMENT_V0.md)
 - [`../workspace/PRIVATE_STATE_REPO_V0.md`](../workspace/PRIVATE_STATE_REPO_V0.md)

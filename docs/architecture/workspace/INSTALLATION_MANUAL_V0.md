@@ -237,6 +237,7 @@ AI 는 아래 순서만 따르게 한다.
 ## 연결 문서
 
 - [MULTI_PC_DEVELOPMENT_V0.md](../../../docs/architecture/workspace/MULTI_PC_DEVELOPMENT_V0.md)
+- [../bootstrap/UPDATE_MANUAL_V0.md](../../../docs/architecture/bootstrap/UPDATE_MANUAL_V0.md)
 - [PRIVATE_STATE_REPO_V0.md](../../../docs/architecture/workspace/PRIVATE_STATE_REPO_V0.md)
 - [../bootstrap/README.md](../../../docs/architecture/bootstrap/README.md)
 - [../bootstrap/BOOTSTRAP_PROFILES_V0.md](../../../docs/architecture/bootstrap/BOOTSTRAP_PROFILES_V0.md)
