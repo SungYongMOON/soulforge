@@ -44,6 +44,8 @@ flowchart TD
 - [`guild_hall/README.md`](guild_hall/README.md): cross-project 운영 루트와 state 경계
 - [`docs/architecture/guild_hall/README.md`](docs/architecture/guild_hall/README.md): `guild_hall` owner 기준 문서 색인
 - [`docs/architecture/bootstrap/README.md`](docs/architecture/bootstrap/README.md): clone 이후 설치, doctor, private state restore 가이드 묶음
+- [`CHANGELOG.md`](CHANGELOG.md): public repo revision note 와 patch note
+- [`docs/architecture/foundation/CHANGELOG_POLICY_V0.md`](docs/architecture/foundation/CHANGELOG_POLICY_V0.md): public/private changelog 작성 규칙
 - [`docs/architecture/bootstrap/BOOTSTRAP_PROFILES_V0.md`](docs/architecture/bootstrap/BOOTSTRAP_PROFILES_V0.md): 팀원용 public-only clone, owner-with-state clone, AI 위임 bootstrap 프로필
 - [`docs/architecture/bootstrap/UPDATE_MANUAL_V0.md`](docs/architecture/bootstrap/UPDATE_MANUAL_V0.md): 설치 후 GitHub 최신 상태 확인, public/private pull, skill sync, doctor 재점검 절차
 - [`docs/architecture/bootstrap/OWNER_HANDOFF_CHECKLIST_V0.md`](docs/architecture/bootstrap/OWNER_HANDOFF_CHECKLIST_V0.md): 회사/집 사이 owner handoff 체크리스트와 시작 전 `doctor --remote` 절차
