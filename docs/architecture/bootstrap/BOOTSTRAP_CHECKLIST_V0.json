@@ -54,23 +54,23 @@
     {
       "id": "private_state_repo",
       "label": "private state repo",
-      "path": "../Soulforge-private-state/.git",
-      "note": "optional sibling private repo"
+      "path": "private-state/.git",
+      "note": "optional nested private state repo"
     }
   ],
   "profile_local_paths": [
     {
       "id": "private_state_repo_required",
       "label": "private state repo",
-      "path": "../Soulforge-private-state/.git",
+      "path": "private-state/.git",
       "profiles": ["owner-with-state"],
       "required": true,
-      "note": "owner profile requires sibling private repo"
+      "note": "owner profile requires nested private state repo"
     },
     {
       "id": "private_state_gateway_intake_inbox",
       "label": "private state intake inbox",
-      "path": "../Soulforge-private-state/guild_hall/state/gateway/intake_inbox",
+      "path": "private-state/guild_hall/state/gateway/intake_inbox",
       "profiles": ["owner-with-state"],
       "required": false,
       "note": "optional continuity data"
@@ -78,7 +78,7 @@
     {
       "id": "private_state_gateway_monster_events",
       "label": "private state monster events",
-      "path": "../Soulforge-private-state/guild_hall/state/gateway/log/monster_events",
+      "path": "private-state/guild_hall/state/gateway/log/monster_events",
       "profiles": ["owner-with-state"],
       "required": false,
       "note": "optional continuity data"
@@ -86,7 +86,7 @@
     {
       "id": "private_state_gateway_outbound",
       "label": "private state outbound mail",
-      "path": "../Soulforge-private-state/guild_hall/state/gateway/mailbox/outbound",
+      "path": "private-state/guild_hall/state/gateway/mailbox/outbound",
       "profiles": ["owner-with-state"],
       "required": false,
       "note": "optional continuity data"
@@ -94,7 +94,7 @@
     {
       "id": "private_state_workspace_root",
       "label": "private state workspace root",
-      "path": "../Soulforge-private-state/_workspaces",
+      "path": "private-state/_workspaces",
       "profiles": ["owner-with-state"],
       "required": false,
       "note": "optional continuity data"

@@ -1,7 +1,7 @@
 # examples/private_state_repo
 
-- 이 경로는 `Soulforge-private-state` 같은 sibling private repo 를 만들 때 복사해서 쓸 최소 템플릿 예시다.
-- public `Soulforge` 저장소 안에 nested Git repo 를 만들지 않고, 별도 private repo 에서 선택 기록만 mirror 하는 방식을 전제로 한다.
+- 이 경로는 Soulforge root 아래 nested `private-state/` repo 를 만들 때 복사해서 쓸 최소 템플릿 예시다.
+- owner AI session 이 같은 workspace 안에서 public `Soulforge` 와 `private-state/` 를 함께 읽는 구성을 전제로 한다.
 - 실제 비밀값은 이 템플릿에도 넣지 않는다.
 
 ## 포함 대상

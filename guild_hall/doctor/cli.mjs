@@ -679,7 +679,7 @@ function buildFixHint(result, context = {}) {
       return buildTemplateCopyHint(item);
     case "private_state_repo":
     case "private_state_repo_required":
-      return "owner-with-state 프로필이면 sibling 경로에서 private state repo 를 clone 한다. 예: `cd .. && git clone <private-state-repo-url> Soulforge-private-state`";
+      return "owner-with-state 프로필이면 Soulforge root 아래 `private-state/` 로 private state repo 를 clone 한다. 예: `git clone <private-state-repo-url> private-state`";
     case "private_state_gateway_intake_inbox":
       return "연속 작업이 필요하면 private state repo 에서 `guild_hall/state/gateway/intake_inbox/` 를 rsync 로 복원한다.";
     case "private_state_gateway_monster_events":
@@ -701,9 +701,9 @@ function buildFixHint(result, context = {}) {
     case "git_public_sync":
       return "public repo 최신 상태를 맞춘다. 예: `git fetch origin main && git pull --rebase origin main`";
     case "git_private_origin":
-      return "private state repo 에 `origin` remote 를 다시 연결한다. 예: `cd ../Soulforge-private-state && git remote add origin <private-state-repo-url>`";
+      return "private state repo 에 `origin` remote 를 다시 연결한다. 예: `cd private-state && git remote add origin <private-state-repo-url>`";
     case "git_private_sync":
-      return "private state repo 최신 상태를 맞춘다. 예: `cd ../Soulforge-private-state && git fetch origin main && git pull --rebase origin main`";
+      return "private state repo 최신 상태를 맞춘다. 예: `cd private-state && git fetch origin main && git pull --rebase origin main`";
     case "hiworks_pop3_live":
       return "`guild_hall/state/gateway/mailbox/state/email_fetch.env` 의 Hiworks POP3 값을 점검한 뒤 `npm run guild-hall:doctor -- --live` 를 다시 실행한다.";
     case "hiworks_smtp_live":

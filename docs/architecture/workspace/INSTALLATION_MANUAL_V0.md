@@ -15,7 +15,7 @@
   - private state repo 는 받지 않는다
 - `owner-with-state`
   - owner 본인
-  - public `Soulforge` 와 private `Soulforge-private-state` 둘 다 clone 한다
+  - public `Soulforge` 와 nested `private-state/` 둘 다 준비한다
   - 허용된 기록 subset 만 restore 한다
 - `ai-assisted-bootstrap`
   - clone 후 사용자가 직접 모든 명령을 치지 않고 AI 에게 bootstrap 을 맡긴다
@@ -30,7 +30,7 @@
 2. 실제 `guild_hall/state/**` 와 `_workspaces/<project_code>/**` runtime 은 각 PC 에서 새로 materialize 한다.
 3. 인증 정보와 `.env` 는 다른 PC 에서 다시 만든다.
 4. NotebookLM 로그인 상태와 Telegram/Gmail/Hiworks 자격증명은 Git 으로 옮기지 않는다.
-5. 필요한 업무 기록만 이어서 가져갈 때는 public repo 대신 별도 private state repo 를 쓴다.
+5. 필요한 업무 기록만 이어서 가져갈 때는 Soulforge root 아래 nested `private-state/` repo 를 쓴다.
 
 ## Chapter 1. 필수 프로그램
 
@@ -63,11 +63,10 @@ UI 를 만질 예정이면:
 npm run ui:workspace:install
 ```
 
-`owner-with-state` 프로필만 선택 기록 복원을 위해 private state repo 를 public repo 밖 sibling 경로에 둔다.
+`owner-with-state` 프로필만 선택 기록 복원을 위해 Soulforge root 아래 `private-state/` repo 를 둔다.
 
 ```bash
-cd ..
-git clone <private-state-repo-url> Soulforge-private-state
+git clone <private-state-repo-url> private-state
 ```
 
 ## Chapter 3. Soulforge skill 설치
@@ -120,11 +119,11 @@ cp docs/architecture/workspace/examples/guild_hall/state/gateway/bindings/notify
 `owner-with-state` 프로필일 때만, 첫 bootstrap 실행 전에 private state repo 에서 필요한 subset 만 복원한다.
 
 ```bash
-rsync -a ../Soulforge-private-state/guild_hall/state/gateway/intake_inbox/ guild_hall/state/gateway/intake_inbox/
-rsync -a ../Soulforge-private-state/guild_hall/state/gateway/log/monster_events/ guild_hall/state/gateway/log/monster_events/
-rsync -a ../Soulforge-private-state/guild_hall/state/gateway/mailbox/outbound/ guild_hall/state/gateway/mailbox/outbound/
-rsync -a ../Soulforge-private-state/guild_hall/state/gateway/log/mail_send/ guild_hall/state/gateway/log/mail_send/
-rsync -a ../Soulforge-private-state/_workspaces/ _workspaces/
+rsync -a private-state/guild_hall/state/gateway/intake_inbox/ guild_hall/state/gateway/intake_inbox/
+rsync -a private-state/guild_hall/state/gateway/log/monster_events/ guild_hall/state/gateway/log/monster_events/
+rsync -a private-state/guild_hall/state/gateway/mailbox/outbound/ guild_hall/state/gateway/mailbox/outbound/
+rsync -a private-state/guild_hall/state/gateway/log/mail_send/ guild_hall/state/gateway/log/mail_send/
+rsync -a private-state/_workspaces/ _workspaces/
 ```
 
 ## Chapter 5. NotebookLM MCP 설치
@@ -210,7 +209,7 @@ npm run guild-hall:doctor -- --live
   - private state repo 는 clone/restore 하지 말라고 명시한다.
 - owner 개인 PC:
   - `owner-with-state` 프로필로 진행하라고 지시한다.
-  - private state repo 를 sibling 경로에 clone 하고 [`PRIVATE_STATE_REPO_V0.md`](../../../docs/architecture/workspace/PRIVATE_STATE_REPO_V0.md) 기준 허용 subset 만 restore 하라고 명시한다.
+  - `private-state/` repo 를 Soulforge root 아래 clone 하고 [`PRIVATE_STATE_REPO_V0.md`](../../../docs/architecture/workspace/PRIVATE_STATE_REPO_V0.md) 기준 허용 subset 만 restore 하라고 명시한다.
 
 AI 는 아래 순서만 따르게 한다.
 

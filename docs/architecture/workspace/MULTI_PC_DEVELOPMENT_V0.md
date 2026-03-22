@@ -14,7 +14,7 @@
 
 - 프로필이 명시되지 않으면 다른 PC clone 기본값은 `public-only` 다.
 - `public-only` 는 public `Soulforge` 만 clone 한다.
-- `owner-with-state` 만 private state repo 를 sibling 경로에 clone 하고 허용 subset 을 복원한다.
+- `owner-with-state` 만 Soulforge root 아래 `private-state/` repo 를 clone 하고 허용 subset 을 복원한다.
 - 팀원/공유 대상에게는 private state repo URL 을 주지 않는다.
 - AI 에게 bootstrap 을 맡길 때도 먼저 어떤 프로필인지 명시한다.
 
@@ -43,7 +43,7 @@
 1. `git`, `gh`, `node`, `npm`, `python3`, `uv` 가 설치돼 있는지 확인한다.
 2. 필요하면 `gh auth login` 으로 GitHub CLI 인증을 먼저 끝낸다.
 3. 저장소를 clone 한다.
-4. `owner-with-state` 프로필이고 선택 기록을 이어서 쓸 필요가 있으면 별도 private state repo 를 sibling 경로에 clone 한다.
+4. `owner-with-state` 프로필이고 선택 기록을 이어서 쓸 필요가 있으면 Soulforge root 아래 `private-state/` repo 를 clone 한다.
 5. repo root 에서 `npm install` 을 1회 실행한다.
 6. UI 를 만질 예정이면 `npm run ui:workspace:install` 을 1회 실행한다.
 7. 필요한 Soulforge skill 을 local Codex 에 sync 한다.

@@ -13,3 +13,5 @@ _workspaces/**
 
 guild_hall/state/**
 !guild_hall/state/README.md
+
+private-state/

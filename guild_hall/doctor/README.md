@@ -27,7 +27,7 @@
   - `2` = fatal config / internal error
 - `--json` 출력은 `schema_version`, `summary`, `results`, `next_steps` 를 포함하는 bootstrap doctor v0 계약을 따른다.
 - `--remote` 는 GitHub auth, public/private repo remote 연결, `origin/main` 대비 최신 상태를 점검한다.
-- `--profile owner-with-state` 는 sibling private state repo 와 continuity data path 를 추가로 점검한다.
+- `--profile owner-with-state` 는 Soulforge root 아래 nested `private-state/` repo 와 continuity data path 를 추가로 점검한다.
 
 ## 관련 경로
 

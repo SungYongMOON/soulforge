@@ -60,7 +60,7 @@ npm run guild-hall:doctor -- --remote
   - sender runner 가 실제 생기기 전까지는 future-ready slot 로만 본다
 - profile 기반 local path 여부
   - 기본 프로필은 `public-only`
-  - `owner-with-state` 는 sibling private state repo 와 continuity data path 를 추가로 본다
+  - `owner-with-state` 는 Soulforge root 아래 nested `private-state/` repo 와 continuity data path 를 추가로 본다
 - safe smoke test
   - `node --check guild_hall/gateway/cli.mjs`
   - `node guild_hall/town_crier/cli.mjs status`
@@ -69,7 +69,7 @@ npm run guild-hall:doctor -- --remote
   - `gh auth status`
   - public repo `origin` remote 존재 여부
   - public repo `origin/main` 대비 최신 상태
-  - `owner-with-state` 프로필이면 private state repo remote 와 최신 상태도 본다
+  - `owner-with-state` 프로필이면 nested `private-state/` repo remote 와 최신 상태도 본다
 - live smoke test
   - Hiworks POP3 로그인 확인
   - Hiworks SMTP 로그인 확인
@@ -154,7 +154,7 @@ doctor 는 missing/failed/blocked result 에 대해 가능하면 item-level `fix
 
 1. doctor 기본값은 safe local check 만 수행한다.
 2. doctor 프로필 기본값은 `public-only` 다.
-3. `--profile owner-with-state` 는 private state repo 와 continuity data path 를 추가로 본다.
+3. `--profile owner-with-state` 는 nested `private-state/` repo 와 continuity data path 를 추가로 본다.
 4. `--remote` 는 GitHub auth, remote 연결, public/private repo 최신 상태를 본다.
 5. `--live` 는 외부 인증/연결만 수행하고, 메일/메시지 실제 발송은 하지 않는다.
 6. live mail fetch 나 Telegram send 는 doctor 기본 범위 밖이다.
@@ -169,7 +169,7 @@ doctor 는 missing/failed/blocked result 에 대해 가능하면 item-level `fix
 ## 언제 어떤 모드를 쓰는가
 
 - clone 직후: `npm run guild-hall:doctor`
-- owner PC 에서 private state clone 직후: `npm run guild-hall:doctor -- --profile owner-with-state`
+- owner PC 에서 `private-state/` clone 직후: `npm run guild-hall:doctor -- --profile owner-with-state`
 - GitHub 최신 상태를 점검할 때: `npm run guild-hall:doctor -- --remote`
 - env 와 policy 를 채운 직후: `npm run guild-hall:doctor`
 - 실제 외부 연결을 붙이기 직전: `npm run guild-hall:doctor -- --live`

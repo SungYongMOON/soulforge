@@ -2,12 +2,12 @@
 
 ## 목적
 
-- 이 문서는 public `Soulforge` 저장소와 별도로, 선택된 운영 기록만 담는 private state Git 저장소 기준을 잠근다.
+- 이 문서는 Soulforge workspace 안의 nested `private-state/` Git 저장소에 선택된 운영 기록만 담는 기준을 잠근다.
 - 다른 PC 에서 `clone -> local env 재생성 -> 선택 기록 복원` 순서로 빠르게 이어서 작업할 수 있게 한다.
 
 ## 한 줄 정의
 
-- public `Soulforge` repo 는 코드/문서/example 을 들고, optional private state repo 는 선택된 `guild_hall/state/**` 와 `_workspaces/**` 파생 기록만 따로 mirror 한다.
+- public `Soulforge` repo 는 코드/문서/example 을 들고, nested `private-state/` repo 는 선택된 `guild_hall/state/**` 와 `_workspaces/**` 파생 기록만 따로 mirror 한다.
 
 ## 적용 프로필
 
@@ -17,8 +17,8 @@
 
 ## 기본 원칙
 
-1. private state repo 는 `Soulforge/` 작업트리 안에 중첩하지 않는다.
-2. private state repo 는 `../Soulforge-private-state` 같은 sibling 경로에 별도로 clone 한다.
+1. private state repo 는 Soulforge root 아래 `private-state/` 에 둔다.
+2. active owner AI session 은 `Soulforge/` 와 `private-state/` 를 같은 workspace 안에서 함께 본다.
 3. private state repo 는 자격증명과 raw mailbox dump 가 아니라, 다른 PC 에서 이어서 볼 가치가 있는 파생 기록만 담는다.
 4. private state repo 에도 토큰, `.env`, 세션, NotebookLM auth 같은 비밀값은 넣지 않는다.
 5. project canon, shared runtime projection 의 정본 판단, 장기 정본 문서는 private state repo 에 두지 않는다.
@@ -49,7 +49,7 @@
 ## 권장 private repo 트리
 
 ```text
-Soulforge-private-state/
+private-state/
 ├── guild_hall/
 │   └── state/
 │       └── gateway/
@@ -71,27 +71,27 @@ Soulforge-private-state/
 
 ## 초기 Git 설정 예시
 
-private state repo 는 별도로 만든다.
+private state repo 는 Soulforge root 아래에 만든다.
 
 ```bash
-cd ..
-git clone <private-state-repo-url> Soulforge-private-state
-cd Soulforge-private-state
-cp ../Soulforge/docs/architecture/workspace/examples/private_state_repo/gitignore.example .gitignore
+cd /path/to/Soulforge
+git clone <private-state-repo-url> private-state
+cd private-state
+cp ../docs/architecture/workspace/examples/private_state_repo/gitignore.example .gitignore
 git status
 ```
 
 ## 복원 예시
 
-public repo 를 clone 한 뒤, 필요한 기록만 local state 로 복원한다.
+public repo 를 clone 한 뒤, 필요한 기록만 nested `private-state/` 에서 local state 로 복원한다.
 
 ```bash
 cd /path/to/Soulforge
-rsync -a ../Soulforge-private-state/guild_hall/state/gateway/intake_inbox/ guild_hall/state/gateway/intake_inbox/
-rsync -a ../Soulforge-private-state/guild_hall/state/gateway/log/monster_events/ guild_hall/state/gateway/log/monster_events/
-rsync -a ../Soulforge-private-state/guild_hall/state/gateway/mailbox/outbound/ guild_hall/state/gateway/mailbox/outbound/
-rsync -a ../Soulforge-private-state/guild_hall/state/gateway/log/mail_send/ guild_hall/state/gateway/log/mail_send/
-rsync -a ../Soulforge-private-state/_workspaces/ _workspaces/
+rsync -a private-state/guild_hall/state/gateway/intake_inbox/ guild_hall/state/gateway/intake_inbox/
+rsync -a private-state/guild_hall/state/gateway/log/monster_events/ guild_hall/state/gateway/log/monster_events/
+rsync -a private-state/guild_hall/state/gateway/mailbox/outbound/ guild_hall/state/gateway/mailbox/outbound/
+rsync -a private-state/guild_hall/state/gateway/log/mail_send/ guild_hall/state/gateway/log/mail_send/
+rsync -a private-state/_workspaces/ _workspaces/
 ```
 
 ## 운영 규칙

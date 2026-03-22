@@ -3,14 +3,14 @@
 ## 목적
 
 - 이 문서는 Soulforge clone 이후 어떤 사람이 어떤 범위까지 설치하고 복원해야 하는지 프로필 기준으로 잠근다.
-- 기본 clone 은 public `Soulforge` 만 받게 하고, owner 만 명시적으로 private state repo 를 추가로 받게 한다.
+- 기본 clone 은 public `Soulforge` 만 받게 하고, owner 만 명시적으로 Soulforge root 아래 `private-state/` repo 를 추가로 받게 한다.
 - 다른 PC 에서 AI 에게 bootstrap 을 맡길 때도 같은 프로필 규칙을 그대로 따르게 한다.
 
 ## Chapter 1. 기본 원칙
 
 1. 프로필이 명시되지 않으면 기본값은 `public-only` 다.
 2. `public-only` 프로필은 public `Soulforge` repo 만 clone 한다.
-3. `owner-with-state` 프로필만 private state repo 를 추가 clone 하고 선택 기록을 복원한다.
+3. `owner-with-state` 프로필만 Soulforge root 아래 `private-state/` repo 를 추가 clone 하고 선택 기록을 복원한다.
 4. private state repo 접근은 owner 의 명시적 지시가 있을 때만 수행한다.
 5. 어떤 프로필이든 자격증명과 `.env` 는 각 PC 에서 다시 만든다.
 
@@ -33,7 +33,7 @@
 - 대상: owner 본인, 실제 업무 기록과 monster/mail history 까지 이어서 봐야 하는 PC
 - clone 대상:
   - public `Soulforge`
-  - private `Soulforge-private-state`
+  - nested `private-state/`
 - 추가 작업:
   - private state repo 에서 허용된 기록 subset 만 복원
   - local env 재생성
@@ -58,7 +58,7 @@ clone:
 - Soulforge
 
 skip:
-- Soulforge-private-state
+- private-state/
 - private runtime restore
 ```
 
@@ -67,7 +67,7 @@ skip:
 ```text
 clone:
 - Soulforge
-- Soulforge-private-state
+- private-state/
 
 restore:
 - PRIVATE_STATE_REPO_V0 기준 허용 subset 만
@@ -89,7 +89,7 @@ AI 에게 아래 뜻으로 지시한다.
 
 AI 에게 아래 뜻으로 지시한다.
 
-- public `Soulforge` 와 private state repo 둘 다 다룬다.
+- public `Soulforge` 와 nested `private-state/` repo 둘 다 다룬다.
 - [`PRIVATE_STATE_REPO_V0.md`](../workspace/PRIVATE_STATE_REPO_V0.md) 기준 허용 subset 만 복원한다.
 - `.env`, token, cookie, session 은 복원하지 않고 각 PC 에서 다시 만든다.
 - 먼저 `npm run guild-hall:doctor -- --profile owner-with-state` 를 수행하고, private repo clone 뒤에는 `npm run guild-hall:doctor -- --profile owner-with-state --remote`, local env 가 채워진 뒤에만 `npm run guild-hall:doctor -- --profile owner-with-state --live` 를 수행한다.
@@ -106,7 +106,7 @@ AI 에게 아래 뜻으로 지시한다.
 ### 5.2 `owner-with-state` 완료 기준
 
 - public repo clone 완료
-- private state repo clone 완료
+- `private-state/` clone 완료
 - 허용 subset restore 완료
 - local env 재생성 완료
 - `npm run guild-hall:doctor -- --profile owner-with-state` 통과
