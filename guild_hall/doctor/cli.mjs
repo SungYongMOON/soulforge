@@ -422,8 +422,35 @@ main().catch((error) => {
   const detail = error instanceof Error ? error.message : String(error);
   const payload = {
     schema_version: doctorSchemaVersion,
+    doctor_version: "v0",
+    checklist_version: "unknown",
     mode: args.live ? "safe+live" : "safe",
+    generated_at: new Date().toISOString(),
+    repo_root: repoRoot,
     ready: false,
+    summary: {
+      required_passed: 0,
+      required_total: 0,
+      safe_smokes_passed: 0,
+      safe_smokes_total: 0,
+      live_smokes_passed: 0,
+      live_smokes_total: 0,
+    },
+    status_file: relativeToRepo(repoRoot, statusFilePath),
+    checklist_file: relativeToRepo(repoRoot, checklistPath),
+    results: [
+      {
+        id: "fatal_internal_error",
+        label: "bootstrap doctor fatal error",
+        category: "doctor_fatal",
+        required: true,
+        status: "failed",
+        detail,
+      },
+    ],
+    next_steps: [
+      "doctor fatal 원인을 확인하고 bootstrap checklist/경로 구성을 다시 점검한다.",
+    ],
     fatal: true,
     detail,
   };

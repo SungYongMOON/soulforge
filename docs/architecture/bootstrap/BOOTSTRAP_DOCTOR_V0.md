@@ -79,6 +79,8 @@ top-level:
 - `checklist_file`
 - `results`
 - `next_steps`
+- optional `fatal`
+- optional `detail`
 
 result item:
 
@@ -99,6 +101,13 @@ result item:
 - `failed`
 - `blocked`
 - `skipped`
+
+fatal path 도 같은 top-level shape 를 유지한다.
+
+- `ready=false`
+- `fatal=true`
+- `results` 에 `fatal_internal_error` 1건을 넣는다.
+- `detail` 은 fatal cause 원문을 담는다.
 
 ## 기본 원칙
 
