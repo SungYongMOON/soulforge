@@ -1,8 +1,13 @@
 {
   "version": "v0",
   "checklist_version": "bootstrap.checklist.v0",
+  "profile_defaults": {
+    "default": "public-only",
+    "supported": ["public-only", "owner-with-state"]
+  },
   "required_tools": [
     { "id": "git", "label": "Git", "command": ["git", "--version"] },
+    { "id": "gh", "label": "GitHub CLI", "command": ["gh", "--version"] },
     { "id": "node", "label": "Node.js", "command": ["node", "--version"] },
     { "id": "npm", "label": "npm", "command": ["npm", "--version"] },
     { "id": "python3", "label": "Python 3", "command": ["python3", "--version"] },
@@ -53,6 +58,48 @@
       "note": "optional sibling private repo"
     }
   ],
+  "profile_local_paths": [
+    {
+      "id": "private_state_repo_required",
+      "label": "private state repo",
+      "path": "../Soulforge-private-state/.git",
+      "profiles": ["owner-with-state"],
+      "required": true,
+      "note": "owner profile requires sibling private repo"
+    },
+    {
+      "id": "private_state_gateway_intake_inbox",
+      "label": "private state intake inbox",
+      "path": "../Soulforge-private-state/guild_hall/state/gateway/intake_inbox",
+      "profiles": ["owner-with-state"],
+      "required": false,
+      "note": "optional continuity data"
+    },
+    {
+      "id": "private_state_gateway_monster_events",
+      "label": "private state monster events",
+      "path": "../Soulforge-private-state/guild_hall/state/gateway/log/monster_events",
+      "profiles": ["owner-with-state"],
+      "required": false,
+      "note": "optional continuity data"
+    },
+    {
+      "id": "private_state_gateway_outbound",
+      "label": "private state outbound mail",
+      "path": "../Soulforge-private-state/guild_hall/state/gateway/mailbox/outbound",
+      "profiles": ["owner-with-state"],
+      "required": false,
+      "note": "optional continuity data"
+    },
+    {
+      "id": "private_state_workspace_root",
+      "label": "private state workspace root",
+      "path": "../Soulforge-private-state/_workspaces",
+      "profiles": ["owner-with-state"],
+      "required": false,
+      "note": "optional continuity data"
+    }
+  ],
   "safe_smokes": [
     {
       "id": "gateway_cli_syntax",
@@ -92,6 +139,44 @@
       "id": "telegram_live",
       "label": "Telegram live auth",
       "command": "python3 guild_hall/doctor/live_checks.py"
+    }
+  ],
+  "remote_checks": [
+    {
+      "id": "gh_auth_status",
+      "label": "GitHub CLI auth",
+      "type": "gh_auth",
+      "profiles": ["public-only", "owner-with-state"]
+    },
+    {
+      "id": "git_public_origin",
+      "label": "public repo origin remote",
+      "type": "git_origin",
+      "target": "public",
+      "profiles": ["public-only", "owner-with-state"]
+    },
+    {
+      "id": "git_public_sync",
+      "label": "public repo remote sync",
+      "type": "git_sync",
+      "target": "public",
+      "branch": "main",
+      "profiles": ["public-only", "owner-with-state"]
+    },
+    {
+      "id": "git_private_origin",
+      "label": "private state repo origin remote",
+      "type": "git_origin",
+      "target": "private",
+      "profiles": ["owner-with-state"]
+    },
+    {
+      "id": "git_private_sync",
+      "label": "private state repo remote sync",
+      "type": "git_sync",
+      "target": "private",
+      "branch": "main",
+      "profiles": ["owner-with-state"]
     }
   ],
   "live_followups": [

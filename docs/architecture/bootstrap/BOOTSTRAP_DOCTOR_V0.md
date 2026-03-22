@@ -15,6 +15,12 @@
 npm run guild-hall:doctor
 ```
 
+owner profile readiness 를 보려면:
+
+```bash
+npm run guild-hall:doctor -- --profile owner-with-state
+```
+
 JSON 결과가 필요하면:
 
 ```bash
@@ -27,10 +33,17 @@ npm run guild-hall:doctor -- --json
 npm run guild-hall:doctor -- --live
 ```
 
+GitHub auth / remote sync / 실제 최신 상태 점검이 필요하면:
+
+```bash
+npm run guild-hall:doctor -- --remote
+```
+
 ## 점검 범위
 
 - 필수 도구 존재 여부
   - `git`
+  - `gh`
   - `node`
   - `npm`
   - `python3`
@@ -45,10 +58,18 @@ npm run guild-hall:doctor -- --live
 - optional local env 존재 여부
   - `mail_send.env`
   - sender runner 가 실제 생기기 전까지는 future-ready slot 로만 본다
+- profile 기반 local path 여부
+  - 기본 프로필은 `public-only`
+  - `owner-with-state` 는 sibling private state repo 와 continuity data path 를 추가로 본다
 - safe smoke test
   - `node --check guild_hall/gateway/cli.mjs`
   - `node guild_hall/town_crier/cli.mjs status`
   - `python3 -m py_compile ...`
+- remote check
+  - `gh auth status`
+  - public repo `origin` remote 존재 여부
+  - public repo `origin/main` 대비 최신 상태
+  - `owner-with-state` 프로필이면 private state repo remote 와 최신 상태도 본다
 - live smoke test
   - Hiworks POP3 로그인 확인
   - Hiworks SMTP 로그인 확인
@@ -71,6 +92,7 @@ top-level:
 - `doctor_version`
 - `checklist_version`
 - `mode`
+- `profile`
 - `generated_at`
 - `repo_root`
 - `ready`
@@ -90,6 +112,7 @@ result item:
 - `required`
 - `status`
 - `detail`
+- optional `fix_hint`
 - optional `path`
 - optional `command`
 - optional `template`
@@ -102,6 +125,19 @@ result item:
 - `blocked`
 - `skipped`
 
+summary 는 아래 숫자를 포함한다.
+
+- `required_passed`
+- `required_total`
+- `profile_checks_passed`
+- `profile_checks_total`
+- `safe_smokes_passed`
+- `safe_smokes_total`
+- `remote_checks_passed`
+- `remote_checks_total`
+- `live_smokes_passed`
+- `live_smokes_total`
+
 fatal path 도 같은 top-level shape 를 유지한다.
 
 - `ready=false`
@@ -109,12 +145,20 @@ fatal path 도 같은 top-level shape 를 유지한다.
 - `results` 에 `fatal_internal_error` 1건을 넣는다.
 - `detail` 은 fatal cause 원문을 담는다.
 
+doctor 는 missing/failed/blocked result 에 대해 가능하면 item-level `fix_hint` 를 같이 제공한다.
+
+- `fix_hint` 는 자동 실행이 아니라 다음 조치 가이드다.
+- 사람과 AI 는 `results[].fix_hint` 를 우선 읽고 복구 순서를 정한다.
+
 ## 기본 원칙
 
 1. doctor 기본값은 safe local check 만 수행한다.
-2. `--live` 는 외부 인증/연결만 수행하고, 메일/메시지 실제 발송은 하지 않는다.
-3. live mail fetch 나 Telegram send 는 doctor 기본 범위 밖이다.
-4. bootstrap readiness 와 실제 업무 실행은 분리한다.
+2. doctor 프로필 기본값은 `public-only` 다.
+3. `--profile owner-with-state` 는 private state repo 와 continuity data path 를 추가로 본다.
+4. `--remote` 는 GitHub auth, remote 연결, public/private repo 최신 상태를 본다.
+5. `--live` 는 외부 인증/연결만 수행하고, 메일/메시지 실제 발송은 하지 않는다.
+6. live mail fetch 나 Telegram send 는 doctor 기본 범위 밖이다.
+7. bootstrap readiness 와 실제 업무 실행은 분리한다.
 
 ## clone 감지 원칙
 
@@ -125,6 +169,8 @@ fatal path 도 같은 top-level shape 를 유지한다.
 ## 언제 어떤 모드를 쓰는가
 
 - clone 직후: `npm run guild-hall:doctor`
+- owner PC 에서 private state clone 직후: `npm run guild-hall:doctor -- --profile owner-with-state`
+- GitHub 최신 상태를 점검할 때: `npm run guild-hall:doctor -- --remote`
 - env 와 policy 를 채운 직후: `npm run guild-hall:doctor`
 - 실제 외부 연결을 붙이기 직전: `npm run guild-hall:doctor -- --live`
 - 운영 중 이상 징후가 있을 때: safe 먼저, 그다음 필요할 때만 live
@@ -133,6 +179,7 @@ fatal path 도 같은 top-level shape 를 유지한다.
 
 - [`BOOTSTRAP_CHECKLIST_V0.json`](BOOTSTRAP_CHECKLIST_V0.json)
 - [`../workspace/INSTALLATION_MANUAL_V0.md`](../workspace/INSTALLATION_MANUAL_V0.md)
+- [`BOOTSTRAP_PROFILES_V0.md`](BOOTSTRAP_PROFILES_V0.md)
 - [`../workspace/MULTI_PC_DEVELOPMENT_V0.md`](../workspace/MULTI_PC_DEVELOPMENT_V0.md)
 - [`../workspace/PRIVATE_STATE_REPO_V0.md`](../workspace/PRIVATE_STATE_REPO_V0.md)
 - [`../../../guild_hall/doctor/README.md`](../../../guild_hall/doctor/README.md)

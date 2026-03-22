@@ -10,6 +10,14 @@
 - Soulforge 의 정본 코드와 문서는 GitHub 로 동기화하고, 실제 `guild_hall/state/**` 와 `_workspaces/<project_code>/**` runtime 상태는 각 PC 의 local-only data 로 유지한다.
 - 필요한 경우 선택된 파생 기록만 별도 private state repo 에 mirror 할 수 있다.
 
+## 프로필 기준
+
+- 프로필이 명시되지 않으면 다른 PC clone 기본값은 `public-only` 다.
+- `public-only` 는 public `Soulforge` 만 clone 한다.
+- `owner-with-state` 만 private state repo 를 sibling 경로에 clone 하고 허용 subset 을 복원한다.
+- 팀원/공유 대상에게는 private state repo URL 을 주지 않는다.
+- AI 에게 bootstrap 을 맡길 때도 먼저 어떤 프로필인지 명시한다.
+
 ## Git 으로 따라오는 것
 
 - `.mission/`
@@ -32,20 +40,22 @@
 
 ## 다른 PC 첫 세팅
 
-1. 저장소를 clone 한다.
-2. 선택 기록을 이어서 쓸 필요가 있으면 별도 private state repo 를 sibling 경로에 clone 한다.
-3. repo root 에서 `npm install` 을 1회 실행한다.
-4. UI 를 만질 예정이면 `npm run ui:workspace:install` 을 1회 실행한다.
-5. 필요한 Soulforge skill 을 local Codex 에 sync 한다.
-6. 필요하면 NotebookLM MCP 를 [`NOTEBOOKLM_MCP_SETUP_V0.md`](../../../docs/architecture/workspace/NOTEBOOKLM_MCP_SETUP_V0.md) 기준으로 대상 PC 에 재설치한다.
-7. 실제 runtime 을 만들기 전에 [`examples/guild_hall/state/gateway/README.md`](../../../docs/architecture/workspace/examples/guild_hall/state/gateway/README.md) 를 먼저 읽어 fetch/intake 흐름을 확인한다.
-8. `guild_hall/gateway/mail_fetch/email_fetch.env.example` 를 참고해 local env file 을 만든다.
-9. outbound mail 을 바로 쓸 계획이 있으면 `guild_hall/gateway/mail_send/mail_send.env.example` 를 참고해 local outbound mail env file 을 만든다.
-10. `docs/architecture/workspace/examples/guild_hall/state/gateway/bindings/notify_policy.yaml` 를 local `guild_hall/state/gateway/bindings/notify_policy.yaml` 로 복사하거나, `guild-hall:notify:gateway` 명령으로 첫 policy file 을 만든다.
-11. private state repo 를 쓴다면 [`PRIVATE_STATE_REPO_V0.md`](../../../docs/architecture/workspace/PRIVATE_STATE_REPO_V0.md) 기준으로 선택 기록만 먼저 복원한다.
-12. `npm run guild-hall:doctor` 로 bootstrap readiness 를 먼저 확인한다.
-13. 첫 `guild-hall:gateway:fetch` 또는 `guild-hall:gateway:intake` 실행 시 `guild_hall/state/gateway/**` local runtime 폴더는 스크립트가 자동으로 만든다.
-14. 실제 프로젝트별 `_workspaces/<project_code>/` 와 폴더 트리는 그 PC 의 현장 구조에 맞춰 따로 만든다.
+1. `git`, `gh`, `node`, `npm`, `python3`, `uv` 가 설치돼 있는지 확인한다.
+2. 필요하면 `gh auth login` 으로 GitHub CLI 인증을 먼저 끝낸다.
+3. 저장소를 clone 한다.
+4. `owner-with-state` 프로필이고 선택 기록을 이어서 쓸 필요가 있으면 별도 private state repo 를 sibling 경로에 clone 한다.
+5. repo root 에서 `npm install` 을 1회 실행한다.
+6. UI 를 만질 예정이면 `npm run ui:workspace:install` 을 1회 실행한다.
+7. 필요한 Soulforge skill 을 local Codex 에 sync 한다.
+8. 필요하면 NotebookLM MCP 를 [`NOTEBOOKLM_MCP_SETUP_V0.md`](../../../docs/architecture/workspace/NOTEBOOKLM_MCP_SETUP_V0.md) 기준으로 대상 PC 에 재설치한다.
+9. 실제 runtime 을 만들기 전에 [`examples/guild_hall/state/gateway/README.md`](../../../docs/architecture/workspace/examples/guild_hall/state/gateway/README.md) 를 먼저 읽어 fetch/intake 흐름을 확인한다.
+10. `guild_hall/gateway/mail_fetch/email_fetch.env.example` 를 참고해 local env file 을 만든다.
+11. outbound mail 을 바로 쓸 계획이 있으면 `guild_hall/gateway/mail_send/mail_send.env.example` 를 참고해 local outbound mail env file 을 만든다.
+12. `docs/architecture/workspace/examples/guild_hall/state/gateway/bindings/notify_policy.yaml` 를 local `guild_hall/state/gateway/bindings/notify_policy.yaml` 로 복사하거나, `guild-hall:notify:gateway` 명령으로 첫 policy file 을 만든다.
+13. `owner-with-state` 프로필이라면 [`PRIVATE_STATE_REPO_V0.md`](../../../docs/architecture/workspace/PRIVATE_STATE_REPO_V0.md) 기준으로 선택 기록만 먼저 복원한다.
+14. `npm run guild-hall:doctor` 로 bootstrap readiness 를 먼저 확인한다.
+15. 첫 `guild-hall:gateway:fetch` 또는 `guild-hall:gateway:intake` 실행 시 `guild_hall/state/gateway/**` local runtime 폴더는 스크립트가 자동으로 만든다.
+16. 실제 프로젝트별 `_workspaces/<project_code>/` 와 폴더 트리는 그 PC 의 현장 구조에 맞춰 따로 만든다.
 
 ## 다른 PC skill 세팅
 
@@ -77,6 +87,14 @@ skill_bindings:
 3. PC B 에서 같은 저장소를 `git pull --rebase origin main` 으로 최신화한다.
 4. PC B 의 local `_workspaces/**` 는 그대로 두고, tracked code/doc 만 업데이트한다.
 5. PC B 에서 다시 작업한 뒤 commit/push 한다.
+
+## AI 위임 규칙
+
+- 팀원/공유 PC 에서는 AI 에게 `public-only` 로 bootstrap 하라고 지시한다.
+- owner 개인 PC 에서는 AI 에게 `owner-with-state` 로 bootstrap 하라고 지시한다.
+- AI 는 프로필이 없으면 `public-only` 로 가정해야 한다.
+- AI 는 private state repo clone/restore 를 자동으로 시도하지 않고, owner 프로필과 repo 접근이 명시될 때만 수행한다.
+- AI 는 먼저 `npm run guild-hall:doctor -- --profile <profile>` 를 수행하고, 필요할 때만 `--remote`, local env 가 채워진 뒤에만 `--live` 를 수행한다.
 
 ## 중요한 운영 규칙
 
@@ -132,6 +150,7 @@ npm run guild-hall:gateway:fetch:healthcheck -- --json
 
 - [`README.md`](../../../README.md)
 - [`INSTALLATION_MANUAL_V0.md`](../../../docs/architecture/workspace/INSTALLATION_MANUAL_V0.md)
+- [`../bootstrap/BOOTSTRAP_PROFILES_V0.md`](../../../docs/architecture/bootstrap/BOOTSTRAP_PROFILES_V0.md)
 - [`_workspaces/README.md`](../../../_workspaces/README.md)
 - [`MAIL_INTAKE_REQUEST_V0.md`](../../../docs/architecture/workspace/MAIL_INTAKE_REQUEST_V0.md)
 - [`WORKSPACE_INTAKE_INBOX_V0.md`](../../../docs/architecture/workspace/WORKSPACE_INTAKE_INBOX_V0.md)

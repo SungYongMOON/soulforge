@@ -9,6 +9,12 @@
 
 - public `Soulforge` repo 는 코드/문서/example 을 들고, optional private state repo 는 선택된 `guild_hall/state/**` 와 `_workspaces/**` 파생 기록만 따로 mirror 한다.
 
+## 적용 프로필
+
+- `public-only` 프로필은 이 repo 를 clone 하지 않는다.
+- `owner-with-state` 프로필만 이 repo 를 clone 하고 허용 subset 을 restore 한다.
+- 팀원/공유 대상에게는 이 repo 접근을 열지 않는다.
+
 ## 기본 원칙
 
 1. private state repo 는 `Soulforge/` 작업트리 안에 중첩하지 않는다.
@@ -101,6 +107,7 @@ rsync -a ../Soulforge-private-state/_workspaces/ _workspaces/
 
 - [`MULTI_PC_DEVELOPMENT_V0.md`](MULTI_PC_DEVELOPMENT_V0.md)
 - [`INSTALLATION_MANUAL_V0.md`](INSTALLATION_MANUAL_V0.md)
+- [`../bootstrap/BOOTSTRAP_PROFILES_V0.md`](../bootstrap/BOOTSTRAP_PROFILES_V0.md)
 - [`MAIL_SEND_V0.md`](MAIL_SEND_V0.md)
 - [`WORKSPACE_INTAKE_INBOX_V0.md`](WORKSPACE_INTAKE_INBOX_V0.md)
 - [`examples/private_state_repo/README.md`](examples/private_state_repo/README.md)

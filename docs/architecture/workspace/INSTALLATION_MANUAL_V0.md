@@ -5,6 +5,25 @@
 - 이 문서는 다른 PC 에서 Soulforge 를 처음 설치할 때 필요한 최소 절차를 한 곳에 모은다.
 - clone, local env, skill install, NotebookLM MCP, gateway fetch/intake 까지의 첫 bootstrap 순서를 잠근다.
 
+## Chapter 0. 설치 프로필 선택
+
+먼저 어떤 프로필로 설치할지 고른다.
+
+- `public-only`
+  - 팀원, 리뷰어, 일반 사용자
+  - public `Soulforge` 만 clone 한다
+  - private state repo 는 받지 않는다
+- `owner-with-state`
+  - owner 본인
+  - public `Soulforge` 와 private `Soulforge-private-state` 둘 다 clone 한다
+  - 허용된 기록 subset 만 restore 한다
+- `ai-assisted-bootstrap`
+  - clone 후 사용자가 직접 모든 명령을 치지 않고 AI 에게 bootstrap 을 맡긴다
+  - 이 경우에도 먼저 `public-only` 인지 `owner-with-state` 인지 프로필을 명시한다
+
+프로필이 명시되지 않으면 기본값은 `public-only` 다.
+상세 기준은 [`../bootstrap/BOOTSTRAP_PROFILES_V0.md`](../../../docs/architecture/bootstrap/BOOTSTRAP_PROFILES_V0.md) 를 따른다.
+
 ## 설치 원칙
 
 1. GitHub 는 코드, 문서, example 만 옮긴다.
@@ -13,12 +32,29 @@
 4. NotebookLM 로그인 상태와 Telegram/Gmail/Hiworks 자격증명은 Git 으로 옮기지 않는다.
 5. 필요한 업무 기록만 이어서 가져갈 때는 public repo 대신 별도 private state repo 를 쓴다.
 
-## 1. 저장소 준비
+## Chapter 1. 필수 프로그램
+
+- `git`
+- `gh`
+- `node`
+- `npm`
+- `python3`
+- `uv`
+
+`gh` 는 private state repo 생성/연결, GitHub auth 상태 확인, clone 전후 저장소 작업에 필수로 본다.
+
+## Chapter 2. 저장소 준비
 
 ```bash
 git clone <repo-url>
 cd Soulforge
 npm install
+```
+
+GitHub CLI 인증이 아직 없으면 먼저:
+
+```bash
+gh auth login
 ```
 
 UI 를 만질 예정이면:
@@ -27,14 +63,14 @@ UI 를 만질 예정이면:
 npm run ui:workspace:install
 ```
 
-선택 기록을 이어서 복원할 예정이면 private state repo 는 public repo 밖 sibling 경로에 둔다.
+`owner-with-state` 프로필만 선택 기록 복원을 위해 private state repo 를 public repo 밖 sibling 경로에 둔다.
 
 ```bash
 cd ..
 git clone <private-state-repo-url> Soulforge-private-state
 ```
 
-## 2. Soulforge skill 설치
+## Chapter 3. Soulforge skill 설치
 
 필요한 Codex skill 을 local 에 materialize 한다.
 
@@ -44,7 +80,7 @@ npm run skills:sync -- shield_wall record_stitch skill_check
 
 필요하면 추가 skill 도 같은 방식으로 sync 한다.
 
-## 3. guild_hall local env 생성
+## Chapter 4. guild_hall local env 생성
 
 메일 fetch env:
 
@@ -81,7 +117,7 @@ cp docs/architecture/workspace/examples/guild_hall/state/gateway/bindings/notify
 - Telegram bot token / chat id
 - outbound mail 을 바로 쓸 계획이 있으면 Hiworks SMTP host / username / password
 
-선택된 업무 기록을 이어서 가져갈 경우, 첫 bootstrap 실행 전에 private state repo 에서 필요한 subset 만 복원한다.
+`owner-with-state` 프로필일 때만, 첫 bootstrap 실행 전에 private state repo 에서 필요한 subset 만 복원한다.
 
 ```bash
 rsync -a ../Soulforge-private-state/guild_hall/state/gateway/intake_inbox/ guild_hall/state/gateway/intake_inbox/
@@ -91,7 +127,7 @@ rsync -a ../Soulforge-private-state/guild_hall/state/gateway/log/mail_send/ guil
 rsync -a ../Soulforge-private-state/_workspaces/ _workspaces/
 ```
 
-## 4. NotebookLM MCP 설치
+## Chapter 5. NotebookLM MCP 설치
 
 NotebookLM 은 대상 PC 에서 다시 설치하고 다시 로그인한다.
 
@@ -108,7 +144,7 @@ nlm login
 [NOTEBOOKLM_MCP_SETUP_V0.md](../../../docs/architecture/workspace/NOTEBOOKLM_MCP_SETUP_V0.md)
 를 따른다.
 
-## 5. gateway mailbox bootstrap
+## Chapter 6. gateway mailbox bootstrap
 
 먼저 public-safe sample 을 본다.
 
@@ -139,7 +175,7 @@ npm run guild-hall:town-crier:send -- --text "gateway ready"
 npm run guild-hall:notify:gateway -- --event monster_created --on
 ```
 
-## 6. 설치 후 확인
+## Chapter 7. 설치 후 확인
 
 bootstrap doctor:
 
@@ -165,7 +201,26 @@ npm run guild-hall:doctor -- --live
 - `guild_hall/state/town_crier/`
 - `guild_hall/state/gateway/bindings/notify_policy.yaml`
 
-## 7. 다른 PC 로 옮길 때 주의
+## Chapter 8. AI 에게 bootstrap 맡기기
+
+다른 PC 에서 사용자가 직접 절차를 모두 치지 않을 경우, AI 에게 먼저 설치 프로필을 알려준다.
+
+- 팀원/공유 PC:
+  - `public-only` 프로필로 진행하라고 지시한다.
+  - private state repo 는 clone/restore 하지 말라고 명시한다.
+- owner 개인 PC:
+  - `owner-with-state` 프로필로 진행하라고 지시한다.
+  - private state repo 를 sibling 경로에 clone 하고 [`PRIVATE_STATE_REPO_V0.md`](../../../docs/architecture/workspace/PRIVATE_STATE_REPO_V0.md) 기준 허용 subset 만 restore 하라고 명시한다.
+
+AI 는 아래 순서만 따르게 한다.
+
+1. [`../bootstrap/README.md`](../../../docs/architecture/bootstrap/README.md) 와 [`../bootstrap/BOOTSTRAP_PROFILES_V0.md`](../../../docs/architecture/bootstrap/BOOTSTRAP_PROFILES_V0.md) 를 읽는다.
+2. local env 가 비어 있으면 사용자에게 입력이 필요한 파일만 묻는다.
+3. `npm run guild-hall:doctor -- --profile <profile>` 를 먼저 수행한다.
+4. GitHub 연결과 최신 상태를 볼 때만 `npm run guild-hall:doctor -- --profile <profile> --remote` 를 수행한다.
+5. 자격증명이 채워진 뒤에만 `npm run guild-hall:doctor -- --profile <profile> --live` 를 수행한다.
+
+## Chapter 9. 다른 PC 로 옮길 때 주의
 
 - `guild_hall/state/**` 와 `_workspaces/**` 는 Git 으로 안 따라온다.
 - 기존 PC 의 auth/session 을 새 PC 로 복사하지 않는다.
@@ -176,6 +231,7 @@ npm run guild-hall:doctor -- --live
 - [MULTI_PC_DEVELOPMENT_V0.md](../../../docs/architecture/workspace/MULTI_PC_DEVELOPMENT_V0.md)
 - [PRIVATE_STATE_REPO_V0.md](../../../docs/architecture/workspace/PRIVATE_STATE_REPO_V0.md)
 - [../bootstrap/README.md](../../../docs/architecture/bootstrap/README.md)
+- [../bootstrap/BOOTSTRAP_PROFILES_V0.md](../../../docs/architecture/bootstrap/BOOTSTRAP_PROFILES_V0.md)
 - [../bootstrap/BOOTSTRAP_DOCTOR_V0.md](../../../docs/architecture/bootstrap/BOOTSTRAP_DOCTOR_V0.md)
 - [GATEWAY_MAIL_FETCH_V0.md](../../../docs/architecture/workspace/GATEWAY_MAIL_FETCH_V0.md)
 - [MAIL_SEND_V0.md](../../../docs/architecture/workspace/MAIL_SEND_V0.md)
