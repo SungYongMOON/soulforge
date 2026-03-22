@@ -11,9 +11,10 @@
 1. 프로필이 명시되지 않으면 기본값은 `public-only` 다.
 2. `public-only` 프로필은 public `Soulforge` repo 만 clone 한다.
 3. `owner-with-state` 프로필만 Soulforge root 아래 `private-state/` repo 를 추가 clone 하고 선택 기록을 복원한다.
-4. private state repo 접근은 owner 의 명시적 지시가 있을 때만 수행한다.
-5. 어떤 프로필이든 자격증명과 `.env` 는 각 PC 에서 다시 만든다.
-6. AI 는 secret 파일의 내용을 읽지 않고, 파일 경로와 대상 경로만 안내한다.
+4. 설치 완료 기준에는 GitHub CLI 인증 완료가 포함된다.
+5. private state repo 접근은 owner 의 명시적 지시가 있을 때만 수행한다.
+6. 어떤 프로필이든 자격증명과 `.env` 는 각 PC 에서 다시 만든다.
+7. AI 는 secret 파일의 내용을 읽지 않고, 파일 경로와 대상 경로만 안내한다.
 
 ## Chapter 2. 프로필 정의
 
@@ -28,6 +29,7 @@
   - 코드/문서/예제 확인
   - public-safe 예제 기반 bootstrap
   - doctor safe 체크
+  - GitHub auth 와 public remote 상태 확인
 
 ### 2.2 `owner-with-state`
 
@@ -36,6 +38,7 @@
   - public `Soulforge`
   - nested `private-state/`
 - 추가 작업:
+  - `gh auth status` 확인 후 필요하면 `gh auth login`
   - private state repo 에서 허용된 기록 subset 만 복원
   - local env 재생성
   - 필요하면 doctor safe 후 doctor live 수행
@@ -48,6 +51,7 @@
 - AI 는 [`README.md`](../../../README.md), [`README.md`](README.md), [`BOOTSTRAP_DOCTOR_V0.md`](BOOTSTRAP_DOCTOR_V0.md), [`../workspace/INSTALLATION_MANUAL_V0.md`](../workspace/INSTALLATION_MANUAL_V0.md) 를 읽고 시작한다.
 - 프로필이 `public-only` 인지 `owner-with-state` 인지 명시되지 않으면 AI 는 `public-only` 로 가정한다.
 - AI 는 먼저 `npm run guild-hall:doctor -- --profile <profile>` 를 수행하고, `--remote` 와 `--live` 는 각각 GitHub 연결과 외부 자격증명이 준비된 뒤에만 수행한다.
+- AI 는 `gh auth status` 로 인증 상태를 먼저 확인하고, 로그인 안 되어 있으면 `gh auth login` 을 사용자 본인 계정으로 진행하게 한다.
 - AI 는 owner 의 명시적 허가 없이 private state repo clone/restore 를 시도하지 않는다.
 - AI 는 secret 파일을 열어 값을 읽거나 요약하지 않고, 사용자가 직접 복사/입력할 파일 경로만 알려준다.
 
@@ -104,6 +108,7 @@ AI 에게 아래 뜻으로 지시한다.
 
 - public repo clone 완료
 - 필수 프로그램 설치 완료
+- GitHub CLI 인증 완료
 - local env/example 자리 생성 완료
 - `npm run guild-hall:doctor -- --profile public-only` 통과
 
@@ -111,10 +116,11 @@ AI 에게 아래 뜻으로 지시한다.
 
 - public repo clone 완료
 - `private-state/` clone 완료
+- GitHub CLI 인증 완료
 - 허용 subset restore 완료
 - local env 재생성 완료
 - `npm run guild-hall:doctor -- --profile owner-with-state` 통과
-- 필요 시 `npm run guild-hall:doctor -- --profile owner-with-state --remote` 통과
+- `npm run guild-hall:doctor -- --profile owner-with-state --remote` 통과
 - 필요 시 `npm run guild-hall:doctor -- --profile owner-with-state --live` 통과
 
 ## Chapter 6. 연결 문서

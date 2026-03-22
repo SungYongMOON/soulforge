@@ -36,11 +36,13 @@
 - clone 후 AI 에게 bootstrap 을 맡길 때도 먼저 어떤 프로필인지 말한 뒤 `npm run guild-hall:doctor` 를 canonical entrypoint 로 사용한다.
 - 설치 후 최신 상태 점검과 pull 절차는 [`UPDATE_MANUAL_V0.md`](UPDATE_MANUAL_V0.md) 를 canonical guide 로 사용한다.
 - bootstrap 전 필수 프로그램은 `git`, `gh`, `node`, `npm`, `python3`, `uv` 다.
+- bootstrap 설치 단계에는 `gh auth status` 확인과 필요 시 `gh auth login` 이 포함된다.
 - bootstrap 전 필수 Soulforge skill 은 `shield_wall`, `record_stitch`, `skill_check` 이고, `npm run skills:sync -- shield_wall record_stitch skill_check` 로 먼저 맞춘다.
 - clone 후 첫 readiness 점검은 `npm run guild-hall:doctor` 를 canonical entrypoint 로 쓴다.
 - owner PC 에서 nested `private-state/` repo 까지 포함해 점검할 때는 `npm run guild-hall:doctor -- --profile owner-with-state` 를 쓴다.
 - safe doctor 는 필수 도구, local env, safe smoke test 를 확인하고 `guild_hall/state/doctor/status.json` 에 결과를 남긴다.
 - `npm run guild-hall:doctor -- --remote` 는 GitHub auth, remote 연결, public/private repo 최신 상태를 확인한다.
+- owner 설치 완료 판단에는 `npm run guild-hall:doctor -- --profile owner-with-state --remote` 통과를 포함한다.
 - `npm run guild-hall:doctor -- --live` 는 실제 외부 인증/연결만 확인한다.
 - live doctor 는 POP3/SMTP 로그인과 Telegram bot `getMe` 확인까지만 하고, 메일/메시지를 실제로 보내지 않는다.
 

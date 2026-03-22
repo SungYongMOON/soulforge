@@ -79,7 +79,39 @@ npm run guild-hall:doctor -- --profile owner-with-state --live
 - AI 는 업데이트 후 `skills:sync` 와 `doctor` 를 자동으로 수행한다.
 - AI 는 pull 여부와 before/after ahead/behind 만 짧게 보고한다.
 
-## Chapter 7. 관련 명령
+## Chapter 7. continuity data 동기화
+
+다른 PC 에서 이어서 작업해야 하면, 출발 PC 에서 active continuity data 를 nested `private-state/` 로 먼저 동기화한 뒤 private GitHub 에 push 해야 한다.
+
+```bash
+cd Soulforge
+rsync -a guild_hall/state/gateway/intake_inbox/ private-state/guild_hall/state/gateway/intake_inbox/
+rsync -a guild_hall/state/gateway/log/monster_events/ private-state/guild_hall/state/gateway/log/monster_events/
+rsync -a guild_hall/state/gateway/mailbox/outbound/ private-state/guild_hall/state/gateway/mailbox/outbound/
+rsync -a guild_hall/state/gateway/log/mail_send/ private-state/guild_hall/state/gateway/log/mail_send/
+rsync -a _workspaces/ private-state/_workspaces/
+
+cd private-state
+git add .
+git commit -m "chore: continuity data sync"
+git push origin main
+```
+
+대상 PC 에서는 그다음에만:
+
+```bash
+cd Soulforge/private-state
+git pull --rebase origin main
+
+cd ..
+rsync -a private-state/guild_hall/state/gateway/intake_inbox/ guild_hall/state/gateway/intake_inbox/
+rsync -a private-state/guild_hall/state/gateway/log/monster_events/ guild_hall/state/gateway/log/monster_events/
+rsync -a private-state/guild_hall/state/gateway/mailbox/outbound/ guild_hall/state/gateway/mailbox/outbound/
+rsync -a private-state/guild_hall/state/gateway/log/mail_send/ guild_hall/state/gateway/log/mail_send/
+rsync -a private-state/_workspaces/ _workspaces/
+```
+
+## Chapter 8. 관련 명령
 
 - 상태 확인:
   - `npm run guild-hall:doctor -- --profile <profile> --remote`
@@ -101,4 +133,4 @@ npm run guild-hall:doctor -- --profile owner-with-state --live
 - [`BOOTSTRAP_DOCTOR_V0.md`](BOOTSTRAP_DOCTOR_V0.md)
 - [`../workspace/INSTALLATION_MANUAL_V0.md`](../workspace/INSTALLATION_MANUAL_V0.md)
 - [`../workspace/MULTI_PC_DEVELOPMENT_V0.md`](../workspace/MULTI_PC_DEVELOPMENT_V0.md)
-
+- [`../workspace/PRIVATE_STATE_REPO_V0.md`](../workspace/PRIVATE_STATE_REPO_V0.md)

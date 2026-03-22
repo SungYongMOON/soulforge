@@ -94,6 +94,30 @@ rsync -a private-state/guild_hall/state/gateway/log/mail_send/ guild_hall/state/
 rsync -a private-state/_workspaces/ _workspaces/
 ```
 
+## 현재 PC 에서 private-state 로 동기화 예시
+
+현재 PC 의 active runtime 중 허용 subset 만 nested `private-state/` 로 복사한 뒤, private GitHub 에 commit/push 한다.
+
+```bash
+cd /path/to/Soulforge
+rsync -a guild_hall/state/gateway/intake_inbox/ private-state/guild_hall/state/gateway/intake_inbox/
+rsync -a guild_hall/state/gateway/log/monster_events/ private-state/guild_hall/state/gateway/log/monster_events/
+rsync -a guild_hall/state/gateway/mailbox/outbound/ private-state/guild_hall/state/gateway/mailbox/outbound/
+rsync -a guild_hall/state/gateway/log/mail_send/ private-state/guild_hall/state/gateway/log/mail_send/
+rsync -a _workspaces/ private-state/_workspaces/
+
+cd private-state
+git add .
+git commit -m "chore: continuity data sync"
+git push origin main
+```
+
+주의:
+
+- 위 예시는 allowlist 된 경로만 private repo 에 담는다는 전제를 둔다.
+- `.env`, token, password, cookie, session, raw mailbox dump 는 포함하지 않는다.
+- 다른 PC 에서 이어서 작업하려면, 먼저 이 동기화를 현재 PC 에서 끝낸 뒤 대상 PC 에서 `git pull` 과 restore 를 수행한다.
+
 ## 운영 규칙
 
 - private state repo 는 public repo 대체물이 아니지만, 보호 대상 업무 데이터의 유일한 Git 저장 plane 이다.

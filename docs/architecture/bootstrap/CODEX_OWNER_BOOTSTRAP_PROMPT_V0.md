@@ -37,7 +37,7 @@ Soulforge를 이 PC에 owner-with-state 프로필로 다시 설치해줘.
    - npm
    - python3
    - uv
-3. gh 가 없으면 설치하고, gh auth status 확인 후 필요하면 gh auth login 진행
+3. gh 가 없으면 설치하고, gh auth status 확인 후 로그인 안 되어 있으면 사용자 본인 계정으로 gh auth login 진행
 4. 기존 설치가 있으면 정리하고, public repo Soulforge 를 다시 clone 하거나 기존 repo 를 깨끗한 상태로 맞춰
 5. private repo 가 있으면 Soulforge root 아래 `private-state/` 로 재배치하고, 없으면 Soulforge root 에서 아래처럼 clone
    - `git clone <private-state-repo-url> private-state`

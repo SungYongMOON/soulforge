@@ -44,6 +44,7 @@
 - `uv`
 
 `gh` 는 private state repo 생성/연결, GitHub auth 상태 확인, clone 전후 저장소 작업에 필수로 본다.
+설치 완료 기준에는 `gh` 설치뿐 아니라 `gh auth login` 으로 GitHub 인증을 마친 상태도 포함한다.
 
 ## Chapter 2. 저장소 준비
 
@@ -53,9 +54,10 @@ cd Soulforge
 npm install
 ```
 
-GitHub CLI 인증이 아직 없으면 먼저:
+GitHub CLI 인증은 설치 절차에 포함한다. 먼저 상태를 확인하고, 로그인 안 되어 있으면 사용자 본인 계정으로 직접 인증한다.
 
 ```bash
+gh auth status
 gh auth login
 ```
 
@@ -190,6 +192,12 @@ bootstrap doctor:
 npm run guild-hall:doctor
 ```
 
+owner 설치 완료 기준으로는 GitHub auth 와 remote 연결 상태까지 함께 확인한다.
+
+```bash
+npm run guild-hall:doctor -- --profile owner-with-state --remote
+```
+
 외부 인증/연결 live 점검은 자격증명을 채운 뒤에만 별도로 돌린다.
 
 ```bash
@@ -253,3 +261,4 @@ AI 는 아래 순서만 따르게 한다.
 
 - 설치 대상 PC 는 `git`, `npm`, `python3`, `uv` 를 실행할 수 있다고 본다.
 - 실제 Gmail/Hiworks/Telegram 자격증명은 대상 PC 사용자가 직접 준비한다고 본다.
+- continuity data 를 다른 PC 로 이어서 가져갈 때의 push/pull/sync 절차는 [`../bootstrap/UPDATE_MANUAL_V0.md`](../../../docs/architecture/bootstrap/UPDATE_MANUAL_V0.md) 와 [`PRIVATE_STATE_REPO_V0.md`](../../../docs/architecture/workspace/PRIVATE_STATE_REPO_V0.md) 를 따른다.

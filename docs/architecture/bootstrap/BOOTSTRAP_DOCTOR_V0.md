@@ -166,10 +166,11 @@ doctor 는 missing/failed/blocked result 에 대해 가능하면 item-level `fix
 2. doctor 프로필 기본값은 `public-only` 다.
 3. 기본 Soulforge skill 3개는 bootstrap 필수 항목으로 본다.
 4. `--profile owner-with-state` 는 nested `private-state/` repo 와 continuity data path 를 추가로 본다.
-5. `--remote` 는 GitHub auth, remote 연결, public/private repo 최신 상태를 본다.
-6. `--live` 는 외부 인증/연결만 수행하고, 메일/메시지 실제 발송은 하지 않는다.
-7. live mail fetch 나 Telegram send 는 doctor 기본 범위 밖이다.
-8. bootstrap readiness 와 실제 업무 실행은 분리한다.
+5. 설치 절차에는 GitHub CLI 인증 완료가 포함된다.
+6. `--remote` 는 GitHub auth, remote 연결, public/private repo 최신 상태를 본다.
+7. `--live` 는 외부 인증/연결만 수행하고, 메일/메시지 실제 발송은 하지 않는다.
+8. live mail fetch 나 Telegram send 는 doctor 기본 범위 밖이다.
+9. bootstrap readiness 와 실제 업무 실행은 분리한다.
 
 ## clone 감지 원칙
 
@@ -181,6 +182,8 @@ doctor 는 missing/failed/blocked result 에 대해 가능하면 item-level `fix
 
 - clone 직후: `npm run guild-hall:doctor`
 - owner PC 에서 `private-state/` clone 직후: `npm run guild-hall:doctor -- --profile owner-with-state`
+- GitHub CLI 설치 직후: `gh auth status` 후 필요하면 `gh auth login`
+- owner 설치 완료를 확인할 때: `npm run guild-hall:doctor -- --profile owner-with-state --remote`
 - GitHub 최신 상태를 점검할 때: `npm run guild-hall:doctor -- --remote`
 - env 와 policy 를 채운 직후: `npm run guild-hall:doctor`
 - 실제 외부 연결을 붙이기 직전: `npm run guild-hall:doctor -- --live`
