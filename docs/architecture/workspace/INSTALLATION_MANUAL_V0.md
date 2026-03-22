@@ -33,6 +33,7 @@
 5. NotebookLM 로그인 상태와 Telegram/Gmail/Hiworks 자격증명은 Git 으로 옮기지 않는다.
 6. 필요한 업무 기록만 이어서 가져갈 때는 Soulforge root 아래 nested `private-state/` repo 를 쓴다.
 7. agent 는 secret 파일 내용을 열어 읽지 않고, 원본 파일 경로와 대상 파일 경로만 안내한다.
+8. owner 는 어떤 PC 에서 작업하든 allowlist 된 continuity data 만 nested `private-state/` repo 에 commit/push 한다.
 
 ## Chapter 1. 필수 프로그램
 
@@ -71,6 +72,16 @@ npm run ui:workspace:install
 
 ```bash
 git clone <private-state-repo-url> private-state
+```
+
+이미 `private-state/` 폴더가 있는데 nested Git repo 만 있고 `origin` remote 가 비어 있으면, 다시 만들지 말고 먼저 private remote 를 연결한다.
+
+```bash
+cd private-state
+git remote add origin <private-state-repo-url>
+git fetch origin main
+git switch -C main --track origin/main
+cd ..
 ```
 
 ## Chapter 3. 필수 Soulforge skill 설치

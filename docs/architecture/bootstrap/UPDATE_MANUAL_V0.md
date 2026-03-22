@@ -15,11 +15,13 @@
   - public `Soulforge` repo 만 갱신한다.
 - `owner-with-state`
   - public `Soulforge` 와 nested `private-state/` repo 둘 다 확인한다.
+  - 필요하면 작업한 PC 에서 `private-state/` 로 continuity data 를 sync 한 뒤 push 할 수 있다.
 
 ## Chapter 2. 기본 원칙
 
 1. 업데이트 전에는 먼저 `guild-hall:doctor -- --profile <profile> --remote` 로 최신 상태를 확인한다.
-2. behind 인 repo 만 pull 한다.
+2. private repo 가 local Git repo 만 있고 `origin` remote 가 없으면, pull 전에 먼저 remote 를 연결한다.
+3. behind 인 repo 만 pull 한다.
 3. local env, token, password, cookie, session, credential JSON 은 업데이트 절차에서 읽거나 바꾸지 않는다.
 4. public repo 는 코드/문서/public-safe sample 만 갱신한다.
 5. protected business data 는 `private-state/` repo 에서만 갱신한다.
@@ -58,6 +60,15 @@ npm run skills:sync -- shield_wall record_stitch skill_check
 npm run guild-hall:doctor -- --profile owner-with-state
 ```
 
+`private-state/` 가 이미 nested Git repo 인데 `origin` remote 가 비어 있으면, 먼저 아래처럼 연결한다.
+
+```bash
+cd Soulforge/private-state
+git remote add origin <private-state-repo-url>
+git fetch origin main
+git switch -C main --track origin/main
+```
+
 필요할 때만:
 
 ```bash
@@ -81,7 +92,7 @@ npm run guild-hall:doctor -- --profile owner-with-state --live
 
 ## Chapter 7. continuity data 동기화
 
-다른 PC 에서 이어서 작업해야 하면, 출발 PC 에서 active continuity data 를 nested `private-state/` 로 먼저 동기화한 뒤 private GitHub 에 push 해야 한다.
+다른 PC 에서 이어서 작업해야 하면, 작업을 마친 owner PC 에서 active continuity data 를 nested `private-state/` 로 먼저 동기화한 뒤 private GitHub 에 push 해야 한다.
 
 ```bash
 cd Soulforge
@@ -96,6 +107,8 @@ git add .
 git commit -m "chore: continuity data sync"
 git push origin main
 ```
+
+위 push 는 메인 PC 에서만 가능한 작업이 아니라, `owner-with-state` 조건이 맞고 private repo remote/auth 가 준비된 다른 owner PC 에서도 같은 방식으로 수행할 수 있다.
 
 대상 PC 에서는 그다음에만:
 

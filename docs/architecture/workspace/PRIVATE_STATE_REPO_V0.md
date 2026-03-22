@@ -9,6 +9,19 @@
 
 - public `Soulforge` repo 는 기능 코드/문서/example 을 들고, nested `private-state/` repo 는 보호 대상 업무 데이터와 선택된 운영 기록만 따로 commit/push 한다.
 
+## 저장소 역할
+
+- public repo
+  - owner: public `Soulforge/.git`
+  - 대상: 기능 코드, 구조 문서, public-safe example
+  - GitHub visibility: public
+- private repo
+  - owner: nested `Soulforge/private-state/.git`
+  - 대상: 보호 대상 업무 데이터, 선택된 continuity record
+  - GitHub visibility: private
+
+한 프로젝트 workspace 안에서 두 Git repo 를 함께 운영하지만, push 대상과 내용은 항상 분리한다.
+
 ## 적용 프로필
 
 - `public-only` 프로필은 이 repo 를 clone 하지 않는다.
@@ -81,6 +94,15 @@ cp ../docs/architecture/workspace/examples/private_state_repo/gitignore.example 
 git status
 ```
 
+이미 `private-state/` 가 local Git repo 로 만들어져 있는데 `origin` remote 가 없으면, 다시 clone 하지 말고 아래처럼 remote 를 연결한다.
+
+```bash
+cd /path/to/Soulforge/private-state
+git remote add origin <private-state-repo-url>
+git fetch origin main
+git switch -C main --track origin/main
+```
+
 ## 복원 예시
 
 public repo 를 clone 한 뒤, 필요한 기록만 nested `private-state/` 에서 local state 로 복원한다.
@@ -124,9 +146,22 @@ git push origin main
 - canon 판단과 owner boundary 정본은 계속 public `Soulforge` 계약 문서와 tracked 구조가 owner 다.
 - `guild_hall/state/**` 와 `_workspaces/**` 전체를 무조건 Git 으로 보내지 않는다.
 - 기능 코드/문서/public-safe sample 변경은 public repo 에 commit/push 하고, 업무 데이터 변경은 `private-state/` 에 commit/push 한다.
+- owner 는 다른 PC 에서도 `owner-with-state` 조건이 맞으면 nested `private-state/` 에 commit/push 할 수 있다.
+- 팀원/public-only 프로필은 `private-state/` clone, pull, push 를 수행하지 않는다.
 - clone 대상 PC 에서는 자격증명과 local env 를 먼저 재생성하고, 그다음 선택 기록만 복원한다.
 - outbound mail 기록은 `mailbox/outbound/**` snapshot 과 `log/mail_send/**` append-only log 를 같이 본다.
 - monster 관련 기록은 `gateway` staging 과 project-side `monsters/`, `battle_log/`, `morning_report/` 가 같은 흐름으로 읽혀야 한다.
+
+## 다른 PC 에서 private-state push 하는 조건
+
+다른 owner PC 에서도 아래 조건이 맞으면 nested `private-state/` 에 push 할 수 있다.
+
+1. `gh auth login` 으로 owner 접근 권한이 있는 GitHub 계정 인증이 완료돼 있다.
+2. `private-state/` 가 실제 private GitHub repo 와 `origin` 으로 연결돼 있다.
+3. active workspace 에서 allowlist 된 continuity data 만 `private-state/` 로 동기화한다.
+4. `.env`, token, password, cookie, session, raw mailbox dump 는 여전히 push 하지 않는다.
+
+즉, 어떤 PC 에서 작업했는지가 아니라 `owner-with-state` 조건과 allowlist 경계를 지키는지가 기준이다.
 
 ## 관련 경로
 

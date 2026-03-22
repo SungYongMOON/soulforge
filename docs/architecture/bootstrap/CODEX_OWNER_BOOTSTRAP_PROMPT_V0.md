@@ -39,20 +39,22 @@ Soulforge를 이 PC에 owner-with-state 프로필로 다시 설치해줘.
    - uv
 3. gh 가 없으면 설치하고, gh auth status 확인 후 로그인 안 되어 있으면 사용자 본인 계정으로 gh auth login 진행
 4. 기존 설치가 있으면 정리하고, public repo Soulforge 를 다시 clone 하거나 기존 repo 를 깨끗한 상태로 맞춰
-5. private repo 가 있으면 Soulforge root 아래 `private-state/` 로 재배치하고, 없으면 Soulforge root 에서 아래처럼 clone
+5. private repo 가 있으면 Soulforge root 아래 `private-state/` 로 재배치하고, nested Git repo 인데 `origin` remote 가 비어 있으면 private remote 를 먼저 연결해
+   - `cd private-state && git remote add origin <private-state-repo-url> && git fetch origin main && git switch -C main --track origin/main`
+6. private repo 가 없으면 Soulforge root 에서 아래처럼 clone
    - `git clone <private-state-repo-url> private-state`
-6. public repo 에서 `npm install` 실행
-7. 필수 Soulforge skill 3개를 sync
+7. public repo 에서 `npm install` 실행
+8. 필수 Soulforge skill 3개를 sync
    - `npm run skills:sync -- shield_wall record_stitch skill_check`
-8. owner-with-state 기준으로 doctor safe 실행
+9. owner-with-state 기준으로 doctor safe 실행
    - `npm run guild-hall:doctor -- --profile owner-with-state`
-9. GitHub/remote 상태 확인
+10. GitHub/remote 상태 확인
    - `npm run guild-hall:doctor -- --profile owner-with-state --remote`
-10. 필요한 local env 파일이 없으면 example 에서 복사해 자리만 만들어
-11. 내가 실제 값을 넣어야 하는 파일 목록과, 내가 직접 열어 복사해야 하는 원본 파일 경로만 따로 알려줘
-12. local env 를 내가 채운 뒤 live doctor 실행
+11. 필요한 local env 파일이 없으면 example 에서 복사해 자리만 만들어
+12. 내가 실제 값을 넣어야 하는 파일 목록과, 내가 직접 열어 복사해야 하는 원본 파일 경로만 따로 알려줘
+13. local env 를 내가 채운 뒤 live doctor 실행
    - `npm run guild-hall:doctor -- --profile owner-with-state --live`
-13. 끝나면 아래를 짧게 보고해
+14. 끝나면 아래를 짧게 보고해
    - public repo 경로
    - private repo 경로
    - 기존 설치 정리 여부
