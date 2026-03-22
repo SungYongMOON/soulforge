@@ -13,6 +13,7 @@
 3. `owner-with-state` 프로필만 Soulforge root 아래 `private-state/` repo 를 추가 clone 하고 선택 기록을 복원한다.
 4. private state repo 접근은 owner 의 명시적 지시가 있을 때만 수행한다.
 5. 어떤 프로필이든 자격증명과 `.env` 는 각 PC 에서 다시 만든다.
+6. AI 는 secret 파일의 내용을 읽지 않고, 파일 경로와 대상 경로만 안내한다.
 
 ## Chapter 2. 프로필 정의
 
@@ -48,6 +49,7 @@
 - 프로필이 `public-only` 인지 `owner-with-state` 인지 명시되지 않으면 AI 는 `public-only` 로 가정한다.
 - AI 는 먼저 `npm run guild-hall:doctor -- --profile <profile>` 를 수행하고, `--remote` 와 `--live` 는 각각 GitHub 연결과 외부 자격증명이 준비된 뒤에만 수행한다.
 - AI 는 owner 의 명시적 허가 없이 private state repo clone/restore 를 시도하지 않는다.
+- AI 는 secret 파일을 열어 값을 읽거나 요약하지 않고, 사용자가 직접 복사/입력할 파일 경로만 알려준다.
 
 ## Chapter 3. clone 범위
 
@@ -82,6 +84,7 @@ AI 에게 아래 뜻으로 지시한다.
 - public `Soulforge` 만 기준으로 bootstrap 한다.
 - private state repo 는 받지 않는다.
 - local env 예시는 복사하되 실제 값이 필요한 파일만 사용자에게 요청한다.
+- secret 값은 agent 가 읽지 않고, 사용자가 직접 원본 파일을 열어 복사하도록 안내한다.
 - `npm run guild-hall:doctor -- --profile public-only` 를 먼저 수행한다.
 - 필요하면 public-safe 예제로 `fetch/intake` smoke 만 확인한다.
 
@@ -92,6 +95,7 @@ AI 에게 아래 뜻으로 지시한다.
 - public `Soulforge` 와 nested `private-state/` repo 둘 다 다룬다.
 - [`PRIVATE_STATE_REPO_V0.md`](../workspace/PRIVATE_STATE_REPO_V0.md) 기준 허용 subset 만 복원한다.
 - `.env`, token, cookie, session 은 복원하지 않고 각 PC 에서 다시 만든다.
+- secret 파일 내용은 agent 가 읽지 않고, 사용자가 직접 복사/입력한다.
 - 먼저 `npm run guild-hall:doctor -- --profile owner-with-state` 를 수행하고, private repo clone 뒤에는 `npm run guild-hall:doctor -- --profile owner-with-state --remote`, local env 가 채워진 뒤에만 `npm run guild-hall:doctor -- --profile owner-with-state --live` 를 수행한다.
 
 ## Chapter 5. 완료 기준

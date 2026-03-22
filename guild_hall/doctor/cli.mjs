@@ -91,18 +91,22 @@ async function runDoctor(checklist, options = {}) {
     results.push(result);
   }
 
-  for (const skillName of checklist.optional_skills ?? []) {
+  for (const skillName of checklist.required_skills ?? []) {
     const skillPath = path.join(resolveCodexHome(), "skills", skillName, "SKILL.md");
     const exists = await pathExists(skillPath);
-    results.push(withFixHint({
+    const result = withFixHint({
       id: `skill_${skillName}`,
       label: skillName,
-      category: "optional_skill",
-      required: false,
+      category: "required_skill",
+      required: true,
       status: exists ? "ok" : "missing",
       path: relativeToRepoOrAbsolute(skillPath),
       detail: exists ? "installed" : "missing",
-    }, { item: { id: `skill_${skillName}` } }));
+    }, { item: { id: `skill_${skillName}` } });
+    results.push(result);
+    if (!exists) {
+      nextSteps.push(result.fix_hint ?? `필수 Soulforge skill 설치: ${skillName}`);
+    }
   }
 
   for (const item of checklist.required_local_files ?? []) {
@@ -672,6 +676,12 @@ function buildFixHint(result, context = {}) {
       return "uv 를 설치한 뒤 `uv --version` 으로 다시 확인한다. macOS 예시: `brew install uv`";
     case "nlm":
       return "NotebookLM 기능이 필요할 때만 `uv tool install --force notebooklm-mcp-cli` 를 실행한다.";
+    case "skill_soulforge-shield-wall":
+      return "기본 Soulforge skill 을 설치한다. 예: `npm run skills:sync -- shield_wall`";
+    case "skill_soulforge-record-stitch":
+      return "기본 Soulforge skill 을 설치한다. 예: `npm run skills:sync -- record_stitch`";
+    case "skill_soulforge-skill-check":
+      return "기본 Soulforge skill 을 설치한다. 예: `npm run skills:sync -- skill_check`";
     case "email_fetch_env":
     case "telegram_notify_env":
     case "gateway_notify_policy":

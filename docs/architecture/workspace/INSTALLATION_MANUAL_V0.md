@@ -32,6 +32,7 @@
 4. 인증 정보와 `.env` 는 다른 PC 에서 다시 만든다.
 5. NotebookLM 로그인 상태와 Telegram/Gmail/Hiworks 자격증명은 Git 으로 옮기지 않는다.
 6. 필요한 업무 기록만 이어서 가져갈 때는 Soulforge root 아래 nested `private-state/` repo 를 쓴다.
+7. agent 는 secret 파일 내용을 열어 읽지 않고, 원본 파일 경로와 대상 파일 경로만 안내한다.
 
 ## Chapter 1. 필수 프로그램
 
@@ -70,15 +71,15 @@ npm run ui:workspace:install
 git clone <private-state-repo-url> private-state
 ```
 
-## Chapter 3. Soulforge skill 설치
+## Chapter 3. 필수 Soulforge skill 설치
 
-필요한 Codex skill 을 local 에 materialize 한다.
+기본 Codex skill 3개는 bootstrap 필수다. 먼저 local 에 materialize 한다.
 
 ```bash
 npm run skills:sync -- shield_wall record_stitch skill_check
 ```
 
-필요하면 추가 skill 도 같은 방식으로 sync 한다.
+`guild-hall:doctor` 는 위 3개가 없으면 readiness fail 로 본다. 필요하면 추가 skill 도 같은 방식으로 sync 한다.
 
 ## Chapter 4. guild_hall local env 생성
 
@@ -116,6 +117,12 @@ cp docs/architecture/workspace/examples/guild_hall/state/gateway/bindings/notify
 - Hiworks POP3 host / username / password
 - Telegram bot token / chat id
 - outbound mail 을 바로 쓸 계획이 있으면 Hiworks SMTP host / username / password
+
+secret 값 이전 원칙:
+
+- agent 는 기존 PC 의 secret 파일 내용을 읽지 않는다.
+- 사용자가 기존 PC 에서 원본 secret 파일을 직접 열어 새 PC 의 대상 파일로 복사한다.
+- agent 는 원본/대상 파일 경로와 실행 순서만 안내한다.
 
 `owner-with-state` 프로필일 때만, 첫 bootstrap 실행 전에 private state repo 에서 필요한 subset 만 복원한다.
 
@@ -216,9 +223,10 @@ AI 는 아래 순서만 따르게 한다.
 
 1. [`../bootstrap/README.md`](../../../docs/architecture/bootstrap/README.md) 와 [`../bootstrap/BOOTSTRAP_PROFILES_V0.md`](../../../docs/architecture/bootstrap/BOOTSTRAP_PROFILES_V0.md) 를 읽는다.
 2. local env 가 비어 있으면 사용자에게 입력이 필요한 파일만 묻는다.
-3. `npm run guild-hall:doctor -- --profile <profile>` 를 먼저 수행한다.
-4. GitHub 연결과 최신 상태를 볼 때만 `npm run guild-hall:doctor -- --profile <profile> --remote` 를 수행한다.
-5. 자격증명이 채워진 뒤에만 `npm run guild-hall:doctor -- --profile <profile> --live` 를 수행한다.
+3. secret 파일 내용은 읽지 않고, 사용자가 직접 열어 복사해야 할 원본/대상 경로만 안내한다.
+4. `npm run guild-hall:doctor -- --profile <profile>` 를 먼저 수행한다.
+5. GitHub 연결과 최신 상태를 볼 때만 `npm run guild-hall:doctor -- --profile <profile> --remote` 를 수행한다.
+6. 자격증명이 채워진 뒤에만 `npm run guild-hall:doctor -- --profile <profile> --live` 를 수행한다.
 
 ## Chapter 9. 다른 PC 로 옮길 때 주의
 

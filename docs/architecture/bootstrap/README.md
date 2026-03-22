@@ -31,6 +31,7 @@
 - owner 본인만 명시적으로 Soulforge root 아래 `private-state/` repo 를 함께 clone 하고 허용된 subset 만 restore 한다.
 - clone 후 AI 에게 bootstrap 을 맡길 때도 먼저 어떤 프로필인지 말한 뒤 `npm run guild-hall:doctor` 를 canonical entrypoint 로 사용한다.
 - bootstrap 전 필수 프로그램은 `git`, `gh`, `node`, `npm`, `python3`, `uv` 다.
+- bootstrap 전 필수 Soulforge skill 은 `shield_wall`, `record_stitch`, `skill_check` 이고, `npm run skills:sync -- shield_wall record_stitch skill_check` 로 먼저 맞춘다.
 - clone 후 첫 readiness 점검은 `npm run guild-hall:doctor` 를 canonical entrypoint 로 쓴다.
 - owner PC 에서 nested `private-state/` repo 까지 포함해 점검할 때는 `npm run guild-hall:doctor -- --profile owner-with-state` 를 쓴다.
 - safe doctor 는 필수 도구, local env, safe smoke test 를 확인하고 `guild_hall/state/doctor/status.json` 에 결과를 남긴다.

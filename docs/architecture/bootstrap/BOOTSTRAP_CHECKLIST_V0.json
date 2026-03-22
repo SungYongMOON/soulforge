@@ -16,7 +16,7 @@
   "optional_tools": [
     { "id": "nlm", "label": "NotebookLM CLI", "command": ["nlm", "--version"] }
   ],
-  "optional_skills": [
+  "required_skills": [
     "soulforge-shield-wall",
     "soulforge-record-stitch",
     "soulforge-skill-check"

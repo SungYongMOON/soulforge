@@ -50,7 +50,10 @@ npm run guild-hall:doctor -- --remote
   - `uv`
 - 선택 도구 존재 여부
   - `nlm`
-- optional Soulforge skill 설치 여부
+- 필수 Soulforge skill 설치 여부
+  - `soulforge-shield-wall`
+  - `soulforge-record-stitch`
+  - `soulforge-skill-check`
 - local env / policy file 존재 여부
   - `email_fetch.env`
   - `telegram_notify.env`
@@ -75,6 +78,13 @@ npm run guild-hall:doctor -- --remote
   - Hiworks SMTP 로그인 확인
   - Telegram `getMe` 확인
   - `--live` 결과는 위 3개를 각각 개별 check 로 보고한다
+
+## secret 파일 비열람 원칙
+
+- doctor 와 bootstrap agent 는 `.env`, token, password, cookie, session, credential JSON 같은 secret 파일의 내용을 열어 읽지 않는다.
+- doctor 는 secret 파일의 존재 여부와 경로만 점검한다.
+- 다른 PC 로 값을 옮길 때는 agent 가 원본 파일 경로와 대상 파일 경로만 안내하고, 사용자가 직접 복사/입력한다.
+- `--live` 는 secret 값이 이미 채워졌다는 전제에서 외부 인증만 점검하며, secret 값을 출력하지 않는다.
 
 ## 출력과 종료 코드
 
@@ -154,11 +164,12 @@ doctor 는 missing/failed/blocked result 에 대해 가능하면 item-level `fix
 
 1. doctor 기본값은 safe local check 만 수행한다.
 2. doctor 프로필 기본값은 `public-only` 다.
-3. `--profile owner-with-state` 는 nested `private-state/` repo 와 continuity data path 를 추가로 본다.
-4. `--remote` 는 GitHub auth, remote 연결, public/private repo 최신 상태를 본다.
-5. `--live` 는 외부 인증/연결만 수행하고, 메일/메시지 실제 발송은 하지 않는다.
-6. live mail fetch 나 Telegram send 는 doctor 기본 범위 밖이다.
-7. bootstrap readiness 와 실제 업무 실행은 분리한다.
+3. 기본 Soulforge skill 3개는 bootstrap 필수 항목으로 본다.
+4. `--profile owner-with-state` 는 nested `private-state/` repo 와 continuity data path 를 추가로 본다.
+5. `--remote` 는 GitHub auth, remote 연결, public/private repo 최신 상태를 본다.
+6. `--live` 는 외부 인증/연결만 수행하고, 메일/메시지 실제 발송은 하지 않는다.
+7. live mail fetch 나 Telegram send 는 doctor 기본 범위 밖이다.
+8. bootstrap readiness 와 실제 업무 실행은 분리한다.
 
 ## clone 감지 원칙
 

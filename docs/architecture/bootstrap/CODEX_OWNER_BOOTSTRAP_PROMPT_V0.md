@@ -19,6 +19,8 @@ Soulforge를 이 PC에 owner-with-state 프로필로 다시 설치해줘.
 - 최종 상태는 Soulforge root 아래 nested `private-state/` 하나만 남기고, 이전 잘못된 배치는 남기지 마
 - private repo 는 public repo 의 nested git 이지만, public Git 에 올라가면 안 되므로 public repo 의 `.gitignore` 가 `private-state/` 를 무시하는지 확인해
 - 가능한 한 직접 진행하고, 비밀값 입력이 필요한 순간에만 나에게 요청해
+- `.env`, token, password, cookie, session, credential JSON 같은 secret 파일은 절대 열어 읽지 마
+- secret 이전이 필요하면 원본 파일 경로와 대상 파일 경로만 알려주고, 내가 직접 열어 복사하게 해
 
 진행 순서:
 1. 아래 문서를 먼저 읽어
@@ -40,18 +42,21 @@ Soulforge를 이 PC에 owner-with-state 프로필로 다시 설치해줘.
 5. private repo 가 있으면 Soulforge root 아래 `private-state/` 로 재배치하고, 없으면 Soulforge root 에서 아래처럼 clone
    - `git clone <private-state-repo-url> private-state`
 6. public repo 에서 `npm install` 실행
-7. owner-with-state 기준으로 doctor safe 실행
+7. 필수 Soulforge skill 3개를 sync
+   - `npm run skills:sync -- shield_wall record_stitch skill_check`
+8. owner-with-state 기준으로 doctor safe 실행
    - `npm run guild-hall:doctor -- --profile owner-with-state`
-8. GitHub/remote 상태 확인
+9. GitHub/remote 상태 확인
    - `npm run guild-hall:doctor -- --profile owner-with-state --remote`
-9. 필요한 local env 파일이 없으면 example 에서 복사해 자리만 만들어
-10. 내가 실제 값을 넣어야 하는 파일 목록만 따로 알려줘
-11. local env 를 내가 채운 뒤 live doctor 실행
+10. 필요한 local env 파일이 없으면 example 에서 복사해 자리만 만들어
+11. 내가 실제 값을 넣어야 하는 파일 목록과, 내가 직접 열어 복사해야 하는 원본 파일 경로만 따로 알려줘
+12. local env 를 내가 채운 뒤 live doctor 실행
    - `npm run guild-hall:doctor -- --profile owner-with-state --live`
-12. 끝나면 아래를 짧게 보고해
+13. 끝나면 아래를 짧게 보고해
    - public repo 경로
    - private repo 경로
    - 기존 설치 정리 여부
+   - skills sync 결과
    - doctor safe 결과
    - doctor remote 결과
    - 내가 직접 채워야 하는 파일 목록
@@ -64,5 +69,6 @@ Soulforge를 이 PC에 owner-with-state 프로필로 다시 설치해줘.
 - 최종 상태는 Soulforge + nested private-state 구조 하나로 정리할 것
 - 기능 코드/문서/public-safe sample 은 public repo 로, 보호 대상 업무 데이터는 private repo 로 저장할 것
 - `.env`, token, password, cookie, session 은 절대 Git 에 올리지 말 것
+- secret 파일 내용은 절대 읽거나 출력하지 말 것
 - doctor 결과의 fix_hint 를 우선 사용해 다음 조치를 결정할 것
 ```
