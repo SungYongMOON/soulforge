@@ -68,6 +68,8 @@ flowchart TD
 - clone 된 PC bootstrap readiness 점검은 `npm run guild-hall:doctor` 를 canonical entrypoint 로 사용한다.
 - cross-project 운영 명령 표면은 `guild-hall:*` 만 canonical 로 사용한다.
 - `guild_hall/state/**` 는 local-only cross-project state 이며 public repo 에 올리지 않는다.
+- 기능 코드, 구조 문서, public-safe sample 변경은 public repo 에 commit/push 한다.
+- 보호 대상 업무 데이터는 Soulforge root 아래 nested `private-state/` repo 에만 commit/push 한다.
 - species canon 은 `species/<species_id>/species.yaml` 와 `heroes:` inline 모델을 사용한다.
 - `_workspaces/<project_code>/` 실제 과제 내용은 public GitHub 에 올리지 않으며, 로컬 환경에서만 materialize 한다.
 - assigned execution plan 과 mission-level 배정 owner 는 `_workspaces/` 나 `.project_agent/` 가 아니라 `.mission/` 이 소유한다.

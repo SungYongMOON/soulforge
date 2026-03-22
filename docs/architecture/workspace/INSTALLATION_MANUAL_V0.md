@@ -26,11 +26,12 @@
 
 ## 설치 원칙
 
-1. GitHub 는 코드, 문서, example 만 옮긴다.
-2. 실제 `guild_hall/state/**` 와 `_workspaces/<project_code>/**` runtime 은 각 PC 에서 새로 materialize 한다.
-3. 인증 정보와 `.env` 는 다른 PC 에서 다시 만든다.
-4. NotebookLM 로그인 상태와 Telegram/Gmail/Hiworks 자격증명은 Git 으로 옮기지 않는다.
-5. 필요한 업무 기록만 이어서 가져갈 때는 Soulforge root 아래 nested `private-state/` repo 를 쓴다.
+1. public GitHub 는 기능 코드, 문서, example 만 옮긴다.
+2. 보호 대상 업무 데이터는 Soulforge root 아래 nested `private-state/` repo 로만 GitHub 에 보존한다.
+3. 실제 `guild_hall/state/**` 와 `_workspaces/<project_code>/**` runtime 은 각 PC 에서 새로 materialize 하거나 `private-state/` 에서 선택 복원한다.
+4. 인증 정보와 `.env` 는 다른 PC 에서 다시 만든다.
+5. NotebookLM 로그인 상태와 Telegram/Gmail/Hiworks 자격증명은 Git 으로 옮기지 않는다.
+6. 필요한 업무 기록만 이어서 가져갈 때는 Soulforge root 아래 nested `private-state/` repo 를 쓴다.
 
 ## Chapter 1. 필수 프로그램
 

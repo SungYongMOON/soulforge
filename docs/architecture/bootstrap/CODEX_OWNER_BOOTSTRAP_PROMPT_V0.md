@@ -1,6 +1,6 @@
 # CODEX_OWNER_BOOTSTRAP_PROMPT_V0
 
-아래 프롬프트를 다른 PC 의 Codex 에 그대로 넣으면, 기존 잘못된 split layout 을 정리하고 Soulforge root 아래 nested `private-state/` 구조로 다시 bootstrap 하도록 지시할 수 있다.
+아래 프롬프트를 다른 PC 의 Codex 에 그대로 넣으면, 기존 설치를 정리하고 Soulforge root 아래 nested `private-state/` 구조로 다시 깨끗하게 bootstrap 하도록 지시할 수 있다.
 
 ```text
 Soulforge를 이 PC에 owner-with-state 프로필로 다시 설치해줘.
@@ -8,15 +8,15 @@ Soulforge를 이 PC에 owner-with-state 프로필로 다시 설치해줘.
 목표:
 - 작업 루트는 하나의 Soulforge 폴더로 유지
 - private 데이터 repo 는 Soulforge root 아래 nested `private-state/` 로 둔다
-- 예전에 잘못 만든 분리 clone 이 있으면 정리한다
+- 기존 잘못된 설치 흔적은 정리하고 새로 깔끔하게 맞춘다
 - public 코드/문서와 private 데이터를 같은 workspace 안에서 함께 보게 한다
 - local env, token, password, cookie, session 은 Git 에서 가져오지 않고 이 PC 에서만 다시 만든다
 
 작업 규칙:
 - 먼저 현재 디스크에 Soulforge 와 private-state 관련 기존 폴더가 있는지 확인해
-- 기존 잘못된 분리 layout 이 있으면, public repo 와 private repo 의 Git 상태를 먼저 확인하고 보고해
-- private repo 가 이미 있다면 내용을 지우지 말고 Soulforge root 아래 `private-state/` 로 이동해
-- public repo 안에 nested `private-state/` 가 이미 있으면 그대로 사용해
+- 기존 설치가 잘못되어 있으면, public repo 와 private repo 의 Git 상태를 먼저 확인하고 보고해
+- 보존해야 할 local env 가 있으면 먼저 알려주고, 그 뒤 잘못된 설치 흔적은 정리해
+- 최종 상태는 Soulforge root 아래 nested `private-state/` 하나만 남기고, 이전 잘못된 배치는 남기지 마
 - private repo 는 public repo 의 nested git 이지만, public Git 에 올라가면 안 되므로 public repo 의 `.gitignore` 가 `private-state/` 를 무시하는지 확인해
 - 가능한 한 직접 진행하고, 비밀값 입력이 필요한 순간에만 나에게 요청해
 
@@ -36,23 +36,22 @@ Soulforge를 이 PC에 owner-with-state 프로필로 다시 설치해줘.
    - python3
    - uv
 3. gh 가 없으면 설치하고, gh auth status 확인 후 필요하면 gh auth login 진행
-4. public repo Soulforge 를 clone 하거나, 이미 있으면 최신 상태를 확인
-5. old sibling private repo 가 있으면 Soulforge root 아래 `private-state/` 로 이동
-6. private repo 가 없으면 Soulforge root 에서 아래처럼 clone
+4. 기존 설치가 있으면 정리하고, public repo Soulforge 를 다시 clone 하거나 기존 repo 를 깨끗한 상태로 맞춰
+5. private repo 가 있으면 Soulforge root 아래 `private-state/` 로 재배치하고, 없으면 Soulforge root 에서 아래처럼 clone
    - `git clone <private-state-repo-url> private-state`
-7. public repo 에서 `npm install` 실행
-8. owner-with-state 기준으로 doctor safe 실행
+6. public repo 에서 `npm install` 실행
+7. owner-with-state 기준으로 doctor safe 실행
    - `npm run guild-hall:doctor -- --profile owner-with-state`
-9. GitHub/remote 상태 확인
+8. GitHub/remote 상태 확인
    - `npm run guild-hall:doctor -- --profile owner-with-state --remote`
-10. 필요한 local env 파일이 없으면 example 에서 복사해 자리만 만들어
-11. 내가 실제 값을 넣어야 하는 파일 목록만 따로 알려줘
-12. local env 를 내가 채운 뒤 live doctor 실행
+9. 필요한 local env 파일이 없으면 example 에서 복사해 자리만 만들어
+10. 내가 실제 값을 넣어야 하는 파일 목록만 따로 알려줘
+11. local env 를 내가 채운 뒤 live doctor 실행
    - `npm run guild-hall:doctor -- --profile owner-with-state --live`
-13. 끝나면 아래를 짧게 보고해
+12. 끝나면 아래를 짧게 보고해
    - public repo 경로
    - private repo 경로
-   - 기존 잘못된 분리 layout 정리 여부
+   - 기존 설치 정리 여부
    - doctor safe 결과
    - doctor remote 결과
    - 내가 직접 채워야 하는 파일 목록
@@ -62,7 +61,8 @@ Soulforge를 이 PC에 owner-with-state 프로필로 다시 설치해줘.
 - 프로필은 owner-with-state 로 고정
 - active workspace 는 Soulforge 하나로 본다
 - private repo 는 Soulforge root 아래 `private-state/` 여야 한다
-- old split layout 을 최종 상태로 남기지 말 것
+- 최종 상태는 Soulforge + nested private-state 구조 하나로 정리할 것
+- 기능 코드/문서/public-safe sample 은 public repo 로, 보호 대상 업무 데이터는 private repo 로 저장할 것
 - `.env`, token, password, cookie, session 은 절대 Git 에 올리지 말 것
 - doctor 결과의 fix_hint 를 우선 사용해 다음 조치를 결정할 것
 ```

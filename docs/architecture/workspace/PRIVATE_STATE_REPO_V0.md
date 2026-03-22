@@ -7,7 +7,7 @@
 
 ## 한 줄 정의
 
-- public `Soulforge` repo 는 코드/문서/example 을 들고, nested `private-state/` repo 는 선택된 `guild_hall/state/**` 와 `_workspaces/**` 파생 기록만 따로 mirror 한다.
+- public `Soulforge` repo 는 기능 코드/문서/example 을 들고, nested `private-state/` repo 는 보호 대상 업무 데이터와 선택된 운영 기록만 따로 commit/push 한다.
 
 ## 적용 프로필
 
@@ -96,9 +96,10 @@ rsync -a private-state/_workspaces/ _workspaces/
 
 ## 운영 규칙
 
-- private state repo 는 public repo 대체물이 아니다.
+- private state repo 는 public repo 대체물이 아니지만, 보호 대상 업무 데이터의 유일한 Git 저장 plane 이다.
 - canon 판단과 owner boundary 정본은 계속 public `Soulforge` 계약 문서와 tracked 구조가 owner 다.
 - `guild_hall/state/**` 와 `_workspaces/**` 전체를 무조건 Git 으로 보내지 않는다.
+- 기능 코드/문서/public-safe sample 변경은 public repo 에 commit/push 하고, 업무 데이터 변경은 `private-state/` 에 commit/push 한다.
 - clone 대상 PC 에서는 자격증명과 local env 를 먼저 재생성하고, 그다음 선택 기록만 복원한다.
 - outbound mail 기록은 `mailbox/outbound/**` snapshot 과 `log/mail_send/**` append-only log 를 같이 본다.
 - monster 관련 기록은 `gateway` staging 과 project-side `monsters/`, `battle_log/`, `morning_report/` 가 같은 흐름으로 읽혀야 한다.
