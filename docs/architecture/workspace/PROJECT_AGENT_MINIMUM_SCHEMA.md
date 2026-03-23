@@ -56,9 +56,9 @@ held mission plan 과 readiness 는 `.mission/<mission_id>/` 쪽에서 다루고
 | `dungeons/` | local-only dungeon/scenario data |
 | `analytics/` | local-only analytics |
 | `nightly_healing/` | local-only healing output |
-| `reports/` | local-only owner-facing documents and briefings |
+| `reports/` | local-only owner-facing documents and briefings, including onboarding notes |
 | `log/` | local-only time-ordered operational logs |
-| `artifacts/` | local-only artifacts |
+| `artifacts/` | local-only artifacts, including onboarding evidence/export |
 
 ## `contract.yaml` 최소 필드
 
@@ -103,3 +103,6 @@ runtime_truth_root: runs/
 6. `runtime_truth_root` 는 `runs/` 를 사용하고 raw truth 는 항상 `runs/<run_id>/` 아래에 둔다.
 7. `runs/`, `analytics/`, `nightly_healing/`, `reports/`, `log/`, `artifacts/` 는 모두 public fixture 입력이 아니다.
 8. runner 역할은 예시적으로 local `.project_agent/tools/` 아래 prototype script 로 구현될 수 있지만, 이 경로는 설명용 구현 위치일 뿐 고정 규칙이 아니다. `runner/` folder materialization 은 필수 규칙이 아니다.
+9. 첫 실제 프로젝트 온보딩 중 사람이 읽는 working note 는 `reports/onboarding/`, 근거 artifact 는 `artifacts/onboarding/` 아래에 두는 것을 기본안으로 본다.
+10. 사람과 Codex 가 같이 진행하는 시작 단계 기록은 `reports/onboarding/project_start_worklog.md` 에 append 하는 것을 기본안으로 본다.
+11. 새 시작 행위의 실제 작업 순서와 절차 초안도 `reports/onboarding/project_start_worklog.md` 또는 같은 경로의 topic note 로 함께 저장하는 것을 기본안으로 본다.

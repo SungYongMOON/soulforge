@@ -1,0 +1,4 @@
+interface:
+  display_name: "SE 폴더트리 생성"
+  short_description: "SE 프로젝트 폴더와 plan 파일을 함께 초기화"
+  default_prompt: "Use $soulforge-se-foldertree-generate to ask for layout mode, business type, prime contractor, quality grade, start date, project name, profile, and output root before scaffolding an SE project folder tree."

@@ -1,0 +1,40 @@
+skill_id: se_foldertree_generate
+kind: skill
+status: active
+title: SE Foldertree Generate
+summary: Generate an SE project folder tree and initialize plan manifest/progress artifacts from a bundled or adjusted spec.
+behavior:
+  intent: Scaffold a standard SE project folder tree and its plan tracking files from a markdown spec without hard-coding project-local values into the skill package.
+  use_when:
+    - a new SE-style project folder tree must be created
+    - plan manifest and progress files should be initialized alongside the folder tree
+    - profile-specific scaffolding is needed for profiles A, B, or C
+  avoid_when:
+    - the task does not involve SE folder scaffolding or plan bootstrap
+    - a project-specific runtime path or local-only workspace truth should be tracked in canon
+  expected_outcome:
+    - the requested project tree is generated or dry-run previewed from a declared spec
+    - plan tracking artifacts are created consistently with the chosen profile
+execution_requirements:
+  required_capabilities:
+    - filesystem_scaffolding
+    - structured_spec_execution
+  preferred_capabilities:
+    - python_script_execution
+    - dry_run_validation
+  preferred_tools:
+    - python3
+    - rg
+    - markdown_editor
+  notes:
+    - "Use the bundled `codex/assets/SE_FolderTree_Guide.md` and `codex/scripts/` resources instead of re-deriving the SE scaffold flow."
+    - "Ask for layout mode, business type, prime contractor, quality grade, start date, project name, profile, and output root before generation."
+    - "Use relative skill-root paths for bundled resources to keep the package portable."
+    - "Prefer `--dry-run` before materializing the project tree unless the user explicitly wants immediate generation."
+    - "Use `in-place` when the output root is already the final project root and `new-root` when the output root is only the parent path."
+    - "Stop if the requested business-type / prime-contractor / quality-grade combination is not supported by the bundled spec set."
+    - "Project-specific values belong in the runtime input spec or command arguments, not in the tracked skill package."
+    - "actual model, installed skill name, and host-local install path resolve in runtime execution bindings."
+notes:
+  - "`se_foldertree_generate` is the canonical Soulforge skill package for SE project folder-tree bootstrap work."
+  - "The Codex bridge keeps bundled assets, scripts, and references together so `skills:sync` can materialize a usable local mirror."

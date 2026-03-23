@@ -4,10 +4,10 @@
 
 | Field | Required | Type | Rule |
 | --- | --- | --- | --- |
-| `project_code` | yes | string | project id |
+| `project_code` | yes | string | 짧고 안정적인 project id. path segment 에 쓴다 |
 | `kind` | yes | string | `project_agent_contract` 고정 |
 | `status` | yes | enum | `draft | active | archived` |
-| `display_name` | yes | string | 표시명 |
+| `display_name` | yes | string | 사람용 full title |
 | `unit_ref` | yes | string | `.unit/<unit_id>/unit.yaml` pointer |
 | `bindings.workflow` | yes | string | contract 기준 상대 경로 파일 포인터 |
 | `bindings.party` | yes | string | contract 기준 상대 경로 파일 포인터 |

@@ -9,6 +9,8 @@
 ## 포함 대상
 
 - `WORKSPACE_PROJECT_MODEL.md`
+- `PROJECT_ONBOARDING_V0.md`
+- `PROJECT_START_WORKFLOW_V0.md`
 - `MISSION_MODEL.md`
 - `MISSION_MANUAL_DRAFT.md`
 - `MAIL_INTAKE_REQUEST_V0.md`
@@ -44,6 +46,8 @@
 - [`../README.md`](../README.md)
 - [`../guild_hall/README.md`](../guild_hall/README.md)
 - [`WORKSPACE_PROJECT_MODEL.md`](WORKSPACE_PROJECT_MODEL.md)
+- [`PROJECT_ONBOARDING_V0.md`](PROJECT_ONBOARDING_V0.md)
+- [`PROJECT_START_WORKFLOW_V0.md`](PROJECT_START_WORKFLOW_V0.md)
 - [`MISSION_MODEL.md`](MISSION_MODEL.md)
 - [`MISSION_MANUAL_DRAFT.md`](MISSION_MANUAL_DRAFT.md)
 - [`MAIL_INTAKE_REQUEST_V0.md`](MAIL_INTAKE_REQUEST_V0.md)
@@ -83,6 +87,8 @@
 - `GATEWAY_MAIL_FETCH_V0.md`, `MAIL_SEND_V0.md`, `GATEWAY_NOTIFY_V0.md`, `NOTIFY_MODEL_V0.md`, `NOTIFY_BRIEF_FORMAT_V0.md` 는 `guild_hall` owner 의 runtime 계약이지만, `_workspaces/<project_code>/` handoff 와 clone/bootstrap 흐름 때문에 workspace 문서군에서도 함께 참조한다.
 - `NOTEBOOKLM_MCP_SETUP_V0.md` 는 NotebookLM MCP 를 대상 PC 에서 재설치하는 절차만 Soulforge 쪽 runbook 으로 들고 간다.
 - `INSTALLATION_MANUAL_V0.md` 는 다른 PC 에서 clone 후 무엇을 어떤 순서로 설치해야 하는지 한 장짜리 상위 bootstrap 문서다.
+- `PROJECT_ONBOARDING_V0.md` 는 첫 실제 프로젝트를 `_workspaces/<project_code>/` 에 붙일 때 short `project_code`, full `display_name`, read-only first, local-only link materialization 규칙을 잠근다.
+- `PROJECT_START_WORKFLOW_V0.md` 는 첫 과제 시작 시 사람과 Codex 가 어디에 기록하고 어떤 순서로 bounded task 를 열지 잠근다.
 - `BOOTSTRAP_PROFILES_V0.md` 는 팀원용 public-only clone, owner-with-state clone, AI 위임 bootstrap 기본 프로필을 잠근다.
 - `PRIVATE_STATE_REPO_V0.md` 는 optional private state repo 로 어떤 운영 기록만 따로 mirror 할지 잠근다.
 - tracked workspace sample 은 `examples/` 아래에서만 유지한다.

@@ -72,9 +72,11 @@ _workspaces/
 ## 정본 규칙
 
 - `_workspaces/<project_code>/` 가 실제 과제 현장 materialization root 다.
+- 실제 프로젝트가 다른 경로에 이미 있으면 `_workspaces/<project_code>/` direct child 로 보이도록 local-only directory link 를 둘 수 있다.
 - `guild_hall/state/gateway/` 가 mail fetch 와 project assignment 전 intake staging 을 함께 담는 cross-project ingress root 다.
 - held mission plan 과 readiness owner 는 루트 `.mission/` 이다.
 - project 후보는 `_workspaces/<project_code>/` direct child 구조를 사용한다.
+- `project_code` 는 경로와 식별에 쓰는 짧고 안정적인 id 로 두고, 사람용 full title 은 `contract.yaml` 의 `display_name` 에 둔다.
 - `.project_agent/` 는 분리된 registry 가 아니라 현장 안의 local contract, binding, raw execution truth 보관 위치다.
 - `.project_agent/monsters/` 는 project-side monster current state owner 다.
 - assigned execution plan 과 mission-level 배정 owner 는 `.project_agent/` 가 아니라 `.mission/` 이 소유한다.
@@ -98,6 +100,7 @@ _workspaces/
 - `.registry`, `.unit`, `.workflow`, `.party`, `guild_hall` 은 project binding 대상 또는 운영 owner 일 뿐, per-project 실자료 owner 가 아니다.
 - `.mission` 은 workflow/party/unit resolve 결과를 project-local run truth 와 분리해 소유한다.
 - `.project_agent/` 도 local execution surface 일 뿐 mission assignment owner 는 아니다.
+- 첫 실제 프로젝트 온보딩은 read-only structure review 후 bounded first run/use 를 수행하고, 그 다음 `.project_agent` local rule 을 보정하는 순서를 기본안으로 본다.
 - tracked example contract 와 binding YAML 은 local `.project_agent/` shape 를 public-safe 하게 보여주는 mirror 일 뿐, runtime owner 가 아니다.
 - tracked example 의 `runner/` packet sample 은 설명용 mirror 이며, local runtime 의 required directory 를 뜻하지 않는다.
 - `execution_profile_binding.yaml` 은 workflow step 의 `execution_profile_ref` 를 model, reasoning, attached skill name, MCP/tool preference 로 resolve 하는 local runtime metadata 다.
@@ -110,5 +113,11 @@ _workspaces/
 
 - public repo 에서는 `_workspaces/README.md` 만 추적한다.
 - 실제 `<project_code>` 와 그 하위 파일은 local environment 에서만 materialize 한다.
-- canonical 문서에는 실제 project code, 외부 로컬 경로, private workspace 경로 예시를 적지 않는다.
+- canonical 문서에는 실제 project code, 실제 과제명, 외부 로컬 경로, private workspace 경로 예시를 적지 않는다.
+- tracked 정본 문서와 public-safe example 에서는 실제 과제 식별자 대신 `demo_project`, `example_project`, `Example Project` 같은 generic placeholder 만 쓴다.
+- project assignment 규칙을 정본으로 승격할 때는 비밀 project code, 내부 관리번호, 외부에 닫힌 식별자를 직접 판정 키로 적지 않는다.
+- 여러 과제에 겹칠 수 있는 약어, 제품군명, 일반 사업유형은 단독 project hint 로 확정하지 않고 보조 힌트로만 다룬다.
+- 실제 프로젝트 첫 온보딩 절차는 [`PROJECT_ONBOARDING_V0.md`](PROJECT_ONBOARDING_V0.md) 를 따른다.
+- first run/use 중 생기는 실제 프로젝트별 working note 와 evidence 는 `_workspaces/<project_code>/.project_agent/reports/onboarding/`, `_workspaces/<project_code>/.project_agent/artifacts/onboarding/` 같은 local-only 경로에 둔다.
+- 새 시작 행위의 대화 순서와 실제 작업 순서는 사용자가 따로 요청하지 않아도 `_workspaces/<project_code>/.project_agent/reports/onboarding/project_start_worklog.md` 같은 local-only workflow record 로 남기는 것을 기본안으로 본다.
 - validator 는 public-safe mode 와 opt-in local scan 을 구분해 동작한다.

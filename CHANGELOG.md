@@ -11,6 +11,45 @@ Git log 는 원문 이력을 남기고, 이 문서는 사람이 읽는 patch not
 
 ## 2026-03-23
 
+### Revision `working` — SE 폴더트리 생성 skill package 편입
+
+- internal SE folder-tree generator 리소스를 Soulforge canonical skill package 로 편입했다.
+- 새 package 는 `.registry/skills/se_foldertree_generate/` 아래 canon entry 와 sync 가능한 `codex/` bridge 를 함께 두고, bundled asset/script/reference 를 local Codex mirror 로 materialize 할 수 있게 구성했다.
+- skill package 와 generator 를 입력 확인형으로 보강해 `layout mode(new-root/in-place)`, `business type`, `prime contractor`, `quality grade` 를 먼저 확인하고, 현재 지원 조합이 아니면 중단하도록 했다.
+- generator 는 `in-place` 모드를 추가해 기존 프로젝트 루트에 한 단계 더 nested root 를 만들지 않고 직접 tree 내용을 생성할 수 있게 했다.
+- bundled asset/script/reference 는 skill root 기준 상대경로 사용을 기본 원칙으로 명시해 이식성을 높였다.
+- 기존 install/sync 문서는 이미 `skills:sync` 전체 동기화 규약을 갖고 있어 이번 변경에서는 새 package 추가만 반영했다.
+- 관련 경로:
+  - `.registry/skills/se_foldertree_generate/skill.yaml`
+  - `.registry/skills/se_foldertree_generate/README.md`
+  - `.registry/skills/se_foldertree_generate/codex/SKILL.md`
+  - `.registry/skills/se_foldertree_generate/codex/agents/openai.yaml`
+  - `.registry/skills/se_foldertree_generate/codex/references/mapping.md`
+  - `.registry/skills/se_foldertree_generate/codex/references/workflow.md`
+  - `.registry/skills/se_foldertree_generate/codex/assets/SE_FolderTree_Guide.md`
+  - `.registry/skills/se_foldertree_generate/codex/scripts/generate_tree.py`
+  - `.registry/skills/se_foldertree_generate/codex/scripts/convert_gate_numbers.py`
+  - `.registry/skills/se_foldertree_generate/codex/requirements.txt`
+  - `.registry/skills/README.md`
+
+### Revision `working` — 첫 실제 프로젝트 온보딩 manual 승격
+
+- 첫 실제 프로젝트를 `_workspaces/<project_code>/` 에 붙이는 절차를 별도 workspace manual 로 승격했다.
+- short `project_code`, full `display_name`, read-only first, bounded first run/use, local-only junction/symlink materialization 규칙을 workspace 정본 문서에 반영했다.
+- tracked 정본 문서와 public-safe example 에는 실제 project code / 과제명 대신 generic placeholder 만 쓰는 규칙을 추가했다.
+- 실제 프로젝트별 실험 문서와 근거는 local-only `reports/onboarding/`, `artifacts/onboarding/` 아래에 두고, 안정 규칙만 정본 문서로 승격하는 흐름을 명시했다.
+- 사람과 Codex 가 함께 첫 과제를 여는 `project_start_worklog.md` 와 project start workflow manual 을 추가했다.
+- 새 시작 행위는 사용자가 따로 요청하지 않아도 실제 작업 순서를 worklog 와 workflow note 로 저장하는 규칙을 추가했다.
+- project assignment 규칙을 승격할 때는 비밀 project code 나 내부 관리번호 대신 공개 가능한 대표 업무명/주제어를 우선 쓰고, 약어·제품군명·일반 사업유형은 보조 힌트로만 다루도록 정리했다.
+- 관련 경로:
+  - `docs/architecture/workspace/PROJECT_ONBOARDING_V0.md`
+  - `docs/architecture/workspace/PROJECT_START_WORKFLOW_V0.md`
+  - `docs/architecture/workspace/WORKSPACE_PROJECT_MODEL.md`
+  - `docs/architecture/workspace/PROJECT_AGENT_SCHEMA_FIELD_MATRIX.md`
+  - `docs/architecture/workspace/PROJECT_AGENT_MINIMUM_SCHEMA.md`
+  - `docs/architecture/workspace/README.md`
+  - `_workspaces/README.md`
+
 ### Revision `working` — Windows runbook shell 차이 보강
 
 - bootstrap, handoff, private-state runbook 에 남아 있던 Unix shell 예시에 Windows PowerShell 대응 명령을 보강했다.

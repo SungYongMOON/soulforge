@@ -14,4 +14,5 @@
 - `mission_check/` 는 `.mission/<mission_id>/readiness.yaml` 과 related mission plan surface 를 boundary-safe 하게 검토하는 mission readiness review sample 이다.
 - `hwpx_document/` 는 lean bridge 문서만이 아니라 bundled `scripts/`, `templates/`, `references/` 도 함께 sync 하는 resource-heavy skill package sample 이다.
 - `pptx_autofill_conversion/` 는 user-provided template PPTX 를 runtime input 으로 받고, bundled helper scripts 와 XML guardrails 를 통해 bounded text replacement 를 수행하는 presentation skill sample 이다.
+- `se_foldertree_generate/` 는 bundled `assets/`, `scripts/`, `references/`, `requirements.txt` 를 함께 sync 해서 SE 프로젝트 폴더 트리와 plan bootstrap 을 수행하는 scaffolding skill sample 이다.
 - boundary 규칙은 [`.registry/docs/architecture/SKILL_CANON_BOUNDARY.md`](../docs/architecture/SKILL_CANON_BOUNDARY.md) 를 따른다.
