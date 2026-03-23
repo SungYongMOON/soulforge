@@ -3,7 +3,7 @@
   "private": true,
   "packageManager": "npm@11.9.0",
   "scripts": {
-    "skills:sync": "ruby .registry/docs/operations/scripts/sync_codex_skill.rb",
+    "skills:sync": "node .registry/docs/operations/scripts/sync_codex_skill.mjs",
     "guild-hall:doctor": "node guild_hall/doctor/cli.mjs",
     "guild-hall:gateway:fetch": "python3 guild_hall/gateway/mail_fetch/cli.py",
     "guild-hall:gateway:fetch:healthcheck": "python3 guild_hall/gateway/mail_fetch/healthcheck.py",

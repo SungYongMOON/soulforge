@@ -41,10 +41,26 @@ npm run skills:sync -- --all
 npm run guild-hall:doctor -- --profile public-only
 ```
 
+Windows PowerShell:
+
+```powershell
+Set-Location Soulforge
+npm.cmd run guild-hall:doctor -- --profile public-only --remote
+git pull --rebase origin main
+npm.cmd run skills:sync -- --all
+npm.cmd run guild-hall:doctor -- --profile public-only
+```
+
 필요할 때만:
 
 ```bash
 npm run guild-hall:doctor -- --profile public-only --live
+```
+
+Windows PowerShell:
+
+```powershell
+npm.cmd run guild-hall:doctor -- --profile public-only --live
 ```
 
 ## Chapter 4. `owner-with-state` 업데이트 절차
@@ -62,6 +78,21 @@ npm run skills:sync -- --all
 npm run guild-hall:doctor -- --profile owner-with-state
 ```
 
+Windows PowerShell:
+
+```powershell
+Set-Location Soulforge
+npm.cmd run guild-hall:doctor -- --profile owner-with-state --remote
+git pull --rebase origin main
+
+Set-Location private-state
+git pull --rebase origin main
+
+Set-Location ..
+npm.cmd run skills:sync -- --all
+npm.cmd run guild-hall:doctor -- --profile owner-with-state
+```
+
 `private-state/` 가 이미 nested Git repo 인데 `origin` remote 가 비어 있으면, 먼저 아래처럼 연결한다.
 
 ```bash
@@ -75,6 +106,12 @@ git switch -C main --track origin/main
 
 ```bash
 npm run guild-hall:doctor -- --profile owner-with-state --live
+```
+
+Windows PowerShell:
+
+```powershell
+npm.cmd run guild-hall:doctor -- --profile owner-with-state --live
 ```
 
 ## Chapter 5. 판단 기준
@@ -110,6 +147,16 @@ git commit -m "chore: continuity data sync"
 git push origin main
 ```
 
+Windows PowerShell baseline copy:
+
+```powershell
+Copy-Item "guild_hall/state/gateway/intake_inbox/*" "private-state/guild_hall/state/gateway/intake_inbox/" -Recurse -Force
+Copy-Item "guild_hall/state/gateway/log/monster_events/*" "private-state/guild_hall/state/gateway/log/monster_events/" -Recurse -Force
+Copy-Item "guild_hall/state/gateway/mailbox/outbound/*" "private-state/guild_hall/state/gateway/mailbox/outbound/" -Recurse -Force
+Copy-Item "guild_hall/state/gateway/log/mail_send/*" "private-state/guild_hall/state/gateway/log/mail_send/" -Recurse -Force
+Copy-Item "_workspaces/*" "private-state/_workspaces/" -Recurse -Force
+```
+
 위 push 는 메인 PC 에서만 가능한 작업이 아니라, `owner-with-state` 조건이 맞고 private repo remote/auth 가 준비된 다른 owner PC 에서도 같은 방식으로 수행할 수 있다.
 
 대상 PC 에서는 그다음에만:
@@ -124,6 +171,16 @@ rsync -a private-state/guild_hall/state/gateway/log/monster_events/ guild_hall/s
 rsync -a private-state/guild_hall/state/gateway/mailbox/outbound/ guild_hall/state/gateway/mailbox/outbound/
 rsync -a private-state/guild_hall/state/gateway/log/mail_send/ guild_hall/state/gateway/log/mail_send/
 rsync -a private-state/_workspaces/ _workspaces/
+```
+
+Windows PowerShell baseline copy:
+
+```powershell
+Copy-Item "private-state/guild_hall/state/gateway/intake_inbox/*" "guild_hall/state/gateway/intake_inbox/" -Recurse -Force
+Copy-Item "private-state/guild_hall/state/gateway/log/monster_events/*" "guild_hall/state/gateway/log/monster_events/" -Recurse -Force
+Copy-Item "private-state/guild_hall/state/gateway/mailbox/outbound/*" "guild_hall/state/gateway/mailbox/outbound/" -Recurse -Force
+Copy-Item "private-state/guild_hall/state/gateway/log/mail_send/*" "guild_hall/state/gateway/log/mail_send/" -Recurse -Force
+Copy-Item "private-state/_workspaces/*" "_workspaces/" -Recurse -Force
 ```
 
 ## Chapter 8. 관련 명령

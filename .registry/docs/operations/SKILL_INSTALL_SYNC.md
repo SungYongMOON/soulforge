@@ -14,7 +14,7 @@
 ```mermaid
 flowchart TD
   RP[".registry/skills/<skill_id>/"] --> CD["codex/ bridge"]
-  CD --> SYNC["sync_codex_skill.rb"]
+  CD --> SYNC["sync_codex_skill.mjs"]
   SYNC --> INST["~/.codex/skills/soulforge-<skill-id>/"]
   INST --> CX["Codex skill runtime"]
 ```
@@ -38,13 +38,13 @@ flowchart TD
 
 ## sync script
 
-- script: [`scripts/sync_codex_skill.rb`](scripts/sync_codex_skill.rb)
+- script: [`scripts/sync_codex_skill.mjs`](scripts/sync_codex_skill.mjs)
 - usage:
 
 ```bash
-ruby .registry/docs/operations/scripts/sync_codex_skill.rb skill_check
-ruby .registry/docs/operations/scripts/sync_codex_skill.rb shield_wall record_stitch
-ruby .registry/docs/operations/scripts/sync_codex_skill.rb --all
+node .registry/docs/operations/scripts/sync_codex_skill.mjs skill_check
+node .registry/docs/operations/scripts/sync_codex_skill.mjs shield_wall record_stitch
+node .registry/docs/operations/scripts/sync_codex_skill.mjs --all
 ```
 
 ## 규칙
@@ -57,5 +57,5 @@ ruby .registry/docs/operations/scripts/sync_codex_skill.rb --all
 
 ## bootstrap 기본값
 
-- bootstrap/doctor 기본 경로는 `ruby .registry/docs/operations/scripts/sync_codex_skill.rb --all` 또는 `npm run skills:sync -- --all` 로 sync 가능한 skill 전체를 local 에 materialize 한다.
+- bootstrap/doctor 기본 경로는 `node .registry/docs/operations/scripts/sync_codex_skill.mjs --all` 또는 `npm run skills:sync -- --all` 로 sync 가능한 skill 전체를 local 에 materialize 한다.
 - `codex/SKILL.md` 가 없는 skill package 는 canon-only 또는 test package 로 두고, local installed mirror 기본 대상에 포함하지 않는다.

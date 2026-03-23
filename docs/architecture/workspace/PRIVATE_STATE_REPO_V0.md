@@ -94,6 +94,16 @@ cp ../docs/architecture/workspace/examples/private_state_repo/gitignore.example 
 git status
 ```
 
+Windows PowerShell:
+
+```powershell
+Set-Location F:\path\to\Soulforge
+git clone <private-state-repo-url> private-state
+Set-Location private-state
+Copy-Item "..\docs\architecture\workspace\examples\private_state_repo\gitignore.example" ".gitignore" -Force
+git status
+```
+
 이미 `private-state/` 가 local Git repo 로 만들어져 있는데 `origin` remote 가 없으면, 다시 clone 하지 말고 아래처럼 remote 를 연결한다.
 
 ```bash
@@ -116,6 +126,16 @@ rsync -a private-state/guild_hall/state/gateway/log/mail_send/ guild_hall/state/
 rsync -a private-state/_workspaces/ _workspaces/
 ```
 
+Windows PowerShell baseline copy:
+
+```powershell
+Copy-Item "private-state/guild_hall/state/gateway/intake_inbox/*" "guild_hall/state/gateway/intake_inbox/" -Recurse -Force
+Copy-Item "private-state/guild_hall/state/gateway/log/monster_events/*" "guild_hall/state/gateway/log/monster_events/" -Recurse -Force
+Copy-Item "private-state/guild_hall/state/gateway/mailbox/outbound/*" "guild_hall/state/gateway/mailbox/outbound/" -Recurse -Force
+Copy-Item "private-state/guild_hall/state/gateway/log/mail_send/*" "guild_hall/state/gateway/log/mail_send/" -Recurse -Force
+Copy-Item "private-state/_workspaces/*" "_workspaces/" -Recurse -Force
+```
+
 ## 현재 PC 에서 private-state 로 동기화 예시
 
 현재 PC 의 active runtime 중 허용 subset 만 nested `private-state/` 로 복사한 뒤, private GitHub 에 commit/push 한다.
@@ -132,6 +152,16 @@ cd private-state
 git add .
 git commit -m "chore: continuity data sync"
 git push origin main
+```
+
+Windows PowerShell baseline copy:
+
+```powershell
+Copy-Item "guild_hall/state/gateway/intake_inbox/*" "private-state/guild_hall/state/gateway/intake_inbox/" -Recurse -Force
+Copy-Item "guild_hall/state/gateway/log/monster_events/*" "private-state/guild_hall/state/gateway/log/monster_events/" -Recurse -Force
+Copy-Item "guild_hall/state/gateway/mailbox/outbound/*" "private-state/guild_hall/state/gateway/mailbox/outbound/" -Recurse -Force
+Copy-Item "guild_hall/state/gateway/log/mail_send/*" "private-state/guild_hall/state/gateway/log/mail_send/" -Recurse -Force
+Copy-Item "_workspaces/*" "private-state/_workspaces/" -Recurse -Force
 ```
 
 주의:

@@ -92,6 +92,12 @@ sync 가능한 Soulforge Codex skill 전체는 bootstrap 필수다. 먼저 local
 npm run skills:sync -- --all
 ```
 
+Windows PowerShell 에서 `npm.ps1` execution policy 로 막히면 아래처럼 `npm.cmd` 를 쓴다.
+
+```powershell
+npm.cmd run skills:sync -- --all
+```
+
 `guild-hall:doctor` 는 `.registry/skills/*/codex/SKILL.md` 가 있는 skill 이 local 에 materialize 되어 있지 않으면 readiness fail 로 본다.
 `codex/SKILL.md` 가 없는 registry entry 는 test/canon-only package 로 보고 sync 대상에서 제외한다.
 
@@ -125,6 +131,18 @@ mkdir -p guild_hall/state/gateway/bindings
 cp docs/architecture/workspace/examples/guild_hall/state/gateway/bindings/notify_policy.yaml guild_hall/state/gateway/bindings/notify_policy.yaml
 ```
 
+Windows PowerShell baseline 예시는 아래를 쓴다.
+
+```powershell
+New-Item -ItemType Directory -Force -Path "guild_hall/state/gateway/mailbox/state" | Out-Null
+Copy-Item "guild_hall/gateway/mail_fetch/email_fetch.env.example" "guild_hall/state/gateway/mailbox/state/email_fetch.env" -Force
+Copy-Item "guild_hall/gateway/mail_send/mail_send.env.example" "guild_hall/state/gateway/mailbox/state/mail_send.env" -Force
+New-Item -ItemType Directory -Force -Path "guild_hall/state/town_crier" | Out-Null
+Copy-Item "guild_hall/town_crier/telegram_notify.env.example" "guild_hall/state/town_crier/telegram_notify.env" -Force
+New-Item -ItemType Directory -Force -Path "guild_hall/state/gateway/bindings" | Out-Null
+Copy-Item "docs/architecture/workspace/examples/guild_hall/state/gateway/bindings/notify_policy.yaml" "guild_hall/state/gateway/bindings/notify_policy.yaml" -Force
+```
+
 그 다음 각 PC 의 실제 값만 채운다.
 
 - Gmail token 또는 token file
@@ -148,6 +166,16 @@ rsync -a private-state/guild_hall/state/gateway/log/mail_send/ guild_hall/state/
 rsync -a private-state/_workspaces/ _workspaces/
 ```
 
+Windows PowerShell 에서는 아래처럼 directory content 복사 기준으로 복원한다.
+
+```powershell
+Copy-Item "private-state/guild_hall/state/gateway/intake_inbox/*" "guild_hall/state/gateway/intake_inbox/" -Recurse -Force
+Copy-Item "private-state/guild_hall/state/gateway/log/monster_events/*" "guild_hall/state/gateway/log/monster_events/" -Recurse -Force
+Copy-Item "private-state/guild_hall/state/gateway/mailbox/outbound/*" "guild_hall/state/gateway/mailbox/outbound/" -Recurse -Force
+Copy-Item "private-state/guild_hall/state/gateway/log/mail_send/*" "guild_hall/state/gateway/log/mail_send/" -Recurse -Force
+Copy-Item "private-state/_workspaces/*" "_workspaces/" -Recurse -Force
+```
+
 ## Chapter 5. NotebookLM MCP 설치
 
 NotebookLM 은 대상 PC 에서 다시 설치하고 다시 로그인한다.
@@ -156,6 +184,17 @@ NotebookLM 은 대상 PC 에서 다시 설치하고 다시 로그인한다.
 uv tool install --force notebooklm-mcp-cli
 which nlm
 which notebooklm-mcp
+nlm --version
+notebooklm-mcp --help
+nlm login
+```
+
+Windows PowerShell 에서는 binary 확인을 아래처럼 한다.
+
+```powershell
+uv tool install --force notebooklm-mcp-cli
+Get-Command nlm
+Get-Command notebooklm-mcp
 nlm --version
 notebooklm-mcp --help
 nlm login

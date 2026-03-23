@@ -101,6 +101,7 @@ AI 에게 아래 뜻으로 지시한다.
 - `.env`, token, cookie, session 은 복원하지 않고 각 PC 에서 다시 만든다.
 - secret 파일 내용은 agent 가 읽지 않고, 사용자가 직접 복사/입력한다.
 - 먼저 `npm run guild-hall:doctor -- --profile owner-with-state` 를 수행하고, private repo clone 뒤에는 `npm run guild-hall:doctor -- --profile owner-with-state --remote`, local env 가 채워진 뒤에만 `npm run guild-hall:doctor -- --profile owner-with-state --live` 를 수행한다.
+- Windows PowerShell 에서 `npm.ps1` execution policy 로 막히면 위 `npm run ...` 명령은 같은 의미로 `npm.cmd run ...` 형태로 실행한다.
 
 ## Chapter 5. 완료 기준
 
@@ -122,6 +123,7 @@ AI 에게 아래 뜻으로 지시한다.
 - `npm run guild-hall:doctor -- --profile owner-with-state` 통과
 - `npm run guild-hall:doctor -- --profile owner-with-state --remote` 통과
 - 필요 시 `npm run guild-hall:doctor -- --profile owner-with-state --live` 통과
+- Windows PowerShell 에서는 같은 검증 명령을 필요하면 `npm.cmd run ...` 형태로 실행한다.
 
 ## Chapter 6. 연결 문서
 

@@ -68,6 +68,12 @@
 npm run skills:sync -- --all
 ```
 
+Windows PowerShell:
+
+```powershell
+npm.cmd run skills:sync -- --all
+```
+
 5. `.registry/skills/*/codex/SKILL.md` 가 있는 skill 은 bootstrap 필수 sync 대상이고, `guild-hall:doctor` 도 이 기준으로 readiness 를 판단한다.
 6. `codex/SKILL.md` 가 없는 registry entry 는 test/canon-only package 로 보고 sync 대상에 넣지 않는다.
 7. local runtime binding 은 각 PC 의 `.project_agent/bindings/skill_execution_binding.yaml` 이 `skill_id -> installed Codex skill name` 을 resolve 한다.
@@ -93,6 +99,7 @@ skill_bindings:
 ## AI 위임 규칙
 
 - 팀원/공유 PC 에서는 AI 에게 `public-only` 로 bootstrap 하라고 지시한다.
+- Windows PowerShell 에서 `npm.ps1` execution policy 로 막히면 bootstrap/update 문서의 `npm run ...` 명령을 `npm.cmd run ...` 형태로 바꿔 실행한다.
 - owner 개인 PC 에서는 AI 에게 `owner-with-state` 로 bootstrap 하라고 지시한다.
 - AI 는 프로필이 없으면 `public-only` 로 가정해야 한다.
 - AI 는 private state repo clone/restore 를 자동으로 시도하지 않고, owner 프로필과 repo 접근이 명시될 때만 수행한다.

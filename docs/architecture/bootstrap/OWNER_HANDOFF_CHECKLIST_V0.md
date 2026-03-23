@@ -57,6 +57,16 @@ git push origin main
 cd ..
 ```
 
+Windows PowerShell baseline copy:
+
+```powershell
+Copy-Item "guild_hall/state/gateway/intake_inbox/*" "private-state/guild_hall/state/gateway/intake_inbox/" -Recurse -Force
+Copy-Item "guild_hall/state/gateway/log/monster_events/*" "private-state/guild_hall/state/gateway/log/monster_events/" -Recurse -Force
+Copy-Item "guild_hall/state/gateway/mailbox/outbound/*" "private-state/guild_hall/state/gateway/mailbox/outbound/" -Recurse -Force
+Copy-Item "guild_hall/state/gateway/log/mail_send/*" "private-state/guild_hall/state/gateway/log/mail_send/" -Recurse -Force
+Copy-Item "_workspaces/*" "private-state/_workspaces/" -Recurse -Force
+```
+
 ## Chapter 2. 다른 PC 에서 작업 시작 전
 
 먼저 원격 상태부터 확인한다.
@@ -64,6 +74,12 @@ cd ..
 ```bash
 cd Soulforge
 npm run guild-hall:doctor -- --profile owner-with-state --remote
+```
+
+Windows PowerShell 에서 `npm.ps1` 이 막히면:
+
+```powershell
+npm.cmd run guild-hall:doctor -- --profile owner-with-state --remote
 ```
 
 그다음 behind 인 repo 만 pull 한다.
@@ -81,6 +97,12 @@ sync 가능한 Soulforge Codex skill 전체를 다시 맞춘다.
 npm run skills:sync -- --all
 ```
 
+Windows PowerShell:
+
+```powershell
+npm.cmd run skills:sync -- --all
+```
+
 private continuity data 를 active runtime 으로 복원한다.
 
 ```bash
@@ -91,10 +113,26 @@ rsync -a private-state/guild_hall/state/gateway/log/mail_send/ guild_hall/state/
 rsync -a private-state/_workspaces/ _workspaces/
 ```
 
+Windows PowerShell baseline copy:
+
+```powershell
+Copy-Item "private-state/guild_hall/state/gateway/intake_inbox/*" "guild_hall/state/gateway/intake_inbox/" -Recurse -Force
+Copy-Item "private-state/guild_hall/state/gateway/log/monster_events/*" "guild_hall/state/gateway/log/monster_events/" -Recurse -Force
+Copy-Item "private-state/guild_hall/state/gateway/mailbox/outbound/*" "guild_hall/state/gateway/mailbox/outbound/" -Recurse -Force
+Copy-Item "private-state/guild_hall/state/gateway/log/mail_send/*" "guild_hall/state/gateway/log/mail_send/" -Recurse -Force
+Copy-Item "private-state/_workspaces/*" "_workspaces/" -Recurse -Force
+```
+
 마지막으로 safe readiness 를 다시 확인한다.
 
 ```bash
 npm run guild-hall:doctor -- --profile owner-with-state
+```
+
+Windows PowerShell:
+
+```powershell
+npm.cmd run guild-hall:doctor -- --profile owner-with-state
 ```
 
 필요할 때만:

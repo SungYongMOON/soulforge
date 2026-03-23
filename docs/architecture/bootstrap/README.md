@@ -36,6 +36,7 @@
 - 팀원/공유 대상은 public `Soulforge` 만 clone 하고 private state repo 는 받지 않는다.
 - owner 본인만 명시적으로 Soulforge root 아래 `private-state/` repo 를 함께 clone 하고 허용된 subset 만 restore 한다.
 - clone 후 AI 에게 bootstrap 을 맡길 때도 먼저 어떤 프로필인지 말한 뒤 `npm run guild-hall:doctor` 를 canonical entrypoint 로 사용한다.
+- Windows PowerShell 에서 `npm.ps1` execution policy 로 막히면 같은 명령을 `npm.cmd run ...` 형태로 실행한다.
 - 설치 후 최신 상태 점검과 pull 절차는 [`UPDATE_MANUAL_V0.md`](UPDATE_MANUAL_V0.md) 를 canonical guide 로 사용한다.
 - 회사/집 handoff 체크는 [`OWNER_HANDOFF_CHECKLIST_V0.md`](OWNER_HANDOFF_CHECKLIST_V0.md) 를 canonical guide 로 사용한다.
 - bootstrap 전 필수 프로그램은 `git`, `gh`, `node`, `npm`, `python3`, `uv` 다.

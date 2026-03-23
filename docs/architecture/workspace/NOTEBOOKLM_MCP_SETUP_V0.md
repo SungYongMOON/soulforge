@@ -9,7 +9,7 @@
 
 1. 설치는 대상 PC 에서 다시 한다.
 2. 인증 정보는 다른 PC 에서 복사하지 않는다.
-3. `~/.codex/config.toml` MCP 등록은 대상 PC 의 실제 `which notebooklm-mcp` 경로를 쓴다.
+3. `~/.codex/config.toml` MCP 등록은 대상 PC 의 실제 binary 경로를 쓴다. Unix shell 에서는 `which`, Windows PowerShell 에서는 `Get-Command` 로 확인한다.
 
 ## 기본 절차
 
@@ -17,6 +17,17 @@
 uv tool install --force notebooklm-mcp-cli
 which nlm
 which notebooklm-mcp
+nlm --version
+notebooklm-mcp --help
+nlm login
+```
+
+Windows PowerShell:
+
+```powershell
+uv tool install --force notebooklm-mcp-cli
+Get-Command nlm
+Get-Command notebooklm-mcp
 nlm --version
 notebooklm-mcp --help
 nlm login

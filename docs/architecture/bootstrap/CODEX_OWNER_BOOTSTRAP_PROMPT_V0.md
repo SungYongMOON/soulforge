@@ -61,8 +61,10 @@ Soulforge를 이 PC에 owner-with-state 프로필로 다시 설치해줘.
    - skills sync 결과
    - doctor safe 결과
    - doctor remote 결과
-   - 내가 직접 채워야 하는 파일 목록
-   - 다음 실행 명령
+    - 내가 직접 채워야 하는 파일 목록
+    - 다음 실행 명령
+
+Windows PowerShell 에서 `npm.ps1` execution policy 로 막히면 위 `npm run ...` 명령은 같은 의미로 `npm.cmd run ...` 형태로 바꿔 실행해.
 
 중요:
 - 프로필은 owner-with-state 로 고정

@@ -15,10 +15,22 @@
 npm run guild-hall:doctor
 ```
 
+Windows PowerShell 에서 `npm.ps1` execution policy 로 막히면:
+
+```powershell
+npm.cmd run guild-hall:doctor
+```
+
 owner profile readiness 를 보려면:
 
 ```bash
 npm run guild-hall:doctor -- --profile owner-with-state
+```
+
+Windows PowerShell:
+
+```powershell
+npm.cmd run guild-hall:doctor -- --profile owner-with-state
 ```
 
 JSON 결과가 필요하면:
@@ -27,16 +39,34 @@ JSON 결과가 필요하면:
 npm run guild-hall:doctor -- --json
 ```
 
+Windows PowerShell:
+
+```powershell
+npm.cmd run guild-hall:doctor -- --json
+```
+
 외부 시스템 live 점검이 필요하면:
 
 ```bash
 npm run guild-hall:doctor -- --live
 ```
 
+Windows PowerShell:
+
+```powershell
+npm.cmd run guild-hall:doctor -- --live
+```
+
 GitHub auth / remote sync / 실제 최신 상태 점검이 필요하면:
 
 ```bash
 npm run guild-hall:doctor -- --remote
+```
+
+Windows PowerShell:
+
+```powershell
+npm.cmd run guild-hall:doctor -- --remote
 ```
 
 ## 점검 범위

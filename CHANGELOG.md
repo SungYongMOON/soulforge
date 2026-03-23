@@ -11,6 +11,32 @@ Git log 는 원문 이력을 남기고, 이 문서는 사람이 읽는 patch not
 
 ## 2026-03-23
 
+### Revision `working` — Windows runbook shell 차이 보강
+
+- bootstrap, handoff, private-state runbook 에 남아 있던 Unix shell 예시에 Windows PowerShell 대응 명령을 보강했다.
+- `npm.ps1` execution policy, `which`, `mkdir -p`, `cp`, `rsync` 같은 shell 차이 때문에 새 Windows PC 에서 막히는 지점을 문서에서 바로 풀 수 있게 정리했다.
+- 관련 경로:
+  - `docs/architecture/workspace/INSTALLATION_MANUAL_V0.md`
+  - `docs/architecture/workspace/NOTEBOOKLM_MCP_SETUP_V0.md`
+  - `docs/architecture/bootstrap/OWNER_HANDOFF_CHECKLIST_V0.md`
+  - `docs/architecture/bootstrap/UPDATE_MANUAL_V0.md`
+  - `docs/architecture/workspace/PRIVATE_STATE_REPO_V0.md`
+  - `docs/architecture/bootstrap/README.md`
+  - `docs/architecture/bootstrap/CODEX_OWNER_BOOTSTRAP_PROMPT_V0.md`
+  - `docs/architecture/bootstrap/CODEX_OWNER_UPDATE_PROMPT_V0.md`
+  - `docs/architecture/bootstrap/BOOTSTRAP_DOCTOR_V0.md`
+  - `docs/architecture/bootstrap/BOOTSTRAP_PROFILES_V0.md`
+  - `docs/architecture/workspace/MULTI_PC_DEVELOPMENT_V0.md`
+
+### Revision `working` — Windows bootstrap skill sync Ruby 의존 제거
+
+- `npm run skills:sync -- --all` 이 Ruby 미설치 환경에서도 동작하도록 Node 기반 sync script 로 전환했다.
+- skill install sync 운영 문서를 새 script 경로와 사용 예시로 갱신했다.
+- 관련 경로:
+  - `.registry/docs/operations/scripts/sync_codex_skill.mjs`
+  - `package.json`
+  - `.registry/docs/operations/SKILL_INSTALL_SYNC.md`
+
 ### Revision `working` — doctor skill sync 범위 확대
 
 - bootstrap/doctor 계약을 기본 3개 skill 에서 sync 가능한 Soulforge Codex skill 전체로 확대했다.
