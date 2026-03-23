@@ -12,6 +12,7 @@ const __dirname = path.dirname(fileURLToPath(import.meta.url));
 const repoRoot = path.resolve(__dirname, "../..");
 const checklistPath = path.join(repoRoot, "docs", "architecture", "bootstrap", "BOOTSTRAP_CHECKLIST_V0.json");
 const statusFilePath = path.join(repoRoot, "guild_hall", "state", "doctor", "status.json");
+const registrySkillsRoot = path.join(repoRoot, ".registry", "skills");
 const doctorSchemaVersion = "bootstrap.doctor.v0";
 
 async function main() {
@@ -91,7 +92,9 @@ async function runDoctor(checklist, options = {}) {
     results.push(result);
   }
 
-  for (const skillName of checklist.required_skills ?? []) {
+  const requiredSkillNames = await resolveRequiredSkillNames(checklist);
+
+  for (const skillName of requiredSkillNames) {
     const skillPath = path.join(resolveCodexHome(), "skills", skillName, "SKILL.md");
     const exists = await pathExists(skillPath);
     const result = withFixHint({
@@ -285,6 +288,34 @@ async function runDoctor(checklist, options = {}) {
     results,
     next_steps: dedupePreserveOrder(nextSteps),
   };
+}
+
+async function resolveRequiredSkillNames(checklist) {
+  if (checklist.required_skill_policy === "all_syncable_codex_bridges") {
+    return listSyncableSoulforgeCodexSkillNames();
+  }
+
+  return checklist.required_skills ?? [];
+}
+
+async function listSyncableSoulforgeCodexSkillNames() {
+  const entries = await fs.readdir(registrySkillsRoot, { withFileTypes: true });
+  const skillNames = [];
+
+  for (const entry of entries) {
+    if (!entry.isDirectory()) {
+      continue;
+    }
+
+    const bridgeSkillPath = path.join(registrySkillsRoot, entry.name, "codex", "SKILL.md");
+    if (!(await pathExists(bridgeSkillPath))) {
+      continue;
+    }
+
+    skillNames.push(`soulforge-${entry.name.replaceAll("_", "-")}`);
+  }
+
+  return skillNames.sort((left, right) => left.localeCompare(right));
 }
 
 function runCommandCheck({ id, label, category, command, required }) {
@@ -662,6 +693,10 @@ function withFixHint(result, context = {}) {
 function buildFixHint(result, context = {}) {
   const item = context.item ?? {};
 
+  if (result.category === "required_skill") {
+    return "sync 가능한 Soulforge Codex skill 을 local 에 materialize 한다. 예: `npm run skills:sync -- --all`";
+  }
+
   switch (result.id) {
     case "git":
       return "Git 을 설치하고 PATH 에 노출한 뒤 `git --version` 으로 다시 확인한다. macOS 예시: `xcode-select --install` 또는 `brew install git`";
@@ -676,12 +711,6 @@ function buildFixHint(result, context = {}) {
       return "uv 를 설치한 뒤 `uv --version` 으로 다시 확인한다. macOS 예시: `brew install uv`";
     case "nlm":
       return "NotebookLM 기능이 필요할 때만 `uv tool install --force notebooklm-mcp-cli` 를 실행한다.";
-    case "skill_soulforge-shield-wall":
-      return "기본 Soulforge skill 을 설치한다. 예: `npm run skills:sync -- shield_wall`";
-    case "skill_soulforge-record-stitch":
-      return "기본 Soulforge skill 을 설치한다. 예: `npm run skills:sync -- record_stitch`";
-    case "skill_soulforge-skill-check":
-      return "기본 Soulforge skill 을 설치한다. 예: `npm run skills:sync -- skill_check`";
     case "email_fetch_env":
     case "telegram_notify_env":
     case "gateway_notify_policy":

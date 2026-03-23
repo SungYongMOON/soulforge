@@ -84,15 +84,16 @@ git switch -C main --track origin/main
 cd ..
 ```
 
-## Chapter 3. 필수 Soulforge skill 설치
+## Chapter 3. sync 가능한 Soulforge Codex skill 설치
 
-기본 Codex skill 3개는 bootstrap 필수다. 먼저 local 에 materialize 한다.
+sync 가능한 Soulforge Codex skill 전체는 bootstrap 필수다. 먼저 local 에 materialize 한다.
 
 ```bash
-npm run skills:sync -- shield_wall record_stitch skill_check
+npm run skills:sync -- --all
 ```
 
-`guild-hall:doctor` 는 위 3개가 없으면 readiness fail 로 본다. 필요하면 추가 skill 도 같은 방식으로 sync 한다.
+`guild-hall:doctor` 는 `.registry/skills/*/codex/SKILL.md` 가 있는 skill 이 local 에 materialize 되어 있지 않으면 readiness fail 로 본다.
+`codex/SKILL.md` 가 없는 registry entry 는 test/canon-only package 로 보고 sync 대상에서 제외한다.
 
 ## Chapter 4. guild_hall local env 생성
 

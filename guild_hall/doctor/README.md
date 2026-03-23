@@ -3,7 +3,8 @@
 ## 목적
 
 - `doctor/` 는 clone 된 PC 에서 Soulforge bootstrap readiness 를 점검하는 cross-project bootstrap doctor capsule 이다.
-- 이 capsule 은 설치 여부, local env 자리, safe smoke test 결과를 확인하고 local status file 을 남긴다.
+- 이 capsule 은 sync 가능한 Soulforge Codex skill 전체의 설치 여부, local env 자리, safe smoke test 결과를 확인하고 local status file 을 남긴다.
+- `codex/SKILL.md` 가 없는 registry entry 는 sync 대상이 아니므로 doctor 필수 skill 목록에 넣지 않는다.
 
 ## 포함 대상
 

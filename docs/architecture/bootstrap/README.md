@@ -40,7 +40,8 @@
 - 회사/집 handoff 체크는 [`OWNER_HANDOFF_CHECKLIST_V0.md`](OWNER_HANDOFF_CHECKLIST_V0.md) 를 canonical guide 로 사용한다.
 - bootstrap 전 필수 프로그램은 `git`, `gh`, `node`, `npm`, `python3`, `uv` 다.
 - bootstrap 설치 단계에는 `gh auth status` 확인과 필요 시 `gh auth login` 이 포함된다.
-- bootstrap 전 필수 Soulforge skill 은 `shield_wall`, `record_stitch`, `skill_check` 이고, `npm run skills:sync -- shield_wall record_stitch skill_check` 로 먼저 맞춘다.
+- bootstrap 전에는 sync 가능한 Soulforge Codex skill 전체를 local 에 맞추고, canonical 명령은 `npm run skills:sync -- --all` 이다.
+- `codex/SKILL.md` 가 없는 registry entry 는 install/sync 대상이 아니다.
 - clone 후 첫 readiness 점검은 `npm run guild-hall:doctor` 를 canonical entrypoint 로 쓴다.
 - owner PC 에서 nested `private-state/` repo 까지 포함해 점검할 때는 `npm run guild-hall:doctor -- --profile owner-with-state` 를 쓴다.
 - safe doctor 는 필수 도구, local env, safe smoke test 를 확인하고 `guild_hall/state/doctor/status.json` 에 결과를 남긴다.

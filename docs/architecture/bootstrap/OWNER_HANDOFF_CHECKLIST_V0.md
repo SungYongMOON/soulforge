@@ -75,10 +75,10 @@ git pull --rebase origin main
 cd ..
 ```
 
-필수 skill 을 다시 맞춘다.
+sync 가능한 Soulforge Codex skill 전체를 다시 맞춘다.
 
 ```bash
-npm run skills:sync -- shield_wall record_stitch skill_check
+npm run skills:sync -- --all
 ```
 
 private continuity data 를 active runtime 으로 복원한다.

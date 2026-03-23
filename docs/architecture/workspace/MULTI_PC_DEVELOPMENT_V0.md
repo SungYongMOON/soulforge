@@ -46,7 +46,7 @@
 4. `owner-with-state` 프로필이고 선택 기록을 이어서 쓸 필요가 있으면 Soulforge root 아래 `private-state/` repo 를 clone 한다.
 5. repo root 에서 `npm install` 을 1회 실행한다.
 6. UI 를 만질 예정이면 `npm run ui:workspace:install` 을 1회 실행한다.
-7. 필수 Soulforge skill 3개를 local Codex 에 sync 한다.
+7. sync 가능한 Soulforge Codex skill 전체를 local Codex 에 sync 한다.
 8. 필요하면 NotebookLM MCP 를 [`NOTEBOOKLM_MCP_SETUP_V0.md`](../../../docs/architecture/workspace/NOTEBOOKLM_MCP_SETUP_V0.md) 기준으로 대상 PC 에 재설치한다.
 9. 실제 runtime 을 만들기 전에 [`examples/guild_hall/state/gateway/README.md`](../../../docs/architecture/workspace/examples/guild_hall/state/gateway/README.md) 를 먼저 읽어 fetch/intake 흐름을 확인한다.
 10. `guild_hall/gateway/mail_fetch/email_fetch.env.example` 를 참고해 local env file 을 만든다.
@@ -65,11 +65,12 @@
 4. repo root 에서 아래처럼 sync 한다.
 
 ```bash
-npm run skills:sync -- shield_wall record_stitch skill_check
+npm run skills:sync -- --all
 ```
 
-5. 위 3개는 bootstrap 필수 skill 이고, `guild-hall:doctor` 도 이 기준으로 readiness 를 판단한다.
-6. local runtime binding 은 각 PC 의 `.project_agent/bindings/skill_execution_binding.yaml` 이 `skill_id -> installed Codex skill name` 을 resolve 한다.
+5. `.registry/skills/*/codex/SKILL.md` 가 있는 skill 은 bootstrap 필수 sync 대상이고, `guild-hall:doctor` 도 이 기준으로 readiness 를 판단한다.
+6. `codex/SKILL.md` 가 없는 registry entry 는 test/canon-only package 로 보고 sync 대상에 넣지 않는다.
+7. local runtime binding 은 각 PC 의 `.project_agent/bindings/skill_execution_binding.yaml` 이 `skill_id -> installed Codex skill name` 을 resolve 한다.
 
 예:
 

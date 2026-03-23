@@ -16,11 +16,7 @@
   "optional_tools": [
     { "id": "nlm", "label": "NotebookLM CLI", "command": ["nlm", "--version"] }
   ],
-  "required_skills": [
-    "soulforge-shield-wall",
-    "soulforge-record-stitch",
-    "soulforge-skill-check"
-  ],
+  "required_skill_policy": "all_syncable_codex_bridges",
   "required_local_files": [
     {
       "id": "email_fetch_env",

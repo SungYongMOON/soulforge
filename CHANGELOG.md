@@ -11,6 +11,25 @@ Git log 는 원문 이력을 남기고, 이 문서는 사람이 읽는 patch not
 
 ## 2026-03-23
 
+### Revision `working` — doctor skill sync 범위 확대
+
+- bootstrap/doctor 계약을 기본 3개 skill 에서 sync 가능한 Soulforge Codex skill 전체로 확대했다.
+- `codex/SKILL.md` 가 없는 registry entry 는 canon-only 또는 test package 로 보고 기본 sync 대상에서 제외하도록 문서를 정리했다.
+- 관련 경로:
+  - `docs/architecture/bootstrap/BOOTSTRAP_DOCTOR_V0.md`
+  - `docs/architecture/bootstrap/BOOTSTRAP_CHECKLIST_V0.json`
+  - `docs/architecture/bootstrap/README.md`
+  - `docs/architecture/bootstrap/UPDATE_MANUAL_V0.md`
+  - `docs/architecture/bootstrap/OWNER_HANDOFF_CHECKLIST_V0.md`
+  - `docs/architecture/bootstrap/CODEX_OWNER_BOOTSTRAP_PROMPT_V0.md`
+  - `docs/architecture/bootstrap/CODEX_OWNER_UPDATE_PROMPT_V0.md`
+  - `docs/architecture/workspace/INSTALLATION_MANUAL_V0.md`
+  - `docs/architecture/workspace/MULTI_PC_DEVELOPMENT_V0.md`
+  - `.registry/skills/README.md`
+  - `.registry/docs/operations/SKILL_INSTALL_SYNC.md`
+  - `guild_hall/doctor/README.md`
+  - `guild_hall/doctor/cli.mjs`
+
 ### Revision `1b58127` — owner handoff 체크리스트 추가
 
 - `OWNER_HANDOFF_CHECKLIST_V0.md` 를 추가해 회사/집 사이 handoff 순서를 고정했다.

@@ -51,9 +51,9 @@ npm run guild-hall:doctor -- --remote
 - 선택 도구 존재 여부
   - `nlm`
 - 필수 Soulforge skill 설치 여부
-  - `soulforge-shield-wall`
-  - `soulforge-record-stitch`
-  - `soulforge-skill-check`
+  - `.registry/skills/*/codex/SKILL.md` 가 있는 sync 가능한 Soulforge Codex skill 전체
+  - installed 이름은 `soulforge-<skill-id>` 형식으로 본다
+  - `codex/SKILL.md` 가 없는 registry entry 는 bootstrap 필수 sync 대상이 아니다
 - local env / policy file 존재 여부
   - `email_fetch.env`
   - `telegram_notify.env`
@@ -164,7 +164,7 @@ doctor 는 missing/failed/blocked result 에 대해 가능하면 item-level `fix
 
 1. doctor 기본값은 safe local check 만 수행한다.
 2. doctor 프로필 기본값은 `public-only` 다.
-3. 기본 Soulforge skill 3개는 bootstrap 필수 항목으로 본다.
+3. sync 가능한 Soulforge Codex skill 전체는 bootstrap 필수 항목으로 본다.
 4. `--profile owner-with-state` 는 nested `private-state/` repo 와 continuity data path 를 추가로 본다.
 5. 설치 절차에는 GitHub CLI 인증 완료가 포함된다.
 6. `--remote` 는 GitHub auth, remote 연결, public/private repo 최신 상태를 본다.

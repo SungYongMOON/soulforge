@@ -44,8 +44,8 @@ Soulforge를 이 PC에 owner-with-state 프로필로 다시 설치해줘.
 6. private repo 가 없으면 Soulforge root 에서 아래처럼 clone
    - `git clone <private-state-repo-url> private-state`
 7. public repo 에서 `npm install` 실행
-8. 필수 Soulforge skill 3개를 sync
-   - `npm run skills:sync -- shield_wall record_stitch skill_check`
+8. sync 가능한 Soulforge Codex skill 전체를 sync
+   - `npm run skills:sync -- --all`
 9. owner-with-state 기준으로 doctor safe 실행
    - `npm run guild-hall:doctor -- --profile owner-with-state`
 10. GitHub/remote 상태 확인

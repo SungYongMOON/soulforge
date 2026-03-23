@@ -32,7 +32,7 @@ flowchart TD
 ## 다른 PC bootstrap
 
 1. 저장소를 clone 한다.
-2. 필요한 skill id 를 고른다.
+2. bootstrap 기본 경로에서는 sync 가능한 skill 전체를 대상으로 한다.
 3. 아래 스크립트로 installed mirror 를 sync 한다.
 4. Codex 를 재시작하거나 새 세션에서 skill list 를 다시 읽게 한다.
 
@@ -55,8 +55,7 @@ ruby .registry/docs/operations/scripts/sync_codex_skill.rb --all
 4. installed mirror 이름은 canonical `skill_id` 의 `_` 를 `-` 로 바꾼 `soulforge-<skill-id>` 형식을 기본으로 사용한다.
 5. host-local install path 는 tracked binding 이 아니라 local machine concern 이다.
 
-## 현재 baseline
+## bootstrap 기본값
 
-- `shield_wall`
-- `record_stitch`
-- `skill_check`
+- bootstrap/doctor 기본 경로는 `ruby .registry/docs/operations/scripts/sync_codex_skill.rb --all` 또는 `npm run skills:sync -- --all` 로 sync 가능한 skill 전체를 local 에 materialize 한다.
+- `codex/SKILL.md` 가 없는 skill package 는 canon-only 또는 test package 로 두고, local installed mirror 기본 대상에 포함하지 않는다.

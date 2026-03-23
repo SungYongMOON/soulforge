@@ -27,7 +27,7 @@ owner 가 회사/집 사이를 오가며 handoff 할 때의 체크리스트는 [
 3. local env, token, password, cookie, session, credential JSON 은 업데이트 절차에서 읽거나 바꾸지 않는다.
 4. public repo 는 코드/문서/public-safe sample 만 갱신한다.
 5. protected business data 는 `private-state/` repo 에서만 갱신한다.
-6. pull 뒤에는 필수 Soulforge skill 을 다시 sync 한다.
+6. pull 뒤에는 sync 가능한 Soulforge Codex skill 전체를 다시 sync 한다.
 7. 마지막에는 `guild-hall:doctor -- --profile <profile>` 로 safe readiness 를 다시 확인한다.
 8. 외부 자격증명까지 다시 확인할 필요가 있을 때만 `--live` 를 수행한다.
 
@@ -37,7 +37,7 @@ owner 가 회사/집 사이를 오가며 handoff 할 때의 체크리스트는 [
 cd Soulforge
 npm run guild-hall:doctor -- --profile public-only --remote
 git pull --rebase origin main
-npm run skills:sync -- shield_wall record_stitch skill_check
+npm run skills:sync -- --all
 npm run guild-hall:doctor -- --profile public-only
 ```
 
@@ -58,7 +58,7 @@ cd private-state
 git pull --rebase origin main
 
 cd ..
-npm run skills:sync -- shield_wall record_stitch skill_check
+npm run skills:sync -- --all
 npm run guild-hall:doctor -- --profile owner-with-state
 ```
 
@@ -135,7 +135,7 @@ rsync -a private-state/_workspaces/ _workspaces/
 - private repo 갱신:
   - `cd private-state && git pull --rebase origin main`
 - 필수 skill sync:
-  - `npm run skills:sync -- shield_wall record_stitch skill_check`
+  - `npm run skills:sync -- --all`
 - 최종 safe 확인:
   - `npm run guild-hall:doctor -- --profile <profile>`
 - 최종 live 확인:
