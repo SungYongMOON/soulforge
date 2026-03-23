@@ -26,6 +26,8 @@
 
 - `guild_hall/state/gateway/**`
   - mailbox, intake_inbox, notify policy, monster event log
+- `guild_hall/state/operations/**`
+  - Soulforge 전체 활동 recent context 와 append-only summary log
 - `guild_hall/state/town_crier/**`
   - queue, state, telegram env, send log
 - `guild_hall/state/night_watch/**`
@@ -39,6 +41,7 @@
 2. `gateway` 자동 알림은 v0 에서 `monster_created` 하나만 남긴다.
 3. `town_crier` 는 어떤 알림을 보낼지 결정하지 않고, queue 에 들어온 notify request 를 Telegram 으로 보내기만 한다.
 4. project-side monster 상태는 `guild_hall` 이 아니라 `_workmeta/<project_code>/monsters/` 가 소유한다.
+5. Soulforge 전체 총괄 활동 맥락은 `_workmeta/<project_code>/` 가 아니라 `guild_hall/state/operations/soulforge_activity/**` 가 소유한다.
 
 ## 관련 경로
 
@@ -47,8 +50,8 @@
 - [`../workspace/GATEWAY_MAIL_FETCH_V0.md`](../workspace/GATEWAY_MAIL_FETCH_V0.md)
 - [`../workspace/GATEWAY_NOTIFY_V0.md`](../workspace/GATEWAY_NOTIFY_V0.md)
 - [`../workspace/NOTIFY_MODEL_V0.md`](../workspace/NOTIFY_MODEL_V0.md)
+- [`SOULFORGE_ACTIVITY_LOG_V0.md`](SOULFORGE_ACTIVITY_LOG_V0.md)
 
 ## ASSUMPTIONS
 
 - v0 에서는 `night_watch` 와 `dungeon_assignment` 의 tracked source 자리만 먼저 만들고, 실제 state 기능은 이후 단계에서 채운다고 본다.
-

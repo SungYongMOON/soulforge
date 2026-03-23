@@ -156,6 +156,7 @@ rsync -a guild_hall/state/gateway/mailbox/personal/ private-state/guild_hall/sta
 rsync -a guild_hall/state/gateway/mailbox/outbound/ private-state/guild_hall/state/gateway/mailbox/outbound/
 rsync -a guild_hall/state/gateway/log/mail_fetch/ private-state/guild_hall/state/gateway/log/mail_fetch/
 rsync -a guild_hall/state/gateway/log/mail_send/ private-state/guild_hall/state/gateway/log/mail_send/
+rsync -a guild_hall/state/operations/soulforge_activity/ private-state/guild_hall/state/operations/soulforge_activity/
 
 cd private-state
 git add .
@@ -173,6 +174,7 @@ Copy-Item "guild_hall/state/gateway/mailbox/personal/*" "private-state/guild_hal
 Copy-Item "guild_hall/state/gateway/mailbox/outbound/*" "private-state/guild_hall/state/gateway/mailbox/outbound/" -Recurse -Force
 Copy-Item "guild_hall/state/gateway/log/mail_fetch/*" "private-state/guild_hall/state/gateway/log/mail_fetch/" -Recurse -Force
 Copy-Item "guild_hall/state/gateway/log/mail_send/*" "private-state/guild_hall/state/gateway/log/mail_send/" -Recurse -Force
+Copy-Item "guild_hall/state/operations/soulforge_activity/*" "private-state/guild_hall/state/operations/soulforge_activity/" -Recurse -Force
 ```
 
 위 push 는 메인 PC 에서만 가능한 작업이 아니라, `owner-with-state` 조건이 맞고 private repo remote/auth 가 준비된 다른 owner PC 에서도 같은 방식으로 수행할 수 있다.
@@ -191,6 +193,7 @@ rsync -a private-state/guild_hall/state/gateway/mailbox/personal/ guild_hall/sta
 rsync -a private-state/guild_hall/state/gateway/mailbox/outbound/ guild_hall/state/gateway/mailbox/outbound/
 rsync -a private-state/guild_hall/state/gateway/log/mail_fetch/ guild_hall/state/gateway/log/mail_fetch/
 rsync -a private-state/guild_hall/state/gateway/log/mail_send/ guild_hall/state/gateway/log/mail_send/
+rsync -a private-state/guild_hall/state/operations/soulforge_activity/ guild_hall/state/operations/soulforge_activity/
 ```
 
 Windows PowerShell baseline copy:
@@ -203,9 +206,12 @@ Copy-Item "private-state/guild_hall/state/gateway/mailbox/personal/*" "guild_hal
 Copy-Item "private-state/guild_hall/state/gateway/mailbox/outbound/*" "guild_hall/state/gateway/mailbox/outbound/" -Recurse -Force
 Copy-Item "private-state/guild_hall/state/gateway/log/mail_fetch/*" "guild_hall/state/gateway/log/mail_fetch/" -Recurse -Force
 Copy-Item "private-state/guild_hall/state/gateway/log/mail_send/*" "guild_hall/state/gateway/log/mail_send/" -Recurse -Force
+Copy-Item "private-state/guild_hall/state/operations/soulforge_activity/*" "guild_hall/state/operations/soulforge_activity/" -Recurse -Force
 ```
 
 `mailbox/state/**` 아래 local env/token 파일은 sync/restore 대상이 아니다.
+
+restore 뒤에는 `guild_hall/state/operations/soulforge_activity/latest_context.json` 을 먼저 읽고, 더 과거 맥락이 필요할 때만 현재 월 `events/*.jsonl` 마지막 몇 건을 추가로 읽는다.
 
 ## Chapter 8. 관련 명령
 

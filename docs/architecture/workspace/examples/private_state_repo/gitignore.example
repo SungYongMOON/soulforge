@@ -28,6 +28,9 @@
 !/guild_hall/state/gateway/log/monster_events/**
 !/guild_hall/state/gateway/log/mail_send/
 !/guild_hall/state/gateway/log/mail_send/**
+!/guild_hall/state/operations/
+!/guild_hall/state/operations/soulforge_activity/
+!/guild_hall/state/operations/soulforge_activity/**
 
 # explicit secret / volatile deny
 guild_hall/state/gateway/mailbox/state/**

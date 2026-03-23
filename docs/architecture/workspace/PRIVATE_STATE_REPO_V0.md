@@ -45,6 +45,7 @@
 - `guild_hall/state/gateway/mailbox/outbound/**`
 - `guild_hall/state/gateway/log/mail_fetch/**`
 - `guild_hall/state/gateway/log/mail_send/**`
+- `guild_hall/state/operations/soulforge_activity/**`
 
 ## v0 제외 대상
 
@@ -60,16 +61,18 @@
 private-state/
 ├── guild_hall/
 │   └── state/
-│       └── gateway/
-│           ├── intake_inbox/
-│           ├── mailbox/
-│           │   ├── company/
-│           │   ├── personal/
-│           │   └── outbound/
-│           └── log/
-│               ├── mail_fetch/
-│               ├── mail_send/
-│               └── monster_events/
+│       ├── gateway/
+│       │   ├── intake_inbox/
+│       │   ├── mailbox/
+│       │   │   ├── company/
+│       │   │   ├── personal/
+│       │   │   └── outbound/
+│       │   └── log/
+│       │       ├── mail_fetch/
+│       │       ├── mail_send/
+│       │       └── monster_events/
+│       └── operations/
+│           └── soulforge_activity/
 ```
 
 ## 초기 Git 설정 예시
@@ -116,6 +119,7 @@ rsync -a private-state/guild_hall/state/gateway/mailbox/personal/ guild_hall/sta
 rsync -a private-state/guild_hall/state/gateway/mailbox/outbound/ guild_hall/state/gateway/mailbox/outbound/
 rsync -a private-state/guild_hall/state/gateway/log/mail_fetch/ guild_hall/state/gateway/log/mail_fetch/
 rsync -a private-state/guild_hall/state/gateway/log/mail_send/ guild_hall/state/gateway/log/mail_send/
+rsync -a private-state/guild_hall/state/operations/soulforge_activity/ guild_hall/state/operations/soulforge_activity/
 ```
 
 Windows PowerShell baseline copy:
@@ -128,6 +132,7 @@ Copy-Item "private-state/guild_hall/state/gateway/mailbox/personal/*" "guild_hal
 Copy-Item "private-state/guild_hall/state/gateway/mailbox/outbound/*" "guild_hall/state/gateway/mailbox/outbound/" -Recurse -Force
 Copy-Item "private-state/guild_hall/state/gateway/log/mail_fetch/*" "guild_hall/state/gateway/log/mail_fetch/" -Recurse -Force
 Copy-Item "private-state/guild_hall/state/gateway/log/mail_send/*" "guild_hall/state/gateway/log/mail_send/" -Recurse -Force
+Copy-Item "private-state/guild_hall/state/operations/soulforge_activity/*" "guild_hall/state/operations/soulforge_activity/" -Recurse -Force
 ```
 
 ## 현재 PC 에서 private-state 로 동기화 예시
@@ -143,6 +148,7 @@ rsync -a guild_hall/state/gateway/mailbox/personal/ private-state/guild_hall/sta
 rsync -a guild_hall/state/gateway/mailbox/outbound/ private-state/guild_hall/state/gateway/mailbox/outbound/
 rsync -a guild_hall/state/gateway/log/mail_fetch/ private-state/guild_hall/state/gateway/log/mail_fetch/
 rsync -a guild_hall/state/gateway/log/mail_send/ private-state/guild_hall/state/gateway/log/mail_send/
+rsync -a guild_hall/state/operations/soulforge_activity/ private-state/guild_hall/state/operations/soulforge_activity/
 
 cd private-state
 git add .
@@ -160,6 +166,7 @@ Copy-Item "guild_hall/state/gateway/mailbox/personal/*" "private-state/guild_hal
 Copy-Item "guild_hall/state/gateway/mailbox/outbound/*" "private-state/guild_hall/state/gateway/mailbox/outbound/" -Recurse -Force
 Copy-Item "guild_hall/state/gateway/log/mail_fetch/*" "private-state/guild_hall/state/gateway/log/mail_fetch/" -Recurse -Force
 Copy-Item "guild_hall/state/gateway/log/mail_send/*" "private-state/guild_hall/state/gateway/log/mail_send/" -Recurse -Force
+Copy-Item "guild_hall/state/operations/soulforge_activity/*" "private-state/guild_hall/state/operations/soulforge_activity/" -Recurse -Force
 ```
 
 주의:
@@ -168,6 +175,7 @@ Copy-Item "guild_hall/state/gateway/log/mail_send/*" "private-state/guild_hall/s
 - active runtime 경로는 그대로 두고, 같은 구조를 `private-state/` 아래에 mirror copy 한다.
 - `.env`, token, password, cookie, session, `mailbox/state/**` 는 포함하지 않는다.
 - 다른 PC 에서 이어서 작업하려면, 먼저 이 동기화를 현재 PC 에서 끝낸 뒤 대상 PC 에서 `git pull` 과 restore 를 수행한다.
+- Soulforge 전체 recent-context 는 `operations/soulforge_activity/latest_context.json` 을 먼저 읽고, 더 필요할 때만 `events/*.jsonl` 마지막 몇 건을 추가로 읽는다.
 
 ## 운영 규칙
 
@@ -181,6 +189,7 @@ Copy-Item "guild_hall/state/gateway/log/mail_send/*" "private-state/guild_hall/s
 - clone 대상 PC 에서는 자격증명과 local env 를 먼저 재생성하고, 그다음 선택 기록만 복원한다.
 - outbound mail 기록은 `mailbox/outbound/**` snapshot 과 `log/mail_send/**` append-only log 를 같이 본다.
 - mailbox continuity 기록은 `mailbox/company/**`, `mailbox/personal/**`, `log/mail_fetch/**`, `intake_inbox/**` 가 같은 흐름으로 복원돼야 한다.
+- Soulforge 전체 활동 recent-context 는 `operations/soulforge_activity/**` 를 통해 다른 PC 에 복원된다.
 
 ## 다른 PC 에서 private-state push 하는 조건
 
@@ -201,6 +210,7 @@ Copy-Item "guild_hall/state/gateway/log/mail_send/*" "private-state/guild_hall/s
 - [`MAIL_SEND_V0.md`](MAIL_SEND_V0.md)
 - [`WORKSPACE_INTAKE_INBOX_V0.md`](WORKSPACE_INTAKE_INBOX_V0.md)
 - [`examples/private_state_repo/README.md`](examples/private_state_repo/README.md)
+- [`../guild_hall/SOULFORGE_ACTIVITY_LOG_V0.md`](../guild_hall/SOULFORGE_ACTIVITY_LOG_V0.md)
 
 ## ASSUMPTIONS
 

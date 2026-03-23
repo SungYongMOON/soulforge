@@ -13,6 +13,7 @@
 - `guild_hall/state/gateway/mailbox/outbound/**`
 - `guild_hall/state/gateway/log/mail_fetch/**`
 - `guild_hall/state/gateway/log/mail_send/**`
+- `guild_hall/state/operations/soulforge_activity/**`
 
 ## 제외 대상
 

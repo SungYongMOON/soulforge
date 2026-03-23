@@ -63,6 +63,7 @@ rsync -a guild_hall/state/gateway/mailbox/personal/ private-state/guild_hall/sta
 rsync -a guild_hall/state/gateway/mailbox/outbound/ private-state/guild_hall/state/gateway/mailbox/outbound/
 rsync -a guild_hall/state/gateway/log/mail_fetch/ private-state/guild_hall/state/gateway/log/mail_fetch/
 rsync -a guild_hall/state/gateway/log/mail_send/ private-state/guild_hall/state/gateway/log/mail_send/
+rsync -a guild_hall/state/operations/soulforge_activity/ private-state/guild_hall/state/operations/soulforge_activity/
 
 cd private-state
 git add .
@@ -81,6 +82,7 @@ Copy-Item "guild_hall/state/gateway/mailbox/personal/*" "private-state/guild_hal
 Copy-Item "guild_hall/state/gateway/mailbox/outbound/*" "private-state/guild_hall/state/gateway/mailbox/outbound/" -Recurse -Force
 Copy-Item "guild_hall/state/gateway/log/mail_fetch/*" "private-state/guild_hall/state/gateway/log/mail_fetch/" -Recurse -Force
 Copy-Item "guild_hall/state/gateway/log/mail_send/*" "private-state/guild_hall/state/gateway/log/mail_send/" -Recurse -Force
+Copy-Item "guild_hall/state/operations/soulforge_activity/*" "private-state/guild_hall/state/operations/soulforge_activity/" -Recurse -Force
 ```
 
 ## Chapter 2. 다른 PC 에서 작업 시작 전
@@ -132,6 +134,7 @@ rsync -a private-state/guild_hall/state/gateway/mailbox/personal/ guild_hall/sta
 rsync -a private-state/guild_hall/state/gateway/mailbox/outbound/ guild_hall/state/gateway/mailbox/outbound/
 rsync -a private-state/guild_hall/state/gateway/log/mail_fetch/ guild_hall/state/gateway/log/mail_fetch/
 rsync -a private-state/guild_hall/state/gateway/log/mail_send/ guild_hall/state/gateway/log/mail_send/
+rsync -a private-state/guild_hall/state/operations/soulforge_activity/ guild_hall/state/operations/soulforge_activity/
 ```
 
 Windows PowerShell baseline copy:
@@ -144,9 +147,12 @@ Copy-Item "private-state/guild_hall/state/gateway/mailbox/personal/*" "guild_hal
 Copy-Item "private-state/guild_hall/state/gateway/mailbox/outbound/*" "guild_hall/state/gateway/mailbox/outbound/" -Recurse -Force
 Copy-Item "private-state/guild_hall/state/gateway/log/mail_fetch/*" "guild_hall/state/gateway/log/mail_fetch/" -Recurse -Force
 Copy-Item "private-state/guild_hall/state/gateway/log/mail_send/*" "guild_hall/state/gateway/log/mail_send/" -Recurse -Force
+Copy-Item "private-state/guild_hall/state/operations/soulforge_activity/*" "guild_hall/state/operations/soulforge_activity/" -Recurse -Force
 ```
 
 `mailbox/state/**` 아래 local env/token 파일은 handoff 대상이 아니다.
+
+restore 직후에는 `guild_hall/state/operations/soulforge_activity/latest_context.json` 을 먼저 읽고, 더 필요할 때만 현재 월 `events/*.jsonl` 마지막 몇 건을 추가로 본다.
 
 마지막으로 safe readiness 를 다시 확인한다.
 

@@ -45,6 +45,7 @@ flowchart TD
 - [`docs/architecture/foundation/DOCUMENT_OWNERSHIP.md`](docs/architecture/foundation/DOCUMENT_OWNERSHIP.md): 새 owner 기준 문서 소유 원칙
 - [`guild_hall/README.md`](guild_hall/README.md): cross-project 운영 루트와 state 경계
 - [`docs/architecture/guild_hall/README.md`](docs/architecture/guild_hall/README.md): `guild_hall` owner 기준 문서 색인
+- [`docs/architecture/guild_hall/SOULFORGE_ACTIVITY_LOG_V0.md`](docs/architecture/guild_hall/SOULFORGE_ACTIVITY_LOG_V0.md): Soulforge 전체 활동 로그 surface 와 recent-context 읽기 규칙
 - [`docs/architecture/bootstrap/README.md`](docs/architecture/bootstrap/README.md): clone 이후 설치, doctor, private state restore 가이드 묶음
 - [`CHANGELOG.md`](CHANGELOG.md): public repo revision note 와 patch note
 - [`docs/architecture/foundation/CHANGELOG_POLICY_V0.md`](docs/architecture/foundation/CHANGELOG_POLICY_V0.md): public/private changelog 작성 규칙

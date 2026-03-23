@@ -11,6 +11,19 @@ Git log 는 원문 이력을 남기고, 이 문서는 사람이 읽는 patch not
 
 ## 2026-03-24
 
+### Revision `working` — Soulforge 전체 활동 recent-context surface 추가
+
+- Soulforge 전체 작업의 최근 맥락을 project `_workmeta` 가 아니라 `guild_hall/state/operations/soulforge_activity/**` 에 두는 규칙을 추가했다.
+- 최근 PC/session 에서는 `latest_context.json` 을 먼저 읽고, 부족할 때만 월별 `events/*.jsonl` 마지막 몇 건을 추가로 읽는 recent-window 규칙을 문서화했다.
+- `private-state/` mirror 범위와 update/handoff restore 절차에 `operations/soulforge_activity/**` 를 포함했다.
+- 관련 경로:
+  - `docs/architecture/guild_hall/SOULFORGE_ACTIVITY_LOG_V0.md`
+  - `docs/architecture/guild_hall/GUILD_HALL_MODEL_V0.md`
+  - `docs/architecture/workspace/PRIVATE_STATE_REPO_V0.md`
+  - `docs/architecture/workspace/MULTI_PC_DEVELOPMENT_V0.md`
+  - `docs/architecture/bootstrap/UPDATE_MANUAL_V0.md`
+  - `docs/architecture/bootstrap/OWNER_HANDOFF_CHECKLIST_V0.md`
+
 ### Revision `working` — private-state mailbox continuity mirror 범위 확대
 
 - `private-state/` allowlist 를 intake/monster/outbound 중심에서 mailbox continuity mirror 까지 확대했다.
