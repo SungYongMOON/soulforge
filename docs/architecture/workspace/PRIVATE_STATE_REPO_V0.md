@@ -122,7 +122,7 @@ rsync -a private-state/guild_hall/state/gateway/intake_inbox/ guild_hall/state/g
 rsync -a private-state/guild_hall/state/gateway/log/monster_events/ guild_hall/state/gateway/log/monster_events/
 rsync -a private-state/guild_hall/state/gateway/mailbox/outbound/ guild_hall/state/gateway/mailbox/outbound/
 rsync -a private-state/guild_hall/state/gateway/log/mail_send/ guild_hall/state/gateway/log/mail_send/
-rsync -a private-state/_workmeta/ ../_workmeta/
+rsync -a private-state/_workmeta/ _workmeta/
 ```
 
 Windows PowerShell baseline copy:
@@ -132,7 +132,7 @@ Copy-Item "private-state/guild_hall/state/gateway/intake_inbox/*" "guild_hall/st
 Copy-Item "private-state/guild_hall/state/gateway/log/monster_events/*" "guild_hall/state/gateway/log/monster_events/" -Recurse -Force
 Copy-Item "private-state/guild_hall/state/gateway/mailbox/outbound/*" "guild_hall/state/gateway/mailbox/outbound/" -Recurse -Force
 Copy-Item "private-state/guild_hall/state/gateway/log/mail_send/*" "guild_hall/state/gateway/log/mail_send/" -Recurse -Force
-Copy-Item "private-state/_workmeta/*" "..\\_workmeta\\" -Recurse -Force
+Copy-Item "private-state/_workmeta/*" "_workmeta/" -Recurse -Force
 ```
 
 ## 현재 PC 에서 private-state 로 동기화 예시
@@ -145,7 +145,7 @@ rsync -a guild_hall/state/gateway/intake_inbox/ private-state/guild_hall/state/g
 rsync -a guild_hall/state/gateway/log/monster_events/ private-state/guild_hall/state/gateway/log/monster_events/
 rsync -a guild_hall/state/gateway/mailbox/outbound/ private-state/guild_hall/state/gateway/mailbox/outbound/
 rsync -a guild_hall/state/gateway/log/mail_send/ private-state/guild_hall/state/gateway/log/mail_send/
-rsync -a ../_workmeta/ private-state/_workmeta/
+rsync -a _workmeta/ private-state/_workmeta/
 
 cd private-state
 git add .
@@ -160,7 +160,7 @@ Copy-Item "guild_hall/state/gateway/intake_inbox/*" "private-state/guild_hall/st
 Copy-Item "guild_hall/state/gateway/log/monster_events/*" "private-state/guild_hall/state/gateway/log/monster_events/" -Recurse -Force
 Copy-Item "guild_hall/state/gateway/mailbox/outbound/*" "private-state/guild_hall/state/gateway/mailbox/outbound/" -Recurse -Force
 Copy-Item "guild_hall/state/gateway/log/mail_send/*" "private-state/guild_hall/state/gateway/log/mail_send/" -Recurse -Force
-Copy-Item "..\\_workmeta\\*" "private-state/_workmeta/" -Recurse -Force
+Copy-Item "_workmeta\\*" "private-state/_workmeta/" -Recurse -Force
 ```
 
 주의:

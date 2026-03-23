@@ -28,7 +28,7 @@ flowchart TD
 
 - canonical project root 는 `_workspaces/<project_code>/` 직행 구조다.
 - companion metadata root 는 `_workmeta/<project_code>/` 구조다.
-- 기본 colocated 경로는 Soulforge repo root 기준 `../_workmeta/<project_code>/` 다.
+- 기본 colocated 경로는 Soulforge root 아래 nested private repo `_workmeta/<project_code>/` 다.
 - public repo 기본 동작은 `_workspaces/README.md` 만 전제한다.
 - local workspace scan 은 `--local-workspaces` 또는 explicit workspace root 가 있을 때만 수행한다.
 - project 후보는 workspace root 의 direct child directory 로만 읽는다.

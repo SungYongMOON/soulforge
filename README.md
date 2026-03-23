@@ -2,7 +2,7 @@
 
 Soulforge는 일곱 개의 canonical root 와 project-local materialization 정책을 고정하는 설계 저장소다.
 루트는 owner 경계, public/private tracking 원칙, 파생 UI 계약을 관리한다.
-현재 보유한 mission plan 은 `.mission/` 이 들고, cross-project 운영 ingress/state 는 `guild_hall/` 이 들고, 실제 프로젝트 현장 데이터는 `_workspaces/<project_code>/` 에, private runtime truth 와 project metadata 는 public repo 바깥 companion root `_workmeta/<project_code>/` 에 둔다.
+현재 보유한 mission plan 은 `.mission/` 이 들고, cross-project 운영 ingress/state 는 `guild_hall/` 이 들고, 실제 프로젝트 현장 데이터는 `_workspaces/<project_code>/` 에, private runtime truth 와 project metadata 는 Soulforge root 아래 nested private repo `_workmeta/<project_code>/` 에 둔다.
 
 ## 정본 7축
 
@@ -28,7 +28,7 @@ flowchart TD
   S --> MI[".mission<br/>held mission plan"]
   S --> GH["guild_hall<br/>cross-project operations root"]
   S --> M["_workspaces<br/>project-local materialization site"]
-  S -.-> WM["_workmeta<br/>external private metadata root"]
+  S -.-> WM["_workmeta<br/>nested private metadata root"]
   S --> D["docs/architecture<br/>root-owned canon docs"]
   S --> UI["ui-workspace<br/>derived UI consumer workspace"]
   MI --> MP["mission.yaml / readiness.yaml<br/>resolved plan owner"]
@@ -78,7 +78,7 @@ flowchart TD
 - 보호 대상 업무 데이터는 Soulforge root 아래 nested `private-state/` repo 에만 commit/push 한다.
 - species canon 은 `species/<species_id>/species.yaml` 와 `heroes:` inline 모델을 사용한다.
 - `_workspaces/<project_code>/` 실제 과제 내용은 public GitHub 에 올리지 않으며, 로컬 환경에서만 materialize 한다.
-- `_workmeta/<project_code>/` 는 public repo 바깥 companion private root 이며, 기본 colocated 경로는 repo root 기준 `../_workmeta/<project_code>/` 로 본다.
+- `_workmeta/<project_code>/` 는 Soulforge root 아래 nested private repo 이다.
 - assigned execution plan 과 mission-level 배정 owner 는 `_workspaces/` 나 `_workmeta/` 가 아니라 `.mission/` 이 소유한다.
 - tracked workspace sample 은 `_workspaces/` 아래가 아니라 `docs/architecture/workspace/examples/` 아래로만 둘 수 있다.
 - `.run/` 루트는 새 정본에 포함하지 않는다.

@@ -4,7 +4,7 @@
 
 - 정본 루트 구조를 고정한다.
 - 일곱 canonical root 의 owner 경계와 `guild_hall` / `_workspaces` public-private tracking 원칙을 같은 문서에서 본다.
-- public repo 바깥 companion private root `_workmeta/` 가 project metadata 와 runtime truth 를 어떻게 담는지도 같이 본다.
+- Soulforge root 아래 nested private repo `_workmeta/` 가 project metadata 와 runtime truth 를 어떻게 담는지도 같이 본다.
 
 ## 새 정본 루트 트리
 
@@ -143,10 +143,10 @@ _workspaces/
 - `dungeons/`, `analytics/`, `nightly_healing/`, `reports/`, `log/`, `artifacts/` 도 public tracking 대상이 아니다.
 - tracked workspace sample 이 필요하면 `_workspaces/` 아래가 아니라 `docs/architecture/workspace/examples/` 아래에 둔다.
 
-## `_workmeta` companion private root
+## `_workmeta` nested private repo
 
 ```text
-../_workmeta/
+_workmeta/
 └── <project_code>/
     ├── contract.yaml
     ├── bindings/
@@ -165,8 +165,7 @@ _workspaces/
     └── artifacts/
 ```
 
-- `_workmeta/` 는 public repo 바깥 companion private root 다.
-- 기본 colocated 경로는 Soulforge repo root 기준 `../_workmeta/<project_code>/` 다.
+- `_workmeta/` 는 Soulforge root 아래 nested private repo 다.
 - project contract, project-side monster record, autohunt policy, raw execution truth 는 모두 `_workmeta/<project_code>/` 아래에 둔다.
 
 ## 루트별 owner 의미

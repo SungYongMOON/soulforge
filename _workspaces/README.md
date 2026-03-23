@@ -33,7 +33,7 @@ _workspaces/
 - 실제 프로젝트가 다른 로컬 경로에 이미 있으면 `_workspaces/<project_code>/` direct child 로 보이도록 local-only directory link 를 둘 수 있다.
 - `guild_hall/state/**` 는 cross-project ingress, notify, assignment 같은 운영 runtime 이고 `_workspaces/` owner 가 아니다.
 - held mission plan 과 readiness owner 는 이 경로가 아니라 루트 `.mission/` 이 소유한다.
-- project metadata companion root 는 public repo 바깥 `_workmeta/<project_code>/` 이고, 기본 colocated 경로는 Soulforge repo root 기준 `../_workmeta/<project_code>/` 다.
+- project metadata companion root 는 Soulforge root 아래 nested private repo `_workmeta/<project_code>/` 이다.
 - raw execution truth 는 `_workmeta/<project_code>/runs/<run_id>/` 아래에 남긴다.
 - project-side monster record 는 `_workmeta/<project_code>/monsters/` 아래에 남긴다.
 - `_workmeta/<project_code>/` 는 local contract, bindings, autohunt metadata, raw run truth 를 두는 실행 surface 이며 mission owner 가 아니다.

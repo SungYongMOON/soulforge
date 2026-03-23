@@ -47,7 +47,7 @@ function resolveRepoPath(repoPath: string) {
 }
 
 function resolveWorkmetaProjectPath(projectCode: string) {
-  return normalizeRepoPath(path.join("..", "_workmeta", projectCode));
+  return normalizeRepoPath(path.join("_workmeta", projectCode));
 }
 
 function isTextFile(repoPath: string) {

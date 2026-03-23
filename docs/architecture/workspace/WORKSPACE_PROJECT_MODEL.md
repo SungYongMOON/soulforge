@@ -18,7 +18,7 @@ flowchart TD
   W["_workspaces/"] --> R["README.md<br/>public tracked"]
   W --> P["&lt;project_code&gt;/<br/>local-only materialization"]
   P --> F["actual project files"]
-  WM["_workmeta/&lt;project_code&gt;/<br/>external private metadata root"] --> C["contract.yaml"]
+  WM["_workmeta/&lt;project_code&gt;/<br/>nested private metadata root"] --> C["contract.yaml"]
   WM --> B["bindings/"]
   WM --> PM["monsters/"]
   WM --> AH["autohunt/"]
@@ -51,7 +51,7 @@ _workspaces/
 └── <project_code>/
     └── ... actual project files ...
 
-../_workmeta/
+_workmeta/
 └── <project_code>/
     ├── contract.yaml
     ├── bindings/
@@ -74,8 +74,7 @@ _workspaces/
 
 - `_workspaces/<project_code>/` 가 실제 과제 현장 materialization root 다.
 - 실제 프로젝트가 다른 경로에 이미 있으면 `_workspaces/<project_code>/` direct child 로 보이도록 local-only directory link 를 둘 수 있다.
-- `_workmeta/<project_code>/` 는 public repo 바깥 companion private metadata root 다.
-- 기본 colocated 경로는 Soulforge repo root 기준 `../_workmeta/<project_code>/` 다.
+- `_workmeta/<project_code>/` 는 Soulforge root 아래 nested private metadata repo 다.
 - `guild_hall/state/gateway/` 가 mail fetch 와 project assignment 전 intake staging 을 함께 담는 cross-project ingress root 다.
 - held mission plan 과 readiness owner 는 루트 `.mission/` 이다.
 - project 후보는 `_workspaces/<project_code>/` direct child 구조를 사용한다.
