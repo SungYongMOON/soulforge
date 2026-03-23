@@ -96,7 +96,7 @@ git status
 Windows PowerShell:
 
 ```powershell
-Set-Location F:\path\to\Soulforge
+Set-Location <SoulforgeRoot>
 git clone <private-state-repo-url> private-state
 Set-Location private-state
 Copy-Item "..\docs\architecture\workspace\examples\private_state_repo\gitignore.example" ".gitignore" -Force

@@ -39,7 +39,7 @@ Windows PowerShell:
 
 ```powershell
 $projectCode = "demo_project"
-$target = "F:\SomeRoot\Project Folder"
+$target = "<local-project-root>"
 New-Item -ItemType Junction -Path "_workspaces/$projectCode" -Target $target
 ```
 
