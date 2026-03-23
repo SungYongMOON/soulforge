@@ -11,6 +11,21 @@ Git log 는 원문 이력을 남기고, 이 문서는 사람이 읽는 patch not
 
 ## 2026-03-24
 
+### Revision `working` — 메일 수신/이동 이력 폴더와 skill spec 추가
+
+- `020_MGMT/027_수신이력_이동이력` 폴더를 관리 폴더 quick map 과 SE 폴더트리 skill spec 에 추가했다.
+- generator 가 `management_static_folders` 설명을 `폴더_인덱스.txt` 와 `plan_manifest.json` 에 반영할 수 있게 갱신했다.
+- 관련 경로:
+  - `.registry/skills/se_foldertree_generate/codex/assets/SE_FolderTree_Guide.md`
+  - `.registry/skills/se_foldertree_generate/codex/scripts/generate_tree.py`
+  - `docs/architecture/workspace/PROJECT_ONBOARDING_V0.md`
+
+### Revision `working` — 온보딩 가이드에 관리 폴더 설명 추가
+
+- `PROJECT_ONBOARDING_V0.md` 에 `020_MGMT` 관리 폴더 quick map 과 `022 -> stage별 *_INBOX_분류전 -> gate 내부 세부 폴더` 흐름 설명을 추가했다.
+- 관련 경로:
+  - `docs/architecture/workspace/PROJECT_ONBOARDING_V0.md`
+
 ### Revision `working` — owner 전용 `_workmeta` clone/pull 절차 문서화
 
 - `_workmeta/` 를 `_workspaces/` 와 같은 레벨의 owner-only private metadata repo 로 clone/pull 하는 절차를 bootstrap/update/multi-PC 문서에 추가했다.

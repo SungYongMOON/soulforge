@@ -181,6 +181,7 @@ def write_index_file(
     gates: List[Dict[str, Any]],
     exclude_ids: List[int],
     special_folders: Dict[str, Any],
+    management_static_folders: List[Dict[str, Any]],
     out_path: Path,
     dry_run: bool = False
 ) -> None:
@@ -191,6 +192,14 @@ def write_index_file(
     static_folder_keys = [key for key in special_folders.keys() if key != "unclassified"]
     for key in sorted(static_folder_keys, key=lambda item: int(special_folders[item].get("code", 999))):
         info = special_folders.get(key, {})
+        folder_code = int(info.get("code", 0))
+        folder_name = str(info.get("name", "")).strip()
+        folder_desc = str(info.get("desc", "")).strip()
+        if folder_name:
+            lines.append(f"'{folder_code:03d}\t{folder_name}\t{folder_desc}")
+
+    # 1-1. 관리 static 폴더
+    for info in sorted(management_static_folders, key=lambda item: int(item.get("code", 999))):
         folder_code = int(info.get("code", 0))
         folder_name = str(info.get("name", "")).strip()
         folder_desc = str(info.get("desc", "")).strip()
@@ -252,6 +261,7 @@ def build_manifest(
     task_fmt: str,
     static_folders: List[str],
     special_folders: Dict[str, Any],
+    management_static_folders: List[Dict[str, Any]],
     fixed_subfolders: List[Dict[str, str]],
     completion_rule: Dict[str, Any],
     required_rows: List[Dict[str, Any]],
@@ -279,6 +289,7 @@ def build_manifest(
             "task_folder_format": task_fmt,
             "static_folders": static_folders,
             "special_folders": special_folders,
+            "management_static_folders": management_static_folders,
             "fixed_subfolders": fixed_subfolders,  # [{"name": ..., "desc": ...}, ...]
             "completion_rule": {
                 "required_folder": completion_rule.get("required_folder", "03_Out"),
@@ -412,6 +423,7 @@ def main() -> None:
         "management": {"code": 20, "name": "MGMT", "desc": "프로젝트 통합 관리"},
         "unclassified": {"code": 270, "name": "분류필요업무", "desc": ""}
     })
+    management_static_folders = data.get("management_static_folders", [])
 
     # fixed_subfolders: 문자열 리스트 또는 객체 리스트 모두 지원
     fixed_subfolders = []  # 폴더 이름만
@@ -435,6 +447,8 @@ def main() -> None:
         raise ValueError("gates가 비어있거나 리스트가 아닙니다.")
     if not isinstance(static_folders, list):
         raise ValueError("generation_rules.static_folders는 리스트여야 합니다.")
+    if not isinstance(management_static_folders, list):
+        raise ValueError("management_static_folders는 리스트여야 합니다.")
 
     # 게이트 레벨 고정폴더(INBOX, LOG, TDP) 하위 구조 파싱
     fixed_gate_subfolders = data.get("fixed_gate_subfolders", {})
@@ -589,6 +603,7 @@ def main() -> None:
             args.layout_mode, args.business_type, args.prime_contractor,
             args.quality_grade, variant["support_key"],
             gate_fmt, task_fmt, static_folders, special_folders,
+            management_static_folders,
             fixed_subfolders_full, completion_rule,
             required_rows, excluded_rows
         )
@@ -617,7 +632,14 @@ def main() -> None:
 
     # 인덱스 파일 생성 (항상)
     index_path = proj_root / FILE_INDEX_TXT
-    write_index_file(gates, exclude_ids, special_folders, index_path, args.dry_run)
+    write_index_file(
+        gates,
+        exclude_ids,
+        special_folders,
+        management_static_folders,
+        index_path,
+        args.dry_run,
+    )
 
     # PROJECT_ID.txt 생성 (폴더명 변경해도 프로젝트 추적 가능)
     project_id_path = proj_root / FILE_PROJECT_ID

@@ -65,6 +65,36 @@ ln -s "$target" "_workspaces/$project_code"
 8. first run/use 에서 드러난 blocker, 수정점, 관찰값을 local-only 문서에 먼저 남긴다.
 9. local-only 수정이 안정화되면 그 규칙만 `WORKSPACE_PROJECT_MODEL.md`, field matrix, 관련 runbook 에 다시 반영한다.
 
+## 관리 폴더 quick map
+
+- `020_MGMT/021_자동화설정_운영규칙`
+  - project-local routing rule, 분류 기준, 운영 메모를 둔다.
+  - 정본 metadata 는 `_workmeta/<project_code>/rules/` 에 두고, 현장 폴더에는 mirror 또는 pointer 를 둘 수 있다.
+- `020_MGMT/022_INBOX_원본수집`
+  - project 로 라우팅된 메일/자료의 first landing path 다.
+  - stage 가 아직 미판정인 intake 자료를 임시 보관한다.
+- `020_MGMT/023_연락처_이해관계자`
+  - 연락처, 조직, 역할, 이해관계자 정보를 둔다.
+- `020_MGMT/024_예산_집행`
+  - 예산, 집행, 행정 정산 자료를 둔다.
+- `020_MGMT/025_통합로그_의사결정조치`
+  - 회의 결과, 공문, action item, 조치 이력을 통합 기록한다.
+- `020_MGMT/026_상태_진행현황`
+  - 사람이 읽는 current project status board 로 본다.
+  - 현재 단계, 주요 blocker, next action, 진행 현황 요약을 둔다.
+- `020_MGMT/027_수신이력_이동이력`
+  - project-side mail receive history 와 자료 move history 를 append-only 로 둔다.
+  - 실제 intake, stage inbox 이동, 최종 폴더 승격 이력을 남긴다.
+- `020_MGMT/029_보류_미분류`
+  - 바로 분류하지 못한 자료나 보류 항목을 둔다.
+
+## 단계 inbox 해석
+
+- `022_INBOX_원본수집` 은 project 진입 직후의 intake inbox 다.
+- stage 가 판정되면 해당 gate 의 `*_INBOX_분류전` 으로 옮긴다.
+  - 예: `030_SRR/031_INBOX_분류전`, `150_TRR_DT/151_INBOX_분류전`
+- stage inbox 에 들어간 뒤에는 해당 gate 안에서 `LOG`, `TDP`, 세부 산출물 폴더로 다시 분류한다.
+
 ## local-only 실험 기록 위치
 
 - 사람용 실험 메모와 온보딩 문서는 `_workmeta/<project_code>/reports/onboarding/` 아래에 둔다.
@@ -107,4 +137,3 @@ ln -s "$target" "_workspaces/$project_code"
 - [`WORKMETA_RESOLVE_CONTRACT.md`](WORKMETA_RESOLVE_CONTRACT.md)
 - [`WORKMETA_SCHEMA_FIELD_MATRIX.md`](WORKMETA_SCHEMA_FIELD_MATRIX.md)
 - [`MISSION_MANUAL_DRAFT.md`](MISSION_MANUAL_DRAFT.md)
-

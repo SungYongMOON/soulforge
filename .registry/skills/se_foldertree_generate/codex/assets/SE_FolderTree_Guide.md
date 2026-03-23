@@ -1,6 +1,6 @@
 ---
 title: 'SE 기반 폴더 트리 생성 지침 (000_REF/020_MGMT/단계별 게이트)'
-version: '0.6'
+version: '0.7'
 owner_team: 개발1팀
 principles:
 - 폴더 순서 = 업무 순서
@@ -24,6 +24,31 @@ special_folders:
     code: 270
     name: 분류필요업무
     desc: 단계 미판정 또는 후속 분류 대기 자료
+management_static_folders:
+- code: 21
+  name: 자동화설정_운영규칙
+  desc: 프로젝트 자동화설정, 라우팅 기준, 운영 규칙
+- code: 22
+  name: INBOX_원본수집
+  desc: 프로젝트로 들어온 메일과 원본 자료의 first landing path
+- code: 23
+  name: 연락처_이해관계자
+  desc: 연락처, 조직, 역할, 이해관계자 정보
+- code: 24
+  name: 예산_집행
+  desc: 예산, 집행, 정산 관련 자료
+- code: 25
+  name: 통합로그_의사결정조치
+  desc: 회의 결과, 공문, action item, 조치 이력
+- code: 26
+  name: 상태_진행현황
+  desc: 현재 단계, blocker, next action, 진행 현황 요약
+- code: 27
+  name: 수신이력_이동이력
+  desc: 이메일 수신 및 프로젝트 내부 자료 이동 이력
+- code: 29
+  name: 보류_미분류
+  desc: 바로 분류하지 못한 자료와 보류 항목
 gates:
 - code: 30
   name: SRR
@@ -953,6 +978,7 @@ generation_rules:
   - 020_MGMT/024_예산_집행
   - 020_MGMT/025_통합로그_의사결정조치
   - 020_MGMT/026_상태_진행현황
+  - 020_MGMT/027_수신이력_이동이력
   - 020_MGMT/029_보류_미분류
 ---
 
@@ -966,7 +992,7 @@ generation_rules:
 
 ## 상위 구조 원칙
 - `000_REF`: 과제 시작 전에 준비하는 기준/참고자료
-- `020_MGMT`: 과제 전체를 가로지르는 자동화설정, 원본수집, 연락처, 예산, 통합로그, 상태, 보류자료
+- `020_MGMT`: 과제 전체를 가로지르는 자동화설정, 원본수집, 연락처, 예산, 통합로그, 상태, 수신/이동이력, 보류자료
 - `030~`: 체계공학 단계별 수행 및 산출물 축적 영역
 
 ## 폴더명 규칙
