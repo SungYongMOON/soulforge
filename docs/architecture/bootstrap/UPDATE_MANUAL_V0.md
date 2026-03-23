@@ -151,9 +151,11 @@ npm.cmd run guild-hall:doctor -- --profile owner-with-state --live
 cd Soulforge
 rsync -a guild_hall/state/gateway/intake_inbox/ private-state/guild_hall/state/gateway/intake_inbox/
 rsync -a guild_hall/state/gateway/log/monster_events/ private-state/guild_hall/state/gateway/log/monster_events/
+rsync -a guild_hall/state/gateway/mailbox/company/ private-state/guild_hall/state/gateway/mailbox/company/
+rsync -a guild_hall/state/gateway/mailbox/personal/ private-state/guild_hall/state/gateway/mailbox/personal/
 rsync -a guild_hall/state/gateway/mailbox/outbound/ private-state/guild_hall/state/gateway/mailbox/outbound/
+rsync -a guild_hall/state/gateway/log/mail_fetch/ private-state/guild_hall/state/gateway/log/mail_fetch/
 rsync -a guild_hall/state/gateway/log/mail_send/ private-state/guild_hall/state/gateway/log/mail_send/
-rsync -a _workspaces/ private-state/_workspaces/
 
 cd private-state
 git add .
@@ -166,9 +168,11 @@ Windows PowerShell baseline copy:
 ```powershell
 Copy-Item "guild_hall/state/gateway/intake_inbox/*" "private-state/guild_hall/state/gateway/intake_inbox/" -Recurse -Force
 Copy-Item "guild_hall/state/gateway/log/monster_events/*" "private-state/guild_hall/state/gateway/log/monster_events/" -Recurse -Force
+Copy-Item "guild_hall/state/gateway/mailbox/company/*" "private-state/guild_hall/state/gateway/mailbox/company/" -Recurse -Force
+Copy-Item "guild_hall/state/gateway/mailbox/personal/*" "private-state/guild_hall/state/gateway/mailbox/personal/" -Recurse -Force
 Copy-Item "guild_hall/state/gateway/mailbox/outbound/*" "private-state/guild_hall/state/gateway/mailbox/outbound/" -Recurse -Force
+Copy-Item "guild_hall/state/gateway/log/mail_fetch/*" "private-state/guild_hall/state/gateway/log/mail_fetch/" -Recurse -Force
 Copy-Item "guild_hall/state/gateway/log/mail_send/*" "private-state/guild_hall/state/gateway/log/mail_send/" -Recurse -Force
-Copy-Item "_workspaces/*" "private-state/_workspaces/" -Recurse -Force
 ```
 
 위 push 는 메인 PC 에서만 가능한 작업이 아니라, `owner-with-state` 조건이 맞고 private repo remote/auth 가 준비된 다른 owner PC 에서도 같은 방식으로 수행할 수 있다.
@@ -182,9 +186,11 @@ git pull --rebase origin main
 cd ..
 rsync -a private-state/guild_hall/state/gateway/intake_inbox/ guild_hall/state/gateway/intake_inbox/
 rsync -a private-state/guild_hall/state/gateway/log/monster_events/ guild_hall/state/gateway/log/monster_events/
+rsync -a private-state/guild_hall/state/gateway/mailbox/company/ guild_hall/state/gateway/mailbox/company/
+rsync -a private-state/guild_hall/state/gateway/mailbox/personal/ guild_hall/state/gateway/mailbox/personal/
 rsync -a private-state/guild_hall/state/gateway/mailbox/outbound/ guild_hall/state/gateway/mailbox/outbound/
+rsync -a private-state/guild_hall/state/gateway/log/mail_fetch/ guild_hall/state/gateway/log/mail_fetch/
 rsync -a private-state/guild_hall/state/gateway/log/mail_send/ guild_hall/state/gateway/log/mail_send/
-rsync -a private-state/_workspaces/ _workspaces/
 ```
 
 Windows PowerShell baseline copy:
@@ -192,10 +198,14 @@ Windows PowerShell baseline copy:
 ```powershell
 Copy-Item "private-state/guild_hall/state/gateway/intake_inbox/*" "guild_hall/state/gateway/intake_inbox/" -Recurse -Force
 Copy-Item "private-state/guild_hall/state/gateway/log/monster_events/*" "guild_hall/state/gateway/log/monster_events/" -Recurse -Force
+Copy-Item "private-state/guild_hall/state/gateway/mailbox/company/*" "guild_hall/state/gateway/mailbox/company/" -Recurse -Force
+Copy-Item "private-state/guild_hall/state/gateway/mailbox/personal/*" "guild_hall/state/gateway/mailbox/personal/" -Recurse -Force
 Copy-Item "private-state/guild_hall/state/gateway/mailbox/outbound/*" "guild_hall/state/gateway/mailbox/outbound/" -Recurse -Force
+Copy-Item "private-state/guild_hall/state/gateway/log/mail_fetch/*" "guild_hall/state/gateway/log/mail_fetch/" -Recurse -Force
 Copy-Item "private-state/guild_hall/state/gateway/log/mail_send/*" "guild_hall/state/gateway/log/mail_send/" -Recurse -Force
-Copy-Item "private-state/_workspaces/*" "_workspaces/" -Recurse -Force
 ```
+
+`mailbox/state/**` 아래 local env/token 파일은 sync/restore 대상이 아니다.
 
 ## Chapter 8. 관련 명령
 

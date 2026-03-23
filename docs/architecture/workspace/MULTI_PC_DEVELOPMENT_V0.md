@@ -7,8 +7,8 @@
 
 ## 한 줄 정의
 
-- Soulforge 의 정본 코드와 문서는 GitHub 로 동기화하고, owner-only `_workmeta/**` tracked metadata 도 별도 private GitHub repo 로 동기화한다. 실제 `guild_hall/state/**` 와 `_workspaces/<project_code>/**` runtime 상태는 각 PC 의 local-only data 로 유지한다.
-- 필요한 경우 선택된 파생 기록만 별도 private state repo 에 mirror 할 수 있다.
+- Soulforge 의 정본 코드와 문서는 GitHub 로 동기화하고, owner-only `_workmeta/**` tracked metadata 도 별도 private GitHub repo 로 동기화한다. active `guild_hall/state/**` 와 `_workspaces/<project_code>/**` runtime 상태는 각 PC 의 local-only data 로 유지한다.
+- 필요한 경우 owner-only `private-state/` repo 에서 mailbox continuity subset 과 fetch/intake 기록을 mirror/restore 할 수 있다.
 
 ## 프로필 기준
 
@@ -114,7 +114,7 @@ skill_bindings:
 1. `guild_hall/state/**` 와 `_workspaces/**` 는 공유 저장소가 아니라 각 PC 의 local runtime 이다.
 2. 다른 PC 로 옮길 때 project metadata 는 owner-only `_workmeta/` private repo 로 옮기고, 현재 intake 상태 같은 cross-project continuity 는 `private-state/` 로 옮긴다. `guild_hall/state/**` 와 `_workspaces/**` 전체를 public Git 으로 올리지는 않는다.
 3. canonical 구조, 계약 문서, public-safe sample 은 Git 으로 옮긴다.
-4. local mailbox dump, private attachment, project 실자료는 GitHub 에 올리지 않는다.
+4. project 실자료는 GitHub 에 올리지 않는다. mailbox 원문/event/raw/attachment 는 public GitHub 에 올리지 않고, 필요할 때 owner-only `private-state/` mirror 로만 옮긴다.
 5. 다른 PC 의 경로가 달라도 `docs/architecture/workspace/examples/**` 와 contract 문서만으로 같은 구조를 재현할 수 있어야 한다.
 
 ## 기본 실행 예시

@@ -11,6 +11,19 @@ Git log 는 원문 이력을 남기고, 이 문서는 사람이 읽는 patch not
 
 ## 2026-03-24
 
+### Revision `working` — private-state mailbox continuity mirror 범위 확대
+
+- `private-state/` allowlist 를 intake/monster/outbound 중심에서 mailbox continuity mirror 까지 확대했다.
+- owner handoff/update/private-state 문서에서 `mailbox/company/**`, `mailbox/personal/**`, `log/mail_fetch/**` sync/restore 절차를 추가했다.
+- active runtime 경로는 그대로 두고, `private-state/` 는 mirror copy plane 으로만 쓰도록 문서를 정리했다.
+- 관련 경로:
+  - `docs/architecture/workspace/PRIVATE_STATE_REPO_V0.md`
+  - `docs/architecture/bootstrap/OWNER_HANDOFF_CHECKLIST_V0.md`
+  - `docs/architecture/bootstrap/UPDATE_MANUAL_V0.md`
+  - `docs/architecture/workspace/MULTI_PC_DEVELOPMENT_V0.md`
+  - `docs/architecture/workspace/examples/private_state_repo/README.md`
+  - `docs/architecture/workspace/examples/private_state_repo/gitignore.example`
+
 ### Revision `working` — 메일 수신/이동 이력 폴더와 skill spec 추가
 
 - `020_MGMT/027_수신이력_이동이력` 폴더를 관리 폴더 quick map 과 SE 폴더트리 skill spec 에 추가했다.

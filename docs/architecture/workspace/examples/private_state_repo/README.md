@@ -8,15 +8,16 @@
 
 - `guild_hall/state/gateway/intake_inbox/**`
 - `guild_hall/state/gateway/log/monster_events/**`
+- `guild_hall/state/gateway/mailbox/company/**`
+- `guild_hall/state/gateway/mailbox/personal/**`
 - `guild_hall/state/gateway/mailbox/outbound/**`
+- `guild_hall/state/gateway/log/mail_fetch/**`
 - `guild_hall/state/gateway/log/mail_send/**`
 
 ## 제외 대상
 
 - 모든 `.env`, token, cookie, session, key
-- `guild_hall/state/gateway/mailbox/**/raw/**`
-- `guild_hall/state/gateway/mailbox/**/events/**`
-- `guild_hall/state/gateway/mailbox/**/attachments/**`
+- `guild_hall/state/gateway/mailbox/state/**`
 - `guild_hall/state/town_crier/**`
 
 ## 관련 경로
