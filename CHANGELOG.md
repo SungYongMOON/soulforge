@@ -9,6 +9,28 @@ Git log 는 원문 이력을 남기고, 이 문서는 사람이 읽는 patch not
 - 보호 대상 업무 데이터와 continuity record 는 여기 적지 않고 nested `private-state/CHANGELOG.md` 에 적는다.
 - secret 값, credential, token, password 는 절대 기록하지 않는다.
 
+## 2026-03-24
+
+### Revision `working` — owner 전용 `_workmeta` clone/pull 절차 문서화
+
+- `_workmeta/` 를 `_workspaces/` 와 같은 레벨의 owner-only private metadata repo 로 clone/pull 하는 절차를 bootstrap/update/multi-PC 문서에 추가했다.
+- `owner-with-state` 프로필이 public `Soulforge` 외에 `_workmeta/` 와 `private-state/` 를 함께 다루도록 문서를 정리했다.
+- `private-state` 문서와 예시 템플릿에서 `_workmeta` 를 범위 밖의 별도 private repo 로 분리했다.
+- 관련 경로:
+  - `README.md`
+  - `docs/architecture/bootstrap/README.md`
+  - `docs/architecture/bootstrap/BOOTSTRAP_DOCTOR_V0.md`
+  - `docs/architecture/bootstrap/CODEX_OWNER_BOOTSTRAP_PROMPT_V0.md`
+  - `docs/architecture/bootstrap/CODEX_OWNER_UPDATE_PROMPT_V0.md`
+  - `docs/architecture/bootstrap/OWNER_HANDOFF_CHECKLIST_V0.md`
+  - `docs/architecture/workspace/INSTALLATION_MANUAL_V0.md`
+  - `docs/architecture/bootstrap/UPDATE_MANUAL_V0.md`
+  - `docs/architecture/workspace/MULTI_PC_DEVELOPMENT_V0.md`
+  - `docs/architecture/bootstrap/BOOTSTRAP_PROFILES_V0.md`
+  - `docs/architecture/workspace/PRIVATE_STATE_REPO_V0.md`
+  - `docs/architecture/workspace/examples/private_state_repo/README.md`
+  - `docs/architecture/workspace/examples/private_state_repo/gitignore.example`
+
 ## 2026-03-23
 
 ### Revision `working` — SE 폴더트리 생성 skill package 편입

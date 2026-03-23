@@ -3,11 +3,11 @@
 ## 목적
 
 - 이 문서는 이미 설치된 Soulforge 를 다른 PC 에서 최신 상태로 맞출 때의 표준 절차를 잠근다.
-- public repo 와 nested `private-state/` repo 를 어떤 순서로 확인하고 갱신할지 고정한다.
+- public repo 와 owner-only nested `_workmeta/`, `private-state/` repo 를 어떤 순서로 확인하고 갱신할지 고정한다.
 
 ## 한 줄 정의
 
-- 업데이트는 `doctor --remote` 로 현재 상태를 먼저 확인하고, behind 인 repo 만 `git pull --rebase origin main` 으로 갱신한 뒤, `skills:sync` 와 `doctor` 로 마무리한다.
+- 업데이트는 `doctor --remote` 로 현재 상태를 먼저 확인하고, behind 인 public/private repo 만 `git pull --rebase origin main` 으로 갱신한 뒤, `skills:sync` 와 `doctor` 로 마무리한다.
 
 owner 가 회사/집 사이를 오가며 handoff 할 때의 체크리스트는 [`OWNER_HANDOFF_CHECKLIST_V0.md`](OWNER_HANDOFF_CHECKLIST_V0.md) 를 canonical guide 로 사용한다.
 
@@ -16,17 +16,17 @@ owner 가 회사/집 사이를 오가며 handoff 할 때의 체크리스트는 [
 - `public-only`
   - public `Soulforge` repo 만 갱신한다.
 - `owner-with-state`
-  - public `Soulforge` 와 nested `private-state/` repo 둘 다 확인한다.
-  - 필요하면 작업한 PC 에서 `private-state/` 로 continuity data 를 sync 한 뒤 push 할 수 있다.
+  - public `Soulforge` 와 owner-only nested `_workmeta/`, `private-state/` repo 를 모두 확인한다.
+  - `_workmeta/` 는 project-local metadata pull 대상이고, `private-state/` 는 continuity data pull 대상이다.
 
 ## Chapter 2. 기본 원칙
 
 1. 업데이트 전에는 먼저 `guild-hall:doctor -- --profile <profile> --remote` 로 최신 상태를 확인한다.
-2. private repo 가 local Git repo 만 있고 `origin` remote 가 없으면, pull 전에 먼저 remote 를 연결한다.
+2. `_workmeta/`, `private-state/` 같은 private repo 가 local Git repo 만 있고 `origin` remote 가 없으면, pull 전에 먼저 remote 를 연결한다.
 3. behind 인 repo 만 pull 한다.
 3. local env, token, password, cookie, session, credential JSON 은 업데이트 절차에서 읽거나 바꾸지 않는다.
 4. public repo 는 코드/문서/public-safe sample 만 갱신한다.
-5. protected business data 는 `private-state/` repo 에서만 갱신한다.
+5. project-local metadata 는 `_workmeta/` repo 에서, cross-project continuity data 는 `private-state/` repo 에서 갱신한다.
 6. pull 뒤에는 sync 가능한 Soulforge Codex skill 전체를 다시 sync 한다.
 7. 마지막에는 `guild-hall:doctor -- --profile <profile>` 로 safe readiness 를 다시 확인한다.
 8. 외부 자격증명까지 다시 확인할 필요가 있을 때만 `--live` 를 수행한다.
@@ -70,6 +70,10 @@ cd Soulforge
 npm run guild-hall:doctor -- --profile owner-with-state --remote
 git pull --rebase origin main
 
+cd _workmeta
+git pull --rebase origin main
+
+cd ..
 cd private-state
 git pull --rebase origin main
 
@@ -85,6 +89,10 @@ Set-Location Soulforge
 npm.cmd run guild-hall:doctor -- --profile owner-with-state --remote
 git pull --rebase origin main
 
+Set-Location _workmeta
+git pull --rebase origin main
+
+Set-Location ..
 Set-Location private-state
 git pull --rebase origin main
 
@@ -93,9 +101,14 @@ npm.cmd run skills:sync -- --all
 npm.cmd run guild-hall:doctor -- --profile owner-with-state
 ```
 
-`private-state/` 가 이미 nested Git repo 인데 `origin` remote 가 비어 있으면, 먼저 아래처럼 연결한다.
+`_workmeta/` 또는 `private-state/` 가 이미 nested Git repo 인데 `origin` remote 가 비어 있으면, 먼저 아래처럼 연결한다.
 
 ```bash
+cd Soulforge/_workmeta
+git remote add origin <workmeta-repo-url>
+git fetch origin main
+git switch -C main --track origin/main
+
 cd Soulforge/private-state
 git remote add origin <private-state-repo-url>
 git fetch origin main
@@ -118,7 +131,8 @@ npm.cmd run guild-hall:doctor -- --profile owner-with-state --live
 
 - `doctor --remote` 결과에서 `behind=0` 이면 pull 할 필요가 없다.
 - public repo 가 behind 면 public repo 만 pull 한다.
-- `owner-with-state` 에서 private repo 가 behind 면 `private-state/` 도 pull 한다.
+- `owner-with-state` 에서 `_workmeta/` 가 behind 면 `_workmeta/` 도 pull 한다.
+- `owner-with-state` 에서 `private-state/` 가 behind 면 `private-state/` 도 pull 한다.
 - ahead 만 있고 behind 가 없으면 먼저 local change 를 검토하고, 자동 pull 대신 상태를 보고한다.
 
 ## Chapter 6. AI handoff 규칙
@@ -189,6 +203,8 @@ Copy-Item "private-state/_workspaces/*" "_workspaces/" -Recurse -Force
   - `npm run guild-hall:doctor -- --profile <profile> --remote`
 - public repo 갱신:
   - `git pull --rebase origin main`
+- `_workmeta` 갱신:
+  - `cd _workmeta && git pull --rebase origin main`
 - private repo 갱신:
   - `cd private-state && git pull --rebase origin main`
 - 필수 skill sync:

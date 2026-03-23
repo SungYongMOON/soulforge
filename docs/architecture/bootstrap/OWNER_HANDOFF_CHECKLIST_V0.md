@@ -3,16 +3,16 @@
 ## 목적
 
 - 이 문서는 owner 가 회사 PC 와 집 PC 사이를 오가며 Soulforge 를 이어서 작업할 때의 최소 handoff 체크를 잠근다.
-- public 기능 변경과 private continuity data 변경을 같은 프로젝트 안에서 안전하게 이어받도록 한다.
+- public 기능 변경, owner-only project metadata 변경, private continuity data 변경을 같은 프로젝트 안에서 안전하게 이어받도록 한다.
 
 ## 한 줄 정의
 
-- owner handoff 는 `public push + private-state push` 로 마감하고, 다음 PC 에서는 `doctor --remote -> pull -> restore -> doctor` 순서로 시작한다.
+- owner handoff 는 `public push + _workmeta push + private-state push` 로 마감하고, 다음 PC 에서는 `doctor --remote -> pull -> restore -> doctor` 순서로 시작한다.
 
 ## 기본 원칙
 
 1. 기능 코드와 구조 문서는 public repo 에만 push 한다.
-2. 보호 대상 업무 데이터와 continuity record 는 nested `private-state/` repo 에만 push 한다.
+2. project-local metadata 는 nested `_workmeta/` repo 에, continuity record 는 nested `private-state/` repo 에 push 한다.
 3. private continuity data 는 사실상 한 시점에 한 PC 가 owner 처럼 쓰는 baton 방식으로 넘긴다.
 4. 다른 PC 에서 작업을 시작하기 전에는 먼저 `npm run guild-hall:doctor -- --profile owner-with-state --remote` 를 실행한다.
 5. `.env`, token, password, cookie, session, credential JSON 은 handoff 대상이 아니다.
@@ -22,14 +22,16 @@
 현재 PC 에서 아래를 확인한다.
 
 - public repo 변경이 있으면 commit/push
+- project metadata 변경이 있으면 `_workmeta/` commit/push
 - continuity data 변경이 있으면 `private-state/` 로 sync 후 commit/push
-- public/private 둘 다 `git status -sb` 가 clean 인지 확인
+- public/`_workmeta`/`private-state` 셋 다 `git status -sb` 가 clean 인지 확인
 
 최소 순서:
 
 ```bash
 cd Soulforge
 git status -sb
+git -C _workmeta status -sb
 git -C private-state status -sb
 ```
 
@@ -39,6 +41,16 @@ public 변경이 있으면:
 git add <public changed files>
 git commit -m "<message>"
 git push origin main
+```
+
+project metadata 변경이 있으면:
+
+```bash
+cd _workmeta
+git add <workmeta changed files>
+git commit -m "<message>"
+git push origin main
+cd ..
 ```
 
 private continuity data 가 있으면:
@@ -86,6 +98,9 @@ npm.cmd run guild-hall:doctor -- --profile owner-with-state --remote
 
 ```bash
 git pull --rebase origin main
+cd _workmeta
+git pull --rebase origin main
+cd ..
 cd private-state
 git pull --rebase origin main
 cd ..
@@ -153,14 +168,16 @@ npm run guild-hall:doctor -- --profile owner-with-state --live
 ### 4.1 퇴근/이동 직전
 
 - public 변경을 push 했다
+- `_workmeta` 변경을 push 했다
 - private continuity data 를 sync/push 했다
 - public `git status -sb` 가 clean 이다
+- `_workmeta git status -sb` 가 clean 이다
 - `private-state git status -sb` 가 clean 이다
 
 ### 4.2 집/회사에서 작업 시작 직전
 
 - `npm run guild-hall:doctor -- --profile owner-with-state --remote` 를 돌렸다
-- public/private 둘 다 pull 했다
+- public/`_workmeta`/`private-state` 를 pull 했다
 - `skills:sync` 를 다시 돌렸다
 - `private-state -> active runtime` restore 를 했다
 - `npm run guild-hall:doctor -- --profile owner-with-state` 를 돌렸다

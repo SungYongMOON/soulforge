@@ -12,10 +12,11 @@
 - `public-only`
   - 팀원, 리뷰어, 일반 사용자
   - public `Soulforge` 만 clone 한다
-  - private state repo 는 받지 않는다
+  - `_workmeta/`, `private-state/` 같은 private repo 는 받지 않는다
 - `owner-with-state`
   - owner 본인
-  - public `Soulforge` 와 nested `private-state/` 둘 다 준비한다
+  - public `Soulforge` 와 owner-only nested `_workmeta/`, `private-state/` 를 준비한다
+  - `_workmeta/` 와 `private-state/` 는 owner 본인만 clone/pull 한다
   - 허용된 기록 subset 만 restore 한다
 - `ai-assisted-bootstrap`
   - clone 후 사용자가 직접 모든 명령을 치지 않고 AI 에게 bootstrap 을 맡긴다
@@ -27,13 +28,13 @@
 ## 설치 원칙
 
 1. public GitHub 는 기능 코드, 문서, example 만 옮긴다.
-2. 보호 대상 업무 데이터는 Soulforge root 아래 nested `private-state/` repo 로만 GitHub 에 보존한다.
-3. 실제 `guild_hall/state/**` 와 `_workspaces/<project_code>/**` runtime 은 각 PC 에서 새로 materialize 하거나 `private-state/` 에서 선택 복원한다.
+2. project-local metadata 는 Soulforge root 아래 nested `_workmeta/` repo 로, cross-project continuity data 는 nested `private-state/` repo 로 GitHub 에 보존한다.
+3. 실제 `guild_hall/state/**` 와 `_workspaces/<project_code>/**` runtime 은 각 PC 에서 새로 materialize 하고, `_workmeta/` tracked metadata 는 owner 가 private repo clone/pull 로 이어받는다.
 4. 인증 정보와 `.env` 는 다른 PC 에서 다시 만든다.
 5. NotebookLM 로그인 상태와 Telegram/Gmail/Hiworks 자격증명은 Git 으로 옮기지 않는다.
-6. 필요한 업무 기록만 이어서 가져갈 때는 Soulforge root 아래 nested `private-state/` repo 를 쓴다.
+6. 다른 PC 에서 project metadata 를 이어서 가져갈 때는 nested `_workmeta/` repo 를, cross-project continuity 기록을 이어서 가져갈 때는 nested `private-state/` repo 를 쓴다.
 7. agent 는 secret 파일 내용을 열어 읽지 않고, 원본 파일 경로와 대상 파일 경로만 안내한다.
-8. owner 는 어떤 PC 에서 작업하든 allowlist 된 continuity data 만 nested `private-state/` repo 에 commit/push 한다.
+8. owner 는 어떤 PC 에서 작업하든 project-local metadata 는 nested `_workmeta/` repo 에, allowlist 된 continuity data 는 nested `private-state/` repo 에 commit/push 한다.
 
 ## Chapter 1. 필수 프로그램
 
@@ -44,7 +45,7 @@
 - `python3`
 - `uv`
 
-`gh` 는 private state repo 생성/연결, GitHub auth 상태 확인, clone 전후 저장소 작업에 필수로 본다.
+`gh` 는 `_workmeta/`, `private-state/` 같은 private repo 생성/연결, GitHub auth 상태 확인, clone 전후 저장소 작업에 필수로 본다.
 설치 완료 기준에는 `gh` 설치뿐 아니라 `gh auth login` 으로 GitHub 인증을 마친 상태도 포함한다.
 
 ## Chapter 2. 저장소 준비
@@ -68,10 +69,21 @@ UI 를 만질 예정이면:
 npm run ui:workspace:install
 ```
 
-`owner-with-state` 프로필만 선택 기록 복원을 위해 Soulforge root 아래 `private-state/` repo 를 둔다.
+`owner-with-state` 프로필만 owner 본인용 project metadata 와 continuity 기록을 위해 Soulforge root 아래 `_workmeta/`, `private-state/` repo 를 둔다.
 
 ```bash
+git clone <workmeta-repo-url> _workmeta
 git clone <private-state-repo-url> private-state
+```
+
+이미 `_workmeta/` 폴더가 있는데 nested Git repo 만 있고 `origin` remote 가 비어 있으면, 다시 만들지 말고 먼저 private remote 를 연결한다.
+
+```bash
+cd _workmeta
+git remote add origin <workmeta-repo-url>
+git fetch origin main
+git switch -C main --track origin/main
+cd ..
 ```
 
 이미 `private-state/` 폴더가 있는데 nested Git repo 만 있고 `origin` remote 가 비어 있으면, 다시 만들지 말고 먼저 private remote 를 연결한다.
@@ -156,7 +168,7 @@ secret 값 이전 원칙:
 - 사용자가 기존 PC 에서 원본 secret 파일을 직접 열어 새 PC 의 대상 파일로 복사한다.
 - agent 는 원본/대상 파일 경로와 실행 순서만 안내한다.
 
-`owner-with-state` 프로필일 때만, 첫 bootstrap 실행 전에 private state repo 에서 필요한 subset 만 복원한다.
+`_workmeta/` 의 tracked metadata 는 clone 시점에 이미 내려받는다. `owner-with-state` 프로필일 때만, 첫 bootstrap 실행 전에 `private-state/` 에서 continuity subset 을 추가 복원한다.
 
 ```bash
 rsync -a private-state/guild_hall/state/gateway/intake_inbox/ guild_hall/state/gateway/intake_inbox/

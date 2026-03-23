@@ -10,9 +10,6 @@
 - `guild_hall/state/gateway/log/monster_events/**`
 - `guild_hall/state/gateway/mailbox/outbound/**`
 - `guild_hall/state/gateway/log/mail_send/**`
-- `_workmeta/<project_code>/monsters/**`
-- `_workmeta/<project_code>/log/battle_log/**`
-- `_workmeta/<project_code>/reports/morning_report/**`
 
 ## 제외 대상
 
@@ -21,10 +18,8 @@
 - `guild_hall/state/gateway/mailbox/**/events/**`
 - `guild_hall/state/gateway/mailbox/**/attachments/**`
 - `guild_hall/state/town_crier/**`
-- `_workmeta/<project_code>/runs/**`
 
 ## 관련 경로
 
 - [`../../PRIVATE_STATE_REPO_V0.md`](../../PRIVATE_STATE_REPO_V0.md)
 - [`gitignore.example`](gitignore.example)
-

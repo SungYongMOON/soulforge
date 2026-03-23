@@ -7,15 +7,15 @@
 
 ## 한 줄 정의
 
-- Soulforge 의 정본 코드와 문서는 GitHub 로 동기화하고, 실제 `guild_hall/state/**` 와 `_workspaces/<project_code>/**` runtime 상태는 각 PC 의 local-only data 로 유지한다.
+- Soulforge 의 정본 코드와 문서는 GitHub 로 동기화하고, owner-only `_workmeta/**` tracked metadata 도 별도 private GitHub repo 로 동기화한다. 실제 `guild_hall/state/**` 와 `_workspaces/<project_code>/**` runtime 상태는 각 PC 의 local-only data 로 유지한다.
 - 필요한 경우 선택된 파생 기록만 별도 private state repo 에 mirror 할 수 있다.
 
 ## 프로필 기준
 
 - 프로필이 명시되지 않으면 다른 PC clone 기본값은 `public-only` 다.
 - `public-only` 는 public `Soulforge` 만 clone 한다.
-- `owner-with-state` 만 Soulforge root 아래 `private-state/` repo 를 clone 하고 허용 subset 을 복원한다.
-- 팀원/공유 대상에게는 private state repo URL 을 주지 않는다.
+- `owner-with-state` 만 Soulforge root 아래 owner-only `_workmeta/`, `private-state/` repo 를 clone 하고 필요한 기록을 복원한다.
+- 팀원/공유 대상에게는 `_workmeta/`, `private-state/` 같은 private repo URL 을 주지 않는다.
 - AI 에게 bootstrap 을 맡길 때도 먼저 어떤 프로필인지 명시한다.
 
 ## Git 으로 따라오는 것
@@ -27,6 +27,7 @@
 - `scripts/`
 - `package.json`, `package-lock.json`
 - `docs/architecture/workspace/examples/**`
+- owner 본인만 접근하는 `_workmeta/**` tracked metadata subset
 
 ## Git 으로 따라오지 않는 것
 
@@ -43,19 +44,20 @@
 1. `git`, `gh`, `node`, `npm`, `python3`, `uv` 가 설치돼 있는지 확인한다.
 2. 필요하면 `gh auth login` 으로 GitHub CLI 인증을 먼저 끝낸다.
 3. 저장소를 clone 한다.
-4. `owner-with-state` 프로필이고 선택 기록을 이어서 쓸 필요가 있으면 Soulforge root 아래 `private-state/` repo 를 clone 한다.
-5. repo root 에서 `npm install` 을 1회 실행한다.
-6. UI 를 만질 예정이면 `npm run ui:workspace:install` 을 1회 실행한다.
-7. sync 가능한 Soulforge Codex skill 전체를 local Codex 에 sync 한다.
-8. 필요하면 NotebookLM MCP 를 [`NOTEBOOKLM_MCP_SETUP_V0.md`](../../../docs/architecture/workspace/NOTEBOOKLM_MCP_SETUP_V0.md) 기준으로 대상 PC 에 재설치한다.
-9. 실제 runtime 을 만들기 전에 [`examples/guild_hall/state/gateway/README.md`](../../../docs/architecture/workspace/examples/guild_hall/state/gateway/README.md) 를 먼저 읽어 fetch/intake 흐름을 확인한다.
-10. `guild_hall/gateway/mail_fetch/email_fetch.env.example` 를 참고해 local env file 을 만든다.
-11. outbound mail 을 바로 쓸 계획이 있으면 `guild_hall/gateway/mail_send/mail_send.env.example` 를 참고해 local outbound mail env file 을 만든다.
-12. `docs/architecture/workspace/examples/guild_hall/state/gateway/bindings/notify_policy.yaml` 를 local `guild_hall/state/gateway/bindings/notify_policy.yaml` 로 복사하거나, `guild-hall:notify:gateway` 명령으로 첫 policy file 을 만든다.
-13. `owner-with-state` 프로필이라면 [`PRIVATE_STATE_REPO_V0.md`](../../../docs/architecture/workspace/PRIVATE_STATE_REPO_V0.md) 기준으로 선택 기록만 먼저 복원한다.
-14. `npm run guild-hall:doctor` 로 bootstrap readiness 를 먼저 확인한다.
-15. 첫 `guild-hall:gateway:fetch` 또는 `guild-hall:gateway:intake` 실행 시 `guild_hall/state/gateway/**` local runtime 폴더는 스크립트가 자동으로 만든다.
-16. 실제 프로젝트별 `_workspaces/<project_code>/` 와 폴더 트리는 그 PC 의 현장 구조에 맞춰 따로 만든다.
+4. `owner-with-state` 프로필이면 Soulforge root 아래 owner-only `_workmeta/` repo 를 clone 한다.
+5. cross-project continuity 기록도 이어서 쓸 필요가 있으면 Soulforge root 아래 `private-state/` repo 를 clone 한다.
+6. repo root 에서 `npm install` 을 1회 실행한다.
+7. UI 를 만질 예정이면 `npm run ui:workspace:install` 을 1회 실행한다.
+8. sync 가능한 Soulforge Codex skill 전체를 local Codex 에 sync 한다.
+9. 필요하면 NotebookLM MCP 를 [`NOTEBOOKLM_MCP_SETUP_V0.md`](../../../docs/architecture/workspace/NOTEBOOKLM_MCP_SETUP_V0.md) 기준으로 대상 PC 에 재설치한다.
+10. 실제 runtime 을 만들기 전에 [`examples/guild_hall/state/gateway/README.md`](../../../docs/architecture/workspace/examples/guild_hall/state/gateway/README.md) 를 먼저 읽어 fetch/intake 흐름을 확인한다.
+11. `guild_hall/gateway/mail_fetch/email_fetch.env.example` 를 참고해 local env file 을 만든다.
+12. outbound mail 을 바로 쓸 계획이 있으면 `guild_hall/gateway/mail_send/mail_send.env.example` 를 참고해 local outbound mail env file 을 만든다.
+13. `docs/architecture/workspace/examples/guild_hall/state/gateway/bindings/notify_policy.yaml` 를 local `guild_hall/state/gateway/bindings/notify_policy.yaml` 로 복사하거나, `guild-hall:notify:gateway` 명령으로 첫 policy file 을 만든다.
+14. `owner-with-state` 프로필이라면 `_workmeta/` clone 으로 project metadata 를 먼저 받고, 필요하면 [`PRIVATE_STATE_REPO_V0.md`](../../../docs/architecture/workspace/PRIVATE_STATE_REPO_V0.md) 기준으로 `private-state/` continuity subset 을 추가 복원한다.
+15. `npm run guild-hall:doctor` 로 bootstrap readiness 를 먼저 확인한다.
+16. 첫 `guild-hall:gateway:fetch` 또는 `guild-hall:gateway:intake` 실행 시 `guild_hall/state/gateway/**` local runtime 폴더는 스크립트가 자동으로 만든다.
+17. 실제 프로젝트별 `_workspaces/<project_code>/` 와 폴더 트리는 그 PC 의 현장 구조에 맞춰 따로 만든다.
 
 ## 다른 PC skill 세팅
 
@@ -91,10 +93,12 @@ skill_bindings:
 ## 다른 PC 에서 이어서 개발하는 방법
 
 1. PC A 에서 코드나 문서를 바꾼다.
-2. 필요한 변경만 commit 하고 GitHub 에 push 한다.
-3. PC B 에서 같은 저장소를 `git pull --rebase origin main` 으로 최신화한다.
-4. PC B 의 local `_workspaces/**` 는 그대로 두고, tracked code/doc 만 업데이트한다.
-5. PC B 에서 다시 작업한 뒤 commit/push 한다.
+2. owner 전용 project metadata 를 바꿨으면 `_workmeta/` private repo 에도 commit/push 한다.
+3. 필요한 변경만 각 GitHub repo 에 push 한다.
+4. PC B 에서 public `Soulforge` 와 owner 전용 `_workmeta/` 를 `git pull --rebase origin main` 으로 최신화한다.
+5. continuity data 도 이어서 봐야 하면 `private-state/` 도 `git pull --rebase origin main` 으로 최신화한다.
+6. PC B 의 local `_workspaces/**` 는 그대로 두고, tracked code/doc 와 private metadata 만 업데이트한다.
+7. PC B 에서 다시 작업한 뒤 필요한 repo 에만 commit/push 한다.
 
 ## AI 위임 규칙
 
@@ -102,13 +106,13 @@ skill_bindings:
 - Windows PowerShell 에서 `npm.ps1` execution policy 로 막히면 bootstrap/update 문서의 `npm run ...` 명령을 `npm.cmd run ...` 형태로 바꿔 실행한다.
 - owner 개인 PC 에서는 AI 에게 `owner-with-state` 로 bootstrap 하라고 지시한다.
 - AI 는 프로필이 없으면 `public-only` 로 가정해야 한다.
-- AI 는 private state repo clone/restore 를 자동으로 시도하지 않고, owner 프로필과 repo 접근이 명시될 때만 수행한다.
+- AI 는 owner 전용 `_workmeta/`, `private-state/` clone/restore 를 자동으로 시도하지 않고, owner 프로필과 repo 접근이 명시될 때만 수행한다.
 - AI 는 먼저 `npm run guild-hall:doctor -- --profile <profile>` 를 수행하고, 필요할 때만 `--remote`, local env 가 채워진 뒤에만 `--live` 를 수행한다.
 
 ## 중요한 운영 규칙
 
 1. `guild_hall/state/**` 와 `_workspaces/**` 는 공유 저장소가 아니라 각 PC 의 local runtime 이다.
-2. 다른 PC 로 옮길 때 현재 intake 상태나 project runtime 상태가 꼭 필요하면 `guild_hall/state/**` 와 `_workspaces/**` 전체를 public Git 으로 올리지 않고, 필요한 subset 만 별도 private state repo 또는 별도 복사로 이동한다.
+2. 다른 PC 로 옮길 때 project metadata 는 owner-only `_workmeta/` private repo 로 옮기고, 현재 intake 상태 같은 cross-project continuity 는 `private-state/` 로 옮긴다. `guild_hall/state/**` 와 `_workspaces/**` 전체를 public Git 으로 올리지는 않는다.
 3. canonical 구조, 계약 문서, public-safe sample 은 Git 으로 옮긴다.
 4. local mailbox dump, private attachment, project 실자료는 GitHub 에 올리지 않는다.
 5. 다른 PC 의 경로가 달라도 `docs/architecture/workspace/examples/**` 와 contract 문서만으로 같은 구조를 재현할 수 있어야 한다.
@@ -177,4 +181,3 @@ npm run guild-hall:gateway:fetch:healthcheck -- --json
 ## ASSUMPTIONS
 
 - canonical tracked tree 는 계속 GitHub 로 sync 하고, `guild_hall/state/**` 와 `_workspaces/**` 는 local-only runtime 원칙을 유지한다고 본다.
-
