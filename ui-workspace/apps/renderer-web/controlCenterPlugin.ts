@@ -46,6 +46,10 @@ function resolveRepoPath(repoPath: string) {
   return path.resolve(repoRoot, repoPath);
 }
 
+function resolveWorkmetaProjectPath(projectCode: string) {
+  return normalizeRepoPath(path.join("..", "_workmeta", projectCode));
+}
+
 function isTextFile(repoPath: string) {
   return TEXT_EXTENSIONS.has(path.extname(repoPath));
 }
@@ -296,7 +300,7 @@ async function buildOperationsOwner(): Promise<ControlCenterOwner> {
       const projectDir = `_workspaces/${projectEntry.name}`;
       const projectFiles = [
         ...(await existingFiles([`${projectDir}/README.md`])),
-        ...(await walkFiles(`${projectDir}/.project_agent`, (repoPath) => isTextFile(repoPath)))
+        ...(await walkFiles(resolveWorkmetaProjectPath(projectEntry.name), (repoPath) => isTextFile(repoPath)))
       ];
 
       if (projectFiles.length === 0) {

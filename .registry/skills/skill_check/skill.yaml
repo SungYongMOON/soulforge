@@ -1,4 +1,4 @@
-skill_id: skill_check
+﻿skill_id: skill_check
 kind: skill
 status: active
 title: Skill Check
@@ -26,7 +26,8 @@ execution_requirements:
     - git_diff
     - markdown_editor
   notes:
-    - "actual model, attached skill package, MCP, and tool choice resolve in local `.project_agent/bindings/`."
+    - "actual model, attached skill package, MCP, and tool choice resolve in local `_workmeta/<project_code>/bindings/`."
 notes:
   - "`skill_check` is the canonical review skill for Soulforge skill package boundary checks."
   - "`administrator.boundary_check` is the current canonical class-local binding for this skill."
+

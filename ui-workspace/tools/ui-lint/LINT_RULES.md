@@ -39,7 +39,7 @@
 - `packages/renderer-core/src/fixtures.ts` 의 export map 이 fixture 파일 세트와 맞는지 검사한다.
 - fixture default tab 커버리지와 새 6축 axis coverage 를 검사한다.
 - public fixture 가 `workspaces.local_scan_enabled = false`, `projects = []` 를 유지하는지 검사한다.
-- `.agent/`, `.agent_class/`, `company/personal`, `.project_agent/runs` 같은 stale/private 흔적이 fixture payload 에 남지 않았는지 검사한다.
+- `.agent/`, `.agent_class/`, `company/personal`, `_workmeta/<project_code>/runs` 같은 stale/private 흔적이 fixture payload 에 남지 않았는지 검사한다.
 - synthetic workspace policy 경고가 diagnostics 에 드러나는지 검사한다.
 
 ## theme isolation lint

@@ -1,4 +1,4 @@
-# MAIL_TO_MISSION_HANDOFF_V0
+﻿# MAIL_TO_MISSION_HANDOFF_V0
 
 ## 목적
 
@@ -11,7 +11,7 @@
 
 ## 경계
 
-- raw mailbox payload, live mailbox cursor, attachment binary, private message body 전체는 `_workspaces/**/.project_agent/**` 아래에 남긴다.
+- raw mailbox payload, live mailbox cursor, attachment binary, private message body 전체는 `_workmeta/**` 아래에 남긴다.
 - `.mission/**` 는 raw mail dump owner 가 아니라, mail intake 로부터 파생된 held mission draft 와 readiness pointer 를 소유한다.
 - 이 contract 는 `MAIL_INTAKE_REQUEST_V0` 와 `WORKSPACE_INTAKE_INBOX_V0`, `DUNGEON_ASSIGNMENT_REQUEST_V0` 뒤에서만 적용한다.
 - `workflow_id` 가 아직 확정되지 않아도 first tracked handoff 는 허용한다.
@@ -126,7 +126,7 @@ request_mode: mail_intake
 monster_type: mail_intake_request
 input_refs:
   source_mail: synthetic-mail-2026-03-19-001
-  mailbox_payload: _workspaces/demo_project/.project_agent/autohunt/mailbox_payload_sample.yaml
+  mailbox_payload: _workmeta/demo_project/autohunt/mailbox_payload_sample.yaml
 ```
 
 ## 연결 문서
@@ -144,3 +144,4 @@ input_refs:
 
 - v0 의 첫 성공은 workflow canon 확장이 아니라, mail intake 결과가 public-safe held mission draft 로 넘어가는 경계를 안정적으로 재현하는 데 있다고 본다.
 - attachment binary 와 mailbox concrete state 는 계속 local-only owner 로 남긴다.
+

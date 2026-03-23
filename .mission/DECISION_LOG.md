@@ -1,4 +1,4 @@
-# Mission Decision Log
+﻿# Mission Decision Log
 
 ## 목적
 
@@ -25,7 +25,7 @@
 
 ### 3. raw run truth 는 계속 project-local worksite 에 남긴다
 
-- 결정: `.mission/` 은 held plan / readiness owner 이고, raw truth 는 `_workspaces/<project_code>/.project_agent/runs/<run_id>/` 아래에 둔다.
+- 결정: `.mission/` 은 held plan / readiness owner 이고, raw truth 는 `_workmeta/<project_code>/runs/<run_id>/` 아래에 둔다.
 - 이유: public-safe tracked metadata 와 local/private execution truth 를 섞지 않기 위해서다.
 
 ### 4. `mission_check` 는 workflow 가 아니라 skill 이 먼저다
@@ -54,3 +54,4 @@
   - `author_pptx_autofill_conversion_001`
 - blocked:
   - `author_hwpx_document_001`
+

@@ -1,11 +1,13 @@
-# Project Agent Schema Field Matrix
+# Workmeta Schema Field Matrix
+
+- 이 matrix 는 companion private root `_workmeta/<project_code>/` 아래 contract 와 binding 파일에 적용한다.
 
 ## `contract.yaml`
 
 | Field | Required | Type | Rule |
 | --- | --- | --- | --- |
 | `project_code` | yes | string | 짧고 안정적인 project id. path segment 에 쓴다 |
-| `kind` | yes | string | `project_agent_contract` 고정 |
+| `kind` | yes | string | `workmeta_contract` 고정 |
 | `status` | yes | enum | `draft | active | archived` |
 | `display_name` | yes | string | 사람용 full title |
 | `unit_ref` | yes | string | `.unit/<unit_id>/unit.yaml` pointer |

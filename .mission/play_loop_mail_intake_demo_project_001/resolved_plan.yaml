@@ -1,4 +1,4 @@
-mission_id: play_loop_mail_intake_demo_project_001
+﻿mission_id: play_loop_mail_intake_demo_project_001
 kind: resolved_mission_plan
 status: blocked
 workflow:
@@ -21,6 +21,7 @@ unit_assignments:
 step_outputs: []
 run_refs:
   latest_run_id: null
-  raw_truth_root: _workspaces/demo_project/.project_agent/runs/
+  raw_truth_root: _workmeta/demo_project/runs/
 notes:
   - This plan freezes the current-default party and unit assignment while workflow selection is still pending.
+

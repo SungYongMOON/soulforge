@@ -17,7 +17,7 @@ const FORBIDDEN_PATTERNS: Array<{ label: string; pattern: RegExp }> = [
   { label: ".agent_class/", pattern: /\.agent_class\// },
   { label: "_workspaces/company", pattern: /_workspaces\/company\b/ },
   { label: "_workspaces/personal", pattern: /_workspaces\/personal\b/ },
-  { label: ".project_agent/runs", pattern: /\.project_agent\/runs/ },
+  { label: "_workmeta/<project_code>/runs", pattern: /_workmeta\/[^/]+\/runs/ },
   { label: "battle log", pattern: /battle log/i },
   { label: "real feedback events", pattern: /real feedback events/i },
   { label: "analytics", pattern: /\banalytics\b/i },

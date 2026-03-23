@@ -1,4 +1,4 @@
-# Workflow Execution Demo
+﻿# Workflow Execution Demo
 
 ## 목적
 
@@ -29,4 +29,5 @@
 - workflow step 는 `action.skill_id` 와 `execution_profile_ref` 만 소유한다.
 - tracked example opening phase 는 현재 seeded canon 이 지원하는 `shield_wall` 과 `record_stitch` 단계까지만 materialize 한다.
 - model, reasoning, attached skill name, MCP/tool hint 는 local runtime binding 이 소유한다.
-- raw execution truth 와 actual file inspection log 는 `_workspaces/<project_code>/.project_agent/runs/<run_id>/` 아래에만 남긴다.
+- raw execution truth 와 actual file inspection log 는 `_workmeta/<project_code>/runs/<run_id>/` 아래에만 남긴다.
+

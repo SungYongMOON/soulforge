@@ -1,4 +1,4 @@
-{
+﻿{
   "monsters": [
     {
       "monster_id": "pdr_brief_chain_demo_001_001",
@@ -26,8 +26,8 @@
       "assignment_status": "assigned",
       "assigned_project_code": "demo_project",
       "assigned_stage": "PDR",
-      "assigned_target_inbox_ref": "_workspaces/demo_project/.project_agent/monsters/pdr_completion_brief_demo_001.yaml",
-      "project_monster_ref": "_workspaces/demo_project/.project_agent/monsters/pdr_completion_brief_demo_001.yaml",
+      "assigned_target_inbox_ref": "_workmeta/demo_project/monsters/pdr_completion_brief_demo_001.yaml",
+      "project_monster_ref": "_workmeta/demo_project/monsters/pdr_completion_brief_demo_001.yaml",
       "transferred_at": "2026-03-20T09:18:00+09:00",
       "assignment_block_reason": null,
       "assignment_updated_at": "2026-03-20T09:18:00+09:00",
@@ -39,3 +39,4 @@
     }
   ]
 }
+

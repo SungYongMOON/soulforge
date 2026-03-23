@@ -1,4 +1,4 @@
-# 문서 소유 원칙
+﻿# 문서 소유 원칙
 
 ## 목적
 
@@ -22,7 +22,7 @@
 | `.workflow/` | workflow canon + curated learning history | `docs/architecture/foundation/TARGET_TREE.md`, `docs/architecture/foundation/DOCUMENT_OWNERSHIP.md` | `.workflow/README.md`, `.workflow/docs/` |
 | `.party/` | reusable party template + template-level stats | `docs/architecture/foundation/TARGET_TREE.md`, `docs/architecture/foundation/DOCUMENT_OWNERSHIP.md` | `.party/README.md`, `.party/docs/` |
 | `.mission/` | held mission plan owner | `docs/architecture/foundation/TARGET_TREE.md`, `docs/architecture/workspace/MISSION_MODEL.md` | `.mission/README.md` |
-| `_workspaces/` | local-only project materialization mount point | `_workspaces/README.md`, `docs/architecture/workspace/WORKSPACE_PROJECT_MODEL.md` | `_workspaces/<project_code>/.project_agent/` 와 project-local 문서 |
+| `_workspaces/` | local-only project materialization mount point | `_workspaces/README.md`, `docs/architecture/workspace/WORKSPACE_PROJECT_MODEL.md` | `_workmeta/<project_code>/` 와 project-local 문서 |
 | `docs/architecture/foundation/` | 저장소 차원의 구조 canon | `docs/architecture/foundation/README.md`, `docs/architecture/foundation/*.md` | 해당 없음 |
 | `docs/architecture/workspace/` | `_workspaces` 구조와 보안 정책 canon | `docs/architecture/workspace/README.md`, `docs/architecture/workspace/WORKSPACE_PROJECT_MODEL.md` | 해당 없음 |
 | `ui-workspace/` | 파생 UI consumer workspace | `ui-workspace/README.md` 와 하위 README | 각 하위 패키지/앱 로컬 README |
@@ -46,3 +46,4 @@
 4. `.party/stats` 는 template-level fit/observation summary 만 public repo 에 남긴다.
 5. `_workspaces/README.md` 를 제외한 per-project 문서와 실자료는 public tracking 대상이 아니다.
 6. 폴더 구조나 owner 책임이 바뀌면 같은 변경 안에서 해당 README 와 foundation 문서를 함께 갱신한다.
+

@@ -1,4 +1,4 @@
-# PRIVATE_STATE_REPO_V0
+﻿# PRIVATE_STATE_REPO_V0
 
 ## 목적
 
@@ -42,9 +42,9 @@
 - `guild_hall/state/gateway/log/monster_events/**`
 - `guild_hall/state/gateway/mailbox/outbound/**`
 - `guild_hall/state/gateway/log/mail_send/**`
-- `_workspaces/<project_code>/.project_agent/monsters/**`
-- `_workspaces/<project_code>/.project_agent/log/battle_log/**`
-- `_workspaces/<project_code>/.project_agent/reports/morning_report/**`
+- `_workmeta/<project_code>/monsters/**`
+- `_workmeta/<project_code>/log/battle_log/**`
+- `_workmeta/<project_code>/reports/morning_report/**`
 
 ## v0 제외 대상
 
@@ -55,8 +55,8 @@
 - `guild_hall/state/town_crier/telegram_notify.env`
 - `guild_hall/state/town_crier/queue/**`
 - `guild_hall/state/town_crier/state/**`
-- `_workspaces/<project_code>/.project_agent/runs/**`
-- `_workspaces/<project_code>/.project_agent/artifacts/**`
+- `_workmeta/<project_code>/runs/**`
+- `_workmeta/<project_code>/artifacts/**`
 - 모든 `.env`, `*token*`, `*cookie*`, `*.session`, `*.key`
 
 ## 권장 private repo 트리
@@ -72,14 +72,13 @@ private-state/
 │           └── log/
 │               ├── mail_send/
 │               └── monster_events/
-└── _workspaces/
+└── _workmeta/
     └── <project_code>/
-        └── .project_agent/
-            ├── monsters/
-            ├── log/
-            │   └── battle_log/
-            └── reports/
-                └── morning_report/
+        ├── monsters/
+        ├── log/
+        │   └── battle_log/
+        └── reports/
+            └── morning_report/
 ```
 
 ## 초기 Git 설정 예시
@@ -123,7 +122,7 @@ rsync -a private-state/guild_hall/state/gateway/intake_inbox/ guild_hall/state/g
 rsync -a private-state/guild_hall/state/gateway/log/monster_events/ guild_hall/state/gateway/log/monster_events/
 rsync -a private-state/guild_hall/state/gateway/mailbox/outbound/ guild_hall/state/gateway/mailbox/outbound/
 rsync -a private-state/guild_hall/state/gateway/log/mail_send/ guild_hall/state/gateway/log/mail_send/
-rsync -a private-state/_workspaces/ _workspaces/
+rsync -a private-state/_workmeta/ ../_workmeta/
 ```
 
 Windows PowerShell baseline copy:
@@ -133,7 +132,7 @@ Copy-Item "private-state/guild_hall/state/gateway/intake_inbox/*" "guild_hall/st
 Copy-Item "private-state/guild_hall/state/gateway/log/monster_events/*" "guild_hall/state/gateway/log/monster_events/" -Recurse -Force
 Copy-Item "private-state/guild_hall/state/gateway/mailbox/outbound/*" "guild_hall/state/gateway/mailbox/outbound/" -Recurse -Force
 Copy-Item "private-state/guild_hall/state/gateway/log/mail_send/*" "guild_hall/state/gateway/log/mail_send/" -Recurse -Force
-Copy-Item "private-state/_workspaces/*" "_workspaces/" -Recurse -Force
+Copy-Item "private-state/_workmeta/*" "..\\_workmeta\\" -Recurse -Force
 ```
 
 ## 현재 PC 에서 private-state 로 동기화 예시
@@ -146,7 +145,7 @@ rsync -a guild_hall/state/gateway/intake_inbox/ private-state/guild_hall/state/g
 rsync -a guild_hall/state/gateway/log/monster_events/ private-state/guild_hall/state/gateway/log/monster_events/
 rsync -a guild_hall/state/gateway/mailbox/outbound/ private-state/guild_hall/state/gateway/mailbox/outbound/
 rsync -a guild_hall/state/gateway/log/mail_send/ private-state/guild_hall/state/gateway/log/mail_send/
-rsync -a _workspaces/ private-state/_workspaces/
+rsync -a ../_workmeta/ private-state/_workmeta/
 
 cd private-state
 git add .
@@ -161,7 +160,7 @@ Copy-Item "guild_hall/state/gateway/intake_inbox/*" "private-state/guild_hall/st
 Copy-Item "guild_hall/state/gateway/log/monster_events/*" "private-state/guild_hall/state/gateway/log/monster_events/" -Recurse -Force
 Copy-Item "guild_hall/state/gateway/mailbox/outbound/*" "private-state/guild_hall/state/gateway/mailbox/outbound/" -Recurse -Force
 Copy-Item "guild_hall/state/gateway/log/mail_send/*" "private-state/guild_hall/state/gateway/log/mail_send/" -Recurse -Force
-Copy-Item "_workspaces/*" "private-state/_workspaces/" -Recurse -Force
+Copy-Item "..\\_workmeta\\*" "private-state/_workmeta/" -Recurse -Force
 ```
 
 주의:
@@ -174,7 +173,7 @@ Copy-Item "_workspaces/*" "private-state/_workspaces/" -Recurse -Force
 
 - private state repo 는 public repo 대체물이 아니지만, 보호 대상 업무 데이터의 유일한 Git 저장 plane 이다.
 - canon 판단과 owner boundary 정본은 계속 public `Soulforge` 계약 문서와 tracked 구조가 owner 다.
-- `guild_hall/state/**` 와 `_workspaces/**` 전체를 무조건 Git 으로 보내지 않는다.
+- `guild_hall/state/**` 와 `_workmeta/**` 전체를 무조건 Git 으로 보내지 않는다.
 - 기능 코드/문서/public-safe sample 변경은 public repo 에 commit/push 하고, 업무 데이터 변경은 `private-state/` 에 commit/push 한다.
 - owner 는 다른 PC 에서도 `owner-with-state` 조건이 맞으면 nested `private-state/` 에 commit/push 할 수 있다.
 - 팀원/public-only 프로필은 `private-state/` clone, pull, push 를 수행하지 않는다.
@@ -206,3 +205,4 @@ Copy-Item "_workspaces/*" "private-state/_workspaces/" -Recurse -Force
 
 - private state repo 는 public GitHub repo 와 분리된 별도 private remote 를 쓴다고 본다.
 - v0 범위에서는 `town_crier` queue 나 raw mailbox dump 보다, monsterized record 와 outbound mail record 의 연속 보존이 더 중요하다고 본다.
+

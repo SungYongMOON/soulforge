@@ -1,4 +1,4 @@
-# private state repo allowlist template
+﻿# private state repo allowlist template
 
 # ignore by default
 *
@@ -23,17 +23,16 @@
 !/guild_hall/state/gateway/log/mail_send/**
 
 # allow selected project worksite records
-!/_workspaces/
-!/_workspaces/*/
-!/_workspaces/*/.project_agent/
-!/_workspaces/*/.project_agent/monsters/
-!/_workspaces/*/.project_agent/monsters/**
-!/_workspaces/*/.project_agent/log/
-!/_workspaces/*/.project_agent/log/battle_log/
-!/_workspaces/*/.project_agent/log/battle_log/**
-!/_workspaces/*/.project_agent/reports/
-!/_workspaces/*/.project_agent/reports/morning_report/
-!/_workspaces/*/.project_agent/reports/morning_report/**
+!/_workmeta/
+!/_workmeta/*/
+!/_workmeta/*/monsters/
+!/_workmeta/*/monsters/**
+!/_workmeta/*/log/
+!/_workmeta/*/log/battle_log/
+!/_workmeta/*/log/battle_log/**
+!/_workmeta/*/reports/
+!/_workmeta/*/reports/morning_report/
+!/_workmeta/*/reports/morning_report/**
 
 # explicit secret / volatile deny
 guild_hall/state/gateway/mailbox/state/**
@@ -41,9 +40,10 @@ guild_hall/state/gateway/mailbox/**/raw/**
 guild_hall/state/gateway/mailbox/**/events/**
 guild_hall/state/gateway/mailbox/**/attachments/**
 guild_hall/state/town_crier/**
-_workspaces/*/.project_agent/runs/**
+_workmeta/*/runs/**
 **/*.env
 **/*token*
 **/*cookie*
 **/*.session
 **/*.key
+

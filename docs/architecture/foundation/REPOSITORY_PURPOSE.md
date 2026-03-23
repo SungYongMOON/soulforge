@@ -24,11 +24,12 @@ flowchart TD
   R --> RR["skills / tools / knowledge"]
   S --> U[".unit<br/>active unit owner"]
   S --> W[".workflow<br/>independent orchestration canon"]
-  S --> P[".party<br/>independent orchestration template"]
+  S --> PT[".party<br/>independent orchestration template"]
   S --> MI[".mission<br/>held mission plan"]
   S --> M["_workspaces<br/>project-local materialization site"]
   MI --> MP["mission.yaml / readiness.yaml<br/>resolved plan owner"]
-  M --> PA["&lt;project_code&gt;/.project_agent<br/>local contract and runtime boundary"]
+  M --> PR["&lt;project_code&gt;<br/>actual project files"]
+  S -.-> WM["_workmeta/&lt;project_code&gt;<br/>local contract and runtime boundary"]
   S --> D["docs/architecture<br/>root-owned canon docs"]
 ```
 
@@ -74,8 +75,8 @@ flowchart TD
 - `docs/architecture/foundation/TARGET_TREE.md`
 - `docs/architecture/foundation/DOCUMENT_OWNERSHIP.md`
 - `docs/architecture/workspace/WORKSPACE_PROJECT_MODEL.md`
-- `docs/architecture/workspace/PROJECT_AGENT_MINIMUM_SCHEMA.md`
-- `docs/architecture/workspace/PROJECT_AGENT_RESOLVE_CONTRACT.md`
+- `docs/architecture/workspace/WORKMETA_MINIMUM_SCHEMA.md`
+- `docs/architecture/workspace/WORKMETA_RESOLVE_CONTRACT.md`
 - `docs/architecture/ui/UI_SOURCE_MAP.md`
 - `docs/architecture/ui/UI_SYNC_CONTRACT.md`
 - `docs/architecture/ui/UI_CONTROL_CENTER_MODEL.md`

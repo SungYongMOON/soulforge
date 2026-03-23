@@ -1,4 +1,4 @@
-# NOTIFY_BRIEF_FORMAT_V0
+﻿# NOTIFY_BRIEF_FORMAT_V0
 
 ## 목적
 
@@ -96,11 +96,12 @@
 - gateway notify sample
   - [`examples/guild_hall/state/town_crier/queue/pending/notify_pdr_brief_chain_demo_001.json`](examples/guild_hall/state/town_crier/queue/pending/notify_pdr_brief_chain_demo_001.json)
 - battle log sample
-  - [`examples/demo_project/.project_agent/battle_log_chain_example.md`](examples/demo_project/.project_agent/battle_log_chain_example.md)
+  - [`examples/demo_project/_workmeta/battle_log_chain_example.md`](examples/demo_project/_workmeta/battle_log_chain_example.md)
 - morning report sample
-  - [`examples/demo_project/.project_agent/morning_project_report_chain_example.md`](examples/demo_project/.project_agent/morning_project_report_chain_example.md)
+  - [`examples/demo_project/_workmeta/morning_project_report_chain_example.md`](examples/demo_project/_workmeta/morning_project_report_chain_example.md)
 
 ## ASSUMPTIONS
 
 - v0 에서는 Telegram brief 를 owner-facing primary surface 로 보고, 다른 채널도 같은 formatter 원칙을 재사용할 수 있다고 본다.
 - `objective` 를 canonical intent 로 유지하고, `objective_ko` 는 표시용 localized override 로 본다.
+

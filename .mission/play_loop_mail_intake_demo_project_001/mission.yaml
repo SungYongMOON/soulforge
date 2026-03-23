@@ -1,4 +1,4 @@
-mission_id: play_loop_mail_intake_demo_project_001
+﻿mission_id: play_loop_mail_intake_demo_project_001
 kind: mission
 status: blocked
 title: Demo Project Kickoff Deck Refresh Intake
@@ -16,11 +16,11 @@ unit_assignments:
   reviewer: guild_master
 input_refs:
   source_mail: synthetic-mail-2026-03-19-001
-  mailbox_payload: _workspaces/demo_project/.project_agent/autohunt/mailbox_payload_sample.yaml
+  mailbox_payload: _workmeta/demo_project/autohunt/mailbox_payload_sample.yaml
   stage_hint: 1-1 kickoff alignment
 run_refs:
   latest_run_id: null
-  runtime_truth_root: _workspaces/demo_project/.project_agent/runs/
+  runtime_truth_root: _workmeta/demo_project/runs/
 notifications:
   telegram:
     mission_blocked: false
@@ -32,3 +32,4 @@ notes:
     PLAY_LOOP_V0 dry-run.
   - "`workflow_id` remains null until the reusable workflow selection is
     explicit, so readiness stays blocked."
+

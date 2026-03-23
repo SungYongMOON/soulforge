@@ -1,4 +1,4 @@
-# Mission Manual Draft
+﻿# Mission Manual Draft
 
 ## 목적
 
@@ -20,7 +20,7 @@ flowchart TD
   U["unit assignment"] --> MI
   MI --> RC["mission_check"]
   RC --> RUN["run"]
-  RUN --> WS["_workspaces/<project>/.project_agent/runs/<run_id>"]
+  RUN --> WS["_workmeta/<project>/runs/<run_id>"]
 ```
 
 - `workflow` = reusable procedure canon
@@ -44,7 +44,7 @@ flowchart TD
 5. `mission_check` 로 readiness 를 본다.
 6. `ready` 면 실행하거나 다음 운영층으로 넘긴다.
 7. `blocked` 면 blocker owner 를 기준으로 보정한다.
-8. 실제 실행 흔적은 `_workspaces/<project_code>/.project_agent/runs/<run_id>/` 아래에 남긴다.
+8. 실제 실행 흔적은 `_workmeta/<project_code>/runs/<run_id>/` 아래에 남긴다.
 
 ## 자동 mission 절차
 
@@ -79,7 +79,7 @@ flowchart TD
 
 - blocker 가 mission surface 에 있으면 `.mission/<mission_id>/` 를 고친다.
 - blocker 가 canon 에 있으면 `.workflow`, `.party`, `.unit`, `.registry` owner 에서 고친다.
-- blocker 가 local runtime 에 있으면 `_workspaces/.../.project_agent/` owner 에서 고친다.
+- blocker 가 local runtime 에 있으면 `_workmeta/<project_code>/` owner 에서 고친다.
 - blocker 가 historical sample mismatch 라면 notes 와 review report 로 남긴다.
 
 ## sample mission 읽는 법
@@ -100,3 +100,4 @@ flowchart TD
 - mission readiness checker 규칙
 - autohunt/nightly sweep 과 mission 의 연결 규약
 - blocked mission 보정 플레이북
+

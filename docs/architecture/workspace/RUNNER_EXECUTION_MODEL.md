@@ -1,4 +1,4 @@
-# Runner Execution Model
+﻿# Runner Execution Model
 
 ## 목적
 
@@ -88,8 +88,8 @@ sequenceDiagram
 
 - tracked repo 는 `dispatch_request.yaml` 과 `run_packet.yaml` 같은 public-safe packet example 만 둔다.
 - tracked example 의 `runner/` 는 설명용 sample packet 묶음이다.
-- actual local runner implementation 은 한 예시로 dedicated `runner/` folder 대신 `.project_agent/tools/` 아래 prototype script 형태로 존재할 수 있다.
-- actual queue state, actual spawn payload, transcripts, intermediate artifact 는 `_workspaces/<project_code>/.project_agent/runs/<run_id>/` 아래에만 둔다.
+- actual local runner implementation 은 한 예시로 dedicated `runner/` folder 대신 `_workmeta/<project_code>/tools/` 아래 prototype script 형태로 존재할 수 있다.
+- actual queue state, actual spawn payload, transcripts, intermediate artifact 는 `_workmeta/<project_code>/runs/<run_id>/` 아래에만 둔다.
 - runner 는 execution role 이지 top-level canonical root 나 required local folder 이름이 아니다.
 
 ## 경계
@@ -97,3 +97,4 @@ sequenceDiagram
 - runner 는 workflow 와 party 를 합치는 역할을 하지만, 둘의 정본 owner 는 아니다.
 - dispatch packet 은 autohunt 의 routing 결과이며 raw truth 가 아니다.
 - run packet 은 runner 의 resolved execution metadata 이며 raw truth 가 아니다.
+

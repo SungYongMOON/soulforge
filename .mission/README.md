@@ -1,4 +1,4 @@
-# .mission
+﻿# .mission
 
 ## 정본 의미
 
@@ -19,7 +19,7 @@ flowchart TD
   PT --> PTC[".party/<party_id>/party.yaml"]
   UA --> U[".unit/<unit_id>/unit.yaml"]
   M --> RP["resolved_plan.yaml"]
-  PJ --> WS["_workspaces/<project_code>/.project_agent/runs/<run_id>/"]
+  PJ --> WS["_workmeta/<project_code>/runs/<run_id>/"]
 ```
 
 ## 무엇을 둔다
@@ -41,7 +41,7 @@ flowchart TD
 
 ## 무엇을 두지 않는다
 
-- `_workspaces/<project_code>/.project_agent/runs/<run_id>/` raw execution truth
+- `_workmeta/<project_code>/runs/<run_id>/` raw execution truth
 - project-local transcripts, logs, private input dump
 - workflow, party, unit canon 원본 파일
 
@@ -64,4 +64,5 @@ flowchart TD
 - mission-scoped Telegram notify toggle 은 각 `<mission_id>/mission.yaml` 의 `notifications:` 블록에 둔다.
 - `BATTLE_LOG_STORAGE_PLAN.md`, `MISSION_CLOSE_PROVENANCE_V0.md`, `MAILBOX_CONCRETE_CONTRACT_V0.md` 는 mission owner-local note 가 아니라 workspace contract draft 로 보고 [`docs/architecture/workspace/`](../docs/architecture/workspace/README.md) 아래로 이동했다.
 - mission 절차형 매뉴얼 초안은 [`docs/architecture/workspace/MISSION_MANUAL_DRAFT.md`](../docs/architecture/workspace/MISSION_MANUAL_DRAFT.md) 에 둔다.
-- 실제 local/private run truth 는 계속 `_workspaces/<project_code>/.project_agent/runs/<run_id>/` 아래에 남긴다.
+- 실제 local/private run truth 는 계속 `_workmeta/<project_code>/runs/<run_id>/` 아래에 남긴다.
+

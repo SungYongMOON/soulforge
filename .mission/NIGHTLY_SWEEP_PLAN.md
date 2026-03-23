@@ -1,4 +1,4 @@
-# Nightly Sweep Plan
+﻿# Nightly Sweep Plan
 
 ## 목적
 
@@ -130,10 +130,10 @@
 - nightly sweep 자체의 시간순 trace 는 local-only `log/` 아래에 남긴다.
 - nightly sweep 의 최종 산출물은 다음 날 owner 가 보는 `morning_report` 를 준비하거나 갱신하는 것이다.
 - 예시:
-  - `_workspaces/<project_code>/.project_agent/log/nightly_sweep/<date>.md`
-  - `_workspaces/<project_code>/.project_agent/log/nightly_sweep/latest.md`
-  - `_workspaces/<project_code>/.project_agent/reports/morning_report/<date>.md`
-  - `_workspaces/<project_code>/.project_agent/reports/morning_report/latest.md`
+  - `_workmeta/<project_code>/log/nightly_sweep/<date>.md`
+  - `_workmeta/<project_code>/log/nightly_sweep/latest.md`
+  - `_workmeta/<project_code>/reports/morning_report/<date>.md`
+  - `_workmeta/<project_code>/reports/morning_report/latest.md`
 - 아침에 owner 가 보는 briefing contract 는 별도 morning report contract 로 둔다.
 - 현재 연결 문서는 [`MORNING_PROJECT_REPORT_CONTRACT.md`](../.mission/MORNING_PROJECT_REPORT_CONTRACT.md) 이다.
 - tracked repo 에는 실제 report dump 를 두지 않는다.
@@ -183,3 +183,4 @@
 
 - nightly sweep 는 `보고`와 `제안` 중심이고, `판정`과 `승격`은 owner 수동 판단으로 남긴다.
 - Soulforge 현재 저장소 기준으로 mission 검사와 UI workspace 검사가 nightly sweep 의 가장 현실적인 출발점이라고 본다.
+

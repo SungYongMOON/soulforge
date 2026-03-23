@@ -1,4 +1,4 @@
-# Play Loop V0
+﻿# Play Loop V0
 
 ## 목적
 
@@ -20,7 +20,7 @@
 
 - `PLAY_LOOP_V0` 는 top-level canonical root 가 아니다.
 - 이 문서는 `.mission/` owner-local draft 이며, 현재 default 운영 감각을 정리하는 planning note 다.
-- 정본/source of truth 는 계속 `.mission/**`, `guild_hall/state/**`, `_workspaces/<project_code>/.project_agent/**` 에 남긴다.
+- 정본/source of truth 는 계속 `.mission/**`, `guild_hall/state/**`, `_workmeta/<project_code>/**` 에 남긴다.
 - 외부 보드나 보조 surface 는 써도 되지만, canonical mission surface 나 runtime truth owner 로 올리지 않는다.
 - raw execution truth, private input dump, project-local battle trace 는 tracked repo 로 복제하지 않는다.
 
@@ -113,8 +113,8 @@
    - mission-level terminal battle outcome 이 확인되면 `battle_event` 를 1건 영속화하고 summary trace 를 함께 남긴다.
    - battle log 는 battle provenance 와 battle result 중심으로만 적고, monster candidate 판정 규칙과 intake-side 분류 이유는 별도 candidate note 로 분리한다.
    - 권장 출력:
-     - `_workspaces/<project_code>/.project_agent/log/battle_log/<date>.md`
-     - `_workspaces/<project_code>/.project_agent/log/battle_log/latest.md`
+     - `_workmeta/<project_code>/log/battle_log/<date>.md`
+     - `_workmeta/<project_code>/log/battle_log/latest.md`
    - 최소 기록 항목:
      - source mail reference
      - assigned dungeon / stage
@@ -130,8 +130,8 @@
 9. `morning_report`
    - battle_log 와 mission surface 를 읽어 다음 owner-facing briefing 을 준비한다.
    - 권장 출력:
-     - `_workspaces/<project_code>/.project_agent/reports/morning_report/<date>.md`
-     - `_workspaces/<project_code>/.project_agent/reports/morning_report/latest.md`
+     - `_workmeta/<project_code>/reports/morning_report/<date>.md`
+     - `_workmeta/<project_code>/reports/morning_report/latest.md`
    - `morning_report` 는 dogfood 과정에서 "어제 무엇을 처리했고, 어디에 사람이 개입했고, 오늘 무엇을 다시 볼지"를 요약하는 첫 브리핑 surface 다.
    - nightly review 는 raw event 를 새로 만들지 않고, 이 surface 들의 누락과 anomaly 를 검토한다.
 
@@ -148,8 +148,8 @@
 
 - mission plan / readiness / assignment 상태는 계속 `.mission/**` 를 본다.
 - workspace intake inbox 와 intake-side candidate note 는 `guild_hall/state/gateway/intake_inbox/` 아래 staging surface 를 본다.
-- local battle trace / logs / reports 는 `_workspaces/<project_code>/.project_agent/**` 를 본다.
-- project 쪽 monster surface 는 `_workspaces/<project_code>/.project_agent/**` 에 남기고, `captured` 이후에도 삭제하지 않는다.
+- local battle trace / logs / reports 는 `_workmeta/<project_code>/**` 를 본다.
+- project 쪽 monster surface 는 `_workmeta/<project_code>/**` 에 남기고, `captured` 이후에도 삭제하지 않는다.
 - 외부 보드, inbox mirror, helper dashboard 는 있더라도 보조 surface 로만 다룬다.
 - canonical 판단이나 사후 분석은 위 두 source 에서만 시작한다.
 
@@ -179,3 +179,4 @@
 - v0 의 가장 중요한 성공 조건은 "하루 업무를 한 번 끝까지 굴릴 수 있느냐" 이며, full automation 여부가 아니다.
 - 첫 입력원은 `메일만` 열어도 playable alpha 를 판단하기에 충분하다고 본다.
 - monster tier 이름 자체보다 `자동화 가능성` 에 따른 행동 차이가 현재 phase 에 더 중요하다고 본다.
+

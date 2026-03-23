@@ -95,7 +95,7 @@ flowchart LR
 - `notes`
 
 `projects[*]` 는 direct `<project_code>` detection 결과를 담는다.
-추가 메타로 `project_code`, `project_name`, `project_path`, `state`, `project_agent_present`, binding count 등을 포함할 수 있다.
+추가 메타로 `project_code`, `project_name`, `project_path`, `state`, `workmeta_present`, binding count 등을 포함할 수 있다.
 
 ## 6. `diagnostics`
 

@@ -1,4 +1,4 @@
-# Skill Canon Boundary
+﻿# Skill Canon Boundary
 
 ## 목적
 
@@ -16,7 +16,7 @@ flowchart TD
   SK["skill.yaml<br/>canon"] --> CD["codex/SKILL.md<br/>lean bridge"]
   CD --> RF["codex/references/*.md<br/>detailed mapping"]
   CD --> UI["codex/agents/openai.yaml<br/>UI metadata"]
-  SK --> RT[".project_agent/bindings/*<br/>runtime binding"]
+  SK --> RT["_workmeta/<project_code>/bindings/*<br/>runtime binding"]
 ```
 
 ## 파일별 책임
@@ -83,12 +83,12 @@ flowchart TD
 - MCP/tool set
 - host-local install path
 
-위 항목은 canonical skill folder 가 아니라 local `.project_agent/bindings/` 가 최종 owner 다.
+위 항목은 canonical skill folder 가 아니라 local `_workmeta/<project_code>/bindings/` 가 최종 owner 다.
 
 ## authoring-aid example
 
 - `skill_check` 는 tracked `.registry/skills/<skill_id>/` package 와 optional `codex/` bridge 가 boundary 규칙을 지키는지 검토하는 active authoring-aid sample 이다.
-- 이 skill 은 owner mismatch 나 과잉 중복을 지적할 수 있지만, local `.project_agent/bindings/` 값을 tracked canon 안으로 materialize 하지는 않는다.
+- 이 skill 은 owner mismatch 나 과잉 중복을 지적할 수 있지만, local `_workmeta/<project_code>/bindings/` 값을 tracked canon 안으로 materialize 하지는 않는다.
 
 ## tracked repo guardrail
 
@@ -103,3 +103,4 @@ flowchart TD
 - `skill_check` (active authoring-aid sample)
 
 `shield_wall`, `record_stitch`, `skill_check` 는 active baseline example 이고, `skill_check` 는 같은 lean `SKILL.md + references/` split 을 따르는 authoring-aid sample 이다.
+

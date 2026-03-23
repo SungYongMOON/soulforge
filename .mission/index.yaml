@@ -1,4 +1,4 @@
-version: v1
+﻿version: v1
 owner: .mission
 kind: mission_catalog
 status: active
@@ -26,4 +26,5 @@ entries:
     readiness_status: blocked
 notes:
   - "`.mission/` owns held mission plans and readiness metadata."
-  - "Raw execution truth remains under `_workspaces/<project_code>/.project_agent/runs/<run_id>/`."
+  - "Raw execution truth remains under `_workmeta/<project_code>/runs/<run_id>/`."
+

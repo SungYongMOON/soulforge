@@ -29,7 +29,7 @@
 - Stable
 - root owner 문서만 유지한다.
 - `docs/architecture/` 아래는 `foundation/`, `workspace/`, `ui/` 세 묶음으로 정리한다.
-- workspace 공통 resolve 계약은 `docs/architecture/workspace/PROJECT_AGENT_RESOLVE_CONTRACT.md` 에서 관리한다.
+- workspace 공통 resolve 계약은 `docs/architecture/workspace/WORKMETA_RESOLVE_CONTRACT.md` 에서 관리한다.
 - derived state 공통 계약은 `docs/architecture/ui/UI_DERIVED_STATE_CONTRACT.md` 에서 관리한다.
 - file-based editing shell 기준은 `docs/architecture/ui/UI_CONTROL_CENTER_MODEL.md` 에서 관리한다.
 - renderer consumer 문서군 정본은 `ui-workspace/docs/` 에서 관리한다.

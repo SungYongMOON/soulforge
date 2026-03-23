@@ -1,4 +1,4 @@
-mission_id: author_pptx_autofill_conversion_001
+﻿mission_id: author_pptx_autofill_conversion_001
 kind: resolved_mission_plan
 status: completed
 workflow:
@@ -35,7 +35,8 @@ step_outputs:
   - skill_release_review.md
 run_refs:
   latest_run_id: author_skill_package_pptx_autofill_conversion_001
-  raw_truth_root: _workspaces/demo_project/.project_agent/runs/author_skill_package_pptx_autofill_conversion_001/
+  raw_truth_root: _workmeta/demo_project/runs/author_skill_package_pptx_autofill_conversion_001/
 notes:
   - This plan is a public-safe resolved view for the held mission.
-  - Runtime binding details may be resolved further in local `.project_agent/bindings/`, but those local files do not own the mission itself.
+  - Runtime binding details may be resolved further in local `_workmeta/<project_code>/bindings/`, but those local files do not own the mission itself.
+

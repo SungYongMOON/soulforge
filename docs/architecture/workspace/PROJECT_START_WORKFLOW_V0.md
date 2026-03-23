@@ -1,4 +1,4 @@
-# PROJECT_START_WORKFLOW_V0
+﻿# PROJECT_START_WORKFLOW_V0
 
 ## 목적
 
@@ -13,9 +13,9 @@
 ## 정본 규칙
 
 1. tracked 정본 문서에는 실제 project code, 실제 과제명, 실제 고객/거래처명, 실제 display name 을 적지 않고 generic example 만 쓴다.
-2. 실제 프로젝트별 working note 와 실험 결과는 `_workspaces/<project_code>/.project_agent/reports/onboarding/` 아래 local-only 로 남긴다.
-3. 사람과 Codex 가 같이 진행한 판단, blocker, 다음 액션은 `_workspaces/<project_code>/.project_agent/reports/onboarding/project_start_worklog.md` 에 append 한다.
-4. 근거 파일, export, 비교본, preview 결과는 `_workspaces/<project_code>/.project_agent/artifacts/onboarding/` 아래에 둔다.
+2. 실제 프로젝트별 working note 와 실험 결과는 `_workmeta/<project_code>/reports/onboarding/` 아래 local-only 로 남긴다.
+3. 사람과 Codex 가 같이 진행한 판단, blocker, 다음 액션은 `_workmeta/<project_code>/reports/onboarding/project_start_worklog.md` 에 append 한다.
+4. 근거 파일, export, 비교본, preview 결과는 `_workmeta/<project_code>/artifacts/onboarding/` 아래에 둔다.
 5. 첫 과제 시작은 항상 bounded scope 1건으로 열고, 성공 조건과 종료 조건을 먼저 적는다.
 6. first task 진행 중 생긴 규칙은 먼저 local-only worklog/note 로 검증하고, 안정화된 뒤에만 정본 manual 과 changelog 로 승격한다.
 7. 새로 시작하는 어떤 행위든 절차를 저장하고 workflow 화할 수 있게 worklog 와 관련 note 를 같이 연다.
@@ -27,7 +27,7 @@
 ## 시작 절차
 
 1. `_workspaces/<project_code>/` materialization 상태를 확인한다.
-2. `.project_agent/` 가 없으면 `draft` skeleton 을 만든다.
+2. `_workmeta/<project_code>/` 가 없으면 `draft` skeleton 을 만든다.
 3. `reports/onboarding/project_start_worklog.md` 를 만들고 첫 entry 를 남긴다.
 4. 실제 자료를 read-only 로 훑어 첫 과제 후보를 1건만 정한다.
 5. first task 의 입력, 출력, blocker, 종료 조건을 worklog 에 적는다.
@@ -50,15 +50,14 @@
 ## 권장 파일 배치
 
 ```text
-_workspaces/<project_code>/
-└── .project_agent/
-    ├── reports/
-    │   └── onboarding/
-    │       ├── project_start_worklog.md
-    │       └── YYYY-MM-DD_<topic>.md
-    └── artifacts/
-        └── onboarding/
-            └── <preview-or-evidence-files>
+_workmeta/<project_code>/
+├── reports/
+│   └── onboarding/
+│       ├── project_start_worklog.md
+│       └── YYYY-MM-DD_<topic>.md
+└── artifacts/
+    └── onboarding/
+        └── <preview-or-evidence-files>
 ```
 
 ## 승격 기준
@@ -77,5 +76,6 @@ _workspaces/<project_code>/
 
 - [`PROJECT_ONBOARDING_V0.md`](PROJECT_ONBOARDING_V0.md)
 - [`WORKSPACE_PROJECT_MODEL.md`](WORKSPACE_PROJECT_MODEL.md)
-- [`PROJECT_AGENT_MINIMUM_SCHEMA.md`](PROJECT_AGENT_MINIMUM_SCHEMA.md)
-- [`PROJECT_AGENT_SCHEMA_FIELD_MATRIX.md`](PROJECT_AGENT_SCHEMA_FIELD_MATRIX.md)
+- [`WORKMETA_MINIMUM_SCHEMA.md`](WORKMETA_MINIMUM_SCHEMA.md)
+- [`WORKMETA_SCHEMA_FIELD_MATRIX.md`](WORKMETA_SCHEMA_FIELD_MATRIX.md)
+

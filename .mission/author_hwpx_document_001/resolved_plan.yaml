@@ -1,4 +1,4 @@
-mission_id: author_hwpx_document_001
+﻿mission_id: author_hwpx_document_001
 kind: resolved_mission_plan
 status: blocked
 workflow:
@@ -36,7 +36,8 @@ missing_outputs:
   - skill_smoke_check.md
 run_refs:
   latest_run_id: author_skill_package_hwpx_document_001
-  raw_truth_root: _workspaces/demo_project/.project_agent/runs/author_skill_package_hwpx_document_001/
+  raw_truth_root: _workmeta/demo_project/runs/author_skill_package_hwpx_document_001/
 notes:
   - This plan is a public-safe resolved view for the held mission.
   - The historical run produced a valid smoke-backed package, but the mission sample does not yet carry the newer explicit resource bundle review and smoke-check artifacts.
+

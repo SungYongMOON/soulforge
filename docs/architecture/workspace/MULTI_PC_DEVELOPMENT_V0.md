@@ -1,4 +1,4 @@
-# MULTI_PC_DEVELOPMENT_V0
+﻿# MULTI_PC_DEVELOPMENT_V0
 
 ## 목적
 
@@ -33,7 +33,7 @@
 - `_workspaces/<project_code>/` 실제 프로젝트 파일
 - `guild_hall/state/gateway/` 실제 mailbox, intake inbox, event log
 - `guild_hall/state/town_crier/` 실제 queue, send log, telegram env
-- `.project_agent/runs/`, `battle_log/`, `morning_report/` 같은 local runtime truth
+- `_workmeta/<project_code>/runs/`, `battle_log/`, `morning_report/` 같은 local runtime truth
 - host-local skill install, local binding, private mailbox dump
 - local NotebookLM auth/session
 - local Telegram bot token/chat id
@@ -76,7 +76,7 @@ npm.cmd run skills:sync -- --all
 
 5. `.registry/skills/*/codex/SKILL.md` 가 있는 skill 은 bootstrap 필수 sync 대상이고, `guild-hall:doctor` 도 이 기준으로 readiness 를 판단한다.
 6. `codex/SKILL.md` 가 없는 registry entry 는 test/canon-only package 로 보고 sync 대상에 넣지 않는다.
-7. local runtime binding 은 각 PC 의 `.project_agent/bindings/skill_execution_binding.yaml` 이 `skill_id -> installed Codex skill name` 을 resolve 한다.
+7. local runtime binding 은 각 PC 의 `_workmeta/<project_code>/bindings/skill_execution_binding.yaml` 이 `skill_id -> installed Codex skill name` 을 resolve 한다.
 
 예:
 
@@ -177,3 +177,4 @@ npm run guild-hall:gateway:fetch:healthcheck -- --json
 ## ASSUMPTIONS
 
 - canonical tracked tree 는 계속 GitHub 로 sync 하고, `guild_hall/state/**` 와 `_workspaces/**` 는 local-only runtime 원칙을 유지한다고 본다.
+

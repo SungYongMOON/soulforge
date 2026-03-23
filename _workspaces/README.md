@@ -1,4 +1,4 @@
-# _workspaces
+﻿# _workspaces
 
 ## 정본 의미
 
@@ -24,21 +24,7 @@ _workspaces/
 ```text
 _workspaces/
 └── <project_code>/
-    ├── ... actual project files ...
-    └── .project_agent/
-        ├── contract.yaml
-        ├── bindings/
-        ├── monsters/
-        ├── runs/
-        ├── dungeons/
-        ├── analytics/
-        ├── nightly_healing/
-        ├── reports/
-        │   └── morning_report/
-        ├── log/
-        │   ├── nightly_sweep/
-        │   └── battle_log/
-        └── artifacts/
+    └── ... actual project files ...
 ```
 
 ## owner 경계
@@ -47,9 +33,10 @@ _workspaces/
 - 실제 프로젝트가 다른 로컬 경로에 이미 있으면 `_workspaces/<project_code>/` direct child 로 보이도록 local-only directory link 를 둘 수 있다.
 - `guild_hall/state/**` 는 cross-project ingress, notify, assignment 같은 운영 runtime 이고 `_workspaces/` owner 가 아니다.
 - held mission plan 과 readiness owner 는 이 경로가 아니라 루트 `.mission/` 이 소유한다.
-- raw execution truth 는 `_workspaces/<project_code>/.project_agent/runs/<run_id>/` 아래에 남긴다.
-- project-side monster record 는 `_workspaces/<project_code>/.project_agent/monsters/` 아래에 남긴다.
-- `.project_agent/` 는 local contract, bindings, autohunt metadata, raw run truth 를 두는 실행 surface 이며 mission owner 가 아니다.
+- project metadata companion root 는 public repo 바깥 `_workmeta/<project_code>/` 이고, 기본 colocated 경로는 Soulforge repo root 기준 `../_workmeta/<project_code>/` 다.
+- raw execution truth 는 `_workmeta/<project_code>/runs/<run_id>/` 아래에 남긴다.
+- project-side monster record 는 `_workmeta/<project_code>/monsters/` 아래에 남긴다.
+- `_workmeta/<project_code>/` 는 local contract, bindings, autohunt metadata, raw run truth 를 두는 실행 surface 이며 mission owner 가 아니다.
 - `dungeons/`, `analytics/`, `nightly_healing/`, `reports/`, `log/`, `artifacts/` 는 public tracking 대상이 아니다.
 - `.registry`, `.unit`, `.workflow`, `.party` 는 `_workspaces` 를 참조할 수 있지만 per-project 실자료를 흡수하지 않는다.
 
@@ -57,14 +44,14 @@ _workspaces/
 
 - 실제 project code 와 실제 프로젝트 디렉터리를 public repo 에 추가하지 않는다.
 - tracked 문서와 public-safe example 에는 실제 project code, 실제 과제명, 실제 display name 을 적지 않고 generic example 만 쓴다.
-- `_workspaces/<project_code>/` 안의 `.project_agent/` 계약 파일도 public tracking 대상이 아니다.
+- `_workmeta/<project_code>/` 계약 파일도 public tracking 대상이 아니다.
 - repo 안에 남아 있는 legacy sample 또는 과거 경로 흔적은 정본이 아니며 후속 cleanup 범위다.
 - `guild_hall/state/**` 는 `guild-hall:gateway:*` 또는 `guild-hall:town-crier:*` 첫 실행 시 필요한 local runtime 폴더가 자동으로 materialize 된다.
 - `_workspaces/**` 전체를 public Git 으로 올리지 않으며, 필요한 subset 만 `PRIVATE_STATE_REPO_V0.md` 기준으로 별도 private repo 에 넣는다.
 - 첫 실제 프로젝트 온보딩 절차와 short `project_code` / full `display_name` 규칙은 `PROJECT_ONBOARDING_V0.md` 를 따른다.
-- first run/use 중 생기는 local-only working note 는 `.project_agent/reports/onboarding/`, 근거 artifact 는 `.project_agent/artifacts/onboarding/` 를 기본안으로 둔다.
-- 사람과 Codex 가 같이 진행한 시작 단계 기록은 `.project_agent/reports/onboarding/project_start_worklog.md` 를 기본안으로 둔다.
-- 사용자가 따로 요청하지 않아도 새 시작 행위의 실제 작업 순서와 절차 초안은 `.project_agent/reports/onboarding/project_start_worklog.md` 에 남기는 것을 기본안으로 둔다.
+- first run/use 중 생기는 local-only working note 는 `_workmeta/<project_code>/reports/onboarding/`, 근거 artifact 는 `_workmeta/<project_code>/artifacts/onboarding/` 를 기본안으로 둔다.
+- 사람과 Codex 가 같이 진행한 시작 단계 기록은 `_workmeta/<project_code>/reports/onboarding/project_start_worklog.md` 를 기본안으로 둔다.
+- 사용자가 따로 요청하지 않아도 새 시작 행위의 실제 작업 순서와 절차 초안은 `_workmeta/<project_code>/reports/onboarding/project_start_worklog.md` 에 남기는 것을 기본안으로 둔다.
 
 ## 관련 경로
 
@@ -78,3 +65,4 @@ _workspaces/
 - [`docs/architecture/workspace/PROJECT_START_WORKFLOW_V0.md`](../docs/architecture/workspace/PROJECT_START_WORKFLOW_V0.md)
 - [`docs/architecture/workspace/MULTI_PC_DEVELOPMENT_V0.md`](../docs/architecture/workspace/MULTI_PC_DEVELOPMENT_V0.md)
 - [`docs/architecture/workspace/PRIVATE_STATE_REPO_V0.md`](../docs/architecture/workspace/PRIVATE_STATE_REPO_V0.md)
+

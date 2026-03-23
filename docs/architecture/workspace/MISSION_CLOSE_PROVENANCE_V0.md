@@ -1,4 +1,4 @@
-# MISSION_CLOSE_PROVENANCE_V0
+﻿# MISSION_CLOSE_PROVENANCE_V0
 
 ## 목적
 
@@ -8,11 +8,11 @@
 
 ## 한 줄 정의
 
-- current-default v0 에서는 raw `mission_close` 근거는 `_workspaces/<project_code>/.project_agent/runs/<run_id>/` 아래에 두고, owner-facing pointer 는 `.mission/<mission_id>/readiness.yaml` 의 `terminal_provenance` 블록으로 남기는 것을 기본으로 본다.
+- current-default v0 에서는 raw `mission_close` 근거는 `_workmeta/<project_code>/runs/<run_id>/` 아래에 두고, owner-facing pointer 는 `.mission/<mission_id>/readiness.yaml` 의 `terminal_provenance` 블록으로 남기는 것을 기본으로 본다.
 
 ## 경계
 
-- raw evidence owner 는 계속 `_workspaces/<project_code>/.project_agent/runs/<run_id>/` 다.
+- raw evidence owner 는 계속 `_workmeta/<project_code>/runs/<run_id>/` 다.
 - `.mission/<mission_id>/readiness.yaml` 은 raw dump owner 가 아니라, terminal 상태를 읽기 위한 owner-facing pointer surface 다.
 - `terminal_provenance` 는 raw truth 를 복제하지 않고, nightly review 와 readiness 확인에 필요한 최소 참조만 남긴다.
 - `project_code` 는 이미 `.mission/<mission_id>/mission.yaml` 에서 resolve 가능하므로 provenance 최소 필드에서 중복 요구하지 않는다.
@@ -69,3 +69,4 @@ terminal_provenance:
 - current-default v0 에서는 `run_id` 와 `battle_event_id` 만으로 nightly review 와 역추적에 충분하다고 본다.
 - `terminal_result` enum 의 상세값은 기존 readiness / battle_event 해석을 따른다.
 - 이 문서는 workspace contract draft 이며, 실제 사용 후 구조 정본 문서로 승격할지 다시 판단한다.
+

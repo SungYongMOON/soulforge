@@ -2,19 +2,19 @@
 
 ## 목적
 
-- `workspace/schema/` 는 `.project_agent` example contract 와 binding 파일의 사람이 읽는 canonical schema 문서를 둔다.
+- `workspace/schema/` 는 `_workmeta` example contract 와 binding 파일의 사람이 읽는 canonical schema 문서를 둔다.
 - formal JSON Schema 대신 YAML 기반 설명 문서만 유지한다.
 
 ## 포함 대상
 
-- `project_agent_contract.schema.yaml`
+- `workmeta_contract.schema.yaml`
 - `workflow_binding.schema.yaml`
 - `party_binding.schema.yaml`
 - `appserver_binding.schema.yaml`
 - `mailbox_binding.schema.yaml`
 - `execution_profile_binding.schema.yaml`
 - `skill_execution_binding.schema.yaml`
-- `PROJECT_AGENT_SCHEMA_FIELD_MATRIX.md` 와 함께 읽는 field rule anchor
+- `WORKMETA_SCHEMA_FIELD_MATRIX.md` 와 함께 읽는 field rule anchor
 
 ## 규칙
 

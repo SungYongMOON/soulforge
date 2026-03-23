@@ -1,8 +1,8 @@
-# Autohunt Model
+﻿# Autohunt Model
 
 ## 목적
 
-- 이 문서는 `.project_agent/autohunt/` 가 자동사냥 운영 계층으로 무엇을 소유하는지 고정한다.
+- 이 문서는 `_workmeta/<project_code>/autohunt/` 가 자동사냥 운영 계층으로 무엇을 소유하는지 고정한다.
 - workflow, party, runner, mailbox routing 의 책임을 섞지 않는다.
 
 ## 한 줄 정의
@@ -79,11 +79,12 @@ sequenceDiagram
 
 ## tracked mirror 와 local runtime
 
-- tracked sample 은 `docs/architecture/workspace/examples/<project_code>/.project_agent/autohunt/` 아래에 둔다.
-- actual operating state, queue, pending monster, retry counter, local override 는 `_workspaces/<project_code>/.project_agent/autohunt/` 아래에만 둔다.
+- tracked sample 은 `docs/architecture/workspace/examples/<project_code>/_workmeta/autohunt/` 아래에 둔다.
+- actual operating state, queue, pending monster, retry counter, local override 는 `_workmeta/<project_code>/autohunt/` 아래에만 둔다.
 
 ## 경계
 
 - `autohunt/` 는 top-level canonical root 가 아니다.
 - `autohunt/` 는 local operating layer 이며, tracked repo 에는 public-safe sample 과 문서만 둔다.
 - host-local mailbox endpoint, secrets, queue snapshot, actual run dump 는 tracked sample 에 두지 않는다.
+

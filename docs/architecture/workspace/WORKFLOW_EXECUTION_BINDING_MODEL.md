@@ -1,8 +1,8 @@
-# Workflow Execution Binding Model
+﻿# Workflow Execution Binding Model
 
 ## 목적
 
-- 이 문서는 `.workflow/<workflow_id>/step_graph.yaml` 의 step 정보가 local `.project_agent/` runtime binding 을 통해 실제 sub-agent execution 으로 이어지는 경로를 고정한다.
+- 이 문서는 `.workflow/<workflow_id>/step_graph.yaml` 의 step 정보가 local `_workmeta/<project_code>/` runtime binding 을 통해 실제 sub-agent execution 으로 이어지는 경로를 고정한다.
 - canonical workflow, canonical skill, local runtime binding, raw truth owner 의 책임을 섞지 않는다.
 
 ## 관계도
@@ -12,8 +12,8 @@ flowchart TD
   WF[".workflow/&lt;workflow_id&gt;/step_graph.yaml"] --> S["action.skill_id"]
   WF --> EP["execution_profile_ref"]
   S --> SK[".registry/skills/&lt;skill_id&gt;/skill.yaml"]
-  EP --> EPB[".project_agent/bindings/execution_profile_binding.yaml"]
-  S --> SEB[".project_agent/bindings/skill_execution_binding.yaml"]
+  EP --> EPB["_workmeta/<project_code>/bindings/execution_profile_binding.yaml"]
+  S --> SEB["_workmeta/<project_code>/bindings/skill_execution_binding.yaml"]
   EPB --> M["model / reasoning"]
   EPB --> AS["attached skill names"]
   EPB --> PT["preferred MCPs / tools"]
@@ -47,7 +47,7 @@ sequenceDiagram
 - canonical skill behavior 와 `execution_requirements` 는 `.registry/skills/<skill_id>/skill.yaml` 이 소유한다.
 - local runtime binding 은 model, reasoning, attached skill package, MCP/tool preference 를 소유한다.
 - installed Codex skill name 과 host-local path resolve 는 local runtime concern 이며 canonical root 가 아니다.
-- raw execution truth 는 언제나 `_workspaces/<project_code>/.project_agent/runs/<run_id>/` 아래에 남긴다.
+- raw execution truth 는 언제나 `_workmeta/<project_code>/runs/<run_id>/` 아래에 남긴다.
 
 ## resolve 순서
 
@@ -62,7 +62,7 @@ sequenceDiagram
 
 ## tracked example 과 local materialization
 
-- tracked example 은 `docs/architecture/workspace/examples/<project_code>/.project_agent/` 아래에 public-safe mirror 만 둔다.
+- tracked example 은 `docs/architecture/workspace/examples/<project_code>/_workmeta/` 아래에 public-safe mirror 만 둔다.
 - tracked example binding 은 installed skill **name** 과 MCP/tool **name** 만 보여준다.
 - host-local skill path, local MCP endpoint, actual source file dump, run artifact 는 tracked example 에 넣지 않는다.
 
@@ -79,3 +79,4 @@ sequenceDiagram
 - class data 만으로 installed Codex skill 이 자동 attach 되는 것은 아니다.
 - workflow step 이 required skill 을 말하고, runtime binding 이 그 skill 을 실제 execution package 로 연결할 때만 자동 attach 가 일어난다.
 - hero bias, class capability, unit profile 은 selection 과 prompt lens 에 영향을 주지만, 실제 모델과 MCP/tool 장착은 runtime binding 이 확정한다.
+

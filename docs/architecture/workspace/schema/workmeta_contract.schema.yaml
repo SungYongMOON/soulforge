@@ -1,15 +1,15 @@
-schema_id: soulforge.workspace.project_agent_contract.v1
+﻿schema_id: soulforge.workspace.workmeta_contract.v1
 kind: canonical_schema
 applies_to:
-  owner: .project_agent
-  path: .project_agent/contract.yaml
+  owner: _workmeta
+  path: _workmeta/<project_code>/contract.yaml
 required_fields:
   - name: project_code
     type: string
     description: Workspace project identifier.
   - name: kind
     type: string
-    fixed: project_agent_contract
+    fixed: workmeta_contract
   - name: status
     type: enum
     allowed:
@@ -61,7 +61,8 @@ field_rules:
   - field: status
     rule: Use only draft, active, archived.
 notes:
-  - The same contract shape applies to local _workspaces/<project_code>/.project_agent/contract.yaml and to tracked examples under docs/architecture/workspace/examples/.
+  - The same contract shape applies to local _workmeta/<project_code>/contract.yaml and to tracked examples under docs/architecture/workspace/examples/.
   - Tracked example contracts live under docs/architecture/workspace/examples/, not under _workspaces/.
   - Actual runtime data remains local-only under runs/<run_id>/.
   - Optional runtime execution bindings can refine how workflow steps choose models, attached skills, and MCP/tool preferences.
+

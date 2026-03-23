@@ -1,9 +1,10 @@
-# 목표 트리
+﻿# 목표 트리
 
 ## 목적
 
 - 정본 루트 구조를 고정한다.
 - 일곱 canonical root 의 owner 경계와 `guild_hall` / `_workspaces` public-private tracking 원칙을 같은 문서에서 본다.
+- public repo 바깥 companion private root `_workmeta/` 가 project metadata 와 runtime truth 를 어떻게 담는지도 같이 본다.
 
 ## 새 정본 루트 트리
 
@@ -130,32 +131,43 @@ guild_hall/
 _workspaces/
 ├── README.md
 └── <project_code>/
-    ├── ... actual project files ...
-    └── .project_agent/
-        ├── contract.yaml
-        ├── bindings/
-        ├── monsters/
-        ├── runs/
-        │   └── <run_id>/
-        ├── dungeons/
-        ├── analytics/
-        ├── nightly_healing/
-        ├── reports/
-        │   └── morning_report/
-        ├── log/
-        │   ├── nightly_sweep/
-        │   └── battle_log/
-        └── artifacts/
+    └── ... actual project files ...
 ```
 
 - public repo 에서는 `_workspaces/README.md` 만 추적한다.
 - `_workspaces/<project_code>/` 는 local/private project worksite 로만 materialize 한다.
 - `_workspaces` 는 더 이상 cross-project ingress root 를 두지 않는다.
-- assigned execution plan owner 는 `_workspaces/` 나 `.project_agent/` 가 아니라 `.mission/` 이 소유한다.
-- raw execution truth 의 owner 는 `_workspaces/<project_code>/.project_agent/runs/<run_id>/` 다.
-- project-side monster record owner 는 `_workspaces/<project_code>/.project_agent/monsters/` 다.
+- assigned execution plan owner 는 `_workspaces/` 나 `_workmeta/` 가 아니라 `.mission/` 이 소유한다.
+- raw execution truth 의 owner 는 `_workmeta/<project_code>/runs/<run_id>/` 다.
+- project-side monster record owner 는 `_workmeta/<project_code>/monsters/` 다.
 - `dungeons/`, `analytics/`, `nightly_healing/`, `reports/`, `log/`, `artifacts/` 도 public tracking 대상이 아니다.
 - tracked workspace sample 이 필요하면 `_workspaces/` 아래가 아니라 `docs/architecture/workspace/examples/` 아래에 둔다.
+
+## `_workmeta` companion private root
+
+```text
+../_workmeta/
+└── <project_code>/
+    ├── contract.yaml
+    ├── bindings/
+    ├── monsters/
+    ├── autohunt/
+    ├── runs/
+    │   └── <run_id>/
+    ├── dungeons/
+    ├── analytics/
+    ├── nightly_healing/
+    ├── reports/
+    │   └── morning_report/
+    ├── log/
+    │   ├── nightly_sweep/
+    │   └── battle_log/
+    └── artifacts/
+```
+
+- `_workmeta/` 는 public repo 바깥 companion private root 다.
+- 기본 colocated 경로는 Soulforge repo root 기준 `../_workmeta/<project_code>/` 다.
+- project contract, project-side monster record, autohunt policy, raw execution truth 는 모두 `_workmeta/<project_code>/` 아래에 둔다.
 
 ## 루트별 owner 의미
 
@@ -177,7 +189,8 @@ _workspaces/
 - `guild_hall` 은 cross-project ingress, notify, night watch, assignment 운영을 소유한다.
 - `guild_hall/state/**` 는 local-only state 이다.
 - project candidate root 는 `_workspaces/<project_code>/` direct child 구조를 사용한다.
-- project-side monster record 는 `_workspaces/<project_code>/.project_agent/monsters/` 아래에 둔다.
-- raw execution truth 는 `_workspaces/<project_code>/.project_agent/runs/<run_id>/` 에 둔다.
+- project-side monster record 는 `_workmeta/<project_code>/monsters/` 아래에 둔다.
+- raw execution truth 는 `_workmeta/<project_code>/runs/<run_id>/` 에 둔다.
 - `.run/` 루트는 새 정본에 포함하지 않는다.
 - public repo 에서는 `_workspaces/README.md` 만 추적한다.
+

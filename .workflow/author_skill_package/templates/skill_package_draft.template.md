@@ -1,4 +1,4 @@
-# Skill Package Draft
+﻿# Skill Package Draft
 
 ## Package Target
 
@@ -22,7 +22,7 @@
 
 - Canon in `skill.yaml`:
 - Optional executor bridge in `codex/`:
-- Runtime binding concerns left to `.project_agent/bindings/`:
+- Runtime binding concerns left to `_workmeta/<project_code>/bindings/`:
 
 ## Draft Notes
 
@@ -33,3 +33,4 @@
 - Binding follow-up if class is not set now:
 - Open questions:
 - Follow-up edits still needed:
+

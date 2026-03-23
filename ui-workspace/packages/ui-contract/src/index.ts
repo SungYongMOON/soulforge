@@ -170,7 +170,7 @@ export interface WorkspaceProject {
   project_path?: string | null;
   workspace_kind?: string | null;
   state: string;
-  project_agent_present: boolean;
+  workmeta_present: boolean;
   default_loadout?: string | null;
   binding_status?: StatusTone;
   capsule_binding_count?: number;

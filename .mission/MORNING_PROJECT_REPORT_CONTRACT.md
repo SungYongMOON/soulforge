@@ -1,4 +1,4 @@
-# Morning Project Report Contract
+﻿# Morning Project Report Contract
 
 ## 목적
 
@@ -18,8 +18,8 @@
 
 ## 권장 경로
 
-- `_workspaces/<project_code>/.project_agent/reports/morning_report/<date>.md`
-- `_workspaces/<project_code>/.project_agent/reports/morning_report/latest.md`
+- `_workmeta/<project_code>/reports/morning_report/<date>.md`
+- `_workmeta/<project_code>/reports/morning_report/latest.md`
 
 ## 권장 입력원
 
@@ -31,8 +31,8 @@
 
 ## 권장 battle ledger 경로
 
-- `_workspaces/<project_code>/.project_agent/log/battle_log/<date>.md`
-- `_workspaces/<project_code>/.project_agent/log/battle_log/latest.md`
+- `_workmeta/<project_code>/log/battle_log/<date>.md`
+- `_workmeta/<project_code>/log/battle_log/latest.md`
 
 ## 최소 섹션
 
@@ -128,10 +128,11 @@
 - [`NIGHTLY_SWEEP_PLAN.md`](../.mission/NIGHTLY_SWEEP_PLAN.md)
 - [`FUTURE_AGGREGATION_PLAN.md`](../.mission/FUTURE_AGGREGATION_PLAN.md)
 - [`GOVERNANCE_PACKET_MISSION_PROMOTION_RULES.md`](../.mission/GOVERNANCE_PACKET_MISSION_PROMOTION_RULES.md)
-- tracked example: [`docs/architecture/workspace/examples/demo_project/.project_agent/morning_project_report_example.md`](../docs/architecture/workspace/examples/demo_project/.project_agent/morning_project_report_example.md)
-- chain example: [`docs/architecture/workspace/examples/demo_project/.project_agent/morning_project_report_chain_example.md`](../docs/architecture/workspace/examples/demo_project/.project_agent/morning_project_report_chain_example.md)
+- tracked example: [`docs/architecture/workspace/examples/demo_project/_workmeta/morning_project_report_example.md`](../docs/architecture/workspace/examples/demo_project/_workmeta/morning_project_report_example.md)
+- chain example: [`docs/architecture/workspace/examples/demo_project/_workmeta/morning_project_report_chain_example.md`](../docs/architecture/workspace/examples/demo_project/_workmeta/morning_project_report_chain_example.md)
 
 ## ASSUMPTIONS
 
 - 이 문서는 실제 report 생성 구현이 아니라 contract 초안이다.
 - 아침 보고서는 `nightly sweep` 의 결과를 읽기 좋게 재구성한 owner-facing 문서로 본다.
+

@@ -1,8 +1,8 @@
-schema_id: soulforge.workspace.mailbox_binding.v1
+﻿schema_id: soulforge.workspace.mailbox_binding.v1
 kind: canonical_schema
 applies_to:
-  owner: .project_agent
-  path: .project_agent/bindings/mailbox_binding.yaml
+  owner: _workmeta
+  path: _workmeta/<project_code>/bindings/mailbox_binding.yaml
 required_fields:
   - name: mailbox_id
     type: string
@@ -31,5 +31,6 @@ field_rules:
   - field: status
     rule: Use only draft, active, archived.
 notes:
-  - Mailbox binding is routing metadata only under .project_agent/bindings/.
+  - Mailbox binding is routing metadata only under _workmeta/<project_code>/bindings/.
   - Run-scoped truth still belongs under runs/<run_id>/.
+

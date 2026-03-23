@@ -1,4 +1,4 @@
-# UI Control Center Model
+﻿# UI Control Center Model
 
 ## 목적
 
@@ -65,7 +65,7 @@ control center 는 아래 다섯 묶음으로 owner 파일을 탐색한다.
   - `.mission/index.yaml`
   - `.mission/**`
   - `_workspaces/README.md`
-  - opt-in local-only `_workspaces/<project_code>/.project_agent/**`
+  - opt-in local-only `_workmeta/<project_code>/**`
 
 ## 파일 분류 규칙
 
@@ -79,7 +79,7 @@ control center 는 아래 다섯 묶음으로 owner 파일을 탐색한다.
   - `.workflow/**/workflow.yaml`
   - `.party/**/party.yaml`
   - `.mission/**/mission.yaml`
-  - `_workspaces/<project_code>/.project_agent/contract.yaml`
+  - `_workmeta/<project_code>/contract.yaml`
 
 ### 기본 읽기 전용
 
@@ -98,3 +98,4 @@ control center 는 아래 다섯 묶음으로 owner 파일을 탐색한다.
 
 - hidden auto-mutation
 - local-only run truth 를 public UI fixture 에 노출
+

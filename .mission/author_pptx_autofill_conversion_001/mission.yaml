@@ -1,4 +1,4 @@
-mission_id: author_pptx_autofill_conversion_001
+﻿mission_id: author_pptx_autofill_conversion_001
 kind: mission
 status: completed
 title: Author PPTX Autofill Conversion
@@ -22,7 +22,7 @@ input_refs:
   existing_skill_package: null
 run_refs:
   latest_run_id: author_skill_package_pptx_autofill_conversion_001
-  runtime_truth_root: _workspaces/demo_project/.project_agent/runs/
+  runtime_truth_root: _workmeta/demo_project/runs/
 notifications:
   telegram:
     mission_blocked: false
@@ -32,3 +32,4 @@ notifications:
 notes:
   - Mission owns the held execution plan and public-safe resolved assignment only.
   - Sample PPTX binaries remain local runtime inputs and are not tracked under `.mission/`.
+

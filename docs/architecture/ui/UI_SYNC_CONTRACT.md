@@ -1,4 +1,4 @@
-# UI 동기화 계약
+﻿# UI 동기화 계약
 
 ## 목적
 
@@ -26,7 +26,7 @@
 - `.mission/**/mission.yaml`
 - `.mission/**/readiness.yaml`
 - `_workspaces/README.md`
-- opt-in local-only `_workspaces/<project_code>/.project_agent/**`
+- opt-in local-only `_workmeta/<project_code>/**`
 
 ## 생성 순서
 
@@ -90,3 +90,4 @@ flowchart LR
 1. 정본 구조를 바꾸면 관련 UI contract 문서와 derive consumer 를 같은 변경 안에서 맞춘다.
 2. 정본 owner vocabulary 와 UI consumer vocabulary 가 어긋난 상태로 두지 않는다.
 3. local-only 정책을 바꾸면 `.gitignore`, `_workspaces/README.md`, guardrail check 를 같이 맞춘다.
+

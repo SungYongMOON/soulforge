@@ -1,4 +1,4 @@
-# GUILD_HALL_MODEL_V0
+﻿# GUILD_HALL_MODEL_V0
 
 ## 목적
 
@@ -38,7 +38,7 @@
 1. `guild_hall/state/**` 는 local-only state 이며 public repo 에 올리지 않는다.
 2. `gateway` 자동 알림은 v0 에서 `monster_created` 하나만 남긴다.
 3. `town_crier` 는 어떤 알림을 보낼지 결정하지 않고, queue 에 들어온 notify request 를 Telegram 으로 보내기만 한다.
-4. project-side monster 상태는 `guild_hall` 이 아니라 `_workspaces/<project_code>/.project_agent/monsters/` 가 소유한다.
+4. project-side monster 상태는 `guild_hall` 이 아니라 `_workmeta/<project_code>/monsters/` 가 소유한다.
 
 ## 관련 경로
 
@@ -51,3 +51,4 @@
 ## ASSUMPTIONS
 
 - v0 에서는 `night_watch` 와 `dungeon_assignment` 의 tracked source 자리만 먼저 만들고, 실제 state 기능은 이후 단계에서 채운다고 본다.
+

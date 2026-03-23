@@ -41,12 +41,13 @@ Git log 는 원문 이력을 남기고, 이 문서는 사람이 읽는 patch not
 - 사람과 Codex 가 함께 첫 과제를 여는 `project_start_worklog.md` 와 project start workflow manual 을 추가했다.
 - 새 시작 행위는 사용자가 따로 요청하지 않아도 실제 작업 순서를 worklog 와 workflow note 로 저장하는 규칙을 추가했다.
 - project assignment 규칙을 승격할 때는 비밀 project code 나 내부 관리번호 대신 공개 가능한 대표 업무명/주제어를 우선 쓰고, 약어·제품군명·일반 사업유형은 보조 힌트로만 다루도록 정리했다.
+- project metadata 와 raw runtime truth 를 project root 내부 metadata folder 대신 public repo 바깥 companion private root `_workmeta/<project_code>/` 로 분리하는 모델로 구조 문서, 예시, UI 경로 해석을 전환했다.
 - 관련 경로:
   - `docs/architecture/workspace/PROJECT_ONBOARDING_V0.md`
   - `docs/architecture/workspace/PROJECT_START_WORKFLOW_V0.md`
   - `docs/architecture/workspace/WORKSPACE_PROJECT_MODEL.md`
-  - `docs/architecture/workspace/PROJECT_AGENT_SCHEMA_FIELD_MATRIX.md`
-  - `docs/architecture/workspace/PROJECT_AGENT_MINIMUM_SCHEMA.md`
+  - `docs/architecture/workspace/WORKMETA_SCHEMA_FIELD_MATRIX.md`
+  - `docs/architecture/workspace/WORKMETA_MINIMUM_SCHEMA.md`
   - `docs/architecture/workspace/README.md`
   - `_workspaces/README.md`
 

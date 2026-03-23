@@ -1,32 +1,31 @@
-# `.project_agent` 최소 스키마
+﻿# `_workmeta` 최소 스키마
 
 ## 목적
 
-- 이 문서는 `_workspaces/<project_code>/` 가 local environment 에 materialize 될 때 둘 수 있는 `.project_agent/` 의 최소 shape 를 정리한다.
+- 이 문서는 companion private root `_workmeta/<project_code>/` 에 둘 metadata 최소 shape 를 정리한다.
 - public repo 기본 모드에서는 이 내용을 강제하지 않고, local-only contract 안내와 tracked example anchor 로 유지한다.
-- `.project_agent/` 는 local contract, binding, raw run truth surface 를 다루며 mission assignment owner 를 뜻하지 않는다.
-- held mission plan 과 readiness owner 는 `.mission/` 이고, `.project_agent/` 는 그 mission 이 참조하는 project-local worksite contract 를 다룬다.
+- `_workmeta/<project_code>/` 는 local contract, binding, raw run truth surface 를 다루며 mission assignment owner 를 뜻하지 않는다.
+- held mission plan 과 readiness owner 는 `.mission/` 이고, `_workmeta/<project_code>/` 는 그 mission 이 참조하는 project metadata contract 를 다룬다.
 
 ## 구조 개요도
 
 ```mermaid
 flowchart TD
-  P["_workspaces/&lt;project_code&gt;/"] --> PA[".project_agent/"]
-  PA --> C["contract.yaml"]
-  PA --> B["bindings/"]
-  PA --> R["runs/"]
-  PA --> D["dungeons/"]
-  PA --> A["analytics/"]
-  PA --> N["nightly_healing/"]
-  PA --> RP["reports/"]
-  PA --> LOG["log/"]
-  PA --> AR["artifacts/"]
+  WM["_workmeta/&lt;project_code&gt;/"] --> C["contract.yaml"]
+  WM --> B["bindings/"]
+  WM --> R["runs/"]
+  WM --> D["dungeons/"]
+  WM --> A["analytics/"]
+  WM --> N["nightly_healing/"]
+  WM --> RP["reports/"]
+  WM --> LOG["log/"]
+  WM --> AR["artifacts/"]
 ```
 
 ## 최소 shape
 
 ```text
-.project_agent/
+_workmeta/<project_code>/
 ├── contract.yaml
 ├── bindings/
 ├── runs/
@@ -41,10 +40,10 @@ flowchart TD
 └── artifacts/
 ```
 
-현재 public-safe validator 는 `.project_agent/` 존재 여부까지만 확인한다.
+현재 public-safe validator 는 companion `_workmeta/<project_code>/` 존재 여부까지만 확인한다.
 `contract.yaml` 과 reserved dir 의미는 local-only contract baseline 으로 이 문서에 고정하고, tracked example 은 `docs/architecture/workspace/examples/` 아래에 둔다.
 tracked example 에 보이는 `runner/` packet sample 은 설명용 mirror 이며, local runtime 의 required directory 는 아니다.
-held mission plan 과 readiness 는 `.mission/<mission_id>/` 쪽에서 다루고, `.project_agent/` 는 그 mission 이 참조하는 project-local worksite contract 와 run truth 만 다룬다.
+held mission plan 과 readiness 는 `.mission/<mission_id>/` 쪽에서 다루고, `_workmeta/<project_code>/` 는 그 mission 이 참조하는 project metadata contract 와 run truth 만 다룬다.
 
 ## 파일 / 디렉터리 역할
 
@@ -79,7 +78,7 @@ held mission plan 과 readiness 는 `.mission/<mission_id>/` 쪽에서 다루고
 
 ```yaml
 project_code: demo_project
-kind: project_agent_contract
+kind: workmeta_contract
 status: active
 display_name: Demo Project
 unit_ref: ../../../../../../.unit/vanguard_01/unit.yaml
@@ -95,14 +94,16 @@ runtime_truth_root: runs/
 
 ## 규칙
 
-1. `.project_agent/` 는 local-only contract and runtime surface 다.
-2. public repo 에는 actual `.project_agent/` content 를 추적하지 않는다.
+1. `_workmeta/<project_code>/` 는 local-only contract and runtime surface 다.
+2. public repo 에는 actual `_workmeta/<project_code>/` content 를 추적하지 않는다.
 3. tracked example contract 와 binding set 은 `_workspaces/` 아래가 아니라 `docs/architecture/workspace/examples/` 아래에 둔다.
 4. `bindings.*` 는 contract 기준 상대 경로 파일 포인터다.
 5. `bindings.execution_profiles` 와 `bindings.skill_execution` 은 optional runtime binding 이며 model, attached skill, MCP/tool preference 를 local execution layer 에서 resolve 한다.
 6. `runtime_truth_root` 는 `runs/` 를 사용하고 raw truth 는 항상 `runs/<run_id>/` 아래에 둔다.
 7. `runs/`, `analytics/`, `nightly_healing/`, `reports/`, `log/`, `artifacts/` 는 모두 public fixture 입력이 아니다.
-8. runner 역할은 예시적으로 local `.project_agent/tools/` 아래 prototype script 로 구현될 수 있지만, 이 경로는 설명용 구현 위치일 뿐 고정 규칙이 아니다. `runner/` folder materialization 은 필수 규칙이 아니다.
+8. runner 역할은 예시적으로 local `_workmeta/<project_code>/tools/` 아래 prototype script 로 구현될 수 있지만, 이 경로는 설명용 구현 위치일 뿐 고정 규칙이 아니다. `runner/` folder materialization 은 필수 규칙이 아니다.
 9. 첫 실제 프로젝트 온보딩 중 사람이 읽는 working note 는 `reports/onboarding/`, 근거 artifact 는 `artifacts/onboarding/` 아래에 두는 것을 기본안으로 본다.
 10. 사람과 Codex 가 같이 진행하는 시작 단계 기록은 `reports/onboarding/project_start_worklog.md` 에 append 하는 것을 기본안으로 본다.
 11. 새 시작 행위의 실제 작업 순서와 절차 초안도 `reports/onboarding/project_start_worklog.md` 또는 같은 경로의 topic note 로 함께 저장하는 것을 기본안으로 본다.
+
+

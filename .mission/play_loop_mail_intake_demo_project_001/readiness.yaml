@@ -1,4 +1,4 @@
-mission_id: play_loop_mail_intake_demo_project_001
+﻿mission_id: play_loop_mail_intake_demo_project_001
 kind: mission_readiness
 status: blocked
 summary: The synthetic mail intake is now tracked as a held mission draft, but the mission remains blocked until workflow selection and attachment confirmation are explicit.
@@ -17,4 +17,5 @@ blockers:
 latest_run_id: null
 notes:
   - This readiness state intentionally shows that first tracked handoff can happen before workflow selection is complete.
-  - Runtime execution evidence still belongs under `_workspaces/<project_code>/.project_agent/runs/<run_id>/`.
+  - Runtime execution evidence still belongs under `_workmeta/<project_code>/runs/<run_id>/`.
+

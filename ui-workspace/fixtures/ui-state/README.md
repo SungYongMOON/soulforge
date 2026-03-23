@@ -17,7 +17,7 @@
 ## 규칙
 
 - public fixture 는 synthetic template 만 사용하고 실제 local mission site 를 materialize 하지 않는다.
-- `_workspaces/<project_code>/`, `.project_agent/runs`, battle log, analytics, actual party performance data 는 fixture 에 넣지 않는다.
+- `_workspaces/<project_code>/`, `_workmeta/<project_code>/runs`, battle log, analytics, actual party performance data 는 fixture 에 넣지 않는다.
 - `.workflow/history` 와 `.party/stats` 는 curated summary policy 만 드러내고 raw data 를 싣지 않는다.
 - canonical source 를 복제하는 것이 아니라 sanitized renderer projection 을 제공한다.
 - schema 변경 시 fixture 를 같은 변경 안에서 함께 갱신한다.

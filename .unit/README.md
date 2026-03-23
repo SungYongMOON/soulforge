@@ -1,4 +1,4 @@
-# .unit
+﻿# .unit
 
 ## Canonical purpose
 
@@ -14,7 +14,7 @@ flowchart TD
   ID --> SP[".registry/species/<species_id>/species.yaml"]
   CID --> CL[".registry/classes/<class_id>/class.yaml"]
   U --> OS["policy / protocols / runtime / memory / sessions / autonomic / artifacts"]
-  WS["_workspaces/<project_code>/.project_agent/contract.yaml"] --> U
+  WS["_workmeta/<project_code>/contract.yaml"] --> U
 ```
 
 ## 무엇을 둔다
@@ -32,7 +32,7 @@ flowchart TD
 ## 무엇을 두지 않는다
 
 - species, hero, class, skill, tool, knowledge, workflow, party canon 정의
-- `_workspaces/<project_code>/` project tree 와 `.project_agent/` 실행 truth
+- `_workspaces/<project_code>/` project tree 와 `_workmeta/<project_code>/` 실행 truth
 - 실제 비밀값, raw transcript, 민감 로그, 운영 dump 의 무분별한 public 반영
 
 ## 왜 이렇게 둔다
@@ -59,3 +59,4 @@ flowchart TD
 - 향후 human-operated / AI-operated variation 을 더 쪼갤 수는 있지만, 지금 phase 에서는 별도 guild master unit 을 중복 생성하지 않는다.
 - human guild master lane 은 mailbox escalation, manual hunt review, workflow/skill promotion approval 같은 상위 운영 판단을 맡는다.
 - Soulforge 전용 `skill creator` 또는 `skill checker` 같은 authoring aid 는 우선 `guild_master` 같은 guild-master owner surface 와 workflow lane 아래에서 운용하는 것을 기본안으로 본다.
+

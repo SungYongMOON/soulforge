@@ -1,4 +1,4 @@
-# town_crier
+﻿# town_crier
 
 - `town_crier/` 는 `guild_hall/state/town_crier/**` 의 tracked example mirror 다.
 - 실제 local runtime `guild_hall/state/town_crier/**` 를 Git 으로 올리지 않고, queue shape 와 owner-facing brief sample 만 이 경로에 둔다.
@@ -14,6 +14,7 @@
 - gateway intake sample
   - [`../gateway/intake_inbox/pdr_brief_chain_demo_001/inbox.json`](../gateway/intake_inbox/pdr_brief_chain_demo_001/inbox.json)
 - battle log sample
-  - [`../../../../demo_project/.project_agent/battle_log_chain_example.md`](../../../../demo_project/.project_agent/battle_log_chain_example.md)
+  - [`../../../../demo_project/_workmeta/battle_log_chain_example.md`](../../../../demo_project/_workmeta/battle_log_chain_example.md)
 - morning report sample
-  - [`../../../../demo_project/.project_agent/morning_project_report_chain_example.md`](../../../../demo_project/.project_agent/morning_project_report_chain_example.md)
+  - [`../../../../demo_project/_workmeta/morning_project_report_chain_example.md`](../../../../demo_project/_workmeta/morning_project_report_chain_example.md)
+

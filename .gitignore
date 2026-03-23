@@ -11,6 +11,8 @@ dist/
 _workspaces/**
 !_workspaces/README.md
 
+_workmeta/
+
 guild_hall/state/**
 !guild_hall/state/README.md
 

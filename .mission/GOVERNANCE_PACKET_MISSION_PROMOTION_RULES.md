@@ -1,4 +1,4 @@
-# Mission Governance Packet: Promotion Rules Lock
+﻿# Mission Governance Packet: Promotion Rules Lock
 
 ## Phase
 
@@ -20,14 +20,14 @@
 
 - UI phase 선행 추진
 - 지금 당장 `summary` 또는 종합 기능 구현
-- `_workspaces/<project_code>/.project_agent/runs/<run_id>/` raw run truth 구조 변경
+- `_workmeta/<project_code>/runs/<run_id>/` raw run truth 구조 변경
 - `.workflow`, `.party`, `.unit`, `.registry` 의 owner 의미 재정의
 - sample mission 추가 작성이나 현재 sample 의 readiness 상태 변경
 
 ## 고정 anchor
 
 - Soulforge의 상위 흐름은 `reusable canon -> held mission -> project-local run truth` 로 고정돼 있다.
-- `.mission/` 은 held mission plan 과 readiness owner 이고, raw execution truth owner 는 `_workspaces/<project_code>/.project_agent/runs/<run_id>/` 다.
+- `.mission/` 은 held mission plan 과 readiness owner 이고, raw execution truth owner 는 `_workmeta/<project_code>/runs/<run_id>/` 다.
 - 수동 절차도 mission 이고 자동 절차도 mission 이다.
 - `mission_check` 는 guild master / administrator lane 의 공식 readiness review skill 이다.
 - runner 는 실행 직전 preflight 재확인자이지 readiness owner 가 아니다.
@@ -187,3 +187,4 @@
 - 이번 packet 은 새 판단을 잠그는 최종 문서가 아니라, 잠글 판단 항목과 검토 범위를 먼저 고정하는 owner-local draft 로 둔다.
 - 현재 sample mission 2건은 비교 기준으로 충분하지만 universal standard 확정 근거로는 충분하지 않다고 본다.
 - 승격 최종 authority 는 자동 운영층이 아니라 이 상위 planner/user 쪽에 있다고 본다.
+

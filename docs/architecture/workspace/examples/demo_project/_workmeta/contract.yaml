@@ -1,5 +1,5 @@
 project_code: demo_project
-kind: project_agent_contract
+kind: workmeta_contract
 status: active
 display_name: Demo Project
 unit_ref: ../../../../../../.unit/vanguard_01/unit.yaml

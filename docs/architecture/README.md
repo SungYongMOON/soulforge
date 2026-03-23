@@ -11,7 +11,7 @@
 - `foundation/`: 저장소 목적, 목표 구조, 문서 소유 기준, 세계관 같은 활성 기준 문서
 - `bootstrap/`: clone, install, private state restore, bootstrap doctor 같은 첫 구동 가이드
 - `guild_hall/`: `gateway`, `doctor`, `town_crier`, `night_watch`, `dungeon_assignment` 같은 cross-project 운영 owner 문서
-- `workspace/`: `_workspaces` 와 `.project_agent` 공용 구조/resolve 계약
+- `workspace/`: `_workspaces` 와 `_workmeta` 공용 구조/resolve 계약
 - `ui/`: root-owned UI source, sync, derived state, control center 편집 모델 계약
 
 ## 제외 대상

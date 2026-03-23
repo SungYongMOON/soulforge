@@ -1,9 +1,9 @@
-# BATTLE_LOG_STORAGE_PLAN
+﻿# BATTLE_LOG_STORAGE_PLAN
 
 ## 목적
 
 - 이 문서는 local-only battle log 를 장기 보관하기 위한 workspace contract draft 다.
-- source of truth 는 계속 `_workspaces/<project_code>/.project_agent/**` 아래에 둔다.
+- source of truth 는 계속 `_workmeta/<project_code>/**` 아래에 둔다.
 - tracked repo 에 raw battle event 를 끌어오지 않는다.
 - intake-side monster candidate 판정 규칙과 판정 이유는 이 문서의 owner 범위가 아니다.
 
@@ -17,11 +17,11 @@
 ## v0 기본안
 
 - 사람 읽는 문서:
-  - `_workspaces/<project_code>/.project_agent/log/battle_log/latest.md`
-  - `_workspaces/<project_code>/.project_agent/log/battle_log/daily/YYYY-MM-DD.md`
-  - 필요 시 `_workspaces/<project_code>/.project_agent/log/battle_log/weekly/YYYY-Www.md`
+  - `_workmeta/<project_code>/log/battle_log/latest.md`
+  - `_workmeta/<project_code>/log/battle_log/daily/YYYY-MM-DD.md`
+  - 필요 시 `_workmeta/<project_code>/log/battle_log/weekly/YYYY-Www.md`
 - 기계 적재용 원천:
-  - `_workspaces/<project_code>/.project_agent/log/events/YYYY/MM/battle_events.jsonl`
+  - `_workmeta/<project_code>/log/events/YYYY/MM/battle_events.jsonl`
 
 ## 왜 이 안을 기본으로 고르는가
 
@@ -158,7 +158,7 @@
 ### 후보안 A — SQLite 단일 저장소
 
 - 예시 경로:
-  - `_workspaces/<project_code>/.project_agent/log/events/battle_events.sqlite`
+  - `_workmeta/<project_code>/log/events/battle_events.sqlite`
 - 장점:
   - 조건 검색과 집계가 강하다.
   - 수십만 event 에서도 query 성능이 좋다.
@@ -170,7 +170,7 @@
 ### 후보안 B — JSONL only
 
 - 예시 경로:
-  - `_workspaces/<project_code>/.project_agent/log/events/YYYY/MM/battle_events.jsonl`
+  - `_workmeta/<project_code>/log/events/YYYY/MM/battle_events.jsonl`
 - 장점:
   - 가장 단순하다.
   - ingest 와 backup 이 쉽다.
@@ -193,5 +193,6 @@
 
 ## 관련 예시
 
-- chain sample: [`examples/demo_project/.project_agent/battle_log_chain_example.md`](examples/demo_project/.project_agent/battle_log_chain_example.md)
+- chain sample: [`examples/demo_project/_workmeta/battle_log_chain_example.md`](examples/demo_project/_workmeta/battle_log_chain_example.md)
 - 같은 monster 의 gateway brief: [`examples/guild_hall/state/town_crier/queue/pending/notify_pdr_brief_chain_demo_001.json`](examples/guild_hall/state/town_crier/queue/pending/notify_pdr_brief_chain_demo_001.json)
+
