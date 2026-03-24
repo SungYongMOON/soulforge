@@ -11,6 +11,18 @@ Git log 는 원문 이력을 남기고, 이 문서는 사람이 읽는 patch not
 
 ## 2026-03-24
 
+### Revision `working` — night_watch 자동화 후보 문서화
+
+- `guild_hall/night_watch` owner 아래에서 장기 운영용 새벽 점검 자동화 후보 3개를 문서화했다.
+- `Boundary Check`, `Portability Check`, `Context Drift Check` 의 목적과 입력 경로, 결과 surface 를 정리했다.
+- 자동화 규칙 문서는 tracked repo 에 두고, 실제 스케줄과 ACTIVE 상태는 Codex app local automation 이 맡는다는 경계를 분리했다.
+- 다른 PC 에서는 repo pull 후 같은 문서를 보고 Codex automation 을 다시 만들도록 절차를 적었다.
+- 관련 경로:
+  - `docs/architecture/guild_hall/NIGHT_WATCH_AUTOMATION_V0.md`
+  - `docs/architecture/guild_hall/README.md`
+  - `guild_hall/night_watch/README.md`
+  - `README.md`
+
 ### Revision `working` — Soulforge 전체 활동 recent-context surface 추가
 
 - Soulforge 전체 작업의 최근 맥락을 project `_workmeta` 가 아니라 `guild_hall/state/operations/soulforge_activity/**` 에 두는 규칙을 추가했다.
