@@ -105,6 +105,59 @@
   - ACTIVE / PAUSED 상태
   - 해당 PC 의 workspace 경로
 
+## Codex app 생성 사양
+
+아래 사양은 repo 에 저장해 두는 ready-to-create spec 이다.
+다른 PC 에서는 이 문서를 pull 한 뒤, 해당 PC 의 Codex app automation 생성 화면이나 Codex 대화창에서 그대로 참고해 local automation 으로 만든다.
+
+### 1. Boundary Check
+
+- 이름:
+  - `Soulforge Boundary Check`
+- 권장 주기:
+  - 매일 `02:00`
+- 권장 상태:
+  - 항상 켜 두는 운영 PC 에서만 `ACTIVE`
+  - 그 외 PC 는 `PAUSED` 또는 미생성
+- 작업 경로:
+  - `~/Workspace/Soulforge`
+- 실행 프롬프트:
+  - `Review the Soulforge workspace for long-term architecture drift. Read guild_hall/state/operations/soulforge_activity/latest_context.json first if it exists, then inspect the root AGENTS.md, README.md, key architecture docs, and the _workmeta and private-state companions if present. Check for owner-boundary violations, public/private mixing, misplaced project-local rules, and layer confusion across _workspaces, _workmeta, private-state, guild_hall, and .mission. Return at most 3 concrete findings with file paths and one recommended next action. Do not edit files, do not commit, and do not push.`
+
+### 2. Portability Check
+
+- 이름:
+  - `Soulforge Portability Check`
+- 권장 주기:
+  - 매주 `화/목/토 02:10`
+- 권장 상태:
+  - 항상 켜 두는 운영 PC 에서만 `ACTIVE`
+  - 그 외 PC 는 `PAUSED` 또는 미생성
+- 작업 경로:
+  - `~/Workspace/Soulforge`
+- 실행 프롬프트:
+  - `Review the Soulforge workspace for portability risks. Read guild_hall/state/operations/soulforge_activity/latest_context.json first if it exists, then inspect the root docs, bootstrap/update/multi-PC docs, and tracked skill packages under .registry/skills. Check for absolute paths, machine-specific usernames, OS-specific assumptions, host-local values inside tracked skill packages, and instructions that would break on another PC. Return at most 3 portability risks with file paths and one recommended next action. Do not edit files, do not commit, and do not push.`
+
+### 3. Context Drift Check
+
+- 이름:
+  - `Soulforge Context Drift Check`
+- 권장 주기:
+  - 매주 `월/수/금 02:20`
+- 권장 상태:
+  - 항상 켜 두는 운영 PC 에서만 `ACTIVE`
+  - 그 외 PC 는 `PAUSED` 또는 미생성
+- 작업 경로:
+  - `~/Workspace/Soulforge`
+- 실행 프롬프트:
+  - `Review the Soulforge workspace for context bloat and instruction drift. Read guild_hall/state/operations/soulforge_activity/latest_context.json first if it exists, then inspect AGENTS.md, README.md, docs/architecture/foundation, docs/architecture/guild_hall, and recent project-local rule files under _workmeta when present. Check whether global rules are leaking into project-local rule files, project-local rules are leaking into global docs, top-level instructions are becoming too large, or nearby owner guidance is missing. Return at most 3 findings with file paths, a suggested owner location for each, and one recommended next action. Do not edit files, do not commit, and do not push.`
+
+## 다른 PC 에서 바로 만들 때 쓰는 짧은 지시
+
+- `이 문서의 Boundary Check 사양으로 Codex automation 을 만들어줘.`
+- `이 문서의 Portability Check 사양으로 Codex automation 을 만들어줘.`
+- `이 문서의 Context Drift Check 사양으로 Codex automation 을 만들어줘.`
+
 ## 권장 실행 결과 surface
 
 - 사람이 바로 볼 요약:
