@@ -11,6 +11,15 @@ Git log 는 원문 이력을 남기고, 이 문서는 사람이 읽는 patch not
 
 ## 2026-03-25
 
+### Revision `working` — night_watch 시작 전에 전 repo 최신 동기화 gate 추가
+
+- 항상 켜 두는 운영 PC 의 `night_watch` pipeline 이 점검 전에 public `Soulforge`, `_workmeta`, `private-state` 를 모두 fast-forward pull 하도록 preflight stage 를 추가했다.
+- preflight stage 는 세 repo 중 하나라도 dirty, missing, origin 누락, branch mismatch, pull 실패, `owner-with-state --remote` doctor 실패가 있으면 그 run 에서 후속 점검을 건너뛰고 blocked report 만 남기도록 규칙을 고정했다.
+- 관련 경로:
+  - `docs/architecture/guild_hall/NIGHT_WATCH_AUTOMATION_V0.md`
+  - `docs/architecture/guild_hall/SOULFORGE_ACTIVITY_LOG_V0.md`
+  - `guild_hall/night_watch/README.md`
+
 ### Revision `working` — legacy `_workspaces` continuity lane 제거와 runtime README 경계 정리
 
 - bootstrap/install checklist 에서 `private-state/_workspaces` restore 경로를 제거했다.

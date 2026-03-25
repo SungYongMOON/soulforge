@@ -35,8 +35,28 @@
 7. 점검 결과를 바탕으로 tracked docs/code 를 바로 고치는 auto-fix 는 current-default 에 넣지 않고, 별도 `Fix Draft` companion 으로 분리한다.
 8. 새 점검 자동화가 추가되거나 기존 점검의 출력 형식이 바뀌면, `Fix Draft` 입력 범위와 prompt 도 같은 patch 에서 함께 갱신한다.
 9. Codex app automation 이 임시 `worktree` 에서 돌아가더라도, runtime state read/write 와 companion repo inspection 은 항상 이 PC 의 active absolute root 를 사용한다.
+10. 항상 켜 두는 운영 PC 의 current-default pipeline 은 분석 전에 public `Soulforge`, `_workmeta`, `private-state` 를 먼저 fast-forward sync 하고, 그 결과가 깨끗할 때만 후속 점검을 시작한다.
 
-## current-default 점검 3개와 companion 1개
+## current-default preflight 1개, 점검 3개와 companion 1개
+
+### 0. Preflight Repo Sync
+
+- 목적:
+  - 새벽 점검이 stale repo copy 위에서 돌아가지 않게 막는다.
+  - 항상 켜 두는 운영 PC 의 public `Soulforge`, `_workmeta`, `private-state` 를 먼저 최신 `origin/main` 으로 맞춘다.
+  - repo 상태가 dirty 하거나 sync 자체가 실패하면 잘못된 finding 대신 blocked 상태를 남기고 중단한다.
+- 주 입력:
+  - `<LOCAL_SOULFORGE_ROOT>`
+  - `<LOCAL_WORKMETA_ROOT>`
+  - `<LOCAL_PRIVATE_STATE_ROOT>`
+  - `npm run guild-hall:doctor -- --profile owner-with-state --remote`
+- 권장 결과:
+  - repo 상태, pull 결과, doctor 결과를 적은 preflight report 1개
+  - go / no-go 판정 1개
+- 기본 모드:
+  - `git fetch` / `git pull --ff-only` 허용
+  - dirty / branch mismatch / remote 오류가 있으면 후속 점검 중단
+  - merge / rebase / reset / stash / commit / push 금지
 
 ### 1. Boundary Check
 
@@ -112,10 +132,26 @@
 
 ## current-default 시작점
 
-- 첫 번째로 여는 자동화는 `Boundary Check` 로 본다.
+- 첫 번째 stage 는 항상 `Preflight Repo Sync` 로 본다.
+- 이유:
+  - stale repo copy 위에서 얻은 finding 은 운영 가치가 낮다.
+  - 항상 켜 두는 PC 는 새벽 점검 직전에 public/private companion 을 먼저 최신으로 맞춰야 한다.
+- 첫 번째 점검은 그다음 `Boundary Check` 로 본다.
 - 이유:
   - Soulforge 의 핵심 정체성은 owner boundary 이다.
   - boundary 가 무너지면 portability 와 context drift 도 같이 악화된다.
+
+## current-default pipeline 권장 순서
+
+운영용 current-default 는 split automation 여러 개를 같은 시각에 병렬 실행하기보다, 아래 순서를 가진 single pipeline 1개를 권장한다.
+
+1. `Preflight Repo Sync`
+2. `Boundary Check`
+3. `Portability Check`
+4. `Context Drift Check`
+5. `Fix Draft`
+
+`Fix Draft` 는 앞의 세 점검 report 가 모두 같은 run 에서 써졌을 때만 조건부로 생성한다.
 
 ## Codex app 생성 원칙
 
@@ -162,6 +198,21 @@ tracked canon 문서에서는 계속 repo-relative 경로를 쓴다.
 
 아래 사양은 repo 에 저장해 두는 ready-to-create spec 이다.
 다른 PC 에서는 이 문서를 pull 한 뒤, 해당 PC 의 Codex app automation 생성 화면이나 Codex 대화창에서 그대로 참고해 local automation 으로 만든다.
+
+### 0. Night Watch Pipeline
+
+- 이름:
+  - `Soulforge Night Watch Pipeline`
+- 권장 주기:
+  - 매일 `02:00`
+- 권장 상태:
+  - 항상 켜 두는 운영 PC 에서만 `ACTIVE`
+  - 그 외 PC 는 `PAUSED` 또는 미생성
+- 작업 경로:
+  - Codex app local cwd 1개
+  - 예: `<LOCAL_SOULFORGE_ROOT>`
+- 실행 프롬프트:
+  - `Treat <LOCAL_SOULFORGE_ROOT> as the active Soulforge root on this PC and <LOCAL_ACTIVITY_ROOT> as the only valid runtime write target for this automation. If Codex is running inside a temporary worktree, do not read or write runtime state under the worktree copy. Run the following stages in order and do not start the next stage until the previous stage report has been written under <LOCAL_ACTIVITY_ROOT>/log/YYYY/YYYY-MM-DD/. Stage 0: Preflight Repo Sync. Before reading latest_context or inspecting docs, require these three repo roots: <LOCAL_SOULFORGE_ROOT>, <LOCAL_WORKMETA_ROOT>, and <LOCAL_PRIVATE_STATE_ROOT>. For each repo, verify that the path exists, is a git repo, has origin configured, is on branch main, and has a clean worktree. Then run a fast-forward-only sync against origin/main for each repo. After pulls, run npm run guild-hall:doctor -- --profile owner-with-state --remote from <LOCAL_SOULFORGE_ROOT>. Always save one markdown report as HHMM-soulforge-preflight-sync.md and append one summary event to <LOCAL_ACTIVITY_ROOT>/events/YYYY/YYYY-MM.jsonl summarizing repo status, pull results, and doctor status. If any repo is missing, dirty, detached, lacks origin, is not on main, or if any fetch, pull, or doctor step fails, refresh <LOCAL_ACTIVITY_ROOT>/latest_context.json with the blocked preflight summary and stop the run. Do not merge, rebase, reset, stash, commit, or push. Only if Stage 0 succeeds, read <LOCAL_ACTIVITY_ROOT>/latest_context.json if it exists, then inspect <LOCAL_SOULFORGE_ROOT>/AGENTS.md, <LOCAL_SOULFORGE_ROOT>/README.md, key architecture docs under <LOCAL_SOULFORGE_ROOT>/docs/architecture, and the companions at <LOCAL_WORKMETA_ROOT> and <LOCAL_PRIVATE_STATE_ROOT>. Stage 1: Boundary Check for owner-boundary violations, public/private mixing, misplaced project-local rules, and layer confusion across _workspaces, _workmeta, private-state, guild_hall, and .mission. Save one markdown report as HHMM-soulforge-boundary-check.md and append one summary event to <LOCAL_ACTIVITY_ROOT>/events/YYYY/YYYY-MM.jsonl. Stage 2: Portability Check for absolute paths, machine-specific usernames, OS-specific assumptions, and host-local values inside tracked skill packages. Save one markdown report as HHMM-soulforge-portability-check.md and append one summary event. Stage 3: Context Drift Check for global rules leaking into project-local rule files, project-local rules leaking into global docs, top-level instruction bloat, or missing nearby owner guidance. Save one markdown report as HHMM-soulforge-context-drift-check.md and append one summary event. Stage 4: inspect the three fresh reports from this run; if any real issue exists, write at most one narrow fix draft as HHMM-soulforge-fix-draft.md with affected paths, risk level, owner location, and the safest next action, then append one summary event. If there is no real issue, skip the fix draft file and its event. After all completed stages, refresh <LOCAL_ACTIVITY_ROOT>/latest_context.json once with a small recent window that includes the new events from this run. Return a short end summary listing which stages ran, which files were written, whether Stage 0 synced all repos cleanly, and whether a fix draft was created. Do not edit tracked docs or code outside <LOCAL_ACTIVITY_ROOT>, do not commit, and do not push.`
 
 ### 1. Boundary Check
 
@@ -229,6 +280,7 @@ tracked canon 문서에서는 계속 repo-relative 경로를 쓴다.
 - `이 문서의 Portability Check 사양으로 Codex automation 을 만들어줘.`
 - `이 문서의 Context Drift Check 사양으로 Codex automation 을 만들어줘.`
 - `이 문서의 Fix Draft 사양으로 Codex automation 을 만들어줘.`
+- `이 문서의 Night Watch Pipeline 사양으로 Codex automation 을 만들어줘.`
 
 자동화 생성 직전에는 `<LOCAL_SOULFORGE_ROOT>`, `<LOCAL_ACTIVITY_ROOT>`, `<LOCAL_PRIVATE_STATE_ROOT>`, `<LOCAL_WORKMETA_ROOT>` 를 그 PC 의 실제 absolute path 로 치환한다.
 

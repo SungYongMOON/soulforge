@@ -43,7 +43,7 @@ guild_hall/state/operations/soulforge_activity/
   - append-only event ledger
   - 장기 보관용 원본이며, 기본적으로는 마지막 몇 건만 읽는다
 - `log/YYYY/YYYY-MM-DD/HHMM-<automation-id>.md`
-  - night_watch 점검/초안의 상세 실행 결과
+  - night_watch preflight / 점검 / 초안의 상세 실행 결과
   - 사람이 읽는 markdown report 와 draft note 를 둔다
 
 ## 기본 읽기 규칙
@@ -110,7 +110,7 @@ guild_hall/state/operations/soulforge_activity/
 4. raw mail body, secret, token, session 같은 민감값은 남기지 않는다.
 5. 다른 PC 나 다음 session 이 꼭 기억해야 하는 항목은 `carry_forward: true` 로 표시한다.
 6. 최근 맥락 재구성이 끝나면 `latest_context.json` 을 갱신하되, `events/*.jsonl` 원본은 지우지 않는다.
-7. night_watch 점검 결과와 `Fix Draft` 초안은 `log/**/*.md` 에 저장하고, 월별 `events/*.jsonl` 에는 요약만 남긴다.
+7. night_watch preflight 결과, 점검 결과, `Fix Draft` 초안은 `log/**/*.md` 에 저장하고, 월별 `events/*.jsonl` 에는 요약만 남긴다.
 8. `log/**/*.md` 는 tracked docs/code 의 자동 수정 기록이 아니라, 점검 결과와 draft-only 제안의 저장 surface 로 사용한다.
 
 ## automation writer 규칙
