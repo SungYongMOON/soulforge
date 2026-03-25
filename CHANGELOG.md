@@ -11,6 +11,16 @@ Git log 는 원문 이력을 남기고, 이 문서는 사람이 읽는 patch not
 
 ## 2026-03-25
 
+### Revision `working` — night_watch local automation source 를 tracked renderer 구조로 고정
+
+- `Soulforge Night Watch Pipeline` 의 prompt/spec source 를 public tracked tree 아래 `guild_hall/night_watch/automations/` 로 옮기고, 각 PC 의 local `automation.toml` 은 renderer 로 재생성하는 구조를 추가했다.
+- 이 변경으로 automation prompt 업데이트 자체는 Git 형상관리되고, 다른 PC 는 repo pull 후 같은 source 를 보고 local automation 을 다시 install 할 수 있다.
+- 관련 경로:
+  - `guild_hall/night_watch/automations/soulforge-night-watch-pipeline.spec.json`
+  - `guild_hall/night_watch/automations/soulforge-night-watch-pipeline.prompt.txt`
+  - `guild_hall/night_watch/render_local_automation.mjs`
+  - `guild_hall/night_watch/README.md`
+
 ### Revision `working` — night_watch 시작 전에 전 repo 최신 동기화 gate 추가
 
 - 항상 켜 두는 운영 PC 의 `night_watch` pipeline 이 점검 전에 public `Soulforge`, `_workmeta`, `private-state` 를 모두 fast-forward pull 하도록 preflight stage 를 추가했다.

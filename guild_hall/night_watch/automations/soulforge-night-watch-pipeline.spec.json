@@ -1,0 +1,11 @@
+{
+  "version": 1,
+  "id": "soulforge-night-watch-pipeline",
+  "name": "Soulforge Night Watch Pipeline",
+  "default_status": "ACTIVE",
+  "default_rrule": "FREQ=WEEKLY;BYDAY=MO,TU,WE,TH,FR,SA,SU;BYHOUR=2;BYMINUTE=0",
+  "default_execution_environment": "local",
+  "model": "gpt-5.4",
+  "reasoning_effort": "xhigh",
+  "prompt_template": "guild_hall/night_watch/automations/soulforge-night-watch-pipeline.prompt.txt"
+}

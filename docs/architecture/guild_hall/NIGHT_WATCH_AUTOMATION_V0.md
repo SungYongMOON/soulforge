@@ -15,6 +15,8 @@
   - 어떤 자동화를 왜 돌리는지 설명하는 tracked canon
 - `guild_hall/night_watch/README.md`
   - `night_watch` owner surface 요약
+- `guild_hall/night_watch/automations/*.spec.json`, `*.prompt.txt`, `guild_hall/night_watch/render_local_automation.mjs`
+  - Git tracked automation source 와 local renderer
 - Codex app local automation
   - 실행 주기, 상태, 실제 prompt 저장
 - `guild_hall/state/operations/soulforge_activity/**`
@@ -23,6 +25,7 @@
   - 다른 PC 연속성용 mirror
 
 자동화 설정 자체는 Git tracked file 이 아니며, 다른 PC 에서는 같은 repo 문서를 pull 한 뒤 그 PC 의 Codex app 에서 다시 만든다.
+대신 prompt/spec source 는 tracked repo 에 두고, 각 PC 의 local automation file 은 renderer 로 재생성한다.
 
 ## 기본 운용 규칙
 
@@ -165,6 +168,7 @@
   - 실행 시간표
   - ACTIVE / PAUSED 상태
   - 해당 PC 의 workspace 경로
+  - renderer 가 만든 local `automation.toml`
 
 ## worktree-safe local path 입력
 
@@ -211,6 +215,11 @@ tracked canon 문서에서는 계속 repo-relative 경로를 쓴다.
 - 작업 경로:
   - Codex app local cwd 1개
   - 예: `<LOCAL_SOULFORGE_ROOT>`
+- tracked source:
+  - `guild_hall/night_watch/automations/soulforge-night-watch-pipeline.spec.json`
+  - `guild_hall/night_watch/automations/soulforge-night-watch-pipeline.prompt.txt`
+- local render/install:
+  - `npm run guild-hall:night-watch:render -- --install --local-root <LOCAL_SOULFORGE_ROOT> --workmeta-root <LOCAL_WORKMETA_ROOT> --private-state-root <LOCAL_PRIVATE_STATE_ROOT>`
 - 실행 프롬프트:
   - `Treat <LOCAL_SOULFORGE_ROOT> as the active Soulforge root on this PC and <LOCAL_ACTIVITY_ROOT> as the only valid runtime write target for this automation. If Codex is running inside a temporary worktree, do not read or write runtime state under the worktree copy. Run the following stages in order and do not start the next stage until the previous stage report has been written under <LOCAL_ACTIVITY_ROOT>/log/YYYY/YYYY-MM-DD/. Stage 0: Preflight Repo Sync. Before reading latest_context or inspecting docs, require these three repo roots: <LOCAL_SOULFORGE_ROOT>, <LOCAL_WORKMETA_ROOT>, and <LOCAL_PRIVATE_STATE_ROOT>. For each repo, verify that the path exists, is a git repo, has origin configured, is on branch main, and has a clean worktree. Then run a fast-forward-only sync against origin/main for each repo. After pulls, run npm run guild-hall:doctor -- --profile owner-with-state --remote from <LOCAL_SOULFORGE_ROOT>. Always save one markdown report as HHMM-soulforge-preflight-sync.md and append one summary event to <LOCAL_ACTIVITY_ROOT>/events/YYYY/YYYY-MM.jsonl summarizing repo status, pull results, and doctor status. If any repo is missing, dirty, detached, lacks origin, is not on main, or if any fetch, pull, or doctor step fails, refresh <LOCAL_ACTIVITY_ROOT>/latest_context.json with the blocked preflight summary and stop the run. Do not merge, rebase, reset, stash, commit, or push. Only if Stage 0 succeeds, read <LOCAL_ACTIVITY_ROOT>/latest_context.json if it exists, then inspect <LOCAL_SOULFORGE_ROOT>/AGENTS.md, <LOCAL_SOULFORGE_ROOT>/README.md, key architecture docs under <LOCAL_SOULFORGE_ROOT>/docs/architecture, and the companions at <LOCAL_WORKMETA_ROOT> and <LOCAL_PRIVATE_STATE_ROOT>. Stage 1: Boundary Check for owner-boundary violations, public/private mixing, misplaced project-local rules, and layer confusion across _workspaces, _workmeta, private-state, guild_hall, and .mission. Save one markdown report as HHMM-soulforge-boundary-check.md and append one summary event to <LOCAL_ACTIVITY_ROOT>/events/YYYY/YYYY-MM.jsonl. Stage 2: Portability Check for absolute paths, machine-specific usernames, OS-specific assumptions, and host-local values inside tracked skill packages. Save one markdown report as HHMM-soulforge-portability-check.md and append one summary event. Stage 3: Context Drift Check for global rules leaking into project-local rule files, project-local rules leaking into global docs, top-level instruction bloat, or missing nearby owner guidance. Save one markdown report as HHMM-soulforge-context-drift-check.md and append one summary event. Stage 4: inspect the three fresh reports from this run; if any real issue exists, write at most one narrow fix draft as HHMM-soulforge-fix-draft.md with affected paths, risk level, owner location, and the safest next action, then append one summary event. If there is no real issue, skip the fix draft file and its event. After all completed stages, refresh <LOCAL_ACTIVITY_ROOT>/latest_context.json once with a small recent window that includes the new events from this run. Return a short end summary listing which stages ran, which files were written, whether Stage 0 synced all repos cleanly, and whether a fix draft was created. Do not edit tracked docs or code outside <LOCAL_ACTIVITY_ROOT>, do not commit, and do not push.`
 
