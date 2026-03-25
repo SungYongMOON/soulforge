@@ -38,8 +38,13 @@ flowchart TD
 
 - species canon 은 `species/<species_id>/species.yaml` 단일 파일 모델을 사용한다.
 - hero 는 species 내부의 `heroes:` inline entry 로만 표현한다.
+- canonical id(`species_id`, `class_id`, skill/tool/knowledge id)는 stable ASCII 식별자를 유지한다.
+- human-facing `title`, `display_name`, `label` 은 한국어를 current-default 로 둘 수 있다.
 - class canon entry 와 assign/ref 입구는 `classes/<class_id>/class.yaml` 이다.
-- `species/human/species.yaml`, `classes/knight/**`, `.unit/vanguard_01/unit.yaml` 는 canonical sample 1세트로 유지한다.
+- species 와 class 는 서로를 소유하거나 제한하지 않는 독립 catalog 축이다.
+- 실제 조합은 `.unit/<unit_id>/unit.yaml` 의 `identity.species_id + class_ids` 가 결정한다.
+- 따라서 `orc + knight`, `human + archivist`, `dwarf + administrator` 같은 조합은 canon 상 허용되며, 제한이 필요하면 unit/party/workflow/mission 쪽에서 표현한다.
+- current starter species set 은 `human`, `orc`, `elf`, `dwarf`, `darkelf` 다.
 - `skills/`, `tools/`, `knowledge/` 는 reusable canon surface 이며, class-local refs 가 가리키는 entry 를 둘 수 있다.
 - `skills/shield_wall`, `skills/charge_breaker`, `tools/kite_shield`, `tools/field_lance`, `knowledge/frontline_doctrine`, `knowledge/escort_etiquette` 는 `knight` sample 을 해석하기 위한 minimal canon entry 다.
 - skill canon 은 behavior 와 execution requirement 를 기록할 수 있지만, 실제 모델/MCP/tool 장착은 runtime binding 에서 최종 resolve 한다.

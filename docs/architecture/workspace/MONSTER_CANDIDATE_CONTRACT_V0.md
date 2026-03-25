@@ -9,6 +9,12 @@
 
 - `monster candidate` 는 메일 원본을 그대로 들고 있는 객체가 아니라, 메일에서 지금 붙들 가치가 있는 bounded work item 만 추려낸 intake-side working object 다.
 
+## naming 원칙
+
+- `monster_family`, `monster_name`, `monster_type` 같은 canonical id 는 stable ASCII snake_case 를 유지한다.
+- 사람에게 보여주는 현재 인스턴스 이름은 선택적으로 `monster_label` 에 한국어로 둘 수 있다.
+- 실제 업무 설명은 계속 `request_summary` 와 `judgment_reason` 이 소유한다.
+
 ## 경계
 
 - raw mail body, attachment, mailbox cursor, live mailbox state 는 `guild_hall/state/gateway/**` 아래에 남긴다.
@@ -35,6 +41,8 @@
 - `intake_owner`
 - `monster_family`
   - family 를 모르면 `unknown_monster`
+- `monster_label`
+  - human-facing Korean label 이 필요하면 사용, 없으면 `null`
 - `request_summary`
 - `project_hints`
 - `stage_hints`
@@ -80,6 +88,7 @@ mailbox_id: synthetic_inbox
 received_at: 2026-03-19T08:40:00+09:00
 intake_owner: gateway
 monster_family: unknown_monster
+monster_label: 미확정 몬스터
 request_summary: demo 프로젝트 kickoff 상태 자료 갱신과 stage 문구 확인 요청
 project_hints:
   - demo_project

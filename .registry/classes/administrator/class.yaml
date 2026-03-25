@@ -1,7 +1,7 @@
 class_id: administrator
 kind: class
 status: active
-title: Administrator
+title: 관리자
 summary: Review-first class for skill package authoring, boundary checking, and promotion handoff work.
 profile_ref: administrator_core
 skill_refs: skill_refs.yaml
@@ -10,3 +10,4 @@ knowledge_refs: knowledge_refs.yaml
 notes:
   - profile_ref is a string id.
   - class-local *_refs.yaml carry assign/ref pairs.
+  - class selection stays independent from species selection.

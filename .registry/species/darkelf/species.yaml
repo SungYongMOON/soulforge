@@ -1,0 +1,24 @@
+species_id: darkelf
+kind: species
+status: active
+title: 다크엘프
+summary: Subtle species baseline for hidden-path reading, oblique entry, and shadow-side risk tracing.
+heroes:
+  - hero_id: shadow_scout
+    title: 그림자 척후
+    summary: A quiet exemplar who finds narrow entry routes and moves through blind angles without widening the noise.
+    profile_ref: shadow_scout_field
+    biases:
+      build_lineage_map: 0.74
+      frontline_assault: 0.41
+  - hero_id: vein_analyst
+    title: 암맥 분석관
+    summary: A patient analyst who follows weak signals until hidden dependencies and latent risks become visible.
+    profile_ref: vein_analyst_risk
+    biases:
+      build_lineage_map: 0.91
+      author_skill_package: 0.33
+notes:
+  - hero_id is unique only within this species.
+  - biases are recommendation weights, not policy.
+  - species does not own or restrict class selection.

@@ -34,6 +34,8 @@ field_rules:
     rule: Resolves only within the selected identity.species_id.
   - field: class_ids
     rule: Canonical class ids resolving to .registry/classes/<class_id>/class.yaml.
+  - field: identity.species_id + class_ids
+    rule: Species and classes are orthogonal selections. Compatibility, if needed, belongs to unit, party, workflow, or mission rules rather than .registry catalogs.
   - field: status
     rule: Use only draft, active, archived.
 notes:

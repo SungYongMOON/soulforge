@@ -18,7 +18,7 @@ required_fields:
       - archived
   - name: title
     type: string
-    description: Human-readable species title.
+    description: Human-readable species title. Current-default display language may be Korean.
   - name: summary
     type: string
     description: Short canonical description.
@@ -49,4 +49,5 @@ field_rules:
     rule: Use only draft, active, archived.
 notes:
   - This is a human-readable canonical schema document, not a formal JSON Schema.
+  - Species does not own class compatibility. Actual pairing is selected in unit, party, workflow, or mission surfaces.
   - Raw truth never belongs here; runtime truth stays under runs/<run_id>/ in local workspaces.

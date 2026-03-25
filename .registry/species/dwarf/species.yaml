@@ -1,0 +1,24 @@
+species_id: dwarf
+kind: species
+status: active
+title: 드워프
+summary: Steady species baseline for structural judgment, durable execution, and tool-centered craft.
+heroes:
+  - hero_id: forge_keeper
+    title: 대장간 수호자
+    summary: A methodical exemplar who reinforces process and output shape before release.
+    profile_ref: forge_keeper_craft
+    biases:
+      author_skill_package: 0.78
+      build_lineage_map: 0.44
+  - hero_id: stone_auditor
+    title: 석벽 감식관
+    summary: A patient examiner who tests foundations and refuses weak joins.
+    profile_ref: stone_auditor_review
+    biases:
+      build_lineage_map: 0.62
+      frontline_assault: 0.34
+notes:
+  - hero_id is unique only within this species.
+  - biases are recommendation weights, not policy.
+  - species does not own or restrict class selection.

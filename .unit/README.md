@@ -4,6 +4,7 @@
 
 - `.unit/` 는 활성 unit 운영자가 책임지는 canonical root다. 각 unit owner 는 policy, protocols, runtime, memory, sessions, autonomic, artifacts 를 `.unit/<unit_id>/` 아래에서 직접 관리한다.
 - `.unit/` 는 `.registry`, `.workflow`, `.party`, `.mission`, `_workspaces` 와 구분되어 catalog, workflow, party, mission plan, private project data 를 번갈아 처리하지 않는다.
+- species 와 class 의 실제 조합은 `.unit/<unit_id>/unit.yaml` 이 결정한다. catalog 는 조합을 선점하지 않는다.
 
 ## 관계도
 
@@ -59,4 +60,3 @@ flowchart TD
 - 향후 human-operated / AI-operated variation 을 더 쪼갤 수는 있지만, 지금 phase 에서는 별도 guild master unit 을 중복 생성하지 않는다.
 - human guild master lane 은 mailbox escalation, manual hunt review, workflow/skill promotion approval 같은 상위 운영 판단을 맡는다.
 - Soulforge 전용 `skill creator` 또는 `skill checker` 같은 authoring aid 는 우선 `guild_master` 같은 guild-master owner surface 와 workflow lane 아래에서 운용하는 것을 기본안으로 본다.
-

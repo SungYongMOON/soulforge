@@ -4,6 +4,7 @@
 
 - `.registry` 의 owner-local 구조 설명을 두는 active 문서 진입점이다.
 - species inline heroes, classes entry rule, reserved canon buckets 를 이 경로에서 설명한다.
+- species/class 독립 catalog 규칙과 sample species lineup 도 이 경로의 owner-local 설명 범위에 포함한다.
 - skill canon 과 executor bridge 경계는 `SKILL_CANON_BOUNDARY.md` 에서 설명한다.
 
 ## 현재 상태

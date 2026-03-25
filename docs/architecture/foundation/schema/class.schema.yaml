@@ -18,6 +18,7 @@ required_fields:
       - archived
   - name: title
     type: string
+    description: Human-readable class title. Current-default display language may be Korean.
   - name: summary
     type: string
   - name: profile_ref
@@ -53,4 +54,5 @@ field_rules:
     rule: Use only draft, active, archived.
 notes:
   - The schema for class-local refs is documented by convention in the sample YAML and field matrix.
+  - Class does not own species compatibility. Actual pairing is selected in unit, party, workflow, or mission surfaces.
   - Workflow and party canon remain outside .registry.

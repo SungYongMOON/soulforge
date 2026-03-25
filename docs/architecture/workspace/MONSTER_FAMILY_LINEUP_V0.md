@@ -15,6 +15,8 @@
 ## naming 원칙
 
 - 세부 이름은 `green_dragon`, `ash_goblin`, `clear_slime` 처럼 `descriptor_family` 형태를 권장한다.
+- `monster_family` 와 `monster_name` id 는 stable ASCII snake_case 를 유지한다.
+- 사람에게 보여주는 이름이 필요하면 report/candidate note 에 한국어 `monster_label` 을 별도로 둘 수 있다.
 - `monster_family` 나 `monster_name` 만으로 실제 업무를 설명하지 않는다.
 - 실제 업무 설명은 반드시 별도 `objective` 에 적는다.
 
@@ -72,6 +74,7 @@
 ```yaml
 monster_family: dragon
 monster_name: green_dragon
+monster_label: 상위급 자료 갱신 몬스터
 work_pattern: material_refresh
 objective: 점검장비 자료를 최신 기준으로 갱신한다.
 ```

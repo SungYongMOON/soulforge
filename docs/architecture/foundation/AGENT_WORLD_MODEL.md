@@ -23,8 +23,11 @@
 - species 는 durable catalog baseline 이다.
 - hero 는 species 내부에 inline 으로 실리는 optional overlay 다.
 - hero bias 는 정책이 아니라 추천 가중치다.
+- species/class/monster 계열의 canonical id 는 stable ASCII 로 유지하고, 사람용 이름은 `title`/`display_name`/`label` 에 한국어로 둘 수 있다.
 - unit 은 실제 binding 과 active owner surface 다.
 - class 는 재사용 가능한 능력 패키지다.
+- species 와 class 는 서로 종속되지 않는 독립 축이다.
+- 실제 조합은 unit 이 결정하므로 `orc 기사`, `human 기록관리자`, `elf 관리자` 같은 조합을 canon 상 허용한다.
 - workflow 는 reusable 공략서 / 처리 규칙이다.
 - party 는 reusable 투입 조합이다.
 - mission 은 workflow/party/unit 을 실제 실행 계획으로 묶은 owner surface 다.

@@ -1,0 +1,24 @@
+species_id: orc
+kind: species
+status: active
+title: 오크
+summary: Enduring species baseline for forceful advance, stubborn follow-through, and field coordination.
+heroes:
+  - hero_id: iron_bulwark
+    title: 철갑 방벽수
+    summary: A relentless exemplar who holds formation through pressure and impact.
+    profile_ref: iron_bulwark_field
+    biases:
+      frontline_assault: 0.96
+      build_lineage_map: 0.25
+  - hero_id: camp_marshal
+    title: 야전 집행관
+    summary: A disciplined coordinator who keeps a rough field operation moving without losing the line.
+    profile_ref: camp_marshal_ops
+    biases:
+      frontline_assault: 0.72
+      author_skill_package: 0.42
+notes:
+  - hero_id is unique only within this species.
+  - biases are recommendation weights, not policy.
+  - species does not own or restrict class selection.

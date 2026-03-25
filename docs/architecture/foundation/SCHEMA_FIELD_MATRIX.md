@@ -7,7 +7,7 @@
 | `species_id` | yes | string | folder name와 일치 |
 | `kind` | yes | string | `species` 고정 |
 | `status` | yes | enum | `draft | active | archived` |
-| `title` | yes | string | species 표시명 |
+| `title` | yes | string | species 표시명, current-default human-facing Korean title |
 | `summary` | yes | string | 짧은 설명 |
 | `heroes` | yes | list[object] | inline hero set |
 | `heroes[].hero_id` | yes | string | species 안에서만 유일 |
@@ -24,7 +24,7 @@
 | `class_id` | yes | string | folder name와 일치 |
 | `kind` | yes | string | `class` 고정 |
 | `status` | yes | enum | `draft | active | archived` |
-| `title` | yes | string | class 표시명 |
+| `title` | yes | string | class 표시명, current-default human-facing Korean title |
 | `summary` | yes | string | 짧은 설명 |
 | `profile_ref` | yes | string | string id |
 | `skill_refs` | yes | string | sibling file pointer |

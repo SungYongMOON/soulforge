@@ -9,6 +9,21 @@ Git log 는 원문 이력을 남기고, 이 문서는 사람이 읽는 patch not
 - 보호 대상 업무 데이터와 continuity record 는 여기 적지 않고 nested `private-state/CHANGELOG.md` 에 적는다.
 - secret 값, credential, token, password 는 절대 기록하지 않는다.
 
+## 2026-03-26
+
+### Revision `working` - 종족 직업 몬스터의 사람용 한글 표시 규칙 추가
+
+- canonical id 는 계속 stable ASCII 를 유지하고, 사람에게 보여주는 이름은 `title`, `display_name`, `monster_label` 같은 human-facing 필드에 한국어로 둘 수 있다는 규칙을 public canon 문서에 추가했다.
+- current sample species/class title 과 human hero title 을 한국어로 바꿨다.
+- `monster` 계열은 `monster_family` / `monster_name` / `monster_type` id 를 유지하되, candidate note 와 lineup 문서에서 optional `monster_label` 로 한국어 표시를 둘 수 있게 했다.
+
+### Revision `working` - species 와 class 독립 조합 규칙 추가
+
+- `.registry` canon 에서 species 와 class 는 서로 종속되지 않는 독립 catalog 축이라고 명시했다.
+- 실제 조합은 `.unit/<unit_id>/unit.yaml` 의 `identity.species_id + class_ids` 가 결정하도록 문서와 schema 를 정리했다.
+- 그래서 `orc + knight` 같은 조합도 canon 상 허용되며, 제한이 필요하면 unit/party/workflow/mission 에서만 표현하도록 규칙을 고정했다.
+- starter species lineup 은 `human`, `orc`, `elf`, `dwarf`, `darkelf` 5종으로 맞췄다.
+
 ## 2026-03-25
 
 ### Revision `working` - mission model 에 monster 와 artifact 구분 규칙 추가

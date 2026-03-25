@@ -30,6 +30,7 @@ flowchart TD
 - `monster` 는 파일이 아니라 요청/일감 종류다.
 - `artifact` 는 mission 이 만들거나 갱신하는 산출물이다.
 - `mission` 은 특정 `monster_type` 을 실제로 처리하기 위해 연 실행 계획이다.
+- `monster_type` 같은 canonical id 는 stable ASCII 를 유지하고, 사람용 표시는 title/summary/label 에 한국어를 써도 된다.
 - 같은 artifact 도 시점에 따라 역할이 달라질 수 있다.
   - 한 mission 에서는 output artifact 이고,
   - 다음 mission 에서는 input artifact 가 될 수 있다.

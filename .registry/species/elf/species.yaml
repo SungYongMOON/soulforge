@@ -1,0 +1,24 @@
+species_id: elf
+kind: species
+status: active
+title: 엘프
+summary: Perceptive species baseline for long-view inspection, careful routing, and refined coordination.
+heroes:
+  - hero_id: far_sighted_scout
+    title: 원시안 정찰자
+    summary: A wide-view exemplar who sees pattern and movement before the line commits.
+    profile_ref: far_sighted_scout_field
+    biases:
+      build_lineage_map: 0.84
+      frontline_assault: 0.38
+  - hero_id: thread_listener
+    title: 맥락 추적자
+    summary: A careful listener who follows small clues until they connect into a cleaner route.
+    profile_ref: thread_listener_archive
+    biases:
+      build_lineage_map: 0.88
+      author_skill_package: 0.36
+notes:
+  - hero_id is unique only within this species.
+  - biases are recommendation weights, not policy.
+  - species does not own or restrict class selection.

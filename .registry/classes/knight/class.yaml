@@ -1,7 +1,7 @@
 class_id: knight
 kind: class
 status: active
-title: Knight
+title: 기사
 summary: Frontline class focused on disciplined advance, shielding, and breach control.
 profile_ref: knight_core
 skill_refs: skill_refs.yaml
@@ -10,3 +10,4 @@ knowledge_refs: knowledge_refs.yaml
 notes:
   - profile_ref is a string id.
   - class-local *_refs.yaml carry assign/ref pairs.
+  - class selection stays independent from species selection.
