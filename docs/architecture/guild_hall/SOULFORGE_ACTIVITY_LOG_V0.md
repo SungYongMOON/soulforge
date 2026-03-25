@@ -27,6 +27,10 @@
 ```text
 guild_hall/state/operations/soulforge_activity/
 ├── latest_context.json
+├── log/
+│   └── YYYY/
+│       └── YYYY-MM-DD/
+│           └── HHMM-<automation-id>.md
 └── events/
     └── YYYY/
         └── YYYY-MM.jsonl
@@ -38,6 +42,9 @@ guild_hall/state/operations/soulforge_activity/
 - `events/YYYY/YYYY-MM.jsonl`
   - append-only event ledger
   - 장기 보관용 원본이며, 기본적으로는 마지막 몇 건만 읽는다
+- `log/YYYY/YYYY-MM-DD/HHMM-<automation-id>.md`
+  - night_watch 점검/초안의 상세 실행 결과
+  - 사람이 읽는 markdown report 와 draft note 를 둔다
 
 ## 기본 읽기 규칙
 
@@ -85,6 +92,16 @@ guild_hall/state/operations/soulforge_activity/
 - `next_action`
 - `carry_forward`
 
+## `log/**/*.md` 권장 필드
+
+- `automation_id`
+- `run_at`
+- `summary`
+- `findings` 또는 `draft`
+- `refs`
+- `next_action`
+- `carry_forward`
+
 ## 기록 규칙
 
 1. 중복은 허용한다.
@@ -93,6 +110,14 @@ guild_hall/state/operations/soulforge_activity/
 4. raw mail body, secret, token, session 같은 민감값은 남기지 않는다.
 5. 다른 PC 나 다음 session 이 꼭 기억해야 하는 항목은 `carry_forward: true` 로 표시한다.
 6. 최근 맥락 재구성이 끝나면 `latest_context.json` 을 갱신하되, `events/*.jsonl` 원본은 지우지 않는다.
+7. night_watch 점검 결과와 `Fix Draft` 초안은 `log/**/*.md` 에 저장하고, 월별 `events/*.jsonl` 에는 요약만 남긴다.
+8. `log/**/*.md` 는 tracked docs/code 의 자동 수정 기록이 아니라, 점검 결과와 draft-only 제안의 저장 surface 로 사용한다.
+
+## automation writer 규칙
+
+1. active truth 는 이 PC 의 실제 Soulforge root 아래 `guild_hall/state/operations/soulforge_activity/**` 이다.
+2. Codex automation 이 임시 worktree 에서 돌더라도, writer 는 worktree-local copy 가 아니라 active absolute root 를 찾아 그 경로에 기록한다.
+3. worktree 안에 같은 상대 경로가 있더라도 그것은 canonical sink 가 아니다.
 
 ## private-state mirror 규칙
 

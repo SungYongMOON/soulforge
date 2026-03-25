@@ -725,8 +725,6 @@ function buildFixHint(result, context = {}) {
       return "연속 작업이 필요하면 private state repo 에서 `guild_hall/state/gateway/log/monster_events/` 를 rsync 로 복원한다.";
     case "private_state_gateway_outbound":
       return "연속 작업이 필요하면 private state repo 에서 `guild_hall/state/gateway/mailbox/outbound/` 를 rsync 로 복원한다.";
-    case "private_state_workspace_root":
-      return "연속 작업이 필요하면 private state repo 에서 `_workspaces/` 를 필요한 project 범위만 rsync 로 복원한다.";
     case "gateway_cli_syntax":
       return "gateway CLI 변경분을 점검하고 `node --check guild_hall/gateway/cli.mjs` 가 통과하도록 수정한다.";
     case "town_crier_status":

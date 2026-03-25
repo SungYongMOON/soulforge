@@ -175,7 +175,6 @@ rsync -a private-state/guild_hall/state/gateway/intake_inbox/ guild_hall/state/g
 rsync -a private-state/guild_hall/state/gateway/log/monster_events/ guild_hall/state/gateway/log/monster_events/
 rsync -a private-state/guild_hall/state/gateway/mailbox/outbound/ guild_hall/state/gateway/mailbox/outbound/
 rsync -a private-state/guild_hall/state/gateway/log/mail_send/ guild_hall/state/gateway/log/mail_send/
-rsync -a private-state/_workspaces/ _workspaces/
 ```
 
 Windows PowerShell 에서는 아래처럼 directory content 복사 기준으로 복원한다.
@@ -185,8 +184,10 @@ Copy-Item "private-state/guild_hall/state/gateway/intake_inbox/*" "guild_hall/st
 Copy-Item "private-state/guild_hall/state/gateway/log/monster_events/*" "guild_hall/state/gateway/log/monster_events/" -Recurse -Force
 Copy-Item "private-state/guild_hall/state/gateway/mailbox/outbound/*" "guild_hall/state/gateway/mailbox/outbound/" -Recurse -Force
 Copy-Item "private-state/guild_hall/state/gateway/log/mail_send/*" "guild_hall/state/gateway/log/mail_send/" -Recurse -Force
-Copy-Item "private-state/_workspaces/*" "_workspaces/" -Recurse -Force
 ```
+
+`_workspaces/<project_code>/` 실제 worksite 는 `private-state/` 복원 대상이 아니다.
+대상 PC 에서는 project root 를 다시 materialize 하거나 local directory link / junction / symlink 를 새로 만든다.
 
 ## Chapter 5. NotebookLM MCP 설치
 
@@ -303,7 +304,8 @@ AI 는 아래 순서만 따르게 한다.
 
 - `guild_hall/state/**` 와 `_workspaces/**` 는 Git 으로 안 따라온다.
 - 기존 PC 의 auth/session 을 새 PC 로 복사하지 않는다.
-- 꼭 필요한 경우에도 `_workspaces/**` 와 `guild_hall/state/**` 는 public Git 으로 보내지 않고, [`PRIVATE_STATE_REPO_V0.md`](../../../docs/architecture/workspace/PRIVATE_STATE_REPO_V0.md) 기준의 별도 private repo 또는 별도 복사로 옮긴다.
+- `guild_hall/state/**` continuity subset 은 [`PRIVATE_STATE_REPO_V0.md`](../../../docs/architecture/workspace/PRIVATE_STATE_REPO_V0.md) 기준의 nested `private-state/` 로 옮긴다.
+- `_workspaces/**` 실제 project data 는 current `private-state/` allowlist 에 넣지 않으며, 필요하면 owner 가 별도 private transfer 나 local directory link 재생성으로 이어받는다.
 
 ## 연결 문서
 

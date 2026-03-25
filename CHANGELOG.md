@@ -9,7 +9,41 @@ Git log 는 원문 이력을 남기고, 이 문서는 사람이 읽는 patch not
 - 보호 대상 업무 데이터와 continuity record 는 여기 적지 않고 nested `private-state/CHANGELOG.md` 에 적는다.
 - secret 값, credential, token, password 는 절대 기록하지 않는다.
 
+## 2026-03-25
+
+### Revision `working` — legacy `_workspaces` continuity lane 제거와 runtime README 경계 정리
+
+- bootstrap/install checklist 에서 `private-state/_workspaces` restore 경로를 제거했다.
+- `owner-with-state` bootstrap 은 `guild_hall/state/**` continuity subset 만 `private-state/` 에서 복원하고, `_workspaces/<project_code>/` 는 각 PC 에서 다시 materialize 하도록 정리했다.
+- tracked `guild_hall/state/README.md` 가 runtime root 안의 유일한 boundary note 라는 점을 문구로 명시해 public tracking 예외를 정리했다.
+- 관련 경로:
+  - `docs/architecture/workspace/INSTALLATION_MANUAL_V0.md`
+  - `docs/architecture/bootstrap/BOOTSTRAP_CHECKLIST_V0.json`
+  - `guild_hall/state/README.md`
+  - `guild_hall/doctor/cli.mjs`
+
 ## 2026-03-24
+
+### Revision `working` — night_watch automation 을 worktree-safe local path 기준으로 재설계
+
+- Codex app automation 이 임시 worktree 에서 실행될 수 있다는 전제를 문서에 반영했다.
+- tracked canon 의 상대 경로 계약은 유지하되, local automation prompt 에는 `<LOCAL_SOULFORGE_ROOT>`, `<LOCAL_ACTIVITY_ROOT>`, `<LOCAL_PRIVATE_STATE_ROOT>`, `<LOCAL_WORKMETA_ROOT>` 같은 absolute path 입력을 쓰도록 규칙을 추가했다.
+- `soulforge_activity` writer 는 worktree-local copy 가 아니라 이 PC 의 active absolute root 를 canonical sink 로 삼는다고 명시했다.
+- 관련 경로:
+  - `docs/architecture/guild_hall/NIGHT_WATCH_AUTOMATION_V0.md`
+  - `docs/architecture/guild_hall/SOULFORGE_ACTIVITY_LOG_V0.md`
+  - `guild_hall/night_watch/README.md`
+
+### Revision `working` — night_watch 결과 저장 surface 와 Fix Draft companion 설계 추가
+
+- night_watch 자동화가 Codex inbox/thread 에만 머물지 않고 `guild_hall/state/operations/soulforge_activity/**` 에도 결과를 남기도록 output contract 를 보강했다.
+- `latest_context.json`, `events/YYYY/YYYY-MM.jsonl` 외에 상세 실행 결과를 저장하는 `log/YYYY/YYYY-MM-DD/HHMM-<automation-id>.md` surface 를 추가했다.
+- 자동 수정은 current-default 에 넣지 않고, draft-only 후속 조치 제안을 만드는 `Soulforge Fix Draft` companion spec 을 추가했다.
+- 새 점검 자동화가 추가되거나 출력 형식이 바뀌면 `Fix Draft` spec 도 같은 patch 에서 함께 갱신하는 동기화 규칙을 문서화했다.
+- 관련 경로:
+  - `docs/architecture/guild_hall/NIGHT_WATCH_AUTOMATION_V0.md`
+  - `docs/architecture/guild_hall/SOULFORGE_ACTIVITY_LOG_V0.md`
+  - `guild_hall/night_watch/README.md`
 
 ### Revision `working` — night_watch 자동화 후보 문서화
 

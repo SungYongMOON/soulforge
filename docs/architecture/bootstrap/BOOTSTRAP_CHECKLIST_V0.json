@@ -86,14 +86,6 @@
       "profiles": ["owner-with-state"],
       "required": false,
       "note": "optional continuity data"
-    },
-    {
-      "id": "private_state_workspace_root",
-      "label": "private state workspace root",
-      "path": "private-state/_workspaces",
-      "profiles": ["owner-with-state"],
-      "required": false,
-      "note": "optional continuity data"
     }
   ],
   "safe_smokes": [
