@@ -1,0 +1,15 @@
+class_id: healer
+kind: skill_refs
+status: active
+assign:
+  - assign: stabilize_line
+    ref: shield_wall
+    summary: Stop further damage and re-establish a safe recovery boundary.
+  - assign: repair_stitch
+    ref: record_stitch
+    summary: Reconnect damaged pieces into a usable state without inventing false health.
+  - assign: triage_gate
+    ref: mission_check
+    summary: Decide whether the patient lane can move, needs rest, or must escalate.
+notes:
+  - assign/ref pairs are class-local bindings into canonical skill ids.

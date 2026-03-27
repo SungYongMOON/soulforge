@@ -96,6 +96,8 @@ guild_hall/state/operations/soulforge_activity/
 
 - `automation_id`
 - `run_at`
+- `attempts`
+- `failure_class`
 - `summary`
 - `findings` 또는 `draft`
 - `refs`
@@ -112,6 +114,7 @@ guild_hall/state/operations/soulforge_activity/
 6. 최근 맥락 재구성이 끝나면 `latest_context.json` 을 갱신하되, `events/*.jsonl` 원본은 지우지 않는다.
 7. night_watch preflight 결과, 점검 결과, `Fix Draft` 초안은 `log/**/*.md` 에 저장하고, 월별 `events/*.jsonl` 에는 요약만 남긴다.
 8. `log/**/*.md` 는 tracked docs/code 의 자동 수정 기록이 아니라, 점검 결과와 draft-only 제안의 저장 surface 로 사용한다.
+9. cross-project ontology review candidate 는 activity surface 에 남길 수 있으며, 이 경우 `carry_forward: true` 를 기본으로 둔다.
 
 ## automation writer 규칙
 

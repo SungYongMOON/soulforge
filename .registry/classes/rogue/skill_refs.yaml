@@ -1,0 +1,12 @@
+class_id: rogue
+kind: skill_refs
+status: active
+assign:
+  - assign: weak_point_sift
+    ref: evidence_sift
+    summary: Detect the narrow weakness that can be used without widening scope.
+  - assign: breach_slip
+    ref: charge_breaker
+    summary: Move through a bounded opening quickly and quietly once the gap is real.
+notes:
+  - assign/ref pairs are class-local bindings into canonical skill ids.

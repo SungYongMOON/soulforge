@@ -1,0 +1,12 @@
+class_id: auditor
+kind: knowledge_refs
+status: active
+assign:
+  - assign: gate_criticism
+    ref: source_criticism
+    summary: Challenge weak claims and require grounded evidence before passing the gate.
+  - assign: ownership_boundary
+    ref: boundary_governance
+    summary: Keep owner boundaries intact while deciding accept, reject, or return-for-rework.
+notes:
+  - assign/ref pairs are class-local bindings into canonical knowledge ids.

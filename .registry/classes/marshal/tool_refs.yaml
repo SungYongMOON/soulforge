@@ -1,0 +1,12 @@
+class_id: marshal
+kind: tool_refs
+status: active
+assign:
+  - assign: line_shield
+    ref: kite_shield
+    summary: Hold sequence discipline and protect the handoff lane under pressure.
+  - assign: push_lance
+    ref: field_lance
+    summary: Extend execution reach when a bounded opening is ready to be pressed.
+notes:
+  - assign/ref pairs are class-local bindings into canonical tool ids.

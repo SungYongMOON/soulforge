@@ -1,0 +1,12 @@
+class_id: pathfinder
+kind: knowledge_refs
+status: active
+assign:
+  - assign: lineage_tracing
+    ref: lineage_method
+    summary: Follow partial clues into a bounded lineage map.
+  - assign: signal_criticism
+    ref: source_criticism
+    summary: Distinguish a useful lead from speculation before escalation.
+notes:
+  - assign/ref pairs are class-local bindings into canonical knowledge ids.

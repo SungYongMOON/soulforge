@@ -58,7 +58,10 @@
   - go / no-go 판정 1개
 - 기본 모드:
   - `git fetch` / `git pull --ff-only` 허용
-  - dirty / branch mismatch / remote 오류가 있으면 후속 점검 중단
+  - missing repo / detached HEAD / dirty / missing origin / non-main branch 는 즉시 hard fail 하고 후속 점검 중단
+  - DNS 해석 실패, temporary name resolution failure, timeout, connection reset, TLS handshake timeout, network unreachable, transient 5xx gateway 오류 같은 network-class 실패만 bounded retry 허용
+  - 각 repo sync 는 최대 3회 시도하고, 2차 시도 전 `15s`, 3차 시도 전 `45s` 대기
+  - repo sync 가 깨끗하게 끝난 뒤 doctor 가 실패하면 `30s` 대기 후 1회만 재시도하고, 그래도 실패하면 중단
   - merge / rebase / reset / stash / commit / push 금지
 
 ### 1. Boundary Check
@@ -100,6 +103,7 @@
 
 - 목적:
   - 전역 지침이 과도하게 비대해지는지, project-local 규칙이 전역 문서로 새는지, 반대로 전역 원칙이 project-local rule 로 내려오는지 점검한다.
+  - 반복되는 상위 개념이나 reusable entity/relation pattern 이 있는데 아직 foundation/workspace canon 에 ontology candidate 로 고정되지 않았는지도 본다.
 - 주 입력:
   - `AGENTS.md`
   - `README.md`
@@ -109,6 +113,7 @@
 - 권장 결과:
   - 문서 집중/중복 징후 3개 이하
   - 분리 추천 위치
+  - 필요하면 ontology review candidate 1개
   - 다음 정리 액션 1개
 - 기본 모드:
   - tracked tree read-only
@@ -139,6 +144,7 @@
 - 이유:
   - stale repo copy 위에서 얻은 finding 은 운영 가치가 낮다.
   - 항상 켜 두는 PC 는 새벽 점검 직전에 public/private companion 을 먼저 최신으로 맞춰야 한다.
+  - 단, 외부 네트워크가 잠깐 흔들린 경우까지 즉시 stale 판정하지 않도록 bounded retry 뒤 최종 stop 을 기본으로 둔다.
 - 첫 번째 점검은 그다음 `Boundary Check` 로 본다.
 - 이유:
   - Soulforge 의 핵심 정체성은 owner boundary 이다.
@@ -155,6 +161,7 @@
 5. `Fix Draft`
 
 `Fix Draft` 는 앞의 세 점검 report 가 모두 같은 run 에서 써졌을 때만 조건부로 생성한다.
+`Context Drift Check` 나 `Fix Draft` 가 ontology review candidate 를 찾으면, current-default 는 그 후보를 `carry_forward` 대상으로 남기는 쪽을 기본으로 본다.
 
 ## Codex app 생성 원칙
 
@@ -221,7 +228,7 @@ tracked canon 문서에서는 계속 repo-relative 경로를 쓴다.
 - local render/install:
   - `npm run guild-hall:night-watch:render -- --install --local-root <LOCAL_SOULFORGE_ROOT> --workmeta-root <LOCAL_WORKMETA_ROOT> --private-state-root <LOCAL_PRIVATE_STATE_ROOT>`
 - 실행 프롬프트:
-  - `Treat <LOCAL_SOULFORGE_ROOT> as the active Soulforge root on this PC and <LOCAL_ACTIVITY_ROOT> as the only valid runtime write target for this automation. If Codex is running inside a temporary worktree, do not read or write runtime state under the worktree copy. Run the following stages in order and do not start the next stage until the previous stage report has been written under <LOCAL_ACTIVITY_ROOT>/log/YYYY/YYYY-MM-DD/. Stage 0: Preflight Repo Sync. Before reading latest_context or inspecting docs, require these three repo roots: <LOCAL_SOULFORGE_ROOT>, <LOCAL_WORKMETA_ROOT>, and <LOCAL_PRIVATE_STATE_ROOT>. For each repo, verify that the path exists, is a git repo, has origin configured, is on branch main, and has a clean worktree. Then run a fast-forward-only sync against origin/main for each repo. After pulls, run npm run guild-hall:doctor -- --profile owner-with-state --remote from <LOCAL_SOULFORGE_ROOT>. Always save one markdown report as HHMM-soulforge-preflight-sync.md and append one summary event to <LOCAL_ACTIVITY_ROOT>/events/YYYY/YYYY-MM.jsonl summarizing repo status, pull results, and doctor status. If any repo is missing, dirty, detached, lacks origin, is not on main, or if any fetch, pull, or doctor step fails, refresh <LOCAL_ACTIVITY_ROOT>/latest_context.json with the blocked preflight summary and stop the run. Do not merge, rebase, reset, stash, commit, or push. Only if Stage 0 succeeds, read <LOCAL_ACTIVITY_ROOT>/latest_context.json if it exists, then inspect <LOCAL_SOULFORGE_ROOT>/AGENTS.md, <LOCAL_SOULFORGE_ROOT>/README.md, key architecture docs under <LOCAL_SOULFORGE_ROOT>/docs/architecture, and the companions at <LOCAL_WORKMETA_ROOT> and <LOCAL_PRIVATE_STATE_ROOT>. Stage 1: Boundary Check for owner-boundary violations, public/private mixing, misplaced project-local rules, and layer confusion across _workspaces, _workmeta, private-state, guild_hall, and .mission. Save one markdown report as HHMM-soulforge-boundary-check.md and append one summary event to <LOCAL_ACTIVITY_ROOT>/events/YYYY/YYYY-MM.jsonl. Stage 2: Portability Check for absolute paths, machine-specific usernames, OS-specific assumptions, and host-local values inside tracked skill packages. Save one markdown report as HHMM-soulforge-portability-check.md and append one summary event. Stage 3: Context Drift Check for global rules leaking into project-local rule files, project-local rules leaking into global docs, top-level instruction bloat, or missing nearby owner guidance. Save one markdown report as HHMM-soulforge-context-drift-check.md and append one summary event. Stage 4: inspect the three fresh reports from this run; if any real issue exists, write at most one narrow fix draft as HHMM-soulforge-fix-draft.md with affected paths, risk level, owner location, and the safest next action, then append one summary event. If there is no real issue, skip the fix draft file and its event. After all completed stages, refresh <LOCAL_ACTIVITY_ROOT>/latest_context.json once with a small recent window that includes the new events from this run. Return a short end summary listing which stages ran, which files were written, whether Stage 0 synced all repos cleanly, and whether a fix draft was created. Do not edit tracked docs or code outside <LOCAL_ACTIVITY_ROOT>, do not commit, and do not push.`
+  - `Treat <LOCAL_SOULFORGE_ROOT> as the active Soulforge root on this PC and <LOCAL_ACTIVITY_ROOT> as the only valid runtime write target for this automation. If Codex is running inside a temporary worktree, do not read or write runtime state under the worktree copy. Run the following stages in order and do not start the next stage until the previous stage report has been written under <LOCAL_ACTIVITY_ROOT>/log/YYYY/YYYY-MM-DD/. Stage 0: Preflight Repo Sync. Before reading latest_context or inspecting docs, require these three repo roots: <LOCAL_SOULFORGE_ROOT>, <LOCAL_WORKMETA_ROOT>, and <LOCAL_PRIVATE_STATE_ROOT>. For each repo, verify that the path exists, is a git repo, has origin configured, is on branch main, and has a clean worktree. Treat a missing repo, detached HEAD, dirty worktree, missing origin, or non-main branch as an immediate hard blocker with no retry. For git fetch origin main and git pull --ff-only origin main, allow bounded retry only for transient network-class failures such as DNS resolution failure, temporary name resolution failure, timeout, connection reset, TLS handshake timeout, network unreachable, or transient 5xx gateway errors. Retry each failing repo up to 3 total attempts, waiting 15 seconds before attempt 2 and 45 seconds before attempt 3. Do not continue if any repo is still unsynced after the last retry. After repo sync succeeds, run npm run guild-hall:doctor -- --profile owner-with-state --remote from <LOCAL_SOULFORGE_ROOT>. If doctor fails after otherwise clean repo sync, wait 30 seconds and retry doctor once; if it still fails, block the run. Always save one markdown report as HHMM-soulforge-preflight-sync.md and append one summary event to <LOCAL_ACTIVITY_ROOT>/events/YYYY/YYYY-MM.jsonl summarizing repo status, per-repo attempts, failure_class, pull results, and doctor status. If any hard blocker exists or retries are exhausted, refresh <LOCAL_ACTIVITY_ROOT>/latest_context.json with the blocked preflight summary and stop the run. Do not merge, rebase, reset, stash, commit, or push. Only if Stage 0 succeeds, read <LOCAL_ACTIVITY_ROOT>/latest_context.json if it exists, then inspect <LOCAL_SOULFORGE_ROOT>/AGENTS.md, <LOCAL_SOULFORGE_ROOT>/README.md, key architecture docs under <LOCAL_SOULFORGE_ROOT>/docs/architecture, and the companions at <LOCAL_WORKMETA_ROOT> and <LOCAL_PRIVATE_STATE_ROOT>. Stage 1: Boundary Check for owner-boundary violations, public/private mixing, misplaced project-local rules, and layer confusion across _workspaces, _workmeta, private-state, guild_hall, and .mission. Save one markdown report as HHMM-soulforge-boundary-check.md and append one summary event to <LOCAL_ACTIVITY_ROOT>/events/YYYY/YYYY-MM.jsonl. Stage 2: Portability Check for absolute paths, machine-specific usernames, OS-specific assumptions, and host-local values inside tracked skill packages. Save one markdown report as HHMM-soulforge-portability-check.md and append one summary event. Stage 3: Context Drift Check for global rules leaking into project-local rule files, project-local rules leaking into global docs, top-level instruction bloat, missing nearby owner guidance, or repeated cross-project concept and relation patterns that should become ontology review candidates. If such a candidate exists, include at most one ontology review candidate in the Context Drift report and mark it as carry-forward. Save one markdown report as HHMM-soulforge-context-drift-check.md and append one summary event. Stage 4: inspect the three fresh reports from this run; if any real issue exists, write at most one narrow fix draft as HHMM-soulforge-fix-draft.md with affected paths, risk level, owner location, and the safest next action, then append one summary event. If there is no real issue, skip the fix draft file and its event. After all completed stages, refresh <LOCAL_ACTIVITY_ROOT>/latest_context.json once with a small recent window that includes the new events from this run. Return a short end summary listing which stages ran, which files were written, whether Stage 0 synced all repos cleanly, whether retries were used, whether an ontology review candidate was carry-forwarded, and whether a fix draft was created. Do not edit tracked docs or code outside <LOCAL_ACTIVITY_ROOT>, do not commit, and do not push.`
 
 ### 1. Boundary Check
 

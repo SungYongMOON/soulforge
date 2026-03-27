@@ -60,7 +60,7 @@ flowchart TD
 
 ### 4. 길마 lane 확립
 
-- guild master / administrator lane 이 request review, mission readiness review, authoring lane, promotion 판단을 맡는 운영 기본선을 만든다.
+- guild master / 총관(`administrator`) lane 이 request review, mission readiness review, authoring lane, promotion 판단을 맡는 운영 기본선을 만든다.
 
 ### 5. 자동화는 mission 위에 올린다
 
@@ -98,4 +98,3 @@ flowchart TD
 - 어떤 조건이면 manual mission 을 autohunt 대상으로 올리는지
 - guild master lane 이 current default 인지 universal standard 인지
 - `mission_check` 와 future nightly sweep 의 owner 경계
-

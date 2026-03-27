@@ -1,0 +1,12 @@
+class_id: archer
+kind: skill_refs
+status: active
+assign:
+  - assign: target_sift
+    ref: evidence_sift
+    summary: Isolate the true target from surrounding noise before release.
+  - assign: shot_line
+    ref: record_stitch
+    summary: Build a clean line of relation and timing before committing the shot.
+notes:
+  - assign/ref pairs are class-local bindings into canonical skill ids.

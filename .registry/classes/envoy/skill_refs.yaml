@@ -1,0 +1,15 @@
+class_id: envoy
+kind: skill_refs
+status: active
+assign:
+  - assign: request_bound
+    ref: evidence_sift
+    summary: Clarify what must actually be carried across the boundary before delivery.
+  - assign: briefing_stitch
+    ref: record_stitch
+    summary: Reframe bounded material into a handoff that the next owner can actually receive.
+  - assign: route_readiness
+    ref: mission_check
+    summary: Confirm that the destination lane is ready before the dispatch leaves the gate.
+notes:
+  - assign/ref pairs are class-local bindings into canonical skill ids.

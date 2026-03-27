@@ -1,0 +1,12 @@
+class_id: archer
+kind: tool_refs
+status: active
+assign:
+  - assign: sight_lens
+    ref: source_lens
+    summary: Inspect distant provenance and weak points before taking a precise action.
+  - assign: range_tablet
+    ref: annotation_tablet
+    summary: Mark timing, angle, and target notes without widening noise.
+notes:
+  - assign/ref pairs are class-local bindings into canonical tool ids.

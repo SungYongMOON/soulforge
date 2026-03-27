@@ -27,10 +27,12 @@
 - unit 은 실제 binding 과 active owner surface 다.
 - class 는 재사용 가능한 능력 패키지다.
 - species 와 class 는 서로 종속되지 않는 독립 축이다.
-- 실제 조합은 unit 이 결정하므로 `orc 기사`, `human 기록관리자`, `elf 관리자` 같은 조합을 canon 상 허용한다.
+- 실제 조합은 unit 이 결정하므로 `orc 기사`, `human 기록관`, `elf 총관` 같은 조합을 canon 상 허용한다.
 - workflow 는 reusable 공략서 / 처리 규칙이다.
 - party 는 reusable 투입 조합이다.
 - mission 은 workflow/party/unit 을 실제 실행 계획으로 묶은 owner surface 다.
+- Soulforge 는 위 개념들을 ontology-style 로 읽되, 정의는 foundation 문서에, project-local instance 는 `_workmeta/<project_code>/ontology/` 에 둔다.
+- ontology candidate 는 project-local capture 로 끝내지 않고, `guild_master` / `night_watch` lane 이 cross-project carry-forward 대상으로 다시 상기할 수 있어야 한다.
 
 ## 업무 세계관 고정안
 

@@ -38,6 +38,7 @@ flowchart TD
   - `monster_type` = 이번 요청이 무엇인지
   - `input_refs` = 이번 mission 이 먹는 입력 artifact
   - `step_outputs` 또는 `artifacts/` = 이번 mission 이 내는 산출물
+- project-local 에서 실제 `monster -> mission -> artifact` relation instance 를 별도로 남길 필요가 있으면 `_workmeta/<project_code>/ontology/` 에 두고, `.mission/` 은 held plan owner 역할만 유지한다.
 
 ## generic 예시
 

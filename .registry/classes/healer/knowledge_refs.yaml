@@ -1,0 +1,12 @@
+class_id: healer
+kind: knowledge_refs
+status: active
+assign:
+  - assign: wound_criticism
+    ref: source_criticism
+    summary: Separate root damage from secondary symptoms before treatment.
+  - assign: recovery_custody
+    ref: escort_etiquette
+    summary: Protect a weakened lane while it is being restored and handed forward safely.
+notes:
+  - assign/ref pairs are class-local bindings into canonical knowledge ids.

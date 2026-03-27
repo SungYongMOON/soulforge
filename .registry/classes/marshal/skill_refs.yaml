@@ -1,0 +1,15 @@
+class_id: marshal
+kind: skill_refs
+status: active
+assign:
+  - assign: line_hold
+    ref: shield_wall
+    summary: Keep the execution lane stable while other units align and move.
+  - assign: pressure_opening
+    ref: charge_breaker
+    summary: Turn the first opening into concrete forward pressure and follow-through.
+  - assign: action_bound
+    ref: evidence_sift
+    summary: Separate a real next action from noise before pushing the line.
+notes:
+  - assign/ref pairs are class-local bindings into canonical skill ids.

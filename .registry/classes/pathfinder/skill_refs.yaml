@@ -1,0 +1,15 @@
+class_id: pathfinder
+kind: skill_refs
+status: active
+assign:
+  - assign: signal_scan
+    ref: evidence_sift
+    summary: Inspect intake surfaces and separate grounded signal from weak or noisy cues.
+  - assign: trail_trace
+    ref: record_stitch
+    summary: Turn scattered observations into a coherent relation path without overclaiming.
+  - assign: mission_probe
+    ref: mission_check
+    summary: Check whether the emerging request can be bounded as a mission before escalation.
+notes:
+  - assign/ref pairs are class-local bindings into canonical skill ids.

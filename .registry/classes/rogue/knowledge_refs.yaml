@@ -1,0 +1,12 @@
+class_id: rogue
+kind: knowledge_refs
+status: active
+assign:
+  - assign: shadow_criticism
+    ref: source_criticism
+    summary: Distinguish a real hidden dependency from a false trail.
+  - assign: boundary_sense
+    ref: boundary_governance
+    summary: Slip through a narrow lane without crossing owner boundaries.
+notes:
+  - assign/ref pairs are class-local bindings into canonical knowledge ids.

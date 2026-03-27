@@ -43,6 +43,8 @@ flowchart TD
 - [`.registry/README.md`](.registry/README.md): `.registry` skeleton 과 owner 경계
 - [`docs/architecture/foundation/TARGET_TREE.md`](docs/architecture/foundation/TARGET_TREE.md): 새 canonical target tree
 - [`docs/architecture/foundation/DOCUMENT_OWNERSHIP.md`](docs/architecture/foundation/DOCUMENT_OWNERSHIP.md): 새 owner 기준 문서 소유 원칙
+- [`docs/architecture/foundation/ONTOLOGY_MODEL_V0.md`](docs/architecture/foundation/ONTOLOGY_MODEL_V0.md): Soulforge 개체/관계 모델과 ontology-style 저장 위치 규칙
+- [`docs/architecture/foundation/ONTOLOGY_REVIEW_MANUAL_V0.md`](docs/architecture/foundation/ONTOLOGY_REVIEW_MANUAL_V0.md): ontology review 트리거, carry-forward, guild_master 상기 규칙
 - [`guild_hall/README.md`](guild_hall/README.md): cross-project 운영 루트와 state 경계
 - [`docs/architecture/guild_hall/README.md`](docs/architecture/guild_hall/README.md): `guild_hall` owner 기준 문서 색인
 - [`docs/architecture/guild_hall/SOULFORGE_ACTIVITY_LOG_V0.md`](docs/architecture/guild_hall/SOULFORGE_ACTIVITY_LOG_V0.md): Soulforge 전체 활동 로그 surface 와 recent-context 읽기 규칙
@@ -69,6 +71,7 @@ flowchart TD
 
 - 루트 `README.md` 는 상위 지도만 유지한다.
 - `.registry` 는 outer canon/store owner 다.
+- Soulforge 핵심 개념은 ontology-style 로 읽되, 규칙은 public foundation 문서에 두고 project-local instance 는 `_workmeta/<project_code>/ontology/` 에서만 둔다.
 - `.unit` 는 active agent unit owner 다.
 - `.workflow` 와 `.party` 는 `.registry` 아래로 넣지 않는 독립 orchestration root 다.
 - `.mission` 은 held mission plan 과 readiness owner 다.

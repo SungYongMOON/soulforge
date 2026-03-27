@@ -1,0 +1,15 @@
+class_id: auditor
+kind: skill_refs
+status: active
+assign:
+  - assign: evidence_review
+    ref: evidence_sift
+    summary: Inspect the record and separate hard evidence from weak joins before approval.
+  - assign: boundary_review
+    ref: skill_check
+    summary: Test canon ownership, executor bridge, and runtime bindings before acceptance.
+  - assign: readiness_gate
+    ref: mission_check
+    summary: Confirm that a mission or package is truly bounded before release.
+notes:
+  - assign/ref pairs are class-local bindings into canonical skill ids.

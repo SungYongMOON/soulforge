@@ -1,0 +1,12 @@
+class_id: archer
+kind: knowledge_refs
+status: active
+assign:
+  - assign: target_criticism
+    ref: source_criticism
+    summary: Refuse a shot until the target claim is grounded enough.
+  - assign: lane_doctrine
+    ref: frontline_doctrine
+    summary: Read spacing and timing so a distant intervention helps the line instead of disrupting it.
+notes:
+  - assign/ref pairs are class-local bindings into canonical knowledge ids.

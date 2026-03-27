@@ -1,0 +1,12 @@
+class_id: auditor
+kind: tool_refs
+status: active
+assign:
+  - assign: inspection_lens
+    ref: source_lens
+    summary: Examine provenance, structure, and weak joins before accept or reject.
+  - assign: review_tablet
+    ref: annotation_tablet
+    summary: Capture gate notes, failure points, and release conditions without losing traceability.
+notes:
+  - assign/ref pairs are class-local bindings into canonical tool ids.

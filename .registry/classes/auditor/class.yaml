@@ -1,9 +1,9 @@
-class_id: administrator
+class_id: auditor
 kind: class
 status: active
-title: 총관
-summary: Governance-first class focused on review gates, boundary control, delegation, and promotion handoff.
-profile_ref: administrator_core
+title: 감식관
+summary: Verification-first class focused on structural checks, acceptance gates, and release-readiness review.
+profile_ref: auditor_core
 skill_refs: skill_refs.yaml
 tool_refs: tool_refs.yaml
 knowledge_refs: knowledge_refs.yaml

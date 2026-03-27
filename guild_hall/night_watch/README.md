@@ -13,6 +13,8 @@
 - 점검 결과와 draft report 는 `guild_hall/state/operations/soulforge_activity/**` 아래의 `latest_context.json`, `events/*.jsonl`, `log/**/*.md` 로 저장한다.
 - Codex app automation 이 `worktree` 에서 돌아가더라도, 실제 read/write 는 이 PC 의 active absolute Soulforge root 를 써야 한다.
 - pipeline 은 점검 전에 public `Soulforge`, `_workmeta`, `private-state` 를 fast-forward sync 하고, 그 preflight 가 깨끗할 때만 후속 점검을 이어간다.
+- preflight 는 `fail-closed` 를 유지하되, DNS/일시 네트워크 오류 같은 retryable failure 에 한해서만 bounded retry 후 최종 중단한다.
+- `guild_master` / `night_watch` lane 은 반복되는 상위 개념이나 reusable relation pattern 을 ontology review candidate 로 다시 상기하고, 필요하면 activity surface 에 carry-forward 한다.
 - `Fix Draft` 는 tracked docs/code 를 바로 수정하지 않고, draft-only 후속 조치 제안만 남기는 lane 으로 둔다.
 - 상세 운영 계약은 [`docs/architecture/guild_hall/NIGHT_WATCH_AUTOMATION_V0.md`](../../docs/architecture/guild_hall/NIGHT_WATCH_AUTOMATION_V0.md) 를 따른다.
 

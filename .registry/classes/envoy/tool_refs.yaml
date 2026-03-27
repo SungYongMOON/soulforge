@@ -1,0 +1,12 @@
+class_id: envoy
+kind: tool_refs
+status: active
+assign:
+  - assign: briefing_lens
+    ref: source_lens
+    summary: Inspect ownership, provenance, and message shape before crossing the line.
+  - assign: dispatch_tablet
+    ref: annotation_tablet
+    summary: Keep route notes, contact points, and delivery conditions structured.
+notes:
+  - assign/ref pairs are class-local bindings into canonical tool ids.

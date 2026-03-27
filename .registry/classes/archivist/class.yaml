@@ -1,8 +1,8 @@
 class_id: archivist
 kind: class
 status: active
-title: 기록관리자
-summary: Evidence-first class focused on source inspection, relationship stitching, and careful drafting.
+title: 기록관
+summary: Evidence-first class focused on source inspection, relation stitching, and careful drafting.
 profile_ref: archivist_core
 skill_refs: skill_refs.yaml
 tool_refs: tool_refs.yaml

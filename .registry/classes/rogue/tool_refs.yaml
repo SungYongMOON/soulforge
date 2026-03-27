@@ -1,0 +1,12 @@
+class_id: rogue
+kind: tool_refs
+status: active
+assign:
+  - assign: shadow_lens
+    ref: source_lens
+    summary: Follow obscured traces and hidden joins without exposing the whole lane.
+  - assign: pocket_tablet
+    ref: annotation_tablet
+    summary: Carry small notes and extraction paths with minimal surface noise.
+notes:
+  - assign/ref pairs are class-local bindings into canonical tool ids.

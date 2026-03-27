@@ -12,7 +12,7 @@ heroes:
       frontline_assault: 0.95
       vanguard_strike: 0.9
   - hero_id: quiet_archivist
-    title: 조용한 기록관리자
+    title: 조용한 기록관
     summary: A careful evidence-first exemplar who organizes uncertain records before drafting outputs.
     profile_ref: quiet_archivist_field
     biases:
@@ -20,7 +20,7 @@ heroes:
       frontline_assault: 0.15
   - hero_id: guild_master_operator
     title: 길드 운영자
-    summary: A careful administrative exemplar who promotes repeated work into reusable packages without crossing owner boundaries.
+    summary: A careful governance-first exemplar who promotes repeated work into reusable packages without crossing owner boundaries.
     profile_ref: guild_master_ops_field
     biases:
       author_skill_package: 0.99

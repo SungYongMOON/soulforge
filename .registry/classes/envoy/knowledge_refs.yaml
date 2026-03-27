@@ -1,0 +1,12 @@
+class_id: envoy
+kind: knowledge_refs
+status: active
+assign:
+  - assign: escort_protocol
+    ref: escort_etiquette
+    summary: Move a message, artifact, or request safely through exposed territory.
+  - assign: boundary_protocol
+    ref: boundary_governance
+    summary: Translate and deliver across owners without collapsing their boundaries.
+notes:
+  - assign/ref pairs are class-local bindings into canonical knowledge ids.

@@ -46,7 +46,7 @@ flowchart TD
 - [`vanguard_01/unit.yaml`](vanguard_01/unit.yaml)은 현재 운영 중인 canonical active subject sample이다. 이 파일은 `identity.profile_ref`, `identity.species_id`, `identity.hero_id`, `class_ids` 로 active subject shape 를 고정하며, `.unit/`를 봤을 때 가장 먼저 참고할 실제 unit이다.
 - [`vanguard_01/`](vanguard_01/) 아래의 owner surface 디렉터리는 policy, protocols, runtime, memory, sessions, autonomic, artifacts 의 tracked baseline 을 함께 제공한다.
 - [`scribe_01/unit.yaml`](scribe_01/unit.yaml)은 research/documentation 성향의 contrasting unit sample 이다. capability comparison 과 unit-selection 실험에서 `vanguard_01`와 구분되는 owner lens 를 제공한다.
-- [`guild_master/unit.yaml`](guild_master/unit.yaml)은 intake, mission review, boundary review, nightly oversight, promotion handoff, delegation 성향의 administrative sample 이다. `author_skill_package`, `mission_check`, `nightly_sweep` 같은 guild-master operating lane 과 잘 맞는 canonical demo unit 으로 본다.
+- [`guild_master/unit.yaml`](guild_master/unit.yaml)은 intake, mission review, boundary review, nightly oversight, promotion handoff, delegation 성향의 governance sample 이다. `author_skill_package`, `mission_check`, `nightly_sweep` 같은 guild-master operating lane 과 잘 맞는 canonical demo unit 으로 본다.
 - `guild_master` 은 현재 사용자가 기본적으로 대화하는 current-default guild master unit 으로 본다. 다만 Soulforge 전반의 universal default unit 으로 확정한 것은 아니다.
 
 ## tracking 원칙
