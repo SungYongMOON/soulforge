@@ -9,6 +9,20 @@ Git log 는 원문 이력을 남기고, 이 문서는 사람이 읽는 patch not
 - 보호 대상 업무 데이터와 continuity record 는 여기 적지 않고 nested `private-state/CHANGELOG.md` 에 적는다.
 - secret 값, credential, token, password 는 절대 기록하지 않는다.
 
+## 2026-03-28
+
+### Revision `working` - 회의 species soft-lens trial unit 4종 추가
+
+- `.unit/forge_packager`, `.unit/camp_executor`, `.unit/vein_investigator`, `.unit/thread_analyst` 를 추가해 회의 lane 에서 `species + class` 조합을 실제 unit shape 로 시험할 수 있게 했다.
+- `guild_master` 는 계속 `orchestrator` 축을 맡고, 새 네 unit 은 `packager`, `executor`, `investigator`, `analyst` 역할에 대응하는 bounded trial sample 로 둔다.
+- `.unit/README.md` 에 이 네 unit 의 의미와 “universal default 가 아닌 현재 meeting-lane trial” 경계를 함께 기록했다.
+
+### Revision `working` - guild master authoring lane canonical reference 정합성 수정
+
+- `guild_master_cell` member slot 의 unit 참조를 현재 canonical active unit id 인 `guild_master` 로 맞췄다.
+- `author_skill_package` 관련 guide/positioning 문서에 남아 있던 구 guild master unit 표기를 현재 canonical id 인 `guild_master` 로 갱신했다.
+- party README 도 현재 default authoring lane 이 `author_skill_package -> guild_master_cell -> guild_master -> administrator` 관계로 읽히게 정리했다.
+
 ## 2026-03-27
 
 ### Revision `working` - 1차 world-facing class 4종 추가와 2차 후보군 기록

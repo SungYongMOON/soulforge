@@ -1,0 +1,13 @@
+unit_id: vein_investigator
+status: active
+summary: Meeting-lane darkelf pathfinder unit focused on hidden dependency tracing, omission detection, and low-noise risk scouting.
+identity:
+  profile_ref: vein_investigator_risk_alpha
+  species_id: darkelf
+  hero_id: vein_analyst
+class_ids:
+  - pathfinder
+notes:
+  - identity.profile_ref is a string id.
+  - identity.hero_id resolves within identity.species_id.
+  - class_ids list canonical class ids for the active subject loadout.

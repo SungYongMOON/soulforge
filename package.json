@@ -43,6 +43,6 @@
     "renderer:web:preview": "npm run ui:preview"
   },
   "dependencies": {
-    "yaml": "^2.8.1"
+    "yaml": "^2.8.3"
   }
 }

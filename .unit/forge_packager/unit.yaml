@@ -1,0 +1,13 @@
+unit_id: forge_packager
+status: active
+summary: Meeting-lane dwarf archivist unit focused on package shaping, artifact completeness, and release-bundle finish checks.
+identity:
+  profile_ref: forge_packager_bundle_alpha
+  species_id: dwarf
+  hero_id: forge_keeper
+class_ids:
+  - archivist
+notes:
+  - identity.profile_ref is a string id.
+  - identity.hero_id resolves within identity.species_id.
+  - class_ids list canonical class ids for the active subject loadout.

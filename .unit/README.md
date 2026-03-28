@@ -47,7 +47,12 @@ flowchart TD
 - [`vanguard_01/`](vanguard_01/) 아래의 owner surface 디렉터리는 policy, protocols, runtime, memory, sessions, autonomic, artifacts 의 tracked baseline 을 함께 제공한다.
 - [`scribe_01/unit.yaml`](scribe_01/unit.yaml)은 research/documentation 성향의 contrasting unit sample 이다. capability comparison 과 unit-selection 실험에서 `vanguard_01`와 구분되는 owner lens 를 제공한다.
 - [`guild_master/unit.yaml`](guild_master/unit.yaml)은 intake, mission review, boundary review, nightly oversight, promotion handoff, delegation 성향의 governance sample 이다. `author_skill_package`, `mission_check`, `nightly_sweep` 같은 guild-master operating lane 과 잘 맞는 canonical demo unit 으로 본다.
+- [`forge_packager/unit.yaml`](forge_packager/unit.yaml)은 드워프 `기록관` lens 로 package completeness 와 배포본 마감 품질을 맡는 회의 lane trial unit 이다.
+- [`camp_executor/unit.yaml`](camp_executor/unit.yaml)은 오크 `집행관` lens 로 owner/date chase, 요청 발송, 일정 압박을 맡는 회의 lane trial unit 이다.
+- [`vein_investigator/unit.yaml`](vein_investigator/unit.yaml)은 다크엘프 `정찰자` lens 로 누락 리스크와 숨은 dependency 를 추적하는 회의 lane trial unit 이다.
+- [`thread_analyst/unit.yaml`](thread_analyst/unit.yaml)은 엘프 `기록관` lens 로 긴 맥락 stitching 과 문서 반영 후보 추출을 맡는 회의 lane trial unit 이다.
 - `guild_master` 은 현재 사용자가 기본적으로 대화하는 current-default guild master unit 으로 본다. 다만 Soulforge 전반의 universal default unit 으로 확정한 것은 아니다.
+- 위 네 unit 은 현재 `P26-030` 회의 workflow 에 species soft-lens 를 실제 unit shape 로 시험 적용하기 위한 bounded trial sample 이며, 아직 universal default lineup 으로 확정한 것은 아니다.
 
 ## tracking 원칙
 

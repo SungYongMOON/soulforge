@@ -1,0 +1,13 @@
+unit_id: camp_executor
+status: active
+summary: Meeting-lane orc marshal unit focused on owner/date chase, outbound request follow-through, and schedule pressure.
+identity:
+  profile_ref: camp_executor_ops_alpha
+  species_id: orc
+  hero_id: camp_marshal
+class_ids:
+  - marshal
+notes:
+  - identity.profile_ref is a string id.
+  - identity.hero_id resolves within identity.species_id.
+  - class_ids list canonical class ids for the active subject loadout.
