@@ -13,6 +13,7 @@
     "validate": "node guild_hall/validate/run_root_acceptance.mjs --mode validate",
     "done:check": "node guild_hall/validate/run_root_acceptance.mjs --mode done-check",
     "guild-hall:night-watch:render": "node guild_hall/night_watch/render_local_automation.mjs",
+    "guild-hall:night-watch:preflight": "node guild_hall/night_watch/preflight_repo_sync.mjs",
     "guild-hall:gateway:fetch": "python3 guild_hall/gateway/mail_fetch/cli.py",
     "guild-hall:gateway:fetch:healthcheck": "python3 guild_hall/gateway/mail_fetch/healthcheck.py",
     "guild-hall:gateway:fetch:retention": "python3 guild_hall/gateway/mail_fetch/retention_cleanup.py",
