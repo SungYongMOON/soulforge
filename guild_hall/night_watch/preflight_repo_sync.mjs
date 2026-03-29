@@ -1,9 +1,10 @@
 #!/usr/bin/env node
 
-import { existsSync, promises as fs } from "node:fs";
+import { promises as fs } from "node:fs";
 import path from "node:path";
 import process from "node:process";
 import { spawnSync } from "node:child_process";
+import { appendJsonl, normalizeRepoPath, pathExistsSync, readJson, writeJson } from "../shared/io.mjs";
 
 const AUTOMATION_ID = "soulforge-night-watch-pipeline";
 const DEFAULT_SYNC_RETRY_WAITS_MS = [15000, 45000];
@@ -159,7 +160,7 @@ function parseInteger(value, fallback) {
 }
 
 function inspectRepo(repo) {
-  if (!pathExists(repo.root)) {
+  if (!pathExistsSync(repo.root)) {
     return {
       ...repo,
       ready: false,
@@ -358,7 +359,7 @@ async function writeActivity({ localRoot, activityRoot, now, repoResults, doctor
   const latestContextPath = path.join(activityRoot, "latest_context.json");
   const reportPath = path.join(logDir, `${stamps.time}-soulforge-preflight-sync.md`);
   const eventsPath = path.join(eventsDir, `${stamps.yearMonth}.jsonl`);
-  const reportRef = toPosix(path.relative(localRoot, reportPath));
+  const reportRef = normalizeRepoPath(path.relative(localRoot, reportPath));
 
   await fs.mkdir(logDir, { recursive: true });
   await fs.mkdir(eventsDir, { recursive: true });
@@ -412,7 +413,7 @@ async function writeActivity({ localRoot, activityRoot, now, repoResults, doctor
   });
 
   await fs.writeFile(reportPath, report, "utf8");
-  await fs.appendFile(eventsPath, `${JSON.stringify(event)}\n`, "utf8");
+  await appendJsonl(eventsPath, event);
   await refreshLatestContext(latestContextPath, stamps.date, recentEntry);
 
   return {
@@ -431,9 +432,9 @@ async function refreshLatestContext(latestContextPath, updatedOn, entry) {
     recent_entries: [],
   };
 
-  if (pathExists(latestContextPath)) {
+  if (pathExistsSync(latestContextPath)) {
     try {
-      document = JSON.parse(await fs.readFile(latestContextPath, "utf8"));
+      document = await readJson(latestContextPath);
     } catch {
       document = {
         version: "v0",
@@ -462,9 +463,7 @@ async function refreshLatestContext(latestContextPath, updatedOn, entry) {
     open_threads: Array.isArray(document.open_threads) ? document.open_threads : [],
     recent_entries: mergedRecentEntries,
   };
-
-  await fs.mkdir(path.dirname(latestContextPath), { recursive: true });
-  await fs.writeFile(latestContextPath, `${JSON.stringify(nextDocument, null, 2)}\n`, "utf8");
+  await writeJson(latestContextPath, nextDocument);
 }
 
 function renderReport({ runAt, ok, failureClass, failureDetail, retriesUsed, repoResults, doctor, summary, nextAction, carryForward, refs }) {
@@ -603,14 +602,6 @@ function isRetryableGitFailure(text) {
     "service unavailable",
     "gateway timeout",
   ].some((pattern) => normalized.includes(pattern));
-}
-
-function pathExists(targetPath) {
-  return existsSync(targetPath);
-}
-
-function toPosix(value) {
-  return value.replaceAll(path.sep, "/");
 }
 
 async function delay(ms) {

@@ -1,5 +1,6 @@
 import { promises as fs } from "node:fs";
 import path from "node:path";
+import { pathExists, readJson, writeJson } from "../shared/io.mjs";
 
 const MANIFEST_DIRNAME = "_index";
 const MANIFEST_FILENAME = "monster_index.json";
@@ -214,8 +215,7 @@ async function readManifest(rootPath) {
 }
 
 async function writeManifest(manifestPath, manifest) {
-  await fs.mkdir(path.dirname(manifestPath), { recursive: true });
-  await fs.writeFile(manifestPath, `${JSON.stringify(manifest, null, 2)}\n`, "utf8");
+  await writeJson(manifestPath, manifest);
 }
 
 function normalizeMonsterArray(value) {
@@ -230,18 +230,4 @@ function compareTimestamps(left, right) {
   const leftTime = left ? new Date(left).getTime() : 0;
   const rightTime = right ? new Date(right).getTime() : 0;
   return leftTime - rightTime;
-}
-
-async function readJson(filePath) {
-  const raw = await fs.readFile(filePath, "utf8");
-  return JSON.parse(raw);
-}
-
-async function pathExists(filePath) {
-  try {
-    await fs.access(filePath);
-    return true;
-  } catch {
-    return false;
-  }
 }

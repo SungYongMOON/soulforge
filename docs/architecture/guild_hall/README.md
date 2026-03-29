@@ -11,6 +11,7 @@
 - `SOULFORGE_ACTIVITY_LOG_V0.md`
 - `NIGHT_WATCH_AUTOMATION_V0.md`
 - `doctor/README.md`
+- `../../../guild_hall/shared/README.md`
 - `../../../guild_hall/validate/README.md`
 - `gateway/README.md`
 - `gateway/mail_fetch/README.md`
@@ -29,6 +30,7 @@
 - [루트 architecture README](../README.md)
 - [`../../../guild_hall/README.md`](../../../guild_hall/README.md)
 - [`doctor/README.md`](doctor/README.md)
+- [`../../../guild_hall/shared/README.md`](../../../guild_hall/shared/README.md)
 - [`../../../guild_hall/validate/README.md`](../../../guild_hall/validate/README.md)
 - [`GUILD_HALL_MODEL_V0.md`](GUILD_HALL_MODEL_V0.md)
 - [`SOULFORGE_ACTIVITY_LOG_V0.md`](SOULFORGE_ACTIVITY_LOG_V0.md)

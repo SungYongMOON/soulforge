@@ -7,6 +7,12 @@ import os from "node:os";
 import path from "node:path";
 import process from "node:process";
 import { fileURLToPath } from "node:url";
+import {
+  pathExists,
+  relativeToRepo,
+  relativeToRepoOrAbsolute as sharedRelativeToRepoOrAbsolute,
+  writeJson,
+} from "../shared/io.mjs";
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 const repoRoot = path.resolve(__dirname, "../..");
@@ -557,8 +563,7 @@ function runGitSyncCheck(item, repoPath) {
 }
 
 async function writeStatus(report) {
-  await fs.mkdir(path.dirname(statusFilePath), { recursive: true });
-  await fs.writeFile(statusFilePath, `${JSON.stringify(report, null, 2)}\n`, "utf8");
+  await writeJson(statusFilePath, report);
 }
 
 function printHuman(report) {
@@ -614,33 +619,12 @@ function tryParseJson(value) {
   }
 }
 
-async function pathExists(targetPath) {
-  try {
-    await fs.access(targetPath);
-    return true;
-  } catch {
-    return false;
-  }
-}
-
 function resolveCodexHome() {
   return process.env.CODEX_HOME || path.join(os.homedir(), ".codex");
 }
 
-function relativeToRepo(repoRootValue, filePath) {
-  return normalizeRepoPath(path.relative(repoRootValue, filePath));
-}
-
 function relativeToRepoOrAbsolute(filePath) {
-  const relative = path.relative(repoRoot, filePath);
-  if (!relative || !relative.startsWith("..")) {
-    return normalizeRepoPath(relative || ".");
-  }
-  return filePath;
-}
-
-function normalizeRepoPath(value) {
-  return value.split(path.sep).join("/");
+  return sharedRelativeToRepoOrAbsolute(repoRoot, filePath);
 }
 
 function dedupePreserveOrder(items) {

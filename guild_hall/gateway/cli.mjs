@@ -11,6 +11,13 @@ import {
   syncMonsterIndexInbox,
 } from "./monster_index.mjs";
 import {
+  appendJsonl,
+  pathExists,
+  readJson,
+  relativeToRepo as sharedRelativeToRepo,
+  writeJson,
+} from "../shared/io.mjs";
+import {
   emitNotification,
   ensureGatewayNotifyPolicy,
   gatewayNotifyStatus,
@@ -1236,21 +1243,6 @@ function sanitizeId(value) {
   return cleaned || "unknown";
 }
 
-async function readJson(filePath) {
-  const raw = await fs.readFile(filePath, "utf8");
-  return JSON.parse(raw);
-}
-
-async function writeJson(filePath, value) {
-  await fs.mkdir(path.dirname(filePath), { recursive: true });
-  await fs.writeFile(filePath, `${JSON.stringify(value, null, 2)}\n`, "utf8");
-}
-
-async function appendJsonl(filePath, event) {
-  await fs.mkdir(path.dirname(filePath), { recursive: true });
-  await fs.appendFile(filePath, `${JSON.stringify(event)}\n`, "utf8");
-}
-
 async function appendGlobalEvent(event) {
   const stamp = new Date(event.at);
   const year = String(stamp.getUTCFullYear());
@@ -1259,21 +1251,8 @@ async function appendGlobalEvent(event) {
   await appendJsonl(filePath, event);
 }
 
-async function pathExists(filePath) {
-  try {
-    await fs.access(filePath);
-    return true;
-  } catch {
-    return false;
-  }
-}
-
 function relativeToRepo(filePath) {
-  return toPosixPath(path.relative(repoRoot, filePath) || ".");
-}
-
-function toPosixPath(value) {
-  return String(value).replaceAll(path.sep, "/");
+  return sharedRelativeToRepo(repoRoot, filePath);
 }
 
 function printJson(value) {

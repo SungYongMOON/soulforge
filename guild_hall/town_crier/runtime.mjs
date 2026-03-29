@@ -3,6 +3,14 @@ import { randomUUID } from "node:crypto";
 import { promises as fs } from "node:fs";
 import path from "node:path";
 import YAML from "yaml";
+import {
+  appendJsonl,
+  normalizeRepoPath,
+  pathExists,
+  readJson,
+  relativeToRepo,
+  writeJson,
+} from "../shared/io.mjs";
 
 export const GATEWAY_NOTIFY_EVENTS = ["monster_created"];
 export const MISSION_NOTIFY_EVENTS = ["mission_blocked", "mission_ready", "mission_closed", "mission_failed"];
@@ -184,7 +192,7 @@ export async function enqueueNotification(repoRoot, payload) {
   };
 
   const filePath = path.join(townCrierPendingRoot(repoRoot), `${request.request_id}.json`);
-  await writeJson(filePath, request);
+  await writeJson(filePath, request, { trailingNewline: false });
 
   return {
     ok: true,
@@ -328,7 +336,7 @@ async function processTownCrierFile(repoRoot, pendingFile) {
     const request = await readJson(processingFile);
     request.attempt_count = Math.max(Number(request.attempt_count ?? 0), 0) + 1;
     request.last_attempt_at = now;
-    await writeJson(processingFile, request);
+    await writeJson(processingFile, request, { trailingNewline: false });
 
     const envFile = await resolveTownCrierEnvPath(repoRoot, request.env_file);
     const result = sendTelegram(repoRoot, envFile, request.event, request.owner_scope, request.text, {
@@ -365,7 +373,7 @@ async function processTownCrierFile(repoRoot, pendingFile) {
     }
 
     request.last_error = result.error ?? result.stderr ?? result.status;
-    await writeJson(processingFile, request);
+    await writeJson(processingFile, request, { trailingNewline: false });
     await fs.rename(processingFile, pendingFile);
     await writeTownCrierState(repoRoot, {
       last_run_at: now,
@@ -399,7 +407,7 @@ async function appendTownCrierLog(repoRoot, entry) {
 
 async function writeTownCrierState(repoRoot, value) {
   const filePath = path.join(townCrierStateRoot(repoRoot), "runner.json");
-  await writeJson(filePath, value);
+  await writeJson(filePath, value, { trailingNewline: false });
 }
 
 async function resolveTownCrierEnvPath(repoRoot, envFile = null) {
@@ -450,21 +458,6 @@ async function loadYaml(filePath) {
 async function writeYaml(filePath, value) {
   await fs.mkdir(path.dirname(filePath), { recursive: true });
   await fs.writeFile(filePath, YAML.stringify(value), "utf8");
-}
-
-async function readJson(filePath) {
-  const raw = await fs.readFile(filePath, "utf8");
-  return JSON.parse(raw);
-}
-
-async function writeJson(filePath, value) {
-  await fs.mkdir(path.dirname(filePath), { recursive: true });
-  await fs.writeFile(filePath, JSON.stringify(value, null, 2), "utf8");
-}
-
-async function appendJsonl(filePath, value) {
-  await fs.mkdir(path.dirname(filePath), { recursive: true });
-  await fs.appendFile(filePath, `${JSON.stringify(value)}\n`, "utf8");
 }
 
 function buildDefaultGatewayNotifyPolicy(repoRoot) {
@@ -545,23 +538,6 @@ function assertGatewayEvent(event) {
 function assertMissionEvent(event) {
   if (!MISSION_NOTIFY_EVENTS.includes(event)) {
     throw new Error(`unsupported mission notify event: ${event}`);
-  }
-}
-
-function normalizeRepoPath(value) {
-  return value.split(path.sep).join("/");
-}
-
-function relativeToRepo(repoRoot, absolutePath) {
-  return normalizeRepoPath(path.relative(repoRoot, absolutePath) || ".");
-}
-
-async function pathExists(filePath) {
-  try {
-    await fs.access(filePath);
-    return true;
-  } catch {
-    return false;
   }
 }
 
