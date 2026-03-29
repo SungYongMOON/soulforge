@@ -11,6 +11,12 @@ Git log 는 원문 이력을 남기고, 이 문서는 사람이 읽는 patch not
 
 ## 2026-03-29
 
+### Revision `working` - 회의 후속 packet sample mission 등록
+
+- `.mission/meeting_followup_packet_001/` 을 추가해 잠근 회의 결과를 bounded follow-up packet 으로 정리하는 public-safe mission sample 을 등록했다.
+- sample mission 은 `회의록`, `조치사항`, `열린쟁점`, `문서반영후보`, `확정사항`, `배포본` 생성까지만 다루고, 실제 전달/발송/일정반영/PDR 반영은 범위에서 제외했다.
+- `.mission/index.yaml`, `.mission/README.md` 를 함께 갱신해 회의 미션 sample 이 현재 owner surface 에 포함됨을 명시했다.
+
 ### Revision `working` - 회의 packet 폴더 정본 모델과 생성 skill 정렬
 
 - `docs/architecture/workspace/MEETING_PACKET_FOLDER_MODEL_V0.md` 를 추가해 회의 item 폴더의 canonical 단계 구조를 `00_Temp -> 01_Work -> 02_Input -> 03_Out -> 04_Review -> 05_Action` 로 고정했다.

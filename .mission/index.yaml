@@ -24,6 +24,13 @@ entries:
     party_id: guild_master_cell
     project_code: demo_project
     readiness_status: blocked
+  - mission_id: meeting_followup_packet_001
+    title: Meeting Follow-up Packet
+    status: completed
+    workflow_id: null
+    party_id: guild_master_cell
+    project_code: demo_project
+    readiness_status: completed
 notes:
   - "`.mission/` owns held mission plans and readiness metadata."
   - "Raw execution truth remains under `_workmeta/<project_code>/runs/<run_id>/`."

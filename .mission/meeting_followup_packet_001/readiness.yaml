@@ -1,0 +1,21 @@
+mission_id: meeting_followup_packet_001
+kind: mission_readiness
+status: completed
+summary: The bounded meeting follow-up packet sample is registered and locally validated against one retained packet, while workflow canon and autohunt routing remain separate follow-on work.
+checks:
+  local_validation_present: pass
+  packet_folder_model_present: pass
+  party_reuse_defined: pass
+  unit_assignments_present: pass
+  bounded_scope_locked: pass
+  side_effect_execution_excluded: pass
+  public_mission_sample_registered: pass
+  workflow_canon_registered: missing
+  autohunt_monster_routing_present: missing
+blockers:
+  - Meeting workflow is still project-local and is not yet promoted into `.workflow/`.
+  - No project-local autohunt routing files exist yet for `meeting_*` monster types.
+latest_run_id: null
+notes:
+  - `completed` here means the public-safe mission sample is now defined.
+  - Full automation and generic workflow canon promotion remain separate work.

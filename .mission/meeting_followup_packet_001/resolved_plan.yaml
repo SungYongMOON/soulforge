@@ -1,0 +1,54 @@
+mission_id: meeting_followup_packet_001
+kind: resolved_mission_plan
+status: completed
+workflow:
+  workflow_id: null
+  workflow_ref_type: project_local_rule
+  workflow_ref_note: bounded meeting follow-up pattern currently documented in project-local rules and the workspace meeting packet model
+party:
+  party_id: guild_master_cell
+  status: provisional_reuse
+unit_assignments:
+  orchestrator:
+    unit_id: guild_master
+    class_ids:
+      - administrator
+    execution_profile_ref: structured_planning
+  packager:
+    unit_id: forge_packager
+    class_ids:
+      - archivist
+    execution_profile_ref: release_finish
+  executor:
+    unit_id: camp_executor
+    class_ids:
+      - marshal
+    execution_profile_ref: dispatch_pressure
+  investigator:
+    unit_id: vein_investigator
+    class_ids:
+      - pathfinder
+    execution_profile_ref: risk_scan
+  analyst:
+    unit_id: thread_analyst
+    class_ids:
+      - archivist
+    execution_profile_ref: long_context_synthesis
+step_outputs:
+  - meeting_minutes.md
+  - action_tracker.md
+  - open_issues.md
+  - document_promotion_candidates.md
+  - decision_surface.md
+  - release_bundle_check.md
+excluded_scope:
+  - team_delivery_execution
+  - outbound_mail_send
+  - calendar_update_execution
+  - live_pdr_document_promotion
+run_refs:
+  latest_run_id: null
+  raw_truth_root: _workmeta/<project_code>/runs/
+notes:
+  - This resolved plan is a public-safe sample for the bounded meeting follow-up packet only.
+  - The next missions start where this sample ends: action execution, PDR promotion, or replay.

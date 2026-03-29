@@ -1,0 +1,13 @@
+mission_id: meeting_followup_packet_001
+kind: mission_dispatch_request
+status: recorded
+request:
+  source: user request
+  request_mode: manual_thread
+  monster_type: meeting_followup_request
+  workflow_id: null
+  party_id: guild_master_cell
+  project_code: demo_project
+  summary: Turn a locked meeting record into bounded follow-up packet outputs without carrying downstream execution side effects into the same mission.
+notes:
+  - This file is a public-safe dispatch view, not raw run truth.

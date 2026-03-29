@@ -1,0 +1,33 @@
+mission_id: meeting_followup_packet_001
+kind: mission
+status: completed
+title: Meeting Follow-up Packet
+summary: Public-safe mission sample for turning a locked meeting record into the bounded follow-up packet outputs: formal minutes, action tracker, open issues, document-promotion candidates, decision surface, and release-bundle check.
+project_code: demo_project
+workflow_id: null
+party_id: guild_master_cell
+request_mode: manual_thread
+monster_type: meeting_followup_request
+unit_assignments:
+  orchestrator: guild_master
+  packager: forge_packager
+  executor: camp_executor
+  investigator: vein_investigator
+  analyst: thread_analyst
+input_refs:
+  locked_meeting_summary: user-provided locked compiled summary or equivalent note set
+  existing_formal_minutes: optional
+  packet_root: _workspaces/<project_code>/.../01_회의/YYYYMMDD_회의명_예시/
+run_refs:
+  latest_run_id: null
+  runtime_truth_root: _workmeta/<project_code>/runs/
+notifications:
+  telegram:
+    mission_blocked: false
+    mission_ready: false
+    mission_closed: false
+    mission_failed: false
+notes:
+  - This sample intentionally stops at bounded meeting follow-up packet creation.
+  - It excludes team delivery, outbound mail send, calendar updates, and live PDR document promotion.
+  - Current workflow remains project-local until a generic meeting workflow is promoted into `.workflow/`.
