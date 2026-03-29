@@ -5,6 +5,12 @@ import path from "node:path";
 import process from "node:process";
 import { fileURLToPath } from "node:url";
 import {
+  loadMonsterIndex,
+  normalizeDedupeKey,
+  registerMonsterInIndex,
+  syncMonsterIndexInbox,
+} from "./monster_index.mjs";
+import {
   emitNotification,
   ensureGatewayNotifyPolicy,
   gatewayNotifyStatus,
@@ -107,7 +113,7 @@ async function runIntake(args) {
   const monstersFile = path.join(inboxDir, "monsters.json");
   const historyFile = path.join(inboxDir, "history.jsonl");
   const now = new Date().toISOString();
-  const monsterIndex = await loadMonsterIndex();
+  const monsterIndex = await loadMonsterIndex(intakeInboxRoot);
 
   if (await pathExists(inboxFile)) {
     const existingInbox = await readJson(inboxFile);
@@ -164,6 +170,7 @@ async function runIntake(args) {
   await fs.mkdir(inboxDir, { recursive: true });
   await writeJson(inboxFile, inboxDocument);
   await writeJson(monstersFile, { monsters: createdMonsters });
+  await syncMonsterIndexInbox(intakeInboxRoot, inboxId, createdMonsters);
 
   const intakeEvent = {
     event_type: "mail_intake_received",
@@ -373,6 +380,7 @@ async function runUpdateMonster(args) {
   inboxDocument.updated_at = now;
   await writeJson(monstersFile, monsterDocument);
   await writeJson(inboxFile, inboxDocument);
+  await syncMonsterIndexInbox(intakeInboxRoot, inboxId, monsterDocument.monsters);
 
   const updatedEvent = {
     event_type: "monster_updated",
@@ -606,6 +614,7 @@ async function touchExistingMonster(match, rawMonster, payload, now) {
     inboxDocument.updated_at = now;
     await writeJson(monstersFile, monsterDocument);
     await writeJson(inboxFile, inboxDocument);
+    await syncMonsterIndexInbox(intakeInboxRoot, match.inbox_id, monsterDocument.monsters);
 
     const touchEvent = {
       event_type: "monster_touched_by_mail",
@@ -801,76 +810,6 @@ function normalizeMailRole(value) {
 
   const normalized = String(value).trim();
   return normalized || "new_request";
-}
-
-function normalizeDedupeKey(value) {
-  if (!value) {
-    return null;
-  }
-
-  const normalized = String(value).trim();
-  return normalized || null;
-}
-
-async function loadMonsterIndex() {
-  const index = {
-    byId: new Map(),
-    byDedupeKey: new Map(),
-  };
-
-  await loadMonsterIndexRoot(index, intakeInboxRoot);
-  return index;
-}
-
-async function loadMonsterIndexRoot(index, rootPath) {
-  if (!(await pathExists(rootPath))) {
-    return;
-  }
-
-  const entries = await fs.readdir(rootPath, { withFileTypes: true });
-  for (const entry of entries) {
-    if (!entry.isDirectory()) {
-      continue;
-    }
-
-    const inboxDir = path.join(rootPath, entry.name);
-    const monstersFile = path.join(inboxDir, "monsters.json");
-    if (!(await pathExists(monstersFile))) {
-      continue;
-    }
-
-    const monsterDocument = await readJson(monstersFile);
-    for (const monster of normalizeArray(monsterDocument.monsters)) {
-      registerMonsterInIndex(index, monster, { inbox_id: entry.name, inbox_dir: inboxDir });
-    }
-  }
-}
-
-function registerMonsterInIndex(index, monster, location) {
-  const record = {
-    monster_id: monster.monster_id,
-    inbox_id: location.inbox_id,
-    inbox_dir: location.inbox_dir,
-    updated_at: monster.updated_at ?? null,
-  };
-
-  index.byId.set(monster.monster_id, record);
-
-  const dedupeKey = normalizeDedupeKey(monster.dedupe_key);
-  if (!dedupeKey) {
-    return;
-  }
-
-  const existing = index.byDedupeKey.get(dedupeKey);
-  if (!existing || compareTimestamps(record.updated_at, existing.updated_at) >= 0) {
-    index.byDedupeKey.set(dedupeKey, record);
-  }
-}
-
-function compareTimestamps(left, right) {
-  const leftTime = left ? new Date(left).getTime() : 0;
-  const rightTime = right ? new Date(right).getTime() : 0;
-  return leftTime - rightTime;
 }
 
 function normalizeAddressEntries(value) {
@@ -1330,7 +1269,11 @@ async function pathExists(filePath) {
 }
 
 function relativeToRepo(filePath) {
-  return path.relative(repoRoot, filePath) || ".";
+  return toPosixPath(path.relative(repoRoot, filePath) || ".");
+}
+
+function toPosixPath(value) {
+  return String(value).replaceAll(path.sep, "/");
 }
 
 function printJson(value) {

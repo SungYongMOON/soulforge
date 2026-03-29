@@ -24,12 +24,14 @@
 - `guild_hall/state/gateway/intake_inbox/<inbox_id>/inbox.json`
 - `guild_hall/state/gateway/intake_inbox/<inbox_id>/monsters.json`
 - `guild_hall/state/gateway/intake_inbox/<inbox_id>/history.jsonl`
+- `guild_hall/state/gateway/intake_inbox/_index/monster_index.json`
 - `guild_hall/state/gateway/log/monster_events/YYYY/YYYY-MM.jsonl`
 
 ## logging storage model
 
 - `inbox.json`, `monsters.json` 은 현재 상태 cache 다.
 - `history.jsonl` 은 mail 1건 inbox container 의 append-only local change log 다.
+- `_index/monster_index.json` 은 `monster_id` / `dedupe_key` lookup 을 빠르게 하기 위한 rebuildable local manifest cache 다.
 - `monster_events/YYYY/YYYY-MM.jsonl` 은 workspace-level append-only global event stream 이다.
 - source of truth 는 `JSON` current state + `JSONL` event log 조합으로 본다.
 - `CSV` 는 source of truth 로 쓰지 않고, family count, daily volume, unknown ratio 같은 파생 분석 export 로만 쓴다.

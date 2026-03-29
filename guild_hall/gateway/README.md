@@ -10,3 +10,4 @@
 
 - local state 는 `guild_hall/state/gateway/**` 아래에만 둔다.
 - mailbox, intake inbox, gateway local bindings, monster event log, local outbound mail env, outbound snapshot, send log 는 이 경로 아래에서 자란다.
+- `guild_hall/state/gateway/intake_inbox/_index/monster_index.json` 은 `dedupe_key` lookup 가속을 위한 local manifest cache 이고, `monsters.json` current state 에서 다시 만들 수 있다.
