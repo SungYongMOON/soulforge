@@ -21,6 +21,18 @@ Windows PowerShell 에서 `npm.ps1` execution policy 로 막히면:
 npm.cmd run guild-hall:doctor
 ```
 
+operator profile readiness 를 보려면:
+
+```bash
+npm run guild-hall:doctor -- --profile operator
+```
+
+Windows PowerShell:
+
+```powershell
+npm.cmd run guild-hall:doctor -- --profile operator
+```
+
 owner profile readiness 를 보려면:
 
 ```bash
@@ -85,14 +97,14 @@ npm.cmd run guild-hall:doctor -- --remote
   - installed 이름은 `soulforge-<skill-id>` 형식으로 본다
   - `codex/SKILL.md` 가 없는 registry entry 는 bootstrap 필수 sync 대상이 아니다
 - local env / policy file 존재 여부
-  - `email_fetch.env`
-  - `telegram_notify.env`
-  - `notify_policy.yaml`
+  - `public-only` 에서는 기본 readiness 필수 항목이 아니다
+  - `operator`, `owner-with-state` 에서는 `email_fetch.env`, `telegram_notify.env`, `notify_policy.yaml` 를 본다
 - optional local env 존재 여부
   - `mail_send.env`
   - sender runner 가 실제 생기기 전까지는 future-ready slot 로만 본다
 - profile 기반 local path 여부
   - 기본 프로필은 `public-only`
+  - `operator` 는 private repo 없이 local operator env 를 운용할 수 있다
   - `owner-with-state` 는 owner-only nested `_workmeta/`, `private-state/` repo 를 운용할 수 있다
   - current doctor v0 는 그중 nested `private-state/` repo 와 continuity data path 를 추가로 본다
 - safe smoke test
@@ -105,10 +117,9 @@ npm.cmd run guild-hall:doctor -- --remote
   - public repo `origin/main` 대비 최신 상태
   - `owner-with-state` 프로필이면 current doctor v0 는 nested `private-state/` repo remote 와 최신 상태도 본다
 - live smoke test
-  - Hiworks POP3 로그인 확인
-  - Hiworks SMTP 로그인 확인
-  - Telegram `getMe` 확인
-  - `--live` 결과는 위 3개를 각각 개별 check 로 보고한다
+  - `operator` 는 Hiworks POP3 와 Telegram `getMe` 를 기본 live 대상으로 본다
+  - `owner-with-state` 는 위 둘에 더해 Hiworks SMTP 도 본다
+  - `--live` 결과는 각 live check 를 개별 항목으로 보고한다
 
 ## secret 파일 비열람 원칙
 
@@ -196,12 +207,13 @@ doctor 는 missing/failed/blocked result 에 대해 가능하면 item-level `fix
 1. doctor 기본값은 safe local check 만 수행한다.
 2. doctor 프로필 기본값은 `public-only` 다.
 3. sync 가능한 Soulforge Codex skill 전체는 bootstrap 필수 항목으로 본다.
-4. `--profile owner-with-state` 는 owner 전용 private repo 운용 프로필이고, current doctor v0 는 nested `private-state/` repo 와 continuity data path 를 추가로 본다.
-5. 설치 절차에는 GitHub CLI 인증 완료가 포함된다.
-6. `--remote` 는 GitHub auth, remote 연결, public/private repo 최신 상태를 본다.
-7. `--live` 는 외부 인증/연결만 수행하고, 메일/메시지 실제 발송은 하지 않는다.
-8. live mail fetch 나 Telegram send 는 doctor 기본 범위 밖이다.
-9. bootstrap readiness 와 실제 업무 실행은 분리한다.
+4. `--profile operator` 는 private repo 없이 local operator env 와 smoke/live 를 보는 public-safe 운영 프로필이다.
+5. `--profile owner-with-state` 는 owner 전용 private repo 운용 프로필이고, current doctor v0 는 nested `private-state/` repo 와 continuity data path 를 추가로 본다.
+6. 설치 절차에는 GitHub CLI 인증 완료가 포함된다.
+7. `--remote` 는 GitHub auth, remote 연결, public/private repo 최신 상태를 본다.
+8. `--live` 는 외부 인증/연결만 수행하고, 메일/메시지 실제 발송은 하지 않는다.
+9. live mail fetch 나 Telegram send 는 doctor 기본 범위 밖이다.
+10. bootstrap readiness 와 실제 업무 실행은 분리한다.
 
 ## clone 감지 원칙
 
@@ -212,12 +224,13 @@ doctor 는 missing/failed/blocked result 에 대해 가능하면 item-level `fix
 ## 언제 어떤 모드를 쓰는가
 
 - clone 직후: `npm run guild-hall:doctor`
+- operator env 를 만든 직후: `npm run guild-hall:doctor -- --profile operator`
 - owner PC 에서 `_workmeta/` 또는 `private-state/` clone 직후: `npm run guild-hall:doctor -- --profile owner-with-state`
 - GitHub CLI 설치 직후: `gh auth status` 후 필요하면 `gh auth login`
 - owner 설치 완료를 확인할 때: `npm run guild-hall:doctor -- --profile owner-with-state --remote`
 - GitHub 최신 상태를 점검할 때: `npm run guild-hall:doctor -- --remote`
-- env 와 policy 를 채운 직후: `npm run guild-hall:doctor`
-- 실제 외부 연결을 붙이기 직전: `npm run guild-hall:doctor -- --live`
+- env 와 policy 를 채운 직후: `npm run guild-hall:doctor -- --profile operator`
+- 실제 외부 연결을 붙이기 직전: `npm run guild-hall:doctor -- --profile <operator|owner-with-state> --live`
 - 운영 중 이상 징후가 있을 때: safe 먼저, 그다음 필요할 때만 live
 
 ## 관련 경로

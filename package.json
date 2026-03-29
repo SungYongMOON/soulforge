@@ -5,6 +5,13 @@
   "scripts": {
     "skills:sync": "node .registry/docs/operations/scripts/sync_codex_skill.mjs",
     "guild-hall:doctor": "node guild_hall/doctor/cli.mjs",
+    "guild-hall:validate:canon": "node guild_hall/validate/canon_validate.mjs",
+    "canon:validate": "npm run guild-hall:validate:canon --",
+    "validate:canon": "node guild_hall/validate/canon_validate.mjs",
+    "validate:ui": "npm run ui:validate",
+    "validate:gateway": "uv run --with pytest python -m pytest guild_hall/gateway/mail_fetch/tests",
+    "validate": "node guild_hall/validate/run_root_acceptance.mjs --mode validate",
+    "done:check": "node guild_hall/validate/run_root_acceptance.mjs --mode done-check",
     "guild-hall:night-watch:render": "node guild_hall/night_watch/render_local_automation.mjs",
     "guild-hall:gateway:fetch": "python3 guild_hall/gateway/mail_fetch/cli.py",
     "guild-hall:gateway:fetch:healthcheck": "python3 guild_hall/gateway/mail_fetch/healthcheck.py",

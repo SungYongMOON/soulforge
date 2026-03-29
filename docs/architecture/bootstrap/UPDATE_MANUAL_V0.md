@@ -15,6 +15,9 @@ owner 가 회사/집 사이를 오가며 handoff 할 때의 체크리스트는 [
 
 - `public-only`
   - public `Soulforge` repo 만 갱신한다.
+- `operator`
+  - public `Soulforge` repo 만 갱신한다.
+  - local operator env 와 policy file 은 유지하되, private repo pull 은 하지 않는다.
 - `owner-with-state`
   - public `Soulforge` 와 owner-only nested `_workmeta/`, `private-state/` repo 를 모두 확인한다.
   - `_workmeta/` 는 project-local metadata pull 대상이고, `private-state/` 는 continuity data pull 대상이다.
@@ -24,12 +27,12 @@ owner 가 회사/집 사이를 오가며 handoff 할 때의 체크리스트는 [
 1. 업데이트 전에는 먼저 `guild-hall:doctor -- --profile <profile> --remote` 로 최신 상태를 확인한다.
 2. `_workmeta/`, `private-state/` 같은 private repo 가 local Git repo 만 있고 `origin` remote 가 없으면, pull 전에 먼저 remote 를 연결한다.
 3. behind 인 repo 만 pull 한다.
-3. local env, token, password, cookie, session, credential JSON 은 업데이트 절차에서 읽거나 바꾸지 않는다.
-4. public repo 는 코드/문서/public-safe sample 만 갱신한다.
-5. project-local metadata 는 `_workmeta/` repo 에서, cross-project continuity data 는 `private-state/` repo 에서 갱신한다.
-6. pull 뒤에는 sync 가능한 Soulforge Codex skill 전체를 다시 sync 한다.
-7. 마지막에는 `guild-hall:doctor -- --profile <profile>` 로 safe readiness 를 다시 확인한다.
-8. 외부 자격증명까지 다시 확인할 필요가 있을 때만 `--live` 를 수행한다.
+4. local env, token, password, cookie, session, credential JSON 은 업데이트 절차에서 읽거나 바꾸지 않는다.
+5. public repo 는 코드/문서/public-safe sample 만 갱신한다.
+6. project-local metadata 는 `_workmeta/` repo 에서, cross-project continuity data 는 `private-state/` repo 에서 갱신한다.
+7. pull 뒤에는 sync 가능한 Soulforge Codex skill 전체를 다시 sync 한다.
+8. 마지막에는 `guild-hall:doctor -- --profile <profile>` 로 safe readiness 를 다시 확인한다.
+9. 외부 자격증명까지 다시 확인할 필요가 있을 때만 `--live` 를 수행한다.
 
 ## Chapter 3. `public-only` 업데이트 절차
 
@@ -51,19 +54,42 @@ npm.cmd run skills:sync -- --all
 npm.cmd run guild-hall:doctor -- --profile public-only
 ```
 
-필요할 때만:
+`public-only` 는 기본적으로 live 단계가 없다.
+외부 자격증명 점검은 `operator` 또는 `owner-with-state` 에서만 본다.
+
+## Chapter 4. `operator` 업데이트 절차
 
 ```bash
-npm run guild-hall:doctor -- --profile public-only --live
+cd Soulforge
+npm run guild-hall:doctor -- --profile operator --remote
+git pull --rebase origin main
+npm run skills:sync -- --all
+npm run guild-hall:doctor -- --profile operator
 ```
 
 Windows PowerShell:
 
 ```powershell
-npm.cmd run guild-hall:doctor -- --profile public-only --live
+Set-Location Soulforge
+npm.cmd run guild-hall:doctor -- --profile operator --remote
+git pull --rebase origin main
+npm.cmd run skills:sync -- --all
+npm.cmd run guild-hall:doctor -- --profile operator
 ```
 
-## Chapter 4. `owner-with-state` 업데이트 절차
+필요할 때만:
+
+```bash
+npm run guild-hall:doctor -- --profile operator --live
+```
+
+Windows PowerShell:
+
+```powershell
+npm.cmd run guild-hall:doctor -- --profile operator --live
+```
+
+## Chapter 5. `owner-with-state` 업데이트 절차
 
 ```bash
 cd Soulforge
@@ -127,15 +153,16 @@ Windows PowerShell:
 npm.cmd run guild-hall:doctor -- --profile owner-with-state --live
 ```
 
-## Chapter 5. 판단 기준
+## Chapter 6. 판단 기준
 
 - `doctor --remote` 결과에서 `behind=0` 이면 pull 할 필요가 없다.
 - public repo 가 behind 면 public repo 만 pull 한다.
+- `operator` 에서는 public repo 만 pull 하고 local env/policy 는 유지한다.
 - `owner-with-state` 에서 `_workmeta/` 가 behind 면 `_workmeta/` 도 pull 한다.
 - `owner-with-state` 에서 `private-state/` 가 behind 면 `private-state/` 도 pull 한다.
 - ahead 만 있고 behind 가 없으면 먼저 local change 를 검토하고, 자동 pull 대신 상태를 보고한다.
 
-## Chapter 6. AI handoff 규칙
+## Chapter 7. AI handoff 규칙
 
 - AI 는 먼저 `doctor --remote` 를 수행하고 before 상태를 보고한다.
 - AI 는 behind 인 repo 만 pull 한다.
@@ -143,7 +170,7 @@ npm.cmd run guild-hall:doctor -- --profile owner-with-state --live
 - AI 는 업데이트 후 `skills:sync` 와 `doctor` 를 자동으로 수행한다.
 - AI 는 pull 여부와 before/after ahead/behind 만 짧게 보고한다.
 
-## Chapter 7. continuity data 동기화
+## Chapter 8. continuity data 동기화
 
 다른 PC 에서 이어서 작업해야 하면, 작업을 마친 owner PC 에서 active continuity data 를 nested `private-state/` 로 먼저 동기화한 뒤 private GitHub 에 push 해야 한다.
 
@@ -213,7 +240,7 @@ Copy-Item "private-state/guild_hall/state/operations/soulforge_activity/*" "guil
 
 restore 뒤에는 `guild_hall/state/operations/soulforge_activity/latest_context.json` 을 먼저 읽고, 더 과거 맥락이 필요할 때만 현재 월 `events/*.jsonl` 마지막 몇 건을 추가로 읽는다.
 
-## Chapter 8. 관련 명령
+## Chapter 9. 관련 명령
 
 - 상태 확인:
   - `npm run guild-hall:doctor -- --profile <profile> --remote`
@@ -228,9 +255,9 @@ restore 뒤에는 `guild_hall/state/operations/soulforge_activity/latest_context
 - 최종 safe 확인:
   - `npm run guild-hall:doctor -- --profile <profile>`
 - 최종 live 확인:
-  - `npm run guild-hall:doctor -- --profile <profile> --live`
+  - `npm run guild-hall:doctor -- --profile <operator|owner-with-state> --live`
 
-## Chapter 8. 연결 문서
+## Chapter 10. 연결 문서
 
 - [`README.md`](README.md)
 - [`BOOTSTRAP_PROFILES_V0.md`](BOOTSTRAP_PROFILES_V0.md)

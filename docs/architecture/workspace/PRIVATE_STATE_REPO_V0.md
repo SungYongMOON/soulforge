@@ -25,6 +25,7 @@
 ## 적용 프로필
 
 - `public-only` 프로필은 이 repo 를 clone 하지 않는다.
+- `operator` 프로필도 이 repo 를 clone 하지 않는다.
 - `owner-with-state` 프로필만 이 repo 를 clone 하고 허용 subset 을 restore 한다.
 - 팀원/공유 대상에게는 이 repo 접근을 열지 않는다.
 
@@ -185,7 +186,7 @@ Copy-Item "guild_hall/state/operations/soulforge_activity/*" "private-state/guil
 - project-local metadata `_workmeta/**` 는 이 repo 가 아니라 별도 owner-only private repo 로 다룬다.
 - 기능 코드/문서/public-safe sample 변경은 public repo 에 commit/push 하고, 업무 데이터 변경은 `private-state/` 에 commit/push 한다.
 - owner 는 다른 PC 에서도 `owner-with-state` 조건이 맞으면 nested `private-state/` 에 commit/push 할 수 있다.
-- 팀원/public-only 프로필은 `private-state/` clone, pull, push 를 수행하지 않는다.
+- 팀원/public-only/operator 프로필은 `private-state/` clone, pull, push 를 수행하지 않는다.
 - clone 대상 PC 에서는 자격증명과 local env 를 먼저 재생성하고, 그다음 선택 기록만 복원한다.
 - outbound mail 기록은 `mailbox/outbound/**` snapshot 과 `log/mail_send/**` append-only log 를 같이 본다.
 - mailbox continuity 기록은 `mailbox/company/**`, `mailbox/personal/**`, `log/mail_fetch/**`, `intake_inbox/**` 가 같은 흐름으로 복원돼야 한다.

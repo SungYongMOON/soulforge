@@ -14,6 +14,8 @@
 - `AGENT_WORLD_MODEL.md`
 - `ONTOLOGY_MODEL_V0.md`
 - `ONTOLOGY_REVIEW_MANUAL_V0.md`
+- `ONTOLOGY_RELATION_MATRIX_V1.md`
+- `REPOSITORY_IMPROVEMENT_PLAN_V0.md`
 - `schema/`
 - `SCHEMA_FIELD_MATRIX.md`
 
@@ -25,8 +27,11 @@
 - [`VISION_AND_GOALS.md`](VISION_AND_GOALS.md)
 - [`TARGET_TREE.md`](TARGET_TREE.md)
 - [`DOCUMENT_OWNERSHIP.md`](DOCUMENT_OWNERSHIP.md)
+- [`AGENT_WORLD_MODEL.md`](AGENT_WORLD_MODEL.md)
 - [`ONTOLOGY_MODEL_V0.md`](ONTOLOGY_MODEL_V0.md)
 - [`ONTOLOGY_REVIEW_MANUAL_V0.md`](ONTOLOGY_REVIEW_MANUAL_V0.md)
+- [`ONTOLOGY_RELATION_MATRIX_V1.md`](ONTOLOGY_RELATION_MATRIX_V1.md)
+- [`REPOSITORY_IMPROVEMENT_PLAN_V0.md`](REPOSITORY_IMPROVEMENT_PLAN_V0.md)
 - [`schema/README.md`](schema/README.md)
 - [`SCHEMA_FIELD_MATRIX.md`](SCHEMA_FIELD_MATRIX.md)
 
@@ -36,3 +41,5 @@
 - 저장소 전체 기준선과 장기 참조 문서를 묶는다.
 - active owner-local canon 은 `.registry/`, `.unit/`, `.workflow/`, `.party/`, `.mission/`, `_workspaces/` 에서 읽는다.
 - active semantics 는 `AGENT_WORLD_MODEL.md`, `ONTOLOGY_MODEL_V0.md`, `ONTOLOGY_REVIEW_MANUAL_V0.md` 에서 통합한다.
+- validator 와 harness 가 바로 참조할 ontology binding 요약은 `ONTOLOGY_RELATION_MATRIX_V1.md` 에서 읽는다.
+- 저장소 개선의 현재 단계별 계획은 `REPOSITORY_IMPROVEMENT_PLAN_V0.md` 에서 읽는다.

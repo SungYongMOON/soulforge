@@ -27,6 +27,6 @@
 
 ## 관련 경로
 
-- [`../../../../../../guild_hall/gateway/mail_fetch/README.md`](../../../../../../guild_hall/gateway/mail_fetch/README.md)
+- [`../../../../../guild_hall/gateway/mail_fetch/README.md`](../../../../../guild_hall/gateway/mail_fetch/README.md)
 - [`../../../workspace/GATEWAY_MAIL_FETCH_V0.md`](../../../workspace/GATEWAY_MAIL_FETCH_V0.md)
 - [`../../../workspace/INSTALLATION_MANUAL_V0.md`](../../../workspace/INSTALLATION_MANUAL_V0.md)

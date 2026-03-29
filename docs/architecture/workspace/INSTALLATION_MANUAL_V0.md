@@ -13,6 +13,11 @@
   - 팀원, 리뷰어, 일반 사용자
   - public `Soulforge` 만 clone 한다
   - `_workmeta/`, `private-state/` 같은 private repo 는 받지 않는다
+- `operator`
+  - public repo 만으로 gateway/town_crier 같은 local operator 기능까지 만질 PC
+  - public `Soulforge` 만 clone 한다
+  - `_workmeta/`, `private-state/` 같은 private repo 는 받지 않는다
+  - local operator env 는 만든다
 - `owner-with-state`
   - owner 본인
   - public `Soulforge` 와 owner-only nested `_workmeta/`, `private-state/` 를 준비한다
@@ -20,7 +25,7 @@
   - 허용된 기록 subset 만 restore 한다
 - `ai-assisted-bootstrap`
   - clone 후 사용자가 직접 모든 명령을 치지 않고 AI 에게 bootstrap 을 맡긴다
-  - 이 경우에도 먼저 `public-only` 인지 `owner-with-state` 인지 프로필을 명시한다
+  - 이 경우에도 먼저 `public-only`, `operator`, `owner-with-state` 중 하나를 명시한다
 
 프로필이 명시되지 않으면 기본값은 `public-only` 다.
 상세 기준은 [`../bootstrap/BOOTSTRAP_PROFILES_V0.md`](../../../docs/architecture/bootstrap/BOOTSTRAP_PROFILES_V0.md) 를 따른다.
@@ -114,6 +119,9 @@ npm.cmd run skills:sync -- --all
 `codex/SKILL.md` 가 없는 registry entry 는 test/canon-only package 로 보고 sync 대상에서 제외한다.
 
 ## Chapter 4. guild_hall local env 생성
+
+`public-only` 프로필은 이 장을 기본 bootstrap 필수로 보지 않는다.
+`operator`, `owner-with-state` 프로필일 때만 아래 env/policy 자리를 만든다.
 
 메일 fetch env:
 

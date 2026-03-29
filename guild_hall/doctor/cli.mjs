@@ -67,6 +67,9 @@ async function runDoctor(checklist, options = {}) {
   const profile = options.profile ?? resolveProfile(undefined, checklist);
 
   for (const item of checklist.required_tools ?? []) {
+    if (!itemAppliesToProfile(item, profile)) {
+      continue;
+    }
     const result = withFixHint(runCommandCheck({
       id: item.id,
       label: item.label,
@@ -82,6 +85,9 @@ async function runDoctor(checklist, options = {}) {
   }
 
   for (const item of checklist.optional_tools ?? []) {
+    if (!itemAppliesToProfile(item, profile)) {
+      continue;
+    }
     const result = withFixHint(runCommandCheck({
       id: item.id,
       label: item.label,
@@ -113,6 +119,9 @@ async function runDoctor(checklist, options = {}) {
   }
 
   for (const item of checklist.required_local_files ?? []) {
+    if (!itemAppliesToProfile(item, profile)) {
+      continue;
+    }
     const filePath = path.join(repoRoot, item.path);
     const exists = await pathExists(filePath);
     const result = withFixHint({
@@ -132,6 +141,9 @@ async function runDoctor(checklist, options = {}) {
   }
 
   for (const item of checklist.optional_local_files ?? []) {
+    if (!itemAppliesToProfile(item, profile)) {
+      continue;
+    }
     const filePath = path.join(repoRoot, item.path);
     const exists = await pathExists(filePath);
     results.push(withFixHint({
@@ -147,6 +159,9 @@ async function runDoctor(checklist, options = {}) {
   }
 
   for (const item of checklist.optional_local_paths ?? []) {
+    if (!itemAppliesToProfile(item, profile)) {
+      continue;
+    }
     const targetPath = path.resolve(repoRoot, item.path);
     const exists = await pathExists(targetPath);
     results.push(withFixHint({
@@ -185,6 +200,9 @@ async function runDoctor(checklist, options = {}) {
   }
 
   for (const item of checklist.safe_smokes ?? []) {
+    if (!itemAppliesToProfile(item, profile)) {
+      continue;
+    }
     const executable = item.command[0];
     if (!toolAvailability.get(executable)) {
       const result = withFixHint({
@@ -235,7 +253,9 @@ async function runDoctor(checklist, options = {}) {
   }
 
   if (options.live) {
-    liveSmokeResults = runLiveChecks(checklist.live_smokes ?? []);
+    liveSmokeResults = runLiveChecks(
+      (checklist.live_smokes ?? []).filter((item) => itemAppliesToProfile(item, profile)),
+    );
     results.push(...liveSmokeResults);
     if (!liveSmokeResults.every((item) => item.status === "ok")) {
       nextSteps.push(
@@ -259,6 +279,9 @@ async function runDoctor(checklist, options = {}) {
   const ready = requiredResults.every((item) => item.status === "ok");
 
   for (const item of checklist.live_followups ?? []) {
+    if (!itemAppliesToProfile(item, profile)) {
+      continue;
+    }
     nextSteps.push(`live check 준비: ${item.command}`);
   }
 
@@ -651,6 +674,10 @@ function resolveMode(options) {
     parts.push("live");
   }
   return parts.join("+");
+}
+
+function itemAppliesToProfile(item, profile) {
+  return !item?.profiles || item.profiles.includes(profile);
 }
 
 function resolvePrivateStateRepoRoot(checklist) {

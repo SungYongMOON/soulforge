@@ -29,6 +29,9 @@ function isMarkdownFile(fileName) {
 
 function collectMarkdownFiles(targetPath, files) {
   const absolutePath = path.resolve(repoRoot, targetPath);
+  if (!existsSync(absolutePath)) {
+    return;
+  }
   const stats = statSync(absolutePath);
 
   if (stats.isFile()) {

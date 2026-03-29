@@ -10,6 +10,7 @@
 
 - `gateway/`: 메일 수집, intake, cross-project staging ingress
 - `doctor/`: clone 된 PC bootstrap readiness 점검과 local doctor status
+- `validate/`: canonical root 최소 무결성 검사와 validation harness
 - `town_crier/`: 공용 notify queue 와 Telegram outbound transport
 - `night_watch/`: nightly review / summary owner
 - `dungeon_assignment/`: gateway 몬스터를 project/stage 로 배치하는 owner

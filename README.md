@@ -52,9 +52,11 @@ flowchart TD
 - [`docs/architecture/bootstrap/README.md`](docs/architecture/bootstrap/README.md): clone 이후 설치, doctor, private state restore 가이드 묶음
 - [`CHANGELOG.md`](CHANGELOG.md): public repo revision note 와 patch note
 - [`docs/architecture/foundation/CHANGELOG_POLICY_V0.md`](docs/architecture/foundation/CHANGELOG_POLICY_V0.md): public/private changelog 작성 규칙
-- [`docs/architecture/bootstrap/BOOTSTRAP_PROFILES_V0.md`](docs/architecture/bootstrap/BOOTSTRAP_PROFILES_V0.md): 팀원용 public-only clone, owner-with-state clone, AI 위임 bootstrap 프로필
+- [`docs/architecture/bootstrap/BOOTSTRAP_PROFILES_V0.md`](docs/architecture/bootstrap/BOOTSTRAP_PROFILES_V0.md): `public-only`, `operator`, `owner-with-state` bootstrap 프로필
 - [`docs/architecture/bootstrap/UPDATE_MANUAL_V0.md`](docs/architecture/bootstrap/UPDATE_MANUAL_V0.md): 설치 후 GitHub 최신 상태 확인, public/private pull, skill sync, doctor 재점검 절차
 - [`docs/architecture/bootstrap/OWNER_HANDOFF_CHECKLIST_V0.md`](docs/architecture/bootstrap/OWNER_HANDOFF_CHECKLIST_V0.md): 회사/집 사이 owner handoff 체크리스트와 시작 전 `doctor --remote` 절차
+- [`CONTRIBUTING.md`](CONTRIBUTING.md): public repo 변경 전 기본 validate/done:check 와 문서 동기화 규칙
+- [`SECURITY.md`](SECURITY.md): 공개 저장소 보안 경계와 비공개 제보 원칙
 - [`_workspaces/README.md`](_workspaces/README.md): `_workspaces` local-only mount point 정책
 - [`docs/architecture/workspace/WORKSPACE_PROJECT_MODEL.md`](docs/architecture/workspace/WORKSPACE_PROJECT_MODEL.md): `_workspaces/<project_code>/` 구조와 보안 경계
 - [`docs/architecture/workspace/INSTALLATION_MANUAL_V0.md`](docs/architecture/workspace/INSTALLATION_MANUAL_V0.md): 다른 PC 첫 설치와 gateway bootstrap 순서
@@ -77,6 +79,7 @@ flowchart TD
 - `.mission` 은 held mission plan 과 readiness owner 다.
 - `guild_hall` 은 `gateway`, `doctor`, `town_crier`, `night_watch`, `dungeon_assignment` 같은 cross-project 운영 owner 다.
 - clone 된 PC bootstrap readiness 점검은 `npm run guild-hall:doctor` 를 canonical entrypoint 로 사용한다.
+- root canon 과 public-safe harness 검증은 `npm run validate`, `npm run done:check` 를 canonical entrypoint 로 사용한다.
 - cross-project 운영 명령 표면은 `guild-hall:*` 만 canonical 로 사용한다.
 - `guild_hall/state/**` 는 local-only cross-project state 이며 public repo 에 올리지 않는다.
 - 기능 코드, 구조 문서, public-safe sample 변경은 public repo 에 commit/push 한다.

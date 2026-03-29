@@ -14,7 +14,6 @@
 - gateway intake sample
   - [`../gateway/intake_inbox/pdr_brief_chain_demo_001/inbox.json`](../gateway/intake_inbox/pdr_brief_chain_demo_001/inbox.json)
 - battle log sample
-  - [`../../../../demo_project/_workmeta/battle_log_chain_example.md`](../../../../demo_project/_workmeta/battle_log_chain_example.md)
+  - [`../../../demo_project/_workmeta/battle_log_chain_example.md`](../../../demo_project/_workmeta/battle_log_chain_example.md)
 - morning report sample
-  - [`../../../../demo_project/_workmeta/morning_project_report_chain_example.md`](../../../../demo_project/_workmeta/morning_project_report_chain_example.md)
-
+  - [`../../../demo_project/_workmeta/morning_project_report_chain_example.md`](../../../demo_project/_workmeta/morning_project_report_chain_example.md)
