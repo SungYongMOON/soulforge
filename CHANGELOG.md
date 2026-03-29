@@ -9,6 +9,14 @@ Git log 는 원문 이력을 남기고, 이 문서는 사람이 읽는 patch not
 - 보호 대상 업무 데이터와 continuity record 는 여기 적지 않고 nested `private-state/CHANGELOG.md` 에 적는다.
 - secret 값, credential, token, password 는 절대 기록하지 않는다.
 
+## 2026-03-29
+
+### Revision `working` - 회의 packet 폴더 정본 모델과 생성 skill 정렬
+
+- `docs/architecture/workspace/MEETING_PACKET_FOLDER_MODEL_V0.md` 를 추가해 회의 item 폴더의 canonical 단계 구조를 `00_Temp -> 01_Work -> 02_Input -> 03_Out -> 04_Review -> 05_Action` 로 고정했다.
+- 회의 전용 의미 하위폴더를 `01_Work/원본자료`, `02_Input/잠금입력`, `03_Out/회의록`, `05_Action/팀별전달` 같은 짧은 한국어 이름으로 명시했다.
+- `soulforge-se-foldertree-generate` skill asset 과 generator script 를 맞춰, 이후 자동 생성되는 회의 item 도 같은 모델을 따르도록 정렬했다.
+
 ## 2026-03-28
 
 ### Revision `working` - 회의 species soft-lens trial unit 4종 추가
