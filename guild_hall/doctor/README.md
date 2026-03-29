@@ -11,6 +11,8 @@
 - `cli.mjs`
   - `guild-hall:doctor` canonical 실행 진입점
   - `--profile public-only|operator|owner-with-state`, `--remote`, `--live`, `--json` 를 지원한다
+- `reporting.mjs`
+  - human/json 출력 렌더링과 fatal payload 조립을 맡는 내부 helper
 - `live_checks.py`
   - `guild-hall:doctor --live` 가 쓰는 외부 인증/연결 점검기
   - Hiworks POP3 / Hiworks SMTP / Telegram 을 개별 live check 로 보고한다

@@ -51,6 +51,11 @@ Git log 는 원문 이력을 남기고, 이 문서는 사람이 읽는 patch not
 - `night_watch` preflight 와 `gateway` dedupe index 는 이제 같은 JSON/경로 helper 를 써서 `/` 기준 repo path 와 state write 형식을 맞춘다.
 - `guild_hall/shared/README.md` 를 추가하고 `guild_hall` owner 문서에 새 내부 helper surface 를 연결했다.
 
+### Revision `working` - doctor 출력 책임 일부를 reporting helper 로 분리
+
+- `guild_hall/doctor/reporting.mjs` 를 추가해 human/json 출력 렌더링과 fatal payload 조립 책임을 CLI 본체에서 분리했다.
+- `guild_hall/doctor/cli.mjs` 는 bootstrap check 실행과 결과 조합에 더 집중하고, 출력 형식 변경은 reporting helper 에서 다루도록 정리했다.
+
 ### Revision `working` - 1차 world-facing class 4종 추가와 2차 후보군 기록
 
 - `archer`, `rogue`, `healer`, `envoy` canonical class sample 4종을 starter lineup 에 추가했다.
