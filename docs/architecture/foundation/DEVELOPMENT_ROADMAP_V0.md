@@ -58,6 +58,13 @@ read-only snapshot
 4. UI가 snapshot 만 읽는 `Dungeon Map` 초안 표시
 5. `.mission` 과 `_workmeta` 요약을 연결하는 `Mission Board` 초안 표시
 
+### 현재 구현 surface
+
+- contract: `docs/architecture/guild_hall/SOULFORGE_SNAPSHOT_V0.md`
+- producer: `guild_hall/snapshot/`
+- local output: `guild_hall/state/snapshot/soulforge_snapshot.json`
+- validation: `npm run validate:snapshot`
+
 ### 범위 밖
 
 - OpenClaw 직접 연결

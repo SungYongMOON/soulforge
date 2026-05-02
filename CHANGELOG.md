@@ -11,6 +11,12 @@ Git log 는 원문 이력을 남기고, 이 문서는 사람이 읽는 patch not
 
 ## 2026-05-02
 
+### Revision `working` - read-only Soulforge snapshot producer 추가
+
+- `guild_hall/snapshot/` 을 추가해 owner root, project surface, mission summary, gateway status 를 sanitized metadata JSON 으로 투영하게 했다.
+- 기본 출력은 local-only `guild_hall/state/snapshot/soulforge_snapshot.json` 으로 두고, raw mailbox, attachment, token, `_workspaces` 파일 내용은 snapshot 에 포함하지 않도록 경계를 고정했다.
+- `validate:snapshot` 을 root acceptance 에 연결해 snapshot shape 와 private content 비노출 최소 test 를 함께 돌리게 했다.
+
 ### Revision `working` - 큰 개발 방향 단일 정본 추가
 
 - `docs/architecture/foundation/DEVELOPMENT_ROADMAP_V0.md` 를 추가해 Soulforge의 큰 개발 방향, active slice, 구체화 규칙을 한곳에서 관리하게 했다.

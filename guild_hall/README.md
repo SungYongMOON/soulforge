@@ -11,6 +11,7 @@
 - `gateway/`: 메일 수집, intake, cross-project staging ingress
 - `doctor/`: clone 된 PC bootstrap readiness 점검과 local doctor status
 - `shared/`: guild_hall owner 들이 함께 쓰는 repo path / JSON state helper
+- `snapshot/`: UI 와 외부 host 가 읽는 read-only sanitized 상태 projection
 - `validate/`: canonical root 최소 무결성 검사와 validation harness
 - `town_crier/`: 공용 notify queue 와 Telegram outbound transport
 - `night_watch/`: nightly review / summary owner
@@ -29,6 +30,7 @@
 
 - [루트 README](../README.md)
 - [`docs/architecture/guild_hall/README.md`](../docs/architecture/guild_hall/README.md)
+- [`docs/architecture/guild_hall/SOULFORGE_SNAPSHOT_V0.md`](../docs/architecture/guild_hall/SOULFORGE_SNAPSHOT_V0.md)
 - [`docs/architecture/guild_hall/SOULFORGE_ACTIVITY_LOG_V0.md`](../docs/architecture/guild_hall/SOULFORGE_ACTIVITY_LOG_V0.md)
 - [`docs/architecture/bootstrap/README.md`](../docs/architecture/bootstrap/README.md)
 - [`_workspaces/README.md`](../_workspaces/README.md)

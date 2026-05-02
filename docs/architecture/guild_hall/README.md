@@ -9,9 +9,11 @@
 
 - `GUILD_HALL_MODEL_V0.md`
 - `SOULFORGE_ACTIVITY_LOG_V0.md`
+- `SOULFORGE_SNAPSHOT_V0.md`
 - `NIGHT_WATCH_AUTOMATION_V0.md`
 - `doctor/README.md`
 - `../../../guild_hall/shared/README.md`
+- `../../../guild_hall/snapshot/README.md`
 - `../../../guild_hall/validate/README.md`
 - `gateway/README.md`
 - `gateway/mail_fetch/README.md`
@@ -31,9 +33,11 @@
 - [`../../../guild_hall/README.md`](../../../guild_hall/README.md)
 - [`doctor/README.md`](doctor/README.md)
 - [`../../../guild_hall/shared/README.md`](../../../guild_hall/shared/README.md)
+- [`../../../guild_hall/snapshot/README.md`](../../../guild_hall/snapshot/README.md)
 - [`../../../guild_hall/validate/README.md`](../../../guild_hall/validate/README.md)
 - [`GUILD_HALL_MODEL_V0.md`](GUILD_HALL_MODEL_V0.md)
 - [`SOULFORGE_ACTIVITY_LOG_V0.md`](SOULFORGE_ACTIVITY_LOG_V0.md)
+- [`SOULFORGE_SNAPSHOT_V0.md`](SOULFORGE_SNAPSHOT_V0.md)
 - [`NIGHT_WATCH_AUTOMATION_V0.md`](NIGHT_WATCH_AUTOMATION_V0.md)
 - [`../workspace/GATEWAY_MAIL_FETCH_V0.md`](../workspace/GATEWAY_MAIL_FETCH_V0.md)
 - [`../workspace/MAIL_SEND_V0.md`](../workspace/MAIL_SEND_V0.md)

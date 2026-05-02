@@ -18,6 +18,8 @@
   - nightly review state 가 생기면 이 아래에서 materialize
 - `dungeon_assignment/`
   - assignment state 가 생기면 이 아래에서 materialize
+- `snapshot/`
+  - UI 와 외부 host 가 읽는 sanitized `soulforge_snapshot.json`
 
 ## 규칙
 
