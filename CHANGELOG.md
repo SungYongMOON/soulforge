@@ -11,6 +11,12 @@ Git log 는 원문 이력을 남기고, 이 문서는 사람이 읽는 patch not
 
 ## 2026-05-02
 
+### Revision `working` - 큰 개발 방향 단일 정본 추가
+
+- `docs/architecture/foundation/DEVELOPMENT_ROADMAP_V0.md` 를 추가해 Soulforge의 큰 개발 방향, active slice, 구체화 규칙을 한곳에서 관리하게 했다.
+- `PROJECT_MAP_V0.md` 는 탐색 지도 역할로 좁히고, active backlog 와 세부 구현 checklist 는 roadmap 또는 각 owner 문서로 내려가도록 경계를 명시했다.
+- `AGENTS.md` 에 큰 개발 방향과 우선순위 판단 시 roadmap 을 먼저 확인하는 짧은 라우팅 규칙을 추가했다.
+
 ### Revision `working` - 현재 구조 파악용 project map 추가
 
 - `docs/architecture/foundation/PROJECT_MAP_V0.md` 를 추가해 Soulforge owner roots, 업무 RPG 루프, UI/gateway 상태, local/private 경계를 한 장에서 다시 볼 수 있게 했다.

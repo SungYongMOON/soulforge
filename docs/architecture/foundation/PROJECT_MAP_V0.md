@@ -34,12 +34,19 @@ Soulforge/
 
 1. 이 문서: 전체 지도와 현재 판단
 2. `README.md`: 정본 7축과 상위 문서 링크
-3. `docs/architecture/foundation/VISION_AND_GOALS.md`: 왜 만드는지
-4. `docs/architecture/Agent_Fantasy_Vision_Phases_WorldBible.md`: 업무 RPG 제품 감각
-5. `guild_hall/README.md`: gateway, notify, night_watch 운영 루트
-6. `ui-workspace/README.md`: 현재 UI consumer workspace
-7. `_workspaces/README.md`: local-only 프로젝트 작업장 경계
-8. `_workmeta/README.md`: private project metadata 경계
+3. `docs/architecture/foundation/DEVELOPMENT_ROADMAP_V0.md`: 큰 개발 방향과 현재 우선순위
+4. `docs/architecture/foundation/VISION_AND_GOALS.md`: 왜 만드는지
+5. `docs/architecture/Agent_Fantasy_Vision_Phases_WorldBible.md`: 업무 RPG 제품 감각
+6. `guild_hall/README.md`: gateway, notify, night_watch 운영 루트
+7. `ui-workspace/README.md`: 현재 UI consumer workspace
+8. `_workspaces/README.md`: local-only 프로젝트 작업장 경계
+9. `_workmeta/README.md`: private project metadata 경계
+
+## 개발 방향 정본
+
+- 큰 개발 방향과 현재 우선순위의 단일 정본은 `docs/architecture/foundation/DEVELOPMENT_ROADMAP_V0.md` 다.
+- 이 문서는 전체 구조를 찾기 위한 지도이며, active backlog 나 세부 구현 checklist 를 소유하지 않는다.
+- 구체화된 개발 항목만 `.mission/**`, `ui-workspace/docs/**`, `guild_hall/**`, `docs/architecture/workspace/**`, `_workmeta/**` 로 내려간다.
 
 ## Owner별 역할
 
@@ -126,13 +133,10 @@ gateway/mail/manual input
 - P26-030의 업무 원문을 public 문서로 승격하지 않는다.
 - class/species/world detail을 더 늘리기 전에 최소 플레이 루프를 먼저 만든다.
 
-## 추천 다음 순서
+## 다음 개발 방향
 
-1. 이 문서를 기준으로 현재 구조를 다시 익힌다.
-2. `soulforge_snapshot.json`에 들어갈 필드만 정한다.
-3. snapshot processor를 read-only로 만든다.
-4. UI는 snapshot만 읽어 `Dungeon Map`과 `Mission Board`를 보여준다.
-5. 수동 monster 1개를 만들어 `mission -> battle log` 까지 끝까지 돌려본다.
+- 현재 active slice 와 우선순위는 `DEVELOPMENT_ROADMAP_V0.md` 에서 읽는다.
+- 현 시점의 방향은 원본 private surface 를 직접 UI/OpenClaw 에 노출하지 않고, read-only snapshot 을 먼저 만든 뒤 `Dungeon Map` 과 `Mission Board` 로 연결하는 것이다.
 
 ## 완료 기준
 
