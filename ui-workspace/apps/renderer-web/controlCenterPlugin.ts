@@ -1,6 +1,6 @@
 import { existsSync, promises as fs } from "node:fs";
 import path from "node:path";
-import { fileURLToPath } from "node:url";
+import { fileURLToPath, pathToFileURL } from "node:url";
 import type { IncomingMessage, ServerResponse } from "node:http";
 import type { Plugin, PreviewServer, ViteDevServer } from "vite";
 
@@ -8,6 +8,7 @@ const API_PREFIX = "/__control_center_api";
 const TEXT_EXTENSIONS = new Set([".md", ".yaml", ".yml", ".json"]);
 const repoRoot = path.resolve(fileURLToPath(new URL(".", import.meta.url)), "../../..");
 const integratedFixtureRepoPath = "ui-workspace/fixtures/ui-state/integrated.sample.json";
+const snapshotRepoPath = "guild_hall/state/snapshot/soulforge_snapshot.json";
 
 type ControlCenterOwnerId = "body" | "class" | "guild_hall" | "operations" | "docs";
 
@@ -36,6 +37,40 @@ interface ControlCenterOwner {
   label: string;
   description: string;
   sections: ControlCenterSection[];
+}
+
+type SnapshotStatus = "fresh" | "stale" | "missing" | "unavailable";
+
+interface DungeonMapProject {
+  project_code: string;
+  workspace_present: boolean;
+  workmeta_present: boolean;
+}
+
+interface DungeonMapMission {
+  title: string;
+  status: string;
+  readiness: string;
+}
+
+interface DungeonMapNextAction {
+  id: string;
+  status: string;
+  summary: string;
+}
+
+interface SnapshotFreshnessResult {
+  ok: boolean;
+  status: SnapshotStatus;
+  errors: string[];
+  changed_sources: { id?: string; source_ref?: string }[];
+  stored_fingerprint: string | null;
+  current_fingerprint: string | null;
+}
+
+interface SnapshotProducerModule {
+  buildSnapshot(options?: { repoRoot?: string; generatedAt?: string }): Promise<Record<string, unknown>>;
+  compareSnapshotFreshness(storedSnapshot: Record<string, unknown>, currentSnapshot: Record<string, unknown>): SnapshotFreshnessResult;
 }
 
 function normalizeRepoPath(value: string) {
@@ -492,6 +527,136 @@ async function loadIntegratedFixturePayload() {
   return JSON.parse(content) as Record<string, unknown>;
 }
 
+function isRecord(value: unknown): value is Record<string, unknown> {
+  return Boolean(value && typeof value === "object" && !Array.isArray(value));
+}
+
+function stringField(value: unknown, fallback = "unknown") {
+  return typeof value === "string" && value.trim() ? value : fallback;
+}
+
+function booleanField(value: unknown) {
+  return typeof value === "boolean" ? value : false;
+}
+
+function arrayField(value: unknown) {
+  return Array.isArray(value) ? value : [];
+}
+
+function mapProjects(snapshot: Record<string, unknown>): DungeonMapProject[] {
+  return arrayField(snapshot.projects).map((item) => {
+    const project = isRecord(item) ? item : {};
+    const workspace = isRecord(project.workspace) ? project.workspace : {};
+    const workmeta = isRecord(project.workmeta) ? project.workmeta : {};
+
+    return {
+      project_code: stringField(project.project_code),
+      workspace_present: booleanField(workspace.present),
+      workmeta_present: booleanField(workmeta.present)
+    };
+  });
+}
+
+function mapMissions(snapshot: Record<string, unknown>): DungeonMapMission[] {
+  const missions = isRecord(snapshot.missions) ? snapshot.missions : {};
+
+  return arrayField(missions.items).map((item) => {
+    const mission = isRecord(item) ? item : {};
+
+    return {
+      title: stringField(mission.title),
+      status: stringField(mission.status),
+      readiness: stringField(mission.readiness_status)
+    };
+  });
+}
+
+function mapNextActions(snapshot: Record<string, unknown>): DungeonMapNextAction[] {
+  return arrayField(snapshot.next_actions).map((item) => {
+    const action = isRecord(item) ? item : {};
+
+    return {
+      id: stringField(action.id),
+      status: stringField(action.status),
+      summary: stringField(action.summary, "")
+    };
+  });
+}
+
+function mapSnapshotResponse(
+  snapshot: Record<string, unknown> | null,
+  status: SnapshotStatus,
+  details: {
+    error?: string;
+    freshness?: SnapshotFreshnessResult;
+  } = {}
+) {
+  const observations = snapshot && isRecord(snapshot.source_observations) ? snapshot.source_observations : {};
+  const gateway = snapshot && isRecord(snapshot.gateway) ? snapshot.gateway : {};
+
+  return {
+    status,
+    snapshot_path: snapshotRepoPath,
+    error: details.error,
+    generated_at: snapshot && typeof snapshot.generated_at === "string" ? snapshot.generated_at : null,
+    source_observation_count: arrayField(observations.items).length,
+    freshness_errors: details.freshness?.errors ?? [],
+    changed_source_ids: details.freshness?.changed_sources.map((source) => source.id ?? source.source_ref ?? "unknown") ?? [],
+    projects: snapshot ? mapProjects(snapshot) : [],
+    missions: snapshot ? mapMissions(snapshot) : [],
+    gateway: {
+      intake_inbox_count: typeof gateway.intake_inbox_count === "number" ? gateway.intake_inbox_count : 0,
+      monster_index_present: booleanField(gateway.monster_index_present)
+    },
+    next_actions: snapshot ? mapNextActions(snapshot) : []
+  };
+}
+
+async function loadSnapshotProducer() {
+  return (await import(pathToFileURL(resolveRepoPath("guild_hall/snapshot/producer.mjs")).href)) as SnapshotProducerModule;
+}
+
+async function handleSnapshotRequest(response: ServerResponse) {
+  const snapshotPath = resolveRepoPath(snapshotRepoPath);
+
+  if (!existsSync(snapshotPath)) {
+    sendJson(response, 200, mapSnapshotResponse(null, "missing"));
+    return;
+  }
+
+  try {
+    const content = await fs.readFile(snapshotPath, "utf8");
+    const snapshot = JSON.parse(content) as unknown;
+
+    if (!isRecord(snapshot)) {
+      throw new Error("Snapshot root must be an object.");
+    }
+
+    try {
+      const producer = await loadSnapshotProducer();
+      const currentSnapshot = await producer.buildSnapshot({ repoRoot });
+      const freshness = producer.compareSnapshotFreshness(snapshot, currentSnapshot);
+      sendJson(response, 200, mapSnapshotResponse(snapshot, freshness.status, { freshness }));
+    } catch (error) {
+      sendJson(
+        response,
+        200,
+        mapSnapshotResponse(snapshot, "unavailable", {
+          error: error instanceof Error ? error.message : "Failed to compare snapshot freshness."
+        })
+      );
+    }
+  } catch (error) {
+    sendJson(
+      response,
+      200,
+      mapSnapshotResponse(null, "unavailable", {
+        error: error instanceof Error ? error.message : "Failed to read snapshot."
+      })
+    );
+  }
+}
+
 async function handleTreeRequest(response: ServerResponse) {
   const tree = await buildTree();
   sendJson(response, 200, tree);
@@ -596,6 +761,11 @@ async function handleControlCenterRequest(request: IncomingMessage, response: Se
 
   if (routePath === "/derive-ui-state" && request.method === "GET") {
     await handleDeriveRequest(response);
+    return;
+  }
+
+  if (routePath === "/snapshot" && request.method === "GET") {
+    await handleSnapshotRequest(response);
     return;
   }
 

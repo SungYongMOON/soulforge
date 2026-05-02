@@ -47,6 +47,8 @@
 .cc-pane,
 .cc-diagnostics-stack,
 .cc-diagnostic-block,
+.cc-map-stack,
+.cc-map-section,
 .cc-chip-row,
 .cc-action-row,
 .cc-theme-switcher,
@@ -529,6 +531,7 @@
 .cc-file-section,
 .cc-pane,
 .cc-diagnostic-block,
+.cc-map-card,
 .cc-empty-state,
 .cc-readonly-note {
   padding: 12px;
@@ -693,6 +696,46 @@
 }
 
 .cc-diagnostic-list li {
+  display: grid;
+  gap: 4px;
+}
+
+.cc-map-pane {
+  align-content: start;
+}
+
+.cc-map-section h3 {
+  margin: 0;
+  font-family: var(--sf-font-display);
+}
+
+.cc-map-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(180px, 1fr));
+  gap: 12px;
+}
+
+.cc-map-card {
+  display: grid;
+  gap: 6px;
+  border: 1px solid var(--sf-border-regular);
+  border-radius: calc(var(--sf-radius-card) - 4px);
+  background: var(--sf-surface-card);
+}
+
+.cc-map-card span,
+.cc-map-list span {
+  color: var(--sf-text-muted);
+}
+
+.cc-map-list {
+  margin: 0;
+  padding-left: 18px;
+  display: grid;
+  gap: 10px;
+}
+
+.cc-map-list li {
   display: grid;
   gap: 4px;
 }

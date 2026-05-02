@@ -12,6 +12,7 @@
 - renderer-react surface mount
 - theme registry / swap wiring
 - Adventurer's Desk Phase UI-1 theme wiring
+- read-only Dungeon Map pane backed by `guild_hall/state/snapshot/soulforge_snapshot.json`
 
 ## 제외 대상
 
@@ -19,6 +20,7 @@
 - integration bridge 실행
 - write-back editor
 - selection persistence
+- raw `_workspaces`, `_workmeta`, `private-state`, or gateway source display in Dungeon Map
 
 ## 관련 경로
 

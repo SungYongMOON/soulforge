@@ -11,6 +11,11 @@ Git log 는 원문 이력을 남기고, 이 문서는 사람이 읽는 patch not
 
 ## 2026-05-02
 
+### Revision `working` - Dungeon Map v0 read-only pane 추가
+
+- `renderer-web` control center 에 `GET /__control_center_api/snapshot` dev API 와 `Dungeon Map` pane 을 추가했다.
+- 새 pane 은 local snapshot projection 인 `guild_hall/state/snapshot/soulforge_snapshot.json` 의 summary 만 읽고, raw workspace/workmeta/private-state/gateway source 내용은 표시하지 않는다.
+
 ### Revision `working` - snapshot freshness 계약 추가
 
 - `soulforge_snapshot.json` 에 `source_observations` 를 추가해 UI 가 보는 snapshot 이 어떤 원본 metadata 기준인지 판정할 수 있게 했다.

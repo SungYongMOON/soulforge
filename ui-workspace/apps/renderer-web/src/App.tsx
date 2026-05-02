@@ -8,9 +8,10 @@ import { applyThemeSelection, selectTheme } from "./themes";
 import appPackage from "../package.json";
 
 type ControlCenterOwnerId = "body" | "class" | "guild_hall" | "operations" | "docs";
-type ControlCenterPaneId = "editor" | "notifications" | "preview" | "diagnostics";
+type ControlCenterPaneId = "editor" | "notifications" | "map" | "preview" | "diagnostics";
 type ControlCenterCategory = "canonical" | "generated" | "doc" | "archive";
 type HeaderThemeMode = "system" | "dark" | "white";
+type SnapshotStatus = "fresh" | "stale" | "missing" | "unavailable";
 
 interface ControlCenterRouteState {
   ownerId: ControlCenterOwnerId;
@@ -101,10 +102,52 @@ interface PreviewState {
   updatedAt: string | null;
 }
 
+interface DungeonMapProject {
+  project_code: string;
+  workspace_present: boolean;
+  workmeta_present: boolean;
+}
+
+interface DungeonMapMission {
+  title: string;
+  status: string;
+  readiness: string;
+}
+
+interface DungeonMapNextAction {
+  id: string;
+  status: string;
+  summary: string;
+}
+
+interface DungeonMapSnapshot {
+  status: SnapshotStatus;
+  snapshot_path: string;
+  error?: string;
+  generated_at: string | null;
+  source_observation_count: number;
+  freshness_errors: string[];
+  changed_source_ids: string[];
+  projects: DungeonMapProject[];
+  missions: DungeonMapMission[];
+  gateway: {
+    intake_inbox_count: number;
+    monster_index_present: boolean;
+  };
+  next_actions: DungeonMapNextAction[];
+}
+
+interface DungeonMapState {
+  loading: boolean;
+  snapshot: DungeonMapSnapshot | null;
+  error: string | null;
+  updatedAt: string | null;
+}
+
 const API_PREFIX = "/__control_center_api";
 const OWNER_IDS: ControlCenterOwnerId[] = ["body", "class", "guild_hall", "operations", "docs"];
 const VISIBLE_OWNER_IDS: ControlCenterOwnerId[] = ["body", "class", "guild_hall", "operations", "docs"];
-const PANE_IDS: ControlCenterPaneId[] = ["editor", "notifications", "preview", "diagnostics"];
+const PANE_IDS: ControlCenterPaneId[] = ["editor", "notifications", "map", "preview", "diagnostics"];
 const GATEWAY_NOTIFY_EVENTS = ["monster_created", "intake_failed", "mail_fetch_failed"] as const;
 const MISSION_NOTIFY_EVENTS = ["mission_blocked", "mission_ready", "mission_closed", "mission_failed"] as const;
 const CATEGORY_LABELS: Record<ControlCenterCategory, string> = {
@@ -281,6 +324,10 @@ async function requestValidation() {
 async function requestPreview() {
   const payload = await requestJson<unknown>(`${API_PREFIX}/derive-ui-state`);
   return normalizeUiState(payload);
+}
+
+async function requestDungeonMap() {
+  return requestJson<DungeonMapSnapshot>(`${API_PREFIX}/snapshot`);
 }
 
 function findOwner(tree: ControlCenterTree | null, ownerId: ControlCenterOwnerId) {
@@ -564,6 +611,18 @@ function validationTone(result: ValidationRunResult | null) {
   return "ready";
 }
 
+function snapshotTone(status: SnapshotStatus) {
+  if (status === "fresh") {
+    return "ready";
+  }
+
+  if (status === "stale") {
+    return "warning";
+  }
+
+  return "error";
+}
+
 function ownerFolderName(ownerId: ControlCenterOwnerId) {
   if (ownerId === "body") {
     return "IdentityUnit";
@@ -610,6 +669,12 @@ function App() {
   const [preview, setPreview] = useState<PreviewState>({
     loading: false,
     uiState: null,
+    error: null,
+    updatedAt: null
+  });
+  const [dungeonMap, setDungeonMap] = useState<DungeonMapState>({
+    loading: false,
+    snapshot: null,
     error: null,
     updatedAt: null
   });
@@ -733,6 +798,12 @@ function App() {
   useEffect(() => {
     if (route.activePane === "diagnostics" && !validation.loading && !validation.result && !validation.error) {
       void handleValidate(false);
+    }
+  }, [route.activePane]);
+
+  useEffect(() => {
+    if (route.activePane === "map" && !dungeonMap.loading && !dungeonMap.snapshot && !dungeonMap.error) {
+      void handleDungeonMapRefresh();
     }
   }, [route.activePane]);
 
@@ -1020,6 +1091,47 @@ function App() {
     }
   }
 
+  async function handleDungeonMapRefresh() {
+    setDungeonMap((current) => ({
+      ...current,
+      loading: true,
+      error: null
+    }));
+    setNotice({
+      tone: "info",
+      message: "Loading read-only Dungeon Map snapshot."
+    });
+
+    try {
+      const snapshot = await requestDungeonMap();
+      setDungeonMap({
+        loading: false,
+        snapshot,
+        error: null,
+        updatedAt: new Date().toISOString()
+      });
+      setRoute((current) => ({
+        ...current,
+        activePane: "map"
+      }));
+      setNotice({
+        tone: snapshot.status === "fresh" ? "success" : "info",
+        message: `Dungeon Map snapshot status: ${snapshot.status}.`
+      });
+    } catch (error) {
+      setDungeonMap({
+        loading: false,
+        snapshot: null,
+        error: error instanceof Error ? error.message : "Dungeon Map refresh failed.",
+        updatedAt: null
+      });
+      setNotice({
+        tone: "error",
+        message: error instanceof Error ? error.message : "Dungeon Map refresh failed."
+      });
+    }
+  }
+
   return (
     <div className="cc-shell" data-theme-family={theme.family} data-theme-id={theme.id} data-theme-phase={theme.phase}>
       <header className="cc-topbar">
@@ -1133,6 +1245,9 @@ function App() {
             <button className="cc-button" type="button" onClick={() => void handleValidate(true)} disabled={validation.loading}>
               {validation.loading ? "Validating..." : "Validate"}
             </button>
+            <button className="cc-button" type="button" onClick={() => void handleDungeonMapRefresh()} disabled={dungeonMap.loading}>
+              {dungeonMap.loading ? "Mapping..." : "Map"}
+            </button>
             <button className="cc-button" type="button" onClick={() => void handlePreviewRefresh(true)} disabled={preview.loading}>
               {preview.loading ? "Previewing..." : "Preview"}
             </button>
@@ -1202,22 +1317,24 @@ function App() {
               </div>
             </div>
 
-            <div className="cc-action-row">
-              <button className="cc-button" type="button" onClick={handleRefresh} disabled={!route.filePath || refreshing}>
-                {refreshing ? "Refreshing..." : "Refresh"}
-              </button>
-              <button className="cc-button" type="button" onClick={handleReset} disabled={!dirty}>
-                Reset
-              </button>
-              <button
-                className="cc-button cc-button--primary"
-                type="button"
-                onClick={() => void handleSave()}
-                disabled={!dirty || !selectedFileRecord?.editable || saving}
-              >
-                {saving ? "Saving..." : "Save"}
-              </button>
-            </div>
+            {route.activePane !== "map" ? (
+              <div className="cc-action-row">
+                <button className="cc-button" type="button" onClick={handleRefresh} disabled={!route.filePath || refreshing}>
+                  {refreshing ? "Refreshing..." : "Refresh"}
+                </button>
+                <button className="cc-button" type="button" onClick={handleReset} disabled={!dirty}>
+                  Reset
+                </button>
+                <button
+                  className="cc-button cc-button--primary"
+                  type="button"
+                  onClick={() => void handleSave()}
+                  disabled={!dirty || !selectedFileRecord?.editable || saving}
+                >
+                  {saving ? "Saving..." : "Save"}
+                </button>
+              </div>
+            ) : null}
           </div>
 
           <div className="cc-tab-row">
@@ -1237,9 +1354,11 @@ function App() {
                   ? "Editor"
                   : paneId === "notifications"
                     ? "Notifications"
-                    : paneId === "preview"
-                      ? "Preview"
-                      : "Diagnostics"}
+                    : paneId === "map"
+                      ? "Dungeon Map"
+                      : paneId === "preview"
+                        ? "Preview"
+                        : "Diagnostics"}
               </button>
             ))}
           </div>
@@ -1362,6 +1481,102 @@ function App() {
               ) : (
                 <div className="cc-empty-state">
                   <p>Run Preview to render the current derived UI state.</p>
+                </div>
+              )}
+            </section>
+          ) : null}
+
+          {route.activePane === "map" ? (
+            <section className="cc-pane cc-map-pane">
+              <div className="cc-pane-toolbar">
+                <p>Read-only projection from `guild_hall/state/snapshot/soulforge_snapshot.json`.</p>
+                <button className="cc-button" type="button" onClick={() => void handleDungeonMapRefresh()} disabled={dungeonMap.loading}>
+                  {dungeonMap.loading ? "Refreshing..." : "Refresh Map"}
+                </button>
+              </div>
+
+              {dungeonMap.error ? <p className="cc-error-text">{dungeonMap.error}</p> : null}
+
+              {dungeonMap.snapshot ? (
+                <div className="cc-map-stack">
+                  <div className={`cc-summary-card cc-summary-card--${snapshotTone(dungeonMap.snapshot.status)}`}>
+                    <strong>{dungeonMap.snapshot.status}</strong>
+                    <span>Generated {formatTimestamp(dungeonMap.snapshot.generated_at)}</span>
+                    <span>Observations {dungeonMap.snapshot.source_observation_count}</span>
+                    <span>Loaded {formatTimestamp(dungeonMap.updatedAt)}</span>
+                  </div>
+
+                  {dungeonMap.snapshot.error ? <p className="cc-readonly-note">{dungeonMap.snapshot.error}</p> : null}
+
+                  {dungeonMap.snapshot.freshness_errors.length > 0 || dungeonMap.snapshot.changed_source_ids.length > 0 ? (
+                    <section className="cc-map-section">
+                      <h3>Freshness Check</h3>
+                      <ul className="cc-map-list">
+                        {dungeonMap.snapshot.freshness_errors.map((message) => (
+                          <li key={message}>
+                            <strong>stale</strong>
+                            <span>{message}</span>
+                          </li>
+                        ))}
+                        {dungeonMap.snapshot.changed_source_ids.map((sourceId) => (
+                          <li key={sourceId}>
+                            <strong>changed</strong>
+                            <span>{sourceId}</span>
+                          </li>
+                        ))}
+                      </ul>
+                    </section>
+                  ) : null}
+
+                  <section className="cc-map-section">
+                    <h3>Projects</h3>
+                    <div className="cc-map-grid">
+                      {dungeonMap.snapshot.projects.map((project) => (
+                        <article className="cc-map-card" key={project.project_code}>
+                          <strong>{project.project_code}</strong>
+                          <span>workspace {project.workspace_present ? "present" : "missing"}</span>
+                          <span>workmeta {project.workmeta_present ? "present" : "missing"}</span>
+                        </article>
+                      ))}
+                    </div>
+                  </section>
+
+                  <section className="cc-map-section">
+                    <h3>Missions</h3>
+                    <div className="cc-map-grid">
+                      {dungeonMap.snapshot.missions.map((mission) => (
+                        <article className="cc-map-card" key={`${mission.title}:${mission.status}:${mission.readiness}`}>
+                          <strong>{mission.title}</strong>
+                          <span>Status {mission.status}</span>
+                          <span>Readiness {mission.readiness}</span>
+                        </article>
+                      ))}
+                    </div>
+                  </section>
+
+                  <section className="cc-map-section">
+                    <h3>Gateway</h3>
+                    <div className="cc-summary-card">
+                      <strong>Inbox {dungeonMap.snapshot.gateway.intake_inbox_count}</strong>
+                      <span>monster_index {dungeonMap.snapshot.gateway.monster_index_present ? "present" : "missing"}</span>
+                    </div>
+                  </section>
+
+                  <section className="cc-map-section">
+                    <h3>Next Actions</h3>
+                    <ul className="cc-map-list">
+                      {dungeonMap.snapshot.next_actions.map((action) => (
+                        <li key={action.id}>
+                          <strong>{action.status}</strong>
+                          <span>{action.summary || action.id}</span>
+                        </li>
+                      ))}
+                    </ul>
+                  </section>
+                </div>
+              ) : (
+                <div className="cc-empty-state">
+                  <p>Refresh Map to inspect the local read-only snapshot.</p>
                 </div>
               )}
             </section>
