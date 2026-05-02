@@ -2,8 +2,10 @@
 
 import path from "node:path";
 import process from "node:process";
+import { readJson } from "../shared/io.mjs";
 import {
   buildSnapshot,
+  compareSnapshotFreshness,
   defaultSnapshotPath,
   validateSnapshot,
   writeSnapshot,
@@ -25,6 +27,32 @@ async function main() {
 
   if (args.check) {
     process.stdout.write(`PASS snapshot check: ${snapshot.schema_version}\n`);
+    return;
+  }
+
+  if (args.checkFresh) {
+    const snapshotPath = path.resolve(repoRoot, args.snapshot ?? args.out ?? path.relative(repoRoot, defaultSnapshotPath(repoRoot)));
+    const storedSnapshot = await readStoredSnapshot(snapshotPath);
+    if (!storedSnapshot) {
+      process.stderr.write(`snapshot freshness error: stored snapshot not found or unreadable at ${path.relative(repoRoot, snapshotPath).split(path.sep).join("/")}\n`);
+      process.stderr.write("Run `npm run guild-hall:snapshot` to regenerate the local snapshot.\n");
+      process.exitCode = 1;
+      return;
+    }
+
+    const freshness = compareSnapshotFreshness(storedSnapshot, snapshot);
+    if (!freshness.ok) {
+      for (const error of freshness.errors) {
+        process.stderr.write(`snapshot freshness error: ${error}\n`);
+      }
+      for (const source of freshness.changed_sources) {
+        process.stderr.write(`changed source: ${source.id} (${source.source_ref})\n`);
+      }
+      process.exitCode = 1;
+      return;
+    }
+
+    process.stdout.write(`PASS snapshot freshness: ${snapshot.schema_version}\n`);
     return;
   }
 
@@ -61,6 +89,19 @@ function parseArgs(argv) {
       args.check = true;
       continue;
     }
+    if (token === "--check-fresh") {
+      args.checkFresh = true;
+      continue;
+    }
+    if (token === "--snapshot") {
+      args.snapshot = argv[index + 1];
+      index += 1;
+      continue;
+    }
+    if (token.startsWith("--snapshot=")) {
+      args.snapshot = token.slice("--snapshot=".length);
+      continue;
+    }
     if (token === "--out") {
       args.out = argv[index + 1];
       index += 1;
@@ -80,6 +121,14 @@ function parseArgs(argv) {
     }
   }
   return args;
+}
+
+async function readStoredSnapshot(snapshotPath) {
+  try {
+    return await readJson(snapshotPath);
+  } catch {
+    return null;
+  }
 }
 
 function printSummary(snapshot) {

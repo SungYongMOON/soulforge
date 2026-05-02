@@ -1,4 +1,5 @@
 import { spawnSync } from "node:child_process";
+import { createHash } from "node:crypto";
 import { promises as fs } from "node:fs";
 import path from "node:path";
 import { fileURLToPath } from "node:url";
@@ -7,6 +8,7 @@ import { pathExists, writeJson } from "../shared/io.mjs";
 
 export const SNAPSHOT_VERSION = "soulforge.snapshot.v0";
 export const SNAPSHOT_PRODUCER = "guild_hall/snapshot";
+export const SNAPSHOT_OBSERVATIONS_VERSION = "soulforge.snapshot_observations.v0";
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 const defaultRepoRoot = path.resolve(__dirname, "../..");
@@ -46,6 +48,7 @@ export async function buildSnapshot(options = {}) {
   const gateway = await summarizeGateway(repoRoot);
   const privateState = await summarizePrivateState(repoRoot);
   const repo = summarizeRepo(repoRoot);
+  const sourceObservations = await collectSourceObservations(repoRoot, generatedAt);
 
   const snapshot = {
     schema_version: SNAPSHOT_VERSION,
@@ -67,6 +70,7 @@ export async function buildSnapshot(options = {}) {
     missions,
     gateway,
     private_state: privateState,
+    source_observations: sourceObservations,
     next_actions: [
       {
         id: "snapshot_schema",
@@ -94,6 +98,48 @@ export async function writeSnapshot(snapshot, outputPath) {
   await writeJson(outputPath, snapshot);
 }
 
+export function compareSnapshotFreshness(storedSnapshot, currentSnapshot) {
+  const errors = [];
+  const storedObservations = storedSnapshot?.source_observations;
+  const currentObservations = currentSnapshot?.source_observations;
+  const storedFingerprint = storedObservations?.fingerprint ?? null;
+  const currentFingerprint = currentObservations?.fingerprint ?? null;
+  let changedSources = [];
+
+  if (!storedSnapshot || typeof storedSnapshot !== "object") {
+    errors.push("stored snapshot must be an object");
+  }
+  if (storedSnapshot?.schema_version !== currentSnapshot?.schema_version) {
+    errors.push("stored snapshot schema_version does not match current producer output");
+  }
+  if (!storedObservations || storedObservations.schema_version !== SNAPSHOT_OBSERVATIONS_VERSION) {
+    errors.push("stored snapshot has no current source_observations; regenerate it");
+  }
+  if (!currentObservations || currentObservations.schema_version !== SNAPSHOT_OBSERVATIONS_VERSION) {
+    errors.push("current snapshot has no current source_observations");
+  }
+  if (!storedFingerprint) {
+    errors.push("stored snapshot source observation fingerprint is missing");
+  }
+  if (!currentFingerprint) {
+    errors.push("current snapshot source observation fingerprint is missing");
+  }
+
+  if (storedFingerprint && currentFingerprint && storedFingerprint !== currentFingerprint) {
+    errors.push("source observations changed since the stored snapshot was generated");
+    changedSources = compareObservationItems(storedObservations.items, currentObservations.items);
+  }
+
+  return {
+    ok: errors.length === 0,
+    status: errors.length === 0 ? "fresh" : "stale",
+    errors,
+    changed_sources: changedSources,
+    stored_fingerprint: storedFingerprint,
+    current_fingerprint: currentFingerprint,
+  };
+}
+
 export function validateSnapshot(snapshot) {
   const errors = [];
 
@@ -105,7 +151,7 @@ export function validateSnapshot(snapshot) {
   if (snapshot.schema_version !== SNAPSHOT_VERSION) {
     errors.push(`schema_version must be ${SNAPSHOT_VERSION}`);
   }
-  for (const key of ["generated_at", "source", "roots", "projects", "missions", "gateway", "diagnostics"]) {
+  for (const key of ["generated_at", "source", "roots", "projects", "missions", "gateway", "source_observations", "diagnostics"]) {
     if (!(key in snapshot)) {
       errors.push(`missing top-level key: ${key}`);
     }
@@ -118,6 +164,12 @@ export function validateSnapshot(snapshot) {
   }
   if (!Array.isArray(snapshot.missions?.items)) {
     errors.push("missions.items must be an array");
+  }
+  if (!Array.isArray(snapshot.source_observations?.items)) {
+    errors.push("source_observations.items must be an array");
+  }
+  if (!snapshot.source_observations?.fingerprint) {
+    errors.push("source_observations.fingerprint must be present");
   }
 
   const forbiddenPaths = [
@@ -135,6 +187,195 @@ export function validateSnapshot(snapshot) {
   }
 
   return buildValidationResult(errors);
+}
+
+async function collectSourceObservations(repoRoot, observedAt) {
+  const rawItems = await Promise.all([
+    observeGitSource(repoRoot),
+    observeFileSource(repoRoot, {
+      id: "development_roadmap",
+      sourceRef: "docs/architecture/foundation/DEVELOPMENT_ROADMAP_V0.md",
+      owner: "docs/architecture/foundation",
+      readMode: "file_metadata_only",
+    }),
+    observeFileSource(repoRoot, {
+      id: "mission_index",
+      sourceRef: ".mission/index.yaml",
+      owner: ".mission",
+      readMode: "public_summary_file_metadata",
+    }),
+    observeDirectorySource(repoRoot, {
+      id: "workspace_projects",
+      sourceRef: "_workspaces",
+      owner: "_workspaces",
+      readMode: "shallow_directory_metadata_only",
+      exclude: new Set([".git"]),
+    }),
+    observeWorkmetaSource(repoRoot),
+    observeGatewaySource(repoRoot),
+    observePrivateStateSource(repoRoot),
+  ]);
+  const items = rawItems.map(withObservationSignature);
+
+  return {
+    schema_version: SNAPSHOT_OBSERVATIONS_VERSION,
+    observed_at: observedAt,
+    policy: {
+      signal_scope: "metadata_only",
+      freshness_rule: "A stored snapshot is fresh only when every source observation signature still matches current local observations.",
+    },
+    fingerprint: hashStable({
+      schema_version: SNAPSHOT_OBSERVATIONS_VERSION,
+      items: items.map((item) => ({ id: item.id, signature: item.signature })),
+    }),
+    items,
+  };
+}
+
+async function observeGitSource(repoRoot) {
+  const gitStatus = summarizeGit(repoRoot);
+  return {
+    id: "repo_worktree",
+    source_ref: ".",
+    owner: "Soulforge",
+    read_mode: "git_metadata_only",
+    present: gitStatus.available,
+    signal: {
+      kind: "git_status",
+      branch: gitOutput(repoRoot, ["branch", "--show-current"]) || null,
+      head: gitOutput(repoRoot, ["rev-parse", "HEAD"]),
+      dirty: gitStatus.dirty,
+      changed_entries: gitStatus.changed_entries,
+    },
+  };
+}
+
+async function observeFileSource(repoRoot, { id, sourceRef, owner, readMode }) {
+  const stat = await statPath(path.join(repoRoot, sourceRef));
+  return {
+    id,
+    source_ref: sourceRef,
+    owner,
+    read_mode: readMode,
+    present: stat.present,
+    signal: {
+      kind: "file_stat",
+      entry_type: stat.entry_type,
+      mtime_ms: stat.mtime_ms,
+      size_bytes: stat.size_bytes,
+    },
+  };
+}
+
+async function observeDirectorySource(repoRoot, { id, sourceRef, owner, readMode, exclude = new Set() }) {
+  const root = path.join(repoRoot, sourceRef);
+  const stat = await statPath(root);
+  const entries = stat.present ? await readDirectoryEntries(root, exclude) : [];
+  return {
+    id,
+    source_ref: sourceRef,
+    owner,
+    read_mode: readMode,
+    present: stat.present,
+    signal: {
+      kind: "directory_surface",
+      root_mtime_ms: stat.mtime_ms,
+      direct_dir_count: entries.filter((entry) => entry.isDirectory()).length,
+      direct_file_count: entries.filter((entry) => entry.isFile()).length,
+    },
+  };
+}
+
+async function observeWorkmetaSource(repoRoot) {
+  const root = path.join(repoRoot, "_workmeta");
+  const stat = await statPath(root);
+  const projectCodes = stat.present
+    ? await listProjectCodes(root, {
+        exclude: new Set([".git", "templates"]),
+        requireSurface: true,
+      })
+    : [];
+  const surfacePaths = [root];
+  for (const projectCode of projectCodes) {
+    const projectRoot = path.join(root, projectCode);
+    surfacePaths.push(
+      path.join(projectRoot, "contract.yaml"),
+      path.join(projectRoot, "bindings"),
+      path.join(projectRoot, "reports"),
+      path.join(projectRoot, "artifacts", "missions"),
+    );
+  }
+
+  return {
+    id: "workmeta_projects",
+    source_ref: "_workmeta",
+    owner: "_workmeta",
+    read_mode: "project_surface_metadata_only",
+    present: stat.present,
+    signal: {
+      kind: "workmeta_surface",
+      root_mtime_ms: stat.mtime_ms,
+      project_count: projectCodes.length,
+      latest_surface_mtime_ms: await latestMtimeMs(surfacePaths),
+    },
+  };
+}
+
+async function observeGatewaySource(repoRoot) {
+  const gatewayStateRoot = path.join(repoRoot, "guild_hall", "state", "gateway");
+  const intakeRoot = path.join(gatewayStateRoot, "intake_inbox");
+  const stat = await statPath(gatewayStateRoot);
+  const inboxDirs = await listDirectoryNames(intakeRoot, { exclude: new Set(["_index"]) });
+  const monsterIndexPath = path.join(intakeRoot, "_index", "monster_index.json");
+  const monsterIndexStat = await statPath(monsterIndexPath);
+  const observedPaths = [
+    gatewayStateRoot,
+    intakeRoot,
+    monsterIndexPath,
+    path.join(gatewayStateRoot, "log", "mail_fetch", "state"),
+    ...inboxDirs.map((inboxId) => path.join(intakeRoot, inboxId)),
+  ];
+
+  return {
+    id: "gateway_state",
+    source_ref: "guild_hall/state/gateway",
+    owner: "guild_hall/gateway",
+    read_mode: "state_surface_metadata_only",
+    present: stat.present,
+    signal: {
+      kind: "gateway_surface",
+      root_mtime_ms: stat.mtime_ms,
+      intake_inbox_count: inboxDirs.length,
+      monster_index_mtime_ms: monsterIndexStat.mtime_ms,
+      latest_surface_mtime_ms: await latestMtimeMs(observedPaths),
+    },
+  };
+}
+
+async function observePrivateStateSource(repoRoot) {
+  const root = path.join(repoRoot, "private-state");
+  const stat = await statPath(root);
+  const gitStatus = stat.present ? summarizeGit(root) : summarizeEmptyGit();
+  const gitHead = stat.present ? gitOutput(root, ["rev-parse", "HEAD"]) : null;
+  return {
+    id: "private_state",
+    source_ref: "private-state",
+    owner: "private-state",
+    read_mode: "continuity_surface_metadata_only",
+    present: stat.present,
+    signal: {
+      kind: "private_state_surface",
+      root_mtime_ms: stat.mtime_ms,
+      git_head_fingerprint: gitHead ? hashStable({ owner: "private-state", head: gitHead }).slice(0, 16) : null,
+      git_dirty: gitStatus.dirty,
+      git_changed_entries: gitStatus.changed_entries,
+      latest_surface_mtime_ms: await latestMtimeMs([
+        root,
+        path.join(root, "guild_hall", "state", "gateway"),
+        path.join(root, "guild_hall", "state", "operations", "soulforge_activity"),
+      ]),
+    },
+  };
 }
 
 async function summarizeOwnerRoots(repoRoot) {
@@ -372,6 +613,48 @@ async function listDirectoryNames(root, options = {}) {
   }
 }
 
+async function readDirectoryEntries(root, exclude = new Set()) {
+  try {
+    const entries = await fs.readdir(root, { withFileTypes: true });
+    return entries
+      .filter((entry) => !entry.name.startsWith("."))
+      .filter((entry) => !exclude.has(entry.name));
+  } catch {
+    return [];
+  }
+}
+
+async function statPath(filePath) {
+  try {
+    const stat = await fs.stat(filePath);
+    return {
+      present: true,
+      entry_type: stat.isFile() ? "file" : stat.isDirectory() ? "directory" : "other",
+      mtime_ms: Math.trunc(stat.mtimeMs),
+      size_bytes: stat.isFile() ? stat.size : null,
+    };
+  } catch {
+    return {
+      present: false,
+      entry_type: null,
+      mtime_ms: null,
+      size_bytes: null,
+    };
+  }
+}
+
+async function latestMtimeMs(paths) {
+  let latest = null;
+  for (const filePath of paths) {
+    const stat = await statPath(filePath);
+    if (!stat.present || stat.mtime_ms === null) {
+      continue;
+    }
+    latest = latest === null ? stat.mtime_ms : Math.max(latest, stat.mtime_ms);
+  }
+  return latest;
+}
+
 async function countDirectoryEntries(root, options = {}) {
   try {
     const entries = await fs.readdir(root, { withFileTypes: true });
@@ -436,4 +719,64 @@ function buildValidationResult(errors) {
     ok: errors.length === 0,
     errors,
   };
+}
+
+function withObservationSignature(item) {
+  const { signature, ...payload } = item;
+  return {
+    ...payload,
+    signature: hashStable(payload),
+  };
+}
+
+function compareObservationItems(storedItems = [], currentItems = []) {
+  const stored = new Map((Array.isArray(storedItems) ? storedItems : []).map((item) => [item.id, item]));
+  const current = new Map((Array.isArray(currentItems) ? currentItems : []).map((item) => [item.id, item]));
+  const ids = Array.from(new Set([...stored.keys(), ...current.keys()])).sort();
+  const changes = [];
+
+  for (const id of ids) {
+    const storedItem = stored.get(id);
+    const currentItem = current.get(id);
+    if (!storedItem) {
+      changes.push({
+        id,
+        source_ref: currentItem?.source_ref ?? id,
+        change_type: "new_source",
+      });
+      continue;
+    }
+    if (!currentItem) {
+      changes.push({
+        id,
+        source_ref: storedItem.source_ref ?? id,
+        change_type: "removed_source",
+      });
+      continue;
+    }
+    if (storedItem.signature !== currentItem.signature) {
+      changes.push({
+        id,
+        source_ref: currentItem.source_ref ?? storedItem.source_ref ?? id,
+        change_type: "changed",
+      });
+    }
+  }
+
+  return changes;
+}
+
+function hashStable(value) {
+  return createHash("sha256").update(stableStringify(value)).digest("hex");
+}
+
+function stableStringify(value) {
+  if (value === null || typeof value !== "object") {
+    return JSON.stringify(value);
+  }
+  if (Array.isArray(value)) {
+    return `[${value.map((item) => stableStringify(item)).join(",")}]`;
+  }
+  const keys = Object.keys(value).sort();
+  return `{${keys.map((key) => `${JSON.stringify(key)}:${stableStringify(value[key])}`).join(",")}}`;
 }

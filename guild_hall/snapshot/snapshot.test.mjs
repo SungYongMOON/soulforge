@@ -3,7 +3,7 @@ import os from "node:os";
 import path from "node:path";
 import test from "node:test";
 import assert from "node:assert/strict";
-import { buildSnapshot, validateSnapshot } from "./producer.mjs";
+import { buildSnapshot, compareSnapshotFreshness, validateSnapshot } from "./producer.mjs";
 
 test("buildSnapshot summarizes private project surfaces without reading private content", async () => {
   const repoRoot = await mkdtemp(path.join(os.tmpdir(), "soulforge-snapshot-"));
@@ -42,6 +42,51 @@ test("buildSnapshot summarizes private project surfaces without reading private 
     assert.equal(snapshot.missions.items[0].mission_id, "mission_001");
     assert.equal(serialized.includes("DO_NOT_LEAK_PRIVATE_NAME"), false);
     assert.equal(serialized.includes("DO_NOT_LEAK_TOKEN"), false);
+  } finally {
+    await rm(repoRoot, { recursive: true, force: true });
+  }
+});
+
+test("compareSnapshotFreshness detects source observation changes", async () => {
+  const repoRoot = await mkdtemp(path.join(os.tmpdir(), "soulforge-snapshot-freshness-"));
+  const missionIndexPath = path.join(repoRoot, ".mission", "index.yaml");
+
+  try {
+    await mkdir(path.join(repoRoot, ".mission"), { recursive: true });
+    await writeFile(
+      missionIndexPath,
+      [
+        "version: v1",
+        "entries:",
+        "  - mission_id: mission_001",
+        "    title: Mission One",
+        "    status: held",
+        "    readiness_status: ready",
+      ].join("\n"),
+      "utf8",
+    );
+
+    const stored = await buildSnapshot({ repoRoot, generatedAt: "2026-05-02T00:00:00.000Z" });
+    const sameSources = await buildSnapshot({ repoRoot, generatedAt: "2026-05-02T00:01:00.000Z" });
+    assert.equal(compareSnapshotFreshness(stored, sameSources).ok, true);
+
+    await writeFile(
+      missionIndexPath,
+      [
+        "version: v1",
+        "entries:",
+        "  - mission_id: mission_001",
+        "    title: Mission One Updated",
+        "    status: held",
+        "    readiness_status: ready",
+      ].join("\n"),
+      "utf8",
+    );
+
+    const changedSources = await buildSnapshot({ repoRoot, generatedAt: "2026-05-02T00:02:00.000Z" });
+    const freshness = compareSnapshotFreshness(stored, changedSources);
+    assert.equal(freshness.ok, false);
+    assert.equal(freshness.changed_sources.some((source) => source.id === "mission_index"), true);
   } finally {
     await rm(repoRoot, { recursive: true, force: true });
   }

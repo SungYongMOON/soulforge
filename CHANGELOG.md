@@ -11,6 +11,12 @@ Git log 는 원문 이력을 남기고, 이 문서는 사람이 읽는 patch not
 
 ## 2026-05-02
 
+### Revision `working` - snapshot freshness 계약 추가
+
+- `soulforge_snapshot.json` 에 `source_observations` 를 추가해 UI 가 보는 snapshot 이 어떤 원본 metadata 기준인지 판정할 수 있게 했다.
+- `npm run guild-hall:snapshot:check-fresh` 를 추가해 저장된 local snapshot 과 현재 원본 surface 의 fingerprint mismatch 를 감지하게 했다.
+- freshness 관측 범위는 repo metadata, roadmap, mission index, `_workspaces`, `_workmeta`, gateway state, private-state surface 로 제한하고 원본 업무 내용은 읽지 않는다.
+
 ### Revision `working` - read-only Soulforge snapshot producer 추가
 
 - `guild_hall/snapshot/` 을 추가해 owner root, project surface, mission summary, gateway status 를 sanitized metadata JSON 으로 투영하게 했다.

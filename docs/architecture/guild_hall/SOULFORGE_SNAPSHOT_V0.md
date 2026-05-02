@@ -26,6 +26,7 @@
 | `missions` | tracked `.mission/index.yaml` 기반 mission summary |
 | `gateway` | gateway local state 존재 여부와 count 수준 요약 |
 | `private_state` | private-state presence 와 continuity surface 요약 |
+| `source_observations` | snapshot freshness 판정용 metadata-only source fingerprint |
 | `next_actions` | 작전판이 바로 보여줄 다음 개발/운영 action 후보 |
 | `diagnostics` | snapshot 생성 중 발견한 warning/error |
 
@@ -37,6 +38,21 @@
 - `private-state/**` 는 존재 여부와 continuity surface 여부만 읽는다.
 - mailbox raw, attachment, token, credential, session, cookie 값은 읽지 않는다.
 - `.mission/index.yaml` 은 public-safe tracked mission summary 이므로 읽을 수 있다.
+
+## freshness
+
+- snapshot 은 `source_observations.fingerprint` 를 포함한다.
+- fingerprint 는 원본 내용을 복제하지 않고, source 별 metadata signal 만 해시한다.
+- fresh 판정은 저장된 snapshot 의 fingerprint 와 현재 local observation fingerprint 가 같은지로만 결정한다.
+- mismatch 가 있으면 UI 나 외부 host 는 snapshot 을 현재 상태로 표시하지 않아야 한다.
+- freshness check 는 아래 source 를 v0 관측 대상으로 둔다.
+  - public repo git metadata
+  - `docs/architecture/foundation/DEVELOPMENT_ROADMAP_V0.md`
+  - `.mission/index.yaml`
+  - `_workspaces` shallow project directory surface
+  - `_workmeta` project metadata surface
+  - `guild_hall/state/gateway` state surface
+  - `private-state` continuity surface
 
 ## project summary
 
@@ -81,6 +97,7 @@
 
 ```bash
 npm run guild-hall:snapshot
+npm run guild-hall:snapshot:check-fresh
 npm run guild-hall:snapshot:json
 npm run validate:snapshot
 ```

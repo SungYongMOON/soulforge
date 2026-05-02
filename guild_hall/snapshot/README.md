@@ -8,9 +8,9 @@
 ## 포함 대상
 
 - `producer.mjs`
-  - owner root, mission, project mount, gateway 상태를 read-only 로 요약한다.
+  - owner root, mission, project mount, gateway 상태를 read-only 로 요약하고 source observation fingerprint 를 만든다.
 - `cli.mjs`
-  - snapshot 생성, JSON 출력, local state write, shape check entrypoint
+  - snapshot 생성, JSON 출력, local state write, shape check, freshness check entrypoint
 - `snapshot.test.mjs`
   - private 파일 내용이 snapshot 에 섞이지 않는지 확인하는 최소 test
 
@@ -18,6 +18,7 @@
 
 - 기본 출력 위치는 `guild_hall/state/snapshot/soulforge_snapshot.json` 이다.
 - 이 경로는 local-only state 이며 public Git 으로 추적하지 않는다.
+- `source_observations` 는 snapshot 이 본 원본 surface 의 metadata-only fingerprint 를 담는다.
 
 ## 경계
 
@@ -25,11 +26,13 @@
 - secret, token, credential, session, cookie 값은 읽지 않는다.
 - 메일 원문, attachment, raw mailbox payload, 실제 프로젝트 파일 내용은 읽지 않는다.
 - mission summary 는 tracked `.mission/index.yaml` 에 있는 public-safe 필드만 읽는다.
+- freshness check 는 저장된 snapshot 의 `source_observations.fingerprint` 와 현재 원본 metadata fingerprint 를 비교한다.
 
 ## 실행
 
 ```bash
 npm run guild-hall:snapshot
+npm run guild-hall:snapshot:check-fresh
 npm run guild-hall:snapshot:json
 npm run validate:snapshot
 ```

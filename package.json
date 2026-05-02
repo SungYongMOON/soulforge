@@ -18,6 +18,7 @@
     "guild-hall:night-watch:render": "node guild_hall/night_watch/render_local_automation.mjs",
     "guild-hall:night-watch:preflight": "node guild_hall/night_watch/preflight_repo_sync.mjs",
     "guild-hall:snapshot": "node guild_hall/snapshot/cli.mjs --write",
+    "guild-hall:snapshot:check-fresh": "node guild_hall/snapshot/cli.mjs --check-fresh",
     "guild-hall:snapshot:json": "node guild_hall/snapshot/cli.mjs --json",
     "guild-hall:gateway:fetch": "python3 guild_hall/gateway/mail_fetch/cli.py",
     "guild-hall:gateway:fetch:healthcheck": "python3 guild_hall/gateway/mail_fetch/healthcheck.py",
