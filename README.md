@@ -39,6 +39,7 @@ flowchart TD
 
 ## 상위 지도
 
+- [`docs/architecture/foundation/PROJECT_MAP_V0.md`](docs/architecture/foundation/PROJECT_MAP_V0.md): 멈춘 뒤 다시 잡기 위한 한 장짜리 owner/폴더/게임 루프 지도
 - [`docs/architecture/foundation/VISION_AND_GOALS.md`](docs/architecture/foundation/VISION_AND_GOALS.md): Soulforge의 비전, 목표, 성공 조건
 - [`.registry/README.md`](.registry/README.md): `.registry` skeleton 과 owner 경계
 - [`docs/architecture/foundation/TARGET_TREE.md`](docs/architecture/foundation/TARGET_TREE.md): 새 canonical target tree

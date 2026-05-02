@@ -21,19 +21,21 @@
 
 ## 읽는 순서
 
-1. [`foundation/REPOSITORY_PURPOSE.md`](foundation/REPOSITORY_PURPOSE.md)
-2. [`foundation/TARGET_TREE.md`](foundation/TARGET_TREE.md)
-3. [`foundation/DOCUMENT_OWNERSHIP.md`](foundation/DOCUMENT_OWNERSHIP.md)
-4. [`guild_hall/README.md`](guild_hall/README.md)
-5. [`workspace/README.md`](workspace/README.md)
-6. [`bootstrap/README.md`](bootstrap/README.md)
-7. [`ui/README.md`](ui/README.md)
+1. [`foundation/PROJECT_MAP_V0.md`](foundation/PROJECT_MAP_V0.md)
+2. [`foundation/REPOSITORY_PURPOSE.md`](foundation/REPOSITORY_PURPOSE.md)
+3. [`foundation/TARGET_TREE.md`](foundation/TARGET_TREE.md)
+4. [`foundation/DOCUMENT_OWNERSHIP.md`](foundation/DOCUMENT_OWNERSHIP.md)
+5. [`guild_hall/README.md`](guild_hall/README.md)
+6. [`workspace/README.md`](workspace/README.md)
+7. [`bootstrap/README.md`](bootstrap/README.md)
+8. [`ui/README.md`](ui/README.md)
 
 ## 관련 경로
 
 - [루트 README](../../README.md)
 - [`docs/README.md`](../README.md)
 - [`foundation/README.md`](foundation/README.md)
+- [`foundation/PROJECT_MAP_V0.md`](foundation/PROJECT_MAP_V0.md)
 - [`bootstrap/README.md`](bootstrap/README.md)
 - [`bootstrap/BOOTSTRAP_PROFILES_V0.md`](bootstrap/BOOTSTRAP_PROFILES_V0.md)
 - [`bootstrap/UPDATE_MANUAL_V0.md`](bootstrap/UPDATE_MANUAL_V0.md)

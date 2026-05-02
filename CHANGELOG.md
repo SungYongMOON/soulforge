@@ -9,6 +9,13 @@ Git log 는 원문 이력을 남기고, 이 문서는 사람이 읽는 patch not
 - 보호 대상 업무 데이터와 continuity record 는 여기 적지 않고 nested `private-state/CHANGELOG.md` 에 적는다.
 - secret 값, credential, token, password 는 절대 기록하지 않는다.
 
+## 2026-05-02
+
+### Revision `working` - 현재 구조 파악용 project map 추가
+
+- `docs/architecture/foundation/PROJECT_MAP_V0.md` 를 추가해 Soulforge owner roots, 업무 RPG 루프, UI/gateway 상태, local/private 경계를 한 장에서 다시 볼 수 있게 했다.
+- root README 와 architecture index 에 새 지도 문서를 연결해 멈춘 뒤 재개할 때 첫 읽기 순서를 분명히 했다.
+
 ## 2026-03-27
 
 ### Revision `working` - bootstrap 프로필을 public-only/operator/owner-with-state 3단으로 정리
