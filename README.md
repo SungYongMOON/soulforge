@@ -45,6 +45,7 @@ flowchart TD
 - [`.registry/README.md`](.registry/README.md): `.registry` skeleton 과 owner 경계
 - [`docs/architecture/foundation/TARGET_TREE.md`](docs/architecture/foundation/TARGET_TREE.md): 새 canonical target tree
 - [`docs/architecture/foundation/DOCUMENT_OWNERSHIP.md`](docs/architecture/foundation/DOCUMENT_OWNERSHIP.md): 새 owner 기준 문서 소유 원칙
+- [`docs/architecture/foundation/AGENT_EXECUTION_CONTRACT_V0.md`](docs/architecture/foundation/AGENT_EXECUTION_CONTRACT_V0.md): AI agent 의 가정 노출, 최소 변경, scoped edit, 검증 기준 계약
 - [`docs/architecture/foundation/ONTOLOGY_MODEL_V0.md`](docs/architecture/foundation/ONTOLOGY_MODEL_V0.md): Soulforge 개체/관계 모델과 ontology-style 저장 위치 규칙
 - [`docs/architecture/foundation/ONTOLOGY_REVIEW_MANUAL_V0.md`](docs/architecture/foundation/ONTOLOGY_REVIEW_MANUAL_V0.md): ontology review 트리거, carry-forward, guild_master 상기 규칙
 - [`guild_hall/README.md`](guild_hall/README.md): cross-project 운영 루트와 state 경계

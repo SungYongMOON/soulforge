@@ -9,6 +9,14 @@ Git log 는 원문 이력을 남기고, 이 문서는 사람이 읽는 patch not
 - 보호 대상 업무 데이터와 continuity record 는 여기 적지 않고 nested `private-state/CHANGELOG.md` 에 적는다.
 - secret 값, credential, token, password 는 절대 기록하지 않는다.
 
+## 2026-05-04
+
+### Revision `working` - agent 실행 계약 추가
+
+- `docs/architecture/foundation/AGENT_EXECUTION_CONTRACT_V0.md` 를 추가해 Karpathy-style coding agent 원칙을 Soulforge의 canon/public-private/secret 경계에 맞게 흡수했다.
+- `AGENTS.md` 에 코드, 문서, 구조, 검토, 적용성 판단, 변경 계획, 파일 편집 작업 전 실행 계약을 읽는 라우팅 규칙을 추가했다.
+- root README 와 foundation README 에 새 실행 계약 문서를 연결했다.
+
 ## 2026-05-02
 
 ### Revision `working` - Dungeon Map v0 read-only pane 추가
