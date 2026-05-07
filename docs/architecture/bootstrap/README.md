@@ -5,18 +5,20 @@
 - `bootstrap/` 은 clone 된 PC 에서 Soulforge 를 실제로 설치하고 readiness 를 확인하는 문서를 한곳에 모은다.
 - 사람용 설치 가이드와 agent/doctor 용 실행 가이드를 같은 묶음에서 찾게 한다.
 
-## 포함 대상
+## 문서 역할 색인
 
-- `BOOTSTRAP_PROFILES_V0.md`
-- `BOOTSTRAP_DOCTOR_V0.md`
-- `BOOTSTRAP_CHECKLIST_V0.json`
-- `UPDATE_MANUAL_V0.md`
-- `OWNER_HANDOFF_CHECKLIST_V0.md`
-- `CODEX_OWNER_BOOTSTRAP_PROMPT_V0.md`
-- `CODEX_OWNER_UPDATE_PROMPT_V0.md`
-- `../workspace/INSTALLATION_MANUAL_V0.md`
-- `../workspace/MULTI_PC_DEVELOPMENT_V0.md`
-- `../workspace/PRIVATE_STATE_REPO_V0.md`
+| 문서 | 역할 |
+| --- | --- |
+| `BOOTSTRAP_PROFILES_V0.md` | `public-only`, `operator`, `owner-with-state` 설치/복원 범위를 정의한다. |
+| `BOOTSTRAP_DOCTOR_V0.md` | clone 된 PC 의 readiness 를 `guild-hall:doctor` 로 확인하는 계약이다. |
+| `BOOTSTRAP_CHECKLIST_V0.json` | doctor 가 읽는 profile/checklist data source 다. |
+| `UPDATE_MANUAL_V0.md` | 이미 설치된 PC 를 pull/update/check 하는 절차를 둔다. |
+| `OWNER_HANDOFF_CHECKLIST_V0.md` | 회사/집/다른 owner PC 로 이동할 때 확인할 handoff checklist 다. |
+| `CODEX_OWNER_BOOTSTRAP_PROMPT_V0.md` | AI 에게 owner bootstrap 을 맡길 때 쓰는 안전한 prompt source 다. |
+| `CODEX_OWNER_UPDATE_PROMPT_V0.md` | AI 에게 owner update 를 맡길 때 쓰는 안전한 prompt source 다. |
+| `../workspace/INSTALLATION_MANUAL_V0.md` | workspace 문서군이 소유하는 다른 PC 첫 설치 상위 runbook 이다. |
+| `../workspace/MULTI_PC_DEVELOPMENT_V0.md` | 여러 PC clone, local runtime, node role, push/pull 운영 절차를 둔다. |
+| `../workspace/PRIVATE_STATE_REPO_V0.md` | owner-only continuity mirror repo 의 포함/제외 범위를 둔다. |
 
 ## 읽는 순서
 

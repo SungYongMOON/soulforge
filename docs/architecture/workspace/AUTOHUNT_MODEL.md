@@ -54,6 +54,18 @@ sequenceDiagram
 - human `guild master` 는 실패한 hunt 의 escalation 을 받고, manual hunt 기록과 canon promotion 판단을 맡는 상위 운영 주체가 될 수 있다.
 - raw truth 는 언제나 `runs/<run_id>/` 아래에 남긴다.
 
+## node capability 확장선
+
+여러 PC 가 Soulforge 를 동시에 운용할 때 autohunt 는 PC 이름이 아니라 node role 과 capability 를 기준으로 확장한다.
+node role 과 local identity 의 owner 는 [`MULTI_PC_DEVELOPMENT_V0.md`](MULTI_PC_DEVELOPMENT_V0.md) 이고, 이 문서는 그 identity 를 자동사냥 routing 에 어떻게 소비할지만 다룬다.
+
+- current-default 는 `mode: supervised` 와 단일 runner handoff 다.
+- future multi-node autohunt 는 `monster_type -> required_capability -> eligible_node_role -> claim -> run truth` 순서로 확장한다.
+- 특정 tool 이 필요한 작업은 `tool_pc` capability 가 있는 node 에만 dispatch 한다.
+- 항상 켜 두는 node 는 lightweight classification, reminder, dispatch draft 를 우선 맡고, 실제 project/tool work 는 capability 가 있는 node 에 넘긴다.
+- claim, lease, retry counter, pending queue 는 actual operating state 이므로 `_workmeta/<project_code>/autohunt/` 아래 local/private surface 로 둔다.
+- unknown monster, 권한이 불명확한 job, 사람이 품질 확인해야 하는 job 은 human escalation 으로 보낸다.
+
 ## 최소 파일
 
 - `policy.yaml`
@@ -87,4 +99,3 @@ sequenceDiagram
 - `autohunt/` 는 top-level canonical root 가 아니다.
 - `autohunt/` 는 local operating layer 이며, tracked repo 에는 public-safe sample 과 문서만 둔다.
 - host-local mailbox endpoint, secrets, queue snapshot, actual run dump 는 tracked sample 에 두지 않는다.
-

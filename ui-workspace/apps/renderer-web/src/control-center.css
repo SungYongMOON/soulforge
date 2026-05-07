@@ -9,6 +9,23 @@
     var(--sf-root-background);
 }
 
+.cc-shell[data-active-pane="map"] {
+  background: var(--cc-map-root-background);
+}
+
+.cc-shell[data-active-pane="map"] .cc-detail {
+  background: var(--cc-map-frame-surface);
+}
+
+.cc-shell[data-active-pane="map"] .cc-map-pane,
+.cc-shell[data-active-pane="map"] .cc-map-section {
+  background: var(--cc-map-panel-surface);
+}
+
+.cc-shell[data-active-pane="map"] .cc-map-card {
+  background: var(--cc-map-card-surface);
+}
+
 .cc-topbar,
 .cc-sidebar,
 .cc-column,
@@ -23,7 +40,8 @@
 .cc-topbar,
 .cc-column-header,
 .cc-detail-header,
-.cc-pane-toolbar {
+.cc-pane-toolbar,
+.cc-map-header {
   display: flex;
   gap: 16px;
   align-items: flex-start;
@@ -93,6 +111,7 @@
 .cc-topbar h1,
 .cc-column-header h2,
 .cc-detail-header h2,
+.cc-map-header h2,
 .cc-file-section__header h3,
 .cc-diagnostic-block h3 {
   margin: 0;
@@ -189,9 +208,20 @@
 .cc-tab.is-active,
 .cc-owner-card.is-active,
 .cc-file-card.is-active,
-.cc-chip--active {
+.cc-chip--active,
+.cc-chip--ready {
   border-color: var(--sf-border-strong);
   background: var(--sf-surface-chip-active);
+}
+
+.cc-chip--warning {
+  border-color: var(--sf-border-strong);
+  background: var(--sf-surface-tone-warning);
+}
+
+.cc-chip--error {
+  border-color: var(--sf-border-strong);
+  background: var(--sf-surface-tone-error);
 }
 
 .cc-button--primary {
@@ -205,6 +235,21 @@
 .cc-tab-row {
   display: flex;
   flex-wrap: wrap;
+}
+
+.cc-view-switcher {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 16px;
+  padding-bottom: 12px;
+  border-bottom: 1px solid var(--sf-border-regular);
+}
+
+.cc-view-switcher__copy {
+  display: grid;
+  gap: 4px;
+  min-width: 220px;
 }
 
 .cc-brand-bar {
@@ -704,6 +749,12 @@
   align-content: start;
 }
 
+.cc-map-header {
+  gap: 12px;
+  padding-bottom: 12px;
+  border-bottom: 1px solid var(--sf-border-regular);
+}
+
 .cc-map-section h3 {
   margin: 0;
   font-family: var(--sf-font-display);
@@ -844,7 +895,9 @@
   .cc-topbar,
   .cc-column-header,
   .cc-detail-header,
-  .cc-pane-toolbar {
+  .cc-pane-toolbar,
+  .cc-map-header,
+  .cc-view-switcher {
     flex-direction: column;
   }
 

@@ -691,6 +691,11 @@ function App() {
   const theme = selectTheme(themeManifestIdForMode(route.themeId, prefersDark));
   const selectedOwner = findOwner(tree, route.ownerId);
   const selectedFileRecord = findFileRecord(tree, route.filePath);
+  const selectedOwnerActiveSection =
+    selectedOwner && selectedFileRecord?.ownerId === selectedOwner.id
+      ? selectedOwner.sections.find((section) => section.id === selectedFileRecord.sectionId) ?? null
+      : null;
+  const visibleFileSections = selectedOwnerActiveSection ? [selectedOwnerActiveSection] : selectedOwner?.sections ?? [];
   const visibleOwners = VISIBLE_OWNER_IDS.map((ownerId) => findOwner(tree, ownerId)).filter(
     (owner): owner is ControlCenterOwner => owner !== null
   );
@@ -874,7 +879,8 @@ function App() {
     setRoute((current) => ({
       ...current,
       ownerId: nextFile?.ownerId ?? current.ownerId,
-      filePath
+      filePath,
+      activePane: "editor"
     }));
   }
 
@@ -1133,7 +1139,13 @@ function App() {
   }
 
   return (
-    <div className="cc-shell" data-theme-family={theme.family} data-theme-id={theme.id} data-theme-phase={theme.phase}>
+    <div
+      className="cc-shell"
+      data-active-pane={route.activePane}
+      data-theme-family={theme.family}
+      data-theme-id={theme.id}
+      data-theme-phase={theme.phase}
+    >
       <header className="cc-topbar">
         <div className="cc-brand-bar">
           <button
@@ -1265,7 +1277,7 @@ function App() {
 
           {selectedOwner ? (
             <div className="cc-section-list">
-              {selectedOwner.sections.map((section) => (
+              {visibleFileSections.map((section) => (
                 <section className="cc-file-section" key={section.id}>
                   <div className="cc-file-section__header">
                     <h3>{section.label}</h3>
@@ -1302,66 +1314,75 @@ function App() {
         </section>
 
         <main className="cc-detail">
-          <div className="cc-detail-header">
-            <div>
-              <p className="cc-eyebrow">Workspace File</p>
-              <h2>{selectedFileRecord?.label ?? "Select a file"}</h2>
-              <p className="cc-section-note">{selectedFileRecord?.path ?? "Choose a file from the center column."}</p>
-              <div className="cc-chip-row">
-                {selectedFileRecord ? <span className="cc-chip">{selectedFileRecord.sectionLabel}</span> : null}
-                {selectedFileRecord ? <span className="cc-chip">{CATEGORY_LABELS[selectedFileRecord.category]}</span> : null}
-                {selectedFileRecord ? <span className="cc-chip">{selectedFileRecord.editable ? "Editable" : "Read only"}</span> : null}
-                {fileDetail ? <span className="cc-chip">{formatBytes(fileDetail.size)}</span> : null}
-                {fileDetail ? <span className="cc-chip">Updated {formatTimestamp(fileDetail.updatedAt)}</span> : null}
-                {dirty ? <span className="cc-chip cc-chip--active">Unsaved changes</span> : null}
-              </div>
-            </div>
+          {route.activePane !== "map" ? (
+            <>
+              <div className="cc-view-switcher" aria-label="Control center view controls">
+                <div className="cc-view-switcher__copy">
+                  <p className="cc-eyebrow">View Controls</p>
+                  <p className="cc-section-note">Editor and Notifications follow the selected file. Dungeon Map, Preview, and Diagnostics use workspace state.</p>
+                </div>
 
-            {route.activePane !== "map" ? (
-              <div className="cc-action-row">
-                <button className="cc-button" type="button" onClick={handleRefresh} disabled={!route.filePath || refreshing}>
-                  {refreshing ? "Refreshing..." : "Refresh"}
-                </button>
-                <button className="cc-button" type="button" onClick={handleReset} disabled={!dirty}>
-                  Reset
-                </button>
-                <button
-                  className="cc-button cc-button--primary"
-                  type="button"
-                  onClick={() => void handleSave()}
-                  disabled={!dirty || !selectedFileRecord?.editable || saving}
-                >
-                  {saving ? "Saving..." : "Save"}
-                </button>
+                <div className="cc-tab-row">
+                  {PANE_IDS.map((paneId) => (
+                    <button
+                      className={paneId === route.activePane ? "cc-tab is-active" : "cc-tab"}
+                      key={paneId}
+                      type="button"
+                      onClick={() =>
+                        setRoute((current) => ({
+                          ...current,
+                          activePane: paneId
+                        }))
+                      }
+                    >
+                      {paneId === "editor"
+                        ? "Editor"
+                        : paneId === "notifications"
+                          ? "Notifications"
+                          : paneId === "map"
+                            ? "Dungeon Map"
+                            : paneId === "preview"
+                              ? "Preview"
+                              : "Diagnostics"}
+                    </button>
+                  ))}
+                </div>
               </div>
-            ) : null}
-          </div>
 
-          <div className="cc-tab-row">
-            {PANE_IDS.map((paneId) => (
-              <button
-                className={paneId === route.activePane ? "cc-tab is-active" : "cc-tab"}
-                key={paneId}
-                type="button"
-                onClick={() =>
-                  setRoute((current) => ({
-                    ...current,
-                    activePane: paneId
-                  }))
-                }
-              >
-                {paneId === "editor"
-                  ? "Editor"
-                  : paneId === "notifications"
-                    ? "Notifications"
-                    : paneId === "map"
-                      ? "Dungeon Map"
-                      : paneId === "preview"
-                        ? "Preview"
-                        : "Diagnostics"}
-              </button>
-            ))}
-          </div>
+              <div className="cc-detail-header">
+                <div>
+                  <p className="cc-eyebrow">Workspace File</p>
+                  <h2>{selectedFileRecord?.label ?? "Select a file"}</h2>
+                  <p className="cc-section-note">{selectedFileRecord?.path ?? "Choose a file from the center column."}</p>
+                  <div className="cc-chip-row">
+                    {selectedFileRecord ? <span className="cc-chip">{selectedFileRecord.sectionLabel}</span> : null}
+                    {selectedFileRecord ? <span className="cc-chip">{CATEGORY_LABELS[selectedFileRecord.category]}</span> : null}
+                    {selectedFileRecord ? <span className="cc-chip">{selectedFileRecord.editable ? "Editable" : "Read only"}</span> : null}
+                    {fileDetail ? <span className="cc-chip">{formatBytes(fileDetail.size)}</span> : null}
+                    {fileDetail ? <span className="cc-chip">Updated {formatTimestamp(fileDetail.updatedAt)}</span> : null}
+                    {dirty ? <span className="cc-chip cc-chip--active">Unsaved changes</span> : null}
+                  </div>
+                </div>
+
+                <div className="cc-action-row">
+                  <button className="cc-button" type="button" onClick={handleRefresh} disabled={!route.filePath || refreshing}>
+                    {refreshing ? "Refreshing..." : "Refresh"}
+                  </button>
+                  <button className="cc-button" type="button" onClick={handleReset} disabled={!dirty}>
+                    Reset
+                  </button>
+                  <button
+                    className="cc-button cc-button--primary"
+                    type="button"
+                    onClick={() => void handleSave()}
+                    disabled={!dirty || !selectedFileRecord?.editable || saving}
+                  >
+                    {saving ? "Saving..." : "Save"}
+                  </button>
+                </div>
+              </div>
+            </>
+          ) : null}
 
           {route.activePane === "editor" ? (
             <section className="cc-pane">
@@ -1488,8 +1509,18 @@ function App() {
 
           {route.activePane === "map" ? (
             <section className="cc-pane cc-map-pane">
-              <div className="cc-pane-toolbar">
-                <p>Read-only projection from `guild_hall/state/snapshot/soulforge_snapshot.json`.</p>
+              <div className="cc-map-header">
+                <div>
+                  <p className="cc-eyebrow">Workspace Map</p>
+                  <h2>Dungeon Map</h2>
+                  <p className="cc-section-note">Read-only projection from `guild_hall/state/snapshot/soulforge_snapshot.json`.</p>
+                  <div className="cc-chip-row">
+                    {dungeonMap.snapshot ? <span className={`cc-chip cc-chip--${snapshotTone(dungeonMap.snapshot.status)}`}>{dungeonMap.snapshot.status}</span> : null}
+                    {dungeonMap.snapshot ? <span className="cc-chip">Generated {formatTimestamp(dungeonMap.snapshot.generated_at)}</span> : null}
+                    {dungeonMap.updatedAt ? <span className="cc-chip">Loaded {formatTimestamp(dungeonMap.updatedAt)}</span> : null}
+                    {dungeonMap.loading ? <span className="cc-chip cc-chip--active">Refreshing</span> : null}
+                  </div>
+                </div>
                 <button className="cc-button" type="button" onClick={() => void handleDungeonMapRefresh()} disabled={dungeonMap.loading}>
                   {dungeonMap.loading ? "Refreshing..." : "Refresh Map"}
                 </button>
@@ -1499,37 +1530,34 @@ function App() {
 
               {dungeonMap.snapshot ? (
                 <div className="cc-map-stack">
-                  <div className={`cc-summary-card cc-summary-card--${snapshotTone(dungeonMap.snapshot.status)}`}>
-                    <strong>{dungeonMap.snapshot.status}</strong>
-                    <span>Generated {formatTimestamp(dungeonMap.snapshot.generated_at)}</span>
-                    <span>Observations {dungeonMap.snapshot.source_observation_count}</span>
-                    <span>Loaded {formatTimestamp(dungeonMap.updatedAt)}</span>
-                  </div>
-
                   {dungeonMap.snapshot.error ? <p className="cc-readonly-note">{dungeonMap.snapshot.error}</p> : null}
 
-                  {dungeonMap.snapshot.freshness_errors.length > 0 || dungeonMap.snapshot.changed_source_ids.length > 0 ? (
-                    <section className="cc-map-section">
-                      <h3>Freshness Check</h3>
-                      <ul className="cc-map-list">
-                        {dungeonMap.snapshot.freshness_errors.map((message) => (
-                          <li key={message}>
-                            <strong>stale</strong>
-                            <span>{message}</span>
-                          </li>
-                        ))}
-                        {dungeonMap.snapshot.changed_source_ids.map((sourceId) => (
-                          <li key={sourceId}>
-                            <strong>changed</strong>
-                            <span>{sourceId}</span>
-                          </li>
-                        ))}
-                      </ul>
-                    </section>
-                  ) : null}
+                  <section className="cc-map-section">
+                    <h3>Freshness Check</h3>
+                    <ul className="cc-map-list">
+                      {dungeonMap.snapshot.freshness_errors.length === 0 && dungeonMap.snapshot.changed_source_ids.length === 0 ? (
+                        <li>
+                          <strong>clear</strong>
+                          <span>Observations {dungeonMap.snapshot.source_observation_count}</span>
+                        </li>
+                      ) : null}
+                      {dungeonMap.snapshot.freshness_errors.map((message) => (
+                        <li key={message}>
+                          <strong>stale</strong>
+                          <span>{message}</span>
+                        </li>
+                      ))}
+                      {dungeonMap.snapshot.changed_source_ids.map((sourceId) => (
+                        <li key={sourceId}>
+                          <strong>changed</strong>
+                          <span>{sourceId}</span>
+                        </li>
+                      ))}
+                    </ul>
+                  </section>
 
                   <section className="cc-map-section">
-                    <h3>Projects</h3>
+                    <h3>Dungeons</h3>
                     <div className="cc-map-grid">
                       {dungeonMap.snapshot.projects.map((project) => (
                         <article className="cc-map-card" key={project.project_code}>
@@ -1542,7 +1570,7 @@ function App() {
                   </section>
 
                   <section className="cc-map-section">
-                    <h3>Missions</h3>
+                    <h3>Mission Board</h3>
                     <div className="cc-map-grid">
                       {dungeonMap.snapshot.missions.map((mission) => (
                         <article className="cc-map-card" key={`${mission.title}:${mission.status}:${mission.readiness}`}>
@@ -1555,7 +1583,7 @@ function App() {
                   </section>
 
                   <section className="cc-map-section">
-                    <h3>Gateway</h3>
+                    <h3>Monster Gate</h3>
                     <div className="cc-summary-card">
                       <strong>Inbox {dungeonMap.snapshot.gateway.intake_inbox_count}</strong>
                       <span>monster_index {dungeonMap.snapshot.gateway.monster_index_present ? "present" : "missing"}</span>

@@ -40,6 +40,16 @@
 9. Codex app automation 이 임시 `worktree` 에서 돌아가더라도, runtime state read/write 와 companion repo inspection 은 항상 이 PC 의 active absolute root 를 사용한다.
 10. 항상 켜 두는 운영 PC 의 current-default pipeline 은 분석 전에 public `Soulforge`, `_workmeta`, `private-state` 를 먼저 fast-forward sync 하고, 그 결과가 깨끗할 때만 후속 점검을 시작한다.
 
+## always-on node 관계
+
+`always_on_node` 역할 자체는 [`../workspace/MULTI_PC_DEVELOPMENT_V0.md`](../workspace/MULTI_PC_DEVELOPMENT_V0.md) 가 소유하고, 이 문서는 그 node 에서 어떤 night watch 자동화를 ACTIVE 로 둘지 소유한다.
+
+- 같은 automation 은 current-default 에서 한 node 만 `ACTIVE` 로 둔다.
+- 다른 PC 는 같은 prompt/spec 를 pull 할 수 있지만 local automation 상태는 `PAUSED` 또는 미생성으로 둔다.
+- 항상 켜 두는 node 는 repo 상태를 맞춘 뒤 점검 report 와 recent-context 를 남길 수 있지만, tracked docs/code 를 바로 수정하거나 commit/push 하지 않는다.
+- 항상 켜 두는 node 가 나중에 autohunt scheduler 로 확장되더라도, 실제 project/tool work 는 [`AUTOHUNT_MODEL.md`](../workspace/AUTOHUNT_MODEL.md) 의 capability/claim 규칙을 따라 별도 node 에 넘길 수 있어야 한다.
+- 외부 host 나 tool runner 는 private root 를 직접 훑기보다 [`SOULFORGE_SNAPSHOT_V0.md`](SOULFORGE_SNAPSHOT_V0.md) 의 sanitized snapshot 을 우선 읽는다.
+
 ## current-default preflight 1개, 점검 3개와 companion 1개
 
 ### 0. Preflight Repo Sync

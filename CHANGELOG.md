@@ -11,6 +11,18 @@ Git log 는 원문 이력을 남기고, 이 문서는 사람이 읽는 patch not
 
 ## 2026-05-04
 
+### Revision `working` - 문서 색인과 multi-PC node 역할 정리
+
+- `docs/architecture/**/README.md` 의 단순 포함 목록을 문서 역할 색인으로 보강해 AI 와 사람이 각 문서를 왜 읽어야 하는지 찾을 수 있게 했다.
+- `MULTI_PC_DEVELOPMENT_V0.md` 에 `work_pc`, `tool_pc`, `portable_dev_pc`, `always_on_node` 역할과 local-only `node_identity.yaml` 기준을 추가했다.
+- `AUTOHUNT_MODEL.md`, `NIGHT_WATCH_AUTOMATION_V0.md`, `PROJECT_MAP_V0.md` 를 기존 owner 체계 안에서 연결해 새 최상위 덤프 문서 없이 node capability / 24시간 운영 / 자동사냥 확장선을 찾게 했다.
+
+### Revision `working` - Soulforge game UI 방향 문서화
+
+- `SOULFORGE_GAME_UI_INFORMATION_ARCHITECTURE_V0.md` 를 추가해 UI 중심을 file editor 가 아니라 `Guild Hall / Dungeon Map` 작전판으로 고정했다.
+- `SOULFORGE_2D_DUNGEON_UI_DIRECTION_V0.md` 를 추가해 3D 가 아닌 2D/2.5D 판타지 업무 작전판 방향과 v0/v1 경계를 정리했다.
+- `SE_DUNGEON_STAGE_MODEL_V0.md` 를 추가해 project 를 dungeon, 체계공학 단계를 stage/floor, 단계 완료를 boss clear 로 읽는 public-safe UI 모델을 연결했다.
+
 ### Revision `working` - agent 실행 계약 추가
 
 - `docs/architecture/foundation/AGENT_EXECUTION_CONTRACT_V0.md` 를 추가해 Karpathy-style coding agent 원칙을 Soulforge의 canon/public-private/secret 경계에 맞게 흡수했다.

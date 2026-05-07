@@ -108,6 +108,13 @@ gateway/mail/manual input
 - public repo에 올리는 것은 구조, 코드, public-safe sample, architecture 문서만이다.
 - secret 파일은 존재 여부만 확인하고 내용은 열지 않는다.
 
+## PC / node 역할 지도
+
+- 여러 PC 운영의 상세 owner 는 `docs/architecture/workspace/MULTI_PC_DEVELOPMENT_V0.md` 다.
+- current role 은 `work_pc`, `tool_pc`, `portable_dev_pc`, `always_on_node` 로 읽는다.
+- 실제 장비명, 사용자명, 절대경로, 설치 tool path 는 `guild_hall/state/local/node_identity.yaml` 같은 local-only runtime identity 에 둔다.
+- 24시간 운영은 `docs/architecture/guild_hall/NIGHT_WATCH_AUTOMATION_V0.md` 가, 자동사냥 routing 은 `docs/architecture/workspace/AUTOHUNT_MODEL.md` 가 각각 소유한다.
+
 ## 현재 샘플 던전 해석
 
 - `P26-030` 은 처음 구조 검증에 쓴 예시 던전으로 본다.

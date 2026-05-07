@@ -14,6 +14,14 @@
 - `workspace/`: `_workspaces` 와 `_workmeta` 공용 구조/resolve 계약
 - `ui/`: root-owned UI source, sync, derived state, control center 편집 모델 계약
 
+## 문서 색인 원칙
+
+- 새 architecture 문서는 먼저 어느 owner 묶음에 속하는지 정하고, 해당 묶음 `README.md` 의 문서 역할 색인에 한 줄 설명을 추가한다.
+- 새 개념이 이미 있는 owner 문서에 들어갈 수 있으면 새 문서를 만들지 않고 기존 문서의 절로 추가한다.
+- 새 문서는 기존 owner 문서가 감당하지 못하는 새 owner, 새 contract, 새 validation surface 가 생길 때만 만든다.
+- root-level map 인 `PROJECT_MAP_V0.md` 는 탐색 index 이며, 상세 계약을 덤프하지 않는다.
+- AI 가 다시 읽어야 하는 문서는 각 하위 `README.md` 의 문서 역할 색인에서 찾을 수 있어야 한다.
+
 ## 제외 대상
 
 - `.registry` owner-local 구조 문서
