@@ -11,6 +11,11 @@ Git log 는 원문 이력을 남기고, 이 문서는 사람이 읽는 patch not
 
 ## 2026-05-04
 
+### Revision `working` - always-on node bootstrap prompt 추가
+
+- `docs/architecture/bootstrap/ALWAYS_ON_NODE_BOOTSTRAP_PROMPT_V0.md` 를 추가해 24시간 운영 PC 가 Git pull 후 Codex 에게 파일 기반 bootstrap 지시를 받을 수 있게 했다.
+- bootstrap README 에 prompt source 를 색인해 긴 화면공유 붙여넣기 없이 `always_on_node` local identity, doctor, snapshot, night_watch preflight 절차를 찾게 했다.
+
 ### Revision `working` - 문서 색인과 multi-PC node 역할 정리
 
 - `docs/architecture/**/README.md` 의 단순 포함 목록을 문서 역할 색인으로 보강해 AI 와 사람이 각 문서를 왜 읽어야 하는지 찾을 수 있게 했다.
