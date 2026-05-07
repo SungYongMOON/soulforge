@@ -17,6 +17,7 @@
 | `CODEX_OWNER_BOOTSTRAP_PROMPT_V0.md` | AI 에게 owner bootstrap 을 맡길 때 쓰는 안전한 prompt source 다. |
 | `CODEX_OWNER_UPDATE_PROMPT_V0.md` | AI 에게 owner update 를 맡길 때 쓰는 안전한 prompt source 다. |
 | `ALWAYS_ON_NODE_BOOTSTRAP_PROMPT_V0.md` | 24시간 운영 PC 의 Codex 가 읽고 `always_on_node` local bootstrap 을 수행할 prompt source 다. |
+| `ALWAYS_ON_EMAIL_MONSTER_SMOKE_PROMPT_V0.md` | 24시간 운영 PC 의 Codex 가 읽고 `email -> monster` local smoke test 를 수행할 prompt source 다. |
 | `WORK_PC_BOOTSTRAP_PROMPT_V0.md` | 업무 PC 의 Codex 가 읽고 `work_pc` local bootstrap 을 수행할 prompt source 다. |
 | `../workspace/INSTALLATION_MANUAL_V0.md` | workspace 문서군이 소유하는 다른 PC 첫 설치 상위 runbook 이다. |
 | `../workspace/MULTI_PC_DEVELOPMENT_V0.md` | 여러 PC clone, local runtime, node role, push/pull 운영 절차를 둔다. |
@@ -34,7 +35,8 @@
 8. [`CODEX_OWNER_BOOTSTRAP_PROMPT_V0.md`](CODEX_OWNER_BOOTSTRAP_PROMPT_V0.md)
 9. [`CODEX_OWNER_UPDATE_PROMPT_V0.md`](CODEX_OWNER_UPDATE_PROMPT_V0.md)
 10. [`ALWAYS_ON_NODE_BOOTSTRAP_PROMPT_V0.md`](ALWAYS_ON_NODE_BOOTSTRAP_PROMPT_V0.md)
-11. [`WORK_PC_BOOTSTRAP_PROMPT_V0.md`](WORK_PC_BOOTSTRAP_PROMPT_V0.md)
+11. [`ALWAYS_ON_EMAIL_MONSTER_SMOKE_PROMPT_V0.md`](ALWAYS_ON_EMAIL_MONSTER_SMOKE_PROMPT_V0.md)
+12. [`WORK_PC_BOOTSTRAP_PROMPT_V0.md`](WORK_PC_BOOTSTRAP_PROMPT_V0.md)
 
 ## 실행 가이드
 
@@ -71,6 +73,7 @@
 - [`CODEX_OWNER_BOOTSTRAP_PROMPT_V0.md`](CODEX_OWNER_BOOTSTRAP_PROMPT_V0.md)
 - [`CODEX_OWNER_UPDATE_PROMPT_V0.md`](CODEX_OWNER_UPDATE_PROMPT_V0.md)
 - [`ALWAYS_ON_NODE_BOOTSTRAP_PROMPT_V0.md`](ALWAYS_ON_NODE_BOOTSTRAP_PROMPT_V0.md)
+- [`ALWAYS_ON_EMAIL_MONSTER_SMOKE_PROMPT_V0.md`](ALWAYS_ON_EMAIL_MONSTER_SMOKE_PROMPT_V0.md)
 - [`WORK_PC_BOOTSTRAP_PROMPT_V0.md`](WORK_PC_BOOTSTRAP_PROMPT_V0.md)
 - [`../workspace/INSTALLATION_MANUAL_V0.md`](../workspace/INSTALLATION_MANUAL_V0.md)
 - [`../workspace/MULTI_PC_DEVELOPMENT_V0.md`](../workspace/MULTI_PC_DEVELOPMENT_V0.md)

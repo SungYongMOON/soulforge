@@ -11,6 +11,11 @@ Git log 는 원문 이력을 남기고, 이 문서는 사람이 읽는 patch not
 
 ## 2026-05-04
 
+### Revision `working` - always-on email monster smoke prompt 추가
+
+- `docs/architecture/bootstrap/ALWAYS_ON_EMAIL_MONSTER_SMOKE_PROMPT_V0.md` 를 추가해 원격 24시간 PC 에서 긴 붙여넣기 없이 파일 기반 `email -> monster` smoke test 를 실행할 수 있게 했다.
+- bootstrap README 에 prompt source 를 색인해 `always_on_node` 가 public repo 수정 없이 `doctor`, `gateway:fetch`, `gateway:intake` smoke 를 순서대로 확인하게 했다.
+
 ### Revision `working` - multi-PC primary writer map 추가
 
 - `MULTI_PC_DEVELOPMENT_V0.md` 에 색상 Mermaid 기반 PC별 primary writer map 을 추가해 `always_on_node`, `work_pc`, `portable_dev_pc` 가 쓰는 영역과 blocked 작업을 한눈에 볼 수 있게 했다.
