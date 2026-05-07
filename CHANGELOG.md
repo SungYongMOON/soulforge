@@ -11,6 +11,11 @@ Git log 는 원문 이력을 남기고, 이 문서는 사람이 읽는 patch not
 
 ## 2026-05-04
 
+### Revision `working` - multi-PC primary writer map 추가
+
+- `MULTI_PC_DEVELOPMENT_V0.md` 에 색상 Mermaid 기반 PC별 primary writer map 을 추가해 `always_on_node`, `work_pc`, `portable_dev_pc` 가 쓰는 영역과 blocked 작업을 한눈에 볼 수 있게 했다.
+- 같은 repo 를 여러 PC 가 clone 해도 `guild_hall/state/**`, `_workspaces/**`, `_workmeta/**`, `private-state/**`, public `Soulforge` 의 primary writer 가 겹치지 않도록 표와 중복 방지 규칙을 보강했다.
+
 ### Revision `working` - doctor local node identity 점검 추가
 
 - `guild-hall:doctor` 가 `guild_hall/state/local/node_identity.yaml` 을 읽어 현재 PC 의 `node_role`, `bootstrap_profile`, active Soulforge root, public Git 비추적 상태를 먼저 보고하도록 했다.

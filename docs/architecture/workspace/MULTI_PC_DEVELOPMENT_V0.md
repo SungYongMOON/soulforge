@@ -31,6 +31,65 @@
 | `portable_dev_pc` | Soulforge 기능, UI, 문서, 설계 고민과 public repo 개발 | `owner-with-state` 또는 `public-only` | public `Soulforge`, 필요 시 `_workmeta/` | UI/dev docs, architecture review, code changes |
 | `always_on_node` | 24시간 감시, snapshot, reminder, gateway, night watch, lightweight automation | `operator` 또는 `owner-with-state` | `guild_hall/state/**`, `private-state/` mirror | gateway fetch, snapshot check, morning report candidate, reminder, night watch |
 
+## PC별 primary writer map
+
+아래 그림은 같은 `Soulforge` repo 를 여러 PC 가 clone 하더라도, 각 PC 가 primary 로 쓰는 영역이 겹치지 않게 하는 기준이다.
+색상이 보이지 않는 환경에서도 `PRIMARY`, `MIRROR`, `BLOCKED` 라벨을 기준으로 읽는다.
+
+```mermaid
+flowchart LR
+  subgraph A["24시간 PC / always_on_node"]
+    A1["guild_hall/state/**<br/>PRIMARY<br/>gateway fetch, intake, night_watch"]
+    A2["private-state/**<br/>PRIMARY MIRROR<br/>continuity carry-forward"]
+    A3["public Soulforge<br/>PULL / READ<br/>auto commit-push 금지"]
+  end
+
+  subgraph W["작업 PC / work_pc"]
+    W1["_workspaces/<project_code>/**<br/>PRIMARY<br/>actual project files"]
+    W2["_workmeta/<project_code>/**<br/>PRIMARY<br/>worklog, reports, run truth"]
+    W3["guild_hall/state/**<br/>READ / RESTORE<br/>monster handoff 참조"]
+  end
+
+  subgraph M["맥북에어 / portable_dev_pc"]
+    M1["public Soulforge<br/>PRIMARY<br/>code, docs, UI"]
+    M2["_workmeta/**<br/>CONDITIONAL<br/>필요 시 제한적 기록"]
+    M3["gateway_fetch / night_watch<br/>BLOCKED"]
+  end
+
+  A1 --> A2
+  A2 --> W3
+  W1 --> W2
+  M1 --> A3
+
+  classDef ops fill:#dbeafe,stroke:#1d4ed8,stroke-width:2px,color:#0f172a;
+  classDef work fill:#dcfce7,stroke:#15803d,stroke-width:2px,color:#0f172a;
+  classDef dev fill:#fef3c7,stroke:#b45309,stroke-width:2px,color:#0f172a;
+  classDef blocked fill:#fee2e2,stroke:#b91c1c,stroke-width:2px,color:#0f172a;
+  classDef neutral fill:#f8fafc,stroke:#64748b,stroke-width:1px,color:#0f172a;
+
+  class A1,A2 ops;
+  class W1,W2,W3 work;
+  class M1,M2 dev;
+  class M3 blocked;
+  class A3 neutral;
+```
+
+| 저장소/영역 | primary writer | Git 저장 기준 |
+| --- | --- | --- |
+| public `Soulforge/.git` | `portable_dev_pc` | 코드, 구조 문서, public-safe sample 만 commit/push 한다. |
+| `guild_hall/state/**` | `always_on_node` | local runtime 이며 public Git 에 올리지 않는다. 필요한 연속성만 `private-state/` 로 mirror 한다. |
+| `private-state/**` | `always_on_node` | owner-only private repo 에 selected continuity subset 만 commit/push 한다. secret 값은 넣지 않는다. |
+| `_workspaces/<project_code>/**` | `work_pc` | 실제 프로젝트 파일 local-only 이며 public Git 에 올리지 않는다. |
+| `_workmeta/<project_code>/**` | `work_pc` | owner-only private repo 에 project metadata, worklog, run truth 를 commit/push 한다. |
+| `node_identity.yaml` | 각 PC 자신 | `guild_hall/state/local/` 아래 local-only binding 이며 어떤 Git 에도 올리지 않는다. |
+
+중복 방지 규칙:
+
+1. `gateway_fetch_primary` 와 `night_watch_active` 는 current-default 에서 `always_on_node` 한 대만 가진다.
+2. 실제 project 파일과 project-local 업무 기록은 `work_pc` 가 primary 로 쓴다.
+3. public docs/code/UI 변경은 `portable_dev_pc` 가 primary 로 쓴다.
+4. 다른 PC 는 primary 영역을 읽거나 복원할 수 있지만, primary writer 로 승격하려면 `node_identity.yaml` 의 `primary_writer` 를 먼저 바꾼다.
+
 ## local node identity
 
 각 clone 은 같은 tracked tree 를 받지만, 자신이 어느 설치 PC 인지는 local-only identity 로 기억한다.
