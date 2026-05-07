@@ -11,6 +11,11 @@ Git log 는 원문 이력을 남기고, 이 문서는 사람이 읽는 patch not
 
 ## 2026-05-07
 
+### Revision `working` - Hiworks POP3 long line 수신 보강
+
+- Hiworks POP3 `RETR` 수신에서 Python `poplib` 기본 2048 byte line limit 에 걸리지 않도록 connector-local long-line reader 를 추가했다.
+- `HIWORKS_POP3_MAX_LINE_BYTES` env 설정과 synthetic long-line 테스트를 추가해 raw mail body 없이 긴 라인 수신 경로를 검증하게 했다.
+
 ### Revision `working` - gateway mail fetch operator 출력 redaction
 
 - `gateway:fetch` run summary/debug/CLI error output 에 raw mail body, HTML, URL, token-like cursor 가 섞여도 operator terminal 에 그대로 노출되지 않도록 sanitize 경로를 추가했다.

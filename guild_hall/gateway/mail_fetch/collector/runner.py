@@ -5,6 +5,7 @@ from datetime import datetime, timedelta, timezone
 import json
 import os
 from pathlib import Path
+import poplib
 import re
 import time
 from typing import Any, Dict, Iterable, List, Optional, Sequence, Tuple
@@ -355,6 +356,7 @@ class CollectorConfig:
     hiworks_pop3_use_ssl: bool = True
     hiworks_pop3_timeout_sec: int = 30
     hiworks_pop3_seen_window: int = 5000
+    hiworks_pop3_max_line_bytes: int = 10 * 1024 * 1024
 
     link_download_enabled: bool = False
     link_download_timeout_sec: int = 20
@@ -492,6 +494,10 @@ def build_config_from_env(repo_root: Path, env_file: Path) -> CollectorConfig:
         hiworks_pop3_use_ssl=_parse_bool(env.get("HIWORKS_POP3_USE_SSL"), True),
         hiworks_pop3_timeout_sec=max(_env_int(env, "HIWORKS_POP3_TIMEOUT_SEC", 30), 1),
         hiworks_pop3_seen_window=max(_env_int(env, "HIWORKS_POP3_SEEN_WINDOW", 5000), 100),
+        hiworks_pop3_max_line_bytes=max(
+            _env_int(env, "HIWORKS_POP3_MAX_LINE_BYTES", 10 * 1024 * 1024),
+            poplib._MAXLINE,
+        ),
         link_download_enabled=link_download_enabled,
         link_download_timeout_sec=max(_env_int(env, "EMAIL_FETCH_LINK_DOWNLOAD_TIMEOUT_SEC", 20), 1),
         link_download_max_bytes=max(_env_int(env, "EMAIL_FETCH_LINK_DOWNLOAD_MAX_BYTES", attachment_max), 1),
@@ -542,6 +548,7 @@ def _build_hiworks_connector(config: CollectorConfig) -> HiworksPop3Connector:
         use_ssl=config.hiworks_pop3_use_ssl,
         timeout_sec=config.hiworks_pop3_timeout_sec,
         seen_window=config.hiworks_pop3_seen_window,
+        max_line_bytes=config.hiworks_pop3_max_line_bytes,
         attachment_max_bytes=config.attachment_max_bytes,
         blocked_attachment_extensions=config.blocked_attachment_extensions,
         download_attachments=not config.dry_run,

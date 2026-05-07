@@ -16,6 +16,9 @@ from ..models import Address, Attachment, ConnectorError, EmailEvent, FetchResul
 from .base import BaseConnector, ConnectorExecutionError
 
 
+DEFAULT_POP3_MAX_LINE_BYTES = 10 * 1024 * 1024
+
+
 def _now_iso() -> str:
     return datetime.now(timezone.utc).isoformat(timespec="seconds")
 
@@ -104,6 +107,7 @@ class HiworksPop3Connector(BaseConnector):
         use_ssl: bool = True,
         timeout_sec: int = 30,
         seen_window: int = 5000,
+        max_line_bytes: int = DEFAULT_POP3_MAX_LINE_BYTES,
         attachment_max_bytes: int = 30 * 1024 * 1024,
         blocked_attachment_extensions: Optional[Sequence[str]] = None,
         download_attachments: bool = True,
@@ -118,6 +122,7 @@ class HiworksPop3Connector(BaseConnector):
         self.use_ssl = bool(use_ssl)
         self.timeout_sec = max(int(timeout_sec), 1)
         self.seen_window = max(int(seen_window), 100)
+        self.max_line_bytes = max(int(max_line_bytes), poplib._MAXLINE)
         self.attachment_max_bytes = max(int(attachment_max_bytes), 0)
         blocked = blocked_attachment_extensions or ()
         self.blocked_attachment_extensions = {
@@ -180,6 +185,8 @@ class HiworksPop3Connector(BaseConnector):
                             detail=exc.detail,
                         )
                     )
+                    if exc.code in {"network_error", "pop3_line_too_long", "retr_eof"}:
+                        break
                 except Exception as exc:  # noqa: BLE001
                     partial = True
                     errors.append(
@@ -297,7 +304,10 @@ class HiworksPop3Connector(BaseConnector):
 
     def _retrieve_message(self, client: Any, msg_num: int) -> Tuple[bytes, int]:
         try:
-            _, lines, octets = client.retr(msg_num)
+            if self._supports_large_line_retr(client):
+                lines, octets = self._retr_with_large_line_limit(client, msg_num)
+            else:
+                _, lines, octets = client.retr(msg_num)
         except poplib.error_proto as exc:
             raise ConnectorExecutionError(
                 code="retr_error",
@@ -317,6 +327,57 @@ class HiworksPop3Connector(BaseConnector):
         except Exception:
             size = len(raw)
         return raw, max(size, len(raw))
+
+    def _supports_large_line_retr(self, client: Any) -> bool:
+        return bool(
+            hasattr(client, "_putcmd")
+            and hasattr(client, "_getresp")
+            and hasattr(client, "file")
+            and hasattr(client.file, "readline")
+        )
+
+    def _retr_with_large_line_limit(self, client: Any, msg_num: int) -> Tuple[List[bytes], int]:
+        client._putcmd(f"RETR {msg_num}")
+        client._getresp()
+
+        lines: List[bytes] = []
+        octets = 0
+        line, read_octets = self._read_pop3_data_line(client=client, msg_num=msg_num)
+        while line != b".":
+            if line.startswith(b".."):
+                read_octets -= 1
+                line = line[1:]
+            octets += read_octets
+            lines.append(line)
+            line, read_octets = self._read_pop3_data_line(client=client, msg_num=msg_num)
+        return lines, octets
+
+    def _read_pop3_data_line(self, *, client: Any, msg_num: int) -> Tuple[bytes, int]:
+        line = client.file.readline(self.max_line_bytes + 1)
+        if len(line) > self.max_line_bytes:
+            raise ConnectorExecutionError(
+                code="pop3_line_too_long",
+                message=(
+                    "hiworks pop3 메시지 조회 실패"
+                    f"(msg={msg_num}): POP3 응답 한 줄이 허용치({self.max_line_bytes} bytes)를 초과했습니다."
+                ),
+                retryable=False,
+                detail={"msg_num": msg_num, "max_line_bytes": self.max_line_bytes},
+            )
+        if not line:
+            raise ConnectorExecutionError(
+                code="retr_eof",
+                message=f"hiworks pop3 메시지 조회 실패(msg={msg_num}): 응답이 중간에 종료되었습니다.",
+                retryable=True,
+                detail={"msg_num": msg_num},
+            )
+
+        octets = len(line)
+        if line[-2:] == poplib.CRLF:
+            return line[:-2], octets
+        if line[:1] == poplib.CR:
+            return line[1:-1], octets
+        return line[:-1], octets
 
     def _parse_email_event(
         self,

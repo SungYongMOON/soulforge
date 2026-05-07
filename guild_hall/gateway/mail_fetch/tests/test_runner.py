@@ -318,3 +318,14 @@ def test_build_config_accepts_safe_allowlist_policy(tmp_path: Path) -> None:
     config = runner.build_config_from_env(tmp_path, env_file)
     assert config.link_download_enabled is True
     assert "mail-api.office.hiworks.com" in tuple(config.allowed_link_hosts)
+
+
+def test_build_config_accepts_hiworks_pop3_max_line_bytes(tmp_path: Path) -> None:
+    env_file = _write_env(
+        tmp_path,
+        """
+        HIWORKS_POP3_MAX_LINE_BYTES=3145728
+        """,
+    )
+    config = runner.build_config_from_env(tmp_path, env_file)
+    assert config.hiworks_pop3_max_line_bytes == 3145728

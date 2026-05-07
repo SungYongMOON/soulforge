@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 from email.message import EmailMessage
+import io
 from pathlib import Path
 import poplib
 from typing import Dict
@@ -39,6 +40,25 @@ class _FakePop3:
         return b"+OK"
 
 
+class _LargeLinePop3(_FakePop3):
+    def __init__(self, messages: Dict[int, bytes], uidl_map: Dict[int, str]) -> None:
+        super().__init__(messages=messages, uidl_map=uidl_map)
+        self.file = io.BytesIO()
+        self.commands: list[str] = []
+
+    def _putcmd(self, line: str) -> None:
+        self.commands.append(line)
+        parts = str(line).strip().split()
+        msg_num = int(parts[1])
+        self.file = io.BytesIO(self._messages[msg_num] + b".\r\n")
+
+    def _getresp(self) -> bytes:
+        return b"+OK"
+
+    def retr(self, msg_num: int):
+        raise AssertionError("large-line path should bypass poplib.retr")
+
+
 def _build_message(*, message_id: str, subject: str, text: str, attachment: bytes | None = None, filename: str = "") -> bytes:
     msg = EmailMessage()
     msg["Message-ID"] = message_id
@@ -55,6 +75,22 @@ def _build_message(*, message_id: str, subject: str, text: str, attachment: byte
             filename=filename or "file.bin",
         )
     return msg.as_bytes()
+
+
+def _build_raw_message_with_long_body_line(*, body_size: int) -> bytes:
+    return b"".join(
+        [
+            b"Message-ID: <long-line@example.com>\r\n",
+            b"From: Alice <alice@example.com>\r\n",
+            b"To: Bob <bob@example.com>\r\n",
+            b"Date: Thu, 05 Mar 2026 09:00:00 +0900\r\n",
+            b"Subject: long line\r\n",
+            b"Content-Type: text/plain; charset=utf-8\r\n",
+            b"\r\n",
+            b"x" * body_size,
+            b"\r\n",
+        ]
+    )
 
 
 def test_hiworks_connector_fetches_new_messages_and_updates_cursor(tmp_path: Path) -> None:
@@ -124,6 +160,46 @@ def test_hiworks_connector_skips_seen_uidls_from_cursor() -> None:
     assert len(result.events) == 1
     assert result.events[0].provider_message_id == "msg-2@example.com"
     assert result.next_cursor["seen_uidls"] == ["UID-1", "UID-2"]
+
+
+def test_hiworks_connector_reads_message_line_longer_than_poplib_default() -> None:
+    raw = _build_raw_message_with_long_body_line(body_size=poplib._MAXLINE + 512)
+    fake = _LargeLinePop3(messages={1: raw}, uidl_map={1: "UID-LONG"})
+    connector = HiworksPop3Connector(
+        host="pop3.example.com",
+        username="user@example.com",
+        password="pw",
+        max_line_bytes=poplib._MAXLINE + 1024,
+        pop3_factory=lambda host, port, use_ssl, timeout_sec: fake,
+    )
+
+    result = connector.fetch_since(cursor=None, limit=10)
+
+    assert result.partial is False
+    assert result.errors == []
+    assert len(result.events) == 1
+    assert result.events[0].provider_message_id == "long-line@example.com"
+    assert result.events[0].body_text == "x" * (poplib._MAXLINE + 512)
+    assert fake.commands == ["RETR 1"]
+
+
+def test_hiworks_connector_marks_partial_when_line_exceeds_configured_limit() -> None:
+    raw = _build_raw_message_with_long_body_line(body_size=poplib._MAXLINE + 512)
+    fake = _LargeLinePop3(messages={1: raw}, uidl_map={1: "UID-LONG"})
+    connector = HiworksPop3Connector(
+        host="pop3.example.com",
+        username="user@example.com",
+        password="pw",
+        max_line_bytes=poplib._MAXLINE + 128,
+        pop3_factory=lambda host, port, use_ssl, timeout_sec: fake,
+    )
+
+    result = connector.fetch_since(cursor=None, limit=10)
+
+    assert result.partial is True
+    assert result.events == []
+    assert result.errors[0].code == "pop3_line_too_long"
+    assert result.errors[0].detail["max_line_bytes"] == poplib._MAXLINE + 128
 
 
 def test_hiworks_connector_returns_partial_when_config_missing() -> None:

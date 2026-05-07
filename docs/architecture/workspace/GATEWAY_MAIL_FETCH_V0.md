@@ -55,6 +55,12 @@ npm run guild-hall:gateway:fetch -- --once --json
 npm run guild-hall:gateway:fetch:healthcheck -- --json
 ```
 
+## Hiworks POP3 long line
+
+- Hiworks POP3 메시지는 Python `poplib` 기본 라인 제한보다 긴 body/HTML/encoded attachment 라인을 반환할 수 있다.
+- 수집기는 Hiworks `RETR` 응답만 별도 reader 로 읽고, 기본 한 줄 허용치는 `HIWORKS_POP3_MAX_LINE_BYTES=10485760` 이다.
+- 이 값은 raw mail/body 를 터미널에 출력하지 않고, 수집 실패 시 operator summary 에는 sanitized error code/count 만 남긴다.
+
 ## 경계
 
 - tracked source 는 Soulforge 가 소유한다.
