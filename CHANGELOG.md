@@ -11,6 +11,11 @@ Git log 는 원문 이력을 남기고, 이 문서는 사람이 읽는 patch not
 
 ## 2026-05-04
 
+### Revision `working` - work PC bootstrap prompt 추가
+
+- `docs/architecture/bootstrap/WORK_PC_BOOTSTRAP_PROMPT_V0.md` 를 추가해 업무 PC 가 Git pull 후 Codex 에게 파일 기반 `work_pc` bootstrap 지시를 받을 수 있게 했다.
+- prompt 는 실제 프로젝트 파일과 `_workmeta` 기록을 다루는 업무 PC 역할을 설정하되, always-on scheduler 와 고성능 tool 작업은 기본 차단하도록 정리했다.
+
 ### Revision `working` - always-on node bootstrap prompt 추가
 
 - `docs/architecture/bootstrap/ALWAYS_ON_NODE_BOOTSTRAP_PROMPT_V0.md` 를 추가해 24시간 운영 PC 가 Git pull 후 Codex 에게 파일 기반 bootstrap 지시를 받을 수 있게 했다.
