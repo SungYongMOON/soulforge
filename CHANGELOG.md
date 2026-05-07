@@ -11,6 +11,11 @@ Git log 는 원문 이력을 남기고, 이 문서는 사람이 읽는 patch not
 
 ## 2026-05-04
 
+### Revision `working` - doctor local node identity 점검 추가
+
+- `guild-hall:doctor` 가 `guild_hall/state/local/node_identity.yaml` 을 읽어 현재 PC 의 `node_role`, `bootstrap_profile`, active Soulforge root, public Git 비추적 상태를 먼저 보고하도록 했다.
+- `operator`, `owner-with-state` 프로필에서는 local node identity 를 필수로 보고, `public-only` 에서는 missing 을 허용하되 결과에 표시한다.
+
 ### Revision `working` - work PC bootstrap prompt 추가
 
 - `docs/architecture/bootstrap/WORK_PC_BOOTSTRAP_PROMPT_V0.md` 를 추가해 업무 PC 가 Git pull 후 Codex 에게 파일 기반 `work_pc` bootstrap 지시를 받을 수 있게 했다.

@@ -3,7 +3,7 @@
 ## 목적
 
 - `doctor/` 는 clone 된 PC 에서 Soulforge bootstrap readiness 를 점검하는 cross-project bootstrap doctor capsule 이다.
-- 이 capsule 은 sync 가능한 Soulforge Codex skill 전체의 설치 여부, local env 자리, safe smoke test 결과를 확인하고 local status file 을 남긴다.
+- 이 capsule 은 local node identity, sync 가능한 Soulforge Codex skill 전체의 설치 여부, local env 자리, safe smoke test 결과를 확인하고 local status file 을 남긴다.
 - `codex/SKILL.md` 가 없는 registry entry 는 sync 대상이 아니므로 doctor 필수 skill 목록에 넣지 않는다.
 
 ## 포함 대상
@@ -29,6 +29,7 @@
   - `1` = readiness fail
   - `2` = fatal config / internal error
 - `--json` 출력은 `schema_version`, `summary`, `results`, `next_steps` 를 포함하는 bootstrap doctor v0 계약을 따른다.
+- `operator`, `owner-with-state` 프로필에서는 `guild_hall/state/local/node_identity.yaml` 이 현재 PC 역할, bootstrap profile, active Soulforge root 를 올바르게 가리키는지 확인한다.
 - `--remote` 는 GitHub auth, public/private repo remote 연결, `origin/main` 대비 최신 상태를 점검한다.
 - `--profile operator` 는 private repo 없이 local operator env 와 smoke/live 를 점검한다.
 - `--profile owner-with-state` 는 Soulforge root 아래 nested `private-state/` repo 와 continuity data path 를 추가로 점검한다.

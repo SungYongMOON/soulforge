@@ -83,6 +83,11 @@ npm.cmd run guild-hall:doctor -- --remote
 
 ## 점검 범위
 
+- local node identity
+  - `guild_hall/state/local/node_identity.yaml`
+  - `operator`, `owner-with-state` 에서는 필수로 본다
+  - `public-only` 에서는 없을 수 있으나, 있으면 현재 PC 역할을 표시한다
+  - `node_role`, `bootstrap_profile`, `local_paths.soulforge_root`, public Git 비추적 상태를 확인한다
 - 필수 도구 존재 여부
   - `git`
   - `gh`
@@ -169,6 +174,8 @@ result item:
 - optional `command`
 - optional `template`
 
+`local_node_identity` result 는 `category: node_identity` 로 보고한다. detail 은 `node_id`, `node_role`, `bootstrap_profile`, `soulforge_root`, Git 추적 상태를 포함한다.
+
 현재 `status` 값은 아래 중 하나다.
 
 - `ok`
@@ -181,6 +188,8 @@ summary 는 아래 숫자를 포함한다.
 
 - `required_passed`
 - `required_total`
+- `node_identity_passed`
+- `node_identity_total`
 - `profile_checks_passed`
 - `profile_checks_total`
 - `safe_smokes_passed`
@@ -206,14 +215,15 @@ doctor 는 missing/failed/blocked result 에 대해 가능하면 item-level `fix
 
 1. doctor 기본값은 safe local check 만 수행한다.
 2. doctor 프로필 기본값은 `public-only` 다.
-3. sync 가능한 Soulforge Codex skill 전체는 bootstrap 필수 항목으로 본다.
-4. `--profile operator` 는 private repo 없이 local operator env 와 smoke/live 를 보는 public-safe 운영 프로필이다.
-5. `--profile owner-with-state` 는 owner 전용 private repo 운용 프로필이고, current doctor v0 는 nested `private-state/` repo 와 continuity data path 를 추가로 본다.
-6. 설치 절차에는 GitHub CLI 인증 완료가 포함된다.
-7. `--remote` 는 GitHub auth, remote 연결, public/private repo 최신 상태를 본다.
-8. `--live` 는 외부 인증/연결만 수행하고, 메일/메시지 실제 발송은 하지 않는다.
-9. live mail fetch 나 Telegram send 는 doctor 기본 범위 밖이다.
-10. bootstrap readiness 와 실제 업무 실행은 분리한다.
+3. local node identity 는 각 PC 가 자신을 어떤 node role 로 인식하는지 먼저 확인하는 surface 다.
+4. sync 가능한 Soulforge Codex skill 전체는 bootstrap 필수 항목으로 본다.
+5. `--profile operator` 는 private repo 없이 local operator env 와 smoke/live 를 보는 public-safe 운영 프로필이다.
+6. `--profile owner-with-state` 는 owner 전용 private repo 운용 프로필이고, current doctor v0 는 nested `private-state/` repo 와 continuity data path 를 추가로 본다.
+7. 설치 절차에는 GitHub CLI 인증 완료가 포함된다.
+8. `--remote` 는 GitHub auth, remote 연결, public/private repo 최신 상태를 본다.
+9. `--live` 는 외부 인증/연결만 수행하고, 메일/메시지 실제 발송은 하지 않는다.
+10. live mail fetch 나 Telegram send 는 doctor 기본 범위 밖이다.
+11. bootstrap readiness 와 실제 업무 실행은 분리한다.
 
 ## clone 감지 원칙
 

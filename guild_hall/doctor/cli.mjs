@@ -7,6 +7,7 @@ import os from "node:os";
 import path from "node:path";
 import process from "node:process";
 import { fileURLToPath } from "node:url";
+import { parse as parseYaml } from "yaml";
 import { buildDoctorFatalPayload, printDoctorHuman, printDoctorJson } from "./reporting.mjs";
 import {
   pathExists,
@@ -20,7 +21,9 @@ const repoRoot = path.resolve(__dirname, "../..");
 const checklistPath = path.join(repoRoot, "docs", "architecture", "bootstrap", "BOOTSTRAP_CHECKLIST_V0.json");
 const statusFilePath = path.join(repoRoot, "guild_hall", "state", "doctor", "status.json");
 const registrySkillsRoot = path.join(repoRoot, ".registry", "skills");
+const nodeIdentityPath = path.join(repoRoot, "guild_hall", "state", "local", "node_identity.yaml");
 const doctorSchemaVersion = "bootstrap.doctor.v0";
+const supportedNodeRoles = new Set(["work_pc", "tool_pc", "portable_dev_pc", "always_on_node"]);
 
 async function main() {
   const args = parseArgs(process.argv.slice(2));
@@ -72,6 +75,11 @@ async function runDoctor(checklist, options = {}) {
   const toolAvailability = new Map();
   const nextSteps = [];
   const profile = options.profile ?? resolveProfile(undefined, checklist);
+  const nodeIdentityResult = withFixHint(await runNodeIdentityCheck(profile, checklist), { profile });
+  results.push(nodeIdentityResult);
+  if (nodeIdentityResult.required && nodeIdentityResult.status !== "ok") {
+    nextSteps.push(nodeIdentityResult.fix_hint ?? "local node identity 를 만든 뒤 doctor 를 다시 실행한다.");
+  }
 
   for (const item of checklist.required_tools ?? []) {
     if (!itemAppliesToProfile(item, profile)) {
@@ -279,6 +287,8 @@ async function runDoctor(checklist, options = {}) {
   const requiredPassed = requiredResults.filter((item) => item.status === "ok").length;
   const profileResults = results.filter((item) => item.category === "profile_local_path");
   const profilePassed = profileResults.filter((item) => item.status === "ok").length;
+  const nodeIdentityResults = results.filter((item) => item.category === "node_identity");
+  const nodeIdentityPassed = nodeIdentityResults.filter((item) => item.status === "ok").length;
   const safeSmokeResults = results.filter((item) => item.category === "safe_smoke");
   const safeSmokesPassed = safeSmokeResults.filter((item) => item.status === "ok").length;
   const remoteChecksPassed = remoteCheckResults.filter((item) => item.status === "ok").length;
@@ -304,6 +314,8 @@ async function runDoctor(checklist, options = {}) {
     summary: {
       required_passed: requiredPassed,
       required_total: requiredResults.length,
+      node_identity_passed: nodeIdentityPassed,
+      node_identity_total: nodeIdentityResults.length,
       profile_checks_passed: profilePassed,
       profile_checks_total: profileResults.length,
       safe_smokes_passed: safeSmokesPassed,
@@ -317,6 +329,99 @@ async function runDoctor(checklist, options = {}) {
     checklist_file: relativeToRepo(repoRoot, checklistPath),
     results,
     next_steps: dedupePreserveOrder(nextSteps),
+  };
+}
+
+async function runNodeIdentityCheck(profile, checklist) {
+  const required = profile !== "public-only";
+  const identityPath = relativeToRepo(repoRoot, nodeIdentityPath);
+
+  if (!(await pathExists(nodeIdentityPath))) {
+    return {
+      id: "local_node_identity",
+      label: "local node identity",
+      category: "node_identity",
+      required,
+      status: "missing",
+      path: identityPath,
+      detail: required ? "missing" : "missing; optional for public-only profile",
+    };
+  }
+
+  let identity;
+  try {
+    identity = parseYaml(await fs.readFile(nodeIdentityPath, "utf8"));
+  } catch (error) {
+    return {
+      id: "local_node_identity",
+      label: "local node identity",
+      category: "node_identity",
+      required,
+      status: "failed",
+      path: identityPath,
+      detail: `parse failed: ${error instanceof Error ? error.message : String(error)}`,
+    };
+  }
+
+  const issues = [];
+  const supportedProfiles = checklist.profile_defaults?.supported ?? ["public-only"];
+
+  if (!identity || typeof identity !== "object" || Array.isArray(identity)) {
+    issues.push("identity must be a YAML object");
+  }
+
+  const schemaVersion = readString(identity?.schema_version);
+  const nodeId = readString(identity?.node_id);
+  const nodeRole = readString(identity?.node_role);
+  const bootstrapProfile = readString(identity?.bootstrap_profile);
+  const soulforgeRoot = readString(identity?.local_paths?.soulforge_root);
+
+  if (schemaVersion !== "soulforge.local_node.v0") {
+    issues.push("schema_version must be soulforge.local_node.v0");
+  }
+  if (!nodeId) {
+    issues.push("node_id is required");
+  }
+  if (!supportedNodeRoles.has(nodeRole)) {
+    issues.push(`node_role must be one of ${Array.from(supportedNodeRoles).join(", ")}`);
+  }
+  let profileNote = null;
+  if (!supportedProfiles.includes(bootstrapProfile)) {
+    issues.push(`bootstrap_profile must be one of ${supportedProfiles.join(", ")}`);
+  } else if (bootstrapProfile !== profile && required) {
+    issues.push(`bootstrap_profile ${bootstrapProfile} does not match requested doctor profile ${profile}`);
+  } else if (bootstrapProfile !== profile) {
+    profileNote = `requested_profile=${profile}`;
+  }
+  if (!soulforgeRoot) {
+    issues.push("local_paths.soulforge_root is required");
+  } else if (path.resolve(soulforgeRoot) !== repoRoot) {
+    issues.push(`local_paths.soulforge_root does not match current repo root ${repoRoot}`);
+  }
+
+  const gitState = readGitIgnoreState(identityPath);
+  if (gitState.tracked) {
+    issues.push("node_identity.yaml must not be tracked by public Git");
+  }
+
+  const detail = [
+    `node_id=${nodeId || "(missing)"}`,
+    `node_role=${nodeRole || "(missing)"}`,
+    `bootstrap_profile=${bootstrapProfile || "(missing)"}`,
+    `soulforge_root=${soulforgeRoot || "(missing)"}`,
+    `git=${gitState.tracked ? "tracked" : gitState.ignored ? "ignored/untracked" : "untracked"}`,
+    profileNote,
+    issues.length > 0 ? `issues=${issues.join("; ")}` : null,
+  ].filter(Boolean).join(" | ");
+
+  return {
+    id: "local_node_identity",
+    label: "local node identity",
+    category: "node_identity",
+    required,
+    status: issues.length > 0 ? "failed" : "ok",
+    path: identityPath,
+    detail,
   };
 }
 
@@ -379,6 +484,24 @@ function runCommandCheck({ id, label, category, command, required }) {
     command,
     detail,
   };
+}
+
+function readString(value) {
+  return typeof value === "string" ? value : "";
+}
+
+function readGitIgnoreState(filePath) {
+  const relativePath = relativeToRepo(repoRoot, filePath);
+  const tracked = spawnSync("git", ["ls-files", "--error-unmatch", relativePath], {
+    cwd: repoRoot,
+    encoding: "utf8",
+  }).status === 0;
+  const ignored = spawnSync("git", ["check-ignore", "-q", relativePath], {
+    cwd: repoRoot,
+    encoding: "utf8",
+  }).status === 0;
+
+  return { ignored, tracked };
 }
 
 function runLiveChecks(checklistItems) {
@@ -668,6 +791,8 @@ function buildFixHint(result, context = {}) {
   }
 
   switch (result.id) {
+    case "local_node_identity":
+      return "현재 PC 역할을 `guild_hall/state/local/node_identity.yaml` 에 local-only 로 기록한다. 해당 파일은 `guild_hall/state/**` 아래에 두고 public Git 에 추적하지 않는다.";
     case "git":
       return "Git 을 설치하고 PATH 에 노출한 뒤 `git --version` 으로 다시 확인한다. macOS 예시: `xcode-select --install` 또는 `brew install git`";
     case "gh":

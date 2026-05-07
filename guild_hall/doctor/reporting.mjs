@@ -5,6 +5,7 @@ export function printDoctorHuman(report) {
     `mode: ${report.mode}`,
     `ready: ${report.ready ? "yes" : "no"}`,
     `required: ${report.summary.required_passed}/${report.summary.required_total}`,
+    `node_identity: ${report.summary.node_identity_passed ?? 0}/${report.summary.node_identity_total ?? 0}`,
     `profile_checks: ${report.summary.profile_checks_passed}/${report.summary.profile_checks_total}`,
     `safe_smokes: ${report.summary.safe_smokes_passed}/${report.summary.safe_smokes_total}`,
     `remote_checks: ${report.summary.remote_checks_passed}/${report.summary.remote_checks_total}`,
@@ -61,6 +62,8 @@ export function buildDoctorFatalPayload({
     summary: {
       required_passed: 0,
       required_total: 0,
+      node_identity_passed: 0,
+      node_identity_total: 0,
       profile_checks_passed: 0,
       profile_checks_total: 0,
       safe_smokes_passed: 0,
