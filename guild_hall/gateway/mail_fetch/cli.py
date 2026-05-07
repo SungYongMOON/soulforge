@@ -40,7 +40,11 @@ def main() -> int:
     repo_root, capsule_root = _resolve_paths()
     sys.path.insert(0, str(capsule_root))
 
-    from collector.runner import build_config_from_env, run_once  # noqa: PLC0415
+    from collector.runner import (  # noqa: PLC0415
+        build_config_from_env,
+        run_once,
+        sanitize_for_operator_output,
+    )
 
     args = _parse_args()
     env_from_var = str(os.environ.get("EMAIL_FETCH_ENV_FILE", "")).strip()
@@ -83,8 +87,29 @@ def main() -> int:
         summary = run_once(config)
         render(summary)
         return 0
-    except Exception:
-        raise
+    except Exception as exc:  # noqa: BLE001
+        payload = sanitize_for_operator_output(
+            {
+                "schema_version": "email.fetch.cli_error.v1",
+                "error": {
+                    "code": "gateway_mail_fetch_cli_error",
+                    "type": type(exc).__name__,
+                    "message": str(exc),
+                },
+            }
+        )
+        if args.json:
+            print(json.dumps(payload, ensure_ascii=False, indent=2), file=sys.stderr)
+        else:
+            error = payload.get("error", {}) if isinstance(payload, dict) else {}
+            print(
+                "[gateway-mail-fetch]",
+                f"error={error.get('code', 'gateway_mail_fetch_cli_error')}",
+                f"type={error.get('type', 'unknown')}",
+                f"message={error.get('message', '')}",
+                file=sys.stderr,
+            )
+        return 1
 
 
 if __name__ == "__main__":

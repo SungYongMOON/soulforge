@@ -9,6 +9,13 @@ Git log 는 원문 이력을 남기고, 이 문서는 사람이 읽는 patch not
 - 보호 대상 업무 데이터와 continuity record 는 여기 적지 않고 nested `private-state/CHANGELOG.md` 에 적는다.
 - secret 값, credential, token, password 는 절대 기록하지 않는다.
 
+## 2026-05-07
+
+### Revision `working` - gateway mail fetch operator 출력 redaction
+
+- `gateway:fetch` run summary/debug/CLI error output 에 raw mail body, HTML, URL, token-like cursor 가 섞여도 operator terminal 에 그대로 노출되지 않도록 sanitize 경로를 추가했다.
+- 24시간 PC `email -> monster` smoke prompt 는 live fetch 에서 `--json` 을 사용하지 않고 count/status 중심으로 확인하도록 조정했다.
+
 ## 2026-05-04
 
 ### Revision `working` - always-on email monster smoke prompt 추가

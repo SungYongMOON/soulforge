@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import json
 from pathlib import Path
 from typing import Any, Dict, List, Optional
 
@@ -104,6 +105,50 @@ def test_run_once_marks_partial_when_connector_raises(monkeypatch, tmp_path: Pat
     assert summary["partial"] is True
     assert summary["sources"][0]["partial"] is True
     assert summary["sources"][0]["errors"][0]["code"] == "timeout"
+
+
+def test_run_once_redacts_body_like_error_output(monkeypatch, tmp_path: Path) -> None:
+    config = _config(tmp_path)
+    exposed_body = "<html><body>private mail body should not print</body></html>"
+    connector = _FakeConnector(
+        FetchResult(
+            events=[],
+            next_cursor={
+                "last_received_epoch": 1700000000,
+                "nextPageToken": "cursor-token-should-not-print",
+            },
+            partial=True,
+            errors=[
+                ConnectorError(
+                    source="gmail",
+                    code="provider_error",
+                    message=exposed_body,
+                    retryable=False,
+                    detail={
+                        "body": exposed_body,
+                        "url": "https://mail.example.test/private-message",
+                        "safe_code": "kept",
+                    },
+                )
+            ],
+        )
+    )
+
+    monkeypatch.setattr(runner, "_build_gmail_connector", lambda cfg: connector)
+
+    summary = runner.run_once(config)
+    rendered = json.dumps(summary, ensure_ascii=False)
+    persisted_summary = config.last_summary_file.read_text(encoding="utf-8")
+    persisted_log = config.run_log_file.read_text(encoding="utf-8")
+
+    assert "private mail body should not print" not in rendered
+    assert "private mail body should not print" not in persisted_summary
+    assert "private mail body should not print" not in persisted_log
+    assert "mail.example.test/private-message" not in rendered
+    assert "cursor-token-should-not-print" not in rendered
+    assert summary["sources"][0]["errors"][0]["message"] == runner.REDACTED_OPERATOR_TEXT
+    assert summary["sources"][0]["errors"][0]["detail"]["body"] == runner.REDACTED_OPERATOR_VALUE
+    assert summary["sources"][0]["errors"][0]["detail"]["safe_code"] == "kept"
 
 
 def test_run_once_isolates_sink_failure_as_partial(monkeypatch, tmp_path: Path) -> None:

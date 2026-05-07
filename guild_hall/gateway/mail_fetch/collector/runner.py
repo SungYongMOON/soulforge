@@ -5,6 +5,7 @@ from datetime import datetime, timedelta, timezone
 import json
 import os
 from pathlib import Path
+import re
 import time
 from typing import Any, Dict, Iterable, List, Optional, Sequence, Tuple
 
@@ -24,6 +25,73 @@ from .storage import CursorStore, EventSink
 
 
 RUN_SCHEMA_VERSION = "email.fetch.run.v1"
+REDACTED_OPERATOR_VALUE = "[redacted]"
+REDACTED_OPERATOR_TEXT = "[redacted-mail-body-or-long-text]"
+
+_URL_RE = re.compile(r"https?://[^\s\"'<>]+", re.IGNORECASE)
+_SENSITIVE_SUMMARY_KEYS = {
+    "attachment",
+    "attachments",
+    "authorization",
+    "bcc",
+    "body",
+    "body_excerpt",
+    "body_html",
+    "body_text",
+    "cc",
+    "content",
+    "cookie",
+    "credential",
+    "credentials",
+    "email",
+    "event_id",
+    "events",
+    "final_url",
+    "from",
+    "headers",
+    "href",
+    "html",
+    "link",
+    "message_id",
+    "payload",
+    "provider_message_id",
+    "raw",
+    "recipient",
+    "sender",
+    "session",
+    "source_excerpt",
+    "source_quote",
+    "subject",
+    "text",
+    "thread_id",
+    "to",
+    "url",
+    "uri",
+}
+_SENSITIVE_KEY_FRAGMENTS = (
+    "authorization",
+    "body",
+    "cookie",
+    "credential",
+    "password",
+    "secret",
+    "session",
+    "token",
+)
+_MAIL_BODY_MARKERS = (
+    "<!doctype",
+    "<body",
+    "</body",
+    "<div",
+    "<html",
+    "</html",
+    "<meta",
+    "<p",
+    "<span",
+    "<table",
+    "&nbsp;",
+    "content-type: text/html",
+)
 
 
 def now_iso() -> str:
@@ -34,6 +102,69 @@ def _append_jsonl(path: Path, row: Dict[str, Any]) -> None:
     path.parent.mkdir(parents=True, exist_ok=True)
     with path.open("a", encoding="utf-8") as fp:
         fp.write(json.dumps(row, ensure_ascii=False) + "\n")
+
+
+def _normalize_summary_key(key: str) -> str:
+    return str(key or "").strip().lower().replace("-", "_").replace(" ", "_")
+
+
+def _is_sensitive_summary_key(key: str) -> bool:
+    normalized = _normalize_summary_key(key)
+    if normalized in _SENSITIVE_SUMMARY_KEYS:
+        return True
+    if normalized.endswith(("_body", "_html", "_text", "_url", "_uri")):
+        return True
+    return any(fragment in normalized for fragment in _SENSITIVE_KEY_FRAGMENTS)
+
+
+def _looks_like_mail_body_or_long_text(value: str) -> bool:
+    if not value:
+        return False
+    lowered = value.lower()
+    if any(marker in lowered for marker in _MAIL_BODY_MARKERS):
+        return True
+    if "\n" in value and len(value) > 240:
+        return True
+    return len(value) > 1000
+
+
+def _sanitize_summary_string(value: str) -> str:
+    if _looks_like_mail_body_or_long_text(value):
+        return REDACTED_OPERATOR_TEXT
+    sanitized = _URL_RE.sub("[redacted-url]", value)
+    if len(sanitized) > 300:
+        return sanitized[:300] + "...[truncated]"
+    return sanitized
+
+
+def sanitize_for_operator_output(value: Any, *, key: Optional[str] = None) -> Any:
+    if key is not None and _is_sensitive_summary_key(key):
+        return REDACTED_OPERATOR_VALUE
+    if isinstance(value, dict):
+        return {
+            str(row_key): sanitize_for_operator_output(row_value, key=str(row_key))
+            for row_key, row_value in value.items()
+        }
+    if isinstance(value, list):
+        return [sanitize_for_operator_output(row) for row in value]
+    if isinstance(value, tuple):
+        return [sanitize_for_operator_output(row) for row in value]
+    if isinstance(value, Path):
+        return str(value)
+    if isinstance(value, str):
+        return _sanitize_summary_string(value)
+    return value
+
+
+def _persist_run_summary(config: "CollectorConfig", summary: Dict[str, Any]) -> Dict[str, Any]:
+    safe_summary = sanitize_for_operator_output(summary)
+    _append_jsonl(config.run_log_file, safe_summary)
+    config.last_summary_file.parent.mkdir(parents=True, exist_ok=True)
+    config.last_summary_file.write_text(
+        json.dumps(safe_summary, ensure_ascii=False, indent=2) + "\n",
+        encoding="utf-8",
+    )
+    return safe_summary
 
 
 def _parse_bool(value: Optional[str], default: bool = False) -> bool:
@@ -376,7 +507,7 @@ def _debug(config: CollectorConfig, event: str, **payload: Any) -> None:
         "ts": now_iso(),
         "event": event,
     }
-    row.update(payload)
+    row.update(sanitize_for_operator_output(payload))
     _append_jsonl(config.debug_log_file, row)
 
 
@@ -513,10 +644,7 @@ def run_once(config: CollectorConfig) -> Dict[str, Any]:
                 "retryable": False,
             }
         )
-        _append_jsonl(config.run_log_file, summary)
-        config.last_summary_file.parent.mkdir(parents=True, exist_ok=True)
-        config.last_summary_file.write_text(json.dumps(summary, ensure_ascii=False, indent=2) + "\n", encoding="utf-8")
-        return summary
+        return _persist_run_summary(config, summary)
 
     for source, connector in connectors:
         cursor = cursor_store.get_cursor(source)
@@ -646,7 +774,4 @@ def run_once(config: CollectorConfig) -> Dict[str, Any]:
         cursor_store.save()
 
     summary["finished_at"] = now_iso()
-    _append_jsonl(config.run_log_file, summary)
-    config.last_summary_file.parent.mkdir(parents=True, exist_ok=True)
-    config.last_summary_file.write_text(json.dumps(summary, ensure_ascii=False, indent=2) + "\n", encoding="utf-8")
-    return summary
+    return _persist_run_summary(config, summary)
