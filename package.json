@@ -8,6 +8,7 @@
     "guild-hall:validate:canon": "node guild_hall/validate/canon_validate.mjs",
     "canon:validate": "npm run guild-hall:validate:canon --",
     "validate:canon": "node guild_hall/validate/canon_validate.mjs",
+    "validate:role-boundary": "node guild_hall/validate/role_boundary_validate.mjs",
     "validate:snapshot": "node --test guild_hall/snapshot/snapshot.test.mjs && node guild_hall/snapshot/cli.mjs --check",
     "validate:ui": "npm run ui:validate",
     "validate:activity": "node --test guild_hall/activity/activity_log.test.mjs guild_hall/healer/healer_run.test.mjs",

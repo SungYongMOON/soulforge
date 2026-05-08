@@ -11,6 +11,17 @@ Git log 는 원문 이력을 남기고, 이 문서는 사람이 읽는 patch not
 
 ## 2026-05-08
 
+### Revision `working` - node role public contract guard 추가
+
+- 모든 PC clone 에서 local `node_identity.yaml` 의 `primary_writer.public_repo` 를 기준으로 protected public contract 문서 변경을 검사하는 `validate:role-boundary` 를 추가했다.
+- root `validate` / `done:check` 가 role-boundary guard 를 먼저 실행해, public repo primary 가 아닌 node 의 전역 계약 문서 승격 변경을 기본 차단하게 했다.
+- `MULTI_PC_DEVELOPMENT_V0.md` 에 protected public contract 경로와 owner 승인 override 규칙을 명시했다.
+
+### Revision `working` - skill first-build 검증 게이트 명시
+
+- Soulforge 에서 skill 을 새로 만들거나 수정할 때 파일 생성만으로 완료 보고하지 않고, validator 와 fresh-context evaluator review 를 거친 뒤 보고하도록 project-level 실행 계약에 명시했다.
+- subagent 는 현재 실행 환경에서 허용되고 사용 가능한 경우에만 쓰며, 불가능한 경우에는 별도 새 컨텍스트 evaluator session 또는 수동 evaluator checklist 로 대체하고 한계를 보고하도록 했다.
+
 ### Revision `working` - private-state changelog 링크 검사 보정
 
 - `CHANGELOG_POLICY_V0.md` 의 private repo changelog 참조를 public CI 가 따라가야 하는 상대 링크가 아니라 local path 리터럴로 표시하게 했다.

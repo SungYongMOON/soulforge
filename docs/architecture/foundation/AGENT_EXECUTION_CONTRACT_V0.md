@@ -75,6 +75,33 @@ Soulforge 보정:
 | gateway index/mail fetch | `npm run validate:gateway` |
 | 마감 전 넓은 확인 | `npm run done:check` |
 
+### Skill first-build verification gate
+
+Soulforge에서 agent 가 skill 을 새로 만들거나 수정하는 요청을 받은 경우, 해당 요청은 기본적으로 1차 제작 검증까지 포함한다.
+즉 agent 는 skill 파일을 만든 것만으로 `완료` 라고 보고하지 않는다.
+
+적용 범위:
+
+- local Codex skill (`$CODEX_HOME/skills/**`, `~/.codex/skills/**`)
+- Soulforge canonical skill 후보 (`.registry/skills/**`)
+- Codex bridge (`.registry/skills/<skill_id>/codex/SKILL.md`)
+- skill 제작, 최적화, scale-up 을 돕는 meta skill
+
+1차 완료 보고 전 검증 게이트:
+
+1. skill 구조 validator 를 실행한다. Codex skill folder 는 사용 가능한 경우 `skill-creator` 의 validator 를 우선 사용하고, 없으면 repo-local validator 또는 구조 checklist 로 대체한 뒤 한계를 보고한다.
+2. script 를 만들거나 수정했으면 `--help`, dry-run, synthetic fixture 같은 안전한 방식으로 최소 1회 실행 검증한다. 안전 실행 경로가 없으면 production-ready 로 보고하지 않는다.
+3. fresh-context evaluator review 를 수행한다. 현재 실행 환경에서 subagent 사용이 허용되고 사용 가능한 경우에는 subagent 를 쓴다. 그렇지 않으면 별도 새 컨텍스트 evaluator session 또는 수동 evaluator checklist 로 대체하고, 대체 방식과 한계를 보고한다.
+4. evaluator 에게는 실제 사용자 작업 형태의 prompt 와 skill 경로만 준다. 의도한 정답, 의심한 결함, 수정 방향, private 판단 메모를 넘기지 않는다.
+5. evaluator 결과를 사용자의 acceptance criteria 또는 agent 가 작성한 acceptance contract 와 비교한다.
+
+보고 규칙:
+
+- 위 게이트를 통과하기 전에는 `production-ready`, `완료`, `검증 완료` 라고 말하지 않는다.
+- subagent 사용이 불가능하거나 사용자가 금지한 경우에는 사용한 대체 평가 방식과 잔여 리스크를 보고한다. 대체 평가가 acceptance 기준을 충분히 검증하지 못하면 `draft` 또는 `usable-pending-fresh-eval` 로 보고하고, 실행해야 할 evaluator prompt 를 함께 남긴다.
+- 검증 결과에는 validator 명령, evaluator 방식, acceptance 기준 대비 pass/fail, 남은 gap, 다음 조치를 포함한다.
+- project-specific skill 근거와 반복 개선 기록은 공개 가능성이 확인되기 전까지 `_workmeta/<project_code>/reports/procedure_capture/` 쪽으로 해석한다. `project_code` 가 명시되지 않았으면 임의 project 를 선택하지 않고 사용자에게 확인한다.
+
 Soulforge 보정:
 
 - 검증 명령이 secret, private runtime truth, 외부 계정 상태를 요구하면 먼저 경계를 확인한다.

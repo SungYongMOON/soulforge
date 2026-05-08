@@ -168,9 +168,17 @@ git push origin codex/<node-id>-<short-task>
 
 - 운영용 clone 의 dirty `main` 상태로 자동화 계속 실행
 - `guild_hall/state/**`, `_workspaces/**`, `_workmeta/**`, `private-state/**`, raw mail body, attachment binary, secret 파일을 public commit 에 포함
+- public repo primary 가 아닌 node 에서 `AGENTS.md`, root `README.md`, `docs/architecture/foundation/**`, `docs/architecture/bootstrap/**`, `MULTI_PC_DEVELOPMENT_V0.md` 같은 protected public contract 문서를 직접 승격 변경
 - 같은 파일/기능을 여러 PC 가 동시에 수정하면서 조율 없이 push
 - 검증 없이 24시간 운영 node 에 바로 반영
 - 같은 project 의 같은 tool run 을 `work_pc` 와 `tool_pc` 가 동시에 기록
+
+role-boundary guard:
+
+- `npm run validate` 와 `npm run done:check` 는 먼저 `npm run validate:role-boundary` 를 실행한다.
+- 이 guard 는 local-only `guild_hall/state/local/node_identity.yaml` 의 `primary_writer.public_repo` 를 확인한다.
+- `primary_writer.public_repo` 가 `true` 가 아닌 node 에서 protected public contract 문서 diff 가 있으면 실패한다.
+- owner 가 명시적으로 예외를 승인한 경우에만 `SOULFORGE_ALLOW_PUBLIC_CONTRACT_EDIT=1` 로 일회성 override 한다. override 는 보호 장치 해제 기록이므로 최종 보고에 남긴다.
 
 작업 배정 원칙:
 

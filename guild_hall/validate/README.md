@@ -12,7 +12,10 @@
   - `--json` 출력 지원
 - `run_root_acceptance.mjs`
   - root `validate` / `done:check` 단계 실행기
-  - canon, snapshot, activity, UI, gateway harness 를 한 entrypoint 로 묶음
+  - role-boundary, canon, snapshot, activity, UI, gateway harness 를 한 entrypoint 로 묶음
+- `role_boundary_validate.mjs`
+  - local `node_identity.yaml` 의 `primary_writer.public_repo` 를 읽고, non-primary node 가 protected public contract 문서를 수정했는지 검사
+  - `guild_hall/state/local/node_identity.yaml` 이 없는 CI/public-only 환경에서는 advisory warning 으로만 처리
 
 ## 실행 계약
 
@@ -23,6 +26,7 @@
 - root harness:
   - `npm run validate`
   - `npm run done:check`
+  - `npm run validate:role-boundary`
   - `npm run validate:activity`
   - `npm run validate:gateway`
 

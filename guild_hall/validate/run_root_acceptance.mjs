@@ -8,6 +8,7 @@ const mode = args.mode ?? "validate";
 
 const STEPS_BY_MODE = {
   validate: [
+    ["role-boundary", "npm run validate:role-boundary"],
     ["canon", "npm run validate:canon"],
     ["snapshot", "npm run validate:snapshot"],
     ["activity", "npm run validate:activity"],
@@ -15,6 +16,7 @@ const STEPS_BY_MODE = {
     ["gateway", "npm run validate:gateway"],
   ],
   "done-check": [
+    ["role-boundary", "npm run validate:role-boundary"],
     ["canon", "npm run validate:canon"],
     ["snapshot", "npm run validate:snapshot"],
     ["activity", "npm run validate:activity"],
