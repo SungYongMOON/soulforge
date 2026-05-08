@@ -766,12 +766,45 @@
   gap: 12px;
 }
 
+.cc-map-grid--monsters {
+  grid-template-columns: repeat(auto-fit, minmax(240px, 1fr));
+}
+
 .cc-map-card {
   display: grid;
   gap: 6px;
   border: 1px solid var(--sf-border-regular);
   border-radius: calc(var(--sf-radius-card) - 4px);
   background: var(--sf-surface-card);
+}
+
+.cc-monster-groups,
+.cc-monster-group {
+  display: grid;
+  gap: 12px;
+}
+
+.cc-monster-group {
+  padding-top: 12px;
+  border-top: 1px solid var(--sf-border-regular);
+}
+
+.cc-monster-group__header {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: 12px;
+}
+
+.cc-monster-group__header h4 {
+  margin: 0;
+  font-family: var(--sf-font-display);
+  font-size: 0.98rem;
+}
+
+.cc-monster-group__header span {
+  color: var(--sf-text-muted);
+  font-size: 0.84rem;
 }
 
 .cc-map-card strong {

@@ -11,6 +11,12 @@ Git log 는 원문 이력을 남기고, 이 문서는 사람이 읽는 patch not
 
 ## 2026-05-08
 
+### Revision `working` - 작전판 pending monster 분류 표시
+
+- snapshot pending monster projection 에 `display_group` 분류와 `by_display_group` count 를 추가해 Monster Gate 가 blocked/due/routing/identification/open intake 기준으로 묶어 볼 수 있게 했다.
+- pending monster display sample cap 을 24건으로 올려 현재 18건 규모의 작전판 표시가 truncation 없이 가능하게 했다.
+- UI Dungeon Map 은 snapshot 의 sanitized pending monster item 만 사용해 group별 섹션으로 표시하며 raw mail body/html/source quote/raw ref/attachment 값은 계속 제외한다.
+
 ### Revision `working` - 작전판 pending monster snapshot 요약 추가
 
 - snapshot gateway projection 이 `intake_inbox/*/monsters.json` 의 pending/blocked monster 를 제한된 summary 로 집계하게 했다.

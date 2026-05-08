@@ -97,6 +97,117 @@ test("buildSnapshot summarizes private project surfaces without reading private 
   }
 });
 
+test("buildSnapshot classifies pending monsters for operation board display", async () => {
+  const repoRoot = await mkdtemp(path.join(os.tmpdir(), "soulforge-snapshot-classified-monsters-"));
+
+  try {
+    await mkdir(path.join(repoRoot, ".mission"), { recursive: true });
+    await mkdir(path.join(repoRoot, "guild_hall", "state", "gateway", "intake_inbox", "inbox_001"), { recursive: true });
+    await writeFile(path.join(repoRoot, ".mission", "index.yaml"), ["version: v1", "entries: []"].join("\n"), "utf8");
+
+    const openIntakeMonsters = Array.from({ length: 12 }, (_, index) => ({
+      monster_id: `monster_open_${String(index + 1).padStart(3, "0")}`,
+      monster_family: "dragon",
+      monster_name: "green_dragon",
+      objective: `Open intake fixture ${index + 1}`,
+      due_state: "no_due",
+      known_status: "known",
+      assignment_status: "pending_dungeon_assignment",
+    }));
+    await writeFile(
+      path.join(repoRoot, "guild_hall", "state", "gateway", "intake_inbox", "inbox_001", "monsters.json"),
+      JSON.stringify(
+        {
+          monsters: [
+            {
+              monster_id: "monster_blocked_001",
+              monster_family: "dragon",
+              objective: "Blocked fixture",
+              due_state: "no_due",
+              known_status: "known",
+              assignment_status: "blocked",
+            },
+            {
+              monster_id: "monster_due_001",
+              monster_family: "dragon",
+              objective: "Due fixture",
+              due_state: "scheduled",
+              known_status: "known",
+              assignment_status: "pending_dungeon_assignment",
+            },
+            {
+              monster_id: "monster_due_002",
+              monster_family: "dragon",
+              objective: "Overdue fixture",
+              due_state: "overdue",
+              known_status: "known",
+              assignment_status: "pending_dungeon_assignment",
+            },
+            {
+              monster_id: "monster_assigned_001",
+              monster_family: "dragon",
+              objective: "Assigned route fixture",
+              due_state: "no_due",
+              known_status: "known",
+              assignment_status: "pending_dungeon_assignment",
+              assigned_project_code: "PX-001",
+            },
+            {
+              monster_id: "monster_hint_001",
+              monster_family: "dragon",
+              objective: "Hinted route fixture",
+              due_state: "no_due",
+              known_status: "known",
+              assignment_status: "pending_dungeon_assignment",
+              project_hints: ["PX-002"],
+            },
+            {
+              monster_id: "monster_unknown_001",
+              monster_family: "unknown_monster",
+              objective: "Identification fixture",
+              due_state: "no_due",
+              known_status: "unknown",
+              assignment_status: "pending_dungeon_assignment",
+            },
+            ...openIntakeMonsters,
+            {
+              monster_id: "monster_done_001",
+              monster_family: "dragon",
+              objective: "Transferred fixture",
+              assignment_status: "transferred",
+            },
+          ],
+        },
+        null,
+        2,
+      ),
+      "utf8",
+    );
+
+    const snapshot = await buildSnapshot({ repoRoot, generatedAt: "2026-05-08T00:00:00.000Z" });
+    const pendingMonsters = snapshot.gateway.pending_monsters;
+
+    assert.equal(validateSnapshot(snapshot).ok, true);
+    assert.equal(pendingMonsters.count, 18);
+    assert.equal(pendingMonsters.display_limit, 24);
+    assert.equal(pendingMonsters.truncated, false);
+    assert.equal(pendingMonsters.items.length, 18);
+    assert.deepEqual(pendingMonsters.by_display_group, {
+      assigned_route: 1,
+      blocked: 1,
+      due_watch: 2,
+      needs_identification: 1,
+      open_intake: 12,
+      routing_hints: 1,
+    });
+    assert.equal(pendingMonsters.items[0].display_group, "blocked");
+    assert.equal(pendingMonsters.items[0].display_group_label, "Blocked");
+    assert.equal(pendingMonsters.items.every((monster) => typeof monster.display_group_rank === "number"), true);
+  } finally {
+    await rm(repoRoot, { recursive: true, force: true });
+  }
+});
+
 test("compareSnapshotFreshness detects source observation changes", async () => {
   const repoRoot = await mkdtemp(path.join(os.tmpdir(), "soulforge-snapshot-freshness-"));
   const missionIndexPath = path.join(repoRoot, ".mission", "index.yaml");

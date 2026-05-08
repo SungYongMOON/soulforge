@@ -29,7 +29,16 @@ const OWNER_ROOTS = [
 
 const WORKMETA_NON_PROJECT_ROOTS = new Set([".git", "templates", "system"]);
 const PENDING_MONSTER_ASSIGNMENT_STATUSES = new Set(["pending_dungeon_assignment", "blocked"]);
-const PENDING_MONSTER_SAMPLE_LIMIT = 6;
+const PENDING_MONSTER_DISPLAY_LIMIT = 24;
+const PENDING_MONSTER_DISPLAY_GROUPS = [
+  { id: "blocked", label: "Blocked", rank: 10 },
+  { id: "due_watch", label: "Due watch", rank: 20 },
+  { id: "assigned_route", label: "Assigned route", rank: 30 },
+  { id: "routing_hints", label: "Routing hints", rank: 40 },
+  { id: "needs_identification", label: "Needs identification", rank: 50 },
+  { id: "open_intake", label: "Open intake", rank: 60 },
+];
+const PENDING_MONSTER_DISPLAY_GROUP_BY_ID = new Map(PENDING_MONSTER_DISPLAY_GROUPS.map((group) => [group.id, group]));
 
 const SNAPSHOT_OWNER_NOTES = [
   "Snapshot is a read-only projection for UI and external hosts.",
@@ -538,11 +547,12 @@ async function summarizeGateway(repoRoot) {
 async function summarizePendingMonsters(intakeRoot, inboxDirs) {
   const counts = {
     by_assignment_status: {},
+    by_display_group: {},
     by_family: {},
     by_due_state: {},
     by_known_status: {},
   };
-  const items = [];
+  const summaries = [];
   let pendingCount = 0;
   let skippedUnreadableFiles = 0;
 
@@ -575,22 +585,23 @@ async function summarizePendingMonsters(intakeRoot, inboxDirs) {
       const family = stringValue(monster.monster_family) ?? "unknown_monster";
       const dueState = stringValue(monster.due_state) ?? "no_due";
       const knownStatus = stringValue(monster.known_status) ?? "unknown";
+      const summary = summarizePendingMonster({ inboxId, monster, assignmentStatus, family, dueState, knownStatus });
       pendingCount += 1;
       incrementCount(counts.by_assignment_status, assignmentStatus);
+      incrementCount(counts.by_display_group, summary.display_group);
       incrementCount(counts.by_family, family);
       incrementCount(counts.by_due_state, dueState);
       incrementCount(counts.by_known_status, knownStatus);
-
-      if (items.length < PENDING_MONSTER_SAMPLE_LIMIT) {
-        items.push(summarizePendingMonster({ inboxId, monster, assignmentStatus, family, dueState, knownStatus }));
-      }
+      summaries.push(summary);
     }
   }
+
+  const items = summaries.sort(comparePendingMonsterSummaries).slice(0, PENDING_MONSTER_DISPLAY_LIMIT);
 
   return {
     source_ref: "guild_hall/state/gateway/intake_inbox",
     count: pendingCount,
-    sample_limit: PENDING_MONSTER_SAMPLE_LIMIT,
+    display_limit: PENDING_MONSTER_DISPLAY_LIMIT,
     truncated: pendingCount > items.length,
     ...counts,
     items,
@@ -611,7 +622,7 @@ async function summarizePendingMonsters(intakeRoot, inboxDirs) {
 }
 
 function summarizePendingMonster({ inboxId, monster, assignmentStatus, family, dueState, knownStatus }) {
-  return {
+  const summary = {
     monster_id: stringValue(monster.monster_id),
     inbox_id: inboxId,
     monster_family: family,
@@ -630,6 +641,48 @@ function summarizePendingMonster({ inboxId, monster, assignmentStatus, family, d
     last_mail_role: stringValue(monster.last_mail_role),
     mission_ref_present: Boolean(stringValue(monster.mission_ref)),
   };
+  const displayGroup = classifyPendingMonsterDisplayGroup(summary);
+
+  return {
+    ...summary,
+    display_group: displayGroup.id,
+    display_group_label: displayGroup.label,
+    display_group_rank: displayGroup.rank,
+  };
+}
+
+function classifyPendingMonsterDisplayGroup(monster) {
+  let groupId = "open_intake";
+
+  if (monster.assignment_status === "blocked") {
+    groupId = "blocked";
+  } else if (monster.due_state && monster.due_state !== "no_due") {
+    groupId = "due_watch";
+  } else if (monster.assigned_project_code || monster.assigned_stage || monster.mission_ref_present) {
+    groupId = "assigned_route";
+  } else if (monster.project_hint_count > 0 || monster.stage_hint_count > 0) {
+    groupId = "routing_hints";
+  } else if (monster.monster_family === "unknown_monster" || monster.known_status === "unknown") {
+    groupId = "needs_identification";
+  }
+
+  return PENDING_MONSTER_DISPLAY_GROUP_BY_ID.get(groupId) ?? PENDING_MONSTER_DISPLAY_GROUP_BY_ID.get("open_intake");
+}
+
+function comparePendingMonsterSummaries(left, right) {
+  return (
+    numberSortValue(left.display_group_rank) - numberSortValue(right.display_group_rank) ||
+    stringSortValue(left.due_state).localeCompare(stringSortValue(right.due_state)) ||
+    stringSortValue(left.monster_id).localeCompare(stringSortValue(right.monster_id))
+  );
+}
+
+function numberSortValue(value) {
+  return typeof value === "number" ? value : Number.MAX_SAFE_INTEGER;
+}
+
+function stringSortValue(value) {
+  return typeof value === "string" ? value : "";
 }
 
 async function summarizePrivateState(repoRoot) {

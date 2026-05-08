@@ -92,9 +92,11 @@
 - `monster_index_present`
 - `pending_monsters.count`
 - `pending_monsters.by_assignment_status`
+- `pending_monsters.by_display_group`
 - `pending_monsters.by_family`
 - `pending_monsters.by_due_state`
 - `pending_monsters.by_known_status`
+- `pending_monsters.display_limit`
 - `pending_monsters.items[*]`
   - `monster_id`
   - `inbox_id`
@@ -106,6 +108,9 @@
   - `d_day`
   - `known_status`
   - `assignment_status`
+  - `display_group`
+  - `display_group_label`
+  - `display_group_rank`
   - `assigned_project_code`
   - `assigned_stage`
   - `project_hint_count`
@@ -117,8 +122,9 @@
 - `mailbox_surfaces.company_present`
 - `mailbox_surfaces.personal_present`
 
-`pending_monsters.items` 는 `pending_dungeon_assignment` 와 `blocked` 상태만 최대 6건 sample 로 담는다.
-이 sample 은 작전판 표시용 요약이며, source mail subject/from/to/cc/body/html/source_quote/raw/attachment 값의 원문 복제 경로가 아니다.
+`pending_monsters.items` 는 `pending_dungeon_assignment` 와 `blocked` 상태만 최대 24건 display sample 로 담는다.
+`display_group` 은 이미 snapshot 에 들어가는 sanitized field 만 사용해 `blocked`, `due_watch`, `assigned_route`, `routing_hints`, `needs_identification`, `open_intake` 로 분류한다.
+이 display sample 은 작전판 표시용 요약이며, source mail subject/from/to/cc/body/html/source_quote/raw/attachment 값의 원문 복제 경로가 아니다.
 
 ## 실행
 

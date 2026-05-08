@@ -122,11 +122,13 @@ interface DungeonMapNextAction {
 
 interface DungeonMapPendingMonster {
   monster_id: string;
+  inbox_id: string;
   monster_family: string;
   monster_name: string | null;
   work_pattern: string | null;
   objective_summary: string | null;
   due_state: string;
+  d_day: string | null;
   known_status: string;
   assignment_status: string;
   assigned_project_code: string | null;
@@ -136,6 +138,17 @@ interface DungeonMapPendingMonster {
   mail_touch_count: number | null;
   last_mail_role: string | null;
   mission_ref_present: boolean;
+  display_group: string;
+  display_group_label: string;
+  display_group_rank: number;
+}
+
+interface DungeonMapPendingMonsterGroup {
+  id: string;
+  label: string;
+  rank: number;
+  total: number;
+  items: DungeonMapPendingMonster[];
 }
 
 interface DungeonMapSnapshot {
@@ -153,7 +166,9 @@ interface DungeonMapSnapshot {
     monster_index_present: boolean;
     pending_monsters: {
       count: number;
+      display_limit: number;
       truncated: boolean;
+      by_display_group: Record<string, unknown>;
       items: DungeonMapPendingMonster[];
     };
   };
@@ -644,6 +659,41 @@ function snapshotTone(status: SnapshotStatus) {
   }
 
   return "error";
+}
+
+function pendingMonsterTitle(monster: DungeonMapPendingMonster) {
+  return monster.objective_summary || monster.monster_name || monster.monster_id;
+}
+
+function groupPendingMonsters(items: DungeonMapPendingMonster[], counts: Record<string, unknown>): DungeonMapPendingMonsterGroup[] {
+  const groups = new Map<string, DungeonMapPendingMonsterGroup>();
+
+  for (const monster of items) {
+    const id = monster.display_group || "open_intake";
+    const existing = groups.get(id);
+
+    if (existing) {
+      existing.items.push(monster);
+      continue;
+    }
+
+    groups.set(id, {
+      id,
+      label: monster.display_group_label || id,
+      rank: Number.isFinite(monster.display_group_rank) ? monster.display_group_rank : 999,
+      total: 0,
+      items: [monster],
+    });
+  }
+
+  const groupedItems = Array.from(groups.values()).map((group) => ({
+    ...group,
+    total: typeof counts[group.id] === "number" ? counts[group.id] : group.items.length,
+  }));
+
+  return groupedItems.sort(
+    (left, right) => left.rank - right.rank || left.label.localeCompare(right.label) || left.id.localeCompare(right.id),
+  );
 }
 
 function ownerFolderName(ownerId: ControlCenterOwnerId) {
@@ -1161,6 +1211,10 @@ function App() {
     }
   }
 
+  const pendingMonsterGroups = dungeonMap.snapshot
+    ? groupPendingMonsters(dungeonMap.snapshot.gateway.pending_monsters.items, dungeonMap.snapshot.gateway.pending_monsters.by_display_group)
+    : [];
+
   return (
     <div
       className="cc-shell"
@@ -1611,27 +1665,46 @@ function App() {
                       <strong>Inbox {dungeonMap.snapshot.gateway.intake_inbox_count}</strong>
                       <span>monster_index {dungeonMap.snapshot.gateway.monster_index_present ? "present" : "missing"}</span>
                       <span>pending monsters {dungeonMap.snapshot.gateway.pending_monsters.count}</span>
-                      {dungeonMap.snapshot.gateway.pending_monsters.truncated ? <span>sample truncated</span> : null}
+                      <span>showing {dungeonMap.snapshot.gateway.pending_monsters.items.length} / {dungeonMap.snapshot.gateway.pending_monsters.display_limit || "legacy"}</span>
+                      {dungeonMap.snapshot.gateway.pending_monsters.truncated ? <span>display truncated</span> : null}
                     </div>
-                    {dungeonMap.snapshot.gateway.pending_monsters.items.length > 0 ? (
-                      <div className="cc-map-grid">
-                        {dungeonMap.snapshot.gateway.pending_monsters.items.map((monster) => (
-                          <article className="cc-map-card" key={`${monster.monster_id}:${monster.assignment_status}:${monster.due_state}`}>
-                            <strong>{monster.objective_summary || monster.monster_name || monster.monster_id}</strong>
-                            <span>
-                              {monster.monster_family}
-                              {monster.work_pattern ? ` / ${monster.work_pattern}` : ""}
-                            </span>
-                            <span>
-                              {monster.assignment_status} / {monster.due_state}
-                            </span>
-                            <span>
-                              project hints {monster.project_hint_count} / stage hints {monster.stage_hint_count}
-                              {monster.mail_touch_count !== null ? ` / mail ${monster.mail_touch_count}` : ""}
-                            </span>
-                          </article>
+                    {pendingMonsterGroups.length > 0 ? (
+                      <div className="cc-monster-groups">
+                        {pendingMonsterGroups.map((group) => (
+                          <section className="cc-monster-group" key={group.id}>
+                            <div className="cc-monster-group__header">
+                              <h4>{group.label}</h4>
+                              <span>{group.items.length === group.total ? `${group.total} shown` : `${group.items.length} / ${group.total} shown`}</span>
+                            </div>
+                            <div className="cc-map-grid cc-map-grid--monsters">
+                              {group.items.map((monster) => (
+                                <article className="cc-map-card cc-monster-card" key={`${monster.monster_id}:${monster.assignment_status}:${monster.due_state}`}>
+                                  <strong>{pendingMonsterTitle(monster)}</strong>
+                                  <span>
+                                    {monster.monster_family}
+                                    {monster.work_pattern ? ` / ${monster.work_pattern}` : ""}
+                                  </span>
+                                  <span>
+                                    {monster.assignment_status} / {monster.due_state}
+                                    {monster.d_day ? ` / ${monster.d_day}` : ""}
+                                  </span>
+                                  <span>
+                                    project hints {monster.project_hint_count} / stage hints {monster.stage_hint_count}
+                                    {monster.mail_touch_count !== null ? ` / mail ${monster.mail_touch_count}` : ""}
+                                  </span>
+                                  <span>
+                                    inbox {monster.inbox_id}
+                                    {monster.assigned_project_code ? ` / ${monster.assigned_project_code}` : ""}
+                                    {monster.assigned_stage ? ` / ${monster.assigned_stage}` : ""}
+                                  </span>
+                                </article>
+                              ))}
+                            </div>
+                          </section>
                         ))}
                       </div>
+                    ) : dungeonMap.snapshot.gateway.pending_monsters.count > 0 ? (
+                      <p className="cc-readonly-note">Pending monster summaries are not available in this snapshot. Regenerate the snapshot to populate the classified display.</p>
                     ) : null}
                   </section>
 
