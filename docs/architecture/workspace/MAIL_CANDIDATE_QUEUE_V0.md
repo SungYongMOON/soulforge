@@ -78,9 +78,63 @@ guild_hall/state/gateway/mail_candidate/
 
 ## 후속 처리
 
-- 사람이 후보를 검토하거나 future adapter 가 `mail_intake_request` 를 만들 수 있다.
+- 사람이 후보를 검토한 뒤 `guild-hall:gateway:mail-candidate:promote` 로 `mail_intake_request` 를 만들 수 있다.
 - `mail_candidate` item 은 monster current state 가 아니다.
 - monster 로 materialize 된 뒤의 current state 는 기존 `guild_hall/state/gateway/intake_inbox/**` 계약을 따른다.
+
+## promotion command
+
+기본 명령:
+
+```bash
+npm run guild-hall:gateway:mail-candidate:promote -- --candidate-file guild_hall/state/gateway/mail_candidate/queue/pending/<candidate_id>.json
+```
+
+명령은 아래 일을 한다.
+
+1. candidate item 을 읽는다.
+2. `source_event.event_file` 의 mailbox event JSONL 에서 같은 `event_id` 를 찾아 provider message id, thread id, to/cc snapshot 을 보강한다.
+3. `guild_hall/state/gateway/mail_candidate/requests/<candidate_id>.mail_intake_request.json` 를 쓴다.
+4. candidate status 를 `promoted_to_intake_request` 로 바꾸고 `business_review.intake_request_ref` 를 남긴다.
+
+`source_event.event_file` 이 `guild_hall/state/gateway/mailbox/**` 밖을 가리키거나, 파일이 없거나, 같은 `event_id` 를 찾지 못하면 promotion 은 실패한다. candidate 와 mailbox event 는 같은 local runtime set 으로 유지해야 한다.
+`--output-file` 을 직접 지정할 때도 기본적으로 `guild_hall/state/gateway/mail_candidate/requests/**` 아래만 허용한다. 예외가 필요하면 `--allow-output-outside-state` 를 명시해야 한다.
+
+생성된 request 는 기존 intake command 로 실행한다.
+
+```bash
+npm run guild-hall:gateway:intake -- --payload-file guild_hall/state/gateway/mail_candidate/requests/<candidate_id>.mail_intake_request.json
+```
+
+promotion request 는 current-default 로 `unknown_monster` 1개를 넣는다. 이 단계는 "업무화 검토 후보를 monster 후보로 넘기는 것" 이며 project/stage 배정은 기존 intake 이후 단계가 맡는다.
+
+후보 목록만 볼 때는 아래 명령을 쓴다.
+
+```bash
+npm run guild-hall:gateway:mail-candidate:list
+```
+
+기본 목록은 `pending_review` 만 보여준다. 전체 상태를 보려면 `-- --status all` 을 붙인다.
+
+## promotion output boundary
+
+promotion 으로 만들어지는 `mail_intake_request` 는 아래를 포함한다.
+
+- `event_ref`: mailbox event pointer
+- `raw_ref`: raw JSONL pointer
+- `subject`
+- `from`, `to`, `cc`
+- default `unknown_monster` entry
+
+promotion output 에도 아래 값은 넣지 않는다.
+
+- `body_text`
+- `body_html`
+- raw provider payload
+- attachment filename
+- attachment URL
+- downloaded attachment local path
+- secret, token, password, cookie, credential
 
 ## public-safe sample
 

@@ -1,0 +1,42 @@
+{
+  "action": "mail_intake_request",
+  "event_id": "hiworks_evt_2026_03_19_001",
+  "source": "hiworks",
+  "mailbox_id": "company_mailbox",
+  "provider_message_id": "<synthetic-hiworks-001@example.com>",
+  "received_at": "2026-03-19T00:15:00+00:00",
+  "event_ref": "guild_hall/state/gateway/mailbox/company/mail/events/hiworks/2026/2026-03.jsonl#event_id=hiworks_evt_2026_03_19_001",
+  "raw_ref": "guild_hall/state/gateway/mailbox/company/mail/raw/hiworks/2026/2026-03.jsonl#provider_message_id=<synthetic-hiworks-001@example.com>",
+  "attachment_refs": [],
+  "thread_ref": null,
+  "subject": "PDR 완료 요청",
+  "from": [
+    {
+      "name": "PM",
+      "address": "pm@example.com"
+    }
+  ],
+  "to": [
+    {
+      "name": "Owner",
+      "address": "owner@example.com"
+    }
+  ],
+  "cc": [
+    {
+      "name": "Reviewer",
+      "address": "reviewer@example.com"
+    }
+  ],
+  "body_excerpt": null,
+  "monsters": [
+    {
+      "monster_family": "unknown_monster",
+      "work_pattern": "mail_candidate_review",
+      "objective": "Review and process the mail candidate: PDR 완료 요청",
+      "objective_ko": "메일 후보를 검토하고 업무화 여부를 결정합니다: PDR 완료 요청",
+      "dedupe_key": "mail:hiworks:hiworks_evt_2026_03_19_001",
+      "mail_role": "new_request"
+    }
+  ]
+}

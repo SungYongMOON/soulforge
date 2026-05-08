@@ -10,6 +10,7 @@ import {
   registerMonsterInIndex,
   syncMonsterIndexInbox,
 } from "./monster_index.mjs";
+import { listMailCandidates, promoteMailCandidate } from "./mail_candidate.mjs";
 import { renderMonsterCreatedMessage, sanitizeId } from "./message_rendering.mjs";
 import {
   appendJsonl,
@@ -32,6 +33,7 @@ const repoRoot = path.resolve(__dirname, "../..");
 const gatewayRoot = path.join(repoRoot, "guild_hall", "state", "gateway");
 const intakeInboxRoot = path.join(gatewayRoot, "intake_inbox");
 const globalEventRoot = path.join(gatewayRoot, "log", "monster_events");
+const mailCandidateRoot = path.join(gatewayRoot, "mail_candidate");
 
 async function main() {
   const [command, ...rest] = process.argv.slice(2);
@@ -44,6 +46,16 @@ async function main() {
 
   if (command === "update-monster") {
     await runUpdateMonster(args);
+    return;
+  }
+
+  if (command === "list-mail-candidates") {
+    await runListMailCandidates(args);
+    return;
+  }
+
+  if (command === "promote-mail-candidate") {
+    await runPromoteMailCandidate(args);
     return;
   }
 
@@ -100,6 +112,8 @@ function printUsageAndExit() {
       "Usage:",
       "  node guild_hall/gateway/cli.mjs intake --payload-file <path>",
       "  node guild_hall/gateway/cli.mjs update-monster --inbox-id <id> --monster-id <id> --patch-file <path>",
+      "  node guild_hall/gateway/cli.mjs list-mail-candidates [--queue-root <path>] [--status <status|all>]",
+      "  node guild_hall/gateway/cli.mjs promote-mail-candidate --candidate-file <path> [--output-file <path>] [--allow-output-outside-state] [--no-status-update] [--force]",
       "  node guild_hall/gateway/cli.mjs notify-gateway --event <event> (--on | --off)",
       "  node guild_hall/gateway/cli.mjs notify-mission --mission-id <id> --event <event> (--on | --off)",
       "  node guild_hall/gateway/cli.mjs notify-status --scope <gateway|mission> --event <event> [--mission-id <id>]",
@@ -107,6 +121,42 @@ function printUsageAndExit() {
     ].join("\n"),
   );
   process.exit(1);
+}
+
+async function runListMailCandidates(args) {
+  const queueRoot = args["queue-root"] ? path.resolve(String(args["queue-root"])) : mailCandidateRoot;
+  const rawStatus = String(args.status ?? "pending_review").trim();
+  const status = rawStatus === "all" ? "" : rawStatus;
+  const candidates = await listMailCandidates({ repoRoot, queueRoot, status });
+  printJson({
+    request_id: "mail_candidate_list",
+    status: "ok",
+    queue_root: relativeToRepo(queueRoot),
+    count: candidates.length,
+    candidates,
+  });
+}
+
+async function runPromoteMailCandidate(args) {
+  const candidateFile = requireFlag(args, "candidate-file");
+  const outputFile = args["output-file"] ? path.resolve(String(args["output-file"])) : null;
+  if (outputFile && !args["allow-output-outside-state"]) {
+    const requestRoot = path.join(mailCandidateRoot, "requests");
+    if (!isPathInside(requestRoot, outputFile)) {
+      throw new Error(
+        `--output-file must stay under ${relativeToRepo(requestRoot)} unless --allow-output-outside-state is set`,
+      );
+    }
+  }
+  const result = await promoteMailCandidate({
+    repoRoot,
+    candidateFile,
+    outputFile,
+    updateCandidate: !args["no-status-update"],
+    force: Boolean(args.force),
+    allowOutputOutsideState: Boolean(args["allow-output-outside-state"]),
+  });
+  printJson(result);
 }
 
 async function runIntake(args) {
@@ -870,6 +920,11 @@ function requireFlag(args, key) {
     throw new Error(`missing required flag: --${key}`);
   }
   return value;
+}
+
+function isPathInside(rootPath, targetPath) {
+  const relative = path.relative(path.resolve(rootPath), path.resolve(targetPath));
+  return relative === "" || (!relative.startsWith("..") && !path.isAbsolute(relative));
 }
 
 async function readMessageText(args) {
