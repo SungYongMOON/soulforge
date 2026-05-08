@@ -39,6 +39,15 @@ const PENDING_MONSTER_DISPLAY_GROUPS = [
   { id: "open_intake", label: "Open intake", rank: 60 },
 ];
 const PENDING_MONSTER_DISPLAY_GROUP_BY_ID = new Map(PENDING_MONSTER_DISPLAY_GROUPS.map((group) => [group.id, group]));
+const OPERATION_BOARD_VERSION = "soulforge.operation_board_projection.v0";
+const MISSION_BOARD_DISPLAY_GROUPS = [
+  { id: "blocked", label: "Blocked", rank: 10 },
+  { id: "ready", label: "Ready", rank: 20 },
+  { id: "active", label: "Active", rank: 30 },
+  { id: "completed", label: "Completed", rank: 80 },
+  { id: "other", label: "Other", rank: 90 },
+];
+const MISSION_BOARD_DISPLAY_GROUP_BY_ID = new Map(MISSION_BOARD_DISPLAY_GROUPS.map((group) => [group.id, group]));
 
 const SNAPSHOT_OWNER_NOTES = [
   "Snapshot is a read-only projection for UI and external hosts.",
@@ -62,6 +71,29 @@ export async function buildSnapshot(options = {}) {
   const privateState = await summarizePrivateState(repoRoot);
   const repo = summarizeRepo(repoRoot);
   const sourceObservations = await collectSourceObservations(repoRoot, generatedAt);
+  const nextActions = [
+    {
+      id: "snapshot_schema",
+      status: "started",
+      summary: "Keep the read-only snapshot contract stable enough for UI consumption.",
+    },
+    {
+      id: "dungeon_map",
+      status: "next",
+      summary: "Render owner roots and project surfaces from snapshot metadata.",
+    },
+    {
+      id: "mission_board",
+      status: "next",
+      summary: "Render held mission readiness and blocker summaries from snapshot metadata.",
+    },
+    {
+      id: "anti_bottleneck_loop",
+      status: "next",
+      summary: "Surface intervention_count and bottleneck_reason so repeated owner prompts can be folded into runner packets.",
+    },
+  ];
+  const finalizedDiagnostics = finalizeDiagnostics(diagnostics);
 
   const snapshot = {
     schema_version: SNAPSHOT_VERSION,
@@ -83,30 +115,10 @@ export async function buildSnapshot(options = {}) {
     missions,
     gateway,
     private_state: privateState,
+    operation_board: buildOperationBoardProjection({ projects, missions, gateway, nextActions, diagnostics: finalizedDiagnostics }),
     source_observations: sourceObservations,
-    next_actions: [
-      {
-        id: "snapshot_schema",
-        status: "started",
-        summary: "Keep the read-only snapshot contract stable enough for UI consumption.",
-      },
-      {
-        id: "dungeon_map",
-        status: "next",
-        summary: "Render owner roots and project surfaces from snapshot metadata.",
-      },
-      {
-        id: "mission_board",
-        status: "next",
-        summary: "Render held mission readiness and blocker summaries from snapshot metadata.",
-      },
-      {
-        id: "anti_bottleneck_loop",
-        status: "next",
-        summary: "Surface intervention_count and bottleneck_reason so repeated owner prompts can be folded into runner packets.",
-      },
-    ],
-    diagnostics: finalizeDiagnostics(diagnostics),
+    next_actions: nextActions,
+    diagnostics: finalizedDiagnostics,
   };
 
   return snapshot;
@@ -129,6 +141,12 @@ export function compareSnapshotFreshness(storedSnapshot, currentSnapshot) {
   }
   if (storedSnapshot?.schema_version !== currentSnapshot?.schema_version) {
     errors.push("stored snapshot schema_version does not match current producer output");
+  }
+  if (
+    currentSnapshot?.operation_board?.schema_version &&
+    storedSnapshot?.operation_board?.schema_version !== currentSnapshot.operation_board.schema_version
+  ) {
+    errors.push("stored snapshot operation_board projection is missing or stale; regenerate it");
   }
   if (!storedObservations || storedObservations.schema_version !== SNAPSHOT_OBSERVATIONS_VERSION) {
     errors.push("stored snapshot has no current source_observations; regenerate it");
@@ -169,7 +187,7 @@ export function validateSnapshot(snapshot) {
   if (snapshot.schema_version !== SNAPSHOT_VERSION) {
     errors.push(`schema_version must be ${SNAPSHOT_VERSION}`);
   }
-  for (const key of ["generated_at", "source", "roots", "projects", "missions", "gateway", "source_observations", "diagnostics"]) {
+  for (const key of ["generated_at", "source", "roots", "projects", "missions", "gateway", "operation_board", "source_observations", "diagnostics"]) {
     if (!(key in snapshot)) {
       errors.push(`missing top-level key: ${key}`);
     }
@@ -188,6 +206,21 @@ export function validateSnapshot(snapshot) {
   }
   if (!Array.isArray(snapshot.gateway?.pending_monsters?.items)) {
     errors.push("gateway.pending_monsters.items must be an array");
+  }
+  if (snapshot.operation_board?.schema_version !== OPERATION_BOARD_VERSION) {
+    errors.push(`operation_board.schema_version must be ${OPERATION_BOARD_VERSION}`);
+  }
+  if (!Array.isArray(snapshot.operation_board?.sections?.dungeon_map?.items)) {
+    errors.push("operation_board.sections.dungeon_map.items must be an array");
+  }
+  if (!Array.isArray(snapshot.operation_board?.sections?.mission_board?.items)) {
+    errors.push("operation_board.sections.mission_board.items must be an array");
+  }
+  if (!Array.isArray(snapshot.operation_board?.sections?.monster_gate?.groups)) {
+    errors.push("operation_board.sections.monster_gate.groups must be an array");
+  }
+  if (!Array.isArray(snapshot.operation_board?.sections?.action_queue?.items)) {
+    errors.push("operation_board.sections.action_queue.items must be an array");
   }
   if (!Array.isArray(snapshot.source_observations?.items)) {
     errors.push("source_observations.items must be an array");
@@ -699,6 +732,167 @@ async function summarizePrivateState(repoRoot) {
       activity_present: await pathExists(path.join(root, "guild_hall", "state", "operations", "soulforge_activity")),
     },
   };
+}
+
+function buildOperationBoardProjection({ projects, missions, gateway, nextActions, diagnostics }) {
+  const missionItems = Array.isArray(missions.items) ? missions.items : [];
+  const pendingMonsters = gateway.pending_monsters ?? {};
+  const pendingMonsterItems = Array.isArray(pendingMonsters.items) ? pendingMonsters.items : [];
+  const pendingByDisplayGroup = pendingMonsters.by_display_group ?? {};
+
+  return {
+    schema_version: OPERATION_BOARD_VERSION,
+    source_ref: "soulforge_snapshot.json",
+    privacy: {
+      mode: "public_safe_snapshot_projection",
+      source_fields: ["projects", "missions", "gateway.pending_monsters", "next_actions", "diagnostics"],
+      excluded_fields: ["mail body/html", "source quote", "raw refs", "attachment refs", "provider ids", "secret values"],
+    },
+    summary: {
+      project_count: projects.length,
+      workspace_project_count: projects.filter((project) => project.workspace?.present).length,
+      workmeta_project_count: projects.filter((project) => project.workmeta?.present).length,
+      mission_count: missionItems.length,
+      blocked_mission_count: countMissionsByGroup(missionItems, "blocked"),
+      ready_mission_count: countMissionsByGroup(missionItems, "ready"),
+      pending_monster_count: numberValue(pendingMonsters.count) ?? 0,
+      blocked_monster_count: numberValue(pendingByDisplayGroup.blocked) ?? 0,
+      due_watch_monster_count: numberValue(pendingByDisplayGroup.due_watch) ?? 0,
+      next_action_count: nextActions.length,
+      diagnostics_status: diagnostics.summary.highest_severity,
+    },
+    sections: {
+      dungeon_map: buildOperationBoardDungeonMap({ projects, missionItems, pendingMonsterItems }),
+      mission_board: buildOperationBoardMissionBoard({ missionItems, missionCounts: missions.counts ?? {} }),
+      monster_gate: buildOperationBoardMonsterGate({ pendingMonsters, pendingMonsterItems }),
+      action_queue: buildOperationBoardActionQueue(nextActions),
+    },
+  };
+}
+
+function buildOperationBoardDungeonMap({ projects, missionItems, pendingMonsterItems }) {
+  return {
+    label: "Dungeon Map",
+    items: projects.map((project) => {
+      const projectMissions = missionItems.filter((mission) => mission.project_code === project.project_code);
+      const projectMonsters = pendingMonsterItems.filter((monster) => monster.assigned_project_code === project.project_code);
+
+      return {
+        project_code: project.project_code,
+        workspace_present: Boolean(project.workspace?.present),
+        workmeta_present: Boolean(project.workmeta?.present),
+        contract_present: Boolean(project.workmeta?.contract_present),
+        bindings_count: numberValue(project.workmeta?.bindings_count) ?? 0,
+        report_surface_count: Array.isArray(project.workmeta?.report_surfaces) ? project.workmeta.report_surfaces.length : 0,
+        mission_count: projectMissions.length,
+        blocked_mission_count: countMissionsByGroup(projectMissions, "blocked"),
+        pending_monster_count: projectMonsters.length,
+        surface_status: classifyProjectSurfaceStatus(project),
+      };
+    }),
+  };
+}
+
+function buildOperationBoardMissionBoard({ missionItems, missionCounts }) {
+  const items = missionItems
+    .map((mission) => {
+      const displayGroup = classifyMissionBoardDisplayGroup(mission);
+      return {
+        mission_id: mission.mission_id,
+        title: mission.title,
+        project_code: mission.project_code,
+        status: mission.status,
+        readiness_status: mission.readiness_status,
+        workflow_id_present: mission.workflow_id_present,
+        party_id: mission.party_id,
+        display_group: displayGroup.id,
+        display_group_label: displayGroup.label,
+        display_group_rank: displayGroup.rank,
+      };
+    })
+    .sort(compareBoardItems);
+
+  return {
+    label: "Mission Board",
+    counts_by_status: missionCounts,
+    counts_by_display_group: countBy(items, (item) => item.display_group),
+    items,
+  };
+}
+
+function buildOperationBoardMonsterGate({ pendingMonsters, pendingMonsterItems }) {
+  return {
+    label: "Monster Gate",
+    count: numberValue(pendingMonsters.count) ?? 0,
+    display_limit: numberValue(pendingMonsters.display_limit) ?? 0,
+    truncated: Boolean(pendingMonsters.truncated),
+    groups: PENDING_MONSTER_DISPLAY_GROUPS.map((group) => ({
+      id: group.id,
+      label: group.label,
+      rank: group.rank,
+      total: numberValue(pendingMonsters.by_display_group?.[group.id]) ?? 0,
+      items: pendingMonsterItems.filter((monster) => monster.display_group === group.id),
+    })),
+  };
+}
+
+function buildOperationBoardActionQueue(nextActions) {
+  return {
+    label: "Next Actions",
+    items: nextActions.map((action, index) => ({
+      id: action.id,
+      status: action.status,
+      summary: action.summary,
+      rank: index + 1,
+    })),
+  };
+}
+
+function classifyProjectSurfaceStatus(project) {
+  if (!project.workspace?.present && !project.workmeta?.present) {
+    return "missing";
+  }
+  if (!project.workspace?.present) {
+    return "workspace_missing";
+  }
+  if (!project.workmeta?.present) {
+    return "workmeta_missing";
+  }
+  if (!project.workmeta?.contract_present) {
+    return "contract_missing";
+  }
+  return "ready";
+}
+
+function classifyMissionBoardDisplayGroup(mission) {
+  let groupId = "other";
+  const status = mission.status;
+  const readinessStatus = mission.readiness_status;
+
+  if (status === "blocked" || readinessStatus === "blocked") {
+    groupId = "blocked";
+  } else if (readinessStatus === "ready") {
+    groupId = "ready";
+  } else if (status === "completed" || readinessStatus === "completed" || status === "closed" || readinessStatus === "closed") {
+    groupId = "completed";
+  } else if (status === "held" || status === "started" || status === "in_progress" || status === "active") {
+    groupId = "active";
+  }
+
+  return MISSION_BOARD_DISPLAY_GROUP_BY_ID.get(groupId) ?? MISSION_BOARD_DISPLAY_GROUP_BY_ID.get("other");
+}
+
+function countMissionsByGroup(missions, groupId) {
+  return missions.filter((mission) => classifyMissionBoardDisplayGroup(mission).id === groupId).length;
+}
+
+function compareBoardItems(left, right) {
+  return (
+    numberSortValue(left.display_group_rank) - numberSortValue(right.display_group_rank) ||
+    stringSortValue(left.project_code).localeCompare(stringSortValue(right.project_code)) ||
+    stringSortValue(left.mission_id).localeCompare(stringSortValue(right.mission_id)) ||
+    stringSortValue(left.id).localeCompare(stringSortValue(right.id))
+  );
 }
 
 function summarizeRepo(repoRoot) {

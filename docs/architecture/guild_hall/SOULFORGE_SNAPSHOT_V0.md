@@ -26,6 +26,7 @@
 | `missions` | tracked `.mission/index.yaml` 기반 mission summary |
 | `gateway` | gateway local state 존재 여부와 count 수준 요약 |
 | `private_state` | private-state presence 와 continuity surface 요약 |
+| `operation_board` | 작전판이 원본 재계산 없이 소비할 public-safe projection |
 | `source_observations` | snapshot freshness 판정용 metadata-only source fingerprint |
 | `next_actions` | 작전판이 바로 보여줄 다음 개발/운영 action 후보 |
 | `diagnostics` | snapshot 생성 중 발견한 warning/error |
@@ -45,6 +46,7 @@
 - snapshot 은 `source_observations.fingerprint` 를 포함한다.
 - fingerprint 는 원본 내용을 복제하지 않고, source 별 metadata signal 만 해시한다.
 - fresh 판정은 저장된 snapshot 의 fingerprint 와 현재 local observation fingerprint 가 같은지로만 결정한다.
+- 저장된 snapshot 에 현재 `operation_board` projection schema 가 없으면 재생성 대상이다.
 - mismatch 가 있으면 UI 나 외부 host 는 snapshot 을 현재 상태로 표시하지 않아야 한다.
 - freshness check 는 아래 source 를 v0 관측 대상으로 둔다.
   - public repo git metadata
@@ -125,6 +127,20 @@
 `pending_monsters.items` 는 `pending_dungeon_assignment` 와 `blocked` 상태만 최대 24건 display sample 로 담는다.
 `display_group` 은 이미 snapshot 에 들어가는 sanitized field 만 사용해 `blocked`, `due_watch`, `assigned_route`, `routing_hints`, `needs_identification`, `open_intake` 로 분류한다.
 이 display sample 은 작전판 표시용 요약이며, source mail subject/from/to/cc/body/html/source_quote/raw/attachment 값의 원문 복제 경로가 아니다.
+
+## operation board projection
+
+`operation_board` 는 Operation Board 가 `projects`, `missions`, `gateway.pending_monsters`, `next_actions`, `diagnostics` 를 다시 분류하지 않고 읽을 수 있는 public-safe projection 이다.
+새 원본을 읽지 않으며, snapshot 에 이미 들어온 sanitized field 만 재조립한다.
+
+- `schema_version`: `soulforge.operation_board_projection.v0`
+- `summary`: project, mission, pending monster, next action, diagnostics count
+- `sections.dungeon_map.items[*]`: project code, workspace/workmeta/contract presence, mission count, pending monster count, `surface_status`
+- `sections.mission_board.items[*]`: mission summary 와 `display_group` / `display_group_label` / `display_group_rank`
+- `sections.monster_gate.groups[*]`: PR #8 이후 pending monster `display_group` 별 `total` 과 display sample `items`
+- `sections.action_queue.items[*]`: next action id/status/summary/rank
+
+`operation_board.privacy.mode` 는 `public_safe_snapshot_projection` 이며, mail body/html/source quote/raw ref/attachment ref/provider id/secret 값은 포함하지 않는다.
 
 ## 실행
 

@@ -9,6 +9,13 @@ Git log 는 원문 이력을 남기고, 이 문서는 사람이 읽는 patch not
 - 보호 대상 업무 데이터와 continuity record 는 여기 적지 않고 nested `private-state/CHANGELOG.md` 에 적는다.
 - secret 값, credential, token, password 는 절대 기록하지 않는다.
 
+## 2026-05-09
+
+### Revision `working` - Operation Board projection 추가
+
+- snapshot 에 `operation_board` top-level projection 을 추가해 작전판이 Dungeon Map, Mission Board, Monster Gate, Next Actions 섹션을 원본 재분류 없이 읽을 수 있게 했다.
+- projection 은 기존 `projects`, `missions`, `gateway.pending_monsters`, `next_actions`, `diagnostics` 의 sanitized field 만 재조립하며 raw mail body/html/source quote/raw ref/attachment/provider id/secret 값은 계속 제외한다.
+
 ## 2026-05-08
 
 ### Revision `working` - 작전판 pending monster 분류 표시

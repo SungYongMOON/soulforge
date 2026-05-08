@@ -86,6 +86,14 @@ test("buildSnapshot summarizes private project surfaces without reading private 
     assert.equal(snapshot.gateway.pending_monsters.items[0].monster_id, "monster_fixture_001");
     assert.equal(snapshot.gateway.pending_monsters.items[0].objective_summary, "Review mail candidate for work intake.");
     assert.equal(snapshot.gateway.pending_monsters.items[0].project_hint_count, 1);
+    assert.equal(snapshot.operation_board.schema_version, "soulforge.operation_board_projection.v0");
+    assert.equal(snapshot.operation_board.summary.project_count, 1);
+    assert.equal(snapshot.operation_board.summary.blocked_mission_count, 1);
+    assert.equal(snapshot.operation_board.summary.pending_monster_count, 1);
+    assert.equal(snapshot.operation_board.sections.dungeon_map.items[0].project_code, "PX-001");
+    assert.equal(snapshot.operation_board.sections.dungeon_map.items[0].surface_status, "workspace_missing");
+    assert.equal(snapshot.operation_board.sections.mission_board.items[0].display_group, "blocked");
+    assert.equal(snapshot.operation_board.sections.action_queue.items.length, snapshot.next_actions.length);
     assert.equal(serialized.includes("DO_NOT_LEAK_PRIVATE_NAME"), false);
     assert.equal(serialized.includes("DO_NOT_LEAK_TOKEN"), false);
     assert.equal(serialized.includes("DO_NOT_LEAK_BODY_EXCERPT"), false);
@@ -203,6 +211,15 @@ test("buildSnapshot classifies pending monsters for operation board display", as
     assert.equal(pendingMonsters.items[0].display_group, "blocked");
     assert.equal(pendingMonsters.items[0].display_group_label, "Blocked");
     assert.equal(pendingMonsters.items.every((monster) => typeof monster.display_group_rank === "number"), true);
+    const monsterGateGroups = Object.fromEntries(snapshot.operation_board.sections.monster_gate.groups.map((group) => [group.id, group]));
+    assert.equal(snapshot.operation_board.summary.blocked_monster_count, 1);
+    assert.equal(snapshot.operation_board.summary.due_watch_monster_count, 2);
+    assert.equal(snapshot.operation_board.sections.monster_gate.count, 18);
+    assert.equal(monsterGateGroups.blocked.total, 1);
+    assert.equal(monsterGateGroups.due_watch.total, 2);
+    assert.equal(monsterGateGroups.open_intake.total, 12);
+    assert.equal(monsterGateGroups.blocked.items[0].monster_id, "monster_blocked_001");
+    assert.equal(monsterGateGroups.open_intake.items.length, 12);
   } finally {
     await rm(repoRoot, { recursive: true, force: true });
   }
@@ -230,6 +247,12 @@ test("compareSnapshotFreshness detects source observation changes", async () => 
     const stored = await buildSnapshot({ repoRoot, generatedAt: "2026-05-02T00:00:00.000Z" });
     const sameSources = await buildSnapshot({ repoRoot, generatedAt: "2026-05-02T00:01:00.000Z" });
     assert.equal(compareSnapshotFreshness(stored, sameSources).ok, true);
+
+    const legacyStored = JSON.parse(JSON.stringify(stored));
+    delete legacyStored.operation_board;
+    const legacyFreshness = compareSnapshotFreshness(legacyStored, sameSources);
+    assert.equal(legacyFreshness.ok, false);
+    assert.equal(legacyFreshness.errors.includes("stored snapshot operation_board projection is missing or stale; regenerate it"), true);
 
     await writeFile(
       missionIndexPath,
