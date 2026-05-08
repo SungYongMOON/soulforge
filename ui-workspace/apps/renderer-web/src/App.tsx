@@ -106,18 +106,33 @@ interface DungeonMapProject {
   project_code: string;
   workspace_present: boolean;
   workmeta_present: boolean;
+  contract_present?: boolean;
+  bindings_count?: number;
+  report_surface_count?: number;
+  mission_count?: number;
+  blocked_mission_count?: number;
+  pending_monster_count?: number;
+  surface_status?: string;
 }
 
 interface DungeonMapMission {
+  mission_id?: string;
   title: string;
+  project_code?: string;
   status: string;
   readiness: string;
+  workflow_id_present?: boolean;
+  party_id?: string;
+  display_group?: string;
+  display_group_label?: string;
+  display_group_rank?: number;
 }
 
 interface DungeonMapNextAction {
   id: string;
   status: string;
   summary: string;
+  rank?: number;
 }
 
 interface DungeonMapPendingMonster {
@@ -151,6 +166,34 @@ interface DungeonMapPendingMonsterGroup {
   items: DungeonMapPendingMonster[];
 }
 
+interface DungeonMapOperationBoard {
+  schema_version: string;
+  summary: Record<string, unknown>;
+  sections: {
+    dungeon_map: {
+      label: string;
+      items: DungeonMapProject[];
+    };
+    mission_board: {
+      label: string;
+      counts_by_status: Record<string, unknown>;
+      counts_by_display_group: Record<string, unknown>;
+      items: DungeonMapMission[];
+    };
+    monster_gate: {
+      label: string;
+      count: number;
+      display_limit: number;
+      truncated: boolean;
+      groups: DungeonMapPendingMonsterGroup[];
+    };
+    action_queue: {
+      label: string;
+      items: DungeonMapNextAction[];
+    };
+  };
+}
+
 interface DungeonMapSnapshot {
   status: SnapshotStatus;
   snapshot_path: string;
@@ -161,6 +204,7 @@ interface DungeonMapSnapshot {
   changed_source_ids: string[];
   projects: DungeonMapProject[];
   missions: DungeonMapMission[];
+  operation_board: DungeonMapOperationBoard | null;
   gateway: {
     intake_inbox_count: number;
     monster_index_present: boolean;
@@ -1212,8 +1256,20 @@ function App() {
   }
 
   const pendingMonsterGroups = dungeonMap.snapshot
-    ? groupPendingMonsters(dungeonMap.snapshot.gateway.pending_monsters.items, dungeonMap.snapshot.gateway.pending_monsters.by_display_group)
+    ? dungeonMap.snapshot.operation_board?.sections.monster_gate.groups.length
+      ? dungeonMap.snapshot.operation_board.sections.monster_gate.groups
+      : groupPendingMonsters(dungeonMap.snapshot.gateway.pending_monsters.items, dungeonMap.snapshot.gateway.pending_monsters.by_display_group)
     : [];
+  const dungeonMapProjects = dungeonMap.snapshot?.operation_board?.sections.dungeon_map.items.length
+    ? dungeonMap.snapshot.operation_board.sections.dungeon_map.items
+    : dungeonMap.snapshot?.projects ?? [];
+  const missionBoardItems = dungeonMap.snapshot?.operation_board?.sections.mission_board.items.length
+    ? dungeonMap.snapshot.operation_board.sections.mission_board.items
+    : dungeonMap.snapshot?.missions ?? [];
+  const actionQueueItems = dungeonMap.snapshot?.operation_board?.sections.action_queue.items.length
+    ? dungeonMap.snapshot.operation_board.sections.action_queue.items
+    : dungeonMap.snapshot?.next_actions ?? [];
+  const monsterGateSummary = dungeonMap.snapshot?.operation_board?.sections.monster_gate ?? null;
 
   return (
     <div
@@ -1636,11 +1692,16 @@ function App() {
                   <section className="cc-map-section">
                     <h3>Dungeons</h3>
                     <div className="cc-map-grid">
-                      {dungeonMap.snapshot.projects.map((project) => (
+                      {dungeonMapProjects.map((project) => (
                         <article className="cc-map-card" key={project.project_code}>
                           <strong>{project.project_code}</strong>
                           <span>workspace {project.workspace_present ? "present" : "missing"}</span>
                           <span>workmeta {project.workmeta_present ? "present" : "missing"}</span>
+                          {project.surface_status ? <span>surface {project.surface_status}</span> : null}
+                          {typeof project.mission_count === "number" ? (
+                            <span>missions {project.mission_count} / blocked {project.blocked_mission_count ?? 0}</span>
+                          ) : null}
+                          {typeof project.pending_monster_count === "number" ? <span>pending monsters {project.pending_monster_count}</span> : null}
                         </article>
                       ))}
                     </div>
@@ -1649,11 +1710,13 @@ function App() {
                   <section className="cc-map-section">
                     <h3>Mission Board</h3>
                     <div className="cc-map-grid">
-                      {dungeonMap.snapshot.missions.map((mission) => (
-                        <article className="cc-map-card" key={`${mission.title}:${mission.status}:${mission.readiness}`}>
-                          <strong>{mission.title}</strong>
+                      {missionBoardItems.map((mission) => (
+                        <article className="cc-map-card" key={mission.mission_id ?? `${mission.title}:${mission.status}:${mission.readiness}`}>
+                          <strong>{mission.title || mission.mission_id}</strong>
                           <span>Status {mission.status}</span>
                           <span>Readiness {mission.readiness}</span>
+                          {mission.project_code ? <span>project {mission.project_code}</span> : null}
+                          {mission.display_group_label ? <span>group {mission.display_group_label}</span> : null}
                         </article>
                       ))}
                     </div>
@@ -1664,9 +1727,11 @@ function App() {
                     <div className="cc-summary-card">
                       <strong>Inbox {dungeonMap.snapshot.gateway.intake_inbox_count}</strong>
                       <span>monster_index {dungeonMap.snapshot.gateway.monster_index_present ? "present" : "missing"}</span>
-                      <span>pending monsters {dungeonMap.snapshot.gateway.pending_monsters.count}</span>
-                      <span>showing {dungeonMap.snapshot.gateway.pending_monsters.items.length} / {dungeonMap.snapshot.gateway.pending_monsters.display_limit || "legacy"}</span>
-                      {dungeonMap.snapshot.gateway.pending_monsters.truncated ? <span>display truncated</span> : null}
+                      <span>pending monsters {monsterGateSummary?.count ?? dungeonMap.snapshot.gateway.pending_monsters.count}</span>
+                      <span>
+                        showing {pendingMonsterGroups.reduce((total, group) => total + group.items.length, 0)} / {monsterGateSummary?.display_limit || dungeonMap.snapshot.gateway.pending_monsters.display_limit || "legacy"}
+                      </span>
+                      {monsterGateSummary?.truncated || dungeonMap.snapshot.gateway.pending_monsters.truncated ? <span>display truncated</span> : null}
                     </div>
                     {pendingMonsterGroups.length > 0 ? (
                       <div className="cc-monster-groups">
@@ -1711,7 +1776,7 @@ function App() {
                   <section className="cc-map-section">
                     <h3>Next Actions</h3>
                     <ul className="cc-map-list">
-                      {dungeonMap.snapshot.next_actions.map((action) => (
+                      {actionQueueItems.map((action) => (
                         <li key={action.id}>
                           <strong>{action.status}</strong>
                           <span>{action.summary || action.id}</span>

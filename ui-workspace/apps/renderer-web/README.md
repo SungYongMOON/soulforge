@@ -13,7 +13,7 @@
 - theme registry / swap wiring
 - Adventurer's Desk Phase UI-1 theme wiring
 - read-only Dungeon Map pane backed by `guild_hall/state/snapshot/soulforge_snapshot.json`
-- pending monster summary display from the snapshot gateway projection
+- Operation Board display from the snapshot `operation_board` projection
 
 ## 제외 대상
 

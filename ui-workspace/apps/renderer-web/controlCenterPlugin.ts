@@ -45,18 +45,33 @@ interface DungeonMapProject {
   project_code: string;
   workspace_present: boolean;
   workmeta_present: boolean;
+  contract_present?: boolean;
+  bindings_count?: number;
+  report_surface_count?: number;
+  mission_count?: number;
+  blocked_mission_count?: number;
+  pending_monster_count?: number;
+  surface_status?: string;
 }
 
 interface DungeonMapMission {
+  mission_id?: string;
   title: string;
+  project_code?: string;
   status: string;
   readiness: string;
+  workflow_id_present?: boolean;
+  party_id?: string;
+  display_group?: string;
+  display_group_label?: string;
+  display_group_rank?: number;
 }
 
 interface DungeonMapNextAction {
   id: string;
   status: string;
   summary: string;
+  rank?: number;
 }
 
 interface DungeonMapPendingMonster {
@@ -80,6 +95,42 @@ interface DungeonMapPendingMonster {
   display_group: string;
   display_group_label: string;
   display_group_rank: number;
+}
+
+interface DungeonMapPendingMonsterGroup {
+  id: string;
+  label: string;
+  rank: number;
+  total: number;
+  items: DungeonMapPendingMonster[];
+}
+
+interface DungeonMapOperationBoard {
+  schema_version: string;
+  summary: Record<string, unknown>;
+  sections: {
+    dungeon_map: {
+      label: string;
+      items: DungeonMapProject[];
+    };
+    mission_board: {
+      label: string;
+      counts_by_status: Record<string, unknown>;
+      counts_by_display_group: Record<string, unknown>;
+      items: DungeonMapMission[];
+    };
+    monster_gate: {
+      label: string;
+      count: number;
+      display_limit: number;
+      truncated: boolean;
+      groups: DungeonMapPendingMonsterGroup[];
+    };
+    action_queue: {
+      label: string;
+      items: DungeonMapNextAction[];
+    };
+  };
 }
 
 interface SnapshotFreshnessResult {
@@ -578,50 +629,68 @@ function arrayField(value: unknown) {
   return Array.isArray(value) ? value : [];
 }
 
-function mapProjects(snapshot: Record<string, unknown>): DungeonMapProject[] {
-  return arrayField(snapshot.projects).map((item) => {
-    const project = isRecord(item) ? item : {};
-    const workspace = isRecord(project.workspace) ? project.workspace : {};
-    const workmeta = isRecord(project.workmeta) ? project.workmeta : {};
+function mapProjectItem(item: unknown): DungeonMapProject {
+  const project = isRecord(item) ? item : {};
+  const workspace = isRecord(project.workspace) ? project.workspace : {};
+  const workmeta = isRecord(project.workmeta) ? project.workmeta : {};
 
-    return {
-      project_code: stringField(project.project_code),
-      workspace_present: booleanField(workspace.present),
-      workmeta_present: booleanField(workmeta.present)
-    };
-  });
+  return {
+    project_code: stringField(project.project_code),
+    workspace_present: typeof project.workspace_present === "boolean" ? project.workspace_present : booleanField(workspace.present),
+    workmeta_present: typeof project.workmeta_present === "boolean" ? project.workmeta_present : booleanField(workmeta.present),
+    contract_present: typeof project.contract_present === "boolean" ? project.contract_present : undefined,
+    bindings_count: typeof project.bindings_count === "number" ? numberField(project.bindings_count) : undefined,
+    report_surface_count: typeof project.report_surface_count === "number" ? numberField(project.report_surface_count) : undefined,
+    mission_count: typeof project.mission_count === "number" ? numberField(project.mission_count) : undefined,
+    blocked_mission_count: typeof project.blocked_mission_count === "number" ? numberField(project.blocked_mission_count) : undefined,
+    pending_monster_count: typeof project.pending_monster_count === "number" ? numberField(project.pending_monster_count) : undefined,
+    surface_status: nullableStringField(project.surface_status) ?? undefined
+  };
+}
+
+function mapProjects(snapshot: Record<string, unknown>): DungeonMapProject[] {
+  return arrayField(snapshot.projects).map(mapProjectItem);
+}
+
+function mapMissionItem(item: unknown): DungeonMapMission {
+  const mission = isRecord(item) ? item : {};
+
+  return {
+    mission_id: nullableStringField(mission.mission_id) ?? undefined,
+    title: stringField(mission.title),
+    project_code: nullableStringField(mission.project_code) ?? undefined,
+    status: stringField(mission.status),
+    readiness: stringField(mission.readiness_status, stringField(mission.readiness)),
+    workflow_id_present: typeof mission.workflow_id_present === "boolean" ? mission.workflow_id_present : undefined,
+    party_id: nullableStringField(mission.party_id) ?? undefined,
+    display_group: nullableStringField(mission.display_group) ?? undefined,
+    display_group_label: nullableStringField(mission.display_group_label) ?? undefined,
+    display_group_rank: typeof mission.display_group_rank === "number" ? numberField(mission.display_group_rank) : undefined
+  };
 }
 
 function mapMissions(snapshot: Record<string, unknown>): DungeonMapMission[] {
   const missions = isRecord(snapshot.missions) ? snapshot.missions : {};
+  return arrayField(missions.items).map(mapMissionItem);
+}
 
-  return arrayField(missions.items).map((item) => {
-    const mission = isRecord(item) ? item : {};
+function mapNextActionItem(item: unknown): DungeonMapNextAction {
+  const action = isRecord(item) ? item : {};
 
-    return {
-      title: stringField(mission.title),
-      status: stringField(mission.status),
-      readiness: stringField(mission.readiness_status)
-    };
-  });
+  return {
+    id: stringField(action.id),
+    status: stringField(action.status),
+    summary: stringField(action.summary, ""),
+    rank: typeof action.rank === "number" ? numberField(action.rank) : undefined
+  };
 }
 
 function mapNextActions(snapshot: Record<string, unknown>): DungeonMapNextAction[] {
-  return arrayField(snapshot.next_actions).map((item) => {
-    const action = isRecord(item) ? item : {};
-
-    return {
-      id: stringField(action.id),
-      status: stringField(action.status),
-      summary: stringField(action.summary, "")
-    };
-  });
+  return arrayField(snapshot.next_actions).map(mapNextActionItem);
 }
 
-function mapPendingMonsters(gateway: Record<string, unknown>): DungeonMapPendingMonster[] {
-  const pendingMonsters = isRecord(gateway.pending_monsters) ? gateway.pending_monsters : {};
-
-  return arrayField(pendingMonsters.items).map((item) => {
+function mapPendingMonsterItems(items: unknown): DungeonMapPendingMonster[] {
+  return arrayField(items).map((item) => {
     const monster = isRecord(item) ? item : {};
 
     return {
@@ -649,6 +718,61 @@ function mapPendingMonsters(gateway: Record<string, unknown>): DungeonMapPending
   });
 }
 
+function mapPendingMonsters(gateway: Record<string, unknown>): DungeonMapPendingMonster[] {
+  const pendingMonsters = isRecord(gateway.pending_monsters) ? gateway.pending_monsters : {};
+  return mapPendingMonsterItems(pendingMonsters.items);
+}
+
+function mapOperationBoard(snapshot: Record<string, unknown>): DungeonMapOperationBoard | null {
+  const operationBoard = isRecord(snapshot.operation_board) ? snapshot.operation_board : null;
+  if (!operationBoard) {
+    return null;
+  }
+
+  const sections = isRecord(operationBoard.sections) ? operationBoard.sections : {};
+  const dungeonMap = isRecord(sections.dungeon_map) ? sections.dungeon_map : {};
+  const missionBoard = isRecord(sections.mission_board) ? sections.mission_board : {};
+  const monsterGate = isRecord(sections.monster_gate) ? sections.monster_gate : {};
+  const actionQueue = isRecord(sections.action_queue) ? sections.action_queue : {};
+
+  return {
+    schema_version: stringField(operationBoard.schema_version),
+    summary: isRecord(operationBoard.summary) ? operationBoard.summary : {},
+    sections: {
+      dungeon_map: {
+        label: stringField(dungeonMap.label, "Dungeon Map"),
+        items: arrayField(dungeonMap.items).map(mapProjectItem)
+      },
+      mission_board: {
+        label: stringField(missionBoard.label, "Mission Board"),
+        counts_by_status: isRecord(missionBoard.counts_by_status) ? missionBoard.counts_by_status : {},
+        counts_by_display_group: isRecord(missionBoard.counts_by_display_group) ? missionBoard.counts_by_display_group : {},
+        items: arrayField(missionBoard.items).map(mapMissionItem)
+      },
+      monster_gate: {
+        label: stringField(monsterGate.label, "Monster Gate"),
+        count: numberField(monsterGate.count),
+        display_limit: numberField(monsterGate.display_limit),
+        truncated: booleanField(monsterGate.truncated),
+        groups: arrayField(monsterGate.groups).map((item) => {
+          const group = isRecord(item) ? item : {};
+          return {
+            id: stringField(group.id),
+            label: stringField(group.label),
+            rank: numberField(group.rank, 999),
+            total: numberField(group.total),
+            items: mapPendingMonsterItems(group.items)
+          };
+        })
+      },
+      action_queue: {
+        label: stringField(actionQueue.label, "Next Actions"),
+        items: arrayField(actionQueue.items).map(mapNextActionItem)
+      }
+    }
+  };
+}
+
 function mapSnapshotResponse(
   snapshot: Record<string, unknown> | null,
   status: SnapshotStatus,
@@ -671,6 +795,7 @@ function mapSnapshotResponse(
     changed_source_ids: details.freshness?.changed_sources.map((source) => source.id ?? source.source_ref ?? "unknown") ?? [],
     projects: snapshot ? mapProjects(snapshot) : [],
     missions: snapshot ? mapMissions(snapshot) : [],
+    operation_board: snapshot ? mapOperationBoard(snapshot) : null,
     gateway: {
       intake_inbox_count: typeof gateway.intake_inbox_count === "number" ? gateway.intake_inbox_count : 0,
       monster_index_present: booleanField(gateway.monster_index_present),

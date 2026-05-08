@@ -11,6 +11,11 @@ Git log 는 원문 이력을 남기고, 이 문서는 사람이 읽는 patch not
 
 ## 2026-05-09
 
+### Revision `working` - UI Operation Board projection 소비
+
+- renderer-web Dungeon Map 이 snapshot 의 `operation_board` projection 을 우선 소비해 Dungeon Map, Mission Board, Monster Gate, Next Actions 섹션을 표시하게 했다.
+- legacy snapshot field fallback 은 유지하되, UI 가 pending monster group 을 직접 재분류하는 경로는 projection 이 없을 때만 사용하도록 좁혔다.
+
 ### Revision `working` - Operation Board projection 추가
 
 - snapshot 에 `operation_board` top-level projection 을 추가해 작전판이 Dungeon Map, Mission Board, Monster Gate, Next Actions 섹션을 원본 재분류 없이 읽을 수 있게 했다.
