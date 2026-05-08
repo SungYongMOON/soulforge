@@ -15,5 +15,5 @@ checks:
 blockers: []
 latest_run_id: author_skill_package_pptx_autofill_conversion_001
 notes:
-  - `completed` here means the public-safe mission sample reached a release-ready state.
+  - "`completed` here means the public-safe mission sample reached a release-ready state."
   - Actual run logs and smoke files remain under the project-local worksite.
