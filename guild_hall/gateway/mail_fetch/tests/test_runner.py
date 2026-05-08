@@ -52,6 +52,31 @@ def _write_env(tmp_path: Path, content: str) -> Path:
     return env_file
 
 
+def _write_notify_policy(repo_root: Path, *, mail_received: bool) -> None:
+    policy_file = repo_root / "guild_hall" / "state" / "gateway" / "bindings" / "notify_policy.yaml"
+    policy_file.parent.mkdir(parents=True, exist_ok=True)
+    policy_file.write_text(
+        "\n".join(
+            [
+                "kind: gateway_notify_policy",
+                "scope: gateway",
+                "channels:",
+                "  telegram:",
+                "    enabled: true",
+                "    env_file: guild_hall/state/town_crier/telegram_notify.env",
+                "events:",
+                "  monster_created:",
+                "    telegram: false",
+                "  mail_received:",
+                f"    telegram: {'true' if mail_received else 'false'}",
+                "updated_at: null",
+                "",
+            ]
+        ),
+        encoding="utf-8",
+    )
+
+
 class _FakeConnector:
     def __init__(self, result: FetchResult) -> None:
         self._result = result
@@ -212,6 +237,41 @@ def test_run_once_processes_hiworks_source(monkeypatch, tmp_path: Path) -> None:
     assert event_path.exists()
     content = event_path.read_text(encoding="utf-8")
     assert "\"source\": \"hiworks\"" in content
+
+
+def test_run_once_enqueues_mail_received_notifications_for_fresh_events(monkeypatch, tmp_path: Path) -> None:
+    _write_notify_policy(tmp_path, mail_received=True)
+    config = _config(tmp_path)
+    config.gmail_enabled = False
+    config.hiworks_enabled = True
+    config.hiworks_pop3_host = "pop3.example.com"
+    config.hiworks_pop3_username = "user@example.com"
+    config.hiworks_pop3_password = "pw"
+
+    connector = _FakeConnector(
+        FetchResult(
+            events=[_event("hi-msg-1", source="hiworks")],
+            next_cursor={"last_uidl": "UID-1"},
+            partial=False,
+            errors=[],
+        )
+    )
+
+    monkeypatch.setattr(runner, "_build_hiworks_connector", lambda cfg: connector)
+
+    first = runner.run_once(config)
+    second = runner.run_once(config)
+
+    queue_root = tmp_path / "guild_hall" / "state" / "town_crier" / "queue" / "pending"
+    queue_files = sorted(queue_root.glob("*.json"))
+    assert len(queue_files) == 1
+    payload = json.loads(queue_files[0].read_text(encoding="utf-8"))
+    assert payload["event"] == "mail_received"
+    assert payload["owner_scope"] == "gateway"
+    assert "새 하이웍스 메일이 도착했습니다." in payload["text"]
+    assert first["sources"][0]["notifications"]["queued"] == 1
+    assert second["sources"][0]["duplicates"] == 1
+    assert second["sources"][0]["notifications"]["queued"] == 0
 
 
 def test_run_once_marks_partial_when_link_download_fails(monkeypatch, tmp_path: Path) -> None:

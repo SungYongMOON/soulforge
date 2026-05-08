@@ -58,6 +58,13 @@ npm run guild-hall:gateway:fetch -- --once --json
 npm run guild-hall:gateway:fetch:healthcheck -- --json
 ```
 
+## Telegram mail brief
+
+- `mail_received` gateway notify 가 켜져 있으면 fetch pipeline 은 dedupe 를 통과한 fresh event 마다 `town_crier` queue 에 Telegram brief request 를 적재한다.
+- brief 는 한국어 문장형으로 만들고, Siri 가 읽어도 자연스럽게 들리도록 `NOTIFY_BRIEF_FORMAT_V0.md` 규칙을 따른다.
+- brief 에는 source, subject, 첫 발신자, 첨부 개수, 수신 시각, 다음 행동만 포함한다.
+- mail body, HTML body, attachment 원문/파일명/URL, raw row, secret 값은 Telegram text 에 포함하지 않는다.
+
 ## Hiworks POP3 long line
 
 - Hiworks POP3 메시지는 Python `poplib` 기본 라인 제한보다 긴 body/HTML/encoded attachment 라인을 반환할 수 있다.

@@ -7,4 +7,6 @@ channels:
 events:
   monster_created:
     telegram: false
+  mail_received:
+    telegram: false
 updated_at: null

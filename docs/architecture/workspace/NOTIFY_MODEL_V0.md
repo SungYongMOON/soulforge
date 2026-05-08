@@ -39,12 +39,15 @@ channels:
 events:
   monster_created:
     telegram: false
+  mail_received:
+    telegram: false
 updated_at: null
 ```
 
 ### v0 gateway event set
 
 - `monster_created`
+- `mail_received`
 
 ## mission notify toggle
 
@@ -90,9 +93,10 @@ mission_file: optional
 2. `mission` 알림 설정은 held mission plan owner 인 `mission.yaml` 안에 둔다.
 3. Telegram bot token / chat id 는 항상 local env 에만 둔다.
 4. `gateway` 와 `mission` 은 직접 Telegram 을 호출하지 않고 notify request 를 `town_crier` queue 에 적재한다.
-5. `gateway` 는 v0 에서 `monster_created` event 하나만 자동 적재한다.
+5. `gateway` 는 v0 에서 `monster_created` 와 `mail_received` event 를 자동 적재할 수 있다.
 6. `mission` 은 v0 에서 `emit` 명령 또는 future hook 기반으로 시작하고, file watcher 는 쓰지 않는다.
 7. 같은 Telegram destination 을 PC 단위로 재사용하고, mission 별 별도 chat id 는 v0 범위에 넣지 않는다.
+8. `mail_received` 알림은 제목, 첫 발신자, 첨부 개수, 수신 시각, 다음 행동만 표시하고 메일 본문/HTML/첨부 원문은 포함하지 않는다.
 
 ## 연결 문서
 

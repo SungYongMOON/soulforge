@@ -44,6 +44,6 @@
 ## 관련 문서
 
 - [`../../../CHANGELOG.md`](../../../CHANGELOG.md)
-- [`../../../private-state/CHANGELOG.md`](../../../private-state/CHANGELOG.md)
+- private repo local path: `private-state/CHANGELOG.md`
 - [`../../bootstrap/README.md`](../bootstrap/README.md)
 - [`../../workspace/PRIVATE_STATE_REPO_V0.md`](../workspace/PRIVATE_STATE_REPO_V0.md)

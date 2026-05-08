@@ -38,7 +38,7 @@
 ## v0 규칙
 
 1. `guild_hall/state/**` 는 local-only state 이며 public repo 에 올리지 않는다.
-2. `gateway` 자동 알림은 v0 에서 `monster_created` 하나만 남긴다.
+2. `gateway` 자동 알림은 v0 에서 `monster_created` 와 `mail_received` 를 지원한다.
 3. `town_crier` 는 어떤 알림을 보낼지 결정하지 않고, queue 에 들어온 notify request 를 Telegram 으로 보내기만 한다.
 4. project-side monster 상태는 `guild_hall` 이 아니라 `_workmeta/<project_code>/monsters/` 가 소유한다.
 5. Soulforge 전체 총괄 활동 맥락은 `_workmeta/<project_code>/` 가 아니라 `guild_hall/state/operations/soulforge_activity/**` 가 소유한다.
