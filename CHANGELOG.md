@@ -11,6 +11,12 @@ Git log 는 원문 이력을 남기고, 이 문서는 사람이 읽는 patch not
 
 ## 2026-05-08
 
+### Revision `working` - mail_candidate 승격 명령 추가
+
+- `guild-hall:gateway:mail-candidate:list` 와 `guild-hall:gateway:mail-candidate:promote` 를 추가해 local-only mail candidate 를 `mail_intake_request` payload 로 승격할 수 있게 했다.
+- promotion output 은 mailbox event/raw pointer 와 기본 `unknown_monster` 1건을 포함하되 body/html/raw provider payload/첨부명/첨부 URL/secret 은 포함하지 않도록 했다.
+- mail candidate promotion 계약과 public-safe request sample 을 문서화했다.
+
 ### Revision `working` - mail_candidate 후보 큐 추가
 
 - gateway mail fetch 가 fresh mail event 를 mailbox event JSONL 에 저장한 뒤, `mail` bucket event 를 local-only `mail_candidate` queue 에 적재하게 했다.

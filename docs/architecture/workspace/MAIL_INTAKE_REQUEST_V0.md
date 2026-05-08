@@ -9,6 +9,7 @@
 
 - `mail_intake_request` 는 "새 메일 event 1건을 읽어 `guild_hall/state/gateway/intake_inbox/` 아래 inbox container 와 monster list 를 만든다" 는 시작 호출이다.
 - v0 에서는 upstream `guild-hall:gateway:fetch` 가 `guild_hall/state/gateway/mailbox/**` 에 raw/events/attachments 를 먼저 materialize 한다고 본다.
+- `mail_candidate` 를 사람이 검토한 뒤 `guild-hall:gateway:mail-candidate:promote` 가 이 payload 를 생성할 수 있다.
 
 ## 경계
 
@@ -125,6 +126,7 @@ assignment_status: pending_dungeon_assignment
 ## 연결 문서
 
 - [`WORKSPACE_INTAKE_INBOX_V0.md`](../../../docs/architecture/workspace/WORKSPACE_INTAKE_INBOX_V0.md)
+- [`MAIL_CANDIDATE_QUEUE_V0.md`](../../../docs/architecture/workspace/MAIL_CANDIDATE_QUEUE_V0.md)
 - [`DUNGEON_ASSIGNMENT_REQUEST_V0.md`](../../../docs/architecture/workspace/DUNGEON_ASSIGNMENT_REQUEST_V0.md)
 - [`examples/guild_hall/state/gateway/README.md`](../../../docs/architecture/workspace/examples/guild_hall/state/gateway/README.md)
 - [`PLAY_LOOP_V0.md`](../../../.mission/PLAY_LOOP_V0.md)

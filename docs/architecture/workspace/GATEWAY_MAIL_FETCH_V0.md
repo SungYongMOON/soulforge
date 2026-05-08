@@ -76,6 +76,7 @@ npm run guild-hall:gateway:fetch:healthcheck -- --json
 - candidate 는 monster current state 가 아니라 `mail_intake_request` 생성 전 업무화 검토 대기 item 이다.
 - candidate item 에는 source event pointer, subject, sender, recipient count, attachment count/type, classification summary 만 넣는다.
 - body text, HTML body, raw provider payload, attachment filename/URL/local path, token, password 는 넣지 않는다.
+- 업무화 검토가 끝난 candidate 는 `guild-hall:gateway:mail-candidate:promote` 로 local-only `mail_intake_request` payload 로 승격할 수 있다.
 - 상세 계약은 [`MAIL_CANDIDATE_QUEUE_V0.md`](MAIL_CANDIDATE_QUEUE_V0.md) 를 따른다.
 
 ## Hiworks POP3 long line
