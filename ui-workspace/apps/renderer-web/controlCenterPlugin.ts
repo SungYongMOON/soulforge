@@ -59,6 +59,24 @@ interface DungeonMapNextAction {
   summary: string;
 }
 
+interface DungeonMapPendingMonster {
+  monster_id: string;
+  monster_family: string;
+  monster_name: string | null;
+  work_pattern: string | null;
+  objective_summary: string | null;
+  due_state: string;
+  known_status: string;
+  assignment_status: string;
+  assigned_project_code: string | null;
+  assigned_stage: string | null;
+  project_hint_count: number;
+  stage_hint_count: number;
+  mail_touch_count: number | null;
+  last_mail_role: string | null;
+  mission_ref_present: boolean;
+}
+
 interface SnapshotFreshnessResult {
   ok: boolean;
   status: SnapshotStatus;
@@ -535,6 +553,18 @@ function stringField(value: unknown, fallback = "unknown") {
   return typeof value === "string" && value.trim() ? value : fallback;
 }
 
+function nullableStringField(value: unknown) {
+  return typeof value === "string" && value.trim() ? value : null;
+}
+
+function numberField(value: unknown) {
+  return typeof value === "number" && Number.isFinite(value) ? value : 0;
+}
+
+function nullableNumberField(value: unknown) {
+  return typeof value === "number" && Number.isFinite(value) ? value : null;
+}
+
 function booleanField(value: unknown) {
   return typeof value === "boolean" ? value : false;
 }
@@ -583,6 +613,32 @@ function mapNextActions(snapshot: Record<string, unknown>): DungeonMapNextAction
   });
 }
 
+function mapPendingMonsters(gateway: Record<string, unknown>): DungeonMapPendingMonster[] {
+  const pendingMonsters = isRecord(gateway.pending_monsters) ? gateway.pending_monsters : {};
+
+  return arrayField(pendingMonsters.items).map((item) => {
+    const monster = isRecord(item) ? item : {};
+
+    return {
+      monster_id: stringField(monster.monster_id),
+      monster_family: stringField(monster.monster_family, "unknown_monster"),
+      monster_name: nullableStringField(monster.monster_name),
+      work_pattern: nullableStringField(monster.work_pattern),
+      objective_summary: nullableStringField(monster.objective_summary),
+      due_state: stringField(monster.due_state, "no_due"),
+      known_status: stringField(monster.known_status, "unknown"),
+      assignment_status: stringField(monster.assignment_status, "pending_dungeon_assignment"),
+      assigned_project_code: nullableStringField(monster.assigned_project_code),
+      assigned_stage: nullableStringField(monster.assigned_stage),
+      project_hint_count: numberField(monster.project_hint_count),
+      stage_hint_count: numberField(monster.stage_hint_count),
+      mail_touch_count: nullableNumberField(monster.mail_touch_count),
+      last_mail_role: nullableStringField(monster.last_mail_role),
+      mission_ref_present: booleanField(monster.mission_ref_present)
+    };
+  });
+}
+
 function mapSnapshotResponse(
   snapshot: Record<string, unknown> | null,
   status: SnapshotStatus,
@@ -593,6 +649,7 @@ function mapSnapshotResponse(
 ) {
   const observations = snapshot && isRecord(snapshot.source_observations) ? snapshot.source_observations : {};
   const gateway = snapshot && isRecord(snapshot.gateway) ? snapshot.gateway : {};
+  const pendingMonsters = isRecord(gateway.pending_monsters) ? gateway.pending_monsters : {};
 
   return {
     status,
@@ -606,7 +663,12 @@ function mapSnapshotResponse(
     missions: snapshot ? mapMissions(snapshot) : [],
     gateway: {
       intake_inbox_count: typeof gateway.intake_inbox_count === "number" ? gateway.intake_inbox_count : 0,
-      monster_index_present: booleanField(gateway.monster_index_present)
+      monster_index_present: booleanField(gateway.monster_index_present),
+      pending_monsters: {
+        count: numberField(pendingMonsters.count),
+        truncated: booleanField(pendingMonsters.truncated),
+        items: mapPendingMonsters(gateway)
+      }
     },
     next_actions: snapshot ? mapNextActions(snapshot) : []
   };

@@ -37,6 +37,7 @@
 - `_workmeta/**` 는 project code, expected surface 존재 여부, count 만 읽는다.
 - `private-state/**` 는 존재 여부와 continuity surface 여부만 읽는다.
 - mailbox raw, attachment, token, credential, session, cookie 값은 읽지 않는다.
+- gateway pending monster 는 `intake_inbox/*/monsters.json` 의 derived monster field 만 제한적으로 읽고, mail body/html/source quote/raw ref/attachment ref/provider id 는 제외한다.
 - `.mission/index.yaml` 은 public-safe tracked mission summary 이므로 읽을 수 있다.
 
 ## freshness
@@ -89,9 +90,35 @@
 - `intake_inbox_present`
 - `intake_inbox_count`
 - `monster_index_present`
+- `pending_monsters.count`
+- `pending_monsters.by_assignment_status`
+- `pending_monsters.by_family`
+- `pending_monsters.by_due_state`
+- `pending_monsters.by_known_status`
+- `pending_monsters.items[*]`
+  - `monster_id`
+  - `inbox_id`
+  - `monster_family`
+  - `monster_name`
+  - `work_pattern`
+  - `objective_summary`
+  - `due_state`
+  - `d_day`
+  - `known_status`
+  - `assignment_status`
+  - `assigned_project_code`
+  - `assigned_stage`
+  - `project_hint_count`
+  - `stage_hint_count`
+  - `mail_touch_count`
+  - `last_mail_role`
+  - `mission_ref_present`
 - `mail_fetch_state_present`
 - `mailbox_surfaces.company_present`
 - `mailbox_surfaces.personal_present`
+
+`pending_monsters.items` 는 `pending_dungeon_assignment` 와 `blocked` 상태만 최대 6건 sample 로 담는다.
+이 sample 은 작전판 표시용 요약이며, source mail subject/from/to/cc/body/html/source_quote/raw/attachment 값의 원문 복제 경로가 아니다.
 
 ## 실행
 

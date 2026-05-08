@@ -4,7 +4,7 @@ import { promises as fs } from "node:fs";
 import path from "node:path";
 import { fileURLToPath } from "node:url";
 import YAML from "yaml";
-import { pathExists, writeJson } from "../shared/io.mjs";
+import { pathExists, readJson, writeJson } from "../shared/io.mjs";
 
 export const SNAPSHOT_VERSION = "soulforge.snapshot.v0";
 export const SNAPSHOT_PRODUCER = "guild_hall/snapshot";
@@ -28,6 +28,8 @@ const OWNER_ROOTS = [
 ];
 
 const WORKMETA_NON_PROJECT_ROOTS = new Set([".git", "templates", "system"]);
+const PENDING_MONSTER_ASSIGNMENT_STATUSES = new Set(["pending_dungeon_assignment", "blocked"]);
+const PENDING_MONSTER_SAMPLE_LIMIT = 6;
 
 const SNAPSHOT_OWNER_NOTES = [
   "Snapshot is a read-only projection for UI and external hosts.",
@@ -171,6 +173,12 @@ export function validateSnapshot(snapshot) {
   }
   if (!Array.isArray(snapshot.missions?.items)) {
     errors.push("missions.items must be an array");
+  }
+  if (typeof snapshot.gateway?.pending_monsters?.count !== "number") {
+    errors.push("gateway.pending_monsters.count must be a number");
+  }
+  if (!Array.isArray(snapshot.gateway?.pending_monsters?.items)) {
+    errors.push("gateway.pending_monsters.items must be an array");
   }
   if (!Array.isArray(snapshot.source_observations?.items)) {
     errors.push("source_observations.items must be an array");
@@ -335,12 +343,14 @@ async function observeGatewaySource(repoRoot) {
   const inboxDirs = await listDirectoryNames(intakeRoot, { exclude: new Set(["_index"]) });
   const monsterIndexPath = path.join(intakeRoot, "_index", "monster_index.json");
   const monsterIndexStat = await statPath(monsterIndexPath);
+  const monsterStatePaths = inboxDirs.map((inboxId) => path.join(intakeRoot, inboxId, "monsters.json"));
   const observedPaths = [
     gatewayStateRoot,
     intakeRoot,
     monsterIndexPath,
     path.join(gatewayStateRoot, "log", "mail_fetch", "state"),
     ...inboxDirs.map((inboxId) => path.join(intakeRoot, inboxId)),
+    ...monsterStatePaths,
   ];
 
   return {
@@ -354,6 +364,7 @@ async function observeGatewaySource(repoRoot) {
       root_mtime_ms: stat.mtime_ms,
       intake_inbox_count: inboxDirs.length,
       monster_index_mtime_ms: monsterIndexStat.mtime_ms,
+      monster_state_file_count: (await Promise.all(monsterStatePaths.map((filePath) => pathExists(filePath)))).filter(Boolean).length,
       latest_surface_mtime_ms: await latestMtimeMs(observedPaths),
     },
   };
@@ -507,6 +518,7 @@ async function summarizeGateway(repoRoot) {
   const gatewayStateRoot = path.join(repoRoot, "guild_hall", "state", "gateway");
   const intakeRoot = path.join(gatewayStateRoot, "intake_inbox");
   const inboxDirs = await listDirectoryNames(intakeRoot, { exclude: new Set(["_index"]) });
+  const pendingMonsters = await summarizePendingMonsters(intakeRoot, inboxDirs);
 
   return {
     source_ref: "guild_hall/state/gateway",
@@ -514,11 +526,109 @@ async function summarizeGateway(repoRoot) {
     intake_inbox_present: await pathExists(intakeRoot),
     intake_inbox_count: inboxDirs.length,
     monster_index_present: await pathExists(path.join(intakeRoot, "_index", "monster_index.json")),
+    pending_monsters: pendingMonsters,
     mail_fetch_state_present: await pathExists(path.join(gatewayStateRoot, "log", "mail_fetch", "state")),
     mailbox_surfaces: {
       company_present: await pathExists(path.join(gatewayStateRoot, "mailbox", "company")),
       personal_present: await pathExists(path.join(gatewayStateRoot, "mailbox", "personal")),
     },
+  };
+}
+
+async function summarizePendingMonsters(intakeRoot, inboxDirs) {
+  const counts = {
+    by_assignment_status: {},
+    by_family: {},
+    by_due_state: {},
+    by_known_status: {},
+  };
+  const items = [];
+  let pendingCount = 0;
+  let skippedUnreadableFiles = 0;
+
+  for (const inboxId of inboxDirs) {
+    const monstersPath = path.join(intakeRoot, inboxId, "monsters.json");
+    const monsterDocument = await readJsonOrNull(monstersPath);
+    if (!monsterDocument) {
+      if (await pathExists(monstersPath)) {
+        skippedUnreadableFiles += 1;
+      }
+      continue;
+    }
+
+    const monsters = Array.isArray(monsterDocument?.monsters)
+      ? monsterDocument.monsters
+      : Array.isArray(monsterDocument)
+        ? monsterDocument
+        : [];
+
+    for (const monster of monsters) {
+      if (!monster || typeof monster !== "object" || Array.isArray(monster)) {
+        continue;
+      }
+
+      const assignmentStatus = stringValue(monster.assignment_status) ?? "pending_dungeon_assignment";
+      if (!PENDING_MONSTER_ASSIGNMENT_STATUSES.has(assignmentStatus)) {
+        continue;
+      }
+
+      const family = stringValue(monster.monster_family) ?? "unknown_monster";
+      const dueState = stringValue(monster.due_state) ?? "no_due";
+      const knownStatus = stringValue(monster.known_status) ?? "unknown";
+      pendingCount += 1;
+      incrementCount(counts.by_assignment_status, assignmentStatus);
+      incrementCount(counts.by_family, family);
+      incrementCount(counts.by_due_state, dueState);
+      incrementCount(counts.by_known_status, knownStatus);
+
+      if (items.length < PENDING_MONSTER_SAMPLE_LIMIT) {
+        items.push(summarizePendingMonster({ inboxId, monster, assignmentStatus, family, dueState, knownStatus }));
+      }
+    }
+  }
+
+  return {
+    source_ref: "guild_hall/state/gateway/intake_inbox",
+    count: pendingCount,
+    sample_limit: PENDING_MONSTER_SAMPLE_LIMIT,
+    truncated: pendingCount > items.length,
+    ...counts,
+    items,
+    skipped_unreadable_files: skippedUnreadableFiles,
+    privacy: {
+      mode: "sanitized_monster_summary_only",
+      excluded_fields: [
+        "body_text",
+        "body_html",
+        "body_excerpt",
+        "source_quote",
+        "raw_ref",
+        "attachment_refs",
+        "provider_message_id",
+      ],
+    },
+  };
+}
+
+function summarizePendingMonster({ inboxId, monster, assignmentStatus, family, dueState, knownStatus }) {
+  return {
+    monster_id: stringValue(monster.monster_id),
+    inbox_id: inboxId,
+    monster_family: family,
+    monster_name: summaryStringValue(monster.monster_name, 80),
+    work_pattern: stringValue(monster.work_pattern),
+    objective_summary: summaryStringValue(monster.objective_ko, 140) ?? summaryStringValue(monster.objective, 140),
+    due_state: dueState,
+    d_day: stringValue(monster.d_day),
+    known_status: knownStatus,
+    assignment_status: assignmentStatus,
+    assigned_project_code: stringValue(monster.assigned_project_code),
+    assigned_stage: stringValue(monster.assigned_stage),
+    project_hint_count: arrayLength(monster.project_hints),
+    stage_hint_count: arrayLength(monster.stage_hints),
+    mail_touch_count: numberValue(monster.mail_touch_count),
+    last_mail_role: stringValue(monster.last_mail_role),
+    mission_ref_present: Boolean(stringValue(monster.mission_ref)),
   };
 }
 
@@ -698,8 +808,39 @@ function countBy(items, getKey) {
   return counts;
 }
 
+function incrementCount(counts, key) {
+  counts[key] = (counts[key] ?? 0) + 1;
+}
+
 function stringValue(value) {
   return typeof value === "string" && value.trim() ? value.trim() : null;
+}
+
+function summaryStringValue(value, maxLength) {
+  const text = stringValue(value)?.replace(/\s+/g, " ");
+  if (!text) {
+    return null;
+  }
+  if (text.length <= maxLength) {
+    return text;
+  }
+  return `${text.slice(0, Math.max(0, maxLength - 3))}...`;
+}
+
+function numberValue(value) {
+  return typeof value === "number" && Number.isFinite(value) ? value : null;
+}
+
+function arrayLength(value) {
+  return Array.isArray(value) ? value.length : 0;
+}
+
+async function readJsonOrNull(filePath) {
+  try {
+    return await readJson(filePath);
+  } catch {
+    return null;
+  }
 }
 
 function createDiagnostics() {

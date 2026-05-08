@@ -8,7 +8,7 @@
 ## 포함 대상
 
 - `producer.mjs`
-  - owner root, mission, project mount, gateway 상태를 read-only 로 요약하고 source observation fingerprint 를 만든다.
+  - owner root, mission, project mount, gateway 상태와 pending monster summary 를 read-only 로 요약하고 source observation fingerprint 를 만든다.
 - `cli.mjs`
   - snapshot 생성, JSON 출력, local state write, shape check, freshness check entrypoint
 - `snapshot.test.mjs`
@@ -25,6 +25,7 @@
 - `_workspaces`, `_workmeta`, `private-state` 는 존재 여부와 project code 같은 metadata 만 읽는다.
 - secret, token, credential, session, cookie 값은 읽지 않는다.
 - 메일 원문, attachment, raw mailbox payload, 실제 프로젝트 파일 내용은 읽지 않는다.
+- pending monster summary 는 `intake_inbox/*/monsters.json` 의 derived monster field 만 제한적으로 읽고 body/html/source quote/raw/attachment field 는 복제하지 않는다.
 - mission summary 는 tracked `.mission/index.yaml` 에 있는 public-safe 필드만 읽는다.
 - freshness check 는 저장된 snapshot 의 `source_observations.fingerprint` 와 현재 원본 metadata fingerprint 를 비교한다.
 

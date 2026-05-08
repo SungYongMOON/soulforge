@@ -774,6 +774,10 @@
   background: var(--sf-surface-card);
 }
 
+.cc-map-card strong {
+  overflow-wrap: anywhere;
+}
+
 .cc-map-card span,
 .cc-map-list span {
   color: var(--sf-text-muted);
