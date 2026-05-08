@@ -22,6 +22,7 @@ from .pipeline import (
     normalize_events,
     normalize_extensions,
 )
+from .ops.notify import enqueue_mail_received_notifications
 from .storage import CursorStore, EventSink
 
 
@@ -726,9 +727,35 @@ def run_once(config: CollectorConfig) -> Dict[str, Any]:
                 cursor_store.set_cursor(source, result.next_cursor)
                 source_row["raw_written"] = sink_summary.raw_written
                 source_row["event_written"] = sink_summary.event_written
+                try:
+                    notification_summary = enqueue_mail_received_notifications(config.repo_root, fresh_events)
+                    source_row["notifications"] = notification_summary.to_dict()
+                except Exception as exc:  # noqa: BLE001
+                    source_row["partial"] = True
+                    source_row["notifications"] = {
+                        "enabled": True,
+                        "queued": 0,
+                        "skipped_reason": "notification_enqueue_error",
+                        "queue_files": [],
+                    }
+                    source_row["errors"].append(
+                        ConnectorError(
+                            source=source,
+                            code="notification_enqueue_error",
+                            message=str(exc),
+                            retryable=False,
+                            detail={"type": type(exc).__name__},
+                        ).to_dict()
+                    )
             else:
                 source_row["raw_written"] = len(raw_rows)
                 source_row["event_written"] = len(fresh_events)
+                source_row["notifications"] = {
+                    "enabled": False,
+                    "queued": 0,
+                    "skipped_reason": "dry_run",
+                    "queue_files": [],
+                }
 
             source_row["new_events"] = len(fresh_events)
             source_row["duplicates"] = duplicates

@@ -7,7 +7,16 @@
 
 ## 한 줄 정의
 
-- `monster_created` brief 는 원문 provenance 를 잃지 않으면서, 사람이 바로 triage 할 수 있게 만든 owner-facing 행동 브리프 다.
+- Telegram brief 는 원문 provenance 를 잃지 않으면서, 사람이 눈으로 훑거나 Siri 로 들었을 때 바로 triage 할 수 있게 만든 owner-facing 행동 브리프 다.
+
+## 공통 표시 원칙
+
+- 모든 Telegram 메시지는 한국어로 작성한다.
+- 첫 문장은 알림 종류를 자연스러운 문장으로 말한다.
+- 사람이 iPhone 알림을 눈으로 훑기 쉽도록 짧은 줄바꿈을 사용한다.
+- Siri 가 그대로 읽어도 어색하지 않게 `source: hiworks` 같은 기계 필드명 대신 문장형 표현을 우선한다.
+- 본문 원문, HTML, 첨부 파일명, 첨부 원문, 긴 URL, secret, credential, local 절대 경로는 표시하지 않는다.
+- 내부 참조 ID 는 queue/log 의 `source_ref` 에 남기고, 기본 Telegram 본문에는 넣지 않는다.
 
 ## 정본과 표시의 역할 분리
 
@@ -68,6 +77,32 @@
   - `due_state` / `d_day` 기준 파생 표시
   - 없으면 `보통`
 
+## v0 `mail_received` 표시 순서
+
+1. 도착 문장
+2. 제목
+3. 발신자
+4. 첨부파일 개수
+5. 수신 시각
+6. 다음 행동
+
+## v0 `mail_received` 표시 규칙
+
+- 도착 문장
+  - `새 하이웍스 메일이 도착했습니다.` 처럼 source 를 한국어 이름으로 표시한다.
+- 제목
+  - `subject` 를 한 줄로 정리하고, 긴 URL 은 `[redacted]` 로 대체한다.
+  - 너무 긴 제목은 짧게 자른다.
+- 발신자
+  - 첫 발신자 이름을 우선하고, 없으면 address 를 쓴다.
+  - 둘 이상이면 `홍길동 외 1명` 처럼 표시한다.
+- 첨부파일
+  - 첨부 파일명이나 URL 은 표시하지 않고 개수만 말한다.
+- 수신 시각
+  - 한국 시간 기준 `오후 1시 43분` 처럼 Siri 가 읽기 쉬운 표현을 사용한다.
+- 다음 행동
+  - `다음 행동: 하이웍스 메일함을 확인해 주세요.` 처럼 owner 가 바로 할 일을 한 줄로 적는다.
+
 ## 결측치 기본값
 
 - `subject` 없음
@@ -84,6 +119,12 @@
   - `기한: 기한 미정`
 - `긴급도` 계산 불가
   - `긴급도: 보통`
+- `mail_received.subject` 없음
+  - `제목은 제목 없음입니다.`
+- `mail_received.from` 비어 있음
+  - `보낸 사람은 확인되지 않은 발신자입니다.`
+- `mail_received.received_at` 파싱 불가
+  - `수신 시각은 확인되지 않았습니다.`
 
 ## cross-surface 일관성 규칙
 
@@ -104,4 +145,3 @@
 
 - v0 에서는 Telegram brief 를 owner-facing primary surface 로 보고, 다른 채널도 같은 formatter 원칙을 재사용할 수 있다고 본다.
 - `objective` 를 canonical intent 로 유지하고, `objective_ko` 는 표시용 localized override 로 본다.
-

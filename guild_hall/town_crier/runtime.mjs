@@ -12,7 +12,7 @@ import {
   writeJson,
 } from "../shared/io.mjs";
 
-export const GATEWAY_NOTIFY_EVENTS = ["monster_created"];
+export const GATEWAY_NOTIFY_EVENTS = ["monster_created", "mail_received"];
 export const MISSION_NOTIFY_EVENTS = ["mission_blocked", "mission_ready", "mission_closed", "mission_failed"];
 
 export function gatewayNotifyPolicyPath(repoRoot) {

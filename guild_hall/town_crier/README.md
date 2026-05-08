@@ -4,6 +4,7 @@
 
 - `town_crier/` 는 Soulforge 공용 notify transport owner 다.
 - 각 owner 가 만든 notify request 를 queue 에서 소비하고 Telegram 으로 전달한다.
+- 메시지 본문은 owner 가 만든 한국어 brief 를 그대로 보내며, Telegram/Siri 표시 규칙은 `docs/architecture/workspace/NOTIFY_BRIEF_FORMAT_V0.md` 를 따른다.
 
 ## state
 

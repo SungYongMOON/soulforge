@@ -24,6 +24,7 @@
 ```bash
 npm run guild-hall:town-crier:send -- --text "gateway ready"
 npm run guild-hall:notify:gateway -- --event monster_created --on
+npm run guild-hall:notify:gateway -- --event mail_received --on
 npm run guild-hall:notify:emit -- --scope gateway --event monster_created --text "monster ready"
 ```
 
@@ -33,7 +34,9 @@ npm run guild-hall:notify:emit -- --scope gateway --event monster_created --text
 - gateway local policy 는 tracked example 이 아니라 local-only `guild_hall/state/gateway/**` 아래에 둔다.
 - full Telegram conversational gateway, session state, channel runtime 은 현재 Soulforge 범위에 포함하지 않는다.
 - 실제 bot token/chat id 는 local env 만 사용한다.
-- gateway 자동 Telegram 알림은 v0 에서 `monster_created` 하나만 남긴다.
+- gateway 자동 Telegram 알림은 v0 에서 `monster_created` 와 `mail_received` 를 지원한다.
+- `mail_received` 는 mail fetch 가 fresh event 를 materialize 한 뒤 `town_crier` queue 에 한국어/Siri 친화 brief 를 적재한다.
+- `mail_received` brief 는 subject, 첫 발신자, 첨부 개수, 수신 시각, 다음 행동만 포함하고 body/html/첨부 원문은 포함하지 않는다.
 - brief 표시 규칙은 [`NOTIFY_BRIEF_FORMAT_V0.md`](../../../docs/architecture/workspace/NOTIFY_BRIEF_FORMAT_V0.md) 에서 따로 잠근다.
 
 ## 관련 경로
