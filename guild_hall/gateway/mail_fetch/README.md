@@ -23,6 +23,7 @@
 
 - mailbox root: `guild_hall/state/gateway/mailbox/`
 - runtime root: `guild_hall/state/gateway/log/mail_fetch/`
+- mail candidate queue root: `guild_hall/state/gateway/mail_candidate/`
 - default env file: `guild_hall/state/gateway/mailbox/state/email_fetch.env`
 
 ## 기본 실행

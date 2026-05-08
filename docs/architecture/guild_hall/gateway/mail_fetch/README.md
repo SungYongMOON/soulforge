@@ -19,14 +19,16 @@
 ## 읽는 순서
 
 1. [`../../../workspace/GATEWAY_MAIL_FETCH_V0.md`](../../../workspace/GATEWAY_MAIL_FETCH_V0.md)
-2. [`runbooks/email_fetch_ops_monitoring.md`](runbooks/email_fetch_ops_monitoring.md)
-3. [`runbooks/email_fetch_state_recovery.md`](runbooks/email_fetch_state_recovery.md)
-4. [`policies/email_fetch_retention_security.md`](policies/email_fetch_retention_security.md)
-5. [`spec/connector_contract.md`](spec/connector_contract.md)
-6. [`spec/attachment_policy.md`](spec/attachment_policy.md)
+2. [`../../../workspace/MAIL_CANDIDATE_QUEUE_V0.md`](../../../workspace/MAIL_CANDIDATE_QUEUE_V0.md)
+3. [`runbooks/email_fetch_ops_monitoring.md`](runbooks/email_fetch_ops_monitoring.md)
+4. [`runbooks/email_fetch_state_recovery.md`](runbooks/email_fetch_state_recovery.md)
+5. [`policies/email_fetch_retention_security.md`](policies/email_fetch_retention_security.md)
+6. [`spec/connector_contract.md`](spec/connector_contract.md)
+7. [`spec/attachment_policy.md`](spec/attachment_policy.md)
 
 ## 관련 경로
 
 - [`../../../../../guild_hall/gateway/mail_fetch/README.md`](../../../../../guild_hall/gateway/mail_fetch/README.md)
 - [`../../../workspace/GATEWAY_MAIL_FETCH_V0.md`](../../../workspace/GATEWAY_MAIL_FETCH_V0.md)
+- [`../../../workspace/MAIL_CANDIDATE_QUEUE_V0.md`](../../../workspace/MAIL_CANDIDATE_QUEUE_V0.md)
 - [`../../../workspace/INSTALLATION_MANUAL_V0.md`](../../../workspace/INSTALLATION_MANUAL_V0.md)

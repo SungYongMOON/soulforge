@@ -19,4 +19,5 @@
 - [`mail_fetch/README.md`](mail_fetch/README.md)
 - [`mail_send/README.md`](mail_send/README.md)
 - [`../../workspace/GATEWAY_MAIL_FETCH_V0.md`](../../workspace/GATEWAY_MAIL_FETCH_V0.md)
+- [`../../workspace/MAIL_CANDIDATE_QUEUE_V0.md`](../../workspace/MAIL_CANDIDATE_QUEUE_V0.md)
 - [`../../workspace/MAIL_SEND_V0.md`](../../workspace/MAIL_SEND_V0.md)

@@ -11,6 +11,17 @@ Git log 는 원문 이력을 남기고, 이 문서는 사람이 읽는 patch not
 
 ## 2026-05-08
 
+### Revision `working` - mail_candidate 후보 큐 추가
+
+- gateway mail fetch 가 fresh mail event 를 mailbox event JSONL 에 저장한 뒤, `mail` bucket event 를 local-only `mail_candidate` queue 에 적재하게 했다.
+- 후보 queue item 은 source event pointer, subject, sender, 수신자/첨부 count, classification summary 만 담고 body/html/raw/첨부명/첨부 URL/secret 은 제외한다.
+- `MAIL_CANDIDATE_QUEUE_V0.md` 와 public-safe sample 을 추가해 다른 PC 가 실제 `guild_hall/state/**` 운영 데이터 없이 queue shape 를 재현할 수 있게 했다.
+
+### Revision `working` - gateway index stale 판정 보강
+
+- `intake_inbox` monster index manifest 가 `monsters.json` 의 mtime millisecond 만 보지 않고 size/sha256 fingerprint 도 확인하게 했다.
+- 같은 tick 안에서 monster 파일이 갱신돼도 stale manifest 를 재사용하지 않도록 gateway validation flake 를 줄였다.
+
 ### Revision `working` - node role public contract guard 추가
 
 - 모든 PC clone 에서 local `node_identity.yaml` 의 `primary_writer.public_repo` 를 기준으로 protected public contract 문서 변경을 검사하는 `validate:role-boundary` 를 추가했다.

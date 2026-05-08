@@ -40,6 +40,7 @@ def _config(tmp_path: Path) -> runner.CollectorConfig:
         debug_log_file=runtime_root / "logs" / "collector_debug.jsonl",
         last_summary_file=runtime_root / "logs" / "last_run_summary.json",
         attachment_root=inbox_root,
+        mail_candidate_queue_root=tmp_path / "guild_hall" / "state" / "gateway" / "mail_candidate",
         limit=50,
         gmail_enabled=True,
         gmail_access_token="token-for-test",
@@ -237,6 +238,16 @@ def test_run_once_processes_hiworks_source(monkeypatch, tmp_path: Path) -> None:
     assert event_path.exists()
     content = event_path.read_text(encoding="utf-8")
     assert "\"source\": \"hiworks\"" in content
+
+    candidate_root = config.mail_candidate_queue_root / "queue" / "pending"
+    candidate_files = sorted(candidate_root.glob("*.json"))
+    assert summary["sources"][0]["mail_candidates"]["queued"] == 1
+    assert len(candidate_files) == 1
+    candidate = json.loads(candidate_files[0].read_text(encoding="utf-8"))
+    assert candidate["schema_version"] == "mail_candidate.queue_item.v1"
+    assert candidate["source_event"]["source"] == "hiworks"
+    assert candidate["source_event"]["workspace"] == "company"
+    assert candidate["business_review"]["status"] == "not_started"
 
 
 def test_run_once_enqueues_mail_received_notifications_for_fresh_events(monkeypatch, tmp_path: Path) -> None:

@@ -1,6 +1,6 @@
 # email-fetch 보존/권한 정책
 
-> 마지막 업데이트: 2026-03-05
+> 마지막 업데이트: 2026-05-08
 
 `email-fetch` 수집 데이터의 보존, 정리, 파일 권한 기준을 고정하는 정책 문서다.
 
@@ -34,6 +34,12 @@
 - `guild_hall/state/gateway/log/mail_fetch/logs/last_run_summary.json`: 180일
 - `guild_hall/state/gateway/log/mail_fetch/logs/collector_debug.jsonl`: 30일(라인 단위 정리)
 - `guild_hall/state/gateway/log/mail_fetch/collector.stdout.log`, `collector.stderr.log`: 30일
+
+### 업무화 후보 큐
+
+- `guild_hall/state/gateway/mail_candidate/queue/pending/*.json`: 업무화 검토 전까지 보존한다.
+- candidate item 은 body/html/raw/첨부명/첨부 URL 을 담지 않지만 sender/subject 같은 mail metadata 를 포함하므로 public Git 에 올리지 않는다.
+- candidate 를 monster/intake 로 승격한 뒤 archive/done 위치를 만들지는 current-default 범위 밖이며, pending queue 정리는 별도 운영 절차에서 다룬다.
 
 ---
 

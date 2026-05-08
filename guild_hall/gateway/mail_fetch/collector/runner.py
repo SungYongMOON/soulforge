@@ -23,7 +23,7 @@ from .pipeline import (
     normalize_extensions,
 )
 from .ops.notify import enqueue_mail_received_notifications
-from .storage import CursorStore, EventSink
+from .storage import CursorStore, EventSink, MailCandidateQueue
 
 
 RUN_SCHEMA_VERSION = "email.fetch.run.v1"
@@ -316,6 +316,7 @@ class CollectorConfig:
     debug_log_file: Path
     last_summary_file: Path
     attachment_root: Path
+    mail_candidate_queue_root: Path
 
     limit: int = 50
     retry_max: int = 3
@@ -463,6 +464,12 @@ def build_config_from_env(repo_root: Path, env_file: Path) -> CollectorConfig:
         debug_log_file=runtime_root / "logs" / "collector_debug.jsonl",
         last_summary_file=runtime_root / "logs" / "last_run_summary.json",
         attachment_root=inbox_root,
+        mail_candidate_queue_root=_env_path(
+            env,
+            "EMAIL_FETCH_MAIL_CANDIDATE_QUEUE_ROOT",
+            repo_root / "guild_hall" / "state" / "gateway" / "mail_candidate",
+            base_dir=env_base_dir,
+        ),
         limit=max(limit, 1),
         retry_max=max(_env_int(env, "EMAIL_FETCH_RETRY_MAX", 3), 1),
         retry_backoff_sec=(1, 2, 4),
@@ -622,6 +629,12 @@ def run_once(config: CollectorConfig) -> Dict[str, Any]:
     cursor_store = CursorStore(config.cursor_file)
     dedupe_store = DedupeStore(config.dedupe_file)
     sink = EventSink(config.inbox_root, source_workspace_map=config.source_workspace_map)
+    mail_candidate_queue = MailCandidateQueue(
+        repo_root=config.repo_root,
+        queue_root=config.mail_candidate_queue_root,
+        inbox_root=config.inbox_root,
+        source_workspace_map=config.source_workspace_map,
+    )
 
     summary: Dict[str, Any] = {
         "schema_version": RUN_SCHEMA_VERSION,
@@ -723,10 +736,12 @@ def run_once(config: CollectorConfig) -> Dict[str, Any]:
 
             if not config.dry_run:
                 sink_summary = sink.write_batch(source, raw_rows, fresh_events)
-                dedupe_store.commit(fresh_events)
-                cursor_store.set_cursor(source, result.next_cursor)
+                candidate_summary = mail_candidate_queue.enqueue_events(fresh_events)
                 source_row["raw_written"] = sink_summary.raw_written
                 source_row["event_written"] = sink_summary.event_written
+                source_row["mail_candidates"] = candidate_summary.to_dict()
+                dedupe_store.commit(fresh_events)
+                cursor_store.set_cursor(source, result.next_cursor)
                 try:
                     notification_summary = enqueue_mail_received_notifications(config.repo_root, fresh_events)
                     source_row["notifications"] = notification_summary.to_dict()
@@ -753,6 +768,13 @@ def run_once(config: CollectorConfig) -> Dict[str, Any]:
                 source_row["notifications"] = {
                     "enabled": False,
                     "queued": 0,
+                    "skipped_reason": "dry_run",
+                    "queue_files": [],
+                }
+                source_row["mail_candidates"] = {
+                    "enabled": False,
+                    "queued": 0,
+                    "skipped": 0,
                     "skipped_reason": "dry_run",
                     "queue_files": [],
                 }

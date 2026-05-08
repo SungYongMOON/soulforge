@@ -16,6 +16,7 @@
 | `MISSION_MODEL.md` | monster, mission, artifact, readiness, raw run truth 의 관계를 고정한다. |
 | `MISSION_MANUAL_DRAFT.md` | mission 운용 manual 초안을 누적한다. |
 | `MAIL_INTAKE_REQUEST_V0.md` | mailbox/manual input 을 gateway intake request 로 표현하는 계약이다. |
+| `MAIL_CANDIDATE_QUEUE_V0.md` | fresh mail event 를 업무화 검토 후보 queue 로 보류하는 local-only 계약이다. |
 | `WORKSPACE_INTAKE_INBOX_V0.md` | intake inbox 의 current JSON 과 append-only JSONL event stream shape 를 둔다. |
 | `DUNGEON_ASSIGNMENT_REQUEST_V0.md` | gateway monster 를 project dungeon/stage 로 배정하는 요청 계약이다. |
 | `INSTALLATION_MANUAL_V0.md` | 다른 PC 에서 clone 후 runtime 을 materialize 하는 상위 설치 절차다. |
@@ -54,6 +55,7 @@
 - [`MISSION_MODEL.md`](MISSION_MODEL.md)
 - [`MISSION_MANUAL_DRAFT.md`](MISSION_MANUAL_DRAFT.md)
 - [`MAIL_INTAKE_REQUEST_V0.md`](MAIL_INTAKE_REQUEST_V0.md)
+- [`MAIL_CANDIDATE_QUEUE_V0.md`](MAIL_CANDIDATE_QUEUE_V0.md)
 - [`WORKSPACE_INTAKE_INBOX_V0.md`](WORKSPACE_INTAKE_INBOX_V0.md)
 - [`DUNGEON_ASSIGNMENT_REQUEST_V0.md`](DUNGEON_ASSIGNMENT_REQUEST_V0.md)
 - [`INSTALLATION_MANUAL_V0.md`](INSTALLATION_MANUAL_V0.md)
@@ -86,9 +88,9 @@
 
 - Stable
 - mission/workspace 구조와 `_workmeta` 계약의 root-owned 정본 묶음이다.
-- current-default v0 workspace contract draft 는 `MAIL_INTAKE_REQUEST_V0.md`, `WORKSPACE_INTAKE_INBOX_V0.md`, `DUNGEON_ASSIGNMENT_REQUEST_V0.md`, `MAIL_TO_MISSION_HANDOFF_V0.md`, `MONSTER_FAMILY_LINEUP_V0.md`, `MONSTER_CANDIDATE_CONTRACT_V0.md`, `BATTLE_LOG_STORAGE_PLAN.md`, `MISSION_CLOSE_PROVENANCE_V0.md`, `SE_DUNGEON_STAGE_MODEL_V0.md`, `MAILBOX_CONCRETE_CONTRACT_V0.md` 에서 추가로 잠근다.
+- current-default v0 workspace contract draft 는 `MAIL_INTAKE_REQUEST_V0.md`, `MAIL_CANDIDATE_QUEUE_V0.md`, `WORKSPACE_INTAKE_INBOX_V0.md`, `DUNGEON_ASSIGNMENT_REQUEST_V0.md`, `MAIL_TO_MISSION_HANDOFF_V0.md`, `MONSTER_FAMILY_LINEUP_V0.md`, `MONSTER_CANDIDATE_CONTRACT_V0.md`, `BATTLE_LOG_STORAGE_PLAN.md`, `MISSION_CLOSE_PROVENANCE_V0.md`, `SE_DUNGEON_STAGE_MODEL_V0.md`, `MAILBOX_CONCRETE_CONTRACT_V0.md` 에서 추가로 잠근다.
 - `WORKSPACE_INTAKE_INBOX_V0.md` 는 `gateway` intake logging 의 source-of-truth shape 를 `JSON` current state + monthly `JSONL` event stream 기준으로 잠그고, `CSV` 는 파생 export 로만 다룬다.
-- `GATEWAY_MAIL_FETCH_V0.md`, `MAIL_SEND_V0.md`, `GATEWAY_NOTIFY_V0.md`, `NOTIFY_MODEL_V0.md`, `NOTIFY_BRIEF_FORMAT_V0.md` 는 `guild_hall` owner 의 runtime 계약이지만, `_workspaces/<project_code>/` handoff 와 clone/bootstrap 흐름 때문에 workspace 문서군에서도 함께 참조한다.
+- `GATEWAY_MAIL_FETCH_V0.md`, `MAIL_CANDIDATE_QUEUE_V0.md`, `MAIL_SEND_V0.md`, `GATEWAY_NOTIFY_V0.md`, `NOTIFY_MODEL_V0.md`, `NOTIFY_BRIEF_FORMAT_V0.md` 는 `guild_hall` owner 의 runtime 계약이지만, `_workspaces/<project_code>/` handoff 와 clone/bootstrap 흐름 때문에 workspace 문서군에서도 함께 참조한다.
 - `NOTEBOOKLM_MCP_SETUP_V0.md` 는 NotebookLM MCP 를 대상 PC 에서 재설치하는 절차만 Soulforge 쪽 runbook 으로 들고 간다.
 - `INSTALLATION_MANUAL_V0.md` 는 다른 PC 에서 clone 후 무엇을 어떤 순서로 설치해야 하는지 한 장짜리 상위 bootstrap 문서다.
 - `PROJECT_ONBOARDING_V0.md` 는 첫 실제 프로젝트를 `_workspaces/<project_code>/` 에 붙일 때 short `project_code`, full `display_name`, read-only first, local-only link materialization 규칙을 잠근다.
