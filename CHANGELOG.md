@@ -11,6 +11,11 @@ Git log 는 원문 이력을 남기고, 이 문서는 사람이 읽는 patch not
 
 ## 2026-05-08
 
+### Revision `working` - always-on next action prompt 추가
+
+- `ALWAYS_ON_NEXT_ACTION_PROMPT_V0.md` 를 추가해 복사/붙여넣기가 어려운 24시간 PC 에서 짧은 파일명 지시만으로 post-review gateway 점검과 activity mirror 를 수행할 수 있게 했다.
+- bootstrap README 에 prompt source 를 색인해 항상 켜 두는 PC 가 pull 후 다음 운영 작업을 파일 기반으로 찾게 했다.
+
 ### Revision `working` - gateway healthcheck/healer 판정 보강
 
 - `guild-hall:healer:run` 이 gateway fetch healthcheck JSON 의 `WARN`/`CRITICAL` 상태를 실패 점검으로 기록해 activity carry-forward 에 남기도록 했다.
