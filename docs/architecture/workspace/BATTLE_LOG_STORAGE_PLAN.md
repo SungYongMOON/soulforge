@@ -31,7 +31,7 @@
 - 월 단위 partition 을 두면 1년치 누적에도 파일 수가 과하게 늘지 않는다.
 - 사람은 summary markdown 을 읽고, 기계는 `jsonl` 원천을 읽는 역할 분리가 분명하다.
 
-## v0 battle_event 최소 스키마 초안
+## v0 battle_event 최소 스키마
 
 - `battle_event` 는 mission 이후 전투 기록으로 본다.
 - raw `battle_event` 는 mission 내부 개별 `skill` 마다 쓰지 않고, mission-level terminal battle outcome 시점에 1건 append 하는 것을 기본으로 본다.
@@ -44,6 +44,7 @@
 - `next_action_note` 는 후속 조치를 짧게 남기는 선택 필드다.
 - `follow_up_needed` 는 `result` 와 의미가 겹치므로 v0 raw event 에서는 제거한다.
 - `bottleneck_reason` 은 `intervention_count` 가 왜 발생했는지 집계하기 위한 필수 필드다. 개입이 없으면 `none` 으로 둔다.
+- 사람이 읽는 schema anchor 는 [`schema/battle_event.schema.yaml`](schema/battle_event.schema.yaml) 이며, public repo 에는 synthetic example 만 둔다.
 
 ### 필수 / 선택 / 파생
 
@@ -205,5 +206,6 @@
 
 ## 관련 예시
 
+- schema anchor: [`schema/battle_event.schema.yaml`](schema/battle_event.schema.yaml)
 - chain sample: [`examples/demo_project/_workmeta/battle_log_chain_example.md`](examples/demo_project/_workmeta/battle_log_chain_example.md)
 - 같은 monster 의 gateway brief: [`examples/guild_hall/state/town_crier/queue/pending/notify_pdr_brief_chain_demo_001.json`](examples/guild_hall/state/town_crier/queue/pending/notify_pdr_brief_chain_demo_001.json)

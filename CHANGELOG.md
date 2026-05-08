@@ -11,6 +11,11 @@ Git log 는 원문 이력을 남기고, 이 문서는 사람이 읽는 patch not
 
 ## 2026-05-09
 
+### Revision `working` - battle_event 최소 schema 추가
+
+- `_workmeta/<project_code>/log/events/YYYY/MM/battle_events.jsonl` 에 append 되는 mission-level battle outcome 의 public-safe schema anchor 를 추가했다.
+- battle log chain sample 과 play loop 문서를 schema 의 필수 `bottleneck_reason` 및 monthly event stream 위치에 맞게 정렬했다.
+
 ### Revision `working` - UI Operation Board projection 소비
 
 - renderer-web Dungeon Map 이 snapshot 의 `operation_board` projection 을 우선 소비해 Dungeon Map, Mission Board, Monster Gate, Next Actions 섹션을 표시하게 했다.
