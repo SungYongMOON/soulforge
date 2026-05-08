@@ -21,6 +21,7 @@
 ### 2.1 `public-only`
 
 - 대상: 팀원, 리뷰어, 일반 사용자, 구조/문서/예제/validator 중심 PC
+- 고성능 PC 라도 public skill/code 제작만 하고 project metadata 를 읽지 않으면 이 프로필을 쓸 수 있다.
 - clone 대상:
   - public `Soulforge`
 - clone 하지 않는 것:
@@ -54,6 +55,7 @@
 ### 2.3 `owner-with-state`
 
 - 대상: owner 본인, 실제 업무 기록과 continuity 까지 이어서 봐야 하는 PC
+- 고성능 `tool_pc` 가 회로설계, PCBArtwork, CAD/CAE/EDA 같은 project-specific tool 작업을 수행하면 이 프로필을 사용한다.
 - clone 대상:
   - public `Soulforge`
   - nested `_workmeta/`
@@ -64,6 +66,11 @@
   - private state repo 에서 허용된 기록 subset 만 복원
   - operator local env 재생성
   - 필요하면 doctor safe 후 doctor remote/live 수행
+- 허용 작업:
+  - project metadata read/write
+  - project-local run evidence capture
+  - tool-bound design work record
+  - owner-only continuity mirror read/write
 
 ### 2.4 `ai-assisted-bootstrap`
 
@@ -174,6 +181,7 @@ restore:
 - `npm run guild-hall:doctor -- --profile owner-with-state --remote` 통과
 - 필요 시 `npm run guild-hall:doctor -- --profile owner-with-state --live` 통과
 - Windows PowerShell 에서는 같은 검증 명령을 필요하면 `npm.cmd run ...` 형태로 실행한다.
+- `tool_pc` 로 쓰는 경우 `guild_hall/state/local/node_identity.yaml` 에 `node_role: tool_pc`, `bootstrap_profile: owner-with-state`, `workmeta: true` 가 local-only 로 기록되어 있다.
 
 ## Chapter 6. 연결 문서
 

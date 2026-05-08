@@ -11,6 +11,12 @@ Git log 는 원문 이력을 남기고, 이 문서는 사람이 읽는 patch not
 
 ## 2026-05-08
 
+### Revision `working` - tool PC owner-with-state 역할 보강
+
+- 고성능 `tool_pc` 를 skill 제작 전용이 아니라 project metadata 를 읽고 쓰는 tool-bound 설계 작업 node 로 명시했다.
+- `MULTI_PC_DEVELOPMENT_V0.md` 에 `tool_pc` 의 `_workspaces` / `_workmeta` writer 경계와 중복 방지 규칙을 추가했다.
+- `TOOL_PC_BOOTSTRAP_PROMPT_V0.md` 를 추가해 고성능 PC 를 `owner-with-state` 로 재설정하고 회로설계/PCBArtwork/tool run evidence 를 기록할 수 있게 했다.
+
 ### Revision `working` - gateway env 상대 경로 해석 보강
 
 - `gateway:fetch:healthcheck`, state backup/restore, retention cleanup 이 `EMAIL_FETCH_RUNTIME_DIR` 와 `EMAIL_FETCH_INBOX_ROOT` 의 상대 경로를 env 파일 위치 기준으로 해석하게 했다.

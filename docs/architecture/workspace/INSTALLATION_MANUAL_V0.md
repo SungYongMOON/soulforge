@@ -23,6 +23,7 @@
   - public `Soulforge` 와 owner-only nested `_workmeta/`, `private-state/` 를 준비한다
   - `_workmeta/` 와 `private-state/` 는 owner 본인만 clone/pull 한다
   - 허용된 기록 subset 만 restore 한다
+  - 고성능 `tool_pc` 가 회로설계, PCBArtwork, CAD/CAE/EDA 같은 project-specific tool 작업을 수행하면 이 프로필을 사용한다
 - `ai-assisted-bootstrap`
   - clone 후 사용자가 직접 모든 명령을 치지 않고 AI 에게 bootstrap 을 맡긴다
   - 이 경우에도 먼저 `public-only`, `operator`, `owner-with-state` 중 하나를 명시한다
@@ -75,6 +76,7 @@ npm run ui:workspace:install
 ```
 
 `owner-with-state` 프로필만 owner 본인용 project metadata 와 continuity 기록을 위해 Soulforge root 아래 `_workmeta/`, `private-state/` repo 를 둔다.
+고성능 `tool_pc` 가 실제 project metadata 를 읽고 쓰는 설계 작업을 맡는 경우에도 `owner-with-state` 로 설치한다.
 
 ```bash
 git clone <workmeta-repo-url> _workmeta

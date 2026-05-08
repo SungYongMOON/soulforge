@@ -27,7 +27,7 @@
 | node role | 주 용도 | 기본 프로필 | 주 write surface | 기본 허용 작업 |
 | --- | --- | --- | --- | --- |
 | `work_pc` | 실제 업무 파일, 문서 작업, HDD/SSD/cloud project worksite 조작 | `owner-with-state` | `_workspaces/<project_code>/`, `_workmeta/` | project work, workmeta update, bounded evidence capture |
-| `tool_pc` | 특정 전문 tool 이 설치된 작업, tool 관련 skill/automation 제작 | `owner-with-state` | `_workspaces/<project_code>/`, `_workmeta/`, 필요 시 public skill/code | tool-bound work, tool skill draft, heavy local validation |
+| `tool_pc` | 특정 전문 tool 이 설치된 설계/분석 작업, tool 관련 skill/automation 제작 | `owner-with-state` | `_workspaces/<project_code>/`, `_workmeta/<project_code>/`, 필요 시 public skill/code | circuit/PCB/tool-bound design work, tool skill draft, heavy local validation, tool-run evidence capture |
 | `portable_dev_pc` | Soulforge 기능, UI, 문서, 설계 고민과 public repo 개발 | `owner-with-state` 또는 `public-only` | public `Soulforge`, 필요 시 `_workmeta/` | UI/dev docs, architecture review, code changes |
 | `always_on_node` | 24시간 감시, snapshot, reminder, gateway, healer, night watch, lightweight automation | `operator` 또는 `owner-with-state` | `guild_hall/state/**`, `private-state/` mirror | gateway fetch, snapshot check, healer run, morning report candidate, reminder, night watch |
 
@@ -50,6 +50,12 @@ flowchart LR
     W3["guild_hall/state/**<br/>READ / RESTORE<br/>monster handoff 참조"]
   end
 
+  subgraph T["고성능 PC / tool_pc"]
+    T1["_workspaces/<project_code>/**<br/>PRIMARY FOR TOOL WORK<br/>EDA, CAD, CAE, PCBArtwork"]
+    T2["_workmeta/<project_code>/**<br/>PRIMARY FOR TOOL RUNS<br/>design evidence, run notes"]
+    T3["public Soulforge<br/>CONDITIONAL<br/>tool skill/code hotfix branch"]
+  end
+
   subgraph M["맥북에어 / portable_dev_pc"]
     M1["public Soulforge<br/>PRIMARY<br/>code, docs, UI"]
     M2["_workmeta/**<br/>CONDITIONAL<br/>필요 시 제한적 기록"]
@@ -59,6 +65,8 @@ flowchart LR
   A1 --> A2
   A2 --> W3
   W1 --> W2
+  T1 --> T2
+  T2 --> W2
   M1 --> A3
 
   classDef ops fill:#dbeafe,stroke:#1d4ed8,stroke-width:2px,color:#0f172a;
@@ -69,6 +77,8 @@ flowchart LR
 
   class A1,A2 ops;
   class W1,W2,W3 work;
+  class T1,T2 work;
+  class T3 dev;
   class M1,M2 dev;
   class M3 blocked;
   class A3 neutral;
@@ -79,16 +89,18 @@ flowchart LR
 | public `Soulforge/.git` | `portable_dev_pc` | 코드, 구조 문서, public-safe sample 만 commit/push 한다. |
 | `guild_hall/state/**` | `always_on_node` | local runtime 이며 public Git 에 올리지 않는다. 필요한 연속성만 `private-state/` 로 mirror 한다. |
 | `private-state/**` | `always_on_node` | owner-only private repo 에 selected continuity subset 만 commit/push 한다. secret 값은 넣지 않는다. |
-| `_workspaces/<project_code>/**` | `work_pc` | 실제 프로젝트 파일 local-only 이며 public Git 에 올리지 않는다. |
-| `_workmeta/<project_code>/**` | `work_pc` | owner-only private repo 에 project metadata, worklog, run truth 를 commit/push 한다. |
+| `_workspaces/<project_code>/**` | `work_pc`, tool-bound 범위에서는 `tool_pc` | 실제 프로젝트 파일 local-only 이며 public Git 에 올리지 않는다. tool 산출물은 해당 tool 이 설치된 PC 에서 다룬다. |
+| `_workmeta/<project_code>/**` | `work_pc`, tool-bound run 범위에서는 `tool_pc` | owner-only private repo 에 project metadata, worklog, run truth 를 commit/push 한다. tool 실행 근거와 설계 판단도 여기에 남긴다. |
 | `node_identity.yaml` | 각 PC 자신 | `guild_hall/state/local/` 아래 local-only binding 이며 어떤 Git 에도 올리지 않는다. |
 
 중복 방지 규칙:
 
 1. `gateway_fetch_primary` 와 `night_watch_active` 는 current-default 에서 `always_on_node` 한 대만 가진다.
-2. 실제 project 파일과 project-local 업무 기록은 `work_pc` 가 primary 로 쓴다.
-3. public docs/code/UI 변경은 `portable_dev_pc` 가 primary 로 쓴다.
-4. 다른 PC 는 primary 영역을 읽거나 복원할 수 있지만, primary writer 로 승격하려면 `node_identity.yaml` 의 `primary_writer` 를 먼저 바꾼다.
+2. 일반 project 파일과 project-local 업무 기록은 `work_pc` 가 primary 로 쓴다.
+3. 회로설계, PCBArtwork, CAD/CAE/EDA 처럼 특정 tool 이 필요한 project 작업은 `tool_pc` 가 해당 task 의 `_workspaces` / `_workmeta` primary writer 가 된다.
+4. public docs/code/UI 변경은 `portable_dev_pc` 가 primary 로 쓴다.
+5. 다른 PC 는 primary 영역을 읽거나 복원할 수 있지만, primary writer 로 승격하려면 `node_identity.yaml` 의 `primary_writer` 를 먼저 바꾼다.
+6. `work_pc` 와 `tool_pc` 가 같은 `_workmeta/<project_code>/` 를 쓸 수는 있지만, 같은 task/run 파일을 동시에 쓰지 않는다. task owner 는 run 시작 전에 하나로 정한다.
 
 ## node employee model
 
@@ -125,6 +137,7 @@ flowchart LR
 | 작은 문서/스크립트 hotfix | 해당 PC 의 수정용 worktree/clone | `codex/<node>-<task>` branch, scoped diff, 관련 test |
 | 기능 개발/큰 구조 변경 | 주 개발 PC 또는 별도 feature branch | 넓은 validate, 문서/CHANGELOG 동기화 |
 | project worksite 실제 작업 | `work_pc` | `_workspaces/<project_code>/`, `_workmeta/<project_code>/` 경계 유지 |
+| tool-bound project 설계 작업 | `tool_pc` | `owner-with-state`, `_workspaces/<project_code>/` tool 산출물, `_workmeta/<project_code>/` tool run/evidence 기록 |
 
 운영용 clone 규칙:
 
@@ -157,6 +170,7 @@ git push origin codex/<node-id>-<short-task>
 - `guild_hall/state/**`, `_workspaces/**`, `_workmeta/**`, `private-state/**`, raw mail body, attachment binary, secret 파일을 public commit 에 포함
 - 같은 파일/기능을 여러 PC 가 동시에 수정하면서 조율 없이 push
 - 검증 없이 24시간 운영 node 에 바로 반영
+- 같은 project 의 같은 tool run 을 `work_pc` 와 `tool_pc` 가 동시에 기록
 
 작업 배정 원칙:
 
@@ -197,6 +211,50 @@ local_paths:
   private_state_root: "<local private-state root>"
 ```
 
+고성능 tool PC 예시:
+
+```yaml
+schema_version: soulforge.local_node.v0
+node_id: high_perf_tool_01
+node_role: tool_pc
+bootstrap_profile: owner-with-state
+
+description: Local-only identity for the high-performance tool PC.
+
+allowed_jobs:
+  - tool_bound_design_work
+  - circuit_design
+  - pcb_artwork
+  - cad_or_eda_validation
+  - project_metadata_read
+  - project_metadata_write
+  - workmeta_update
+  - tool_skill_authoring
+  - heavy_local_validation
+
+blocked_jobs:
+  - always_on_scheduler
+  - night_watch_active
+  - gateway_fetch_primary
+  - public_repo_auto_commit
+  - public_repo_auto_push
+
+primary_writer:
+  public_repo: conditional
+  workspaces: tool_bound
+  workmeta: true
+  private_state: false
+  gateway_fetch: false
+  night_watch: false
+
+local_paths:
+  soulforge_root: "<local Soulforge root>"
+  workspaces_root: "<local Soulforge root>/_workspaces"
+  workmeta_root: "<local Soulforge root>/_workmeta"
+  private_state_root: "<local Soulforge root>/private-state"
+  local_runtime_root: "<local Soulforge root>/guild_hall/state"
+```
+
 규칙:
 
 - `node_identity.yaml` 은 tracked canon 이 아니라 local runtime binding 이다.
@@ -204,6 +262,8 @@ local_paths:
 - 자동화는 가능하면 이 identity 를 읽어 자신이 실행해도 되는 job 만 수행해야 한다.
 - current-default 에서 `gateway_fetch` primary writer 와 `night_watch` ACTIVE node 는 각각 1개로 둔다.
 - `always_on_node` 는 자동 커밋/푸시를 기본값으로 갖지 않는다. repo sync 는 preflight 의 `pull --ff-only` 같은 안전한 최신화까지만 둔다.
+- `tool_pc` 가 실제 설계 작업을 수행하려면 `public-only` 가 아니라 `owner-with-state` 로 bootstrap 해야 한다. skill 제작만 하는 공개 테스트 PC 일 때만 `public-only` 를 허용한다.
+- `tool_pc` 는 project metadata 를 읽고 쓸 수 있지만, raw mailbox, secret, credential, unrelated private state 는 읽지 않는다.
 
 ## Git 으로 따라오는 것
 
@@ -243,6 +303,7 @@ local_paths:
 12. `operator` 또는 `owner-with-state` 프로필이고 outbound mail 을 바로 쓸 계획이 있으면 `guild_hall/gateway/mail_send/mail_send.env.example` 를 참고해 local outbound mail env file 을 만든다.
 13. `operator` 또는 `owner-with-state` 프로필이면 `docs/architecture/workspace/examples/guild_hall/state/gateway/bindings/notify_policy.yaml` 를 local `guild_hall/state/gateway/bindings/notify_policy.yaml` 로 복사하거나, `guild-hall:notify:gateway` 명령으로 첫 policy file 을 만든다.
 14. `owner-with-state` 프로필이라면 `_workmeta/` clone 으로 project metadata 를 먼저 받고, 필요하면 [`PRIVATE_STATE_REPO_V0.md`](../../../docs/architecture/workspace/PRIVATE_STATE_REPO_V0.md) 기준으로 `private-state/` continuity subset 을 추가 복원한다.
+    - 고성능 `tool_pc` 가 회로설계, PCBArtwork, CAD/CAE/EDA 같은 실제 project tool 작업을 맡으면 반드시 이 `owner-with-state` 단계까지 완료한다.
 15. recent context 가 필요하면 `guild_hall/state/operations/soulforge_activity/latest_context.json` 을 먼저 읽고, 더 필요할 때만 현재 월 `events/*.jsonl` 마지막 몇 건을 추가로 본다.
 16. `npm run guild-hall:doctor` 로 bootstrap readiness 를 먼저 확인한다.
 17. 첫 `guild-hall:gateway:fetch` 또는 `guild-hall:gateway:intake` 실행 시 `guild_hall/state/gateway/**` local runtime 폴더는 스크립트가 자동으로 만든다.
