@@ -27,6 +27,8 @@ const OWNER_ROOTS = [
   ["ui-workspace", "derived_ui_consumer", "tracked"],
 ];
 
+const WORKMETA_NON_PROJECT_ROOTS = new Set([".git", "templates", "system"]);
+
 const SNAPSHOT_OWNER_NOTES = [
   "Snapshot is a read-only projection for UI and external hosts.",
   "Snapshot does not replace canonical owner roots.",
@@ -403,7 +405,7 @@ async function summarizeProjects(repoRoot, diagnostics) {
     requireSurface: false,
   });
   const workmetaCodes = await listProjectCodes(path.join(repoRoot, "_workmeta"), {
-    exclude: new Set([".git", "templates"]),
+    exclude: WORKMETA_NON_PROJECT_ROOTS,
     requireSurface: true,
   });
 

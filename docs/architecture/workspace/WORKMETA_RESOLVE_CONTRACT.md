@@ -33,6 +33,7 @@ flowchart TD
 - local workspace scan 은 `--local-workspaces` 또는 explicit workspace root 가 있을 때만 수행한다.
 - project 후보는 workspace root 의 direct child directory 로만 읽는다.
 - `company/`, `personal/` 는 project 후보가 아닌 보조 디렉터리로 취급한다.
+- `_workmeta/system/` 은 node/system smoke 기록 같은 private metadata repo 내부 운영 기록용이며 project 후보가 아니다.
 
 ## 현재 resolve 규칙
 
@@ -49,6 +50,7 @@ flowchart TD
 - repo `_workspaces/` 를 scan 할 경우 `company`, `personal` 디렉터리는 warning 후 skip 한다.
 - companion `_workmeta/<project_code>/` 가 있으면 `state = workmeta_present` 로 기록한다.
 - companion `_workmeta/<project_code>/` 가 없으면 `state = local_detected` 로 기록한다.
+- `_workmeta/system/**` 같은 non-project support surface 는 local project list 에 넣지 않는다.
 
 ## 현재 validate 범위
 
