@@ -11,6 +11,11 @@ Git log 는 원문 이력을 남기고, 이 문서는 사람이 읽는 patch not
 
 ## 2026-05-08
 
+### Revision `working` - private-state changelog 링크 검사 보정
+
+- `CHANGELOG_POLICY_V0.md` 의 private repo changelog 참조를 public CI 가 따라가야 하는 상대 링크가 아니라 local path 리터럴로 표시하게 했다.
+- `private-state/CHANGELOG.md` 는 owner-only nested private repo 표면이므로 public docs link check 대상에 넣지 않는 경계를 명확히 했다.
+
 ### Revision `working` - mail_received Telegram brief v0 추가
 
 - gateway notify event set 에 `mail_received` 를 추가하고, mail fetch 가 fresh event 를 materialize 한 뒤 `town_crier` queue 에 한국어 Telegram brief request 를 적재할 수 있게 했다.
