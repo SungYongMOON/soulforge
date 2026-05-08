@@ -14,7 +14,7 @@
 - installed skill name, model id, MCP/tool hint 는 example binding 으로 둘 수 있지만 host-local path 는 넣지 않는다.
 - `autohunt/` sample 은 policy, routing, mailbox rule 같은 public-safe 운영 예시만 둔다.
 - `runner/` sample 은 dispatch request 와 resolved run packet 같은 public-safe execution packet 예시만 둔다.
-- canonical gateway sample 은 `guild_hall/state/gateway/` 아래에 두고, mailbox event, mail intake, dedupe, existing monster link 처럼 다른 PC 나 다른 LLM 이 그대로 따라볼 수 있는 public-safe mirror example 을 둔다.
+- canonical gateway sample 은 `guild_hall/state/gateway/` 아래에 두고, mailbox event, mail candidate queue, mail intake, dedupe, existing monster link 처럼 다른 PC 나 다른 LLM 이 그대로 따라볼 수 있는 public-safe mirror example 을 둔다.
 - gateway sample 은 notify policy 예시도 함께 둬서 다른 PC 가 local `guild_hall/state/gateway/bindings/notify_policy.yaml` 를 재현할 수 있게 한다.
 - gateway/town_crier chain sample 은 같은 monster 가 `notify -> battle_log -> morning_report` 에서 같은 의미로 읽히는 예시를 함께 둔다.
 - gateway outbound sample 은 `mail_send.env` 와 별개로 `outbound/**` snapshot 과 `log/mail_send/**` append-only send log shape 를 보여준다.

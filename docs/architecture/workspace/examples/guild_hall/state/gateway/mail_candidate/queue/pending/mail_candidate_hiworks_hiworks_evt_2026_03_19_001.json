@@ -1,0 +1,44 @@
+{
+  "schema_version": "mail_candidate.queue_item.v1",
+  "candidate_id": "mail_candidate_hiworks_hiworks_evt_2026_03_19_001",
+  "status": "pending_review",
+  "created_at": "2026-03-19T00:16:01+00:00",
+  "updated_at": "2026-03-19T00:16:01+00:00",
+  "created_by": "gateway_mail_fetch",
+  "review_reason": "fresh_mail_event",
+  "source_event": {
+    "event_id": "hiworks_evt_2026_03_19_001",
+    "source": "hiworks",
+    "workspace": "company",
+    "event_file": "guild_hall/state/gateway/mailbox/company/mail/events/hiworks/2026/2026-03.jsonl",
+    "received_at": "2026-03-19T00:15:00+00:00",
+    "ingested_at": "2026-03-19T00:16:00+00:00"
+  },
+  "mail_summary": {
+    "subject": "PDR 완료 요청",
+    "from": [
+      {
+        "name": "PM",
+        "address": "pm@example.com"
+      }
+    ],
+    "to_count": 1,
+    "cc_count": 1,
+    "attachment_count": 1,
+    "attachment_types": [
+      "reference_attachment"
+    ],
+    "classification": {
+      "bucket": "mail",
+      "reasons": [],
+      "ad_detected": false,
+      "blocked_attachment_count": 0
+    }
+  },
+  "business_review": {
+    "required": true,
+    "status": "not_started",
+    "next_action": "review_for_mail_intake_request",
+    "intake_request_status": "not_created"
+  }
+}

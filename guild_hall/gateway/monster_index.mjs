@@ -1,3 +1,4 @@
+import { createHash } from "node:crypto";
 import { promises as fs } from "node:fs";
 import path from "node:path";
 import { pathExists, readJson, writeJson } from "../shared/io.mjs";
@@ -73,11 +74,13 @@ export async function syncMonsterIndexInbox(rootPath, inboxId, monsters) {
     return;
   }
 
-  const stat = await fs.stat(monstersFile);
+  const fingerprint = await getMonstersFileFingerprint(monstersFile);
   const nextEntries = normalizeMonsterArray(monsters).map((monster) => toManifestEntry(monster, inboxId));
 
   manifest.inboxes[inboxId] = {
-    monsters_file_mtime_ms: Math.trunc(stat.mtimeMs),
+    monsters_file_mtime_ms: fingerprint.mtimeMs,
+    monsters_file_size: fingerprint.size,
+    monsters_file_sha256: fingerprint.sha256,
     monster_count: nextEntries.length,
   };
   manifest.entries = [...remainingEntries, ...nextEntries].sort(compareManifestEntries);
@@ -99,9 +102,11 @@ async function rebuildMonsterIndex(rootPath, inboxIds) {
 
     const monsterDocument = await readJson(monstersFile);
     const monsters = normalizeMonsterArray(monsterDocument.monsters);
-    const stat = await fs.stat(monstersFile);
+    const fingerprint = await getMonstersFileFingerprint(monstersFile);
     manifest.inboxes[inboxId] = {
-      monsters_file_mtime_ms: Math.trunc(stat.mtimeMs),
+      monsters_file_mtime_ms: fingerprint.mtimeMs,
+      monsters_file_size: fingerprint.size,
+      monsters_file_sha256: fingerprint.sha256,
       monster_count: monsters.length,
     };
 
@@ -140,9 +145,18 @@ async function manifestMatchesFilesystem(manifest, rootPath, inboxIds) {
       return false;
     }
 
-    const stat = await fs.stat(monstersFile);
-    const expected = manifest.inboxes[inboxId]?.monsters_file_mtime_ms;
-    if (Math.trunc(stat.mtimeMs) !== expected) {
+    const fingerprint = await getMonstersFileFingerprint(monstersFile);
+    const expected = manifest.inboxes[inboxId];
+    if (!expected) {
+      return false;
+    }
+    if (fingerprint.mtimeMs !== expected.monsters_file_mtime_ms) {
+      return false;
+    }
+    if (fingerprint.size !== expected.monsters_file_size) {
+      return false;
+    }
+    if (fingerprint.sha256 !== expected.monsters_file_sha256) {
       return false;
     }
   }
@@ -216,6 +230,15 @@ async function readManifest(rootPath) {
 
 async function writeManifest(manifestPath, manifest) {
   await writeJson(manifestPath, manifest);
+}
+
+async function getMonstersFileFingerprint(monstersFile) {
+  const [stat, content] = await Promise.all([fs.stat(monstersFile), fs.readFile(monstersFile)]);
+  return {
+    mtimeMs: Math.trunc(stat.mtimeMs),
+    size: stat.size,
+    sha256: createHash("sha256").update(content).digest("hex"),
+  };
 }
 
 function normalizeMonsterArray(value) {

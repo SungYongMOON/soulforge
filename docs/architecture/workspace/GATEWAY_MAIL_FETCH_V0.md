@@ -18,6 +18,7 @@
 
 - mailbox root: `guild_hall/state/gateway/mailbox/`
 - runtime root: `guild_hall/state/gateway/log/mail_fetch/`
+- mail candidate queue root: `guild_hall/state/gateway/mail_candidate/`
 - default env file: `guild_hall/state/gateway/mailbox/state/email_fetch.env`
 
 Env 파일의 경로 값은 절대 경로면 그대로 사용하고, 상대 경로면 env 파일이 있는 디렉터리를 기준으로 해석한다.
@@ -42,6 +43,9 @@ guild_hall/state/gateway/
 │   │       └── attachments/
 │   └── state/
 │       └── email_fetch.env
+├── mail_candidate/
+│   └── queue/
+│       └── pending/
 ├── bindings/
 │   └── notify_policy.yaml
 └── log/
@@ -65,6 +69,15 @@ npm run guild-hall:gateway:fetch:healthcheck -- --json
 - brief 에는 source, subject, 첫 발신자, 첨부 개수, 수신 시각, 다음 행동만 포함한다.
 - mail body, HTML body, attachment 원문/파일명/URL, raw row, secret 값은 Telegram text 에 포함하지 않는다.
 
+## Mail candidate queue
+
+- fetch pipeline 은 fresh event 를 mailbox event JSONL 에 쓴 뒤, classification bucket 이 `mail` 인 event 만 `mail_candidate` local queue 에 적재한다.
+- queue item 은 `mail_candidate.queue_item.v1` JSON 파일이며 기본 위치는 `guild_hall/state/gateway/mail_candidate/queue/pending/<candidate_id>.json` 이다.
+- candidate 는 monster current state 가 아니라 `mail_intake_request` 생성 전 업무화 검토 대기 item 이다.
+- candidate item 에는 source event pointer, subject, sender, recipient count, attachment count/type, classification summary 만 넣는다.
+- body text, HTML body, raw provider payload, attachment filename/URL/local path, token, password 는 넣지 않는다.
+- 상세 계약은 [`MAIL_CANDIDATE_QUEUE_V0.md`](MAIL_CANDIDATE_QUEUE_V0.md) 를 따른다.
+
 ## Hiworks POP3 long line
 
 - Hiworks POP3 메시지는 Python `poplib` 기본 라인 제한보다 긴 body/HTML/encoded attachment 라인을 반환할 수 있다.
@@ -86,6 +99,7 @@ npm run guild-hall:gateway:fetch:healthcheck -- --json
 ## 관련 경로
 
 - [`MULTI_PC_DEVELOPMENT_V0.md`](../../../docs/architecture/workspace/MULTI_PC_DEVELOPMENT_V0.md)
+- [`MAIL_CANDIDATE_QUEUE_V0.md`](../../../docs/architecture/workspace/MAIL_CANDIDATE_QUEUE_V0.md)
 - [`MAIL_INTAKE_REQUEST_V0.md`](../../../docs/architecture/workspace/MAIL_INTAKE_REQUEST_V0.md)
 - [`WORKSPACE_INTAKE_INBOX_V0.md`](../../../docs/architecture/workspace/WORKSPACE_INTAKE_INBOX_V0.md)
 - [`guild_hall/gateway/mail_fetch/README.md`](../../../guild_hall/gateway/mail_fetch/README.md)
