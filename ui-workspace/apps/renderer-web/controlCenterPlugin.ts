@@ -61,11 +61,13 @@ interface DungeonMapNextAction {
 
 interface DungeonMapPendingMonster {
   monster_id: string;
+  inbox_id: string;
   monster_family: string;
   monster_name: string | null;
   work_pattern: string | null;
   objective_summary: string | null;
   due_state: string;
+  d_day: string | null;
   known_status: string;
   assignment_status: string;
   assigned_project_code: string | null;
@@ -75,6 +77,9 @@ interface DungeonMapPendingMonster {
   mail_touch_count: number | null;
   last_mail_role: string | null;
   mission_ref_present: boolean;
+  display_group: string;
+  display_group_label: string;
+  display_group_rank: number;
 }
 
 interface SnapshotFreshnessResult {
@@ -557,8 +562,8 @@ function nullableStringField(value: unknown) {
   return typeof value === "string" && value.trim() ? value : null;
 }
 
-function numberField(value: unknown) {
-  return typeof value === "number" && Number.isFinite(value) ? value : 0;
+function numberField(value: unknown, fallback = 0) {
+  return typeof value === "number" && Number.isFinite(value) ? value : fallback;
 }
 
 function nullableNumberField(value: unknown) {
@@ -621,11 +626,13 @@ function mapPendingMonsters(gateway: Record<string, unknown>): DungeonMapPending
 
     return {
       monster_id: stringField(monster.monster_id),
+      inbox_id: stringField(monster.inbox_id),
       monster_family: stringField(monster.monster_family, "unknown_monster"),
       monster_name: nullableStringField(monster.monster_name),
       work_pattern: nullableStringField(monster.work_pattern),
       objective_summary: nullableStringField(monster.objective_summary),
       due_state: stringField(monster.due_state, "no_due"),
+      d_day: nullableStringField(monster.d_day),
       known_status: stringField(monster.known_status, "unknown"),
       assignment_status: stringField(monster.assignment_status, "pending_dungeon_assignment"),
       assigned_project_code: nullableStringField(monster.assigned_project_code),
@@ -634,7 +641,10 @@ function mapPendingMonsters(gateway: Record<string, unknown>): DungeonMapPending
       stage_hint_count: numberField(monster.stage_hint_count),
       mail_touch_count: nullableNumberField(monster.mail_touch_count),
       last_mail_role: nullableStringField(monster.last_mail_role),
-      mission_ref_present: booleanField(monster.mission_ref_present)
+      mission_ref_present: booleanField(monster.mission_ref_present),
+      display_group: stringField(monster.display_group, "open_intake"),
+      display_group_label: stringField(monster.display_group_label, "Open intake"),
+      display_group_rank: numberField(monster.display_group_rank, 999)
     };
   });
 }
@@ -666,7 +676,9 @@ function mapSnapshotResponse(
       monster_index_present: booleanField(gateway.monster_index_present),
       pending_monsters: {
         count: numberField(pendingMonsters.count),
+        display_limit: numberField(pendingMonsters.display_limit),
         truncated: booleanField(pendingMonsters.truncated),
+        by_display_group: isRecord(pendingMonsters.by_display_group) ? pendingMonsters.by_display_group : {},
         items: mapPendingMonsters(gateway)
       }
     },
