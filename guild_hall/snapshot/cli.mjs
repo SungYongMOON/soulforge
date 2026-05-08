@@ -135,6 +135,7 @@ function printSummary(snapshot) {
   const projectCount = snapshot.projects.length;
   const missionCount = snapshot.missions.items.length;
   const gatewayInboxCount = snapshot.gateway.intake_inbox_count;
+  const pendingMonsterCount = snapshot.gateway.pending_monsters?.count ?? 0;
   const status = snapshot.diagnostics.summary.highest_severity;
 
   process.stdout.write(
@@ -144,6 +145,7 @@ function printSummary(snapshot) {
       `projects: ${projectCount}`,
       `missions: ${missionCount}`,
       `gateway inboxes: ${gatewayInboxCount}`,
+      `pending monsters: ${pendingMonsterCount}`,
       `diagnostics: ${status}`,
     ].join("\n"),
   );

@@ -120,6 +120,24 @@ interface DungeonMapNextAction {
   summary: string;
 }
 
+interface DungeonMapPendingMonster {
+  monster_id: string;
+  monster_family: string;
+  monster_name: string | null;
+  work_pattern: string | null;
+  objective_summary: string | null;
+  due_state: string;
+  known_status: string;
+  assignment_status: string;
+  assigned_project_code: string | null;
+  assigned_stage: string | null;
+  project_hint_count: number;
+  stage_hint_count: number;
+  mail_touch_count: number | null;
+  last_mail_role: string | null;
+  mission_ref_present: boolean;
+}
+
 interface DungeonMapSnapshot {
   status: SnapshotStatus;
   snapshot_path: string;
@@ -133,6 +151,11 @@ interface DungeonMapSnapshot {
   gateway: {
     intake_inbox_count: number;
     monster_index_present: boolean;
+    pending_monsters: {
+      count: number;
+      truncated: boolean;
+      items: DungeonMapPendingMonster[];
+    };
   };
   next_actions: DungeonMapNextAction[];
 }
@@ -1587,7 +1610,29 @@ function App() {
                     <div className="cc-summary-card">
                       <strong>Inbox {dungeonMap.snapshot.gateway.intake_inbox_count}</strong>
                       <span>monster_index {dungeonMap.snapshot.gateway.monster_index_present ? "present" : "missing"}</span>
+                      <span>pending monsters {dungeonMap.snapshot.gateway.pending_monsters.count}</span>
+                      {dungeonMap.snapshot.gateway.pending_monsters.truncated ? <span>sample truncated</span> : null}
                     </div>
+                    {dungeonMap.snapshot.gateway.pending_monsters.items.length > 0 ? (
+                      <div className="cc-map-grid">
+                        {dungeonMap.snapshot.gateway.pending_monsters.items.map((monster) => (
+                          <article className="cc-map-card" key={`${monster.monster_id}:${monster.assignment_status}:${monster.due_state}`}>
+                            <strong>{monster.objective_summary || monster.monster_name || monster.monster_id}</strong>
+                            <span>
+                              {monster.monster_family}
+                              {monster.work_pattern ? ` / ${monster.work_pattern}` : ""}
+                            </span>
+                            <span>
+                              {monster.assignment_status} / {monster.due_state}
+                            </span>
+                            <span>
+                              project hints {monster.project_hint_count} / stage hints {monster.stage_hint_count}
+                              {monster.mail_touch_count !== null ? ` / mail ${monster.mail_touch_count}` : ""}
+                            </span>
+                          </article>
+                        ))}
+                      </div>
+                    ) : null}
                   </section>
 
                   <section className="cc-map-section">

@@ -11,6 +11,12 @@ Git log 는 원문 이력을 남기고, 이 문서는 사람이 읽는 patch not
 
 ## 2026-05-08
 
+### Revision `working` - 작전판 pending monster snapshot 요약 추가
+
+- snapshot gateway projection 이 `intake_inbox/*/monsters.json` 의 pending/blocked monster 를 제한된 summary 로 집계하게 했다.
+- UI Dungeon Map 의 Monster Gate 에 pending monster count 와 sample card 를 표시하게 했다.
+- snapshot 과 UI 응답은 body/html/source quote/raw ref/attachment ref/provider id 원문을 복제하지 않고 fixture 기반 test 로 비노출을 고정했다.
+
 ### Revision `working` - mail_candidate 승격 명령 추가
 
 - `guild-hall:gateway:mail-candidate:list` 와 `guild-hall:gateway:mail-candidate:promote` 를 추가해 local-only mail candidate 를 `mail_intake_request` payload 로 승격할 수 있게 했다.
