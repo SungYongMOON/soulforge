@@ -35,6 +35,7 @@ _workmeta/<project_code>/
 ├── reports/
 │   └── morning_report/
 ├── log/
+│   ├── events/
 │   ├── nightly_sweep/
 │   └── battle_log/
 └── artifacts/
@@ -56,7 +57,7 @@ held mission plan 과 readiness 는 `.mission/<mission_id>/` 쪽에서 다루고
 | `analytics/` | local-only analytics |
 | `nightly_healing/` | local-only healing output |
 | `reports/` | local-only owner-facing documents and briefings, including onboarding notes |
-| `log/` | local-only time-ordered operational logs |
+| `log/` | local-only time-ordered operational logs, including event streams and human-readable battle summaries |
 | `artifacts/` | local-only artifacts, including onboarding evidence/export |
 
 ## `contract.yaml` 최소 필드
@@ -105,5 +106,4 @@ runtime_truth_root: runs/
 9. 첫 실제 프로젝트 온보딩 중 사람이 읽는 working note 는 `reports/onboarding/`, 근거 artifact 는 `artifacts/onboarding/` 아래에 두는 것을 기본안으로 본다.
 10. 사람과 Codex 가 같이 진행하는 시작 단계 기록은 `reports/onboarding/project_start_worklog.md` 에 append 하는 것을 기본안으로 본다.
 11. 새 시작 행위의 실제 작업 순서와 절차 초안도 `reports/onboarding/project_start_worklog.md` 또는 같은 경로의 topic note 로 함께 저장하는 것을 기본안으로 본다.
-
 

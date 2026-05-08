@@ -127,7 +127,8 @@
    - mission-level terminal battle outcome 이 확인되면 `battle_event` 를 1건 영속화하고 summary trace 를 함께 남긴다.
    - battle log 는 battle provenance 와 battle result 중심으로만 적고, monster candidate 판정 규칙과 intake-side 분류 이유는 별도 candidate note 로 분리한다.
    - 권장 출력:
-     - `_workmeta/<project_code>/log/battle_log/<date>.md`
+     - `_workmeta/<project_code>/log/events/YYYY/MM/battle_events.jsonl`
+     - `_workmeta/<project_code>/log/battle_log/daily/YYYY-MM-DD.md`
      - `_workmeta/<project_code>/log/battle_log/latest.md`
    - 최소 기록 항목:
      - source mail reference

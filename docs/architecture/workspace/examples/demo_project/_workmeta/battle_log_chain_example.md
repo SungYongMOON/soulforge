@@ -29,6 +29,7 @@
   "battle_mode": "manual_assist",
   "result": "completed_with_follow_up",
   "intervention_count": 1,
+  "bottleneck_reason": "human_confirmation_required",
   "next_action_note": "PDR 승인 전 최종 제출본 확인"
 }
 ```

@@ -1,0 +1,103 @@
+schema_id: soulforge.workspace.battle_event.v0
+kind: canonical_schema
+applies_to:
+  owner: _workmeta
+  path: _workmeta/<project_code>/log/events/YYYY/MM/battle_events.jsonl
+  record_shape: jsonl_line
+required_fields:
+  - name: event_id
+    type: string
+    description: Stable identifier for one mission-level battle outcome event.
+  - name: occurred_at
+    type: datetime
+    description: ISO-8601 timestamp with timezone.
+  - name: mission_id
+    type: string
+    description: Mission that produced this terminal battle outcome.
+  - name: project_code
+    type: string
+    description: Workspace project identifier. Must match the _workmeta path segment.
+  - name: stage
+    type: string
+    description: Project stage or milestone at the time of the battle.
+  - name: source_kind
+    type: enum
+    allowed:
+      - mail
+      - manual
+      - dispatch
+      - gateway
+      - other
+  - name: source_ref
+    type: string
+    description: Sanitized source or handoff identifier.
+  - name: party_id
+    type: string
+    description: Party used for the battle.
+  - name: unit_id
+    type: string
+    description: Primary unit that handled the battle.
+  - name: automation_possibility
+    type: enum
+    allowed:
+      - low_intervention_candidate
+      - manual_assist_needed
+  - name: battle_mode
+    type: enum
+    allowed:
+      - manual
+      - manual_assist
+      - limited_auto
+  - name: result
+    type: enum
+    allowed:
+      - completed
+      - completed_with_follow_up
+      - blocked
+      - failed
+  - name: intervention_count
+    type: integer
+    minimum: 0
+  - name: bottleneck_reason
+    type: enum
+    allowed:
+      - none
+      - missing_owner_boundary
+      - missing_acceptance_check
+      - human_confirmation_required
+      - secret_or_private_gate
+      - tool_or_validation_failure
+      - quality_review_needed
+optional_fields:
+  - name: loop_id
+    type: string
+    description: Operating loop provenance, such as PLAY_LOOP_V0.
+  - name: next_action_note
+    type: string
+    description: One short follow-up note for the next review surface.
+derived_fields:
+  - name: dungeon
+    type: string
+    description: Display-only value derived by UI/reporting, not stored as raw event truth.
+field_rules:
+  - field: event_id
+    rule: Unique within the project event stream. Prefer battle-YYYY-MM-DD-NNNN.
+  - field: occurred_at
+    rule: Use a timezone-bearing timestamp; do not rely on local timezone inference.
+  - field: mission_id
+    rule: Resolves to .mission/<mission_id>/ when the mission is held in canonical mission space.
+  - field: project_code
+    rule: Must match _workmeta/<project_code>/contract.yaml project_code.
+  - field: source_ref
+    rule: Store only a sanitized source id or handoff id. Do not store raw mail body, HTML, provider raw id, attachment name, attachment URL, token, or secret.
+  - field: intervention_count
+    rule: Count human confirmations or manual corrections that changed the battle path.
+  - field: bottleneck_reason
+    rule: Use none when intervention_count is 0 and there is no blocker.
+  - field: next_action_note
+    rule: Keep owner-facing and short; do not copy private source text.
+notes:
+  - One JSON object is appended per line to the monthly battle_events.jsonl stream.
+  - The raw stream is local-only under _workmeta and is not committed to the public repo.
+  - Public examples may show synthetic battle_event snapshots inside standalone markdown samples.
+  - Intake-side monster candidate classification remains outside this schema.
