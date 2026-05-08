@@ -12,5 +12,5 @@ allowed_classes: allowed_classes.yaml
 allowed_workflows: allowed_workflows.yaml
 appserver_profile: appserver_profile.yaml
 notes:
-  - `default_workflow_id` is a party-level routing hint, not an embedded workflow body.
+  - "`default_workflow_id` is a party-level routing hint, not an embedded workflow body."
   - Observations stay in the party canon while raw battle logs and performance truth remain in `_workspaces/<project_code>/`.

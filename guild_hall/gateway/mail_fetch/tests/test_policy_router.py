@@ -45,7 +45,7 @@ def test_apply_mail_policies_routes_ads_and_moves_attachment(tmp_path: Path) -> 
     assert result.metadata["classification"]["bucket"] == "ads"
     moved_path = Path(result.attachments[0].local_path or "")
     assert moved_path.exists()
-    assert "/company/ads/attachments/hiworks/" in str(moved_path)
+    assert "/company/ads/attachments/hiworks/" in moved_path.as_posix()
 
 
 def test_apply_mail_policies_routes_quarantine_for_blocked_extension(tmp_path: Path) -> None:
