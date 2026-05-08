@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import json
+import os
 from pathlib import Path
 import subprocess
 import sys
@@ -153,6 +154,13 @@ def test_healthcheck_cli_honors_email_fetch_telegram_env(tmp_path: Path) -> None
         cwd=repo_root,
         check=False,
         capture_output=True,
+        env={
+            **os.environ,
+            "EMAIL_FETCH_ALERT_TELEGRAM_BOT_TOKEN": " ",
+            "EMAIL_FETCH_ALERT_TELEGRAM_CHAT_ID": " ",
+            "TELEGRAM_BOT_TOKEN": " ",
+            "TELEGRAM_CHAT_ID": " ",
+        },
         text=True,
     )
 
