@@ -17,6 +17,11 @@ Git log 는 원문 이력을 남기고, 이 문서는 사람이 읽는 patch not
 - `mail_received` brief 는 source, subject, 첫 발신자, 첨부 개수, 수신 시각, 다음 행동만 담고 body/html/첨부 원문/URL/secret 은 포함하지 않도록 formatter 와 테스트를 추가했다.
 - Telegram brief format 문서에 한국어/Siri 친화 공통 원칙과 `mail_received` 표시 규칙을 추가했다.
 
+### Revision `working` - workmeta system surface 제외
+
+- snapshot project scan 이 `_workmeta/system/**` 같은 private metadata repo 내부 운영 기록을 project 후보로 오인하지 않도록 제외했다.
+- `WORKMETA_RESOLVE_CONTRACT_V0.md` 에 `_workmeta/system/` 은 node/system smoke 기록용 non-project support surface 라고 명시했다.
+
 ### Revision `working` - tool PC owner-with-state 역할 보강
 
 - 고성능 `tool_pc` 를 skill 제작 전용이 아니라 project metadata 를 읽고 쓰는 tool-bound 설계 작업 node 로 명시했다.

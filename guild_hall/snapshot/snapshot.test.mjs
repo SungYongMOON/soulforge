@@ -12,6 +12,7 @@ test("buildSnapshot summarizes private project surfaces without reading private 
     await mkdir(path.join(repoRoot, ".mission"), { recursive: true });
     await mkdir(path.join(repoRoot, "_workmeta", "PX-001", "bindings"), { recursive: true });
     await mkdir(path.join(repoRoot, "_workmeta", "PX-001", "reports", "onboarding"), { recursive: true });
+    await mkdir(path.join(repoRoot, "_workmeta", "system", "reports", "procedure_capture"), { recursive: true });
     await mkdir(path.join(repoRoot, "guild_hall", "state", "gateway", "intake_inbox", "inbox_001"), { recursive: true });
     await mkdir(path.join(repoRoot, "private-state", ".git"), { recursive: true });
 
@@ -31,11 +32,13 @@ test("buildSnapshot summarizes private project surfaces without reading private 
     );
     await writeFile(path.join(repoRoot, "_workmeta", "PX-001", "contract.yaml"), "display_name: DO_NOT_LEAK_PRIVATE_NAME\n", "utf8");
     await writeFile(path.join(repoRoot, "_workmeta", "PX-001", "bindings", "mailbox_binding.yaml"), "token: DO_NOT_LEAK_TOKEN\n", "utf8");
+    await writeFile(path.join(repoRoot, "_workmeta", "system", "reports", "procedure_capture", "node_smoke.md"), "node smoke\n", "utf8");
 
     const snapshot = await buildSnapshot({ repoRoot, generatedAt: "2026-05-02T00:00:00.000Z" });
     const serialized = JSON.stringify(snapshot);
 
     assert.equal(validateSnapshot(snapshot).ok, true);
+    assert.deepEqual(snapshot.projects.map((project) => project.project_code), ["PX-001"]);
     assert.equal(snapshot.projects[0].project_code, "PX-001");
     assert.equal(snapshot.projects[0].workmeta.contract_present, true);
     assert.equal(snapshot.projects[0].workmeta.bindings_count, 1);
