@@ -718,7 +718,7 @@ def run_once(config: CollectorConfig) -> Dict[str, Any]:
             if link_result.failed > 0:
                 source_row["partial"] = True
 
-            raw_rows = [event.raw for event in result.events if isinstance(event.raw, dict)]
+            raw_rows = [event.raw for event in fresh_events if isinstance(event.raw, dict)]
 
             if not config.dry_run:
                 sink_summary = sink.write_batch(source, raw_rows, fresh_events)

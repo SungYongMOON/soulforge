@@ -155,7 +155,8 @@ class HiworksPop3Connector(BaseConnector):
         client = self._connect_client()
         try:
             uidl_rows = self._list_uidls(client)
-            new_rows = [(msg_num, uidl) for msg_num, uidl in uidl_rows if uidl not in seen_uidls]
+            candidate_rows = self._rows_after_last_processed_uidl(uidl_rows, cursor_payload)
+            new_rows = [(msg_num, uidl) for msg_num, uidl in candidate_rows if uidl not in seen_uidls]
             selected_rows = new_rows[:fetch_limit]
 
             events: List[EmailEvent] = []
@@ -301,6 +302,20 @@ class HiworksPop3Connector(BaseConnector):
             rows.append((msg_num, uidl))
         rows.sort(key=lambda item: item[0])
         return rows
+
+    def _rows_after_last_processed_uidl(
+        self,
+        uidl_rows: Sequence[Tuple[int, str]],
+        cursor_payload: Dict[str, Any],
+    ) -> List[Tuple[int, str]]:
+        last_uidl = str(cursor_payload.get("last_uidl", "") or "").strip()
+        if not last_uidl:
+            return list(uidl_rows)
+
+        for index, (_, uidl) in enumerate(uidl_rows):
+            if uidl == last_uidl:
+                return list(uidl_rows[index + 1 :])
+        return list(uidl_rows)
 
     def _retrieve_message(self, client: Any, msg_num: int) -> Tuple[bytes, int]:
         try:

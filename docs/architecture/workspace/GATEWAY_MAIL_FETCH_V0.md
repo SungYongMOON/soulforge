@@ -61,6 +61,12 @@ npm run guild-hall:gateway:fetch:healthcheck -- --json
 - 수집기는 Hiworks `RETR` 응답만 별도 reader 로 읽고, 기본 한 줄 허용치는 `HIWORKS_POP3_MAX_LINE_BYTES=10485760` 이다.
 - 이 값은 raw mail/body 를 터미널에 출력하지 않고, 수집 실패 시 operator summary 에는 sanitized error code/count 만 남긴다.
 
+## Hiworks POP3 cursor
+
+- Hiworks POP3 수집은 `last_uidl` 이 현재 mailbox 에 남아 있으면 그 이후 메시지만 후보로 본다.
+- `seen_uidls` 는 dedupe 보조 window 로 유지하되, window 밖의 오래된 UIDL 이 새 메일보다 먼저 재수집되지 않도록 `last_uidl` 진행선을 우선한다.
+- pipeline 은 dedupe 를 통과한 fresh event 의 raw row 만 materialize 한다.
+
 ## 경계
 
 - tracked source 는 Soulforge 가 소유한다.

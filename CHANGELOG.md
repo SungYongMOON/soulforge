@@ -11,6 +11,12 @@ Git log 는 원문 이력을 남기고, 이 문서는 사람이 읽는 patch not
 
 ## 2026-05-08
 
+### Revision `working` - gateway healthcheck/healer 판정 보강
+
+- `guild-hall:healer:run` 이 gateway fetch healthcheck JSON 의 `WARN`/`CRITICAL` 상태를 실패 점검으로 기록해 activity carry-forward 에 남기도록 했다.
+- `gateway:fetch:healthcheck` 가 `EMAIL_FETCH_ALERT_TELEGRAM_ENABLED` 와 `EMAIL_FETCH_ALERT_TELEGRAM_*` env 설정을 실제 alert decision 에 반영하게 했다.
+- Hiworks POP3 fetch 가 `last_uidl` 이후 메시지부터 진행하고, 중복 이벤트의 raw row 를 반복 append 하지 않도록 보강했다.
+
 ### Revision `working` - activity logger 와 healer run 구현
 
 - `guild-hall:activity:log` / `guild-hall:activity:refresh` 를 추가해 모든 PC 가 public-safe summary event 를 공용 activity surface 에 남길 수 있게 했다.

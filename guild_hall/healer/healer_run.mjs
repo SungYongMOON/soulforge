@@ -54,6 +54,7 @@ export async function runHealerOnce(options = {}) {
         args: ["run", "guild-hall:gateway:fetch:healthcheck", "--", "--json"],
         cwd: repoRoot,
         runCommand,
+        assess: assessGatewayHealthcheck,
       }),
     );
   }
@@ -112,17 +113,19 @@ export async function runHealerOnce(options = {}) {
   return runSummary;
 }
 
-async function runCheck({ id, command, args, cwd, runCommand }) {
+async function runCheck({ id, command, args, cwd, runCommand, assess }) {
   const startedAt = new Date();
   const result = await runCommand({ command, args, cwd });
   const endedAt = new Date();
   const output = sanitizeCommandOutput(`${result.stdout ?? ""}\n${result.stderr ?? ""}`);
-  const summary = summarizeOutput(output);
+  const assessment = typeof assess === "function" ? assess(result, output) : null;
+  const status = assessment?.status ?? (result.status === 0 ? "passed" : "failed");
+  const summary = assessment?.summary ?? summarizeOutput(output);
 
   return {
     id,
     command: [command, ...args].join(" "),
-    status: result.status === 0 ? "passed" : "failed",
+    status,
     exit_code: result.status ?? null,
     started_at: startedAt.toISOString(),
     ended_at: endedAt.toISOString(),
@@ -249,4 +252,55 @@ function summarizeOutput(value) {
     return "ok";
   }
   return lines[lines.length - 1].slice(0, 240);
+}
+
+function assessGatewayHealthcheck(result, output) {
+  if (result.status !== 0) {
+    return null;
+  }
+
+  const payload = parseJsonObjectFromOutput(output);
+  if (!payload) {
+    return {
+      status: "failed",
+      summary: "gateway healthcheck output was not valid JSON",
+    };
+  }
+
+  const healthStatus = String(payload.status ?? "").trim().toUpperCase();
+  const reason = String(payload.reason ?? "").trim();
+  if (healthStatus === "WARN" || healthStatus === "CRITICAL") {
+    return {
+      status: "failed",
+      summary: `gateway healthcheck ${healthStatus}${reason ? `: ${reason}` : ""}`,
+    };
+  }
+
+  if (healthStatus === "NORMAL") {
+    return {
+      status: "passed",
+      summary: `gateway healthcheck NORMAL${reason ? `: ${reason}` : ""}`,
+    };
+  }
+
+  return {
+    status: "failed",
+    summary: "gateway healthcheck JSON did not include a recognized status",
+  };
+}
+
+function parseJsonObjectFromOutput(output) {
+  const text = String(output ?? "").trim();
+  const start = text.indexOf("{");
+  const end = text.lastIndexOf("}");
+  if (start === -1 || end === -1 || end <= start) {
+    return null;
+  }
+
+  try {
+    const parsed = JSON.parse(text.slice(start, end + 1));
+    return parsed && typeof parsed === "object" && !Array.isArray(parsed) ? parsed : null;
+  } catch {
+    return null;
+  }
 }

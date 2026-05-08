@@ -2,6 +2,8 @@ from __future__ import annotations
 
 import json
 from pathlib import Path
+import subprocess
+import sys
 from typing import Any, Dict, List
 
 from collector.ops.healthcheck import HealthConfig, run_healthcheck
@@ -123,3 +125,40 @@ def test_healthcheck_recovery_alert_when_return_to_normal(tmp_path: Path) -> Non
     assert row["status"] == "NORMAL"
     assert row["alert"]["kind"] == "RECOVERY"
     assert row["alert"]["error"] == "telegram_alert_disabled"
+
+
+def test_healthcheck_cli_honors_email_fetch_telegram_env(tmp_path: Path) -> None:
+    runtime_root = tmp_path / "runtime-email-fetch"
+    env_file = tmp_path / "email_fetch.env"
+    env_file.write_text(
+        "\n".join(
+            [
+                f"EMAIL_FETCH_RUNTIME_DIR={runtime_root}",
+                "EMAIL_FETCH_ALERT_TELEGRAM_ENABLED=true",
+                "",
+            ]
+        ),
+        encoding="utf-8",
+    )
+
+    repo_root = Path(__file__).resolve().parents[4]
+    result = subprocess.run(
+        [
+            sys.executable,
+            "guild_hall/gateway/mail_fetch/healthcheck.py",
+            "--env-file",
+            str(env_file),
+            "--json",
+        ],
+        cwd=repo_root,
+        check=False,
+        capture_output=True,
+        text=True,
+    )
+
+    assert result.returncode == 0
+    payload = json.loads(result.stdout)
+    assert payload["status"] == "CRITICAL"
+    assert payload["reason"] == "missing_summary"
+    assert payload["alert"]["enabled"] is True
+    assert payload["alert"]["error"] == "missing_telegram_credentials"

@@ -17,6 +17,9 @@ test("runHealerOnce writes a report and activity event", async () => {
       now: new Date("2026-05-08T04:05:06.000Z"),
       runCommand: async ({ command, args }) => {
         commands.push([command, ...args].join(" "));
+        if (args.includes("guild-hall:gateway:fetch:healthcheck")) {
+          return { status: 0, stdout: JSON.stringify({ status: "NORMAL", reason: "ok" }), stderr: "" };
+        }
         return { status: 0, stdout: `${command} ok\n`, stderr: "" };
       },
     });
@@ -66,6 +69,42 @@ test("runHealerOnce carries forward failed checks", async () => {
     assert.equal(result.result, "failed");
     const latest = JSON.parse(await readFile(result.files.latest_context_path, "utf8"));
     assert.equal(latest.open_threads[0].carry_forward, true);
+    assert.equal(latest.open_threads[0].result, "failed");
+  } finally {
+    await rm(repoRoot, { recursive: true, force: true });
+  }
+});
+
+test("runHealerOnce fails when gateway healthcheck reports critical JSON", async () => {
+  const repoRoot = await mkdtemp(path.join(os.tmpdir(), "soulforge-healer-gateway-critical-"));
+  const activityRoot = path.join(repoRoot, "guild_hall", "state", "operations", "soulforge_activity");
+
+  try {
+    const result = await runHealerOnce({
+      repoRoot,
+      activityRoot,
+      now: new Date("2026-05-08T06:05:06.000Z"),
+      runCommand: async ({ args }) => {
+        if (args.includes("guild-hall:gateway:fetch:healthcheck")) {
+          return {
+            status: 0,
+            stdout: [
+              "> guild-hall:gateway:fetch:healthcheck",
+              JSON.stringify({ status: "CRITICAL", reason: "stale" }),
+            ].join("\n"),
+            stderr: "",
+          };
+        }
+        return { status: 0, stdout: "ok\n", stderr: "" };
+      },
+    });
+
+    assert.equal(result.result, "failed");
+    const gatewayCheck = result.checks.find((check) => check.id === "gateway_fetch_healthcheck");
+    assert.equal(gatewayCheck.status, "failed");
+    assert.equal(gatewayCheck.summary, "gateway healthcheck CRITICAL: stale");
+
+    const latest = JSON.parse(await readFile(result.files.latest_context_path, "utf8"));
     assert.equal(latest.open_threads[0].result, "failed");
   } finally {
     await rm(repoRoot, { recursive: true, force: true });

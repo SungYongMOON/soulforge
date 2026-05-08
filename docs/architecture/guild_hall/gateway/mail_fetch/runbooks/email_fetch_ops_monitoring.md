@@ -33,6 +33,8 @@ npm run guild-hall:gateway:fetch:healthcheck -- --json
 - `EMAIL_FETCH_ALERT_TELEGRAM_BOT_TOKEN` (민감정보)
 - `EMAIL_FETCH_ALERT_TELEGRAM_CHAT_ID`
 
+`EMAIL_FETCH_ALERT_TELEGRAM_*` 값은 gateway mail fetch env 에서 우선 읽고, 없으면 `guild_hall/state/town_crier/telegram_notify.env` 의 `TELEGRAM_*` 값을 fallback 으로 사용한다.
+
 ---
 
 ## 상태 판정

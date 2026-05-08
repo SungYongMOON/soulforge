@@ -50,7 +50,7 @@ def main() -> int:
     repo_root, capsule_root = _resolve_paths()
     sys.path.insert(0, str(capsule_root))
 
-    from collector.ops.env_loader import env_int, load_env  # noqa: PLC0415
+    from collector.ops.env_loader import env_bool, env_int, load_env  # noqa: PLC0415
     from collector.ops.healthcheck import HealthConfig, run_healthcheck  # noqa: PLC0415
 
     args = _parse_args()
@@ -73,9 +73,15 @@ def main() -> int:
             fail_streak_threshold=max(env_int(env, "EMAIL_FETCH_HEALTH_FAIL_STREAK", 2), 1),
             partial_streak_threshold=max(env_int(env, "EMAIL_FETCH_HEALTH_PARTIAL_STREAK", 3), 1),
             alert_cooldown_sec=max(env_int(env, "EMAIL_FETCH_HEALTH_ALERT_COOLDOWN_SEC", 3600), 1),
-            telegram_enabled=False,
-            telegram_bot_token=str(telegram_env.get("TELEGRAM_BOT_TOKEN", "")).strip(),
-            telegram_chat_id=str(telegram_env.get("TELEGRAM_CHAT_ID", "")).strip(),
+            telegram_enabled=env_bool(env, "EMAIL_FETCH_ALERT_TELEGRAM_ENABLED", False),
+            telegram_bot_token=str(
+                env.get("EMAIL_FETCH_ALERT_TELEGRAM_BOT_TOKEN")
+                or telegram_env.get("TELEGRAM_BOT_TOKEN", "")
+            ).strip(),
+            telegram_chat_id=str(
+                env.get("EMAIL_FETCH_ALERT_TELEGRAM_CHAT_ID")
+                or telegram_env.get("TELEGRAM_CHAT_ID", "")
+            ).strip(),
         )
     )
 

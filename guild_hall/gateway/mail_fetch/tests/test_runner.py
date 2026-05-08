@@ -83,10 +83,12 @@ def test_run_once_dedupes_on_second_run(monkeypatch, tmp_path: Path) -> None:
     assert first["total_new_events"] == 10
     assert first["total_duplicates"] == 0
     assert first["partial"] is False
+    assert first["sources"][0]["raw_written"] == 10
 
     assert second["total_events"] == 10
     assert second["total_new_events"] == 0
     assert second["total_duplicates"] == 10
+    assert second["sources"][0]["raw_written"] == 0
 
     assert connector.seen_cursors[0] is None
     assert connector.seen_cursors[1] == {"last_received_epoch": 1700000000}

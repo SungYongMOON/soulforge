@@ -162,6 +162,32 @@ def test_hiworks_connector_skips_seen_uidls_from_cursor() -> None:
     assert result.next_cursor["seen_uidls"] == ["UID-1", "UID-2"]
 
 
+def test_hiworks_connector_uses_last_uidl_when_seen_window_rolled() -> None:
+    messages = {
+        1: _build_message(message_id="<old-1@example.com>", subject="old 1", text="old 1"),
+        2: _build_message(message_id="<old-2@example.com>", subject="old 2", text="old 2"),
+        3: _build_message(message_id="<last@example.com>", subject="last", text="last"),
+        4: _build_message(message_id="<new@example.com>", subject="new", text="new"),
+    }
+    connector = HiworksPop3Connector(
+        host="pop3.example.com",
+        username="user@example.com",
+        password="pw",
+        pop3_factory=lambda host, port, use_ssl, timeout_sec: _FakePop3(
+            messages=messages,
+            uidl_map={1: "UID-OLD-1", 2: "UID-OLD-2", 3: "UID-LAST", 4: "UID-NEW"},
+        ),
+    )
+
+    result = connector.fetch_since(cursor={"seen_uidls": ["UID-LAST"], "last_uidl": "UID-LAST"}, limit=10)
+
+    assert result.partial is False
+    assert len(result.events) == 1
+    assert result.events[0].provider_message_id == "new@example.com"
+    assert result.next_cursor["seen_uidls"] == ["UID-LAST", "UID-NEW"]
+    assert result.next_cursor["last_uidl"] == "UID-NEW"
+
+
 def test_hiworks_connector_reads_message_line_longer_than_poplib_default() -> None:
     raw = _build_raw_message_with_long_body_line(body_size=poplib._MAXLINE + 512)
     fake = _LargeLinePop3(messages={1: raw}, uidl_map={1: "UID-LONG"})

@@ -22,6 +22,7 @@ npm run guild-hall:healer:run -- --skip-validate --json
 - `git status --short --branch`
 - `npm run validate`
 - `npm run guild-hall:gateway:fetch:healthcheck -- --json`
+  - JSON `status` 가 `WARN` 또는 `CRITICAL` 이면 command exit code 가 0 이어도 healer 점검은 실패로 기록한다.
 
 ## 경계
 
