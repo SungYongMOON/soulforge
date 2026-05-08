@@ -10,6 +10,16 @@ from typing import Any, Dict, List
 from collector.ops.healthcheck import HealthConfig, run_healthcheck
 
 
+def _clean_cli_env(**overrides: str) -> Dict[str, str]:
+    env = {
+        key: value
+        for key, value in os.environ.items()
+        if not key.startswith("EMAIL_FETCH_") and not key.startswith("TELEGRAM_")
+    }
+    env.update(overrides)
+    return env
+
+
 def _write_summary(runtime_root: Path, *, finished_at: str, partial: bool = False, errors: List[Dict[str, Any]] | None = None) -> None:
     logs_dir = runtime_root / "logs"
     logs_dir.mkdir(parents=True, exist_ok=True)
@@ -154,13 +164,12 @@ def test_healthcheck_cli_honors_email_fetch_telegram_env(tmp_path: Path) -> None
         cwd=repo_root,
         check=False,
         capture_output=True,
-        env={
-            **os.environ,
-            "EMAIL_FETCH_ALERT_TELEGRAM_BOT_TOKEN": " ",
-            "EMAIL_FETCH_ALERT_TELEGRAM_CHAT_ID": " ",
-            "TELEGRAM_BOT_TOKEN": " ",
-            "TELEGRAM_CHAT_ID": " ",
-        },
+        env=_clean_cli_env(
+            EMAIL_FETCH_ALERT_TELEGRAM_BOT_TOKEN=" ",
+            EMAIL_FETCH_ALERT_TELEGRAM_CHAT_ID=" ",
+            TELEGRAM_BOT_TOKEN=" ",
+            TELEGRAM_CHAT_ID=" ",
+        ),
         text=True,
     )
 
@@ -170,3 +179,35 @@ def test_healthcheck_cli_honors_email_fetch_telegram_env(tmp_path: Path) -> None
     assert payload["reason"] == "missing_summary"
     assert payload["alert"]["enabled"] is True
     assert payload["alert"]["error"] == "missing_telegram_credentials"
+
+
+def test_healthcheck_cli_resolves_relative_runtime_dir_from_env_file(tmp_path: Path) -> None:
+    env_dir = tmp_path / "guild_hall" / "state" / "gateway" / "mailbox" / "state"
+    env_dir.mkdir(parents=True, exist_ok=True)
+    env_file = env_dir / "email_fetch.env"
+    env_file.write_text("EMAIL_FETCH_RUNTIME_DIR=../../log/mail_fetch\n", encoding="utf-8")
+    expected_runtime_root = (env_dir / "../../log/mail_fetch").resolve()
+
+    repo_root = Path(__file__).resolve().parents[4]
+    result = subprocess.run(
+        [
+            sys.executable,
+            "guild_hall/gateway/mail_fetch/healthcheck.py",
+            "--env-file",
+            str(env_file),
+            "--json",
+        ],
+        cwd=repo_root,
+        check=False,
+        capture_output=True,
+        env=_clean_cli_env(),
+        text=True,
+    )
+
+    assert result.returncode == 0
+    payload = json.loads(result.stdout)
+    assert payload["status"] == "CRITICAL"
+    assert payload["reason"] == "missing_summary"
+    assert payload["runtime_root"] == str(expected_runtime_root)
+    assert payload["monitor_state_file"] == str(expected_runtime_root / "monitor" / "health_state.json")
+    assert (expected_runtime_root / "monitor" / "health_state.json").exists()

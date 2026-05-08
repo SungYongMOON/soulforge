@@ -11,6 +11,12 @@ Git log 는 원문 이력을 남기고, 이 문서는 사람이 읽는 patch not
 
 ## 2026-05-08
 
+### Revision `working` - gateway env 상대 경로 해석 보강
+
+- `gateway:fetch:healthcheck`, state backup/restore, retention cleanup 이 `EMAIL_FETCH_RUNTIME_DIR` 와 `EMAIL_FETCH_INBOX_ROOT` 의 상대 경로를 env 파일 위치 기준으로 해석하게 했다.
+- always-on node 의 post-review smoke 에서 상대 runtime 경로가 repo 밖으로 해석되어 healthcheck/healer 가 중단되는 문제를 재현 테스트로 고정했다.
+- gateway mail fetch 문서와 env example 에 운영 node 는 절대 경로를 권장하되, 상대 경로는 env 파일 기준이라는 규칙을 명시했다.
+
 ### Revision `working` - always-on next action prompt 추가
 
 - `ALWAYS_ON_NEXT_ACTION_PROMPT_V0.md` 를 추가해 복사/붙여넣기가 어려운 24시간 PC 에서 짧은 파일명 지시만으로 post-review gateway 점검과 activity mirror 를 수행할 수 있게 했다.
