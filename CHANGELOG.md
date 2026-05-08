@@ -9,7 +9,26 @@ Git log 는 원문 이력을 남기고, 이 문서는 사람이 읽는 patch not
 - 보호 대상 업무 데이터와 continuity record 는 여기 적지 않고 nested `private-state/CHANGELOG.md` 에 적는다.
 - secret 값, credential, token, password 는 절대 기록하지 않는다.
 
+## 2026-05-08
+
+### Revision `working` - activity logger 와 healer run 구현
+
+- `guild-hall:activity:log` / `guild-hall:activity:refresh` 를 추가해 모든 PC 가 public-safe summary event 를 공용 activity surface 에 남길 수 있게 했다.
+- `guild-hall:healer:run` 을 추가해 24시간 PC 가 repo 상태, root validation, gateway fetch healthcheck 결과를 report/event/latest_context 로 기록하게 했다.
+- activity/healer 단위 테스트를 root validation harness 에 연결하고, 관련 README 와 activity/multi-PC 문서에 실행 경계를 반영했다.
+
+### Revision `working` - multi-PC node employee model 추가
+
+- `MULTI_PC_DEVELOPMENT_V0.md` 에 각 PC 가 bounded hotfix 를 맡을 수 있는 node employee model 을 추가했다.
+- 24시간 운영용 clone 은 clean `main` 으로 유지하고, 간단 수정은 같은 PC 의 별도 worktree/branch 에서 처리한 뒤 운영용 clone 이 pull 받는 구조로 정리했다.
+
 ## 2026-05-07
+
+### Revision `working` - play loop 병목 원인 기록 추가
+
+- `PLAY_LOOP_V0` 에 agent 가 stop condition 까지 진행할 수 있는 최소 packet 기준을 추가해 사용자가 다음 prompt 병목이 되는 지점을 기록하게 했다.
+- battle event 에 `bottleneck_reason` 을 추가해 `intervention_count` 가 왜 발생했는지 집계할 수 있게 했다.
+- runner execution packet 과 snapshot next action 에 anti-bottleneck loop 를 연결해 반복 병목을 workflow/mission handoff 개선 후보로 올리게 했다.
 
 ### Revision `working` - Hiworks POP3 long line 수신 보강
 

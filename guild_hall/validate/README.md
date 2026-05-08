@@ -12,7 +12,7 @@
   - `--json` 출력 지원
 - `run_root_acceptance.mjs`
   - root `validate` / `done:check` 단계 실행기
-  - canon, UI, gateway harness 를 한 entrypoint 로 묶음
+  - canon, snapshot, activity, UI, gateway harness 를 한 entrypoint 로 묶음
 
 ## 실행 계약
 
@@ -23,6 +23,7 @@
 - root harness:
   - `npm run validate`
   - `npm run done:check`
+  - `npm run validate:activity`
   - `npm run validate:gateway`
 
 ## 관련 경로

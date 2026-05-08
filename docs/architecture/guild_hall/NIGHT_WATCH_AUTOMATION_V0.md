@@ -47,6 +47,7 @@
 - 같은 automation 은 current-default 에서 한 node 만 `ACTIVE` 로 둔다.
 - 다른 PC 는 같은 prompt/spec 를 pull 할 수 있지만 local automation 상태는 `PAUSED` 또는 미생성으로 둔다.
 - 항상 켜 두는 node 는 repo 상태를 맞춘 뒤 점검 report 와 recent-context 를 남길 수 있지만, tracked docs/code 를 바로 수정하거나 commit/push 하지 않는다.
+- `guild-hall:healer:run` 은 항상 켜 두는 node 의 deterministic self-check 명령으로 사용하며, night_watch stage 전후에 repo/validation/gateway health 상태를 activity surface 에 남길 수 있다.
 - 항상 켜 두는 node 가 나중에 autohunt scheduler 로 확장되더라도, 실제 project/tool work 는 [`AUTOHUNT_MODEL.md`](../workspace/AUTOHUNT_MODEL.md) 의 capability/claim 규칙을 따라 별도 node 에 넘길 수 있어야 한다.
 - 외부 host 나 tool runner 는 private root 를 직접 훑기보다 [`SOULFORGE_SNAPSHOT_V0.md`](SOULFORGE_SNAPSHOT_V0.md) 의 sanitized snapshot 을 우선 읽는다.
 

@@ -14,6 +14,8 @@
 | `SOULFORGE_SNAPSHOT_V0.md` | UI/external host 가 읽을 sanitized read-only snapshot 계약이다. |
 | `NIGHT_WATCH_AUTOMATION_V0.md` | 항상 켜 두는 node 에서만 ACTIVE 로 둘 점검 자동화와 경계를 설명한다. |
 | `doctor/README.md` | bootstrap/readiness doctor 의 owner-local 설명이다. |
+| `../../../guild_hall/activity/README.md` | activity log append/refresh 구현 surface 설명이다. |
+| `../../../guild_hall/healer/README.md` | 항상 켜 두는 PC 의 self-check / report writer 구현 surface 설명이다. |
 | `../../../guild_hall/shared/README.md` | guild_hall 내부 공용 io/path helper surface 설명이다. |
 | `../../../guild_hall/snapshot/README.md` | snapshot producer 구현 surface 설명이다. |
 | `../../../guild_hall/validate/README.md` | root/canon validator 구현 surface 설명이다. |
@@ -34,6 +36,8 @@
 - [루트 architecture README](../README.md)
 - [`../../../guild_hall/README.md`](../../../guild_hall/README.md)
 - [`doctor/README.md`](doctor/README.md)
+- [`../../../guild_hall/activity/README.md`](../../../guild_hall/activity/README.md)
+- [`../../../guild_hall/healer/README.md`](../../../guild_hall/healer/README.md)
 - [`../../../guild_hall/shared/README.md`](../../../guild_hall/shared/README.md)
 - [`../../../guild_hall/snapshot/README.md`](../../../guild_hall/snapshot/README.md)
 - [`../../../guild_hall/validate/README.md`](../../../guild_hall/validate/README.md)

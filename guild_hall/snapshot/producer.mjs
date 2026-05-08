@@ -87,6 +87,11 @@ export async function buildSnapshot(options = {}) {
         status: "next",
         summary: "Render held mission readiness and blocker summaries from snapshot metadata.",
       },
+      {
+        id: "anti_bottleneck_loop",
+        status: "next",
+        summary: "Surface intervention_count and bottleneck_reason so repeated owner prompts can be folded into runner packets.",
+      },
     ],
     diagnostics: finalizeDiagnostics(diagnostics),
   };

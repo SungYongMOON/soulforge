@@ -59,6 +59,20 @@
 - `battle`
   - 해당 work item 을 실제로 수행한 한 번의 처리 흐름
 
+## 병목 제거 렌즈
+
+- v0 에서 "사용자가 병목이 된다" 는 것은 agent 가 다음 prompt, owner 경계, 검증 기준, 승인 여부를 몰라 멈추는 상태로 본다.
+- 병목 제거의 목표는 완전자율 auto-run 이 아니라, mission/battle 이 시작될 때 agent 가 stop condition 까지 혼자 진행할 수 있는 packet 을 갖는 것이다.
+- 최소 packet 은 아래 질문에 답해야 한다.
+  - 목표가 무엇인가
+  - 읽거나 쓸 수 있는 owner root 는 어디인가
+  - 절대 읽거나 쓰면 안 되는 secret/private/raw surface 는 어디인가
+  - 완료로 볼 acceptance check 는 무엇인가
+  - 멈춰야 할 stop condition 은 무엇인가
+  - 막히면 사용자에게 물을 질문 1개는 무엇인가
+- agent 가 위 정보를 몰라 사용자 개입을 요구하면 `intervention_count` 를 올리고 `bottleneck_reason` 을 남긴다.
+- 사용자 개입을 없애기보다, 반복되는 `bottleneck_reason` 을 찾아 workflow, runner packet, mission handoff 로 흡수하는 것을 v0 개선 루프로 둔다.
+
 ## first classification axis
 
 - v0 의 첫 분류축은 `자동화 가능성` 하나로 본다.
@@ -120,6 +134,7 @@
      - assigned dungeon / stage
      - chosen party / unit
      - intervention count
+     - bottleneck reason
      - result summary
      - next action note
 
@@ -142,7 +157,14 @@
   - 어떤 monster candidate 는 거의 자동으로 흘러가는가
   - 어떤 candidate 는 아직 사람이 자주 붙어야 하는가
   - 어느 stage 에서 반복 개입이 늘어나는가
-- v0 에서는 fancy score 보다 battle 당 intervention count 를 남기는 것이 더 중요하다.
+- v0 에서는 fancy score 보다 battle 당 `intervention_count` 와 `bottleneck_reason` 을 남기는 것이 더 중요하다.
+- `bottleneck_reason` starter enum 은 아래로 둔다.
+  - `missing_owner_boundary`
+  - `missing_acceptance_check`
+  - `human_confirmation_required`
+  - `secret_or_private_gate`
+  - `tool_or_validation_failure`
+  - `quality_review_needed`
 
 ## source of truth
 
@@ -179,4 +201,3 @@
 - v0 의 가장 중요한 성공 조건은 "하루 업무를 한 번 끝까지 굴릴 수 있느냐" 이며, full automation 여부가 아니다.
 - 첫 입력원은 `메일만` 열어도 playable alpha 를 판단하기에 충분하다고 본다.
 - monster tier 이름 자체보다 `자동화 가능성` 에 따른 행동 차이가 현재 phase 에 더 중요하다고 본다.
-

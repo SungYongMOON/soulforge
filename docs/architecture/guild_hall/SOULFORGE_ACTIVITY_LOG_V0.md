@@ -30,7 +30,7 @@ guild_hall/state/operations/soulforge_activity/
 ├── log/
 │   └── YYYY/
 │       └── YYYY-MM-DD/
-│           └── HHMM-<automation-id>.md
+│           └── HHMM[-SS]-<automation-id>.md
 └── events/
     └── YYYY/
         └── YYYY-MM.jsonl
@@ -42,9 +42,26 @@ guild_hall/state/operations/soulforge_activity/
 - `events/YYYY/YYYY-MM.jsonl`
   - append-only event ledger
   - 장기 보관용 원본이며, 기본적으로는 마지막 몇 건만 읽는다
-- `log/YYYY/YYYY-MM-DD/HHMM-<automation-id>.md`
+- `log/YYYY/YYYY-MM-DD/HHMM[-SS]-<automation-id>.md`
   - night_watch preflight / 점검 / 초안의 상세 실행 결과
   - 사람이 읽는 markdown report 와 draft note 를 둔다
+
+## 구현된 command surface
+
+```bash
+npm run guild-hall:activity:log -- --scope <scope> --action <action> --summary <summary>
+npm run guild-hall:activity:refresh -- --json
+npm run guild-hall:healer:run -- --json
+```
+
+- `guild-hall:activity:log`
+  - 사람이 직접 남기거나 다른 자동화가 호출하는 공용 event append 명령이다.
+  - `events/YYYY/YYYY-MM.jsonl` 에 1건을 추가하고 `latest_context.json` 을 다시 만든다.
+- `guild-hall:activity:refresh`
+  - 기존 event ledger 를 기준으로 `latest_context.json` 만 재생성한다.
+- `guild-hall:healer:run`
+  - 24시간 PC 가 `git status`, root validation, gateway fetch healthcheck 를 실행하고 report/event 를 남긴다.
+  - 자동 commit/push/merge/reset 은 하지 않는다.
 
 ## 기본 읽기 규칙
 
@@ -72,8 +89,13 @@ guild_hall/state/operations/soulforge_activity/
 
 - `entry_id`
 - `date`
+- `occurred_at`
+- `node_id`
+- `node_role`
 - `scope`
 - `project_code`
+- `action`
+- `result`
 - `summary`
 - `refs`
 - `next_action`
@@ -81,16 +103,22 @@ guild_hall/state/operations/soulforge_activity/
 
 ## `events/*.jsonl` 최소 필드
 
+- `schema_version`
 - `entry_id`
+- `occurred_at`
 - `date`
+- `node_id`
+- `node_role`
 - `scope`
 - `project_code`
 - `action`
+- `result`
 - `summary`
 - `refs`
 - `detail_owner`
 - `next_action`
 - `carry_forward`
+- `sensitive_content_included`
 
 ## `log/**/*.md` 권장 필드
 

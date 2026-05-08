@@ -10,6 +10,8 @@
 
 - `gateway/`: 메일 수집, intake, cross-project staging ingress
 - `doctor/`: clone 된 PC bootstrap readiness 점검과 local doctor status
+- `activity/`: Soulforge 전체 recent-context 장부 append/refresh 구현
+- `healer/`: 24시간 PC self-check 와 activity report writer
 - `shared/`: guild_hall owner 들이 함께 쓰는 repo path / JSON state helper
 - `snapshot/`: UI 와 외부 host 가 읽는 read-only sanitized 상태 projection
 - `validate/`: canonical root 최소 무결성 검사와 validation harness

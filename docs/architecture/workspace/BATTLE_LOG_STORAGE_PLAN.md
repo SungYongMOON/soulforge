@@ -43,6 +43,7 @@
 - `loop_id` 는 provenance 성격의 선택 필드다.
 - `next_action_note` 는 후속 조치를 짧게 남기는 선택 필드다.
 - `follow_up_needed` 는 `result` 와 의미가 겹치므로 v0 raw event 에서는 제거한다.
+- `bottleneck_reason` 은 `intervention_count` 가 왜 발생했는지 집계하기 위한 필수 필드다. 개입이 없으면 `none` 으로 둔다.
 
 ### 필수 / 선택 / 파생
 
@@ -60,6 +61,7 @@
   - `battle_mode`
   - `result`
   - `intervention_count`
+  - `bottleneck_reason`
 - 선택:
   - `loop_id`
   - `next_action_note`
@@ -82,6 +84,7 @@
   "battle_mode": "manual_assist",
   "result": "completed_with_follow_up",
   "intervention_count": 1,
+  "bottleneck_reason": "human_confirmation_required",
   "next_action_note": "status deck refresh draft review"
 }
 ```
@@ -103,6 +106,7 @@
 | `battle_mode` | 필수 | 실제 수행 방식 | 수동, 보조, 제한적 자동 등 실행 방식을 구분하기 위해 |
 | `result` | 필수 | 전투 결과 상태 | 완료, 후속 필요, 차단, 실패를 단일 축으로 남기기 위해 |
 | `intervention_count` | 필수 | 사람 개입 횟수 | 현재 v0 의 핵심 지표이기 때문에 |
+| `bottleneck_reason` | 필수 | 사람 개입 또는 멈춤의 주된 이유 | 반복 병목을 workflow/runner packet 으로 흡수할 수 있게 하기 위해 |
 | `loop_id` | 선택 | 어떤 운영 루프에서 발생했는지 | `PLAY_LOOP_V0`, `nightly_sweep_v0` 같은 provenance 를 남기기 위해 |
 | `next_action_note` | 선택 | 다음에 다시 볼 짧은 행동 메모 | boolean 대신 실제 후속 행동을 남기기 위해 |
 | `dungeon` | 파생 / 표시 | 프로젝트를 세계관 언어로 보여주는 값 | raw key 가 아니라 UI 와 리포트 표시에서 파생하기 위해 |
@@ -121,6 +125,14 @@
   - `completed_with_follow_up`
   - `blocked`
   - `failed`
+- `bottleneck_reason`
+  - `none`
+  - `missing_owner_boundary`
+  - `missing_acceptance_check`
+  - `human_confirmation_required`
+  - `secret_or_private_gate`
+  - `tool_or_validation_failure`
+  - `quality_review_needed`
 
 ## 조회 전략
 
@@ -195,4 +207,3 @@
 
 - chain sample: [`examples/demo_project/_workmeta/battle_log_chain_example.md`](examples/demo_project/_workmeta/battle_log_chain_example.md)
 - 같은 monster 의 gateway brief: [`examples/guild_hall/state/town_crier/queue/pending/notify_pdr_brief_chain_demo_001.json`](examples/guild_hall/state/town_crier/queue/pending/notify_pdr_brief_chain_demo_001.json)
-

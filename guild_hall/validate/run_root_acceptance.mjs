@@ -10,12 +10,14 @@ const STEPS_BY_MODE = {
   validate: [
     ["canon", "npm run validate:canon"],
     ["snapshot", "npm run validate:snapshot"],
+    ["activity", "npm run validate:activity"],
     ["ui", "npm run validate:ui"],
     ["gateway", "npm run validate:gateway"],
   ],
   "done-check": [
     ["canon", "npm run validate:canon"],
     ["snapshot", "npm run validate:snapshot"],
+    ["activity", "npm run validate:activity"],
     ["ui-acceptance", "npm run ui:done:check"],
     ["gateway", "npm run validate:gateway"],
   ],

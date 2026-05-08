@@ -54,6 +54,7 @@ sequenceDiagram
 - `skill_id -> codex skill name` resolve 결과
 - `execution_profile_ref -> model / reasoning / attached skill / MCP/tool hint` resolve 결과
 - 다음 step handoff 를 위한 current run packet
+- sub-agent 가 사용자 prompt 없이 stop condition 까지 진행할 수 있는 anti-bottleneck packet shape
 
 ## runner 가 소유하지 않는 것
 
@@ -84,6 +85,22 @@ sequenceDiagram
 8. runner 는 이 결과를 `run_packet.yaml` 형태로 묶고 sub-agent spawn payload 를 생성한다.
 9. actual execution truth 와 artifacts 는 `runs/<run_id>/` 아래에만 남긴다.
 
+## anti-bottleneck packet
+
+runner 가 만드는 sub-agent execution packet 은 사람을 다음 prompt 병목으로 만들지 않기 위해 아래 최소 정보를 포함해야 한다.
+
+- `objective`: 이번 run 이 완료해야 할 bounded 목표
+- `source_refs`: public-safe 입력 pointer 와 필요한 private/local pointer
+- `allowed_roots`: 읽기/쓰기 가능한 owner root 목록
+- `forbidden_roots`: secret, raw mailbox, attachment, credential, unrelated private state 같이 접근하면 안 되는 surface
+- `autonomy_level`: `observe_only`, `bounded_patch`, `private_record`, `supervised_run` 중 하나
+- `intervention_budget`: 사용자에게 물을 수 있는 최대 횟수
+- `acceptance_checks`: 완료 판정에 쓸 명령, 문서 체크, artifact 조건
+- `stop_conditions`: 더 진행하지 말아야 하는 조건
+- `escalation_question`: 막혔을 때 사용자에게 물을 가장 작은 질문 1개
+
+packet 이 위 정보를 갖지 못하면 runner 는 실행을 시작하지 않고 `bottleneck_reason` 을 남긴다. 반복되는 reason 은 workflow, mission handoff, binding 문서로 승격할 후보로 본다.
+
 ## tracked mirror 와 local runtime
 
 - tracked repo 는 `dispatch_request.yaml` 과 `run_packet.yaml` 같은 public-safe packet example 만 둔다.
@@ -97,4 +114,3 @@ sequenceDiagram
 - runner 는 workflow 와 party 를 합치는 역할을 하지만, 둘의 정본 owner 는 아니다.
 - dispatch packet 은 autohunt 의 routing 결과이며 raw truth 가 아니다.
 - run packet 은 runner 의 resolved execution metadata 이며 raw truth 가 아니다.
-

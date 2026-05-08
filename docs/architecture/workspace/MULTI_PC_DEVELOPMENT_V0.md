@@ -29,7 +29,7 @@
 | `work_pc` | 실제 업무 파일, 문서 작업, HDD/SSD/cloud project worksite 조작 | `owner-with-state` | `_workspaces/<project_code>/`, `_workmeta/` | project work, workmeta update, bounded evidence capture |
 | `tool_pc` | 특정 전문 tool 이 설치된 작업, tool 관련 skill/automation 제작 | `owner-with-state` | `_workspaces/<project_code>/`, `_workmeta/`, 필요 시 public skill/code | tool-bound work, tool skill draft, heavy local validation |
 | `portable_dev_pc` | Soulforge 기능, UI, 문서, 설계 고민과 public repo 개발 | `owner-with-state` 또는 `public-only` | public `Soulforge`, 필요 시 `_workmeta/` | UI/dev docs, architecture review, code changes |
-| `always_on_node` | 24시간 감시, snapshot, reminder, gateway, night watch, lightweight automation | `operator` 또는 `owner-with-state` | `guild_hall/state/**`, `private-state/` mirror | gateway fetch, snapshot check, morning report candidate, reminder, night watch |
+| `always_on_node` | 24시간 감시, snapshot, reminder, gateway, healer, night watch, lightweight automation | `operator` 또는 `owner-with-state` | `guild_hall/state/**`, `private-state/` mirror | gateway fetch, snapshot check, healer run, morning report candidate, reminder, night watch |
 
 ## PC별 primary writer map
 
@@ -39,7 +39,7 @@
 ```mermaid
 flowchart LR
   subgraph A["24시간 PC / always_on_node"]
-    A1["guild_hall/state/**<br/>PRIMARY<br/>gateway fetch, intake, night_watch"]
+    A1["guild_hall/state/**<br/>PRIMARY<br/>gateway fetch, intake, healer, night_watch"]
     A2["private-state/**<br/>PRIMARY MIRROR<br/>continuity carry-forward"]
     A3["public Soulforge<br/>PULL / READ<br/>auto commit-push 금지"]
   end
@@ -90,6 +90,81 @@ flowchart LR
 3. public docs/code/UI 변경은 `portable_dev_pc` 가 primary 로 쓴다.
 4. 다른 PC 는 primary 영역을 읽거나 복원할 수 있지만, primary writer 로 승격하려면 `node_identity.yaml` 의 `primary_writer` 를 먼저 바꾼다.
 
+## node employee model
+
+여러 PC 는 한 owner 의 장비지만, 운영 관점에서는 각 PC 를 작은 업무를 맡는 직원처럼 다룰 수 있다.
+핵심은 "어느 PC 가 수정했는가" 보다 "운영 clone 을 깨끗하게 유지하고, 맡은 범위가 겹치지 않는가" 다.
+
+```mermaid
+flowchart LR
+  subgraph N["한 PC 안의 두 작업면"]
+    O["운영용 clone<br/>clean main<br/>pull + run only"]
+    D["수정용 worktree/clone<br/>codex/<node>-<task><br/>bounded patch"]
+  end
+
+  D --> T["test / validate"]
+  T --> P["commit + push"]
+  P --> O
+
+  O x-- "직접 코드 수정 금지" D
+
+  classDef ops fill:#dbeafe,stroke:#1d4ed8,stroke-width:2px,color:#0f172a;
+  classDef dev fill:#fef3c7,stroke:#b45309,stroke-width:2px,color:#0f172a;
+  classDef done fill:#dcfce7,stroke:#15803d,stroke-width:2px,color:#0f172a;
+  class O ops;
+  class D,T dev;
+  class P done;
+```
+
+허용 모델:
+
+| 작업 종류 | 권장 실행 위치 | 조건 |
+| --- | --- | --- |
+| 운영 fetch/intake/healer/night_watch 실행 | `always_on_node` 운영용 clone | clean `main`, local env 준비, public repo 수정 없음 |
+| local env/secret 경로 설정 | 해당 PC 의 local state | Git commit 금지, secret 값 출력 금지 |
+| 작은 문서/스크립트 hotfix | 해당 PC 의 수정용 worktree/clone | `codex/<node>-<task>` branch, scoped diff, 관련 test |
+| 기능 개발/큰 구조 변경 | 주 개발 PC 또는 별도 feature branch | 넓은 validate, 문서/CHANGELOG 동기화 |
+| project worksite 실제 작업 | `work_pc` | `_workspaces/<project_code>/`, `_workmeta/<project_code>/` 경계 유지 |
+
+운영용 clone 규칙:
+
+1. `always_on_node` 의 운영용 `Soulforge` clone 은 `main` + clean worktree 를 기본 상태로 둔다.
+2. 운영용 clone 에서는 `git pull --ff-only`, `doctor`, `gateway:fetch`, `gateway:intake`, `guild-hall:healer:run`, healthcheck 같은 실행 명령만 수행한다.
+3. 운영 중 발견한 작은 수정은 운영용 clone 에 직접 편집하지 않고, 같은 PC 의 별도 worktree 또는 별도 clone 에서 처리한다.
+4. 수정이 push 된 뒤 운영용 clone 은 다시 `git pull --ff-only origin main` 으로 배포본을 받는다.
+
+수정용 worktree 예시:
+
+```bash
+git fetch origin
+git worktree add -b codex/<node-id>-<short-task> ../Soulforge-hotfix origin/main
+cd ../Soulforge-hotfix
+```
+
+작업 완료 뒤:
+
+```bash
+npm run validate
+git status --short
+git add <changed-files>
+git commit -m "<scope>: <short summary>"
+git push origin codex/<node-id>-<short-task>
+```
+
+간단 수정이라도 아래는 금지한다.
+
+- 운영용 clone 의 dirty `main` 상태로 자동화 계속 실행
+- `guild_hall/state/**`, `_workspaces/**`, `_workmeta/**`, `private-state/**`, raw mail body, attachment binary, secret 파일을 public commit 에 포함
+- 같은 파일/기능을 여러 PC 가 동시에 수정하면서 조율 없이 push
+- 검증 없이 24시간 운영 node 에 바로 반영
+
+작업 배정 원칙:
+
+1. 한 PC 는 한 번에 하나의 bounded task 를 맡는다.
+2. 맡은 task 는 파일/모듈/문서 범위를 먼저 좁힌다.
+3. 다른 PC 가 이미 수정 중인 파일을 만지려면 먼저 최신 상태를 pull 하고 충돌 가능성을 확인한다.
+4. 결과는 commit message, changelog, 또는 private worklog 에 "무엇을 바꿨고 어떤 검증을 했는지" 남긴다.
+
 ## local node identity
 
 각 clone 은 같은 tracked tree 를 받지만, 자신이 어느 설치 PC 인지는 local-only identity 로 기억한다.
@@ -106,6 +181,7 @@ bootstrap_profile: owner-with-state
 allowed_jobs:
   - snapshot_check
   - gateway_fetch
+  - healer_run
   - reminder
   - night_watch
 
