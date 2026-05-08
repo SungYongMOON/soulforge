@@ -24,6 +24,11 @@ npm run guild-hall:gateway:fetch:healthcheck -- --json
 산출 파일:
 - 상태 파일: `guild_hall/state/gateway/log/mail_fetch/monitor/health_state.json`
 
+경로 해석:
+- `EMAIL_FETCH_RUNTIME_DIR` 가 절대 경로면 그대로 사용한다.
+- 상대 경로면 `email_fetch.env` 파일이 있는 디렉터리를 기준으로 해석한다.
+- 운영 node 에서는 launchd/crontab/shell 의 현재 위치가 달라도 같은 runtime 을 보도록 절대 경로를 권장한다.
+
 주요 환경변수:
 - `EMAIL_FETCH_HEALTH_MAX_STALE_SEC` (기본 `900`)
 - `EMAIL_FETCH_HEALTH_FAIL_STREAK` (기본 `2`)

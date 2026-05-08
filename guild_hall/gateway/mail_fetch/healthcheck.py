@@ -50,21 +50,19 @@ def main() -> int:
     repo_root, capsule_root = _resolve_paths()
     sys.path.insert(0, str(capsule_root))
 
-    from collector.ops.env_loader import env_bool, env_int, load_env  # noqa: PLC0415
+    from collector.ops.env_loader import env_bool, env_int, env_path, load_env  # noqa: PLC0415
     from collector.ops.healthcheck import HealthConfig, run_healthcheck  # noqa: PLC0415
 
     args = _parse_args()
     env_file = Path(args.env_file).expanduser() if args.env_file else _default_env_file(repo_root)
     env = load_env(env_file)
     telegram_env = _parse_env_file(_default_telegram_env_file(repo_root))
-    runtime_root = Path(
-        str(
-            env.get(
-                "EMAIL_FETCH_RUNTIME_DIR",
-                repo_root / "guild_hall" / "state" / "gateway" / "log" / "mail_fetch",
-            )
-        )
-    ).expanduser()
+    runtime_root = env_path(
+        env,
+        "EMAIL_FETCH_RUNTIME_DIR",
+        repo_root / "guild_hall" / "state" / "gateway" / "log" / "mail_fetch",
+        base_dir=env_file.parent,
+    )
 
     result = run_healthcheck(
         HealthConfig(

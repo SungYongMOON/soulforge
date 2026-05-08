@@ -20,6 +20,9 @@
 - runtime root: `guild_hall/state/gateway/log/mail_fetch/`
 - default env file: `guild_hall/state/gateway/mailbox/state/email_fetch.env`
 
+Env 파일의 경로 값은 절대 경로면 그대로 사용하고, 상대 경로면 env 파일이 있는 디렉터리를 기준으로 해석한다.
+운영 node 에서는 PC별 실행 위치 혼선을 줄이기 위해 `EMAIL_FETCH_RUNTIME_DIR` 와 `EMAIL_FETCH_INBOX_ROOT` 에 절대 경로를 권장한다.
+
 ## mailbox materialization shape
 
 ```text

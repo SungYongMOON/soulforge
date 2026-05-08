@@ -30,28 +30,24 @@ def main() -> int:
     repo_root, capsule_root = _resolve_paths()
     sys.path.insert(0, str(capsule_root))
 
-    from collector.ops.env_loader import env_bool, env_int, load_env  # noqa: PLC0415
+    from collector.ops.env_loader import env_bool, env_int, env_path, load_env  # noqa: PLC0415
     from collector.ops.retention import RetentionConfig, run_retention_cleanup  # noqa: PLC0415
 
     args = _parse_args()
     env_file = Path(args.env_file).expanduser() if args.env_file else _default_env_file(repo_root)
     env = load_env(env_file)
-    runtime_root = Path(
-        str(
-            env.get(
-                "EMAIL_FETCH_RUNTIME_DIR",
-                repo_root / "guild_hall" / "state" / "gateway" / "log" / "mail_fetch",
-            )
-        )
-    ).expanduser()
-    inbox_root = Path(
-        str(
-            env.get(
-                "EMAIL_FETCH_INBOX_ROOT",
-                repo_root / "guild_hall" / "state" / "gateway" / "mailbox",
-            )
-        )
-    ).expanduser()
+    runtime_root = env_path(
+        env,
+        "EMAIL_FETCH_RUNTIME_DIR",
+        repo_root / "guild_hall" / "state" / "gateway" / "log" / "mail_fetch",
+        base_dir=env_file.parent,
+    )
+    inbox_root = env_path(
+        env,
+        "EMAIL_FETCH_INBOX_ROOT",
+        repo_root / "guild_hall" / "state" / "gateway" / "mailbox",
+        base_dir=env_file.parent,
+    )
     report_only = not args.apply if args.apply else env_bool(env, "EMAIL_FETCH_RETENTION_REPORT_ONLY", True)
     result = run_retention_cleanup(
         RetentionConfig(

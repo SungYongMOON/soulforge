@@ -41,3 +41,13 @@ def env_int(env: Dict[str, str], key: str, default: int) -> int:
         return int(str(raw).strip())
     except Exception:
         return default
+
+
+def env_path(env: Dict[str, str], key: str, default: Path, *, base_dir: Path) -> Path:
+    raw = str(env.get(key, "")).strip()
+    if not raw:
+        return default
+    path = Path(raw).expanduser()
+    if path.is_absolute():
+        return path
+    return (base_dir / path).resolve()
