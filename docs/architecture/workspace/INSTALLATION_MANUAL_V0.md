@@ -3,7 +3,7 @@
 ## 목적
 
 - 이 문서는 다른 PC 에서 Soulforge 를 처음 설치할 때 필요한 최소 절차를 한 곳에 모은다.
-- clone, local env, skill install, NotebookLM MCP, gateway fetch/intake 까지의 첫 bootstrap 순서를 잠근다.
+- clone, local env, skill install, workflow evolution harness, NotebookLM MCP, gateway fetch/intake 까지의 첫 bootstrap 순서를 잠근다.
 
 ## Chapter 0. 설치 프로필 선택
 
@@ -53,6 +53,13 @@
 
 `gh` 는 `_workmeta/`, `private-state/` 같은 private repo 생성/연결, GitHub auth 상태 확인, clone 전후 저장소 작업에 필수로 본다.
 설치 완료 기준에는 `gh` 설치뿐 아니라 `gh auth login` 으로 GitHub 인증을 마친 상태도 포함한다.
+
+Workflow evolution 실험을 맡는 owner PC 는 추가로 아래 optional harness tool 을 준비할 수 있다.
+
+- `codex` CLI with `goals` feature enabled
+- `promptfoo`
+
+설치 절차는 [`../bootstrap/WORKFLOW_EVOLUTION_HARNESS_INSTALL_V0.md`](../bootstrap/WORKFLOW_EVOLUTION_HARNESS_INSTALL_V0.md) 를 따른다.
 
 ## Chapter 2. 저장소 준비
 

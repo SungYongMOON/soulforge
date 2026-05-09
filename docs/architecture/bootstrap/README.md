@@ -21,6 +21,7 @@
 | `ALWAYS_ON_NEXT_ACTION_PROMPT_V0.md` | 복사/붙여넣기가 어려운 24시간 운영 PC 에서 다음 gateway/healer 점검과 activity mirror 를 수행하게 하는 prompt source 다. |
 | `WORK_PC_BOOTSTRAP_PROMPT_V0.md` | 업무 PC 의 Codex 가 읽고 `work_pc` local bootstrap 을 수행할 prompt source 다. |
 | `TOOL_PC_BOOTSTRAP_PROMPT_V0.md` | 고성능 PC 의 Codex 가 읽고 project metadata read/write 가 가능한 `tool_pc` owner-with-state bootstrap 을 수행할 prompt source 다. |
+| `WORKFLOW_EVOLUTION_HARNESS_INSTALL_V0.md` | `/goal` 과 promptfoo 같은 workflow evolution harness 후보를 owner PC 에 설치하고 확인하는 절차다. |
 | `../workspace/INSTALLATION_MANUAL_V0.md` | workspace 문서군이 소유하는 다른 PC 첫 설치 상위 runbook 이다. |
 | `../workspace/MULTI_PC_DEVELOPMENT_V0.md` | 여러 PC clone, local runtime, node role, push/pull 운영 절차를 둔다. |
 | `../workspace/PRIVATE_STATE_REPO_V0.md` | owner-only continuity mirror repo 의 포함/제외 범위를 둔다. |
@@ -41,6 +42,7 @@
 12. [`ALWAYS_ON_NEXT_ACTION_PROMPT_V0.md`](ALWAYS_ON_NEXT_ACTION_PROMPT_V0.md)
 13. [`WORK_PC_BOOTSTRAP_PROMPT_V0.md`](WORK_PC_BOOTSTRAP_PROMPT_V0.md)
 14. [`TOOL_PC_BOOTSTRAP_PROMPT_V0.md`](TOOL_PC_BOOTSTRAP_PROMPT_V0.md)
+15. [`WORKFLOW_EVOLUTION_HARNESS_INSTALL_V0.md`](WORKFLOW_EVOLUTION_HARNESS_INSTALL_V0.md)
 
 ## 실행 가이드
 
@@ -54,6 +56,7 @@
 - 회사/집 handoff 체크는 [`OWNER_HANDOFF_CHECKLIST_V0.md`](OWNER_HANDOFF_CHECKLIST_V0.md) 를 canonical guide 로 사용한다.
 - bootstrap 전 필수 프로그램은 `git`, `gh`, `node`, `npm`, `python3`, `uv` 다.
 - bootstrap 설치 단계에는 `gh auth status` 확인과 필요 시 `gh auth login` 이 포함된다.
+- `workflow_evolution` 실험을 맡는 owner PC 는 `WORKFLOW_EVOLUTION_HARNESS_INSTALL_V0.md` 에 따라 Codex CLI `goals` feature 를 켜고, 필요 시 `promptfoo` 를 설치한다.
 - bootstrap 전에는 sync 가능한 Soulforge Codex skill 전체를 local 에 맞추고, canonical 명령은 `npm run skills:sync -- --all` 이다.
 - `codex/SKILL.md` 가 없는 registry entry 는 install/sync 대상이 아니다.
 - clone 후 첫 readiness 점검은 `npm run guild-hall:doctor` 를 canonical entrypoint 로 쓴다.
@@ -81,6 +84,7 @@
 - [`ALWAYS_ON_NEXT_ACTION_PROMPT_V0.md`](ALWAYS_ON_NEXT_ACTION_PROMPT_V0.md)
 - [`WORK_PC_BOOTSTRAP_PROMPT_V0.md`](WORK_PC_BOOTSTRAP_PROMPT_V0.md)
 - [`TOOL_PC_BOOTSTRAP_PROMPT_V0.md`](TOOL_PC_BOOTSTRAP_PROMPT_V0.md)
+- [`WORKFLOW_EVOLUTION_HARNESS_INSTALL_V0.md`](WORKFLOW_EVOLUTION_HARNESS_INSTALL_V0.md)
 - [`../workspace/INSTALLATION_MANUAL_V0.md`](../workspace/INSTALLATION_MANUAL_V0.md)
 - [`../workspace/MULTI_PC_DEVELOPMENT_V0.md`](../workspace/MULTI_PC_DEVELOPMENT_V0.md)
 - [`../workspace/PRIVATE_STATE_REPO_V0.md`](../workspace/PRIVATE_STATE_REPO_V0.md)

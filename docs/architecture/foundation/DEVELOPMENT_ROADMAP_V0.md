@@ -88,8 +88,9 @@ read-only snapshot
 | 1 | battle log 최소 event schema | snapshot board 에서 mission 후보가 보임 | `_workmeta`, `.mission`, `docs/architecture/workspace` |
 | 2 | manual monster one-shot flow | mission board 에서 수동 candidate 를 만들 수 있음 | `guild_hall/gateway`, `.mission` |
 | 3 | promotion candidate projection | battle log 가 최소 1건 남음 | `_workmeta`, `.registry`, `.workflow` |
-| 4 | OpenClaw snapshot bridge | snapshot 출력 경계가 안정됨 | `guild_hall`, external host setup |
-| 5 | nightly sweep advisory | mission/battle log 상태가 안정됨 | `.mission`, `guild_hall/night_watch` |
+| 4 | workflow evolution harness | B skill 같은 one-off reconstruction 에서 반복 절차와 fixture 후보가 보임 | `_workmeta/system`, `.workflow/authoring`, `.registry`, `.workflow` |
+| 5 | OpenClaw snapshot bridge | snapshot 출력 경계가 안정됨 | `guild_hall`, external host setup |
+| 6 | nightly sweep advisory | mission/battle log 상태가 안정됨 | `.mission`, `guild_hall/night_watch` |
 
 ## 구체화 규칙
 
@@ -111,6 +112,7 @@ read-only snapshot
 | workspace/private data contract | `docs/architecture/workspace/` |
 | project-local evidence | `_workmeta/<project_code>/reports/**` |
 | reusable skill/workflow 후보 | `_workmeta/<project_code>/reports/procedure_capture/**` 에 먼저 기록 후 `.registry` 또는 `.workflow` 로 승격 |
+| project 가 불명확한 workflow evolution 실험 | `_workmeta/system/reports/procedure_capture/workflow_evolution/**` 에 먼저 기록 후 public-safe 요약만 `.workflow/authoring` 으로 승격 |
 
 ## 현재 보류
 

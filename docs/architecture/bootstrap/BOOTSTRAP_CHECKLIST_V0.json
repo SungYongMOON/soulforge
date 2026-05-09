@@ -14,7 +14,9 @@
     { "id": "uv", "label": "uv", "command": ["uv", "--version"] }
   ],
   "optional_tools": [
-    { "id": "nlm", "label": "NotebookLM CLI", "command": ["nlm", "--version"] }
+    { "id": "nlm", "label": "NotebookLM CLI", "command": ["nlm", "--version"] },
+    { "id": "codex_cli", "label": "Codex CLI", "command": ["codex", "--version"] },
+    { "id": "promptfoo", "label": "promptfoo CLI", "command": ["promptfoo", "--version"] }
   ],
   "required_skill_policy": "all_syncable_codex_bridges",
   "required_local_files": [
@@ -57,6 +59,12 @@
       "path": "private-state/.git",
       "note": "optional nested private state repo",
       "profiles": ["owner-with-state"]
+    },
+    {
+      "id": "workflow_evolution_venv",
+      "label": "workflow evolution Python venv",
+      "path": "guild_hall/state/tools/workflow_evolution_venv/bin/python",
+      "note": "optional local harness venv with openai and dspy"
     }
   ],
   "profile_local_paths": [

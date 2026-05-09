@@ -6,4 +6,5 @@
 - 이 경로는 workflow authoring 전용 대기실이다.
 - `authoring/` 자체는 workflow canon 이 아니며, `.workflow/index.yaml` workflow 목록에도 올라가지 않는다.
 - 반복 요청이 reusable skill package 로 승격될 만큼 크다고 판단되면 [`SKILL_WORKFLOW_GUIDE.md`](SKILL_WORKFLOW_GUIDE.md) 를 보고 `author_skill_package` workflow 로 넘긴다.
+- one-off reconstruction 을 반복 가능한 workflow/skill 후보로 추출하거나, golden workflow 를 낮은 토큰/낮은 모델 tier 로 줄이는 실험은 [`WORKFLOW_EVOLUTION_PLAN_V0.md`](WORKFLOW_EVOLUTION_PLAN_V0.md) 를 따른다.
 - 향후 skill authoring aid 가 필요해져도, 그것은 `.workflow/authoring/` 에 섞지 않고 별도 skill lane 또는 `guild master` unit owner surface 에 두는 것을 기본안으로 본다.

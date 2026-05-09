@@ -86,4 +86,4 @@ sequenceDiagram
 - [`authoring/task_note.template.md`](authoring/task_note.template.md): raw task memo template for converting real work into workflow drafts.
 - [`authoring/workflow_draft.template.yaml`](authoring/workflow_draft.template.yaml): workflow draft template for step sequencing, actors, skills, and outputs.
 - [`authoring/SKILL_WORKFLOW_GUIDE.md`](authoring/SKILL_WORKFLOW_GUIDE.md): user-facing guide for deciding when to route work into a skill-authoring workflow.
-
+- [`authoring/WORKFLOW_EVOLUTION_PLAN_V0.md`](authoring/WORKFLOW_EVOLUTION_PLAN_V0.md): authoring plan for discovering reusable workflow/skill candidates and slimming golden workflows with fixtures, regression, harness candidates, and class/species compression.

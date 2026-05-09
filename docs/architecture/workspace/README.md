@@ -28,6 +28,7 @@
 | `NOTIFY_MODEL_V0.md` | gateway local policy 와 mission notification toggle 의 owner 경계다. |
 | `NOTIFY_BRIEF_FORMAT_V0.md` | Telegram/user-facing notify brief 의 표시 순서와 provenance 기준이다. |
 | `NOTEBOOKLM_MCP_SETUP_V0.md` | NotebookLM MCP 를 대상 PC 에 재설치하는 runbook 이다. |
+| `../bootstrap/WORKFLOW_EVOLUTION_HARNESS_INSTALL_V0.md` | owner PC 에 `/goal` 과 promptfoo 같은 workflow evolution harness 후보를 설치하는 runbook 이다. |
 | `MULTI_PC_DEVELOPMENT_V0.md` | 여러 PC clone, local node role, push/pull, primary writer 충돌 방지 규칙이다. |
 | `MAIL_TO_MISSION_HANDOFF_V0.md` | mail/intake monster 를 first mission draft 로 넘기는 handoff 기준이다. |
 | `MONSTER_FAMILY_LINEUP_V0.md` | monster family/name/type 의 starter lineup 과 표시 기준이다. |
@@ -67,6 +68,7 @@
 - [`NOTIFY_MODEL_V0.md`](NOTIFY_MODEL_V0.md)
 - [`NOTIFY_BRIEF_FORMAT_V0.md`](NOTIFY_BRIEF_FORMAT_V0.md)
 - [`NOTEBOOKLM_MCP_SETUP_V0.md`](NOTEBOOKLM_MCP_SETUP_V0.md)
+- [`../bootstrap/WORKFLOW_EVOLUTION_HARNESS_INSTALL_V0.md`](../bootstrap/WORKFLOW_EVOLUTION_HARNESS_INSTALL_V0.md)
 - [`MULTI_PC_DEVELOPMENT_V0.md`](MULTI_PC_DEVELOPMENT_V0.md)
 - [`MAIL_TO_MISSION_HANDOFF_V0.md`](MAIL_TO_MISSION_HANDOFF_V0.md)
 - [`MONSTER_FAMILY_LINEUP_V0.md`](MONSTER_FAMILY_LINEUP_V0.md)
@@ -93,6 +95,7 @@
 - `BATTLE_LOG_STORAGE_PLAN.md` 와 `schema/battle_event.schema.yaml` 는 mission-level terminal battle outcome 을 monthly `JSONL` event stream 으로 남기는 최소 event schema 를 잠근다.
 - `GATEWAY_MAIL_FETCH_V0.md`, `MAIL_CANDIDATE_QUEUE_V0.md`, `MAIL_SEND_V0.md`, `GATEWAY_NOTIFY_V0.md`, `NOTIFY_MODEL_V0.md`, `NOTIFY_BRIEF_FORMAT_V0.md` 는 `guild_hall` owner 의 runtime 계약이지만, `_workspaces/<project_code>/` handoff 와 clone/bootstrap 흐름 때문에 workspace 문서군에서도 함께 참조한다.
 - `NOTEBOOKLM_MCP_SETUP_V0.md` 는 NotebookLM MCP 를 대상 PC 에서 재설치하는 절차만 Soulforge 쪽 runbook 으로 들고 간다.
+- `WORKFLOW_EVOLUTION_HARNESS_INSTALL_V0.md` 는 owner PC 에서 Codex `/goal` 과 promptfoo 같은 harness 후보를 설치하고, workflow evolution 실험을 운영 clone 과 분리하는 절차를 둔다.
 - `INSTALLATION_MANUAL_V0.md` 는 다른 PC 에서 clone 후 무엇을 어떤 순서로 설치해야 하는지 한 장짜리 상위 bootstrap 문서다.
 - `PROJECT_ONBOARDING_V0.md` 는 첫 실제 프로젝트를 `_workspaces/<project_code>/` 에 붙일 때 short `project_code`, full `display_name`, read-only first, local-only link materialization 규칙을 잠근다.
 - `PROJECT_START_WORKFLOW_V0.md` 는 첫 과제 시작 시 사람과 Codex 가 어디에 기록하고 어떤 순서로 bounded task 를 열지 잠근다.

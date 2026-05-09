@@ -97,6 +97,8 @@ npm.cmd run guild-hall:doctor -- --remote
   - `uv`
 - 선택 도구 존재 여부
   - `nlm`
+  - `codex`
+  - `promptfoo`
 - 필수 Soulforge skill 설치 여부
   - `.registry/skills/*/codex/SKILL.md` 가 있는 sync 가능한 Soulforge Codex skill 전체
   - installed 이름은 `soulforge-<skill-id>` 형식으로 본다
@@ -112,6 +114,9 @@ npm.cmd run guild-hall:doctor -- --remote
   - `operator` 는 private repo 없이 local operator env 를 운용할 수 있다
   - `owner-with-state` 는 owner-only nested `_workmeta/`, `private-state/` repo 를 운용할 수 있다
   - current doctor v0 는 그중 nested `private-state/` repo 와 continuity data path 를 추가로 본다
+- optional local harness path 여부
+  - `guild_hall/state/tools/workflow_evolution_venv/bin/python`
+  - 있으면 workflow evolution 실험용 OpenAI SDK / DSPy local venv 가 준비된 것으로 본다
 - safe smoke test
   - `node --check guild_hall/gateway/cli.mjs`
   - `node guild_hall/town_crier/cli.mjs status`
@@ -224,6 +229,7 @@ doctor 는 missing/failed/blocked result 에 대해 가능하면 item-level `fix
 9. `--live` 는 외부 인증/연결만 수행하고, 메일/메시지 실제 발송은 하지 않는다.
 10. live mail fetch 나 Telegram send 는 doctor 기본 범위 밖이다.
 11. bootstrap readiness 와 실제 업무 실행은 분리한다.
+12. `codex`, `promptfoo`, workflow evolution venv 는 workflow evolution harness 후보용 optional tool 이며, `/goal` feature enable 과 OpenAI SDK / DSPy import 여부는 [`WORKFLOW_EVOLUTION_HARNESS_INSTALL_V0.md`](WORKFLOW_EVOLUTION_HARNESS_INSTALL_V0.md) 의 별도 확인 절차를 따른다.
 
 ## clone 감지 원칙
 
@@ -248,6 +254,7 @@ doctor 는 missing/failed/blocked result 에 대해 가능하면 item-level `fix
 - [`BOOTSTRAP_CHECKLIST_V0.json`](BOOTSTRAP_CHECKLIST_V0.json)
 - [`../workspace/INSTALLATION_MANUAL_V0.md`](../workspace/INSTALLATION_MANUAL_V0.md)
 - [`BOOTSTRAP_PROFILES_V0.md`](BOOTSTRAP_PROFILES_V0.md)
+- [`WORKFLOW_EVOLUTION_HARNESS_INSTALL_V0.md`](WORKFLOW_EVOLUTION_HARNESS_INSTALL_V0.md)
 - [`../workspace/MULTI_PC_DEVELOPMENT_V0.md`](../workspace/MULTI_PC_DEVELOPMENT_V0.md)
 - [`../workspace/PRIVATE_STATE_REPO_V0.md`](../workspace/PRIVATE_STATE_REPO_V0.md)
 - [`../../../guild_hall/doctor/README.md`](../../../guild_hall/doctor/README.md)

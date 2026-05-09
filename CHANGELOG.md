@@ -11,6 +11,12 @@ Git log 는 원문 이력을 남기고, 이 문서는 사람이 읽는 patch not
 
 ## 2026-05-09
 
+### Revision `working` - workflow evolution harness 설치 계획 추가
+
+- B skill 제작 흐름을 단일 skill 제작이 아니라 `workflow_evolution` discovery/slimming 실험으로 다루는 authoring plan 을 추가했다.
+- Codex `/goal`, Ralph-style loop, promptfoo, OpenAI SDK, DSPy, class/species compression 을 public-safe harness 후보로 분리하고, 다른 owner PC 에 반복 설치할 수 있는 runbook 을 추가했다.
+- bootstrap checklist 에 Codex CLI, promptfoo, workflow evolution venv optional 확인을 추가하고, MacBook Air baseline 으로 Codex CLI `0.129.0` + `goals=true`, promptfoo `0.121.11`, OpenAI SDK `2.36.0`, DSPy `3.2.1` 을 확인했다.
+
 ### Revision `working` - battle_event 최소 schema 추가
 
 - `_workmeta/<project_code>/log/events/YYYY/MM/battle_events.jsonl` 에 append 되는 mission-level battle outcome 의 public-safe schema anchor 를 추가했다.
