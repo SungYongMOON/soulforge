@@ -24,3 +24,4 @@ npm run guild-hall:activity:sync -- --json
 - `sync` 는 mailbox raw, attachment payload, secret file, `_workspaces`, `_workmeta` 를 읽지 않는다.
 - `sync` 는 activity JSONL row 를 읽더라도 allowlist 된 event 필드만 mirror 한다. legacy row 의 unknown field 는 복사하지 않고, malformed JSONL row 는 원본 ledger 안에 그대로 보존하되 다른 surface 로 복제하지 않는다.
 - `sync` 는 `log/**` markdown/report file 을 mirror 하지 않는다. 상세 report 취합은 별도 sanitizer/allowlist 가 생길 때까지 v0 범위 밖이다.
+- `sync --json` 은 private git command 의 stdout/stderr 를 출력하지 않고 단계 성공/실패만 표시한다.

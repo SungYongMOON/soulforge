@@ -464,6 +464,50 @@ test("syncActivityToPrivateState commits and pushes only the activity surface wh
   }
 });
 
+test("syncActivityToPrivateState suppresses raw git output in JSON-safe steps", async () => {
+  const repoRoot = await mkdtemp(path.join(os.tmpdir(), "soulforge-activity-sync-redact-"));
+  const privateStateRoot = path.join(repoRoot, "private-state");
+
+  try {
+    await mkdir(path.join(privateStateRoot, ".git"), { recursive: true });
+    const result = await syncActivityToPrivateState({
+      repoRoot,
+      privateStateRoot,
+      runCommand: async ({ args }) => {
+        const command = args.join(" ");
+        if (command === "status --porcelain") {
+          return { ok: true, status: 0, stdout: "", stderr: "" };
+        }
+        if (command === "branch --show-current") {
+          return { ok: true, status: 0, stdout: "main\n", stderr: "" };
+        }
+        if (command === "remote") {
+          return { ok: true, status: 0, stdout: "origin\n", stderr: "" };
+        }
+        if (command === "pull --ff-only origin main") {
+          return {
+            ok: false,
+            status: 1,
+            stdout: "",
+            stderr: "fatal: could not read from https://user:credential-token@example.test/private-state.git\n",
+          };
+        }
+        throw new Error(`unexpected command: git ${command}`);
+      },
+    });
+
+    const payload = JSON.stringify(result);
+    assert.equal(result.status, "blocked");
+    assert.equal(result.reason, "private_state_pull_failed");
+    assert.equal(payload.includes("credential-token"), false);
+    assert.equal(payload.includes("example.test"), false);
+    assert.equal(payload.includes("private-state.git"), false);
+    assert.equal(result.steps.at(-1).summary, "failed");
+  } finally {
+    await rm(repoRoot, { recursive: true, force: true });
+  }
+});
+
 test("sanitizeActivityValue redacts sensitive field names and token-like text", () => {
   assert.equal(sanitizeActivityValue("<html><body>mail</body></html>", "raw_body"), "[redacted:sensitive-field]");
   assert.equal(sanitizeActivityValue("token=abc1234567890", "summary"), "token=[redacted]");

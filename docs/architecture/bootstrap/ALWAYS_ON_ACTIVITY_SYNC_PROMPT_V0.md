@@ -48,6 +48,7 @@ activity sync
 - `_workspaces/**`, `_workmeta/**`, mailbox raw, attachment payload 는 읽지 않는다.
 - activity event 는 allowlist 된 metadata 필드만 mirror 하고, legacy unknown field 는 복사하지 않는다.
 - sync 대상은 `events/**/*.jsonl` 의 allowlisted event field 와 재생성된 `latest_context.json` 이다. `log/**` 는 복사하지 않는다.
+- `--json` 출력의 private git command 단계는 stdout/stderr 원문을 표시하지 않는다.
 
 ### 실행
 

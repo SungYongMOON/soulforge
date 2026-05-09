@@ -575,13 +575,7 @@ function toStep(id, result) {
 }
 
 function summarizeCommandResult(result) {
-  const output = `${result.stdout ?? ""}\n${result.stderr ?? ""}`
-    .split(/\r?\n/)
-    .map((line) => line.trim())
-    .filter(Boolean)
-    .slice(-3)
-    .join(" ");
-  return output.slice(0, 300) || (result.ok ? "ok" : "failed");
+  return result.ok ? "ok" : "failed";
 }
 
 function buildSyncResult({
