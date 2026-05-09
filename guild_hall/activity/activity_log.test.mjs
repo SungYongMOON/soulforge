@@ -1,5 +1,5 @@
 import assert from "node:assert/strict";
-import { mkdir, mkdtemp, readFile, rm, writeFile } from "node:fs/promises";
+import { access, mkdir, mkdtemp, readFile, rm, writeFile } from "node:fs/promises";
 import os from "node:os";
 import path from "node:path";
 import test from "node:test";
@@ -240,6 +240,34 @@ test("mergeActivitySurfaces is idempotent when no events changed", async () => {
   }
 });
 
+test("mergeActivitySurfaces does not mirror markdown log reports", async () => {
+  const repoRoot = await mkdtemp(path.join(os.tmpdir(), "soulforge-activity-sync-log-boundary-"));
+  const activityRoot = path.join(repoRoot, "guild_hall", "state", "operations", "soulforge_activity");
+  const privateActivityRoot = path.join(repoRoot, "private-state", "guild_hall", "state", "operations", "soulforge_activity");
+  const localLogRelative = path.join("log", "2026", "2026-05-08", "0100-local.md");
+  const privateLogRelative = path.join("log", "2026", "2026-05-08", "0200-private.md");
+
+  try {
+    await mkdir(path.dirname(path.join(activityRoot, localLogRelative)), { recursive: true });
+    await mkdir(path.dirname(path.join(privateActivityRoot, privateLogRelative)), { recursive: true });
+    await writeFile(path.join(activityRoot, localLogRelative), "raw_body: local report fixture", "utf8");
+    await writeFile(path.join(privateActivityRoot, privateLogRelative), "raw_body: private report fixture", "utf8");
+
+    const merge = await mergeActivitySurfaces({
+      activityRoot,
+      privateActivityRoot,
+      now: new Date("2026-05-08T03:00:00.000Z"),
+    });
+
+    assert.equal(merge.added_to_local, 0);
+    assert.equal(merge.added_to_private, 0);
+    assert.equal(await fileExists(path.join(privateActivityRoot, localLogRelative)), false);
+    assert.equal(await fileExists(path.join(activityRoot, privateLogRelative)), false);
+  } finally {
+    await rm(repoRoot, { recursive: true, force: true });
+  }
+});
+
 test("syncActivityToPrivateState blocks private-state sync outside main branch", async () => {
   const repoRoot = await mkdtemp(path.join(os.tmpdir(), "soulforge-activity-sync-branch-"));
   const privateStateRoot = path.join(repoRoot, "private-state");
@@ -308,7 +336,7 @@ test("syncActivityToPrivateState blocks private-state sync without origin remote
         if (args.join(" ") === "branch --show-current") {
           return { ok: true, status: 0, stdout: "main\n", stderr: "" };
         }
-        if (args.join(" ") === "remote get-url origin") {
+        if (args.join(" ") === "remote") {
           return { ok: false, status: 2, stdout: "", stderr: "No such remote 'origin'\n" };
         }
         throw new Error(`unexpected command: git ${args.join(" ")}`);
@@ -317,6 +345,120 @@ test("syncActivityToPrivateState blocks private-state sync without origin remote
 
     assert.equal(result.status, "blocked");
     assert.equal(result.reason, "private_state_origin_missing");
+  } finally {
+    await rm(repoRoot, { recursive: true, force: true });
+  }
+});
+
+test("syncActivityToPrivateState skips commit and push when private-state stays clean", async () => {
+  const repoRoot = await mkdtemp(path.join(os.tmpdir(), "soulforge-activity-sync-clean-"));
+  const privateStateRoot = path.join(repoRoot, "private-state");
+  const commands = [];
+
+  try {
+    await mkdir(path.join(privateStateRoot, ".git"), { recursive: true });
+    const result = await syncActivityToPrivateState({
+      repoRoot,
+      privateStateRoot,
+      runCommand: async ({ args }) => {
+        const command = args.join(" ");
+        commands.push(command);
+        if (command === "status --porcelain") {
+          return { ok: true, status: 0, stdout: "", stderr: "" };
+        }
+        if (command === "branch --show-current") {
+          return { ok: true, status: 0, stdout: "main\n", stderr: "" };
+        }
+        if (command === "remote") {
+          return { ok: true, status: 0, stdout: "origin\n", stderr: "" };
+        }
+        if (command === "pull --ff-only origin main") {
+          return { ok: true, status: 0, stdout: "Already up to date.\n", stderr: "" };
+        }
+        throw new Error(`unexpected command: git ${command}`);
+      },
+    });
+
+    assert.equal(result.status, "completed");
+    assert.equal(result.reason, "activity_already_current");
+    assert.equal(result.private_state.committed, false);
+    assert.equal(result.private_state.pushed, false);
+    assert.deepEqual(commands, [
+      "status --porcelain",
+      "branch --show-current",
+      "remote",
+      "pull --ff-only origin main",
+      "status --porcelain",
+    ]);
+  } finally {
+    await rm(repoRoot, { recursive: true, force: true });
+  }
+});
+
+test("syncActivityToPrivateState commits and pushes only the activity surface when changed", async () => {
+  const repoRoot = await mkdtemp(path.join(os.tmpdir(), "soulforge-activity-sync-changed-"));
+  const privateStateRoot = path.join(repoRoot, "private-state");
+  const commands = [];
+  let statusCalls = 0;
+
+  try {
+    await mkdir(path.join(privateStateRoot, ".git"), { recursive: true });
+    const result = await syncActivityToPrivateState({
+      repoRoot,
+      privateStateRoot,
+      runCommand: async ({ args }) => {
+        const command = args.join(" ");
+        commands.push(command);
+        if (command === "status --porcelain") {
+          statusCalls += 1;
+          return {
+            ok: true,
+            status: 0,
+            stdout: statusCalls === 1 ? "" : " M guild_hall/state/operations/soulforge_activity/latest_context.json\n",
+            stderr: "",
+          };
+        }
+        if (command === "branch --show-current") {
+          return { ok: true, status: 0, stdout: "main\n", stderr: "" };
+        }
+        if (command === "remote") {
+          return { ok: true, status: 0, stdout: "origin\n", stderr: "" };
+        }
+        if (command === "pull --ff-only origin main") {
+          return { ok: true, status: 0, stdout: "Already up to date.\n", stderr: "" };
+        }
+        if (command === "add guild_hall/state/operations/soulforge_activity") {
+          return { ok: true, status: 0, stdout: "", stderr: "" };
+        }
+        if (command === "commit -m chore: sync activity context") {
+          return { ok: true, status: 0, stdout: "[main abc1234] chore: sync activity context\n", stderr: "" };
+        }
+        if (command === "rev-parse HEAD") {
+          return { ok: true, status: 0, stdout: "abc1234\n", stderr: "" };
+        }
+        if (command === "push origin HEAD:main") {
+          return { ok: true, status: 0, stdout: "", stderr: "" };
+        }
+        throw new Error(`unexpected command: git ${command}`);
+      },
+    });
+
+    assert.equal(result.status, "completed");
+    assert.equal(result.reason, "activity_synced");
+    assert.equal(result.private_state.committed, true);
+    assert.equal(result.private_state.pushed, true);
+    assert.equal(result.private_state.commit_oid, "abc1234");
+    assert.deepEqual(commands, [
+      "status --porcelain",
+      "branch --show-current",
+      "remote",
+      "pull --ff-only origin main",
+      "status --porcelain",
+      "add guild_hall/state/operations/soulforge_activity",
+      "commit -m chore: sync activity context",
+      "rev-parse HEAD",
+      "push origin HEAD:main",
+    ]);
   } finally {
     await rm(repoRoot, { recursive: true, force: true });
   }
@@ -334,6 +476,15 @@ test("sanitizeActivityValue redacts sensitive field names and token-like text", 
 async function readMonthlyRows(activityRoot, year, yearMonth) {
   const raw = await readFile(path.join(activityRoot, "events", year, `${yearMonth}.jsonl`), "utf8");
   return raw.trim().split("\n").filter(Boolean).map((line) => JSON.parse(line));
+}
+
+async function fileExists(filePath) {
+  try {
+    await access(filePath);
+    return true;
+  } catch {
+    return false;
+  }
 }
 
 async function writeNodeIdentity(repoRoot) {

@@ -101,9 +101,10 @@ export async function syncActivityToPrivateState(options = {}) {
     });
   }
 
-  const remote = await runGit(privateStateRoot, ["remote", "get-url", "origin"], runCommand);
+  const remote = await runGit(privateStateRoot, ["remote"], runCommand);
   steps.push(toStep("private_state_origin", remote));
-  if (!remote.ok || !remote.stdout.trim()) {
+  const remotes = remote.stdout.split(/\r?\n/).map((line) => line.trim()).filter(Boolean);
+  if (!remote.ok || !remotes.includes("origin")) {
     return buildSyncResult({
       status: "blocked",
       reason: "private_state_origin_missing",
@@ -259,8 +260,6 @@ export async function mergeActivitySurfaces(options = {}) {
   await fs.mkdir(privateActivityRoot, { recursive: true });
   await appendActivityEvents(activityRoot, addToLocal, now);
   await appendActivityEvents(privateActivityRoot, addToPrivate, now);
-  await copyDirectoryIfPresent(path.join(activityRoot, "log"), path.join(privateActivityRoot, "log"));
-  await copyDirectoryIfPresent(path.join(privateActivityRoot, "log"), path.join(activityRoot, "log"));
   const localLatest = await refreshLatestContextStable({ activityRoot, now });
   const privateLatest = await refreshLatestContextStable({ activityRoot: privateActivityRoot, now });
 
@@ -533,18 +532,6 @@ function normalizeRecentCount(value, fallback = DEFAULT_RECENT_COUNT) {
     return fallback;
   }
   return Math.min(parsed, 200);
-}
-
-async function copyDirectoryIfPresent(source, target) {
-  if (!(await pathExists(source))) {
-    return;
-  }
-  await fs.mkdir(path.dirname(target), { recursive: true });
-  await fs.cp(source, target, {
-    recursive: true,
-    force: false,
-    errorOnExist: false,
-  });
 }
 
 function validatePrivateStateRoot(repoRoot, privateStateRoot) {

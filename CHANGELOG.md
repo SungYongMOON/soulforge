@@ -13,9 +13,9 @@ Git log 는 원문 이력을 남기고, 이 문서는 사람이 읽는 patch not
 
 ### Revision `working` - activity sync 명령 추가
 
-- `guild-hall:activity:sync` 를 추가해 24시간 PC 가 local activity ledger 와 `private-state` activity mirror 를 `entry_id` 기준으로 병합하고 양쪽 `latest_context.json` 을 재생성할 수 있게 했다.
+- `guild-hall:activity:sync` 를 추가해 24시간 PC 가 local activity event ledger 와 `private-state` activity mirror 를 `entry_id` 기준으로 병합하고 양쪽 `latest_context.json` 을 재생성할 수 있게 했다.
 - sync 는 nested `private-state` 의 `main` branch 만 대상으로 fast-forward pull 한 뒤 변경이 있으면 activity surface 만 commit/push 하며, `_workspaces`, `_workmeta`, mailbox raw, attachment payload, secret file 은 읽지 않도록 경계를 고정했다.
-- sync 는 allowlist 된 activity event field 만 mirror 하고, malformed JSONL row 는 원본에 보존하되 다른 surface 로 복제하지 않는다.
+- sync 는 allowlist 된 activity event field 만 mirror 하고, malformed JSONL row 는 원본에 보존하되 다른 surface 로 복제하지 않는다. `log/**` markdown/report file 은 별도 sanitizer 가 생길 때까지 mirror 하지 않는다.
 - 복사/붙여넣기가 어려운 24시간 PC 용 `ALWAYS_ON_ACTIVITY_SYNC_PROMPT_V0.md` 를 추가했다.
 
 ### Revision `working` - always-on harness 설치 prompt 추가
