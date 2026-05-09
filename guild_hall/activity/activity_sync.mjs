@@ -2,7 +2,13 @@ import { spawnSync } from "node:child_process";
 import { createHash } from "node:crypto";
 import { promises as fs } from "node:fs";
 import path from "node:path";
-import { defaultActivityRoot, refreshLatestContext } from "./activity_log.mjs";
+import {
+  DEFAULT_MAX_EVENT_READ,
+  DEFAULT_RECENT_COUNT,
+  LATEST_CONTEXT_SCHEMA_VERSION,
+  defaultActivityRoot,
+  sanitizeActivityValue,
+} from "./activity_log.mjs";
 import { pathExists } from "../shared/io.mjs";
 
 export const ACTIVITY_SYNC_RESULT_VERSION = "soulforge.activity_sync.result.v1";
@@ -26,6 +32,19 @@ export async function syncActivityToPrivateState(options = {}) {
   const now = options.now instanceof Date ? options.now : new Date();
   const runCommand = options.runCommand ?? defaultRunCommand;
   const steps = [];
+  const rootValidation = validatePrivateStateRoot(repoRoot, privateStateRoot);
+  if (!rootValidation.ok) {
+    return buildSyncResult({
+      status: "blocked",
+      reason: rootValidation.reason,
+      repoRoot,
+      activityRoot,
+      privateStateRoot,
+      privateActivityRoot,
+      now,
+      steps,
+    });
+  }
 
   if (!(await pathExists(path.join(privateStateRoot, ".git")))) {
     return buildSyncResult({
@@ -58,6 +77,36 @@ export async function syncActivityToPrivateState(options = {}) {
     return buildSyncResult({
       status: "blocked",
       reason: "private_state_dirty_before_sync",
+      repoRoot,
+      activityRoot,
+      privateStateRoot,
+      privateActivityRoot,
+      now,
+      steps,
+    });
+  }
+
+  const branch = await runGit(privateStateRoot, ["branch", "--show-current"], runCommand);
+  steps.push(toStep("private_state_branch", branch));
+  if (!branch.ok || branch.stdout.trim() !== "main") {
+    return buildSyncResult({
+      status: "blocked",
+      reason: "private_state_branch_not_main",
+      repoRoot,
+      activityRoot,
+      privateStateRoot,
+      privateActivityRoot,
+      now,
+      steps,
+    });
+  }
+
+  const remote = await runGit(privateStateRoot, ["remote", "get-url", "origin"], runCommand);
+  steps.push(toStep("private_state_origin", remote));
+  if (!remote.ok || !remote.stdout.trim()) {
+    return buildSyncResult({
+      status: "blocked",
+      reason: "private_state_origin_missing",
       repoRoot,
       activityRoot,
       privateStateRoot,
@@ -153,7 +202,7 @@ export async function syncActivityToPrivateState(options = {}) {
     }
 
     if (options.skipPush !== true) {
-      const push = await runGit(privateStateRoot, ["push", "origin", "main"], runCommand);
+      const push = await runGit(privateStateRoot, ["push", "origin", "HEAD:main"], runCommand);
       steps.push(toStep("private_state_push", push));
       if (!push.ok) {
         return buildSyncResult({
@@ -196,27 +245,35 @@ export async function mergeActivitySurfaces(options = {}) {
   const activityRoot = path.resolve(options.activityRoot);
   const privateActivityRoot = path.resolve(options.privateActivityRoot);
   const now = options.now instanceof Date ? options.now : new Date();
-  const localEvents = await readActivityLedger(activityRoot);
-  const privateEvents = await readActivityLedger(privateActivityRoot);
+  const localLedger = await readActivityLedger(activityRoot);
+  const privateLedger = await readActivityLedger(privateActivityRoot);
+  const localEvents = localLedger.events;
+  const privateEvents = privateLedger.events;
   const localIds = new Set(localEvents.map((event) => event.entry_id));
   const privateIds = new Set(privateEvents.map((event) => event.entry_id));
   const mergedEvents = mergeEventsByEntryId([...localEvents, ...privateEvents]);
+  const addToLocal = mergedEvents.filter((event) => !localIds.has(event.entry_id));
+  const addToPrivate = mergedEvents.filter((event) => !privateIds.has(event.entry_id));
 
   await fs.mkdir(activityRoot, { recursive: true });
   await fs.mkdir(privateActivityRoot, { recursive: true });
-  await writeActivityLedger(activityRoot, mergedEvents, now);
-  await writeActivityLedger(privateActivityRoot, mergedEvents, now);
+  await appendActivityEvents(activityRoot, addToLocal, now);
+  await appendActivityEvents(privateActivityRoot, addToPrivate, now);
   await copyDirectoryIfPresent(path.join(activityRoot, "log"), path.join(privateActivityRoot, "log"));
   await copyDirectoryIfPresent(path.join(privateActivityRoot, "log"), path.join(activityRoot, "log"));
-  await refreshLatestContext({ activityRoot, now });
-  await refreshLatestContext({ activityRoot: privateActivityRoot, now });
+  const localLatest = await refreshLatestContextStable({ activityRoot, now });
+  const privateLatest = await refreshLatestContextStable({ activityRoot: privateActivityRoot, now });
 
   return {
     local_event_count_before: localEvents.length,
     private_event_count_before: privateEvents.length,
     merged_event_count: mergedEvents.length,
-    added_to_local: mergedEvents.filter((event) => !localIds.has(event.entry_id)).length,
-    added_to_private: mergedEvents.filter((event) => !privateIds.has(event.entry_id)).length,
+    added_to_local: addToLocal.length,
+    added_to_private: addToPrivate.length,
+    malformed_rows_preserved_local: localLedger.malformed_row_count,
+    malformed_rows_preserved_private: privateLedger.malformed_row_count,
+    latest_context_updated_local: localLatest.updated,
+    latest_context_updated_private: privateLatest.updated,
     latest_context_ref: `${ACTIVITY_REF}/latest_context.json`,
   };
 }
@@ -225,6 +282,7 @@ async function readActivityLedger(activityRoot) {
   const eventsRoot = path.join(activityRoot, "events");
   const files = await collectJsonlFiles(eventsRoot);
   const events = [];
+  let malformedRowCount = 0;
 
   for (const filePath of files) {
     let raw = "";
@@ -241,20 +299,41 @@ async function readActivityLedger(activityRoot) {
           events.push(normalizeEvent(event));
         }
       } catch {
-        // Keep the append-only source file untouched; malformed historical rows are not mirrored.
+        malformedRowCount += 1;
       }
     }
   }
 
-  return events.filter((event) => event.entry_id);
+  return {
+    events: events.filter((event) => event.entry_id),
+    malformed_row_count: malformedRowCount,
+  };
 }
 
 function normalizeEvent(event) {
+  const entryId = typeof event.entry_id === "string" && event.entry_id.trim()
+    ? sanitizeText(event.entry_id, "entry_id", 160)
+    : `legacy_${hashStable(event).slice(0, 16)}`;
+
   return {
-    ...event,
-    entry_id: typeof event.entry_id === "string" && event.entry_id.trim()
-      ? event.entry_id.trim()
-      : `legacy_${hashStable(event).slice(0, 16)}`,
+    schema_version: sanitizeText(event.schema_version, "schema_version", 120),
+    entry_id: entryId,
+    occurred_at: sanitizeText(event.occurred_at, "occurred_at", 80),
+    date: sanitizeText(event.date, "date", 20),
+    node_id: sanitizeText(event.node_id, "node_id", 160),
+    node_role: sanitizeText(event.node_role, "node_role", 160),
+    actor: sanitizeText(event.actor, "actor", 120),
+    scope: sanitizeText(event.scope, "scope", 160),
+    project_code: sanitizeText(event.project_code ?? "shared", "project_code", 160),
+    action: sanitizeText(event.action, "action", 160),
+    result: sanitizeText(event.result, "result", 160),
+    summary: sanitizeText(event.summary, "summary", 500),
+    refs: sanitizeRefs(event.refs),
+    detail_owner: sanitizeText(event.detail_owner, "detail_owner", 240),
+    next_action: sanitizeText(event.next_action, "next_action", 360),
+    carry_forward: event.carry_forward === true,
+    sensitive_content_included: false,
+    sanitizer_version: "soulforge.activity.sanitizer.v1",
   };
 }
 
@@ -286,7 +365,7 @@ function compareEventsOldestFirst(left, right) {
   return String(left.entry_id).localeCompare(String(right.entry_id));
 }
 
-async function writeActivityLedger(activityRoot, events, now) {
+async function appendActivityEvents(activityRoot, events, now) {
   const grouped = new Map();
   for (const event of events) {
     const yearMonth = yearMonthForEvent(event, now);
@@ -301,7 +380,9 @@ async function writeActivityLedger(activityRoot, events, now) {
     const filePath = path.join(activityRoot, "events", year, `${yearMonth}.jsonl`);
     await fs.mkdir(path.dirname(filePath), { recursive: true });
     const payload = rows.map((event) => JSON.stringify(event)).join("\n");
-    await fs.writeFile(filePath, payload ? `${payload}\n` : "", "utf8");
+    if (payload) {
+      await fs.appendFile(filePath, `${payload}\n`, "utf8");
+    }
   }
 }
 
@@ -350,6 +431,110 @@ async function collectJsonlFiles(root) {
   return files.sort();
 }
 
+async function refreshLatestContextStable({ activityRoot, now }) {
+  const latestContextPath = path.join(activityRoot, "latest_context.json");
+  const existing = await readJsonIfExists(latestContextPath);
+  const defaultRecentCount = normalizeRecentCount(existing?.default_recent_count ?? DEFAULT_RECENT_COUNT);
+  const ledger = await readActivityLedger(activityRoot);
+  const events = sortEventsNewestFirst(ledger.events).slice(0, Math.max(DEFAULT_MAX_EVENT_READ, defaultRecentCount));
+  const recentEntries = events.slice(0, defaultRecentCount).map(toRecentEntry);
+  const openThreads = events
+    .filter((event) => event.carry_forward === true)
+    .slice(0, defaultRecentCount)
+    .map(toRecentEntry);
+  const desired = {
+    version: LATEST_CONTEXT_SCHEMA_VERSION,
+    updated_on: now.toISOString(),
+    default_recent_count: defaultRecentCount,
+    open_threads: openThreads,
+    recent_entries: recentEntries,
+  };
+
+  if (latestContextEquivalent(existing, desired)) {
+    desired.updated_on = existing.updated_on;
+  }
+
+  if (stableStringify(existing) === stableStringify(desired)) {
+    return { path: latestContextPath, updated: false };
+  }
+
+  await fs.mkdir(path.dirname(latestContextPath), { recursive: true });
+  await fs.writeFile(latestContextPath, `${JSON.stringify(desired, null, 2)}\n`, "utf8");
+  return { path: latestContextPath, updated: true };
+}
+
+async function readJsonIfExists(filePath) {
+  try {
+    return JSON.parse(await fs.readFile(filePath, "utf8"));
+  } catch {
+    return null;
+  }
+}
+
+function latestContextEquivalent(left, right) {
+  if (!left || typeof left !== "object" || Array.isArray(left)) {
+    return false;
+  }
+  return stableStringify({
+    version: left.version,
+    default_recent_count: left.default_recent_count,
+    open_threads: left.open_threads,
+    recent_entries: left.recent_entries,
+  }) === stableStringify({
+    version: right.version,
+    default_recent_count: right.default_recent_count,
+    open_threads: right.open_threads,
+    recent_entries: right.recent_entries,
+  });
+}
+
+function toRecentEntry(event) {
+  return {
+    entry_id: event.entry_id,
+    date: event.date,
+    occurred_at: event.occurred_at ?? null,
+    node_id: event.node_id ?? null,
+    node_role: event.node_role ?? null,
+    scope: event.scope,
+    project_code: event.project_code ?? "shared",
+    action: event.action ?? null,
+    result: event.result ?? null,
+    summary: event.summary,
+    refs: Array.isArray(event.refs) ? event.refs : [],
+    next_action: event.next_action ?? null,
+    carry_forward: event.carry_forward === true,
+  };
+}
+
+function sortEventsNewestFirst(events) {
+  return [...events].sort((left, right) => compareEventsOldestFirst(right, left));
+}
+
+function sanitizeText(value, key, maxLength) {
+  if (value === null || value === undefined || value === "") {
+    return null;
+  }
+  return sanitizeActivityValue(value, key, maxLength);
+}
+
+function sanitizeRefs(value) {
+  if (!Array.isArray(value)) {
+    return [];
+  }
+  return value
+    .slice(0, 20)
+    .map((ref) => sanitizeText(ref, "ref", 240))
+    .filter(Boolean);
+}
+
+function normalizeRecentCount(value, fallback = DEFAULT_RECENT_COUNT) {
+  const parsed = Number.parseInt(value, 10);
+  if (!Number.isFinite(parsed) || parsed < 1) {
+    return fallback;
+  }
+  return Math.min(parsed, 200);
+}
+
 async function copyDirectoryIfPresent(source, target) {
   if (!(await pathExists(source))) {
     return;
@@ -360,6 +545,17 @@ async function copyDirectoryIfPresent(source, target) {
     force: false,
     errorOnExist: false,
   });
+}
+
+function validatePrivateStateRoot(repoRoot, privateStateRoot) {
+  const relative = path.relative(repoRoot, privateStateRoot).split(path.sep).join("/");
+  if (relative !== "private-state") {
+    return {
+      ok: false,
+      reason: "private_state_root_must_be_nested_private_state",
+    };
+  }
+  return { ok: true, reason: null };
 }
 
 async function runGit(cwd, args, runCommand) {

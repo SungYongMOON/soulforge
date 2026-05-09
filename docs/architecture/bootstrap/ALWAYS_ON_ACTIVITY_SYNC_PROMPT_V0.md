@@ -36,6 +36,8 @@ activity sync
 4. 양쪽 `latest_context.json` 을 갱신한다.
 5. 변경이 있으면 `private-state` 에 commit/push 한다.
 
+`private-state` 는 Soulforge root 바로 아래 nested repo 여야 하며, branch 가 `main` 일 때만 실행한다. 기존 JSONL 에 malformed row 가 있으면 원본 위치에 보존하고 다른 surface 로 복제하지 않는다.
+
 ### 중요 규칙
 
 - 먼저 `AGENTS.md` 를 읽고 따른다.
@@ -45,6 +47,7 @@ activity sync
 - raw mail body, HTML body, attachment 내용은 읽지 않는다.
 - `_workspaces/**`, `_workmeta/**`, mailbox raw, attachment payload 는 읽지 않는다.
 - `guild_hall/state/operations/soulforge_activity/**` 와 `private-state/guild_hall/state/operations/soulforge_activity/**` 만 sync 대상이다.
+- activity event 는 allowlist 된 metadata 필드만 mirror 하고, legacy unknown field 는 복사하지 않는다.
 
 ### 실행
 
