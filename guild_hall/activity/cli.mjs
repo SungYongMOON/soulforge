@@ -7,6 +7,10 @@ import {
   defaultActivityRoot,
   refreshLatestContext,
 } from "./activity_log.mjs";
+import {
+  defaultPrivateStateRoot,
+  syncActivityToPrivateState,
+} from "./activity_sync.mjs";
 
 async function main() {
   const [command, ...rest] = process.argv.slice(2);
@@ -51,6 +55,24 @@ async function main() {
       latest_context_path: path.join(activityRoot, "latest_context.json"),
       latest_context: latestContext,
     });
+    return;
+  }
+
+  if (command === "sync") {
+    const result = await syncActivityToPrivateState({
+      repoRoot,
+      activityRoot,
+      privateStateRoot: path.resolve(args["private-state-root"] ?? defaultPrivateStateRoot(repoRoot)),
+      skipPull: args["skip-pull"] === true,
+      skipCommit: args["skip-commit"] === true,
+      skipPush: args["skip-push"] === true,
+      allowDirty: args["allow-dirty"] === true,
+      commitMessage: args["commit-message"],
+    });
+    printResult(args, result);
+    if (result.status !== "completed") {
+      process.exitCode = 1;
+    }
     return;
   }
 
@@ -125,8 +147,20 @@ function printResult(args, payload) {
   }
 
   const lines = [`activity ${payload.status}`];
+  if (payload.reason) {
+    lines.push(`reason: ${payload.reason}`);
+  }
   if (payload.entry_id) {
     lines.push(`entry_id: ${payload.entry_id}`);
+  }
+  if (payload.merge) {
+    lines.push(`merged_events: ${payload.merge.merged_event_count}`);
+    lines.push(`added_to_local: ${payload.merge.added_to_local}`);
+    lines.push(`added_to_private: ${payload.merge.added_to_private}`);
+  }
+  if (payload.private_state) {
+    lines.push(`private_state_changed: ${payload.private_state.changed ? "yes" : "no"}`);
+    lines.push(`private_state_pushed: ${payload.private_state.pushed ? "yes" : "no"}`);
   }
   if (payload.events_path) {
     lines.push(`events: ${payload.events_path}`);
@@ -143,6 +177,7 @@ function printUsageAndExit() {
       "Usage:",
       "  node guild_hall/activity/cli.mjs log --scope <scope> --action <action> --summary <summary> [--project-code <code>] [--result <result>] [--ref <path>] [--carry-forward true] [--next-action <text>] [--json]",
       "  node guild_hall/activity/cli.mjs refresh [--recent-count <n>] [--json]",
+      "  node guild_hall/activity/cli.mjs sync [--private-state-root <path>] [--skip-pull] [--skip-commit] [--skip-push] [--json]",
     ].join("\n"),
   );
   process.exit(1);

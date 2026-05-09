@@ -29,7 +29,7 @@
 | `work_pc` | 실제 업무 파일, 문서 작업, HDD/SSD/cloud project worksite 조작 | `owner-with-state` | `_workspaces/<project_code>/`, `_workmeta/` | project work, workmeta update, bounded evidence capture |
 | `tool_pc` | 특정 전문 tool 이 설치된 설계/분석 작업, tool 관련 skill/automation 제작 | `owner-with-state` | `_workspaces/<project_code>/`, `_workmeta/<project_code>/`, 필요 시 public skill/code | circuit/PCB/tool-bound design work, tool skill draft, heavy local validation, tool-run evidence capture |
 | `portable_dev_pc` | Soulforge 기능, UI, 문서, 설계 고민과 public repo 개발 | `owner-with-state` 또는 `public-only` | public `Soulforge`, 필요 시 `_workmeta/` | UI/dev docs, architecture review, code changes |
-| `always_on_node` | 24시간 감시, snapshot, reminder, gateway, healer, night watch, lightweight automation | `operator` 또는 `owner-with-state` | `guild_hall/state/**`, `private-state/` mirror | gateway fetch, snapshot check, healer run, morning report candidate, reminder, night watch |
+| `always_on_node` | 24시간 감시, snapshot, reminder, gateway, healer, night watch, lightweight automation | `operator` 또는 `owner-with-state` | `guild_hall/state/**`, `private-state/` mirror | gateway fetch, snapshot check, activity sync, healer run, morning report candidate, reminder, night watch |
 
 ## PC별 primary writer map
 
@@ -88,7 +88,7 @@ flowchart LR
 | --- | --- | --- |
 | public `Soulforge/.git` | `portable_dev_pc` | 코드, 구조 문서, public-safe sample 만 commit/push 한다. |
 | `guild_hall/state/**` | `always_on_node` | local runtime 이며 public Git 에 올리지 않는다. 필요한 연속성만 `private-state/` 로 mirror 한다. |
-| `private-state/**` | `always_on_node` | owner-only private repo 에 selected continuity subset 만 commit/push 한다. secret 값은 넣지 않는다. |
+| `private-state/**` | `always_on_node` | owner-only private repo 에 selected continuity subset 과 activity sync 결과만 commit/push 한다. secret 값은 넣지 않는다. |
 | `_workspaces/<project_code>/**` | `work_pc`, tool-bound 범위에서는 `tool_pc` | 실제 프로젝트 파일 local-only 이며 public Git 에 올리지 않는다. tool 산출물은 해당 tool 이 설치된 PC 에서 다룬다. |
 | `_workmeta/<project_code>/**` | `work_pc`, tool-bound run 범위에서는 `tool_pc` | owner-only private repo 에 project metadata, worklog, run truth 를 commit/push 한다. tool 실행 근거와 설계 판단도 여기에 남긴다. |
 | `node_identity.yaml` | 각 PC 자신 | `guild_hall/state/local/` 아래 local-only binding 이며 어떤 Git 에도 올리지 않는다. |

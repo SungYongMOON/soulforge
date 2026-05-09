@@ -11,6 +11,12 @@ Git log 는 원문 이력을 남기고, 이 문서는 사람이 읽는 patch not
 
 ## 2026-05-09
 
+### Revision `working` - activity sync 명령 추가
+
+- `guild-hall:activity:sync` 를 추가해 24시간 PC 가 local activity ledger 와 `private-state` activity mirror 를 `entry_id` 기준으로 병합하고 양쪽 `latest_context.json` 을 재생성할 수 있게 했다.
+- sync 는 `private-state` 를 fast-forward pull 한 뒤 변경이 있으면 activity surface 만 commit/push 하며, `_workspaces`, `_workmeta`, mailbox raw, attachment payload, secret file 은 읽지 않도록 경계를 고정했다.
+- 복사/붙여넣기가 어려운 24시간 PC 용 `ALWAYS_ON_ACTIVITY_SYNC_PROMPT_V0.md` 를 추가했다.
+
 ### Revision `working` - always-on harness 설치 prompt 추가
 
 - 복사/붙여넣기가 어려운 24시간 PC 에서 파일명 한 줄로 workflow evolution harness dependency 설치 확인을 실행할 수 있도록 always-on 전용 prompt source 를 추가했다.
