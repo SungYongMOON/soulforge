@@ -11,6 +11,11 @@ Git log 는 원문 이력을 남기고, 이 문서는 사람이 읽는 patch not
 
 ## 2026-05-09
 
+### Revision `working` - always-on harness 설치 prompt 추가
+
+- 복사/붙여넣기가 어려운 24시간 PC 에서 파일명 한 줄로 workflow evolution harness dependency 설치 확인을 실행할 수 있도록 always-on 전용 prompt source 를 추가했다.
+- prompt 는 Codex `/goal`, promptfoo, OpenAI SDK, DSPy 설치 확인까지만 수행하고 gateway/healer/night_watch 설정과 workflow evolution 실험 실행은 건드리지 않도록 경계를 명시했다.
+
 ### Revision `working` - workflow evolution harness 설치 계획 추가
 
 - B skill 제작 흐름을 단일 skill 제작이 아니라 `workflow_evolution` discovery/slimming 실험으로 다루는 authoring plan 을 추가했다.
