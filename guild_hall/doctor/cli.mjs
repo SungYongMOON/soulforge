@@ -177,15 +177,15 @@ async function runDoctor(checklist, options = {}) {
     if (!itemAppliesToProfile(item, profile)) {
       continue;
     }
-    const targetPath = path.resolve(repoRoot, item.path);
-    const exists = await pathExists(targetPath);
+    const resolvedPath = await resolveLocalPathForCurrentPlatform(item.path);
+    const exists = resolvedPath.exists;
     results.push(withFixHint({
       id: item.id,
       label: item.label,
       category: "optional_local_path",
       required: false,
       status: exists ? "ok" : "missing",
-      path: relativeToRepoOrAbsolute(targetPath),
+      path: relativeToRepoOrAbsolute(resolvedPath.path),
       detail: exists ? "present" : item.note ?? "missing",
     }, { item }));
   }
@@ -195,8 +195,8 @@ async function runDoctor(checklist, options = {}) {
       continue;
     }
 
-    const targetPath = path.resolve(repoRoot, item.path);
-    const exists = await pathExists(targetPath);
+    const resolvedPath = await resolveLocalPathForCurrentPlatform(item.path);
+    const exists = resolvedPath.exists;
     const required = Boolean(item.required);
     const result = withFixHint({
       id: item.id,
@@ -204,7 +204,7 @@ async function runDoctor(checklist, options = {}) {
       category: "profile_local_path",
       required,
       status: exists ? "ok" : "missing",
-      path: relativeToRepoOrAbsolute(targetPath),
+      path: relativeToRepoOrAbsolute(resolvedPath.path),
       detail: exists ? "present" : item.note ?? "missing",
     }, { item, profile });
     results.push(result);
@@ -454,12 +454,9 @@ async function listSyncableSoulforgeCodexSkillNames() {
 }
 
 function runCommandCheck({ id, label, category, command, required }) {
-  const execution = spawnSync(command[0], command.slice(1), {
-    cwd: repoRoot,
-    encoding: "utf8",
-  });
+  const execution = runChecklistCommand(command);
 
-  if (execution.error?.code === "ENOENT") {
+  if (isCommandNotFound(execution, command[0])) {
     return {
       id,
       label,
@@ -486,8 +483,66 @@ function runCommandCheck({ id, label, category, command, required }) {
   };
 }
 
+function runChecklistCommand(command) {
+  const options = {
+    cwd: repoRoot,
+    encoding: "utf8",
+  };
+
+  if (process.platform !== "win32") {
+    return spawnSync(command[0], command.slice(1), options);
+  }
+
+  return spawnSync(command.map(quoteWindowsShellArg).join(" "), {
+    ...options,
+    shell: true,
+  });
+}
+
+function quoteWindowsShellArg(value) {
+  const text = String(value);
+  if (/^[A-Za-z0-9_./:=@+-]+$/.test(text)) {
+    return text;
+  }
+
+  return `"${text.replaceAll('"', '\\"')}"`;
+}
+
+function isCommandNotFound(execution, commandName) {
+  if (execution.error?.code === "ENOENT") {
+    return true;
+  }
+
+  if (process.platform !== "win32") {
+    return false;
+  }
+
+  const output = `${execution.stderr ?? ""}\n${execution.stdout ?? ""}`.toLowerCase();
+  return output.includes(String(commandName).toLowerCase()) && output.includes("is not recognized");
+}
+
 function readString(value) {
   return typeof value === "string" ? value : "";
+}
+
+async function resolveLocalPathForCurrentPlatform(relativePath) {
+  const candidates = [path.resolve(repoRoot, relativePath)];
+
+  if (process.platform === "win32") {
+    const normalized = relativePath.replaceAll("\\", "/");
+    if (normalized.endsWith("/bin/python")) {
+      const venvRoot = normalized.slice(0, -"/bin/python".length);
+      candidates.push(path.resolve(repoRoot, venvRoot, "Scripts", "python.exe"));
+    }
+  }
+
+  for (const candidate of candidates) {
+    if (await pathExists(candidate)) {
+      return { exists: true, path: candidate };
+    }
+  }
+
+  return { exists: false, path: candidates[0] };
 }
 
 function readGitIgnoreState(filePath) {

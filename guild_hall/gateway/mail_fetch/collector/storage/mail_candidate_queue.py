@@ -194,6 +194,6 @@ def _safe_int(value: Any) -> int:
 
 def _repo_relative(repo_root: Path, file_path: Path) -> str:
     try:
-        return str(file_path.relative_to(repo_root))
+        return file_path.relative_to(repo_root).as_posix()
     except ValueError:
-        return str(file_path)
+        return file_path.as_posix()
