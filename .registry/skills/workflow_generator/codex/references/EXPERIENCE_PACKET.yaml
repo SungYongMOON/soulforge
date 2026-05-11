@@ -1,0 +1,35 @@
+experience_packet:
+  exp_id:
+  source_fixture_id:
+  artifact_type:
+  phase: warm_evolve
+  source_round:
+    index:
+    controller_mode:
+    inner_bv_run_mode:
+  input_roles:
+    baseline_artifact_summary:
+    reference_artifact_seen_by_A: false
+    reference_artifact_seen_by_B: false
+    candidate_artifact_summary:
+    source_packets: []
+  observed_result:
+    passed:
+    redacted_verdict:
+    gaps: []
+    blockers: []
+  learned_rules: []
+  workflow_patch_candidates: []
+  skill_patch_candidates: []
+  source_packet_needs: []
+  verifier_contract_updates: []
+  compression_candidates: []
+  oracle_derived_content:
+    present: false
+    summary:
+    benchmark_safe_for_executor: true
+  a_controller_oracle_blind: true
+  next_round:
+    recommended_phase: warm_evolve|cold_replay|final_cold_gate|goal_reconstruction|stop
+    why:
+  evidence_files: []

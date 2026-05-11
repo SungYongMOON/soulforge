@@ -1,0 +1,16 @@
+run_id:
+controller_mode:
+benchmark_integrity_policy:
+  benchmark_mode_active:
+  reference_oracle_used_for_construction:
+  benchmark_integrity_remains_valid:
+entries:
+  - attempted_strategy:
+    result:
+    blocker:
+    next_strategy:
+    why_next_strategy_is_different:
+    evidence_file:
+    benchmark_integrity_remains_valid:
+    human_decision_required:
+    stop_rule_triggered:

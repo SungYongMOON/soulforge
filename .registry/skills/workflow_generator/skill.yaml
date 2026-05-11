@@ -1,0 +1,42 @@
+skill_id: workflow_generator
+kind: skill
+status: active
+title: Workflow Generator
+summary: Generate, evolve, and validate reusable workflows through source-bound fresh-subagent execution and verifier-separated evidence loops.
+behavior:
+  intent: Discover or improve repeatable workflows from concrete objectives while preserving baseline immutability, source provenance, fresh executor/verifier separation, goal clarity, and oracle boundaries.
+  use_when:
+    - a new workflow must be generated from a concrete baseline-to-candidate objective
+    - an existing workflow or skill must be evolved through evidence-backed rounds
+    - reference-backed validation must keep construction executors separate from verifier-only oracle access
+    - successful run logs must be distilled into replayable workflow steps
+  avoid_when:
+    - the task is a simple one-off artifact edit with no reusable workflow objective
+    - the user asks for direct open-book reconstruction rather than source-bound workflow validation
+    - required source, subagent, or verifier boundaries cannot be maintained
+  expected_outcome:
+    - run goals include explicit success and stop conditions
+    - material stages are executed in fresh contexts when authorized
+    - candidates, source packets, verdicts, strategy decisions, and blockers are recorded as run evidence
+    - successful procedures are replayed from the original baseline before readiness claims
+execution_requirements:
+  required_capabilities:
+    - workflow_generation
+    - subagent_orchestration
+    - evidence_logging
+    - verifier_boundary_control
+  preferred_capabilities:
+    - source_research
+    - structured_yaml_authoring
+    - artifact_validation
+  preferred_tools:
+    - rg
+    - git_diff
+    - markdown_editor
+    - yaml_validator
+  notes:
+    - "actual model, attached Codex skill package, MCP, and tool choice resolve in local `_workmeta/<project_code>/bindings/`."
+    - "Codex-facing instructions live in `codex/`; runtime logs, candidates, source packets, verdicts, and local paths stay outside the tracked skill package."
+notes:
+  - "`workflow_generator` is the canonical source-bound workflow generation and evolution skill."
+  - "The installed Codex mirror name is normally `soulforge-workflow-generator` after `skills:sync`."

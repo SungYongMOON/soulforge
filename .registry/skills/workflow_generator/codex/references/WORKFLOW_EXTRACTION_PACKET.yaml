@@ -1,0 +1,51 @@
+workflow_extraction_packet:
+  extraction_id:
+  source_run_id:
+  source_controller_mode:
+  fixtures:
+    passed: []
+    failed: []
+    blocked: []
+  evidence_inputs:
+    strategy_ledger:
+    experience_packets: []
+    source_packets: []
+    redacted_verdicts: []
+    candidate_artifact_summaries: []
+    tool_logs: []
+    regression_matrix:
+  reusable_steps:
+    - step_id:
+      description:
+      evidence_files: []
+      source_packet_ids: []
+      validation_gate:
+      proposed_owner: workflow|skill
+  fixture_specific_steps:
+    - step_id:
+      description:
+      reason_not_reusable:
+  oracle_derived_steps:
+    - step_id:
+      description:
+      allowed_use: reconstruction_only|verifier_only|excluded
+      benchmark_executor_safe: false
+  proposed_workflow:
+    name:
+    steps: []
+    required_skills: []
+    handoff_contracts: []
+    verifier_contract:
+    redacted_verdict_contract:
+  proposed_skill_candidates:
+    - name:
+      trigger:
+      bounded_inputs:
+      output_contract:
+      validation_required:
+  benchmark_integrity:
+    reference_oracle_used_for_construction:
+    executor_received_oracle_derived_content:
+    cold_replay_required:
+    final_cold_gate_required:
+  next_action:

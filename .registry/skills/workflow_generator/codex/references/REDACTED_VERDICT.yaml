@@ -1,0 +1,44 @@
+redacted_verdict:
+  verdict_id:
+  run_id:
+  verifier_role: V
+  benchmark_mode_active:
+  default_was_fail: true
+  pass:
+  acceptance_level_supported:
+  oracle_visible_to_B: false
+  oracle_visible_to_A: false
+  verifier_separate_from_B: true
+  verifier_read_only: true
+  a_controller_oracle_blind_confirmed:
+  artifact_presence:
+    required_artifacts_present:
+    candidate_identity:
+    reference_identity_redacted: true
+  must_have_summary:
+    passed_count:
+    failed_count:
+    unknown_count:
+  failure_classes: []
+  abstract_deltas:
+    - delta_id:
+      artifact_area:
+      abstract_difference:
+      severity:
+      evidence_without_oracle_payload:
+  missing_capabilities: []
+  source_gaps: []
+  boundary_issues: []
+  tolerated_residual_count:
+  non_tolerated_residual_count:
+  confidence:
+  next_capability_recommendations_for_A: []
+  forbidden_content_absent:
+    no_copied_oracle_payload:
+    no_exact_target_values:
+    no_coordinates_or_object_ids:
+    no_answer_key_steps:
+    no_target_specific_patch:
+  completion_report_allowed:
+    value:
+    reason:

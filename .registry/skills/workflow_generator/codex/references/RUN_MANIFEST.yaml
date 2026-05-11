@@ -1,0 +1,92 @@
+run_id:
+workflow_family_id:
+run_root:
+created_at:
+node_role:
+project_code:
+
+storage:
+  a_skill_folder:
+  a_skill_folder_runtime_writes_allowed: false
+  evidence_root: run_evidence
+  goal_declaration_path: run_evidence/GOAL_DECLARATION.yaml
+  run_manifest_path: run_evidence/RUN_MANIFEST.yaml
+  source_packets_dir: SOURCE_PACKETS
+  experience_packets_dir: EXPERIENCE_PACKETS
+  candidates_dir: CANDIDATES
+  verdicts_dir: VERDICTS
+  public_repo_modified: false
+  original_inputs_modified: false
+
+objective:
+codex_goal_status: created|existing_matching|unavailable|blocked_conflicting_goal
+codex_goal_objective:
+codex_goal_success_condition:
+codex_goal_stop_conditions:
+codex_goal_lifecycle:
+  candidate_chain_required: true|false
+  log_to_workflow_extraction_required: true|false
+  baseline_replay_required: true|false
+completion_target: design_only|pilot_execute|prove_to_canon|auto_register
+completion_target_basis:
+  latest_user_request_id_or_timestamp:
+  verbatim_user_stop_words:
+  concrete_execution_target_present: true|false
+  explicitly_forbids_pilot_execution: true|false
+  explicitly_forbids_candidate_construction: true|false
+  explicitly_forbids_verification: true|false
+  reference_or_validation_requested: true|false
+  ambiguity_status: clear|ambiguous
+  ambiguity_notes:
+goal_lock_status: declared|missing|invalid
+declared_before_material_stages: true|false
+controller_mode: single_skill_build|single_skill_modify|multi_skill_workflow|goal_reconstruction|workflow_evolution|skill_extraction_after_success
+starting_state: existing_workflow|no_existing_workflow|unknown
+workflow_family_status: new_family|existing_family|unknown
+
+artifacts:
+  baseline_artifact_path:
+  reference_artifact_path:
+  current_candidate_artifact_path:
+  artifact_type:
+  candidate_comparison_scope: current_candidate|final_candidate|all_candidates_explicit
+  candidate_chain_used: true|false
+  candidate_chain_decision_reason:
+  candidate_chain:
+    - round:
+      input_artifact_path:
+      output_candidate_path:
+      same_run_predecessor: true|false
+      executor_subagent_id:
+      allowed_sources:
+
+boundaries:
+  A_controller_oracle_blind: true
+  B_executor_oracle_blind: true
+  V_oracle_visible_read_only:
+  verifier_report_policy: redacted_verdict_only|detailed_discovery_repair|reconstruction
+  approved_non_oracle_sources_only_for_construction: true
+
+paths:
+  fixture_queue_root:
+  preflight_source_survey_path:
+  source_discovery_packet_path:
+  strategy_ledger_path:
+  regression_matrix_path:
+  workflow_extraction_packet_path:
+
+budget:
+  max_iterations:
+  max_runtime_minutes:
+  max_token_budget:
+
+status:
+  current_iteration:
+  evolution_phase: warm_evolve|cold_replay|final_cold_gate|null
+  output_state: draft|pilot-ready|pilot-executed|canon-ready|registered|blocked
+  stop_reason:
+  status: active|paused|blocked|verified
+  next_action_type:
+  human_decision_required:
+  must_stop_triggered_by:
+  stop_decision_evidence:

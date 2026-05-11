@@ -1,0 +1,4 @@
+interface:
+  display_name: "soulforge-workflow-generator"
+  short_description: "Generate and evolve workflows with source-bound subagent evaluation"
+  default_prompt: "Use $soulforge-workflow-generator to generate or evolve a workflow from a fresh objective with source-bound subagent evaluation."

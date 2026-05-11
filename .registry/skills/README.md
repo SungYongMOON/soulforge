@@ -1,5 +1,7 @@
 # .registry/skills
 
+- `workflow_generator/` is the tracked source-bound workflow generation and evolution skill; its `codex/` bridge syncs to the installed `soulforge-workflow-generator` Codex skill.
+
 - `skills/` 는 reusable skill canon 을 두는 registry surface 다.
 - 각 skill folder 는 `skill.yaml` 을 canon entry 로 사용한다.
 - `skill.yaml` 은 behavior 와 `execution_requirements` 를 기록할 수 있다.

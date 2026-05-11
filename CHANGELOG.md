@@ -29,6 +29,17 @@ Git log 는 원문 이력을 남기고, 이 문서는 사람이 읽는 patch not
 
 - 복사/붙여넣기가 어려운 24시간 PC 에서 파일명 한 줄로 workflow evolution harness dependency 설치 확인을 실행할 수 있도록 always-on 전용 prompt source 를 추가했다.
 - prompt 는 Codex `/goal`, promptfoo, OpenAI SDK, DSPy 설치 확인까지만 수행하고 gateway/healer/night_watch 설정과 workflow evolution 실험 실행은 건드리지 않도록 경계를 명시했다.
+### Revision `working` - workflow_generator skill package added
+
+- Added `.registry/skills/workflow_generator/` as the tracked canon and Codex bridge package for the source-bound workflow generation skill.
+- The package materializes to the installed `soulforge-workflow-generator` skill through `npm run skills:sync -- workflow_generator`.
+- Kept runtime run evidence, local artifact paths, candidates, and verifier outputs outside the tracked skill package.
+
+### Revision `working` - Windows doctor harness 확인 보정
+
+- bootstrap doctor 가 Windows 에서 `npm`, `codex`, `promptfoo` 같은 `.cmd` shim 기반 CLI 를 확인할 수 있도록 command check 실행을 보정했다.
+- workflow evolution venv 확인이 Windows venv 의 `Scripts/python.exe` 경로도 인식하도록 local path 판정을 보강했다.
+- mail candidate queue 가 public-safe source path 를 Windows 에서도 POSIX-style repo path 로 기록하도록 보정했다.
 
 ### Revision `working` - workflow evolution harness 설치 계획 추가
 

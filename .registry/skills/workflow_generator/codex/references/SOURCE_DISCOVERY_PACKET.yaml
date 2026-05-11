@@ -1,0 +1,39 @@
+source_discovery_packet:
+  packet_id:
+  run_id:
+  starting_state: existing_workflow|no_existing_workflow|unknown
+  artifact_type:
+  benchmark_mode_active:
+  a_controller_oracle_blind: true
+  baseline_artifact:
+    path_or_summary:
+    inspected_by_A:
+  reference_oracle:
+    exists:
+    inspected_by_A: false
+    verifier_only: true
+  approved_non_oracle_sources:
+    - source_id:
+      type:
+      path_or_url:
+      provenance:
+      approved_scope:
+  missing_sources: []
+  missing_assets: []
+  tool_readiness:
+    required_tools: []
+    known_safe_operations: []
+    unknown_or_unsafe_operations: []
+  source_sufficiency:
+    status: sufficient|insufficient|unknown
+    reason:
+  seed_workflow_candidate:
+    safe_to_create:
+    steps: []
+    required_skills: []
+    verifier_requirements: []
+  stop_risks:
+    - risk:
+      reason:
+  next_phase: create_seed_workflow|add_source_packet|run_tool_readiness_or_roundtrip|goal_reconstruction|blocked
+  evidence_files: []
