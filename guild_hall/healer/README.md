@@ -17,6 +17,14 @@ npm run guild-hall:healer:run -- --json
 npm run guild-hall:healer:run -- --skip-validate --json
 ```
 
+## 운영 권장
+
+- 24시간 PC 에서는 자주 도는 감시를 Codex heartbeat 가 아니라 launchd + healer script 로 둔다.
+- light run 은 30분 또는 60분 주기로 `--skip-validate` 를 붙여 gateway 상태와 activity 기록만 빠르게 확인한다.
+- full run 은 하루 1회 `npm run validate` 까지 포함해 저장소 기본 무결성을 확인한다.
+- 실패 Telegram 알림은 report path 와 짧은 실패 요약만 보내고, mail body/html/attachment/secret 값은 포함하지 않는다.
+- rollout 기준은 [`../../docs/architecture/bootstrap/ALWAYS_ON_HEALER_ROLLOUT_PLAN_V0.md`](../../docs/architecture/bootstrap/ALWAYS_ON_HEALER_ROLLOUT_PLAN_V0.md) 를 따른다.
+
 ## 기본 점검
 
 - `git status --short --branch`

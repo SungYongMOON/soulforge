@@ -11,6 +11,12 @@ Git log 는 원문 이력을 남기고, 이 문서는 사람이 읽는 patch not
 
 ## 2026-05-09
 
+### Revision `working` - always-on healer rollout 기준 추가
+
+- 24시간 PC 감시를 Codex heartbeat 중심이 아니라 launchd + deterministic healer/doctor script 중심으로 늘리는 rollout plan 을 추가했다.
+- MacBook Air 는 repo 코드/문서/test/commit/push 를 맡고, 실제 LaunchAgent 설치와 secret/env 연결은 24시간 PC 에서 수행하는 역할 분리를 문서화했다.
+- mail fetch, mail healthcheck, town_crier 는 LLM 을 쓰지 않고, LLM 은 morning report 또는 장애 triage 같은 낮은 빈도 advisory 계층에 둔다는 운영 기준을 명시했다.
+
 ### Revision `working` - activity sync 명령 추가
 
 - `guild-hall:activity:sync` 를 추가해 24시간 PC 가 local activity event ledger 와 `private-state` activity mirror 를 `entry_id` 기준으로 병합하고 양쪽 `latest_context.json` 을 재생성할 수 있게 했다.
