@@ -2,6 +2,17 @@
 
 Use this reference when deciding whether target skill B can be reported as draft, usable, or production-ready.
 
+## Contents
+
+- [Fresh-Context B Execution](#fresh-context-b-execution)
+- [Separate Verifier Subagent](#separate-verifier-subagent)
+- [Strict Reference-Level Verification](#strict-reference-level-verification)
+- [Baseline-Fixed Skill Verification Gate](#baseline-fixed-skill-verification-gate)
+- [Structure Validator](#structure-validator)
+- [Script Checks](#script-checks)
+- [Score Rubric](#score-rubric)
+- [Completion Report Status](#completion-report-status)
+
 ## Fresh-Context B Execution
 
 B's actual task performance must be tested in a fresh-context subagent whenever subagents are authorized and available.

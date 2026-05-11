@@ -11,6 +11,12 @@ Git log 는 원문 이력을 남기고, 이 문서는 사람이 읽는 patch not
 
 ## 2026-05-09
 
+### Revision `working` - workflow_generator Codex bridge refactor
+
+- Refactored `.registry/skills/workflow_generator/codex/SKILL.md` into a lean operating router and moved detailed goal/run-state/reporting governance into `codex/references/run-governance.md`.
+- Added table-of-contents navigation to long workflow generator references so Codex can load specific details progressively.
+- Updated the installed skill UI display name to a human-facing title while preserving the `soulforge-workflow-generator` skill id.
+
 ### Revision `working` - mail candidate activity projection 추가
 
 - `guild-hall:activity:project-mail-candidates` 를 추가해 local-only `mail_candidate` queue 의 body-safe 후보 요약을 activity event 로 투영할 수 있게 했다.

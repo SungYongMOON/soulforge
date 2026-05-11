@@ -2,6 +2,18 @@
 
 Use these templates only as needed. Keep completed records concise.
 
+## Contents
+
+- [Target Brief](#target-brief)
+- [Run Modes And Baseline Identity](#run-modes-and-baseline-identity)
+- [Acceptance Levels](#acceptance-levels)
+- [Scorecard](#scorecard)
+- [B Executor Prompt](#b-executor-prompt)
+- [V Verifier Prompt](#v-verifier-prompt)
+- [Comparison Note](#comparison-note)
+- [Stop Conditions](#stop-conditions)
+- [After-Each-Round Governance](#after-each-round-governance)
+
 ## Target Brief
 
 ```yaml

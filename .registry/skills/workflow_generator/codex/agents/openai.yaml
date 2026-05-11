@@ -1,4 +1,4 @@
 interface:
-  display_name: "soulforge-workflow-generator"
+  display_name: "Soulforge Workflow Generator"
   short_description: "Generate workflows with source-bound, chained-artifact evaluation"
   default_prompt: "Use $soulforge-workflow-generator to generate or evolve a workflow from a fresh objective with source-bound subagent evaluation and cumulative EXPn-to-EXPn+1 artifact chaining."
