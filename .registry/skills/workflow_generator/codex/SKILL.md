@@ -1,6 +1,6 @@
 ---
 name: soulforge-workflow-generator
-description: Use when Codex must generate, evolve, or validate format-agnostic workflows through evidence-driven evaluation. Supports workflow creation from fresh objectives, multi-skill workflow design, fixture-driven workflow evolution, single-skill build/modify when needed, goal reconstruction, and skill extraction after success while preserving fresh executor/verifier separation, baseline artifact immutability, source-packet provenance, and strict oracle boundaries.
+description: Use when Codex must generate, evolve, or validate format-agnostic workflows through evidence-driven evaluation. Supports workflow creation from fresh objectives, multi-skill workflow design, fixture-driven workflow evolution, single-skill build/modify when needed, goal reconstruction, and skill extraction after success while preserving fresh executor/verifier separation, cumulative same-run artifact chaining for warm transformation rounds, source-packet provenance, baseline replay gates, and strict oracle boundaries.
 ---
 
 # Soulforge Workflow Generator
@@ -27,7 +27,7 @@ Use this operating spine before all detailed mode rules:
 1. Create a fresh run root and record the user's latest request without strengthening or narrowing it.
 2. Treat the baseline as B-visible construction input and the reference as V-only comparison input.
 3. Execute each material stage through a fresh subagent context. A may prepare packets and inspect outputs, but stage packets alone are not evidence that the stage works.
-4. Give each construction attempt to a fresh B executor subagent with only the allowed current input artifact, approved non-oracle sources, current workflow or skill instructions, and safe tool constraints. In warm iterative authoring, the allowed current input may be the previous same-run candidate such as `EXP_v1.xml` when the manifest records the candidate chain. A must not construct the candidate in its own context when the purpose is to test repeatability.
+4. Give each construction attempt to a fresh B executor subagent with only the allowed current input artifact, approved non-oracle sources, current workflow or skill instructions, and safe tool constraints. In warm iterative artifact-transformation authoring, the allowed current input is the immediately previous same-run candidate such as `EXP_v1.xml`, not the original baseline again. A must not construct the candidate in its own context when the purpose is to test repeatability.
 5. After B produces a candidate, give only the candidate, reference, acceptance contract, and verifier-only instructions to a separate fresh V verifier subagent when reference comparison is active.
 6. V returns a redacted verdict. It must not return exact reference content, coordinates, object ids, payloads, or patch instructions that B could copy.
 7. A logs every executed stage and attempt: subagent role, prompt, allowed inputs, outputs, candidate path when present, tool commands, stage log, verdict, failure class, strategy decision, and any workflow/skill edit made from non-oracle evidence plus redacted capability gaps.
@@ -42,6 +42,38 @@ For this discovery loop, `workflow_draft` and stage prompts are checkpoints only
 
 Stage-preparation artifacts are not a substitute for stage execution. A workflow package that contains only R/B/S/V packets but no fresh subagent stage logs remains `blocked` when execution is required, or a draft checkpoint when the user explicitly asked for design-only; it is not `pilot-executed`.
 
+## Cumulative Artifact Chain Gate
+
+For artifact transformation workflows, keep these two ideas separate:
+
+- `fresh agent`: each R/T/B/S/V/O role runs in a fresh context.
+- `fresh artifact`: only B1 or cold/final replay starts from the original baseline.
+
+Warm construction rounds must use a cumulative same-run artifact chain:
+
+```text
+EXP0_baseline -> B1 -> EXP1
+EXP1 -> B2 -> EXP2
+EXP2 -> B3 -> EXP3
+```
+
+After B1, a B executor must receive the immediately previous same-run candidate as its input artifact and write the next candidate. Do not restart B2/B3/... from the original baseline unless the run is explicitly in `baseline_fixed_skill_eval`, `cold_replay`, or `final_cold_gate`.
+
+S validates the current candidate `EXPn`. S may also receive `EXPn-1` only as a regression/delta baseline to verify that prior accepted edits persist and that the current delta is source-supported. S must not treat `EXPn-1` as the candidate under test.
+
+V compares only the current candidate `EXPn` against the original V-only reference. V does not need prior candidates except when a verifier contract explicitly asks for redacted regression context, and V must still not disclose REF-derived repair details.
+
+Every chained B stage prompt must include:
+
+- predecessor candidate path;
+- successor candidate path;
+- operation ledger path or cumulative edit summary;
+- approved source/schema/scope packet paths;
+- explicit ban on resetting to original baseline;
+- self-check that prior accepted components, connectivity, notes, marker hygiene, and schema fixes persist unless removed with source-backed rationale.
+
+A must record `candidate_chain_required: true` for warm artifact-transformation discovery runs unless the user explicitly requested a baseline-fixed skill evaluation. If A chooses not to chain in a warm artifact-transformation run, the run must stop as `blocked_invalid_artifact_chain_policy`; do not continue rounds from the original baseline and do not call the workflow reusable.
+
 ## Log-To-Workflow Replay Gate
 
 Warm authoring may proceed through several same-run candidate versions, but those versions are not the final reusable workflow. Once a stage or candidate chain works well enough to learn from, A must extract the actual workflow from the run logs: stage prompts, allowed inputs, source packets, candidate-chain records, tool commands, validators, redacted verifier verdicts, blockers, and strategy decisions.
@@ -54,15 +86,16 @@ For reference-backed artifact workflows, acceptance is always measured against t
 
 Fresh means no construction or verification input may come from sibling runs, older run roots, older-run candidates, older-run verdicts, older-run stage packets, older-run source packets, prior repair packets, or files found only because their names look similar, such as old `round*`, `candidate*`, `verdict*`, `SOURCE_PACKETS`, or workflow draft files.
 
-This guard does not prohibit an explicit same-run warm candidate chain. A fresh run may create and use its own recorded sequence, for example `EXP_v0_baseline.xml -> EXP_v1.xml -> EXP_v2.xml -> EXP_v3.xml`, when the current manifest records each link as same-run evidence and B receives only the immediately allowed predecessor plus approved non-oracle sources.
+This guard requires the same-run warm candidate chain for artifact-transformation discovery. A fresh run may create and use its own recorded sequence, for example `EXP_v0_baseline.xml -> EXP_v1.xml -> EXP_v2.xml -> EXP_v3.xml`, when the current manifest records each link as same-run evidence and B receives only the immediately allowed predecessor plus approved non-oracle sources.
 
 For a fresh run:
 
 - A may inspect only the current user request, approved baseline artifacts, approved non-oracle public/local sources, tool help, schemas, library metadata, and files created under the current run root after `GOAL_DECLARATION.yaml`.
 - Do not search old run roots for construction shortcuts. If a broad file search accidentally finds similar prior-run files, record them as `ignored_prior_run_artifacts` and do not pass them to R, B, S, or V.
 - B and R inputs must be copied or generated into the current run root or an isolated workspace for this run. They must not reference sibling run paths.
-- Same-run candidate chaining must be explicit: record `candidate_chain_used: true`, `candidate_chain_decision_reason`, `candidate_chain`, predecessor path, successor path, responsible subagent, allowed sources, and why the next round starts from that predecessor.
-- If a warm run does not use same-run candidate chaining, record `candidate_chain_used: false` and `candidate_chain_decision_reason` before the next B round. The reason must explain why restarting each candidate from the baseline is cleaner, safer, or more probative than continuing from the previous candidate.
+- Same-run candidate chaining must be explicit: record `candidate_chain_required: true`, `candidate_chain_used: true`, `candidate_chain_decision_reason`, `candidate_chain`, predecessor path, successor path, responsible subagent, allowed sources, and why the next round starts from that predecessor.
+- If a warm artifact-transformation run cannot use same-run candidate chaining, stop before the next B round as `blocked_invalid_artifact_chain_policy`. Do not keep rebuilding from the baseline.
+- Record `candidate_chain_used: false` only for `baseline_fixed_skill_eval`, `cold_replay`, `final_cold_gate`, design-only planning, or another explicit mode where the purpose is to test baseline-fixed reproducibility rather than warm artifact evolution.
 - V may receive only the current candidate, the verifier-only reference/oracle artifact, and the current acceptance contract.
 - Reusing prior run evidence is allowed only when the user's latest request explicitly asks to continue or reuse that specific run. In that case, this is not a fresh run; record the inherited run id and visible artifacts before any stage executes.
 
@@ -119,7 +152,7 @@ codex_goal_objective:
 codex_goal_success_condition:
 codex_goal_stop_conditions:
 codex_goal_lifecycle:
-  candidate_chain_required: true|false
+  candidate_chain_required: true|false  # true by default for warm artifact-transformation discovery
   log_to_workflow_extraction_required: true|false
   baseline_replay_required: true|false
 declared_before_material_stages: true
@@ -184,7 +217,7 @@ For source-bootstrap tasks:
 - Select `multi_skill_workflow` or `workflow_evolution` with an internal R stage before declaring `blocked_pending_non_oracle_source_packet`.
 - R reads only the user goal, baseline artifact, approved public or local non-oracle sources, tool help, schemas, and library metadata. R must not read the reference/oracle artifact or V-only reports.
 - R writes `source_discovery_packet` and one or more executor-approved `source_packet` files with citations, sufficiency scoring, missing-source gaps, asset availability, and tool/format constraints.
-- B receives only the allowed current input artifact, current workflow or skill instructions, approved source packets, safe task prompt, and tool constraints. For round 1 this is usually the baseline artifact; for an explicit same-run warm candidate chain it may be the immediately previous same-run candidate. B must not receive REF, V reports, older-run candidates, A diagnosis, or oracle-derived repair details.
+- B receives only the allowed current input artifact, current workflow or skill instructions, approved source packets, safe task prompt, and tool constraints. For round 1 this is usually the baseline artifact; for warm artifact-transformation rounds after round 1 this must be the immediately previous same-run candidate. B must not receive REF, V reports, older-run candidates, A diagnosis, or oracle-derived repair details.
 - S or source verification checks that B's output is supported by source packets and does not need REF.
 - V may compare the candidate with REF only after a candidate exists and only in a separate verifier context. V returns redacted verdicts: pass/fail, score, failure class, abstract delta, missing capability, source gap, boundary issue, and confidence.
 - A may use redacted V gaps to improve the workflow, R search criteria, source-packet schema, B instructions, or verifier contract. A must not convert V output into exact REF-derived construction targets.
@@ -332,7 +365,7 @@ If no workflow exists, record `starting_state: no_existing_workflow`, run `prefl
 
 Workflow evolution uses three phases:
 
-- `warm_evolve`: A may use same-run candidates, redacted verifier verdicts, logs, and strategy ledger entries to create distilled experience packets and improve the workflow quickly. B may receive the immediately previous same-run candidate as its input only when the manifest records an explicit candidate chain. Evidence from this phase is learning evidence, not benchmark skill-validation evidence.
+- `warm_evolve`: A may use same-run candidates, redacted verifier verdicts, logs, and strategy ledger entries to create distilled experience packets and improve the workflow quickly. For artifact-transformation workflows, B must receive the immediately previous same-run candidate as its input after B1, and the manifest must record the explicit candidate chain. Evidence from this phase is learning evidence, not benchmark skill-validation evidence.
 - `cold_replay`: Run the current workflow from the original baseline artifact or fixture input again. The replay may generate a new same-run candidate chain inside the replay workspace, but the executor must not receive warm-run candidates, verifier reports, repair packets, A diagnosis, experience packets, workflow extraction packets, warm artifacts, or oracle/reference material. This phase tests whether the workflow learned rather than merely continued a repaired state.
 - `final_cold_gate`: Before readiness, promotion, or canon claims, run a clean replay from baseline with fresh executor/verifier separation and no warm artifacts in the executor context.
 
@@ -758,7 +791,7 @@ Turn the user's criteria into an explicit contract before editing B:
 - `max_rounds`: default 3. Ask before going beyond the limit.
 - `max_fresh_evals`: default 5 total fresh-context B executor runs plus their matching V verifier runs.
 - `user_review_gate`: ask the user when the same gap repeats twice, when criteria conflict, or when the next improvement depends on taste/domain judgment.
-- `run_mode`: default to `baseline_fixed_skill_eval` when the user asks whether B can reach a reference/oracle from an original baseline artifact. Use `discovery_repair` only when the user asks for mismatch exploration or artifact repair discovery.
+- `run_mode`: for `single_skill_build` or `single_skill_modify`, default to `baseline_fixed_skill_eval` when the user asks whether B can reach a reference/oracle from an original baseline artifact. For artifact-transformation workflow discovery, do not use baseline-fixed warm rounds; use `multi_skill_workflow` or `workflow_evolution` with the cumulative candidate chain gate. Use `discovery_repair` only when the user asks for mismatch exploration or artifact repair discovery.
 
 Use three acceptance levels:
 

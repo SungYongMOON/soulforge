@@ -2,12 +2,13 @@ skill_id: workflow_generator
 kind: skill
 status: active
 title: Workflow Generator
-summary: Generate, evolve, and validate reusable workflows through source-bound fresh-subagent execution and verifier-separated evidence loops.
+summary: Generate, evolve, and validate reusable workflows through source-bound fresh-subagent execution, cumulative artifact chaining, and verifier-separated evidence loops.
 behavior:
-  intent: Discover or improve repeatable workflows from concrete objectives while preserving baseline immutability, source provenance, fresh executor/verifier separation, goal clarity, and oracle boundaries.
+  intent: Discover or improve repeatable workflows from concrete objectives while preserving baseline immutability, cumulative same-run artifact chains for warm transformation rounds, source provenance, fresh executor/verifier separation, goal clarity, and oracle boundaries.
   use_when:
     - a new workflow must be generated from a concrete baseline-to-candidate objective
     - an existing workflow or skill must be evolved through evidence-backed rounds
+    - iterative artifact transformation must chain each same-run candidate into the next round
     - reference-backed validation must keep construction executors separate from verifier-only oracle access
     - successful run logs must be distilled into replayable workflow steps
   avoid_when:
@@ -17,6 +18,7 @@ behavior:
   expected_outcome:
     - run goals include explicit success and stop conditions
     - material stages are executed in fresh contexts when authorized
+    - warm transformation rounds record the candidate chain and use the immediately previous candidate after the first build
     - candidates, source packets, verdicts, strategy decisions, and blockers are recorded as run evidence
     - successful procedures are replayed from the original baseline before readiness claims
 execution_requirements:

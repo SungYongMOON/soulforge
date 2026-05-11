@@ -17,6 +17,12 @@ Git log 는 원문 이력을 남기고, 이 문서는 사람이 읽는 patch not
 - `guild-hall:activity:sync` 가 기본적으로 pending mail candidate 를 `mail_candidate_summary` event 로 투영한 뒤 private-state activity mirror 를 병합/commit/push 하도록 연결했다.
 - private-state 로 넘어가는 것은 candidate id, subject, sender, attachment count, received_at, local ref 수준의 summary 이며 raw mail body/html/attachment filename/URL/local path/provider payload/secret 값은 제외한다고 문서화했다.
 
+### Revision `working` - workflow_generator 누적 artifact chain 규칙 보강
+
+- `workflow_generator` Codex bridge가 warm artifact transformation 라운드에서 B1 이후 `EXPn-1 -> EXPn` 누적 후보 체인을 필수로 쓰도록 보강했다.
+- fresh subagent와 fresh artifact를 분리해, S는 현재 후보를 검증하고 직전 후보는 delta/regression 기준으로만 사용하며 V는 현재 후보만 REF와 비교하도록 명시했다.
+- chain을 사용할 수 없는 warm transformation run은 `blocked_invalid_artifact_chain_policy`로 중단하고, baseline 재시작은 baseline-fixed 평가와 cold/final replay에만 남겼다.
+
 ### Revision `working` - always-on healer rollout 기준 추가
 
 - 24시간 PC 감시를 Codex heartbeat 중심이 아니라 launchd + deterministic healer/doctor script 중심으로 늘리는 rollout plan 을 추가했다.
