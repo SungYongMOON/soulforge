@@ -28,13 +28,17 @@ run_manifest:
   objective:
   run_id:
   workflow_family_id:
-  run_root:
+  run_root_repo_path:
+  run_root_runtime_path:
   run_mode: baseline_fixed_skill_eval
   starting_state: existing_workflow|no_existing_workflow|unknown
   a_skill_folder_runtime_writes_allowed: false
-  reference_artifact_path:
-  baseline_artifact_path:
-  current_candidate_artifact_path:
+  reference_artifact_repo_path:
+  reference_artifact_runtime_path:
+  baseline_artifact_repo_path:
+  baseline_artifact_runtime_path:
+  current_candidate_repo_path:
+  current_candidate_runtime_path:
   artifact_type:
   evolution_phase: warm_evolve|cold_replay|final_cold_gate|null
   experience_packet_path:
@@ -162,7 +166,7 @@ acceptance_contract:
     - domain_or_taste_judgment_needed
 baseline_input_immutability:
   required_when_run_mode: baseline_fixed_skill_eval
-  baseline_artifact_path_fixed_before_round_1: true
+  baseline_artifact_repo_path_fixed_before_round_1: true
   b_executor_uses_same_baseline_each_round: true
   previous_candidates_allowed_as_b_input: false
   previous_candidates_use: diagnosis_artifact_for_A_only
@@ -289,7 +293,7 @@ stop_condition:
   same_residual_repeats_twice: stop
   score_stalls_twice: stop
   evaluator_conflict: human_review
-  baseline_artifact_path_changed: immediate_stop
+  baseline_artifact_repo_path_changed: immediate_stop
   protected_public_contract_change_needed: stop
   pass_rule: acceptance_contract_met_by_b_executor_and_separate_v_verifier_or_user_acceptance
 ```
@@ -301,7 +305,7 @@ stop_condition:
 | `discovery_repair` | Discover mismatches and repair targets | B skill, task prompt, explicitly allowed repair packet or previous candidate for repair tasks | No |
 | `baseline_fixed_skill_eval` | Verify whether the current B skill can transform the original baseline artifact into an accepted-output or oracle-level candidate | B skill, task prompt, fixed baseline input workspace only | Yes, after final clean run |
 
-For `baseline_fixed_skill_eval`, record the absolute `baseline_artifact_path` once and reuse it for every round. Previous candidate artifacts may appear in A's diagnosis notes, but they must not be copied into B's executor workspace or used as the next round's input.
+For `baseline_fixed_skill_eval`, record the portable `baseline_artifact_repo_path` once and reuse that identity for every round. A runtime-only `baseline_artifact_runtime_path` may be used in isolated workspaces and prompts, but it must not be copied into reusable workflow/canon material. Previous candidate artifacts may appear in A's diagnosis notes, but they must not be copied into B's executor workspace or used as the next round's input.
 
 Final clean run requirements:
 
@@ -351,19 +355,24 @@ Use this shape for a fresh-context B executor. Do not include the intended fix, 
 For `baseline_fixed_skill_eval`, this prompt must identify the isolated workspace that contains the fixed baseline input. It must not include previous candidates, repair target packets, or V reports.
 
 ```text
-Use $<skill-name> at <absolute-skill-path> to complete this task:
+Use $<skill-name> at <target_skill_runtime_path> to complete this task:
 
 <realistic user request>
 
 Inputs:
 - Run mode: baseline_fixed_skill_eval
-- Fixed baseline input workspace: <isolated workspace path>
-- Fixed baseline input file: <baseline artifact path inside isolated workspace>
-- Output path for this round: <candidate output path>
+- Portable target skill identity: <target_skill_id or Soulforge-root-relative skill package path>
+- Fixed baseline input repo path: <baseline_artifact_repo_path>
+- Fixed baseline input workspace: <isolated workspace runtime path>
+- Fixed baseline input file: <baseline artifact runtime path inside isolated workspace>
+- Output repo path for this round: <candidate_repo_path if inside Soulforge>
+- Output runtime path for this round: <candidate_runtime_path>
 
 Constraints:
 - Do not read secrets, raw mail bodies, attachments, or unrelated private project content.
 - Do not commit or push.
+- Treat runtime paths in this prompt as local execution bindings only. Do not write them into reusable workflow packages, canon files, public-safe examples, or extracted skill/workflow candidates.
+- Any reusable path you report must be Soulforge-root-relative with `/` separators, or a stable id such as `workflow_id`, `skill_id`, `fixture_id`, or `source_id`.
 - Do not open or infer from hidden reference/oracle files such as REF.xml, REF.md, accepted outputs, target drawings, expected images, or answer keys.
 - Use only the isolated input workspace provided here. Do not inspect the original source folder if it may contain hidden reference/oracle files.
 - Do not read or reuse any previous candidate artifact.
@@ -456,10 +465,13 @@ redacted_verdict:
 round:
 run_mode:
 objective:
-reference_artifact_path:
-baseline_artifact_path:
-current_candidate_artifact_path:
-baseline_artifact_path_changed:
+reference_artifact_repo_path:
+reference_artifact_runtime_path:
+baseline_artifact_repo_path:
+baseline_artifact_runtime_path:
+current_candidate_repo_path:
+current_candidate_runtime_path:
+baseline_artifact_repo_path_changed:
 target_skill_version:
 benchmark_id:
 b_executor_result:
@@ -532,7 +544,7 @@ Stop the loop when one of these is true:
 - The same failure repeats after two focused edits.
 - Score improvement stalls after two focused edits.
 - The configured max runtime or token budget is reached.
-- `baseline_artifact_path` changes during a `baseline_fixed_skill_eval` run.
+- `baseline_artifact_repo_path` changes during a `baseline_fixed_skill_eval` run.
 - V evaluator reports conflict in a way A cannot resolve from observed evidence.
 - The next improvement requires domain facts, target examples, private data, or user preference.
 - The next edit would move data across public/private boundaries.

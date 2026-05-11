@@ -9,7 +9,8 @@ Record:
 - `controller_mode: workflow_evolution`
 - `workflow_family_id`
 - unique `run_id`
-- `run_root`
+- `run_root_repo_path` when the run root is inside Soulforge
+- `run_root_runtime_path` for local tool execution
 - `fixture_queue_root`
 - `starting_state: existing_workflow|no_existing_workflow|unknown`
 - artifact roles for each fixture: baseline, reference/oracle when present, candidate output, source packets
@@ -34,6 +35,8 @@ Before selecting the first fixture, create or declare a unique `run_root` for th
 Keep workflow family and run instance separate. For example, `block_diagram` is a family and `block_diagram_workflow_evolution_20260509_01` is one run. A later block-diagram request creates another sibling run root instead of merging evidence into the previous run.
 
 Store run-local packets, candidates, verdicts, and regression evidence under the run root. Only extracted reusable workflow or skill candidates move to a workflow/skill package after the extraction boundary is satisfied.
+
+When extracting a reusable workflow or skill candidate, convert artifact paths to Soulforge-root-relative POSIX paths. Do not promote `run_root_runtime_path`, installed skill paths, drive-letter paths, home-directory paths, or other host-specific absolute paths into `.workflow/**`, `.registry/**`, or public-safe examples.
 
 ## Loop
 

@@ -1,6 +1,7 @@
 run_id:
 workflow_family_id:
-run_root:
+run_root_repo_path:
+run_root_runtime_path:
 created_at:
 node_role:
 project_code:
@@ -45,20 +46,31 @@ starting_state: existing_workflow|no_existing_workflow|unknown
 workflow_family_status: new_family|existing_family|unknown
 
 artifacts:
-  baseline_artifact_path:
-  reference_artifact_path:
-  current_candidate_artifact_path:
+  baseline_artifact_repo_path:
+  baseline_artifact_runtime_path:
+  reference_artifact_repo_path:
+  reference_artifact_runtime_path:
+  current_candidate_repo_path:
+  current_candidate_runtime_path:
   artifact_type:
   candidate_comparison_scope: current_candidate|final_candidate|all_candidates_explicit
   candidate_chain_used: true|false
   candidate_chain_decision_reason:
   candidate_chain:
     - round:
-      input_artifact_path:
-      output_candidate_path:
+      input_artifact_repo_path:
+      input_artifact_runtime_path:
+      output_candidate_repo_path:
+      output_candidate_runtime_path:
       same_run_predecessor: true|false
       executor_subagent_id:
       allowed_sources:
+
+path_portability:
+  reusable_paths_are_soulforge_root_relative: true
+  runtime_paths_allowed_only_in_run_evidence: true
+  reusable_path_separator: "/"
+  absolute_paths_excluded_from_workflow_package: true
 
 boundaries:
   A_controller_oracle_blind: true

@@ -46,6 +46,12 @@ The goal must include the lifecycle, not only the next artifact: same-run candid
 
 If subagent authorization is absent and a real B/V run is required, stop with the exact authorization needed. Do not convert the task to `design_only` merely because fresh execution is blocked.
 
+## Path Portability
+
+Reusable workflow packages, canon files, public-safe examples, and extracted skill/workflow candidates must use Soulforge-root-relative POSIX paths. Do not write host-specific absolute paths such as `C:\...`, drive letters, home directories, or installed local skill paths into `.workflow/**`, `.registry/**`, `docs/architecture/**`, or any reusable workflow package.
+
+Runtime-only absolute paths are allowed only in local/private run evidence or subagent prompts when a tool needs them. Label them as `*_runtime_path` and keep a paired portable identity such as `*_repo_path`, `workflow_id`, or `skill_id`. When a path is inside the Soulforge project, store the portable form relative to the Soulforge root, for example `.workflow/example/workflow.yaml` or `_workmeta/<project_code>/runs/<run_id>/...`, using `/` separators.
+
 ## Quick Routing
 
 Select the narrowest controller mode that fits:

@@ -57,8 +57,8 @@ Use this gate when the user asks for reference-level, oracle-level, accepted-out
 Use this gate when the user wants evidence that B can reach a reference/oracle result from an original input, not from an already-repaired intermediate artifact.
 
 - The run manifest must declare `run_mode: baseline_fixed_skill_eval`.
-- The manifest must fix `reference_artifact_path`, `baseline_artifact_path`, `current_candidate_artifact_path`, `artifact_type`, `current_iteration`, `budget`, `stop_reason`, and `status`.
-- Every round must start from the same `baseline_artifact_path`; if the baseline path changes, stop immediately.
+- The manifest must fix `reference_artifact_repo_path`, `baseline_artifact_repo_path`, `current_candidate_repo_path`, `artifact_type`, `current_iteration`, `budget`, `stop_reason`, and `status`. Runtime-only paired fields may be used for local execution.
+- Every round must start from the same `baseline_artifact_repo_path`; if the portable baseline identity changes, stop immediately.
 - B receives only the current B skill, the realistic task prompt, the fixed baseline input workspace, and safety constraints.
 - B must not receive previous candidates, repair target packets, V reports, A diagnosis, expected answers, or reference/oracle content.
 - A may use only V's redacted verdict to edit B between rounds. Detailed mismatch reports are discovery/repair or reconstruction evidence and must not drive benchmark construction.

@@ -19,6 +19,12 @@ Git log 는 원문 이력을 남기고, 이 문서는 사람이 읽는 patch not
 
 ## 2026-05-09
 
+### Revision `working` - workflow_generator portable path policy
+
+- `workflow_generator` Codex bridge now requires reusable workflow/canon outputs to use Soulforge-root-relative POSIX paths instead of host-specific absolute paths.
+- Runtime-only absolute paths are explicitly limited to local/private run evidence or subagent prompts with `*_runtime_path` fields paired to portable `*_repo_path` identities.
+- Updated workflow generator manifest and evaluation templates to prevent installed skill paths, drive-letter paths, and local run paths from being promoted into `.workflow/**` packages.
+
 ### Revision `working` - workflow_generator Codex bridge refactor
 
 - Refactored `.registry/skills/workflow_generator/codex/SKILL.md` into a lean operating router and moved detailed goal/run-state/reporting governance into `codex/references/run-governance.md`.

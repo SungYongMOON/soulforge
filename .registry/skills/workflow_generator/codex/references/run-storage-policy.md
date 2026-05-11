@@ -6,6 +6,8 @@ Use this before writing any workflow-evolution, reconstruction, or skill-extract
 
 The A skill folder is a reusable controller package. It is not a runtime log store.
 
+Reusable outputs must be portable across PCs. When a file is inside the Soulforge project, record its reusable identity as a Soulforge-root-relative POSIX path. Keep host-specific absolute paths only in local/private run evidence fields named `*_runtime_path`.
+
 Do not write these under the A skill folder:
 
 - run manifests
@@ -29,7 +31,8 @@ Keep these identities separate:
 
 - `workflow_family_id`: stable family name, such as `block_diagram`, `wiring_diagram`, `cable_drawing`, or `system_diagram`
 - `run_id`: one execution instance, such as `block_diagram_workflow_evolution_20260509_01`
-- `run_root`: directory where that run's evidence lives
+- `run_root_repo_path`: Soulforge-root-relative path when the run evidence lives under the project
+- `run_root_runtime_path`: local execution path used by tools and workspace-preparation scripts
 
 The next request in the same family creates a new sibling run root. Do not silently merge separate requests into one folder.
 
@@ -80,3 +83,5 @@ Reusable workflow or skill candidates are extracted from successful run evidence
 - the destination write boundary is approved
 
 Raw run logs and fixture-specific packets remain in the run root.
+
+Before promoting a workflow or skill candidate, rewrite or remove runtime-only absolute paths. The promoted package may keep only Soulforge-root-relative paths, stable ids, or owner-approved external source ids.

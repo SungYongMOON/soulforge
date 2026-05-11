@@ -4,6 +4,7 @@ Use this reference for workflow-generator goal declaration, run manifest state, 
 
 ## Contents
 
+- [Path Portability](#path-portability)
 - [Goal Declaration](#goal-declaration)
 - [Goal Declaration File](#goal-declaration-file)
 - [Run Manifest Fields](#run-manifest-fields)
@@ -12,6 +13,30 @@ Use this reference for workflow-generator goal declaration, run manifest state, 
 - [Registration Safety](#registration-safety)
 - [Completion Report](#completion-report)
 - [After-Each-Round Governance](#after-each-round-governance)
+
+## Path Portability
+
+Generated reusable workflow material must be portable across PCs. Use Soulforge-root-relative POSIX paths in:
+
+- `.workflow/**`
+- `.registry/**`
+- `docs/architecture/**`
+- workflow drafts intended for promotion
+- source packets or extraction packets that may become canon
+- public-safe examples
+
+Do not store host-specific absolute paths, drive letters, usernames, home directories, or installed local skill paths in reusable workflow packages. Examples that must not appear in reusable material include `C:\Soulforge\...`, `C:\Users\...`, `/Users/name/...`, and `~/.codex/...`.
+
+Runtime tools may still need absolute paths. Keep those only in local/private run evidence or subagent prompts and label them as `*_runtime_path`. Pair them with a portable identity:
+
+```yaml
+baseline_artifact_repo_path: _workspaces/<project_code>/input/EXP.xml
+baseline_artifact_runtime_path: <runtime-only absolute path, not for workflow package>
+target_skill_id: soulforge-allegro-capture-xml
+target_skill_runtime_path: <runtime-only installed skill path, not for workflow package>
+```
+
+If a path is inside the Soulforge project, derive the portable form by making it relative to the Soulforge root and using `/` separators. If a runtime path is outside the Soulforge project, do not promote it into canon; store only an approved portable identity, source id, fixture id, or owner-provided relative location.
 
 ## Goal Declaration
 
@@ -75,8 +100,10 @@ completion_target_basis:
   ambiguity_notes:
 controller_mode:
 artifact_roles:
-  baseline_artifact_path:
-  reference_artifact_path:
+  baseline_artifact_repo_path:
+  baseline_artifact_runtime_path:
+  reference_artifact_repo_path:
+  reference_artifact_runtime_path:
   reference_access_policy:
   candidate_artifact_policy:
   candidate_comparison_scope: current_candidate|final_candidate|all_candidates_explicit
@@ -107,20 +134,26 @@ codex_goal_lifecycle:
 declared_before_material_stages: true|false
 run_id:
 workflow_family_id:
-run_root:
+run_root_repo_path:
+run_root_runtime_path:
 run_storage_policy_path:
 completion_target: design_only|pilot_execute|prove_to_canon|auto_register
 controller_mode: single_skill_build|single_skill_modify|multi_skill_workflow|goal_reconstruction|workflow_evolution|skill_extraction_after_success
 starting_state: existing_workflow|no_existing_workflow|unknown
-reference_artifact_path:
-baseline_artifact_path:
-current_candidate_artifact_path:
+reference_artifact_repo_path:
+reference_artifact_runtime_path:
+baseline_artifact_repo_path:
+baseline_artifact_runtime_path:
+current_candidate_repo_path:
+current_candidate_runtime_path:
 candidate_chain_used: true|false
 candidate_chain_decision_reason:
 candidate_chain:
   - round:
-    input_artifact_path:
-    output_candidate_path:
+    input_artifact_repo_path:
+    input_artifact_runtime_path:
+    output_candidate_repo_path:
+    output_candidate_runtime_path:
     same_run_predecessor: true|false
     executor_subagent_id:
     allowed_sources:
@@ -154,15 +187,15 @@ human_decision_required:
 
 For `baseline_fixed_skill_eval`, every round must follow this order:
 
-1. V's verification workspace reads the fixed `reference_artifact_path`; B does not.
-2. B's isolated executor workspace reads the fixed `baseline_artifact_path`.
+1. V's verification workspace reads the fixed `reference_artifact_runtime_path`; B does not. The reusable identity is `reference_artifact_repo_path`.
+2. B's isolated executor workspace reads the fixed `baseline_artifact_runtime_path`. The reusable identity is `baseline_artifact_repo_path`.
 3. B applies the current B skill to the baseline input.
 4. B produces a new candidate artifact.
 5. V compares the reference against the new candidate in a separate verification workspace.
 6. V returns only a redacted verdict to A.
 7. A records pass/fail, failure class, abstract delta, missing capability, source gap, and boundary evidence.
 8. A updates B only from redacted capability gaps and approved non-oracle evidence.
-9. The next round starts again from `baseline_artifact_path`.
+9. The next round starts again from `baseline_artifact_runtime_path`; workflow/canon output may mention only `baseline_artifact_repo_path`.
 
 If a round cannot follow this order, pause and record the reason.
 
@@ -191,6 +224,7 @@ Before registration:
 
 - `final_cold_gate` or owner-approved equivalent has passed.
 - The workflow package contains only public-safe canon material and no raw run truth, hidden oracle data, private project files, secrets, local machine paths, or REF-derived construction details.
+- All paths in the workflow package are Soulforge-root-relative POSIX paths or stable ids. Runtime-only absolute paths remain only in run evidence.
 - The workflow id is unique, or the manifest explicitly authorizes updating an existing workflow.
 - Required package files are present: `workflow.yaml`, `step_graph.yaml`, `role_slots.yaml`, `handoff_rules.yaml`, `monster_rules.yaml`, and `party_compatibility.yaml`.
 - `.workflow/index.yaml` is updated consistently.
