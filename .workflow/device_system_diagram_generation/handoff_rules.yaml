@@ -1,0 +1,20 @@
+workflow_id: device_system_diagram_generation
+kind: handoff_rules
+status: active
+rules:
+  - from: workflow_runner
+    to: diagram_builder
+    condition: markdown_input_exists_and_output_workspace_ready
+    summary: The builder receives only the Markdown input, generated runtime source packet, and output directory.
+  - from: diagram_builder
+    to: tool_operator
+    condition: diagram_input_and_drawio_master_created
+    summary: SVG export starts only after the editable draw.io master exists.
+  - from: tool_operator
+    to: boundary_reviewer
+    condition: derived_outputs_created
+    summary: Boundary review checks required output existence, page/slide/media counts, and no REF construction use.
+  - from: boundary_reviewer
+    to: workflow_runner
+    condition: validation_log_ready
+    summary: Runner reports output paths, elapsed time, tool warnings, and remaining quality limitations.

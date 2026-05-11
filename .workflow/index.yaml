@@ -11,6 +11,8 @@ entries:
     path: author_skill_package/workflow.yaml
   - workflow_id: meeting_followup
     path: meeting_followup/workflow.yaml
+  - workflow_id: device_system_diagram_generation
+    path: device_system_diagram_generation/workflow.yaml
 notes:
   - Workflow catalog only. Raw run ids and execution dumps do not belong here.
   - Authoring templates live under `authoring/` and are not workflow canon entries.

@@ -1,0 +1,28 @@
+workflow_id: device_system_diagram_generation
+kind: workflow
+status: active
+title: Device System Diagram Generation
+summary: Generate an editable draw.io device system diagram package from one Markdown description, then derive SVG, PPTX, and preview PNG outputs.
+entrypoint: run
+execution_mode: local_tool_sequence
+role_slots: role_slots.yaml
+step_graph: step_graph.yaml
+handoff_rules: handoff_rules.yaml
+monster_rules: monster_rules.yaml
+party_compatibility: party_compatibility.yaml
+profile_policy: profile_policy.yaml
+inputs:
+  - device_description_markdown
+outputs:
+  - diagram_input_yaml
+  - drawio_master
+  - svg_exports
+  - powerpoint_deck
+  - preview_png
+validation_level: owner_accepted_usable
+notes:
+  - The editable draw.io file is the source of truth.
+  - SVG, PPTX, and PNG outputs are derived artifacts.
+  - Runtime project paths, REF packets, candidates, and raw run evidence do not belong in this workflow canon.
+  - Current registration is owner-accepted usable, not strict REF canon-ready.
+  - Project-local bindings provide actual input/output paths and tool locations.

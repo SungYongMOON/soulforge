@@ -1,5 +1,13 @@
 # CHANGELOG
 
+## 2026-05-11
+
+### Revision `working` - device system diagram workflow canon entry added
+
+- Added `.workflow/device_system_diagram_generation/` as an owner-accepted usable workflow for generating editable draw.io device system diagrams from one Markdown input and deriving SVG, PPTX, and PNG outputs.
+- Registered the workflow in `.workflow/index.yaml` while keeping project-local paths, REF packets, raw candidates, and run evidence outside the public workflow canon.
+- Marked the workflow as usable for project execution and timing checks, not strict REF canon-ready; future REF matching requires a non-oracle schema/source packet or owner-approved acceptance contract update.
+
 Soulforge public repo 의 구조/기능/운영 문서 변경을 버전 대신 revision 단위로 기록한다.
 Git log 는 원문 이력을 남기고, 이 문서는 사람이 읽는 patch note 와 운영 영향만 요약한다.
 

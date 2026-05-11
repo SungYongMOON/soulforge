@@ -1,0 +1,16 @@
+workflow_id: device_system_diagram_generation
+kind: role_slots
+status: active
+slots:
+  - slot_id: workflow_runner
+    title: Workflow Runner
+    summary: Creates the project-local output workspace and records runtime input/output paths outside canon.
+  - slot_id: diagram_builder
+    title: Diagram Builder
+    summary: Parses the Markdown description, extracts Mermaid device-system diagrams, and builds editable draw.io pages.
+  - slot_id: tool_operator
+    title: Tool Operator
+    summary: Runs draw.io SVG export and PowerPoint SVG import/PNG export using local workstation tooling.
+  - slot_id: boundary_reviewer
+    title: Boundary Reviewer
+    summary: Checks that construction used the provided Markdown and project-local binding only, with REF packets excluded.

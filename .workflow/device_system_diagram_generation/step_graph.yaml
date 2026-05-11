@@ -1,0 +1,56 @@
+workflow_id: device_system_diagram_generation
+kind: step_graph
+status: active
+steps:
+  - step_id: prepare_runtime_workspace
+    title: Prepare Runtime Workspace
+    actor_slot: workflow_runner
+    next:
+      - parse_markdown_to_intermediate
+  - step_id: parse_markdown_to_intermediate
+    title: Parse Markdown To Intermediate
+    actor_slot: diagram_builder
+    action:
+      artifact_in: device_description_markdown
+      artifact_out: diagram_input_yaml
+    next:
+      - build_drawio_master
+  - step_id: build_drawio_master
+    title: Build Drawio Master
+    actor_slot: diagram_builder
+    action:
+      artifact_in: diagram_input_yaml
+      artifact_out: drawio_master
+    next:
+      - export_svg_from_drawio
+  - step_id: export_svg_from_drawio
+    title: Export SVG From Drawio
+    actor_slot: tool_operator
+    action:
+      tool: drawio_cli
+      artifact_in: drawio_master
+      artifact_out: svg_exports
+    next:
+      - build_powerpoint_from_svg
+  - step_id: build_powerpoint_from_svg
+    title: Build PowerPoint From SVG
+    actor_slot: tool_operator
+    action:
+      tool: powerpoint_com
+      artifact_in: svg_exports
+      artifact_out: powerpoint_deck
+    next:
+      - export_preview_png
+  - step_id: export_preview_png
+    title: Export Preview PNG
+    actor_slot: tool_operator
+    action:
+      tool: powerpoint_com
+      artifact_in: powerpoint_deck
+      artifact_out: preview_png
+    next:
+      - boundary_and_output_check
+  - step_id: boundary_and_output_check
+    title: Boundary And Output Check
+    actor_slot: boundary_reviewer
+    next: []

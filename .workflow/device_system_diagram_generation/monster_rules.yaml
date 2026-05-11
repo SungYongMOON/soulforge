@@ -1,0 +1,19 @@
+workflow_id: device_system_diagram_generation
+kind: monster_rules
+status: active
+rules:
+  - monster_id: ref_oracle_leakage
+    response: stop_and_reclassify
+    summary: REF packets, accepted outputs, verifier reports, and oracle-derived repair hints must not enter construction.
+  - monster_id: missing_drawio_cli
+    response: stop_with_tool_blocker
+    summary: SVG outputs must be exported from draw.io; do not fake draw.io export when the CLI is unavailable.
+  - monster_id: powerpoint_com_path_limit
+    response: use_short_runtime_path_or_subst_alias
+    summary: PowerPoint COM may fail on long Unicode paths, so project bindings should use short output paths or a temporary alias.
+  - monster_id: no_mermaid_diagrams
+    response: stop_with_source_blocker
+    summary: The current builder expects Mermaid flowchart blocks in the Markdown source.
+  - monster_id: strict_ref_mismatch
+    response: owner_acceptance_or_new_non_oracle_source_required
+    summary: Owner-accepted usability does not imply strict REF canon readiness.

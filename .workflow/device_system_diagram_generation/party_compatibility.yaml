@@ -1,0 +1,7 @@
+workflow_id: device_system_diagram_generation
+kind: party_compatibility
+status: active
+compatible_party_ids: []
+notes:
+  - No default party binding is assigned yet.
+  - This workflow currently relies on local Windows tooling through project-local bindings.
