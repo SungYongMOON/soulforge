@@ -89,10 +89,10 @@ export async function refreshLatestContext(options = {}) {
   const activityRoot = path.resolve(options.activityRoot ?? defaultActivityRoot(process.cwd()));
   const now = options.now instanceof Date ? options.now : new Date();
   const defaultRecentCount = normalizeRecentCount(options.defaultRecentCount);
-  const events = await readRecentActivityEvents({
+  const events = latestEventsByEntryId(await readRecentActivityEvents({
     activityRoot,
     limit: Math.max(DEFAULT_MAX_EVENT_READ, defaultRecentCount),
-  });
+  }));
   const recentEntries = events.slice(0, defaultRecentCount).map(toRecentEntry);
   const openThreads = events
     .filter((event) => event?.carry_forward === true)
@@ -335,6 +335,31 @@ function sortEventsNewestFirst(events) {
     }
     return String(right?.entry_id ?? "").localeCompare(String(left?.entry_id ?? ""));
   });
+}
+
+function latestEventsByEntryId(events) {
+  const latest = new Map();
+  for (const event of events) {
+    if (!event?.entry_id) {
+      continue;
+    }
+    const existing = latest.get(event.entry_id);
+    if (!existing || compareEventFreshness(event, existing) >= 0) {
+      latest.set(event.entry_id, event);
+    }
+  }
+  return sortEventsNewestFirst([...latest.values()]);
+}
+
+function compareEventFreshness(left, right) {
+  const leftTime = Date.parse(left?.occurred_at ?? left?.date ?? "");
+  const rightTime = Date.parse(right?.occurred_at ?? right?.date ?? "");
+  const leftSafe = Number.isFinite(leftTime) ? leftTime : 0;
+  const rightSafe = Number.isFinite(rightTime) ? rightTime : 0;
+  if (leftSafe !== rightSafe) {
+    return leftSafe - rightSafe;
+  }
+  return String(left?.entry_id ?? "").localeCompare(String(right?.entry_id ?? ""));
 }
 
 function toRecentEntry(event) {

@@ -10,6 +10,7 @@ import {
   sanitizeActivityValue,
 } from "./activity_log.mjs";
 import { mergeActivitySurfaces, syncActivityToPrivateState } from "./activity_sync.mjs";
+import { projectMailCandidatesToActivity } from "./mail_candidate_projection.mjs";
 
 test("appendActivityEvent writes monthly event ledger and latest context", async () => {
   const repoRoot = await mkdtemp(path.join(os.tmpdir(), "soulforge-activity-"));
@@ -73,6 +74,133 @@ test("refreshLatestContext keeps newest entries first", async () => {
     const latest = await refreshLatestContext({ activityRoot, now: new Date("2026-05-08T03:00:00.000Z") });
     assert.equal(latest.recent_entries[0].entry_id, newest.event.entry_id);
     assert.equal(latest.recent_entries.length, 2);
+  } finally {
+    await rm(repoRoot, { recursive: true, force: true });
+  }
+});
+
+test("projectMailCandidatesToActivity writes body-safe pending candidate activity", async () => {
+  const repoRoot = await mkdtemp(path.join(os.tmpdir(), "soulforge-mail-candidate-activity-"));
+  const activityRoot = path.join(repoRoot, "guild_hall", "state", "operations", "soulforge_activity");
+  const queueRoot = path.join(repoRoot, "guild_hall", "state", "gateway", "mail_candidate");
+
+  try {
+    await writeNodeIdentity(repoRoot);
+    await writeMailCandidate(queueRoot, {
+      candidate_id: "mail_candidate_hiworks_evt_001",
+      status: "pending_review",
+      source_event: {
+        event_id: "evt_001",
+        source: "hiworks",
+        workspace: "company",
+        event_file: "guild_hall/state/gateway/mailbox/company/mail/events/hiworks/2026/2026-05.jsonl",
+        received_at: "2026-05-11T09:10:00+09:00",
+        ingested_at: "2026-05-11T00:10:02Z",
+      },
+      mail_summary: {
+        subject: "PDR package review request",
+        from: [{ name: "Requester", address: "requester@example.test" }],
+        to_count: 1,
+        cc_count: 0,
+        attachment_count: 2,
+        attachment_types: ["file"],
+        classification: { bucket: "mail", reasons: ["fresh_mail_event"] },
+      },
+      raw_body: "<html><body>must not project</body></html>",
+      attachment_url: "https://example.test/secret.pdf",
+    });
+
+    const result = await projectMailCandidatesToActivity({
+      repoRoot,
+      activityRoot,
+      queueRoot,
+      now: new Date("2026-05-11T00:20:00.000Z"),
+    });
+
+    assert.equal(result.projected, 1);
+    assert.equal(result.skipped_unchanged, 0);
+    const rows = await readMonthlyRows(activityRoot, "2026", "2026-05");
+    assert.equal(rows.length, 1);
+    assert.equal(rows[0].entry_id, "mail_candidate:mail_candidate_hiworks_evt_001");
+    assert.equal(rows[0].scope, "gateway");
+    assert.equal(rows[0].action, "mail_candidate_summary");
+    assert.equal(rows[0].result, "pending_review");
+    assert.equal(rows[0].carry_forward, true);
+    assert.equal(rows[0].summary.includes("PDR package review request"), true);
+    assert.equal(rows[0].summary.includes("Requester"), true);
+    assert.equal(JSON.stringify(rows[0]).includes("must not project"), false);
+    assert.equal(JSON.stringify(rows[0]).includes("secret.pdf"), false);
+
+    const second = await projectMailCandidatesToActivity({
+      repoRoot,
+      activityRoot,
+      queueRoot,
+      now: new Date("2026-05-11T01:20:00.000Z"),
+    });
+    assert.equal(second.projected, 0);
+    assert.equal(second.skipped_unchanged, 1);
+  } finally {
+    await rm(repoRoot, { recursive: true, force: true });
+  }
+});
+
+test("projectMailCandidatesToActivity closes carry-forward when candidate is no longer pending", async () => {
+  const repoRoot = await mkdtemp(path.join(os.tmpdir(), "soulforge-mail-candidate-closed-"));
+  const activityRoot = path.join(repoRoot, "guild_hall", "state", "operations", "soulforge_activity");
+  const queueRoot = path.join(repoRoot, "guild_hall", "state", "gateway", "mail_candidate");
+
+  try {
+    await writeMailCandidate(queueRoot, {
+      candidate_id: "mail_candidate_hiworks_evt_002",
+      status: "pending_review",
+      source_event: {
+        received_at: "2026-05-11T09:10:00+09:00",
+      },
+      mail_summary: {
+        subject: "Design review request",
+        from: [{ address: "owner@example.test" }],
+        attachment_count: 0,
+      },
+    });
+    await projectMailCandidatesToActivity({
+      repoRoot,
+      activityRoot,
+      queueRoot,
+      now: new Date("2026-05-11T00:20:00.000Z"),
+    });
+
+    await writeMailCandidate(queueRoot, {
+      candidate_id: "mail_candidate_hiworks_evt_002",
+      status: "promoted_to_intake_request",
+      source_event: {
+        received_at: "2026-05-11T09:10:00+09:00",
+      },
+      mail_summary: {
+        subject: "Design review request",
+        from: [{ address: "owner@example.test" }],
+        attachment_count: 0,
+      },
+      business_review: {
+        intake_request_status: "created",
+      },
+    });
+    const result = await projectMailCandidatesToActivity({
+      repoRoot,
+      activityRoot,
+      queueRoot,
+      now: new Date("2026-05-11T01:20:00.000Z"),
+    });
+
+    assert.equal(result.projected, 1);
+    const rows = await readMonthlyRows(activityRoot, "2026", "2026-05");
+    assert.equal(rows.length, 2);
+    assert.equal(rows[1].entry_id, rows[0].entry_id);
+    assert.equal(rows[1].result, "promoted_to_intake_request");
+    assert.equal(rows[1].carry_forward, false);
+
+    const latest = JSON.parse(await readFile(path.join(activityRoot, "latest_context.json"), "utf8"));
+    assert.equal(latest.open_threads.some((entry) => entry.entry_id === "mail_candidate:mail_candidate_hiworks_evt_002"), false);
+    assert.equal(latest.recent_entries[0].result, "promoted_to_intake_request");
   } finally {
     await rm(repoRoot, { recursive: true, force: true });
   }
@@ -542,6 +670,29 @@ async function writeNodeIdentity(repoRoot) {
       "node_role: always_on_node",
       "bootstrap_profile: owner-with-state",
     ].join("\n"),
+    "utf8",
+  );
+}
+
+async function writeMailCandidate(queueRoot, overrides = {}) {
+  const pendingRoot = path.join(queueRoot, "queue", "pending");
+  await mkdir(pendingRoot, { recursive: true });
+  const candidate = {
+    schema_version: "mail_candidate.queue_item.v1",
+    candidate_id: "mail_candidate_demo",
+    status: "pending_review",
+    created_at: "2026-05-11T00:00:00Z",
+    updated_at: "2026-05-11T00:00:00Z",
+    created_by: "gateway_mail_fetch",
+    review_reason: "fresh_mail_event",
+    source_event: {},
+    mail_summary: {},
+    business_review: {},
+    ...overrides,
+  };
+  await writeFile(
+    path.join(pendingRoot, `${candidate.candidate_id}.json`),
+    `${JSON.stringify(candidate, null, 2)}\n`,
     "utf8",
   );
 }

@@ -151,6 +151,14 @@ always-on node 에서 수행한다.
 - morning report 만 LLM 이 읽는 구조로 이동한다.
 - 장애 발생 시에는 deterministic alert 가 먼저 Telegram 으로 알리고, LLM triage 는 owner 가 요청하거나 daily report 에서만 실행한다.
 
+## mail candidate handoff 정책
+
+- 다른 PC 로 넘기는 것은 메일 원문이 아니라 `mail_candidate` 의 body-safe activity summary 다.
+- `guild-hall:activity:sync` 는 sync 전에 pending candidate 를 `mail_candidate_summary` activity event 로 투영한다.
+- activity sync 가 1시간 주기로 운영되면 다른 PC 는 private-state pull 로 새 후보 존재를 알 수 있다.
+- 실제 메일 원문, HTML body, attachment, mailbox cursor 는 24시간 PC 의 local `guild_hall/state/gateway/**` 에 남긴다.
+- 후보를 실제 monster/intake request 로 승격하는 작업은 원문과 local runtime 을 가진 24시간 PC 에서 수행하는 것을 기본값으로 본다.
+
 ## MacBook Air 와 24시간 PC 역할 분리
 
 | 작업 | 권장 위치 | 이유 |

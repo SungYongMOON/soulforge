@@ -82,6 +82,15 @@ guild_hall/state/gateway/mail_candidate/
 - `mail_candidate` item 은 monster current state 가 아니다.
 - monster 로 materialize 된 뒤의 current state 는 기존 `guild_hall/state/gateway/intake_inbox/**` 계약을 따른다.
 
+## cross-PC activity projection
+
+- 다른 PC 가 "검토할 메일 후보가 있음"을 알 수 있도록 `guild-hall:activity:sync` 는 기본적으로 pending `mail_candidate` 를 activity event 로 투영한다.
+- projection event 의 action 은 `mail_candidate_summary` 이고, `entry_id` 는 `mail_candidate:<candidate_id>` 이다.
+- private-state 로 넘어가는 것은 activity event summary 뿐이며, candidate JSON 파일 자체나 mailbox raw/event row 는 복제하지 않는다.
+- projection summary 에는 candidate id, subject, sender, attachment count, received_at, local candidate ref 수준만 둔다.
+- raw mail body, HTML body, raw provider payload, attachment filename, attachment URL, downloaded attachment local path, token/password/cookie/credential 은 projection 에 포함하지 않는다.
+- candidate 가 `pending_review` 가 아니게 되면 같은 `entry_id` 의 최신 activity event 가 `carry_forward: false` 로 갱신되어 latest context 의 open thread 에서 빠진다.
+
 ## promotion command
 
 기본 명령:

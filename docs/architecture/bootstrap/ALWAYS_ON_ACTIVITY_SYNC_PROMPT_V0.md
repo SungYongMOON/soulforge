@@ -35,6 +35,7 @@ activity sync
 3. local/private activity event ledger 와 `latest_context.json` 을 병합/재생성한다.
 4. 양쪽 `latest_context.json` 을 갱신한다.
 5. 변경이 있으면 `private-state` 에 commit/push 한다.
+6. local `mail_candidate` queue 에 pending 후보가 있으면 body-safe activity summary 로 투영한다.
 
 `private-state` 는 Soulforge root 바로 아래 nested repo 여야 하며, branch 가 `main` 일 때만 실행한다. 기존 JSONL 에 malformed row 가 있으면 원본 위치에 보존하고 다른 surface 로 복제하지 않는다. `log/**` markdown/report file 은 v0 sync 대상이 아니다.
 
@@ -47,6 +48,7 @@ activity sync
 - raw mail body, HTML body, attachment 내용은 읽지 않는다.
 - `_workspaces/**`, `_workmeta/**`, mailbox raw, attachment payload 는 읽지 않는다.
 - activity event 는 allowlist 된 metadata 필드만 mirror 하고, legacy unknown field 는 복사하지 않는다.
+- mail candidate 는 candidate JSON 자체가 아니라 subject, sender, attachment count, received_at, candidate ref 수준의 activity summary 로만 mirror 한다.
 - sync 대상은 `events/**/*.jsonl` 의 allowlisted event field 와 재생성된 `latest_context.json` 이다. `log/**` 는 복사하지 않는다.
 - `--json` 출력의 private git command 단계는 stdout/stderr 원문을 표시하지 않는다.
 
@@ -83,6 +85,7 @@ added_to_private:
 private_state_changed:
 private_state_committed:
 private_state_pushed:
+mail_candidate_projected:
 secret_read: false
 raw_mail_body_read: false
 attachment_read: false

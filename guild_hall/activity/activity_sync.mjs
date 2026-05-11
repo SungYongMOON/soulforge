@@ -9,6 +9,7 @@ import {
   defaultActivityRoot,
   sanitizeActivityValue,
 } from "./activity_log.mjs";
+import { projectMailCandidatesToActivity } from "./mail_candidate_projection.mjs";
 import { pathExists } from "../shared/io.mjs";
 
 export const ACTIVITY_SYNC_RESULT_VERSION = "soulforge.activity_sync.result.v1";
@@ -134,6 +135,16 @@ export async function syncActivityToPrivateState(options = {}) {
     }
   }
 
+  let mailCandidateProjection = null;
+  if (options.projectMailCandidates === true) {
+    mailCandidateProjection = await projectMailCandidatesToActivity({ repoRoot, activityRoot, now });
+    steps.push({
+      id: "mail_candidate_activity_projection",
+      status: "completed",
+      summary: `projected ${mailCandidateProjection.projected} mail candidate activity events`,
+    });
+  }
+
   const merge = await mergeActivitySurfaces({ activityRoot, privateActivityRoot, now });
   steps.push({
     id: "activity_merge",
@@ -216,10 +227,11 @@ export async function syncActivityToPrivateState(options = {}) {
           now,
           steps,
           merge,
-          privateStateChanged: changed,
-          committed,
-          commitOid,
-        });
+        privateStateChanged: changed,
+        committed,
+        commitOid,
+        mailCandidateProjection,
+      });
       }
       pushed = true;
     }
@@ -239,6 +251,7 @@ export async function syncActivityToPrivateState(options = {}) {
     committed,
     pushed,
     commitOid,
+    mailCandidateProjection,
   });
 }
 
@@ -435,7 +448,7 @@ async function refreshLatestContextStable({ activityRoot, now }) {
   const existing = await readJsonIfExists(latestContextPath);
   const defaultRecentCount = normalizeRecentCount(existing?.default_recent_count ?? DEFAULT_RECENT_COUNT);
   const ledger = await readActivityLedger(activityRoot);
-  const events = sortEventsNewestFirst(ledger.events).slice(0, Math.max(DEFAULT_MAX_EVENT_READ, defaultRecentCount));
+  const events = sortEventsNewestFirst(mergeEventsByEntryId(ledger.events)).slice(0, Math.max(DEFAULT_MAX_EVENT_READ, defaultRecentCount));
   const recentEntries = events.slice(0, defaultRecentCount).map(toRecentEntry);
   const openThreads = events
     .filter((event) => event.carry_forward === true)
@@ -592,6 +605,7 @@ function buildSyncResult({
   committed = false,
   pushed = false,
   commitOid = null,
+  mailCandidateProjection = null,
 }) {
   return {
     schema_version: ACTIVITY_SYNC_RESULT_VERSION,
@@ -605,6 +619,7 @@ function buildSyncResult({
       private_state: path.relative(repoRoot, privateStateRoot).split(path.sep).join("/") || "private-state",
       private_activity: path.relative(privateStateRoot, privateActivityRoot).split(path.sep).join("/") || ACTIVITY_REF,
     },
+    mail_candidate_projection: mailCandidateProjection,
     merge,
     private_state: {
       changed: privateStateChanged,

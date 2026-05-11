@@ -11,6 +11,10 @@ import {
   defaultPrivateStateRoot,
   syncActivityToPrivateState,
 } from "./activity_sync.mjs";
+import {
+  defaultMailCandidateQueueRoot,
+  projectMailCandidatesToActivity,
+} from "./mail_candidate_projection.mjs";
 
 async function main() {
   const [command, ...rest] = process.argv.slice(2);
@@ -58,11 +62,22 @@ async function main() {
     return;
   }
 
+  if (command === "project-mail-candidates") {
+    const result = await projectMailCandidatesToActivity({
+      repoRoot,
+      activityRoot,
+      queueRoot: path.resolve(args["queue-root"] ?? defaultMailCandidateQueueRoot(repoRoot)),
+    });
+    printResult(args, result);
+    return;
+  }
+
   if (command === "sync") {
     const result = await syncActivityToPrivateState({
       repoRoot,
       activityRoot,
       privateStateRoot: path.resolve(args["private-state-root"] ?? defaultPrivateStateRoot(repoRoot)),
+      projectMailCandidates: args["skip-mail-candidate-projection"] !== true,
       skipPull: args["skip-pull"] === true,
       skipCommit: args["skip-commit"] === true,
       skipPush: args["skip-push"] === true,
@@ -162,6 +177,13 @@ function printResult(args, payload) {
     lines.push(`private_state_changed: ${payload.private_state.changed ? "yes" : "no"}`);
     lines.push(`private_state_pushed: ${payload.private_state.pushed ? "yes" : "no"}`);
   }
+  if (payload.projected !== undefined) {
+    lines.push(`projected: ${payload.projected}`);
+    lines.push(`skipped_unchanged: ${payload.skipped_unchanged ?? 0}`);
+  }
+  if (payload.mail_candidate_projection) {
+    lines.push(`mail_candidate_projected: ${payload.mail_candidate_projection.projected}`);
+  }
   if (payload.events_path) {
     lines.push(`events: ${payload.events_path}`);
   }
@@ -177,7 +199,8 @@ function printUsageAndExit() {
       "Usage:",
       "  node guild_hall/activity/cli.mjs log --scope <scope> --action <action> --summary <summary> [--project-code <code>] [--result <result>] [--ref <path>] [--carry-forward true] [--next-action <text>] [--json]",
       "  node guild_hall/activity/cli.mjs refresh [--recent-count <n>] [--json]",
-      "  node guild_hall/activity/cli.mjs sync [--private-state-root <path>] [--skip-pull] [--skip-commit] [--skip-push] [--json]",
+      "  node guild_hall/activity/cli.mjs project-mail-candidates [--queue-root <path>] [--json]",
+      "  node guild_hall/activity/cli.mjs sync [--private-state-root <path>] [--skip-mail-candidate-projection] [--skip-pull] [--skip-commit] [--skip-push] [--json]",
     ].join("\n"),
   );
   process.exit(1);
