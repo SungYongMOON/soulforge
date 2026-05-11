@@ -1,0 +1,145 @@
+### skill_boundary_brief.md
+- `api_contract_drift_check` is a public-safe review skill for API contract drift packets.
+- It compares claimed OpenAPI, TypeScript, and route-handler drift against provided evidence.
+- It must separate confirmed evidence from assumptions and produce a bounded remediation plan.
+- Runtime-only material stays out of tracked canon:
+  - actual API specs
+  - customer endpoint names
+  - production logs
+  - credentials
+  - private incident details
+  - `_workspaces` runtime files
+- Tracked package scope:
+  - `.registry/skills/api_contract_drift_check/skill.yaml`
+  - `README`
+  - optional `codex/SKILL.md`
+  - public-safe templates and checklists only
+- Helper scripts are allowed only for synthetic or redacted packets and must not require project-specific endpoint names.
+
+### skill_package_draft.md
+- Skill name: `api_contract_drift_check`
+- Purpose: review a redacted API contract drift packet and produce a bounded, evidence-first remediation plan.
+- Inputs:
+  - `openapi_changed_endpoints`
+  - `generated_type_diff_summary`
+  - `route_handler_touchpoints`
+  - `test_failures`
+  - `owner_notes`
+- Core outputs:
+  - evidence summary
+  - assumption list
+  - risk-ranked remediation order
+  - owner handoff notes
+  - boundary warning section
+- Draft structure:
+  - `skill.yaml`: metadata, triggers, allowed inputs, boundary rules
+  - `README`: usage, packet schema, expected output format
+  - optional `codex/SKILL.md`: execution guidance and checks
+  - templates: packet intake, drift triage, remediation checklist, handoff note
+- Suggested behavior:
+  - prefer confirmed packet facts
+  - flag unsupported claims explicitly
+  - keep remediation steps small and ordered
+  - avoid leaking runtime-only identifiers into tracked docs
+
+### skill_resource_bundle_review.md
+- Public-safe bundle is sufficient if it includes:
+  - skill metadata
+  - packet intake template
+  - evidence vs assumption checklist
+  - remediation planning template
+  - owner handoff template
+- Missing or risky items to watch for:
+  - real endpoint paths copied into examples
+  - logs or stack traces that reveal customer data
+  - references to runtime workspace files
+  - any spec excerpts beyond redacted summaries
+- Recommended synthetic example set:
+  - two endpoints
+  - one generated type mismatch
+  - one route-handler note
+  - one failing test name
+- Helper script constraint:
+  - must accept only synthetic or redacted packet fields
+  - must not hardcode project-specific endpoint names
+- Review conclusion:
+  - package is viable if all examples stay redacted and templates remain generic.
+
+### skill_boundary_review.md
+- Boundary is clear and appropriate for a tracked skill package.
+- Confirmed in-scope:
+  - public-safe drift summaries
+  - redacted endpoint metadata
+  - type diffs in aggregate form
+  - test failure names without private payloads
+  - owner notes stripped of incident specifics
+- Out of scope and runtime-only:
+  - raw OpenAPI specs
+  - private route names tied to customers
+  - production logs
+  - secrets and credentials
+  - incident timelines with sensitive context
+  - `_workspaces` contents
+- Main risk:
+  - example material accidentally normalizing private identifiers into canon.
+- Mitigation:
+  - keep all examples synthetic, generic, and redacted
+  - require an explicit boundary warning in the skill output
+  - make the checklist reject any unredacted runtime artifact
+
+### skill_install_sync_request.md
+- Request type: local mirror sync handoff for `api_contract_drift_check`.
+- Desired sync target:
+  - tracked package files only
+  - public-safe templates only
+  - no runtime packet material
+- Handoff contents:
+  - package name and purpose
+  - boundary rules
+  - required tracked files
+  - synthetic smoke fixture shape
+  - helper script constraints
+- Sync note:
+  - the mirror should be prepared to receive the package structure and templates
+  - no claim of sync completion should be made until a separate sync step is actually run
+- Acceptance criteria:
+  - package skeleton is mirror-ready
+  - examples are redacted
+  - no project-specific endpoint names appear in canon
+
+### skill_smoke_check.md
+- Smoke fixture:
+  - endpoint A and endpoint B
+  - one generated type mismatch
+  - one route-handler note
+  - one failing test name
+- Smoke expectations:
+  - evidence is listed first
+  - assumptions are clearly separated
+  - owner handoff is explicit
+  - remediation order is prioritized
+  - boundary warnings are present
+- Pass criteria:
+  - no private endpoint names leak into output
+  - no runtime-only packet content is copied verbatim
+  - remediation steps remain bounded and actionable
+- Suggested smoke output shape:
+  - `Confirmed evidence`
+  - `Assumptions`
+  - `Owner handoff`
+  - `Remediation order`
+  - `Boundary warnings`
+
+### skill_release_review.md
+- Release readiness is acceptable if:
+  - all tracked files are public-safe
+  - templates are generic and reusable
+  - smoke fixture works on synthetic data
+  - no runtime artifacts are embedded in canon
+- Release risks:
+  - overfitting examples to one repository
+  - leaking endpoint identifiers through templates
+  - mixing helper-script logic with project-specific assumptions
+- Release recommendation:
+  - ship the skill package only after validating the boundary checklist against the synthetic smoke packet
+  - keep sync as a separate operational step, not a claimed outcome

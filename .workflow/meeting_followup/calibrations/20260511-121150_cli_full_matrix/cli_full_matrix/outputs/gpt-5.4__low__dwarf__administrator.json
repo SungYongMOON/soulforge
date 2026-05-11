@@ -1,0 +1,20 @@
+{
+  "label": "gpt-5.4|low|dwarf|administrator",
+  "model": "gpt-5.4",
+  "reasoning_effort": "low",
+  "species": "dwarf",
+  "class": "administrator",
+  "rule_score": 69,
+  "usable_rule": false,
+  "critical_errors": [
+    "Hara exact deadline appears invented"
+  ],
+  "missing_required_items": [
+    "smoke pass condition",
+    "Wednesday internal stretch goal only",
+    "Hara no exact deadline",
+    "non-facts customer/budget"
+  ],
+  "text_sha256": "be4b8a8044a909e927adf5663c5fe857b8bcdf77fd2bf9751ba0fd6fabd57f8e",
+  "text": "{\n  \"formal_minutes\": {\n    \"회의정보\": {\n      \"project_code\": \"PUBLIC_MEETING_SMOKE\",\n      \"meeting_title\": \"UI Theme Package Release Readiness\",\n      \"participants\": [\n        \"Minjun\",\n        \"Seoyeon\",\n        \"Doyun\",\n        \"Hara\"\n      ]\n    },\n    \"confirmed_decisions\": [\n      {\n        \"topic\": \"공개 릴리스 목표 시점\",\n        \"decision\": \"스모크 테스트 통과를 전제로 금요일 15:00 KST를 공개 릴리스 목표로 한다.\",\n        \"basis\": \"수요일 릴리스 제안에 대해 스모크 테스트 선행 필요 의견이 제기되었고 최종 결정이 정리됨.\"\n      },\n      {\n        \"topic\": \"packageName mismatch 대응 원칙\",\n        \"decision\": \"packageName mismatch 발생 시 먼저 package config를 확인하고, 계약 자체가 잘못된 경우에만 스크립트 검토를 진행한다.\",\n        \"basis\": \"smoke-theme-pack.mjs에서 mismatch를 무시하자는 제안은 기각됨.\"\n      }\n    ],\n    \"rejected_proposals\": [\n      {\n        \"topic\": \"수요일 공개 릴리스\",\n        \"proposal\": \"수요일에 릴리스한다.\",\n        \"reason\": \"스모크 테스트가 먼저 통과해야 한다는 이견이 받아들여졌으며 최종 공개 목표는 금요일 15:00 KST로 정리됨.\"\n      },\n      {\n        \"topic\": \"mismatch 무시 처리\",\n        \"proposal\": \"smoke-theme-pack.mjs가 packageName mismatch를 무시하도록 변경한다.\",\n        \"reason\": \"최종적으로 기각되었고, 우선 package config 확인이 맞는 절차로 정리됨.\"\n      }\n    ],\n    \"internal_stretch_goals\": [\n      {\n        \"goal\": \"수요일 일정\",\n        \"note\": \"공개 릴리스 확정 일정이 아니라 내부 스트레치 골로만 언급됨.\"\n      }\n    ],\n    \"non_decisions\": [\n      {\n        \"topic\": \"README 설치 절차 검토\",\n        \"status\": \"목요일까지 가능하면 검토하자는 의견만 있었고 담당자는 지정되지 않음.\"\n      }\n    ],\n    \"risks\": [\n      {\n        \"risk\": \"잘못된 tarball 경로가 릴리스를 지연시킬 수 있음.\"\n      },\n      {\n        \"risk\": \"README 설치 절차가 오래된 상태면 릴리스 노트가 사용자에게 오해를 줄 수 있음.\"\n      }\n    ],\n    \"open_questions\": [\n      {\n        \"question\": \"최종 릴리스 승인 권한자는 누구인가?\"\n      },\n      {\n        \"question\": \"릴리스 노트에 내부 수요일 스트레치 골을 언급해야 하는가?\"\n      }\n    ]\n  },\n  \"action_items\": [\n    {\n      \"owner\": \"Minjun\",\n      \"task\": \"스모크 테스트를 재실행하고 결과를 공유한다.\",\n      \"due\": \"금요일 10:00 KST\",\n      \"status\": \"확정\",\n      \"source_certainty\": \"confirmed\"\n    },\n    {\n      \"owner\": \"Doyun\",\n      \"task\": \"failure triage note를 action_items.md에 작성한다.\",\n      \"due\": \"금요일 12:00 KST\",\n      \"status\": \"확정\",\n      \"source_certainty\": \"confirmed\"\n    },\n    {\n      \"owner\": \"Hara\",\n      \"task\": \"Minjun의 스모크 결과 공유 후 생성된 tarball 경로를 확인한다.\",\n      \"due\": \"미정\",\n      \"status\": \"확정\",\n      \"source_certainty\": \"confirmed\"\n    },\n    {\n      \"owner\": null,\n      \"task\": \"README 설치 절차를 검토한다.\",\n      \"due\": \"목요일 가능 시\",\n      \"status\": \"미배정\",\n      \"source_certainty\": \"tentative\"\n    }\n  ],\n  \"followup_note\": {\n    \"what_to_check_next\": [\n      \"Minjun의 스모크 테스트 결과가 금요일 10:00 KST까지 공유되었는지 확인한다.\",\n      \"Doyun의 failure triage note가 금요일 12:00 KST까지 action_items.md에 반영되었는지 확인한다.\",\n      \"스모크 결과 이후 Hara의 tarball 경로 확인 결과를 점검한다.\",\n      \"README 설치 절차 검토 담당자를 지정할지 확인한다.\",\n      \"최종 릴리스 승인 권한자를 확정한다.\",\n      \"릴리스 노트에 내부 수요일 스트레치 골을 포함할지 결정한다.\"\n    ],\n    \"what_not_to_invent\": [\n      \"고객명 또는 외부 파트너\",\n      \"예산 정보\",\n      \"보안 사고\",\n      \"프로덕션 장애\",\n      \"법무 승인 필요 여부\",\n      \"지정되지 않은 담당자\",\n      \"명시되지 않은 마감 시각 또는 날짜\"\n    ]\n  },\n  \"non_invention_rules\": [\n    \"인라인 공개용 합성 픽스처에 없는 사실은 추가하지 않는다.\",\n    \"확정 결정과 기각된 제안, 내부 스트레치 골, 리스크, 미해결 질문을 구분해서 기록한다.\",\n    \"고객, 예산, 보안, 장애, 법무, 담당자, 마감 관련 사실은 명시된 내용만 쓴다.\",\n    \"담당자나 기한이 없는 항목은 null, 미정, 또는 미배정으로 유지한다.\",\n    \"내부 스트레치 골은 확정 대외 일정처럼 표현하지 않는다.\"\n  ]\n}"
+}

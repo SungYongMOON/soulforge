@@ -1,0 +1,18 @@
+{
+  "label": "gpt-5.3-codex-spark|high|elf|archivist",
+  "model": "gpt-5.3-codex-spark",
+  "reasoning_effort": "high",
+  "species": "elf",
+  "class": "archivist",
+  "rule_score": 91,
+  "usable_rule": true,
+  "critical_errors": [],
+  "missing_required_items": [
+    "smoke pass condition",
+    "Wednesday internal stretch goal only",
+    "Hara no exact deadline",
+    "non-facts customer/budget"
+  ],
+  "text_sha256": "7b84aafb899d4d1b698e1998eeef0cf2c38ef204bf2147d65876c95927b6732f",
+  "text": "{\n  \"formal_minutes\": {\n    \"confirmed_decisions\": [\n      \"공개 릴리스 목표는 스모크 테스트 통과를 전제로 **금요일 15:00 KST**로 확정한다.\",\n      \"패키지명 불일치가 발생해도 스크립트를 무시하도록 변경하는 제안은 반려하고, 먼저 패키지 설정을 확인한 뒤 계약 자체가 잘못된 경우에만 스크립트를 리뷰한다.\"\n    ],\n    \"rejected_proposals\": [\n      \"Hara의 `packageName` 불일치 무시 패치 제안( `smoke-theme-pack.mjs` 수정)은 기각되었다.\",\n      \"수요일 공개 릴리스를 최종 공개일로 확정하자는 안은 반려되었으며, 수요일은 내부 stretch goal로만 남는다.\"\n    ],\n    \"internal_stretch_goals\": [\n      \"수요일까지 릴리스 완성 안을 내부 stretch goal로 검토.\"\n    ],\n    \"non_decisions\": [\n      \"README 설치 단계 검토는 가능하면 목요일까지 진행하자는 제안이 있었으나, 책임자 미지정 및 최종 완료 보증은 없음.\",\n      \"Hara가 스모크 결과 공유 후 생성된 tarball 경로를 확인한다는 항목은 계획되어 있으나, 구체 기한이 명시되지 않음.\"\n    ],\n    \"risks\": [\n      \"tarball 경로가 잘못되면 릴리스가 지연될 수 있다.\",\n      \"README 설치 안내가 최신 상태가 아니면 릴리스 노트가 사용자에게 오도된 정보를 줄 수 있다.\"\n    ],\n    \"open_questions\": [\n      \"최종 릴리스 승인 권한은 누구에게 있는가?\",\n      \"릴리스 노트에 내부 stretch goal인 수요일 계획을 명시할지 여부는 결정되지 않음.\"\n    ]\n  },\n  \"action_items\": [\n    {\n      \"owner\": \"Minjun\",\n      \"task\": \"스모크 테스트를 재실행하고 결과를 공유한다.\",\n      \"due\": \"금요일 10:00 KST\",\n      \"status\": \"확정\",\n      \"source_certainty\": \"높음\"\n    },\n    {\n      \"owner\": \"Doyun\",\n      \"task\": \"실패 원인 정리 노트를 `action_items.md`에 작성한다.\",\n      \"due\": \"금요일 12:00 KST\",\n      \"status\": \"확정\",\n      \"source_certainty\": \"높음\"\n    },\n    {\n      \"owner\": \"미지정\",\n      \"task\": \"README 설치 단계 검토 진행(가능하면 목요일)\",\n      \"due\": \"목요일(가능하면, 기한/보장 미명시)\",\n      \"status\": \"보류\",\n      \"source_certainty\": \"중간\"\n    },\n    {\n      \"owner\": \"Hara\",\n      \"task\": \"Minjun이 스모크 결과를 게시한 뒤 생성된 tarball 경로를 확인한다.\",\n      \"due\": \"스모크 결과 공유 후(특정 시한 미지정)\",\n      \"status\": \"보류\",\n      \"source_certainty\": \"높음\"\n    }\n  ],\n  \"followup_note\": {\n    \"check_next\": [\n      \"금요일 10:00 KST 이전 Minjun의 스모크 실행 결과 수신 및 통과/실패 판정\",\n      \"실패 시 Doyun의 triage note(`action_items.md`) 작성 완료 여부\",\n      \"Hara의 tarball 경로 점검 결과\",\n      \"README 설치 항목 리뷰의 실제 책임자 지정 필요성\",\n      \"최종 릴리스 승인 권한자 지정\",\n      \"릴리스 노트에 내부 stretch goal(수요일) 반영 여부 결정\"\n    ],\n    \"what_not_to_invent\": [\n      \"고객명·외부 파트너명\",\n      \"예산, 보안 사고, 운영 중단, 법무 승인 요구사항\",\n      \"임의의 소유자, 기한, 승인자, 추가 리스크/장애 사유\",\n      \"기록되지 않은 정책이나 기술적 결정\"\n    ]\n  },\n  \"non_invention_rules\": [\n    \"기록된 발언만 사용하고, 확인되지 않은 고객/파트너 정보는 추가하지 않는다.\",\n    \"예산, 보안 사고, 실제 운영 장애, 법적 승인 요구사항은 존재한다고 가정하거나 추론하지 않는다.\",\n    \"owner, deadline, 승인 주체는 원문에 명시된 경우만 사용하며, 누락된 항목은 \\\"미지정/미정\\\"으로 둔다.\",\n    \"수요일은 공개 릴리스 최종일이 아닌 내부 stretch goal로만 기록한다.\"\n  ]\n}"
+}

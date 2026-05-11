@@ -1,0 +1,22 @@
+workflow_id: draft_workflow_id
+kind: workflow_profile_policy
+status: draft
+last_calibration_id: null
+calibration_mode: subagent_quality_first
+measurement_policy:
+  quality_source: subagent_full_matrix
+  telemetry_source: cli_passed_candidates_only
+  subagent_token_usage_available: false
+  telemetry_exact_for_subagent: false
+  cost_confidence: relative_not_exact
+primary_profile: null
+shadow_top_k: []
+rerun_triggers:
+  - workflow prompt changed
+  - output schema changed
+  - model pricing or availability changed
+  - primary profile fails quality gate
+calibration_archive_ref: null
+notes:
+  - Workflow creator writes this draft file when creating a new workflow.
+  - Profile optimizer updates this file after public-safe full calibration.

@@ -1,0 +1,21 @@
+{
+  "label": "gpt-5.3-codex-spark|xhigh|elf|administrator",
+  "model": "gpt-5.3-codex-spark",
+  "reasoning_effort": "xhigh",
+  "species": "elf",
+  "class": "administrator",
+  "rule_score": 69,
+  "usable_rule": false,
+  "critical_errors": [
+    "Hara exact deadline appears invented"
+  ],
+  "missing_required_items": [
+    "Wednesday internal stretch goal only",
+    "script only if contract wrong",
+    "Hara no exact deadline",
+    "release note Wednesday open question",
+    "non-facts customer/budget"
+  ],
+  "text_sha256": "e2e6cd3cf55299f7bf0d0ffae4bd7d9bc4d64a65369a426673e2e055725b1497",
+  "text": "{\n  \"formal_minutes\": {\n    \"decisions\": {\n      \"confirmed\": [\n        \"팀의 목표는 이번 주 내 Theme Package 릴리즈 준비 완료로 합의됨.\",\n        \"공개 릴리즈는 Smoke 테스트 통과를 전제로 금요일 15:00 KST를 최종 목표 시간으로 확정.\",\n        \"packageName mismatch가 발생하면 무시하지 않고 패키지 설정을 우선 확인하며, 계약(정의/설정)이 잘못된 경우에만 스크립트를 재검토.\"\n      ],\n      \"rejected_proposals\": [\n        \"Hara가 제안한 `smoke-theme-pack.mjs`의 packageName mismatch 무시 처리 제안은 거부.\",\n        \"수요일 공개 릴리즈 제안은 최종 일정이 아닌 내부 stretch goal로 한정됨.\"\n      ],\n      \"internal_stretch_goals\": [\n        \"수요일 릴리즈 목표: 내부 stretch goal로만 유지.\"\n      ]\n    },\n    \"non_decisions\": [\n      \"README 설치 스텝 리뷰는 '목요일 가능하면'으로 제안되었으나, 담당자와 최종 기한은 합의되지 않음.\",\n      \"Hara의 tarball 경로 확인은 Minjun 결과 공유 이후 수행 예정이지만, 최종 마감 시간은 합의되지 않음.\"\n    ],\n    \"risks\": [\n      \"생성된 tarball 경로가 잘못되면 릴리즈가 지연될 수 있음.\",\n      \"README 설치 단계가 오래된 경우, 릴리즈 노트가 사용자에게 오도된 정보를 전달할 수 있음.\"\n    ],\n    \"open_questions\": [\n      \"최종 릴리즈 승인 권한자는 누구인가?\",\n      \"내부 stretch goal(수요일)을 릴리즈 노트에 명시할지 여부는 미결정.\"\n    ]\n  },\n  \"action_items\": [\n    {\n      \"owner\": \"Minjun\",\n      \"task\": \"Smoke 테스트를 금요일 10:00 KST까지 다시 실행하고 결과를 공유\",\n      \"due\": \"금요일 10:00 KST\",\n      \"status\": \"확정\",\n      \"source_certainty\": \"high\"\n    },\n    {\n      \"owner\": \"Doyun\",\n      \"task\": \"실패 트리아지 노트를 action_items.md에 작성\",\n      \"due\": \"금요일 12:00 KST\",\n      \"status\": \"확정\",\n      \"source_certainty\": \"high\"\n    },\n    {\n      \"owner\": \"Hara\",\n      \"task\": \"Minjun의 Smoke 결과 공유 후 생성된 tarball 경로 점검\",\n      \"due\": \"미정(미준 공유 후)\",\n      \"status\": \"보류(조건부)\",\n      \"source_certainty\": \"high\"\n    },\n    {\n      \"owner\": \"미지정\",\n      \"task\": \"README 설치 스텝 리뷰 수행\",\n      \"due\": \"목표: 목요일(가능한 경우)\",\n      \"status\": \"미확정\",\n      \"source_certainty\": \"medium\"\n    }\n  ],\n  \"followup_note\": {\n    \"what_to_check_next\": [\n      \"금요일 10:00 KST까지 Minjun의 Smoke 재실행 결과 수신\",\n      \"Smoke 통과 여부 기반으로 금요일 15:00 KST 공개 릴리즈 진행 판정\",\n      \"Doyun의 실패 트리아지 노트 작성 완료 여부\",\n      \"Hara의 tarball 경로 확인 결과 수집\",\n      \"README 검토 담당자 지정 및 목요일 대상 완료 여부 정리\"\n    ],\n    \"what_not_to_invent\": [\n      \"고객명, 예산, 보안 이슈, 장애 발생, 법무 승인 요건 등 미기재 항목은 임의 추론 금지\",\n      \"README owner/마감일, 승인권자, 릴리즈 노트 포함 항목의 최종 정책은 회의에서 추가 확정 전 가정 금지\"\n    ]\n  },\n  \"non_invention_rules\": [\n    \"회의록에 없는 고객/외부 파트너 정보는 작성하지 않는다.\",\n    \"회의록에 없는 예산 수치, 보안 사건, 운영 중단, 법적 승인, 법무 제약은 추가하지 않는다.\",\n    \"미확정된 owner·기한은 '미지정/미정'으로만 표기하고 임의로 채우지 않는다.\",\n    \"수치/일정/의사결정은 원문 근거를 넘어 확장하지 않는다.\",\n    \"열린 질문(승인 권한자, 릴리즈 노트 문구)은 답변으로 채우지 않고 질문 상태로 유지한다.\"\n  ]\n}"
+}

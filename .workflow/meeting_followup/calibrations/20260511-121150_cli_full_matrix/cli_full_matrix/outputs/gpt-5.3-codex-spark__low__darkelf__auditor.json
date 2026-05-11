@@ -1,0 +1,22 @@
+{
+  "label": "gpt-5.3-codex-spark|low|darkelf|auditor",
+  "model": "gpt-5.3-codex-spark",
+  "reasoning_effort": "low",
+  "species": "darkelf",
+  "class": "auditor",
+  "rule_score": 69,
+  "usable_rule": false,
+  "critical_errors": [
+    "README owner appears invented"
+  ],
+  "missing_required_items": [
+    "Wednesday internal stretch goal only",
+    "package config first",
+    "script only if contract wrong",
+    "Hara no exact deadline",
+    "README owner unassigned",
+    "non-facts customer/budget"
+  ],
+  "text_sha256": "1a6ddbc1e05b279d235375e4cb45ee89f014e51934cbfc6a1403407730cedaa1",
+  "text": "{\n  \"formal_minutes\": {\n    \"decisions\": [\n      {\n        \"항목\": \"공개 릴리스 목표일 확정\",\n        \"내용\": \"스모크 테스트 통과 시 금요일 15:00 KST를 공개 릴리스 목표일로 확정.\"\n      },\n      {\n        \"항목\": \"패키지명 불일치 처리 원칙\",\n        \"내용\": \"smoke-theme-pack.mjs에서 packageName 불일치 발생 시 무시하는 방식은 적용하지 않음. 계약/설정(패키지 config) 자체가 잘못된 경우에만 스크립트 점검 대상.\"\n      },\n      {\n        \"항목\": \"확정 액션\",\n        \"내용\": \"Minjun: 금요일 10:00 KST까지 스모크 테스트 재실행 후 결과 공유.\"\n      },\n      {\n        \"항목\": \"확정 액션\",\n        \"내용\": \"Doyun: 금요일 12:00 KST까지 action_items.md에 실패 트리아지 노트 작성.\"\n      },\n      {\n        \"항목\": \"확인 액션\",\n        \"내용\": \"Hara: Minjun이 스모크 결과를 게시하면 생성된 tarball 경로 확인.\"\n      }\n    ],\n    \"non_decisions\": [\n      {\n        \"항목\": \"릴리스 승인 권한자\",\n        \"내용\": \"아직 결정되지 않음. 미해결 오픈 질문으로 남음.\"\n      },\n      {\n        \"항목\": \"릴리스 노트에 수요일 내부 목표 반영 여부\",\n        \"내용\": \"답변 없음. 내부 목표인지 공개 노트에 반영할지 미확정.\"\n      },\n      {\n        \"항목\": \"README 업데이트 담당자\",\n        \"내용\": \"Seoyeon이 가능하면 목요일에 검토 제안했으나, 실제 오너가 지정되지 않음.\"\n      }\n    },\n    \"rejected_proposals\": [\n      {\n        \"항목\": \"smoke-theme-pack.mjs에서 packageName 불일치 무시\",\n        \"내용\": \"Hara 제안은 논의 후 거부됨.\"\n      }\n    ],\n    \"internal_stretch_goals\": [\n      {\n        \"항목\": \"수요일 공개 릴리스 선행 목표\",\n        \"내용\": \"Seoyeon 제안. 단, 스모크 통과 전제하에 내부 stretch goal로만 유지.\"\n      }\n    ],\n    \"risks\": [\n      {\n        \"항목\": \"tarball 경로 불일치\",\n        \"내용\": \"릴리스 지연 가능성.\"\n      },\n      {\n        \"항목\": \"README 설치 단계 구식 정보\",\n        \"내용\": \"릴리스 노트가 사용자에게 오도될 우려.\"\n      }\n    ],\n    \"open_questions\": [\n      {\n        \"항목\": \"최종 릴리스 승인 권한자는 누구인가?\"\n      },\n      {\n        \"항목\": \"릴리스 노트에 내부 수요일 stretch goal을 언급할지 여부.\"\n      }\n    ]\n  },\n  \"action_items\": [\n    {\n      \"owner\": \"Minjun\",\n      \"task\": \"스모크 테스트 재실행 후 결과 공유\",\n      \"due\": \"금요일 10:00 KST\",\n      \"status\": \"확정\",\n      \"source_certainty\": \"high\"\n    },\n    {\n      \"owner\": \"Doyun\",\n      \"task\": \"실패 트리아지 노트를 action_items.md에 작성\",\n      \"due\": \"금요일 12:00 KST\",\n      \"status\": \"확정\",\n      \"source_certainty\": \"high\"\n    },\n    {\n      \"owner\": \"Hara\",\n      \"task\": \"Minjun의 스모크 결과 공유 후 생성된 tarball 경로 확인\",\n      \"due\": \"미확정(결과 공유 후)\",\n      \"status\": \"확정\",\n      \"source_certainty\": \"high\"\n    },\n    {\n      \"owner\": \"미지정\",\n      \"task\": \"README 설치 단계 검토\",\n      \"due\": \"가능하면 목요일\",\n      \"status\": \"보류\",\n      \"source_certainty\": \"high\"\n    }\n  ],\n  \"followup_note\": {\n    \"next_checks\": [\n      \"스모크 테스트 결과가 공개 릴리스 조건(금요일 15:00 KST) 충족되는지 즉시 확인\",\n      \"스크립트 변경 없이 config 오염/불일치 원인 중심으로 packageName mismatch root cause 추적\",\n      \"README 설치 절차의 최신성 점검 및 stale 항목 존재 여부 확인\",\n      \"Hara가 tarball 경로를 점검해 릴리스 산출물 경로 정합성 확보\",\n      \"오픈 질문(최종 승인자, 수요일 목표 반영 여부) 결정 후 minutes에 추적 근거 추가\"\n    ],\n    \"do_not_invent\": [\n      \"고객명, 외부 파트너명, 예산, 보안 사고, 생산 장애, 법무 승인 요건은 회의록에 언급되지 않아 추가로 생성하지 않음\",\n      \"릴리스 실패/성공 결과, 최종 승인자, 확정된 README 오너는 근거 없이는 확정하지 않음\",\n      \"금액, SLA, 조직계약 조항 등 문맥 외 사실은 생성하지 않음\"\n    ]\n  },\n  \"non_invention_rules\": [\n    \"회의에서 명시되지 않은 고객/예산/보안사고/장애/법무요건은 임의 생성 금지\",\n    \"확정되지 않은 항목(최종 승인자, README 오너, 수요일 목표의 릴리스 노트 반영 여부)은 open question으로만 유지\",\n    \"시간, 일정, 책임자는 원문에 있는 표현만 사용하고 임의 보정 금지\",\n    \"실측 수치와 산출물은 오직 제공된 synthetic fixture에서만 근거 추출\",\n    \"제안 거부/승인/불확정 구분을 그대로 유지해 해석 혼동 방지\"\n  ]\n}"
+}

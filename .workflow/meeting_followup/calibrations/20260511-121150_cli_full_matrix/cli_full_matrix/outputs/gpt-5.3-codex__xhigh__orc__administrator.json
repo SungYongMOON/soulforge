@@ -1,0 +1,24 @@
+{
+  "label": "gpt-5.3-codex|xhigh|orc|administrator",
+  "model": "gpt-5.3-codex",
+  "reasoning_effort": "xhigh",
+  "species": "orc",
+  "class": "administrator",
+  "rule_score": 69,
+  "usable_rule": false,
+  "critical_errors": [
+    "Rejected ignore-mismatch script change treated as accepted",
+    "Hara exact deadline appears invented"
+  ],
+  "missing_required_items": [
+    "Wednesday internal stretch goal only",
+    "script only if contract wrong",
+    "rejected script-ignore proposal",
+    "Hara after Minjun result",
+    "Hara no exact deadline",
+    "README stale risk",
+    "non-facts customer/budget"
+  ],
+  "text_sha256": "fc0a7ffad4e46b179fe618f8e94b46ce2f23b0401ddc33b50b9d2ec38aed0727",
+  "text": "{\n  \"formal_minutes\": {\n    \"project_code\": \"PUBLIC_MEETING_SMOKE\",\n    \"meeting_title\": \"UI Theme Package Release Readiness\",\n    \"participants\": [\n      \"Minjun\",\n      \"Seoyeon\",\n      \"Doyun\",\n      \"Hara\"\n    ],\n    \"결정사항_확정\": [\n      {\n        \"topic\": \"공개 릴리스 목표 시각\",\n        \"decision\": \"스모크 테스트 통과 시 금요일 15:00 KST에 공개 릴리스\",\n        \"condition\": \"스모크 테스트 통과 필수\",\n        \"certainty\": \"확정\"\n      },\n      {\n        \"topic\": \"packageName 불일치 대응\",\n        \"decision\": \"불일치 발생 시 먼저 패키지 설정(계약) 점검, 계약이 잘못된 경우에만 smoke-theme-pack.mjs 검토\",\n        \"certainty\": \"확정\"\n      }\n    ],\n    \"비결정사항\": {\n      \"반려된_제안\": [\n        {\n          \"proposal\": \"smoke-theme-pack.mjs에서 packageName mismatch를 무시하도록 변경\",\n          \"result\": \"반려\"\n        }\n      ],\n      \"내부_스트레치_목표\": [\n        {\n          \"item\": \"수요일 릴리스 제안\",\n          \"scope\": \"내부 스트레치 목표\",\n          \"note\": \"공개 릴리스 확정안 아님\"\n        }\n      ],\n      \"미확정_항목\": [\n        {\n          \"item\": \"README 설치 단계 목요일 검토\",\n          \"note\": \"가능하면 진행, 담당자 미배정\"\n        }\n      ]\n    },\n    \"risks\": [\n      {\n        \"risk\": \"tarball 경로 오류\",\n        \"impact\": \"릴리스 지연 가능\"\n      },\n      {\n        \"risk\": \"README 설치 단계 최신성 부족\",\n        \"impact\": \"릴리스 노트가 사용자에게 오해를 줄 수 있음\"\n      }\n    ],\n    \"open_questions\": [\n      \"최종 릴리스 승인 권한자는 누구인가?\",\n      \"릴리스 노트에 내부 수요일 스트레치 목표를 명시할 것인가?\"\n    ]\n  },\n  \"action_items\": [\n    {\n      \"owner\": \"Minjun\",\n      \"task\": \"금요일 10:00 KST까지 스모크 테스트 재실행 후 결과 공유\",\n      \"due\": \"금요일 10:00 KST\",\n      \"status\": \"확정됨(진행 상태 미보고)\",\n      \"source_certainty\": \"high\"\n    },\n    {\n      \"owner\": \"Doyun\",\n      \"task\": \"금요일 12:00 KST까지 action_items.md에 실패 트리아지 노트 작성\",\n      \"due\": \"금요일 12:00 KST\",\n      \"status\": \"확정됨(진행 상태 미보고)\",\n      \"source_certainty\": \"high\"\n    },\n    {\n      \"owner\": \"Hara\",\n      \"task\": \"Minjun의 스모크 결과 공유 이후 생성된 tarball 경로 점검\",\n      \"due\": \"명시된 정확 시한 없음(선행조건: Minjun 결과 공유)\",\n      \"status\": \"확정됨(기한 미정)\",\n      \"source_certainty\": \"high\"\n    },\n    {\n      \"owner\": null,\n      \"task\": \"README 설치 단계 검토\",\n      \"due\": \"목요일(가능하면)\",\n      \"status\": \"미확정(담당자 미배정)\",\n      \"source_certainty\": \"medium\"\n    }\n  ],\n  \"followup_note\": {\n    \"next_checks\": [\n      \"금요일 10:00 KST 이후 Minjun의 스모크 결과 수신 여부 확인\",\n      \"금요일 12:00 KST 이후 Doyun의 action_items.md 트리아지 노트 작성 여부 확인\",\n      \"스모크 결과 공유 직후 Hara의 tarball 경로 점검 결과 기록\",\n      \"README 설치 단계 검토 담당자 지정 필요 여부 결정\",\n      \"최종 릴리스 승인 권한자 및 릴리스 노트에 수요일 스트레치 목표 기재 여부 결정\"\n    ],\n    \"do_not_invent\": [\n      \"고객명 또는 외부 파트너\",\n      \"예산 정보\",\n      \"보안 사고\",\n      \"프로덕션 장애\",\n      \"법무 승인 요건\",\n      \"미지정 담당자, 미지정 마감시한의 임의 확정\"\n    ]\n  },\n  \"non_invention_rules\": [\n    \"명시된 사실만 기록하고 추정 사실을 추가하지 않는다.\",\n    \"확정/반려/미확정 상태를 분리해 표기한다.\",\n    \"조건부 결정은 조건(예: 스모크 통과)을 함께 유지한다.\",\n    \"담당자 또는 마감이 없는 항목은 null 또는 미정으로 유지한다.\",\n    \"명시적 비사실(고객, 예산, 보안, 장애, 법무)은 어떤 형태로도 생성하지 않는다.\"\n  ]\n}"
+}

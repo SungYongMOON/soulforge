@@ -1,0 +1,13 @@
+workflow_id: meeting_followup
+kind: role_slots
+status: active
+slots:
+  - slot_id: minutes_writer
+    title: Minutes Writer
+    summary: Extracts confirmed decisions, non-decisions, risks, and open questions from bounded meeting notes.
+  - slot_id: action_tracker
+    title: Action Tracker
+    summary: Converts explicit owner, task, due, and certainty statements into follow-up action items.
+  - slot_id: boundary_reviewer
+    title: Boundary Reviewer
+    summary: Checks that the output does not invent absent customers, owners, deadlines, approvals, incidents, or private context.

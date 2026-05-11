@@ -1,0 +1,4 @@
+interface:
+  display_name: "Workflow Optimizer"
+  short_description: "Benchmark workflow execution profiles."
+  default_prompt: "Find the best Soulforge execution profile for this workflow."

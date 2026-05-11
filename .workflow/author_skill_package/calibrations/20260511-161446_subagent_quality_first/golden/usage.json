@@ -1,0 +1,11 @@
+{
+  "source": "subagent_baseline",
+  "model": "gpt-5.5",
+  "reasoning_effort": "xhigh",
+  "usage_available": false,
+  "notes": [
+    "Baseline was produced by an isolated Codex app subagent.",
+    "The subagent runner did not expose exact token usage to the parent agent.",
+    "Candidate telemetry is measured separately with CLI probes only for quality-passing profiles."
+  ]
+}

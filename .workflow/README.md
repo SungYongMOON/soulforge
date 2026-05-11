@@ -5,7 +5,8 @@
 - `.workflow/` 는 workflow canon 과 curated learning history 의 정본 루트다.
 - 각 workflow 는 작업 공략서, 협업 절차, handoff 규칙을 소유한다.
 - `.workflow/` 는 `.registry` 아래로 들어가지 않는 독립 orchestration root 다.
-- `.workflow/` 는 raw run dump, project-local battle log, run index owner 가 아니다.
+- `.workflow/` 는 workflow-level profile calibration 결과와 public-safe candidate archive 를 소유할 수 있다.
+- `.workflow/` 는 project-local raw run dump, battle log, private transcript owner 가 아니다.
 
 ## canon 과 authoring 구분
 
@@ -22,6 +23,8 @@ flowchart TD
   WF --> RS["role_slots.yaml"]
   WF --> HH["handoff_rules.yaml"]
   WF --> PC["party_compatibility.yaml"]
+  WF --> PP["profile_policy.yaml"]
+  WF --> CAL["calibrations/<calibration_id>/"]
   WF --> MI[".mission/<mission_id>/mission.yaml"]
   SG --> SLOT["actor_slot"]
   SG --> SK["action.skill_id"]
@@ -59,18 +62,25 @@ sequenceDiagram
 - `<workflow_id>/handoff_rules.yaml`
 - `<workflow_id>/monster_rules.yaml`
 - `<workflow_id>/party_compatibility.yaml`
+- `<workflow_id>/profile_policy.yaml`
+- `<workflow_id>/calibrations/<calibration_id>/`
 - `<workflow_id>/history/`
 
 ## 무엇을 두지 않는다
 
-- `_workmeta/<project_code>/runs/<run_id>/` raw execution truth
-- project code, run id, raw artifact, battle log, transcript dump
+- project-local raw execution truth
+- private/raw artifact, battle log, transcript dump
 - active unit runtime state
 
 ## 왜 이렇게 둔다
 
-- workflow 는 여러 unit 과 party 가 재사용하는 공략서이므로 raw 실행 결과와 분리되어야 한다.
-- public repo 에 남길 수 있는 것은 curated learning summary 뿐이고, held mission assignment 는 `.mission/` 이, raw run 은 `_workmeta/<project_code>/runs/<run_id>/` 가 소유한다.
+- workflow 는 여러 unit 과 party 가 재사용하는 공략서이므로 project-local raw 실행 결과와 분리되어야 한다.
+- workflow 자체를 최적화하기 위해 public-safe synthetic fixture 로 돌린 profile calibration 은 해당 workflow 의 반복 실행 정책을 바꾸는 근거이므로 `<workflow_id>/calibrations/<calibration_id>/` 아래에 둘 수 있다.
+- calibration archive 에는 golden, frozen quality gate, candidate outputs, telemetry, evaluation, recommendation 을 둘 수 있으나 raw/private/secret 입력이나 실제 프로젝트 원문은 넣지 않는다.
+- `profile_policy.yaml` 은 calibration 결과가 현재 workflow 를 어떻게 업데이트했는지, primary profile 과 shadow top-k profile 을 기록한다.
+- workflow creator 는 새 workflow 를 등록할 때 `profile_policy.yaml` 을 draft 로 만들고 `calibrations/` placeholder 를 함께 만든다.
+- profile optimizer 는 등록된 workflow 를 대상으로 subagent quality full matrix 결과를 `calibrations/<calibration_id>/` 에 저장하고, 품질 통과 후보만 CLI telemetry probe 로 측정한 뒤 `profile_policy.yaml` 을 active 추천값으로 갱신한다.
+- held mission assignment 는 `.mission/` 이, project-local raw run 은 `_workmeta/<project_code>/runs/<run_id>/` 가 소유한다.
 - `step_graph.yaml` 의 각 step 는 필요하면 `execution_profile_ref` 를 가질 수 있고, 실제 모델/도구 preset 은 `_workmeta/<project_code>/bindings/execution_profile_binding.yaml` 에서 resolve 한다.
 - `step_graph.yaml` 의 `action.skill_id` 는 `.registry/skills/<skill_id>/skill.yaml` 을 가리키며, local runtime 에서는 `_workmeta/<project_code>/bindings/skill_execution_binding.yaml` 이 installed Codex skill name 을 resolve 할 수 있다.
 - skill authoring 같은 운영 workflow 는 tracked package draft 와 install handoff note 를 만들 수 있지만, 실제 installed mirror sync 는 local operation 절차로 남길 수 있다.

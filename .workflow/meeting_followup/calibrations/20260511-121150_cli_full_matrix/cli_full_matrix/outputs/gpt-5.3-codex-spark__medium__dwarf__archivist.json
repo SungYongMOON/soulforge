@@ -1,0 +1,21 @@
+{
+  "label": "gpt-5.3-codex-spark|medium|dwarf|archivist",
+  "model": "gpt-5.3-codex-spark",
+  "reasoning_effort": "medium",
+  "species": "dwarf",
+  "class": "archivist",
+  "rule_score": 69,
+  "usable_rule": false,
+  "critical_errors": [
+    "Hara exact deadline appears invented"
+  ],
+  "missing_required_items": [
+    "smoke pass condition",
+    "Wednesday internal stretch goal only",
+    "Hara no exact deadline",
+    "non-facts customer/budget",
+    "non-facts security/outage/legal"
+  ],
+  "text_sha256": "0331c6334a4c31f84a57598bccc8bfb2f6ddf95ecaa45f8c05906261fcaff07b",
+  "text": "{\n  \"formal_minutes\": {\n    \"decisions\": {\n      \"confirmed\": [\n        {\n          \"항목\": \"릴리스 공개 목표일 확정: 화요일/수요일이 아니라 공개 릴리스 목표는 금요일 15:00 KST(연기 조건: 스모크 테스트 통과)로 확정\",\n          \"근거\": \"세미나 메모의 핵심 합의\"\n        },\n        {\n          \"항목\": \"패키지명(packageName) 불일치 대응은 스크립트에서 단순 무시하지 않음. 우선 패키지 설정/계약을 점검하고, 계약 자체가 잘못된 경우에만 스크립트를 검토\",\n          \"근거\": \"Hara 제안(무시) 논의 후 합의\"\n        },\n        {\n          \"항목\": \"확인된 액션: Minjun이 금요일 10:00 KST까지 스모크 테스트를 재실행하고 결과 공유\",\n          \"근거\": \"확정 액션 항목\"\n        },\n        {\n          \"항목\": \"확인된 액션: Doyun이 금요일 12:00 KST까지 action_items.md에 실패 트리아지 노트 작성\",\n          \"근거\": \"확정 액션 항목\"\n        },\n        {\n          \"항목\": \"Hara가 Minjun의 스모크 결과 공유 후 생성된 tarball 경로 점검\",\n          \"근거\": \"합의된 후속 작업\"\n        }\n      ],\n      \"rejected\": [\n        {\n          \"항목\": \"Hara의 `smoke-theme-pack.mjs`에서 packageName 불일치 시 강제 무시 처리 제안\",\n          \"근거\": \"논의 후 거부됨\"\n        }\n      ],\n      \"stretch_goals\": [\n        {\n          \"항목\": \"수요일 공개 릴리스는 내부 stretch goal로만 유지(최종 공개 목표 아님)\",\n          \"근거\": \"Seoyeon 제안 대비 Doyun 반대 후 정리\"\n        }\n      ]\n    },\n    \"non-decisions\": [\n      {\n        \"항목\": \"README 설치 단계 검토(목표: 목요일 가능 시)는 제안됨. 소유자 지정/최종 상태 미확정\",\n        \"근거\": \"Seoyeon 제안\"\n      },\n      {\n        \"항목\": \"Hara의 tarball 경로 점검은 기한 미지정\",\n        \"근거\": \"후속 점검 항목으로만 확정\"\n      }\n    ],\n    \"risks\": [\n      {\n        \"항목\": \"잘못된 tarball 경로로 인해 릴리스가 지연될 수 있음\",\n        \"근거\": \"명시된 리스크\"\n      },\n      {\n        \"항목\": \"README 설치 가이드가 오래되면 릴리스 노트 및 사용자 안내가 오도될 수 있음\",\n        \"근거\": \"명시된 리스크\"\n      }\n    ],\n    \"open_questions\": [\n      {\n        \"항목\": \"최종 릴리스 승인 권한자는 누구인가?\",\n        \"근거\": \"회의 중 미해결 질문\"\n      },\n      {\n        \"항목\": \"내부 수요일 stretch goal를 릴리스 노트에 기재할지 여부\",\n        \"근거\": \"결정 미정\"\n      }\n    ]\n  },\n  \"action_items\": [\n    {\n      \"owner\": \"Minjun\",\n      \"task\": \"스모크 테스트 재실행 후 결과 공유\",\n      \"due\": \"금요일 10:00 KST\",\n      \"status\": \"확정\",\n      \"source_certainy\": \"높음\"\n    },\n    {\n      \"owner\": \"Doyun\",\n      \"task\": \"실패 트리아지 노트를 action_items.md에 작성\",\n      \"due\": \"금요일 12:00 KST\",\n      \"status\": \"확정\",\n      \"source_certainy\": \"높음\"\n    },\n    {\n      \"owner\": \"Hara\",\n      \"task\": \"Minjun이 올린 스모크 결과를 바탕으로 생성된 tarball 경로 확인\",\n      \"due\": \"미정(결과 공유 후)\",\n      \"status\": \"대기\",\n      \"source_certainy\": \"높음\"\n    },\n    {\n      \"owner\": null,\n      \"task\": \"README 설치 단계 최신성 검토\",\n      \"due\": \"목요일 가능 시\",\n      \"status\": \"비확정(소유자 미지정)\",\n      \"source_certainy\": \"중간\"\n    }\n  ],\n  \"followup_note\": {\n    \"check_next\": [\n      \"Minjun의 금요일 10:00 KST 스모크 결과와 Doyun의 실패 트리아지 노트를 연동해 금요일 15:00 KST 공개 가능성 재확인\",\n      \"Hara가 수행한 tarball 경로 점검 결과의 실제 경로 정합성 점검\",\n      \"README 검토가 완료되면 가이드를 릴리스 노트 내용과 동기화할지 여부를 확정\",\n      \"최종 릴리스 승인 권한자 지정 및 주간 커뮤니케이션 채널 반영\"\n    ],\n    \"not_to_invent\": [\n      \"고객명/파트너명, 예산, 보안 사고, 운영 장애, 법적 승인 요구, 추가 오너, 추가 마감일 등은 본문에 존재하지 않음\",\n      \"월/일/시간 외의 추가 날짜는 추정해서 생성하지 않음(주어진 스케줄만 사용)\",\n      \"내부 stretch goal를 최종 확정 일정으로 해석하지 않음\"\n    ]\n  },\n  \"non_invention_rules\": [\n    \"회의 기록에 없는 고객/예산/보안사건/운영장애/법적 승인 사실을 추가하지 않는다\",\n    \"언급되지 않은 오너, 책임자, 승인권자, 마감일은 임의로 채우지 않는다\",\n    \"제안이 거부된 내용은 최종합의 항목으로 간주하지 않는다\",\n    \"수요일 일정은 공개 목표가 아닌 내부 stretch goal로만 기록한다\",\n    \"액션 항목은 사실 확인 가능한 범위에서만 작성하고, 불명확 항목은 상태를 '비확정' 또는 '미정'으로 유지한다\"\n  ]\n}"
+}

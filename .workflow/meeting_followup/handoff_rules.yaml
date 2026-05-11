@@ -1,0 +1,12 @@
+workflow_id: meeting_followup
+kind: handoff_rules
+status: active
+rules:
+  - from: minutes_writer
+    to: action_tracker
+    condition: decisions_and_open_questions_extracted
+    summary: Action tracking starts only after confirmed decisions, rejected proposals, risks, and open questions are separated.
+  - from: action_tracker
+    to: boundary_reviewer
+    condition: draft_followup_ready
+    summary: Boundary review verifies that inferred owners, deadlines, approvals, or incidents were not added.

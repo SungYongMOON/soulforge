@@ -1,0 +1,18 @@
+{
+  "label": "gpt-5.4-mini|high|elf|archivist",
+  "model": "gpt-5.4-mini",
+  "reasoning_effort": "high",
+  "species": "elf",
+  "class": "archivist",
+  "rule_score": 69,
+  "usable_rule": false,
+  "critical_errors": [
+    "README owner appears invented"
+  ],
+  "missing_required_items": [
+    "Wednesday internal stretch goal only",
+    "README owner unassigned"
+  ],
+  "text_sha256": "622feefc2c6a0f950f3006f31657590fd414f54afd3e1ce195b43526e33c75dc",
+  "text": "{\n  \"formal_minutes\": {\n    \"meeting_title\": \"UI Theme Package Release Readiness\",\n    \"project_code\": \"PUBLIC_MEETING_SMOKE\",\n    \"confirmed_decisions\": [\n      {\n        \"decision\": \"공개 릴리스 목표 시점은 금요일 15:00 KST로 정했다.\",\n        \"condition\": \"smoke test가 통과해야 한다.\"\n      },\n      {\n        \"decision\": \"packageName 불일치가 발생하면 먼저 패키지 설정을 확인한다.\",\n        \"condition\": \"계약 자체가 잘못된 경우에만 스크립트를 검토한다.\"\n      }\n    ],\n    \"rejected_proposals\": [\n      {\n        \"proposal\": \"수정 대상인 `smoke-theme-pack.mjs`에서 packageName 불일치를 무시하도록 바꾸자.\",\n        \"result\": \"거절됨\"\n      },\n      {\n        \"proposal\": \"수요일 공개 릴리스를 목표로 하자.\",\n        \"result\": \"최종 결정으로 채택되지 않음\"\n      }\n    ],\n    \"internal_stretch_goals\": [\n      {\n        \"goal\": \"수요일 릴리스를 내부 stretch goal로 삼는다.\",\n        \"status\": \"내부 목표로만 언급됨\"\n      }\n    ],\n    \"non_decisions\": [\n      {\n        \"item\": \"README 설치 단계는 가능하면 목요일까지 검토하자는 제안이 있었지만, owner는 정해지지 않았다.\"\n      },\n      {\n        \"item\": \"Hara의 tarball 경로 확인은 Minjun의 smoke 결과 게시 이후로만 연결되었고, 정확한 마감 시각은 정해지지 않았다.\"\n      }\n    ],\n    \"risks\": [\n      {\n        \"risk\": \"잘못된 tarball 경로는 릴리스를 지연시킬 수 있다.\"\n      },\n      {\n        \"risk\": \"README 설치 단계가 오래되면 릴리스 노트가 사용자에게 오해를 줄 수 있다.\"\n      }\n    ],\n    \"open_questions\": [\n      {\n        \"question\": \"최종 릴리스 승인 권한은 누구에게 있는가?\"\n      },\n      {\n        \"question\": \"릴리스 노트에 내부 수요일 stretch goal을 언급할 것인가?\"\n      }\n    ]\n  },\n  \"action_items\": [\n    {\n      \"owner\": \"Minjun\",\n      \"task\": \"smoke test를 다시 실행하고 결과를 공유한다.\",\n      \"due\": \"금요일 10:00 KST\",\n      \"status\": \"confirmed\",\n      \"source_certainty\": \"confirmed\"\n    },\n    {\n      \"owner\": \"Doyun\",\n      \"task\": \"실패 triage note를 `action_items.md`에 작성한다.\",\n      \"due\": \"금요일 12:00 KST\",\n      \"status\": \"confirmed\",\n      \"source_certainty\": \"confirmed\"\n    },\n    {\n      \"owner\": \"Hara\",\n      \"task\": \"Minjun이 smoke 결과를 올린 뒤 generated tarball path를 확인한다.\",\n      \"due\": \"Minjun의 smoke 결과 게시 후\",\n      \"status\": \"confirmed\",\n      \"source_certainty\": \"confirmed\"\n    }\n  ],\n  \"followup_note\": {\n    \"next_checks\": [\n      \"Minjun의 smoke test 결과를 확인한다.\",\n      \"smoke 통과 여부를 기준으로 금요일 15:00 KST 공개 릴리스 가능성을 재확인한다.\",\n      \"tarball 경로가 올바른지 확인한다.\",\n      \"README 설치 단계 검토가 필요한지 확인하되, owner와 시점은 새로 정하지 않는다.\",\n      \"최종 릴리스 승인 권한과 내부 stretch goal의 릴리스 노트 반영 여부를 확인한다.\"\n    ],\n    \"do_not_invent\": [\n      \"고객명 또는 외부 파트너명\",\n      \"예산 정보\",\n      \"보안 사고 여부\",\n      \"운영 장애 여부\",\n      \"법무 승인 요구사항\",\n      \"결정되지 않은 owner\",\n      \"정해지지 않은 deadline\",\n      \"기록에 없는 추가 원인, 합의, 책임자\"\n    ]\n  },\n  \"non_invention_rules\": [\n    \"fixture에 명시된 사실만 사용한다.\",\n    \"customer, budget, security, outage, legal facts를 추가로 만들지 않는다.\",\n    \"owner와 deadline은 확인된 경우에만 쓴다.\",\n    \"결정된 사항과 거절된 제안, 내부 stretch goal, 리스크, open question을 섞지 않는다.\",\n    \"불명확한 내용은 추정하지 말고 미확정으로 둔다.\"\n  ]\n}"
+}

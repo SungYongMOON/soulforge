@@ -1,0 +1,18 @@
+{
+  "label": "gpt-5.4-mini|medium|darkelf|administrator",
+  "model": "gpt-5.4-mini",
+  "reasoning_effort": "medium",
+  "species": "darkelf",
+  "class": "administrator",
+  "rule_score": 91,
+  "usable_rule": true,
+  "critical_errors": [],
+  "missing_required_items": [
+    "smoke pass condition",
+    "Wednesday internal stretch goal only",
+    "Hara after Minjun result",
+    "non-facts customer/budget"
+  ],
+  "text_sha256": "e529539c6555319b56c88093edce9c765c0914ce6cd5680f87143acb0b4c082e",
+  "text": "{\n  \"formal_minutes\": {\n    \"decisions\": [\n      {\n        \"item\": \"공개 릴리스 목표는 금요일 15:00 KST로 정했다.\",\n        \"condition\": \"스모크 테스트가 통과해야 한다.\"\n      },\n      {\n        \"item\": \"packageName 불일치가 발생하면 먼저 패키지 설정을 확인한다.\",\n        \"condition\": \"계약 자체가 잘못된 경우에만 스크립트를 검토한다.\"\n      }\n    ],\n    \"rejected_proposals\": [\n      {\n        \"item\": \"수요일 릴리스 제안\",\n        \"reason\": \"스모크 테스트 통과가 우선이라 최종 채택되지 않았다.\"\n      },\n      {\n        \"item\": \"smoke-theme-pack.mjs에서 packageName 불일치를 무시하도록 변경\",\n        \"reason\": \"논의 후 거절되었다.\"\n      }\n    ],\n    \"internal_stretch_goals\": [\n      {\n        \"item\": \"수요일 릴리스\",\n        \"status\": \"내부 스트레치 목표로만 언급됨\"\n      },\n      {\n        \"item\": \"README 설치 단계 검토\",\n        \"status\": \"가능하면 목요일까지 검토하자는 제안만 있었고, 담당자는 지정되지 않음\"\n      }\n    ],\n    \"risks\": [\n      {\n        \"item\": \"tarball 경로가 잘못되면 릴리스가 지연될 수 있음\"\n      },\n      {\n        \"item\": \"README 설치 단계가 오래되면 릴리스 노트가 사용자를 오도할 수 있음\"\n      }\n    ],\n    \"open_questions\": [\n      {\n        \"item\": \"최종 릴리스 승인 권한이 누구에게 있는가?\"\n      },\n      {\n        \"item\": \"릴리스 노트에 내부 수요일 스트레치 목표를 언급할 것인가?\"\n      }\n    ],\n    \"non_decisions\": [\n      {\n        \"item\": \"README 설치 단계 검토\",\n        \"status\": \"논의되었으나 담당자와 확정 일정이 정해지지 않음\"\n      },\n      {\n        \"item\": \"Hara의 tarball 경로 확인\",\n        \"status\": \"Minjun의 스모크 결과 이후에 진행하기로 했으나 정확한 마감 시각은 없음\"\n      }\n    ]\n  },\n  \"action_items\": [\n    {\n      \"owner\": \"Minjun\",\n      \"task\": \"스모크 테스트를 다시 실행하고 결과를 공유한다.\",\n      \"due\": \"Friday 10:00 KST\",\n      \"status\": \"pending\",\n      \"source_certainty\": \"confirmed\"\n    },\n    {\n      \"owner\": \"Doyun\",\n      \"task\": \"failure triage note를 action_items.md에 작성한다.\",\n      \"due\": \"Friday 12:00 KST\",\n      \"status\": \"pending\",\n      \"source_certainty\": \"confirmed\"\n    },\n    {\n      \"owner\": \"Hara\",\n      \"task\": \"Minjun이 스모크 결과를 게시한 뒤 생성된 tarball 경로를 확인한다.\",\n      \"due\": \"미정\",\n      \"status\": \"pending\",\n      \"source_certainty\": \"confirmed, no exact deadline given\"\n    }\n  ],\n  \"followup_note\": \"다음에는 Minjun의 스모크 결과, tarball 경로, 그리고 Doyun의 triage note를 확인하면 된다. 확정되지 않은 내용으로는 고객명, 예산, 보안 사고, 운영 장애, 법무 승인, 최종 승인자, 그리고 Hara의 마감 시각을 만들어내면 안 된다. 또한 README 검토와 수요일 릴리스는 확정 사항이 아니라 내부 제안 또는 스트레치 목표로만 유지해야 한다.\",\n  \"non_invention_rules\": [\n    \"고객명은 추정하거나 생성하지 않는다.\",\n    \"예산 정보는 추정하거나 생성하지 않는다.\",\n    \"보안 사고 여부는 추정하거나 생성하지 않는다.\",\n    \"운영 장애 여부는 추정하거나 생성하지 않는다.\",\n    \"법무 승인 요구는 추정하거나 생성하지 않는다.\",\n    \"최종 릴리스 승인자는 확정 전까지 이름을 만들지 않는다.\",\n    \"Hara의 정확한 마감 시각은 주어지지 않았으므로 임의로 추가하지 않는다.\",\n    \"README 설치 단계 검토의 담당자는 지정되지 않았으므로 임의 배정하지 않는다.\",\n    \"수요일 릴리스는 내부 스트레치 목표이며 확정 일정으로 승격하지 않는다.\",\n    \"공개 릴리스 목표는 금요일 15:00 KST로만 기록하고 그 외의 시간은 만들지 않는다.\"\n  ]\n}"
+}

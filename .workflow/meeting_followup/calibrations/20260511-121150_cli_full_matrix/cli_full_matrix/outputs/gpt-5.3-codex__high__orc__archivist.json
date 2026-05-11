@@ -1,0 +1,21 @@
+{
+  "label": "gpt-5.3-codex|high|orc|archivist",
+  "model": "gpt-5.3-codex",
+  "reasoning_effort": "high",
+  "species": "orc",
+  "class": "archivist",
+  "rule_score": 69,
+  "usable_rule": false,
+  "critical_errors": [
+    "Hara exact deadline appears invented"
+  ],
+  "missing_required_items": [
+    "smoke pass condition",
+    "Wednesday internal stretch goal only",
+    "Hara after Minjun result",
+    "Hara no exact deadline",
+    "README stale risk"
+  ],
+  "text_sha256": "bd3ce0f9b69021b4250f752b615f4445da01af367865c0dcf752c486b0d97130",
+  "text": "{\n  \"formal_minutes\": {\n    \"meeting_meta\": {\n      \"project_code\": \"PUBLIC_MEETING_SMOKE\",\n      \"meeting_title\": \"UI Theme Package Release Readiness\",\n      \"participants\": [\n        \"Minjun\",\n        \"Seoyeon\",\n        \"Doyun\",\n        \"Hara\"\n      ]\n    },\n    \"confirmed_decisions\": [\n      {\n        \"topic\": \"공개 릴리스 목표 시각\",\n        \"decision\": \"스모크 테스트 통과 시 금요일 15:00 KST에 공개 릴리스\",\n        \"condition\": \"스모크 테스트 통과\"\n      },\n      {\n        \"topic\": \"packageName mismatch 대응 원칙\",\n        \"decision\": \"mismatch 발생 시 먼저 패키지 설정을 점검하고, 계약(contract) 자체가 잘못된 경우에만 스크립트 검토\"\n      }\n    ],\n    \"rejected_proposals\": [\n      {\n        \"proposal\": \"smoke-theme-pack.mjs에서 packageName mismatch를 무시하도록 변경\",\n        \"result\": \"반려\"\n      }\n    ],\n    \"internal_stretch_goals\": [\n      {\n        \"item\": \"수요일 릴리스\",\n        \"status\": \"내부 스트레치 목표(확정 일정 아님)\"\n      }\n    ],\n    \"non_decisions\": [\n      {\n        \"item\": \"README 설치 단계 검토\",\n        \"note\": \"목요일까지 가능하면 진행 의견만 있었고 확정 소유자 없음\"\n      }\n    ],\n    \"risks\": [\n      {\n        \"risk\": \"잘못된 tarball 경로\",\n        \"impact\": \"릴리스 지연 가능\"\n      },\n      {\n        \"risk\": \"README 설치 단계 최신성 저하\",\n        \"impact\": \"릴리스 노트가 사용자에게 오해를 줄 가능성\"\n      }\n    ],\n    \"open_questions\": [\n      {\n        \"question\": \"최종 릴리스 승인 권한자는 누구인가?\",\n        \"status\": \"미결정\"\n      },\n      {\n        \"question\": \"릴리스 노트에 수요일 내부 스트레치 목표를 명시할 것인가?\",\n        \"status\": \"미결정\"\n      }\n    ]\n  },\n  \"action_items\": [\n    {\n      \"owner\": \"Minjun\",\n      \"task\": \"금요일 10:00 KST까지 스모크 테스트 재실행 후 결과 공유\",\n      \"due\": \"금요일 10:00 KST\",\n      \"status\": \"대기\",\n      \"source_certainty\": \"confirmed\"\n    },\n    {\n      \"owner\": \"Doyun\",\n      \"task\": \"action_items.md에 실패 트리아지 노트 작성\",\n      \"due\": \"금요일 12:00 KST\",\n      \"status\": \"대기\",\n      \"source_certainty\": \"confirmed\"\n    },\n    {\n      \"owner\": \"Hara\",\n      \"task\": \"Minjun의 스모크 결과 공유 이후 생성된 tarball 경로 점검\",\n      \"due\": \"미정\",\n      \"status\": \"선행 작업 대기\",\n      \"source_certainty\": \"confirmed\"\n    },\n    {\n      \"owner\": \"미지정\",\n      \"task\": \"README 설치 단계 검토(가능하면 목요일)\",\n      \"due\": \"목요일(권고, 확정 아님)\",\n      \"status\": \"소유자 미지정\",\n      \"source_certainty\": \"tentative\"\n    }\n  ],\n  \"followup_note\": {\n    \"next_checks\": [\n      \"Minjun 스모크 테스트 결과(통과/실패 및 근거) 확인\",\n      \"Doyun 실패 트리아지 노트 작성 완료 여부 확인\",\n      \"Hara의 tarball 경로 점검 결과 확인\",\n      \"최종 릴리스 승인 권한자 지정 여부 결정\",\n      \"릴리스 노트에 수요일 내부 스트레치 목표 기재 여부 결정\",\n      \"README 설치 단계 최신성 검토 소유자 지정\"\n    ],\n    \"do_not_invent\": [\n      \"고객명 또는 외부 파트너\",\n      \"예산 정보\",\n      \"보안 사고\",\n      \"프로덕션 장애\",\n      \"법무 승인 요건\",\n      \"미지정 소유자/미합의 마감시각의 임의 확정\"\n    ]\n  },\n  \"non_invention_rules\": {\n    \"allowed_source\": \"inline public-safe synthetic fixture only\",\n    \"forbidden_inventions\": [\n      \"customer facts\",\n      \"budget facts\",\n      \"security incident facts\",\n      \"outage facts\",\n      \"legal requirement facts\",\n      \"unassigned owner facts\",\n      \"undecided deadline facts\"\n    ],\n    \"fact_boundary\": [\n      \"확정 결정과 반려안, 스트레치 목표, 리스크, 오픈 질문을 분리 기록\",\n      \"미결정 사항은 미결정으로 유지\",\n      \"조건부 결정은 조건을 함께 명시\"\n    ]\n  }\n}"
+}

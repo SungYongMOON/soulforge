@@ -1,0 +1,139 @@
+{
+  "source_matrix": "/tmp/soulforge_profile_full_matrix_20260511-121150.json",
+  "created_at": "2026-05-11T12:56:48.895275",
+  "evaluator": {
+    "model": "gpt-5.5",
+    "effort": "medium",
+    "wall_s": 40.69,
+    "returncode": 0,
+    "usage": {
+      "input_tokens": 27815,
+      "cached_input_tokens": 7552,
+      "output_tokens": 2057,
+      "reasoning_output_tokens": 516
+    }
+  },
+  "strict_candidate_count": 7,
+  "answer_text": "{\n  \"evaluations\": [\n    {\n      \"label\": \"gpt-5.4-mini|medium|orc|auditor\",\n      \"usable\": true,\n      \"hard_fail\": false,\n      \"quality_score\": 95,\n      \"critical_errors\": [],\n      \"missing_or_weak_items\": [\n        \"followup_note 키가 기준의 check_next/do_not_invent와 정확히 일치하지 않고 what_to_check_next/what_not_to_invent로 되어 있음\"\n      ],\n      \"boundary_result\": \"pass\",\n      \"notes\": \"필수 사실과 경계 구분이 거의 모두 보존됨. Hara 마감 없음, README 담당자 미배정, 금요일 15:00 KST 조건부 릴리스가 명확하다. 남은 위험은 출력 키 명칭의 약한 불일치뿐이다.\"\n    },\n    {\n      \"label\": \"gpt-5.4-mini|high|human|archivist\",\n      \"usable\": true,\n      \"hard_fail\": false,\n      \"quality_score\": 86,\n      \"critical_errors\": [],\n      \"missing_or_weak_items\": [\n        \"followup_note가 객체가 아니라 문자열이라 check_next/do_not_invent 구조를 충족하지 못함\",\n        \"smkoke-theme-pack.mjs 오타가 있음\",\n        \"README 검토 항목의 due를 2026-05-14로 다소 확정적으로 적음\"\n      ],\n      \"boundary_result\": \"minor\",\n      \"notes\": \"사실 대부분은 맞지만 필수 followup_note 구조가 깨져 평가 및 재사용성이 떨어진다. 오타와 일부 기한 표현도 약점이다.\"\n    },\n    {\n      \"label\": \"gpt-5.5|high|dwarf|archivist\",\n      \"usable\": true,\n      \"hard_fail\": false,\n      \"quality_score\": 93,\n      \"critical_errors\": [],\n      \"missing_or_weak_items\": [\n        \"프로젝트/회의 맥락인 UI Theme Package Release Readiness가 명시되지 않음\",\n        \"고객사나 외부 파트너가 언급되지 않았다는 사실이 do_not_invent에는 있으나 formal_minutes에 별도 맥락으로는 약함\"\n      ],\n      \"boundary_result\": \"pass\",\n      \"notes\": \"구조가 깔끔하고 핵심 사실은 정확하다. 다만 회의 제목/프로젝트 맥락 누락으로 완전성에서 감점된다.\"\n    },\n    {\n      \"label\": \"gpt-5.5|xhigh|orc|auditor\",\n      \"usable\": true,\n      \"hard_fail\": false,\n      \"quality_score\": 92,\n      \"critical_errors\": [],\n      \"missing_or_weak_items\": [\n        \"프로젝트/회의 맥락인 UI Theme Package Release Readiness가 명시되지 않음\",\n        \"followup_note 키가 기준의 check_next/do_not_invent와 정확히 일치하지 않음\"\n      ],\n      \"boundary_result\": \"pass\",\n      \"notes\": \"사실 관계와 경계 discipline은 좋다. 다만 회의 맥락 누락과 followup 키 명칭 불일치가 있어 최고점은 어렵다.\"\n    },\n    {\n      \"label\": \"gpt-5.5|xhigh|darkelf|administrator\",\n      \"usable\": true,\n      \"hard_fail\": false,\n      \"quality_score\": 82,\n      \"critical_errors\": [\n        \"거절된 packageName mismatch 무시 제안의 제안자를 Hara로 임의 지정함\",\n        \"README 설치 절차 제안을 Seoyeon의 제안으로 임의 지정함\"\n      ],\n      \"missing_or_weak_items\": [\n        \"프로젝트/회의 맥락인 UI Theme Package Release Readiness가 명시되지 않음\",\n        \"followup_note에서 릴리스 노트에 수요일 stretch goal을 언급할지 여부 확인이 빠짐\"\n      ],\n      \"boundary_result\": \"minor\",\n      \"notes\": \"핵심 일정과 액션은 맞지만 원문에 없는 제안자 정보를 만든 점이 경계 위반이다. 치명적 탈락까지는 아니나 신뢰도가 낮아진다.\"\n    },\n    {\n      \"label\": \"gpt-5.5|low|dwarf|auditor\",\n      \"usable\": true,\n      \"hard_fail\": false,\n      \"quality_score\": 84,\n      \"critical_errors\": [\n        \"참석자 목록과 제안자/발언 근거를 임의로 추가함\"\n      ],\n      \"missing_or_weak_items\": [\n        \"원문에 없는 participants, proposed_by, reason 정보를 생성함\",\n        \"README due가 목요일 if possible로 영어 혼용됨\"\n      ],\n      \"boundary_result\": \"minor\",\n      \"notes\": \"필수 사실은 대체로 맞지만 비언급 참석자와 제안자 정보를 보강한 것이 큰 약점이다. boundary discipline 기준에서는 위험하다.\"\n    },\n    {\n      \"label\": \"gpt-5.3-codex-spark|medium|orc|auditor\",\n      \"usable\": true,\n      \"hard_fail\": false,\n      \"quality_score\": 89,\n      \"critical_errors\": [],\n      \"missing_or_weak_items\": [\n        \"프로젝트/회의 맥락인 UI Theme Package Release Readiness가 명시되지 않음\",\n        \"Hara due를 '미정(결과 게시 후 즉시)'로 적어 정확한 마감이 없는 항목에 즉시성을 덧붙임\",\n        \"리스크 severity를 임의 부여함\",\n        \"알려진 비용 정보가 없어 비용 우선 추천에는 부적합\"\n      ],\n      \"boundary_result\": \"minor\",\n      \"notes\": \"대부분 사실은 맞지만 임의 severity와 '즉시' 표현이 경계상 약하다. 비용도 unknown이라 최저비용 후보로 고르기 어렵다.\"\n    }\n  ],\n  \"recommended_label\": \"gpt-5.4-mini|medium|orc|auditor\",\n  \"recommended_profile\": {\n    \"model\": \"gpt-5.4-mini\",\n    \"reasoning_effort\": \"medium\",\n    \"species\": \"orc\",\n    \"class\": \"auditor\"\n  },\n  \"why\": \"품질이 90점 이상이고 필수 사실, 조건부 일정, 미배정/미정 경계를 안정적으로 보존했다. gpt-5.5 high 후보와 품질 차이가 5점 이내인데 알려진 비용이 훨씬 낮아 추천 기준에 가장 잘 맞는다.\",\n  \"alternates\": [\n    {\n      \"label\": \"gpt-5.5|high|dwarf|archivist\",\n      \"use_when\": \"비용보다 구조적 간결성과 check_next/do_not_invent 키 준수를 더 중시할 때\"\n    },\n    {\n      \"label\": \"gpt-5.5|xhigh|orc|auditor\",\n      \"use_when\": \"비용 제약이 작고 경계 구분을 보수적으로 유지하는 출력을 원할 때\"\n    }\n  ]\n}",
+  "stderr_tail": "_skills::loader: ignoring interface.icon_small: icon path must not contain '..'\n2026-05-11T03:56:09.348271Z  WARN codex_core_skills::loader: ignoring interface.icon_large: icon path must not contain '..'\n2026-05-11T03:56:09.380056Z  WARN codex_core_plugins::manifest: ignoring interface.defaultPrompt: maximum of 3 prompts is supported path=/Users/seabotmoon-air/.codex/.tmp/plugins/plugins/openai-developers/.codex-plugin/plugin.json\n2026-05-11T03:56:09.382646Z  WARN codex_core_plugins::manifest: ignoring interface.defaultPrompt: maximum of 3 prompts is supported path=/Users/seabotmoon-air/.codex/.tmp/plugins/plugins/openai-developers/.codex-plugin/plugin.json\n2026-05-11T03:56:09.382707Z  WARN codex_core_plugins::manifest: ignoring interface.defaultPrompt: maximum of 3 prompts is supported path=/Users/seabotmoon-air/.codex/.tmp/plugins/plugins/openai-developers/.codex-plugin/plugin.json\n2026-05-11T03:56:10.349212Z  WARN codex_core_plugins::manifest: ignoring interface.defaultPrompt: prompt must be at most 128 characters path=/Users/seabotmoon-air/.codex/.tmp/plugins/plugins/build-ios-apps/.codex-plugin/plugin.json\n2026-05-11T03:56:10.349899Z  WARN codex_core_plugins::manifest: ignoring interface.defaultPrompt: maximum of 3 prompts is supported path=/Users/seabotmoon-air/.codex/.tmp/plugins/plugins/plugin-eval/.codex-plugin/plugin.json\n2026-05-11T03:56:10.354275Z  WARN codex_core_plugins::manifest: ignoring interface.defaultPrompt: maximum of 3 prompts is supported path=/Users/seabotmoon-air/.codex/.tmp/plugins/plugins/twilio-developer-kit/.codex-plugin/plugin.json\n2026-05-11T03:56:10.354352Z  WARN codex_core_plugins::manifest: ignoring interface.defaultPrompt: maximum of 3 prompts is supported path=/Users/seabotmoon-air/.codex/.tmp/plugins/plugins/openai-developers/.codex-plugin/plugin.json\n2026-05-11T03:56:10.374777Z  WARN codex_core_skills::loader: ignoring interface.icon_small: icon path must not contain '..'\n2026-05-11T03:56:10.374805Z  WARN codex_core_skills::loader: ignoring interface.icon_large: icon path must not contain '..'\n2026-05-11T03:56:10.375528Z  WARN codex_core_skills::loader: ignoring interface.icon_small: icon path must not contain '..'\n2026-05-11T03:56:10.375540Z  WARN codex_core_skills::loader: ignoring interface.icon_large: icon path must not contain '..'\n2026-05-11T03:56:10.376151Z  WARN codex_core_skills::loader: ignoring interface.icon_small: icon path must not contain '..'\n2026-05-11T03:56:10.376155Z  WARN codex_core_skills::loader: ignoring interface.icon_large: icon path must not contain '..'\n2026-05-11T03:56:10.376720Z  WARN codex_core_skills::loader: ignoring interface.icon_small: icon path must not contain '..'\n2026-05-11T03:56:10.376723Z  WARN codex_core_skills::loader: ignoring interface.icon_large: icon path must not contain '..'\n2026-05-11T03:56:10.377253Z  WARN codex_core_skills::loader: ignoring interface.icon_small: icon path must not contain '..'\n2026-05-11T03:56:10.377256Z  WARN codex_core_skills::loader: ignoring interface.icon_large: icon path must not contain '..'\n2026-05-11T03:56:10.378355Z  WARN codex_core_skills::loader: ignoring interface.icon_small: icon path must not contain '..'\n2026-05-11T03:56:10.378361Z  WARN codex_core_skills::loader: ignoring interface.icon_large: icon path must not contain '..'\n2026-05-11T03:56:10.420020Z  WARN codex_core_plugins::manifest: ignoring interface.defaultPrompt: maximum of 3 prompts is supported path=/Users/seabotmoon-air/.codex/.tmp/plugins/plugins/openai-developers/.codex-plugin/plugin.json\n2026-05-11T03:56:10.422913Z  WARN codex_core_plugins::manifest: ignoring interface.defaultPrompt: maximum of 3 prompts is supported path=/Users/seabotmoon-air/.codex/.tmp/plugins/plugins/openai-developers/.codex-plugin/plugin.json\n2026-05-11T03:56:10.422976Z  WARN codex_core_plugins::manifest: ignoring interface.defaultPrompt: maximum of 3 prompts is supported path=/Users/seabotmoon-air/.codex/.tmp/plugins/plugins/openai-developers/.codex-plugin/plugin.json\n",
+  "answer": {
+    "evaluations": [
+      {
+        "label": "gpt-5.4-mini|medium|orc|auditor",
+        "usable": true,
+        "hard_fail": false,
+        "quality_score": 95,
+        "critical_errors": [],
+        "missing_or_weak_items": [
+          "followup_note 키가 기준의 check_next/do_not_invent와 정확히 일치하지 않고 what_to_check_next/what_not_to_invent로 되어 있음"
+        ],
+        "boundary_result": "pass",
+        "notes": "필수 사실과 경계 구분이 거의 모두 보존됨. Hara 마감 없음, README 담당자 미배정, 금요일 15:00 KST 조건부 릴리스가 명확하다. 남은 위험은 출력 키 명칭의 약한 불일치뿐이다."
+      },
+      {
+        "label": "gpt-5.4-mini|high|human|archivist",
+        "usable": true,
+        "hard_fail": false,
+        "quality_score": 86,
+        "critical_errors": [],
+        "missing_or_weak_items": [
+          "followup_note가 객체가 아니라 문자열이라 check_next/do_not_invent 구조를 충족하지 못함",
+          "smkoke-theme-pack.mjs 오타가 있음",
+          "README 검토 항목의 due를 2026-05-14로 다소 확정적으로 적음"
+        ],
+        "boundary_result": "minor",
+        "notes": "사실 대부분은 맞지만 필수 followup_note 구조가 깨져 평가 및 재사용성이 떨어진다. 오타와 일부 기한 표현도 약점이다."
+      },
+      {
+        "label": "gpt-5.5|high|dwarf|archivist",
+        "usable": true,
+        "hard_fail": false,
+        "quality_score": 93,
+        "critical_errors": [],
+        "missing_or_weak_items": [
+          "프로젝트/회의 맥락인 UI Theme Package Release Readiness가 명시되지 않음",
+          "고객사나 외부 파트너가 언급되지 않았다는 사실이 do_not_invent에는 있으나 formal_minutes에 별도 맥락으로는 약함"
+        ],
+        "boundary_result": "pass",
+        "notes": "구조가 깔끔하고 핵심 사실은 정확하다. 다만 회의 제목/프로젝트 맥락 누락으로 완전성에서 감점된다."
+      },
+      {
+        "label": "gpt-5.5|xhigh|orc|auditor",
+        "usable": true,
+        "hard_fail": false,
+        "quality_score": 92,
+        "critical_errors": [],
+        "missing_or_weak_items": [
+          "프로젝트/회의 맥락인 UI Theme Package Release Readiness가 명시되지 않음",
+          "followup_note 키가 기준의 check_next/do_not_invent와 정확히 일치하지 않음"
+        ],
+        "boundary_result": "pass",
+        "notes": "사실 관계와 경계 discipline은 좋다. 다만 회의 맥락 누락과 followup 키 명칭 불일치가 있어 최고점은 어렵다."
+      },
+      {
+        "label": "gpt-5.5|xhigh|darkelf|administrator",
+        "usable": true,
+        "hard_fail": false,
+        "quality_score": 82,
+        "critical_errors": [
+          "거절된 packageName mismatch 무시 제안의 제안자를 Hara로 임의 지정함",
+          "README 설치 절차 제안을 Seoyeon의 제안으로 임의 지정함"
+        ],
+        "missing_or_weak_items": [
+          "프로젝트/회의 맥락인 UI Theme Package Release Readiness가 명시되지 않음",
+          "followup_note에서 릴리스 노트에 수요일 stretch goal을 언급할지 여부 확인이 빠짐"
+        ],
+        "boundary_result": "minor",
+        "notes": "핵심 일정과 액션은 맞지만 원문에 없는 제안자 정보를 만든 점이 경계 위반이다. 치명적 탈락까지는 아니나 신뢰도가 낮아진다."
+      },
+      {
+        "label": "gpt-5.5|low|dwarf|auditor",
+        "usable": true,
+        "hard_fail": false,
+        "quality_score": 84,
+        "critical_errors": [
+          "참석자 목록과 제안자/발언 근거를 임의로 추가함"
+        ],
+        "missing_or_weak_items": [
+          "원문에 없는 participants, proposed_by, reason 정보를 생성함",
+          "README due가 목요일 if possible로 영어 혼용됨"
+        ],
+        "boundary_result": "minor",
+        "notes": "필수 사실은 대체로 맞지만 비언급 참석자와 제안자 정보를 보강한 것이 큰 약점이다. boundary discipline 기준에서는 위험하다."
+      },
+      {
+        "label": "gpt-5.3-codex-spark|medium|orc|auditor",
+        "usable": true,
+        "hard_fail": false,
+        "quality_score": 89,
+        "critical_errors": [],
+        "missing_or_weak_items": [
+          "프로젝트/회의 맥락인 UI Theme Package Release Readiness가 명시되지 않음",
+          "Hara due를 '미정(결과 게시 후 즉시)'로 적어 정확한 마감이 없는 항목에 즉시성을 덧붙임",
+          "리스크 severity를 임의 부여함",
+          "알려진 비용 정보가 없어 비용 우선 추천에는 부적합"
+        ],
+        "boundary_result": "minor",
+        "notes": "대부분 사실은 맞지만 임의 severity와 '즉시' 표현이 경계상 약하다. 비용도 unknown이라 최저비용 후보로 고르기 어렵다."
+      }
+    ],
+    "recommended_label": "gpt-5.4-mini|medium|orc|auditor",
+    "recommended_profile": {
+      "model": "gpt-5.4-mini",
+      "reasoning_effort": "medium",
+      "species": "orc",
+      "class": "auditor"
+    },
+    "why": "품질이 90점 이상이고 필수 사실, 조건부 일정, 미배정/미정 경계를 안정적으로 보존했다. gpt-5.5 high 후보와 품질 차이가 5점 이내인데 알려진 비용이 훨씬 낮아 추천 기준에 가장 잘 맞는다.",
+    "alternates": [
+      {
+        "label": "gpt-5.5|high|dwarf|archivist",
+        "use_when": "비용보다 구조적 간결성과 check_next/do_not_invent 키 준수를 더 중시할 때"
+      },
+      {
+        "label": "gpt-5.5|xhigh|orc|auditor",
+        "use_when": "비용 제약이 작고 경계 구분을 보수적으로 유지하는 출력을 원할 때"
+      }
+    ]
+  }
+}

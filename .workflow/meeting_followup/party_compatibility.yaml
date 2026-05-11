@@ -1,0 +1,7 @@
+workflow_id: meeting_followup
+kind: party_compatibility
+status: active
+compatible_party_ids: []
+notes:
+  - No default party binding is assigned yet.
+  - Profile calibration policy is owned locally by this workflow.

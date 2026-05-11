@@ -1,0 +1,45 @@
+skill_id: workflow_optimizer
+kind: skill
+status: active
+title: Workflow Optimizer
+summary: Calibrate Soulforge workflow execution profiles across model, reasoning effort, species, and class, then record the selected profile on the workflow itself.
+behavior:
+  intent: Find the lowest-cost workflow execution profile that passes a frozen quality gate while keeping golden outputs, candidate runs, subagent quality, and CLI telemetry separated.
+  use_when:
+    - a `.workflow/<workflow_id>/` execution profile must be calibrated or re-calibrated
+    - model, reasoning effort, species, and class candidates need to be compared
+    - workflow-level profile policy and calibration archive need to be updated
+  avoid_when:
+    - the task uses raw private input, secrets, customer material, or `_workspaces` runtime truth that cannot be redacted
+    - the user only needs a one-off answer rather than reusable workflow profile policy
+    - the workflow canon entry does not exist yet
+  expected_outcome:
+    - public-safe calibration evidence is archived under `.workflow/<workflow_id>/calibrations/<calibration_id>/`
+    - `.workflow/<workflow_id>/profile_policy.yaml` records the primary profile and shadow candidates
+    - quality source and CLI telemetry source are reported separately
+execution_requirements:
+  required_capabilities:
+    - workflow_profile_calibration
+    - isolated_candidate_generation
+    - quality_gate_evaluation
+    - boundary_review
+  preferred_capabilities:
+    - codex_app_goal_management
+    - subagent_orchestration
+    - cli_telemetry_parsing
+    - yaml_and_jsonl_archive_authoring
+  preferred_tools:
+    - get_goal
+    - create_goal
+    - update_goal
+    - spawn_agent
+    - codex exec --json --ephemeral
+    - rg
+  notes:
+    - "Default calibration excludes the `gpt-5.3-*` family unless the user explicitly asks for historical or latency-specific 5.3 comparison."
+    - "Initial full quality matrix uses isolated subagents; CLI is only for quality-passing candidate telemetry unless the user explicitly requests CLI-only calibration."
+    - "Golden output and evaluator criteria stay evaluator-only and must not be included in candidate prompts."
+    - "Actual local install path, model availability, subagent limits, and raw run truth remain runtime concerns."
+notes:
+  - "`workflow_optimizer` is the canonical Soulforge skill package for workflow profile calibration."
+  - "The Codex bridge is tracked under `codex/` and syncs to a local installed mirror through `npm run skills:sync -- workflow_optimizer`."

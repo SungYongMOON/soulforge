@@ -1,0 +1,13 @@
+workflow_id: meeting_followup
+kind: monster_rules
+status: active
+rules:
+  - monster_id: missing_owner_or_due
+    response: preserve_as_unassigned_or_unspecified
+    summary: Do not invent an owner or deadline when the meeting note leaves it open.
+  - monster_id: rejected_proposal
+    response: keep_out_of_action_items
+    summary: A rejected proposal may be recorded as context but must not become an action item.
+  - monster_id: private_or_raw_source
+    response: stop_before_workflow_archive
+    summary: Private meeting transcripts and raw project material cannot be stored in workflow calibration archives.

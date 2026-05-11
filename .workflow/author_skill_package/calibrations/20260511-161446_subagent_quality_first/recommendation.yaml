@@ -1,0 +1,69 @@
+workflow_id: author_skill_package
+calibration_id: 20260511-161446_subagent_quality_first
+kind: workflow_profile_recommendation
+status: accepted
+recommended_profile:
+  model: gpt-5.4-mini
+  reasoning_effort: low
+  species: darkelf
+  class: archivist
+  label: gpt-5.4-mini|low|darkelf|archivist
+  quality_score: 100
+  rule_score: 100
+  input_tokens: 14942
+  cached_input_tokens: 2432
+  output_tokens: 893
+  reasoning_output_tokens: 56
+  total_tokens: 15835
+  wall_s: 16.36
+  credit_est: 0.3400315
+  credit_unit: codex_credits
+  credit_rate_source: OpenAI Codex token-based rate card, updated 2026-05-08
+selection_reason:
+  - Passed the frozen quality gate with no critical errors.
+  - Tied the best known-credit quality score at 100.
+  - Had the lowest published-credit estimate among Stage B quality-passing candidates with final Codex rates.
+  - Kept reasoning-token use low while preserving all seven author_skill_package output groups.
+shadow_top_k:
+  - rank: 2
+    label: gpt-5.4-mini|high|darkelf|archivist
+    model: gpt-5.4-mini
+    reasoning_effort: high
+    species: darkelf
+    class: archivist
+    quality_score: 100
+    credit_est: 0.3775475
+    wall_s: 13.69
+  - rank: 3
+    label: gpt-5.4-mini|medium|darkelf|archivist
+    model: gpt-5.4-mini
+    reasoning_effort: medium
+    species: darkelf
+    class: archivist
+    quality_score: 100
+    credit_est: 0.3909945
+    wall_s: 34.56
+  - rank: 4
+    label: gpt-5.4-mini|xhigh|darkelf|archivist
+    model: gpt-5.4-mini
+    reasoning_effort: xhigh
+    species: darkelf
+    class: archivist
+    quality_score: 100
+    credit_est: 0.44755825
+    wall_s: 21.66
+  - rank: 5
+    label: gpt-5.3-codex-spark|low|darkelf|archivist
+    model: gpt-5.3-codex-spark
+    reasoning_effort: low
+    species: darkelf
+    class: archivist
+    quality_score: 100
+    credit_est: null
+    wall_s: 6.68
+    note: Fastest quality-passing Spark candidate, retained as shadow because official credit rates are research-preview and non-final.
+limitations:
+  - Staged matrix, not all 300 combinations.
+  - Subagent token usage unavailable.
+  - CLI telemetry is proxy telemetry, not exact subagent telemetry.
+  - Spark credit rates unavailable.

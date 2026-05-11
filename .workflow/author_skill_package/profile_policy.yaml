@@ -1,0 +1,70 @@
+workflow_id: author_skill_package
+kind: workflow_profile_policy
+status: active
+last_calibration_id: 20260511-161446_subagent_quality_first
+calibration_mode: subagent_quality_first
+matrix_mode: staged
+measurement_policy:
+  quality_source: subagent_staged_matrix
+  telemetry_source: cli_stage_b_quality_passed_candidates
+  subagent_token_usage_available: false
+  telemetry_exact_for_subagent: false
+  telemetry_exact_for_cli: true
+  cost_confidence: relative_not_exact
+  credit_rate_source: OpenAI Codex token-based rate card, updated 2026-05-08
+primary_profile:
+  model: gpt-5.4-mini
+  reasoning_effort: low
+  species: darkelf
+  class: archivist
+  label: gpt-5.4-mini|low|darkelf|archivist
+  quality_score: 100
+  rule_score: 100
+  input_tokens: 14942
+  cached_input_tokens: 2432
+  output_tokens: 893
+  total_tokens: 15835
+  reasoning_output_tokens: 56
+  wall_s: 16.36
+  credit_est: 0.3400315
+  credit_unit: codex_credits
+shadow_top_k:
+  - rank: 2
+    label: gpt-5.4-mini|high|darkelf|archivist
+    model: gpt-5.4-mini
+    reasoning_effort: high
+    species: darkelf
+    class: archivist
+    quality_score: 100
+    credit_est: 0.3775475
+    wall_s: 13.69
+  - rank: 3
+    label: gpt-5.4-mini|medium|darkelf|archivist
+    model: gpt-5.4-mini
+    reasoning_effort: medium
+    species: darkelf
+    class: archivist
+    quality_score: 100
+    credit_est: 0.3909945
+    wall_s: 34.56
+  - rank: 4
+    label: gpt-5.4-mini|xhigh|darkelf|archivist
+    model: gpt-5.4-mini
+    reasoning_effort: xhigh
+    species: darkelf
+    class: archivist
+    quality_score: 100
+    credit_est: 0.44755825
+    wall_s: 21.66
+rerun_triggers:
+  - workflow prompt changed
+  - output schema changed
+  - model pricing or availability changed
+  - primary profile fails quality gate
+  - full 300-combination matrix is explicitly required
+calibration_archive_ref: calibrations/20260511-161446_subagent_quality_first/
+notes:
+  - Calibration used a staged subagent matrix because the Codex app runtime enforces a thread concurrency limit.
+  - Quality ranking comes from isolated subagent outputs; cost and wall-time values come from CLI proxy probes.
+  - Candidate fixture and outputs are public-safe synthetic artifacts.
+  - GPT-5.3 family candidates are excluded from active/default policy after follow-up analysis.

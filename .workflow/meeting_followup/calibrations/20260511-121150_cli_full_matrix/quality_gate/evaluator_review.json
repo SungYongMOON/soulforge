@@ -1,0 +1,9 @@
+{
+  "status": "legacy_import_limited",
+  "review_source": "original evaluator output was not fully archived; LLM shortlist evaluation is stored under evaluation/llm_shortlist_eval.json",
+  "accepted_for_archive": true,
+  "limitations": [
+    "criteria excerpt in source matrix is truncated",
+    "subagent quality comparison was not part of this run"
+  ]
+}

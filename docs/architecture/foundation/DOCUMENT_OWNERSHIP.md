@@ -33,7 +33,7 @@
 | --- | --- | --- |
 | `.registry` | species/class/skill/tool/knowledge canon 구조와 설명 | active runtime, project-local truth, workflow/party owner 서술 |
 | `.unit` | unit 구조, policy, protocols, runtime, memory owner 설명 | registry canon 자체나 workflow/party canon owner 서술 |
-| `.workflow` | workflow 정의와 curated learning history | raw run log, run index, project-local battle log |
+| `.workflow` | workflow 정의, workflow-level profile policy, public-safe calibration archive, curated learning history | project-local raw run log, private/raw transcript, project-local battle log |
 | `.party` | reusable party template 와 template-level stats | raw feedback dump, project operational metrics |
 | `.mission` | mission plan, readiness, resolved assignment 구조 | raw run log, project-local worksite truth |
 | `_workspaces` | local-only project materialization mount 정책, `_workspaces/<project_code>/` 구조 | helper directory 를 project root 로 문서화, per-project 실자료 public 추적, mission assignment owner 서술 |
@@ -43,7 +43,7 @@
 1. foundation 문서는 owner-local 세부 운영을 복제하지 않고 owner 경계만 고정한다.
 2. owner 의미는 `.registry`, `.unit`, `.workflow`, `.party`, `.mission`, `_workspaces` 와 관련 contract 문서에서 직접 읽는다.
 3. `.workflow/history` 는 curated/sanitized learning summary 만 public repo 에 남긴다.
-4. `.party/stats` 는 template-level fit/observation summary 만 public repo 에 남긴다.
-5. `_workspaces/README.md` 를 제외한 per-project 문서와 실자료는 public tracking 대상이 아니다.
-6. 폴더 구조나 owner 책임이 바뀌면 같은 변경 안에서 해당 README 와 foundation 문서를 함께 갱신한다.
-
+4. `.workflow/<workflow_id>/calibrations/` 는 public-safe synthetic/redacted fixture 로 수행한 workflow-level profile calibration archive 만 남긴다. 실제 프로젝트 원문, private transcript, secret, project-local raw run truth 는 넣지 않는다.
+5. `.party/stats` 는 template-level fit/observation summary 만 public repo 에 남긴다.
+6. `_workspaces/README.md` 를 제외한 per-project 문서와 실자료는 public tracking 대상이 아니다.
+7. 폴더 구조나 owner 책임이 바뀌면 같은 변경 안에서 해당 README 와 foundation 문서를 함께 갱신한다.

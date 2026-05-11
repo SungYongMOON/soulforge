@@ -174,7 +174,7 @@ _workmeta/
 | --- | --- | --- | --- |
 | `.registry/` | outer canon/store | species, class, skill, tool, knowledge canon 과 구조 문서 | active runtime, project-local truth, run dump |
 | `.unit/` | active agent unit owner | owner 계약 문서와 구조 설명 | 실전 운영 상태, 민감 로그, raw artifacts 자동 반영 |
-| `.workflow/` | independent orchestration canon | workflow 정의와 sanitized history | raw run dump, project-local battle log |
+| `.workflow/` | independent orchestration canon | workflow 정의, workflow-level profile policy, public-safe calibration archive, sanitized history | project-local raw run dump, private/raw transcript, battle log |
 | `.party/` | independent orchestration template | party template 와 fit/observation summary | raw battle log, project-specific operational metrics |
 | `.mission/` | held mission plan owner | mission plan, readiness, public-safe dispatch / resolve metadata | raw run dump, project-local truth |
 | `guild_hall/` | cross-project operations root | gateway, town_crier, night_watch, dungeon_assignment source 와 owner 문서 | local state, mailbox dump, Telegram env, queue state |
@@ -192,4 +192,3 @@ _workmeta/
 - raw execution truth 는 `_workmeta/<project_code>/runs/<run_id>/` 에 둔다.
 - `.run/` 루트는 새 정본에 포함하지 않는다.
 - public repo 에서는 `_workspaces/README.md` 만 추적한다.
-

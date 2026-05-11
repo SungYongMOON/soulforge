@@ -1,0 +1,84 @@
+{
+  "source": "extracted_from_public_safe_fixture_and_revised_after_evaluator_review",
+  "required_facts": [
+    "The requested reusable skill package is `api_contract_drift_check`.",
+    "The request mode is creation of a new reusable Soulforge skill package; there is no existing skill package.",
+    "The workflow should decide that the request is reusable and should proceed to tracked package drafting.",
+    "The target behavior is public-safe API contract drift review from redacted packets.",
+    "The skill must compare claimed OpenAPI, generated TypeScript, route-handler, test-failure, and owner-note drift.",
+    "The skill must separate confirmed evidence, assumptions or likely impact, missing proof, blocked checks, likely owners, remediation order, and boundary warnings.",
+    "Runtime inputs may include redacted packet fields such as `openapi_changed_endpoints`, `generated_type_diff_summary`, `route_handler_touchpoints`, `test_failures`, and `owner_notes`.",
+    "Actual API specs, customer endpoint names, production logs, credentials, private incident details, `_workspaces`, `_workmeta`, and `private-state` material must stay out of tracked skill canon.",
+    "The proposed tracked package belongs under `.registry/skills/api_contract_drift_check/`.",
+    "Expected tracked package structure must include `skill.yaml` and `README.md`; optional `codex/SKILL.md`, public-safe templates, references, or scripts may be proposed when their owner boundary is clear.",
+    "Specific template, reference, script, or sync command names are examples unless the fixture explicitly requires them.",
+    "A helper script is optional and acceptable only if it works on synthetic or redacted packet files and does not encode project-specific endpoint names.",
+    "The resource bundle review must distinguish runtime inputs from tracked references, templates, and optional scripts.",
+    "The boundary review must confirm canon, optional bridge, runtime input, and local install ownership remain separate.",
+    "The install sync request must prepare a local mirror sync handoff but must not claim sync was performed unless direct execution evidence is present.",
+    "The smoke path must use or describe a tiny synthetic packet with two endpoints, one generated type mismatch, one route handler note, and one failing test name.",
+    "The smoke check must verify evidence, assumptions, owner handoff, remediation order, blockers or next checks, and boundary warnings.",
+    "The release review must state whether the package is ready, conditional, or blocked, and must identify the smallest safe next step.",
+    "Claims about created files, local sync, smoke execution, or release readiness must be classified as performed, proposed, conditional, blocked, or not-run based on explicit evidence."
+  ],
+  "required_output_groups": [
+    "skill_boundary_brief.md",
+    "skill_package_draft.md",
+    "skill_resource_bundle_review.md",
+    "skill_boundary_review.md",
+    "skill_install_sync_request.md",
+    "skill_smoke_check.md",
+    "skill_release_review.md"
+  ],
+  "critical_failures": [
+    "Missing any of the seven required output groups.",
+    "Treating actual API specs, customer endpoint names, production logs, credentials, private incident details, `_workspaces`, `_workmeta`, or `private-state` as tracked package content.",
+    "Inventing real customer/project endpoint names or private source details instead of using synthetic or redacted placeholders.",
+    "Claiming that local installed mirror sync or a smoke run was performed when the candidate did not perform it.",
+    "Placing runtime packet archives or project-local run truth under `.workflow` or tracked skill canon.",
+    "Failing to separate evidence from assumptions or likely impact.",
+    "Failing to distinguish tracked package files from runtime inputs.",
+    "Requiring a helper script that embeds project-specific endpoint logic or non-public runtime data.",
+    "Rejecting an otherwise valid candidate only because it uses different public-safe template/reference names or does not cite the golden's exact sync command.",
+    "Making the workflow output a generic API review note instead of an author_skill_package lane output.",
+    "Contradicting the fixture by saying an existing package already exists."
+  ],
+  "boundary_rules": [
+    "Candidate prompts must not receive the golden output or these criteria.",
+    "All candidate outputs must be public-safe and synthetic.",
+    "Tracked package recommendations may name paths under `.registry/skills/api_contract_drift_check/` but must not create real runtime packet content.",
+    "Boundary-sensitive paths must be treated as prohibited content sources, not examples to read.",
+    "Install handoff may cite the sync procedure as a handoff, but not as an action already completed.",
+    "Smoke status may be proposed or not-run unless the candidate actually performs a safe smoke."
+  ],
+  "usability_checks": [
+    "The output is concise enough for a release reviewer but complete enough to guide the package author.",
+    "Each output group has a clear decision, boundary note, or next action appropriate to its workflow step.",
+    "The package draft names canonical files and separates `skill.yaml`, README, optional `codex/` bridge, templates/references/scripts if any, and runtime inputs.",
+    "The resource bundle review makes clear why real packets and project data stay local.",
+    "The boundary review reports pass/fix status and smallest safe correction if needed.",
+    "The install sync request is procedural and avoids claiming completed sync.",
+    "The smoke check defines an evaluable synthetic fixture and pass condition.",
+    "The release review preserves conditionality if package files or smoke evidence are not actually present.",
+    "Alternate wording and section structure are acceptable when all seven output groups and behavior requirements are satisfied."
+  ],
+  "measurement_eval_policy": {
+    "candidate_output_quality": "Evaluate from candidate output text and hard gates only.",
+    "token_cost_efficiency": "Use CLI telemetry probe values only after quality pass; do not penalize subagent candidates for missing token metadata.",
+    "wall_clock_time": "Use CLI telemetry probe values only after quality pass; do not penalize subagent candidates for missing wall-clock metadata.",
+    "stability_across_reruns": "Score as unknown until finalists are rerun; do not fail first-pass candidates solely for missing stability data.",
+    "false_execution_claims": "Penalize or fail claims that files were created, sync was run, smoke was executed, or release was verified unless direct evidence is supplied."
+  },
+  "scoring_weights": {
+    "quality_and_usability": 40,
+    "model_task_fit": 20,
+    "token_cost_efficiency": 20,
+    "wall_clock_time": 15,
+    "stability_across_reruns": 5
+  },
+  "pass_thresholds": {
+    "hard_gate": "no critical failures",
+    "minimum_rule_score": 85,
+    "strict_pass_rule_score": 95
+  }
+}

@@ -1,0 +1,21 @@
+{
+  "label": "gpt-5.3-codex|medium|darkelf|archivist",
+  "model": "gpt-5.3-codex",
+  "reasoning_effort": "medium",
+  "species": "darkelf",
+  "class": "archivist",
+  "rule_score": 69,
+  "usable_rule": false,
+  "critical_errors": [
+    "Rejected ignore-mismatch script change treated as accepted",
+    "Hara exact deadline appears invented"
+  ],
+  "missing_required_items": [
+    "smoke pass condition",
+    "Wednesday internal stretch goal only",
+    "rejected script-ignore proposal",
+    "Hara no exact deadline"
+  ],
+  "text_sha256": "a35d48bd593b8dd591655005f8f285c969c59b63475975f52255678e60dfef8e",
+  "text": "{\n  \"formal_minutes\": {\n    \"회의코드\": \"PUBLIC_MEETING_SMOKE\",\n    \"회의명\": \"UI Theme Package Release Readiness\",\n    \"참석자\": [\"Minjun\", \"Seoyeon\", \"Doyun\", \"Hara\"],\n    \"확정_결정\": [\n      {\n        \"항목\": \"공개 릴리스 목표 시각\",\n        \"내용\": \"스모크 테스트 통과 시 금요일 15:00 KST에 공개 릴리스를 목표로 한다.\",\n        \"근거확실성\": \"confirmed\"\n      },\n      {\n        \"항목\": \"packageName mismatch 대응 원칙\",\n        \"내용\": \"mismatch 발생 시 먼저 패키지 설정을 점검하고, 계약(contract) 자체가 잘못된 경우에만 스크립트 검토로 진행한다.\",\n        \"근거확실성\": \"confirmed\"\n      }\n    ],\n    \"반려_제안\": [\n      {\n        \"제안자\": \"Hara\",\n        \"내용\": \"smoke-theme-pack.mjs에서 packageName mismatch를 무시하도록 변경\",\n        \"결론\": \"반려됨\",\n        \"근거확실성\": \"confirmed\"\n      }\n    ],\n    \"내부_스트레치_목표\": [\n      {\n        \"내용\": \"수요일 릴리스 제안은 내부 스트레치 목표로만 유지\",\n        \"비고\": \"공개 릴리스 확정 일정 아님\",\n        \"근거확실성\": \"confirmed\"\n      }\n    ],\n    \"비결정_사항\": [\n      {\n        \"내용\": \"README 설치 절차는 가능하면 목요일까지 검토 필요 의견이 있었으나 담당자 미지정\",\n        \"근거확실성\": \"confirmed\"\n      },\n      {\n        \"내용\": \"Hara의 tarball 경로 확인 작업은 Minjun의 스모크 결과 공유 이후 수행, 정확한 기한 미설정\",\n        \"근거확실성\": \"confirmed\"\n      }\n    ],\n    \"리스크\": [\n      {\n        \"내용\": \"tarball 경로 오류 시 릴리스 지연 가능\",\n        \"근거확실성\": \"confirmed\"\n      },\n      {\n        \"내용\": \"README 설치 절차가 오래된 경우 릴리스 노트가 사용자에게 오해를 줄 수 있음\",\n        \"근거확실성\": \"confirmed\"\n      }\n    ],\n    \"오픈_질문\": [\n      {\n        \"질문\": \"최종 릴리스 승인 권한자는 누구인가?\",\n        \"상태\": \"미답변\",\n        \"근거확실성\": \"confirmed\"\n      },\n      {\n        \"질문\": \"릴리스 노트에 내부 수요일 스트레치 목표를 명시할 것인가?\",\n        \"상태\": \"미답변\",\n        \"근거확실성\": \"confirmed\"\n      }\n    ]\n  },\n  \"action_items\": [\n    {\n      \"owner\": \"Minjun\",\n      \"task\": \"금요일 10:00 KST까지 스모크 테스트 재실행 후 결과 공유\",\n      \"due\": \"금요일 10:00 KST\",\n      \"status\": \"예정\",\n      \"source_certainty\": \"confirmed\"\n    },\n    {\n      \"owner\": \"Doyun\",\n      \"task\": \"금요일 12:00 KST까지 action_items.md에 실패 트리아지 노트 작성\",\n      \"due\": \"금요일 12:00 KST\",\n      \"status\": \"예정\",\n      \"source_certainty\": \"confirmed\"\n    },\n    {\n      \"owner\": \"Hara\",\n      \"task\": \"Minjun의 스모크 결과 공유 후 생성된 tarball 경로 확인\",\n      \"due\": \"미정\",\n      \"status\": \"대기(선행결과 필요)\",\n      \"source_certainty\": \"confirmed\"\n    },\n    {\n      \"owner\": \"미지정\",\n      \"task\": \"README 설치 단계 검토(가능하면 목요일)\",\n      \"due\": \"목요일(가능 시)\",\n      \"status\": \"담당자 미배정\",\n      \"source_certainty\": \"confirmed\"\n    }\n  ],\n  \"followup_note\": {\n    \"다음_확인사항\": [\n      \"금요일 10:00 KST Minjun 스모크 결과 수신 여부 확인\",\n      \"금요일 12:00 KST Doyun의 action_items.md 트리아지 노트 반영 여부 확인\",\n      \"스모크 결과 공유 직후 Hara의 tarball 경로 점검 결과 확인\",\n      \"README 설치 절차 검토 담당자 지정 필요 여부 확인\",\n      \"최종 릴리스 승인 권한자 확정 필요\",\n      \"릴리스 노트에 수요일 내부 스트레치 목표 언급 여부 결정 필요\"\n    ],\n    \"비발명_주의사항\": [\n      \"고객명 또는 외부 파트너를 추가로 만들지 말 것\",\n      \"예산 정보(금액/승인/삭감)를 만들지 말 것\",\n      \"보안 사고를 있었던 사실처럼 쓰지 말 것\",\n      \"프로덕션 장애/다운타임을 있었던 사실처럼 쓰지 말 것\",\n      \"법무 승인 필수 요건을 있었던 사실처럼 쓰지 말 것\",\n      \"미지정 담당자(예: README 검토자)를 임의 지정하지 말 것\",\n      \"미설정 기한(예: Hara 작업 기한)을 임의 확정하지 말 것\"\n    ]\n  },\n  \"non_invention_rules\": {\n    \"허용_근거\": \"inline public-safe synthetic fixture에 명시된 사실만 사용\",\n    \"금지_영역\": [\n      \"customer\",\n      \"budget\",\n      \"security\",\n      \"outage\",\n      \"legal\",\n      \"owner(미지정 항목의 임의 지정)\",\n      \"deadline(미설정 항목의 임의 확정)\"\n    ],\n    \"작성_원칙\": [\n      \"확정 결정과 반려 제안을 분리 기록\",\n      \"내부 스트레치 목표와 공개 확정 목표를 분리 기록\",\n      \"리스크와 오픈 질문을 사실 그대로 유지\",\n      \"불확실/미정 항목은 '미지정' 또는 '미정'으로 명시\"\n    ]\n  }\n}"
+}

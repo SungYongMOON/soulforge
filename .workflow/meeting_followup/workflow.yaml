@@ -1,0 +1,25 @@
+workflow_id: meeting_followup
+kind: workflow
+status: active
+title: Meeting Follow-up
+summary: Turn public-safe meeting notes into formal minutes, action items, and a follow-up note while preserving uncertainty and non-invention boundaries.
+entrypoint: run
+execution_mode: party_sequence
+role_slots: role_slots.yaml
+step_graph: step_graph.yaml
+handoff_rules: handoff_rules.yaml
+monster_rules: monster_rules.yaml
+party_compatibility: party_compatibility.yaml
+profile_policy: profile_policy.yaml
+calibrations: calibrations/
+history: history/
+inputs:
+  - meeting_followup_request
+outputs:
+  - formal_minutes
+  - action_items
+  - followup_note
+notes:
+  - This workflow owns the reusable meeting follow-up procedure and its profile calibration policy.
+  - Runtime meeting source material and private transcripts do not belong in this workflow canon.
+  - Public-safe synthetic or redacted profile calibration archives live under `calibrations/`.

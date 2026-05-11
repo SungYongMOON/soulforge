@@ -1,0 +1,32 @@
+{
+  "workflow_id": "author_skill_package",
+  "fixture_id": "PUBLIC_SKILL_AUTHORING_API_CONTRACT_DRIFT",
+  "request_type": "skill_authoring_request",
+  "source_kind": "synthetic_public_safe",
+  "public_safe": true,
+  "skill_request": "Create a reusable Soulforge skill package named `api_contract_drift_check`.",
+  "target_behavior": "The skill should help an agent review a public-safe API contract drift packet, compare the packet's claimed OpenAPI/TypeScript/route-handler drift, separate confirmed evidence from assumptions, and produce a bounded remediation plan.",
+  "supporting_examples": [
+    "Repeated use case: a maintainer provides a redacted packet with `openapi_changed_endpoints`, `generated_type_diff_summary`, `route_handler_touchpoints`, `test_failures`, and `owner_notes`. The skill should identify confirmed drift, likely affected owners, blockers, and next checks.",
+    "Boundary concern: actual API specs, customer endpoint names, production logs, credentials, private incident details, and `_workspaces` runtime files must remain runtime inputs and must not be copied into tracked skill canon.",
+    "Desired tracked package: `.registry/skills/api_contract_drift_check/skill.yaml`, README, optional `codex/SKILL.md`, and at most public-safe templates or checklists. A helper script is allowed only if it works on synthetic/redacted packet files and does not encode project-specific endpoint names.",
+    "Smoke path: use a tiny synthetic packet with two endpoints, one generated type mismatch, one route handler note, and one failing test name. Smoke should verify that the skill returns evidence, assumptions, owner handoff, remediation order, and boundary warnings.",
+    "Install handoff: actual installed mirror sync is local operating procedure. The tracked package should prepare the handoff note but not claim it performed sync."
+  ],
+  "existing_skill_package": "none",
+  "expected_output_groups": [
+    "skill_boundary_brief.md",
+    "skill_package_draft.md",
+    "skill_resource_bundle_review.md",
+    "skill_boundary_review.md",
+    "skill_install_sync_request.md",
+    "skill_smoke_check.md",
+    "skill_release_review.md"
+  ],
+  "do_not_invent": [
+    "Do not invent actual customer endpoint names, production logs, credentials, incident details, private project names, or `_workspaces` file contents.",
+    "Do not claim installed mirror sync has been performed.",
+    "Do not create a project-local run dump under `.workflow`.",
+    "Do not require a helper script unless its public-safe synthetic/redacted input boundary is explicit."
+  ]
+}

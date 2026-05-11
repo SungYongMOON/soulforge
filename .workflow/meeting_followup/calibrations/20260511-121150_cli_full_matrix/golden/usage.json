@@ -1,0 +1,14 @@
+{
+  "label": "golden",
+  "model": "gpt-5.5",
+  "effort": "xhigh",
+  "thread_id": "019e1505-07a3-7880-9cab-4633b9e6bb9f",
+  "input_tokens": 16804,
+  "cached_input_tokens": 15744,
+  "output_tokens": 1522,
+  "reasoning_output_tokens": 516,
+  "visible_output_tokens_est": 1006,
+  "total_tokens": 18326,
+  "wall_s": 32.07,
+  "cost_usd_est": 0.058832
+}

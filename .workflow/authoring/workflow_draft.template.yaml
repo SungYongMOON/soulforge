@@ -5,12 +5,17 @@ title: Draft Workflow Title
 summary: One-line summary of the job this workflow performs.
 entrypoint: run
 execution_mode: single_unit
+profile_policy: profile_policy.yaml
+calibrations: calibrations/
+history: history/
 inputs:
   - input_ref: required_input
 outputs:
   - output_ref: final_artifact
 notes:
   - Draft workflow built from a real task note.
+  - Workflow creator should scaffold profile_policy.yaml as draft and create calibrations/ for later profile optimizer output.
+  - Full public-safe optimizer archives belong under calibrations/<calibration_id>/ after the workflow is registered.
 
 steps:
   - step_id: first_step

@@ -1,0 +1,20 @@
+{
+  "label": "gpt-5.4-mini|high|darkelf|auditor",
+  "model": "gpt-5.4-mini",
+  "reasoning_effort": "high",
+  "species": "darkelf",
+  "class": "auditor",
+  "rule_score": 69,
+  "usable_rule": false,
+  "critical_errors": [
+    "README owner appears invented"
+  ],
+  "missing_required_items": [
+    "Wednesday internal stretch goal only",
+    "README owner unassigned",
+    "non-facts customer/budget",
+    "non-facts security/outage/legal"
+  ],
+  "text_sha256": "cd9d897887d662c512551797dfeeed787f1ad59e19a059800e0cbf854c6ba3fc",
+  "text": "{\n  \"formal_minutes\": {\n    \"confirmed_decisions\": [\n      \"공개 릴리스 목표는 스모크가 통과하면 금요일 15:00 KST로 정했다.\",\n      \"packageName 불일치가 발생하면 먼저 패키지 설정을 확인하고, 계약 자체가 잘못된 경우에만 smoke-theme-pack.mjs를 검토하기로 했다.\"\n    ],\n    \"rejected_proposals\": [\n      \"수요일 공개 릴리스 제안은 스모크 통과 전제가 충족되지 않아 채택되지 않았다.\",\n      \"smoke-theme-pack.mjs가 packageName 불일치를 무시하도록 바꾸자는 제안은 거절되었다.\"\n    ],\n    \"internal_stretch_goals\": [\n      \"수요일은 내부 스트레치 목표로만 남겨 두었다.\"\n    ],\n    \"non_decisions\": [\n      \"README 설치 절차는 가능하면 목요일까지 검토하자는 제안이 있었지만, 담당자가 배정되지 않아 확정되지 않았다.\"\n    ],\n    \"risks\": [\n      \"잘못된 tarball 경로는 릴리스를 지연시킬 수 있다.\",\n      \"README 설치 절차가 오래되면 릴리스 노트가 사용자에게 오해를 줄 수 있다.\"\n    ],\n    \"open_questions\": [\n      \"최종 릴리스 승인 권한은 누구에게 있는가?\",\n      \"릴리스 노트에 내부 수요일 스트레치 목표를 적어야 하는가?\"\n    ]\n  },\n  \"action_items\": [\n    {\n      \"owner\": \"Minjun\",\n      \"task\": \"스모크 테스트를 다시 실행하고 결과를 공유한다.\",\n      \"due\": \"금요일 10:00 KST\",\n      \"status\": \"미완료\",\n      \"source_certainty\": \"확정(원문 명시)\"\n    },\n    {\n      \"owner\": \"Doyun\",\n      \"task\": \"실패 triage 노트를 action_items.md에 작성한다.\",\n      \"due\": \"금요일 12:00 KST\",\n      \"status\": \"미완료\",\n      \"source_certainty\": \"확정(원문 명시)\"\n    },\n    {\n      \"owner\": \"Hara\",\n      \"task\": \"Minjun이 스모크 결과를 올린 뒤 생성된 tarball 경로를 확인한다.\",\n      \"due\": \"Minjun의 스모크 결과 게시 후\",\n      \"status\": \"미완료\",\n      \"source_certainty\": \"확정(기한 미설정)\"\n    }\n  ],\n  \"followup_note\": [\n    \"다음 확인 대상은 스모크 결과, tarball 경로, 그리고 package config와 script contract의 일치 여부다.\",\n    \"README 설치 절차 검토는 미배정이므로 담당자와 기한을 새로 확인해야 한다.\",\n    \"릴리스 승인권자와 내부 수요일 목표의 릴리스 노트 포함 여부는 이 메모에서 확정하지 않았다.\",\n    \"고객명, 예산, 보안 사고, 운영 장애, 법적 승인 요건은 추정하지 말아야 한다.\"\n  ],\n  \"non_invention_rules\": [\n    \"고객명 또는 외부 파트너명은 적지 않는다.\",\n    \"예산, 보안 사고, 운영 장애, 법적 승인 요건은 추가하지 않는다.\",\n    \"README 설치 절차 검토의 담당자와 Hara의 정확한 마감 시각은 추정하지 않는다.\",\n    \"최종 릴리스 승인권자는 이 자료만으로 단정하지 않는다.\"\n  ]\n}"
+}

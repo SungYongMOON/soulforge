@@ -1,0 +1,25 @@
+{
+  "label": "gpt-5.3-codex|xhigh|darkelf|auditor",
+  "model": "gpt-5.3-codex",
+  "reasoning_effort": "xhigh",
+  "species": "darkelf",
+  "class": "auditor",
+  "rule_score": 66,
+  "usable_rule": false,
+  "critical_errors": [
+    "Hara exact deadline appears invented"
+  ],
+  "missing_required_items": [
+    "conditional Friday 15:00 release target",
+    "smoke pass condition",
+    "Wednesday internal stretch goal only",
+    "script only if contract wrong",
+    "Minjun Friday 10",
+    "Doyun Friday 12",
+    "Hara no exact deadline",
+    "README stale risk",
+    "non-facts customer/budget"
+  ],
+  "text_sha256": "1c678ddb27fc759fe718b72d04d693b50fa88f133b1c581be0e06ff55751467c",
+  "text": "```json\n{\n  \"formal_minutes\": {\n    \"project_code\": \"PUBLIC_MEETING_SMOKE\",\n    \"meeting_title\": \"UI Theme Package Release Readiness\",\n    \"participants\": [\"Minjun\", \"Seoyeon\", \"Doyun\", \"Hara\"],\n    \"confirmed_decisions\": [\n      {\n        \"decision\": \"공개 릴리스 목표 시각은 스모크 테스트 통과를 전제로 2026-05-15(금) 15:00 KST로 설정한다.\",\n        \"certainty\": \"confirmed\"\n      },\n      {\n        \"decision\": \"packageName 불일치 발생 시 package config를 먼저 점검하고, 계약(컨트랙트) 자체가 잘못된 경우에만 smoke-theme-pack.mjs 검토로 진행한다.\",\n        \"certainty\": \"confirmed\"\n      }\n    ],\n    \"rejected_proposals\": [\n      {\n        \"proposal\": \"2026-05-13(수) 공개 릴리스\",\n        \"result\": \"공개 릴리스안으로는 채택되지 않음\",\n        \"reason\": \"스모크 테스트 선행 통과 필요\"\n      },\n      {\n        \"proposal\": \"smoke-theme-pack.mjs에서 packageName mismatch를 무시하도록 변경\",\n        \"proposer\": \"Hara\",\n        \"result\": \"거절\"\n      }\n    ],\n    \"internal_stretch_goals\": [\n      {\n        \"goal\": \"2026-05-13(수) 릴리스\",\n        \"scope\": \"내부 스트레치 목표\",\n        \"note\": \"공개 릴리스 확정 목표가 아님\"\n      }\n    ],\n    \"non_decisions\": [\n      {\n        \"item\": \"README 설치 단계 검토\",\n        \"state\": \"목요일(2026-05-14) 가능 시 검토 제안만 존재, 담당자 미지정\"\n      },\n      {\n        \"item\": \"Hara의 tarball 경로 점검 정확 시한\",\n        \"state\": \"민준 스모크 결과 공유 이후 수행만 합의, 정확 데드라인 미정\"\n      }\n    ],\n    \"risks\": [\n      {\n        \"risk\": \"tarball 경로 오류 시 릴리스 지연 가능\"\n      },\n      {\n        \"risk\": \"README 설치 단계가 최신이 아니면 릴리스 노트가 사용자에게 오해를 줄 수 있음\"\n      }\n    ],\n    \"open_questions\": [\n      {\n        \"question\": \"최종 릴리스 승인 권한자는 누구인가?\"\n      },\n      {\n        \"question\": \"릴리스 노트에 내부 수요일 스트레치 목표를 명시할 것인가?\"\n      }\n    ],\n    \"explicit_non_facts\": [\n      \"고객명 언급 없음\",\n      \"예산 정보 없음\",\n      \"보안 사고 언급 없음\",\n      \"프로덕션 장애 언급 없음\",\n      \"법무 승인 필수 요건 언급 없음\"\n    ]\n  },\n  \"action_items\": [\n    {\n      \"owner\": \"Minjun\",\n      \"task\": \"스모크 테스트 재실행 후 결과 공유\",\n      \"due\": \"2026-05-15(금) 10:00 KST\",\n      \"status\": \"planned\",\n      \"source_certainty\": \"confirmed\"\n    },\n    {\n      \"owner\": \"Doyun\",\n      \"task\": \"failure triage note를 action_items.md에 작성\",\n      \"due\": \"2026-05-15(금) 12:00 KST\",\n      \"status\": \"planned\",\n      \"source_certainty\": \"confirmed\"\n    },\n    {\n      \"owner\": \"Hara\",\n      \"task\": \"민준의 스모크 결과 공유 후 생성된 tarball 경로 점검\",\n      \"due\": \"민준 결과 공유 직후(정확 시각 미정)\",\n      \"status\": \"pending_dependency\",\n      \"source_certainty\": \"confirmed_with_missing_deadline\"\n    },\n    {\n      \"owner\": \"미지정\",\n      \"task\": \"README 설치 단계 검토\",\n      \"due\": \"2026-05-14(목) 가능 시\",\n      \"status\": \"unassigned_suggestion\",\n      \"source_certainty\": \"suggested_not_committed\"\n    }\n  ],\n  \"followup_note\": {\n    \"next_checks\": [\n      \"10:00 KST 스모크 테스트 결과 수신 여부 확인\",\n      \"12:00 KST triage note(action_items.md) 작성 완료 여부 확인\",\n      \"스모크 결과 게시 후 tarball 경로 점검 결과 확인\",\n      \"최종 릴리스 승인 권한자 확정\",\n      \"릴리스 노트에 수요일 내부 스트레치 목표 기재 여부 결정\"\n    ],\n    \"do_not_invent\": [\n      \"고객/외부 파트너\",\n      \"예산/비용\",\n      \"보안 사고\",\n      \"프로덕션 장애\",\n      \"법무 승인 요구\",\n      \"미지정 담당자, 미합의 데드라인, 미확정 승인권자\"\n    ]\n  },\n  \"non_invention_rules\": [\n    \"기록되지 않은 사실은 추가하지 않는다.\",\n    \"확정/제안/거절/미결 상태를 혼합하지 않는다.\",\n    \"담당자 또는 기한이 없는 항목은 반드시 '미지정' 또는 '미정'으로 표기한다.\",\n    \"고객, 예산, 보안, 장애, 법무 관련 내용은 원문에 없는 경우 명시적으로 비사실로 유지한다.\"\n  ]\n}\n```"
+}

@@ -1,0 +1,21 @@
+{
+  "label": "gpt-5.4-mini|xhigh|darkelf|administrator",
+  "model": "gpt-5.4-mini",
+  "reasoning_effort": "xhigh",
+  "species": "darkelf",
+  "class": "administrator",
+  "rule_score": 69,
+  "usable_rule": false,
+  "critical_errors": [
+    "README owner appears invented"
+  ],
+  "missing_required_items": [
+    "Wednesday internal stretch goal only",
+    "script only if contract wrong",
+    "Hara no exact deadline",
+    "README owner unassigned",
+    "non-facts customer/budget"
+  ],
+  "text_sha256": "b2fdb667c121c6866a1891e6b0d90f22f3f05bb83cf3afd08c7bdf8445d58010",
+  "text": "한국어 JSON만 만들겠습니다. 확인된 결정, 거절된 제안, 내부 스트레치 목표, 리스크, 미해결 질문을 분리하고, 기한·소유자·승인 같은 사실은 피하겠습니다.\n{\n  \"formal_minutes\": {\n    \"confirmed_decisions\": [\n      {\n        \"decision\": \"공개 릴리스 목표는 스모크 테스트가 통과할 경우 금요일 15:00 KST로 한다.\"\n      },\n      {\n        \"decision\": \"packageName 불일치가 나오면 먼저 패키지 설정을 확인하고, 계약 자체가 잘못된 경우에만 smoke-theme-pack.mjs를 검토한다.\"\n      }\n    ],\n    \"rejected_proposals\": [\n      {\n        \"proposal\": \"smoke-theme-pack.mjs에서 packageName 불일치를 무시하자는 제안은 거절됐다.\",\n        \"outcome\": \"거절\"\n      },\n      {\n        \"proposal\": \"수요일 공개 릴리스 제안은 최종 채택되지 않았다.\",\n        \"outcome\": \"미채택\"\n      }\n    ],\n    \"internal_stretch_goals\": [\n      {\n        \"goal\": \"수요일은 내부 스트레치 목표로만 유지한다.\"\n      }\n    ],\n    \"non_decisions\": [\n      {\n        \"item\": \"README 설치 단계는 가능하면 목요일까지 검토하자는 언급이 있었지만, 소유자는 배정되지 않았다.\"\n      }\n    ],\n    \"risks\": [\n      {\n        \"item\": \"잘못된 tarball 경로는 릴리스를 지연시킬 수 있다.\"\n      },\n      {\n        \"item\": \"README 설치 단계가 오래되면 릴리스 노트가 사용자에게 오해를 줄 수 있다.\"\n      }\n    ],\n    \"open_questions\": [\n      {\n        \"item\": \"최종 릴리스 승인 권한자는 누구인가?\"\n      },\n      {\n        \"item\": \"릴리스 노트에 내부 수요일 스트레치 목표를 포함해야 하는가?\"\n      }\n    ]\n  },\n  \"action_items\": [\n    {\n      \"owner\": \"Minjun\",\n      \"task\": \"스모크 테스트를 다시 실행하고 결과를 공유한다.\",\n      \"due\": \"금요일 10:00 KST\",\n      \"status\": \"확정\",\n      \"source_certainty\": \"원문 명시\"\n    },\n    {\n      \"owner\": \"Doyun\",\n      \"task\": \"실패 원인 분류 노트를 action_items.md에 작성한다.\",\n      \"due\": \"금요일 12:00 KST\",\n      \"status\": \"확정\",\n      \"source_certainty\": \"원문 명시\"\n    },\n    {\n      \"owner\": \"Hara\",\n      \"task\": \"민준이 스모크 결과를 올린 뒤 생성된 tarball 경로를 확인한다.\",\n      \"due\": \"민준의 스모크 결과 게시 후\",\n      \"status\": \"확정\",\n      \"source_certainty\": \"원문 명시\"\n    }\n  ],\n  \"followup_note\": {\n    \"next_checks\": [\n      \"민준의 스모크 테스트 결과가 금요일 10:00 KST까지 공유됐는지 확인한다.\",\n      \"도윤의 실패 원인 분류 노트가 action_items.md에 금요일 12:00 KST까지 들어갔는지 확인한다.\",\n      \"민준 결과 이후 하라가 tarball 경로를 점검했는지 확인한다.\",\n      \"최종 릴리스 승인 권한자를 확인한다.\",\n      \"릴리스 노트에 내부 수요일 스트레치 목표를 넣을지 여부를 확인한다.\",\n      \"README 설치 단계의 검토 여부와 소유자 유무를 확인한다.\"\n    ],\n    \"do_not_invent\": [\n      \"고객명이나 외부 파트너명을 만들어내지 않는다.\",\n      \"예산을 추정하거나 추가하지 않는다.\",\n      \"보안 사고, 프로덕션 장애, 법무 승인 요구를 추가하지 않는다.\",\n      \"소유자, 기한, 최종 승인자를 원문 밖에서 지정하지 않는다.\",\n      \"수요일 스트레치 목표의 릴리스 노트 포함 여부를 확정 사실로 쓰지 않는다.\",\n      \"스모크 통과 전 금요일 릴리스를 확정됐다고 쓰지 않는다.\"\n    ]\n  },\n  \"non_invention_rules\": [\n    \"고객명과 외부 파트너명은 원문에 없다.\",\n    \"예산 정보는 원문에 없다.\",\n    \"보안 사고, 프로덕션 장애, 법무 승인 요구는 원문에 없다.\",\n    \"README 설치 단계의 소유자는 원문에 없다.\",\n    \"Hara의 정확한 기한은 원문에 없다.\",\n    \"최종 릴리스 승인 권한자는 원문에 없다.\",\n    \"릴리스 노트에 내부 수요일 스트레치 목표를 넣을지 여부는 원문에서 미결정이다.\"\n  ]\n}"
+}

@@ -1,0 +1,25 @@
+workflow_id: meeting_followup
+calibration_id: 20260511-121150_cli_full_matrix
+kind: workflow_profile_calibration_archive
+status: imported
+archive_mode: legacy_cli_full_matrix_import
+created_from:
+  matrix_file: /tmp/soulforge_profile_full_matrix_20260511-121150.json
+  shortlist_file: /tmp/soulforge_profile_llm_shortlist_eval_20260511-121150.json
+public_safe: true
+candidate_count: 300
+rule_pass_count: 95
+strict_pass_count: 7
+recommended_label: gpt-5.4-mini|medium|orc|auditor
+measurement_policy:
+  quality_source: cli_full_matrix_rule_eval_and_llm_shortlist
+  telemetry_source: cli_full_matrix_all_candidates
+  subagent_quality_matrix: false
+  subagent_token_usage_available: false
+  telemetry_exact_for_subagent: false
+  telemetry_exact_for_cli: true
+limitations:
+  - This archive imports the earlier CLI-only full matrix because the workflow canon entry did not exist when the run was executed.
+  - Golden output text was not retained in the original matrix JSON; only golden usage was retained.
+  - Criteria text was retained only as an excerpt in the original matrix JSON, so criteria.json reconstructs the frozen public-safe gate from the saved excerpt and run summary.
+  - Run `subagent_quality_first` later for the first official app-mode quality calibration.

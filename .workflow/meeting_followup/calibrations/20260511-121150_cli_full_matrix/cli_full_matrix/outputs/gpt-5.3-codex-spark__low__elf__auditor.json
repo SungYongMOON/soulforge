@@ -1,0 +1,21 @@
+{
+  "label": "gpt-5.3-codex-spark|low|elf|auditor",
+  "model": "gpt-5.3-codex-spark",
+  "reasoning_effort": "low",
+  "species": "elf",
+  "class": "auditor",
+  "rule_score": 69,
+  "usable_rule": false,
+  "critical_errors": [
+    "Hara exact deadline appears invented"
+  ],
+  "missing_required_items": [
+    "smoke pass condition",
+    "Wednesday internal stretch goal only",
+    "Hara no exact deadline",
+    "README stale risk",
+    "non-facts customer/budget"
+  ],
+  "text_sha256": "99df9e69b5a5d5736dd0062359cac8387c50796cae79de8ff7ebd5d5aa0b394f",
+  "text": "{\n  \"formal_minutes\": {\n    \"confirmed_decisions\": [\n      {\n        \"id\": \"DEC-01\",\n        \"item\": \"공개 릴리스 목표일은 매일이 아닌 조건부로 '금요일 15:00 KST'로 확정한다. 단, 스모크 테스트 통과를 전제로 한다.\"\n      },\n      {\n        \"id\": \"DEC-02\",\n        \"item\": \"packageName 불일치 발생 시 즉시 스크립트를 무시하지 않고, 우선 패키지 설정을 점검한다. 스크립트 수정은 계약(contract) 자체가 잘못된 경우에만 검토한다.\"\n      },\n      {\n        \"id\": \"DEC-03\",\n        \"item\": \"Minjun이 금요일 10:00 KST까지 스모크 테스트를 재실행하고 결과를 공유한다.\"\n      },\n      {\n        \"id\": \"DEC-04\",\n        \"item\": \"Doyun이 금요일 12:00 KST까지 action_items.md에 실패 트리아지 노트를 작성한다.\"\n      }\n    ],\n    \"rejected_proposals\": [\n      {\n        \"id\": \"RJD-01\",\n        \"item\": \"스모크 테스트를 통과 전제 없이 수요일 공개 릴리스를 확정한다는 제안은 채택되지 않았다.\"\n      },\n      {\n        \"id\": \"RJD-02\",\n        \"item\": \"`smoke-theme-pack.mjs`에서 packageName 불일치를 무시하도록 변경하는 제안은 최종적으로 거부되었다.\"\n      }\n    ],\n    \"internal_stretch_goals\": [\n      {\n        \"id\": \"STG-01\",\n        \"item\": \"수요일 공개 준비 목표는 내부 stretch goal로만 유지된다.\"\n      },\n      {\n        \"id\": \"STG-02\",\n        \"item\": \"README 설치 단계 검토는 가능하면 목요일까지 진행(내부 일정 목표)하되, 소유자 미확정 및 최종 확정 안됨.\"\n      }\n    ],\n    \"non_decisions\": [\n      {\n        \"id\": \"NOD-01\",\n        \"item\": \"README 설치 단계 검토의 구체적 담당자(owner)가 지정되지 않았다.\"\n      },\n      {\n        \"id\": \"NOD-02\",\n        \"item\": \"Hara의 tarball 경로 확인 작업은 진행 예정이지만 기한이 구체적으로 지정되지 않았다.\"\n      }\n    ],\n    \"risks\": [\n      {\n        \"id\": \"RISK-01\",\n        \"item\": \"생성된 tarball 경로가 잘못되면 릴리스 지연 가능성 존재.\"\n      },\n      {\n        \"id\": \"RISK-02\",\n        \"item\": \"README 설치 가이드가 최신이 아니면 릴리스 노트가 사용자에게 오해를 유발할 수 있음.\"\n      }\n    ],\n    \"open_questions\": [\n      {\n        \"id\": \"Q-01\",\n        \"item\": \"최종 릴리스 승인 권한자는 누구인가?\"\n      },\n      {\n        \"id\": \"Q-02\",\n        \"item\": \"릴리스 노트에 내부 수요일 stretch goal를 언급할지 여부는 미결정이다.\"\n      }\n    ]\n  },\n  \"action_items\": [\n    {\n      \"owner\": \"Minjun\",\n      \"task\": \"스모크 테스트를 재실행하고 결과 공유\",\n      \"due\": \"2026-05-15 10:00 KST\",\n      \"status\": \"confirmed\",\n      \"source_certainty\": \"high\"\n    },\n    {\n      \"owner\": \"Doyun\",\n      \"task\": \"실패 트리아지 노트를 action_items.md에 작성\",\n      \"due\": \"2026-05-15 12:00 KST\",\n      \"status\": \"confirmed\",\n      \"source_certainty\": \"high\"\n    },\n    {\n      \"owner\": \"Hara\",\n      \"task\": \"Minjun 스모크 결과 공유 후 생성된 tarball 경로 확인\",\n      \"due\": \"미정\",\n      \"status\": \"pending\",\n      \"source_certainty\": \"medium\"\n    },\n    {\n      \"owner\": \"미확정\",\n      \"task\": \"README 설치 단계 리뷰(가능하면 목요일까지)\",\n      \"due\": \"미정\",\n      \"status\": \"not_assigned\",\n      \"source_certainty\": \"high\"\n    }\n  ],\n  \"followup_note\": {\n    \"what_to_check_next\": [\n      \"Minjun 결과 공유 이후, Hara의 tarball 경로 확인 수행 여부와 결과를 즉시 취합한다.\",\n      \"스모크 테스트 통과 여부가 공개 릴리스(금요일 15:00 KST) 조건 충족의 게이트로 충분히 반영되는지 확인한다.\",\n      \"README 리뷰 담당자 지정 및 작업 완료 여부를 확정한다.\",\n      \"최종 릴리스 승인 권한자(Q) 지정 여부를 확인해 승인 플로우를 잠금한다.\",\n      \"릴리스 노트에 내부 stretch goal를 언급할지 여부를 문서 정책 기준에 따라 명시한다.\"\n    ],\n    \"what_not_to_invent\": [\n      \"고객명, 예산, 보안 사고, 장애, 법무 승인, 소유자 미지정 정보, 미정의 마감시한을 임의 생성하지 않는다.\",\n      \"주어진 회의록 외의 외부 배경 사실(외부 파트너, 외부 정책, 추가 리스크)을 추가하지 않는다.\"\n    ]\n  },\n  \"non_invention_rules\": [\n    \"회의록에 없는 고객/외부 파트너 정보를 추가하지 않는다.\",\n    \"예산 수치, 비용 통제 조건, 보안 이슈, 운영/서비스 장애 정보, 법무 승인 필요 여부를 추가하지 않는다.\",\n    \"소유자 미지정 항목의 담당자를 임의로 지정하지 않는다.\",\n    \"기한이 제시되지 않은 항목에 임의 마감일을 부여하지 않는다.\",\n    \"기술 제안의 채택/거부 상태가 불명확한 경우 미결정으로 보존한다.\",\n    \"스케줄·의사결정·리스크는 회의록 텍스트에 근거해만 기재한다.\"\n  ]\n}"
+}

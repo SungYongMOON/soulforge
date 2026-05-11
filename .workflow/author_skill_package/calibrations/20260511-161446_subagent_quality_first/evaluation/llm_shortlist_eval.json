@@ -1,0 +1,18 @@
+{
+  "evaluator": "rule_and_telemetry_synthesis",
+  "status": "pass",
+  "shortlist_decision": "gpt-5.4-mini|low|darkelf|archivist is the lowest published-credit candidate that passed the frozen quality gate with rule_score 100.",
+  "quality_gate_basis": "subagent staged quality matrix with frozen criteria",
+  "telemetry_basis": "CLI probes for 19 stage-B quality-passing candidates",
+  "caveats": [
+    "Spark candidates were fast and quality-passing, but excluded from primary cost recommendation because official Codex credit rates are research preview / not final."
+  ],
+  "recommended_primary_label": "gpt-5.4-mini|low|darkelf|archivist",
+  "recommended_shadow_labels": [
+    "gpt-5.4-mini|high|darkelf|archivist",
+    "gpt-5.4-mini|medium|darkelf|archivist",
+    "gpt-5.4-mini|xhigh|darkelf|archivist",
+    "gpt-5.3-codex-spark|low|darkelf|archivist",
+    "gpt-5.3-codex-spark|medium|darkelf|archivist"
+  ]
+}

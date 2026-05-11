@@ -1,0 +1,23 @@
+workflow_id: meeting_followup
+kind: step_graph
+status: active
+steps:
+  - step_id: extract_minutes
+    title: Extract Minutes
+    actor_slot: minutes_writer
+    next:
+      - derive_actions
+  - step_id: derive_actions
+    title: Derive Actions
+    actor_slot: action_tracker
+    next:
+      - build_followup_note
+  - step_id: build_followup_note
+    title: Build Follow-up Note
+    actor_slot: action_tracker
+    next:
+      - boundary_review
+  - step_id: boundary_review
+    title: Boundary Review
+    actor_slot: boundary_reviewer
+    next: []

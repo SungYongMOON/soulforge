@@ -17,6 +17,27 @@ Git log 는 원문 이력을 남기고, 이 문서는 사람이 읽는 patch not
 - MacBook Air 는 repo 코드/문서/test/commit/push 를 맡고, 실제 LaunchAgent 설치와 secret/env 연결은 24시간 PC 에서 수행하는 역할 분리를 문서화했다.
 - mail fetch, mail healthcheck, town_crier 는 LLM 을 쓰지 않고, LLM 은 morning report 또는 장애 triage 같은 낮은 빈도 advisory 계층에 둔다는 운영 기준을 명시했다.
 
+### Revision `working` - workflow optimizer skill package 등록
+
+- local Codex `workflow-optimizer` 를 `.registry/skills/workflow_optimizer/` canon package 로 등록해 public Git sync 후 다른 PC 에서 `npm run skills:sync -- workflow_optimizer` 또는 `--all` 로 설치할 수 있게 했다.
+- tracked Codex bridge 는 현재 workflow profile calibration 규칙을 포함하며, 기본 후보에서 `gpt-5.3-*` 계열을 제외하고 최초 full quality matrix 는 subagent, 품질 통과 후보 telemetry 는 CLI 로 분리한다.
+
+### Revision `working` - author_skill_package profile calibration
+
+- `author_skill_package` workflow 의 public-safe staged subagent calibration archive 를 추가하고, `profile_policy.yaml` 의 active primary profile 을 `gpt-5.4-mini|low|darkelf|archivist` 로 설정했다.
+- calibration 은 synthetic `api_contract_drift_check` skill authoring fixture 를 사용했으며, 실제 API spec, customer endpoint, production log, credential, `_workspaces`, `_workmeta`, `private-state` material 은 archive 에 포함하지 않았다.
+- Spark 후보는 quality-pass 및 speed shadow 로 보존하되, 공식 Codex rate card 에서 research preview 로 표시되어 primary cost recommendation 에서는 제외했다.
+- 후속 분석에서 `gpt-5.3-*` 계열은 active/default 후보에서 제외했다.
+
+### Revision `working` - workflow calibration archive 경계 추가
+
+- `.workflow/<workflow_id>/profile_policy.yaml` 과 `.workflow/<workflow_id>/calibrations/<calibration_id>/` 를 workflow-level profile optimizer 결과의 public-safe 저장 위치로 명시했다.
+- 300개 후보 같은 전체 calibration archive 는 public-safe synthetic/redacted artifact 일 때만 workflow 아래에 둘 수 있고, 실제 프로젝트 원문, private transcript, secret, project-local raw run truth 는 계속 제외하도록 owner 경계를 좁혔다.
+- profile optimizer 는 추천만 보고하는 것이 아니라 workflow profile policy 와 shadow Top-K 운영 기준을 업데이트하는 흐름으로 정렬했다.
+- workflow authoring template 에 `profile_policy.yaml` 과 `calibrations/` scaffold 를 추가해, workflow creator 가 만든 canon entry 를 profile optimizer 가 바로 갱신할 수 있게 했다.
+- 실제 앱 운영 품질과 맞추기 위해 기본 calibration mode 를 subagent quality full matrix 로 두고, 비용/토큰 telemetry 는 품질 통과 후보만 CLI proxy 로 측정하도록 profile policy template 을 보강했다.
+- `meeting_followup` workflow canon 을 추가하고, 기존 public-safe CLI 300개 후보 matrix 를 workflow-local calibration archive 로 이관할 수 있게 했다.
+
 ### Revision `working` - activity sync 명령 추가
 
 - `guild-hall:activity:sync` 를 추가해 24시간 PC 가 local activity event ledger 와 `private-state` activity mirror 를 `entry_id` 기준으로 병합하고 양쪽 `latest_context.json` 을 재생성할 수 있게 했다.

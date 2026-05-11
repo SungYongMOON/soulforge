@@ -1,0 +1,360 @@
+{
+  "counts": {
+    "subagent_candidates": 34,
+    "stage_a_candidates": 15,
+    "stage_b_candidates": 20,
+    "telemetry_probes": 19,
+    "quality_usable": 32,
+    "strict_pass": 32
+  },
+  "stage_a_winner": {
+    "model": "gpt-5.4-mini",
+    "effort": "low",
+    "species": "darkelf",
+    "class": "archivist",
+    "label": "gpt-5.4-mini|low|darkelf|archivist",
+    "file": "gpt-5.4-mini__low__darkelf__archivist.json",
+    "candidate_reported_label": "gpt-5.4-mini|low|darkelf|archivist",
+    "profile_metadata_mismatch": false,
+    "stage": "stage_a_species_class",
+    "usable": true,
+    "strict_pass": true,
+    "rule_score": 100,
+    "critical_errors": [],
+    "missing_required_sections": [],
+    "missing_required_items": [],
+    "text_sha256": "43e2895891e4aaf31208b436deedc1e510318bb40a86c6e477f770152e6752af"
+  },
+  "stage_b_top_by_quality": {
+    "model": "gpt-5.3-codex-spark",
+    "effort": "high",
+    "species": "darkelf",
+    "class": "archivist",
+    "label": "gpt-5.3-codex-spark|high|darkelf|archivist",
+    "file": "gpt-5.3-codex-spark__high__darkelf__archivist.json",
+    "candidate_reported_label": "gpt-5.3-codex-spark|high|darkelf|archivist",
+    "profile_metadata_mismatch": false,
+    "stage": "stage_b_model_effort",
+    "usable": true,
+    "strict_pass": true,
+    "rule_score": 100,
+    "critical_errors": [],
+    "missing_required_sections": [],
+    "missing_required_items": [],
+    "text_sha256": "d68ddca5eba6342914da04c6263f0a5ec6475f0782520990b1fe0d3da9468835"
+  },
+  "selected_primary_by_known_credit": {
+    "model": "gpt-5.4-mini",
+    "effort": "low",
+    "species": "darkelf",
+    "class": "archivist",
+    "label": "gpt-5.4-mini|low|darkelf|archivist",
+    "file": "gpt-5.4-mini__low__darkelf__archivist.json",
+    "candidate_reported_label": "gpt-5.4-mini|low|darkelf|archivist",
+    "profile_metadata_mismatch": false,
+    "stage": "stage_a_species_class",
+    "usable": true,
+    "strict_pass": true,
+    "rule_score": 100,
+    "critical_errors": [],
+    "missing_required_sections": [],
+    "missing_required_items": [],
+    "text_sha256": "43e2895891e4aaf31208b436deedc1e510318bb40a86c6e477f770152e6752af",
+    "telemetry": {
+      "label": "gpt-5.4-mini|low|darkelf|archivist",
+      "model": "gpt-5.4-mini",
+      "effort": "low",
+      "species": "darkelf",
+      "class": "archivist",
+      "rule_score": 100,
+      "exit_status": 0,
+      "thread_id": "019e15f8-db37-7fe1-abc0-370e86e3c8c8",
+      "usage": {
+        "input_tokens": 14942,
+        "cached_input_tokens": 2432,
+        "output_tokens": 893,
+        "reasoning_output_tokens": 56
+      },
+      "wall_s": 16.36,
+      "credit_est": 0.3400315,
+      "credit_rate_source": "openai_codex_rate_card_2026-05-08",
+      "text_sha256": "c2c21563abe96ab333b31f1dbe5a87b3746e8a29c024526aacc406ba0c931749",
+      "stderr_tail": "2026-05-11T07:38:13.249135Z  WARN codex_core_skills::loader: ignoring interface.icon_large: icon path must not contain '..'\n2026-05-11T07:38:13.288504Z  WARN codex_core_plugins::manifest: ignoring interface.defaultPrompt: maximum of 3 prompts is supported path=/Users/seabotmoon-air/.codex/.tmp/plugins/plugins/openai-developers/.codex-plugin/plugin.json\n2026-05-11T07:38:13.291580Z  WARN codex_core_plugins::manifest: ignoring interface.defaultPrompt: maximum of 3 prompts is supported path=/Users/seabotmoon-air/.codex/.tmp/plugins/plugins/openai-developers/.codex-plugin/plugin.json\n2026-05-11T07:38:13.291650Z  WARN codex_core_plugins::manifest: ignoring interface.defaultPrompt: maximum of 3 prompts is supported path=/Users/seabotmoon-air/.codex/.tmp/plugins/plugins/openai-developers/.codex-plugin/plugin.json\n"
+    },
+    "total_tokens": 15835,
+    "credit_known": true,
+    "credit_est": 0.3400315,
+    "wall_s": 16.36,
+    "reasoning_output_tokens": 56,
+    "input_tokens": 14942,
+    "cached_input_tokens": 2432,
+    "output_tokens": 893,
+    "quality_score": 100,
+    "quality_component": 40,
+    "fit_component": 20,
+    "composite_score": 89.12,
+    "cost_component": 20,
+    "wall_component": 6.12,
+    "stability_component": 3
+  },
+  "spark_rate_unavailable_shadow_candidates": [
+    {
+      "label": "gpt-5.3-codex-spark|low|darkelf|archivist",
+      "rule_score": 100,
+      "wall_s": 6.68,
+      "total_tokens": 16992,
+      "credit_est": null
+    },
+    {
+      "label": "gpt-5.3-codex-spark|medium|darkelf|archivist",
+      "rule_score": 100,
+      "wall_s": 7.47,
+      "total_tokens": 18120,
+      "credit_est": null
+    },
+    {
+      "label": "gpt-5.3-codex-spark|xhigh|darkelf|archivist",
+      "rule_score": 100,
+      "wall_s": 8.81,
+      "total_tokens": 20093,
+      "credit_est": null
+    },
+    {
+      "label": "gpt-5.3-codex-spark|high|darkelf|archivist",
+      "rule_score": 100,
+      "wall_s": 9.96,
+      "total_tokens": 20441,
+      "credit_est": null
+    }
+  ],
+  "top_by_known_credit": [
+    {
+      "rank": 1,
+      "label": "gpt-5.4-mini|low|darkelf|archivist",
+      "model": "gpt-5.4-mini",
+      "effort": "low",
+      "species": "darkelf",
+      "class": "archivist",
+      "quality_score": 100,
+      "credit_est": 0.3400315,
+      "wall_s": 16.36,
+      "total_tokens": 15835,
+      "reasoning_output_tokens": 56,
+      "composite_score": 89.12
+    },
+    {
+      "rank": 2,
+      "label": "gpt-5.4-mini|high|darkelf|archivist",
+      "model": "gpt-5.4-mini",
+      "effort": "high",
+      "species": "darkelf",
+      "class": "archivist",
+      "quality_score": 100,
+      "credit_est": 0.3775475,
+      "wall_s": 13.69,
+      "total_tokens": 16167,
+      "reasoning_output_tokens": 516,
+      "composite_score": 88.33
+    },
+    {
+      "rank": 3,
+      "label": "gpt-5.4-mini|medium|darkelf|archivist",
+      "model": "gpt-5.4-mini",
+      "effort": "medium",
+      "species": "darkelf",
+      "class": "archivist",
+      "quality_score": 100,
+      "credit_est": 0.3909945,
+      "wall_s": 34.56,
+      "total_tokens": 16286,
+      "reasoning_output_tokens": 167,
+      "composite_score": 83.29
+    },
+    {
+      "rank": 4,
+      "label": "gpt-5.4-mini|xhigh|darkelf|archivist",
+      "model": "gpt-5.4-mini",
+      "effort": "xhigh",
+      "species": "darkelf",
+      "class": "archivist",
+      "quality_score": 100,
+      "credit_est": 0.44755825,
+      "wall_s": 21.66,
+      "total_tokens": 17552,
+      "reasoning_output_tokens": 2070,
+      "composite_score": 82.82
+    },
+    {
+      "rank": 5,
+      "label": "gpt-5.3-codex|medium|darkelf|archivist",
+      "model": "gpt-5.3-codex",
+      "effort": "medium",
+      "species": "darkelf",
+      "class": "archivist",
+      "quality_score": 100,
+      "credit_est": 0.77084,
+      "wall_s": 24.89,
+      "total_tokens": 16051,
+      "reasoning_output_tokens": 102,
+      "composite_score": 75.85
+    },
+    {
+      "rank": 6,
+      "label": "gpt-5.3-codex|high|darkelf|archivist",
+      "model": "gpt-5.3-codex",
+      "effort": "high",
+      "species": "darkelf",
+      "class": "archivist",
+      "quality_score": 100,
+      "credit_est": 0.87409,
+      "wall_s": 31.92,
+      "total_tokens": 16346,
+      "reasoning_output_tokens": 394,
+      "composite_score": 68.92
+    },
+    {
+      "rank": 7,
+      "label": "gpt-5.4|medium|darkelf|archivist",
+      "model": "gpt-5.4",
+      "effort": "medium",
+      "species": "darkelf",
+      "class": "archivist",
+      "quality_score": 100,
+      "credit_est": 0.9465125,
+      "wall_s": 28.81,
+      "total_tokens": 16401,
+      "reasoning_output_tokens": 57,
+      "composite_score": 73.66
+    },
+    {
+      "rank": 8,
+      "label": "gpt-5.4|high|darkelf|archivist",
+      "model": "gpt-5.4",
+      "effort": "high",
+      "species": "darkelf",
+      "class": "archivist",
+      "quality_score": 100,
+      "credit_est": 1.0612625,
+      "wall_s": 32.87,
+      "total_tokens": 16707,
+      "reasoning_output_tokens": 516,
+      "composite_score": 72.46
+    },
+    {
+      "rank": 9,
+      "label": "gpt-5.4|low|darkelf|archivist",
+      "model": "gpt-5.4",
+      "effort": "low",
+      "species": "darkelf",
+      "class": "archivist",
+      "quality_score": 100,
+      "credit_est": 1.0694375,
+      "wall_s": 21.72,
+      "total_tokens": 16268,
+      "reasoning_output_tokens": 39,
+      "composite_score": 73.97
+    },
+    {
+      "rank": 10,
+      "label": "gpt-5.5|medium|darkelf|archivist",
+      "model": "gpt-5.5",
+      "effort": "medium",
+      "species": "darkelf",
+      "class": "archivist",
+      "quality_score": 100,
+      "credit_est": 1.9274,
+      "wall_s": 20.59,
+      "total_tokens": 17601,
+      "reasoning_output_tokens": 21,
+      "composite_score": 71.39
+    }
+  ],
+  "top_by_wall_time": [
+    {
+      "rank": 1,
+      "label": "gpt-5.3-codex-spark|low|darkelf|archivist",
+      "quality_score": 100,
+      "credit_est": null,
+      "wall_s": 6.68,
+      "total_tokens": 16992
+    },
+    {
+      "rank": 2,
+      "label": "gpt-5.3-codex-spark|medium|darkelf|archivist",
+      "quality_score": 100,
+      "credit_est": null,
+      "wall_s": 7.47,
+      "total_tokens": 18120
+    },
+    {
+      "rank": 3,
+      "label": "gpt-5.3-codex-spark|xhigh|darkelf|archivist",
+      "quality_score": 100,
+      "credit_est": null,
+      "wall_s": 8.81,
+      "total_tokens": 20093
+    },
+    {
+      "rank": 4,
+      "label": "gpt-5.3-codex-spark|high|darkelf|archivist",
+      "quality_score": 100,
+      "credit_est": null,
+      "wall_s": 9.96,
+      "total_tokens": 20441
+    },
+    {
+      "rank": 5,
+      "label": "gpt-5.4-mini|high|darkelf|archivist",
+      "quality_score": 100,
+      "credit_est": 0.3775475,
+      "wall_s": 13.69,
+      "total_tokens": 16167
+    },
+    {
+      "rank": 6,
+      "label": "gpt-5.4-mini|low|darkelf|archivist",
+      "quality_score": 100,
+      "credit_est": 0.3400315,
+      "wall_s": 16.36,
+      "total_tokens": 15835
+    },
+    {
+      "rank": 7,
+      "label": "gpt-5.5|medium|darkelf|archivist",
+      "quality_score": 100,
+      "credit_est": 1.9274,
+      "wall_s": 20.59,
+      "total_tokens": 17601
+    },
+    {
+      "rank": 8,
+      "label": "gpt-5.3-codex|low|darkelf|archivist",
+      "quality_score": 98,
+      "credit_est": 0.69559,
+      "wall_s": 21.44,
+      "total_tokens": 15836
+    },
+    {
+      "rank": 9,
+      "label": "gpt-5.4-mini|xhigh|darkelf|archivist",
+      "quality_score": 100,
+      "credit_est": 0.44755825,
+      "wall_s": 21.66,
+      "total_tokens": 17552
+    },
+    {
+      "rank": 10,
+      "label": "gpt-5.4|low|darkelf|archivist",
+      "quality_score": 100,
+      "credit_est": 1.0694375,
+      "wall_s": 21.72,
+      "total_tokens": 16268
+    }
+  ],
+  "ranking_notes": [
+    "Quality is a hard gate before cost or speed.",
+    "Credit estimates use the OpenAI Codex token-based rate card for models with published rates.",
+    "GPT-5.3-Codex-Spark was measured for tokens and wall time but excluded from lowest-known-credit selection because the official rate card lists it as research preview with non-final rates.",
+    "Stage A selected species/class at gpt-5.4-mini low; Stage B compared model/reasoning effort on that winner."
+  ]
+}

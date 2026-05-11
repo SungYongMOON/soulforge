@@ -1,0 +1,33 @@
+{
+  "status": "needs_revision",
+  "criteria_sufficient": false,
+  "missing_critical_conditions": [
+    "Criteria should explicitly distinguish fixture-mandated requirements from golden-example implementation choices, so alternate valid package structures are not rejected.",
+    "Criteria should state how to evaluate scoring weights for token cost, wall-clock time, and stability when candidate output metadata is unavailable.",
+    "Criteria should require the evaluator to penalize unsupported claims about created files, sync, smoke execution, or release readiness unless the candidate provides direct execution evidence."
+  ],
+  "overfit_risks": [
+    "The criteria source says it was extracted from the golden baseline, which increases risk that the rubric rewards golden phrasing or structure rather than the user goal.",
+    "The exact seven output group names are fixture-provided and valid, but requiring the same internal phrasing, section titles, or decision wording as the golden would be overfit.",
+    "Specific bridge resource examples such as `codex/references/mapping.md` and named templates may be useful but should remain examples unless the fixture requires those exact files.",
+    "The install handoff could validly describe the sync boundary without using the exact Ruby command from the golden, so command-specific matching should not be a hard requirement."
+  ],
+  "golden_suspicious_assumptions": [
+    "The golden states boundary and resource reviews passed for a proposed draft even though no actual package files were materialized; this is acceptable only if treated as conceptual, not verified release evidence.",
+    "The golden says the installed mirror is expected after local sync, which is a forward-looking assumption rather than observed state.",
+    "The golden includes concrete synthetic endpoint names; they are public-safe placeholders, but criteria should not require those exact endpoint strings.",
+    "The golden marks ready for local sync as conditional yes while also stating the package files and smoke run do not exist; criteria should ensure that conditionality is preserved."
+  ],
+  "recommended_revisions": [
+    "Rewrite required facts as behavioral checks instead of golden-derived wording checks.",
+    "Mark exact filenames beyond `skill.yaml`, `README.md`, optional `codex/SKILL.md`, and public-safe templates or references as acceptable examples, not mandatory facts.",
+    "Add an evidence rule that release, sync, and smoke claims must be classified as performed, proposed, or not-run based on explicit proof.",
+    "Add evaluator guidance for unavailable runtime metrics: do not fail candidates for missing token, wall-clock, or stability data unless the calibration harness supplies it.",
+    "Keep the hard gates focused on public-safety boundaries, no invented private data, no false execution claims, correct author_skill_package lane outputs, and evidence-versus-assumption separation."
+  ],
+  "review_notes": [
+    "The criteria cover the core user goal: reusable public-safe API contract drift skill authoring, redacted packet boundaries, seven output groups, evidence separation, install handoff, smoke path, and release conditionality.",
+    "The main weakness is not missing domain coverage but rubric tightness: several checks appear copied from the golden and could reject an equally correct candidate with different public-safe resource naming.",
+    "The golden output is generally public-safe and bounded, but it relies on conceptual pass language that must not be confused with completed file creation, sync, or smoke verification."
+  ]
+}

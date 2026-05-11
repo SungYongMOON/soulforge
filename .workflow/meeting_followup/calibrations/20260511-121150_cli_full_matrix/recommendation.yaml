@@ -1,0 +1,24 @@
+workflow_id: meeting_followup
+calibration_id: 20260511-121150_cli_full_matrix
+recommendation_status: active_legacy_cli_import
+recommended_profile:
+  model: gpt-5.4-mini
+  reasoning_effort: medium
+  species: orc
+  class: auditor
+  label: gpt-5.4-mini|medium|orc|auditor
+quality:
+  llm_quality_score: 95
+  rule_score: 100
+  usable_rule: true
+telemetry:
+  total_tokens: 16808
+  reasoning_output_tokens: 516
+  wall_s: 14.3
+  cost_usd_est: 0.00913185
+confidence:
+  quality_source: cli_full_matrix_rule_eval_and_llm_shortlist
+  telemetry_source: cli_full_matrix_all_candidates
+  subagent_quality_checked: false
+  note: Run subagent_quality_first for official app-mode quality confirmation.
+why: "품질이 90점 이상이고 필수 사실, 조건부 일정, 미배정/미정 경계를 안정적으로 보존했다. gpt-5.5 high 후보와 품질 차이가 5점 이내인데 알려진 비용이 훨씬 낮아 추천 기준에 가장 잘 맞는다."
