@@ -1,5 +1,16 @@
 # CHANGELOG
 
+## 2026-05-13
+
+### Revision `working` - EXP XML component materials workflow added
+
+- Added `.workflow/exp_xml_component_materials/` as a pilot-ready workflow for parsing a project-provided `EXP.xml` and collecting official datasheets plus EVAL/reference-design files into per-component `DATA Sheet` and `EVAL` folders.
+- Registered the workflow in `.workflow/index.yaml` while keeping real EXP.xml contents, downloaded PDFs, PCB archives, credentials, and project-local run truth outside public canon.
+- Added a project binding template for output folder shape, official-source download policy, checksum/source manifests, and review queues for ambiguous part identities or gated vendor material.
+- Piloted the workflow against a concrete Cadence Capture EXP.xml, confirmed `PartInst` as the placed-component extraction node, and saved official Analog Devices PDF/ZIP materials into the project-local material tree.
+- Tightened the workflow completion gate so source links and `.url` shortcuts are not accepted as downloads; actual files with byte size, content type or magic check, and SHA256 are required.
+- Evolved the workflow with a larger Cadence Capture fixture, adding DOM-failure parser fallback, Package/SymbolUserProp identity recovery for placeholder part values, generic-passive review queue handling, and strict PDF/ZIP payload validation.
+
 ## 2026-05-11
 
 ### Revision `working` - device system diagram workflow canon entry added

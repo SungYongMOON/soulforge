@@ -1,0 +1,46 @@
+workflow_id: exp_xml_component_materials
+kind: monster_rules
+status: active
+rules:
+  - monster_id: missing_exp_xml
+    response: stop_with_binding_blocker
+    summary: Do not invent components; request a project binding to the EXP.xml input.
+  - monster_id: ambiguous_part_identity
+    response: add_to_review_queue
+    summary: If MPN, manufacturer, or package cannot be resolved from EXP.xml properties, do not download lookalike materials as authoritative.
+  - monster_id: dom_parser_rejects_large_capture_xml
+    response: use_bounded_partinst_block_parser_and_record_fallback
+    summary: Large Cadence Capture XML exports can fail DOM loading; parse only placed PartInst blocks with bounded extraction and record the fallback parser mode in run evidence.
+  - monster_id: placeholder_part_value
+    response: recover_from_package_symbol_props_or_review_queue
+    summary: If PartInst PartValue is empty or a placeholder such as Value, recover identity only from the matching Package/SymbolUserProp fields; otherwise queue it for owner review.
+  - monster_id: unofficial_source_only
+    response: mark_unapproved_source_gap
+    summary: Random mirrors, forum attachments, and SEO PDF copies are not executor-approved sources unless the owner explicitly approves them for review.
+  - monster_id: url_shortcut_without_binary_file
+    response: not_complete_retry_download_or_mark_blocked
+    summary: A source URL or .url shortcut is only a discovery artifact; it does not satisfy the download step without a saved file and SHA256 checksum.
+  - monster_id: eval_board_not_available
+    response: record_none_found
+    summary: If no official EVAL/reference-design material exists, record none_found with search evidence instead of substituting unrelated boards.
+  - monster_id: vendor_login_or_license_gate
+    response: owner_manual_download_required
+    summary: Account-gated, export-controlled, or click-through-license downloads require owner action; never use stored cookies or credentials.
+  - monster_id: datasheet_conflict
+    response: require_domain_review
+    summary: Conflicting revisions, lifecycle states, or package-specific datasheets must be queued for owner or electrical-domain review.
+  - monster_id: path_escape_or_unsafe_filename
+    response: sanitize_or_stop
+    summary: Component keys and vendor filenames must be normalized so downloads cannot escape the materials root.
+  - monster_id: public_canon_binary_leak
+    response: stop_and_move_to_project_local_output
+    summary: Downloaded PDFs, zips, PCB files, and CAD projects must not be staged in .workflow, .registry, docs canon, or public changelog.
+  - monster_id: checksum_missing_after_download
+    response: not_complete_compute_checksum
+    summary: Saved vendor files require byte size, content type or magic check, and SHA256 in the manifest before circuit-design readiness can pass.
+  - monster_id: payload_not_expected_binary_type
+    response: reject_file_and_retry_source_resolution
+    summary: If a supposed PDF or ZIP download resolves to HTML, an error page, or a nonmatching file signature, do not save it as completion evidence; resolve the real official file URL or record the blocker.
+  - monster_id: secret_or_account_material_requested
+    response: stop_and_request_owner_action
+    summary: The workflow may reference that owner login is required, but must not read, store, or summarize tokens, cookies, passwords, or credential files.

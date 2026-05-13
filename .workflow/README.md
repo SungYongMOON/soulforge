@@ -94,6 +94,7 @@ sequenceDiagram
 - [`author_skill_package/workflow.yaml`](author_skill_package/workflow.yaml): guild-master authoring workflow sample for deciding when a request should become a reusable skill package.
 - [`author_skill_package/positioning.md`](author_skill_package/positioning.md): current guild-master authoring lane positioning note.
 - [`device_system_diagram_generation/workflow.yaml`](device_system_diagram_generation/workflow.yaml): owner-accepted usable workflow for generating editable draw.io device system diagrams plus SVG, PPTX, and PNG outputs from one Markdown input.
+- [`exp_xml_component_materials/workflow.yaml`](exp_xml_component_materials/workflow.yaml): pilot-ready workflow for parsing `EXP.xml` component data and collecting official datasheet plus EVAL/reference-design materials into project-local folders.
 - [`authoring/task_note.template.md`](authoring/task_note.template.md): raw task memo template for converting real work into workflow drafts.
 - [`authoring/workflow_draft.template.yaml`](authoring/workflow_draft.template.yaml): workflow draft template for step sequencing, actors, skills, and outputs.
 - [`authoring/SKILL_WORKFLOW_GUIDE.md`](authoring/SKILL_WORKFLOW_GUIDE.md): user-facing guide for deciding when to route work into a skill-authoring workflow.

@@ -1,0 +1,38 @@
+workflow_id: exp_xml_component_materials
+kind: workflow
+status: active
+title: EXP XML Component Materials Collection
+summary: Parse an EXP.xml component list and collect official datasheets plus evaluation-board/reference-design files into per-component DATA Sheet and EVAL folders for circuit-design preparation.
+entrypoint: run
+execution_mode: local_tool_sequence
+role_slots: role_slots.yaml
+step_graph: step_graph.yaml
+handoff_rules: handoff_rules.yaml
+monster_rules: monster_rules.yaml
+party_compatibility: party_compatibility.yaml
+profile_policy: profile_policy.yaml
+inputs:
+  - exp_xml_source
+  - project_materials_binding
+  - approved_download_policy
+outputs:
+  - component_inventory
+  - source_discovery_packet
+  - parts_materials_tree
+  - download_manifest
+  - downloaded_file_checksum_manifest
+  - circuit_design_review_queue
+validation_level: pilot_executed_binary_download
+notes:
+  - The EXP.xml input is the baseline artifact and must be read-only during collection.
+  - Downloaded PDFs, CAD archives, schematics, PCB files, and vendor collateral belong under a project-local materials root, not inside .workflow.
+  - Each normalized component key gets DATA Sheet and EVAL subfolders under the materials root.
+  - For Cadence Capture EXP.xml, placed design components should be extracted from PartInst nodes; Package nodes can include library/cache definitions that are not actual placed BOM lines.
+  - If a full XML DOM parser fails on a large Capture export, use a bounded PartInst block parser as a fallback and record that parser mode in run evidence.
+  - When PartInst PartValue is missing or a placeholder such as Value, recover identity only from the matching Package/SymbolUserProp definition and mark the confidence source.
+  - Generic passives, test points, and symbolic power entries without a manufacturer part number go to the review queue rather than receiving guessed datasheets.
+  - Source discovery prefers official manufacturer pages, official distributor-hosted manufacturer datasheets, and official evaluation-board/reference-design download pages.
+  - URL shortcuts or source links alone are not a completed download; completion requires actual saved files with byte size, content type or file-magic validation, and SHA256 checksum in the manifest.
+  - Vendor-account, click-through-license, or export-controlled files require owner action and must be recorded in the review queue instead of bypassed.
+  - Binary download pilot saved official Analog Devices datasheet, demo manual, schematic PDF, evaluation design ZIP, and LTspice demo file for the extracted LT3045EDD-1 part.
+  - Large-fixture evolution pilot exercised multi-hundred-instance parsing, Package/SymbolUserProp identity fallback, official PDF/ZIP download validation, and unavailable-material review notes.

@@ -1,0 +1,188 @@
+workflow_id: exp_xml_component_materials
+kind: step_graph
+status: active
+steps:
+  - step_id: prepare_runtime_binding
+    title: Prepare Runtime Binding
+    actor_slot: workflow_runner
+    action:
+      kind: local_workspace_setup
+      requires:
+        - exp_xml_source
+        - materials_root
+        - download_policy
+      creates:
+        - run_log_root
+        - materials_root
+    summary: Confirm that the EXP.xml input exists, the output root is project-local, and the download policy is explicit before any network request or file write.
+    next:
+      on_success: parse_exp_xml_component_inventory
+      on_fail: stop
+  - step_id: parse_exp_xml_component_inventory
+    title: Parse EXP XML Component Inventory
+    actor_slot: exp_xml_parser
+    action:
+      kind: structured_xml_parse_with_capture_fallback
+      artifact_in: exp_xml_source
+      artifact_out: component_inventory
+      required_fields:
+        - refdes
+        - instance_name
+        - value
+        - symbol_name
+        - manufacturer
+        - manufacturer_part_number
+        - package
+        - source_property_names
+        - identity_confidence
+      cadence_capture_rule:
+        placed_component_node: PartInst
+        library_cache_node: Package
+        instance_property_node: PartInstUserProp
+        parser_order:
+          - normal_xml_parser
+          - bounded_partinst_block_parser
+        package_identity_fallback:
+          enabled: true
+          when_part_value_missing_or_placeholder: true
+          property_node: SymbolUserProp
+          fallback_fields:
+            - "< Value >"
+            - Manufacturer_Part_Number
+            - Mfr_Name
+            - PackageName
+            - PCB Footprint
+      generic_review_queue_rule:
+        applies_to:
+          - generic_passive_without_mpn
+          - test_point_or_symbolic_power_entry
+          - unknown_component_without_mpn
+    summary: Parse EXP.xml with an XML parser or Capture-safe PartInst block fallback, extract placed component properties from PartInst nodes, recover placeholder identities from matching Package/SymbolUserProp definitions when needed, deduplicate by manufacturer part number when possible, and flag weak identities.
+    next:
+      on_success: normalize_part_queries
+      on_fail: stop
+  - step_id: normalize_part_queries
+    title: Normalize Part Queries
+    actor_slot: exp_xml_parser
+    action:
+      kind: inventory_normalization
+      artifact_in: component_inventory
+      artifact_out: component_query_set
+    summary: Build official-source search queries and per-component output keys while sending missing or ambiguous MPNs to the review queue.
+    next:
+      on_success: source_bootstrap_official_materials
+      on_fail: stop
+  - step_id: source_bootstrap_official_materials
+    title: Source Bootstrap Official Materials
+    actor_slot: source_researcher
+    action:
+      kind: source_bootstrap
+      artifact_in: component_query_set
+      artifact_out: source_discovery_packet
+      source_policy:
+        official_sources_first: true
+        random_mirrors_forbidden: true
+        owner_approved_local_sources_allowed: true
+    summary: Find datasheets, product pages, evaluation boards, reference designs, user guides, design zips, schematics, PCB layout files, BOMs, and CAD/EDA packages from approved sources.
+    next:
+      on_success: download_datasheet_materials
+      on_fail: stop
+  - step_id: download_datasheet_materials
+    title: Download Datasheet Materials
+    actor_slot: download_operator
+    action:
+      kind: approved_download
+      artifact_in: source_discovery_packet
+      artifact_out: datasheet_downloads
+      output_folder_name: "DATA Sheet"
+      completion_requires:
+        - saved_binary_file
+        - source_url
+        - byte_size
+        - content_type_or_file_magic
+        - sha256
+      accepted_file_magic:
+        pdf: "%PDF-"
+      url_shortcut_is_completion: false
+    summary: Download approved datasheets and product briefs into each component's DATA Sheet folder, preserving source URL, retrieval date, file size, content type or file magic, and SHA256 checksum.
+    next:
+      on_success: download_eval_board_materials
+      on_fail: stop
+  - step_id: download_eval_board_materials
+    title: Download EVAL Board Materials
+    actor_slot: download_operator
+    action:
+      kind: approved_download
+      artifact_in: source_discovery_packet
+      artifact_out: eval_downloads
+      output_folder_name: EVAL
+      accepted_material_types:
+        - evaluation_board_user_guide
+        - reference_design_schematic
+        - pcb_layout_source_or_archive
+        - gerber_or_fabrication_archive
+        - bom
+        - cad_or_eda_project
+        - application_note
+      completion_requires:
+        - saved_binary_file
+        - source_url
+        - byte_size
+        - content_type_or_file_magic
+        - sha256
+      accepted_file_magic:
+        pdf: "%PDF-"
+        zip: PK
+      url_shortcut_is_completion: false
+    summary: Download official evaluation-board and reference-design collateral into each component's EVAL folder; record none_found rather than inventing substitutes, and do not treat URL shortcuts as completed downloads.
+    next:
+      on_success: write_source_index_and_manifest
+      on_fail: stop
+  - step_id: write_source_index_and_manifest
+    title: Write Source Index And Manifest
+    actor_slot: download_operator
+    action:
+      kind: manifest_write
+      artifacts_in:
+        - component_inventory
+        - source_discovery_packet
+        - datasheet_downloads
+        - eval_downloads
+      artifacts_out:
+        - source_index
+        - download_manifest
+        - downloaded_file_checksum_manifest
+        - circuit_design_review_queue
+    summary: Write per-component source indexes, actual saved-file checksums, unavailable or not-applicable material reasons, and owner-review items for ambiguous parts or gated downloads.
+    next:
+      on_success: source_boundary_review
+      on_fail: stop
+  - step_id: source_boundary_review
+    title: Source Boundary Review
+    actor_slot: boundary_reviewer
+    action:
+      kind: boundary_review
+      artifacts_in:
+        - source_index
+        - download_manifest
+        - circuit_design_review_queue
+      artifact_out: boundary_review_note
+    summary: Check that every downloaded file has approved provenance, no secret/account material was used, and no downloaded binary is staged for public canon.
+    next:
+      on_success: circuit_design_readiness_review
+      on_fail: stop
+  - step_id: circuit_design_readiness_review
+    title: Circuit Design Readiness Review
+    actor_slot: circuit_prep_reviewer
+    action:
+      kind: readiness_review
+      artifacts_in:
+        - component_inventory
+        - source_index
+        - download_manifest
+        - boundary_review_note
+      artifact_out: circuit_design_readiness_note
+    summary: Summarize which components are ready for schematic/PCB reference, which need owner review, and which have no official EVAL material found.
+    next:
+      on_success: complete
+      on_fail: stop

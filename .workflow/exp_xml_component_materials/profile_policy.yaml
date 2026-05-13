@@ -1,0 +1,8 @@
+workflow_id: exp_xml_component_materials
+kind: profile_policy
+status: draft
+active_profile: null
+calibration_status: pending
+notes:
+  - No model/species/class profile calibration has been run for this workflow.
+  - Runtime download and verification tooling should be bound per project rather than hard-coded here.

@@ -13,6 +13,8 @@ entries:
     path: meeting_followup/workflow.yaml
   - workflow_id: device_system_diagram_generation
     path: device_system_diagram_generation/workflow.yaml
+  - workflow_id: exp_xml_component_materials
+    path: exp_xml_component_materials/workflow.yaml
 notes:
   - Workflow catalog only. Raw run ids and execution dumps do not belong here.
   - Authoring templates live under `authoring/` and are not workflow canon entries.

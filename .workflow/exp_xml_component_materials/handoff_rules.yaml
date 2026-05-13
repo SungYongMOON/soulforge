@@ -1,0 +1,28 @@
+workflow_id: exp_xml_component_materials
+kind: handoff_rules
+status: active
+rules:
+  - from: workflow_runner
+    to: exp_xml_parser
+    condition: exp_xml_readable_and_materials_root_project_local
+    summary: Parser receives the EXP.xml path, read-only input policy, and output binding; it does not receive downloaded files or prior run packets.
+  - from: exp_xml_parser
+    to: source_researcher
+    condition: component_inventory_written
+    summary: Source research starts only after component identities, confidence levels, and ambiguous-part review items are recorded.
+  - from: source_researcher
+    to: download_operator
+    condition: source_discovery_packet_has_approved_urls
+    summary: Downloading is allowed only from sources marked official or owner-approved in the source discovery packet.
+  - from: download_operator
+    to: boundary_reviewer
+    condition: download_manifest_written
+    summary: Boundary review receives manifests and source indexes, not browser cookies, credentials, or account session data.
+  - from: boundary_reviewer
+    to: circuit_prep_reviewer
+    condition: boundary_review_passed_or_review_queue_written
+    summary: Readiness review may proceed when unsafe files are absent and unresolved issues are explicitly captured for owner/domain review.
+  - from: circuit_prep_reviewer
+    to: workflow_runner
+    condition: readiness_note_complete
+    summary: Runner reports the materials root, manifest path, ready components, blocked components, and next owner actions.

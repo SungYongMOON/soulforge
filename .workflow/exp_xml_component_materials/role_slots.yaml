@@ -1,0 +1,22 @@
+workflow_id: exp_xml_component_materials
+kind: role_slots
+status: active
+slots:
+  - slot_id: workflow_runner
+    title: Workflow Runner
+    summary: Resolves project-local EXP.xml and materials-root bindings, initializes run logs, and prevents canon folders from receiving downloaded vendor files.
+  - slot_id: exp_xml_parser
+    title: EXP XML Parser
+    summary: Reads EXP.xml with structured XML parsing, extracts component identifiers, normalizes part queries, and flags weak part identities.
+  - slot_id: source_researcher
+    title: Source Researcher
+    summary: Finds official datasheets, evaluation boards, reference designs, and PCB/schematic collateral from approved non-oracle sources.
+  - slot_id: download_operator
+    title: Download Operator
+    summary: Downloads approved files into per-component DATA Sheet and EVAL folders and records provenance, checksums, and missing-material reasons.
+  - slot_id: boundary_reviewer
+    title: Boundary Reviewer
+    summary: Checks source approval, public/private boundaries, account-gated material handling, and file-tree containment before design use.
+  - slot_id: circuit_prep_reviewer
+    title: Circuit Prep Reviewer
+    summary: Reviews the collected packet for schematic/PCB preparation readiness and lists unresolved component or source issues.

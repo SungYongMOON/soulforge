@@ -1,0 +1,54 @@
+workflow_id: exp_xml_component_materials
+kind: project_workflow_binding_template
+status: template
+project_code: "<project_code>"
+inputs:
+  exp_xml_repo_path: "_workspaces/<project_code>/inputs/EXP.xml"
+outputs:
+  materials_root_repo_path: "_workspaces/<project_code>/reference_materials/from_exp_xml"
+folder_policy:
+  parts_folder_name: parts
+  datasheet_folder_name: "DATA Sheet"
+  eval_folder_name: EVAL
+download_policy:
+  official_sources_only: true
+  owner_approved_local_sources_allowed: true
+  random_pdf_mirrors_allowed: false
+  allow_vendor_account_pages: false
+  url_shortcut_counts_as_download: false
+  require_actual_files: true
+  require_sha256: true
+  max_download_mb_per_part: 250
+  max_total_download_mb: 2000
+  allowed_official_domains: []
+inventory_policy:
+  xml_parser: structured_xml_parser
+  cadence_capture_node_policy:
+    placed_component_node: PartInst
+    package_definition_node: Package
+    instance_property_node: PartInstUserProp
+    package_definition_usage: use_for_library_context_only_unless_referenced_by_partinst
+  component_property_priority:
+    manufacturer:
+      - Manufacturer
+      - MFR
+      - Vendor
+    manufacturer_part_number:
+      - Manufacturer Part Number
+      - MPN
+      - Part Number
+      - DEVICE
+      - Value
+    package:
+      - Package
+      - Footprint
+      - PCB Footprint
+  weak_identity_action: add_to_review_queue
+review_policy:
+  require_checksum_manifest: true
+  require_source_url_for_each_file: true
+  require_none_found_reason: true
+  circuit_design_ready_requires:
+    - approved_datasheet_or_owner_exception
+    - eval_material_or_none_found_recorded
+    - no_boundary_review_failures

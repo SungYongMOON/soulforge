@@ -1,0 +1,8 @@
+workflow_id: exp_xml_component_materials
+kind: party_compatibility
+status: active
+compatible_party_ids: []
+notes:
+  - No default party binding is assigned yet.
+  - Actual network tooling, XML parser implementation, browser/download method, and model profile resolve through project-local bindings.
+  - This workflow is safe for public canon because it stores only procedure and folder-shape rules, not downloaded vendor files or project EXP.xml content.
