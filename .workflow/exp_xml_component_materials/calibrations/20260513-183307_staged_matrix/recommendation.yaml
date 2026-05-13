@@ -1,0 +1,75 @@
+calibration_id: 20260513-183307_staged_matrix
+workflow_id: exp_xml_component_materials
+recommended_profile:
+  model: gpt-5.4-mini
+  reasoning_effort: low
+  species: orc
+  class: archivist
+  candidate_id: B_gpt_5_4_mini_low
+quality_gate:
+  final_quality: pass
+  quality_score: 100
+  golden_requirement_coverage: 1.0
+  task_success: 1.0
+  safety_boundary: pass
+measured_cli_proxy:
+  input_tokens: 16942
+  cached_input_tokens: 12672
+  output_tokens: 2322
+  reasoning_output_tokens: 40
+  wall_time_seconds: 17.44
+  events_file: cli_matrix/stage_b/events/B_gpt_5_4_mini_low.jsonl
+  output_file: cli_matrix/stage_b/outputs/B_gpt_5_4_mini_low.md
+selection_reason:
+  - Lowest output-token and wall-time profile among Stage B candidates that passed the frozen quality gate with quality_score 100.
+  - Repeated same profile shape in Stage A (`A_orc_archivist`) also passed, giving basic stability evidence without another expensive rerun.
+  - Higher-capability shadows passed but did not improve measured quality enough to justify extra latency or token cost on this fixture.
+not_measured:
+  - Exact production subagent token usage.
+  - Real project EXP.xml behavior.
+  - Real vendor download throughput or account-gated download handling.
+boundary_assumptions:
+  - Calibration fixture is synthetic and public-safe.
+  - Candidate outputs use mocked official-source records only.
+  - No downloaded PDFs, ZIPs, PCB files, credentials, cookies, `_workspaces`, `_workmeta`, or private-state content are stored in this archive.
+shadow_profiles:
+  - rank: 2
+    candidate_id: B_gpt_5_5_xhigh
+    model: gpt-5.5
+    reasoning_effort: xhigh
+    species: orc
+    class: archivist
+    quality_score: 100
+    output_tokens: 2633
+    reasoning_output_tokens: 516
+    wall_time_seconds: 56.029
+  - rank: 3
+    candidate_id: B_gpt_5_5_high
+    model: gpt-5.5
+    reasoning_effort: high
+    species: orc
+    class: archivist
+    quality_score: 100
+    output_tokens: 2668
+    reasoning_output_tokens: 516
+    wall_time_seconds: 55.913
+  - rank: 4
+    candidate_id: B_gpt_5_5_medium
+    model: gpt-5.5
+    reasoning_effort: medium
+    species: orc
+    class: archivist
+    quality_score: 97
+    output_tokens: 2485
+    reasoning_output_tokens: 26
+    wall_time_seconds: 48.877
+  - rank: 5
+    candidate_id: B_gpt_5_4_mini_medium
+    model: gpt-5.4-mini
+    reasoning_effort: medium
+    species: orc
+    class: archivist
+    quality_score: 97
+    output_tokens: 4522
+    reasoning_output_tokens: 2070
+    wall_time_seconds: 35.565

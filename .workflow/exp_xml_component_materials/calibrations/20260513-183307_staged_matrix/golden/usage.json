@@ -1,0 +1,10 @@
+{
+  "source": "subagent_golden_baseline",
+  "model": "gpt-5.5",
+  "reasoning_effort": "xhigh",
+  "exact_usage_available": false,
+  "notes": [
+    "Subagent final output did not expose exact token usage.",
+    "Golden output is evaluator-only and is not included in candidate prompts."
+  ]
+}

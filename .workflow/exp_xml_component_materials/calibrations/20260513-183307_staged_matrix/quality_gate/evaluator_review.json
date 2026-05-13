@@ -1,0 +1,24 @@
+{
+  "sufficient": true,
+  "missing_critical_conditions": [],
+  "overfit_risks": [
+    "Explicit profile requirement may overfit to golden formatting if profile is not a true workflow artifact.",
+    "Exact five-component inventory is fixture-specific; acceptable here, but should stay calibration-local rather than reusable workflow policy."
+  ],
+  "unsafe_assumptions": [
+    "Criteria could let candidates describe mocked records as ready files unless it explicitly requires no real writes/downloads occurred.",
+    "Profile reporting assumes the candidate can truthfully know model, reasoning_effort, species, and class."
+  ],
+  "recommended_revisions": [
+    "Clarify whether profile is required artifact content or calibration metadata only.",
+    "Require manifest paths to preserve the contracted materials_root/parts/DATA Sheet/EVAL shape.",
+    "Add an explicit check that mocked files are evidence records, not claims of created local files.",
+    "Keep the Package-vs-PartInst hard fail and U1 fallback recovery as written; they cover the main edge cases."
+  ],
+  "applied_revisions": [
+    "Profile requirement clarified as calibration metadata.",
+    "Path-shape preservation added as a must-have requirement.",
+    "Mocked source records must not be described as actually created local files."
+  ],
+  "verdict": "pass"
+}

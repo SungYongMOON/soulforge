@@ -1,4 +1,4 @@
-# CHANGELOG
+﻿# CHANGELOG
 
 ## 2026-05-13
 
@@ -7,6 +7,13 @@
 - Clarified that a full `workflow_optimizer` run request covers the skill's default isolated quality matrix and CLI telemetry probes without requiring separate user wording for subagents or CLI.
 - Preserved the guard that CLI-only full-matrix calibration is an explicit fallback and must not be mislabeled as `subagent_quality_first`.
 - Kept the default candidate set excluding the `gpt-5.3-*` family unless the user explicitly asks for 5.3 comparison.
+
+### Revision `working` - exp XML materials profile calibration
+
+- Calibrated `.workflow/exp_xml_component_materials/` with a public-safe synthetic EXP.xml fixture and mocked official-source/download evidence.
+- Set the workflow primary profile to `gpt-5.4-mini | low | orc | archivist`, with `gpt-5.5` and `gpt-5.4-mini|medium` profiles preserved as shadows.
+- Archived CLI JSONL telemetry, candidate outputs, quality-gate criteria, final ranking, and recommendation under `.workflow/exp_xml_component_materials/calibrations/20260513-183307_staged_matrix/`.
+- Kept real EXP.xml contents, downloaded vendor binaries, credentials, cookies, `_workspaces`, `_workmeta`, and private-state material out of the public workflow archive.
 
 ### Revision `working` - workflow_optimizer Codex bridge refactor
 
