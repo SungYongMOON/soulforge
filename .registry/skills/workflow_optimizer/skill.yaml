@@ -43,3 +43,4 @@ execution_requirements:
 notes:
   - "`workflow_optimizer` is the canonical Soulforge skill package for workflow profile calibration."
   - "The Codex bridge is tracked under `codex/` and syncs to a local installed mirror through `npm run skills:sync -- workflow_optimizer`."
+  - "The Codex bridge keeps detailed matrix, telemetry, archive, and policy guidance in `codex/references/` for progressive disclosure."
