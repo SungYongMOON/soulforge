@@ -2,7 +2,7 @@
 
 Default mode is `subagent_quality_first`: use a full isolated quality matrix for the first calibration of a workflow unless the user explicitly asks for a cheaper smoke.
 
-Follow the execution mode rule in `SKILL.md`: isolated subagents first only when tools and policy/user authorization permit them, then CLI telemetry only for quality-passing candidates. If subagents are unavailable or not authorized, stop before candidate execution and ask whether the user wants an explicitly labeled CLI-only fallback.
+Follow the execution mode rule in `SKILL.md`: an actual full optimizer run request covers the default isolated quality matrix and CLI telemetry probes. Do not require a second user approval just because the user did not separately say "subagent" or "CLI". If the runtime lacks the required isolated subagent/candidate-runner surface, stop before candidate execution, report `blocked_runtime_subagent_unavailable`, and ask whether the user wants an explicitly labeled CLI-only fallback.
 
 ## Default Full Matrix
 

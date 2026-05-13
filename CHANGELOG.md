@@ -2,6 +2,12 @@
 
 ## 2026-05-13
 
+### Revision `working` - workflow_optimizer default execution gate clarified
+
+- Clarified that a full `workflow_optimizer` run request covers the skill's default isolated quality matrix and CLI telemetry probes without requiring separate user wording for subagents or CLI.
+- Preserved the guard that CLI-only full-matrix calibration is an explicit fallback and must not be mislabeled as `subagent_quality_first`.
+- Kept the default candidate set excluding the `gpt-5.3-*` family unless the user explicitly asks for 5.3 comparison.
+
 ### Revision `working` - workflow_optimizer Codex bridge refactor
 
 - Refactored `.registry/skills/workflow_optimizer/codex/SKILL.md` into a lean operating router and moved detailed run flow, candidate matrix, telemetry/evaluation, and archive/policy contracts into `codex/references/`.

@@ -37,7 +37,8 @@ execution_requirements:
     - rg
   notes:
     - "Default calibration excludes the `gpt-5.3-*` family unless the user explicitly asks for historical or latency-specific 5.3 comparison."
-    - "Initial full quality matrix uses isolated subagents; CLI is only for quality-passing candidate telemetry unless the user explicitly requests CLI-only calibration."
+    - "Initial full quality matrix uses isolated subagents/candidate runners by default; CLI telemetry probes are also default for quality-passing candidates."
+    - "Only CLI-only full matrix fallback requires an explicit user request; do not stop solely because the user did not separately mention subagents or CLI."
     - "Golden output and evaluator criteria stay evaluator-only and must not be included in candidate prompts."
     - "Actual local install path, model availability, subagent limits, and raw run truth remain runtime concerns."
 notes:

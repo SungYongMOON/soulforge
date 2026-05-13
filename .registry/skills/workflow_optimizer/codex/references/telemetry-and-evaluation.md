@@ -31,14 +31,14 @@ If CLI telemetry is unavailable, say exact candidate token comparison is unavail
 
 Report quality and telemetry as separate sources:
 
-- `quality_source: subagent_full_matrix` when isolated subagents were authorized and used
+- `quality_source: subagent_full_matrix` when isolated subagents/candidate runners were used
 - `quality_source: cli_only_calibration` when the user explicitly approved a CLI-only fallback
 - `telemetry_source: cli_passed_candidates_only`
 - `subagent_token_usage_available: false`, unless the actual runner returns usage
 - `telemetry_exact_for_subagent: false`
 - `cost_confidence: relative_not_exact`
 
-Use CLI telemetry to compare passed candidates, not to claim exact subagent cost and not to score rejected candidates. Treat CLI cost differences under 5% as noise; differences over 20% are usually meaningful.
+Use CLI telemetry by default to compare passed candidates, not to claim exact subagent cost and not to score rejected candidates. Treat CLI cost differences under 5% as noise; differences over 20% are usually meaningful.
 
 ## Quality Hard Gates
 

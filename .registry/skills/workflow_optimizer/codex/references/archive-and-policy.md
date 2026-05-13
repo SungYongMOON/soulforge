@@ -56,7 +56,7 @@ Also add a public-safe summary under `.workflow/<workflow_id>/history/` when the
 
 If `profile_policy.yaml` is still the creator draft, replace `primary_profile: null`, `shadow_top_k: []`, and `calibration_archive_ref: null` with measured calibration values and set `status: active`.
 
-Quality ranking comes from isolated candidate outputs or the explicitly approved CLI-only fallback. Cost, token, reasoning-token, and wall-time values come from CLI probes unless the operational runner exposes usage. Label CLI-derived values as CLI proxy telemetry in the policy.
+Quality ranking comes from isolated candidate outputs or the explicitly approved CLI-only full-matrix fallback. Cost, token, reasoning-token, and wall-time values come from CLI probes unless the operational runner exposes usage. Label CLI-derived values as CLI proxy telemetry in the policy.
 
 ## Recommendation Rule
 

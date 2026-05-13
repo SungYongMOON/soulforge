@@ -30,11 +30,11 @@ Do not create a goal for skill design discussion, explanation, or planning-only 
 
 Default full calibration mode is `subagent_quality_first`:
 
-1. Run the full candidate quality matrix with isolated subagents only when subagent tools are available and user/developer policy permits that delegation.
+1. Treat an actual full optimizer run request as approval to use this skill's default execution surfaces: isolated subagent/candidate runners for quality and CLI telemetry probes for quality-passing candidates.
 2. Evaluate those isolated outputs and keep only candidates that pass the frozen quality gate.
-3. Run CLI telemetry only for quality-passing candidates.
+3. Run CLI telemetry by default for quality-passing candidates.
 
-If subagents are unavailable or not authorized, stop before candidate execution and ask whether the user wants an explicitly labeled `cli_only_calibration` fallback. Do not silently replace the quality matrix with CLI runs.
+Do not stop merely because the user did not separately mention subagents or CLI. Stop only when the runtime lacks the required subagent/candidate-runner surface or a higher-priority instruction explicitly blocks it. In that case, report `blocked_runtime_subagent_unavailable` and ask whether the user wants an explicitly labeled `cli_only_calibration` fallback. Do not silently replace the quality matrix with CLI runs.
 
 ## Workflow Handoff
 
@@ -58,7 +58,7 @@ Short form:
 2. Resolve workflow and handoff files.
 3. Freeze public-safe candidate input without golden output.
 4. Build an evaluator-only quality baseline and frozen quality gate.
-5. Run the authorized candidate quality matrix.
+5. Run the default candidate quality matrix.
 6. Evaluate quality first.
 7. Probe CLI telemetry only for quality-passing candidates.
 8. Archive public-safe evidence under the target workflow.

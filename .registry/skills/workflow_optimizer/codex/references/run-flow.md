@@ -42,7 +42,7 @@ Do not treat the golden output as literal truth. Treat it as a source for requir
 2. Resolve the target workflow and confirm creator handoff files.
 3. Freeze the candidate input fixture without golden output.
 4. Run Quality Baseline Stage.
-5. Run the authorized quality matrix. Use isolated subagents only when tools and policy/user authorization permit them.
+5. Run the default quality matrix with isolated subagent/candidate runners. The optimizer run request covers this default surface unless a higher-priority instruction or missing runtime tool blocks it.
 6. Evaluate candidate quality against frozen criteria.
 7. Run CLI telemetry probes only for quality-passing candidates.
 8. Archive the public-safe matrix and telemetry probe under the target workflow.
