@@ -14,12 +14,12 @@ primary_profile:
   species: null
   class: null
   candidate_id: null
-  quality_gate: pending_pilot_and_calibration
+  quality_gate: pending_profile_calibration
 shadow_top_k: []
 rerun_triggers:
   - decision_scope_schema_changes
   - downstream_effect_mapping_rule_changes
-  - first_controlled_owner_decision_packet_pilot_creates_evidence
+  - first_profile_calibration_run
 notes:
-  - This first package intentionally has no calibrated execution profile.
+  - The package now has a controlled private representative owner-decision pilot, but it still has no calibrated execution profile.
   - Bind model, reasoning, party, and decision-boundary handling per project until public-safe calibration evidence exists.

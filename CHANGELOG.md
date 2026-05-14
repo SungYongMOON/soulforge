@@ -95,6 +95,14 @@
 - Executed a first controlled private representative sufficiency-review pilot that classified LT8624S power evidence, EXT_IO boundary evidence, page_02 rail semantics, and page_02 simulation evidence into source-supported, review-required, or blocked claim ceilings.
 - Updated the package maturity from `draft_contract_only` to `pilot_executed_private_fixture`.
 
+### Revision `working` - Owner decision packet workflow added
+
+- Added `.workflow/owner_decision_packet_v0/` as a public-safe workflow for recording scoped owner decisions and their downstream effect.
+- Registered the workflow in `.workflow/index.yaml` and listed it in `.workflow/README.md` after `accepted_verification_result_packet_v0`.
+- Defined explicit outputs for `owner_decision_packet`, `decision_effect_register`, `downstream_effect_map`, and `boundary_review_note`.
+- Executed a first controlled private representative pilot that recorded architecture-policy owner decisions for immutable source XML, sidecar-first module contracts, and harness-as-derived-layer boundaries.
+- Updated the package maturity from `draft_contract_only` to `pilot_executed_private_fixture`.
+
 ### Revision `working` - Technical risk open question burndown workflow added
 
 - Added `.workflow/technical_risk_open_question_burndown_v0/` as a public-safe governance workflow for packaging current technical risks and open questions into a bounded burndown register.

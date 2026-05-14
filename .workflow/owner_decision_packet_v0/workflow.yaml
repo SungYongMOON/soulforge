@@ -26,7 +26,7 @@ outputs:
   - decision_effect_register
   - downstream_effect_map
   - boundary_review_note
-validation_level: draft_contract_only
+validation_level: pilot_executed_private_fixture
 registration_policy: owner_requested_registration
 notes:
   - This workflow defines a reusable owner-decision packet shape for later workflows that already accept `owner_decision_refs`.
