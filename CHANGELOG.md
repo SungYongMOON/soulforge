@@ -68,7 +68,8 @@
 - Defined explicit outputs for `source_gap_followup_packet`, `gap_dedup_index`, `owner_action_queue`, `owner_source_batch_manifest.template`, `download_or_reuse_batch_manifest`, `retry_trigger_register`, and `downstream_unblock_map`.
 - Required owner-provided files and manual downloads to be re-indexed by the narrowest owning source/evidence workflow before any source-supported, quantitative, layout, material, or harness claim can change.
 - Kept raw project payloads, source files, vendor text, runtime absolute paths, credentials, cookies, sessions, `_workspaces` outputs, and private run truth out of public workflow canon.
-- Marked the package `pilot_ready_contract_only`; a controlled mixed-gap project-local pilot is still required before claiming pilot-executed or usable behavior.
+- Executed a first controlled private mixed-gap pilot that aggregated 19 upstream gap refs into 14 stable aggregate gaps, deduplicated repeated Analog public-source failures, wrote concrete owner-action batches, and produced narrow retry triggers without changing source authority.
+- Updated the package maturity from `pilot_ready_contract_only` to `pilot_executed_private_fixture`.
 
 ### Revision `working` - Official source packet collection workflow added
 

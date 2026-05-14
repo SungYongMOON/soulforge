@@ -14,7 +14,7 @@ primary_profile:
   species: null
   class: null
   candidate_id: null
-  quality_gate: pending_pilot_and_calibration
+  quality_gate: pending_profile_calibration
 shadow_top_k: []
 rerun_triggers:
   - upstream_gap_packet_shape_changes
@@ -23,8 +23,8 @@ rerun_triggers:
   - owner_source_batch_manifest_template_changes
   - retry_trigger_register_template_changes
   - downstream_unblock_map_template_changes
-  - first_controlled_mixed_gap_pilot_creates_evidence
+  - first_profile_calibration_run
 notes:
-  - This first package intentionally has no calibrated execution profile.
+  - The package has a controlled private mixed-gap pilot, but it still has no calibrated execution profile.
   - Bind model, reasoning, party, and owner-intake handling per project until public-safe calibration evidence exists.
-  - Do not call this production-ready until a controlled mixed-gap pilot and independent boundary review pass.
+  - Do not call this usable or production-ready until profile calibration and independent boundary review pass.

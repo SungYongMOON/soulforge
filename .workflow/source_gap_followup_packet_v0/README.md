@@ -42,8 +42,8 @@ It does not collect sources, extract vendor content, fill quantitative values, o
 
 ## Current Maturity
 
-`validation_level: pilot_ready_contract_only`
+`validation_level: pilot_executed_private_fixture`
 
-The package is registered as a first public-safe contract. A controlled project-local pilot is still required before claiming pilot-executed, usable, or production-ready behavior.
+The package has completed a controlled private pilot over mixed upstream gap sources. The first pilot deduplicated repeated source/material/layout/quantitative/harness gaps into stable aggregate gap ids, wrote bounded owner actions, and produced narrow retry triggers without taking over source authority.
 
-Best first pilot: a small mixed-source page set with one component identity/material gap, one degraded layout source-gap packet, one quantitative evidence gap that blocks harness readiness, and one harness blocked or review-required connection caused by the same missing source or value family.
+The package is still conservative: broader fixture coverage and independent review are still required before claiming generally usable or production-ready behavior across more source families and owner-decision patterns.
