@@ -95,6 +95,14 @@
 - Executed a first controlled private representative sufficiency-review pilot that classified LT8624S power evidence, EXT_IO boundary evidence, page_02 rail semantics, and page_02 simulation evidence into source-supported, review-required, or blocked claim ceilings.
 - Updated the package maturity from `draft_contract_only` to `pilot_executed_private_fixture`.
 
+### Revision `working` - Technical risk open question burndown workflow added
+
+- Added `.workflow/technical_risk_open_question_burndown_v0/` as a public-safe governance workflow for packaging current technical risks and open questions into a bounded burndown register.
+- Registered the workflow in `.workflow/index.yaml` and listed it in `.workflow/README.md` after `physical_configuration_audit_asset_package_v0`.
+- Defined explicit outputs for `technical_risk_register`, `open_question_register`, `burndown_summary`, `closure_criteria_register`, `owner_followup_needed`, `rerun_routes`, and `boundary_review_note`.
+- Executed a first controlled private representative risk/open-question pilot that grouped source, interface, quantitative, and simulation uncertainty into one burndown packet with closure criteria and rerun routes.
+- Updated the package maturity from `draft_contract_only` to `pilot_executed_private_fixture`.
+
 ### Revision `working` - Functional configuration audit page library workflow added
 
 - Added `.workflow/functional_configuration_audit_page_library_v0/` as a public-safe governance consumer for later FCA/SVR-style functional claim auditing.

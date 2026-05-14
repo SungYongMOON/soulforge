@@ -14,13 +14,13 @@ primary_profile:
   species: null
   class: null
   candidate_id: null
-  quality_gate: pending_pilot_and_calibration
+  quality_gate: pending_profile_calibration
 shadow_top_k: []
 rerun_triggers:
   - risk_row_schema_changes
   - closure_criteria_rule_changes
-  - first_controlled_risk_burndown_pilot_creates_evidence
+  - first_profile_calibration_run
 notes:
-  - This first package intentionally has no calibrated execution profile.
+  - The package now has a controlled private representative risk/open-question pilot, but it still has no calibrated execution profile.
   - Bind model, reasoning, party, and boundary handling per project until public-safe calibration evidence exists.
-  - Do not call this pilot-executed, usable, or production-ready until a controlled risk-burndown pilot and independent boundary review pass.
+  - Do not call this usable or production-ready until profile calibration and independent boundary review pass.

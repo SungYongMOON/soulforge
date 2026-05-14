@@ -21,6 +21,8 @@ It does not close risks, approve acceptance, or mutate upstream packets.
 
 ## Current Maturity
 
-`validation_level: draft_contract_only`
+`validation_level: pilot_executed_private_fixture`
 
-This package is registered as a first public-safe contract skeleton. A controlled project-local pilot is still required before claiming pilot-executed, usable, or production-ready behavior.
+This package has completed a controlled private representative risk/open-question pilot. The first pilot grouped source, interface, quantitative, and simulation uncertainty into one burndown register with closure criteria and rerun routes.
+
+The package is still conservative: it does not yet have a calibrated execution profile or a richer closure-evidence history.
