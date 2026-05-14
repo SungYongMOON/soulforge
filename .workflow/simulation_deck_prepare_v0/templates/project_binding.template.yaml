@@ -1,0 +1,28 @@
+workflow_id: simulation_deck_prepare_v0
+kind: project_binding_template
+status: template
+project_code: "<project_code>"
+simulation_deck_prepare_run_id: "<run_id>"
+inputs:
+  simulation_source_packet_refs:
+    - packet_repo_path: "_workmeta/<project_code>/runs/<source_run_id>/simulation_sources/simulation_source_collect_v0/simulation_source_packet.yaml"
+      read_only: true
+  simulator_policy_refs:
+    - packet_repo_path: "_workmeta/<project_code>/bindings/<simulator_policy_packet>"
+      read_only: true
+  stimuli_or_operating_condition_refs:
+    - packet_repo_path: "_workmeta/<project_code>/bindings/<stimuli_or_operating_conditions_packet>"
+      read_only: true
+  measurement_definition_refs:
+    - packet_repo_path: "_workmeta/<project_code>/bindings/<measurement_definition_packet>"
+      read_only: true
+approved_deck_prepare_policy:
+  upstream_packets_are_read_only: true
+  missing_models_block_prepare: true
+  deck_prepare_is_not_execution: true
+outputs:
+  deck_prepare_output_root_repo_path: "_workmeta/<project_code>/runs/<run_id>/simulation_deck/simulation_deck_prepare_v0"
+public_boundary:
+  commit_project_outputs_to_public_repo: false
+  include_raw_model_or_deck_payloads_in_workflow_package: false
+  use_runtime_absolute_paths_in_workflow_package: false

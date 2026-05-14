@@ -1,0 +1,28 @@
+workflow_id: simulation_deck_prepare_v0
+kind: step_graph
+status: active
+steps:
+  - step_id: prepare_deck_binding
+    title: Prepare Deck Binding
+    actor_slot: workflow_runner
+    action:
+      kind: project_local_deck_prepare_binding_setup
+    summary: Resolve bounded output root and confirm the workflow is pre-run only.
+  - step_id: curate_deck_inputs
+    title: Curate Deck Inputs
+    actor_slot: deck_input_curator
+    action:
+      kind: approved_model_and_policy_inventory
+    summary: Inventory approved model refs, demo circuits, simulator policies, stimuli, and measurement definitions without mutating upstream packets.
+  - step_id: map_blockers_and_packet
+    title: Map Blockers And Packet
+    actor_slot: blocker_mapper
+    action:
+      kind: prepared_vs_unresolved_input_split
+    summary: Split prepared deck inputs from unresolved or blocked requirements and write downstream handoff.
+  - step_id: write_bundle_and_boundary_review
+    title: Write Bundle And Boundary Review
+    actor_slot: boundary_reviewer
+    action:
+      kind: deck_prepare_bundle_write_and_boundary_review
+    summary: Write the deck-prepare packet bundle and confirm no execution/result claims were made.

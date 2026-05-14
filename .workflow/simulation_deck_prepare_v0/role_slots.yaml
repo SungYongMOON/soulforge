@@ -1,0 +1,12 @@
+workflow_id: simulation_deck_prepare_v0
+kind: role_slots
+status: active
+slots:
+  - slot_id: workflow_runner
+    summary: owns binding resolution and output-root setup
+  - slot_id: deck_input_curator
+    summary: curates approved model, demo-circuit, and optional policy inputs into a bounded deck-input set
+  - slot_id: blocker_mapper
+    summary: classifies unresolved deck inputs and owner follow-up needs
+  - slot_id: boundary_reviewer
+    summary: checks pre-run boundaries and confirms no execution/result overclaim

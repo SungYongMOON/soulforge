@@ -1,0 +1,16 @@
+workflow_id: simulation_deck_prepare_v0
+kind: monster_rules
+status: active
+rules:
+  - monster_id: model_invented_to_unblock_deck
+    response: keep_blocked_and_request_source_refresh
+    summary: Missing models must remain blockers; the workflow may not invent substitutes.
+  - monster_id: compatible_by_extension_only
+    response: downgrade_to_review_only_or_blocked
+    summary: File extension or part name alone cannot prove runnable deck compatibility.
+  - monster_id: prepared_deck_treated_as_run_result
+    response: relabel_as_prepared_input_only
+    summary: Prepared deck inputs are not execution evidence or waveform results.
+  - monster_id: upstream_packet_mutated
+    response: stop_and_emit_boundary_review_note
+    summary: The workflow must not patch source, quantitative, or model packets.

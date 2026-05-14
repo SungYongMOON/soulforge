@@ -1,0 +1,16 @@
+workflow_id: simulation_deck_prepare_v0
+kind: handoff_rules
+status: active
+rules:
+  - from: workflow_runner
+    to: deck_input_curator
+    condition: deck_prepare_binding_ready
+    summary: Curator receives only approved model and policy refs, not raw payload dumps, secrets, or runtime account state.
+  - from: deck_input_curator
+    to: blocker_mapper
+    condition: deck_input_inventory_written
+    summary: Blocker mapper receives prepared vs unresolved deck inputs so missing dependencies stay explicit.
+  - from: blocker_mapper
+    to: boundary_reviewer
+    condition: deck_prepare_packet_written
+    summary: Boundary review receives the full packet and verifies pre-run non-claims before publication.

@@ -1,0 +1,106 @@
+workflow_id: simulation_deck_prepare_v0
+kind: workflow
+status: active
+title: Simulation Deck Prepare v0
+summary: Prepare or stage bounded simulation deck inputs from approved model packets, demo circuits, operating conditions, and simulator policy before any simulation execution or result verification workflow runs.
+entrypoint: run
+execution_mode: local_tool_sequence
+role_slots: role_slots.yaml
+step_graph: step_graph.yaml
+handoff_rules: handoff_rules.yaml
+monster_rules: monster_rules.yaml
+party_compatibility: party_compatibility.yaml
+profile_policy: profile_policy.yaml
+inputs:
+  - simulation_deck_prepare_binding
+  - simulation_source_packet_refs
+  - approved_deck_prepare_policy
+optional_inputs:
+  - model_inventory_refs
+  - model_file_manifest_refs
+  - demo_circuit_manifest_refs
+  - simulator_compatibility_matrix_refs
+  - page_module_spec_refs
+  - quantitative_enrichment_packet_refs
+  - interface_control_packet_refs
+  - harness_priority_packet_refs
+  - owner_decision_refs
+  - stimuli_or_operating_condition_refs
+  - measurement_definition_refs
+  - simulator_policy_refs
+outputs:
+  - simulation_deck_packet
+  - deck_input_manifest
+  - model_dependency_map
+  - unresolved_deck_inputs
+  - deck_prepare_blockers
+  - owner_followup_needed
+  - downstream_handoff
+  - boundary_review_note
+validation_level: draft_contract_only
+registration_policy: owner_requested_registration
+workflow_modes:
+  - scaffold_only
+  - bounded_prepare
+  - rerun_update
+upstream_workflows:
+  - workflow_id: simulation_source_collect_v0
+    expected_outputs:
+      - simulation_source_packet
+      - model_inventory
+      - model_file_manifest
+      - demo_circuit_manifest
+      - simulator_compatibility_matrix
+      - missing_models
+      - access_blockers
+      - owner_followup_needed
+      - downstream_handoff
+  - workflow_id: page_quantitative_enrichment_v0
+    expected_outputs:
+      - quantitative_claims
+      - source_gap_report
+      - owner_followup_needed
+    status: optional_operating_condition_input
+  - workflow_id: interface_control_and_harness_readiness_v0
+    expected_outputs:
+      - interface_control_ledger
+      - compatibility_gap_report
+    status: optional_interface_scope_input
+downstream_workflows:
+  - workflow_id: simulation_run_verify_v0
+    expected_input: prepared_deck_packet_and_run_blockers
+    status: planned
+  - workflow_id: verification_plan_from_page_contracts_v0
+    expected_input: deck_prepare_readiness_or_blocker_refresh
+    status: rerun_trigger_only
+  - workflow_id: source_gap_followup_packet_v0
+    expected_input: unresolved_deck_inputs_and_owner_followup_needed
+    status: rerun_trigger_only
+deck_prepare_contract:
+  owns:
+    - bounded_deck_prepare_identity
+    - input_manifest_and_dependency_map
+    - prepared_vs_unresolved_input_split
+    - deck_prepare_blockers
+    - owner_followup_for_missing_policy_or_inputs
+    - downstream_handoff_for_run_verify
+  does_not_own:
+    - model_invention
+    - simulator_execution
+    - waveform_or_metric_verification
+    - result_acceptance
+    - source_authority_replacement
+    - harness_connection_promotion
+  authority_boundary:
+    deck_prepare_is_not_simulation_execution: true
+    prepared_packet_is_not_result_evidence: true
+    upstream_packets_are_read_only: true
+    blocked_prepare_is_not_failed_simulation: true
+    compatibility_guessing_from_extension_or_name_forbidden: true
+  required_output_shapes:
+    project_binding: templates/project_binding.template.yaml
+notes:
+  - This workflow is pre-run and pre-verify only. It may prepare a bounded deck packet or explicitly block when required models, dependencies, stimuli, measurements, policies, or owner decisions are missing.
+  - The correct v0 result may be mostly unresolved inputs and blockers. That is successful when it prevents downstream workflows from pretending a runnable deck already exists.
+  - Public workflow canon stores only portable orchestration rules, state semantics, and sanitized templates.
+  - Public workflow files must not contain raw model payloads, generated deck payloads, simulation outputs, runtime absolute paths, `_workspaces` outputs, credentials, cookies, sessions, or private run truth.
