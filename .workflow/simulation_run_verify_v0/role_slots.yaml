@@ -1,0 +1,12 @@
+workflow_id: simulation_run_verify_v0
+kind: role_slots
+status: active
+slots:
+  - slot_id: workflow_runner
+    summary: owns binding resolution and bounded run setup
+  - slot_id: run_preflight_curator
+    summary: verifies prerequisites and decides whether execution may proceed
+  - slot_id: result_packet_writer
+    summary: writes run metadata, measurements, verdict rows, or blocker rows
+  - slot_id: boundary_reviewer
+    summary: checks result non-claims, owner-acceptance separation, and private/public boundaries

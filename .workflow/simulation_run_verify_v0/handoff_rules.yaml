@@ -1,0 +1,16 @@
+workflow_id: simulation_run_verify_v0
+kind: handoff_rules
+status: active
+rules:
+  - from: workflow_runner
+    to: run_preflight_curator
+    condition: run_binding_ready
+    summary: Preflight receives only approved deck, model, policy, and measurement refs, not raw hidden references or secrets.
+  - from: run_preflight_curator
+    to: result_packet_writer
+    condition: prerequisite_state_written
+    summary: Result writer receives either an executable preflight state or a bounded blocker state, not authority to invent missing inputs.
+  - from: result_packet_writer
+    to: boundary_reviewer
+    condition: result_or_blocker_packet_written
+    summary: Boundary review receives the full packet and confirms pass/fail is not owner acceptance and blocked runs are not failures.

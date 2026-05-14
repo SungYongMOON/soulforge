@@ -1,0 +1,28 @@
+workflow_id: simulation_run_verify_v0
+kind: step_graph
+status: active
+steps:
+  - step_id: prepare_run_binding
+    title: Prepare Run Binding
+    actor_slot: workflow_runner
+    action:
+      kind: project_local_simulation_run_binding_setup
+    summary: Resolve bounded output root and confirm execution policy before any simulation run attempt.
+  - step_id: verify_run_prerequisites
+    title: Verify Run Prerequisites
+    actor_slot: run_preflight_curator
+    action:
+      kind: deck_and_measurement_preflight
+    summary: Verify deck-preparation outputs, measurement definitions, simulator policy, and baseline refs before execution or blocker recording.
+  - step_id: write_result_or_blocker_packet
+    title: Write Result Or Blocker Packet
+    actor_slot: result_packet_writer
+    action:
+      kind: simulation_result_or_blocker_write
+    summary: Write execution metadata plus measurements and verdicts when run is allowed, or explicit blockers when not.
+  - step_id: write_bundle_and_boundary_review
+    title: Write Bundle And Boundary Review
+    actor_slot: boundary_reviewer
+    action:
+      kind: run_verify_bundle_write_and_boundary_review
+    summary: Confirm no overclaim of acceptance or mutated upstream artifacts, then publish the bounded packet.

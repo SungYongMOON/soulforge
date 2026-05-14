@@ -1,0 +1,27 @@
+workflow_id: simulation_run_verify_v0
+kind: workflow_profile_policy
+status: draft
+calibration_mode: uncalibrated_contract_package
+measurement_policy:
+  quality_source: not_yet_measured
+  telemetry_source: not_yet_measured
+  subagent_token_usage_available: false
+  telemetry_exact_for_subagent: false
+  cost_confidence: unknown
+primary_profile:
+  model: null
+  reasoning_effort: null
+  species: null
+  class: null
+  candidate_id: null
+  quality_gate: pending_pilot_and_calibration
+shadow_top_k: []
+rerun_triggers:
+  - result_verdict_schema_changes
+  - measurement_definition_contract_changes
+  - run_blocker_policy_changes
+  - first_controlled_run_verify_pilot_creates_evidence
+notes:
+  - This first package intentionally has no calibrated execution profile.
+  - Bind model, reasoning, party, simulator/tool runtime, and boundary handling per project until public-safe calibration evidence exists.
+  - Do not call this pilot-executed, usable, or production-ready until a controlled run/verify pilot and independent boundary review pass.

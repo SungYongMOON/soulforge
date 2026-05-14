@@ -1,0 +1,16 @@
+workflow_id: simulation_run_verify_v0
+kind: monster_rules
+status: active
+rules:
+  - monster_id: blocked_run_reported_as_failed_result
+    response: relabel_as_blocked_or_not_executed
+    summary: A blocked run does not create a fail verdict.
+  - monster_id: verdict_without_measurement_or_rule
+    response: downgrade_to_inconclusive_or_blocked
+    summary: Pass/fail requires named measurement outputs or explicit criteria rules.
+  - monster_id: owner_acceptance_inferred_from_pass
+    response: remove_acceptance_claim
+    summary: Simulation pass/fail is not owner acceptance.
+  - monster_id: upstream_packet_mutated
+    response: stop_and_emit_boundary_review_note
+    summary: The run/verify workflow must not patch source, model, or deck-preparation packets.
