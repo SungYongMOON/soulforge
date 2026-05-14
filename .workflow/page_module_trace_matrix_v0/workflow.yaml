@@ -22,6 +22,7 @@ optional_inputs:
   - component_materials_packet_refs
   - layout_guide_packet_refs
   - quantitative_enrichment_packet_refs
+  - interface_control_packet_refs
   - pspice_or_simulation_packet_refs
   - harness_composition_packet_refs
   - source_gap_followup_packet_refs
@@ -35,7 +36,7 @@ outputs:
   - review_gate_evidence_index
   - trace_provenance
   - boundary_review_note
-validation_level: pilot_ready_contract_only
+validation_level: pilot_executed_private_fixture
 registration_policy: owner_requested_registration
 upstream_workflows:
   - workflow_id: page_xml_normalize_spec_v0
@@ -79,6 +80,18 @@ upstream_workflows:
       - owner_followup_needed
       - harness_readiness_delta
       - enrichment_provenance
+  - workflow_id: interface_control_and_harness_readiness_v0
+    expected_outputs:
+      - interface_control_ledger
+      - harness_readiness_matrix
+      - blocked_interface_items
+      - review_required_interface_items
+      - candidate_safe_possible_items
+      - source_supported_possible_items
+      - owner_followup_needed
+      - compatibility_gap_report
+      - harness_input_delta
+      - boundary_review_note
   - workflow_id: xml_harness_composition_v0
     expected_outputs:
       - harness_identity
@@ -128,6 +141,7 @@ trace_matrix_contract:
     - interface_group
     - interface_item
     - quantitative_constraint
+    - interface_readiness_ceiling
     - source_packet_coverage
     - layout_readiness
     - pspice_readiness
@@ -168,7 +182,7 @@ trace_matrix_contract:
     review_gate_evidence_index: templates/review_gate_evidence_index.template.yaml
     trace_provenance: templates/trace_provenance.template.yaml
 notes:
-  - This workflow sits above the page/source/materials/layout/quantitative/harness lane as a traceability and governance layer.
+  - This workflow sits above the page/source/materials/layout/quantitative/interface-control/harness lane as a traceability and governance layer.
   - It reads approved packet refs and writes project-local trace outputs; it does not patch source XML, normalized sidecars, intake packets, source packets, materials outputs, layout guides, quantitative overlays, or harness contracts.
   - "`source_confirmed`, `derived`, `review_required`, and `missing` are row-level evidence authority states and must not be collapsed into harness claim status."
   - Harness consumers receive a claim-strength ceiling and explicit blockers, not an automatic source-supported connection verdict.

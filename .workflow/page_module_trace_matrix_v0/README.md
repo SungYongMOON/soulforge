@@ -14,6 +14,7 @@ It does not collect sources, mutate page assets, fill quantitative values, appro
 - `exp_xml_component_materials` component inventories, source packets, material manifests, and review queues.
 - `component_pcb_layout_guide_extraction` layout guide manifests, source maps, extraction manifests, and layout source-gap packets.
 - `page_quantitative_enrichment_v0` quantitative claims, source gaps, owner follow-up, harness-readiness deltas, and provenance.
+- `interface_control_and_harness_readiness_v0` interface-control ledgers, readiness matrices, blocked/review-required items, compatibility gaps, and harness input deltas.
 - `xml_harness_composition_v0` connection candidates, blocked/review-required/candidate-safe/source-supported connection groups, open questions, and readiness packets.
 
 ## Outputs
@@ -46,8 +47,8 @@ It does not collect sources, mutate page assets, fill quantitative values, appro
 
 ## Current Maturity
 
-`validation_level: pilot_ready_contract_only`
+`validation_level: pilot_executed_private_fixture`
 
-The package is registered as a first public-safe contract. A controlled project-local pilot is still required before claiming pilot-executed, usable, or production-ready behavior.
+The package has completed a controlled private representative-row pilot over the mixed page lane. The first pilot linked page identity, official source coverage, quantitative fills and gaps, interface readiness ceilings, blocked/review-required harness claims, open questions, and verification seeds into one small trace spine.
 
-Best first pilot: the representative mixed page lane already used across the page workflows: one power-oriented page with source/material/layout/quantitative evidence, one interface-oriented page with connector or owner-map gaps, one ambiguous or channelized page, and one harness packet containing blocked and review-required connections.
+The package is still conservative: it does not yet have a calibrated execution profile, and the current pilot is a representative-row slice rather than a broad full-matrix sweep across every page/interface/claim family.

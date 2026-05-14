@@ -60,7 +60,9 @@
 - Defined explicit outputs for `trace_matrix`, `evidence_authority_map`, `trace_gap_register`, `harness_trace_delta`, `verification_seed_matrix`, `review_gate_evidence_index`, `trace_provenance`, and `boundary_review_note`.
 - Required row-level `source_confirmed`, `derived`, `review_required`, and `missing` evidence states to remain distinct from harness claim status and review decisions.
 - Kept source XML, normalized sidecars, intake packets, source packets, materials outputs, layout guides, quantitative overlays, harness contracts, raw project payloads, vendor text, runtime absolute paths, credentials, cookies, sessions, `_workspaces` outputs, and private run truth out of public workflow canon.
-- Marked the package `pilot_ready_contract_only`; a controlled mixed page/source/harness project-local pilot is still required before claiming pilot-executed or usable behavior.
+- Extended the contract so trace runs may also consume `interface_control_and_harness_readiness_v0` packet refs and write `interface_readiness_ceiling` rows.
+- Executed a first controlled private representative-row pilot that linked page identity, source coverage, quantitative fills/gaps, interface readiness ceilings, blocked/review-required harness claims, open questions, and verification seeds into one trace spine.
+- Updated the package maturity from `pilot_ready_contract_only` to `pilot_executed_private_fixture`.
 
 ### Revision `working` - Source gap follow-up packet workflow added
 

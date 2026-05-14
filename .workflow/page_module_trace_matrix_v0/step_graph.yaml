@@ -39,6 +39,7 @@ steps:
         - component_materials_packet_refs
         - layout_guide_packet_refs
         - quantitative_enrichment_packet_refs
+        - interface_control_packet_refs
         - pspice_or_simulation_packet_refs
         - harness_composition_packet_refs
         - source_gap_followup_packet_refs
@@ -79,6 +80,7 @@ steps:
         - interface_group
         - interface_item
         - quantitative_constraint
+        - interface_readiness_ceiling
         - source_packet_coverage
         - layout_readiness
         - pspice_readiness
