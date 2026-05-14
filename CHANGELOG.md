@@ -2,6 +2,12 @@
 
 ## 2026-05-13
 
+### Revision `working` - always-on heartbeat pull preflight clarified
+
+- Clarified that the hourly Codex `Soulforge 운영 감시` heartbeat should fast-forward pull clean public `main` before health checks and activity sync.
+- Kept the 09:00/18:00 `always-on activity sync` automation as a dedicated fallback path for activity mirror sync.
+- Documented that GitHub/DNS/network failures should be reported as stale/blocker conditions without reading raw mail, attachments, mailbox payloads, or secrets.
+
 ### Revision `working` - workflow_optimizer default execution gate clarified
 
 - Clarified that a full `workflow_optimizer` run request covers the skill's default isolated quality matrix and CLI telemetry probes without requiring separate user wording for subagents or CLI.

@@ -15,13 +15,14 @@
 | `ai.soulforge.gateway.mail-fetch` | 5분 | no | `mail_fetch/cli.py --once` 로 메일 수집 |
 | `ai.soulforge.gateway.mail-healthcheck` | 5분 | no | mail fetch stale/fail/partial 상태 판정 |
 | `ai.soulforge.town-crier` | 1분 | no | `town_crier` queue 를 Telegram 으로 전송 |
-| Codex `Soulforge 운영 감시` heartbeat | 60분 | yes | 운영 상태를 Codex thread 에 짧게 보고 |
-| Codex `always-on activity sync` | 09:00, 18:00 | yes | local activity ledger 와 `private-state` mirror 동기화 |
+| Codex `Soulforge 운영 감시` heartbeat | 60분 | yes | clean `main` fast-forward pull, 운영 상태 확인, activity sync 결과를 Codex thread 에 짧게 보고 |
+| Codex `always-on activity sync` | 09:00, 18:00 | yes | dedicated fallback 으로 local activity ledger 와 `private-state` mirror 동기화 |
 
 운영 원칙:
 
 - mail fetch, mail healthcheck, town_crier 는 LLM 을 호출하지 않는다.
 - Codex heartbeat 는 비용이 있으므로 짧은 주기 감시에 쓰지 않는다.
+- Codex heartbeat 는 운영 점검 전에 public repo 가 clean `main` 이면 `git pull --ff-only origin main` 을 먼저 시도한다. GitHub/DNS/network 실패는 local-only 복구 대상이 아니므로 stale/blocker 로 보고하고, private/mail runtime 원문은 읽지 않는다.
 - 자주 도는 감시는 launchd + deterministic script 로 처리한다.
 - LLM 은 하루 1회 morning report, 장애 triage, owner 가 요청한 해석 작업에만 가깝게 둔다.
 
@@ -155,7 +156,7 @@ always-on node 에서 수행한다.
 
 - 다른 PC 로 넘기는 것은 메일 원문이 아니라 `mail_candidate` 의 body-safe activity summary 다.
 - `guild-hall:activity:sync` 는 sync 전에 pending candidate 를 `mail_candidate_summary` activity event 로 투영한다.
-- activity sync 가 1시간 주기로 운영되면 다른 PC 는 private-state pull 로 새 후보 존재를 알 수 있다.
+- 시간당 heartbeat 의 activity sync 또는 09:00/18:00 dedicated activity sync 가 성공하면 다른 PC 는 private-state pull 로 새 후보 존재를 알 수 있다.
 - 실제 메일 원문, HTML body, attachment, mailbox cursor 는 24시간 PC 의 local `guild_hall/state/gateway/**` 에 남긴다.
 - 후보를 실제 monster/intake request 로 승격하는 작업은 원문과 local runtime 을 가진 24시간 PC 에서 수행하는 것을 기본값으로 본다.
 
