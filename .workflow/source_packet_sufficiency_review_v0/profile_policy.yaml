@@ -14,13 +14,13 @@ primary_profile:
   species: null
   class: null
   candidate_id: null
-  quality_gate: pending_pilot_and_calibration
+  quality_gate: pending_profile_calibration
 shadow_top_k: []
 rerun_triggers:
   - sufficiency_ceiling_rule_changes
   - blocked_field_schema_changes
-  - first_controlled_sufficiency_pilot_creates_evidence
+  - first_profile_calibration_run
 notes:
-  - This first package intentionally has no calibrated execution profile.
+  - The package now has a controlled private representative sufficiency pilot, but it still has no calibrated execution profile.
   - Bind model, reasoning, party, and evidence-boundary handling per project until public-safe calibration evidence exists.
-  - Do not call this pilot-executed, usable, or production-ready until a controlled sufficiency pilot and independent boundary review pass.
+  - Do not call this usable or production-ready until profile calibration and independent boundary review pass.

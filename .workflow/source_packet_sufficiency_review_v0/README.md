@@ -21,6 +21,8 @@ It does not acquire missing sources, fill quantitative values, or promote harnes
 
 ## Current Maturity
 
-`validation_level: draft_contract_only`
+`validation_level: pilot_executed_private_fixture`
 
-This package is registered as a first public-safe contract skeleton. A controlled project-local pilot is still required before claiming pilot-executed, usable, or production-ready behavior.
+This package has completed a controlled private representative sufficiency-review pilot. The first pilot showed how current source/material/layout/simulation packets can be classified into source-supported, review-required, or blocked claim ceilings without acquiring or inventing new evidence.
+
+The package is still conservative: it does not yet have a calibrated execution profile or broader multi-family coverage beyond the representative lane.
