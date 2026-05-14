@@ -1,0 +1,34 @@
+binding_id: page_quantitative_enrichment_project_binding_v0
+workflow_id: page_quantitative_enrichment_v0
+schema_version: page_quantitative_enrichment_project_binding_v0
+project:
+  project_code: <project_code>
+  run_id: <run_id>
+  output_root_repo_path: _workmeta/<project_code>/runs/<run_id>/page_quantitative_enrichment/
+input_refs:
+  page_module_spec_sidecar_repo_path: _workmeta/<project_code>/runs/<upstream_run_id>/<page_asset_id>/page_module_spec_v0.yaml
+  module_spec_manifest_repo_path: _workmeta/<project_code>/runs/<upstream_run_id>/module_spec_manifest.yaml
+  provenance_update_repo_path: _workmeta/<project_code>/runs/<upstream_run_id>/provenance_update.yaml
+  downstream_handoff_repo_path: _workmeta/<project_code>/runs/<upstream_run_id>/downstream_handoff.yaml
+optional_input_refs:
+  capture_intake_packets_repo_paths: []
+  official_source_packet_manifest_repo_path: null
+  official_source_inventory_repo_path: null
+  component_materials_packets_repo_paths: []
+  layout_guide_packets_repo_paths: []
+  owner_recorded_constraints_repo_paths: []
+  previous_harness_blocker_packet_repo_path: null
+output_refs:
+  quantitative_claims_repo_path: _workmeta/<project_code>/runs/<run_id>/page_quantitative_enrichment/quantitative_claims.yaml
+  enriched_sidecar_overlay_repo_path: _workmeta/<project_code>/runs/<run_id>/page_quantitative_enrichment/enriched_sidecar_overlay.yaml
+  source_gap_report_repo_path: _workmeta/<project_code>/runs/<run_id>/page_quantitative_enrichment/source_gap_report.yaml
+  owner_followup_needed_repo_path: _workmeta/<project_code>/runs/<run_id>/page_quantitative_enrichment/owner_followup_needed.yaml
+  harness_readiness_delta_repo_path: _workmeta/<project_code>/runs/<run_id>/page_quantitative_enrichment/harness_readiness_delta.yaml
+  enrichment_provenance_repo_path: _workmeta/<project_code>/runs/<run_id>/page_quantitative_enrichment/enrichment_provenance.yaml
+boundary_policy:
+  output_root_must_be_project_local_or_private_workmeta: true
+  public_workflow_package_contains_no_payloads: true
+  overlay_may_not_replace_original_sidecar: true
+  source_xml_and_upstream_packets_are_read_only: true
+  runtime_absolute_paths_allowed_only_in_local_run_evidence: true
+  agent_must_not_read_secret_files: true

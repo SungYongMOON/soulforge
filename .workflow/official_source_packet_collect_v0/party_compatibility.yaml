@@ -1,0 +1,21 @@
+workflow_id: official_source_packet_collect_v0
+kind: party_compatibility
+status: active
+compatible_party_templates:
+  - workflow_research_build_verify
+  - sourcebound_extraction_review
+  - source_packet_bootstrap
+required_capabilities:
+  - project_local_binding_resolution
+  - official_source_research
+  - owner_approved_local_source_indexing
+  - provenance_and_checksum_manifesting
+  - source_gap_and_blocker_classification
+  - downstream_readiness_partitioning
+  - public_private_boundary_review
+notes:
+  - No default party binding is assigned yet.
+  - Runtime model, reasoning, party, source-search, download, and local-file policies resolve through project-local bindings.
+  - Fresh executor and separate verifier review are required before claiming pilot-executed, usable, or production-ready behavior.
+  - The workflow package is public-safe because it stores only orchestration rules, state semantics, and output-shape templates.
+

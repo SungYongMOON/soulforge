@@ -1,0 +1,31 @@
+page_quantitative_enrichment_packet:
+  schema_version: page_quantitative_enrichment_v0
+  target_page_asset:
+    page_asset_id: <page_asset_id>
+    source_page_ref: <source_page_ref>
+    normalized_sidecar_ref: <repo_path_to_page_module_spec_v0_yaml>
+    source_checksum: <source_checksum>
+  evidence_inputs:
+    - evidence_ref: <evidence_ref>
+      evidence_kind: page_module_spec | capture_intake | official_source_packet | component_materials | layout_guide | owner_recorded_constraint | harness_blocker_context
+      approval_state: source_confirmed_candidate | owner_approved_local_candidate | review_only_context | missing_or_blocked_source | conflict_or_identity_gap
+      use_for_value_claims: false
+  outputs:
+    quantitative_claims_ref: quantitative_claims.yaml
+    enriched_sidecar_overlay_ref: enriched_sidecar_overlay.yaml
+    source_gap_report_ref: source_gap_report.yaml
+    owner_followup_needed_ref: owner_followup_needed.yaml
+    harness_readiness_delta_ref: harness_readiness_delta.yaml
+    enrichment_provenance_ref: enrichment_provenance.yaml
+  status_summary:
+    source_confirmed_claim_count: 0
+    derived_claim_count: 0
+    review_required_claim_count: 0
+    missing_claim_count: 0
+    conflict_claim_count: 0
+    blocked_by: []
+    review_required: []
+  boundary_summary:
+    overlay_not_replacement: true
+    final_harness_approval_not_claimed: true
+    raw_payloads_absent_from_public_package: true

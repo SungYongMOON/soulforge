@@ -11,6 +11,23 @@
 
 ## 2026-05-15
 
+### Revision `working` - Official source packet collection workflow added
+
+- Added `.workflow/official_source_packet_collect_v0/` as a public-safe source-bootstrap workflow for official, owner-approved local, missing, blocked, and not-applicable source states.
+- Registered the workflow in `.workflow/index.yaml` and listed it in `.workflow/README.md` as an upstream/sidecar source packet lane for materials, layout, simulation, ECAD, and harness workflows.
+- Defined provenance-first outputs for `source_packet_manifest`, `source_inventory`, `source_gap_report`, `owner_followup_needed`, `download_or_reuse_manifest`, and `downstream_ready_refs`.
+- Kept raw project payloads, vendor document text, downloaded binaries, model payloads, runtime absolute paths, credentials, cookies, sessions, and private run truth out of public workflow canon.
+- Marked the package `pilot_ready_contract_only`; a controlled mixed-state project-local pilot is still required before claiming pilot-executed or usable behavior.
+
+### Revision `working` - Page quantitative enrichment workflow added
+
+- Added `.workflow/page_quantitative_enrichment_v0/` as a public-safe overlay workflow for source-backed quantitative enrichment of `page_module_spec_v0` sidecars.
+- Registered the workflow in `.workflow/index.yaml` and listed it in `.workflow/README.md` after optional source/material/layout evidence workflows and before harness composition.
+- Defined explicit outputs for `quantitative_claims`, `enriched_sidecar_overlay`, `source_gap_report`, `owner_followup_needed`, `harness_readiness_delta`, and enrichment provenance.
+- Required every quantitative value to be `source_confirmed`, transparently `derived`, `review_required`, or `missing`; forbidden label/default/memory/harness-pressure guessing.
+- Kept the original sidecar, source XML, intake packets, source packets, materials packets, layout guides, raw project payloads, vendor text, runtime absolute paths, credentials, cookies, sessions, and private run truth out of public workflow canon.
+- Marked the package `pilot_ready_contract_only`; a controlled power/interface/ambiguous-page pilot is still required before claiming pilot-executed or usable behavior.
+
 ### Revision `working` - SE foldertree pre-study basic variant added
 
 - Added a dry-runable `선행연구 / 공통 / 없음` bundled basic spec to `se_foldertree_generate`.

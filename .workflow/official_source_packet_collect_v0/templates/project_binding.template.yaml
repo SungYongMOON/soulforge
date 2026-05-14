@@ -1,0 +1,73 @@
+workflow_id: official_source_packet_collect_v0
+kind: project_binding_template
+status: template
+project_code: "<project_code>"
+source_packet_run_id: "<run_id>"
+inputs:
+  identifier_scope:
+    source_scope_kind: "page|component_set|module|design_fragment|owner_defined"
+    source_scope_ref: "<project_local_identifier_scope_manifest>"
+    read_only: true
+  optional_page_module_sidecars:
+    - page_asset_id: "<page_asset_id>"
+      sidecar_repo_path: "_workspaces/<project_code>/<path_to_page_module_spec_v0.yaml>"
+      read_only: true
+      authority: "context_or_identifier_basis"
+  optional_capture_intake_packets:
+    - asset_id: "<asset_id>"
+      intake_packet_repo_path: "_workspaces/<project_code>/<path_to_intake_packet.yaml>"
+      read_only: true
+      authority: "context_or_identifier_basis"
+  optional_component_inventory:
+    inventory_repo_path: "_workspaces/<project_code>/<path_to_component_inventory.yaml>"
+    read_only: true
+  existing_source_packets:
+    - packet_repo_path: "_workmeta/<project_code>/runs/<prior_run_id>/source_packets/<packet_id>/source_packet_manifest.yaml"
+      reuse_scope: "review_context|executor_allowed_if_oracle_free"
+      read_only: true
+  owner_approved_local_sources:
+    - local_source_id: "<local_source_id>"
+      source_kind: "datasheet|evaluation_board_or_reference_design|application_note_or_design_guide|simulation_model|ecad_model|layout_or_package_document|standard_or_tool_document|other"
+      source_repo_path: "_workmeta/<project_code>/source_library/<owner_approved_file_or_folder>"
+      approval_scope: "human_review_preparation|executor_use|verifier_only"
+      public_summary_allowed: false
+      read_only: true
+approved_source_policy:
+  official_sources_only_for_official_present: true
+  owner_approved_local_sources_allowed: true
+  random_mirrors_allowed_as_official: false
+  third_party_unapproved_allowed_for_executor: false
+  account_bound_downloads_require_owner_supplied_file: true
+  require_access_blocker_records: true
+  require_source_status_for_each_requested_source_kind: true
+  executor_approved_states:
+    - official_present
+    - owner_approved_local
+requested_source_kinds:
+  - datasheet
+  - evaluation_board_or_reference_design
+  - application_note_or_design_guide
+  - simulation_model
+  - ecad_model
+  - layout_or_package_document
+downstream_consumers:
+  - materials
+  - layout
+  - simulation
+  - ecad
+  - harness
+outputs:
+  source_packet_output_root_repo_path: "_workmeta/<project_code>/runs/<run_id>/source_packets/official_source_packet_collect_v0"
+  source_packet_manifest_file: "source_packet_manifest.yaml"
+  source_inventory_file: "source_inventory.yaml"
+  source_gap_report_file: "source_gap_report.yaml"
+  owner_followup_needed_file: "owner_followup_needed.yaml"
+  download_or_reuse_manifest_file: "download_or_reuse_manifest.yaml"
+  downstream_ready_refs_file: "downstream_ready_refs.yaml"
+public_boundary:
+  commit_project_outputs_to_public_repo: false
+  include_raw_project_payloads_in_workflow_package: false
+  include_vendor_text_or_model_payloads_in_workflow_package: false
+  use_runtime_absolute_paths_in_workflow_package: false
+  agent_may_read_secret_files: false
+

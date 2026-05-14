@@ -1,0 +1,29 @@
+schema_version: page_quantitative_claims_v0
+target_page_asset:
+  page_asset_id: <page_asset_id>
+  normalized_sidecar_ref: <repo_path_to_page_module_spec_v0_yaml>
+claims:
+  - claim_id: <claim_id>
+    target_slot: <page_module_spec_v0_slot_path>
+    quantity: <quantity_kind>
+    scope: module | interface | interface_group | layout_constraint
+    applies_to: <slot_or_interface_identity>
+    value: null
+    min: null
+    typical: null
+    max: null
+    unit: null
+    conditions: []
+    field_status: source_confirmed | derived | review_required | missing
+    claim_status: filled | strengthened | unchanged_missing | blocked_missing_source | review_required | conflict
+    evidence_refs: []
+    extraction_basis: <direct_source | derived_formula | review_context | missing_source | conflict>
+    formula: null
+    operand_refs: []
+    confidence_note: <why_this_status_is_safe>
+    owner_followup_needed: []
+rules:
+  source_confirmed_requires_evidence_ref: true
+  derived_requires_source_confirmed_operands: true
+  missing_values_keep_value_fields_empty: true
+  review_required_values_do_not_close_harness_blockers: true

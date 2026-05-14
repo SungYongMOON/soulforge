@@ -1,0 +1,41 @@
+workflow_id: official_source_packet_collect_v0
+kind: monster_rules
+status: active
+rules:
+  - monster_id: random_mirror_treated_as_official
+    response: classify_as_third_party_unapproved
+    summary: A mirror, forum upload, model aggregator, or search result cannot become `official_present` without authoritative publisher provenance or owner approval.
+  - monster_id: missing_source_silent_absence
+    response: write_missing_gap_record
+    summary: If a requested source is not found, record `missing` with searched locations, downstream impact, and required next action.
+  - monster_id: blocked_access_hidden_as_missing
+    response: write_blocked_record_with_owner_action
+    summary: Login, purchase, export-control, NDA, license, rate-limit, broken-link, or script-wall blockers must be `blocked`, not vague absence.
+  - monster_id: owner_local_file_without_approval_scope
+    response: request_owner_approval_before_executor_use
+    summary: Local files may be indexed as candidates, but they cannot be executor-approved until owner scope and allowed use are recorded.
+  - monster_id: not_applicable_without_reason
+    response: require_not_applicable_rationale
+    summary: A source kind may be `not_applicable` only when the identifier, source kind, and rationale are recorded.
+  - monster_id: conflicting_official_sources
+    response: preserve_conflicting_state_and_request_review
+    summary: Do not choose between conflicting official-looking sources without source-backed or owner-approved disambiguation.
+  - monster_id: downstream_readiness_overclaim
+    response: downgrade_to_review_only_or_blocked
+    summary: Missing or blocked datasheets, layout docs, simulation models, ECAD models, or quantitative evidence must not be hidden behind a ready state.
+  - monster_id: raw_payload_leak_to_public_package
+    response: remove_payload_and_keep_contract_shape_only
+    summary: Public workflow canon may describe packet shapes and gates, but not raw project XML, vendor document text, model payloads, binaries, private values, or downloaded collateral.
+  - monster_id: runtime_absolute_path_in_public_package
+    response: replace_with_repo_relative_placeholder_or_stable_id
+    summary: Public package files must use portable repo-relative paths, placeholders, or stable source ids instead of drive letters, home directories, or machine-local paths.
+  - monster_id: secret_or_session_required
+    response: stop_and_request_owner_supplied_file_or_path
+    summary: Agents must not read credentials, cookies, tokens, account sessions, or secret files; ask the owner to supply or approve the resulting file path instead.
+  - monster_id: oracle_or_verifier_material_used_as_source
+    response: stop_or_reclassify_as_forbidden_for_executor
+    summary: Hidden references, accepted outputs, verifier reports, repair packets, and oracle-derived mismatch details are not construction source packets.
+  - monster_id: checksum_or_terms_overclaim
+    response: record_unknown_or_owner_followup_needed
+    summary: Do not claim local-file integrity, license terms, or simulator/library compatibility when the checksum, terms, format, or compatibility evidence is absent.
+

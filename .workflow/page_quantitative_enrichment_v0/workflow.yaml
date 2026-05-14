@@ -1,0 +1,147 @@
+workflow_id: page_quantitative_enrichment_v0
+kind: workflow
+status: active
+title: Page Quantitative Enrichment v0
+summary: Add a source-backed quantitative enrichment overlay to normalized page module specs so later harness composition can see confirmed values, derived values, missing values, review gates, and readiness deltas without replacing upstream source authority.
+entrypoint: run
+execution_mode: local_tool_sequence
+role_slots: role_slots.yaml
+step_graph: step_graph.yaml
+handoff_rules: handoff_rules.yaml
+monster_rules: monster_rules.yaml
+party_compatibility: party_compatibility.yaml
+profile_policy: profile_policy.yaml
+inputs:
+  - quantitative_enrichment_binding
+  - page_module_spec_sidecar
+  - module_spec_manifest
+  - provenance_update
+  - downstream_handoff
+optional_inputs:
+  - capture_intake_packets
+  - official_source_packet_manifest
+  - official_source_inventory
+  - component_materials_packets
+  - layout_guide_packets
+  - owner_recorded_constraints
+  - previous_harness_blocker_packet
+outputs:
+  - quantitative_claims
+  - enriched_sidecar_overlay
+  - source_gap_report
+  - owner_followup_needed
+  - harness_readiness_delta
+  - enrichment_provenance
+  - quantitative_enrichment_summary
+validation_level: pilot_ready_contract_only
+registration_policy: owner_requested_registration
+upstream_workflows:
+  - workflow_id: page_xml_normalize_spec_v0
+    expected_output: page_module_spec_v0_sidecars
+  - workflow_id: capture_xml_intake_library_v0
+    expected_output: optional_page_level_intake_packets
+  - workflow_id: official_source_packet_collect_v0
+    expected_output: optional_official_or_owner_approved_source_packets
+  - workflow_id: exp_xml_component_materials
+    expected_output: optional_component_materials_packets
+  - workflow_id: component_pcb_layout_guide_extraction
+    expected_output: optional_layout_constraint_packets
+downstream_workflows:
+  - workflow_id: xml_harness_composition_v0
+    expected_input: quantitative_claims_source_gaps_and_harness_readiness_delta
+enrichment_contract:
+  overlay_not_replacement: true
+  target_schema_owner: page_xml_normalize_spec_v0
+  target_schema_version: page_module_spec_v0
+  source_authority_preserved:
+    - source_page_xml
+    - page_module_spec_sidecar
+    - capture_intake_packets
+    - official_source_packets
+    - component_materials_packets
+    - layout_guide_packets
+  allowed_target_slot_families:
+    - interfaces
+    - performance
+    - system_contract
+    - composition
+    - evidence_review
+  required_output_shapes:
+    quantitative_claims:
+      claim_status_values:
+        - filled
+        - strengthened
+        - unchanged_missing
+        - blocked_missing_source
+        - review_required
+        - conflict
+      field_status_values:
+        - source_confirmed
+        - derived
+        - review_required
+        - missing
+      missing_values_are_first_class: true
+    enriched_sidecar_overlay:
+      overlay_kind: patch_like_overlay_against_page_module_spec_v0
+      may_replace_original_sidecar: false
+      may_write_raw_source_payload: false
+    source_gap_report:
+      required_for_every_unfilled_required_quantity: true
+      gap_records_are_machine_readable: true
+    owner_followup_needed:
+      required_when_owner_or_source_action_can_unblock: true
+    harness_readiness_delta:
+      delta_only: true
+      final_harness_approval_owner: xml_harness_composition_v0
+source_support_policy:
+  source_confirmed_requires:
+    - approved_evidence_ref
+    - source_location_or_packet_ref
+    - target_slot
+    - unit_when_unit_bearing
+    - condition_or_scope_when_present
+  derived_requires:
+    - source_confirmed_operands
+    - formula
+    - operand_refs
+    - derived_field_status
+  review_required_when:
+    - evidence_is_plausible_but_not_sufficient
+    - source_identity_or_page_scope_is_ambiguous
+    - source_conflict_exists
+    - only_harness_pressure_or_label_hint_exists
+  missing_when:
+    - no_approved_evidence_supports_the_quantity
+    - source_packet_records_missing_or_blocked
+    - required_mating_context_is_absent
+anti_guessing_policy:
+  forbidden_bases:
+    - net_name_or_label_only
+    - component_family_reputation
+    - common_default_rail_or_signal_assumption
+    - downstream_harness_desire
+    - unapproved_web_snippet_or_memory
+    - copied_table_without_provenance
+    - package_type_without_thermal_source
+    - connector_label_similarity_only
+    - one_side_of_a_connection_only
+  required_response: leave_value_missing_or_review_required_and_write_gap
+harness_delta_policy:
+  may_close_blocker_only_when:
+    - relevant_quantity_has_source_confirmed_or_valid_derived_claim
+    - evidence_ref_is_present
+    - no_conflict_or_owner_followup_remains_for_that_target
+  may_mark_candidate_safe_possible_for: evidence_complete_and_non_conflicting_interface_scope
+  may_mark_source_supported_possible_for: cited_source_evidence_complete_for_values_and_interface_semantics
+  must_not_claim:
+    - final_harness_connection_validity
+    - final_circuit_synthesis
+    - automatic_source_supported_join_promotion
+    - global_page_readiness_from_partial_interface_evidence
+notes:
+  - This workflow sits after normalized page-module contract creation and optional source/material/layout evidence collection, then before harness composition promotion decisions.
+  - It writes a project-local enrichment packet and overlay; it does not mutate source XML, normalized sidecars, intake packets, source packets, materials packets, layout guides, vendor collateral, or owner-provided source material.
+  - Quantitative values are either `source_confirmed`, transparently `derived`, `review_required`, or `missing`; missing values and source gaps remain visible to downstream workflows.
+  - Previous harness blockers may identify which quantities matter, but they are not evidence for the values themselves.
+  - Public workflow canon stores only portable orchestration rules, claim-state semantics, and output-shape templates.
+  - Public workflow files must not contain raw XML bodies, private project payloads, vendor document text, runtime absolute paths, `_workspaces` outputs, credentials, cookies, sessions, or private run truth.

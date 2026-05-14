@@ -1,0 +1,36 @@
+workflow_id: page_quantitative_enrichment_v0
+kind: handoff_rules
+status: active
+rules:
+  - from: workflow_runner
+    to: contract_loader
+    condition: enrichment_binding_ready
+    summary: Loader receives portable project-local bindings, sidecar identities, manifests, provenance refs, downstream handoff refs, output roots, and explicit overlay-only policy.
+  - from: contract_loader
+    to: evidence_packet_reviewer
+    condition: normalized_contract_inventory_written
+    summary: Evidence reviewer receives a read-only inventory of target slots and page identity checks; it does not receive permission to mutate source XML or replace the normalized sidecar.
+  - from: evidence_packet_reviewer
+    to: quantitative_claim_extractor
+    condition: evidence_input_partition_written
+    summary: Claim extractor receives approved value evidence, review-only context, source gaps, conflicts, owner constraints, and blocker context as separate classes.
+  - from: quantitative_claim_extractor
+    to: overlay_writer
+    condition: quantitative_claims_written
+    summary: Overlay writer receives claim records with field status, source refs, derivation refs, missing states, and conflict states; unsupported values remain blank or review-required.
+  - from: overlay_writer
+    to: source_gap_followup_writer
+    condition: enriched_sidecar_overlay_written
+    summary: Gap writer receives the overlay plus all unresolved claims and must preserve every missing, blocked, conflicting, and owner-action item.
+  - from: source_gap_followup_writer
+    to: harness_readiness_reviewer
+    condition: gap_and_followup_packets_written
+    summary: Readiness reviewer receives claims, overlay refs, source gaps, and owner follow-up records; it may write deltas only and must not promote harness statuses directly.
+  - from: harness_readiness_reviewer
+    to: boundary_reviewer
+    condition: harness_readiness_delta_written
+    summary: Boundary review receives the full enrichment packet and checks source support, missing-state visibility, no sidecar replacement, no final harness approval, and public-safe output boundaries.
+  - from: boundary_reviewer
+    to: workflow_runner
+    condition: enrichment_boundary_review_complete
+    summary: Runner reports packet paths, claim counts by status, closed and remaining blockers, owner follow-up, validation state, and the next pilot needed.

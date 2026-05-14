@@ -1,0 +1,103 @@
+workflow_id: official_source_packet_collect_v0
+kind: workflow
+status: active
+title: Official Source Packet Collect v0
+summary: Collect or index official and owner-approved local source evidence before downstream materials, layout, simulation, ECAD, or harness workflows make source-backed claims.
+entrypoint: run
+execution_mode: local_tool_sequence
+role_slots: role_slots.yaml
+step_graph: step_graph.yaml
+handoff_rules: handoff_rules.yaml
+monster_rules: monster_rules.yaml
+party_compatibility: party_compatibility.yaml
+profile_policy: profile_policy.yaml
+inputs:
+  - source_collection_binding
+  - identifier_scope
+  - approved_source_policy
+optional_inputs:
+  - page_module_sidecars
+  - capture_intake_packets
+  - component_inventory
+  - existing_source_packets
+  - owner_approved_local_source_manifest
+  - downstream_source_requirements
+outputs:
+  - source_packet_manifest
+  - source_inventory
+  - source_gap_report
+  - owner_followup_needed
+  - download_or_reuse_manifest
+  - downstream_ready_refs
+  - boundary_review_note
+validation_level: pilot_ready_contract_only
+upstream_workflows:
+  - workflow_id: page_xml_normalize_spec_v0
+    expected_output: optional_page_module_spec_v0_sidecars
+  - workflow_id: capture_xml_intake_library_v0
+    expected_output: optional_intake_packets_or_downstream_handoff
+downstream_workflows:
+  - workflow_id: exp_xml_component_materials
+    expected_input: source_packet_manifest_or_source_inventory
+  - workflow_id: component_pcb_layout_guide_extraction
+    expected_input: layout_doc_source_refs_and_source_gap_report
+  - workflow_id: xml_harness_composition_v0
+    expected_input: source_gap_and_downstream_ready_refs
+  - workflow_id: simulation_source_collect_v0
+    expected_input: simulation_model_source_refs_or_missing_blocked_states
+    status: planned
+  - workflow_id: ecad_model_packet_v0
+    expected_input: ecad_model_source_refs_or_missing_blocked_states
+    status: planned
+source_state_contract:
+  required_states:
+    - official_present
+    - owner_approved_local
+    - missing
+    - blocked
+    - not_applicable
+  optional_review_states:
+    - candidate_official
+    - third_party_unapproved
+    - conflicting
+  executor_approved_source_states:
+    - official_present
+    - owner_approved_local
+  non_executor_source_states:
+    - missing
+    - blocked
+    - not_applicable
+    - candidate_official
+    - third_party_unapproved
+    - conflicting
+provenance_minimum:
+  official_present:
+    - authoritative_publisher
+    - title
+    - source_kind
+    - canonical_url_or_landing_page
+    - revision_or_publication_date_when_available
+    - access_date
+    - claims_supported
+  owner_approved_local:
+    - owner_approval_scope
+    - root_relative_or_project_local_path
+    - source_origin_type
+    - approved_for_executor
+    - public_summary_allowed
+    - checksum_when_a_local_file_is_used
+  missing_or_blocked:
+    - searched_identifier
+    - requested_source_kind
+    - searched_locations_or_access_attempts
+    - downstream_impact
+    - required_next_action
+notes:
+  - This workflow is an R/source-bootstrap and provenance lane. It does not extract final design requirements from source documents by itself.
+  - "Only `official_present` and explicitly scoped `owner_approved_local` sources may be marked `approved_for_executor: true`."
+  - "`missing`, `blocked`, `not_applicable`, `candidate_official`, `third_party_unapproved`, and `conflicting` states must remain visible to downstream workflows."
+  - Random mirrors, forums, distributor copies without official provenance, model aggregators, and search snippets are not official sources.
+  - Owner-approved local sources require an approval scope before executor use; otherwise record owner follow-up instead of silently using the file.
+  - Downloads, reused local files, hashes, caches, vendor binaries, model archives, and raw project payloads belong only in project-local or private run outputs.
+  - Public workflow canon stores only portable orchestration rules, source-state semantics, and output-shape templates.
+  - Public workflow files must not contain datasheet text, model payloads, raw XML, private project values, runtime absolute paths, credentials, cookies, sessions, or private run truth.

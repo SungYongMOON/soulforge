@@ -1,0 +1,22 @@
+workflow_id: page_quantitative_enrichment_v0
+kind: party_compatibility
+status: active
+compatible_party_templates:
+  - workflow_research_build_verify
+  - sourcebound_extraction_review
+  - hardware_page_contract_enrichment
+  - harness_readiness_review
+required_capabilities:
+  - project_local_binding_resolution
+  - page_module_spec_contract_review
+  - source_packet_and_materials_evidence_partitioning
+  - source_backed_quantitative_extraction
+  - derived_value_provenance_review
+  - source_gap_and_owner_followup_classification
+  - harness_readiness_delta_partitioning
+  - public_private_boundary_review
+notes:
+  - No default party binding is assigned yet.
+  - Runtime model, reasoning, party, source-document tooling, and local-file handling resolve through project-local bindings.
+  - Fresh executor and separate verifier review are required before claiming pilot-executed, usable, or production-ready behavior.
+  - The workflow package is public-safe because it stores only orchestration rules, claim-state semantics, and output-shape templates.

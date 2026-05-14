@@ -1,0 +1,20 @@
+schema_version: page_quantitative_source_gap_report_v0
+target_page_asset:
+  page_asset_id: <page_asset_id>
+source_gaps:
+  - gap_id: <gap_id>
+    target_slot: <page_module_spec_v0_slot_path>
+    quantity: <quantity_kind>
+    applies_to: <slot_or_interface_identity>
+    gap_type: missing_source_value | missing_component_identity | missing_page_scope | missing_connector_context | missing_layout_constraint | missing_load_condition | missing_operating_condition | source_conflict | unapproved_source | owner_decision_required
+    blocking_level: blocks_harness | review_required | informational
+    needed_source: <datasheet | eval_guide | reference_schematic | owner_rail_plan | connector_map | layout_guide | other>
+    searched_inputs: []
+    evidence_seen: []
+    why_not_filled: <source_backed_reason>
+    owner_action: <specific_action_or_null>
+    rerun_trigger: <source_or_owner_action_that_should_trigger_rerun>
+rules:
+  every_unfilled_required_quantity_has_gap_record: true
+  conflicts_remain_review_required_until_resolved: true
+  owner_followup_is_machine_readable: true

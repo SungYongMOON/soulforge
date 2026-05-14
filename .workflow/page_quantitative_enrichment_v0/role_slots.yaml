@@ -1,0 +1,28 @@
+workflow_id: page_quantitative_enrichment_v0
+kind: role_slots
+status: active
+slots:
+  - slot_id: workflow_runner
+    title: Workflow Runner
+    summary: Resolves the project-local enrichment binding, output roots, and no-replacement policy before any evidence packet is read.
+  - slot_id: contract_loader
+    title: Contract Loader
+    summary: Loads the normalized page module spec, manifest, provenance, and downstream handoff as read-only contract inputs.
+  - slot_id: evidence_packet_reviewer
+    title: Evidence Packet Reviewer
+    summary: Partitions optional intake, official-source, materials, layout, owner, and harness-blocker inputs into value evidence, review context, gaps, conflicts, and blockers.
+  - slot_id: quantitative_claim_extractor
+    title: Quantitative Claim Extractor
+    summary: Inventories target quantitative slots and writes source-confirmed, derived, review-required, or missing claim records without guessing values.
+  - slot_id: overlay_writer
+    title: Overlay Writer
+    summary: Writes a patch-like enriched sidecar overlay against existing `page_module_spec_v0` slots while preserving the original sidecar as the authoritative input.
+  - slot_id: source_gap_followup_writer
+    title: Source Gap Follow-Up Writer
+    summary: Converts unfilled quantities, conflicts, and owner/source actions into machine-readable gap and follow-up packets.
+  - slot_id: harness_readiness_reviewer
+    title: Harness Readiness Reviewer
+    summary: Writes readiness deltas for harness consumers without approving final joins, circuit synthesis, or source-supported composition.
+  - slot_id: boundary_reviewer
+    title: Boundary Reviewer
+    summary: Checks source support, anti-guessing, overlay boundaries, public/private safety, and overclaim risks before completion.

@@ -1,0 +1,141 @@
+schema_version: official_source_packet_collect_v0
+packet_identity:
+  packet_id: "<packet_id>"
+  workflow_id: official_source_packet_collect_v0
+  created_at: "<iso8601_timestamp>"
+  created_by: "<agent_or_owner>"
+  project_code: "<project_code>"
+  run_id: "<run_id>"
+approval:
+  oracle_free: true
+  approved_by: "<owner_or_policy_record>"
+  approval_scope: "human_review_preparation|executor_use|verifier_only"
+  approved_for_executor: false
+  public_safe_summary_allowed: false
+scope:
+  baseline_refs: []
+  identifier_scope_ref: "<project_local_identifier_scope_manifest>"
+  requested_source_kinds:
+    - datasheet
+    - evaluation_board_or_reference_design
+    - application_note_or_design_guide
+    - simulation_model
+    - ecad_model
+    - layout_or_package_document
+  downstream_consumers:
+    - materials
+    - layout
+    - simulation
+    - ecad
+    - harness
+  identifiers:
+    - identifier_id: "<identifier_id>"
+      kind: "part_number|manufacturer|package|module|net_label|tool_artifact|owner_defined"
+      value_summary: "<public_safe_or_private_summary>"
+      source_basis: "<baseline_or_owner_approved_basis>"
+      confidence_state: "confirmed|candidate|ambiguous|review_required"
+source_state_summary:
+  official_present_count: 0
+  owner_approved_local_count: 0
+  missing_count: 0
+  blocked_count: 0
+  not_applicable_count: 0
+  candidate_official_count: 0
+  third_party_unapproved_count: 0
+  conflicting_count: 0
+source_packet_manifest:
+  manifest_status: "draft|ready|review_only|blocked"
+  executor_approved_source_ids: []
+  unresolved_gap_ids: []
+  blocked_source_ids: []
+  owner_followup_ids: []
+  downstream_ready_refs_file: "downstream_ready_refs.yaml"
+source_inventory:
+  - source_id: "<source_id>"
+    related_identifier_ids: []
+    source_status: "official_present|owner_approved_local|missing|blocked|not_applicable|candidate_official|third_party_unapproved|conflicting"
+    source_kind: "datasheet|evaluation_board_or_reference_design|application_note_or_design_guide|simulation_model|ecad_model|layout_or_package_document|standard_or_tool_document|other"
+    publisher: "<publisher_or_unknown>"
+    title: "<title_or_unknown>"
+    revision: "<revision_or_unknown>"
+    publication_date: "<date_or_unknown>"
+    access_date: "<date_or_unknown>"
+    url_or_repo_path: "<official_url_or_project_local_path_or_null>"
+    provenance_basis: "<why_this_source_status_was_assigned>"
+    approved_for_executor: false
+    owner_approval_scope: null
+    public_summary_allowed: false
+    checksum_sha256: null
+    license_or_terms_note: "<known|unknown|owner_followup_needed>"
+    claims_supported: []
+    claims_not_supported: []
+    blockers: []
+source_gap_report:
+  - gap_id: "<gap_id>"
+    related_identifier_id: "<identifier_id>"
+    missing_source_kind: "<source_kind>"
+    source_status: "missing|blocked|conflicting|not_applicable"
+    gap_status: "not_found|access_blocked|owner_approval_needed|ambiguous_identity|source_conflict|format_unusable|license_unclear|not_applicable"
+    searched_locations_or_attempted_access: []
+    current_best_evidence: "<summary_without_payload>"
+    downstream_impact:
+      materials: "ready|review_only|blocked|not_applicable"
+      layout: "ready|review_only|blocked|not_applicable"
+      simulation: "ready|review_only|blocked|not_applicable"
+      ecad: "ready|review_only|blocked|not_applicable"
+      harness: "ready|review_only|blocked|not_applicable"
+    required_next_action: "<owner_action_or_agent_retry_scope>"
+owner_followup_needed:
+  - followup_id: "<followup_id>"
+    related_source_or_gap_id: "<source_or_gap_id>"
+    action_type: "provide_file|approve_local_file|confirm_identity|confirm_revision|approve_terms|manual_download|domain_decision|allow_agent_retry|accept_not_applicable"
+    owner_action: "<specific_safe_action>"
+    agent_must_not_read_secret: true
+    downstream_impact: "<materials_layout_simulation_ecad_harness_impact>"
+download_or_reuse_manifest:
+  - action_id: "<action_id>"
+    related_source_id: "<source_id>"
+    action: "index_only|download_official|reuse_owner_approved_local|blocked|not_applicable"
+    destination_repo_path: "_workmeta/<project_code>/runs/<run_id>/source_packets/official_source_packet_collect_v0/files/<optional_file>"
+    checksum_required: true
+    checksum_sha256: null
+    terms_or_license_note_required: true
+    result_status: "planned|completed|blocked|not_applicable"
+downstream_ready_refs:
+  materials:
+    readiness: "ready|review_only|blocked|not_applicable"
+    consumed_source_ids: []
+    unresolved_gap_ids: []
+    blocked_by: []
+    owner_followup_needed: []
+  layout:
+    readiness: "ready|review_only|blocked|not_applicable"
+    consumed_source_ids: []
+    unresolved_gap_ids: []
+    blocked_by: []
+    owner_followup_needed: []
+  simulation:
+    readiness: "ready|review_only|blocked|not_applicable"
+    consumed_source_ids: []
+    unresolved_gap_ids: []
+    blocked_by: []
+    owner_followup_needed: []
+  ecad:
+    readiness: "ready|review_only|blocked|not_applicable"
+    consumed_source_ids: []
+    unresolved_gap_ids: []
+    blocked_by: []
+    owner_followup_needed: []
+  harness:
+    readiness: "ready|review_only|blocked|not_applicable"
+    consumed_source_ids: []
+    unresolved_gap_ids: []
+    blocked_by: []
+    owner_followup_needed: []
+boundary_notes:
+  no_raw_project_payloads_in_public_package: true
+  no_vendor_text_or_model_payloads_in_public_package: true
+  no_runtime_absolute_paths_in_public_package: true
+  no_credentials_cookies_tokens_or_sessions_used_by_agent: true
+  downstream_must_preserve_source_states: true
+

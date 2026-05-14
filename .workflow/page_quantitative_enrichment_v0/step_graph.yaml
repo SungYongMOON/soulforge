@@ -1,0 +1,263 @@
+workflow_id: page_quantitative_enrichment_v0
+kind: step_graph
+status: active
+steps:
+  - step_id: prepare_enrichment_binding
+    title: Prepare Enrichment Binding
+    actor_slot: workflow_runner
+    action:
+      kind: project_local_enrichment_binding_setup
+      requires:
+        - quantitative_enrichment_binding
+        - page_module_spec_sidecar
+        - module_spec_manifest
+        - provenance_update
+        - downstream_handoff
+      validates:
+        - output_root_is_project_local_or_private_workmeta
+        - public_package_contains_no_payloads
+        - no_runtime_absolute_paths_in_public_package
+        - enrichment_policy_declares_overlay_not_replacement
+      creates:
+        - enrichment_output_root
+        - enrichment_run_log_root
+    summary: Resolve project-local output and evidence bindings before reading optional evidence packets or writing any claim.
+    next:
+      on_success: load_normalized_page_contract
+      on_fail: stop
+  - step_id: load_normalized_page_contract
+    title: Load Normalized Page Contract
+    actor_slot: contract_loader
+    action:
+      kind: page_module_spec_contract_load
+      artifacts_in:
+        - page_module_spec_sidecar
+        - module_spec_manifest
+        - provenance_update
+        - downstream_handoff
+      artifacts_out:
+        - normalized_contract_inventory
+      validates:
+        - page_identity_matches_manifest
+        - source_checksum_matches_provenance
+        - system_contract_slots_are_present_or_gap_recordable
+        - sidecar_is_read_only_input
+      forbidden_operations:
+        - source_page_xml_mutation
+        - normalized_sidecar_rewrite
+        - schema_replacement
+    summary: Inventory the existing module, interface, performance, system-contract, composition, and evidence-review slots without treating the sidecar as mutable truth.
+    next:
+      on_success: gather_evidence_packets
+      on_fail: stop
+  - step_id: gather_evidence_packets
+    title: Gather Evidence Packets
+    actor_slot: evidence_packet_reviewer
+    action:
+      kind: optional_evidence_packet_partition
+      artifacts_in:
+        - capture_intake_packets
+        - official_source_packet_manifest
+        - official_source_inventory
+        - component_materials_packets
+        - layout_guide_packets
+        - owner_recorded_constraints
+        - previous_harness_blocker_packet
+      artifact_out: evidence_input_partition
+      classifies:
+        - source_confirmed_candidate
+        - owner_approved_local_candidate
+        - derived_operand_candidate
+        - review_only_context
+        - missing_or_blocked_source
+        - conflict_or_identity_gap
+      forbidden_basis:
+        - hidden_reference_oracle
+        - verifier_report
+        - previous_candidate_repair_packet
+        - unapproved_web_snippet
+        - secret_or_session_state
+        - harness_pressure_as_value_evidence
+    summary: Separate approved value evidence from review-only context, source gaps, conflicts, and blocker packets.
+    next:
+      on_success: inventory_quantitative_slots
+      on_fail: stop
+  - step_id: inventory_quantitative_slots
+    title: Inventory Quantitative Slots
+    actor_slot: quantitative_claim_extractor
+    action:
+      kind: target_slot_inventory
+      artifacts_in:
+        - normalized_contract_inventory
+        - evidence_input_partition
+      artifact_out: quantitative_slot_inventory
+      target_slot_families:
+        - interfaces
+        - performance
+        - system_contract
+        - composition
+        - evidence_review
+      records:
+        - target_slot
+        - quantity_kind
+        - scope
+        - applies_to
+        - existing_status
+        - required_for_harness
+        - evidence_candidates
+        - missing_or_conflict_reason
+    summary: Create one auditable row for every known, missing, review-required, or harness-relevant quantitative slot before extraction.
+    next:
+      on_success: extract_source_backed_claims
+      on_fail: stop
+  - step_id: extract_source_backed_claims
+    title: Extract Source-Backed Claims
+    actor_slot: quantitative_claim_extractor
+    action:
+      kind: source_backed_quantitative_claim_write
+      artifacts_in:
+        - quantitative_slot_inventory
+        - evidence_input_partition
+      artifact_out: quantitative_claims
+      allowed_field_status:
+        - source_confirmed
+        - derived
+        - review_required
+        - missing
+      direct_claim_requires:
+        - approved_evidence_ref
+        - source_location_or_packet_ref
+        - unit_for_unit_bearing_values
+        - condition_or_scope_when_present
+      derived_claim_requires:
+        - source_confirmed_operands
+        - formula
+        - operand_refs
+        - derived_status
+      missing_claim_requires:
+        - explicit_gap_reason
+        - searched_or_available_inputs
+        - downstream_impact
+      forbidden_fill_basis:
+        - label_only
+        - default_assumption
+        - memory_or_general_knowledge
+        - downstream_harness_desire
+        - one_sided_connection_evidence
+    summary: Write quantitative claims only when evidence supports them; otherwise keep the value missing or review-required with an explicit gap record.
+    next:
+      on_success: write_enriched_sidecar_overlay
+      on_fail: stop
+  - step_id: write_enriched_sidecar_overlay
+    title: Write Enriched Sidecar Overlay
+    actor_slot: overlay_writer
+    action:
+      kind: page_module_spec_overlay_write
+      artifacts_in:
+        - normalized_contract_inventory
+        - quantitative_claims
+      artifact_out: enriched_sidecar_overlay
+      overlay_policy:
+        target_schema: page_module_spec_v0
+        patch_like_overlay_only: true
+        do_not_replace_original_sidecar: true
+        do_not_invent_new_authoritative_schema: true
+        preserve_missing_and_review_required_status: true
+      writes:
+        - target_slot_refs
+        - proposed_status_updates
+        - evidence_refs
+        - source_gap_refs
+        - derivation_refs
+    summary: Materialize a patch-like overlay that targets existing normalized sidecar slots while preserving the original sidecar as the owner-owned input.
+    next:
+      on_success: write_gap_and_followup_packets
+      on_fail: stop
+  - step_id: write_gap_and_followup_packets
+    title: Write Gap And Follow-Up Packets
+    actor_slot: source_gap_followup_writer
+    action:
+      kind: source_gap_and_owner_followup_write
+      artifacts_in:
+        - quantitative_slot_inventory
+        - quantitative_claims
+        - evidence_input_partition
+      artifacts_out:
+        - source_gap_report
+        - owner_followup_needed
+      gap_types:
+        - missing_source_value
+        - missing_component_identity
+        - missing_page_scope
+        - missing_connector_context
+        - missing_layout_constraint
+        - missing_load_condition
+        - missing_operating_condition
+        - source_conflict
+        - unapproved_source
+        - owner_decision_required
+      blocking_levels:
+        - blocks_harness
+        - review_required
+        - informational
+    summary: Make unresolved quantities, conflicts, owner actions, and rerun triggers machine-readable instead of hiding them in prose.
+    next:
+      on_success: compute_harness_readiness_delta
+      on_fail: stop
+  - step_id: compute_harness_readiness_delta
+    title: Compute Harness Readiness Delta
+    actor_slot: harness_readiness_reviewer
+    action:
+      kind: harness_readiness_delta_partition
+      artifacts_in:
+        - normalized_contract_inventory
+        - quantitative_claims
+        - enriched_sidecar_overlay
+        - source_gap_report
+        - owner_followup_needed
+        - previous_harness_blocker_packet
+      artifact_out: harness_readiness_delta
+      delta_policy:
+        delta_only: true
+        do_not_mutate_harness_connection_statuses: true
+        do_not_claim_final_join_validity: true
+        preserve_one_sided_evidence_as_blocker_or_review_required: true
+      records:
+        - before
+        - after
+        - closed_blockers
+        - remaining_blockers
+        - newly_discovered_blockers
+        - candidate_safe_possible_for
+        - source_supported_possible_for
+        - not_claimed
+    summary: Translate evidence changes into harness-readiness deltas that a later harness workflow may consume, without approving connections here.
+    next:
+      on_success: write_provenance_and_boundary_review
+      on_fail: stop
+  - step_id: write_provenance_and_boundary_review
+    title: Write Provenance And Boundary Review
+    actor_slot: boundary_reviewer
+    action:
+      kind: enrichment_boundary_and_overclaim_review
+      artifacts_in:
+        - quantitative_claims
+        - enriched_sidecar_overlay
+        - source_gap_report
+        - owner_followup_needed
+        - harness_readiness_delta
+      artifacts_out:
+        - enrichment_provenance
+        - quantitative_enrichment_summary
+      checks:
+        - all_filled_values_have_source_refs_or_derivation_refs
+        - missing_and_review_required_values_remain_visible
+        - overlay_does_not_replace_sidecar
+        - harness_readiness_is_delta_only
+        - no_final_composition_approval_claim
+        - no_raw_payloads_or_runtime_absolute_paths_in_public_package
+        - no_secret_or_account_state_requested_from_agent
+    summary: Confirm the enrichment packet is public-contract-safe and ready for a project-local harness pilot or stop with exact follow-up.
+    next:
+      on_success: complete
+      on_fail: stop

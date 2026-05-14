@@ -1,0 +1,33 @@
+workflow_id: official_source_packet_collect_v0
+kind: handoff_rules
+status: active
+rules:
+  - from: workflow_runner
+    to: source_scope_collector
+    condition: source_binding_and_policy_ready
+    summary: Collector receives portable bindings, allowed input identities, approved source policy, requested source kinds, and downstream consumers; it does not receive hidden references, verifier reports, secrets, or raw payloads beyond the approved project-local inputs.
+  - from: source_scope_collector
+    to: official_source_researcher
+    condition: identifier_inventory_written
+    summary: Researcher receives identifier records, confidence states, requested source kinds, and official-domain or owner-local approval rules.
+  - from: official_source_researcher
+    to: source_state_classifier
+    condition: source_inventory_draft_written
+    summary: Classifier receives candidate source records with provenance, access attempts, owner-local approval scope, and blocker notes rather than source payloads.
+  - from: source_state_classifier
+    to: packet_manifest_writer
+    condition: all_requested_sources_have_state
+    summary: Writer receives classified source states, gap records, blocker records, and owner follow-up items to materialize the packet bundle.
+  - from: packet_manifest_writer
+    to: downstream_readiness_reviewer
+    condition: source_packet_bundle_written
+    summary: Readiness reviewer receives the packet bundle and must preserve all missing, blocked, conflicting, not-applicable, and owner-follow-up states.
+  - from: downstream_readiness_reviewer
+    to: boundary_reviewer
+    condition: downstream_ready_refs_written
+    summary: Boundary review receives packet manifests and readiness refs only; public canon still excludes vendor text, binaries, runtime paths, credentials, cookies, and private run truth.
+  - from: boundary_reviewer
+    to: workflow_runner
+    condition: boundary_review_note_complete
+    summary: Runner reports packet path, state counts, executor-approved source refs, unresolved gaps, owner follow-up needs, downstream readiness, and whether a real pilot can proceed.
+

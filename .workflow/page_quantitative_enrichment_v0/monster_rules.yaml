@@ -1,0 +1,43 @@
+workflow_id: page_quantitative_enrichment_v0
+kind: monster_rules
+status: active
+rules:
+  - monster_id: rail_or_quantity_guessed_from_label
+    response: leave_missing_or_review_required_and_write_gap
+    summary: Net names, page labels, connector labels, and common defaults cannot fill voltage, current, power, gain, frequency, impedance, threshold, tolerance, or thermal values.
+  - monster_id: harness_pressure_treated_as_evidence
+    response: downgrade_to_gap_or_review_required
+    summary: A downstream desire for a connection cannot become quantitative evidence; it can only identify which missing value blocks harness work.
+  - monster_id: one_sided_connection_evidence_promoted
+    response: keep_remaining_side_blocked_or_review_required
+    summary: Evidence for only one side of an interface cannot close compatibility or source-supported readiness for the join.
+  - monster_id: derived_value_without_source_operands
+    response: reject_derivation_and_write_operand_gap
+    summary: Derived values require source-confirmed operands, formula, units, and operand refs; otherwise the target slot remains missing or review-required.
+  - monster_id: missing_value_closed_by_placeholder
+    response: write_explicit_missing_claim
+    summary: Placeholders such as blank fields, generic absence markers, or non-values must not be treated as completed quantitative values.
+  - monster_id: unapproved_source_used_for_value
+    response: mark_review_required_or_unapproved_source_gap
+    summary: Search snippets, mirrors, copied tables without provenance, memory, or unapproved local files cannot support a source-confirmed claim.
+  - monster_id: source_conflict_silently_resolved
+    response: write_conflict_record_and_owner_followup
+    summary: Conflicting evidence must remain `conflict` or `review_required` until stronger source evidence or owner decision resolves it.
+  - monster_id: overlay_replaces_original_sidecar
+    response: stop_and_restore_overlay_boundary
+    summary: The enrichment output is an overlay only; it must not overwrite or become the authoritative normalized sidecar.
+  - monster_id: final_harness_approval_claimed
+    response: reduce_to_harness_readiness_delta
+    summary: This workflow may report possible readiness improvements but cannot approve final joins, circuit synthesis, or source-supported composition.
+  - monster_id: local_internal_candidate_promoted_as_external
+    response: require_source_backed_interface_promotion
+    summary: Local/internal candidates from normalization remain internal or review-required unless source-backed evidence promotes them to an external interface.
+  - monster_id: raw_payload_leak_to_public_package
+    response: remove_payload_and_keep_contract_shape_only
+    summary: Public workflow canon may describe rules and templates but not raw XML, vendor text, project values, generated outputs, private run truth, or downloaded collateral.
+  - monster_id: runtime_absolute_path_in_public_package
+    response: replace_with_repo_relative_placeholder_or_stable_id
+    summary: Public package files must use portable repo-relative paths, placeholders, or stable ids instead of drive letters, home directories, or machine-local paths.
+  - monster_id: secret_or_session_required
+    response: stop_and_request_owner_supplied_file_or_path
+    summary: Agents must not read credentials, cookies, tokens, account sessions, or secret files; ask the owner to provide or approve the resulting file path instead.

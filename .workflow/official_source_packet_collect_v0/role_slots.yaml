@@ -1,0 +1,26 @@
+workflow_id: official_source_packet_collect_v0
+kind: role_slots
+status: active
+slots:
+  - slot_id: workflow_runner
+    title: Workflow Runner
+    summary: Resolves the project-local packet binding, source policy, and output roots before lookup or reuse work begins.
+  - slot_id: source_scope_collector
+    title: Source Scope Collector
+    summary: Builds the bounded identifier and requested-source-kind inventory from approved non-oracle inputs.
+  - slot_id: official_source_researcher
+    title: Official Source Researcher
+    summary: Searches authoritative public channels or indexes owner-approved local official sources while rejecting unapproved mirrors as evidence.
+  - slot_id: source_state_classifier
+    title: Source State Classifier
+    summary: Classifies every requested source as official, owner-approved local, missing, blocked, not applicable, candidate, third-party, or conflicting.
+  - slot_id: packet_manifest_writer
+    title: Packet Manifest Writer
+    summary: Writes the source packet manifest, inventory, gap report, follow-up queue, and download-or-reuse manifest.
+  - slot_id: downstream_readiness_reviewer
+    title: Downstream Readiness Reviewer
+    summary: Maps source evidence and source gaps to materials, layout, simulation, ECAD, and harness readiness refs.
+  - slot_id: boundary_reviewer
+    title: Boundary Reviewer
+    summary: Checks public/private boundaries, provenance completeness, owner follow-up, and overclaim risks before completion.
+
