@@ -1,0 +1,27 @@
+variant_id: operational_rd_no_grade_candidate_v0
+version: 0
+status: blocked
+generation_enabled: false
+variant_type: project_tailoring_candidate
+evidence_level: missing-source-evidence
+base_variant: common_se_base_v0
+decision: "Do not generate. Keep as a candidate until owner-approved or source-backed tailoring evidence exists."
+requested_combination:
+  business_type: "운용연구개발"
+  prime_contractor: "LIG 넥스원"
+  quality_grade: "없음"
+candidate_policy:
+  common_gate_spine: "candidate may inherit common SE gates, but mandatory/optional gate decisions are not final"
+  contractor_overlay: "not enabled until LIG-specific evidence or owner policy is supplied"
+  quality_grade: "no A/B/C/none folder branching rule is source-backed yet"
+blocked_reasons:
+  - "No complete source-backed operational-R&D foldertree tailoring rule is available."
+  - "No source-backed quality-grade none folder inclusion/exclusion rule is available."
+  - "No source-backed LIG-specific overlay rule is available in the common SE source packet."
+allowed_next_steps:
+  - "collect owner-approved operational-R&D tailoring sources"
+  - "record project-local policy decisions under private workmeta"
+  - "run draft preview only; do not materialize project folders"
+notes:
+  - "This candidate exists to make the unsupported state explicit."
+  - "A future implementation may promote parts of this candidate only after evidence review and dry-run acceptance."

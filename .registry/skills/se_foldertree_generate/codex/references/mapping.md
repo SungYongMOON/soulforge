@@ -10,8 +10,11 @@
 ## Bundled resource map
 
 - `assets/SE_FolderTree_Guide.md`: default markdown spec with YAML front matter for the SE tree
+- `assets/variants/*.yaml`: draft-only variant metadata for common base, contractor overlay, and blocked project-tailoring candidates
 - `scripts/generate_tree.py`: main scaffold generator for folders, manifest, progress, CSV outputs, and index files
 - `scripts/convert_gate_numbers.py`: helper that rewrites gate/task numbering in a copied spec file
+- `scripts/preview_variants.py`: review-only validator for draft variant metadata; it does not generate project folders
+- `references/variants.md`: draft variant preview rules and acceptance criteria
 - `requirements.txt`: Python dependency baseline for the bundled scripts
 
 ## Relative-path and portability rules
@@ -34,6 +37,7 @@
   - prime contractor: `LIG 넥스원`
   - quality grade: `A`
 - If the requested combination does not match a bundled spec variant, stop and ask for a new variant/spec instead of generating the wrong tree.
+- Draft variants in `assets/variants/` are not bundled production support unless they explicitly pass review and are promoted into the generator path.
 
 ## Default operating modes
 

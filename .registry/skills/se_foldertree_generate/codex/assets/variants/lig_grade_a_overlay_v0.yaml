@@ -1,0 +1,72 @@
+variant_id: lig_grade_a_overlay_v0
+version: 0
+status: draft
+generation_enabled: false
+variant_type: contractor_overlay
+evidence_level: current-local-spec
+base_variant: common_se_base_v0
+decision: "Capture the current LIG/A behavior as an overlay candidate; do not treat it as common SE canon."
+overlay_for:
+  business_type: "체계개발"
+  prime_contractor: "LIG 넥스원"
+  quality_grade: "A"
+current_generator_support_key: system_dev_lig_grade_a
+local_spec_source: assets/SE_FolderTree_Guide.md
+overlay_scope:
+  includes:
+    - LIG Q-gate labels currently present in the bundled spec
+    - practical combined folder labels from the current spec
+  excludes:
+    - proof that Q1-Q8 are common SE gates
+    - proof that quality grade A should define all folder branches
+gate_overlays:
+  - canonical_gate: SRR
+    local_folder_gate: SRR
+    local_gate_code: 30
+    lig_qgate:
+      - Q1
+      - Q2
+    overlay_note: "current local spec maps early contract/planning quality checks here"
+  - canonical_gate: SFR
+    local_folder_gate: SFR
+    local_gate_code: 60
+    lig_qgate: []
+    overlay_note: "no LIG Q-gate label is currently attached"
+  - canonical_gate: PDR
+    local_folder_gate: PDR
+    local_gate_code: 90
+    lig_qgate:
+      - Q3
+    overlay_note: "current local spec maps design quality check here"
+  - canonical_gate: CDR
+    local_folder_gate: CDR
+    local_gate_code: 120
+    lig_qgate:
+      - Q4
+    overlay_note: "current local spec maps manufacturing-readiness style quality check here"
+  - canonical_gate: TRR
+    local_folder_gate: TRR_DT
+    local_gate_code: 150
+    lig_qgate:
+      - Q5
+      - Q6
+      - Q7
+    overlay_note: "current local spec combines test readiness, prototype/build, and development test surfaces"
+  - canonical_gate: FCA
+    local_folder_gate: FCA_OT
+    local_gate_code: 180
+    lig_qgate:
+      - Q8
+    overlay_note: "current local spec combines FCA, integration, operational test, and delivery surfaces"
+  - canonical_gate: PCA
+    local_folder_gate: PCA
+    local_gate_code: 210
+    lig_qgate: []
+    overlay_note: "current local spec keeps PCA as final physical configuration/standardization surface"
+local_extensions:
+  - local_folder_gate: LL
+    local_gate_code: 240
+    overlay_note: "lessons learned / closeout extension, not a common SE gate"
+notes:
+  - "This overlay records current behavior so it can be separated from the common SE base."
+  - "The existing generator still remains the only materialization path for the current supported combination."

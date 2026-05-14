@@ -2,6 +2,12 @@
 
 ## 2026-05-14
 
+### Revision `working` - SE foldertree draft variant preview lane added
+
+- Added a non-materializing draft variant preview lane to `se_foldertree_generate`, separating `common_se_base_v0`, `lig_grade_a_overlay_v0`, and `operational_rd_no_grade_candidate_v0`.
+- Added `preview_variants.py` so draft variant metadata can be checked without changing the production `generate_tree.py` path or creating project folders.
+- Documented that current production support remains `체계개발 / LIG 넥스원 / A` and that operational-R&D/no-quality-grade remains blocked until source or owner policy evidence exists.
+
 ### Revision `working` - workmeta always-on merge guard clarified
 
 - Clarified that the 24-hour PC only auto-syncs `_workmeta/main` by fast-forward and must not auto-merge stale work branches or PC-specific branches into `main`.

@@ -35,6 +35,25 @@ cd "$SKILL_DIR"
 python scripts/convert_gate_numbers.py input.md output.md
 ```
 
+## Draft variant 미리보기
+
+`assets/variants/` 아래의 variant 파일은 production 생성 규칙이 아니다. 공통 체계공학 base, LIG/A overlay, 운용연구개발 후보를 분리해서 검토하기 위한 metadata다.
+
+```bash
+cd "$SKILL_DIR"
+python scripts/preview_variants.py --variants-dir assets/variants
+```
+
+JSON 보고서가 필요하면 preview 전용 경로로만 쓴다.
+
+```bash
+python scripts/preview_variants.py \
+  --variants-dir assets/variants \
+  --json-out "<preview-root>/variant_preview.json"
+```
+
+이 preview가 통과해도 실제 프로젝트 폴더 생성 권한을 의미하지 않는다. 실제 생성은 여전히 `generate_tree.py --dry-run`과 지원 조합 확인을 거쳐야 한다.
+
 ## 기존 프로젝트 루트에 바로 생성하는 예시
 
 ```bash
@@ -130,6 +149,7 @@ python -m pip install -r "$SKILL_DIR/requirements.txt"
 - [ ] 시작일, 프로젝트명, 프로파일을 확정했다.
 - [ ] 생성 모드, 사업 유형, 상위 체계업체, 품질등급을 확정했다.
 - [ ] 현재 bundled spec 이 입력 조합을 지원하는지 확인했다.
+- [ ] draft variant 작업이면 `preview_variants.py`로 metadata만 확인했고 실제 폴더 생성을 하지 않았다.
 - [ ] 스펙 파일을 그대로 쓸지 복사본을 조정할지 결정했다.
 - [ ] `--dry-run`으로 산출물을 확인했다.
 - [ ] 실제 생성 명령을 실행했다.

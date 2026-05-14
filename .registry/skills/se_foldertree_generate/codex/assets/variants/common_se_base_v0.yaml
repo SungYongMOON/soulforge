@@ -1,0 +1,94 @@
+variant_id: common_se_base_v0
+version: 0
+status: draft
+generation_enabled: false
+variant_type: common_base
+evidence_level: source-backed
+decision: "Use as a draft common SE spine only; do not materialize folders from this variant yet."
+source_policy:
+  source_class: public_reference_summary
+  source_aliases:
+    - SE technical review guidebook
+    - defense project-management regulation
+    - weapon-system test/evaluation guidebook
+  private_notebook_ids_included: false
+  project_specific_values_included: false
+scope:
+  includes:
+    - common technical review gate identity
+    - gate purpose and baseline linkage
+    - fields that a later foldertree spec may carry
+  excludes:
+    - contractor-specific quality gates
+    - project-specific tailoring decisions
+    - quality-grade folder branching
+spec_fields:
+  - gate_purpose
+  - baseline_linkage
+  - entry_criteria
+  - checklist
+  - expected_outputs
+  - action_log
+  - source_evidence
+  - tailoring_status
+  - missing_evidence
+gates:
+  - canonical_gate: SRR
+    folder_gate_name: SRR
+    gate_code: 30
+    korean_name: "체계요구조건검토"
+    purpose: "review and baseline system requirements"
+    baseline_linkage: requirements_baseline
+    evidence_status: source-backed
+    tailoring_status: required
+  - canonical_gate: SFR
+    folder_gate_name: SFR
+    gate_code: 60
+    korean_name: "체계기능검토"
+    purpose: "review functional allocation and functional baseline readiness"
+    baseline_linkage: functional_baseline
+    evidence_status: source-backed
+    tailoring_status: required
+  - canonical_gate: PDR
+    folder_gate_name: PDR
+    gate_code: 90
+    korean_name: "기본설계검토"
+    purpose: "review preliminary design and allocated baseline readiness"
+    baseline_linkage: allocated_baseline
+    evidence_status: source-backed
+    tailoring_status: required
+  - canonical_gate: CDR
+    folder_gate_name: CDR
+    gate_code: 120
+    korean_name: "상세설계검토"
+    purpose: "review detailed design and initial product baseline readiness"
+    baseline_linkage: initial_product_baseline
+    evidence_status: source-backed
+    tailoring_status: required
+  - canonical_gate: TRR
+    folder_gate_name: TRR
+    gate_code: 150
+    korean_name: "시험준비상태검토"
+    purpose: "review readiness to enter formal test and evaluation"
+    baseline_linkage: test_readiness
+    evidence_status: source-backed
+    tailoring_status: required
+  - canonical_gate: FCA
+    folder_gate_name: FCA
+    gate_code: 180
+    korean_name: "기능적형상확인"
+    purpose: "confirm functional and performance requirement satisfaction"
+    baseline_linkage: functional_configuration_audit
+    evidence_status: source-backed
+    tailoring_status: required
+  - canonical_gate: PCA
+    folder_gate_name: PCA
+    gate_code: 210
+    korean_name: "물리적형상확인"
+    purpose: "confirm physical configuration and final product baseline"
+    baseline_linkage: product_baseline
+    evidence_status: source-backed
+    tailoring_status: required
+notes:
+  - "This base deliberately excludes LIG Q-gates, quality-grade folders, and P24-specific tailoring."
+  - "A later production spec must still define concrete task folders, evidence fields, and dry-run acceptance."
