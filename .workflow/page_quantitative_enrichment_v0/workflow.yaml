@@ -33,7 +33,7 @@ outputs:
   - harness_readiness_delta
   - enrichment_provenance
   - quantitative_enrichment_summary
-validation_level: pilot_ready_contract_only
+validation_level: pilot_executed_private_fixture
 registration_policy: owner_requested_registration
 upstream_workflows:
   - workflow_id: page_xml_normalize_spec_v0

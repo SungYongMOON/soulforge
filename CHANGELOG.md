@@ -87,7 +87,8 @@
 - Defined explicit outputs for `quantitative_claims`, `enriched_sidecar_overlay`, `source_gap_report`, `owner_followup_needed`, `harness_readiness_delta`, and enrichment provenance.
 - Required every quantitative value to be `source_confirmed`, transparently `derived`, `review_required`, or `missing`; forbidden label/default/memory/harness-pressure guessing.
 - Kept the original sidecar, source XML, intake packets, source packets, materials packets, layout guides, raw project payloads, vendor text, runtime absolute paths, credentials, cookies, sessions, and private run truth out of public workflow canon.
-- Marked the package `pilot_ready_contract_only`; a controlled power/interface/ambiguous-page pilot is still required before claiming pilot-executed or usable behavior.
+- Completed controlled private helper-card pilots across power (`lt8624s`), interface (`ext_io_conn`), and ambiguous/channelized (`02_4ch_vga_ch5_8`) pages, including an ambiguous-page run that consumed an upstream official-source packet and wrote device-scope fills plus page-scope gaps.
+- Updated the package maturity from `pilot_ready_contract_only` to `pilot_executed_private_fixture`.
 
 ### Revision `working` - SE foldertree pre-study basic variant added
 

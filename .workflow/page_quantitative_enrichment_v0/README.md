@@ -39,8 +39,8 @@ Missing values are first-class outputs. They should appear in `quantitative_clai
 
 ## Current Maturity
 
-`validation_level: pilot_ready_contract_only`
+`validation_level: pilot_executed_private_fixture`
 
-The package is registered as a first public-safe contract. A controlled project-local pilot is still required before claiming pilot-executed, usable, or production-ready behavior.
+The package has completed controlled private helper-card pilots across three representative page families: a power page (`lt8624s`), an interface-heavy page (`ext_io_conn`), and an ambiguous/channelized page (`02_4ch_vga_ch5_8`). The pilots proved that the workflow can write bounded source-backed device-scope quantitative rows while preserving page-scope missing or review-required gaps instead of guessing.
 
-Recommended first pilot: run one power-oriented page with strong source evidence, one interface-oriented page where connector or mating context may remain missing, and one ambiguous or channelized page where the correct result may mostly be source gaps.
+The package is still conservative: it does not yet have a calibrated execution profile, and the optional overlay and harness-readiness-delta paths still need explicit pilot coverage before any stronger maturity claim.
