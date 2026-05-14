@@ -87,6 +87,14 @@
 - Executed a first controlled private representative planning pilot that turned verification-plan TRR seeds into test-interface, simulation-fixture, instrumentation-resource, and planning-blocker packets.
 - Updated the package maturity from `draft_contract_only` to `pilot_executed_private_fixture`.
 
+### Revision `working` - Source packet sufficiency review workflow added
+
+- Added `.workflow/source_packet_sufficiency_review_v0/` as a public-safe governance workflow for deciding whether current source/material/layout/simulation packets are sufficient for a bounded claim family.
+- Registered the workflow in `.workflow/index.yaml` and listed it in `.workflow/README.md` after `test_harness_asset_planning_v0`.
+- Defined explicit outputs for `source_sufficiency_packet`, `evidence_coverage_table`, `blocked_fields_register`, `owner_followup_needed`, `allowed_claim_ceiling`, `rerun_routes`, and `boundary_review_note`.
+- Executed a first controlled private representative sufficiency-review pilot that classified LT8624S power evidence, EXT_IO boundary evidence, page_02 rail semantics, and page_02 simulation evidence into source-supported, review-required, or blocked claim ceilings.
+- Updated the package maturity from `draft_contract_only` to `pilot_executed_private_fixture`.
+
 ### Revision `working` - Functional configuration audit page library workflow added
 
 - Added `.workflow/functional_configuration_audit_page_library_v0/` as a public-safe governance consumer for later FCA/SVR-style functional claim auditing.
