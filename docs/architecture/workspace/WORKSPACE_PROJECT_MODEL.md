@@ -48,10 +48,18 @@ _workspaces/
 
 ```text
 _workspaces/
+├── system/
+│   └── <run_family_or_pilot_id>/
+│       └── ... reusable workflow lab outputs ...
 └── <project_code>/
     └── ... actual project files ...
 
 _workmeta/
+├── system/
+│   ├── runs/
+│   │   └── <run_id>/
+│   └── reports/
+│       └── procedure_capture/
 └── <project_code>/
     ├── contract.yaml
     ├── bindings/
@@ -73,11 +81,14 @@ _workmeta/
 ## 정본 규칙
 
 - `_workspaces/<project_code>/` 가 실제 과제 현장 materialization root 다.
+- `_workspaces/system/` 은 특정 delivery project 가 아닌 reusable workflow lab pilot output 과 fixture materialization 을 두는 reserved local-only root 다.
 - 실제 프로젝트가 다른 경로에 이미 있으면 `_workspaces/<project_code>/` direct child 로 보이도록 local-only directory link 를 둘 수 있다.
 - `_workmeta/<project_code>/` 는 Soulforge root 아래 nested private metadata repo 다.
+- `_workmeta/system/` 은 project-agnostic reusable workflow evolution run evidence 와 procedure capture 를 두는 reserved lab metadata root 다.
 - `guild_hall/state/gateway/` 가 mail fetch 와 project assignment 전 intake staging 을 함께 담는 cross-project ingress root 다.
 - held mission plan 과 readiness owner 는 루트 `.mission/` 이다.
 - project 후보는 `_workspaces/<project_code>/` direct child 구조를 사용한다.
+- project 가 없는 reusable workflow 실험은 reserved `system/` owner 아래에서 관리할 수 있다.
 - `project_code` 는 경로와 식별에 쓰는 짧고 안정적인 id 로 두고, 사람용 full title 은 `contract.yaml` 의 `display_name` 에 둔다.
 - `_workmeta/<project_code>/` 는 분리된 registry 가 아니라 companion private root 안의 local contract, binding, raw execution truth 보관 위치다.
 - `_workmeta/<project_code>/monsters/` 는 project-side monster current state owner 다.
@@ -97,11 +108,13 @@ _workmeta/
 ## owner 경계
 
 - 프로젝트 실자료와 산출물은 `_workspaces/<project_code>/` 안에 남긴다.
+- 특정 프로젝트 owner 가 없는 reusable workflow pilot 출력은 `_workspaces/system/` 안에 남긴다.
 - `gateway` inbox / mailbox / monster event staging 은 `guild_hall/state/gateway/` 안에 남긴다.
 - held mission metadata 와 readiness 는 `.mission/<mission_id>/` 아래에 남긴다.
 - `.registry`, `.unit`, `.workflow`, `.party`, `guild_hall` 은 project binding 대상 또는 운영 owner 일 뿐, per-project 실자료 owner 가 아니다.
 - `.mission` 은 workflow/party/unit resolve 결과를 project-local run truth 와 분리해 소유한다.
 - `_workmeta/` 도 local execution surface 일 뿐 mission assignment owner 는 아니다.
+- `_workmeta/system/` 은 project onboarding root 가 아니라 reusable workflow lab owner 다.
 - 첫 실제 프로젝트 온보딩은 read-only structure review 후 bounded first run/use 를 수행하고, 그 다음 `_workmeta` local rule 을 보정하는 순서를 기본안으로 본다.
 - tracked example contract 와 binding YAML 은 local `_workmeta/<project_code>/` shape 를 public-safe 하게 보여주는 mirror 일 뿐, runtime owner 가 아니다.
 - tracked example 의 `runner/` packet sample 은 설명용 mirror 이며, local runtime 의 required directory 를 뜻하지 않는다.

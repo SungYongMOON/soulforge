@@ -22,7 +22,7 @@ flowchart TD
   DS --> UI["renderer / UI"]
   SRC --> A[".registry/**<br/>species / class canon"]
   SRC --> U[".unit/**/unit.yaml<br/>active unit owner"]
-  SRC --> W[".workflow/**/workflow.yaml<br/>workflow canon"]
+  SRC --> W[".workflow/index.yaml + registered workflow paths<br/>workflow canon"]
   SRC --> P[".party/**/party.yaml<br/>party template"]
   SRC --> M[".mission/**/mission.yaml<br/>held mission plan"]
   SRC --> X["_workspaces/&lt;project_code&gt;/<br/>opt-in local-only"]
@@ -42,7 +42,7 @@ flowchart TD
 | `species` | `.registry/index.yaml`, `.registry/species/**` | species / hero catalog |
 | `units` | `.unit/**/unit.yaml`, `.unit/**/{policy,protocols,runtime,memory,sessions,autonomic,artifacts}` | active unit owner surface |
 | `classes` | `.registry/index.yaml`, `.registry/classes/**/class.yaml`, refs | reusable class / package catalog |
-| `workflows` | `.workflow/index.yaml`, `.workflow/**/workflow.yaml`, related canon files | workflow canon + curated history |
+| `workflows` | `.workflow/index.yaml`, registered workflow paths, related canon files | workflow canon + curated history |
 | `parties` | `.party/index.yaml`, `.party/**/party.yaml`, related template files | reusable party template |
 | `missions` | `.mission/index.yaml`, `.mission/**/{mission,readiness,resolved_plan}.yaml` | held mission plan + readiness view |
 | `workspaces` | `_workspaces/README.md`, opt-in local-only `_workmeta/<project_code>/**` | local-only project worksite view |

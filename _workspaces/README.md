@@ -5,6 +5,7 @@
 - `_workspaces/` 는 public repo 에서 reserved/local-only project materialization mount point 다.
 - public GitHub 에서는 `_workspaces/README.md` 만 추적한다.
 - 실제 `_workspaces/<project_code>/` 는 로컬 환경에서만 materialize 되는 private project worksite 다.
+- reserved `_workspaces/system/` 은 특정 프로젝트에 속하지 않는 reusable workflow lab pilot output, fixture materialization, downloaded reference file 을 두는 local-only workspace 다.
 - cross-project ingress/runtime 은 `_workspaces/` 가 아니라 `guild_hall/state/**` 가 맡는다.
 - `company/`, `personal` 분기는 새 정본에 포함하지 않는다.
 - tracked sample 이 필요하면 `_workspaces/` 아래가 아니라 `docs/architecture/workspace/examples/` 아래에 둔다.
@@ -23,6 +24,9 @@ _workspaces/
 
 ```text
 _workspaces/
+├── system/
+│   └── <run_family_or_pilot_id>/
+│       └── ... reusable workflow lab outputs ...
 └── <project_code>/
     └── ... actual project files ...
 ```
@@ -30,6 +34,7 @@ _workspaces/
 ## owner 경계
 
 - `_workspaces/<project_code>/` 는 실제 프로젝트 파일, 산출물, 로컬 운영 상태를 담는 materialization site 다.
+- `_workspaces/system/` 은 특정 프로젝트 owner 가 없는 reusable workflow 실험, fixture 출력, pilot 산출물을 담는 reserved lab workspace 다.
 - 실제 프로젝트가 다른 로컬 경로에 이미 있으면 `_workspaces/<project_code>/` direct child 로 보이도록 local-only directory link 를 둘 수 있다.
 - `guild_hall/state/**` 는 cross-project ingress, notify, assignment 같은 운영 runtime 이고 `_workspaces/` owner 가 아니다.
 - held mission plan 과 readiness owner 는 이 경로가 아니라 루트 `.mission/` 이 소유한다.
@@ -43,6 +48,7 @@ _workspaces/
 ## tracking 규칙
 
 - 실제 project code 와 실제 프로젝트 디렉터리를 public repo 에 추가하지 않는다.
+- `_workspaces/system/**` 도 local-only runtime 이며 public GitHub 에 올리지 않는다.
 - tracked 문서와 public-safe example 에는 실제 project code, 실제 과제명, 실제 display name 을 적지 않고 generic example 만 쓴다.
 - `_workmeta/<project_code>/` 계약 파일도 public tracking 대상이 아니다.
 - repo 안에 남아 있는 legacy sample 또는 과거 경로 흔적은 정본이 아니며 후속 cleanup 범위다.

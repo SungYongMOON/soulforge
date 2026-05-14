@@ -15,7 +15,7 @@ Soulforge는 현실 업무를 게임식 운영 루프로 바꾸기 위한 저장
 ```text
 Soulforge/
 ├── .registry/       reusable canon store: species, classes, skills, tools, knowledge
-├── .unit/           active unit owner: guild_master, vanguard_01, scribe_01
+├── .unit/           active unit owner: guild_master
 ├── .workflow/       reusable procedure canon
 ├── .party/          reusable party templates
 ├── .mission/        held mission plans and readiness surfaces
@@ -24,8 +24,7 @@ Soulforge/
 ├── _workmeta/       nested private repo for project metadata and run truth
 ├── private-state/   nested private repo for selected continuity mirrors
 ├── docs/            root-owned public architecture documents
-├── ui-workspace/    derived UI consumer workspace and control center shell
-└── scripts/         root helper scripts
+└── ui-workspace/    derived UI consumer workspace and control center shell
 ```
 
 ## 읽는 순서
@@ -104,6 +103,7 @@ gateway/mail/manual input
 
 - `_workspaces/<project_code>/` 는 local-only 실제 프로젝트 현장이다.
 - `_workmeta/<project_code>/` 는 nested private repo이며 project rules, bindings, reports, runs를 담는다.
+- `_workspaces/system/` 과 `_workmeta/system/` 은 특정 delivery project 가 아닌 reusable workflow pilot 과 workflow-evolution evidence 를 두는 reserved lab lane 이다.
 - `private-state/` 는 selected continuity mirror다.
 - public repo에 올리는 것은 구조, 코드, public-safe sample, architecture 문서만이다.
 - secret 파일은 존재 여부만 확인하고 내용은 열지 않는다.

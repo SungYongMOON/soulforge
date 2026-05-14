@@ -26,6 +26,24 @@
 - 입력: golden workflow, fixture set, pass/fail criteria.
 - 출력: execution profile 후보, 제거 가능한 step, skill 추출 후보, regression gap.
 
+## Human-facing maturity ladder
+
+- `draft`
+  - workflow idea, draft package, or authoring note exists
+  - not yet registered in `.workflow/index.yaml`
+  - default storage: `.workflow/authoring/`, `_workmeta/system/reports/procedure_capture/**`, or the current run root
+- `pilot`
+  - at least one bounded fixture or execution packet has been run
+  - machine sub-states such as `pilot-ready` and `pilot-executed` may appear in run evidence
+- `usable`
+  - repeated runs show stable output shape and boundary behavior for the intended lane
+  - remaining follow-up gates may stay explicit as long as the current lane is reusable
+- `canon`
+  - public-safe reusable package is registered under `.workflow/<workflow_id>/` and listed in `.workflow/index.yaml`
+  - canon means package ownership plus registration; remaining runtime gaps stay in `validation_level`, notes, calibration history, or private evidence rather than downgrading the entry back to `draft`
+
+Treat this ladder as the human-facing stage model. Machine-oriented `output_state` and package `validation_level` are lower-level labels that refine the same stage rather than replacing it.
+
 ## Canon-lens compression
 
 Soulforge 의 species/class/unit/skill 구조는 긴 역할 지시를 줄이는 compression layer 로 검증한다.
