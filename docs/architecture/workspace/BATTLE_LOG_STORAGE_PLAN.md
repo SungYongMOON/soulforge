@@ -200,7 +200,7 @@
 
 ## ASSUMPTIONS
 
-- 현재 Soulforge 의 battle log raw truth 는 tracked canon 이 아니라 local-only worksite 아래에 두는 방향을 유지한다.
+- 현재 Soulforge 의 battle log raw truth 는 tracked canon 이 아니라 owner-only shared metadata plane `_workmeta/**` 아래에 두는 방향을 유지한다.
 - v0 에서는 event query 보다 append 안정성과 사람이 읽는 summary 를 더 우선한다.
 - SQLite 는 충분히 유력한 후보지만, 첫 dogfood 단계에서는 운영 복잡도를 낮추기 위해 기본안에서 제외한다.
 

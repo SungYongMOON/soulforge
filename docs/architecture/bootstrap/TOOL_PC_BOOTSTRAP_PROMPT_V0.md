@@ -50,6 +50,7 @@ docs/architecture/bootstrap/TOOL_PC_BOOTSTRAP_PROMPT_V0.md 를 읽고 이 PC를 
 - public repo 자동 commit/push 는 하지 않는다.
 - `gateway_fetch_primary`, `night_watch_active`, always-on scheduler 역할은 수행하지 않는다.
 - 실제 project 파일 내용은 bootstrap 중 깊게 읽지 않는다. 존재 여부와 top-level 형태만 확인한다.
+- bounded tool-bound 작업을 끝낼 때는 `docs/architecture/workspace/WORKMETA_MINIMUM_SCHEMA.md` 의 `_workmeta shared metadata plane` 기준을 따라 `_workmeta/<project_code>/` 또는 `_workmeta/system/` 에 cross-PC handoff 에 필요한 metadata 를 남긴다. 실제 project files 와 machine-local temp/cache 는 `_workspaces` 또는 local runtime 에 둔다.
 - `git reset --hard`, `git checkout --`, `git stash`, force push 는 하지 않는다.
 - 문제가 생기면 멈추고 현재 상태와 다음 안전한 조치만 보고한다.
 

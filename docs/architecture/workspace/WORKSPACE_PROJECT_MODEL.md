@@ -90,7 +90,7 @@ _workmeta/
 - project 후보는 `_workspaces/<project_code>/` direct child 구조를 사용한다.
 - project 가 없는 reusable workflow 실험은 reserved `system/` owner 아래에서 관리할 수 있다.
 - `project_code` 는 경로와 식별에 쓰는 짧고 안정적인 id 로 두고, 사람용 full title 은 `contract.yaml` 의 `display_name` 에 둔다.
-- `_workmeta/<project_code>/` 는 분리된 registry 가 아니라 companion private root 안의 local contract, binding, raw execution truth 보관 위치다.
+- `_workmeta/<project_code>/` 는 분리된 registry 가 아니라 companion private root 안의 shared metadata plane 이며 contract, binding, raw execution truth, owner-handoff metadata 보관 위치다.
 - `_workmeta/<project_code>/monsters/` 는 project-side monster current state owner 다.
 - assigned execution plan 과 mission-level 배정 owner 는 `_workmeta/` 가 아니라 `.mission/` 이 소유한다.
 - `_workmeta/<project_code>/autohunt/` 는 mailbox routing, workflow-party selection, retry-escalation 같은 자동사냥 운영 정책을 두는 local operating surface 다.
@@ -102,7 +102,7 @@ _workmeta/
 - `.mission/<mission_id>/mission.yaml` 은 workflow, party, unit assignment 를 묶은 held execution plan owner 다.
 - binding file 과 appserver/mailbox/execution operating metadata 는 orchestration contract 이며 raw truth owner 가 아니다.
 - `autohunt/` 는 run queue 와 routing policy 를 다루지만 raw truth owner 가 아니다.
-- `dungeons/`, `analytics/`, `nightly_healing/`, `reports/`, `log/`, `artifacts/` 는 모두 local/private owner 영역이다.
+- `dungeons/`, `analytics/`, `nightly_healing/`, `reports/`, `log/`, `artifacts/` 는 모두 owner-only private metadata 영역이며, current-default 에서는 `_workmeta` shared plane 을 통해 다른 owner PC 와 공유할 수 있다.
 - tracked contract example 은 `docs/architecture/workspace/examples/<project_code>/_workmeta/` 아래에만 둔다.
 
 ## owner 경계
@@ -133,7 +133,6 @@ _workmeta/
 - project assignment 규칙을 정본으로 승격할 때는 비밀 project code, 내부 관리번호, 외부에 닫힌 식별자를 직접 판정 키로 적지 않는다.
 - 여러 과제에 겹칠 수 있는 약어, 제품군명, 일반 사업유형은 단독 project hint 로 확정하지 않고 보조 힌트로만 다룬다.
 - 실제 프로젝트 첫 온보딩 절차는 [`PROJECT_ONBOARDING_V0.md`](PROJECT_ONBOARDING_V0.md) 를 따른다.
-- first run/use 중 생기는 실제 프로젝트별 working note 와 evidence 는 `_workmeta/<project_code>/reports/onboarding/`, `_workmeta/<project_code>/artifacts/onboarding/` 같은 local-only 경로에 둔다.
-- 새 시작 행위의 대화 순서와 실제 작업 순서는 사용자가 따로 요청하지 않아도 `_workmeta/<project_code>/reports/onboarding/project_start_worklog.md` 같은 local-only workflow record 로 남기는 것을 기본안으로 본다.
+- first run/use 중 생기는 실제 프로젝트별 working note 와 evidence 는 `_workmeta/<project_code>/reports/onboarding/`, `_workmeta/<project_code>/artifacts/onboarding/` 같은 owner-only shared metadata 경로에 둔다.
+- 새 시작 행위의 대화 순서와 실제 작업 순서는 사용자가 따로 요청하지 않아도 `_workmeta/<project_code>/reports/onboarding/project_start_worklog.md` 같은 shared workflow record 로 남기는 것을 기본안으로 본다.
 - validator 는 public-safe mode 와 opt-in local scan 을 구분해 동작한다.
-

@@ -20,7 +20,7 @@ owner 가 회사/집 사이를 오가며 handoff 할 때의 체크리스트는 [
   - local operator env 와 policy file 은 유지하되, private repo pull 은 하지 않는다.
 - `owner-with-state`
   - public `Soulforge` 와 owner-only nested `_workmeta/`, `private-state/` repo 를 모두 확인한다.
-  - `_workmeta/` 는 project-local metadata pull 대상이고, `private-state/` 는 continuity data pull 대상이다.
+  - `_workmeta/` 는 owner PC 사이에 공유되는 metadata plane pull 대상이고, `private-state/` 는 continuity data pull 대상이다.
 
 ## Chapter 2. 기본 원칙
 
@@ -29,7 +29,7 @@ owner 가 회사/집 사이를 오가며 handoff 할 때의 체크리스트는 [
 3. behind 인 repo 만 pull 한다.
 4. local env, token, password, cookie, session, credential JSON 은 업데이트 절차에서 읽거나 바꾸지 않는다.
 5. public repo 는 코드/문서/public-safe sample 만 갱신한다.
-6. project-local metadata 는 `_workmeta/` repo 에서, cross-project continuity data 는 `private-state/` repo 에서 갱신한다.
+6. project-local 및 system-level shared metadata 는 `_workmeta/` repo 에서, cross-project continuity data 는 `private-state/` repo 에서 갱신한다.
 7. pull 뒤에는 sync 가능한 Soulforge Codex skill 전체를 다시 sync 한다.
 8. 마지막에는 `guild-hall:doctor -- --profile <profile>` 로 safe readiness 를 다시 확인한다.
 9. 외부 자격증명까지 다시 확인할 필요가 있을 때만 `--live` 를 수행한다.

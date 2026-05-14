@@ -12,7 +12,7 @@
 ## 기본 원칙
 
 1. 기능 코드와 구조 문서는 public repo 에만 push 한다.
-2. project-local metadata 는 nested `_workmeta/` repo 에, continuity record 는 nested `private-state/` repo 에 push 한다.
+2. project-local 및 system-level shared metadata 는 nested `_workmeta/` repo 에, continuity record 는 nested `private-state/` repo 에 push 한다.
 3. private continuity data 는 사실상 한 시점에 한 PC 가 owner 처럼 쓰는 baton 방식으로 넘긴다.
 4. 다른 PC 에서 작업을 시작하기 전에는 먼저 `npm run guild-hall:doctor -- --profile owner-with-state --remote` 를 실행한다.
 5. `.env`, token, password, cookie, session, credential JSON 은 handoff 대상이 아니다.

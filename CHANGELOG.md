@@ -2,6 +2,12 @@
 
 ## 2026-05-13
 
+### Revision `working` - workmeta shared metadata plane clarified
+
+- Clarified current-default `_workmeta` policy as the owner-only shared metadata plane across PCs, including project metadata, run truth, logs, analytics, and artifact metadata when they are part of cross-PC handoff.
+- Clarified that non-metadata state such as actual `_workspaces` files, machine-local temp/cache, secrets, raw mail bodies, and attachment binaries stay outside `_workmeta` shared history.
+- Added a deterministic `guild-hall:workmeta:sync` command and updated always-on/update/handoff docs so a 24-hour PC can periodically pull/push `_workmeta` metadata alongside activity continuity handling.
+
 ### Revision `working` - always-on sync retry policy clarified
 
 - Added a bounded retry policy for always-on public pull and activity sync failures that look like transient GitHub, DNS, or network issues.
