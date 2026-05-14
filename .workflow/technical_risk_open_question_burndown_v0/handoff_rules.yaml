@@ -1,0 +1,16 @@
+workflow_id: technical_risk_open_question_burndown_v0
+kind: handoff_rules
+status: active
+rules:
+  - from: workflow_runner
+    to: risk_curator
+    condition: risk_binding_ready
+    summary: Curator receives only approved packet refs and policy, not raw payload dumps or secrets.
+  - from: risk_curator
+    to: burndown_mapper
+    condition: risk_rows_written
+    summary: Burndown mapper receives stable risk/open-question rows so closure criteria stay narrow.
+  - from: burndown_mapper
+    to: boundary_reviewer
+    condition: burndown_routes_written
+    summary: Boundary review receives the full bundle and confirms no acceptance or mutation overclaim.

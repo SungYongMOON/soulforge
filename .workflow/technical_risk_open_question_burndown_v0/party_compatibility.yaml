@@ -1,0 +1,10 @@
+workflow_id: technical_risk_open_question_burndown_v0
+kind: party_compatibility
+status: active
+compatible_parties:
+  - party_id: solo_operator
+    status: supported
+  - party_id: owner_plus_executor
+    status: supported
+notes:
+  - The workflow may run with one operator, but it preserves owner approval boundaries.

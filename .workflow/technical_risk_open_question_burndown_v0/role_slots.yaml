@@ -1,0 +1,12 @@
+workflow_id: technical_risk_open_question_burndown_v0
+kind: role_slots
+status: active
+slots:
+  - slot_id: workflow_runner
+    summary: owns risk-scope resolution and output-root setup
+  - slot_id: risk_curator
+    summary: inventories risk and open-question rows from upstream packets
+  - slot_id: burndown_mapper
+    summary: maps closure criteria, owner follow-up, and rerun routes
+  - slot_id: boundary_reviewer
+    summary: checks non-claims and read-only boundary posture

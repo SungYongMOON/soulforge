@@ -1,0 +1,18 @@
+workflow_id: technical_risk_open_question_burndown_v0
+kind: project_binding_template
+status: template
+project_code: "<project_code>"
+risk_burndown_run_id: "<run_id>"
+inputs:
+  risk_scope_refs:
+    - packet_repo_path: "_workmeta/<project_code>/bindings/<risk_scope_packet>"
+      read_only: true
+approved_risk_register_policy:
+  upstream_packets_are_read_only: true
+  uncertainty_must_remain_visible: true
+outputs:
+  risk_output_root_repo_path: "_workmeta/<project_code>/runs/<run_id>/risk_burndown/technical_risk_open_question_burndown_v0"
+public_boundary:
+  commit_project_outputs_to_public_repo: false
+  include_raw_project_payloads_in_workflow_package: false
+  use_runtime_absolute_paths_in_workflow_package: false

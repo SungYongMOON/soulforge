@@ -1,0 +1,28 @@
+workflow_id: technical_risk_open_question_burndown_v0
+kind: step_graph
+status: active
+steps:
+  - step_id: prepare_risk_binding
+    title: Prepare Risk Binding
+    actor_slot: workflow_runner
+    action:
+      kind: project_local_risk_binding_setup
+    summary: Resolve bounded risk scope and output root.
+  - step_id: curate_risk_rows
+    title: Curate Risk Rows
+    actor_slot: risk_curator
+    action:
+      kind: risk_and_open_question_inventory
+    summary: Inventory risk and open-question rows from upstream packets.
+  - step_id: map_burndown_routes
+    title: Map Burndown Routes
+    actor_slot: burndown_mapper
+    action:
+      kind: closure_criteria_and_rerun_route_mapping
+    summary: Map closure criteria, owner follow-up, and rerun routes.
+  - step_id: write_bundle_and_boundary_review
+    title: Write Bundle And Boundary Review
+    actor_slot: boundary_reviewer
+    action:
+      kind: risk_bundle_write_and_boundary_review
+    summary: Confirm no acceptance or mutation overclaim before publication.
