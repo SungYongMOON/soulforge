@@ -22,6 +22,8 @@ It does not execute tests, execute simulations, approve TRR, mutate upstream pac
 
 ## Current Maturity
 
-`validation_level: draft_contract_only`
+`validation_level: pilot_executed_private_fixture`
 
-This package is registered as a first public-safe contract skeleton. A controlled project-local planning pilot is still required before claiming pilot-executed, usable, or production-ready behavior.
+This package has completed a controlled private representative planning pilot. The first pilot turned verification-plan TRR seeds into test-interface, simulation-fixture, instrumentation-resource, and planning-blocker packets without claiming execution or approval.
+
+The package is still conservative: it does not yet have a calibrated execution profile, a richer physical fixture case, or a genuinely TRR-ready example.

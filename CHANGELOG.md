@@ -79,6 +79,14 @@
 - Executed a first controlled private representative baseline/change-control pilot that inventoried pre-baseline evidence packets, derived change requests from the review lane, and routed reruns or owner follow-up without claiming baseline approval.
 - Updated the package maturity from `draft_contract_only` to `pilot_executed_private_fixture`.
 
+### Revision `working` - Test harness asset planning workflow added
+
+- Added `.workflow/test_harness_asset_planning_v0/` as a public-safe planning workflow for the physical, simulation, or software harness assets needed to verify page modules and composed harness candidates.
+- Registered the workflow in `.workflow/index.yaml` and listed it in `.workflow/README.md` after `functional_configuration_audit_page_library_v0`.
+- Defined explicit outputs for `test_harness_manifest`, `test_interface_list`, `simulation_fixture_needs`, `instrumentation_resource_list`, `trr_readiness_checklist`, `planning_blockers`, `owner_followup_needed`, and `boundary_review_note`.
+- Executed a first controlled private representative planning pilot that turned verification-plan TRR seeds into test-interface, simulation-fixture, instrumentation-resource, and planning-blocker packets.
+- Updated the package maturity from `draft_contract_only` to `pilot_executed_private_fixture`.
+
 ### Revision `working` - Interface control and harness readiness workflow added
 
 - Added `.workflow/interface_control_and_harness_readiness_v0/` as a public-safe governance bridge before or alongside harness composition.
