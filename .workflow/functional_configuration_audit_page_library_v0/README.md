@@ -22,6 +22,8 @@ It splits claims into verified, unverified, discrepant, or residual-risk categor
 
 ## Current Maturity
 
-`validation_level: draft_contract_only`
+`validation_level: pilot_executed_private_fixture`
 
-This package is registered as a first public-safe contract skeleton. A controlled project-local audit pilot is still required before claiming pilot-executed, usable, or production-ready behavior.
+This package has completed a controlled private representative FCA/SVR-style audit pilot. The first pilot showed how unverified, discrepant, and residual-risk claim rows can be packaged without treating planning packets as accepted verification evidence or claiming acceptance.
+
+The package is still conservative: it does not yet have a calibrated execution profile, an accepted verification-result case, or an owner-acceptance/signoff example.
