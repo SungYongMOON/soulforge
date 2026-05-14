@@ -22,7 +22,7 @@
 
 - mail fetch, mail healthcheck, town_crier 는 LLM 을 호출하지 않는다.
 - Codex heartbeat 는 비용이 있으므로 짧은 주기 감시에 쓰지 않는다.
-- Codex heartbeat 는 운영 점검 전에 public repo 가 clean `main` 이면 `git pull --ff-only origin main` 을 먼저 시도한다. GitHub/DNS/network 실패는 local-only 복구 대상이 아니므로 stale/blocker 로 보고하고, private/mail runtime 원문은 읽지 않는다.
+- Codex heartbeat 는 운영 점검 전에 public repo 가 clean `main` 이면 `git pull --ff-only origin main` 을 먼저 시도한다. GitHub/DNS/network 실패처럼 일시 장애일 수 있는 실패는 최대 3회까지 재시도하되, 60초 후 1회와 180초 후 1회만 추가 시도한다. 모두 실패하면 local-only 복구 대상이 아니므로 stale/blocker 로 보고하고, private/mail runtime 원문은 읽지 않는다.
 - 자주 도는 감시는 launchd + deterministic script 로 처리한다.
 - LLM 은 하루 1회 morning report, 장애 triage, owner 가 요청한 해석 작업에만 가깝게 둔다.
 
@@ -157,6 +157,7 @@ always-on node 에서 수행한다.
 - 다른 PC 로 넘기는 것은 메일 원문이 아니라 `mail_candidate` 의 body-safe activity summary 다.
 - `guild-hall:activity:sync` 는 sync 전에 pending candidate 를 `mail_candidate_summary` activity event 로 투영한다.
 - 시간당 heartbeat 의 activity sync 또는 09:00/18:00 dedicated activity sync 가 성공하면 다른 PC 는 private-state pull 로 새 후보 존재를 알 수 있다.
+- activity sync 실행 자체가 GitHub/DNS/network 계열 문제로 실패하면 같은 재시도 정책을 적용한다. 재시도 후에도 실패하면 다음 정기 실행까지 기다리고, owner 에게는 `stale_sync_blocked` 와 마지막 안전 상태만 보고한다.
 - 실제 메일 원문, HTML body, attachment, mailbox cursor 는 24시간 PC 의 local `guild_hall/state/gateway/**` 에 남긴다.
 - 후보를 실제 monster/intake request 로 승격하는 작업은 원문과 local runtime 을 가진 24시간 PC 에서 수행하는 것을 기본값으로 본다.
 

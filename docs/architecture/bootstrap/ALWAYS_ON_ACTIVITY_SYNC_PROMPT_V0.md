@@ -67,11 +67,18 @@ git switch main
 git pull --ff-only origin main
 ```
 
+GitHub/DNS/network 계열 실패처럼 일시 장애일 수 있는 경우에는 최대 3회까지 시도한다.
+첫 실패 후 60초 대기, 두 번째 실패 후 180초 대기, 세 번째 실패 후에는 `stale_sync_blocked` 로 보고하고 중단한다.
+dirty worktree, non-main branch, merge/rebase 필요 같은 precondition 실패는 재시도하지 않는다.
+
 activity sync 를 실행한다.
 
 ```bash
 npm run guild-hall:activity:sync -- --json
 ```
+
+`guild-hall:activity:sync` 가 `private-state` pull/push 또는 GitHub/DNS/network 계열 문제로 실패하면 같은 3회 재시도 정책을 적용한다.
+재시도 후에도 실패하면 raw mail/body/html/attachment/secret 을 읽지 않고 blocked 로 보고한다.
 
 ### 최종 보고
 
@@ -89,5 +96,6 @@ mail_candidate_projected:
 secret_read: false
 raw_mail_body_read: false
 attachment_read: false
+retry_attempts:
 next_action:
 ```

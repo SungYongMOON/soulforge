@@ -2,6 +2,12 @@
 
 ## 2026-05-13
 
+### Revision `working` - always-on sync retry policy clarified
+
+- Added a bounded retry policy for always-on public pull and activity sync failures that look like transient GitHub, DNS, or network issues.
+- Limited retries to three total attempts with 60-second and 180-second waits, while keeping dirty worktree, non-main branch, and merge-required states as immediate blockers.
+- Kept raw mail, attachment, mailbox payload, `_workmeta`, `_workspaces`, and secret reads out of retry handling.
+
 ### Revision `working` - always-on heartbeat pull preflight clarified
 
 - Clarified that the hourly Codex `Soulforge 운영 감시` heartbeat should fast-forward pull clean public `main` before health checks and activity sync.
