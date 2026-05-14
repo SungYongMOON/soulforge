@@ -1,0 +1,33 @@
+workflow_id: owner_decision_packet_v0
+kind: workflow
+status: active
+title: Owner Decision Packet v0
+summary: Record scoped owner decisions, approval boundaries, affected artifacts, and downstream effects in a reusable packet without mutating upstream artifacts or overstating technical evidence.
+entrypoint: run
+execution_mode: local_tool_sequence
+role_slots: role_slots.yaml
+step_graph: step_graph.yaml
+handoff_rules: handoff_rules.yaml
+monster_rules: monster_rules.yaml
+party_compatibility: party_compatibility.yaml
+profile_policy: profile_policy.yaml
+inputs:
+  - owner_decision_scope
+  - owner_decision_statement
+  - owner_decision_policy
+optional_inputs:
+  - affected_workflow_refs
+  - evidence_basis_refs
+  - affected_page_asset_refs
+  - affected_harness_refs
+  - affected_connection_refs
+outputs:
+  - owner_decision_packet
+  - decision_effect_register
+  - downstream_effect_map
+  - boundary_review_note
+validation_level: draft_contract_only
+registration_policy: owner_requested_registration
+notes:
+  - This workflow defines a reusable owner-decision packet shape for later workflows that already accept `owner_decision_refs`.
+  - It records scope and effect; it does not itself make technical evidence true.

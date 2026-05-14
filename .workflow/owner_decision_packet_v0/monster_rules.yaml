@@ -1,0 +1,10 @@
+workflow_id: owner_decision_packet_v0
+kind: monster_rules
+status: active
+rules:
+  - monster_id: owner_decision_treated_as_source_truth
+    response: preserve_scope_and_non_claims
+    summary: Owner decisions can scope or approve intent, but they do not replace missing source evidence beyond that scope.
+  - monster_id: upstream_artifact_mutated
+    response: stop_and_emit_boundary_review_note
+    summary: The decision packet must not patch upstream workflow artifacts.

@@ -1,0 +1,28 @@
+workflow_id: owner_decision_packet_v0
+kind: step_graph
+status: active
+steps:
+  - step_id: prepare_decision_binding
+    title: Prepare Decision Binding
+    actor_slot: workflow_runner
+    action:
+      kind: project_local_owner_decision_binding_setup
+    summary: Resolve bounded decision scope and output root.
+  - step_id: curate_decision
+    title: Curate Decision
+    actor_slot: decision_curator
+    action:
+      kind: scoped_owner_decision_inventory
+    summary: Record the scoped decision, affected surfaces, and evidence basis refs.
+  - step_id: map_effects
+    title: Map Effects
+    actor_slot: effect_mapper
+    action:
+      kind: downstream_effect_and_non_claim_mapping
+    summary: Map downstream impact and preserve what the decision does not prove.
+  - step_id: write_bundle_and_boundary_review
+    title: Write Bundle And Boundary Review
+    actor_slot: boundary_reviewer
+    action:
+      kind: owner_decision_bundle_write_and_boundary_review
+    summary: Confirm no upstream mutation and no overclaim of technical evidence.

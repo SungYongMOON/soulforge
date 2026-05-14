@@ -1,0 +1,16 @@
+workflow_id: owner_decision_packet_v0
+kind: handoff_rules
+status: active
+rules:
+  - from: workflow_runner
+    to: decision_curator
+    condition: decision_binding_ready
+    summary: Curator receives only approved decision scope and refs, not raw payload dumps or secrets.
+  - from: decision_curator
+    to: effect_mapper
+    condition: decision_packet_draft_written
+    summary: Effect mapper receives the scoped decision and evidence refs so downstream impact stays bounded.
+  - from: effect_mapper
+    to: boundary_reviewer
+    condition: downstream_effect_map_written
+    summary: Boundary review receives the full packet and confirms the decision does not overclaim technical truth.
