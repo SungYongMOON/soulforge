@@ -58,6 +58,10 @@ The suffix `possible` is intentional. These states are ceilings for later harnes
 
 ## Current Maturity
 
-`validation_level: pilot_ready_contract_only`
+`validation_level: pilot_executed_private_fixture`
 
-This package is registered as a public-safe contract package. The best first pilot is a controlled project-local run over the representative page trio already used in adjacent private pilots: one power page, one interface-heavy page, one ambiguous/channelized page, plus an existing harness packet containing blocked or review-required joins.
+The package has completed a controlled private pilot over the representative page trio already used in adjacent private runs: one power page, one interface-heavy page, one ambiguous/channelized page, plus an existing harness packet containing blocked and review-required joins.
+
+The pilot confirmed the intended conservative behavior: local/internal interfaces stayed blocked as external endpoints, review-only passive or boundary surfaces stayed review-required, and no `candidate_safe_possible` or `source_supported_possible` rows were fabricated.
+
+The package is still conservative: it does not yet have a calibrated execution profile, and broader fixture coverage plus at least one stronger readiness example are still needed before any stronger maturity claim.

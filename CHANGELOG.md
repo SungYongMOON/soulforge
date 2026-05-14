@@ -50,7 +50,8 @@
 - Required `local_internal_candidates` to remain non-external by default and to block harness endpoint use unless scoped reclassification evidence exists.
 - Kept readiness statuses as ceilings for downstream `xml_harness_composition_v0`; the package does not mutate upstream packets, replace harness composition, or overclaim source support.
 - Kept source XML, normalized sidecars, intake packets, source packets, materials outputs, layout guides, quantitative overlays, trace matrices, harness packets, raw project payloads, vendor text, runtime absolute paths, credentials, cookies, sessions, `_workspaces` outputs, and private run truth out of public workflow canon.
-- Marked the package `pilot_ready_contract_only`; a controlled power/interface/ambiguous-page project-local pilot with an existing blocked/review-required harness packet is still required before claiming pilot-executed or usable behavior.
+- Executed a first controlled private pilot over the representative power/interface/ambiguous page trio plus an existing blocked/review-required harness packet, writing full readiness-ceiling, blocker, follow-up, and harness-input-delta outputs.
+- Updated the package maturity from `pilot_ready_contract_only` to `pilot_executed_private_fixture`.
 
 ### Revision `working` - Page module trace matrix workflow added
 
