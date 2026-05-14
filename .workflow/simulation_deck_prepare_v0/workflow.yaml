@@ -2,7 +2,7 @@ workflow_id: simulation_deck_prepare_v0
 kind: workflow
 status: active
 title: Simulation Deck Prepare v0
-summary: Prepare or stage bounded simulation deck inputs from approved model packets, demo circuits, operating conditions, and simulator policy before any simulation execution or result verification workflow runs.
+summary: Prepare or stage bounded simulation deck inputs from approved model packets, deck or demo-circuit refs, operating conditions, stimuli, measurements, and simulator policy before any simulation execution or result verification workflow runs.
 entrypoint: run
 execution_mode: local_tool_sequence
 role_slots: role_slots.yaml
@@ -32,12 +32,15 @@ outputs:
   - simulation_deck_packet
   - deck_input_manifest
   - model_dependency_map
+  - stimulus_measurement_plan
+  - simulator_setup_requirements
+  - deck_staging_manifest
   - unresolved_deck_inputs
   - deck_prepare_blockers
   - owner_followup_needed
   - downstream_handoff
   - boundary_review_note
-validation_level: draft_contract_only
+validation_level: pilot_executed_private_fixture
 registration_policy: owner_requested_registration
 workflow_modes:
   - scaffold_only
@@ -97,10 +100,24 @@ deck_prepare_contract:
     upstream_packets_are_read_only: true
     blocked_prepare_is_not_failed_simulation: true
     compatibility_guessing_from_extension_or_name_forbidden: true
+    staged_manifest_is_not_run_authorization: true
+    stimulus_measurement_plan_is_not_measurement_result: true
+  must_block_on:
+    - missing_required_model
+    - blocked_or_unapproved_required_model
+    - missing_deck_or_topology_source
+    - missing_deck_prepare_policy
+    - missing_stimulus
+    - missing_measurement
+    - missing_operating_condition
+    - missing_model_dependency
+    - unsupported_or_unverified_simulator_compatibility
+    - unapproved_model_conversion
+    - owner_decision_needed
   required_output_shapes:
     project_binding: templates/project_binding.template.yaml
 notes:
-  - This workflow is pre-run and pre-verify only. It may prepare a bounded deck packet or explicitly block when required models, dependencies, stimuli, measurements, policies, or owner decisions are missing.
+  - This workflow is pre-run and pre-verify only. It may prepare a bounded deck packet or explicitly block when required models, deck/topology sources, policies, dependencies, operating conditions, stimuli, measurements, simulator compatibility evidence, or owner decisions are missing.
   - The correct v0 result may be mostly unresolved inputs and blockers. That is successful when it prevents downstream workflows from pretending a runnable deck already exists.
   - Public workflow canon stores only portable orchestration rules, state semantics, and sanitized templates.
   - Public workflow files must not contain raw model payloads, generated deck payloads, simulation outputs, runtime absolute paths, `_workspaces` outputs, credentials, cookies, sessions, or private run truth.

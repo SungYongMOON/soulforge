@@ -6,5 +6,19 @@ compatible_parties:
     status: supported
   - party_id: owner_plus_executor
     status: supported
+compatible_party_templates:
+  - workflow_research_build_verify
+  - hardware_model_readiness_review
+  - verification_planning_review
+required_capabilities:
+  - project_local_binding_resolution
+  - simulation_source_packet_reading
+  - model_and_deck_input_manifesting
+  - simulator_policy_review
+  - stimulus_and_measurement_preflight_planning
+  - blocker_and_owner_followup_classification
+  - downstream_readiness_partitioning
+  - public_private_boundary_review
 notes:
   - The workflow may run with one operator, but it preserves clear owner/executor boundaries for models and simulator policy.
+  - Fresh executor and separate verifier review are required before claiming pilot-executed, usable, or production-ready behavior.

@@ -3,10 +3,14 @@ kind: role_slots
 status: active
 slots:
   - slot_id: workflow_runner
-    summary: owns binding resolution and output-root setup
+    title: Workflow Runner
+    summary: Resolves project-local binding, output-root setup, deck preparation policy, and pre-run boundary checks.
   - slot_id: deck_input_curator
-    summary: curates approved model, demo-circuit, and optional policy inputs into a bounded deck-input set
+    title: Deck Input Curator
+    summary: Curates approved model, deck or demo-circuit, dependency, simulator policy, stimulus, measurement, and operating-condition refs into a bounded deck-input set.
   - slot_id: blocker_mapper
-    summary: classifies unresolved deck inputs and owner follow-up needs
+    title: Blocker Mapper
+    summary: Classifies unresolved deck inputs, policy gaps, stimulus and measurement gaps, simulator compatibility blockers, unapproved conversion, and owner follow-up needs.
   - slot_id: boundary_reviewer
-    summary: checks pre-run boundaries and confirms no execution/result overclaim
+    title: Boundary Reviewer
+    summary: Checks pre-run boundaries, upstream read-only handling, public/private safety, and no execution/result overclaim.

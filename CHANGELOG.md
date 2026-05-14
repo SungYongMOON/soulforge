@@ -54,6 +54,13 @@
 - Executed a first controlled private mixed model-source pilot that separated an available official LTspice demo-circuit source, a missing page_02 major-IC model set, and a missing connector-facing SI model need into explicit downstream readiness states.
 - Updated the package maturity from `pilot_ready_contract_only` to `pilot_executed_private_fixture`.
 
+### Revision `working` - Simulation deck prepare workflow added
+
+- Added `.workflow/simulation_deck_prepare_v0/` as a public-safe pre-run workflow for staging simulation deck inputs from approved model packets, demo circuits, stimuli, measurements, and simulator policy.
+- Registered the workflow in `.workflow/index.yaml` and listed it in `.workflow/README.md` after `simulation_source_collect_v0`.
+- Defined explicit outputs for `simulation_deck_packet`, `deck_input_manifest`, `model_dependency_map`, `unresolved_deck_inputs`, `deck_prepare_blockers`, `owner_followup_needed`, `downstream_handoff`, and `boundary_review_note`.
+- Kept the first version conservative: it prepares or blocks deck inputs, but it does not execute simulations, verify results, or invent missing models.
+
 ### Revision `working` - Interface control and harness readiness workflow added
 
 - Added `.workflow/interface_control_and_harness_readiness_v0/` as a public-safe governance bridge before or alongside harness composition.

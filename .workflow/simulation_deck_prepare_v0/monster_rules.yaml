@@ -8,9 +8,24 @@ rules:
   - monster_id: compatible_by_extension_only
     response: downgrade_to_review_only_or_blocked
     summary: File extension or part name alone cannot prove runnable deck compatibility.
+  - monster_id: missing_deck_or_policy_hidden
+    response: write_deck_prepare_blocker
+    summary: Missing deck/topology source, deck preparation policy, simulator policy, reuse approval, or owner decision must remain a blocker.
+  - monster_id: missing_stimulus_or_measurement_hidden
+    response: write_stimulus_measurement_blocker
+    summary: Missing stimuli, measurements, operating conditions, or criteria seed refs must not be replaced with guessed defaults.
+  - monster_id: unapproved_model_conversion
+    response: block_until_source_or_owner_policy_allows_conversion
+    summary: Model conversion, wrapper generation, syntax adaptation, or cross-simulator remapping requires explicit source or owner approval.
   - monster_id: prepared_deck_treated_as_run_result
     response: relabel_as_prepared_input_only
     summary: Prepared deck inputs are not execution evidence or waveform results.
+  - monster_id: simulator_execution_scope_creep
+    response: stop_before_simulator_execution
+    summary: This workflow must not launch simulators, run decks, collect waveforms, compute measurements, or claim pass/fail results.
   - monster_id: upstream_packet_mutated
     response: stop_and_emit_boundary_review_note
     summary: The workflow must not patch source, quantitative, or model packets.
+  - monster_id: raw_payload_or_runtime_path_leak
+    response: remove_payload_and_keep_contract_shape_only
+    summary: Public workflow canon must not contain raw model text, deck payloads, simulator outputs, local runtime paths, credentials, cookies, sessions, or private run truth.

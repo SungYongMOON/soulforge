@@ -5,11 +5,11 @@ rules:
   - from: workflow_runner
     to: deck_input_curator
     condition: deck_prepare_binding_ready
-    summary: Curator receives only approved model and policy refs, not raw payload dumps, secrets, or runtime account state.
+    summary: Curator receives only approved model, deck, policy, stimulus, measurement, operating-condition, and simulator refs, not raw payload dumps, secrets, or runtime account state.
   - from: deck_input_curator
     to: blocker_mapper
     condition: deck_input_inventory_written
-    summary: Blocker mapper receives prepared vs unresolved deck inputs so missing dependencies stay explicit.
+    summary: Blocker mapper receives prepared vs unresolved deck inputs so missing models, deck sources, policies, stimuli, measurements, dependencies, owner decisions, and simulator compatibility stay explicit.
   - from: blocker_mapper
     to: boundary_reviewer
     condition: deck_prepare_packet_written
