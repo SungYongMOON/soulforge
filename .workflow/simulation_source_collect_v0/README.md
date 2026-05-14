@@ -56,8 +56,8 @@ Compatibility basis must be named as `vendor_declared`, `tool_library_metadata`,
 
 ## Current Maturity
 
-`validation_level: pilot_ready_contract_only`
+`validation_level: pilot_executed_private_fixture`
 
-The package is registered as a first public-safe contract. A controlled project-local pilot is still required before claiming pilot-executed, usable, or production-ready behavior.
+The package has completed a controlled private mixed model-source pilot. The first pilot separated an available official LTspice demo-circuit source, a missing page_02 major-IC model set, and a missing connector-facing SI model need into one packet with explicit deck-prepare, run-verify, quantitative, harness, and source-gap handoff states.
 
-Best first pilot: a small mixed hardware page or component set with one analog/power part that has official SPICE or LTspice collateral, one digital or connector-facing item needing IBIS or S-parameter evidence, one missing or gated model case, and one vendor demo circuit or evaluation-board simulation example if available.
+The package is still conservative: it does not yet have a calibrated execution profile, a tool-library or owner-approved-local model case, or a smoke-tested simulator compatibility example.
