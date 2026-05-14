@@ -20,7 +20,8 @@
 - Required decisions to stay separate from proposed decisions and deferred decisions, with actual decisions needing scoped owner decision evidence.
 - Kept the package evidence-packaging-only: it does not approve a review gate, certify verification completion, replace owner judgment, make missing sources true, mutate upstream packets, or make private evidence public-safe.
 - Kept source XML, normalized sidecars, upstream packets, verification results, test logs, simulation outputs, raw project payloads, vendor text, runtime absolute paths, credentials, cookies, sessions, `_workspaces` outputs, and private run truth out of public workflow canon.
-- Marked the package `pilot_ready_contract_only`; a controlled mixed page/harness review packet pilot is still required before claiming pilot-executed, usable, or production-ready behavior.
+- Executed a first controlled private mixed-tailored review-readiness pilot that consumed trace, interface-control, verification-plan, source-gap, and harness packet refs and produced a `ready_with_named_caveats` review packet with explicit blockers, action items, proposed decisions, and carry-forward routes.
+- Updated the package maturity from `pilot_ready_contract_only` to `pilot_executed_private_fixture`.
 
 ### Revision `working` - Verification plan from page contracts workflow added
 
@@ -30,7 +31,8 @@
 - Required inspection, analysis, simulation, test, demonstration, owner-review, and not-ready methods to remain distinct, with missing evidence preserved as blockers or review-needed actions.
 - Kept the package planning-only: it does not run tests or simulations, accept verification results, approve TRR, accept FCA/SVR evidence, promote harness connections, or claim pass/fail outcomes.
 - Kept source XML, normalized sidecars, upstream packets, model payloads, simulation outputs, test logs, raw project payloads, vendor text, runtime absolute paths, credentials, cookies, sessions, `_workspaces` outputs, and private run truth out of public workflow canon.
-- Marked the package `pilot_ready_contract_only`; a controlled mixed page/trace/source/harness project-local pilot is still required before claiming pilot-executed, usable, or production-ready behavior.
+- Executed a first controlled private representative-item pilot that turned trace/source/quantitative/interface/harness evidence into distinct `inspection`, `analysis`, `simulation`, and `owner_review` planning items with TRR/FCA-SVR handoff seeds.
+- Updated the package maturity from `pilot_ready_contract_only` to `pilot_executed_private_fixture`.
 
 ### Revision `working` - Simulation source collection workflow added
 

@@ -42,7 +42,7 @@ outputs:
   - review_gate_provenance
   - readiness_summary
   - boundary_review_note
-validation_level: pilot_ready_contract_only
+validation_level: pilot_executed_private_fixture
 registration_policy: owner_requested_registration
 workflow_modes:
   - scope_review_pack

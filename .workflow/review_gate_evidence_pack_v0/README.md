@@ -49,8 +49,8 @@ It does not approve a review gate, certify verification completion, replace owne
 
 ## Current Maturity
 
-`validation_level: pilot_ready_contract_only`
+`validation_level: pilot_executed_private_fixture`
 
-The package is registered as a first public-safe contract. A controlled project-local pilot is still required before claiming pilot-executed, usable, or production-ready behavior.
+The package has completed a controlled private mixed-tailored review-readiness pilot over the representative page lane. The first pilot consumed trace, interface-control, verification-plan, source-gap, and harness evidence to produce entrance criteria, success criteria, blockers, action items, and a readiness summary without claiming review approval or verification completion.
 
-Best first pilot: a mixed page/harness review packet over the existing representative page lane with one power-oriented page carrying source/material/layout/quantitative evidence, one interface-oriented page with connector or owner-map gaps, one ambiguous or channelized page with source gaps, one harness packet with blocked and review-required joins, one trace-matrix review index, and one verification-plan/TRR handoff.
+The package is still conservative: it does not yet have a calibrated execution profile, and broader review-family coverage plus real owner decision and closure-loop follow-through are still needed before any stronger maturity claim.

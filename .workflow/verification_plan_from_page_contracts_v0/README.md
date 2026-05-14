@@ -51,8 +51,8 @@ It does not run tests, run simulations, accept verification results, approve TRR
 
 ## Current Maturity
 
-`validation_level: pilot_ready_contract_only`
+`validation_level: pilot_executed_private_fixture`
 
-The package is registered as a first public-safe contract. A controlled project-local pilot is still required before claiming pilot-executed, usable, or production-ready behavior.
+The package has completed a controlled private representative-item pilot over the mixed page/source/quantitative/interface/harness lane. The first pilot proved that the workflow can assign distinct methods, preserve blocked evidence as first-class planning gaps, and write TRR/FCA-SVR handoff structures without claiming execution or acceptance.
 
-Best first pilot: the representative mixed page lane with one power-oriented page carrying source/material/layout/quantitative evidence, one interface-oriented page with connector or owner-map gaps, one page or component with simulation-source status showing at least one available model and one missing/blocked model, one harness packet with blocked and review-required connection claims, and a trace matrix containing `verification_seed_matrix.yaml`.
+The package is still conservative: it does not yet have a calibrated execution profile, and the current pilot is a representative planning slice rather than a broad verification-plan sweep over many claim families and baseline-rich execution scenarios.
