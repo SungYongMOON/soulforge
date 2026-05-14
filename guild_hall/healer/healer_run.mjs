@@ -9,6 +9,7 @@ import {
   sanitizeActivityValue,
 } from "../activity/activity_log.mjs";
 import { normalizeRepoPath, relativeToRepo, writeJson } from "../shared/io.mjs";
+import { enqueueNotification } from "../town_crier/runtime.mjs";
 
 export const HEALER_AUTOMATION_ID = "soulforge-healer-run";
 
@@ -76,6 +77,15 @@ export async function runHealerOnce(options = {}) {
     nextAction,
     checks,
   });
+  const notification =
+    result === "failed" && options.notifyOnFailure === true
+      ? await enqueueHealerFailureNotification({
+          repoRoot,
+          failedChecks,
+          summary,
+          reportRef: report.report_ref,
+        })
+      : null;
   const activity = await appendActivityEvent({
     repoRoot,
     activityRoot,
@@ -100,6 +110,7 @@ export async function runHealerOnce(options = {}) {
     node_id: identity.node_id,
     node_role: identity.node_role,
     checks,
+    notification,
     files: {
       report_path: report.report_path,
       report_ref: report.report_ref,
@@ -234,6 +245,31 @@ function buildSummary(result, checks) {
 
   const failed = checks.filter((check) => check.status === "failed").map((check) => check.id).join(", ");
   return `healer run failed: ${failed}.`;
+}
+
+async function enqueueHealerFailureNotification({ repoRoot, failedChecks, summary, reportRef }) {
+  const failedIds = failedChecks.map((check) => check.id).join(", ");
+  const text = [
+    `healer failure: ${failedIds}`,
+    summary,
+    `report: ${reportRef}`,
+  ].join("\n");
+
+  try {
+    return await enqueueNotification(repoRoot, {
+      owner_scope: "healer",
+      event: "healer_failed",
+      text,
+      source_ref: reportRef,
+      mission_ref: null,
+    });
+  } catch (error) {
+    return {
+      ok: false,
+      status: "queue_failed",
+      error: error instanceof Error ? error.message : String(error),
+    };
+  }
 }
 
 function sanitizeCommandOutput(value) {

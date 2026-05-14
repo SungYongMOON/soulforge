@@ -17,6 +17,12 @@ npm run guild-hall:healer:run -- --json
 npm run guild-hall:healer:run -- --skip-validate --json
 ```
 
+실패 시 `town_crier` queue 로 Telegram brief 요청을 남기려면 아래처럼 실행한다.
+
+```bash
+npm run guild-hall:healer:run -- --skip-validate --notify-on-failure --json
+```
+
 ## 운영 권장
 
 - 24시간 PC 에서는 자주 도는 감시를 Codex heartbeat 가 아니라 launchd + healer script 로 둔다.
@@ -31,6 +37,8 @@ npm run guild-hall:healer:run -- --skip-validate --json
 - `npm run validate`
 - `npm run guild-hall:gateway:fetch:healthcheck -- --json`
   - JSON `status` 가 `WARN` 또는 `CRITICAL` 이면 command exit code 가 0 이어도 healer 점검은 실패로 기록한다.
+- `--notify-on-failure`
+  - healer 실패 시 `town_crier` queue 에 짧은 실패 요약과 report ref 만 적재한다.
 
 ## 경계
 

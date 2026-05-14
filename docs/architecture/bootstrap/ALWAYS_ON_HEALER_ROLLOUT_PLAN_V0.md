@@ -147,6 +147,13 @@ always-on node 에서 수행한다.
 7. `launchctl list | rg 'ai\\.soulforge'` 로 등록 상태를 확인한다.
 8. 실패 알림 smoke 는 secret 값을 출력하지 않는 방식으로만 확인한다.
 
+권장 명령:
+
+```bash
+npm run guild-hall:always-on:install -- --local-root <actual Soulforge root> --json
+npm run guild-hall:always-on:verify -- --local-root <actual Soulforge root> --check-launchctl --json
+```
+
 ### Phase 3. LLM 감시 축소
 
 - healer light/full 이 안정되면 Codex `Soulforge 운영 감시` heartbeat 를 더 낮은 빈도로 줄이거나 pause 한다.

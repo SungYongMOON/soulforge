@@ -8,6 +8,12 @@
 - Clarified that non-metadata state such as actual `_workspaces` files, machine-local temp/cache, secrets, raw mail bodies, and attachment binaries stay outside `_workmeta` shared history.
 - Added a deterministic `guild-hall:workmeta:sync` command and updated always-on/update/handoff docs so a 24-hour PC can periodically pull/push `_workmeta` metadata alongside activity continuity handling.
 
+### Revision `working` - always-on short fixes added
+
+- Removed tracked Python bytecode artifacts from gateway mail-fetch and town-crier so runtime commands stop dirtying the public worktree.
+- Added healer failure queueing via `--notify-on-failure`, keeping the Telegram brief body-safe with only failed check ids, summary, and report ref.
+- Added a public-safe launchd deployment surface with render/install/verify helpers for mail-fetch, healthcheck, town-crier, and healer light/full jobs.
+
 ### Revision `working` - always-on sync retry policy clarified
 
 - Added a bounded retry policy for always-on public pull and activity sync failures that look like transient GitHub, DNS, or network issues.

@@ -110,3 +110,44 @@ test("runHealerOnce fails when gateway healthcheck reports critical JSON", async
     await rm(repoRoot, { recursive: true, force: true });
   }
 });
+
+test("runHealerOnce queues a healer failure notification when enabled", async () => {
+  const repoRoot = await mkdtemp(path.join(os.tmpdir(), "soulforge-healer-notify-"));
+  const activityRoot = path.join(repoRoot, "guild_hall", "state", "operations", "soulforge_activity");
+
+  try {
+    const result = await runHealerOnce({
+      repoRoot,
+      activityRoot,
+      now: new Date("2026-05-08T07:05:06.000Z"),
+      notifyOnFailure: true,
+      skipGatewayHealthcheck: true,
+      runCommand: async ({ args }) => {
+        if (args.includes("validate")) {
+          return { status: 1, stdout: "validation failed\n", stderr: "" };
+        }
+        return { status: 0, stdout: "ok\n", stderr: "" };
+      },
+    });
+
+    assert.equal(result.result, "failed");
+    assert.equal(result.notification?.ok, true);
+    assert.equal(result.notification?.status, "queued");
+
+    const queueFile = path.join(
+      repoRoot,
+      "guild_hall",
+      "state",
+      "town_crier",
+      "queue",
+      "pending",
+      `${result.notification.request_id}.json`,
+    );
+    const queued = JSON.parse(await readFile(queueFile, "utf8"));
+    assert.equal(queued.owner_scope, "healer");
+    assert.equal(queued.event, "healer_failed");
+    assert.equal(queued.text.includes(result.files.report_ref), true);
+  } finally {
+    await rm(repoRoot, { recursive: true, force: true });
+  }
+});

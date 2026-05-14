@@ -20,6 +20,7 @@ async function main() {
     activityRoot,
     skipValidate: args["skip-validate"] === true,
     skipGatewayHealthcheck: args["skip-gateway-healthcheck"] === true,
+    notifyOnFailure: args["notify-on-failure"] === true,
   });
 
   if (args.json) {
@@ -84,7 +85,7 @@ function printUsageAndExit() {
   process.stderr.write(
     [
       "Usage:",
-      "  node guild_hall/healer/cli.mjs run [--skip-validate] [--skip-gateway-healthcheck] [--json]",
+      "  node guild_hall/healer/cli.mjs run [--skip-validate] [--skip-gateway-healthcheck] [--notify-on-failure] [--json]",
     ].join("\n"),
   );
   process.exit(1);
