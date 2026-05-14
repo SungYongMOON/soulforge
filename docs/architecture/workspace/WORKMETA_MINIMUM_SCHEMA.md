@@ -6,6 +6,7 @@
 - public repo 기본 모드에서는 이 내용을 강제하지 않고, local-only contract 안내와 tracked example anchor 로 유지한다.
 - `_workmeta/<project_code>/` 는 local contract, binding, raw run truth surface 를 다루며 mission assignment owner 를 뜻하지 않는다.
 - held mission plan 과 readiness owner 는 `.mission/` 이고, `_workmeta/<project_code>/` 는 그 mission 이 참조하는 project metadata contract 를 다룬다.
+- reserved `_workmeta/system/` 은 project-agnostic reusable workflow lab evidence 와 procedure capture 를 두는 별도 support lane 이다.
 
 ## 구조 개요도
 
@@ -46,6 +47,21 @@ _workmeta/<project_code>/
 tracked example 에 보이는 `runner/` packet sample 은 설명용 mirror 이며, local runtime 의 required directory 는 아니다.
 held mission plan 과 readiness 는 `.mission/<mission_id>/` 쪽에서 다루고, `_workmeta/<project_code>/` 는 그 mission 이 참조하는 project metadata contract 와 run truth 만 다룬다.
 
+## reserved `system` lane
+
+```text
+_workmeta/system/
+├── runs/
+│   └── <run_id>/
+└── reports/
+    └── procedure_capture/
+```
+
+- `_workmeta/system/` 은 customer project contract root 가 아니라 reusable workflow lab/support lane 이다.
+- `runs/` 는 project-agnostic pilot, replay, registration gate evidence 를 둔다.
+- `reports/procedure_capture/` 는 reusable workflow discovery, maturity alignment, promotion reasoning 을 둔다.
+- `_workmeta/system/` 은 local project list 에 올리지 않으며 `_workmeta/<project_code>/` contract 를 대체하지 않는다.
+
 ## 파일 / 디렉터리 역할
 
 | 경로 | 역할 |
@@ -59,6 +75,8 @@ held mission plan 과 readiness 는 `.mission/<mission_id>/` 쪽에서 다루고
 | `reports/` | local-only owner-facing documents and briefings, including onboarding notes |
 | `log/` | local-only time-ordered operational logs, including event streams and human-readable battle summaries |
 | `artifacts/` | local-only artifacts, including onboarding evidence/export |
+
+Reserved `system` lane 은 위 표의 `<project_code>` contract 를 대체하지 않는다. 필요한 경우 `runs/` 와 `reports/procedure_capture/` 만 사용하는 support surface 로 읽는다.
 
 ## `contract.yaml` 최소 필드
 
@@ -82,7 +100,7 @@ project_code: demo_project
 kind: workmeta_contract
 status: active
 display_name: Demo Project
-unit_ref: ../../../../../../.unit/vanguard_01/unit.yaml
+unit_ref: ../../../../../../.unit/guild_master/unit.yaml
 bindings:
   workflow: bindings/workflow_binding.yaml
   party: bindings/party_binding.yaml

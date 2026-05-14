@@ -29,11 +29,12 @@ flowchart TD
 - canonical project root 는 `_workspaces/<project_code>/` 직행 구조다.
 - companion metadata root 는 `_workmeta/<project_code>/` 구조다.
 - 기본 colocated 경로는 Soulforge root 아래 nested private repo `_workmeta/<project_code>/` 다.
+- reserved `_workmeta/system/` 은 project-agnostic reusable workflow lab metadata root 다.
 - public repo 기본 동작은 `_workspaces/README.md` 만 전제한다.
 - local workspace scan 은 `--local-workspaces` 또는 explicit workspace root 가 있을 때만 수행한다.
 - project 후보는 workspace root 의 direct child directory 로만 읽는다.
 - `company/`, `personal/` 는 project 후보가 아닌 보조 디렉터리로 취급한다.
-- `_workmeta/system/` 은 node/system smoke 기록 같은 private metadata repo 내부 운영 기록용이며 project 후보가 아니다.
+- `_workmeta/system/` 은 reusable workflow lab evidence, node/system smoke, procedure capture 같은 private support surface 이며 project 후보가 아니다.
 
 ## 현재 resolve 규칙
 
@@ -58,6 +59,7 @@ flowchart TD
 - validator 는 owner roots, cross-ref, local mount summary 위주로 동작한다.
 - local-only `_workmeta` contract depth validation 은 별도 local harness 문서가 다룬다.
 - local runtime harness 는 필요하면 `bindings/execution_profile_binding.yaml` 과 `bindings/skill_execution_binding.yaml` 을 추가로 resolve 할 수 있다.
+- `_workmeta/system/` 은 project deep validation 대상이 아니라 reserved lab/support surface 로만 확인한다.
 
 ## 확장 순서
 

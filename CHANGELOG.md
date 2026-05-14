@@ -20,6 +20,27 @@
 - Preserved the guard that CLI-only full-matrix calibration is an explicit fallback and must not be mislabeled as `subagent_quality_first`.
 - Kept the default candidate set excluding the `gpt-5.3-*` family unless the user explicitly asks for 5.3 comparison.
 
+### Revision `working` - workflow lab owner and maturity ladder clarified
+
+- Clarified `_workmeta/system/` as the reserved private reusable-workflow lab owner for project-agnostic run evidence and procedure-capture notes.
+- Clarified reserved `_workspaces/system/` usage for local-only workflow pilot outputs and fixture materialization that are not owned by a delivery project.
+- Added a human-facing workflow maturity ladder of `draft -> pilot -> usable -> canon` and documented that canon registration in `.workflow/index.yaml` is separate from runtime validation/readiness notes.
+- Corrected the project map so the top-level root list no longer advertises a `scripts/` directory that is not part of the current repo tree.
+
+### Revision `working` - component PCB layout guide profile calibration
+
+- Calibrated `.workflow/component_pcb_layout_guide_extraction/` with a public-safe synthetic component-material fixture covering source-bound layout spans, supplemental source handling, cited-page figures, table promotion/rejection, and unresolved component review.
+- Set the workflow primary profile to `gpt-5.4-mini | medium | elf | archivist`, with `gpt-5.4 | low | elf | archivist` and `gpt-5.4 | medium | elf | archivist` retained as quality-passing shadows.
+- Archived staged CLI candidate outputs, telemetry, frozen criteria, rule evaluation, semantic shortlist evaluation, final ranking, and recommendation under `.workflow/component_pcb_layout_guide_extraction/calibrations/20260513-204517_staged_cli_matrix/`.
+- Kept real PDFs, copied vendor text, runtime Layout Guide outputs, project-local paths, credentials, cookies, `_workspaces`, `_workmeta`, and private-state material out of the public workflow archive.
+
+### Revision `working` - device system diagram profile calibration
+
+- Calibrated `.workflow/device_system_diagram_generation/` with a public-safe synthetic wearable gateway fixture.
+- Set the workflow primary profile to `gpt-5.4-mini | low | human | administrator`, with `gpt-5.4 | low | human | administrator` retained as the quality-upgrade shadow.
+- Archived staged CLI candidate outputs, telemetry, quality-gate criteria, finalist ranking, and recommendation under `.workflow/device_system_diagram_generation/calibrations/20260513-202816_staged_cli_matrix/`.
+- Kept project raw input, REF packets, accepted outputs, verifier reports, credentials, `_workspaces`, `_workmeta`, and private-state material out of the public workflow archive.
+
 ### Revision `working` - exp XML materials profile calibration
 
 - Calibrated `.workflow/exp_xml_component_materials/` with a public-safe synthetic EXP.xml fixture and mocked official-source/download evidence.
@@ -32,6 +53,28 @@
 - Refactored `.registry/skills/workflow_optimizer/codex/SKILL.md` into a lean operating router and moved detailed run flow, candidate matrix, telemetry/evaluation, and archive/policy contracts into `codex/references/`.
 - Clarified that isolated subagent matrix execution requires available tools plus user/developer policy authorization, and that CLI-only calibration must be explicit rather than silent fallback.
 - Tightened workflow policy write boundaries so public `.workflow/**` updates happen only when the user requested or confirmed calibration archive/profile policy writes.
+
+### Revision `working` - sample workflow canon cleanup
+
+- Removed the old `frontline_assault` and `build_lineage_map` sample workflows from active workflow canon to avoid presenting test scaffolds as current operating workflows.
+- Removed the matching `vanguard_strike` and `lineage_strike` sample party templates and retired their demo unit surfaces from `.unit/`.
+- Updated species recommendation biases and UI fixtures to use the current guild-master authoring lane instead of the retired sample workflow/party.
+- Fixed guild-master party slot references to the actual `guild_master` unit id.
+- Fixed Windows validation execution for the UI done-check and theme package smoke paths.
+
+### Revision `working` - PCB layout guide extraction workflow added
+
+- Added `.workflow/component_pcb_layout_guide_extraction/` as a follow-on workflow for turning per-component `DATA Sheet` and `EVAL` materials into project-local `Layout Guide` Markdown, source maps, extraction manifests, and checksum-keyed caches.
+- Registered the workflow in `.workflow/index.yaml` while keeping runtime part folders, extracted vendor text, figures, tables, and supplemental downloads outside public canon.
+- Added token-control gates so PDF files are indexed and filtered into layout candidate spans before AI synthesis reads them.
+- Added official supplemental-source download gates for missing layout guidance, with PDF/ZIP magic validation, source URL, byte size, and SHA256 requirements.
+- Evolved the figure/table stage to use separate extraction tools by signal type: PyMuPDF for layout-candidate page/context PNG renders, Camelot strict quality-filtered Markdown tables, and pdfplumber only as a raw fallback candidate extractor.
+- Clarified figure/table source-map and manifest records, including strict-vs-raw table counts, tool versions, output checksums, extraction warnings, and separate raw candidate folders.
+- Added a layout-only promotion stage so PCB-layout-relevant visuals and tables are copied into dedicated `layout_only/` folders while software/setup/noisy candidates remain as context evidence with rejection reasons.
+- Reworked figure capture policy so layout-only images must come from `layout_guide.md` cited evidence rather than earlier keyword-only candidate pages.
+- Updated cited figure capture so `layout_only/` stores one full-page PNG per unique `layout_guide.md` cited source page, with repeated citations deduplicated and older cited-region crops retained only as runtime context evidence.
+- Corrected cited figure output placement so current full-page PNGs live directly under `Layout Guide/figures/`; `figures/layout_only/` is no longer the figure output folder.
+- Registered `component_pcb_layout_guide_extraction` as an owner-accepted usable workflow canon entry, with runtime vendor content and generated figures remaining project-local.
 
 ### Revision `working` - EXP XML component materials workflow added
 

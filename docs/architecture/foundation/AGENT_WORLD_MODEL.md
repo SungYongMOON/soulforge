@@ -16,7 +16,8 @@
 | Workflow Canon | `.workflow/<workflow_id>/` | reusable workflow canon |
 | Party Template | `.party/<party_id>/` | reusable party template |
 | Mission Plan | `.mission/<mission_id>/` | 내가 현재 보유한 실행 계획 |
-| Project Worksite | `_workspaces/<project_code>/` | 실제 프로젝트 파일과 local run truth 를 담는 현장 |
+| Project Worksite | `_workspaces/<project_code>/` | 실제 프로젝트 파일과 local worksite artifact 를 담는 현장 |
+| Project Workmeta | `_workmeta/<project_code>/`, `_workmeta/system/` | companion metadata, raw run truth, reusable workflow lab evidence |
 
 ## 핵심 해석
 

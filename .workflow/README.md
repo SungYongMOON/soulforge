@@ -15,6 +15,18 @@
 - `.workflow/authoring/` 은 draft, template, guide 를 두는 대기실이며 workflow canon entry 가 아니다.
 - UI 와 derive consumer 는 폴더 direct scan 대신 `index.yaml` 을 기준으로 workflow 목록을 만들므로, `authoring/` 은 workflow 목록에 표시하지 않는다.
 
+## canon 과 성숙도 구분
+
+- workflow 의 public-safe package owner 와 runtime 성숙도 평가는 같은 말이 아니다.
+- 사람이 보는 기본 단계는 `draft -> pilot -> usable -> canon` 으로 읽는다.
+- `draft` 는 authoring note 나 local/private evidence 에만 있고 아직 `index.yaml` 에 등록되지 않은 상태다.
+- `pilot` 는 최소 1회 bounded fixture 또는 실행 packet 으로 절차를 실제로 돌려 본 상태다. run evidence 나 workflow note 에 `pilot-ready`, `pilot-executed` 같은 세부 표기가 붙을 수 있다.
+- `usable` 은 반복 실행에서 경계와 출력 형식이 안정적이라고 판단된 상태다. workflow package 의 `validation_level` 에 `owner_accepted_usable` 같은 readiness 표현이 붙을 수 있다.
+- `canon` 은 public-safe package 가 `.workflow/<workflow_id>/` 에 있고 `index.yaml` 에 등록된 상태다.
+- canon 등록은 "이 절차가 reusable package 로 승격되었다"는 뜻이며, 모든 vendor/fixture/gap 이 영구히 해결되었다는 뜻은 아니다.
+- canon entry 의 남은 gap 은 `validation_level`, package `notes`, calibration history, 그리고 private run evidence 에 남기고, 이미 등록된 canon entry 를 다시 `draft` 로 부르지 않는다.
+- legacy registered entry 가 아직 `validation_level` 을 명시하지 않을 수 있으면, 그 경우 readiness 는 package README 와 history note 로 읽고 이후 정리 대상으로 남긴다.
+
 ## 관계도
 
 ```mermaid
@@ -88,13 +100,11 @@ sequenceDiagram
 
 ## 샘플 구성
 
-- [`frontline_assault/workflow.yaml`](frontline_assault/workflow.yaml): Frontline Assault workflow canon for coordinated assault operations.
-- [`frontline_assault/history/README.md`](frontline_assault/history/README.md): history guidance that keeps curated lessons outside raw runtime truth.
-- [`build_lineage_map/workflow.yaml`](build_lineage_map/workflow.yaml): bounded lineage-map opening workflow sample with explicit step sequence and planning artifacts.
 - [`author_skill_package/workflow.yaml`](author_skill_package/workflow.yaml): guild-master authoring workflow sample for deciding when a request should become a reusable skill package.
 - [`author_skill_package/positioning.md`](author_skill_package/positioning.md): current guild-master authoring lane positioning note.
 - [`device_system_diagram_generation/workflow.yaml`](device_system_diagram_generation/workflow.yaml): owner-accepted usable workflow for generating editable draw.io device system diagrams plus SVG, PPTX, and PNG outputs from one Markdown input.
-- [`exp_xml_component_materials/workflow.yaml`](exp_xml_component_materials/workflow.yaml): pilot-ready workflow for parsing `EXP.xml` component data and collecting official datasheet plus EVAL/reference-design materials into project-local folders.
+- [`exp_xml_component_materials/workflow.yaml`](exp_xml_component_materials/workflow.yaml): pilot-executed workflow for parsing `EXP.xml` component data and collecting official datasheet plus EVAL/reference-design materials into project-local folders.
+- [`component_pcb_layout_guide_extraction/workflow.yaml`](component_pcb_layout_guide_extraction/workflow.yaml): owner-accepted usable follow-on workflow for extracting PCB layout guidance from per-component datasheet and EVAL materials into project-local `Layout Guide` folders with cache, source-map manifests, and cited full-page figures.
 - [`authoring/task_note.template.md`](authoring/task_note.template.md): raw task memo template for converting real work into workflow drafts.
 - [`authoring/workflow_draft.template.yaml`](authoring/workflow_draft.template.yaml): workflow draft template for step sequencing, actors, skills, and outputs.
 - [`authoring/SKILL_WORKFLOW_GUIDE.md`](authoring/SKILL_WORKFLOW_GUIDE.md): user-facing guide for deciding when to route work into a skill-authoring workflow.

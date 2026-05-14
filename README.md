@@ -3,6 +3,7 @@
 Soulforge는 일곱 개의 canonical root 와 project-local materialization 정책을 고정하는 설계 저장소다.
 루트는 owner 경계, public/private tracking 원칙, 파생 UI 계약을 관리한다.
 현재 보유한 mission plan 은 `.mission/` 이 들고, cross-project 운영 ingress/state 는 `guild_hall/` 이 들고, 실제 프로젝트 현장 데이터는 `_workspaces/<project_code>/` 에, private runtime truth 와 project metadata 는 Soulforge root 아래 nested private repo `_workmeta/<project_code>/` 에 둔다.
+특정 프로젝트에 속하지 않는 reusable workflow 실험은 reserved `_workspaces/system/` 과 `_workmeta/system/` lab lane 에 둔다.
 
 ## 정본 7축
 

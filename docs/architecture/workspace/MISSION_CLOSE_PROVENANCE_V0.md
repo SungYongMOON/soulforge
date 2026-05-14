@@ -46,7 +46,7 @@ terminal_provenance:
 - `closed_via` 로 direct terminal write 와 `mission_close` 경유를 구분할 수 있다.
 - `closed_at` 으로 readiness 시점과 nightly review 시점을 비교할 수 있다.
 - `terminal_result` 로 `.mission` 상태와 battle outcome 이 어긋나는지 볼 수 있다.
-- `run_id` 로 raw run truth owner 를 `_workspaces/.../runs/<run_id>/` 에서 역추적할 수 있다.
+- `run_id` 로 raw run truth owner 를 `_workmeta/<project_code>/runs/<run_id>/` 에서 역추적할 수 있다.
 - `battle_event_id` 로 mission-level battle outcome 과 readiness terminal pointer 를 대조할 수 있다.
 
 ## nightly 가 이 pointer 로 보는 것
