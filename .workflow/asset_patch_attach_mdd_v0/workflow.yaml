@@ -21,7 +21,7 @@ outputs:
   - pcb_pairing_placeholder_updated
   - asset_patch_record
   - provenance_update
-validation_level: draft_contract_only
+validation_level: pilot_executed_private_fixture
 upstream_workflow:
   workflow_id: capture_xml_intake_library_v0
   expected_output: asset_identity

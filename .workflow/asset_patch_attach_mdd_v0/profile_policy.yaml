@@ -2,7 +2,7 @@ workflow_id: asset_patch_attach_mdd_v0
 kind: workflow_profile_policy
 status: draft
 active_profile: null
-calibration_status: pending
+calibration_status: pending_profile_calibration
 last_calibration_id: null
 measurement_policy:
   quality_source: pending_public_safe_calibration

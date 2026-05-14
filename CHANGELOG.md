@@ -262,6 +262,7 @@
 - Extended `.workflow/capture_xml_intake_library_v0/` so XML-first intake now creates `asset_identity` and `pcb_pairing_placeholder` metadata, and can record an optional owner-supplied initial MDD attachment without overclaiming XML↔MDD pairing proof.
 - Added `.workflow/asset_patch_attach_mdd_v0/` as a follow-on workflow for later owner-supplied MDD attachment and asset-version bump after the initial XML-first registration already exists.
 - Kept raw XML, raw MDD payloads, runtime absolute paths, `_workspaces` output data, credentials, cookies, and private run truth out of public workflow canon.
+- Executed a first controlled private LT8624S attachment pilot using a real owner-supplied `.mdd` file and updated the package maturity from `draft_contract_only` to `pilot_executed_private_fixture`.
 
 ### Revision `working` - Capture XML intake profile calibrated
 

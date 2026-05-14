@@ -38,3 +38,11 @@ Public-safe follow-on workflow for attaching an owner-supplied MDD file to an ex
 ## Boundary
 
 This workflow is a registration/patch workflow, not a deep pairing-analysis workflow. It records owner-supplied MDD attachment state so later PCs can continue from the same asset set without redoing the original XML-first registration.
+
+## Current Maturity
+
+`validation_level: pilot_executed_private_fixture`
+
+The package has completed a controlled private LT8624S page-level attachment pilot using a real owner-supplied `.mdd` file. The first pilot showed that attachment state, version bump, patch record, and provenance update can be written without rebuilding source XML or overclaiming deeper semantic pairing.
+
+The package is still conservative: it does not yet have a calibrated execution profile or a broader family of attachment examples.
