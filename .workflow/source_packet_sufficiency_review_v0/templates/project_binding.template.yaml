@@ -1,0 +1,19 @@
+workflow_id: source_packet_sufficiency_review_v0
+kind: project_binding_template
+status: template
+project_code: "<project_code>"
+sufficiency_review_run_id: "<run_id>"
+inputs:
+  sufficiency_scope_refs:
+    - packet_repo_path: "_workmeta/<project_code>/bindings/<sufficiency_scope_packet>"
+      read_only: true
+approved_sufficiency_policy:
+  upstream_packets_are_read_only: true
+  missing_evidence_must_remain_visible: true
+  sufficiency_packet_is_not_source_authority: true
+outputs:
+  sufficiency_output_root_repo_path: "_workmeta/<project_code>/runs/<run_id>/source_sufficiency/source_packet_sufficiency_review_v0"
+public_boundary:
+  commit_project_outputs_to_public_repo: false
+  include_raw_project_payloads_in_workflow_package: false
+  use_runtime_absolute_paths_in_workflow_package: false

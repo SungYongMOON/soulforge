@@ -1,0 +1,16 @@
+workflow_id: source_packet_sufficiency_review_v0
+kind: handoff_rules
+status: active
+rules:
+  - from: workflow_runner
+    to: coverage_curator
+    condition: scope_binding_ready
+    summary: Curator receives only approved packet refs and policy, not raw payload dumps or secrets.
+  - from: coverage_curator
+    to: ceiling_mapper
+    condition: evidence_rows_written
+    summary: Ceiling mapper receives stable evidence rows so blocked-field and claim-ceiling states stay narrow.
+  - from: ceiling_mapper
+    to: boundary_reviewer
+    condition: sufficiency_packet_written
+    summary: Boundary review receives the full sufficiency bundle and confirms no source-authority overclaim.

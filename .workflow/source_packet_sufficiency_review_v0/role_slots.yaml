@@ -1,0 +1,12 @@
+workflow_id: source_packet_sufficiency_review_v0
+kind: role_slots
+status: active
+slots:
+  - slot_id: workflow_runner
+    summary: owns scope resolution and bounded output-root setup
+  - slot_id: coverage_curator
+    summary: inventories source/material/layout/simulation evidence rows
+  - slot_id: ceiling_mapper
+    summary: maps blocked fields and allowed claim ceilings
+  - slot_id: boundary_reviewer
+    summary: checks non-claims and read-only posture

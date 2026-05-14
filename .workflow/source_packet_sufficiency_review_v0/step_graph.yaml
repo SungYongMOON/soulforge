@@ -1,0 +1,28 @@
+workflow_id: source_packet_sufficiency_review_v0
+kind: step_graph
+status: active
+steps:
+  - step_id: prepare_scope_binding
+    title: Prepare Scope Binding
+    actor_slot: workflow_runner
+    action:
+      kind: project_local_sufficiency_binding_setup
+    summary: Resolve the bounded scope and output root.
+  - step_id: inventory_evidence_rows
+    title: Inventory Evidence Rows
+    actor_slot: coverage_curator
+    action:
+      kind: source_material_layout_simulation_inventory
+    summary: Inventory available and missing evidence without mutating upstream packets.
+  - step_id: map_blocked_fields_and_ceiling
+    title: Map Blocked Fields And Ceiling
+    actor_slot: ceiling_mapper
+    action:
+      kind: sufficiency_ceiling_and_gap_mapping
+    summary: Classify blocked fields and allowed claim ceilings for later consumers.
+  - step_id: write_bundle_and_boundary_review
+    title: Write Bundle And Boundary Review
+    actor_slot: boundary_reviewer
+    action:
+      kind: sufficiency_bundle_write_and_boundary_review
+    summary: Confirm no overclaim of source authority before publication.

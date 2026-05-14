@@ -1,0 +1,13 @@
+workflow_id: source_packet_sufficiency_review_v0
+kind: monster_rules
+status: active
+rules:
+  - monster_id: missing_evidence_hidden_for_clean_summary
+    response: keep_blocked_field_visible
+    summary: Missing or weak evidence must remain visible.
+  - monster_id: sufficiency_packet_treated_as_source_authority
+    response: relabel_as_claim_ceiling_only
+    summary: Sufficiency review does not replace upstream source authority.
+  - monster_id: upstream_artifact_mutated
+    response: stop_and_emit_boundary_review_note
+    summary: The workflow must not patch source, materials, layout, simulation, or harness packets.
