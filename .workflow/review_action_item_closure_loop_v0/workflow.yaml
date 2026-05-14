@@ -35,7 +35,7 @@ outputs:
   - owner_decision_request_queue
   - closure_provenance
   - boundary_review_note
-validation_level: pilot_ready_contract_only
+validation_level: pilot_executed_private_fixture
 registration_policy: owner_requested_registration
 workflow_modes:
   - initial_closure_loop

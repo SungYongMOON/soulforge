@@ -32,6 +32,8 @@ It reads action items, blockers, decision summaries, and optional rerun or gap p
 
 ## Current Maturity
 
-`validation_level: pilot_ready_contract_only`
+`validation_level: pilot_executed_private_fixture`
 
-This package is registered as a first public-safe contract. A controlled project-local pilot is still required before claiming pilot-executed, usable, or production-ready behavior.
+This package has completed a controlled private action-closure pilot over the representative review packet's action register. The first pilot wrote closure rows, unresolved-item tracking, carry-forward routes, owner decision request queues, and rerun-ready logic without claiming owner decisions or rerun completion.
+
+The package is still conservative: it does not yet have a calibrated execution profile, and broader closure evidence plus real rerun completion examples are still needed before any stronger maturity claim.

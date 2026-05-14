@@ -29,6 +29,8 @@
 - Registered the workflow in `.workflow/index.yaml` and listed it in `.workflow/README.md` after `review_gate_evidence_pack_v0`.
 - Defined explicit closure-loop outputs for `action_closure_packet`, `action_closure_ledger`, `closure_status_matrix`, `unresolved_action_items`, `closure_ready_reruns`, `closure_blockers`, `carry_forward_register`, `owner_decision_request_queue`, `closure_provenance`, and `boundary_review_note`.
 - Kept the first version contract-only: it tracks action status, closure evidence refs, rerun-ready routes, and carry-forward state, but it does not approve decisions, auto-close actions, execute reruns, or mutate upstream packets.
+- Executed a first controlled private closure-loop pilot over the representative review gate action register, writing closure rows, unresolved-action tracking, carry-forward routes, owner decision requests, and rerun-ready logic without claiming action closure or owner approval.
+- Updated the package maturity from `draft_contract_only` to `pilot_executed_private_fixture`.
 
 ### Revision `working` - Verification plan from page contracts workflow added
 
