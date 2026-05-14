@@ -1,0 +1,28 @@
+workflow_id: review_action_item_closure_loop_v0
+kind: step_graph
+status: active
+steps:
+  - step_id: prepare_closure_binding
+    title: Prepare Closure Binding
+    actor_slot: workflow_runner
+    action:
+      kind: project_local_closure_binding_setup
+    summary: Resolve the bounded private/project-local output root and confirm the loop is a downstream governance lane over read-only upstream artifacts.
+  - step_id: curate_action_rows
+    title: Curate Action Rows
+    actor_slot: action_closure_curator
+    action:
+      kind: action_row_and_blocker_inventory
+    summary: Convert action items, blockers, closure evidence refs, and owner decision requests into stable closure rows.
+  - step_id: map_rerun_routes
+    title: Map Rerun Routes
+    actor_slot: rerun_route_mapper
+    action:
+      kind: rerun_and_carry_forward_mapping
+    summary: Decide which items remain open, which are ready for rerun, and which stay deferred or waiting-owner.
+  - step_id: write_bundle_and_boundary_review
+    title: Write Bundle And Boundary Review
+    actor_slot: boundary_reviewer
+    action:
+      kind: closure_bundle_write_and_boundary_review
+    summary: Write the closure packet bundle and confirm the workflow did not mutate upstream artifacts or overclaim closure.

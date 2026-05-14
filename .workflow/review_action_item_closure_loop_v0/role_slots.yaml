@@ -1,0 +1,12 @@
+workflow_id: review_action_item_closure_loop_v0
+kind: role_slots
+status: active
+slots:
+  - slot_id: workflow_runner
+    summary: owns project binding resolution, bounded output root setup, and final packet publication
+  - slot_id: action_closure_curator
+    summary: curates action items, blockers, and closure evidence refs into closure rows
+  - slot_id: rerun_route_mapper
+    summary: maps closure states to the narrowest rerun or carry-forward route
+  - slot_id: boundary_reviewer
+    summary: checks non-claims, read-only posture, and private/public boundary safety

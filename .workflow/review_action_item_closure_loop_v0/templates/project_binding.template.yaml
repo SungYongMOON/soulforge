@@ -1,0 +1,28 @@
+workflow_id: review_action_item_closure_loop_v0
+kind: project_binding_template
+status: template
+project_code: "<project_code>"
+action_closure_run_id: "<run_id>"
+inputs:
+  action_item_register_refs:
+    - packet_repo_path: "_workmeta/<project_code>/runs/<review_run_id>/review_gate/review_gate_evidence_pack_v0/action_item_register.yaml"
+      read_only: true
+  review_blocker_refs:
+    - packet_repo_path: "_workmeta/<project_code>/runs/<review_run_id>/review_gate/review_gate_evidence_pack_v0/review_blockers.yaml"
+      read_only: true
+  decision_summary_refs:
+    - packet_repo_path: "_workmeta/<project_code>/runs/<review_run_id>/review_gate/review_gate_evidence_pack_v0/decision_summary.yaml"
+      read_only: true
+  closure_evidence_refs:
+    - packet_repo_path: "_workmeta/<project_code>/runs/<evidence_run_id>/<path_to_closure_evidence>"
+      read_only: true
+approved_action_closure_policy:
+  upstream_packets_are_read_only: true
+  closure_requires_evidence_ref_or_owner_decision_ref: true
+  rerun_ready_is_not_rerun_complete: true
+outputs:
+  action_closure_output_root_repo_path: "_workmeta/<project_code>/runs/<run_id>/action_closure/review_action_item_closure_loop_v0"
+public_boundary:
+  commit_project_outputs_to_public_repo: false
+  include_raw_project_payloads_in_workflow_package: false
+  use_runtime_absolute_paths_in_workflow_package: false

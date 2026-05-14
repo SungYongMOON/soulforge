@@ -1,0 +1,16 @@
+workflow_id: review_action_item_closure_loop_v0
+kind: monster_rules
+status: active
+rules:
+  - monster_id: action_closed_without_evidence
+    response: keep_open_or_deferred
+    summary: Action items may not be marked closed without an explicit closure evidence ref or upstream rerun result.
+  - monster_id: owner_decision_assumed_from_action_status
+    response: keep_decision_request_open
+    summary: Action status cannot substitute for a scoped owner decision.
+  - monster_id: rerun_ready_treated_as_rerun_complete
+    response: keep_status_as_rerun_ready_only
+    summary: A rerun-ready item still needs the owning workflow to execute and refresh evidence.
+  - monster_id: upstream_artifact_mutated_by_closure_loop
+    response: stop_and_emit_boundary_review_note
+    summary: The closure loop must not patch review, trace, source, verification, or harness packets.

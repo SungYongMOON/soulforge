@@ -1,0 +1,16 @@
+workflow_id: review_action_item_closure_loop_v0
+kind: handoff_rules
+status: active
+rules:
+  - from: workflow_runner
+    to: action_closure_curator
+    condition: closure_binding_ready
+    summary: Curator receives only approved action/blocker refs and closure policy, not raw payloads, secrets, or hidden references.
+  - from: action_closure_curator
+    to: rerun_route_mapper
+    condition: closure_rows_written
+    summary: Rerun mapper receives stable closure rows and blocker links so it can assign the narrowest rerun or carry-forward route.
+  - from: rerun_route_mapper
+    to: boundary_reviewer
+    condition: closure_routes_written
+    summary: Boundary review receives the full closure bundle and verifies non-claims plus read-only behavior before publishing outputs.
