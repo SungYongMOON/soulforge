@@ -118,6 +118,7 @@
 - Defined explicit outputs for `simulator_policy_packet`, `runtime_probe_summary`, `execution_authorization_state`, `runtime_blockers`, and `boundary_review_note`.
 - Executed a first controlled private representative blocked-runtime pilot using the local simulation-runtime probe and LT3045 demo candidate context, while keeping execution authorization blocked pending trusted runtime and owner approval.
 - Updated the package maturity from `draft_contract_only` to `pilot_executed_private_fixture`.
+- Later private runtime-refresh evidence confirmed that local `psp_cmd.exe` is callable, so the main remaining blocker is now scoped execution approval and runnable input completeness rather than total runtime absence.
 
 ### Revision `working` - Simulation stimulus measurement packet workflow added
 

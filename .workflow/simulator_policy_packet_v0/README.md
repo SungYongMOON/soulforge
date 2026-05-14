@@ -18,6 +18,9 @@ It does not install simulators, invent runtime trust, authorize execution withou
 
 This package has completed a controlled private representative blocked-runtime pilot.
 
-The first pilot recorded that candidate LTspice-style input artifacts exist, but no trustworthy local simulator runtime was found and no owner execution authorization had been supplied yet.
+Private evidence now covers two representative states:
+
+- an earlier blocked-runtime case where no trustworthy local runtime had yet been confirmed
+- a later Cadence PSpice runtime-discovered case where `psp_cmd.exe` is callable but execution still remains blocked pending scoped approval and runnable input completeness
 
 The package is still conservative: it does not yet have a calibrated execution profile or a positive trusted-runtime case.
