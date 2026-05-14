@@ -1,0 +1,19 @@
+workflow_id: test_harness_asset_planning_v0
+kind: project_binding_template
+status: template
+project_code: "<project_code>"
+test_harness_planning_run_id: "<run_id>"
+inputs:
+  verification_readiness_refs:
+    - packet_repo_path: "_workmeta/<project_code>/runs/<verification_run_id>/verification_plan/verification_plan_from_page_contracts_v0/test_or_simulation_readiness.yaml"
+      read_only: true
+approved_test_harness_planning_policy:
+  upstream_packets_are_read_only: true
+  planning_is_not_execution: true
+  trr_checklist_is_not_approval: true
+outputs:
+  planning_output_root_repo_path: "_workmeta/<project_code>/runs/<run_id>/test_harness/test_harness_asset_planning_v0"
+public_boundary:
+  commit_project_outputs_to_public_repo: false
+  include_raw_project_payloads_in_workflow_package: false
+  use_runtime_absolute_paths_in_workflow_package: false

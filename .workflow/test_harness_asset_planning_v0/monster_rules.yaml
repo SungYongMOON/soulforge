@@ -1,0 +1,13 @@
+workflow_id: test_harness_asset_planning_v0
+kind: monster_rules
+status: active
+rules:
+  - monster_id: planning_packet_treated_as_trr_approval
+    response: relabel_as_checklist_only
+    summary: A planning checklist is not TRR approval.
+  - monster_id: missing_resource_hidden
+    response: keep_planning_blocker_visible
+    summary: Missing fixtures, instruments, procedures, or simulator resources remain blockers.
+  - monster_id: upstream_artifact_mutated
+    response: stop_and_emit_boundary_review_note
+    summary: The workflow must not patch source, harness, or verification packets.

@@ -1,0 +1,16 @@
+workflow_id: test_harness_asset_planning_v0
+kind: handoff_rules
+status: active
+rules:
+  - from: workflow_runner
+    to: harness_asset_curator
+    condition: planning_binding_ready
+    summary: Curator receives only approved planning refs and policies, not raw payload dumps or secrets.
+  - from: harness_asset_curator
+    to: readiness_planner
+    condition: asset_need_inventory_written
+    summary: Readiness planner receives harness-asset needs and missing-resource hints so TRR-style blockers stay explicit.
+  - from: readiness_planner
+    to: boundary_reviewer
+    condition: trr_checklist_written
+    summary: Boundary review receives the full planning packet and confirms no execution or TRR approval overclaim.

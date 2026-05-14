@@ -1,0 +1,12 @@
+workflow_id: test_harness_asset_planning_v0
+kind: role_slots
+status: active
+slots:
+  - slot_id: workflow_runner
+    summary: owns binding resolution and planning-scope setup
+  - slot_id: harness_asset_curator
+    summary: inventories needed fixtures, interfaces, simulation harnesses, and instruments
+  - slot_id: readiness_planner
+    summary: maps planning blockers and TRR checklist rows
+  - slot_id: boundary_reviewer
+    summary: checks non-claims and read-only boundary posture

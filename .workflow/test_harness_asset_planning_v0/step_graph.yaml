@@ -1,0 +1,28 @@
+workflow_id: test_harness_asset_planning_v0
+kind: step_graph
+status: active
+steps:
+  - step_id: prepare_planning_binding
+    title: Prepare Planning Binding
+    actor_slot: workflow_runner
+    action:
+      kind: project_local_test_harness_binding_setup
+    summary: Resolve bounded planning scope and output root.
+  - step_id: curate_asset_needs
+    title: Curate Asset Needs
+    actor_slot: harness_asset_curator
+    action:
+      kind: fixture_interface_instrument_inventory
+    summary: Inventory what the representative verification items would need for test or simulation harness preparation.
+  - step_id: map_readiness_and_blockers
+    title: Map Readiness And Blockers
+    actor_slot: readiness_planner
+    action:
+      kind: trr_checklist_and_blocker_mapping
+    summary: Build TRR-style readiness checklist rows and planning blockers without claiming readiness approval.
+  - step_id: write_bundle_and_boundary_review
+    title: Write Bundle And Boundary Review
+    actor_slot: boundary_reviewer
+    action:
+      kind: harness_asset_bundle_write_and_boundary_review
+    summary: Confirm no execution or approval overclaim before publishing the packet.
