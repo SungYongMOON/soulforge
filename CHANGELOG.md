@@ -103,6 +103,14 @@
 - Executed a first controlled private representative audit pilot that packaged unverified, discrepancy, and residual-risk rows without claiming accepted verification evidence or owner acceptance.
 - Updated the package maturity from `draft_contract_only` to `pilot_executed_private_fixture`.
 
+### Revision `working` - Physical configuration audit asset package workflow added
+
+- Added `.workflow/physical_configuration_audit_asset_package_v0/` as a public-safe governance consumer for later PCA-style package alignment auditing.
+- Registered the workflow in `.workflow/index.yaml` and listed it in `.workflow/README.md` after `source_packet_sufficiency_review_v0`.
+- Defined explicit outputs for `physical_audit_packet`, `artifact_inventory_report`, `checksum_report`, `missing_or_mismatched_artifacts`, `release_blocking_discrepancies`, `owner_followup_needed`, `closure_handoff`, and `boundary_review_note`.
+- Executed a first controlled private representative physical audit pilot that verified LT8624S package artifacts and checksum rows while keeping missing formal baseline approval as a release-blocking discrepancy.
+- Updated the package maturity from `draft_contract_only` to `pilot_executed_private_fixture`.
+
 ### Revision `working` - Interface control and harness readiness workflow added
 
 - Added `.workflow/interface_control_and_harness_readiness_v0/` as a public-safe governance bridge before or alongside harness composition.
