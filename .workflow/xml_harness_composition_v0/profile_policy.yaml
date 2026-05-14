@@ -14,7 +14,7 @@ primary_profile:
   species: null
   class: null
   candidate_id: null
-  quality_gate: pending_pilot_and_calibration
+  quality_gate: pending_profile_calibration
 shadow_top_k: []
 rerun_triggers:
   - page_module_spec_v0 system_contract schema changes
@@ -22,9 +22,9 @@ rerun_triggers:
   - component materials packet schema changes
   - layout guide packet schema changes
   - harness classification states change
-  - first controlled pilot creates real blocked/review/candidate-safe output evidence
+  - first_profile_calibration_run
   - owner approves source-supported promotion criteria changes
 notes:
-  - This first package intentionally has no calibrated execution profile.
+  - The package now has a controlled private pilot, but it still has no calibrated execution profile.
   - Bind model, reasoning, party, and tool choices per project until public-safe calibration evidence exists.
-  - Do not call this production-ready until a controlled pilot and separate verification review pass.
+  - Do not call this usable or production-ready until profile calibration and separate verification review pass.

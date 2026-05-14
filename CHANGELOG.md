@@ -139,6 +139,7 @@
 - Defined explicit `blocked`, `review_required`, `candidate_safe`, and `source_supported` lanes, including missing-source, source-gap, missing-quantitative, local/internal misuse, no-connect, and ambiguity handling.
 - Kept source XML, normalized sidecars, intake packets, materials packets, layout guides, raw project payloads, vendor text, runtime paths, credentials, cookies, `_workspaces`, and private run truth out of public workflow canon.
 - Marked the package `pilot_ready_contract_only`; a controlled project-local harness pilot and independent review are still required before claiming pilot-executed or usable behavior.
+- After the private harness pilot landed, updated the profile-policy gate from `pending_pilot_and_calibration` to `pending_profile_calibration` so the public execution-profile note matches the actual pilot state.
 
 ## 2026-05-14
 
