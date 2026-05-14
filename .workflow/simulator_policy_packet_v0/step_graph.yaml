@@ -1,0 +1,28 @@
+workflow_id: simulator_policy_packet_v0
+kind: step_graph
+status: active
+steps:
+  - step_id: prepare_policy_binding
+    title: Prepare Policy Binding
+    actor_slot: workflow_runner
+    action:
+      kind: project_local_simulator_policy_binding_setup
+    summary: Resolve bounded simulator-policy scope and output root.
+  - step_id: curate_policy_statement
+    title: Curate Policy Statement
+    actor_slot: policy_curator
+    action:
+      kind: simulator_policy_scope_and_authorization_inventory
+    summary: Record intended simulator family, scope, and current owner authorization posture.
+  - step_id: map_runtime_probe_and_blockers
+    title: Map Runtime Probe And Blockers
+    actor_slot: runtime_probe_mapper
+    action:
+      kind: trusted_runtime_probe_and_blocker_split
+    summary: Separate trusted runtime evidence from blocked or missing runtime conditions.
+  - step_id: write_bundle_and_boundary_review
+    title: Write Bundle And Boundary Review
+    actor_slot: boundary_reviewer
+    action:
+      kind: simulator_policy_bundle_write_and_boundary_review
+    summary: Confirm that missing runtime remains blocked and no execution authorization is invented.

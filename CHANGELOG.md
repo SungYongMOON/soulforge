@@ -111,6 +111,14 @@
 - Executed a first controlled private representative blocked-result pilot using the device-name-fix integrity report as candidate evidence, while keeping `accepted_result_rows` empty pending scoped owner acceptance and tool-flow confirmation.
 - Updated the package maturity from `draft_contract_only` to `pilot_executed_private_fixture`.
 
+### Revision `working` - Simulator policy packet workflow added
+
+- Added `.workflow/simulator_policy_packet_v0/` as a public-safe workflow for recording trusted local simulator runtime identity or probe evidence, owner execution authorization posture, and runtime blockers.
+- Registered the workflow in `.workflow/index.yaml` and listed it in `.workflow/README.md` after `simulation_run_verify_v0`.
+- Defined explicit outputs for `simulator_policy_packet`, `runtime_probe_summary`, `execution_authorization_state`, `runtime_blockers`, and `boundary_review_note`.
+- Executed a first controlled private representative blocked-runtime pilot using the local simulation-runtime probe and LT3045 demo candidate context, while keeping execution authorization blocked pending trusted runtime and owner approval.
+- Updated the package maturity from `draft_contract_only` to `pilot_executed_private_fixture`.
+
 ### Revision `working` - Technical risk open question burndown workflow added
 
 - Added `.workflow/technical_risk_open_question_burndown_v0/` as a public-safe governance workflow for packaging current technical risks and open questions into a bounded burndown register.

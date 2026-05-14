@@ -1,0 +1,13 @@
+workflow_id: simulator_policy_packet_v0
+kind: monster_rules
+status: active
+rules:
+  - monster_id: runtime_discovery_overclaimed_as_trusted
+    response: keep_blocked_in_runtime_blockers
+    summary: A candidate executable path or deck file alone cannot become a trusted runtime.
+  - monster_id: owner_approval_invented
+    response: stop_and_emit_boundary_review_note
+    summary: The workflow must not claim execution authorization without scoped owner basis.
+  - monster_id: staged_deck_or_model_packet_treated_as_runtime_authorization
+    response: reject_as_non_runtime_evidence
+    summary: Model or deck packets do not prove runtime availability or execution approval.

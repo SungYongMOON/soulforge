@@ -1,0 +1,12 @@
+workflow_id: simulator_policy_packet_v0
+kind: role_slots
+status: active
+slots:
+  - slot_id: workflow_runner
+    summary: owns bounded policy binding and output-root setup
+  - slot_id: policy_curator
+    summary: records simulator family, scope, and owner policy posture
+  - slot_id: runtime_probe_mapper
+    summary: maps trusted runtime evidence versus blocked runtime findings
+  - slot_id: boundary_reviewer
+    summary: checks that runtime trust or execution approval is not invented

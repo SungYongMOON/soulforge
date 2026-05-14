@@ -1,0 +1,16 @@
+workflow_id: simulator_policy_packet_v0
+kind: handoff_rules
+status: active
+rules:
+  - from: workflow_runner
+    to: policy_curator
+    condition: policy_binding_ready
+    summary: Curator receives only scoped policy inputs and approved references, not raw simulator payload dumps or secrets.
+  - from: policy_curator
+    to: runtime_probe_mapper
+    condition: policy_statement_written
+    summary: Runtime mapper receives stable simulator-scope and authorization statements so probe results stay bounded.
+  - from: runtime_probe_mapper
+    to: boundary_reviewer
+    condition: runtime_probe_and_blockers_written
+    summary: Boundary review receives the full policy bundle and confirms that runtime trust and execution approval are not overstated.
