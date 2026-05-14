@@ -1,0 +1,12 @@
+workflow_id: simulation_stimulus_measurement_packet_v0
+kind: role_slots
+status: active
+slots:
+  - slot_id: workflow_runner
+    summary: owns bounded input binding and output-root setup
+  - slot_id: input_curator
+    summary: records stimuli or operating conditions and measurement-definition rows
+  - slot_id: blocker_mapper
+    summary: maps missing or still-unapproved execution-input blockers
+  - slot_id: boundary_reviewer
+    summary: checks that seed inputs are not overstated as execution readiness or results

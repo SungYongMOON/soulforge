@@ -1,0 +1,13 @@
+workflow_id: simulation_stimulus_measurement_packet_v0
+kind: monster_rules
+status: active
+rules:
+  - monster_id: seed_input_treated_as_execution_authorization
+    response: stop_and_emit_boundary_review_note
+    summary: Seed or review-only stimuli and measurements do not authorize simulator execution.
+  - monster_id: measurement_definition_treated_as_measurement_result
+    response: reject_as_non_result_evidence
+    summary: A measurement definition row is not a measured value.
+  - monster_id: missing_operating_condition_hidden
+    response: keep_visible_in_input_packet_blockers
+    summary: Missing execution inputs must remain explicit for downstream deck-prepare and run-verify lanes.

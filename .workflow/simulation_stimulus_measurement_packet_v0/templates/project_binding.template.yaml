@@ -1,0 +1,25 @@
+workflow_id: simulation_stimulus_measurement_packet_v0
+kind: project_binding_template
+status: template
+project_code: "<project_code>"
+simulation_input_run_id: "<run_id>"
+inputs:
+  simulation_input_scope:
+    page_asset_ids: []
+    component_refs: []
+    harness_ids: []
+  simulation_input_statement:
+    stimuli_or_operating_conditions: []
+    measurement_definitions: []
+    owner_approved: false
+    notes: []
+approved_input_packet_policy:
+  upstream_packets_are_read_only: true
+  packet_is_not_execution_authorization: true
+  packet_is_not_measurement_result: true
+outputs:
+  simulation_input_output_root_repo_path: "_workmeta/<project_code>/runs/<run_id>/simulation_inputs/simulation_stimulus_measurement_packet_v0"
+public_boundary:
+  commit_project_outputs_to_public_repo: false
+  include_runtime_absolute_paths_in_workflow_package: false
+  include_private_run_truth_in_workflow_package: false

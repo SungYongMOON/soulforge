@@ -1,0 +1,9 @@
+workflow_id: simulation_stimulus_measurement_packet_v0
+kind: party_compatibility
+status: active
+compatible_parties:
+  - elf
+  - archivist
+  - auditor
+notes:
+  - The workflow may run with one operator, but it preserves execution-input and result-boundary separation.

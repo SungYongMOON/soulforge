@@ -119,6 +119,14 @@
 - Executed a first controlled private representative blocked-runtime pilot using the local simulation-runtime probe and LT3045 demo candidate context, while keeping execution authorization blocked pending trusted runtime and owner approval.
 - Updated the package maturity from `draft_contract_only` to `pilot_executed_private_fixture`.
 
+### Revision `working` - Simulation stimulus measurement packet workflow added
+
+- Added `.workflow/simulation_stimulus_measurement_packet_v0/` as a public-safe workflow for recording bounded stimuli or operating conditions, measurement definitions, execution-scope notes, and missing-input blockers.
+- Registered the workflow in `.workflow/index.yaml` and listed it in `.workflow/README.md` after `simulator_policy_packet_v0`.
+- Defined explicit outputs for `stimuli_or_operating_conditions_packet`, `measurement_definition_packet`, `execution_scope_note`, `input_packet_blockers`, and `boundary_review_note`.
+- Executed a first controlled private representative seed-input pilot using the LT3045 demo template example, while keeping owner approval and execution readiness out of scope.
+- Updated the package maturity from `draft_contract_only` to `pilot_executed_private_fixture`.
+
 ### Revision `working` - Technical risk open question burndown workflow added
 
 - Added `.workflow/technical_risk_open_question_burndown_v0/` as a public-safe governance workflow for packaging current technical risks and open questions into a bounded burndown register.

@@ -1,0 +1,28 @@
+workflow_id: simulation_stimulus_measurement_packet_v0
+kind: step_graph
+status: active
+steps:
+  - step_id: prepare_input_binding
+    title: Prepare Input Binding
+    actor_slot: workflow_runner
+    action:
+      kind: project_local_simulation_input_binding_setup
+    summary: Resolve bounded simulation-input scope and output root.
+  - step_id: curate_stimuli_and_measurements
+    title: Curate Stimuli And Measurements
+    actor_slot: input_curator
+    action:
+      kind: simulation_stimulus_and_measurement_inventory
+    summary: Record stimuli or operating conditions plus measurement definitions without claiming execution readiness.
+  - step_id: map_scope_and_blockers
+    title: Map Scope And Blockers
+    actor_slot: blocker_mapper
+    action:
+      kind: execution_scope_note_and_missing_input_split
+    summary: Separate what is available as seed input from what still blocks deck-prepare or run-verify.
+  - step_id: write_bundle_and_boundary_review
+    title: Write Bundle And Boundary Review
+    actor_slot: boundary_reviewer
+    action:
+      kind: simulation_input_bundle_write_and_boundary_review
+    summary: Confirm that seed inputs are not promoted into execution authorization, pass/fail, or measurement results.

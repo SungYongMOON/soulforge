@@ -1,0 +1,16 @@
+workflow_id: simulation_stimulus_measurement_packet_v0
+kind: handoff_rules
+status: active
+rules:
+  - from: workflow_runner
+    to: input_curator
+    condition: input_binding_ready
+    summary: Curator receives only bounded execution-input scope and approved references.
+  - from: input_curator
+    to: blocker_mapper
+    condition: stimulus_and_measurement_rows_written
+    summary: Blocker mapper receives stable input rows so missing or unapproved gaps remain explicit.
+  - from: blocker_mapper
+    to: boundary_reviewer
+    condition: scope_note_and_blockers_written
+    summary: Boundary review receives the full bundle and confirms no execution or result overclaim.
