@@ -14,12 +14,12 @@ primary_profile:
   species: null
   class: null
   candidate_id: null
-  quality_gate: pending_pilot_and_calibration
+  quality_gate: pending_profile_calibration
 shadow_top_k: []
 rerun_triggers:
   - accepted_result_row_schema_changes
   - acceptance_boundary_rule_changes
-  - first_controlled_result_packet_pilot_creates_evidence
+  - first_profile_calibration_run
 notes:
-  - This first package intentionally has no calibrated execution profile.
+  - The package now has a controlled private blocked-result pilot, but it still has no calibrated execution profile.
   - Bind model, reasoning, party, and acceptance-boundary handling per project until public-safe calibration evidence exists.

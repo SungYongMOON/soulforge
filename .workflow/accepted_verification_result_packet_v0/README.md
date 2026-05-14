@@ -13,6 +13,10 @@
 
 ## Current Maturity
 
-`validation_level: draft_contract_only`
+`validation_level: pilot_executed_private_fixture`
 
-This package is registered as a first public-safe contract skeleton. A controlled project-local result-packet pilot is still required before claiming pilot-executed, usable, or production-ready behavior.
+This package has completed a controlled private representative result-packet pilot on the blocked/inconclusive path.
+
+The first pilot used the device-name-fix integrity report as scoped candidate evidence, kept `accepted_result_rows` empty, and wrote one blocked row pending scoped owner acceptance and tool-flow confirmation.
+
+The package is still conservative: it does not yet have a calibrated execution profile or a real accepted positive-result example.

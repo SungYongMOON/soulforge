@@ -103,6 +103,14 @@
 - Executed a first controlled private representative pilot that recorded architecture-policy owner decisions for immutable source XML, sidecar-first module contracts, and harness-as-derived-layer boundaries.
 - Updated the package maturity from `draft_contract_only` to `pilot_executed_private_fixture`.
 
+### Revision `working` - Accepted verification result packet workflow added
+
+- Added `.workflow/accepted_verification_result_packet_v0/` as a public-safe workflow for recording accepted verification results, blocked/inconclusive result rows, and acceptance provenance.
+- Registered the workflow in `.workflow/index.yaml` and listed it in `.workflow/README.md` before `owner_decision_packet_v0`.
+- Defined explicit outputs for `accepted_verification_result_packet`, `result_summary`, `accepted_result_rows`, `blocked_or_inconclusive_rows`, `acceptance_provenance`, and `boundary_review_note`.
+- Executed a first controlled private representative blocked-result pilot using the device-name-fix integrity report as candidate evidence, while keeping `accepted_result_rows` empty pending scoped owner acceptance and tool-flow confirmation.
+- Updated the package maturity from `draft_contract_only` to `pilot_executed_private_fixture`.
+
 ### Revision `working` - Technical risk open question burndown workflow added
 
 - Added `.workflow/technical_risk_open_question_burndown_v0/` as a public-safe governance workflow for packaging current technical risks and open questions into a bounded burndown register.

@@ -26,7 +26,7 @@ outputs:
   - blocked_or_inconclusive_rows
   - acceptance_provenance
   - boundary_review_note
-validation_level: draft_contract_only
+validation_level: pilot_executed_private_fixture
 registration_policy: owner_requested_registration
 upstream_workflows:
   - workflow_id: verification_plan_from_page_contracts_v0
@@ -63,3 +63,4 @@ accepted_result_contract:
 notes:
   - This workflow is the handoff point between execution packets and later audit consumers.
   - Public workflow canon stores only portable orchestration rules, state semantics, and sanitized templates.
+  - The first private pilot exercised the blocked-or-inconclusive path only; no accepted result rows were claimed without scoped acceptance basis.
