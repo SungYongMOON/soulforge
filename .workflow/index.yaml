@@ -63,6 +63,8 @@ entries:
     path: technical_risk_open_question_burndown_v0/workflow.yaml
   - workflow_id: project_readiness_digest_v0
     path: project_readiness_digest_v0/workflow.yaml
+  - workflow_id: accepted_verification_result_packet_v0
+    path: accepted_verification_result_packet_v0/workflow.yaml
 notes:
   - Workflow catalog only. Raw run ids and execution dumps do not belong here.
   - Authoring templates live under `authoring/` and are not workflow canon entries.

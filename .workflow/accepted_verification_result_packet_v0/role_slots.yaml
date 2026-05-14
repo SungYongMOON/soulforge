@@ -1,0 +1,12 @@
+workflow_id: accepted_verification_result_packet_v0
+kind: role_slots
+status: active
+slots:
+  - slot_id: workflow_runner
+    summary: owns result-scope resolution and output-root setup
+  - slot_id: result_curator
+    summary: inventories result refs, verdict rows, and acceptance basis
+  - slot_id: acceptance_mapper
+    summary: maps accepted vs blocked/inconclusive result rows
+  - slot_id: boundary_reviewer
+    summary: checks acceptance-boundary non-claims and read-only posture

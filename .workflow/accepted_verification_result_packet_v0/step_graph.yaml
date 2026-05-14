@@ -1,0 +1,28 @@
+workflow_id: accepted_verification_result_packet_v0
+kind: step_graph
+status: active
+steps:
+  - step_id: prepare_result_binding
+    title: Prepare Result Binding
+    actor_slot: workflow_runner
+    action:
+      kind: project_local_result_binding_setup
+    summary: Resolve bounded result scope and output root.
+  - step_id: curate_result_rows
+    title: Curate Result Rows
+    actor_slot: result_curator
+    action:
+      kind: result_and_verdict_inventory
+    summary: Inventory result refs, verdicts, and acceptance basis without mutating upstream artifacts.
+  - step_id: map_acceptance_rows
+    title: Map Acceptance Rows
+    actor_slot: acceptance_mapper
+    action:
+      kind: accepted_vs_blocked_row_split
+    summary: Separate accepted result rows from blocked or inconclusive rows.
+  - step_id: write_bundle_and_boundary_review
+    title: Write Bundle And Boundary Review
+    actor_slot: boundary_reviewer
+    action:
+      kind: result_packet_write_and_boundary_review
+    summary: Confirm no overclaim of owner acceptance or upstream mutation before publication.

@@ -1,0 +1,18 @@
+workflow_id: accepted_verification_result_packet_v0
+kind: project_binding_template
+status: template
+project_code: "<project_code>"
+accepted_result_run_id: "<run_id>"
+inputs:
+  verification_result_scope_refs:
+    - packet_repo_path: "_workmeta/<project_code>/bindings/<result_scope_packet>"
+      read_only: true
+approved_result_acceptance_policy:
+  upstream_packets_are_read_only: true
+  accepted_result_requires_scoped_basis: true
+outputs:
+  result_output_root_repo_path: "_workmeta/<project_code>/runs/<run_id>/accepted_results/accepted_verification_result_packet_v0"
+public_boundary:
+  commit_project_outputs_to_public_repo: false
+  include_raw_project_payloads_in_workflow_package: false
+  use_runtime_absolute_paths_in_workflow_package: false

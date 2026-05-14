@@ -1,0 +1,13 @@
+workflow_id: accepted_verification_result_packet_v0
+kind: monster_rules
+status: active
+rules:
+  - monster_id: blocked_or_inconclusive_result_treated_as_accepted
+    response: keep_separate_in_blocked_or_inconclusive_rows
+    summary: Only explicitly accepted result rows may be used as accepted evidence.
+  - monster_id: planning_packet_treated_as_result
+    response: reject_as_non_result_input
+    summary: Planning packets are not accepted results.
+  - monster_id: upstream_artifact_mutated
+    response: stop_and_emit_boundary_review_note
+    summary: The workflow must not patch upstream result or source packets.

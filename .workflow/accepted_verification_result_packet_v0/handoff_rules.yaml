@@ -1,0 +1,16 @@
+workflow_id: accepted_verification_result_packet_v0
+kind: handoff_rules
+status: active
+rules:
+  - from: workflow_runner
+    to: result_curator
+    condition: result_binding_ready
+    summary: Curator receives only approved result refs and policy, not raw payload dumps or secrets.
+  - from: result_curator
+    to: acceptance_mapper
+    condition: result_rows_written
+    summary: Acceptance mapper receives stable result rows and scoped acceptance refs so row status stays narrow.
+  - from: acceptance_mapper
+    to: boundary_reviewer
+    condition: accepted_result_rows_written
+    summary: Boundary review receives the full result bundle and confirms no overclaim of acceptance beyond scope.
