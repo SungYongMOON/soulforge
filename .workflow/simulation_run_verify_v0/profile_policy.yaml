@@ -14,14 +14,14 @@ primary_profile:
   species: null
   class: null
   candidate_id: null
-  quality_gate: pending_pilot_and_calibration
+  quality_gate: pending_profile_calibration
 shadow_top_k: []
 rerun_triggers:
   - result_verdict_schema_changes
   - measurement_definition_contract_changes
   - run_blocker_policy_changes
-  - first_controlled_run_verify_pilot_creates_evidence
+  - first_profile_calibration_run
 notes:
-  - This first package intentionally has no calibrated execution profile.
+  - The package now has a controlled private blocked-run pilot, but it still has no calibrated execution profile.
   - Bind model, reasoning, party, simulator/tool runtime, and boundary handling per project until public-safe calibration evidence exists.
-  - Do not call this pilot-executed, usable, or production-ready until a controlled run/verify pilot and independent boundary review pass.
+  - Do not call this usable or production-ready until profile calibration and independent boundary review pass.

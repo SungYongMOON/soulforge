@@ -29,6 +29,8 @@ It sits after `simulation_deck_prepare_v0`. It packages run identity, execution 
 
 ## Current Maturity
 
-`validation_level: draft_contract_only`
+`validation_level: pilot_executed_private_fixture`
 
-This package is registered as a first public-safe contract skeleton. A controlled project-local pilot is still required before claiming pilot-executed, usable, or production-ready behavior.
+This package has completed a controlled private blocked-run pilot. The first pilot showed how a run packet, blocker packet, and blocked verdict can be written without inventing waveform results or treating blocked execution as a failed verification.
+
+The package is still conservative: it does not yet have a calibrated execution profile, a successful executed-run case, or a measured waveform/metric result example.

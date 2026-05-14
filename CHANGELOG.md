@@ -60,6 +60,16 @@
 - Registered the workflow in `.workflow/index.yaml` and listed it in `.workflow/README.md` after `simulation_source_collect_v0`.
 - Defined explicit outputs for `simulation_deck_packet`, `deck_input_manifest`, `model_dependency_map`, `unresolved_deck_inputs`, `deck_prepare_blockers`, `owner_followup_needed`, `downstream_handoff`, and `boundary_review_note`.
 - Kept the first version conservative: it prepares or blocks deck inputs, but it does not execute simulations, verify results, or invent missing models.
+- Executed a first controlled private representative deck-prepare pilot that separated one prepared LTspice demo-circuit input from unresolved policy/measurement prerequisites and missing-model blockers.
+- Updated the package maturity from `draft_contract_only` to `pilot_executed_private_fixture`.
+
+### Revision `working` - Simulation run verify workflow added
+
+- Added `.workflow/simulation_run_verify_v0/` as a public-safe run/verify workflow for executing a bounded simulation or recording why execution is blocked.
+- Registered the workflow in `.workflow/index.yaml` and listed it in `.workflow/README.md` after `simulation_deck_prepare_v0`.
+- Defined explicit outputs for `simulation_run_packet`, `run_manifest`, `measurement_results`, `result_verdicts`, `run_blockers`, `owner_followup_needed`, `downstream_handoff`, and `boundary_review_note`.
+- Executed a first controlled private blocked-run pilot that wrote run metadata, blocker rows, and a blocked verdict without inventing measurement or waveform results.
+- Updated the package maturity from `draft_contract_only` to `pilot_executed_private_fixture`.
 
 ### Revision `working` - Interface control and harness readiness workflow added
 
