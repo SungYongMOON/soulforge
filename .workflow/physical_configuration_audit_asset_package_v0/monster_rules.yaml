@@ -1,0 +1,13 @@
+workflow_id: physical_configuration_audit_asset_package_v0
+kind: monster_rules
+status: active
+rules:
+  - monster_id: package_match_treated_as_functional_acceptance
+    response: relabel_as_physical_alignment_only
+    summary: Package alignment is not functional acceptance.
+  - monster_id: missing_artifact_hidden
+    response: keep_release_blocker_visible
+    summary: Missing or mismatched artifacts must remain explicit.
+  - monster_id: upstream_artifact_mutated
+    response: stop_and_emit_boundary_review_note
+    summary: The workflow must not patch baseline, source, or attachment packets.

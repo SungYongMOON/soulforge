@@ -57,6 +57,8 @@ entries:
     path: test_harness_asset_planning_v0/workflow.yaml
   - workflow_id: source_packet_sufficiency_review_v0
     path: source_packet_sufficiency_review_v0/workflow.yaml
+  - workflow_id: physical_configuration_audit_asset_package_v0
+    path: physical_configuration_audit_asset_package_v0/workflow.yaml
 notes:
   - Workflow catalog only. Raw run ids and execution dumps do not belong here.
   - Authoring templates live under `authoring/` and are not workflow canon entries.

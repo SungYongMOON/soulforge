@@ -1,0 +1,28 @@
+workflow_id: physical_configuration_audit_asset_package_v0
+kind: step_graph
+status: active
+steps:
+  - step_id: prepare_audit_binding
+    title: Prepare Audit Binding
+    actor_slot: workflow_runner
+    action:
+      kind: project_local_physical_audit_binding_setup
+    summary: Resolve bounded audit scope and output root.
+  - step_id: inventory_artifact_rows
+    title: Inventory Artifact Rows
+    actor_slot: inventory_curator
+    action:
+      kind: artifact_inventory_and_checksum_inventory
+    summary: Inventory baseline/package rows and checksum refs without mutating upstream artifacts.
+  - step_id: map_discrepancies
+    title: Map Discrepancies
+    actor_slot: discrepancy_router
+    action:
+      kind: release_blocker_and_followup_mapping
+    summary: Separate missing/mismatched artifacts and release blockers from non-blocking observations.
+  - step_id: write_bundle_and_boundary_review
+    title: Write Bundle And Boundary Review
+    actor_slot: boundary_reviewer
+    action:
+      kind: physical_audit_bundle_write_and_boundary_review
+    summary: Confirm no baseline or acceptance overclaim before publication.

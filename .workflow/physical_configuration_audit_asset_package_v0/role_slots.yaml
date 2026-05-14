@@ -1,0 +1,12 @@
+workflow_id: physical_configuration_audit_asset_package_v0
+kind: role_slots
+status: active
+slots:
+  - slot_id: workflow_runner
+    summary: owns audit-scope resolution and output-root setup
+  - slot_id: inventory_curator
+    summary: inventories artifact/package rows and checksum refs
+  - slot_id: discrepancy_router
+    summary: maps missing/mismatched artifacts and release blockers
+  - slot_id: boundary_reviewer
+    summary: checks non-claims and read-only boundary posture

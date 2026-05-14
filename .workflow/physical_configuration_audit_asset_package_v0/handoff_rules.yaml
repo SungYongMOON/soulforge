@@ -1,0 +1,16 @@
+workflow_id: physical_configuration_audit_asset_package_v0
+kind: handoff_rules
+status: active
+rules:
+  - from: workflow_runner
+    to: inventory_curator
+    condition: audit_binding_ready
+    summary: Curator receives only approved inventory refs and policy, not raw payload dumps or secrets.
+  - from: inventory_curator
+    to: discrepancy_router
+    condition: inventory_rows_written
+    summary: Router receives stable artifact rows and checksum refs so discrepancy routing stays narrow.
+  - from: discrepancy_router
+    to: boundary_reviewer
+    condition: discrepancy_register_written
+    summary: Boundary review receives the full audit bundle and confirms no approval or mutation overclaim.

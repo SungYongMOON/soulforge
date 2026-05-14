@@ -1,0 +1,18 @@
+workflow_id: physical_configuration_audit_asset_package_v0
+kind: project_binding_template
+status: template
+project_code: "<project_code>"
+physical_audit_run_id: "<run_id>"
+inputs:
+  baseline_manifest_refs:
+    - packet_repo_path: "_workmeta/<project_code>/bindings/<baseline_manifest_packet>"
+      read_only: true
+approved_physical_audit_policy:
+  upstream_packets_are_read_only: true
+  physical_audit_is_not_functional_acceptance: true
+outputs:
+  physical_audit_output_root_repo_path: "_workmeta/<project_code>/runs/<run_id>/physical_audit/physical_configuration_audit_asset_package_v0"
+public_boundary:
+  commit_project_outputs_to_public_repo: false
+  include_raw_project_payloads_in_workflow_package: false
+  use_runtime_absolute_paths_in_workflow_package: false
