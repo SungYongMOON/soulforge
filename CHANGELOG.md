@@ -2,6 +2,12 @@
 
 ## 2026-05-13
 
+### Revision `working` - tracked Python bytecode removed from public repo
+
+- Removed tracked `__pycache__/*.pyc` artifacts from `guild_hall/gateway/mail_fetch/**` and `guild_hall/town_crier/**` so runtime smoke and health commands no longer dirty the public worktree.
+- Kept the existing `.gitignore` bytecode rules as the guard against regenerating these runtime-only files into Git state.
+- This reduces always-on preflight failures where the operating clone must stay on clean `main` before `doctor`, `gateway`, `healer`, and `night_watch` runs.
+
 ### Revision `working` - workflow_optimizer default execution gate clarified
 
 - Clarified that a full `workflow_optimizer` run request covers the skill's default isolated quality matrix and CLI telemetry probes without requiring separate user wording for subagents or CLI.
