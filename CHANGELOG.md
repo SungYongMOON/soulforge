@@ -87,6 +87,14 @@
 - Executed a first controlled private representative planning pilot that turned verification-plan TRR seeds into test-interface, simulation-fixture, instrumentation-resource, and planning-blocker packets.
 - Updated the package maturity from `draft_contract_only` to `pilot_executed_private_fixture`.
 
+### Revision `working` - Functional configuration audit page library workflow added
+
+- Added `.workflow/functional_configuration_audit_page_library_v0/` as a public-safe governance consumer for later FCA/SVR-style functional claim auditing.
+- Registered the workflow in `.workflow/index.yaml` and listed it in `.workflow/README.md` after `configuration_baseline_and_change_control_v0`.
+- Defined explicit outputs for `functional_audit_packet`, `verified_claim_register`, `unverified_claim_register`, `discrepancy_register`, `residual_risk_register`, `audit_readiness`, `closure_handoff`, and `boundary_review_note`.
+- Executed a first controlled private representative audit pilot that packaged unverified, discrepancy, and residual-risk rows without claiming accepted verification evidence or owner acceptance.
+- Updated the package maturity from `draft_contract_only` to `pilot_executed_private_fixture`.
+
 ### Revision `working` - Interface control and harness readiness workflow added
 
 - Added `.workflow/interface_control_and_harness_readiness_v0/` as a public-safe governance bridge before or alongside harness composition.
