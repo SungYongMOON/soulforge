@@ -1,0 +1,12 @@
+workflow_id: functional_configuration_audit_page_library_v0
+kind: role_slots
+status: active
+slots:
+  - slot_id: workflow_runner
+    summary: owns audit binding resolution and bounded output-root setup
+  - slot_id: claim_audit_curator
+    summary: curates claim rows, supporting evidence refs, and discrepancy candidates
+  - slot_id: discrepancy_router
+    summary: separates verified, unverified, discrepant, and residual-risk items plus follow-up routes
+  - slot_id: boundary_reviewer
+    summary: checks non-claims, acceptance boundaries, and read-only posture

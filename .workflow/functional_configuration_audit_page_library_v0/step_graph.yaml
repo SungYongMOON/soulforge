@@ -1,0 +1,28 @@
+workflow_id: functional_configuration_audit_page_library_v0
+kind: step_graph
+status: active
+steps:
+  - step_id: prepare_audit_binding
+    title: Prepare Audit Binding
+    actor_slot: workflow_runner
+    action:
+      kind: project_local_functional_audit_binding_setup
+    summary: Resolve the bounded audit scope and output root.
+  - step_id: curate_claim_rows
+    title: Curate Claim Rows
+    actor_slot: claim_audit_curator
+    action:
+      kind: claim_and_evidence_inventory
+    summary: Inventory claims, accepted-evidence refs, and unresolved gaps without mutating upstream packets.
+  - step_id: split_verified_unverified_discrepant
+    title: Split Verified Unverified Discrepant
+    actor_slot: discrepancy_router
+    action:
+      kind: functional_audit_split_and_followup_mapping
+    summary: Separate verified, unverified, discrepancy, and residual-risk rows and map closure routes.
+  - step_id: write_bundle_and_boundary_review
+    title: Write Bundle And Boundary Review
+    actor_slot: boundary_reviewer
+    action:
+      kind: audit_bundle_write_and_boundary_review
+    summary: Confirm no acceptance or upstream mutation overclaim before publishing the audit packet.

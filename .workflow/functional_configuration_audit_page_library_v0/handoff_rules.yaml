@@ -1,0 +1,16 @@
+workflow_id: functional_configuration_audit_page_library_v0
+kind: handoff_rules
+status: active
+rules:
+  - from: workflow_runner
+    to: claim_audit_curator
+    condition: audit_binding_ready
+    summary: Curator receives only approved audit-scope refs and policy, not raw payload dumps or secrets.
+  - from: claim_audit_curator
+    to: discrepancy_router
+    condition: claim_rows_written
+    summary: Router receives stable claim rows and evidence refs so verified/unverified/discrepancy splits stay narrow.
+  - from: discrepancy_router
+    to: boundary_reviewer
+    condition: audit_split_written
+    summary: Boundary review receives the full audit bundle and confirms no acceptance or mutation overclaim.

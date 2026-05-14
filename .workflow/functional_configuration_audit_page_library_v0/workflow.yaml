@@ -1,0 +1,95 @@
+workflow_id: functional_configuration_audit_page_library_v0
+kind: workflow
+status: active
+title: Functional Configuration Audit Page Library v0
+summary: Audit whether configured page modules and harness compositions satisfy declared functional or performance claims using accepted verification evidence and controlled baseline context, without approving acceptance or mutating upstream artifacts.
+entrypoint: run
+execution_mode: local_tool_sequence
+role_slots: role_slots.yaml
+step_graph: step_graph.yaml
+handoff_rules: handoff_rules.yaml
+monster_rules: monster_rules.yaml
+party_compatibility: party_compatibility.yaml
+profile_policy: profile_policy.yaml
+inputs:
+  - functional_audit_project_binding
+  - audit_scope_refs
+  - approved_audit_policy
+optional_inputs:
+  - configuration_baseline_packet_refs
+  - trace_matrix_refs
+  - verification_result_refs
+  - verification_plan_refs
+  - harness_packet_refs
+  - source_packet_refs
+  - action_closure_refs
+  - owner_decision_refs
+outputs:
+  - functional_audit_packet
+  - verified_claim_register
+  - unverified_claim_register
+  - discrepancy_register
+  - residual_risk_register
+  - audit_readiness
+  - closure_handoff
+  - boundary_review_note
+validation_level: draft_contract_only
+registration_policy: owner_requested_registration
+upstream_workflows:
+  - workflow_id: configuration_baseline_and_change_control_v0
+    expected_outputs:
+      - configuration_baseline_packet
+      - baseline_inventory
+      - change_request_register
+      - impact_matrix
+      - baseline_gap_register
+      - rerun_routing
+    status: optional_but_recommended
+  - workflow_id: page_module_trace_matrix_v0
+    expected_outputs:
+      - trace_matrix
+      - evidence_authority_map
+      - trace_gap_register
+    status: required_for_traceable_claim_audit
+  - workflow_id: verification_plan_from_page_contracts_v0
+    expected_outputs:
+      - fca_svr_handoff_index
+      - verification_requirements_matrix
+    status: optional_planning_input
+  - workflow_id: review_action_item_closure_loop_v0
+    expected_outputs:
+      - action_closure_ledger
+      - closure_status_matrix
+      - carry_forward_register
+    status: optional_closure_context
+downstream_workflows:
+  - workflow_id: review_gate_evidence_pack_v0
+    expected_input: functional_audit_summary_and_discrepancy_refs
+    status: later_review_consumer
+  - workflow_id: configuration_baseline_and_change_control_v0
+    expected_input: discrepancy_and_residual_risk_change_routes
+    status: rerun_trigger_only
+functional_audit_contract:
+  owns:
+    - audit_scope_identity
+    - claim_to_evidence_audit_rows
+    - verified_vs_unverified_claim_split
+    - discrepancy_register
+    - residual_risk_register
+    - closure_handoff_for_followup
+  does_not_own:
+    - verification_execution
+    - result_acceptance
+    - baseline_approval
+    - owner_acceptance
+    - upstream_packet_mutation
+  authority_boundary:
+    audit_packet_is_not_acceptance: true
+    verified_claim_register_is_not_owner_signoff: true
+    unverified_claims_remain_first_class: true
+    upstream_artifacts_are_read_only: true
+  required_output_shapes:
+    project_binding: templates/project_binding.template.yaml
+notes:
+  - This workflow is an FCA/SVR-style governance consumer. It audits claims against accepted evidence and known gaps; it does not itself accept the system or close discrepancies.
+  - Public workflow canon stores only portable orchestration rules, state semantics, and sanitized templates.
