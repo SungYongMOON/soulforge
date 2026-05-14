@@ -1,0 +1,12 @@
+workflow_id: project_readiness_digest_v0
+kind: role_slots
+status: active
+slots:
+  - slot_id: workflow_runner
+    summary: owns digest-scope resolution and output-root setup
+  - slot_id: status_curator
+    summary: inventories workflow states, blockers, and owner backlog refs
+  - slot_id: recommendation_writer
+    summary: composes owner-readable next-action recommendations from bounded evidence
+  - slot_id: boundary_reviewer
+    summary: checks non-claims and read-only boundary posture

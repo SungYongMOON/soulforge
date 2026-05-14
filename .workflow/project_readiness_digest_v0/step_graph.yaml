@@ -1,0 +1,28 @@
+workflow_id: project_readiness_digest_v0
+kind: step_graph
+status: active
+steps:
+  - step_id: prepare_digest_binding
+    title: Prepare Digest Binding
+    actor_slot: workflow_runner
+    action:
+      kind: project_local_digest_binding_setup
+    summary: Resolve bounded digest scope and output root.
+  - step_id: inventory_status_and_backlog
+    title: Inventory Status And Backlog
+    actor_slot: status_curator
+    action:
+      kind: workflow_status_and_owner_backlog_inventory
+    summary: Gather workflow statuses, blockers, owner-input queues, and calibration-priority refs.
+  - step_id: compose_digest
+    title: Compose Digest
+    actor_slot: recommendation_writer
+    action:
+      kind: owner_readiness_digest_write
+    summary: Write status rollup, blockers, owner-input queue, and next recommendations from bounded refs.
+  - step_id: write_bundle_and_boundary_review
+    title: Write Bundle And Boundary Review
+    actor_slot: boundary_reviewer
+    action:
+      kind: digest_bundle_write_and_boundary_review
+    summary: Confirm no overclaim or upstream mutation before publication.

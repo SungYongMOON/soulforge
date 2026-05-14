@@ -1,0 +1,36 @@
+workflow_id: project_readiness_digest_v0
+kind: workflow
+status: active
+title: Project Readiness Digest v0
+summary: Aggregate current workflow statuses, key blockers, owner-input backlog, calibration priorities, and next recommended actions into an owner-readable readiness digest without becoming a source of truth or mutating upstream artifacts.
+entrypoint: run
+execution_mode: local_tool_sequence
+role_slots: role_slots.yaml
+step_graph: step_graph.yaml
+handoff_rules: handoff_rules.yaml
+monster_rules: monster_rules.yaml
+party_compatibility: party_compatibility.yaml
+profile_policy: profile_policy.yaml
+inputs:
+  - digest_scope_refs
+  - approved_digest_policy
+optional_inputs:
+  - workflow_status_refs
+  - review_gate_packet_refs
+  - verification_plan_refs
+  - source_gap_packet_refs
+  - closure_loop_refs
+  - owner_backlog_refs
+  - calibration_priority_refs
+outputs:
+  - project_readiness_digest
+  - status_rollup
+  - priority_blockers
+  - owner_input_queue
+  - next_action_recommendations
+  - boundary_review_note
+validation_level: pilot_executed_private_fixture
+registration_policy: owner_requested_registration
+notes:
+  - This workflow is an owner-readable reporting layer. It links back to upstream packet refs instead of replacing them.
+  - Public workflow canon stores only portable orchestration rules, state semantics, and sanitized templates.

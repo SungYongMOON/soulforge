@@ -1,0 +1,16 @@
+workflow_id: project_readiness_digest_v0
+kind: handoff_rules
+status: active
+rules:
+  - from: workflow_runner
+    to: status_curator
+    condition: digest_binding_ready
+    summary: Curator receives only approved refs and policy, not raw payload dumps or secrets.
+  - from: status_curator
+    to: recommendation_writer
+    condition: status_inventory_written
+    summary: Writer receives bounded status and backlog rows so recommendations stay tied to evidence.
+  - from: recommendation_writer
+    to: boundary_reviewer
+    condition: digest_written
+    summary: Boundary review receives the complete digest bundle and confirms it is reporting-only.

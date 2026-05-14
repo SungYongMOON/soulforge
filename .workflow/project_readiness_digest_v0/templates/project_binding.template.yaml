@@ -1,0 +1,18 @@
+workflow_id: project_readiness_digest_v0
+kind: project_binding_template
+status: template
+project_code: "<project_code>"
+digest_run_id: "<run_id>"
+inputs:
+  digest_scope_refs:
+    - packet_repo_path: "_workmeta/<project_code>/bindings/<digest_scope_packet>"
+      read_only: true
+approved_digest_policy:
+  upstream_packets_are_read_only: true
+  digest_is_reporting_only: true
+outputs:
+  digest_output_root_repo_path: "_workmeta/<project_code>/runs/<run_id>/readiness_digest/project_readiness_digest_v0"
+public_boundary:
+  commit_project_outputs_to_public_repo: false
+  include_raw_project_payloads_in_workflow_package: false
+  use_runtime_absolute_paths_in_workflow_package: false
