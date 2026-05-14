@@ -121,6 +121,11 @@ current-default 에서는 `_workmeta` 를 `owner-only shared metadata plane acro
 - `always_on_node` 가 `owner-with-state` 로 동작할 때는 `_workmeta/main` 을 주기적으로 pull 해서 shared metadata plane 최신 상태를 유지할 수 있다.
 - 24시간 PC 에서 새 metadata 가 생기면 clean/main 조건이 맞는 동안 `_workmeta` 에 commit/push 할 수 있다.
 - 이 동작은 `_workspaces/**` 실파일을 취합하는 것이 아니라 `_workmeta` metadata plane 을 취합하는 것이다.
+- 24시간 PC 는 `_workmeta/main` fast-forward sync 만 자동 처리한다. 오래된 작업 브랜치나 PC별 브랜치 전체를 `main` 에 자동 merge 하지 않는다.
+- 다른 PC 의 bounded metadata 가 필요하면 먼저 `_workmeta/main` 을 최신화한 뒤 해당 commit 또는 파일 범위만 cherry-pick, rebase, manual port 로 승격한다.
+- `README.md`, `CHANGELOG.md`, `reports/**worklog.md`, `promotion_candidate_register.md` 같은 shared policy/log surface 충돌은 `main` 의 최신 공용 규칙을 기준으로 보존하고, 새 기록은 append 로 병합한다.
+- PC/node 이름이 서로 다르다는 사실만으로는 충돌이 아니다. 별도 경로의 node metadata 는 공존할 수 있고, 같은 파일의 같은 영역을 동시에 바꾼 경우만 merge conflict 로 본다.
+- shared policy/log surface 충돌을 자동으로 판단할 수 없으면 commit/push 하지 말고 blocked 상태와 충돌 파일만 보고한다.
 
 ## `contract.yaml` 최소 필드
 

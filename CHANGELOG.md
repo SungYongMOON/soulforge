@@ -1,5 +1,13 @@
 ﻿# CHANGELOG
 
+## 2026-05-14
+
+### Revision `working` - workmeta always-on merge guard clarified
+
+- Clarified that the 24-hour PC only auto-syncs `_workmeta/main` by fast-forward and must not auto-merge stale work branches or PC-specific branches into `main`.
+- Documented that bounded metadata from another PC should be promoted by cherry-pick, rebase, or manual port after `main` is current.
+- Added conflict handling guidance for shared `_workmeta` policy/log surfaces so `README.md`, `CHANGELOG.md`, worklogs, and promotion registers preserve latest `main` policy and append new records.
+
 ## 2026-05-13
 
 ### Revision `working` - workmeta shared metadata plane clarified

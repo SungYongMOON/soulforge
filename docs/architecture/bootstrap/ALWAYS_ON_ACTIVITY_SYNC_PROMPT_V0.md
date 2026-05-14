@@ -75,6 +75,8 @@ git pull --ff-only origin main
 npm run guild-hall:workmeta:sync -- --json
 ```
 
+`_workmeta` 동기화는 `main` fast-forward 와 clean/main 상태의 metadata commit/push 만 허용한다. 오래된 작업 브랜치나 PC별 브랜치 전체를 자동 merge 하지 않는다. 필요한 bounded metadata 는 사람이 확인한 commit 또는 파일 범위만 `main` 최신 상태 위에 cherry-pick/rebase/manual port 한다. `README.md`, `CHANGELOG.md`, `reports/**worklog.md`, `promotion_candidate_register.md` 충돌은 `main` 의 최신 공용 규칙을 기준으로 append 병합해야 하며, 자동 판단이 어려우면 blocked 로 보고한다.
+
 GitHub/DNS/network 계열 실패처럼 일시 장애일 수 있는 경우에는 최대 3회까지 시도한다.
 첫 실패 후 60초 대기, 두 번째 실패 후 180초 대기, 세 번째 실패 후에는 `stale_sync_blocked` 로 보고하고 중단한다.
 dirty worktree, non-main branch, merge/rebase 필요 같은 precondition 실패는 재시도하지 않는다.
