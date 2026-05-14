@@ -1,0 +1,141 @@
+schema_version: source_gap_followup_packet_v0
+packet_identity:
+  packet_id: <packet_id>
+  workflow_id: source_gap_followup_packet_v0
+  created_at: <iso8601_timestamp>
+  created_by: <agent_or_owner>
+  project_code: <project_code>
+  run_id: <run_id>
+boundary:
+  storage_scope: private_run_truth
+  oracle_free: true
+  public_safe_summary_allowed: false
+  agent_must_not_read_secret_values: true
+  source_payloads_may_not_be_public_committed: true
+  followup_packet_is_source_evidence: false
+  owner_batch_requires_owning_workflow_reindex: true
+input_window:
+  source_run_ids: []
+  source_workflow_ids: []
+  source_packet_refs: []
+  ignored_refs: []
+aggregate_summary:
+  total_upstream_gap_ref_count: 0
+  total_aggregate_gap_count: 0
+  duplicate_gap_ref_count: 0
+  open_owner_action_count: 0
+  agent_retryable_count: 0
+  blocked_by_owner_count: 0
+  ready_for_batch_retry_count: 0
+  accepted_not_applicable_count: 0
+gap_items:
+  - aggregate_gap_id: <aggregate_gap_id>
+    aggregate_key: <stable_component_page_interface_or_connection_key>
+    owning_workflow_id: <workflow_id>
+    source_artifact_ref: <project_local_packet_ref>
+    upstream_gap_refs: []
+    scope:
+      component_refdes: null
+      component_identity: null
+      page_asset_id: null
+      interface_id: null
+      connection_id: null
+      source_kind: datasheet|eval_board|layout_doc|simulation_model|ecad_model|owner_constraint|connector_map|quantitative_value|other
+    gap_family: missing_official_source|blocked_access|owner_file_needed|unapproved_local_source|identity_ambiguity|source_conflict|missing_quantitative_evidence|missing_layout_guidance|missing_harness_context|license_or_terms_unclear|format_unusable
+    current_state: open|owner_waiting|agent_retryable|batched_for_download|resolved_pending_rerun|accepted_not_applicable|closed
+    blocking_level: blocks_materials|blocks_layout|blocks_quantitative|blocks_harness|review_required|informational
+    attempted_sources: []
+    current_best_evidence: <summary_without_payload>
+    downstream_impacts: []
+    owner_action_ids: []
+    retry_trigger_ids: []
+gap_dedup_index:
+  file: gap_dedup_index.yaml
+  entries:
+    - aggregate_gap_id: <aggregate_gap_id>
+      aggregate_key: <stable_key>
+      upstream_gap_refs: []
+      merged_reason: <why_these_refs_are_same_owner_or_source_action>
+      split_from_refs: []
+      split_reason: null
+      lineage_events: []
+owner_action_queue:
+  file: owner_action_queue.yaml
+  owner_actions:
+    - action_id: <owner_action_id>
+      aggregate_gap_ids: []
+      action_type: provide_file|approve_local_file|manual_download|confirm_identity|confirm_revision|approve_terms|domain_decision|accept_not_applicable|allow_agent_retry
+      owner_action: <specific_safe_action>
+      target_drop_path: _workmeta/<project_code>/runs/<run_id>/source_gap_followup/source_inbox/<batch_id>/
+      expected_manifest_fields:
+        - original_source_name
+        - source_kind
+        - publisher_or_origin
+        - related_component_or_page
+        - approval_scope
+        - may_executor_use
+        - public_summary_allowed
+        - checksum_sha256
+      agent_must_not_read_secret_values: true
+      downstream_reason: <why_this_matters>
+      blocks_workflows: []
+      status: open|owner_waiting|provided_pending_index|approved|rejected|accepted_not_applicable|closed
+owner_source_batch_manifest_template:
+  file: owner_source_batch_manifest.template.yaml
+download_or_reuse_batch_manifest:
+  file: download_or_reuse_batch_manifest.yaml
+  actions:
+    - batch_action_id: <batch_action_id>
+      aggregate_gap_ids: []
+      action: owner_provide|manual_download|reuse_owner_approved_local|agent_retry_public_official|blocked|not_applicable
+      destination_repo_path: _workmeta/<project_code>/runs/<run_id>/source_gap_followup/source_inbox/<batch_id>/<optional_file>
+      checksum_required: true
+      terms_or_license_note_required: true
+      result_status: planned|completed|blocked|not_applicable
+      evidence_status_after_action: not_source_evidence_until_owning_workflow_reindexes
+retry_trigger_register:
+  file: retry_trigger_register.yaml
+  retry_triggers:
+    - retry_trigger_id: <retry_trigger_id>
+      aggregate_gap_ids: []
+      trigger_type: owner_file_present|owner_approval_recorded|identity_confirmed|revision_confirmed|terms_approved|official_url_confirmed|transient_download_retry_allowed|gap_accepted_not_applicable|conflict_resolved
+      trigger_status: waiting|ready|consumed|blocked|cancelled
+      target_workflow:
+        workflow_id: official_source_packet_collect_v0|exp_xml_component_materials|component_pcb_layout_guide_extraction|page_quantitative_enrichment_v0|xml_harness_composition_v0
+        target_scope:
+          component_refdes: null
+          page_asset_id: null
+          interface_id: null
+          connection_id: null
+      preflight_checks:
+        - source_batch_manifest_present
+        - approval_scope_allows_executor_use
+        - checksum_recorded_for_local_file
+        - no_secret_values_needed
+        - upstream_identity_matches_gap_scope
+      expected_outputs_to_refresh: []
+      downstream_consumers_to_notify: []
+downstream_unblock_map:
+  file: downstream_unblock_map.yaml
+  workflow_views:
+    - workflow_id: <workflow_id>
+      closed_gap_ids: []
+      open_gap_ids: []
+      owner_waiting_gap_ids: []
+      retry_ready_gap_ids: []
+      consumed_retry_trigger_ids: []
+      downstream_consumers_to_notify: []
+      not_claimed:
+        - source evidence without owning workflow re-index
+        - harness promotion without harness workflow review
+        - public-safe status for private source payloads
+boundary_review_note:
+  file: boundary_review_note.md
+  required_checks:
+    every_upstream_gap_has_aggregate_gap_id: false
+    duplicate_owner_actions_are_merged_or_split_with_reason: false
+    retry_triggers_target_narrowest_owning_workflow: false
+    owner_files_not_counted_as_source_evidence_before_reindex: true
+    unsupported_claims_remain_blocked_or_review_required: true
+    no_raw_payloads_or_runtime_absolute_paths_in_public_package: true
+    no_secret_or_account_state_requested_from_agent: true

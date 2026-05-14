@@ -1,0 +1,17 @@
+schema_version: page_module_verification_seed_matrix_v0
+verification_seed_matrix:
+  source_trace_matrix_id: <trace_matrix_id>
+  seeds:
+    - verification_seed_id: <verification_seed_id>
+      trace_row_id: <trace_row_id>
+      claim_kind: <claim_kind>
+      method_seed: inspection|analysis|simulation|test|demonstration|owner_review|not_ready
+      evidence_needed: []
+      success_criteria_seed: <safe_summary>
+      blocking_gap_ids: []
+      review_required: false
+      downstream_verification_plan_ref: null
+rules:
+  seeds_are_not_verification_results: true
+  missing_rows_create_not_ready_or_gap_seeds: true
+  review_required_rows_require_owner_or_domain_review_before_formal_verification: true

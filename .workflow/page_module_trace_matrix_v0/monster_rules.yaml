@@ -1,0 +1,46 @@
+workflow_id: page_module_trace_matrix_v0
+kind: monster_rules
+status: active
+rules:
+  - monster_id: trace_matrix_treated_as_source_authority
+    response: route_back_to_owning_source_or_evidence_workflow
+    summary: The matrix can index and cap claims; it cannot make source, material, layout, quantitative, or harness evidence true.
+  - monster_id: row_status_values_collapsed
+    response: preserve_source_confirmed_derived_review_required_missing_as_distinct
+    summary: Do not merge evidence authority into a generic confidence label or harness claim status.
+  - monster_id: derived_claim_without_derivation_rule
+    response: downgrade_to_review_required_or_missing
+    summary: Derived rows require a named deterministic rule plus input row ids or artifact refs.
+  - monster_id: source_confirmed_without_allowed_evidence_ref
+    response: downgrade_to_review_required_or_missing_and_write_gap
+    summary: Source-confirmed rows require approved evidence refs, owning workflow identity, and checksum or stable ref when available.
+  - monster_id: missing_claim_hidden_in_summary
+    response: create_missing_trace_row_and_gap
+    summary: Missing expected claims are first-class rows with gap ids and downstream impacts, not prose-only caveats.
+  - monster_id: orphan_harness_claim_promoted
+    response: cap_at_review_required_or_blocked
+    summary: A downstream harness claim without supporting upstream trace rows cannot be candidate-safe or source-supported.
+  - monster_id: upstream_packet_mutated_by_trace_workflow
+    response: stop_and_emit_delta_or_gap_only
+    summary: Trace runs must not patch source XML, page sidecars, source packets, materials outputs, layout guides, quantitative overlays, or harness contracts.
+  - monster_id: conflict_resolved_by_convenience
+    response: keep_review_required_until_owner_or_owning_workflow_resolves
+    summary: Conflicting evidence cannot be resolved by choosing the most useful source for harness or review progression.
+  - monster_id: owner_file_treated_as_indexed_evidence
+    response: require_owner_manifest_and_owning_workflow_reindex
+    summary: Owner-provided files or manual downloads are not evidence until the narrowest owning workflow records provenance, checksum, approval scope, and source-state evidence.
+  - monster_id: verifier_or_oracle_material_used_as_trace_source
+    response: reject_as_forbidden_construction_input
+    summary: Hidden references, accepted outputs, verifier reports, repair packets, and oracle-derived mismatch details cannot become trace evidence.
+  - monster_id: raw_payload_leak_to_public_package
+    response: remove_payload_and_keep_contract_shape_only
+    summary: Public workflow canon may describe shapes and gates, but not raw project XML, vendor text, source files, binaries, private values, or downloaded collateral.
+  - monster_id: runtime_absolute_path_in_public_package
+    response: replace_with_repo_relative_placeholder_or_stable_id
+    summary: Public package files must use repo-relative placeholders or stable ids, not drive letters, host-specific roots, or machine-local paths.
+  - monster_id: verification_seed_reported_as_completed_verification
+    response: relabel_as_plan_seed_or_gap
+    summary: Verification seeds are planning inputs and prerequisites, not accepted verification results.
+  - monster_id: review_index_reported_as_review_decision
+    response: relabel_as_evidence_index_only
+    summary: Review-gate indexes can group evidence rows; review decisions and acceptance remain outside this workflow.

@@ -1,0 +1,24 @@
+workflow_id: page_module_trace_matrix_v0
+kind: party_compatibility
+status: active
+compatible_party_templates:
+  - workflow_research_build_verify
+  - sourcebound_extraction_review
+  - traceability_matrix_build
+  - review_gate_preparation
+required_capabilities:
+  - project_local_binding_resolution
+  - page_module_spec_inventory
+  - upstream_packet_crosswalk
+  - conservative_trace_row_enumeration
+  - evidence_authority_classification
+  - gap_orphan_conflict_detection
+  - harness_claim_ceiling_mapping
+  - verification_seed_planning
+  - review_gate_evidence_indexing
+  - public_private_boundary_review
+notes:
+  - No default party binding is assigned yet.
+  - Runtime model, reasoning, party, and project-local input policies resolve through project-local bindings.
+  - A controlled project-local pilot and independent boundary review are required before claiming pilot-executed, usable, or production-ready behavior.
+  - The workflow package is public-safe because it stores only orchestration rules, trace semantics, authority policy, and sanitized output templates.

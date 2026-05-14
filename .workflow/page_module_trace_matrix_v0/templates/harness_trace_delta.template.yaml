@@ -1,0 +1,23 @@
+schema_version: page_module_harness_trace_delta_v0
+harness_trace_delta:
+  harness_id: <harness_id>
+  source_trace_matrix_id: <trace_matrix_id>
+  connections:
+    - connection_id: <connection_id>
+      related_trace_row_ids: []
+      current_harness_status: blocked|review_required|candidate_safe|source_supported
+      allowed_status_ceiling: blocked|review_required|candidate_safe|source_supported
+      strengthening_possible: false
+      blocking_trace_row_ids: []
+      review_required_trace_row_ids: []
+      source_supported_possible_trace_row_ids: []
+      missing_evidence: []
+      not_claimed:
+        - final connection validity
+        - final circuit synthesis
+        - source-supported promotion without harness workflow review
+rules:
+  missing_safety_critical_trace_rows_cap_connection_at_blocked: true
+  review_required_trace_rows_cap_connection_at_review_required: true
+  derived_rows_cannot_create_source_supported_connection: true
+  harness_workflow_retains_final_connection_authority: true

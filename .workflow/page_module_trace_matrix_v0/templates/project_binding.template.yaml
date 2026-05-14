@@ -1,0 +1,50 @@
+workflow_id: page_module_trace_matrix_v0
+kind: project_binding_template
+status: template
+project_code: <project_code>
+trace_matrix_run_id: <run_id>
+inputs:
+  page_asset_manifest_refs:
+    - artifact_ref: _workmeta/<project_code>/runs/<upstream_run_id>/<path_to_page_or_module_manifest>
+      owning_workflow_id: page_xml_normalize_spec_v0
+      read_only: true
+  page_module_spec_refs:
+    - page_asset_id: <page_asset_id>
+      sidecar_ref: _workmeta/<project_code>/runs/<upstream_run_id>/<path_to_page_module_spec_v0.yaml>
+      owning_workflow_id: page_xml_normalize_spec_v0
+      read_only: true
+  optional_capture_intake_packet_refs: []
+  optional_official_source_packet_refs: []
+  optional_component_materials_packet_refs: []
+  optional_layout_guide_packet_refs: []
+  optional_quantitative_enrichment_packet_refs: []
+  optional_pspice_or_simulation_packet_refs: []
+  optional_harness_composition_packet_refs: []
+  optional_source_gap_followup_packet_refs: []
+  optional_owner_decision_refs: []
+approved_trace_intake_policy:
+  accept_only_oracle_free_packet_refs: true
+  hidden_references_allowed: false
+  verifier_reports_allowed: false
+  accepted_outputs_allowed_as_source: false
+  raw_source_payload_text_allowed: false
+  agent_may_read_secret_files: false
+  owner_files_require_batch_manifest: true
+  owner_files_require_owning_workflow_reindex_before_source_use: true
+  upstream_artifacts_are_read_only: true
+outputs:
+  output_root_repo_path: _workmeta/<project_code>/runs/<run_id>/trace_matrix/page_module_trace_matrix_v0
+  trace_matrix_file: trace_matrix.yaml
+  evidence_authority_map_file: evidence_authority_map.yaml
+  trace_gap_register_file: trace_gap_register.yaml
+  harness_trace_delta_file: harness_trace_delta.yaml
+  verification_seed_matrix_file: verification_seed_matrix.yaml
+  review_gate_evidence_index_file: review_gate_evidence_index.yaml
+  trace_provenance_file: trace_provenance.yaml
+  boundary_review_note_file: boundary_review_note.md
+public_boundary:
+  commit_project_outputs_to_public_repo: false
+  include_raw_project_payloads_in_workflow_package: false
+  include_vendor_text_or_source_payloads_in_workflow_package: false
+  use_runtime_absolute_paths_in_workflow_package: false
+  agent_may_read_secret_files: false

@@ -1,0 +1,25 @@
+schema_version: page_module_trace_provenance_v0
+trace_provenance:
+  source_trace_matrix_id: <trace_matrix_id>
+  workflow_id: page_module_trace_matrix_v0
+  workflow_package_version: v0
+  created_at: <iso8601_timestamp>
+  project_code: <project_code>
+  run_id: <run_id>
+  rerun_reason: initial|upstream_source_packet_refresh|quantitative_refresh|layout_refresh|harness_revision|owner_decision|review_action_closure|other
+  input_artifacts:
+    - artifact_ref: _workmeta/<project_code>/runs/<upstream_run_id>/<artifact>
+      owning_workflow_id: <workflow_id>
+      checksum_sha256: <sha256_or_pending>
+      approval_scope: executor_use|human_review_preparation|verifier_only|unknown
+      read_only: true
+  row_change_summary:
+    added_trace_row_ids: []
+    changed_trace_row_ids: []
+    unchanged_trace_row_ids: []
+    retired_trace_row_ids: []
+  boundary:
+    source_xml_mutated: false
+    upstream_packets_mutated: false
+    raw_payloads_in_trace_outputs: false
+    public_summary_allowed: false

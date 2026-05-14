@@ -1,0 +1,40 @@
+workflow_id: page_module_trace_matrix_v0
+kind: handoff_rules
+status: active
+rules:
+  - from: workflow_runner
+    to: artifact_set_curator
+    condition: binding_and_trace_intake_policy_ready
+    summary: Curator receives only portable packet refs, owning workflow ids, approval scopes, and output bindings; it does not receive hidden references, verifier reports, secrets, or raw source payloads.
+  - from: artifact_set_curator
+    to: trace_row_builder
+    condition: trace_input_artifact_set_written
+    summary: Row builder receives artifact metadata and approved readable packet summaries, not vendor text dumps, raw XML bodies, account sessions, or accepted-answer material.
+  - from: trace_row_builder
+    to: evidence_authority_mapper
+    condition: trace_rows_draft_written
+    summary: Authority mapper receives atomic row drafts with scope, field path, and candidate refs so each row can be classified independently.
+  - from: evidence_authority_mapper
+    to: gap_orphan_detector
+    condition: evidence_authority_map_written
+    summary: Gap detector receives the row-status decision and evidence crosswalk so missing, conflicted, orphaned, or unsafe claims remain visible.
+  - from: gap_orphan_detector
+    to: harness_delta_mapper
+    condition: trace_gap_register_written
+    summary: Harness mapper receives rows plus gap ids and may write only claim-strength ceilings and blockers, not final connection approvals.
+  - from: harness_delta_mapper
+    to: verification_seed_planner
+    condition: harness_trace_delta_written
+    summary: Verification planner receives row-backed harness impacts and gap refs for planning seeds, not as completed verification evidence.
+  - from: verification_seed_planner
+    to: review_index_builder
+    condition: verification_seed_matrix_written
+    summary: Review indexer receives trace row ids, evidence-status groups, and verification prerequisites so review packets can cite rows instead of copying raw payloads.
+  - from: review_index_builder
+    to: boundary_reviewer
+    condition: review_gate_evidence_index_written
+    summary: Boundary review receives the complete trace bundle and verifies that the workflow did not mutate upstream artifacts or take over source, harness, verification, or review authority.
+  - from: boundary_reviewer
+    to: workflow_runner
+    condition: boundary_review_note_complete
+    summary: Runner reports output paths, row counts, evidence-status counts, gap counts, harness ceilings, verification seed counts, review-index groups, and the narrowest next pilot route.

@@ -1,0 +1,23 @@
+workflow_id: source_gap_followup_packet_v0
+kind: party_compatibility
+status: active
+compatible_party_templates:
+  - workflow_research_build_verify
+  - source_packet_bootstrap
+  - sourcebound_extraction_review
+  - owner_followup_coordination
+required_capabilities:
+  - project_local_binding_resolution
+  - source_gap_packet_inventory
+  - conservative_gap_normalization
+  - aggregate_gap_deduplication
+  - owner_action_batching
+  - source_batch_manifesting
+  - retry_trigger_planning
+  - downstream_unblock_mapping
+  - public_private_boundary_review
+notes:
+  - No default party binding is assigned yet.
+  - Runtime model, reasoning, party, local-file, and owner-intake policies resolve through project-local bindings.
+  - Fresh executor and separate verifier review are required before claiming pilot-executed, usable, or production-ready behavior.
+  - The workflow package is public-safe because it stores only orchestration rules, gap-state semantics, retry policy, and output-shape templates.

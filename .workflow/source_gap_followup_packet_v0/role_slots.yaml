@@ -1,0 +1,31 @@
+workflow_id: source_gap_followup_packet_v0
+kind: role_slots
+status: active
+slots:
+  - slot_id: workflow_runner
+    title: Workflow Runner
+    summary: Resolves project-local bindings, allowed upstream packet refs, output roots, and public/private boundaries before aggregation begins.
+  - slot_id: gap_surface_collector
+    title: Gap Surface Collector
+    summary: Reads approved upstream gap, follow-up, manifest, readiness, and blocker packet refs without mutating them or reading forbidden payloads.
+  - slot_id: gap_normalizer
+    title: Gap Normalizer
+    summary: Converts heterogeneous source, materials, layout, quantitative, and harness gap records into the workflow's shared gap vocabulary.
+  - slot_id: dedup_indexer
+    title: Dedup Indexer
+    summary: Builds aggregate gap ids and crosswalks from upstream gap refs while preserving scope lineage and split reasons.
+  - slot_id: owner_action_planner
+    title: Owner Action Planner
+    summary: Produces concrete deduplicated owner actions for files, approvals, identity decisions, terms decisions, not-applicable decisions, and allowed retries.
+  - slot_id: batch_manifest_planner
+    title: Batch Manifest Planner
+    summary: Writes owner source batch and download-or-reuse intake templates that require approval scope, checksums, and aggregate gap mappings.
+  - slot_id: retry_trigger_planner
+    title: Retry Trigger Planner
+    summary: Registers narrow triggers for the workflow that owns each source, material, layout, quantitative, or harness gap.
+  - slot_id: downstream_unblock_mapper
+    title: Downstream Unblock Mapper
+    summary: Maps aggregate gaps and retry triggers into per-workflow blocked, owner-waiting, retry-ready, and notified-consumer views.
+  - slot_id: boundary_reviewer
+    title: Boundary Reviewer
+    summary: Checks that the packet remains a follow-up control surface and does not leak payloads, claim source authority, or erase unsupported gaps.

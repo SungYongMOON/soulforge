@@ -1,0 +1,72 @@
+schema_version: page_module_trace_matrix_v0
+matrix_identity:
+  trace_matrix_id: <project_code>:<run_id>:<scope_id>
+  created_at: <iso8601_timestamp>
+  project_code: <project_code>
+  run_id: <run_id>
+  scope:
+    page_asset_family: <page_asset_family>
+    page_asset_ids: []
+    harness_ids: []
+  matrix_status: draft|complete_with_gaps|blocked
+source_artifact_set:
+  - artifact_ref: _workmeta/<project_code>/runs/<upstream_run_id>/<artifact>
+    artifact_kind: page_module_spec|capture_intake_packet|source_packet|materials_packet|layout_guide|quantitative_packet|harness_contract|owner_decision|other
+    workflow_id: <owning_workflow_id>
+    checksum_sha256: <sha256_or_pending>
+    approval_scope: executor_use|human_review_preparation|verifier_only|unknown
+rows:
+  - trace_row_id: <stable_trace_row_id>
+    claim_kind: asset_identity|module_scope|function_claim|interface_group|interface_item|quantitative_constraint|source_packet_coverage|layout_readiness|pspice_readiness|harness_connection_claim|open_question|verification_need
+    claim_text: <one_atomic_claim_summary_without_raw_payload>
+    scope:
+      page_asset_id: null
+      module_id: null
+      interface_group_id: null
+      interface_item_id: null
+      component_ref: null
+      harness_id: null
+      connection_id: null
+    normalized_field_path: null
+    value: null
+    unit: null
+    evidence_status: source_confirmed|derived|review_required|missing
+    evidence_refs: []
+    derivation:
+      derivation_rule: null
+      input_trace_row_ids: []
+      input_artifact_refs: []
+    missing:
+      missing_kind: null
+      needed_source: null
+      gap_id: null
+    review:
+      reason: null
+      owner_action_id: null
+      conflict_refs: []
+    parent_trace_row_ids: []
+    child_trace_row_ids: []
+    consumed_by:
+      harness_connection_ids: []
+      verification_seed_ids: []
+      review_gate_item_ids: []
+    harness_relation:
+      readiness_impact: none|blocks|review_required|candidate_safe_possible|source_supported_possible
+      allowed_harness_status_ceiling: blocked|review_required|candidate_safe|source_supported
+      reason: null
+    verification_relation:
+      method_seed: inspection|analysis|simulation|test|demonstration|owner_review|not_ready
+      success_criteria_seed: null
+      verification_gap_id: null
+    review_gate_relation:
+      review_families: []
+      entrance_criteria_impact: supports|blocks|review_required|informational
+      evidence_pack_item_id: null
+    blocked_by: []
+    open_questions: []
+rules:
+  source_confirmed_requires_allowed_evidence_ref: true
+  derived_requires_derivation_rule_and_inputs: true
+  review_required_conflicts_cannot_be_auto_resolved: true
+  missing_expected_claims_get_rows: true
+  upstream_artifacts_are_read_only: true

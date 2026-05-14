@@ -1,0 +1,40 @@
+workflow_id: source_gap_followup_packet_v0
+kind: monster_rules
+status: active
+rules:
+  - monster_id: followup_packet_treated_as_source_authority
+    response: route_back_to_owning_source_or_evidence_workflow
+    summary: This packet can coordinate follow-up and retry; it cannot turn a missing source into source evidence or approve a value, layout rule, material, or harness join.
+  - monster_id: owner_file_drop_treated_as_closed_gap
+    response: mark_resolved_pending_rerun_until_reindexed
+    summary: A file in an inbox closes nothing until the owning workflow records provenance, checksum, approval scope, and source-state evidence or an accepted not-applicable decision.
+  - monster_id: duplicate_owner_asks_spread_across_workflows
+    response: merge_into_single_owner_action_with_gap_crosswalk
+    summary: Repeated gaps for the same component, page, interface, source kind, and owner action should share one aggregate gap id and one owner action.
+  - monster_id: distinct_scope_overmerged
+    response: split_aggregate_gap_with_reason
+    summary: Do not merge gaps that need different files, approvals, identities, page scopes, connection ids, source kinds, or owning workflow retries.
+  - monster_id: retry_trigger_targets_too_broad_workflow
+    response: retarget_to_narrowest_owning_workflow
+    summary: Rerun source, materials, layout, or quantitative workflows before harness composition when those packets feed harness blockers.
+  - monster_id: unsupported_claim_promoted_after_followup
+    response: preserve_blocked_or_review_required_state
+    summary: Follow-up planning does not make a source-supported claim, candidate-safe harness join, or quantitative value true.
+  - monster_id: secret_or_session_required_by_agent
+    response: stop_and_request_owner_supplied_file_or_path
+    summary: Agents must not read credentials, cookies, tokens, sessions, or secret files; the owner should provide or approve the resulting file path and manifest.
+  - monster_id: raw_payload_leak_to_public_package
+    response: remove_payload_and_keep_contract_shape_only
+    summary: Public workflow canon may describe packet shapes and gates, but not raw project XML, vendor text, source files, binaries, private values, or downloaded collateral.
+  - monster_id: runtime_absolute_path_in_public_package
+    response: replace_with_repo_relative_placeholder_or_stable_id
+    summary: Public package files must use repo-relative placeholders or stable ids, not drive letters, host-specific roots, or machine-local paths.
+  - monster_id: verifier_or_oracle_material_used_as_gap_source
+    response: reject_as_forbidden_construction_input
+    summary: Hidden references, accepted outputs, verifier reports, repair packets, and oracle-derived mismatch details cannot drive owner action or source evidence claims.
+  - monster_id: batch_manifest_missing_approval_scope
+    response: hold_as_human_review_preparation
+    summary: Owner-provided files without explicit approval scope, checksum, or terms status cannot be passed to executor construction.
+  - monster_id: retry_failure_creates_duplicate_gap
+    response: append_retry_attempt_to_existing_aggregate_gap
+    summary: Preserve aggregate gap lineage across failed retries unless the blocker changes into a truly separate gap family or scope.

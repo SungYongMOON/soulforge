@@ -1,0 +1,40 @@
+workflow_id: source_gap_followup_packet_v0
+kind: handoff_rules
+status: active
+rules:
+  - from: workflow_runner
+    to: gap_surface_collector
+    condition: binding_and_gap_intake_policy_ready
+    summary: Collector receives only portable packet refs, upstream workflow ids, source-state policies, and output bindings; it does not receive hidden references, verifier reports, secrets, or raw source payloads.
+  - from: gap_surface_collector
+    to: gap_normalizer
+    condition: upstream_gap_surface_inventory_written
+    summary: Normalizer receives extracted gap metadata and lineage refs, not vendor text, source files, raw XML bodies, account sessions, or accepted-answer material.
+  - from: gap_normalizer
+    to: dedup_indexer
+    condition: normalized_gap_items_written
+    summary: Dedup receives normalized gap families, scope fields, owner hints, and downstream impacts so it can merge true duplicates and split distinct scopes.
+  - from: dedup_indexer
+    to: owner_action_planner
+    condition: gap_dedup_index_written
+    summary: Owner action planner receives aggregate gap ids and dedup/split reasons, allowing one owner ask to cover repeated upstream blockers.
+  - from: owner_action_planner
+    to: batch_manifest_planner
+    condition: owner_action_queue_written
+    summary: Batch planner receives explicit owner actions and target drop paths, but must still require manifest mapping, approval scope, checksum, and terms fields before any file is usable.
+  - from: batch_manifest_planner
+    to: retry_trigger_planner
+    condition: batch_and_download_manifests_written
+    summary: Retry planner receives only planned or completed intake records and must not close gaps until an owning workflow has re-indexed evidence or recorded an accepted owner decision.
+  - from: retry_trigger_planner
+    to: downstream_unblock_mapper
+    condition: retry_trigger_register_written
+    summary: Unblock mapper receives trigger ids, target workflow scopes, and preflight checks so downstream workflows know what can retry and what remains blocked.
+  - from: downstream_unblock_mapper
+    to: boundary_reviewer
+    condition: downstream_unblock_map_written
+    summary: Boundary review receives the complete control packet and verifies that no source-supported, candidate-safe, or readiness claim was promoted by the follow-up packet alone.
+  - from: boundary_reviewer
+    to: workflow_runner
+    condition: boundary_review_note_complete
+    summary: Runner reports packet path, aggregate gap counts, owner action counts, retry-ready triggers, unresolved blockers, and the narrowest first pilot scope.

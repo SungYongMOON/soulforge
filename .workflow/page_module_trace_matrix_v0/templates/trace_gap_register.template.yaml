@@ -1,0 +1,17 @@
+schema_version: page_module_trace_gap_register_v0
+source_trace_matrix_id: <trace_matrix_id>
+gaps:
+  - gap_id: <gap_id>
+    gap_type: missing_artifact|missing_source_ref|missing_component_identity|missing_interface_group|missing_quantitative_constraint|missing_layout_constraint|missing_pspice_model|missing_harness_context|missing_owner_decision|source_conflict|version_or_checksum_conflict|orphan_downstream_claim|unapproved_source|private_boundary_unclear
+    applies_to_trace_row_ids: []
+    applies_to_artifact_refs: []
+    blocking_level: blocks_harness|blocks_verification_plan|blocks_review_gate|review_required|informational
+    needed_source_or_decision: <safe_summary>
+    owning_workflow_to_retry: page_xml_normalize_spec_v0|capture_xml_intake_library_v0|official_source_packet_collect_v0|exp_xml_component_materials|component_pcb_layout_guide_extraction|page_quantitative_enrichment_v0|xml_harness_composition_v0|source_gap_followup_packet_v0|owner_decision
+    owner_action_needed: null
+    downstream_effect: <safe_summary>
+    status: open|closed|accepted_not_applicable
+rules:
+  every_missing_row_has_gap: true
+  every_orphan_downstream_claim_has_gap: true
+  gap_closure_requires_owning_workflow_reindex_or_scoped_owner_decision: true

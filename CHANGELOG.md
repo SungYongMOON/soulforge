@@ -11,6 +11,24 @@
 
 ## 2026-05-15
 
+### Revision `working` - Page module trace matrix workflow added
+
+- Added `.workflow/page_module_trace_matrix_v0/` as a public-safe governance workflow for row-level traceability across page, source, materials, layout, quantitative, and harness packets.
+- Registered the workflow in `.workflow/index.yaml` and listed it in `.workflow/README.md` after `xml_harness_composition_v0` and before source-gap follow-up aggregation.
+- Defined explicit outputs for `trace_matrix`, `evidence_authority_map`, `trace_gap_register`, `harness_trace_delta`, `verification_seed_matrix`, `review_gate_evidence_index`, `trace_provenance`, and `boundary_review_note`.
+- Required row-level `source_confirmed`, `derived`, `review_required`, and `missing` evidence states to remain distinct from harness claim status and review decisions.
+- Kept source XML, normalized sidecars, intake packets, source packets, materials outputs, layout guides, quantitative overlays, harness contracts, raw project payloads, vendor text, runtime absolute paths, credentials, cookies, sessions, `_workspaces` outputs, and private run truth out of public workflow canon.
+- Marked the package `pilot_ready_contract_only`; a controlled mixed page/source/harness project-local pilot is still required before claiming pilot-executed or usable behavior.
+
+### Revision `working` - Source gap follow-up packet workflow added
+
+- Added `.workflow/source_gap_followup_packet_v0/` as a public-safe follow-up workflow for aggregating source/evidence gaps from source, materials, layout, quantitative, and harness lanes.
+- Registered the workflow in `.workflow/index.yaml` and listed it in `.workflow/README.md` after `xml_harness_composition_v0`.
+- Defined explicit outputs for `source_gap_followup_packet`, `gap_dedup_index`, `owner_action_queue`, `owner_source_batch_manifest.template`, `download_or_reuse_batch_manifest`, `retry_trigger_register`, and `downstream_unblock_map`.
+- Required owner-provided files and manual downloads to be re-indexed by the narrowest owning source/evidence workflow before any source-supported, quantitative, layout, material, or harness claim can change.
+- Kept raw project payloads, source files, vendor text, runtime absolute paths, credentials, cookies, sessions, `_workspaces` outputs, and private run truth out of public workflow canon.
+- Marked the package `pilot_ready_contract_only`; a controlled mixed-gap project-local pilot is still required before claiming pilot-executed or usable behavior.
+
 ### Revision `working` - Official source packet collection workflow added
 
 - Added `.workflow/official_source_packet_collect_v0/` as a public-safe source-bootstrap workflow for official, owner-approved local, missing, blocked, and not-applicable source states.

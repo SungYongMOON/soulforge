@@ -1,0 +1,18 @@
+schema_version: page_module_trace_evidence_authority_map_v0
+source_trace_matrix_id: <trace_matrix_id>
+evidence_refs:
+  - evidence_ref_id: <evidence_ref_id>
+    artifact_ref: _workmeta/<project_code>/runs/<upstream_run_id>/<artifact>
+    artifact_kind: page_module_spec|capture_intake_packet|source_packet|materials_packet|layout_guide|quantitative_packet|harness_contract|owner_decision|other
+    owning_workflow_id: <workflow_id>
+    checksum_sha256: <sha256_or_pending>
+    approval_scope: executor_use|human_review_preparation|verifier_only|unknown
+    authority_type: source_authority|derived_workflow_output|review_context|missing_or_blocked_record|owner_decision|unknown
+    claim_strength_ceiling: source_confirmed|derived|review_required|missing
+    trace_row_ids: []
+    usable_for_harness_ceiling: blocked|review_required|candidate_safe|source_supported
+    notes_without_payload: <safe_summary>
+rules:
+  evidence_refs_do_not_replace_upstream_provenance: true
+  source_authority_must_name_owning_workflow: true
+  unknown_approval_scope_blocks_source_confirmed_status: true

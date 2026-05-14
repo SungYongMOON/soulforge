@@ -1,0 +1,177 @@
+workflow_id: page_module_trace_matrix_v0
+kind: workflow
+status: active
+title: Page Module Trace Matrix v0
+summary: Build a row-level governance matrix over page-module, source, materials, layout, quantitative, and harness packets so later harness, verification, and review workflows can consume explicit evidence authority, gaps, and trace links without replacing upstream artifact owners.
+entrypoint: run
+execution_mode: local_tool_sequence
+role_slots: role_slots.yaml
+step_graph: step_graph.yaml
+handoff_rules: handoff_rules.yaml
+monster_rules: monster_rules.yaml
+party_compatibility: party_compatibility.yaml
+profile_policy: profile_policy.yaml
+inputs:
+  - trace_matrix_project_binding
+  - page_module_spec_refs
+  - page_asset_manifest_refs
+  - approved_trace_intake_policy
+optional_inputs:
+  - capture_intake_packet_refs
+  - official_source_packet_refs
+  - component_materials_packet_refs
+  - layout_guide_packet_refs
+  - quantitative_enrichment_packet_refs
+  - pspice_or_simulation_packet_refs
+  - harness_composition_packet_refs
+  - source_gap_followup_packet_refs
+  - owner_decision_refs
+outputs:
+  - trace_matrix
+  - evidence_authority_map
+  - trace_gap_register
+  - harness_trace_delta
+  - verification_seed_matrix
+  - review_gate_evidence_index
+  - trace_provenance
+  - boundary_review_note
+validation_level: pilot_ready_contract_only
+registration_policy: owner_requested_registration
+upstream_workflows:
+  - workflow_id: page_xml_normalize_spec_v0
+    expected_outputs:
+      - page_module_spec_sidecars
+      - module_spec_manifest
+      - provenance_update
+      - downstream_handoff
+  - workflow_id: capture_xml_intake_library_v0
+    expected_outputs:
+      - asset_identity
+      - block_summary
+      - connectors
+      - power_summary
+      - open_questions
+      - provenance
+      - downstream_handoff
+  - workflow_id: official_source_packet_collect_v0
+    expected_outputs:
+      - source_packet_manifest
+      - source_inventory
+      - source_gap_report
+      - owner_followup_needed
+      - downstream_ready_refs
+  - workflow_id: exp_xml_component_materials
+    expected_outputs:
+      - component_inventory
+      - source_discovery_packet
+      - download_manifest
+      - circuit_design_review_queue
+  - workflow_id: component_pcb_layout_guide_extraction
+    expected_outputs:
+      - layout_guide_markdown
+      - source_map
+      - extraction_manifest
+      - layout_guide_source_gap_packet
+  - workflow_id: page_quantitative_enrichment_v0
+    expected_outputs:
+      - quantitative_claims
+      - source_gap_report
+      - owner_followup_needed
+      - harness_readiness_delta
+      - enrichment_provenance
+  - workflow_id: xml_harness_composition_v0
+    expected_outputs:
+      - harness_identity
+      - connection_candidates
+      - blocked_connections
+      - review_required_connections
+      - candidate_safe_connections
+      - source_supported_connections
+      - owner_followup_needed
+      - harness_open_questions
+      - composition_readiness
+downstream_workflows:
+  - workflow_id: xml_harness_composition_v0
+    expected_input: harness_trace_delta_for_narrow_rerun_or_claim_ceiling_review
+  - workflow_id: verification_plan_from_page_contracts_v0
+    expected_input: verification_seed_matrix
+    status: planned
+  - workflow_id: review_gate_evidence_pack_v0
+    expected_input: review_gate_evidence_index
+    status: planned
+  - workflow_id: source_gap_followup_packet_v0
+    expected_input: trace_gap_register_for_owner_action_batching
+    status: optional_followup
+trace_matrix_contract:
+  owns:
+    - trace_row_identity
+    - artifact_crosswalks
+    - evidence_authority_classification
+    - gap_orphan_conflict_registers
+    - harness_claim_strength_ceiling
+    - verification_seed_links
+    - review_gate_row_index
+  does_not_own:
+    - source_xml_mutation
+    - page_module_spec_schema_design
+    - component_material_truth
+    - official_source_acquisition
+    - layout_guidance_extraction
+    - quantitative_value_truth
+    - final_harness_connection_promotion
+    - verification_result_acceptance
+    - review_gate_decision_authority
+  row_families:
+    - asset_identity
+    - module_scope
+    - function_claim
+    - interface_group
+    - interface_item
+    - quantitative_constraint
+    - source_packet_coverage
+    - layout_readiness
+    - pspice_readiness
+    - harness_connection_claim
+    - open_question
+    - verification_need
+  evidence_status_values:
+    - source_confirmed
+    - derived
+    - review_required
+    - missing
+  authority_boundary:
+    trace_matrix_is_source_authority: false
+    evidence_authority_map_replaces_upstream_provenance: false
+    harness_trace_delta_is_final_harness_verdict: false
+    verification_seed_matrix_is_completed_verification: false
+    review_gate_index_is_review_decision: false
+    source_confirmed_requires_allowed_evidence_ref: true
+    derived_requires_derivation_rule_and_inputs: true
+    review_required_conflicts_cannot_be_auto_resolved: true
+    missing_claims_must_remain_first_class_rows: true
+    upstream_artifacts_are_read_only: true
+  stable_trace_row_id_rule:
+    stable_id_basis:
+      - trace_scope_key
+      - page_asset_id
+      - claim_kind
+      - normalized_field_path
+      - component_or_interface_or_connection_scope
+    same_id_when: the same bounded claim is rerun over refreshed upstream packet refs.
+    split_id_when: different page assets, interface groups, quantities, components, harness connections, evidence authority, or owner decisions would require separate review or closure.
+  required_output_shapes:
+    trace_matrix: templates/trace_matrix.template.yaml
+    evidence_authority_map: templates/evidence_authority_map.template.yaml
+    trace_gap_register: templates/trace_gap_register.template.yaml
+    harness_trace_delta: templates/harness_trace_delta.template.yaml
+    verification_seed_matrix: templates/verification_seed_matrix.template.yaml
+    review_gate_evidence_index: templates/review_gate_evidence_index.template.yaml
+    trace_provenance: templates/trace_provenance.template.yaml
+notes:
+  - This workflow sits above the page/source/materials/layout/quantitative/harness lane as a traceability and governance layer.
+  - It reads approved packet refs and writes project-local trace outputs; it does not patch source XML, normalized sidecars, intake packets, source packets, materials outputs, layout guides, quantitative overlays, or harness contracts.
+  - "`source_confirmed`, `derived`, `review_required`, and `missing` are row-level evidence authority states and must not be collapsed into harness claim status."
+  - Harness consumers receive a claim-strength ceiling and explicit blockers, not an automatic source-supported connection verdict.
+  - Verification and review consumers receive seed/index rows, not completed verification evidence or review decisions.
+  - Public workflow canon stores only portable orchestration rules, state semantics, and sanitized templates.
+  - Public workflow files must not contain raw XML bodies, private project payloads, vendor document text, runtime absolute paths, `_workspaces` outputs, credentials, cookies, sessions, or private run truth.

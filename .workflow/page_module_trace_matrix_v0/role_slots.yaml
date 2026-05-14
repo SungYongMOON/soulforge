@@ -1,0 +1,31 @@
+workflow_id: page_module_trace_matrix_v0
+kind: role_slots
+status: active
+slots:
+  - slot_id: workflow_runner
+    title: Workflow Runner
+    summary: Resolves project-local bindings, approved packet refs, output roots, and public/private boundaries before trace construction begins.
+  - slot_id: artifact_set_curator
+    title: Artifact Set Curator
+    summary: Inventories read-only upstream page, source, materials, layout, quantitative, harness, and owner-decision packet refs with approval scope and checksums.
+  - slot_id: trace_row_builder
+    title: Trace Row Builder
+    summary: Enumerates small atomic rows for page identity, module scope, functions, interfaces, quantities, source coverage, layout readiness, harness claims, open questions, and verification needs.
+  - slot_id: evidence_authority_mapper
+    title: Evidence Authority Mapper
+    summary: Assigns row-level `source_confirmed`, `derived`, `review_required`, or `missing` status and writes evidence-to-row crosswalks.
+  - slot_id: gap_orphan_detector
+    title: Gap Orphan Detector
+    summary: Records missing, orphaned, conflicting, unapproved, and boundary-unclear claims as first-class gap records with owner or owning-workflow routes.
+  - slot_id: harness_delta_mapper
+    title: Harness Delta Mapper
+    summary: Maps trace rows to harness connection blockers and claim-strength ceilings without deciding final harness validity.
+  - slot_id: verification_seed_planner
+    title: Verification Seed Planner
+    summary: Creates verification planning seeds and prerequisites from trace rows without claiming verification execution or acceptance.
+  - slot_id: review_index_builder
+    title: Review Index Builder
+    summary: Groups trace row ids into SRR/SFR-like, PDR-like, CDR-like, TRR-like, FCA/SVR-like, and PCA-like review evidence buckets.
+  - slot_id: boundary_reviewer
+    title: Boundary Reviewer
+    summary: Checks overclaim, mutation, row-status, evidence-authority, public-safety, and downstream-consumer boundaries before reporting the trace bundle.

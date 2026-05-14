@@ -1,0 +1,115 @@
+workflow_id: source_gap_followup_packet_v0
+kind: workflow
+status: active
+title: Source Gap Follow-Up Packet v0
+summary: Aggregate unresolved source and evidence gaps from upstream hardware/XML workflows into deduplicated owner actions, source batch intake templates, narrow retry triggers, and downstream unblock maps without becoming source evidence authority.
+entrypoint: run
+execution_mode: local_tool_sequence
+role_slots: role_slots.yaml
+step_graph: step_graph.yaml
+handoff_rules: handoff_rules.yaml
+monster_rules: monster_rules.yaml
+party_compatibility: party_compatibility.yaml
+profile_policy: profile_policy.yaml
+inputs:
+  - source_gap_followup_binding
+  - upstream_gap_packet_refs
+  - approved_gap_intake_policy
+optional_inputs:
+  - source_gap_reports
+  - owner_followup_needed_packets
+  - download_or_reuse_manifests
+  - component_materials_review_queues
+  - layout_guide_source_gap_packets
+  - quantitative_claims_with_gap_status
+  - harness_readiness_deltas
+  - blocked_or_review_required_harness_packets
+outputs:
+  - source_gap_followup_packet
+  - gap_dedup_index
+  - owner_action_queue
+  - owner_source_batch_manifest_template
+  - download_or_reuse_batch_manifest
+  - retry_trigger_register
+  - downstream_unblock_map
+  - boundary_review_note
+validation_level: pilot_ready_contract_only
+registration_policy: owner_requested_registration
+upstream_workflows:
+  - workflow_id: official_source_packet_collect_v0
+    expected_outputs:
+      - source_gap_report
+      - owner_followup_needed
+      - download_or_reuse_manifest
+      - downstream_ready_refs
+  - workflow_id: exp_xml_component_materials
+    expected_outputs:
+      - source_discovery_packet
+      - download_manifest
+      - circuit_design_review_queue
+  - workflow_id: component_pcb_layout_guide_extraction
+    expected_outputs:
+      - layout_guide_source_gap_packet
+      - source_map
+      - extraction_manifest
+  - workflow_id: page_quantitative_enrichment_v0
+    expected_outputs:
+      - source_gap_report
+      - owner_followup_needed
+      - quantitative_claims
+      - harness_readiness_delta
+  - workflow_id: xml_harness_composition_v0
+    expected_outputs:
+      - blocked_connections
+      - review_required_connections
+      - owner_followup_needed
+      - harness_open_questions
+      - composition_readiness
+downstream_workflows:
+  - workflow_id: official_source_packet_collect_v0
+    expected_input: retry_triggers_for_source_reindex_or_official_retry
+  - workflow_id: exp_xml_component_materials
+    expected_input: retry_triggers_for_component_identity_or_material_source_refresh
+  - workflow_id: component_pcb_layout_guide_extraction
+    expected_input: retry_triggers_for_layout_source_refresh
+  - workflow_id: page_quantitative_enrichment_v0
+    expected_input: retry_triggers_for_quantitative_value_or_source_gap_refresh
+  - workflow_id: xml_harness_composition_v0
+    expected_input: retry_triggers_only_after_upstream_evidence_packets_refresh
+gap_followup_contract:
+  owns:
+    - aggregate_gap_identity
+    - duplicate_gap_crosswalk
+    - owner_action_batching
+    - owner_source_batch_manifest_shape
+    - retry_trigger_register
+    - downstream_unblock_map
+  does_not_own:
+    - official_source_provenance
+    - component_material_truth
+    - layout_guidance_extraction
+    - quantitative_value_truth
+    - harness_connection_approval
+  aggregate_gap_id_rule:
+    stable_id_basis:
+      - project_scope_key
+      - source_kind
+      - source_or_evidence_gap_family
+      - component_or_page_or_interface_or_connection_scope
+      - owning_workflow
+    same_id_when: repeated upstream packets describe the same unresolved owner/source action for the same bounded scope.
+    split_id_when: different components, page assets, interfaces, connection ids, source kinds, or owner decisions would require different follow-up or retry ownership.
+  authority_boundary:
+    followup_packet_is_source_evidence: false
+    owner_batch_file_is_source_evidence_before_reindex: false
+    owning_workflow_must_reindex_new_sources: true
+    unsupported_claims_remain_blocked_or_review_required: true
+  required_output_shapes:
+    source_gap_followup_packet: templates/source_gap_followup_packet.template.yaml
+    owner_source_batch_manifest_template: templates/owner_source_batch_manifest.template.yaml
+notes:
+  - This workflow sits after upstream source, materials, layout, quantitative, and harness workflows have written explicit gaps or owner follow-up records.
+  - The workflow consolidates repeated asks and retry decisions; it does not search broadly, download account-gated material, read secrets, or decide that a missing source is now source-supported.
+  - Owner-provided files enter through a batch manifest and remain private run truth until an owning source or evidence workflow indexes them with provenance, checksum, approval scope, and source-state evidence.
+  - Retry triggers must target the narrowest owning workflow and scope. Harness composition should rerun only after source, materials, layout, or quantitative packets feeding it have refreshed.
+  - Public workflow canon stores only portable procedure, state semantics, and sanitized templates. Raw project payloads, source files, vendor text, runtime absolute paths, credentials, cookies, sessions, and private run truth do not belong in `.workflow`.

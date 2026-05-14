@@ -31,6 +31,10 @@ entries:
     path: page_quantitative_enrichment_v0/workflow.yaml
   - workflow_id: xml_harness_composition_v0
     path: xml_harness_composition_v0/workflow.yaml
+  - workflow_id: page_module_trace_matrix_v0
+    path: page_module_trace_matrix_v0/workflow.yaml
+  - workflow_id: source_gap_followup_packet_v0
+    path: source_gap_followup_packet_v0/workflow.yaml
 notes:
   - Workflow catalog only. Raw run ids and execution dumps do not belong here.
   - Authoring templates live under `authoring/` and are not workflow canon entries.

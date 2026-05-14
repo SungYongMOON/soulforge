@@ -1,0 +1,16 @@
+schema_version: page_module_review_gate_evidence_index_v0
+review_gate_evidence_index:
+  source_trace_matrix_id: <trace_matrix_id>
+  review_groups:
+    - review_family: SRR_SFR_like|PDR_like|CDR_like|TRR_like|FCA_SVR_like|PCA_like
+      supporting_trace_row_ids: []
+      blocking_trace_row_ids: []
+      review_required_trace_row_ids: []
+      missing_trace_row_ids: []
+      entrance_criteria_notes: []
+      success_criteria_notes: []
+      recommended_actions: []
+rules:
+  review_packets_consume_trace_row_ids: true
+  review_index_is_not_review_decision: true
+  evidence_authority_reclassification_requires_trace_or_owner_action: true
