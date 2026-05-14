@@ -2,6 +2,12 @@
 title: 'SE 기반 폴더 트리 생성 지침 (000_REF/020_MGMT/단계별 게이트)'
 version: '0.7'
 owner_team: 개발1팀
+variant_binding:
+  support_key: system_dev_lig_grade_a
+supported_input:
+  business_type: 체계개발
+  prime_contractor: LIG 넥스원
+  quality_grade: A
 principles:
 - 폴더 순서 = 업무 순서
 - 존재하는 폴더만 수행(없으면 N/A)

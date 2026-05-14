@@ -1,0 +1,17 @@
+variant_id: exploratory_dev_basic_v0
+version: 0
+status: active
+generation_enabled: true
+variant_type: production_basic_spec
+evidence_level: mixed-public-source
+base_variant: common_se_base_v0
+decision: "Provide a public-safe exploratory-development basic variant using the common SE gate spine without contractor or quality overlays."
+supported_input:
+  business_type: "탐색개발"
+  prime_contractor: "공통"
+  quality_grade: "없음"
+support_key: exploratory_dev_common_no_grade
+spec_asset: assets/SE_FolderTree_ExploratoryDev_Basic.md
+notes:
+  - "This variant stays dry-runable through generate_tree.py and uses explicit spec binding."
+  - "The task list is a public-safe common baseline, not a contractor-specific delivery template."

@@ -1,0 +1,17 @@
+variant_id: operational_rd_basic_v0
+version: 0
+status: active
+generation_enabled: true
+variant_type: production_basic_spec
+evidence_level: public-tailored
+base_variant: common_se_base_v0
+decision: "Provide a public-safe operational-R&D basic variant using the common SE gate spine while keeping the `운용연구개발` label explicit as a working tailoring term."
+supported_input:
+  business_type: "운용연구개발"
+  prime_contractor: "공통"
+  quality_grade: "없음"
+support_key: operational_rd_common_no_grade
+spec_asset: assets/SE_FolderTree_OperationalRnD_Basic.md
+assumption_notes:
+  - "`운용연구개발` is treated here as a Soulforge working label for a public-safe tailored SE variant, not as a separately proven formal DAPA stage name."
+  - "Projects that require contractor-specific quality gates or heavier design/test scope should promote a more specific variant instead of mutating this baseline."

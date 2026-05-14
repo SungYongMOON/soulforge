@@ -9,8 +9,10 @@
 
 ## Bundled resource map
 
-- `assets/SE_FolderTree_Guide.md`: default markdown spec with YAML front matter for the SE tree
-- `assets/variants/*.yaml`: draft-only variant metadata for common base, contractor overlay, and blocked project-tailoring candidates
+- `assets/SE_FolderTree_Guide.md`: current system-development / LIG / A bundled spec
+- `assets/SE_FolderTree_ExploratoryDev_Basic.md`: exploratory-development basic bundled spec
+- `assets/SE_FolderTree_OperationalRnD_Basic.md`: operational-R&D basic bundled spec
+- `assets/variants/*.yaml`: variant metadata for common base, contractor overlay, blocked candidates, and production-bound basic variants
 - `scripts/generate_tree.py`: main scaffold generator for folders, manifest, progress, CSV outputs, and index files
 - `scripts/convert_gate_numbers.py`: helper that rewrites gate/task numbering in a copied spec file
 - `scripts/preview_variants.py`: review-only validator for draft variant metadata; it does not generate project folders
@@ -33,17 +35,17 @@
 ## Current supported input matrix
 
 - Supported today:
-  - business type: `체계개발`
-  - prime contractor: `LIG 넥스원`
-  - quality grade: `A`
+  - `체계개발 / LIG 넥스원 / A` -> `assets/SE_FolderTree_Guide.md`
+  - `탐색개발 / 공통 / 없음` -> `assets/SE_FolderTree_ExploratoryDev_Basic.md`
+  - `운용연구개발 / 공통 / 없음` -> `assets/SE_FolderTree_OperationalRnD_Basic.md`
 - If the requested combination does not match a bundled spec variant, stop and ask for a new variant/spec instead of generating the wrong tree.
-- Draft variants in `assets/variants/` are not bundled production support unless they explicitly pass review and are promoted into the generator path.
+- Draft variants in `assets/variants/` are not bundled production support unless they explicitly bind a spec and are promoted into the generator path.
 
 ## Default operating modes
 
 1. Standard scaffold:
    - ask for the required input set first
-   - use the bundled spec
+   - use the spec bound to the validated supported variant
    - dry-run the generator
    - run the real generation command
 2. Adjusted numbering scaffold:

@@ -14,7 +14,7 @@ behavior:
     - the task does not involve SE folder scaffolding or plan bootstrap
     - a project-specific runtime path or local-only workspace truth should be tracked in canon
   expected_outcome:
-    - the requested project tree is generated or dry-run previewed from a declared spec
+    - the requested project tree is generated or dry-run previewed from a declared or variant-bound spec
     - plan tracking artifacts are created consistently with the chosen profile
     - draft variants are previewed as metadata only unless later promoted into the generator path
 execution_requirements:
@@ -30,6 +30,7 @@ execution_requirements:
     - markdown_editor
   notes:
     - "Use the bundled `codex/assets/SE_FolderTree_Guide.md` and `codex/scripts/` resources instead of re-deriving the SE scaffold flow."
+    - "For supported combinations, `generate_tree.py` can resolve the bundled default spec from the validated variant when `--spec` is omitted."
     - "Ask for layout mode, business type, prime contractor, quality grade, start date, project name, profile, and output root before generation."
     - "Use relative skill-root paths for bundled resources to keep the package portable."
     - "Prefer `--dry-run` before materializing the project tree unless the user explicitly wants immediate generation."

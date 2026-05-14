@@ -9,6 +9,8 @@ The variant preview lane separates three concerns:
 - `common_se_base_v0`: source-backed common SE gate identity.
 - `lig_grade_a_overlay_v0`: current LIG/A local behavior captured as an overlay candidate.
 - `operational_rd_no_grade_candidate_v0`: blocked candidate for operational-R&D/no-quality-grade work.
+- `exploratory_dev_basic_v0`: production-bound exploratory-development basic variant with explicit spec binding.
+- `operational_rd_basic_v0`: production-bound operational-R&D basic variant with explicit spec binding.
 
 ## Boundary
 
@@ -36,5 +38,6 @@ python scripts/preview_variants.py --variants-dir assets/variants --json-out <pr
 - Draft and blocked variants keep `generation_enabled: false`.
 - Overlay and candidate variants reference an existing `base_variant`.
 - `common_se_base_v0` contains the canonical `SRR/SFR/PDR/CDR/TRR/FCA/PCA` spine.
+- Production-enabled basic variants declare `supported_input`, `support_key`, and `spec_asset`.
 
-Passing this preview does not authorize folder generation. It only says the draft metadata is internally consistent.
+Passing this preview does not by itself authorize folder generation. It only says the metadata is internally consistent; actual folder generation still goes through `generate_tree.py` and its supported-combination checks.

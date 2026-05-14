@@ -19,14 +19,23 @@ SE 프로젝트의 루트 폴더, 게이트별 폴더, 작업 하위 폴더, 계
 ## 입력 확인 규칙
 
 - 값이 하나라도 비어 있으면 먼저 사용자에게 묻는다.
-- 현재 bundled spec 이 지원하는 조합은 `체계개발 / LIG 넥스원 / A` 뿐이다.
+- 현재 bundled spec 이 지원하는 조합은 아래 3개다.
+  - `체계개발 / LIG 넥스원 / A`
+  - `탐색개발 / 공통 / 없음`
+  - `운용연구개발 / 공통 / 없음`
 - 지원하지 않는 조합이면 생성하지 말고 새 spec/variant 가 필요하다고 중단한다.
 - `in-place` 는 `--out` 을 최종 프로젝트 루트로 본다.
 - `new-root` 는 `--out` 을 상위 경로로 보고, 그 아래 `{START}_{PROJECT_NAME}` 루트를 새로 만든다.
 
 ## 기본 스펙
 
-기본 스펙 파일은 `assets/SE_FolderTree_Guide.md`다. 스킬 내부 에셋을 그대로 사용할 수도 있고, 작업 폴더에 복사해 조정한 뒤 `--spec`으로 넘겨도 된다.
+기본 스펙 파일은 입력 조합별로 다르다.
+
+- `체계개발 / LIG 넥스원 / A` -> `assets/SE_FolderTree_Guide.md`
+- `탐색개발 / 공통 / 없음` -> `assets/SE_FolderTree_ExploratoryDev_Basic.md`
+- `운용연구개발 / 공통 / 없음` -> `assets/SE_FolderTree_OperationalRnD_Basic.md`
+
+`--spec` 을 생략하면 validated variant 의 기본 스펙을 사용한다. 작업 폴더에 복사한 조정본을 쓰려면 `--spec` 으로 넘기되, front matter 의 `variant_binding` / `supported_input` 이 입력 조합과 맞아야 한다.
 
 게이트 번호 체계를 바꿔야 하면 `scripts/convert_gate_numbers.py`를 사용해 스펙 복사본을 변환한다.
 
@@ -59,7 +68,6 @@ python scripts/preview_variants.py \
 ```bash
 cd "$SKILL_DIR"
 python scripts/generate_tree.py \
-  --spec assets/SE_FolderTree_Guide.md \
   --layout-mode in-place \
   --business-type "체계개발" \
   --prime-contractor "LIG 넥스원" \
@@ -75,7 +83,6 @@ python scripts/generate_tree.py \
 ```bash
 cd "$SKILL_DIR"
 python scripts/generate_tree.py \
-  --spec assets/SE_FolderTree_Guide.md \
   --layout-mode new-root \
   --business-type "체계개발" \
   --prime-contractor "LIG 넥스원" \
@@ -93,7 +100,6 @@ python scripts/generate_tree.py \
 ```bash
 cd "$SKILL_DIR"
 python scripts/generate_tree.py \
-  --spec assets/SE_FolderTree_Guide.md \
   --layout-mode in-place \
   --business-type "체계개발" \
   --prime-contractor "LIG 넥스원" \
@@ -106,6 +112,40 @@ python scripts/generate_tree.py \
 ```
 
 `--dry-run` 도 preview 경로 아래에 `plan_manifest.json`, `plan_progress.json`, CSV, 인덱스 파일을 실제로 만든다. 기존 프로젝트를 건드리지 않으려면 preview 전용 경로를 따로 잡는다.
+
+## 신규 기본형 예시
+
+탐색개발 기본형 dry-run:
+
+```bash
+cd "$SKILL_DIR"
+python scripts/generate_tree.py \
+  --layout-mode new-root \
+  --business-type "탐색개발" \
+  --prime-contractor "공통" \
+  --quality-grade "없음" \
+  --start 20260109 \
+  --name "프로젝트명" \
+  --profile A \
+  --out "<상위경로>" \
+  --dry-run
+```
+
+운용연구개발 기본형 dry-run:
+
+```bash
+cd "$SKILL_DIR"
+python scripts/generate_tree.py \
+  --layout-mode new-root \
+  --business-type "운용연구개발" \
+  --prime-contractor "공통" \
+  --quality-grade "없음" \
+  --start 20260109 \
+  --name "프로젝트명" \
+  --profile A \
+  --out "<상위경로>" \
+  --dry-run
+```
 
 ## 주요 옵션
 

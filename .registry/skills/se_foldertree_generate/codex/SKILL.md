@@ -10,7 +10,7 @@ Scaffold SE project folders in owner order: confirm inputs first, prefer dry-run
 ## Core rules
 
 - Ask for missing inputs before generation. The minimum input set is `layout mode`, `business type`, `prime contractor`, `quality grade`, `start`, project name, profile, and output root.
-- Default to `assets/SE_FolderTree_Guide.md` unless the task already has an adjusted spec copy.
+- Default to the bundled spec bound to the validated supported variant unless the task already has an adjusted spec copy.
 - Use bundled assets, scripts, and references via paths relative to the skill root. Do not hard-code host-local absolute paths into the tracked skill package.
 - Keep dependency assumptions minimal: Python 3 + `requirements.txt` only.
 - Stop with a clear message if the requested business-type / prime-contractor / quality-grade combination is not supported by the currently bundled spec set.

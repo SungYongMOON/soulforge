@@ -18,6 +18,8 @@ from datetime import datetime, timezone
 from pathlib import Path
 from typing import Any, Dict, List
 
+SKILL_ROOT = Path(__file__).resolve().parents[1]
+
 # Windows 한글 출력 지원
 if sys.platform == 'win32':
     sys.stdout.reconfigure(encoding='utf-8')
@@ -59,7 +61,18 @@ SUPPORTED_VARIANTS = {
     ("체계개발", "lig넥스원", "A"): {
         "support_key": "system_dev_lig_grade_a",
         "display": "체계개발 / LIG 넥스원 / A",
-    }
+        "default_spec": "assets/SE_FolderTree_Guide.md",
+    },
+    ("탐색개발", "공통", "없음"): {
+        "support_key": "exploratory_dev_common_no_grade",
+        "display": "탐색개발 / 공통 / 없음",
+        "default_spec": "assets/SE_FolderTree_ExploratoryDev_Basic.md",
+    },
+    ("운용연구개발", "공통", "없음"): {
+        "support_key": "operational_rd_common_no_grade",
+        "display": "운용연구개발 / 공통 / 없음",
+        "default_spec": "assets/SE_FolderTree_OperationalRnD_Basic.md",
+    },
 }
 
 
@@ -103,11 +116,20 @@ def normalize_business_type(value: str) -> str:
 
 
 def normalize_prime_contractor(value: str) -> str:
-    return "".join(str(value).split()).lower()
+    normalized = "".join(str(value).split()).lower()
+    if normalized in {"common", "generic", "none", "없음", "공통", "기본형"}:
+        return "공통"
+    return normalized
 
 
 def normalize_quality_grade(value: str) -> str:
-    return "".join(str(value).split()).upper()
+    normalized = "".join(str(value).split())
+    normalized_upper = normalized.upper()
+    if normalized in {"없음", "무", "미적용"}:
+        return "없음"
+    if normalized_upper in {"NONE", "NO_GRADE", "NOGRADE", "NA", "N/A", "UNSPECIFIED"}:
+        return "없음"
+    return normalized_upper
 
 
 def resolve_supported_variant(
@@ -133,6 +155,57 @@ def resolve_supported_variant(
         f"  - 현재 지원: {supported_labels}\n"
         "새 조합을 지원하려면 별도 spec/variant를 추가하세요.\n"
     )
+
+
+def resolve_spec_path(spec_arg: str | None, variant: Dict[str, str]) -> Path:
+    if spec_arg:
+        return Path(spec_arg).expanduser().resolve()
+    return (SKILL_ROOT / variant["default_spec"]).resolve()
+
+
+def validate_spec_binding(
+    spec_path: Path,
+    spec_data: Dict[str, Any],
+    variant: Dict[str, str],
+    business_type: str,
+    prime_contractor: str,
+    quality_grade: str,
+) -> None:
+    binding = spec_data.get("variant_binding")
+    if binding is not None and not isinstance(binding, dict):
+        raise ValueError("variant_binding은 객체(dict)여야 합니다.")
+    if isinstance(binding, dict):
+        bound_support_key = str(binding.get("support_key", "")).strip()
+        if bound_support_key and bound_support_key != variant["support_key"]:
+            raise SystemExit(
+                "선택한 spec 파일의 support_key가 입력 조합과 맞지 않습니다.\n"
+                f"  - spec: {spec_path}\n"
+                f"  - spec support_key: {bound_support_key}\n"
+                f"  - expected support_key: {variant['support_key']}\n"
+            )
+
+    supported_input = spec_data.get("supported_input")
+    if supported_input is not None and not isinstance(supported_input, dict):
+        raise ValueError("supported_input은 객체(dict)여야 합니다.")
+    if isinstance(supported_input, dict) and supported_input:
+        expected_key = (
+            normalize_business_type(supported_input.get("business_type", "")),
+            normalize_prime_contractor(supported_input.get("prime_contractor", "")),
+            normalize_quality_grade(supported_input.get("quality_grade", "")),
+        )
+        actual_key = (
+            normalize_business_type(business_type),
+            normalize_prime_contractor(prime_contractor),
+            normalize_quality_grade(quality_grade),
+        )
+        if expected_key != actual_key:
+            raise SystemExit(
+                "선택한 spec 파일이 입력 조합과 맞지 않습니다.\n"
+                f"  - spec: {spec_path}\n"
+                f"  - spec supported_input: {supported_input.get('business_type')} / "
+                f"{supported_input.get('prime_contractor')} / {supported_input.get('quality_grade')}\n"
+                f"  - actual input: {business_type} / {prime_contractor} / {quality_grade}\n"
+            )
 
 
 def resolve_project_root(
@@ -362,7 +435,10 @@ def build_progress(
 
 def main() -> None:
     ap = argparse.ArgumentParser(description="SE 기반 프로젝트 폴더 트리 생성기")
-    ap.add_argument("--spec", required=True, help="YAML Front Matter가 포함된 MD 스펙 파일 경로")
+    ap.add_argument(
+        "--spec",
+        help="YAML Front Matter가 포함된 MD 스펙 파일 경로 (미지정 시 지원 variant의 기본 spec 사용)",
+    )
     ap.add_argument(
         "--layout-mode",
         default="new-root",
@@ -400,15 +476,23 @@ def main() -> None:
     # --no-progress 처리
     init_progress = not args.no_progress
 
-    spec_path = Path(args.spec).expanduser().resolve()
     out_root = Path(args.out).expanduser().resolve()
     variant = resolve_supported_variant(
         args.business_type,
         args.prime_contractor,
         args.quality_grade,
     )
+    spec_path = resolve_spec_path(args.spec, variant)
 
     data = read_front_matter(spec_path)
+    validate_spec_binding(
+        spec_path,
+        data,
+        variant,
+        args.business_type,
+        args.prime_contractor,
+        args.quality_grade,
+    )
 
     root_fmt = data.get("root_naming", {}).get("format", "{START_YYYYMMDD}_{PROJECT_NAME}")
     generation_rules = data.get("generation_rules", {})

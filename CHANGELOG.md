@@ -2,6 +2,13 @@
 
 ## 2026-05-14
 
+### Revision `working` - SE foldertree exploratory and operational basic variants added
+
+- Added two dry-runable bundled specs to `se_foldertree_generate`: `탐색개발 / 공통 / 없음` and `운용연구개발 / 공통 / 없음`.
+- Updated `generate_tree.py` to bind each supported input combination to an explicit default spec, allow `--spec` omission for supported variants, and validate that a chosen spec matches the requested input combination.
+- Added production-bound variant metadata for the new basic variants and tightened `preview_variants.py` so production-enabled variants must declare explicit supported inputs and spec assets.
+- Kept the existing `체계개발 / LIG 넥스원 / A` behavior as the current system-development/LIG overlay path without folding its Q-gates into the new common basic variants.
+
 ### Revision `working` - SE foldertree draft variant preview lane added
 
 - Added a non-materializing draft variant preview lane to `se_foldertree_generate`, separating `common_se_base_v0`, `lig_grade_a_overlay_v0`, and `operational_rd_no_grade_candidate_v0`.
