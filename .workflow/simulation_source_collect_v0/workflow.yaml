@@ -1,0 +1,164 @@
+workflow_id: simulation_source_collect_v0
+kind: workflow
+status: active
+title: Simulation Source Collect v0
+summary: Collect or index official, tool-library, and owner-approved simulation source assets before any simulation deck preparation, execution, or run verification workflow claims model readiness.
+entrypoint: run
+execution_mode: local_tool_sequence
+role_slots: role_slots.yaml
+step_graph: step_graph.yaml
+handoff_rules: handoff_rules.yaml
+monster_rules: monster_rules.yaml
+party_compatibility: party_compatibility.yaml
+profile_policy: profile_policy.yaml
+inputs:
+  - simulation_source_binding
+  - model_need_scope
+  - approved_model_source_policy
+optional_inputs:
+  - official_source_packet_refs
+  - component_inventory
+  - page_module_sidecars
+  - quantitative_enrichment_packet
+  - layout_guide_packets
+  - harness_priority_packet
+  - owner_approved_local_model_manifest
+  - tool_library_manifest
+  - simulator_policy
+outputs:
+  - simulation_source_packet
+  - model_inventory
+  - model_file_manifest
+  - demo_circuit_manifest
+  - simulator_compatibility_matrix
+  - missing_models
+  - access_blockers
+  - owner_followup_needed
+  - downstream_handoff
+  - boundary_review_note
+validation_level: pilot_ready_contract_only
+registration_policy: owner_requested_registration
+upstream_workflows:
+  - workflow_id: official_source_packet_collect_v0
+    expected_outputs:
+      - source_inventory
+      - source_gap_report
+      - owner_followup_needed
+      - downstream_ready_refs
+  - workflow_id: exp_xml_component_materials
+    expected_outputs:
+      - component_inventory
+      - source_discovery_packet
+      - download_manifest
+  - workflow_id: page_quantitative_enrichment_v0
+    expected_outputs:
+      - quantitative_claims
+      - harness_readiness_delta
+    optional: true
+  - workflow_id: component_pcb_layout_guide_extraction
+    expected_outputs:
+      - layout_guide_source_gap_packet
+      - source_map
+    optional: true
+downstream_workflows:
+  - workflow_id: simulation_deck_prepare_v0
+    expected_input: approved_model_refs_demo_circuit_refs_and_blocked_deck_reasons
+    status: planned
+  - workflow_id: simulation_run_verify_v0
+    expected_input: runnable_deck_availability_simulator_policy_and_run_blockers
+    status: planned
+  - workflow_id: page_quantitative_enrichment_v0
+    expected_input: numeric_model_collateral_refs_only_when_source_supported
+  - workflow_id: xml_harness_composition_v0
+    expected_input: model_availability_summary_missing_model_gaps_and_no_simulation_claims
+  - workflow_id: source_gap_followup_packet_v0
+    expected_input: missing_models_access_blockers_and_owner_followup_needed
+  - workflow_id: library_catalog_index_v0
+    expected_input: simulation_model_readiness_index
+    status: planned
+simulation_source_contract:
+  owns:
+    - simulation_model_need_inventory
+    - model_source_provenance_index
+    - model_file_manifest
+    - demo_circuit_manifest
+    - simulator_compatibility_evidence_matrix
+    - missing_model_gap_records
+    - access_blocker_records
+    - owner_followup_queue
+    - downstream_handoff_for_deck_prepare_run_verify_quantitative_and_harness_lanes
+  does_not_own:
+    - simulation_deck_generation
+    - simulator_execution
+    - waveform_or_metric_verification
+    - model_conversion
+    - synthetic_model_creation
+    - source_document_authority_replacement
+    - harness_connection_promotion
+  model_families:
+    - pspice
+    - ltspice
+    - generic_spice
+    - ngspice
+    - kicad_ngspice
+    - simplis
+    - spectre
+    - verilog_a
+    - verilog_ams
+    - ibis
+    - ibis_ami
+    - s_parameter
+    - demo_circuit
+    - vendor_tool_package
+    - other
+  source_statuses:
+    executor_approved:
+      - official_present
+      - owner_approved_local
+      - tool_library_official
+    review_or_gap:
+      - candidate_official
+      - third_party_unapproved
+      - missing
+      - blocked
+      - conflicting
+      - not_applicable
+  compatibility_statuses:
+    declared_or_tested:
+      - declared_supported
+      - declared_unsupported
+      - syntax_check_passed
+      - import_failed
+    conservative_unverified:
+      - likely_supported_unverified
+      - requires_conversion
+      - not_tested
+      - not_applicable
+    blocker_states:
+      - blocked_by_license
+      - blocked_by_missing_dependency
+  compatibility_basis:
+    - vendor_declared
+    - tool_library_metadata
+    - owner_tested
+    - agent_smoke_test
+    - file_format_only
+    - unknown
+  approval_rule: Only `official_present`, `owner_approved_local`, and `tool_library_official` models may become executor-approved, and only when terms, dependency, and simulator-scope evidence is recorded.
+  no_model_invention: true
+  no_guessing_rule: File extension, part name, package family, or search snippet alone cannot create a model record, compatibility claim, deck-ready state, or run-ready state.
+required_output_shapes:
+  simulation_source_packet: templates/simulation_source_packet.template.yaml
+  model_inventory: templates/model_inventory.template.yaml
+  model_file_manifest: templates/model_file_manifest.template.yaml
+  demo_circuit_manifest: templates/demo_circuit_manifest.template.yaml
+  simulator_compatibility_matrix: templates/simulator_compatibility_matrix.template.yaml
+  missing_models: templates/missing_models.template.yaml
+  access_blockers: templates/access_blockers.template.yaml
+  owner_followup_needed: templates/owner_followup_needed.template.yaml
+  downstream_handoff: templates/downstream_handoff.template.yaml
+notes:
+  - This workflow is explicitly pre-deck and pre-run/verify. It may write readiness and blocker packets, but it does not generate netlists, write testbenches, run simulators, or verify waveforms.
+  - The correct v0 result may be mostly missing or blocked model states. That is successful when it prevents downstream workflows from inventing models or pretending unsupported decks are runnable.
+  - Public workflow canon stores only portable orchestration rules, state semantics, and output-shape templates.
+  - Model files, vendor archives, extracted model payloads, run outputs, tool caches, local library contents, private project values, credentials, cookies, sessions, and raw run truth do not belong in `.workflow`.

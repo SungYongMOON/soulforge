@@ -1,0 +1,15 @@
+schema_version: simulation_source_collect_v0.access_blockers
+access_blockers:
+  - blocker_id: "<blocker_id>"
+    blocker_type: "login_required|nda_required|purchase_required|export_control|license_unclear|broken_download|geo_block|rate_limited|format_unreadable|encrypted_unusable|owner_file_needed|tool_not_available|other"
+    source_or_model_ref: "<source_or_model_ref>"
+    observed_at: "<iso8601_timestamp>"
+    attempted_access: "<public_safe_summary>"
+    safe_to_retry: true
+    requires_owner_action: false
+    owner_action: "<specific_owner_action_or_null>"
+    downstream_impact:
+      deck_prepare: "blocked|review_only|not_applicable"
+      run_verify: "blocked|review_only|not_applicable"
+      quantitative_enrichment: "blocked|review_only|not_applicable"
+      harness_strengthening: "evidence_only|not_allowed"

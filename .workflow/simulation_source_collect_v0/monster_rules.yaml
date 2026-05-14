@@ -1,0 +1,52 @@
+workflow_id: simulation_source_collect_v0
+kind: monster_rules
+status: active
+rules:
+  - monster_id: invented_model_or_placeholder_subcircuit
+    response: stop_and_record_missing_model_gap
+    summary: Do not create synthetic SPICE, IBIS, S-parameter, behavioral, wrapper, or placeholder models to satisfy downstream deck pressure.
+  - monster_id: file_extension_treated_as_compatibility
+    response: downgrade_to_not_tested_or_likely_supported_unverified
+    summary: A familiar extension may identify a file family, but it cannot prove declared simulator support, importability, or run readiness.
+  - monster_id: missing_model_silent_absence
+    response: write_missing_models_record
+    summary: If a requested model family is not found in approved sources, record `missing` with searched sources, downstream impact, acceptable resolution, owner action, and rerun trigger.
+  - monster_id: blocked_access_hidden_as_missing
+    response: write_access_blocker_record
+    summary: Login, NDA, purchase, export control, license, broken download, format, encryption, tool, or owner-file blockers must be recorded as `blocked`, not vague absence.
+  - monster_id: third_party_bundle_treated_as_official
+    response: classify_as_third_party_unapproved
+    summary: Mirrors, forums, package aggregators, distributor copies, copied bundles, and search snippets cannot become executor-approved evidence without owner approval.
+  - monster_id: owner_local_file_without_approval_scope
+    response: request_owner_approval_before_executor_use
+    summary: Local model files may be indexed as candidates, but cannot be executor-approved until owner approval scope, handling limits, and allowed use are recorded.
+  - monster_id: tool_library_without_version_or_policy
+    response: classify_as_review_only_or_owner_followup_needed
+    summary: Installed tool-library models need tool/library identity and owner policy before they can be treated as official executor inputs.
+  - monster_id: conversion_by_assumption
+    response: block_conversion_until_source_or_owner_basis_exists
+    summary: Do not convert or claim cross-simulator compatibility unless source documentation or owner policy explicitly allows it.
+  - monster_id: demo_circuit_treated_as_design_intent
+    response: keep_demo_reuse_review_only_with_limits
+    summary: Demo circuits may guide later deck preparation, but they do not authorize topology synthesis, parameter guessing, or harness promotion by themselves.
+  - monster_id: deck_prepare_scope_creep
+    response: write_downstream_block_or_handoff_only
+    summary: This workflow must not generate netlists, symbols, stimulus blocks, testbenches, or runnable decks.
+  - monster_id: simulation_run_scope_creep
+    response: stop_before_simulator_execution
+    summary: This workflow must not run simulations, verify waveforms, claim pass/fail results, or turn setup smoke tests into simulation evidence.
+  - monster_id: raw_model_payload_leak_to_public_package
+    response: remove_payload_and_keep_contract_shape_only
+    summary: Public workflow canon may describe packet shapes and gates, but not raw vendor documents, model text, archives, binaries, extracted file bodies, local library payloads, or private project values.
+  - monster_id: runtime_absolute_path_in_public_package
+    response: replace_with_repo_relative_placeholder_or_stable_id
+    summary: Public package files must use portable repo-relative placeholders or stable ids instead of drive letters, home directories, machine-local paths, or tool install paths.
+  - monster_id: secret_or_session_required
+    response: stop_and_request_owner_supplied_file_or_approval
+    summary: Agents must not read credentials, cookies, tokens, account sessions, secret files, or private account state; ask the owner to supply or approve the resulting file path.
+  - monster_id: oracle_or_verifier_material_used_as_model_source
+    response: stop_or_reclassify_as_forbidden_for_executor
+    summary: Hidden references, accepted outputs, verifier reports, repair packets, and oracle-derived mismatch details are not simulation source evidence.
+  - monster_id: downstream_readiness_overclaim
+    response: downgrade_to_review_only_or_blocked
+    summary: Missing models, blocked access, missing dependencies, unclear terms, untested compatibility, or unsupported conversion must remain visible to deck, run, quantitative, and harness consumers.

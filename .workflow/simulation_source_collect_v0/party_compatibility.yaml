@@ -1,0 +1,23 @@
+workflow_id: simulation_source_collect_v0
+kind: party_compatibility
+status: active
+compatible_party_templates:
+  - workflow_research_build_verify
+  - sourcebound_extraction_review
+  - source_packet_bootstrap
+  - hardware_model_readiness_review
+required_capabilities:
+  - project_local_binding_resolution
+  - official_model_source_research
+  - owner_approved_local_source_indexing
+  - tool_library_metadata_indexing
+  - provenance_and_checksum_manifesting
+  - missing_model_and_access_blocker_classification
+  - simulator_compatibility_evidence_review
+  - downstream_readiness_partitioning
+  - public_private_boundary_review
+notes:
+  - No default party binding is assigned yet.
+  - Runtime model, reasoning, party, source-search, local-file, tool-library, and simulator-policy bindings resolve through project-local bindings.
+  - Fresh executor and separate verifier review are required before claiming pilot-executed, usable, or production-ready behavior.
+  - The workflow package is public-safe because it stores only orchestration rules, state semantics, and output-shape templates.

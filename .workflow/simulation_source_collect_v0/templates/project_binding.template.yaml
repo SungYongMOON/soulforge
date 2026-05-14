@@ -1,0 +1,48 @@
+schema_version: simulation_source_collect_v0.project_binding
+workflow_id: simulation_source_collect_v0
+project_code: "<project_code>"
+run_id: "<run_id>"
+output_root_repo_path: "_workmeta/<project_code>/runs/<run_id>/simulation_sources/simulation_source_collect_v0"
+inputs:
+  model_need_scope_ref: "<project_local_model_need_scope>"
+  approved_model_source_policy_ref: "<project_local_policy_ref>"
+  official_source_packet_refs: []
+  component_inventory_refs: []
+  page_module_sidecar_refs: []
+  quantitative_enrichment_packet_refs: []
+  layout_guide_packet_refs: []
+  harness_priority_packet_refs: []
+  owner_approved_local_model_manifest_refs: []
+  tool_library_manifest_refs: []
+  simulator_policy_ref: "<project_local_simulator_policy_or_null>"
+source_policy:
+  accepted_source_statuses:
+    - official_present
+    - owner_approved_local
+    - tool_library_official
+  review_or_gap_statuses:
+    - candidate_official
+    - third_party_unapproved
+    - missing
+    - blocked
+    - conflicting
+    - not_applicable
+  agent_must_not_read_secret: true
+  account_bound_downloads_require_owner_supplied_file: true
+  model_payloads_remain_project_local: true
+execution_policy:
+  prepare_deck: false
+  run_simulation: false
+  verify_waveforms: false
+  safe_import_or_syntax_smoke_test_allowed: false
+  conversion_allowed_by_default: false
+outputs:
+  simulation_source_packet: "simulation_source_packet.yaml"
+  model_inventory: "model_inventory.yaml"
+  model_file_manifest: "model_file_manifest.yaml"
+  demo_circuit_manifest: "demo_circuit_manifest.yaml"
+  simulator_compatibility_matrix: "simulator_compatibility_matrix.yaml"
+  missing_models: "missing_models.yaml"
+  access_blockers: "access_blockers.yaml"
+  owner_followup_needed: "owner_followup_needed.yaml"
+  downstream_handoff: "downstream_handoff.yaml"

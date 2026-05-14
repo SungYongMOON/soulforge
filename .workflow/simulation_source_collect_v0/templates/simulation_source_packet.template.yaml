@@ -1,0 +1,75 @@
+schema_version: simulation_source_collect_v0
+packet_identity:
+  packet_id: "<packet_id>"
+  workflow_id: simulation_source_collect_v0
+  created_at: "<iso8601_timestamp>"
+  created_by: "<agent_or_owner>"
+  project_code: "<project_code>"
+  run_id: "<run_id>"
+approval:
+  oracle_free: true
+  approved_by: "<owner_or_policy_record>"
+  approval_scope: "human_review_preparation|executor_use|simulator_execution"
+  approved_for_executor: false
+  approved_for_simulator_execution: false
+  public_safe_summary_allowed: false
+target_scope:
+  source_packet_refs: []
+  quantitative_enrichment_refs: []
+  page_asset_refs: []
+  component_refs: []
+  interface_refs: []
+  requested_model_families:
+    - pspice
+    - ltspice
+    - generic_spice
+    - ibis
+    - ibis_ami
+    - s_parameter
+    - demo_circuit
+source_policy:
+  accepted_source_statuses:
+    - official_present
+    - owner_approved_local
+    - tool_library_official
+  rejected_for_executor:
+    - candidate_official
+    - third_party_unapproved
+    - missing
+    - blocked
+    - conflicting
+    - not_applicable
+  compatibility_cannot_be_guessed_from_name_or_extension: true
+readiness:
+  deck_prepare: "ready|review_only|blocked"
+  run_verify: "review_only|blocked"
+  quantitative_enrichment: "ready|review_only|blocked|not_applicable"
+  harness_strengthening: "evidence_only|not_allowed"
+  source_gap_followup: "none|needed"
+state_summary:
+  official_present_count: 0
+  owner_approved_local_count: 0
+  tool_library_official_count: 0
+  candidate_official_count: 0
+  third_party_unapproved_count: 0
+  missing_count: 0
+  blocked_count: 0
+  conflicting_count: 0
+  not_applicable_count: 0
+outputs:
+  model_inventory_ref: "model_inventory.yaml"
+  model_file_manifest_ref: "model_file_manifest.yaml"
+  demo_circuit_manifest_ref: "demo_circuit_manifest.yaml"
+  simulator_compatibility_matrix_ref: "simulator_compatibility_matrix.yaml"
+  missing_models_ref: "missing_models.yaml"
+  access_blockers_ref: "access_blockers.yaml"
+  owner_followup_needed_ref: "owner_followup_needed.yaml"
+  downstream_handoff_ref: "downstream_handoff.yaml"
+boundary_notes:
+  pre_deck_only: true
+  pre_run_verify_only: true
+  no_model_invention: true
+  no_model_conversion_by_default: true
+  no_raw_model_payloads_in_public_package: true
+  no_runtime_absolute_paths_in_public_package: true
+  no_credentials_cookies_tokens_or_sessions_used_by_agent: true

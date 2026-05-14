@@ -1,0 +1,33 @@
+schema_version: simulation_source_collect_v0.model_inventory
+models:
+  - model_id: "<model_id>"
+    target:
+      component_ref: "<component_ref>"
+      manufacturer_part_number: "<mpn_or_unknown>"
+      page_asset_refs: []
+      interface_refs: []
+      source_identifier_refs: []
+    model_status: "official_present|owner_approved_local|tool_library_official|candidate_official|third_party_unapproved|missing|blocked|conflicting|not_applicable"
+    model_family: "pspice|ltspice|generic_spice|ngspice|kicad_ngspice|simplis|spectre|verilog_a|verilog_ams|ibis|ibis_ami|s_parameter|demo_circuit|vendor_tool_package|other"
+    file_refs: []
+    source_refs: []
+    publisher: "<publisher_or_unknown>"
+    title: "<title_or_unknown>"
+    model_revision: "<revision_or_unknown>"
+    component_revision: "<revision_or_unknown>"
+    publication_date: "<date_or_unknown>"
+    access_date: "<date_or_unknown>"
+    license_or_terms_note: "<known|unknown|owner_followup_needed>"
+    approved_for_executor: false
+    approval_basis: "<official_source|owner_approval|tool_library_policy|not_approved>"
+    compatibility_refs: []
+    dependencies: []
+    conditions_or_limits: []
+    claims_supported: []
+    claims_not_supported: []
+    downstream_use:
+      deck_prepare: "allowed|review_only|blocked"
+      simulation_run: "review_only|blocked"
+      quantitative_enrichment: "allowed|review_only|blocked|not_applicable"
+      harness_strengthening: "evidence_only|not_allowed"
+    notes: "<public_safe_or_private_summary>"

@@ -1,0 +1,41 @@
+schema_version: simulation_source_collect_v0.downstream_handoff
+downstream_handoff:
+  source_packet_id: "<simulation_source_packet_id>"
+  approved_model_ids: []
+  review_only_model_ids: []
+  blocked_model_ids: []
+  missing_model_gap_ids: []
+  access_blocker_ids: []
+  owner_followup_ids: []
+  deck_prepare_inputs:
+    readiness: "ready|review_only|blocked"
+    ready_model_ids: []
+    demo_circuit_ids: []
+    required_quantitative_refs: []
+    compatibility_caveats: []
+    blocked_by: []
+  run_verify_inputs:
+    readiness: "review_only|blocked"
+    runnable_deck_available: false
+    simulator_policy_ref: "<simulator_policy_ref_or_null>"
+    setup_evidence_refs: []
+    blocked_by: []
+    not_claimed:
+      - simulation_pass_fail
+      - waveform_validity
+      - metric_verification
+  quantitative_inputs:
+    readiness: "ready|review_only|blocked|not_applicable"
+    source_supported_numeric_collateral_refs: []
+    blocked_by: []
+    not_claimed:
+      - simulated_behavioral_quantity
+      - inferred_operating_point
+  harness_inputs:
+    model_availability_summary: "<summary>"
+    simulation_evidence_available: false
+    blocked_by: []
+    not_claimed:
+      - final_harness_connection_validity
+      - simulation_pass_fail
+      - source_supported_join_promotion

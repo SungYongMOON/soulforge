@@ -1,0 +1,18 @@
+schema_version: simulation_source_collect_v0.demo_circuit_manifest
+demo_circuits:
+  - demo_id: "<demo_id>"
+    related_model_ids: []
+    related_component_refs: []
+    source_refs: []
+    simulator_family: "pspice|ltspice|ngspice|kicad_ngspice|simplis|spectre|vendor_tool|other"
+    files: []
+    demonstrated_conditions:
+      supply: "<source_supported_summary_or_unknown>"
+      load: "<source_supported_summary_or_unknown>"
+      frequency: "<source_supported_summary_or_unknown>"
+      temperature: "<source_supported_summary_or_unknown>"
+      stimulus: "<source_supported_summary_or_unknown>"
+    reusable_for_deck_prepare: "allowed|review_only|blocked"
+    reuse_limits: []
+    extraction_notes: "<demo_circuit_is_not_final_design_intent>"
+    owner_followup_needed: []

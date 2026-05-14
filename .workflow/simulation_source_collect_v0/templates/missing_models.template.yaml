@@ -1,0 +1,24 @@
+schema_version: simulation_source_collect_v0.missing_models
+missing_models:
+  - gap_id: "<gap_id>"
+    target:
+      component_ref: "<component_ref>"
+      manufacturer_part_number: "<mpn_or_unknown>"
+      page_asset_refs: []
+      interface_refs: []
+    needed_model_family: "pspice|ltspice|generic_spice|ibis|ibis_ami|s_parameter|demo_circuit|other"
+    needed_for:
+      - deck_prepare
+      - signal_integrity
+      - harness_strengthening
+    searched_sources: []
+    evidence_seen: []
+    why_missing: "<searched_approved_sources_but_no_acceptable_model_found>"
+    downstream_impact: "blocks_deck_prepare|review_only_deck|blocks_run_verify|informational"
+    acceptable_resolution:
+      - official_vendor_model
+      - owner_approved_local_model
+      - tool_library_official_model
+      - documented_not_available_owner_accepts_review_only
+    owner_action: "<specific_owner_or_source_followup>"
+    rerun_trigger: "<workflow_or_packet_to_rerun_after_gap_closes>"

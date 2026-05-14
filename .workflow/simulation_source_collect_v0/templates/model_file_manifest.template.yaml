@@ -1,0 +1,19 @@
+schema_version: simulation_source_collect_v0.model_file_manifest
+files:
+  - file_id: "<file_id>"
+    model_id: "<model_id>"
+    source_id: "<source_id>"
+    file_role: "primary_model|symbol|include|dependency|demo_circuit|stimulus|measurement|readme|license|wrapper|archive|other"
+    original_filename: "<filename_or_redacted>"
+    file_extension: "<extension_or_unknown>"
+    local_artifact_ref: "<project_local_or_private_ref_or_null>"
+    repo_relative_or_run_relative_path: "_workmeta/<project_code>/runs/<run_id>/simulation_sources/simulation_source_collect_v0/files/<optional_file>"
+    checksum_sha256: "<sha256_or_null>"
+    size_bytes: "<size_or_null>"
+    archive_member_path: "<member_path_or_null>"
+    required_with: []
+    optional_with: []
+    safe_to_copy_to_executor_workspace: false
+    public_safe_to_name: false
+    public_safe_to_quote: false
+    handling_note: "<license_dependency_or_owner_handling_note>"

@@ -11,6 +11,16 @@
 
 ## 2026-05-15
 
+### Revision `working` - Simulation source collection workflow added
+
+- Added `.workflow/simulation_source_collect_v0/` as a public-safe pre-deck and pre-run/verify workflow for collecting or indexing official, owner-approved local, and tool-library simulation source assets.
+- Registered the workflow in `.workflow/index.yaml` and listed it in `.workflow/README.md` after quantitative enrichment and before harness composition.
+- Defined explicit outputs for `simulation_source_packet`, `model_inventory`, `model_file_manifest`, `demo_circuit_manifest`, `simulator_compatibility_matrix`, `missing_models`, `access_blockers`, `owner_followup_needed`, and `downstream_handoff`.
+- Required PSpice, LTspice, generic SPICE, IBIS, IBIS-AMI, S-parameter, and demo-circuit source families to preserve provenance, dependency, license/terms, and compatibility basis instead of guessing readiness from names or file extensions.
+- Made missing models, blocked access, unclear license/tool dependency, unapproved third-party mirrors, and owner follow-up first-class outputs so downstream deck, run, quantitative, and harness workflows can block safely.
+- Kept model payloads, raw project data, vendor text, simulator outputs, runtime absolute paths, credentials, cookies, sessions, `_workspaces` outputs, and private run truth out of public workflow canon.
+- Marked the package `pilot_ready_contract_only`; a controlled mixed model-source pilot is still required before claiming pilot-executed, usable, or production-ready behavior.
+
 ### Revision `working` - Interface control and harness readiness workflow added
 
 - Added `.workflow/interface_control_and_harness_readiness_v0/` as a public-safe governance bridge before or alongside harness composition.

@@ -1,0 +1,17 @@
+schema_version: simulation_source_collect_v0.simulator_compatibility_matrix
+compatibility:
+  - compatibility_id: "<compatibility_id>"
+    model_id: "<model_id>"
+    simulator_family: "pspice|ltspice|ngspice|kicad_ngspice|simplis|spectre|vendor_tool|ibis_parser|signal_integrity_tool|other"
+    simulator_version: "<version_or_unknown>"
+    compatibility_status: "declared_supported|declared_unsupported|likely_supported_unverified|requires_conversion|blocked_by_license|blocked_by_missing_dependency|import_failed|syntax_check_passed|not_tested|not_applicable"
+    compatibility_basis: "vendor_declared|tool_library_metadata|owner_tested|agent_smoke_test|file_format_only|unknown"
+    required_files: []
+    required_symbols: []
+    required_options: []
+    known_limitations: []
+    conversion_allowed: false
+    conversion_basis: "<source_or_owner_basis_or_null>"
+    smoke_test_ref: "<smoke_test_ref_or_null>"
+    owner_followup_needed: []
+    note: "<file_extension_alone_does_not_prove_compatibility>"

@@ -1,0 +1,16 @@
+schema_version: simulation_source_collect_v0.owner_followup_needed
+owner_followup_needed:
+  - followup_id: "<followup_id>"
+    related_model_or_gap_or_blocker_id: "<id>"
+    scope:
+      component_ref: "<component_ref_or_null>"
+      page_asset_refs: []
+      interface_refs: []
+      model_family: "<model_family_or_null>"
+    action_type: "provide_file|approve_local_file|confirm_identity|confirm_revision|approve_terms|manual_download|approve_tool_library|approve_smoke_test|domain_decision|accept_not_available"
+    owner_action: "<specific_safe_action>"
+    approval_target: "human_review_only|executor_copy|simulator_execution|tool_library_indexing"
+    agent_must_not_read_secret: true
+    license_nda_export_or_tool_decision_needed: false
+    downstream_workflow_to_rerun: "<simulation_source_collect_v0|official_source_packet_collect_v0|source_gap_followup_packet_v0|simulation_deck_prepare_v0|other>"
+    downstream_impact: "<deck_prepare_run_verify_quantitative_harness_impact>"

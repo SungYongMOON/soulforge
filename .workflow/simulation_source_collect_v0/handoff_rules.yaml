@@ -1,0 +1,36 @@
+workflow_id: simulation_source_collect_v0
+kind: handoff_rules
+status: active
+rules:
+  - from: workflow_runner
+    to: model_need_collector
+    condition: simulation_source_binding_and_policy_ready
+    summary: Collector receives portable bindings, approved input refs, requested simulator/model families, and downstream priorities; it does not receive hidden references, verifier reports, secrets, or raw payloads outside the approved project-local scope.
+  - from: model_need_collector
+    to: model_source_researcher
+    condition: model_need_inventory_written
+    summary: Researcher receives model needs, target component/interface refs, requested source families, official-domain rules, owner-local approval rules, and tool-library policy.
+  - from: model_source_researcher
+    to: model_state_classifier
+    condition: model_source_candidates_written
+    summary: Classifier receives candidate source records with provenance, file roles, dependency hints, access attempts, owner-local approval scope, and blocker notes rather than model payloads.
+  - from: model_state_classifier
+    to: compatibility_reviewer
+    condition: all_model_needs_have_status
+    summary: Compatibility reviewer receives classified model/file/demo records and must keep missing, blocked, candidate, third-party, conflicting, and not-applicable states visible.
+  - from: compatibility_reviewer
+    to: packet_manifest_writer
+    condition: compatibility_matrix_written
+    summary: Writer receives compatibility status and basis records; file extension or simulator name hints are not enough to mark declared support or deck readiness.
+  - from: packet_manifest_writer
+    to: downstream_handoff_writer
+    condition: simulation_source_packet_bundle_written
+    summary: Handoff writer receives packet manifests and must partition approved, review-only, missing, and blocked model ids without creating decks or run results.
+  - from: downstream_handoff_writer
+    to: boundary_reviewer
+    condition: downstream_handoff_written
+    summary: Boundary review receives packet manifests and handoff refs only; public canon still excludes vendor text, model payloads, binaries, local library contents, runtime paths, credentials, cookies, and private run truth.
+  - from: boundary_reviewer
+    to: workflow_runner
+    condition: boundary_review_note_complete
+    summary: Runner reports packet path, model state counts, compatibility caveats, missing/blocker counts, owner follow-up needs, downstream readiness, and whether a pilot can proceed.

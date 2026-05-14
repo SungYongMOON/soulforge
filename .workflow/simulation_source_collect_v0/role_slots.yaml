@@ -1,0 +1,28 @@
+workflow_id: simulation_source_collect_v0
+kind: role_slots
+status: active
+slots:
+  - slot_id: workflow_runner
+    title: Workflow Runner
+    summary: Resolves project-local packet binding, allowed source policy, simulator policy, and output roots before any model-source collection begins.
+  - slot_id: model_need_collector
+    title: Model Need Collector
+    summary: Builds the bounded target component, interface, and requested model-family inventory from approved non-oracle inputs.
+  - slot_id: model_source_researcher
+    title: Model Source Researcher
+    summary: Searches authoritative public channels or indexes owner-approved local and tool-library model sources while rejecting unapproved mirrors as executor evidence.
+  - slot_id: model_state_classifier
+    title: Model State Classifier
+    summary: Classifies every model need as official, owner-approved local, tool-library official, candidate, third-party, missing, blocked, conflicting, or not applicable.
+  - slot_id: compatibility_reviewer
+    title: Compatibility Reviewer
+    summary: Records declared, tested, untested, conversion, and blocked simulator compatibility states with evidence basis and without file-name guessing.
+  - slot_id: packet_manifest_writer
+    title: Packet Manifest Writer
+    summary: Writes the simulation source packet, model inventory, file manifest, demo circuit manifest, compatibility matrix, gaps, blockers, and owner follow-up outputs.
+  - slot_id: downstream_handoff_writer
+    title: Downstream Handoff Writer
+    summary: Maps approved model evidence, review-only assets, missing models, and blockers to conservative deck-prepare, run-verify, quantitative, and harness handoff states.
+  - slot_id: boundary_reviewer
+    title: Boundary Reviewer
+    summary: Checks public/private boundaries, model invention risks, compatibility overclaims, secret handling, and pre-deck/pre-run scope before completion.
