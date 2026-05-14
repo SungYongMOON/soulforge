@@ -20,6 +20,8 @@ SE 프로젝트의 루트 폴더, 게이트별 폴더, 작업 하위 폴더, 계
 
 - 값이 하나라도 비어 있으면 먼저 사용자에게 묻는다.
 - 현재 bundled spec 이 지원하는 조합은 아래 3개다.
+- 현재 bundled spec 이 지원하는 조합은 아래 4개다.
+  - `선행연구 / 공통 / 없음`
   - `체계개발 / LIG 넥스원 / A`
   - `탐색개발 / 공통 / 없음`
   - `운용연구개발 / 공통 / 없음`
@@ -32,6 +34,7 @@ SE 프로젝트의 루트 폴더, 게이트별 폴더, 작업 하위 폴더, 계
 기본 스펙 파일은 입력 조합별로 다르다.
 
 - `체계개발 / LIG 넥스원 / A` -> `assets/SE_FolderTree_Guide.md`
+- `선행연구 / 공통 / 없음` -> `assets/SE_FolderTree_PreStudy_Basic.md`
 - `탐색개발 / 공통 / 없음` -> `assets/SE_FolderTree_ExploratoryDev_Basic.md`
 - `운용연구개발 / 공통 / 없음` -> `assets/SE_FolderTree_OperationalRnD_Basic.md`
 
@@ -114,6 +117,22 @@ python scripts/generate_tree.py \
 `--dry-run` 도 preview 경로 아래에 `plan_manifest.json`, `plan_progress.json`, CSV, 인덱스 파일을 실제로 만든다. 기존 프로젝트를 건드리지 않으려면 preview 전용 경로를 따로 잡는다.
 
 ## 신규 기본형 예시
+
+선행연구 기본형 dry-run:
+
+```bash
+cd "$SKILL_DIR"
+python scripts/generate_tree.py \
+  --layout-mode new-root \
+  --business-type "선행연구" \
+  --prime-contractor "공통" \
+  --quality-grade "없음" \
+  --start 20260109 \
+  --name "프로젝트명" \
+  --profile A \
+  --out "<상위경로>" \
+  --dry-run
+```
 
 탐색개발 기본형 dry-run:
 

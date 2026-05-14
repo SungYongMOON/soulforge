@@ -63,6 +63,11 @@ SUPPORTED_VARIANTS = {
         "display": "체계개발 / LIG 넥스원 / A",
         "default_spec": "assets/SE_FolderTree_Guide.md",
     },
+    ("선행연구", "공통", "없음"): {
+        "support_key": "pre_study_common_no_grade",
+        "display": "선행연구 / 공통 / 없음",
+        "default_spec": "assets/SE_FolderTree_PreStudy_Basic.md",
+    },
     ("탐색개발", "공통", "없음"): {
         "support_key": "exploratory_dev_common_no_grade",
         "display": "탐색개발 / 공통 / 없음",

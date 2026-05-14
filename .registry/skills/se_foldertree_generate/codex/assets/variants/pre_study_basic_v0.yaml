@@ -1,0 +1,17 @@
+variant_id: pre_study_basic_v0
+version: 0
+status: active
+generation_enabled: true
+variant_type: production_basic_spec
+evidence_level: mixed-public-source
+base_variant: common_se_base_v0
+decision: "Provide a public-safe pre-study basic variant using the common SE gate spine before exploratory development."
+supported_input:
+  business_type: "선행연구"
+  prime_contractor: "공통"
+  quality_grade: "없음"
+support_key: pre_study_common_no_grade
+spec_asset: assets/SE_FolderTree_PreStudy_Basic.md
+notes:
+  - "This variant stays contractor-neutral and public-safe."
+  - "The task list emphasizes concept framing, prior-art review, alternatives, and next-stage entry judgment rather than contractor-specific execution gates."

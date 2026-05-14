@@ -7,6 +7,7 @@ Use this reference only when designing or checking draft SE foldertree variants.
 The variant preview lane separates three concerns:
 
 - `common_se_base_v0`: source-backed common SE gate identity.
+- `pre_study_basic_v0`: production-bound pre-study basic variant with explicit spec binding.
 - `lig_grade_a_overlay_v0`: current LIG/A local behavior captured as an overlay candidate.
 - `operational_rd_no_grade_candidate_v0`: blocked candidate for operational-R&D/no-quality-grade work.
 - `exploratory_dev_basic_v0`: production-bound exploratory-development basic variant with explicit spec binding.

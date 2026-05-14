@@ -10,6 +10,7 @@
 ## Bundled resource map
 
 - `assets/SE_FolderTree_Guide.md`: current system-development / LIG / A bundled spec
+- `assets/SE_FolderTree_PreStudy_Basic.md`: pre-study basic bundled spec
 - `assets/SE_FolderTree_ExploratoryDev_Basic.md`: exploratory-development basic bundled spec
 - `assets/SE_FolderTree_OperationalRnD_Basic.md`: operational-R&D basic bundled spec
 - `assets/variants/*.yaml`: variant metadata for common base, contractor overlay, blocked candidates, and production-bound basic variants
@@ -36,6 +37,7 @@
 
 - Supported today:
   - `체계개발 / LIG 넥스원 / A` -> `assets/SE_FolderTree_Guide.md`
+  - `선행연구 / 공통 / 없음` -> `assets/SE_FolderTree_PreStudy_Basic.md`
   - `탐색개발 / 공통 / 없음` -> `assets/SE_FolderTree_ExploratoryDev_Basic.md`
   - `운용연구개발 / 공통 / 없음` -> `assets/SE_FolderTree_OperationalRnD_Basic.md`
 - If the requested combination does not match a bundled spec variant, stop and ask for a new variant/spec instead of generating the wrong tree.

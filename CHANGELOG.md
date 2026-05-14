@@ -9,6 +9,14 @@
 - Added production-bound variant metadata for the new basic variants and tightened `preview_variants.py` so production-enabled variants must declare explicit supported inputs and spec assets.
 - Kept the existing `체계개발 / LIG 넥스원 / A` behavior as the current system-development/LIG overlay path without folding its Q-gates into the new common basic variants.
 
+## 2026-05-15
+
+### Revision `working` - SE foldertree pre-study basic variant added
+
+- Added a dry-runable `선행연구 / 공통 / 없음` bundled basic spec to `se_foldertree_generate`.
+- Updated the supported input matrix and references so pre-study can be selected as its own explicit variant instead of overloading `탐색개발`.
+- Kept the new pre-study spec contractor-neutral and public-safe, with task surfaces focused on background definition, prior-art review, concept options, transition judgment, and next-stage recommendation.
+
 ### Revision `working` - SE foldertree draft variant preview lane added
 
 - Added a non-materializing draft variant preview lane to `se_foldertree_generate`, separating `common_se_base_v0`, `lig_grade_a_overlay_v0`, and `operational_rd_no_grade_candidate_v0`.
