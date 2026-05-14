@@ -71,6 +71,14 @@
 - Executed a first controlled private blocked-run pilot that wrote run metadata, blocker rows, and a blocked verdict without inventing measurement or waveform results.
 - Updated the package maturity from `draft_contract_only` to `pilot_executed_private_fixture`.
 
+### Revision `working` - Configuration baseline and change control workflow added
+
+- Added `.workflow/configuration_baseline_and_change_control_v0/` as a public-safe governance workflow for inventorying baseline refs, tracking change requests, and routing baseline-affecting reruns or carry-forward actions without approving baselines or mutating upstream artifacts.
+- Registered the workflow in `.workflow/index.yaml` and listed it in `.workflow/README.md` after `review_action_item_closure_loop_v0`.
+- Defined explicit outputs for `configuration_baseline_packet`, `baseline_inventory`, `change_request_register`, `impact_matrix`, `baseline_gap_register`, `rerun_routing`, `owner_followup_needed`, `closure_handoff`, and `boundary_review_note`.
+- Executed a first controlled private representative baseline/change-control pilot that inventoried pre-baseline evidence packets, derived change requests from the review lane, and routed reruns or owner follow-up without claiming baseline approval.
+- Updated the package maturity from `draft_contract_only` to `pilot_executed_private_fixture`.
+
 ### Revision `working` - Interface control and harness readiness workflow added
 
 - Added `.workflow/interface_control_and_harness_readiness_v0/` as a public-safe governance bridge before or alongside harness composition.
