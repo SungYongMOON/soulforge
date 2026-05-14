@@ -1,0 +1,26 @@
+schema_version: verification_plan_from_page_contracts_v0
+owner_followup_needed:
+  source_verification_plan_id: "<plan_id>"
+  owner_actions:
+    - owner_action_id: "<owner_action_id>"
+      affected_verification_item_ids: []
+      action_kind: provide_source|approve_local_source|resolve_connector_mapping|confirm_intended_use|decide_applicability|approve_waiver|accept_residual_risk|provide_configuration_baseline|provide_test_resource|provide_simulation_resource|other
+      decision_question: "<scoped_question>"
+      allowed_decision_options: []
+      required_decision_owner: "<owner_or_role>"
+      decision_scope:
+        page_asset_ids: []
+        harness_ids: []
+        connection_ids: []
+        baseline_refs: []
+      downstream_impact: "<what_stays_blocked_until_decision>"
+      current_status: needed|requested|answered|superseded
+      evidence_need_ids: []
+      verification_gap_ids: []
+      not_claimed:
+        - owner_approval_granted
+        - technical_verification_completed
+rules:
+  owner_action_is_request_not_decision: true
+  waiver_or_residual_risk_requires_explicit_scoped_owner_decision_ref: true
+  owner_file_payloads_stay_private_until_reindexed_by_owning_workflow: true

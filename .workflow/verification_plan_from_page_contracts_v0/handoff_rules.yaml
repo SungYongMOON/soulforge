@@ -1,0 +1,40 @@
+workflow_id: verification_plan_from_page_contracts_v0
+kind: handoff_rules
+status: active
+rules:
+  - from: workflow_runner
+    to: input_packet_curator
+    condition: binding_and_planning_policy_ready
+    summary: Curator receives only portable packet refs, owning workflow ids, approval scopes, and output bindings; it does not receive hidden references, verifier reports, secrets, raw payloads, or accepted results.
+  - from: input_packet_curator
+    to: verification_item_builder
+    condition: verification_planning_input_set_written
+    summary: Item builder receives artifact metadata and approved summaries, not vendor text dumps, raw XML bodies, account sessions, or execution result material.
+  - from: verification_item_builder
+    to: method_planner
+    condition: verification_items_draft_written
+    summary: Method planner receives atomic item drafts with trace or provisional scope, field path, and evidence-status hints so method choice can stay evidence-bounded.
+  - from: method_planner
+    to: gap_and_owner_router
+    condition: method_and_evidence_need_drafts_written
+    summary: Gap router receives method assignments, criteria seed status, and evidence needs so unsupported criteria become blockers or owner actions before matrix publication.
+  - from: gap_and_owner_router
+    to: matrix_writer
+    condition: verification_gap_register_and_owner_followup_written
+    summary: Matrix writer receives explicit blockers and owner routes and may not suppress them to make the plan look ready.
+  - from: matrix_writer
+    to: readiness_planner
+    condition: verification_plan_matrix_and_method_map_written
+    summary: Readiness planner receives planned method groups and readiness states, not permission to run tests, simulations, demonstrations, or result acceptance.
+  - from: readiness_planner
+    to: handoff_indexer
+    condition: test_or_simulation_readiness_written
+    summary: Handoff indexer receives future execution prerequisites and blockers for TRR/FCA/SVR planning anchors without treating them as completed review evidence.
+  - from: handoff_indexer
+    to: boundary_reviewer
+    condition: trr_and_fca_svr_handoffs_written
+    summary: Boundary review receives the complete plan bundle and verifies that TRR/FCA/SVR fields are handoff indexes only, not approval or acceptance statements.
+  - from: boundary_reviewer
+    to: workflow_runner
+    condition: boundary_review_note_complete
+    summary: Runner reports output paths, item counts, method counts, readiness counts, blockers, owner follow-up, validation status, and the narrowest first pilot case.

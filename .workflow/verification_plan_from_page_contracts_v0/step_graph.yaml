@@ -1,0 +1,282 @@
+workflow_id: verification_plan_from_page_contracts_v0
+kind: step_graph
+status: active
+steps:
+  - step_id: prepare_verification_plan_binding
+    title: Prepare Verification Plan Binding
+    actor_slot: workflow_runner
+    action:
+      kind: project_local_verification_plan_binding_setup
+      requires:
+        - verification_plan_project_binding
+        - verification_scope_refs
+        - approved_verification_planning_policy
+      validates:
+        - output_root_is_project_local_or_private_workmeta
+        - verification_execution_allowed_is_false
+        - verification_completion_claim_allowed_is_false
+        - input_refs_are_read_only
+        - approval_scope_is_recorded_for_each_ref
+        - public_package_contains_no_payloads
+        - no_runtime_absolute_paths_in_public_package
+      creates:
+        - verification_plan_output_root
+        - verification_plan_run_log_root
+    summary: Resolve the project-local output root and lock the run as planning-only before any method assignment is attempted.
+    next:
+      on_success: build_planning_input_set
+      on_fail: stop
+  - step_id: build_planning_input_set
+    title: Build Planning Input Set
+    actor_slot: input_packet_curator
+    action:
+      kind: read_only_verification_planning_input_inventory
+      artifacts_in:
+        - page_module_spec_refs
+        - verification_seed_matrix_refs
+        - trace_matrix_refs
+        - evidence_authority_map_refs
+        - trace_gap_register_refs
+        - official_source_packet_refs
+        - component_materials_packet_refs
+        - layout_guide_packet_refs
+        - quantitative_enrichment_packet_refs
+        - simulation_source_packet_refs
+        - interface_control_packet_refs
+        - harness_composition_packet_refs
+        - source_gap_followup_packet_refs
+        - configuration_baseline_refs
+        - owner_decision_refs
+        - test_or_simulation_resource_policy_refs
+      artifact_out: verification_planning_input_set
+      records:
+        - artifact_ref
+        - artifact_kind
+        - owning_workflow_id
+        - checksum_sha256
+        - approval_scope
+        - page_asset_ids
+        - harness_ids
+        - baseline_refs
+        - evidence_authority_hint
+      forbidden_basis:
+        - hidden_reference_oracle
+        - verifier_report
+        - accepted_verification_result
+        - previous_candidate_repair_packet
+        - secret_or_session_state
+        - raw_source_payload_text
+        - unindexed_owner_file
+        - unapproved_simulation_or_test_result
+    summary: Inventory approved upstream packet refs and authority hints without treating filenames, private payloads, or accepted results as planning evidence.
+    next:
+      on_success: enumerate_verification_items
+      on_fail: stop
+  - step_id: enumerate_verification_items
+    title: Enumerate Verification Items
+    actor_slot: verification_item_builder
+    action:
+      kind: atomic_verification_item_enumeration
+      artifacts_in:
+        - verification_planning_input_set
+      artifact_out: verification_items_draft
+      preferred_input: verification_seed_matrix_refs
+      fallback_policy:
+        skeleton_mode_must_be_explicit: true
+        provisional_rows_are_not_ready: true
+        trace_rerun_request_required_for_missing_seed_matrix: true
+      claim_kinds:
+        - asset_identity
+        - module_scope
+        - function_claim
+        - interface_group
+        - interface_item
+        - quantitative_constraint
+        - source_packet_coverage
+        - layout_readiness
+        - pspice_readiness
+        - harness_connection_claim
+        - open_question
+        - verification_need
+      granularity_rule: one_atomic_claim_per_verification_item
+      stable_id_policy:
+        preserve_existing_verification_item_ids_when_same_claim_reruns: true
+        split_mixed_evidence_claims: true
+        supersede_materially_changed_claims: true
+    summary: Convert trace seeds and bounded page or harness claims into small verification-planning items without accepting them as verified.
+    next:
+      on_success: assign_methods_and_evidence_needs
+      on_fail: stop
+  - step_id: assign_methods_and_evidence_needs
+    title: Assign Methods And Evidence Needs
+    actor_slot: method_planner
+    action:
+      kind: conservative_method_assignment_and_need_mapping
+      artifacts_in:
+        - verification_items_draft
+        - verification_planning_input_set
+      artifacts_out:
+        - verification_items_with_methods
+        - evidence_need_register
+      method_values:
+        - inspection
+        - analysis
+        - simulation
+        - test
+        - demonstration
+        - owner_review
+        - not_ready
+      rules:
+        - inspection_does_not_replace_analysis_simulation_or_test
+        - simulation_requires_model_deck_policy_stimuli_measurements_and_criteria_or_stays_not_ready
+        - test_requires_configuration_procedure_resources_measurements_and_criteria_or_stays_blocked
+        - owner_review_resolves_authority_or_intent_not_engineering_evidence
+        - pass_fail_criteria_seed_requires_approved_source_or_owner_decision_basis
+        - missing_evidence_creates_gap_before_criteria
+    summary: Assign one primary method and optional secondary methods while writing evidence needs before any criteria seed.
+    next:
+      on_success: route_gaps_and_owner_followup
+      on_fail: stop
+  - step_id: route_gaps_and_owner_followup
+    title: Route Gaps And Owner Follow-Up
+    actor_slot: gap_and_owner_router
+    action:
+      kind: verification_gap_and_owner_action_write
+      artifacts_in:
+        - verification_items_with_methods
+        - evidence_need_register
+        - verification_planning_input_set
+      artifacts_out:
+        - verification_gap_register
+        - owner_followup_needed
+      gap_types:
+        - missing_source_ref
+        - missing_quantitative_value
+        - missing_layout_constraint
+        - missing_simulation_model
+        - missing_simulation_deck
+        - missing_test_fixture
+        - missing_tool_or_instrument
+        - missing_configuration_baseline
+        - missing_procedure
+        - missing_owner_decision
+        - source_conflict
+        - version_or_checksum_conflict
+        - harness_blocked
+        - harness_review_required
+        - private_boundary_unclear
+      invariant: every_missing_conflict_or_review_required_prerequisite_has_gap_or_owner_route
+    summary: Preserve missing evidence, source conflicts, blocked harness state, and owner decisions as explicit blockers or review-needed actions.
+    next:
+      on_success: write_matrix_and_method_map
+      on_fail: stop
+  - step_id: write_matrix_and_method_map
+    title: Write Matrix And Method Map
+    actor_slot: matrix_writer
+    action:
+      kind: verification_matrix_and_method_map_write
+      artifacts_in:
+        - verification_items_with_methods
+        - evidence_need_register
+        - verification_gap_register
+        - owner_followup_needed
+      artifacts_out:
+        - verification_plan
+        - verification_requirements_matrix
+        - method_map
+      readiness_states:
+        - plan_ready
+        - plan_ready_with_prerequisites
+        - owner_review_required
+        - blocked_missing_evidence
+        - blocked_source_conflict
+        - blocked_configuration
+        - not_applicable_pending_owner
+      not_claimed:
+        - verification_execution
+        - verification_passed
+        - verification_failed
+        - verification_accepted
+    summary: Write the main plan, requirements matrix, and method map as planning artifacts only.
+    next:
+      on_success: assess_test_or_simulation_readiness
+      on_fail: stop
+  - step_id: assess_test_or_simulation_readiness
+    title: Assess Test Or Simulation Readiness
+    actor_slot: readiness_planner
+    action:
+      kind: execution_readiness_planning_only
+      artifacts_in:
+        - verification_requirements_matrix
+        - method_map
+        - evidence_need_register
+        - verification_gap_register
+        - owner_followup_needed
+        - verification_planning_input_set
+      artifact_out: test_or_simulation_readiness
+      checks:
+        - simulation_items_have_models_decks_policy_stimuli_measurements_and_criteria_or_blockers
+        - test_items_have_configuration_procedure_resources_measurements_and_criteria_or_blockers
+        - demonstration_items_have_observable_behavior_script_or_owner_review_route
+        - no_simulation_or_test_results_are_created_or_accepted
+    summary: Separate future execution readiness from actual execution so later workflows know what must be prepared first.
+    next:
+      on_success: build_review_and_audit_handoffs
+      on_fail: stop
+  - step_id: build_review_and_audit_handoffs
+    title: Build Review And Audit Handoffs
+    actor_slot: handoff_indexer
+    action:
+      kind: trr_and_fca_svr_planning_handoff_write
+      artifacts_in:
+        - verification_plan
+        - verification_requirements_matrix
+        - method_map
+        - test_or_simulation_readiness
+        - verification_gap_register
+        - owner_followup_needed
+      artifacts_out:
+        - trr_readiness_handoff
+        - fca_svr_handoff_index
+      rules:
+        - trr_handoff_lists_prerequisites_and_blockers_not_trr_pass
+        - fca_svr_index_lists_expected_future_result_refs_not_accepted_evidence
+        - waivers_or_not_applicable_states_require_scoped_owner_decision_refs
+    summary: Give later review and audit workflows stable planned anchors without treating the plan as approval or verification evidence.
+    next:
+      on_success: write_plan_bundle_and_boundary_review
+      on_fail: stop
+  - step_id: write_plan_bundle_and_boundary_review
+    title: Write Plan Bundle And Boundary Review
+    actor_slot: boundary_reviewer
+    action:
+      kind: verification_plan_bundle_boundary_and_overclaim_review
+      artifacts_in:
+        - verification_plan
+        - verification_requirements_matrix
+        - method_map
+        - evidence_need_register
+        - verification_gap_register
+        - test_or_simulation_readiness
+        - owner_followup_needed
+        - trr_readiness_handoff
+        - fca_svr_handoff_index
+      artifacts_out:
+        - verification_plan_provenance
+        - verification_plan_summary
+        - boundary_review_note
+      checks:
+        - every_item_has_stable_verification_item_id
+        - every_item_links_to_trace_row_or_is_provisional_skeleton
+        - every_method_assignment_has_rationale
+        - every_missing_or_review_needed_state_has_gap_or_owner_route
+        - source_conflicts_are_blocking
+        - simulation_and_test_items_do_not_claim_execution_results
+        - trr_and_fca_svr_handoffs_do_not_claim_approval_or_acceptance
+        - no_upstream_artifact_mutation
+        - no_raw_payloads_or_runtime_absolute_paths_in_public_package
+        - no_secret_or_account_state_requested_from_agent
+    summary: Finalize the plan bundle and report counts, blockers, owner follow-up, and the narrowest next pilot route.
+    next:
+      on_success: complete
+      on_fail: stop

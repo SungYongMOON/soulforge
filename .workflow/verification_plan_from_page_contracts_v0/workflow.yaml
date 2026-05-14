@@ -1,0 +1,204 @@
+workflow_id: verification_plan_from_page_contracts_v0
+kind: workflow
+status: active
+title: Verification Plan From Page Contracts v0
+summary: Convert page/module trace rows, quantitative gaps, source gaps, interface-control ceilings, harness blockers, and scoped owner decisions into explicit verification planning packets without claiming that verification execution, approval, or pass/fail results already exist.
+entrypoint: run
+execution_mode: local_tool_sequence
+role_slots: role_slots.yaml
+step_graph: step_graph.yaml
+handoff_rules: handoff_rules.yaml
+monster_rules: monster_rules.yaml
+party_compatibility: party_compatibility.yaml
+profile_policy: profile_policy.yaml
+inputs:
+  - verification_plan_project_binding
+  - verification_scope_refs
+  - approved_verification_planning_policy
+optional_inputs:
+  - page_module_spec_refs
+  - verification_seed_matrix_refs
+  - trace_matrix_refs
+  - evidence_authority_map_refs
+  - trace_gap_register_refs
+  - official_source_packet_refs
+  - component_materials_packet_refs
+  - layout_guide_packet_refs
+  - quantitative_enrichment_packet_refs
+  - simulation_source_packet_refs
+  - interface_control_packet_refs
+  - harness_composition_packet_refs
+  - source_gap_followup_packet_refs
+  - configuration_baseline_refs
+  - owner_decision_refs
+  - test_or_simulation_resource_policy_refs
+outputs:
+  - verification_plan
+  - verification_requirements_matrix
+  - method_map
+  - evidence_need_register
+  - verification_gap_register
+  - test_or_simulation_readiness
+  - owner_followup_needed
+  - trr_readiness_handoff
+  - fca_svr_handoff_index
+  - verification_plan_summary
+  - verification_plan_provenance
+  - boundary_review_note
+validation_level: pilot_ready_contract_only
+registration_policy: owner_requested_registration
+workflow_modes:
+  - skeleton
+  - plan_from_trace
+  - plan_from_harness
+  - rerun_update
+method_values:
+  - inspection
+  - analysis
+  - simulation
+  - test
+  - demonstration
+  - owner_review
+  - not_ready
+readiness_state_values:
+  - plan_ready
+  - plan_ready_with_prerequisites
+  - owner_review_required
+  - blocked_missing_evidence
+  - blocked_source_conflict
+  - blocked_configuration
+  - not_applicable_pending_owner
+upstream_workflows:
+  - workflow_id: page_module_trace_matrix_v0
+    expected_outputs:
+      - verification_seed_matrix
+      - trace_matrix
+      - evidence_authority_map
+      - trace_gap_register
+      - harness_trace_delta
+  - workflow_id: page_quantitative_enrichment_v0
+    expected_outputs:
+      - quantitative_claims
+      - source_gap_report
+      - owner_followup_needed
+      - harness_readiness_delta
+    status: optional_but_required_for_quantitative_criteria
+  - workflow_id: simulation_source_collect_v0
+    expected_outputs:
+      - simulation_source_packet
+      - model_inventory
+      - simulator_compatibility_matrix
+      - missing_models
+      - access_blockers
+    status: optional_when_simulation_is_a_possible_method
+  - workflow_id: interface_control_and_harness_readiness_v0
+    expected_outputs:
+      - interface_control_ledger
+      - harness_readiness_matrix
+      - blocked_interface_items
+      - review_required_interface_items
+      - candidate_safe_possible_items
+      - source_supported_possible_items
+  - workflow_id: xml_harness_composition_v0
+    expected_outputs:
+      - blocked_connections
+      - review_required_connections
+      - candidate_safe_connections
+      - source_supported_connections
+      - owner_followup_needed
+      - composition_readiness
+  - workflow_id: source_gap_followup_packet_v0
+    expected_outputs:
+      - source_gap_followup_packet
+      - owner_action_queue
+      - retry_trigger_register
+      - downstream_unblock_map
+    status: optional_gap_route_input
+downstream_workflows:
+  - workflow_id: test_harness_asset_planning_v0
+    expected_input: test_or_simulation_readiness_and_trr_readiness_handoff
+    status: planned
+  - workflow_id: review_gate_evidence_pack_v0
+    expected_input: verification_plan_summary_and_trr_readiness_handoff
+    status: planned
+  - workflow_id: functional_configuration_audit_page_library_v0
+    expected_input: fca_svr_handoff_index_after_accepted_result_packets_exist
+    status: later_result_consumer_only
+  - workflow_id: source_gap_followup_packet_v0
+    expected_input: verification_gap_register_and_owner_followup_needed
+verification_plan_contract:
+  owns:
+    - verification_item_identity
+    - method_assignment_and_rationale
+    - evidence_needed_rows
+    - criteria_seed_status
+    - blocked_readiness_and_owner_review_routing
+    - test_or_simulation_readiness_planning
+    - trr_preparation_handoff_index
+    - fca_svr_expected_result_anchor_index
+    - verification_plan_provenance_and_rerun_delta
+  does_not_own:
+    - source_xml_mutation
+    - page_module_spec_schema_design
+    - official_source_acquisition
+    - component_material_truth
+    - layout_guidance_extraction
+    - quantitative_value_truth
+    - simulation_model_collection
+    - simulation_deck_generation
+    - simulation_execution
+    - physical_or_tool_test_execution
+    - harness_connection_promotion
+    - configuration_baseline_approval
+    - verification_result_acceptance
+    - trr_approval
+    - fca_svr_acceptance
+  required_output_shapes:
+    verification_plan: templates/verification_plan.template.yaml
+    verification_requirements_matrix: templates/verification_requirements_matrix.template.yaml
+    method_map: templates/method_map.template.yaml
+    evidence_need_register: templates/evidence_need_register.template.yaml
+    verification_gap_register: templates/verification_gap_register.template.yaml
+    test_or_simulation_readiness: templates/test_or_simulation_readiness.template.yaml
+    owner_followup_needed: templates/owner_followup_needed.template.yaml
+    trr_readiness_handoff: templates/trr_readiness_handoff.template.yaml
+    fca_svr_handoff_index: templates/fca_svr_handoff_index.template.yaml
+    verification_plan_provenance: templates/verification_plan_provenance.template.yaml
+    verification_plan_summary: templates/verification_plan_summary.template.md
+    boundary_review_note: templates/boundary_review_note.template.md
+  authority_boundary:
+    verification_plan_is_verification_result: false
+    verification_requirements_matrix_is_pass_fail_record: false
+    method_map_executes_methods: false
+    test_or_simulation_readiness_is_execution_readiness_only: true
+    trr_handoff_is_trr_approval: false
+    fca_svr_index_is_acceptance_evidence: false
+    owner_followup_is_owner_decision: false
+    missing_evidence_can_be_suppressed: false
+    upstream_artifacts_are_read_only: true
+    source_conflicts_block_affected_items: true
+    criteria_seed_requires_allowed_evidence_or_remains_blocked: true
+  stable_verification_item_id_rule:
+    stable_id_basis:
+      - verification_scope_key
+      - trace_row_id_or_provisional_claim_key
+      - page_asset_id
+      - claim_kind
+      - normalized_field_path
+      - interface_or_harness_or_baseline_scope
+    same_id_when: the same bounded claim is rerun over refreshed upstream packet refs and remains the same verification item.
+    supersede_id_when: claim text, evidence authority, interface scope, harness connection, configuration baseline, or owner decision changes enough that later result packets would not be equivalent.
+  missing_evidence_policy:
+    missing_source_or_quantity: block_or_route_to_owner_followup
+    missing_model_or_deck: keep_simulation_items_not_ready
+    missing_configuration_baseline: block_test_and_trr_readiness
+    source_conflict: block_as_blocked_source_conflict
+    review_required_harness_claim: require_owner_review_or_prerequisite_analysis_before_execution_item
+    blocked_harness_claim: preserve_blocker_and_do_not_create_assumptive_test_or_simulation_item
+notes:
+  - This workflow sits after trace, quantitative, simulation-source, interface-control, harness, and source-gap lanes as a verification planning and governance layer.
+  - It writes planned verification items, method assignments, prerequisites, criteria seeds, readiness states, and follow-up routes; it does not execute or accept verification.
+  - Inspection, analysis, simulation, test, demonstration, owner-review, and not-ready are distinct method states and must not be collapsed into a generic review status.
+  - Missing evidence, review-needed decisions, source conflicts, unbaselined configuration, missing models, and blocked harness connections remain first-class blockers or owner follow-up rows.
+  - Public workflow canon stores only portable orchestration rules, state semantics, boundary policy, and sanitized templates.
+  - Public workflow files must not contain raw XML bodies, private project payloads, vendor document text, model payloads, test logs, simulation results, runtime absolute paths, `_workspaces` outputs, credentials, cookies, sessions, or private run truth.

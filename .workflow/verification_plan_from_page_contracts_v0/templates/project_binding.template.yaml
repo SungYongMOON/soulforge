@@ -1,0 +1,46 @@
+workflow_id: verification_plan_from_page_contracts_v0
+project_binding:
+  project_code: "<project_code>"
+  run_id: "<run_id>"
+  workflow_mode: skeleton|plan_from_trace|plan_from_harness|rerun_update
+  output_root_repo_path: _workmeta/<project_code>/runs/<run_id>/verification_plan/verification_plan_from_page_contracts_v0
+  run_log_root_repo_path: _workmeta/<project_code>/runs/<run_id>/run_evidence/verification_plan_from_page_contracts_v0
+  planning_scope:
+    page_asset_ids: []
+    harness_ids: []
+    baseline_refs: []
+    trace_matrix_ids: []
+  boundary:
+    source_xml_mutation_allowed: false
+    upstream_packet_mutation_allowed: false
+    harness_packet_mutation_allowed: false
+    simulation_execution_allowed: false
+    test_execution_allowed: false
+    verification_completion_claim_allowed: false
+    pass_fail_result_claim_allowed: false
+  required_input_policy:
+    preferred_claim_intake: verification_seed_matrix
+    skeleton_mode_requires_explicit_approval: true
+    approval_scope_required_for_each_input_ref: true
+    source_conflicts_block_affected_items: true
+  forbidden_inputs:
+    - secret_files
+    - account_sessions
+    - hidden_reference_oracle
+    - verifier_report
+    - accepted_verification_result
+    - previous_candidate_repair_packet
+    - raw_project_payload_without_public_sanitization
+  output_files:
+    verification_plan: verification_plan.yaml
+    verification_requirements_matrix: verification_requirements_matrix.yaml
+    method_map: method_map.yaml
+    evidence_need_register: evidence_need_register.yaml
+    verification_gap_register: verification_gap_register.yaml
+    test_or_simulation_readiness: test_or_simulation_readiness.yaml
+    owner_followup_needed: owner_followup_needed.yaml
+    trr_readiness_handoff: trr_readiness_handoff.yaml
+    fca_svr_handoff_index: fca_svr_handoff_index.yaml
+    verification_plan_provenance: verification_plan_provenance.yaml
+    verification_plan_summary: verification_plan_summary.md
+    boundary_review_note: boundary_review_note.md

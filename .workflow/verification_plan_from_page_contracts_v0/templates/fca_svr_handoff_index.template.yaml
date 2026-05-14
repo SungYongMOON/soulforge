@@ -1,0 +1,24 @@
+schema_version: verification_plan_from_page_contracts_v0
+fca_svr_handoff_index:
+  source_verification_plan_id: "<plan_id>"
+  claim_result_expectations:
+    - verification_item_id: "<verification_item_id>"
+      trace_row_id: "<trace_row_id>"
+      claim_text: "<one_atomic_claim>"
+      method_primary: inspection|analysis|simulation|test|demonstration|owner_review|not_ready
+      expected_result_ref: "<future_result_ref>"
+      acceptance_owner: "<workflow_or_owner_role>"
+      fca_svr_relevance: function|interface|performance|source_coverage|configuration|residual_risk
+      result_required_for_acceptance: true
+      current_status: planned|blocked|not_applicable_pending_owner
+  audit_consumption_rules:
+    - later FCA/SVR workflows must consume accepted verification result packets, not this plan alone
+    - blocked or planned-only items remain unverified
+    - owner waivers or residual-risk acceptance must remain explicit and scoped
+  not_claimed:
+    - functional_compliance
+    - system_verification_completion
+    - accepted_residual_risk_without_owner_decision
+rules:
+  expected_result_refs_are_future_anchors_only: true
+  plan_rows_are_not_accepted_evidence: true

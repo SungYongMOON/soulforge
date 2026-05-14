@@ -1,0 +1,52 @@
+workflow_id: verification_plan_from_page_contracts_v0
+kind: monster_rules
+status: active
+rules:
+  - monster_id: verification_plan_treated_as_result
+    response: relabel_as_planning_output_and_remove_result_language
+    summary: A plan can describe methods, criteria seeds, prerequisites, and future result refs; it cannot say a claim passed, failed, or was accepted.
+  - monster_id: method_values_collapsed
+    response: preserve_inspection_analysis_simulation_test_demonstration_owner_review_not_ready_as_distinct
+    summary: Method categories carry different evidence and readiness requirements and must not be merged into generic review status.
+  - monster_id: missing_evidence_hidden_in_summary
+    response: create_evidence_need_gap_and_owner_or_workflow_route
+    summary: Missing source, quantity, model, deck, fixture, baseline, procedure, or owner decision stays visible as a blocker or review-needed item.
+  - monster_id: source_conflict_resolved_by_convenience
+    response: block_affected_items_until_owner_or_owning_workflow_resolves
+    summary: Conflicting evidence cannot be resolved by choosing the source that makes verification planning easier.
+  - monster_id: criteria_seed_without_basis
+    response: mark_criteria_status_blocked_or_partial_and_write_evidence_need
+    summary: Criteria text, thresholds, tolerances, and margins require approved evidence or scoped owner decisions; otherwise they remain blocked seeds.
+  - monster_id: simulation_ready_from_model_name_only
+    response: require_model_ref_deck_policy_stimuli_measurements_criteria_or_not_ready
+    summary: A model filename, part name, or library hint is not enough to plan simulation readiness.
+  - monster_id: test_ready_without_baseline_or_procedure
+    response: mark_blocked_configuration_or_blocked_missing_evidence
+    summary: Test readiness requires a fixed configuration, procedure, resources, expected measurements, and criteria.
+  - monster_id: inspection_substitutes_for_behavioral_proof
+    response: keep_inspection_as_prerequisite_and_assign_analysis_simulation_or_test_when_needed
+    summary: Inspection can verify manifests and visible refs, but not electrical compatibility, performance, dynamic behavior, or measured outcomes by itself.
+  - monster_id: owner_review_used_to_hide_engineering_gap
+    response: route_owner_review_only_for_authority_intent_waiver_or_applicability
+    summary: Owner review can make scoped decisions, waivers, or applicability calls; it does not create missing technical evidence.
+  - monster_id: blocked_harness_claim_promoted_to_test_or_simulation
+    response: preserve_blocker_and_plan_gap_or_owner_review_before_execution_item
+    summary: A blocked or review-required harness connection cannot become an assumptive test or simulation item.
+  - monster_id: trr_handoff_reported_as_trr_pass
+    response: relabel_as_trr_preparation_index
+    summary: TRR handoffs list procedures, resources, roles, risks, discrepancies, and blockers; they do not approve test readiness.
+  - monster_id: fca_svr_index_reported_as_acceptance
+    response: relabel_as_expected_result_anchor_index
+    summary: FCA/SVR indexes point to future accepted result packets; the plan alone cannot prove compliance or acceptance.
+  - monster_id: upstream_packet_mutated_by_plan_workflow
+    response: stop_and_emit_gap_or_rerun_trigger_only
+    summary: Planning runs must not patch source XML, sidecars, source packets, quantitative overlays, simulation assets, interface-control packets, or harness packets.
+  - monster_id: verifier_or_oracle_material_used_as_plan_source
+    response: reject_as_forbidden_construction_input
+    summary: Hidden references, accepted outputs, verifier reports, repair packets, and oracle-derived mismatch details cannot become planning evidence.
+  - monster_id: raw_payload_leak_to_public_package
+    response: remove_payload_and_keep_contract_shape_only
+    summary: Public workflow canon may describe shapes and gates, but not raw project XML, source files, vendor text, model payloads, test data, simulation logs, private values, or downloaded collateral.
+  - monster_id: runtime_absolute_path_in_public_package
+    response: replace_with_repo_relative_placeholder_or_stable_id
+    summary: Public package files must use repo-relative placeholders or stable ids, not drive letters, host-specific roots, or machine-local paths.

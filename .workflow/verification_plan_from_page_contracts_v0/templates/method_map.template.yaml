@@ -1,0 +1,118 @@
+schema_version: verification_plan_from_page_contracts_v0
+method_map:
+  source_verification_plan_id: "<plan_id>"
+  method_groups:
+    inspection:
+      use_for:
+        - artifact_identity
+        - source_refs
+        - checksums
+        - page_labels
+        - visible_interface_labels
+        - manifest_completeness
+        - configuration_package_presence
+      required_planning_evidence:
+        - stable_artifact_refs
+        - manifest_or_checksum_refs
+        - source_approval_scope
+        - inspection_checklist
+      item_ids: []
+      not_enough_for:
+        - electrical_compatibility
+        - performance
+        - dynamic_behavior
+        - functional_satisfaction
+    analysis:
+      use_for:
+        - interface_direction_or_domain_compatibility
+        - quantitative_range_comparison
+        - power_current_load_budget
+        - source_backed_margin_checks
+        - layout_rule_reasoning
+      required_planning_evidence:
+        - source_backed_values
+        - formulas_or_comparison_rules
+        - units
+        - assumptions
+        - margins_or_tolerances
+      item_ids: []
+    simulation:
+      use_for:
+        - transient_or_steady_state_behavior
+        - control_loop_or_frequency_behavior
+        - signal_integrity
+        - power_sequence_or_model_based_compatibility
+      required_planning_evidence:
+        - approved_model_refs
+        - deck_preparation_inputs
+        - simulator_policy
+        - operating_conditions
+        - stimuli
+        - measurements
+        - criteria_seed
+      item_ids: []
+      blocked_when_missing:
+        - model
+        - deck
+        - simulator_policy
+        - stimuli
+        - measurement_definition
+        - criteria_seed
+    test:
+      use_for:
+        - physical_or_tool_executed_verification
+        - configured_artifact_or_harness_fixture
+        - generated_file_or_integration_setup
+      required_planning_evidence:
+        - configuration_baseline
+        - procedure
+        - setup
+        - instruments_or_tools
+        - expected_measurements
+        - criteria_seed
+      item_ids: []
+    demonstration:
+      use_for:
+        - owner_visible_operation
+        - importability
+        - harness_walkthrough
+        - observable_end_to_end_flow
+      required_planning_evidence:
+        - demonstration_script
+        - expected_observable_behavior
+        - configuration_refs
+        - observer_or_logging_method
+      item_ids: []
+    owner_review:
+      use_for:
+        - scope_decision
+        - connector_mapping
+        - not_applicable_declaration
+        - waiver_or_deviation
+        - residual_risk_acceptance
+        - intended_use_confirmation
+      required_planning_evidence:
+        - scoped_owner_decision_request
+        - affected_claim_ids
+        - decision_options
+        - downstream_impact
+      item_ids: []
+    not_ready:
+      use_for:
+        - missing_source
+        - missing_model
+        - missing_owner_decision
+        - missing_configuration
+        - missing_method_basis
+        - missing_criteria
+      required_planning_evidence:
+        - gap_id
+        - needed_evidence
+        - owner_or_workflow_route
+        - affected_downstream_workflows
+      item_ids: []
+  rules:
+    method_choice_is_not_result: true
+    inspection_may_be_prerequisite_but_not_substitute_for_behavioral_methods: true
+    owner_review_does_not_create_missing_engineering_evidence: true
+    simulation_and_test_require_named_prerequisites_or_remain_not_ready: true

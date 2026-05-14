@@ -1,0 +1,60 @@
+schema_version: verification_plan_from_page_contracts_v0
+verification_requirements_matrix:
+  source_verification_plan_id: "<plan_id>"
+  source_trace_matrix_id: "<trace_matrix_id_or_pending>"
+  items:
+    - verification_item_id: "<stable_verification_item_id>"
+      trace_row_id: "<trace_row_id_or_provisional>"
+      source_seed_id: "<verification_seed_id_or_provisional>"
+      provisional_skeleton_item: false
+      claim_kind: asset_identity|module_scope|function_claim|interface_group|interface_item|quantitative_constraint|source_packet_coverage|layout_readiness|pspice_readiness|harness_connection_claim|open_question|verification_need
+      claim_text: "<one_atomic_claim>"
+      scope:
+        page_asset_id: null
+        module_id: null
+        interface_group_id: null
+        interface_item_id: null
+        component_ref: null
+        harness_id: null
+        connection_id: null
+        baseline_ref: null
+      source_field_refs: []
+      evidence_status: source_confirmed|derived|review_required|missing|conflict
+      method:
+        primary: inspection|analysis|simulation|test|demonstration|owner_review|not_ready
+        secondary: []
+        rationale: "<method_choice_reason>"
+      evidence_needed_ids: []
+      prerequisites:
+        source_gap_ids: []
+        owner_action_ids: []
+        model_gap_ids: []
+        layout_gap_ids: []
+        configuration_gap_ids: []
+        tool_or_resource_gap_ids: []
+        procedure_gap_ids: []
+      criteria_seed:
+        criteria_status: complete|partial|blocked
+        criteria_text: "<planned_criteria_only>"
+        quantitative_thresholds: []
+        tolerance_or_margin: null
+        source_basis_refs: []
+        owner_decision_basis_refs: []
+        blocked_reason: null
+      readiness_state: plan_ready|plan_ready_with_prerequisites|owner_review_required|blocked_missing_evidence|blocked_source_conflict|blocked_configuration|not_applicable_pending_owner
+      downstream_execution:
+        expected_workflow_id: null
+        expected_result_ref: "<future_result_ref_or_null>"
+        trr_relevant: false
+        fca_svr_relevant: false
+      not_claimed:
+        - verification_complete
+        - verification_passed
+        - verification_failed
+        - verification_accepted
+rules:
+  one_atomic_claim_per_item: true
+  missing_evidence_requires_gap_or_owner_route: true
+  source_conflict_blocks_affected_item: true
+  criteria_seed_is_not_result_verdict: true
+  provisional_skeleton_items_require_trace_rerun_route: true

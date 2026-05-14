@@ -1,0 +1,57 @@
+schema_version: verification_plan_from_page_contracts_v0
+test_or_simulation_readiness:
+  source_verification_plan_id: "<plan_id>"
+  execution_not_started: true
+  simulation_readiness:
+    - readiness_id: "<simulation_readiness_id>"
+      verification_item_ids: []
+      readiness_state: plan_ready|plan_ready_with_prerequisites|owner_review_required|blocked_missing_evidence|blocked_source_conflict|blocked_configuration|not_applicable_pending_owner
+      required_model_refs: []
+      required_deck_or_testbench_refs: []
+      simulator_policy_refs: []
+      stimuli_or_operating_conditions: []
+      expected_measurements: []
+      criteria_seed_refs: []
+      blocking_gap_ids: []
+      owner_action_ids: []
+      downstream_workflow_id: "<future_simulation_execution_workflow_or_null>"
+      not_claimed:
+        - simulation_executed
+        - simulation_passed
+        - simulation_failed
+        - waveform_or_result_accepted
+  test_readiness:
+    - readiness_id: "<test_readiness_id>"
+      verification_item_ids: []
+      readiness_state: plan_ready|plan_ready_with_prerequisites|owner_review_required|blocked_missing_evidence|blocked_source_conflict|blocked_configuration|not_applicable_pending_owner
+      configuration_baseline_refs: []
+      fixture_refs: []
+      procedure_refs: []
+      tool_or_instrument_refs: []
+      expected_measurements: []
+      criteria_seed_refs: []
+      blocking_gap_ids: []
+      owner_action_ids: []
+      downstream_workflow_id: "<future_test_execution_workflow_or_null>"
+      not_claimed:
+        - test_executed
+        - test_passed
+        - test_failed
+        - measurement_or_result_accepted
+  demonstration_readiness:
+    - readiness_id: "<demonstration_readiness_id>"
+      verification_item_ids: []
+      readiness_state: plan_ready|plan_ready_with_prerequisites|owner_review_required|blocked_missing_evidence|blocked_source_conflict|blocked_configuration|not_applicable_pending_owner
+      script_seed_ref: null
+      observable_behavior: []
+      configuration_refs: []
+      observer_or_log_method: null
+      blocking_gap_ids: []
+      owner_action_ids: []
+      not_claimed:
+        - demonstration_executed
+        - demonstration_accepted
+rules:
+  readiness_is_not_execution: true
+  blocked_readiness_is_not_failed_result: true
+  plan_ready_still_requires_later_execution_workflow_for_results: true

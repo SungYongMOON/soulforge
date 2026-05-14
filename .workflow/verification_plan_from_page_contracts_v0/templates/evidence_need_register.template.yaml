@@ -1,0 +1,20 @@
+schema_version: verification_plan_from_page_contracts_v0
+evidence_need_register:
+  source_verification_plan_id: "<plan_id>"
+  needs:
+    - evidence_need_id: "<need_id>"
+      verification_item_ids: []
+      need_kind: source_ref|quantitative_value|layout_constraint|simulation_model|simulation_deck|test_fixture|tool_or_instrument|configuration_baseline|procedure|owner_decision|result_packet|other
+      needed_for_methods: []
+      current_status: missing|blocked|review_required|available|conflict
+      owning_workflow_or_owner: "<workflow_id_or_owner>"
+      source_gap_ids: []
+      owner_action_ids: []
+      retry_trigger_ids: []
+      acceptance_condition: "<condition_before_method_can_execute_or_criteria_can_be_completed>"
+      downstream_impact: "<which_items_or_workflows_remain_blocked>"
+      public_safe_summary_allowed: false
+rules:
+  deduplicate_repeated_needs: true
+  missing_needs_remain_blocking_or_review_needed: true
+  owner_supplied_files_require_owning_workflow_reindex_before_evidence_status_changes: true

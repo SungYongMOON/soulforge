@@ -1,0 +1,37 @@
+schema_version: verification_plan_from_page_contracts_v0
+trr_readiness_handoff:
+  source_verification_plan_id: "<plan_id>"
+  target_scope:
+    page_asset_ids: []
+    harness_ids: []
+    baseline_refs: []
+  ready_to_prepare:
+    inspection_item_ids: []
+    analysis_item_ids: []
+    simulation_case_seed_ids: []
+    test_case_seed_ids: []
+    demonstration_item_ids: []
+  required_before_trr:
+    configuration_baselines: []
+    procedures: []
+    fixtures_or_test_interfaces: []
+    simulation_models_or_decks: []
+    tools_or_instruments: []
+    roles_or_owners: []
+    source_gap_ids: []
+    owner_action_ids: []
+    discrepancies: []
+    residual_risk_decisions: []
+  readiness_summary:
+    trr_packet_candidate: false
+    blocked_by: []
+    review_required: []
+  not_claimed:
+    - TRR_pass
+    - test_execution
+    - simulation_execution
+    - verification_completion
+rules:
+  trr_handoff_is_preparation_index_only: true
+  blocked_items_remain_visible: true
+  owner_waivers_require_scoped_decision_refs: true

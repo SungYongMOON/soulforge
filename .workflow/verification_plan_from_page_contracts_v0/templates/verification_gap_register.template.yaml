@@ -1,0 +1,26 @@
+schema_version: verification_plan_from_page_contracts_v0
+verification_gap_register:
+  source_verification_plan_id: "<plan_id>"
+  gaps:
+    - verification_gap_id: "<gap_id>"
+      affected_verification_item_ids: []
+      gap_kind: missing_source_ref|missing_quantitative_value|missing_layout_constraint|missing_simulation_model|missing_simulation_deck|missing_test_fixture|missing_tool_or_instrument|missing_configuration_baseline|missing_procedure|missing_owner_decision|source_conflict|version_or_checksum_conflict|harness_blocked|harness_review_required|private_boundary_unclear|other
+      severity: blocking|review_needed|rerun_needed|informational
+      current_state: open|routed|closed_by_later_packet
+      evidence_need_ids: []
+      source_gap_ids: []
+      owner_action_ids: []
+      owning_workflow_or_owner: "<workflow_id_or_owner>"
+      retry_trigger: "<narrowest_rerun_or_owner_action>"
+      downstream_impact:
+        method_assignment_affected: true
+        criteria_seed_affected: true
+        test_or_simulation_readiness_affected: true
+        trr_handoff_affected: true
+        fca_svr_handoff_affected: true
+      not_claimed:
+        - failed_verification
+rules:
+  blocked_readiness_is_not_failed_verification: true
+  source_conflicts_block_until_resolved: true
+  missing_evidence_cannot_be_suppressed_for_clean_summary: true

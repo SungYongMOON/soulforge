@@ -1,0 +1,74 @@
+schema_version: verification_plan_from_page_contracts_v0
+verification_plan:
+  plan_id: "<project_code>:<run_id>:<scope_id>"
+  generated_by_workflow: verification_plan_from_page_contracts_v0
+  workflow_mode: skeleton|plan_from_trace|plan_from_harness|rerun_update
+  project_code: "<project_code>"
+  run_id: "<run_id>"
+  created_at: "<iso8601_timestamp>"
+  scope:
+    page_asset_ids: []
+    harness_ids: []
+    baseline_refs: []
+    trace_matrix_ids: []
+  input_refs:
+    page_module_specs: []
+    verification_seed_matrices: []
+    trace_matrices: []
+    evidence_authority_maps: []
+    trace_gap_registers: []
+    source_packets: []
+    materials_packets: []
+    layout_packets: []
+    quantitative_packets: []
+    simulation_source_packets: []
+    interface_control_packets: []
+    harness_packets: []
+    source_gap_followup_packets: []
+    configuration_baselines: []
+    owner_decision_refs: []
+    resource_policy_refs: []
+  output_refs:
+    verification_requirements_matrix: verification_requirements_matrix.yaml
+    method_map: method_map.yaml
+    evidence_need_register: evidence_need_register.yaml
+    verification_gap_register: verification_gap_register.yaml
+    test_or_simulation_readiness: test_or_simulation_readiness.yaml
+    owner_followup_needed: owner_followup_needed.yaml
+    trr_readiness_handoff: trr_readiness_handoff.yaml
+    fca_svr_handoff_index: fca_svr_handoff_index.yaml
+    verification_plan_provenance: verification_plan_provenance.yaml
+    verification_plan_summary: verification_plan_summary.md
+  boundary:
+    source_xml_mutation_allowed: false
+    upstream_packet_mutation_allowed: false
+    harness_packet_mutation_allowed: false
+    verification_execution_allowed: false
+    verification_completion_claim_allowed: false
+    pass_fail_result_claim_allowed: false
+  summary:
+    verification_item_count: 0
+    method_counts:
+      inspection: 0
+      analysis: 0
+      simulation: 0
+      test: 0
+      demonstration: 0
+      owner_review: 0
+      not_ready: 0
+    readiness_counts:
+      plan_ready: 0
+      plan_ready_with_prerequisites: 0
+      owner_review_required: 0
+      blocked_missing_evidence: 0
+      blocked_source_conflict: 0
+      blocked_configuration: 0
+      not_applicable_pending_owner: 0
+  not_claimed:
+    - verification_execution
+    - verification_pass_fail_result
+    - verification_acceptance
+    - TRR_approval
+    - FCA_SVR_acceptance
+    - harness_connection_promotion
+    - source_supported_status_beyond_upstream_evidence

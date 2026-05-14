@@ -1,0 +1,31 @@
+workflow_id: verification_plan_from_page_contracts_v0
+kind: role_slots
+status: active
+slots:
+  - slot_id: workflow_runner
+    title: Workflow Runner
+    summary: Resolves project-local bindings, approved planning policy, output roots, and the planning-only boundary before verification items are created.
+  - slot_id: input_packet_curator
+    title: Input Packet Curator
+    summary: Inventories read-only trace, page, source, quantitative, simulation-source, interface-control, harness, gap, baseline, owner-decision, and resource-policy refs with approval scope and checksums.
+  - slot_id: verification_item_builder
+    title: Verification Item Builder
+    summary: Converts trace seeds and bounded page or harness claims into stable atomic verification item ids, using provisional skeleton rows only when explicitly allowed.
+  - slot_id: method_planner
+    title: Method Planner
+    summary: Assigns inspection, analysis, simulation, test, demonstration, owner-review, or not-ready methods with rationale, prerequisites, and evidence needs.
+  - slot_id: gap_and_owner_router
+    title: Gap And Owner Router
+    summary: Keeps missing evidence, source conflicts, blocked harness state, configuration gaps, and owner decisions visible as blockers or review-needed actions.
+  - slot_id: matrix_writer
+    title: Matrix Writer
+    summary: Writes the main verification plan, requirements matrix, and method map as planning outputs, not verification results.
+  - slot_id: readiness_planner
+    title: Readiness Planner
+    summary: Separates future test, simulation, demonstration, and resource readiness from actual execution or result acceptance.
+  - slot_id: handoff_indexer
+    title: Handoff Indexer
+    summary: Builds TRR preparation and FCA/SVR expected-result indexes that later workflows can consume only after execution or accepted result packets exist.
+  - slot_id: boundary_reviewer
+    title: Boundary Reviewer
+    summary: Checks overclaim, mutation, public/private boundary, source-conflict, missing-evidence, and approval/pass-fail language before reporting the plan bundle.

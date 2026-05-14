@@ -11,6 +11,16 @@
 
 ## 2026-05-15
 
+### Revision `working` - Verification plan from page contracts workflow added
+
+- Added `.workflow/verification_plan_from_page_contracts_v0/` as a public-safe verification planning workflow over trace rows, quantitative gaps, simulation-source readiness, interface-control ceilings, harness blockers, source gaps, configuration refs, and scoped owner decisions.
+- Registered the workflow in `.workflow/index.yaml` and listed it in `.workflow/README.md` after the source-gap follow-up lane.
+- Defined explicit planning outputs for `verification_plan`, `verification_requirements_matrix`, `method_map`, `evidence_need_register`, `verification_gap_register`, `test_or_simulation_readiness`, `owner_followup_needed`, `trr_readiness_handoff`, and `fca_svr_handoff_index`.
+- Required inspection, analysis, simulation, test, demonstration, owner-review, and not-ready methods to remain distinct, with missing evidence preserved as blockers or review-needed actions.
+- Kept the package planning-only: it does not run tests or simulations, accept verification results, approve TRR, accept FCA/SVR evidence, promote harness connections, or claim pass/fail outcomes.
+- Kept source XML, normalized sidecars, upstream packets, model payloads, simulation outputs, test logs, raw project payloads, vendor text, runtime absolute paths, credentials, cookies, sessions, `_workspaces` outputs, and private run truth out of public workflow canon.
+- Marked the package `pilot_ready_contract_only`; a controlled mixed page/trace/source/harness project-local pilot is still required before claiming pilot-executed, usable, or production-ready behavior.
+
 ### Revision `working` - Simulation source collection workflow added
 
 - Added `.workflow/simulation_source_collect_v0/` as a public-safe pre-deck and pre-run/verify workflow for collecting or indexing official, owner-approved local, and tool-library simulation source assets.

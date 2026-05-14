@@ -1,0 +1,29 @@
+schema_version: verification_plan_from_page_contracts_v0
+verification_plan_provenance:
+  source_verification_plan_id: "<plan_id>"
+  generated_by_workflow: verification_plan_from_page_contracts_v0
+  project_code: "<project_code>"
+  run_id: "<run_id>"
+  created_at: "<iso8601_timestamp>"
+  rerun_reason: "<initial_or_rerun_reason>"
+  input_artifacts:
+    - artifact_ref: "<repo_relative_ref_or_stable_id>"
+      artifact_kind: "<artifact_kind>"
+      owning_workflow_id: "<workflow_id>"
+      checksum_sha256: "<sha256_or_not_available>"
+      approval_scope: "<approval_scope>"
+      consumed_for:
+        - claim_intake
+        - evidence_need
+  changed_item_ids:
+    new: []
+    preserved: []
+    superseded: []
+  public_private_boundary:
+    raw_payloads_copied_to_public_package: false
+    runtime_absolute_paths_in_public_package: false
+    secrets_or_account_state_read: false
+    upstream_artifacts_mutated: false
+rules:
+  provenance_records_refs_not_payloads: true
+  runtime_paths_if_needed_stay_in_private_run_evidence: true
