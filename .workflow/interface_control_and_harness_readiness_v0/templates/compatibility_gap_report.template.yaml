@@ -1,0 +1,16 @@
+compatibility_gap_report:
+  schema_version: interface_control_and_harness_readiness_v0
+  packet_id: "<interface_control_packet_id>"
+  compatibility_gaps:
+    - gap_id: "<gap_id>"
+      gap_type: missing_interface_evidence
+      affected_interface_control_ids: []
+      affected_harness_connection_ids: []
+      blocking_level: blocks_harness
+      needed_source_or_decision: "<needed_evidence_or_decision>"
+      owning_workflow_to_retry: "<workflow_id_or_owner>"
+      owner_action_needed: null
+      current_readiness_ceiling: blocked
+      rerun_trigger: null
+      evidence_refs: []
+      notes: []

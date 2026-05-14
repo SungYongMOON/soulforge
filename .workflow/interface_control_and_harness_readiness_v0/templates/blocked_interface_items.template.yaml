@@ -1,0 +1,16 @@
+blocked_interface_items:
+  schema_version: interface_control_and_harness_readiness_v0
+  packet_id: "<interface_control_packet_id>"
+  items:
+    - item_id: "<blocked_item_id>"
+      item_kind: interface
+      affected_interface_control_ids: []
+      affected_harness_connection_ids: []
+      blocked_reason: "<reason>"
+      blocker_class: missing_required_evidence
+      blocking_level: blocks_harness
+      owning_workflow_to_retry: null
+      owner_action_needed: null
+      evidence_refs: []
+      source_gap_refs: []
+      next_action: "<owner_or_workflow_route>"

@@ -1,0 +1,23 @@
+workflow_id: interface_control_and_harness_readiness_v0
+kind: party_compatibility
+status: active
+compatible_party_templates:
+  - workflow_research_build_verify
+  - sourcebound_extraction_review
+  - traceability_matrix_build
+  - interface_control_review
+  - harness_readiness_review
+required_capabilities:
+  - project_local_binding_resolution
+  - page_module_spec_inventory
+  - upstream_packet_crosswalk
+  - local_internal_externality_classification
+  - conservative_readiness_ceiling_mapping
+  - harness_candidate_ceiling_review
+  - source_gap_and_owner_followup_routing
+  - public_private_boundary_review
+notes:
+  - No default party binding is assigned yet.
+  - Runtime model, reasoning, party, and project-local input policies resolve through project-local bindings.
+  - A controlled project-local pilot and independent boundary review are required before claiming pilot-executed, usable, or production-ready behavior.
+  - The workflow package is public-safe because it stores only orchestration rules, readiness semantics, authority policy, and sanitized output templates.

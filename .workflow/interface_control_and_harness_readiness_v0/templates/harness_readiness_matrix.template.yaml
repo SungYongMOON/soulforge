@@ -1,0 +1,23 @@
+harness_readiness_matrix:
+  schema_version: interface_control_and_harness_readiness_v0
+  packet_id: "<interface_control_packet_id>"
+  interface_readiness:
+    - interface_control_id: "<stable_interface_control_id>"
+      readiness_ceiling: review_required
+      blocking_gap_ids: []
+      owner_followup_ids: []
+      source_gap_refs: []
+      evidence_refs: []
+  join_readiness:
+    - join_ref: "<harness_connection_ref_or_proposed_join_id>"
+      endpoint_interface_control_ids: []
+      previous_harness_status: null
+      readiness_ceiling: blocked
+      recommended_harness_action: keep_blocked
+      must_preserve_blockers: []
+      evidence_refs: []
+      owner_decision_refs: []
+      source_gap_refs: []
+      not_claimed:
+        - final_connection_approval
+        - source_supported_harness_classification

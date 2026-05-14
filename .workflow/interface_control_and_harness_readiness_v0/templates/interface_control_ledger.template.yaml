@@ -1,0 +1,32 @@
+interface_control_ledger:
+  schema_version: interface_control_and_harness_readiness_v0
+  packet_id: "<interface_control_packet_id>"
+  interfaces:
+    - interface_control_id: "<stable_interface_control_id>"
+      page_asset_id: "<page_asset_id>"
+      source_page_ref: "<source_page_ref>"
+      source_checksum: "<sha256_or_ref>"
+      upstream_interface_ref: "<field_path_or_interface_id>"
+      upstream_container: inputs
+      original_label: "<label>"
+      interface_exposure: unknown
+      external_harness_eligible: false
+      interface_role: "<role_or_unknown>"
+      electrical_domain: "<domain_or_unknown>"
+      direction: unknown
+      connection_kinds_allowed: []
+      quantitative_requirements:
+        voltage: null
+        current: null
+        power: null
+        impedance: null
+        load: null
+        timing_or_frequency: null
+        thermal_or_layout: null
+      evidence_authority: review_required
+      evidence_refs: []
+      source_gaps: []
+      owner_decisions: []
+      open_questions: []
+      readiness_ceiling: review_required
+      readiness_reason: "<short_reason>"

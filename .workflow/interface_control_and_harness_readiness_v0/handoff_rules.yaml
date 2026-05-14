@@ -1,0 +1,36 @@
+workflow_id: interface_control_and_harness_readiness_v0
+kind: handoff_rules
+status: active
+rules:
+  - from: workflow_runner
+    to: input_packet_curator
+    condition: binding_and_interface_control_policy_ready
+    summary: Curator receives only portable packet refs, owning workflow ids, approval scopes, and output bindings; it does not receive hidden references, verifier reports, secrets, or raw source payloads.
+  - from: input_packet_curator
+    to: interface_ledger_builder
+    condition: interface_input_inventory_written
+    summary: Ledger builder receives approved packet summaries and field refs, not vendor text dumps, raw XML bodies, account sessions, or accepted-answer material.
+  - from: interface_ledger_builder
+    to: externality_classifier
+    condition: interface_control_ledger_draft_written
+    summary: Externality classifier receives all interface rows, including local/internal rows, so non-external defaults can be applied before any readiness ceiling is assigned.
+  - from: externality_classifier
+    to: evidence_ceiling_mapper
+    condition: interface_control_ledger_with_exposure_written
+    summary: Evidence mapper receives exposure and eligibility decisions plus approved evidence refs; it must not reclassify local/internal rows by convenience.
+  - from: evidence_ceiling_mapper
+    to: harness_candidate_reviewer
+    condition: readiness_ceilings_drafted
+    summary: Harness reviewer receives ceilings and gap refs and may write only a harness input delta, not a mutated harness packet or final connection approval.
+  - from: harness_candidate_reviewer
+    to: owner_gap_router
+    condition: harness_readiness_matrix_written_or_no_harness_packet_declared
+    summary: Gap router receives interface and join ceilings plus gap refs so each blocked or review-required item gets an owner or owning-workflow route.
+  - from: owner_gap_router
+    to: boundary_reviewer
+    condition: readiness_output_partitions_written
+    summary: Boundary reviewer receives all four readiness partitions and confirms they are explicit, source-safe, and not overclaimed as harness composition results.
+  - from: boundary_reviewer
+    to: workflow_runner
+    condition: boundary_review_note_complete
+    summary: Runner reports output paths, readiness counts, blocker classes, local/internal misuse findings, owner follow-up, and the best narrow next pilot case.

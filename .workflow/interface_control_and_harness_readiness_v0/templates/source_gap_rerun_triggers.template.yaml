@@ -1,0 +1,12 @@
+source_gap_rerun_triggers:
+  schema_version: interface_control_and_harness_readiness_v0
+  packet_id: "<interface_control_packet_id>"
+  triggers:
+    - trigger_id: "<trigger_id>"
+      affected_gap_ids: []
+      target_workflow_id: "<owning_workflow_id>"
+      trigger_type: source_refresh_or_quantitative_refresh_or_trace_refresh_or_harness_rerun
+      required_precondition: "<owner_action_or_source_packet_update_needed>"
+      downstream_consumer: xml_harness_composition_v0
+      status: blocked_until_precondition
+      preserve_readiness_ceiling_until_rerun: true

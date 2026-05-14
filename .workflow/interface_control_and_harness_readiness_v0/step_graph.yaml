@@ -1,0 +1,242 @@
+workflow_id: interface_control_and_harness_readiness_v0
+kind: step_graph
+status: active
+steps:
+  - step_id: prepare_interface_control_binding
+    title: Prepare Interface Control Binding
+    actor_slot: workflow_runner
+    action:
+      kind: project_local_interface_control_binding_setup
+      requires:
+        - interface_control_project_binding
+        - page_module_sidecar_refs
+        - page_asset_manifest_refs
+        - approved_interface_control_policy
+      validates:
+        - output_root_is_project_local_or_private_workmeta
+        - input_refs_are_read_only
+        - approval_scope_is_recorded_for_each_ref
+        - public_package_contains_no_payloads
+        - no_runtime_absolute_paths_in_public_package
+        - workflow_does_not_replace_harness_composition
+      creates:
+        - interface_control_output_root
+        - interface_control_run_log_root
+    summary: Resolve the bounded output root and confirm the run is a governance/readiness layer over read-only upstream artifacts.
+    next:
+      on_success: collect_read_only_interface_inputs
+      on_fail: stop
+  - step_id: collect_read_only_interface_inputs
+    title: Collect Read-Only Interface Inputs
+    actor_slot: input_packet_curator
+    action:
+      kind: read_only_interface_input_inventory
+      artifacts_in:
+        - page_module_sidecar_refs
+        - page_asset_manifest_refs
+        - capture_intake_packet_refs
+        - official_source_packet_refs
+        - component_materials_packet_refs
+        - layout_guide_packet_refs
+        - quantitative_enrichment_packet_refs
+        - trace_matrix_packet_refs
+        - harness_composition_packet_refs
+        - owner_decision_refs
+      artifact_out: interface_input_inventory
+      records:
+        - artifact_ref
+        - artifact_kind
+        - owning_workflow_id
+        - checksum_sha256
+        - approval_scope
+        - page_asset_ids
+        - interface_refs
+        - harness_connection_refs
+        - source_state_refs
+      forbidden_basis:
+        - hidden_reference_oracle
+        - verifier_report
+        - accepted_output
+        - previous_candidate_repair_packet
+        - secret_or_session_state
+        - raw_source_payload_text
+        - unindexed_owner_file
+    summary: Inventory approved refs and authority hints without reading forbidden payloads or treating filenames as evidence.
+    next:
+      on_success: enumerate_controlled_interfaces
+      on_fail: stop
+  - step_id: enumerate_controlled_interfaces
+    title: Enumerate Controlled Interfaces
+    actor_slot: interface_ledger_builder
+    action:
+      kind: interface_control_row_enumeration
+      artifact_in: interface_input_inventory
+      artifact_out: interface_control_ledger_draft
+      row_sources:
+        - interface_groups
+        - interfaces.inputs
+        - interfaces.outputs
+        - interfaces.bidirectional
+        - interfaces.passive_or_none
+        - interfaces.local_internal_candidates
+        - no_connect_or_open_state_refs
+        - harness_connection_endpoints_when_present
+      required_fields:
+        - interface_control_id
+        - page_asset_id
+        - upstream_interface_ref
+        - upstream_container
+        - original_label
+        - source_ref
+        - owner_scope_ref
+      invariant: every_local_internal_candidate_has_a_ledger_row
+    summary: Build one controlled row per interface item or proposed join endpoint while preserving upstream identity and container ownership.
+    next:
+      on_success: classify_externality_and_local_internal
+      on_fail: stop
+  - step_id: classify_externality_and_local_internal
+    title: Classify Externality And Local/Internal
+    actor_slot: externality_classifier
+    action:
+      kind: interface_exposure_and_external_harness_eligibility
+      artifact_in: interface_control_ledger_draft
+      artifact_out: interface_control_ledger_with_exposure
+      interface_exposure_values:
+        - external_candidate
+        - external_confirmed
+        - local_internal
+        - passive_reference
+        - no_connect
+        - unknown
+      local_internal_policy:
+        default_external_harness_eligible: false
+        promotion_from_local_internal_requires_reclassification_evidence: true
+        block_harness_endpoint_misuse: true
+      forbidden_basis:
+        - name_similarity_only
+        - common_control_status_label_only
+        - previous_harness_candidate_status
+        - owner_hint_without_scope
+    summary: Keep local/internal candidates non-external by default and make any reclassification explicit and evidence-scoped.
+    next:
+      on_success: map_evidence_and_readiness_ceiling
+      on_fail: stop
+  - step_id: map_evidence_and_readiness_ceiling
+    title: Map Evidence And Readiness Ceiling
+    actor_slot: evidence_ceiling_mapper
+    action:
+      kind: readiness_ceiling_assignment
+      artifacts_in:
+        - interface_control_ledger_with_exposure
+        - interface_input_inventory
+      artifacts_out:
+        - interface_control_ledger
+        - harness_readiness_matrix_draft
+        - compatibility_gap_report_draft
+      readiness_ceiling_values:
+        - blocked
+        - review_required
+        - candidate_safe_possible
+        - source_supported_possible
+      classification_rules:
+        - blocked_for_identity_lineage_approval_scope_conflict
+        - blocked_for_local_internal_misuse
+        - blocked_for_required_source_or_quantity_gap
+        - review_required_for_plausible_but_incomplete_control
+        - candidate_safe_possible_requires_no_known_blocker_and_required_constraints
+        - source_supported_possible_requires_source_supported_semantics_and_quantities
+      invariant: every_readiness_ceiling_has_reason_and_refs_or_gap
+    summary: Assign a conservative ceiling for each controlled interface or join and preserve source, quantitative, layout, owner, and trace gaps as structured blockers.
+    next:
+      on_success: review_harness_candidates_when_present
+      on_fail: stop
+  - step_id: review_harness_candidates_when_present
+    title: Review Harness Candidates When Present
+    actor_slot: harness_candidate_reviewer
+    action:
+      kind: harness_candidate_ceiling_review
+      artifacts_in:
+        - interface_control_ledger
+        - harness_readiness_matrix_draft
+        - harness_composition_packet_refs
+      artifacts_out:
+        - harness_readiness_matrix
+        - harness_input_delta
+      review_modes:
+        - no_harness_packet_pre_harness_readiness
+        - existing_harness_packet_ceiling_review
+      rules:
+        - harness_may_weaken_but_not_strengthen_beyond_ceiling
+        - local_internal_misuse_remains_blocked
+        - possible_states_are_not_final_harness_statuses
+        - harness_packet_is_not_mutated
+    summary: If a harness packet exists, map proposed joins to controlled interface ids and write a delta that caps later harness strengthening.
+    next:
+      on_success: route_blockers_and_followups
+      on_fail: stop
+  - step_id: route_blockers_and_followups
+    title: Route Blockers And Follow-Ups
+    actor_slot: owner_gap_router
+    action:
+      kind: readiness_blocker_and_owner_route_write
+      artifacts_in:
+        - interface_control_ledger
+        - harness_readiness_matrix
+        - compatibility_gap_report_draft
+      artifacts_out:
+        - blocked_interface_items
+        - review_required_interface_items
+        - candidate_safe_possible_items
+        - source_supported_possible_items
+        - compatibility_gap_report
+        - owner_followup_needed
+        - interface_open_questions
+        - source_gap_rerun_triggers
+      gap_effects:
+        - blocks_harness
+        - blocks_candidate_safe_possible
+        - blocks_source_supported_possible
+        - review_required
+        - informational
+      retry_policy:
+        rerun_narrowest_owning_workflow: true
+        do_not_patch_upstream_artifacts: true
+    summary: Partition items into explicit readiness outputs and route missing evidence, owner decisions, and rerun triggers to the correct owner.
+    next:
+      on_success: write_packet_and_boundary_review
+      on_fail: stop
+  - step_id: write_packet_and_boundary_review
+    title: Write Packet And Boundary Review
+    actor_slot: boundary_reviewer
+    action:
+      kind: interface_control_packet_boundary_and_overclaim_review
+      artifacts_in:
+        - interface_control_ledger
+        - harness_readiness_matrix
+        - blocked_interface_items
+        - review_required_interface_items
+        - candidate_safe_possible_items
+        - source_supported_possible_items
+        - compatibility_gap_report
+        - owner_followup_needed
+        - interface_open_questions
+        - source_gap_rerun_triggers
+        - harness_input_delta
+      artifacts_out:
+        - interface_control_packet
+        - boundary_review_note
+        - interface_control_summary
+      checks:
+        - every_local_internal_candidate_is_non_external_by_default
+        - all_four_readiness_outputs_are_written_even_when_empty
+        - every_blocked_or_review_required_item_has_reason_and_route
+        - possible_states_are_reported_as_ceiling_only
+        - source_supported_possible_has_allowed_source_refs
+        - no_upstream_artifact_mutation
+        - no_harness_packet_mutation
+        - no_raw_payloads_or_runtime_absolute_paths_in_public_package
+        - no_secret_or_account_state_requested_from_agent
+    summary: Finalize the interface-control packet and report counts, blockers, owner actions, and the best narrow next pilot route.
+    next:
+      on_success: complete
+      on_fail: stop

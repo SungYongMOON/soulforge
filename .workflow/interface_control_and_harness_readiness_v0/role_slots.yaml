@@ -1,0 +1,28 @@
+workflow_id: interface_control_and_harness_readiness_v0
+kind: role_slots
+status: active
+slots:
+  - slot_id: workflow_runner
+    title: Workflow Runner
+    summary: Resolves project-local bindings, output roots, approved input refs, and public/private boundaries before interface control begins.
+  - slot_id: input_packet_curator
+    title: Input Packet Curator
+    summary: Inventories read-only page sidecars, manifests, source, materials, layout, quantitative, trace, harness, and owner-decision refs with approval scope.
+  - slot_id: interface_ledger_builder
+    title: Interface Ledger Builder
+    summary: Enumerates controlled interface rows for external candidates, local/internal candidates, passive references, no-connect states, interface groups, and proposed joins.
+  - slot_id: externality_classifier
+    title: Externality Classifier
+    summary: Applies strict `local_internal_candidates` handling and classifies exposure as external, local/internal, passive, no-connect, or unknown without mutating sidecars.
+  - slot_id: evidence_ceiling_mapper
+    title: Evidence Ceiling Mapper
+    summary: Maps approved source, quantitative, layout, trace, and owner-decision refs into readiness ceilings and compatibility gaps.
+  - slot_id: harness_candidate_reviewer
+    title: Harness Candidate Reviewer
+    summary: Reviews optional existing harness candidates against controlled interfaces and writes ceiling deltas without rewriting the harness packet.
+  - slot_id: owner_gap_router
+    title: Owner Gap Router
+    summary: Turns blockers, review-required items, source gaps, and ambiguous decisions into owner follow-up, open questions, and narrow rerun triggers.
+  - slot_id: boundary_reviewer
+    title: Boundary Reviewer
+    summary: Checks overclaim, local/internal misuse, source-support boundaries, public-safety, and upstream mutation policy before reporting readiness.

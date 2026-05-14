@@ -1,0 +1,14 @@
+owner_followup_needed:
+  schema_version: interface_control_and_harness_readiness_v0
+  packet_id: "<interface_control_packet_id>"
+  owner_actions:
+    - action_id: "<owner_action_id>"
+      affected_gap_ids: []
+      affected_interface_control_ids: []
+      action_type: confirm_scope
+      owner_question: "<bounded_owner_question>"
+      decision_kind: intended_use_or_connector_mapping_or_not_applicable_or_waiver
+      acceptable_response_shape: "<fields_needed>"
+      downstream_reason: "<why_this_blocks_or_caps_readiness>"
+      status: open
+      not_source_fact_by_itself: true

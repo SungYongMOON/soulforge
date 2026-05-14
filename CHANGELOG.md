@@ -11,6 +11,16 @@
 
 ## 2026-05-15
 
+### Revision `working` - Interface control and harness readiness workflow added
+
+- Added `.workflow/interface_control_and_harness_readiness_v0/` as a public-safe governance bridge before or alongside harness composition.
+- Registered the workflow in `.workflow/index.yaml` and listed it in `.workflow/README.md` after `page_module_trace_matrix_v0` and before source-gap follow-up aggregation.
+- Defined explicit outputs for `interface_control_ledger`, `harness_readiness_matrix`, `blocked_interface_items`, `review_required_interface_items`, `candidate_safe_possible_items`, `source_supported_possible_items`, `owner_followup_needed`, and `interface_open_questions`.
+- Required `local_internal_candidates` to remain non-external by default and to block harness endpoint use unless scoped reclassification evidence exists.
+- Kept readiness statuses as ceilings for downstream `xml_harness_composition_v0`; the package does not mutate upstream packets, replace harness composition, or overclaim source support.
+- Kept source XML, normalized sidecars, intake packets, source packets, materials outputs, layout guides, quantitative overlays, trace matrices, harness packets, raw project payloads, vendor text, runtime absolute paths, credentials, cookies, sessions, `_workspaces` outputs, and private run truth out of public workflow canon.
+- Marked the package `pilot_ready_contract_only`; a controlled power/interface/ambiguous-page project-local pilot with an existing blocked/review-required harness packet is still required before claiming pilot-executed or usable behavior.
+
 ### Revision `working` - Page module trace matrix workflow added
 
 - Added `.workflow/page_module_trace_matrix_v0/` as a public-safe governance workflow for row-level traceability across page, source, materials, layout, quantitative, and harness packets.

@@ -1,0 +1,13 @@
+interface_open_questions:
+  schema_version: interface_control_and_harness_readiness_v0
+  packet_id: "<interface_control_packet_id>"
+  questions:
+    - question_id: "<question_id>"
+      affected_interface_control_ids: []
+      affected_harness_connection_ids: []
+      question: "<bounded_question>"
+      question_type: interface_exposure_or_direction_or_quantity_or_source_scope
+      readiness_impact: review_required
+      owner_followup_id: null
+      source_gap_ref: null
+      close_condition: "<evidence_or_decision_needed>"

@@ -1,0 +1,46 @@
+workflow_id: interface_control_and_harness_readiness_v0
+kind: monster_rules
+status: active
+rules:
+  - monster_id: readiness_ceiling_treated_as_final_harness_status
+    response: relabel_as_possible_ceiling_and_route_to_xml_harness_composition
+    summary: Interface control can cap later harness strengthening; it cannot approve final `candidate_safe` or `source_supported` harness connections.
+  - monster_id: local_internal_candidate_promoted_by_default
+    response: block_with_local_internal_misuse
+    summary: `local_internal_candidates` are non-external by default and must stay blocked as external endpoints unless scoped reclassification evidence exists.
+  - monster_id: local_internal_reclassified_without_source_or_scope
+    response: keep_review_required_or_blocked_and_write_owner_followup
+    summary: Owner intent may make a row reviewable, but source-supported possible requires source evidence for external semantics and constraints.
+  - monster_id: source_supported_possible_without_allowed_source
+    response: downgrade_to_candidate_safe_possible_review_required_or_blocked
+    summary: Source-supported possible requires official or scoped owner-approved local source refs plus closed source gaps for the affected claim.
+  - monster_id: candidate_safe_possible_from_name_similarity_only
+    response: downgrade_to_review_required
+    summary: Matching labels, connector names, or common control/status words are not enough for candidate-safe consideration.
+  - monster_id: missing_quantity_hidden_as_not_applicable
+    response: require_scoped_not_applicable_decision_or_keep_gap
+    summary: Missing voltage, current, power, impedance, load, timing, frequency, thermal, or layout constraints must stay visible unless scoped not-applicable evidence exists.
+  - monster_id: upstream_packet_mutated_by_interface_control
+    response: stop_and_emit_delta_or_rerun_trigger_only
+    summary: This workflow must not patch source XML, page sidecars, intake packets, source packets, materials outputs, layout guides, quantitative overlays, trace matrices, or harness packets.
+  - monster_id: harness_composition_replaced_by_readiness_workflow
+    response: preserve_harness_input_delta_only
+    summary: The workflow complements `xml_harness_composition_v0`; it writes ceilings and blockers, not final harness packets.
+  - monster_id: owner_decision_treated_as_source_fact
+    response: record_as_owner_scope_or_baseline_not_source_truth
+    summary: Owner decisions can choose scope, intended use, waiver, or not-applicable status, but cannot fabricate technical source evidence.
+  - monster_id: conflict_resolved_by_convenience
+    response: keep_review_required_or_blocked_until_owner_or_owning_workflow_resolves
+    summary: Conflicting exposure, direction, connector mapping, quantity, or source evidence cannot be resolved by choosing the useful branch.
+  - monster_id: verifier_or_oracle_material_used_as_interface_source
+    response: reject_as_forbidden_construction_input
+    summary: Hidden references, accepted outputs, verifier reports, repair packets, and oracle-derived mismatch details cannot become interface-control evidence.
+  - monster_id: raw_payload_leak_to_public_package
+    response: remove_payload_and_keep_contract_shape_only
+    summary: Public workflow canon may describe shapes and gates, but not raw project XML, vendor text, source files, binaries, private values, or downloaded collateral.
+  - monster_id: runtime_absolute_path_in_public_package
+    response: replace_with_repo_relative_placeholder_or_stable_id
+    summary: Public package files must use repo-relative placeholders or stable ids, not drive letters, host-specific roots, or machine-local paths.
+  - monster_id: secret_or_session_required_by_agent
+    response: stop_and_request_owner_supplied_file_or_path
+    summary: Agents must not read credentials, cookies, tokens, sessions, account state, or secret files.

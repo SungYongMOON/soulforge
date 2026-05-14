@@ -1,0 +1,20 @@
+candidate_safe_possible_items:
+  schema_version: interface_control_and_harness_readiness_v0
+  packet_id: "<interface_control_packet_id>"
+  items:
+    - item_id: "<candidate_safe_possible_item_id>"
+      item_kind: interface_or_join
+      affected_interface_control_ids: []
+      affected_harness_connection_ids: []
+      readiness_ceiling: candidate_safe_possible
+      eligibility_basis:
+        endpoints_external_harness_eligible: true
+        identity_and_checksum_consistent: true
+        direction_role_domain_kind_compatible: true
+        required_quantities_present_or_not_applicable: true
+        no_local_internal_misuse: true
+      evidence_refs: []
+      non_blocking_review_notes: []
+      not_claimed:
+        - final_design_approval
+        - source_supported_harness_status

@@ -1,0 +1,23 @@
+harness_input_delta:
+  schema_version: interface_control_and_harness_readiness_v0
+  source_packet_id: "<interface_control_packet_id>"
+  applies_to_harness_packet: null
+  interface_controls: []
+  join_readiness:
+    - join_ref: "<harness_connection_ref_or_proposed_join_id>"
+      endpoint_interface_control_ids: []
+      previous_harness_status: null
+      readiness_ceiling: blocked
+      recommended_harness_action: keep_blocked
+      must_preserve_blockers: []
+      evidence_refs: []
+      owner_decision_refs: []
+      source_gap_refs: []
+      not_claimed:
+        - final_connection_approval
+        - source_supported_harness_classification_without_harness_review
+  consumption_rules:
+    harness_may_weaken_ceiling: true
+    harness_must_not_strengthen_beyond_ceiling_without_refreshed_interface_control: true
+    local_internal_misuse_remains_blocked: true
+    possible_states_are_not_final_status: true

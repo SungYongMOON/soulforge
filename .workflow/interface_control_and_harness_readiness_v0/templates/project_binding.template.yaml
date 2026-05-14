@@ -1,0 +1,24 @@
+schema_version: interface_control_and_harness_readiness_v0.project_binding
+project_binding:
+  project_code: "<project_code>"
+  run_id: "<run_id>"
+  workflow_mode: pre_harness_readiness
+  output_root_repo_path: "_workmeta/<project_code>/runs/<run_id>/interface_control_and_harness_readiness_v0"
+  page_module_sidecar_refs: []
+  page_asset_manifest_refs: []
+  optional_input_refs:
+    capture_intake_packet_refs: []
+    official_source_packet_refs: []
+    component_materials_packet_refs: []
+    layout_guide_packet_refs: []
+    quantitative_enrichment_packet_refs: []
+    trace_matrix_packet_refs: []
+    harness_composition_packet_refs: []
+    owner_decision_refs: []
+  approved_interface_control_policy:
+    source_xml_mutation_allowed: false
+    upstream_packet_mutation_allowed: false
+    harness_packet_mutation_allowed: false
+    local_internal_candidates_external_by_default: false
+    possible_states_are_ceiling_only: true
+    raw_payload_copy_to_public_canon_allowed: false

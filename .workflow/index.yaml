@@ -33,6 +33,8 @@ entries:
     path: xml_harness_composition_v0/workflow.yaml
   - workflow_id: page_module_trace_matrix_v0
     path: page_module_trace_matrix_v0/workflow.yaml
+  - workflow_id: interface_control_and_harness_readiness_v0
+    path: interface_control_and_harness_readiness_v0/workflow.yaml
   - workflow_id: source_gap_followup_packet_v0
     path: source_gap_followup_packet_v0/workflow.yaml
 notes:

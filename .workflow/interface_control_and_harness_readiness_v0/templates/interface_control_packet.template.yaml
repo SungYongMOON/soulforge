@@ -1,0 +1,50 @@
+interface_control_packet:
+  schema_version: interface_control_and_harness_readiness_v0
+  packet_id: "<interface_control_packet_id>"
+  project_code: "<project_code>"
+  run_id: "<run_id>"
+  created_at: "<iso8601>"
+  workflow_mode: pre_harness_readiness
+  boundary:
+    source_xml_mutation_allowed: false
+    upstream_packet_mutation_allowed: false
+    harness_packet_mutation_allowed: false
+    local_internal_candidates_external_by_default: false
+    readiness_states_are_ceiling_only: true
+  target_assets: []
+  input_refs:
+    page_module_sidecars: []
+    page_asset_manifests: []
+    capture_intake_packets: []
+    official_source_packets: []
+    component_materials_packets: []
+    layout_guide_packets: []
+    quantitative_enrichment_packets: []
+    trace_matrix_packets: []
+    harness_composition_packets: []
+    owner_decision_refs: []
+  output_refs:
+    interface_control_ledger: "interface_control_ledger.yaml"
+    harness_readiness_matrix: "harness_readiness_matrix.yaml"
+    blocked_interface_items: "blocked_interface_items.yaml"
+    review_required_interface_items: "review_required_interface_items.yaml"
+    candidate_safe_possible_items: "candidate_safe_possible_items.yaml"
+    source_supported_possible_items: "source_supported_possible_items.yaml"
+    compatibility_gap_report: "compatibility_gap_report.yaml"
+    owner_followup_needed: "owner_followup_needed.yaml"
+    interface_open_questions: "interface_open_questions.yaml"
+    source_gap_rerun_triggers: "source_gap_rerun_triggers.yaml"
+    harness_input_delta: "harness_input_delta.yaml"
+    boundary_review_note: "boundary_review_note.md"
+  summary:
+    blocked_count: 0
+    review_required_count: 0
+    candidate_safe_possible_count: 0
+    source_supported_possible_count: 0
+    local_internal_candidate_count: 0
+    local_internal_misuse_count: 0
+  not_claimed:
+    - final_harness_approval
+    - final_circuit_synthesis
+    - source_supported_harness_status
+    - mutation_of_page_sidecars_or_harness_packets

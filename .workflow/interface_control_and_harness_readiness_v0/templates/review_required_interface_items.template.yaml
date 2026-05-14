@@ -1,0 +1,15 @@
+review_required_interface_items:
+  schema_version: interface_control_and_harness_readiness_v0
+  packet_id: "<interface_control_packet_id>"
+  items:
+    - item_id: "<review_item_id>"
+      item_kind: interface
+      affected_interface_control_ids: []
+      affected_harness_connection_ids: []
+      review_reason: "<reason>"
+      review_class: plausible_but_incomplete
+      blocking_level: review_required
+      evidence_refs: []
+      source_gap_refs: []
+      owner_question_refs: []
+      next_action: "<owner_review_or_source_refresh>"
