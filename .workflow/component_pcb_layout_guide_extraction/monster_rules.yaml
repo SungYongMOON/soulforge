@@ -1,0 +1,52 @@
+workflow_id: component_pcb_layout_guide_extraction
+kind: monster_rules
+status: active
+rules:
+  - monster_id: absolute_path_in_public_workflow
+    response: remove_or_replace_with_project_binding
+    summary: Public workflow canon must use portable paths such as `_workspaces/<project_code>/reference_materials/from_exp_xml/parts`, never drive letters or concrete run ids.
+  - monster_id: full_pdf_sent_to_ai_context
+    response: build_or_reuse_cache_then_select_spans
+    summary: Do not send whole PDFs into AI context; use checksum-keyed page indexes and layout candidate spans.
+  - monster_id: copied_vendor_text_in_public_canon
+    response: stop_and_move_to_project_local_output
+    summary: Vendor document text and extracted excerpts are runtime/source evidence only and must not be committed into public workflow files.
+  - monster_id: source_file_checksum_changed
+    response: invalidate_cache_and_reextract
+    summary: If source PDF or archive checksum changes, rebuild page indexes and candidate spans for that file.
+  - monster_id: zip_contains_many_irrelevant_files
+    response: inspect_manifest_and_extract_candidate_docs_only
+    summary: ZIP archives may contain CAD, Gerber, or unrelated files; extract only candidate docs needed for layout guide evidence.
+  - monster_id: weak_layout_coverage
+    response: source_bootstrap_official_supplemental_docs
+    summary: If local datasheet/EVAL files lack layout guidance, search official supplemental application notes, layout guides, EVAL user guides, or reference design archives.
+  - monster_id: unofficial_source_only
+    response: record_unapproved_source_gap
+    summary: Random PDF mirrors, forum attachments, and scraped copies are not approved layout sources unless the owner explicitly approves them.
+  - monster_id: vendor_login_or_license_gate
+    response: owner_manual_download_required
+    summary: Account-gated, export-controlled, or click-through-license documents require owner action; never use stored cookies or credentials.
+  - monster_id: visual_extraction_unreliable
+    response: separate_raw_candidates_from_quality_filtered_outputs
+    summary: If figures or tables cannot be extracted with reliable page/caption provenance, do not fabricate them; keep raw table candidates separate and record the missing or low-confidence extraction reason.
+  - monster_id: two_column_prose_detected_as_table
+    response: reject_or_mark_raw_candidate
+    summary: Table tools can mistake two-column datasheet prose for a table; require table-like structure, Camelot quality metrics, and layout/board context before promoting a table to the quality output folder.
+  - monster_id: non_layout_context_promoted
+    response: demote_to_context_evidence_and_record_rejection
+    summary: Software setup, PC driver installation, marketing, ordering, or other non-layout context pages must not be promoted into current figure outputs or layout-only table outputs even if they came from an EVAL guide.
+  - monster_id: non_cited_page_render_promoted_as_current_figure
+    response: require_layout_guide_page_citation_or_demote_to_context_pages
+    summary: A full PDF page render is a current figure output only when the page is directly cited by layout_guide.md and has source-file/page provenance.
+  - monster_id: duplicate_cited_page_render
+    response: keep_single_render_per_source_checksum_and_page
+    summary: Multiple layout_guide.md evidence lines may reference the same PDF page; render that page once and record all citation anchors against the same output.
+  - monster_id: figure_not_bound_to_layout_guide_citation
+    response: remove_from_current_figures_and_record_missing_citation_anchor
+    summary: Current figure outputs must trace to a source evidence line actually used in layout_guide.md through source file, page, anchor text, and dedupe key.
+  - monster_id: source_map_missing
+    response: block_readiness_until_source_map_written
+    summary: Each layout finding, excerpt, figure, or table must map back to source file identity, page, and checksum.
+  - monster_id: layout_claim_without_source
+    response: downgrade_to_open_question_or_remove
+    summary: PCB layout recommendations in layout_guide.md require source support; unsupported claims become open questions.

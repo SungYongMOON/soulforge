@@ -63,5 +63,5 @@ flowchart TD
 
 - workflow: [`author_skill_package`](../../.workflow/author_skill_package/workflow.yaml)
 - party: [`guild_master_cell`](../../.party/guild_master_cell/party.yaml)
-- unit: [`guild_master_01`](../../.unit/guild_master_01/unit.yaml)
+- unit: [`guild_master`](../../.unit/guild_master/unit.yaml)
 - class: [`administrator`](../../.registry/classes/administrator/class.yaml)

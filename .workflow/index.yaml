@@ -3,10 +3,6 @@ owner: .workflow
 kind: workflow_canon
 status: active
 entries:
-  - workflow_id: frontline_assault
-    path: frontline_assault/workflow.yaml
-  - workflow_id: build_lineage_map
-    path: build_lineage_map/workflow.yaml
   - workflow_id: author_skill_package
     path: author_skill_package/workflow.yaml
   - workflow_id: meeting_followup
@@ -15,6 +11,8 @@ entries:
     path: device_system_diagram_generation/workflow.yaml
   - workflow_id: exp_xml_component_materials
     path: exp_xml_component_materials/workflow.yaml
+  - workflow_id: component_pcb_layout_guide_extraction
+    path: component_pcb_layout_guide_extraction/workflow.yaml
 notes:
   - Workflow catalog only. Raw run ids and execution dumps do not belong here.
   - Authoring templates live under `authoring/` and are not workflow canon entries.

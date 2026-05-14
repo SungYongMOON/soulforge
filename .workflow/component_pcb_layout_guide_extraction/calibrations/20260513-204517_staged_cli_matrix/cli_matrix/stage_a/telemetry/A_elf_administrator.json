@@ -1,0 +1,16 @@
+﻿{
+    "candidate_id":  "A_elf_administrator",
+    "stage":  "stage_a",
+    "model":  "gpt-5.4-mini",
+    "reasoning_effort":  "low",
+    "species":  "elf",
+    "class":  "administrator",
+    "exit_code":  0,
+    "wall_time_seconds":  33.336,
+    "usage":  {
+                  "input_tokens":  16716,
+                  "cached_input_tokens":  12672,
+                  "output_tokens":  4699,
+                  "reasoning_output_tokens":  97
+              }
+}

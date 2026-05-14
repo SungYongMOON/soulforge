@@ -1,0 +1,16 @@
+﻿{
+    "candidate_id":  "B_gpt_5_4_xhigh",
+    "stage":  "stage_b",
+    "model":  "gpt-5.4",
+    "reasoning_effort":  "xhigh",
+    "species":  "elf",
+    "class":  "archivist",
+    "exit_code":  0,
+    "wall_time_seconds":  294.633,
+    "usage":  {
+                  "input_tokens":  17070,
+                  "cached_input_tokens":  4480,
+                  "output_tokens":  16021,
+                  "reasoning_output_tokens":  10069
+              }
+}

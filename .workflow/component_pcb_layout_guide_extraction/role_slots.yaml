@@ -1,0 +1,30 @@
+workflow_id: component_pcb_layout_guide_extraction
+kind: role_slots
+status: active
+slots:
+  - slot_id: workflow_runner
+    responsibility: Resolve project binding, prepare run evidence, and keep runtime paths out of public canon.
+  - slot_id: source_inventory_builder
+    responsibility: Inventory component-local DATA Sheet, EVAL, Layout Guide/source_docs, and ZIP-contained candidate documents.
+  - slot_id: pdf_indexer
+    responsibility: Extract or reuse page-level PDF text/index caches keyed by source-file SHA256.
+  - slot_id: layout_span_selector
+    responsibility: Select layout-relevant candidate spans from cached text without sending whole PDFs to AI context.
+  - slot_id: coverage_reviewer
+    responsibility: Decide if existing source coverage is enough or if official supplemental layout docs are needed.
+  - slot_id: source_researcher
+    responsibility: Find official supplemental layout documents when local materials are insufficient.
+  - slot_id: download_operator
+    responsibility: Download approved supplemental PDF/ZIP files and record byte size, source URL, and SHA256.
+  - slot_id: layout_guide_writer
+    responsibility: Synthesize source-bound Markdown layout guides with page-cited findings and bounded excerpts.
+  - slot_id: citation_mapper
+    responsibility: Map the final layout_guide.md evidence lines back to source-map entries, PDF pages, text anchors, and unique cited source pages before any figure capture is attempted.
+  - slot_id: figure_table_extractor
+    responsibility: Render one full PDF page for each unique layout_guide.md-cited source page and extract layout-related tables when tools can do so reliably, otherwise record a reason.
+  - slot_id: cited_figure_table_promoter
+    responsibility: Promote only source-supported cited full-page renders into the direct figures folder and PCB-layout-relevant tables into the layout-only tables folder, and record rejection reasons for duplicate, context-only, or noisy candidates.
+  - slot_id: manifest_writer
+    responsibility: Write source maps, extraction manifests, cache behavior, and open question records.
+  - slot_id: boundary_reviewer
+    responsibility: Confirm source traceability and public/private boundary safety before reporting readiness.

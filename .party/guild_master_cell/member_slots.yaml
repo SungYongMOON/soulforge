@@ -4,19 +4,19 @@ status: active
 slots:
   - slot_id: reviewer
     title: Reviewer
-    unit_id: guild_master_01
+    unit_id: guild_master
     class_ids:
       - administrator
     summary: Bounds the request and decides whether the behavior merits a reusable skill package.
   - slot_id: drafter
     title: Drafter
-    unit_id: guild_master_01
+    unit_id: guild_master
     class_ids:
       - administrator
     summary: Drafts the tracked skill package and prepares the install handoff note.
   - slot_id: checker
     title: Checker
-    unit_id: guild_master_01
+    unit_id: guild_master
     class_ids:
       - administrator
     summary: Runs the boundary review before the package is promoted or synced.

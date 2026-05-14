@@ -1,0 +1,12 @@
+﻿{
+    "exit_code":  0,
+    "wall_time_seconds":  41.52,
+    "model":  "gpt-5.5",
+    "reasoning_effort":  "xhigh",
+    "usage":  {
+                  "input_tokens":  43554,
+                  "cached_input_tokens":  24832,
+                  "output_tokens":  2027,
+                  "reasoning_output_tokens":  898
+              }
+}

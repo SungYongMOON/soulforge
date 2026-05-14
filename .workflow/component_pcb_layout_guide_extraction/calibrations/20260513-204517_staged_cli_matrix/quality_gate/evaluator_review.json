@@ -1,0 +1,24 @@
+{
+  "sufficient": true,
+  "missing_critical_conditions": [
+    "Require explicit per-finding traceability to a concrete component/refdes so cross-component citation reuse cannot accidentally satisfy U1/U2 coverage.",
+    "Require citation-bearing findings to be grounded in fixture-provided spans or approved supplemental spans only, not merely in source_docs metadata or visual/table candidate metadata.",
+    "Require rejected/promoted figure and table decisions to preserve the reason for decision with source evidence, not just counts, so policy compliance is auditable.",
+    "Require the boundary/readiness review to distinguish clearly between `blocked` and `review_required` states and to apply them consistently per component."
+  ],
+  "overfit_risks": [
+    "The U1/U2 hard gates name very specific topic bundles; that is appropriate for this fixture, but scoring should not expect the same narrative packaging or ordering as the golden output.",
+    "The phrase \"final layout readiness\" for U2 could drift into golden-specific wording if evaluators expect an exact conclusion shape rather than evidence-based readiness semantics.",
+    "The figure policy's path wording is mostly safe because it encodes a workflow contract, but evaluators should avoid penalizing semantically equivalent labeling or section names.",
+    "The required output shape is semantically framed well, but checklist use could still become heading-based unless reviewers explicitly ignore title wording and order."
+  ],
+  "safety_boundary_review": "The safety boundary is mostly clear and strong. It prohibits runtime fabrication, non-fixture evidence, host-path leakage, copied vendor text, and private/project data, and it reinforces that synthesis is span-bound rather than PDF-bound. The main remaining ambiguity is that some metadata such as mocked source URLs and cache behavior are allowed as fixture facts; evaluators should ensure candidates may report those fixture facts without sounding like real runtime actions. The criteria should therefore distinguish 'reporting fixture metadata' from 'claiming execution of runtime operations.'",
+  "recommended_adjustments": [
+    "Add a hard gate that every promoted figure/table and every readiness conclusion must be traceable to the same component's cited spans or approved supplemental spans.",
+    "Add a hard gate that promotion/rejection records must include an evidence-based reason, not only a candidate id and disposition.",
+    "Add a hard gate clarifying that fixture metadata may be restated only in hypothetical/synthetic terms and must not be phrased as performed actions.",
+    "Add a scoring note that equivalent section names, ordering, and prose compression are acceptable if all required packet data and evidence links are present.",
+    "Add a scoring note that exact readiness wording is not required; only the evidence-backed state and rationale matter."
+  ],
+  "final_verdict": "Sufficient for the stated CLI-only staged calibration, with minor tightening recommended. The criteria are not materially overfit to golden wording, and the safety boundary is largely clear, but a few traceability and phrasing clarifications would reduce audit ambiguity and make the pass/fail checks more robust."
+}

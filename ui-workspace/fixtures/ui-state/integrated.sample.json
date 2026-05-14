@@ -23,14 +23,14 @@
         "source_ref": ".registry/species/human/species.yaml",
         "status": "template",
         "hero_catalog_ref": ".registry/species/human/species.yaml",
-        "hero_count": 1
+        "hero_count": 3
       }
     ],
     "heroes": [
       {
-        "id": "wandering_knight",
-        "display_name": "Wandering Knight",
-        "summary": "Inline hero candidate carried by the species canon sample.",
+        "id": "guild_master_operator",
+        "display_name": "Guild Master Operator",
+        "summary": "Governance-first hero candidate carried by the human species canon.",
         "source_ref": ".registry/species/human/species.yaml",
         "status": "template",
         "species_id": "human"
@@ -42,18 +42,18 @@
     "owner": ".unit",
     "items": [
       {
-        "id": "vanguard_01",
-        "display_name": "Vanguard 01",
-        "summary": "Canonical active unit sample with sanitized owner surfaces only.",
-        "source_ref": ".unit/vanguard_01/unit.yaml",
+        "id": "guild_master",
+        "display_name": "Guild Master",
+        "summary": "Current-default guild master unit with sanitized owner surfaces only.",
+        "source_ref": ".unit/guild_master/unit.yaml",
         "status": "active",
         "identity": {
-          "profile_ref": "vanguard_field_alpha",
+          "profile_ref": "guild_master_ops_alpha",
           "species_id": "human",
-          "hero_id": "wandering_knight"
+          "hero_id": "guild_master_operator"
         },
         "class_ids": [
-          "knight"
+          "administrator"
         ],
         "required_dirs": [
           "policy",
@@ -73,19 +73,19 @@
     "catalog_ref": ".registry/index.yaml",
     "items": [
       {
-        "id": "knight",
-        "display_name": "Knight",
-        "summary": "Reusable class canon sample with class-local assign/ref files.",
-        "source_ref": ".registry/classes/knight/class.yaml",
+        "id": "administrator",
+        "display_name": "Administrator",
+        "summary": "Reusable governance-first class canon with class-local assign/ref files.",
+        "source_ref": ".registry/classes/administrator/class.yaml",
         "status": "template",
-        "knowledge_refs_source_ref": ".registry/classes/knight/knowledge_refs.yaml",
+        "knowledge_refs_source_ref": ".registry/classes/administrator/knowledge_refs.yaml",
         "knowledge_refs_count": 0,
-        "skill_refs_source_ref": ".registry/classes/knight/skill_refs.yaml",
+        "skill_refs_source_ref": ".registry/classes/administrator/skill_refs.yaml",
         "skill_refs_count": 0,
-        "tool_refs_source_ref": ".registry/classes/knight/tool_refs.yaml",
+        "tool_refs_source_ref": ".registry/classes/administrator/tool_refs.yaml",
         "tool_refs_count": 0,
-        "profiles_dir": ".registry/classes/knight",
-        "manifests_dir": ".registry/classes/knight"
+        "profiles_dir": ".registry/classes/administrator",
+        "manifests_dir": ".registry/classes/administrator"
       }
     ]
   },
@@ -95,18 +95,19 @@
     "catalog_ref": ".workflow/index.yaml",
     "items": [
       {
-        "id": "frontline_assault",
-        "display_name": "Frontline Assault",
-        "summary": "Frontline Assault workflow canon with curated history only.",
-        "source_ref": ".workflow/frontline_assault/workflow.yaml",
+        "id": "author_skill_package",
+        "display_name": "Author Skill Package",
+        "summary": "Guild-master authoring workflow for deciding when a request becomes a reusable skill package.",
+        "source_ref": ".workflow/author_skill_package/workflow.yaml",
         "status": "active",
-        "role_slots_ref": ".workflow/frontline_assault/role_slots.yaml",
-        "step_graph_ref": ".workflow/frontline_assault/step_graph.yaml",
-        "handoff_rules_ref": ".workflow/frontline_assault/handoff_rules.yaml",
-        "monster_rules_ref": ".workflow/frontline_assault/monster_rules.yaml",
-        "party_compatibility_ref": ".workflow/frontline_assault/party_compatibility.yaml",
+        "role_slots_ref": ".workflow/author_skill_package/role_slots.yaml",
+        "step_graph_ref": ".workflow/author_skill_package/step_graph.yaml",
+        "handoff_rules_ref": ".workflow/author_skill_package/handoff_rules.yaml",
+        "monster_rules_ref": ".workflow/author_skill_package/monster_rules.yaml",
+        "party_compatibility_ref": ".workflow/author_skill_package/party_compatibility.yaml",
+        "profile_policy_ref": ".workflow/author_skill_package/profile_policy.yaml",
         "history_policy": "curated_summary_only",
-        "history_ref": ".workflow/frontline_assault/history/README.md"
+        "history_ref": ".workflow/author_skill_package/history/README.md"
       }
     ]
   },
@@ -116,18 +117,18 @@
     "catalog_ref": ".party/index.yaml",
     "items": [
       {
-        "id": "vanguard_strike",
-        "display_name": "Vanguard Strike",
-        "summary": "Vanguard Strike party template with sanitized stats guidance only.",
-        "source_ref": ".party/vanguard_strike/party.yaml",
+        "id": "guild_master_cell",
+        "display_name": "Guild Master Cell",
+        "summary": "Guild-master authoring party template with sanitized stats guidance only.",
+        "source_ref": ".party/guild_master_cell/party.yaml",
         "status": "active",
-        "member_slots_ref": ".party/vanguard_strike/member_slots.yaml",
-        "allowed_species_ref": ".party/vanguard_strike/allowed_species.yaml",
-        "allowed_classes_ref": ".party/vanguard_strike/allowed_classes.yaml",
-        "allowed_workflows_ref": ".party/vanguard_strike/allowed_workflows.yaml",
-        "appserver_profile_ref": ".party/vanguard_strike/appserver_profile.yaml",
+        "member_slots_ref": ".party/guild_master_cell/member_slots.yaml",
+        "allowed_species_ref": ".party/guild_master_cell/allowed_species.yaml",
+        "allowed_classes_ref": ".party/guild_master_cell/allowed_classes.yaml",
+        "allowed_workflows_ref": ".party/guild_master_cell/allowed_workflows.yaml",
+        "appserver_profile_ref": ".party/guild_master_cell/appserver_profile.yaml",
         "stats_policy": "curated_summary_only",
-        "stats_ref": ".party/vanguard_strike/stats/README.md"
+        "stats_ref": ".party/guild_master_cell/stats/README.md"
       }
     ]
   },
@@ -145,19 +146,19 @@
   },
   "overview": {
     "body_id": null,
-    "class_id": "knight",
+    "class_id": "administrator",
     "active_profile": null,
     "active_species": {
       "id": "human",
       "display_name": "Human",
-        "summary": "Canonical species catalog baseline for public fixtures.",
+      "summary": "Canonical species catalog baseline for public fixtures.",
       "source_ref": ".registry/species/human/species.yaml",
       "active": true
     },
     "active_hero": {
-      "id": "wandering_knight",
-      "display_name": "Wandering Knight",
-      "summary": "Inline hero candidate carried by the species canon sample.",
+      "id": "guild_master_operator",
+      "display_name": "Guild Master Operator",
+      "summary": "Governance-first hero candidate carried by the human species canon.",
       "source_ref": ".registry/species/human/species.yaml",
       "active": true
     },
@@ -191,7 +192,7 @@
   "body": {
     "meta": {
       "body_id": null,
-      "display_name": "Vanguard 01",
+      "display_name": "Guild Master",
       "version": null,
       "operating_context": "unit_owner_projection",
       "status": "ready"
@@ -204,52 +205,52 @@
       "active": true
     },
     "active_hero": {
-      "id": "wandering_knight",
-      "display_name": "Wandering Knight",
-      "summary": "Inline hero candidate carried by the species canon sample.",
+      "id": "guild_master_operator",
+      "display_name": "Guild Master Operator",
+      "summary": "Governance-first hero candidate carried by the human species canon.",
       "source_ref": ".registry/species/human/species.yaml",
       "active": true
     },
     "section_presence": [
       {
         "id": "policy",
-        "path": ".unit/vanguard_01/policy",
+        "path": ".unit/guild_master/policy",
         "present": true,
         "status": "present"
       },
       {
         "id": "protocols",
-        "path": ".unit/vanguard_01/protocols",
+        "path": ".unit/guild_master/protocols",
         "present": true,
         "status": "present"
       },
       {
         "id": "runtime",
-        "path": ".unit/vanguard_01/runtime",
+        "path": ".unit/guild_master/runtime",
         "present": true,
         "status": "present"
       },
       {
         "id": "memory",
-        "path": ".unit/vanguard_01/memory",
+        "path": ".unit/guild_master/memory",
         "present": true,
         "status": "present"
       },
       {
         "id": "sessions",
-        "path": ".unit/vanguard_01/sessions",
+        "path": ".unit/guild_master/sessions",
         "present": true,
         "status": "present"
       },
       {
         "id": "autonomic",
-        "path": ".unit/vanguard_01/autonomic",
+        "path": ".unit/guild_master/autonomic",
         "present": true,
         "status": "present"
       },
       {
         "id": "artifacts",
-        "path": ".unit/vanguard_01/artifacts",
+        "path": ".unit/guild_master/artifacts",
         "present": true,
         "status": "present"
       }
@@ -324,8 +325,8 @@
     }
   },
   "class_view": {
-    "class_id": "knight",
-    "class_name": "Knight",
+    "class_id": "administrator",
+    "class_name": "Administrator",
     "class_version": null,
     "active_profile": null,
     "rows": {
@@ -334,9 +335,9 @@
       "knowledge": [],
       "workflows": [
         {
-          "id": "frontline_assault",
-          "display_name": "Frontline Assault",
-          "summary": "Frontline Assault workflow canon with curated history only.",
+          "id": "author_skill_package",
+          "display_name": "Author Skill Package",
+          "summary": "Guild-master authoring workflow for deciding when a request becomes a reusable skill package.",
           "installed": true,
           "equipped": true,
           "active": true,
@@ -345,9 +346,9 @@
           "dependency_status": "resolved",
           "family": null,
           "category": "workflow",
-          "source_ref": ".workflow/frontline_assault/workflow.yaml",
+          "source_ref": ".workflow/author_skill_package/workflow.yaml",
           "source_hint": "vnext-canon",
-          "catalog_ref": ".workflow/frontline_assault/workflow.yaml",
+          "catalog_ref": ".workflow/author_skill_package/workflow.yaml",
           "selectable_candidate": true
         }
       ]
@@ -385,10 +386,19 @@
       ],
       "hero_candidates": [
         {
-          "id": "wandering_knight",
-          "display_name": "Wandering Knight",
-          "summary": "Inline hero candidate carried by the species canon sample.",
+          "id": "guild_master_operator",
+          "display_name": "Guild Master Operator",
+          "summary": "Governance-first hero candidate carried by the human species canon.",
           "source_ref": ".registry/species/human/species.yaml",
+          "active": false
+        }
+      ],
+      "workflows_catalog": [
+        {
+          "id": "author_skill_package",
+          "display_name": "Author Skill Package",
+          "summary": "Guild-master authoring workflow for deciding when a request becomes a reusable skill package.",
+          "source_ref": ".workflow/author_skill_package/workflow.yaml",
           "active": false
         }
       ]
@@ -401,10 +411,10 @@
       "knowledge_catalog": [],
       "workflows_catalog": [
         {
-          "id": "frontline_assault",
-          "display_name": "Frontline Assault",
-          "summary": "Frontline Assault workflow canon with curated history only.",
-          "source_ref": ".workflow/frontline_assault/workflow.yaml",
+          "id": "author_skill_package",
+          "display_name": "Author Skill Package",
+          "summary": "Guild-master authoring workflow for deciding when a request becomes a reusable skill package.",
+          "source_ref": ".workflow/author_skill_package/workflow.yaml",
           "active": false
         }
       ]

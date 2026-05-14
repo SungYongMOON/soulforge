@@ -1,0 +1,26 @@
+﻿workflow_id: device_system_diagram_generation
+calibration_id: 20260513-202816_staged_cli_matrix
+recommended_profile:
+  model: gpt-5.4-mini
+  reasoning_effort: low
+  species: human
+  class: administrator
+recommended_candidate_id: stageC_gpt-5.4-mini_low_human_administrator
+quality_upgrade_profile:
+  model: gpt-5.4
+  reasoning_effort: low
+  species: human
+  class: administrator
+quality_upgrade_candidate_id: stageC_gpt-5.4_low_human_administrator
+recommendation_rule: lowest cost and fastest among quality-passing candidates; quality difference >=10 points overrides cost.
+measurement_policy:
+  quality_source: cli_isolated_candidate_runner_staged_matrix
+  telemetry_source: cli_candidate_json_usage
+  subagent_token_usage_available: false
+  telemetry_exact_for_subagent: false
+  cost_confidence: relative_cli_proxy_not_exact
+  full_default_matrix_status: not_run_cost_bounded_staged_matrix
+notes:
+  - Public-safe synthetic fixture only.
+  - All Stage C finalists passed hard gates.
+  - gpt-5.4 low had the strongest Stage C quality score and is retained as the first shadow/quality-upgrade profile.

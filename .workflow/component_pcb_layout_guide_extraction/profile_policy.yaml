@@ -1,0 +1,71 @@
+workflow_id: component_pcb_layout_guide_extraction
+kind: workflow_profile_policy
+status: active
+last_calibration_id: 20260513-204517_staged_cli_matrix
+calibration_mode: staged_cli_calibration
+measurement_policy:
+  quality_source: cli_only_calibration
+  telemetry_source: cli_full_stage_matrix_and_stage_c_reruns
+  subagent_token_usage_available: false
+  telemetry_exact_for_subagent: false
+  cost_confidence: relative_not_exact
+primary_profile:
+  model: gpt-5.4-mini
+  reasoning_effort: medium
+  species: elf
+  class: archivist
+  candidate_id: C_shadow_gpt_5_4_mini_medium
+  measured_tokens:
+    input_tokens: 16718
+    cached_input_tokens: 16256
+    output_tokens: 6505
+    reasoning_output_tokens: 516
+    telemetry_source: codex_exec_json_cli_proxy_stage_c
+  wall_time_seconds: 43.75
+  quality_score: 93
+  quality_gate: pass
+  rationale: >
+    Lowest-cost finalist that passed semantic hard gates for source-bound
+    per-finding traceability, table/figure promotion discipline, U2 supplemental
+    handling, J1 review gating, and public-safe boundary control.
+shadow_top_k:
+  - rank: 2
+    candidate_id: B_gpt_5_4_low
+    model: gpt-5.4
+    reasoning_effort: low
+    species: elf
+    class: archivist
+    output_tokens: 6173
+    reasoning_output_tokens: 28
+    wall_time_seconds: 117.369
+    quality_score: 94
+    quality_gate: pass
+  - rank: 3
+    candidate_id: B_gpt_5_4_medium
+    model: gpt-5.4
+    reasoning_effort: medium
+    species: elf
+    class: archivist
+    output_tokens: 6540
+    reasoning_output_tokens: 36
+    wall_time_seconds: 124.754
+    quality_score: 97
+    quality_gate: pass
+rejected_finalists:
+  - candidate_id: C_primary_gpt_5_4_mini_low
+    reason: Failed semantic hard gates for per-finding citation structure, U1 table quality metrics, and explicit U2 local EVAL none_found recording.
+  - candidate_id: C_shadow_gpt_5_5_high
+    reason: Failed semantic hard gate due concrete calibration id/run-id leakage.
+  - candidate_id: B_gpt_5_5_xhigh
+    reason: Failed semantic table-promotion policy gate.
+rerun_triggers:
+  - workflow step graph changes
+  - layout guide citation-map or figure/table promotion policy changes
+  - PDF indexing, rendering, OCR, Camelot, or PyMuPDF tool behavior changes
+  - primary profile fails the frozen quality gate on a representative public-safe fixture
+  - model availability, pricing, or latency characteristics materially change
+calibration_archive_ref: calibrations/20260513-204517_staged_cli_matrix/
+notes:
+  - This policy is based on a public-safe synthetic staged CLI calibration.
+  - No real PDF, copied vendor text, project-local source material, runtime Layout Guide output, credential, cookie, `_workspaces`, `_workmeta`, or private-state data is stored in the archive.
+  - The default subagent quality matrix was unavailable under the current runtime policy, so quality_source is explicitly `cli_only_calibration`.

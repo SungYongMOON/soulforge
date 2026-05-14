@@ -1,0 +1,12 @@
+calibration_id: 20260513-202816_staged_cli_matrix
+workflow_id: device_system_diagram_generation
+mode: staged_cli_matrix
+created_at: 2026-05-13T20:28:17.0221073+09:00
+boundary: public_safe_synthetic_fixture
+source_skill_id: soulforge-workflow-optimizer
+candidate_surface: codex_cli_ephemeral_read_only
+full_default_matrix_status: not_run_cost_bounded_staged_matrix
+notes:
+  - Staged calibration used Codex CLI isolated candidate runs and CLI JSON usage telemetry.
+  - The archive contains only public-safe synthetic fixture content and generated candidate/evaluator outputs.
+  - Project raw input, REF packets, private transcripts, credentials, _workspaces, _workmeta, and private-state material were excluded.

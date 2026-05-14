@@ -1,0 +1,100 @@
+{
+  "calibration_id": "20260513-183307_staged_matrix",
+  "workflow_id": "exp_xml_component_materials",
+  "fixture_type": "public_safe_synthetic",
+  "scenario": "Synthetic Cadence Capture EXP.xml material collection using mocked official-source/download evidence. No real project EXP.xml, customer input, credential, cookie, or downloaded vendor binary is included.",
+  "candidate_task": "Given the synthetic EXP.xml excerpt and mocked official-source catalog, produce the workflow output packet that exp_xml_component_materials should create: component inventory, source discovery packet, download manifest, checksum manifest, review queue, boundary review note, and circuit-design readiness note.",
+  "exp_xml_excerpt": [
+    "<CISExport>",
+    "  <Package Name=\"PKG_LT3045EDD_1\">",
+    "    <SymbolUserProp Name=\"Manufacturer_Part_Number\" Value=\"LT3045EDD-1\" />",
+    "    <SymbolUserProp Name=\"Mfr_Name\" Value=\"Analog Devices\" />",
+    "    <SymbolUserProp Name=\"PackageName\" Value=\"DFN-10\" />",
+    "    <SymbolUserProp Name=\"PCB Footprint\" Value=\"LTC_DD_10\" />",
+    "  </Package>",
+    "  <PartInst RefDes=\"U1\" Name=\"U1\" PartValue=\"Value\" Package=\"PKG_LT3045EDD_1\">",
+    "    <PartInstUserProp Name=\"PCB Footprint\" Value=\"LTC_DD_10\" />",
+    "  </PartInst>",
+    "  <PartInst RefDes=\"U2\" Name=\"U2\" PartValue=\"MCP73831T-2ACI/OT\" Package=\"SOT23-5\">",
+    "    <PartInstUserProp Name=\"Manufacturer\" Value=\"Microchip Technology\" />",
+    "    <PartInstUserProp Name=\"Manufacturer Part Number\" Value=\"MCP73831T-2ACI/OT\" />",
+    "    <PartInstUserProp Name=\"PCB Footprint\" Value=\"SOT23-5\" />",
+    "  </PartInst>",
+    "  <PartInst RefDes=\"R1\" Name=\"R1\" PartValue=\"10k\" Package=\"0603\" />",
+    "  <PartInst RefDes=\"TP1\" Name=\"TP1\" PartValue=\"TESTPOINT\" Package=\"TP\" />",
+    "  <PartInst RefDes=\"J1\" Name=\"J1\" PartValue=\"USB-C-16P\" Package=\"USB_C_RECEPTACLE\">",
+    "    <PartInstUserProp Name=\"Manufacturer\" Value=\"\" />",
+    "  </PartInst>",
+    "</CISExport>"
+  ],
+  "mock_official_source_catalog": [
+    {
+      "component_key": "analog_devices_lt3045edd_1",
+      "manufacturer": "Analog Devices",
+      "mpn": "LT3045EDD-1",
+      "datasheet": {
+        "source_url": "https://www.analog.com/media/en/technical-documentation/data-sheets/lt3045.pdf",
+        "official": true,
+        "mock_file": "LT3045_datasheet.pdf",
+        "byte_size": 1854321,
+        "file_magic": "%PDF-",
+        "sha256": "1111111111111111111111111111111111111111111111111111111111111111"
+      },
+      "eval_materials": [
+        {
+          "type": "evaluation_board_user_guide",
+          "source_url": "https://www.analog.com/media/en/technical-documentation/user-guides/dc2222a.pdf",
+          "official": true,
+          "mock_file": "DC2222A_user_guide.pdf",
+          "byte_size": 942210,
+          "file_magic": "%PDF-",
+          "sha256": "2222222222222222222222222222222222222222222222222222222222222222"
+        },
+        {
+          "type": "pcb_layout_archive",
+          "source_url": "https://www.analog.com/media/en/evaluation-boards-kits/evaluation-software/DC2222A_design_files.zip",
+          "official": true,
+          "mock_file": "DC2222A_design_files.zip",
+          "byte_size": 321004,
+          "file_magic": "PK",
+          "sha256": "3333333333333333333333333333333333333333333333333333333333333333"
+        }
+      ]
+    },
+    {
+      "component_key": "microchip_mcp73831t_2aci_ot",
+      "manufacturer": "Microchip Technology",
+      "mpn": "MCP73831T-2ACI/OT",
+      "datasheet": {
+        "source_url": "https://ww1.microchip.com/downloads/aemDocuments/documents/APID/ProductDocuments/DataSheets/MCP73831-Family-Data-Sheet-DS20001984H.pdf",
+        "official": true,
+        "mock_file": "MCP73831_family_datasheet.pdf",
+        "byte_size": 1210330,
+        "file_magic": "%PDF-",
+        "sha256": "4444444444444444444444444444444444444444444444444444444444444444"
+      },
+      "eval_materials": []
+    }
+  ],
+  "output_tree_contract": {
+    "materials_root": "_workspaces/<project_code>/reference_materials/from_exp_xml",
+    "parts_folder_name": "parts",
+    "datasheet_folder_name": "DATA Sheet",
+    "eval_folder_name": "EVAL",
+    "required_top_level_outputs": [
+      "component_inventory.yaml",
+      "download_manifest.yaml",
+      "downloaded_file_checksum_manifest.yaml",
+      "circuit_design_review_queue.yaml"
+    ]
+  },
+  "hard_rules": [
+    "Treat PartInst as placed components; do not treat Package nodes alone as placed BOM lines.",
+    "If PartValue is missing or placeholder Value, recover identity only from referenced Package/SymbolUserProp and mark identity_confidence accordingly.",
+    "Generic passives, test points, symbolic power entries, and parts without manufacturer part number evidence go to review queue.",
+    "Use only official or owner-approved mocked sources. Random mirrors are forbidden.",
+    "A URL alone is not a completed download. Count only mocked files with byte_size, file_magic, and sha256.",
+    "If no official EVAL material exists, record none_found with search evidence instead of inventing substitutes.",
+    "Do not claim actual network access, browser use, file creation, or binary download. This is a synthetic calibration output packet."
+  ]
+}

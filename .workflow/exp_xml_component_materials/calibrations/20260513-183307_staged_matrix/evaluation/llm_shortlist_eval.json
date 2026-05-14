@@ -1,0 +1,6 @@
+{
+    "method":  "rule_gate_plus_manual_spot_check",
+    "verdict":  "primary_selected",
+    "primary_candidate":  "B_gpt_5_4_mini_low",
+    "rationale":  "Only candidates passing frozen hard gates were ranked. Primary had top quality score and lowest output tokens/wall time among Stage B pass candidates."
+}

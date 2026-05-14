@@ -1,0 +1,71 @@
+calibration_id: 20260513-183307_staged_matrix
+workflow_id: exp_xml_component_materials
+status: complete
+calibration_mode: staged_cli_calibration
+quality_source: cli_only_calibration
+telemetry_source: cli_full_stage_matrix
+fixture: input_fixture.public.json
+candidate_prompt: candidate_prompt.md
+boundary:
+  fixture_public_safe: true
+  uses_real_project_exp_xml: false
+  uses_downloaded_vendor_binaries: false
+  uses_credentials_or_secret_material: false
+matrix_plan:
+  stage_a:
+    purpose: choose species and class with cheap baseline
+    model: gpt-5.4-mini
+    reasoning_effort: low
+    species:
+      - human
+      - elf
+      - dwarf
+      - orc
+      - darkelf
+    classes:
+      - administrator
+      - archivist
+      - auditor
+  stage_b:
+    purpose: compare model and reasoning effort on the stage_a winner
+    models:
+      - gpt-5.4-mini
+      - gpt-5.4
+      - gpt-5.5
+    reasoning_efforts:
+      - low
+      - medium
+      - high
+      - xhigh
+  stage_c:
+    purpose: rerun finalists if ranking differences are small
+    status: satisfied_by_repeat_profile_evidence
+    evidence:
+      - A_orc_archivist
+      - B_gpt_5_4_mini_low
+results:
+  stage_a_selected_profile:
+    model: gpt-5.4-mini
+    reasoning_effort: low
+    species: orc
+    class: archivist
+    candidate_id: A_orc_archivist
+  primary_profile:
+    model: gpt-5.4-mini
+    reasoning_effort: low
+    species: orc
+    class: archivist
+    candidate_id: B_gpt_5_4_mini_low
+    quality_score: 100
+    output_tokens: 2322
+    reasoning_output_tokens: 40
+    wall_time_seconds: 17.44
+  archive_outputs:
+    final_ranking: evaluation/final_ranking.json
+    recommendation: recommendation.yaml
+    profile_policy: ../../profile_policy.yaml
+notes:
+  - Staged calibration covers model, reasoning_effort, species, and class without running the full 180-profile Cartesian matrix.
+  - Candidate outputs must not include golden output or evaluator-only criteria.
+  - User explicitly approved subagents and CLI. Final ranking uses isolated `codex exec --ephemeral --json` CLI runs because the app subagent runtime hit a thread concurrency limit and CLI telemetry produced archived outputs plus usage for every staged candidate.
+  - CLI plugin warm-up emitted remote plugin 403 warnings to stderr; raw stderr HTML was not archived, and candidate exit codes plus JSONL turn usage were captured successfully.

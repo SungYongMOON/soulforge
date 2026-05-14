@@ -10,6 +10,24 @@ const workspaceRoot = path.resolve(scriptDir, "../..");
 const packagesRoot = path.resolve(workspaceRoot, "packages");
 const packDir = mkdtempSync(path.join(tmpdir(), "soulforge-theme-pack-"));
 
+function npmInvocation(args) {
+  if (process.platform !== "win32") {
+    return { command: "npm", args };
+  }
+
+  return {
+    command: process.env.ComSpec ?? "cmd.exe",
+    args: ["/d", "/s", "/c", ["npm", ...args.map(quoteCmdArg)].join(" ")],
+  };
+}
+
+function quoteCmdArg(value) {
+  if (/^[A-Za-z0-9_@%+=:,./\\-]+$/.test(value)) {
+    return value;
+  }
+  return `"${value.replaceAll("\"", "\\\"")}"`;
+}
+
 function loadThemePackages() {
   return readdirSync(packagesRoot, { withFileTypes: true })
     .filter((entry) => entry.isDirectory() && entry.name.startsWith("theme-") && entry.name !== "theme-contract")
@@ -33,15 +51,22 @@ try {
   }
 
   for (const themePackage of themePackages) {
+    const npm = npmInvocation(["pack", "--workspace", themePackage.packageName, "--pack-destination", packDir]);
     const result = spawnSync(
-      "npm",
-      ["pack", "--workspace", themePackage.packageName, "--pack-destination", packDir],
+      npm.command,
+      npm.args,
       {
         cwd: workspaceRoot,
         stdio: "inherit",
         env: process.env
       }
     );
+
+    if (result.error) {
+      console.error("FAIL theme package smoke test");
+      console.error(`  failed to start npm pack for ${themePackage.packageName}: ${result.error.message}`);
+      process.exit(1);
+    }
 
     if (result.status !== 0) {
       process.exit(result.status ?? 1);

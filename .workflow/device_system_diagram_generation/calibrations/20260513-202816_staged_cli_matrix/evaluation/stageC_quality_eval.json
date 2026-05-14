@@ -1,0 +1,51 @@
+{
+  "stage": "C",
+  "quality_source": "cli_isolated_candidate_runner",
+  "evaluations": [
+    {
+      "candidate_id": "stageC_gpt-5.4-mini_low_human_administrator",
+      "usable": true,
+      "critical_errors": [],
+      "missing_required_items": [],
+      "golden_requirement_coverage": 0.91,
+      "task_success": 0.9,
+      "safety_boundary": "pass",
+      "repeatability": 0.9,
+      "score": 88,
+      "final_quality": "pass",
+      "notes": "Passes hard gates. Compact and stable, but weaker than the others on explicit layout/group schema and draw.io CLI provenance detail."
+    },
+    {
+      "candidate_id": "stageC_gpt-5.4_low_human_administrator",
+      "usable": true,
+      "critical_errors": [],
+      "missing_required_items": [],
+      "golden_requirement_coverage": 0.97,
+      "task_success": 0.96,
+      "safety_boundary": "pass",
+      "repeatability": 0.96,
+      "score": 96,
+      "final_quality": "pass",
+      "notes": "Strongest candidate. Complete structured input, clear grouping, correct nodes and edges, realistic planned validation, explicit non-execution boundary, and usable export provenance."
+    },
+    {
+      "candidate_id": "stageC_gpt-5.4_xhigh_human_administrator",
+      "usable": true,
+      "critical_errors": [],
+      "missing_required_items": [],
+      "golden_requirement_coverage": 0.94,
+      "task_success": 0.93,
+      "safety_boundary": "pass",
+      "repeatability": 0.92,
+      "score": 92,
+      "final_quality": "pass",
+      "notes": "Passes hard gates with good provenance and validation separation. Slightly less stable due to broader grouping buckets and an unnecessary assertion that Mermaid source is present."
+    }
+  ],
+  "finalist_quality_order": [
+    "stageC_gpt-5.4_low_human_administrator",
+    "stageC_gpt-5.4_xhigh_human_administrator",
+    "stageC_gpt-5.4-mini_low_human_administrator"
+  ],
+  "stability_notes": "All three finalists pass the hard gates. The gpt-5.4 low administrator response is the most stable against workflow requirements because it preserves structure, boundaries, validation intent, and downstream artifact provenance without overclaiming execution."
+}

@@ -1,0 +1,16 @@
+﻿{
+    "candidate_id":  "A_darkelf_administrator",
+    "stage":  "stage_a",
+    "model":  "gpt-5.4-mini",
+    "reasoning_effort":  "low",
+    "species":  "darkelf",
+    "class":  "administrator",
+    "exit_code":  0,
+    "wall_time_seconds":  86.326,
+    "usage":  {
+                  "input_tokens":  16717,
+                  "cached_input_tokens":  12672,
+                  "output_tokens":  4956,
+                  "reasoning_output_tokens":  516
+              }
+}

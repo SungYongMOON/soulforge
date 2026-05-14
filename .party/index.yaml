@@ -3,10 +3,6 @@ owner: .party
 kind: party_template_catalog
 status: active
 entries:
-  - party_id: vanguard_strike
-    path: vanguard_strike/party.yaml
-  - party_id: lineage_strike
-    path: lineage_strike/party.yaml
   - party_id: guild_master_cell
     path: guild_master_cell/party.yaml
 notes:

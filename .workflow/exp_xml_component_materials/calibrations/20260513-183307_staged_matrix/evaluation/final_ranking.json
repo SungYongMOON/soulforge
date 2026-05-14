@@ -1,0 +1,195 @@
+{
+    "calibration_id":  "20260513-183307_staged_matrix",
+    "workflow_id":  "exp_xml_component_materials",
+    "stage_a_selection":  {
+                              "selected_species":  "orc",
+                              "selected_class":  "archivist",
+                              "selected_from":  "A_orc_archivist",
+                              "reason":  "lowest-token Stage A candidate passing strict frozen gate among species/class matrix"
+                          },
+    "primary_candidate":  "B_gpt_5_4_mini_low",
+    "ranking":  [
+                    {
+                        "candidate_id":  "B_gpt_5_4_mini_low",
+                        "model":  "gpt-5.4-mini",
+                        "reasoning_effort":  "low",
+                        "species":  "orc",
+                        "class":  "archivist",
+                        "quality_score":  100,
+                        "output_tokens":  2322,
+                        "reasoning_output_tokens":  40,
+                        "input_tokens":  16942,
+                        "cached_input_tokens":  12672,
+                        "wall_time_seconds":  17.44,
+                        "output_file":  "cli_matrix/stage_b/outputs/B_gpt_5_4_mini_low.md"
+                    },
+                    {
+                        "candidate_id":  "B_gpt_5_5_xhigh",
+                        "model":  "gpt-5.5",
+                        "reasoning_effort":  "xhigh",
+                        "species":  "orc",
+                        "class":  "archivist",
+                        "quality_score":  100,
+                        "output_tokens":  2633,
+                        "reasoning_output_tokens":  516,
+                        "input_tokens":  18677,
+                        "cached_input_tokens":  7552,
+                        "wall_time_seconds":  56.029,
+                        "output_file":  "cli_matrix/stage_b/outputs/B_gpt_5_5_xhigh.md"
+                    },
+                    {
+                        "candidate_id":  "B_gpt_5_5_high",
+                        "model":  "gpt-5.5",
+                        "reasoning_effort":  "high",
+                        "species":  "orc",
+                        "class":  "archivist",
+                        "quality_score":  100,
+                        "output_tokens":  2668,
+                        "reasoning_output_tokens":  516,
+                        "input_tokens":  18674,
+                        "cached_input_tokens":  3456,
+                        "wall_time_seconds":  55.913,
+                        "output_file":  "cli_matrix/stage_b/outputs/B_gpt_5_5_high.md"
+                    },
+                    {
+                        "candidate_id":  "B_gpt_5_5_medium",
+                        "model":  "gpt-5.5",
+                        "reasoning_effort":  "medium",
+                        "species":  "orc",
+                        "class":  "archivist",
+                        "quality_score":  97,
+                        "output_tokens":  2485,
+                        "reasoning_output_tokens":  26,
+                        "input_tokens":  18674,
+                        "cached_input_tokens":  7552,
+                        "wall_time_seconds":  48.877,
+                        "output_file":  "cli_matrix/stage_b/outputs/B_gpt_5_5_medium.md"
+                    },
+                    {
+                        "candidate_id":  "B_gpt_5_4_mini_medium",
+                        "model":  "gpt-5.4-mini",
+                        "reasoning_effort":  "medium",
+                        "species":  "orc",
+                        "class":  "archivist",
+                        "quality_score":  97,
+                        "output_tokens":  4522,
+                        "reasoning_output_tokens":  2070,
+                        "input_tokens":  16942,
+                        "cached_input_tokens":  2432,
+                        "wall_time_seconds":  35.565,
+                        "output_file":  "cli_matrix/stage_b/outputs/B_gpt_5_4_mini_medium.md"
+                    },
+                    {
+                        "candidate_id":  "B_gpt_5_4_high",
+                        "model":  "gpt-5.4",
+                        "reasoning_effort":  "high",
+                        "species":  "orc",
+                        "class":  "archivist",
+                        "quality_score":  97,
+                        "output_tokens":  4887,
+                        "reasoning_output_tokens":  2407,
+                        "input_tokens":  17289,
+                        "cached_input_tokens":  7552,
+                        "wall_time_seconds":  128.472,
+                        "output_file":  "cli_matrix/stage_b/outputs/B_gpt_5_4_high.md"
+                    },
+                    {
+                        "candidate_id":  "B_gpt_5_4_xhigh",
+                        "model":  "gpt-5.4",
+                        "reasoning_effort":  "xhigh",
+                        "species":  "orc",
+                        "class":  "archivist",
+                        "quality_score":  97,
+                        "output_tokens":  11686,
+                        "reasoning_output_tokens":  9167,
+                        "input_tokens":  17292,
+                        "cached_input_tokens":  4480,
+                        "wall_time_seconds":  214.13,
+                        "output_file":  "cli_matrix/stage_b/outputs/B_gpt_5_4_xhigh.md"
+                    },
+                    {
+                        "candidate_id":  "B_gpt_5_4_mini_xhigh",
+                        "model":  "gpt-5.4-mini",
+                        "reasoning_effort":  "xhigh",
+                        "species":  "orc",
+                        "class":  "archivist",
+                        "quality_score":  97,
+                        "output_tokens":  35165,
+                        "reasoning_output_tokens":  32114,
+                        "input_tokens":  16945,
+                        "cached_input_tokens":  16768,
+                        "wall_time_seconds":  562.266,
+                        "output_file":  "cli_matrix/stage_b/outputs/B_gpt_5_4_mini_xhigh.md"
+                    }
+                ],
+    "failed_stage_b":  [
+                           {
+                               "candidate_id":  "B_gpt_5_4_mini_high",
+                               "model":  "gpt-5.4-mini",
+                               "reasoning_effort":  "high",
+                               "critical_errors":  [
+                                                       "missing_parts_datasheet_eval_path_shape"
+                                                   ],
+                               "quality_score":  82,
+                               "output_tokens":  11317,
+                               "wall_time_seconds":  94.876
+                           },
+                           {
+                               "candidate_id":  "B_gpt_5_4_low",
+                               "model":  "gpt-5.4",
+                               "reasoning_effort":  "low",
+                               "critical_errors":  [
+                                                       "missing_parts_datasheet_eval_path_shape"
+                                                   ],
+                               "quality_score":  82,
+                               "output_tokens":  2408,
+                               "wall_time_seconds":  47.292
+                           },
+                           {
+                               "candidate_id":  "B_gpt_5_4_medium",
+                               "model":  "gpt-5.4",
+                               "reasoning_effort":  "medium",
+                               "critical_errors":  [
+                                                       "missing_parts_datasheet_eval_path_shape"
+                                                   ],
+                               "quality_score":  82,
+                               "output_tokens":  2620,
+                               "wall_time_seconds":  50.279
+                           },
+                           {
+                               "candidate_id":  "B_gpt_5_5_low",
+                               "model":  "gpt-5.5",
+                               "reasoning_effort":  "low",
+                               "critical_errors":  [
+                                                       "missing_parts_datasheet_eval_path_shape"
+                                                   ],
+                               "quality_score":  82,
+                               "output_tokens":  2519,
+                               "wall_time_seconds":  48.985
+                           }
+                       ],
+    "repeat_evidence":  [
+                            {
+                                "candidate_id":  "A_orc_archivist",
+                                "model":  "gpt-5.4-mini",
+                                "reasoning_effort":  "low",
+                                "species":  "orc",
+                                "class":  "archivist",
+                                "final_quality":  "pass",
+                                "quality_score":  100,
+                                "output_tokens":  2027,
+                                "wall_time_seconds":  20.52
+                            },
+                            {
+                                "candidate_id":  "B_gpt_5_4_mini_low",
+                                "model":  "gpt-5.4-mini",
+                                "reasoning_effort":  "low",
+                                "species":  "orc",
+                                "class":  "archivist",
+                                "final_quality":  "pass",
+                                "quality_score":  100,
+                                "output_tokens":  2322,
+                                "wall_time_seconds":  17.44
+                            }
+                        ]
+}

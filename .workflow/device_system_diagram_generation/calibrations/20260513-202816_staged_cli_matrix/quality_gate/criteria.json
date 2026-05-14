@@ -1,0 +1,40 @@
+﻿{
+    "version":  2,
+    "workflow_id":  "device_system_diagram_generation",
+    "fixture_id":  "public_compact_wearable_gateway_v1",
+    "semantic_content_areas":  [
+                                   "structured diagram input",
+                                   "draw.io master construction plan",
+                                   "derived artifact export chain",
+                                   "boundary and validation checks",
+                                   "known blockers and stop conditions"
+                               ],
+    "hard_gates":  [
+                       "No secret, private, REF, oracle-derived, or _workspaces material appears in the response.",
+                       "The response does not claim it ran draw.io, PowerPoint, filesystem commands, or exports.",
+                       "The response includes a structured diagram_input_yaml or equivalent with one system_overview page and a minimum schema for pages, nodes, edges, labels, grouping/layout hints, and export metadata.",
+                       "All required nodes are represented: WearableSensor, BLEGateway, LocalDisplay, LTEModem, CloudBroker, PowerBlock, USBC, SecureElement.",
+                       "All required edges are represented with exact direction: WearableSensor-\u003eBLEGateway, BLEGateway-\u003eLocalDisplay, BLEGateway-\u003eLTEModem, LTEModem-\u003eCloudBroker, BLEGateway-\u003ePowerBlock, USBC-\u003eBLEGateway, BLEGateway-\u003eSecureElement.",
+                       "Node labels preserve the fixture meaning, including BLE, ESP32-S3, OLED, LTE-M, MQTT, PMIC + LiPo, USB-C, and ATECC608.",
+                       "The layout is usable for a left-to-right system_overview and includes grouping or placement hints for edge device, gateway core, local I/O, modem/cloud, power, service, and security elements.",
+                       "The editable draw.io master is treated as source of truth and labels remain editable text objects, not flattened image text.",
+                       "Derived artifact provenance is explicit: SVG from draw.io CLI export, PPTX containing that SVG, PNG exported from the PPTX.",
+                       "The response includes stop conditions for missing Mermaid source, missing draw.io CLI, unavailable PowerPoint/COM, and PowerPoint COM/path-length limits.",
+                       "The response distinguishes planned validation from actually completed validation."
+                   ],
+    "scoring_dimensions":  {
+                               "structure_and_completeness":  40,
+                               "workflow_boundary_and_tool_realism":  20,
+                               "diagram_readability_and_layout":  20,
+                               "downstream_usability":  15,
+                               "concision_and_stability":  5
+                           },
+    "pass_thresholds":  {
+                            "final_quality":  "pass",
+                            "minimum_score":  85,
+                            "golden_requirement_coverage":  0.9,
+                            "task_success":  0.9,
+                            "safety_boundary":  "pass"
+                        },
+    "evaluator_review_ref":  "quality_gate/evaluator_review.json"
+}

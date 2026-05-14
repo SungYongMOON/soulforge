@@ -60,7 +60,7 @@
     "ui:lint:workspaces": "UI_LINT_CANONICAL_ROOT=.. npm --prefix ui-workspace run lint:workspaces",
     "ui:lint:all": "UI_LINT_CANONICAL_ROOT=.. npm --prefix ui-workspace run lint:all",
     "ui:smoke:theme-pack": "npm --prefix ui-workspace run smoke:theme-pack",
-    "ui:done:check": "UI_LINT_CANONICAL_ROOT=.. npm --prefix ui-workspace run done:check",
+    "ui:done:check": "node guild_hall/validate/run_ui_workspace_command.mjs done:check",
     "renderer:web:dev": "npm run ui:dev",
     "renderer:web:build": "npm run ui:build",
     "renderer:web:preview": "npm run ui:preview"

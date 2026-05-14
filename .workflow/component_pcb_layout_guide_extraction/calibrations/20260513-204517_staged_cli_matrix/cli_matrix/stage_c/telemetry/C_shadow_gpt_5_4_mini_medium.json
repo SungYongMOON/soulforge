@@ -1,0 +1,16 @@
+﻿{
+    "candidate_id":  "C_shadow_gpt_5_4_mini_medium",
+    "stage":  "stage_c",
+    "model":  "gpt-5.4-mini",
+    "reasoning_effort":  "medium",
+    "species":  "elf",
+    "class":  "archivist",
+    "exit_code":  0,
+    "wall_time_seconds":  43.75,
+    "usage":  {
+                  "input_tokens":  16718,
+                  "cached_input_tokens":  16256,
+                  "output_tokens":  6505,
+                  "reasoning_output_tokens":  516
+              }
+}

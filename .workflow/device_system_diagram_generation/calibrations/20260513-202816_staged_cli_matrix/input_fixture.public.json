@@ -1,0 +1,26 @@
+﻿{
+    "workflow_id":  "device_system_diagram_generation",
+    "fixture_id":  "public_compact_wearable_gateway_v1",
+    "public_safe":  true,
+    "input_markdown":  "# Compact Wearable Gateway System\n\nGenerate an editable device system diagram package for a compact wearable gateway. The editable draw.io master is the source of truth; SVG, PPTX, and PNG are derived artifacts.\n\n```mermaid\nflowchart LR\n  WearableSensor[\"Wearable Sensor\\nBLE\"] --\u003e BLEGateway[\"BLE Gateway\\nESP32-S3\"]\n  BLEGateway --\u003e LocalDisplay[\"Local OLED Display\"]\n  BLEGateway --\u003e LTEModem[\"LTE-M Modem\"]\n  LTEModem --\u003e CloudBroker[\"Cloud MQTT Broker\"]\n  BLEGateway --\u003e PowerBlock[\"PMIC + LiPo Battery\"]\n  USBC[\"USB-C Service Port\"] --\u003e BLEGateway\n  BLEGateway --\u003e SecureElement[\"ATECC608 Secure Element\"]\n```\n\nRequired package:\n- diagram_input.yaml with pages, nodes, edges, labels, grouping hints, and export metadata.\n- editable .drawio master with one page named `system_overview`.\n- SVG export from draw.io, not a hand-written replacement.\n- PPTX slide containing the SVG.\n- PNG preview exported from the PPTX.\n- validation notes covering required output existence and known local-tool blockers.",
+    "required_nodes":  [
+                           "WearableSensor",
+                           "BLEGateway",
+                           "LocalDisplay",
+                           "LTEModem",
+                           "CloudBroker",
+                           "PowerBlock",
+                           "USBC",
+                           "SecureElement"
+                       ],
+    "required_edges":  [
+                           "WearableSensor-\u003eBLEGateway",
+                           "BLEGateway-\u003eLocalDisplay",
+                           "BLEGateway-\u003eLTEModem",
+                           "LTEModem-\u003eCloudBroker",
+                           "BLEGateway-\u003ePowerBlock",
+                           "USBC-\u003eBLEGateway",
+                           "BLEGateway-\u003eSecureElement"
+                       ],
+    "boundary":  "Public synthetic fixture only; no REF packets, private workspaces, secrets, or project raw input."
+}

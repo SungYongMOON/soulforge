@@ -1,8 +1,97 @@
 workflow_id: device_system_diagram_generation
-kind: profile_policy
-status: draft
-active_profile: null
-calibration_status: pending
+kind: workflow_profile_policy
+status: active
+last_calibration_id: 20260513-202816_staged_cli_matrix
+calibration_mode: staged_cli_matrix
+measurement_policy:
+  quality_source: cli_isolated_candidate_runner_staged_matrix
+  telemetry_source: cli_candidate_json_usage
+  subagent_token_usage_available: false
+  telemetry_exact_for_subagent: false
+  cost_confidence: relative_cli_proxy_not_exact
+  full_default_matrix_status: not_run_cost_bounded_staged_matrix
+primary_profile:
+  model: gpt-5.4-mini
+  reasoning_effort: low
+  species: human
+  class: administrator
+  candidate_id: stageC_gpt-5.4-mini_low_human_administrator
+  quality_score: 88
+  final_quality: pass
+  wall_time_seconds: 9.56
+  input_tokens: 15614
+  cached_input_tokens: 12672
+  output_tokens: 945
+  reasoning_output_tokens: 51
+  uncached_input_plus_output_proxy: 3887
+  selection_reason: Lowest-cost and fastest finalist that passed all hard gates in Stage B and Stage C; Stage C quality gap to the strongest finalist was below the 10-point quality override threshold.
+shadow_top_k:
+  - rank: 2
+    model: gpt-5.4
+    reasoning_effort: low
+    species: human
+    class: administrator
+    candidate_id: stageC_gpt-5.4_low_human_administrator
+    quality_score: 96
+    final_quality: pass
+    wall_time_seconds: 26.55
+    input_tokens: 15966
+    cached_input_tokens: 2432
+    output_tokens: 1282
+    reasoning_output_tokens: 17
+    uncached_input_plus_output_proxy: 14816
+    use_when: Output quality margin and stability matter more than latency or proxy cost.
+  - rank: 3
+    model: gpt-5.5
+    reasoning_effort: low
+    species: human
+    class: administrator
+    candidate_id: stageB_gpt-5.5_low_human_administrator
+    quality_score: 93
+    final_quality: pass
+    wall_time_seconds: 24.63
+    input_tokens: 17338
+    cached_input_tokens: 4480
+    output_tokens: 1100
+    reasoning_output_tokens: 10
+    uncached_input_plus_output_proxy: 13958
+    use_when: Need a stronger model family while keeping reasoning effort low.
+  - rank: 4
+    model: gpt-5.4
+    reasoning_effort: medium
+    species: human
+    class: administrator
+    candidate_id: stageB_gpt-5.4_medium_human_administrator
+    quality_score: 94
+    final_quality: pass
+    wall_time_seconds: 29.28
+    input_tokens: 15953
+    cached_input_tokens: 7552
+    output_tokens: 1343
+    reasoning_output_tokens: 20
+    uncached_input_plus_output_proxy: 9744
+    use_when: Need a balanced gpt-5.4 shadow with slightly stronger planning than low effort.
+  - rank: 5
+    model: gpt-5.4
+    reasoning_effort: xhigh
+    species: human
+    class: administrator
+    candidate_id: stageC_gpt-5.4_xhigh_human_administrator
+    quality_score: 92
+    final_quality: pass
+    wall_time_seconds: 32.71
+    input_tokens: 15966
+    cached_input_tokens: 7552
+    output_tokens: 1576
+    reasoning_output_tokens: 408
+    uncached_input_plus_output_proxy: 9990
+    use_when: Need a high-deliberation fallback for difficult or ambiguous source packets.
+rerun_triggers:
+  - workflow step graph changes.
+  - draw.io/PPTX export contract changes.
+  - a real project source packet requires stricter diagram fidelity than the public synthetic fixture.
+  - the primary profile fails the frozen quality gate on two consecutive owner-reviewed runs.
+calibration_archive_ref: calibrations/20260513-202816_staged_cli_matrix/
 notes:
-  - No model/species/class profile calibration has been run for this workflow.
-  - Runtime tool execution is local and should be bound per project rather than hard-coded here.
+  - Calibration used a public-safe synthetic fixture and did not include project raw input, REF packets, secrets, _workspaces, or private-state material.
+  - CLI telemetry is a relative proxy from isolated candidate runs; exact production cost depends on the operational runner and cache state.
