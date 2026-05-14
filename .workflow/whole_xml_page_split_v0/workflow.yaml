@@ -22,7 +22,7 @@ outputs:
   - source_provenance
   - page_role_hints
   - split_readiness
-validation_level: pilot_ready_contract_only
+validation_level: pilot_executed_private_fixture
 downstream_workflow:
   workflow_id: page_xml_normalize_spec_v0
   expected_input: page_xml_assets

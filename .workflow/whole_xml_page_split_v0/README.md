@@ -44,3 +44,11 @@ Pages with possible PCB, MDD, material, or hardware context should be flagged as
 ## Boundary
 
 The package is reusable procedure only. Real whole XML inputs, generated page XML files, manifests from a concrete project, parser logs, and run evidence remain project-local or private. Public `.workflow` files only describe the steps, output shape, and safety rules.
+
+## Current Maturity
+
+`validation_level: pilot_executed_private_fixture`
+
+The package has completed a controlled private real-sample pilot over one large multi-page XML source, producing 11 page XML assets plus manifest, index, provenance, role hints, and split readiness outputs that were later consumed by the page-normalization lane.
+
+The package is still conservative: broader source-family coverage and fresh independent review are still needed before any stronger maturity claim.
