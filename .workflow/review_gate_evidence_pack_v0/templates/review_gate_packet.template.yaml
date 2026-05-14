@@ -1,0 +1,46 @@
+schema_version: review_gate_evidence_pack_v0
+review_gate_packet:
+  packet_id: "<review_gate_packet_id>"
+  review_subject_id: "<subject_or_scope_id>"
+  review_family: SRR_like|SFR_like|SRR_SFR_like|PDR_like|CDR_like|TRR_like|FCA_SVR_like|PCA_like|mixed_tailored
+  secondary_lenses: []
+  owner_surface: "<owner_surface_or_role>"
+  created_at: "<iso8601_timestamp>"
+  source_index_ref: source_index.yaml
+  evidence_matrix_ref: evidence_matrix.yaml
+  readiness_summary_ref: readiness_summary.md
+  entrance_criteria_ref: entrance_criteria_checklist.yaml
+  success_criteria_ref: success_criteria_checklist.yaml
+  blockers_ref: review_blockers.yaml
+  action_register_ref: action_item_register.yaml
+  decision_summary_ref: decision_summary.yaml
+  review_questions:
+    - question_id: "<question_id>"
+      review_family: "<review_family>"
+      question: "<review_question>"
+      evidence_state: supported|partial|missing|conflicting|not_applicable
+      evidence_refs: []
+      criterion_refs: []
+      blocker_refs: []
+      action_refs: []
+      decision_refs: []
+  readiness_state: ready_to_hold_review|ready_with_named_caveats|not_ready_to_hold_review|blocked_scope_unclear|blocked_missing_evidence|blocked_source_conflict|not_applicable_pending_owner
+  top_blockers: []
+  top_actions: []
+  decision_status: no_owner_decision_recorded|proposed_decision_only|owner_decision_recorded|decision_deferred
+  non_claims:
+    - This evidence pack does not approve the review gate.
+    - This evidence pack does not certify verification completion.
+    - This evidence pack does not replace owner judgment.
+    - This evidence pack does not make missing sources true.
+    - This evidence pack does not mutate upstream evidence.
+    - This evidence pack does not make private evidence public-safe.
+  carry_forward:
+    to_next_review_gate: []
+    to_action_closure_loop: []
+    to_source_gap_followup: []
+    to_verification_planning: []
+rules:
+  review_packet_is_not_review_outcome: true
+  readiness_state_is_conversation_readiness_only: true
+  source_refs_remain_authoritative: true

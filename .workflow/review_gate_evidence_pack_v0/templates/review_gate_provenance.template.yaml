@@ -1,0 +1,41 @@
+schema_version: review_gate_provenance_v0
+review_gate_provenance:
+  review_gate_packet_id: "<review_gate_packet_id>"
+  generated_by_workflow: review_gate_evidence_pack_v0
+  project_code: "<project_code>"
+  run_id: "<run_id>"
+  created_at: "<iso8601_timestamp>"
+  rerun_reason: "<initial_or_rerun_reason>"
+  input_artifacts:
+    - artifact_ref: "<repo_relative_ref_or_stable_id>"
+      artifact_kind: "<artifact_kind>"
+      owning_workflow_id: "<workflow_id_or_owner_surface>"
+      checksum_sha256: "<sha256_or_not_available>"
+      approval_scope: "<approval_scope>"
+      consumed_for:
+        - source_index
+        - evidence_matrix
+  output_artifacts:
+    review_gate_packet: review_gate_packet.yaml
+    source_index: source_index.yaml
+    evidence_matrix: evidence_matrix.yaml
+    entrance_criteria_checklist: entrance_criteria_checklist.yaml
+    success_criteria_checklist: success_criteria_checklist.yaml
+    review_blockers: review_blockers.yaml
+    action_item_register: action_item_register.yaml
+    decision_summary: decision_summary.yaml
+    readiness_summary: readiness_summary.md
+    boundary_review_note: boundary_review_note.md
+  public_private_boundary:
+    raw_payloads_copied_to_public_package: false
+    runtime_absolute_paths_in_public_package: false
+    secrets_or_account_state_read: false
+    upstream_artifacts_mutated: false
+  carry_forward:
+    action_register_ref: action_item_register.yaml
+    blocker_register_ref: review_blockers.yaml
+    downstream_routes: []
+rules:
+  provenance_records_refs_not_payloads: true
+  runtime_paths_if_needed_stay_in_private_run_evidence: true
+  upstream_mutation_is_forbidden: true

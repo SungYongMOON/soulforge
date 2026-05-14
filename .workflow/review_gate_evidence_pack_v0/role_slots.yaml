@@ -1,0 +1,28 @@
+workflow_id: review_gate_evidence_pack_v0
+kind: role_slots
+status: active
+slots:
+  - slot_id: workflow_runner
+    title: Workflow Runner
+    summary: Resolves project-local bindings, review scope, review family, owner surface, output roots, and the no-approval/no-verification-completion boundary.
+  - slot_id: source_index_curator
+    title: Source Index Curator
+    summary: Inventories approved upstream evidence refs, authority, freshness, checksums, and approval scope without copying raw payloads.
+  - slot_id: review_family_mapper
+    title: Review Family Mapper
+    summary: Selects the primary SRR/SFR/PDR/CDR/TRR/FCA/PCA-style lens and named secondary lenses for the bounded review scope.
+  - slot_id: evidence_matrix_builder
+    title: Evidence Matrix Builder
+    summary: Maps review questions to trace, readiness, verification-plan, source-gap, harness, baseline, owner-decision, and explicit gap refs.
+  - slot_id: criteria_writer
+    title: Criteria Writer
+    summary: Writes entrance criteria as readiness checks and success criteria as intended review outcomes, keeping partial and missing states visible.
+  - slot_id: blocker_action_router
+    title: Blocker And Action Router
+    summary: Classifies blockers by scheduling, closure, or confidence impact and writes concrete action items with owners, evidence targets, and triggers.
+  - slot_id: decision_recorder
+    title: Decision Recorder
+    summary: Records actual scoped owner decisions only when provided, labels proposals separately, and writes required non-claims.
+  - slot_id: boundary_reviewer
+    title: Boundary Reviewer
+    summary: Checks public/private boundaries, upstream read-only behavior, evidence gaps, criteria separation, and overclaim language before reporting the bundle.

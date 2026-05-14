@@ -1,0 +1,254 @@
+workflow_id: review_gate_evidence_pack_v0
+kind: step_graph
+status: active
+steps:
+  - step_id: prepare_review_gate_binding
+    title: Prepare Review Gate Binding
+    actor_slot: workflow_runner
+    action:
+      kind: project_local_review_gate_binding_setup
+      requires:
+        - review_gate_project_binding
+        - review_scope_refs
+        - approved_review_gate_policy
+      validates:
+        - output_root_is_project_local_or_private_workmeta
+        - review_family_is_explicit
+        - owner_surface_is_explicit
+        - input_refs_are_read_only
+        - review_approval_claim_allowed_is_false
+        - verification_completion_claim_allowed_is_false
+        - upstream_mutation_allowed_is_false
+        - public_package_contains_no_payloads
+        - no_runtime_absolute_paths_in_public_package
+      creates:
+        - review_gate_output_root
+        - review_gate_run_log_root
+    summary: Resolve the bounded review scope, review family, owner surface, and output root before reading upstream evidence.
+    next:
+      on_success: build_bounded_source_index
+      on_fail: stop
+  - step_id: build_bounded_source_index
+    title: Build Bounded Source Index
+    actor_slot: source_index_curator
+    action:
+      kind: read_only_review_source_inventory
+      artifacts_in:
+        - review_gate_evidence_index_refs
+        - trace_matrix_refs
+        - evidence_authority_map_refs
+        - trace_gap_register_refs
+        - interface_control_packet_refs
+        - harness_readiness_matrix_refs
+        - source_gap_followup_packet_refs
+        - verification_plan_summary_refs
+        - trr_readiness_handoff_refs
+        - fca_svr_handoff_index_refs
+        - harness_composition_packet_refs
+        - configuration_baseline_refs
+        - owner_decision_refs
+        - risk_or_open_question_register_refs
+      artifact_out: source_index
+      records:
+        - artifact_ref
+        - artifact_kind
+        - owning_workflow_id
+        - checksum_sha256
+        - approval_scope
+        - freshness_note
+        - consumed_for
+      forbidden_basis:
+        - unbounded_chat_history
+        - secret_or_session_state
+        - hidden_reference_oracle
+        - verifier_report
+        - previous_candidate_repair_packet
+        - raw_source_payload_text
+        - unindexed_owner_file
+        - archived_or_relocation_stub_as_canon
+    summary: Inventory only approved evidence refs and their authority/freshness notes; do not copy payloads or treat unsupported files as truth.
+    next:
+      on_success: select_review_family_questions
+      on_fail: stop
+  - step_id: select_review_family_questions
+    title: Select Review Family Questions
+    actor_slot: review_family_mapper
+    action:
+      kind: review_family_question_selection
+      artifacts_in:
+        - source_index
+        - review_scope_refs
+      artifact_out: review_question_set
+      review_family_values:
+        - SRR_like
+        - SFR_like
+        - SRR_SFR_like
+        - PDR_like
+        - CDR_like
+        - TRR_like
+        - FCA_SVR_like
+        - PCA_like
+        - mixed_tailored
+      rules:
+        - primary_review_family_required
+        - secondary_lenses_are_named_separately
+        - mixed_tailored_pack_must_not_blur_entrance_and_success_criteria
+        - review_questions_are_lightweight_local_interpretations_not_full_formal_ceremony
+    summary: Select the primary review lens and secondary lenses so criteria and evidence emphasis stay explicit.
+    next:
+      on_success: map_evidence_to_review_questions
+      on_fail: stop
+  - step_id: map_evidence_to_review_questions
+    title: Map Evidence To Review Questions
+    actor_slot: evidence_matrix_builder
+    action:
+      kind: review_question_evidence_matrix_write
+      artifacts_in:
+        - source_index
+        - review_question_set
+      artifacts_out:
+        - evidence_matrix
+        - review_gate_packet_draft
+      evidence_states:
+        - supported
+        - partial
+        - missing
+        - conflicting
+        - not_applicable
+      invariant: every_major_review_question_maps_to_source_refs_or_explicit_gap
+      forbidden_shortcuts:
+        - infer_evidence_from_filename_only
+        - suppress_missing_or_conflicting_evidence
+        - upgrade_review_required_to_supported_without_owner_or_source_basis
+    summary: Crosswalk review questions to source refs, trace rows, readiness packets, source gaps, harness state, and explicit gaps.
+    next:
+      on_success: write_criteria_checklists
+      on_fail: stop
+  - step_id: write_criteria_checklists
+    title: Write Criteria Checklists
+    actor_slot: criteria_writer
+    action:
+      kind: entrance_and_success_criteria_write
+      artifacts_in:
+        - evidence_matrix
+        - review_gate_packet_draft
+      artifacts_out:
+        - entrance_criteria_checklist
+        - success_criteria_checklist
+      criterion_status_values:
+        - met
+        - partial
+        - missing
+        - not_applicable
+      rules:
+        - entrance_criteria_are_review_readiness_checks_not_system_pass_fail
+        - success_criteria_are_review_outcomes_not_implementation_promises
+        - each_criterion_has_evidence_ref_or_explicit_gap
+        - unmet_criteria_name_owner_or_routing_surface
+    summary: Separate readiness-to-hold criteria from desired review outcomes and preserve partial/missing states.
+    next:
+      on_success: classify_blockers_and_actions
+      on_fail: stop
+  - step_id: classify_blockers_and_actions
+    title: Classify Blockers And Actions
+    actor_slot: blocker_action_router
+    action:
+      kind: review_blocker_and_action_register_write
+      artifacts_in:
+        - evidence_matrix
+        - entrance_criteria_checklist
+        - success_criteria_checklist
+        - source_index
+      artifacts_out:
+        - review_blockers
+        - action_item_register
+      blocker_scope_values:
+        - blocks_review_scheduling
+        - blocks_review_closure
+        - weakens_review_confidence
+      action_rules:
+        - action_items_have_owner_or_responsible_surface
+        - action_items_have_evidence_target
+        - action_items_have_trigger_or_due_condition
+        - action_items_do_not_count_as_closed_without_external_evidence
+        - retry_actions_route_to_narrowest_owning_workflow
+    summary: Preserve missing source, conflicting trace, unresolved owner decision, absent harness, unstable interface, and quantitative gaps as actionable records.
+    next:
+      on_success: write_decision_summary_and_non_claims
+      on_fail: stop
+  - step_id: write_decision_summary_and_non_claims
+    title: Write Decision Summary And Non-Claims
+    actor_slot: decision_recorder
+    action:
+      kind: decision_summary_and_non_claim_guardrail_write
+      artifacts_in:
+        - review_gate_packet_draft
+        - entrance_criteria_checklist
+        - success_criteria_checklist
+        - review_blockers
+        - action_item_register
+        - owner_decision_refs
+      artifacts_out:
+        - decision_summary
+        - readiness_summary
+        - review_gate_packet
+      decision_status_values:
+        - no_owner_decision_recorded
+        - proposed_decision_only
+        - owner_decision_recorded
+        - decision_deferred
+      readiness_state_values:
+        - ready_to_hold_review
+        - ready_with_named_caveats
+        - not_ready_to_hold_review
+        - blocked_scope_unclear
+        - blocked_missing_evidence
+        - blocked_source_conflict
+        - not_applicable_pending_owner
+      required_non_claims:
+        - no_review_gate_approval_claim
+        - no_verification_completion_claim
+        - no_owner_judgment_replacement_claim
+        - no_missing_source_truth_claim
+        - no_private_to_public_safety_claim
+      rules:
+        - actual_decisions_require_scoped_owner_decision_ref
+        - proposed_decisions_are_labeled_separately
+        - readiness_summary_is_scheduling_or_conversation_readiness_only
+    summary: Write decisions only when sourced, otherwise label proposals or deferrals and include explicit non-claims.
+    next:
+      on_success: write_provenance_and_boundary_review
+      on_fail: stop
+  - step_id: write_provenance_and_boundary_review
+    title: Write Provenance And Boundary Review
+    actor_slot: boundary_reviewer
+    action:
+      kind: review_gate_bundle_boundary_and_overclaim_review
+      artifacts_in:
+        - review_gate_packet
+        - source_index
+        - evidence_matrix
+        - entrance_criteria_checklist
+        - success_criteria_checklist
+        - review_blockers
+        - action_item_register
+        - decision_summary
+        - readiness_summary
+      artifacts_out:
+        - review_gate_provenance
+        - boundary_review_note
+      checks:
+        - every_review_question_has_evidence_or_gap
+        - entrance_and_success_criteria_are_separate
+        - blockers_distinguish_scheduling_from_closure
+        - action_items_have_evidence_targets
+        - decisions_are_separate_from_recommendations
+        - non_claims_present
+        - no_review_approval_or_verification_completion_overclaim
+        - no_upstream_artifact_mutation
+        - no_raw_payloads_or_runtime_absolute_paths_in_public_package
+        - no_secret_or_account_state_requested_from_agent
+    summary: Finalize provenance, boundary checks, output counts, blockers, actions, decision status, and the best first pilot route.
+    next:
+      on_success: complete
+      on_fail: stop

@@ -1,0 +1,51 @@
+workflow_id: review_gate_evidence_pack_v0
+project_binding:
+  project_code: "<project_code>"
+  run_id: "<run_id>"
+  workflow_mode: scope_review_pack|rerun_update|closure_followup_refresh
+  output_root_repo_path: _workmeta/<project_code>/runs/<run_id>/review_gate/review_gate_evidence_pack_v0
+  run_log_root_repo_path: _workmeta/<project_code>/runs/<run_id>/run_evidence/review_gate_evidence_pack_v0
+  review_scope:
+    review_subject_id: "<subject_or_scope_id>"
+    owner_surface: "<owner_surface_or_role>"
+    primary_review_family: SRR_like|SFR_like|SRR_SFR_like|PDR_like|CDR_like|TRR_like|FCA_SVR_like|PCA_like|mixed_tailored
+    secondary_lenses: []
+    baseline_refs: []
+    page_asset_ids: []
+    harness_ids: []
+    trace_matrix_ids: []
+  boundary:
+    source_xml_mutation_allowed: false
+    upstream_packet_mutation_allowed: false
+    harness_packet_mutation_allowed: false
+    verification_execution_allowed: false
+    review_gate_approval_claim_allowed: false
+    verification_completion_claim_allowed: false
+    owner_decision_creation_allowed: false
+  required_input_policy:
+    bounded_source_list_required: true
+    approval_scope_required_for_each_input_ref: true
+    owner_decision_ref_required_for_actual_decisions: true
+    source_conflicts_block_affected_questions: true
+    missing_evidence_creates_blocker_or_action: true
+  forbidden_inputs:
+    - secret_files
+    - account_sessions
+    - hidden_reference_oracle
+    - verifier_report
+    - accepted_result_without_owner_scope
+    - previous_candidate_repair_packet
+    - unbounded_chat_history
+    - raw_project_payload_without_public_sanitization
+  output_files:
+    review_gate_packet: review_gate_packet.yaml
+    source_index: source_index.yaml
+    evidence_matrix: evidence_matrix.yaml
+    entrance_criteria_checklist: entrance_criteria_checklist.yaml
+    success_criteria_checklist: success_criteria_checklist.yaml
+    review_blockers: review_blockers.yaml
+    action_item_register: action_item_register.yaml
+    decision_summary: decision_summary.yaml
+    review_gate_provenance: review_gate_provenance.yaml
+    readiness_summary: readiness_summary.md
+    boundary_review_note: boundary_review_note.md

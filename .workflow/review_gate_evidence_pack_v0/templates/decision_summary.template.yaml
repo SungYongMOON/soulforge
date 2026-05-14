@@ -1,0 +1,34 @@
+schema_version: review_gate_decision_summary_v0
+decision_summary:
+  decision_summary_id: "<decision_summary_id>"
+  review_gate_packet_id: "<review_gate_packet_id>"
+  decision_status: no_owner_decision_recorded|proposed_decision_only|owner_decision_recorded|decision_deferred
+  actual_decisions:
+    - decision_id: "<decision_id>"
+      decision_statement: "<scoped_decision_statement>"
+      decision_owner: "<owner_or_review_participant_surface>"
+      scope_and_effective_surface: "<scope>"
+      evidence_basis_refs: []
+      known_limitations: []
+      follow_up_action_ids: []
+      decision_source_ref: "<owner_decision_or_review_note_ref>"
+  proposed_decisions:
+    - proposal_id: "<proposal_id>"
+      proposal_statement: "<proposal_or_option>"
+      needed_decision_owner: "<owner_surface>"
+      evidence_basis_refs: []
+      unresolved_blocker_ids: []
+      follow_up_action_ids: []
+  deferred_decisions:
+    - deferred_decision_id: "<deferred_id>"
+      reason: "<why_deferred>"
+      blocker_ids: []
+      needed_evidence_or_owner_input: []
+  non_claims:
+    - This decision summary does not approve the review gate.
+    - This decision summary does not certify verification completion.
+    - Proposed decisions are not actual owner decisions.
+rules:
+  actual_decisions_require_decision_source_ref: true
+  proposed_decisions_are_not_decisions: true
+  no_review_approval_or_verification_completion_claim: true

@@ -1,0 +1,21 @@
+schema_version: review_gate_source_index_v0
+source_index:
+  source_index_id: "<source_index_id>"
+  review_gate_packet_id: "<review_gate_packet_id>"
+  input_artifacts:
+    - artifact_ref: "<repo_relative_ref_or_stable_id>"
+      artifact_kind: trace_matrix|review_gate_evidence_index|interface_control_packet|verification_plan_summary|source_gap_followup_packet|harness_packet|configuration_baseline|owner_decision|risk_or_open_question_register|other
+      owning_workflow_id: "<workflow_id_or_owner_surface>"
+      checksum_sha256: "<sha256_or_not_available>"
+      approval_scope: "<approval_scope>"
+      freshness_note: current|stale|unknown|superseded|not_applicable
+      authority_note: source_authority|derived_governance|owner_decision|review_context|gap_only
+      consumed_for:
+        - review_question_mapping
+  excluded_inputs:
+    - artifact_ref: "<ref_or_reason>"
+      exclusion_reason: unapproved|secret_or_session_state|raw_payload|archived_or_relocation_stub|unbounded_chat_history|outside_scope
+rules:
+  records_refs_not_payloads: true
+  stale_or_conflicting_sources_create_blockers: true
+  private_payloads_stay_out_of_public_package: true

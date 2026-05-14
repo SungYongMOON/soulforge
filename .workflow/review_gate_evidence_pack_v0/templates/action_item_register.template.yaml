@@ -1,0 +1,20 @@
+schema_version: review_gate_action_item_register_v0
+action_item_register:
+  action_register_id: "<action_register_id>"
+  review_gate_packet_id: "<review_gate_packet_id>"
+  action_items:
+    - action_id: "<action_id>"
+      action: "<concrete_action>"
+      owner_or_responsible_surface: "<owner_or_workflow_surface>"
+      evidence_target_to_produce_or_update: "<repo_relative_ref_or_artifact_kind>"
+      trigger_or_due_condition: "<trigger_or_due_condition>"
+      supports_review_family: "<review_family>"
+      supports_criterion_ids: []
+      source_or_blocker_refs: []
+      downstream_route: source_gap_followup|verification_plan_rerun|interface_control_rerun|harness_composition_rerun|configuration_change_control|owner_decision|other
+      status: proposed|open|deferred|externally_closed_with_evidence
+      closure_evidence_ref: "<ref_or_empty>"
+rules:
+  action_items_are_carry_forward_records: true
+  action_creation_does_not_close_action: true
+  downstream_route_targets_narrowest_owner: true

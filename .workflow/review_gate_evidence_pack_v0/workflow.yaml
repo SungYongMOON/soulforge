@@ -1,0 +1,248 @@
+workflow_id: review_gate_evidence_pack_v0
+kind: workflow
+status: active
+title: Review Gate Evidence Pack v0
+summary: Assemble lightweight SRR/SFR/PDR/CDR/TRR/FCA/PCA-style review readiness packets from existing trace, interface, verification-plan, source-gap, and harness evidence without approving the review gate, certifying verification completion, or mutating upstream evidence.
+entrypoint: run
+execution_mode: local_tool_sequence
+role_slots: role_slots.yaml
+step_graph: step_graph.yaml
+handoff_rules: handoff_rules.yaml
+monster_rules: monster_rules.yaml
+party_compatibility: party_compatibility.yaml
+profile_policy: profile_policy.yaml
+inputs:
+  - review_gate_project_binding
+  - review_scope_refs
+  - approved_review_gate_policy
+optional_inputs:
+  - review_gate_evidence_index_refs
+  - trace_matrix_refs
+  - evidence_authority_map_refs
+  - trace_gap_register_refs
+  - interface_control_packet_refs
+  - harness_readiness_matrix_refs
+  - source_gap_followup_packet_refs
+  - verification_plan_summary_refs
+  - trr_readiness_handoff_refs
+  - fca_svr_handoff_index_refs
+  - harness_composition_packet_refs
+  - configuration_baseline_refs
+  - owner_decision_refs
+  - risk_or_open_question_register_refs
+outputs:
+  - review_gate_packet
+  - source_index
+  - evidence_matrix
+  - entrance_criteria_checklist
+  - success_criteria_checklist
+  - review_blockers
+  - action_item_register
+  - decision_summary
+  - review_gate_provenance
+  - readiness_summary
+  - boundary_review_note
+validation_level: pilot_ready_contract_only
+registration_policy: owner_requested_registration
+workflow_modes:
+  - scope_review_pack
+  - rerun_update
+  - closure_followup_refresh
+review_family_values:
+  - SRR_like
+  - SFR_like
+  - SRR_SFR_like
+  - PDR_like
+  - CDR_like
+  - TRR_like
+  - FCA_SVR_like
+  - PCA_like
+  - mixed_tailored
+readiness_state_values:
+  - ready_to_hold_review
+  - ready_with_named_caveats
+  - not_ready_to_hold_review
+  - blocked_scope_unclear
+  - blocked_missing_evidence
+  - blocked_source_conflict
+  - not_applicable_pending_owner
+criterion_status_values:
+  - met
+  - partial
+  - missing
+  - not_applicable
+blocker_scope_values:
+  - blocks_review_scheduling
+  - blocks_review_closure
+  - weakens_review_confidence
+decision_status_values:
+  - no_owner_decision_recorded
+  - proposed_decision_only
+  - owner_decision_recorded
+  - decision_deferred
+upstream_workflows:
+  - workflow_id: page_module_trace_matrix_v0
+    expected_outputs:
+      - review_gate_evidence_index
+      - trace_matrix
+      - evidence_authority_map
+      - trace_gap_register
+      - verification_seed_matrix
+      - boundary_review_note
+  - workflow_id: interface_control_and_harness_readiness_v0
+    expected_outputs:
+      - interface_control_packet
+      - harness_readiness_matrix
+      - blocked_interface_items
+      - review_required_interface_items
+      - owner_followup_needed
+      - boundary_review_note
+  - workflow_id: verification_plan_from_page_contracts_v0
+    expected_outputs:
+      - verification_plan_summary
+      - trr_readiness_handoff
+      - fca_svr_handoff_index
+      - verification_gap_register
+      - owner_followup_needed
+      - boundary_review_note
+  - workflow_id: source_gap_followup_packet_v0
+    expected_outputs:
+      - source_gap_followup_packet
+      - owner_action_queue
+      - retry_trigger_register
+      - downstream_unblock_map
+  - workflow_id: xml_harness_composition_v0
+    expected_outputs:
+      - blocked_connections
+      - review_required_connections
+      - candidate_safe_connections
+      - source_supported_connections
+      - composition_readiness
+    status: optional_harness_context
+downstream_workflows:
+  - workflow_id: review_action_item_closure_loop_v0
+    expected_input: action_item_register_and_review_blockers
+    status: planned
+  - workflow_id: configuration_baseline_and_change_control_v0
+    expected_input: scoped_decision_summary_and_configuration_action_items
+    status: planned
+  - workflow_id: verification_plan_from_page_contracts_v0
+    expected_input: review_actions_that_change_verification_scope_or_evidence_needs
+    status: rerun_trigger_only
+  - workflow_id: source_gap_followup_packet_v0
+    expected_input: review_actions_that_request_source_or_evidence_refresh
+    status: rerun_trigger_only
+review_gate_contract:
+  owns:
+    - review_scope_and_family_selection
+    - bounded_source_index
+    - review_question_to_evidence_mapping
+    - entrance_criteria_checklist
+    - success_criteria_checklist
+    - blocker_register
+    - action_item_register
+    - decision_summary_with_decision_status
+    - non_claims_and_overclaim_guardrails
+    - review_gate_provenance_and_carry_forward
+  does_not_own:
+    - source_xml_mutation
+    - page_module_spec_schema_design
+    - upstream_packet_repair
+    - official_source_acquisition
+    - interface_or_harness_claim_strengthening
+    - verification_plan_authoring
+    - verification_execution
+    - verification_result_acceptance
+    - configuration_baseline_approval
+    - formal_review_gate_approval
+    - owner_decision_authority
+  required_output_shapes:
+    review_gate_packet: templates/review_gate_packet.template.yaml
+    source_index: templates/source_index.template.yaml
+    evidence_matrix: templates/evidence_matrix.template.yaml
+    entrance_criteria_checklist: templates/entrance_criteria_checklist.template.yaml
+    success_criteria_checklist: templates/success_criteria_checklist.template.yaml
+    review_blockers: templates/review_blockers.template.yaml
+    action_item_register: templates/action_item_register.template.yaml
+    decision_summary: templates/decision_summary.template.yaml
+    review_gate_provenance: templates/review_gate_provenance.template.yaml
+    readiness_summary: templates/readiness_summary.template.md
+    boundary_review_note: templates/boundary_review_note.template.md
+    project_binding: templates/project_binding.template.yaml
+  authority_boundary:
+    review_gate_packet_is_review_approval: false
+    readiness_summary_is_review_outcome: false
+    decision_summary_creates_owner_decisions: false
+    action_items_close_themselves: false
+    verification_plan_handoff_is_verification_completion: false
+    fca_svr_handoff_is_functional_acceptance: false
+    pca_lens_is_configuration_audit_acceptance: false
+    upstream_artifacts_are_read_only: true
+    evidence_gaps_remain_visible: true
+    owner_decisions_must_be_scoped_and_sourced: true
+    public_package_contains_templates_not_raw_payloads: true
+  review_family_mapping:
+    SRR_like:
+      question: Are stakeholder needs, scope, source basis, and open source gaps clear enough to hold the next review conversation?
+      emphasis:
+        - source_index
+        - trace_rows
+        - source_gaps
+        - owner_questions
+    SFR_like:
+      question: Are expected functions and boundaries stable enough to shape the solution discussion?
+      emphasis:
+        - trace_matrix
+        - interface_readiness
+        - functional_decomposition
+        - unresolved_ambiguity
+    PDR_like:
+      question: Is the proposed design direction credible enough for preliminary review and follow-up planning?
+      emphasis:
+        - interface_control
+        - quantitative_evidence
+        - harness_readiness
+        - risks_and_tradeoffs
+    CDR_like:
+      question: Is detailed design evidence organized enough to discuss build, validation, or handoff readiness?
+      emphasis:
+        - finalized_trace_refs
+        - interface_contracts
+        - quantitative_thresholds
+        - harness_readiness
+        - open_blockers
+    TRR_like:
+      question: Is the test, simulation, inspection, analysis, or demonstration activity ready enough to discuss running it?
+      emphasis:
+        - verification_plan_summary
+        - trr_readiness_handoff
+        - procedure_and_resource_gaps
+        - residual_risk
+    FCA_SVR_like:
+      question: Do delivered behavior claims have trace and result anchors ready for functional review once accepted result packets exist?
+      emphasis:
+        - trace_to_function_claims
+        - verification_result_anchors
+        - deviations
+        - action_items
+    PCA_like:
+      question: Does the artifact package have enough configuration evidence to discuss physical or package alignment with the declared baseline?
+      emphasis:
+        - baseline_refs
+        - artifact_inventory_refs
+        - checksum_or_version_gaps
+        - configuration_actions
+  required_non_claims:
+    - This evidence pack does not approve the review gate.
+    - This evidence pack does not certify verification completion.
+    - This evidence pack does not replace owner judgment.
+    - This evidence pack does not make missing sources true.
+    - This evidence pack does not mutate upstream evidence.
+    - This evidence pack does not make private evidence public-safe.
+notes:
+  - This workflow sits after evidence-producing lanes and before an owner-led review conversation or follow-up planning loop.
+  - It packages review readiness, evidence links, criteria, blockers, actions, decisions, and provenance; it does not run or close the review.
+  - Entrance criteria describe whether a review conversation is worth holding; success criteria describe what the review intends to decide or unblock.
+  - Decisions must be separated from proposed decisions. The workflow may record a responsible owner decision when a scoped decision source exists, but it cannot create one.
+  - Public workflow canon stores only portable orchestration rules, state semantics, boundary policy, and sanitized templates.
+  - Public workflow files must not contain raw project payloads, source XML bodies, vendor document text, test logs, simulation results, runtime absolute paths, `_workspaces` outputs, credentials, cookies, sessions, or private run truth.

@@ -1,0 +1,18 @@
+schema_version: review_gate_success_criteria_v0
+success_criteria_checklist:
+  checklist_id: "<success_checklist_id>"
+  review_gate_packet_id: "<review_gate_packet_id>"
+  criteria:
+    - criterion_id: "<success_criterion_id>"
+      desired_review_outcome: "<what_the_review_intends_to_decide_confirm_or_unblock>"
+      review_family: "<review_family>"
+      decision_owner: "<owner_or_review_participant_surface>"
+      evidence_needed: []
+      minimum_acceptable_evidence_level: "<evidence_level>"
+      status: met|partial|missing|not_applicable
+      follow_up_if_not_satisfied: "<action_or_route>"
+      related_review_question_ids: []
+rules:
+  success_criteria_are_review_outcomes_not_implementation_promises: true
+  desired_outcome_does_not_create_decision: true
+  missing_success_evidence_creates_action_or_deferred_decision: true

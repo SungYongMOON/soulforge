@@ -41,6 +41,8 @@ entries:
     path: source_gap_followup_packet_v0/workflow.yaml
   - workflow_id: verification_plan_from_page_contracts_v0
     path: verification_plan_from_page_contracts_v0/workflow.yaml
+  - workflow_id: review_gate_evidence_pack_v0
+    path: review_gate_evidence_pack_v0/workflow.yaml
 notes:
   - Workflow catalog only. Raw run ids and execution dumps do not belong here.
   - Authoring templates live under `authoring/` and are not workflow canon entries.

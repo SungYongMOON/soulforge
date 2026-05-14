@@ -11,6 +11,17 @@
 
 ## 2026-05-15
 
+### Revision `working` - Review gate evidence pack workflow added
+
+- Added `.workflow/review_gate_evidence_pack_v0/` as a public-safe review-readiness workflow over trace, interface-control, verification-plan, source-gap, harness, configuration, owner-decision, and open-question refs.
+- Registered the workflow in `.workflow/index.yaml` and listed it in `.workflow/README.md` after the verification planning lane.
+- Defined explicit outputs for `review_gate_packet`, `source_index`, `evidence_matrix`, `entrance_criteria_checklist`, `success_criteria_checklist`, `review_blockers`, `action_item_register`, `decision_summary`, `review_gate_provenance`, `readiness_summary`, and `boundary_review_note`.
+- Mapped the packet shape lightly to SRR/SFR/PDR/CDR/TRR/FCA/SVR/PCA-style review conversations while keeping review families as local readiness lenses, not heavyweight ceremony or automatic gate closure.
+- Required decisions to stay separate from proposed decisions and deferred decisions, with actual decisions needing scoped owner decision evidence.
+- Kept the package evidence-packaging-only: it does not approve a review gate, certify verification completion, replace owner judgment, make missing sources true, mutate upstream packets, or make private evidence public-safe.
+- Kept source XML, normalized sidecars, upstream packets, verification results, test logs, simulation outputs, raw project payloads, vendor text, runtime absolute paths, credentials, cookies, sessions, `_workspaces` outputs, and private run truth out of public workflow canon.
+- Marked the package `pilot_ready_contract_only`; a controlled mixed page/harness review packet pilot is still required before claiming pilot-executed, usable, or production-ready behavior.
+
 ### Revision `working` - Verification plan from page contracts workflow added
 
 - Added `.workflow/verification_plan_from_page_contracts_v0/` as a public-safe verification planning workflow over trace rows, quantitative gaps, simulation-source readiness, interface-control ceilings, harness blockers, source gaps, configuration refs, and scoped owner decisions.

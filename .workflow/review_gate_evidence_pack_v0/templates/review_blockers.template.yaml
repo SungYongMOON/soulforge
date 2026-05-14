@@ -1,0 +1,19 @@
+schema_version: review_gate_blockers_v0
+review_blockers:
+  blocker_register_id: "<blocker_register_id>"
+  review_gate_packet_id: "<review_gate_packet_id>"
+  blockers:
+    - blocker_id: "<blocker_id>"
+      blocker_statement: "<concrete_blocker>"
+      impacted_review_question_ids: []
+      impacted_criterion_ids: []
+      source_or_evidence_gap_refs: []
+      required_next_action: "<next_action>"
+      owner_or_routing_surface: "<owner_or_workflow_surface>"
+      blocker_scope: blocks_review_scheduling|blocks_review_closure|weakens_review_confidence
+      status: open|deferred|not_applicable|externally_resolved_with_evidence
+      closure_evidence_ref: "<ref_or_empty>"
+rules:
+  blocker_is_concrete_and_actionable: true
+  scheduling_and_closure_blockers_are_distinct: true
+  blockers_do_not_close_without_evidence_ref: true

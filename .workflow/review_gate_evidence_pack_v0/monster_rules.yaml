@@ -1,0 +1,46 @@
+workflow_id: review_gate_evidence_pack_v0
+kind: monster_rules
+status: active
+rules:
+  - monster_id: review_packet_reported_as_gate_approval
+    response: relabel_as_review_readiness_packet_and_add_required_non_claim
+    summary: The packet can organize evidence for a review conversation, but it cannot approve or close the gate.
+  - monster_id: readiness_summary_reported_as_review_outcome
+    response: relabel_as_scheduling_or_conversation_readiness
+    summary: Readiness states say whether the review is worth holding, not whether the reviewed system passed.
+  - monster_id: verification_completion_overclaim
+    response: relabel_verification_refs_as_plan_or_result_anchor_refs_only
+    summary: Verification-plan and handoff refs do not certify completion; accepted result packets must come from the responsible verification workflow.
+  - monster_id: decision_summary_creates_owner_decision
+    response: move_to_proposed_decisions_or_decision_deferred
+    summary: Actual decisions require scoped owner or review-participant evidence; otherwise the workflow may only propose or defer.
+  - monster_id: recommendation_recorded_as_decision
+    response: split_recommendation_from_decision_and_require_decision_owner_ref
+    summary: Proposed paths and recommended actions must not be written as already-decided outcomes.
+  - monster_id: entrance_and_success_criteria_collapsed
+    response: split_readiness_to_hold_from_intended_review_outcome
+    summary: Entrance criteria decide whether the review conversation is worth holding; success criteria define what the review hopes to decide or unblock.
+  - monster_id: blocker_hidden_in_summary
+    response: create_review_blocker_and_action_item
+    summary: Missing sources, conflicting traces, absent harness evidence, unstable interfaces, and quantitative gaps remain visible.
+  - monster_id: action_item_treated_as_closed_by_creation
+    response: keep_action_open_until_external_closure_evidence_exists
+    summary: Creating an action item routes work; it does not prove the work is done.
+  - monster_id: source_gap_treated_as_source_truth
+    response: route_to_source_gap_followup_or_owning_source_workflow
+    summary: A gap record explains missing evidence; it does not make a missing source present or source-supported.
+  - monster_id: upstream_packet_mutated_by_review_workflow
+    response: stop_and_emit_action_or_rerun_trigger_only
+    summary: Review-gate packaging is read-only over upstream packets and must not patch traces, source packets, verification plans, interface ledgers, or harness packets.
+  - monster_id: review_family_overimported_as_formal_ceremony
+    response: keep_lightweight_soulforge_interpretation_and_tailor_scope
+    summary: SRR/SFR/PDR/CDR/TRR/FCA/PCA-style lenses guide questions and criteria; they do not import a heavyweight board process by default.
+  - monster_id: source_conflict_resolved_by_convenience
+    response: mark_affected_questions_conflicting_and_route_owner_or_source_review
+    summary: Conflicting evidence cannot be resolved by choosing the source that makes the review look ready.
+  - monster_id: raw_payload_leak_to_public_package
+    response: remove_payload_and_keep_template_or_ref_only
+    summary: Public workflow canon may define shapes and gates, but not raw project XML, source files, vendor text, test data, simulation logs, private values, or downloaded collateral.
+  - monster_id: runtime_absolute_path_in_public_package
+    response: replace_with_repo_relative_placeholder_or_stable_id
+    summary: Public package files must use repo-relative placeholders or stable ids, not drive letters, host-specific roots, or machine-local paths.

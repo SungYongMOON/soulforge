@@ -1,0 +1,36 @@
+workflow_id: review_gate_evidence_pack_v0
+kind: handoff_rules
+status: active
+rules:
+  - from: workflow_runner
+    to: source_index_curator
+    condition: binding_scope_and_review_family_ready
+    summary: Curator receives portable input refs, owner surface, review family, and boundary flags; it does not receive secrets, raw payload dumps, hidden references, verifier reports, or unindexed files.
+  - from: source_index_curator
+    to: review_family_mapper
+    condition: source_index_written
+    summary: Mapper receives artifact metadata, authority hints, freshness notes, and approved source refs so review family questions stay bounded to available evidence.
+  - from: review_family_mapper
+    to: evidence_matrix_builder
+    condition: review_question_set_written
+    summary: Matrix builder receives the selected primary lens and secondary lenses, not permission to blur criteria or import full formal ceremony by default.
+  - from: evidence_matrix_builder
+    to: criteria_writer
+    condition: evidence_matrix_draft_written
+    summary: Criteria writer receives question-to-evidence rows with explicit supported, partial, missing, conflicting, or not-applicable states.
+  - from: criteria_writer
+    to: blocker_action_router
+    condition: entrance_and_success_criteria_written
+    summary: Blocker router receives separate entrance and success criteria and may not hide unmet criteria to make the pack look ready.
+  - from: blocker_action_router
+    to: decision_recorder
+    condition: blocker_and_action_registers_written
+    summary: Decision recorder receives open blockers and proposed actions; action creation alone does not close blockers or create owner decisions.
+  - from: decision_recorder
+    to: boundary_reviewer
+    condition: review_gate_packet_and_decision_summary_written
+    summary: Boundary reviewer receives the full bundle and verifies decisions, proposals, non-claims, and readiness states before final reporting.
+  - from: boundary_reviewer
+    to: workflow_runner
+    condition: boundary_review_note_complete
+    summary: Runner reports output paths, review family, readiness state, blocker counts, action counts, decision status, validation status, and the narrowest first pilot case.

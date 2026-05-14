@@ -1,0 +1,24 @@
+workflow_id: review_gate_evidence_pack_v0
+kind: party_compatibility
+status: active
+compatible_party_templates:
+  - workflow_research_build_verify
+  - traceability_matrix_build
+  - review_gate_preparation
+  - sourcebound_extraction_review
+  - systems_pm_planning
+required_capabilities:
+  - project_local_binding_resolution
+  - bounded_source_indexing
+  - review_family_mapping
+  - evidence_matrix_crosswalk
+  - criteria_checklist_authoring
+  - blocker_action_routing
+  - owner_decision_vs_proposal_separation
+  - public_private_boundary_review
+  - overclaim_language_review
+notes:
+  - No default party binding is assigned yet.
+  - Runtime model, reasoning, party, and project-local input policies resolve through project-local bindings.
+  - A controlled project-local pilot and independent boundary review are required before claiming pilot-executed, usable, or production-ready behavior.
+  - The workflow package is public-safe because it stores only orchestration rules, review-state semantics, authority policy, and sanitized output templates.

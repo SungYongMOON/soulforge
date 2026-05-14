@@ -1,0 +1,18 @@
+schema_version: review_gate_entrance_criteria_v0
+entrance_criteria_checklist:
+  checklist_id: "<entrance_checklist_id>"
+  review_gate_packet_id: "<review_gate_packet_id>"
+  criteria:
+    - criterion_id: "<entrance_criterion_id>"
+      criterion_statement: "<what_must_be_available_before_the_review_is_worth_holding>"
+      review_family: "<review_family>"
+      status: met|partial|missing|not_applicable
+      evidence_refs: []
+      explicit_gap_refs: []
+      owner_or_resolver: "<owner_or_responsible_surface>"
+      consequence_if_unmet: "<scheduling_or_scope_consequence>"
+      related_review_question_ids: []
+rules:
+  entrance_criteria_are_review_readiness_checks: true
+  entrance_criteria_are_not_system_pass_fail_claims: true
+  unmet_criteria_create_blocker_or_action: true

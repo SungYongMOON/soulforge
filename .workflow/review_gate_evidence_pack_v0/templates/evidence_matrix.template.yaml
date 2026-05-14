@@ -1,0 +1,24 @@
+schema_version: review_gate_evidence_matrix_v0
+evidence_matrix:
+  evidence_matrix_id: "<evidence_matrix_id>"
+  review_gate_packet_id: "<review_gate_packet_id>"
+  rows:
+    - review_question_id: "<question_id>"
+      review_family: "<review_family>"
+      review_question: "<review_question>"
+      evidence_state: supported|partial|missing|conflicting|not_applicable
+      supporting_refs: []
+      partial_refs: []
+      missing_or_gap_refs: []
+      conflicting_refs: []
+      trace_row_ids: []
+      interface_or_harness_refs: []
+      verification_plan_refs: []
+      source_gap_refs: []
+      blocker_ids: []
+      action_ids: []
+      notes: "<bounded_note>"
+rules:
+  every_major_review_question_has_row: true
+  no_supported_state_without_evidence_ref: true
+  missing_and_conflicting_states_remain_visible: true
