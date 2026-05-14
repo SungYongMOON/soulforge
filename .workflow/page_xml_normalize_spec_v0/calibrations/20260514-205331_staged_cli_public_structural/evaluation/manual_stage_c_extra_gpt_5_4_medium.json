@@ -1,0 +1,20 @@
+{
+  "candidate_id": "C_shadow_gpt_5_4_medium_manual",
+  "profile": {
+    "model": "gpt-5.4",
+    "effort": "medium",
+    "species": "elf",
+    "class": "auditor"
+  },
+  "exit_code": 0,
+  "wall_time_seconds": 137.748,
+  "usage": {
+    "input_tokens": 19681,
+    "cached_input_tokens": 7552,
+    "output_tokens": 7295,
+    "reasoning_output_tokens": 156
+  },
+  "output_ref": "cli_matrix\\stage_c\\outputs\\C_shadow_gpt_5_4_medium_manual.md",
+  "events_ref": "cli_matrix\\stage_c\\events\\C_shadow_gpt_5_4_medium_manual.jsonl",
+  "stderr_archived": false
+}

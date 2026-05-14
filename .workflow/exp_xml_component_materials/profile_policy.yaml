@@ -1,79 +1,54 @@
 workflow_id: exp_xml_component_materials
 kind: workflow_profile_policy
 status: active
-last_calibration_id: 20260513-183307_staged_matrix
-calibration_mode: staged_cli_calibration
+last_calibration_id: 20260514-2155_quality_priority_contract_probe
+calibration_mode: quality_priority_scoped_cli_contract_probe
 measurement_policy:
-  quality_source: cli_only_calibration
-  telemetry_source: cli_passed_candidates_and_full_stage_matrix
+  quality_source: cli_top2_manual_gate
+  telemetry_source: cli_probe_primary_and_shadow
   subagent_token_usage_available: false
   telemetry_exact_for_subagent: false
   cost_confidence: relative_not_exact
 primary_profile:
-  model: gpt-5.4-mini
-  reasoning_effort: low
+  model: gpt-5.5
+  reasoning_effort: medium
   species: orc
   class: archivist
   measured_tokens:
-    input_tokens: 16942
-    cached_input_tokens: 12672
-    output_tokens: 2322
-    reasoning_output_tokens: 40
+    input_tokens: 18015
+    cached_input_tokens: 7552
+    output_tokens: 1875
+    reasoning_output_tokens: 109
     telemetry_source: codex_exec_json_cli_proxy
-  wall_time_seconds: 17.44
-  quality_score: 100
+  wall_time_seconds: 42.038
+  quality_score: 99
   quality_gate: pass
-  candidate_id: B_gpt_5_4_mini_low
+  candidate_id: C2_gpt_5_5_medium_orc_archivist
 shadow_top_k:
   - rank: 2
-    candidate_id: B_gpt_5_5_xhigh
-    model: gpt-5.5
-    reasoning_effort: xhigh
-    species: orc
-    class: archivist
-    output_tokens: 2633
-    reasoning_output_tokens: 516
-    wall_time_seconds: 56.029
-    quality_score: 100
-  - rank: 3
-    candidate_id: B_gpt_5_5_high
-    model: gpt-5.5
-    reasoning_effort: high
-    species: orc
-    class: archivist
-    output_tokens: 2668
-    reasoning_output_tokens: 516
-    wall_time_seconds: 55.913
-    quality_score: 100
-  - rank: 4
-    candidate_id: B_gpt_5_5_medium
-    model: gpt-5.5
-    reasoning_effort: medium
-    species: orc
-    class: archivist
-    output_tokens: 2485
-    reasoning_output_tokens: 26
-    wall_time_seconds: 48.877
-    quality_score: 97
-  - rank: 5
-    candidate_id: B_gpt_5_4_mini_medium
+    candidate_id: C1_gpt_5_4_mini_medium_orc_archivist
     model: gpt-5.4-mini
     reasoning_effort: medium
     species: orc
     class: archivist
-    output_tokens: 4522
-    reasoning_output_tokens: 2070
-    wall_time_seconds: 35.565
-    quality_score: 97
+    output_tokens: 1560
+    reasoning_output_tokens: 194
+    wall_time_seconds: 16.191
+    quality_score: 92
+    quality_gate: pass_with_gap
 rerun_triggers:
   - workflow step graph changes
   - EXP XML parser or download manifest contract changes
+  - optional intake handoff authority or safe-field contract changes
+  - page-fragment or owner-approved local official collateral reuse contract changes
+  - primary output omits explicit DATA Sheet or EVAL destination placement
   - official-source boundary rules change
   - primary profile fails the frozen quality gate on a representative public-safe fixture
   - model availability, pricing, or latency characteristics materially change
-calibration_archive_ref: calibrations/20260513-183307_staged_matrix
+calibration_archive_ref: calibrations/20260514-2155_quality_priority_contract_probe
 notes:
-  - Primary profile selected from public-safe synthetic fixture calibration; no real EXP.xml, downloaded vendor binary, credential, cookie, or project-local raw truth is stored in the archive.
-  - Stage A selected `orc|archivist` as the lowest-token species/class pair passing the strict gate.
-  - Stage B selected `gpt-5.4-mini|low|orc|archivist` as the lowest-cost and fastest quality-pass profile.
+  - Owner selected quality-first policy after a scoped page-fragment/local-reuse contract probe.
+  - Previous gpt-5.4-mini medium primary remained usable but showed a manifest explicitness gap by not naming DATA Sheet and EVAL destination folders for completed local official collateral.
+  - gpt-5.5 medium passed the page-fragment scope, context-only handoff, local official reuse, checksum/file-magic, and explicit folder-placement gates.
+  - This policy update is based on a scoped CLI top-2 probe, not a full subagent matrix.
   - Runtime download and verification tooling should be bound per project rather than hard-coded here.

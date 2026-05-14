@@ -1,0 +1,46 @@
+calibration_id: 20260514-2155_quality_priority_contract_probe
+workflow_id: exp_xml_component_materials
+recommended_profile:
+  model: gpt-5.5
+  reasoning_effort: medium
+  species: orc
+  class: archivist
+  candidate_id: C2_gpt_5_5_medium_orc_archivist
+quality_gate:
+  final_quality: pass
+  quality_score: 99
+  golden_requirement_coverage: 0.99
+  task_success: 0.99
+  safety_boundary: pass
+measured_cli_proxy:
+  input_tokens: 18015
+  cached_input_tokens: 7552
+  output_tokens: 1875
+  reasoning_output_tokens: 109
+  wall_time_seconds: 42.038
+  output_file: cli_telemetry_probe/outputs/C2_gpt_5_5_medium_orc_archivist.md
+selection_reason:
+  - Owner explicitly selected quality over speed/cost after the scoped new-contract shake test.
+  - The previous primary remained usable but omitted explicit DATA Sheet and EVAL destination placement in download_manifest.
+  - gpt-5.5 medium passed the page-fragment scope, context-only handoff, owner-approved local official collateral reuse, checksum/file-magic, and explicit folder-placement gates.
+not_measured:
+  - Full isolated subagent matrix quality.
+  - Exact production runner token usage.
+  - Real project EXP.xml behavior.
+  - Real vendor download throughput or account-gated download handling.
+boundary_assumptions:
+  - Calibration fixture is synthetic and public-safe.
+  - Candidate outputs use mocked official-source records only.
+  - No downloaded PDFs, ZIPs, PCB files, credentials, cookies, `_workspaces`, `_workmeta`, or private-state content are stored in this archive.
+shadow_profiles:
+  - rank: 2
+    candidate_id: C1_gpt_5_4_mini_medium_orc_archivist
+    model: gpt-5.4-mini
+    reasoning_effort: medium
+    species: orc
+    class: archivist
+    quality_score: 92
+    quality_gate: pass_with_gap
+    output_tokens: 1560
+    reasoning_output_tokens: 194
+    wall_time_seconds: 16.191

@@ -1,0 +1,100 @@
+workflow_id: asset_patch_attach_mdd_v0
+kind: step_graph
+status: active
+steps:
+  - step_id: prepare_patch_binding
+    title: Prepare Patch Binding
+    actor_slot: workflow_runner
+    action:
+      kind: local_workspace_setup
+      requires:
+        - asset_identity
+        - pcb_pairing_placeholder
+        - mdd_source
+        - patch_policy
+      validates:
+        - asset_identity_exists
+        - placeholder_exists
+        - mdd_source_exists
+      creates:
+        - patch_log_root
+    summary: Resolve the existing XML-first asset registration and the owner-supplied MDD path before any metadata change.
+    next:
+      on_success: validate_owner_supplied_attachment
+      on_fail: stop
+  - step_id: validate_owner_supplied_attachment
+    title: Validate Owner-Supplied Attachment
+    actor_slot: patch_registrar
+    action:
+      kind: attachment_state_review
+      artifacts_in:
+        - asset_identity
+        - pcb_pairing_placeholder
+        - mdd_source
+      artifact_out: attachment_review_note
+      rules:
+        - source_xml_registration_remains_authoritative
+        - owner_supplied_mdd_is_attachment_assertion_only
+        - no_deep_pairing_inference
+    summary: Confirm this is an owner-supplied MDD attach/patch event, not a request to rebuild or reinterpret the original XML registration.
+    next:
+      on_success: record_mdd_provenance
+      on_fail: stop
+  - step_id: record_mdd_provenance
+    title: Record MDD Provenance
+    actor_slot: provenance_writer
+    action:
+      kind: file_identity_probe
+      artifact_in: mdd_source
+      artifact_out: provenance_update
+      records:
+        - source_file_identity
+        - source_file_sha256
+        - created_at
+        - attachment_mode
+    summary: Record the MDD file identity and patch provenance without copying the raw MDD payload into reusable canon.
+    next:
+      on_success: update_asset_identity_and_placeholder
+      on_fail: stop
+  - step_id: update_asset_identity_and_placeholder
+    title: Update Asset Identity And Placeholder
+    actor_slot: patch_registrar
+    action:
+      kind: patch_manifest_write
+      artifacts_in:
+        - asset_identity
+        - pcb_pairing_placeholder
+        - provenance_update
+        - attachment_review_note
+      artifacts_out:
+        - asset_identity_updated
+        - pcb_pairing_placeholder_updated
+        - asset_patch_record
+      patch_rules:
+        bump_asset_version: true
+        update_mdd_status_to_attached: true
+        preserve_prior_xml_registration_fields: true
+    summary: Bump asset version, update MDD attachment state, and append a metadata-only patch record.
+    next:
+      on_success: boundary_review
+      on_fail: stop
+  - step_id: boundary_review
+    title: Boundary Review
+    actor_slot: boundary_reviewer
+    action:
+      kind: boundary_and_readiness_review
+      artifacts_in:
+        - asset_identity_updated
+        - pcb_pairing_placeholder_updated
+        - asset_patch_record
+        - provenance_update
+      artifact_out: readiness_note
+      checks:
+        - source_xml_registration_preserved
+        - raw_mdd_payload_not_in_public_package
+        - no_runtime_absolute_paths_in_public_package
+        - owner_supplied_attachment_state_recorded
+    summary: Confirm the patch only updated metadata and that the asset set is now ready for later PCB-aware workflows.
+    next:
+      on_success: complete
+      on_fail: stop

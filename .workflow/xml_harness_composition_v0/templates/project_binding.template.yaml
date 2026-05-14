@@ -1,0 +1,42 @@
+workflow_id: xml_harness_composition_v0
+kind: project_binding_template
+status: template
+project_code: <project_code>
+harness_run_id: <run_id>
+inputs:
+  page_level_asset_identities:
+    - page_asset_id: <page_asset_id>
+      page_asset_binding: <project_local_page_asset_identity_or_manifest_ref>
+      read_only: true
+  page_module_sidecars:
+    - page_asset_id: <page_asset_id>
+      sidecar_path: <project_local_page_module_spec_v0_yaml>
+      read_only: true
+  optional_capture_intake_packets:
+    - page_asset_id: <page_asset_id>
+      intake_packet_path: <project_local_intake_packet_or_manifest>
+      read_only: true
+  optional_component_materials_packets:
+    - page_asset_id: <page_asset_id>
+      materials_packet_path: <project_local_materials_packet_or_manifest>
+      read_only: true
+  optional_layout_guide_packets:
+    - page_asset_id: <page_asset_id>
+      layout_guide_packet_path: <project_local_layout_guide_manifest_or_source_map>
+      read_only: true
+  optional_owner_connection_hints:
+    - hint_id: <hint_id>
+      summary: <owner_hint_summary_without_secret_or_raw_payload>
+      source_status: owner_hint_review_context
+outputs:
+  harness_output_root: <project_local_derived_harness_output_root>
+  harness_packet_file: harness_packet.yaml
+classification_policy:
+  local_internal_candidates_are_external_by_default: false
+  missing_source_blocks_or_requires_review: true
+  missing_quantitative_constraints_block_or_require_review: true
+  candidate_safe_is_not_final_circuit_approval: true
+public_boundary:
+  commit_project_outputs_to_public_repo: false
+  include_raw_xml_or_vendor_text_in_workflow_package: false
+  use_runtime_absolute_paths_in_workflow_package: false

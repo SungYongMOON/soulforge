@@ -1,0 +1,2 @@
+{"candidate_id":"C1_gpt_5_4_mini_medium_orc_archivist","final_quality":"pass_with_gap","quality_score":92,"rule_result":"passed authority, page-fragment, handoff, local-reuse, checksum, and boundary gates; missed explicit DATA Sheet/EVAL placement in download_manifest"}
+{"candidate_id":"C2_gpt_5_5_medium_orc_archivist","final_quality":"pass","quality_score":99,"rule_result":"passed all scoped gates including explicit DATA Sheet/EVAL destination placement"}

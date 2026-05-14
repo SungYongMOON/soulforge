@@ -1,0 +1,1 @@
+{"type": "event_summary", "note": "Raw evaluator CLI events intentionally replaced because the evaluator attempted repo-contract inspection and emitted host-specific command paths. Final evaluator JSON retains the public-safe review result and telemetry."}

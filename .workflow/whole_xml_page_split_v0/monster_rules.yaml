@@ -1,0 +1,43 @@
+workflow_id: whole_xml_page_split_v0
+kind: monster_rules
+status: active
+rules:
+  - monster_id: missing_whole_xml_source
+    response: stop_with_binding_blocker
+    summary: Do not create page XML assets without a project binding to the whole XML source.
+  - monster_id: source_xml_mutation_risk
+    response: stop_and_preserve_owner_source
+    summary: The workflow reads the whole XML only; any attempt to rewrite, normalize, rename, or save over the source file is a blocker.
+  - monster_id: output_root_inside_workflow_package
+    response: stop_and_request_project_local_binding
+    summary: Page XML files are project-local derived artifacts and must not be written inside `.workflow/`.
+  - monster_id: raw_xml_leak_to_public_package
+    response: remove_payload_and_keep_only_generic_rule
+    summary: Public workflow files may describe page splitting and output shapes, but must not contain real XML bodies or fixture-derived page payloads.
+  - monster_id: absolute_path_in_public_workflow
+    response: replace_with_project_binding_identity
+    summary: Reusable workflow files must use stable ids or portable binding names, never drive letters, home directories, or concrete runtime paths.
+  - monster_id: page_boundary_ambiguous
+    response: write_review_required_warning_or_stop
+    summary: If page boundaries cannot be identified, stop unless the split policy explicitly allows a single-page fallback with a manifest warning.
+  - monster_id: duplicate_or_missing_page_id
+    response: derive_deterministic_id_and_record_warning
+    summary: Preserve order and derive stable ids from source labels or ordinal suffixes while recording the ambiguity in the page manifest.
+  - monster_id: parser_memory_pressure
+    response: use_streaming_or_chunked_boundary_probe
+    summary: Large XML files should use a streaming or chunked parser when a full DOM parse is unsafe.
+  - monster_id: malformed_xml
+    response: stop_with_parse_blocker
+    summary: Do not guess page boundaries from malformed XML; record parser diagnostics in private/project-local evidence and stop.
+  - monster_id: normalization_requested_during_split
+    response: defer_to_page_xml_normalize_spec_v0
+    summary: This workflow preserves page-local XML content and does not normalize schema, names, connectivity, or asset identity.
+  - monster_id: materials_collection_requested_during_split
+    response: route_to_downstream_material_workflow
+    summary: Datasheet, EVAL, PSpice, layout, and reference-design material collection belongs to later workflows, not page splitting.
+  - monster_id: pcb_mdd_context_overclaim
+    response: keep_as_review_hint_only
+    summary: PCB or MDD-looking page signals are non-authoritative hints until a later owner-approved workflow reviews them.
+  - monster_id: secret_or_account_material_requested
+    response: stop_and_request_owner_action
+    summary: The workflow must not read, store, or summarize tokens, cookies, passwords, credential files, or local account/session artifacts.

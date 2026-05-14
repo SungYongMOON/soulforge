@@ -1,0 +1,52 @@
+calibration_id: 20260514-135122_staged_cli_matrix
+workflow_id: capture_xml_intake_library_v0
+kind: workflow_profile_calibration_archive
+status: complete
+created_at: 2026-05-14T13:51:22+09:00
+calibration_mode: staged_cli_calibration
+boundary: public_safe_synthetic_fixture
+source_skill: workflow-optimizer
+runtime_note:
+  default_subagent_quality_first: blocked_runtime_subagent_unavailable
+  fallback_used: cli_only_calibration
+  reason: Current higher-priority runtime policy did not allow spawning the default subagent quality matrix without an explicit user subagent request; isolated Codex CLI runs were used and explicitly labeled as CLI-only calibration evidence.
+matrix:
+  stage_a:
+    purpose: Select species and class with gpt-5.4-mini low.
+    candidates: 15
+    winner: A_elf_administrator
+  stage_b:
+    purpose: Compare model and reasoning effort using elf administrator.
+    candidates: 12
+  stage_c:
+    purpose: Rerun finalists for stability and final policy selection.
+    candidates: 3
+quality_gate:
+  criteria: quality_gate/criteria.json
+  evaluator_review: quality_gate/evaluator_review.json
+  rule_eval:
+    - evaluation/stageA_rule_eval.jsonl
+    - evaluation/stageB_rule_eval.jsonl
+    - evaluation/stageC_rule_eval.jsonl
+  shortlist_review: evaluation/llm_shortlist_eval.json
+telemetry:
+  source: codex_exec_json_cli_proxy
+  full_matrix_results: cli_matrix/results.jsonl
+  passed_candidates: cli_telemetry_probe/passed_candidates.jsonl
+  telemetry_jsonl: cli_telemetry_probe/telemetry.jsonl
+recommendation:
+  model: gpt-5.4
+  reasoning_effort: medium
+  species: elf
+  class: administrator
+public_safety:
+  fixture_contains_real_exp_xml: false
+  fixture_contains_real_project_paths: false
+  fixture_contains_secrets: false
+  archive_contains_runtime_project_outputs: false
+  archive_contains_private_run_truth: false
+notes:
+  - Candidate prompts did not include golden output or frozen quality criteria.
+  - Golden output was used only to help freeze criteria.
+  - CLI telemetry is exact for these CLI runs only and is not exact subagent telemetry.
+  - Raw stderr HTML from plugin warm-up warnings was intentionally not archived.

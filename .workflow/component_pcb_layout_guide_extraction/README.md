@@ -9,6 +9,13 @@ Owner-accepted usable follow-on workflow for `exp_xml_component_materials`. It r
 - Output per component: `Layout Guide/layout_guide.md`, `source_map.json`, `extraction_manifest.json`, and cache/source subfolders.
 - Public workflow canon must not include absolute paths, concrete run ids, downloaded files, copied PDF text, or project-local source material.
 
+If official layout guidance cannot be acquired, the workflow must still write a bounded `Layout Guide/` packet that clearly says so. In that degraded case:
+
+- `layout_guide.md` becomes a source-gap report with only source-backed observations plus explicit missing-guidance sections.
+- `source_map.json` records attempted or available source anchors without inventing unsupported layout claims.
+- `extraction_manifest.json` records attempted official sources, download or access blockers, unresolved gaps, and the exact owner follow-up needed.
+- The workflow must not silently stop and must not fabricate layout recommendations to fill the gap.
+
 ## Output Tree
 
 ```text
@@ -57,6 +64,14 @@ After raw/context extraction, promote only layout-guide-cited unique full-page r
 ## Supplemental Sources
 
 When `DATA Sheet/` and `EVAL/` do not contain enough layout guidance, the workflow may search official manufacturer sources for supplemental layout guides, application notes, EVAL user guides, or reference design archives. Supplemental files are downloaded into `Layout Guide/source_docs/` with source URL, byte size, retrieval date, and SHA256.
+
+If official supplemental sources remain unavailable, blocked, or non-downloadable, the workflow must downgrade gracefully:
+
+- keep the component in a `layout guidance missing or incomplete` state,
+- record attempted sources and blocker reasons,
+- tell the owner exactly what source packet would unblock the next run,
+- preserve source-bound local evidence already available,
+- and continue by writing a bounded source-gap `Layout Guide/` packet instead of pretending the component is layout-ready.
 
 ## Boundary
 

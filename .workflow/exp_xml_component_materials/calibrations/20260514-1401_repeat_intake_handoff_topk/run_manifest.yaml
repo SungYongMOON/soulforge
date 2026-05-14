@@ -1,0 +1,51 @@
+﻿calibration_id: 20260514-1401_repeat_intake_handoff_topk
+workflow_id: exp_xml_component_materials
+kind: workflow_profile_calibration
+mode: repeat_topk_subagent_quality_cli_telemetry
+created_date: 2026-05-14
+fixture_type: public_safe_synthetic
+workflow_change_under_test: optional capture_xml_intake_library_v0 downstream_handoff context
+boundary:
+  real_project_exp_xml: excluded
+  downloaded_vendor_files: excluded
+  credentials_cookies_or_sessions: excluded
+  workspaces_raw_material: excluded
+  private_runtime_truth: excluded
+quality_source: subagent_topk_repeat
+telemetry_source: cli_passed_candidates_only
+candidate_set_source: prior profile_policy shadow_top_k plus primary profile
+candidates:
+  - candidate_id: R1_gpt_5_4_mini_low_orc_archivist
+    model: gpt-5.4-mini
+    reasoning_effort: low
+    species: orc
+    class: archivist
+    prior_role: previous_primary
+  - candidate_id: R2_gpt_5_5_xhigh_orc_archivist
+    model: gpt-5.5
+    reasoning_effort: xhigh
+    species: orc
+    class: archivist
+    prior_role: previous_shadow_rank_2
+  - candidate_id: R3_gpt_5_5_high_orc_archivist
+    model: gpt-5.5
+    reasoning_effort: high
+    species: orc
+    class: archivist
+    prior_role: previous_shadow_rank_3
+  - candidate_id: R4_gpt_5_5_medium_orc_archivist
+    model: gpt-5.5
+    reasoning_effort: medium
+    species: orc
+    class: archivist
+    prior_role: previous_shadow_rank_4
+  - candidate_id: R5_gpt_5_4_mini_medium_orc_archivist
+    model: gpt-5.4-mini
+    reasoning_effort: medium
+    species: orc
+    class: archivist
+    prior_role: previous_shadow_rank_5
+result_summary:
+  primary_candidate: R5_gpt_5_4_mini_medium_orc_archivist
+  previous_primary_status: failed_richer_handoff_fixture
+  selection_reason: gpt-5.4-mini medium passed the frozen handoff-context gate and was materially faster than gpt-5.5 shadows while staying within the quality band.

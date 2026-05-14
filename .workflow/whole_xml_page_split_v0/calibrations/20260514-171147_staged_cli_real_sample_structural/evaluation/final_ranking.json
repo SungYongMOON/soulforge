@@ -1,0 +1,123 @@
+{
+  "calibration_id": "20260514-171147_staged_cli_real_sample_structural",
+  "workflow_id": "whole_xml_page_split_v0",
+  "quality_source": "cli_only_calibration",
+  "telemetry_source": "cli_full_stage_matrix_and_stage_c_reruns",
+  "selection_rule": "Quality hard gates first. Stage C stability can override Stage B token ranking. Among stable passers, prefer lower model tier and lower relative cost unless quality differs by 10 or more points.",
+  "stage_a_selected_profile": {
+    "candidate_id": "A_dwarf_archivist",
+    "model": "gpt-5.4-mini",
+    "reasoning_effort": "low",
+    "species": "dwarf",
+    "class": "archivist",
+    "rule_quality_score": 94,
+    "output_tokens": 1506,
+    "reasoning_output_tokens": 20,
+    "wall_time_seconds": 15.082,
+    "rationale": "Selected over equal-quality A_human_archivist because it had lower output tokens and slightly faster wall time; selected over A_elf_administrator because the latter had pass_with_gaps coverage."
+  },
+  "final_ranking": [
+    {
+      "rank": 1,
+      "candidate_id": "C_shadow_gpt_5_4_high",
+      "profile": {
+        "model": "gpt-5.4",
+        "reasoning_effort": "high",
+        "species": "dwarf",
+        "class": "archivist"
+      },
+      "rule_quality_score": 94,
+      "quality_gate": "pass",
+      "output_tokens": 2552,
+      "reasoning_output_tokens": 516,
+      "wall_time_seconds": 53.291,
+      "supporting_stage_b_candidate": "B_gpt_5_4_high",
+      "stage_b_output_tokens": 2351,
+      "stage_b_reasoning_output_tokens": 516,
+      "stage_b_wall_time_seconds": 50.848,
+      "rationale": "Stage C quality pass with no critical errors; lower model tier than the comparable gpt-5.5 medium shadow, with similar wall time and complete split-boundary/order/id discipline."
+    },
+    {
+      "rank": 2,
+      "candidate_id": "C_shadow_gpt_5_5_medium",
+      "profile": {
+        "model": "gpt-5.5",
+        "reasoning_effort": "medium",
+        "species": "dwarf",
+        "class": "archivist"
+      },
+      "rule_quality_score": 94,
+      "quality_gate": "pass",
+      "output_tokens": 2509,
+      "reasoning_output_tokens": 24,
+      "wall_time_seconds": 54.115,
+      "rationale": "Comparable Stage C pass with lower reasoning tokens, but higher model tier and one rule gap around explicit read-only/source-preservation wording."
+    },
+    {
+      "rank": 3,
+      "candidate_id": "B_gpt_5_5_low",
+      "profile": {
+        "model": "gpt-5.5",
+        "reasoning_effort": "low",
+        "species": "dwarf",
+        "class": "archivist"
+      },
+      "rule_quality_score": 94,
+      "quality_gate": "pass",
+      "output_tokens": 1910,
+      "reasoning_output_tokens": 26,
+      "wall_time_seconds": 41.672,
+      "rationale": "Stage B quality pass with low reasoning tokens; retained as a higher-model low-effort shadow but not Stage C rerun."
+    },
+    {
+      "rank": 4,
+      "candidate_id": "B_gpt_5_4_medium",
+      "profile": {
+        "model": "gpt-5.4",
+        "reasoning_effort": "medium",
+        "species": "dwarf",
+        "class": "archivist"
+      },
+      "rule_quality_score": 94,
+      "quality_gate": "pass",
+      "output_tokens": 2850,
+      "reasoning_output_tokens": 58,
+      "wall_time_seconds": 61.533,
+      "rationale": "Same-model medium-effort Stage B shadow; passed with a no-.workflow-assets wording gap and was slower than primary support candidate."
+    },
+    {
+      "rank": 5,
+      "candidate_id": "B_gpt_5_4_mini_high",
+      "profile": {
+        "model": "gpt-5.4-mini",
+        "reasoning_effort": "high",
+        "species": "dwarf",
+        "class": "archivist"
+      },
+      "rule_quality_score": 100,
+      "quality_gate": "downgraded_after_stage_c",
+      "output_tokens": 1992,
+      "reasoning_output_tokens": 516,
+      "wall_time_seconds": 19.563,
+      "stage_c_candidate_id": "C_primary_gpt_5_4_mini_high",
+      "stage_c_quality_gate": "pass_with_gaps",
+      "stage_c_reasoning_output_tokens": 3246,
+      "rationale": "Stage B looked best but Stage C degraded to pass_with_gaps and reasoning tokens spiked, so it is retained only as a monitored fallback candidate."
+    }
+  ],
+  "rejected_or_not_selected_summary": [
+    {
+      "candidate_id": "C_primary_gpt_5_4_mini_high",
+      "reason": "Stage C rerun dropped to pass_with_gaps and reasoning tokens spiked to 3246."
+    },
+    {
+      "candidate_id": "B_gpt_5_4_mini_low",
+      "reason": "Low-cost mini profile remained pass_with_gaps with missing schematic/structural-count coverage."
+    },
+    {
+      "candidate_id": "B_gpt_5_4_mini_xhigh",
+      "reason": "Extreme wall time and high token cost without finalist advantage."
+    }
+  ],
+  "recommendation": "Use gpt-5.4 / high / dwarf / archivist as the primary workflow profile."
+}

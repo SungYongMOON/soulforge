@@ -5,6 +5,15 @@ rules:
   - monster_id: missing_exp_xml
     response: stop_with_binding_blocker
     summary: Do not invent components; request a project binding to the EXP.xml input.
+  - monster_id: intake_handoff_missing
+    response: continue_from_exp_xml_only
+    summary: The capture_xml_intake_library_v0 downstream_handoff is optional context; absence must not block component inventory or material collection.
+  - monster_id: intake_handoff_overclaim
+    response: strip_to_review_context
+    summary: Connector, power, control, or pin-name-only intake candidates must not become confirmed component identity or connectivity without independent EXP.xml support.
+  - monster_id: malformed_optional_intake_handoff
+    response: ignore_or_queue_binding_review
+    summary: If the optional handoff is malformed or outside the approved binding, record a review item and continue from EXP.xml unless the binding itself creates a boundary risk.
   - monster_id: ambiguous_part_identity
     response: add_to_review_queue
     summary: If MPN, manufacturer, or package cannot be resolved from EXP.xml properties, do not download lookalike materials as authoritative.

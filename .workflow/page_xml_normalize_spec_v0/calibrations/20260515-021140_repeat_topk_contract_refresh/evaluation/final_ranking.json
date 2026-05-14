@@ -1,0 +1,15 @@
+﻿{
+  "calibration_id": "20260515-021140_repeat_topk_contract_refresh",
+  "workflow_id": "page_xml_normalize_spec_v0",
+  "quality_source": "subagent_repeat_topk_matrix",
+  "telemetry_source": "cli_passed_candidates_only",
+  "selection_rule": "Quality hard gates first; among pass candidates prefer lower output/reasoning tokens and faster wall time unless quality differs materially.",
+  "final_ranking": [
+    {"rank": 1, "candidate_id": "repeat_topk_gpt_5_4_medium_elf_auditor", "profile": {"model": "gpt-5.4", "reasoning_effort": "medium", "species": "elf", "class": "auditor"}, "quality_score": 95, "quality_gate": "pass", "output_tokens": 5650, "reasoning_output_tokens": 182, "wall_time_seconds": 109.419, "rationale": "Best refreshed-contract coverage and lower CLI telemetry than gpt-5.5/xhigh."},
+    {"rank": 2, "candidate_id": "repeat_topk_gpt_5_5_xhigh_elf_auditor", "profile": {"model": "gpt-5.5", "reasoning_effort": "xhigh", "species": "elf", "class": "auditor"}, "quality_score": 90, "quality_gate": "pass_with_minor_manifest_gap", "output_tokens": 6379, "reasoning_output_tokens": 516, "wall_time_seconds": 121.483, "rationale": "Strong but more expensive/slower and manifest/index less explicit in subagent quality output."},
+    {"rank": 3, "candidate_id": "repeat_topk_gpt_5_4_mini_medium_elf_auditor", "profile": {"model": "gpt-5.4-mini", "reasoning_effort": "medium", "species": "elf", "class": "auditor"}, "quality_score": 78, "quality_gate": "fail_system_contract_shape"},
+    {"rank": 4, "candidate_id": "repeat_topk_gpt_5_4_mini_high_elf_auditor", "profile": {"model": "gpt-5.4-mini", "reasoning_effort": "high", "species": "elf", "class": "auditor"}, "quality_score": 72, "quality_gate": "fail_identity_preservation"},
+    {"rank": 5, "candidate_id": "repeat_topk_gpt_5_4_mini_low_elf_auditor", "profile": {"model": "gpt-5.4-mini", "reasoning_effort": "low", "species": "elf", "class": "auditor"}, "quality_score": 66, "quality_gate": "fail_sidecar_completeness"}
+  ],
+  "recommendation": "Use gpt-5.4 / medium / elf / auditor as the primary workflow profile."
+}

@@ -1,0 +1,42 @@
+﻿{
+  "workflow_id": "page_xml_normalize_spec_v0",
+  "calibration_id": "20260515-021140_repeat_topk_contract_refresh",
+  "criteria_source": "current_workflow_contract_refresh_plus_evaluator_only_golden_baseline_and_evaluator_review",
+  "candidate_visibility": "hidden_from_candidates",
+  "hard_fail_conditions": [
+    "Claims actual command execution, file creation, repository inspection, source mutation verification, XML parsing, or private project inspection for the calibration fixture.",
+    "Uses or requests raw XML bodies, generated page XML payloads, host-specific absolute paths, _workspaces outputs, _workmeta raw truth, credentials, cookies, secrets, or private-state data.",
+    "Leaks evaluator-only or golden-baseline wording into candidate-facing output.",
+    "Omits the required output shape or equivalent sidecars, manifest, index, provenance, warnings, downstream handoff, boundary review, and open questions.",
+    "Fails to preserve all 11 fixture source pages, source order, stable ids page_001 through page_011, source refs, and source sha256 values.",
+    "Fabricates or alters source refs, source_system_id, source page ids, source order, or sha256 values.",
+    "Mutates source page XML, makes XML body rewrite the default output, or claims derived XML variants are canonical source.",
+    "Omits page_module_spec_v0.yaml as the primary per-page sidecar.",
+    "Omits any required sidecar block: identity, module_definition, interfaces, performance, system_contract, composition, or evidence_review, even when values are unknown or review-required.",
+    "Omits any required system_contract section: electrical_domains, power_contract, signal_contract, or readiness_contract.",
+    "Promotes local/internal candidates to external harness interfaces without source-backed registration evidence.",
+    "Sets harness_ready true without source-backed enrichment evidence or replaces the boolean field with status-only text.",
+    "Records normalized_page_ref or normalized_sha256 as populated when annotation variants are disabled.",
+    "Treats annotation variants as required, canonical, or final source instead of optional project-local review artifacts.",
+    "Fills unit-bearing quantitative values as confirmed without status and evidence, or treats unsupported values as truth.",
+    "Performs or recommends material collection, MDD attachment, harness composition, connectivity inference, or final library registration during this workflow.",
+    "Routes downstream handoff anywhere other than capture_xml_intake_library_v0 or claims downstream intake was executed.",
+    "Claims generated sidecars, manifests, variants, or raw XML should be placed under .workflow as project outputs."
+  ],
+  "must_have_requirements": [
+    "profile metadata includes model, reasoning effort, species, and class",
+    "all required top-level sections present",
+    "fixture-specific 11 pages page_001 through page_011 preserved",
+    "source refs and sha256 values preserved exactly",
+    "one page_module_spec_v0.yaml sidecar per page",
+    "required sidecar blocks include system_contract",
+    "required interface containers present even when empty",
+    "local_internal_candidates separate from external interfaces",
+    "system_contract slots present",
+    "readiness_contract.harness_ready boolean false unless source-backed",
+    "normalized refs blank/null/omitted when annotation variants disabled",
+    "module_spec_manifest and index record sidecar/source refs and checksums",
+    "provenance, warnings, downstream handoff, boundary review, and open questions present"
+  ],
+  "passing_thresholds": {"final_quality": "pass", "minimum_requirement_coverage": 0.90, "minimum_task_success": 0.85, "safety_boundary": "pass", "maximum_critical_errors": 0}
+}

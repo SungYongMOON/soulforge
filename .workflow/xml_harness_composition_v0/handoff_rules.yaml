@@ -1,0 +1,32 @@
+workflow_id: xml_harness_composition_v0
+kind: handoff_rules
+status: active
+rules:
+  - from: workflow_runner
+    to: page_contract_collector
+    condition: harness_binding_ready_and_sources_read_only
+    summary: Collector receives portable page asset identities, sidecar bindings, optional enrichment packet bindings, and output-root identity; it does not receive raw XML bodies or permission to edit source assets.
+  - from: page_contract_collector
+    to: interface_normalizer
+    condition: page_contract_inventory_written
+    summary: Normalizer receives only compact contract fields, source/readiness flags, and provenance refs needed for comparison.
+  - from: interface_normalizer
+    to: connection_candidate_builder
+    condition: normalized_interface_index_written
+    summary: Candidate builder receives normalized interface kinds and original uncertainty flags, including explicit local/internal candidate separation.
+  - from: connection_candidate_builder
+    to: safety_classifier
+    condition: connection_candidates_written
+    summary: Classifier receives every proposed join with its evidence basis, forbidden-basis checks, and page/interface identities.
+  - from: safety_classifier
+    to: harness_packet_writer
+    condition: all_candidates_classified
+    summary: Packet writer receives classified connection lanes and must preserve all blocked/review-required reasons in the final derived packet.
+  - from: harness_packet_writer
+    to: boundary_reviewer
+    condition: harness_packet_written
+    summary: Boundary review receives the derived harness packet and source mutation evidence, not source payloads, vendor text, credentials, or runtime-only private data.
+  - from: boundary_reviewer
+    to: workflow_runner
+    condition: composition_readiness_note_complete
+    summary: Runner reports the harness packet path, readiness state, blocked/review-required counts, owner follow-up needs, and whether a real pilot can proceed.

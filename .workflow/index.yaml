@@ -13,10 +13,20 @@ entries:
     path: meeting_followup/workflow.yaml
   - workflow_id: device_system_diagram_generation
     path: device_system_diagram_generation/workflow.yaml
+  - workflow_id: whole_xml_page_split_v0
+    path: whole_xml_page_split_v0/workflow.yaml
+  - workflow_id: page_xml_normalize_spec_v0
+    path: page_xml_normalize_spec_v0/workflow.yaml
+  - workflow_id: capture_xml_intake_library_v0
+    path: capture_xml_intake_library_v0/workflow.yaml
+  - workflow_id: asset_patch_attach_mdd_v0
+    path: asset_patch_attach_mdd_v0/workflow.yaml
   - workflow_id: exp_xml_component_materials
     path: exp_xml_component_materials/workflow.yaml
   - workflow_id: component_pcb_layout_guide_extraction
     path: component_pcb_layout_guide_extraction/workflow.yaml
+  - workflow_id: xml_harness_composition_v0
+    path: xml_harness_composition_v0/workflow.yaml
 notes:
   - Workflow catalog only. Raw run ids and execution dumps do not belong here.
   - Authoring templates live under `authoring/` and are not workflow canon entries.

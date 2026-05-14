@@ -1,0 +1,7 @@
+{
+  "calibration_id": "20260514-2155_quality_priority_contract_probe",
+  "workflow_id": "exp_xml_component_materials",
+  "review_type": "manual_quality_shortlist",
+  "owner_preference": "quality_first",
+  "summary": "The previous primary remained usable but showed a manifest explicitness gap. The gpt-5.5 medium shadow produced the cleaner contract-complete output and is selected under the owner's quality-first instruction."
+}

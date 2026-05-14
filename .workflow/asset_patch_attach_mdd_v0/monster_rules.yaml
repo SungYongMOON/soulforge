@@ -1,0 +1,28 @@
+workflow_id: asset_patch_attach_mdd_v0
+kind: monster_rules
+status: active
+rules:
+  - monster_id: missing_asset_identity
+    response: stop_with_registration_blocker
+    summary: Do not attach MDD to an asset set that has not already been created by XML-first registration.
+  - monster_id: missing_pcb_pairing_placeholder
+    response: stop_and_request_intake_registration_repair
+    summary: The patch workflow requires explicit placeholder state so the asset set version can be updated safely.
+  - monster_id: missing_mdd_source
+    response: stop_with_binding_blocker
+    summary: Later MDD attachment requires an owner-supplied MDD path.
+  - monster_id: raw_mdd_payload_leak_to_public_package
+    response: remove_payload_and_keep_only_metadata
+    summary: Public workflow files may describe attachment rules, but must not contain raw MDD payloads or project-local extracted values.
+  - monster_id: deep_pairing_inference_requested
+    response: refuse_inference_and_record_owner_supplied_only
+    summary: This workflow records owner-supplied attachment state only; it does not prove deeper XML↔MDD pairing truth.
+  - monster_id: source_xml_registration_rewrite_request
+    response: stop_and_preserve_original_registration
+    summary: Later MDD attachment must patch metadata, not rebuild the original XML-first intake record.
+  - monster_id: runtime_absolute_path_in_public_workflow
+    response: replace_with_binding_identity
+    summary: Reusable workflow files must use stable ids or repo-relative binding paths, never concrete runtime paths.
+  - monster_id: secret_or_account_material_requested
+    response: stop_and_request_owner_action
+    summary: The workflow must not read, store, or summarize passwords, tokens, cookies, credential files, or local account/session artifacts.

@@ -1,0 +1,19 @@
+workflow_id: capture_xml_intake_library_v0
+kind: party_compatibility
+status: active
+compatible_party_templates:
+  - workflow_research_build_verify
+  - sourcebound_extraction_review
+required_capabilities:
+  - local_file_read_only_inspection
+  - xml_shape_probe
+  - capture_connectivity_extraction
+  - conservative_hardware_review
+  - asset_registration_manifesting
+  - attachment_state_recording
+  - yaml_manifesting
+notes:
+  - No default party binding is assigned yet.
+  - XML parser implementation, runtime tools, and model profiles resolve through project-local bindings.
+  - Fresh executor/verifier separation is preferred before claiming production-ready extraction quality.
+  - The workflow is safe for public canon because it stores procedure and output-shape rules only, not real XML content, raw MDD payloads, or project-local output data.

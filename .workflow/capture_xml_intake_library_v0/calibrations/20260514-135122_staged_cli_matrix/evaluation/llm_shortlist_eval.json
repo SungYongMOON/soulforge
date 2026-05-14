@@ -1,0 +1,45 @@
+{
+  "calibration_id": "20260514-135122_staged_cli_matrix",
+  "workflow_id": "capture_xml_intake_library_v0",
+  "review_type": "shortlist_review",
+  "reviewer": "main_agent_semantic_review",
+  "llm_shortlist_call_status": "attempted_timeout_no_output",
+  "decision": {
+    "selected_candidate_id": "C_primary_gpt_5_4_medium",
+    "selected_profile": {
+      "model": "gpt-5.4",
+      "reasoning_effort": "medium",
+      "species": "elf",
+      "class": "administrator"
+    },
+    "quality_gate": "pass",
+    "quality_score": 100
+  },
+  "candidate_assessments": [
+    {
+      "candidate_id": "C_primary_gpt_5_4_medium",
+      "semantic_pass": true,
+      "critical_errors": [],
+      "missing_or_weak_items": [],
+      "recommendation_note": "Best stable finalist; complete identity, net, connector-confidence, provenance, and downstream handoff coverage."
+    },
+    {
+      "candidate_id": "C_shadow_gpt_5_5_low",
+      "semantic_pass": true,
+      "critical_errors": [],
+      "missing_or_weak_items": ["Stage C rule review missed one provenance-boundary criterion."],
+      "recommendation_note": "Good shadow when concise output matters, but uses higher model tier and had slightly weaker rerun coverage."
+    },
+    {
+      "candidate_id": "C_shadow_gpt_5_4_mini_high",
+      "semantic_pass": false,
+      "critical_errors": ["J1 connector/interface over-confirmation recurred in Stage C."],
+      "missing_or_weak_items": ["U2 manufacturer identity", "PartInst-vs-Package separation"],
+      "recommendation_note": "Do not use as primary despite fast wall time."
+    }
+  ],
+  "limitations": [
+    "A compact LLM shortlist prompt was attempted after Stage A but timed out before producing an archived response.",
+    "Final shortlist decision therefore uses frozen rule gates plus main-agent semantic review over archived outputs."
+  ]
+}

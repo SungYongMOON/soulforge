@@ -1,0 +1,101 @@
+{
+  "calibration_id": "20260514-205331_staged_cli_public_structural",
+  "workflow_id": "page_xml_normalize_spec_v0",
+  "quality_source": "cli_only_calibration_with_manual_gate_review",
+  "telemetry_source": "cli_full_stage_matrix_and_stage_c_reruns",
+  "selection_rule": "Quality hard gates first. Manual Stage C review may override literal-key rule under-scoring when equivalent workflow fields satisfy the frozen gate. Among stable passers, choose the lowest-cost profile that passes; pass_with_gaps candidates remain shadows only.",
+  "stage_a_selected_profile": {
+    "candidate_id": "A_elf_auditor",
+    "model": "gpt-5.4-mini",
+    "reasoning_effort": "low",
+    "species": "elf",
+    "class": "auditor",
+    "rule_quality_score": 96,
+    "output_tokens": 3144,
+    "reasoning_output_tokens": 75,
+    "wall_time_seconds": 30.414
+  },
+  "final_ranking": [
+    {
+      "rank": 1,
+      "candidate_id": "C_shadow_gpt_5_4_medium_manual",
+      "profile": {
+        "model": "gpt-5.4",
+        "reasoning_effort": "medium",
+        "species": "elf",
+        "class": "auditor"
+      },
+      "rule_quality_score": 94,
+      "quality_gate": "pass",
+      "output_tokens": 7295,
+      "reasoning_output_tokens": 156,
+      "wall_time_seconds": 137.748,
+      "rationale": "Manual Stage C pass; stable sidecar schema, source immutability, project-local boundary, blank normalized refs, and downstream capture_xml_intake_library_v0 handoff."
+    },
+    {
+      "rank": 2,
+      "candidate_id": "B_gpt_5_4_medium",
+      "profile": {
+        "model": "gpt-5.4",
+        "reasoning_effort": "medium",
+        "species": "elf",
+        "class": "auditor"
+      },
+      "rule_quality_score": 88,
+      "quality_gate": "manual_pass_stage_b_support",
+      "output_tokens": 6937,
+      "reasoning_output_tokens": 111,
+      "wall_time_seconds": 132.457,
+      "rationale": "Stage B support run for the same profile; strong schema and boundary coverage, retained as primary stability evidence."
+    },
+    {
+      "rank": 3,
+      "candidate_id": "C_primary_gpt_5_4_mini_high",
+      "profile": {
+        "model": "gpt-5.4-mini",
+        "reasoning_effort": "high",
+        "species": "elf",
+        "class": "auditor"
+      },
+      "rule_quality_score": 84,
+      "quality_gate": "pass_with_gaps",
+      "output_tokens": 4600,
+      "reasoning_output_tokens": 516,
+      "wall_time_seconds": 45.57,
+      "rationale": "Fast shadow, but Stage C missed source immutability/project-local literal coverage and manifest ref detail."
+    },
+    {
+      "rank": 4,
+      "candidate_id": "C_shadow_gpt_5_4_mini_medium",
+      "profile": {
+        "model": "gpt-5.4-mini",
+        "reasoning_effort": "medium",
+        "species": "elf",
+        "class": "auditor"
+      },
+      "rule_quality_score": 80,
+      "quality_gate": "pass_with_gaps",
+      "output_tokens": 3797,
+      "reasoning_output_tokens": 180,
+      "wall_time_seconds": 47.093,
+      "rationale": "Lowest-cost usable shadow, but missed several frozen gate items on rerun."
+    },
+    {
+      "rank": 5,
+      "candidate_id": "B_gpt_5_4_mini_low",
+      "profile": {
+        "model": "gpt-5.4-mini",
+        "reasoning_effort": "low",
+        "species": "elf",
+        "class": "auditor"
+      },
+      "rule_quality_score": 88,
+      "quality_gate": "downgraded_after_stage_c_fail",
+      "output_tokens": 4611,
+      "reasoning_output_tokens": 52,
+      "wall_time_seconds": 33.266,
+      "rationale": "Stage B looked strong and cheap, but corresponding Stage C low-effort rerun failed coverage, so not primary."
+    }
+  ],
+  "recommendation": "Use gpt-5.4 / medium / elf / auditor as the primary workflow profile."
+}

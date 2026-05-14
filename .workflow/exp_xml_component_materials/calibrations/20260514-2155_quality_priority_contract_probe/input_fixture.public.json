@@ -1,0 +1,112 @@
+{
+  "calibration_id": "20260514-2155_quality_priority_contract_probe",
+  "workflow_id": "exp_xml_component_materials",
+  "fixture_type": "public_safe_synthetic_page_fragment_local_reuse",
+  "input_scope": "page_fragment",
+  "materials_root": "_workspaces/<project_code>/reference_materials/page_lt8624s",
+  "scenario": "Synthetic page-fragment EXP XML materials probe using mocked official-source records and owner-approved local official collateral evidence. No real project EXP.xml, customer input, credentials, cookies, downloaded vendor binaries, _workspaces payloads, _workmeta run truth, or private-state content is included.",
+  "exp_xml_excerpt": [
+    "<CISExport>",
+    "  <Package Name=\"PKG_LT8624SAV\">",
+    "    <SymbolUserProp Name=\"Manufacturer_Part_Number\" Value=\"LT8624SAV#PBF\" />",
+    "    <SymbolUserProp Name=\"Mfr_Name\" Value=\"Analog Devices\" />",
+    "    <SymbolUserProp Name=\"PackageName\" Value=\"LQFN-24\" />",
+    "    <SymbolUserProp Name=\"PCB Footprint\" Value=\"ADI_LQFN_24\" />",
+    "  </Package>",
+    "  <PartInst RefDes=\"U10\" Name=\"U10\" PartValue=\"Value\" Package=\"PKG_LT8624SAV\"><PartInstUserProp Name=\"PCB Footprint\" Value=\"ADI_LQFN_24\" /></PartInst>",
+    "  <PartInst RefDes=\"L10\" Name=\"L10\" PartValue=\"2.2uH\" Package=\"IND_1210\" />",
+    "  <PartInst RefDes=\"C10\" Name=\"C10\" PartValue=\"10uF\" Package=\"0603\" />",
+    "  <PartInst RefDes=\"R10\" Name=\"R10\" PartValue=\"100k\" Package=\"0603\" />",
+    "  <PartInst RefDes=\"TP10\" Name=\"TP10\" PartValue=\"TESTPOINT\" Package=\"TP\" />",
+    "</CISExport>"
+  ],
+  "optional_downstream_handoff": {
+    "source_workflow_id": "capture_xml_intake_library_v0",
+    "handoff_status": "context_ready_with_open_questions",
+    "pass_to_downstream": true,
+    "block_summary": [
+      {
+        "block_id": "buck_regulator_page",
+        "candidate_refs": ["U10", "L10", "C10", "R10"],
+        "summary": "Power regulator page fragment; prioritize official LT8624S datasheet and demo board material after EXP confirms U10."
+      }
+    ],
+    "connectors": [
+      {
+        "candidate_refdes": "J10",
+        "evidence": "page edge label only; no PartInst in EXP excerpt",
+        "confidence": "handoff_only",
+        "do_not_confirm_identity": true
+      }
+    ],
+    "power_summary": [
+      {
+        "candidate_refdes": "U10",
+        "priority_hint": "power_sensitive_reference_design",
+        "authority": "priority_only"
+      },
+      {
+        "candidate_refdes": "U11",
+        "priority_hint": "possible adjacent regulator mentioned in page notes",
+        "authority": "handoff_only_not_in_exp"
+      }
+    ],
+    "open_questions": [
+      "Page fragment cannot prove full-design component coverage.",
+      "J10 and U11 appear only in intake context and must not become component inventory rows.",
+      "L10/C10/R10 are page-local support parts without MPN/manufacturer evidence; keep review-required or no-download.",
+      "Cross-page topology and harness boundary remain unresolved."
+    ],
+    "do_not_pass_as_confirmed": [
+      "full-design coverage",
+      "connector identity",
+      "electrical connectivity",
+      "handoff-only refdes J10",
+      "handoff-only refdes U11"
+    ]
+  },
+  "mock_official_source_catalog": [
+    {
+      "component_key": "analog_devices_lt8624sav_pbf",
+      "manufacturer": "Analog Devices",
+      "mpn": "LT8624SAV#PBF",
+      "product_page": "https://www.analog.com/en/products/lt8624s.html",
+      "datasheet": {
+        "source_url": "https://www.analog.com/media/en/technical-documentation/data-sheets/lt8624s.pdf",
+        "official": true,
+        "material_status": "owner_approved_local_official_collateral",
+        "local_fixture_label": "LT8624S_datasheet_owner_copy.pdf",
+        "byte_size": 2512345,
+        "file_magic": "%PDF-",
+        "sha256": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa"
+      },
+      "eval_materials": [
+        {
+          "type": "evaluation_board_user_guide",
+          "source_url": "https://www.analog.com/media/en/technical-documentation/user-guides/dc3215a.pdf",
+          "official": true,
+          "material_status": "owner_approved_local_official_collateral",
+          "local_fixture_label": "DC3215A_user_guide_owner_copy.pdf",
+          "byte_size": 887766,
+          "file_magic": "%PDF-",
+          "sha256": "bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb"
+        },
+        {
+          "type": "reference_design_archive",
+          "source_url": "https://www.analog.com/media/en/reference-design-documentation/design-integration-files/dc3215a_design_files.zip",
+          "official": true,
+          "material_status": "owner_approved_local_official_collateral",
+          "local_fixture_label": "DC3215A_design_files_owner_copy.zip",
+          "byte_size": 456789,
+          "file_magic": "PK",
+          "sha256": "cccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc"
+        }
+      ]
+    }
+  ],
+  "output_tree_contract": {
+    "parts_folder_name": "parts",
+    "datasheet_folder_name": "DATA Sheet",
+    "eval_folder_name": "EVAL"
+  }
+}

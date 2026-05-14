@@ -1,0 +1,5 @@
+﻿{
+  "usage_source": "subagent_golden_baseline",
+  "subagent_token_usage_available": false,
+  "note": "The Codex App subagent surface returned the golden text but not exact token usage."
+}

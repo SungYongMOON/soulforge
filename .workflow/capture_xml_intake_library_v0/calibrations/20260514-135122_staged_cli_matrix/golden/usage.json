@@ -1,0 +1,15 @@
+﻿{
+    "model":  "gpt-5.5",
+    "reasoning_effort":  "xhigh",
+    "species":  "darkelf",
+    "class":  "archivist",
+    "exit_code":  0,
+    "wall_time_seconds":  38.013,
+    "usage":  {
+                  "input_tokens":  16958,
+                  "cached_input_tokens":  7552,
+                  "output_tokens":  1652,
+                  "reasoning_output_tokens":  516
+              },
+    "telemetry_source":  "codex_exec_json_cli_proxy_golden"
+}

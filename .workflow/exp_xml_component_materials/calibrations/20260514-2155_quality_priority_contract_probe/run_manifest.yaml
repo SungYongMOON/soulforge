@@ -1,0 +1,33 @@
+calibration_id: 20260514-2155_quality_priority_contract_probe
+workflow_id: exp_xml_component_materials
+kind: workflow_profile_calibration
+mode: quality_priority_scoped_cli_contract_probe
+created_date: 2026-05-14
+fixture_type: public_safe_synthetic
+workflow_change_under_test: page-fragment scope plus owner-approved local official collateral reuse
+boundary:
+  real_project_exp_xml: excluded
+  downloaded_vendor_files: excluded
+  credentials_cookies_or_sessions: excluded
+  workspaces_raw_material: excluded
+  private_runtime_truth: excluded
+quality_source: cli_top2_manual_gate
+telemetry_source: cli_probe_primary_and_shadow
+candidate_set_source: current primary plus best quality shadow from previous policy
+candidates:
+  - candidate_id: C1_gpt_5_4_mini_medium_orc_archivist
+    model: gpt-5.4-mini
+    reasoning_effort: medium
+    species: orc
+    class: archivist
+    prior_role: previous_primary
+  - candidate_id: C2_gpt_5_5_medium_orc_archivist
+    model: gpt-5.5
+    reasoning_effort: medium
+    species: orc
+    class: archivist
+    prior_role: previous_shadow_rank_2
+result_summary:
+  primary_candidate: C2_gpt_5_5_medium_orc_archivist
+  previous_primary_status: pass_with_manifest_explicitness_gap
+  selection_reason: Owner selected quality-first policy; gpt-5.5 medium preserved all new contract gates and explicitly placed completed materials under DATA Sheet and EVAL while the faster mini medium omitted explicit destination folders.

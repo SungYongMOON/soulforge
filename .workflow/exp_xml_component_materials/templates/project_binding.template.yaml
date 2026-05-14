@@ -4,6 +4,11 @@ status: template
 project_code: "<project_code>"
 inputs:
   exp_xml_repo_path: "_workspaces/<project_code>/inputs/EXP.xml"
+  input_scope: whole_export
+optional_inputs:
+  downstream_handoff_repo_path: "_workspaces/<project_code>/intake_library/downstream_handoff.yaml"
+  downstream_handoff_required: false
+  owner_approved_local_official_collateral_root_repo_path: null
 outputs:
   materials_root_repo_path: "_workspaces/<project_code>/reference_materials/from_exp_xml"
 folder_policy:
@@ -23,6 +28,15 @@ download_policy:
   allowed_official_domains: []
 inventory_policy:
   xml_parser: structured_xml_parser
+  exp_xml_source_authoritative: true
+  page_fragment_allowed: true
+  page_fragment_result_scope: page_level_materials_only
+  intake_handoff_authority: context_only
+  intake_handoff_usage:
+    - prioritize_exp_confirmed_connector_or_interface_refs
+    - prioritize_exp_confirmed_power_sensitive_refs
+    - carry_open_questions_to_review_queue
+    - never_confirm_identity_or_connectivity_without_exp_xml_support
   cadence_capture_node_policy:
     placed_component_node: PartInst
     package_definition_node: Package
@@ -52,3 +66,5 @@ review_policy:
     - approved_datasheet_or_owner_exception
     - eval_material_or_none_found_recorded
     - no_boundary_review_failures
+  page_fragment_ready_label: page_level_source_packet
+  page_fragment_must_not_claim_full_design_coverage: true

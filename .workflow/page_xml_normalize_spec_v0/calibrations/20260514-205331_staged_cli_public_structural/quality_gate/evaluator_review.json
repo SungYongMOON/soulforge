@@ -1,0 +1,13 @@
+{
+  "evaluator_model": "gpt-5.5",
+  "evaluator_reasoning_effort": "medium",
+  "usage": {
+    "input_tokens": 50964,
+    "cached_input_tokens": 30464,
+    "output_tokens": 628,
+    "reasoning_output_tokens": 159
+  },
+  "wall_time_seconds": 19.917,
+  "raw_review_ref": "evaluator_review.raw.md",
+  "frozen_gate_changed_after_review": false
+}

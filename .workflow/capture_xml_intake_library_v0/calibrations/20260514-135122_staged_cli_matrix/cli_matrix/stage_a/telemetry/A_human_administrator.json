@@ -1,0 +1,25 @@
+﻿{
+    "calibration_id":  "20260514-135122_staged_cli_matrix",
+    "workflow_id":  "capture_xml_intake_library_v0",
+    "stage":  "stage_a",
+    "candidate_id":  "A_human_administrator",
+    "model":  "gpt-5.4-mini",
+    "reasoning_effort":  "low",
+    "species":  "human",
+    "class":  "administrator",
+    "exit_code":  0,
+    "wall_time_seconds":  14.792,
+    "usage":  {
+                  "input_tokens":  15219,
+                  "cached_input_tokens":  12672,
+                  "output_tokens":  1466,
+                  "reasoning_output_tokens":  12
+              },
+    "prompt_sha256":  "3bc96a5019ec2e3cc8d23de513603cfe0c2c6e58dcfed8e30554e1e5d9ef75c1",
+    "output_path":  "cli_matrix/stage_a/outputs/A_human_administrator.md",
+    "events_path":  "cli_matrix/stage_a/events/A_human_administrator.jsonl",
+    "telemetry_source":  "codex_exec_json_cli_proxy",
+    "stderr_summary":  [
+                           "remote plugin sync emitted 403 Forbidden warnings; raw stderr HTML intentionally not archived"
+                       ]
+}

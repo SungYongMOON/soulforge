@@ -1,0 +1,25 @@
+﻿{
+    "calibration_id":  "20260514-135122_staged_cli_matrix",
+    "workflow_id":  "capture_xml_intake_library_v0",
+    "stage":  "stage_a",
+    "candidate_id":  "A_elf_archivist",
+    "model":  "gpt-5.4-mini",
+    "reasoning_effort":  "low",
+    "species":  "elf",
+    "class":  "archivist",
+    "exit_code":  0,
+    "wall_time_seconds":  14.876,
+    "usage":  {
+                  "input_tokens":  15220,
+                  "cached_input_tokens":  2432,
+                  "output_tokens":  1163,
+                  "reasoning_output_tokens":  20
+              },
+    "prompt_sha256":  "5f33299870495bb37c3527b26e23781d32f8cd115bfa8d912e53f2071f4bbc5b",
+    "output_path":  "cli_matrix/stage_a/outputs/A_elf_archivist.md",
+    "events_path":  "cli_matrix/stage_a/events/A_elf_archivist.jsonl",
+    "telemetry_source":  "codex_exec_json_cli_proxy",
+    "stderr_summary":  [
+                           "remote plugin sync emitted 403 Forbidden warnings; raw stderr HTML intentionally not archived"
+                       ]
+}

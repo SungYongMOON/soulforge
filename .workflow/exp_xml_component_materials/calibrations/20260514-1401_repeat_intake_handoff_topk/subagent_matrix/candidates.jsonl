@@ -1,0 +1,5 @@
+﻿{"candidate_id":"R1_gpt_5_4_mini_low_orc_archivist","model":"gpt-5.4-mini","reasoning_effort":"low","species":"orc","class":"archivist","output_file":"subagent_matrix/outputs/R1_gpt_5_4_mini_low_orc_archivist.md"}
+{"candidate_id":"R2_gpt_5_5_xhigh_orc_archivist","model":"gpt-5.5","reasoning_effort":"xhigh","species":"orc","class":"archivist","output_file":"subagent_matrix/outputs/R2_gpt_5_5_xhigh_orc_archivist.md"}
+{"candidate_id":"R3_gpt_5_5_high_orc_archivist","model":"gpt-5.5","reasoning_effort":"high","species":"orc","class":"archivist","output_file":"subagent_matrix/outputs/R3_gpt_5_5_high_orc_archivist.md"}
+{"candidate_id":"R4_gpt_5_5_medium_orc_archivist","model":"gpt-5.5","reasoning_effort":"medium","species":"orc","class":"archivist","output_file":"subagent_matrix/outputs/R4_gpt_5_5_medium_orc_archivist.md"}
+{"candidate_id":"R5_gpt_5_4_mini_medium_orc_archivist","model":"gpt-5.4-mini","reasoning_effort":"medium","species":"orc","class":"archivist","output_file":"subagent_matrix/outputs/R5_gpt_5_4_mini_medium_orc_archivist.md"}

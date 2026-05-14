@@ -1,0 +1,5 @@
+﻿{"candidate_id":"R1_gpt_5_4_mini_low_orc_archivist","final_quality":"fail","quality_score":86,"rule_result":"failed explicit EVAL placement and review-required semantics"}
+{"candidate_id":"R2_gpt_5_5_xhigh_orc_archivist","final_quality":"pass","quality_score":100,"rule_result":"passed"}
+{"candidate_id":"R3_gpt_5_5_high_orc_archivist","final_quality":"pass","quality_score":99,"rule_result":"passed"}
+{"candidate_id":"R4_gpt_5_5_medium_orc_archivist","final_quality":"pass","quality_score":99,"rule_result":"passed"}
+{"candidate_id":"R5_gpt_5_4_mini_medium_orc_archivist","final_quality":"pass","quality_score":97,"rule_result":"passed"}

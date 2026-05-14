@@ -1,0 +1,13 @@
+{
+  "workflow_id": "exp_xml_component_materials",
+  "calibration_id": "20260514-2155_quality_priority_contract_probe",
+  "review_type": "manual_gate_review",
+  "criteria_sufficient": true,
+  "overfit_to_golden_wording": false,
+  "missing_critical_conditions": [],
+  "notes": [
+    "The gate intentionally emphasizes explicit DATA Sheet and EVAL destination placement because that folder-placement contract was the observed instability in the previous primary.",
+    "The probe is scoped and does not replace a full subagent quality matrix.",
+    "The fixture is public-safe and synthetic; it excludes real project XML and downloaded vendor files."
+  ]
+}

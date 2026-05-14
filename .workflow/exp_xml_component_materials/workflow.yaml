@@ -15,16 +15,58 @@ inputs:
   - exp_xml_source
   - project_materials_binding
   - approved_download_policy
+optional_inputs:
+  - downstream_handoff
 outputs:
   - component_inventory
+  - intake_context_note
   - source_discovery_packet
   - parts_materials_tree
   - download_manifest
   - downloaded_file_checksum_manifest
   - circuit_design_review_queue
+upstream_context:
+  - workflow_id: capture_xml_intake_library_v0
+    output: downstream_handoff
+    binding_key: downstream_handoff
+    required: false
+    authority: context_only
+    may_influence:
+      - connector_or_interface_refdes_prioritization
+      - power_sensitive_ref_review_priority
+      - topology_open_question_review_items
+      - source_bootstrap_search_hints_after_exp_xml_confirmation
+    may_not_confirm:
+      - component_identity
+      - placed_component_inventory
+      - electrical_connectivity
+      - manufacturer_or_part_number
+intake_handoff_policy:
+  required: false
+  source_workflow_id: capture_xml_intake_library_v0
+  expected_artifact: downstream_handoff
+  authoritative_source: exp_xml_source
+  safe_context_fields:
+    - handoff_status
+    - pass_to_downstream
+    - block_summary
+    - connectors
+    - power_summary
+    - open_questions
+    - provenance
+    - do_not_pass_as_confirmed
+  usage_rules:
+    - Use the handoff only to prioritize review queues, source-bootstrap order, and owner questions after the component exists in the parsed EXP.xml inventory.
+    - Treat connector, interface, power, control, and pin-name-only observations as candidates unless the EXP.xml parsing step independently confirms the placed component identity.
+    - Carry unresolved topology questions into circuit_design_review_queue rather than converting them into confirmed material requirements.
+    - If the handoff is absent, malformed, or outside the approved binding, continue from exp_xml_source alone or stop only when the binding itself is unsafe.
 validation_level: pilot_executed_binary_download
+intake_handoff_validation_level: pilot_ready_context_only
+page_fragment_materials_validation_level: narrowed_page_pilot_executed_private_fixture
 notes:
   - The EXP.xml input is the baseline artifact and must be read-only during collection.
+  - The input may be a whole Capture export or a bounded page-fragment XML asset; page-fragment runs prepare page-level materials only and must not claim full-design coverage.
+  - The optional capture_xml_intake_library_v0 downstream_handoff is context only; it can prioritize likely connectors, power-sensitive refs, and open topology questions, but cannot replace EXP.xml parsing or confirm component identity/connectivity.
   - Downloaded PDFs, CAD archives, schematics, PCB files, and vendor collateral belong under a project-local materials root, not inside .workflow.
   - Each normalized component key gets DATA Sheet and EVAL subfolders under the materials root.
   - For Cadence Capture EXP.xml, placed design components should be extracted from PartInst nodes; Package nodes can include library/cache definitions that are not actual placed BOM lines.
@@ -32,6 +74,8 @@ notes:
   - When PartInst PartValue is missing or a placeholder such as Value, recover identity only from the matching Package/SymbolUserProp definition and mark the confidence source.
   - Generic passives, test points, and symbolic power entries without a manufacturer part number go to the review queue rather than receiving guessed datasheets.
   - Source discovery prefers official manufacturer pages, official distributor-hosted manufacturer datasheets, and official evaluation-board/reference-design download pages.
+  - Owner-approved local copies of official collateral may be reused when provenance is preserved, source identity remains traceable, and completed files still have checksum/file evidence in the manifests.
+  - For page-fragment inputs, a strong per-page source packet is an acceptable bounded output; unresolved full-design coverage, cross-page topology, and generic/support parts remain review items.
   - URL shortcuts or source links alone are not a completed download; completion requires actual saved files with byte size, content type or file-magic validation, and SHA256 checksum in the manifest.
   - Vendor-account, click-through-license, or export-controlled files require owner action and must be recorded in the review queue instead of bypassed.
   - Binary download pilot saved official Analog Devices datasheet, demo manual, schematic PDF, evaluation design ZIP, and LTspice demo file for the extracted LT3045EDD-1 part.

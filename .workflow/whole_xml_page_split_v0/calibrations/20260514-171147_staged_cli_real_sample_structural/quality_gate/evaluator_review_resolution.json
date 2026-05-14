@@ -1,0 +1,13 @@
+{
+  "calibration_id": "20260514-171147_staged_cli_real_sample_structural",
+  "review_file": "evaluator_review.json",
+  "resolution": "criteria_adjusted_before_candidate_matrix",
+  "adjustments": [
+    "Added hard fail for presenting planned outputs as executed outputs.",
+    "Allowed equivalent artifact section names while preserving required artifact families.",
+    "Separated observed fixture facts, fixture-provided metadata, conservative inferences, planned outputs, policy constraints, and open questions.",
+    "Made readiness conditional when output binding/page asset writing/checksum generation has not executed.",
+    "Treated exact counts as calibration-specific evidence rather than universal workflow requirements."
+  ],
+  "frozen_before_candidate_matrix": true
+}

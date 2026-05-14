@@ -1,0 +1,56 @@
+workflow_id: whole_xml_page_split_v0
+kind: project_workflow_binding_template
+status: template
+project_code: "<project_code>"
+inputs:
+  whole_xml_source_ref: "<project-local-whole-xml-source>"
+  source_xml_identity_key: "<stable-source-identity>"
+outputs:
+  page_split_output_root_ref: "<project-local-page-split-output-root>"
+  page_xml_asset_dir_ref: "<project-local-page-split-output-root>/pages"
+source_policy:
+  read_only_source_xml: true
+  source_mutation_check_required: true
+  copy_raw_xml_to_public_package: false
+  public_package_payload_allowed: false
+split_policy:
+  page_boundary_candidates:
+    - owner_configured_page_xpath
+    - schema_page_element
+    - schematic_page_element
+    - ordered_sheet_or_page_record
+  stable_page_id_policy: source_id_or_label_else_ordinal
+  duplicate_page_id_policy: append_stable_ordinal_suffix
+  page_filtering_policy: include_all_pages_by_default
+  missing_boundary_policy: stop_unless_single_page_fallback_is_explicitly_allowed
+output_policy:
+  require_page_xml_assets: true
+  require_page_manifest: true
+  require_page_index: true
+  require_source_provenance: true
+  require_page_role_hints: true
+  require_split_readiness: true
+  page_xml_files_are_project_local: true
+  page_xml_files_are_not_workflow_package_files: true
+manifest_policy:
+  record_source_identity: true
+  record_source_sha256: true
+  record_parser_mode: true
+  record_split_method: true
+  record_page_order: true
+  record_stable_page_ids: true
+  include_raw_page_xml_body: false
+role_hint_policy:
+  enabled: true
+  hints_are_non_authoritative: true
+  categories:
+    - schematic
+    - hardware_or_material_context
+    - possible_pcb_or_mdd_context
+    - mixed
+    - unknown
+downstream_handoff:
+  next_workflow_id: page_xml_normalize_spec_v0
+  expected_input: page_xml_assets
+  context_packet: page_manifest
+  do_not_perform_normalization_here: true

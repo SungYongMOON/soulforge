@@ -1,0 +1,103 @@
+workflow_id: whole_xml_page_split_v0
+kind: workflow_profile_policy
+status: active
+last_calibration_id: 20260514-171147_staged_cli_real_sample_structural
+calibration_mode: staged_cli_calibration
+measurement_policy:
+  quality_source: cli_only_calibration
+  telemetry_source: cli_full_stage_matrix_and_stage_c_reruns
+  subagent_token_usage_available: false
+  telemetry_exact_for_subagent: false
+  cost_confidence: relative_not_exact
+primary_profile:
+  model: gpt-5.4
+  reasoning_effort: high
+  species: dwarf
+  class: archivist
+  candidate_id: C_shadow_gpt_5_4_high
+  measured_tokens:
+    input_tokens: 18322
+    cached_input_tokens: 7552
+    output_tokens: 2552
+    reasoning_output_tokens: 516
+    telemetry_source: codex_exec_json_cli_proxy_stage_c
+  wall_time_seconds: 53.291
+  quality_score: 94
+  quality_gate: pass
+  rationale: >
+    Stage C finalist with no critical errors. It preserved the 11 `Page`
+    boundary count, source order, stable ordinal ids, the titleblock
+    `Page Count = 8` warning, public/private boundaries, and downstream
+    `page_xml_normalize_spec_v0` handoff while staying on a lower model tier
+    than the comparable `gpt-5.5` shadow.
+shadow_top_k:
+  - rank: 2
+    candidate_id: C_shadow_gpt_5_5_medium
+    model: gpt-5.5
+    reasoning_effort: medium
+    species: dwarf
+    class: archivist
+    output_tokens: 2509
+    reasoning_output_tokens: 24
+    wall_time_seconds: 54.115
+    quality_score: 94
+    quality_gate: pass
+    note: Comparable Stage C pass, but higher model tier and a source-preservation wording gap.
+  - rank: 3
+    candidate_id: B_gpt_5_5_low
+    model: gpt-5.5
+    reasoning_effort: low
+    species: dwarf
+    class: archivist
+    output_tokens: 1910
+    reasoning_output_tokens: 26
+    wall_time_seconds: 41.672
+    quality_score: 94
+    quality_gate: pass_stage_b_only
+    note: Higher-model low-effort shadow; not rerun in Stage C.
+  - rank: 4
+    candidate_id: B_gpt_5_4_medium
+    model: gpt-5.4
+    reasoning_effort: medium
+    species: dwarf
+    class: archivist
+    output_tokens: 2850
+    reasoning_output_tokens: 58
+    wall_time_seconds: 61.533
+    quality_score: 94
+    quality_gate: pass_stage_b_only_with_no_workflow_assets_wording_gap
+    note: Same-model medium-effort shadow retained for monitoring.
+  - rank: 5
+    candidate_id: B_gpt_5_4_mini_high
+    model: gpt-5.4-mini
+    reasoning_effort: high
+    species: dwarf
+    class: archivist
+    output_tokens: 1992
+    reasoning_output_tokens: 516
+    wall_time_seconds: 19.563
+    quality_score: 100
+    quality_gate: downgraded_after_stage_c
+    note: Stage B looked strongest, but Stage C degraded to pass_with_gaps and reasoning tokens spiked.
+rejected_finalists:
+  - candidate_id: C_primary_gpt_5_4_mini_high
+    reason: Stage C rerun dropped to pass_with_gaps and reasoning tokens spiked to 3246.
+  - candidate_id: B_gpt_5_4_mini_low
+    reason: Low-cost mini profile remained pass_with_gaps with missing schematic and structural-count coverage.
+  - candidate_id: B_gpt_5_4_mini_xhigh
+    reason: Extreme wall time and high token cost without finalist advantage.
+rerun_triggers:
+  - workflow step graph changes
+  - page boundary detection contract changes
+  - page manifest or provenance schema changes
+  - parser tooling changes
+  - downstream `page_xml_normalize_spec_v0` handoff contract changes
+  - primary profile fails a future public-safe fixture quality gate
+  - model availability, pricing, or latency characteristics materially change
+calibration_archive_ref: calibrations/20260514-171147_staged_cli_real_sample_structural/
+notes:
+  - This policy is based on a public-safe real-sample-derived structural fixture, not raw XML.
+  - The default subagent_quality_first matrix was unavailable under the current runtime policy, so quality_source is explicitly `cli_only_calibration`.
+  - Stage A selected `dwarf|archivist`; Stage B compared model and reasoning effort; Stage C reran three finalists for stability.
+  - Runtime parser tooling and concrete output roots should be bound per project rather than hard-coded here.
+  - No real XML body, generated page XML payload, runtime absolute path, `_workspaces` output, `_workmeta` raw truth, credential, cookie, or private-state material is stored in the archive.

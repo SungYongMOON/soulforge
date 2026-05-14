@@ -11,12 +11,44 @@ steps:
         - exp_xml_source
         - materials_root
         - download_policy
+      optional_accepts:
+        - downstream_handoff
+        - owner_approved_local_official_collateral
       creates:
         - run_log_root
         - materials_root
-    summary: Confirm that the EXP.xml input exists, the output root is project-local, and the download policy is explicit before any network request or file write.
+    summary: Confirm that the EXP.xml input exists, input scope is declared as whole-export or page-fragment, the output root is project-local, the download/reuse policy is explicit, and any upstream downstream_handoff binding is optional context only before any network request or file write.
+    next:
+      on_success: review_optional_intake_context
+      on_fail: stop
+  - step_id: review_optional_intake_context
+    title: Review Optional Intake Context
+    actor_slot: workflow_runner
+    action:
+      kind: optional_context_review
+      required_artifact_in: exp_xml_source
+      optional_artifact_in: downstream_handoff
+      expected_source_workflow_id: capture_xml_intake_library_v0
+      artifact_out: intake_context_note
+      required: false
+      allowed_context_fields:
+        - handoff_status
+        - pass_to_downstream
+        - block_summary
+        - connectors
+        - power_summary
+        - open_questions
+        - provenance
+        - do_not_pass_as_confirmed
+      context_only_rules:
+        - exp_xml_source_remains_authoritative
+        - candidate_connectors_do_not_confirm_identity
+        - candidate_power_or_control_pins_do_not_confirm_connectivity
+        - open_questions_flow_to_review_queue
+    summary: If a capture_xml_intake_library_v0 downstream_handoff is provided, reduce it to public-safe prioritization and review hints; if it is absent, continue from EXP.xml alone.
     next:
       on_success: parse_exp_xml_component_inventory
+      on_absent: parse_exp_xml_component_inventory
       on_fail: stop
   - step_id: parse_exp_xml_component_inventory
     title: Parse EXP XML Component Inventory
@@ -24,6 +56,7 @@ steps:
     action:
       kind: structured_xml_parse_with_capture_fallback
       artifact_in: exp_xml_source
+      optional_context_in: intake_context_note
       artifact_out: component_inventory
       required_fields:
         - refdes
@@ -57,7 +90,7 @@ steps:
           - generic_passive_without_mpn
           - test_point_or_symbolic_power_entry
           - unknown_component_without_mpn
-    summary: Parse EXP.xml with an XML parser or Capture-safe PartInst block fallback, extract placed component properties from PartInst nodes, recover placeholder identities from matching Package/SymbolUserProp definitions when needed, deduplicate by manufacturer part number when possible, and flag weak identities.
+    summary: Parse EXP.xml with an XML parser or Capture-safe PartInst block fallback, extract placed component properties from PartInst nodes, recover placeholder identities from matching Package/SymbolUserProp definitions when needed, deduplicate by manufacturer part number when possible, flag weak identities, and only attach intake context as non-authoritative review metadata.
     next:
       on_success: normalize_part_queries
       on_fail: stop
@@ -67,8 +100,14 @@ steps:
     action:
       kind: inventory_normalization
       artifact_in: component_inventory
+      optional_context_in: intake_context_note
       artifact_out: component_query_set
-    summary: Build official-source search queries and per-component output keys while sending missing or ambiguous MPNs to the review queue.
+      intake_context_usage:
+        - prioritize_exp_confirmed_connector_or_interface_refs
+        - prioritize_exp_confirmed_power_sensitive_refs
+        - add_unresolved_topology_questions_to_review_queue
+        - keep_candidate_only_observations_out_of_confirmed_inventory
+    summary: Build official-source search queries and per-component output keys while sending missing or ambiguous MPNs to the review queue. Optional intake context may adjust priority and review notes only after the part exists in component_inventory.
     next:
       on_success: source_bootstrap_official_materials
       on_fail: stop
@@ -78,12 +117,13 @@ steps:
     action:
       kind: source_bootstrap
       artifact_in: component_query_set
+      optional_context_in: intake_context_note
       artifact_out: source_discovery_packet
       source_policy:
         official_sources_first: true
         random_mirrors_forbidden: true
         owner_approved_local_sources_allowed: true
-    summary: Find datasheets, product pages, evaluation boards, reference designs, user guides, design zips, schematics, PCB layout files, BOMs, and CAD/EDA packages from approved sources.
+    summary: Find datasheets, product pages, evaluation boards, reference designs, user guides, design zips, schematics, PCB layout files, BOMs, and CAD/EDA packages from approved sources, optionally searching EXP-confirmed connector/interface and power-sensitive refs first; owner-approved local official collateral may be reused only with preserved provenance.
     next:
       on_success: download_datasheet_materials
       on_fail: stop
@@ -153,7 +193,7 @@ steps:
         - download_manifest
         - downloaded_file_checksum_manifest
         - circuit_design_review_queue
-    summary: Write per-component source indexes, actual saved-file checksums, unavailable or not-applicable material reasons, and owner-review items for ambiguous parts or gated downloads.
+    summary: Write per-component source indexes, actual saved-file or approved-local-reuse checksums, unavailable or not-applicable material reasons, page-level scope caveats when applicable, and owner-review items for ambiguous parts or gated downloads.
     next:
       on_success: source_boundary_review
       on_fail: stop
@@ -178,11 +218,12 @@ steps:
       kind: readiness_review
       artifacts_in:
         - component_inventory
+        - intake_context_note
         - source_index
         - download_manifest
         - boundary_review_note
       artifact_out: circuit_design_readiness_note
-    summary: Summarize which components are ready for schematic/PCB reference, which need owner review, and which have no official EVAL material found.
+    summary: Summarize which components are ready for schematic/PCB reference, which need owner review, which have no official EVAL material found, and which intake-surfaced topology questions remain unresolved without promoting them to confirmed connectivity.
     next:
       on_success: complete
       on_fail: stop

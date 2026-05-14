@@ -1,0 +1,14 @@
+{
+  "usage": {
+    "input_tokens": 21068,
+    "cached_input_tokens": 7552,
+    "output_tokens": 6143,
+    "reasoning_output_tokens": 516
+  },
+  "wall_time_seconds": 118.476,
+  "model": "gpt-5.5",
+  "effort": "xhigh",
+  "species": "dwarf",
+  "class": "archivist",
+  "stderr_archived": false
+}

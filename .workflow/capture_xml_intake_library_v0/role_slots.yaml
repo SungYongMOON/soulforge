@@ -1,0 +1,28 @@
+workflow_id: capture_xml_intake_library_v0
+kind: role_slots
+status: active
+slots:
+  - slot_id: workflow_runner
+    title: Workflow Runner
+    summary: Resolves project-local bindings, confirms read-only source policy, initializes project-local output folders, and keeps runtime paths out of reusable canon.
+  - slot_id: capture_xml_inspector
+    title: Capture XML Inspector
+    summary: Inspects Capture XML shape, parser mode, schema markers, page/block/cache structure, and source-file provenance without changing the XML.
+  - slot_id: topology_extractor
+    title: Topology Extractor
+    summary: Extracts explicit net records when present and otherwise records conservative pin, port, global-symbol, occurrence, and no-connect observations.
+  - slot_id: connector_classifier
+    title: Connector Classifier
+    summary: Separates confirmed connector/interface components from candidates and review-required signals based on component, pin, symbol, and property evidence.
+  - slot_id: power_reviewer
+    title: Power Reviewer
+    summary: Summarizes confirmed and candidate power, ground, enable, sense, and no-connect relationships while preserving uncertainty.
+  - slot_id: asset_registrar
+    title: Asset Registrar
+    summary: Creates XML-first asset identity metadata, records optional owner-supplied initial MDD attachment state, and writes explicit later-attachment placeholders without inferring deeper pairing truth.
+  - slot_id: intake_writer
+    title: Intake Library Writer
+    summary: Writes asset identity, block, net, connector, power, open-question, MDD placeholder, provenance, and downstream handoff artifacts in a project-local output root.
+  - slot_id: boundary_reviewer
+    title: Boundary Reviewer
+    summary: Checks source immutability, public/private boundaries, unresolved review queues, and downstream readiness before completion.

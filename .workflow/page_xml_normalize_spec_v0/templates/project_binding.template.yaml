@@ -1,0 +1,98 @@
+workflow_id: page_xml_normalize_spec_v0
+kind: project_workflow_binding_template
+status: template
+project_code: "<project_code>"
+inputs:
+  page_manifest_ref: "<project-local-page-manifest>"
+  page_xml_asset_dir_ref: "<project-local-page-xml-asset-dir>"
+  page_index_ref: "<optional-project-local-page-index>"
+  source_provenance_ref: "<optional-project-local-source-provenance>"
+  page_role_hints_ref: "<optional-project-local-page-role-hints>"
+  split_readiness_ref: "<optional-project-local-split-readiness>"
+outputs:
+  page_module_output_root_ref: "<project-local-page-module-output-root>"
+  page_module_spec_sidecar_dir_ref: "<project-local-page-module-output-root>/module_specs"
+  module_manifest_dir_ref: "<project-local-page-module-output-root>/manifests"
+  optional_annotation_variant_dir_ref: "<project-local-page-module-output-root>/optional_review_variants"
+source_policy:
+  read_only_page_xml_assets: true
+  source_mutation_check_required: true
+  copy_raw_xml_to_public_package: false
+  public_package_payload_allowed: false
+page_module_spec_policy:
+  schema_version: page_module_spec_v0
+  primary_per_page_file: page_module_spec_v0.yaml
+  preserve_page_order: true
+  preserve_source_page_ids: true
+  preserve_source_page_labels: true
+  registration_key_policy: "source_identity_plus_page_id"
+  sidecar_file_name_policy: "<stable_page_id>/page_module_spec_v0.yaml"
+  duplicate_registration_key_policy: stop
+  missing_role_hint_policy: "unknown_with_review_required"
+  require_identity_block: true
+  require_module_definition_block: true
+  require_interface_containers: true
+  require_performance_block: true
+  require_system_contract_block: true
+  require_composition_block: true
+  require_evidence_review_block: true
+  optional_annotation_variant_block: true
+  optional_electrical_domains_field: true
+  optional_module_scope_block: true
+  optional_channelization_block: true
+  optional_classification_basis_block: true
+  optional_interface_groups_container: true
+  optional_local_internal_candidates_container: true
+  semantic_rewrite_allowed: false
+  xml_body_rewrite_default_allowed: false
+  source_net_inference_allowed: false
+  material_collection_allowed: false
+  mdd_attachment_allowed: false
+annotation_variant_policy:
+  enabled: false
+  requires_explicit_project_policy: true
+  output_is_derived_review_only: true
+  source_page_xml_mutation_allowed: false
+  semantic_claim_authority: review_only
+output_policy:
+  require_page_module_spec_sidecars: true
+  require_module_spec_manifest: true
+  require_module_spec_index: true
+  require_provenance_update: true
+  require_normalization_warnings: true
+  require_downstream_handoff: true
+  require_annotated_page_xml_review_variants: false
+  generated_sidecars_are_project_local: true
+  generated_variants_are_project_local: true
+  generated_artifacts_are_not_workflow_package_files: true
+sidecar_policy:
+  record_registration_key: true
+  record_source_system_id: true
+  record_source_page_id: true
+  record_source_page_order: true
+  record_source_page_ref: true
+  record_source_sha256: true
+  record_normalized_page_ref_only_when_optional_variant_exists: true
+  record_normalized_sha256_only_when_optional_variant_exists: true
+  record_role_hints: true
+  record_interface_groups: true
+  record_electrical_domains: true
+  record_structural_scope_hints: true
+  structural_scope_default: unknown
+  record_channelization_hints: true
+  record_classification_basis: true
+  record_interface_containers: true
+  keep_local_internal_candidates_separate_from_external_interfaces: true
+  record_system_contract_slots: true
+  keep_quantitative_slots_blank_when_evidence_missing: true
+  harness_ready_defaults_false: true
+  record_source_gap_and_owner_followups: true
+  record_evidence_refs: true
+  record_review_required: true
+downstream_handoff:
+  next_workflow_id: capture_xml_intake_library_v0
+  expected_inputs:
+    - page_module_spec_sidecars
+    - module_spec_manifest
+  context_packet: downstream_handoff
+  final_asset_registration_done_here: false

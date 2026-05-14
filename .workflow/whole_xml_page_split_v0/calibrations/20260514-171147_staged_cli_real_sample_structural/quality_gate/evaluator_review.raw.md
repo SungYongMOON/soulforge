@@ -1,0 +1,33 @@
+{
+  "sufficient": false,
+  "missing_critical_conditions": [
+    "No explicit requirement to separate fixture-derived constants from reusable workflow behavior, so candidates may memorize the calibration sample instead of applying the contract.",
+    "No requirement that artifact references be non-sensitive, project-local, and payload-free while still being resolvable by the downstream runner.",
+    "No clear allowance for equivalent structural evidence when exact probe fields are unavailable, despite requiring many exact counts.",
+    "No requirement to mark split outputs as planned or derived unless actual execution evidence is available.",
+    "No scoring rule for partial but safe outputs versus unsafe outputs beyond broad hard-fail conditions."
+  ],
+  "overfit_risks": [
+    "Exact element counts, byte size, sha256 prefix, and per-page counts make the gate strongly tied to one fixture.",
+    "Required artifact family names mirror the golden output and may penalize semantically equivalent compact packets.",
+    "Role hint categories such as connector_rich_schematic and material_dense_schematic look golden-specific rather than contract-level.",
+    "Requiring model, species, class, and reasoning_effort may evaluate profile reporting more than split quality.",
+    "The downstream handoff target is rigid; acceptable future workflow aliases or versioned successors would fail."
+  ],
+  "golden_assumption_risks": [
+    "real_sample_used: true could imply actual fixture access or execution despite candidate visibility being hidden.",
+    "source_provenance implies a source binding identity and checksum prefix are known and safe to cite; that may not hold for all evaluator contexts.",
+    "page_role_hints infer possible PCB and material context from structural metadata without showing evidence strength.",
+    "split_readiness says ready even though project-local output binding and per-page checksum generation remain open.",
+    "The golden says source mutation is disallowed but does not clearly distinguish policy from verified mutation status."
+  ],
+  "recommended_adjustments": [
+    "Reframe exact fixture counts as calibration-specific expected evidence, not universal workflow requirements.",
+    "Accept equivalent compact artifact names if they preserve boundary summary, plan, manifest, index, provenance, warnings, readiness, handoff, and questions.",
+    "Require candidates to label claims as observed, fixture-provided, inferred, planned, or policy.",
+    "Add a hard fail for presenting planned outputs as executed outputs.",
+    "Replace golden-specific role labels with evidence-bounded, non-authoritative role hint rules.",
+    "Require readiness to be conditional when output binding, page asset generation, or per-page checksums are not yet established."
+  ],
+  "final_review": "The criteria are directionally strong on safety, boundary discipline, and deferring semantic work, but they are over-calibrated to one golden sample. The main gap is provenance epistemics: the gate should test whether the candidate knows what was observed, supplied, inferred, planned, or forbidden. The golden output is mostly safe, but it contains suspicious execution-adjacent assumptions and role inferences that should be made more conditional."
+}

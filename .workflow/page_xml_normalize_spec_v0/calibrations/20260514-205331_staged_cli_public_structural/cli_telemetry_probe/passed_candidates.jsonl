@@ -1,0 +1,5 @@
+{"candidate_id":"A_human_administrator","profile":{"model":"gpt-5.4-mini","effort":"low","species":"human","class":"administrator"},"quality_score":92,"final_quality":"pass"}
+{"candidate_id":"A_human_archivist","profile":{"model":"gpt-5.4-mini","effort":"low","species":"human","class":"archivist"},"quality_score":92,"final_quality":"pass"}
+{"candidate_id":"A_elf_auditor","profile":{"model":"gpt-5.4-mini","effort":"low","species":"elf","class":"auditor"},"quality_score":96,"final_quality":"pass"}
+{"candidate_id":"A_orc_administrator","profile":{"model":"gpt-5.4-mini","effort":"low","species":"orc","class":"administrator"},"quality_score":96,"final_quality":"pass"}
+{"candidate_id":"C_shadow_gpt_5_4_medium_manual","profile":{"model":"gpt-5.4","reasoning_effort":"medium","species":"elf","class":"auditor"},"quality_score":94,"final_quality":"pass","quality_source":"manual_stage_c_gate_review"}

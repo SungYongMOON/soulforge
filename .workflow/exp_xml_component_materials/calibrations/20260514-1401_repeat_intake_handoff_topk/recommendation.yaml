@@ -1,0 +1,64 @@
+﻿calibration_id: 20260514-1401_repeat_intake_handoff_topk
+workflow_id: exp_xml_component_materials
+recommended_profile:
+  model: gpt-5.4-mini
+  reasoning_effort: medium
+  species: orc
+  class: archivist
+  candidate_id: R5_gpt_5_4_mini_medium_orc_archivist
+quality_gate:
+  final_quality: pass
+  quality_score: 97
+  golden_requirement_coverage: 0.97
+  task_success: 0.97
+  safety_boundary: pass
+measured_cli_proxy:
+  input_tokens: 14012
+  cached_input_tokens: 2432
+  output_tokens: 2675
+  reasoning_output_tokens: 516
+  wall_time_seconds: 21.808
+  output_file: cli_telemetry_probe/outputs/R5_gpt_5_4_mini_medium_orc_archivist.md
+selection_reason:
+  - Previous gpt-5.4-mini low primary failed the richer optional handoff fixture on explicit EVAL placement and review-required/no-download semantics.
+  - gpt-5.4-mini medium passed the frozen handoff-context quality gate.
+  - It was materially faster than gpt-5.5 shadows and stayed within the accepted quality band.
+not_measured:
+  - Exact production subagent token usage.
+  - Real project EXP.xml behavior.
+  - Real vendor download throughput or account-gated download handling.
+boundary_assumptions:
+  - Calibration fixture is synthetic and public-safe.
+  - Candidate outputs use mocked official-source records only.
+  - No downloaded PDFs, ZIPs, PCB files, credentials, cookies, `_workspaces`, `_workmeta`, or private-state content are stored in this archive.
+shadow_profiles:
+  - rank: 2
+    candidate_id: R4_gpt_5_5_medium_orc_archivist
+    model: gpt-5.5
+    reasoning_effort: medium
+    species: orc
+    class: archivist
+    quality_score: 99
+    output_tokens: 2409
+    reasoning_output_tokens: 28
+    wall_time_seconds: 49.676
+  - rank: 3
+    candidate_id: R3_gpt_5_5_high_orc_archivist
+    model: gpt-5.5
+    reasoning_effort: high
+    species: orc
+    class: archivist
+    quality_score: 99
+    output_tokens: 2549
+    reasoning_output_tokens: 516
+    wall_time_seconds: 51.268
+  - rank: 4
+    candidate_id: R2_gpt_5_5_xhigh_orc_archivist
+    model: gpt-5.5
+    reasoning_effort: xhigh
+    species: orc
+    class: archivist
+    quality_score: 100
+    output_tokens: 2699
+    reasoning_output_tokens: 516
+    wall_time_seconds: 62.635

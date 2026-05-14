@@ -1,0 +1,36 @@
+workflow_id: capture_xml_intake_library_v0
+kind: handoff_rules
+status: active
+rules:
+  - from: workflow_runner
+    to: capture_xml_inspector
+    condition: exp_xml_readable_and_intake_root_project_local
+    summary: Inspector receives the source binding, read-only policy, output binding, input-scope marker, and any optional normalize context reduced to non-authoritative review metadata; it does not receive prior run packets or public-canon absolute paths.
+  - from: capture_xml_inspector
+    to: topology_extractor
+    condition: block_summary_written
+    summary: Topology extraction starts only after parser mode, design shape, placed instances, ports, pins, and cache/library context are recorded.
+  - from: topology_extractor
+    to: connector_classifier
+    condition: extracted_nets_or_review_required_observations_written
+    summary: Connector classification receives confirmed net records and review-required pin/port observations, preserving confidence labels.
+  - from: connector_classifier
+    to: power_reviewer
+    condition: connectors_written
+    summary: Power review receives connector/interface evidence but must not treat weak connector candidates as confirmed connectivity.
+  - from: power_reviewer
+    to: asset_registrar
+    condition: power_summary_written
+    summary: Asset registration receives confirmed/review-required structure plus any optional owner-supplied initial MDD path and records attachment state without deeper inference.
+  - from: asset_registrar
+    to: intake_writer
+    condition: asset_identity_and_placeholder_written
+    summary: Intake writer receives asset identity plus placeholder state alongside confirmed and unresolved findings for output materialization.
+  - from: intake_writer
+    to: boundary_reviewer
+    condition: intake_library_artifacts_written
+    summary: Boundary review receives project-local manifests and provenance summaries, not raw XML body, raw MDD payloads, credentials, cookies, or local account/session material.
+  - from: boundary_reviewer
+    to: workflow_runner
+    condition: readiness_note_complete
+    summary: Runner reports output artifact paths, unresolved questions, asset identity state, input scope, page-level caveats when applicable, and whether the packet is safe to hand to `exp_xml_component_materials` or later `asset_patch_attach_mdd_v0`.

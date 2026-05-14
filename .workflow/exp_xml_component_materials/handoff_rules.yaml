@@ -5,15 +5,19 @@ rules:
   - from: workflow_runner
     to: exp_xml_parser
     condition: exp_xml_readable_and_materials_root_project_local
-    summary: Parser receives the EXP.xml path, read-only input policy, and output binding; it does not receive downloaded files or prior run packets.
+    summary: Parser receives the EXP.xml path, read-only input policy, output binding, input-scope marker, and optional intake_context_note; it does not receive downloaded files or prior run packets, and EXP.xml remains authoritative.
+  - from: capture_xml_intake_library_v0
+    to: workflow_runner
+    condition: downstream_handoff_present_or_absent
+    summary: When present, downstream_handoff is reduced to context-only priority and review hints; when absent, the workflow continues from exp_xml_source alone.
   - from: exp_xml_parser
     to: source_researcher
     condition: component_inventory_written
-    summary: Source research starts only after component identities, confidence levels, and ambiguous-part review items are recorded.
+    summary: Source research starts only after component identities, confidence levels, and ambiguous-part review items are recorded from EXP.xml; intake context may reorder search priority but may not add confirmed components.
   - from: source_researcher
     to: download_operator
     condition: source_discovery_packet_has_approved_urls
-    summary: Downloading is allowed only from sources marked official or owner-approved in the source discovery packet.
+    summary: Downloading or local official-collateral reuse is allowed only from sources marked official or owner-approved in the source discovery packet, with provenance and checksum evidence preserved.
   - from: download_operator
     to: boundary_reviewer
     condition: download_manifest_written
@@ -25,4 +29,4 @@ rules:
   - from: circuit_prep_reviewer
     to: workflow_runner
     condition: readiness_note_complete
-    summary: Runner reports the materials root, manifest path, ready components, blocked components, and next owner actions.
+    summary: Runner reports the materials root, manifest path, ready components, blocked components, input scope, page-level coverage caveats when applicable, and next owner actions.

@@ -1,0 +1,14 @@
+workflow_id: asset_patch_attach_mdd_v0
+kind: party_compatibility
+status: active
+compatible_party_templates:
+  - workflow_research_build_verify
+  - sourcebound_extraction_review
+required_capabilities:
+  - asset_registration_manifesting
+  - mdd_file_identity_probe
+  - metadata_patch_writing
+  - boundary_review
+notes:
+  - No default party binding is assigned yet.
+  - This workflow updates metadata only; deeper PCB/MDD semantic review may belong to later specialized workflows.

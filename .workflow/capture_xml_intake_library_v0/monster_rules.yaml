@@ -1,0 +1,55 @@
+workflow_id: capture_xml_intake_library_v0
+kind: monster_rules
+status: active
+rules:
+  - monster_id: missing_exp_xml
+    response: stop_with_binding_blocker
+    summary: Do not synthesize an intake library without a project binding to the source `EXP.xml`.
+  - monster_id: source_xml_mutation_risk
+    response: stop_and_restore_from_owner_source
+    summary: The workflow reads the XML only; any attempt to rewrite, normalize, rename, or save over the source file is a blocker.
+  - monster_id: initial_mdd_attachment_missing
+    response: continue_and_write_placeholder
+    summary: Missing MDD at first XML intake is not a blocker; write explicit placeholder metadata and keep the asset set open for later owner-supplied attachment.
+  - monster_id: owner_supplied_initial_mdd_attachment_present
+    response: record_owner_supplied_attachment_only
+    summary: If XML and MDD arrive together, record the MDD path and attachment mode as owner-supplied metadata only; do not claim stronger XML↔MDD proof than the owner assertion.
+  - monster_id: mdd_attachment_requires_pairing_inference
+    response: refuse_inference_and_keep_owner_asserted_state
+    summary: Initial intake must not analyze or overprove XML↔MDD pairing beyond explicit owner-supplied attachment state.
+  - monster_id: later_mdd_attachment_request
+    response: route_to_asset_patch_attach_mdd_v0
+    summary: When MDD arrives after XML-first registration, update the asset set through the later patch workflow instead of rewriting the original intake package.
+  - monster_id: raw_xml_leak_to_public_package
+    response: remove_payload_and_keep_only_generic_rule
+    summary: Public workflow files may describe fields and output shapes, but must not contain raw XML body, project values, local library cache paths, or fixture extracts.
+  - monster_id: absolute_path_in_public_workflow
+    response: replace_with_project_binding_identity
+    summary: Reusable workflow files must use stable ids or Soulforge-root-relative POSIX binding paths, never drive letters, home directories, or concrete runtime run paths.
+  - monster_id: capture_schema_variant
+    response: record_parser_mode_and_open_schema_question
+    summary: If the export shape differs from expected Capture nodes, record observed node families and stop or downgrade unsupported fields rather than forcing a parser.
+  - monster_id: dom_parser_rejects_capture_xml
+    response: use_bounded_streaming_probe_or_stop
+    summary: If a full XML DOM parser fails, use a bounded read-only streaming extractor for known node families and record reduced confidence.
+  - monster_id: explicit_net_mapping_missing
+    response: record_pin_port_observations_as_review_required
+    summary: Pin names, port occurrences, and global symbols are not enough to invent confirmed net connectivity when explicit net linkage is absent.
+  - monster_id: connector_identity_ambiguous
+    response: mark_connector_candidate_or_open_question
+    summary: Connector or external-interface status requires component or symbol evidence; pin-name-only hints remain candidates.
+  - monster_id: power_net_ambiguous
+    response: split_confirmed_from_candidate_power_summary
+    summary: Power and ground names inferred from pins or symbols must stay candidates unless explicit net or symbol evidence confirms them.
+  - monster_id: no_connect_or_unplaced_pin
+    response: preserve_no_connect_status_and_review_queue
+    summary: No-connect flags and unlinked pins are design-review facts; do not silently discard or auto-connect them.
+  - monster_id: refdes_net_pin_rename_pressure
+    response: refuse_source_rewrite_and_record_mapping_request
+    summary: Intake may normalize report keys for filenames, but it must not rename source refdes, net names, pins, symbols, coordinates, IDs, or XML structure.
+  - monster_id: downstream_materials_contract_drift
+    response: update_handoff_or_request_owner_decision
+    summary: If `exp_xml_component_materials` changes its expected inputs, update only the public-safe handoff contract and keep raw project data private.
+  - monster_id: secret_or_account_material_requested
+    response: stop_and_request_owner_action
+    summary: The workflow must not read, store, or summarize tokens, cookies, passwords, credential files, or local account/session artifacts.

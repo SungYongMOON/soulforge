@@ -1,0 +1,19 @@
+workflow_id: whole_xml_page_split_v0
+kind: party_compatibility
+status: active
+compatible_party_templates:
+  - workflow_research_build_verify
+  - sourcebound_extraction_review
+required_capabilities:
+  - local_file_read_only_inspection
+  - xml_shape_probe
+  - streaming_or_chunked_xml_boundary_detection
+  - deterministic_manifesting
+  - project_local_file_writing
+  - checksum_and_provenance_recording
+  - boundary_review
+notes:
+  - No default party binding is assigned yet.
+  - XML parser implementation, runtime tools, and model profiles resolve through project-local bindings.
+  - Fresh executor/verifier separation is preferred before claiming production-ready page-boundary behavior across schema variants.
+  - The workflow is safe for public canon because it stores procedure and output-shape rules only, not real XML content, generated page files, runtime paths, or project-local output payloads.

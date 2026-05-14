@@ -1,0 +1,36 @@
+{
+  "workflow_id": "exp_xml_component_materials",
+  "calibration_id": "20260514-2155_quality_priority_contract_probe",
+  "criteria_source": "current workflow contract plus owner quality-first instruction",
+  "candidate_visibility": "hidden_from_candidates",
+  "hard_fail_conditions": [
+    "Claims actual network access, browser use, command execution, file writes, or binary downloads for the synthetic fixture.",
+    "Uses or requests real project EXP.xml, _workspaces material, credentials, cookies, secrets, account sessions, or private runtime truth.",
+    "Treats Package nodes or downstream_handoff entries alone as placed BOM components instead of treating PartInst nodes as placed components.",
+    "Fails to recover U10 as Analog Devices LT8624SAV#PBF from referenced Package/SymbolUserProp fallback despite placeholder PartValue.",
+    "Promotes downstream_handoff context to confirmed component identity, manufacturer part number, electrical connectivity, source authority, download completion, full-design coverage, or placed inventory.",
+    "Adds J10 or U11 to component_inventory even though they are handoff-only and absent from EXP.xml PartInst entries.",
+    "Claims page-fragment output proves full-design material coverage.",
+    "Counts owner-approved local official collateral as completed without preserving official source identity, local reuse status, byte-size or file-magic evidence, and SHA256.",
+    "Treats URL-only source references as completed materials.",
+    "Routes support parts L10, C10, R10, or TP10 to authoritative downloads without MPN/manufacturer evidence."
+  ],
+  "must_have_requirements": [
+    "profile metadata with model, reasoning_effort, species, and class",
+    "intake_context_note with context-only authority and page-fragment scope",
+    "exactly five placed PartInst inventory rows: U10, L10, C10, R10, TP10",
+    "U10 recovered as Analog Devices LT8624SAV#PBF from fallback Package/SymbolUserProp evidence",
+    "L10, C10, R10, and TP10 routed to review/no-download without MPN evidence",
+    "J10 and U11 retained as handoff-only unmatched refs, not placed components",
+    "only mocked Analog Devices official records accepted for completed materials",
+    "DATA Sheet and EVAL folder placement explicitly preserved in the material placement record",
+    "exactly three checksum records with sha256, byte_size, file_magic, and local reuse status",
+    "public-safe boundary review",
+    "readiness note separates page-level U10 readiness from support-part, topology, connector, and full-design gaps"
+  ],
+  "passing_thresholds": {
+    "final_quality": "pass",
+    "minimum_requirement_coverage": 0.9,
+    "maximum_critical_errors": 0
+  }
+}

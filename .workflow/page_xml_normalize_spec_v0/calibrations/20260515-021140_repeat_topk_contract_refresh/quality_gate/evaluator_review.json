@@ -1,0 +1,12 @@
+﻿{
+  "sufficient": true,
+  "missing_critical_conditions_added": [
+    "fabricated or altered source refs/sha256/source identity hard fail",
+    "evaluator-only/golden wording leak hard fail",
+    "required sidecar sections must exist even when unknown/missing/review_required",
+    "harness_ready remains boolean false, with review state represented separately"
+  ],
+  "overfit_risk": "low_to_medium",
+  "unsafe_assumption_risk": "low",
+  "final_recommendation": "Use the criteria with minor revisions; the refreshed contract is covered without overfitting to golden wording."
+}

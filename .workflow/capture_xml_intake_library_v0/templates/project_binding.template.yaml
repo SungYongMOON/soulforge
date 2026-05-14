@@ -1,0 +1,60 @@
+workflow_id: capture_xml_intake_library_v0
+kind: project_workflow_binding_template
+status: template
+project_code: "<project_code>"
+inputs:
+  exp_xml_repo_path: "_workspaces/<project_code>/inputs/EXP.xml"
+  input_scope: whole_export
+optional_inputs:
+  initial_mdd_repo_path: null
+  initial_mdd_attachment_mode: missing
+  normalize_context_sidecar_repo_path: null
+  normalize_downstream_handoff_repo_path: null
+outputs:
+  intake_library_root_repo_path: "_workspaces/<project_code>/capture_xml_intake_library"
+  downstream_materials_root_repo_path: "_workspaces/<project_code>/reference_materials/from_exp_xml"
+source_policy:
+  read_only_source_xml: true
+  page_fragment_allowed: true
+  page_fragment_result_scope: page_level_intake_only
+  copy_raw_xml_to_output: false
+  preserve_refdes_net_pin_symbol_ids: true
+  public_package_payload_allowed: false
+normalize_context_policy:
+  accepted_when_supplied_by_binding: true
+  authority: context_only
+  may_carry:
+    - page_label
+    - module_scope_hint
+    - channelization_hint
+    - classification_basis
+    - normalization_warnings
+  may_not_confirm:
+    - topology
+    - full_design_completeness
+    - harness_boundary
+    - cross_page_connectivity
+parser_policy:
+  preferred_parser: structured_xml_parser
+  fallback_parser: bounded_capture_node_stream
+  record_parser_mode: true
+  explicit_net_nodes_preferred: true
+  if_explicit_net_mapping_missing: record_review_required_pin_port_observations
+output_policy:
+  require_asset_identity: true
+  require_block_summary: true
+  require_extracted_nets: true
+  require_connectors: true
+  require_power_summary: true
+  require_open_questions: true
+  require_pcb_pairing_placeholder: true
+  require_provenance: true
+  require_downstream_handoff: true
+review_policy:
+  confirmed_and_unresolved_must_be_separate: true
+  connector_pin_name_only_confidence: candidate
+  power_pin_name_only_confidence: candidate
+  downstream_workflow_id: exp_xml_component_materials
+attachment_policy:
+  if_initial_mdd_present: register_under_owner_supplied_attachment_state
+  if_initial_mdd_absent: leave_placeholder_for_asset_patch_attach_mdd_v0

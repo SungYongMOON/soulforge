@@ -1,0 +1,14 @@
+﻿{
+  "sufficient": true,
+  "reviewer_notes_applied": [
+    "Added hard fail for invented/modified connectivity.",
+    "Added hard fail for treating handoff priority as source authority or download completion.",
+    "Added hard fail for prose-only replacement of required artifact families.",
+    "Added hard fail for checksum manifest count drift."
+  ],
+  "overfit_risks_resolved": [
+    "Manufacturer names normalized while exact MPNs remain required.",
+    "Folder-shape check remains contractual but allows equivalent explicit placement.",
+    "Calibration id is provenance, not candidate-quality behavior."
+  ]
+}

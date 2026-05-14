@@ -4,13 +4,13 @@ status: active
 slots:
   - slot_id: workflow_runner
     title: Workflow Runner
-    summary: Resolves project-local EXP.xml and materials-root bindings, initializes run logs, and prevents canon folders from receiving downloaded vendor files.
+    summary: Resolves project-local EXP.xml, optional downstream_handoff, and materials-root bindings, initializes run logs, and prevents canon folders from receiving downloaded vendor files.
   - slot_id: exp_xml_parser
     title: EXP XML Parser
-    summary: Reads EXP.xml with structured XML parsing, extracts component identifiers, normalizes part queries, and flags weak part identities.
+    summary: Reads EXP.xml with structured XML parsing, extracts authoritative component identifiers, normalizes part queries, and flags weak part identities while treating intake context as non-authoritative review metadata.
   - slot_id: source_researcher
     title: Source Researcher
-    summary: Finds official datasheets, evaluation boards, reference designs, and PCB/schematic collateral from approved non-oracle sources.
+    summary: Finds official datasheets, evaluation boards, reference designs, and PCB/schematic collateral from approved non-oracle sources, optionally prioritizing EXP-confirmed refs highlighted by intake context.
   - slot_id: download_operator
     title: Download Operator
     summary: Downloads approved files into per-component DATA Sheet and EVAL folders and records provenance, checksums, and missing-material reasons.

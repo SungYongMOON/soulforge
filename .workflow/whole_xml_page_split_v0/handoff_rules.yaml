@@ -1,0 +1,32 @@
+workflow_id: whole_xml_page_split_v0
+kind: handoff_rules
+status: active
+rules:
+  - from: workflow_runner
+    to: xml_boundary_inspector
+    condition: source_xml_readable_and_output_root_project_local
+    summary: Inspector receives the source binding, read-only policy, and output binding; it does not receive prior run packets or public-canon absolute paths.
+  - from: xml_boundary_inspector
+    to: page_split_planner
+    condition: page_boundary_summary_written
+    summary: Planner starts only after parser mode, schema markers, page-boundary candidates, and ambiguity warnings are recorded.
+  - from: page_split_planner
+    to: page_asset_writer
+    condition: ordered_page_split_plan_written
+    summary: Writer receives a deterministic page id and order map, not permission to normalize or reinterpret page content.
+  - from: page_asset_writer
+    to: provenance_writer
+    condition: page_xml_assets_written
+    summary: Provenance writing starts after page files exist and records checksums, source identity, split method, and page ordering without copying raw XML into public canon.
+  - from: provenance_writer
+    to: page_role_hint_reviewer
+    condition: page_manifest_and_index_written
+    summary: Hint review receives manifest metadata and page refs only; role hints remain non-authoritative routing signals for later workflows.
+  - from: page_role_hint_reviewer
+    to: boundary_reviewer
+    condition: page_role_hints_written
+    summary: Boundary review receives project-local output refs, manifest, provenance, and hints, not raw public-canon XML payloads or secret material.
+  - from: boundary_reviewer
+    to: workflow_runner
+    condition: split_readiness_complete
+    summary: Runner reports output refs, unresolved split warnings, and whether the packet is ready for `page_xml_normalize_spec_v0`.

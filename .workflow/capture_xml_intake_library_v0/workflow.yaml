@@ -1,0 +1,56 @@
+workflow_id: capture_xml_intake_library_v0
+kind: workflow
+status: active
+title: Capture XML Intake Library v0
+summary: Build an XML-first asset registration packet from a project-provided Cadence Capture EXP.xml, with optional initial owner-supplied MDD attachment metadata, before downstream component-material collection.
+entrypoint: run
+execution_mode: local_tool_sequence
+role_slots: role_slots.yaml
+step_graph: step_graph.yaml
+handoff_rules: handoff_rules.yaml
+monster_rules: monster_rules.yaml
+party_compatibility: party_compatibility.yaml
+profile_policy: profile_policy.yaml
+inputs:
+  - exp_xml_source
+  - project_intake_binding
+  - extraction_policy
+optional_inputs:
+  - initial_mdd_attachment
+  - normalize_context_sidecar
+  - normalize_downstream_handoff
+outputs:
+  - asset_identity
+  - block_summary
+  - extracted_nets
+  - connectors
+  - power_summary
+  - open_questions
+  - pcb_pairing_placeholder
+  - provenance
+  - downstream_handoff
+validation_level: pilot_executed_private_fixture
+page_fragment_validation_level: representative_page_chain_executed_private_fixture
+attachment_extension_validation_level: draft_contract_only
+downstream_workflow:
+  workflow_id: exp_xml_component_materials
+  expected_input: exp_xml_source
+  optional_context_packet: downstream_handoff
+follow_on_workflow:
+  workflow_id: asset_patch_attach_mdd_v0
+  expected_input: asset_identity
+  optional_context_packet: pcb_pairing_placeholder
+notes:
+  - The EXP.xml input is a read-only baseline artifact; this workflow never edits, normalizes, or rewrites the source XML.
+  - The input may be a whole Capture export or a bounded page-fragment XML asset; page-fragment runs produce page-level intake only and must not be reported as full-library or full-design completion.
+  - Optional page normalize sidecars or normalize handoffs are context-only review metadata; they may carry page labels, module-scope hints, channelization hints, classification rationale, and warnings, but they cannot override source XML or confirm topology.
+  - XML-first asset registration is the primary responsibility: every run must create asset identity metadata and an explicit MDD/PCB placeholder state even when no MDD is provided.
+  - If an owner supplies an MDD file during initial intake, record it as an owner-supplied attached asset only; do not infer true XML/MDD pairing beyond the owner assertion.
+  - The workflow is an upstream intake step before `exp_xml_component_materials`, not a replacement for component material collection.
+  - Later owner-supplied MDD attachment or revision patching is handled by `asset_patch_attach_mdd_v0`.
+  - Confirmed extracted structure and unresolved review-required observations must remain separate in every output artifact.
+  - If explicit net tables are absent or schema-specific links are unclear, record conservative pin, port, global, and no-connect observations with review status instead of inventing connectivity.
+  - When page-fragment scope omits whole-export hierarchy, cache/library coverage, occurrence paths, or cross-page nets, preserve those caveats in provenance and open_questions rather than filling gaps from naming hints.
+  - Connector and power summaries must distinguish strong evidence from name-based candidates.
+  - Reusable workflow files use portable binding identities only; runtime absolute paths and concrete fixture data belong only in private run evidence.
+  - Public canon must not include raw XML body, local library cache paths, vendor document text, raw MDD payloads, credentials, cookies, `_workspaces` outputs, or `_workmeta` raw run truth.

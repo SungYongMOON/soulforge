@@ -26,6 +26,12 @@ rules:
   - monster_id: vendor_login_or_license_gate
     response: owner_manual_download_required
     summary: Account-gated, export-controlled, or click-through-license documents require owner action; never use stored cookies or credentials.
+  - monster_id: official_layout_guidance_unavailable
+    response: write_source_gap_packet_and_record_owner_followup
+    summary: If official layout guidance cannot be acquired, do not stall or fabricate guidance; write a bounded source-gap packet that records attempted sources, blockers, and exactly what the owner should later provide.
+  - monster_id: supplemental_download_failed_or_non_pdf
+    response: keep_attempt_log_and_continue_with_gap_packet
+    summary: If supplemental downloads fail, time out, or return non-usable content, record the failure and continue by writing a source-gap packet rather than pretending the component is layout-ready.
   - monster_id: visual_extraction_unreliable
     response: separate_raw_candidates_from_quality_filtered_outputs
     summary: If figures or tables cannot be extracted with reliable page/caption provenance, do not fabricate them; keep raw table candidates separate and record the missing or low-confidence extraction reason.

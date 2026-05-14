@@ -1,0 +1,16 @@
+workflow_id: asset_patch_attach_mdd_v0
+kind: role_slots
+status: active
+slots:
+  - slot_id: workflow_runner
+    title: Workflow Runner
+    summary: Resolves the existing asset registration, owner-supplied MDD binding, and patch policy while keeping runtime paths out of reusable canon.
+  - slot_id: patch_registrar
+    title: Patch Registrar
+    summary: Validates the MDD attachment request, records owner-supplied attachment state, and updates asset version metadata without rewriting the original XML-first registration.
+  - slot_id: provenance_writer
+    title: Provenance Writer
+    summary: Records the MDD file identity, patch timestamp, and update reason in project-local metadata.
+  - slot_id: boundary_reviewer
+    title: Boundary Reviewer
+    summary: Checks that raw MDD payloads, runtime paths, and secret material stay outside reusable canon and that the patch only updates metadata.

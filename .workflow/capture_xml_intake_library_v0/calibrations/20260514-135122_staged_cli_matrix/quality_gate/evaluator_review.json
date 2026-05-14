@@ -1,0 +1,33 @@
+{
+  "workflow_id": "capture_xml_intake_library_v0",
+  "calibration_id": "20260514-135122_staged_cli_matrix",
+  "review_type": "criteria_review",
+  "reviewer": "main_agent_static_review",
+  "status": "accepted_for_cli_only_calibration",
+  "findings": [
+    {
+      "check": "sufficient_for_user_goal",
+      "result": "pass",
+      "note": "Criteria cover the target workflow's core risks: source immutability, public/private boundary, PartInst-vs-Package distinction, conservative net extraction, connector confidence, no-connect capture, and downstream handoff readiness."
+    },
+    {
+      "check": "critical_conditions_missing",
+      "result": "pass",
+      "note": "No missing hard gate was found for the synthetic fixture. The gate intentionally includes J1 overconfirmation and USB_CC2 invention because those are likely failure modes for schematic-intake models."
+    },
+    {
+      "check": "overfit_to_golden_wording",
+      "result": "pass",
+      "note": "The criteria require facts, boundaries, and artifact families rather than golden wording, ordering, or YAML style."
+    },
+    {
+      "check": "golden_suspicious_assumptions",
+      "result": "pass_with_note",
+      "note": "The golden output inferred descriptive roles such as microcontroller and 3v3_regulator from names/values. Candidates are not required to use those role labels; the frozen gate evaluates identity, evidence separation, net handling, and handoff correctness."
+    }
+  ],
+  "limitations": [
+    "Default subagent_quality_first review was unavailable under the current runtime policy, so this calibration is explicitly labeled cli_only_calibration.",
+    "This is a public-safe synthetic fixture and does not validate parser behavior against real project EXP.xml variants."
+  ]
+}

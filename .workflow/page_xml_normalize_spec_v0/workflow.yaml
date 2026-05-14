@@ -1,0 +1,182 @@
+workflow_id: page_xml_normalize_spec_v0
+kind: workflow
+status: active
+title: Page XML Normalize Spec v0
+summary: Produce sidecar-first `page_module_spec_v0` metadata packages from read-only page XML assets emitted by `whole_xml_page_split_v0`, before XML-first asset registration.
+entrypoint: run
+execution_mode: local_tool_sequence
+role_slots: role_slots.yaml
+step_graph: step_graph.yaml
+handoff_rules: handoff_rules.yaml
+monster_rules: monster_rules.yaml
+party_compatibility: party_compatibility.yaml
+profile_policy: profile_policy.yaml
+inputs:
+  - page_xml_assets
+  - page_manifest
+  - page_module_project_binding
+  - page_module_spec_policy
+optional_inputs:
+  - page_index
+  - source_provenance
+  - page_role_hints
+  - split_readiness
+  - annotation_variant_policy
+outputs:
+  - page_module_spec_sidecars
+  - module_spec_manifest
+  - module_spec_index
+  - provenance_update
+  - normalization_warnings
+  - downstream_handoff
+optional_outputs:
+  - annotated_page_xml_review_variants
+  - annotation_variant_manifest
+validation_level: pilot_executed_private_fixture
+upstream_workflow:
+  workflow_id: whole_xml_page_split_v0
+  expected_outputs:
+    - page_xml_assets
+    - page_manifest
+  optional_context_packets:
+    - page_index
+    - source_provenance
+    - page_role_hints
+    - split_readiness
+downstream_workflow:
+  workflow_id: capture_xml_intake_library_v0
+  expected_inputs:
+    - page_module_spec_sidecars
+    - module_spec_manifest
+  optional_context_packet: downstream_handoff
+  handoff_role: xml_first_asset_registration_preparation
+  handoff_note: Downstream registration may still read source XML through project binding; this workflow provides page-level metadata sidecars and review state, not a canonical replacement XML body.
+spec_contract:
+  schema_version: page_module_spec_v0
+  primary_per_page_file: page_module_spec_v0.yaml
+  required_blocks:
+    - identity
+    - module_definition
+    - interfaces
+    - performance
+    - system_contract
+    - composition
+    - evidence_review
+  optional_blocks:
+    - annotation_variant
+  required_identity_fields:
+    - registration_key
+    - source_system_id
+    - source_page_id
+    - source_page_order
+    - source_page_ref
+    - source_sha256
+  required_interface_containers:
+    - inputs
+    - outputs
+    - bidirectional
+    - passive_or_none
+  optional_module_definition_fields:
+    electrical_domains:
+      claim_policy: review_hint
+    module_scope:
+      completeness_values:
+        - standalone
+        - companion_required
+        - partial_slice
+        - unknown
+      default: unknown
+      claim_policy: review_hint
+    channelization:
+      fields:
+        - appears_channelized
+        - channel_count_hint
+        - channel_range_hint
+        - repeated_block_kind
+        - repeated_block_label_hint
+        - evidence_refs
+      claim_policy: review_hint
+    classification_basis:
+      fields:
+        - page_label
+        - visible_part_names
+        - connector_like_labels
+        - visible_regulator_identity
+        - other_visible_evidence
+      claim_policy: rationale_for_review_required_classification
+  optional_interface_containers:
+    - local_internal_candidates
+    - interface_groups
+  optional_interface_item_fields:
+    - electrical_domain
+    - interface_group
+    - signal_family
+    - nominal
+    - field_status
+  required_system_contract_sections:
+    - electrical_domains
+    - power_contract
+    - signal_contract
+    - readiness_contract
+  review_state_policy:
+    confirmed_requires_source_evidence: true
+    name_or_title_inference_requires_review: true
+    classification_basis_records_rationale_not_truth: true
+    local_internal_candidates_do_not_imply_external_harness_boundary: true
+    system_contract_slots_may_be_blank_or_missing_status: true
+    unit_bearing_quantitative_values_require_status_and_evidence: true
+    harness_ready_defaults_false_until_source_backed: true
+    unsupported_quantitative_values_stay_blank: true
+    source_xml_immutable: true
+scope:
+  primary_work:
+    - page_module_spec_v0_sidecar_generation
+    - deterministic_sidecar_file_naming
+    - module_spec_manifest_and_index_generation
+    - stable_page_identity_metadata
+    - internal_registration_key_generation
+    - checksum_and_provenance_field_normalization
+    - interface_container_initialization
+    - interface_group_initialization
+    - optional_structural_scope_hint_recording
+    - optional_channelization_hint_recording
+    - optional_classification_basis_recording
+    - optional_local_internal_candidate_recording
+    - optional_system_contract_slot_initialization
+    - optional_quantitative_contract_slot_initialization
+    - optional_source_gap_and_followup_slot_initialization
+    - optional_function_and_performance_hint_recording
+    - warning_and_review_required_field_normalization
+  optional_derived_work:
+    - annotated_xml_review_variant_generation
+    - annotation_variant_manifest_generation
+  preserved_from_source:
+    - source_page_order
+    - source_page_id
+    - source_page_label
+    - source_page_asset_identity
+    - source_page_checksum
+    - read_only_source_page_payload
+    - non_authoritative_role_hints
+  forbidden_operations:
+    - source_page_xml_mutation
+    - source_page_xml_body_rewrite_as_default_output
+    - canonical_normalized_xml_body_claim
+    - source_net_or_connectivity_semantics_inference
+    - unsupported_module_semantics_confirmation
+    - component_material_collection
+    - mdd_attachment_or_pairing_claim
+    - harness_composition
+    - final_library_asset_registration_claim
+notes:
+  - This workflow is the sidecar-first page-module metadata bridge after `whole_xml_page_split_v0` and before XML-first asset registration.
+  - The primary per-page output is `page_module_spec_v0.yaml`; source page XML remains immutable and is referenced by identity and checksum only.
+  - "`normalized_page_ref` and `normalized_sha256` fields stay blank unless a policy-approved derived review variant exists."
+  - Annotated XML variants are optional, derived, project-local, and review-only; they are never the canonical library source.
+  - Page role hints may be carried forward as non-authoritative review context only.
+  - Structural completeness, channelization, classification basis, and local/internal control-status candidates are optional review hints; absence or `unknown` is valid when visible evidence is weak.
+  - Electrical-domain, interface-group, quantitative, readiness, and source-gap slots are part of the module contract shape for later harness composition, but this workflow still records them conservatively and does not promote unsupported values to confirmed truth.
+  - Likely local/internal nodes such as switch, feedback, power-good, set, or regulator-control/status labels stay separate from external harness interface candidates unless later source-backed registration promotes them.
+  - The workflow prepares module-spec sidecars and manifests, but does not claim final registered library assets.
+  - A private 11-page split-fixture matrix has been executed to verify required sidecar blocks, downstream handoff emission, and source-page immutability; ambiguous page semantics remain review-required.
+  - Public canon must not include raw XML bodies, generated page payloads, host-specific runtime paths, project-local output payloads, credentials, cookies, or secret material.

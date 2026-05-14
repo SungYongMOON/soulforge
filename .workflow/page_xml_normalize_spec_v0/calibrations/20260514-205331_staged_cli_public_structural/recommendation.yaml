@@ -1,0 +1,38 @@
+calibration_id: 20260514-205331_staged_cli_public_structural
+workflow_id: page_xml_normalize_spec_v0
+recommendation:
+  model: gpt-5.4
+  reasoning_effort: medium
+  species: elf
+  class: auditor
+  candidate_id: C_shadow_gpt_5_4_medium_manual
+  quality_gate: pass
+  quality_score: 94
+  measured_tokens:
+    input_tokens: 19681
+    cached_input_tokens: 7552
+    output_tokens: 7295
+    reasoning_output_tokens: 156
+    telemetry_source: codex_exec_json_cli_proxy_manual_stage_c
+  wall_time_seconds: 137.748
+why_selected:
+  - Passed manual Stage C quality review with no critical errors after the literal-key rule evaluator under-scored equivalent manifest fields.
+  - Preserved the 11 source pages, stable page ids, source checksums, source immutability, sidecar-first output policy, and downstream capture XML handoff.
+  - Kept optional annotation variants review-only and disabled by default, with normalized page refs blank unless a variant exists.
+  - Chosen over faster mini profiles because mini Stage C reruns stayed pass_with_gaps or failed the frozen quality gate.
+not_selected:
+  - candidate_id: C_primary_gpt_5_4_mini_high
+    reason: Faster, but Stage C remained pass_with_gaps on manifest/source-boundary coverage.
+  - candidate_id: C_shadow_gpt_5_4_mini_medium
+    reason: Lower output tokens, but missed multiple frozen gate items on rerun.
+  - candidate_id: B_gpt_5_4_mini_low
+    reason: Strong Stage B support, but corresponding Stage C low-effort rerun failed coverage.
+measurement_policy:
+  quality_source: cli_only_calibration_with_manual_gate_review
+  telemetry_source: cli_full_stage_matrix_and_manual_stage_c_rerun
+  subagent_token_usage_available: false
+  telemetry_exact_for_subagent: false
+  cost_confidence: relative_not_exact
+boundary_assumptions:
+  - Fixture is public-safe structural metadata derived from an already public-safe upstream split calibration archive.
+  - Raw XML bodies, generated page XML payloads, runtime absolute paths, _workspaces outputs, _workmeta raw truth, credentials, cookies, and private-state material are not archived.

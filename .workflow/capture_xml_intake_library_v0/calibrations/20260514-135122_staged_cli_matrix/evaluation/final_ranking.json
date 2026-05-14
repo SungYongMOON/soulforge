@@ -1,0 +1,128 @@
+﻿{
+    "calibration_id":  "20260514-135122_staged_cli_matrix",
+    "workflow_id":  "capture_xml_intake_library_v0",
+    "quality_source":  "cli_only_calibration",
+    "telemetry_source":  "cli_full_stage_matrix_and_stage_c_reruns",
+    "selection_rule":  "Quality hard gates first. Stage C stability can override Stage B token ranking. Among stable semantic passers, prefer lower model tier and lower reasoning cost unless quality differs by 10 or more points.",
+    "stage_a_selected_profile":  {
+                                     "candidate_id":  "A_elf_administrator",
+                                     "model":  "gpt-5.4-mini",
+                                     "reasoning_effort":  "low",
+                                     "species":  "elf",
+                                     "class":  "administrator",
+                                     "rule_quality_score":  94,
+                                     "output_tokens":  1420,
+                                     "reasoning_output_tokens":  14,
+                                     "wall_time_seconds":  13.291,
+                                     "rationale":  "Selected over lower-token A_darkelf_archivist because it preserved explicit profile metadata; selected over A_orc_auditor because token delta was under 5% noise while wall time was materially faster."
+                                 },
+    "final_ranking":  [
+                          {
+                              "rank":  1,
+                              "candidate_id":  "C_primary_gpt_5_4_medium",
+                              "profile":  {
+                                              "model":  "gpt-5.4",
+                                              "reasoning_effort":  "medium",
+                                              "species":  "elf",
+                                              "class":  "administrator"
+                                          },
+                              "rule_quality_score":  100,
+                              "quality_gate":  "pass",
+                              "output_tokens":  1703,
+                              "reasoning_output_tokens":  47,
+                              "wall_time_seconds":  38.632,
+                              "supporting_stage_b_candidate":  "B_gpt_5_4_medium",
+                              "stage_b_output_tokens":  1600,
+                              "stage_b_reasoning_output_tokens":  24,
+                              "stage_b_wall_time_seconds":  37.003,
+                              "rationale":  "Only Stage C finalist with full 100-point gate coverage; preserves J1 as candidate/review_required, avoids USB_CC2 inference, records U1/U2 identities, and uses lower model tier than gpt-5.5 shadows."
+                          },
+                          {
+                              "rank":  2,
+                              "candidate_id":  "C_shadow_gpt_5_5_low",
+                              "profile":  {
+                                              "model":  "gpt-5.5",
+                                              "reasoning_effort":  "low",
+                                              "species":  "elf",
+                                              "class":  "administrator"
+                                          },
+                              "rule_quality_score":  94,
+                              "quality_gate":  "pass",
+                              "output_tokens":  1417,
+                              "reasoning_output_tokens":  72,
+                              "wall_time_seconds":  34.335,
+                              "supporting_stage_b_candidate":  "B_gpt_5_5_low",
+                              "stage_b_output_tokens":  1399,
+                              "stage_b_reasoning_output_tokens":  170,
+                              "stage_b_wall_time_seconds":  33.174,
+                              "rationale":  "Fast and concise, but Stage C rerun missed one provenance-boundary criterion and uses the higher model tier."
+                          },
+                          {
+                              "rank":  3,
+                              "candidate_id":  "B_gpt_5_5_medium",
+                              "profile":  {
+                                              "model":  "gpt-5.5",
+                                              "reasoning_effort":  "medium",
+                                              "species":  "elf",
+                                              "class":  "administrator"
+                                          },
+                              "rule_quality_score":  100,
+                              "quality_gate":  "pass_stage_b_only",
+                              "output_tokens":  1538,
+                              "reasoning_output_tokens":  78,
+                              "wall_time_seconds":  33.465,
+                              "rationale":  "Strong Stage B pass but not rerun in Stage C; retained as quality-upgrade shadow."
+                          },
+                          {
+                              "rank":  4,
+                              "candidate_id":  "B_gpt_5_4_low",
+                              "profile":  {
+                                              "model":  "gpt-5.4",
+                                              "reasoning_effort":  "low",
+                                              "species":  "elf",
+                                              "class":  "administrator"
+                                          },
+                              "rule_quality_score":  94,
+                              "quality_gate":  "pass_with_missing_shape_counts",
+                              "output_tokens":  1408,
+                              "reasoning_output_tokens":  16,
+                              "wall_time_seconds":  36.93,
+                              "rationale":  "Cheaper low-effort same-model shadow but missed the complete shape-count criterion."
+                          },
+                          {
+                              "rank":  5,
+                              "candidate_id":  "B_gpt_5_4_mini_medium",
+                              "profile":  {
+                                              "model":  "gpt-5.4-mini",
+                                              "reasoning_effort":  "medium",
+                                              "species":  "elf",
+                                              "class":  "administrator"
+                                          },
+                              "rule_quality_score":  94,
+                              "quality_gate":  "pass_with_missing_u2_manufacturer",
+                              "output_tokens":  1901,
+                              "reasoning_output_tokens":  516,
+                              "wall_time_seconds":  16.076,
+                              "rationale":  "Fast mini-model fallback, but omitted U2 manufacturer identity and uses much higher reasoning tokens than primary."
+                          }
+                      ],
+    "rejected_or_not_selected_summary":  [
+                                             {
+                                                 "candidate_id":  "B_gpt_5_4_mini_low",
+                                                 "reason":  "Fastest low-cost Stage B profile, but failed hard gate by placing J1 under a connector confirmed section."
+                                             },
+                                             {
+                                                 "candidate_id":  "C_shadow_gpt_5_4_mini_high",
+                                                 "reason":  "Stage C rerun failed connector over-confirmation and identity separation gates."
+                                             },
+                                             {
+                                                 "candidate_id":  "B_gpt_5_4_mini_xhigh",
+                                                 "reason":  "Passed only with missing U2 manufacturer and extreme token/reasoning-token cost."
+                                             },
+                                             {
+                                                 "candidate_id":  "B_gpt_5_5_high",
+                                                 "reason":  "Quality pass but no advantage over lower-effort gpt-5.5 shadows and higher reasoning-token cost."
+                                             }
+                                         ],
+    "recommendation":  "Use gpt-5.4 / medium / elf / administrator as the primary workflow profile."
+}

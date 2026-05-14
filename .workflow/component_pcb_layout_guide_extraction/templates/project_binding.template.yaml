@@ -61,3 +61,9 @@ review_policy:
     - source_map_written
     - extraction_manifest_written
     - unresolved_gaps_recorded
+  allow_source_gap_packet_when_official_guidance_missing: true
+  source_gap_packet_requires:
+    - attempted_sources_recorded
+    - blocker_reason_recorded
+    - owner_followup_needed_recorded
+    - no_unsupported_layout_claims

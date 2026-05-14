@@ -1,0 +1,37 @@
+{
+  "final_primary_candidate_id": "C_shadow_gpt_5_4_high",
+  "final_primary_profile": {
+    "model": "gpt-5.4",
+    "reasoning_effort": "high",
+    "species": "dwarf",
+    "class": "archivist"
+  },
+  "ranked_candidates": [
+    "C_shadow_gpt_5_4_high",
+    "C_shadow_gpt_5_5_medium",
+    "C_primary_gpt_5_4_mini_high"
+  ],
+  "rejected_or_downgraded": {
+    "C_shadow_gpt_5_5_medium": "Downgraded: quality comparable to C_shadow_gpt_5_4_high, but higher model tier with slightly worse wall time/input cost and a missing read-only/source-preservation item in rule eval.",
+    "C_primary_gpt_5_4_mini_high": "Downgraded: lower cost and fastest, but only pass_with_gaps; missing explicit profile metadata and conditional readiness/planned-output separation, making it weaker for final primary despite no critical errors."
+  },
+  "rationale": "Hard gates first: all three have zero critical errors and avoid the decisive hard failures. Final choice is C_shadow_gpt_5_4_high because it passes quality, has complete structured YAML-like artifact coverage, preserves Page boundary/order/id discipline, records the 11-vs-8 warning, routes to page_xml_normalize_spec_v0, and is lower tier than the comparable gpt-5.5 shadow. Token and time telemetry are close enough that quality plus lower-tier preference dominates.",
+  "residual_risks": [
+    "C_shadow_gpt_5_4_high should make source read-only/unchanged and no-.workflow-page-assets constraints more explicit in the production prompt/checklist.",
+    "Readiness should be phrased conditional if actual project-local page asset writing, output binding, or per-page checksums were not executed.",
+    "No rerun telemetry was provided, so stability is inferred from structured compliance rather than measured repeatability."
+  ],
+  "_telemetry": {
+    "model": "gpt-5.5",
+    "reasoning_effort": "low",
+    "exit_code": 0,
+    "wall_time_seconds": 25.842,
+    "usage": {
+      "input_tokens": 53199,
+      "cached_input_tokens": 28416,
+      "output_tokens": 867,
+      "reasoning_output_tokens": 377
+    },
+    "prompt_sha256": "13751c7e251d066f7f73eb94d36bb33a117e479f08fc7542bf2bdaf0237a05c2"
+  }
+}

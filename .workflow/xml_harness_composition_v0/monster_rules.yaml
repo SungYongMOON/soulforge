@@ -1,0 +1,40 @@
+workflow_id: xml_harness_composition_v0
+kind: monster_rules
+status: active
+rules:
+  - monster_id: source_asset_mutation_pressure
+    response: refuse_writeback_and_write_derived_packet_only
+    summary: Never rewrite source XML, normalized sidecars, intake packets, materials packets, layout guides, source packets, or owner-supplied library assets.
+  - monster_id: raw_payload_leak_to_public_package
+    response: remove_payload_and_keep_contract_shape_only
+    summary: Public workflow canon may describe packet shapes and gates, but must not include raw project XML, project values, vendor text, runtime paths, credentials, cookies, or private run truth.
+  - monster_id: missing_page_module_sidecar
+    response: block_harness_composition_for_that_page
+    summary: Without a page module contract, the page cannot safely participate in harness composition.
+  - monster_id: missing_source_packet_or_source_gap
+    response: classify_connection_as_blocked
+    summary: Missing source evidence or an explicit source-gap packet is a composition blocker, not a warning to ignore.
+  - monster_id: missing_quantitative_constraints
+    response: classify_connection_as_review_required_or_blocked
+    summary: Voltage, current, impedance, frequency, timing, thermal, mechanical, or tolerance gaps must prevent candidate-safe promotion unless declared not applicable by source-backed contract.
+  - monster_id: local_internal_candidate_promoted_as_external
+    response: classify_connection_as_blocked
+    summary: "`local_internal_candidates` are not harness interfaces unless later source-backed evidence promotes them."
+  - monster_id: name_similarity_only_join
+    response: classify_connection_as_review_required
+    summary: Matching labels or similar net names alone cannot make a join candidate-safe.
+  - monster_id: no_connect_or_conflicting_open_state
+    response: classify_connection_as_blocked
+    summary: Explicit no-connect, open-pin, or conflicting interface states must block joins until an owner/source-backed update resolves them.
+  - monster_id: final_circuit_synthesis_request
+    response: stop_or_route_to_later_design_workflow
+    summary: This workflow stops at derived harness composition and must not generate final circuits, schematics, BOM decisions, or PCB connectivity.
+  - monster_id: owner_hint_without_source_support
+    response: keep_review_required
+    summary: Owner hints can justify a candidate record, but source and quantitative support are still required before source-supported classification.
+  - monster_id: ambiguous_direction_or_role
+    response: keep_review_required
+    summary: Unknown source/sink direction, bidirectional state, signal role, connector role, or page ownership must remain review-required.
+  - monster_id: downstream_contract_drift
+    response: request_owner_decision_or_update_handoff_contract
+    summary: If upstream packet schemas change, update the public-safe handoff contract before treating old fields as stable.

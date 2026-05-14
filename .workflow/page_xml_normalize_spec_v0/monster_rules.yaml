@@ -1,0 +1,67 @@
+workflow_id: page_xml_normalize_spec_v0
+kind: monster_rules
+status: active
+rules:
+  - monster_id: missing_page_manifest
+    response: stop_with_binding_blocker
+    summary: Do not generate page module sidecars without the split manifest that records source order and stable page ids.
+  - monster_id: missing_page_asset
+    response: stop_or_mark_page_blocked
+    summary: Every manifest page must resolve to a project-local page asset or be recorded as blocked before downstream handoff.
+  - monster_id: page_order_mismatch
+    response: stop_and_reconcile_manifest
+    summary: Do not reorder pages silently; preserve source order from the split manifest or stop with a clear warning.
+  - monster_id: page_identity_collision
+    response: stop_and_record_warning
+    summary: Internal registration keys must be deterministic and unique; collisions require owner or policy resolution before handoff.
+  - monster_id: source_page_xml_mutation_risk
+    response: stop_and_preserve_source_page_assets
+    summary: Source page XML assets are immutable read-only inputs and must not be overwritten by normalization.
+  - monster_id: output_root_inside_workflow_package
+    response: stop_and_request_project_local_binding
+    summary: Module sidecars, manifests, and optional derived variants are project-local artifacts and must not be written inside `.workflow/`.
+  - monster_id: raw_xml_leak_to_public_package
+    response: remove_payload_and_keep_only_generic_rule
+    summary: Public workflow files may describe sidecar and output shapes, but must not contain real XML bodies or fixture-derived page payloads.
+  - monster_id: absolute_path_in_public_workflow
+    response: replace_with_project_binding_identity
+    summary: Reusable workflow files must use stable ids or portable binding names, never drive letters, home directories, or concrete runtime paths.
+  - monster_id: malformed_page_xml
+    response: mark_page_blocked_or_stop
+    summary: Do not guess module metadata from malformed page XML; record parser diagnostics in project-local evidence and stop or block that page by policy.
+  - monster_id: required_xml_body_rewrite
+    response: recenter_on_page_module_sidecar
+    summary: XML body rewriting is not the workflow center; produce `page_module_spec_v0` sidecars and manifests unless an explicit optional review-variant policy exists.
+  - monster_id: annotated_xml_variant_overclaim
+    response: disable_variant_or_mark_review_only
+    summary: Annotated XML variants are optional derived review artifacts and must never become canonical source, required completion output, or final semantic authority.
+  - monster_id: semantic_overclaim
+    response: downgrade_to_review_required
+    summary: Connectivity, function, circuit type, component, material, PCB, and MDD claims stay review-required unless directly supported by allowed source evidence.
+  - monster_id: system_contract_overclaim
+    response: keep_slot_and_mark_missing_or_review_required
+    summary: Electrical-domain, interface-group, voltage/current/power, or readiness fields may exist as slots, but unsupported values must remain blank, missing, blocked, or review-required rather than becoming asserted design truth.
+  - monster_id: local_internal_candidate_overpromotion
+    response: keep_in_local_internal_candidates_and_record_review_question
+    summary: Likely local control/status labels such as SW, FB, PG, SET, VIOC, or similar regulator/control nodes must not be promoted into required/provided external harness interfaces without later source-backed registration evidence.
+  - monster_id: harness_ready_without_support
+    response: force_false_and_record_blocker
+    summary: `harness_ready` must remain false when source gaps, unknown directions, missing quantitative constraints, or unresolved local/internal candidate issues still exist.
+  - monster_id: unsupported_performance_claim
+    response: leave_value_blank_and_record_open_question
+    summary: Power, gain, bandwidth, consumption, and voltage/current values must remain blank or review-required when evidence is missing.
+  - monster_id: materials_collection_requested_during_normalization
+    response: route_to_downstream_material_workflow
+    summary: Datasheet, EVAL, PSpice, layout, and reference-design material collection belongs to later workflows, not page normalization.
+  - monster_id: mdd_attachment_requested_during_normalization
+    response: route_to_asset_patch_attach_mdd_v0
+    summary: MDD attachment is an owner-supplied asset patch or registration concern, not part of page XML normalization.
+  - monster_id: harness_composition_requested_during_normalization
+    response: route_to_later_harness_composition_workflow
+    summary: Harness composition uses already registered or normalized assets later and must not mutate this normalization packet.
+  - monster_id: final_asset_registration_overclaim
+    response: rename_to_registration_prep_and_record_handoff
+    summary: This workflow prepares module-spec sidecars and handoff metadata but does not declare final library registration complete.
+  - monster_id: secret_or_account_material_requested
+    response: stop_and_request_owner_action
+    summary: The workflow must not read, store, or summarize tokens, cookies, passwords, credential files, or local account/session artifacts.

@@ -1,0 +1,13 @@
+{
+  "evaluator_model": "gpt-5.5",
+  "evaluator_reasoning_effort": "medium",
+  "usage": {
+    "input_tokens": 41638,
+    "cached_input_tokens": 24832,
+    "output_tokens": 1161,
+    "reasoning_output_tokens": 607
+  },
+  "wall_time_seconds": 34.382,
+  "raw_review_ref": "llm_shortlist_eval.raw.md",
+  "optimizer_final_primary_candidate_id": "C_shadow_gpt_5_4_mini_medium"
+}

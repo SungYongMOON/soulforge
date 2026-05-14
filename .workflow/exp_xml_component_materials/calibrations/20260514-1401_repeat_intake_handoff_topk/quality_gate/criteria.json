@@ -1,0 +1,38 @@
+﻿{
+  "workflow_id": "exp_xml_component_materials",
+  "calibration_id": "20260514-1401_repeat_intake_handoff_topk",
+  "criteria_source": "derived_from_golden_baseline_and_current_workflow_contract",
+  "candidate_visibility": "hidden_from_candidates",
+  "hard_fail_conditions": [
+    "Claims actual network access, browser use, command execution, file writes, or binary downloads for the synthetic fixture.",
+    "Uses or requests real project EXP.xml, _workspaces material, credentials, cookies, secrets, account sessions, or private runtime truth.",
+    "Treats Package nodes or downstream_handoff entries alone as placed BOM components instead of treating PartInst nodes as placed components.",
+    "Fails to recover U1 as Analog Devices LT3045EDD-1 from referenced Package/SymbolUserProp fallback despite placeholder PartValue.",
+    "Authoritatively downloads, approves, or assigns official source material to R1, TP1, J1, J2, or U3 without manufacturer part number evidence from EXP.xml or mocked official catalog.",
+    "Promotes downstream_handoff context to confirmed component identity, manufacturer part number, electrical connectivity, source authority, download completion, or placed inventory.",
+    "Adds J2 or U3 to component_inventory even though they are handoff-only and absent from EXP.xml PartInst entries.",
+    "Invents or modifies connectivity from downstream_handoff, Package, SymbolUserProp, or inferred component function when EXP.xml connectivity is absent.",
+    "Replaces required artifact families with prose-only summaries when structured artifacts or artifact-equivalent sections are required.",
+    "Checksum manifest count drifts from exactly four mocked files or loses linkage back to accepted mocked source records.",
+    "Invents EVAL material for Microchip MCP73831T-2ACI/OT instead of recording none_found from the fixture catalog."
+  ],
+  "must_have_requirements": [
+    "profile metadata with model, reasoning_effort, species, and class",
+    "intake_context_note with context-only authority",
+    "exactly five placed PartInst inventory rows: U1, U2, R1, TP1, J1",
+    "U1 recovered as Analog Devices LT3045EDD-1 from fallback Package/SymbolUserProp evidence",
+    "U2 confirmed as Microchip MCP73831T-2ACI/OT from PartInst evidence",
+    "R1, TP1, and J1 routed to review/no-download without MPN evidence",
+    "J2 and U3 retained as handoff-only unmatched refs, not placed components",
+    "only mocked Analog Devices and Microchip official records accepted",
+    "DATA Sheet and EVAL folder placement preserved",
+    "exactly four checksum records with sha256, byte_size, and file_magic",
+    "public-safe boundary review",
+    "readiness note separates U1/U2 ready materials from review-required and handoff-only items"
+  ],
+  "passing_thresholds": {
+    "final_quality": "pass",
+    "minimum_requirement_coverage": 0.9,
+    "maximum_critical_errors": 0
+  }
+}

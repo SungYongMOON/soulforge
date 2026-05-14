@@ -1,0 +1,20 @@
+workflow_id: asset_patch_attach_mdd_v0
+kind: handoff_rules
+status: active
+rules:
+  - from: workflow_runner
+    to: patch_registrar
+    condition: asset_registration_and_mdd_binding_resolved
+    summary: Registrar receives existing asset metadata and the owner-supplied MDD binding; it does not receive raw project payload beyond the local attachment path.
+  - from: patch_registrar
+    to: provenance_writer
+    condition: attachment_request_classified_as_owner_supplied_patch
+    summary: Provenance recording starts only after the patch is confirmed as a metadata attachment event rather than a new XML-first registration.
+  - from: provenance_writer
+    to: patch_registrar
+    condition: provenance_update_written
+    summary: Registrar uses the MDD identity record to update version and placeholder state.
+  - from: patch_registrar
+    to: boundary_reviewer
+    condition: patch_manifests_written
+    summary: Boundary review receives metadata-only patch outputs and confirms that no raw MDD payload or runtime-only secret material leaked into reusable canon.

@@ -1,0 +1,34 @@
+﻿workflow_id: page_xml_normalize_spec_v0
+calibration_id: 20260515-021140_repeat_topk_contract_refresh
+recommended_profile:
+  model: gpt-5.4
+  reasoning_effort: medium
+  species: elf
+  class: auditor
+quality_gate: pass
+quality_score: 95
+cli_proxy_telemetry:
+  input_tokens: 15731
+  cached_input_tokens: 7552
+  output_tokens: 5650
+  reasoning_output_tokens: 182
+  wall_time_seconds: 109.419
+rationale: >
+  The refreshed workflow contract added system_contract, interface-group, annotation-variant,
+  and harness readiness constraints. The gpt-5.4/medium elf auditor profile preserved source
+  identities exactly, emitted per-page required blocks, kept harness_ready false, and stayed
+  cheaper/faster than the gpt-5.5/xhigh shadow in CLI proxy telemetry.
+shadow_top_k:
+  - model: gpt-5.5
+    reasoning_effort: xhigh
+    species: elf
+    class: auditor
+    quality_gate: pass_with_minor_manifest_gap
+    quality_score: 90
+    output_tokens: 6379
+    reasoning_output_tokens: 516
+    wall_time_seconds: 121.483
+boundary_assumptions:
+  - public-safe structural fixture only
+  - no raw XML or private project material used
+  - CLI telemetry is proxy telemetry for pass candidates, not exact subagent cost

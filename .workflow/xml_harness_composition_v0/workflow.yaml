@@ -1,0 +1,54 @@
+workflow_id: xml_harness_composition_v0
+kind: workflow
+status: active
+title: XML Harness Composition v0
+summary: Compose a derived harness-layer packet from already prepared page-level XML assets, sidecars, intake packets, materials packets, and optional layout guides without mutating any library source asset.
+entrypoint: run
+execution_mode: local_tool_sequence
+role_slots: role_slots.yaml
+step_graph: step_graph.yaml
+handoff_rules: handoff_rules.yaml
+monster_rules: monster_rules.yaml
+party_compatibility: party_compatibility.yaml
+profile_policy: profile_policy.yaml
+inputs:
+  - harness_project_binding
+  - page_level_asset_identities
+  - page_module_sidecars
+optional_inputs:
+  - capture_intake_packets
+  - component_materials_packets
+  - layout_guide_packets
+  - owner_connection_hints
+outputs:
+  - harness_identity
+  - connection_candidates
+  - blocked_connections
+  - review_required_connections
+  - candidate_safe_connections
+  - source_supported_connections
+  - owner_followup_needed
+  - harness_open_questions
+  - composition_readiness
+validation_level: pilot_executed_private_fixture
+upstream_workflows:
+  - workflow_id: whole_xml_page_split_v0
+    expected_output: page_xml_assets
+  - workflow_id: page_xml_normalize_spec_v0
+    expected_output: page_module_spec_v0_sidecars
+  - workflow_id: capture_xml_intake_library_v0
+    expected_output: page_level_or_whole_asset_intake_packets
+  - workflow_id: exp_xml_component_materials
+    expected_output: optional_component_materials_packets
+  - workflow_id: component_pcb_layout_guide_extraction
+    expected_output: optional_layout_guide_packets
+notes:
+  - This workflow creates a derived harness composition layer only; it is not final circuit synthesis, schematic generation, or netlist authority.
+  - Library assets remain immutable. The workflow never rewrites source XML, normalized sidecars, intake packets, materials packets, layout guides, source packets, vendor collateral, or owner-provided source material.
+  - The output is a project-local harness-layer packet that records possible joins, blockers, review gates, open questions, and readiness state.
+  - "`local_internal_candidates` from page module specs are not external harness interfaces unless later source-backed evidence explicitly promotes them."
+  - Missing source packets, source-gap packets, missing quantitative constraints, unknown directionality, or ambiguous interface ownership must produce `blocked` or `review_required` connection states rather than candidate-safe joins.
+  - "`candidate_safe` means the join is structurally plausible for owner review; it does not mean the connection is electrically approved or ready for final circuit generation."
+  - "`source_supported` is reserved for later runs where cited source evidence and quantitative compatibility are present; this first package defines the classification lane but does not overclaim automatic source support."
+  - A first private pilot against representative power, interface, and ambiguous/channelized page assets produced only blocked and review-required joins, confirming that the workflow preserves missing-source and missing-quantitative blockers instead of fabricating candidate-safe connections.
+  - Public workflow files must not contain raw XML bodies, private project payloads, vendor document text, runtime absolute paths, `_workspaces` outputs, credentials, cookies, or private run truth.

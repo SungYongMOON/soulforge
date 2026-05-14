@@ -1,0 +1,21 @@
+workflow_id: asset_patch_attach_mdd_v0
+kind: workflow_profile_policy
+status: draft
+active_profile: null
+calibration_status: pending
+last_calibration_id: null
+measurement_policy:
+  quality_source: pending_public_safe_calibration
+  telemetry_source: pending
+  subagent_token_usage_available: false
+  telemetry_exact_for_subagent: false
+  cost_confidence: unknown_until_calibrated
+rerun_triggers:
+  - workflow step graph changes
+  - asset patch output schema changes
+  - owner-supplied attachment contract changes
+  - primary profile fails a future public-safe fixture quality gate
+calibration_archive_ref: calibrations/
+notes:
+  - No model/species/class profile calibration has been run for this workflow.
+  - Future calibration must use public-safe synthetic or redacted asset-attachment fixtures, not real project XML or MDD payloads.

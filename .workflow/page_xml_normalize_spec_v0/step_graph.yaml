@@ -1,0 +1,320 @@
+workflow_id: page_xml_normalize_spec_v0
+kind: step_graph
+status: active
+steps:
+  - step_id: prepare_page_module_binding
+    title: Prepare Page Module Binding
+    actor_slot: workflow_runner
+    action:
+      kind: local_workspace_setup
+      requires:
+        - page_xml_assets
+        - page_manifest
+        - page_module_output_root
+        - page_module_spec_policy
+      optional_accepts:
+        - page_index
+        - source_provenance
+        - page_role_hints
+        - split_readiness
+        - annotation_variant_policy
+      validates:
+        - page_manifest_exists
+        - page_xml_assets_exist
+        - page_xml_assets_are_read_only_inputs
+        - page_module_output_root_is_project_local
+        - page_module_output_root_is_not_workflow_package
+      creates:
+        - page_module_output_root
+        - page_module_spec_sidecar_dir
+        - module_manifest_dir
+        - run_log_root
+    summary: Resolve project-local input and output bindings, confirm source page XML assets will not be modified, and create only project-local output folders for sidecars and manifests.
+    next:
+      on_success: reconcile_split_manifest
+      on_fail: stop
+  - step_id: reconcile_split_manifest
+    title: Reconcile Split Manifest
+    actor_slot: split_manifest_reconciler
+    action:
+      kind: split_manifest_reconciliation
+      artifacts_in:
+        - page_manifest
+        - page_xml_assets
+      optional_artifacts_in:
+        - page_index
+        - source_provenance
+        - page_role_hints
+        - split_readiness
+      artifact_out: page_normalization_input_summary
+      records:
+        - page_count
+        - page_order
+        - stable_page_ids
+        - source_page_asset_refs
+        - source_page_checksums
+        - source_labels
+        - role_hints
+        - split_warnings
+      checks:
+        - page_order_preserved
+        - each_manifest_page_has_asset_ref
+        - each_page_asset_ref_exists
+        - page_id_uniqueness_preserved
+        - split_readiness_allows_normalization
+      source_policy:
+        read_source_page_xml_as_input_only: true
+        copy_raw_xml_to_public_package: false
+        manifest_raw_xml_body: false
+    summary: Build a compact input summary from split outputs, preserving page order and stable identity links before any module sidecar is written.
+    next:
+      on_success: plan_page_module_spec_shape
+      on_fail: stop
+  - step_id: plan_page_module_spec_shape
+    title: Plan Page Module Spec Shape
+    actor_slot: module_spec_planner
+    action:
+      kind: deterministic_sidecar_plan
+      artifacts_in:
+        - page_normalization_input_summary
+        - page_module_spec_policy
+      artifact_out: page_module_spec_plan
+      planning_rules:
+        preserve_source_page_order: true
+        preserve_source_page_id: true
+        derive_registration_key_from_source_identity_and_page_id: true
+        sidecar_file_name_policy: page_module_spec_v0_yaml_under_stable_page_id
+        duplicate_registration_key_policy: stop_and_record_warning
+        missing_role_hint_policy: carry_unknown_with_review_required
+        normalized_page_ref_policy: blank_unless_optional_derived_variant_exists
+        structural_scope_policy: record_standalone_companion_required_partial_slice_or_unknown_as_review_hint
+        channelization_policy: record_lightweight_repeated_block_hints_when_visible
+        classification_basis_policy: record_visible_basis_for_circuit_type_or_function_hints_without_confirming_truth
+        local_internal_candidate_policy: keep_likely_control_or_status_nodes_separate_from_external_interfaces
+      sidecar_schema:
+        schema_version: page_module_spec_v0
+        required_blocks:
+          - identity
+          - module_definition
+          - interfaces
+          - performance
+          - system_contract
+          - composition
+          - evidence_review
+        optional_blocks:
+          - annotation_variant
+      allowed_normalization:
+        - sidecar_file_naming
+        - module_spec_metadata_shape
+        - checksum_fields
+        - provenance_fields
+        - interface_container_fields
+        - interface_group_fields
+        - structural_scope_hint_fields
+        - channelization_hint_fields
+        - classification_basis_fields
+        - local_internal_candidate_fields
+        - system_contract_slot_fields
+        - quantitative_contract_slot_fields
+        - readiness_and_source_gap_slot_fields
+        - review_warning_fields
+        - internal_registration_key_fields
+      not_allowed:
+        - rewrite_source_page_assets
+        - make_xml_body_rewrite_default_output
+        - claim_derived_xml_as_canonical_source
+        - infer_connectivity
+        - confirm_module_semantics_without_evidence
+        - collect_component_materials
+        - attach_mdd
+        - compose_harness
+        - claim_final_library_registration
+    summary: Produce a deterministic sidecar plan that standardizes page-module metadata without changing source XML or overclaiming design meaning.
+    next:
+      on_success: write_page_module_spec_sidecars
+      on_fail: stop
+  - step_id: write_page_module_spec_sidecars
+    title: Write Page Module Spec Sidecars
+    actor_slot: module_sidecar_writer
+    action:
+      kind: yaml_sidecar_write
+      artifacts_in:
+        - page_xml_assets
+        - page_module_spec_plan
+      artifacts_out:
+        - page_module_spec_sidecars
+        - sidecar_checksums
+      per_page_output_file: page_module_spec_v0.yaml
+      output_location_policy:
+        project_local_only: true
+        never_under_workflow_package: true
+        overwrite_policy: require_explicit_binding_or_empty_output_root
+      content_policy:
+        write_yaml_metadata_sidecar: true
+        source_page_xml_mutation_allowed: false
+        source_page_xml_body_rewrite_allowed: false
+        raw_xml_body_copy_allowed: false
+        semantic_claims_require_evidence_or_review_required: true
+      sidecar_blocks:
+        - identity
+        - module_definition
+        - interfaces
+        - performance
+        - system_contract
+        - composition
+        - evidence_review
+        - annotation_variant
+      field_policy:
+        source_refs_and_checksums_required: true
+        interface_containers_required_even_when_empty: true
+        interface_groups_optional_but_preferred_when_visible: true
+        electrical_domains_may_be_derived_or_unknown: true
+        structural_completeness_default_unknown: true
+        channelization_hints_optional_and_review_required: true
+        classification_basis_is_rationale_not_confirmation: true
+        local_internal_candidates_not_external_harness_interfaces: true
+        system_contract_slots_required_even_when_values_missing: true
+        harness_ready_defaults_false_until_later_enrichment: true
+        source_gap_and_owner_followup_slots_allowed: true
+        optional_quantitative_fields_may_be_blank: true
+        inferred_function_or_circuit_type_requires_review: true
+        normalized_page_ref_blank_unless_optional_variant_exists: true
+    summary: Materialize one `page_module_spec_v0.yaml` sidecar per source page as the primary normalization output while preserving source XML identity and uncertainty.
+    next:
+      on_success: maybe_write_annotated_xml_review_variants
+      on_fail: stop
+  - step_id: maybe_write_annotated_xml_review_variants
+    title: Maybe Write Annotated XML Review Variants
+    actor_slot: annotation_variant_writer
+    action:
+      kind: optional_derived_xml_variant_write
+      artifacts_in:
+        - page_xml_assets
+        - page_module_spec_sidecars
+        - annotation_variant_policy
+      artifacts_out:
+        - annotated_page_xml_review_variants
+        - annotation_variant_manifest
+      activation_policy:
+        default_enabled: false
+        requires_explicit_project_policy: true
+        skip_is_success_when_not_enabled: true
+      output_location_policy:
+        project_local_only: true
+        never_under_workflow_package: true
+      content_policy:
+        write_derived_annotated_xml_payload: true
+        source_page_xml_mutation_allowed: false
+        canonical_source_claim_allowed: false
+        semantic_claim_authority: review_only
+        allowed_annotation_scope:
+          - page_summary
+          - purpose_note
+          - review_note
+          - operator_memo
+        forbidden_annotation_scope:
+          - refdes_renaming
+          - net_renaming
+          - pin_or_function_reassignment
+          - coordinate_edits
+          - semantic_rewrite_that_changes_circuit_meaning
+    summary: Optionally produce derived annotated XML review variants; when disabled, sidecars remain the complete primary output.
+    next:
+      on_success: write_module_manifests_and_handoff
+      on_skip: write_module_manifests_and_handoff
+      on_fail: stop
+  - step_id: write_module_manifests_and_handoff
+    title: Write Module Manifests And Handoff
+    actor_slot: manifest_handoff_writer
+    action:
+      kind: manifest_write
+      artifacts_in:
+        - page_normalization_input_summary
+        - page_module_spec_plan
+        - page_module_spec_sidecars
+        - sidecar_checksums
+      optional_artifacts_in:
+        - annotated_page_xml_review_variants
+        - annotation_variant_manifest
+      artifacts_out:
+        - module_spec_manifest
+        - module_spec_index
+        - provenance_update
+        - normalization_warnings
+        - downstream_handoff
+      output_files:
+        module_spec_manifest: module_spec_manifest.yaml
+        module_spec_index: module_spec_index.yaml
+        provenance_update: provenance_update.yaml
+        normalization_warnings: normalization_warnings.yaml
+        downstream_handoff: downstream_handoff.yaml
+      manifest_fields:
+        - registration_key
+        - source_page_id
+        - source_page_order
+        - source_page_ref
+        - source_sha256
+        - page_module_spec_ref
+        - page_module_spec_sha256
+        - optional_annotation_variant_ref
+        - optional_annotation_variant_sha256
+        - role_hints
+        - primary_domain
+        - harness_readiness_basis
+        - source_gap_present
+        - normalization_status
+        - review_required
+      manifest_policy:
+        include_module_spec_sidecar_refs: true
+        include_optional_annotation_refs_when_present: true
+        include_page_order_and_ids: true
+        include_internal_registration_keys: true
+        include_raw_page_xml_body: false
+        require_normalized_xml_body_refs: false
+        final_library_registration_claim_allowed: false
+    summary: Write compact project-local manifests and handoff refs centered on `page_module_spec_v0` sidecars for downstream XML-first registration.
+    next:
+      on_success: boundary_and_handoff_review
+      on_fail: stop
+  - step_id: boundary_and_handoff_review
+    title: Boundary And Handoff Review
+    actor_slot: boundary_reviewer
+    action:
+      kind: boundary_and_readiness_review
+      artifacts_in:
+        - page_module_spec_sidecars
+        - module_spec_manifest
+        - module_spec_index
+        - provenance_update
+        - normalization_warnings
+        - downstream_handoff
+      optional_artifacts_in:
+        - annotated_page_xml_review_variants
+        - annotation_variant_manifest
+      artifact_out: normalization_readiness
+      checks:
+        - source_page_assets_unchanged
+        - sidecar_outputs_are_project_local
+        - no_generated_assets_under_workflow_package
+        - page_order_and_stable_ids_preserved
+        - registration_keys_are_deterministic
+        - page_module_spec_v0_blocks_present
+        - system_contract_block_present
+        - optional_structural_scope_values_are_conservative
+        - optional_channelization_hints_do_not_create_harness_claims
+        - classification_basis_does_not_confirm_inferred_semantics
+        - local_internal_candidates_are_not_promoted_to_required_or_provided_interfaces
+        - harness_ready_not_true_without_source_backed_support
+        - quantitative_slots_not_filled_without_status_and_evidence
+        - sidecars_are_primary_outputs
+        - annotated_xml_variants_are_optional_derived_review_only
+        - warnings_and_review_required_items_recorded
+        - no_source_xml_body_rewrite_required
+        - no_materials_collection_performed
+        - no_mdd_attachment_or_pairing_claim
+        - no_harness_composition_performed
+        - ready_for_xml_first_asset_registration
+    summary: Confirm the sidecar packet is contained, source-safe, manifest-backed, and ready for later XML-first asset registration without overclaiming final registration.
+    next:
+      on_success: complete
+      on_fail: stop

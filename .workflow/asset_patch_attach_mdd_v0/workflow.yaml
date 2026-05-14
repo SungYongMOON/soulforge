@@ -1,0 +1,33 @@
+workflow_id: asset_patch_attach_mdd_v0
+kind: workflow
+status: active
+title: Asset Patch Attach MDD v0
+summary: Attach an owner-supplied MDD file to an existing XML-first asset set and bump asset version without replacing the original XML-first registration.
+entrypoint: run
+execution_mode: local_tool_sequence
+role_slots: role_slots.yaml
+step_graph: step_graph.yaml
+handoff_rules: handoff_rules.yaml
+monster_rules: monster_rules.yaml
+party_compatibility: party_compatibility.yaml
+profile_policy: profile_policy.yaml
+inputs:
+  - asset_identity
+  - pcb_pairing_placeholder
+  - mdd_source
+  - patch_policy
+outputs:
+  - asset_identity_updated
+  - pcb_pairing_placeholder_updated
+  - asset_patch_record
+  - provenance_update
+validation_level: draft_contract_only
+upstream_workflow:
+  workflow_id: capture_xml_intake_library_v0
+  expected_output: asset_identity
+  optional_context_packet: pcb_pairing_placeholder
+notes:
+  - This workflow assumes the XML-first asset set already exists.
+  - The owner-supplied MDD path is authoritative for attachment intent, but the workflow does not overclaim deeper XML/MDD pairing truth beyond that owner assertion.
+  - The source XML registration remains authoritative for XML identity and is not rebuilt by this patch workflow.
+  - Public canon must not include raw MDD payloads, host-specific runtime paths, or project-local run truth.

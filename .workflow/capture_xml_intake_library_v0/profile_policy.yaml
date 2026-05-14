@@ -1,0 +1,96 @@
+workflow_id: capture_xml_intake_library_v0
+kind: workflow_profile_policy
+status: active
+last_calibration_id: 20260514-135122_staged_cli_matrix
+calibration_mode: staged_cli_calibration
+measurement_policy:
+  quality_source: cli_only_calibration
+  telemetry_source: cli_full_stage_matrix_and_stage_c_reruns
+  subagent_token_usage_available: false
+  telemetry_exact_for_subagent: false
+  cost_confidence: relative_not_exact
+primary_profile:
+  model: gpt-5.4
+  reasoning_effort: medium
+  species: elf
+  class: administrator
+  candidate_id: C_primary_gpt_5_4_medium
+  measured_tokens:
+    input_tokens: 15570
+    cached_input_tokens: 4480
+    output_tokens: 1703
+    reasoning_output_tokens: 47
+    telemetry_source: codex_exec_json_cli_proxy_stage_c
+  wall_time_seconds: 38.632
+  quality_score: 100
+  quality_gate: pass
+  rationale: >
+    Stage C finalist with full frozen quality-gate coverage. It preserved
+    PartInst-vs-Package separation, recovered U1 identity from package
+    evidence, kept J1 candidate/review-required, avoided USB_CC2 inference,
+    recorded U1.PA13 as review-visible no-connect evidence, and used a lower
+    model tier than the comparable gpt-5.5 shadows.
+shadow_top_k:
+  - rank: 2
+    candidate_id: C_shadow_gpt_5_5_low
+    model: gpt-5.5
+    reasoning_effort: low
+    species: elf
+    class: administrator
+    output_tokens: 1417
+    reasoning_output_tokens: 72
+    wall_time_seconds: 34.335
+    quality_score: 94
+    quality_gate: pass
+  - rank: 3
+    candidate_id: B_gpt_5_5_medium
+    model: gpt-5.5
+    reasoning_effort: medium
+    species: elf
+    class: administrator
+    output_tokens: 1538
+    reasoning_output_tokens: 78
+    wall_time_seconds: 33.465
+    quality_score: 100
+    quality_gate: pass_stage_b_only
+  - rank: 4
+    candidate_id: B_gpt_5_4_low
+    model: gpt-5.4
+    reasoning_effort: low
+    species: elf
+    class: administrator
+    output_tokens: 1408
+    reasoning_output_tokens: 16
+    wall_time_seconds: 36.93
+    quality_score: 94
+    quality_gate: pass_with_missing_shape_counts
+  - rank: 5
+    candidate_id: B_gpt_5_4_mini_medium
+    model: gpt-5.4-mini
+    reasoning_effort: medium
+    species: elf
+    class: administrator
+    output_tokens: 1901
+    reasoning_output_tokens: 516
+    wall_time_seconds: 16.076
+    quality_score: 94
+    quality_gate: pass_with_missing_u2_manufacturer
+rejected_finalists:
+  - candidate_id: B_gpt_5_4_mini_low
+    reason: Failed hard gate by placing J1 under a connector confirmed section.
+  - candidate_id: C_shadow_gpt_5_4_mini_high
+    reason: Stage C rerun failed connector over-confirmation and identity separation gates.
+rerun_triggers:
+  - workflow step graph changes
+  - intake library output schema changes
+  - Capture XML parser or topology extraction behavior changes
+  - downstream `exp_xml_component_materials` handoff contract changes
+  - primary profile fails a future public-safe fixture quality gate
+  - model availability, pricing, or latency characteristics materially change
+calibration_archive_ref: calibrations/20260514-135122_staged_cli_matrix/
+notes:
+  - This policy is based on a public-safe synthetic staged CLI calibration.
+  - The default subagent_quality_first matrix was unavailable under the current runtime policy, so quality_source is explicitly `cli_only_calibration`.
+  - Stage A selected `elf|administrator`; Stage B compared model and reasoning effort; Stage C reran three finalists for stability.
+  - Runtime parser tooling and model profiles should be bound per project rather than hard-coded here.
+  - No real project XML, raw EXP body, runtime absolute path, `_workspaces` output, `_workmeta` raw truth, credential, cookie, or private-state material is stored in the archive.

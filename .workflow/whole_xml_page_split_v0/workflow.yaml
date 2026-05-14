@@ -1,0 +1,39 @@
+workflow_id: whole_xml_page_split_v0
+kind: workflow
+status: active
+title: Whole XML Page Split v0
+summary: Split one project-bound large multi-page XML source into project-local page XML assets, page manifests, and provenance before page normalization.
+entrypoint: run
+execution_mode: local_tool_sequence
+role_slots: role_slots.yaml
+step_graph: step_graph.yaml
+handoff_rules: handoff_rules.yaml
+monster_rules: monster_rules.yaml
+party_compatibility: party_compatibility.yaml
+profile_policy: profile_policy.yaml
+inputs:
+  - whole_xml_source
+  - page_split_project_binding
+  - split_policy
+outputs:
+  - page_xml_assets
+  - page_manifest
+  - page_index
+  - source_provenance
+  - page_role_hints
+  - split_readiness
+validation_level: pilot_ready_contract_only
+downstream_workflow:
+  workflow_id: page_xml_normalize_spec_v0
+  expected_input: page_xml_assets
+  optional_context_packet: page_manifest
+  status: planned_follow_on
+notes:
+  - This workflow is the first hardware XML library step when a whole multi-page XML source arrives.
+  - The source XML is a read-only baseline artifact; this workflow never edits, normalizes, renames, or saves over the source XML.
+  - Page XML assets are derived project-local outputs resolved by binding and must not be written inside `.workflow/`.
+  - The split preserves page order and page-local XML content while avoiding broader normalization or semantic rewriting.
+  - Page ids must be stable within the source revision; ambiguous or duplicated ids require deterministic disambiguation and a manifest warning.
+  - Page-role hints are lightweight routing hints only; PCB/MDD/material context must not be overclaimed in this workflow.
+  - Downstream normalization belongs to `page_xml_normalize_spec_v0`; XML-first asset registration and material collection remain separate later workflows.
+  - Public canon must not include raw XML bodies, fixture-derived page payloads, host-specific runtime paths, project-local output payloads, credentials, cookies, or secret material.

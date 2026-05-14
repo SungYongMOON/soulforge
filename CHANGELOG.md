@@ -28,6 +28,127 @@
 - Clarified that the 24-hour PC only auto-syncs `_workmeta/main` by fast-forward and must not auto-merge stale work branches or PC-specific branches into `main`.
 - Documented that bounded metadata from another PC should be promoted by cherry-pick, rebase, or manual port after `main` is current.
 - Added conflict handling guidance for shared `_workmeta` policy/log surfaces so `README.md`, `CHANGELOG.md`, worklogs, and promotion registers preserve latest `main` policy and append new records.
+## 2026-05-15
+
+### Revision `working` - Page XML normalization profile refreshed
+
+- Re-ran `.workflow/page_xml_normalize_spec_v0/` profile calibration after the workflow contract added stronger `system_contract`, interface-group, annotation-variant, and harness-readiness expectations.
+- Kept the primary profile as `gpt-5.4` `medium` with `elf` + `auditor` after repeat Top-K subagent quality runs and CLI proxy telemetry for pass candidates.
+- Archived the public-safe repeat calibration under `.workflow/page_xml_normalize_spec_v0/calibrations/20260515-021140_repeat_topk_contract_refresh/`.
+- Rejected `gpt-5.4-mini` shadows under the refreshed gate because they altered source identity, left `system_contract` too empty, or collapsed required per-page sidecar blocks.
+- Kept raw XML bodies, generated page XML payloads, runtime paths, `_workspaces`, `_workmeta` raw truth, credentials, cookies, and private-state material out of the public workflow archive.
+
+### Revision `working` - XML harness composition workflow added
+
+- Added `.workflow/xml_harness_composition_v0/` as a public-safe derived harness-layer workflow for composing prepared page-level XML assets into a project-local harness packet.
+- Registered the workflow in `.workflow/index.yaml` and listed it in `.workflow/README.md` after the page split, normalize, intake, materials, and layout-guide preparation chain.
+- Defined explicit `blocked`, `review_required`, `candidate_safe`, and `source_supported` lanes, including missing-source, source-gap, missing-quantitative, local/internal misuse, no-connect, and ambiguity handling.
+- Kept source XML, normalized sidecars, intake packets, materials packets, layout guides, raw project payloads, vendor text, runtime paths, credentials, cookies, `_workspaces`, and private run truth out of public workflow canon.
+- Marked the package `pilot_ready_contract_only`; a controlled project-local harness pilot and independent review are still required before claiming pilot-executed or usable behavior.
+
+## 2026-05-14
+
+### Revision `working` - EXP XML materials quality profile promoted
+
+- Promoted `.workflow/exp_xml_component_materials/profile_policy.yaml` from `gpt-5.4-mini` `medium` to `gpt-5.5` `medium` with `orc` + `archivist` after a quality-first scoped contract probe.
+- Archived the public-safe page-fragment/local-reuse probe under `.workflow/exp_xml_component_materials/calibrations/20260514-2155_quality_priority_contract_probe/`.
+- Selected the cleaner `gpt-5.5` profile because it preserved page-level scope, context-only handoff boundaries, owner-approved local official collateral evidence, and explicit `DATA Sheet`/`EVAL` destination placement.
+- Kept real EXP.xml bodies, downloaded vendor binaries, runtime paths, `_workspaces`, `_workmeta` raw truth, credentials, cookies, and private-state material out of the public archive.
+
+### Revision `working` - Page XML normalization profile calibrated
+
+- Calibrated `.workflow/page_xml_normalize_spec_v0/` with public-safe structural metadata derived from the already public-safe `whole_xml_page_split_v0` calibration archive, covering 11 ordered page sidecars, source checksums, immutable source XML policy, blank normalized refs, review-required semantics, local/internal candidate separation, and downstream `capture_xml_intake_library_v0` handoff.
+- Set the workflow primary profile to `gpt-5.4` `medium` with `elf` + `auditor`, retaining faster `gpt-5.4-mini` shadows after their Stage C reruns stayed `pass_with_gaps` or failed coverage.
+- Archived staged CLI candidate outputs, telemetry, frozen criteria, manual gate review, final ranking, and recommendation under `.workflow/page_xml_normalize_spec_v0/calibrations/20260514-205331_staged_cli_public_structural/`.
+- Kept raw XML bodies, generated page XML payloads, runtime paths, `_workspaces`, `_workmeta` raw truth, credentials, cookies, and private-state material out of the public workflow archive.
+
+### Revision `working` - Capture/materials page-fragment contracts clarified
+
+- Clarified `.workflow/capture_xml_intake_library_v0/` so whole-export inputs and page-fragment XML inputs have distinct expectations: page fragments produce page-level intake only, with normalize sidecars/handoffs accepted only as non-authoritative review context.
+- Clarified `.workflow/exp_xml_component_materials/` so page-fragment `exp_xml_source` inputs can produce bounded page-level source packets without implying full-design material coverage.
+- Allowed owner-approved local official collateral reuse in `exp_xml_component_materials` when provenance and checksum/file evidence are preserved, while keeping `exp_xml_source` authoritative and downstream handoff context-only.
+
+### Revision `working` - Layout guide source-gap fallback clarified
+
+- Clarified `.workflow/component_pcb_layout_guide_extraction/` so missing official layout guidance no longer means the workflow must silently stall or fabricate guidance.
+- Added a bounded degraded path where the workflow writes a `Layout Guide/` source-gap packet that records attempted sources, blocker reasons, unresolved gaps, and owner follow-up needs when official layout guidance cannot be acquired.
+- Kept source-bound output requirements intact: no unsupported layout claims, no public-canon vendor text, and no runtime project payload leakage.
+
+### Revision `working` - Page normalize system-contract slots expanded
+
+- Expanded `.workflow/page_xml_normalize_spec_v0/` so `page_module_spec_v0` now includes a required `system_contract` block for harness-facing electrical, signal, quantitative, and readiness/source-gap slots.
+- Added support for interface groups, electrical domains, signal families, quantitative placeholder slots, and explicit `harness_ready` / `source_gap` / `owner_followup` contract fields while keeping all of them conservative and review-oriented.
+- Kept normalization source-safe: the workflow still does not infer confirmed topology, perform harness composition, or promote unsupported quantitative values to truth.
+
+### Revision `working` - Harness composition first private pilot executed
+
+- Executed the first private pilot of `.workflow/xml_harness_composition_v0/` against representative power, interface, and ambiguous/channelized prepared page assets.
+- The resulting derived harness packet produced explicit `blocked` and `review_required` joins, with no `candidate_safe` or `source_supported` promotions, confirming the intended conservative behavior.
+- Updated the workflow package maturity from `pilot_ready_contract_only` to `pilot_executed_private_fixture`.
+
+### Revision `working` - Page module sidecar refinement hints
+
+- Refined `.workflow/page_xml_normalize_spec_v0/` with optional `module_scope`, `channelization`, `classification_basis`, and `interfaces.local_internal_candidates` fields for conservative page-module sidecars.
+- Kept required external interface containers unchanged and preserved the sidecar-first, immutable-source-page contract.
+- Aligned the private `page_module_spec_v0` first-draft note and example YAML with the new review-hint fields.
+
+### Revision `working` - Page XML normalization sidecar alignment
+
+- Realigned `.workflow/page_xml_normalize_spec_v0/` with the fixed `page_module_spec_v0` first draft so per-page `page_module_spec_v0.yaml` sidecars and manifests are the primary outputs.
+- Recentered the workflow on immutable source page XML, metadata-first identity/provenance/interface/review fields, and optional derived annotated XML variants that remain review-only.
+- Kept the existing `.workflow/index.yaml` registration in place and updated the workflow catalog wording to describe the sidecar-first package.
+- Followed the alignment with a private 11-page split-fixture pilot matrix, lifting the workflow package from `pilot_ready_contract_only` to `pilot_executed_private_fixture` while keeping ambiguous semantics as review-required.
+
+### Revision `working` - Page XML normalization workflow added
+
+- Added `.workflow/page_xml_normalize_spec_v0/` as a public-safe bridge workflow for turning page XML assets from `whole_xml_page_split_v0` into project-local normalized page assets, registration-prep units, manifests, provenance updates, warnings, and downstream handoff packets.
+- Registered the workflow in `.workflow/index.yaml` between `whole_xml_page_split_v0` and XML-first asset registration, and listed it in `.workflow/README.md`.
+- Kept raw page XML bodies, generated normalized page payloads, runtime absolute paths, `_workspaces` output data, `_workmeta` raw truth, credentials, cookies, secret material, material collection, MDD attachment, and harness composition out of the public workflow package.
+- Marked the workflow as `pilot_ready_contract_only`; a controlled normalization pilot is still required before claiming pilot-executed behavior.
+
+### Revision `working` - Whole XML page split workflow added
+
+- Added `.workflow/whole_xml_page_split_v0/` as a public-safe first-step workflow for splitting one project-bound large multi-page XML source into project-local page XML assets, manifest, index, provenance, and readiness notes.
+- Registered the workflow in `.workflow/index.yaml` and listed it in `.workflow/README.md` as upstream of planned `page_xml_normalize_spec_v0`.
+- Kept source XML read-only and kept normalization, XML-first asset registration, material collection, MDD attachment, raw XML bodies, runtime paths, project-local output payloads, credentials, cookies, and private run truth out of the public workflow package.
+
+### Revision `working` - Whole XML page split profile calibrated
+
+- Calibrated `.workflow/whole_xml_page_split_v0/` with public-safe structural metadata derived from the supplied real sample XML, covering 11 `Page` boundaries, titleblock `Page Count = 8` conflict handling, missing/non-contiguous page-number signals, source-order page ids, manifest/index/provenance shape, and downstream `page_xml_normalize_spec_v0` handoff.
+- Set the workflow primary profile to `gpt-5.4` `high` with `dwarf` + `archivist`, retaining `gpt-5.5` shadows and a downgraded `gpt-5.4-mini` fallback note after Stage C instability.
+- Archived staged CLI candidate outputs, telemetry, frozen criteria, rule evaluation, shortlist review, final ranking, and recommendation under `.workflow/whole_xml_page_split_v0/calibrations/20260514-171147_staged_cli_real_sample_structural/`.
+- Kept real XML bodies, generated page XML payloads, runtime paths, `_workspaces`, `_workmeta` raw truth, credentials, cookies, and private-state material out of the public workflow archive.
+
+### Revision `working` - XML-first asset registration and later MDD patch workflows
+
+- Extended `.workflow/capture_xml_intake_library_v0/` so XML-first intake now creates `asset_identity` and `pcb_pairing_placeholder` metadata, and can record an optional owner-supplied initial MDD attachment without overclaiming XML↔MDD pairing proof.
+- Added `.workflow/asset_patch_attach_mdd_v0/` as a follow-on workflow for later owner-supplied MDD attachment and asset-version bump after the initial XML-first registration already exists.
+- Kept raw XML, raw MDD payloads, runtime absolute paths, `_workspaces` output data, credentials, cookies, and private run truth out of public workflow canon.
+
+### Revision `working` - Capture XML intake profile calibrated
+
+- Calibrated `.workflow/capture_xml_intake_library_v0/` with a public-safe synthetic Capture XML fixture covering PartInst-vs-Package separation, explicit net extraction, connector confidence, power/no-connect review, provenance, and downstream handoff.
+- Set the workflow primary profile to `gpt-5.4` `medium` with `elf` + `administrator`, retaining `gpt-5.5` shadows and lower-cost fallback notes.
+- Archived staged CLI candidate outputs, telemetry, frozen criteria, rule evaluation, finalist review, final ranking, and recommendation under `.workflow/capture_xml_intake_library_v0/calibrations/20260514-135122_staged_cli_matrix/`.
+- Kept real EXP.xml bodies, runtime paths, `_workspaces`, `_workmeta` raw truth, credentials, cookies, and private-state material out of the public workflow archive.
+
+### Revision `working` - EXP XML materials handoff profile recalibrated
+
+- Re-ran `.workflow/exp_xml_component_materials/` profile optimization against a public-safe synthetic fixture that includes optional `capture_xml_intake_library_v0` `downstream_handoff` context.
+- Archived the repeat Top-K calibration under `.workflow/exp_xml_component_materials/calibrations/20260514-1401_repeat_intake_handoff_topk/`.
+- Updated `.workflow/exp_xml_component_materials/profile_policy.yaml` from `gpt-5.4-mini` `low` to `gpt-5.4-mini` `medium` while keeping `orc` + `archivist`, because the previous low-effort primary did not pass the richer handoff-context quality gate.
+
+### Revision `working` - Capture XML intake library workflow added
+
+- Added `.workflow/capture_xml_intake_library_v0/` as an upstream read-only intake workflow for turning a project-bound Capture `EXP.xml` into block, net, connector, power, open-question, provenance, and downstream handoff artifacts.
+- Registered the workflow in `.workflow/index.yaml` and listed it in `.workflow/README.md` before `exp_xml_component_materials`.
+- Recorded the first package as pilot-executed from a bounded private system-lab fixture while keeping raw XML, fixture values, runtime paths, `_workspaces`, `_workmeta` raw truth, credentials, and cookies out of public canon.
+
+### Revision `working` - EXP XML materials intake handoff context linked
+
+- Updated `.workflow/exp_xml_component_materials/` so it can optionally read `capture_xml_intake_library_v0` `downstream_handoff` context without making the handoff mandatory.
+- Kept `exp_xml_source` authoritative for component identity, placed inventory, manufacturer part number, and connectivity while allowing intake context to prioritize connector/interface refs, power-sensitive refs, and open topology review items.
+- Documented candidate-only intake observations as review context, not confirmed material-collection truth.
 
 ## 2026-05-13
 

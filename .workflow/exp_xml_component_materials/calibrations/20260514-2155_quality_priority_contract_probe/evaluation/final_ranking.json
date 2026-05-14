@@ -1,0 +1,38 @@
+{
+  "calibration_id": "20260514-2155_quality_priority_contract_probe",
+  "workflow_id": "exp_xml_component_materials",
+  "primary_candidate": "C2_gpt_5_5_medium_orc_archivist",
+  "ranking": [
+    {
+      "rank": 1,
+      "candidate_id": "C2_gpt_5_5_medium_orc_archivist",
+      "model": "gpt-5.5",
+      "reasoning_effort": "medium",
+      "species": "orc",
+      "class": "archivist",
+      "quality_score": 99,
+      "output_tokens": 1875,
+      "reasoning_output_tokens": 109,
+      "input_tokens": 18015,
+      "cached_input_tokens": 7552,
+      "wall_time_seconds": 42.038,
+      "selection_note": "quality-first winner; explicit DATA Sheet/EVAL placement and all scoped contract gates passed"
+    },
+    {
+      "rank": 2,
+      "candidate_id": "C1_gpt_5_4_mini_medium_orc_archivist",
+      "model": "gpt-5.4-mini",
+      "reasoning_effort": "medium",
+      "species": "orc",
+      "class": "archivist",
+      "quality_score": 92,
+      "output_tokens": 1560,
+      "reasoning_output_tokens": 194,
+      "input_tokens": 16279,
+      "cached_input_tokens": 7552,
+      "wall_time_seconds": 16.191,
+      "selection_note": "faster but pass_with_gap due to missing explicit DATA Sheet/EVAL destination placement"
+    }
+  ],
+  "failed_candidates": []
+}

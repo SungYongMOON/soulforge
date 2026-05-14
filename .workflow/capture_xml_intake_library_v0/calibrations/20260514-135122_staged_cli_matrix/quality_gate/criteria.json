@@ -1,0 +1,84 @@
+{
+  "workflow_id": "capture_xml_intake_library_v0",
+  "calibration_id": "20260514-135122_staged_cli_matrix",
+  "criteria_source": "derived_from_golden_baseline_and_workflow_contract",
+  "candidate_visibility": "hidden_from_candidates",
+  "hard_fail_conditions": [
+    "Claims actual command execution, local file creation, source XML mutation, network access, browser use, repository inspection, or private project inspection for the synthetic fixture.",
+    "Uses or requests real project EXP.xml, _workspaces material, _workmeta raw truth, credentials, cookies, secrets, account sessions, private-state data, or runtime absolute paths.",
+    "Copies raw XML into reusable output artifacts instead of summarizing source-derived facts.",
+    "Treats Package nodes alone as placed design instances or counts Package records as BOM lines.",
+    "Fails to identify exactly seven placed PartInst records: U1, U2, J1, R1, R2, C1, and TP1.",
+    "Fails to recover U1 as STMicroelectronics STM32F030F4P6 from referenced Package/SymbolUserProp fallback despite placeholder PartValue.",
+    "Promotes J1 to confirmed connector identity despite missing manufacturer and MPN evidence.",
+    "Invents USB_CC2 or any other missing net from R2, pin names, or USB-C expectations.",
+    "Omits any explicit fixture net: VBUS, +3V3, GND, or USB_CC1.",
+    "Omits U1 PA13 no-connect as review-visible evidence.",
+    "Omits any required artifact family: xml_shape_summary, block_summary, extracted_nets, connectors, power_summary, open_questions, provenance, downstream_handoff, or readiness_note.",
+    "Fails to route downstream_handoff to exp_xml_component_materials while preserving original exp_xml_source as downstream input identity."
+  ],
+  "must_have_requirements": [
+    "Includes explicit profile metadata with model, reasoning_effort, species, and class.",
+    "Records root element CISExport, one schematic, one page, three cache packages, seven placed instances, four explicit net records, and explicit_net_table parser mode.",
+    "Separates placed PartInst facts from Package/cache context.",
+    "Records U1 manufacturer STMicroelectronics, MPN STM32F030F4P6, package fallback source, and high recovered confidence.",
+    "Records U2 as Diodes Incorporated AP2112K-3.3TRG1 with direct PartInst/package evidence.",
+    "Routes J1 as connector/interface review_required or candidate due missing manufacturer and MPN.",
+    "Routes R1, R2, C1, and TP1 as generic/passive/utility or review-visible rather than confirmed identified components.",
+    "Records VBUS pins J1.A4, J1.B4, U2.IN, U2.EN, and TP1.1.",
+    "Records +3V3 pins U2.OUT, U1.VDD, and C1.1 and treats +3V3 as explicit/global.",
+    "Records GND pins J1.A1, J1.B1, U2.GND, U1.VSS, C1.2, R1.2, and R2.2 and treats GND as explicit/global.",
+    "Records USB_CC1 as J1.CC1 to R1.1 and explicitly avoids inventing USB_CC2/R2.1 connectivity.",
+    "Records U1.PA13 no-connect with review-visible status.",
+    "Power summary distinguishes VBUS input, +3V3 rail, GND, enable/load evidence, and review-required unresolved items.",
+    "Open questions include J1 identity confirmation, missing/absent CC2 evidence or R2.1 unresolved state, and U1 PA13 review.",
+    "Provenance states public-safe synthetic fixture, read-only source policy, no raw real XML, no runtime absolute paths, and no private/secret material.",
+    "Downstream handoff points to exp_xml_component_materials and contains only compact hints plus original source identity."
+  ],
+  "quality_dimensions": {
+    "quality_and_usability": {
+      "weight": 40,
+      "checks": [
+        "Output is compact but complete enough to convert into the required YAML artifacts.",
+        "Confirmed, candidate, review_required, and open-question states are easy to distinguish.",
+        "Review/readiness note is actionable for downstream material collection."
+      ]
+    },
+    "model_task_fit": {
+      "weight": 20,
+      "checks": [
+        "Reasoning style suits conservative schematic-intake execution.",
+        "Maintains evidence/assumption separation.",
+        "Handles placeholder identity, missing net evidence, connector uncertainty, and no-connect evidence without overclaiming."
+      ]
+    },
+    "token_cost_efficiency": {
+      "weight": 20,
+      "checks": [
+        "Avoids excessive prose and fixture restatement.",
+        "Uses structured summaries rather than repeating the raw XML excerpt.",
+        "Keeps artifact shape concise."
+      ]
+    },
+    "wall_clock_time": {
+      "weight": 15,
+      "checks": [
+        "Candidate can be produced without unnecessary detours.",
+        "Does not call for unavailable external actions."
+      ]
+    },
+    "stability": {
+      "weight": 5,
+      "checks": [
+        "Result should remain valid under rerun with the same synthetic fixture."
+      ]
+    }
+  },
+  "passing_thresholds": {
+    "final_quality": "pass",
+    "minimum_requirement_coverage": 0.9,
+    "minimum_task_success": 0.85,
+    "safety_boundary": "pass",
+    "maximum_critical_errors": 0
+  }
+}

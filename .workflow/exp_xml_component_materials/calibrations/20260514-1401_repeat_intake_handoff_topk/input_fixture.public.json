@@ -1,0 +1,56 @@
+﻿{
+  "calibration_id": "20260514-1401_repeat_intake_handoff_topk",
+  "workflow_id": "exp_xml_component_materials",
+  "fixture_type": "public_safe_synthetic",
+  "scenario": "Synthetic Cadence Capture EXP.xml material collection using mocked official-source/download evidence plus optional downstream_handoff context. No real project EXP.xml, customer input, credential, cookie, or downloaded vendor binary is included.",
+  "exp_xml_excerpt": [
+    "<CISExport>",
+    "  <Package Name=\"PKG_LT3045EDD_1\">",
+    "    <SymbolUserProp Name=\"Manufacturer_Part_Number\" Value=\"LT3045EDD-1\" />",
+    "    <SymbolUserProp Name=\"Mfr_Name\" Value=\"Analog Devices\" />",
+    "    <SymbolUserProp Name=\"PackageName\" Value=\"DFN-10\" />",
+    "    <SymbolUserProp Name=\"PCB Footprint\" Value=\"LTC_DD_10\" />",
+    "  </Package>",
+    "  <PartInst RefDes=\"U1\" Name=\"U1\" PartValue=\"Value\" Package=\"PKG_LT3045EDD_1\"><PartInstUserProp Name=\"PCB Footprint\" Value=\"LTC_DD_10\" /></PartInst>",
+    "  <PartInst RefDes=\"U2\" Name=\"U2\" PartValue=\"MCP73831T-2ACI/OT\" Package=\"SOT23-5\"><PartInstUserProp Name=\"Manufacturer\" Value=\"Microchip Technology\" /><PartInstUserProp Name=\"Manufacturer Part Number\" Value=\"MCP73831T-2ACI/OT\" /></PartInst>",
+    "  <PartInst RefDes=\"R1\" Name=\"R1\" PartValue=\"10k\" Package=\"0603\" />",
+    "  <PartInst RefDes=\"TP1\" Name=\"TP1\" PartValue=\"TESTPOINT\" Package=\"TP\" />",
+    "  <PartInst RefDes=\"J1\" Name=\"J1\" PartValue=\"USB-C-16P\" Package=\"USB_C_RECEPTACLE\"><PartInstUserProp Name=\"Manufacturer\" Value=\"\" /></PartInst>",
+    "</CISExport>"
+  ],
+  "optional_downstream_handoff": {
+    "source_workflow_id": "capture_xml_intake_library_v0",
+    "handoff_status": "context_ready_with_open_questions",
+    "pass_to_downstream": true,
+    "block_summary": [
+      {"block_id": "power_input", "candidate_refs": ["J1", "J2"], "summary": "USB-C/power-entry candidates inferred from Capture net and block labels; J2 is not present in EXP.xml."},
+      {"block_id": "low_noise_ldo", "candidate_refs": ["U1"], "summary": "Low-noise regulator area; prioritize official EVAL/reference design once EXP confirms U1 identity."},
+      {"block_id": "battery_charger", "candidate_refs": ["U2"], "summary": "Battery charger area; prioritize datasheet and note missing EVAL if none is official."}
+    ],
+    "connectors": [
+      {"candidate_refdes": "J1", "evidence": "pin names and symbol label only", "confidence": "candidate", "do_not_confirm_identity": true},
+      {"candidate_refdes": "J2", "evidence": "net label only; no PartInst in EXP excerpt", "confidence": "handoff_only", "do_not_confirm_identity": true}
+    ],
+    "power_summary": [
+      {"candidate_refdes": "U1", "priority_hint": "power_sensitive_reference_design", "authority": "priority_only"},
+      {"candidate_refdes": "U3", "priority_hint": "possible upstream regulator from block note", "authority": "handoff_only_not_in_exp"}
+    ],
+    "open_questions": [
+      "J1 USB-C manufacturer/MPN is missing in EXP.xml; owner must provide or approve source before datasheet/EVAL collection.",
+      "J2 appears only in intake context and must not become a component inventory row unless EXP.xml confirms it.",
+      "U3 appears only in intake context and must remain an unmatched handoff note.",
+      "R1 may be part of charger/regulator configuration but has no manufacturer/MPN evidence; keep as review-required generic passive."
+    ],
+    "do_not_pass_as_confirmed": ["connector identity", "manufacturer part number", "electrical connectivity", "handoff-only refdes J2", "handoff-only refdes U3"]
+  },
+  "mock_official_source_catalog": [
+    {"component_key": "analog_devices_lt3045edd_1", "manufacturer": "Analog Devices", "mpn": "LT3045EDD-1", "datasheet": {"source_url": "https://www.analog.com/media/en/technical-documentation/data-sheets/lt3045.pdf", "official": true, "mock_file": "LT3045_datasheet.pdf", "byte_size": 1854321, "file_magic": "%PDF-", "sha256": "1111111111111111111111111111111111111111111111111111111111111111"}, "eval_materials": [{"type": "evaluation_board_user_guide", "mock_file": "DC2222A_user_guide.pdf", "byte_size": 942210, "file_magic": "%PDF-", "sha256": "2222222222222222222222222222222222222222222222222222222222222222"}, {"type": "pcb_layout_archive", "mock_file": "DC2222A_design_files.zip", "byte_size": 321004, "file_magic": "PK", "sha256": "3333333333333333333333333333333333333333333333333333333333333333"}]},
+    {"component_key": "microchip_mcp73831t_2aci_ot", "manufacturer": "Microchip Technology", "mpn": "MCP73831T-2ACI/OT", "datasheet": {"source_url": "https://ww1.microchip.com/downloads/aemDocuments/documents/APID/ProductDocuments/DataSheets/MCP73831-Family-Data-Sheet-DS20001984H.pdf", "official": true, "mock_file": "MCP73831_family_datasheet.pdf", "byte_size": 1210330, "file_magic": "%PDF-", "sha256": "4444444444444444444444444444444444444444444444444444444444444444"}, "eval_materials": []}
+  ],
+  "output_tree_contract": {
+    "materials_root": "_workspaces/<project_code>/reference_materials/from_exp_xml",
+    "parts_folder_name": "parts",
+    "datasheet_folder_name": "DATA Sheet",
+    "eval_folder_name": "EVAL"
+  }
+}

@@ -41,6 +41,7 @@ notes:
   - AI-facing synthesis receives only layout-relevant candidate spans, not whole PDFs.
   - Search terms include PCB layout, layout guidelines, grounding, decoupling, bypass capacitor placement, routing, thermal, exposed pad, planes, vias, evaluation board layout, and reference layout.
   - If local DATA Sheet and EVAL coverage is insufficient, source-bootstrap may download official supplemental layout guides, application notes, user guides, or reference design archives into Layout Guide/source_docs.
+  - "If official layout guidance still cannot be acquired, the workflow must write a bounded source-gap packet rather than stalling: `layout_guide.md`, `source_map.json`, and `extraction_manifest.json` must record attempted sources, blocking reasons, unresolved gaps, and owner follow-up needs without inventing layout claims."
   - Public workflow files must not contain copied vendor document text, downloaded binaries, or local project file paths.
   - Project-local Layout Guide outputs should preserve source maps, bounded excerpts, summaries, figures/tables when extractable, and enough provenance for source-bound later review.
   - Figure PNG outputs should render the full PDF page referenced by layout_guide.md directly under Layout Guide/figures, deduplicated by source file checksum and page number.

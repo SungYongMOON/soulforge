@@ -1,0 +1,22 @@
+workflow_id: page_xml_normalize_spec_v0
+kind: party_compatibility
+status: active
+compatible_party_templates:
+  - workflow_research_build_verify
+  - sourcebound_extraction_review
+required_capabilities:
+  - local_file_read_only_inspection
+  - yaml_manifest_reconciliation
+  - xml_well_formedness_probe
+  - yaml_sidecar_generation
+  - deterministic_manifesting
+  - checksum_and_provenance_recording
+  - project_local_file_writing
+  - review_state_tracking
+  - optional_derived_annotation_variant_handling
+  - boundary_review
+notes:
+  - No default party binding is assigned yet.
+  - XML parser implementation, sidecar writer tooling, optional annotation tooling, and model profiles resolve through project-local bindings.
+  - Fresh executor/verifier separation is preferred before claiming production-ready sidecar generation behavior across schema variants.
+  - The workflow is safe for public canon because it stores procedure and output-shape rules only, not real XML content, generated page artifacts, runtime paths, or project-local output payloads.

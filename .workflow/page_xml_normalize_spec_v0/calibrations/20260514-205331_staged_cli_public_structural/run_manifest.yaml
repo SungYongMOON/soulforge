@@ -1,0 +1,56 @@
+calibration_id: 20260514-205331_staged_cli_public_structural
+workflow_id: page_xml_normalize_spec_v0
+kind: workflow_profile_calibration_archive
+status: complete
+created_at: "2026-05-14T11:53:31.855Z"
+calibration_mode: staged_cli_calibration
+boundary: public_safe_structural_metadata_from_prior_public_safe_split_calibration
+source_skill: workflow-optimizer
+runtime_note:
+  default_subagent_quality_first: blocked_runtime_subagent_unavailable
+  fallback_used: cli_only_calibration
+  reason: "Current higher-priority runtime policy did not allow spawning the default subagent quality matrix without an explicit user subagent request; isolated Codex CLI runs were used and explicitly labeled as CLI-only calibration evidence."
+input_fixture:
+  public_fixture: input_fixture.public.json
+  raw_xml_archived: false
+  runtime_absolute_paths_archived: false
+matrix:
+  stage_a:
+    purpose: "Select species and class with gpt-5.4-mini low."
+    candidates: 15
+    winner: A_elf_auditor
+  stage_b:
+    purpose: "Compare model and reasoning effort using elf auditor."
+    candidates: 12
+  stage_c:
+    purpose: "Rerun finalists for stability and final policy selection."
+    candidates: 4
+quality_gate:
+  criteria: quality_gate/criteria.json
+  evaluator_review: quality_gate/evaluator_review.json
+  rule_eval:
+    - evaluation/stageA_rule_eval.jsonl
+    - evaluation/stageB_rule_eval.jsonl
+    - evaluation/stageC_rule_eval.jsonl
+  shortlist_review: evaluation/llm_shortlist_eval.json
+telemetry:
+  source: codex_exec_json_cli_proxy
+  full_matrix_results: cli_matrix/results.jsonl
+  passed_candidates: cli_telemetry_probe/passed_candidates.jsonl
+  telemetry_jsonl: cli_telemetry_probe/telemetry.jsonl
+recommendation:
+  model: gpt-5.4
+  reasoning_effort: medium
+  species: elf
+  class: auditor
+public_safety:
+  fixture_contains_real_xml_body: false
+  fixture_contains_real_project_paths: false
+  fixture_contains_secrets: false
+  archive_contains_runtime_project_outputs: false
+  archive_contains_private_run_truth: false
+notes:
+  - "Candidate prompts did not include golden output or frozen quality criteria."
+  - "Golden output was used only to help freeze criteria."
+  - "CLI telemetry is exact for these CLI runs only and is not exact subagent telemetry."
+  - "Raw stderr HTML from plugin warm-up warnings was intentionally not archived."

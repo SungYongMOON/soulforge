@@ -1,0 +1,18 @@
+{
+  "model": "gpt-5.5",
+  "reasoning_effort": "xhigh",
+  "species": "elf",
+  "class": "administrator",
+  "exit_code": 0,
+  "wall_time_seconds": 50.437,
+  "usage": {
+    "input_tokens": 19707,
+    "cached_input_tokens": 7552,
+    "output_tokens": 2394,
+    "reasoning_output_tokens": 516
+  },
+  "prompt_sha256": "9aff161c028f42660cee9f2b8b64cb4afc90b48889b81565de9b6b11ca91e1bf",
+  "output_path": "golden/output.md",
+  "events_path": "golden/events.jsonl",
+  "telemetry_source": "codex_exec_json_cli_proxy"
+}

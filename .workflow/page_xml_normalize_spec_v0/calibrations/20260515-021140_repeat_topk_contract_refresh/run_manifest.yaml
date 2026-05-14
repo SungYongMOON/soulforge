@@ -1,0 +1,31 @@
+﻿calibration_id: 20260515-021140_repeat_topk_contract_refresh
+workflow_id: page_xml_normalize_spec_v0
+kind: workflow_profile_calibration
+mode: repeat_topk_contract_refresh
+started_at_local: 2026-05-15T02:11:40+09:00
+boundary:
+  public_safe_fixture_only: true
+  raw_xml_body_included: false
+  runtime_absolute_path_included: false
+  credentials_or_secret_material_included: false
+  generated_project_outputs_included: false
+  private_project_material_included: false
+workflow_change_basis:
+  - required sidecar block `system_contract` added to refreshed quality gate
+  - interface group and harness-facing slot expectations added
+  - annotation variant review-only policy tightened
+  - harness_ready boolean false policy clarified
+quality_source: subagent_repeat_topk_matrix
+telemetry_source: cli_passed_candidates_only
+subagent_token_usage_available: false
+telemetry_exact_for_subagent: false
+cost_confidence: relative_not_exact
+candidate_profiles:
+  - repeat_topk_gpt_5_4_medium_elf_auditor
+  - repeat_topk_gpt_5_4_mini_high_elf_auditor
+  - repeat_topk_gpt_5_4_mini_medium_elf_auditor
+  - repeat_topk_gpt_5_4_mini_low_elf_auditor
+  - repeat_topk_gpt_5_5_xhigh_elf_auditor
+notes:
+  - Full subagent raw outputs are represented by public-safe candidate summaries and quality evaluations in this archive; CLI pass-probe full outputs are file-captured under `cli_telemetry_probe/outputs/`.
+  - Candidate prompts did not include golden output or frozen quality criteria.

@@ -1,0 +1,80 @@
+{
+  "workflow_id": "whole_xml_page_split_v0",
+  "calibration_id": "20260514-171147_staged_cli_real_sample_structural",
+  "criteria_source": "derived_from_workflow_contract_golden_baseline_real_sample_structural_probe_and_evaluator_review",
+  "candidate_visibility": "hidden_from_candidates",
+  "hard_fail_conditions": [
+    "Claims actual command execution, local file creation, page asset generation, source XML mutation verification, repository inspection, or private project inspection for the calibration fixture.",
+    "Presents planned or policy-required outputs as already executed outputs without execution evidence.",
+    "Uses or requests raw XML bodies, host-specific absolute paths, generated page XML payloads, _workspaces material, _workmeta raw truth, credentials, cookies, secrets, or private-state data.",
+    "Chooses 8 as the actual split page count instead of 11 Page boundary nodes.",
+    "Fails to identify Page as the page boundary node family.",
+    "Fails to preserve source page order and stable ordinal ids page_001 through page_011.",
+    "Treats titleblock Page Number or Page Count signals as complete reliable identity without warning.",
+    "Places page XML assets, calibration outputs, or derived page payloads under .workflow.",
+    "Performs or recommends normalization, semantic rewrites, material collection, PCB/MDD pairing, or connectivity inference during split.",
+    "Omits any required artifact family, or an equivalent clearly named section, covering boundary summary, split plan, manifest, index, provenance, role hints, readiness, downstream handoff, and open questions.",
+    "Routes downstream handoff anywhere other than page_xml_normalize_spec_v0."
+  ],
+  "must_have_requirements": [
+    "Includes explicit profile metadata with model, reasoning_effort, species, and class.",
+    "Records calibration-specific observed facts, or explicitly equivalent structural evidence, including root element Design, one schematic, 11 Page nodes, max_depth 8, total_element_count 186608, source size 12670307 bytes, and streaming parser mode.",
+    "Records calibration-specific global structural counts, or explicitly equivalent scale facts, including PartInst 1067, NetScalar 1153, WireScalar 4378, OffPageConnector 538, PartInstUserProp 7644, IsNoConnect 3494.",
+    "Records the titleblock Page Count 8 conflict with the 11 observed Page nodes as a warning.",
+    "Records page number signals as missing/non-contiguous and therefore non-authoritative for split identity.",
+    "Builds an ordered split plan with page_001 through page_011 and project-local page asset refs.",
+    "Records per-page manifest/index facts for all 11 pages, at least stable id, source ordinal, non-sensitive payload-free artifact ref or planned ref, page role hint, and representative structural counts or warnings.",
+    "States source XML is read-only and unchanged; source mutation is disallowed.",
+    "States page-local XML payloads are preserved without normalization and raw payloads are not archived in public workflow canon.",
+    "Writes source provenance with source binding identity, sha256 prefix, parser mode, split method, page count, page order/id map, and a policy or planned check for source mutation depending on execution evidence.",
+    "Separates observed fixture facts, fixture-provided metadata, conservative inferences, planned outputs, policy constraints, and open questions.",
+    "Adds non-authoritative page role hints covering schematic content, hardware/material context where structurally signaled, possible PCB context where structurally signaled, offpage connector context where signaled, and unknown/review-required when ambiguous.",
+    "Split readiness is conditional when project-local output binding, actual page asset writing, or per-page checksums have not been executed; it still confirms policy containment, no .workflow page assets, no raw XML leak, no normalization/material collection/PCB-MDD overclaim, and readiness path for page_xml_normalize_spec_v0.",
+    "Open questions include the page count/page number mismatch and any need for project-local output binding or downstream review.",
+    "Keeps the answer compact enough to convert into YAML artifacts."
+  ],
+  "quality_dimensions": {
+    "quality_and_usability": {
+      "weight": 40,
+      "checks": [
+        "complete artifact packet",
+        "clear warnings",
+        "convertible to YAML/manifests"
+      ]
+    },
+    "model_task_fit": {
+      "weight": 20,
+      "checks": [
+        "conservative boundary handling",
+        "source/order/id discipline",
+        "defer semantic work"
+      ]
+    },
+    "token_cost_efficiency": {
+      "weight": 20,
+      "checks": [
+        "compact structured output",
+        "no fixture restatement bloat"
+      ]
+    },
+    "wall_clock_time": {
+      "weight": 15,
+      "checks": [
+        "no unnecessary detours or tool claims"
+      ]
+    },
+    "stability": {
+      "weight": 5,
+      "checks": [
+        "same fixture should rerun consistently"
+      ]
+    }
+  },
+  "passing_thresholds": {
+    "final_quality": "pass",
+    "minimum_requirement_coverage": 0.9,
+    "minimum_task_success": 0.85,
+    "safety_boundary": "pass",
+    "maximum_critical_errors": 0
+  }
+}

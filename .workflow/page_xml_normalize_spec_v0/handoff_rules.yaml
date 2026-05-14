@@ -1,0 +1,32 @@
+workflow_id: page_xml_normalize_spec_v0
+kind: handoff_rules
+status: active
+rules:
+  - from: workflow_runner
+    to: split_manifest_reconciler
+    condition: page_assets_and_manifest_bound_project_locally
+    summary: Reconciler receives page asset refs, manifest, read-only policy, and sidecar output binding; it does not receive prior run packets or public-canon absolute paths.
+  - from: split_manifest_reconciler
+    to: module_spec_planner
+    condition: page_normalization_input_summary_written
+    summary: Planner starts only after page order, stable ids, asset refs, checksums, split warnings, and optional role hints are recorded.
+  - from: module_spec_planner
+    to: module_sidecar_writer
+    condition: page_module_spec_plan_written
+    summary: Sidecar writer receives deterministic naming, schema, review-state, registration-key, structural-scope, channelization, classification-basis, and local/internal-candidate rules, not permission to mutate source pages or infer design semantics as confirmed truth.
+  - from: module_sidecar_writer
+    to: annotation_variant_writer
+    condition: page_module_spec_sidecars_written
+    summary: Optional annotation handling starts only after sidecars exist; annotation variants may be skipped unless explicit project policy enables derived review XML.
+  - from: annotation_variant_writer
+    to: manifest_handoff_writer
+    condition: annotation_variant_policy_resolved
+    summary: Manifest writing receives sidecar refs and optional annotation refs; absence of annotation variants is a valid sidecar-first outcome.
+  - from: manifest_handoff_writer
+    to: boundary_reviewer
+    condition: module_spec_manifest_and_handoff_written
+    summary: Boundary review receives project-local manifests, warnings, and handoff refs, not raw public-canon XML payloads, credentials, cookies, or local account/session material.
+  - from: boundary_reviewer
+    to: workflow_runner
+    condition: normalization_readiness_complete
+    summary: Runner reports sidecar refs, optional variant refs, unresolved warnings, and whether the packet is ready for downstream XML-first asset registration.

@@ -1,0 +1,41 @@
+schema_id: harness_packet_v0
+harness_identity:
+  harness_id: <harness_id>
+  project_code: <project_code>
+  source_page_asset_ids: []
+  generated_by_workflow: xml_harness_composition_v0
+  derived_packet_only: true
+connection_candidates: []
+blocked_connections:
+  - connection_id: <connection_id>
+    page_refs: []
+    connection_kind: unknown
+    blocker_reasons:
+      - missing_required_source_packet
+    owner_followup_needed: true
+review_required_connections:
+  - connection_id: <connection_id>
+    page_refs: []
+    connection_kind: unknown
+    review_reasons:
+      - missing_quantitative_constraints
+    owner_followup_needed: true
+candidate_safe_connections:
+  - connection_id: <connection_id>
+    page_refs: []
+    connection_kind: unknown
+    candidate_basis: []
+    caveat: candidate_safe_is_not_final_circuit_approval
+source_supported_connections: []
+owner_followup_needed: []
+harness_open_questions: []
+composition_readiness:
+  ready_for_owner_review: false
+  ready_for_final_circuit_synthesis: false
+  readiness_reasons: []
+source_mutation_check:
+  source_xml_mutated: false
+  normalized_sidecars_mutated: false
+  intake_packets_mutated: false
+  materials_packets_mutated: false
+  layout_guides_mutated: false

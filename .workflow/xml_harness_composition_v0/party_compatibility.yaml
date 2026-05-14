@@ -1,0 +1,18 @@
+workflow_id: xml_harness_composition_v0
+kind: party_compatibility
+status: active
+compatible_party_templates:
+  - workflow_research_build_verify
+  - sourcebound_extraction_review
+required_capabilities:
+  - project_local_binding_resolution
+  - yaml_contract_inventory
+  - conservative_hardware_interface_review
+  - source_gap_and_quantitative_gap_classification
+  - derived_packet_manifesting
+  - boundary_review
+notes:
+  - No default party binding is assigned yet.
+  - Runtime tools, project bindings, and model profiles resolve outside this package through project-local bindings.
+  - Fresh executor/verifier separation is required before claiming pilot-executed, usable, or production-ready harness composition behavior.
+  - The workflow package is public-safe because it stores only orchestration rules, output-shape contracts, and blocker semantics.

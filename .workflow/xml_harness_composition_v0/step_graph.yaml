@@ -1,0 +1,190 @@
+workflow_id: xml_harness_composition_v0
+kind: step_graph
+status: active
+steps:
+  - step_id: prepare_harness_binding
+    title: Prepare Harness Binding
+    actor_slot: workflow_runner
+    action:
+      kind: project_local_binding_setup
+      requires:
+        - harness_project_binding
+        - page_level_asset_identities
+        - page_module_sidecars
+      validates:
+        - output_root_is_project_local
+        - source_assets_are_read_only
+        - package_inputs_are_public_safe_references_or_project_local_bindings
+      creates:
+        - harness_run_log_root
+        - harness_output_folder
+    summary: Resolve the project-local harness output binding and confirm all upstream page assets are read-only inputs.
+    next:
+      on_success: collect_page_contracts
+      on_fail: stop
+  - step_id: collect_page_contracts
+    title: Collect Page Contracts
+    actor_slot: page_contract_collector
+    action:
+      kind: page_contract_inventory
+      artifacts_in:
+        - page_level_asset_identities
+        - page_module_sidecars
+        - capture_intake_packets
+        - component_materials_packets
+        - layout_guide_packets
+      artifact_out: page_contract_inventory
+      records:
+        - page_asset_id
+        - module_scope
+        - system_contract_presence
+        - interface_groups
+        - electrical_domains
+        - local_internal_candidates
+        - source_gap_flags
+        - quantitative_gap_flags
+        - layout_gap_flags
+        - provenance_refs
+    summary: Build a conservative inventory of page-level module contracts and enrichment packets without copying raw payloads into the harness package.
+    next:
+      on_success: normalize_interface_terms
+      on_fail: stop
+  - step_id: normalize_interface_terms
+    title: Normalize Interface Terms
+    actor_slot: interface_normalizer
+    action:
+      kind: derived_contract_normalization
+      artifact_in: page_contract_inventory
+      artifact_out: normalized_interface_index
+      connection_kinds:
+        - power
+        - ground
+        - analog_signal
+        - digital_signal
+        - clock
+        - control
+        - status
+        - mechanical_or_mounting
+        - unknown
+      preserves:
+        - original_page_asset_id
+        - original_interface_label
+        - original_source_status
+        - original_quantitative_status
+      external_interface_rule: local_internal_candidates_are_excluded_by_default
+    summary: Normalize labels and connection kinds for comparison while preserving original asset identity, evidence status, and local/internal separation.
+    next:
+      on_success: propose_connection_candidates
+      on_fail: stop
+  - step_id: propose_connection_candidates
+    title: Propose Connection Candidates
+    actor_slot: connection_candidate_builder
+    action:
+      kind: conservative_candidate_join
+      artifact_in: normalized_interface_index
+      artifact_out: connection_candidates
+      candidate_basis:
+        - explicit_matching_interface_id
+        - compatible_declared_connection_kind
+        - owner_connection_hint
+        - source_supported_shared_net_or_connector_reference
+        - compatible_page_scope_and_direction_when_declared
+      forbidden_basis:
+        - name_similarity_only
+        - local_internal_candidate_without_promotion_evidence
+        - missing_source_packet
+        - missing_quantitative_limits
+        - unresolved_no_connect_or_open_pin_state
+    summary: Propose possible cross-page joins only when there is at least a conservative structural basis, and record the basis separately from approval state.
+    next:
+      on_success: classify_connection_safety
+      on_fail: stop
+  - step_id: classify_connection_safety
+    title: Classify Connection Safety
+    actor_slot: safety_classifier
+    action:
+      kind: harness_connection_classification
+      artifact_in: connection_candidates
+      artifacts_out:
+        - blocked_connections
+        - review_required_connections
+        - candidate_safe_connections
+        - source_supported_connections
+      classification_states:
+        blocked:
+          - source_gap_packet_present
+          - missing_required_source_packet
+          - local_internal_candidate_misused_as_external
+          - explicit_no_connect_or_conflict
+          - incompatible_declared_connection_kind
+        review_required:
+          - missing_quantitative_constraints
+          - direction_or_role_ambiguous
+          - source_exists_but_does_not_cover_join
+          - owner_hint_without_source_support
+          - weak_name_or_label_alignment_only
+        candidate_safe:
+          - structurally_plausible
+          - no_known_source_gap_or_conflict
+          - required_quantitative_fields_present_or_declared_not_applicable
+          - still_requires_owner_or_downstream_review
+        source_supported:
+          - cited_source_supports_join
+          - quantitative_compatibility_recorded
+          - direction_and_role_are_source_backed
+          - no_unresolved_blockers
+    summary: Partition every proposed join into explicit blocked, review-required, candidate-safe, or source-supported lanes without claiming final circuit safety.
+    next:
+      on_success: write_harness_packet
+      on_fail: stop
+  - step_id: write_harness_packet
+    title: Write Harness Packet
+    actor_slot: harness_packet_writer
+    action:
+      kind: derived_harness_packet_write
+      artifacts_in:
+        - page_contract_inventory
+        - normalized_interface_index
+        - connection_candidates
+        - blocked_connections
+        - review_required_connections
+        - candidate_safe_connections
+        - source_supported_connections
+      artifact_out: harness_packet
+      required_sections:
+        - harness_identity
+        - connection_candidates
+        - blocked_connections
+        - review_required_connections
+        - candidate_safe_connections
+        - source_supported_connections
+        - owner_followup_needed
+        - harness_open_questions
+        - composition_readiness
+      source_mutation_policy:
+        write_back_to_upstream_assets: false
+        write_derived_packet_only: true
+    summary: Materialize a project-local derived harness packet with complete blocker and review rationale, leaving upstream assets untouched.
+    next:
+      on_success: boundary_and_readiness_review
+      on_fail: stop
+  - step_id: boundary_and_readiness_review
+    title: Boundary And Readiness Review
+    actor_slot: boundary_reviewer
+    action:
+      kind: boundary_and_readiness_review
+      artifacts_in:
+        - harness_packet
+        - page_contract_inventory
+      artifact_out: composition_readiness_note
+      checks:
+        - no_source_asset_mutation
+        - no_raw_project_payload_in_public_package
+        - blocked_and_review_required_connections_have_reasons
+        - missing_source_and_missing_quantitative_gaps_are_preserved
+        - candidate_safe_not_reported_as_final_circuit_synthesis
+        - owner_followup_needed_is_explicit
+    summary: Confirm that the harness packet is derived-only, public/private safe, and honest about remaining gates before any real pilot or downstream circuit work.
+    next:
+      on_success: complete
+      on_fail: stop

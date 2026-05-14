@@ -1,0 +1,14 @@
+﻿{
+  "calibration_id": "20260514-1401_repeat_intake_handoff_topk",
+  "workflow_id": "exp_xml_component_materials",
+  "primary_candidate": "R5_gpt_5_4_mini_medium_orc_archivist",
+  "ranking": [
+    {"rank": 1, "candidate_id": "R5_gpt_5_4_mini_medium_orc_archivist", "model": "gpt-5.4-mini", "reasoning_effort": "medium", "species": "orc", "class": "archivist", "quality_score": 97, "output_tokens": 2675, "reasoning_output_tokens": 516, "input_tokens": 14012, "cached_input_tokens": 2432, "wall_time_seconds": 21.808, "selection_note": "lowest-cost/faster passing profile; quality within 10 points of best"},
+    {"rank": 2, "candidate_id": "R4_gpt_5_5_medium_orc_archivist", "model": "gpt-5.5", "reasoning_effort": "medium", "species": "orc", "class": "archivist", "quality_score": 99, "output_tokens": 2409, "reasoning_output_tokens": 28, "input_tokens": 15758, "cached_input_tokens": 7552, "wall_time_seconds": 49.676},
+    {"rank": 3, "candidate_id": "R3_gpt_5_5_high_orc_archivist", "model": "gpt-5.5", "reasoning_effort": "high", "species": "orc", "class": "archivist", "quality_score": 99, "output_tokens": 2549, "reasoning_output_tokens": 516, "input_tokens": 15758, "cached_input_tokens": 7552, "wall_time_seconds": 51.268},
+    {"rank": 4, "candidate_id": "R2_gpt_5_5_xhigh_orc_archivist", "model": "gpt-5.5", "reasoning_effort": "xhigh", "species": "orc", "class": "archivist", "quality_score": 100, "output_tokens": 2699, "reasoning_output_tokens": 516, "input_tokens": 15760, "cached_input_tokens": 7552, "wall_time_seconds": 62.635}
+  ],
+  "failed_candidates": [
+    {"candidate_id": "R1_gpt_5_4_mini_low_orc_archivist", "model": "gpt-5.4-mini", "reasoning_effort": "low", "quality_score": 86, "critical_errors": ["eval_material_records_not_explicitly_placed_under_EVAL", "review_required_parts_rendered_as_none_found_in_download_manifest"]}
+  ]
+}

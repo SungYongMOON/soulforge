@@ -1,0 +1,25 @@
+workflow_id: xml_harness_composition_v0
+kind: role_slots
+status: active
+slots:
+  - slot_id: workflow_runner
+    title: Workflow Runner
+    summary: Resolves project-local bindings, initializes derived harness output folders, and enforces read-only source asset handling.
+  - slot_id: page_contract_collector
+    title: Page Contract Collector
+    summary: Collects page module sidecars, intake summaries, materials status, layout guide status, and provenance into a compact contract inventory.
+  - slot_id: interface_normalizer
+    title: Interface Normalizer
+    summary: Normalizes interface labels and connection kinds for comparison while preserving original labels, scope, and uncertainty.
+  - slot_id: connection_candidate_builder
+    title: Connection Candidate Builder
+    summary: Proposes possible cross-page joins from explicit contract evidence or owner hints without treating name similarity as authority.
+  - slot_id: safety_classifier
+    title: Safety Classifier
+    summary: Separates blocked, review-required, candidate-safe, and source-supported connections using source, quantitative, directionality, and local/internal gates.
+  - slot_id: harness_packet_writer
+    title: Harness Packet Writer
+    summary: Writes the derived harness-layer packet and keeps all upstream page/library assets immutable.
+  - slot_id: boundary_reviewer
+    title: Boundary Reviewer
+    summary: Checks public/private boundaries, missing-source handling, overclaim prevention, and readiness before completion.

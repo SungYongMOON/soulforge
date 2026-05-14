@@ -1,0 +1,36 @@
+calibration_id: 20260514-171147_staged_cli_real_sample_structural
+workflow_id: whole_xml_page_split_v0
+recommendation:
+  model: gpt-5.4
+  reasoning_effort: high
+  species: dwarf
+  class: archivist
+  candidate_id: C_shadow_gpt_5_4_high
+  quality_gate: pass
+  quality_score: 94
+  measured_tokens:
+    input_tokens: 18322
+    cached_input_tokens: 7552
+    output_tokens: 2552
+    reasoning_output_tokens: 516
+    telemetry_source: codex_exec_json_cli_proxy_stage_c
+  wall_time_seconds: 53.291
+why_selected:
+  - Passed Stage C frozen quality gate with no critical errors.
+  - Preserved the 11 Page-node boundary, source order, stable ordinal ids, and the titleblock Page Count 8 warning.
+  - Kept source XML read-only by policy, page assets project-local, and normalization/material/PCB-MDD work deferred.
+  - Lower model tier than the comparable gpt-5.5 medium shadow with similar wall time and stable enough output quality.
+not_selected:
+  - candidate_id: C_shadow_gpt_5_5_medium
+    reason: Comparable pass, but higher model tier and a read-only/source-preservation wording gap.
+  - candidate_id: C_primary_gpt_5_4_mini_high
+    reason: Stage C degraded to pass_with_gaps and reasoning tokens spiked to 3246.
+measurement_policy:
+  quality_source: cli_only_calibration
+  telemetry_source: cli_full_stage_matrix_and_stage_c_reruns
+  subagent_token_usage_available: false
+  telemetry_exact_for_subagent: false
+  cost_confidence: relative_not_exact
+boundary_assumptions:
+  - Real sample XML was used only to derive public-safe structural metadata.
+  - Raw XML bodies, generated page XML payloads, runtime absolute paths, _workspaces outputs, _workmeta raw truth, credentials, cookies, and private-state material are not archived.

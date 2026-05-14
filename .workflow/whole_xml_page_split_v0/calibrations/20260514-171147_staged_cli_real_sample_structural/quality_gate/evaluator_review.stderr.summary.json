@@ -1,0 +1,7 @@
+{
+  "stderr_summary": [
+    "remote plugin sync emitted 403 Forbidden warnings; raw stderr HTML intentionally not archived",
+    "PowerShell shell snapshot unsupported warning",
+    "local plugin/skill manifest warnings emitted"
+  ]
+}

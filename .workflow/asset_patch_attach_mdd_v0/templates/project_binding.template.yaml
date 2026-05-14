@@ -1,0 +1,18 @@
+workflow_id: asset_patch_attach_mdd_v0
+kind: project_workflow_binding_template
+status: template
+project_code: "<project_code>"
+inputs:
+  asset_identity_repo_path: "_workspaces/<project_code>/capture_xml_intake_library/asset_identity.yaml"
+  pcb_pairing_placeholder_repo_path: "_workspaces/<project_code>/capture_xml_intake_library/pcb_pairing_placeholder.yaml"
+  mdd_repo_path: "_workspaces/<project_code>/pcb_assets/<board_name>.mdd"
+patch_policy:
+  owner_supplied_attachment_only: true
+  bump_asset_version: true
+  preserve_xml_first_registration: true
+outputs:
+  asset_registration_root_repo_path: "_workspaces/<project_code>/capture_xml_intake_library"
+review_policy:
+  no_deep_pairing_inference: true
+  raw_mdd_payload_in_public_package: false
+  source_xml_registration_remains_authoritative: true

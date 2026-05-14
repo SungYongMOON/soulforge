@@ -1,0 +1,5 @@
+{"candidate_id":"A_human_administrator","usage":{"input_tokens":19330,"cached_input_tokens":2432,"output_tokens":5741,"reasoning_output_tokens":47},"wall_time_seconds":46.607,"telemetry_source":"codex_exec_json_cli_proxy"}
+{"candidate_id":"A_human_archivist","usage":{"input_tokens":19331,"cached_input_tokens":14208,"output_tokens":7716,"reasoning_output_tokens":12},"wall_time_seconds":54.41,"telemetry_source":"codex_exec_json_cli_proxy"}
+{"candidate_id":"A_elf_auditor","usage":{"input_tokens":19330,"cached_input_tokens":7552,"output_tokens":3144,"reasoning_output_tokens":75},"wall_time_seconds":30.414,"telemetry_source":"codex_exec_json_cli_proxy"}
+{"candidate_id":"A_orc_administrator","usage":{"input_tokens":19331,"cached_input_tokens":12672,"output_tokens":4928,"reasoning_output_tokens":50},"wall_time_seconds":92.685,"telemetry_source":"codex_exec_json_cli_proxy"}
+{"candidate_id":"C_shadow_gpt_5_4_medium_manual","usage":{"input_tokens":19681,"cached_input_tokens":7552,"output_tokens":7295,"reasoning_output_tokens":156},"wall_time_seconds":137.748,"telemetry_source":"codex_exec_json_cli_proxy_manual_stage_c"}

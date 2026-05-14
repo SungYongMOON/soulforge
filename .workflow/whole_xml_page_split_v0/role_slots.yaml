@@ -1,0 +1,25 @@
+workflow_id: whole_xml_page_split_v0
+kind: role_slots
+status: active
+slots:
+  - slot_id: workflow_runner
+    title: Workflow Runner
+    summary: Resolves project-local bindings, confirms read-only source policy, initializes output folders, and keeps runtime paths out of reusable canon.
+  - slot_id: xml_boundary_inspector
+    title: XML Boundary Inspector
+    summary: Inspects XML shape, parser mode, schema markers, and page or schematic boundary candidates without changing the source XML.
+  - slot_id: page_split_planner
+    title: Page Split Planner
+    summary: Chooses stable page ids, preserves page order, handles duplicate or missing page labels, and prepares a deterministic split plan.
+  - slot_id: page_asset_writer
+    title: Page Asset Writer
+    summary: Writes one project-local page XML file per planned page while preserving the page-local XML payload and source immutability.
+  - slot_id: provenance_writer
+    title: Provenance Writer
+    summary: Writes page manifest, page index, source provenance, checksums, parser mode, and split warnings without embedding raw XML bodies in public canon.
+  - slot_id: page_role_hint_reviewer
+    title: Page Role Hint Reviewer
+    summary: Adds lightweight schematic, hardware/material, PCB/MDD-context, or unknown hints for later workflows without performing deep semantic analysis.
+  - slot_id: boundary_reviewer
+    title: Boundary Reviewer
+    summary: Checks source immutability, output containment, public/private boundaries, and readiness for `page_xml_normalize_spec_v0`.

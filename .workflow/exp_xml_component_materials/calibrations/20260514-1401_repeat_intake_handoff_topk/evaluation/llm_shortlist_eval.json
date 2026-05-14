@@ -1,0 +1,10 @@
+﻿{
+  "shortlist_decision": "R5 selected as primary; R4, R3, and R2 retained as higher-quality shadows.",
+  "quality_source": "subagent_topk_repeat",
+  "telemetry_source": "cli_passed_candidates_only",
+  "not_measured": [
+    "Exact subagent token usage",
+    "Real project EXP.xml behavior",
+    "Real vendor download throughput or account-gated download handling"
+  ]
+}
