@@ -1,0 +1,12 @@
+workflow_id: configuration_baseline_and_change_control_v0
+kind: role_slots
+status: active
+slots:
+  - slot_id: workflow_runner
+    summary: owns binding resolution and baseline-scope setup
+  - slot_id: baseline_inventory_curator
+    summary: inventories baseline refs, checksums, and change requests
+  - slot_id: impact_router
+    summary: maps baseline or change impacts to the narrowest downstream rerun or carry-forward route
+  - slot_id: boundary_reviewer
+    summary: checks non-claims and read-only boundary posture

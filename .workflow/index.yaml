@@ -49,6 +49,8 @@ entries:
     path: review_gate_evidence_pack_v0/workflow.yaml
   - workflow_id: review_action_item_closure_loop_v0
     path: review_action_item_closure_loop_v0/workflow.yaml
+  - workflow_id: configuration_baseline_and_change_control_v0
+    path: configuration_baseline_and_change_control_v0/workflow.yaml
 notes:
   - Workflow catalog only. Raw run ids and execution dumps do not belong here.
   - Authoring templates live under `authoring/` and are not workflow canon entries.

@@ -1,0 +1,28 @@
+workflow_id: configuration_baseline_and_change_control_v0
+kind: step_graph
+status: active
+steps:
+  - step_id: prepare_baseline_binding
+    title: Prepare Baseline Binding
+    actor_slot: workflow_runner
+    action:
+      kind: project_local_baseline_binding_setup
+    summary: Resolve the bounded baseline scope and output root.
+  - step_id: inventory_baselines_and_changes
+    title: Inventory Baselines And Changes
+    actor_slot: baseline_inventory_curator
+    action:
+      kind: baseline_ref_and_change_request_inventory
+    summary: Inventory baseline refs, checksum/version state, and change-request rows.
+  - step_id: map_impacts_and_reruns
+    title: Map Impacts And Reruns
+    actor_slot: impact_router
+    action:
+      kind: change_impact_and_rerun_route_mapping
+    summary: Route each baseline gap or change request to the narrowest downstream consumer.
+  - step_id: write_bundle_and_boundary_review
+    title: Write Bundle And Boundary Review
+    actor_slot: boundary_reviewer
+    action:
+      kind: baseline_bundle_write_and_boundary_review
+    summary: Confirm no baseline approval or upstream mutation overclaim before publication.

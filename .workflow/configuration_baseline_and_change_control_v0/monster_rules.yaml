@@ -1,0 +1,13 @@
+workflow_id: configuration_baseline_and_change_control_v0
+kind: monster_rules
+status: active
+rules:
+  - monster_id: baseline_approved_by_inventory
+    response: relabel_as_inventory_only
+    summary: Inventorying a baseline ref is not approval.
+  - monster_id: change_request_closed_without_evidence
+    response: keep_open_or_deferred
+    summary: Change requests need explicit closure evidence or owner decision refs.
+  - monster_id: upstream_artifact_mutated
+    response: stop_and_emit_boundary_review_note
+    summary: The workflow must not patch traced, reviewed, or verified artifacts.

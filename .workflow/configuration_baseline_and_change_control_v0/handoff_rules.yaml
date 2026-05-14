@@ -1,0 +1,16 @@
+workflow_id: configuration_baseline_and_change_control_v0
+kind: handoff_rules
+status: active
+rules:
+  - from: workflow_runner
+    to: baseline_inventory_curator
+    condition: baseline_binding_ready
+    summary: Curator receives only approved baseline refs and policy, not raw payload dumps or secrets.
+  - from: baseline_inventory_curator
+    to: impact_router
+    condition: baseline_inventory_written
+    summary: Impact router receives stable baseline rows and change-request refs so downstream rerun routes stay narrow.
+  - from: impact_router
+    to: boundary_reviewer
+    condition: rerun_routes_written
+    summary: Boundary review receives the full bundle and confirms no approval or mutation overclaim.

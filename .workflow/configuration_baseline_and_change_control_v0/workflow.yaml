@@ -1,0 +1,84 @@
+workflow_id: configuration_baseline_and_change_control_v0
+kind: workflow
+status: active
+title: Configuration Baseline And Change Control v0
+summary: Inventory baseline refs, track change requests, and route reruns or carry-forward actions for baseline-affecting changes without approving baselines or mutating upstream artifacts.
+entrypoint: run
+execution_mode: local_tool_sequence
+role_slots: role_slots.yaml
+step_graph: step_graph.yaml
+handoff_rules: handoff_rules.yaml
+monster_rules: monster_rules.yaml
+party_compatibility: party_compatibility.yaml
+profile_policy: profile_policy.yaml
+inputs:
+  - baseline_change_control_binding
+  - baseline_scope_refs
+  - approved_change_control_policy
+optional_inputs:
+  - review_gate_packet_refs
+  - verification_plan_refs
+  - trace_matrix_refs
+  - closure_status_refs
+  - owner_decision_refs
+outputs:
+  - configuration_baseline_packet
+  - baseline_inventory
+  - change_request_register
+  - impact_matrix
+  - baseline_gap_register
+  - rerun_routing
+  - owner_followup_needed
+  - closure_handoff
+  - boundary_review_note
+validation_level: draft_contract_only
+registration_policy: owner_requested_registration
+upstream_workflows:
+  - workflow_id: review_gate_evidence_pack_v0
+    expected_outputs:
+      - review_gate_packet
+      - action_item_register
+      - decision_summary
+    status: optional_review_input
+  - workflow_id: verification_plan_from_page_contracts_v0
+    expected_outputs:
+      - verification_plan
+      - trr_readiness_handoff
+      - fca_svr_handoff_index
+    status: optional_verification_input
+  - workflow_id: review_action_item_closure_loop_v0
+    expected_outputs:
+      - action_closure_ledger
+      - closure_status_matrix
+      - carry_forward_register
+    status: optional_closure_input
+downstream_workflows:
+  - workflow_id: review_gate_evidence_pack_v0
+    expected_input: updated_baseline_refs_and_change_control_actions
+    status: rerun_trigger_only
+  - workflow_id: verification_plan_from_page_contracts_v0
+    expected_input: baseline_changes_that_affect_methods_or_readiness
+    status: rerun_trigger_only
+  - workflow_id: functional_configuration_audit_page_library_v0
+    expected_input: baseline_inventory_and_change_request_register
+    status: planned
+change_control_contract:
+  owns:
+    - baseline_scope_inventory
+    - change_request_identity
+    - impact_routing
+    - rerun_routing
+    - closure_handoff
+  does_not_own:
+    - baseline_approval
+    - upstream_packet_mutation
+    - verification_result_acceptance
+  authority_boundary:
+    baseline_packet_is_not_baseline_approval: true
+    change_request_register_is_not_change_approval: true
+    upstream_artifacts_are_read_only: true
+  required_output_shapes:
+    project_binding: templates/project_binding.template.yaml
+notes:
+  - This workflow is a governance lane for baseline inventory and change routing, not a tool for silently editing upstream artifacts.
+  - Public workflow canon stores only portable orchestration rules, state semantics, and sanitized templates.
