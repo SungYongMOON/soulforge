@@ -31,7 +31,7 @@ outputs:
   - owner_followup_needed
   - closure_handoff
   - boundary_review_note
-validation_level: draft_contract_only
+validation_level: pilot_executed_private_fixture
 registration_policy: owner_requested_registration
 upstream_workflows:
   - workflow_id: review_gate_evidence_pack_v0
