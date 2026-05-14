@@ -12,6 +12,9 @@ inputs:
     simulator_families_considered: []
     preferred_runtime_family: null
     preferred_runtime_version: null
+    trusted_runtime_path_or_command: null
+    probe_verification_method: null
+    license_or_tool_access_notes: []
     execution_allowed: false
     owner_approved: false
     notes: []
