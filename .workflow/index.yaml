@@ -15,6 +15,8 @@ entries:
     path: device_system_diagram_generation/workflow.yaml
   - workflow_id: exp_xml_component_materials
     path: exp_xml_component_materials/workflow.yaml
+  - workflow_id: component_pcb_layout_guide_extraction
+    path: component_pcb_layout_guide_extraction/workflow.yaml
 notes:
   - Workflow catalog only. Raw run ids and execution dumps do not belong here.
   - Authoring templates live under `authoring/` and are not workflow canon entries.

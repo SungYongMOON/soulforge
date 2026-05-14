@@ -1,0 +1,261 @@
+{
+  "calibration_id": "20260513-204517_staged_cli_matrix",
+  "workflow_id": "component_pcb_layout_guide_extraction",
+  "fixture_type": "public_safe_synthetic",
+  "scenario": "Synthetic component-material tree produced by exp_xml_component_materials. It contains only mocked file names, checksums, page-level layout summaries, and synthetic excerpt anchors. It contains no real PDFs, copied vendor text, customer project data, credentials, cookies, absolute runtime paths, or downloaded binaries.",
+  "candidate_task": "Given this public-safe synthetic fixture, produce the workflow output packet that component_pcb_layout_guide_extraction should create: per-component Layout Guide packet, source map summary, citation map, figure/table extraction and promotion summary, extraction manifest, rejected candidate records, boundary review note, and readiness note.",
+  "project_binding": {
+    "parts_root": "_workspaces/<project_code>/reference_materials/from_exp_xml/parts",
+    "portable_only": true,
+    "runtime_absolute_paths_forbidden": true,
+    "expected_component_folders": [
+      "DATA Sheet",
+      "EVAL",
+      "Layout Guide"
+    ]
+  },
+  "components": [
+    {
+      "component_key": "analog_devices_lt3045edd_1",
+      "refdes": "U1",
+      "identity_status": "source_backed",
+      "source_docs": [
+        {
+          "source_file": "DATA Sheet/LT3045_datasheet.pdf",
+          "source_file_sha256": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+          "file_magic": "%PDF-",
+          "byte_size": 1854321,
+          "page_count": 44,
+          "cache_status": "new_index_required"
+        },
+        {
+          "source_file": "EVAL/DC2222A_user_guide.pdf",
+          "source_file_sha256": "bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb",
+          "file_magic": "%PDF-",
+          "byte_size": 942210,
+          "page_count": 12,
+          "cache_status": "new_index_required"
+        },
+        {
+          "source_file": "EVAL/DC2222A_design_files.zip",
+          "source_file_sha256": "cccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc",
+          "file_magic": "PK",
+          "byte_size": 321004,
+          "archive_entries": [
+            {
+              "entry_name": "README_layout_notes.txt",
+              "candidate_doc": true,
+              "reason": "layout keyword in entry name"
+            },
+            {
+              "entry_name": "gerbers/top_copper.gbr",
+              "candidate_doc": false,
+              "reason": "CAD/runtime reference file, not AI text source"
+            }
+          ],
+          "cache_status": "inspect_archive_manifest_only"
+        }
+      ],
+      "layout_candidate_spans": [
+        {
+          "span_id": "U1_DS_p22_decoupling",
+          "source_file": "DATA Sheet/LT3045_datasheet.pdf",
+          "source_file_sha256": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+          "page_number": 22,
+          "layout_topics": [
+            "decoupling",
+            "bypass capacitor placement",
+            "power routing"
+          ],
+          "synthetic_summary": "Input and output capacitors should be close to the regulator pins and connected with short, low-impedance traces.",
+          "bounded_excerpt_anchor": "SYNTHETIC_U1_DS_P22_DECOUPLING"
+        },
+        {
+          "span_id": "U1_DS_p24_thermal",
+          "source_file": "DATA Sheet/LT3045_datasheet.pdf",
+          "source_file_sha256": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+          "page_number": 24,
+          "layout_topics": [
+            "thermal",
+            "exposed pad",
+            "vias",
+            "ground plane"
+          ],
+          "synthetic_summary": "The exposed pad and nearby copper should be tied into the ground/thermal plane with multiple vias for heat spreading.",
+          "bounded_excerpt_anchor": "SYNTHETIC_U1_DS_P24_THERMAL"
+        },
+        {
+          "span_id": "U1_EVAL_p6_reference_layout",
+          "source_file": "EVAL/DC2222A_user_guide.pdf",
+          "source_file_sha256": "bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb",
+          "page_number": 6,
+          "layout_topics": [
+            "evaluation board layout",
+            "grounding",
+            "reference layout"
+          ],
+          "synthetic_summary": "The evaluation board layout keeps the regulator, input/output capacitors, and measurement sense points compact around a continuous ground area.",
+          "bounded_excerpt_anchor": "SYNTHETIC_U1_EVAL_P6_REFERENCE_LAYOUT"
+        }
+      ],
+      "visual_table_candidates": [
+        {
+          "candidate_id": "U1_fig_ds_p24",
+          "candidate_type": "full_page_figure_render",
+          "source_file": "DATA Sheet/LT3045_datasheet.pdf",
+          "source_file_sha256": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+          "page_number": 24,
+          "promotion_hint": "promote_if_cited_by_layout_guide",
+          "layout_context": "recommended layout and thermal pad drawing"
+        },
+        {
+          "candidate_id": "U1_table_eval_p7_jumpers",
+          "candidate_type": "table",
+          "source_file": "EVAL/DC2222A_user_guide.pdf",
+          "source_file_sha256": "bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb",
+          "page_number": 7,
+          "camelot_accuracy": 98.2,
+          "camelot_whitespace": 21.0,
+          "promotion_hint": "promote_layout_only_if_board_setup_context_is_retained",
+          "layout_context": "jumper/load connector table tied to reference board setup"
+        },
+        {
+          "candidate_id": "U1_table_eval_p2_revision_history",
+          "candidate_type": "table",
+          "source_file": "EVAL/DC2222A_user_guide.pdf",
+          "source_file_sha256": "bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb",
+          "page_number": 2,
+          "camelot_accuracy": 96.0,
+          "camelot_whitespace": 18.5,
+          "promotion_hint": "reject",
+          "layout_context": "revision history, not board layout guidance"
+        }
+      ]
+    },
+    {
+      "component_key": "microchip_mcp73831t_2aci_ot",
+      "refdes": "U2",
+      "identity_status": "source_backed",
+      "source_docs": [
+        {
+          "source_file": "DATA Sheet/MCP73831_family_datasheet.pdf",
+          "source_file_sha256": "dddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddd",
+          "file_magic": "%PDF-",
+          "byte_size": 1210330,
+          "page_count": 32,
+          "cache_status": "existing_index_reusable"
+        }
+      ],
+      "layout_candidate_spans": [
+        {
+          "span_id": "U2_DS_p14_thermal",
+          "source_file": "DATA Sheet/MCP73831_family_datasheet.pdf",
+          "source_file_sha256": "dddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddd",
+          "page_number": 14,
+          "layout_topics": [
+            "thermal",
+            "ground plane"
+          ],
+          "synthetic_summary": "Thermal behavior depends on copper area and package-to-board heat spreading.",
+          "bounded_excerpt_anchor": "SYNTHETIC_U2_DS_P14_THERMAL"
+        },
+        {
+          "span_id": "U2_DS_p17_power_path",
+          "source_file": "DATA Sheet/MCP73831_family_datasheet.pdf",
+          "source_file_sha256": "dddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddd",
+          "page_number": 17,
+          "layout_topics": [
+            "battery trace",
+            "power routing",
+            "decoupling"
+          ],
+          "synthetic_summary": "Battery and input capacitor routing should be short, with the sense and charge paths kept clear of noisy switching nodes.",
+          "bounded_excerpt_anchor": "SYNTHETIC_U2_DS_P17_POWER_PATH"
+        }
+      ],
+      "coverage_gap": {
+        "local_eval_material_status": "none_found",
+        "gap": "No local EVAL guide or board drawing is present, so supplemental official guidance should be checked before final readiness."
+      },
+      "mock_supplemental_source_catalog": [
+        {
+          "source_file": "Layout Guide/source_docs/MCP73831_layout_app_note.pdf",
+          "source_file_sha256": "eeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeee",
+          "source_url": "https://vendor.example.invalid/microchip/mock/MCP73831_layout_app_note.pdf",
+          "official_or_owner_approved": true,
+          "file_magic": "%PDF-",
+          "byte_size": 344210,
+          "page_count": 8,
+          "download_status": "mock_saved",
+          "layout_candidate_spans": [
+            {
+              "span_id": "U2_SUP_p3_layout",
+              "page_number": 3,
+              "layout_topics": [
+                "decoupling",
+                "ground return",
+                "battery connector placement"
+              ],
+              "synthetic_summary": "The app note emphasizes close placement of the input capacitor, a clean ground return, and short battery connector routing.",
+              "bounded_excerpt_anchor": "SYNTHETIC_U2_SUP_P3_LAYOUT"
+            }
+          ]
+        }
+      ],
+      "visual_table_candidates": [
+        {
+          "candidate_id": "U2_fig_sup_p3",
+          "candidate_type": "full_page_figure_render",
+          "source_file": "Layout Guide/source_docs/MCP73831_layout_app_note.pdf",
+          "source_file_sha256": "eeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeee",
+          "page_number": 3,
+          "promotion_hint": "promote_if_cited_by_layout_guide",
+          "layout_context": "example charger board placement drawing"
+        },
+        {
+          "candidate_id": "U2_table_ds_p4_ordering",
+          "candidate_type": "table",
+          "source_file": "DATA Sheet/MCP73831_family_datasheet.pdf",
+          "source_file_sha256": "dddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddd",
+          "page_number": 4,
+          "camelot_accuracy": 99.1,
+          "camelot_whitespace": 12.0,
+          "promotion_hint": "reject",
+          "layout_context": "ordering codes, not layout guidance"
+        }
+      ]
+    },
+    {
+      "component_key": "usb_c_receptacle_unresolved",
+      "refdes": "J1",
+      "identity_status": "review_required",
+      "source_docs": [],
+      "layout_candidate_spans": [],
+      "review_reason": "Connector placeholder has no manufacturer part number or owner-approved source identity. Do not invent datasheets, EVAL material, or layout guidance."
+    }
+  ],
+  "required_output_shape": [
+    "profile",
+    "parts_binding_and_inventory",
+    "per_component_layout_guides",
+    "source_map_summary",
+    "layout_guide_citation_map",
+    "figure_table_extraction_summary",
+    "extraction_manifest",
+    "rejected_visual_table_candidates",
+    "boundary_and_readiness_review"
+  ],
+  "hard_rules": [
+    "Do not access the network.",
+    "Do not read local project files.",
+    "Do not claim actual downloads, command execution, browser actions, PDF rendering, OCR, Camelot, PyMuPDF, or file writes. This is a synthetic calibration output packet.",
+    "Use only the mocked files, checksums, source URLs, page numbers, spans, and visual/table candidates in this fixture.",
+    "Do not include runtime absolute paths, concrete run ids, copied vendor text, customer data, secrets, cookies, or credential material.",
+    "AI synthesis receives only layout_candidate_spans and approved supplemental spans, not whole PDFs.",
+    "Every layout finding must cite a source file, page number, checksum, and span id or bounded excerpt anchor.",
+    "If local coverage is insufficient and an approved supplemental source exists in the fixture, include it in Layout Guide/source_docs with checksum evidence; if it is URL-only or unapproved, record a gap instead.",
+    "Render/promote figures only for unique source-file-checksum plus page pairs actually cited by the final layout guide. Current full-page renders belong directly under Layout Guide/figures, while context or legacy crops stay under context_pages.",
+    "Tables require quality metrics and layout/board context before promotion. Reject ordering tables, revision history, software installation, PC driver setup, marketing, and two-column prose.",
+    "J1 must remain review_required because no manufacturer-backed identity or source evidence is available."
+  ]
+}

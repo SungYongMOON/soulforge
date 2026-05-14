@@ -1,0 +1,98 @@
+﻿{
+    "calibration_id":  "20260513-204517_staged_cli_matrix",
+    "workflow_id":  "component_pcb_layout_guide_extraction",
+    "quality_source":  "cli_only_calibration",
+    "telemetry_source":  "cli_full_stage_matrix_and_stage_c_reruns",
+    "selection_rule":  "Quality hard gates first. Semantic shortlist evaluation can override rule-only token ranking. Among semantic passers, prefer lower model/cost proxy and wall time unless quality differs by 10 or more points.",
+    "stage_a_winner":  {
+                           "candidate_id":  "A_elf_archivist",
+                           "model":  "gpt-5.4-mini",
+                           "reasoning_effort":  "low",
+                           "species":  "elf",
+                           "class":  "archivist",
+                           "rule_quality_score":  100,
+                           "output_tokens":  4084,
+                           "reasoning_output_tokens":  149,
+                           "wall_time_seconds":  45.867
+                       },
+    "final_ranking":  [
+                          {
+                              "rank":  1,
+                              "candidate_id":  "C_shadow_gpt_5_4_mini_medium",
+                              "profile":  {
+                                              "model":  "gpt-5.4-mini",
+                                              "reasoning_effort":  "medium",
+                                              "species":  "elf",
+                                              "class":  "archivist"
+                                          },
+                              "rule_quality_score":  100,
+                              "semantic_quality_score":  93,
+                              "quality_gate":  "pass",
+                              "output_tokens":  6505,
+                              "reasoning_output_tokens":  516,
+                              "wall_time_seconds":  43.75,
+                              "supporting_stage_b_candidate":  "B_gpt_5_4_mini_medium",
+                              "stage_b_output_tokens":  5797,
+                              "stage_b_reasoning_output_tokens":  1034,
+                              "stage_b_wall_time_seconds":  40.635,
+                              "rationale":  "Lowest-cost semantic quality-pass finalist. The cheaper low-effort mini finalist failed semantic hard gates for per-finding traceability/table metrics."
+                          },
+                          {
+                              "rank":  2,
+                              "candidate_id":  "B_gpt_5_4_low",
+                              "profile":  {
+                                              "model":  "gpt-5.4",
+                                              "reasoning_effort":  "low",
+                                              "species":  "elf",
+                                              "class":  "archivist"
+                                          },
+                              "rule_quality_score":  100,
+                              "semantic_quality_score":  94,
+                              "quality_gate":  "pass",
+                              "output_tokens":  6173,
+                              "reasoning_output_tokens":  28,
+                              "wall_time_seconds":  117.369,
+                              "rationale":  "Usable quality-pass shadow with lower output tokens than primary but slower and on a larger model."
+                          },
+                          {
+                              "rank":  3,
+                              "candidate_id":  "B_gpt_5_4_medium",
+                              "profile":  {
+                                              "model":  "gpt-5.4",
+                                              "reasoning_effort":  "medium",
+                                              "species":  "elf",
+                                              "class":  "archivist"
+                                          },
+                              "rule_quality_score":  100,
+                              "semantic_quality_score":  97,
+                              "quality_gate":  "pass",
+                              "output_tokens":  6540,
+                              "reasoning_output_tokens":  36,
+                              "wall_time_seconds":  124.754,
+                              "rationale":  "Highest semantic quality among secondary shadows but materially slower than primary."
+                          }
+                      ],
+    "rejected_or_not_selected_summary":  [
+                                             {
+                                                 "candidate_id":  "C_primary_gpt_5_4_mini_low",
+                                                 "reason":  "Lowest token finalist, but semantic evaluator failed it for per-finding citation structure, U1 table quality metrics, and explicit U2 local EVAL none_found."
+                                             },
+                                             {
+                                                 "candidate_id":  "C_shadow_gpt_5_5_high",
+                                                 "reason":  "Semantic evaluator failed it for concrete calibration id/run-id leakage."
+                                             },
+                                             {
+                                                 "candidate_id":  "B_gpt_5_5_xhigh",
+                                                 "reason":  "Semantic shadow evaluator failed it for table-promotion policy."
+                                             },
+                                             {
+                                                 "candidate_id":  "B_gpt_5_5_low",
+                                                 "reason":  "Semantic shadow evaluator failed it for table-promotion policy and concrete calibration id leakage."
+                                             },
+                                             {
+                                                 "candidate_id":  "B_gpt_5_4_mini_xhigh",
+                                                 "reason":  "Extreme token and wall-time cost; failed rule score in Stage B."
+                                             }
+                                         ],
+    "recommendation":  "Use gpt-5.4-mini / medium / elf / archivist as the primary workflow profile."
+}

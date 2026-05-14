@@ -1,0 +1,136 @@
+{
+  "workflow_id": "component_pcb_layout_guide_extraction",
+  "calibration_id": "20260513-204517_staged_cli_matrix",
+  "fixture_ref": "../input_fixture.public.json",
+  "golden_ref": "../golden/output.md",
+  "criteria_status": "frozen_for_cli_only_staged_calibration",
+  "quality_hard_gates": [
+    {
+      "id": "required_output_shape",
+      "description": "Candidate must include profile, parts binding/inventory, per-component layout guide packet, source map summary, citation map, figure/table extraction summary, extraction manifest, rejected visual/table candidates, and boundary/readiness review."
+    },
+    {
+      "id": "boundary_no_real_runtime_claims",
+      "description": "Candidate must not claim actual network access, browser use, file writes, downloads, PDF rendering, OCR, Camelot, PyMuPDF, local project reads, or credential/session use."
+    },
+    {
+      "id": "portable_paths_only",
+      "description": "Candidate must avoid host-specific absolute paths and concrete run ids. The portable binding `_workspaces/<project_code>/reference_materials/from_exp_xml/parts` is allowed."
+    },
+    {
+      "id": "source_bound_findings",
+      "description": "Each layout finding for U1 and U2 must cite source_file, source_file_sha256, page_number, and span_id or bounded_excerpt_anchor."
+    },
+    {
+      "id": "u1_required_guidance",
+      "description": "U1 must preserve source-backed decoupling/power placement, thermal/exposed-pad/via/ground, and EVAL/reference-layout findings."
+    },
+    {
+      "id": "u2_required_guidance",
+      "description": "U2 must reuse the datasheet cache, record local EVAL none_found, include the approved mocked supplemental app note, and cite the supplemental page for final layout readiness."
+    },
+    {
+      "id": "j1_review_required",
+      "description": "J1 must remain review_required with no invented datasheets, EVAL material, figures, tables, or layout guidance."
+    },
+    {
+      "id": "figure_policy",
+      "description": "Candidate must map final layout guide citations to unique source-file-checksum plus page pairs, dedupe them, and promote only cited full-page figures directly under Layout Guide/figures. Non-cited/context/legacy items must stay separate."
+    },
+    {
+      "id": "table_policy",
+      "description": "Candidate must promote only board/layout-context tables with quality metrics and reject ordering tables, revision history, setup-only, marketing, and non-layout tables."
+    },
+    {
+      "id": "manifest_readiness",
+      "description": "Candidate must record processed docs, cache hit/miss behavior, candidate span count, supplemental docs, figure/table counts, rejected candidates, warnings/open questions, and ready vs blocked components."
+    },
+    {
+      "id": "fixture_only_synthesis",
+      "description": "All findings, promoted figures/tables, source decisions, and readiness conclusions must be derivable only from fixture-provided spans, mocked source metadata, visual/table candidate records, and approved supplemental records."
+    },
+    {
+      "id": "public_safe_content_only",
+      "description": "Candidate must not reproduce copied vendor text, non-synthetic source content, customer/project data, secrets, credentials, cookies, or anything outside the provided synthetic summaries, anchors, mocked metadata, and candidate identifiers."
+    },
+    {
+      "id": "supplemental_source_limit",
+      "description": "Only fixture-approved supplemental sources may be incorporated. URL-only, unapproved, or invented supplemental references must remain gaps or review items."
+    },
+    {
+      "id": "readiness_requires_evidence",
+      "description": "Any component without sufficient cited local or approved supplemental evidence must remain blocked or review_required. Readiness cannot be inferred from generic component knowledge."
+    },
+    {
+      "id": "component_local_traceability",
+      "description": "Every finding, promoted figure/table, rejection reason, and readiness conclusion must trace to the same component/refdes and to that component's fixture spans, approved supplemental spans, or visual/table candidate metadata."
+    },
+    {
+      "id": "decision_reason_required",
+      "description": "Promotion and rejection records must include evidence-based reasons, not only candidate ids, dispositions, or aggregate counts."
+    },
+    {
+      "id": "synthetic_phrasing",
+      "description": "Candidates may report fixture metadata such as mocked URLs, checksums, cache status, and mock_saved state, but must phrase them as synthetic fixture facts rather than performed runtime operations."
+    }
+  ],
+  "scoring_dimensions": [
+    {
+      "id": "quality_and_usability",
+      "weight": 40,
+      "signals": [
+        "complete output packet",
+        "runner can write Markdown/JSON/manifests from packet",
+        "concise but not lossy",
+        "open questions are actionable"
+      ]
+    },
+    {
+      "id": "model_task_fit",
+      "weight": 20,
+      "signals": [
+        "source-bound layout extraction",
+        "PDF cache and citation-map discipline",
+        "visual/table promotion reasoning",
+        "public/private boundary handling"
+      ]
+    },
+    {
+      "id": "token_cost_efficiency",
+      "weight": 20,
+      "signals": [
+        "lower output tokens among quality-passing candidates",
+        "lower reasoning tokens when quality is comparable"
+      ]
+    },
+    {
+      "id": "wall_clock_time",
+      "weight": 15,
+      "signals": [
+        "lower wall time among quality-passing candidates"
+      ]
+    },
+    {
+      "id": "stability_rerun_margin",
+      "weight": 5,
+      "signals": [
+        "passes simple rule checks with margin",
+        "no brittle reliance on wording from golden"
+      ]
+    }
+  ],
+  "minimum_pass_score": 90,
+  "semantic_scoring_policy": {
+    "required_output_shape": "Score by semantic presence of required packet data, not exact heading names or ordering.",
+    "component_content": "Score U1 and U2 by coverage of source-backed topics and citation correctness, not golden wording.",
+    "figure_table_handling": "Score promotion/rejection reasoning and evidence discipline. Exact path strings matter only when they express the workflow contract, such as current cited full-page figures belonging directly under Layout Guide/figures."
+    ,
+    "readiness_wording": "Exact readiness wording is not required; evidence-backed state and rationale matter."
+  },
+  "candidate_prompt_contamination_policy": {
+    "golden_output_visible_to_candidates": false,
+    "golden_derived_criteria_visible_to_candidates": false,
+    "candidate_fixture_visible_to_candidates": true
+  },
+  "measurement_note": "This run uses a CLI-only staged fallback because the current runtime does not permit the default subagent_quality_first matrix. CLI usage is exact for the CLI runs, but not comparable to unavailable subagent-runner telemetry."
+}

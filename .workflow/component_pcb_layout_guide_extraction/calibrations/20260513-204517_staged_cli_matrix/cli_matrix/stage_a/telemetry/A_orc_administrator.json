@@ -1,0 +1,16 @@
+﻿{
+    "candidate_id":  "A_orc_administrator",
+    "stage":  "stage_a",
+    "model":  "gpt-5.4-mini",
+    "reasoning_effort":  "low",
+    "species":  "orc",
+    "class":  "administrator",
+    "exit_code":  0,
+    "wall_time_seconds":  33.366,
+    "usage":  {
+                  "input_tokens":  16716,
+                  "cached_input_tokens":  12672,
+                  "output_tokens":  4915,
+                  "reasoning_output_tokens":  69
+              }
+}

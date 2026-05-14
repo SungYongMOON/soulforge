@@ -1,0 +1,63 @@
+workflow_id: component_pcb_layout_guide_extraction
+kind: project_workflow_binding_template
+status: template
+project_code: "<project_code>"
+inputs:
+  parts_root_repo_path: "_workspaces/<project_code>/reference_materials/from_exp_xml/parts"
+upstream:
+  workflow_id: exp_xml_component_materials
+  expected_manifest_repo_path: "_workspaces/<project_code>/reference_materials/from_exp_xml/download_manifest.json"
+outputs:
+  per_component_layout_folder_name: "Layout Guide"
+  layout_guide_file_name: layout_guide.md
+  source_map_file_name: source_map.json
+  extraction_manifest_file_name: extraction_manifest.json
+folder_policy:
+  datasheet_folder_name: "DATA Sheet"
+  eval_folder_name: EVAL
+  layout_folder_name: "Layout Guide"
+  source_docs_folder_name: source_docs
+  figures_folder_name: figures
+  cited_full_page_figures_folder_name: figures
+  tables_folder_name: tables
+  cache_folder_name: cache
+cache_policy:
+  cache_by_source_sha256: true
+  reuse_when_checksum_matches: true
+  full_pdf_to_ai_context: false
+  page_index_file: pdf_text_index.json
+  candidate_span_file: layout_candidate_spans.json
+  processed_docs_file: processed_docs.json
+extraction_policy:
+  topics:
+    - pcb layout
+    - layout guidelines
+    - grounding
+    - decoupling
+    - bypass capacitor placement
+    - routing
+    - thermal
+    - exposed pad
+    - evaluation board layout
+    - reference layout
+  require_source_page: true
+  require_source_checksum: true
+  require_source_map_for_each_claim: true
+download_policy:
+  official_sources_only: true
+  owner_approved_local_sources_allowed: true
+  random_pdf_mirrors_allowed: false
+  allow_vendor_account_pages: false
+  url_shortcut_counts_as_download: false
+  require_actual_files: true
+  require_sha256: true
+  max_download_mb_per_component: 500
+review_policy:
+  public_canon_no_absolute_paths: true
+  public_canon_no_vendor_text: true
+  public_canon_no_downloaded_files: true
+  layout_ready_requires:
+    - layout_guide_markdown_written
+    - source_map_written
+    - extraction_manifest_written
+    - unresolved_gaps_recorded

@@ -1,0 +1,15 @@
+workflow_id: component_pcb_layout_guide_extraction
+kind: party_compatibility
+status: active
+compatible_party_templates:
+  - workflow_research_build_verify
+  - sourcebound_extraction_review
+required_capabilities:
+  - local_file_inventory
+  - pdf_text_extraction
+  - zip_archive_inspection
+  - official_source_research
+  - markdown_synthesis
+  - checksum_manifesting
+notes:
+  - Fresh executor/verifier separation is preferred before claiming production-ready extraction quality.

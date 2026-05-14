@@ -1,0 +1,16 @@
+﻿{
+    "candidate_id":  "C_shadow_gpt_5_5_high",
+    "stage":  "stage_c",
+    "model":  "gpt-5.5",
+    "reasoning_effort":  "high",
+    "species":  "elf",
+    "class":  "archivist",
+    "exit_code":  0,
+    "wall_time_seconds":  119.65,
+    "usage":  {
+                  "input_tokens":  18454,
+                  "cached_input_tokens":  7552,
+                  "output_tokens":  6260,
+                  "reasoning_output_tokens":  516
+              }
+}

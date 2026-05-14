@@ -1,0 +1,53 @@
+calibration_id: 20260513-204517_staged_cli_matrix
+workflow_id: component_pcb_layout_guide_extraction
+kind: workflow_profile_calibration_archive
+status: complete
+created_at: 2026-05-13T20:45:17+09:00
+calibration_mode: staged_cli_calibration
+boundary: public_safe_synthetic_fixture
+source_skill: workflow-optimizer
+runtime_note:
+  default_subagent_quality_first: blocked_runtime_subagent_unavailable
+  fallback_used: cli_only_calibration
+  reason: Current runtime policy did not allow the default subagent quality matrix; isolated Codex CLI runs were used and explicitly labeled as CLI-only calibration evidence.
+matrix:
+  stage_a:
+    purpose: Select species and class with gpt-5.4-mini low.
+    candidates: 15
+    winner: A_elf_archivist
+  stage_b:
+    purpose: Compare model and reasoning effort using elf archivist.
+    candidates: 12
+  stage_c:
+    purpose: Rerun finalists for stability and semantic shortlist review.
+    candidates: 3
+quality_gate:
+  criteria: quality_gate/criteria.json
+  evaluator_review: quality_gate/evaluator_review.json
+  rule_eval:
+    - evaluation/stageA_rule_eval.json
+    - evaluation/stageB_rule_eval.json
+    - evaluation/stageC_rule_eval.json
+  semantic_eval:
+    - evaluation/llm_shortlist_eval.json
+    - evaluation/llm_shadow_eval.json
+telemetry:
+  source: codex_exec_json_cli_proxy
+  full_matrix_results: cli_matrix/results.jsonl
+  passed_candidates: cli_telemetry_probe/passed_candidates.jsonl
+  telemetry_jsonl: cli_telemetry_probe/telemetry.jsonl
+recommendation:
+  model: gpt-5.4-mini
+  reasoning_effort: medium
+  species: elf
+  class: archivist
+public_safety:
+  fixture_contains_real_vendor_text: false
+  fixture_contains_real_project_paths: false
+  fixture_contains_secrets: false
+  fixture_contains_downloaded_binaries: false
+  archive_contains_runtime_project_outputs: false
+notes:
+  - Candidate prompts did not include golden output or frozen quality criteria.
+  - The cheapest rule-pass finalist was rejected by semantic evaluation because quality hard gates are stronger than cost ranking.
+  - All archived inputs are synthetic or CLI telemetry from synthetic runs.

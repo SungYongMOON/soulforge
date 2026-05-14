@@ -1,0 +1,16 @@
+﻿{
+    "candidate_id":  "B_gpt_5_4_mini_medium",
+    "stage":  "stage_b",
+    "model":  "gpt-5.4-mini",
+    "reasoning_effort":  "medium",
+    "species":  "elf",
+    "class":  "archivist",
+    "exit_code":  0,
+    "wall_time_seconds":  40.635,
+    "usage":  {
+                  "input_tokens":  16718,
+                  "cached_input_tokens":  12672,
+                  "output_tokens":  5797,
+                  "reasoning_output_tokens":  1034
+              }
+}

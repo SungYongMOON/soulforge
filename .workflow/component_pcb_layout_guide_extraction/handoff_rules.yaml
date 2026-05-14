@@ -1,0 +1,56 @@
+workflow_id: component_pcb_layout_guide_extraction
+kind: handoff_rules
+status: active
+rules:
+  - from: workflow_runner
+    to: source_inventory_builder
+    condition: parts_root_binding_resolved
+    summary: Inventory receives the project-local parts root binding and output policy, not public-canon absolute paths.
+  - from: source_inventory_builder
+    to: pdf_indexer
+    condition: component_source_doc_inventory_written
+    summary: PDF indexer receives source file metadata and checksums so it can reuse cache entries when inputs are unchanged.
+  - from: pdf_indexer
+    to: layout_span_selector
+    condition: page_index_cache_written
+    summary: Span selector receives page-level text metadata and extracted text cache, but AI synthesis later receives only selected candidate spans.
+  - from: layout_span_selector
+    to: coverage_reviewer
+    condition: layout_candidate_spans_written
+    summary: Coverage review receives candidate spans and source inventory to decide whether supplemental official docs are needed.
+  - from: coverage_reviewer
+    to: source_researcher
+    condition: local_layout_coverage_insufficient
+    summary: Source research is limited to official or owner-approved layout/application/EVAL material.
+  - from: source_researcher
+    to: download_operator
+    condition: supplemental_source_packet_has_approved_urls
+    summary: Downloads proceed only for approved official sources and actual files, never URL shortcuts as completion.
+  - from: coverage_reviewer
+    to: layout_guide_writer
+    condition: local_layout_coverage_sufficient_or_no_more_sources_available
+    summary: Writer receives candidate spans, not whole PDFs, and must cite source file/page for each finding.
+  - from: layout_guide_writer
+    to: citation_mapper
+    condition: layout_guide_and_source_map_written
+    summary: Citation mapper receives the final Markdown guide and source map, then builds a citation map from actual guide evidence lines to PDF pages and text anchors.
+  - from: layout_guide_writer
+    to: figure_table_extractor
+    condition: legacy_direct_extraction_path_only
+    summary: Direct extraction without citation mapping is deprecated; non-cited page renders are context evidence only and must not populate current figure outputs.
+  - from: citation_mapper
+    to: figure_table_extractor
+    condition: layout_guide_citation_map_written
+    summary: Figure/table extraction receives the citation map and renders exactly one full-page PNG for each unique source file/page actually used in the layout guide.
+  - from: figure_table_extractor
+    to: cited_figure_table_promoter
+    condition: extracted_visual_table_candidates_recorded
+    summary: Promotion receives cited full-page renders, context fallbacks, tables, and source-map evidence; duplicate or non-cited page renders cannot be promoted into the direct figures folder.
+  - from: cited_figure_table_promoter
+    to: manifest_writer
+    condition: cited_figure_and_layout_table_promotion_summary_written
+    summary: Manifest writing receives promoted outputs and rejected candidate reasons, preserving the distinction between context evidence and layout-only design references.
+  - from: manifest_writer
+    to: boundary_reviewer
+    condition: extraction_manifest_written
+    summary: Boundary review receives manifests, source maps, output paths, tool versions, figure/table counts, and warnings; it does not receive credentials or vendor account session data.

@@ -1,0 +1,16 @@
+﻿{
+    "candidate_id":  "A_human_auditor",
+    "stage":  "stage_a",
+    "model":  "gpt-5.4-mini",
+    "reasoning_effort":  "low",
+    "species":  "human",
+    "class":  "auditor",
+    "exit_code":  0,
+    "wall_time_seconds":  34.251,
+    "usage":  {
+                  "input_tokens":  16717,
+                  "cached_input_tokens":  12672,
+                  "output_tokens":  5124,
+                  "reasoning_output_tokens":  342
+              }
+}

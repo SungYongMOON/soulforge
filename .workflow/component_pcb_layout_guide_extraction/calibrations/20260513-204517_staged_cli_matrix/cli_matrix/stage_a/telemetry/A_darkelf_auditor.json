@@ -1,0 +1,16 @@
+﻿{
+    "candidate_id":  "A_darkelf_auditor",
+    "stage":  "stage_a",
+    "model":  "gpt-5.4-mini",
+    "reasoning_effort":  "low",
+    "species":  "darkelf",
+    "class":  "auditor",
+    "exit_code":  0,
+    "wall_time_seconds":  46.334,
+    "usage":  {
+                  "input_tokens":  16718,
+                  "cached_input_tokens":  12672,
+                  "output_tokens":  5297,
+                  "reasoning_output_tokens":  357
+              }
+}
