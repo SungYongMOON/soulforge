@@ -50,9 +50,8 @@ Downstream workflows should consume this packet as a boundary contract:
 
 ## Current Maturity
 
-`validation_level: pilot_ready_contract_only`
+`validation_level: pilot_executed_private_fixture`
 
-The package is registered as a first public-safe contract. A controlled project-local pilot is still required before claiming pilot-executed, usable, or production-ready behavior.
+The package has completed a controlled private mixed-state pilot. The first pilot combined owner-approved local official collateral, reachable official public URLs, rejected third-party mirrors, and missing source kinds into one bounded packet with downstream readiness gates for materials, layout, simulation, ECAD, and harness consumers.
 
-Recommended first pilot: a small mixed-state hardware page or component set with one official datasheet/EVAL source present, one missing model or ECAD package, and one ambiguous or blocked source-access case.
-
+The package is still conservative: it does not yet have a calibrated execution profile, and broader source-family coverage is still needed before claiming generally usable or production-ready behavior.

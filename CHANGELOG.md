@@ -77,7 +77,8 @@
 - Registered the workflow in `.workflow/index.yaml` and listed it in `.workflow/README.md` as an upstream/sidecar source packet lane for materials, layout, simulation, ECAD, and harness workflows.
 - Defined provenance-first outputs for `source_packet_manifest`, `source_inventory`, `source_gap_report`, `owner_followup_needed`, `download_or_reuse_manifest`, and `downstream_ready_refs`.
 - Kept raw project payloads, vendor document text, downloaded binaries, model payloads, runtime absolute paths, credentials, cookies, sessions, and private run truth out of public workflow canon.
-- Marked the package `pilot_ready_contract_only`; a controlled mixed-state project-local pilot is still required before claiming pilot-executed or usable behavior.
+- Executed a first controlled private mixed-state pilot that combined owner-approved local official LT8624S collateral, reachable official public URLs for AD8338/AD7380-4/ADG1634 source families, rejected third-party Mouser mirrors, and missing simulation/ECAD source kinds into one downstream-ready packet.
+- Updated the package maturity from `pilot_ready_contract_only` to `pilot_executed_private_fixture`.
 
 ### Revision `working` - Page quantitative enrichment workflow added
 
