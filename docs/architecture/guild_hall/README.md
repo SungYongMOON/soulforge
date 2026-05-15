@@ -3,7 +3,7 @@
 ## 목적
 
 - `guild_hall/` root 의 owner 경계와 cross-project 운영 계약을 모은다.
-- `gateway`, `doctor`, `town_crier`, `night_watch`, `dungeon_assignment` 같은 공용 운영 기능을 `_workspaces/<project_code>/` worksite 와 분리해 설명한다.
+- `gateway`, `doctor`, `town_crier`, `night_watch`, `dev_worker`, `dungeon_assignment` 같은 공용 운영 기능을 `_workspaces/<project_code>/` worksite 와 분리해 설명한다.
 
 ## 문서 역할 색인
 
@@ -13,9 +13,11 @@
 | `SOULFORGE_ACTIVITY_LOG_V0.md` | cross-project recent-context 와 carry-forward event surface 를 설명한다. |
 | `SOULFORGE_SNAPSHOT_V0.md` | UI/external host 가 읽을 sanitized read-only snapshot 계약이다. |
 | `NIGHT_WATCH_AUTOMATION_V0.md` | 항상 켜 두는 node 에서만 ACTIVE 로 둘 점검 자동화와 경계를 설명한다. |
+| `DEV_WORKER_AUTOMATION_V0.md` | task packet 을 받아 reviewable branch 를 만드는 bounded development worker lane 을 설명한다. |
 | `doctor/README.md` | bootstrap/readiness doctor 의 owner-local 설명이다. |
 | `../../../guild_hall/activity/README.md` | activity log append/refresh 구현 surface 설명이다. |
 | `../../../guild_hall/healer/README.md` | 항상 켜 두는 PC 의 self-check / report writer 구현 surface 설명이다. |
+| `../../../guild_hall/dev_worker/README.md` | dev worker task claim / automation prompt / branch handoff 구현 surface 설명이다. |
 | `../../../guild_hall/shared/README.md` | guild_hall 내부 공용 io/path helper surface 설명이다. |
 | `../../../guild_hall/snapshot/README.md` | snapshot producer 구현 surface 설명이다. |
 | `../../../guild_hall/validate/README.md` | root/canon validator 구현 surface 설명이다. |
@@ -38,6 +40,7 @@
 - [`doctor/README.md`](doctor/README.md)
 - [`../../../guild_hall/activity/README.md`](../../../guild_hall/activity/README.md)
 - [`../../../guild_hall/healer/README.md`](../../../guild_hall/healer/README.md)
+- [`../../../guild_hall/dev_worker/README.md`](../../../guild_hall/dev_worker/README.md)
 - [`../../../guild_hall/shared/README.md`](../../../guild_hall/shared/README.md)
 - [`../../../guild_hall/snapshot/README.md`](../../../guild_hall/snapshot/README.md)
 - [`../../../guild_hall/validate/README.md`](../../../guild_hall/validate/README.md)
@@ -45,6 +48,7 @@
 - [`SOULFORGE_ACTIVITY_LOG_V0.md`](SOULFORGE_ACTIVITY_LOG_V0.md)
 - [`SOULFORGE_SNAPSHOT_V0.md`](SOULFORGE_SNAPSHOT_V0.md)
 - [`NIGHT_WATCH_AUTOMATION_V0.md`](NIGHT_WATCH_AUTOMATION_V0.md)
+- [`DEV_WORKER_AUTOMATION_V0.md`](DEV_WORKER_AUTOMATION_V0.md)
 - [`../workspace/GATEWAY_MAIL_FETCH_V0.md`](../workspace/GATEWAY_MAIL_FETCH_V0.md)
 - [`../workspace/MAIL_SEND_V0.md`](../workspace/MAIL_SEND_V0.md)
 - [`../workspace/GATEWAY_NOTIFY_V0.md`](../workspace/GATEWAY_NOTIFY_V0.md)

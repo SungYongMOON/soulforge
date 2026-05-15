@@ -29,6 +29,7 @@
 | `work_pc` | 실제 업무 파일, 문서 작업, HDD/SSD/cloud project worksite 조작 | `owner-with-state` | `_workspaces/<project_code>/`, `_workmeta/` | project work, workmeta update, bounded evidence capture |
 | `tool_pc` | 특정 전문 tool 이 설치된 설계/분석 작업, tool 관련 skill/automation 제작 | `owner-with-state` | `_workspaces/<project_code>/`, `_workmeta/<project_code>/`, 필요 시 public skill/code | circuit/PCB/tool-bound design work, tool skill draft, heavy local validation, tool-run evidence capture |
 | `portable_dev_pc` | Soulforge 기능, UI, 문서, 설계 고민과 public repo 개발 | `owner-with-state` 또는 `public-only` | public `Soulforge`, 필요 시 `_workmeta/` | UI/dev docs, architecture review, code changes |
+| `dev_worker_pc` | 명시적 task packet 을 받아 bounded branch 를 만드는 자동 개발 worker | `owner-with-state` 또는 public task 만 처리하는 `public-only` | task branch, `guild_hall/state/operations/**`, 필요 시 `_workmeta/` | claim one task, create `codex/<node>-<task>` branch, validate, push branch for review |
 | `always_on_node` | 24시간 감시, snapshot, reminder, gateway, healer, night watch, lightweight automation | `operator` 또는 `owner-with-state` | `guild_hall/state/**`, `private-state/` mirror | gateway fetch, snapshot check, activity sync, healer run, morning report candidate, reminder, night watch |
 
 ## PC별 primary writer map
@@ -62,12 +63,20 @@ flowchart LR
     M3["gateway_fetch / night_watch<br/>BLOCKED"]
   end
 
+  subgraph D["개발 worker / dev_worker_pc"]
+    D1["task branch<br/>CONDITIONAL<br/>codex/<node>-<task>"]
+    D2["activity report<br/>PRIMARY LOCAL<br/>claim/result summary"]
+    D3["main merge<br/>BLOCKED"]
+  end
+
   A1 --> A2
   A2 --> W3
   W1 --> W2
   T1 --> T2
   T2 --> W2
   M1 --> A3
+  M1 --> D1
+  D1 --> M1
 
   classDef ops fill:#dbeafe,stroke:#1d4ed8,stroke-width:2px,color:#0f172a;
   classDef work fill:#dcfce7,stroke:#15803d,stroke-width:2px,color:#0f172a;
@@ -80,13 +89,16 @@ flowchart LR
   class T1,T2 work;
   class T3 dev;
   class M1,M2 dev;
+  class D1,D2 dev;
   class M3 blocked;
+  class D3 blocked;
   class A3 neutral;
 ```
 
 | 저장소/영역 | primary writer | Git 저장 기준 |
 | --- | --- | --- |
 | public `Soulforge/.git` | `portable_dev_pc` | 코드, 구조 문서, public-safe sample 만 commit/push 한다. |
+| public task branch | `dev_worker_pc` 또는 승인된 `tool_pc` lane | 명시적 task packet 범위에서 `codex/<node>-<task>` branch 만 push 한다. `main` merge 는 reviewer 가 수행한다. |
 | `guild_hall/state/**` | `always_on_node` | local runtime 이며 public Git 에 올리지 않는다. 필요한 연속성만 `private-state/` 로 mirror 한다. |
 | `private-state/**` | `always_on_node` | owner-only private repo 에 selected continuity subset 과 activity sync 결과만 commit/push 한다. secret 값은 넣지 않는다. |
 | `_workspaces/<project_code>/**` | `work_pc`, tool-bound 범위에서는 `tool_pc` | 실제 프로젝트 파일 local-only 이며 public Git 에 올리지 않는다. tool 산출물은 해당 tool 이 설치된 PC 에서 다룬다. |
@@ -99,8 +111,9 @@ flowchart LR
 2. 일반 project 파일과 project-local 업무 기록은 `work_pc` 가 primary 로 쓴다.
 3. 회로설계, PCBArtwork, CAD/CAE/EDA 처럼 특정 tool 이 필요한 project 작업은 `tool_pc` 가 해당 task 의 `_workspaces` / `_workmeta` primary writer 가 된다.
 4. public docs/code/UI 변경은 `portable_dev_pc` 가 primary 로 쓴다.
-5. 다른 PC 는 primary 영역을 읽거나 복원할 수 있지만, primary writer 로 승격하려면 `node_identity.yaml` 의 `primary_writer` 를 먼저 바꾼다.
-6. `work_pc` 와 `tool_pc` 가 같은 `_workmeta/<project_code>/` 를 쓸 수는 있지만, 같은 task/run 파일을 동시에 쓰지 않는다. task owner 는 run 시작 전에 하나로 정한다.
+5. `dev_worker_pc` 는 public `main` primary 가 아니라 task branch producer 다. reviewer 가 merge 하기 전까지 정본 승격으로 보지 않는다.
+6. 다른 PC 는 primary 영역을 읽거나 복원할 수 있지만, primary writer 로 승격하려면 `node_identity.yaml` 의 `primary_writer` 를 먼저 바꾼다.
+7. `work_pc` 와 `tool_pc` 가 같은 `_workmeta/<project_code>/` 를 쓸 수는 있지만, 같은 task/run 파일을 동시에 쓰지 않는다. task owner 는 run 시작 전에 하나로 정한다.
 
 ## node employee model
 
@@ -136,6 +149,7 @@ flowchart LR
 | local env/secret 경로 설정 | 해당 PC 의 local state | Git commit 금지, secret 값 출력 금지 |
 | 작은 문서/스크립트 hotfix | 해당 PC 의 수정용 worktree/clone | `codex/<node>-<task>` branch, scoped diff, 관련 test |
 | 기능 개발/큰 구조 변경 | 주 개발 PC 또는 별도 feature branch | 넓은 validate, 문서/CHANGELOG 동기화 |
+| task packet 기반 자동 개발 | `dev_worker_pc` 또는 승인된 `tool_pc` lane | ready task packet, clean `main`, branch-only push, reviewer merge |
 | project worksite 실제 작업 | `work_pc` | `_workspaces/<project_code>/`, `_workmeta/<project_code>/` 경계 유지 |
 | tool-bound project 설계 작업 | `tool_pc` | `owner-with-state`, `_workspaces/<project_code>/` tool 산출물, `_workmeta/<project_code>/` tool run/evidence 기록 |
 
@@ -172,6 +186,8 @@ git push origin codex/<node-id>-<short-task>
 - 같은 파일/기능을 여러 PC 가 동시에 수정하면서 조율 없이 push
 - 검증 없이 24시간 운영 node 에 바로 반영
 - 같은 project 의 같은 tool run 을 `work_pc` 와 `tool_pc` 가 동시에 기록
+- `dev_worker_pc` 가 task packet 없이 스스로 backlog 를 발굴해 branch 를 push
+- `dev_worker_pc` 가 `main` 에 직접 push 하거나 auto-merge 수행
 
 role-boundary guard:
 
@@ -272,6 +288,9 @@ local_paths:
 - `always_on_node` 는 자동 커밋/푸시를 기본값으로 갖지 않는다. repo sync 는 preflight 의 `pull --ff-only` 같은 안전한 최신화까지만 둔다.
 - `tool_pc` 가 실제 설계 작업을 수행하려면 `public-only` 가 아니라 `owner-with-state` 로 bootstrap 해야 한다. skill 제작만 하는 공개 테스트 PC 일 때만 `public-only` 를 허용한다.
 - `tool_pc` 는 project metadata 를 읽고 쓸 수 있지만, raw mailbox, secret, credential, unrelated private state 는 읽지 않는다.
+- `dev_worker_pc` 는 `guild_hall/dev_worker` task claim helper 로 한 번에 task packet 하나만 선택한다.
+- `dev_worker_pc` 는 task packet 의 `allowed_write_paths`, `acceptance_checks`, `stop_conditions` 를 실행 경계로 본다.
+- `dev_worker_pc` 가 protected public contract 문서를 수정해야 하면 owner 승인과 `SOULFORGE_ALLOW_PUBLIC_CONTRACT_EDIT=1` 사용 여부를 최종 보고에 남긴다.
 
 ## Git 으로 따라오는 것
 

@@ -24,6 +24,7 @@
 | `ALWAYS_ON_WORKFLOW_EVOLUTION_HARNESS_PROMPT_V0.md` | 복사/붙여넣기가 어려운 24시간 운영 PC 에서 workflow evolution harness dependency 설치 확인을 수행하게 하는 prompt source 다. |
 | `WORK_PC_BOOTSTRAP_PROMPT_V0.md` | 업무 PC 의 Codex 가 읽고 `work_pc` local bootstrap 을 수행할 prompt source 다. |
 | `TOOL_PC_BOOTSTRAP_PROMPT_V0.md` | 고성능 PC 의 Codex 가 읽고 project metadata read/write 가 가능한 `tool_pc` owner-with-state bootstrap 을 수행할 prompt source 다. |
+| `DEV_WORKER_PC_BOOTSTRAP_PROMPT_V0.md` | task packet 을 받아 검증 가능한 branch 를 만드는 `dev_worker_pc` bootstrap prompt source 다. |
 | `WORKFLOW_EVOLUTION_HARNESS_INSTALL_V0.md` | `/goal` 과 promptfoo 같은 workflow evolution harness 후보를 owner PC 에 설치하고 확인하는 절차다. |
 | `../workspace/INSTALLATION_MANUAL_V0.md` | workspace 문서군이 소유하는 다른 PC 첫 설치 상위 runbook 이다. |
 | `../workspace/MULTI_PC_DEVELOPMENT_V0.md` | 여러 PC clone, local runtime, node role, push/pull 운영 절차를 둔다. |
@@ -48,7 +49,8 @@
 15. [`ALWAYS_ON_WORKFLOW_EVOLUTION_HARNESS_PROMPT_V0.md`](ALWAYS_ON_WORKFLOW_EVOLUTION_HARNESS_PROMPT_V0.md)
 16. [`WORK_PC_BOOTSTRAP_PROMPT_V0.md`](WORK_PC_BOOTSTRAP_PROMPT_V0.md)
 17. [`TOOL_PC_BOOTSTRAP_PROMPT_V0.md`](TOOL_PC_BOOTSTRAP_PROMPT_V0.md)
-18. [`WORKFLOW_EVOLUTION_HARNESS_INSTALL_V0.md`](WORKFLOW_EVOLUTION_HARNESS_INSTALL_V0.md)
+18. [`DEV_WORKER_PC_BOOTSTRAP_PROMPT_V0.md`](DEV_WORKER_PC_BOOTSTRAP_PROMPT_V0.md)
+19. [`WORKFLOW_EVOLUTION_HARNESS_INSTALL_V0.md`](WORKFLOW_EVOLUTION_HARNESS_INSTALL_V0.md)
 
 ## 실행 가이드
 
@@ -93,6 +95,7 @@
 - [`ALWAYS_ON_WORKFLOW_EVOLUTION_HARNESS_PROMPT_V0.md`](ALWAYS_ON_WORKFLOW_EVOLUTION_HARNESS_PROMPT_V0.md)
 - [`WORK_PC_BOOTSTRAP_PROMPT_V0.md`](WORK_PC_BOOTSTRAP_PROMPT_V0.md)
 - [`TOOL_PC_BOOTSTRAP_PROMPT_V0.md`](TOOL_PC_BOOTSTRAP_PROMPT_V0.md)
+- [`DEV_WORKER_PC_BOOTSTRAP_PROMPT_V0.md`](DEV_WORKER_PC_BOOTSTRAP_PROMPT_V0.md)
 - [`WORKFLOW_EVOLUTION_HARNESS_INSTALL_V0.md`](WORKFLOW_EVOLUTION_HARNESS_INSTALL_V0.md)
 - [`../workspace/INSTALLATION_MANUAL_V0.md`](../workspace/INSTALLATION_MANUAL_V0.md)
 - [`../workspace/MULTI_PC_DEVELOPMENT_V0.md`](../workspace/MULTI_PC_DEVELOPMENT_V0.md)

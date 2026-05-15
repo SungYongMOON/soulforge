@@ -1,0 +1,13 @@
+Treat {{LOCAL_SOULFORGE_ROOT}} as the active Soulforge root on this PC and {{LOCAL_ACTIVITY_ROOT}} as the only valid local activity write target for this automation. If Codex is running inside a temporary worktree, do not read or write runtime state under the worktree copy.
+
+Run exactly one bounded dev-worker cycle:
+
+1. From {{LOCAL_SOULFORGE_ROOT}}, run `npm run guild-hall:dev-worker:preflight -- --local-root "{{LOCAL_SOULFORGE_ROOT}}" --workmeta-root "{{LOCAL_WORKMETA_ROOT}}" --private-state-root "{{LOCAL_PRIVATE_STATE_ROOT}}" --json`. If it fails, stop and report the generated activity/log path.
+2. Run `npm run guild-hall:dev-worker:claim -- --local-root "{{LOCAL_SOULFORGE_ROOT}}" --workmeta-root "{{LOCAL_WORKMETA_ROOT}}" --record --json`. If no eligible task exists, stop after a short no-task summary.
+3. Read only the selected task packet and the context needed to perform it. Respect `allowed_write_paths`, `acceptance_checks`, and `stop_conditions`.
+4. Create a branch from `origin/main` using the suggested branch name. Do not edit `main` directly.
+5. Implement the bounded task. Do not read secret files, raw mail bodies, credential files, or unrelated private runtime data.
+6. Run the task packet's `acceptance_checks`. If the task touches protected public contract docs from a non-primary public repo node, use `SOULFORGE_ALLOW_PUBLIC_CONTRACT_EDIT=1` only when the packet or user explicitly authorized that protected change, and report that override.
+7. If checks pass, commit the scoped changes and push only the task branch. Do not merge to `main`.
+8. Append an activity event with task id, branch, checks, result, refs, and next action. Keep the event public-safe.
+9. Return a short summary with selected task, branch, files changed, checks run, whether a branch was pushed, and any blockers.
