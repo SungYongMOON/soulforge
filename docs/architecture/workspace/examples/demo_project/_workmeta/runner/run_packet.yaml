@@ -20,6 +20,31 @@ preferred_tools:
 input_refs:
   - mail/incoming_request.md
   - sources/lineage_source_notes.md
+objective: Build a bounded lineage source note and stop before any canon mutation or promotion decision.
+source_refs:
+  - mail/incoming_request.md
+  - sources/lineage_source_notes.md
+allowed_roots:
+  - _workspaces/demo_project/
+  - _workmeta/demo_project/
+  - .workflow/
+  - .party/
+  - .registry/
+forbidden_roots:
+  - guild_hall/state/gateway/mailbox/
+  - private-state/
+  - .env
+  - credential_json
+autonomy_level: bounded_patch
+intervention_budget: 1
+acceptance_checks:
+  - bounded note written under _workmeta/demo_project
+  - no canon mutation
+stop_conditions:
+  - missing_owner_boundary
+  - secret_or_private_gate
+  - quality_review_needed
+escalation_question: Which single owner boundary or evidence gap must be clarified if the lineage note cannot be completed as a bounded packet?
 next_on_success: build_pbs
 notes:
   - run packet is resolved execution metadata, not raw execution truth.
