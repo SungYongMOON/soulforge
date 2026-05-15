@@ -1,0 +1,19 @@
+workflow_id: simulation_run_verify_v0
+calibration_id: cal_20260515_public_synthetic
+recommended_profile:
+  model: gpt-5.4
+  reasoning_effort: low
+  species: human
+  class: auditor
+  candidate_id: c_stage_b_gpt54_low_human_auditor
+why:
+  - Passed all frozen hard gates.
+  - Preserved blocked-run versus failed-verification separation.
+  - Preserved synthetic-stub versus actual-simulator-execution separation.
+  - Kept pass/fail verdicts tied to named measurement and rule.
+  - Kept owner acceptance separate and requested owner review.
+telemetry_basis: cli_proxy_passed_candidates_only
+not_measured:
+  - Exact subagent token usage.
+  - Full 300-cell default matrix.
+  - Private project-native executed run quality.

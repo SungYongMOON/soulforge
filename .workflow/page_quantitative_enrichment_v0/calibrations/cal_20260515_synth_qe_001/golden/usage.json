@@ -1,0 +1,5 @@
+{
+  "source": "subagent_baseline",
+  "usage_available": false,
+  "note": "Subagent usage was not exposed by the runner; baseline was used for evaluator-only quality criteria, not telemetry."
+}

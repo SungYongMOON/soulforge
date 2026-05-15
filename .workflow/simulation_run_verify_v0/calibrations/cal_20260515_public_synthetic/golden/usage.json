@@ -1,0 +1,8 @@
+{
+  "source": "subagent_baseline",
+  "model": "gpt-5.5",
+  "reasoning_effort": "xhigh",
+  "species": "human",
+  "class": "auditor",
+  "exact_usage_available": false
+}

@@ -1,0 +1,4 @@
+{"candidate_id":"c_stage_b_gpt54_low_human_auditor","quality_gate":"pass"}
+{"candidate_id":"c_stage_a_gpt54mini_low_human_auditor","quality_gate":"pass"}
+{"candidate_id":"c_stage_b_gpt53_codex_low_human_auditor","quality_gate":"pass"}
+{"candidate_id":"c_stage_b_gpt53_codex_spark_high_human_auditor","quality_gate":"pass"}

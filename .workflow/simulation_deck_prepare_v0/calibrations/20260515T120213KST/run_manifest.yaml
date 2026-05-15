@@ -1,0 +1,29 @@
+calibration_id: 20260515T120213KST
+workflow_id: simulation_deck_prepare_v0
+kind: workflow_profile_calibration
+status: completed_public_safe
+created_at: 2026-05-15T12:02:13+09:00
+mode: subagent_quality_first_staged
+quality_baseline:
+  model: gpt-5.5
+  reasoning_effort: xhigh
+  source: isolated_subagent
+fixture:
+  path: input_fixture.public.json
+  public_safe: true
+matrix_summary:
+  candidate_count: 11
+  quality_pass_count: 2
+  primary_candidate_id: B01
+  shadow_candidate_ids:
+    - B05
+measurement_policy:
+  quality_source: subagent_staged_matrix
+  telemetry_source: cli_passed_candidates_only
+  subagent_token_usage_available: false
+  telemetry_exact_for_subagent: false
+  cost_confidence: relative_not_exact
+notes:
+  - Candidate prompts used only a synthetic public-safe fixture.
+  - Rejected candidates either compressed away required sections, introduced extra blockers, or failed candidate-runner protocol.
+  - CLI telemetry is a proxy rerun on passed profiles, not exact subagent-run usage.

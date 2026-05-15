@@ -1,0 +1,58 @@
+{
+  "quality_source": "staged_subagent_matrix",
+  "telemetry_source": "cli_passed_candidates_only",
+  "ranked": [
+    {
+      "rank": 1,
+      "candidate_id": "stage_b_dwarf_auditor_gpt-5.3-codex_low",
+      "model": "gpt-5.3-codex",
+      "reasoning_effort": "low",
+      "species": "dwarf",
+      "class": "auditor",
+      "quality_score": 94,
+      "wall_time_seconds": 16.12,
+      "input_tokens": 13200,
+      "output_tokens": 656,
+      "reasoning_output_tokens": 11,
+      "decision": "primary"
+    },
+    {
+      "rank": 2,
+      "candidate_id": "stage_b_dwarf_auditor_gpt-5.4_low",
+      "model": "gpt-5.4",
+      "reasoning_effort": "low",
+      "species": "dwarf",
+      "class": "auditor",
+      "quality_score": 96,
+      "wall_time_seconds": 17.44,
+      "input_tokens": 13640,
+      "output_tokens": 728,
+      "reasoning_output_tokens": 13,
+      "decision": "quality_shadow"
+    },
+    {
+      "rank": 3,
+      "candidate_id": "stage_a_dwarf_auditor_gpt-5.4-mini_low",
+      "model": "gpt-5.4-mini",
+      "reasoning_effort": "low",
+      "species": "dwarf",
+      "class": "auditor",
+      "quality_score": 93,
+      "wall_time_seconds": 16.83,
+      "input_tokens": 13301,
+      "output_tokens": 698,
+      "reasoning_output_tokens": 67,
+      "decision": "cheap_shadow"
+    },
+    {
+      "rank": 4,
+      "candidate_id": "stage_b_dwarf_auditor_gpt-5.3-codex-spark_low",
+      "model": "gpt-5.3-codex-spark",
+      "reasoning_effort": "low",
+      "species": "dwarf",
+      "class": "auditor",
+      "quality_score": 88,
+      "decision": "caution_shadow"
+    }
+  ]
+}

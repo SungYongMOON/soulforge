@@ -1,0 +1,51 @@
+calibration_id: 20260515T000000Z_staged_public_fixture
+workflow_id: simulation_source_collect_v0
+kind: workflow_profile_calibration
+status: complete
+calibration_mode: staged_subagent_quality_first
+created_at: "2026-05-15T00:00:00Z"
+boundary:
+  public_safe: true
+  fixture_type: synthetic_mixed_model_source_states
+  excluded:
+    - raw_project_truth
+    - _workspaces_material
+    - private_transcripts
+    - raw_model_payloads
+    - vendor_archives
+    - credentials_cookies_tokens_sessions
+    - runtime_absolute_paths
+quality_baseline:
+  model: gpt-5.5
+  reasoning_effort: xhigh
+  purpose: evaluator_only_requirement_anchor
+matrix:
+  stage_a:
+    model: gpt-5.4-mini
+    reasoning_effort: low
+    species_class_pairs_sampled:
+      - human/administrator
+      - human/archivist
+      - human/auditor
+      - elf/administrator
+      - elf/archivist
+      - elf/auditor
+      - dwarf/archivist
+      - dwarf/auditor
+  stage_b:
+    fixed_species: dwarf
+    fixed_class: auditor
+    candidates:
+      - gpt-5.3-codex-spark/low
+      - gpt-5.3-codex/low
+      - gpt-5.4-mini/low
+      - gpt-5.4/low
+measurement_policy:
+  quality_source: staged_subagent_matrix
+  telemetry_source: cli_passed_candidates_only
+  subagent_token_usage_available: false
+  telemetry_exact_for_subagent: false
+  cost_confidence: relative_cli_proxy
+notes:
+  - Subagent runs did not expose exact token telemetry; CLI probes were run only for quality-passing finalists.
+  - The staged matrix was used because the first-pass candidate set showed the dominant decision variable was boundary wording and evidence conservatism, not exhaustive model depth.

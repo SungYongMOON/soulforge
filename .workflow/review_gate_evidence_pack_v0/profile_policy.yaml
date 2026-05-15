@@ -1,21 +1,69 @@
 workflow_id: review_gate_evidence_pack_v0
 kind: workflow_profile_policy
-status: draft
-calibration_mode: uncalibrated_contract_package
+status: active
+last_calibration_id: cal_20260515_public_synthetic_staged_v0
+calibration_mode: subagent_quality_first_staged_public_synthetic
 measurement_policy:
-  quality_source: not_yet_measured
-  telemetry_source: not_yet_measured
+  quality_source: subagent_staged_matrix
+  telemetry_source: cli_passed_candidates_only_proxy
   subagent_token_usage_available: false
   telemetry_exact_for_subagent: false
-  cost_confidence: unknown
+  cost_confidence: relative_not_exact
 primary_profile:
-  model: null
-  reasoning_effort: null
-  species: null
-  class: null
-  candidate_id: null
-  quality_gate: pending_profile_calibration
-shadow_top_k: []
+  model: gpt-5.4
+  reasoning_effort: medium
+  species: darkelf
+  class: auditor
+  candidate_id: stageB_darkelf_auditor_54_medium
+  quality_gate: pass
+  quality_score: 91
+  measured_tokens:
+    source: cli_proxy_same_fixture
+    input_tokens: 13749
+    cached_input_tokens: 3456
+    output_tokens: 1495
+    reasoning_output_tokens: 93
+  wall_time_seconds:
+    source: cli_proxy_same_fixture
+    value: 31.781
+  rationale: Best quality-passing finalist for source ref preservation, explicit CAN/reset gap handling, non-claim discipline, and owner-decision separation.
+shadow_top_k:
+  - rank: 2
+    candidate_id: stageB_darkelf_auditor_54_low
+    model: gpt-5.4
+    reasoning_effort: low
+    species: darkelf
+    class: auditor
+    quality_gate: pass_with_caveats
+    quality_score: 85
+    measured_tokens:
+      source: cli_proxy_same_fixture
+      input_tokens: 13749
+      cached_input_tokens: 7552
+      output_tokens: 1872
+      reasoning_output_tokens: 27
+    wall_time_seconds:
+      source: cli_proxy_same_fixture
+      value: 37.858
+    caveat: Lower-cost reasoning effort, but weaker decision-state precision and output-shape discipline in quality runs.
+  - rank: 3
+    candidate_id: stageB_darkelf_auditor_mini_medium
+    model: gpt-5.4-mini
+    reasoning_effort: medium
+    species: darkelf
+    class: auditor
+    quality_gate: fail_shape_depth
+    quality_score: 72
+    caveat: Compact and boundary-safe, but collapses blocker/action detail and uses weaker output shapes.
+  - rank: 4
+    candidate_id: stageB_darkelf_auditor_53codex_medium
+    model: gpt-5.3-codex
+    reasoning_effort: medium
+    species: darkelf
+    class: auditor
+    quality_gate: fail_required_outputs
+    quality_score: 61
+    caveat: Useful summary, but omits required workflow output sections and allowed workflow status vocabulary.
 rerun_triggers:
   - review_gate_packet_template_changes
   - entrance_or_success_criteria_rule_changes
@@ -23,8 +71,10 @@ rerun_triggers:
   - decision_summary_status_rule_changes
   - upstream_trace_or_harness_packet_shape_changes
   - verification_plan_handoff_shape_changes
-  - first_profile_calibration_run
+  - new_review_family_mapping_added
+  - primary_profile_quality_regression
+calibration_archive_ref: calibrations/cal_20260515_public_synthetic_staged_v0/
 notes:
-  - The package now has a controlled private mixed-tailored review-readiness pilot, but it still has no calibrated execution profile.
-  - Bind model, reasoning, party, and source-boundary handling per project until public-safe calibration evidence exists.
-  - Do not call this usable or production-ready until profile calibration and independent boundary review pass.
+  - Calibration used only a public-safe synthetic fixture and did not consume raw project truth, _workspaces material, credentials, private payloads, or runtime absolute paths.
+  - CLI telemetry is a same-fixture proxy for passed candidates only; it is not exact subagent token telemetry.
+  - Prefer gpt-5.4 medium for first owner-facing packets; use gpt-5.4 low only for cheaper smoke runs where post-review cleanup is acceptable.

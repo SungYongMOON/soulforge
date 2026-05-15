@@ -1,0 +1,49 @@
+{
+  "ranking": [
+    {
+      "rank": 1,
+      "candidate_id": "c03",
+      "profile": "gpt-5.4 / low / elf / auditor",
+      "quality_score": 91,
+      "quality_gate": "pass",
+      "reasoning_output_tokens": 27,
+      "wall_time_seconds": 41.531,
+      "decision": "primary"
+    },
+    {
+      "rank": 2,
+      "candidate_id": "c04",
+      "profile": "gpt-5.4 / medium / dwarf / auditor",
+      "quality_score": 90,
+      "quality_gate": "pass",
+      "reasoning_output_tokens": 210,
+      "wall_time_seconds": 40.028,
+      "decision": "shadow"
+    },
+    {
+      "rank": 3,
+      "candidate_id": "c01",
+      "profile": "gpt-5.4-mini / low / human / auditor",
+      "quality_score": 78,
+      "quality_gate": "pass_with_minor_gaps",
+      "decision": "cheap_scout_only"
+    },
+    {
+      "rank": 4,
+      "candidate_id": "c02",
+      "profile": "gpt-5.4-mini / medium / elf / auditor",
+      "quality_score": 82,
+      "quality_gate": "pass_with_minor_gaps",
+      "decision": "shadow_only_after_gap_template_hardening"
+    },
+    {
+      "rank": 5,
+      "candidate_id": "c05",
+      "profile": "gpt-5.3-codex-spark / high / dwarf / archivist",
+      "quality_score": 63,
+      "quality_gate": "fail",
+      "decision": "reject"
+    }
+  ],
+  "selection_rule": "Choose the lowest-cost passing profile after hard quality gates; treat small wall-time differences as noise when quality and token use favor the lower-effort profile."
+}

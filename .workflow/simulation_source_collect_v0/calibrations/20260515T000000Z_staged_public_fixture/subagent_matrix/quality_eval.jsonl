@@ -1,0 +1,11 @@
+{"candidate_id":"stage_a_human_administrator_gpt-5.4-mini_low","coverage":0.88,"task_success":0.86,"safety_boundary":"pass","repeatability":0.80,"final_quality":"pass"}
+{"candidate_id":"stage_a_human_archivist_gpt-5.4-mini_low","coverage":0.91,"task_success":0.89,"safety_boundary":"pass","repeatability":0.84,"final_quality":"pass"}
+{"candidate_id":"stage_a_human_auditor_gpt-5.4-mini_low","coverage":0.89,"task_success":0.88,"safety_boundary":"pass","repeatability":0.84,"final_quality":"pass"}
+{"candidate_id":"stage_a_elf_administrator_gpt-5.4-mini_low","coverage":0.88,"task_success":0.87,"safety_boundary":"pass","repeatability":0.82,"final_quality":"pass"}
+{"candidate_id":"stage_a_elf_archivist_gpt-5.4-mini_low","coverage":0.90,"task_success":0.88,"safety_boundary":"pass","repeatability":0.83,"final_quality":"pass"}
+{"candidate_id":"stage_a_elf_auditor_gpt-5.4-mini_low","coverage":0.91,"task_success":0.89,"safety_boundary":"pass","repeatability":0.84,"final_quality":"pass"}
+{"candidate_id":"stage_a_dwarf_archivist_gpt-5.4-mini_low","coverage":0.91,"task_success":0.90,"safety_boundary":"pass","repeatability":0.85,"final_quality":"pass"}
+{"candidate_id":"stage_a_dwarf_auditor_gpt-5.4-mini_low","coverage":0.94,"task_success":0.93,"safety_boundary":"pass","repeatability":0.88,"final_quality":"pass"}
+{"candidate_id":"stage_b_dwarf_auditor_gpt-5.3-codex-spark_low","coverage":0.90,"task_success":0.88,"safety_boundary":"pass","repeatability":0.80,"final_quality":"pass_with_wording_caution"}
+{"candidate_id":"stage_b_dwarf_auditor_gpt-5.3-codex_low","coverage":0.95,"task_success":0.94,"safety_boundary":"pass","repeatability":0.88,"final_quality":"pass"}
+{"candidate_id":"stage_b_dwarf_auditor_gpt-5.4_low","coverage":0.96,"task_success":0.95,"safety_boundary":"pass","repeatability":0.90,"final_quality":"pass"}

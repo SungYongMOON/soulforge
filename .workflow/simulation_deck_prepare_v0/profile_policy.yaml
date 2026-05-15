@@ -1,21 +1,45 @@
 workflow_id: simulation_deck_prepare_v0
 kind: workflow_profile_policy
-status: draft
-calibration_mode: uncalibrated_contract_package
+status: active
+last_calibration_id: 20260515T120213KST
+calibration_mode: subagent_quality_first_staged
 measurement_policy:
-  quality_source: not_yet_measured
-  telemetry_source: not_yet_measured
+  quality_source: subagent_staged_matrix
+  telemetry_source: cli_passed_candidates_only
   subagent_token_usage_available: false
   telemetry_exact_for_subagent: false
-  cost_confidence: unknown
+  cost_confidence: relative_not_exact
 primary_profile:
-  model: null
-  reasoning_effort: null
-  species: null
-  class: null
-  candidate_id: null
-  quality_gate: pending_profile_calibration
-shadow_top_k: []
+  model: gpt-5.4-mini
+  reasoning_effort: medium
+  species: dwarf
+  class: auditor
+  candidate_id: B01
+  quality_gate: pass
+  quality_score: 0.91
+  telemetry_source: cli_proxy_rerun
+  measured_tokens:
+    input_tokens: 40806
+    cached_input_tokens: 34432
+    output_tokens: 1678
+    reasoning_output_tokens: 581
+  wall_seconds: 20.54
+shadow_top_k:
+  - rank: 2
+    model: gpt-5.4
+    reasoning_effort: medium
+    species: dwarf
+    class: auditor
+    candidate_id: B05
+    quality_gate: pass
+    quality_score: 0.93
+    telemetry_source: cli_proxy_rerun
+    measured_tokens:
+      input_tokens: 13601
+      cached_input_tokens: 7552
+      output_tokens: 848
+      reasoning_output_tokens: 35
+    wall_seconds: 19.59
 rerun_triggers:
   - deck_prepare_contract_changes
   - unresolved_input_status_rule_changes
@@ -24,7 +48,8 @@ rerun_triggers:
   - simulator_compatibility_status_changes
   - deck_staging_or_blocker_schema_changes
   - first_profile_calibration_run
+calibration_archive_ref: calibrations/20260515T120213KST/
 notes:
-  - The package now has a controlled private representative deck-prepare pilot, but it still has no calibrated execution profile.
-  - Bind model, reasoning, party, and simulator/tool handling per project until public-safe calibration evidence exists.
-  - Do not call this usable or production-ready until profile calibration and independent boundary review pass.
+  - Primary profile passed a public-safe synthetic LTspice deck-prepare calibration that required blocker mapping without simulation execution or result claims.
+  - The shadow profile is retained for cases where dependency framing quality outweighs model-tier cost.
+  - CLI telemetry is exact for proxy reruns only and is not exact subagent-run usage.

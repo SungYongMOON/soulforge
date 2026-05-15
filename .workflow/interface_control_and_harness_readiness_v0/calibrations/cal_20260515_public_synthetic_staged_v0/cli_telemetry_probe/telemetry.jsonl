@@ -1,0 +1,2 @@
+{"candidate_id":"c06_codex_spark_high_dwarf_auditor","model":"gpt-5.3-codex-spark","reasoning_effort":"high","input_tokens":13308,"cached_input_tokens":3840,"output_tokens":6711,"reasoning_output_tokens":4437,"wall_time_seconds":11.98,"telemetry_kind":"cli_proxy"}
+{"candidate_id":"c04_gpt54_medium_elf_auditor","model":"gpt-5.4","reasoning_effort":"medium","input_tokens":13733,"cached_input_tokens":7552,"output_tokens":3012,"reasoning_output_tokens":463,"wall_time_seconds":58.14,"telemetry_kind":"cli_proxy"}

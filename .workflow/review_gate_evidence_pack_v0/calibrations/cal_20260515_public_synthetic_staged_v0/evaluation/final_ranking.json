@@ -1,0 +1,37 @@
+{
+  "ranking": [
+    {
+      "rank": 1,
+      "candidate_id": "stageB_darkelf_auditor_54_medium",
+      "profile": {"model": "gpt-5.4", "reasoning_effort": "medium", "species": "darkelf", "class": "auditor"},
+      "quality_score": 91,
+      "quality_gate": "pass",
+      "selection_reason": "Highest quality-passing finalist; preserves output shape, CAN/reset/owner-decision boundaries, and public-safe non-claims."
+    },
+    {
+      "rank": 2,
+      "candidate_id": "stageB_darkelf_auditor_54_low",
+      "profile": {"model": "gpt-5.4", "reasoning_effort": "low", "species": "darkelf", "class": "auditor"},
+      "quality_score": 85,
+      "quality_gate": "pass_with_caveats",
+      "selection_reason": "Viable cheaper smoke profile, but weaker status precision and shape depth."
+    },
+    {
+      "rank": 3,
+      "candidate_id": "stageB_darkelf_auditor_mini_medium",
+      "profile": {"model": "gpt-5.4-mini", "reasoning_effort": "medium", "species": "darkelf", "class": "auditor"},
+      "quality_score": 72,
+      "quality_gate": "fail_shape_depth",
+      "selection_reason": "Boundary-safe but too compressed for the workflow's required output contract."
+    },
+    {
+      "rank": 4,
+      "candidate_id": "stageB_darkelf_auditor_53codex_medium",
+      "profile": {"model": "gpt-5.3-codex", "reasoning_effort": "medium", "species": "darkelf", "class": "auditor"},
+      "quality_score": 61,
+      "quality_gate": "fail_required_outputs",
+      "selection_reason": "Summary-style output omitted required workflow sections."
+    }
+  ],
+  "telemetry_note": "CLI telemetry values are exact for the CLI proxy runs only, not for subagent quality runs."
+}

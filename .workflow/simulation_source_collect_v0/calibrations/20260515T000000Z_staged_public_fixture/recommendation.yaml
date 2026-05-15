@@ -1,0 +1,29 @@
+workflow_id: simulation_source_collect_v0
+calibration_id: 20260515T000000Z_staged_public_fixture
+recommendation:
+  primary_profile:
+    model: gpt-5.3-codex
+    reasoning_effort: low
+    species: dwarf
+    class: auditor
+    candidate_id: stage_b_dwarf_auditor_gpt-5.3-codex_low
+  reason: Lowest measured CLI proxy cost/runtime among quality-passing finalists while preserving conservative model-source boundaries.
+  quality_gate: pass
+  telemetry:
+    source: cli_proxy_passed_candidates_only
+    input_tokens: 13200
+    cached_input_tokens: 3456
+    output_tokens: 656
+    reasoning_output_tokens: 11
+    wall_time_seconds: 16.12
+  shadows:
+    - candidate_id: stage_b_dwarf_auditor_gpt-5.4_low
+      use: quality_shadow
+    - candidate_id: stage_a_dwarf_auditor_gpt-5.4-mini_low
+      use: cheap_smoke_shadow
+    - candidate_id: stage_b_dwarf_auditor_gpt-5.3-codex-spark_low
+      use: caution_shadow
+boundary_assumptions:
+  - Calibration used only a public-safe synthetic fixture.
+  - No private run truth, model payloads, credentials, account-bound downloads, or _workspaces material were used.
+  - CLI telemetry is proxy telemetry and is not exact subagent-run cost.

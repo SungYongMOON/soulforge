@@ -1,0 +1,29 @@
+{
+  "ranking": [
+    {
+      "rank": 1,
+      "candidate_id": "c06_codex_spark_high_dwarf_auditor",
+      "model": "gpt-5.3-codex-spark",
+      "reasoning_effort": "high",
+      "species": "dwarf",
+      "class": "auditor",
+      "quality_gate": "pass",
+      "quality_score": 91,
+      "selection": "primary",
+      "reason": "Passed the hard quality gate and was materially faster in CLI proxy telemetry; selected as lowest-cost passing operational profile."
+    },
+    {
+      "rank": 2,
+      "candidate_id": "c04_gpt54_medium_elf_auditor",
+      "model": "gpt-5.4",
+      "reasoning_effort": "medium",
+      "species": "elf",
+      "class": "auditor",
+      "quality_gate": "pass",
+      "quality_score": 95,
+      "selection": "shadow",
+      "reason": "Best structured quality output, retained as shadow when stronger formatting or lower output-token volume matters."
+    }
+  ],
+  "failed_candidate_pattern": "Lower-cost mini/low profiles tended to mishandle the strict readiness partition, especially NC7 blocking and PWM_A review-required versus blocked."
+}

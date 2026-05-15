@@ -1,0 +1,22 @@
+workflow_id: interface_control_and_harness_readiness_v0
+calibration_id: cal_20260515_public_synthetic_staged_v0
+recommended_profile:
+  model: gpt-5.3-codex-spark
+  reasoning_effort: high
+  species: dwarf
+  class: auditor
+  candidate_id: c06_codex_spark_high_dwarf_auditor
+why:
+  - Passed the frozen quality gate on complete interface and harness readiness coverage.
+  - Preserved local_internal non-external policy, no-connect blocking, PWM_A review-required ceiling, and no-mutation boundary.
+  - CLI proxy wall time was materially faster than the stronger gpt-5.4 medium shadow.
+shadow_profile:
+  model: gpt-5.4
+  reasoning_effort: medium
+  species: elf
+  class: auditor
+  candidate_id: c04_gpt54_medium_elf_auditor
+measurement_limits:
+  - Exact subagent usage was unavailable.
+  - CLI telemetry is a proxy for passed candidates, not exact subagent cost.
+  - Model price comparison was treated as relative because local runner did not emit dollar cost.

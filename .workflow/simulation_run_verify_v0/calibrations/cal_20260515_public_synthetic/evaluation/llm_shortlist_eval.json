@@ -1,0 +1,10 @@
+{
+  "shortlist_basis": "Manual evaluator pass over frozen criteria plus CLI proxy telemetry for quality-passing candidates.",
+  "primary": "c_stage_b_gpt54_low_human_auditor",
+  "shadow": [
+    "c_stage_b_gpt53_codex_low_human_auditor",
+    "c_stage_a_gpt54mini_low_human_auditor",
+    "c_stage_b_gpt53_codex_spark_high_human_auditor"
+  ],
+  "reason": "The primary has the strongest quality and owner-boundary handling. Shadows preserve lower proxy token or lower wall-clock alternatives."
+}

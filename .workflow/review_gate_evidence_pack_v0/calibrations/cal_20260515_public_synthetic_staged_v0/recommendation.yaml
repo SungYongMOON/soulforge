@@ -1,0 +1,36 @@
+workflow_id: review_gate_evidence_pack_v0
+calibration_id: cal_20260515_public_synthetic_staged_v0
+recommended_profile:
+  model: gpt-5.4
+  reasoning_effort: medium
+  species: darkelf
+  class: auditor
+  candidate_id: stageB_darkelf_auditor_54_medium
+why:
+  - Passed the frozen quality gate without critical boundary or output-shape errors.
+  - Preserved required workflow sections and source/evidence/action/decision separation.
+  - Kept CAN termination, CAN fixture, reset timing, reset probe, and owner-decision gaps visible.
+  - Used allowed blocker scopes and avoided review approval or verification-completion overclaim.
+  - CLI proxy was faster than the gpt-5.4 low proxy in this run despite higher reasoning effort.
+telemetry:
+  source: cli_proxy_same_fixture
+  exact_for_subagent: false
+  primary:
+    input_tokens: 13749
+    cached_input_tokens: 3456
+    output_tokens: 1495
+    reasoning_output_tokens: 93
+    wall_time_seconds: 31.781
+  shadow_low:
+    input_tokens: 13749
+    cached_input_tokens: 7552
+    output_tokens: 1872
+    reasoning_output_tokens: 27
+    wall_time_seconds: 37.858
+not_measured:
+  - exact_subagent_token_usage
+  - production private fixture quality
+  - repeated-run variance beyond this staged pass
+boundary_assumptions:
+  - Calibration archive contains public-safe synthetic summaries only.
+  - Raw project truth, private run evidence, _workspaces material, credentials, and secret-derived content were not used.

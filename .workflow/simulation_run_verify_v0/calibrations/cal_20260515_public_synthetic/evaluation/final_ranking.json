@@ -1,0 +1,37 @@
+{
+  "ranking": [
+    {
+      "rank": 1,
+      "candidate_id": "c_stage_b_gpt54_low_human_auditor",
+      "profile": "gpt-5.4 / low / human / auditor",
+      "quality_score": 94,
+      "quality_gate": "pass",
+      "reason": "Most complete owner follow-up and boundary separation among measured candidates."
+    },
+    {
+      "rank": 2,
+      "candidate_id": "c_stage_b_gpt53_codex_low_human_auditor",
+      "profile": "gpt-5.3-codex / low / human / auditor",
+      "quality_score": 91,
+      "quality_gate": "pass",
+      "reason": "Conservative packet shape with low CLI proxy token use."
+    },
+    {
+      "rank": 3,
+      "candidate_id": "c_stage_a_gpt54mini_low_human_auditor",
+      "profile": "gpt-5.4-mini / low / human / auditor",
+      "quality_score": 89,
+      "quality_gate": "pass",
+      "reason": "Fast acceptable fallback; owner follow-up weaker in Case B."
+    },
+    {
+      "rank": 4,
+      "candidate_id": "c_stage_b_gpt53_codex_spark_high_human_auditor",
+      "profile": "gpt-5.3-codex-spark / high / human / auditor",
+      "quality_score": 87,
+      "quality_gate": "pass",
+      "reason": "Fast wall-clock but high reasoning/output token use."
+    }
+  ],
+  "selection_rule": "Quality is a hard gate. Primary selection favors quality and task fit when proxy token differences are small or model-specific costs are not exact."
+}

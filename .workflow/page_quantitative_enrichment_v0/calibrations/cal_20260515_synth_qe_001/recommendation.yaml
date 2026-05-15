@@ -1,0 +1,25 @@
+workflow_id: page_quantitative_enrichment_v0
+calibration_id: cal_20260515_synth_qe_001
+recommended_profile:
+  model: gpt-5.4
+  reasoning_effort: low
+  species: elf
+  class: auditor
+  candidate_id: c03
+quality_gate: pass
+why:
+  - Complete required output shapes.
+  - Correctly separates source-confirmed, review-required, and missing quantities.
+  - Keeps missing values and source gaps first-class.
+  - Preserves overlay-only and harness-delta-only boundaries.
+  - Uses materially fewer reasoning/output tokens than the medium-effort shadow without a quality loss on the synthetic fixture.
+shadow_profile:
+  model: gpt-5.4
+  reasoning_effort: medium
+  species: dwarf
+  class: auditor
+  candidate_id: c04
+measurement_limits:
+  - Subagent token usage was not available.
+  - CLI telemetry is proxy telemetry on the same prompt shape, not exact usage for subagent candidate outputs.
+  - The fixture covers missing/review-required behavior but does not yet test derived-value or conflict branches.

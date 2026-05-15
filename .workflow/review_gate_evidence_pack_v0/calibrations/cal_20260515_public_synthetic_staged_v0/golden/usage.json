@@ -1,0 +1,7 @@
+{
+  "source": "subagent_quality_baseline",
+  "model": "gpt-5.5",
+  "reasoning_effort": "xhigh",
+  "usage_available": false,
+  "note": "Subagent runner did not expose exact token telemetry."
+}

@@ -1,0 +1,6 @@
+{
+  "sufficiency": "Criteria cover required outputs, blocked-vs-synthetic execution state, blocker handling, measurement-to-rule traceability, owner acceptance boundaries, and public-safe constraints.",
+  "missing_critical_conditions": "None identified beyond upstream read-only handling, missing-measurement blocking, and private/raw/secret/runtime path exclusion.",
+  "overfit_risks": "Do not require exact baseline wording such as blocked_not_executed or synthetic_stub_only when equivalent statuses are clear.",
+  "suspicious_assumptions": "Treat claimed real simulator execution, waveform evidence, owner approval, newly supplied model, or upstream correction as unsupported unless explicitly present in the fixture."
+}

@@ -1,0 +1,34 @@
+workflow_id: simulation_deck_prepare_v0
+calibration_id: 20260515T120213KST
+recommended_profile:
+  candidate_id: B01
+  model: gpt-5.4-mini
+  reasoning_effort: medium
+  species: dwarf
+  class: auditor
+  quality_gate: pass
+  quality_score: 0.91
+  cli_proxy_telemetry:
+    wall_seconds: 20.54
+    input_tokens: 40806
+    cached_input_tokens: 34432
+    output_tokens: 1678
+    reasoning_output_tokens: 581
+shadow_top_k:
+  - candidate_id: B05
+    model: gpt-5.4
+    reasoning_effort: medium
+    species: dwarf
+    class: auditor
+    quality_gate: pass
+    quality_score: 0.93
+    cli_proxy_telemetry:
+      wall_seconds: 19.59
+      input_tokens: 13601
+      cached_input_tokens: 7552
+      output_tokens: 848
+      reasoning_output_tokens: 35
+boundary_assumptions:
+  - Calibration used a synthetic public-safe fixture only.
+  - No raw model payloads, private project files, secrets, simulator outputs, or _workspaces material were used.
+  - CLI telemetry is exact for the CLI proxy rerun, not exact for the isolated subagent candidate run.

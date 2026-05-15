@@ -17,6 +17,56 @@
 - Updated the always-on healer rollout plan to reflect the 4-hour Codex heartbeat cadence and low-reasoning activity sync fallback.
 - Kept short-interval mail fetch, mail healthcheck, and town-crier monitoring in deterministic launchd jobs without LLM usage.
 
+### Revision `working` - Simulation source collection profile calibrated
+
+- Calibrated `.workflow/simulation_source_collect_v0/` against a public-safe synthetic mixed model-source fixture.
+- Promoted `profile_policy.yaml` from draft to active with `gpt-5.3-codex / low / dwarf / auditor` as the primary profile.
+- Archived the calibration under `.workflow/simulation_source_collect_v0/calibrations/20260515T000000Z_staged_public_fixture/`, including fixture, quality gate, candidate summaries, CLI proxy telemetry, final ranking, and recommendation.
+- Added a public-safe history note while keeping raw project truth, `_workspaces` material, credentials, account-bound downloads, private payloads, and runtime absolute paths out of public workflow canon.
+
+### Revision `working` - Verification plan from page contracts profile calibrated
+
+- Calibrated `.workflow/verification_plan_from_page_contracts_v0/` against a public-safe synthetic verification-planning fixture.
+- Promoted `profile_policy.yaml` from draft to active with `gpt-5.4 / low / human / auditor` as the primary profile.
+- Archived the staged calibration under `.workflow/verification_plan_from_page_contracts_v0/calibrations/cal_20260515T121105_public_fixture/`, including fixture, quality gate, candidate summaries, CLI proxy telemetry, final ranking, and recommendation.
+- Added a public-safe history note while keeping raw project truth, `_workspaces` material, credentials, private payloads, and runtime absolute paths out of public workflow canon.
+
+### Revision `working` - Simulation deck prepare profile calibrated
+
+- Calibrated `.workflow/simulation_deck_prepare_v0/` against a public-safe synthetic LTspice deck-prepare fixture.
+- Promoted `profile_policy.yaml` from draft to active with `gpt-5.4-mini / medium / dwarf / auditor` as the primary profile and `gpt-5.4 / medium / dwarf / auditor` as the quality shadow.
+- Archived the staged calibration under `.workflow/simulation_deck_prepare_v0/calibrations/20260515T120213KST/`, including fixture, quality gate, candidate summaries, CLI proxy telemetry, final ranking, and recommendation.
+- Added a public-safe history note while keeping raw project truth, `_workspaces` material, credentials, model payloads, simulator outputs, and runtime absolute paths out of public workflow canon.
+
+### Revision `working` - Review gate evidence pack profile calibrated
+
+- Calibrated `.workflow/review_gate_evidence_pack_v0/` against a public-safe synthetic TRR-like/PDR-like review fixture.
+- Promoted `profile_policy.yaml` from draft to active with `gpt-5.4 / medium / darkelf / auditor` as the primary profile and `gpt-5.4 / low / darkelf / auditor` as the smoke shadow.
+- Archived the staged calibration under `.workflow/review_gate_evidence_pack_v0/calibrations/cal_20260515_public_synthetic_staged_v0/`, including fixture, quality gate, candidate summaries, CLI proxy telemetry, final ranking, and recommendation.
+- Added a public-safe history note while keeping raw project truth, `_workspaces` material, credentials, private payloads, and runtime absolute paths out of public workflow canon.
+
+### Revision `working` - Interface control and harness readiness profile calibrated
+
+- Calibrated `.workflow/interface_control_and_harness_readiness_v0/` against a public-safe synthetic interface/harness readiness fixture.
+- Promoted `profile_policy.yaml` from draft to active with `gpt-5.3-codex-spark / high / dwarf / auditor` as the primary profile and `gpt-5.4 / medium / elf / auditor` as the quality shadow.
+- Archived the staged calibration under `.workflow/interface_control_and_harness_readiness_v0/calibrations/cal_20260515_public_synthetic_staged_v0/`, including fixture, quality gate, candidate summaries, CLI proxy telemetry, final ranking, and recommendation.
+- Added a public-safe history note while keeping raw project truth, `_workspaces` material, credentials, and private payloads out of public workflow canon.
+
+### Revision `working` - Simulation run verify profile calibrated
+
+- Calibrated `.workflow/simulation_run_verify_v0/` against a public-safe synthetic blocked-run and synthetic-stub fixture.
+- Promoted `profile_policy.yaml` from draft to active with `gpt-5.4 / low / human / auditor` as the primary profile.
+- Archived the calibration under `.workflow/simulation_run_verify_v0/calibrations/cal_20260515_public_synthetic/`, including fixture, quality gate, CLI proxy telemetry, final ranking, and recommendation.
+- Added a public-safe history note while keeping raw project truth, `_workspaces` material, credentials, waveforms, private payloads, and runtime absolute paths out of public workflow canon.
+
+### Revision `working` - Page quantitative enrichment profile calibrated
+
+- Calibrated `.workflow/page_quantitative_enrichment_v0/` against a public-safe synthetic quantitative-enrichment fixture.
+- Promoted `profile_policy.yaml` from draft to active with `gpt-5.4 / low / elf / auditor` as the primary profile and `gpt-5.4 / medium / dwarf / auditor` as the stability shadow.
+- Archived the calibration under `.workflow/page_quantitative_enrichment_v0/calibrations/cal_20260515_synth_qe_001/`, including fixture, quality gate, candidate summaries, CLI proxy telemetry, final ranking, and recommendation.
+- Added a public-safe history note for the profile decision while keeping raw project truth, `_workspaces` material, credentials, and private payloads out of public workflow canon.
+- Recalibrated after tightening the local `workflow-optimizer` skill's quality-equivalence policy: demoted the cheap `gpt-5.4 / low / elf / auditor` recommendation, selected `gpt-5.4 / medium / dwarf / auditor` as the quality-equivalent primary, and kept `gpt-5.5 / low / elf / auditor` as the quality shadow.
+
 ### Revision `working` - Review gate evidence pack workflow added
 
 - Added `.workflow/review_gate_evidence_pack_v0/` as a public-safe review-readiness workflow over trace, interface-control, verification-plan, source-gap, harness, configuration, owner-decision, and open-question refs.

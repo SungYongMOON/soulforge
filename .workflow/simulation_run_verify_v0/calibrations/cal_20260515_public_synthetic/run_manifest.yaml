@@ -1,0 +1,37 @@
+calibration_id: cal_20260515_public_synthetic
+workflow_id: simulation_run_verify_v0
+kind: workflow_profile_calibration
+status: complete
+created_date: 2026-05-15
+mode: staged_public_safe_synthetic
+quality_baseline:
+  model: gpt-5.5
+  reasoning_effort: xhigh
+  species: human
+  class: auditor
+fixture_ref: input_fixture.public.json
+quality_gate_ref: quality_gate/criteria.json
+quality_source: subagent_staged_matrix
+telemetry_source: cli_passed_candidates_only
+boundary:
+  public_safe_synthetic_only: true
+  private_raw_secret_material_used: false
+  workspaces_material_used: false
+  runtime_absolute_paths_in_archive: false
+matrix_summary:
+  stage_a_species_class_scout:
+    model: gpt-5.4-mini
+    reasoning_effort: low
+    candidates_run: 4
+    candidates_blocked_by_runtime_limit: 2
+    selected_species: human
+    selected_class: auditor
+  stage_b_model_effort_probe:
+    candidates_run: 4
+    selected_model: gpt-5.4
+    selected_reasoning_effort: low
+telemetry_probe_candidates:
+  - c_stage_b_gpt54_low_human_auditor
+  - c_stage_b_gpt53_codex_low_human_auditor
+  - c_stage_a_gpt54mini_low_human_auditor
+  - c_stage_b_gpt53_codex_spark_high_human_auditor

@@ -1,0 +1,28 @@
+calibration_id: cal_20260515_public_synthetic_staged_v0
+workflow_id: interface_control_and_harness_readiness_v0
+created_at: 2026-05-15T12:07:00+09:00
+mode: public_synthetic_staged_quality_first
+boundary:
+  public_safe: true
+  raw_project_truth_used: false
+  workspaces_material_used: false
+  private_payload_used: false
+  secret_or_credential_used: false
+quality_baseline:
+  model: gpt-5.5
+  reasoning_effort: xhigh
+  use: evaluator_only_requirement_extraction
+candidate_matrix:
+  full_default_matrix_executed: false
+  staged_matrix_reason: First calibration used staged quality-first sweep to find a safe low-cost profile without running the full exhaustive matrix.
+  candidates_total: 7
+  candidates_passed: 2
+  candidates_failed: 5
+telemetry:
+  source: cli_passed_candidates_only
+  exact_for_subagent_outputs: false
+  cost_confidence: relative_not_exact
+archive_notes:
+  - Candidate outputs were generated in isolated subagents from the public fixture.
+  - CLI probes were run only for quality-passing candidates.
+  - Remote plugin sync warnings during CLI startup were unrelated to workflow output and did not require private data.

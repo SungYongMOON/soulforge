@@ -1,0 +1,11 @@
+{
+  "reviewer": "optimizer_internal_frozen_gate_review",
+  "criteria_sufficient": true,
+  "overfit_to_golden_wording": false,
+  "missing_critical_conditions": [],
+  "notes": [
+    "Criteria focus on required workflow behavior rather than golden phrasing.",
+    "Runtime absolute path and public/private boundary handling were promoted to hard gates because several scout candidates drifted there.",
+    "Decision-state discipline was kept as a hard gate due to the fixture's proposed-only reset decision."
+  ]
+}

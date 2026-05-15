@@ -1,0 +1,44 @@
+calibration_id: cal_20260515_public_synthetic_staged_v0
+workflow_id: review_gate_evidence_pack_v0
+kind: workflow_profile_calibration
+status: complete
+created_at: "2026-05-15T03:08:00+09:00"
+mode: subagent_quality_first_staged_public_synthetic
+quality_baseline:
+  model: gpt-5.5
+  reasoning_effort: xhigh
+  species: human
+  class: auditor
+candidate_input: input_fixture.public.json
+boundary:
+  public_safe_synthetic_only: true
+  raw_project_truth_used: false
+  private_state_used: false
+  workspaces_used: false
+  secrets_used: false
+  runtime_absolute_paths_in_archive: false
+stages:
+  - stage: quality_baseline
+    candidates: 1
+  - stage: stage_a_species_scout
+    candidates: 5
+    note: Limited by concurrent agent cap; all candidates used auditor class with gpt-5.4-mini low.
+  - stage: stage_b_model_effort_finalists
+    candidates: 4
+  - stage: cli_proxy_telemetry
+    candidates: 2
+measurement_policy:
+  quality_source: subagent_staged_matrix
+  telemetry_source: cli_passed_candidates_only_proxy
+  subagent_token_usage_available: false
+  telemetry_exact_for_subagent: false
+  cost_confidence: relative_not_exact
+artifacts:
+  fixture: input_fixture.public.json
+  criteria: quality_gate/criteria.json
+  evaluator_review: quality_gate/evaluator_review.json
+  candidate_summaries: subagent_matrix/candidates.jsonl
+  quality_eval: subagent_matrix/quality_eval.jsonl
+  telemetry: cli_telemetry_probe/telemetry.jsonl
+  ranking: evaluation/final_ranking.json
+  recommendation: recommendation.yaml

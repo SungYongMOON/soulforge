@@ -1,0 +1,57 @@
+calibration_id: cal_20260515_synth_qe_001
+workflow_id: page_quantitative_enrichment_v0
+created_date: 2026-05-15
+kind: workflow_profile_calibration
+mode: subagent_quality_first_public_synthetic
+boundary:
+  fixture_class: public_safe_synthetic
+  raw_project_truth_used: false
+  private_transcripts_used: false
+  secrets_used: false
+  workspaces_material_used: false
+baseline_profile:
+  model: gpt-5.5
+  reasoning_effort: xhigh
+  species: elf
+  class: auditor
+candidate_profiles:
+  - candidate_id: c01
+    model: gpt-5.4-mini
+    reasoning_effort: low
+    species: human
+    class: auditor
+  - candidate_id: c02
+    model: gpt-5.4-mini
+    reasoning_effort: medium
+    species: elf
+    class: auditor
+  - candidate_id: c03
+    model: gpt-5.4
+    reasoning_effort: low
+    species: elf
+    class: auditor
+  - candidate_id: c04
+    model: gpt-5.4
+    reasoning_effort: medium
+    species: dwarf
+    class: auditor
+  - candidate_id: c05
+    model: gpt-5.3-codex-spark
+    reasoning_effort: high
+    species: dwarf
+    class: archivist
+evaluation_policy:
+  quality_first: true
+  golden_output_visible_to_candidates: false
+  cli_telemetry_for_quality_passing_candidates_only: true
+archive_files:
+  input_fixture: input_fixture.public.json
+  golden_output: golden/output.md
+  golden_usage: golden/usage.json
+  quality_criteria: quality_gate/criteria.json
+  evaluator_review: quality_gate/evaluator_review.json
+  candidates: subagent_matrix/candidates.jsonl
+  quality_eval: subagent_matrix/quality_eval.jsonl
+  telemetry: cli_telemetry_probe/telemetry.jsonl
+  final_ranking: evaluation/final_ranking.json
+  recommendation: recommendation.yaml

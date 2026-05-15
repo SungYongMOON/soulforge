@@ -1,0 +1,3 @@
+{"candidate_id":"stage_a_dwarf_auditor_gpt-5.4-mini_low","model":"gpt-5.4-mini","reasoning_effort":"low","input_tokens":13301,"cached_input_tokens":12672,"output_tokens":698,"reasoning_output_tokens":67,"wall_time_seconds":16.83,"telemetry_source":"cli_proxy"}
+{"candidate_id":"stage_b_dwarf_auditor_gpt-5.3-codex_low","model":"gpt-5.3-codex","reasoning_effort":"low","input_tokens":13200,"cached_input_tokens":3456,"output_tokens":656,"reasoning_output_tokens":11,"wall_time_seconds":16.12,"telemetry_source":"cli_proxy"}
+{"candidate_id":"stage_b_dwarf_auditor_gpt-5.4_low","model":"gpt-5.4","reasoning_effort":"low","input_tokens":13640,"cached_input_tokens":2432,"output_tokens":728,"reasoning_output_tokens":13,"wall_time_seconds":17.44,"telemetry_source":"cli_proxy"}

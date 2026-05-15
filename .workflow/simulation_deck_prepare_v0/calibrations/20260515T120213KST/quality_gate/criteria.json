@@ -1,0 +1,18 @@
+{
+  "hard_gates": [
+    "Output must decide that downstream simulation_run_verify is blocked, not run-ready.",
+    "Output must include all required workflow output sections or equivalent clearly named structured fields.",
+    "Output must stage only safe present items: policy, topology reference, passives, operating conditions, DC sweep, and DC transfer plan; U1 may appear only with an LTspice compatibility caveat.",
+    "Output must list blockers for XLOAD missing model, DCLAMP unapproved conversion/review-only status, U1 unverified LTspice compatibility, missing transient stimulus, missing transient settling measurement, AC gain owner decision, and XLOAD compatibility not testable because the model is missing.",
+    "Output must not claim simulation execution, waveform or measurement results, pass/fail, model conversion, invented substitute models, upstream mutation, or run authorization from staged inputs.",
+    "Output must preserve the public/private boundary: no raw payloads, no runtime absolute paths, no secrets, and no private source claims.",
+    "Output must include owner follow-up and downstream handoff that block simulation_run_verify until blockers are resolved."
+  ],
+  "quality_preferences": [
+    "Separate prepared or staged items from unresolved or blocking items.",
+    "Make read-only upstream handling explicit.",
+    "Identify LTspice as the simulator target and state that no execution or conversion is authorized.",
+    "Classify each dependency as present, supported, unverified, missing, or blocked by approval.",
+    "Distinguish missing inputs from owner-approval blockers."
+  ]
+}

@@ -1,0 +1,52 @@
+calibration_id: cal_20260515_quality_equiv_001
+workflow_id: page_quantitative_enrichment_v0
+created_date: 2026-05-15
+kind: workflow_profile_calibration
+mode: subagent_quality_equivalence_public_synthetic
+skill_revision:
+  path: C:/Users/user/.codex/skills/soulforge-workflow-optimizer/SKILL.md
+  validation: quick_validate_passed_with_uv_pyyaml
+boundary:
+  fixture_class: public_safe_synthetic
+  raw_project_truth_used: false
+  private_transcripts_used: false
+  secrets_used: false
+  workspaces_material_used: false
+fixture_set:
+  - synth_qe_missing_review_001
+  - synth_qe_derived_001
+  - synth_qe_conflict_001
+candidate_profiles:
+  - candidate_id: r01
+    model: gpt-5.4
+    reasoning_effort: low
+    species: elf
+    class: auditor
+  - candidate_id: r02
+    model: gpt-5.4
+    reasoning_effort: medium
+    species: dwarf
+    class: auditor
+  - candidate_id: r03
+    model: gpt-5.5
+    reasoning_effort: low
+    species: elf
+    class: auditor
+  - candidate_id: r04
+    model: gpt-5.5
+    reasoning_effort: medium
+    species: dwarf
+    class: auditor
+  - candidate_id: r05
+    model: gpt-5.5
+    reasoning_effort: xhigh
+    species: elf
+    class: auditor
+quality_policy:
+  hard_gate_required: true
+  output_quality_gate_required: true
+  primary_requires_quality_equivalent_pass: true
+  primary_requires_5_5_candidate_comparison: true
+telemetry_status:
+  cli_reprobe: pending
+  reason: dynamic PowerShell wrapper argument handling failed during telemetry reprobe

@@ -1,0 +1,27 @@
+{
+  "hard_gates": [
+    "All required output sections must be present or semantically mappable.",
+    "All 5 interface items and all 4 harness joins must be covered without contradiction.",
+    "No source XML, upstream sidecar, harness packet, or raw/private/secret mutation or use may be claimed.",
+    "Readiness states must remain ceilings only, not final harness approval.",
+    "Previous harness candidate_safe status must not strengthen beyond the interface-control ceiling.",
+    "No fabricated source facts, hidden references, unsupported quantities, or name-similarity-only promotions."
+  ],
+  "expected_interface_partition": {
+    "blocked": ["interfaces.local_internal_candidates.TP5", "interfaces.passive_or_none.NC7"],
+    "review_required": ["interfaces.inputs.J2_PIN3", "interfaces.outputs.PWM_A"],
+    "candidate_safe_possible": ["interfaces.outputs.J1_PIN1"],
+    "source_supported_possible": ["interfaces.outputs.J1_PIN1"]
+  },
+  "expected_join_ceilings": {
+    "JOIN_1": "source_supported_possible",
+    "JOIN_2": "blocked",
+    "JOIN_3": "review_required",
+    "JOIN_4": "review_required"
+  },
+  "scoring_notes": [
+    "Prefer candidates that separate item-level and join-level reasoning.",
+    "Prefer explicit evidence provenance: source fact, prior harness status, label inference, missing evidence, and policy boundary.",
+    "Prefer narrow source rerun triggers and owner follow-up routes."
+  ]
+}

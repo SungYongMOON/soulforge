@@ -1,0 +1,4 @@
+{"candidate_id":"c_stage_b_gpt54_low_human_auditor","model":"gpt-5.4","reasoning_effort":"low","input_tokens":13560,"cached_input_tokens":4480,"output_tokens":686,"reasoning_output_tokens":17,"wall_seconds":17.11}
+{"candidate_id":"c_stage_a_gpt54mini_low_human_auditor","model":"gpt-5.4-mini","reasoning_effort":"low","input_tokens":13208,"cached_input_tokens":2432,"output_tokens":604,"reasoning_output_tokens":35,"wall_seconds":11.188}
+{"candidate_id":"c_stage_b_gpt53_codex_low_human_auditor","model":"gpt-5.3-codex","reasoning_effort":"low","input_tokens":13120,"cached_input_tokens":3456,"output_tokens":614,"reasoning_output_tokens":10,"wall_seconds":14.921}
+{"candidate_id":"c_stage_b_gpt53_codex_spark_high_human_auditor","model":"gpt-5.3-codex-spark","reasoning_effort":"high","input_tokens":13135,"cached_input_tokens":7168,"output_tokens":2986,"reasoning_output_tokens":2441,"wall_seconds":8.169}

@@ -1,0 +1,44 @@
+{
+  "project_code": "PUBLIC_CAL_SIM",
+  "run_id": "cal_20260515_public",
+  "output_root_repo_path": "_workmeta/PUBLIC_CAL_SIM/runs/cal_20260515_public/simulation_run/simulation_run_verify_v0",
+  "approved_simulation_run_policy": {
+    "upstream_packets_are_read_only": true,
+    "blocked_run_is_not_failed_result": true,
+    "verdict_requires_named_measurement_or_rule": true
+  },
+  "case_A_blocked": {
+    "deck_packet_ref": "synthetic/deck_packet_A.yaml",
+    "deck_state": "deck_prepared",
+    "simulator_policy": "simulator_allowed_if_model_and_measurements_present",
+    "model_inventory": "missing transistor_model_q1",
+    "measurement_definitions": [],
+    "owner_decision_refs": [],
+    "expected_runtime_action": "do_not_execute"
+  },
+  "case_B_executed_no_acceptance": {
+    "deck_packet_ref": "synthetic/deck_packet_B.yaml",
+    "deck_state": "deck_prepared",
+    "simulator_policy": "dry_run_allowed_with_synthetic_stub",
+    "model_inventory": {
+      "all_required_models_present": true
+    },
+    "measurement_definitions": [
+      {
+        "measurement_id": "m_gain_db",
+        "rule_id": "r_gain_min_20db",
+        "pass_condition": "value_db >= 20"
+      }
+    ],
+    "observed_measurements": [
+      {
+        "measurement_id": "m_gain_db",
+        "value_db": 21.4,
+        "unit": "dB",
+        "source": "synthetic_stub_log"
+      }
+    ],
+    "owner_decision_refs": [],
+    "expected_runtime_action": "package_observed_stub_result"
+  }
+}

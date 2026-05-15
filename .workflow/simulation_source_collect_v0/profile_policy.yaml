@@ -1,21 +1,68 @@
 workflow_id: simulation_source_collect_v0
 kind: workflow_profile_policy
-status: draft
-calibration_mode: uncalibrated_contract_package
+status: active
+last_calibration_id: 20260515T000000Z_staged_public_fixture
+calibration_mode: staged_subagent_quality_first
 measurement_policy:
-  quality_source: not_yet_measured
-  telemetry_source: not_yet_measured
+  quality_source: staged_subagent_matrix
+  telemetry_source: cli_passed_candidates_only
   subagent_token_usage_available: false
   telemetry_exact_for_subagent: false
-  cost_confidence: unknown
+  cost_confidence: relative_cli_proxy
 primary_profile:
-  model: null
-  reasoning_effort: null
-  species: null
-  class: null
-  candidate_id: null
-  quality_gate: pending_profile_calibration
-shadow_top_k: []
+  model: gpt-5.3-codex
+  reasoning_effort: low
+  species: dwarf
+  class: auditor
+  candidate_id: stage_b_dwarf_auditor_gpt-5.3-codex_low
+  quality_gate: pass
+  quality_score: 94
+  measured_tokens:
+    input_tokens: 13200
+    cached_input_tokens: 3456
+    output_tokens: 656
+    reasoning_output_tokens: 11
+  wall_time_seconds: 16.12
+  telemetry_kind: cli_proxy
+shadow_top_k:
+  - rank: 2
+    model: gpt-5.4
+    reasoning_effort: low
+    species: dwarf
+    class: auditor
+    candidate_id: stage_b_dwarf_auditor_gpt-5.4_low
+    quality_gate: pass
+    quality_score: 96
+    measured_tokens:
+      input_tokens: 13640
+      cached_input_tokens: 2432
+      output_tokens: 728
+      reasoning_output_tokens: 13
+    wall_time_seconds: 17.44
+    use: quality_shadow
+  - rank: 3
+    model: gpt-5.4-mini
+    reasoning_effort: low
+    species: dwarf
+    class: auditor
+    candidate_id: stage_a_dwarf_auditor_gpt-5.4-mini_low
+    quality_gate: pass
+    quality_score: 93
+    measured_tokens:
+      input_tokens: 13301
+      cached_input_tokens: 12672
+      output_tokens: 698
+      reasoning_output_tokens: 67
+    wall_time_seconds: 16.83
+    use: cheap_smoke_shadow
+  - rank: 4
+    model: gpt-5.3-codex-spark
+    reasoning_effort: low
+    species: dwarf
+    class: auditor
+    candidate_id: stage_b_dwarf_auditor_gpt-5.3-codex-spark_low
+    quality_gate: pass_with_wording_caution
+    use: caution_shadow
 rerun_triggers:
   - model_family_contract_changes
   - simulator_compatibility_status_changes
@@ -24,7 +71,8 @@ rerun_triggers:
   - quantitative_or_harness_handoff_contract_changes
   - first_profile_calibration_run
   - owner_approves_new_local_model_or_tool_library_policy
+calibration_archive_ref: .workflow/simulation_source_collect_v0/calibrations/20260515T000000Z_staged_public_fixture/
 notes:
-  - The package now has a controlled private mixed model-source pilot, but it still has no calibrated execution profile.
-  - Bind model, reasoning, party, search, local-file, tool-library, and simulator handling per project until public-safe calibration evidence exists.
-  - Do not call this usable or production-ready until profile calibration and independent boundary review pass.
+  - Calibrated on a public-safe synthetic mixed model-source fixture; no private run truth, raw model payloads, credentials, account-bound downloads, or _workspaces material were used.
+  - The primary profile is optimized for conservative source-state classification, access-blocker handling, missing-model preservation, and pre-deck/pre-run boundary review.
+  - CLI telemetry is proxy telemetry for finalist comparison only; exact subagent-run token usage was not available.

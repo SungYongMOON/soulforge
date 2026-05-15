@@ -1,0 +1,31 @@
+{
+  "ranking": [
+    {
+      "rank": 1,
+      "candidate_id": "B01",
+      "model": "gpt-5.4-mini",
+      "reasoning_effort": "medium",
+      "species": "dwarf",
+      "class": "auditor",
+      "quality_score": 0.91,
+      "quality_gate": "pass",
+      "selection_reason": "Lowest-tier quality-passing profile. It met all hard gates and avoided the extra topology-payload blocker introduced by several stronger candidates."
+    },
+    {
+      "rank": 2,
+      "candidate_id": "B05",
+      "model": "gpt-5.4",
+      "reasoning_effort": "medium",
+      "species": "dwarf",
+      "class": "auditor",
+      "quality_score": 0.93,
+      "quality_gate": "pass",
+      "selection_reason": "Slightly cleaner dependency framing and lower CLI proxy output tokens, but uses a stronger model family without enough quality gain to displace the mini primary."
+    }
+  ],
+  "rejected_summary": {
+    "low_effort_mini": "Too likely to compress away required sections or blur missing versus present items.",
+    "by_reference_prompts": "Rejected as non-independent candidate outputs.",
+    "stronger_low_effort_profiles": "Rejected when they introduced a topology payload blocker not required by the frozen fixture."
+  }
+}

@@ -1,0 +1,2 @@
+{"candidate_id":"B01","model":"gpt-5.4-mini","reasoning_effort":"medium","wall_seconds":20.54,"input_tokens":40806,"cached_input_tokens":34432,"output_tokens":1678,"reasoning_output_tokens":581,"source":"cli_proxy_rerun"}
+{"candidate_id":"B05","model":"gpt-5.4","reasoning_effort":"medium","wall_seconds":19.59,"input_tokens":13601,"cached_input_tokens":7552,"output_tokens":848,"reasoning_output_tokens":35,"source":"cli_proxy_rerun"}

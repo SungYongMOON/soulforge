@@ -1,0 +1,11 @@
+{
+  "reviewer": "local_optimizer_review",
+  "criteria_sufficient": true,
+  "overfit_to_golden_wording": false,
+  "critical_conditions_missing": [],
+  "notes": [
+    "Criteria intentionally allow different YAML layouts when required shapes and states are clear.",
+    "Thermal review-required value may preserve the candidate value, but must not treat it as source-confirmed or close the blocker.",
+    "Gap accounting is weighted heavily because the workflow feeds downstream harness readiness decisions."
+  ]
+}

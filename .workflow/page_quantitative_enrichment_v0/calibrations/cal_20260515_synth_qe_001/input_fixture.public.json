@@ -1,0 +1,71 @@
+{
+  "fixture_id": "synth_qe_001",
+  "fixture_class": "public_safe_synthetic",
+  "workflow_id": "page_quantitative_enrichment_v0",
+  "quantitative_enrichment_binding": {
+    "page_asset_id": "SYNTH_PAGE_PWR_A",
+    "source_page_ref": "synthetic://capture/pages/PWR_A",
+    "normalized_sidecar_ref": "docs/architecture/workspace/examples/synthetic/PWR_A.page_module_spec.yaml",
+    "source_checksum": "sha256:synthetic-pwr-a-001",
+    "output_root": "_workmeta/synthetic_project/runs/synth_qe_001/enrichment/",
+    "overlay_not_replacement": true
+  },
+  "required_slots": [
+    "J1_PIN1.VIN_MAIN.voltage_range",
+    "J1_PIN1.VIN_MAIN.max_current",
+    "J1_PIN2.GND.reference_role",
+    "U1_PIN3.REG_3V3.voltage_nominal",
+    "U1_PIN3.REG_3V3.max_current",
+    "thermal.max_ambient_temp"
+  ],
+  "approved_value_facts": [
+    {
+      "evidence_ref": "SRC-BOARD-RAIL-001",
+      "target": "J1_PIN1 VIN_MAIN",
+      "quantity": "voltage_range",
+      "min": 10.8,
+      "typical": 12.0,
+      "max": 13.2,
+      "unit": "V",
+      "condition": "bench supply input"
+    },
+    {
+      "evidence_ref": "SRC-DS-U1-ABS-001",
+      "target": "U1_PIN3 REG_3V3",
+      "quantity": "voltage_nominal",
+      "value": 3.3,
+      "unit": "V",
+      "condition": "regulated output"
+    }
+  ],
+  "review_only_context": [
+    {
+      "evidence_ref": "LAYOUT-U1-THERM-AMBIG",
+      "target": "U1 thermal",
+      "quantity": "max_ambient_temp",
+      "value": 85,
+      "unit": "C",
+      "reason": "not tied to approved operating condition"
+    }
+  ],
+  "nonclosing_facts": [
+    {
+      "evidence_ref": "SRC-DS-U1-THERM-001",
+      "quantity": "theta_ja",
+      "value": 50,
+      "unit": "C/W",
+      "reason": "does not itself provide max_ambient_temp"
+    },
+    {
+      "evidence_ref": "MAT-U1-ID-001",
+      "quantity": "component_identity",
+      "value": "SYNTH-LDO-33",
+      "reason": "identity only, not a quantitative operating value"
+    }
+  ],
+  "previous_harness_blockers": [
+    {"id": "HB-1", "target": "J1_PIN1", "reason": "VIN_MAIN voltage missing"},
+    {"id": "HB-2", "target": "U1_PIN3", "reason": "REG_3V3 current missing"},
+    {"id": "HB-3", "target": "U1 thermal", "reason": "thermal operating condition missing"}
+  ]
+}

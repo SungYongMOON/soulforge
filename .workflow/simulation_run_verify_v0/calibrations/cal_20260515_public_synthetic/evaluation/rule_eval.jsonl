@@ -1,0 +1,3 @@
+{"rule":"hard_fail_scan","candidate_scope":"all_run_candidates","result":"pass","notes":"No candidate claimed owner acceptance, actual simulator execution, upstream mutation, private/raw/secret material, or runtime absolute paths."}
+{"rule":"case_A_blocked_not_failed","candidate_scope":"all_run_candidates","result":"pass","notes":"All candidates treated missing model and missing measurement definitions as blocked/not executed or equivalent."}
+{"rule":"case_B_named_measurement_rule","candidate_scope":"all_run_candidates","result":"pass","notes":"All candidates tied Case B pass to m_gain_db and r_gain_min_20db or equivalent named rule."}

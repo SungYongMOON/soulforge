@@ -1,0 +1,12 @@
+{
+  "review_result": "criteria_revised_before_candidate_evaluation",
+  "key_revisions": [
+    "Added explicit readiness status lattice and normalized pass/fail rules.",
+    "Required complete disjoint coverage for all interface items and joins.",
+    "Made expected fixture outcomes hard and unambiguous.",
+    "Required item-level and join-level reasoning separately.",
+    "Added fabrication and contradiction fail conditions.",
+    "Clarified narrow rerun routing for source gaps versus owner decisions."
+  ],
+  "remaining_risk": "Evaluator can judge visible output claims and omissions, but cannot prove absence of hidden private access beyond the isolated prompt boundary."
+}

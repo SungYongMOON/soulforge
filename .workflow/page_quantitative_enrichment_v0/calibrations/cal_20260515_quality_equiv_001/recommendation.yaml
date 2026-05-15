@@ -1,0 +1,26 @@
+workflow_id: page_quantitative_enrichment_v0
+calibration_id: cal_20260515_quality_equiv_001
+recommended_profile:
+  model: gpt-5.4
+  reasoning_effort: medium
+  species: dwarf
+  class: auditor
+  candidate_id: r02
+quality_class: quality_equivalent_pass
+quality_score: 94
+baseline_relative_quality: 1.02
+quality_shadow:
+  model: gpt-5.5
+  reasoning_effort: low
+  species: elf
+  class: auditor
+  candidate_id: r03
+  quality_score: 96
+why:
+  - The previous cheap primary was demoted because it was only minimum-viable, not quality-equivalent.
+  - The new primary passed missing/review, derived-value, and conflict fixtures with explicit machine-readable outputs.
+  - Actual gpt-5.5 candidates were run for comparison; r02 stayed within the quality-equivalent band.
+  - Use r03 when the run prioritizes maximum polish over model-family cost.
+measurement_limits:
+  - Exact CLI telemetry for this rerun is pending because the wrapper reprobe failed argument handling.
+  - Subagent token usage was not exposed by the runner.

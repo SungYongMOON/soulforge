@@ -1,30 +1,85 @@
 workflow_id: page_quantitative_enrichment_v0
 kind: workflow_profile_policy
-status: draft
-calibration_mode: uncalibrated_contract_package
+status: active
+last_calibration_id: cal_20260515_quality_equiv_001
+calibration_mode: subagent_quality_equivalence_public_synthetic
 measurement_policy:
-  quality_source: not_yet_measured
-  telemetry_source: not_yet_measured
+  quality_source: subagent_5_5_candidate_comparison
+  telemetry_source: pending_cli_wrapper_reprobe
   subagent_token_usage_available: false
   telemetry_exact_for_subagent: false
-  cost_confidence: unknown
+  cost_confidence: model_family_proxy_not_exact
 primary_profile:
-  model: null
-  reasoning_effort: null
-  species: null
-  class: null
-  candidate_id: null
-  quality_gate: pending_profile_calibration
-shadow_top_k: []
+  model: gpt-5.4
+  reasoning_effort: medium
+  species: dwarf
+  class: auditor
+  candidate_id: r02
+  quality_gate: pass
+  quality_class: quality_equivalent_pass
+  quality_score: 94
+  baseline_relative_quality: 1.02
+  measured_tokens: null
+  measured_wall_time_seconds: null
+  selection_reason: Quality-equivalent to the gpt-5.5/xhigh baseline on missing, review-required, derived, and conflict fixtures, with stronger explicit gap accounting than the previous cheap primary.
+shadow_top_k:
+  - rank: 2
+    candidate_id: r03
+    model: gpt-5.5
+    reasoning_effort: low
+    species: elf
+    class: auditor
+    quality_gate: pass
+    quality_class: quality_equivalent_pass
+    quality_score: 96
+    baseline_relative_quality: 1.04
+    measured_tokens: null
+    note: Highest observed output quality in this rerun; keep as quality shadow when cost is less important than polish.
+  - rank: 3
+    candidate_id: r05
+    model: gpt-5.5
+    reasoning_effort: xhigh
+    species: elf
+    class: auditor
+    quality_gate: pass
+    quality_class: quality_equivalent_pass
+    quality_score: 92
+    baseline_relative_quality: 1.00
+    measured_tokens: null
+    note: Baseline family anchor; safe but more compact than r02/r03 on follow-up and provenance detail.
+  - rank: 4
+    candidate_id: r04
+    model: gpt-5.5
+    reasoning_effort: medium
+    species: dwarf
+    class: auditor
+    quality_gate: pass
+    quality_class: minimum_viable_pass
+    quality_score: 88
+    measured_tokens: null
+    note: Safe, but downgraded GND reference_role to review_required, causing avoidable status drift from the fixture contract.
+rejected_candidates:
+  - candidate_id: r01
+    model: gpt-5.4
+    reasoning_effort: low
+    species: elf
+    class: auditor
+    quality_gate: pass
+    quality_class: minimum_viable_pass
+    quality_score: 80
+    reason: Too much quality loss versus the 5.5 comparison set; status drift, weaker blocker closure semantics, and less stable machine-readable detail.
 rerun_triggers:
   - page_module_spec_v0_system_contract_schema_changes
   - quantitative_claim_template_changes
   - source_gap_or_owner_followup_contract_changes
   - official_source_packet_collect_v0_source_state_changes
   - xml_harness_composition_v0_readiness_contract_changes
-  - first_profile_calibration_run
+  - calibration_fixture_adds_derived_value_case
+  - calibration_fixture_adds_conflict_case
   - owner_approves_new_quantitative_value_source_policy
+calibration_archive_ref: .workflow/page_quantitative_enrichment_v0/calibrations/cal_20260515_quality_equiv_001/
 notes:
-  - The package now has controlled private helper-card pilots, but it still has no calibrated execution profile.
-  - Bind model, reasoning, party, source-document tooling, and local-file handling per project until public-safe calibration evidence exists.
-  - Do not call this usable or production-ready until profile calibration and independent boundary review pass.
+  - Calibration used public-safe synthetic fixtures only; no private run truth, raw source XML, credentials, or _workspaces material were archived.
+  - Quality-equivalence rerun included actual gpt-5.5 candidate profiles, not only a golden baseline.
+  - CLI telemetry reprobe is still pending because the dynamic wrapper failed argument handling; do not claim exact token or wall-time deltas from this policy.
+  - Use the primary profile for normal pilot execution; use the gpt-5.5 low shadow when maximum output polish matters.
