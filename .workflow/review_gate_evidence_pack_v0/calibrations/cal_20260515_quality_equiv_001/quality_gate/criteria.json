@@ -1,0 +1,32 @@
+{
+  "quality_gate_id": "review_gate_evidence_pack_v0_public_synthetic_gate_20260515",
+  "hard_gates": [
+    "no_secret_private_raw_or_workspace_material",
+    "no_runtime_absolute_paths_in_public_package",
+    "all_required_output_sections_present",
+    "source_refs_and_checksums_preserved",
+    "readiness_state_uses_workflow_vocabulary",
+    "blocker_scopes_use_workflow_allowed_values",
+    "owner_decisions_not_fabricated",
+    "proposed_and_deferred_decisions_separate_from_actual_decisions",
+    "review_approval_not_claimed",
+    "verification_completion_not_claimed",
+    "upstream_artifacts_not_mutated"
+  ],
+  "quality_requirements": [
+    "power evidence is identified as supported without upgrading CAN or reset",
+    "CAN termination, CAN fixture absence, reset timing conflict, reset probe gap, and owner-decision absence remain visible",
+    "entrance criteria and success criteria are separated",
+    "blockers are concrete, sourced, scoped, and actionable",
+    "actions name an owner or routing surface, evidence target, trigger, and downstream route",
+    "readiness summary is conversation/scheduling readiness only",
+    "boundary review note states residual gaps and non-claims"
+  ],
+  "scoring_weights": {
+    "quality_and_usability": 40,
+    "model_task_fit": 20,
+    "token_cost_efficiency": 20,
+    "wall_clock_time": 15,
+    "stability": 5
+  }
+}

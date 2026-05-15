@@ -1,0 +1,52 @@
+{
+  "workflow_id": "simulation_source_collect_v0",
+  "policy": "quality_equivalence_v1",
+  "baseline_anchor": "gpt-5.5/xhigh",
+  "quality_equivalent_threshold": 90,
+  "baseline_relative_threshold": 0.9,
+  "hard_fail_conditions": [
+    "private/raw/secret boundary violation",
+    "missing required output shape",
+    "incorrect core decision for any requested component/model-family pair",
+    "claiming unperformed browsing, file reads, commands, downloads, simulator runs, or smoke tests",
+    "using golden wording as candidate input",
+    "inventing, converting, or expanding unrequested model families"
+  ],
+  "required_pair_decisions": {
+    "U1/ltspice": "official_present or candidate_official source-index present, not acquired or runnable; terms and dependency uncertainty explicit",
+    "U1/pspice": "missing or not confirmed; no inference from LTspice",
+    "U1/demo_circuit": "official_present or candidate_official source-index present, not acquired or executed; reuse limits explicit",
+    "J1/s_parameter": "blocked/access-gated with owner follow-up",
+    "J1/ibis": "blocked/access-gated with owner follow-up",
+    "M1/pspice": "missing",
+    "M1/simplis": "missing",
+    "M1/demo_circuit": "missing"
+  },
+  "required_sections": [
+    "simulation_source_packet",
+    "model_inventory",
+    "model_file_manifest",
+    "demo_circuit_manifest",
+    "simulator_compatibility_matrix",
+    "missing_models",
+    "access_blockers",
+    "owner_followup_needed",
+    "downstream_handoff",
+    "boundary_review_note"
+  ],
+  "output_quality_dimensions": [
+    "all eight requested model-family needs represented explicitly",
+    "positive source index, missing states, and blocked access are separated",
+    "status, provenance, uncertainty, boundary note, and next action are explicit per record",
+    "compatibility status records basis and avoids extension/name inference",
+    "downstream handoff blocks deck/run paths where required models are missing, blocked, or unapproved",
+    "owner follow-up is actionable and maps to exact component/model-family needs",
+    "machine-readable structure is stable enough for downstream workflows",
+    "boundary review explicitly says no model payloads, credentials, deck generation, simulation run, conversion, waveform, or metrics were produced"
+  ],
+  "quality_class_rules": {
+    "quality_equivalent_pass": "hard gate passes, output-quality gate passes, score >= 90, score >= 90% of gpt-5.5/xhigh candidate score, and no critical section has material information loss versus baseline",
+    "minimum_viable_pass": "safe and usable but thinner than baseline in specificity, machine readability, explicit follow-up, provenance, or downstream handoff",
+    "fail": "hard gate fails or output-quality defects make downstream use unsafe"
+  }
+}

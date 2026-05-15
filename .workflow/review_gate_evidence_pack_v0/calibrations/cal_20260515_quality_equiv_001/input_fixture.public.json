@@ -1,0 +1,41 @@
+{
+  "fixture_id": "SYNTH_REVIEW_DEMO",
+  "public_safe": true,
+  "project_binding": {
+    "project_code": "SYNTH_REVIEW_DEMO",
+    "review_family": "TRR_like",
+    "secondary_lenses": ["PDR_like"],
+    "owner_surface": "synthetic_owner_board",
+    "approval_claim_allowed": false,
+    "verification_completion_claim_allowed": false,
+    "upstream_mutation_allowed": false
+  },
+  "review_scope_refs": {
+    "scope_id": "synthetic_ctrl_board_harness_trr",
+    "scope_summary": "Review readiness for holding a TRR-style conversation about a simulated controller-board XML harness and verification-plan handoff."
+  },
+  "sources": [
+    {"ref": "TM-001", "checksum_sha256": "sha256:demo-tm001", "owning_workflow_id": "page_module_trace_matrix_v0", "summary": "Power supported; CAN partial; reset conflicting."},
+    {"ref": "EAM-001", "checksum_sha256": "sha256:demo-eam001", "owning_workflow_id": "page_module_trace_matrix_v0", "summary": "Power authoritative; CAN informative; reset proposed only."},
+    {"ref": "ICP-001", "checksum_sha256": "sha256:demo-icp001", "owning_workflow_id": "interface_control_and_harness_readiness_v0", "summary": "PWR stable; CAN_TERM review_required; RESET conflicting."},
+    {"ref": "HRM-001", "checksum_sha256": "sha256:demo-hrm001", "owning_workflow_id": "interface_control_and_harness_readiness_v0", "summary": "Smoke harness available; CAN loopback fixture absent; reset timing probe not configured."},
+    {"ref": "VPS-001", "checksum_sha256": "sha256:demo-vps001", "owning_workflow_id": "verification_plan_from_page_contracts_v0", "summary": "VT-PWR-001 ready; VT-CAN-002 blocked on fixture; VT-RST-003 blocked on timing source conflict."},
+    {"ref": "TRR-001", "checksum_sha256": "sha256:demo-trr001", "owning_workflow_id": "verification_plan_from_page_contracts_v0", "summary": "Ready_with_named_caveats only if CAN/reset blockers are named."},
+    {"ref": "SGF-001", "checksum_sha256": "sha256:demo-sgf001", "owning_workflow_id": "source_gap_followup_packet_v0", "summary": "GAP-CAN-TERM and GAP-RST-TIMING open."},
+    {"ref": "ODR-001", "checksum_sha256": "sha256:demo-odr001", "owning_workflow_id": "synthetic_owner_board", "summary": "No recorded owner decision; reset proposal exists but is not accepted."},
+    {"ref": "RR-001", "checksum_sha256": "sha256:demo-rr001", "owning_workflow_id": "synthetic_owner_board", "summary": "CAN fixture absence may block TRR execution; reset conflict may weaken confidence."}
+  ],
+  "required_outputs": [
+    "review_gate_packet",
+    "source_index",
+    "evidence_matrix",
+    "entrance_criteria_checklist",
+    "success_criteria_checklist",
+    "review_blockers",
+    "action_item_register",
+    "decision_summary",
+    "review_gate_provenance",
+    "readiness_summary",
+    "boundary_review_note"
+  ]
+}

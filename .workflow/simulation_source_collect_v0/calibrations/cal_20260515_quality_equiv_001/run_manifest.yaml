@@ -1,0 +1,51 @@
+calibration_id: cal_20260515_quality_equiv_001
+workflow_id: simulation_source_collect_v0
+run_date: 2026-05-15
+mode: cli_isolated_quality_equivalence_rerun
+public_safe: true
+fixture_ref: input_fixture.public.json
+prior_calibration_id: 20260515T000000Z_staged_public_fixture
+prior_primary_candidate_id: stage_b_dwarf_auditor_gpt-5.3-codex_low
+policy_change_under_test: quality_equivalence_requires_gpt_5_5_candidate_comparison
+candidate_matrix:
+  species: dwarf
+  class: auditor
+  candidates:
+    - candidate_id: qe_dwarf_auditor_gpt-5.3-codex_low
+      model: gpt-5.3-codex
+      reasoning_effort: low
+      comparison_role: prior_primary_rerun
+    - candidate_id: qe_dwarf_auditor_gpt-5.4_low
+      model: gpt-5.4
+      reasoning_effort: low
+      comparison_role: prior_quality_shadow_rerun
+    - candidate_id: qe_dwarf_auditor_gpt-5.4-mini_low
+      model: gpt-5.4-mini
+      reasoning_effort: low
+      comparison_role: prior_cheap_shadow_rerun
+    - candidate_id: qe_dwarf_auditor_gpt-5.3-codex-spark_low
+      model: gpt-5.3-codex-spark
+      reasoning_effort: low
+      comparison_role: prior_caution_shadow_rerun
+    - candidate_id: qe_dwarf_auditor_gpt-5.5_low
+      model: gpt-5.5
+      reasoning_effort: low
+      comparison_role: required_gpt_5_5_candidate
+    - candidate_id: qe_dwarf_auditor_gpt-5.5_medium
+      model: gpt-5.5
+      reasoning_effort: medium
+      comparison_role: required_gpt_5_5_candidate
+    - candidate_id: qe_dwarf_auditor_gpt-5.5_xhigh
+      model: gpt-5.5
+      reasoning_effort: xhigh
+      comparison_role: quality_baseline_anchor_and_required_candidate
+measurement_policy:
+  quality_source: cli_isolated_candidate_matrix
+  telemetry_source: cli_same_runs_jsonl
+  subagent_token_usage_available: false
+  telemetry_exact_for_subagent: false
+  cost_confidence: relative_cli_proxy
+boundary_assumptions:
+  - Public-safe synthetic fixture only.
+  - No private run truth, raw model payloads, credentials, account-bound downloads, or _workspaces material used.
+  - Candidate prompts did not include golden output or evaluator scoring criteria.
