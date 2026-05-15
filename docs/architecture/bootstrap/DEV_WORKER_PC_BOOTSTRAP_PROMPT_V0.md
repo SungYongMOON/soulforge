@@ -95,10 +95,12 @@ notes:
 Use the platform-appropriate `npm` command. On Windows PowerShell, use `npm.cmd` if script execution policy blocks `npm`.
 
 ```bash
-npm run guild-hall:doctor -- --profile owner-with-state
-npm run guild-hall:doctor -- --profile owner-with-state --remote
+npm run guild-hall:doctor -- --profile public-only --remote
+npm run guild-hall:dev-worker:preflight -- --local-root "<actual Soulforge root>" --workmeta-root "<actual _workmeta root>" --private-state-root "<actual private-state root>" --json
 npm run validate:dev-worker
 ```
+
+The dev-worker preflight checks the public repo and any supplied `_workmeta` / `private-state` companion repos directly. Full `owner-with-state` doctor readiness is not required for this branch-producing lane unless the assigned task separately needs gateway, town-crier, mailbox, or other owner-operator runtime env.
 
 ### Automation Render
 
@@ -113,8 +115,8 @@ Keep the rendered automation `PAUSED` until the owner explicitly activates this 
 ### First Manual Smoke
 
 ```bash
-npm run guild-hall:dev-worker:preflight -- --local-root "<actual Soulforge root>" --workmeta-root "<actual Soulforge root>/_workmeta" --private-state-root "<actual Soulforge root>/private-state" --skip-doctor --json
-npm run guild-hall:dev-worker:claim -- --local-root "<actual Soulforge root>" --workmeta-root "<actual Soulforge root>/_workmeta" --json
+npm run guild-hall:dev-worker:preflight -- --local-root "<actual Soulforge root>" --workmeta-root "<actual _workmeta root>" --private-state-root "<actual private-state root>" --json
+npm run guild-hall:dev-worker:claim -- --local-root "<actual Soulforge root>" --workmeta-root "<actual _workmeta root>" --json
 ```
 
 The smoke may return `no_task`; that is acceptable if no ready packet exists.

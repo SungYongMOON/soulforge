@@ -23,7 +23,7 @@ const statusFilePath = path.join(repoRoot, "guild_hall", "state", "doctor", "sta
 const registrySkillsRoot = path.join(repoRoot, ".registry", "skills");
 const nodeIdentityPath = path.join(repoRoot, "guild_hall", "state", "local", "node_identity.yaml");
 const doctorSchemaVersion = "bootstrap.doctor.v0";
-const supportedNodeRoles = new Set(["work_pc", "tool_pc", "portable_dev_pc", "always_on_node"]);
+const supportedNodeRoles = new Set(["work_pc", "tool_pc", "portable_dev_pc", "dev_worker_pc", "always_on_node"]);
 
 async function main() {
   const args = parseArgs(process.argv.slice(2));

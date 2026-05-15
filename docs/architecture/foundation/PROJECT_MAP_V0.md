@@ -111,7 +111,7 @@ gateway/mail/manual input
 ## PC / node 역할 지도
 
 - 여러 PC 운영의 상세 owner 는 `docs/architecture/workspace/MULTI_PC_DEVELOPMENT_V0.md` 다.
-- current role 은 `work_pc`, `tool_pc`, `portable_dev_pc`, `always_on_node` 로 읽는다.
+- current role 은 `work_pc`, `tool_pc`, `portable_dev_pc`, `dev_worker_pc`, `always_on_node` 로 읽는다.
 - 실제 장비명, 사용자명, 절대경로, 설치 tool path 는 `guild_hall/state/local/node_identity.yaml` 같은 local-only runtime identity 에 둔다.
 - 24시간 운영은 `docs/architecture/guild_hall/NIGHT_WATCH_AUTOMATION_V0.md` 가, 자동사냥 routing 은 `docs/architecture/workspace/AUTOHUNT_MODEL.md` 가 각각 소유한다.
 

@@ -4,6 +4,11 @@ import path from "node:path";
 import test from "node:test";
 import assert from "node:assert/strict";
 import { normalizeTaskPacket, selectTask } from "./claim_task.mjs";
+import { DEFAULT_DOCTOR_COMMAND } from "./preflight_repo_sync.mjs";
+
+test("preflight default doctor stays lane-local and public-safe", () => {
+  assert.equal(DEFAULT_DOCTOR_COMMAND, "npm run guild-hall:doctor -- --profile public-only --remote");
+});
 
 test("normalizeTaskPacket accepts a minimal ready packet", () => {
   const task = normalizeTaskPacket(
