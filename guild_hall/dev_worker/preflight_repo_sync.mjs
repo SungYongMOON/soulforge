@@ -15,7 +15,7 @@ import { normalizeRepoPath, pathExistsSync } from "../shared/io.mjs";
 const AUTOMATION_ID = "soulforge-dev-worker";
 const DEFAULT_SYNC_RETRY_WAITS_MS = [15000, 45000];
 const DEFAULT_DOCTOR_RETRY_WAIT_MS = 30000;
-const DEFAULT_DOCTOR_COMMAND = "npm run guild-hall:doctor -- --profile owner-with-state --remote";
+export const DEFAULT_DOCTOR_COMMAND = "npm run guild-hall:doctor -- --profile public-only --remote";
 
 export async function runPreflight(options = {}) {
   const localRoot = path.resolve(options.localRoot ?? process.cwd());

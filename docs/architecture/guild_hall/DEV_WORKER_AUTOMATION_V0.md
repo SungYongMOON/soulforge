@@ -87,6 +87,7 @@ Eligible statuses are `ready`, `queued`, and `open`. Completed, blocked, claimed
 ## Run Flow
 
 1. Preflight sync checks public `Soulforge` and optional companion repos.
+   The default doctor command is `public-only --remote` because this lane does not require gateway, town-crier, mailbox, or always-on operator env files; companion repo readiness is checked directly by the dev-worker preflight.
 2. Claim helper selects the first eligible task packet by path order.
 3. Worker creates `codex/<node-id>-<task-slug>` from `origin/main`.
 4. Worker reads only the packet and allowed context needed for the task.

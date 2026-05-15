@@ -17,6 +17,11 @@
 - Defined the `dev_worker` policy surface, bootstrap prompt, task packet shape, local automation render, preflight, claim helper, and validation test.
 - Updated multi-PC and guild_hall docs so worker PCs may push review branches while `main` merge authority remains with the reviewer/supervisor lane.
 
+### Revision `working` - Dev worker preflight doctor scoped
+
+- Scoped the dev-worker preflight default doctor command to `public-only --remote`, leaving `_workmeta` and `private-state` readiness to the lane-specific companion repo sync checks.
+- Added `dev_worker_pc` to the local node identity role allow-list and updated the bootstrap prompt so branch-worker setup does not require gateway, mailbox, or town-crier operator env files.
+
 ### Revision `working` - Always-on Codex token budget lowered
 
 - Lowered the tracked `Soulforge Night Watch Pipeline` default from `gpt-5.4`/`xhigh` to `gpt-5.2`/`medium` so future local renders do not default to the more expensive frontier model for advisory checks.
