@@ -1,0 +1,5 @@
+{"candidate_id":"C01","model":"gpt-5.4","reasoning_effort":"low","species":"human","class":"auditor","output_ref":"outputs/C01_gpt-5.4_low_human_auditor.json"}
+{"candidate_id":"C02","model":"gpt-5.4","reasoning_effort":"medium","species":"human","class":"auditor","output_ref":"outputs/C02_gpt-5.4_medium_human_auditor.json"}
+{"candidate_id":"C03","model":"gpt-5.5","reasoning_effort":"low","species":"human","class":"auditor","output_ref":"outputs/C03_gpt-5.5_low_human_auditor.json"}
+{"candidate_id":"C04","model":"gpt-5.5","reasoning_effort":"medium","species":"human","class":"auditor","output_ref":"outputs/C04_gpt-5.5_medium_human_auditor.json"}
+{"candidate_id":"C05","model":"gpt-5.5","reasoning_effort":"xhigh","species":"human","class":"auditor","output_ref":"outputs/C05_gpt-5.5_xhigh_human_auditor.json"}

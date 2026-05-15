@@ -1,0 +1,11 @@
+{
+  "candidate_id": "C05",
+  "model": "gpt-5.5",
+  "reasoning_effort": "xhigh",
+  "usage_source": "codex_cli_ephemeral_read_only",
+  "input_tokens": 17228,
+  "cached_input_tokens": 7552,
+  "output_tokens": 5612,
+  "reasoning_output_tokens": 516,
+  "wall_time_seconds": 104.6
+}

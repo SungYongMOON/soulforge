@@ -1,86 +1,96 @@
 workflow_id: simulation_run_verify_v0
 kind: workflow_profile_policy
 status: active
-last_calibration_id: cal_20260515_public_synthetic
-calibration_mode: staged_public_safe_synthetic
+last_calibration_id: cal_20260515_quality_equiv_001
+calibration_mode: quality_equiv_public_safe_cli_isolated
 measurement_policy:
-  quality_source: subagent_staged_matrix
-  telemetry_source: cli_passed_candidates_only
+  quality_source: cli_isolated_candidate_matrix
+  telemetry_source: same_cli_isolated_candidate_runs
   subagent_token_usage_available: false
   telemetry_exact_for_subagent: false
   cost_confidence: relative_not_exact
 primary_profile:
-  model: gpt-5.4
+  model: gpt-5.5
   reasoning_effort: low
   species: human
   class: auditor
-  candidate_id: c_stage_b_gpt54_low_human_auditor
+  candidate_id: qe_gpt55_low_human_auditor
   quality_gate: pass
-  quality_score: 94
+  quality_class: quality_equivalent_pass
+  quality_score: 96
+  baseline_relative_quality: 1.0
   cli_proxy_telemetry:
-    input_tokens: 13560
-    cached_input_tokens: 4480
-    output_tokens: 686
-    reasoning_output_tokens: 17
-    wall_seconds: 17.11
-  selection_rationale: Best quality among measured low-cost candidates; strongest owner-followup and boundary separation while staying low reasoning.
+    input_tokens: 17086
+    cached_input_tokens: 7552
+    output_tokens: 932
+    reasoning_output_tokens: 18
+    wall_seconds: 21.486
+  selection_rationale: Quality-equivalent to the gpt-5.5/xhigh baseline with no material information loss, lower output/reasoning tokens than xhigh, and the lowest measured wall time in the revised comparison.
 shadow_top_k:
   - rank: 2
-    candidate_id: c_stage_b_gpt53_codex_low_human_auditor
-    model: gpt-5.3-codex
-    reasoning_effort: low
+    candidate_id: qe_gpt55_xhigh_human_auditor
+    model: gpt-5.5
+    reasoning_effort: xhigh
     species: human
     class: auditor
     quality_gate: pass
-    quality_score: 91
+    quality_class: quality_equivalent_pass
+    quality_score: 96
+    baseline_relative_quality: 1.0
     cli_proxy_telemetry:
-      input_tokens: 13120
-      cached_input_tokens: 3456
-      output_tokens: 614
-      reasoning_output_tokens: 10
-      wall_seconds: 14.921
-    note: Strong conservative packet shape; slightly weaker owner-review followup than primary.
+      input_tokens: 17086
+      cached_input_tokens: 7552
+      output_tokens: 1284
+      reasoning_output_tokens: 516
+      wall_seconds: 27.879
+    note: Baseline anchor; no material quality gain over gpt-5.5/low on this fixture.
   - rank: 3
-    candidate_id: c_stage_a_gpt54mini_low_human_auditor
-    model: gpt-5.4-mini
+    candidate_id: qe_gpt55_medium_human_auditor
+    model: gpt-5.5
+    reasoning_effort: medium
+    species: human
+    class: auditor
+    quality_gate: pass
+    quality_class: quality_equivalent_pass
+    quality_score: 95
+    baseline_relative_quality: 0.99
+    cli_proxy_telemetry:
+      input_tokens: 17086
+      cached_input_tokens: 7552
+      output_tokens: 951
+      reasoning_output_tokens: 92
+      wall_seconds: 25.355
+    note: Quality-equivalent; boundary note is less structured than the selected low-effort profile.
+  - rank: 4
+    candidate_id: qe_gpt54_low_human_auditor
+    model: gpt-5.4
     reasoning_effort: low
     species: human
     class: auditor
     quality_gate: pass
-    quality_score: 89
+    quality_class: quality_equivalent_pass
+    quality_score: 94
+    baseline_relative_quality: 0.98
     cli_proxy_telemetry:
-      input_tokens: 13208
-      cached_input_tokens: 2432
-      output_tokens: 604
-      reasoning_output_tokens: 35
-      wall_seconds: 11.188
-    note: Fast acceptable fallback; Case B owner acceptance followup was thinner in the subagent run.
-  - rank: 4
-    candidate_id: c_stage_b_gpt53_codex_spark_high_human_auditor
-    model: gpt-5.3-codex-spark
-    reasoning_effort: high
-    species: human
-    class: auditor
-    quality_gate: pass
-    quality_score: 87
-    cli_proxy_telemetry:
-      input_tokens: 13135
-      cached_input_tokens: 7168
-      output_tokens: 2986
-      reasoning_output_tokens: 2441
-      wall_seconds: 8.169
-    note: Fast wall-clock probe, but reasoning/output tokens are high for this workflow.
+      input_tokens: 15701
+      cached_input_tokens: 7552
+      output_tokens: 1239
+      reasoning_output_tokens: 23
+      wall_seconds: 26.746
+    note: Prior primary remains quality-equivalent, but output was less directly machine-readable and measured output tokens/wall time were worse than gpt-5.5/low.
 rerun_triggers:
   - result_verdict_schema_changes
   - measurement_definition_contract_changes
   - run_blocker_policy_changes
   - actual_project_native_executed_run_fixture_available
   - owner_approved_claim_bearing_result_case_available
+  - dedicated_subagent_runner_available_for_full_matrix
 measurement_limitations:
   - Calibration used public-safe synthetic blocked and synthetic-stub cases, not private project run truth.
-  - Stage A was reduced by runtime subagent concurrency limits; untested species/classes remain shadow candidates only.
-  - CLI telemetry is proxy telemetry from separate read-only probes, not exact usage from subagent candidate runs.
-calibration_archive_ref: .workflow/simulation_run_verify_v0/calibrations/cal_20260515_public_synthetic/
+  - Candidate generation used ephemeral codex exec CLI runs because no dedicated subagent runner was exposed in this runtime.
+  - CLI telemetry is exact for these CLI candidate runs, not exact subagent-run telemetry.
+  - The full default model/species/class matrix and provider price-by-model comparison were not measured.
+calibration_archive_ref: .workflow/simulation_run_verify_v0/calibrations/cal_20260515_quality_equiv_001/
 notes:
   - Use the primary profile for bounded workflow execution unless a project-local profile override is explicitly justified.
-  - Keep pass/fail verdicts separate from owner acceptance and block verdicts when named measurements or rules are missing.
+  - Keep pass/fail verdicts separate from owner acceptance and blocked-run states when named measurements or rules are missing.

@@ -1,0 +1,5 @@
+{"candidate_id":"C01","telemetry_source":"codex_cli_ephemeral_read_only","input_tokens":15843,"cached_input_tokens":13184,"output_tokens":5037,"reasoning_output_tokens":32,"wall_time_seconds":96.89}
+{"candidate_id":"C02","telemetry_source":"codex_cli_ephemeral_read_only","input_tokens":15843,"cached_input_tokens":13184,"output_tokens":5516,"reasoning_output_tokens":22,"wall_time_seconds":105.35}
+{"candidate_id":"C03","telemetry_source":"codex_cli_ephemeral_read_only","input_tokens":17228,"cached_input_tokens":7552,"output_tokens":3956,"reasoning_output_tokens":16,"wall_time_seconds":77.49}
+{"candidate_id":"C04","telemetry_source":"codex_cli_ephemeral_read_only","input_tokens":17228,"cached_input_tokens":7552,"output_tokens":3545,"reasoning_output_tokens":24,"wall_time_seconds":69.70}
+{"candidate_id":"C05","telemetry_source":"codex_cli_ephemeral_read_only","input_tokens":17228,"cached_input_tokens":7552,"output_tokens":5612,"reasoning_output_tokens":516,"wall_time_seconds":104.60}

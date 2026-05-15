@@ -1,0 +1,58 @@
+calibration_id: cal_20260515_quality_equiv_001
+workflow_id: verification_plan_from_page_contracts_v0
+run_date: 2026-05-15
+policy_under_test: revised_quality_equivalence_policy
+public_safe: true
+fixture_ref: input_fixture.public.json
+runtime:
+  isolated_candidate_runner: codex_cli_ephemeral_read_only
+  separate_spawn_agent_tool_available: false
+  shell: powershell
+  codex_cli_version: codex-cli 0.129.0
+candidate_matrix:
+  - candidate_id: C01
+    model: gpt-5.4
+    reasoning_effort: low
+    species: human
+    class: auditor
+    output_ref: subagent_matrix/outputs/C01_gpt-5.4_low_human_auditor.json
+  - candidate_id: C02
+    model: gpt-5.4
+    reasoning_effort: medium
+    species: human
+    class: auditor
+    output_ref: subagent_matrix/outputs/C02_gpt-5.4_medium_human_auditor.json
+  - candidate_id: C03
+    model: gpt-5.5
+    reasoning_effort: low
+    species: human
+    class: auditor
+    output_ref: subagent_matrix/outputs/C03_gpt-5.5_low_human_auditor.json
+  - candidate_id: C04
+    model: gpt-5.5
+    reasoning_effort: medium
+    species: human
+    class: auditor
+    output_ref: subagent_matrix/outputs/C04_gpt-5.5_medium_human_auditor.json
+  - candidate_id: C05
+    model: gpt-5.5
+    reasoning_effort: xhigh
+    species: human
+    class: auditor
+    output_ref: subagent_matrix/outputs/C05_gpt-5.5_xhigh_human_auditor.json
+baseline_candidate_id: C05
+previous_policy_ref: ../../profile_policy.yaml before cal_20260515_quality_equiv_001 update
+previous_primary:
+  model: gpt-5.4
+  reasoning_effort: low
+  species: human
+  class: auditor
+  candidate_id: C01
+  quality_score: 88
+  quality_class: old_policy_quality_gate_pass
+result_status: quality_equivalent_calibrated
+selected_primary_candidate_id: C04
+notes:
+  - The archive uses the contract's subagent_matrix path for matrix outputs, but quality_source is labeled as codex_cli_ephemeral_isolated_matrix because no separate spawn-agent tool was available in this runtime.
+  - Candidate prompts used only the public-safe synthetic fixture and explicitly forbade file reads, commands, verification execution, pass/fail, source acquisition, simulation execution, test execution, approval, or acceptance claims.
+  - Exact subagent telemetry is not available; CLI run usage is recorded as proxy telemetry.

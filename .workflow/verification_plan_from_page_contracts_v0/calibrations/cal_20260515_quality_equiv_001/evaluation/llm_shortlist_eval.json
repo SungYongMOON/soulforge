@@ -1,0 +1,15 @@
+{
+  "evaluation_method": "manual checklist over actual candidate outputs",
+  "shortlist": ["C04", "C05"],
+  "rejected_for_primary": {
+    "C01": "usable but below revised quality-equivalence threshold and weaker than C05 on specificity and handoff detail",
+    "C02": "near miss but score is below 90 and method/future-route detail is materially thinner than C05",
+    "C03": "gpt-5.5 low is usable but omits a separate simulation owner followup and falls below 90 percent of C05"
+  },
+  "primary_decision": "C04 is selected over C05 because both are quality_equivalent_pass and C04 has materially lower output tokens, reasoning tokens, and wall time while preserving required gaps, followups, provenance, and boundary notes.",
+  "gpt_5_5_candidate_comparison": {
+    "C03_low": "minimum_viable_pass",
+    "C04_medium": "quality_equivalent_pass",
+    "C05_xhigh": "quality_equivalent_pass and baseline"
+  }
+}

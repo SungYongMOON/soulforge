@@ -1,0 +1,71 @@
+{
+  "ranking": [
+    {
+      "rank": 1,
+      "candidate_id": "C04",
+      "model": "gpt-5.5",
+      "reasoning_effort": "medium",
+      "species": "human",
+      "class": "auditor",
+      "quality_class": "quality_equivalent_pass",
+      "quality_score": 91,
+      "baseline_relative_quality": 0.93,
+      "input_tokens": 17228,
+      "cached_input_tokens": 7552,
+      "output_tokens": 3545,
+      "reasoning_output_tokens": 24,
+      "wall_time_seconds": 69.70,
+      "selection_reason": "lowest-cost and fastest quality-equivalent profile in this matrix"
+    },
+    {
+      "rank": 2,
+      "candidate_id": "C05",
+      "model": "gpt-5.5",
+      "reasoning_effort": "xhigh",
+      "species": "human",
+      "class": "auditor",
+      "quality_class": "quality_equivalent_pass",
+      "quality_score": 98,
+      "baseline_relative_quality": 1.00,
+      "input_tokens": 17228,
+      "cached_input_tokens": 7552,
+      "output_tokens": 5612,
+      "reasoning_output_tokens": 516,
+      "wall_time_seconds": 104.60,
+      "selection_reason": "baseline/ceiling shadow for high-stakes boundary-sensitive packets"
+    },
+    {
+      "rank": 3,
+      "candidate_id": "C02",
+      "model": "gpt-5.4",
+      "reasoning_effort": "medium",
+      "species": "human",
+      "class": "auditor",
+      "quality_class": "minimum_viable_pass",
+      "quality_score": 89,
+      "baseline_relative_quality": 0.91
+    },
+    {
+      "rank": 4,
+      "candidate_id": "C03",
+      "model": "gpt-5.5",
+      "reasoning_effort": "low",
+      "species": "human",
+      "class": "auditor",
+      "quality_class": "minimum_viable_pass",
+      "quality_score": 86,
+      "baseline_relative_quality": 0.88
+    },
+    {
+      "rank": 5,
+      "candidate_id": "C01",
+      "model": "gpt-5.4",
+      "reasoning_effort": "low",
+      "species": "human",
+      "class": "auditor",
+      "quality_class": "minimum_viable_pass",
+      "quality_score": 84,
+      "baseline_relative_quality": 0.86
+    }
+  ]
+}

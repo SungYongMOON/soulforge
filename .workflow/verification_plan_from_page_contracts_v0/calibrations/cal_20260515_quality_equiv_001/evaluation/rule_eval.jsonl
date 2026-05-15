@@ -1,0 +1,5 @@
+{"candidate_id":"C01","required_shape":true,"public_safe":true,"canonical_methods":true,"canonical_readiness":true,"all_trace_rows_covered":true,"all_required_followups_explicit":true,"no_execution_or_acceptance_claims":true}
+{"candidate_id":"C02","required_shape":true,"public_safe":true,"canonical_methods":true,"canonical_readiness":true,"all_trace_rows_covered":true,"all_required_followups_explicit":true,"no_execution_or_acceptance_claims":true}
+{"candidate_id":"C03","required_shape":true,"public_safe":true,"canonical_methods":true,"canonical_readiness":true,"all_trace_rows_covered":true,"all_required_followups_explicit":false,"no_execution_or_acceptance_claims":true}
+{"candidate_id":"C04","required_shape":true,"public_safe":true,"canonical_methods":true,"canonical_readiness":true,"all_trace_rows_covered":true,"all_required_followups_explicit":true,"no_execution_or_acceptance_claims":true}
+{"candidate_id":"C05","required_shape":true,"public_safe":true,"canonical_methods":true,"canonical_readiness":true,"all_trace_rows_covered":true,"all_required_followups_explicit":true,"no_execution_or_acceptance_claims":true}

@@ -65,6 +65,11 @@
 - Promoted `profile_policy.yaml` from draft to active with `gpt-5.4 / low / elf / auditor` as the primary profile and `gpt-5.4 / medium / dwarf / auditor` as the stability shadow.
 - Archived the calibration under `.workflow/page_quantitative_enrichment_v0/calibrations/cal_20260515_synth_qe_001/`, including fixture, quality gate, candidate summaries, CLI proxy telemetry, final ranking, and recommendation.
 - Added a public-safe history note for the profile decision while keeping raw project truth, `_workspaces` material, credentials, and private payloads out of public workflow canon.
+
+### Revision `working` - Quality-equivalence follow-up archives integrated
+
+- Added follow-up public-safe `quality_equiv` calibration archives for interface control, review gate, simulation source, simulation run verify, and verification planning where later candidate comparisons were preserved as public-safe synthetic evidence.
+- Recalibrated `.workflow/simulation_run_verify_v0/` under the later quality-equivalence pass and updated its primary profile from `gpt-5.4 / low / human / auditor` to `gpt-5.5 / low / human / auditor`, while keeping `gpt-5.5 / xhigh` as the evaluator ceiling and preserving the blocked-vs-failed / execution-vs-acceptance boundaries.
 - Recalibrated after tightening the local `workflow-optimizer` skill's quality-equivalence policy: demoted the cheap `gpt-5.4 / low / elf / auditor` recommendation, selected `gpt-5.4 / medium / dwarf / auditor` as the quality-equivalent primary, and kept `gpt-5.5 / low / elf / auditor` as the quality shadow.
 
 ### Revision `working` - Review gate evidence pack workflow added

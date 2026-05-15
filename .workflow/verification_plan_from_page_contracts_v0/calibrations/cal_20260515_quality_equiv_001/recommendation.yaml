@@ -1,0 +1,50 @@
+workflow_id: verification_plan_from_page_contracts_v0
+calibration_id: cal_20260515_quality_equiv_001
+status: quality_equivalent_calibrated
+recommended_primary:
+  model: gpt-5.5
+  reasoning_effort: medium
+  species: human
+  class: auditor
+  candidate_id: C04
+  quality_class: quality_equivalent_pass
+  quality_score: 91
+  baseline_relative_quality: 0.93
+  telemetry_source: codex_cli_ephemeral_read_only
+  input_tokens: 17228
+  cached_input_tokens: 7552
+  output_tokens: 3545
+  reasoning_output_tokens: 24
+  wall_time_seconds: 69.70
+shadow_profiles:
+  - rank: 2
+    model: gpt-5.5
+    reasoning_effort: xhigh
+    species: human
+    class: auditor
+    candidate_id: C05
+    quality_class: quality_equivalent_pass
+    quality_score: 98
+    baseline_relative_quality: 1.00
+    use_when: high-stakes packets need maximum gap granularity, planned method coverage, and boundary detail
+  - rank: 3
+    model: gpt-5.4
+    reasoning_effort: medium
+    species: human
+    class: auditor
+    candidate_id: C02
+    quality_class: minimum_viable_pass
+    quality_score: 89
+    baseline_relative_quality: 0.91
+    use_when: shadow only; not primary under revised quality-equivalence policy
+old_vs_new:
+  previous_primary: gpt-5.4/low/human/auditor
+  previous_primary_quality_score: 88
+  previous_primary_new_quality_class: minimum_viable_pass
+  new_primary: gpt-5.5/medium/human/auditor
+  new_primary_quality_class: quality_equivalent_pass
+telemetry_limitations:
+  - Candidate quality and telemetry both came from ephemeral Codex CLI runs because no separate spawn-agent tool was exposed.
+  - Exact subagent token usage is unavailable.
+  - Cost confidence is relative CLI proxy telemetry, not billing-grade cost.
+  - Stability is single-run only.

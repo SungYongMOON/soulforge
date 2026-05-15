@@ -1,0 +1,77 @@
+{
+  "fixture_id": "synthetic_public_verification_plan_fixture_20260515_001",
+  "workflow_id": "verification_plan_from_page_contracts_v0",
+  "public_safe": true,
+  "binding": {
+    "project_code": "SYN_PUBLIC_CAL",
+    "output_root": "synthetic_public_archive_only",
+    "planning_only": true,
+    "verification_execution_allowed": false
+  },
+  "approved_refs": [
+    {"artifact_kind": "seed_matrix", "ref": "SYN-SEED-001", "checksum_sha256": "1111"},
+    {"artifact_kind": "trace_matrix", "ref": "SYN-TRACE-001", "checksum_sha256": "2222"},
+    {"artifact_kind": "evidence_authority_map", "ref": "SYN-AUTH-001", "checksum_sha256": "3333"},
+    {"artifact_kind": "quantitative_packet", "ref": "SYN-QUANT-001", "checksum_sha256": "4444"},
+    {"artifact_kind": "simulation_source_packet", "ref": "SYN-SIM-001", "checksum_sha256": "5555"},
+    {"artifact_kind": "interface_control_packet", "ref": "SYN-IFC-001", "checksum_sha256": "6666"},
+    {"artifact_kind": "harness_packet", "ref": "SYN-HAR-001", "checksum_sha256": "7777"},
+    {"artifact_kind": "configuration_baseline_ref", "ref": "SYN-CFG-A", "checksum_sha256": "8888"},
+    {"artifact_kind": "configuration_baseline_ref", "ref": "SYN-CFG-B", "checksum_sha256": "9999"}
+  ],
+  "trace_rows": [
+    {
+      "trace_id": "TR-SYN-001",
+      "page_asset_id": "PWR-01",
+      "scope_key": "REG-3V3",
+      "claim_kind": "quantitative_constraint",
+      "field_path": "rail.vout",
+      "claim": "VOUT_3V3 nominal 3.3 V tolerance +/-5%",
+      "authority": "approved_source SRC-PSU-DS-001 plus quantitative packet value",
+      "conflict": false
+    },
+    {
+      "trace_id": "TR-SYN-002",
+      "page_asset_id": "PWR-01",
+      "scope_key": "VIN-HARNESS",
+      "claim_kind": "harness_connection_claim",
+      "interface_scope": "J1.1_to_U1.VIN",
+      "harness_status": "review_required",
+      "missing": ["owner_decision", "test_fixture_procedure"]
+    },
+    {
+      "trace_id": "TR-SYN-003",
+      "page_asset_id": "PWR-01",
+      "scope_key": "STARTUP-SIM",
+      "claim_kind": "pspice_readiness",
+      "claim": "startup transient should be simulated before execution",
+      "missing": ["simulation_model", "simulation_deck", "stimuli", "measurement_criteria"],
+      "resource_policy": "simulation allowed only after model/deck/stimuli/measurement criteria exist"
+    },
+    {
+      "trace_id": "TR-SYN-004",
+      "page_asset_id": "LED-02",
+      "scope_key": "STATUS-LED",
+      "claim_kind": "function_claim",
+      "claim": "status LED indicates regulator enabled",
+      "missing": ["official_source_ref", "owner_intent_decision"]
+    },
+    {
+      "trace_id": "TR-SYN-005",
+      "page_asset_id": "PWR-01",
+      "scope_key": "CFG-BASELINE",
+      "claim_kind": "configuration_baseline",
+      "conflict": "trace says board rev A but configuration packet says rev B",
+      "impact": "version conflict blocks affected test readiness"
+    }
+  ],
+  "required_behavior": [
+    "create stable verification item ids",
+    "write explicit method assignment rationale",
+    "write evidence needs before criteria seeds",
+    "write gaps and followups for every missing, conflict, or review-required prerequisite",
+    "write readiness and TRR/FCA-SVR handoff entries",
+    "write provenance over approved refs",
+    "write a planning-only boundary note"
+  ]
+}
