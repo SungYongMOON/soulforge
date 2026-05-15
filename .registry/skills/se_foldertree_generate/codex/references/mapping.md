@@ -14,7 +14,9 @@
 - `assets/SE_FolderTree_ExploratoryDev_Basic.md`: exploratory-development basic bundled spec
 - `assets/SE_FolderTree_OperationalRnD_Basic.md`: operational-R&D basic bundled spec
 - `assets/variants/*.yaml`: variant metadata for common base, contractor overlay, blocked candidates, and production-bound basic variants
+- `assets/templates/`: public-safe structure-only artifact template stubs and registry for `00_Temp` seeding
 - `scripts/generate_tree.py`: main scaffold generator for folders, manifest, progress, CSV outputs, and index files
+- `scripts/seed_template_stubs.py`: copies structure-only team draft stubs into generated task folders after generation
 - `scripts/convert_gate_numbers.py`: helper that rewrites gate/task numbering in a copied spec file
 - `scripts/preview_variants.py`: review-only validator for draft variant metadata; it does not generate project folders
 - `references/variants.md`: draft variant preview rules and acceptance criteria
@@ -67,6 +69,7 @@
 - State which business type / prime contractor / quality grade combination was validated.
 - State which layout mode was used.
 - State whether a dry-run preview was performed.
+- State whether structure-only template stubs were seeded.
 - Confirm the chosen profile and output root.
 - Confirm whether `plan_manifest.json`, `plan_progress.json`, CSV outputs, index text, and `PROJECT_ID.txt` were generated.
 
