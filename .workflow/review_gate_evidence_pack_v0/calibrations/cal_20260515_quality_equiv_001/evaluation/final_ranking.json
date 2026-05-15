@@ -1,0 +1,50 @@
+{
+  "calibration_id": "cal_20260515_quality_equiv_001",
+  "workflow_id": "review_gate_evidence_pack_v0",
+  "baseline_reference_candidate_id": "qe_55_xhigh_darkelf_auditor",
+  "ranking": [
+    {
+      "rank": 1,
+      "candidate_id": "qe_55_medium_darkelf_auditor",
+      "profile": "gpt-5.5/medium/darkelf/auditor",
+      "quality_class": "quality_equivalent_pass",
+      "quality_score": 96,
+      "baseline_relative_quality": 1.02,
+      "selection": "primary"
+    },
+    {
+      "rank": 2,
+      "candidate_id": "qe_prior_primary_54_medium_darkelf_auditor",
+      "profile": "gpt-5.4/medium/darkelf/auditor",
+      "quality_class": "quality_equivalent_pass",
+      "quality_score": 94,
+      "baseline_relative_quality": 1.0,
+      "selection": "shadow"
+    },
+    {
+      "rank": 3,
+      "candidate_id": "qe_55_xhigh_darkelf_auditor",
+      "profile": "gpt-5.5/xhigh/darkelf/auditor",
+      "quality_class": "quality_equivalent_pass",
+      "quality_score": 94,
+      "baseline_relative_quality": 1.0,
+      "selection": "reference_shadow"
+    },
+    {
+      "rank": 4,
+      "candidate_id": "qe_55_low_darkelf_auditor",
+      "profile": "gpt-5.5/low/darkelf/auditor",
+      "quality_class": "quality_equivalent_pass",
+      "quality_score": 93,
+      "baseline_relative_quality": 0.99,
+      "selection": "low_effort_shadow"
+    }
+  ],
+  "comparison_to_previous_primary": {
+    "previous_primary_candidate_id": "stageB_darkelf_auditor_54_medium",
+    "rerun_candidate_id": "qe_prior_primary_54_medium_darkelf_auditor",
+    "previous_profile_remains_quality_equivalent": true,
+    "why_not_primary": "The actual gpt-5.5 medium candidate preserved the same boundary discipline while giving cleaner source-checksum propagation and more directly routeable blocker/action records."
+  },
+  "telemetry_note": "Subagent token usage was not available; this ranking is quality-first with relative cost confidence, not an exact billing comparison."
+}

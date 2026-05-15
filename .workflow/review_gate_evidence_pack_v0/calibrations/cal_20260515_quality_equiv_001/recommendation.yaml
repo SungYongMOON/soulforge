@@ -1,0 +1,43 @@
+calibration_id: cal_20260515_quality_equiv_001
+workflow_id: review_gate_evidence_pack_v0
+recommendation_status: active_primary_update
+recommended_primary:
+  model: gpt-5.5
+  reasoning_effort: medium
+  species: darkelf
+  class: auditor
+  candidate_id: qe_55_medium_darkelf_auditor
+  quality_class: quality_equivalent_pass
+  quality_score: 96
+  baseline_candidate_id: qe_55_xhigh_darkelf_auditor
+  baseline_relative_quality: 1.02
+selection_reason: >
+  Actual gpt-5.5 comparison showed medium darkelf/auditor as the strongest
+  evidence-pack profile. It preserved all required source refs, checksums,
+  blockers, owner-decision non-claims, and public-safe boundaries while giving
+  the most directly routeable blocker/action/decision structure.
+previous_primary_result:
+  profile: gpt-5.4/medium/darkelf/auditor
+  rerun_candidate_id: qe_prior_primary_54_medium_darkelf_auditor
+  quality_class: quality_equivalent_pass
+  quality_score: 94
+  disposition: retained_as_shadow
+telemetry:
+  exact_subagent_usage_available: false
+  cost_confidence: relative_quality_first_not_exact_cost
+shadow_top_k:
+  - rank: 2
+    candidate_id: qe_prior_primary_54_medium_darkelf_auditor
+    profile: gpt-5.4/medium/darkelf/auditor
+    quality_score: 94
+    quality_class: quality_equivalent_pass
+  - rank: 3
+    candidate_id: qe_55_xhigh_darkelf_auditor
+    profile: gpt-5.5/xhigh/darkelf/auditor
+    quality_score: 94
+    quality_class: quality_equivalent_pass
+  - rank: 4
+    candidate_id: qe_55_low_darkelf_auditor
+    profile: gpt-5.5/low/darkelf/auditor
+    quality_score: 93
+    quality_class: quality_equivalent_pass

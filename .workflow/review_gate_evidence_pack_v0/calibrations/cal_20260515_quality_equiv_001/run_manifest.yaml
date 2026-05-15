@@ -1,0 +1,51 @@
+calibration_id: cal_20260515_quality_equiv_001
+workflow_id: review_gate_evidence_pack_v0
+created_at: 2026-05-15
+mode: subagent_quality_equivalence_public_synthetic
+purpose: Recheck the active profile under the workflow-optimizer quality-equivalence policy that requires actual gpt-5.5 candidate comparison before a primary can be called quality-equivalent.
+public_safety:
+  fixture: input_fixture.public.json
+  contains_raw_project_truth: false
+  contains_private_workspace_material: false
+  contains_secret_material: false
+  contains_runtime_absolute_paths: false
+candidate_matrix:
+  - candidate_id: qe_prior_primary_54_medium_darkelf_auditor
+    model: gpt-5.4
+    reasoning_effort: medium
+    species: darkelf
+    class: auditor
+    role: previous_primary_recheck
+  - candidate_id: qe_55_low_darkelf_auditor
+    model: gpt-5.5
+    reasoning_effort: low
+    species: darkelf
+    class: auditor
+    role: actual_5_5_candidate
+  - candidate_id: qe_55_medium_darkelf_auditor
+    model: gpt-5.5
+    reasoning_effort: medium
+    species: darkelf
+    class: auditor
+    role: actual_5_5_candidate
+  - candidate_id: qe_55_xhigh_darkelf_auditor
+    model: gpt-5.5
+    reasoning_effort: xhigh
+    species: darkelf
+    class: auditor
+    role: actual_5_5_reference_candidate
+quality_gate:
+  criteria_ref: quality_gate/criteria.json
+  reviewer_ref: quality_gate/evaluator_review.json
+  hard_gate_required: true
+  quality_equivalent_threshold:
+    total_score_min: 90
+    relative_to_gpt_5_5_xhigh_min: 0.90
+telemetry:
+  subagent_token_usage_available: false
+  cli_proxy_not_completed_for_all_candidates: true
+  cost_confidence: relative_quality_first_not_exact_cost
+outputs:
+  quality_eval: subagent_matrix/quality_eval.jsonl
+  final_ranking: evaluation/final_ranking.json
+  recommendation: recommendation.yaml

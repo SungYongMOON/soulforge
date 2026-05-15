@@ -1,69 +1,58 @@
 workflow_id: review_gate_evidence_pack_v0
 kind: workflow_profile_policy
 status: active
-last_calibration_id: cal_20260515_public_synthetic_staged_v0
-calibration_mode: subagent_quality_first_staged_public_synthetic
+last_calibration_id: cal_20260515_quality_equiv_001
+calibration_mode: subagent_quality_equivalence_public_synthetic
 measurement_policy:
-  quality_source: subagent_staged_matrix
-  telemetry_source: cli_passed_candidates_only_proxy
+  quality_source: actual_gpt_5_5_candidate_comparison
+  telemetry_source: subagent_usage_unavailable_quality_first
   subagent_token_usage_available: false
   telemetry_exact_for_subagent: false
-  cost_confidence: relative_not_exact
+  cost_confidence: relative_quality_first_not_exact_cost
 primary_profile:
-  model: gpt-5.4
+  model: gpt-5.5
   reasoning_effort: medium
   species: darkelf
   class: auditor
-  candidate_id: stageB_darkelf_auditor_54_medium
-  quality_gate: pass
-  quality_score: 91
-  measured_tokens:
-    source: cli_proxy_same_fixture
-    input_tokens: 13749
-    cached_input_tokens: 3456
-    output_tokens: 1495
-    reasoning_output_tokens: 93
-  wall_time_seconds:
-    source: cli_proxy_same_fixture
-    value: 31.781
-  rationale: Best quality-passing finalist for source ref preservation, explicit CAN/reset gap handling, non-claim discipline, and owner-decision separation.
+  candidate_id: qe_55_medium_darkelf_auditor
+  quality_class: quality_equivalent_pass
+  quality_score: 96
+  baseline_candidate_id: qe_55_xhigh_darkelf_auditor
+  baseline_relative_quality: 1.02
+  measured_tokens: null
+  wall_time_seconds: null
+  rationale: Best actual gpt-5.5 comparison result for source/checksum preservation, explicit CAN/reset/owner-decision gap handling, non-claim discipline, and routeable blocker/action structure.
 shadow_top_k:
   - rank: 2
-    candidate_id: stageB_darkelf_auditor_54_low
+    candidate_id: qe_prior_primary_54_medium_darkelf_auditor
     model: gpt-5.4
+    reasoning_effort: medium
+    species: darkelf
+    class: auditor
+    quality_class: quality_equivalent_pass
+    quality_score: 94
+    baseline_relative_quality: 1.0
+    caveat: Previous primary remains quality-equivalent, but selected 5.5 medium is cleaner for source-checksum propagation and action routing.
+  - rank: 3
+    candidate_id: qe_55_xhigh_darkelf_auditor
+    model: gpt-5.5
+    reasoning_effort: xhigh
+    species: darkelf
+    class: auditor
+    quality_class: quality_equivalent_pass
+    quality_score: 94
+    baseline_relative_quality: 1.0
+    caveat: Strong boundary-first reference candidate, but slightly over-conservative on power-thread success.
+  - rank: 4
+    candidate_id: qe_55_low_darkelf_auditor
+    model: gpt-5.5
     reasoning_effort: low
     species: darkelf
     class: auditor
-    quality_gate: pass_with_caveats
-    quality_score: 85
-    measured_tokens:
-      source: cli_proxy_same_fixture
-      input_tokens: 13749
-      cached_input_tokens: 7552
-      output_tokens: 1872
-      reasoning_output_tokens: 27
-    wall_time_seconds:
-      source: cli_proxy_same_fixture
-      value: 37.858
-    caveat: Lower-cost reasoning effort, but weaker decision-state precision and output-shape discipline in quality runs.
-  - rank: 3
-    candidate_id: stageB_darkelf_auditor_mini_medium
-    model: gpt-5.4-mini
-    reasoning_effort: medium
-    species: darkelf
-    class: auditor
-    quality_gate: fail_shape_depth
-    quality_score: 72
-    caveat: Compact and boundary-safe, but collapses blocker/action detail and uses weaker output shapes.
-  - rank: 4
-    candidate_id: stageB_darkelf_auditor_53codex_medium
-    model: gpt-5.3-codex
-    reasoning_effort: medium
-    species: darkelf
-    class: auditor
-    quality_gate: fail_required_outputs
-    quality_score: 61
-    caveat: Useful summary, but omits required workflow output sections and allowed workflow status vocabulary.
+    quality_class: quality_equivalent_pass
+    quality_score: 93
+    baseline_relative_quality: 0.99
+    caveat: Good low-effort shadow, but less granular than medium in evidence routing.
 rerun_triggers:
   - review_gate_packet_template_changes
   - entrance_or_success_criteria_rule_changes
@@ -72,9 +61,12 @@ rerun_triggers:
   - upstream_trace_or_harness_packet_shape_changes
   - verification_plan_handoff_shape_changes
   - new_review_family_mapping_added
+  - quality_equivalence_policy_changes
+  - gpt_5_5_reference_candidate_behavior_changes
   - primary_profile_quality_regression
-calibration_archive_ref: calibrations/cal_20260515_public_synthetic_staged_v0/
+calibration_archive_ref: calibrations/cal_20260515_quality_equiv_001/
 notes:
   - Calibration used only a public-safe synthetic fixture and did not consume raw project truth, _workspaces material, credentials, private payloads, or runtime absolute paths.
-  - CLI telemetry is a same-fixture proxy for passed candidates only; it is not exact subagent token telemetry.
-  - Prefer gpt-5.4 medium for first owner-facing packets; use gpt-5.4 low only for cheaper smoke runs where post-review cleanup is acceptable.
+  - Actual gpt-5.5 low, medium, and xhigh candidates were compared before selecting the primary profile.
+  - Exact subagent token telemetry was not available, so the active policy is quality-first rather than lowest-cost.
+  - The previous gpt-5.4 medium primary remains quality-equivalent as a shadow, but is no longer the strongest output-quality candidate.
