@@ -1,0 +1,11 @@
+{
+  "version": 1,
+  "id": "soulforge-dev-worker",
+  "name": "Soulforge Dev Worker",
+  "default_status": "PAUSED",
+  "default_rrule": "FREQ=HOURLY;INTERVAL=4",
+  "default_execution_environment": "local",
+  "model": "gpt-5.3-codex",
+  "reasoning_effort": "medium",
+  "prompt_template": "guild_hall/dev_worker/automations/soulforge-dev-worker.prompt.txt"
+}
