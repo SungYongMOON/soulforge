@@ -69,6 +69,7 @@
 ### Revision `working` - Quality-equivalence follow-up archives integrated
 
 - Added follow-up public-safe `quality_equiv` calibration archives for interface control, review gate, simulation source, simulation run verify, and verification planning where later candidate comparisons were preserved as public-safe synthetic evidence.
+- Recalibrated `.workflow/interface_control_and_harness_readiness_v0/` under the later quality-equivalence pass and updated its primary profile from `gpt-5.3-codex-spark / high / dwarf / auditor` to `gpt-5.5 / medium / elf / auditor`, while keeping the previous spark profile as a latency shadow and preserving the local-internal / no-connect / source-supported join ceilings.
 - Recalibrated `.workflow/simulation_run_verify_v0/` under the later quality-equivalence pass and updated its primary profile from `gpt-5.4 / low / human / auditor` to `gpt-5.5 / low / human / auditor`, while keeping `gpt-5.5 / xhigh` as the evaluator ceiling and preserving the blocked-vs-failed / execution-vs-acceptance boundaries.
 - Recalibrated after tightening the local `workflow-optimizer` skill's quality-equivalence policy: demoted the cheap `gpt-5.4 / low / elf / auditor` recommendation, selected `gpt-5.4 / medium / dwarf / auditor` as the quality-equivalent primary, and kept `gpt-5.5 / low / elf / auditor` as the quality shadow.
 

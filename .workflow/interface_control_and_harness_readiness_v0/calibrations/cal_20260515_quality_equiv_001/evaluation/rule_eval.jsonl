@@ -1,0 +1,5 @@
+{"candidate_id":"c10_gpt55_low_dwarf_auditor","hard_gate":"pass","interface_outcomes":"pass","join_outcomes":"pass","boundary":"pass","machine_readability":"pass","quality_class":"quality_equivalent_pass"}
+{"candidate_id":"c11_gpt55_medium_elf_auditor","hard_gate":"pass","interface_outcomes":"pass","join_outcomes":"pass","boundary":"pass","machine_readability":"pass","quality_class":"quality_equivalent_pass"}
+{"candidate_id":"c12_gpt55_xhigh_dwarf_auditor","hard_gate":"pass","interface_outcomes":"pass","join_outcomes":"material_loss_JOIN_1_source_supported_weakened","boundary":"pass","machine_readability":"pass","quality_class":"minimum_viable_pass"}
+{"candidate_id":"c13_codex_spark_high_dwarf_auditor","hard_gate":"pass","interface_outcomes":"pass","join_outcomes":"pass","boundary":"pass","machine_readability":"pass_with_verbosity_penalty","quality_class":"quality_equivalent_pass"}
+{"candidate_id":"c14_gpt54_medium_elf_auditor","hard_gate":"pass","interface_outcomes":"pass","join_outcomes":"pass","boundary":"pass","machine_readability":"pass_with_code_fence_penalty","quality_class":"quality_equivalent_pass"}

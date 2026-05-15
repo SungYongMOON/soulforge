@@ -1,0 +1,15 @@
+{
+  "review_result": "criteria_frozen_for_quality_equivalence",
+  "evaluator_mode": "manual_fresh_review_after_gpt55_anchor",
+  "subagent_runner_available": false,
+  "criteria_sufficiency": "pass",
+  "overfit_check": "pass",
+  "key_revisions": [
+    "Separated quality_equivalent_pass from minimum_viable_pass.",
+    "Required actual gpt-5.5 low, medium, and xhigh candidate profiles in addition to the evaluator-only baseline.",
+    "Preserved strict NC7 blocked handling and TP5 local_internal blocking.",
+    "Allowed source_supported_possible as a stronger disjoint ceiling when candidate-safe conditions are explicit in the source-supported row.",
+    "Added material-loss review for JOIN_1 source_supported_possible because weakening it to candidate_safe_possible loses downstream readiness information."
+  ],
+  "remaining_risk": "Quality was evaluated from isolated CLI candidate outputs rather than true subagent workers; exact subagent usage is unavailable."
+}

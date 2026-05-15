@@ -1,0 +1,17 @@
+{
+  "shortlist_rule": "Quality first; primary must be quality_equivalent_pass and include actual gpt-5.5 candidate comparison.",
+  "previous_primary_recheck": {
+    "candidate_id": "c13_codex_spark_high_dwarf_auditor",
+    "result": "quality_equivalent_pass",
+    "quality_score": 91,
+    "baseline_relative_quality": 0.95,
+    "decision": "kept_as_latency_shadow_not_primary",
+    "reason": "Fastest wall time but materially output-heavy in this run and slightly less crisp for downstream handoff."
+  },
+  "gpt_5_5_comparison": {
+    "c10_gpt55_low_dwarf_auditor": "quality_equivalent_pass but dominated by c11 on quality, output tokens, and wall time",
+    "c11_gpt55_medium_elf_auditor": "quality_equivalent_pass and selected as primary",
+    "c12_gpt55_xhigh_dwarf_auditor": "minimum_viable_pass because JOIN_1 source_supported_possible was weakened in harness output"
+  },
+  "selected_primary": "c11_gpt55_medium_elf_auditor"
+}

@@ -1,0 +1,15 @@
+{
+  "candidate_id": "baseline_gpt55_xhigh_evaluator_only",
+  "model": "gpt-5.5",
+  "reasoning_effort": "xhigh",
+  "usage_source": "codex_cli_json_raw_events",
+  "input_tokens": 17535,
+  "cached_input_tokens": 7552,
+  "output_tokens": 1848,
+  "reasoning_output_tokens": 516,
+  "wall_time_seconds": 37.88,
+  "notes": [
+    "Evaluator-only anchor; not eligible as primary because it was not assigned a species/class candidate profile.",
+    "Candidate prompts did not receive this output or derived expected answers."
+  ]
+}

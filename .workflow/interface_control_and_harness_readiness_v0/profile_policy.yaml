@@ -1,53 +1,94 @@
 workflow_id: interface_control_and_harness_readiness_v0
 kind: workflow_profile_policy
 status: active
-last_calibration_id: cal_20260515_public_synthetic_staged_v0
-calibration_mode: public_synthetic_staged_quality_first
+last_calibration_id: cal_20260515_quality_equiv_001
+calibration_mode: public_synthetic_quality_equivalence_cli_candidate_fallback
 measurement_policy:
-  quality_source: subagent_staged_matrix
-  telemetry_source: cli_passed_candidates_only
+  quality_source: cli_only_calibration_user_allowed_subagent_unavailable
+  telemetry_source: codex_cli_candidate_runs
   subagent_token_usage_available: false
   telemetry_exact_for_subagent: false
   cost_confidence: relative_not_exact
 primary_profile:
-  model: gpt-5.3-codex-spark
-  reasoning_effort: high
-  species: dwarf
+  model: gpt-5.5
+  reasoning_effort: medium
+  species: elf
   class: auditor
-  candidate_id: c06_codex_spark_high_dwarf_auditor
+  candidate_id: c11_gpt55_medium_elf_auditor
   quality_gate: pass
-  quality_score: 91
+  quality_class: quality_equivalent_pass
+  quality_score: 95
+  baseline_relative_quality: 0.99
   telemetry_proxy:
-    input_tokens: 13308
-    cached_input_tokens: 3840
-    output_tokens: 6711
-    reasoning_output_tokens: 4437
-    wall_time_seconds: 11.98
-  selection_reason: Lowest-cost and fastest passing profile in the staged public-safe calibration; preserved all readiness ceilings, local-internal blocking, no-connect blocking, and no-mutation boundaries.
+    input_tokens: 17566
+    cached_input_tokens: 7552
+    output_tokens: 1853
+    reasoning_output_tokens: 516
+    wall_time_seconds: 38.55
+  selection_reason: Selected under the revised quality-equivalence policy after actual gpt-5.5 candidate comparison; preserved all critical interface and join ceilings with compact machine-readable output and no material loss against the gpt-5.5/xhigh baseline.
 shadow_top_k:
   - rank: 2
     model: gpt-5.4
     reasoning_effort: medium
     species: elf
     class: auditor
-    candidate_id: c04_gpt54_medium_elf_auditor
+    candidate_id: c14_gpt54_medium_elf_auditor
     quality_gate: pass
-    quality_score: 95
+    quality_class: quality_equivalent_pass
+    quality_score: 94
+    baseline_relative_quality: 0.98
     telemetry_proxy:
-      input_tokens: 13733
-      cached_input_tokens: 7552
-      output_tokens: 3012
-      reasoning_output_tokens: 463
-      wall_time_seconds: 58.14
-    selection_reason: Stronger structured packet and lower output-token volume, but materially slower in CLI proxy telemetry.
+      input_tokens: 16181
+      cached_input_tokens: 13184
+      output_tokens: 3289
+      reasoning_output_tokens: 672
+      wall_time_seconds: 62.84
+    selection_reason: Strong provenance detail and owner routing, but slower and slightly weaker machine-readability due fenced JSON.
   - rank: 3
-    model: gpt-5.4-mini
+    model: gpt-5.3-codex-spark
     reasoning_effort: high
     species: dwarf
     class: auditor
-    candidate_id: c05_gpt54mini_high_dwarf_auditor
-    quality_gate: fail
-    failure_summary: Treated NC7 as no_connect/not_applicable instead of preserving it in blocked_interface_items.
+    candidate_id: c13_codex_spark_high_dwarf_auditor
+    quality_gate: pass
+    quality_class: quality_equivalent_pass
+    quality_score: 91
+    baseline_relative_quality: 0.95
+    telemetry_proxy:
+      input_tokens: 15762
+      cached_input_tokens: 3840
+      output_tokens: 13809
+      reasoning_output_tokens: 10530
+      wall_time_seconds: 17.50
+    selection_reason: Previous primary profile remains quality-equivalent and fastest in wall time, but was much more output-heavy in this run.
+  - rank: 4
+    model: gpt-5.5
+    reasoning_effort: low
+    species: dwarf
+    class: auditor
+    candidate_id: c10_gpt55_low_dwarf_auditor
+    quality_gate: pass
+    quality_class: quality_equivalent_pass
+    quality_score: 93
+    baseline_relative_quality: 0.97
+    telemetry_proxy:
+      input_tokens: 17566
+      cached_input_tokens: 2432
+      output_tokens: 2197
+      reasoning_output_tokens: 18
+      wall_time_seconds: 43.80
+    selection_reason: Actual gpt-5.5 low candidate passed quality equivalence but was dominated by gpt-5.5 medium on quality, output tokens, and wall time.
+  - rank: 5
+    model: gpt-5.5
+    reasoning_effort: xhigh
+    species: dwarf
+    class: auditor
+    candidate_id: c12_gpt55_xhigh_dwarf_auditor
+    quality_gate: pass
+    quality_class: minimum_viable_pass
+    quality_score: 88
+    baseline_relative_quality: 0.92
+    failure_summary: Safe and usable but lost the JOIN_1 source_supported_possible join ceiling, so it is not quality-equivalent.
 rerun_triggers:
   - interface_control_ledger_schema_changes
   - readiness_ceiling_rule_changes
@@ -57,8 +98,11 @@ rerun_triggers:
   - source_supported_possible_rule_changes
   - first_profile_calibration_run
   - candidate_output_partition_or_no_connect_policy_changes
-calibration_archive_ref: calibrations/cal_20260515_public_synthetic_staged_v0/
+  - quality_equivalence_policy_changes
+calibration_archive_ref: calibrations/cal_20260515_quality_equiv_001/
 notes:
   - Calibration used only public-safe synthetic refs and did not consume raw project truth, `_workspaces` material, credentials, private payloads, or secret-derived content.
-  - Exact subagent token usage was not available; telemetry values are CLI proxy measurements for quality-passing candidates only.
+  - Subagent runner was unavailable in this worker context; user-allowed isolated CLI candidate fallback was used.
+  - Actual gpt-5.5 low, medium, and xhigh candidate profiles were included in quality comparison, not only the evaluator baseline.
+  - CLI token usage is exact for these candidate executions, but not exact subagent usage; model-dollar cost was not emitted.
   - Recalibrate before promotion if workflow templates, readiness partition semantics, local-internal exposure policy, or no-connect blocking semantics change.

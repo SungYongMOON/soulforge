@@ -1,0 +1,58 @@
+workflow_id: interface_control_and_harness_readiness_v0
+calibration_id: cal_20260515_quality_equiv_001
+created_at: "2026-05-15T03:24:00+09:00"
+kind: workflow_optimizer_calibration
+calibration_mode: public_synthetic_quality_equivalence_cli_candidate_fallback
+quality_equivalence_policy:
+  primary_requires_quality_class: quality_equivalent_pass
+  total_quality_threshold: 90
+  baseline_relative_threshold: 0.90
+  baseline_anchor: gpt-5.5_xhigh
+  gpt_5_5_candidates_included: true
+runtime_boundary:
+  fixture_policy: public_safe_synthetic_only
+  private_or_raw_truth_used: false
+  workspaces_material_used: false
+  secrets_used: false
+  upstream_artifacts_mutated: false
+  subagent_runner_available: false
+  fallback_used: cli_candidate_runs_with_isolated_prompts
+candidate_prompt_boundary:
+  golden_output_in_candidate_prompt: false
+  frozen_quality_criteria_in_candidate_prompt: false
+  prior_expected_partition_in_candidate_prompt: false
+candidate_matrix:
+  - candidate_id: c10_gpt55_low_dwarf_auditor
+    model: gpt-5.5
+    reasoning_effort: low
+    species: dwarf
+    class: auditor
+  - candidate_id: c11_gpt55_medium_elf_auditor
+    model: gpt-5.5
+    reasoning_effort: medium
+    species: elf
+    class: auditor
+  - candidate_id: c12_gpt55_xhigh_dwarf_auditor
+    model: gpt-5.5
+    reasoning_effort: xhigh
+    species: dwarf
+    class: auditor
+  - candidate_id: c13_codex_spark_high_dwarf_auditor
+    model: gpt-5.3-codex-spark
+    reasoning_effort: high
+    species: dwarf
+    class: auditor
+    prior_profile_comparison: previous_primary_profile_rerun
+  - candidate_id: c14_gpt54_medium_elf_auditor
+    model: gpt-5.4
+    reasoning_effort: medium
+    species: elf
+    class: auditor
+    prior_profile_comparison: previous_shadow_profile_rerun
+prior_calibration_compared:
+  calibration_id: cal_20260515_public_synthetic_staged_v0
+  previous_primary_candidate_id: c06_codex_spark_high_dwarf_auditor
+  previous_primary_model: gpt-5.3-codex-spark
+  previous_primary_reasoning_effort: high
+  previous_primary_species: dwarf
+  previous_primary_class: auditor

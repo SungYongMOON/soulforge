@@ -1,0 +1,79 @@
+{
+  "ranking": [
+    {
+      "rank": 1,
+      "candidate_id": "c11_gpt55_medium_elf_auditor",
+      "model": "gpt-5.5",
+      "reasoning_effort": "medium",
+      "species": "elf",
+      "class": "auditor",
+      "quality_class": "quality_equivalent_pass",
+      "quality_score": 95,
+      "baseline_relative_quality": 0.99,
+      "selection": "primary",
+      "reason": "Best quality-equivalent balance after actual gpt-5.5 candidate comparison; compact output, explicit blocker/follow-up routing, and no material loss versus the 5.5/xhigh baseline."
+    },
+    {
+      "rank": 2,
+      "candidate_id": "c14_gpt54_medium_elf_auditor",
+      "model": "gpt-5.4",
+      "reasoning_effort": "medium",
+      "species": "elf",
+      "class": "auditor",
+      "quality_class": "quality_equivalent_pass",
+      "quality_score": 94,
+      "baseline_relative_quality": 0.98,
+      "selection": "shadow",
+      "reason": "Strong provenance and owner routing; slower and slightly weaker machine-readability due fenced JSON."
+    },
+    {
+      "rank": 3,
+      "candidate_id": "c13_codex_spark_high_dwarf_auditor",
+      "model": "gpt-5.3-codex-spark",
+      "reasoning_effort": "high",
+      "species": "dwarf",
+      "class": "auditor",
+      "quality_class": "quality_equivalent_pass",
+      "quality_score": 91,
+      "baseline_relative_quality": 0.95,
+      "selection": "latency_shadow",
+      "reason": "Previous primary still passes quality equivalence and is fastest, but it was much more token-heavy and less compact in this run."
+    },
+    {
+      "rank": 4,
+      "candidate_id": "c10_gpt55_low_dwarf_auditor",
+      "model": "gpt-5.5",
+      "reasoning_effort": "low",
+      "species": "dwarf",
+      "class": "auditor",
+      "quality_class": "quality_equivalent_pass",
+      "quality_score": 93,
+      "baseline_relative_quality": 0.97,
+      "selection": "shadow",
+      "reason": "Actual gpt-5.5 low candidate passed quality equivalence but was dominated by gpt-5.5 medium in this run."
+    },
+    {
+      "rank": 5,
+      "candidate_id": "c12_gpt55_xhigh_dwarf_auditor",
+      "model": "gpt-5.5",
+      "reasoning_effort": "xhigh",
+      "species": "dwarf",
+      "class": "auditor",
+      "quality_class": "minimum_viable_pass",
+      "quality_score": 88,
+      "baseline_relative_quality": 0.92,
+      "selection": "not_primary",
+      "reason": "Safe and usable but not quality-equivalent because JOIN_1 lost the source_supported_possible join ceiling."
+    }
+  ],
+  "previous_primary": {
+    "candidate_id": "c06_codex_spark_high_dwarf_auditor",
+    "model": "gpt-5.3-codex-spark",
+    "reasoning_effort": "high",
+    "species": "dwarf",
+    "class": "auditor",
+    "old_quality_gate": "pass",
+    "old_quality_score": 91,
+    "old_policy_class": "minimum_gate_pass_without_5_5_candidate_comparison"
+  }
+}

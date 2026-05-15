@@ -1,0 +1,44 @@
+workflow_id: interface_control_and_harness_readiness_v0
+calibration_id: cal_20260515_quality_equiv_001
+recommended_profile:
+  model: gpt-5.5
+  reasoning_effort: medium
+  species: elf
+  class: auditor
+  candidate_id: c11_gpt55_medium_elf_auditor
+  quality_class: quality_equivalent_pass
+  quality_score: 95
+  baseline_relative_quality: 0.99
+why:
+  - Actual gpt-5.5 candidate profiles were run and compared, not only used as a golden baseline.
+  - The selected profile preserved all five interface ceilings and all four join ceilings, including NC7 blocked, TP5 local_internal blocked, GPIO_WAKE review_required, PWM_A review_required, and JOIN_1 source_supported_possible.
+  - It gave the best quality-equivalent balance of compact machine-readable output, explicit owner/source follow-up, and CLI candidate telemetry.
+previous_primary_comparison:
+  previous_primary: c06_codex_spark_high_dwarf_auditor
+  rerun_candidate: c13_codex_spark_high_dwarf_auditor
+  result: quality_equivalent_pass_but_not_primary
+  reason: The old profile remained safe and quality-equivalent, but in this run it used far more output and reasoning tokens and had slightly less crisp downstream handoff language.
+shadow_profiles:
+  - candidate_id: c14_gpt54_medium_elf_auditor
+    model: gpt-5.4
+    reasoning_effort: medium
+    species: elf
+    class: auditor
+    quality_class: quality_equivalent_pass
+    use_when: stronger provenance detail is worth slower wall time
+  - candidate_id: c13_codex_spark_high_dwarf_auditor
+    model: gpt-5.3-codex-spark
+    reasoning_effort: high
+    species: dwarf
+    class: auditor
+    quality_class: quality_equivalent_pass
+    use_when: latency matters more than compact token usage
+measurement_limits:
+  - Subagent runner was unavailable in this worker context; user-allowed isolated CLI candidate fallback was used.
+  - CLI usage is exact for these candidate executions, but not exact subagent telemetry.
+  - No dollar cost was emitted; cost comparison is token and model-family proxy only.
+  - Candidate wall times include local runner overhead and should be treated as directional.
+boundary:
+  public_safe_synthetic_fixture_only: true
+  private_raw_or_secret_data_used: false
+  upstream_artifact_mutation: false
