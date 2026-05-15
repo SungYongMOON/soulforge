@@ -1,0 +1,34 @@
+workflow_id: simulation_run_verify_v0
+calibration_id: cal_20260515_quality_equiv_001
+recommended_profile:
+  model: gpt-5.5
+  reasoning_effort: low
+  species: human
+  class: auditor
+  candidate_id: qe_gpt55_low_human_auditor
+quality_class: quality_equivalent_pass
+quality_score: 96
+baseline_relative_quality: 1.0
+why:
+  - Passed all frozen hard gates.
+  - Had no material information loss versus the gpt-5.5/xhigh candidate baseline.
+  - Preserved blocked-run versus failed-verification separation.
+  - Preserved synthetic-stub versus actual-simulator-execution separation.
+  - Kept pass/fail verdicts tied to named measurement and rule.
+  - Kept owner acceptance separate and requested owner review.
+  - Used fewer output and reasoning tokens, and lower wall time, than gpt-5.5/xhigh on this run.
+comparison_to_previous_primary:
+  previous_profile: gpt-5.4 / low / human / auditor
+  previous_candidate_id: c_stage_b_gpt54_low_human_auditor
+  previous_quality_score: 94
+  new_matching_profile_candidate_id: qe_gpt54_low_human_auditor
+  new_matching_profile_quality_class: quality_equivalent_pass
+  new_matching_profile_baseline_relative_quality: 0.98
+  reason_for_primary_change: gpt-5.5/low was equally complete, more directly machine-readable, lower in output/reasoning tokens, and faster in the measured CLI-isolated run.
+telemetry_basis: same_cli_isolated_candidate_runs
+not_measured:
+  - Exact subagent token usage.
+  - Full default matrix across every species and class.
+  - Provider price by model family.
+  - Private project-native executed run quality.
+  - Real simulator wall time or waveform evidence.

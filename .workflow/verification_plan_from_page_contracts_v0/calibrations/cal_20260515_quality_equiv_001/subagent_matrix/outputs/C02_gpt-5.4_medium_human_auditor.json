@@ -1,0 +1,557 @@
+{
+  "profile": {
+    "project_code": "SYN_PUBLIC_CAL",
+    "output_root": "synthetic_public_archive_only",
+    "planning_only": true,
+    "verification_execution_allowed": false,
+    "model": "gpt-5.4",
+    "reasoning_effort": "medium",
+    "species": "human",
+    "class": "auditor"
+  },
+  "verification_plan": [
+    {
+      "verification_item_id": "VIT-SYN-001",
+      "trace_id": "TR-SYN-001",
+      "page_asset_id": "PWR-01",
+      "scope_key": "REG-3V3",
+      "claim_kind": "quantitative_constraint",
+      "claim_summary": "Confirm rail.vout is defined as nominal 3.3 V with +/-5% tolerance.",
+      "planned_method": "inspection",
+      "method_assignment_rationale": "Claim is source-defined and quantitative authority is already identified with no stated conflict; planning basis is document/value confirmation before any downstream execution planning.",
+      "prerequisite_evidence_ids": [
+        "ENR-SYN-001",
+        "ENR-SYN-002"
+      ],
+      "criteria_seed": "Authority set should consistently state nominal 3.3 V and tolerance +/-5% for rail.vout.",
+      "readiness_state": "plan_ready"
+    },
+    {
+      "verification_item_id": "VIT-SYN-002",
+      "trace_id": "TR-SYN-002",
+      "page_asset_id": "PWR-01",
+      "scope_key": "VIN-HARNESS",
+      "claim_kind": "harness_connection_claim",
+      "claim_summary": "Establish the intended verification path for J1.1_to_U1.VIN harness connectivity.",
+      "planned_method": "owner_review",
+      "method_assignment_rationale": "Harness status is review_required and owner decision plus fixture procedure are missing; planning cannot responsibly select execution method until ownership and procedure are resolved.",
+      "prerequisite_evidence_ids": [
+        "ENR-SYN-003",
+        "ENR-SYN-004",
+        "ENR-SYN-005"
+      ],
+      "criteria_seed": "Owner-approved connection intent, fixture/procedure definition, and authoritative interface mapping must exist before execution-oriented criteria are set.",
+      "readiness_state": "owner_review_required"
+    },
+    {
+      "verification_item_id": "VIT-SYN-003",
+      "trace_id": "TR-SYN-003",
+      "page_asset_id": "PWR-01",
+      "scope_key": "STARTUP-SIM",
+      "claim_kind": "pspice_readiness",
+      "claim_summary": "Prepare startup transient simulation verification path only after required simulation inputs exist.",
+      "planned_method": "simulation",
+      "method_assignment_rationale": "The claim explicitly directs simulation before execution, but the fixture states model and deck are missing and simulation is only allowed after defined inputs and criteria exist.",
+      "prerequisite_evidence_ids": [
+        "ENR-SYN-006",
+        "ENR-SYN-007",
+        "ENR-SYN-008",
+        "ENR-SYN-009"
+      ],
+      "criteria_seed": "Model, deck, stimuli, and measurement criteria must be owner-approved and configuration-bound before simulation criteria are finalized.",
+      "readiness_state": "blocked_missing_evidence"
+    },
+    {
+      "verification_item_id": "VIT-SYN-004",
+      "trace_id": "TR-SYN-004",
+      "page_asset_id": "LED-02",
+      "scope_key": "STATUS-LED",
+      "claim_kind": "function_claim",
+      "claim_summary": "Determine whether status LED indication of regulator enabled is an intended and source-backed verification claim.",
+      "planned_method": "owner_review",
+      "method_assignment_rationale": "Official source reference and owner intent are both missing, so the claim cannot yet be anchored to inspection, test, or demonstration criteria.",
+      "prerequisite_evidence_ids": [
+        "ENR-SYN-010",
+        "ENR-SYN-011"
+      ],
+      "criteria_seed": "An authoritative source and owner intent statement must first establish whether the LED behavior is a required claim.",
+      "readiness_state": "blocked_missing_evidence"
+    },
+    {
+      "verification_item_id": "VIT-SYN-005",
+      "trace_id": "TR-SYN-005",
+      "page_asset_id": "PWR-01",
+      "scope_key": "CFG-BASELINE",
+      "claim_kind": "configuration_baseline",
+      "claim_summary": "Resolve board revision baseline conflict affecting downstream verification planning.",
+      "planned_method": "owner_review",
+      "method_assignment_rationale": "Trace and configuration packet disagree on board revision; conflict resolution is required before affected methods can be trusted.",
+      "prerequisite_evidence_ids": [
+        "ENR-SYN-012",
+        "ENR-SYN-013",
+        "ENR-SYN-014"
+      ],
+      "criteria_seed": "A single owner-approved board revision baseline must be established and propagated to affected verification items.",
+      "readiness_state": "blocked_source_conflict"
+    }
+  ],
+  "verification_requirements_matrix": [
+    {
+      "verification_item_id": "VIT-SYN-001",
+      "trace_id": "TR-SYN-001",
+      "requirement_or_claim": "VOUT_3V3 nominal 3.3 V tolerance +/-5%",
+      "method": "inspection",
+      "authority_basis": [
+        "SRC-PSU-DS-001",
+        "SYN-QUANT-001"
+      ],
+      "prerequisites_status": "satisfied_in_fixture",
+      "readiness_state": "plan_ready"
+    },
+    {
+      "verification_item_id": "VIT-SYN-002",
+      "trace_id": "TR-SYN-002",
+      "requirement_or_claim": "J1.1_to_U1.VIN harness connection claim",
+      "method": "owner_review",
+      "authority_basis": [
+        "SYN-IFC-001",
+        "SYN-HAR-001"
+      ],
+      "prerequisites_status": "owner_decision_and_fixture_procedure_missing",
+      "readiness_state": "owner_review_required"
+    },
+    {
+      "verification_item_id": "VIT-SYN-003",
+      "trace_id": "TR-SYN-003",
+      "requirement_or_claim": "Startup transient should be simulated before execution",
+      "method": "simulation",
+      "authority_basis": [
+        "SYN-SIM-001"
+      ],
+      "prerequisites_status": "model_deck_stimuli_measurement_criteria_missing",
+      "readiness_state": "blocked_missing_evidence"
+    },
+    {
+      "verification_item_id": "VIT-SYN-004",
+      "trace_id": "TR-SYN-004",
+      "requirement_or_claim": "Status LED indicates regulator enabled",
+      "method": "owner_review",
+      "authority_basis": [],
+      "prerequisites_status": "official_source_and_owner_intent_missing",
+      "readiness_state": "blocked_missing_evidence"
+    },
+    {
+      "verification_item_id": "VIT-SYN-005",
+      "trace_id": "TR-SYN-005",
+      "requirement_or_claim": "Board revision baseline for affected verification scope",
+      "method": "owner_review",
+      "authority_basis": [
+        "SYN-CFG-A",
+        "SYN-CFG-B",
+        "SYN-TRACE-001"
+      ],
+      "prerequisites_status": "revision_conflict_present",
+      "readiness_state": "blocked_source_conflict"
+    }
+  ],
+  "method_map": [
+    {
+      "method": "inspection",
+      "used_for": [
+        "VIT-SYN-001"
+      ],
+      "selection_rule": "Use when approved source and quantitative packet already define the claim without stated conflict."
+    },
+    {
+      "method": "simulation",
+      "used_for": [
+        "VIT-SYN-003"
+      ],
+      "selection_rule": "Use when the claim explicitly requires simulation and readiness inputs can be bounded."
+    },
+    {
+      "method": "owner_review",
+      "used_for": [
+        "VIT-SYN-002",
+        "VIT-SYN-004",
+        "VIT-SYN-005"
+      ],
+      "selection_rule": "Use when intent, baseline, or conflict resolution is missing and no execution-capable method can be responsibly fixed yet."
+    }
+  ],
+  "evidence_need_register": [
+    {
+      "evidence_need_id": "ENR-SYN-001",
+      "related_verification_item_id": "VIT-SYN-001",
+      "needed_evidence": "Approved source excerpt or structured citation for SRC-PSU-DS-001 covering rail.vout target",
+      "why_needed": "Primary authority anchor for the quantitative constraint",
+      "status": "referenced_in_fixture"
+    },
+    {
+      "evidence_need_id": "ENR-SYN-002",
+      "related_verification_item_id": "VIT-SYN-001",
+      "needed_evidence": "Quantitative packet value from SYN-QUANT-001 for 3.3 V +/-5%",
+      "why_needed": "Cross-check against source-defined target",
+      "status": "referenced_in_fixture"
+    },
+    {
+      "evidence_need_id": "ENR-SYN-003",
+      "related_verification_item_id": "VIT-SYN-002",
+      "needed_evidence": "Owner decision on whether J1.1_to_U1.VIN connectivity is in scope for formal verification",
+      "why_needed": "Method cannot be fixed without scope ownership",
+      "status": "missing"
+    },
+    {
+      "evidence_need_id": "ENR-SYN-004",
+      "related_verification_item_id": "VIT-SYN-002",
+      "needed_evidence": "Test fixture or harness procedure definition",
+      "why_needed": "Readiness for any execution-oriented harness verification path",
+      "status": "missing"
+    },
+    {
+      "evidence_need_id": "ENR-SYN-005",
+      "related_verification_item_id": "VIT-SYN-002",
+      "needed_evidence": "Authoritative interface mapping for J1.1_to_U1.VIN from approved packets",
+      "why_needed": "Confirms connection endpoints before criteria are seeded",
+      "status": "referenced_in_fixture"
+    },
+    {
+      "evidence_need_id": "ENR-SYN-006",
+      "related_verification_item_id": "VIT-SYN-003",
+      "needed_evidence": "Simulation model package",
+      "why_needed": "Required by policy before simulation planning can mature",
+      "status": "missing"
+    },
+    {
+      "evidence_need_id": "ENR-SYN-007",
+      "related_verification_item_id": "VIT-SYN-003",
+      "needed_evidence": "Simulation deck/netlist setup",
+      "why_needed": "Required to define runnable startup transient configuration",
+      "status": "missing"
+    },
+    {
+      "evidence_need_id": "ENR-SYN-008",
+      "related_verification_item_id": "VIT-SYN-003",
+      "needed_evidence": "Stimuli definition",
+      "why_needed": "Required to define startup conditions and timing basis",
+      "status": "missing"
+    },
+    {
+      "evidence_need_id": "ENR-SYN-009",
+      "related_verification_item_id": "VIT-SYN-003",
+      "needed_evidence": "Measurement criteria for startup transient",
+      "why_needed": "Required to convert readiness into bounded verification criteria",
+      "status": "missing"
+    },
+    {
+      "evidence_need_id": "ENR-SYN-010",
+      "related_verification_item_id": "VIT-SYN-004",
+      "needed_evidence": "Official source reference for LED behavior claim",
+      "why_needed": "Claim has no approved authority basis yet",
+      "status": "missing"
+    },
+    {
+      "evidence_need_id": "ENR-SYN-011",
+      "related_verification_item_id": "VIT-SYN-004",
+      "needed_evidence": "Owner intent decision on whether LED indication is required behavior",
+      "why_needed": "Needed before selecting final verification method",
+      "status": "missing"
+    },
+    {
+      "evidence_need_id": "ENR-SYN-012",
+      "related_verification_item_id": "VIT-SYN-005",
+      "needed_evidence": "Owner-approved board revision baseline disposition",
+      "why_needed": "Resolves rev A versus rev B conflict",
+      "status": "missing"
+    },
+    {
+      "evidence_need_id": "ENR-SYN-013",
+      "related_verification_item_id": "VIT-SYN-005",
+      "needed_evidence": "Trace-side revision basis from SYN-TRACE-001",
+      "why_needed": "One side of the conflict record",
+      "status": "referenced_in_fixture"
+    },
+    {
+      "evidence_need_id": "ENR-SYN-014",
+      "related_verification_item_id": "VIT-SYN-005",
+      "needed_evidence": "Configuration packet revision basis from SYN-CFG-A and SYN-CFG-B",
+      "why_needed": "Other side of the conflict record",
+      "status": "referenced_in_fixture"
+    }
+  ],
+  "verification_gap_register": [
+    {
+      "gap_id": "VGR-SYN-001",
+      "related_verification_item_id": "VIT-SYN-002",
+      "gap_type": "owner_decision_missing",
+      "description": "Harness connection claim is marked review_required with missing owner decision.",
+      "required_followup": "Owner to declare whether the connection is a formal verification target and which authority packet governs it."
+    },
+    {
+      "gap_id": "VGR-SYN-002",
+      "related_verification_item_id": "VIT-SYN-002",
+      "gap_type": "procedure_missing",
+      "description": "Fixture or harness procedure is not defined.",
+      "required_followup": "Provide bounded fixture/procedure definition before any execution-capable method is proposed."
+    },
+    {
+      "gap_id": "VGR-SYN-003",
+      "related_verification_item_id": "VIT-SYN-003",
+      "gap_type": "simulation_input_missing",
+      "description": "Simulation model and deck are missing.",
+      "required_followup": "Provide owner-approved model package and deck tied to approved configuration baseline."
+    },
+    {
+      "gap_id": "VGR-SYN-004",
+      "related_verification_item_id": "VIT-SYN-003",
+      "gap_type": "criteria_input_missing",
+      "description": "Stimuli and measurement criteria are not defined.",
+      "required_followup": "Define startup stimuli and measurable acceptance-oriented observation points without claiming execution."
+    },
+    {
+      "gap_id": "VGR-SYN-005",
+      "related_verification_item_id": "VIT-SYN-004",
+      "gap_type": "authority_missing",
+      "description": "No official source reference is present for the LED behavior claim.",
+      "required_followup": "Provide approved source backing or retire the claim from the verification set."
+    },
+    {
+      "gap_id": "VGR-SYN-006",
+      "related_verification_item_id": "VIT-SYN-004",
+      "gap_type": "owner_intent_missing",
+      "description": "LED behavior intent is not owner-decided.",
+      "required_followup": "Owner to state whether LED indication is intended requirement, diagnostic hint, or non-claim behavior."
+    },
+    {
+      "gap_id": "VGR-SYN-007",
+      "related_verification_item_id": "VIT-SYN-005",
+      "gap_type": "configuration_conflict",
+      "description": "Trace identifies board rev A while configuration packet identifies rev B.",
+      "required_followup": "Resolve the revision baseline conflict and rebind all affected verification items to the selected baseline."
+    }
+  ],
+  "test_or_simulation_readiness": [
+    {
+      "verification_item_id": "VIT-SYN-001",
+      "execution_family": "inspection",
+      "readiness_state": "plan_ready",
+      "readiness_basis": "Fixture states approved source plus quantitative packet with no conflict."
+    },
+    {
+      "verification_item_id": "VIT-SYN-002",
+      "execution_family": "test",
+      "readiness_state": "owner_review_required",
+      "readiness_basis": "Owner decision and fixture procedure missing; harness status already marked review_required."
+    },
+    {
+      "verification_item_id": "VIT-SYN-003",
+      "execution_family": "simulation",
+      "readiness_state": "blocked_missing_evidence",
+      "readiness_basis": "Policy allows simulation only after model, deck, stimuli, and measurement criteria exist."
+    },
+    {
+      "verification_item_id": "VIT-SYN-004",
+      "execution_family": "demonstration",
+      "readiness_state": "blocked_missing_evidence",
+      "readiness_basis": "Claim lacks official source reference and owner intent."
+    },
+    {
+      "verification_item_id": "VIT-SYN-005",
+      "execution_family": "test",
+      "readiness_state": "blocked_source_conflict",
+      "readiness_basis": "Affected test readiness is blocked by rev A versus rev B configuration conflict."
+    }
+  ],
+  "owner_followup_needed": [
+    {
+      "followup_id": "OWN-SYN-001",
+      "topic": "Harness claim scope decision",
+      "applies_to": [
+        "VIT-SYN-002"
+      ],
+      "owner_action": "Decide whether J1.1_to_U1.VIN is a formal verification target and identify governing authority packet."
+    },
+    {
+      "followup_id": "OWN-SYN-002",
+      "topic": "Harness fixture procedure",
+      "applies_to": [
+        "VIT-SYN-002"
+      ],
+      "owner_action": "Provide or authorize bounded fixture/procedure for harness verification planning."
+    },
+    {
+      "followup_id": "OWN-SYN-003",
+      "topic": "Simulation readiness packet completion",
+      "applies_to": [
+        "VIT-SYN-003"
+      ],
+      "owner_action": "Provide model, deck, stimuli, and measurement criteria package for startup transient planning."
+    },
+    {
+      "followup_id": "OWN-SYN-004",
+      "topic": "LED claim authority and intent",
+      "applies_to": [
+        "VIT-SYN-004"
+      ],
+      "owner_action": "Supply approved source reference and explicit intent decision, or remove the claim."
+    },
+    {
+      "followup_id": "OWN-SYN-005",
+      "topic": "Board revision baseline resolution",
+      "applies_to": [
+        "VIT-SYN-003",
+        "VIT-SYN-005"
+      ],
+      "owner_action": "Resolve rev A versus rev B conflict and declare the controlling configuration baseline."
+    }
+  ],
+  "trr_readiness_handoff": [
+    {
+      "handoff_id": "TRR-SYN-001",
+      "verification_item_id": "VIT-SYN-001",
+      "readiness_state": "plan_ready",
+      "trr_entry_condition": "Authority citation pack is assembled and linked to the inspection item.",
+      "hold_point": "None stated in fixture."
+    },
+    {
+      "handoff_id": "TRR-SYN-002",
+      "verification_item_id": "VIT-SYN-002",
+      "readiness_state": "owner_review_required",
+      "trr_entry_condition": "Do not advance until owner scope decision and fixture procedure exist.",
+      "hold_point": "Owner decision and procedure definition missing."
+    },
+    {
+      "handoff_id": "TRR-SYN-003",
+      "verification_item_id": "VIT-SYN-003",
+      "readiness_state": "blocked_missing_evidence",
+      "trr_entry_condition": "Do not advance until model, deck, stimuli, and measurement criteria are available.",
+      "hold_point": "Simulation readiness packet incomplete."
+    },
+    {
+      "handoff_id": "TRR-SYN-004",
+      "verification_item_id": "VIT-SYN-004",
+      "readiness_state": "blocked_missing_evidence",
+      "trr_entry_condition": "Do not advance until claim authority and owner intent are established.",
+      "hold_point": "Claim basis unresolved."
+    },
+    {
+      "handoff_id": "TRR-SYN-005",
+      "verification_item_id": "VIT-SYN-005",
+      "readiness_state": "blocked_source_conflict",
+      "trr_entry_condition": "Do not advance until a single board revision baseline is owner-approved.",
+      "hold_point": "Configuration conflict unresolved."
+    }
+  ],
+  "fca_svr_handoff_index": [
+    {
+      "handoff_index_id": "FSH-SYN-001",
+      "verification_item_id": "VIT-SYN-001",
+      "eligible_next_handoff": "FCA/SVR packet assembly can be planned after inspection evidence schema is owner-accepted.",
+      "current_state": "planning_only_referenceable"
+    },
+    {
+      "handoff_index_id": "FSH-SYN-002",
+      "verification_item_id": "VIT-SYN-002",
+      "eligible_next_handoff": "Not applicable pending owner scope and fixture procedure.",
+      "current_state": "withheld_pending_owner"
+    },
+    {
+      "handoff_index_id": "FSH-SYN-003",
+      "verification_item_id": "VIT-SYN-003",
+      "eligible_next_handoff": "Not applicable until simulation readiness inputs are complete.",
+      "current_state": "withheld_missing_inputs"
+    },
+    {
+      "handoff_index_id": "FSH-SYN-004",
+      "verification_item_id": "VIT-SYN-004",
+      "eligible_next_handoff": "Not applicable until authority and intent are established.",
+      "current_state": "withheld_missing_basis"
+    },
+    {
+      "handoff_index_id": "FSH-SYN-005",
+      "verification_item_id": "VIT-SYN-005",
+      "eligible_next_handoff": "Not applicable until configuration conflict is resolved.",
+      "current_state": "withheld_source_conflict"
+    }
+  ],
+  "verification_plan_provenance": {
+    "planning_basis": "Synthetic fixture only; no file reads, command execution, source acquisition, or verification execution used.",
+    "approved_reference_set": [
+      {
+        "ref_id": "SYN-SEED-001",
+        "checksum": "sha256:1111",
+        "role": "seed_matrix"
+      },
+      {
+        "ref_id": "SYN-TRACE-001",
+        "checksum": "sha256:2222",
+        "role": "trace_matrix"
+      },
+      {
+        "ref_id": "SYN-AUTH-001",
+        "checksum": "sha256:3333",
+        "role": "evidence_authority_map"
+      },
+      {
+        "ref_id": "SYN-QUANT-001",
+        "checksum": "sha256:4444",
+        "role": "quantitative_packet"
+      },
+      {
+        "ref_id": "SYN-SIM-001",
+        "checksum": "sha256:5555",
+        "role": "simulation_source_packet"
+      },
+      {
+        "ref_id": "SYN-IFC-001",
+        "checksum": "sha256:6666",
+        "role": "interface_control_packet"
+      },
+      {
+        "ref_id": "SYN-HAR-001",
+        "checksum": "sha256:7777",
+        "role": "harness_packet"
+      },
+      {
+        "ref_id": "SYN-CFG-A",
+        "checksum": "sha256:8888",
+        "role": "configuration_baseline_ref"
+      },
+      {
+        "ref_id": "SYN-CFG-B",
+        "checksum": "sha256:9999",
+        "role": "configuration_baseline_ref"
+      }
+    ],
+    "trace_inputs": [
+      "TR-SYN-001",
+      "TR-SYN-002",
+      "TR-SYN-003",
+      "TR-SYN-004",
+      "TR-SYN-005"
+    ]
+  },
+  "verification_plan_summary": {
+    "total_items": 5,
+    "method_distribution": {
+      "inspection": 1,
+      "simulation": 1,
+      "owner_review": 3
+    },
+    "readiness_distribution": {
+      "plan_ready": 1,
+      "owner_review_required": 1,
+      "blocked_missing_evidence": 2,
+      "blocked_source_conflict": 1
+    },
+    "planning_observation": "Only the 3.3 V quantitative constraint is plan-ready on the fixture as given; all other items require owner action, missing evidence completion, or conflict resolution before execution-capable verification planning can mature."
+  },
+  "boundary_review_note": {
+    "scope_boundary": "This output is a public-safe planning artifact derived only from the supplied synthetic fixture.",
+    "explicit_non_claims": [
+      "No verification execution was performed or claimed.",
+      "No pass/fail, approval, acceptance, source acquisition, simulation execution, or physical test execution is stated.",
+      "No readiness statement should be interpreted as authorization to run verification."
+    ]
+  }
+}

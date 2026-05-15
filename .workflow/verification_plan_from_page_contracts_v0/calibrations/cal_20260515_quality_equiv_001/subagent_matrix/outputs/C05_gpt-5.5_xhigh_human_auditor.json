@@ -1,0 +1,498 @@
+{
+  "profile": {
+    "model": "gpt-5.5",
+    "reasoning_effort": "xhigh",
+    "species": "human",
+    "class": "auditor",
+    "project_code": "SYN_PUBLIC_CAL",
+    "output_root": "synthetic_public_archive_only",
+    "planning_only": true,
+    "verification_execution_allowed": false
+  },
+  "verification_plan": [
+    {
+      "verification_item_id": "VI-SYN-PWR-01-REG-3V3-001",
+      "trace_id": "TR-SYN-001",
+      "page_asset_id": "PWR-01",
+      "scope_key": "REG-3V3",
+      "claim_kind": "quantitative_constraint",
+      "planned_methods": ["inspection", "analysis"],
+      "method_assignment_rationale": "Inspect referenced PSU source and quantitative packet identity; analyze nominal 3.3 V with +/-5% tolerance as a derived verification criterion seed.",
+      "evidence_needs": [
+        "SRC-PSU-DS-001 reference identity and relevant VOUT field",
+        "SYN-QUANT-001 quantitative packet value",
+        "Trace linkage from rail.vout to REG-3V3"
+      ],
+      "criteria_seed": {
+        "parameter": "rail.vout",
+        "nominal": "3.3 V",
+        "tolerance": "+/-5%",
+        "lower_bound_seed": "3.135 V",
+        "upper_bound_seed": "3.465 V"
+      },
+      "planning_status": "plan_ready_with_prerequisites"
+    },
+    {
+      "verification_item_id": "VI-SYN-PWR-01-VIN-HARNESS-001",
+      "trace_id": "TR-SYN-002",
+      "page_asset_id": "PWR-01",
+      "scope_key": "VIN-HARNESS",
+      "claim_kind": "harness_connection_claim",
+      "planned_methods": ["inspection", "test", "owner_review"],
+      "method_assignment_rationale": "Harness connection can be inspected against interface data, but test planning requires owner decision and a fixture procedure before execution readiness can be assessed.",
+      "evidence_needs": [
+        "Owner decision for J1.1_to_U1.VIN harness intent",
+        "Harness review disposition",
+        "Test fixture procedure for VIN harness continuity or equivalent connection check",
+        "SYN-IFC-001 interface control packet",
+        "SYN-HAR-001 harness packet"
+      ],
+      "criteria_seed": {
+        "interface_scope": "J1.1_to_U1.VIN",
+        "expected_condition_seed": "Connection criteria pending owner decision and fixture procedure"
+      },
+      "planning_status": "owner_review_required"
+    },
+    {
+      "verification_item_id": "VI-SYN-PWR-01-STARTUP-SIM-001",
+      "trace_id": "TR-SYN-003",
+      "page_asset_id": "PWR-01",
+      "scope_key": "STARTUP-SIM",
+      "claim_kind": "pspice_readiness",
+      "planned_methods": ["simulation", "owner_review"],
+      "method_assignment_rationale": "Startup transient is a simulation planning item, but simulation is not ready until model, deck, stimuli, and measurement criteria exist.",
+      "evidence_needs": [
+        "Simulation model",
+        "PSpice deck",
+        "Stimuli definition",
+        "Measurement criteria for startup transient",
+        "SYN-SIM-001 simulation source packet"
+      ],
+      "criteria_seed": {
+        "event": "startup transient",
+        "expected_condition_seed": "Simulation criteria pending model, deck, stimuli, and measurement definitions"
+      },
+      "planning_status": "blocked_missing_evidence"
+    },
+    {
+      "verification_item_id": "VI-SYN-LED-02-STATUS-LED-001",
+      "trace_id": "TR-SYN-004",
+      "page_asset_id": "LED-02",
+      "scope_key": "STATUS-LED",
+      "claim_kind": "function_claim",
+      "planned_methods": ["inspection", "demonstration", "owner_review"],
+      "method_assignment_rationale": "Functional indication can be demonstrated only after official source reference and owner intent establish the intended behavior.",
+      "evidence_needs": [
+        "Official source reference for status LED function",
+        "Owner intent decision for regulator-enabled indication",
+        "Trace linkage from STATUS-LED to implementation signal"
+      ],
+      "criteria_seed": {
+        "function": "Status LED indicates regulator enabled",
+        "expected_condition_seed": "Demonstration criteria pending official source and owner intent"
+      },
+      "planning_status": "owner_review_required"
+    },
+    {
+      "verification_item_id": "VI-SYN-PWR-01-CFG-BASELINE-001",
+      "trace_id": "TR-SYN-005",
+      "page_asset_id": "PWR-01",
+      "scope_key": "CFG-BASELINE",
+      "claim_kind": "configuration_baseline",
+      "planned_methods": ["inspection", "owner_review"],
+      "method_assignment_rationale": "Configuration baseline must be reconciled before affected test or simulation planning can be bound to a board revision.",
+      "evidence_needs": [
+        "Trace matrix board revision basis",
+        "SYN-CFG-A configuration baseline reference",
+        "SYN-CFG-B configuration baseline reference",
+        "Owner disposition of rev A versus rev B conflict"
+      ],
+      "criteria_seed": {
+        "configuration_subject": "board revision",
+        "conflict_seed": "Trace says rev A; configuration packet says rev B"
+      },
+      "planning_status": "blocked_source_conflict"
+    }
+  ],
+  "verification_requirements_matrix": [
+    {
+      "trace_id": "TR-SYN-001",
+      "verification_item_id": "VI-SYN-PWR-01-REG-3V3-001",
+      "requirement_subject": "REG-3V3 rail.vout",
+      "primary_method": "analysis",
+      "supporting_methods": ["inspection"],
+      "readiness_state": "plan_ready_with_prerequisites"
+    },
+    {
+      "trace_id": "TR-SYN-002",
+      "verification_item_id": "VI-SYN-PWR-01-VIN-HARNESS-001",
+      "requirement_subject": "VIN harness J1.1_to_U1.VIN",
+      "primary_method": "owner_review",
+      "supporting_methods": ["inspection", "test"],
+      "readiness_state": "owner_review_required"
+    },
+    {
+      "trace_id": "TR-SYN-003",
+      "verification_item_id": "VI-SYN-PWR-01-STARTUP-SIM-001",
+      "requirement_subject": "Startup transient simulation readiness",
+      "primary_method": "simulation",
+      "supporting_methods": ["owner_review"],
+      "readiness_state": "blocked_missing_evidence"
+    },
+    {
+      "trace_id": "TR-SYN-004",
+      "verification_item_id": "VI-SYN-LED-02-STATUS-LED-001",
+      "requirement_subject": "Status LED regulator-enabled indication",
+      "primary_method": "owner_review",
+      "supporting_methods": ["inspection", "demonstration"],
+      "readiness_state": "owner_review_required"
+    },
+    {
+      "trace_id": "TR-SYN-005",
+      "verification_item_id": "VI-SYN-PWR-01-CFG-BASELINE-001",
+      "requirement_subject": "Configuration baseline board revision",
+      "primary_method": "inspection",
+      "supporting_methods": ["owner_review"],
+      "readiness_state": "blocked_source_conflict"
+    }
+  ],
+  "method_map": [
+    {
+      "method": "inspection",
+      "applies_to": [
+        "VI-SYN-PWR-01-REG-3V3-001",
+        "VI-SYN-PWR-01-VIN-HARNESS-001",
+        "VI-SYN-LED-02-STATUS-LED-001",
+        "VI-SYN-PWR-01-CFG-BASELINE-001"
+      ],
+      "purpose": "Check referenced packet identity, trace linkage, interface claims, source presence, and configuration consistency."
+    },
+    {
+      "method": "analysis",
+      "applies_to": ["VI-SYN-PWR-01-REG-3V3-001"],
+      "purpose": "Derive quantitative tolerance bounds from nominal value and tolerance."
+    },
+    {
+      "method": "simulation",
+      "applies_to": ["VI-SYN-PWR-01-STARTUP-SIM-001"],
+      "purpose": "Plan startup transient verification after required model, deck, stimuli, and measurement criteria exist."
+    },
+    {
+      "method": "test",
+      "applies_to": ["VI-SYN-PWR-01-VIN-HARNESS-001"],
+      "purpose": "Plan harness connection check after owner decision and fixture procedure exist."
+    },
+    {
+      "method": "demonstration",
+      "applies_to": ["VI-SYN-LED-02-STATUS-LED-001"],
+      "purpose": "Plan functional LED behavior observation after source and intent are established."
+    },
+    {
+      "method": "owner_review",
+      "applies_to": [
+        "VI-SYN-PWR-01-VIN-HARNESS-001",
+        "VI-SYN-PWR-01-STARTUP-SIM-001",
+        "VI-SYN-LED-02-STATUS-LED-001",
+        "VI-SYN-PWR-01-CFG-BASELINE-001"
+      ],
+      "purpose": "Resolve missing decisions, readiness prerequisites, and source conflicts."
+    }
+  ],
+  "evidence_need_register": [
+    {
+      "evidence_need_id": "EN-SYN-001",
+      "verification_item_id": "VI-SYN-PWR-01-REG-3V3-001",
+      "need": "PSU source and quantitative packet linkage for VOUT_3V3",
+      "source_hint": "SRC-PSU-DS-001, SYN-QUANT-001"
+    },
+    {
+      "evidence_need_id": "EN-SYN-002",
+      "verification_item_id": "VI-SYN-PWR-01-VIN-HARNESS-001",
+      "need": "Owner harness intent decision and review disposition",
+      "source_hint": "owner_review"
+    },
+    {
+      "evidence_need_id": "EN-SYN-003",
+      "verification_item_id": "VI-SYN-PWR-01-VIN-HARNESS-001",
+      "need": "Test fixture procedure",
+      "source_hint": "harness/test procedure owner"
+    },
+    {
+      "evidence_need_id": "EN-SYN-004",
+      "verification_item_id": "VI-SYN-PWR-01-STARTUP-SIM-001",
+      "need": "Simulation model, deck, stimuli, and measurement criteria",
+      "source_hint": "SYN-SIM-001 plus simulation owner inputs"
+    },
+    {
+      "evidence_need_id": "EN-SYN-005",
+      "verification_item_id": "VI-SYN-LED-02-STATUS-LED-001",
+      "need": "Official source reference and owner intent for LED function",
+      "source_hint": "owner_review and official source packet"
+    },
+    {
+      "evidence_need_id": "EN-SYN-006",
+      "verification_item_id": "VI-SYN-PWR-01-CFG-BASELINE-001",
+      "need": "Disposition of board rev A versus rev B conflict",
+      "source_hint": "SYN-TRACE-001, SYN-CFG-A, SYN-CFG-B"
+    }
+  ],
+  "verification_gap_register": [
+    {
+      "gap_id": "VG-SYN-001",
+      "verification_item_id": "VI-SYN-PWR-01-VIN-HARNESS-001",
+      "gap_type": "review_required",
+      "description": "Harness status requires review for J1.1_to_U1.VIN.",
+      "readiness_impact": "owner_review_required"
+    },
+    {
+      "gap_id": "VG-SYN-002",
+      "verification_item_id": "VI-SYN-PWR-01-VIN-HARNESS-001",
+      "gap_type": "missing_prerequisite",
+      "description": "Owner decision is missing for harness intent.",
+      "readiness_impact": "owner_review_required"
+    },
+    {
+      "gap_id": "VG-SYN-003",
+      "verification_item_id": "VI-SYN-PWR-01-VIN-HARNESS-001",
+      "gap_type": "missing_prerequisite",
+      "description": "Test fixture procedure is missing.",
+      "readiness_impact": "blocked_missing_evidence"
+    },
+    {
+      "gap_id": "VG-SYN-004",
+      "verification_item_id": "VI-SYN-PWR-01-STARTUP-SIM-001",
+      "gap_type": "missing_prerequisite",
+      "description": "Simulation model is missing.",
+      "readiness_impact": "blocked_missing_evidence"
+    },
+    {
+      "gap_id": "VG-SYN-005",
+      "verification_item_id": "VI-SYN-PWR-01-STARTUP-SIM-001",
+      "gap_type": "missing_prerequisite",
+      "description": "Simulation deck is missing.",
+      "readiness_impact": "blocked_missing_evidence"
+    },
+    {
+      "gap_id": "VG-SYN-006",
+      "verification_item_id": "VI-SYN-PWR-01-STARTUP-SIM-001",
+      "gap_type": "missing_prerequisite",
+      "description": "Stimuli and measurement criteria are not established.",
+      "readiness_impact": "blocked_missing_evidence"
+    },
+    {
+      "gap_id": "VG-SYN-007",
+      "verification_item_id": "VI-SYN-LED-02-STATUS-LED-001",
+      "gap_type": "missing_source",
+      "description": "Official source reference is missing for status LED function.",
+      "readiness_impact": "owner_review_required"
+    },
+    {
+      "gap_id": "VG-SYN-008",
+      "verification_item_id": "VI-SYN-LED-02-STATUS-LED-001",
+      "gap_type": "missing_prerequisite",
+      "description": "Owner intent decision is missing for regulator-enabled LED behavior.",
+      "readiness_impact": "owner_review_required"
+    },
+    {
+      "gap_id": "VG-SYN-009",
+      "verification_item_id": "VI-SYN-PWR-01-CFG-BASELINE-001",
+      "gap_type": "source_conflict",
+      "description": "Trace says board rev A, while configuration packet says rev B.",
+      "readiness_impact": "blocked_source_conflict"
+    }
+  ],
+  "test_or_simulation_readiness": [
+    {
+      "verification_item_id": "VI-SYN-PWR-01-REG-3V3-001",
+      "readiness_state": "plan_ready_with_prerequisites",
+      "readiness_basis": "Quantitative criteria can be seeded from fixture-stated nominal and tolerance; execution is outside scope."
+    },
+    {
+      "verification_item_id": "VI-SYN-PWR-01-VIN-HARNESS-001",
+      "readiness_state": "owner_review_required",
+      "readiness_basis": "Harness review, owner decision, and fixture procedure are prerequisites."
+    },
+    {
+      "verification_item_id": "VI-SYN-PWR-01-STARTUP-SIM-001",
+      "readiness_state": "blocked_missing_evidence",
+      "readiness_basis": "Simulation model, deck, stimuli, and measurement criteria are missing."
+    },
+    {
+      "verification_item_id": "VI-SYN-LED-02-STATUS-LED-001",
+      "readiness_state": "owner_review_required",
+      "readiness_basis": "Official source and owner intent are missing."
+    },
+    {
+      "verification_item_id": "VI-SYN-PWR-01-CFG-BASELINE-001",
+      "readiness_state": "blocked_source_conflict",
+      "readiness_basis": "Board revision conflict blocks affected test readiness."
+    }
+  ],
+  "owner_followup_needed": [
+    {
+      "followup_id": "OF-SYN-001",
+      "verification_item_id": "VI-SYN-PWR-01-VIN-HARNESS-001",
+      "question": "Confirm intended J1.1_to_U1.VIN harness connection and review disposition."
+    },
+    {
+      "followup_id": "OF-SYN-002",
+      "verification_item_id": "VI-SYN-PWR-01-VIN-HARNESS-001",
+      "question": "Provide or identify the test fixture procedure for the VIN harness check."
+    },
+    {
+      "followup_id": "OF-SYN-003",
+      "verification_item_id": "VI-SYN-PWR-01-STARTUP-SIM-001",
+      "question": "Provide simulation model, deck, stimuli, and measurement criteria for startup transient planning."
+    },
+    {
+      "followup_id": "OF-SYN-004",
+      "verification_item_id": "VI-SYN-LED-02-STATUS-LED-001",
+      "question": "Provide official source reference and owner intent for status LED behavior."
+    },
+    {
+      "followup_id": "OF-SYN-005",
+      "verification_item_id": "VI-SYN-PWR-01-CFG-BASELINE-001",
+      "question": "Resolve whether rev A or rev B is the applicable board configuration baseline."
+    }
+  ],
+  "trr_readiness_handoff": [
+    {
+      "handoff_id": "TRR-SYN-001",
+      "verification_item_id": "VI-SYN-PWR-01-REG-3V3-001",
+      "readiness_state": "plan_ready_with_prerequisites",
+      "handoff_note": "Carry quantitative bounds and source linkage into TRR package; no execution status implied."
+    },
+    {
+      "handoff_id": "TRR-SYN-002",
+      "verification_item_id": "VI-SYN-PWR-01-VIN-HARNESS-001",
+      "readiness_state": "owner_review_required",
+      "handoff_note": "TRR package needs owner decision, harness review disposition, and fixture procedure."
+    },
+    {
+      "handoff_id": "TRR-SYN-003",
+      "verification_item_id": "VI-SYN-PWR-01-STARTUP-SIM-001",
+      "readiness_state": "blocked_missing_evidence",
+      "handoff_note": "TRR package needs simulation model, deck, stimuli, and measurement criteria."
+    },
+    {
+      "handoff_id": "TRR-SYN-004",
+      "verification_item_id": "VI-SYN-LED-02-STATUS-LED-001",
+      "readiness_state": "owner_review_required",
+      "handoff_note": "TRR package needs official source and owner intent before demonstration planning matures."
+    },
+    {
+      "handoff_id": "TRR-SYN-005",
+      "verification_item_id": "VI-SYN-PWR-01-CFG-BASELINE-001",
+      "readiness_state": "blocked_source_conflict",
+      "handoff_note": "TRR package needs configuration baseline conflict disposition."
+    }
+  ],
+  "fca_svr_handoff_index": [
+    {
+      "handoff_id": "FCA-SVR-SYN-001",
+      "verification_item_id": "VI-SYN-PWR-01-REG-3V3-001",
+      "artifact_need": "Traceable quantitative requirement and planned analysis criteria seed"
+    },
+    {
+      "handoff_id": "FCA-SVR-SYN-002",
+      "verification_item_id": "VI-SYN-PWR-01-VIN-HARNESS-001",
+      "artifact_need": "Owner-resolved harness intent, interface mapping, and planned fixture procedure"
+    },
+    {
+      "handoff_id": "FCA-SVR-SYN-003",
+      "verification_item_id": "VI-SYN-PWR-01-STARTUP-SIM-001",
+      "artifact_need": "Simulation readiness packet with model, deck, stimuli, and measurements"
+    },
+    {
+      "handoff_id": "FCA-SVR-SYN-004",
+      "verification_item_id": "VI-SYN-LED-02-STATUS-LED-001",
+      "artifact_need": "Source-backed LED function intent and planned demonstration criteria"
+    },
+    {
+      "handoff_id": "FCA-SVR-SYN-005",
+      "verification_item_id": "VI-SYN-PWR-01-CFG-BASELINE-001",
+      "artifact_need": "Resolved configuration baseline and affected verification item impact list"
+    }
+  ],
+  "verification_plan_provenance": {
+    "fixture_only": true,
+    "source_reading_or_command_execution": false,
+    "approved_refs_listed_in_fixture": [
+      {
+        "ref_id": "SYN-SEED-001",
+        "checksum": "sha256:1111",
+        "role": "seed_matrix"
+      },
+      {
+        "ref_id": "SYN-TRACE-001",
+        "checksum": "sha256:2222",
+        "role": "trace_matrix"
+      },
+      {
+        "ref_id": "SYN-AUTH-001",
+        "checksum": "sha256:3333",
+        "role": "evidence_authority_map"
+      },
+      {
+        "ref_id": "SYN-QUANT-001",
+        "checksum": "sha256:4444",
+        "role": "quantitative_packet"
+      },
+      {
+        "ref_id": "SYN-SIM-001",
+        "checksum": "sha256:5555",
+        "role": "simulation_source_packet"
+      },
+      {
+        "ref_id": "SYN-IFC-001",
+        "checksum": "sha256:6666",
+        "role": "interface_control_packet"
+      },
+      {
+        "ref_id": "SYN-HAR-001",
+        "checksum": "sha256:7777",
+        "role": "harness_packet"
+      },
+      {
+        "ref_id": "SYN-CFG-A",
+        "checksum": "sha256:8888",
+        "role": "configuration_baseline_ref"
+      },
+      {
+        "ref_id": "SYN-CFG-B",
+        "checksum": "sha256:9999",
+        "role": "configuration_baseline_ref"
+      }
+    ]
+  },
+  "verification_plan_summary": {
+    "total_trace_items": 5,
+    "verification_items_created": 5,
+    "planning_only": true,
+    "execution_claims_made": false,
+    "readiness_counts": {
+      "plan_ready": 0,
+      "plan_ready_with_prerequisites": 1,
+      "owner_review_required": 2,
+      "blocked_missing_evidence": 1,
+      "blocked_source_conflict": 1,
+      "blocked_configuration": 0,
+      "not_applicable_pending_owner": 0
+    },
+    "primary_blockers": [
+      "Harness owner decision and fixture procedure missing",
+      "Simulation model, deck, stimuli, and measurement criteria missing",
+      "Status LED official source and owner intent missing",
+      "Board revision conflict between trace and configuration packet"
+    ]
+  },
+  "boundary_review_note": {
+    "public_safe": true,
+    "fixture_bound": true,
+    "limitations": [
+      "No files were read.",
+      "No commands were run.",
+      "No verification execution, pass/fail result, source acquisition, simulation execution, physical test execution, approval, or acceptance is claimed."
+    ]
+  }
+}

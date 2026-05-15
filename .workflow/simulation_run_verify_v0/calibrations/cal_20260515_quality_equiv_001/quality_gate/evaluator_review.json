@@ -1,0 +1,17 @@
+{
+  "review_status": "accepted_for_quality_equivalence_calibration",
+  "fixture_boundary": "public_safe_synthetic_only",
+  "golden_output_used_as_candidate": true,
+  "golden_output_hidden_from_non_baseline_candidates": true,
+  "criteria_overfit_risk": "low",
+  "notes": [
+    "The criteria preserve the prior hard gates and add explicit quality-equivalence thresholds.",
+    "The gpt-5.5/xhigh output is retained as both the baseline anchor and an actual candidate profile.",
+    "Candidates may pass with different section ordering or field names if blocked-run, synthetic-stub, owner-acceptance, and measurement-rule boundaries remain explicit."
+  ],
+  "limitations": [
+    "Evaluation was performed on public synthetic fixtures only.",
+    "No private run truth, real simulator artifact, waveform, or owner decision packet was used.",
+    "No independent subagent runner was exposed; candidate generation used ephemeral codex exec CLI runs."
+  ]
+}

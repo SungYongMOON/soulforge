@@ -1,0 +1,41 @@
+calibration_id: cal_20260515_quality_equiv_001
+workflow_id: simulation_run_verify_v0
+kind: workflow_profile_calibration
+status: complete
+created_date: 2026-05-15
+mode: quality_equiv_public_safe_cli_isolated
+quality_baseline:
+  model: gpt-5.5
+  reasoning_effort: xhigh
+  species: human
+  class: auditor
+  candidate_id: qe_gpt55_xhigh_human_auditor
+fixture_ref: input_fixture.public.json
+quality_gate_ref: quality_gate/criteria.json
+quality_source: cli_isolated_candidate_matrix
+telemetry_source: same_cli_isolated_candidate_runs
+boundary:
+  public_safe_synthetic_only: true
+  private_raw_secret_material_used: false
+  workspaces_material_used: false
+  runtime_absolute_paths_in_archive: false
+matrix_summary:
+  candidates_run: 4
+  candidates:
+    - qe_gpt55_xhigh_human_auditor
+    - qe_gpt55_medium_human_auditor
+    - qe_gpt55_low_human_auditor
+    - qe_gpt54_low_human_auditor
+  gpt_5_5_candidate_profiles_included: true
+  quality_equivalent_pass_count: 4
+  selected_primary: qe_gpt55_low_human_auditor
+telemetry_probe_candidates:
+  - qe_gpt55_xhigh_human_auditor
+  - qe_gpt55_medium_human_auditor
+  - qe_gpt55_low_human_auditor
+  - qe_gpt54_low_human_auditor
+limitations:
+  - No dedicated subagent runner was exposed; candidates were generated through ephemeral codex exec CLI runs.
+  - CLI telemetry is exact for these CLI candidate runs, not exact subagent telemetry.
+  - Full default model/species/class matrix was not run.
+  - Fixture is public-safe synthetic and does not include private run truth or real simulator artifacts.

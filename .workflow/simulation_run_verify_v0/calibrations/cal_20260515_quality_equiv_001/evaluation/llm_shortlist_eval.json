@@ -1,0 +1,26 @@
+{
+  "shortlist_basis": "Revised quality-equivalence rule over public synthetic fixture.",
+  "baseline_candidate_id": "qe_gpt55_xhigh_human_auditor",
+  "primary_candidate_id": "qe_gpt55_low_human_auditor",
+  "quality_equivalent_candidates": [
+    "qe_gpt55_low_human_auditor",
+    "qe_gpt55_xhigh_human_auditor",
+    "qe_gpt55_medium_human_auditor",
+    "qe_gpt54_low_human_auditor"
+  ],
+  "rejected_candidates": [],
+  "old_policy_comparison": {
+    "previous_primary_candidate_id": "c_stage_b_gpt54_low_human_auditor",
+    "previous_primary_profile": "gpt-5.4 / low / human / auditor",
+    "previous_quality_score": 94,
+    "previous_quality_class_under_old_policy": "minimum-pass-style active pass",
+    "new_assessment_of_matching_profile": {
+      "candidate_id": "qe_gpt54_low_human_auditor",
+      "quality_score": 94,
+      "quality_class": "quality_equivalent_pass",
+      "baseline_relative_quality": 0.98,
+      "key_difference": "No material information loss, but machine-readability is weaker because the output is split into Markdown fenced YAML sections."
+    }
+  },
+  "selection_reason": "gpt-5.5/low matched the gpt-5.5/xhigh baseline on material quality while using fewer output and reasoning tokens and the lowest measured wall time in this run."
+}

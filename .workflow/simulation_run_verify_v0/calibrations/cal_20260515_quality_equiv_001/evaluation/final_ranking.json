@@ -1,0 +1,49 @@
+{
+  "ranking": [
+    {
+      "rank": 1,
+      "candidate_id": "qe_gpt55_low_human_auditor",
+      "profile": "gpt-5.5 / low / human / auditor",
+      "quality_score": 96,
+      "baseline_relative_quality": 1.0,
+      "quality_class": "quality_equivalent_pass",
+      "quality_gate": "pass",
+      "wall_seconds": 21.486,
+      "reason": "No material loss versus gpt-5.5/xhigh; strongest wall-time and output/reasoning token profile among quality-equivalent candidates."
+    },
+    {
+      "rank": 2,
+      "candidate_id": "qe_gpt55_xhigh_human_auditor",
+      "profile": "gpt-5.5 / xhigh / human / auditor",
+      "quality_score": 96,
+      "baseline_relative_quality": 1.0,
+      "quality_class": "quality_equivalent_pass",
+      "quality_gate": "pass",
+      "wall_seconds": 27.879,
+      "reason": "Baseline-quality anchor; higher output and reasoning tokens than gpt-5.5/low without material quality gain on this fixture."
+    },
+    {
+      "rank": 3,
+      "candidate_id": "qe_gpt55_medium_human_auditor",
+      "profile": "gpt-5.5 / medium / human / auditor",
+      "quality_score": 95,
+      "baseline_relative_quality": 0.99,
+      "quality_class": "quality_equivalent_pass",
+      "quality_gate": "pass",
+      "wall_seconds": 25.355,
+      "reason": "Quality-equivalent, but its boundary note is less structured and telemetry is not better than gpt-5.5/low."
+    },
+    {
+      "rank": 4,
+      "candidate_id": "qe_gpt54_low_human_auditor",
+      "profile": "gpt-5.4 / low / human / auditor",
+      "quality_score": 94,
+      "baseline_relative_quality": 0.98,
+      "quality_class": "quality_equivalent_pass",
+      "quality_gate": "pass",
+      "wall_seconds": 26.746,
+      "reason": "Prior primary remains quality-equivalent, but output is less directly machine-readable and measured output tokens/wall time were worse than gpt-5.5/low."
+    }
+  ],
+  "selection_rule": "Only quality_equivalent_pass candidates are primary-eligible. Quality differences under five points were resolved by output/reasoning tokens, wall time, and machine-readability. Model price was not measured."
+}
