@@ -1,0 +1,3 @@
+{"candidate_id":"C01","model":"gpt-5.4","reasoning_effort":"low","wall_time_seconds":53.90,"input_tokens":13840,"cached_input_tokens":4480,"output_tokens":2817,"reasoning_output_tokens":21,"source":"codex_cli_proxy"}
+{"candidate_id":"C02","model":"gpt-5.4","reasoning_effort":"medium","wall_time_seconds":48.92,"input_tokens":13840,"cached_input_tokens":7552,"output_tokens":2414,"reasoning_output_tokens":53,"source":"codex_cli_proxy"}
+{"candidate_id":"C03","model":"gpt-5.5","reasoning_effort":"low","wall_time_seconds":42.10,"input_tokens":15225,"cached_input_tokens":7552,"output_tokens":1999,"reasoning_output_tokens":15,"source":"codex_cli_proxy"}

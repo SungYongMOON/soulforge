@@ -1,0 +1,36 @@
+workflow_id: verification_plan_from_page_contracts_v0
+calibration_id: cal_20260515T121105_public_fixture
+recommended_primary:
+  model: gpt-5.4
+  reasoning_effort: low
+  species: human
+  class: auditor
+  candidate_id: C01
+  quality_score: 88
+  cli_proxy:
+    wall_time_seconds: 53.9
+    input_tokens: 13840
+    cached_input_tokens: 4480
+    output_tokens: 2817
+    reasoning_output_tokens: 21
+why:
+  - Lowest-cost profile that passed all hard quality gates.
+  - Preserved planning-only boundaries, canonical method/readiness vocabulary, and missing-evidence blockers.
+  - Correctly kept TR-005 not simulation-ready and did not apply OWN-001.
+shadows:
+  - model: gpt-5.4
+    reasoning_effort: medium
+    species: human
+    class: auditor
+    candidate_id: C02
+    use_when: larger packets need more cross-section structure
+  - model: gpt-5.5
+    reasoning_effort: low
+    species: human
+    class: auditor
+    candidate_id: C03
+    use_when: high-stakes owner review or boundary-sensitive mixed packets need escalation
+not_measured:
+  - exact subagent token usage
+  - provider billing cost
+  - stability over repeated reruns

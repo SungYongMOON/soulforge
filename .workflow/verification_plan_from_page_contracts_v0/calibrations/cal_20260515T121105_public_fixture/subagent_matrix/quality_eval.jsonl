@@ -1,0 +1,3 @@
+{"candidate_id":"C01","usable":true,"critical_errors":[],"missing_required_items":[],"golden_requirement_coverage":0.92,"task_success":0.90,"safety_boundary":"pass","repeatability":0.80,"final_quality":"pass","score":88}
+{"candidate_id":"C02","usable":true,"critical_errors":[],"missing_required_items":[],"golden_requirement_coverage":0.95,"task_success":0.93,"safety_boundary":"pass","repeatability":0.85,"final_quality":"pass","score":91}
+{"candidate_id":"C03","usable":true,"critical_errors":[],"missing_required_items":[],"golden_requirement_coverage":0.96,"task_success":0.94,"safety_boundary":"pass","repeatability":0.85,"final_quality":"pass","score":92}

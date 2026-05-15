@@ -1,0 +1,5 @@
+[
+  {"rank":1,"candidate_id":"C01","model":"gpt-5.4","reasoning_effort":"low","species":"human","class":"auditor","quality_score":88,"wall_time_seconds":53.9,"selection_reason":"Lowest-cost passing profile. Quality is comfortably above hard gate; gpt-5.5 quality edge does not justify stronger model as default."},
+  {"rank":2,"candidate_id":"C02","model":"gpt-5.4","reasoning_effort":"medium","species":"human","class":"auditor","quality_score":91,"wall_time_seconds":48.92,"selection_reason":"Best same-model quality shadow with modest extra reasoning."},
+  {"rank":3,"candidate_id":"C03","model":"gpt-5.5","reasoning_effort":"low","species":"human","class":"auditor","quality_score":92,"wall_time_seconds":42.1,"selection_reason":"Strongest compact output and fastest CLI proxy, but higher model tier; keep as escalation shadow."}
+]

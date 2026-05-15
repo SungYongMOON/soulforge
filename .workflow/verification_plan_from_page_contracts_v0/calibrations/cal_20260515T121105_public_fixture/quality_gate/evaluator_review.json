@@ -1,0 +1,1 @@
+{"review_model":"gpt-5.4","reasoning_effort":"high","sufficient_before_revision":false,"accepted_revisions":["split invariant checks from fixture oracle checks","score semantic equivalence rather than golden wording","add cross-section consistency","add non-invention and source-backing discipline","require per-trace provenance and concrete blocker follow-up"]}

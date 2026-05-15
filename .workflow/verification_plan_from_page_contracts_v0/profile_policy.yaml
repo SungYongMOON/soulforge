@@ -1,21 +1,59 @@
 workflow_id: verification_plan_from_page_contracts_v0
 kind: workflow_profile_policy
-status: draft
-calibration_mode: uncalibrated_contract_package
+status: active
+last_calibration_id: cal_20260515T121105_public_fixture
+calibration_mode: public_safe_synthetic_staged_quality_first
 measurement_policy:
-  quality_source: not_yet_measured
-  telemetry_source: not_yet_measured
+  quality_source: subagent_staged_matrix
+  telemetry_source: cli_passed_candidates_only
   subagent_token_usage_available: false
   telemetry_exact_for_subagent: false
-  cost_confidence: unknown
+  cost_confidence: relative_not_exact
 primary_profile:
-  model: null
-  reasoning_effort: null
-  species: null
-  class: null
-  candidate_id: null
-  quality_gate: pending_profile_calibration
-shadow_top_k: []
+  model: gpt-5.4
+  reasoning_effort: low
+  species: human
+  class: auditor
+  candidate_id: C01
+  quality_gate: pass
+  quality_score: 88
+  telemetry_source: codex_cli_proxy
+  input_tokens: 13840
+  cached_input_tokens: 4480
+  output_tokens: 2817
+  reasoning_output_tokens: 21
+  wall_time_seconds: 53.9
+shadow_top_k:
+  - rank: 2
+    model: gpt-5.4
+    reasoning_effort: medium
+    species: human
+    class: auditor
+    candidate_id: C02
+    quality_gate: pass
+    quality_score: 91
+    telemetry_source: codex_cli_proxy
+    input_tokens: 13840
+    cached_input_tokens: 7552
+    output_tokens: 2414
+    reasoning_output_tokens: 53
+    wall_time_seconds: 48.92
+    use_when: larger packets need more cross-section structure
+  - rank: 3
+    model: gpt-5.5
+    reasoning_effort: low
+    species: human
+    class: auditor
+    candidate_id: C03
+    quality_gate: pass
+    quality_score: 92
+    telemetry_source: codex_cli_proxy
+    input_tokens: 15225
+    cached_input_tokens: 7552
+    output_tokens: 1999
+    reasoning_output_tokens: 15
+    wall_time_seconds: 42.1
+    use_when: high-stakes owner review or boundary-sensitive mixed packets need escalation
 rerun_triggers:
   - verification_seed_matrix_template_changes
   - method_assignment_rule_changes
@@ -23,8 +61,9 @@ rerun_triggers:
   - upstream_trace_or_harness_packet_shape_changes
   - simulation_source_packet_shape_changes
   - trr_or_fca_svr_handoff_shape_changes
-  - first_profile_calibration_run
+  - calibration_fixture_expansion
+calibration_archive_ref: calibrations/cal_20260515T121105_public_fixture/
 notes:
-  - The package now has a controlled private representative-item pilot, but it still has no calibrated execution profile.
-  - Bind model, reasoning, party, and source-boundary handling per project until public-safe calibration evidence exists.
-  - Do not call this usable or production-ready until profile calibration and independent boundary review pass.
+  - Calibrated on a public-safe synthetic mixed trace/source/harness/simulation fixture.
+  - Batch 0 gpt-5.4-mini/low failed the hard gate by inventing non-canonical method labels.
+  - Use the primary for normal planning packets; escalate to the shadows when larger packets need more structure or stronger boundary review.

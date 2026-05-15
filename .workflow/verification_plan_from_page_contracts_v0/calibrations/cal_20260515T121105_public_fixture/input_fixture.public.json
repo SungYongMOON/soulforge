@@ -1,0 +1,18 @@
+{
+  "fixture_id": "PUBLIC_CAL_FIXTURE",
+  "run_id": "CAL_FIXTURE_001",
+  "mode": "plan_from_trace",
+  "output_root": "_workmeta/PUBLIC_CAL_FIXTURE/runs/CAL_FIXTURE_001/verification_plan/",
+  "planning_only": true,
+  "verification_execution_allowed": false,
+  "trace_rows": [
+    {"trace_row_id":"TR-001","claim_summary":"Fuse rating must be 2 A nominal for the protected input path.","source_refs":["SRC-FUSE-DS-001"],"status":"value_present_with_source"},
+    {"trace_row_id":"TR-002","claim_summary":"Reverse polarity protection behavior is claimed but detailed criterion is missing.","source_refs":[],"status":"missing_criterion_and_source"},
+    {"trace_row_id":"TR-003","claim_summary":"J1 pin 3 maps to SENSE_A in candidate harness, but interface control marks review required.","source_refs":["IFC-LEDGER-001"],"status":"review_required"},
+    {"trace_row_id":"TR-004","claim_summary":"Regulator output is 5.0 V nominal.","source_refs":["SRC-REG-DS-A","SRC-REG-DS-B"],"status":"source_conflict"},
+    {"trace_row_id":"TR-005","claim_summary":"Startup inrush should be assessed by simulation when a model and deck exist.","source_refs":[],"status":"missing_model_and_deck"}
+  ],
+  "resource_policy": {"allowed_methods":["inspection","analysis","simulation","test","demonstration","owner_review","not_ready"],"test_resources_available":false,"simulation_tool_available":true},
+  "configuration_baseline_refs": [{"baseline_id":"CFG-BASE-001","status":"draft_not_approved"}],
+  "owner_decisions": [{"decision_id":"OWN-001","scope":"waive_demo_for_led_indicator","status":"scoped_decision_present","applies_to_trace_row_id":"none"}]
+}

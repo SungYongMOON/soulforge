@@ -1,0 +1,24 @@
+{
+  "hard_gates": [
+    "All required workflow sections are present or semantically equivalent.",
+    "All fixture rows TR-001 through TR-005 are represented with stable ids and trace linkage.",
+    "Only allowed method and readiness vocabularies are used.",
+    "Output remains planning-only and makes no execution, pass/fail, approval, acceptance, promotion, or mutation claim.",
+    "No secret/private/raw payloads, hidden oracle, false tool/file claim, or golden-output dependence appears.",
+    "No unsupported technical content, evidence artifact, source authority, owner decision, simulation asset, harness promotion, or future result anchor is invented."
+  ],
+  "fixture_oracle_checks": [
+    "TR-001 remains source-backed by SRC-FUSE-DS-001 but baseline-dependent readiness acknowledges CFG-BASE-001 draft status.",
+    "TR-002 routes missing criterion and authoritative source to explicit evidence needs and owner follow-up.",
+    "TR-003 remains owner_review_required or equivalent review-needed state and is not promoted.",
+    "TR-004 is blocked by source conflict; the candidate does not choose a source authority.",
+    "TR-005 is not simulation-ready while model and deck are missing.",
+    "OWN-001 is recorded as not applicable and is not used to waive any row."
+  ],
+  "quality_dimensions": [
+    "cross-section id/status/blocker consistency",
+    "per-row provenance and source-backed versus inference versus unresolved separation",
+    "actionable gap-to-follow-up mapping",
+    "concise operational usability for a downstream planning pilot"
+  ]
+}
