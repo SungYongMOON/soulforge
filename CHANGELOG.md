@@ -11,6 +11,12 @@
 
 ## 2026-05-15
 
+### Revision `working` - Always-on Codex token budget lowered
+
+- Lowered the tracked `Soulforge Night Watch Pipeline` default from `gpt-5.4`/`xhigh` to `gpt-5.2`/`medium` so future local renders do not default to the more expensive frontier model for advisory checks.
+- Updated the always-on healer rollout plan to reflect the 4-hour Codex heartbeat cadence and low-reasoning activity sync fallback.
+- Kept short-interval mail fetch, mail healthcheck, and town-crier monitoring in deterministic launchd jobs without LLM usage.
+
 ### Revision `working` - Review gate evidence pack workflow added
 
 - Added `.workflow/review_gate_evidence_pack_v0/` as a public-safe review-readiness workflow over trace, interface-control, verification-plan, source-gap, harness, configuration, owner-decision, and open-question refs.

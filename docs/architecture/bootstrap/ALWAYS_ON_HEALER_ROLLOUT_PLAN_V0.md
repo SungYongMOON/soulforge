@@ -15,13 +15,13 @@
 | `ai.soulforge.gateway.mail-fetch` | 5분 | no | `mail_fetch/cli.py --once` 로 메일 수집 |
 | `ai.soulforge.gateway.mail-healthcheck` | 5분 | no | mail fetch stale/fail/partial 상태 판정 |
 | `ai.soulforge.town-crier` | 1분 | no | `town_crier` queue 를 Telegram 으로 전송 |
-| Codex `Soulforge 운영 감시` heartbeat | 60분 | yes | clean `main` fast-forward pull, 운영 상태 확인, activity sync 결과를 Codex thread 에 짧게 보고 |
-| Codex `always-on activity sync` | 09:00, 18:00 | yes | dedicated fallback 으로 `_workmeta` shared metadata plane 과 local activity ledger / `private-state` mirror 동기화 |
+| Codex `Soulforge 운영 감시` heartbeat | 4시간 | yes | clean `main` fast-forward pull, 운영 상태 확인, activity sync 결과를 Codex thread 에 짧게 보고 |
+| Codex `always-on activity sync` | 09:00, 18:00 | yes | low-reasoning dedicated fallback 으로 local activity ledger / `private-state` mirror 동기화 |
 
 운영 원칙:
 
 - mail fetch, mail healthcheck, town_crier 는 LLM 을 호출하지 않는다.
-- Codex heartbeat 는 비용이 있으므로 짧은 주기 감시에 쓰지 않는다.
+- Codex heartbeat 는 비용이 있으므로 짧은 주기 감시에 쓰지 않는다. 2026-05-15 기준 기본 운영 주기는 60분에서 4시간으로 낮췄다.
 - Codex heartbeat 는 운영 점검 전에 public repo 가 clean `main` 이면 `git pull --ff-only origin main` 을 먼저 시도한다. GitHub/DNS/network 실패처럼 일시 장애일 수 있는 실패는 최대 3회까지 재시도하되, 60초 후 1회와 180초 후 1회만 추가 시도한다. 모두 실패하면 local-only 복구 대상이 아니므로 stale/blocker 로 보고하고, private/mail runtime 원문은 읽지 않는다.
 - 24시간 PC 가 `owner-with-state` 조건을 갖추면 `_workmeta/main` 도 주기적으로 pull 해서 shared metadata plane 최신 상태를 유지하고, 이 PC 에서 생긴 metadata 변경은 clean/main 조건에서 commit/push 할 수 있다.
 - 자주 도는 감시는 launchd + deterministic script 로 처리한다.
@@ -156,7 +156,7 @@ npm run guild-hall:always-on:verify -- --local-root <actual Soulforge root> --ch
 
 ### Phase 3. LLM 감시 축소
 
-- healer light/full 이 안정되면 Codex `Soulforge 운영 감시` heartbeat 를 더 낮은 빈도로 줄이거나 pause 한다.
+- healer light/full 이 안정되면 Codex `Soulforge 운영 감시` heartbeat 를 daily report 계층으로 더 낮추거나 pause 한다.
 - morning report 만 LLM 이 읽는 구조로 이동한다.
 - 장애 발생 시에는 deterministic alert 가 먼저 Telegram 으로 알리고, LLM triage 는 owner 가 요청하거나 daily report 에서만 실행한다.
 

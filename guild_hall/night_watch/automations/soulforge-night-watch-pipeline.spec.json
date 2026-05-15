@@ -5,7 +5,7 @@
   "default_status": "ACTIVE",
   "default_rrule": "FREQ=WEEKLY;BYDAY=MO,TU,WE,TH,FR,SA,SU;BYHOUR=2;BYMINUTE=0",
   "default_execution_environment": "local",
-  "model": "gpt-5.4",
-  "reasoning_effort": "xhigh",
+  "model": "gpt-5.2",
+  "reasoning_effort": "medium",
   "prompt_template": "guild_hall/night_watch/automations/soulforge-night-watch-pipeline.prompt.txt"
 }
