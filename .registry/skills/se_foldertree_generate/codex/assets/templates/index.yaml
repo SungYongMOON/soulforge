@@ -69,3 +69,14 @@ templates:
     seed_subfolder: 00_Temp
     output_filename: stp_structure_only_draft.md
     source_file: se/stp_structure_only_draft.md
+  - template_id: daily_experiment_log_template
+    match_all: true
+    terms: []
+    seed_subfolder: 00_Temp
+    output_filename: daily_experiment_log_template.md
+    source_file: common/daily_experiment_log_template.md
+  - template_id: pdr_stage_deliverable_checklist
+    terms: [HDD, SDD, SSDD, RTM, TEMP, ICD, IDD]
+    seed_subfolder: 00_Temp
+    output_filename: pdr_stage_deliverable_checklist.md
+    source_file: se/pdr_stage_deliverable_checklist.md

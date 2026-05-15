@@ -13,6 +13,8 @@ This package includes public-safe structure-only template stubs under `codex/ass
 - structure-only draft skeletons
 - source-ledger and review/action helpers
 - traceability and verification hook placeholders
+- daily experiment / test log scaffold
+- PDR stage deliverable checklist scaffold
 
 ## What the stubs are not
 
