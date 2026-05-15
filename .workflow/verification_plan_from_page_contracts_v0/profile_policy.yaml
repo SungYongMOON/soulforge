@@ -1,59 +1,84 @@
 workflow_id: verification_plan_from_page_contracts_v0
 kind: workflow_profile_policy
 status: active
-last_calibration_id: cal_20260515T121105_public_fixture
-calibration_mode: public_safe_synthetic_staged_quality_first
+last_calibration_id: cal_20260515_quality_equiv_001
+calibration_mode: public_safe_synthetic_quality_equivalence_cli_isolated_matrix
 measurement_policy:
-  quality_source: subagent_staged_matrix
-  telemetry_source: cli_passed_candidates_only
+  quality_source: codex_cli_ephemeral_isolated_matrix
+  telemetry_source: codex_cli_proxy_same_run
   subagent_token_usage_available: false
   telemetry_exact_for_subagent: false
-  cost_confidence: relative_not_exact
+  cli_candidate_usage_available: true
+  cost_confidence: relative_not_billing_grade
 primary_profile:
-  model: gpt-5.4
-  reasoning_effort: low
+  model: gpt-5.5
+  reasoning_effort: medium
   species: human
   class: auditor
-  candidate_id: C01
+  candidate_id: C04
   quality_gate: pass
-  quality_score: 88
-  telemetry_source: codex_cli_proxy
-  input_tokens: 13840
-  cached_input_tokens: 4480
-  output_tokens: 2817
-  reasoning_output_tokens: 21
-  wall_time_seconds: 53.9
+  quality_class: quality_equivalent_pass
+  quality_score: 91
+  baseline_relative_quality: 0.93
+  baseline_candidate_id: C05
+  telemetry_source: codex_cli_ephemeral_read_only
+  input_tokens: 17228
+  cached_input_tokens: 7552
+  output_tokens: 3545
+  reasoning_output_tokens: 24
+  wall_time_seconds: 69.70
 shadow_top_k:
   - rank: 2
+    model: gpt-5.5
+    reasoning_effort: xhigh
+    species: human
+    class: auditor
+    candidate_id: C05
+    quality_gate: pass
+    quality_class: quality_equivalent_pass
+    quality_score: 98
+    baseline_relative_quality: 1.00
+    telemetry_source: codex_cli_ephemeral_read_only
+    input_tokens: 17228
+    cached_input_tokens: 7552
+    output_tokens: 5612
+    reasoning_output_tokens: 516
+    wall_time_seconds: 104.60
+    use_when: high-stakes packets need maximum gap granularity, planned method coverage, and boundary detail
+  - rank: 3
     model: gpt-5.4
     reasoning_effort: medium
     species: human
     class: auditor
     candidate_id: C02
     quality_gate: pass
-    quality_score: 91
-    telemetry_source: codex_cli_proxy
-    input_tokens: 13840
-    cached_input_tokens: 7552
-    output_tokens: 2414
-    reasoning_output_tokens: 53
-    wall_time_seconds: 48.92
-    use_when: larger packets need more cross-section structure
-  - rank: 3
+    quality_class: minimum_viable_pass
+    quality_score: 89
+    baseline_relative_quality: 0.91
+    telemetry_source: codex_cli_ephemeral_read_only
+    input_tokens: 15843
+    cached_input_tokens: 13184
+    output_tokens: 5516
+    reasoning_output_tokens: 22
+    wall_time_seconds: 105.35
+    use_when: shadow only; not primary under revised quality-equivalence policy
+  - rank: 4
     model: gpt-5.5
     reasoning_effort: low
     species: human
     class: auditor
     candidate_id: C03
     quality_gate: pass
-    quality_score: 92
-    telemetry_source: codex_cli_proxy
-    input_tokens: 15225
+    quality_class: minimum_viable_pass
+    quality_score: 86
+    baseline_relative_quality: 0.88
+    telemetry_source: codex_cli_ephemeral_read_only
+    input_tokens: 17228
     cached_input_tokens: 7552
-    output_tokens: 1999
-    reasoning_output_tokens: 15
-    wall_time_seconds: 42.1
-    use_when: high-stakes owner review or boundary-sensitive mixed packets need escalation
+    output_tokens: 3956
+    reasoning_output_tokens: 16
+    wall_time_seconds: 77.49
+    use_when: shadow only; omitted separate simulation owner followup in this run
 rerun_triggers:
   - verification_seed_matrix_template_changes
   - method_assignment_rule_changes
@@ -61,9 +86,30 @@ rerun_triggers:
   - upstream_trace_or_harness_packet_shape_changes
   - simulation_source_packet_shape_changes
   - trr_or_fca_svr_handoff_shape_changes
+  - quality_equivalence_policy_changes
   - calibration_fixture_expansion
-calibration_archive_ref: calibrations/cal_20260515T121105_public_fixture/
+calibration_archive_ref: calibrations/cal_20260515_quality_equiv_001/
+previous_policy_comparison:
+  previous_calibration_id: cal_20260515T121105_public_fixture
+  previous_primary:
+    model: gpt-5.4
+    reasoning_effort: low
+    species: human
+    class: auditor
+    candidate_id: C01
+    quality_score: 88
+    previous_policy_status: active
+    revised_policy_quality_class: minimum_viable_pass
+  new_primary:
+    model: gpt-5.5
+    reasoning_effort: medium
+    species: human
+    class: auditor
+    candidate_id: C04
+    quality_score: 91
+    quality_class: quality_equivalent_pass
 notes:
-  - Calibrated on a public-safe synthetic mixed trace/source/harness/simulation fixture.
-  - Batch 0 gpt-5.4-mini/low failed the hard gate by inventing non-canonical method labels.
-  - Use the primary for normal planning packets; escalate to the shadows when larger packets need more structure or stronger boundary review.
+  - Revised policy distinguishes minimum_viable_pass from quality_equivalent_pass; only quality_equivalent_pass can be primary.
+  - Actual gpt-5.5 candidates were run at low, medium, and xhigh. Medium and xhigh passed quality-equivalence; low remained minimum viable.
+  - C04 was selected over C05 because both passed the quality-equivalence gate and C04 used fewer output/reasoning tokens with lower wall time in this run.
+  - Candidate quality and telemetry are based on public-safe synthetic fixture runs through ephemeral Codex CLI because no separate spawn-agent tool was exposed in this runtime.
