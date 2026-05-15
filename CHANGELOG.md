@@ -128,6 +128,12 @@
 - Executed a first controlled private representative seed-input pilot using the LT3045 demo template example, while keeping owner approval and execution readiness out of scope.
 - Updated the package maturity from `draft_contract_only` to `pilot_executed_private_fixture`.
 
+### Revision `working` - Simulation run verify positive example added
+
+- Added a second private representative `simulation_run_verify_v0` example using a local vendor `OPA197` PSpice example staged into a bounded run-local workspace.
+- Confirmed callable `psp_cmd.exe` execution and captured a positive executed-run packet with observed output data.
+- Kept the result verdict `inconclusive` because no approved pass/fail rule was bound, preserving the boundary between execution success and accepted verification.
+
 ### Revision `working` - Technical risk open question burndown workflow added
 
 - Added `.workflow/technical_risk_open_question_burndown_v0/` as a public-safe governance workflow for packaging current technical risks and open questions into a bounded burndown register.

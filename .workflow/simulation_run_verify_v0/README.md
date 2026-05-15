@@ -31,6 +31,11 @@ It sits after `simulation_deck_prepare_v0`. It packages run identity, execution 
 
 `validation_level: pilot_executed_private_fixture`
 
-This package has completed a controlled private blocked-run pilot. The first pilot showed how a run packet, blocker packet, and blocked verdict can be written without inventing waveform results or treating blocked execution as a failed verification.
+This package has completed both:
 
-The package is still conservative: it does not yet have a calibrated execution profile, a successful executed-run case, or a measured waveform/metric result example.
+- a controlled private blocked-run pilot
+- a controlled private positive executed-run pilot on a local vendor example
+
+The executed example produced observed output data while still keeping pass/fail and owner acceptance out of scope when no approved rule was bound.
+
+The package is still conservative: it does not yet have a calibrated execution profile, an owner-approved claim-bearing result case, or a project-native executed-run example.
