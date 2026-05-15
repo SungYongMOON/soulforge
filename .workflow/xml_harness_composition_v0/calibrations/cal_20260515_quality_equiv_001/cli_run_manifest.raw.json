@@ -1,0 +1,47 @@
+[
+    {
+        "candidate_id":  "C01",
+        "model":  "gpt-5.5",
+        "reasoning_effort":  "xhigh",
+        "species":  "human",
+        "class":  "auditor",
+        "role":  "quality_baseline_and_candidate",
+        "started_at":  "2026-05-15T13:19:39.6475160+09:00",
+        "ended_at":  "2026-05-15T13:21:45.5689032+09:00",
+        "wall_seconds":  125.912,
+        "prompt_path":  "prompts/C01.prompt.md",
+        "output_path":  "subagent_matrix/outputs/C01.json",
+        "raw_jsonl_path":  "cli_telemetry_probe/raw/C01.events.jsonl",
+        "stderr_path":  "cli_telemetry_probe/raw/C01.stderr.txt"
+    },
+    {
+        "candidate_id":  "C02",
+        "model":  "gpt-5.5",
+        "reasoning_effort":  "low",
+        "species":  "human",
+        "class":  "auditor",
+        "role":  "candidate_5_5_low",
+        "started_at":  "2026-05-15T13:21:45.5789092+09:00",
+        "ended_at":  "2026-05-15T13:22:59.8448464+09:00",
+        "wall_seconds":  74.266,
+        "prompt_path":  "prompts/C02.prompt.md",
+        "output_path":  "subagent_matrix/outputs/C02.json",
+        "raw_jsonl_path":  "cli_telemetry_probe/raw/C02.events.jsonl",
+        "stderr_path":  "cli_telemetry_probe/raw/C02.stderr.txt"
+    },
+    {
+        "candidate_id":  "C03",
+        "model":  "gpt-5.5",
+        "reasoning_effort":  "medium",
+        "species":  "human",
+        "class":  "auditor",
+        "role":  "candidate_5_5_medium",
+        "started_at":  "2026-05-15T13:22:59.8458454+09:00",
+        "ended_at":  "2026-05-15T13:24:29.9008369+09:00",
+        "wall_seconds":  90.055,
+        "prompt_path":  "prompts/C03.prompt.md",
+        "output_path":  "subagent_matrix/outputs/C03.json",
+        "raw_jsonl_path":  "cli_telemetry_probe/raw/C03.events.jsonl",
+        "stderr_path":  "cli_telemetry_probe/raw/C03.stderr.txt"
+    }
+]

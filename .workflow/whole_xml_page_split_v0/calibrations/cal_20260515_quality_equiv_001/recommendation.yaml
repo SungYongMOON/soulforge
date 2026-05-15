@@ -1,0 +1,132 @@
+workflow_id: whole_xml_page_split_v0
+calibration_id: cal_20260515_quality_equiv_001
+status: quality_equivalent_calibrated
+execution_mode: cli_only_calibration
+baseline_profile:
+  model: gpt-5.5
+  reasoning_effort: xhigh
+  species: dwarf
+  class: archivist
+previous_policy_summary:
+  status: active
+  last_calibration_id: 20260514-171147_staged_cli_real_sample_structural
+  calibration_mode: staged_cli_calibration
+  primary_profile:
+    model: gpt-5.4
+    reasoning_effort: high
+    species: dwarf
+    class: archivist
+    candidate_id: C_shadow_gpt_5_4_high
+    measured_tokens:
+      input_tokens: 18322
+      cached_input_tokens: 7552
+      output_tokens: 2552
+      reasoning_output_tokens: 516
+      telemetry_source: codex_exec_json_cli_proxy_stage_c
+    wall_time_seconds: 53.291
+    quality_score: 94
+    quality_gate: pass
+    rationale: >
+      Stage C finalist with no critical errors. It preserved the 11 `Page`
+      boundary count, source order, stable ordinal ids, the titleblock `Page
+      Count = 8` warning, public/private boundaries, and downstream
+      `page_xml_normalize_spec_v0` handoff while staying on a lower model tier
+      than the comparable `gpt-5.5` shadow.
+  shadow_top_k:
+    - rank: 2
+      candidate_id: C_shadow_gpt_5_5_medium
+      model: gpt-5.5
+      reasoning_effort: medium
+      species: dwarf
+      class: archivist
+      output_tokens: 2509
+      reasoning_output_tokens: 24
+      wall_time_seconds: 54.115
+      quality_score: 94
+      quality_gate: pass
+      note: Comparable Stage C pass, but higher model tier and a source-preservation
+        wording gap.
+    - rank: 3
+      candidate_id: B_gpt_5_5_low
+      model: gpt-5.5
+      reasoning_effort: low
+      species: dwarf
+      class: archivist
+      output_tokens: 1910
+      reasoning_output_tokens: 26
+      wall_time_seconds: 41.672
+      quality_score: 94
+      quality_gate: pass_stage_b_only
+      note: Higher-model low-effort shadow; not rerun in Stage C.
+    - rank: 4
+      candidate_id: B_gpt_5_4_medium
+      model: gpt-5.4
+      reasoning_effort: medium
+      species: dwarf
+      class: archivist
+      output_tokens: 2850
+      reasoning_output_tokens: 58
+      wall_time_seconds: 61.533
+      quality_score: 94
+      quality_gate: pass_stage_b_only_with_no_workflow_assets_wording_gap
+      note: Same-model medium-effort shadow retained for monitoring.
+    - rank: 5
+      candidate_id: B_gpt_5_4_mini_high
+      model: gpt-5.4-mini
+      reasoning_effort: high
+      species: dwarf
+      class: archivist
+      output_tokens: 1992
+      reasoning_output_tokens: 516
+      wall_time_seconds: 19.563
+      quality_score: 100
+      quality_gate: downgraded_after_stage_c
+      note: Stage B looked strongest, but Stage C degraded to pass_with_gaps and
+        reasoning tokens spiked.
+  parse_status: parsed
+  parse_error: null
+  raw_excerpt: null
+recommended_primary:
+  candidate_id: qe_gpt_5_5_medium_dwarf_archivist
+  model: gpt-5.5
+  reasoning_effort: medium
+  species: dwarf
+  class: archivist
+  quality_score: 96
+  baseline_relative_quality: 1
+  quality_class: quality_equivalent_pass
+  measured_tokens:
+    input_tokens: 17781
+    cached_input_tokens: 7552
+    output_tokens: 1604
+    reasoning_output_tokens: 30
+  wall_time_seconds: 33.573
+  telemetry_source: codex_exec_json_cli_proxy
+shadow_top_k:
+  - candidate_id: qe_gpt_5_5_low_dwarf_archivist
+    model: gpt-5.5
+    reasoning_effort: low
+    species: dwarf
+    class: archivist
+    quality_score: 96
+    baseline_relative_quality: 1
+    output_tokens: 1651
+    reasoning_output_tokens: 17
+    wall_time_seconds: 34.387
+  - candidate_id: qe_gpt_5_5_xhigh_dwarf_archivist
+    model: gpt-5.5
+    reasoning_effort: xhigh
+    species: dwarf
+    class: archivist
+    quality_score: 96
+    baseline_relative_quality: 1
+    output_tokens: 1660
+    reasoning_output_tokens: 516
+    wall_time_seconds: 35.757
+telemetry_limitations:
+  - No isolated subagent/candidate-runner tool was exposed; quality source is
+    explicitly cli_only_calibration.
+  - CLI token and wall-time values are proxy telemetry for these CLI candidates,
+    not exact subagent usage.
+  - No external network/source truth was checked for synthetic source fixtures.
+archive_ref: .workflow/whole_xml_page_split_v0/calibrations/cal_20260515_quality_equiv_001/

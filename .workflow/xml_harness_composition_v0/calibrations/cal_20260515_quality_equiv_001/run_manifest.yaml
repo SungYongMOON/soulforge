@@ -1,0 +1,62 @@
+calibration_id: cal_20260515_quality_equiv_001
+workflow_id: xml_harness_composition_v0
+kind: workflow_profile_calibration_archive
+status: complete
+created_at: 2026-05-15T13:24:30+09:00
+calibration_mode: cli_only_calibration
+source_skill: workflow-optimizer
+boundary: public_safe_synthetic_fixture
+runtime_note:
+  default_subagent_quality_first: blocked_runtime_subagent_unavailable
+  fallback_used: cli_only_calibration
+  reason: Isolated subagent/candidate-runner tooling was unavailable; Codex CLI candidates were run read-only and explicitly labeled as CLI-only calibration evidence.
+previous_profiles:
+  primary_present: false
+  shadow_profiles_present: false
+  action: no_previous_primary_or_shadows_to_rerun
+baseline:
+  candidate_id: C01
+  model: gpt-5.5
+  reasoning_effort: xhigh
+matrix:
+  candidates:
+    - candidate_id: C01
+      model: gpt-5.5
+      reasoning_effort: xhigh
+      species: human
+      class: auditor
+      role: quality_baseline_and_candidate
+    - candidate_id: C02
+      model: gpt-5.5
+      reasoning_effort: low
+      species: human
+      class: auditor
+      role: candidate_5_5_low
+    - candidate_id: C03
+      model: gpt-5.5
+      reasoning_effort: medium
+      species: human
+      class: auditor
+      role: candidate_5_5_medium
+quality_gate:
+  criteria: quality_gate/criteria.json
+  evaluator_review: quality_gate/evaluator_review.json
+telemetry:
+  source: codex_exec_json_cli_proxy
+  passed_candidates: cli_telemetry_probe/passed_candidates.jsonl
+  telemetry_jsonl: cli_telemetry_probe/telemetry.jsonl
+recommendation:
+  model: gpt-5.5
+  reasoning_effort: medium
+  species: human
+  class: auditor
+public_safety:
+  fixture_contains_real_xml_body: false
+  fixture_contains_project_private_material: false
+  fixture_contains_runtime_absolute_paths: false
+  fixture_contains_secrets: false
+  archive_raw_cli_events_redacted: true
+notes:
+  - Candidate prompts did not include golden output or frozen quality criteria.
+  - C02 is recorded as minimum_viable_pass only and is not promotable under the revised policy.
+  - Exact subagent token usage is unavailable because no subagent runner was available.

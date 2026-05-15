@@ -1,0 +1,15 @@
+workflow_id: accepted_verification_result_packet_v0
+calibration_id: cal_20260515_quality_equiv_001
+date: 2026-05-15
+mode: cli_only_calibration
+subagent_runner_status: blocked_runtime_subagent_unavailable
+fallback_status: used_cli_only_calibration
+baseline_profile: "gpt-5.5|xhigh|dwarf|auditor"
+candidate_count: 3
+previous_primary_and_shadows_included: false
+required_actual_gpt_5_5_candidates:
+  - low
+  - medium
+  - xhigh
+public_safe: true
+archive_note: "No private raw input, secret, _workspaces material, or customer data included."

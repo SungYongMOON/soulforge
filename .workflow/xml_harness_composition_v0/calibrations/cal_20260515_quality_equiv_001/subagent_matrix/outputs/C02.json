@@ -1,0 +1,386 @@
+{
+  "workflow_output_packet": {
+    "fixture_id": "xml_harness_composition_public_synthetic_001",
+    "workflow_id": "xml_harness_composition_v0",
+    "candidate_id": "C02",
+    "candidate_profile": {
+      "model": "gpt-5.5",
+      "reasoning_effort": "low",
+      "species": "human",
+      "class": "auditor",
+      "role": "candidate_5_5_low"
+    },
+    "packet_status": "review_required",
+    "public_safety_review": {
+      "status": "public_safe_synthetic_only",
+      "contains_real_xml_body": false,
+      "contains_project_private_material": false,
+      "contains_runtime_absolute_paths": false,
+      "contains_credentials_or_secrets": false,
+      "contains_vendor_text": false,
+      "handling_notes": [
+        "No raw XML bodies are included in this output packet.",
+        "No runtime absolute paths are included in this output packet.",
+        "No private project facts, credentials, cookies, vendor text, or private run truth are included.",
+        "All findings are derived only from the supplied public-safe synthetic fixture."
+      ]
+    },
+    "source_asset_boundary_review": {
+      "source_assets_are_immutable": true,
+      "mutation_performed": false,
+      "mutated_asset_ids": [],
+      "boundary_notes": [
+        "Source XML, normalized sidecars, intake packets, materials packets, layout guides, source packets, and owner materials were treated as immutable.",
+        "This packet is a derived harness-layer review artifact only.",
+        "candidate_safe is not final circuit approval.",
+        "local_internal_candidates are not promoted to external harness interfaces without explicit source-backed promotion evidence.",
+        "source_supported_connections remains empty because the fixture does not provide cited source packets strong enough for final support."
+      ]
+    },
+    "input_asset_inventory": {
+      "page_level_assets": [
+        {
+          "asset_id": "PAGE_PWR_001",
+          "page_role": "power_regulator_page",
+          "source_xml_ref": "public_synthetic_ref://pages/power",
+          "raw_xml_body_included": false
+        },
+        {
+          "asset_id": "PAGE_CTRL_001",
+          "page_role": "controller_page",
+          "source_xml_ref": "public_synthetic_ref://pages/controller",
+          "raw_xml_body_included": false
+        },
+        {
+          "asset_id": "PAGE_SENS_001",
+          "page_role": "sensor_page",
+          "source_xml_ref": "public_synthetic_ref://pages/sensor",
+          "raw_xml_body_included": false
+        }
+      ],
+      "modules": [
+        {
+          "asset_id": "PAGE_PWR_001",
+          "module_id": "MOD_PWR_REG"
+        },
+        {
+          "asset_id": "PAGE_CTRL_001",
+          "module_id": "MOD_MCU"
+        },
+        {
+          "asset_id": "PAGE_SENS_001",
+          "module_id": "MOD_SENSOR"
+        }
+      ],
+      "capture_intake_packet_summary": [
+        {
+          "asset_id": "PAGE_PWR_001",
+          "intake_status": "reviewed_public_synthetic",
+          "source_packet_status": "synthetic_source_backed"
+        },
+        {
+          "asset_id": "PAGE_CTRL_001",
+          "intake_status": "reviewed_public_synthetic",
+          "source_packet_status": "synthetic_source_backed"
+        },
+        {
+          "asset_id": "PAGE_SENS_001",
+          "intake_status": "reviewed_public_synthetic",
+          "source_packet_status": "source_gap_packet_present"
+        }
+      ],
+      "component_materials_packets_present": false,
+      "layout_guide_packets_present": false
+    },
+    "interface_index": {
+      "external_interfaces": [
+        {
+          "interface_id": "PWR_IN_5V",
+          "module_id": "MOD_PWR_REG",
+          "asset_id": "PAGE_PWR_001",
+          "label": "VIN_5V",
+          "kind": "power",
+          "direction": "input",
+          "voltage_v": 5.0,
+          "current_limit_ma": 1000,
+          "source_evidence": "synthetic_source_backed"
+        },
+        {
+          "interface_id": "PWR_OUT_3V3",
+          "module_id": "MOD_PWR_REG",
+          "asset_id": "PAGE_PWR_001",
+          "label": "VOUT_3V3",
+          "kind": "power",
+          "direction": "output",
+          "voltage_v": 3.3,
+          "current_limit_ma": 500,
+          "source_evidence": "synthetic_source_backed"
+        },
+        {
+          "interface_id": "MCU_VDD_3V3",
+          "module_id": "MOD_MCU",
+          "asset_id": "PAGE_CTRL_001",
+          "label": "VDD_3V3",
+          "kind": "power",
+          "direction": "input",
+          "voltage_v": 3.3,
+          "current_required_ma": 120,
+          "source_evidence": "synthetic_source_backed"
+        },
+        {
+          "interface_id": "MCU_UART_TX",
+          "module_id": "MOD_MCU",
+          "asset_id": "PAGE_CTRL_001",
+          "label": "UART_TX",
+          "kind": "digital_uart",
+          "direction": "output",
+          "logic_level_v": 3.3,
+          "source_evidence": "synthetic_source_backed"
+        },
+        {
+          "interface_id": "MCU_UART_RX",
+          "module_id": "MOD_MCU",
+          "asset_id": "PAGE_CTRL_001",
+          "label": "UART_RX",
+          "kind": "digital_uart",
+          "direction": "input",
+          "logic_level_v": 3.3,
+          "source_evidence": "synthetic_source_backed"
+        },
+        {
+          "interface_id": "SENSOR_VCC",
+          "module_id": "MOD_SENSOR",
+          "asset_id": "PAGE_SENS_001",
+          "label": "VCC_3V3",
+          "kind": "power",
+          "direction": "input",
+          "voltage_v": 3.3,
+          "current_required_ma": null,
+          "source_evidence": "source_gap_missing_current"
+        },
+        {
+          "interface_id": "SENSOR_SDA",
+          "module_id": "MOD_SENSOR",
+          "asset_id": "PAGE_SENS_001",
+          "label": "I2C_SDA",
+          "kind": "digital_i2c",
+          "direction": "bidirectional",
+          "logic_level_v": 3.3,
+          "pullup_requirement": "unknown",
+          "source_evidence": "source_gap_missing_pullup"
+        },
+        {
+          "interface_id": "SENSOR_SCL",
+          "module_id": "MOD_SENSOR",
+          "asset_id": "PAGE_SENS_001",
+          "label": "I2C_SCL",
+          "kind": "digital_i2c",
+          "direction": "input",
+          "logic_level_v": 3.3,
+          "pullup_requirement": "unknown",
+          "source_evidence": "source_gap_missing_pullup"
+        }
+      ],
+      "local_internal_candidates_excluded": [
+        {
+          "interface_id": "SW_NODE_INTERNAL",
+          "module_id": "MOD_PWR_REG",
+          "asset_id": "PAGE_PWR_001",
+          "label": "SW_NODE",
+          "kind": "switching_node",
+          "direction": "internal",
+          "source_evidence": "local_internal_only",
+          "exclusion_reason": "local_internal_candidates_are_external_by_default is false and no explicit source-backed promotion evidence is provided."
+        },
+        {
+          "interface_id": "BOOT_STRAP_INTERNAL",
+          "module_id": "MOD_MCU",
+          "asset_id": "PAGE_CTRL_001",
+          "label": "BOOT0",
+          "kind": "strap",
+          "direction": "internal",
+          "source_evidence": "local_internal_only",
+          "exclusion_reason": "local_internal_candidates_are_external_by_default is false and no explicit source-backed promotion evidence is provided."
+        }
+      ],
+      "missing_interfaces_referenced_by_hints": [
+        {
+          "interface_id": "DEBUG_RX_MISSING",
+          "referenced_by_hint_id": "HINT_UART_TO_MISSING_DEBUG"
+        }
+      ]
+    },
+    "blocked_connections": [
+      {
+        "connection_id": "BLOCKED_HINT_INTERNAL_BAD",
+        "hint_id": "HINT_INTERNAL_BAD",
+        "from_interface_id": "SW_NODE_INTERNAL",
+        "to_interface_id": "MCU_VDD_3V3",
+        "status": "blocked",
+        "reason_codes": [
+          "from_interface_is_local_internal_only",
+          "no_external_promotion_evidence",
+          "unsafe_owner_hint"
+        ],
+        "rationale": "SW_NODE_INTERNAL is listed only as a local_internal_candidate and must not be promoted to an external harness interface without explicit source-backed promotion evidence."
+      },
+      {
+        "connection_id": "BLOCKED_HINT_UART_TO_MISSING_DEBUG",
+        "hint_id": "HINT_UART_TO_MISSING_DEBUG",
+        "from_interface_id": "MCU_UART_TX",
+        "to_interface_id": "DEBUG_RX_MISSING",
+        "status": "blocked",
+        "reason_codes": [
+          "target_interface_absent",
+          "debug_header_not_present",
+          "missing_source_packet"
+        ],
+        "rationale": "The fixture contains MCU_UART_TX but does not contain DEBUG_RX_MISSING or a source-backed debug header interface."
+      },
+      {
+        "connection_id": "BLOCKED_SENSOR_I2C_SDA_UNRESOLVED",
+        "hint_id": null,
+        "from_interface_id": "SENSOR_SDA",
+        "to_interface_id": null,
+        "status": "blocked",
+        "reason_codes": [
+          "no_controller_side_i2c_interface",
+          "pullup_requirement_unknown",
+          "no_owner_hint_for_join",
+          "missing_source_support"
+        ],
+        "rationale": "No controller-side I2C SDA interface is established, and the sensor SDA pullup requirement is unresolved."
+      },
+      {
+        "connection_id": "BLOCKED_SENSOR_I2C_SCL_UNRESOLVED",
+        "hint_id": null,
+        "from_interface_id": "SENSOR_SCL",
+        "to_interface_id": null,
+        "status": "blocked",
+        "reason_codes": [
+          "no_controller_side_i2c_interface",
+          "pullup_requirement_unknown",
+          "no_owner_hint_for_join",
+          "missing_source_support"
+        ],
+        "rationale": "No controller-side I2C SCL interface is established, and the sensor SCL pullup requirement is unresolved."
+      }
+    ],
+    "review_required_connections": [
+      {
+        "connection_id": "REVIEW_HINT_PWR_TO_SENSOR",
+        "hint_id": "HINT_PWR_TO_SENSOR",
+        "from_interface_id": "PWR_OUT_3V3",
+        "to_interface_id": "SENSOR_VCC",
+        "status": "review_required",
+        "reason_codes": [
+          "load_current_missing",
+          "quantitative_budget_incomplete",
+          "source_gap_packet_present"
+        ],
+        "rationale": "Voltage and direction are structurally plausible, but SENSOR_VCC has no current_required_ma value. The regulator current budget cannot be confirmed for the sensor load."
+      }
+    ],
+    "candidate_safe_connections": [
+      {
+        "connection_id": "CANDIDATE_SAFE_HINT_PWR_TO_MCU",
+        "hint_id": "HINT_PWR_TO_MCU",
+        "from_interface_id": "PWR_OUT_3V3",
+        "to_interface_id": "MCU_VDD_3V3",
+        "status": "candidate_safe",
+        "candidate_safe_scope": "owner_review_structural_plausibility_only",
+        "not_final_circuit_approval": true,
+        "supporting_checks": {
+          "from_direction": "output",
+          "to_direction": "input",
+          "voltage_match_v": 3.3,
+          "source_current_limit_ma": 500,
+          "load_current_required_ma": 120,
+          "current_budget_structurally_sufficient": true,
+          "source_evidence_from": "synthetic_source_backed",
+          "source_evidence_to": "synthetic_source_backed",
+          "owner_hint_present": true
+        },
+        "limitations": [
+          "Candidate-safe classification does not approve the final circuit.",
+          "No raw source XML body or cited final source packet is included.",
+          "No layout guide or component materials packet is provided."
+        ],
+        "rationale": "The supplied owner hint joins a 3.3 V power output to a 3.3 V power input, directions are compatible, and the stated 500 mA output budget exceeds the 120 mA MCU requirement."
+      }
+    ],
+    "source_supported_connections": [],
+    "normalization_warnings": [
+      {
+        "asset_id": "PAGE_SENS_001",
+        "module_id": "MOD_SENSOR",
+        "warning": "Sensor current requirement is missing.",
+        "effect": "Power join to SENSOR_VCC remains review_required."
+      },
+      {
+        "asset_id": "PAGE_SENS_001",
+        "module_id": "MOD_SENSOR",
+        "warning": "I2C pullup requirements are unresolved.",
+        "effect": "Sensor I2C joins remain blocked unless controller-side I2C interfaces and pullup requirements are source-backed."
+      }
+    ],
+    "owner_followups": [
+      {
+        "followup_id": "FOLLOWUP_SENSOR_CURRENT",
+        "priority": "high",
+        "question": "Provide source-backed current requirement for SENSOR_VCC before approving the PWR_OUT_3V3 to SENSOR_VCC power join."
+      },
+      {
+        "followup_id": "FOLLOWUP_SENSOR_I2C_CONTROLLER",
+        "priority": "high",
+        "question": "Provide source-backed controller-side I2C SDA/SCL interfaces if the sensor I2C bus is intended to join the controller."
+      },
+      {
+        "followup_id": "FOLLOWUP_SENSOR_I2C_PULLUPS",
+        "priority": "high",
+        "question": "Provide source-backed I2C pullup requirements, including whether pullups exist on any page and their intended voltage rail."
+      },
+      {
+        "followup_id": "FOLLOWUP_DEBUG_HEADER",
+        "priority": "medium",
+        "question": "Provide a source-backed debug header or remove the UART-to-debug owner hint."
+      },
+      {
+        "followup_id": "FOLLOWUP_INTERNAL_HINT",
+        "priority": "medium",
+        "question": "Confirm that SW_NODE_INTERNAL is not intended as a harness interface, or provide explicit source-backed promotion evidence if this assumption is wrong."
+      }
+    ],
+    "open_questions": [
+      {
+        "question_id": "OPEN_SENSOR_CURRENT_BUDGET",
+        "status": "open",
+        "question": "What is the sensor current requirement for SENSOR_VCC?"
+      },
+      {
+        "question_id": "OPEN_I2C_BUS_EXISTENCE",
+        "status": "open",
+        "question": "Does the harness include a controller-side I2C bus for SENSOR_SDA and SENSOR_SCL?"
+      },
+      {
+        "question_id": "OPEN_I2C_PULLUPS",
+        "status": "open",
+        "question": "Where are I2C pullups located, what are their values, and which voltage rail do they use?"
+      },
+      {
+        "question_id": "OPEN_DEBUG_RX_INTERFACE",
+        "status": "open",
+        "question": "Is DEBUG_RX_MISSING represented by a real source-backed external interface in material not included in this fixture?"
+      }
+    ],
+    "decision_summary": {
+      "blocked_count": 4,
+      "review_required_count": 1,
+      "candidate_safe_count": 1,
+      "source_supported_count": 0,
+      "final_circuit_approval_granted": false,
+      "source_xml_mutated": false,
+      "local_internal_promotions": []
+    }
+  }
+}

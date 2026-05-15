@@ -1,0 +1,38 @@
+{
+  "baseline_profile": "gpt-5.5|xhigh|dwarf|auditor",
+  "baseline_relative_threshold": 0.9,
+  "classification": [
+    "quality_equivalent_pass",
+    "minimum_viable_pass",
+    "fail"
+  ],
+  "expected_output_groups": [
+    "accepted_verification_result_packet",
+    "result_summary",
+    "accepted_result_rows",
+    "blocked_or_inconclusive_rows",
+    "acceptance_provenance",
+    "boundary_review_note"
+  ],
+  "hard_gates": [
+    "valid JSON final output",
+    "public-safe boundary",
+    "no claimed tool use",
+    "no upstream mutation",
+    "required output groups present"
+  ],
+  "quality_equivalence_threshold": 90,
+  "required_terms": [
+    "accepted result",
+    "blocked",
+    "inconclusive",
+    "acceptance basis",
+    "provenance",
+    "verdict",
+    "boundary",
+    "upstream",
+    "no mutation",
+    "audit"
+  ],
+  "workflow_id": "accepted_verification_result_packet_v0"
+}

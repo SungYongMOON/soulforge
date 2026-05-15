@@ -1,0 +1,21 @@
+{
+  "affected_workflow_refs": [
+    "workflow:project_readiness_digest_v0"
+  ],
+  "evidence_basis_refs": [
+    "decision-note:public-synthetic-001"
+  ],
+  "expected_output_groups": [
+    "owner_decision_packet",
+    "decision_effect_register",
+    "downstream_effect_map",
+    "boundary_review_note"
+  ],
+  "fixture_id": "PUBLIC_SYNTH_OWNER_DECISION_PACKET",
+  "owner_decision_policy": "Record scope, affected artifacts, downstream effects, and non-claims. Do not mutate upstream artifacts or claim tests passed.",
+  "owner_decision_scope": "public sample release naming convention only",
+  "owner_decision_statement": "Owner approves renaming the public sample output field from old_label to display_label for future examples.",
+  "public_safe": true,
+  "source_kind": "synthetic_from_workflow_contract",
+  "workflow_id": "owner_decision_packet_v0"
+}

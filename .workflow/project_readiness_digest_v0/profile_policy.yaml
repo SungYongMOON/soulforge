@@ -1,25 +1,66 @@
 workflow_id: project_readiness_digest_v0
 kind: workflow_profile_policy
-status: draft
-calibration_mode: uncalibrated_contract_package
+status: active
+last_calibration_id: cal_20260515_quality_equiv_001
+calibration_mode: cli_only_calibration
+matrix_mode: minimal_required_quality_equivalence
 measurement_policy:
-  quality_source: not_yet_measured
-  telemetry_source: not_yet_measured
+  quality_source: cli_only_calibration
+  telemetry_source: cli_only_calibration_all_candidates
   subagent_token_usage_available: false
   telemetry_exact_for_subagent: false
-  cost_confidence: unknown
+  telemetry_exact_for_cli: true
+  cost_confidence: relative_not_exact
+  quality_equivalence_policy: revised_20260515
 primary_profile:
-  model: null
-  reasoning_effort: null
-  species: null
-  class: null
-  candidate_id: null
-  quality_gate: pending_profile_calibration
-shadow_top_k: []
+  model: gpt-5.5
+  reasoning_effort: medium
+  species: dwarf
+  class: administrator
+  label: "gpt-5.5|medium|dwarf|administrator"
+  quality_score: 94.0
+  quality_class: quality_equivalent_pass
+  baseline_relative_quality: 1.033
+  input_tokens: 16122
+  cached_input_tokens: 7552
+  output_tokens: 886
+  total_tokens: 17008
+  reasoning_output_tokens: 30
+  wall_s: 22.91
+shadow_top_k:
+  - rank: 2
+    label: "gpt-5.5|low|dwarf|administrator"
+    model: gpt-5.5
+    reasoning_effort: low
+    species: dwarf
+    class: administrator
+    quality_score: 94.0
+    quality_class: quality_equivalent_pass
+    baseline_relative_quality: 1.033
+    total_tokens: 17077
+    reasoning_output_tokens: 25
+    wall_s: 37.19
+  - rank: 3
+    label: "gpt-5.5|xhigh|dwarf|administrator"
+    model: gpt-5.5
+    reasoning_effort: xhigh
+    species: dwarf
+    class: administrator
+    quality_score: 91.0
+    quality_class: quality_equivalent_pass
+    baseline_relative_quality: 1.0
+    total_tokens: 17472
+    reasoning_output_tokens: 516
+    wall_s: 27.9
 rerun_triggers:
-  - status_rollup_schema_changes
-  - priority_blocker_rule_changes
-  - next_action_recommendation_rule_changes
-  - first_profile_calibration_run
+  - subagent_quality_first_runner_available
+  - workflow prompt changed
+  - output schema changed
+  - model pricing or availability changed
+  - primary profile fails quality gate
+calibration_archive_ref: calibrations/cal_20260515_quality_equiv_001/
 notes:
-  - The package has a representative private digest pilot but no calibrated execution profile yet.
+  - Isolated subagent or candidate-runner tooling was unavailable in this runtime; this policy is promoted from the explicitly labeled CLI-only fallback requested for this calibration.
+  - Candidate quality and telemetry both come from Codex CLI runs; exact subagent token usage is unavailable.
+  - Candidate fixture and outputs are public-safe synthetic or previously archived public-safe artifacts.
+  - Primary selection required quality_equivalent_pass against the gpt-5.5/xhigh baseline, not only minimum viable output.

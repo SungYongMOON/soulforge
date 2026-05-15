@@ -1,0 +1,75 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "type": "object",
+  "required": [
+    "profile",
+    "harness_identity",
+    "input_manifest",
+    "connection_candidates",
+    "blocked_connections",
+    "review_required_connections",
+    "candidate_safe_connections",
+    "source_supported_connections",
+    "owner_followup_needed",
+    "harness_open_questions",
+    "composition_readiness",
+    "boundary_review",
+    "downstream_handoff"
+  ],
+  "properties": {
+    "profile": {
+      "type": "object",
+      "required": ["model", "reasoning_effort", "species", "class", "candidate_id"],
+      "additionalProperties": true
+    },
+    "harness_identity": {
+      "type": "object",
+      "additionalProperties": true
+    },
+    "input_manifest": {
+      "type": "object",
+      "additionalProperties": true
+    },
+    "connection_candidates": {
+      "type": "array",
+      "items": { "type": "object" }
+    },
+    "blocked_connections": {
+      "type": "array",
+      "items": { "type": "object" }
+    },
+    "review_required_connections": {
+      "type": "array",
+      "items": { "type": "object" }
+    },
+    "candidate_safe_connections": {
+      "type": "array",
+      "items": { "type": "object" }
+    },
+    "source_supported_connections": {
+      "type": "array",
+      "items": { "type": "object" }
+    },
+    "owner_followup_needed": {
+      "type": "array",
+      "items": { "type": "object" }
+    },
+    "harness_open_questions": {
+      "type": "array",
+      "items": { "type": "object" }
+    },
+    "composition_readiness": {
+      "type": "object",
+      "additionalProperties": true
+    },
+    "boundary_review": {
+      "type": "object",
+      "additionalProperties": true
+    },
+    "downstream_handoff": {
+      "type": "object",
+      "additionalProperties": true
+    }
+  },
+  "additionalProperties": false
+}

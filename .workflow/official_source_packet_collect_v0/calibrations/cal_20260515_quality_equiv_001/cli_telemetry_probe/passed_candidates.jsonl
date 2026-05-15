@@ -1,0 +1,3 @@
+{"candidate_id":"qe_gpt_5_5_low_elf_archivist","quality_class":"quality_equivalent_pass","usage":{"input_tokens":15769,"cached_input_tokens":7552,"output_tokens":1475,"reasoning_output_tokens":16},"wall_time_seconds":35.145}
+{"candidate_id":"qe_gpt_5_5_xhigh_elf_archivist","quality_class":"quality_equivalent_pass","usage":{"input_tokens":15804,"cached_input_tokens":14720,"output_tokens":2155,"reasoning_output_tokens":516},"wall_time_seconds":42.49}
+{"candidate_id":"qe_gpt_5_5_medium_elf_archivist","quality_class":"quality_equivalent_pass","usage":{"input_tokens":15769,"cached_input_tokens":7552,"output_tokens":2278,"reasoning_output_tokens":22},"wall_time_seconds":44.658}

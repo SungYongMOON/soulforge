@@ -1,0 +1,37 @@
+{
+    "workflow_id":  "configuration_baseline_and_change_control_v0",
+    "calibration_id":  "cal_20260515_quality_equiv_001",
+    "mode":  "cli_only_calibration",
+    "created_date":  "2026-05-15",
+    "public_safe":  true,
+    "fixture":  "input_fixture.public.json",
+    "previous_profiles_included":  [
+
+                                   ],
+    "previous_profile_note":  "profile_policy.yaml was draft with null primary_profile and empty shadow_top_k",
+    "subagent_quality_first_status":  "blocked_runtime_subagent_unavailable",
+    "required_candidates_run":  [
+                                    "gpt-5.5/low/dwarf/auditor",
+                                    "gpt-5.5/medium/dwarf/auditor",
+                                    "gpt-5.5/xhigh/dwarf/auditor"
+                                ],
+    "baseline_candidate":  "gpt-5.5/xhigh/dwarf/auditor",
+    "quality_equivalence_policy":  {
+                                       "threshold_relative_to_baseline":  0.9,
+                                       "distinguish_quality_equivalent_pass":  true,
+                                       "threshold_score":  90,
+                                       "minimum_viable_not_promotable":  true
+                                   },
+    "archive_public_safety":  {
+                                  "raw_private_secret_material_included":  false,
+                                  "synthetic_fixture_from_workflow_contract_only":  true,
+                                  "repository_files_in_candidate_prompt":  false
+                              },
+    "telemetry_policy":  {
+                             "telemetry_source":  "codex_exec_json_cli_proxy",
+                             "subagent_token_usage_available":  false,
+                             "cost_confidence":  "relative_not_exact",
+                             "quality_source":  "cli_only_calibration",
+                             "telemetry_exact_for_subagent":  false
+                         }
+}

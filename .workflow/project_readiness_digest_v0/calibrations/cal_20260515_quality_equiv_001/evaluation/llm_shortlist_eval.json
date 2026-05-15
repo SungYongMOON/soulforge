@@ -1,0 +1,4 @@
+{
+  "used": false,
+  "reason": "isolated evaluator unavailable; rule-based CLI-only fallback used"
+}

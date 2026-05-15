@@ -1,0 +1,27 @@
+{
+    "workflow_id":  "configuration_baseline_and_change_control_v0",
+    "calibration_id":  "cal_20260515_quality_equiv_001",
+    "criteria_source":  "workflow contract plus public-safe synthetic fixture; not golden wording",
+    "hard_gate":  [
+                      "public_safe_only",
+                      "required_output_names_present",
+                      "no private raw secret material",
+                      "no repository access or command execution claimed by candidate",
+                      "no execution approval source-truth or pass/fail overclaim"
+                  ],
+    "output_quality_gate":  [
+                                "all fixture rows represented or intentionally deduplicated with basis",
+                                "blockers and review-required states explicit",
+                                "owner action and next action explicit",
+                                "downstream handoff explicit",
+                                "provenance or basis explicit",
+                                "machine-readable JSON",
+                                "no material information loss versus gpt-5.5/xhigh baseline"
+                            ],
+    "quality_equivalent_definition":  {
+                                          "minimum_score":  90,
+                                          "no_material_loss":  true,
+                                          "minimum_baseline_relative_quality":  0.9
+                                      },
+    "minimum_viable_definition":  "Safe and usable but loses material handoff, manifest, provenance, machine-readability, or downstream ergonomics versus baseline."
+}

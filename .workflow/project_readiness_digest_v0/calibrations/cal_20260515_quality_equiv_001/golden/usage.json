@@ -1,0 +1,10 @@
+{
+  "label": "gpt-5.5|xhigh|dwarf|administrator",
+  "usage": {
+    "input_tokens": 16124,
+    "cached_input_tokens": 7552,
+    "output_tokens": 1348,
+    "reasoning_output_tokens": 516
+  },
+  "wall_s": 27.9
+}

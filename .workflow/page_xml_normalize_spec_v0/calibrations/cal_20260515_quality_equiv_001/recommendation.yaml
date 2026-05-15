@@ -1,0 +1,219 @@
+workflow_id: page_xml_normalize_spec_v0
+calibration_id: cal_20260515_quality_equiv_001
+status: quality_equivalent_calibrated
+execution_mode: cli_only_calibration
+baseline_profile:
+  model: gpt-5.5
+  reasoning_effort: xhigh
+  species: elf
+  class: auditor
+previous_policy_summary:
+  status: active
+  last_calibration_id: 20260515-021140_repeat_topk_contract_refresh
+  calibration_mode: repeat_topk_contract_refresh
+  primary_profile:
+    model: gpt-5.4
+    reasoning_effort: medium
+    species: elf
+    class: auditor
+    candidate_id: repeat_topk_gpt_5_4_medium_elf_auditor
+    quality_score: 95
+    quality_gate: pass
+    extraction_note: Recovered from malformed pre-existing YAML raw excerpt during
+      2026-05-15 comparison.
+  shadow_top_k:
+    - rank: 2
+      candidate_id: repeat_topk_gpt_5_5_xhigh_elf_auditor
+      model: gpt-5.5
+      reasoning_effort: xhigh
+      species: elf
+      class: auditor
+      quality_score: 90
+      quality_gate: pass_with_minor_manifest_gap
+      extraction_note: Recovered from malformed pre-existing YAML raw excerpt during
+        2026-05-15 comparison.
+  parse_status: unparsed_existing_policy_with_extracted_summary
+  parse_error: >
+    Nested mappings are not allowed in compact mappings at line 52, column 13:
+
+        reason: Per-page sidecars were present, but `system_contract` sections were…
+                ^
+  raw_excerpt: "workflow_id: page_xml_normalize_spec_v0\r
+
+    kind: workflow_profile_policy\r
+
+    status: active\r
+
+    last_calibration_id: 20260515-021140_repeat_topk_contract_refresh\r
+
+    calibration_mode: repeat_topk_contract_refresh\r
+
+    measurement_policy:\r
+
+    \  quality_source: subagent_repeat_topk_matrix\r
+
+    \  telemetry_source: cli_passed_candidates_only\r
+
+    \  subagent_token_usage_available: false\r
+
+    \  telemetry_exact_for_subagent: false\r
+
+    \  cost_confidence: relative_not_exact\r
+
+    primary_profile:\r
+
+    \  model: gpt-5.4\r
+
+    \  reasoning_effort: medium\r
+
+    \  species: elf\r
+
+    \  class: auditor\r
+
+    \  candidate_id: repeat_topk_gpt_5_4_medium_elf_auditor\r
+
+    \  measured_tokens:\r
+
+    \    input_tokens: 15731\r
+
+    \    cached_input_tokens: 7552\r
+
+    \    output_tokens: 5650\r
+
+    \    reasoning_output_tokens: 182\r
+
+    \    telemetry_source: codex_exec_json_cli_proxy_passed_candidates_only\r
+
+    \  wall_time_seconds: 109.419\r
+
+    \  quality_score: 95\r
+
+    \  quality_gate: pass\r
+
+    \  rationale: >\r
+
+    \    Repeat Top-K calibration against the refreshed workflow contract
+    preserved\r
+
+    \    the 11 fixture page identities, source refs and checksums, per-page\r
+
+    \    `page_module_spec_v0.yaml` sidecar shape, required `system_contract`\r
+
+    \    sections, boolean `harness_ready: false`, review-required semantics,\r
+
+    \    local/internal candidate separation, project-local output boundaries,
+    and\r
+
+    \    non-executed downstream `capture_xml_intake_library_v0` handoff while\r
+
+    \    costing less than the gpt-5.5/xhigh shadow in CLI proxy telemetry.\r
+
+    shadow_top_k:\r
+
+    \  - rank: 2\r
+
+    \    candidate_id: repeat_topk_gpt_5_5_xhigh_elf_auditor\r
+
+    \    model: gpt-5.5\r
+
+    \    reasoning_effort: xhigh\r
+
+    \    species: elf\r
+
+    \    class: auditor\r
+
+    \    output_tokens: 6379\r
+
+    \    reasoning_output_tokens: 516\r
+
+    \    wall_time_seconds: 121.483\r
+
+    \    quality_score: 90\r
+
+    \    quality_gate: pass_with_minor_manifest_gap\r
+
+    \    note: Strong refreshed-contract coverage, but slower and more
+    expensive; subagent output had a minor manifest/index explicitness gap.\r
+
+    rejected_finalists:\r
+
+    \  - candidate_id: repeat_topk_gpt_5_4_mini_high_elf_auditor\r
+
+    \    reason: Altered `source_system_id` from the fixture binding identity to
+    page refs in sidecars, failing source identity preservation.\r
+
+    \  - candidate_id: repeat_topk_gpt_5_4_mini_medium_elf_auditor\r
+
+    \    reason: Per-page sidecars were present, but `system_contract` sections
+    were empty arrays and `readiness_contract` did not carry boolean
+    `harness_ready: false`.\r
+
+    \  - candidate_id: repeat_topk_gpt_5_4_mini_low_elf_auditor\r
+
+    \    reason: Output was compact and boundary-aware, but collapsed required
+    per-page sidecar blocks into shared sections.\r
+
+    rerun_triggers:\r
+
+    \  - workflow step graph changes\r
+
+    \  - page_module_spec_v0 sidecar schema changes\r
+
+    \  - system_contract, readiness_contract, or harness-facing slot policy
+    changes\r
+
+    \  - module-spec manifest or index schema changes\r
+
+    \  - upstream `whole_xml_page_split_v0` handoff contract changes\r
+
+    \  - downstream XML-first asset registration contract changes\r
+
+    \  - parser, sidecar writer, or optional annotation tooling changes\r
+
+    \  - annotation variant policy changes\r
+
+    \  - a public-safe syn"
+recommended_primary:
+  candidate_id: qe_gpt_5_5_medium_elf_auditor
+  model: gpt-5.5
+  reasoning_effort: medium
+  species: elf
+  class: auditor
+  quality_score: 96
+  baseline_relative_quality: 1
+  quality_class: quality_equivalent_pass
+  measured_tokens:
+    input_tokens: 15702
+    cached_input_tokens: 7552
+    output_tokens: 1124
+    reasoning_output_tokens: 36
+  wall_time_seconds: 24.484
+  telemetry_source: codex_exec_json_cli_proxy
+shadow_top_k:
+  - candidate_id: qe_gpt_5_5_low_elf_auditor
+    model: gpt-5.5
+    reasoning_effort: low
+    species: elf
+    class: auditor
+    quality_score: 96
+    baseline_relative_quality: 1
+    output_tokens: 1385
+    reasoning_output_tokens: 13
+    wall_time_seconds: 29.176
+  - candidate_id: qe_gpt_5_5_xhigh_elf_auditor
+    model: gpt-5.5
+    reasoning_effort: xhigh
+    species: elf
+    class: auditor
+    quality_score: 96
+    baseline_relative_quality: 1
+    output_tokens: 1874
+    reasoning_output_tokens: 516
+    wall_time_seconds: 37.872
+telemetry_limitations:
+  - No isolated subagent/candidate-runner tool was exposed; quality source is
+    explicitly cli_only_calibration.
+  - CLI token and wall-time values are proxy telemetry for these CLI candidates,
+    not exact subagent usage.
+  - No external network/source truth was checked for synthetic source fixtures.
+archive_ref: .workflow/page_xml_normalize_spec_v0/calibrations/cal_20260515_quality_equiv_001/

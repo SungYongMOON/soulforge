@@ -1,0 +1,42 @@
+{
+  "calibration_id": "cal_20260515_quality_equiv_001",
+  "workflow_id": "xml_harness_composition_v0",
+  "ranking": [
+    {
+      "rank": 1,
+      "candidate_id": "C03",
+      "model": "gpt-5.5",
+      "reasoning_effort": "medium",
+      "species": "human",
+      "class": "auditor",
+      "quality_score": 96,
+      "quality_class": "quality_equivalent_pass",
+      "selection_reason": "Lowest wall-time and lower token profile among quality-equivalent candidates; no critical loss versus gpt-5.5/xhigh baseline."
+    },
+    {
+      "rank": 2,
+      "candidate_id": "C01",
+      "model": "gpt-5.5",
+      "reasoning_effort": "xhigh",
+      "species": "human",
+      "class": "auditor",
+      "quality_score": 100,
+      "quality_class": "quality_equivalent_pass",
+      "selection_reason": "Strongest baseline; retained as shadow because it is slower and token-heavier."
+    },
+    {
+      "rank": 3,
+      "candidate_id": "C02",
+      "model": "gpt-5.5",
+      "reasoning_effort": "low",
+      "species": "human",
+      "class": "auditor",
+      "quality_score": 86,
+      "quality_class": "minimum_viable_pass",
+      "selection_reason": "Safe usable content but not promotable under revised quality-equivalence policy due machine-readability and required-shape loss."
+    }
+  ],
+  "selected_primary_candidate_id": "C03",
+  "policy_promotion_allowed": true,
+  "policy_promotion_basis": "quality_equivalent_pass primary exists under revised policy"
+}

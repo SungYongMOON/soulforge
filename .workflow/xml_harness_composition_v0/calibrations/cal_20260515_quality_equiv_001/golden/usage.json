@@ -1,0 +1,17 @@
+{
+  "source": "codex_exec_json_cli_proxy",
+  "baseline_candidate_id": "C01",
+  "model": "gpt-5.5",
+  "reasoning_effort": "xhigh",
+  "usage": {
+    "input_tokens": 108228,
+    "cached_input_tokens": 81408,
+    "output_tokens": 6493,
+    "reasoning_output_tokens": 2525
+  },
+  "wall_time_seconds": 125.912,
+  "notes": [
+    "Baseline was also an actual candidate run.",
+    "CLI telemetry is proxy telemetry for this explicitly labeled cli_only_calibration fallback."
+  ]
+}

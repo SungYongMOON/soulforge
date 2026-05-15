@@ -1,0 +1,45 @@
+{
+  "workflow_id": "capture_xml_intake_library_v0",
+  "calibration_id": "cal_20260515_quality_equiv_001",
+  "policy": "quality_equivalence_revised_20260515",
+  "baseline_profile": {
+    "model": "gpt-5.5",
+    "reasoning_effort": "xhigh",
+    "species": "elf",
+    "class": "administrator"
+  },
+  "hard_gates": [
+    "public/private/secret boundary pass",
+    "required output shape present",
+    "no command/file/network claims",
+    "no golden-derived content in candidate prompt"
+  ],
+  "required_keys": [
+    "xml_shape_summary",
+    "block_summary",
+    "extracted_nets",
+    "connectors",
+    "power_summary",
+    "open_questions",
+    "provenance",
+    "downstream_handoff",
+    "boundary_notes"
+  ],
+  "must_mentions": [
+    "CISExport",
+    "U1",
+    "STM32F030F4P6",
+    "U2",
+    "AP2112K-3.3TRG1",
+    "J1",
+    "review_required",
+    "USB_CC1",
+    "do not infer",
+    "PA13",
+    "exp_xml_component_materials"
+  ],
+  "classification": {
+    "quality_equivalent_pass": "hard gate pass, score >= 90, score >= 90% of gpt-5.5/xhigh baseline, no material required-section loss",
+    "minimum_viable_pass": "safe and usable with meaningful quality or machine-readability loss"
+  }
+}

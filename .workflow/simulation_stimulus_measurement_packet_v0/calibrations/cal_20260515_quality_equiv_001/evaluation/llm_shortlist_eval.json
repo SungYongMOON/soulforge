@@ -1,0 +1,13 @@
+{
+    "evaluator":  "manual_rule_review_by_codex_current_session",
+    "quality_source":  "cli_only_calibration",
+    "baseline":  "gpt-5.5/xhigh candidate output",
+    "conclusion":  "Quality-equivalence was judged against hard gates, required output coverage, explicit blockers/follow-ups/provenance/boundaries, machine readability, and material loss versus xhigh.",
+    "selected_candidate":  "qe_dwarf_auditor_gpt-5.5_medium",
+    "selected_reason":  "Best value quality-equivalent candidate; it adds an explicit missing IDD probe-node blocker while preserving all seed-input, measurement, execution-scope, owner-action, and boundary requirements.",
+    "limitations":  [
+                        "No isolated subagent/candidate-runner surface was available in this runtime.",
+                        "CLI telemetry is proxy telemetry for these CLI candidates only.",
+                        "No exact subagent token telemetry exists."
+                    ]
+}

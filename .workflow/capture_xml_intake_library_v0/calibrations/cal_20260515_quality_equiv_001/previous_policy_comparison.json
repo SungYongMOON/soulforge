@@ -1,0 +1,83 @@
+{
+  "workflow_id": "capture_xml_intake_library_v0",
+  "previous_policy": {
+    "status": "active",
+    "last_calibration_id": "20260514-135122_staged_cli_matrix",
+    "calibration_mode": "staged_cli_calibration",
+    "primary_profile": {
+      "model": "gpt-5.4",
+      "reasoning_effort": "medium",
+      "species": "elf",
+      "class": "administrator",
+      "candidate_id": "C_primary_gpt_5_4_medium",
+      "measured_tokens": {
+        "input_tokens": 15570,
+        "cached_input_tokens": 4480,
+        "output_tokens": 1703,
+        "reasoning_output_tokens": 47,
+        "telemetry_source": "codex_exec_json_cli_proxy_stage_c"
+      },
+      "wall_time_seconds": 38.632,
+      "quality_score": 100,
+      "quality_gate": "pass",
+      "rationale": "Stage C finalist with full frozen quality-gate coverage. It preserved PartInst-vs-Package separation, recovered U1 identity from package evidence, kept J1 candidate/review-required, avoided USB_CC2 inference, recorded U1.PA13 as review-visible no-connect evidence, and used a lower model tier than the comparable gpt-5.5 shadows.\n"
+    },
+    "shadow_top_k": [
+      {
+        "rank": 2,
+        "candidate_id": "C_shadow_gpt_5_5_low",
+        "model": "gpt-5.5",
+        "reasoning_effort": "low",
+        "species": "elf",
+        "class": "administrator",
+        "output_tokens": 1417,
+        "reasoning_output_tokens": 72,
+        "wall_time_seconds": 34.335,
+        "quality_score": 94,
+        "quality_gate": "pass"
+      },
+      {
+        "rank": 3,
+        "candidate_id": "B_gpt_5_5_medium",
+        "model": "gpt-5.5",
+        "reasoning_effort": "medium",
+        "species": "elf",
+        "class": "administrator",
+        "output_tokens": 1538,
+        "reasoning_output_tokens": 78,
+        "wall_time_seconds": 33.465,
+        "quality_score": 100,
+        "quality_gate": "pass_stage_b_only"
+      },
+      {
+        "rank": 4,
+        "candidate_id": "B_gpt_5_4_low",
+        "model": "gpt-5.4",
+        "reasoning_effort": "low",
+        "species": "elf",
+        "class": "administrator",
+        "output_tokens": 1408,
+        "reasoning_output_tokens": 16,
+        "wall_time_seconds": 36.93,
+        "quality_score": 94,
+        "quality_gate": "pass_with_missing_shape_counts"
+      },
+      {
+        "rank": 5,
+        "candidate_id": "B_gpt_5_4_mini_medium",
+        "model": "gpt-5.4-mini",
+        "reasoning_effort": "medium",
+        "species": "elf",
+        "class": "administrator",
+        "output_tokens": 1901,
+        "reasoning_output_tokens": 516,
+        "wall_time_seconds": 16.076,
+        "quality_score": 94,
+        "quality_gate": "pass_with_missing_u2_manufacturer"
+      }
+    ],
+    "parse_status": "parsed",
+    "parse_error": null,
+    "raw_excerpt": null
+  }
+}
