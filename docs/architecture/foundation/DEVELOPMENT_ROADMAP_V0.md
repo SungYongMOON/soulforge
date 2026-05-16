@@ -73,6 +73,35 @@ first workflow posture:
 - 첫 workflow 는 문서 작성기가 아니라 `design-support gap scan` 이다.
 - 현재 stage 에서 필요한 문서, 도식, 분석, trace, review evidence 중 무엇이 있는지, 없는지, AI가 초안 가능한지, owner input이 필요한지 판정하는 데 집중한다.
 
+## 장기 후보: engineering co-pilot expansion
+
+이 후보는 `snapshot_to_operation_board_v0` 와 SE assistant lane 이 안정된 뒤, 실제 설계 업무를 더 넓게 보조하는 후속 방향으로 둔다. 핵심은 owner 의 거친 아이디어, 작업 흔적, 자료 접근 패턴을 실행 가능한 산출물 준비와 개선 제안으로 바꾸는 것이다.
+
+후보 기능:
+
+- schematic intake aide: 회로도 또는 회로 관련 입력을 받으면 block/function 단위로 분할하고, 필요한 부품 datasheet, layout guide 후보, PSpice/simulation 준비 자료, 팀 library handoff packet 으로 정리한다.
+- stage artifact manager: 개발 단계별로 필요한 산출물, 입력 자료, reviewer 질문, 누락 작업을 추적하고 문서 작성 전에 필요한 조사와 초안 준비 항목을 제안한다.
+- daily worklog analyst: 그날 PC 작업 로그와 explicit work note 를 public/private 경계 안에서 요약하고, 완료 업무 정리뿐 아니라 반복 병목과 업무 개선 후보를 도출한다.
+- knowledge-use analytics: 실제 자료 중 어느 ref 를 자주 열었는지, 어떤 질문을 많이 했는지, 어느 workflow/mission 에 지식 접근이 몰리는지 metadata-only ledger 로 분석해 다음 정리 방향을 제안한다.
+- external signal scout: Karpathy 같은 공개 AI/engineering practitioner 의 GitHub, 글, 영상 등 public source 를 주기적으로 살펴보고 Soulforge 에 add-on 할 만한 패턴을 후보로 제안한다.
+- idea-to-candidate capture: owner 가 말로 던진 아이디어를 즉시 canon 으로 승격하지 않고, owner review 가능한 future candidate, mission 후보, workflow 후보, skill 후보로 분리해 적재한다.
+
+불변 조건:
+
+- 회로 원본, 업무 원문, 회사 자료, PC activity raw truth, private log 는 public repo 에 남기지 않는다.
+- datasheet/source 수집은 공식 source 또는 owner-approved source packet 기준으로 하고, 출처 없는 값을 설계 사실처럼 채우지 않는다.
+- 외부 신호 감시는 public source 요약과 후보 제안까지만 하며, 자동으로 canon/workflow/skill 을 바꾸지 않는다.
+- knowledge-use analytics 는 기본적으로 metadata-only 로 시작하고, payload truth 는 `_workmeta`, source packet, owner-held source 경계에 남긴다.
+- 팀 library 반영, 산출물 승인, 설계 판단, workflow/skill 승격은 owner approval 또는 별도 review gate 를 거친다.
+
+구체화 순서:
+
+1. `knowledge_access_event_capture_v0` 와 ledger helper 를 안정화해 어떤 지식이 언제, 왜 쓰였는지 metadata-only 로 남긴다.
+2. SE assistant 의 `design-support gap scan` 이 stage artifact manager 의 최소 입력/출력 shape 을 제공하도록 만든다.
+3. schematic intake 는 먼저 public-safe synthetic fixture 로 datasheet/source packet, simulation prep, layout guide handoff 의 output shape 만 검증한다.
+4. daily worklog analyst 는 private `_workmeta/<project_code>/reports/**` evidence 를 대상으로 owner-only digest 로 시작한다.
+5. external signal scout 는 GitHub/YouTube 등 public source ref 와 adoption candidate register 만 만들고, 실제 채택은 `workflow evolution harness` 또는 post-development review gate 로 보낸다.
+
 ## Active Slice 001
 
 ### 이름
@@ -126,6 +155,7 @@ first workflow posture:
 | 4 | workflow evolution harness | B skill 같은 one-off reconstruction 에서 반복 절차와 fixture 후보가 보임 | `_workmeta/system`, `.workflow/authoring`, `.registry`, `.workflow` |
 | 5 | OpenClaw snapshot bridge | snapshot 출력 경계가 안정됨 | `guild_hall`, external host setup |
 | 6 | nightly sweep advisory | mission/battle log 상태가 안정됨 | `.mission`, `guild_hall/night_watch` |
+| 7 | engineering co-pilot expansion | SE assistant lane, knowledge ledger, private worklog evidence 흐름이 안정됨 | `.workflow`, `.mission`, `_workmeta`, `guild_hall/night_watch`, `.registry` |
 
 ## 구체화 규칙
 
