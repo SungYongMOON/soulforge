@@ -148,13 +148,40 @@ Soulforge 개선은 아래 세 층을 같이 봐야 한다.
 - 경로 처리와 상태 기록 규칙이 한 군데로 모인다.
 - 큰 파일이 더 읽기 쉽고 수정하기 쉬워진다.
 
+## 2026-05-16 즉시 보완 계획
+
+### 목표
+
+- 만든 agent 가 자기 결과를 같은 맥락에서 통과시키는 구조를 줄이고, 중요한 작업에는 독립 review routing 을 붙인다.
+- root acceptance 가 Windows owner PC 에서도 CI 와 같은 의미로 재현되게 한다.
+
+### 할 일
+
+1. `AGENT_EXECUTION_CONTRACT_V0.md` 에 `Post-development independent review gate` 를 추가한다.
+   - Level 0: self-check
+   - Level 1: inspector
+   - Level 2: inspector + judge
+   - Level 3: full B/V gate
+2. Windows PowerShell 에서는 `npm.cmd run ui:done:check` 와 `npm.cmd run done:check` 를 사용하고, 해당 script 내부에서는 Unix env assignment 와 shell quoting 의존을 제거한다.
+3. 새 gate 는 먼저 일반 개발/문서/구조 수정의 routing 기준으로 쓰고, workflow/skill production-ready claim 은 기존 B/V gate 를 계속 따른다.
+4. LLM Wiki, NotebookLM, source bookshelf 같은 새 패턴 실험은 곧바로 도구 도입으로 보지 않고 Level 1~2 review gate 의 첫 sandbox 사례로 다룬다.
+5. daily/weekly review 는 `night_watch` drift check 의 보조 루틴으로 두되, 고위험 작업 직후 Level 1~3 gate 를 대체하지 않는다.
+
+### 끝났다고 보는 기준
+
+- root `validate` 와 `done:check` 가 현재 Windows owner PC 에서 통과한다.
+- 작업 완료 보고에 review level, validator 실행 여부, independent review 대체 방식 또는 잔여 리스크가 남는다.
+- 일반 구조 작업과 skill/workflow 검증 작업의 gate 차이가 문서에서 분명해진다.
+
 ## 우선순위
 
 1. `public-only` 거짓말 없애기
 2. 루트 canon validator 추가
-3. `night_watch` preflight 분리
-4. CI 와 공개 보안 절차 추가
-5. 큰 파일과 state 접근 구조 정리
+3. post-development independent review gate 정착
+4. Windows/CI acceptance 재현성 유지
+5. `night_watch` preflight 분리
+6. CI 와 공개 보안 절차 추가
+7. 큰 파일과 state 접근 구조 정리
 
 ## 이번 계획을 한 문장으로
 

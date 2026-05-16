@@ -3,3 +3,4 @@ kind: allowed_workflows
 status: active
 workflow_ids:
   - author_skill_package
+  - post_development_review_gate_v0

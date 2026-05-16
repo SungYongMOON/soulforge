@@ -1,0 +1,58 @@
+workflow_id: post_development_review_gate_v0
+kind: step_graph
+status: active
+steps:
+  - step_id: prepare_review_binding
+    title: Prepare Review Binding
+    actor_slot: workflow_runner
+    action:
+      kind: post_development_scope_and_output_root_setup
+    summary: Resolve the subject change, owner scope, allowed evidence location, and public/private write boundary.
+  - step_id: curate_builder_report
+    title: Curate Builder Report
+    actor_slot: builder_report_curator
+    action:
+      kind: builder_report_normalization
+    summary: Normalize objective, changed files, output state, commands run, claimed benefit, and known gaps.
+  - step_id: classify_review_level
+    title: Classify Review Level
+    actor_slot: review_router
+    action:
+      kind: risk_tier_review_level_routing
+    summary: Assign self_check, inspector, inspector_and_judge, or full_b_v_gate from trigger reasons and claim strength.
+  - step_id: run_or_record_validators
+    title: Run Or Record Validators
+    actor_slot: validation_runner
+    action:
+      kind: deterministic_validation_execution_or_gap_recording
+    summary: Run available validators or record why validation is blocked, skipped, or out of scope.
+  - step_id: inspect_boundary_and_support
+    title: Inspect Boundary And Support
+    actor_slot: inspector
+    action:
+      kind: boundary_source_and_output_state_review
+    summary: Check allowed paths, public/private boundary, secret/raw absence claim scope, source support, git status, validation logs, and output state.
+  - step_id: judge_value_and_alternatives
+    title: Judge Value And Alternatives
+    actor_slot: judge
+    action:
+      kind: adoption_value_and_alternative_comparison
+    summary: For Level 2 or higher, decide whether the result should be accepted, revised, held private, promoted, or rejected.
+  - step_id: coordinate_full_b_v_gate
+    title: Coordinate Full B/V Gate
+    actor_slot: bv_gate_coordinator
+    action:
+      kind: fresh_executor_and_verifier_handoff_check
+    summary: For Level 3, confirm fresh B executor and separate V verifier evidence exists, or block production-ready and canon-promotion claims.
+  - step_id: decide_supervisor_status
+    title: Decide Supervisor Status
+    actor_slot: supervisor
+    action:
+      kind: supervisor_acceptance_decision
+    summary: Convert validation, inspector, judge, and B/V evidence into accepted, needs_revision, blocked, or owner_decision_required.
+  - step_id: archive_packet_and_handoff
+    title: Archive Packet And Handoff
+    actor_slot: evidence_archivist
+    action:
+      kind: review_packet_archive_and_followup_register
+    summary: Write the review packet, validation log, supervisor decision, and follow-up routes to the correct evidence owner.

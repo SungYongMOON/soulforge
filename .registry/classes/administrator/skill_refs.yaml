@@ -11,6 +11,9 @@ assign:
   - assign: boundary_check
     ref: skill_check
     summary: Review tracked canon and optional executor bridge against Soulforge boundary rules.
+  - assign: post_development_gate
+    ref: post_development_review_gate
+    summary: Route completed bounded work through the generic post-development review workflow before acceptance.
   - assign: mission_readiness_check
     ref: mission_check
     summary: Review mission readiness and keep mission plan ownership separate from local runtime truth.

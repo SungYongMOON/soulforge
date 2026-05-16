@@ -1,0 +1,15 @@
+schema_version: post_development_review_gate_v0.followup_register
+review_id: "<review_id>"
+created_at: "<iso8601_timestamp>"
+final_status: "accepted | needs_revision | blocked | owner_decision_required"
+items:
+  - followup_id: "<followup_id>"
+    owner: "builder | inspector | judge | verifier | owner | later_workflow"
+    route: "revise | rerun_validator | run_full_b_v_gate | owner_decision_packet | closure_loop | hold_private"
+    priority: "P0 | P1 | P2 | P3"
+    summary: ""
+    blocking: false
+    target_refs: []
+completion_rule: ""
+non_claims:
+  - This register tracks follow-up actions; it does not mutate upstream artifacts by itself.

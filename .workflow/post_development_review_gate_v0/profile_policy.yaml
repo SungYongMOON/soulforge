@@ -1,0 +1,55 @@
+workflow_id: post_development_review_gate_v0
+kind: workflow_profile_policy
+status: active
+calibration_mode: conservative_locked_unoptimized
+measurement_policy:
+  quality_source: policy_locked_for_gate_safety
+  telemetry_source: not_optimized
+  subagent_token_usage_available: false
+  telemetry_exact_for_subagent: false
+  cost_confidence: deliberately_not_optimized
+primary_profile:
+  model: gpt-5.5
+  reasoning_effort: xhigh
+  species: dwarf
+  class: auditor
+  candidate_id: conservative_locked_gate_judge
+  quality_gate: locked_for_final_acceptance_review
+shadow_top_k: []
+manual_profile_hints:
+  level_0_self_check:
+    model: gpt-5.5
+    reasoning_effort: medium
+    species: human
+    class: administrator
+  level_1_inspector:
+    model: gpt-5.5
+    reasoning_effort: high
+    species: dwarf
+    class: auditor
+  level_2_inspector_and_judge:
+    model: gpt-5.5
+    reasoning_effort: xhigh
+    species: dwarf
+    class: auditor
+  level_3_b_v_gate_coordination:
+    model: gpt-5.5
+    reasoning_effort: xhigh
+    species: human
+    class: administrator
+  packet_normalization_only:
+    model: null
+    reasoning_effort: low
+    species: archivist
+    class: archivist
+    allowed_only_when: final_acceptance_decision_is_not_being_made
+rerun_triggers:
+  - review_level_routing_rule_changes
+  - packet_schema_changes
+  - validator_command_surface_changes
+  - owner_approves_quality_shadow_calibration
+  - locked_profile_unavailable_in_runtime
+notes:
+  - This is a gatekeeper workflow, so final acceptance review is intentionally locked to the strongest available profile instead of cost-optimized.
+  - "`workflow-optimizer` may be used later only as a quality-shadow exercise or to validate the lock, not to replace final acceptance review with a cheaper profile by default."
+  - If the locked model or reasoning level is unavailable in a runtime, record the limitation in the review packet and do not overclaim high-confidence acceptance.

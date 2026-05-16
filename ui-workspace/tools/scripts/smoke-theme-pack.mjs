@@ -33,15 +33,17 @@ try {
   }
 
   for (const themePackage of themePackages) {
-    const result = spawnSync(
-      "npm",
-      ["pack", "--workspace", themePackage.packageName, "--pack-destination", packDir],
-      {
-        cwd: workspaceRoot,
-        stdio: "inherit",
-        env: process.env
-      }
-    );
+    const result = runNpm([
+      "pack",
+      "--workspace",
+      themePackage.packageName,
+      "--pack-destination",
+      packDir
+    ], {
+      cwd: workspaceRoot,
+      stdio: "inherit",
+      env: process.env
+    });
 
     if (result.status !== 0) {
       process.exit(result.status ?? 1);
@@ -69,4 +71,25 @@ try {
   }
 } finally {
   rmSync(packDir, { recursive: true, force: true });
+}
+
+function runNpm(args, options) {
+  if (process.platform !== "win32") {
+    return spawnSync("npm", args, options);
+  }
+
+  const command = ["npm.cmd", ...args].map(quoteWindowsCmdArg).join(" ");
+  return spawnSync(process.env.ComSpec || "cmd.exe", ["/d", "/s", "/c", command], options);
+}
+
+function quoteWindowsCmdArg(value) {
+  if (/[\r\n%!\^&|<>]/.test(value)) {
+    throw new Error(`Unsupported Windows command argument: ${value}`);
+  }
+
+  if (/^[A-Za-z0-9@_+=:,./\\-]+$/.test(value)) {
+    return value;
+  }
+
+  return `"${value.replaceAll('"', '""')}"`;
 }

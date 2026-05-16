@@ -1,0 +1,46 @@
+schema_version: soulforge.post_development_review_packet.v0
+review_id: "<YYYYMMDD_slug>"
+created_at: "<ISO-8601 or local date>"
+owner_scope: "public_repo | _workmeta/system | _workmeta/<project_code> | private-state"
+review_level: "self_check | inspector | inspector_and_judge | full_b_v_gate"
+trigger_reason:
+  - "public_repo_change | private_boundary | workflow_or_skill_change | adoption_decision | promotion_candidate | automation_change | source_packet_or_router_change"
+
+builder_report:
+  objective: ""
+  changed_files: []
+  output_state: "draft | pilot-ready | pilot-executed | accepted | blocked"
+  commands_run: []
+  claimed_benefit: ""
+  known_gaps: []
+
+inspector_review:
+  required: true
+  reviewer_context: "same_context | fresh_context | fresh_context_preferred | manual_checklist"
+  checks:
+    allowed_write_paths: "pass | fail | not_applicable"
+    public_private_boundary: "pass | fail | not_applicable"
+    secret_raw_data_absent: "pass | fail | not_applicable"
+    source_support: "pass | fail | not_applicable"
+    git_status_reviewed: "pass | fail | not_applicable"
+    validation_commands: "pass | fail | blocked | not_applicable"
+    output_state_named: "pass | fail | not_applicable"
+  result: "pass | fail | blocked"
+  findings: []
+
+judge_review:
+  required: false
+  reviewer_context: "same_context | fresh_context | fresh_context_preferred | manual_checklist"
+  compare_against:
+    - original_goal
+    - existing_pattern
+    - simpler_alternative
+    - risk_of_not_adopting
+  decision: "accept | revise | hold_private | promote_candidate | reject | not_applicable"
+  rationale: ""
+
+supervisor_decision:
+  final_status: "accepted | needs_revision | blocked | owner_decision_required"
+  next_action: ""
+  canon_promotion_allowed: false
+  notes: []

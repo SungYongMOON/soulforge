@@ -1,0 +1,22 @@
+workflow_id: post_development_review_gate_v0
+kind: monster_rules
+status: active
+rules:
+  - monster_id: builder_self_approval
+    response: require_independent_review_or_record_gap
+    summary: The builder may provide the report, but risk-bearing acceptance must name the review level and reviewer independence.
+  - monster_id: validator_skipped_but_claimed
+    response: downgrade_to_needs_revision_or_blocked
+    summary: A skipped deterministic validator cannot be silently replaced by narrative review.
+  - monster_id: private_raw_scope_overclaim
+    response: narrow_secret_raw_absence_claim
+    summary: Secret/raw absence claims must name the inspected scope and exclude unrelated dirty private material.
+  - monster_id: level_3_claim_without_b_v
+    response: block_production_ready_claim
+    summary: Skill/workflow production-ready, oracle/reference, canon-promotion, or authority-changing runner claims require fresh B/V evidence or an explicit blocker.
+  - monster_id: review_packet_written_to_public_with_private_reasoning
+    response: move_applied_packet_to_workmeta
+    summary: Public canon may store blank templates and portable rules only; applied reasoning packets stay private unless sanitized and promoted.
+  - monster_id: daily_or_weekly_review_used_as_substitute
+    response: require_task_immediate_gate
+    summary: Scheduled drift review can complement but not replace the required post-task Level 1-3 gate.

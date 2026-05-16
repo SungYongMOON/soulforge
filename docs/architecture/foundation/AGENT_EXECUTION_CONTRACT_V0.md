@@ -75,6 +75,33 @@ Soulforge 보정:
 | gateway index/mail fetch | `npm run validate:gateway` |
 | 마감 전 넓은 확인 | `npm run done:check` |
 
+Windows PowerShell 에서는 `npm.ps1` execution policy 차이 때문에 같은 검증 표면을 `npm.cmd run validate`, `npm.cmd run ui:done:check`, `npm.cmd run done:check` 처럼 실행한다. 이 표기는 PowerShell 실행형 차이만 다루며 canonical npm script 이름은 바꾸지 않는다.
+
+### Post-development independent review gate
+
+Soulforge 에서 agent 가 코드, 문서, 구조, workflow, skill, automation, source packet, adoption decision 을 만든 뒤에는 작업 위험도에 맞는 post-development review level 을 붙인다.
+이 gate 의 목적은 모든 작업을 느리게 만드는 것이 아니라, 만든 agent 의 자기검증만으로 경계/가치/승격 판단이 닫히지 않게 하는 것이다.
+
+| Level | 이름 | 적용 기준 | 필수 확인 |
+| --- | --- | --- | --- |
+| 0 | self-check | typo, 작은 메모, private 초안, 검증 가능한 단순 변경 | changed files, `git status`, 관련 validate 명령 또는 미실행 사유 |
+| 1 | inspector | public/private 경계, `_workmeta` evidence, source packet, sandbox 실험, architecture note | allowed write paths, secret/raw 부재, source support, output state |
+| 2 | inspector + judge | workflow authoring, router delta, adoption decision, promotion candidate, dev_worker packet | Level 1 + 기존 패턴/대안/효과 비교와 accept/revise/hold/reject 결정 |
+| 3 | full B/V gate | skill/workflow 생성·수정, production-ready 주장, reference/oracle benchmark, public canon 승격, automation runner/preflight authority 변경 | fresh B executor, separate V verifier, acceptance contract, redacted verdict, stop condition |
+
+기본 routing:
+
+- 모든 bounded 작업은 Level 0 이상을 수행한다.
+- public repo 구조, private 경계, source packet, `_workmeta` evidence 를 다루면 Level 1 이상으로 올린다.
+- 채택/보류/폐기 같은 가치 판단이나 workflow/router/promotion 판단이 있으면 Level 2 이상으로 올린다.
+- skill/workflow 의 production-ready claim, reference/oracle 검증, canon 승격, 자동화/runner/preflight 의 실행 권한, state mutation, external side effect 변경은 Level 3 으로 올린다.
+- 검증 명령의 cross-platform wrapper 처럼 실행 권한이나 side effect 를 늘리지 않는 portability fix 는 Level 2 이상과 deterministic `done:check` 로 닫을 수 있다.
+- subagent 사용이 허용되고 필요한 경우 inspector, judge, B, V 는 가능한 fresh context 로 수행한다. subagent 가 불가능하면 대체 방식과 잔여 리스크를 보고하고, Level 3 을 `production-ready` 로 닫지 않는다.
+- independent review 는 deterministic validator 를 대체하지 않는다. 먼저 실행 가능한 validator 를 돌리고, review 는 경계/근거/판단 품질을 확인한다.
+- nightly 또는 weekly review 는 drift 를 잡는 보조 장치일 뿐, 고위험 작업 직후 필요한 Level 1~3 gate 를 대신하지 않는다.
+- review evidence 를 남겨야 하면 `POST_DEVELOPMENT_REVIEW_PACKET_TEMPLATE_V0.yaml` 의 packet shape 를 사용한다.
+- 반복 가능한 workflow 실행 surface 가 필요하면 `.workflow/post_development_review_gate_v0/` 를 우선 호출한다. 이 workflow 는 post-development gate 를 실제 종료 절차로 실행하고, applied packet 은 `_workmeta/<project_code>/` 또는 `_workmeta/system/` 에 남긴다.
+
 ### Skill first-build verification gate
 
 Soulforge에서 agent 가 skill 을 새로 만들거나 수정하는 요청을 받은 경우, 해당 요청은 기본적으로 1차 제작 검증까지 포함한다.

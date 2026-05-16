@@ -1,5 +1,20 @@
 ﻿# CHANGELOG
 
+## 2026-05-16
+
+### Revision `working` - Post-development review gate and Windows acceptance portability
+
+- Added a risk-tiered post-development independent review gate to the agent execution contract, from Level 0 self-check through Level 3 full B/V verification.
+- Added a public-safe post-development review packet template for reusable review evidence.
+- Added the immediate repository improvement plan for independent review routing, LLM Wiki-style sandbox evaluation, and daily/weekly review boundaries.
+- Registered `.workflow/post_development_review_gate_v0` as the generic closing workflow for applying the new review gate to bounded development work.
+- Added public-safe templates for all declared post-development review gate outputs, including boundary review, judge decision, B/V handoff, and follow-up register packets.
+- Allowed `guild_master_cell` to route post-development review requests through the new gate workflow.
+- Added `.registry/skills/post_development_review_gate` plus the installed Codex bridge `soulforge-post-development-review-gate` for consistent task-closing invocation.
+- Locked the review gate workflow profile policy to conservative `gpt-5.5 / xhigh / auditor` final acceptance review instead of cost optimization.
+- Made root UI lint/done-check scripts set the canonical root through a Node wrapper instead of Unix-only environment assignment.
+- Updated the UI theme package smoke test and UI workspace wrapper so `npm pack` / UI scripts run through direct `npm.cmd` on Windows and direct `npm` elsewhere, avoiding shell quoting drift.
+
 ## 2026-05-14
 
 ### Revision `working` - SE foldertree exploratory and operational basic variants added

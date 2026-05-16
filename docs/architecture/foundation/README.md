@@ -15,7 +15,8 @@
 | `VISION_AND_GOALS.md` | 수동 업무를 mission/run truth/canon/autohunt 로 승격하는 장기 비전을 고정한다. |
 | `TARGET_TREE.md` | 목표 루트 트리와 canonical path shape 를 설명한다. |
 | `DOCUMENT_OWNERSHIP.md` | 어떤 문서가 어느 owner 경계를 소유하는지 정한다. |
-| `AGENT_EXECUTION_CONTRACT_V0.md` | AI agent 의 가정 노출, 최소 변경, 검증 기준, secret 경계를 정한다. |
+| `AGENT_EXECUTION_CONTRACT_V0.md` | AI agent 의 가정 노출, 최소 변경, 검증 기준, post-development review gate, secret 경계를 정한다. |
+| `POST_DEVELOPMENT_REVIEW_PACKET_TEMPLATE_V0.yaml` | post-development review gate 결과를 남길 때 쓰는 public-safe packet shape 다. |
 | `AGENT_WORLD_MODEL.md` | agent 가 species, class, unit, workflow, party, mission 을 어떤 세계 모델로 읽는지 설명한다. |
 | `ONTOLOGY_MODEL_V0.md` | 반복 개념을 ontology 후보와 canon relation 으로 다루는 기준을 둔다. |
 | `ONTOLOGY_REVIEW_MANUAL_V0.md` | project-local 반복 패턴을 ontology candidate 로 검토하는 절차를 둔다. |
@@ -35,6 +36,7 @@
 - [`TARGET_TREE.md`](TARGET_TREE.md)
 - [`DOCUMENT_OWNERSHIP.md`](DOCUMENT_OWNERSHIP.md)
 - [`AGENT_EXECUTION_CONTRACT_V0.md`](AGENT_EXECUTION_CONTRACT_V0.md)
+- [`POST_DEVELOPMENT_REVIEW_PACKET_TEMPLATE_V0.yaml`](POST_DEVELOPMENT_REVIEW_PACKET_TEMPLATE_V0.yaml)
 - [`AGENT_WORLD_MODEL.md`](AGENT_WORLD_MODEL.md)
 - [`ONTOLOGY_MODEL_V0.md`](ONTOLOGY_MODEL_V0.md)
 - [`ONTOLOGY_REVIEW_MANUAL_V0.md`](ONTOLOGY_REVIEW_MANUAL_V0.md)

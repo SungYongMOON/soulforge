@@ -1,0 +1,101 @@
+workflow_id: post_development_review_gate_v0
+kind: workflow
+status: active
+title: Post-development Review Gate v0
+summary: Route every bounded Soulforge development result through a risk-tiered closing review so deterministic validation, boundary inspection, value judgment, and optional B/V verification are recorded before a change is accepted, revised, blocked, or escalated to the owner.
+entrypoint: run
+execution_mode: local_tool_sequence
+role_slots: role_slots.yaml
+step_graph: step_graph.yaml
+handoff_rules: handoff_rules.yaml
+monster_rules: monster_rules.yaml
+party_compatibility: party_compatibility.yaml
+profile_policy: profile_policy.yaml
+inputs:
+  - builder_report
+  - changed_file_refs
+  - validation_command_refs
+  - output_state
+  - applicable_owner_contract_refs
+optional_inputs:
+  - git_status_ref
+  - deterministic_validation_logs
+  - source_packet_refs
+  - adoption_decision_refs
+  - promotion_candidate_refs
+  - inspector_review_refs
+  - judge_review_refs
+  - verifier_review_refs
+  - owner_decision_refs
+outputs:
+  - post_development_review_packet
+  - validation_log
+  - boundary_review_note
+  - judge_decision_note
+  - bv_gate_handoff
+  - supervisor_decision
+  - followup_register
+validation_level: pilot_executed_private_application
+registration_policy: owner_requested_registration
+workflow_modes:
+  - close_bounded_development
+  - review_workflow_or_skill_change
+  - review_adoption_or_router_decision
+  - escalate_full_b_v_gate
+review_level_values:
+  - self_check
+  - inspector
+  - inspector_and_judge
+  - full_b_v_gate
+final_status_values:
+  - accepted
+  - needs_revision
+  - blocked
+  - owner_decision_required
+post_development_review_contract:
+  owns:
+    - review_level_routing
+    - builder_report_completeness
+    - deterministic_validation_presence
+    - public_private_boundary_check
+    - secret_raw_data_absence_claim_scope
+    - source_support_and_claim_ceiling_check
+    - independent_reviewer_usage_or_gap
+    - value_and_alternative_judgment_for_level_2
+    - full_b_v_handoff_for_level_3
+    - final_supervisor_decision
+    - private_evidence_packet_shape
+  does_not_own:
+    - domain_specific_source_truth
+    - specialist_validator_implementation
+    - raw_project_payload_storage
+    - secret_material_inspection
+    - owner_approval_authority
+    - production_ready_claim_without_required_b_v_evidence
+    - mutation_of_upstream_workflow_outputs
+  required_output_shapes:
+    project_binding: templates/project_binding.template.yaml
+    review_packet: templates/post_development_review_packet.template.yaml
+    validation_log: templates/validation_log.template.yaml
+    boundary_review_note: templates/boundary_review_note.template.yaml
+    judge_decision_note: templates/judge_decision_note.template.yaml
+    bv_gate_handoff: templates/bv_gate_handoff.template.yaml
+    supervisor_decision: templates/supervisor_decision.template.yaml
+    followup_register: templates/followup_register.template.yaml
+downstream_workflows:
+  - workflow_id: review_action_item_closure_loop_v0
+    expected_input: followup_register
+    status: optional_followup
+  - workflow_id: owner_decision_packet_v0
+    expected_input: owner_decision_required_status
+    status: optional_owner_decision
+  - workflow_id: source_packet_sufficiency_review_v0
+    expected_input: source_support_or_claim_ceiling_gap
+    status: optional_rerun_trigger
+  - workflow_id: review_gate_evidence_pack_v0
+    expected_input: formal_review_readiness_packet_needed
+    status: optional_review_readiness
+notes:
+  - This is a generic closing gate for Soulforge development work, not a replacement for specialist validators or domain workflows.
+  - Public workflow canon stores only portable routing rules and packet templates. Applied packets belong in `_workmeta/<project_code>/` or `_workmeta/system/`.
+  - Level 3 means escalation to a full B/V gate when the claim requires fresh executor and separate verifier evidence; this package can record the handoff but does not make missing B/V evidence true.

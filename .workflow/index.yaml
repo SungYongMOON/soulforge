@@ -71,6 +71,8 @@ entries:
     path: accepted_verification_result_packet_v0/workflow.yaml
   - workflow_id: owner_decision_packet_v0
     path: owner_decision_packet_v0/workflow.yaml
+  - workflow_id: post_development_review_gate_v0
+    path: post_development_review_gate_v0/workflow.yaml
 notes:
   - Workflow catalog only. Raw run ids and execution dumps do not belong here.
   - Authoring templates live under `authoring/` and are not workflow canon entries.

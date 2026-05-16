@@ -1,0 +1,22 @@
+workflow_id: post_development_review_gate_v0
+kind: role_slots
+status: active
+slots:
+  - slot_id: workflow_runner
+    summary: owns intake, scope binding, output-root selection, and final package publication
+  - slot_id: review_router
+    summary: classifies the required review level from changed surfaces, claims, and owner contracts
+  - slot_id: validation_runner
+    summary: runs or records deterministic validators before AI judgment is accepted
+  - slot_id: builder_report_curator
+    summary: normalizes the builder report, changed files, commands, claimed benefit, and known gaps
+  - slot_id: inspector
+    summary: checks allowed write paths, public/private boundaries, secret/raw absence scope, source support, git status, and output state
+  - slot_id: judge
+    summary: compares the result against the original goal, existing pattern, simpler alternatives, and risk of not adopting
+  - slot_id: bv_gate_coordinator
+    summary: records Level 3 fresh executor/verifier requirements and blocks production-ready claims when B/V evidence is missing
+  - slot_id: supervisor
+    summary: decides accepted, needs_revision, blocked, or owner_decision_required from validation and review evidence
+  - slot_id: evidence_archivist
+    summary: writes the review packet and follow-up register to the correct public/private owner surface

@@ -1,0 +1,57 @@
+skill_id: post_development_review_gate
+kind: skill
+status: active
+title: Post-development Review Gate
+summary: Invoke the registered Soulforge post-development review gate workflow at the end of bounded development work, preserving deterministic validation, boundary review, independent judgment, and private evidence packets.
+behavior:
+  intent: >
+    Provide the Codex-facing bridge for `.workflow/post_development_review_gate_v0`
+    so agents consistently close code, docs, workflow, skill, source-packet,
+    adoption, and automation changes through the risk-tiered review gate.
+  use_when:
+    - a Soulforge coding, documentation, structure, workflow, skill, automation, source-packet, or adoption-decision task is being closed
+    - the user asks to run or apply the post-development review gate
+    - a result needs inspector, judge, supervisor, or B/V gate routing before acceptance
+    - a review packet should be written under `_workmeta/<project_code>/` or `_workmeta/system/`
+  avoid_when:
+    - the task is a simple command output request with no repo judgment
+    - the task has no bounded development result to close
+    - the required private owner scope is unknown and cannot be safely inferred
+  expected_outcome:
+    - the appropriate Level 0, Level 1, Level 2, or Level 3 route is named
+    - deterministic validators are run or their absence is recorded
+    - boundary, source-support, and output-state checks are explicit
+    - Level 2 value judgment and Level 3 B/V evidence gaps are not hidden
+    - the final supervisor decision is recorded as accepted, needs_revision, blocked, or owner_decision_required
+execution_requirements:
+  required_capabilities:
+    - workflow_gate_execution
+    - deterministic_validation_review
+    - boundary_review
+    - evidence_packet_authoring
+  preferred_capabilities:
+    - fresh_context_inspector_review
+    - fresh_context_judge_review
+    - verifier_handoff_coordination
+    - yaml_authoring
+  preferred_tools:
+    - rg
+    - git_status
+    - git_diff
+    - yaml_validator
+    - npm_validate
+  conservative_profile_policy:
+    final_acceptance_model: gpt-5.5
+    final_acceptance_reasoning_effort: xhigh
+    final_acceptance_class: auditor
+    cheaper_profiles_allowed_only_for:
+      - packet_normalization
+      - deterministic_log_summary
+      - formatting
+  notes:
+    - "The workflow canon remains `.workflow/post_development_review_gate_v0/`; this skill is only the Codex runtime bridge."
+    - "Applied packets, validation logs, and task-specific reasoning stay under `_workmeta/<project_code>/` or `_workmeta/system/`."
+    - "Actual model availability, subagent access, and installed skill path are runtime concerns and must be reported when they limit review confidence."
+notes:
+  - "`post_development_review_gate` is the canonical bridge skill for the registered post-development review workflow."
+  - "The installed Codex mirror name is normally `soulforge-post-development-review-gate` after `npm run skills:sync -- post_development_review_gate`."
