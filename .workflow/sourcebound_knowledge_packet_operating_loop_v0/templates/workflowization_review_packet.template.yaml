@@ -26,4 +26,3 @@ review_gate:
 promotion_decision:
   recommendation: hold_until_review
   rationale: null
-

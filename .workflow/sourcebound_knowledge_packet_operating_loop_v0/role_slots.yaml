@@ -29,4 +29,3 @@ slots:
   - slot_id: boundary_reviewer
     title: Boundary Reviewer
     summary: Checks source/projection/promotion boundaries and routes the packet to the required review gate.
-

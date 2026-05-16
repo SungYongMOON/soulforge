@@ -88,4 +88,3 @@ Synthetic public fixture JSON:
                                   }
                               ]
 }
-

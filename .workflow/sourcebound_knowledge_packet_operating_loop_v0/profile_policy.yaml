@@ -28,4 +28,3 @@ notes:
   - Draft conservative policy only; no profile optimization was performed.
   - Bind runtime profile per project until public-safe calibration exists.
   - Do not report this workflow as production-ready from this policy.
-

@@ -34,4 +34,3 @@ rules:
     to: boundary_reviewer
     condition: workflowization_review_packet_written
     summary: Boundary reviewer checks source truth, projection, concept, claim ceiling, and promotion boundaries before any acceptance claim.
-

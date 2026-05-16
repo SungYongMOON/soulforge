@@ -91,4 +91,3 @@ Synthetic public fixture JSON:
                       ],
     "source_mode":  "contract_only_synthetic"
 }
-

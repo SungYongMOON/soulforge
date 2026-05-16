@@ -20,4 +20,3 @@ operation_log_events:
   - lint
   - concept_candidate_extraction
   - claim_ceiling_route
-

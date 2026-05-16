@@ -26,4 +26,3 @@ rules:
   - monster_id: workflowization_without_review_gate
     response: route_to_post_development_review_gate
     summary: Workflow, ontology, or canon promotion needs the appropriate review gate or owner decision.
-

@@ -27,9 +27,9 @@
 
 ## 4. Procedure
 
-1. 
-2. 
-3. 
+1.
+2.
+3.
 
 ## 5. Observations And Measurements
 

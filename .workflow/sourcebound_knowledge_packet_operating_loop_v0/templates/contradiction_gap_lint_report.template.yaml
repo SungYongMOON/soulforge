@@ -19,4 +19,3 @@ promotion_blockers: []
 non_claims:
   - lint_report_is_not_source_truth
   - lint_report_does_not_accept_canon
-

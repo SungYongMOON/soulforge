@@ -16,4 +16,3 @@ promotion_policy:
   review_gate_workflow_id: post_development_review_gate_v0
   owner_decision_required_for_ontology_canon: true
   production_ready_claim_allowed_without_bv_gate: false
-

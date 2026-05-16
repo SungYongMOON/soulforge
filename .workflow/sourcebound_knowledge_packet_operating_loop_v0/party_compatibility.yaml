@@ -13,4 +13,3 @@ compatible_parties:
 notes:
   - A solo operator can produce a private packet, but promotion claims require the review level demanded by the claim.
   - Model, reasoning, species, class, and party bindings belong in project-local bindings or mission notes, not this workflow package.
-
