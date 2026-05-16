@@ -1,13 +1,21 @@
 # Knowledge Access Event Capture v0
 
-`knowledge_access_event_capture_v0` records how existing Soulforge knowledge
-refs are used by workflows, skills, missions, user tasks, tools, and advisory
-handoffs.
+`knowledge_access_event_capture_v0` normalizes and analyzes lightweight
+knowledge access ledger/register rows that record how existing Soulforge
+knowledge refs are used by workflows, skills, missions, user tasks, tools, and
+advisory handoffs.
 
-The workflow is metadata-only. It captures actor, target knowledge ref, access
-type, work context, timestamp, outcome/usefulness, and optional relation hints.
-It then produces usage counts, candidate retention labels, relation-strength
-analysis, and graph-update packets for later visualization.
+The primary low-friction record is the ledger/register row appended during
+ordinary work when an agent or tool actually uses a knowledge ref. This workflow
+does not have to be run for every single access. Instead, it is the periodic or
+explicit workflow that ingests those rows, normalizes actor/target/context/time
+metadata, rolls up usage, analyzes relation strength, and routes review
+candidates.
+
+Early operation may use agent-authored manual ledger entries. Later automation
+may append equivalent metadata-only events from routers, search, tooling, or
+other approved access surfaces. In both cases, the row records why a ref was
+used and where the resulting work output lives by reference only.
 
 ## Outputs
 
@@ -22,10 +30,11 @@ analysis, and graph-update packets for later visualization.
 
 ## Boundary
 
-This workflow does not own source truth, knowledge payloads, ontology acceptance,
-archive execution, retire execution, or owner decisions. Hot, warm, cold, stale,
-archive, retire, strong, weak, orphan, and redundant labels are candidate signals
-until a project policy or owner decision accepts the action.
+This workflow and its ledger/register rows do not own source truth, knowledge
+payloads, ontology acceptance, archive execution, retire execution, or owner
+decisions. Hot, warm, cold, stale, archive, retire, strong, weak, orphan, and
+redundant labels are candidate signals until a project policy or owner decision
+accepts the action.
 
 ## Current Maturity
 

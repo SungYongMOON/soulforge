@@ -1,0 +1,133 @@
+workflow_id: se_stage_artifact_gap_scan_v0
+kind: workflow
+status: draft
+title: SE Stage Artifact Gap Scan v0
+summary: 한 체계공학 stage의 산출물/입력/근거/질문/다음 라우트를 점검하되, 문서 작성이나 승인 판단으로 넘어가지 않는 bounded controller workflow draft.
+entrypoint: run
+execution_mode: local_tool_sequence
+role_slots: role_slots.yaml
+step_graph: step_graph.yaml
+handoff_rules: handoff_rules.yaml
+monster_rules: monster_rules.yaml
+party_compatibility: party_compatibility.yaml
+profile_policy: profile_policy.yaml
+history: history/
+calibrations: calibrations/
+inputs:
+  - stage_gap_scan_binding
+  - target_stage_code
+  - stage_expected_artifact_policy
+  - approved_scan_policy
+optional_inputs:
+  - snapshot_or_stage_status_refs
+  - mission_candidate_refs
+  - foldertree_manifest_refs
+  - source_packet_refs
+  - sufficiency_review_refs
+  - source_gap_followup_refs
+  - review_gate_packet_refs
+  - owner_decision_refs
+  - baseline_or_change_control_refs
+outputs:
+  - stage_artifact_gap_scan_packet
+  - stage_required_artifact_matrix
+  - stage_input_gap_register
+  - owner_input_queue
+  - draftable_artifact_queue
+  - diagram_need_register
+  - stage_blocker_register
+  - downstream_workflow_route_map
+  - stage_scan_summary
+  - stage_readiness_summary
+  - boundary_review_note
+validation_level: draft_context_only
+registration_policy: not_registered_owner_review_required
+workflow_modes:
+  - single_stage_scan
+  - rerun_update
+upstream_workflows:
+  - workflow_id: project_readiness_digest_v0
+    expected_outputs:
+      - owner_input_queue
+      - next_action_recommendations
+    status: optional_reporting_context
+  - workflow_id: source_gap_followup_packet_v0
+    expected_outputs:
+      - owner_action_queue
+      - retry_trigger_register
+      - downstream_unblock_map
+    status: optional_gap_context
+  - workflow_id: source_packet_sufficiency_review_v0
+    expected_outputs:
+      - blocked_fields_register
+      - owner_followup_needed
+      - allowed_claim_ceiling
+    status: optional_evidence_ceiling_context
+  - workflow_id: review_gate_evidence_pack_v0
+    expected_outputs:
+      - review_blockers
+      - action_item_register
+      - readiness_summary
+    status: optional_review_context
+downstream_workflows:
+  - workflow_id: owner_decision_packet_v0
+    expected_input: owner_input_queue_and_scoped_decision_needs
+    status: planned
+  - workflow_id: project_readiness_digest_v0
+    expected_input: stage_scan_summary_and_owner_input_queue
+    status: planned
+  - workflow_id: source_gap_followup_packet_v0
+    expected_input: source_or_evidence_gap_items_from_stage_scan
+    status: planned
+  - workflow_id: review_gate_evidence_pack_v0
+    expected_input: stage_required_artifact_matrix_and_stage_blocker_register
+    status: planned
+  - workflow_id: se_artifact_authoring_support_v0
+    expected_input: selected_artifact_lane_after_gap_scan
+    status: future_candidate_only
+stage_gap_scan_contract:
+  owns:
+    - stage_scope_selection
+    - expected_artifact_matrix_for_one_stage
+    - current_artifact_presence_and_status_rows
+    - input_gap_register
+    - owner_input_queue
+    - draftable_artifact_queue
+    - diagram_need_register
+    - stage_blocker_register
+    - downstream_workflow_route_map
+    - stage_readiness_summary
+  does_not_own:
+    - artifact_authoring
+    - source_truth
+    - owner_decision_creation
+    - readiness_approval
+    - review_gate_approval
+    - foldertree_generation
+    - public_canon_promotion
+  authority_boundary:
+    stage_scan_is_not_artifact_completion: true
+    stage_scan_is_not_review_readiness_approval: true
+    owner_input_queue_does_not_fill_missing_facts: true
+    upstream_artifacts_are_read_only: true
+    unsupported_content_remains_blocked_or_owner_input_needed: true
+  required_input_shapes:
+    stage_gap_scan_binding: templates/stage_gap_scan_binding.template.yaml
+    stage_expected_artifact_policy: templates/stage_expected_artifact_policy.template.yaml
+  required_output_shapes:
+    stage_artifact_gap_scan_packet: templates/stage_artifact_gap_scan_packet.template.yaml
+    stage_required_artifact_matrix: templates/stage_required_artifact_matrix.template.yaml
+    stage_input_gap_register: templates/stage_input_gap_register.template.yaml
+    owner_input_queue: templates/owner_input_queue.template.yaml
+    draftable_artifact_queue: templates/draftable_artifact_queue.template.yaml
+    diagram_need_register: templates/diagram_need_register.template.yaml
+    stage_blocker_register: templates/stage_blocker_register.template.yaml
+    downstream_workflow_route_map: templates/downstream_workflow_route_map.template.yaml
+    stage_scan_summary: templates/stage_scan_summary.template.md
+    stage_readiness_summary: templates/stage_readiness_summary.template.md
+    boundary_review_note: templates/boundary_review_note.template.md
+notes:
+  - 이 package 는 `.workflow/authoring/` 대기실에 있는 draft 이며 아직 workflow canon entry 가 아니다.
+  - 첫 safe move 는 stage gap scan 이지, 문서 작성이나 review approval 이 아니다.
+  - 사람-facing 설명은 한국어로 유지하되, workflow id 와 file path 는 기존 canon 규칙을 따른다.
+  - missing engineering truth 는 blocker, owner_input_needed, source_needed 로 남겨야 하며 추론으로 채우지 않는다.

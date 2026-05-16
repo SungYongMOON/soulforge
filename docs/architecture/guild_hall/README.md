@@ -10,6 +10,7 @@
 | 문서 | 역할 |
 | --- | --- |
 | `GUILD_HALL_MODEL_V0.md` | `guild_hall` 이 gateway, notify, assignment, operation state 를 어떻게 소유하는지 고정한다. |
+| `KNOWLEDGE_OPERATING_MODEL_V0.md` | Combines the knowledge access ledger, manual candidate capture, LLM suggestion approval, end-of-work sweep, sourcebound packet, and access-event analysis layers. |
 | `SOULFORGE_ACTIVITY_LOG_V0.md` | cross-project recent-context 와 carry-forward event surface 를 설명한다. |
 | `SOULFORGE_SNAPSHOT_V0.md` | UI/external host 가 읽을 sanitized read-only snapshot 계약이다. |
 | `NIGHT_WATCH_AUTOMATION_V0.md` | 항상 켜 두는 node 에서만 ACTIVE 로 둘 점검 자동화와 경계를 설명한다. |
@@ -17,6 +18,7 @@
 | `DEV_WORKER_AUTOMATION_V0.md` | task packet 을 받아 reviewable branch 를 만드는 bounded development worker lane 을 설명한다. |
 | `doctor/README.md` | bootstrap/readiness doctor 의 owner-local 설명이다. |
 | `../../../guild_hall/activity/README.md` | activity log append/refresh 구현 surface 설명이다. |
+| `../../../guild_hall/knowledge_access/README.md` | metadata-only knowledge ref read/use ledger helper 설명이다. |
 | `../../../guild_hall/healer/README.md` | 항상 켜 두는 PC 의 self-check / report writer 구현 surface 설명이다. |
 | `../../../guild_hall/dev_worker/README.md` | dev worker task claim / automation prompt / branch handoff 구현 surface 설명이다. |
 | `../../../guild_hall/shared/README.md` | guild_hall 내부 공용 io/path helper surface 설명이다. |
@@ -40,12 +42,14 @@
 - [`../../../guild_hall/README.md`](../../../guild_hall/README.md)
 - [`doctor/README.md`](doctor/README.md)
 - [`../../../guild_hall/activity/README.md`](../../../guild_hall/activity/README.md)
+- [`../../../guild_hall/knowledge_access/README.md`](../../../guild_hall/knowledge_access/README.md)
 - [`../../../guild_hall/healer/README.md`](../../../guild_hall/healer/README.md)
 - [`../../../guild_hall/dev_worker/README.md`](../../../guild_hall/dev_worker/README.md)
 - [`../../../guild_hall/shared/README.md`](../../../guild_hall/shared/README.md)
 - [`../../../guild_hall/snapshot/README.md`](../../../guild_hall/snapshot/README.md)
 - [`../../../guild_hall/validate/README.md`](../../../guild_hall/validate/README.md)
 - [`GUILD_HALL_MODEL_V0.md`](GUILD_HALL_MODEL_V0.md)
+- [`KNOWLEDGE_OPERATING_MODEL_V0.md`](KNOWLEDGE_OPERATING_MODEL_V0.md)
 - [`SOULFORGE_ACTIVITY_LOG_V0.md`](SOULFORGE_ACTIVITY_LOG_V0.md)
 - [`SOULFORGE_SNAPSHOT_V0.md`](SOULFORGE_SNAPSHOT_V0.md)
 - [`NIGHT_WATCH_AUTOMATION_V0.md`](NIGHT_WATCH_AUTOMATION_V0.md)

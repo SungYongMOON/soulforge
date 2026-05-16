@@ -1,0 +1,11 @@
+schema_version: se_owner_input_queue_v0
+queue_identity:
+  queue_id: "<queue_id>"
+  stage_code: "<stage_code>"
+owner_actions:
+  - action_id: "<action_id>"
+    task_id: 0
+    artifact_label: "<artifact_label>"
+    question: "<owner_question>"
+    priority: "high|medium|low"
+    status: "open"

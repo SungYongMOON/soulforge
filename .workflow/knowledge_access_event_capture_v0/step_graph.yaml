@@ -10,25 +10,26 @@ steps:
       requires:
         - knowledge_access_scope
         - knowledge_node_ref_set
-        - access_event_source_refs
+        - knowledge_access_ledger_refs
         - retention_label_policy
       validates:
         - target_refs_are_existing_knowledge_refs
-        - private_event_store_or_project_output_ref_declared
+        - private_ledger_or_project_output_ref_declared
         - public_package_payload_free
         - archive_retire_authority_declared
         - profile_optimization_out_of_scope
-    summary: Resolve which knowledge refs and event sources are in scope before any access event is normalized.
+    summary: Resolve which knowledge refs and ledger/register sources are in scope before any access row is normalized.
     next:
       on_success: collect_access_event_candidates
       on_fail: stop
   - step_id: collect_access_event_candidates
-    title: Collect Access Event Candidates
+    title: Collect Ledger Entry Candidates
     actor_slot: event_collector
     action:
-      kind: metadata_only_access_event_collection
+      kind: metadata_only_ledger_entry_collection
       artifacts_in:
         - knowledge_access_scope
+        - knowledge_access_ledger_refs
         - access_event_source_refs
         - mission_or_run_context_refs
         - sourcebound_knowledge_packet_refs
@@ -40,9 +41,12 @@ steps:
         - event_id
         - stable_actor_ref
         - stable_target_ref
+        - capture_mode
         - access_type
         - work_context_ref
         - timestamp
+        - reason_used
+        - output_ref
         - outcome_state
         - usefulness_signal
         - relation_hint
@@ -52,7 +56,7 @@ steps:
         - copied_advisory_answer
         - credentials_or_sessions
         - host_absolute_path
-    summary: Gather candidate access-event rows from approved metadata surfaces without copying the accessed knowledge payload.
+    summary: Ingest candidate ledger/register rows from approved metadata surfaces without copying the accessed knowledge payload.
     next:
       on_success: normalize_access_events
       on_fail: stop
@@ -67,6 +71,7 @@ steps:
       required_fields:
         - event_id
         - timestamp_utc
+        - capture_mode
         - actor.type
         - actor.id
         - target.knowledge_ref
@@ -75,11 +80,12 @@ steps:
         - outcome_state
       normalization_rules:
         timestamp_utc_required: true
+        capture_mode_enum_required: true
         actor_type_enum_required: true
         access_type_enum_required: true
         target_ref_must_be_stable_id_or_repo_relative_ref: true
         duplicate_event_keys_flagged_not_silently_merged: true
-    summary: Convert event candidates into a stable event log with required actor, target, context, time, and outcome fields.
+    summary: Convert ledger/register candidates into a stable event log with required capture mode, actor, target, context, time, and outcome fields.
     next:
       on_success: boundary_redaction_review
       on_fail: stop
@@ -100,7 +106,7 @@ steps:
         - no_host_absolute_path
         - no_advisory_answer_as_authority
         - no_archive_retire_execution_claim
-    summary: Ensure captured events remain metadata-only and safe for downstream rollups or graph packets.
+    summary: Ensure ledger entries and normalized events remain metadata-only and safe for downstream rollups or graph packets.
     next:
       on_success: aggregate_usage_counts
       on_fail: stop

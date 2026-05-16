@@ -1,0 +1,14 @@
+schema_version: se_stage_blocker_register_v0
+stage_blockers:
+  blocker_register_id: "<blocker_register_id>"
+  stage_code: "<stage_code>"
+  blockers:
+    - blocker_id: "<blocker_id>"
+      task_id: 0
+      blocker_statement: "<blocker_statement>"
+      source_or_evidence_gap_refs: []
+      required_next_action: "<next_action>"
+      owner_or_routing_surface: "<workflow_or_owner_surface>"
+      blocker_scope: "blocks_review_scheduling|blocks_review_closure|weakens_review_confidence"
+      status: "open"
+      closure_evidence_ref: ""

@@ -1,0 +1,41 @@
+schema_version: se_stage_artifact_gap_scan_packet_v0
+packet_identity:
+  packet_id: "<packet_id>"
+  workflow_id: se_stage_artifact_gap_scan_v0
+  created_at: "<iso8601>"
+  project_code: "<project_code>"
+  run_id: "<run_id>"
+scope:
+  stage_code: "<stage_code>"
+  stage_label: "<stage_label>"
+  scan_posture: "design-support advisory only"
+boundary:
+  storage_scope: "_workmeta/<project_code> | _workmeta/system"
+  upstream_artifacts_read_only: true
+  artifact_authoring_performed: false
+  readiness_approval_claimed: false
+  compliance_claimed: false
+aggregate_summary:
+  total_stage_rows: 0
+  draftable_count: 0
+  owner_input_needed_count: 0
+  source_needed_count: 0
+  blocked_count: 0
+  not_applicable_count: 0
+readiness_state: "<draft | ready_with_named_caveats | not_ready | blocked>"
+top_blockers: []
+top_owner_inputs: []
+non_claims:
+  - "이 packet 은 산출물 완성을 주장하지 않는다."
+  - "이 packet 은 review approval을 만들지 않는다."
+output_refs:
+  stage_required_artifact_matrix_ref: "stage_required_artifact_matrix.yaml"
+  stage_input_gap_register_ref: "stage_input_gap_register.yaml"
+  owner_input_queue_ref: "owner_input_queue.yaml"
+  draftable_artifact_queue_ref: "draftable_artifact_queue.yaml"
+  diagram_need_register_ref: "diagram_need_register.yaml"
+  stage_blocker_register_ref: "stage_blocker_register.yaml"
+  downstream_workflow_route_map_ref: "downstream_workflow_route_map.yaml"
+  stage_scan_summary_ref: "stage_scan_summary.md"
+  stage_readiness_summary_ref: "stage_readiness_summary.md"
+  boundary_review_note_ref: "boundary_review_note.md"

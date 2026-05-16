@@ -4,13 +4,13 @@ status: active
 slots:
   - slot_id: capture_scope_binder
     title: Capture Scope Binder
-    summary: Resolves the knowledge refs, event sources, private output location, and retention policy before event capture begins.
+    summary: Resolves the knowledge refs, ledger/register sources, private output location, and retention policy before event normalization begins.
   - slot_id: event_collector
     title: Event Collector
-    summary: Collects metadata-only access event rows from approved workflow, skill, mission, user, tool, and advisory handoff surfaces.
+    summary: Ingests metadata-only access ledger/register rows from approved workflow, skill, mission, user, tool, and advisory handoff surfaces.
   - slot_id: event_normalizer
     title: Event Normalizer
-    summary: Enforces required actor, target, access type, work context, timestamp, outcome, and usefulness fields.
+    summary: Enforces required capture mode, actor, target, access type, work context, timestamp, outcome, and usefulness fields.
   - slot_id: boundary_reviewer
     title: Boundary Reviewer
     summary: Checks that event rows and downstream packets contain refs and metadata only, not raw knowledge payloads or secrets.

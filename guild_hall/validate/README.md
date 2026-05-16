@@ -12,7 +12,7 @@
   - `--json` 출력 지원
 - `run_root_acceptance.mjs`
   - root `validate` / `done:check` 단계 실행기
-  - role-boundary, canon, snapshot, activity, UI, gateway harness 를 한 entrypoint 로 묶음
+  - role-boundary, canon, snapshot, activity, knowledge-access, UI, gateway harness 를 한 entrypoint 로 묶음
 - `run_ui_workspace_command.mjs`
   - root npm script 에서 `ui-workspace` script 를 실행하는 portability wrapper
   - `UI_LINT_CANONICAL_ROOT` 기본값을 설정하고 Windows 에서는 `npm.cmd`, 그 외 환경에서는 `npm` 을 직접 실행
@@ -31,6 +31,7 @@
   - `npm run done:check`
   - `npm run validate:role-boundary`
   - `npm run validate:activity`
+  - `npm run validate:knowledge-access`
   - `npm run validate:gateway`
 
 Windows PowerShell 에서는 `npm.ps1` execution policy 차이를 피하기 위해 같은 script 를 `npm.cmd run validate`, `npm.cmd run done:check` 처럼 실행한다.

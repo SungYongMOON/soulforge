@@ -2,7 +2,7 @@ workflow_id: knowledge_access_event_capture_v0
 kind: workflow
 status: active
 title: Knowledge Access Event Capture v0
-summary: Capture metadata-only access events for existing knowledge nodes, packets, concepts, workflows, skills, missions, user tasks, tools, and advisory handoffs so later workflows can compute usage counts, retention labels, relation strength, orphan/redundant candidates, and graph update packets.
+summary: Normalize and analyze metadata-only knowledge access ledger/register entries for existing knowledge nodes, packets, concepts, workflows, skills, missions, user tasks, tools, and advisory handoffs so later workflows can compute usage counts, retention labels, relation strength, orphan/redundant candidates, and graph update packets.
 entrypoint: run
 execution_mode: local_tool_sequence
 role_slots: role_slots.yaml
@@ -14,9 +14,10 @@ profile_policy: profile_policy.yaml
 inputs:
   - knowledge_access_scope
   - knowledge_node_ref_set
-  - access_event_source_refs
+  - knowledge_access_ledger_refs
   - retention_label_policy
 optional_inputs:
+  - access_event_source_refs
   - sourcebound_knowledge_packet_refs
   - concept_candidate_register_refs
   - workflowization_review_packet_refs
@@ -63,7 +64,9 @@ downstream_workflows:
     status: required_before_public_or_canon_policy_change
 knowledge_access_contract:
   owns:
+    - knowledge_access_ledger_entry_shape
     - access_event_record_shape
+    - capture_mode_metadata_shape
     - actor_target_context_metadata_shape
     - normalized_access_event_log_shape
     - usage_rollup_shape
@@ -75,6 +78,7 @@ knowledge_access_contract:
     - raw_source_truth
     - private_knowledge_payloads
     - knowledge_packet_content_authority
+    - ledger_storage_runtime_owner
     - ontology_canon_acceptance
     - workflow_canon_acceptance_without_review
     - archive_or_retire_execution
@@ -83,12 +87,33 @@ knowledge_access_contract:
   access_event_required_fields:
     - event_id
     - timestamp_utc
+    - capture_mode
     - actor.type
     - actor.id
     - target.knowledge_ref
     - access_type
     - work_context
     - outcome_state
+  access_event_optional_fields:
+    - ledger_ref
+    - event_source_ref
+    - manual_agent_note
+    - reason_used
+    - output_ref
+  capture_modes:
+    - manual_agent_entry
+    - router_appended
+    - search_tool_appended
+    - workflow_appended
+    - imported_log_entry
+  ledger_register_operating_model:
+    primary_low_friction_record: knowledge_access_ledger_entry
+    ordinary_work_capture: append_metadata_row_when_a_knowledge_ref_is_used
+    workflow_run_requirement: not_required_for_each_access
+    workflow_role: periodic_or_explicit_normalization_rollup_analysis_and_routing
+    early_operation: agent_authored_manual_ledger_entries
+    later_automation: routers_search_and_tooling_may_append_equivalent_events
+    ledger_entries_are_signals_not_authority: true
   actor_types:
     - workflow
     - skill
@@ -138,12 +163,14 @@ knowledge_access_contract:
     - review_required
   authority_boundary:
     access_event_is_metadata_not_source_truth: true
+    ledger_entry_is_metadata_not_source_truth: true
     target_ref_points_to_existing_knowledge_not_copied_payload: true
     usage_count_is_signal_not_acceptance: true
     retention_label_is_candidate_until_owner_policy_accepts: true
     archive_or_retire_requires_owner_decision_or_policy_gate: true
     graph_weight_is_navigation_signal_not_truth_score: true
     advisory_handoff_is_context_not_authority: true
+    workflow_not_required_for_each_access: true
     public_package_payload_free: true
   required_output_shapes:
     project_binding: templates/project_binding.template.yaml
@@ -156,7 +183,8 @@ knowledge_access_contract:
     graph_update_packet: templates/graph_update_packet.template.yaml
     boundary_review_note: templates/boundary_review_note.template.yaml
 notes:
-  - This workflow captures access metadata for existing knowledge refs; it must not copy source text, private packet payloads, advisory answers, credentials, or local runtime paths into public workflow canon.
+  - During ordinary work, agents or tooling append lightweight metadata-only ledger/register rows when a knowledge ref is used; this workflow is the later normalization, rollup, analysis, and routing lane for those rows.
+  - This workflow must not copy source text, private packet payloads, advisory answers, credentials, or local runtime paths into public workflow canon.
   - Labels such as hot, warm, cold, stale, archive candidate, retire candidate, strong, weak, orphan, and redundant are candidate signals until a project policy or owner decision accepts an action.
   - Output packets are designed to feed later graph or Obsidian-style visualization by carrying stable node refs, edge refs, event ids, counts, recency, outcome states, and confidence hints.
   - The workflow is not profile-optimized and does not claim production readiness.
