@@ -5,6 +5,17 @@
 - Documented the always-on Mac mini strategic review stack, separating deterministic `healer`, daily `night_watch`, and weekly `ouroboros_strategic_review_harness_v0` responsibilities.
 - Strengthened `ouroboros_strategic_review_harness_v0` with a Socratic question router, ambiguity ledger, owner-question option shape, and closure restatement gate so strategic gaps become answerable decisions instead of broad meta-questions.
 
+### Revision `working` - Knowledge access event capture workflow registered
+
+- Added `.workflow/knowledge_access_event_capture_v0` as a reviewed public-safe draft workflow for capturing metadata-only knowledge access events across workflows, skills, missions, user tasks, tools, and advisory handoffs.
+- Defined actor, target knowledge ref, access type, work context, timestamp, outcome/usefulness, relation hints, usage rollups, hot/warm/cold/stale/archive/retire candidate labels, strong/weak/orphan/redundant link candidates, and graph update packets.
+- Linked the workflow as an optional downstream usage-lineage lane from `sourcebound_knowledge_packet_operating_loop_v0` while keeping source truth, private payloads, advisory answers, archive/retire execution, owner decisions, and profile optimization out of scope.
+
+### Revision `working` - Sourcebound knowledge packet loop registered
+
+- Registered `.workflow/sourcebound_knowledge_packet_operating_loop_v0` as a pilot-executed private-evidence workflow for Karpathy-style source intake, private source-bound projection/index/log generation, contradiction/gap lint, concept-candidate extraction, claim-ceiling routing, optional advisory NotebookLM handoff, and workflowization review packets.
+- Kept source truth in source packets or owner-held sources, kept projection outputs private and derivative, and left profile policy draft/conservative with no production-ready or profile-optimized claim.
+
 ### Revision `working` - Ouroboros strategic review harness drafted
 
 - Added `.workflow/ouroboros_strategic_review_harness_v0` as a reviewed public-safe draft workflow for periodic vision alignment review and owner-intent gap probing.

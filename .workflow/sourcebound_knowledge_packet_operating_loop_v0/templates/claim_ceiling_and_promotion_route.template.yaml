@@ -1,0 +1,17 @@
+workflow_id: sourcebound_knowledge_packet_operating_loop_v0
+kind: claim_ceiling_and_promotion_route
+status: draft
+route_id: "<route_id>"
+allowed_states:
+  - source_supported_candidate
+  - review_required
+  - blocked_pending_source
+  - blocked_pending_owner_decision
+  - advisory_only
+routes:
+  - candidate_id: "<candidate_id>"
+    claim_ceiling: review_required
+    route_target: hold_private
+    rationale: null
+    required_next_action: null
+

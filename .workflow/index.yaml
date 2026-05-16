@@ -73,6 +73,10 @@ entries:
     path: owner_decision_packet_v0/workflow.yaml
   - workflow_id: post_development_review_gate_v0
     path: post_development_review_gate_v0/workflow.yaml
+  - workflow_id: sourcebound_knowledge_packet_operating_loop_v0
+    path: sourcebound_knowledge_packet_operating_loop_v0/workflow.yaml
+  - workflow_id: knowledge_access_event_capture_v0
+    path: knowledge_access_event_capture_v0/workflow.yaml
   - workflow_id: ouroboros_strategic_review_harness_v0
     path: ouroboros_strategic_review_harness_v0/workflow.yaml
 notes:

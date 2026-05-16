@@ -1,0 +1,29 @@
+workflow_id: sourcebound_knowledge_packet_operating_loop_v0
+kind: workflowization_review_packet
+status: draft
+packet_id: "<packet_id>"
+source_truth_boundary:
+  source_refs: []
+  source_truth_not_rewritten: true
+projection_boundary:
+  knowledge_packet_refs: []
+  projection_is_private_derivative: true
+conceptualization:
+  concept_candidate_register_ref: null
+  contradiction_gap_lint_report_ref: null
+  claim_ceiling_route_ref: null
+workflowization_target:
+  target_type: workflow_candidate_or_ontology_candidate_or_owner_decision
+  proposed_id: null
+  reusable_steps: []
+review_gate:
+  workflow_id: post_development_review_gate_v0
+  minimum_level: inspector_and_judge
+  escalate_to_full_b_v_gate_if:
+    - production_ready_claim
+    - reference_or_oracle_claim
+    - public_canon_promotion_without_owner_approval
+promotion_decision:
+  recommendation: hold_until_review
+  rationale: null
+

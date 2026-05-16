@@ -1,0 +1,39 @@
+workflow_id: knowledge_access_event_capture_v0
+kind: knowledge_access_event
+schema_version: v0
+status: draft
+event_id: "<event_id>"
+timestamp_utc: "<YYYY-MM-DDTHH:MM:SSZ>"
+actor:
+  type: workflow
+  id: "<stable_actor_id>"
+  ref: "<optional_actor_ref>"
+target:
+  knowledge_ref: "<stable_knowledge_node_or_packet_ref>"
+  target_type: knowledge_node
+  source_workflow_id: null
+access_type: read
+work_context:
+  task_ref: "<task_ref>"
+  run_ref: "<run_ref>"
+  workflow_id: null
+  skill_id: null
+  mission_id: null
+  advisory_handoff_ref: null
+outcome_state: unknown
+usefulness:
+  state: unknown
+  score_hint_0_to_3: null
+  note_ref: null
+relation_hints:
+  relation_type_hint: null
+  relevance_score_hint_0_to_3: null
+  strength_hint: null
+  confidence_hint_0_to_3: null
+  duplicate_or_redundant_with: []
+  orphan_reason_hint: null
+redaction:
+  metadata_only: true
+  payload_copied: false
+  secret_present: false
+  runtime_absolute_path_present: false

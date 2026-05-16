@@ -1,0 +1,36 @@
+workflow_id: knowledge_access_event_capture_v0
+kind: handoff_rules
+status: active
+rules:
+  - from: capture_scope_binder
+    to: event_collector
+    condition: access_capture_scope_bound
+    summary: Collector receives stable knowledge refs, event source refs, and redaction policy only; no raw payloads, secrets, or host paths.
+  - from: event_collector
+    to: event_normalizer
+    condition: access_event_batch_written
+    summary: Normalizer receives candidate rows and must require actor, target, access type, work context, timestamp, and outcome fields.
+  - from: event_normalizer
+    to: boundary_reviewer
+    condition: normalized_access_event_log_written
+    summary: Boundary reviewer checks the normalized log before any count, label, or graph signal is produced.
+  - from: boundary_reviewer
+    to: usage_aggregator
+    condition: boundary_review_passed_or_blockers_recorded
+    summary: Aggregator receives only metadata-safe events and explicit blocked rows.
+  - from: usage_aggregator
+    to: retention_labeler
+    condition: usage_rollup_written
+    summary: Labeler receives usage, recency, and outcome signals and must keep labels as candidates.
+  - from: retention_labeler
+    to: relation_analyst
+    condition: retention_label_packet_written
+    summary: Relation analyst combines candidate labels with event metadata but does not treat graph weight as truth.
+  - from: relation_analyst
+    to: graph_packet_author
+    condition: link_strength_analysis_written
+    summary: Graph author receives node and edge candidates with evidence event ids, not copied knowledge content.
+  - from: graph_packet_author
+    to: downstream_router
+    condition: graph_update_packet_written
+    summary: Router sends archive, retire, stale, weak, orphan, or policy-changing candidates to owner decision or review gates before action.

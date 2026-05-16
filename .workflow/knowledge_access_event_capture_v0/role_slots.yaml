@@ -1,0 +1,31 @@
+workflow_id: knowledge_access_event_capture_v0
+kind: role_slots
+status: active
+slots:
+  - slot_id: capture_scope_binder
+    title: Capture Scope Binder
+    summary: Resolves the knowledge refs, event sources, private output location, and retention policy before event capture begins.
+  - slot_id: event_collector
+    title: Event Collector
+    summary: Collects metadata-only access event rows from approved workflow, skill, mission, user, tool, and advisory handoff surfaces.
+  - slot_id: event_normalizer
+    title: Event Normalizer
+    summary: Enforces required actor, target, access type, work context, timestamp, outcome, and usefulness fields.
+  - slot_id: boundary_reviewer
+    title: Boundary Reviewer
+    summary: Checks that event rows and downstream packets contain refs and metadata only, not raw knowledge payloads or secrets.
+  - slot_id: usage_aggregator
+    title: Usage Aggregator
+    summary: Produces count, recency, actor, context, access-type, and outcome rollups for each target knowledge ref.
+  - slot_id: retention_labeler
+    title: Retention Labeler
+    summary: Converts usage and outcome signals into hot, warm, cold, stale, archive-candidate, or retire-candidate labels.
+  - slot_id: relation_analyst
+    title: Relation Analyst
+    summary: Identifies strong, weak, orphan, redundant, and review-required link candidates from access metadata.
+  - slot_id: graph_packet_author
+    title: Graph Packet Author
+    summary: Assembles portable graph update suggestions for later visualization or graph-store workflows.
+  - slot_id: downstream_router
+    title: Downstream Router
+    summary: Routes archive, retire, stale, weak, orphan, hot, or graph policy candidates to the correct review or owner decision lane.

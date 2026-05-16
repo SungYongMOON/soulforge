@@ -1,0 +1,19 @@
+workflow_id: sourcebound_knowledge_packet_operating_loop_v0
+kind: sourcebound_knowledge_packet_project_binding
+status: draft
+project_code: "<project_code>"
+run_id: "<run_id>"
+source_scope_binding:
+  knowledge_packet_scope_ref: null
+  approved_source_policy_ref: null
+  source_packet_refs: []
+  owner_approved_local_source_manifest_ref: null
+private_outputs:
+  run_output_root_repo_path: "_workmeta/<project_code>/runs/<run_id>/sourcebound_knowledge_packet"
+  curated_report_root_repo_path: "_workmeta/<project_code>/reports/procedure_capture/<run_id>"
+  public_package_payload_allowed: false
+promotion_policy:
+  review_gate_workflow_id: post_development_review_gate_v0
+  owner_decision_required_for_ontology_canon: true
+  production_ready_claim_allowed_without_bv_gate: false
+

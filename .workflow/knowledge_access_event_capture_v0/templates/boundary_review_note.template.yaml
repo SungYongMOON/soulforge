@@ -1,0 +1,31 @@
+workflow_id: knowledge_access_event_capture_v0
+kind: boundary_review_note
+schema_version: v0
+status: draft
+review_id: "<review_id>"
+review_scope_ref: "<scope_or_packet_ref>"
+checks:
+  no_raw_source_truth:
+    pass: null
+    notes: null
+  no_private_knowledge_payload:
+    pass: null
+    notes: null
+  no_secret_or_session:
+    pass: null
+    notes: null
+  no_runtime_absolute_path:
+    pass: null
+    notes: null
+  advisory_handoff_not_authority:
+    pass: null
+    notes: null
+  archive_retire_not_executed:
+    pass: null
+    notes: null
+  graph_weight_not_truth_score:
+    pass: null
+    notes: null
+boundary_decision: review_required
+blockers: []
+downstream_routes: []

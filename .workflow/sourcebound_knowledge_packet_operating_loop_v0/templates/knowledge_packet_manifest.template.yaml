@@ -1,0 +1,23 @@
+workflow_id: sourcebound_knowledge_packet_operating_loop_v0
+kind: sourcebound_knowledge_packet_manifest
+status: draft
+packet_id: "<packet_id>"
+source_truth_boundary:
+  source_truth_owner: source_packets_or_owner_held_sources
+  packet_is_derivative_projection: true
+  packet_is_not_source_authority: true
+source_refs:
+  - source_ref_id: "<source_ref_id>"
+    source_state: official_present_or_owner_approved_local
+    allowed_for_projection: true
+projection_outputs:
+  index_path: "compiled_projection/index.md"
+  log_path: "compiled_projection/log.md"
+  query_pages: []
+operation_log_events:
+  - source_ref_intake
+  - projection_compile
+  - lint
+  - concept_candidate_extraction
+  - claim_ceiling_route
+

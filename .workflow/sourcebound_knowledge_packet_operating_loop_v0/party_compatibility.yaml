@@ -1,0 +1,16 @@
+workflow_id: sourcebound_knowledge_packet_operating_loop_v0
+kind: party_compatibility
+status: active
+compatible_parties:
+  - party_id: solo_operator
+    status: supported_for_private_draft_packet
+  - party_id: owner_plus_executor
+    status: supported
+  - party_id: source_reviewer_pair
+    status: recommended
+  - party_id: b_v_review_pair
+    status: required_for_production_ready_or_reference_claims
+notes:
+  - A solo operator can produce a private packet, but promotion claims require the review level demanded by the claim.
+  - Model, reasoning, species, class, and party bindings belong in project-local bindings or mission notes, not this workflow package.
+

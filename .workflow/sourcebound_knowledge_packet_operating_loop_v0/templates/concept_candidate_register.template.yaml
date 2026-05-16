@@ -1,0 +1,17 @@
+workflow_id: sourcebound_knowledge_packet_operating_loop_v0
+kind: concept_candidate_register
+status: draft
+register_id: "<register_id>"
+concept_candidates:
+  - candidate_id: "<candidate_id>"
+    concept_label: "<concept_label>"
+    source_refs: []
+    projection_refs: []
+    evidence_state: review_required
+    blocker_or_review_note: null
+    possible_promotion_target: hold_private
+forbidden_promotions:
+  - final_domain_doctrine_without_review
+  - ontology_canon_without_owner_decision
+  - workflow_canon_without_review_gate
+

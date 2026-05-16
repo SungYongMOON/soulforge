@@ -1,0 +1,252 @@
+workflow_id: knowledge_access_event_capture_v0
+kind: step_graph
+status: active
+steps:
+  - step_id: bind_access_capture_scope
+    title: Bind Access Capture Scope
+    actor_slot: capture_scope_binder
+    action:
+      kind: knowledge_access_scope_binding
+      requires:
+        - knowledge_access_scope
+        - knowledge_node_ref_set
+        - access_event_source_refs
+        - retention_label_policy
+      validates:
+        - target_refs_are_existing_knowledge_refs
+        - private_event_store_or_project_output_ref_declared
+        - public_package_payload_free
+        - archive_retire_authority_declared
+        - profile_optimization_out_of_scope
+    summary: Resolve which knowledge refs and event sources are in scope before any access event is normalized.
+    next:
+      on_success: collect_access_event_candidates
+      on_fail: stop
+  - step_id: collect_access_event_candidates
+    title: Collect Access Event Candidates
+    actor_slot: event_collector
+    action:
+      kind: metadata_only_access_event_collection
+      artifacts_in:
+        - knowledge_access_scope
+        - access_event_source_refs
+        - mission_or_run_context_refs
+        - sourcebound_knowledge_packet_refs
+        - concept_candidate_register_refs
+        - workflowization_review_packet_refs
+      artifacts_out:
+        - knowledge_access_event_batch
+      allowed_content:
+        - event_id
+        - stable_actor_ref
+        - stable_target_ref
+        - access_type
+        - work_context_ref
+        - timestamp
+        - outcome_state
+        - usefulness_signal
+        - relation_hint
+      forbidden_content:
+        - raw_source_text
+        - private_knowledge_payload
+        - copied_advisory_answer
+        - credentials_or_sessions
+        - host_absolute_path
+    summary: Gather candidate access-event rows from approved metadata surfaces without copying the accessed knowledge payload.
+    next:
+      on_success: normalize_access_events
+      on_fail: stop
+  - step_id: normalize_access_events
+    title: Normalize Access Events
+    actor_slot: event_normalizer
+    action:
+      kind: access_event_schema_normalization
+      artifacts_in:
+        - knowledge_access_event_batch
+      artifact_out: normalized_access_event_log
+      required_fields:
+        - event_id
+        - timestamp_utc
+        - actor.type
+        - actor.id
+        - target.knowledge_ref
+        - access_type
+        - work_context
+        - outcome_state
+      normalization_rules:
+        timestamp_utc_required: true
+        actor_type_enum_required: true
+        access_type_enum_required: true
+        target_ref_must_be_stable_id_or_repo_relative_ref: true
+        duplicate_event_keys_flagged_not_silently_merged: true
+    summary: Convert event candidates into a stable event log with required actor, target, context, time, and outcome fields.
+    next:
+      on_success: boundary_redaction_review
+      on_fail: stop
+  - step_id: boundary_redaction_review
+    title: Boundary Redaction Review
+    actor_slot: boundary_reviewer
+    action:
+      kind: public_private_boundary_and_payload_review
+      artifacts_in:
+        - normalized_access_event_log
+      artifacts_out:
+        - normalized_access_event_log
+        - boundary_review_note
+      checks:
+        - no_raw_source_truth
+        - no_private_payload
+        - no_secret
+        - no_host_absolute_path
+        - no_advisory_answer_as_authority
+        - no_archive_retire_execution_claim
+    summary: Ensure captured events remain metadata-only and safe for downstream rollups or graph packets.
+    next:
+      on_success: aggregate_usage_counts
+      on_fail: stop
+  - step_id: aggregate_usage_counts
+    title: Aggregate Usage Counts
+    actor_slot: usage_aggregator
+    action:
+      kind: usage_rollup_by_target_actor_context
+      artifacts_in:
+        - normalized_access_event_log
+        - prior_usage_rollup_refs
+      artifact_out: usage_rollup
+      rollup_dimensions:
+        - target.knowledge_ref
+        - actor.type
+        - actor.id
+        - access_type
+        - work_context.workflow_id
+        - work_context.mission_id
+        - work_context.run_id
+        - outcome_state
+        - time_window
+      count_semantics:
+        count_is_signal_not_truth: true
+        duplicate_suspects_are_reported: true
+        blocked_events_count_separately: true
+    summary: Produce portable count and recency signals for each knowledge target without mutating the target itself.
+    next:
+      on_success: classify_retention_labels
+      on_fail: stop
+  - step_id: classify_retention_labels
+    title: Classify Retention Labels
+    actor_slot: retention_labeler
+    action:
+      kind: candidate_retention_label_assignment
+      artifacts_in:
+        - usage_rollup
+        - retention_label_policy
+        - owner_decision_refs
+      artifact_out: retention_label_packet
+      candidate_labels:
+        - hot
+        - warm
+        - cold
+        - stale
+        - archive_candidate
+        - retire_candidate
+      rules:
+        labels_are_candidates: true
+        archive_retire_requires_owner_decision_or_declared_policy: true
+        stale_can_trigger_review_not_deletion: true
+        promoted_or_recently_useful_events_raise_temperature: true
+        blocked_or_not_useful_events_lower_confidence_not_truth: true
+    summary: Convert usage, recency, and outcome signals into reviewable retention labels.
+    next:
+      on_success: analyze_relation_strength
+      on_fail: stop
+  - step_id: analyze_relation_strength
+    title: Analyze Relation Strength
+    actor_slot: relation_analyst
+    action:
+      kind: link_strength_and_orphan_redundancy_analysis
+      artifacts_in:
+        - normalized_access_event_log
+        - usage_rollup
+        - retention_label_packet
+      artifacts_out:
+        - link_strength_analysis
+        - orphan_redundancy_candidate_register
+      link_states:
+        - strong
+        - weak
+        - orphan
+        - redundant
+        - review_required
+      analysis_rules:
+        repeated_useful_access_strengthens_link: true
+        cite_promote_validate_access_has_higher_weight_than_read_only: true
+        no_recent_access_can_suggest_orphan_review: true
+        duplicate_or_redundant_hints_require_review: true
+        graph_weight_is_navigation_signal_not_truth_score: true
+    summary: Identify strong, weak, orphan, redundant, or review-required link candidates using event metadata and usefulness signals.
+    next:
+      on_success: assemble_graph_update_packet
+      on_fail: stop
+  - step_id: assemble_graph_update_packet
+    title: Assemble Graph Update Packet
+    actor_slot: graph_packet_author
+    action:
+      kind: portable_graph_update_packet_assembly
+      artifacts_in:
+        - normalized_access_event_log
+        - usage_rollup
+        - retention_label_packet
+        - link_strength_analysis
+        - orphan_redundancy_candidate_register
+      artifact_out: graph_update_packet
+      graph_payload:
+        nodes:
+          - knowledge_ref
+          - node_type
+          - retention_label_candidate
+          - access_count_summary
+          - last_access_timestamp_utc
+        edges:
+          - actor_ref_to_knowledge_ref
+          - context_ref_to_knowledge_ref
+          - knowledge_ref_to_knowledge_ref
+          - strength_candidate
+          - evidence_event_ids
+      export_targets:
+        - jsonl
+        - csv
+        - graphml_candidate
+        - obsidian_link_note_candidate
+      forbidden_payloads:
+        - raw_knowledge_text
+        - private_packet_content
+        - secret
+        - runtime_absolute_path
+    summary: Package node and edge update suggestions for later graph visualization without taking ownership of the graph store.
+    next:
+      on_success: route_review_and_downstream
+      on_fail: stop
+  - step_id: route_review_and_downstream
+    title: Route Review And Downstream
+    actor_slot: downstream_router
+    action:
+      kind: retention_graph_and_review_routing
+      artifacts_in:
+        - retention_label_packet
+        - link_strength_analysis
+        - graph_update_packet
+        - boundary_review_note
+      routes:
+        - owner_decision_packet_v0
+        - source_packet_sufficiency_review_v0
+        - sourcebound_knowledge_packet_operating_loop_v0
+        - post_development_review_gate_v0
+        - hold_private
+      route_rules:
+        archive_or_retire_candidate_goes_to_owner_decision: true
+        weak_or_stale_claim_refs_can_trigger_sufficiency_review: true
+        hot_or_orphan_knowledge_refs_can_trigger_sourcebound_recheck: true
+        public_policy_change_requires_post_development_review: true
+    summary: Route candidates to review, source recheck, owner decision, or private hold without executing archive or canon changes.
+    next:
+      on_success: complete
+      on_fail: stop

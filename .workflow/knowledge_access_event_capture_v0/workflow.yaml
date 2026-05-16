@@ -1,0 +1,162 @@
+workflow_id: knowledge_access_event_capture_v0
+kind: workflow
+status: active
+title: Knowledge Access Event Capture v0
+summary: Capture metadata-only access events for existing knowledge nodes, packets, concepts, workflows, skills, missions, user tasks, tools, and advisory handoffs so later workflows can compute usage counts, retention labels, relation strength, orphan/redundant candidates, and graph update packets.
+entrypoint: run
+execution_mode: local_tool_sequence
+role_slots: role_slots.yaml
+step_graph: step_graph.yaml
+handoff_rules: handoff_rules.yaml
+monster_rules: monster_rules.yaml
+party_compatibility: party_compatibility.yaml
+profile_policy: profile_policy.yaml
+inputs:
+  - knowledge_access_scope
+  - knowledge_node_ref_set
+  - access_event_source_refs
+  - retention_label_policy
+optional_inputs:
+  - sourcebound_knowledge_packet_refs
+  - concept_candidate_register_refs
+  - workflowization_review_packet_refs
+  - mission_or_run_context_refs
+  - prior_access_event_log_refs
+  - prior_usage_rollup_refs
+  - owner_decision_refs
+outputs:
+  - project_binding
+  - knowledge_access_event_batch
+  - normalized_access_event_log
+  - usage_rollup
+  - retention_label_packet
+  - link_strength_analysis
+  - graph_update_packet
+  - orphan_redundancy_candidate_register
+  - boundary_review_note
+validation_level: reviewed_public_safe_draft
+registration_policy: owner_requested_registration
+upstream_workflows:
+  - workflow_id: sourcebound_knowledge_packet_operating_loop_v0
+    expected_outputs:
+      - sourcebound_knowledge_packet_manifest
+      - compiled_projection_index
+      - concept_candidate_register
+      - workflowization_review_packet
+    status: optional_knowledge_node_source
+  - workflow_id: owner_decision_packet_v0
+    expected_outputs:
+      - scoped_owner_decision
+    status: optional_retention_or_archive_authority
+downstream_workflows:
+  - workflow_id: sourcebound_knowledge_packet_operating_loop_v0
+    expected_input: hot_or_orphan_knowledge_refs_for_recheck_or_workflowization_context
+    status: optional_rerun_context
+  - workflow_id: source_packet_sufficiency_review_v0
+    expected_input: stale_or_weakly_used_claim_refs_requiring_source_or_claim_ceiling_review
+    status: optional_review_trigger
+  - workflow_id: owner_decision_packet_v0
+    expected_input: archive_retire_or_redundancy_candidate_needing_owner_decision
+    status: required_before_archive_or_retire_action
+  - workflow_id: post_development_review_gate_v0
+    expected_input: workflow_or_retention_policy_change_packet
+    status: required_before_public_or_canon_policy_change
+knowledge_access_contract:
+  owns:
+    - access_event_record_shape
+    - actor_target_context_metadata_shape
+    - normalized_access_event_log_shape
+    - usage_rollup_shape
+    - retention_label_candidate_shape
+    - link_strength_candidate_shape
+    - graph_update_packet_shape
+    - access_boundary_review_shape
+  does_not_own:
+    - raw_source_truth
+    - private_knowledge_payloads
+    - knowledge_packet_content_authority
+    - ontology_canon_acceptance
+    - workflow_canon_acceptance_without_review
+    - archive_or_retire_execution
+    - owner_decision_authority
+    - profile_optimization
+  access_event_required_fields:
+    - event_id
+    - timestamp_utc
+    - actor.type
+    - actor.id
+    - target.knowledge_ref
+    - access_type
+    - work_context
+    - outcome_state
+  actor_types:
+    - workflow
+    - skill
+    - mission
+    - user
+    - tool
+    - advisory_handoff
+  access_types:
+    - read
+    - cite
+    - summarize
+    - route
+    - promote
+    - compare
+    - validate
+    - advisory_handoff
+    - graph_update
+    - retention_review
+  outcome_states:
+    - useful
+    - partially_useful
+    - not_useful
+    - blocked
+    - routed
+    - promoted
+    - superseded
+    - unknown
+  relation_hint_fields:
+    - relevance_score_hint
+    - strength_hint
+    - confidence_hint
+    - relation_type_hint
+    - duplicate_or_redundant_with
+    - orphan_reason_hint
+  retention_label_candidates:
+    - hot
+    - warm
+    - cold
+    - stale
+    - archive_candidate
+    - retire_candidate
+  link_strength_candidates:
+    - strong
+    - weak
+    - orphan
+    - redundant
+    - review_required
+  authority_boundary:
+    access_event_is_metadata_not_source_truth: true
+    target_ref_points_to_existing_knowledge_not_copied_payload: true
+    usage_count_is_signal_not_acceptance: true
+    retention_label_is_candidate_until_owner_policy_accepts: true
+    archive_or_retire_requires_owner_decision_or_policy_gate: true
+    graph_weight_is_navigation_signal_not_truth_score: true
+    advisory_handoff_is_context_not_authority: true
+    public_package_payload_free: true
+  required_output_shapes:
+    project_binding: templates/project_binding.template.yaml
+    knowledge_access_event: templates/knowledge_access_event.template.yaml
+    normalized_access_event_log: templates/normalized_access_event_log.template.yaml
+    usage_rollup: templates/usage_rollup.template.yaml
+    retention_label_packet: templates/retention_label_packet.template.yaml
+    link_strength_analysis: templates/link_strength_analysis.template.yaml
+    orphan_redundancy_candidate_register: templates/orphan_redundancy_candidate_register.template.yaml
+    graph_update_packet: templates/graph_update_packet.template.yaml
+    boundary_review_note: templates/boundary_review_note.template.yaml
+notes:
+  - This workflow captures access metadata for existing knowledge refs; it must not copy source text, private packet payloads, advisory answers, credentials, or local runtime paths into public workflow canon.
+  - Labels such as hot, warm, cold, stale, archive candidate, retire candidate, strong, weak, orphan, and redundant are candidate signals until a project policy or owner decision accepts an action.
+  - Output packets are designed to feed later graph or Obsidian-style visualization by carrying stable node refs, edge refs, event ids, counts, recency, outcome states, and confidence hints.
+  - The workflow is not profile-optimized and does not claim production readiness.

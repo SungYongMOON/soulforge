@@ -1,0 +1,15 @@
+workflow_id: knowledge_access_event_capture_v0
+kind: party_compatibility
+status: active
+compatible_parties:
+  - party_id: solo_operator
+    status: supported_for_private_metadata_capture
+  - party_id: owner_plus_executor
+    status: supported
+  - party_id: knowledge_curator_pair
+    status: recommended_for_retention_policy_review
+  - party_id: b_v_review_pair
+    status: required_for_production_ready_or_policy_authority_claims
+notes:
+  - A solo operator may create metadata-only event and graph packets, but archive, retire, canon, or policy changes require the relevant owner decision or review gate.
+  - Model, reasoning, species, class, and party bindings belong in project-local bindings or mission notes, not this workflow package.

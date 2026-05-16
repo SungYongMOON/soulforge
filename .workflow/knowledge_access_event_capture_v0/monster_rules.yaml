@@ -1,0 +1,34 @@
+workflow_id: knowledge_access_event_capture_v0
+kind: monster_rules
+status: active
+rules:
+  - monster_id: raw_knowledge_payload_copied_into_event_log
+    response: remove_payload_keep_target_ref_and_record_boundary_blocker
+    summary: Event logs store knowledge refs and metadata only, never source text or private packet payloads.
+  - monster_id: source_truth_reinterpreted_from_usage
+    response: downgrade_to_usage_signal_and_route_source_claims_upstream
+    summary: Access frequency can show relevance but cannot prove source truth.
+  - monster_id: archive_or_retire_executed_from_count
+    response: convert_to_candidate_and_require_owner_decision_or_policy_gate
+    summary: Counts and cold labels can recommend review, not execute deletion, archive, or retirement.
+  - monster_id: advisory_handoff_answer_used_as_authority
+    response: mark_advisory_context_only_and_require_source_or_review_gate
+    summary: Advisory handoffs may be access contexts but cannot become acceptance authority.
+  - monster_id: graph_weight_overclaims_truth
+    response: relabel_weight_as_navigation_signal
+    summary: Strong or weak graph links are usefulness and navigation signals, not truth scores.
+  - monster_id: actor_tracking_exposes_private_identity
+    response: replace_with_stable_actor_id_or_project_local_ref
+    summary: Actor ids should be stable and useful without leaking unnecessary private identity details into public surfaces.
+  - monster_id: missing_timestamp
+    response: block_or_mark_unknown_time_and_exclude_from_recency_labels
+    summary: Hot, warm, cold, stale, archive, and retire logic needs explicit timestamp semantics.
+  - monster_id: duplicate_event_inflation
+    response: flag_duplicate_key_and_keep_count_confidence_low
+    summary: Duplicate event suspects must not silently inflate link strength or retention temperature.
+  - monster_id: runtime_absolute_path_in_public_package
+    response: replace_with_portable_ref_or_template_placeholder
+    summary: Public workflow package files must use portable refs, not host-specific paths.
+  - monster_id: private_payload_in_public_package
+    response: remove_payload_and_keep_blank_template_shape
+    summary: Public canon contains workflow rules and templates only.

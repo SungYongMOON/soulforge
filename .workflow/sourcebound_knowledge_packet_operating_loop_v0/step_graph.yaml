@@ -1,0 +1,214 @@
+workflow_id: sourcebound_knowledge_packet_operating_loop_v0
+kind: step_graph
+status: active
+steps:
+  - step_id: bind_source_scope
+    title: Bind Source Scope
+    actor_slot: workflow_runner
+    action:
+      kind: source_scope_and_private_output_binding
+      requires:
+        - source_scope_binding
+        - approved_source_policy
+        - knowledge_packet_scope
+        - promotion_policy
+      validates:
+        - private_output_root_declared
+        - source_truth_owner_declared
+        - public_package_payload_free
+        - advisory_tool_non_authority_policy_declared
+    summary: Resolve the bounded source scope, private output root, and promotion ceiling before any projection work.
+    next:
+      on_success: intake_source_packet_refs
+      on_fail: stop
+  - step_id: intake_source_packet_refs
+    title: Intake Source Packet Refs
+    actor_slot: source_intake_curator
+    action:
+      kind: source_packet_ref_inventory
+      artifacts_in:
+        - source_scope_binding
+        - source_packet_refs
+        - owner_approved_local_source_manifest
+      artifacts_out:
+        - source_intake_manifest
+        - source_gap_handoff
+      allowed_states:
+        - official_present
+        - owner_approved_local
+      blocked_states:
+        - missing
+        - blocked
+        - conflicting
+        - candidate_official
+        - third_party_unapproved
+    summary: Record approved source refs and visible gaps; route missing or weak evidence upstream instead of inventing source truth.
+    next:
+      on_success: compile_sourcebound_projection
+      on_fail: stop
+  - step_id: compile_sourcebound_projection
+    title: Compile Sourcebound Projection
+    actor_slot: projection_compiler
+    action:
+      kind: private_sourcebound_knowledge_packet_compile
+      artifacts_in:
+        - source_intake_manifest
+        - knowledge_packet_scope
+      artifacts_out:
+        - sourcebound_knowledge_packet_manifest
+        - compiled_projection_index
+        - compiled_projection_log
+      rules:
+        derivative_private_projection_only: true
+        every_claim_links_to_source_ref_or_gap: true
+        index_and_log_are_navigation_surfaces: true
+        public_package_stores_no_projection_payload: true
+    summary: Create the private compiled projection, index, and log that make later query/lint/concept work repeatable.
+    next:
+      on_success: lint_contradictions_and_gaps
+      on_fail: stop
+  - step_id: lint_contradictions_and_gaps
+    title: Lint Contradictions And Gaps
+    actor_slot: lint_reviewer
+    action:
+      kind: contradiction_gap_lint
+      artifacts_in:
+        - sourcebound_knowledge_packet_manifest
+        - compiled_projection_index
+        - compiled_projection_log
+        - source_gap_handoff
+      artifact_out: contradiction_gap_lint_report
+      checks:
+        - unsupported_projection_claim
+        - source_conflict_or_revision_drift
+        - citation_gap
+        - missing_page_map
+        - figure_table_formula_ocr_gate_needed
+        - advisory_tool_overreach
+    summary: Surface contradictions, source gaps, extraction limits, and advisory-tool risks before concept extraction.
+    next:
+      on_success: extract_concept_candidates
+      on_fail: stop
+  - step_id: extract_concept_candidates
+    title: Extract Concept Candidates
+    actor_slot: concept_candidate_extractor
+    action:
+      kind: source_cited_concept_candidate_extraction
+      artifacts_in:
+        - sourcebound_knowledge_packet_manifest
+        - contradiction_gap_lint_report
+      artifact_out: concept_candidate_register
+      required_fields:
+        - candidate_id
+        - concept_label
+        - source_refs
+        - projection_refs
+        - evidence_state
+        - blocker_or_review_note
+        - possible_promotion_target
+      forbidden_outputs:
+        - final_doctrine
+        - ontology_canon_without_owner_decision
+        - workflow_canon_without_review_gate
+    summary: Extract only cited concept candidates, preserving blockers and separating projection refs from source refs.
+    next:
+      on_success: route_claim_ceiling_and_promotion
+      on_fail: stop
+  - step_id: route_claim_ceiling_and_promotion
+    title: Route Claim Ceiling And Promotion
+    actor_slot: promotion_router
+    action:
+      kind: claim_ceiling_and_workflowization_routing
+      artifacts_in:
+        - concept_candidate_register
+        - contradiction_gap_lint_report
+        - source_sufficiency_refs
+      artifact_out: claim_ceiling_and_promotion_route
+      route_states:
+        - source_supported_candidate
+        - review_required
+        - blocked_pending_source
+        - blocked_pending_owner_decision
+        - advisory_only
+      promotion_targets:
+        - workflow_candidate
+        - ontology_candidate
+        - mission_or_owner_decision
+        - source_gap_followup
+        - hold_private
+    summary: Decide the maximum safe claim and next route for each concept candidate before workflowization.
+    next:
+      on_success: prepare_optional_notebooklm_advisory_handoff
+      on_fail: stop
+  - step_id: prepare_optional_notebooklm_advisory_handoff
+    title: Prepare Optional NotebookLM Advisory Handoff
+    actor_slot: advisory_handoff_preparer
+    action:
+      kind: owner_operated_advisory_bookshelf_handoff_prep
+      artifacts_in:
+        - source_intake_manifest
+        - concept_candidate_register
+        - claim_ceiling_and_promotion_route
+      artifact_out: optional_notebooklm_advisory_handoff
+      allowed_content:
+        - source_ref_ids
+        - owner_visible_source_labels
+        - bounded_question_set
+        - non_authority_warning
+        - expected_return_shape
+      forbidden_content:
+        - credentials
+        - cookies
+        - sessions
+        - upload_secrets
+        - public_embedded_private_payload
+        - tool_answer_as_verdict
+    summary: Prepare optional NotebookLM-style handoff metadata while keeping upload/action with the owner and authority with sources/review gates.
+    next:
+      on_success: assemble_workflowization_review_packet
+      on_skip: assemble_workflowization_review_packet
+      on_fail: stop
+  - step_id: assemble_workflowization_review_packet
+    title: Assemble Workflowization Review Packet
+    actor_slot: workflowization_author
+    action:
+      kind: workflowization_packet_assembly
+      artifacts_in:
+        - sourcebound_knowledge_packet_manifest
+        - concept_candidate_register
+        - claim_ceiling_and_promotion_route
+        - optional_notebooklm_advisory_handoff
+      artifact_out: workflowization_review_packet
+      required_sections:
+        - source_truth_boundary
+        - projection_boundary
+        - concept_candidate_routes
+        - claim_ceiling_summary
+        - workflow_or_ontology_candidate_delta
+        - review_gate_required
+    summary: Package the verified conceptualization into a reviewable workflowization packet without accepting canon by itself.
+    next:
+      on_success: boundary_review_and_gate_handoff
+      on_fail: stop
+  - step_id: boundary_review_and_gate_handoff
+    title: Boundary Review And Gate Handoff
+    actor_slot: boundary_reviewer
+    action:
+      kind: source_projection_promotion_boundary_review
+      artifacts_in:
+        - workflowization_review_packet
+        - contradiction_gap_lint_report
+        - claim_ceiling_and_promotion_route
+      artifact_out: boundary_review_note
+      required_review_gate:
+        workflow_id: post_development_review_gate_v0
+        minimum_level: inspector_and_judge
+        escalate_to_full_b_v_gate_when:
+          - production_ready_claim
+          - reference_or_oracle_claim
+          - public_canon_promotion_without_owner_approval
+    summary: Confirm the packet is ready for review or stop with explicit source, boundary, owner-decision, or verifier blockers.
+    next:
+      on_success: complete
+      on_fail: stop
+

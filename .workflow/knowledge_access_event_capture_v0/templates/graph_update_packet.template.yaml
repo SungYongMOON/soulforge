@@ -1,0 +1,32 @@
+workflow_id: knowledge_access_event_capture_v0
+kind: graph_update_packet
+schema_version: v0
+status: draft
+packet_id: "<packet_id>"
+source_refs:
+  normalized_access_event_log_ref: "<normalized_access_event_log_ref>"
+  usage_rollup_ref: "<usage_rollup_ref>"
+  retention_label_packet_ref: "<retention_label_packet_ref>"
+  link_strength_analysis_ref: "<link_strength_analysis_ref>"
+nodes:
+  - node_ref: "<knowledge_ref>"
+    node_type: knowledge_node
+    label_candidate: review_required
+    access_count_summary_ref: "<usage_rollup_row_ref>"
+    last_access_timestamp_utc: null
+edges:
+  - edge_ref: "<edge_ref>"
+    from_ref: "<actor_context_or_knowledge_ref>"
+    to_ref: "<knowledge_ref>"
+    relation_type: uses
+    strength_candidate: review_required
+    evidence_event_refs: []
+export_candidates:
+  - jsonl
+  - csv
+  - graphml_candidate
+  - obsidian_link_note_candidate
+boundary:
+  metadata_only: true
+  no_raw_payloads: true
+  no_archive_or_retire_execution: true
