@@ -3,7 +3,7 @@
 ## 목적
 
 - 이 문서는 Soulforge clone 기준의 outbound mail placeholder 위치를 잠근다.
-- 현재 v0 범위에서는 실제 SMTP sender runner 는 구현하지 않지만, local-only 설정 자리와 send record 저장 위치는 먼저 확보한다.
+- local-only SMTP sender runner, 설정 위치, send record 저장 위치를 확보한다.
 
 ## tracked source 위치
 
@@ -18,11 +18,10 @@
 
 ## 현재 상태
 
-- slot-only
-- 아직 `guild-hall:gateway:send-mail` 같은 실행 명령은 없다.
+- runner available: `npm run guild-hall:gateway:send-mail -- ...`
 - 실제 비밀값은 local-only env 에만 넣는다.
-- 향후 발송 기능은 snapshot 1건 + append-only send log 1건을 같이 남긴다.
-- 외부 발송 ledger 기준은 먼저 잠그고, 실제 sender runner 는 이후 별도 단계에서 붙인다.
+- 발송 기능은 snapshot 1건 + append-only send log 1건을 같이 남긴다.
+- HTML 보고서는 `multipart/alternative` 로 보내며, plain text fallback 을 함께 둔다.
 
 ## 기본 shape
 
@@ -73,6 +72,7 @@ guild_hall/state/gateway/mailbox/outbound/YYYY/YYYY-MM/<message_id>.json
   "subject": "[Soulforge sample] SMTP test",
   "subject_fingerprint": "sha256:demo-fingerprint",
   "body_text": "Soulforge mail_send.env SMTP sample test.",
+  "body_html_present": false,
   "attachment_refs": [],
   "source_ref": null
 }
@@ -135,6 +135,8 @@ guild_hall/state/gateway/log/mail_send/YYYY/YYYY-MM.jsonl
 - 같은 `send_id` 는 재사용하지 않는다.
 - 외부 발송은 approval metadata 없이 정본 ledger 로 승격하지 않는다.
 - 재시도는 새 `send_id` 를 만들고 `retry_of` 로 연결한다.
+- runner 는 secret 값을 출력하지 않는다.
+- HTML 본문은 사용자 보고서처럼 외부 발송이 승인된 내용에만 사용한다.
 
 ## 관련 경로
 

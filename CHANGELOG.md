@@ -7,6 +7,12 @@
 - Added `docs/architecture/guild_hall/KNOWLEDGE_OPERATING_MODEL_V0.md` to explain how the knowledge access ledger, manual candidate capture, LLM suggestion approval, end-of-work sweep, sourcebound packet loop, and access-event analysis workflow combine without crossing public/private owner boundaries.
 - Linked the operating model from the guild_hall architecture index and the knowledge access helper README, including the rule that normal file reads are not automatically observed unless the helper/read wrapper or explicit record is used.
 
+### Revision `working` - HTML outbound mail runner added
+
+- Added `guild-hall:gateway:send-mail` as a local SMTP outbound runner under `guild_hall/gateway/mail_send/`.
+- Enabled `multipart/alternative` HTML report emails with plain-text fallback while keeping SMTP credentials in local-only `guild_hall/state/gateway/mailbox/state/mail_send.env`.
+- Updated the mail send owner docs so outbound snapshots and append-only send logs remain under ignored `guild_hall/state/gateway/**` local state.
+
 ## 2026-05-16
 
 ### Revision `working` - Repository line ending policy pinned
