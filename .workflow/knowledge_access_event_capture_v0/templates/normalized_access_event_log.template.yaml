@@ -4,17 +4,20 @@ schema_version: v0
 status: draft
 log_id: "<log_id>"
 scope_ref: "<knowledge_access_scope_ref>"
+source_ledger_refs: []
 time_window:
   starts_at_utc: "<YYYY-MM-DDTHH:MM:SSZ>"
   ends_at_utc: "<YYYY-MM-DDTHH:MM:SSZ>"
 normalization_policy:
   timestamp_utc_required: true
+  capture_mode_required: true
   actor_type_enum_required: true
   access_type_enum_required: true
   stable_target_ref_required: true
   duplicate_suspects_reported: true
 events:
   - event_ref: "<event_id>"
+    source_ledger_ref: "<knowledge_access_ledger_or_register_ref>"
     normalized_state: accepted
     blocker_or_note: null
 duplicate_suspects: []

@@ -11,6 +11,7 @@
 - `gateway/`: 메일 수집, intake, cross-project staging ingress
 - `doctor/`: clone 된 PC bootstrap readiness 점검과 local doctor status
 - `activity/`: Soulforge 전체 recent-context 장부 append/refresh 구현
+- `knowledge_access/`: metadata-only knowledge ref read/use ledger append helper
 - `healer/`: 24시간 PC self-check 와 activity report writer
 - `shared/`: guild_hall owner 들이 함께 쓰는 repo path / JSON state helper
 - `snapshot/`: UI 와 외부 host 가 읽는 read-only sanitized 상태 projection
@@ -27,6 +28,7 @@
 - 실제 프로젝트 파일, project-side monster status, raw run truth 는 계속 `_workspaces/<project_code>/` 가 소유한다.
 - Soulforge 전체 활동 최근 맥락 같은 cross-project 총괄 context 는 project `_workmeta/` 가 아니라 `guild_hall/state/operations/**` 가 소유한다.
 - cross-project 운영 명령 표면은 `guild-hall:*` 만 canonical 로 사용한다.
+- `knowledge_access/` 는 명시된 ledger root/file 에만 쓰며 source payload 를 ledger row 에 저장하지 않는다.
 - `guild_hall/state/**` 는 local-only state 이며 public repo 에 올리지 않는다.
 
 ## 관련 경로

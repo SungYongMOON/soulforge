@@ -1,9 +1,30 @@
 ﻿# CHANGELOG
 
+## 2026-05-17
+
+### Revision `working` - Knowledge operating model documented
+
+- Added `docs/architecture/guild_hall/KNOWLEDGE_OPERATING_MODEL_V0.md` to explain how the knowledge access ledger, manual candidate capture, LLM suggestion approval, end-of-work sweep, sourcebound packet loop, and access-event analysis workflow combine without crossing public/private owner boundaries.
+- Linked the operating model from the guild_hall architecture index and the knowledge access helper README, including the rule that normal file reads are not automatically observed unless the helper/read wrapper or explicit record is used.
+
 ## 2026-05-16
+
+### Revision `working` - Repository line ending policy pinned
+
+- Added root `.gitattributes` and `.editorconfig` to keep text files normalized to LF across Windows, editors, and GitHub workflows while preserving common binary artifact formats.
 
 - Documented the always-on Mac mini strategic review stack, separating deterministic `healer`, daily `night_watch`, and weekly `ouroboros_strategic_review_harness_v0` responsibilities.
 - Strengthened `ouroboros_strategic_review_harness_v0` with a Socratic question router, ambiguity ledger, owner-question option shape, and closure restatement gate so strategic gaps become answerable decisions instead of broad meta-questions.
+
+### Revision `working` - Knowledge access ledger operating model clarified
+
+- Clarified that ordinary knowledge use creates lightweight metadata-only ledger/register rows, while `knowledge_access_event_capture_v0` is the later normalization, rollup, analysis, and routing workflow rather than a required per-access run.
+- Added minimal capture-mode, manual-note, reason-used, output-ref, and ledger/register refs to the public-safe event and binding templates while keeping source truth, payload truth, ontology acceptance, archive/retire decisions, and owner decisions out of scope.
+
+### Revision `working` - Knowledge access ledger helper added
+
+- Added `guild_hall/knowledge_access` as a minimal helper for appending metadata-only knowledge access JSONL rows from explicit `read` and `record` commands.
+- Blocked secret-like, private/runtime, absolute, and traversal knowledge refs before ledger append, and added focused `validate:knowledge-access` coverage to the root acceptance harness.
 
 ### Revision `working` - Knowledge access event capture workflow registered
 

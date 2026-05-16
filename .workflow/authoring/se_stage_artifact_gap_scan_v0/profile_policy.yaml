@@ -1,0 +1,23 @@
+workflow_id: se_stage_artifact_gap_scan_v0
+kind: workflow_profile_policy
+status: draft
+last_calibration_id: null
+calibration_mode: subagent_quality_first
+measurement_policy:
+  quality_source: subagent_full_matrix
+  telemetry_source: cli_passed_candidates_only
+  subagent_token_usage_available: false
+  telemetry_exact_for_subagent: false
+  cost_confidence: relative_not_exact
+primary_profile: null
+shadow_top_k: []
+rerun_triggers:
+  - workflow prompt changed
+  - output schema changed
+  - stage matrix semantics changed
+  - route labels changed
+  - primary profile fails quality gate
+calibration_archive_ref: null
+notes:
+  - workflow-generator로 draft package를 만들 때 생성한 초기 profile policy 다.
+  - public-safe synthetic fixture 또는 bounded private pilot 이후 profile optimizer가 갱신한다.

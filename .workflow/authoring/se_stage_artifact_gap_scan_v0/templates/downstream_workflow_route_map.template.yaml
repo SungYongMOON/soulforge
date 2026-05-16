@@ -1,0 +1,9 @@
+schema_version: se_downstream_workflow_route_map_v0
+route_map_identity:
+  route_map_id: "<route_map_id>"
+  stage_code: "<stage_code>"
+workflow_views:
+  - route_family: "draftable_scaffold|owner_input_queue|source_gap_followup|review_blockers|owner_readable_summary"
+    target_workflow: "<workflow_id_or_future_candidate>"
+    task_ids: []
+    rationale: "<route_rationale>"

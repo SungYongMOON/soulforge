@@ -1,0 +1,20 @@
+schema_version: se_stage_gap_scan_binding_v0
+project_binding:
+  project_code: "<project_code>"
+  business_type: "<business_type>"
+  prime_contractor: "<prime_contractor>"
+  quality_grade: "<quality_grade>"
+  target_stage_code: "030_SRR|060_SFR|090_PDR|120_CDR|150_TRR_DT|180_FCA_OT|210_PCA|240_LL"
+  target_stage_label: "<stage_label>"
+  stage_floor_model_ref: "docs/architecture/workspace/SE_DUNGEON_STAGE_MODEL_V0.md"
+  owner_surface: "_workmeta/<project_code>/ or _workmeta/system/"
+  approved_scan_policy_ref: "<policy_ref>"
+  expected_artifact_policy_ref: "<policy_ref>"
+  allowed_inputs:
+    - foldertree_manifest_refs
+    - stage_status_refs
+    - source_packet_refs
+    - review_gate_packet_refs
+    - owner_decision_refs
+  non_claims:
+    - "이 binding 은 artifact authoring 또는 review approval 권한을 주지 않는다."

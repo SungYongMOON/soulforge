@@ -1,0 +1,11 @@
+schema_version: se_stage_input_gap_register_v0
+register_identity:
+  register_id: "<register_id>"
+  stage_code: "<stage_code>"
+input_gaps:
+  - gap_id: "<gap_id>"
+    task_id: 0
+    artifact_label: "<artifact_label>"
+    gap_type: "owner_input_needed|source_needed|blocked_dependency"
+    missing_inputs: []
+    status: "open"

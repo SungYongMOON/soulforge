@@ -1,0 +1,13 @@
+schema_version: se_stage_required_artifact_matrix_v0
+matrix_identity:
+  matrix_id: "<matrix_id>"
+  stage_code: "<stage_code>"
+  workflow_id: se_stage_artifact_gap_scan_v0
+rows:
+  - task_id: 0
+    artifact_label: "<artifact_label>"
+    artifact_family: "<artifact_family>"
+    expected_in_stage: true
+    canonical_progress_status: "TODO|IN_PROGRESS|DONE|N/A"
+    assistant_status: "draftable|owner_input_needed|source_needed|blocked|not_applicable"
+    claim_ceiling: "scaffold_only|owner_input_queue_only|source_gap_only|blocked_no_claim|not_applicable"

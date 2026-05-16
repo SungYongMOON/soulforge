@@ -6,10 +6,17 @@ project_ref: "<project_ref>"
 knowledge_access_scope:
   scope_id: "<scope_id>"
   target_ref_set: []
+  ledger_register_refs: []
   event_source_refs: []
 private_output_refs:
+  access_ledger_or_register_ref: "<project_local_ledger_or_register_ref>"
   access_event_store_ref: "<project_local_event_store_ref>"
   rollup_store_ref: "<project_local_rollup_store_ref>"
+ledger_capture_policy:
+  ordinary_work_appends_row: true
+  workflow_run_required_per_access: false
+  early_capture_mode: manual_agent_entry
+  automation_appenders_allowed_later: true
 public_safety_policy:
   store_metadata_only: true
   copy_raw_knowledge_payloads: false

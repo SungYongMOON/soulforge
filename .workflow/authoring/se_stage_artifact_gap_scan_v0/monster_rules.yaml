@@ -1,0 +1,31 @@
+workflow_id: se_stage_artifact_gap_scan_v0
+kind: monster_rules
+status: draft
+rules:
+  - monster_id: stage_scan_reported_as_artifact_completion
+    response: relabel_as_gap_visibility_and_route_mapping_only
+    summary: stage scan 은 산출물 완성을 뜻하지 않고, 현재 stage의 구조와 gap를 보이게 하는 lane 이다.
+  - monster_id: stage_readiness_reported_as_review_approval
+    response: relabel_as_design_support_posture_only
+    summary: readiness summary 는 현재 대화 가능성이나 gap visibility 를 말할 뿐, review approval 을 만들지 않는다.
+  - monster_id: owner_input_queue_treated_as_filled_truth
+    response: keep_questions_open_until_owner_evidence_exists
+    summary: owner input queue 는 missing fact를 메우지 않고 질문을 관리한다.
+  - monster_id: source_gap_treated_as_source_truth
+    response: route_to_source_gap_followup_only
+    summary: source gap record 는 source 부재를 보여줄 뿐 source truth 를 만들지 않는다.
+  - monster_id: draftable_row_treated_as_full_document_authoring
+    response: cap_to_scaffold_or_narrative_shell
+    summary: draftable 는 scaffold_only 또는 bounded shell 까지만 뜻할 수 있다.
+  - monster_id: downstream_route_treated_as_executed_lane
+    response: relabel_as_recommended_route_only
+    summary: route map 은 다음 lane 추천이지, 실제 실행 완료가 아니다.
+  - monster_id: blocker_hidden_to_make_stage_look_ready
+    response: keep_blocker_visible_and_split_scope
+    summary: scheduling blocker, closure blocker, confidence 약화 항목은 summary에서 숨기지 않는다.
+  - monster_id: raw_private_truth_leaked_to_public_draft
+    response: replace_with_template_placeholder_or_repo_relative_ref
+    summary: public-safe draft package에는 raw project truth, absolute path, secret, private payload를 넣지 않는다.
+  - monster_id: runtime_absolute_path_in_package
+    response: replace_with_repo_relative_path_or_stable_id
+    summary: reusable package 에는 Soulforge-root-relative POSIX path만 남긴다.

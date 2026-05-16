@@ -4,6 +4,10 @@ schema_version: v0
 status: draft
 event_id: "<event_id>"
 timestamp_utc: "<YYYY-MM-DDTHH:MM:SSZ>"
+capture_mode: manual_agent_entry
+ledger_ref: "<knowledge_access_ledger_or_register_ref>"
+event_source_ref: null
+manual_agent_note: null
 actor:
   type: workflow
   id: "<stable_actor_id>"
@@ -13,6 +17,8 @@ target:
   target_type: knowledge_node
   source_workflow_id: null
 access_type: read
+reason_used: "<metadata_only_reason_this_ref_was_used>"
+output_ref: null
 work_context:
   task_ref: "<task_ref>"
   run_ref: "<run_ref>"
@@ -34,6 +40,7 @@ relation_hints:
   orphan_reason_hint: null
 redaction:
   metadata_only: true
+  manual_agent_note_payload_free: true
   payload_copied: false
   secret_present: false
   runtime_absolute_path_present: false
