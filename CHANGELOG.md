@@ -24,6 +24,18 @@
 - Allowed `guild_master_cell` to route strategic review and owner-intent gap requests through the new harness.
 - Documented the harness as a weekly or owner-triggered `night_watch` candidate rather than a replacement for nightly boundary, portability, and context-drift checks.
 
+### Revision `working` - SE assistant program direction documented
+
+- Added an SE assistant north-star to `VISION_AND_GOALS.md` while keeping `se_foldertree_generate` limited to folder and plan-tracking scaffold generation.
+- Added an SE assistant program lane to `DEVELOPMENT_ROADMAP_V0.md` without replacing the current `snapshot_to_operation_board_v0` active slice.
+- Fixed the owner split so proactive orchestration lives in `.workflow`, `.mission`, `_workmeta`, and `guild_hall/night_watch`, while missing design content stays as owner questions or blockers instead of agent inference.
+
+### Revision `working` - SE assistant widened to design-support artifact scope
+
+- Sharpened the SE assistant wording toward a systems-engineering design-support aide rather than a narrow document helper.
+- Clarified that `artifact` in the SE assistant lane includes documents, diagrams, traceability matrices, analysis packets, review evidence, owner-decision records, open-question registers, and verification-planning artifacts.
+- Kept `se_stage_artifact_gap_scan_v0` as the first safe workflow name while broadening its private draft outputs to cover design-support queues such as `draftable_artifact_queue`, `diagram_need_register`, and `stage_readiness_summary`.
+
 ### Revision `working` - Post-development review gate and Windows acceptance portability
 
 - Added a risk-tiered post-development independent review gate to the agent execution contract, from Level 0 self-check through Level 3 full B/V verification.
