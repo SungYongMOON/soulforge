@@ -1,0 +1,41 @@
+socratic_question_packet:
+  workflow_id: ouroboros_strategic_review_harness_v0
+  review_window: null
+  routing_summary:
+    repo_fact_count: 0
+    owner_decision_count: 0
+    research_confirmation_count: 0
+    deferred_count: 0
+  routed_questions:
+    - question_id: null
+      source_gap_id: null
+      priority: low | medium | high
+      route: repo_fact | owner_decision | research_confirmation | defer
+      raw_question: null
+      reason_for_route: null
+      evidence_refs: []
+      repo_fact_answer:
+        status: not_applicable | answered | needs_confirmation
+        answer: null
+        confidence: low | medium | high
+        source_refs: []
+      research_confirmation:
+        status: not_applicable | needed | completed
+        source_refs: []
+        summary_for_owner: null
+      owner_decision_shape:
+        decision_surface: null
+        recommended_safe_default: null
+        options:
+          - option_id: A
+            label: null
+            consequence: null
+          - option_id: B
+            label: null
+            consequence: null
+        required_answer_shape: choose_one | choose_many | short_free_text
+      deferral:
+        status: not_applicable | deferred
+        placeholder: null
+        revisit_trigger: null
+      next_action: answer_internally | ask_owner | research_then_confirm | record_deferral

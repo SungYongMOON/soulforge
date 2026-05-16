@@ -1,0 +1,19 @@
+project_binding:
+  workflow_id: ouroboros_strategic_review_harness_v0
+  review_window:
+    start_date: null
+    end_date: null
+    trigger: weekly | owner_triggered | pre_roadmap_change | post_workflow_batch
+  owner_scope:
+    project_code: system
+    evidence_root: _workmeta/system/reports/procedure_capture/
+  source_refs:
+    vision_and_goal_refs: []
+    roadmap_refs: []
+    recent_activity_refs: []
+    optional_night_watch_refs: []
+  boundary_policy:
+    public_canon_read_only: true
+    private_evidence_write_allowed: true
+    secrets_read_allowed: false
+    external_tool_install_allowed: false

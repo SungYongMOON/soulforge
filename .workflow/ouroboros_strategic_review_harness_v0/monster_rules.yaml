@@ -1,0 +1,28 @@
+workflow_id: ouroboros_strategic_review_harness_v0
+kind: monster_rules
+status: active
+monsters:
+  - monster_id: self_justifying_loop
+    symptom: Review output starts treating its own recommendations as truth.
+    response: downgrade to question or candidate and require owner decision.
+  - monster_id: phantom_owner_intent
+    symptom: The harness fills a gap because the owner probably meant something.
+    response: create owner question; do not mutate canon.
+  - monster_id: active_slice_displacement
+    symptom: A new attractive program lane starts replacing the current roadmap active slice without explicit decision.
+    response: mark roadmap drift and route to owner decision.
+  - monster_id: canon_bloat
+    symptom: Every recurring idea becomes a global rule immediately.
+    response: hold in `_workmeta/system` until repeated evidence or owner approval exists.
+  - monster_id: periodic_review_as_validator_replacement
+    symptom: Weekly strategic review is used instead of post-development validation.
+    response: require `post_development_review_gate_v0` for bounded changes.
+  - monster_id: unanswerable_meta_question_dump
+    symptom: The harness sends broad questions to the owner without repo evidence, choices, or a safe default.
+    response: route through question_answerability, add options, or defer the question.
+  - monster_id: owner_as_fact_database
+    symptom: The harness asks the owner to describe facts that canon, workmeta, manifests, or external research can answer.
+    response: answer or confirm the fact before it reaches the owner queue.
+  - monster_id: premature_closure
+    symptom: The run claims alignment or next-focus closure without a one-sentence restatement or owner-decision-required status.
+    response: run the closure restatement gate before downstream routing.

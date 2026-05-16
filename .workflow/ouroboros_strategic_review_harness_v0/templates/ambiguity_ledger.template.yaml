@@ -1,0 +1,44 @@
+ambiguity_ledger:
+  workflow_id: ouroboros_strategic_review_harness_v0
+  review_window: null
+  overall_status: clear | minor_drift | material_gap | blocked
+  dimensions:
+    - dimension_id: vision_alignment
+      clarity_score: 0.0
+      threshold: 0.75
+      evidence_refs: []
+      weakest_reason: null
+      next_question_id: null
+    - dimension_id: owner_intent
+      clarity_score: 0.0
+      threshold: 0.75
+      evidence_refs: []
+      weakest_reason: null
+      next_question_id: null
+    - dimension_id: canon_constraint
+      clarity_score: 0.0
+      threshold: 0.70
+      evidence_refs: []
+      weakest_reason: null
+      next_question_id: null
+    - dimension_id: cadence_and_scope
+      clarity_score: 0.0
+      threshold: 0.65
+      evidence_refs: []
+      weakest_reason: null
+      next_question_id: null
+    - dimension_id: promotion_threshold
+      clarity_score: 0.0
+      threshold: 0.70
+      evidence_refs: []
+      weakest_reason: null
+      next_question_id: null
+  active_tracks:
+    - track_id: null
+      status: open | answered | deferred | blocked
+      related_gap_ids: []
+      related_question_ids: []
+      notes: null
+  closure_readiness:
+    ready_for_restatement: false
+    blocker: null

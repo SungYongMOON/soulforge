@@ -30,6 +30,7 @@ npm run guild-hall:healer:run -- --skip-validate --notify-on-failure --json
 - full run 은 하루 1회 `npm run validate` 까지 포함해 저장소 기본 무결성을 확인한다.
 - 실패 Telegram 알림은 report path 와 짧은 실패 요약만 보내고, mail body/html/attachment/secret 값은 포함하지 않는다.
 - rollout 기준은 [`../../docs/architecture/bootstrap/ALWAYS_ON_HEALER_ROLLOUT_PLAN_V0.md`](../../docs/architecture/bootstrap/ALWAYS_ON_HEALER_ROLLOUT_PLAN_V0.md) 를 따른다.
+- 전략 방향과 owner-intent gap 점검은 healer 가 아니라 [`../../docs/architecture/guild_hall/ALWAYS_ON_STRATEGIC_REVIEW_V0.md`](../../docs/architecture/guild_hall/ALWAYS_ON_STRATEGIC_REVIEW_V0.md) 의 `night_watch` / `ouroboros_strategic_review_harness_v0` 층에서 다룬다.
 
 ## 기본 점검
 

@@ -4,3 +4,4 @@ status: active
 workflow_ids:
   - author_skill_package
   - post_development_review_gate_v0
+  - ouroboros_strategic_review_harness_v0

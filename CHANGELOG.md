@@ -2,6 +2,17 @@
 
 ## 2026-05-16
 
+- Documented the always-on Mac mini strategic review stack, separating deterministic `healer`, daily `night_watch`, and weekly `ouroboros_strategic_review_harness_v0` responsibilities.
+- Strengthened `ouroboros_strategic_review_harness_v0` with a Socratic question router, ambiguity ledger, owner-question option shape, and closure restatement gate so strategic gaps become answerable decisions instead of broad meta-questions.
+
+### Revision `working` - Ouroboros strategic review harness drafted
+
+- Added `.workflow/ouroboros_strategic_review_harness_v0` as a reviewed public-safe draft workflow for periodic vision alignment review and owner-intent gap probing.
+- Added templates for `vision_alignment_report`, `owner_intent_gap_register`, `owner_question_queue`, `canon_constraint_candidate_register`, `next_focus_recommendation`, and `ouroboros_loop_ledger`.
+- Recorded a private Ouroboros harness study/adoption packet under `_workmeta/system` and kept external runtime installation, ontology convergence claims, and automatic canon mutation out of scope.
+- Allowed `guild_master_cell` to route strategic review and owner-intent gap requests through the new harness.
+- Documented the harness as a weekly or owner-triggered `night_watch` candidate rather than a replacement for nightly boundary, portability, and context-drift checks.
+
 ### Revision `working` - Post-development review gate and Windows acceptance portability
 
 - Added a risk-tiered post-development independent review gate to the agent execution contract, from Level 0 self-check through Level 3 full B/V verification.

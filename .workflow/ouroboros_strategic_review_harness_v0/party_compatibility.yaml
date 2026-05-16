@@ -1,0 +1,22 @@
+workflow_id: ouroboros_strategic_review_harness_v0
+kind: party_compatibility
+status: active
+compatible_party_patterns:
+  - guild_master_cell
+  - strategic_review_cell
+required_capabilities:
+  - vision_review
+  - roadmap_review
+  - owner_intent_gap_probe
+  - ambiguity_tracking
+  - question_answerability_routing
+  - evidence_archiving
+  - option_shaped_question_generation
+  - closure_restatement
+optional_capabilities:
+  - night_watch_context_read
+  - ontology_candidate_review
+  - owner_decision_packet_routing
+notes:
+  - The party may use existing administrator, auditor, and archivist classes, but this workflow does not require class canon changes.
+  - Fresh reviewer separation is recommended for high-impact roadmap changes, but the workflow can run as a read-only weekly review when no canon mutation is proposed.

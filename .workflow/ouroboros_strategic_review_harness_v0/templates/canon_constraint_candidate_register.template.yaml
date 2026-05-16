@@ -1,0 +1,16 @@
+canon_constraint_candidate_register:
+  workflow_id: ouroboros_strategic_review_harness_v0
+  review_window: null
+  candidates:
+    - candidate_id: null
+      source_gap_id: null
+      candidate_type: vision_constraint | roadmap_rule | agent_contract_rule | mission_template_rule | workflow_rule | skill_rule | ontology_candidate
+      proposed_statement: null
+      evidence_refs: []
+      owner_answer_required: true
+      public_safe_candidate: false
+      recommended_landing_surface: null
+      status: draft | owner_question | ready_for_patch | hold_private | rejected
+  non_candidates:
+    - item: null
+      reason: one_off | too_private | insufficient_evidence | owner_authority_missing
