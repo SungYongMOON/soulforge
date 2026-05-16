@@ -10,6 +10,7 @@ import {
   defaultActivityRoot,
   readRecentActivityEvents,
 } from "../activity/activity_log.mjs";
+import { listCandidatePackets } from "../dev_worker/candidate_queue.mjs";
 import { selectTask } from "../dev_worker/claim_task.mjs";
 import { pathExists, readJson } from "../shared/io.mjs";
 import { buildSnapshot, defaultSnapshotPath, writeSnapshot } from "../snapshot/producer.mjs";
@@ -28,6 +29,7 @@ export async function buildDailyWorkPacket(options = {}) {
   const snapshot = options.snapshot ?? (await buildSnapshot({ repoRoot, generatedAt: generatedAt.toISOString() }));
   const latestContext = options.latestContext ?? (await readLatestContext(activityRoot));
   const devWorkerClaim = options.devWorkerClaim ?? (await selectTask({ localRoot: repoRoot, workmetaRoot }));
+  const devWorkerCandidates = options.devWorkerCandidates ?? (await listCandidatePackets({ localRoot: repoRoot, workmetaRoot }));
   const missionItems = Array.isArray(snapshot?.operation_board?.sections?.mission_board?.items)
     ? snapshot.operation_board.sections.mission_board.items
     : [];
@@ -51,6 +53,9 @@ export async function buildDailyWorkPacket(options = {}) {
         ".mission/<mission_id>/dev_worker_request.yaml",
         "_workmeta/<project_code>/dev_worker_queue/*.yaml",
       ],
+      dev_worker_candidate_sources: [
+        "_workmeta/<project_code>/dev_worker_candidate_queue/*.yaml",
+      ],
     },
     summary: {
       project_count: Array.isArray(snapshot?.projects) ? snapshot.projects.length : 0,
@@ -59,6 +64,9 @@ export async function buildDailyWorkPacket(options = {}) {
       pending_monster_count: snapshot?.gateway?.pending_monsters?.count ?? 0,
       carry_forward_thread_count: carryForwardThreads.length,
       dev_worker_status: devWorkerClaim?.selected ? "task_available" : "no_task",
+      dev_worker_candidate_count: Array.isArray(devWorkerCandidates?.candidates) ? devWorkerCandidates.candidates.length : 0,
+      dev_worker_promotable_candidate_count: devWorkerCandidates?.promotable_count ?? 0,
+      dev_worker_auto_approvable_candidate_count: devWorkerCandidates?.auto_approvable_count ?? 0,
       diagnostics_status: snapshot?.diagnostics?.summary?.highest_severity ?? "unknown",
     },
     mission_work_queue: blockedOrActiveMissions,
@@ -68,6 +76,10 @@ export async function buildDailyWorkPacket(options = {}) {
       selected: devWorkerClaim?.selected ?? null,
       eligible_count: devWorkerClaim?.eligible_count ?? 0,
       scanned_count: devWorkerClaim?.scanned_count ?? 0,
+      candidates: Array.isArray(devWorkerCandidates?.candidates) ? devWorkerCandidates.candidates.slice(0, 8) : [],
+      candidate_count: Array.isArray(devWorkerCandidates?.candidates) ? devWorkerCandidates.candidates.length : 0,
+      promotable_candidate_count: devWorkerCandidates?.promotable_count ?? 0,
+      auto_approvable_candidate_count: devWorkerCandidates?.auto_approvable_count ?? 0,
     },
     owner_questions: blockedOrActiveMissions
       .map((mission) => mission.escalation_question)
@@ -98,6 +110,9 @@ export function renderDailyWorkPacketMarkdown(packet) {
     `- Pending monsters: ${packet.summary.pending_monster_count}`,
     `- Carry-forward threads: ${packet.summary.carry_forward_thread_count}`,
     `- Dev worker status: ${packet.summary.dev_worker_status}`,
+    `- Dev worker candidates: ${packet.summary.dev_worker_candidate_count}`,
+    `- Promotable candidates: ${packet.summary.dev_worker_promotable_candidate_count}`,
+    `- Auto-approvable candidates: ${packet.summary.dev_worker_auto_approvable_candidate_count}`,
     `- Diagnostics: ${packet.summary.diagnostics_status}`,
     "",
     "## Mission Work Queue",
@@ -150,6 +165,20 @@ export function renderDailyWorkPacketMarkdown(packet) {
     lines.push(`- Packet: \`${packet.dev_worker.selected.packet_ref}\``);
   } else {
     lines.push("- No eligible task packet was available.");
+  }
+
+  lines.push("", "## Dev Worker Candidate Queue", "");
+  if (!packet.dev_worker.candidates || packet.dev_worker.candidates.length === 0) {
+    lines.push("- No dev worker candidate packets were found.");
+  } else {
+    for (const candidate of packet.dev_worker.candidates) {
+      const state = candidate.promotable
+        ? "promotable"
+        : candidate.auto_approval?.eligible
+          ? "auto-approvable"
+          : candidate.ineligible_reason;
+      lines.push(`- \`${candidate.status}\` / \`${state}\` ${candidate.task_id}: ${candidate.summary}`);
+    }
   }
 
   lines.push("", "## Owner Questions", "");

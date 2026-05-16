@@ -13,6 +13,23 @@
 - Enabled `multipart/alternative` HTML report emails with plain-text fallback while keeping SMTP credentials in local-only `guild_hall/state/gateway/mailbox/state/mail_send.env`.
 - Updated the mail send owner docs so outbound snapshots and append-only send logs remain under ignored `guild_hall/state/gateway/**` local state.
 
+### Revision `working` - AI output format policy added
+
+- Added `AI_OUTPUT_FORMAT_POLICY_V0.md` to keep durable source-of-truth records in Markdown/YAML/JSON while allowing self-contained HTML as derived human-review artifacts.
+- Required HTML review artifacts to preserve public/private/secret boundaries and export durable decisions back to text or structured data.
+- Added a dedicated validator/test surface for the output-format policy.
+
+### Revision `working` - Dev worker candidate promotion lane added
+
+- Added a `dev_worker_candidate_queue` lane for agent-discovered work so self-generated tasks can be recorded as candidates without being immediately claimable by high-performance worker PCs.
+- Added `guild-hall:dev-worker:candidates` to list candidates and promote owner-approved candidates into `_workmeta/<project_code>/dev_worker_queue/*.yaml`.
+- Tightened `dev_worker` claim eligibility so `origin.kind: agent_generated` ready packets require `owner_approval.approved: true`.
+- Added a low-risk `auto_approval` policy so eligible agent-generated candidates can be policy-approved and promoted without manual owner approval.
+- Updated the local dev-worker automation prompt to run auto-promotion before claiming one ready task.
+- Updated daily work packets to show candidate, promotable candidate, and auto-approvable candidate counts.
+- Documented high-performance PC setup, candidate approval, promotion, and worker activation boundaries.
+- Added a self-contained HTML next-steps review artifact for owner-facing setup and operation handoff.
+
 ## 2026-05-16
 
 ### Revision `working` - Repository line ending policy pinned

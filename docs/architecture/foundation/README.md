@@ -16,6 +16,7 @@
 | `TARGET_TREE.md` | 목표 루트 트리와 canonical path shape 를 설명한다. |
 | `DOCUMENT_OWNERSHIP.md` | 어떤 문서가 어느 owner 경계를 소유하는지 정한다. |
 | `AGENT_EXECUTION_CONTRACT_V0.md` | AI agent 의 가정 노출, 최소 변경, 검증 기준, post-development review gate, secret 경계를 정한다. |
+| `AI_OUTPUT_FORMAT_POLICY_V0.md` | AI 생성 결과의 source-of-truth 형식과 HTML human-review artifact 사용 경계를 정한다. |
 | `POST_DEVELOPMENT_REVIEW_PACKET_TEMPLATE_V0.yaml` | post-development review gate 결과를 남길 때 쓰는 public-safe packet shape 다. |
 | `AGENT_WORLD_MODEL.md` | agent 가 species, class, unit, workflow, party, mission 을 어떤 세계 모델로 읽는지 설명한다. |
 | `ONTOLOGY_MODEL_V0.md` | 반복 개념을 ontology 후보와 canon relation 으로 다루는 기준을 둔다. |
@@ -36,6 +37,7 @@
 - [`TARGET_TREE.md`](TARGET_TREE.md)
 - [`DOCUMENT_OWNERSHIP.md`](DOCUMENT_OWNERSHIP.md)
 - [`AGENT_EXECUTION_CONTRACT_V0.md`](AGENT_EXECUTION_CONTRACT_V0.md)
+- [`AI_OUTPUT_FORMAT_POLICY_V0.md`](AI_OUTPUT_FORMAT_POLICY_V0.md)
 - [`POST_DEVELOPMENT_REVIEW_PACKET_TEMPLATE_V0.yaml`](POST_DEVELOPMENT_REVIEW_PACKET_TEMPLATE_V0.yaml)
 - [`AGENT_WORLD_MODEL.md`](AGENT_WORLD_MODEL.md)
 - [`ONTOLOGY_MODEL_V0.md`](ONTOLOGY_MODEL_V0.md)
@@ -56,3 +58,4 @@
 - validator 와 harness 가 바로 참조할 ontology binding 요약은 `ONTOLOGY_RELATION_MATRIX_V1.md` 에서 읽는다.
 - 저장소 개선의 현재 단계별 계획은 `REPOSITORY_IMPROVEMENT_PLAN_V0.md` 에서 읽는다.
 - AI agent 의 작업 실행 계약은 `AGENT_EXECUTION_CONTRACT_V0.md` 에서 읽는다.
+- AI 생성 결과의 저장/검토 형식 경계는 `AI_OUTPUT_FORMAT_POLICY_V0.md` 에서 읽는다.

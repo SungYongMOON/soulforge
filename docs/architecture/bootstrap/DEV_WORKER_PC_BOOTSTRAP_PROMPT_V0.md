@@ -22,6 +22,7 @@ Configure this PC so it can run the `guild_hall/dev_worker` lane:
 
 - sync the public repo and optional owner-only companion repos
 - select one ready task packet
+- ignore candidate packets until they have been owner-approved or auto-policy-approved and promoted
 - create a `codex/<node-id>-<task>` branch
 - implement only the bounded packet scope
 - run acceptance checks
@@ -97,6 +98,8 @@ Use the platform-appropriate `npm` command. On Windows PowerShell, use `npm.cmd`
 ```bash
 npm run guild-hall:doctor -- --profile public-only --remote
 npm run guild-hall:dev-worker:preflight -- --local-root "<actual Soulforge root>" --workmeta-root "<actual _workmeta root>" --private-state-root "<actual private-state root>" --json
+npm run guild-hall:dev-worker:candidates -- --local-root "<actual Soulforge root>" --workmeta-root "<actual _workmeta root>" --json
+npm run guild-hall:dev-worker:candidates -- --local-root "<actual Soulforge root>" --workmeta-root "<actual _workmeta root>" --auto-promote --json
 npm run validate:dev-worker
 ```
 
@@ -116,10 +119,14 @@ Keep the rendered automation `PAUSED` until the owner explicitly activates this 
 
 ```bash
 npm run guild-hall:dev-worker:preflight -- --local-root "<actual Soulforge root>" --workmeta-root "<actual _workmeta root>" --private-state-root "<actual private-state root>" --json
+npm run guild-hall:dev-worker:candidates -- --local-root "<actual Soulforge root>" --workmeta-root "<actual _workmeta root>" --json
+npm run guild-hall:dev-worker:candidates -- --local-root "<actual Soulforge root>" --workmeta-root "<actual _workmeta root>" --auto-promote --json
 npm run guild-hall:dev-worker:claim -- --local-root "<actual Soulforge root>" --workmeta-root "<actual _workmeta root>" --json
 ```
 
 The smoke may return `no_task`; that is acceptable if no ready packet exists.
+The candidate smoke may return candidates; that does not mean the worker may run them.
+Only owner-approved or auto-policy-approved candidates promoted into ready packets are claimable.
 
 ### Report Shape
 
@@ -135,6 +142,7 @@ validate_dev_worker:
 automation_rendered:
 automation_status:
 first_preflight:
+candidate_queue:
 first_claim:
 secret_read: false
 raw_mail_body_read: false

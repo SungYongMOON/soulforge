@@ -1,0 +1,409 @@
+<!doctype html>
+<html lang="ko">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Soulforge Dev Worker Next Steps - 2026-05-17</title>
+  <style>
+    :root {
+      color-scheme: light;
+      --bg: #f6f7f9;
+      --panel: #ffffff;
+      --ink: #172033;
+      --muted: #667085;
+      --line: #d9dee8;
+      --blue: #1f5eff;
+      --green: #18794e;
+      --amber: #9a6700;
+      --red: #b42318;
+      --violet: #6941c6;
+      --code: #101828;
+    }
+    * { box-sizing: border-box; }
+    body {
+      margin: 0;
+      background: var(--bg);
+      color: var(--ink);
+      font: 15px/1.55 -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+    }
+    header {
+      background: #0f172a;
+      color: #fff;
+      padding: 28px 32px;
+    }
+    header h1 {
+      margin: 0 0 8px;
+      font-size: 28px;
+      line-height: 1.2;
+      letter-spacing: 0;
+    }
+    header p {
+      margin: 0;
+      color: #d0d5dd;
+      max-width: 980px;
+    }
+    main {
+      max-width: 1180px;
+      margin: 0 auto;
+      padding: 24px;
+    }
+    section {
+      background: var(--panel);
+      border: 1px solid var(--line);
+      border-radius: 8px;
+      margin: 0 0 16px;
+      padding: 20px;
+    }
+    h2 {
+      margin: 0 0 12px;
+      font-size: 20px;
+      letter-spacing: 0;
+    }
+    h3 {
+      margin: 18px 0 8px;
+      font-size: 16px;
+      letter-spacing: 0;
+    }
+    p { margin: 8px 0; }
+    ul, ol { margin: 8px 0 8px 22px; padding: 0; }
+    li { margin: 6px 0; }
+    code {
+      color: var(--code);
+      background: #eef2f7;
+      border-radius: 4px;
+      padding: 1px 5px;
+      font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
+      font-size: 0.92em;
+    }
+    pre {
+      margin: 10px 0;
+      padding: 12px;
+      overflow-x: auto;
+      background: #101828;
+      color: #f8fafc;
+      border-radius: 8px;
+      font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
+      font-size: 13px;
+      line-height: 1.45;
+    }
+    pre code {
+      background: transparent;
+      color: inherit;
+      padding: 0;
+    }
+    .grid {
+      display: grid;
+      grid-template-columns: repeat(2, minmax(0, 1fr));
+      gap: 16px;
+    }
+    .flow {
+      display: grid;
+      grid-template-columns: repeat(6, minmax(120px, 1fr));
+      gap: 8px;
+      margin-top: 14px;
+    }
+    .step {
+      border: 1px solid var(--line);
+      border-radius: 8px;
+      padding: 12px;
+      min-height: 92px;
+      background: #fbfcfe;
+    }
+    .step strong {
+      display: block;
+      margin-bottom: 6px;
+      color: var(--blue);
+    }
+    .badge {
+      display: inline-block;
+      border-radius: 999px;
+      padding: 2px 9px;
+      font-size: 12px;
+      font-weight: 700;
+      margin: 0 6px 6px 0;
+      border: 1px solid transparent;
+    }
+    .todo { color: var(--amber); background: #fff7e6; border-color: #fedf89; }
+    .safe { color: var(--green); background: #ecfdf3; border-color: #abefc6; }
+    .stop { color: var(--red); background: #fef3f2; border-color: #fecdca; }
+    .owner { color: var(--violet); background: #f4f3ff; border-color: #d9d6fe; }
+    table {
+      width: 100%;
+      border-collapse: collapse;
+      margin: 10px 0;
+      font-size: 14px;
+    }
+    th, td {
+      text-align: left;
+      vertical-align: top;
+      border: 1px solid var(--line);
+      padding: 10px;
+    }
+    th { background: #f2f4f7; }
+    .muted { color: var(--muted); }
+    .callout {
+      border-left: 4px solid var(--blue);
+      background: #eef4ff;
+      padding: 12px;
+      border-radius: 6px;
+    }
+    button {
+      appearance: none;
+      border: 1px solid #1d4ed8;
+      background: #1d4ed8;
+      color: #fff;
+      border-radius: 6px;
+      padding: 8px 12px;
+      font-weight: 700;
+      cursor: pointer;
+    }
+    textarea {
+      width: 100%;
+      min-height: 260px;
+      margin-top: 10px;
+      padding: 12px;
+      border: 1px solid var(--line);
+      border-radius: 8px;
+      font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
+      font-size: 13px;
+    }
+    @media (max-width: 900px) {
+      .grid, .flow { grid-template-columns: 1fr; }
+      main { padding: 14px; }
+      header { padding: 22px 18px; }
+    }
+  </style>
+</head>
+<body>
+  <header>
+    <h1>Soulforge Dev Worker Next Steps</h1>
+    <p>2026-05-17 기준. 이 HTML은 사람 검토용 파생 산출물입니다. 정본은 Markdown/YAML/JSON 문서와 task packet입니다.</p>
+  </header>
+
+  <main>
+    <section>
+      <h2>한 줄 결론</h2>
+      <p class="callout">
+        MacBook에서 후보 작업과 승인 규칙을 commit/push하면, 고성능 PC는 GitHub에서 최신 내용을 pull하고
+        승인된 ready task만 가져가 branch를 만들어 개발합니다. main merge는 자동화하지 않습니다.
+      </p>
+      <div>
+        <span class="badge safe">구현됨: candidate queue</span>
+        <span class="badge safe">구현됨: approval gate</span>
+        <span class="badge safe">구현됨: auto-approval policy</span>
+        <span class="badge safe">구현됨: high-performance PC setup docs</span>
+        <span class="badge todo">다음: commit / push</span>
+        <span class="badge todo">다음: 고성능 PC pull / automation render</span>
+      </div>
+    </section>
+
+    <section>
+      <h2>전체 흐름</h2>
+      <div class="flow">
+        <div class="step"><strong>1. 기억/비전 입력</strong>핸드폰이나 MacBook에서 제약, 비전, 해야 할 일을 말한다.</div>
+        <div class="step"><strong>2. 후보 작성</strong>AI가 실행 전 후보를 <code>dev_worker_candidate_queue</code>에 쓴다.</div>
+        <div class="step"><strong>3. 승인 판단</strong>owner 승인 또는 낮은 위험 auto-policy 승인만 통과한다.</div>
+        <div class="step"><strong>4. 승격</strong>승격 helper가 ready task를 <code>dev_worker_queue</code>에 만든다.</div>
+        <div class="step"><strong>5. 고성능 PC 개발</strong>worker가 ready task 하나를 claim하고 branch를 push한다.</div>
+        <div class="step"><strong>6. 리뷰/머지</strong>MacBook 또는 supervisor가 branch를 검토하고 main merge를 결정한다.</div>
+      </div>
+    </section>
+
+    <section>
+      <h2>지금 MacBook에서 할 일</h2>
+      <ol>
+        <li>현재 변경을 한 번 더 확인한다.</li>
+        <li>commit을 만든다.</li>
+        <li>public Soulforge를 push한다.</li>
+        <li>필요하면 companion repo인 <code>_workmeta</code>, <code>private-state</code>도 별도로 push한다.</li>
+      </ol>
+      <pre><code>git status --short
+git diff --stat
+npm run done:check
+git add CHANGELOG.md docs/architecture/guild_hall/DEV_WORKER_AUTOMATION_V0.md docs/architecture/bootstrap/DEV_WORKER_PC_BOOTSTRAP_PROMPT_V0.md docs/architecture/workspace/MULTI_PC_DEVELOPMENT_V0.md guild_hall/dev_worker package.json guild_hall/night_watch/daily_work_packet.mjs guild_hall/night_watch/daily_work_packet.test.mjs
+git commit -m "dev-worker: 후보 작업 승인 큐 추가"
+git push origin main</code></pre>
+      <p class="muted">주의: 현재 작업 트리에는 AI output format policy 관련 변경도 같이 있습니다. 함께 commit할지 별도 commit할지 먼저 정리해야 합니다.</p>
+    </section>
+
+    <section>
+      <h2>고성능 PC 최초 세팅</h2>
+      <p>고성능 PC에서 한 번만 실행합니다. Windows PowerShell이면 <code>npm</code>이 막힐 때 <code>npm.cmd</code>를 사용합니다.</p>
+      <pre><code>git clone https://github.com/SungYongMOON/soulforge.git Soulforge
+cd Soulforge
+git clone https://github.com/SungYongMOON/soulforge-workmeta.git _workmeta
+git clone https://github.com/SungYongMOON/soulforge-private-state.git private-state
+npm install
+npm install --prefix ui-workspace
+npm run validate:dev-worker
+npm run guild-hall:dev-worker:preflight -- --local-root "$PWD" --workmeta-root "$PWD/_workmeta" --private-state-root "$PWD/private-state" --json
+npm run guild-hall:dev-worker:candidates -- --local-root "$PWD" --workmeta-root "$PWD/_workmeta" --json
+npm run guild-hall:dev-worker:candidates -- --local-root "$PWD" --workmeta-root "$PWD/_workmeta" --auto-promote --json
+npm run guild-hall:dev-worker:claim -- --local-root "$PWD" --workmeta-root "$PWD/_workmeta" --json</code></pre>
+    </section>
+
+    <section>
+      <h2>고성능 PC 자동화 생성</h2>
+      <p>검증이 통과한 뒤 Codex local automation 파일을 생성합니다. 기본값은 <code>PAUSED</code>입니다.</p>
+      <pre><code>npm run guild-hall:dev-worker:render -- --install --local-root "$PWD" --workmeta-root "$PWD/_workmeta" --private-state-root "$PWD/private-state"</code></pre>
+      <p>
+        생성 후 owner가 직접 활성화합니다. 활성화되면 기본 주기는 <code>FREQ=HOURLY;INTERVAL=4</code>이고,
+        한 번에 task 하나만 처리합니다.
+      </p>
+    </section>
+
+    <section>
+      <h2>작업 후보와 실행 작업의 차이</h2>
+      <table>
+        <thead>
+          <tr>
+            <th>상태</th>
+            <th>위치</th>
+            <th>누가 씀</th>
+            <th>고성능 PC가 실행?</th>
+          </tr>
+        </thead>
+        <tbody>
+          <tr>
+            <td>후보</td>
+            <td><code>_workmeta/&lt;project&gt;/dev_worker_candidate_queue/*.yaml</code></td>
+            <td>AI, night_watch, owner</td>
+            <td>아니오</td>
+          </tr>
+          <tr>
+            <td>승인된 후보</td>
+            <td><code>dev_worker_candidate_queue</code> 안에서 <code>status: approved</code></td>
+            <td>owner, supervisor, 또는 auto-policy helper</td>
+            <td>아직 아니오</td>
+          </tr>
+          <tr>
+            <td>실행 작업</td>
+            <td><code>_workmeta/&lt;project&gt;/dev_worker_queue/*.yaml</code></td>
+            <td>승격 helper</td>
+            <td>예</td>
+          </tr>
+          <tr>
+            <td>public-safe 실행 작업</td>
+            <td><code>.mission/&lt;mission_id&gt;/dev_worker_request.yaml</code></td>
+            <td>MacBook/supervisor</td>
+            <td>예</td>
+          </tr>
+        </tbody>
+      </table>
+    </section>
+
+    <section>
+      <h2>후보 packet 예시</h2>
+      <pre><code>schema_version: soulforge.dev_worker_request.v0
+task_id: improve_daily_packet_candidate
+status: proposed
+lane: dev_worker
+requested_by: codex
+project_code: system
+summary: Add one missing field to the daily work packet report.
+branch_slug: daily-packet-field
+allowed_write_paths:
+  - guild_hall/night_watch/**
+  - guild_hall/dev_worker/**
+acceptance_checks:
+  - npm run validate:dev-worker
+stop_conditions:
+  - allowed_write_paths_insufficient
+  - public_private_boundary_unclear
+origin:
+  kind: agent_generated
+owner_approval:
+  required: true
+  approved: false
+auto_approval:
+  requested: true
+  risk_level: low
+notes:
+  - Candidate only. Do not run on a worker until approved and promoted.</code></pre>
+    </section>
+
+    <section>
+      <h2>승인 또는 자동 승격</h2>
+      <p>후보 파일에서 아래처럼 바꿉니다.</p>
+      <pre><code>status: approved
+owner_approval:
+  required: true
+  approved: true
+  approved_by: owner
+  approved_at: 2026-05-17T00:00:00.000Z</code></pre>
+      <p>그다음 승격 helper를 실행합니다.</p>
+      <pre><code>npm run guild-hall:dev-worker:candidates -- --promote-approved --json</code></pre>
+      <p>낮은 위험 후보는 아래 명령으로 정책 평가, 승인, 승격을 한 번에 처리할 수 있습니다.</p>
+      <pre><code>npm run guild-hall:dev-worker:candidates -- --auto-promote --json</code></pre>
+      <p>그러면 <code>_workmeta/&lt;project&gt;/dev_worker_queue/&lt;task_id&gt;.yaml</code>에 ready task가 만들어집니다.</p>
+    </section>
+
+    <section>
+      <h2>일일 보고서에서 볼 것</h2>
+      <ul>
+        <li>새로 발견된 candidate 수</li>
+        <li>승격 가능한 candidate 수</li>
+        <li>자동 승인 가능한 candidate 수</li>
+        <li>현재 ready task가 있는지</li>
+        <li>고성능 PC가 push한 branch와 validation 결과</li>
+        <li>owner가 답해야 하는 질문</li>
+      </ul>
+      <pre><code>npm run guild-hall:night-watch:daily-work-packet -- --record</code></pre>
+    </section>
+
+    <section>
+      <h2>금지 동작</h2>
+      <ul>
+        <li><span class="badge stop">금지</span>고성능 PC가 <code>main</code>에 직접 push 또는 merge</li>
+        <li><span class="badge stop">금지</span>secret, token, credential, raw mail body 읽기</li>
+        <li><span class="badge stop">금지</span><code>allowed_write_paths</code> 밖 수정</li>
+        <li><span class="badge stop">금지</span>AI가 만든 후보를 owner 승인 또는 auto-policy 승인 없이 ready로 실행</li>
+        <li><span class="badge stop">금지</span>validation 실패 branch를 승인 없이 push</li>
+      </ul>
+    </section>
+
+    <section>
+      <h2>정본 참조</h2>
+      <ul>
+        <li><code>docs/architecture/guild_hall/DEV_WORKER_AUTOMATION_V0.md</code></li>
+        <li><code>docs/architecture/bootstrap/DEV_WORKER_PC_BOOTSTRAP_PROMPT_V0.md</code></li>
+        <li><code>docs/architecture/workspace/MULTI_PC_DEVELOPMENT_V0.md</code></li>
+        <li><code>guild_hall/dev_worker/candidate_queue.mjs</code></li>
+        <li><code>guild_hall/dev_worker/claim_task.mjs</code></li>
+      </ul>
+      <p class="muted">Claim ceiling: 이 문서는 public-safe 운영 체크리스트입니다. 실제 승인 기록과 작업 실행 기록은 Markdown/YAML/JSON packet에 남깁니다.</p>
+    </section>
+
+    <section>
+      <h2>복사용 요약</h2>
+      <button type="button" onclick="copyExport()">아래 요약 복사</button>
+      <textarea id="exportText" readonly>Dev worker next steps durable summary
+
+1. Commit and push the MacBook changes after running npm run done:check.
+2. High-performance PC pulls Soulforge, _workmeta, and private-state by fast-forward.
+3. High-performance PC runs validate:dev-worker, preflight, candidates list, and claim smoke.
+4. Render the local Codex automation with guild-hall:dev-worker:render -- --install.
+5. Keep the automation PAUSED until the owner activates it.
+6. AI-generated work must start in _workmeta/&lt;project_code&gt;/dev_worker_candidate_queue/*.yaml.
+7. Owner-approved candidates are promoted with guild-hall:dev-worker:candidates -- --promote-approved --json.
+8. Low-risk candidates can be policy-approved and promoted with guild-hall:dev-worker:candidates -- --auto-promote --json.
+9. Workers only claim ready packets from .mission/*/dev_worker_request.yaml or _workmeta/*/dev_worker_queue/*.yaml.
+10. Workers push codex/&lt;node-id&gt;-&lt;task-slug&gt; branches only, never main.
+11. Daily work packet reports candidate counts, promotable candidates, auto-approvable candidates, ready task state, and owner questions.</textarea>
+    </section>
+  </main>
+
+  <script>
+    function copyExport() {
+      var textarea = document.getElementById("exportText");
+      textarea.focus();
+      textarea.select();
+      try {
+        document.execCommand("copy");
+      } catch (error) {
+        window.alert("Copy failed. Select the text manually.");
+      }
+    }
+  </script>
+</body>
+</html>

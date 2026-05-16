@@ -11,6 +11,8 @@ The lane is intentionally narrower than a general autonomous developer. It selec
 - automation specs and prompt templates
 - preflight helpers for clean `main` / fast-forward sync
 - task packet discovery and branch-name suggestion helpers
+- candidate queue listing and approved-candidate promotion helpers
+- low-risk candidate auto-approval policy checks
 - tests for deterministic selection and sanitization behavior
 
 ## What Does Not Belong Here
@@ -26,6 +28,10 @@ The lane is intentionally narrower than a general autonomous developer. It selec
 ```bash
 npm run guild-hall:dev-worker:preflight -- --local-root <Soulforge root>
 npm run guild-hall:dev-worker:claim -- --local-root <Soulforge root> --json
+npm run guild-hall:dev-worker:candidates -- --local-root <Soulforge root> --workmeta-root <_workmeta root> --json
+npm run guild-hall:dev-worker:candidates -- --local-root <Soulforge root> --workmeta-root <_workmeta root> --auto-approve --json
+npm run guild-hall:dev-worker:candidates -- --local-root <Soulforge root> --workmeta-root <_workmeta root> --auto-promote --json
+npm run guild-hall:dev-worker:candidates -- --local-root <Soulforge root> --workmeta-root <_workmeta root> --promote-approved --json
 npm run guild-hall:dev-worker:render -- --local-root <Soulforge root> --workmeta-root <_workmeta root> --private-state-root <private-state root>
 ```
 
@@ -33,5 +39,10 @@ npm run guild-hall:dev-worker:render -- --local-root <Soulforge root> --workmeta
 
 - public-safe: `.mission/<mission_id>/dev_worker_request.yaml`
 - owner-only: `_workmeta/<project_code>/dev_worker_queue/*.yaml`
+- owner-only candidate: `_workmeta/<project_code>/dev_worker_candidate_queue/*.yaml`
 
 The helper only selects packets with `status: ready`, `status: queued`, or `status: open`.
+Agent-generated ready packets also require `owner_approval.approved: true`.
+
+Candidate packets are for agent-discovered work. They become executable only after the owner marks them approved and the promotion helper writes a ready packet into `dev_worker_queue`.
+Low-risk candidates may request `auto_approval.requested: true`; the candidate helper approves only those that pass the tracked safe-path, safe-check, and risk-level policy before promotion.

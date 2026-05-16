@@ -10,6 +10,7 @@ const STEPS_BY_MODE = {
   validate: [
     ["role-boundary", "npm run validate:role-boundary"],
     ["canon", "npm run validate:canon"],
+    ["ai-output-format", "npm run validate:ai-output-format"],
     ["snapshot", "npm run validate:snapshot"],
     ["activity", "npm run validate:activity"],
     ["knowledge-access", "npm run validate:knowledge-access"],
@@ -20,6 +21,7 @@ const STEPS_BY_MODE = {
   "done-check": [
     ["role-boundary", "npm run validate:role-boundary"],
     ["canon", "npm run validate:canon"],
+    ["ai-output-format", "npm run validate:ai-output-format"],
     ["snapshot", "npm run validate:snapshot"],
     ["activity", "npm run validate:activity"],
     ["knowledge-access", "npm run validate:knowledge-access"],

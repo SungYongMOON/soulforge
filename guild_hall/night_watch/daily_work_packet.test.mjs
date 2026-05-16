@@ -57,6 +57,11 @@ test("buildDailyWorkPacket derives blocked mission items and owner questions", a
       eligible_count: 0,
       scanned_count: 0,
     },
+    devWorkerCandidates: {
+      candidates: [],
+      promotable_count: 0,
+      auto_approvable_count: 0,
+    },
   });
 
   assert.equal(packet.summary.blocked_or_active_mission_count, 2);
@@ -78,6 +83,9 @@ test("renderDailyWorkPacketMarkdown includes mission and dev worker sections", (
       pending_monster_count: 0,
       carry_forward_thread_count: 0,
       dev_worker_status: "task_available",
+      dev_worker_candidate_count: 1,
+      dev_worker_promotable_candidate_count: 1,
+      dev_worker_auto_approvable_candidate_count: 1,
       diagnostics_status: "ok",
     },
     mission_work_queue: [
@@ -102,6 +110,17 @@ test("renderDailyWorkPacketMarkdown includes mission and dev worker sections", (
         suggested_branch: "codex/node-task",
         packet_ref: ".mission/mission_1/dev_worker_request.yaml",
       },
+      candidates: [
+        {
+          task_id: "candidate_1",
+          status: "approved",
+          summary: "Promotable candidate.",
+          promotable: false,
+          auto_approval: {
+            eligible: true,
+          },
+        },
+      ],
     },
     owner_questions: ["Which one?"],
     notes: ["draft only"],
@@ -109,5 +128,9 @@ test("renderDailyWorkPacketMarkdown includes mission and dev worker sections", (
 
   assert.match(markdown, /Mission Work Queue/u);
   assert.match(markdown, /Dev Worker Claim State/u);
+  assert.match(markdown, /Dev Worker Candidate Queue/u);
+  assert.match(markdown, /Auto-approvable candidates: 1/u);
+  assert.match(markdown, /auto-approvable/u);
   assert.match(markdown, /codex\/node-task/u);
+  assert.match(markdown, /candidate_1/u);
 });

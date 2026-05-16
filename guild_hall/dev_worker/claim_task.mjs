@@ -38,6 +38,10 @@ export function normalizeTaskPacket(raw, source) {
   const allowedWritePaths = normalizeStringArray(raw?.allowed_write_paths);
   const acceptanceChecks = normalizeStringArray(raw?.acceptance_checks);
   const branchSlug = sanitizeSlug(raw?.branch_slug ?? taskId);
+  const approval = normalizeOwnerApproval(raw?.owner_approval);
+  const originKind = String(raw?.origin?.kind ?? "").trim().toLowerCase();
+  const generatedByAgent = originKind === "agent_generated";
+  const approvalRequired = approval.required || generatedByAgent;
   const missing = [];
 
   if (!raw?.schema_version) {
@@ -59,12 +63,15 @@ export function normalizeTaskPacket(raw, source) {
     missing.push("acceptance_checks");
   }
 
-  const eligible = missing.length === 0 && ELIGIBLE_STATUSES.has(status);
+  const approvalBlocked = approvalRequired && !approval.approved;
+  const eligible = missing.length === 0 && ELIGIBLE_STATUSES.has(status) && !approvalBlocked;
   const ineligibleReason = eligible
     ? null
     : missing.length > 0
       ? `missing_required_fields:${missing.join(",")}`
-      : `status_not_eligible:${status || "missing"}`;
+      : !ELIGIBLE_STATUSES.has(status)
+        ? `status_not_eligible:${status || "missing"}`
+        : "owner_approval_required";
 
   return {
     ...source,
@@ -80,6 +87,8 @@ export function normalizeTaskPacket(raw, source) {
     acceptance_checks: acceptanceChecks,
     stop_conditions: normalizeStringArray(raw?.stop_conditions),
     draft_branch_allowed: parseBoolean(raw?.draft_branch_allowed, false),
+    origin: raw?.origin && typeof raw.origin === "object" ? raw.origin : null,
+    owner_approval: approval,
     eligible,
     ineligible_reason: ineligibleReason,
   };
@@ -232,6 +241,24 @@ function parseBoolean(value, fallback) {
     return false;
   }
   return fallback;
+}
+
+function normalizeOwnerApproval(value) {
+  if (!value || typeof value !== "object") {
+    return {
+      required: false,
+      approved: false,
+      approved_by: "",
+      approved_at: "",
+    };
+  }
+
+  return {
+    required: parseBoolean(value.required, false),
+    approved: parseBoolean(value.approved, false),
+    approved_by: String(value.approved_by ?? ""),
+    approved_at: String(value.approved_at ?? ""),
+  };
 }
 
 function withSuggestedBranch(task, identity) {
