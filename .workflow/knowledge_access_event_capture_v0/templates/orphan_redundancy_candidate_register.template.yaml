@@ -1,0 +1,23 @@
+workflow_id: knowledge_access_event_capture_v0
+kind: orphan_redundancy_candidate_register
+schema_version: v0
+status: draft
+register_id: "<register_id>"
+source_link_strength_analysis_ref: "<link_strength_analysis_ref>"
+orphan_candidates:
+  - knowledge_ref: "<knowledge_ref>"
+    orphan_state: review_required
+    evidence_event_refs: []
+    last_access_timestamp_utc: null
+    reason: "<reason>"
+    next_route: hold_private
+redundancy_candidates:
+  - candidate_group_id: "<candidate_group_id>"
+    knowledge_refs: []
+    evidence_event_refs: []
+    redundancy_state: review_required
+    next_route: owner_decision_packet_v0
+authority_boundary:
+  orphan_or_redundant_is_candidate_signal: true
+  archive_or_retire_requires_owner_decision_or_declared_policy: true
+  no_target_payloads_embedded: true

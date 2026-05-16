@@ -1,0 +1,12 @@
+{
+  "source": "cli_only_gpt_5_5_xhigh_baseline_candidate",
+  "candidate_id": "qe_gpt_5_5_xhigh_dwarf_archivist",
+  "usage": {
+    "input_tokens": 17781,
+    "cached_input_tokens": 7552,
+    "output_tokens": 1660,
+    "reasoning_output_tokens": 516
+  },
+  "wall_time_seconds": 35.757,
+  "note": "Baseline is also an actual candidate; candidate prompts did not receive this output."
+}

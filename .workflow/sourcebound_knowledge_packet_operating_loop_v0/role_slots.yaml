@@ -1,0 +1,31 @@
+workflow_id: sourcebound_knowledge_packet_operating_loop_v0
+kind: role_slots
+status: active
+slots:
+  - slot_id: workflow_runner
+    title: Workflow Runner
+    summary: Resolves bounded source scope, private output root, source authority, and promotion ceiling.
+  - slot_id: source_intake_curator
+    title: Source Intake Curator
+    summary: Inventories approved source packet refs and visible source gaps without acquiring authority over raw source truth.
+  - slot_id: projection_compiler
+    title: Projection Compiler
+    summary: Creates the private source-bound projection, index, and log as derivative navigation surfaces.
+  - slot_id: lint_reviewer
+    title: Lint Reviewer
+    summary: Reviews contradictions, source gaps, citation gaps, and extraction-quality gates before concept work proceeds.
+  - slot_id: concept_candidate_extractor
+    title: Concept Candidate Extractor
+    summary: Extracts source-cited concept candidates and preserves blockers or review states.
+  - slot_id: promotion_router
+    title: Promotion Router
+    summary: Assigns claim ceilings and routes concept candidates toward workflow, ontology, owner decision, source follow-up, or private hold.
+  - slot_id: advisory_handoff_preparer
+    title: Advisory Handoff Preparer
+    summary: Prepares optional owner-operated NotebookLM-style handoff metadata without making advisory tools authoritative.
+  - slot_id: workflowization_author
+    title: Workflowization Author
+    summary: Assembles reviewed conceptualization into a workflowization packet.
+  - slot_id: boundary_reviewer
+    title: Boundary Reviewer
+    summary: Checks source/projection/promotion boundaries and routes the packet to the required review gate.

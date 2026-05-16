@@ -1,0 +1,104 @@
+{
+    "workflow_id":  "simulator_policy_packet_v0",
+    "calibration_id":  "cal_20260515_quality_equiv_001",
+    "recommendation_status":  "quality_equivalent_calibrated",
+    "primary_profile":  {
+                            "species":  "dwarf",
+                            "candidate_id":  "qe_dwarf_auditor_gpt-5.5_low",
+                            "reasoning_effort":  "low",
+                            "output_quality_score":  97,
+                            "quality_class":  "quality_equivalent_pass",
+                            "telemetry":  {
+                                              "candidate_id":  "qe_dwarf_auditor_gpt-5.5_low",
+                                              "workflow_id":  "simulator_policy_packet_v0",
+                                              "model":  "gpt-5.5",
+                                              "reasoning_effort":  "low",
+                                              "species":  "dwarf",
+                                              "class":  "auditor",
+                                              "input_tokens":  17254,
+                                              "cached_input_tokens":  16256,
+                                              "output_tokens":  2380,
+                                              "reasoning_output_tokens":  13,
+                                              "wall_time_seconds":  47.446,
+                                              "exit_code":  0,
+                                              "telemetry_source":  "codex_exec_json_cli_proxy"
+                                          },
+                            "model":  "gpt-5.5",
+                            "baseline_relative_quality":  0.97,
+                            "class":  "auditor"
+                        },
+    "baseline_profile":  {
+                             "reasoning_effort":  "xhigh",
+                             "candidate_id":  "qe_dwarf_auditor_gpt-5.5_xhigh",
+                             "model":  "gpt-5.5",
+                             "class":  "auditor",
+                             "species":  "dwarf"
+                         },
+    "selection_reason":  "Lowest-cost quality-equivalent candidate; keeps per-simulator authorization, runtime blockers, source blockers, and explicit downstream handoffs comparable to or more explicit than xhigh.",
+    "old_policy":  "draft_pending_profile_calibration",
+    "new_policy":  "qe_dwarf_auditor_gpt-5.5_low",
+    "shadow_top_k":  [
+                         {
+                             "candidate_id":  "qe_dwarf_auditor_gpt-5.5_xhigh",
+                             "model":  "gpt-5.5",
+                             "reasoning_effort":  "xhigh",
+                             "species":  "dwarf",
+                             "class":  "auditor",
+                             "quality_class":  "quality_equivalent_pass",
+                             "output_quality_score":  100,
+                             "baseline_relative_quality":  1,
+                             "telemetry":  {
+                                               "candidate_id":  "qe_dwarf_auditor_gpt-5.5_xhigh",
+                                               "workflow_id":  "simulator_policy_packet_v0",
+                                               "model":  "gpt-5.5",
+                                               "reasoning_effort":  "xhigh",
+                                               "species":  "dwarf",
+                                               "class":  "auditor",
+                                               "input_tokens":  17256,
+                                               "cached_input_tokens":  7552,
+                                               "output_tokens":  2723,
+                                               "reasoning_output_tokens":  516,
+                                               "wall_time_seconds":  52.828,
+                                               "exit_code":  0,
+                                               "telemetry_source":  "codex_exec_json_cli_proxy"
+                                           },
+                             "material_losses_vs_baseline":  [
+
+                                                             ]
+                         },
+                         {
+                             "candidate_id":  "qe_dwarf_auditor_gpt-5.5_medium",
+                             "model":  "gpt-5.5",
+                             "reasoning_effort":  "medium",
+                             "species":  "dwarf",
+                             "class":  "auditor",
+                             "quality_class":  "minimum_viable_pass",
+                             "output_quality_score":  89,
+                             "baseline_relative_quality":  0.89,
+                             "telemetry":  {
+                                               "candidate_id":  "qe_dwarf_auditor_gpt-5.5_medium",
+                                               "workflow_id":  "simulator_policy_packet_v0",
+                                               "model":  "gpt-5.5",
+                                               "reasoning_effort":  "medium",
+                                               "species":  "dwarf",
+                                               "class":  "auditor",
+                                               "input_tokens":  17254,
+                                               "cached_input_tokens":  7552,
+                                               "output_tokens":  1859,
+                                               "reasoning_output_tokens":  34,
+                                               "wall_time_seconds":  37.514,
+                                               "exit_code":  0,
+                                               "telemetry_source":  "codex_exec_json_cli_proxy"
+                                           },
+                             "material_losses_vs_baseline":  [
+                                                                 "Downstream handoff is aggregated and less explicit than the xhigh baseline for blocked runtime/source handoff paths.",
+                                                                 "Completion state lacks the baseline-style explicit open blocker list."
+                                                             ]
+                         }
+                     ],
+    "limitations":  [
+                        "quality_source is cli_only_calibration because isolated subagent runner was unavailable",
+                        "telemetry is CLI proxy telemetry for actual gpt-5.5 candidates",
+                        "no exact subagent token telemetry"
+                    ]
+}

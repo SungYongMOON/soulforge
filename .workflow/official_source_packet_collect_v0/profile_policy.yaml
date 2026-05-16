@@ -1,30 +1,85 @@
 workflow_id: official_source_packet_collect_v0
 kind: workflow_profile_policy
-status: draft
-calibration_mode: uncalibrated_contract_package
+status: active
+last_calibration_id: cal_20260515_quality_equiv_001
+calibration_mode: cli_only_quality_equivalence_calibration
 measurement_policy:
-  quality_source: not_yet_measured
-  telemetry_source: not_yet_measured
+  quality_source: cli_only_calibration
+  telemetry_source: codex_exec_json_cli_proxy_gpt_5_5_candidates
   subagent_token_usage_available: false
   telemetry_exact_for_subagent: false
-  cost_confidence: unknown
+  cost_confidence: relative_not_exact
 primary_profile:
-  model: null
-  reasoning_effort: null
-  species: null
-  class: null
-  candidate_id: null
-  quality_gate: pending_profile_calibration
-shadow_top_k: []
+  model: gpt-5.5
+  reasoning_effort: low
+  species: elf
+  class: archivist
+  candidate_id: qe_gpt_5_5_low_elf_archivist
+  measured_tokens:
+    input_tokens: 15769
+    cached_input_tokens: 7552
+    output_tokens: 1475
+    reasoning_output_tokens: 16
+    telemetry_source: codex_exec_json_cli_proxy
+  wall_time_seconds: 35.145
+  quality_score: 92
+  quality_class: quality_equivalent_pass
+  baseline_relative_quality: 0.92
+  quality_gate: quality_equivalent_pass
+  rationale: Revised 2026-05-15 calibration selected this gpt-5.5 candidate as the
+    lowest-token/fast-enough profile among candidates that passed the hard gate,
+    scored at least 90/100, and reached at least 90% of the gpt-5.5/xhigh
+    baseline on the frozen public-safe fixture.
+shadow_top_k:
+  - rank: 2
+    candidate_id: qe_gpt_5_5_xhigh_elf_archivist
+    model: gpt-5.5
+    reasoning_effort: xhigh
+    species: elf
+    class: archivist
+    output_tokens: 2155
+    reasoning_output_tokens: 516
+    wall_time_seconds: 42.49
+    quality_score: 100
+    quality_class: quality_equivalent_pass
+    baseline_relative_quality: 1
+    note: Quality-equivalent shadow from the 2026-05-15 cli_only_calibration matrix.
+  - rank: 3
+    candidate_id: qe_gpt_5_5_medium_elf_archivist
+    model: gpt-5.5
+    reasoning_effort: medium
+    species: elf
+    class: archivist
+    output_tokens: 2278
+    reasoning_output_tokens: 22
+    wall_time_seconds: 44.658
+    quality_score: 92
+    quality_class: quality_equivalent_pass
+    baseline_relative_quality: 0.92
+    note: Quality-equivalent shadow from the 2026-05-15 cli_only_calibration matrix.
+rejected_or_non_primary_notes:
+  - Previous primary and shadow profiles were included as carried-forward
+    comparison evidence when present, but only actual gpt-5.5 low/medium/xhigh
+    candidates were rerun in this CLI-only fallback.
+  - minimum_viable_pass candidates are not eligible for primary promotion under
+    the revised quality-equivalence policy.
 rerun_triggers:
-  - source_state_contract_changes
-  - source_packet_bundle_template_changes
-  - materials_packet_handoff_contract_changes
-  - layout_guide_source_gap_contract_changes
-  - simulation_or_ecad_model_source_requirements_are_added
-  - first_profile_calibration_run
-  - owner_approves_new_local_source_reuse_policy
+  - source_state_contract changes
+  - source_packet_bundle template changes
+  - materials/layout/simulation/ecad/harness source requirements change
+  - owner approves new local source reuse policy
+  - primary profile fails a future public-safe fixture quality gate
+  - model availability, pricing, or latency materially changes
+calibration_archive_ref: calibrations/cal_20260515_quality_equiv_001/
 notes:
-  - The package has a controlled private mixed-state pilot, but it still has no calibrated execution profile.
-  - Bind model, reasoning, party, search, download, and local-file handling per project until public-safe calibration evidence exists.
-  - Do not call this usable or production-ready until profile calibration and independent boundary review pass.
+  - Calibration used an existing public-safe fixture when present; otherwise it
+    used a small public-safe synthetic fixture derived from the workflow
+    contract.
+  - Isolated subagent/candidate-runner tooling was unavailable in this runtime,
+    so the archive is explicitly labeled cli_only_calibration.
+  - CLI telemetry is proxy telemetry for these CLI candidates and does not claim
+    exact subagent token usage.
+  - Candidate prompts did not receive the gpt-5.5/xhigh golden output.
+  - No raw XML, raw MDD, vendor payloads, runtime absolute paths, credentials,
+    cookies, private-state data, or project-local run truth are stored in the
+    public archive.

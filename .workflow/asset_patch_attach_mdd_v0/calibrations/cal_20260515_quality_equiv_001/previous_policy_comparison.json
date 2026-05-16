@@ -1,0 +1,13 @@
+{
+  "workflow_id": "asset_patch_attach_mdd_v0",
+  "previous_policy": {
+    "status": "draft",
+    "last_calibration_id": null,
+    "calibration_mode": null,
+    "primary_profile": null,
+    "shadow_top_k": [],
+    "parse_status": "parsed",
+    "parse_error": null,
+    "raw_excerpt": null
+  }
+}

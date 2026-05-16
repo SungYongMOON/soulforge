@@ -1,0 +1,15 @@
+{
+    "workflow_id":  "simulator_policy_packet_v0",
+    "calibration_id":  "cal_20260515_quality_equiv_001",
+    "reviewer":  "codex_current_session_manual_review",
+    "review_status":  "accepted_for_cli_only_calibration",
+    "overfit_to_golden_wording":  false,
+    "critical_conditions_missing":  [
+
+                                    ],
+    "notes":  [
+                  "Criteria were frozen from workflow contract and synthetic fixture shape before promotion decision.",
+                  "Candidate prompts did not include golden output or evaluator criteria.",
+                  "gpt-5.5 low, medium, and xhigh candidates were actually run."
+              ]
+}

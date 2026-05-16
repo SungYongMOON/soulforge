@@ -1,0 +1,26 @@
+workflow_id: ouroboros_strategic_review_harness_v0
+kind: role_slots
+status: active
+slots:
+  - slot_id: harness_runner
+    summary: owns intake, scope binding, review window selection, and final report routing
+  - slot_id: reality_curator
+    summary: gathers recent canon, mission, workflow, skill, review, and night_watch evidence without treating private notes as public truth
+  - slot_id: vision_reviewer
+    summary: compares current work against vision, roadmap, active slice, and non-goals
+  - slot_id: intent_gap_probe
+    summary: finds uncanonized assumptions, undefined owner terms, missing constraints, and authority gaps
+  - slot_id: ambiguity_keeper
+    summary: maintains a dimension ledger so the run targets the weakest answerable uncertainty instead of dumping every gap on the owner
+  - slot_id: question_router
+    summary: classifies each candidate question as repo_fact, owner_decision, research_confirmation, or defer before it reaches the owner
+  - slot_id: question_forge
+    summary: converts only owner-decision gaps into concise option-shaped questions with evidence, decision surfaces, and safe defaults
+  - slot_id: closure_reviewer
+    summary: restates answered owner decisions as one-sentence closure candidates before downstream routing
+  - slot_id: canon_router
+    summary: routes answered or repeated gaps toward vision, roadmap, mission, workflow, skill, ontology, or private evidence owners
+  - slot_id: supervisor
+    summary: decides the next-focus recommendation and whether the run is accepted, needs follow-up, blocked, or owner-decision-required
+  - slot_id: evidence_archivist
+    summary: writes applied reports and loop ledger to the correct private evidence surface

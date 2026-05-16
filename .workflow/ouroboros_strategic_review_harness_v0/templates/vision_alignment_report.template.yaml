@@ -1,0 +1,23 @@
+vision_alignment_report:
+  workflow_id: ouroboros_strategic_review_harness_v0
+  review_window: null
+  alignment_summary:
+    status: aligned | minor_drift | major_drift | blocked
+    confidence: low | medium | high
+    one_line: null
+  checked_refs:
+    vision_refs: []
+    roadmap_refs: []
+    active_slice_refs: []
+    recent_work_refs: []
+  findings:
+    - finding_id: null
+      severity: info | minor | major | blocker
+      type: active_slice_drift | overbuild | underdefined_direction | owner_boundary_risk | non_goal_pressure
+      evidence_refs: []
+      explanation: null
+      recommended_action: null
+  keep_doing:
+    - null
+  stop_or_hold:
+    - null

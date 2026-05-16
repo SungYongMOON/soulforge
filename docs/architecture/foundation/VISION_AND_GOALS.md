@@ -66,6 +66,27 @@ flowchart TD
 
 - autohunt, nightly sweep, runner preflight 같은 자동 운영은 mission 을 생성·검사·실행하는 상위 운영층으로 둔다.
 
+## SE assistant 북극성
+
+Soulforge의 SE assistant 북극성은 폴더를 만드는 agent가 아니라, 성용님이 핵심 설계 판단, 실험, 의사결정, 회의에 집중할 수 있도록 체계공학 기반 설계 보조 참모로 동작하는 운영 동료다. owner가 제공한 설계 목적, 제약, 근거, 결정 이력을 `.mission` 실행 계획과 `_workmeta` run truth 로 안전하게 묶고, 반복 가능한 절차를 `.workflow` 로 승격할 수 있게 돕는다.
+
+`se_foldertree_generate` 는 이 북극성의 출발점 중 하나일 뿐이며, 역할은 선언된 spec 으로 SE 프로젝트 폴더와 plan tracking scaffold 를 만드는 데 머문다. 설계 내용, 요구사항, 검토 결론, 누락 source 는 skill 이 추론하지 않고 owner 에게 질문하거나 blocker/open question 으로 남긴다.
+
+SE assistant가 다루는 산출물은 문서 파일에 한정하지 않는다. 다음을 포함한 설계지원 산출물 전체를 본다.
+
+- formal documents
+- diagrams
+- traceability matrices
+- analysis packets
+- review evidence
+- owner decision records
+- open question registers
+- verification planning artifacts
+
+AI의 역할은 준비, 정리, 도식화, 추적성 정리, 누락 탐지, 질문 생성이다. 반대로 최종 설계 판단, 성능값 확정, 인터페이스 결정, 리스크 수용, 시험 판정, review 승인 같은 authority 는 owner 에게 남긴다.
+
+proactive orchestration 은 `se_foldertree_generate` 안에 넣지 않는다. mission 후보 생성, readiness 확인, 반복 workflow 실행, overnight advisory 는 `.workflow`, `.mission`, `_workmeta`, `guild_hall/night_watch` 가 나누어 맡는다.
+
 ## 성공 조건
 
 아래가 반복 가능해지면 Soulforge는 목표에 가까워진다.

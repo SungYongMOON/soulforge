@@ -1,0 +1,82 @@
+schema_version: se_template_registry_v0
+kind: structure_only_template_registry
+status: advisory
+notes:
+  - These are structure-only team draft stubs.
+  - They do not by themselves claim DAPA, customer, contract, or military-standard compliance.
+  - Exact wording, formulas, tables, figures, acceptance criteria, and submission rules require direct source review.
+templates:
+  - template_id: common_document_identity
+    match_all: true
+    terms: []
+    seed_subfolder: 00_Temp
+    output_filename: 00_document_identity.md
+    source_file: common/document_identity.md
+  - template_id: common_source_ledger
+    match_all: true
+    terms: []
+    seed_subfolder: 00_Temp
+    output_filename: 01_source_ledger.md
+    source_file: common/source_ledger.md
+  - template_id: common_review_action_log
+    match_all: true
+    terms: []
+    seed_subfolder: 00_Temp
+    output_filename: 02_review_action_log.md
+    source_file: common/review_action_log.md
+  - template_id: ssdd_structure_only_draft
+    terms: [SSDD]
+    seed_subfolder: 00_Temp
+    output_filename: ssdd_structure_only_draft.md
+    source_file: se/ssdd_structure_only_draft.md
+  - template_id: hdd_structure_only_draft
+    terms: [HDD]
+    seed_subfolder: 00_Temp
+    output_filename: hdd_structure_only_draft.md
+    source_file: se/hdd_structure_only_draft.md
+  - template_id: sdd_structure_only_draft
+    terms: [SDD]
+    seed_subfolder: 00_Temp
+    output_filename: sdd_structure_only_draft.md
+    source_file: se/sdd_structure_only_draft.md
+  - template_id: dbdd_structure_only_draft
+    terms: [DBDD]
+    seed_subfolder: 00_Temp
+    output_filename: dbdd_structure_only_draft.md
+    source_file: se/dbdd_structure_only_draft.md
+  - template_id: icd_structure_only_draft
+    terms: [ICD, ICD Final]
+    seed_subfolder: 00_Temp
+    output_filename: icd_structure_only_draft.md
+    source_file: se/icd_structure_only_draft.md
+  - template_id: idd_structure_only_draft
+    terms: [IDD]
+    seed_subfolder: 00_Temp
+    output_filename: idd_structure_only_draft.md
+    source_file: se/idd_structure_only_draft.md
+  - template_id: rtm_traceability_matrix
+    terms: [RTM]
+    seed_subfolder: 00_Temp
+    output_filename: rtm_traceability_matrix.md
+    source_file: se/rtm_traceability_matrix.md
+  - template_id: temp_structure_only_draft
+    terms: [TEMP]
+    seed_subfolder: 00_Temp
+    output_filename: temp_structure_only_draft.md
+    source_file: se/temp_structure_only_draft.md
+  - template_id: stp_structure_only_draft
+    terms: [STP]
+    seed_subfolder: 00_Temp
+    output_filename: stp_structure_only_draft.md
+    source_file: se/stp_structure_only_draft.md
+  - template_id: daily_experiment_log_template
+    match_all: true
+    terms: []
+    seed_subfolder: 00_Temp
+    output_filename: daily_experiment_log_template.md
+    source_file: common/daily_experiment_log_template.md
+  - template_id: pdr_stage_deliverable_checklist
+    terms: [HDD, SDD, SSDD, RTM, TEMP, ICD, IDD]
+    seed_subfolder: 00_Temp
+    output_filename: pdr_stage_deliverable_checklist.md
+    source_file: se/pdr_stage_deliverable_checklist.md

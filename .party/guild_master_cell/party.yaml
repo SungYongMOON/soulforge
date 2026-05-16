@@ -2,12 +2,15 @@ party_id: guild_master_cell
 kind: party_template
 status: active
 title: Guild Master Cell
-summary: Canonical party template for deciding when a request becomes a reusable skill package and carrying it through review handoff.
+summary: Canonical party template for deciding when a request becomes a reusable skill package, needs post-development review handoff, or should enter strategic vision/gap review.
 default_workflow_id: author_skill_package
 preferred_monster_types:
   - skill_authoring_request
   - skill_revision_request
   - skill_boundary_review_request
+  - post_development_review_request
+  - strategic_review_request
+  - owner_intent_gap_probe_request
 member_slots: member_slots.yaml
 allowed_species: allowed_species.yaml
 allowed_classes: allowed_classes.yaml

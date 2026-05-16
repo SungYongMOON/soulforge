@@ -1,0 +1,107 @@
+workflow_id: sourcebound_knowledge_packet_operating_loop_v0
+kind: workflow
+status: active
+title: Sourcebound Knowledge Packet Operating Loop v0
+summary: Operate a Karpathy-style source-bound knowledge packet loop from approved source intake through private compiled projection, contradiction/gap lint, concept-candidate extraction, claim ceiling review, optional advisory bookshelf handoff, and workflowization routing.
+entrypoint: run
+execution_mode: local_tool_sequence
+role_slots: role_slots.yaml
+step_graph: step_graph.yaml
+handoff_rules: handoff_rules.yaml
+monster_rules: monster_rules.yaml
+party_compatibility: party_compatibility.yaml
+profile_policy: profile_policy.yaml
+inputs:
+  - source_scope_binding
+  - approved_source_policy
+  - knowledge_packet_scope
+  - promotion_policy
+optional_inputs:
+  - source_packet_refs
+  - owner_approved_local_source_manifest
+  - prior_projection_refs
+  - source_sufficiency_refs
+  - owner_decision_refs
+outputs:
+  - source_intake_manifest
+  - sourcebound_knowledge_packet_manifest
+  - compiled_projection_index
+  - compiled_projection_log
+  - contradiction_gap_lint_report
+  - concept_candidate_register
+  - claim_ceiling_and_promotion_route
+  - optional_notebooklm_advisory_handoff
+  - workflowization_review_packet
+  - boundary_review_note
+validation_level: pilot_executed_private_evidence
+registration_policy: owner_requested_registration
+upstream_workflows:
+  - workflow_id: official_source_packet_collect_v0
+    expected_outputs:
+      - source_packet_manifest
+      - source_inventory
+      - source_gap_report
+      - owner_followup_needed
+    status: preferred_source_intake
+  - workflow_id: source_packet_sufficiency_review_v0
+    expected_outputs:
+      - allowed_claim_ceiling
+      - blocked_fields_register
+      - owner_followup_needed
+    status: preferred_claim_ceiling_context
+downstream_workflows:
+  - workflow_id: knowledge_access_event_capture_v0
+    expected_input: sourcebound_knowledge_packet_manifest_or_concept_candidate_refs
+    status: optional_usage_lineage_capture
+  - workflow_id: source_packet_sufficiency_review_v0
+    expected_input: contradiction_gap_lint_report_or_source_gap
+    status: optional_rerun_trigger
+  - workflow_id: owner_decision_packet_v0
+    expected_input: ontology_or_workflow_promotion_owner_decision_needed
+    status: optional_owner_decision
+  - workflow_id: post_development_review_gate_v0
+    expected_input: workflowization_review_packet
+    status: required_before_public_or_canon_promotion
+operating_contract:
+  owns:
+    - sourcebound_knowledge_packet_shape
+    - private_compiled_projection_index_log_shape
+    - contradiction_gap_lint_shape
+    - concept_candidate_register_shape
+    - claim_ceiling_and_promotion_route_shape
+    - optional_advisory_handoff_shape
+    - workflowization_review_packet_shape
+  does_not_own:
+    - raw_source_truth
+    - source_acquisition_authority
+    - final_domain_doctrine
+    - ontology_canon_acceptance
+    - workflow_canon_acceptance_without_review
+    - NotebookLM_or_other_advisory_tool_verdicts
+  boundaries:
+    source_truth_lives_in_source_packets_or_owner_held_files: true
+    knowledge_packet_is_private_derivative_projection: true
+    projection_index_log_are_navigation_not_authority: true
+    concept_candidates_require_source_refs_or_blockers: true
+    claim_ceiling_controls_promotion_route: true
+    notebooklm_handoff_is_optional_owner_operated_and_advisory_only: true
+    workflowization_requires_review_gate_or_owner_decision: true
+  required_output_shapes:
+    project_binding: templates/project_binding.template.yaml
+    knowledge_packet_manifest: templates/knowledge_packet_manifest.template.yaml
+    contradiction_gap_lint_report: templates/contradiction_gap_lint_report.template.yaml
+    concept_candidate_register: templates/concept_candidate_register.template.yaml
+    claim_ceiling_and_promotion_route: templates/claim_ceiling_and_promotion_route.template.yaml
+    notebooklm_advisory_handoff: templates/notebooklm_advisory_handoff.template.yaml
+    workflowization_review_packet: templates/workflowization_review_packet.template.yaml
+karpathy_style_interpretation: >-
+  The workflow adopts the LLM-wiki pattern as an operating loop: ingest bounded
+  source refs, compile a private projection, maintain index/log/query surfaces,
+  lint contradictions and gaps, then extract cited concept candidates. In
+  Soulforge, this layer is useful because it makes source reasoning repeatable,
+  but it never replaces source packets, owner decisions, or review gates.
+notes:
+  - Public package files contain only portable orchestration rules and blank templates.
+  - Runtime source payloads, copied documents, extracted text, hashes for private files, and project-local run truth belong only in private/project-local evidence.
+  - Optional NotebookLM or similar handoff is preparation metadata only; the tool answer is advisory context, never acceptance authority.
+  - This package is not profile-optimized and does not claim production readiness.

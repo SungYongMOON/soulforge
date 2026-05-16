@@ -1,0 +1,41 @@
+calibration_id: cal_20260515_quality_equiv_001
+workflow_id: page_xml_normalize_spec_v0
+kind: workflow_profile_calibration
+created_at: 2026-05-15T04:22:33.089Z
+fixture_type: public_safe_downstream_structural_metadata_from_prior_split_calibration_with_contract_refresh
+execution_mode: cli_only_calibration
+runtime_status: isolated_subagent_unavailable_cli_fallback_used
+baseline_profile:
+  model: gpt-5.5
+  reasoning_effort: xhigh
+  species: elf
+  class: auditor
+candidate_matrix:
+  - candidate_id: qe_gpt_5_5_low_elf_auditor
+    model: gpt-5.5
+    reasoning_effort: low
+    species: elf
+    class: auditor
+    run_status: completed
+  - candidate_id: qe_gpt_5_5_medium_elf_auditor
+    model: gpt-5.5
+    reasoning_effort: medium
+    species: elf
+    class: auditor
+    run_status: completed
+  - candidate_id: qe_gpt_5_5_xhigh_elf_auditor
+    model: gpt-5.5
+    reasoning_effort: xhigh
+    species: elf
+    class: auditor
+    run_status: completed
+previous_primary_and_shadows_included: true
+quality_policy: quality_equivalent_pass required for primary;
+  minimum_viable_pass cannot promote
+recommendation_status: quality_equivalent_calibrated
+archive_public_safe: true
+boundary_notes:
+  - Fixture is public-safe synthetic or existing public-safe structural metadata.
+  - Candidate prompts did not include golden output.
+  - No raw XML/MDD/vendor payloads, runtime absolute paths, credentials,
+    cookies, private-state data, or _workspaces outputs are archived.

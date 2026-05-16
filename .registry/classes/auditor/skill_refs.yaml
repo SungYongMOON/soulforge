@@ -8,6 +8,9 @@ assign:
   - assign: boundary_review
     ref: skill_check
     summary: Test canon ownership, executor bridge, and runtime bindings before acceptance.
+  - assign: post_development_gate
+    ref: post_development_review_gate
+    summary: Inspect completed bounded work with the registered post-development review gate before acceptance.
   - assign: readiness_gate
     ref: mission_check
     summary: Confirm that a mission or package is truly bounded before release.

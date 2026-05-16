@@ -1,0 +1,43 @@
+{
+  "workflow_id": "official_source_packet_collect_v0",
+  "calibration_id": "cal_20260515_quality_equiv_001",
+  "policy": "quality_equivalence_revised_20260515",
+  "baseline_profile": {
+    "model": "gpt-5.5",
+    "reasoning_effort": "xhigh",
+    "species": "elf",
+    "class": "archivist"
+  },
+  "hard_gates": [
+    "public/private/secret boundary pass",
+    "required output shape present",
+    "no command/file/network claims",
+    "no golden-derived content in candidate prompt"
+  ],
+  "required_keys": [
+    "packet_identity",
+    "identifier_inventory",
+    "source_inventory",
+    "source_gap_report",
+    "owner_followup_needed",
+    "download_or_reuse_manifest",
+    "downstream_ready_refs",
+    "boundary_notes"
+  ],
+  "must_mentions": [
+    "official_present",
+    "owner_approved_local",
+    "missing",
+    "blocked",
+    "candidate_official",
+    "approved_for_executor",
+    "false",
+    "owner follow-up",
+    "no payloads",
+    "downstream_ready_refs"
+  ],
+  "classification": {
+    "quality_equivalent_pass": "hard gate pass, score >= 90, score >= 90% of gpt-5.5/xhigh baseline, no material required-section loss",
+    "minimum_viable_pass": "safe and usable with meaningful quality or machine-readability loss"
+  }
+}

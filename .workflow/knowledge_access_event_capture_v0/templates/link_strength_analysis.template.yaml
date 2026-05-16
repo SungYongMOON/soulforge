@@ -1,0 +1,27 @@
+workflow_id: knowledge_access_event_capture_v0
+kind: link_strength_analysis
+schema_version: v0
+status: draft
+analysis_id: "<analysis_id>"
+source_event_log_ref: "<normalized_access_event_log_ref>"
+source_usage_rollup_ref: "<usage_rollup_ref>"
+link_candidates:
+  - edge_ref: "<edge_ref>"
+    from_ref: "<actor_context_or_knowledge_ref>"
+    to_ref: "<knowledge_ref>"
+    relation_type: uses
+    strength_candidate: review_required
+    confidence_0_to_3: null
+    evidence_event_refs: []
+    blocker_or_note: null
+orphan_candidates:
+  - knowledge_ref: "<knowledge_ref>"
+    reason: "<reason>"
+    evidence_refs: []
+redundancy_candidates:
+  - primary_knowledge_ref: "<knowledge_ref>"
+    redundant_with_refs: []
+    evidence_event_refs: []
+strength_semantics:
+  graph_weight_is_navigation_signal_not_truth_score: true
+  redundancy_requires_review_before_archive_or_retire: true

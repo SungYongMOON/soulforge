@@ -1,0 +1,3 @@
+{"candidate_id":"qe_gpt_5_5_low_dwarf_administrator","quality_class":"quality_equivalent_pass","usage":{"input_tokens":15315,"cached_input_tokens":14720,"output_tokens":433,"reasoning_output_tokens":16},"wall_time_seconds":11.732}
+{"candidate_id":"qe_gpt_5_5_medium_dwarf_administrator","quality_class":"quality_equivalent_pass","usage":{"input_tokens":15315,"cached_input_tokens":14720,"output_tokens":554,"reasoning_output_tokens":26},"wall_time_seconds":16.043}
+{"candidate_id":"qe_gpt_5_5_xhigh_dwarf_administrator","quality_class":"quality_equivalent_pass","usage":{"input_tokens":15315,"cached_input_tokens":7552,"output_tokens":905,"reasoning_output_tokens":516},"wall_time_seconds":20.548}

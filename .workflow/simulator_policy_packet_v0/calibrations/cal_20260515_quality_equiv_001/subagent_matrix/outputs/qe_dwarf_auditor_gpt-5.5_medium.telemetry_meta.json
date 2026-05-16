@@ -1,0 +1,11 @@
+{
+    "telemetry_source":  "codex_exec_json_cli_proxy",
+    "species":  "dwarf",
+    "exit_code":  0,
+    "candidate_id":  "qe_dwarf_auditor_gpt-5.5_medium",
+    "reasoning_effort":  "medium",
+    "wall_time_seconds":  37.514,
+    "class":  "auditor",
+    "model":  "gpt-5.5",
+    "workflow_id":  "simulator_policy_packet_v0"
+}

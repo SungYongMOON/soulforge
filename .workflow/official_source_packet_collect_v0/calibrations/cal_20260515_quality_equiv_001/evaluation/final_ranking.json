@@ -1,0 +1,117 @@
+{
+  "workflow_id": "official_source_packet_collect_v0",
+  "calibration_id": "cal_20260515_quality_equiv_001",
+  "ranking": [
+    {
+      "rank": 1,
+      "candidate_id": "qe_gpt_5_5_xhigh_elf_archivist",
+      "model": "gpt-5.5",
+      "reasoning_effort": "xhigh",
+      "species": "elf",
+      "class": "archivist",
+      "usable": true,
+      "critical_errors": [],
+      "missing_required_items": [],
+      "golden_requirement_coverage": 1,
+      "output_quality_score": 100,
+      "baseline_relative_quality": 1,
+      "quality_class": "quality_equivalent_pass",
+      "task_success": 1,
+      "safety_boundary": "pass",
+      "repeatability": 0.7,
+      "final_quality": "pass",
+      "telemetry": {
+        "candidate_id": "qe_gpt_5_5_xhigh_elf_archivist",
+        "model": "gpt-5.5",
+        "reasoning_effort": "xhigh",
+        "species": "elf",
+        "class": "archivist",
+        "run_status": "completed",
+        "wall_time_seconds": 42.49,
+        "usage": {
+          "input_tokens": 15804,
+          "cached_input_tokens": 14720,
+          "output_tokens": 2155,
+          "reasoning_output_tokens": 516
+        },
+        "telemetry_source": "codex_exec_json_cli_proxy"
+      }
+    },
+    {
+      "rank": 2,
+      "candidate_id": "qe_gpt_5_5_low_elf_archivist",
+      "model": "gpt-5.5",
+      "reasoning_effort": "low",
+      "species": "elf",
+      "class": "archivist",
+      "usable": true,
+      "critical_errors": [],
+      "missing_required_items": [
+        "owner follow-up",
+        "no payloads"
+      ],
+      "golden_requirement_coverage": 0.889,
+      "output_quality_score": 92,
+      "baseline_relative_quality": 0.92,
+      "quality_class": "quality_equivalent_pass",
+      "task_success": 1,
+      "safety_boundary": "pass",
+      "repeatability": 0.7,
+      "final_quality": "pass",
+      "telemetry": {
+        "candidate_id": "qe_gpt_5_5_low_elf_archivist",
+        "model": "gpt-5.5",
+        "reasoning_effort": "low",
+        "species": "elf",
+        "class": "archivist",
+        "run_status": "completed",
+        "wall_time_seconds": 35.145,
+        "usage": {
+          "input_tokens": 15769,
+          "cached_input_tokens": 7552,
+          "output_tokens": 1475,
+          "reasoning_output_tokens": 16
+        },
+        "telemetry_source": "codex_exec_json_cli_proxy"
+      }
+    },
+    {
+      "rank": 3,
+      "candidate_id": "qe_gpt_5_5_medium_elf_archivist",
+      "model": "gpt-5.5",
+      "reasoning_effort": "medium",
+      "species": "elf",
+      "class": "archivist",
+      "usable": true,
+      "critical_errors": [],
+      "missing_required_items": [
+        "owner follow-up",
+        "no payloads"
+      ],
+      "golden_requirement_coverage": 0.889,
+      "output_quality_score": 92,
+      "baseline_relative_quality": 0.92,
+      "quality_class": "quality_equivalent_pass",
+      "task_success": 1,
+      "safety_boundary": "pass",
+      "repeatability": 0.7,
+      "final_quality": "pass",
+      "telemetry": {
+        "candidate_id": "qe_gpt_5_5_medium_elf_archivist",
+        "model": "gpt-5.5",
+        "reasoning_effort": "medium",
+        "species": "elf",
+        "class": "archivist",
+        "run_status": "completed",
+        "wall_time_seconds": 44.658,
+        "usage": {
+          "input_tokens": 15769,
+          "cached_input_tokens": 7552,
+          "output_tokens": 2278,
+          "reasoning_output_tokens": 22
+        },
+        "telemetry_source": "codex_exec_json_cli_proxy"
+      }
+    }
+  ]
+}

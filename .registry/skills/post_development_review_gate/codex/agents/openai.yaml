@@ -1,0 +1,7 @@
+interface:
+  display_name: "Post-development Review Gate"
+  short_description: "Close Soulforge work through the Level 0-3 review gate."
+  default_prompt: "Use $soulforge-post-development-review-gate to close this Soulforge task with the registered post-development review workflow, validator results, boundary checks, and a supervisor decision."
+
+policy:
+  allow_implicit_invocation: true

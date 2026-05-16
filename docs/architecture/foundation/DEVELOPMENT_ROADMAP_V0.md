@@ -38,6 +38,41 @@ read-only snapshot
 - 상태 해석: 구조와 세계관은 충분하지만, 한 화면에서 `monster -> mission -> battle log -> promotion` 을 돌리는 루프가 아직 얇다.
 - 판단: gateway 확대, 세계관 detail, 자동화 승급, OpenClaw bridge 보다 read-only snapshot 과 작전판 v0 가 먼저다.
 
+## SE assistant program direction
+
+이 program lane 은 `snapshot_to_operation_board_v0` 를 대체하지 않는다. 현재 active slice 는 read-only snapshot 과 작전판 v0 로 유지하고, SE assistant 는 그 snapshot 이 안정된 뒤 project work 를 더 잘 굴리기 위한 후속 방향으로 둔다.
+
+핵심 owner 분리:
+
+- `se_foldertree_generate` 는 supported input matrix, dry-run, manifest/progress/index 생성만 담당하는 scaffold skill 로 고정한다.
+- project-specific context, schedule, missing inputs, owner backlog, daily digest 는 `_workmeta/<project_code>/` 와 `.mission/<mission_id>/` 가 소유한다.
+- reusable stage-aware procedure 는 `.workflow/` 로 올리고, cross-project advisory 와 야간 감시는 `guild_hall/night_watch` 로 붙인다.
+
+추천 build order:
+
+1. `se_foldertree_generate` 를 단순 scaffold skill 로 고정하고, business type / contractor / quality grade 별 supported input matrix 만 유지한다.
+2. 폴더 생성 이후 owner 가 제공한 project brief, 설계 목적, 제약, source 위치를 `.mission` 후보와 `_workmeta/<project_code>/reports/**` evidence 로 묶는다.
+3. official source intake, standards extraction, sufficiency review 를 묶어 stage 별 source/규격 packet 흐름을 먼저 안정화한다.
+4. stage/gate 기준으로 필요한 설계지원 산출물, 필수 입력, owner 질문, blocker 를 정리하는 `se_stage_artifact_preparation` 계열 workflow 를 만든다.
+5. draft packet, checklist seed, diagram handoff, traceability seed, review readiness digest 를 연결해 산출물 초안 준비와 누락 항목 경고를 분리된 workflow 로 만든다.
+6. `guild_hall/night_watch` 는 active/blocked mission, owner 질문, source gap, promotion candidate 를 밤 사이 요약하는 advisory 로 붙이고, final readiness/승격 판정은 owner lane 에 남긴다.
+
+SE assistant 불변 조건:
+
+- 요구사항, 설계 수치, 검토 결론이 비어 있으면 추론으로 채우지 않고 owner question 또는 blocker 로 남긴다.
+- 팀 템플릿 기반 draft 는 만들 수 있어도, source-backed required content 와 owner decision 이 없는 항목은 미완으로 표시한다.
+- 산출물 본문 작성과 readiness 판정은 foldertree generator 안에 넣지 않고, 상위 workflow/mission orchestration 으로 분리한다.
+
+`artifact` 의미:
+
+- 문서 파일만 뜻하지 않는다.
+- formal documents, diagrams, traceability matrices, analysis packets, review evidence, owner decision records, open question registers, verification planning artifacts 를 모두 포함한다.
+
+first workflow posture:
+
+- 첫 workflow 는 문서 작성기가 아니라 `design-support gap scan` 이다.
+- 현재 stage 에서 필요한 문서, 도식, 분석, trace, review evidence 중 무엇이 있는지, 없는지, AI가 초안 가능한지, owner input이 필요한지 판정하는 데 집중한다.
+
 ## Active Slice 001
 
 ### 이름

@@ -1,0 +1,117 @@
+{
+  "workflow_id": "page_xml_normalize_spec_v0",
+  "calibration_id": "cal_20260515_quality_equiv_001",
+  "ranking": [
+    {
+      "rank": 1,
+      "candidate_id": "qe_gpt_5_5_low_elf_auditor",
+      "model": "gpt-5.5",
+      "reasoning_effort": "low",
+      "species": "elf",
+      "class": "auditor",
+      "usable": true,
+      "critical_errors": [],
+      "missing_required_items": [
+        "project-local"
+      ],
+      "golden_requirement_coverage": 0.929,
+      "output_quality_score": 96,
+      "baseline_relative_quality": 1,
+      "quality_class": "quality_equivalent_pass",
+      "task_success": 1,
+      "safety_boundary": "pass",
+      "repeatability": 0.7,
+      "final_quality": "pass",
+      "telemetry": {
+        "candidate_id": "qe_gpt_5_5_low_elf_auditor",
+        "model": "gpt-5.5",
+        "reasoning_effort": "low",
+        "species": "elf",
+        "class": "auditor",
+        "run_status": "completed",
+        "wall_time_seconds": 29.176,
+        "usage": {
+          "input_tokens": 15702,
+          "cached_input_tokens": 7552,
+          "output_tokens": 1385,
+          "reasoning_output_tokens": 13
+        },
+        "telemetry_source": "codex_exec_json_cli_proxy"
+      }
+    },
+    {
+      "rank": 2,
+      "candidate_id": "qe_gpt_5_5_medium_elf_auditor",
+      "model": "gpt-5.5",
+      "reasoning_effort": "medium",
+      "species": "elf",
+      "class": "auditor",
+      "usable": true,
+      "critical_errors": [],
+      "missing_required_items": [
+        "project-local"
+      ],
+      "golden_requirement_coverage": 0.929,
+      "output_quality_score": 96,
+      "baseline_relative_quality": 1,
+      "quality_class": "quality_equivalent_pass",
+      "task_success": 1,
+      "safety_boundary": "pass",
+      "repeatability": 0.7,
+      "final_quality": "pass",
+      "telemetry": {
+        "candidate_id": "qe_gpt_5_5_medium_elf_auditor",
+        "model": "gpt-5.5",
+        "reasoning_effort": "medium",
+        "species": "elf",
+        "class": "auditor",
+        "run_status": "completed",
+        "wall_time_seconds": 24.484,
+        "usage": {
+          "input_tokens": 15702,
+          "cached_input_tokens": 7552,
+          "output_tokens": 1124,
+          "reasoning_output_tokens": 36
+        },
+        "telemetry_source": "codex_exec_json_cli_proxy"
+      }
+    },
+    {
+      "rank": 3,
+      "candidate_id": "qe_gpt_5_5_xhigh_elf_auditor",
+      "model": "gpt-5.5",
+      "reasoning_effort": "xhigh",
+      "species": "elf",
+      "class": "auditor",
+      "usable": true,
+      "critical_errors": [],
+      "missing_required_items": [
+        "project-local"
+      ],
+      "golden_requirement_coverage": 0.929,
+      "output_quality_score": 96,
+      "baseline_relative_quality": 1,
+      "quality_class": "quality_equivalent_pass",
+      "task_success": 1,
+      "safety_boundary": "pass",
+      "repeatability": 0.7,
+      "final_quality": "pass",
+      "telemetry": {
+        "candidate_id": "qe_gpt_5_5_xhigh_elf_auditor",
+        "model": "gpt-5.5",
+        "reasoning_effort": "xhigh",
+        "species": "elf",
+        "class": "auditor",
+        "run_status": "completed",
+        "wall_time_seconds": 37.872,
+        "usage": {
+          "input_tokens": 15702,
+          "cached_input_tokens": 7552,
+          "output_tokens": 1874,
+          "reasoning_output_tokens": 516
+        },
+        "telemetry_source": "codex_exec_json_cli_proxy"
+      }
+    }
+  ]
+}

@@ -1,27 +1,66 @@
 workflow_id: configuration_baseline_and_change_control_v0
 kind: workflow_profile_policy
-status: draft
-calibration_mode: uncalibrated_contract_package
+status: active
+last_calibration_id: cal_20260515_quality_equiv_001
+calibration_mode: cli_only_calibration
 measurement_policy:
-  quality_source: not_yet_measured
-  telemetry_source: not_yet_measured
+  quality_source: cli_only_calibration
+  telemetry_source: codex_exec_json_cli_proxy
+  subagent_quality_first_status: blocked_runtime_subagent_unavailable
   subagent_token_usage_available: false
   telemetry_exact_for_subagent: false
-  cost_confidence: unknown
+  cost_confidence: relative_not_exact
 primary_profile:
-  model: null
-  reasoning_effort: null
-  species: null
-  class: null
-  candidate_id: null
-  quality_gate: pending_profile_calibration
-shadow_top_k: []
+  model: gpt-5.5
+  reasoning_effort: low
+  species: dwarf
+  class: auditor
+  candidate_id: qe_dwarf_auditor_gpt-5.5_low
+  quality_gate: pass
+  quality_class: quality_equivalent_pass
+  output_quality_score: 96
+  baseline_relative_quality: 0.96
+  measured_tokens:
+    input_tokens: 17358
+    cached_input_tokens: 14208
+    output_tokens: 2773
+    reasoning_output_tokens: 16
+  wall_time_seconds: 55.017
+  telemetry_source: codex_exec_json_cli_proxy
+  selection_reason: Lowest-cost quality-equivalent candidate preserving baseline inventory, change requests, impacts, draft/checksum/evidence gaps, rerun routing, owner follow-up, and boundary notes.
+shadow_top_k:
+  - rank: 2
+    model: gpt-5.5
+    reasoning_effort: xhigh
+    species: dwarf
+    class: auditor
+    candidate_id: qe_dwarf_auditor_gpt-5.5_xhigh
+    quality_class: quality_equivalent_pass
+    output_quality_score: 100
+    baseline_relative_quality: 1.0
+    output_tokens: 3464
+    reasoning_output_tokens: 516
+    wall_time_seconds: 65.893
+  - rank: 3
+    model: gpt-5.5
+    reasoning_effort: medium
+    species: dwarf
+    class: auditor
+    candidate_id: qe_dwarf_auditor_gpt-5.5_medium
+    quality_class: quality_equivalent_pass
+    output_quality_score: 95
+    baseline_relative_quality: 0.95
+    output_tokens: 3425
+    reasoning_output_tokens: 37
+    wall_time_seconds: 65.288
 rerun_triggers:
   - baseline_inventory_schema_changes
   - change_request_status_rule_changes
   - impact_routing_rule_changes
-  - first_profile_calibration_run
+  - quality_equivalence_policy_changes
+  - isolated_subagent_runner_becomes_available
+calibration_archive_ref: calibrations/cal_20260515_quality_equiv_001/
 notes:
-  - The package now has a controlled private representative baseline/change-control pilot, but it still has no calibrated execution profile.
-  - Bind model, reasoning, party, and boundary handling per project until public-safe calibration evidence exists.
-  - Do not call this usable or production-ready until profile calibration and independent boundary review pass.
+  - Previous policy was draft with no primary profile or shadows.
+  - Actual gpt-5.5 low, medium, and xhigh candidates were run; xhigh was the baseline candidate.
+  - This policy is promoted only as cli_only_calibration because isolated subagent/candidate-runner tooling was unavailable in this runtime.

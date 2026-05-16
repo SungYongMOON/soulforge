@@ -1,0 +1,29 @@
+schema_version: post_development_review_gate_v0.bv_gate_handoff
+review_id: "<review_id>"
+created_at: "<iso8601_timestamp>"
+level_3_trigger:
+  trigger_reasons:
+    - "skill_or_workflow_production_ready_claim | reference_or_oracle_benchmark | canon_promotion | automation_runner_authority_change | external_side_effect_change"
+  claim_to_verify: ""
+acceptance_contract:
+  contract_ref: ""
+  must_pass: []
+  stop_conditions: []
+fresh_executor:
+  required: true
+  context: "fresh_context | blocked"
+  visible_inputs: []
+  hidden_inputs_disallowed: []
+  result_ref: ""
+separate_verifier:
+  required: true
+  context: "fresh_context | blocked"
+  visible_inputs: []
+  oracle_or_reference_policy: "not_applicable | verifier_only | redacted_verdict_only"
+  redacted_verdict_ref: ""
+handoff_result:
+  status: "ready_for_b_v | pass | fail | blocked"
+  missing_evidence: []
+non_claims:
+  - This handoff records B/V requirements and evidence refs; it does not create missing executor or verifier evidence.
+  - This handoff does not expose oracle/reference details to the builder.

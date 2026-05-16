@@ -1,0 +1,36 @@
+{
+  "baseline_profile": "gpt-5.5|xhigh|dwarf|auditor",
+  "baseline_relative_threshold": 0.9,
+  "classification": [
+    "quality_equivalent_pass",
+    "minimum_viable_pass",
+    "fail"
+  ],
+  "expected_output_groups": [
+    "owner_decision_packet",
+    "decision_effect_register",
+    "downstream_effect_map",
+    "boundary_review_note"
+  ],
+  "hard_gates": [
+    "valid JSON final output",
+    "public-safe boundary",
+    "no claimed tool use",
+    "no upstream mutation",
+    "required output groups present"
+  ],
+  "quality_equivalence_threshold": 90,
+  "required_terms": [
+    "owner decision",
+    "scope",
+    "affected",
+    "downstream",
+    "does not prove",
+    "boundary",
+    "evidence basis",
+    "no mutation",
+    "approval",
+    "non-claim"
+  ],
+  "workflow_id": "owner_decision_packet_v0"
+}

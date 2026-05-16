@@ -1,0 +1,35 @@
+{
+  "approved_result_acceptance_policy": "Accept only rows with scoped result artifact and acceptance basis; blocked or inconclusive rows remain explicit.",
+  "expected_output_groups": [
+    "accepted_verification_result_packet",
+    "result_summary",
+    "accepted_result_rows",
+    "blocked_or_inconclusive_rows",
+    "acceptance_provenance",
+    "boundary_review_note"
+  ],
+  "fixture_id": "PUBLIC_SYNTH_ACCEPTED_VERIFICATION_RESULT",
+  "public_safe": true,
+  "result_artifact_refs": [
+    {
+      "acceptance": "accepted",
+      "basis": "public synthetic smoke log ref",
+      "id": "VR-001",
+      "verdict": "pass"
+    },
+    {
+      "acceptance": "blocked",
+      "basis": "missing measurement artifact",
+      "id": "VR-002",
+      "verdict": "inconclusive"
+    }
+  ],
+  "source_kind": "synthetic_from_workflow_contract",
+  "verification_plan_refs": [
+    "plan:interface-contract-v0"
+  ],
+  "verification_result_scope_refs": [
+    "scope:interface-smoke-public"
+  ],
+  "workflow_id": "accepted_verification_result_packet_v0"
+}

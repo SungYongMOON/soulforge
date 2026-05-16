@@ -1,0 +1,19 @@
+schema_version: post_development_review_gate_v0.judge_decision_note
+review_id: "<review_id>"
+created_at: "<iso8601_timestamp>"
+subject:
+  subject_kind: "workflow_change | skill_change | adoption_decision | promotion_candidate | source_packet_or_router_change | other"
+  subject_refs: []
+comparison:
+  original_goal: ""
+  existing_pattern: ""
+  simpler_alternative: ""
+  risk_of_not_adopting: ""
+decision:
+  judge_status: "accept | revise | hold_private | promote_candidate | reject | owner_decision_required"
+  rationale: ""
+  conditions: []
+residual_risks: []
+non_claims:
+  - This judge note compares value and alternatives; it does not approve production-ready claims without required B/V evidence.
+  - This judge note does not make missing source or validation evidence true.

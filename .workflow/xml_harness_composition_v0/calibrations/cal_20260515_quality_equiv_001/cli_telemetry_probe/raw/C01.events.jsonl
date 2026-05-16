@@ -1,0 +1,2 @@
+{"type":"redacted_note","candidate_id":"C01","reason":"Raw CLI events contained runtime paths and plugin startup noise; public-safe archive retains usage and candidate output separately."}
+{"type":"turn.completed","candidate_id":"C01","usage":{"input_tokens":108228,"cached_input_tokens":81408,"output_tokens":6493,"reasoning_output_tokens":2525}}

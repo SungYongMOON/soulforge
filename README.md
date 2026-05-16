@@ -46,7 +46,8 @@ flowchart TD
 - [`.registry/README.md`](.registry/README.md): `.registry` skeleton 과 owner 경계
 - [`docs/architecture/foundation/TARGET_TREE.md`](docs/architecture/foundation/TARGET_TREE.md): 새 canonical target tree
 - [`docs/architecture/foundation/DOCUMENT_OWNERSHIP.md`](docs/architecture/foundation/DOCUMENT_OWNERSHIP.md): 새 owner 기준 문서 소유 원칙
-- [`docs/architecture/foundation/AGENT_EXECUTION_CONTRACT_V0.md`](docs/architecture/foundation/AGENT_EXECUTION_CONTRACT_V0.md): AI agent 의 가정 노출, 최소 변경, scoped edit, 검증 기준 계약
+- [`docs/architecture/foundation/AGENT_EXECUTION_CONTRACT_V0.md`](docs/architecture/foundation/AGENT_EXECUTION_CONTRACT_V0.md): AI agent 의 가정 노출, 최소 변경, scoped edit, 검증 기준, post-development review gate 계약
+- [`docs/architecture/foundation/POST_DEVELOPMENT_REVIEW_PACKET_TEMPLATE_V0.yaml`](docs/architecture/foundation/POST_DEVELOPMENT_REVIEW_PACKET_TEMPLATE_V0.yaml): post-development review gate 결과 packet shape
 - [`docs/architecture/foundation/ONTOLOGY_MODEL_V0.md`](docs/architecture/foundation/ONTOLOGY_MODEL_V0.md): Soulforge 개체/관계 모델과 ontology-style 저장 위치 규칙
 - [`docs/architecture/foundation/ONTOLOGY_REVIEW_MANUAL_V0.md`](docs/architecture/foundation/ONTOLOGY_REVIEW_MANUAL_V0.md): ontology review 트리거, carry-forward, guild_master 상기 규칙
 - [`guild_hall/README.md`](guild_hall/README.md): cross-project 운영 루트와 state 경계
@@ -84,7 +85,7 @@ flowchart TD
 - `.mission` 은 held mission plan 과 readiness owner 다.
 - `guild_hall` 은 `gateway`, `doctor`, `town_crier`, `night_watch`, `dev_worker`, `dungeon_assignment` 같은 cross-project 운영 owner 다.
 - clone 된 PC bootstrap readiness 점검은 `npm run guild-hall:doctor` 를 canonical entrypoint 로 사용한다.
-- root canon 과 public-safe harness 검증은 `npm run validate`, `npm run done:check` 를 canonical entrypoint 로 사용한다.
+- root canon 과 public-safe harness 검증은 `npm run validate`, `npm run done:check` 를 canonical entrypoint 로 사용한다. Windows PowerShell 에서는 `npm.ps1` execution policy 를 피하기 위해 같은 entrypoint 를 `npm.cmd run validate`, `npm.cmd run done:check` 로 실행한다.
 - cross-project 운영 명령 표면은 `guild-hall:*` 만 canonical 로 사용한다.
 - `guild_hall/state/**` 는 local-only cross-project state 이며 public repo 에 올리지 않는다.
 - 기능 코드, 구조 문서, public-safe sample 변경은 public repo 에 commit/push 한다.

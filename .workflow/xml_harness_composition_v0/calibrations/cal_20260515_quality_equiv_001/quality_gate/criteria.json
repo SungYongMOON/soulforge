@@ -1,0 +1,28 @@
+{
+  "workflow_id": "xml_harness_composition_v0",
+  "calibration_id": "cal_20260515_quality_equiv_001",
+  "baseline_anchor": "gpt-5.5/xhigh candidate C01",
+  "quality_equivalence_thresholds": {
+    "minimum_total_quality_score": 90,
+    "minimum_baseline_relative_quality": 0.9,
+    "critical_section_material_loss_allowed": false
+  },
+  "hard_gate": [
+    "Output is public-safe and contains no raw XML body, private project material, runtime absolute paths, credentials, cookies, or vendor text.",
+    "Output has the required top-level workflow packet sections.",
+    "Source assets and upstream packets are immutable.",
+    "PWR_OUT_3V3 to MCU_VDD_3V3 is at most candidate_safe and not final circuit approval.",
+    "PWR_OUT_3V3 to SENSOR_VCC remains review_required until sensor current and rail budget are source-backed.",
+    "SW_NODE_INTERNAL remains blocked because local_internal_candidates are excluded by default.",
+    "MCU_UART_TX to DEBUG_RX_MISSING remains blocked because the target interface is absent.",
+    "Sensor I2C joins remain blocked without controller-side I2C interfaces and pullup evidence.",
+    "source_supported_connections remains empty for this fixture."
+  ],
+  "output_quality_gate": [
+    "Connection classifications are explicit and machine-readable.",
+    "Owner follow-ups and open questions are explicit rather than implied.",
+    "Boundary review states candidate_safe is not final circuit approval.",
+    "Downstream handoff is usable by an owner reviewer without relying on hidden context.",
+    "No critical section loses material detail compared with the gpt-5.5/xhigh baseline."
+  ]
+}

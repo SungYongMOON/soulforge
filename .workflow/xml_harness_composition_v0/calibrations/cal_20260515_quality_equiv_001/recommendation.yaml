@@ -1,0 +1,55 @@
+workflow_id: xml_harness_composition_v0
+calibration_id: cal_20260515_quality_equiv_001
+recommended_profile:
+  model: gpt-5.5
+  reasoning_effort: medium
+  species: human
+  class: auditor
+  candidate_id: C03
+quality_gate:
+  baseline_candidate_id: C01
+  baseline_profile: gpt-5.5/xhigh
+  quality_class: quality_equivalent_pass
+  quality_score: 96
+  baseline_relative_quality: 0.96
+  minimum_viable_candidates:
+    - candidate_id: C02
+      reason: Safe and usable content, but required top-level shape was wrapped and weaker for machine handoff.
+cli_proxy_telemetry:
+  input_tokens: 73558
+  cached_input_tokens: 49792
+  output_tokens: 4548
+  reasoning_output_tokens: 447
+  wall_time_seconds: 90.055
+why_selected:
+  - Passed hard gates and output-quality gates under the revised quality-equivalence policy.
+  - Preserved all critical classifications from the gpt-5.5/xhigh baseline without material loss.
+  - Lower token and wall-time profile than the xhigh baseline.
+measurement_policy:
+  quality_source: cli_only_calibration
+  telemetry_source: codex_exec_json_cli_proxy
+  subagent_token_usage_available: false
+  telemetry_exact_for_subagent: false
+  cost_confidence: relative_not_exact
+boundary_assumptions:
+  - Synthetic fixture only.
+  - No raw XML body, real project material, runtime absolute path, credential, cookie, vendor text, _workspaces output, or private run truth is intentionally preserved in the archive.
+shadow_profiles:
+  - rank: 2
+    candidate_id: C01
+    model: gpt-5.5
+    reasoning_effort: xhigh
+    species: human
+    class: auditor
+    quality_score: 100
+    quality_class: quality_equivalent_pass
+    output_tokens: 6493
+    reasoning_output_tokens: 2525
+    wall_time_seconds: 125.912
+non_promoted_candidates:
+  - candidate_id: C02
+    model: gpt-5.5
+    reasoning_effort: low
+    quality_class: minimum_viable_pass
+    quality_score: 86
+    reason: Required packet shape loss versus baseline; not quality-equivalent.

@@ -1,0 +1,70 @@
+workflow_id: ouroboros_strategic_review_harness_v0
+kind: step_graph
+status: active
+steps:
+  - step_id: bind_review_window
+    title: Bind Review Window
+    actor_slot: harness_runner
+    action:
+      kind: strategic_review_scope_binding
+    summary: Select the review period, source refs, owner boundary, and private evidence output root.
+  - step_id: curate_reality_snapshot
+    title: Curate Reality Snapshot
+    actor_slot: reality_curator
+    action:
+      kind: recent_activity_and_canon_snapshot
+    summary: Gather recent workflow, skill, mission, review, night_watch, and roadmap evidence without reading secrets or treating private notes as public truth.
+  - step_id: review_vision_alignment
+    title: Review Vision Alignment
+    actor_slot: vision_reviewer
+    action:
+      kind: vision_roadmap_active_slice_alignment_review
+    summary: Compare current work against `VISION_AND_GOALS.md`, `DEVELOPMENT_ROADMAP_V0.md`, current active slice, and explicit non-goals.
+  - step_id: probe_owner_intent_gaps
+    title: Probe Owner Intent Gaps
+    actor_slot: intent_gap_probe
+    action:
+      kind: implicit_constraint_and_owner_intent_gap_probe
+    summary: Find undefined terms, assumed constraints, owner-authority decisions, and recurring private patterns that lack canon or mission binding.
+  - step_id: update_ambiguity_ledger
+    title: Update Ambiguity Ledger
+    actor_slot: ambiguity_keeper
+    action:
+      kind: strategic_ambiguity_dimension_scoring
+    summary: Score unresolved dimensions such as vision alignment, owner intent, canon constraint, cadence, promotion threshold, and verification expectation.
+  - step_id: route_question_answerability
+    title: Route Question Answerability
+    actor_slot: question_router
+    action:
+      kind: socratic_question_answerability_routing
+    summary: Classify each gap as repo_fact, owner_decision, research_confirmation, or defer; answer or confirm non-owner facts before creating owner-facing questions.
+  - step_id: forge_owner_questions
+    title: Forge Owner Questions
+    actor_slot: question_forge
+    action:
+      kind: owner_question_queue_generation
+    summary: Convert only owner-decision gaps into bounded option-shaped questions, each with evidence, impacted surfaces, safe default, choices, and downstream consequence.
+  - step_id: restate_answered_decisions
+    title: Restate Answered Decisions
+    actor_slot: closure_reviewer
+    action:
+      kind: owner_decision_restatement_gate
+    summary: If owner answers are present, restate the decision or next-focus recommendation in one sentence before downstream routing; otherwise mark owner_decision_required.
+  - step_id: route_canon_candidates
+    title: Route Canon Candidates
+    actor_slot: canon_router
+    action:
+      kind: canon_mission_workflow_constraint_candidate_routing
+    summary: Route repeated or answered gaps to possible owner surfaces without mutating canon inside this workflow.
+  - step_id: recommend_next_focus
+    title: Recommend Next Focus
+    actor_slot: supervisor
+    action:
+      kind: strategic_next_focus_recommendation
+    summary: Decide whether to continue the active slice, ask owner questions, tighten a constraint, create a mission seed, or hold a candidate private.
+  - step_id: archive_loop_ledger
+    title: Archive Loop Ledger
+    actor_slot: evidence_archivist
+    action:
+      kind: ouroboros_loop_ledger_archive
+    summary: Write applied reports, owner question queue, candidate register, and loop ledger to `_workmeta/system` or project-local `_workmeta`.

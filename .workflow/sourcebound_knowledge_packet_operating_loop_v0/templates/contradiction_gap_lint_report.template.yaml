@@ -1,0 +1,21 @@
+workflow_id: sourcebound_knowledge_packet_operating_loop_v0
+kind: contradiction_gap_lint_report
+status: draft
+report_id: "<report_id>"
+findings:
+  - finding_id: "<finding_id>"
+    finding_type: unsupported_claim_or_conflict_or_gap_or_extraction_limit
+    source_refs: []
+    projection_refs: []
+    severity: review_required
+    claim_ceiling_effect: null
+extraction_quality_gates:
+  page_map_required: false
+  figure_review_required: false
+  table_review_required: false
+  formula_review_required: false
+  ocr_or_layout_review_required: false
+promotion_blockers: []
+non_claims:
+  - lint_report_is_not_source_truth
+  - lint_report_does_not_accept_canon

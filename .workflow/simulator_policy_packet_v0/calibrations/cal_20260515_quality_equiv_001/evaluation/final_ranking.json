@@ -1,0 +1,94 @@
+{
+    "workflow_id":  "simulator_policy_packet_v0",
+    "calibration_id":  "cal_20260515_quality_equiv_001",
+    "baseline_candidate_id":  "qe_dwarf_auditor_gpt-5.5_xhigh",
+    "baseline_score":  100,
+    "quality_equivalence_threshold":  90,
+    "quality_source":  "cli_only_calibration",
+    "subagent_quality_first_status":  "blocked_runtime_subagent_unavailable",
+    "primary_candidate_id":  "qe_dwarf_auditor_gpt-5.5_low",
+    "primary_quality_class":  "quality_equivalent_pass",
+    "primary_score":  97,
+    "primary_baseline_relative_quality":  0.97,
+    "ranked_candidates":  [
+                              {
+                                  "candidate_id":  "qe_dwarf_auditor_gpt-5.5_low",
+                                  "model":  "gpt-5.5",
+                                  "reasoning_effort":  "low",
+                                  "species":  "dwarf",
+                                  "class":  "auditor",
+                                  "usable":  true,
+                                  "critical_errors":  [
+
+                                                      ],
+                                  "missing_required_items":  [
+
+                                                             ],
+                                  "golden_requirement_coverage":  0.97,
+                                  "output_quality_score":  97,
+                                  "baseline_relative_quality":  0.97,
+                                  "quality_class":  "quality_equivalent_pass",
+                                  "task_success":  0.97,
+                                  "safety_boundary":  "pass",
+                                  "repeatability":  0.97,
+                                  "final_quality":  "pass",
+                                  "material_losses_vs_baseline":  [
+
+                                                                  ],
+                                  "notes":  "Per-simulator policy, authorization, blockers, source gaps, and downstream handoffs are explicit."
+                              },
+                              {
+                                  "candidate_id":  "qe_dwarf_auditor_gpt-5.5_medium",
+                                  "model":  "gpt-5.5",
+                                  "reasoning_effort":  "medium",
+                                  "species":  "dwarf",
+                                  "class":  "auditor",
+                                  "usable":  true,
+                                  "critical_errors":  [
+
+                                                      ],
+                                  "missing_required_items":  [
+
+                                                             ],
+                                  "golden_requirement_coverage":  0.89,
+                                  "output_quality_score":  89,
+                                  "baseline_relative_quality":  0.89,
+                                  "quality_class":  "minimum_viable_pass",
+                                  "task_success":  0.89,
+                                  "safety_boundary":  "pass",
+                                  "repeatability":  0.89,
+                                  "final_quality":  "pass",
+                                  "material_losses_vs_baseline":  [
+                                                                      "Downstream handoff is aggregated and less explicit than the xhigh baseline for blocked runtime/source handoff paths.",
+                                                                      "Completion state lacks the baseline-style explicit open blocker list."
+                                                                  ],
+                                  "notes":  "Safe and usable, but downstream ergonomics are thinner than the baseline."
+                              },
+                              {
+                                  "candidate_id":  "qe_dwarf_auditor_gpt-5.5_xhigh",
+                                  "model":  "gpt-5.5",
+                                  "reasoning_effort":  "xhigh",
+                                  "species":  "dwarf",
+                                  "class":  "auditor",
+                                  "usable":  true,
+                                  "critical_errors":  [
+
+                                                      ],
+                                  "missing_required_items":  [
+
+                                                             ],
+                                  "golden_requirement_coverage":  1,
+                                  "output_quality_score":  100,
+                                  "baseline_relative_quality":  1,
+                                  "quality_class":  "quality_equivalent_pass",
+                                  "task_success":  1,
+                                  "safety_boundary":  "pass",
+                                  "repeatability":  1,
+                                  "final_quality":  "pass",
+                                  "material_losses_vs_baseline":  [
+
+                                                                  ],
+                                  "notes":  "Baseline anchor with full runtime, authorization, blocker, handoff, and boundary structure."
+                              }
+                          ]
+}

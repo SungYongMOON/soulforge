@@ -1,0 +1,27 @@
+workflow_id: knowledge_access_event_capture_v0
+kind: retention_label_packet
+schema_version: v0
+status: draft
+packet_id: "<packet_id>"
+source_usage_rollup_ref: "<usage_rollup_ref>"
+retention_policy_ref: "<retention_label_policy_ref>"
+label_candidates:
+  - knowledge_ref: "<knowledge_ref>"
+    label: review_required
+    confidence_0_to_3: null
+    evidence_event_refs: []
+    count_summary_ref: "<usage_rollup_row_ref>"
+    reason_refs: []
+    next_route: hold_private
+allowed_labels:
+  - hot
+  - warm
+  - cold
+  - stale
+  - archive_candidate
+  - retire_candidate
+  - review_required
+authority_boundary:
+  labels_are_candidates: true
+  archive_or_retire_requires_owner_decision_or_declared_policy: true
+  no_archive_or_retire_execution_claim: true

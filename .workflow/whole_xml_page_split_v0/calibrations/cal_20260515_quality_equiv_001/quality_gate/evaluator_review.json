@@ -1,0 +1,11 @@
+{
+  "workflow_id": "whole_xml_page_split_v0",
+  "calibration_id": "cal_20260515_quality_equiv_001",
+  "reviewer": "deterministic_cli_only_gate",
+  "verdict": "criteria_frozen_for_public_safe_fixture",
+  "notes": [
+    "No isolated subagent runner was exposed in this runtime.",
+    "Candidate prompts received only workflow task and public-safe fixture, not golden output.",
+    "Rule scoring checks required keys and required fact coverage, then compares to gpt-5.5/xhigh baseline."
+  ]
+}

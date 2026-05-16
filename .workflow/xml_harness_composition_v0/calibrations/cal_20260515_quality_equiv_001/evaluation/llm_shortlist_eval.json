@@ -1,0 +1,87 @@
+{
+  "evaluator": "manual_quality_equivalence_review",
+  "baseline_candidate_id": "C01",
+  "baseline_model": "gpt-5.5",
+  "baseline_reasoning_effort": "xhigh",
+  "shortlist": [
+    {
+      "candidate_id": "C01",
+      "model": "gpt-5.5",
+      "reasoning_effort": "xhigh",
+      "species": "human",
+      "class": "auditor",
+      "role": "quality_baseline_and_candidate",
+      "hard_gate_pass": true,
+      "hard_gate_checks": {
+        "required_top_level_shape": true,
+        "wrapped_packet": false,
+        "candidate_safe_power_to_mcu_only": true,
+        "sensor_power_review_required": true,
+        "local_internal_blocked": true,
+        "missing_debug_blocked": true,
+        "sensor_i2c_blocked": true,
+        "source_supported_empty": true,
+        "boundary_limits_explicit": true
+      },
+      "output_quality_pass": true,
+      "total_quality_score": 100,
+      "baseline_relative_quality": 1,
+      "quality_class": "quality_equivalent_pass",
+      "material_loss_vs_baseline": false,
+      "evaluator_notes": "Baseline candidate: complete required shape, conservative classification, explicit boundaries, and no material loss by definition."
+    },
+    {
+      "candidate_id": "C02",
+      "model": "gpt-5.5",
+      "reasoning_effort": "low",
+      "species": "human",
+      "class": "auditor",
+      "role": "candidate_5_5_low",
+      "hard_gate_pass": false,
+      "hard_gate_checks": {
+        "required_top_level_shape": false,
+        "wrapped_packet": true,
+        "candidate_safe_power_to_mcu_only": true,
+        "sensor_power_review_required": true,
+        "local_internal_blocked": true,
+        "missing_debug_blocked": true,
+        "sensor_i2c_blocked": true,
+        "source_supported_empty": true,
+        "boundary_limits_explicit": true
+      },
+      "output_quality_pass": false,
+      "total_quality_score": 86,
+      "baseline_relative_quality": 0.86,
+      "quality_class": "minimum_viable_pass",
+      "material_loss_vs_baseline": true,
+      "evaluator_notes": "Safe and mostly complete content, but wrapped the required packet under workflow_output_packet and changed required field names, weakening machine-readability versus the baseline."
+    },
+    {
+      "candidate_id": "C03",
+      "model": "gpt-5.5",
+      "reasoning_effort": "medium",
+      "species": "human",
+      "class": "auditor",
+      "role": "candidate_5_5_medium",
+      "hard_gate_pass": true,
+      "hard_gate_checks": {
+        "required_top_level_shape": true,
+        "wrapped_packet": false,
+        "candidate_safe_power_to_mcu_only": true,
+        "sensor_power_review_required": true,
+        "local_internal_blocked": true,
+        "missing_debug_blocked": true,
+        "sensor_i2c_blocked": true,
+        "source_supported_empty": true,
+        "boundary_limits_explicit": true
+      },
+      "output_quality_pass": true,
+      "total_quality_score": 96,
+      "baseline_relative_quality": 0.96,
+      "quality_class": "quality_equivalent_pass",
+      "material_loss_vs_baseline": false,
+      "evaluator_notes": "Matches required top-level shape, preserves all critical classifications, keeps source_supported empty, and makes boundaries and handoff limits explicit."
+    }
+  ],
+  "conclusion": "C03 is quality_equivalent_pass; C02 is minimum_viable_pass only and not promotable."
+}

@@ -1,0 +1,80 @@
+workflow_id: ouroboros_strategic_review_harness_v0
+kind: handoff_rules
+status: active
+handoffs:
+  - from: harness_runner
+    to: reality_curator
+    required_artifacts:
+      - review_window
+      - source_ref_list
+      - output_root_policy
+    summary: Reality curation receives only approved refs and must keep private evidence private.
+  - from: reality_curator
+    to: vision_reviewer
+    required_artifacts:
+      - curated_reality_snapshot
+      - vision_and_goal_refs
+      - roadmap_refs
+    summary: Vision review compares evidence to canon direction, not to undocumented owner preferences.
+  - from: reality_curator
+    to: intent_gap_probe
+    required_artifacts:
+      - curated_reality_snapshot
+      - known_owner_decision_refs
+      - recent_gap_refs
+    summary: Gap probing looks for missing questions and constraints; it must not invent answers.
+  - from: vision_reviewer
+    to: supervisor
+    required_artifacts:
+      - vision_alignment_report
+    summary: Supervisor receives drift findings as recommendations, not automatic roadmap edits.
+  - from: intent_gap_probe
+    to: ambiguity_keeper
+    required_artifacts:
+      - owner_intent_gap_register
+    summary: Ambiguity keeper scores gap dimensions before any owner-facing question is formed.
+  - from: ambiguity_keeper
+    to: question_router
+    required_artifacts:
+      - owner_intent_gap_register
+      - ambiguity_ledger
+    summary: Question router receives ranked gaps and must classify answerability before asking the owner.
+  - from: question_router
+    to: question_forge
+    required_artifacts:
+      - socratic_question_packet
+    summary: Question forge receives only routed owner_decision items; repo facts, research confirmations, and deferrals stay out of the owner queue.
+  - from: question_forge
+    to: closure_reviewer
+    required_artifacts:
+      - owner_question_queue
+    summary: Closure reviewer checks whether answered questions can be restated as one-sentence decisions before downstream routing.
+  - from: closure_reviewer
+    to: canon_router
+    required_artifacts:
+      - owner_question_queue
+      - closure_restatement_note
+    summary: Canon router receives either restated owner decisions or explicit owner_decision_required status.
+  - from: canon_router
+    to: evidence_archivist
+    required_artifacts:
+      - canon_constraint_candidate_register
+      - next_focus_recommendation
+    summary: Evidence archivist writes private reports and does not mutate public canon.
+blocked_handoffs:
+  - condition: owner_question_answer_missing
+    response: keep_as_owner_question_not_constraint
+  - condition: repo_fact_not_checked
+    response: answer_from_canon_or_move_to_code_confirmation_before_owner_queue
+  - condition: unanswerable_meta_question
+    response: reframe_with_evidence_options_safe_default_or_defer
+  - condition: research_confirmation_needed
+    response: gather_source_summary_before_owner_confirmation
+  - condition: deferred_decision
+    response: record_as_intentional_deferral_not_blocker
+  - condition: private_evidence_needed_for_public_claim
+    response: hold_private_or_request_owner_redaction
+  - condition: roadmap_change_needed
+    response: route_to_owner_decision_packet
+  - condition: post_development_acceptance_needed
+    response: route_to_post_development_review_gate_v0

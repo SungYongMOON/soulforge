@@ -1,0 +1,30 @@
+schema_version: post_development_review_gate_v0.boundary_review_note
+review_id: "<review_id>"
+created_at: "<iso8601_timestamp>"
+subject:
+  subject_kind: "code_change | docs_change | workflow_change | skill_change | source_packet | adoption_decision | automation_change | other"
+  subject_refs: []
+boundary_checks:
+  allowed_write_paths:
+    result: "pass | fail | blocked | not_applicable"
+    notes: []
+  public_private_boundary:
+    result: "pass | fail | blocked | not_applicable"
+    notes: []
+  secret_raw_data_absent:
+    result: "pass | fail | blocked | not_applicable"
+    inspected_scope: []
+    excluded_scope: []
+  source_support:
+    result: "pass | fail | blocked | not_applicable"
+    supported_claims: []
+    unsupported_or_overclaimed: []
+  validation_logs_reviewed:
+    result: "pass | fail | blocked | not_applicable"
+    refs: []
+result:
+  inspector_status: "pass | needs_revision | blocked"
+  findings: []
+non_claims:
+  - This boundary note does not inspect secrets or raw private payloads outside the named inspected scope.
+  - This boundary note does not replace deterministic validators or source-authority workflows.

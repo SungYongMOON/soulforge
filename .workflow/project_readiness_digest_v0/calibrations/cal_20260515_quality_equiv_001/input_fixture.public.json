@@ -1,0 +1,51 @@
+{
+  "approved_digest_policy": "Report only from bounded refs; do not mutate upstream artifacts; separate blocker, owner input, calibration priority, and next action.",
+  "calibration_priority_refs": [
+    {
+      "priority": "next",
+      "workflow_id": "owner_decision_packet_v0"
+    }
+  ],
+  "digest_scope_refs": [
+    "workflow_status:alpha",
+    "review_gate:beta",
+    "owner_backlog:gamma"
+  ],
+  "expected_output_groups": [
+    "project_readiness_digest",
+    "status_rollup",
+    "priority_blockers",
+    "owner_input_queue",
+    "next_action_recommendations",
+    "boundary_review_note"
+  ],
+  "fixture_id": "PUBLIC_SYNTH_PROJECT_READINESS_DIGEST",
+  "owner_backlog_refs": [
+    {
+      "ask": "Confirm release scope owner",
+      "priority": "high",
+      "ref": "owner_backlog:gamma"
+    }
+  ],
+  "public_safe": true,
+  "review_gate_packet_refs": [
+    {
+      "blocker": "boundary review needs owner confirmation",
+      "ref": "review_gate:beta"
+    }
+  ],
+  "source_kind": "synthetic_from_workflow_contract",
+  "workflow_id": "project_readiness_digest_v0",
+  "workflow_status_refs": [
+    {
+      "note": "source packet validated; profile calibration pending",
+      "ref": "workflow_status:alpha",
+      "state": "ready_with_gap"
+    },
+    {
+      "note": "owner decision missing for release scope",
+      "ref": "workflow_status:delta",
+      "state": "blocked"
+    }
+  ]
+}

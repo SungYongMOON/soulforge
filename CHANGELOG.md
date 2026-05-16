@@ -1,5 +1,54 @@
 ﻿# CHANGELOG
 
+## 2026-05-16
+
+- Documented the always-on Mac mini strategic review stack, separating deterministic `healer`, daily `night_watch`, and weekly `ouroboros_strategic_review_harness_v0` responsibilities.
+- Strengthened `ouroboros_strategic_review_harness_v0` with a Socratic question router, ambiguity ledger, owner-question option shape, and closure restatement gate so strategic gaps become answerable decisions instead of broad meta-questions.
+
+### Revision `working` - Knowledge access event capture workflow registered
+
+- Added `.workflow/knowledge_access_event_capture_v0` as a reviewed public-safe draft workflow for capturing metadata-only knowledge access events across workflows, skills, missions, user tasks, tools, and advisory handoffs.
+- Defined actor, target knowledge ref, access type, work context, timestamp, outcome/usefulness, relation hints, usage rollups, hot/warm/cold/stale/archive/retire candidate labels, strong/weak/orphan/redundant link candidates, and graph update packets.
+- Linked the workflow as an optional downstream usage-lineage lane from `sourcebound_knowledge_packet_operating_loop_v0` while keeping source truth, private payloads, advisory answers, archive/retire execution, owner decisions, and profile optimization out of scope.
+
+### Revision `working` - Sourcebound knowledge packet loop registered
+
+- Registered `.workflow/sourcebound_knowledge_packet_operating_loop_v0` as a pilot-executed private-evidence workflow for Karpathy-style source intake, private source-bound projection/index/log generation, contradiction/gap lint, concept-candidate extraction, claim-ceiling routing, optional advisory NotebookLM handoff, and workflowization review packets.
+- Kept source truth in source packets or owner-held sources, kept projection outputs private and derivative, and left profile policy draft/conservative with no production-ready or profile-optimized claim.
+
+### Revision `working` - Ouroboros strategic review harness drafted
+
+- Added `.workflow/ouroboros_strategic_review_harness_v0` as a reviewed public-safe draft workflow for periodic vision alignment review and owner-intent gap probing.
+- Added templates for `vision_alignment_report`, `owner_intent_gap_register`, `owner_question_queue`, `canon_constraint_candidate_register`, `next_focus_recommendation`, and `ouroboros_loop_ledger`.
+- Recorded a private Ouroboros harness study/adoption packet under `_workmeta/system` and kept external runtime installation, ontology convergence claims, and automatic canon mutation out of scope.
+- Allowed `guild_master_cell` to route strategic review and owner-intent gap requests through the new harness.
+- Documented the harness as a weekly or owner-triggered `night_watch` candidate rather than a replacement for nightly boundary, portability, and context-drift checks.
+
+### Revision `working` - SE assistant program direction documented
+
+- Added an SE assistant north-star to `VISION_AND_GOALS.md` while keeping `se_foldertree_generate` limited to folder and plan-tracking scaffold generation.
+- Added an SE assistant program lane to `DEVELOPMENT_ROADMAP_V0.md` without replacing the current `snapshot_to_operation_board_v0` active slice.
+- Fixed the owner split so proactive orchestration lives in `.workflow`, `.mission`, `_workmeta`, and `guild_hall/night_watch`, while missing design content stays as owner questions or blockers instead of agent inference.
+
+### Revision `working` - SE assistant widened to design-support artifact scope
+
+- Sharpened the SE assistant wording toward a systems-engineering design-support aide rather than a narrow document helper.
+- Clarified that `artifact` in the SE assistant lane includes documents, diagrams, traceability matrices, analysis packets, review evidence, owner-decision records, open-question registers, and verification-planning artifacts.
+- Kept `se_stage_artifact_gap_scan_v0` as the first safe workflow name while broadening its private draft outputs to cover design-support queues such as `draftable_artifact_queue`, `diagram_need_register`, and `stage_readiness_summary`.
+
+### Revision `working` - Post-development review gate and Windows acceptance portability
+
+- Added a risk-tiered post-development independent review gate to the agent execution contract, from Level 0 self-check through Level 3 full B/V verification.
+- Added a public-safe post-development review packet template for reusable review evidence.
+- Added the immediate repository improvement plan for independent review routing, LLM Wiki-style sandbox evaluation, and daily/weekly review boundaries.
+- Registered `.workflow/post_development_review_gate_v0` as the generic closing workflow for applying the new review gate to bounded development work.
+- Added public-safe templates for all declared post-development review gate outputs, including boundary review, judge decision, B/V handoff, and follow-up register packets.
+- Allowed `guild_master_cell` to route post-development review requests through the new gate workflow.
+- Added `.registry/skills/post_development_review_gate` plus the installed Codex bridge `soulforge-post-development-review-gate` for consistent task-closing invocation.
+- Locked the review gate workflow profile policy to conservative `gpt-5.5 / xhigh / auditor` final acceptance review instead of cost optimization.
+- Made root UI lint/done-check scripts set the canonical root through a Node wrapper instead of Unix-only environment assignment.
+- Updated the UI theme package smoke test and UI workspace wrapper so `npm pack` / UI scripts run through direct `npm.cmd` on Windows and direct `npm` elsewhere, avoiding shell quoting drift.
+
 ## 2026-05-14
 
 ### Revision `working` - SE foldertree exploratory and operational basic variants added
@@ -84,8 +133,16 @@
 - Recalibrated `.workflow/verification_plan_from_page_contracts_v0/` under the later quality-equivalence pass and updated its primary profile from `gpt-5.4 / low / human / auditor` to `gpt-5.5 / medium / human / auditor`, while keeping `gpt-5.5 / xhigh` as the fuller quality shadow and demoting the old low-effort profile to minimum-viable planning output.
 - Recalibrated `.workflow/review_gate_evidence_pack_v0/` under the later quality-equivalence pass and updated its primary profile from `gpt-5.4 / medium / darkelf / auditor` to `gpt-5.5 / medium / darkelf / auditor`, while preserving source/checksum propagation, CAN/reset gap handling, blocker/action structure, and owner-decision non-claim boundaries.
 - Recalibrated `.workflow/simulation_source_collect_v0/` under the later quality-equivalence pass and updated its primary profile from `gpt-5.3-codex / low / dwarf / auditor` to `gpt-5.5 / medium / dwarf / auditor`, while demoting the old low-cost primary to minimum-viable because it lost model manifest, compatibility, and per-need handoff detail against the `gpt-5.5 / xhigh` anchor.
+- Recalibrated `.workflow/simulation_deck_prepare_v0/` under the later quality-equivalence pass and updated its primary profile from `gpt-5.4-mini / medium / dwarf / auditor` to the previous shadow `gpt-5.4 / medium / dwarf / auditor`, after required `gpt-5.5` low/medium/xhigh comparison showed all required profiles were quality-equivalent but the previous shadow had the best CLI proxy value.
 - Recalibrated `.workflow/simulation_run_verify_v0/` under the later quality-equivalence pass and updated its primary profile from `gpt-5.4 / low / human / auditor` to `gpt-5.5 / low / human / auditor`, while keeping `gpt-5.5 / xhigh` as the evaluator ceiling and preserving the blocked-vs-failed / execution-vs-acceptance boundaries.
 - Recalibrated `.workflow/page_quantitative_enrichment_v0/` after tightening the local `workflow-optimizer` skill's quality-equivalence policy: demoted the cheap `gpt-5.4 / low / elf / auditor` recommendation, selected `gpt-5.4 / medium / dwarf / auditor` as the quality-equivalent primary, and kept `gpt-5.5 / low / elf / auditor` as the quality shadow.
+
+### Revision `working` - Additional safe workflow profiles quality-equivalence calibrated
+
+- Integrated only the lane-relevant, integration-complete, public-safe recalibrations from the later `workflow-optimizer` sweep after screening out pending, out-of-lane, or not-yet-safe archive variants.
+- Promoted stronger quality-equivalent `gpt-5.5` primaries for `whole_xml_page_split_v0`, `page_xml_normalize_spec_v0`, and `capture_xml_intake_library_v0`.
+- Activated or refreshed safe workflow defaults for `official_source_packet_collect_v0`, `asset_patch_attach_mdd_v0`, `simulator_policy_packet_v0`, `simulation_stimulus_measurement_packet_v0`, `xml_harness_composition_v0`, `source_gap_followup_packet_v0`, `review_action_item_closure_loop_v0`, `configuration_baseline_and_change_control_v0`, `project_readiness_digest_v0`, `accepted_verification_result_packet_v0`, and `owner_decision_packet_v0`.
+- Archived each adopted recalibration under `calibrations/cal_20260515_quality_equiv_001/` inside the target workflow and labeled these runs as CLI-only fallbacks where isolated subagent/candidate-runner telemetry was unavailable.
 
 ### Revision `working` - Review gate evidence pack workflow added
 

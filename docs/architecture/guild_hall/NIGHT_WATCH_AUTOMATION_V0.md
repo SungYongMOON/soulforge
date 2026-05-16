@@ -173,6 +173,17 @@
 `Fix Draft` 는 앞의 세 점검 report 가 모두 같은 run 에서 써졌을 때만 조건부로 생성한다.
 `Context Drift Check` 나 `Fix Draft` 가 ontology review candidate 를 찾으면, current-default 는 그 후보를 `carry_forward` 대상으로 남기는 쪽을 기본으로 본다.
 
+## strategic review harness 후보
+
+`ouroboros_strategic_review_harness_v0` 는 current-default nightly pipeline 을 대체하지 않는다.
+이 workflow 는 주간 또는 owner-triggered 로 돌리는 상위 검토 후보이며, 목적은 아래 두 가지다.
+
+1. `VISION_AND_GOALS.md`, `DEVELOPMENT_ROADMAP_V0.md`, active slice 대비 현재 작업 방향이 새는지 확인한다.
+2. owner 가 당연하다고 생각하지만 canon, mission, workflow, skill, `_workmeta` evidence 에 아직 제약으로 고정되지 않은 gap 을 질문으로 만든다.
+
+이 harness 의 결과는 곧바로 tracked canon 을 수정하지 않고, 먼저 `_workmeta/system` 또는 project-local `_workmeta/<project_code>/` 에 `vision_alignment_report`, `owner_intent_gap_register`, `owner_question_queue` 로 남긴다.
+owner 답변이나 별도 검증이 생긴 뒤에만 `owner_decision_packet_v0`, mission seed, workflow patch, 또는 canon patch 로 이어진다.
+
 ## Codex app 생성 원칙
 
 - 다른 PC 에서 바로 `만들기` 할 수 있도록 repo 안에는 아래 요소만 유지한다.

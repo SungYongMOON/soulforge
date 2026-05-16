@@ -1,0 +1,21 @@
+workflow_id: knowledge_access_event_capture_v0
+kind: project_binding
+status: draft
+binding_id: "<binding_id>"
+project_ref: "<project_ref>"
+knowledge_access_scope:
+  scope_id: "<scope_id>"
+  target_ref_set: []
+  event_source_refs: []
+private_output_refs:
+  access_event_store_ref: "<project_local_event_store_ref>"
+  rollup_store_ref: "<project_local_rollup_store_ref>"
+public_safety_policy:
+  store_metadata_only: true
+  copy_raw_knowledge_payloads: false
+  copy_advisory_answers: false
+  host_absolute_paths_allowed: false
+retention_label_policy_ref: "<policy_ref>"
+archive_retire_authority:
+  requires_owner_decision_or_declared_policy: true
+  owner_decision_refs: []

@@ -1,0 +1,374 @@
+{
+  "profile": {
+    "candidate_id": "C03",
+    "model": "gpt-5.5",
+    "reasoning_effort": "medium",
+    "species": "human",
+    "class": "auditor",
+    "role": "candidate_5_5_medium"
+  },
+  "harness_identity": {
+    "fixture_id": "xml_harness_composition_public_synthetic_001",
+    "fixture_kind": "public_safe_synthetic_workflow_contract_fixture",
+    "workflow_id": "xml_harness_composition_v0",
+    "project_code": "PUBLIC_SYNTH_XML_HARNESS",
+    "harness_id": "HARNESS_SYNTH_A"
+  },
+  "input_manifest": {
+    "page_level_assets": [
+      {
+        "asset_id": "PAGE_PWR_001",
+        "page_role": "power_regulator_page",
+        "source_xml_ref": "public_synthetic_ref://pages/power",
+        "raw_xml_body_included": false
+      },
+      {
+        "asset_id": "PAGE_CTRL_001",
+        "page_role": "controller_page",
+        "source_xml_ref": "public_synthetic_ref://pages/controller",
+        "raw_xml_body_included": false
+      },
+      {
+        "asset_id": "PAGE_SENS_001",
+        "page_role": "sensor_page",
+        "source_xml_ref": "public_synthetic_ref://pages/sensor",
+        "raw_xml_body_included": false
+      }
+    ],
+    "module_sidecars": [
+      {
+        "asset_id": "PAGE_PWR_001",
+        "module_id": "MOD_PWR_REG",
+        "external_interface_count": 2,
+        "local_internal_candidate_count": 1,
+        "normalization_warnings": []
+      },
+      {
+        "asset_id": "PAGE_CTRL_001",
+        "module_id": "MOD_MCU",
+        "external_interface_count": 3,
+        "local_internal_candidate_count": 1,
+        "normalization_warnings": []
+      },
+      {
+        "asset_id": "PAGE_SENS_001",
+        "module_id": "MOD_SENSOR",
+        "external_interface_count": 3,
+        "local_internal_candidate_count": 0,
+        "normalization_warnings": [
+          "Sensor current requirement is missing.",
+          "I2C pullup requirements are unresolved."
+        ]
+      }
+    ],
+    "capture_intake_packets": [
+      {
+        "asset_id": "PAGE_PWR_001",
+        "intake_status": "reviewed_public_synthetic",
+        "source_packet_status": "synthetic_source_backed"
+      },
+      {
+        "asset_id": "PAGE_CTRL_001",
+        "intake_status": "reviewed_public_synthetic",
+        "source_packet_status": "synthetic_source_backed"
+      },
+      {
+        "asset_id": "PAGE_SENS_001",
+        "intake_status": "reviewed_public_synthetic",
+        "source_packet_status": "source_gap_packet_present"
+      }
+    ],
+    "component_materials_packet_count": 0,
+    "layout_guide_packet_count": 0,
+    "owner_connection_hint_count": 4,
+    "public_safety": {
+      "contains_real_xml_body": false,
+      "contains_project_private_material": false,
+      "contains_runtime_absolute_paths": false,
+      "contains_credentials_or_secrets": false,
+      "contains_vendor_text": false,
+      "basis": "Synthetic fields derived from the public workflow contract only."
+    }
+  },
+  "connection_candidates": [
+    {
+      "candidate_id": "CONN_PWR_TO_MCU",
+      "origin": "owner_connection_hint",
+      "hint_id": "HINT_PWR_TO_MCU",
+      "from_interface_id": "PWR_OUT_3V3",
+      "from_module_id": "MOD_PWR_REG",
+      "to_interface_id": "MCU_VDD_3V3",
+      "to_module_id": "MOD_MCU",
+      "join_kind": "power_3v3_distribution",
+      "classification": "candidate_safe",
+      "classification_basis": [
+        "Source-side interface is an external 3.3 V power output.",
+        "Target-side interface is an external 3.3 V power input.",
+        "Regulator current limit is 500 mA and MCU current requirement is 120 mA.",
+        "Both referenced interfaces are present and source-backed in the synthetic fixture."
+      ],
+      "not_final_circuit_approval": true
+    },
+    {
+      "candidate_id": "CONN_PWR_TO_SENSOR",
+      "origin": "owner_connection_hint",
+      "hint_id": "HINT_PWR_TO_SENSOR",
+      "from_interface_id": "PWR_OUT_3V3",
+      "from_module_id": "MOD_PWR_REG",
+      "to_interface_id": "SENSOR_VCC",
+      "to_module_id": "MOD_SENSOR",
+      "join_kind": "power_3v3_distribution",
+      "classification": "review_required",
+      "classification_basis": [
+        "Voltage and direction are structurally plausible.",
+        "Sensor current requirement is missing, so the 500 mA regulator budget cannot be quantitatively confirmed.",
+        "Sensor source evidence is marked as source_gap_missing_current."
+      ],
+      "not_final_circuit_approval": true
+    },
+    {
+      "candidate_id": "CONN_INTERNAL_SW_TO_MCU",
+      "origin": "owner_connection_hint",
+      "hint_id": "HINT_INTERNAL_BAD",
+      "from_interface_id": "SW_NODE_INTERNAL",
+      "from_module_id": "MOD_PWR_REG",
+      "to_interface_id": "MCU_VDD_3V3",
+      "to_module_id": "MOD_MCU",
+      "join_kind": "internal_to_external_power_hint",
+      "classification": "blocked",
+      "classification_basis": [
+        "SW_NODE_INTERNAL appears only under local_internal_candidates.",
+        "The binding states local_internal_candidates_are_external_by_default is false.",
+        "No explicit source-backed promotion evidence is provided."
+      ],
+      "not_final_circuit_approval": true
+    },
+    {
+      "candidate_id": "CONN_UART_TO_MISSING_DEBUG",
+      "origin": "owner_connection_hint",
+      "hint_id": "HINT_UART_TO_MISSING_DEBUG",
+      "from_interface_id": "MCU_UART_TX",
+      "from_module_id": "MOD_MCU",
+      "to_interface_id": "DEBUG_RX_MISSING",
+      "to_module_id": null,
+      "join_kind": "uart_debug_exposure",
+      "classification": "blocked",
+      "classification_basis": [
+        "The target interface DEBUG_RX_MISSING is absent from the fixture.",
+        "No debug header or debug receiver interface may be invented."
+      ],
+      "not_final_circuit_approval": true
+    },
+    {
+      "candidate_id": "CONN_SENSOR_SDA_TO_CONTROLLER_I2C",
+      "origin": "derived_gap_check",
+      "hint_id": null,
+      "from_interface_id": "SENSOR_SDA",
+      "from_module_id": "MOD_SENSOR",
+      "to_interface_id": null,
+      "to_module_id": null,
+      "join_kind": "i2c_data_bus",
+      "classification": "blocked",
+      "classification_basis": [
+        "Sensor SDA is present, but no controller-side I2C SDA interface is established.",
+        "Pullup requirement is unknown.",
+        "No I2C controller interface or pullups may be invented."
+      ],
+      "not_final_circuit_approval": true
+    },
+    {
+      "candidate_id": "CONN_SENSOR_SCL_TO_CONTROLLER_I2C",
+      "origin": "derived_gap_check",
+      "hint_id": null,
+      "from_interface_id": "SENSOR_SCL",
+      "from_module_id": "MOD_SENSOR",
+      "to_interface_id": null,
+      "to_module_id": null,
+      "join_kind": "i2c_clock_bus",
+      "classification": "blocked",
+      "classification_basis": [
+        "Sensor SCL is present, but no controller-side I2C SCL interface is established.",
+        "Pullup requirement is unknown.",
+        "No I2C controller interface or pullups may be invented."
+      ],
+      "not_final_circuit_approval": true
+    }
+  ],
+  "blocked_connections": [
+    {
+      "candidate_id": "CONN_INTERNAL_SW_TO_MCU",
+      "from_interface_id": "SW_NODE_INTERNAL",
+      "to_interface_id": "MCU_VDD_3V3",
+      "block_reason": "local_internal_candidate_excluded",
+      "required_to_unblock": "Explicit source-backed promotion evidence that SW_NODE_INTERNAL is an allowed external harness interface."
+    },
+    {
+      "candidate_id": "CONN_UART_TO_MISSING_DEBUG",
+      "from_interface_id": "MCU_UART_TX",
+      "to_interface_id": "DEBUG_RX_MISSING",
+      "block_reason": "target_interface_absent",
+      "required_to_unblock": "A source-backed debug receiver/header interface packet present in the fixture or approved source materials."
+    },
+    {
+      "candidate_id": "CONN_SENSOR_SDA_TO_CONTROLLER_I2C",
+      "from_interface_id": "SENSOR_SDA",
+      "to_interface_id": null,
+      "block_reason": "missing_controller_side_i2c_interface_and_pullup_evidence",
+      "required_to_unblock": "Source-backed controller-side I2C SDA interface plus pullup requirements."
+    },
+    {
+      "candidate_id": "CONN_SENSOR_SCL_TO_CONTROLLER_I2C",
+      "from_interface_id": "SENSOR_SCL",
+      "to_interface_id": null,
+      "block_reason": "missing_controller_side_i2c_interface_and_pullup_evidence",
+      "required_to_unblock": "Source-backed controller-side I2C SCL interface plus pullup requirements."
+    }
+  ],
+  "review_required_connections": [
+    {
+      "candidate_id": "CONN_PWR_TO_SENSOR",
+      "from_interface_id": "PWR_OUT_3V3",
+      "to_interface_id": "SENSOR_VCC",
+      "review_reason": "Sensor current requirement is missing, so regulator budget cannot be confirmed.",
+      "required_review_evidence": [
+        "Sensor current requirement from an approved source packet.",
+        "Owner confirmation that the sensor supply rail is intended to join the regulator 3.3 V output after current-budget review."
+      ]
+    }
+  ],
+  "candidate_safe_connections": [
+    {
+      "candidate_id": "CONN_PWR_TO_MCU",
+      "from_interface_id": "PWR_OUT_3V3",
+      "to_interface_id": "MCU_VDD_3V3",
+      "candidate_safe_scope": "Owner-review structural plausibility only.",
+      "supporting_checks": {
+        "from_direction": "output",
+        "to_direction": "input",
+        "voltage_match_v": 3.3,
+        "current_limit_ma": 500,
+        "current_required_ma": 120,
+        "source_evidence": [
+          "PWR_OUT_3V3 synthetic_source_backed",
+          "MCU_VDD_3V3 synthetic_source_backed"
+        ]
+      },
+      "not_final_circuit_approval": true
+    }
+  ],
+  "source_supported_connections": [],
+  "owner_followup_needed": [
+    {
+      "followup_id": "FOLLOWUP_SENSOR_CURRENT",
+      "related_candidate_id": "CONN_PWR_TO_SENSOR",
+      "question": "What source-backed current requirement should be used for SENSOR_VCC?",
+      "needed_from_owner": "Provide or approve a source packet with the sensor current requirement."
+    },
+    {
+      "followup_id": "FOLLOWUP_I2C_CONTROLLER",
+      "related_candidate_id": "CONN_SENSOR_SDA_TO_CONTROLLER_I2C",
+      "question": "Is there an approved controller-side I2C interface for the sensor bus?",
+      "needed_from_owner": "Provide source-backed controller I2C SDA/SCL interfaces if the sensor bus should be composed."
+    },
+    {
+      "followup_id": "FOLLOWUP_I2C_PULLUPS",
+      "related_candidate_id": "CONN_SENSOR_SCL_TO_CONTROLLER_I2C",
+      "question": "What pullup requirements apply to the I2C SDA and SCL lines?",
+      "needed_from_owner": "Provide source-backed pullup requirement evidence or an approved materials/layout packet."
+    },
+    {
+      "followup_id": "FOLLOWUP_DEBUG_HEADER",
+      "related_candidate_id": "CONN_UART_TO_MISSING_DEBUG",
+      "question": "Should a debug header exist in this harness, and if so what source-backed interface defines it?",
+      "needed_from_owner": "Provide an approved debug receiver/header interface packet before UART exposure can be considered."
+    },
+    {
+      "followup_id": "FOLLOWUP_INTERNAL_PROMOTION",
+      "related_candidate_id": "CONN_INTERNAL_SW_TO_MCU",
+      "question": "Is SW_NODE_INTERNAL intentionally local-only, or is there explicit source-backed evidence to promote it?",
+      "needed_from_owner": "Do not promote unless explicit source-backed external interface evidence is supplied."
+    }
+  ],
+  "harness_open_questions": [
+    {
+      "question_id": "OPEN_SENSOR_POWER_BUDGET",
+      "status": "open",
+      "question": "Can the regulator 3.3 V output supply the MCU plus sensor load after the sensor current is known?"
+    },
+    {
+      "question_id": "OPEN_I2C_BUS_EXISTENCE",
+      "status": "open",
+      "question": "Does the controller page intentionally include an I2C controller interface, or is the sensor I2C bus outside the present fixture scope?"
+    },
+    {
+      "question_id": "OPEN_I2C_PULLUP_PLACEMENT",
+      "status": "open",
+      "question": "Where are I2C pullups defined, if they exist: component materials, layout guide, controller page, or sensor page?"
+    },
+    {
+      "question_id": "OPEN_DEBUG_INTERFACE",
+      "status": "open",
+      "question": "Is the missing debug receiver/header an omitted source asset or an intentionally unsupported owner hint?"
+    }
+  ],
+  "composition_readiness": {
+    "overall_status": "review_required",
+    "candidate_safe_count": 1,
+    "review_required_count": 1,
+    "blocked_count": 4,
+    "source_supported_count": 0,
+    "ready_for_final_circuit_approval": false,
+    "ready_for_external_harness_interface_publication": false,
+    "ready_for_owner_review": true,
+    "readiness_basis": [
+      "One structurally plausible 3.3 V power join can be reviewed by the owner.",
+      "Sensor power remains quantitatively incomplete.",
+      "Internal, missing debug, and sensor I2C joins are blocked.",
+      "No connection reaches source_supported because the fixture lacks cited source packets strong enough for final support."
+    ]
+  },
+  "boundary_review": {
+    "public_safe_handling": {
+      "contains_real_xml_body": false,
+      "contains_project_private_material": false,
+      "contains_runtime_absolute_paths": false,
+      "contains_credentials_or_secrets": false,
+      "contains_vendor_text": false
+    },
+    "immutability": {
+      "source_assets_are_immutable": true,
+      "source_xml_mutated": false,
+      "normalized_sidecars_mutated": false,
+      "intake_packets_mutated": false,
+      "materials_packets_mutated": false,
+      "layout_guides_mutated": false,
+      "owner_material_mutated": false
+    },
+    "authority_limits": {
+      "candidate_safe_is_not_final_circuit_approval": true,
+      "local_internal_candidates_promoted": false,
+      "source_supported_connections_empty_due_to_insufficient_final_source_support": true,
+      "invented_missing_source_packets": false,
+      "invented_quantitative_constraints": false,
+      "invented_directionality": false,
+      "invented_debug_headers": false,
+      "invented_i2c_controller_interfaces": false,
+      "invented_pullups": false,
+      "invented_private_project_facts": false
+    }
+  },
+  "downstream_handoff": {
+    "recommended_next_stage": "owner_review_and_source_packet_completion",
+    "allowed_use": [
+      "Use candidate_safe connection CONN_PWR_TO_MCU as a structural review candidate only.",
+      "Use blocked and review_required entries as a source-gap and owner-follow-up checklist."
+    ],
+    "disallowed_use": [
+      "Do not treat candidate_safe as final circuit approval.",
+      "Do not mutate source XML or source packets from this packet.",
+      "Do not expose local_internal_candidates as external harness interfaces.",
+      "Do not add sensor I2C, debug, pullup, or current details without source-backed evidence."
+    ],
+    "handoff_summary": "The packet is public-safe and suitable for owner review, but it is not ready for final circuit approval or external harness interface publication."
+  }
+}

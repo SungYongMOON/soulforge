@@ -1,0 +1,40 @@
+{
+  "workflow_id": "asset_patch_attach_mdd_v0",
+  "calibration_id": "cal_20260515_quality_equiv_001",
+  "policy": "quality_equivalence_revised_20260515",
+  "baseline_profile": {
+    "model": "gpt-5.5",
+    "reasoning_effort": "xhigh",
+    "species": "dwarf",
+    "class": "administrator"
+  },
+  "hard_gates": [
+    "public/private/secret boundary pass",
+    "required output shape present",
+    "no command/file/network claims",
+    "no golden-derived content in candidate prompt"
+  ],
+  "required_keys": [
+    "asset_identity_updated",
+    "pcb_pairing_placeholder_updated",
+    "asset_patch_record",
+    "provenance_update",
+    "boundary_notes",
+    "readiness_note"
+  ],
+  "must_mentions": [
+    "v2",
+    "attached",
+    "XML-first",
+    "authoritative",
+    "owner-supplied",
+    "sha256",
+    "no deep pairing inference",
+    "raw MDD payload",
+    "preserve"
+  ],
+  "classification": {
+    "quality_equivalent_pass": "hard gate pass, score >= 90, score >= 90% of gpt-5.5/xhigh baseline, no material required-section loss",
+    "minimum_viable_pass": "safe and usable with meaningful quality or machine-readability loss"
+  }
+}

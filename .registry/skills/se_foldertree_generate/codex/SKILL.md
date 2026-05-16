@@ -15,6 +15,7 @@ Scaffold SE project folders in owner order: confirm inputs first, prefer dry-run
 - Keep dependency assumptions minimal: Python 3 + `requirements.txt` only.
 - Stop with a clear message if the requested business-type / prime-contractor / quality-grade combination is not supported by the currently bundled spec set.
 - For draft variant work, use `assets/variants/` and `scripts/preview_variants.py`; do not use draft variants to materialize folders.
+- Use `scripts/seed_template_stubs.py` only when structure-only team draft templates should be copied into `00_Temp`.
 - If gate numbering must change, transform a spec copy with `scripts/convert_gate_numbers.py` instead of editing the bundled asset in place.
 - Prefer `scripts/generate_tree.py --dry-run` before the real run unless the user explicitly asks to skip preview.
 - Use `--layout-mode in-place` for an existing project root and `--layout-mode new-root` for a fresh project root to be materialized under a parent path.
@@ -24,3 +25,4 @@ Scaffold SE project folders in owner order: confirm inputs first, prefer dry-run
 - Read [`references/mapping.md`](references/mapping.md) for Soulforge mapping, bundled resource map, prerequisites, and output expectations.
 - Read [`references/workflow.md`](references/workflow.md) for concrete command examples and the execution checklist.
 - Read [`references/variants.md`](references/variants.md) only when reviewing draft variant metadata before a production spec change.
+- Read [`references/template_stubs.md`](references/template_stubs.md) when the task includes HDD/SDD or other stage-deliverable draft template seeding.

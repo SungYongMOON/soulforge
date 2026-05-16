@@ -1,0 +1,22 @@
+owner_intent_gap_register:
+  workflow_id: ouroboros_strategic_review_harness_v0
+  review_window: null
+  gap_summary:
+    gap_count: 0
+    high_priority_gap_count: 0
+    owner_decision_required_count: 0
+  gaps:
+    - gap_id: null
+      priority: low | medium | high
+      gap_type: undefined_term | missing_constraint | owner_authority_gap | implicit_success_criterion | private_to_public_bridge_gap | mission_seed_gap
+      observed_pattern: null
+      evidence_refs: []
+      why_it_matters: null
+      do_not_infer: true
+      ambiguity_dimension: vision_alignment | owner_intent | canon_constraint | cadence_and_scope | promotion_threshold
+      answerability_route: repo_fact | owner_decision | research_confirmation | defer
+      proposed_question_id: null
+      candidate_owner_surface: vision | roadmap | agent_contract | mission | workflow | skill | ontology | private_evidence
+  blocked_inferences:
+    - inference: null
+      reason: owner_intent_missing | source_support_missing | public_private_boundary | authority_boundary

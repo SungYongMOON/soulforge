@@ -1,0 +1,104 @@
+{
+    "workflow_id":  "review_action_item_closure_loop_v0",
+    "calibration_id":  "cal_20260515_quality_equiv_001",
+    "recommendation_status":  "quality_equivalent_calibrated",
+    "primary_profile":  {
+                            "species":  "dwarf",
+                            "candidate_id":  "qe_dwarf_auditor_gpt-5.5_low",
+                            "reasoning_effort":  "low",
+                            "output_quality_score":  94,
+                            "quality_class":  "quality_equivalent_pass",
+                            "telemetry":  {
+                                              "candidate_id":  "qe_dwarf_auditor_gpt-5.5_low",
+                                              "workflow_id":  "review_action_item_closure_loop_v0",
+                                              "model":  "gpt-5.5",
+                                              "reasoning_effort":  "low",
+                                              "species":  "dwarf",
+                                              "class":  "auditor",
+                                              "input_tokens":  17291,
+                                              "cached_input_tokens":  7552,
+                                              "output_tokens":  2767,
+                                              "reasoning_output_tokens":  13,
+                                              "wall_time_seconds":  53.326,
+                                              "exit_code":  0,
+                                              "telemetry_source":  "codex_exec_json_cli_proxy"
+                                          },
+                            "model":  "gpt-5.5",
+                            "baseline_relative_quality":  0.94,
+                            "class":  "auditor"
+                        },
+    "baseline_profile":  {
+                             "reasoning_effort":  "xhigh",
+                             "candidate_id":  "qe_dwarf_auditor_gpt-5.5_xhigh",
+                             "model":  "gpt-5.5",
+                             "class":  "auditor",
+                             "species":  "dwarf"
+                         },
+    "selection_reason":  "Lowest-cost quality-equivalent candidate; keeps per-action closure rows, ledger, matrix, unresolved items, rerun readiness, blockers, carry-forward, owner-decision queue, and handoffs explicit.",
+    "old_policy":  "draft_pending_profile_calibration",
+    "new_policy":  "qe_dwarf_auditor_gpt-5.5_low",
+    "shadow_top_k":  [
+                         {
+                             "candidate_id":  "qe_dwarf_auditor_gpt-5.5_xhigh",
+                             "model":  "gpt-5.5",
+                             "reasoning_effort":  "xhigh",
+                             "species":  "dwarf",
+                             "class":  "auditor",
+                             "quality_class":  "quality_equivalent_pass",
+                             "output_quality_score":  100,
+                             "baseline_relative_quality":  1,
+                             "telemetry":  {
+                                               "candidate_id":  "qe_dwarf_auditor_gpt-5.5_xhigh",
+                                               "workflow_id":  "review_action_item_closure_loop_v0",
+                                               "model":  "gpt-5.5",
+                                               "reasoning_effort":  "xhigh",
+                                               "species":  "dwarf",
+                                               "class":  "auditor",
+                                               "input_tokens":  17293,
+                                               "cached_input_tokens":  7552,
+                                               "output_tokens":  4777,
+                                               "reasoning_output_tokens":  516,
+                                               "wall_time_seconds":  90.122,
+                                               "exit_code":  0,
+                                               "telemetry_source":  "codex_exec_json_cli_proxy"
+                                           },
+                             "material_losses_vs_baseline":  [
+
+                                                             ]
+                         },
+                         {
+                             "candidate_id":  "qe_dwarf_auditor_gpt-5.5_medium",
+                             "model":  "gpt-5.5",
+                             "reasoning_effort":  "medium",
+                             "species":  "dwarf",
+                             "class":  "auditor",
+                             "quality_class":  "minimum_viable_pass",
+                             "output_quality_score":  88,
+                             "baseline_relative_quality":  0.88,
+                             "telemetry":  {
+                                               "candidate_id":  "qe_dwarf_auditor_gpt-5.5_medium",
+                                               "workflow_id":  "review_action_item_closure_loop_v0",
+                                               "model":  "gpt-5.5",
+                                               "reasoning_effort":  "medium",
+                                               "species":  "dwarf",
+                                               "class":  "auditor",
+                                               "input_tokens":  17291,
+                                               "cached_input_tokens":  7552,
+                                               "output_tokens":  3150,
+                                               "reasoning_output_tokens":  40,
+                                               "wall_time_seconds":  77.05,
+                                               "exit_code":  0,
+                                               "telemetry_source":  "codex_exec_json_cli_proxy"
+                                           },
+                             "material_losses_vs_baseline":  [
+                                                                 "closure_status_matrix is grouped by status rather than per action, reducing machine-readability for downstream item routing.",
+                                                                 "closure_provenance is aggregate-only rather than per action, losing baseline-level traceability."
+                                                             ]
+                         }
+                     ],
+    "limitations":  [
+                        "quality_source is cli_only_calibration because isolated subagent runner was unavailable",
+                        "telemetry is CLI proxy telemetry for actual gpt-5.5 candidates",
+                        "no exact subagent token telemetry"
+                    ]
+}

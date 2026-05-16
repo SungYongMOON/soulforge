@@ -1,0 +1,34 @@
+{
+  "workflow_id": "page_xml_normalize_spec_v0",
+  "previous_policy": {
+    "status": "active",
+    "last_calibration_id": "20260515-021140_repeat_topk_contract_refresh",
+    "calibration_mode": "repeat_topk_contract_refresh",
+    "primary_profile": {
+      "model": "gpt-5.4",
+      "reasoning_effort": "medium",
+      "species": "elf",
+      "class": "auditor",
+      "candidate_id": "repeat_topk_gpt_5_4_medium_elf_auditor",
+      "quality_score": 95,
+      "quality_gate": "pass",
+      "extraction_note": "Recovered from malformed pre-existing YAML raw excerpt during 2026-05-15 comparison."
+    },
+    "shadow_top_k": [
+      {
+        "rank": 2,
+        "candidate_id": "repeat_topk_gpt_5_5_xhigh_elf_auditor",
+        "model": "gpt-5.5",
+        "reasoning_effort": "xhigh",
+        "species": "elf",
+        "class": "auditor",
+        "quality_score": 90,
+        "quality_gate": "pass_with_minor_manifest_gap",
+        "extraction_note": "Recovered from malformed pre-existing YAML raw excerpt during 2026-05-15 comparison."
+      }
+    ],
+    "parse_status": "unparsed_existing_policy_with_extracted_summary",
+    "parse_error": "Nested mappings are not allowed in compact mappings at line 52, column 13:\n\n    reason: Per-page sidecars were present, but `system_contract` sections were…\n            ^\n",
+    "raw_excerpt": "workflow_id: page_xml_normalize_spec_v0\r\nkind: workflow_profile_policy\r\nstatus: active\r\nlast_calibration_id: 20260515-021140_repeat_topk_contract_refresh\r\ncalibration_mode: repeat_topk_contract_refresh\r\nmeasurement_policy:\r\n  quality_source: subagent_repeat_topk_matrix\r\n  telemetry_source: cli_passed_candidates_only\r\n  subagent_token_usage_available: false\r\n  telemetry_exact_for_subagent: false\r\n  cost_confidence: relative_not_exact\r\nprimary_profile:\r\n  model: gpt-5.4\r\n  reasoning_effort: medium\r\n  species: elf\r\n  class: auditor\r\n  candidate_id: repeat_topk_gpt_5_4_medium_elf_auditor\r\n  measured_tokens:\r\n    input_tokens: 15731\r\n    cached_input_tokens: 7552\r\n    output_tokens: 5650\r\n    reasoning_output_tokens: 182\r\n    telemetry_source: codex_exec_json_cli_proxy_passed_candidates_only\r\n  wall_time_seconds: 109.419\r\n  quality_score: 95\r\n  quality_gate: pass\r\n  rationale: >\r\n    Repeat Top-K calibration against the refreshed workflow contract preserved\r\n    the 11 fixture page identities, source refs and checksums, per-page\r\n    `page_module_spec_v0.yaml` sidecar shape, required `system_contract`\r\n    sections, boolean `harness_ready: false`, review-required semantics,\r\n    local/internal candidate separation, project-local output boundaries, and\r\n    non-executed downstream `capture_xml_intake_library_v0` handoff while\r\n    costing less than the gpt-5.5/xhigh shadow in CLI proxy telemetry.\r\nshadow_top_k:\r\n  - rank: 2\r\n    candidate_id: repeat_topk_gpt_5_5_xhigh_elf_auditor\r\n    model: gpt-5.5\r\n    reasoning_effort: xhigh\r\n    species: elf\r\n    class: auditor\r\n    output_tokens: 6379\r\n    reasoning_output_tokens: 516\r\n    wall_time_seconds: 121.483\r\n    quality_score: 90\r\n    quality_gate: pass_with_minor_manifest_gap\r\n    note: Strong refreshed-contract coverage, but slower and more expensive; subagent output had a minor manifest/index explicitness gap.\r\nrejected_finalists:\r\n  - candidate_id: repeat_topk_gpt_5_4_mini_high_elf_auditor\r\n    reason: Altered `source_system_id` from the fixture binding identity to page refs in sidecars, failing source identity preservation.\r\n  - candidate_id: repeat_topk_gpt_5_4_mini_medium_elf_auditor\r\n    reason: Per-page sidecars were present, but `system_contract` sections were empty arrays and `readiness_contract` did not carry boolean `harness_ready: false`.\r\n  - candidate_id: repeat_topk_gpt_5_4_mini_low_elf_auditor\r\n    reason: Output was compact and boundary-aware, but collapsed required per-page sidecar blocks into shared sections.\r\nrerun_triggers:\r\n  - workflow step graph changes\r\n  - page_module_spec_v0 sidecar schema changes\r\n  - system_contract, readiness_contract, or harness-facing slot policy changes\r\n  - module-spec manifest or index schema changes\r\n  - upstream `whole_xml_page_split_v0` handoff contract changes\r\n  - downstream XML-first asset registration contract changes\r\n  - parser, sidecar writer, or optional annotation tooling changes\r\n  - annotation variant policy changes\r\n  - a public-safe syn"
+  }
+}

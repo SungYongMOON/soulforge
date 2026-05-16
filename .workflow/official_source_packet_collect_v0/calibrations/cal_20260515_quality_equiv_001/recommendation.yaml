@@ -1,0 +1,68 @@
+workflow_id: official_source_packet_collect_v0
+calibration_id: cal_20260515_quality_equiv_001
+status: quality_equivalent_calibrated
+execution_mode: cli_only_calibration
+baseline_profile:
+  model: gpt-5.5
+  reasoning_effort: xhigh
+  species: elf
+  class: archivist
+previous_policy_summary:
+  status: draft
+  last_calibration_id: null
+  calibration_mode: uncalibrated_contract_package
+  primary_profile:
+    model: null
+    reasoning_effort: null
+    species: null
+    class: null
+    candidate_id: null
+    quality_gate: pending_profile_calibration
+  shadow_top_k: []
+  parse_status: parsed
+  parse_error: null
+  raw_excerpt: null
+recommended_primary:
+  candidate_id: qe_gpt_5_5_low_elf_archivist
+  model: gpt-5.5
+  reasoning_effort: low
+  species: elf
+  class: archivist
+  quality_score: 92
+  baseline_relative_quality: 0.92
+  quality_class: quality_equivalent_pass
+  measured_tokens:
+    input_tokens: 15769
+    cached_input_tokens: 7552
+    output_tokens: 1475
+    reasoning_output_tokens: 16
+  wall_time_seconds: 35.145
+  telemetry_source: codex_exec_json_cli_proxy
+shadow_top_k:
+  - candidate_id: qe_gpt_5_5_xhigh_elf_archivist
+    model: gpt-5.5
+    reasoning_effort: xhigh
+    species: elf
+    class: archivist
+    quality_score: 100
+    baseline_relative_quality: 1
+    output_tokens: 2155
+    reasoning_output_tokens: 516
+    wall_time_seconds: 42.49
+  - candidate_id: qe_gpt_5_5_medium_elf_archivist
+    model: gpt-5.5
+    reasoning_effort: medium
+    species: elf
+    class: archivist
+    quality_score: 92
+    baseline_relative_quality: 0.92
+    output_tokens: 2278
+    reasoning_output_tokens: 22
+    wall_time_seconds: 44.658
+telemetry_limitations:
+  - No isolated subagent/candidate-runner tool was exposed; quality source is
+    explicitly cli_only_calibration.
+  - CLI token and wall-time values are proxy telemetry for these CLI candidates,
+    not exact subagent usage.
+  - No external network/source truth was checked for synthetic source fixtures.
+archive_ref: .workflow/official_source_packet_collect_v0/calibrations/cal_20260515_quality_equiv_001/

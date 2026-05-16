@@ -1,0 +1,20 @@
+schema_version: post_development_review_gate_v0.project_binding
+binding_id: "<project_or_system_review_binding_id>"
+created_at: "<iso8601_timestamp>"
+owner_scope: "_workmeta/system | _workmeta/<project_code> | private-state | public_repo"
+review_subject:
+  subject_id: "<bounded_change_or_workflow_id>"
+  subject_kind: "code_change | docs_change | workflow_change | skill_change | source_packet | adoption_decision | automation_change | other"
+  public_safe_summary: ""
+input_refs:
+  builder_report_ref: ""
+  changed_files_ref: ""
+  validation_log_refs: []
+  source_packet_refs: []
+  owner_contract_refs: []
+output_root: "_workmeta/<project_code>/reports/procedure_capture/<review_id>/"
+boundary_policy:
+  public_packet_allowed: false
+  applied_packet_owner: "_workmeta/<project_code> | _workmeta/system"
+  secret_files_must_not_be_read: true
+  raw_payload_scope_must_be_explicit: true

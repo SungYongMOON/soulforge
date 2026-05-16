@@ -1,0 +1,1 @@
+Redacted for public-safe archive: CLI stderr contained plugin startup warnings and runtime-local paths. No stderr content is used as calibration evidence.

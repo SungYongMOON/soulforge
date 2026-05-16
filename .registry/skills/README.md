@@ -18,4 +18,5 @@
 - `pptx_autofill_conversion/` 는 user-provided template PPTX 를 runtime input 으로 받고, bundled helper scripts 와 XML guardrails 를 통해 bounded text replacement 를 수행하는 presentation skill sample 이다.
 - `se_foldertree_generate/` 는 bundled `assets/`, `scripts/`, `references/`, `requirements.txt` 를 함께 sync 해서 SE 프로젝트 폴더 트리와 plan bootstrap 을 수행하는 scaffolding skill sample 이다.
 - `workflow_optimizer/` 는 workflow profile calibration 을 수행하고, 결과를 대상 `.workflow/<workflow_id>/profile_policy.yaml` 및 `calibrations/` 아래에 남기도록 돕는 Codex bridge 포함 skill package 다.
+- `post_development_review_gate/` 는 등록된 `.workflow/post_development_review_gate_v0/` 를 Codex 작업 종료 시 호출하게 하는 bridge skill package 다.
 - boundary 규칙은 [`.registry/docs/architecture/SKILL_CANON_BOUNDARY.md`](../docs/architecture/SKILL_CANON_BOUNDARY.md) 를 따른다.

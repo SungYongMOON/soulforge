@@ -1,0 +1,38 @@
+workflow_id: ouroboros_strategic_review_harness_v0
+kind: workflow_profile_policy
+status: draft
+last_calibration_id: null
+calibration_mode: uncalibrated_contract_package
+measurement_policy:
+  quality_source: not_yet_measured
+  telemetry_source: not_yet_measured
+  subagent_token_usage_available: false
+  telemetry_exact_for_subagent: false
+  cost_confidence: unknown
+recommended_profile_posture:
+  final_strategic_judgment:
+    model: gpt-5.5
+    reasoning_effort: xhigh
+    class: auditor
+    note: Use conservative high-quality judgment for roadmap drift and owner-intent gap findings.
+  packet_normalization:
+    cheaper_profiles_allowed: true
+    note: Lower profiles may format reports but should not make final strategic findings.
+primary_profile:
+  model: null
+  reasoning_effort: null
+  species: null
+  class: null
+  candidate_id: null
+  quality_gate: pending_profile_calibration
+shadow_top_k: []
+rerun_triggers:
+  - vision_or_roadmap_contract_changes
+  - owner_question_queue_schema_changes
+  - night_watch_integration_changes
+  - first_weekly_pilot_execution
+calibration_archive_ref: null
+notes:
+  - Created as a conservative draft policy because this workflow has not been profile-optimized.
+  - Do not use cost optimization to lower final strategic judgment until representative pilot reports exist.
+  - Do not report ontology convergence or owner-intent completeness from this draft profile.

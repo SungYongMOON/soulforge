@@ -1,0 +1,26 @@
+workflow_id: owner_decision_packet_v0
+calibration_id: cal_20260515_quality_equiv_001
+calibration_mode: cli_only_calibration
+status: quality_equivalent_calibrated
+baseline_profile: "gpt-5.5|xhigh|dwarf|auditor"
+old_policy:
+  summary: status draft; primary none/draft
+recommended_primary:
+  label: "gpt-5.5|low|dwarf|auditor"
+  model: gpt-5.5
+  reasoning_effort: low
+  species: dwarf
+  class: auditor
+  quality_score: 91.0
+  quality_class: quality_equivalent_pass
+  baseline_relative_quality: 0.938
+  total_tokens: 16853
+  reasoning_output_tokens: 25
+  wall_s: 21.6
+candidate_class_counts:
+  quality_equivalent_pass: 3
+  minimum_viable_pass: 0
+  fail: 0
+telemetry_limitations:
+  - No isolated subagent runner was available; quality_source is cli_only_calibration.
+  - CLI usage is exact for these CLI candidates but remains proxy telemetry for subagent execution.

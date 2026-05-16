@@ -1,0 +1,28 @@
+workflow_id: sourcebound_knowledge_packet_operating_loop_v0
+kind: monster_rules
+status: active
+rules:
+  - monster_id: projection_promoted_as_truth
+    response: downgrade_to_derivative_projection_and_recheck_source_refs
+    summary: Projection/index/log pages help navigation but cannot replace source packets.
+  - monster_id: concept_without_source_refs
+    response: block_pending_source_or_owner_decision
+    summary: Concept candidates need source refs or explicit blockers.
+  - monster_id: contradiction_gap_suppressed
+    response: preserve_lint_finding_and_lower_claim_ceiling
+    summary: Clean narratives must not hide contradictions, source gaps, or extraction limits.
+  - monster_id: notebooklm_answer_used_as_authority
+    response: mark_advisory_only_and_require_source_backing_or_review_gate
+    summary: NotebookLM-like outputs may suggest questions but cannot certify truth or promotion.
+  - monster_id: private_payload_in_public_package
+    response: remove_payload_and_keep_template_only
+    summary: Public workflow canon must not contain private source text, copied documents, extracted payloads, or project truth.
+  - monster_id: runtime_absolute_path_in_public_package
+    response: replace_with_portable_placeholder_or_stable_id
+    summary: Public package paths must stay portable.
+  - monster_id: figure_table_formula_inferred_without_gate
+    response: require_visual_table_formula_or_ocr_review_before_claim
+    summary: Visual/table/formula-heavy sources need explicit extraction-quality gates.
+  - monster_id: workflowization_without_review_gate
+    response: route_to_post_development_review_gate
+    summary: Workflow, ontology, or canon promotion needs the appropriate review gate or owner decision.

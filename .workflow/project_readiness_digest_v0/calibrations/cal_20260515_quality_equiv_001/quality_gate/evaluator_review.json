@@ -1,0 +1,10 @@
+{
+  "limitations": [
+    "No fresh isolated evaluator subagent was available.",
+    "Rule evaluator checks structure, required terms, baseline-relative score, and hard gates."
+  ],
+  "result": "criteria_frozen_for_cli_only_calibration",
+  "review_surface": "cli_only_rule_evaluator",
+  "subagent_runner_available": false,
+  "workflow_id": "project_readiness_digest_v0"
+}

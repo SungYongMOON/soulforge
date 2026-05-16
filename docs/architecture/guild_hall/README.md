@@ -13,6 +13,7 @@
 | `SOULFORGE_ACTIVITY_LOG_V0.md` | cross-project recent-context 와 carry-forward event surface 를 설명한다. |
 | `SOULFORGE_SNAPSHOT_V0.md` | UI/external host 가 읽을 sanitized read-only snapshot 계약이다. |
 | `NIGHT_WATCH_AUTOMATION_V0.md` | 항상 켜 두는 node 에서만 ACTIVE 로 둘 점검 자동화와 경계를 설명한다. |
+| `ALWAYS_ON_STRATEGIC_REVIEW_V0.md` | 24시간 Mac mini 에서 healer, night_watch, Ouroboros strategic review 를 어떻게 나누어 pull/run 할지 설명한다. |
 | `DEV_WORKER_AUTOMATION_V0.md` | task packet 을 받아 reviewable branch 를 만드는 bounded development worker lane 을 설명한다. |
 | `doctor/README.md` | bootstrap/readiness doctor 의 owner-local 설명이다. |
 | `../../../guild_hall/activity/README.md` | activity log append/refresh 구현 surface 설명이다. |
@@ -48,6 +49,7 @@
 - [`SOULFORGE_ACTIVITY_LOG_V0.md`](SOULFORGE_ACTIVITY_LOG_V0.md)
 - [`SOULFORGE_SNAPSHOT_V0.md`](SOULFORGE_SNAPSHOT_V0.md)
 - [`NIGHT_WATCH_AUTOMATION_V0.md`](NIGHT_WATCH_AUTOMATION_V0.md)
+- [`ALWAYS_ON_STRATEGIC_REVIEW_V0.md`](ALWAYS_ON_STRATEGIC_REVIEW_V0.md)
 - [`DEV_WORKER_AUTOMATION_V0.md`](DEV_WORKER_AUTOMATION_V0.md)
 - [`../workspace/GATEWAY_MAIL_FETCH_V0.md`](../workspace/GATEWAY_MAIL_FETCH_V0.md)
 - [`../workspace/MAIL_SEND_V0.md`](../workspace/MAIL_SEND_V0.md)

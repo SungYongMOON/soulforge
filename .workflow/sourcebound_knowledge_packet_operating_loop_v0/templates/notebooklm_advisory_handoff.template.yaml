@@ -1,0 +1,24 @@
+workflow_id: sourcebound_knowledge_packet_operating_loop_v0
+kind: notebooklm_advisory_handoff
+status: optional
+handoff_id: "<handoff_id>"
+authority_boundary:
+  owner_operated_upload_required: true
+  advisory_only: true
+  tool_answer_is_not_verdict: true
+  source_refs_remain_authority: true
+allowed_payload_manifest:
+  source_ref_ids: []
+  owner_visible_source_labels: []
+  bounded_question_set: []
+  expected_return_shape: observations_with_source_refs_and_uncertainty
+forbidden_payloads:
+  - credentials
+  - cookies
+  - sessions
+  - upload_secrets
+  - private_payload_embedded_in_public_package
+return_handling:
+  accepted_use: advisory_query_context
+  required_followup: cite_back_to_source_refs_and_review_gate
+  forbidden_use: acceptance_or_canon_authority

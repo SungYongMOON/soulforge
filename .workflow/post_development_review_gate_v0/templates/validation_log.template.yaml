@@ -1,0 +1,13 @@
+schema_version: post_development_review_gate_v0.validation_log
+review_id: "<review_id>"
+created_at: "<iso8601_timestamp>"
+environment:
+  shell: "<shell_or_runner>"
+  windows_powershell_command_surface: "npm.cmd run <script>"
+commands:
+  - command: "<command>"
+    purpose: ""
+    result: "pass | fail | blocked | skipped"
+    notes: ""
+overall_result: "pass | fail | blocked | skipped"
+validation_gaps: []

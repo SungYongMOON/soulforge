@@ -1,0 +1,44 @@
+workflow_id: post_development_review_gate_v0
+kind: handoff_rules
+status: active
+rules:
+  - from: workflow_runner
+    to: builder_report_curator
+    condition: review_binding_ready
+    summary: Curator receives the bounded subject, changed-file refs, validation refs, and output owner; raw private payloads and secrets stay out of public canon.
+  - from: builder_report_curator
+    to: review_router
+    condition: builder_report_normalized
+    summary: Router receives objective, changed surfaces, output state, claim strength, and known gaps so review depth is explicit.
+  - from: review_router
+    to: validation_runner
+    condition: review_level_selected
+    summary: Validation runs before AI review conclusions are accepted, with Windows PowerShell using `npm.cmd run ...` where needed.
+  - from: validation_runner
+    to: inspector
+    condition: validation_log_written
+    summary: Inspector receives deterministic validation status and does not treat AI review as a validator substitute.
+  - from: inspector
+    to: judge
+    condition: level_2_or_higher_and_inspection_complete
+    summary: Judge receives the inspection result plus original goal and alternatives, not hidden intended answers or private justification not present in evidence.
+  - from: judge
+    to: bv_gate_coordinator
+    condition: level_3_required
+    summary: B/V coordinator receives only the acceptance contract and visible candidate/evidence refs needed to request fresh executor and verifier work.
+  - from: inspector
+    to: supervisor
+    condition: level_0_or_1_ready_for_decision
+    summary: Supervisor can decide low-risk changes from validation and inspection evidence when judge review is not required.
+  - from: judge
+    to: supervisor
+    condition: level_2_ready_for_decision
+    summary: Supervisor receives judge decision and rationale before accepting adoption, router, or promotion-candidate changes.
+  - from: bv_gate_coordinator
+    to: supervisor
+    condition: level_3_ready_or_blocked
+    summary: Supervisor receives B/V evidence or missing-evidence blocker and must not call the result production-ready when B/V remains absent.
+  - from: supervisor
+    to: evidence_archivist
+    condition: final_status_named
+    summary: Archivist writes the packet and follow-up register under `_workmeta/<project_code>/`, `_workmeta/system/`, or another explicitly approved owner.

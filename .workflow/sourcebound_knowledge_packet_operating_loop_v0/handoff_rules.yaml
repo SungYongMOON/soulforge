@@ -1,0 +1,36 @@
+workflow_id: sourcebound_knowledge_packet_operating_loop_v0
+kind: handoff_rules
+status: active
+rules:
+  - from: workflow_runner
+    to: source_intake_curator
+    condition: source_scope_bound
+    summary: Curator receives source refs, scope, and policy only; no secrets, hidden references, raw dumps, or account sessions.
+  - from: source_intake_curator
+    to: projection_compiler
+    condition: source_intake_manifest_written
+    summary: Compiler receives approved refs and visible gaps, not unapproved source payloads.
+  - from: projection_compiler
+    to: lint_reviewer
+    condition: projection_index_log_written
+    summary: Reviewer receives projection/index/log as derivative navigation surfaces and must check source refs before allowing claims.
+  - from: lint_reviewer
+    to: concept_candidate_extractor
+    condition: contradiction_gap_lint_report_written
+    summary: Extractor receives gap and lint findings so unsupported ideas remain blocked or review-required.
+  - from: concept_candidate_extractor
+    to: promotion_router
+    condition: concept_candidate_register_written
+    summary: Router receives source refs, projection refs, evidence states, and blockers for claim ceiling assignment.
+  - from: promotion_router
+    to: advisory_handoff_preparer
+    condition: claim_ceiling_and_promotion_route_written
+    summary: Handoff prep receives only labels, refs, question seeds, and non-authority warnings.
+  - from: advisory_handoff_preparer
+    to: workflowization_author
+    condition: advisory_handoff_written_or_skipped
+    summary: Workflowization author treats any advisory handoff as optional context, never as verdict.
+  - from: workflowization_author
+    to: boundary_reviewer
+    condition: workflowization_review_packet_written
+    summary: Boundary reviewer checks source truth, projection, concept, claim ceiling, and promotion boundaries before any acceptance claim.

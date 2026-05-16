@@ -1,0 +1,15 @@
+{
+    "candidate_id":  "qe_dwarf_auditor_gpt-5.5_xhigh",
+    "workflow_id":  "review_action_item_closure_loop_v0",
+    "model":  "gpt-5.5",
+    "reasoning_effort":  "xhigh",
+    "species":  "dwarf",
+    "class":  "auditor",
+    "input_tokens":  17293,
+    "cached_input_tokens":  7552,
+    "output_tokens":  4777,
+    "reasoning_output_tokens":  516,
+    "wall_time_seconds":  90.122,
+    "exit_code":  0,
+    "telemetry_source":  "codex_exec_json_cli_proxy"
+}

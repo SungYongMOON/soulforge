@@ -1,0 +1,20 @@
+ouroboros_loop_ledger:
+  workflow_id: ouroboros_strategic_review_harness_v0
+  run_id: null
+  lineage:
+    previous_run_refs: []
+    current_run_ref: null
+    next_seed_candidate_refs: []
+  loop_state:
+    action: continue | converge | ask_owner | hold | blocked
+    reason: null
+  repeated_gap_patterns:
+    - pattern_id: null
+      seen_count: 1
+      latest_gap_refs: []
+      suggested_route: owner_question | canon_constraint_candidate | mission_seed | workflow_candidate | hold_private
+  convergence_notes:
+    ontology_similarity_claimed: false
+    owner_intent_complete_claimed: false
+    notes:
+      - Draft harness does not claim convergence.

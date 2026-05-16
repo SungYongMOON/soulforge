@@ -1,0 +1,23 @@
+workflow_id: knowledge_access_event_capture_v0
+kind: usage_rollup
+schema_version: v0
+status: draft
+rollup_id: "<rollup_id>"
+source_event_log_ref: "<normalized_access_event_log_ref>"
+time_window:
+  starts_at_utc: "<YYYY-MM-DDTHH:MM:SSZ>"
+  ends_at_utc: "<YYYY-MM-DDTHH:MM:SSZ>"
+counts_by_target:
+  - knowledge_ref: "<knowledge_ref>"
+    total_access_count: 0
+    useful_access_count: 0
+    blocked_access_count: 0
+    cite_or_promote_count: 0
+    last_access_timestamp_utc: null
+    actor_type_counts: {}
+    access_type_counts: {}
+    context_counts: {}
+count_semantics:
+  count_is_signal_not_truth: true
+  duplicate_suspects_excluded_or_flagged: true
+  blocked_events_counted_separately: true

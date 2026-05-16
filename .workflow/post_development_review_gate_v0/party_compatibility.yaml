@@ -1,0 +1,45 @@
+workflow_id: post_development_review_gate_v0
+kind: party_compatibility
+status: active
+compatible_parties:
+  - party_id: solo_operator
+    status: supported_with_limits
+    notes:
+      - Level 0 and bounded Level 1 may run in a solo lane if reviewer-independence gaps are recorded.
+  - party_id: guild_master_cell
+    status: supported
+    notes:
+      - Best fit for supervisor, boundary, and evidence-archive duties around reusable skill or workflow changes.
+  - party_id: owner_plus_executor
+    status: supported
+    notes:
+      - Best fit when owner decisions, private evidence, or canon promotion boundaries are involved.
+role_class_hints:
+  supervisor:
+    preferred_classes:
+      - administrator
+  inspector:
+    preferred_classes:
+      - auditor
+  judge:
+    preferred_classes:
+      - administrator
+      - auditor
+  evidence_archivist:
+    preferred_classes:
+      - archivist
+  followup_owner:
+    preferred_classes:
+      - marshal
+species_hints:
+  conservative_review:
+    preferred_species:
+      - dwarf
+  governance_and_owner_boundary:
+    preferred_species:
+      - human
+  hidden_dependency_probe:
+    preferred_species:
+      - darkelf
+notes:
+  - These hints do not create new class or species canon. They guide runner/profile selection until optimizer calibration replaces them with measured policy.
