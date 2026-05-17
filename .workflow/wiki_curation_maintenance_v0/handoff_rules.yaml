@@ -1,0 +1,12 @@
+workflow_id: wiki_curation_maintenance_v0
+kind: handoff_rules
+status: active
+rules:
+  - from: curation_runner
+    to: curation_archivist
+    condition: current_wiki_state_inventory_complete
+    summary: The archivist receives only metadata surfaces and visible gaps, not source payloads.
+  - from: curation_archivist
+    to: boundary_reviewer
+    condition: packet_binding_lifecycle_and_gap_notes_written
+    summary: Boundary review receives the full curation packet and checks only for overclaim and payload leakage.

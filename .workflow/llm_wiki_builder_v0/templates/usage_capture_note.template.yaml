@@ -1,0 +1,7 @@
+workflow_id: llm_wiki_builder_v0
+kind: usage_capture_note
+schema_version: v0
+status: draft
+note_id: "<note_id>"
+knowledge_access_event_needed: true
+capture_reason: "bounded wiki-backed task used existing project knowledge surfaces"

@@ -1,0 +1,12 @@
+workflow_id: knowledge_candidate_triage_v0
+kind: boundary_review_note
+schema_version: v0
+status: draft
+review_id: "<review_id>"
+decision: pass
+findings: []
+non_claims:
+  - no_source_truth_claim
+  - no_owner_approval_claim
+  - no_canon_promotion_claim
+  - no_payload_copy

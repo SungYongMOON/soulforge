@@ -1,0 +1,24 @@
+workflow_id: llm_wiki_builder_v0
+kind: project_binding_template
+status: template
+project_code: "<project_code>"
+llm_wiki_builder_run_id: "<run_id>"
+inputs:
+  builder_request_binding:
+    monster_ref: "<monster_ref>"
+    question_scope: "<question_scope>"
+    target_artifact_or_workflow: "<target_artifact_or_workflow>"
+  project_wiki_context_refs:
+    project_binding_refs: []
+    source_ledger_refs: []
+    notebooklm_binding_refs: []
+approved_builder_policy:
+  query_first_before_raw_source: true
+  sourcebound_deepening_is_conditional: true
+  curation_required_for_reusable_result: true
+outputs:
+  builder_output_root_repo_path: "_workmeta/<project_code>/runs/<run_id>/llm_wiki_builder_v0"
+public_boundary:
+  commit_project_outputs_to_public_repo: false
+  include_source_payloads_in_workflow_package: false
+  include_notebooklm_answers_in_workflow_package: false

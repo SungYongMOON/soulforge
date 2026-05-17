@@ -1,0 +1,8 @@
+workflow_id: wiki_curation_maintenance_v0
+kind: lifecycle_state_delta
+schema_version: v0
+status: draft
+delta_id: "<delta_id>"
+state_changes: []
+non_claims:
+  - no_archive_or_retire_execution

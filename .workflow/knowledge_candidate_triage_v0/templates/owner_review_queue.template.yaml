@@ -1,0 +1,9 @@
+workflow_id: knowledge_candidate_triage_v0
+kind: owner_review_queue
+schema_version: v0
+status: draft
+queue_id: "<queue_id>"
+items:
+  - candidate_ref: "<candidate_ref>"
+    decision_needed: approval_or_rejection
+    blocker_summary: null

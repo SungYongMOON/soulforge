@@ -1,0 +1,16 @@
+workflow_id: knowledge_candidate_triage_v0
+kind: monster_rules
+status: active
+rules:
+  - monster_id: inbox_candidate_promoted_without_approval
+    response: demote_to_candidate_and_route_owner_review
+    summary: Candidate inbox placement is not sufficient evidence for CANON use.
+  - monster_id: superseded_source_left_in_active_packet
+    response: remove_from_packet_and_record_replacement_relation
+    summary: Superseded state must not remain in an active query set by accident.
+  - monster_id: rejected_or_unclear_source_marked_queryable
+    response: block_packet_membership_and_route_owner_review
+    summary: Rejected or unclear material must remain outside active NotebookLM packet use.
+  - monster_id: candidate_payload_boundary_unclear
+    response: hold_private_and_require_source_boundary_review
+    summary: Candidate routing must stop if payload boundary or approval basis is unclear.

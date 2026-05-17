@@ -1,0 +1,89 @@
+workflow_id: monster_knowledge_preflight_v0
+kind: workflow
+status: active
+title: Monster Knowledge Preflight v0
+summary: Inspect project wiki, NotebookLM bindings, source ledgers, and approved reference routes before a knowledge-heavy monster enters its main workflow, so the worker can query first and deepen only when needed.
+entrypoint: run
+execution_mode: local_tool_sequence
+role_slots: role_slots.yaml
+step_graph: step_graph.yaml
+handoff_rules: handoff_rules.yaml
+monster_rules: monster_rules.yaml
+party_compatibility: party_compatibility.yaml
+profile_policy: profile_policy.yaml
+inputs:
+  - monster_request_binding
+  - project_knowledge_context_refs
+  - preflight_policy
+optional_inputs:
+  - notebooklm_binding_refs
+  - notebooklm_source_ledger_refs
+  - knowledge_access_rollup_refs
+  - common_reference_refs
+  - source_packet_refs
+  - owner_decision_refs
+  - existing_mission_refs
+outputs:
+  - knowledge_preflight_packet
+  - wiki_first_query_plan
+  - source_scope_recommendation
+  - claim_ceiling_seed
+  - main_workflow_handoff
+  - boundary_review_note
+validation_level: pilot_executed_private_evidence
+registration_policy: owner_requested_registration
+upstream_workflows:
+  - workflow_id: knowledge_access_event_capture_v0
+    expected_outputs:
+      - usage_rollup
+      - boundary_review_note
+    status: optional_usage_context
+  - workflow_id: sourcebound_knowledge_packet_operating_loop_v0
+    expected_outputs:
+      - claim_ceiling_and_promotion_route
+      - contradiction_gap_lint_report
+      - concept_candidate_register
+    status: optional_previous_source_context
+downstream_workflows:
+  - workflow_id: sourcebound_knowledge_packet_operating_loop_v0
+    expected_input: source_scope_recommendation_or_gap_followup
+    status: optional_source_deepening
+  - workflow_id: post_development_review_gate_v0
+    expected_input: workflow_or_claim_boundary_change_packet
+    status: required_before_public_or_canon_promotion
+  - workflow_id: owner_decision_packet_v0
+    expected_input: preflight_discovered_owner_decision_needed
+    status: optional_owner_gate
+operating_contract:
+  owns:
+    - preflight_scope_binding
+    - project_wiki_surface_inspection_shape
+    - wiki_first_query_plan_shape
+    - source_scope_recommendation_shape
+    - claim_ceiling_seed_shape
+    - main_workflow_handoff_shape
+  does_not_own:
+    - raw_source_truth
+    - notebooklm_runtime_operation
+    - main_workflow_completion
+    - owner_decision_authority
+    - canon_promotion
+    - ontology_acceptance
+  boundaries:
+    project_wiki_first: true
+    notebooklm_is_optional_and_advisory: true
+    source_deepening_requires_approved_route: true
+    no_payload_copy_into_public_package: true
+    claim_seed_is_not_final_claim: true
+  required_output_shapes:
+    project_binding: templates/project_binding.template.yaml
+    knowledge_preflight_packet: templates/knowledge_preflight_packet.template.yaml
+    wiki_first_query_plan: templates/wiki_first_query_plan.template.yaml
+    source_scope_recommendation: templates/source_scope_recommendation.template.yaml
+    claim_ceiling_seed: templates/claim_ceiling_seed.template.yaml
+    main_workflow_handoff: templates/main_workflow_handoff.template.yaml
+    boundary_review_note: templates/boundary_review_note.template.yaml
+notes:
+  - Recommended class posture is pathfinder first, archivist follow-on, auditor only when the claim grows.
+  - This workflow is intended to sit ahead of source-heavy or ambiguity-heavy monsters, not every workflow in the repo.
+  - The preflight packet is metadata-only and should point at existing project surfaces by ref.

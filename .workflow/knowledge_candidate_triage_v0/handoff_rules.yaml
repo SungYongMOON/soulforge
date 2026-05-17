@@ -1,0 +1,16 @@
+workflow_id: knowledge_candidate_triage_v0
+kind: handoff_rules
+status: active
+rules:
+  - from: triage_runner
+    to: source_classifier
+    condition: candidate_scope_bound
+    summary: Classification receives only candidate refs and policy bindings.
+  - from: source_classifier
+    to: promotion_router
+    condition: placement_and_packet_note_written
+    summary: Routing receives candidate state and packet eligibility but no source payloads.
+  - from: promotion_router
+    to: boundary_reviewer
+    condition: owner_queue_and_downstream_routes_written
+    summary: Boundary review receives only the metadata decisions that will be surfaced downstream.

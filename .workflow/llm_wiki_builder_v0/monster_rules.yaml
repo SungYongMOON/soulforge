@@ -1,0 +1,13 @@
+workflow_id: llm_wiki_builder_v0
+kind: monster_rules
+status: active
+rules:
+  - monster_id: raw_source_reopened_before_preflight
+    response: restart_with_query_first_front_gate
+    summary: The builder should not jump to raw source first when project wiki state exists.
+  - monster_id: notebooklm_verdict_used_as_final_claim
+    response: reopen_sourcebound_or_review_route
+    summary: NotebookLM can guide the route, not settle the final claim.
+  - monster_id: curation_skipped_after_reusable_result
+    response: route_to_curation_before_closeout
+    summary: Reusable bounded results should return to the project wiki state rather than living only in chat or run memory.

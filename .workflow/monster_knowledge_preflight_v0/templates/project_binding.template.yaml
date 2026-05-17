@@ -1,0 +1,25 @@
+workflow_id: monster_knowledge_preflight_v0
+kind: project_binding_template
+status: template
+project_code: "<project_code>"
+monster_knowledge_preflight_run_id: "<run_id>"
+inputs:
+  monster_request_binding:
+    monster_ref: "<monster_ref>"
+    monster_type: "<monster_type>"
+    question_scope: "<question_scope>"
+  project_knowledge_context_refs:
+    project_binding_refs: []
+    source_ledger_refs: []
+    notebooklm_binding_refs: []
+    common_reference_refs: []
+approved_preflight_policy:
+  query_existing_project_wiki_first: true
+  notebooklm_is_advisory_only: true
+  source_deepening_requires_approved_route: true
+outputs:
+  knowledge_preflight_output_root_repo_path: "_workmeta/<project_code>/runs/<run_id>/monster_knowledge_preflight_v0"
+public_boundary:
+  commit_project_outputs_to_public_repo: false
+  include_source_payloads_in_workflow_package: false
+  include_notebooklm_answers_in_workflow_package: false

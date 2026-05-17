@@ -1,0 +1,19 @@
+workflow_id: wiki_curation_maintenance_v0
+kind: project_binding_template
+status: template
+project_code: "<project_code>"
+wiki_curation_maintenance_run_id: "<run_id>"
+inputs:
+  curation_scope_binding:
+    source_ledger_refs: []
+    notebook_binding_refs: []
+    packet_map_refs: []
+approved_curation_policy:
+  metadata_only_updates: true
+  owner_decision_required_for_approval_change: true
+outputs:
+  curation_output_root_repo_path: "_workmeta/<project_code>/runs/<run_id>/wiki_curation_maintenance_v0"
+public_boundary:
+  commit_project_outputs_to_public_repo: false
+  include_source_payloads_in_workflow_package: false
+  include_notebooklm_answers_in_workflow_package: false

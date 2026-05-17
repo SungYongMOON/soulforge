@@ -1,0 +1,23 @@
+workflow_id: knowledge_candidate_triage_v0
+kind: project_binding_template
+status: template
+project_code: "<project_code_or_system>"
+knowledge_candidate_triage_run_id: "<run_id>"
+inputs:
+  candidate_scope_binding:
+    candidate_refs: []
+    candidate_family: "<candidate_family>"
+  bookshelf_state_policy:
+    allow_active_packet_states:
+      - 10_CANON_source
+      - 20_Project_CANON
+      - 30_Domain_CANON
+approved_triage_policy:
+  payload_free_only: true
+  owner_decision_required_for_approval_change: true
+outputs:
+  candidate_triage_output_root_repo_path: "_workmeta/<project_code_or_system>/runs/<run_id>/knowledge_candidate_triage_v0"
+public_boundary:
+  commit_project_outputs_to_public_repo: false
+  include_source_payloads_in_workflow_package: false
+  include_notebooklm_answers_in_workflow_package: false

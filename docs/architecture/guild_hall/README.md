@@ -11,6 +11,7 @@
 | --- | --- |
 | `GUILD_HALL_MODEL_V0.md` | `guild_hall` 이 gateway, notify, assignment, operation state 를 어떻게 소유하는지 고정한다. |
 | `KNOWLEDGE_OPERATING_MODEL_V0.md` | Combines the knowledge access ledger, manual candidate capture, LLM suggestion approval, end-of-work sweep, sourcebound packet, and access-event analysis layers. |
+| `KNOWLEDGE_WORKFLOW_STACK_V0.md` | project work 에서 실제로 knowledge layer 를 어떤 순서와 workflow stack 으로 쓰는지 고정한다. |
 | `SOULFORGE_ACTIVITY_LOG_V0.md` | cross-project recent-context 와 carry-forward event surface 를 설명한다. |
 | `SOULFORGE_SNAPSHOT_V0.md` | UI/external host 가 읽을 sanitized read-only snapshot 계약이다. |
 | `NIGHT_WATCH_AUTOMATION_V0.md` | 항상 켜 두는 node 에서만 ACTIVE 로 둘 점검 자동화와 경계를 설명한다. |
@@ -50,6 +51,7 @@
 - [`../../../guild_hall/validate/README.md`](../../../guild_hall/validate/README.md)
 - [`GUILD_HALL_MODEL_V0.md`](GUILD_HALL_MODEL_V0.md)
 - [`KNOWLEDGE_OPERATING_MODEL_V0.md`](KNOWLEDGE_OPERATING_MODEL_V0.md)
+- [`KNOWLEDGE_WORKFLOW_STACK_V0.md`](KNOWLEDGE_WORKFLOW_STACK_V0.md)
 - [`SOULFORGE_ACTIVITY_LOG_V0.md`](SOULFORGE_ACTIVITY_LOG_V0.md)
 - [`SOULFORGE_SNAPSHOT_V0.md`](SOULFORGE_SNAPSHOT_V0.md)
 - [`NIGHT_WATCH_AUTOMATION_V0.md`](NIGHT_WATCH_AUTOMATION_V0.md)

@@ -2,6 +2,28 @@
 
 ## 2026-05-17
 
+### Revision `working` - Knowledge workflow stack and missing layers added
+
+- Added `monster_knowledge_preflight_v0` as the query-first front gate for source-heavy or ambiguity-heavy monsters so project wiki, NotebookLM bindings, and source ledgers can be inspected before the main workflow runs.
+- Added `knowledge_candidate_triage_v0` as the explicit filter between candidate material and reusable wiki state, covering bookshelf placement, packet eligibility, owner review routing, and metadata-only boundary review.
+- Added `wiki_curation_maintenance_v0` as the executable metadata-only curation layer and `llm_wiki_builder_v0` as the end-to-end stack orchestrator that ties preflight, triage, optional sourcebound deepening, curation, usage capture, and governance into one bounded route.
+- Added `KNOWLEDGE_WORKFLOW_STACK_V0.md` and `WIKI_CURATION_MAINTENANCE_V0.md` to document the usable six-layer knowledge stack, the current-default project operating loop, and the human-readable curation runbook that sits beside the executable curation layer.
+- Clarified in `KNOWLEDGE_OPERATING_MODEL_V0.md` and `AUTOHUNT_MODEL.md` that source-heavy monsters may use a knowledge preflight front gate and that curation remains a separate metadata-only maintenance layer.
+
+## 2026-05-18
+
+### Revision `working` - Knowledge stack made runnable and practiced
+
+- Raised `monster_knowledge_preflight_v0`, `knowledge_candidate_triage_v0`, `wiki_curation_maintenance_v0`, and `llm_wiki_builder_v0` to `pilot_executed_private_evidence` after a bounded private P24 practice run.
+- Recorded that the stack can now execute `query-first preflight -> candidate triage -> known-gap stop -> curation packet -> final builder handoff` without rereading raw sources or overclaiming technical authority.
+- Kept the remaining gaps narrow: per-source Drive-backed source rows still need to be populated over time, and scheduled maintenance binding is still weaker than the manual/review-driven path.
+
+### Revision `working` - LLM wiki bookshelf public example added
+
+- Added a public-safe `llm_wiki_bookshelf/` example package with an offline/manual canonical-source intake checklist, metadata-only source ledger template, and NotebookLM packet map template.
+- Linked the example from the workspace examples index and knowledge operating model while keeping source payloads, live Drive or NotebookLM IDs, account state, runtime absolute paths, and NotebookLM answers out of public canon.
+- Kept Google Drive bookshelf and NotebookLM packet claims at manual/advisory metadata level without requiring live external state.
+
 ### Revision `working` - Google Drive LLM wiki bookshelf boundary added
 
 - Documented Google Drive `Soulforge_LLM_Wiki_Bookshelf/` as the owner-held source bookshelf model for LLM wiki material across PCs.

@@ -1,0 +1,12 @@
+workflow_id: llm_wiki_builder_v0
+kind: role_slots
+status: active
+slots:
+  - slot_id: builder_runner
+    summary: binds the full stack and prepares preflight and triage handoffs
+  - slot_id: route_curator
+    summary: decides when sourcebound deepening is required instead of staying query-first
+  - slot_id: curation_archivist
+    summary: assembles the curation layer and preserves reusable wiki state
+  - slot_id: boundary_reviewer
+    summary: confirms the end-to-end builder did not overclaim or copy payloads

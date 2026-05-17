@@ -1,0 +1,12 @@
+workflow_id: knowledge_candidate_triage_v0
+kind: role_slots
+status: active
+slots:
+  - slot_id: triage_runner
+    summary: resolves scope and bookshelf policy before classification
+  - slot_id: source_classifier
+    summary: classifies candidate state and NotebookLM packet eligibility from metadata-only evidence
+  - slot_id: promotion_router
+    summary: decides the safe next route for each candidate
+  - slot_id: boundary_reviewer
+    summary: checks that candidate labels remain non-authoritative and payload-free

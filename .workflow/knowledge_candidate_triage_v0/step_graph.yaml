@@ -1,0 +1,111 @@
+workflow_id: knowledge_candidate_triage_v0
+kind: step_graph
+status: active
+steps:
+  - step_id: bind_candidate_scope
+    title: Bind Candidate Scope
+    actor_slot: triage_runner
+    action:
+      kind: candidate_scope_and_bookshelf_policy_binding
+      requires:
+        - candidate_scope_binding
+        - bookshelf_state_policy
+        - triage_policy
+      validates:
+        - owner_scope_declared
+        - public_package_payload_free
+        - candidate_and_canon_states_distinct
+    summary: Resolve which candidate family is being triaged and which bookshelf state rules apply.
+    next:
+      on_success: collect_candidate_inputs
+      on_fail: stop
+  - step_id: collect_candidate_inputs
+    title: Collect Candidate Inputs
+    actor_slot: source_classifier
+    action:
+      kind: metadata_only_candidate_collection
+      artifacts_in:
+        - source_packet_refs
+        - existing_source_ledger_refs
+        - notebooklm_packet_refs
+        - sourcebound_concept_register_refs
+        - knowledge_access_rollup_refs
+        - promotion_candidate_register_refs
+      artifact_out: candidate_triage_register
+      allowed_content:
+        - stable_candidate_ref
+        - candidate_type
+        - current_bookshelf_state
+        - visible_gap_or_reason
+        - approval_basis_ref
+        - usage_signal_ref
+      forbidden_content:
+        - raw_source_payload
+        - notebooklm_answer_payload
+        - secret_or_session_material
+    summary: Gather candidate metadata without copying source or answer payloads.
+    next:
+      on_success: classify_bookshelf_and_packet_eligibility
+      on_fail: stop
+  - step_id: classify_bookshelf_and_packet_eligibility
+    title: Classify Bookshelf And Packet Eligibility
+    actor_slot: source_classifier
+    action:
+      kind: candidate_state_and_packet_eligibility_classification
+      artifacts_in:
+        - candidate_triage_register
+        - bookshelf_state_policy
+      artifacts_out:
+        - bookshelf_placement_decision
+        - notebooklm_packet_eligibility_note
+      states:
+        - inbox_candidate
+        - canon_candidate
+        - canon_approved
+        - superseded
+        - rejected_or_unclear
+    summary: Decide the safe bookshelf state and whether the candidate can join active NotebookLM packets.
+    next:
+      on_success: route_owner_and_followup_actions
+      on_fail: stop
+  - step_id: route_owner_and_followup_actions
+    title: Route Owner And Follow-up Actions
+    actor_slot: promotion_router
+    action:
+      kind: candidate_followup_and_promotion_routing
+      artifacts_in:
+        - candidate_triage_register
+        - bookshelf_placement_decision
+        - notebooklm_packet_eligibility_note
+        - owner_decision_refs
+      artifacts_out:
+        - owner_review_queue
+        - downstream_route_map
+      route_targets:
+        - hold_private
+        - sourcebound_deepening
+        - owner_decision
+        - packet_membership_update
+        - reject
+    summary: Preserve whether a candidate can be used now, must wait for owner review, must deepen sources, or should be rejected.
+    next:
+      on_success: write_boundary_review
+      on_fail: stop
+  - step_id: write_boundary_review
+    title: Write Boundary Review
+    actor_slot: boundary_reviewer
+    action:
+      kind: candidate_triage_boundary_review
+      artifacts_in:
+        - candidate_triage_register
+        - bookshelf_placement_decision
+        - notebooklm_packet_eligibility_note
+        - owner_review_queue
+        - downstream_route_map
+      artifact_out: boundary_review_note
+      checks:
+        - no_candidate_overclaims
+        - no_payload_copy
+        - no_owner_approval_inference
+        - no_canon_promotion_inference
+    summary: Confirm that triage preserved metadata-only posture and did not convert candidate state into authority.

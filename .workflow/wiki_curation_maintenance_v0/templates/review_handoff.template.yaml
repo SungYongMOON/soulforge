@@ -1,0 +1,7 @@
+workflow_id: wiki_curation_maintenance_v0
+kind: review_handoff
+schema_version: v0
+status: draft
+handoff_id: "<handoff_id>"
+required_review_refs: []
+next_route: hold_private

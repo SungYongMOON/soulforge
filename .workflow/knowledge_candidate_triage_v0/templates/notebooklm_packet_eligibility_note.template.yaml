@@ -1,0 +1,9 @@
+workflow_id: knowledge_candidate_triage_v0
+kind: notebooklm_packet_eligibility_note
+schema_version: v0
+status: draft
+note_id: "<note_id>"
+entries:
+  - candidate_ref: "<candidate_ref>"
+    allowed_for_packet: false
+    rationale: pending_owner_review

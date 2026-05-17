@@ -1,0 +1,9 @@
+workflow_id: monster_knowledge_preflight_v0
+kind: source_scope_recommendation
+schema_version: v0
+status: draft
+recommendation_id: "<recommendation_id>"
+recommended_route: hold_private
+approved_source_refs: []
+blocked_or_missing_source_refs: []
+next_sourcebound_action: null

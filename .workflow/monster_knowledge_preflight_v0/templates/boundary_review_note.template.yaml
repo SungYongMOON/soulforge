@@ -1,0 +1,12 @@
+workflow_id: monster_knowledge_preflight_v0
+kind: boundary_review_note
+schema_version: v0
+status: draft
+review_id: "<review_id>"
+decision: pass
+findings: []
+non_claims:
+  - no_raw_source_payloads
+  - no_notebooklm_answer_payloads
+  - no_secret_or_session_material
+  - no_owner_approval_claim

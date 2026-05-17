@@ -1,0 +1,85 @@
+workflow_id: knowledge_candidate_triage_v0
+kind: workflow
+status: active
+title: Knowledge Candidate Triage v0
+summary: Classify candidate sources and derived knowledge artifacts into inbox, CANON, packet-eligible, owner-review, hold-private, or rejected routes without overclaiming source truth or approval.
+entrypoint: run
+execution_mode: local_tool_sequence
+role_slots: role_slots.yaml
+step_graph: step_graph.yaml
+handoff_rules: handoff_rules.yaml
+monster_rules: monster_rules.yaml
+party_compatibility: party_compatibility.yaml
+profile_policy: profile_policy.yaml
+inputs:
+  - candidate_scope_binding
+  - bookshelf_state_policy
+  - triage_policy
+optional_inputs:
+  - source_packet_refs
+  - existing_source_ledger_refs
+  - notebooklm_packet_refs
+  - sourcebound_concept_register_refs
+  - knowledge_access_rollup_refs
+  - promotion_candidate_register_refs
+  - owner_decision_refs
+outputs:
+  - candidate_triage_register
+  - bookshelf_placement_decision
+  - notebooklm_packet_eligibility_note
+  - owner_review_queue
+  - downstream_route_map
+  - boundary_review_note
+validation_level: pilot_executed_private_evidence
+registration_policy: owner_requested_registration
+upstream_workflows:
+  - workflow_id: sourcebound_knowledge_packet_operating_loop_v0
+    expected_outputs:
+      - concept_candidate_register
+      - claim_ceiling_and_promotion_route
+    status: optional_derived_candidate_source
+  - workflow_id: knowledge_access_event_capture_v0
+    expected_outputs:
+      - retention_label_packet
+      - orphan_redundancy_candidate_register
+    status: optional_maintenance_candidate_source
+downstream_workflows:
+  - workflow_id: sourcebound_knowledge_packet_operating_loop_v0
+    expected_input: candidate_requires_sourcebound_deepening
+    status: optional_source_deepening
+  - workflow_id: owner_decision_packet_v0
+    expected_input: candidate_requires_owner_decision
+    status: optional_owner_gate
+  - workflow_id: post_development_review_gate_v0
+    expected_input: workflow_or_policy_change_triggered_by_candidate_triage
+    status: required_before_public_or_canon_promotion
+operating_contract:
+  owns:
+    - candidate_triage_register_shape
+    - bookshelf_placement_decision_shape
+    - notebooklm_packet_eligibility_shape
+    - owner_review_queue_shape
+    - downstream_route_map_shape
+  does_not_own:
+    - raw_source_truth
+    - owner_approval_authority
+    - notebooklm_runtime_operation
+    - ontology_acceptance
+    - canon_promotion
+    - archive_or_retire_execution
+  boundaries:
+    candidate_labels_are_not_authority: true
+    inbox_candidates_are_not_active_canon: true
+    packet_eligibility_is_not_source_support: true
+    no_payload_copy_into_public_package: true
+  required_output_shapes:
+    project_binding: templates/project_binding.template.yaml
+    candidate_triage_register: templates/candidate_triage_register.template.yaml
+    bookshelf_placement_decision: templates/bookshelf_placement_decision.template.yaml
+    notebooklm_packet_eligibility_note: templates/notebooklm_packet_eligibility_note.template.yaml
+    owner_review_queue: templates/owner_review_queue.template.yaml
+    downstream_route_map: templates/downstream_route_map.template.yaml
+    boundary_review_note: templates/boundary_review_note.template.yaml
+notes:
+  - This workflow unifies candidate routing that was previously scattered across sourcebound outputs, manual procedure capture, and analytics candidates.
+  - Recommended role posture is archivist for classification, with auditor or owner gate only when the candidate threatens to overclaim.

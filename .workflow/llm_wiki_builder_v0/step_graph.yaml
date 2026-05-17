@@ -1,0 +1,105 @@
+workflow_id: llm_wiki_builder_v0
+kind: step_graph
+status: active
+steps:
+  - step_id: bind_builder_scope
+    title: Bind Builder Scope
+    actor_slot: builder_runner
+    action:
+      kind: project_wiki_builder_scope_binding
+      requires:
+        - builder_request_binding
+        - project_wiki_context_refs
+        - builder_policy
+      validates:
+        - project_owner_scope_declared
+        - query_first_policy_declared
+        - no_payload_copy_in_public_package
+    summary: Resolve the monster question, project wiki surfaces, and allowed claim posture before stack orchestration begins.
+    next:
+      on_success: assemble_query_first_front_gate
+      on_fail: stop
+  - step_id: assemble_query_first_front_gate
+    title: Assemble Query-first Front Gate
+    actor_slot: builder_runner
+    action:
+      kind: monster_preflight_handoff_assembly
+      artifacts_in:
+        - project_wiki_context_refs
+        - notebooklm_binding_refs
+        - source_ledger_refs
+        - notebooklm_packet_map_refs
+      artifact_out: preflight_result_ref
+    summary: Bind the project wiki and NotebookLM surfaces needed for the front-gate preflight.
+    next:
+      on_success: assemble_candidate_filter
+      on_fail: stop
+  - step_id: assemble_candidate_filter
+    title: Assemble Candidate Filter
+    actor_slot: builder_runner
+    action:
+      kind: knowledge_candidate_triage_handoff_assembly
+      artifacts_in:
+        - candidate_source_refs
+        - source_ledger_refs
+        - notebooklm_packet_map_refs
+      artifact_out: candidate_triage_ref
+    summary: Bind the candidate-triage context that says which source and packet candidates can be used safely now.
+    next:
+      on_success: decide_sourcebound_route
+      on_fail: stop
+  - step_id: decide_sourcebound_route
+    title: Decide Sourcebound Route
+    actor_slot: route_curator
+    action:
+      kind: query_first_then_sourcebound_route_decision
+      artifacts_in:
+        - preflight_result_ref
+        - candidate_triage_ref
+        - source_packet_refs
+      artifact_out: sourcebound_route_ref
+      route_states:
+        - wiki_first_only
+        - notebooklm_first
+        - sourcebound_deepening_required
+        - owner_input_required
+    summary: Decide whether the builder can stay query-first or must route into approved-source deepening.
+    next:
+      on_success: assemble_curation_layer
+      on_fail: stop
+  - step_id: assemble_curation_layer
+    title: Assemble Curation Layer
+    actor_slot: curation_archivist
+    action:
+      kind: wiki_curation_handoff_assembly
+      artifacts_in:
+        - preflight_result_ref
+        - candidate_triage_ref
+        - sourcebound_route_ref
+        - knowledge_access_rollup_refs
+      artifact_out: curation_result_ref
+    summary: Prepare the curation step that will keep the project wiki reusable after the bounded task.
+    next:
+      on_success: assemble_usage_and_review_handoff
+      on_fail: stop
+  - step_id: assemble_usage_and_review_handoff
+    title: Assemble Usage And Review Handoff
+    actor_slot: boundary_reviewer
+    action:
+      kind: usage_capture_and_final_builder_handoff_assembly
+      artifacts_in:
+        - preflight_result_ref
+        - candidate_triage_ref
+        - sourcebound_route_ref
+        - curation_result_ref
+        - owner_decision_refs
+      artifacts_out:
+        - usage_capture_note
+        - final_builder_handoff
+        - boundary_review_note
+      checks:
+        - no_source_truth_overclaim
+        - no_owner_approval_inference
+        - no_payload_copy
+        - no_notebooklm_answer_as_verdict
+    summary: Package the whole stack as one bounded route and confirm the builder did not collapse authority boundaries.

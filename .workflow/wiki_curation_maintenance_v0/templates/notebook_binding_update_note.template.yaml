@@ -1,0 +1,8 @@
+workflow_id: wiki_curation_maintenance_v0
+kind: notebook_binding_update_note
+schema_version: v0
+status: draft
+note_id: "<note_id>"
+binding_updates: []
+non_claims:
+  - advisory_only

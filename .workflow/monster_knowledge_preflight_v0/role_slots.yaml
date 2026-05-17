@@ -1,0 +1,12 @@
+workflow_id: monster_knowledge_preflight_v0
+kind: role_slots
+status: active
+slots:
+  - slot_id: preflight_runner
+    summary: resolves project scope and inventories the project wiki and NotebookLM metadata surfaces
+  - slot_id: query_planner
+    summary: decides whether wiki-first, NotebookLM-first, or source-deepening should come next
+  - slot_id: route_curator
+    summary: turns visible gaps and known refs into a safe next route and weak claim seed
+  - slot_id: boundary_reviewer
+    summary: checks metadata-only posture and writes the main workflow handoff packet

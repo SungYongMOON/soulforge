@@ -1,0 +1,13 @@
+workflow_id: wiki_curation_maintenance_v0
+kind: monster_rules
+status: active
+rules:
+  - monster_id: packet_membership_treated_as_owner_approval
+    response: downgrade_to_metadata_note_and_route_owner_review
+    summary: Packet membership can signal active use, not approval authority.
+  - monster_id: source_replacement_without_lifecycle_delta
+    response: require_superseded_relation_and_gap_note
+    summary: Replacement must preserve what was superseded and why.
+  - monster_id: residual_gap_hidden_during_curation
+    response: reopen_gap_register_before_review_handoff
+    summary: Curation should make future reuse safer, not cosmetically cleaner.

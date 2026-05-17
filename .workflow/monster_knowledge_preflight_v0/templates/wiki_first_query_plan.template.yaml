@@ -1,0 +1,13 @@
+workflow_id: monster_knowledge_preflight_v0
+kind: wiki_first_query_plan
+schema_version: v0
+status: draft
+plan_id: "<plan_id>"
+route_state: query_existing_project_wiki_first
+use_first_refs: []
+fallback_refs: []
+stop_conditions:
+  - owner_input_required
+  - sourcebound_deepening_required
+notes:
+  - Do not treat NotebookLM answers as final source truth.

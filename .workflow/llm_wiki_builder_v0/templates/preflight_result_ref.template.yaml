@@ -1,0 +1,7 @@
+workflow_id: llm_wiki_builder_v0
+kind: preflight_result_ref
+schema_version: v0
+status: draft
+ref_id: "<ref_id>"
+monster_knowledge_preflight_ref: "<monster_knowledge_preflight_ref>"
+recommended_query_route: query_existing_project_wiki_first

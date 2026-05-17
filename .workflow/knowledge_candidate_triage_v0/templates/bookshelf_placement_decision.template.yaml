@@ -1,0 +1,9 @@
+workflow_id: knowledge_candidate_triage_v0
+kind: bookshelf_placement_decision
+schema_version: v0
+status: draft
+decision_id: "<decision_id>"
+placements:
+  - candidate_ref: "<candidate_ref>"
+    bookshelf_state: 00_INBOX_candidate
+    rationale: null

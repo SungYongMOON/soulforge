@@ -1,0 +1,20 @@
+workflow_id: monster_knowledge_preflight_v0
+kind: knowledge_preflight_packet
+schema_version: v0
+status: draft
+packet_id: "<packet_id>"
+monster_ref: "<monster_ref>"
+project_code: "<project_code>"
+question_scope: "<question_scope>"
+known_project_refs:
+  project_binding_refs: []
+  source_ledger_refs: []
+  notebooklm_binding_refs: []
+  common_reference_refs: []
+visible_gaps: []
+recommended_query_route: review_required
+authority_boundary:
+  metadata_only: true
+  notebooklm_answer_payload_copied: false
+  source_payload_copied: false
+  owner_approval_inferred: false

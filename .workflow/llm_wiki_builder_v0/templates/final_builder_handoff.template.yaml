@@ -1,0 +1,16 @@
+workflow_id: llm_wiki_builder_v0
+kind: final_builder_handoff
+schema_version: v0
+status: draft
+handoff_id: "<handoff_id>"
+required_input_refs:
+  - "<preflight_result_ref>"
+  - "<candidate_triage_ref>"
+optional_input_refs:
+  - "<sourcebound_route_ref>"
+  - "<curation_result_ref>"
+next_route: hold_private
+non_claims:
+  - no_source_truth_approval
+  - no_owner_approval
+  - no_canon_promotion

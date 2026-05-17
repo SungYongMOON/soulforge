@@ -1,0 +1,17 @@
+workflow_id: monster_knowledge_preflight_v0
+kind: main_workflow_handoff
+schema_version: v0
+status: draft
+handoff_id: "<handoff_id>"
+main_workflow_id: "<workflow_id>"
+required_input_refs:
+  - "<knowledge_preflight_packet_ref>"
+  - "<wiki_first_query_plan_ref>"
+optional_input_refs:
+  - "<source_scope_recommendation_ref>"
+  - "<claim_ceiling_seed_ref>"
+next_route: query_first
+non_claims:
+  - no_source_truth_approval
+  - no_owner_approval
+  - no_canon_promotion

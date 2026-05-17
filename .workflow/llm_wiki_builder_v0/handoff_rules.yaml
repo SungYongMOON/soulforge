@@ -1,0 +1,16 @@
+workflow_id: llm_wiki_builder_v0
+kind: handoff_rules
+status: active
+rules:
+  - from: builder_runner
+    to: route_curator
+    condition: preflight_and_candidate_filter_bound
+    summary: Route curation receives only stack refs and allowed source context.
+  - from: route_curator
+    to: curation_archivist
+    condition: sourcebound_route_written
+    summary: Curation receives the chosen route and known gaps without payloads.
+  - from: curation_archivist
+    to: boundary_reviewer
+    condition: curation_result_ref_written
+    summary: Boundary review receives the stack outputs and verifies that authority remains separated.

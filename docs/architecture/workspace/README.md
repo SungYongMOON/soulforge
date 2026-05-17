@@ -38,6 +38,7 @@
 | `SE_DUNGEON_STAGE_MODEL_V0.md` | project=dungeon, stage/floor, boss clear 를 UI/업무 단계에 연결한다. |
 | `MAILBOX_CONCRETE_CONTRACT_V0.md` | mailbox concrete source 와 gateway state surface 의 public-safe 계약이다. |
 | `AUTOHUNT_MODEL.md` | `_workmeta/<project_code>/autohunt/` 의 routing, policy, capability 확장선을 둔다. |
+| `WIKI_CURATION_MAINTENANCE_V0.md` | project wiki/source ledger/packet map 을 어떻게 유지보수할지 current-default runbook 을 둔다. |
 | `RUNNER_EXECUTION_MODEL.md` | autohunt routing 을 workflow/party/sub-agent execution packet 으로 잇는 runner 역할이다. |
 | `WORKFLOW_EXECUTION_BINDING_MODEL.md` | workflow step 의 skill/profile ref 를 local runtime binding 으로 해석하는 기준이다. |
 | `WORKMETA_MINIMUM_SCHEMA.md` | `_workmeta/<project_code>/` 최소 contract/binding/report shape 다. |
@@ -78,6 +79,7 @@
 - [`SE_DUNGEON_STAGE_MODEL_V0.md`](SE_DUNGEON_STAGE_MODEL_V0.md)
 - [`MAILBOX_CONCRETE_CONTRACT_V0.md`](MAILBOX_CONCRETE_CONTRACT_V0.md)
 - [`AUTOHUNT_MODEL.md`](AUTOHUNT_MODEL.md)
+- [`WIKI_CURATION_MAINTENANCE_V0.md`](WIKI_CURATION_MAINTENANCE_V0.md)
 - [`RUNNER_EXECUTION_MODEL.md`](RUNNER_EXECUTION_MODEL.md)
 - [`WORKFLOW_EXECUTION_BINDING_MODEL.md`](WORKFLOW_EXECUTION_BINDING_MODEL.md)
 - [`WORKMETA_MINIMUM_SCHEMA.md`](WORKMETA_MINIMUM_SCHEMA.md)

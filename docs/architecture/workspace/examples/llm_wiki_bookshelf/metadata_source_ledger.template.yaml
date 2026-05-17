@@ -1,0 +1,64 @@
+schema_version: soulforge.llm_wiki_bookshelf.metadata_source_ledger.v0
+template_status: public_safe_example_template
+ledger_owner: _workmeta/<project_code>/reports/source_research
+bookshelf_surface:
+  storage_owner: owner_managed_google_drive_bookshelf
+  storage_role: canonical_source_bookshelf_for_llm_wiki
+  active_work_file_owner: onedrive_or_project_worksite
+  source_payloads_stored_in_public_repo: false
+metadata_boundary:
+  metadata_only: true
+  source_payloads_included: false
+  notebooklm_answers_included: false
+  live_drive_ids_included: false
+  runtime_absolute_paths_included: false
+  secrets_or_account_state_included: false
+claim_policy:
+  default_claim_ceiling: observed
+  notebooklm_output_is_authority: false
+  owner_review_required_for_public_promotion: true
+folder_state_values:
+  - 00_INBOX_candidate
+  - 10_CANON_source
+  - 20_Project_CANON
+  - 30_Domain_CANON
+  - 80_SUPERSEDED
+  - 90_REJECTED_or_UNCLEAR
+source_entries:
+  - source_handle: source-YYYYMMDD-short-label
+    title_label: Public-safe source label
+    source_kind: pdf | drive_native_doc | web_export | owner_approved_note | source_packet
+    source_class: official_reference | owner_approved | public_reference | project_source_packet
+    bookshelf_state: 00_INBOX_candidate
+    storage_locator:
+      storage_surface: google_drive_bookshelf
+      locator_kind: owner_held_label
+      locator_label: Bookshelf folder label or owner-held ref, not a live ID
+    version:
+      version_label: v0
+      effective_date: YYYY-MM-DD
+      supersedes_handle: null
+      superseded_by_handle: null
+    owner_approval:
+      approval_status: candidate | owner_approved | rejected | superseded
+      approved_by_role: owner | steward | reviewer | not_approved
+      approval_basis_ref: _workmeta/<project_code>/reports/source_intake/<packet_ref>.yaml
+      approval_note: Public-safe reason summary only.
+    notebooklm_use:
+      allowed_for_packet: false
+      packet_scope:
+        - topic-or-project-scope
+      excluded_reason: pending_owner_review
+    review_state:
+      claim_ceiling: observed
+      review_status: pending_owner_review
+      next_owner_action: Confirm source version and approval scope.
+    tags:
+      domain:
+        - example_domain
+      project:
+        - example_project
+    audit:
+      created_at_utc: YYYY-MM-DDTHH:MM:SSZ
+      updated_at_utc: YYYY-MM-DDTHH:MM:SSZ
+      created_by_role: worker

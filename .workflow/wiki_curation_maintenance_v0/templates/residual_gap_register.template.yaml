@@ -1,0 +1,6 @@
+workflow_id: wiki_curation_maintenance_v0
+kind: residual_gap_register
+schema_version: v0
+status: draft
+register_id: "<register_id>"
+gaps: []

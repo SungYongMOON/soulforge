@@ -1,0 +1,10 @@
+workflow_id: wiki_curation_maintenance_v0
+kind: source_ledger_curation_packet
+schema_version: v0
+status: draft
+packet_id: "<packet_id>"
+project_code: "<project_code>"
+source_entry_updates: []
+non_claims:
+  - metadata_only
+  - no_source_truth_approval

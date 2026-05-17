@@ -49,6 +49,9 @@ sequenceDiagram
 - `workflow` 는 절차와 step 순서를 소유한다.
 - `party` 는 slot 과 unit composition 을 소유한다.
 - `autohunt` 는 어떤 monster 를 어떤 workflow / party 로 자동 보낼지 소유한다.
+- source-heavy or ambiguity-heavy monsters may first route to
+  `monster_knowledge_preflight_v0` so the main workflow receives a metadata-only
+  preflight packet before it consumes larger source or NotebookLM context.
 - `autohunt` 는 필요하면 runner 로 넘길 dispatch request 를 만든다.
 - `runner` 는 workflow 와 party 를 읽어 실제 sub-agent execution 을 수행한다.
 - human `guild master` 는 실패한 hunt 의 escalation 을 받고, manual hunt 기록과 canon promotion 판단을 맡는 상위 운영 주체가 될 수 있다.

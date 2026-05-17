@@ -1,0 +1,11 @@
+workflow_id: knowledge_candidate_triage_v0
+kind: candidate_triage_register
+schema_version: v0
+status: draft
+register_id: "<register_id>"
+candidates:
+  - candidate_ref: "<candidate_ref>"
+    candidate_type: source_candidate
+    current_state: review_required
+    approval_basis_ref: null
+    visible_gap_or_reason: null

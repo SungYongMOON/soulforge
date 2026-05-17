@@ -1,0 +1,9 @@
+workflow_id: llm_wiki_builder_v0
+kind: builder_scope_packet
+schema_version: v0
+status: draft
+packet_id: "<packet_id>"
+project_code: "<project_code>"
+monster_ref: "<monster_ref>"
+question_scope: "<question_scope>"
+target_artifact_or_workflow: "<target_artifact_or_workflow>"

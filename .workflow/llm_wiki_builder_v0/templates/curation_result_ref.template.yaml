@@ -1,0 +1,6 @@
+workflow_id: llm_wiki_builder_v0
+kind: curation_result_ref
+schema_version: v0
+status: draft
+ref_id: "<ref_id>"
+wiki_curation_maintenance_ref: "<wiki_curation_maintenance_ref>"

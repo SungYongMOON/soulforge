@@ -1,0 +1,9 @@
+workflow_id: knowledge_candidate_triage_v0
+kind: downstream_route_map
+schema_version: v0
+status: draft
+route_map_id: "<route_map_id>"
+routes:
+  - candidate_ref: "<candidate_ref>"
+    next_route: hold_private
+    route_ref: null

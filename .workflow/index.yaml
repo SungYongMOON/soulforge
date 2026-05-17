@@ -79,6 +79,14 @@ entries:
     path: post_development_review_gate_v0/workflow.yaml
   - workflow_id: sourcebound_knowledge_packet_operating_loop_v0
     path: sourcebound_knowledge_packet_operating_loop_v0/workflow.yaml
+  - workflow_id: monster_knowledge_preflight_v0
+    path: monster_knowledge_preflight_v0/workflow.yaml
+  - workflow_id: knowledge_candidate_triage_v0
+    path: knowledge_candidate_triage_v0/workflow.yaml
+  - workflow_id: wiki_curation_maintenance_v0
+    path: wiki_curation_maintenance_v0/workflow.yaml
+  - workflow_id: llm_wiki_builder_v0
+    path: llm_wiki_builder_v0/workflow.yaml
   - workflow_id: knowledge_access_event_capture_v0
     path: knowledge_access_event_capture_v0/workflow.yaml
   - workflow_id: ouroboros_strategic_review_harness_v0

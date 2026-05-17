@@ -1,0 +1,16 @@
+workflow_id: monster_knowledge_preflight_v0
+kind: monster_rules
+status: active
+rules:
+  - monster_id: notebooklm_answer_treated_as_authority
+    response: downgrade_to_advisory_route_and_require_source_or_review_gate
+    summary: Query-first advice can guide the next step, but cannot approve a final claim.
+  - monster_id: source_gap_hidden_by_query_success
+    response: preserve_gap_and_lower_claim_seed
+    summary: A good summary does not erase a missing source or approval blocker.
+  - monster_id: active_query_set_contains_inbox_candidate
+    response: remove_candidate_source_and_route_owner_review
+    summary: Inbox candidates must not become active NotebookLM query set members by accident.
+  - monster_id: preflight_skipped_for_source_heavy_monster
+    response: reopen_with_query_first_front_gate
+    summary: Source-heavy monsters should not jump straight to raw-source rereads when project wiki state exists.

@@ -1,0 +1,16 @@
+workflow_id: monster_knowledge_preflight_v0
+kind: handoff_rules
+status: active
+rules:
+  - from: preflight_runner
+    to: query_planner
+    condition: project_knowledge_surfaces_inventory_complete
+    summary: Query planning receives only refs, known gaps, and prior claim notes, not source payloads.
+  - from: query_planner
+    to: route_curator
+    condition: wiki_first_plan_written
+    summary: Route curation receives the chosen query-first posture and visible blockers.
+  - from: route_curator
+    to: boundary_reviewer
+    condition: source_scope_and_claim_seed_written
+    summary: Boundary review receives only metadata packets needed for main-workflow handoff.

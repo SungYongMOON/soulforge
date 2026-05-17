@@ -1,0 +1,29 @@
+workflow_id: llm_wiki_builder_v0
+kind: workflow_profile_policy
+status: active
+calibration_mode: not_yet_calibrated
+primary_profile:
+  model: gpt-5.5
+  reasoning_effort: high
+  species: dwarf
+  class: pathfinder
+  label: "draft_default_pathfinder"
+shadow_profiles:
+  - rank: 2
+    model: gpt-5.5
+    reasoning_effort: high
+    species: dwarf
+    class: archivist
+    label: "draft_default_archivist"
+  - rank: 3
+    model: gpt-5.5
+    reasoning_effort: high
+    species: dwarf
+    class: auditor
+    label: "draft_default_auditor"
+rerun_triggers:
+  - repeated_project_use
+  - profile_optimization_requested
+  - output_shape_changed
+notes:
+  - This is a draft default profile only; actual class/species selection may later be optimized by the workflow optimizer.

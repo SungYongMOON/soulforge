@@ -1,0 +1,49 @@
+schema_version: soulforge.llm_wiki_bookshelf.notebooklm_packet_map.v0
+template_status: public_safe_example_template
+packet_boundary:
+  metadata_only: true
+  source_payloads_included: false
+  notebooklm_answers_included: false
+  live_notebook_ids_included: false
+  live_drive_ids_included: false
+  runtime_absolute_paths_included: false
+  advisory_only: true
+packet:
+  packet_handle: nlm-packet-YYYYMMDD-topic
+  topic_label: Public-safe packet topic label
+  intended_use: manual_question_answering | source_review | synthesis_draft | gap_scan
+  notebook_ref:
+    ref_kind: owner_held_notebook_label
+    ref_label: Notebook label only, not a live ID or account URL
+  source_ledger_ref: _workmeta/<project_code>/reports/source_research/metadata_source_ledger.yaml
+  source_selection:
+    include_source_handles:
+      - source-YYYYMMDD-short-label
+    exclude_source_handles:
+      - superseded-or-rejected-source-handle
+    selection_rule: Use only owner-approved CANON source handles for the scoped topic.
+  allowed_folder_states:
+    - 10_CANON_source
+    - 20_Project_CANON
+    - 30_Domain_CANON
+  excluded_folder_states:
+    - 00_INBOX_candidate
+    - 80_SUPERSEDED
+    - 90_REJECTED_or_UNCLEAR
+  query_log_policy:
+    record_queries_as_metadata_only: true
+    copy_answers_into_public_repo: false
+    copy_source_excerpts_into_public_repo: false
+    suggested_private_log_ref: _workmeta/<project_code>/reports/source_research/notebooklm_query_log.md
+  claim_policy:
+    notebooklm_output_claim_ceiling: observed
+    source_checked_claim_ceiling: source_supported
+    canon_or_owner_approval_from_packet: false
+  review:
+    packet_status: draft | ready_for_manual_notebooklm_use | retired
+    reviewer_role: owner | steward | worker
+    next_owner_action: Confirm source handles before manual NotebookLM use.
+  downstream_routes:
+    knowledge_access_event_capture: optional_metadata_rollup
+    sourcebound_knowledge_packet_operating_loop: optional_source_review
+    post_development_review_gate: required_before_public_promotion_claim

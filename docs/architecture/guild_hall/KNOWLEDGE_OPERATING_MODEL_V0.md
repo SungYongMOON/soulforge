@@ -44,6 +44,27 @@ recorded on purpose.
   but no ledger row or candidate capture was made, record the gap and next
   action instead of pretending the system observed it.
 
+## Current Workflow Stack
+
+- `monster_knowledge_preflight_v0` is the query-first front gate for
+  source-heavy or ambiguity-heavy monsters.
+- `knowledge_candidate_triage_v0` is the explicit filter between candidate
+  material and reusable wiki state.
+- `wiki_curation_maintenance_v0` is the executable curation layer that turns
+  bounded project outcomes into source-ledger, packet-map, binding, lifecycle,
+  and residual-gap update packets.
+- `llm_wiki_builder_v0` is the end-to-end orchestrator that ties preflight,
+  candidate triage, optional sourcebound deepening, curation, usage capture,
+  and governance into one bounded route.
+- `sourcebound_knowledge_packet_operating_loop_v0` remains the sourcebound
+  deepening and concept-extraction lane.
+- `knowledge_access_event_capture_v0` remains the usage analytics and retention
+  signal lane.
+- `WIKI_CURATION_MAINTENANCE_V0.md` remains the current-default curation runbook
+  for the same layer when a worker needs a human-readable checklist.
+- `owner_decision_packet_v0` and `post_development_review_gate_v0` remain the
+  approval and claim-governance layers.
+
 ## External Bookshelf Owner Model
 
 Soulforge may use an owner-managed Google Drive folder as the shared LLM wiki
@@ -78,6 +99,18 @@ NotebookLM source intake should default to `10_CANON_source`,
 review before import or query use. `80_SUPERSEDED` and
 `90_REJECTED_or_UNCLEAR` are excluded from the active query set unless a bounded
 review explicitly needs to cite why a source was superseded, rejected, or held.
+
+A public-safe offline example package lives at
+`docs/architecture/workspace/examples/llm_wiki_bookshelf/`. It provides a manual
+canonical-source intake checklist, a metadata-only source ledger template, and a
+NotebookLM packet map template. These examples are planning surfaces only: they
+do not require live Google Drive or NotebookLM state, do not contain source
+payloads or live IDs, and do not raise any claim beyond the supporting owner
+review and source evidence.
+
+For day-to-day operation, pair those example templates with the current workflow
+stack in `KNOWLEDGE_WORKFLOW_STACK_V0.md` and the curation runbook in
+`WIKI_CURATION_MAINTENANCE_V0.md`.
 
 ## Snapshot And Operation Board Lane
 

@@ -1,0 +1,8 @@
+workflow_id: monster_knowledge_preflight_v0
+kind: claim_ceiling_seed
+schema_version: v0
+status: draft
+seed_id: "<seed_id>"
+candidate_claim_ceiling: observed
+rationale_refs: []
+known_blockers: []

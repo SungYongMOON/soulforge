@@ -1,0 +1,112 @@
+workflow_id: wiki_curation_maintenance_v0
+kind: step_graph
+status: active
+steps:
+  - step_id: bind_curation_scope
+    title: Bind Curation Scope
+    actor_slot: curation_runner
+    action:
+      kind: project_wiki_curation_scope_binding
+      requires:
+        - curation_scope_binding
+        - curation_policy
+        - lifecycle_policy
+      validates:
+        - project_owner_scope_declared
+        - payload_free_public_package
+        - lifecycle_actions_are_metadata_only
+    summary: Resolve which project wiki surfaces and lifecycle rules are in scope before any curation update is proposed.
+    next:
+      on_success: inspect_current_wiki_state
+      on_fail: stop
+  - step_id: inspect_current_wiki_state
+    title: Inspect Current Wiki State
+    actor_slot: curation_runner
+    action:
+      kind: project_source_ledger_packet_map_and_binding_inventory
+      artifacts_in:
+        - project_source_ledger_refs
+        - project_notebook_binding_refs
+        - notebooklm_packet_map_refs
+        - preflight_handoff_refs
+        - candidate_triage_refs
+        - sourcebound_packet_refs
+      artifacts_out:
+        - source_ledger_curation_packet
+      allowed_content:
+        - source_handle
+        - packet_handle
+        - notebook_binding_ref
+        - drive_ref
+        - lifecycle_state
+        - gap_ref
+      forbidden_content:
+        - source_payload_body
+        - notebooklm_answer_payload
+        - auth_or_session_material
+    summary: Inspect the current wiki surfaces and collect only the metadata needed to propose safe curation changes.
+    next:
+      on_success: plan_packet_and_binding_updates
+      on_fail: stop
+  - step_id: plan_packet_and_binding_updates
+    title: Plan Packet And Binding Updates
+    actor_slot: curation_archivist
+    action:
+      kind: packet_membership_binding_and_ledger_update_planning
+      artifacts_in:
+        - source_ledger_curation_packet
+        - knowledge_access_rollup_refs
+      artifacts_out:
+        - packet_map_update_note
+        - notebook_binding_update_note
+      rules:
+        packet_membership_is_metadata_only: true
+        notebook_binding_note_is_not_source_truth: true
+        residual_gap_must_remain_visible: true
+    summary: Decide how packet membership and notebook-binding notes should change without overstating approval or source truth.
+    next:
+      on_success: plan_lifecycle_and_gap_updates
+      on_fail: stop
+  - step_id: plan_lifecycle_and_gap_updates
+    title: Plan Lifecycle And Gap Updates
+    actor_slot: curation_archivist
+    action:
+      kind: lifecycle_state_and_residual_gap_update_planning
+      artifacts_in:
+        - source_ledger_curation_packet
+        - packet_map_update_note
+        - notebook_binding_update_note
+        - owner_decision_refs
+      artifacts_out:
+        - lifecycle_state_delta
+        - residual_gap_register
+      states:
+        - candidate
+        - owner_approved
+        - superseded
+        - rejected
+        - review_required
+    summary: Record lifecycle and gap deltas so reusable wiki state stays honest about approval, replacement, and unresolved scope.
+    next:
+      on_success: assemble_review_handoff
+      on_fail: stop
+  - step_id: assemble_review_handoff
+    title: Assemble Review Handoff
+    actor_slot: boundary_reviewer
+    action:
+      kind: curation_review_handoff_and_boundary_review
+      artifacts_in:
+        - source_ledger_curation_packet
+        - packet_map_update_note
+        - notebook_binding_update_note
+        - lifecycle_state_delta
+        - residual_gap_register
+      artifacts_out:
+        - review_handoff
+        - boundary_review_note
+      checks:
+        - no_source_truth_overclaim
+        - no_owner_approval_inference
+        - no_payload_copy
+        - no_graph_or_archive_execution
+    summary: Package the curation result for downstream review and confirm that the output remains metadata-only.
