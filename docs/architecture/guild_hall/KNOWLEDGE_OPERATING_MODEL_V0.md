@@ -44,6 +44,41 @@ recorded on purpose.
   but no ledger row or candidate capture was made, record the gap and next
   action instead of pretending the system observed it.
 
+## External Bookshelf Owner Model
+
+Soulforge may use an owner-managed Google Drive folder as the shared LLM wiki
+source bookshelf. This bookshelf is an owner-held source storage surface, not
+public repository canon and not a replacement for `_workmeta` ledgers.
+
+Recommended folder state model:
+
+```text
+Google Drive
+  Soulforge_LLM_Wiki_Bookshelf/
+    00_INBOX_candidate/
+    10_CANON_source/
+    20_Project_CANON/
+    30_Domain_CANON/
+    80_SUPERSEDED/
+    90_REJECTED_or_UNCLEAR/
+```
+
+Owner split:
+
+| Surface | Role | Boundary |
+| --- | --- | --- |
+| Google Drive | Shared source bookshelf visible to approved PCs and NotebookLM. | Holds owner-approved source files or Drive-native source refs. Folder placement is not a canon claim by itself; `_workmeta` records the approval basis and use. |
+| NotebookLM | Advisory query and summary interface over selected bookshelf sources. | It should use CANON source selections, not local-only files or unreviewed inbox candidates. NotebookLM output stays advisory until checked against sources and review gates. |
+| OneDrive or cloud project worksites | Active project files, editable outputs, and shared work products. | Not the LLM wiki source-truth owner unless a source is explicitly approved, copied or linked into the Google Drive bookshelf, and recorded in `_workmeta`. |
+| Soulforge / `_workmeta` | Metadata owner for source ledgers, NotebookLM bindings, query/use logs, and task linkage. | Stores refs, ids, approval notes, claim ceilings, and usage evidence. It does not store raw source bodies in public canon. |
+| Local PC | Cache or working copy. | Never the source owner by default. Local-only material stays candidate/private until approved and recorded. |
+
+NotebookLM source intake should default to `10_CANON_source`,
+`20_Project_CANON`, or `30_Domain_CANON`. `00_INBOX_candidate` requires owner
+review before import or query use. `80_SUPERSEDED` and
+`90_REJECTED_or_UNCLEAR` are excluded from the active query set unless a bounded
+review explicitly needs to cite why a source was superseded, rejected, or held.
+
 ## Snapshot And Operation Board Lane
 
 The snapshot producer may expose a `knowledge_lane` status for operation-board

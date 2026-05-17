@@ -2,6 +2,12 @@
 
 ## 2026-05-17
 
+### Revision `working` - Google Drive LLM wiki bookshelf boundary added
+
+- Documented Google Drive `Soulforge_LLM_Wiki_Bookshelf/` as the owner-held source bookshelf model for LLM wiki material across PCs.
+- Clarified that NotebookLM should use approved CANON bookshelf sources while OneDrive remains for active work files and `_workmeta` remains the metadata ledger.
+- Kept Drive folder placement, NotebookLM output, and local PC copies out of canon authority without source approval, review evidence, and owner records.
+
 ### Revision `working` - Mac mini and MacBook role split clarified
 
 - Clarified the current owner device split: MacBook Air as `portable_dev_pc`, Mac mini operations clone as `always_on_node`, and Mac mini development worktree as a separate `dev_worker_pc`-style surface.
