@@ -14,6 +14,7 @@
 - `.workflow/<workflow_id>/` 아래에서 `index.yaml` 에 등록된 항목만 workflow canon entry 로 본다.
 - `.workflow/authoring/` 은 draft, template, guide 를 두는 대기실이며 workflow canon entry 가 아니다.
 - UI 와 derive consumer 는 폴더 direct scan 대신 `index.yaml` 을 기준으로 workflow 목록을 만들므로, `authoring/` 은 workflow 목록에 표시하지 않는다.
+- workflow 이름을 새로 정하거나 표시 이름을 붙일 때는 draft 규격인 [`docs/WORKFLOW_NAMING_CONTRACT_V0.md`](docs/WORKFLOW_NAMING_CONTRACT_V0.md) 를 먼저 참고한다.
 
 ## canon 과 성숙도 구분
 
@@ -67,6 +68,7 @@ sequenceDiagram
 ## 무엇을 둔다
 
 - `index.yaml`
+- `docs/WORKFLOW_NAMING_CONTRACT_V0.md`
 - `authoring/`
 - `<workflow_id>/workflow.yaml`
 - `<workflow_id>/role_slots.yaml`

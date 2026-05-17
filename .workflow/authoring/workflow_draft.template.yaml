@@ -3,6 +3,13 @@ kind: workflow
 status: draft
 title: Draft Workflow Title
 summary: One-line summary of the job this workflow performs.
+global_name_ko: "지식_후보선별"
+global_name_ko_scope: draft_invocation_alias_candidate
+global_name_ko_note: "Korean invocation-ready alias; no slash, spaces, dash, colon, or path-like symbols."
+display_name_ko: "분류/루프단계/행위"
+display_name_ko_scope: draft_authoring_aid
+display_name_ko_note: "Human-readable description only; slash is allowed here but this is not the global invocation key."
+naming_contract_ref: .workflow/docs/WORKFLOW_NAMING_CONTRACT_V0.md
 entrypoint: run
 execution_mode: single_unit
 profile_policy: profile_policy.yaml
@@ -14,6 +21,8 @@ outputs:
   - output_ref: final_artifact
 notes:
   - Draft workflow built from a real task note.
+  - Choose slash-free `global_name_ko`, optional descriptive `display_name_ko`, and canonical workflow_id with `.workflow/docs/WORKFLOW_NAMING_CONTRACT_V0.md` before registration.
+  - Global Korean invocation aliases must resolve to canonical workflow_id before party/mission resolution or runner handoff.
   - Workflow creator should scaffold profile_policy.yaml as draft and create calibrations/ for later profile optimizer output.
   - Full public-safe optimizer archives belong under calibrations/<calibration_id>/ after the workflow is registered.
 

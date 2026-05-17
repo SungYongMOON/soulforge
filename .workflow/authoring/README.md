@@ -2,6 +2,7 @@
 
 - `authoring/` 는 반복 작업을 workflow canon 으로 승격하기 전의 authoring aid 를 둔다.
 - 작업자는 먼저 raw task memo 를 남기고, 그 메모를 바탕으로 workflow draft 를 만든다.
+- workflow draft 의 한글 호출명과 `workflow_id` 를 정하기 전에는 [`../docs/WORKFLOW_NAMING_CONTRACT_V0.md`](../docs/WORKFLOW_NAMING_CONTRACT_V0.md) 를 먼저 확인하고, slash 없는 호출용 이름은 `global_name_ko`, 설명용 이름은 `display_name_ko` 에 적는다. `global_name_ko` 는 실행 전 canonical `workflow_id` 로 resolve 되어야 하며, `display_name_ko` 는 호출용이 아니다.
 - 안정화된 draft 만 `.workflow/<workflow_id>/` package 로 승격하고 `.workflow/index.yaml` 에 등록한다.
 - workflow creator 는 canon entry 생성 시 `profile_policy.yaml` draft 와 `calibrations/` placeholder 를 함께 만든다.
 - profile optimizer 는 등록된 workflow 의 `calibrations/<calibration_id>/` 에 public-safe subagent quality matrix 와 passed-candidate CLI telemetry probe 결과를 저장하고, `profile_policy.yaml` 을 active 추천값으로 갱신한다.

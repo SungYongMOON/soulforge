@@ -12,6 +12,13 @@
 
 ## 2026-05-18
 
+### Revision `working` - Workflow naming contract draft added
+
+- Added `.workflow/docs/WORKFLOW_NAMING_CONTRACT_V0.md` as a draft authoring contract for separating slash-free Korean invocation aliases, descriptive Korean display names, and canonical English `snake_case` workflow ids.
+- Linked the draft from `.workflow/README.md`, `.workflow/authoring/README.md`, and the workflow draft template, including draft-only `global_name_ko` and `display_name_ko` fields, so new workflow authoring can reference it without adding validator enforcement.
+- Clarified that Codex official feature constraints do not define Soulforge workflow global names, and that Korean invocation aliases must resolve to canonical `workflow_id` entries in `.workflow/index.yaml`.
+- Documented a conservative migration posture for the 44 registered workflows observed on 2026-05-18, including mixed `_v0` usage and legacy short ids.
+
 ### Revision `working` - Knowledge stack made runnable and practiced
 
 - Raised `monster_knowledge_preflight_v0`, `knowledge_candidate_triage_v0`, `wiki_curation_maintenance_v0`, and `llm_wiki_builder_v0` to `pilot_executed_private_evidence` after a bounded private P24 practice run.
