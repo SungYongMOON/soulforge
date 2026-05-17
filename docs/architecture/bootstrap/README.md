@@ -75,6 +75,7 @@
 - owner 설치 완료 판단에는 `npm run guild-hall:doctor -- --profile owner-with-state --remote` 통과를 포함한다.
 - `npm run guild-hall:doctor -- --live` 는 실제 외부 인증/연결만 확인한다.
 - live doctor 는 POP3/SMTP 로그인과 Telegram bot `getMe` 확인까지만 하고, 메일/메시지를 실제로 보내지 않는다.
+- 24시간 Mac mini 에서 운영과 개발을 모두 돌릴 때는 `ALWAYS_ON_NODE_BOOTSTRAP_PROMPT_V0.md` 를 운영용 clean clone 에만 적용하고, 장시간 개발은 별도 worktree/clone 에 `DEV_WORKER_PC_BOOTSTRAP_PROMPT_V0.md` 를 적용한다.
 
 ## 관련 경로
 

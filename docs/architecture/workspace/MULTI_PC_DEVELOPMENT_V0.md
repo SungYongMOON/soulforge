@@ -107,6 +107,21 @@ flowchart LR
 | `_workmeta/<project_code>/**` | `work_pc`, tool-bound run 범위에서는 `tool_pc` | owner-only private shared metadata plane 이며 project metadata, worklog, run truth, log, analytics, selected artifact metadata 를 commit/push 한다. actual project files 와 machine-local temp/cache 는 `_workspaces` 또는 local runtime 에 둔다. |
 | `node_identity.yaml` | 각 PC 자신 | `guild_hall/state/local/` 아래 local-only binding 이며 어떤 Git 에도 올리지 않는다. |
 
+## current owner device split
+
+현재 owner 장비 운용은 아래처럼 해석한다. 실제 장비명, 계정명, 절대경로, cloud provider 의 개인 경로는 계속 `guild_hall/state/local/node_identity.yaml` 또는 project-local `_workmeta/<project_code>/bindings/**` 에만 둔다.
+
+| 실제 운용면 | node role | 기본 쓰기 surface | 사용 방식 |
+| --- | --- | --- | --- |
+| 맥북에어 개발면 | `portable_dev_pc` | public `Soulforge`, 필요 시 `_workmeta/**` | Soulforge 코드, 문서, UI, architecture 판단과 review/merge 준비를 담당한다. `gateway_fetch_primary` 와 `night_watch_active` 는 기본 blocked 다. |
+| 맥미니 운영용 clone | `always_on_node` | `guild_hall/state/**`, `private-state/**` mirror | 24시간 gateway fetch, healer, town_crier, night_watch, activity sync 를 담당한다. 이 clone 은 clean `main` + pull/run-only 상태로 유지한다. |
+| 맥미니 개발용 worktree/clone | `dev_worker_pc` 또는 bounded task branch producer | `codex/<node-id>-<task>` task branch, 필요 시 `_workmeta/**` | 같은 물리 Mac mini 에서 장시간 개발을 돌릴 때만 별도 worktree/clone 으로 만든다. 운영용 clone 을 직접 수정하지 않는다. |
+| OneDrive 등 cloud project worksite | `work_pc` / project worksite binding | `_workspaces/<project_code>/` materialization 또는 owner-approved external project path | 실제 프로젝트 파일과 사람이 열어볼 산출물만 둔다. public repo, `_workmeta`, `private-state`, `guild_hall/state/**` runtime, secret/env/session 은 cloud sync 대상이 아니다. |
+
+맥미니가 운영과 개발을 모두 맡더라도 역할은 한 clone 안에서 섞지 않는다. 운영용 clone 은 `always_on_node` identity 를 갖고, 개발용 worktree/clone 은 별도의 local `node_identity.yaml` 로 `dev_worker_pc` 성격을 선언한다.
+
+OneDrive 같은 cloud path 를 `_workspaces` 로 쓰려면 project 별 binding 에만 기록한다. public tracked tree 에 machine-local 절대경로를 넣지 않고, symlink/junction 생성은 사용자가 `project_code` 와 대상 path 를 명시했을 때만 수행한다.
+
 중복 방지 규칙:
 
 1. `gateway_fetch_primary` 와 `night_watch_active` 는 current-default 에서 `always_on_node` 한 대만 가진다.

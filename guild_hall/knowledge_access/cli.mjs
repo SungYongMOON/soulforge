@@ -33,6 +33,7 @@ async function main() {
     sourceWorkflowId: args["source-workflow-id"],
     eventSourceRef: args["event-source-ref"],
     manualAgentNote: args["manual-agent-note"],
+    accumulationDeltaHint: buildAccumulationDeltaHintFromArgs(args),
   };
 
   if (command === "read") {
@@ -141,6 +142,26 @@ function parseFlagToken(token) {
   };
 }
 
+function buildAccumulationDeltaHintFromArgs(args) {
+  const hint = {
+    triggerResult: args["trigger-result"],
+    triggerReason: args["trigger-reason"],
+    deltaTypeHint: args["delta-type-hint"],
+    affectedKnowledgeRef: args["affected-knowledge-ref"],
+    priorStateRef: args["prior-state-ref"],
+    candidateRegisterRef: args["candidate-register-ref"],
+    reviewRouteHint: args["review-route-hint"],
+    suggestedRoute: args["suggested-route"],
+    claimCeiling: args["claim-ceiling"],
+  };
+
+  if (Object.values(hint).every((value) => value === undefined)) {
+    return undefined;
+  }
+
+  return hint;
+}
+
 function printResult(args, payload) {
   if (args.json) {
     printJson(payload);
@@ -166,6 +187,7 @@ function printUsageAndExit() {
       "Usage:",
       "  node guild_hall/knowledge_access/cli.mjs read --ref <repo-relative-file> (--ledger-root <path> | --ledger-file <path.jsonl>) [--reason-used <text>] [--actor-id <id>] [--json]",
       "  node guild_hall/knowledge_access/cli.mjs record --ref <repo-relative-ref> (--ledger-root <path> | --ledger-file <path.jsonl>) [--access-type <type>] [--reason-used <text>] [--output-ref <ref>] [--json]",
+      "  node guild_hall/knowledge_access/cli.mjs record --ref <repo-relative-ref> --capture-mode automatic_end_of_task_trigger_check --trigger-result <result> --claim-ceiling <ceiling> (--ledger-root <path> | --ledger-file <path.jsonl>) [--suggested-route <route>] [--trigger-reason <text>] [--json]",
       "  node guild_hall/knowledge_access/cli.mjs analyze (--ledger-file <path.jsonl> | --ledger-ref <repo-relative-jsonl>)... [--json]",
       "  node guild_hall/knowledge_access/cli.mjs notebooklm-bridge --binding-ref <repo-relative-yaml> (--ledger-root <path> | --ledger-file <path.jsonl>) [--source-ledger-ref <ref>] [--query-log-ref <ref>]",
       "",
@@ -173,6 +195,7 @@ function printUsageAndExit() {
       "  The ledger row is metadata-only. read mode returns file content to stdout/JSON but never stores it in the JSONL ledger.",
       "  analyze/rollup mode reads only explicit JSONL ledger files/refs, emits metadata-only usage rollup and boundary note JSON, and performs no canon/ontology mutation.",
       "  notebooklm-bridge mode reads explicit metadata files only, never calls nlm, never reads auth/session files, and blocks empty query logs instead of fabricating events.",
+      "  End-of-task trigger flags append only accumulation_delta_hint metadata; they do not validate source truth, approve owner decisions, mutate graphs, archive/retire refs, or promote canon.",
       "  Targets must be repo-relative public knowledge refs; secret-like, private, runtime, absolute, and traversal paths are blocked.",
     ].join("\n"),
   );

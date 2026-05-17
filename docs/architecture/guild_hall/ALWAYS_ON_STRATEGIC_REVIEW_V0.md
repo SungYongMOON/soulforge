@@ -21,6 +21,10 @@ still moving in the intended direction.
 
 Use the 24-hour Mac mini as `always_on_node`. Keep this clone clean and avoid
 normal development edits there.
+If the same Mac mini also runs long-lived development tasks, create a separate
+worktree or clone for those tasks and give that worktree its own local
+`dev_worker_pc` identity. The always-on operations clone stays `main`, clean,
+and pull/run-only.
 
 ```bash
 git clone https://github.com/SungYongMOON/soulforge.git Soulforge
@@ -159,3 +163,9 @@ The 24-hour Mac mini is useful because these reviews need continuity. It should
 keep the repo current, run deterministic checks, and produce private review
 packets. It should not silently rewrite public canon, merge branches, or push
 development commits on its own.
+
+Actual project workspaces may live on OneDrive or another owner-approved cloud
+workspace, but only as `_workspaces/<project_code>/` materialization or an
+external path recorded in project-local bindings. Do not place the public repo,
+`_workmeta`, `private-state`, `guild_hall/state` runtime, env files, sessions,
+or tokens under cloud sync.

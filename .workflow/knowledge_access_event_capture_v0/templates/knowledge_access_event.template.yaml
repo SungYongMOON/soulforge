@@ -4,7 +4,7 @@ schema_version: v0
 status: draft
 event_id: "<event_id>"
 timestamp_utc: "<YYYY-MM-DDTHH:MM:SSZ>"
-capture_mode: manual_agent_entry
+capture_mode: "manual_agent_entry | router_appended | search_tool_appended | workflow_appended | automatic_end_of_task_trigger_check | imported_log_entry"
 ledger_ref: "<knowledge_access_ledger_or_register_ref>"
 event_source_ref: null
 manual_agent_note: null

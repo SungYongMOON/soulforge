@@ -27,6 +27,7 @@ docs/architecture/bootstrap/ALWAYS_ON_NODE_BOOTSTRAP_PROMPT_V0.md 를 읽고 이
 이 PC 를 Soulforge 의 `always_on_node` 로 설정한다.
 이 PC 는 24시간 켜져 있는 운영 node 이며, gateway fetch, snapshot check, reminder, morning report candidate, night watch preflight 를 담당한다.
 단, public repo 자동 commit/push 는 하지 않는다.
+같은 물리 Mac mini 에서 장시간 개발 작업도 돌릴 수 있지만, 이 prompt 가 설정하는 운영용 clone 에서는 개발 편집을 하지 않는다. 개발은 별도 worktree/clone 에서 `dev_worker_pc` 또는 bounded task branch producer 로 설정한다.
 
 ### 중요 규칙
 
@@ -80,11 +81,14 @@ allowed_jobs:
   - morning_report_candidate
   - night_watch
   - private_state_sync
+  - activity_sync
   - lightweight_classification
+  - dev_worker_handoff
 
 blocked_jobs:
   - public_repo_auto_commit
   - public_repo_auto_push
+  - direct_development_on_operations_clone
   - broad_file_rewrite
   - company_workspace_primary
   - tool_bound_allegro_work
@@ -101,6 +105,8 @@ local_paths:
   workmeta_root: <actual Soulforge root>/_workmeta
   private_state_root: <actual Soulforge root>/private-state
   local_runtime_root: <actual Soulforge root>/guild_hall/state
+  workspaces_root: <owner-approved external workspace root or <actual Soulforge root>/_workspaces>
+  dev_worktree_root: null
 
 capabilities:
   - always_on_runtime
@@ -115,8 +121,23 @@ notes:
   - This file is local-only under guild_hall/state and must not be committed to public Git.
   - This node is the primary always-on operations node.
   - This node may sync/pull repos during preflight, but must not auto commit or auto push public tracked docs/code.
+  - Long-running development on this Mac must use a separate worktree or clone with its own local node_identity.yaml.
+  - OneDrive or other cloud workspaces may hold actual project files, but not public Git repos, _workmeta, private-state, guild_hall/state runtime, or secrets.
   - Secret values must be created or copied by the human owner only.
 ```
+
+### 2.5 optional development worktree boundary
+
+맥미니에서 24시간 개발 작업도 돌리려면 운영용 clone 을 직접 수정하지 말고 별도 worktree 또는 별도 clone 을 만든다.
+
+```bash
+git fetch origin
+git worktree add -b codex/home-always-on-dev-<task> ../Soulforge-dev origin/main
+```
+
+그 worktree 에서는 `docs/architecture/bootstrap/DEV_WORKER_PC_BOOTSTRAP_PROMPT_V0.md` 를 읽고 local-only `node_identity.yaml` 을 `dev_worker_pc` 성격으로 만든다. 운영용 clone 의 `node_identity.yaml` 은 계속 `always_on_node` 로 유지한다.
+
+OneDrive 같은 cloud workspace 를 실제 프로젝트 파일 위치로 쓰려면 사용자가 대상 path 와 `project_code` 를 명시해야 한다. 이 bootstrap 은 cloud path 를 추측하거나 symlink/junction 을 자동 생성하지 않는다.
 
 ### 3. local env 존재 여부 확인
 
@@ -191,4 +212,3 @@ Windows PowerShell 에서 필요하면 `npm.cmd run guild-hall:night-watch:prefl
 - 사람이 직접 채워야 하는 secret/env 파일 경로
 - 이 PC 에서 ACTIVE 로 켜도 되는 자동화
 - 아직 PAUSED 로 둬야 하는 자동화
-

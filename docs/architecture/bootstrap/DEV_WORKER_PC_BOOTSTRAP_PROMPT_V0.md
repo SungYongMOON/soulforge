@@ -6,6 +6,8 @@ This document is the copy/paste prompt source for setting up a Soulforge PC as a
 
 The worker PC consumes explicit task packets, creates reviewable task branches, validates them, and pushes only those branches. It does not become the public `main` owner, the merge authority, or the always-on operations node.
 
+If the same physical Mac mini is also the 24-hour `always_on_node`, run this worker only from a separate worktree or separate clone. Do not point this lane at the clean operations clone that runs gateway, healer, town_crier, or night_watch.
+
 ## User-Facing Prompt
 
 ```text
@@ -27,6 +29,8 @@ Configure this PC so it can run the `guild_hall/dev_worker` lane:
 - implement only the bounded packet scope
 - run acceptance checks
 - push the task branch for supervisor review
+
+On a Mac mini that also runs the always-on operations clone, this setup applies only to the development worktree/clone. The operations clone must keep its own `node_role: always_on_node` local identity.
 
 ### Required Rules
 
@@ -84,10 +88,13 @@ local_paths:
   workmeta_root: "<actual Soulforge root>/_workmeta"
   private_state_root: "<actual Soulforge root>/private-state"
   local_runtime_root: "<actual Soulforge root>/guild_hall/state"
+  workspaces_root: "<owner-approved external workspace root or <actual Soulforge root>/_workspaces>"
 
 notes:
   - This file is local-only and must not be committed to public Git.
   - This node may push task branches, never main.
+  - If this worktree is on the same Mac mini as the always-on node, it must not run gateway_fetch_primary or night_watch_active.
+  - OneDrive or other cloud workspaces may hold actual project files, but not public Git repos, _workmeta, private-state, guild_hall/state runtime, or secrets.
   - Secret values must be created or copied by the human owner only.
 ```
 

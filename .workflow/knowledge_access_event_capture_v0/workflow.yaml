@@ -109,6 +109,7 @@ knowledge_access_contract:
     - router_appended
     - search_tool_appended
     - workflow_appended
+    - automatic_end_of_task_trigger_check
     - imported_log_entry
   ledger_register_operating_model:
     primary_low_friction_record: knowledge_access_ledger_entry

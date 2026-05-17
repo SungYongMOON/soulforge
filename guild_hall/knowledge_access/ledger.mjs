@@ -12,7 +12,26 @@ export const CAPTURE_MODES = new Set([
   "router_appended",
   "search_tool_appended",
   "workflow_appended",
+  "automatic_end_of_task_trigger_check",
   "imported_log_entry",
+]);
+const KNOWLEDGE_TRIGGER_RESULTS = new Set([
+  "metadata_only_record",
+  "sourcebound_review_candidate",
+  "owner_decision_needed",
+]);
+const KNOWLEDGE_TRIGGER_ROUTES = new Set([
+  "none",
+  "knowledge_access_ledger",
+  "daily_sweep",
+  "sourcebound_review",
+  "owner_decision",
+]);
+const KNOWLEDGE_CLAIM_CEILINGS = new Set([
+  "observed",
+  "source_supported",
+  "rejected_or_blocked",
+  "not_applicable",
 ]);
 
 export const ACTOR_TYPES = new Set(["workflow", "skill", "mission", "user", "tool", "advisory_handoff"]);
@@ -314,6 +333,9 @@ export function buildKnowledgeAccessEvent(options = {}) {
       duplicate_or_redundant_with: normalizeRefList(options.duplicateOrRedundantWith ?? options.duplicate_or_redundant_with),
       orphan_reason_hint: sanitizeNullableText(options.orphanReasonHint ?? options.orphan_reason_hint, "orphan_reason_hint", 240),
     },
+    accumulation_delta_hint: normalizeAccumulationDeltaHint(
+      options.accumulationDeltaHint ?? options.accumulation_delta_hint,
+    ),
     redaction: {
       metadata_only: true,
       manual_agent_note_payload_free: true,
@@ -392,6 +414,7 @@ export function validateKnowledgeAccessEvent(event) {
   if (event.redaction?.runtime_absolute_path_present !== false) {
     errors.push("redaction.runtime_absolute_path_present must be false");
   }
+  errors.push(...validateAccumulationDeltaHint(event.accumulation_delta_hint));
 
   return {
     ok: errors.length === 0,
@@ -802,6 +825,12 @@ function normalizeAnalysisIssueCode(value) {
   if (disallowed) {
     return `${disallowed[1]}_not_allowed`;
   }
+  const accumulationHintDisallowed = text.match(
+    /^accumulation_delta_hint\.(trigger_result|suggested_route|claim_ceiling)_not_allowed:/u,
+  );
+  if (accumulationHintDisallowed) {
+    return `accumulation_delta_hint.${accumulationHintDisallowed[1]}_not_allowed`;
+  }
   if (text.startsWith("knowledge_ref_root_blocked:")) {
     return "knowledge_ref_root_blocked";
   }
@@ -887,8 +916,72 @@ function normalizeWorkContext(options) {
   };
 }
 
+function normalizeAccumulationDeltaHint(value) {
+  if (value === undefined || value === null || value === "") {
+    return null;
+  }
+  if (typeof value !== "object" || Array.isArray(value)) {
+    throw new Error("accumulation_delta_hint_must_be_object");
+  }
+  return {
+    trigger_result: sanitizeNullableAllowed(
+      value.triggerResult ?? value.trigger_result,
+      KNOWLEDGE_TRIGGER_RESULTS,
+      "trigger_result",
+    ),
+    trigger_reason: sanitizeNullableText(value.triggerReason ?? value.trigger_reason, "trigger_reason", 240),
+    delta_type_hint: sanitizeNullableText(value.deltaTypeHint ?? value.delta_type_hint, "delta_type_hint", 120),
+    affected_knowledge_ref: sanitizeNullableRef(value.affectedKnowledgeRef ?? value.affected_knowledge_ref),
+    prior_state_ref: sanitizeNullableRef(value.priorStateRef ?? value.prior_state_ref),
+    candidate_register_ref: sanitizeNullableRef(value.candidateRegisterRef ?? value.candidate_register_ref),
+    review_route_hint: sanitizeNullableText(value.reviewRouteHint ?? value.review_route_hint, "review_route_hint", 160),
+    suggested_route: sanitizeNullableAllowed(
+      value.suggestedRoute ?? value.suggested_route,
+      KNOWLEDGE_TRIGGER_ROUTES,
+      "suggested_route",
+    ),
+    claim_ceiling: sanitizeNullableAllowed(
+      value.claimCeiling ?? value.claim_ceiling,
+      KNOWLEDGE_CLAIM_CEILINGS,
+      "claim_ceiling",
+    ),
+  };
+}
+
+function validateAccumulationDeltaHint(value) {
+  if (value === undefined || value === null) {
+    return [];
+  }
+  if (typeof value !== "object" || Array.isArray(value)) {
+    return ["accumulation_delta_hint must be an object"];
+  }
+
+  const errors = [];
+  if (value.trigger_result && !KNOWLEDGE_TRIGGER_RESULTS.has(value.trigger_result)) {
+    errors.push(`accumulation_delta_hint.trigger_result_not_allowed: ${value.trigger_result}`);
+  }
+  if (value.suggested_route && !KNOWLEDGE_TRIGGER_ROUTES.has(value.suggested_route)) {
+    errors.push(`accumulation_delta_hint.suggested_route_not_allowed: ${value.suggested_route}`);
+  }
+  if (value.claim_ceiling && !KNOWLEDGE_CLAIM_CEILINGS.has(value.claim_ceiling)) {
+    errors.push(`accumulation_delta_hint.claim_ceiling_not_allowed: ${value.claim_ceiling}`);
+  }
+  return errors;
+}
+
 function sanitizeNullableRef(value) {
   return sanitizeNullableText(value, "ref", 240);
+}
+
+function sanitizeNullableAllowed(value, allowed, key) {
+  if (value === undefined || value === null || value === "") {
+    return null;
+  }
+  const text = sanitizeMetadataText(value, key, 120);
+  if (!allowed.has(text)) {
+    throw new Error(`${key}_not_allowed: ${text}`);
+  }
+  return text;
 }
 
 function sanitizeNullableText(value, key, maxLength) {

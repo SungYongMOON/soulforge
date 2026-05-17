@@ -2,6 +2,12 @@
 
 ## 2026-05-17
 
+### Revision `working` - Mac mini and MacBook role split clarified
+
+- Clarified the current owner device split: MacBook Air as `portable_dev_pc`, Mac mini operations clone as `always_on_node`, and Mac mini development worktree as a separate `dev_worker_pc`-style surface.
+- Updated always-on and dev-worker bootstrap prompts so the Mac mini can run long-lived development tasks without dirtying the clean operations clone.
+- Documented that OneDrive/cloud workspaces may hold actual project files only, while public repos, `_workmeta`, `private-state`, `guild_hall/state` runtime, env files, sessions, and tokens stay outside cloud sync.
+
 ### Revision `working` - Local absolute path upload guard added
 
 - Added `validate:path-policy` to block concrete local absolute paths in changed tracked/upload candidates before root validation proceeds.
@@ -13,6 +19,9 @@
 - Added an end-of-task Knowledge Trigger Check to the Soulforge execution contract so bounded work closes with `no_trigger`, `metadata_only_record`, `sourcebound_review_candidate`, or `owner_decision_needed`.
 - Extended `post_development_review_gate_v0` and its review packet template to record the trigger result before supervisor acceptance without granting source-truth, ontology, owner-approval, graph, archive/retire, or canon authority.
 - Clarified that existing `knowledge_access_event.accumulation_delta_hint` can carry lightweight trigger signals for already-used refs, while new unregistered patterns should route through procedure capture, daily sweep, sourcebound review, or owner decision.
+- Added `guild-hall:knowledge-access record` trigger flags so end-of-task checks can append metadata-only `accumulation_delta_hint` rows from the CLI, with validation coverage for allowed trigger results, routes, and claim ceilings.
+- Defined task end as bounded completion reporting rather than thread closure, and added a low-noise Codex Stop hook guard helper that only catches missing `Knowledge trigger check:` lines without judging or storing knowledge.
+- Localized the user-facing Stop hook closeout to Korean `지식 트리거 확인: 없음` while keeping legacy English closeout lines accepted for compatibility.
 
 ### Revision `working` - Renderer Knowledge Lane review fixes
 

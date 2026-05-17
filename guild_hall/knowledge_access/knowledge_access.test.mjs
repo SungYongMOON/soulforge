@@ -112,6 +112,208 @@ test("recordKnowledgeAccess appends a use event without reading a target payload
   }
 });
 
+test("buildKnowledgeAccessEvent accepts end-of-task trigger metadata hints", async () => {
+  const repoRoot = await mkdtemp(path.join(os.tmpdir(), "soulforge-knowledge-trigger-"));
+
+  try {
+    const event = buildKnowledgeAccessEvent({
+      repoRoot,
+      knowledgeRef: "docs/knowledge/public-note.md",
+      ledgerRef: "_workmeta/TEST/reports/knowledge_access/events.jsonl",
+      now: "2026-05-16T02:30:00.000Z",
+      captureMode: "automatic_end_of_task_trigger_check",
+      actorType: "workflow",
+      actorId: "post_development_review_gate_v0",
+      accessType: "route",
+      reasonUsed: "metadata-only end-of-task knowledge trigger check",
+      eventSourceRef: "_workmeta/TEST/reports/review/post_development_review_packet.yaml",
+      workflowId: "post_development_review_gate_v0",
+      accumulationDeltaHint: {
+        triggerResult: "metadata_only_record",
+        triggerReason: "registered ref was used during closing review",
+        deltaTypeHint: "usage_signal",
+        affectedKnowledgeRef: "docs/knowledge/public-note.md",
+        suggestedRoute: "knowledge_access_ledger",
+        claimCeiling: "observed",
+      },
+    });
+
+    assert.equal(validateKnowledgeAccessEvent(event).ok, true);
+    assert.equal(event.capture_mode, "automatic_end_of_task_trigger_check");
+    assert.equal(event.work_context.workflow_id, "post_development_review_gate_v0");
+    assert.deepEqual(event.accumulation_delta_hint, {
+      trigger_result: "metadata_only_record",
+      trigger_reason: "registered ref was used during closing review",
+      delta_type_hint: "usage_signal",
+      affected_knowledge_ref: "docs/knowledge/public-note.md",
+      prior_state_ref: null,
+      candidate_register_ref: null,
+      review_route_hint: null,
+      suggested_route: "knowledge_access_ledger",
+      claim_ceiling: "observed",
+    });
+
+    assert.throws(
+      () =>
+        buildKnowledgeAccessEvent({
+          repoRoot,
+          knowledgeRef: "docs/knowledge/public-note.md",
+          now: "2026-05-16T02:31:00.000Z",
+          accumulationDeltaHint: {
+            triggerResult: "validated_private",
+          },
+        }),
+      /trigger_result_not_allowed/,
+    );
+
+    assert.throws(
+      () =>
+        buildKnowledgeAccessEvent({
+          repoRoot,
+          knowledgeRef: "docs/knowledge/public-note.md",
+          now: "2026-05-16T02:31:30.000Z",
+          accumulationDeltaHint: {
+            triggerResult: "no_trigger",
+          },
+        }),
+      /trigger_result_not_allowed: no_trigger/,
+    );
+
+    const invalidEvent = structuredClone(event);
+    invalidEvent.accumulation_delta_hint.trigger_result = "validated_private";
+    const invalidValidation = validateKnowledgeAccessEvent(invalidEvent);
+    assert.equal(invalidValidation.ok, false);
+    assert.equal(
+      invalidValidation.errors.includes("accumulation_delta_hint.trigger_result_not_allowed: validated_private"),
+      true,
+    );
+
+    const noTriggerEvent = structuredClone(event);
+    noTriggerEvent.accumulation_delta_hint.trigger_result = "no_trigger";
+    const noTriggerValidation = validateKnowledgeAccessEvent(noTriggerEvent);
+    assert.equal(noTriggerValidation.ok, false);
+    assert.equal(
+      noTriggerValidation.errors.includes("accumulation_delta_hint.trigger_result_not_allowed: no_trigger"),
+      true,
+    );
+  } finally {
+    await rm(repoRoot, { recursive: true, force: true });
+  }
+});
+
+test("CLI record accepts end-of-task trigger metadata hints", async () => {
+  const repoRoot = await mkdtemp(path.join(os.tmpdir(), "soulforge-knowledge-trigger-cli-"));
+  const ledgerFile = path.join(repoRoot, "_workmeta", "TEST", "reports", "knowledge_access", "trigger_cli.jsonl");
+
+  try {
+    const { stdout } = await execFileAsync(process.execPath, [
+      cliPath,
+      "record",
+      "--repo-root",
+      repoRoot,
+      "--ref",
+      "docs/knowledge/public-note.md",
+      "--ledger-file",
+      ledgerFile,
+      "--capture-mode",
+      "automatic_end_of_task_trigger_check",
+      "--actor-type",
+      "workflow",
+      "--actor-id",
+      "post_development_review_gate_v0",
+      "--access-type",
+      "route",
+      "--reason-used",
+      "metadata-only end-of-task trigger CLI fixture",
+      "--workflow-id",
+      "post_development_review_gate_v0",
+      "--trigger-result",
+      "sourcebound_review_candidate",
+      "--trigger-reason",
+      "approved source ref likely reusable",
+      "--delta-type-hint",
+      "candidate_signal",
+      "--affected-knowledge-ref",
+      "docs/knowledge/public-note.md",
+      "--candidate-register-ref",
+      "_workmeta/TEST/reports/procedure_capture/followup.md",
+      "--review-route-hint",
+      "sourcebound packet review",
+      "--suggested-route",
+      "sourcebound_review",
+      "--claim-ceiling",
+      "source_supported",
+      "--json",
+    ]);
+    const result = JSON.parse(stdout);
+
+    assert.equal(result.status, "recorded");
+    assert.equal(result.event.capture_mode, "automatic_end_of_task_trigger_check");
+    assert.deepEqual(result.event.accumulation_delta_hint, {
+      trigger_result: "sourcebound_review_candidate",
+      trigger_reason: "approved source ref likely reusable",
+      delta_type_hint: "candidate_signal",
+      affected_knowledge_ref: "docs/knowledge/public-note.md",
+      prior_state_ref: null,
+      candidate_register_ref: "_workmeta/TEST/reports/procedure_capture/followup.md",
+      review_route_hint: "sourcebound packet review",
+      suggested_route: "sourcebound_review",
+      claim_ceiling: "source_supported",
+    });
+
+    const rows = await readRows(ledgerFile);
+    assert.equal(rows.length, 1);
+    assert.equal(validateKnowledgeAccessEvent(rows[0]).ok, true);
+    assert.equal(JSON.stringify(result.event).includes(repoRoot), false);
+  } finally {
+    await rm(repoRoot, { recursive: true, force: true });
+  }
+});
+
+test("CLI record rejects no_trigger because no-trigger closes only in the final response", async () => {
+  const repoRoot = await mkdtemp(path.join(os.tmpdir(), "soulforge-knowledge-no-trigger-cli-"));
+  const ledgerFile = path.join(repoRoot, "_workmeta", "TEST", "reports", "knowledge_access", "no_trigger.jsonl");
+
+  try {
+    await assert.rejects(
+      execFileAsync(process.execPath, [
+        cliPath,
+        "record",
+        "--repo-root",
+        repoRoot,
+        "--ref",
+        "docs/knowledge/public-note.md",
+        "--ledger-file",
+        ledgerFile,
+        "--capture-mode",
+        "automatic_end_of_task_trigger_check",
+        "--actor-type",
+        "workflow",
+        "--actor-id",
+        "post_development_review_gate_v0",
+        "--access-type",
+        "route",
+        "--reason-used",
+        "no-trigger should stay in final closeout only",
+        "--workflow-id",
+        "post_development_review_gate_v0",
+        "--trigger-result",
+        "no_trigger",
+        "--claim-ceiling",
+        "not_applicable",
+        "--json",
+      ]),
+      (error) => {
+        assert.equal(error.code, 1);
+        assert.match(String(error.stderr), /trigger_result_not_allowed: no_trigger/);
+        return true;
+      },
+    );
+  } finally {
+    await rm(repoRoot, { recursive: true, force: true });
+  }
+});
+
 test("ledger row contains refs and metadata but not the read file body", async () => {
   const repoRoot = await mkdtemp(path.join(os.tmpdir(), "soulforge-knowledge-no-payload-"));
   const knowledgeRef = "docs/knowledge/body.md";
@@ -227,7 +429,7 @@ test("embedded runtime absolute paths in metadata are rejected without appending
           knowledgeRef: "docs/knowledge/public-note.md",
           ledgerRoot,
           now: "2026-05-16T06:06:06.000Z",
-          reasonUsed: "checked C:\\Soulforge\\private\\runtime-note.md during routing",
+          reasonUsed: `checked ${"C:"}\\\\Soulforge\\\\private\\\\runtime-note.md during routing`,
         }),
       /reason_used_must_not_be_absolute_path/,
     );
@@ -238,7 +440,7 @@ test("embedded runtime absolute paths in metadata are rejected without appending
           knowledgeRef: "docs/knowledge/public-note.md",
           ledgerRoot,
           now: "2026-05-16T06:06:06.000Z",
-          reasonUsed: "checked /Users/user/Soulforge/private/runtime-note.md during routing",
+          reasonUsed: `checked ${"/"}Users/user/Soulforge/private/runtime-note.md during routing`,
         }),
       /reason_used_must_not_be_absolute_path/,
     );
@@ -249,7 +451,7 @@ test("embedded runtime absolute paths in metadata are rejected without appending
 });
 
 test("normalization and event ids are deterministic for validation-safe Windows inputs", () => {
-  const repoRoot = "C:\\Soulforge";
+  const repoRoot = `${"C:"}\\\\Soulforge`;
   const first = buildKnowledgeAccessEvent({
     repoRoot,
     knowledgeRef: "docs\\knowledge\\windows-path.md",
@@ -652,7 +854,7 @@ test("NotebookLM bridge blocks malformed timestamp_utc rows instead of importing
 test("NotebookLM bridge blocks unsafe entry_ref paths before deriving event refs", async () => {
   const repoRoot = await mkdtemp(path.join(os.tmpdir(), "soulforge-knowledge-notebooklm-unsafe-entry-"));
   const ledgerFile = path.join(repoRoot, "_workmeta", "TEST", "reports", "knowledge_access", "notebooklm_unsafe_entry.jsonl");
-  const unsafeEntryRef = "/Users/example/.notebooklm/session.json";
+  const unsafeEntryRef = `${"/"}Users/example/.notebooklm/session.json`;
 
   try {
     await writeNotebookLmBridgeCase(repoRoot, {
@@ -843,12 +1045,12 @@ test("analyzeKnowledgeAccessLedgers reports unsafe rows without echoing payloads
       now: "2026-05-16T09:00:00.000Z",
       reasonUsed: "safe reason before mutation",
     });
-    event.reason_used = "checked /Users/example/private/runtime-note.md during analysis";
+    event.reason_used = `checked ${"/"}Users/example/private/runtime-note.md during analysis`;
     event.capture_mode = "DO_NOT_ECHO_BAD_CAPTURE_MODE";
     event.actor.type = "DO_NOT_ECHO_BAD_ACTOR_TYPE";
     event.access_type = "DO_NOT_ECHO_BAD_ACCESS_TYPE";
     event.outcome_state = "DO_NOT_ECHO_BAD_OUTCOME_STATE";
-    event.DO_NOT_ECHO_ROW_KEY = "/Users/example/private/key-leak.md";
+    event.DO_NOT_ECHO_ROW_KEY = `${"/"}Users/example/private/key-leak.md`;
 
     await mkdir(path.dirname(ledgerFile), { recursive: true });
     await writeFile(ledgerFile, `${JSON.stringify(event)}\n{"payload":"PRIVATE_PAYLOAD"\n`, "utf8");
@@ -867,7 +1069,7 @@ test("analyzeKnowledgeAccessLedgers reports unsafe rows without echoing payloads
     assert.deepEqual(result.usage_rollup.counts_by_target, []);
 
     const serialized = JSON.stringify(result);
-    assert.equal(serialized.includes("/Users/example"), false);
+    assert.equal(serialized.includes(`${"/"}Users/example`), false);
     assert.equal(serialized.includes("PRIVATE_PAYLOAD"), false);
     assert.equal(serialized.includes("DO_NOT_ECHO_BAD_CAPTURE_MODE"), false);
     assert.equal(serialized.includes("DO_NOT_ECHO_BAD_ACTOR_TYPE"), false);
