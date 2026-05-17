@@ -2,6 +2,12 @@
 
 ## 2026-05-17
 
+### Revision `working` - Local absolute path upload guard added
+
+- Added `validate:path-policy` to block concrete local absolute paths in changed tracked/upload candidates before root validation proceeds.
+- Added `validate:path-policy:all` and `validate:path-policy:state` for full tracked audits and companion repo changed-file audits.
+- Fixed registry knowledge YAML notes that became invalid once the canon validator started parsing knowledge entries.
+
 ### Revision `working` - End-of-task knowledge trigger check added
 
 - Added an end-of-task Knowledge Trigger Check to the Soulforge execution contract so bounded work closes with `no_trigger`, `metadata_only_record`, `sourcebound_review_candidate`, or `owner_decision_needed`.

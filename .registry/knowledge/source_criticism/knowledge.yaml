@@ -9,4 +9,4 @@ focus:
     - confidence labeling
     - provenance review
 notes:
-  - `source_criticism` is the canonical knowledge behind `archivist.source_criticism`.
+  - "`source_criticism` is the canonical knowledge behind `archivist.source_criticism`."

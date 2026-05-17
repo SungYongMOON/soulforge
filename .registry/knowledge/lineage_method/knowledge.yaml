@@ -9,4 +9,4 @@ focus:
     - relationship normalization
     - graph drafting
 notes:
-  - `lineage_method` is the canonical knowledge behind `archivist.lineage_method`.
+  - "`lineage_method` is the canonical knowledge behind `archivist.lineage_method`."

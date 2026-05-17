@@ -100,6 +100,7 @@
   - root docs
   - `.registry/skills/**`
   - bootstrap / update / multi-PC 문서
+  - `npm run validate:path-policy:state` 결과
 - 권장 결과:
   - portability risk 3개 이하
   - 다른 PC 에서 깨질 수 있는 이유
@@ -204,7 +205,7 @@ Codex app automation 이 임시 worktree 에서 실행될 수 있으므로, loca
 
 - `<LOCAL_SOULFORGE_ROOT>`
   - 이 PC 의 active Soulforge root absolute path
-  - 예: `/Volumes/OPENCLAW_WS/Soulforge`
+  - 예: automation 생성 시 이 placeholder 를 해당 PC 의 실제 local root 로 치환
 - `<LOCAL_ACTIVITY_ROOT>`
   - `<LOCAL_SOULFORGE_ROOT>/guild_hall/state/operations/soulforge_activity`
 - `<LOCAL_PRIVATE_STATE_ROOT>`
@@ -281,7 +282,7 @@ tracked canon 문서에서는 계속 repo-relative 경로를 쓴다.
   - Codex app local cwd 1개
   - 예: `<LOCAL_SOULFORGE_ROOT>`
 - 실행 프롬프트:
-  - `Treat <LOCAL_SOULFORGE_ROOT> as the active Soulforge root on this PC and <LOCAL_ACTIVITY_ROOT> as the only valid runtime write target for this automation. If Codex is running inside a temporary worktree, do not read or write runtime state under the worktree copy. Read <LOCAL_ACTIVITY_ROOT>/latest_context.json first if it exists, then inspect root docs under <LOCAL_SOULFORGE_ROOT>, bootstrap/update/multi-PC docs, and tracked skill packages under <LOCAL_SOULFORGE_ROOT>/.registry/skills. Check for absolute paths, machine-specific usernames, OS-specific assumptions, host-local values inside tracked skill packages, and instructions that would break on another PC. Return at most 3 portability risks with file paths and one recommended next action. Save a detailed markdown report under <LOCAL_ACTIVITY_ROOT>/log/YYYY/YYYY-MM-DD/HHMM-soulforge-portability-check.md, append one summary event to <LOCAL_ACTIVITY_ROOT>/events/YYYY/YYYY-MM.jsonl, and refresh <LOCAL_ACTIVITY_ROOT>/latest_context.json with a small recent window. Do not edit files outside <LOCAL_ACTIVITY_ROOT>, do not commit, and do not push.`
+  - `Treat <LOCAL_SOULFORGE_ROOT> as the active Soulforge root on this PC and <LOCAL_ACTIVITY_ROOT> as the only valid runtime write target for this automation. If Codex is running inside a temporary worktree, do not read or write runtime state under the worktree copy. Read <LOCAL_ACTIVITY_ROOT>/latest_context.json first if it exists, then run npm run validate:path-policy:state from <LOCAL_SOULFORGE_ROOT> and include its pass/fail summary in the report. Then inspect root docs under <LOCAL_SOULFORGE_ROOT>, bootstrap/update/multi-PC docs, and tracked skill packages under <LOCAL_SOULFORGE_ROOT>/.registry/skills. Check for absolute paths, machine-specific usernames, OS-specific assumptions, host-local values inside tracked skill packages, and instructions that would break on another PC. Return at most 3 portability risks with file paths and one recommended next action. Save a detailed markdown report under <LOCAL_ACTIVITY_ROOT>/log/YYYY/YYYY-MM-DD/HHMM-soulforge-portability-check.md, append one summary event to <LOCAL_ACTIVITY_ROOT>/events/YYYY/YYYY-MM.jsonl, and refresh <LOCAL_ACTIVITY_ROOT>/latest_context.json with a small recent window. Do not edit files outside <LOCAL_ACTIVITY_ROOT>, do not commit, and do not push.`
 
 ### 3. Context Drift Check
 
