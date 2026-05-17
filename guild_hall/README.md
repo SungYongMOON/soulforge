@@ -20,6 +20,8 @@
 - `night_watch/`: nightly review / summary owner
 - `dev_worker/`: task packet 을 받아 reviewable branch 를 만드는 bounded development worker lane
 - `dungeon_assignment/`: gateway 몬스터를 project/stage 로 배치하는 owner
+- `battle_log/`: project-local battle event stream 과 daily/latest battle log renderer
+- `mission_close/`: project-local battle evidence 를 mission terminal pointer 로 닫는 bridge
 - `state/`: local-only 운영 상태와 queue/log/env 위치, 전체 활동 recent-context surface
 
 ## owner 경계

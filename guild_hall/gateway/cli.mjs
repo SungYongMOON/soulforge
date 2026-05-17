@@ -10,7 +10,12 @@ import {
   registerMonsterInIndex,
   syncMonsterIndexInbox,
 } from "./monster_index.mjs";
-import { listMailCandidates, promoteMailCandidate } from "./mail_candidate.mjs";
+import {
+  listMailCandidates,
+  promoteMailCandidate,
+  triageMailCandidate,
+  triagePendingMailCandidates,
+} from "./mail_candidate.mjs";
 import { renderMonsterCreatedMessage, sanitizeId } from "./message_rendering.mjs";
 import {
   appendJsonl,
@@ -29,11 +34,13 @@ import {
 } from "../town_crier/runtime.mjs";
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
-const repoRoot = path.resolve(__dirname, "../..");
-const gatewayRoot = path.join(repoRoot, "guild_hall", "state", "gateway");
-const intakeInboxRoot = path.join(gatewayRoot, "intake_inbox");
-const globalEventRoot = path.join(gatewayRoot, "log", "monster_events");
-const mailCandidateRoot = path.join(gatewayRoot, "mail_candidate");
+const commandRepoRoot = path.resolve(__dirname, "../..");
+const defaultContext = createGatewayContext(commandRepoRoot);
+const repoRoot = defaultContext.repoRoot;
+const gatewayRoot = defaultContext.gatewayRoot;
+const intakeInboxRoot = defaultContext.intakeInboxRoot;
+const globalEventRoot = defaultContext.globalEventRoot;
+const mailCandidateRoot = defaultContext.mailCandidateRoot;
 
 async function main() {
   const [command, ...rest] = process.argv.slice(2);
@@ -56,6 +63,11 @@ async function main() {
 
   if (command === "promote-mail-candidate") {
     await runPromoteMailCandidate(args);
+    return;
+  }
+
+  if (command === "triage-mail-candidate") {
+    await runTriageMailCandidate(args);
     return;
   }
 
@@ -110,10 +122,11 @@ function printUsageAndExit() {
   console.error(
     [
       "Usage:",
-      "  node guild_hall/gateway/cli.mjs intake --payload-file <path>",
+      "  node guild_hall/gateway/cli.mjs intake --payload-file <path> [--local-root <path>]",
       "  node guild_hall/gateway/cli.mjs update-monster --inbox-id <id> --monster-id <id> --patch-file <path>",
       "  node guild_hall/gateway/cli.mjs list-mail-candidates [--queue-root <path>] [--status <status|all>]",
       "  node guild_hall/gateway/cli.mjs promote-mail-candidate --candidate-file <path> [--output-file <path>] [--allow-output-outside-state] [--no-status-update] [--force]",
+      "  node guild_hall/gateway/cli.mjs triage-mail-candidate (--candidate-file <path> | --all-pending) [--queue-root <path>] [--binding-file <path>] [--private-deep] [--force]",
       "  node guild_hall/gateway/cli.mjs notify-gateway --event <event> (--on | --off)",
       "  node guild_hall/gateway/cli.mjs notify-mission --mission-id <id> --event <event> (--on | --off)",
       "  node guild_hall/gateway/cli.mjs notify-status --scope <gateway|mission> --event <event> [--mission-id <id>]",
@@ -159,19 +172,50 @@ async function runPromoteMailCandidate(args) {
   printJson(result);
 }
 
+async function runTriageMailCandidate(args) {
+  const bindingFile = args["binding-file"] ? path.resolve(String(args["binding-file"])) : null;
+
+  if (args["all-pending"]) {
+    const queueRoot = args["queue-root"] ? path.resolve(String(args["queue-root"])) : mailCandidateRoot;
+    const result = await triagePendingMailCandidates({
+      repoRoot,
+      queueRoot,
+      bindingFile,
+      privateDeep: Boolean(args["private-deep"]),
+    });
+    printJson(result);
+    return;
+  }
+
+  const candidateFile = args["candidate-file"] ? path.resolve(String(args["candidate-file"])) : null;
+  if (!candidateFile) {
+    throw new Error("missing required flag: --candidate-file or --all-pending");
+  }
+
+  const result = await triageMailCandidate({
+    repoRoot,
+    candidateFile,
+    bindingFile,
+    force: Boolean(args.force),
+    privateDeep: Boolean(args["private-deep"]),
+  });
+  printJson(result);
+}
+
 async function runIntake(args) {
+  const context = createGatewayContext(resolveIntakeLocalRoot(args));
   const payloadFile = requireFlag(args, "payload-file");
   const payload = await readJson(payloadFile);
   validateIntakePayload(payload);
-  await ensureGatewayNotifyPolicy(repoRoot);
+  await ensureGatewayNotifyPolicy(context.repoRoot);
 
   const inboxId = sanitizeId(payload.event_id);
-  const inboxDir = path.join(intakeInboxRoot, inboxId);
+  const inboxDir = path.join(context.intakeInboxRoot, inboxId);
   const inboxFile = path.join(inboxDir, "inbox.json");
   const monstersFile = path.join(inboxDir, "monsters.json");
   const historyFile = path.join(inboxDir, "history.jsonl");
   const now = new Date().toISOString();
-  const monsterIndex = await loadMonsterIndex(intakeInboxRoot);
+  const monsterIndex = await loadMonsterIndex(context.intakeInboxRoot);
 
   if (await pathExists(inboxFile)) {
     const existingInbox = await readJson(inboxFile);
@@ -180,7 +224,7 @@ async function runIntake(args) {
       request_id: `mail_intake_request_${inboxId}`,
       status: "duplicate",
       workspace_intake_inbox_id: existingInbox.workspace_intake_inbox_id,
-      workspace_intake_inbox_ref: relativeToRepo(inboxDir),
+      workspace_intake_inbox_ref: relativeToRepo(inboxDir, context),
       source_ref: existingInbox.source_ref,
       monster_ids: existingMonsters.monsters.map((monster) => monster.monster_id),
       assignment_status: existingInbox.assignment_status,
@@ -193,7 +237,7 @@ async function runIntake(args) {
     linkedExistingMonsterIds,
     resolutionStatus,
     linkedEvents,
-  } = await resolveIncomingMonsters(payload.monsters ?? [], inboxId, payload, now, monsterIndex);
+  } = await resolveIncomingMonsters(payload.monsters ?? [], inboxId, payload, now, monsterIndex, context);
   const from = normalizeAddressEntries(payload.from);
   const to = normalizeAddressEntries(payload.to);
   const cc = normalizeAddressEntries(payload.cc);
@@ -228,7 +272,7 @@ async function runIntake(args) {
   await fs.mkdir(inboxDir, { recursive: true });
   await writeJson(inboxFile, inboxDocument);
   await writeJson(monstersFile, { monsters: createdMonsters });
-  await syncMonsterIndexInbox(intakeInboxRoot, inboxId, createdMonsters);
+  await syncMonsterIndexInbox(context.intakeInboxRoot, inboxId, createdMonsters);
 
   const intakeEvent = {
     event_type: "mail_intake_received",
@@ -246,11 +290,11 @@ async function runIntake(args) {
     resolution_status: resolutionStatus,
   };
   await appendJsonl(historyFile, intakeEvent);
-  await appendGlobalEvent(intakeEvent);
+  await appendGlobalEvent(intakeEvent, context);
 
   for (const event of linkedEvents) {
     await appendJsonl(historyFile, event);
-    await appendGlobalEvent(event);
+    await appendGlobalEvent(event, context);
   }
 
   for (const monster of createdMonsters) {
@@ -276,11 +320,11 @@ async function runIntake(args) {
       transferred_at: monster.transferred_at,
     };
     await appendJsonl(historyFile, createdEvent);
-    await appendGlobalEvent(createdEvent);
+    await appendGlobalEvent(createdEvent, context);
   }
 
   if (createdMonsters.length > 0) {
-    await emitNotification(repoRoot, {
+    await emitNotification(context.repoRoot, {
       scope: "gateway",
       event: "monster_created",
       text: renderMonsterCreatedMessage({
@@ -299,7 +343,7 @@ async function runIntake(args) {
     request_id: `mail_intake_request_${inboxId}`,
     status: "materialized",
     workspace_intake_inbox_id: inboxId,
-    workspace_intake_inbox_ref: relativeToRepo(inboxDir),
+    workspace_intake_inbox_ref: relativeToRepo(inboxDir, context),
     source_ref: payload.event_id,
     monster_ids: createdMonsters.map((monster) => monster.monster_id),
     linked_existing_monster_ids: linkedExistingMonsterIds,
@@ -583,8 +627,8 @@ function validateIntakePayload(payload) {
   }
 }
 
-async function resolveIncomingMonsters(monsters, inboxId, payload, now, monsterIndex) {
-  const inboxDir = path.join(intakeInboxRoot, inboxId);
+async function resolveIncomingMonsters(monsters, inboxId, payload, now, monsterIndex, context = defaultContext) {
+  const inboxDir = path.join(context.intakeInboxRoot, inboxId);
   const createdMonsters = [];
   const linkedExistingMonsterIds = [];
   const linkedEvents = [];
@@ -598,7 +642,7 @@ async function resolveIncomingMonsters(monsters, inboxId, payload, now, monsterI
     }
 
     if (match) {
-      const touchResult = await touchExistingMonster(match, rawMonster, payload, now);
+      const touchResult = await touchExistingMonster(match, rawMonster, payload, now, context);
       linkedExistingMonsterIds.push(match.monster_id);
       linkedEvents.push({
         event_type: "mail_linked_to_existing_monster",
@@ -639,7 +683,7 @@ function findExistingMonsterMatch(monster, monsterIndex) {
   return null;
 }
 
-async function touchExistingMonster(match, rawMonster, payload, now) {
+async function touchExistingMonster(match, rawMonster, payload, now, context = defaultContext) {
   const inboxFile = path.join(match.inbox_dir, "inbox.json");
   const monstersFile = path.join(match.inbox_dir, "monsters.json");
   const historyFile = path.join(match.inbox_dir, "history.jsonl");
@@ -672,7 +716,7 @@ async function touchExistingMonster(match, rawMonster, payload, now) {
     inboxDocument.updated_at = now;
     await writeJson(monstersFile, monsterDocument);
     await writeJson(inboxFile, inboxDocument);
-    await syncMonsterIndexInbox(intakeInboxRoot, match.inbox_id, monsterDocument.monsters);
+    await syncMonsterIndexInbox(context.intakeInboxRoot, match.inbox_id, monsterDocument.monsters);
 
     const touchEvent = {
       event_type: "monster_touched_by_mail",
@@ -687,7 +731,7 @@ async function touchExistingMonster(match, rawMonster, payload, now) {
       after: pickFields(after, changes),
     };
     await appendJsonl(historyFile, touchEvent);
-    await appendGlobalEvent(touchEvent);
+    await appendGlobalEvent(touchEvent, context);
   }
 
   return {
@@ -939,16 +983,46 @@ async function readMessageText(args) {
   return text;
 }
 
-async function appendGlobalEvent(event) {
+async function appendGlobalEvent(event, context = defaultContext) {
   const stamp = new Date(event.at);
   const year = String(stamp.getUTCFullYear());
   const month = String(stamp.getUTCMonth() + 1).padStart(2, "0");
-  const filePath = path.join(globalEventRoot, year, `${year}-${month}.jsonl`);
+  const filePath = path.join(context.globalEventRoot, year, `${year}-${month}.jsonl`);
   await appendJsonl(filePath, event);
 }
 
-function relativeToRepo(filePath) {
-  return sharedRelativeToRepo(repoRoot, filePath);
+function relativeToRepo(filePath, context = defaultContext) {
+  return sharedRelativeToRepo(context.repoRoot, filePath);
+}
+
+function createGatewayContext(activeRepoRoot) {
+  const resolvedRepoRoot = path.resolve(activeRepoRoot);
+  const resolvedGatewayRoot = path.join(resolvedRepoRoot, "guild_hall", "state", "gateway");
+  return {
+    repoRoot: resolvedRepoRoot,
+    gatewayRoot: resolvedGatewayRoot,
+    intakeInboxRoot: path.join(resolvedGatewayRoot, "intake_inbox"),
+    globalEventRoot: path.join(resolvedGatewayRoot, "log", "monster_events"),
+    mailCandidateRoot: path.join(resolvedGatewayRoot, "mail_candidate"),
+  };
+}
+
+function resolveIntakeLocalRoot(args) {
+  const value = args["local-root"];
+  if (value === undefined) {
+    return commandRepoRoot;
+  }
+
+  if (value === true || !String(value).trim()) {
+    throw new Error("missing required flag: --local-root");
+  }
+
+  const resolved = path.resolve(String(value));
+  if (resolved === path.parse(resolved).root) {
+    throw new Error("--local-root must not be the filesystem root");
+  }
+
+  return resolved;
 }
 
 function printJson(value) {

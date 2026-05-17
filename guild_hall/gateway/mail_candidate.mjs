@@ -2,6 +2,10 @@ import { promises as fs } from "node:fs";
 import path from "node:path";
 import { pathExists, readJson, relativeToRepo, writeJson } from "../shared/io.mjs";
 import { sanitizeId } from "./message_rendering.mjs";
+import {
+  buildMailProjectRoutingSuggestion,
+  loadMailProjectRouterBinding,
+} from "./mail_project_router.mjs";
 
 export const MAIL_CANDIDATE_SCHEMA_VERSION = "mail_candidate.queue_item.v1";
 export const MAIL_CANDIDATE_PROMOTED_STATUS = "promoted_to_intake_request";
@@ -81,6 +85,93 @@ export async function promoteMailCandidate({
     mail_intake_request_ref: relativeToRepo(repoRoot, resolvedOutputFile),
     source_event_id: request.event_id,
     intake_command: `npm run guild-hall:gateway:intake -- --payload-file ${relativeToRepo(repoRoot, resolvedOutputFile)}`,
+  };
+}
+
+export async function triageMailCandidate({
+  repoRoot,
+  candidateFile,
+  bindingFile = null,
+  routerBinding = null,
+  bindingRef = null,
+  now = new Date(),
+  force = false,
+  privateDeep = false,
+}) {
+  const resolvedCandidateFile = path.resolve(candidateFile);
+  const candidate = await readJson(resolvedCandidateFile);
+  validateMailCandidate(candidate, { force });
+
+  const router = routerBinding
+    ? { binding: routerBinding, binding_ref: bindingRef ?? null }
+    : await loadMailProjectRouterBinding({ repoRoot, bindingFile });
+  const suggestion = buildMailProjectRoutingSuggestion(candidate, {
+    binding: router.binding,
+    bindingRef: router.binding_ref,
+    now,
+    privateDeep,
+    eventRecord: privateDeep ? await readCandidateEventRecord(repoRoot, candidate) : null,
+  });
+  const updatedCandidate = markCandidateTriaged(candidate, {
+    suggestion,
+    now,
+  });
+
+  await writeJson(resolvedCandidateFile, updatedCandidate);
+
+  return {
+    request_id: `mail_candidate_triage_${candidate.candidate_id}`,
+    status: "triaged",
+    candidate_id: candidate.candidate_id,
+    candidate_ref: relativeToRepo(repoRoot, resolvedCandidateFile),
+    routing_suggestion: suggestion,
+  };
+}
+
+export async function triagePendingMailCandidates({
+  repoRoot,
+  queueRoot,
+  bindingFile = null,
+  now = new Date(),
+  privateDeep = false,
+}) {
+  const router = await loadMailProjectRouterBinding({ repoRoot, bindingFile });
+  const candidateFiles = await listPendingMailCandidateFiles(queueRoot);
+  const results = [];
+  let triaged = 0;
+  let skippedInvalid = 0;
+
+  for (const candidateFile of candidateFiles) {
+    try {
+      const result = await triageMailCandidate({
+        repoRoot,
+        candidateFile,
+        routerBinding: router.binding,
+        bindingRef: router.binding_ref,
+        now,
+        privateDeep,
+      });
+      results.push(result);
+      triaged += 1;
+    } catch (error) {
+      results.push({
+        status: "skipped_invalid",
+        candidate_ref: relativeToRepo(repoRoot, candidateFile),
+        reason: error instanceof Error ? error.message : String(error),
+      });
+      skippedInvalid += 1;
+    }
+  }
+
+  return {
+    request_id: "mail_candidate_triage_pending",
+    status: "completed",
+    queue_root: relativeToRepo(repoRoot, queueRoot),
+    binding_ref: router.binding_ref,
+    candidate_count: candidateFiles.length,
+    triaged,
+    skipped_invalid: skippedInvalid,
+    results,
   };
 }
 
@@ -185,6 +276,19 @@ export function validateMailCandidate(candidate, { force = false } = {}) {
   }
 }
 
+async function listPendingMailCandidateFiles(queueRoot) {
+  const pendingRoot = path.join(queueRoot, "queue", "pending");
+  if (!(await pathExists(pendingRoot))) {
+    return [];
+  }
+
+  const entries = await fs.readdir(pendingRoot, { withFileTypes: true });
+  return entries
+    .filter((entry) => entry.isFile() && entry.name.endsWith(".json"))
+    .map((entry) => path.join(pendingRoot, entry.name))
+    .sort();
+}
+
 export async function readCandidateEventRecord(repoRoot, candidate) {
   const sourceEvent = candidate.source_event ?? {};
   const eventFile = resolveRepoPath(repoRoot, requireString(sourceEvent.event_file, "source_event.event_file"));
@@ -226,6 +330,19 @@ export function markCandidatePromoted(candidate, { requestFile, repoRoot, now })
     ...candidate,
     status: MAIL_CANDIDATE_PROMOTED_STATUS,
     updated_at: at,
+    business_review: businessReview,
+  };
+}
+
+export function markCandidateTriaged(candidate, { suggestion, now }) {
+  const businessReview = { ...(candidate.business_review ?? {}) };
+  businessReview.status = "triaged";
+  businessReview.next_action = suggestion.next_action;
+  businessReview.project_routing_suggestion = suggestion;
+
+  return {
+    ...candidate,
+    updated_at: now.toISOString(),
     business_review: businessReview,
   };
 }

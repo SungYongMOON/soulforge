@@ -3,7 +3,7 @@
 ## 목적
 
 - `guild_hall/` root 의 owner 경계와 cross-project 운영 계약을 모은다.
-- `gateway`, `doctor`, `town_crier`, `night_watch`, `dev_worker`, `dungeon_assignment` 같은 공용 운영 기능을 `_workspaces/<project_code>/` worksite 와 분리해 설명한다.
+- `gateway`, `doctor`, `town_crier`, `night_watch`, `dev_worker`, `dungeon_assignment`, `battle_log`, `mission_close` 같은 공용 운영 기능을 `_workspaces/<project_code>/` worksite 와 분리해 설명한다.
 
 ## 문서 역할 색인
 
@@ -22,6 +22,8 @@
 | `../../../guild_hall/knowledge_access/README.md` | metadata-only knowledge ref read/use ledger helper 설명이다. |
 | `../../../guild_hall/healer/README.md` | 항상 켜 두는 PC 의 self-check / report writer 구현 surface 설명이다. |
 | `../../../guild_hall/dev_worker/README.md` | dev worker task claim / automation prompt / branch handoff 구현 surface 설명이다. |
+| `../../../guild_hall/battle_log/README.md` | project-local battle event stream 과 battle log renderer 구현 surface 설명이다. |
+| `../../../guild_hall/mission_close/README.md` | project-local battle evidence 를 mission terminal pointer 로 닫는 bridge 구현 surface 설명이다. |
 | `../../../guild_hall/shared/README.md` | guild_hall 내부 공용 io/path helper surface 설명이다. |
 | `../../../guild_hall/snapshot/README.md` | snapshot producer 구현 surface 설명이다. |
 | `../../../guild_hall/validate/README.md` | root/canon validator 구현 surface 설명이다. |
@@ -46,6 +48,8 @@
 - [`../../../guild_hall/knowledge_access/README.md`](../../../guild_hall/knowledge_access/README.md)
 - [`../../../guild_hall/healer/README.md`](../../../guild_hall/healer/README.md)
 - [`../../../guild_hall/dev_worker/README.md`](../../../guild_hall/dev_worker/README.md)
+- [`../../../guild_hall/battle_log/README.md`](../../../guild_hall/battle_log/README.md)
+- [`../../../guild_hall/mission_close/README.md`](../../../guild_hall/mission_close/README.md)
 - [`../../../guild_hall/shared/README.md`](../../../guild_hall/shared/README.md)
 - [`../../../guild_hall/snapshot/README.md`](../../../guild_hall/snapshot/README.md)
 - [`../../../guild_hall/validate/README.md`](../../../guild_hall/validate/README.md)
