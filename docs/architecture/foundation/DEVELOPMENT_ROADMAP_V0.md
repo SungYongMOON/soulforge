@@ -102,6 +102,43 @@ first workflow posture:
 4. daily worklog analyst 는 private `_workmeta/<project_code>/reports/**` evidence 를 대상으로 owner-only digest 로 시작한다.
 5. external signal scout 는 GitHub/YouTube 등 public source ref 와 adoption candidate register 만 만들고, 실제 채택은 `workflow evolution harness` 또는 post-development review gate 로 보낸다.
 
+### Google Drive LLM wiki bookshelf candidate
+
+This candidate adds Google Drive as the cross-PC canonical source bookshelf for
+NotebookLM-ready materials. It does not replace OneDrive as the active working
+file share, and it does not move source payloads into Soulforge public canon.
+
+Owner split:
+
+- Google Drive: owner-approved canonical source bookshelf for LLM wiki and
+  NotebookLM source sets.
+- NotebookLM: question, summary, and synthesis interface over the approved
+  source set.
+- OneDrive: active project working files and editable deliverables.
+- Soulforge: metadata-only source ledgers, NotebookLM packet maps, usage
+  records, review packets, and promotion candidates.
+- `_workmeta`: private/project-local evidence for why a source is canonical,
+  where it is used, and which NotebookLM packet references it.
+
+Initial development target:
+
+1. Define a canonical-source intake checklist for the Google Drive bookshelf.
+2. Define a metadata-only source ledger shape that can point at Drive sources
+   without copying source payloads.
+3. Define a NotebookLM packet map that records which canonical sources belong
+   to which notebook or topic.
+4. Route source-use events through `guild_hall/knowledge_access` and keep
+   accumulated evidence under `_workmeta/**/reports/knowledge_access`.
+
+Non-goals:
+
+- Do not use Google Drive as the active working-file root for current project
+  edits unless a separate pilot proves the sync behavior.
+- Do not put drafts, raw mail, uncertain versions, or local-only working files
+  into NotebookLM source sets.
+- Do not treat NotebookLM output as validation, owner approval, ontology
+  acceptance, or public canon promotion.
+
 ## Active Slice 001
 
 ### 이름

@@ -6,7 +6,8 @@
 
 - Documented Google Drive `Soulforge_LLM_Wiki_Bookshelf/` as the owner-held source bookshelf model for LLM wiki material across PCs.
 - Clarified that NotebookLM should use approved CANON bookshelf sources while OneDrive remains for active work files and `_workmeta` remains the metadata ledger.
-- Kept Drive folder placement, NotebookLM output, and local PC copies out of canon authority without source approval, review evidence, and owner records.
+- Kept Drive folder placement, NotebookLM output, drafts, raw mail, local-only working files, and uncertain versions out of canon authority without source approval, review evidence, and owner records.
+- Added the planned development direction for metadata-only source ledgers, NotebookLM packet maps, knowledge-use records, review packets, and promotion candidates.
 
 ### Revision `working` - Mac mini and MacBook role split clarified
 
