@@ -1,0 +1,22 @@
+workflow_id: se_stage_artifact_gap_scan_v0
+kind: role_slots
+status: active
+slots:
+  - slot_id: stage_scan_controller
+    summary: stage 범위, policy, claim ceiling, public/private boundary를 잠근다.
+  - slot_id: stage_inventory_reader
+    summary: foldertree manifest, snapshot, mission, review prep ref를 read-only로 인벤토리한다.
+  - slot_id: artifact_matrix_mapper
+    summary: stage 규칙을 required artifact matrix와 status crosswalk로 바꾼다.
+  - slot_id: gap_classifier
+    summary: missing input, source gap, blocker, draftable ceiling을 분류하되 내용을 지어내지 않는다.
+  - slot_id: draft_lane_mapper
+    summary: 바로 초안 가능한 문서/도식 lane을 register 수준으로만 분리한다.
+  - slot_id: owner_queue_writer
+    summary: owner-dependent gap를 compact question queue로 줄인다.
+  - slot_id: route_mapper
+    summary: gap family별로 가장 좁은 downstream workflow lane을 고른다.
+  - slot_id: packet_writer
+    summary: 최종 stage packet과 register bundle을 쓴다.
+  - slot_id: boundary_reviewer
+    summary: approval/completion overclaim, owner truth 추론, upstream mutation이 없는지 점검한다.

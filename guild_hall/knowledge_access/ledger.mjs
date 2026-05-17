@@ -4,6 +4,7 @@ import path from "node:path";
 import { appendJsonl, normalizeRepoPath, pathExists } from "../shared/io.mjs";
 
 export const KNOWLEDGE_ACCESS_EVENT_SCHEMA_VERSION = "soulforge.knowledge_access_event.v0";
+export const KNOWLEDGE_ACCESS_ROLLUP_SCHEMA_VERSION = "v0";
 export const KNOWLEDGE_ACCESS_WORKFLOW_ID = "knowledge_access_event_capture_v0";
 
 export const CAPTURE_MODES = new Set([
@@ -98,6 +99,135 @@ export async function recordKnowledgeAccess(options = {}) {
     knowledgeRef,
     accessType: options.accessType ?? "cite",
   });
+}
+
+export async function analyzeKnowledgeAccessLedgers(options = {}) {
+  const repoRoot = path.resolve(options.repoRoot ?? process.cwd());
+  const now = normalizeNow(options.now);
+  const generatedAtUtc = formatTimestampUtc(now);
+  const sources = normalizeAnalysisLedgerSources({
+    repoRoot,
+    ledgerFiles: options.ledgerFiles ?? options.ledgerFile,
+    ledgerRefs: options.ledgerRefs ?? options.ledgerRef,
+  });
+  const sourceLedgerRefs = sources.map((source) => source.ledger_ref);
+  const sourceEventLogRef = buildSourceEventLogRef(sourceLedgerRefs);
+  const issues = [];
+  const acceptedEvents = [];
+  const seenEventIds = new Set();
+  let jsonlRowCount = 0;
+
+  for (const source of sources) {
+    const raw = await fs.readFile(source.path, "utf8");
+    const lines = raw.split(/\r?\n/u);
+
+    for (let lineIndex = 0; lineIndex < lines.length; lineIndex += 1) {
+      const line = lines[lineIndex].trim();
+      if (!line) {
+        continue;
+      }
+      jsonlRowCount += 1;
+
+      let event;
+      try {
+        event = JSON.parse(line);
+      } catch {
+        issues.push(
+          buildAnalysisIssue({
+            sourceLedgerRef: source.ledger_ref,
+            lineNumber: lineIndex + 1,
+            issueType: "invalid_json",
+            errors: ["json_parse_failed"],
+          }),
+        );
+        continue;
+      }
+
+      const eventErrors = [
+        ...validateKnowledgeAccessEvent(event).errors,
+        ...validateAnalysisSafeEvent(event),
+      ];
+      if (eventErrors.length > 0) {
+        issues.push(
+          buildAnalysisIssue({
+            sourceLedgerRef: source.ledger_ref,
+            lineNumber: lineIndex + 1,
+            issueType: "invalid_or_unsafe_event",
+            eventId: event?.event_id,
+            errors: eventErrors,
+          }),
+        );
+        continue;
+      }
+
+      if (seenEventIds.has(event.event_id)) {
+        issues.push(
+          buildAnalysisIssue({
+            sourceLedgerRef: source.ledger_ref,
+            lineNumber: lineIndex + 1,
+            issueType: "duplicate_event_id",
+            eventId: event.event_id,
+            errors: ["duplicate_event_id_excluded_from_counts"],
+          }),
+        );
+        continue;
+      }
+
+      seenEventIds.add(event.event_id);
+      acceptedEvents.push(event);
+    }
+  }
+
+  const blockingIssues = issues.filter((issue) => issue.issue_type !== "duplicate_event_id");
+  const duplicateEventCount = issues.length - blockingIssues.length;
+  const rollupId = buildTimedId("knowledge_access_rollup", {
+    generated_at_utc: generatedAtUtc,
+    source_ledger_refs: sourceLedgerRefs,
+    accepted_event_ids: acceptedEvents.map((event) => event.event_id).sort(),
+    issue_count: issues.length,
+  });
+  const reviewId = buildTimedId("knowledge_access_boundary_review", {
+    generated_at_utc: generatedAtUtc,
+    source_ledger_refs: sourceLedgerRefs,
+    issue_count: issues.length,
+  });
+  const reviewScopeRef = sanitizeNullableText(options.reviewScopeRef ?? options.review_scope_ref, "review_scope_ref", 240)
+    ?? sourceEventLogRef;
+
+  return {
+    workflow_id: KNOWLEDGE_ACCESS_WORKFLOW_ID,
+    kind: "knowledge_access_rollup_analysis",
+    schema_version: KNOWLEDGE_ACCESS_ROLLUP_SCHEMA_VERSION,
+    status: blockingIssues.length > 0 ? "review_required" : "draft",
+    analysis_id: rollupId,
+    generated_at_utc: generatedAtUtc,
+    source_ledger_refs: sourceLedgerRefs,
+    source_ledger_count: sourceLedgerRefs.length,
+    jsonl_row_count: jsonlRowCount,
+    accepted_event_count: acceptedEvents.length,
+    invalid_event_count: blockingIssues.length,
+    duplicate_event_count: duplicateEventCount,
+    issues,
+    usage_rollup: buildUsageRollup({
+      rollupId,
+      sourceEventLogRef,
+      events: acceptedEvents,
+    }),
+    boundary_review_note: buildBoundaryReviewNote({
+      reviewId,
+      reviewScopeRef,
+      blockingIssues,
+      duplicateEventCount,
+    }),
+    authority_boundary: {
+      metadata_only: true,
+      payload_copied: false,
+      source_payloads_read: false,
+      canon_or_ontology_mutated: false,
+      archive_or_retire_executed: false,
+      candidate_signals_only: true,
+    },
+  };
 }
 
 export async function appendKnowledgeAccessEvent(options = {}) {
@@ -360,6 +490,19 @@ function assertLedgerWriteBoundary(repoRoot, ledgerFile) {
   }
 }
 
+function assertLedgerReadBoundary(repoRoot, ledgerFile, sourceType) {
+  if (!isSubpath(repoRoot, ledgerFile)) {
+    return;
+  }
+
+  const repoRelative = normalizeRepoPath(path.relative(repoRoot, ledgerFile));
+  const allowed = ALLOWED_REPO_LEDGER_ROOTS.some((allowedRoot) => repoRelative.startsWith(allowedRoot));
+
+  if (!allowed) {
+    throw new Error(`${sourceType}_inside_repo_must_be_private_metadata_or_local_state`);
+  }
+}
+
 function buildLedgerRef({ repoRoot, ledgerRoot, ledgerFile }) {
   if (isSubpath(repoRoot, ledgerFile)) {
     return normalizeRepoPath(path.relative(repoRoot, ledgerFile));
@@ -369,6 +512,360 @@ function buildLedgerRef({ repoRoot, ledgerRoot, ledgerFile }) {
     return `ledger_root:${relative}`;
   }
   return `ledger_file:${path.basename(ledgerFile)}`;
+}
+
+function normalizeAnalysisLedgerSources({ repoRoot, ledgerFiles, ledgerRefs }) {
+  const files = normalizeInputList(ledgerFiles);
+  const refs = normalizeInputList(ledgerRefs);
+
+  if (files.length === 0 && refs.length === 0) {
+    throw new Error("provide_at_least_one_ledger_file_or_ledger_ref");
+  }
+
+  return [
+    ...files.map((ledgerFile) => normalizeAnalysisLedgerFile(repoRoot, ledgerFile)),
+    ...refs.map((ledgerRef) => normalizeAnalysisLedgerRef(repoRoot, ledgerRef)),
+  ];
+}
+
+function normalizeAnalysisLedgerFile(repoRoot, ledgerFile) {
+  const raw = requireNonEmptyText(ledgerFile, "ledger_file");
+  if (raw.includes("\0")) {
+    throw new Error("ledger_file_contains_null_byte");
+  }
+
+  const filePath = path.isAbsolute(raw) || path.win32.isAbsolute(raw)
+    ? path.resolve(raw)
+    : path.resolve(repoRoot, raw);
+
+  if (path.extname(filePath).toLowerCase() !== ".jsonl") {
+    throw new Error("ledger_file_must_be_jsonl");
+  }
+
+  assertLedgerReadBoundary(repoRoot, filePath, "ledger_file");
+
+  return {
+    path: filePath,
+    ledger_ref: buildInputLedgerRef(repoRoot, filePath),
+  };
+}
+
+function normalizeAnalysisLedgerRef(repoRoot, ledgerRef) {
+  const raw = requireNonEmptyText(ledgerRef, "ledger_ref");
+
+  if (raw.includes("\0")) {
+    throw new Error("ledger_ref_contains_null_byte");
+  }
+  if (/^[A-Za-z][A-Za-z0-9+.-]*:/.test(raw)) {
+    throw new Error("ledger_ref_must_be_repo_relative_jsonl_path");
+  }
+  if (path.isAbsolute(raw) || path.win32.isAbsolute(raw) || path.posix.isAbsolute(raw)) {
+    throw new Error("ledger_ref_must_be_repo_relative_jsonl_path");
+  }
+
+  const normalized = raw.replaceAll("\\", "/");
+  const parts = normalized.split("/");
+  if (parts.some((part) => part === "" || part === "." || part === "..")) {
+    throw new Error("ledger_ref_must_not_use_path_traversal");
+  }
+  if (normalized !== path.posix.normalize(normalized)) {
+    throw new Error("ledger_ref_must_be_normalized");
+  }
+  if (path.posix.extname(normalized).toLowerCase() !== ".jsonl") {
+    throw new Error("ledger_file_must_be_jsonl");
+  }
+
+  const filePath = path.resolve(repoRoot, normalized);
+  assertLedgerReadBoundary(repoRoot, filePath, "ledger_ref");
+
+  return {
+    path: filePath,
+    ledger_ref: normalized,
+  };
+}
+
+function buildInputLedgerRef(repoRoot, ledgerFile) {
+  if (isSubpath(repoRoot, ledgerFile)) {
+    return normalizeRepoPath(path.relative(repoRoot, ledgerFile));
+  }
+  return `ledger_file:${path.basename(ledgerFile)}`;
+}
+
+function buildSourceEventLogRef(sourceLedgerRefs) {
+  const hash = crypto.createHash("sha256").update(stableStringify(sourceLedgerRefs)).digest("hex").slice(0, 12);
+  return `knowledge_access_event_batch:${hash}`;
+}
+
+function buildUsageRollup({ rollupId, sourceEventLogRef, events }) {
+  const groups = new Map();
+
+  for (const event of events) {
+    const knowledgeRef = event.target.knowledge_ref;
+    const group = groups.get(knowledgeRef) ?? {
+      knowledge_ref: knowledgeRef,
+      total_access_count: 0,
+      useful_access_count: 0,
+      blocked_access_count: 0,
+      cite_or_promote_count: 0,
+      last_access_timestamp_utc: null,
+      actor_type_counts: {},
+      access_type_counts: {},
+      context_counts: {},
+    };
+
+    group.total_access_count += 1;
+    if (event.outcome_state === "useful") {
+      group.useful_access_count += 1;
+    }
+    if (event.outcome_state === "blocked") {
+      group.blocked_access_count += 1;
+    }
+    if (event.access_type === "cite" || event.access_type === "promote") {
+      group.cite_or_promote_count += 1;
+    }
+    if (!group.last_access_timestamp_utc || event.timestamp_utc > group.last_access_timestamp_utc) {
+      group.last_access_timestamp_utc = event.timestamp_utc;
+    }
+
+    incrementCount(group.actor_type_counts, event.actor.type);
+    incrementCount(group.access_type_counts, event.access_type);
+    incrementCount(group.context_counts, buildContextCountKey(event.work_context));
+    groups.set(knowledgeRef, group);
+  }
+
+  const countsByTarget = [...groups.values()]
+    .sort((left, right) => left.knowledge_ref.localeCompare(right.knowledge_ref))
+    .map((group) => ({
+      ...group,
+      actor_type_counts: sortObjectByKey(group.actor_type_counts),
+      access_type_counts: sortObjectByKey(group.access_type_counts),
+      context_counts: sortObjectByKey(group.context_counts),
+    }));
+
+  return {
+    workflow_id: KNOWLEDGE_ACCESS_WORKFLOW_ID,
+    kind: "usage_rollup",
+    schema_version: KNOWLEDGE_ACCESS_ROLLUP_SCHEMA_VERSION,
+    status: "draft",
+    rollup_id: rollupId,
+    source_event_log_ref: sourceEventLogRef,
+    time_window: buildTimeWindow(events),
+    counts_by_target: countsByTarget,
+    count_semantics: {
+      count_is_signal_not_truth: true,
+      duplicate_suspects_excluded_or_flagged: true,
+      blocked_events_counted_separately: true,
+    },
+  };
+}
+
+function buildBoundaryReviewNote({ reviewId, reviewScopeRef, blockingIssues, duplicateEventCount }) {
+  const pass = blockingIssues.length === 0;
+  const downstreamRoutes = ["owner_review_required_before_canon_ontology_graph_archive_or_retire_mutation"];
+  if (blockingIssues.length > 0) {
+    downstreamRoutes.push("boundary_review_required_before_using_rejected_rows");
+  }
+  if (duplicateEventCount > 0) {
+    downstreamRoutes.push("duplicate_event_id_review");
+  }
+
+  return {
+    workflow_id: KNOWLEDGE_ACCESS_WORKFLOW_ID,
+    kind: "boundary_review_note",
+    schema_version: KNOWLEDGE_ACCESS_ROLLUP_SCHEMA_VERSION,
+    status: pass ? "draft" : "review_required",
+    review_id: reviewId,
+    review_scope_ref: reviewScopeRef,
+    checks: {
+      no_raw_source_truth: {
+        pass: true,
+        notes: "Analyzer reads explicit JSONL ledger rows only; source knowledge payloads are not opened or copied.",
+      },
+      no_private_knowledge_payload: {
+        pass,
+        notes: pass ? "Accepted rows passed metadata-only event validation." : "Rejected rows require owner review before downstream use.",
+      },
+      no_secret_or_session: {
+        pass,
+        notes: pass ? "Accepted rows passed secret/session boundary checks." : "Rejected rows were excluded from rollup counts.",
+      },
+      no_runtime_absolute_path: {
+        pass,
+        notes: pass ? "Output reports ledger refs or basenames only, never runtime absolute paths." : "Unsafe rows were excluded from rollup counts.",
+      },
+      advisory_handoff_not_authority: {
+        pass: true,
+        notes: "Advisory handoff rows are counted as metadata signals only.",
+      },
+      archive_retire_not_executed: {
+        pass: true,
+        notes: "Analyzer performs no archive, retire, canon, ontology, or graph mutation.",
+      },
+      graph_weight_not_truth_score: {
+        pass: true,
+        notes: "Usage counts are navigation/review signals, not truth scores.",
+      },
+    },
+    boundary_decision: pass ? "metadata_rollup_only" : "review_required",
+    blockers: blockingIssues,
+    downstream_routes: downstreamRoutes,
+  };
+}
+
+function buildTimeWindow(events) {
+  if (events.length === 0) {
+    return {
+      starts_at_utc: null,
+      ends_at_utc: null,
+    };
+  }
+
+  const timestamps = events.map((event) => event.timestamp_utc).sort();
+  return {
+    starts_at_utc: timestamps[0],
+    ends_at_utc: timestamps[timestamps.length - 1],
+  };
+}
+
+function buildContextCountKey(workContext) {
+  const candidates = [
+    ["workflow", workContext?.workflow_id],
+    ["skill", workContext?.skill_id],
+    ["mission", workContext?.mission_id],
+  ];
+
+  for (const [prefix, value] of candidates) {
+    if (value) {
+      return `${prefix}:${sanitizeRollupCountKey(value)}`;
+    }
+  }
+
+  return "context:unspecified";
+}
+
+function validateAnalysisSafeEvent(event) {
+  const errors = [];
+  for (const { path: fieldPath, value } of collectStringFields(event)) {
+    if (containsRuntimeAbsolutePath(value)) {
+      errors.push(`${fieldPath}_contains_runtime_absolute_path`);
+    }
+    if (containsSecretLikeText(value)) {
+      errors.push(`${fieldPath}_contains_secret_like_text`);
+    }
+  }
+  return errors;
+}
+
+function collectStringFields(value, fieldPath = "event") {
+  if (typeof value === "string") {
+    return [{ path: fieldPath, value }];
+  }
+  if (!value || typeof value !== "object") {
+    return [];
+  }
+  if (Array.isArray(value)) {
+    return value.flatMap((item, index) => collectStringFields(item, `${fieldPath}[${index}]`));
+  }
+  return Object.entries(value).flatMap(([key, child]) => collectStringFields(child, `${fieldPath}.${key}`));
+}
+
+function buildAnalysisIssue({ sourceLedgerRef, lineNumber, issueType, eventId, errors }) {
+  const issue = {
+    source_ledger_ref: sourceLedgerRef,
+    line_number: lineNumber,
+    issue_type: issueType,
+    errors: errors.map((error) => sanitizeIssueText(error)).slice(0, 20),
+  };
+
+  if (eventId && /^knowledge_access_\d{8}T\d{6}Z_[a-f0-9]{12}$/.test(String(eventId))) {
+    issue.event_id = String(eventId);
+  }
+
+  return issue;
+}
+
+function sanitizeIssueText(value) {
+  const text = String(value).replace(/\s+/g, " ").trim();
+  const redacted = text.replace(SECRET_TEXT_PATTERN, (match, label) => `${label ?? "secret"}=[redacted]`);
+  if (containsRuntimeAbsolutePath(redacted)) {
+    return "validation_error_redacted_runtime_absolute_path";
+  }
+  if (containsSecretLikeText(redacted)) {
+    return "validation_error_redacted_secret_like_text";
+  }
+  return normalizeAnalysisIssueCode(redacted);
+}
+
+function normalizeAnalysisIssueCode(value) {
+  const text = String(value).trim();
+  const disallowed = text.match(/^(capture_mode|actor\.type|access_type|outcome_state) is not allowed:/u);
+  if (disallowed) {
+    return `${disallowed[1]}_not_allowed`;
+  }
+  if (text.startsWith("knowledge_ref_root_blocked:")) {
+    return "knowledge_ref_root_blocked";
+  }
+  if (/^missing required field: (event_id|timestamp_utc|capture_mode|ledger_ref|actor|target|access_type|reason_used|work_context|outcome_state|redaction)$/u.test(text)) {
+    return text;
+  }
+  if (
+    [
+      "event must be an object",
+      "event_id must use the knowledge_access timestamp/hash shape",
+      "timestamp_utc must be second-precision UTC",
+      "actor.id is required",
+      "redaction.metadata_only must be true",
+      "redaction.payload_copied must be false",
+      "redaction.secret_present must be false",
+      "redaction.runtime_absolute_path_present must be false",
+    ].includes(text)
+  ) {
+    return text;
+  }
+  if (/^(json_parse_failed|duplicate_event_id_excluded_from_counts|knowledge_ref_[a-z0-9_]+|missing_required_field: knowledge_ref)$/u.test(text)) {
+    return text;
+  }
+  const unsafeField = text.match(/^event.*_contains_(runtime_absolute_path|secret_like_text)$/u);
+  if (unsafeField) {
+    return `event_field_contains_${unsafeField[1]}`;
+  }
+  return "validation_error_redacted";
+}
+
+function sanitizeRollupCountKey(value) {
+  try {
+    return sanitizeMetadataText(value, "context_count_key", 120);
+  } catch {
+    return "redacted_unsafe";
+  }
+}
+
+function containsSecretLikeText(value) {
+  SECRET_TEXT_PATTERN.lastIndex = 0;
+  const result = SECRET_TEXT_PATTERN.test(value);
+  SECRET_TEXT_PATTERN.lastIndex = 0;
+  return result;
+}
+
+function incrementCount(counts, key) {
+  counts[key] = (counts[key] ?? 0) + 1;
+}
+
+function sortObjectByKey(value) {
+  return Object.fromEntries(Object.entries(value).sort(([left], [right]) => left.localeCompare(right)));
+}
+
+function buildTimedId(prefix, payload) {
+  const stamps = buildDateStamps(new Date(payload.generated_at_utc));
+  const hash = crypto.createHash("sha256").update(stableStringify(payload)).digest("hex").slice(0, 12);
+  return `${prefix}_${stamps.compact}_${hash}`;
+}
+
+function normalizeInputList(value) {
+  if (value === undefined || value === null || value === "") {
+    return [];
+  }
+  return Array.isArray(value) ? value : [value];
 }
 
 function normalizeActor(options) {

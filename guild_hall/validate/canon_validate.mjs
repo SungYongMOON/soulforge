@@ -7,11 +7,13 @@ import { fileURLToPath } from "node:url";
 import YAML from "yaml";
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
-const repoRoot = path.resolve(__dirname, "../..");
+const defaultRepoRoot = path.resolve(__dirname, "../..");
+let repoRoot = defaultRepoRoot;
 const schemaVersion = "soulforge.canon.validate.v0";
 
 async function main() {
   const args = parseArgs(process.argv.slice(2));
+  repoRoot = path.resolve(args.root ?? defaultRepoRoot);
   const context = await buildContext();
   const report = buildReport(context);
 
@@ -29,7 +31,20 @@ async function main() {
 function parseArgs(argv) {
   const flags = {};
 
-  for (const token of argv) {
+  for (let index = 0; index < argv.length; index += 1) {
+    const token = argv[index];
+
+    if (token === "--root") {
+      flags.root = argv[index + 1];
+      index += 1;
+      continue;
+    }
+
+    if (token.startsWith("--root=")) {
+      flags.root = token.slice("--root=".length);
+      continue;
+    }
+
     if (token.startsWith("--")) {
       flags[token.slice(2)] = true;
     }
@@ -45,6 +60,7 @@ async function buildContext() {
 
   const speciesCatalog = await loadSpeciesCatalog(errors, checked);
   const classCatalog = await loadClassCatalog(errors, checked);
+  const knowledgeCatalog = await loadKnowledgeCatalog(errors, checked);
   const workflowCatalog = await loadWorkflowCatalog(errors, checked);
   const partyCatalog = await loadPartyCatalog(errors, checked, workflowCatalog.ids);
   const unitCatalog = await loadUnitCatalog(errors, checked);
@@ -55,6 +71,7 @@ async function buildContext() {
 
   validateUnitCatalog(unitCatalog, speciesCatalog, classCatalog.ids, { errors });
   validateMissionCatalog(missionCatalog, workflowCatalog.ids, partyCatalog.ids, { errors });
+  await validateClassKnowledgeRefs(classCatalog.documents, knowledgeCatalog.ids, { errors, checked });
 
   return { errors, warnings, checked };
 }
@@ -149,6 +166,7 @@ async function loadSpeciesCatalog(errors, checked) {
 async function loadClassCatalog(errors, checked) {
   const root = path.join(repoRoot, ".registry", "classes");
   const classIds = new Set();
+  const documents = [];
 
   for (const entry of await listDirectories(root, errors, ".registry/classes")) {
     const classPath = path.join(root, entry, "class.yaml");
@@ -160,6 +178,7 @@ async function loadClassCatalog(errors, checked) {
     }
 
     const document = await readYaml(classPath);
+    documents.push({ dirName: entry, path: classPath, document });
     const classId = stringValue(document?.class_id);
     if (classId !== entry) {
       errors.push(
@@ -175,7 +194,45 @@ async function loadClassCatalog(errors, checked) {
     classIds.add(classId);
   }
 
-  return { ids: classIds };
+  return { ids: classIds, documents };
+}
+
+async function loadKnowledgeCatalog(errors, checked) {
+  const root = path.join(repoRoot, ".registry", "knowledge");
+  const knowledgeIds = new Set();
+
+  for (const entry of await listDirectories(root, errors, ".registry/knowledge")) {
+    const knowledgePath = path.join(root, entry, "knowledge.yaml");
+    const repoPath = `.registry/knowledge/${entry}/knowledge.yaml`;
+    checked.push(repoPath);
+
+    if (!(await fileExists(knowledgePath))) {
+      errors.push(buildIssue("missing_knowledge_file", repoPath, "knowledge.yaml is missing"));
+      continue;
+    }
+
+    const document = await readYaml(knowledgePath);
+    const knowledgeId = stringValue(document?.knowledge_id);
+    if (!knowledgeId) {
+      errors.push(buildIssue("knowledge_id_missing", repoPath, "knowledge_id must be present"));
+    } else if (knowledgeId !== entry) {
+      errors.push(buildIssue("knowledge_id_mismatch", repoPath, `expected knowledge_id ${entry}, got ${knowledgeId}`));
+    } else {
+      knowledgeIds.add(knowledgeId);
+    }
+
+    const kind = stringValue(document?.kind);
+    if (kind !== "knowledge") {
+      errors.push(buildIssue("knowledge_kind_invalid", repoPath, `expected kind knowledge, got ${kind ?? "(missing)"}`));
+    }
+
+    const status = stringValue(document?.status);
+    if (!status) {
+      errors.push(buildIssue("knowledge_status_missing", repoPath, "status must be present"));
+    }
+  }
+
+  return { ids: knowledgeIds };
 }
 
 async function loadWorkflowCatalog(errors, checked) {
@@ -437,6 +494,88 @@ function validateMissionCatalog(missionDocuments, workflowIds, partyIds, context
           `index readiness_status ${indexReadinessStatus} does not match readiness status ${readinessStatus}`,
         ),
       );
+    }
+  }
+}
+
+async function validateClassKnowledgeRefs(classDocuments, knowledgeIds, context) {
+  for (const classDocument of classDocuments) {
+    const classDir = path.dirname(classDocument.path);
+    const pointer = stringValue(classDocument.document?.knowledge_refs);
+    const defaultRefsPath = path.join(classDir, "knowledge_refs.yaml");
+    let refsPath = null;
+
+    if (pointer) {
+      refsPath = path.resolve(classDir, pointer);
+      const classRelativePath = path.relative(classDir, refsPath);
+      if (path.isAbsolute(pointer) || classRelativePath === ".." || classRelativePath.startsWith(`..${path.sep}`)) {
+        const classRepoPath = normalizeRepoPath(path.relative(repoRoot, classDocument.path));
+        context.errors.push(buildIssue("knowledge_refs_pointer_not_class_local", classRepoPath, `knowledge_refs target must stay class-local: ${pointer}`));
+        continue;
+      }
+
+      if (!(await fileExists(refsPath))) {
+        const refsRepoPath = normalizeRepoPath(path.relative(repoRoot, refsPath));
+        context.errors.push(buildIssue("knowledge_refs_file_missing", refsRepoPath, "knowledge_refs target from class.yaml is missing"));
+        continue;
+      }
+    } else if (await fileExists(defaultRefsPath)) {
+      refsPath = defaultRefsPath;
+    } else {
+      continue;
+    }
+
+    const repoPath = normalizeRepoPath(path.relative(repoRoot, refsPath));
+    context.checked.push(repoPath);
+    const document = await readYaml(refsPath);
+    validateKnowledgeRefsDocument(document, {
+      classId: classDocument.dirName,
+      knowledgeIds,
+      repoPath,
+      errors: context.errors,
+    });
+  }
+}
+
+function validateKnowledgeRefsDocument(document, context) {
+  const classId = stringValue(document?.class_id);
+  if (!classId) {
+    context.errors.push(buildIssue("knowledge_refs_class_id_missing", context.repoPath, "class_id must be present"));
+  } else if (classId !== context.classId) {
+    context.errors.push(buildIssue("knowledge_refs_class_id_mismatch", context.repoPath, `expected class_id ${context.classId}, got ${classId}`));
+  }
+
+  const kind = stringValue(document?.kind);
+  if (kind !== "knowledge_refs") {
+    context.errors.push(buildIssue("knowledge_refs_kind_invalid", context.repoPath, `expected kind knowledge_refs, got ${kind ?? "(missing)"}`));
+  }
+
+  const status = stringValue(document?.status);
+  if (!status) {
+    context.errors.push(buildIssue("knowledge_refs_status_missing", context.repoPath, "status must be present"));
+  }
+
+  if (!Array.isArray(document?.assign)) {
+    context.errors.push(buildIssue("knowledge_refs_assign_invalid", context.repoPath, "assign must be an array"));
+    return;
+  }
+
+  const seenAssignKeys = new Set();
+  for (const [index, assignment] of document.assign.entries()) {
+    const assignKey = stringValue(assignment?.assign);
+    if (!assignKey) {
+      context.errors.push(buildIssue("knowledge_refs_assign_key_missing", context.repoPath, `assign[${index}].assign must be present`));
+    } else if (seenAssignKeys.has(assignKey)) {
+      context.errors.push(buildIssue("knowledge_refs_duplicate_assign", context.repoPath, `duplicate assign key: ${assignKey}`));
+    } else {
+      seenAssignKeys.add(assignKey);
+    }
+
+    const knowledgeRef = stringValue(assignment?.ref);
+    if (!knowledgeRef) {
+      context.errors.push(buildIssue("knowledge_refs_ref_missing", context.repoPath, `assign[${index}].ref must be present`));
+    } else if (!context.knowledgeIds.has(knowledgeRef)) {
+      context.errors.push(buildIssue("knowledge_refs_ref_unresolved", context.repoPath, `assign[${index}].ref does not resolve: ${knowledgeRef}`));
     }
   }
 }

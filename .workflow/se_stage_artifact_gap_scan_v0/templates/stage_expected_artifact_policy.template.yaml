@@ -1,0 +1,33 @@
+schema_version: se_stage_expected_artifact_policy_v0
+workflow_id: se_stage_artifact_gap_scan_v0
+policy_identity:
+  policy_id: "<policy_id>"
+  created_at: "<iso8601_timestamp>"
+  owner_surface: "<owner_surface_or_role>"
+  source_basis_refs:
+    - docs/architecture/workspace/SE_DUNGEON_STAGE_MODEL_V0.md
+stage_family_defaults:
+  - stage_code: "<stage_code>"
+    stage_label: "<stage_label>"
+    boss_clear_interpretation: "<scan_reference_only_not_approval>"
+    required_artifact_families:
+      - artifact_family_id: "<artifact_family_id>"
+        artifact_kind: formal_document|diagram|sequence_diagram|state_machine|interface_diagram|traceability_matrix|analysis_packet|review_evidence|owner_decision_record|open_question_register|verification_planning_artifact
+        expected_inputs:
+          - "<input_family_or_ref_type>"
+        minimum_presence_rule: present|present_or_not_applicable|optional_context
+        draftability_rule: draftable_with_sources|owner_input_needed|source_needed|blocked|not_applicable
+        not_applicable_requires:
+          - scoped_owner_decision_ref_or_policy_rule
+        downstream_route_hint: owner_decision_packet_v0|source_gap_followup_packet_v0|source_packet_sufficiency_review_v0|verification_plan_from_page_contracts_v0|test_harness_asset_planning_v0|review_gate_evidence_pack_v0|accepted_verification_result_packet_v0|functional_configuration_audit_page_library_v0|physical_configuration_audit_asset_package_v0|se_artifact_authoring_support_v0|none
+status_vocabulary:
+  - draftable
+  - owner_input_needed
+  - source_needed
+  - blocked
+  - not_applicable
+rules:
+  missing_owner_decision_becomes_owner_input: true
+  missing_source_becomes_source_needed_or_blocked: true
+  not_applicable_requires_policy_or_owner_basis: true
+  scan_result_does_not_complete_artifact: true

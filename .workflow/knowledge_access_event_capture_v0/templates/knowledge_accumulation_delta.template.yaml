@@ -1,0 +1,27 @@
+workflow_id: knowledge_access_event_capture_v0
+kind: knowledge_accumulation_delta
+schema_version: v0
+status: draft
+delta_id: "<delta_id>"
+source_refs:
+  normalized_access_event_log_ref: "<normalized_access_event_log_ref>"
+  usage_rollup_ref: "<usage_rollup_ref>"
+  link_strength_analysis_ref: "<link_strength_analysis_ref>"
+time_window:
+  starts_at_utc: "<YYYY-MM-DDTHH:MM:SSZ>"
+  ends_at_utc: "<YYYY-MM-DDTHH:MM:SSZ>"
+deltas:
+  - delta_ref: "<delta_ref>"
+    affected_knowledge_ref: "<knowledge_ref>"
+    delta_type: usage_signal_or_relation_signal_or_route_signal
+    previous_state_ref: null
+    current_signal: review_required
+    evidence_event_refs: []
+    candidate_register_refs: []
+    recommended_review_route: hold_private
+authority_boundary:
+  metadata_only: true
+  delta_is_candidate_signal_not_acceptance: true
+  no_raw_payloads: true
+  no_ontology_acceptance: true
+  no_canon_promotion: true

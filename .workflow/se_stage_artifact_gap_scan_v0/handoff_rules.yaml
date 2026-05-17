@@ -1,0 +1,40 @@
+workflow_id: se_stage_artifact_gap_scan_v0
+kind: handoff_rules
+status: active
+rules:
+  - from: stage_scan_controller
+    to: stage_inventory_reader
+    condition: target_stage_and_boundary_fixed
+    summary: inventory reader 는 bounded stage ref와 approved policy만 받으며, raw private payload나 owner-only 미승인 truth는 받지 않는다.
+  - from: stage_inventory_reader
+    to: artifact_matrix_mapper
+    condition: stage_surface_inventory_written
+    summary: mapper 는 current surface와 expected family를 받되, upstream packet을 수정할 권한은 없다.
+  - from: artifact_matrix_mapper
+    to: gap_classifier
+    condition: matrix_and_crosswalk_written
+    summary: classifier 는 각 row의 expected state와 현재 evidence를 받아 분류만 수행한다.
+  - from: gap_classifier
+    to: draft_lane_mapper
+    condition: gap_and_blocker_rows_written
+    summary: draft lane mapper 는 draftable ceiling 이 있는 row만 다루고 blocked/source-needed row를 완성된 초안처럼 다루지 않는다.
+  - from: gap_classifier
+    to: owner_queue_writer
+    condition: owner_input_needed_rows_present
+    summary: owner queue writer 는 missing fact를 메우지 않고 질문과 우선순위만 정리한다.
+  - from: draft_lane_mapper
+    to: route_mapper
+    condition: draftable_and_diagram_registers_written
+    summary: route mapper 는 gap family와 draft lane을 받아 다음 workflow route를 좁게 고정한다.
+  - from: owner_queue_writer
+    to: route_mapper
+    condition: owner_input_queue_written
+    summary: owner-dependent row는 owner decision lane 으로 보내고, stage scan 안에서 결정을 만들어내지 않는다.
+  - from: route_mapper
+    to: packet_writer
+    condition: downstream_route_map_written
+    summary: packet writer 는 matrix, queue, blocker, route map을 묶어 stage bundle을 쓴다.
+  - from: packet_writer
+    to: boundary_reviewer
+    condition: stage_bundle_written
+    summary: boundary reviewer 는 bundle 전체를 보고 non-claim, read-only posture, owner/source boundary를 점검한다.

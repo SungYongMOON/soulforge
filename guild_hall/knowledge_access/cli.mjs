@@ -2,7 +2,8 @@
 
 import path from "node:path";
 import process from "node:process";
-import { readKnowledgeRefAndRecord, recordKnowledgeAccess } from "./ledger.mjs";
+import { analyzeKnowledgeAccessLedgers, readKnowledgeRefAndRecord, recordKnowledgeAccess } from "./ledger.mjs";
+import { importNotebookLmBridgeMetadata } from "./notebooklm_bridge.mjs";
 
 async function main() {
   const [command, ...rest] = process.argv.slice(2);
@@ -66,6 +67,33 @@ async function main() {
       ledger_path: result.ledger_path,
       ledger_ref: result.ledger_ref,
     });
+    return;
+  }
+
+  if (command === "analyze" || command === "rollup") {
+    const result = await analyzeKnowledgeAccessLedgers({
+      repoRoot,
+      ledgerFiles: args["ledger-file"],
+      ledgerRefs: args["ledger-ref"],
+      reviewScopeRef: args["review-scope-ref"],
+    });
+    printJson(result);
+    return;
+  }
+
+  if (command === "notebooklm-bridge" || command === "notebooklm-import") {
+    const result = await importNotebookLmBridgeMetadata({
+      repoRoot,
+      bindingFile: args["binding-file"],
+      bindingRef: args["binding-ref"],
+      sourceLedgerFile: args["source-ledger-file"],
+      sourceLedgerRef: args["source-ledger-ref"],
+      queryLogFile: args["query-log-file"],
+      queryLogRef: args["query-log-ref"],
+      ledgerRoot: args["ledger-root"],
+      ledgerFile: args["ledger-file"],
+    });
+    printJson(result);
     return;
   }
 
@@ -138,9 +166,13 @@ function printUsageAndExit() {
       "Usage:",
       "  node guild_hall/knowledge_access/cli.mjs read --ref <repo-relative-file> (--ledger-root <path> | --ledger-file <path.jsonl>) [--reason-used <text>] [--actor-id <id>] [--json]",
       "  node guild_hall/knowledge_access/cli.mjs record --ref <repo-relative-ref> (--ledger-root <path> | --ledger-file <path.jsonl>) [--access-type <type>] [--reason-used <text>] [--output-ref <ref>] [--json]",
+      "  node guild_hall/knowledge_access/cli.mjs analyze (--ledger-file <path.jsonl> | --ledger-ref <repo-relative-jsonl>)... [--json]",
+      "  node guild_hall/knowledge_access/cli.mjs notebooklm-bridge --binding-ref <repo-relative-yaml> (--ledger-root <path> | --ledger-file <path.jsonl>) [--source-ledger-ref <ref>] [--query-log-ref <ref>]",
       "",
       "Notes:",
       "  The ledger row is metadata-only. read mode returns file content to stdout/JSON but never stores it in the JSONL ledger.",
+      "  analyze/rollup mode reads only explicit JSONL ledger files/refs, emits metadata-only usage rollup and boundary note JSON, and performs no canon/ontology mutation.",
+      "  notebooklm-bridge mode reads explicit metadata files only, never calls nlm, never reads auth/session files, and blocks empty query logs instead of fabricating events.",
       "  Targets must be repo-relative public knowledge refs; secret-like, private, runtime, absolute, and traversal paths are blocked.",
     ].join("\n"),
   );

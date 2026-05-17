@@ -77,11 +77,17 @@
 - 아래 중 하나가 될 때까지 유지한다.
   - `observed`: 한 번 봄
   - `repeating`: 두 번 이상 반복
+  - `source_supported`: 승인된 source/evidence ref 로 scoped relation 이 뒷받침됨
   - `promotion_draft`: public-safe 승격 초안 준비됨
   - `promoted`: canon 반영 완료
   - `rejected`: ontology 승격 불필요로 판정
+  - `blocked`: source, owner, boundary, validation 중 하나가 부족해 다음 action 이 필요함
 
 `guild_master` / `night_watch` 는 `promoted` 또는 `rejected` 되기 전까지 candidate 를 잊지 않도록 recent-context 에 남긴다.
+
+상태 라벨은 claim ceiling 이며 승인 자체가 아니다. `observed`,
+`repeating`, `source_supported`, `promotion_draft` 는 모두 candidate 상태이고,
+public canon 을 바꾸려면 별도 owner/review 결정과 public-safe patch 가 필요하다.
 
 ## current-default 운영 규칙
 

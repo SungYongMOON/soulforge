@@ -1,0 +1,20 @@
+workflow_id: test_evaluation_execution_result_ingest_v0
+kind: party_compatibility
+status: active
+compatible_party_patterns:
+  - pattern_id: single_operator_with_boundary_review
+    notes:
+      - One operator may run the workflow when execution is result-only ingest or explicitly authorized local action.
+      - Boundary review remains required because candidate verdicts are easy to overstate as accepted results.
+  - pattern_id: operator_plus_auditor
+    notes:
+      - Prefer a separate auditor slot when the output feeds accepted-result or FCA/SVR-style workflows.
+incompatible_party_patterns:
+  - pattern_id: acceptance_same_actor_without_basis
+    reason: The execution/result actor must not create owner acceptance or accepted-result rows without scoped acceptance basis.
+  - pattern_id: raw_simulation_payload_copy
+    reason: Simulation payload execution remains in simulation_run_verify_v0 or project-local runtime storage.
+owner_boundaries:
+  owner_acceptance_required_for_accepted_rows: true
+  manager_registration_recorded_for_canon_entry: true
+  workflow_can_run_as_registered_contract_for_private_pilot: true

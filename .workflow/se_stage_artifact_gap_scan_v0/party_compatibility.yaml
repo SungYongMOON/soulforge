@@ -1,0 +1,21 @@
+workflow_id: se_stage_artifact_gap_scan_v0
+kind: party_compatibility
+status: active
+compatible_party_templates:
+  - workflow_research_build_verify
+  - systems_pm_planning
+  - review_gate_preparation
+  - sourcebound_extraction_review
+required_capabilities:
+  - project_local_binding_resolution
+  - stage_scope_selection
+  - foldertree_manifest_inventory
+  - artifact_matrix_mapping
+  - gap_blocker_classification
+  - owner_question_reduction
+  - downstream_route_selection
+  - public_private_boundary_review
+notes:
+  - 기본 party binding 은 아직 지정하지 않는다.
+  - registered controller 단계에서도 project-local party binding 은 각 run evidence 에서 지정한다.
+  - owner truth, source truth, readiness approval authority는 이 workflow 바깥에 남긴다.

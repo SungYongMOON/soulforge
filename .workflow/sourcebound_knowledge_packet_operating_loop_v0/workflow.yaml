@@ -21,6 +21,8 @@ optional_inputs:
   - owner_approved_local_source_manifest
   - prior_projection_refs
   - source_sufficiency_refs
+  - notebooklm_advisory_return_refs
+  - ontology_review_policy_refs
   - owner_decision_refs
 outputs:
   - source_intake_manifest
@@ -31,6 +33,8 @@ outputs:
   - concept_candidate_register
   - claim_ceiling_and_promotion_route
   - optional_notebooklm_advisory_handoff
+  - notebooklm_handoff_validation
+  - ontology_candidate_rule_register
   - workflowization_review_packet
   - boundary_review_note
 validation_level: pilot_executed_private_evidence
@@ -70,14 +74,18 @@ operating_contract:
     - concept_candidate_register_shape
     - claim_ceiling_and_promotion_route_shape
     - optional_advisory_handoff_shape
+    - notebooklm_handoff_validation_shape
+    - ontology_candidate_rule_register_shape
     - workflowization_review_packet_shape
   does_not_own:
     - raw_source_truth
     - source_acquisition_authority
     - final_domain_doctrine
     - ontology_canon_acceptance
+    - ontology_rule_acceptance
     - workflow_canon_acceptance_without_review
     - NotebookLM_or_other_advisory_tool_verdicts
+    - NotebookLM_upload_or_notebook_operation
   boundaries:
     source_truth_lives_in_source_packets_or_owner_held_files: true
     knowledge_packet_is_private_derivative_projection: true
@@ -85,6 +93,8 @@ operating_contract:
     concept_candidates_require_source_refs_or_blockers: true
     claim_ceiling_controls_promotion_route: true
     notebooklm_handoff_is_optional_owner_operated_and_advisory_only: true
+    notebooklm_handoff_validation_checks_safety_not_truth: true
+    ontology_candidate_rules_are_candidates_until_owner_review: true
     workflowization_requires_review_gate_or_owner_decision: true
   required_output_shapes:
     project_binding: templates/project_binding.template.yaml
@@ -93,6 +103,8 @@ operating_contract:
     concept_candidate_register: templates/concept_candidate_register.template.yaml
     claim_ceiling_and_promotion_route: templates/claim_ceiling_and_promotion_route.template.yaml
     notebooklm_advisory_handoff: templates/notebooklm_advisory_handoff.template.yaml
+    notebooklm_handoff_validation: templates/notebooklm_handoff_validation.template.yaml
+    ontology_candidate_rule_register: templates/ontology_candidate_rule_register.template.yaml
     workflowization_review_packet: templates/workflowization_review_packet.template.yaml
 karpathy_style_interpretation: >-
   The workflow adopts the LLM-wiki pattern as an operating loop: ingest bounded
@@ -104,4 +116,6 @@ notes:
   - Public package files contain only portable orchestration rules and blank templates.
   - Runtime source payloads, copied documents, extracted text, hashes for private files, and project-local run truth belong only in private/project-local evidence.
   - Optional NotebookLM or similar handoff is preparation metadata only; the tool answer is advisory context, never acceptance authority.
+  - NotebookLM validation confirms bounded handoff metadata and return handling only; it must not evaluate the tool answer as truth.
+  - Ontology-facing candidate rules preserve source-backed concepts for later review, but cannot accept ontology canon or mutate public ontology by themselves.
   - This package is not profile-optimized and does not claim production readiness.

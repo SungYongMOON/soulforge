@@ -14,6 +14,8 @@
 - Adventurer's Desk Phase UI-1 theme wiring
 - read-only Dungeon Map pane backed by `guild_hall/state/snapshot/soulforge_snapshot.json`
 - Operation Board display from the snapshot `operation_board` projection
+- metadata-only Knowledge Lane display from `operation_board.sections.knowledge_lane`
+- fresh-only Knowledge Lane rendering with sanitized state, claim, helper/bridge/workflow/fixture presence, and private/local evidence count keys
 
 ## 제외 대상
 
@@ -22,6 +24,7 @@
 - write-back editor
 - selection persistence
 - raw `_workspaces`, `_workmeta`, `private-state`, gateway mail body/html/source quote/raw/attachment source display in Dungeon Map
+- knowledge validation, ontology acceptance, owner decision approval, or canon promotion authority
 
 ## 관련 경로
 

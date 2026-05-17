@@ -21,6 +21,8 @@ optional_inputs:
   - git_status_ref
   - deterministic_validation_logs
   - source_packet_refs
+  - knowledge_trigger_check_refs
+  - knowledge_access_event_refs
   - adoption_decision_refs
   - promotion_candidate_refs
   - inspector_review_refs
@@ -60,6 +62,7 @@ post_development_review_contract:
     - public_private_boundary_check
     - secret_raw_data_absence_claim_scope
     - source_support_and_claim_ceiling_check
+    - end_of_task_knowledge_trigger_check
     - independent_reviewer_usage_or_gap
     - value_and_alternative_judgment_for_level_2
     - full_b_v_handoff_for_level_3
@@ -92,6 +95,12 @@ downstream_workflows:
   - workflow_id: source_packet_sufficiency_review_v0
     expected_input: source_support_or_claim_ceiling_gap
     status: optional_rerun_trigger
+  - workflow_id: knowledge_access_event_capture_v0
+    expected_input: metadata_only_record_or_usage_signal_refs
+    status: optional_usage_or_accumulation_signal_rollup
+  - workflow_id: sourcebound_knowledge_packet_operating_loop_v0
+    expected_input: sourcebound_review_candidate
+    status: optional_sourcebound_knowledge_candidate_review
   - workflow_id: review_gate_evidence_pack_v0
     expected_input: formal_review_readiness_packet_needed
     status: optional_review_readiness
@@ -99,3 +108,4 @@ notes:
   - This is a generic closing gate for Soulforge development work, not a replacement for specialist validators or domain workflows.
   - Public workflow canon stores only portable routing rules and packet templates. Applied packets belong in `_workmeta/<project_code>/` or `_workmeta/system/`.
   - Level 3 means escalation to a full B/V gate when the claim requires fresh executor and separate verifier evidence; this package can record the handoff but does not make missing B/V evidence true.
+  - Every bounded close should record `knowledge_trigger_check` as `no_trigger`, `metadata_only_record`, `sourcebound_review_candidate`, or `owner_decision_needed`; this is a candidate signal only, not source truth or canon authority.

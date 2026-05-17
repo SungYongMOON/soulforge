@@ -138,7 +138,34 @@ steps:
         - hold_private
     summary: Decide the maximum safe claim and next route for each concept candidate before workflowization.
     next:
+      on_success: capture_ontology_candidate_rules
+      on_fail: stop
+  - step_id: capture_ontology_candidate_rules
+    title: Capture Ontology Candidate Rules
+    actor_slot: promotion_router
+    action:
+      kind: ontology_candidate_rule_capture
+      artifacts_in:
+        - concept_candidate_register
+        - claim_ceiling_and_promotion_route
+        - ontology_review_policy_refs
+      artifact_out: ontology_candidate_rule_register
+      required_fields:
+        - candidate_rule_id
+        - source_concept_candidate_ids
+        - ontology_candidate_type
+        - entity_or_relation_label
+        - evidence_source_refs
+        - candidate_only_state
+        - required_review_route
+      forbidden_outputs:
+        - ontology_canon_acceptance
+        - ontology_mutation
+        - final_domain_doctrine
+    summary: Capture ontology-facing entity, relation, or rule candidates for later review without accepting ontology canon.
+    next:
       on_success: prepare_optional_notebooklm_advisory_handoff
+      on_skip: prepare_optional_notebooklm_advisory_handoff
       on_fail: stop
   - step_id: prepare_optional_notebooklm_advisory_handoff
     title: Prepare Optional NotebookLM Advisory Handoff
@@ -165,6 +192,32 @@ steps:
         - tool_answer_as_verdict
     summary: Prepare optional NotebookLM-style handoff metadata while keeping upload/action with the owner and authority with sources/review gates.
     next:
+      on_success: validate_optional_notebooklm_handoff
+      on_skip: validate_optional_notebooklm_handoff
+      on_fail: stop
+  - step_id: validate_optional_notebooklm_handoff
+    title: Validate Optional NotebookLM Handoff
+    actor_slot: advisory_handoff_preparer
+    action:
+      kind: notebooklm_handoff_boundary_validation
+      artifacts_in:
+        - optional_notebooklm_advisory_handoff
+        - notebooklm_advisory_return_refs
+      artifact_out: notebooklm_handoff_validation
+      checks:
+        - owner_operated_upload_required
+        - bounded_question_set_present_or_skip_recorded
+        - no_credentials_cookies_sessions_or_upload_secrets
+        - no_private_payload_embedded_in_public_package
+        - tool_answer_not_used_as_verdict
+        - source_refs_and_review_gate_remain_authority
+      allowed_states:
+        - valid_advisory_handoff
+        - skipped
+        - blocked_boundary_risk
+        - blocked_authority_overreach
+    summary: Validate the optional handoff shape and return handling while keeping NotebookLM advisory-only.
+    next:
       on_success: assemble_workflowization_review_packet
       on_skip: assemble_workflowization_review_packet
       on_fail: stop
@@ -178,12 +231,16 @@ steps:
         - concept_candidate_register
         - claim_ceiling_and_promotion_route
         - optional_notebooklm_advisory_handoff
+        - notebooklm_handoff_validation
+        - ontology_candidate_rule_register
       artifact_out: workflowization_review_packet
       required_sections:
         - source_truth_boundary
         - projection_boundary
         - concept_candidate_routes
         - claim_ceiling_summary
+        - ontology_candidate_rule_summary
+        - notebooklm_handoff_validation_summary
         - workflow_or_ontology_candidate_delta
         - review_gate_required
     summary: Package the verified conceptualization into a reviewable workflowization packet without accepting canon by itself.

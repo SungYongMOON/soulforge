@@ -32,6 +32,30 @@ steps:
     action:
       kind: boundary_source_and_output_state_review
     summary: Check allowed paths, public/private boundary, secret/raw absence claim scope, source support, git status, validation logs, and output state.
+  - step_id: check_knowledge_trigger
+    title: Check Knowledge Trigger
+    actor_slot: inspector
+    action:
+      kind: end_of_task_knowledge_trigger_check
+      rubric:
+        - monster_blocker_mission_or_review_used_knowledge_ref
+        - likely_reuse_or_repeated_question
+        - source_approved_or_traceable
+        - contradiction_gap_missing_source_or_owner_decision_seen
+        - weakest_supported_claim_ceiling_named
+      result_values:
+        - no_trigger
+        - metadata_only_record
+        - sourcebound_review_candidate
+        - owner_decision_needed
+      forbidden_claims:
+        - source_truth_validation
+        - ontology_acceptance
+        - owner_approval
+        - graph_mutation
+        - archive_or_retire_execution
+        - canon_promotion
+    summary: Before supervisor acceptance, decide whether the task produced no knowledge signal, a metadata-only usage record, a sourcebound review candidate, or an owner-decision follow-up.
   - step_id: judge_value_and_alternatives
     title: Judge Value And Alternatives
     actor_slot: judge

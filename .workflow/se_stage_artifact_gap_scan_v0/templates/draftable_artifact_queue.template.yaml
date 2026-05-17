@@ -1,0 +1,12 @@
+schema_version: se_draftable_artifact_queue_v0
+draftable_artifact_queue:
+  queue_id: "<queue_id>"
+  stage_code: "<stage_code>"
+  items:
+    - item_id: "<item_id>"
+      task_id: 0
+      artifact_label: "<artifact_label>"
+      artifact_kind: "<artifact_kind>"
+      draft_ceiling: "scaffold_only|narrative_shell|structure_only"
+      available_inputs: []
+      owner_inputs_needed: []

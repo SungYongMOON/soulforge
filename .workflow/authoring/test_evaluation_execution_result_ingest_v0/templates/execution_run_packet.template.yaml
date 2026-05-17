@@ -1,0 +1,30 @@
+workflow_id: test_evaluation_execution_result_ingest_v0
+kind: execution_run_packet_template
+status: template
+execution_run_packet:
+  run_id: "<run_id>"
+  execution_scope_id: "<execution_scope_id>"
+  workflow_id: test_evaluation_execution_result_ingest_v0
+  run_mode: execute_or_block|result_only_ingest|rerun_update
+  run_decision: executed|partially_executed|result_refs_ingested|blocked|not_executed
+  run_decision_reason: "<bounded_reason>"
+  input_refs:
+    - artifact_ref: "<repo_path>"
+      read_only: true
+      checksum_sha256: "<sha256_or_not_recorded>"
+  execution_events:
+    - event_id: "<event_id>"
+      execution_item_id: "<execution_item_id>"
+      method: inspection|analysis|physical_test|software_test|demonstration|operational_evaluation_support|simulation_result_ref
+      started_at: "<timestamp_or_not_recorded>"
+      completed_at: "<timestamp_or_not_recorded>"
+      operator_or_tool_ref: "<operator_or_tool_ref>"
+      environment_ref: "<environment_or_tool_policy_ref>"
+      raw_output_ref: "<project_local_or_private_ref_or_null>"
+      public_summary: "<payload_free_summary>"
+  blocker_refs:
+    - "<run_blocker_id>"
+  non_claims:
+    - no_owner_acceptance
+    - no_accepted_verification_result
+    - no_trr_fca_ot_pca_approval

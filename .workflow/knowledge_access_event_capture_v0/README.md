@@ -24,6 +24,7 @@ used and where the resulting work output lives by reference only.
 - `usage_rollup`
 - `retention_label_packet`
 - `link_strength_analysis`
+- `knowledge_accumulation_delta`
 - `graph_update_packet`
 - `orphan_redundancy_candidate_register`
 - `boundary_review_note`
@@ -35,6 +36,10 @@ payloads, ontology acceptance, archive execution, retire execution, or owner
 decisions. Hot, warm, cold, stale, archive, retire, strong, weak, orphan, and
 redundant labels are candidate signals until a project policy or owner decision
 accepts the action.
+
+Knowledge accumulation delta rows are also candidate signals. They may describe
+metadata-only changes in use, relation strength, concept linkage, or review
+route, but they do not accept knowledge, mutate ontology, or promote canon.
 
 ## Current Maturity
 

@@ -1,0 +1,22 @@
+schema_version: soulforge.notebooklm_bridge.synthetic_binding.v0
+fixture_id: synthetic_notebooklm_bridge_v0
+status: public_safe_synthetic_fixture
+notebook_ref: synthetic_notebook_ref
+notebook_title: Synthetic Research Sandbox
+bridge_surface:
+  source_ledger_ref: docs/architecture/workspace/examples/notebooklm_bridge/synthetic_notebooklm_source_ledger.md
+  query_log_ref: docs/architecture/workspace/examples/notebooklm_bridge/synthetic_notebooklm_query_log.md
+  expected_summary_ref: docs/architecture/workspace/examples/notebooklm_bridge/expected_bridge_summary.yaml
+import_policy:
+  capture_mode: imported_log_entry
+  actor:
+    type: advisory_handoff
+    id: synthetic_notebooklm_bridge
+  default_work_context:
+    workflow_id: synthetic_notebooklm_bridge_fixture
+  redaction_contract:
+    metadata_only: true
+    source_payloads_included: false
+    target_payloads_read_by_analyzer: false
+    canon_or_graph_mutation: false
+claim_ceiling: advisory_signal_only

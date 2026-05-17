@@ -1,0 +1,72 @@
+schema_version: soulforge.notebooklm_bridge.expected_summary.v0
+fixture_id: synthetic_notebooklm_bridge_v0
+expected_bridge_import:
+  kind: notebooklm_metadata_bridge_import
+  status: imported
+  binding_ref: docs/architecture/workspace/examples/notebooklm_bridge/synthetic_notebooklm_binding.yaml
+  source_ledger_ref: docs/architecture/workspace/examples/notebooklm_bridge/synthetic_notebooklm_source_ledger.md
+  query_log_ref: docs/architecture/workspace/examples/notebooklm_bridge/synthetic_notebooklm_query_log.md
+  ledger_ref: _workmeta/TEST/reports/knowledge_access/notebooklm_bridge.jsonl
+  source_ledger_row_count: 2
+  query_log_row_count: 3
+  imported_event_count: 3
+  blocked_event_count: 0
+  usage_targets:
+    - docs/architecture/workspace/examples/notebooklm_bridge/synthetic_notes/review_boundary_pattern.md
+    - docs/architecture/workspace/examples/notebooklm_bridge/synthetic_notes/source_intake_pattern.md
+expected_no_query_bridge_import:
+  kind: notebooklm_metadata_bridge_import
+  status: blocked
+  binding_ref: docs/architecture/workspace/examples/notebooklm_bridge/synthetic_notebooklm_binding_no_query.yaml
+  source_ledger_ref: docs/architecture/workspace/examples/notebooklm_bridge/synthetic_notebooklm_source_ledger.md
+  query_log_ref: docs/architecture/workspace/examples/notebooklm_bridge/synthetic_notebooklm_query_log_no_query.md
+  ledger_ref: _workmeta/TEST/reports/knowledge_access/notebooklm_bridge_no_query.jsonl
+  source_ledger_row_count: 2
+  query_log_row_count: 0
+  imported_event_count: 0
+  blocked_event_count: 1
+  blocker_code: query_log_has_no_importable_rows
+expected_analysis:
+  kind: knowledge_access_rollup_analysis
+  status: draft
+  source_ledger_ref: _workmeta/TEST/reports/knowledge_access/notebooklm_bridge.jsonl
+  accepted_event_count: 3
+  invalid_event_count: 0
+  duplicate_event_count: 0
+  boundary_decision: metadata_rollup_only
+  time_window:
+    starts_at_utc: "2026-05-16T12:00:00Z"
+    ends_at_utc: "2026-05-16T12:10:00Z"
+  counts_by_target:
+    - knowledge_ref: docs/architecture/workspace/examples/notebooklm_bridge/synthetic_notes/review_boundary_pattern.md
+      total_access_count: 1
+      useful_access_count: 0
+      blocked_access_count: 0
+      cite_or_promote_count: 0
+      last_access_timestamp_utc: "2026-05-16T12:10:00Z"
+      actor_type_counts:
+        advisory_handoff: 1
+      access_type_counts:
+        route: 1
+      context_counts:
+        "workflow:synthetic_notebooklm_bridge_fixture": 1
+    - knowledge_ref: docs/architecture/workspace/examples/notebooklm_bridge/synthetic_notes/source_intake_pattern.md
+      total_access_count: 2
+      useful_access_count: 1
+      blocked_access_count: 0
+      cite_or_promote_count: 0
+      last_access_timestamp_utc: "2026-05-16T12:05:00Z"
+      actor_type_counts:
+        advisory_handoff: 2
+      access_type_counts:
+        advisory_handoff: 1
+        summarize: 1
+      context_counts:
+        "workflow:synthetic_notebooklm_bridge_fixture": 2
+  metadata_boundary:
+    metadata_only: true
+    payload_copied: false
+    source_payloads_read: false
+    canon_or_ontology_mutated: false
+    archive_or_retire_executed: false
+    candidate_signals_only: true

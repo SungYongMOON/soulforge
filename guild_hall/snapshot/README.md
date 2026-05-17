@@ -8,7 +8,7 @@
 ## 포함 대상
 
 - `producer.mjs`
-  - owner root, mission, project mount, gateway 상태와 pending monster summary 를 read-only 로 요약하고 source observation fingerprint 를 만든다.
+  - owner root, mission, project mount, gateway 상태, pending monster summary, knowledge lane metadata status 를 read-only 로 요약하고 source observation fingerprint 를 만든다.
 - `cli.mjs`
   - snapshot 생성, JSON 출력, local state write, shape check, freshness check entrypoint
 - `snapshot.test.mjs`
@@ -19,6 +19,7 @@
 - 기본 출력 위치는 `guild_hall/state/snapshot/soulforge_snapshot.json` 이다.
 - 이 경로는 local-only state 이며 public Git 으로 추적하지 않는다.
 - `source_observations` 는 snapshot 이 본 원본 surface 의 metadata-only fingerprint 를 담는다.
+- `knowledge_lane` 은 knowledge/NotebookLM/ontology lane 의 helper/workflow/fixture presence, private/local evidence count, owner-gated state, and `observed` claim ceiling 만 담는다.
 
 ## 경계
 
@@ -27,7 +28,11 @@
 - 메일 원문, attachment, raw mailbox payload, 실제 프로젝트 파일 내용은 읽지 않는다.
 - pending monster summary 는 `intake_inbox/*/monsters.json` 의 derived monster field 만 제한적으로 읽고 body/html/source quote/raw/attachment field 는 복제하지 않는다.
 - mission summary 는 tracked `.mission/index.yaml` 에 있는 public-safe 필드만 읽는다.
-- freshness check 는 저장된 snapshot 의 `source_observations.fingerprint` 와 현재 원본 metadata fingerprint 를 비교한다.
+- knowledge lane summary 는 known public helper/doc/workflow/fixture path 와 known private/local evidence surface count 만 읽는다.
+- public helper/docs/workflows/fixtures 는 `knowledge_lane.evidence` count 에 더하지 않는다. private/local metadata evidence 가 없으면 state 는 `awaiting_metadata_evidence` 이고 evidence count 는 `0` 이다.
+- knowledge access entry count 는 auth/session-shaped file names such as auth, session, token, cookie, credential, and secret files 를 제외한다.
+- NotebookLM auth/session data, query/answer/source payloads, private report prose, private evidence filenames, ontology candidate statements, owner decisions, graph mutation payloads, registry promotion claims 는 복제하지 않는다.
+- freshness check 는 저장된 snapshot 의 `source_observations.fingerprint` 와 현재 원본 metadata fingerprint 를 비교하고, 저장된 `knowledge_lane` 의 owner-gated state/blockers/evidence support 가 현재 파생 support 와 다르거나 `observed` 보다 강한 claim ceiling 을 담으면 실패한다.
 
 ## 실행
 

@@ -9,6 +9,23 @@ const TEXT_EXTENSIONS = new Set([".md", ".yaml", ".yml", ".json"]);
 const repoRoot = path.resolve(fileURLToPath(new URL(".", import.meta.url)), "../../..");
 const integratedFixtureRepoPath = "ui-workspace/fixtures/ui-state/integrated.sample.json";
 const snapshotRepoPath = "guild_hall/state/snapshot/soulforge_snapshot.json";
+const KNOWLEDGE_LANE_OWNER_GATED_STATES = new Set<KnowledgeLaneOwnerGatedState>([
+  "blocked_missing_surface",
+  "awaiting_metadata_evidence",
+  "owner_review_required"
+]);
+const KNOWLEDGE_LANE_CLAIM_CEILING: KnowledgeLaneClaimCeiling = "observed";
+const KNOWLEDGE_LANE_NUMERIC_EVIDENCE_COUNT_KEYS = [
+  "project_knowledge_access_surface_count",
+  "project_procedure_capture_surface_count",
+  "project_ontology_surface_count",
+  "system_knowledge_access_entry_count",
+  "system_procedure_capture_entry_count"
+] as const satisfies readonly KnowledgeLaneNumericEvidenceCountKey[];
+const KNOWLEDGE_LANE_BOOLEAN_EVIDENCE_COUNT_KEYS = [
+  "local_activity_surface_present",
+  "private_activity_mirror_present"
+] as const satisfies readonly KnowledgeLaneBooleanEvidenceCountKey[];
 
 type ControlCenterOwnerId = "body" | "class" | "guild_hall" | "operations" | "docs";
 
@@ -40,6 +57,16 @@ interface ControlCenterOwner {
 }
 
 type SnapshotStatus = "fresh" | "stale" | "missing" | "unavailable";
+type KnowledgeLaneOwnerGatedState = "blocked_missing_surface" | "awaiting_metadata_evidence" | "owner_review_required";
+type KnowledgeLaneClaimCeiling = "observed";
+type KnowledgeLaneNumericEvidenceCountKey =
+  | "project_knowledge_access_surface_count"
+  | "project_procedure_capture_surface_count"
+  | "project_ontology_surface_count"
+  | "system_knowledge_access_entry_count"
+  | "system_procedure_capture_entry_count";
+type KnowledgeLaneBooleanEvidenceCountKey = "local_activity_surface_present" | "private_activity_mirror_present";
+type KnowledgeLaneEvidenceCounts = Record<KnowledgeLaneNumericEvidenceCountKey, number> & Record<KnowledgeLaneBooleanEvidenceCountKey, boolean>;
 
 interface DungeonMapProject {
   project_code: string;
@@ -105,6 +132,27 @@ interface DungeonMapPendingMonsterGroup {
   items: DungeonMapPendingMonster[];
 }
 
+interface DungeonMapKnowledgeLaneBlocker {
+  id: string;
+  severity: string;
+  summary: string;
+}
+
+interface DungeonMapKnowledgeLane {
+  label: string;
+  owner_gated_state: KnowledgeLaneOwnerGatedState;
+  claim_ceiling: KnowledgeLaneClaimCeiling;
+  helper_present: boolean;
+  notebooklm_bridge_present: boolean;
+  workflow_present_count: number;
+  fixture_present: boolean;
+  evidence_present: boolean;
+  evidence_surface_count: number;
+  evidence_counts: KnowledgeLaneEvidenceCounts;
+  blockers: DungeonMapKnowledgeLaneBlocker[];
+  next_owner_review_action: string | null;
+}
+
 interface DungeonMapOperationBoard {
   schema_version: string;
   summary: Record<string, unknown>;
@@ -126,6 +174,7 @@ interface DungeonMapOperationBoard {
       truncated: boolean;
       groups: DungeonMapPendingMonsterGroup[];
     };
+    knowledge_lane: DungeonMapKnowledgeLane | null;
     action_queue: {
       label: string;
       items: DungeonMapNextAction[];
@@ -617,6 +666,10 @@ function numberField(value: unknown, fallback = 0) {
   return typeof value === "number" && Number.isFinite(value) ? value : fallback;
 }
 
+function countField(value: unknown, fallback = 0) {
+  return typeof value === "number" && Number.isInteger(value) && value >= 0 ? value : fallback;
+}
+
 function nullableNumberField(value: unknown) {
   return typeof value === "number" && Number.isFinite(value) ? value : null;
 }
@@ -627,6 +680,31 @@ function booleanField(value: unknown) {
 
 function arrayField(value: unknown) {
   return Array.isArray(value) ? value : [];
+}
+
+function knowledgeLaneOwnerGatedStateField(value: unknown) {
+  return typeof value === "string" && KNOWLEDGE_LANE_OWNER_GATED_STATES.has(value as KnowledgeLaneOwnerGatedState)
+    ? (value as KnowledgeLaneOwnerGatedState)
+    : null;
+}
+
+function knowledgeLaneClaimCeilingField(value: unknown) {
+  return value === KNOWLEDGE_LANE_CLAIM_CEILING ? KNOWLEDGE_LANE_CLAIM_CEILING : null;
+}
+
+function mapKnowledgeLaneEvidenceCounts(value: unknown): KnowledgeLaneEvidenceCounts {
+  const counts = isRecord(value) ? value : {};
+  const sanitized = {} as KnowledgeLaneEvidenceCounts;
+
+  for (const key of KNOWLEDGE_LANE_NUMERIC_EVIDENCE_COUNT_KEYS) {
+    sanitized[key] = countField(counts[key]);
+  }
+
+  for (const key of KNOWLEDGE_LANE_BOOLEAN_EVIDENCE_COUNT_KEYS) {
+    sanitized[key] = booleanField(counts[key]);
+  }
+
+  return sanitized;
 }
 
 function mapProjectItem(item: unknown): DungeonMapProject {
@@ -723,6 +801,43 @@ function mapPendingMonsters(gateway: Record<string, unknown>): DungeonMapPending
   return mapPendingMonsterItems(pendingMonsters.items);
 }
 
+function mapKnowledgeLaneBlocker(item: unknown): DungeonMapKnowledgeLaneBlocker {
+  const blocker = isRecord(item) ? item : {};
+
+  return {
+    id: stringField(blocker.id),
+    severity: stringField(blocker.severity, "info"),
+    summary: stringField(blocker.summary, "")
+  };
+}
+
+function mapKnowledgeLane(item: unknown): DungeonMapKnowledgeLane | null {
+  if (!isRecord(item)) {
+    return null;
+  }
+
+  const ownerGatedState = knowledgeLaneOwnerGatedStateField(item.owner_gated_state);
+  const claimCeiling = knowledgeLaneClaimCeilingField(item.claim_ceiling);
+  if (!ownerGatedState || !claimCeiling) {
+    return null;
+  }
+
+  return {
+    label: stringField(item.label, "Knowledge Lane"),
+    owner_gated_state: ownerGatedState,
+    claim_ceiling: claimCeiling,
+    helper_present: booleanField(item.helper_present),
+    notebooklm_bridge_present: booleanField(item.notebooklm_bridge_present),
+    workflow_present_count: countField(item.workflow_present_count),
+    fixture_present: booleanField(item.fixture_present),
+    evidence_present: booleanField(item.evidence_present),
+    evidence_surface_count: countField(item.evidence_surface_count),
+    evidence_counts: mapKnowledgeLaneEvidenceCounts(item.evidence_counts),
+    blockers: arrayField(item.blockers).map(mapKnowledgeLaneBlocker),
+    next_owner_review_action: nullableStringField(item.next_owner_review_action)
+  };
+}
+
 function mapOperationBoard(snapshot: Record<string, unknown>): DungeonMapOperationBoard | null {
   const operationBoard = isRecord(snapshot.operation_board) ? snapshot.operation_board : null;
   if (!operationBoard) {
@@ -734,6 +849,7 @@ function mapOperationBoard(snapshot: Record<string, unknown>): DungeonMapOperati
   const missionBoard = isRecord(sections.mission_board) ? sections.mission_board : {};
   const monsterGate = isRecord(sections.monster_gate) ? sections.monster_gate : {};
   const actionQueue = isRecord(sections.action_queue) ? sections.action_queue : {};
+  const knowledgeLane = isRecord(sections.knowledge_lane) ? sections.knowledge_lane : null;
 
   return {
     schema_version: stringField(operationBoard.schema_version),
@@ -765,6 +881,7 @@ function mapOperationBoard(snapshot: Record<string, unknown>): DungeonMapOperati
           };
         })
       },
+      knowledge_lane: mapKnowledgeLane(knowledgeLane),
       action_queue: {
         label: stringField(actionQueue.label, "Next Actions"),
         items: arrayField(actionQueue.items).map(mapNextActionItem)

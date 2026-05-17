@@ -1,0 +1,31 @@
+workflow_id: test_evaluation_execution_result_ingest_v0
+kind: downstream_handoff_template
+status: template
+downstream_handoff:
+  handoff_id: "<handoff_id>"
+  source_execution_run_packet_ref: "<repo_path>"
+  source_result_register_ref: "<repo_path>"
+  accepted_result_packet_inputs:
+    candidate_result_register_ref: "<repo_path>"
+    candidate_verdicts_ref: "<repo_path>"
+    scoped_acceptance_basis_refs_needed: []
+    not_claimed:
+      - accepted_result
+      - owner_acceptance
+  review_gate_inputs:
+    execution_result_summary_ref: "<repo_path>"
+    blocker_refs: []
+    owner_followup_refs: []
+    label: candidate_result_evidence_not_acceptance
+  functional_audit_inputs:
+    accepted_result_packet_refs_required_before_use: true
+    direct_candidate_verdict_use_allowed: false
+  physical_audit_context:
+    artifact_inventory_or_package_discrepancy_refs: []
+    functional_acceptance_use_allowed: false
+  rerun_routes:
+    - reason: "<reason>"
+      workflow_id: "<workflow_id>"
+      input_refs: []
+claim_ceiling:
+  downstream_handoff_prepares_acceptance_review_only: true

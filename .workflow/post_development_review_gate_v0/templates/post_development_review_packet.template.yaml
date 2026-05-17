@@ -35,6 +35,30 @@ inspector_review:
   result: "pass | fail | blocked"
   findings: []
 
+knowledge_trigger_check:
+  required: true
+  result: "no_trigger | metadata_only_record | sourcebound_review_candidate | owner_decision_needed"
+  five_question_rubric:
+    monster_blocker_mission_or_review_used_knowledge_ref: "yes | no | unknown"
+    likely_reuse_or_repeated_question: "yes | no | unknown"
+    source_approved_or_traceable: "yes | no | unknown"
+    contradiction_gap_missing_source_or_owner_decision_seen: "yes | no | unknown"
+    weakest_supported_claim_ceiling_named: "observed | source_supported | rejected_or_blocked | not_applicable"
+  reason: ""
+  refs: []
+  ledger_event_refs: []
+  candidate_register_refs: []
+  suggested_route: "none | knowledge_access_ledger | daily_sweep | sourcebound_review | owner_decision"
+  claim_ceiling: "observed | source_supported | rejected_or_blocked | not_applicable"
+  authority_boundary:
+    metadata_only_signal: true
+    not_source_truth: true
+    not_ontology_acceptance: true
+    not_owner_approval: true
+    not_graph_mutation: true
+    not_archive_or_retire_execution: true
+    not_canon_promotion: true
+
 judge_review:
   required: false
   reviewer_context: "same_context | fresh_context | fresh_context_preferred | manual_checklist"

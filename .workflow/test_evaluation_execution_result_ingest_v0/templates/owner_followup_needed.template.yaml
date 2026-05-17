@@ -1,0 +1,16 @@
+workflow_id: test_evaluation_execution_result_ingest_v0
+kind: owner_followup_needed_template
+status: template
+owner_followup_needed:
+  followup_set_id: "<followup_set_id>"
+  questions:
+    - owner_followup_id: "<owner_followup_id>"
+      execution_item_id: "<execution_item_id_or_scope_level>"
+      question: "<short_owner_question>"
+      needed_for: execution_authorization|procedure_basis|criterion_basis|acceptance_basis|waiver_or_deviation|private_boundary|rerun_route
+      options_if_known: []
+      blocks:
+        - "<result_row_id_or_execution_item_id>"
+      downstream_workflow_hint: owner_decision_packet_v0|accepted_verification_result_packet_v0|review_gate_evidence_pack_v0
+claim_ceiling:
+  owner_followup_is_not_owner_decision: true

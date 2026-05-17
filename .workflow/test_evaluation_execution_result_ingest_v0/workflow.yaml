@@ -1,0 +1,189 @@
+workflow_id: test_evaluation_execution_result_ingest_v0
+kind: workflow
+status: active
+title: Test Evaluation Execution Result Ingest v0
+summary: General TRR/DT-to-FCA/OT execution and result-ingest workflow for packaging non-simulation-specific test, evaluation, inspection, analysis, and demonstration result evidence without claiming acceptance.
+entrypoint: run
+execution_mode: local_tool_sequence
+role_slots: role_slots.yaml
+step_graph: step_graph.yaml
+handoff_rules: handoff_rules.yaml
+monster_rules: monster_rules.yaml
+party_compatibility: party_compatibility.yaml
+profile_policy: profile_policy.yaml
+history: history/
+calibrations: calibrations/
+inputs:
+  - test_evaluation_execution_binding
+  - verification_execution_scope_refs
+  - approved_test_evaluation_execution_policy
+optional_inputs:
+  - verification_plan_refs
+  - trr_readiness_handoff_refs
+  - fca_svr_handoff_index_refs
+  - test_harness_asset_plan_refs
+  - configuration_baseline_refs
+  - procedure_refs
+  - fixture_or_instrument_refs
+  - tool_or_environment_policy_refs
+  - simulation_run_packet_refs
+  - review_gate_packet_refs
+  - source_gap_followup_packet_refs
+  - owner_decision_refs
+  - deviation_or_waiver_refs
+outputs:
+  - execution_run_packet
+  - execution_result_register
+  - result_verdicts
+  - run_blockers
+  - owner_followup_needed
+  - downstream_handoff
+  - boundary_review_note
+validation_level: registered_contract_private_evidence
+registration_policy: owner_requested_registration
+workflow_modes:
+  - execute_or_block
+  - result_only_ingest
+  - rerun_update
+method_values:
+  - inspection
+  - analysis
+  - physical_test
+  - software_test
+  - demonstration
+  - operational_evaluation_support
+  - simulation_result_ref
+  - not_ready
+candidate_verdict_values:
+  - pass
+  - fail
+  - inconclusive
+  - blocked
+  - not_executed
+  - not_observed
+acceptance_state_values:
+  - not_accepted
+  - acceptance_basis_required
+  - owner_review_required
+  - downstream_acceptance_packet_required
+registration_evidence_summary:
+  posture: contract_only_registered_from_reviewed_public_safe_draft
+  supported_claims:
+    - execution_result_ref_inventory_shape
+    - candidate_verdict_row_shape
+    - blocked_inconclusive_not_executed_row_shape
+    - downstream_acceptance_review_handoff_shape
+  unsupported_claims:
+    - accepted_verification_result
+    - owner_acceptance
+    - trr_dt_fca_ot_pca_approval
+    - usable
+    - production_ready
+    - profile_optimized
+upstream_workflows:
+  - workflow_id: verification_plan_from_page_contracts_v0
+    expected_outputs:
+      - verification_requirements_matrix
+      - test_or_simulation_readiness
+      - trr_readiness_handoff
+      - fca_svr_handoff_index
+    status: primary_planning_input
+  - workflow_id: test_harness_asset_planning_v0
+    expected_outputs:
+      - test_harness_manifest
+      - test_interface_list
+      - instrumentation_resource_list
+      - trr_readiness_checklist
+      - planning_blockers
+    status: optional_readiness_input
+  - workflow_id: simulation_run_verify_v0
+    expected_outputs:
+      - simulation_run_packet
+      - measurement_results
+      - result_verdicts
+      - run_blockers
+    status: optional_simulation_result_ref_only
+  - workflow_id: review_gate_evidence_pack_v0
+    expected_outputs:
+      - review_packet
+      - entrance_criteria_checklist
+      - review_blockers
+      - action_item_register
+    status: optional_trr_or_execution_authorization_context
+  - workflow_id: configuration_baseline_and_change_control_v0
+    expected_outputs:
+      - configuration_baseline_packet
+      - baseline_inventory
+      - change_request_register
+      - baseline_gap_register
+    status: optional_but_recommended
+downstream_workflows:
+  - workflow_id: accepted_verification_result_packet_v0
+    expected_input: execution_result_register_and_acceptance_basis_refs
+    status: required_before_any_accepted_result_claim
+  - workflow_id: functional_configuration_audit_page_library_v0
+    expected_input: accepted_verification_result_packet_refs_not_candidate_verdicts
+    status: later_consumer_after_acceptance_packet
+  - workflow_id: review_gate_evidence_pack_v0
+    expected_input: execution_result_summary_blockers_and_candidate_verdicts
+    status: later_review_consumer
+  - workflow_id: owner_decision_packet_v0
+    expected_input: owner_review_required_rows_and_acceptance_basis_questions
+    status: optional_decision_consumer
+  - workflow_id: source_gap_followup_packet_v0
+    expected_input: source_or_evidence_gaps_discovered_during_execution_ingest
+    status: rerun_trigger_only
+  - workflow_id: physical_configuration_audit_asset_package_v0
+    expected_input: artifact_inventory_or_package_discrepancy_refs_only
+    status: optional_context_not_functional_acceptance
+execution_result_contract:
+  owns:
+    - execution_scope_identity
+    - execution_or_block_decision
+    - execution_metadata_refs
+    - result_evidence_inventory
+    - candidate_verdict_rows
+    - blocked_inconclusive_or_not_executed_rows
+    - downstream_acceptance_handoff
+    - boundary_review_for_non_acceptance
+  does_not_own:
+    - verification_plan_authoring
+    - harness_asset_planning
+    - simulation_deck_generation
+    - simulation_model_authority
+    - simulation_execution_when_a_simulation_run_workflow_is_required
+    - owner_acceptance
+    - accepted_verification_result_rows
+    - fca_svr_acceptance
+    - trr_or_ot_approval
+    - pca_package_approval
+    - upstream_packet_mutation
+  authority_boundary:
+    execution_packet_is_not_accepted_result: true
+    candidate_pass_fail_is_not_owner_acceptance: true
+    blocked_execution_is_not_failed_verification: true
+    result_ingest_requires_named_evidence_ref: true
+    verdict_requires_named_criterion_or_rule: true
+    missing_measurement_or_observation_blocks_verdict: true
+    simulation_payloads_stay_in_simulation_run_workflow: true
+    upstream_artifacts_are_read_only: true
+    raw_logs_remain_project_local_or_private: true
+    public_package_contains_no_runtime_absolute_paths: true
+  required_input_shapes:
+    test_evaluation_execution_binding: templates/project_binding.template.yaml
+    execution_scope_binding: templates/execution_scope_binding.template.yaml
+  required_output_shapes:
+    execution_run_packet: templates/execution_run_packet.template.yaml
+    execution_result_register: templates/execution_result_register.template.yaml
+    result_verdicts: templates/result_verdicts.template.yaml
+    run_blockers: templates/run_blockers.template.yaml
+    owner_followup_needed: templates/owner_followup_needed.template.yaml
+    downstream_handoff: templates/downstream_handoff.template.yaml
+    boundary_review_note: templates/boundary_review_note.template.md
+notes:
+  - This package is registered as a workflow canon entry at a contract-only/private-evidence claim ceiling.
+  - Registration does not claim pilot execution, owner acceptance, TRR/DT/FCA/OT/PCA approval, usable status, production readiness, or optimizer results.
+  - It fills the general execution/result lane between planning and accepted-result or audit consumers.
+  - Simulation-specific execution remains owned by simulation_run_verify_v0; this workflow may consume simulation result packet refs but must not duplicate raw simulation payloads.
+  - Candidate verdict rows can be useful for review and acceptance preparation, but accepted_verification_result_packet_v0 must still decide accepted, blocked, or inconclusive rows from a scoped acceptance basis.
+  - Public workflow files must not contain raw test logs, waveform data, vendor payloads, private project outputs, credentials, sessions, or runtime absolute paths.

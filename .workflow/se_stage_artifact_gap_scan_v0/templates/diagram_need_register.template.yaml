@@ -1,0 +1,11 @@
+schema_version: se_diagram_need_register_v0
+diagram_need_register:
+  register_id: "<register_id>"
+  stage_code: "<stage_code>"
+  items:
+    - diagram_id: "<diagram_id>"
+      needed_for: []
+      status: "draftable|owner_input_needed|source_needed|blocked"
+      available_inputs: []
+      owner_inputs_needed: []
+      source_needed: []

@@ -1,0 +1,24 @@
+workflow_id: sourcebound_knowledge_packet_operating_loop_v0
+kind: ontology_candidate_rule_register
+status: draft
+register_id: "<register_id>"
+source_refs:
+  concept_candidate_register_ref: "<concept_candidate_register_ref>"
+  claim_ceiling_route_ref: "<claim_ceiling_and_promotion_route_ref>"
+candidate_rules:
+  - candidate_rule_id: "<candidate_rule_id>"
+    source_concept_candidate_ids: []
+    ontology_candidate_type: entity_or_relation_or_boundary_rule
+    entity_or_relation_label: "<candidate_label>"
+    rule_statement: "<metadata_only_candidate_rule>"
+    evidence_source_refs: []
+    projection_refs: []
+    claim_ceiling: review_required
+    candidate_only_state: observed
+    required_review_route: owner_decision_or_post_development_review
+authority_boundary:
+  candidate_only: true
+  source_refs_required_for_promotion_review: true
+  no_ontology_canon_acceptance: true
+  no_ontology_mutation: true
+  no_final_domain_doctrine: true

@@ -1,0 +1,19 @@
+workflow_id: test_evaluation_execution_result_ingest_v0
+kind: monster_rules
+status: draft
+triggers:
+  - a verification plan or TRR handoff has scoped execution items and the next action is to run, block, or ingest test/evaluation results
+  - a DT, FAT, SAT, inspection, analysis, demonstration, or OT-support result bundle needs candidate result packaging
+  - a review packet needs execution/result evidence without claiming accepted verification
+  - an accepted-result packet needs clean candidate result rows and scoped acceptance-basis questions
+non_triggers:
+  - source packet collection or source sufficiency review
+  - simulation model collection, deck preparation, or raw simulation execution
+  - verification planning without result evidence or execution authorization
+  - owner acceptance or formal review approval
+  - physical package audit where no execution/result row exists
+classification_rules:
+  - if the request asks whether a test is ready to run, route first to verification_plan_from_page_contracts_v0 or test_harness_asset_planning_v0.
+  - if the request asks to run or ingest simulation-specific artifacts, route raw execution to simulation_run_verify_v0 and consume only its packet refs here.
+  - if the request asks to accept results, route this workflow output plus scoped acceptance basis to accepted_verification_result_packet_v0.
+  - if the request asks to audit function compliance, require accepted result packet refs before functional_configuration_audit_page_library_v0.

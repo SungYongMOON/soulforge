@@ -40,6 +40,24 @@ const PENDING_MONSTER_DISPLAY_GROUPS = [
 ];
 const PENDING_MONSTER_DISPLAY_GROUP_BY_ID = new Map(PENDING_MONSTER_DISPLAY_GROUPS.map((group) => [group.id, group]));
 const OPERATION_BOARD_VERSION = "soulforge.operation_board_projection.v0";
+const KNOWLEDGE_LANE_VERSION = "soulforge.knowledge_lane_status.v0";
+const KNOWLEDGE_LANE_CLAIM_CEILING = "observed";
+const KNOWLEDGE_LANE_OWNER_GATED_STATES = new Set([
+  "blocked_missing_surface",
+  "awaiting_metadata_evidence",
+  "owner_review_required",
+]);
+const AUTH_SESSION_ENTRY_NAME_PATTERN =
+  /(^|[._-])(auth|oauth|session|sessions|token|tokens|cookie|cookies|credential|credentials|secret|secrets)([._-]|$)/i;
+const KNOWLEDGE_LANE_REFS = {
+  operatingModel: "docs/architecture/guild_hall/KNOWLEDGE_OPERATING_MODEL_V0.md",
+  helperRoot: "guild_hall/knowledge_access",
+  knowledgeAccessWorkflow: ".workflow/knowledge_access_event_capture_v0",
+  sourceboundWorkflow: ".workflow/sourcebound_knowledge_packet_operating_loop_v0",
+  notebooklmFixture: "docs/architecture/workspace/examples/notebooklm_bridge",
+  ontologyReviewManual: "docs/architecture/foundation/ONTOLOGY_REVIEW_MANUAL_V0.md",
+  ontologyModel: "docs/architecture/foundation/ONTOLOGY_MODEL_V0.md",
+};
 const MISSION_BOARD_DISPLAY_GROUPS = [
   { id: "blocked", label: "Blocked", rank: 10 },
   { id: "ready", label: "Ready", rank: 20 },
@@ -69,6 +87,7 @@ export async function buildSnapshot(options = {}) {
   const missions = await summarizeMissions(repoRoot, diagnostics);
   const gateway = await summarizeGateway(repoRoot);
   const privateState = await summarizePrivateState(repoRoot);
+  const knowledgeLane = await summarizeKnowledgeLane(repoRoot);
   const repo = summarizeRepo(repoRoot);
   const sourceObservations = await collectSourceObservations(repoRoot, generatedAt);
   const nextActions = [
@@ -115,7 +134,8 @@ export async function buildSnapshot(options = {}) {
     missions,
     gateway,
     private_state: privateState,
-    operation_board: buildOperationBoardProjection({ projects, missions, gateway, nextActions, diagnostics: finalizedDiagnostics }),
+    knowledge_lane: knowledgeLane,
+    operation_board: buildOperationBoardProjection({ projects, missions, gateway, knowledgeLane, nextActions, diagnostics: finalizedDiagnostics }),
     source_observations: sourceObservations,
     next_actions: nextActions,
     diagnostics: finalizedDiagnostics,
@@ -148,6 +168,15 @@ export function compareSnapshotFreshness(storedSnapshot, currentSnapshot) {
   ) {
     errors.push("stored snapshot operation_board projection is missing or stale; regenerate it");
   }
+  if (
+    currentSnapshot?.knowledge_lane?.schema_version &&
+    storedSnapshot?.knowledge_lane?.schema_version !== currentSnapshot.knowledge_lane.schema_version
+  ) {
+    errors.push("stored snapshot knowledge_lane status is missing or stale; regenerate it");
+  }
+  validateKnowledgeLaneSnapshotContract(storedSnapshot, errors, { label: "stored snapshot " });
+  validateKnowledgeLaneSnapshotContract(currentSnapshot, errors, { label: "current snapshot " });
+  compareKnowledgeLaneFreshnessSupport(storedSnapshot, currentSnapshot, errors);
   if (!storedObservations || storedObservations.schema_version !== SNAPSHOT_OBSERVATIONS_VERSION) {
     errors.push("stored snapshot has no current source_observations; regenerate it");
   }
@@ -187,7 +216,18 @@ export function validateSnapshot(snapshot) {
   if (snapshot.schema_version !== SNAPSHOT_VERSION) {
     errors.push(`schema_version must be ${SNAPSHOT_VERSION}`);
   }
-  for (const key of ["generated_at", "source", "roots", "projects", "missions", "gateway", "operation_board", "source_observations", "diagnostics"]) {
+  for (const key of [
+    "generated_at",
+    "source",
+    "roots",
+    "projects",
+    "missions",
+    "gateway",
+    "knowledge_lane",
+    "operation_board",
+    "source_observations",
+    "diagnostics",
+  ]) {
     if (!(key in snapshot)) {
       errors.push(`missing top-level key: ${key}`);
     }
@@ -207,6 +247,7 @@ export function validateSnapshot(snapshot) {
   if (!Array.isArray(snapshot.gateway?.pending_monsters?.items)) {
     errors.push("gateway.pending_monsters.items must be an array");
   }
+  validateKnowledgeLaneSnapshotContract(snapshot, errors);
   if (snapshot.operation_board?.schema_version !== OPERATION_BOARD_VERSION) {
     errors.push(`operation_board.schema_version must be ${OPERATION_BOARD_VERSION}`);
   }
@@ -222,6 +263,9 @@ export function validateSnapshot(snapshot) {
   if (!Array.isArray(snapshot.operation_board?.sections?.action_queue?.items)) {
     errors.push("operation_board.sections.action_queue.items must be an array");
   }
+  if (!Array.isArray(snapshot.operation_board?.sections?.knowledge_lane?.blockers)) {
+    errors.push("operation_board.sections.knowledge_lane.blockers must be an array");
+  }
   if (!Array.isArray(snapshot.source_observations?.items)) {
     errors.push("source_observations.items must be an array");
   }
@@ -235,6 +279,17 @@ export function validateSnapshot(snapshot) {
     "guild_hall/state/gateway/mailbox/company/mail/attachments",
     "guild_hall/state/gateway/mailbox/personal/mail/attachments",
     "gmail_token.json",
+    "notebooklm_auth.json",
+    "notebooklm_session.json",
+    ".notebooklm",
+    ".config/notebooklm",
+    "DO_NOT_LEAK_NOTEBOOK_QUERY",
+    "DO_NOT_LEAK_NOTEBOOK_ANSWER",
+    "DO_NOT_LEAK_SOURCE_PAYLOAD",
+    "DO_NOT_LEAK_PRIVATE_REPORT",
+    "DO_NOT_LEAK_ONTOLOGY_CANDIDATE",
+    "DO_NOT_LEAK_OWNER_DECISION",
+    "DO_NOT_LEAK_GRAPH_MUTATION",
   ];
   const payload = JSON.stringify(snapshot);
   for (const forbiddenPath of forbiddenPaths) {
@@ -244,6 +299,153 @@ export function validateSnapshot(snapshot) {
   }
 
   return buildValidationResult(errors);
+}
+
+function validateKnowledgeLaneSnapshotContract(snapshot, errors, options = {}) {
+  const label = options.label ?? "";
+  const lane = snapshot?.knowledge_lane;
+
+  if (!lane || typeof lane !== "object" || Array.isArray(lane)) {
+    errors.push(`${label}knowledge_lane must be an object`);
+    return;
+  }
+
+  if (lane.schema_version !== KNOWLEDGE_LANE_VERSION) {
+    errors.push(`${label}knowledge_lane.schema_version must be ${KNOWLEDGE_LANE_VERSION}`);
+  }
+
+  const state = lane.owner_gated?.state;
+  if (typeof state !== "string") {
+    errors.push(`${label}knowledge_lane.owner_gated.state must be a string`);
+  } else if (!KNOWLEDGE_LANE_OWNER_GATED_STATES.has(state)) {
+    errors.push(
+      `${label}knowledge_lane.owner_gated.state must be one of ${Array.from(KNOWLEDGE_LANE_OWNER_GATED_STATES).join(", ")}`,
+    );
+  }
+
+  const claimCeiling = lane.claim_ceiling;
+  if (typeof claimCeiling !== "string") {
+    errors.push(`${label}knowledge_lane.claim_ceiling must be a string`);
+  } else if (claimCeiling !== KNOWLEDGE_LANE_CLAIM_CEILING) {
+    errors.push(`${label}knowledge_lane.claim_ceiling must be ${KNOWLEDGE_LANE_CLAIM_CEILING}`);
+  }
+
+  const blockers = Array.isArray(lane.blockers) ? lane.blockers : null;
+  if (!blockers) {
+    errors.push(`${label}knowledge_lane.blockers must be an array`);
+  }
+
+  const evidence = lane.evidence;
+  if (!evidence || typeof evidence !== "object" || Array.isArray(evidence)) {
+    errors.push(`${label}knowledge_lane.evidence must be an object`);
+  }
+
+  const evidencePresent = typeof evidence?.present === "boolean" ? evidence.present : null;
+  const evidenceSurfaceCount = numberValue(evidence?.total_surface_count);
+  const privateEvidenceSurfaceCount = numberValue(evidence?.private_surface_count);
+  if (evidencePresent === null) {
+    errors.push(`${label}knowledge_lane.evidence.present must be a boolean`);
+  }
+  if (evidenceSurfaceCount === null) {
+    errors.push(`${label}knowledge_lane.evidence.total_surface_count must be a number`);
+  }
+  if (privateEvidenceSurfaceCount === null) {
+    errors.push(`${label}knowledge_lane.evidence.private_surface_count must be a number`);
+  }
+  if (evidencePresent !== null && evidenceSurfaceCount !== null && evidencePresent !== (evidenceSurfaceCount > 0)) {
+    errors.push(`${label}knowledge_lane.evidence.present must match evidence.total_surface_count > 0`);
+  }
+  if (
+    evidenceSurfaceCount !== null &&
+    privateEvidenceSurfaceCount !== null &&
+    evidenceSurfaceCount !== privateEvidenceSurfaceCount
+  ) {
+    errors.push(`${label}knowledge_lane.evidence.private_surface_count must equal evidence.total_surface_count`);
+  }
+  if (!evidence?.counts || typeof evidence.counts !== "object" || Array.isArray(evidence.counts)) {
+    errors.push(`${label}knowledge_lane.evidence.counts must be an object`);
+  }
+
+  if (typeof state === "string" && KNOWLEDGE_LANE_OWNER_GATED_STATES.has(state) && blockers && evidencePresent !== null) {
+    const expectedState = expectedKnowledgeLaneOwnerGateState({ blockers, evidencePresent });
+    if (state !== expectedState) {
+      errors.push(`${label}knowledge_lane.owner_gated.state must be ${expectedState} for current blockers/evidence`);
+    }
+  }
+
+  const boardSummary = snapshot?.operation_board?.summary;
+  const boardLane = snapshot?.operation_board?.sections?.knowledge_lane;
+  if (!boardLane || typeof boardLane !== "object" || Array.isArray(boardLane)) {
+    errors.push(`${label}operation_board.sections.knowledge_lane must be an object`);
+    return;
+  }
+
+  if (typeof boardLane.owner_gated_state !== "string") {
+    errors.push(`${label}operation_board.sections.knowledge_lane.owner_gated_state must be a string`);
+  } else if (!KNOWLEDGE_LANE_OWNER_GATED_STATES.has(boardLane.owner_gated_state)) {
+    errors.push(
+      `${label}operation_board.sections.knowledge_lane.owner_gated_state must be one of ${Array.from(
+        KNOWLEDGE_LANE_OWNER_GATED_STATES,
+      ).join(", ")}`,
+    );
+  }
+  if (state && boardLane.owner_gated_state !== state) {
+    errors.push(`${label}operation_board.sections.knowledge_lane.owner_gated_state must match knowledge_lane.owner_gated.state`);
+  }
+  if (boardSummary?.knowledge_lane_state !== state) {
+    errors.push(`${label}operation_board.summary.knowledge_lane_state must match knowledge_lane.owner_gated.state`);
+  }
+  if (boardLane.claim_ceiling !== claimCeiling) {
+    errors.push(`${label}operation_board.sections.knowledge_lane.claim_ceiling must match knowledge_lane.claim_ceiling`);
+  }
+  if (typeof boardLane.evidence_present !== "boolean") {
+    errors.push(`${label}operation_board.sections.knowledge_lane.evidence_present must be a boolean`);
+  } else if (evidencePresent !== null && boardLane.evidence_present !== evidencePresent) {
+    errors.push(`${label}operation_board.sections.knowledge_lane.evidence_present must match knowledge_lane.evidence.present`);
+  }
+  if (numberValue(boardLane.evidence_surface_count) === null) {
+    errors.push(`${label}operation_board.sections.knowledge_lane.evidence_surface_count must be a number`);
+  } else if (evidenceSurfaceCount !== null && boardLane.evidence_surface_count !== evidenceSurfaceCount) {
+    errors.push(
+      `${label}operation_board.sections.knowledge_lane.evidence_surface_count must match knowledge_lane.evidence.total_surface_count`,
+    );
+  }
+  if (
+    numberValue(boardSummary?.knowledge_evidence_surface_count) !== null &&
+    evidenceSurfaceCount !== null &&
+    boardSummary.knowledge_evidence_surface_count !== evidenceSurfaceCount
+  ) {
+    errors.push(`${label}operation_board.summary.knowledge_evidence_surface_count must match knowledge_lane.evidence.total_surface_count`);
+  }
+}
+
+function compareKnowledgeLaneFreshnessSupport(storedSnapshot, currentSnapshot, errors) {
+  const storedSupport = knowledgeLaneFreshnessSupport(storedSnapshot?.knowledge_lane);
+  const currentSupport = knowledgeLaneFreshnessSupport(currentSnapshot?.knowledge_lane);
+
+  if (!storedSupport || !currentSupport) {
+    return;
+  }
+
+  if (stableStringify(storedSupport) !== stableStringify(currentSupport)) {
+    errors.push("stored snapshot knowledge_lane owner_gated state/blockers/evidence do not match current metadata support; regenerate it");
+  }
+}
+
+function knowledgeLaneFreshnessSupport(lane) {
+  if (!lane || typeof lane !== "object" || Array.isArray(lane)) {
+    return null;
+  }
+
+  const evidence = lane.evidence && typeof lane.evidence === "object" && !Array.isArray(lane.evidence) ? lane.evidence : null;
+
+  return {
+    owner_gated: {
+      state: lane.owner_gated?.state ?? null,
+    },
+    blockers: Array.isArray(lane.blockers) ? lane.blockers : null,
+    evidence,
+  };
 }
 
 async function collectSourceObservations(repoRoot, observedAt) {
@@ -270,6 +472,7 @@ async function collectSourceObservations(repoRoot, observedAt) {
     }),
     observeWorkmetaSource(repoRoot),
     observeGatewaySource(repoRoot),
+    observeKnowledgeLaneSource(repoRoot),
     observePrivateStateSource(repoRoot),
   ]);
   const items = rawItems.map(withObservationSignature);
@@ -408,6 +611,30 @@ async function observeGatewaySource(repoRoot) {
       monster_index_mtime_ms: monsterIndexStat.mtime_ms,
       monster_state_file_count: (await Promise.all(monsterStatePaths.map((filePath) => pathExists(filePath)))).filter(Boolean).length,
       latest_surface_mtime_ms: await latestMtimeMs(observedPaths),
+    },
+  };
+}
+
+async function observeKnowledgeLaneSource(repoRoot) {
+  const surface = await collectKnowledgeLaneSurfaceSignals(repoRoot);
+  return {
+    id: "knowledge_lane",
+    source_ref: KNOWLEDGE_LANE_REFS.operatingModel,
+    owner: "guild_hall/knowledge_lane",
+    read_mode: "knowledge_metadata_surface_only",
+    present: surface.public_surface_count > 0 || surface.evidence.present,
+    signal: {
+      kind: "knowledge_lane_surface",
+      public_surface_count: surface.public_surface_count,
+      private_evidence_surface_count: surface.evidence.private_surface_count,
+      helper_present: surface.helper.present,
+      notebooklm_bridge_present: surface.helper.notebooklm_bridge_present,
+      workflow_present_count: surface.workflows.present_count,
+      fixture_present: surface.fixtures.notebooklm_bridge_public_synthetic_present,
+      project_knowledge_access_surface_count: surface.evidence.counts.project_knowledge_access_surface_count,
+      project_procedure_capture_surface_count: surface.evidence.counts.project_procedure_capture_surface_count,
+      project_ontology_surface_count: surface.evidence.counts.project_ontology_surface_count,
+      latest_surface_mtime_ms: surface.latest_surface_mtime_ms,
     },
   };
 }
@@ -734,7 +961,269 @@ async function summarizePrivateState(repoRoot) {
   };
 }
 
-function buildOperationBoardProjection({ projects, missions, gateway, nextActions, diagnostics }) {
+async function summarizeKnowledgeLane(repoRoot) {
+  const surface = await collectKnowledgeLaneSurfaceSignals(repoRoot);
+  const blockers = buildKnowledgeLaneBlockers(surface);
+
+  return {
+    schema_version: KNOWLEDGE_LANE_VERSION,
+    source_ref: KNOWLEDGE_LANE_REFS.operatingModel,
+    privacy: {
+      mode: "sanitized_metadata_only",
+      source_fields: [
+        "known public helper/doc/workflow/fixture path presence",
+        "known private evidence directory presence and counts",
+        "owner-gate and claim-ceiling metadata",
+      ],
+      excluded_fields: [
+        "auth/session data",
+        "NotebookLM query, answer, or source payloads",
+        "private report prose",
+        "private evidence filenames",
+        "ontology candidate statements",
+        "owner decisions",
+        "graph mutation payloads",
+        "registry promotion claims",
+      ],
+    },
+    owner_gated: {
+      state: classifyKnowledgeLaneOwnerGate(surface, blockers),
+      required_before: ["claim upgrade", "ontology acceptance", "graph update", "registry promotion"],
+      snapshot_authority: "metadata_status_only",
+    },
+    helper: surface.helper,
+    workflows: surface.workflows,
+    fixtures: surface.fixtures,
+    ontology: surface.ontology,
+    public_surface_count: surface.public_surface_count,
+    evidence: {
+      present: surface.evidence.present,
+      total_surface_count: surface.evidence.total_surface_count,
+      private_surface_count: surface.evidence.private_surface_count,
+      counts: surface.evidence.counts,
+    },
+    claim_ceiling: KNOWLEDGE_LANE_CLAIM_CEILING,
+    claim_note: "Snapshot observes lane metadata only; it does not validate knowledge, accept ontology, record owner decisions, mutate graphs, or promote registry canon.",
+    blockers,
+    next_owner_review_action: buildKnowledgeLaneNextOwnerReviewAction(surface, blockers),
+  };
+}
+
+async function collectKnowledgeLaneSurfaceSignals(repoRoot) {
+  const helperRoot = path.join(repoRoot, KNOWLEDGE_LANE_REFS.helperRoot);
+  const knowledgeWorkflowRoot = path.join(repoRoot, KNOWLEDGE_LANE_REFS.knowledgeAccessWorkflow);
+  const sourceboundWorkflowRoot = path.join(repoRoot, KNOWLEDGE_LANE_REFS.sourceboundWorkflow);
+  const notebooklmFixtureRoot = path.join(repoRoot, KNOWLEDGE_LANE_REFS.notebooklmFixture);
+  const systemKnowledgeAccessRoot = path.join(repoRoot, "_workmeta", "system", "reports", "knowledge_access");
+  const systemProcedureCaptureRoot = path.join(repoRoot, "_workmeta", "system", "reports", "procedure_capture");
+  const localActivityRoot = path.join(repoRoot, "guild_hall", "state", "operations", "soulforge_activity");
+  const privateActivityRoot = path.join(repoRoot, "private-state", "guild_hall", "state", "operations", "soulforge_activity");
+
+  const helper = {
+    source_ref: KNOWLEDGE_LANE_REFS.helperRoot,
+    present: await pathExists(helperRoot),
+    readme_present: await pathExists(path.join(helperRoot, "README.md")),
+    cli_present: await pathExists(path.join(helperRoot, "cli.mjs")),
+    ledger_present: await pathExists(path.join(helperRoot, "ledger.mjs")),
+    notebooklm_bridge_present: await pathExists(path.join(helperRoot, "notebooklm_bridge.mjs")),
+    test_present: await pathExists(path.join(helperRoot, "knowledge_access.test.mjs")),
+  };
+
+  const workflows = {
+    knowledge_access_event_capture_v0: {
+      source_ref: KNOWLEDGE_LANE_REFS.knowledgeAccessWorkflow,
+      present: await pathExists(path.join(knowledgeWorkflowRoot, "workflow.yaml")),
+      template_count: await countDirectoryEntries(path.join(knowledgeWorkflowRoot, "templates"), { filesOnly: true }),
+    },
+    sourcebound_knowledge_packet_operating_loop_v0: {
+      source_ref: KNOWLEDGE_LANE_REFS.sourceboundWorkflow,
+      present: await pathExists(path.join(sourceboundWorkflowRoot, "workflow.yaml")),
+      template_count: await countDirectoryEntries(path.join(sourceboundWorkflowRoot, "templates"), { filesOnly: true }),
+    },
+  };
+  workflows.present_count = countPresentBooleans([
+    workflows.knowledge_access_event_capture_v0.present,
+    workflows.sourcebound_knowledge_packet_operating_loop_v0.present,
+  ]);
+
+  const fixtures = {
+    notebooklm_bridge_public_synthetic_present: await pathExists(notebooklmFixtureRoot),
+    notebooklm_bridge_public_synthetic_file_count: await countDirectoryEntries(notebooklmFixtureRoot, { filesOnly: true }),
+    source_ref: KNOWLEDGE_LANE_REFS.notebooklmFixture,
+  };
+
+  const ontology = {
+    review_manual_present: await pathExists(path.join(repoRoot, KNOWLEDGE_LANE_REFS.ontologyReviewManual)),
+    model_present: await pathExists(path.join(repoRoot, KNOWLEDGE_LANE_REFS.ontologyModel)),
+    sourcebound_template_present: await pathExists(
+      path.join(sourceboundWorkflowRoot, "templates", "ontology_candidate_rule_register.template.yaml"),
+    ),
+    source_refs: [KNOWLEDGE_LANE_REFS.ontologyReviewManual, KNOWLEDGE_LANE_REFS.ontologyModel],
+  };
+
+  const projectCodes = await listProjectCodes(path.join(repoRoot, "_workmeta"), {
+    exclude: WORKMETA_NON_PROJECT_ROOTS,
+    requireSurface: true,
+  });
+  const projectSurfaceDirs = [];
+  const projectEvidenceCounts = {
+    project_knowledge_access_surface_count: 0,
+    project_procedure_capture_surface_count: 0,
+    project_ontology_surface_count: 0,
+  };
+
+  for (const projectCode of projectCodes) {
+    const projectRoot = path.join(repoRoot, "_workmeta", projectCode);
+    const knowledgeAccessRoot = path.join(projectRoot, "reports", "knowledge_access");
+    const procedureCaptureRoot = path.join(projectRoot, "reports", "procedure_capture");
+    const ontologyRoot = path.join(projectRoot, "ontology");
+    projectSurfaceDirs.push(knowledgeAccessRoot, procedureCaptureRoot, ontologyRoot);
+
+    if ((await countKnowledgeAccessEntryFiles(knowledgeAccessRoot)) > 0) {
+      projectEvidenceCounts.project_knowledge_access_surface_count += 1;
+    }
+    if (await pathExists(procedureCaptureRoot)) {
+      projectEvidenceCounts.project_procedure_capture_surface_count += 1;
+    }
+    if (await pathExists(ontologyRoot)) {
+      projectEvidenceCounts.project_ontology_surface_count += 1;
+    }
+  }
+
+  const systemKnowledgeAccessEntryCount = await countKnowledgeAccessEntryFiles(systemKnowledgeAccessRoot);
+  const evidenceCounts = {
+    ...projectEvidenceCounts,
+    system_knowledge_access_present: await pathExists(systemKnowledgeAccessRoot),
+    system_knowledge_access_entry_count: systemKnowledgeAccessEntryCount,
+    system_procedure_capture_present: await pathExists(systemProcedureCaptureRoot),
+    system_procedure_capture_entry_count: await countDirectoryEntries(systemProcedureCaptureRoot, { filesOnly: true }),
+    local_activity_surface_present: await pathExists(localActivityRoot),
+    private_activity_mirror_present: await pathExists(privateActivityRoot),
+  };
+  const privateSurfaceCount =
+    projectEvidenceCounts.project_knowledge_access_surface_count +
+    projectEvidenceCounts.project_procedure_capture_surface_count +
+    projectEvidenceCounts.project_ontology_surface_count +
+    countPresentBooleans([
+      systemKnowledgeAccessEntryCount > 0,
+      evidenceCounts.system_procedure_capture_present,
+      evidenceCounts.local_activity_surface_present,
+      evidenceCounts.private_activity_mirror_present,
+    ]);
+  const publicSurfaceCount = countPresentBooleans([
+    await pathExists(path.join(repoRoot, KNOWLEDGE_LANE_REFS.operatingModel)),
+    helper.present,
+    helper.cli_present,
+    helper.ledger_present,
+    helper.notebooklm_bridge_present,
+    workflows.knowledge_access_event_capture_v0.present,
+    workflows.sourcebound_knowledge_packet_operating_loop_v0.present,
+    fixtures.notebooklm_bridge_public_synthetic_present,
+    ontology.review_manual_present,
+    ontology.model_present,
+    ontology.sourcebound_template_present,
+  ]);
+
+  return {
+    helper,
+    workflows,
+    fixtures,
+    ontology,
+    public_surface_count: publicSurfaceCount,
+    evidence: {
+      present: privateSurfaceCount > 0,
+      total_surface_count: privateSurfaceCount,
+      private_surface_count: privateSurfaceCount,
+      counts: evidenceCounts,
+    },
+    latest_surface_mtime_ms: await latestMtimeMs([
+      path.join(repoRoot, KNOWLEDGE_LANE_REFS.operatingModel),
+      helperRoot,
+      path.join(helperRoot, "cli.mjs"),
+      path.join(helperRoot, "ledger.mjs"),
+      path.join(helperRoot, "notebooklm_bridge.mjs"),
+      knowledgeWorkflowRoot,
+      path.join(knowledgeWorkflowRoot, "templates"),
+      sourceboundWorkflowRoot,
+      path.join(sourceboundWorkflowRoot, "templates"),
+      notebooklmFixtureRoot,
+      path.join(repoRoot, KNOWLEDGE_LANE_REFS.ontologyReviewManual),
+      path.join(repoRoot, KNOWLEDGE_LANE_REFS.ontologyModel),
+      systemKnowledgeAccessRoot,
+      systemProcedureCaptureRoot,
+      localActivityRoot,
+      privateActivityRoot,
+      ...projectSurfaceDirs,
+    ]),
+  };
+}
+
+function buildKnowledgeLaneBlockers(surface) {
+  const blockers = [];
+
+  if (!surface.helper.present || !surface.helper.cli_present || !surface.helper.ledger_present) {
+    blockers.push({
+      id: "knowledge_access_helper_incomplete",
+      severity: "blocking",
+      summary: "Knowledge access helper metadata surface is missing or incomplete.",
+    });
+  }
+  if (surface.workflows.present_count < 2) {
+    blockers.push({
+      id: "knowledge_workflow_surface_incomplete",
+      severity: "blocking",
+      summary: "Knowledge capture/sourcebound workflow metadata surface is incomplete.",
+    });
+  }
+  if (!surface.fixtures.notebooklm_bridge_public_synthetic_present) {
+    blockers.push({
+      id: "notebooklm_public_fixture_missing",
+      severity: "warning",
+      summary: "Public synthetic NotebookLM bridge fixture surface is not present.",
+    });
+  }
+  if (!surface.evidence.present) {
+    blockers.push({
+      id: "metadata_evidence_surface_missing",
+      severity: "warning",
+      summary: "No private/local metadata evidence surface was detected.",
+    });
+  }
+
+  blockers.push({
+    id: "owner_review_required_for_claim_upgrade",
+    severity: "gate",
+    summary: "Owner/review approval is required before claim upgrades, ontology acceptance, graph updates, or registry promotion.",
+  });
+
+  return blockers;
+}
+
+function classifyKnowledgeLaneOwnerGate(surface, blockers) {
+  return expectedKnowledgeLaneOwnerGateState({ blockers, evidencePresent: surface.evidence.present });
+}
+
+function expectedKnowledgeLaneOwnerGateState({ blockers, evidencePresent }) {
+  if (blockers.some((blocker) => blocker.severity === "blocking")) {
+    return "blocked_missing_surface";
+  }
+  if (!evidencePresent) {
+    return "awaiting_metadata_evidence";
+  }
+  return "owner_review_required";
+}
+
+function buildKnowledgeLaneNextOwnerReviewAction(surface) {
+  if (!surface.helper.present || surface.workflows.present_count < 2) {
+    return "Restore the public helper/workflow metadata surfaces before reviewing knowledge lane evidence.";
+  }
+  if (!surface.evidence.present) {
+    return "Capture metadata-only evidence in the correct private/local owner before requesting claim or ontology review.";
+  }
+  return "Review only the metadata counts and blockers, then keep the lane at observed unless source support and an owner/review route justify a stronger claim.";
+}
+
+function buildOperationBoardProjection({ projects, missions, gateway, knowledgeLane, nextActions, diagnostics }) {
   const missionItems = Array.isArray(missions.items) ? missions.items : [];
   const pendingMonsters = gateway.pending_monsters ?? {};
   const pendingMonsterItems = Array.isArray(pendingMonsters.items) ? pendingMonsters.items : [];
@@ -745,8 +1234,19 @@ function buildOperationBoardProjection({ projects, missions, gateway, nextAction
     source_ref: "soulforge_snapshot.json",
     privacy: {
       mode: "public_safe_snapshot_projection",
-      source_fields: ["projects", "missions", "gateway.pending_monsters", "next_actions", "diagnostics"],
-      excluded_fields: ["mail body/html", "source quote", "raw refs", "attachment refs", "provider ids", "secret values"],
+      source_fields: ["projects", "missions", "gateway.pending_monsters", "knowledge_lane", "next_actions", "diagnostics"],
+      excluded_fields: [
+        "mail body/html",
+        "source quote",
+        "raw refs",
+        "attachment refs",
+        "provider ids",
+        "secret values",
+        "NotebookLM payloads",
+        "private report prose",
+        "ontology candidate statements",
+        "owner decisions",
+      ],
     },
     summary: {
       project_count: projects.length,
@@ -758,6 +1258,8 @@ function buildOperationBoardProjection({ projects, missions, gateway, nextAction
       pending_monster_count: numberValue(pendingMonsters.count) ?? 0,
       blocked_monster_count: numberValue(pendingByDisplayGroup.blocked) ?? 0,
       due_watch_monster_count: numberValue(pendingByDisplayGroup.due_watch) ?? 0,
+      knowledge_lane_state: knowledgeLane.owner_gated?.state ?? "unknown",
+      knowledge_evidence_surface_count: numberValue(knowledgeLane.evidence?.total_surface_count) ?? 0,
       next_action_count: nextActions.length,
       diagnostics_status: diagnostics.summary.highest_severity,
     },
@@ -765,6 +1267,7 @@ function buildOperationBoardProjection({ projects, missions, gateway, nextAction
       dungeon_map: buildOperationBoardDungeonMap({ projects, missionItems, pendingMonsterItems }),
       mission_board: buildOperationBoardMissionBoard({ missionItems, missionCounts: missions.counts ?? {} }),
       monster_gate: buildOperationBoardMonsterGate({ pendingMonsters, pendingMonsterItems }),
+      knowledge_lane: buildOperationBoardKnowledgeLane(knowledgeLane),
       action_queue: buildOperationBoardActionQueue(nextActions),
     },
   };
@@ -833,6 +1336,23 @@ function buildOperationBoardMonsterGate({ pendingMonsters, pendingMonsterItems }
       total: numberValue(pendingMonsters.by_display_group?.[group.id]) ?? 0,
       items: pendingMonsterItems.filter((monster) => monster.display_group === group.id),
     })),
+  };
+}
+
+function buildOperationBoardKnowledgeLane(knowledgeLane) {
+  return {
+    label: "Knowledge Lane",
+    owner_gated_state: knowledgeLane.owner_gated?.state ?? "unknown",
+    claim_ceiling: knowledgeLane.claim_ceiling ?? KNOWLEDGE_LANE_CLAIM_CEILING,
+    helper_present: Boolean(knowledgeLane.helper?.present),
+    notebooklm_bridge_present: Boolean(knowledgeLane.helper?.notebooklm_bridge_present),
+    workflow_present_count: numberValue(knowledgeLane.workflows?.present_count) ?? 0,
+    fixture_present: Boolean(knowledgeLane.fixtures?.notebooklm_bridge_public_synthetic_present),
+    evidence_present: Boolean(knowledgeLane.evidence?.present),
+    evidence_surface_count: numberValue(knowledgeLane.evidence?.total_surface_count) ?? 0,
+    evidence_counts: knowledgeLane.evidence?.counts ?? {},
+    blockers: Array.isArray(knowledgeLane.blockers) ? knowledgeLane.blockers : [],
+    next_owner_review_action: knowledgeLane.next_owner_review_action,
   };
 }
 
@@ -1025,10 +1545,26 @@ async function countDirectoryEntries(root, options = {}) {
     if (options.filesOnly) {
       return entries.filter((entry) => entry.isFile()).length;
     }
+    if (options.directoriesOnly) {
+      return entries.filter((entry) => entry.isDirectory()).length;
+    }
     return entries.length;
   } catch {
     return 0;
   }
+}
+
+async function countKnowledgeAccessEntryFiles(root) {
+  try {
+    const entries = await fs.readdir(root, { withFileTypes: true });
+    return entries.filter((entry) => entry.isFile() && !isAuthSessionEntryName(entry.name)).length;
+  } catch {
+    return 0;
+  }
+}
+
+function isAuthSessionEntryName(name) {
+  return AUTH_SESSION_ENTRY_NAME_PATTERN.test(name);
 }
 
 async function readYaml(filePath, diagnostics) {
@@ -1080,6 +1616,10 @@ function numberValue(value) {
 
 function arrayLength(value) {
   return Array.isArray(value) ? value.length : 0;
+}
+
+function countPresentBooleans(values) {
+  return values.filter(Boolean).length;
 }
 
 async function readJsonOrNull(filePath) {

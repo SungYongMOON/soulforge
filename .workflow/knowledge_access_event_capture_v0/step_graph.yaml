@@ -190,6 +190,28 @@ steps:
         graph_weight_is_navigation_signal_not_truth_score: true
     summary: Identify strong, weak, orphan, redundant, or review-required link candidates using event metadata and usefulness signals.
     next:
+      on_success: assemble_knowledge_accumulation_delta
+      on_fail: stop
+  - step_id: assemble_knowledge_accumulation_delta
+    title: Assemble Knowledge Accumulation Delta
+    actor_slot: graph_packet_author
+    action:
+      kind: metadata_only_knowledge_accumulation_delta_assembly
+      artifacts_in:
+        - normalized_access_event_log
+        - usage_rollup
+        - link_strength_analysis
+        - orphan_redundancy_candidate_register
+        - prior_knowledge_accumulation_delta_refs
+      artifact_out: knowledge_accumulation_delta
+      delta_rules:
+        delta_is_candidate_signal_not_acceptance: true
+        no_raw_knowledge_text: true
+        no_private_packet_content: true
+        no_ontology_acceptance: true
+        no_canon_promotion: true
+    summary: Produce metadata-only candidate deltas for observed usage, linkage, or routing changes without accepting ontology or canon.
+    next:
       on_success: assemble_graph_update_packet
       on_fail: stop
   - step_id: assemble_graph_update_packet
@@ -239,6 +261,7 @@ steps:
       artifacts_in:
         - retention_label_packet
         - link_strength_analysis
+        - knowledge_accumulation_delta
         - graph_update_packet
         - boundary_review_note
       routes:

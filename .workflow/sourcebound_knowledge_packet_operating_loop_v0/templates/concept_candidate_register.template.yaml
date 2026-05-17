@@ -10,6 +10,12 @@ concept_candidates:
     evidence_state: review_required
     blocker_or_review_note: null
     possible_promotion_target: hold_private
+    ontology_candidate_hint:
+      candidate_only: true
+      candidate_type: null
+      entity_or_relation_label: null
+      rule_candidate_ref: null
+      owner_review_required: true
 forbidden_promotions:
   - final_domain_doctrine_without_review
   - ontology_canon_without_owner_decision

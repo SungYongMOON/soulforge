@@ -1,0 +1,61 @@
+workflow_id: test_evaluation_execution_result_ingest_v0
+kind: role_slots
+status: draft
+role_slots:
+  - slot_id: workflow_runner
+    title: Workflow Runner
+    responsibilities:
+      - resolve project-local binding and output roots
+      - enforce execution and non-acceptance policy before work begins
+    suggested_classes:
+      - administrator
+  - slot_id: input_packet_curator
+    title: Input Packet Curator
+    responsibilities:
+      - inventory read-only plan, baseline, procedure, resource, and result refs
+      - keep raw payloads and secrets outside reusable workflow material
+    suggested_classes:
+      - archivist
+  - slot_id: readiness_gatekeeper
+    title: Readiness Gatekeeper
+    responsibilities:
+      - decide whether each scoped item may execute, be ingested, or stay blocked
+      - preserve missing procedure, baseline, criterion, resource, and owner authorization gaps
+    suggested_classes:
+      - auditor
+  - slot_id: execution_operator
+    title: Execution Operator
+    responsibilities:
+      - run only explicitly authorized bounded test/evaluation actions
+      - ingest existing result refs when execution is outside the workflow
+      - route simulation execution to simulation_run_verify_v0
+    suggested_classes:
+      - administrator
+  - slot_id: result_curator
+    title: Result Curator
+    responsibilities:
+      - normalize result evidence refs into bounded result rows
+      - separate measurement summaries from raw payloads
+    suggested_classes:
+      - archivist
+  - slot_id: verdict_mapper
+    title: Verdict Mapper
+    responsibilities:
+      - assign candidate verdict states from named criteria or blockers
+      - keep candidate verdicts separate from accepted result rows
+    suggested_classes:
+      - auditor
+  - slot_id: handoff_indexer
+    title: Handoff Indexer
+    responsibilities:
+      - prepare downstream refs for accepted-result, review, owner-decision, and audit consumers
+      - label every handoff with the allowed claim ceiling
+    suggested_classes:
+      - archivist
+  - slot_id: boundary_reviewer
+    title: Boundary Reviewer
+    responsibilities:
+      - check non-acceptance, no-approval, and no-upstream-mutation boundaries
+      - write the boundary review note
+    suggested_classes:
+      - auditor

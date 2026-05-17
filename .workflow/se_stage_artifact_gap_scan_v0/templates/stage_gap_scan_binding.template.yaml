@@ -1,0 +1,49 @@
+schema_version: se_stage_artifact_gap_scan_binding_v0
+workflow_id: se_stage_artifact_gap_scan_v0
+binding:
+  project_code: "<project_code>"
+  run_id: "<run_id>"
+  workflow_mode: single_stage_scan|rerun_update
+  target_stage_code: 000_REF|020_MGMT|030_SRR|060_SFR|090_PDR|120_CDR|150_TRR_DT|180_FCA_OT|210_PCA|240_LL|270_UNCLASSIFIED
+  output_root_repo_path: _workmeta/<project_code>/runs/<run_id>/se_stage_artifact_gap_scan_v0
+  run_log_root_repo_path: _workmeta/<project_code>/runs/<run_id>/run_evidence/se_stage_artifact_gap_scan_v0
+  stage_model_ref: docs/architecture/workspace/SE_DUNGEON_STAGE_MODEL_V0.md
+  stage_expected_artifact_policy_ref: "<repo_relative_policy_ref>"
+  approved_scan_policy:
+    single_stage_only: true
+    artifact_authoring_allowed: false
+    upstream_artifact_mutation_allowed: false
+    readiness_approval_claim_allowed: false
+    review_gate_approval_claim_allowed: false
+    owner_decision_creation_allowed: false
+    source_truth_claim_allowed: false
+  input_refs:
+    snapshot_or_stage_status_refs: []
+    mission_candidate_refs: []
+    foldertree_manifest_refs: []
+    source_packet_refs: []
+    sufficiency_review_refs: []
+    source_gap_followup_refs: []
+    review_gate_packet_refs: []
+    owner_decision_refs: []
+    baseline_or_change_control_refs: []
+  forbidden_inputs:
+    - secret_files
+    - account_sessions
+    - hidden_reference_oracle
+    - verifier_report
+    - previous_candidate_repair_packet
+    - unbounded_chat_history
+    - raw_project_payload_without_public_sanitization
+  output_files:
+    stage_artifact_gap_scan_packet: stage_artifact_gap_scan_packet.yaml
+    stage_required_artifact_matrix: stage_required_artifact_matrix.yaml
+    stage_input_gap_register: stage_input_gap_register.yaml
+    owner_input_queue: owner_input_queue.yaml
+    draftable_artifact_queue: draftable_artifact_queue.yaml
+    diagram_need_register: diagram_need_register.yaml
+    stage_blocker_register: stage_blocker_register.yaml
+    downstream_workflow_route_map: downstream_workflow_route_map.yaml
+    stage_scan_summary: stage_scan_summary.md
+    stage_readiness_summary: stage_readiness_summary.md
+    boundary_review_note: boundary_review_note.md

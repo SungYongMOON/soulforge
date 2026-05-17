@@ -1,0 +1,39 @@
+workflow_id: test_evaluation_execution_result_ingest_v0
+kind: project_binding_template
+status: template
+project_code: "<project_code>"
+test_evaluation_execution_run_id: "<run_id>"
+inputs:
+  verification_execution_scope_refs:
+    - packet_repo_path: "_workmeta/<project_code>/runs/<verification_plan_run_id>/verification_plan/verification_plan_from_page_contracts_v0/trr_readiness_handoff.yaml"
+      read_only: true
+    - packet_repo_path: "_workmeta/<project_code>/runs/<verification_plan_run_id>/verification_plan/verification_plan_from_page_contracts_v0/fca_svr_handoff_index.yaml"
+      read_only: true
+  test_harness_asset_plan_refs:
+    - packet_repo_path: "_workmeta/<project_code>/runs/<harness_plan_run_id>/test_harness/test_harness_asset_planning_v0/test_harness_manifest.yaml"
+      read_only: true
+  configuration_baseline_refs:
+    - packet_repo_path: "_workmeta/<project_code>/runs/<baseline_run_id>/configuration_baseline/configuration_baseline_and_change_control_v0/configuration_baseline_packet.yaml"
+      read_only: true
+  procedure_refs:
+    - packet_repo_path: "_workmeta/<project_code>/bindings/<procedure_or_observation_rule_packet>.yaml"
+      read_only: true
+  fixture_or_instrument_refs:
+    - packet_repo_path: "_workmeta/<project_code>/bindings/<fixture_or_instrument_packet>.yaml"
+      read_only: true
+  existing_result_refs:
+    - packet_repo_path: "_workmeta/<project_code>/runs/<external_or_prior_result_run_id>/<result_packet>.yaml"
+      read_only: true
+approved_test_evaluation_execution_policy:
+  upstream_packets_are_read_only: true
+  execute_side_effecting_actions_only_when_explicitly_authorized: true
+  candidate_verdict_is_not_acceptance: true
+  accepted_result_packet_required_for_acceptance: true
+  raw_payloads_remain_project_local_or_private: true
+outputs:
+  execution_result_output_root_repo_path: "_workmeta/<project_code>/runs/<run_id>/test_evaluation_execution/test_evaluation_execution_result_ingest_v0"
+public_boundary:
+  commit_project_outputs_to_public_repo: false
+  include_raw_test_logs_or_waveforms_in_workflow_package: false
+  use_runtime_absolute_paths_in_workflow_package: false
+  include_credentials_cookies_sessions_or_tokens: false

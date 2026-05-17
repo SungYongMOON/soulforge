@@ -1,0 +1,18 @@
+workflow_id: test_evaluation_execution_result_ingest_v0
+kind: result_verdicts_template
+status: template
+result_verdicts:
+  verdict_set_id: "<verdict_set_id>"
+  source_result_register_ref: "<repo_path>"
+  verdict_rows:
+    - result_row_id: "<result_row_id>"
+      candidate_verdict: pass|fail|inconclusive|blocked|not_executed|not_observed
+      criterion_ref: "<criterion_or_rule_ref>"
+      evidence_ref: "<observed_result_ref_or_blocker_ref>"
+      confidence: high|medium|low|not_applicable
+      acceptance_state: not_accepted|acceptance_basis_required|owner_review_required|downstream_acceptance_packet_required
+      notes: "<payload_free_notes>"
+blocked_or_inconclusive_policy:
+  blocked_is_not_failed_verification: true
+  inconclusive_is_not_acceptance: true
+  missing_criterion_blocks_pass_fail: true

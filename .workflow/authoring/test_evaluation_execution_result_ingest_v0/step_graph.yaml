@@ -1,0 +1,198 @@
+workflow_id: test_evaluation_execution_result_ingest_v0
+kind: step_graph
+status: draft
+steps:
+  - step_id: prepare_execution_binding
+    title: Prepare Execution Binding
+    actor_slot: workflow_runner
+    action:
+      kind: project_local_execution_binding_setup
+      validates:
+        - output_root_is_project_local_or_private_workmeta
+        - execution_policy_is_explicit
+        - acceptance_policy_is_not_implied
+        - input_refs_are_read_only
+        - public_package_contains_no_payloads
+        - no_runtime_absolute_paths_in_public_package
+      creates:
+        - execution_output_root
+        - execution_run_log_root
+    summary: Resolve the bounded output root, allowed methods, and non-acceptance boundary before any execution or result ingest step.
+    next:
+      on_success: curate_execution_input_set
+      on_fail: stop
+  - step_id: curate_execution_input_set
+    title: Curate Execution Input Set
+    actor_slot: input_packet_curator
+    action:
+      kind: read_only_execution_input_inventory
+      artifacts_in:
+        - verification_plan_refs
+        - trr_readiness_handoff_refs
+        - fca_svr_handoff_index_refs
+        - test_harness_asset_plan_refs
+        - configuration_baseline_refs
+        - procedure_refs
+        - fixture_or_instrument_refs
+        - tool_or_environment_policy_refs
+        - simulation_run_packet_refs
+        - review_gate_packet_refs
+        - source_gap_followup_packet_refs
+        - owner_decision_refs
+        - deviation_or_waiver_refs
+      artifact_out: execution_input_set
+      records:
+        - artifact_ref
+        - artifact_kind
+        - owning_workflow_id
+        - checksum_sha256
+        - approval_scope
+        - verification_item_ids
+        - baseline_refs
+        - procedure_refs
+        - resource_refs
+        - result_evidence_authority_hint
+      forbidden_basis:
+        - hidden_reference_oracle
+        - verifier_report
+        - accepted_verification_result_unless_declared_read_only_context
+        - secret_or_session_state
+        - raw_unindexed_test_log_payload
+        - raw_waveform_or_model_payload
+        - unapproved_owner_file
+    summary: Build the execution input set from approved refs while keeping raw payloads, secrets, and acceptance evidence out of the construction basis.
+    next:
+      on_success: assess_execution_readiness_gate
+      on_fail: stop
+  - step_id: assess_execution_readiness_gate
+    title: Assess Execution Readiness Gate
+    actor_slot: readiness_gatekeeper
+    action:
+      kind: execution_readiness_gate
+      artifacts_in:
+        - execution_input_set
+      artifacts_out:
+        - executable_item_candidates
+        - blocked_or_not_executed_items
+        - owner_followup_needed
+      checks:
+        - each_item_has_stable_verification_item_or_scope_id
+        - each_item_has_configuration_or_baseline_ref_when_required
+        - each_item_has_procedure_or_observation_rule_ref
+        - each_item_has_criterion_or_measurement_rule_ref
+        - each_item_has_required_resource_or_environment_ref
+        - execution_authorization_is_explicit_for_side_effecting_runs
+        - simulation_items_with_raw_execution_need_route_to_simulation_run_verify
+      not_claimed:
+        - trr_approval
+        - verification_passed
+        - verification_failed
+        - verification_accepted
+    summary: Decide which rows may execute or be ingested and which must stay blocked, inconclusive, owner-review-required, or not executed.
+    next:
+      on_success: execute_or_ingest_result_evidence
+      on_fail: stop
+  - step_id: execute_or_ingest_result_evidence
+    title: Execute Or Ingest Result Evidence
+    actor_slot: execution_operator
+    action:
+      kind: bounded_execution_or_result_ref_ingest
+      artifacts_in:
+        - executable_item_candidates
+        - execution_input_set
+      artifacts_out:
+        - execution_run_packet
+        - raw_result_ref_inventory
+      mode_rules:
+        execute_or_block:
+          requires_explicit_execution_authorization: true
+          records_tool_or_human_execution_metadata: true
+          stores_raw_outputs_only_in_project_local_or_private_paths: true
+        result_only_ingest:
+          requires_existing_result_evidence_refs: true
+          records_why_execution_was_not_performed_by_this_workflow: true
+        simulation_result_ref:
+          consume_simulation_run_verify_packet_refs_only: true
+          do_not_copy_raw_waveforms_decks_or_model_payloads: true
+      summary: Run only explicitly authorized bounded actions, or ingest existing result refs, and record enough provenance for later acceptance review.
+    next:
+      on_success: normalize_results_and_candidate_verdicts
+      on_fail: stop
+  - step_id: normalize_results_and_candidate_verdicts
+    title: Normalize Results And Candidate Verdicts
+    actor_slot: result_curator
+    action:
+      kind: result_row_and_candidate_verdict_mapping
+      artifacts_in:
+        - execution_run_packet
+        - raw_result_ref_inventory
+        - blocked_or_not_executed_items
+        - execution_input_set
+      artifacts_out:
+        - execution_result_register
+        - result_verdicts
+        - run_blockers
+      candidate_verdict_values:
+        - pass
+        - fail
+        - inconclusive
+        - blocked
+        - not_executed
+        - not_observed
+      rules:
+        - verdict_requires_named_criterion_or_rule
+        - measured_or_observed_value_summary_must_not_copy_raw_payload
+        - missing_observation_or_measurement_maps_to_inconclusive_or_blocked
+        - candidate_pass_or_fail_does_not_create_accepted_result
+        - waiver_or_deviation_requires_owner_decision_ref
+    summary: Convert result evidence refs into candidate result rows and verdicts without turning them into accepted verification results.
+    next:
+      on_success: build_downstream_result_handoff
+      on_fail: stop
+  - step_id: build_downstream_result_handoff
+    title: Build Downstream Result Handoff
+    actor_slot: handoff_indexer
+    action:
+      kind: accepted_result_and_audit_handoff_indexing
+      artifacts_in:
+        - execution_result_register
+        - result_verdicts
+        - run_blockers
+        - owner_followup_needed
+      artifact_out: downstream_handoff
+      rules:
+        - accepted_result_packet_requires_scoped_acceptance_basis
+        - fca_svr_consumes_accepted_result_packet_refs_not_candidate_verdicts
+        - review_gate_may_consume_candidate_verdict_summary_with_non_acceptance_label
+        - pca_consumes_only_artifact_inventory_or_package_discrepancy_context
+        - owner_decision_packet_consumes_acceptance_basis_questions
+    summary: Prepare refs for accepted-result, review, owner-decision, and audit consumers while preserving claim ceilings.
+    next:
+      on_success: write_bundle_and_boundary_review
+      on_fail: stop
+  - step_id: write_bundle_and_boundary_review
+    title: Write Bundle And Boundary Review
+    actor_slot: boundary_reviewer
+    action:
+      kind: execution_result_bundle_boundary_review
+      artifacts_in:
+        - execution_run_packet
+        - execution_result_register
+        - result_verdicts
+        - run_blockers
+        - owner_followup_needed
+        - downstream_handoff
+      artifact_out: boundary_review_note
+      checks:
+        - all_rows_have_scope_ids
+        - all_result_refs_are_read_only_or_project_local_outputs
+        - all_verdicts_have_criteria_or_blocker_rationale
+        - no_candidate_verdict_is_labeled_accepted
+        - no_trr_fca_ot_pca_approval_claim
+        - no_upstream_artifact_mutation
+        - no_raw_payloads_or_runtime_absolute_paths_in_public_package
+        - downstream_acceptance_requirements_are_explicit
+    summary: Finalize the bundle and record that the package can support later acceptance review but cannot close acceptance itself.
+    next:
+      on_success: complete
+      on_fail: stop

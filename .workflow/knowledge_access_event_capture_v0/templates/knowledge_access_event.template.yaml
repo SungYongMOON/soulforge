@@ -38,6 +38,16 @@ relation_hints:
   confidence_hint_0_to_3: null
   duplicate_or_redundant_with: []
   orphan_reason_hint: null
+accumulation_delta_hint:
+  trigger_result: null
+  trigger_reason: null
+  delta_type_hint: null
+  affected_knowledge_ref: null
+  prior_state_ref: null
+  candidate_register_ref: null
+  review_route_hint: null
+  suggested_route: null
+  claim_ceiling: null
 redaction:
   metadata_only: true
   manual_agent_note_payload_free: true

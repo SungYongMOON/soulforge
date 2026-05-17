@@ -47,6 +47,12 @@ command = "/실제/설치/경로/notebooklm-mcp"
 - tracked source: 이 문서와 multi-PC bootstrap 안내
 - local-only: `~/.codex/config.toml`, `~/.notebooklm-mcp-cli/**`, 인증 세션, 브라우저 세션
 
+## authority 경계
+
+- NotebookLM / `nlm` / `notebooklm-mcp` 는 advisory research surface 이며 source authority, validation authority, owner approval, ontology acceptance, canon promotion 권한이 아니다.
+- NotebookLM 출력은 source discovery lead 또는 advisory note 로만 기록한다. `source_supported`, `validated_private`, `canon_candidate`, `canon_entry` 같은 더 높은 claim 은 승인된 source ref, Soulforge validator/review evidence, owner decision 으로만 올린다.
+- NotebookLM 이 만든 요약, podcast, report, slide, mind map, chat answer 를 public canon 에 복사하려면 먼저 private/raw payload 를 제거하고 public-safe claim ceiling 을 명시한다.
+
 ## 관련 경로
 
 - [`MULTI_PC_DEVELOPMENT_V0.md`](../../../docs/architecture/workspace/MULTI_PC_DEVELOPMENT_V0.md)

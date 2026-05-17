@@ -16,7 +16,7 @@ recorded on purpose.
 
 | Layer | Trigger condition | Output target and owner boundary | Automation level | Approval needed | Promotion path | Failure mode |
 | --- | --- | --- | --- | --- | --- | --- |
-| Knowledge access ledger / read-use record | A worker, workflow, skill, tool, or advisory handoff actually uses a public-safe knowledge ref and wants traceable use. | Metadata-only JSONL rows in an explicit ledger target such as `_workmeta/<project_code>/reports/knowledge_access/**`, `_workmeta/system/reports/knowledge_access/**`, `guild_hall/state/**`, `private-state/**`, or a temp path. Public canon owns the helper and schema, not runtime ledger rows. | Explicit helper call today: `read` for file content plus a row, or `record` for use/citation without reading payload. Later routers may append equivalent rows only from approved surfaces. | No owner approval is needed for a payload-free row in the correct private/local owner. Approval is needed before exposing private payloads or turning row-derived conclusions into canon. | Rows can feed `knowledge_access_event_capture_v0` for normalization, rollup, relation candidates, and review routing. | If the helper or explicit record is not used, no row exists. Secret-like refs, private/runtime roots, absolute paths, traversal refs, or metadata with embedded runtime absolute paths must reject before append. |
+| Knowledge access ledger / read-use record | A worker, workflow, skill, tool, or advisory handoff actually uses a public-safe knowledge ref and wants traceable use. | Metadata-only JSONL rows in an explicit ledger target such as `_workmeta/<project_code>/reports/knowledge_access/**`, `_workmeta/system/reports/knowledge_access/**`, `guild_hall/state/**`, `private-state/**`, or a temp path. Public canon owns the helper and schema, not runtime ledger rows. | Explicit helper call today: `read` for file content plus a row, `record` for use/citation without reading payload, or `notebooklm-bridge` for importing explicit NotebookLM-like metadata rows as advisory `imported_log_entry` events. Later routers may append equivalent rows only from approved surfaces. | No owner approval is needed for a payload-free row in the correct private/local owner. Approval is needed before exposing private payloads or turning row-derived conclusions into canon. | Rows can feed `knowledge_access_event_capture_v0` for normalization, rollup, relation candidates, and review routing. | If the helper or explicit record is not used, no row exists. Secret-like refs, private/runtime roots, absolute paths, traversal refs, auth/session paths, empty NotebookLM query logs, or metadata with embedded runtime absolute paths must reject before append. |
 | Manual candidate capture | A worker notices a repeatable procedure, missing link, reusable entity/relation pattern, open owner decision, or future workflow/skill candidate during bounded work. | Promotion-ready evidence under `_workmeta/<project_code>/reports/procedure_capture/**` or `_workmeta/system/reports/procedure_capture/**` when no project owner applies. Public docs receive only public-safe accepted summaries. | Manual capture by the worker. | Yes before public canon promotion or owner-action claims. | Candidate register -> review gate -> `skill`, `.workflow`, `.mission`, role/class, data contract, ontology candidate, or owner decision packet. | Candidate is left only in chat memory, copied into a public doc with private/raw details, or promoted without repeatable steps and acceptance criteria. |
 | LLM suggestion / manual approval capture | An LLM or advisory tool suggests a pattern, relation, route, consolidation, archive, or adoption decision. | Advisory note, promotion candidate, or owner-decision evidence in `_workmeta/**` or `guild_hall/state/**` depending on scope. The suggestion is evidence, not authority. | LLM-assisted suggestion with manual capture and review. | Yes. Owner approval or an appropriate review gate is required before mutation, adoption, archive/retire action, graph update, or canon promotion. | Approved suggestion -> owner decision packet, workflow evolution, graph update packet, docs patch, or private hold. | Treating advisory text as accepted truth, hiding uncertainty, or letting an LLM suggestion mutate canon without human/review approval. |
 | End-of-work sweep | A bounded task closes, validation runs, a post-development review gate is needed, or a periodic operations sweep asks what should be carried forward. | Review packet, validation log, follow-up register, and candidate notes under `_workmeta/<project_code>/**` or `_workmeta/system/**`. Public changelog/docs get only public-safe summaries. | Manual at task close; may be aided by validators, `done:check`, `night_watch`, or the post-development review workflow. | Yes for acceptance of risky changes, public/private boundary decisions, and follow-up promotion. | Follow-up register -> procedure capture, owner questions, mission/workflow work, changelog/docs, or no-action closure. | Work ends without validation, boundary review, carry-forward evidence, or a clear statement of residual gaps. |
@@ -33,12 +33,62 @@ recorded on purpose.
   and task evidence stay in their owning private/local surfaces.
 - Ledger rows may point at output refs, workflow ids, skills, missions, and
   candidate registers, but they must not copy source bodies or private payloads.
+- NotebookLM bridge imports must read only explicit metadata binding, source-ledger,
+  and query-log files. They must not call `nlm`, read auth/session state, import
+  source payloads, or fabricate access events from source-ledger entries when no
+  query row exists.
 - Analysis workflows produce candidate signals. They do not decide retention,
   graph changes, archive/retire execution, ontology acceptance, or canon
   promotion by themselves.
 - End-of-work sweep is the catch point: if a useful pattern appears during work
   but no ledger row or candidate capture was made, record the gap and next
   action instead of pretending the system observed it.
+
+## Snapshot And Operation Board Lane
+
+The snapshot producer may expose a `knowledge_lane` status for operation-board
+awareness, but it is a metadata surface only.
+
+- Allowed signals: owner-gated state, helper/workflow/fixture presence, public
+  metadata surface count, known private/local evidence surface counts, claim
+  ceiling, sanitized blockers, and the next owner-review action.
+- Excluded signals: auth/session data, NotebookLM query/answer/source payloads,
+  private report prose, private evidence filenames, ontology candidate
+  statements, owner decisions, graph mutation payloads, and registry promotion
+  claims.
+- The v0 snapshot claim ceiling is `observed`. A visible lane status never means
+  that NotebookLM advice validated knowledge, accepted ontology, approved an
+  owner decision, mutated a graph, or promoted registry canon.
+- `knowledge_lane.evidence` counts only private/local metadata evidence
+  surfaces. Public helper/docs/workflows/fixtures are reported separately and do
+  not satisfy `awaiting_metadata_evidence`.
+- Snapshot validation and freshness reject stored/current lane states that are
+  outside `blocked_missing_surface`, `awaiting_metadata_evidence`,
+  `owner_review_required`, or stronger than the current blocker/evidence
+  support. They also reject any snapshot v0 claim ceiling other than `observed`.
+- Knowledge access entry counts exclude auth/session-shaped file names such as
+  auth, session, token, cookie, credential, and secret files.
+
+## Validated Knowledge States And Claim Ceiling
+
+Use the weakest state that is fully supported by evidence:
+
+| State | Meaning | Claim ceiling |
+| --- | --- | --- |
+| `observed` | A worker, source packet, NotebookLM/LLM advisory note, or ledger row surfaced the idea. | Candidate note only. |
+| `source_supported` | Approved source refs support the scoped statement. | Source-scoped claim only; no canon or generalization claim. |
+| `validated_private` | Source-supported statement passed a private workflow, validator, or review gate inside its owner boundary. | Private owner use; public docs may mention only a public-safe summary. |
+| `canon_candidate` | Public-safe abstraction and evidence refs are ready for owner/review decision. | Proposed canon only. |
+| `canon_entry` | The correct owner root accepted the entry with required schema/docs/changelog guards. | Reusable canon inside that owner boundary. |
+| `rejected_or_blocked` | Evidence, boundary, owner decision, or source support is insufficient. | No promotion claim. |
+
+- When states conflict, report the lower claim ceiling.
+- NotebookLM, LLMs, access ledgers, and analysis labels are not validation or
+  canon authority; they can only supply advisory notes or candidate signals until
+  source support, owner decision, validator evidence, or review-gate evidence
+  raises the state.
+- A public canon entry must not be added or upgraded unless the source boundary,
+  private/raw exclusion, owner surface, and validation or review route are clear.
 
 ## Example Scenario
 

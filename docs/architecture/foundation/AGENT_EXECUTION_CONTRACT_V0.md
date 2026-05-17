@@ -102,6 +102,37 @@ Soulforge 에서 agent 가 코드, 문서, 구조, workflow, skill, automation, 
 - review evidence 를 남겨야 하면 `POST_DEVELOPMENT_REVIEW_PACKET_TEMPLATE_V0.yaml` 의 packet shape 를 사용한다.
 - 반복 가능한 workflow 실행 surface 가 필요하면 `.workflow/post_development_review_gate_v0/` 를 우선 호출한다. 이 workflow 는 post-development gate 를 실제 종료 절차로 실행하고, applied packet 은 `_workmeta/<project_code>/` 또는 `_workmeta/system/` 에 남긴다.
 
+### End-of-task knowledge trigger check
+
+Soulforge 에서 bounded 업무 작업을 완료 보고하기 전에는 지식 후보 신호가 있었는지 짧게 닫는다.
+이 check 는 사용자가 기억해서 요청하는 단계가 아니라 agent 의 종료 절차다.
+목적은 모든 자료를 지식으로 승격하는 것이 아니라, 나중에 다시 쓸 만한 자료 사용, source gap, 반복 질문, workflow/ontology 후보를 잊지 않게 하는 것이다.
+
+5문항:
+
+1. 이번 작업에서 monster, blocker, mission, review 판단을 풀기 위해 특정 자료나 knowledge ref 를 실제로 썼는가?
+2. 같은 자료, 개념, 질문, source gap 이 다음 작업에서 다시 쓰일 가능성이 높은가?
+3. source 가 승인되었거나 추적 가능한가? 불명확하면 sourcebound 후보가 아니라 blocker 로 둔다.
+4. 반복 질문, contradiction, gap, missing source, owner decision 필요성이 드러났는가?
+5. 현재 가능한 claim ceiling 은 `observed`, `source_supported`, `rejected_or_blocked` 중 어디까지인가?
+
+결과값:
+
+| 결과 | 의미 | 기본 route |
+| --- | --- | --- |
+| `no_trigger` | 지식 후보로 남길 신호가 없다. | 종료 보고에 짧게 명시하거나 생략 가능 |
+| `metadata_only_record` | 기존 ref 사용 흔적만 남기면 충분하다. | `knowledge_access` ledger 또는 worklog |
+| `sourcebound_review_candidate` | 승인된 source 를 바탕으로 private projection/lint/concept 후보 검토가 필요하다. | `sourcebound_knowledge_packet_operating_loop_v0` 또는 daily sweep 후보 |
+| `owner_decision_needed` | 승격, 보류, 폐기, public-safe abstraction, source 승인 같은 owner 판단이 필요하다. | owner decision packet 또는 follow-up register |
+
+저장 규칙:
+
+- post-development review gate 를 쓰는 작업은 review packet 의 `knowledge_trigger_check` 에 결과를 남긴다.
+- 이미 등록된 자료를 실제로 사용한 경우에는 기존 `knowledge_access_event.accumulation_delta_hint` 에 선택적으로 신호를 붙일 수 있다.
+- 아직 등록되지 않은 새 패턴이나 owner 판단은 방명록 row 에 억지로 넣지 말고 `_workmeta/**/reports/procedure_capture/**` 또는 follow-up register 에 남긴다.
+- daily/nightly sweep 은 여러 thread 의 trigger note 만 읽어 중복과 반복을 묶는다. raw source, NotebookLM 답변, secret, private payload 를 다시 읽는 기본 동작이 아니다.
+- 이 check 는 source truth, ontology acceptance, owner approval, graph mutation, archive/retire, canon promotion 을 만들지 않는다.
+
 ### Skill first-build verification gate
 
 Soulforge에서 agent 가 skill 을 새로 만들거나 수정하는 요청을 받은 경우, 해당 요청은 기본적으로 1차 제작 검증까지 포함한다.
@@ -136,6 +167,13 @@ Soulforge 보정:
 - 검증 명령이 secret, private runtime truth, 외부 계정 상태를 요구하면 먼저 경계를 확인한다.
 - canon 훼손, secret 노출, public/private 혼입 방지는 speculative error handling 이 아니라 필수 방어로 본다.
 - 검증 실패가 unrelated dirty worktree 때문이라면 되돌리지 말고, 실패 범위와 관련성을 분리해 보고한다.
+
+### Knowledge and canon claim ceiling
+
+- Knowledge, ontology, workflow, skill, and registry edits must use the weakest supported claim state when they imply validation or promotion.
+- `observed`, `source_supported`, `validated_private`, `canon_candidate`, `canon_entry`, and `rejected_or_blocked` are claim ceilings. Do not claim a stronger state without source support, owner decision, validator evidence, or an appropriate review gate.
+- NotebookLM, LLM, advisory output, access ledger rows, and analysis labels are not authority. They can suggest or route candidates, but cannot validate knowledge, accept ontology, approve owner decisions, or promote canon by themselves.
+- Before adding or upgrading a public canon entry, check the owner surface, public-safe abstraction, private/raw/secret exclusion, schema or README contract, changelog sync when applicable, and validation/review route. If any guard is missing, stop at candidate or draft state and report the blocker.
 
 ## 완료 기준
 

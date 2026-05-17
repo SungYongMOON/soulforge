@@ -1,0 +1,64 @@
+workflow_id: se_stage_artifact_gap_scan_v0
+kind: step_graph
+status: active
+steps:
+  - step_id: prepare_stage_scan_binding
+    title: Prepare Stage Scan Binding
+    actor_slot: stage_scan_controller
+    action:
+      kind: stage_gap_scan_binding_setup
+    summary: target stage, scan policy, expected artifact policy, boundary posture를 고정한다.
+  - step_id: resolve_stage_scope
+    title: Resolve Stage Scope
+    actor_slot: stage_scan_controller
+    action:
+      kind: stage_scope_resolution
+    summary: stage code를 expected artifact family와 claim ceiling으로 변환한다.
+  - step_id: inventory_stage_artifact_surfaces
+    title: Inventory Current Artifact Surfaces
+    actor_slot: stage_inventory_reader
+    action:
+      kind: stage_surface_inventory
+    summary: foldertree, snapshot, mission, review packet 등 현재 surface를 read-only로 수집한다.
+  - step_id: map_required_artifact_matrix
+    title: Map Required Artifact Matrix
+    actor_slot: artifact_matrix_mapper
+    action:
+      kind: required_artifact_matrix_mapping
+    summary: stage별 required artifact matrix와 상태 crosswalk를 만든다.
+  - step_id: classify_stage_gaps_and_blockers
+    title: Classify Stage Gaps And Blockers
+    actor_slot: gap_classifier
+    action:
+      kind: stage_gap_and_blocker_classification
+    summary: row를 draftable, owner_input_needed, source_needed, blocked, not_applicable로 분류한다.
+  - step_id: derive_draftable_and_diagram_registers
+    title: Derive Draftable And Diagram Registers
+    actor_slot: draft_lane_mapper
+    action:
+      kind: draftable_lane_and_diagram_need_mapping
+    summary: 바로 초안 가능한 산출물과 도식 필요 항목을 분리해 register로 쓴다.
+  - step_id: build_owner_input_queue
+    title: Build Owner Input Queue
+    actor_slot: owner_queue_writer
+    action:
+      kind: owner_input_queue_generation
+    summary: owner truth 없이는 진행할 수 없는 항목을 compact question queue로 줄인다.
+  - step_id: map_downstream_workflow_routes
+    title: Map Downstream Workflow Routes
+    actor_slot: route_mapper
+    action:
+      kind: downstream_workflow_route_mapping
+    summary: gap family별로 가장 좁은 downstream workflow lane을 정한다.
+  - step_id: write_stage_bundle
+    title: Write Stage Bundle
+    actor_slot: packet_writer
+    action:
+      kind: stage_gap_scan_bundle_write
+    summary: matrix, gap register, queue, blocker, route map, stage packet을 쓴다.
+  - step_id: write_stage_readiness_and_boundary_review
+    title: Write Stage Readiness And Boundary Review
+    actor_slot: boundary_reviewer
+    action:
+      kind: stage_gap_scan_boundary_and_summary_review
+    summary: readiness summary와 boundary note를 쓰고 overclaim이 없는지 확인한다.

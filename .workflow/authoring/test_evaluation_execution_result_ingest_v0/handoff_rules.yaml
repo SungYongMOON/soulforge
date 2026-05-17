@@ -1,0 +1,61 @@
+workflow_id: test_evaluation_execution_result_ingest_v0
+kind: handoff_rules
+status: draft
+rules:
+  - rule_id: from_verification_plan
+    from_workflow_id: verification_plan_from_page_contracts_v0
+    consume:
+      - verification_requirements_matrix
+      - trr_readiness_handoff
+      - fca_svr_handoff_index
+    requirement: Plan refs are read-only and define scope, method, criteria seed, and expected future result refs; they are not execution evidence.
+  - rule_id: from_test_harness_asset_planning
+    from_workflow_id: test_harness_asset_planning_v0
+    consume:
+      - test_harness_manifest
+      - test_interface_list
+      - instrumentation_resource_list
+      - trr_readiness_checklist
+      - planning_blockers
+    requirement: Harness planning refs can support readiness checks but do not prove execution occurred.
+  - rule_id: from_simulation_run_verify
+    from_workflow_id: simulation_run_verify_v0
+    consume:
+      - simulation_run_packet
+      - measurement_results
+      - result_verdicts
+      - run_blockers
+    requirement: Consume packet refs only; raw decks, model payloads, and waveform files remain in simulation/project-local storage.
+  - rule_id: to_accepted_verification_result_packet
+    to_workflow_id: accepted_verification_result_packet_v0
+    provide:
+      - execution_result_register
+      - result_verdicts
+      - downstream_handoff
+      - scoped_acceptance_basis_required
+    requirement: Downstream acceptance packet must decide accepted, blocked, or inconclusive rows from scoped acceptance basis; this workflow only provides candidate result evidence.
+  - rule_id: to_functional_configuration_audit
+    to_workflow_id: functional_configuration_audit_page_library_v0
+    provide:
+      - accepted_result_packet_required_flag
+      - candidate_result_rows_not_direct_audit_input
+    requirement: FCA/SVR-style audit must consume accepted result packet refs, not raw candidate verdicts from this workflow.
+  - rule_id: to_physical_configuration_audit
+    to_workflow_id: physical_configuration_audit_asset_package_v0
+    provide:
+      - artifact_inventory_or_package_discrepancy_refs
+    requirement: PCA-style package audit may consume artifact inventory or discrepancy context only; functional adequacy remains outside PCA.
+  - rule_id: to_review_gate
+    to_workflow_id: review_gate_evidence_pack_v0
+    provide:
+      - execution_result_summary
+      - run_blockers
+      - owner_followup_needed
+    requirement: Review packets may cite candidate verdicts only with explicit non-acceptance labels.
+  - rule_id: to_owner_decision
+    to_workflow_id: owner_decision_packet_v0
+    provide:
+      - owner_review_required_rows
+      - acceptance_basis_questions
+      - waiver_or_deviation_questions
+    requirement: Owner decisions are recorded by the owner-decision lane, not inferred here.

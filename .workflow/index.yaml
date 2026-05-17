@@ -59,12 +59,16 @@ entries:
     path: functional_configuration_audit_page_library_v0/workflow.yaml
   - workflow_id: test_harness_asset_planning_v0
     path: test_harness_asset_planning_v0/workflow.yaml
+  - workflow_id: test_evaluation_execution_result_ingest_v0
+    path: test_evaluation_execution_result_ingest_v0/workflow.yaml
   - workflow_id: source_packet_sufficiency_review_v0
     path: source_packet_sufficiency_review_v0/workflow.yaml
   - workflow_id: physical_configuration_audit_asset_package_v0
     path: physical_configuration_audit_asset_package_v0/workflow.yaml
   - workflow_id: technical_risk_open_question_burndown_v0
     path: technical_risk_open_question_burndown_v0/workflow.yaml
+  - workflow_id: se_stage_artifact_gap_scan_v0
+    path: se_stage_artifact_gap_scan_v0/workflow.yaml
   - workflow_id: project_readiness_digest_v0
     path: project_readiness_digest_v0/workflow.yaml
   - workflow_id: accepted_verification_result_packet_v0

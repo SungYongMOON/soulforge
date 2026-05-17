@@ -12,6 +12,18 @@ type ControlCenterPaneId = "editor" | "notifications" | "map" | "preview" | "dia
 type ControlCenterCategory = "canonical" | "generated" | "doc" | "archive";
 type HeaderThemeMode = "system" | "dark" | "white";
 type SnapshotStatus = "fresh" | "stale" | "missing" | "unavailable";
+type KnowledgeLaneOwnerGatedState = "blocked_missing_surface" | "awaiting_metadata_evidence" | "owner_review_required";
+type KnowledgeLaneClaimCeiling = "observed";
+type KnowledgeLaneNumericEvidenceCountKey =
+  | "project_knowledge_access_surface_count"
+  | "project_procedure_capture_surface_count"
+  | "project_ontology_surface_count"
+  | "system_knowledge_access_entry_count"
+  | "system_procedure_capture_entry_count";
+type KnowledgeLaneBooleanEvidenceCountKey = "local_activity_surface_present" | "private_activity_mirror_present";
+type KnowledgeLaneEvidenceCountKey = KnowledgeLaneNumericEvidenceCountKey | KnowledgeLaneBooleanEvidenceCountKey;
+type KnowledgeLaneEvidenceCountValue = number | boolean;
+type KnowledgeLaneEvidenceCounts = Record<KnowledgeLaneNumericEvidenceCountKey, number> & Record<KnowledgeLaneBooleanEvidenceCountKey, boolean>;
 
 interface ControlCenterRouteState {
   ownerId: ControlCenterOwnerId;
@@ -166,6 +178,27 @@ interface DungeonMapPendingMonsterGroup {
   items: DungeonMapPendingMonster[];
 }
 
+interface DungeonMapKnowledgeLaneBlocker {
+  id: string;
+  severity: string;
+  summary: string;
+}
+
+interface DungeonMapKnowledgeLane {
+  label: string;
+  owner_gated_state: KnowledgeLaneOwnerGatedState;
+  claim_ceiling: KnowledgeLaneClaimCeiling;
+  helper_present: boolean;
+  notebooklm_bridge_present: boolean;
+  workflow_present_count: number;
+  fixture_present: boolean;
+  evidence_present: boolean;
+  evidence_surface_count: number;
+  evidence_counts: KnowledgeLaneEvidenceCounts;
+  blockers: DungeonMapKnowledgeLaneBlocker[];
+  next_owner_review_action: string | null;
+}
+
 interface DungeonMapOperationBoard {
   schema_version: string;
   summary: Record<string, unknown>;
@@ -187,6 +220,7 @@ interface DungeonMapOperationBoard {
       truncated: boolean;
       groups: DungeonMapPendingMonsterGroup[];
     };
+    knowledge_lane: DungeonMapKnowledgeLane | null;
     action_queue: {
       label: string;
       items: DungeonMapNextAction[];
@@ -250,6 +284,23 @@ const HEADER_THEME_OPTIONS: { id: HeaderThemeMode; label: string }[] = [
   { id: "dark", label: "Dark" },
   { id: "white", label: "White" }
 ];
+const KNOWLEDGE_LANE_EVIDENCE_COUNT_LABELS: Record<KnowledgeLaneEvidenceCountKey, string> = {
+  project_knowledge_access_surface_count: "Project knowledge access surfaces",
+  project_procedure_capture_surface_count: "Project procedure capture surfaces",
+  project_ontology_surface_count: "Project ontology surfaces",
+  system_knowledge_access_entry_count: "System knowledge access entries",
+  system_procedure_capture_entry_count: "System procedure capture entries",
+  local_activity_surface_present: "Local activity surface",
+  private_activity_mirror_present: "Private activity mirror"
+};
+const KNOWLEDGE_LANE_EVIDENCE_COUNT_KEYS = Object.keys(
+  KNOWLEDGE_LANE_EVIDENCE_COUNT_LABELS
+) as KnowledgeLaneEvidenceCountKey[];
+const KNOWLEDGE_LANE_OWNER_GATED_STATES = new Set<KnowledgeLaneOwnerGatedState>([
+  "blocked_missing_surface",
+  "awaiting_metadata_evidence",
+  "owner_review_required"
+]);
 
 function ThemeModeGlyph({ mode }: { mode: HeaderThemeMode }) {
   if (mode === "system") {
@@ -707,6 +758,45 @@ function snapshotTone(status: SnapshotStatus) {
 
 function pendingMonsterTitle(monster: DungeonMapPendingMonster) {
   return monster.objective_summary || monster.monster_name || monster.monster_id;
+}
+
+function formatMetadataValue(value: unknown) {
+  if (typeof value === "boolean") {
+    return value ? "present" : "missing";
+  }
+
+  if (typeof value === "number" && Number.isFinite(value)) {
+    return String(value);
+  }
+
+  if (typeof value === "string" && value.trim()) {
+    return value;
+  }
+
+  return "not supplied";
+}
+
+function knowledgeEvidenceCountEntries(counts: KnowledgeLaneEvidenceCounts) {
+  const entries: [KnowledgeLaneEvidenceCountKey, KnowledgeLaneEvidenceCountValue][] = [];
+  const runtimeCounts = counts as Record<string, unknown>;
+
+  for (const key of KNOWLEDGE_LANE_EVIDENCE_COUNT_KEYS) {
+    const value = runtimeCounts[key];
+    if (typeof value === "boolean" || (typeof value === "number" && Number.isFinite(value))) {
+      entries.push([key, value]);
+    }
+  }
+
+  return entries;
+}
+
+function isRenderableKnowledgeLane(lane: DungeonMapKnowledgeLane | null): lane is DungeonMapKnowledgeLane {
+  const runtimeLane = lane as Record<string, unknown> | null;
+  return Boolean(
+    runtimeLane &&
+      KNOWLEDGE_LANE_OWNER_GATED_STATES.has(runtimeLane.owner_gated_state as KnowledgeLaneOwnerGatedState) &&
+      runtimeLane.claim_ceiling === "observed"
+  );
 }
 
 function groupPendingMonsters(items: DungeonMapPendingMonster[], counts: Record<string, unknown>): DungeonMapPendingMonsterGroup[] {
@@ -1270,6 +1360,14 @@ function App() {
     ? dungeonMap.snapshot.operation_board.sections.action_queue.items
     : dungeonMap.snapshot?.next_actions ?? [];
   const monsterGateSummary = dungeonMap.snapshot?.operation_board?.sections.monster_gate ?? null;
+  const knowledgeLaneCandidate = dungeonMap.snapshot?.operation_board?.sections.knowledge_lane ?? null;
+  const knowledgeLane =
+    dungeonMap.snapshot?.status === "fresh" && isRenderableKnowledgeLane(knowledgeLaneCandidate) ? knowledgeLaneCandidate : null;
+  const knowledgeEvidenceCounts = knowledgeLane ? knowledgeEvidenceCountEntries(knowledgeLane.evidence_counts) : [];
+  const knowledgeLaneUnavailableNote =
+    dungeonMap.snapshot?.status && dungeonMap.snapshot.status !== "fresh"
+      ? `Stored Knowledge Lane suppressed because snapshot status is ${dungeonMap.snapshot.status}. Regenerate the snapshot before rendering lane state or claim metadata.`
+      : "No sanitized Knowledge Lane projection is available in this snapshot. Regenerate the snapshot to expose metadata-only lane status.";
 
   return (
     <div
@@ -1772,6 +1870,59 @@ function App() {
                       <p className="cc-readonly-note">Pending monster summaries are not available in this snapshot. Regenerate the snapshot to populate the classified display.</p>
                     ) : null}
                   </section>
+
+                  {knowledgeLane ? (
+                    <section className="cc-map-section">
+                      <h3>{knowledgeLane.label || "Knowledge Lane"}</h3>
+                      <div className="cc-summary-card">
+                        <strong>State {knowledgeLane.owner_gated_state}</strong>
+                        <span>claim ceiling {knowledgeLane.claim_ceiling}</span>
+                        <span>helper {knowledgeLane.helper_present ? "present" : "missing"}</span>
+                        <span>NotebookLM bridge {knowledgeLane.notebooklm_bridge_present ? "present" : "missing"}</span>
+                        <span>workflows {knowledgeLane.workflow_present_count}</span>
+                        <span>fixture {knowledgeLane.fixture_present ? "present" : "missing"}</span>
+                        <span>
+                          evidence {knowledgeLane.evidence_present ? "present" : "missing"} / surfaces {knowledgeLane.evidence_surface_count}
+                        </span>
+                        <span>next owner review {knowledgeLane.next_owner_review_action ?? "not supplied"}</span>
+                      </div>
+                      <p className="cc-readonly-note">
+                        Metadata-only snapshot projection. This pane does not validate knowledge, accept ontology, approve owner decisions, or promote canon.
+                      </p>
+
+                      {knowledgeEvidenceCounts.length > 0 ? (
+                        <ul className="cc-map-list">
+                          {knowledgeEvidenceCounts.map(([key, value]) => (
+                            <li key={key}>
+                              <strong>{KNOWLEDGE_LANE_EVIDENCE_COUNT_LABELS[key]}</strong>
+                              <span>{formatMetadataValue(value)}</span>
+                            </li>
+                          ))}
+                        </ul>
+                      ) : null}
+
+                      <ul className="cc-map-list">
+                        {knowledgeLane.blockers.length > 0 ? (
+                          knowledgeLane.blockers.map((blocker) => (
+                            <li key={`${blocker.id}:${blocker.severity}:${blocker.summary}`}>
+                              <strong>{blocker.severity}</strong>
+                              <span>{blocker.summary || blocker.id}</span>
+                            </li>
+                          ))
+                        ) : (
+                          <li>
+                            <strong>blockers</strong>
+                            <span>No sanitized blockers supplied.</span>
+                          </li>
+                        )}
+                      </ul>
+                    </section>
+                  ) : dungeonMap.snapshot.operation_board ? (
+                    <section className="cc-map-section">
+                      <h3>Knowledge Lane</h3>
+                      <p className="cc-readonly-note">{knowledgeLaneUnavailableNote}</p>
+                    </section>
+                  ) : null}
 
                   <section className="cc-map-section">
                     <h3>Next Actions</h3>

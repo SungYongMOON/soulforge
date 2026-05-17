@@ -20,6 +20,8 @@ decision, source follow-up, or private hold.
 - `concept_candidate_register`
 - `claim_ceiling_and_promotion_route`
 - `optional_notebooklm_advisory_handoff`
+- `notebooklm_handoff_validation`
+- `ontology_candidate_rule_register`
 - `workflowization_review_packet`
 - `boundary_review_note`
 
@@ -29,6 +31,9 @@ Source truth remains in source packets or owner-held sources. The knowledge
 packet is a private derivative projection, not canon and not source authority.
 NotebookLM or similar tools are optional owner-operated advisory aids only; their
 answers cannot approve concepts, ontology candidates, or workflow promotion.
+NotebookLM handoff validation checks only that the handoff is bounded,
+payload-safe, and advisory-only. Ontology-facing entries remain candidate rules
+for review; they do not create or accept ontology canon.
 
 ## Current Maturity
 

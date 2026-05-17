@@ -1,0 +1,15 @@
+workflow_id: test_evaluation_execution_result_ingest_v0
+kind: run_blockers_template
+status: template
+run_blockers:
+  blocker_set_id: "<blocker_set_id>"
+  blockers:
+    - blocker_id: "<blocker_id>"
+      execution_item_id: "<execution_item_id_or_scope_level>"
+      blocker_type: missing_baseline|missing_procedure|missing_criterion|missing_fixture|missing_instrument|missing_tool_policy|missing_execution_authorization|source_gap|configuration_conflict|raw_result_unavailable|owner_review_required|simulation_route_required|private_boundary_unclear
+      severity: blocking|review_required|warning
+      evidence_ref: "<repo_path_or_null>"
+      owner_followup_ref: "<owner_followup_id_or_null>"
+      rerun_route: verification_plan_from_page_contracts_v0|test_harness_asset_planning_v0|simulation_run_verify_v0|source_gap_followup_packet_v0|owner_decision_packet_v0|manual_owner_action
+claim_ceiling:
+  blocker_register_is_not_result_failure: true

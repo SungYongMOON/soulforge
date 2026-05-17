@@ -2,6 +2,65 @@
 
 ## 2026-05-17
 
+### Revision `working` - End-of-task knowledge trigger check added
+
+- Added an end-of-task Knowledge Trigger Check to the Soulforge execution contract so bounded work closes with `no_trigger`, `metadata_only_record`, `sourcebound_review_candidate`, or `owner_decision_needed`.
+- Extended `post_development_review_gate_v0` and its review packet template to record the trigger result before supervisor acceptance without granting source-truth, ontology, owner-approval, graph, archive/retire, or canon authority.
+- Clarified that existing `knowledge_access_event.accumulation_delta_hint` can carry lightweight trigger signals for already-used refs, while new unregistered patterns should route through procedure capture, daily sweep, sourcebound review, or owner decision.
+
+### Revision `working` - Renderer Knowledge Lane review fixes
+
+- Whitelisted renderer Knowledge Lane owner-gated states, the `observed` claim ceiling, and known private/local `evidence_counts` keys before display.
+- Suppressed Knowledge Lane state/claim rendering unless the loaded snapshot is fresh, so stale or invalid stored lanes degrade instead of looking current.
+- Added the snapshot contract presence fields `helper_present`, `notebooklm_bridge_present`, `workflow_present_count`, and `fixture_present` to the renderer display.
+
+### Revision `working` - Renderer Knowledge Lane slice added
+
+- Added renderer-web consumption of `operation_board.sections.knowledge_lane` as a metadata-only Operation Board section.
+- Rendered only sanitized owner-gated state, claim ceiling, evidence counts, blockers, and next owner-review action without validation, ontology acceptance, owner decision, or canon promotion authority.
+
+### Revision `working` - Snapshot knowledge lane review fixes
+
+- Enforced snapshot v0 `knowledge_lane` state/blocker/evidence support and claim-ceiling validation in freshness comparison so manually strengthened stored lanes fail instead of passing as fresh.
+- Kept public helper/docs/workflows/fixtures out of `knowledge_lane.evidence` counts; private/local metadata evidence is counted separately from public metadata surfaces.
+- Excluded auth/session-shaped knowledge access files from entry counts while continuing to avoid reading or exposing their contents/names.
+
+### Revision `working` - Snapshot knowledge lane status added
+
+- Added a metadata-only `knowledge_lane` snapshot surface and Operation Board section for knowledge/NotebookLM/ontology lane status.
+- Summarized only owner-gated state, helper/workflow/fixture presence, evidence presence/counts, claim ceiling, blockers, and next owner-review action.
+- Kept NotebookLM auth/session data, query/answer/source payloads, private report prose/filenames, ontology candidate statements, owner decisions, graph mutations, and registry promotion claims out of the snapshot.
+
+### Revision `working` - NotebookLM metadata bridge helper promoted
+
+- Added `guild_hall/knowledge_access/notebooklm_bridge.mjs` plus `notebooklm-bridge`/`notebooklm-import` CLI commands for importing explicit NotebookLM-like binding/source-ledger/query-log metadata into `imported_log_entry` ledger rows.
+- Kept the bridge metadata-only and advisory: no `nlm` calls, no auth/session file reads, no source payload or free-form query-log reason copying, no no-query event fabrication, and no canon/ontology mutation.
+- Blocked malformed `timestamp_utc` rows, unsafe `entry_ref` auth/session/runtime paths, and invalid event enum cells before deriving imported ledger refs or emitting bridge summaries.
+- Extended the public synthetic NotebookLM fixture with a blocked no-query case and validation coverage for positive imports, CLI import, and no-query/no-fabrication behavior.
+
+### Revision `working` - Synthetic NotebookLM bridge fixture added
+
+- Added a public-safe synthetic NotebookLM bridge fixture under `docs/architecture/workspace/examples/notebooklm_bridge/`.
+- Covered NotebookLM-like `imported_log_entry` advisory rows in the knowledge access analyzer test without changing helper code.
+
+### Revision `working` - Test/evaluation result ingest workflow registered
+
+- Registered `.workflow/test_evaluation_execution_result_ingest_v0` as a contract-level/private-evidence workflow for packaging non-simulation-specific execution or result-ingest evidence into candidate result rows, blockers, owner follow-up, and downstream acceptance-review handoffs.
+- Kept the claim ceiling at `registered_contract_private_evidence`: this registers the reusable package only, not accepted verification, owner acceptance, TRR/DT/FCA/OT/PCA approval, usable status, production readiness, or profile optimization.
+- Recorded private registration governance under `_workmeta/system/runs/test_evaluation_execution_result_ingest_registration_20260517_014107/` and left controlled pilot execution plus accepted-result handoff verification as future strengthening gates.
+
+### Revision `working` - Knowledge validation guardrails tightened
+
+- Added shared knowledge claim states for `observed`, `source_supported`, `validated_private`, `canon_candidate`, `canon_entry`, and `rejected_or_blocked` knowledge.
+- Clarified that NotebookLM, LLM advice, ledgers, and analysis labels are advisory signals only, not validation, ontology acceptance, owner approval, or canon-promotion authority.
+- Added minimal canon entry guards for registry knowledge entries and public canon promotion.
+
+### Revision `working` - SE stage artifact gap scan workflow registered
+
+- Registered `.workflow/se_stage_artifact_gap_scan_v0` as the reusable controller package for one-stage SE artifact/gap scanning, owner/source queueing, blocker preservation, draftable/diagram lane surfacing, and downstream route mapping.
+- Kept the claim ceiling at `registered_controller_private_evidence`: this registers the controller package only, not PDR/CDR/TRR/FCA/OT readiness, approval, test execution, verification completion, production readiness, or profile optimization.
+- Recorded private registration governance under `_workmeta/system/runs/se_stage_gap_scan_registration_20260517_013027/` and linked later-stage route vocabulary to already registered generic workflows such as verification planning, harness planning, accepted result packets, FCA, and PCA lanes.
+
 ### Revision `working` - Knowledge operating model documented
 
 - Added `docs/architecture/guild_hall/KNOWLEDGE_OPERATING_MODEL_V0.md` to explain how the knowledge access ledger, manual candidate capture, LLM suggestion approval, end-of-work sweep, sourcebound packet loop, and access-event analysis workflow combine without crossing public/private owner boundaries.

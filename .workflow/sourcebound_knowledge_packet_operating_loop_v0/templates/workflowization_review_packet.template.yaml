@@ -12,6 +12,14 @@ conceptualization:
   concept_candidate_register_ref: null
   contradiction_gap_lint_report_ref: null
   claim_ceiling_route_ref: null
+ontology_candidate_rule_summary:
+  ontology_candidate_rule_register_ref: null
+  candidate_rule_count: 0
+  acceptance_state: candidate_only
+notebooklm_handoff_validation_summary:
+  notebooklm_handoff_validation_ref: null
+  validation_state: skipped
+  advisory_answer_is_not_authority: true
 workflowization_target:
   target_type: workflow_candidate_or_ontology_candidate_or_owner_decision
   proposed_id: null
