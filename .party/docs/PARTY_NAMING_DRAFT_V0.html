@@ -1,0 +1,272 @@
+<!doctype html>
+<html lang="ko">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Party Naming Draft v0</title>
+  <style>
+    :root {
+      color-scheme: light;
+      --bg: #f4f0e7;
+      --panel: #fffaf0;
+      --ink: #202326;
+      --muted: #5f6366;
+      --line: #d8c9b4;
+      --accent: #5f4b1f;
+      --accent-soft: #efe5c8;
+      --warn: #713519;
+      --warn-soft: #f5dfcf;
+      --code: #eee5d4;
+    }
+
+    * {
+      box-sizing: border-box;
+    }
+
+    body {
+      margin: 0;
+      background: radial-gradient(circle at top left, #fff2cf 0, transparent 32%), linear-gradient(135deg, #f4f0e7 0%, #e8eee6 100%);
+      color: var(--ink);
+      font: 16px/1.6 Georgia, "Noto Serif KR", "Apple SD Gothic Neo", serif;
+    }
+
+    main {
+      max-width: 1080px;
+      margin: 0 auto;
+      padding: 32px 18px 56px;
+    }
+
+    header, section {
+      background: rgba(255, 250, 240, 0.94);
+      border: 1px solid var(--line);
+      border-radius: 18px;
+      box-shadow: 0 14px 36px rgba(70, 54, 29, 0.10);
+      margin: 0 0 18px;
+      padding: 24px;
+    }
+
+    h1, h2 {
+      line-height: 1.2;
+      margin: 0 0 12px;
+    }
+
+    h1 {
+      font-size: clamp(2rem, 5vw, 3.8rem);
+      letter-spacing: -0.04em;
+    }
+
+    h2 {
+      color: var(--accent);
+      font-size: clamp(1.35rem, 3vw, 2rem);
+    }
+
+    p {
+      margin: 0 0 12px;
+    }
+
+    a {
+      color: var(--accent);
+      font-weight: 700;
+    }
+
+    code {
+      background: var(--code);
+      border-radius: 6px;
+      padding: 0.1em 0.35em;
+      white-space: nowrap;
+    }
+
+    ul {
+      margin: 0;
+      padding-left: 1.25rem;
+    }
+
+    li + li {
+      margin-top: 6px;
+    }
+
+    .badge-row {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 8px;
+      margin: 16px 0;
+    }
+
+    .badge {
+      background: var(--accent-soft);
+      border: 1px solid #d5c28c;
+      border-radius: 999px;
+      color: #4d3b12;
+      font-weight: 700;
+      padding: 6px 10px;
+    }
+
+    .notice {
+      background: var(--warn-soft);
+      border: 1px solid #e2b993;
+      border-radius: 14px;
+      color: var(--warn);
+      padding: 14px 16px;
+    }
+
+    .grid {
+      display: grid;
+      gap: 14px;
+      grid-template-columns: repeat(auto-fit, minmax(230px, 1fr));
+    }
+
+    .card {
+      background: #fffdf8;
+      border: 1px solid var(--line);
+      border-radius: 14px;
+      padding: 16px;
+    }
+
+    .card strong {
+      color: var(--accent);
+      display: block;
+      margin-bottom: 6px;
+    }
+
+    .flow {
+      background: #3f3218;
+      border-radius: 14px;
+      color: #fff8e5;
+      font: 700 1rem/1.8 "SFMono-Regular", Consolas, monospace;
+      overflow-x: auto;
+      padding: 16px;
+      white-space: nowrap;
+    }
+
+    .table-wrap {
+      border: 1px solid var(--line);
+      border-radius: 14px;
+      overflow-x: auto;
+      width: 100%;
+    }
+
+    table {
+      background: #fffdf8;
+      border-collapse: collapse;
+      min-width: 900px;
+      width: 100%;
+    }
+
+    th, td {
+      border-bottom: 1px solid var(--line);
+      padding: 10px 12px;
+      text-align: left;
+      vertical-align: top;
+    }
+
+    th {
+      background: #efe5c8;
+      color: #483611;
+      position: sticky;
+      top: 0;
+      z-index: 1;
+    }
+
+    tr:last-child td {
+      border-bottom: 0;
+    }
+
+    .small {
+      color: var(--muted);
+      font-size: 0.94rem;
+    }
+  </style>
+</head>
+<body>
+  <main>
+    <header>
+      <p class="small">derived static review page</p>
+      <h1>Party Naming Draft v0</h1>
+      <p class="notice">이 HTML은 사람이 빠르게 검토하기 위한 파생 정적 문서입니다. 정본은 Markdown/YAML/JSON 이며, 이 문서는 rename, alias catalog 등록, validator enforcement, approval 확정을 만들지 않습니다.</p>
+      <div class="badge-row" aria-label="status owner claim ceiling">
+        <span class="badge">Status: draft</span>
+        <span class="badge">Owner: .party</span>
+        <span class="badge">Claim ceiling: canon_candidate</span>
+      </div>
+      <p>2026-05-18 기준 관찰된 `.party/index.yaml` 등록 party 3개의 한국어 alias 후보와 설명용 표시 이름을 한 화면에서 검토하기 위한 파생 뷰입니다.</p>
+    </header>
+
+    <section>
+      <h2>빠른 요약</h2>
+      <ul>
+        <li>기존 canonical <code>party_id</code>, folder, index 값은 유지한다.</li>
+        <li><code>global_name_ko</code> 는 slash 없는 한국어 party alias 후보일 뿐이며 아직 catalog 에 등록되지 않았다.</li>
+        <li><code>display_name_ko</code> 는 README, 작전판, UI 에서 쓰는 설명용 이름이며 호출 key 가 아니다.</li>
+        <li>party 는 reusable composition template 이며 workflow body, project-local run truth, raw battle log 를 소유하지 않는다.</li>
+      </ul>
+    </section>
+
+    <section>
+      <h2>이름 3계층 요약</h2>
+      <div class="grid">
+        <div class="card">
+          <strong>표시 이름 <code>display_name_ko</code></strong>
+          사람이 party 의 조합 성격을 읽기 위한 설명용 이름입니다. 문서용 slash 표기는 허용하지만 호출 key 로 쓰지 않습니다.
+        </div>
+        <div class="card">
+          <strong>한글 전역 호출명 <code>global_name_ko</code></strong>
+          slash, 공백, dash, colon 없는 한국어 underscore alias 후보입니다. 한 alias 는 하나의 party 로만 resolve 되어야 합니다.
+        </div>
+        <div class="card">
+          <strong>canonical <code>party_id</code></strong>
+          `.party/index.yaml`, party package path, workflow/mission resolve 가 쓰는 내부 안정 id 입니다.
+        </div>
+      </div>
+    </section>
+
+    <section>
+      <h2>금지 패턴 / 주의점</h2>
+      <ul>
+        <li>template, lineup pattern, role composition 같은 설명어를 실제 canonical <code>party_id</code> 와 섞지 않는다.</li>
+        <li>특정 run 성과, mission success, owner acceptance 를 party 이름에 넣지 않는다.</li>
+        <li>기존 <code>party_id</code> 를 미관이나 표시 언어 선호만으로 rename 하지 않는다.</li>
+        <li>party 이름이 workflow 실행 결과나 project performance 를 claim 하게 만들지 않는다.</li>
+        <li>workflow alias 와 party alias 를 같은 namespace 에 둘 경우 충돌 방지 정책이 먼저 필요하다.</li>
+      </ul>
+    </section>
+
+    <section>
+      <h2>Resolve 흐름</h2>
+      <p>문서상 권장 흐름은 아래와 같습니다. 이 HTML은 해당 흐름을 설명만 하며 새 실행 surface 를 만들지 않습니다.</p>
+      <div class="flow">global_name_ko -&gt; workflow_id -&gt; party_id -&gt; path</div>
+      <p class="small">workflow alias 는 먼저 canonical <code>workflow_id</code> 로 resolve 되고, party 선택은 <code>default_workflow_id</code>, <code>allowed_workflows.yaml</code>, 요청 context, owner policy 를 함께 본 뒤 canonical <code>party_id</code> 로 resolve 되어야 합니다.</p>
+    </section>
+
+    <section>
+      <h2>원본 Markdown 링크</h2>
+      <ul>
+        <li><a href="PARTY_NAMING_CONTRACT_V0.md">PARTY_NAMING_CONTRACT_V0.md</a></li>
+        <li><a href="PARTY_NAME_MAPPING_TABLE_V0.md">PARTY_NAME_MAPPING_TABLE_V0.md</a></li>
+      </ul>
+    </section>
+
+    <section>
+      <h2>Party 3개 전체 매핑표</h2>
+      <p class="small">아래 표는 원본 Markdown 매핑표의 파생 표시입니다. alias 후보이며 rename 또는 enforcement 가 아닙니다.</p>
+      <div class="table-wrap">
+        <table>
+          <thead>
+            <tr>
+              <th>party_id</th>
+              <th>권장 global_name_ko</th>
+              <th>권장 display_name_ko</th>
+              <th>기본 workflow</th>
+              <th>비고</th>
+            </tr>
+          </thead>
+          <tbody>
+            <tr><td><code>vanguard_strike</code></td><td><code>파티_전방타격</code></td><td><code>파티/전방/타격조합</code></td><td><code>frontline_assault</code></td><td>current party id 를 유지하고 전방 작업 조율용 alias 후보만 둔다.</td></tr>
+            <tr><td><code>lineage_strike</code></td><td><code>파티_계보타격</code></td><td><code>파티/계보/생산조합</code></td><td><code>build_lineage_map</code></td><td>lineage-map production party 관찰값이며 rename 근거가 아니다.</td></tr>
+            <tr><td><code>guild_master_cell</code></td><td><code>파티_길드마스터셀</code></td><td><code>파티/길드마스터/작성검토셀</code></td><td><code>author_skill_package</code></td><td>current default authoring lane 이지만 universal party standard 로 고정하지 않는다.</td></tr>
+          </tbody>
+        </table>
+      </div>
+    </section>
+  </main>
+</body>
+</html>

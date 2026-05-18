@@ -6,6 +6,9 @@
 - party 는 member slot, allowed species/class/workflow, default workflow, preferred monster type 같은 reusable team composition 정보를 소유한다.
 - `.party/` 는 `.registry` 아래로 들어가지 않는 독립 orchestration root 다.
 - `.party/` 는 raw battle log, project-specific operational metrics owner 가 아니다.
+- party 이름을 새로 정하거나 표시 이름을 붙일 때는 draft 규격인 [`docs/PARTY_NAMING_CONTRACT_V0.md`](docs/PARTY_NAMING_CONTRACT_V0.md) 를 먼저 참고한다.
+- 2026-05-18 기준 전체 party alias 후보 목록은 draft 매핑표인 [`docs/PARTY_NAME_MAPPING_TABLE_V0.md`](docs/PARTY_NAME_MAPPING_TABLE_V0.md) 에 둔다. 이 표는 rename 이나 validator enforcement 가 아니다.
+- 사람이 보기 쉬운 파생 정적 검토 뷰는 [`docs/PARTY_NAMING_DRAFT_V0.html`](docs/PARTY_NAMING_DRAFT_V0.html) 에 둔다. 정본은 Markdown/YAML/JSON 이며 HTML 은 rename, alias catalog, validator enforcement 를 만들지 않는다.
 
 ## 관계도
 
@@ -39,6 +42,9 @@ sequenceDiagram
 ## 무엇을 둔다
 
 - `index.yaml`
+- `docs/PARTY_NAMING_CONTRACT_V0.md`
+- `docs/PARTY_NAME_MAPPING_TABLE_V0.md`
+- `docs/PARTY_NAMING_DRAFT_V0.html`
 - `<party_id>/party.yaml`
 - `<party_id>/member_slots.yaml`
 - `<party_id>/allowed_species.yaml`
@@ -67,4 +73,3 @@ sequenceDiagram
 - [`lineage_strike/party.yaml`](lineage_strike/party.yaml): lineage-map production party template that binds workflow-facing slots to canonical units.
 - [`guild_master_cell/party.yaml`](guild_master_cell/party.yaml): guild-master authoring party template for skill package review, drafting, and promotion handoff.
 - [`vanguard_strike/stats/README.md`](vanguard_strike/stats/README.md): canonical stats guidance that keeps observational notes outside project runtime truth.
-

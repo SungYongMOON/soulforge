@@ -15,6 +15,8 @@
 - `.workflow/authoring/` 은 draft, template, guide 를 두는 대기실이며 workflow canon entry 가 아니다.
 - UI 와 derive consumer 는 폴더 direct scan 대신 `index.yaml` 을 기준으로 workflow 목록을 만들므로, `authoring/` 은 workflow 목록에 표시하지 않는다.
 - workflow 이름을 새로 정하거나 표시 이름을 붙일 때는 draft 규격인 [`docs/WORKFLOW_NAMING_CONTRACT_V0.md`](docs/WORKFLOW_NAMING_CONTRACT_V0.md) 를 먼저 참고한다.
+- 2026-05-18 기준 전체 workflow alias 후보 목록은 draft 매핑표인 [`docs/WORKFLOW_NAME_MAPPING_TABLE_V0.md`](docs/WORKFLOW_NAME_MAPPING_TABLE_V0.md) 에 둔다. 이 표는 rename 이나 validator enforcement 가 아니다.
+- 사람이 보기 쉬운 파생 정적 검토 뷰는 [`docs/WORKFLOW_NAMING_DRAFT_V0.html`](docs/WORKFLOW_NAMING_DRAFT_V0.html) 에 둔다. 정본은 Markdown/YAML/JSON 이며 HTML 은 rename, alias catalog, validator enforcement 를 만들지 않는다.
 
 ## canon 과 성숙도 구분
 
@@ -69,6 +71,8 @@ sequenceDiagram
 
 - `index.yaml`
 - `docs/WORKFLOW_NAMING_CONTRACT_V0.md`
+- `docs/WORKFLOW_NAME_MAPPING_TABLE_V0.md`
+- `docs/WORKFLOW_NAMING_DRAFT_V0.html`
 - `authoring/`
 - `<workflow_id>/workflow.yaml`
 - `<workflow_id>/role_slots.yaml`

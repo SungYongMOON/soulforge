@@ -12,6 +12,14 @@
 
 ## 2026-05-18
 
+### Revision `working` - Workflow and party name mapping drafts added
+
+- Added `.workflow/docs/WORKFLOW_NAME_MAPPING_TABLE_V0.md` with draft Korean alias/display-name candidates for all 44 workflows currently registered in `.workflow/index.yaml`, without renaming ids, folders, or index entries.
+- Added `.party/docs/PARTY_NAMING_CONTRACT_V0.md` and `.party/docs/PARTY_NAME_MAPPING_TABLE_V0.md` to separate stable `party_id`, slash-free Korean `global_name_ko` alias candidates, and descriptive `display_name_ko` values for the 3 current party entries.
+- Added derived static HTML review pages at `.workflow/docs/WORKFLOW_NAMING_DRAFT_V0.html` and `.party/docs/PARTY_NAMING_DRAFT_V0.html` so humans can review the draft naming layers and full mapping tables without treating HTML as canon.
+- Clarified the draft resolve chain `global_name_ko -> workflow_id -> party_id -> path` while keeping alias catalog placement, namespace policy, and any future rename/deprecation as follow-up owner decisions.
+- Linked the new draft mapping documents from `.workflow/README.md` and `.party/README.md`.
+
 ### Revision `working` - Workflow naming contract draft added
 
 - Added `.workflow/docs/WORKFLOW_NAMING_CONTRACT_V0.md` as a draft authoring contract for separating slash-free Korean invocation aliases, descriptive Korean display names, and canonical English `snake_case` workflow ids.
