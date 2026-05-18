@@ -1,0 +1,9 @@
+workflow_id: workflow_knowledge_preflight_v0
+kind: boundary_review_note
+status: draft
+checks:
+  registry_checked_first: true
+  notebooklm_not_authority: true
+  workmeta_payload_not_copied: true
+  drive_not_treated_as_canon: true
+result: "pass|fail|blocked"

@@ -1,0 +1,7 @@
+workflow_id: workflow_knowledge_preflight_v0
+kind: project_binding
+status: draft
+target_workflow_id: "<workflow_id>"
+knowledge_request_id: "<knowledge_request_id>"
+allowed_context_refs: []
+preflight_policy_ref: "<preflight_policy_ref>"

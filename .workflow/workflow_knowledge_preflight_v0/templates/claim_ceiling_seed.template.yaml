@@ -1,0 +1,6 @@
+workflow_id: workflow_knowledge_preflight_v0
+kind: claim_ceiling_seed
+status: draft
+target_workflow_id: "<workflow_id>"
+weakest_safe_claim_ceiling: "observed|source_supported|rejected_or_blocked"
+reasons: []

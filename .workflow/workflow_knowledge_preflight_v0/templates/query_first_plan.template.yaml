@@ -1,0 +1,9 @@
+workflow_id: workflow_knowledge_preflight_v0
+kind: query_first_plan
+status: draft
+target_workflow_id: "<workflow_id>"
+need_rows:
+  - need_id: "<need_id>"
+    question_or_need: "<question_or_need>"
+    current_state: "resolved_from_registry|resolved_from_obsidian|advisory_only|workmeta_check_needed|drive_check_needed|sourcebound_deepening_needed|owner_decision_needed"
+    uncertainty_note: null

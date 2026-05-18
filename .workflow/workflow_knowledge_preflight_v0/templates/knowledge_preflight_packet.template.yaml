@@ -1,0 +1,14 @@
+workflow_id: workflow_knowledge_preflight_v0
+kind: knowledge_preflight_packet
+status: draft
+target_workflow_id: "<workflow_id>"
+registry_knowledge_refs: []
+obsidian_export_refs: []
+notebooklm_binding_refs: []
+workmeta_evidence_refs: []
+drive_archive_refs: []
+authority_boundary:
+  registry_is_canon_surface: true
+  obsidian_is_generated_read_only_view: true
+  notebooklm_is_advisory_only: true
+  drive_is_storage_not_canon_authority: true

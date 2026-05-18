@@ -1,0 +1,8 @@
+workflow_id: workflow_knowledge_preflight_v0
+kind: profile_policy
+status: active
+default_profile:
+  posture: conservative_preflight
+  reasoning_effort: high
+  notes:
+    - Prefer completeness of boundary and uncertainty reporting over aggressive conclusion-making.

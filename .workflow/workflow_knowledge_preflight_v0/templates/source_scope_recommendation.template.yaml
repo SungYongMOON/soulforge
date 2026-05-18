@@ -1,0 +1,11 @@
+workflow_id: workflow_knowledge_preflight_v0
+kind: source_scope_recommendation
+status: draft
+target_workflow_id: "<workflow_id>"
+recommended_surface_order:
+  - registry_knowledge
+  - obsidian_export
+  - notebooklm_binding
+  - workmeta_and_source_packets
+  - drive_archive_refs
+next_route: "target_workflow_only|sourcebound_deepening|knowledge_wiki_cell|owner_decision"

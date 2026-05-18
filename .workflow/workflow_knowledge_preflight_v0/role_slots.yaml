@@ -1,0 +1,22 @@
+workflow_id: workflow_knowledge_preflight_v0
+kind: role_slots
+status: active
+slots:
+  - slot_id: target_binding_reviewer
+    title: Target Binding Reviewer
+    summary: Binds the target workflow and the exact knowledge need before any surface inspection.
+  - slot_id: canon_surface_inspector
+    title: Canon Surface Inspector
+    summary: Checks `.registry/knowledge`, canon-backed Obsidian export, and wiki index first.
+  - slot_id: advisory_surface_inspector
+    title: Advisory Surface Inspector
+    summary: Checks NotebookLM bindings and notebook/source maps without treating NotebookLM as authority.
+  - slot_id: evidence_surface_inspector
+    title: Evidence Surface Inspector
+    summary: Checks `_workmeta`, source packets, and prior sourcebound review refs.
+  - slot_id: archive_surface_inspector
+    title: Archive Surface Inspector
+    summary: Checks Drive/package refs only when earlier surfaces are insufficient.
+  - slot_id: handoff_router
+    title: Handoff Router
+    summary: Seeds claim ceilings, uncertainty, and next-route guidance for the target workflow.

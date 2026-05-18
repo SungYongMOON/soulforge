@@ -16,11 +16,11 @@
 - Switched `knowledge_wiki_cell` to use `se_knowledge_wiki_pipeline_v0` as the default party entry by owner direction.
 - Kept the older four-stage lane as the composite workflow's downstream execution chain rather than removing those registered workflows.
 
-### Revision `working` - Knowledge investigation party added
+### Revision `working` - Workflow knowledge preflight added
 
-- Added `.party/knowledge_investigation_cell/` as a thin query-first investigation wrapper over `llm_wiki_builder_v0`.
-- Kept source deepening, candidate triage, curation, source-gap followup, and owner-decision lanes as allowed or optional workflows rather than duplicating workflow internals inside the party.
-- Added active routing notes so investigation requests, triage requests, source-deepening requests, and curation maintenance requests can all route through one reusable party surface.
+- Removed the mistaken `knowledge_investigation_cell` party surface because the intended abstraction is a cross-cutting pre-start investigation workflow, not a reusable party chain.
+- Added `.workflow/workflow_knowledge_preflight_v0/` as the generic workflow that checks `.registry/knowledge`, canon-backed Obsidian export, NotebookLM bindings, `_workmeta` evidence, and Drive refs before a target workflow starts.
+- Kept the result metadata-only so the preflight seeds claim ceilings and next routes without becoming source truth, owner approval, or canon authority.
 
 ### Revision `working` - Knowledge wiki worldview overview added
 

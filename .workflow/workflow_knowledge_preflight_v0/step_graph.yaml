@@ -1,0 +1,62 @@
+workflow_id: workflow_knowledge_preflight_v0
+kind: step_graph
+status: active
+steps:
+  - step_id: bind_target_and_need
+    title: Bind Target And Knowledge Need
+    actor_slot: target_binding_reviewer
+    action: Bind the target workflow, knowledge request scope, and allowed investigation policy.
+    outputs:
+      - project_binding
+    next:
+      - inspect_canon_surfaces
+  - step_id: inspect_canon_surfaces
+    title: Inspect Canon Surfaces
+    actor_slot: canon_surface_inspector
+    action: Inspect `.registry/knowledge`, canon-backed Obsidian export refs, and wiki index refs before any advisory or source-heavy surfaces.
+    inputs:
+      - project_binding
+    outputs:
+      - query_first_plan
+    next:
+      - inspect_advisory_surfaces
+  - step_id: inspect_advisory_surfaces
+    title: Inspect Advisory Surfaces
+    actor_slot: advisory_surface_inspector
+    action: Inspect NotebookLM bindings and notebook/source maps as advisory context only.
+    inputs:
+      - query_first_plan
+    outputs:
+      - knowledge_preflight_packet
+    next:
+      - inspect_evidence_surfaces
+  - step_id: inspect_evidence_surfaces
+    title: Inspect Evidence Surfaces
+    actor_slot: evidence_surface_inspector
+    action: Inspect `_workmeta` evidence, source packets, and prior sourcebound claim routes when canon and advisory surfaces are insufficient.
+    inputs:
+      - knowledge_preflight_packet
+    outputs:
+      - source_scope_recommendation
+    next:
+      - inspect_archive_surface_if_needed
+  - step_id: inspect_archive_surface_if_needed
+    title: Inspect Archive Surface If Needed
+    actor_slot: archive_surface_inspector
+    action: Inspect Drive or canon-package refs only when earlier surfaces still leave the request unresolved.
+    inputs:
+      - source_scope_recommendation
+    outputs:
+      - claim_ceiling_seed
+    next:
+      - assemble_handoff
+  - step_id: assemble_handoff
+    title: Assemble Target Workflow Handoff
+    actor_slot: handoff_router
+    action: Assemble the metadata-only handoff for the target workflow, including uncertainty, source scope, and reroute recommendations.
+    inputs:
+      - claim_ceiling_seed
+    outputs:
+      - target_workflow_handoff
+      - boundary_review_note
+    next: []

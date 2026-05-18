@@ -1,0 +1,13 @@
+workflow_id: workflow_knowledge_preflight_v0
+kind: monster_rules
+status: active
+rules:
+  - monster_id: notebooklm_answer_as_authority
+    response: route_to_source_scope_or_owner_gate
+    summary: NotebookLM answers must not be treated as source truth or final authority.
+  - monster_id: drive_presence_treated_as_canon
+    response: lower_claim_and_restore_boundary
+    summary: Drive/package presence is support context only, not canon authority.
+  - monster_id: workmeta_payload_requested_directly
+    response: hold_private_or_sourcebound_only
+    summary: `_workmeta` payload access must stay bounded and should not leak into public package claims.

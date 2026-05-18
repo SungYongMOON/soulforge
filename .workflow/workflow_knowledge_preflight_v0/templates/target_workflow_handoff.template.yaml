@@ -1,0 +1,9 @@
+workflow_id: workflow_knowledge_preflight_v0
+kind: target_workflow_handoff
+status: draft
+target_workflow_id: "<workflow_id>"
+usable_knowledge_refs: []
+advisory_refs: []
+remaining_gaps: []
+uncertainty_notes: []
+recommended_next_route: "proceed|proceed_with_uncertainty|route_to_sourcebound|route_to_knowledge_wiki_cell|route_to_owner_decision"

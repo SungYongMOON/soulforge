@@ -1,0 +1,24 @@
+workflow_id: workflow_knowledge_preflight_v0
+kind: handoff_rules
+status: active
+rules:
+  - from: target_binding_reviewer
+    to: canon_surface_inspector
+    condition: project_binding_written
+    summary: Canon surface inspection receives the target workflow need and allowed context refs only.
+  - from: canon_surface_inspector
+    to: advisory_surface_inspector
+    condition: query_first_plan_written
+    summary: Advisory surface inspection receives only the unresolved or partially resolved knowledge needs.
+  - from: advisory_surface_inspector
+    to: evidence_surface_inspector
+    condition: knowledge_preflight_packet_written
+    summary: Evidence surface inspection receives advisory availability notes without treating them as authority.
+  - from: evidence_surface_inspector
+    to: archive_surface_inspector
+    condition: source_scope_recommendation_written
+    summary: Archive inspection receives only the remaining unresolved needs and allowed package refs.
+  - from: archive_surface_inspector
+    to: handoff_router
+    condition: claim_ceiling_seed_written
+    summary: Final handoff assembly receives the weakest safe claim seed and next-route recommendations.
