@@ -19,6 +19,16 @@
 - 2026-05-18 기준 전체 workflow alias 후보 목록은 draft 매핑표인 [`docs/WORKFLOW_NAME_MAPPING_TABLE_V0.md`](docs/WORKFLOW_NAME_MAPPING_TABLE_V0.md) 에 둔다. 이 표는 rename 이나 validator enforcement 가 아니다.
 - 사람이 보기 쉬운 파생 정적 검토 뷰는 [`docs/WORKFLOW_NAMING_DRAFT_V0.html`](docs/WORKFLOW_NAMING_DRAFT_V0.html) 에 둔다. 정본은 Markdown/YAML/JSON 이며 HTML 은 rename, alias catalog, validator enforcement 를 만들지 않는다.
 
+## lane 과 실행 binding 구분
+
+- workflow 의 `classification_lane` 은 사람이 찾고 묶어 보기 위한 분류 정보다.
+- `classification_lane.primary` 는 대표 업무 영역 하나만 적고, `classification_lane.secondary` 는 걸쳐 있는 보조 영역을 적는다.
+- `classification_lane.primary_name_ko` 와 `classification_lane.secondary_name_ko` 는 사람이 보는 한글 표시 이름이다.
+- 이 lane 은 workflow owner, party owner, 실행 권한, project owner 를 만들지 않는다.
+- workflow 를 실제로 어느 party 가 수행할지는 `execution_binding`, party 의 `allowed_workflows.yaml`, 또는 mission binding 이 결정한다.
+- 따라서 workflow 가 `project_management` lane 에 있어도 project party 가 자동으로 배정되는 것은 아니며, mail 관련 workflow 라도 mail party 가 step 을 소유하는 것은 아니다.
+- lane id 와 한글 표시 이름의 초안 표는 [`docs/WORKFLOW_LANE_TAXONOMY_V0.md`](docs/WORKFLOW_LANE_TAXONOMY_V0.md) 에 둔다.
+
 ## canon 과 성숙도 구분
 
 - workflow 의 public-safe package owner 와 runtime 성숙도 평가는 같은 말이 아니다.

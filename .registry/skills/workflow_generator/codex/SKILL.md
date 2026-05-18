@@ -1,6 +1,6 @@
 ---
 name: soulforge-workflow-generator
-description: Use when Codex must generate, evolve, or validate format-agnostic workflows through evidence-driven evaluation. Supports workflow creation from fresh objectives, multi-skill workflow design, fixture-driven workflow evolution, single-skill build/modify when needed, goal reconstruction, and skill extraction after success while preserving fresh executor/verifier separation, cumulative same-run artifact chaining for warm transformation rounds, source-packet provenance, baseline replay gates, and strict oracle boundaries.
+description: Use when Codex must generate, evolve, or validate format-agnostic workflows through evidence-driven evaluation. Supports workflow creation from fresh objectives, multi-skill workflow design, fixture-driven workflow evolution, single-skill build/modify when needed, goal reconstruction, and skill extraction after success while preserving fresh executor/verifier separation, cumulative same-run artifact chaining, source-packet provenance, baseline replay gates, workflow classification lanes, party/mission execution-binding boundaries, and strict oracle boundaries.
 ---
 
 # Soulforge Workflow Generator
@@ -48,9 +48,43 @@ If subagent authorization is absent and a real B/V run is required, stop with th
 
 ## Path Portability
 
-Reusable workflow packages, canon files, public-safe examples, and extracted skill/workflow candidates must use Soulforge-root-relative POSIX paths. Do not write host-specific absolute paths such as `C:\...`, drive letters, home directories, or installed local skill paths into `.workflow/**`, `.registry/**`, `docs/architecture/**`, or any reusable workflow package.
+Reusable workflow packages, canon files, public-safe examples, and extracted skill/workflow candidates must use Soulforge-root-relative POSIX paths. Do not write host-specific absolute paths such as Windows drive-letter paths, home directories, or installed local skill paths into `.workflow/**`, `.registry/**`, `docs/architecture/**`, or any reusable workflow package.
 
 Runtime-only absolute paths are allowed only in local/private run evidence or subagent prompts when a tool needs them. Label them as `*_runtime_path` and keep a paired portable identity such as `*_repo_path`, `workflow_id`, or `skill_id`. When a path is inside the Soulforge project, store the portable form relative to the Soulforge root, for example `.workflow/example/workflow.yaml` or `_workmeta/<project_code>/runs/<run_id>/...`, using `/` separators.
+
+## Lane And Party Binding Policy
+
+When creating, evolving, or extracting a workflow, separate classification from execution authority.
+
+- Put workflow indexing under `classification_lane`.
+- Use `classification_lane.primary` for one main business/domain lane and `classification_lane.secondary` for supporting lanes.
+- Add Korean display fields beside stable ids: `primary_name_ko` and `secondary_name_ko`.
+- Keep stable lane ids in English `snake_case`; use Korean fields for human-facing labels and review pages.
+- Treat workflow lanes as discovery, grouping, and search metadata only. They must not create workflow owner, party owner, project owner, or execution authority.
+- Put party fit under the party package's `service_lane`, not inside the workflow body.
+- Do not create or bind a party only because a workflow lane name matches a party lane name.
+- Record real execution relationships in `execution_binding`, party `allowed_workflows.yaml`, or mission binding.
+- Use `candidate_party_id` only as a future fit hint. Use `bound_party_id` only when an explicit canon package, allowed-workflow relation, or mission assignment supports it.
+- If no suitable party exists, leave the workflow runnable by the current controller route and state that party binding is unbound.
+
+For workflow drafts, include this minimal shape unless the target schema already has an equivalent field:
+
+```yaml
+classification_lane:
+  primary: project_management
+  primary_name_ko: 프로젝트 관리
+  secondary:
+    - mail_management
+  secondary_name_ko:
+    - 메일 관리
+  purpose: discovery_only
+  authority: none
+execution_binding:
+  party_required: false
+  candidate_party_id: null
+  bound_party_id: null
+  binding_authority: none
+```
 
 ## Quick Routing
 
@@ -183,6 +217,7 @@ Infer the smallest useful brief:
 - artifact roles and fixed baseline/reference identities
 - non-negotiable private/public/secret/tool boundaries
 - source packet status and source-bootstrap need
+- expected `classification_lane` and any known `execution_binding`
 - max rounds, budget, stop conditions, and human-decision gates
 
 Ask only when the target path, fixture queue, write boundary, source approval, reference access policy, or subagent authorization would be unsafe to infer.

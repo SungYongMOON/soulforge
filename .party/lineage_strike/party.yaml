@@ -3,6 +3,19 @@ kind: party_template
 status: active
 title: Lineage Strike
 summary: Canonical lineage-production workflow-chain party for source review, boundary stabilization, and follow-up drafting.
+service_lane:
+  primary: source_lineage
+  primary_name_ko: 소스 계보
+  secondary:
+    - source_review
+    - boundary_stabilization
+    - followup_drafting
+  secondary_name_ko:
+    - 소스 검토
+    - 경계 안정화
+    - 후속 작성
+  purpose: execution_fit
+  authority: routing_hint_only
 default_workflow_id: build_lineage_map
 workflow_chain:
   - order: 1

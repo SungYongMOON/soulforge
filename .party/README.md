@@ -13,6 +13,16 @@
 - 2026-05-18 기준 전체 party alias 후보 목록은 draft 매핑표인 [`docs/PARTY_NAME_MAPPING_TABLE_V0.md`](docs/PARTY_NAME_MAPPING_TABLE_V0.md) 에 둔다. 이 표는 rename 이나 validator enforcement 가 아니다.
 - 사람이 보기 쉬운 파생 정적 검토 뷰는 [`docs/PARTY_NAMING_DRAFT_V0.html`](docs/PARTY_NAMING_DRAFT_V0.html) 에 둔다. 정본은 Markdown/YAML/JSON 이며 HTML 은 rename, alias catalog, validator enforcement 를 만들지 않는다.
 
+## lane 과 workflow 구분
+
+- party 의 `service_lane` 은 이 조합이 잘 맡는 서비스/역할 영역을 설명하는 적합도 정보다.
+- `service_lane.primary` 는 대표 수행 성격 하나만 적고, `service_lane.secondary` 는 보조 성격을 적는다.
+- `service_lane.primary_name_ko` 와 `service_lane.secondary_name_ko` 는 사람이 보는 한글 표시 이름이다.
+- 이 lane 은 workflow 단계, workflow owner, mission 실행 명령을 소유하지 않는다.
+- 실제 수행 가능 여부는 `allowed_workflows.yaml`, `default_workflow_id`, 그리고 mission binding 으로 판단한다.
+- 같은 lane 이름이 workflow 와 party 에 동시에 나타나도, workflow 는 절차이고 party 는 투입 조합이라는 경계가 우선한다.
+- lane id 와 한글 표시 이름의 초안 표는 [`.workflow/docs/WORKFLOW_LANE_TAXONOMY_V0.md`](../.workflow/docs/WORKFLOW_LANE_TAXONOMY_V0.md) 에 둔다.
+
 ## 관계도
 
 ```mermaid

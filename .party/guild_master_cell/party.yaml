@@ -3,6 +3,21 @@ kind: party_template
 status: active
 title: Guild Master Cell
 summary: Canonical workflow-chain party for skill authoring, post-development review handoff, and strategic vision/gap review routing.
+service_lane:
+  primary: governance
+  primary_name_ko: 거버넌스
+  secondary:
+    - workflow_authoring
+    - skill_authoring
+    - review
+    - strategic_review
+  secondary_name_ko:
+    - 워크플로우 작성
+    - 스킬 작성
+    - 리뷰
+    - 전략 검토
+  purpose: execution_fit
+  authority: routing_hint_only
 default_workflow_id: author_skill_package
 workflow_chain:
   - order: 1

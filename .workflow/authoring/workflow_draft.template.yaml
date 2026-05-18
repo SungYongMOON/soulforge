@@ -10,6 +10,23 @@ display_name_ko: "분류/루프단계/행위"
 display_name_ko_scope: draft_authoring_aid
 display_name_ko_note: "Human-readable description only; slash is allowed here but this is not the global invocation key."
 naming_contract_ref: .workflow/docs/WORKFLOW_NAMING_CONTRACT_V0.md
+classification_lane:
+  primary: operations
+  primary_name_ko: 운영
+  secondary: []
+  secondary_name_ko: []
+  purpose: discovery_only
+  authority: none
+  notes:
+    - Workflow lane is for indexing and discovery only.
+    - Workflow lane does not choose a party or grant execution authority.
+execution_binding:
+  party_required: false
+  candidate_party_id: null
+  bound_party_id: null
+  binding_authority: none
+  notes:
+    - Actual execution compatibility is decided by party allowed_workflows, mission binding, or an explicit workflow package rule.
 entrypoint: run
 execution_mode: single_unit
 profile_policy: profile_policy.yaml

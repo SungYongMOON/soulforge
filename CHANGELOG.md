@@ -56,6 +56,14 @@
 
 ## 2026-05-18
 
+### Revision `working` - Workflow lane and party service lane boundary added
+
+- Added workflow `classification_lane` guidance so workflow lanes are discovery/indexing metadata only, not owner or execution authority.
+- Added party `service_lane` guidance and fields to the three current party templates so party fit can be described without owning workflow steps.
+- Extended the workflow draft template with `classification_lane` and `execution_binding` placeholders, keeping actual execution binding in party allowed-workflows or mission assignment.
+- Updated the canonical `workflow_generator` skill and installed `soulforge-workflow-generator` mirror so future generated workflows preserve the same lane and party-binding boundary.
+- Added a draft lane taxonomy and Korean display-name fields for workflow classification lanes and party service lanes.
+
 ### Revision `working` - Workflow and party name mapping drafts added
 
 - Added `.workflow/docs/WORKFLOW_NAME_MAPPING_TABLE_V0.md` with draft Korean alias/display-name candidates for all 44 workflows currently registered in `.workflow/index.yaml`, without renaming ids, folders, or index entries.
