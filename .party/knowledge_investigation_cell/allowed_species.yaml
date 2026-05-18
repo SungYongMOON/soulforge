@@ -1,0 +1,8 @@
+party_id: knowledge_investigation_cell
+kind: allowed_species
+status: active
+species_ids: []
+selection_policy: workflow_profile_owned
+notes:
+  - Species selection is not party authority for this chain.
+  - Use each workflow profile or calibration result to choose the execution species.

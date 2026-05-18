@@ -1,0 +1,8 @@
+party_id: knowledge_investigation_cell
+kind: allowed_classes
+status: active
+class_ids: []
+selection_policy: workflow_profile_owned
+notes:
+  - Class selection is not party authority for this chain.
+  - Use each workflow profile or calibration result to choose the execution class.

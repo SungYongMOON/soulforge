@@ -1,0 +1,28 @@
+party_id: knowledge_investigation_cell
+kind: party_template
+status: active
+title: Knowledge Investigation Cell
+summary: Query-first, source-aware investigation party for knowledge-heavy monsters, candidate triage, source deepening, curation, usage capture, and closeout routing.
+default_workflow_id: llm_wiki_builder_v0
+workflow_chain:
+  - order: 1
+    workflow_id: llm_wiki_builder_v0
+    role: query_first_investigation_router_and_stage_chain_owner
+    execution_contract: subagent_required
+preferred_monster_types:
+  - knowledge_investigation_request
+  - query_first_knowledge_request
+  - candidate_triage_request
+  - source_deepening_request
+  - wiki_curation_request
+member_slots: member_slots.yaml
+allowed_species: allowed_species.yaml
+allowed_classes: allowed_classes.yaml
+allowed_workflows: allowed_workflows.yaml
+appserver_profile: appserver_profile.yaml
+notes:
+  - Party owns the investigation entry route only; workflow internals remain workflow-owned.
+  - `llm_wiki_builder_v0` is the default composite entry and may delegate to preflight, candidate triage, sourcebound deepening, curation, usage capture, and closeout lanes.
+  - NotebookLM remains advisory-only inside this party.
+  - Source truth remains with approved sources or source packets.
+  - Party-level registration does not approve canon promotion, owner decisions, or archive execution by itself.

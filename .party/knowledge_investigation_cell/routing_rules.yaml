@@ -1,0 +1,51 @@
+party_id: knowledge_investigation_cell
+kind: routing_rules
+status: active
+current_default_route:
+  route_surface: registered_party_entry
+  party_id: knowledge_investigation_cell
+  default_workflow_id: llm_wiki_builder_v0
+request_classes:
+  - request_class: query_first_knowledge_request
+    trigger_signals:
+      - "investigate from existing wiki first"
+      - "query project wiki before raw source"
+      - "knowledge-heavy research request"
+    route: route_to_party_chain
+    note: "Default query-first investigation route."
+  - request_class: candidate_triage_request
+    trigger_signals:
+      - "triage knowledge candidates"
+      - "decide inbox or review queue placement"
+      - "bookshelf placement decision"
+    route: route_to_party_chain
+    note: "Let the builder or direct triage lane decide bounded candidate routing."
+  - request_class: source_deepening_request
+    trigger_signals:
+      - "deepen with approved sources"
+      - "route to sourcebound packet work"
+      - "source-backed investigation needed"
+    route: route_to_party_chain
+    note: "Use the builder first, then delegate to sourcebound deepening only when needed."
+  - request_class: curation_maintenance_request
+    trigger_signals:
+      - "maintain project wiki state"
+      - "curation update"
+      - "refresh reusable wiki packet"
+    route: route_to_party_chain
+    note: "Investigation party can route into the curation layer without making the party own curation internals."
+  - request_class: exact_authority_review
+    trigger_signals:
+      - "exact authority answer"
+      - "need stronger source sufficiency review"
+      - "owner decision needed before stronger answer"
+    route: insert_owner_or_source_review_gate
+    note: "Escalate to sufficiency or owner-decision workflows before stronger claims."
+blocked_routes:
+  - blocked_case: notebooklm_answer_as_authority
+    response: "Use NotebookLM as advisory context only; route stronger claims to source or owner review."
+  - blocked_case: source_truth_requested_without_approved_source
+    response: "Hold private and route into source packet or sourcebound deepening workflows."
+notes:
+  - This routing note is active party-local guidance, not a separate workflow registration surface.
+  - Investigation party may delegate into sourcebound, triage, curation, and review lanes without duplicating those workflows inside the party body.
