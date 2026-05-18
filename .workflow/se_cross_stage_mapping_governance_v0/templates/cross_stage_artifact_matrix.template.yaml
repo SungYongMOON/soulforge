@@ -1,0 +1,55 @@
+schema_version: se_cross_stage_artifact_matrix_v0
+matrix_identity:
+  matrix_id: <matrix_id>
+  workflow_id: se_cross_stage_mapping_governance_v0
+  project_code: <project_code>
+  run_id: <run_id>
+boundary:
+  governance_only: true
+  evidence_authority: false
+  hwp_hwpx_body_reviewed: false
+  source_payloads_included: false
+stage_columns:
+  - stage_code: 000_REF
+    stage_name: REF
+  - stage_code: 020_MGMT
+    stage_name: MGMT
+  - stage_code: 030_SRR
+    stage_name: SRR
+  - stage_code: 060_SFR
+    stage_name: SFR
+  - stage_code: 090_PDR
+    stage_name: PDR
+  - stage_code: 120_CDR
+    stage_name: CDR
+  - stage_code: 150_TRR_DT
+    stage_name: TRR_DT
+  - stage_code: 180_FCA_OT
+    stage_name: FCA_OT
+  - stage_code: 210_PCA
+    stage_name: PCA
+  - stage_code: 240_LL
+    stage_name: LL
+  - stage_code: 270_UNCLASSIFIED
+    stage_name: UNCLASSIFIED
+artifact_rows:
+  - artifact_row_id: <artifact_row_id>
+    artifact_family: <artifact_family>
+    artifact_title_or_filename: <title_or_filename_only>
+    artifact_ref: <portable_ref_or_packet_row_id>
+    stage_coverage:
+      - stage_code: <stage_code>
+        stage_name: <stage_name>
+        coverage_state: observed|expected_missing|partial|not_applicable|blocked|unknown
+        basis_ref: <stage_gap_scan_row_or_input_ref>
+        basis_kind: stage_gap_scan|filename|title|pdf_html_derivative|intake_note|planning_doc|owner_mark
+        body_review_performed: false
+        hwp_hwpx_body_review_in_scope: false
+    aggregate_coverage_state: observed|expected_missing|partial|not_applicable|blocked|unknown
+    current_claim_ceiling: observed|mapped_governance_only|source_gap_followup_needed|owner_decision_needed|blocked_missing_download|not_applicable_owner_marked|rejected_or_blocked
+    downstream_route_ids: []
+matrix_checks:
+  every_stage_uses_current_stage_code: false
+  trr_dt_fca_ot_ll_present: true
+  no_hwp_hwpx_body_claims: true
+  no_readiness_claims: true

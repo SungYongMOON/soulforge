@@ -3,7 +3,7 @@
 ## 목적
 
 - `.mission/` 과 `_workspaces/` 의 owner 경계를 분리한다.
-- workflow 절차 canon, party template, held mission plan, project-local run truth 의 관계를 고정한다.
+- workflow 절차 canon, party workflow-chain template, held mission plan, project-local run truth 의 관계를 고정한다.
 
 ## 구조 개요도
 
@@ -11,7 +11,7 @@
 flowchart TD
   WF[".workflow/<workflow_id>/workflow.yaml"] --> MI[".mission/<mission_id>/mission.yaml"]
   PT[".party/<party_id>/party.yaml"] --> MI
-  U[".unit/<unit_id>/unit.yaml"] --> MI
+  U["runtime assignment / workflow profile"] --> MI
   B["local bindings"] --> RP["resolved_plan.yaml"]
   MI --> RD["readiness.yaml"]
   MI --> RP
@@ -21,7 +21,7 @@ flowchart TD
 ## 핵심 구분
 
 - `workflow` = reusable 절차 canon
-- `party` = reusable 팀 조합 template
+- `party` = reusable workflow-chain / loadout template
 - `mission` = 현재 들고 있는 실제 실행 계획
 - `run` = project-local worksite 에 남는 실제 실행 시도 기록
 
@@ -96,7 +96,7 @@ flowchart LR
 
 ## owner 규칙
 
-- `.mission/<mission_id>/mission.yaml` 은 `workflow_id`, `party_id`, `project_code`, `unit_assignments` 같은 held mission metadata 를 소유한다.
+- `.mission/<mission_id>/mission.yaml` 은 `workflow_id`, `party_id`, `project_code`, runtime assignment 같은 held mission metadata 를 소유한다.
 - `.mission/<mission_id>/mission.yaml` 은 mission-scoped `notifications.telegram.*` toggle 도 함께 소유할 수 있다.
 - `.mission/<mission_id>/readiness.yaml` 은 `draft`, `blocked`, `ready`, `running`, `completed`, `failed` 같은 현재 준비 상태와 blocking reason 을 소유한다.
 - current-default v0 에서 `.mission/<mission_id>/readiness.yaml` 은 `terminal_provenance` pointer 로 `closed_via`, `closed_at`, `terminal_result`, `run_id`, `battle_event_id` 를 함께 둘 수 있다.
@@ -108,9 +108,9 @@ flowchart LR
 ## readiness 판단 예시
 
 - `workflow_id` 존재 여부
-- `party_id` 존재 여부
-- required `actor_slot` 충족 여부
-- 실제 `unit_id` assignment 존재 여부
+- `party_id` 존재 여부 또는 단일 `workflow_id` 존재 여부
+- required workflow-chain / current workflow 충족 여부
+- 실제 runtime assignment 또는 workflow profile resolve 여부
 - 필요한 runtime binding resolve 여부
 - project-local input 준비 여부
 

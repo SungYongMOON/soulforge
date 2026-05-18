@@ -1,0 +1,33 @@
+workflow_id: se_knowledge_wiki_pipeline_v0
+kind: pipeline_request_packet
+status: draft
+request_id: "<request_id>"
+request_class: "fresh_pipeline|refresh_existing_projection|query_only_with_existing_projection|promotion_sensitive_review|blocked_boundary_case"
+requested_source_scope: []
+requested_output_surface:
+  - "private_markdown_wiki"
+  - "obsidian_canon_read_view"
+owner_held_archive_policy:
+  archive_surface: "google_drive|other_owner_held_archive|not_applicable"
+  first_storage_label: "inbox|candidate_source|not_applicable"
+  backup_labels:
+    - working_packet
+    - reviewed_private
+    - canon_package
+    - obsolete_or_blocked
+  agent_upload_authority: "none|owner_approved_connector_action|codex_skill_auto_sync"
+  per_file_owner_confirmation_required: false
+  allowed_tooling:
+    - codex_skill
+    - google_drive_connector
+  archive_presence_is_source_or_canon_authority: false
+obsidian_view_policy:
+  export_mode: "not_requested|generated_read_only"
+  suggested_runtime_repo_path: "_workspaces/system/knowledge_view/obsidian_export/<export_id>|not_requested"
+  drive_synced_folder_as_primary_surface: false
+  allow_human_edits: false
+  show_only_canon_entries: true
+  registry_source_required: true
+authority_sensitivity: "ordinary_private|page_sensitive|public_promotion_sensitive|owner_decision_sensitive"
+zip_policy: extracted_contents_only
+hwp_policy: readable_text_allowed_page_map_blocked_by_default

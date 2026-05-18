@@ -1,0 +1,18 @@
+schema_version: soulforge_profile_policy_v0
+workflow_id: se_knowledge_wiki_pipeline_v0
+default_profile:
+  posture: conservative_composite_router
+  model: gpt-5.5
+  reasoning_effort: high
+  execution_pattern: fresh_subagent_per_stage
+  claim_style: weakest_supported_ceiling
+  public_private_boundary: public_safe_orchestration_private_payloads
+  zip_handling: extracted_contents_only
+forbidden_profiles:
+  - single_context_full_chain_for_strong_claims
+  - zip_container_as_source_truth
+  - hwp_page_exact_claim_without_page_stable_surface
+  - public_promotion_without_authority_register
+notes:
+  - Draft user-requested default only; no calibration was performed.
+  - Stage-specific profiles still belong to the delegated stage workflows.

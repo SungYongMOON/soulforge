@@ -39,7 +39,7 @@
 - monster candidate 판정 상세와 intake-side 분류 이유는 별도 candidate note 에 두고, battle side 에는 필요한 provenance 만 복사한다.
 - raw event 의 canonical key 는 `project_code` 다.
 - `dungeon` 은 raw event 필드가 아니라 표시/파생 전용 값으로 둔다.
-- `party_id` 와 `unit_id` 는 둘 다 유지한다.
+- `party_id` 와 `unit_id` 는 둘 다 유지하되, `party_id` 는 workflow-chain/loadout, `unit_id` 는 대표 수행 주체로 해석한다.
 - `loop_id` 는 provenance 성격의 선택 필드다.
 - `next_action_note` 는 후속 조치를 짧게 남기는 선택 필드다.
 - `follow_up_needed` 는 `result` 와 의미가 겹치므로 v0 raw event 에서는 제거한다.
@@ -101,7 +101,7 @@
 | `stage` | 필수 | 프로젝트 안의 현재 단계 또는 마일스톤 | 어느 구간에서 전투가 일어났는지 보기 위해 |
 | `source_kind` | 필수 | 입력원 종류 | 현재는 `mail` 같은 intake 종류를 구분하기 위해 |
 | `source_ref` | 필수 | 원본 입력의 식별값 | 어떤 메일이나 요청에서 시작됐는지 추적하기 위해 |
-| `party_id` | 필수 | 실제 전투에 투입된 파티 ID | 파티 효율과 조합 분석을 위해 |
+| `party_id` | 필수 | 실제 전투에 투입된 workflow-chain/loadout ID | chain 효율과 라우팅 분석을 위해 |
 | `unit_id` | 필수 | 대표 수행 unit ID | 실제 처리 주체를 로그에 남기기 위해 |
 | `automation_possibility` | 필수 | candidate 단계에서 이미 정해진 자동화 가능성 snapshot | battle 이후에도 어떤 종류의 개입이 예상됐는지 provenance 로 읽기 위해 |
 | `battle_mode` | 필수 | 실제 수행 방식 | 수동, 보조, 제한적 자동 등 실행 방식을 구분하기 위해 |

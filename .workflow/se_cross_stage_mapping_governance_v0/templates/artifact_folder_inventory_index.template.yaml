@@ -1,0 +1,46 @@
+schema_version: se_artifact_folder_inventory_index_v0
+index_identity:
+  index_id: <index_id>
+  workflow_id: se_cross_stage_mapping_governance_v0
+  project_code: <project_code>
+  run_id: <run_id>
+boundary:
+  inventory_is_metadata_only: true
+  artifact_authoring_performed: false
+  artifact_bodies_read: false
+  hwp_hwpx_body_reviewed: false
+  hwp_hwpx_extraction_attempted: false
+  source_payloads_included: false
+  runtime_absolute_paths_included: false
+inventory_basis_refs:
+  stage_gap_scan_index_ref: stage_gap_scan_index.yaml
+  cross_stage_artifact_matrix_ref: cross_stage_artifact_matrix.yaml
+  artifact_to_input_map_ref: artifact_to_input_map.yaml
+artifact_folders:
+  - folder_id: <folder_id>
+    folder_ref: <portable_folder_ref_or_packet_row_id>
+    stage_code: <stage_code>
+    stage_name: <stage_name>
+    artifact_family: <artifact_family>
+    folder_inventory_status: present|missing|partial|blocked|unknown|not_applicable
+    allowed_metadata_basis:
+      - folder_name
+      - filenames
+      - titles
+      - sidecar_metadata
+      - existing_pdf_derivative_ref
+      - existing_html_derivative_ref
+      - intake_note_ref
+      - planning_doc_ref
+      - stage_gap_scan_row_ref
+    observed_item_count: 0
+    body_review_performed: false
+    hwp_hwpx_body_review_in_scope: false
+    related_stage_gap_scan_row_ids: []
+    related_artifact_row_ids: []
+    current_claim_ceiling: observed|mapped_governance_only|source_gap_followup_needed|owner_decision_needed|blocked_missing_download|not_applicable_owner_marked|rejected_or_blocked
+index_checks:
+  every_folder_has_portable_ref: false
+  no_runtime_absolute_paths: true
+  no_artifact_body_review_claims: true
+  no_hwp_hwpx_body_claims: true

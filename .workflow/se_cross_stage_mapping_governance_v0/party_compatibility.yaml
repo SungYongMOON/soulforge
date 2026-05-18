@@ -1,0 +1,11 @@
+schema_version: soulforge_party_compatibility_v0
+workflow_id: se_cross_stage_mapping_governance_v0
+compatible_party_roles:
+  - controller
+  - boundary_reviewer
+requires_fresh_bv_execution: false
+notes:
+  - This package is governance design only and does not require B/V artifact transformation roles.
+  - Repeated per-artifact-folder inspection is metadata-only and does not authorize artifact body review or artifact authoring roles.
+  - Downstream rerun routes are recommendations to owning workflows, not execution by this workflow package.
+  - Fresh execution may be added later by a project-local binding, but this public package does not contain private fixtures or pilot evidence.

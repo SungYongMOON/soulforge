@@ -62,7 +62,8 @@ Soulforge 개선은 아래 세 층을 같이 봐야 한다.
 - `Species`, `Class`, `Unit`, `Workflow`, `Party`, `Mission`, `Monster`, `Artifact`, `Event`
 - 아래 관계를 public 문서에서 더 분명히 적는다.
   - `workflow guides mission`
-  - `party assigns unit`
+  - `party chains workflow`
+  - `workflow profile may recommend unit`
   - `monster triggers mission`
   - `mission consumes artifact`
   - `mission produces artifact`

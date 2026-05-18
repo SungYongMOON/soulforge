@@ -1,0 +1,35 @@
+schema_version: se_downstream_rerun_routes_v0
+routes_identity:
+  routes_id: <routes_id>
+  workflow_id: se_cross_stage_mapping_governance_v0
+  project_code: <project_code>
+  run_id: <run_id>
+boundary:
+  routes_are_recommendations_only: true
+  downstream_rerun_executed_by_this_workflow: false
+  downstream_result_claimed: false
+  artifact_authoring_performed: false
+  hwp_hwpx_body_reviewed: false
+route_rows:
+  - route_id: <route_id>
+    related_folder_id: <folder_id>
+    related_artifact_row_ids: []
+    related_delta_row_ids: []
+    related_followup_row_ids: []
+    target_downstream_workflow_id: <workflow_id>
+    rerun_reason: new_metadata_observed|gap_added|gap_changed|gap_resolved_pending_reindex|owner_source_followup_needed|claim_ceiling_changed|blocked|other
+    rerun_trigger_state: recommended|waiting_for_owner|waiting_for_source_followup|blocked|not_applicable
+    expected_input_refs:
+      - <portable_ref_or_row_id>
+    blocked_by_gap_ids: []
+    current_claim_ceiling: observed|mapped_governance_only|source_gap_followup_needed|owner_decision_needed|blocked_missing_download|not_applicable_owner_marked|rejected_or_blocked
+    non_claims:
+      - rerun_executed
+      - rerun_passed
+      - artifact_complete
+      - stage_ready
+      - final_readiness
+routes_checks:
+  every_route_targets_owning_workflow: false
+  no_downstream_execution_claims: true
+  no_readiness_claims: true

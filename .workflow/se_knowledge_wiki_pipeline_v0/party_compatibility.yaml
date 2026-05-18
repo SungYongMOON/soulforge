@@ -1,0 +1,17 @@
+workflow_id: se_knowledge_wiki_pipeline_v0
+kind: party_compatibility
+status: active
+compatible_parties:
+  - party_id: knowledge_wiki_cell
+    status: default_entry_registered
+  - party_id: solo_operator
+    status: supported_for_draft_or_private_pilot
+  - party_id: owner_plus_executor
+    status: supported
+  - party_id: source_reviewer_pair
+    status: recommended
+  - party_id: b_v_review_pair
+    status: required_for_public_promotion_or_reference_claims
+notes:
+  - `knowledge_wiki_cell` may use this workflow as the default party entry while the registered stage workflows remain the downstream execution chain.
+  - Model, reasoning, species, class, and unit bindings remain workflow- or project-local concerns.

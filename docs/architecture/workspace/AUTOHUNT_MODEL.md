@@ -7,7 +7,7 @@
 
 ## 한 줄 정의
 
-- `autohunt/` 는 mail 또는 dispatch source 를 monster 로 분해하고, 그 monster 를 어떤 workflow 와 party 로 자동 처리할지 정하는 local operating policy surface 다.
+- `autohunt/` 는 mail 또는 dispatch source 를 monster 로 분해하고, 그 monster 를 어떤 party workflow-chain 또는 단일 workflow 로 자동 처리할지 정하는 local operating policy surface 다.
 
 ## 관계도
 
@@ -17,7 +17,7 @@ flowchart TD
   MR --> MT["monster_type"]
   MT --> RT["autohunt/routing.yaml"]
   RT --> WF["workflow_id"]
-  RT --> PT["party_id"]
+  RT --> PT["party_id<br/>workflow chain"]
   WF --> RUN["runner"]
   PT --> RUN
   RUN --> RAW["runs/<run_id>/ raw truth"]
@@ -36,7 +36,7 @@ sequenceDiagram
   participant RAW as runs/<run_id>
   MB->>AH: incoming request
   AH->>AH: classify monster_type
-  AH->>AH: route to workflow_id + party_id
+  AH->>AH: route to party_id or workflow_id
   AH->>RUN: dispatch_request
   RUN->>SA: resolved run packet
   SA-->>RUN: execution result
@@ -46,14 +46,15 @@ sequenceDiagram
 
 ## 책임
 
-- `workflow` 는 절차와 step 순서를 소유한다.
-- `party` 는 slot 과 unit composition 을 소유한다.
-- `autohunt` 는 어떤 monster 를 어떤 workflow / party 로 자동 보낼지 소유한다.
+- `workflow` 는 절차, step 순서, workflow-level optimized execution profile 을 소유한다.
+- `party` 는 여러 workflow 를 연결한 chain/loadout 을 소유한다.
+- `party` 는 model, reasoning, species, class, unit 최적 조합을 소유하지 않는다.
+- `autohunt` 는 어떤 monster 를 어떤 party workflow-chain 또는 단일 workflow 로 자동 보낼지 소유한다.
 - source-heavy or ambiguity-heavy monsters may first route to
   `monster_knowledge_preflight_v0` so the main workflow receives a metadata-only
   preflight packet before it consumes larger source or NotebookLM context.
 - `autohunt` 는 필요하면 runner 로 넘길 dispatch request 를 만든다.
-- `runner` 는 workflow 와 party 를 읽어 실제 sub-agent execution 을 수행한다.
+- `runner` 는 party workflow-chain 과 workflow profile 을 읽어 실제 sub-agent execution 을 수행한다.
 - human `guild master` 는 실패한 hunt 의 escalation 을 받고, manual hunt 기록과 canon promotion 판단을 맡는 상위 운영 주체가 될 수 있다.
 - raw truth 는 언제나 `runs/<run_id>/` 아래에 남긴다.
 
@@ -74,7 +75,7 @@ node role 과 local identity 의 owner 는 [`MULTI_PC_DEVELOPMENT_V0.md`](MULTI_
 - `policy.yaml`
   - auto mode, retry, escalation, manual hunt capture policy
 - `routing.yaml`
-  - `monster_type -> workflow_id + party_id`
+  - `monster_type -> party_id` 또는 `monster_type -> workflow_id`
 - `mailbox_rules.yaml`
   - mailbox input 을 어떤 monster type 으로 읽을지
 

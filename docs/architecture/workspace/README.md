@@ -109,6 +109,6 @@
 - `MULTI_PC_DEVELOPMENT_V0.md` 는 다른 PC 에서 `clone -> local runtime materialize -> push` 하는 최소 운영 절차와 `work_pc` / `tool_pc` / `portable_dev_pc` / `always_on_node` 역할 모델을 잠근다.
 - split binding 파일은 `bindings/*.yaml` 상대 경로 포인터 규칙을 사용한다.
 - workflow step 의 `execution_profile_ref` 와 `action.skill_id` 는 local runtime binding 을 통해 model, skill package, MCP/tool preset 으로 resolve 할 수 있다.
-- `autohunt/` 는 mailbox routing, workflow-party selection, retry-escalation policy, future node capability/claim 확장선을 설명하는 local operating layer 다.
+- `autohunt/` 는 mailbox routing, party workflow-chain 또는 단일 workflow selection, retry-escalation policy, future node capability/claim 확장선을 설명하는 local operating layer 다.
 - runner 는 autohunt 가 고른 workflow/party 를 실제 execution packet 으로 잇는 local execution role 이다.
 - `_workmeta` 문서군은 local contract, binding, raw run truth 를 다루며 mission assignment owner 를 정의하지 않는다.

@@ -175,7 +175,7 @@ _workmeta/
 | `.registry/` | outer canon/store | species, class, skill, tool, knowledge canon 과 구조 문서 | active runtime, project-local truth, run dump |
 | `.unit/` | active agent unit owner | owner 계약 문서와 구조 설명 | 실전 운영 상태, 민감 로그, raw artifacts 자동 반영 |
 | `.workflow/` | independent orchestration canon | workflow 정의, workflow-level profile policy, public-safe calibration archive, sanitized history | project-local raw run dump, private/raw transcript, battle log |
-| `.party/` | independent orchestration template | party template 와 fit/observation summary | raw battle log, project-specific operational metrics |
+| `.party/` | independent workflow-chain orchestration template | party workflow-chain/loadout, entry workflow, allowed workflow set, chain-level observations | workflow 내부 step/profile, raw battle log, project-specific operational metrics |
 | `.mission/` | held mission plan owner | mission plan, readiness, public-safe dispatch / resolve metadata | raw run dump, project-local truth |
 | `guild_hall/` | cross-project operations root | gateway, town_crier, night_watch, dungeon_assignment source 와 owner 문서 | local state, mailbox dump, Telegram env, queue state |
 | `_workspaces/` | local-only project worksite | `README.md` only | per-project 내용 전체 |
@@ -184,7 +184,7 @@ _workmeta/
 
 - species canon 은 `species.yaml + heroes inline` 모델을 사용한다.
 - `.workflow` 와 `.party` 는 `.registry` 아래로 들어가지 않는다.
-- `.mission` 은 `.workflow`, `.party`, `.unit` 을 참조해 held mission plan 을 소유한다.
+- `.mission` 은 `.workflow`, `.party`, runtime assignment 를 참조해 held mission plan 을 소유한다.
 - `guild_hall` 은 cross-project ingress, notify, night watch, assignment 운영을 소유한다.
 - `guild_hall/state/**` 는 local-only state 이다.
 - project candidate root 는 `_workspaces/<project_code>/` direct child 구조를 사용한다.

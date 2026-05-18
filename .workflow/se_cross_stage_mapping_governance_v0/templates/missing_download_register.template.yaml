@@ -1,0 +1,47 @@
+schema_version: se_missing_download_register_v0
+register_identity:
+  register_id: <register_id>
+  workflow_id: se_cross_stage_mapping_governance_v0
+  project_code: <project_code>
+  run_id: <run_id>
+boundary:
+  register_is_not_download_manifest: true
+  download_performed_by_this_workflow: false
+  source_evidence_claimed: false
+  owner_files_not_source_evidence_until_reindexed: true
+  hwp_hwpx_body_reviewed: false
+missing_download_rows:
+  - missing_download_id: <missing_download_id>
+    related_artifact_row_ids: []
+    stage_code: <stage_code>
+    stage_name: <stage_name>
+    artifact_family: <artifact_family>
+    source_kind: datasheet|standard|review_record|test_result|configuration_record|pdf_or_html_derivative|hwp_or_hwpx_source|owner_file|other
+    missing_item_title_or_filename: <title_or_filename_only>
+    missing_item_ref: <portable_ref_or_null>
+    gap_family: missing_official_source|blocked_access|owner_file_needed|unapproved_local_source|identity_ambiguity|revision_ambiguity|format_unusable|hwp_hwpx_body_out_of_scope|terms_unclear|other
+    current_state: open|owner_waiting|source_gap_followup_needed|blocked|not_applicable|resolved_pending_owning_workflow_reindex
+    owner_action_needed: provide_file|approve_local_file|manual_download|confirm_identity|confirm_revision|approve_terms|accept_not_applicable|allow_agent_retry|none
+    source_gap_followup_candidate: true
+    target_followup_workflow_id: source_gap_followup_packet_v0
+    downstream_blocked_workflows: []
+    current_claim_ceiling: source_gap_followup_needed|owner_decision_needed|blocked_missing_download|not_applicable_owner_marked|rejected_or_blocked
+    non_claims:
+      - download_completed
+      - source_supported
+      - artifact_complete
+      - readiness_unblocked
+handoff_view:
+  source_gap_followup_packet_v0:
+    expected_input: missing_download_register_rows
+    route_status: planned_not_executed
+    required_preflight_checks:
+      - no_source_payloads_included
+      - no_credentials_or_secret_values_needed
+      - owner_action_is_concrete
+      - owning_workflow_reindex_required_after_file_arrival
+register_checks:
+  every_missing_download_has_owner_or_followup_action: false
+  no_download_completion_claims: true
+  no_hwp_hwpx_body_claims: true
+  no_source_payloads_included: true

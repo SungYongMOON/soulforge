@@ -1,0 +1,228 @@
+workflow_id: se_cross_stage_mapping_governance_v0
+kind: workflow
+status: draft
+title: SE Cross-Stage Mapping Governance v0
+summary: Aggregate cross-stage SE artifact coverage, artifact-to-input mapping, claim ceilings, and missing-download follow-up without becoming evidence authority or final readiness authority.
+entrypoint: run
+execution_mode: local_tool_sequence
+role_slots: role_slots.yaml
+step_graph: step_graph.yaml
+handoff_rules: handoff_rules.yaml
+monster_rules: monster_rules.yaml
+party_compatibility: party_compatibility.yaml
+profile_policy: profile_policy.yaml
+inputs:
+  - mapping_governance_binding
+  - stage_gap_scan_refs
+  - approved_mapping_policy
+optional_inputs:
+  - source_gap_followup_refs
+  - source_packet_sufficiency_refs
+  - review_gate_packet_refs
+  - readiness_digest_refs
+  - accepted_verification_result_refs
+  - existing_pdf_or_html_refs
+  - intake_note_refs
+  - repo_planning_doc_refs
+  - artifact_folder_refs
+  - artifact_folder_inventory_refs
+  - prior_inspection_packet_refs
+  - downstream_rerun_policy_refs
+outputs:
+  - mapping_governance_packet
+  - cross_stage_artifact_matrix
+  - artifact_to_input_map
+  - claim_ceiling_register
+  - missing_download_register
+  - stage_gap_scan_index
+  - boundary_review_note
+  - artifact_folder_inventory_index
+  - per_artifact_folder_inspection_packet
+  - required_content_gap_register
+  - input_basis_gap_register
+  - inspection_delta_register
+  - owner_source_followup_rows
+  - downstream_rerun_routes
+validation_level: structure_only_public_safe_draft
+registration_policy: not_registered
+output_state: draft
+workflow_modes:
+  - cross_stage_coverage_aggregation
+  - artifact_to_input_mapping
+  - claim_ceiling_review
+  - missing_download_followup_index
+  - repeated_artifact_folder_metadata_inspection
+stage_scope:
+  supported_stage_codes:
+    - 000_REF
+    - 020_MGMT
+    - 030_SRR
+    - 060_SFR
+    - 090_PDR
+    - 120_CDR
+    - 150_TRR_DT
+    - 180_FCA_OT
+    - 210_PCA
+    - 240_LL
+    - 270_UNCLASSIFIED
+  current_stage_names:
+    - REF
+    - MGMT
+    - SRR
+    - SFR
+    - PDR
+    - CDR
+    - TRR_DT
+    - FCA_OT
+    - PCA
+    - LL
+    - UNCLASSIFIED
+boundary:
+  public_safe_structure_only: true
+  governance_only: true
+  metadata_inspection_only: true
+  evidence_authority: false
+  final_readiness_authority: false
+  artifact_authoring_performed: false
+  upstream_artifacts_read_only: true
+  hwp_hwpx_body_review_in_scope: false
+  hwp_hwpx_extraction_in_scope: false
+  allowed_hwp_hwpx_context:
+    - filenames
+    - titles
+    - existing_pdf_derivatives
+    - existing_html_derivatives
+    - existing_intake_notes
+    - current_repo_planning_docs
+  forbidden_hwp_hwpx_actions:
+    - read_hwp_body
+    - read_hwpx_body
+    - attempt_hwp_extraction
+    - infer_hidden_body_contents
+    - claim_hwp_body_reviewed
+allowed_claim_ceilings:
+  - observed
+  - mapped_governance_only
+  - source_gap_followup_needed
+  - owner_decision_needed
+  - blocked_missing_download
+  - not_applicable_owner_marked
+  - rejected_or_blocked
+explicit_non_claims:
+  - artifact_completion
+  - source_supported_evidence
+  - validated_private_truth
+  - stage_readiness
+  - review_approval
+  - audit_closure
+  - verification_completion
+  - final_readiness
+  - hwp_or_hwpx_body_coverage
+  - download_completed
+  - owner_decision_created
+upstream_workflows:
+  - workflow_id: se_stage_artifact_gap_scan_v0
+    expected_outputs:
+      - stage_artifact_gap_scan_packet
+      - stage_required_artifact_matrix
+      - stage_input_gap_register
+      - owner_input_queue
+      - stage_blocker_register
+      - downstream_workflow_route_map
+      - stage_readiness_summary
+    status: primary_read_only_context
+  - workflow_id: source_gap_followup_packet_v0
+    expected_outputs:
+      - source_gap_followup_packet
+      - gap_dedup_index
+      - owner_action_queue
+      - download_or_reuse_batch_manifest
+      - retry_trigger_register
+      - downstream_unblock_map
+    status: optional_gap_context
+  - workflow_id: source_packet_sufficiency_review_v0
+    expected_outputs:
+      - blocked_fields_register
+      - owner_followup_needed
+      - allowed_claim_ceiling
+    status: optional_claim_ceiling_context
+  - workflow_id: review_gate_evidence_pack_v0
+    expected_outputs:
+      - review_blockers
+      - action_item_register
+      - readiness_summary
+    status: optional_review_context
+downstream_workflows:
+  - workflow_id: source_gap_followup_packet_v0
+    expected_input: missing_download_register_and_source_gap_rows
+    status: planned_for_gap_followup
+  - workflow_id: project_readiness_digest_v0
+    expected_input: mapping_governance_packet_and_claim_ceiling_register
+    status: planned_for_summary
+  - workflow_id: review_gate_evidence_pack_v0
+    expected_input: cross_stage_artifact_matrix_and_boundary_review_note
+    status: planned_for_review_context
+  - workflow_id: verification_plan_from_page_contracts_v0
+    expected_input: artifact_to_input_map_rows_with_verification_planning_needs
+    status: planned_for_verification_planning
+  - workflow_id: test_harness_asset_planning_v0
+    expected_input: trr_dt_rows_with_harness_or_fixture_input_gaps
+    status: planned_for_trr_dt
+  - workflow_id: functional_configuration_audit_page_library_v0
+    expected_input: fca_ot_rows_with_functional_audit_artifact_gaps
+    status: planned_for_fca_ot
+  - workflow_id: physical_configuration_audit_asset_package_v0
+    expected_input: pca_rows_with_physical_configuration_asset_gaps
+    status: planned_for_pca
+  - workflow_id: accepted_verification_result_packet_v0
+    expected_input: accepted_or_blocked_result_rows_from_stage_context
+    status: optional_later_stage_context
+governance_contract:
+  owns:
+    - cross_stage_artifact_row_identity
+    - stage_coverage_aggregation
+    - artifact_to_input_mapping
+    - claim_ceiling_assignment
+    - missing_download_followup_rows
+    - artifact_folder_inventory_indexing
+    - per_folder_metadata_inspection_packets
+    - required_content_gap_rows
+    - input_basis_gap_rows
+    - inspection_delta_rows
+    - owner_source_followup_rows
+    - downstream_rerun_route_rows
+    - boundary_review_note_shape
+  does_not_own:
+    - source_truth
+    - source_collection
+    - hwp_or_hwpx_body_review
+    - artifact_authoring
+    - artifact_body_inspection
+    - downstream_rerun_execution
+    - owner_decision_creation
+    - stage_readiness_approval
+    - review_gate_approval
+    - verification_acceptance
+    - final_readiness
+  required_output_shapes:
+    mapping_governance_packet: templates/mapping_governance_packet.template.yaml
+    cross_stage_artifact_matrix: templates/cross_stage_artifact_matrix.template.yaml
+    artifact_to_input_map: templates/artifact_to_input_map.template.yaml
+    claim_ceiling_register: templates/claim_ceiling_register.template.yaml
+    missing_download_register: templates/missing_download_register.template.yaml
+    stage_gap_scan_index: templates/stage_gap_scan_index.template.yaml
+    boundary_review_note: templates/boundary_review_note.template.md
+    artifact_folder_inventory_index: templates/artifact_folder_inventory_index.template.yaml
+    per_artifact_folder_inspection_packet: templates/per_artifact_folder_inspection_packet.template.yaml
+    required_content_gap_register: templates/required_content_gap_register.template.yaml
+    input_basis_gap_register: templates/input_basis_gap_register.template.yaml
+    inspection_delta_register: templates/inspection_delta_register.template.yaml
+    owner_source_followup_rows: templates/owner_source_followup_rows.template.yaml
+    downstream_rerun_routes: templates/downstream_rerun_routes.template.yaml
+notes:
+  - This workflow is compatible with existing stage gap scan outputs by treating them as read-only governance inputs.
+  - This workflow is compatible with source gap follow-up by emitting missing-download and source-gap rows that can be deduplicated by `source_gap_followup_packet_v0`.
+  - Repeated per-artifact-folder inspection is metadata-only and links back to existing matrix, map, gap, and follow-up rows where available.
+  - Downstream rerun routes are recommendations to owning workflows, not rerun execution or acceptance evidence.
+  - Public workflow canon stores only portable procedure, state semantics, and sanitized templates.
+  - Raw project payloads, source files, HWP/HWPX bodies, runtime absolute paths, credentials, cookies, sessions, and private run truth do not belong in this package.

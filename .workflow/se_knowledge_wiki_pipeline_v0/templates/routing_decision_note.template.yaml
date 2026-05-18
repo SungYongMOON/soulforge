@@ -1,0 +1,10 @@
+workflow_id: se_knowledge_wiki_pipeline_v0
+kind: routing_decision_note
+status: draft
+route_id: "<route_id>"
+current_default_party_route: knowledge_wiki_cell
+future_composite_candidate: se_knowledge_wiki_pipeline_v0
+decision: "route_to_party_chain|route_to_existing_projection|insert_source_sufficiency_gate|insert_owner_decision_gate|blocked"
+rationale: null
+required_next_action: null
+obsidian_export_route: "not_requested|generate_read_only_if_canon_backed|blocked_until_canon_backed"

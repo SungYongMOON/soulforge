@@ -9,6 +9,9 @@ entries:
     path: lineage_strike/party.yaml
   - party_id: guild_master_cell
     path: guild_master_cell/party.yaml
+  - party_id: knowledge_wiki_cell
+    path: knowledge_wiki_cell/party.yaml
 notes:
-  - Party catalog lists reusable team compositions.
+  - Party catalog lists reusable workflow-chain loadouts.
+  - Workflow optimizer results for model, reasoning, species, class, and unit choices belong under each .workflow entry, not in party canon.
   - Raw battle logs and project metrics do not belong here.

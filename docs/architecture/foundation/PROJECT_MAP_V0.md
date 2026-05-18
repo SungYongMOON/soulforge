@@ -8,7 +8,7 @@
 
 ## 한 줄 요약
 
-Soulforge는 현실 업무를 게임식 운영 루프로 바꾸기 위한 저장소다. 요청은 `monster`, 실행 계획은 `mission`, 반복 절차는 `workflow`, 실행자는 `unit`, 조합은 `party`, 실제 현장 데이터는 `_workspaces`, 프로젝트별 private 기억은 `_workmeta`, 공용 관문과 알림은 `guild_hall` 이 맡는다.
+Soulforge는 현실 업무를 게임식 운영 루프로 바꾸기 위한 저장소다. 요청은 `monster`, 실행 계획은 `mission`, 반복 절차는 `workflow`, 실행자는 `unit`, workflow 묶음은 `party`, 실제 현장 데이터는 `_workspaces`, 프로젝트별 private 기억은 `_workmeta`, 공용 관문과 알림은 `guild_hall` 이 맡는다.
 
 ## 현재 루트 지도
 
@@ -17,7 +17,7 @@ Soulforge/
 ├── .registry/       reusable canon store: species, classes, skills, tools, knowledge
 ├── .unit/           active unit owner: guild_master
 ├── .workflow/       reusable procedure canon
-├── .party/          reusable party templates
+├── .party/          reusable workflow-chain party templates
 ├── .mission/        held mission plans and readiness surfaces
 ├── guild_hall/      cross-project operations: gateway, notify, doctor, night_watch
 ├── _workspaces/     local-only project/dungeon materialization site
@@ -54,7 +54,7 @@ Soulforge/
 | `.registry` | 도감 / 창고 | species, class, skill, tool, knowledge canon | active runtime truth |
 | `.unit` | 캐릭터 / 실행자 | unit identity, class/species binding, unit owner surface | project raw data |
 | `.workflow` | 공략법 | 반복 가능한 절차 graph, slots, handoff | 특정 실행 결과 |
-| `.party` | 파티 편성 | unit 조합 template, 허용 class/species/workflow | 실제 성능 log |
+| `.party` | workflow-chain party | workflow chain/loadout, entry workflow, allowed workflow set | workflow 내부 step, 최적 model/reasoning/species/class/unit, 실제 성능 log |
 | `.mission` | 퀘스트 시트 | held mission plan, readiness, dispatch, resolved plan | raw run truth |
 | `guild_hall` | 길드홀 / 관문 | gateway, town_crier, doctor, night_watch, assignment | project-local source data |
 | `_workspaces` | 던전 현장 | 실제 프로젝트 파일과 산출물 | public tracked data |
@@ -69,7 +69,7 @@ gateway/mail/manual input
   -> monster candidate
   -> dungeon/project assignment
   -> mission plan
-  -> party/unit/workflow selection
+  -> party workflow-chain or workflow selection
   -> battle/run log
   -> artifact/output
   -> review

@@ -11,9 +11,9 @@
 | --- | --- | --- | --- |
 | `Species` | `.registry/species/<species_id>/` | `species.yaml` | `unit has_species species` |
 | `Class` | `.registry/classes/<class_id>/` | `class.yaml` | `unit has_class class` |
-| `Unit` | `.unit/<unit_id>/` | `unit.yaml` | `party assigns unit` |
+| `Unit` | `.unit/<unit_id>/` | `unit.yaml` | `workflow profile may recommend unit` |
 | `Workflow` | `.workflow/<workflow_id>/` | `workflow.yaml` | `workflow guides mission` |
-| `Party` | `.party/<party_id>/` | `party.yaml` | `party assigns unit`, `party routes workflow` |
+| `Party` | `.party/<party_id>/` | `party.yaml` | `party chains workflow`, `party routes workflow` |
 | `Mission` | `.mission/<mission_id>/` | `mission.yaml`, `readiness.yaml` | `monster triggers mission`, `workflow guides mission`, `mission consumes artifact`, `mission produces artifact` |
 | `Monster` | project-local or gateway-derived handoff | `_workmeta/<project_code>/ontology/` or gateway-derived request packet | `monster triggers mission` |
 | `Artifact` | output/input surface per owner | mission refs or project-local ontology instance | `mission consumes artifact`, `mission produces artifact`, `artifact becomes_input_of next_mission` |
@@ -25,9 +25,10 @@
 | --- | --- | --- | --- |
 | `unit has_species species` | `.unit/<unit_id>/unit.yaml` | `.registry/species/<species_id>/species.yaml` | `identity.species_id` |
 | `unit has_class class` | `.unit/<unit_id>/unit.yaml` | `.registry/classes/<class_id>/class.yaml` | `class_ids[]` |
-| `party assigns unit` | `.party/<party_id>/party.yaml` + slots | `.unit/<unit_id>/unit.yaml` | reusable slot model, later assignment |
+| `workflow profile recommends unit` | `.workflow/<workflow_id>/profile_policy.yaml` + calibrations | `.unit/<unit_id>/unit.yaml` | optimized execution profile when available |
 | `workflow guides mission` | `.mission/<mission_id>/mission.yaml` | `.workflow/<workflow_id>/workflow.yaml` | `workflow_id` |
-| `party routes workflow` | `.party/<party_id>/party.yaml` | `.workflow/<workflow_id>/workflow.yaml` | `default_workflow_id`, `allowed_workflows.yaml` |
+| `party chains workflow` | `.party/<party_id>/party.yaml` | `.workflow/<workflow_id>/workflow.yaml` | `workflow_chain`, `default_workflow_id`, `allowed_workflows.yaml` |
+| `party routes workflow` | `.party/<party_id>/party.yaml` | `.workflow/<workflow_id>/workflow.yaml` | entry workflow and chain-level routing hints |
 | `monster triggers mission` | project-local ontology instance or tracked handoff | `.mission/<mission_id>/mission.yaml` | `monster_type`, project-local relation note |
 | `mission consumes artifact` | `.mission/<mission_id>/mission.yaml` or project-local ontology instance | artifact ref | `input_refs.*` |
 | `mission produces artifact` | `.mission/<mission_id>/resolved_plan.yaml` or project-local ontology instance | artifact ref | output packet / local ontology instance |

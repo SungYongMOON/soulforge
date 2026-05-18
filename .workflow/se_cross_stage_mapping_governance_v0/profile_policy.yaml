@@ -1,0 +1,16 @@
+schema_version: soulforge_profile_policy_v0
+workflow_id: se_cross_stage_mapping_governance_v0
+default_profile:
+  posture: conservative_governance
+  claim_style: weakest_supported_ceiling
+  public_private_boundary: public_safe_structure_only
+  inspection_mode: metadata_only
+  hwp_hwpx_handling: filename_title_pdf_html_intake_notes_only
+forbidden_profiles:
+  - evidence_authority
+  - final_readiness_authority
+  - artifact_authoring
+  - artifact_body_inspection
+  - hwp_body_extraction
+  - source_download_executor
+  - downstream_rerun_executor

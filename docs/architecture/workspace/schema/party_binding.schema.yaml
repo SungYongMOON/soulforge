@@ -6,7 +6,7 @@ applies_to:
 required_fields:
   - name: party_id
     type: string
-    description: Party canon identifier.
+    description: Party workflow-chain canon identifier.
   - name: kind
     type: string
     fixed: party_binding
@@ -21,7 +21,7 @@ required_fields:
     description: String id for the party binding profile.
   - name: formation_role
     type: string
-    description: Human-readable formation role.
+    description: Human-readable workflow-chain/loadout role.
 optional_fields:
   - name: notes
     type: list[string]
@@ -33,5 +33,6 @@ field_rules:
   - field: status
     rule: Use only draft, active, archived.
 notes:
-  - Party binding is orchestration metadata under _workmeta/<project_code>/bindings/, not runtime truth.
+  - Party binding is workflow-chain orchestration metadata under _workmeta/<project_code>/bindings/, not runtime truth.
+  - Optimized model, reasoning effort, species, class, and unit choices belong to workflow profile/calibration surfaces, not to party binding.
 

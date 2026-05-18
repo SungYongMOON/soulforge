@@ -1,5 +1,43 @@
 ﻿# CHANGELOG
 
+## 2026-05-18
+
+### Revision `working` - Knowledge wiki Obsidian contract and synthetic pilot smoke
+
+- Added an Obsidian export decision surface to `se_knowledge_wiki_pipeline_v0` so the composite candidate now records when a generated read-only view is requested and blocks export unless the source is canon-backed.
+- Fixed the default Obsidian posture to `_workspaces/system/knowledge_view/obsidian_export/` as a local generated runtime surface, not a canon owner root and not a Drive-synced primary vault.
+- Clarified in `knowledge_wiki_cell` party docs that Obsidian consumes canon-backed `.registry/knowledge` entries or approved canon packages only; `_workmeta` payloads, Drive candidate files, and NotebookLM answers remain outside the vault body.
+- Expanded `KNOWLEDGE_WIKI_WORLDVIEW_V0.md` with concrete Obsidian file naming, frontmatter, link, metadata-ref, read-only, and regen/drift rules.
+- Recorded a latest-policy synthetic manifest-only smoke under `_workmeta/system/runs/knowledge_wiki_cell_latest_policy_smoke_20260518/` and kept `se_knowledge_wiki_pipeline_v0` unregistered even after the pilot.
+
+### Revision `working` - SE knowledge wiki composite registered and selected
+
+- Registered `se_knowledge_wiki_pipeline_v0` in `.workflow/index.yaml`.
+- Switched `knowledge_wiki_cell` to use `se_knowledge_wiki_pipeline_v0` as the default party entry by owner direction.
+- Kept the older four-stage lane as the composite workflow's downstream execution chain rather than removing those registered workflows.
+
+### Revision `working` - Knowledge wiki worldview overview added
+
+- Added a teammate-facing Markdown and standalone HTML overview for the Soulforge knowledge wiki worldview.
+- Explained source truth, private projection, concept candidates, review gates, canon knowledge, access ledger, current development status, and the SE wikiization next steps in public-safe language.
+- Added the workspace map for local PC, `_workmeta`, Google Drive, NotebookLM, `.workflow`, `.party`, `.registry/knowledge`, and access ledger roles.
+- Revised the workspace map so Google Drive is the owner-held file archive and backup for inbox candidates, source files, working bundles, and canon packages; `_workmeta` remains the Karpathy-style data-work location, NotebookLM remains the canon-package query interface, and Obsidian remains a canon-only read view.
+- Threaded the Drive archive model into the wiki party/workflow surfaces by adding owner-held archive manifest fields to source intake, sourcebound projection, and the draft SE knowledge wiki pipeline.
+- Added `codex_skill_auto_sync` archive authority so approved Codex skills or the Google Drive connector may upload/sync bounded archive files without per-file owner confirmation while preserving source/canon/secret boundaries.
+- Linked the overview from the guild hall architecture README.
+
+### Revision `working` - Knowledge wiki party registered
+
+- Registered `.party/knowledge_wiki_cell` as the reusable Karpathy-style sourcebound wikiization party.
+- Linked source intake, private sourcebound projection, metadata-only knowledge access capture, and post-development review into one party-level workflow chain.
+- Kept workflow execution profiles, model/reasoning/species/class/unit optimization, source payloads, extracted text, and private wiki projections outside party canon.
+
+### Revision `working` - Party model re-scoped to workflow chains
+
+- Re-scoped `.party` from reusable unit/team composition to reusable workflow-chain/loadout orchestration.
+- Clarified that workflow optimizer outputs for model, reasoning effort, species, class, and unit/profile choices belong under each `.workflow` profile/calibration surface.
+- Updated party, mission, runner, autohunt, ontology, UI source-map, and workspace docs to treat party as a higher-level workflow sequence that prevents agents from re-expanding every lower workflow by default.
+
 ## 2026-05-17
 
 ### Revision `working` - Knowledge workflow stack and missing layers added

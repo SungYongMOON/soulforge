@@ -1,0 +1,63 @@
+schema_version: soulforge_handoff_rules_v0
+workflow_id: se_cross_stage_mapping_governance_v0
+handoffs:
+  - handoff_id: missing_download_to_source_gap_followup
+    from_output: missing_download_register
+    to_workflow_id: source_gap_followup_packet_v0
+    allowed_payload: public_safe_gap_metadata_only
+    required_fields:
+      - missing_download_id
+      - stage_code
+      - artifact_family
+      - source_kind
+      - owner_action_needed
+      - downstream_blocked_workflows
+    forbidden_payloads:
+      - source_file_body
+      - hwp_body
+      - hwpx_body
+      - credentials
+      - runtime_absolute_paths
+  - handoff_id: coverage_to_readiness_digest
+    from_output: mapping_governance_packet
+    to_workflow_id: project_readiness_digest_v0
+    allowed_payload: governance_summary_and_claim_ceilings
+    non_claims:
+      - stage_readiness
+      - final_readiness
+      - review_approval
+  - handoff_id: boundary_to_review_gate
+    from_output: boundary_review_note
+    to_workflow_id: review_gate_evidence_pack_v0
+    allowed_payload: boundary_flags_and_open_gaps
+    non_claims:
+      - review_gate_approval
+      - evidence_acceptance
+      - audit_closure
+  - handoff_id: owner_source_followups_to_source_gap_followup
+    from_output: owner_source_followup_rows
+    to_workflow_id: source_gap_followup_packet_v0
+    allowed_payload: metadata_only_owner_or_source_gap_rows
+    required_fields:
+      - followup_row_id
+      - source_gap_or_owner_action_type
+      - related_folder_id
+      - related_artifact_row_ids
+      - owner_action_needed
+      - target_followup_workflow_id
+    forbidden_payloads:
+      - artifact_file_body
+      - source_file_body
+      - hwp_body
+      - hwpx_body
+      - credentials
+      - runtime_absolute_paths
+  - handoff_id: downstream_rerun_routes_to_owning_workflows
+    from_output: downstream_rerun_routes
+    to_workflow_id: owning_downstream_workflow
+    allowed_payload: rerun_recommendation_metadata_only
+    non_claims:
+      - rerun_executed
+      - rerun_passed
+      - artifact_completion
+      - readiness_approval

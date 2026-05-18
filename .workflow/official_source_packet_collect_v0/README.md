@@ -17,6 +17,7 @@ The workflow is provenance-first. It does not invent missing sources, treat rand
 - `source_gap_report`
 - `owner_followup_needed`
 - `download_or_reuse_manifest`
+- `owner_held_source_archive_manifest`
 - `downstream_ready_refs`
 - `boundary_review_note`
 
@@ -45,6 +46,9 @@ Downstream workflows should consume this packet as a boundary contract:
 
 - Public canon contains only workflow rules, state semantics, and templates.
 - Project-local packets, downloads, reused local files, checksums, caches, and manifests belong under `_workmeta/<project_code>/runs/<run_id>/...` or another approved private/project-local binding.
+- Owner-held archive surfaces such as Google Drive may hold initial candidates, source files, working bundles, and canon packages for backup and cross-PC retrieval. The workflow records archive status labels and refs, but archive presence alone is never source truth or canon authority.
+- When the archive policy sets `agent_upload_authority: codex_skill_auto_sync`, an approved Codex skill or Google Drive connector may upload or sync bounded archive files without per-file owner confirmation.
+- Automatic upload/sync must stay inside the declared archive policy and must reject secrets, credentials, unsupported private payloads, and ZIP containers treated as source truth.
 - Do not place datasheet text, model payloads, ECAD archives, raw XML, private project values, `_workspaces` outputs, runtime absolute paths, credentials, cookies, sessions, or private run truth in `.workflow`.
 - If login, account-bound download, NDA, export-control, or secret-backed access is needed, record `blocked` and ask the owner to provide or approve a resulting file path.
 

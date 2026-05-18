@@ -1,0 +1,11 @@
+party_id: knowledge_wiki_cell
+kind: appserver_profile
+status: active
+profile:
+  mode: subagent_chain
+  summary: Resolve the reusable wikiization chain, then dispatch each workflow stage to a fresh subagent with private evidence capture.
+  public_payload_policy: metadata_and_orchestration_only
+  private_output_policy: sourcebound_projection_and_runtime_truth
+notes:
+  - Public party files must remain portable and payload-free.
+  - Runtime paths, copied documents, extracted text, private projections, and source hashes belong in private or project-local evidence.

@@ -1,0 +1,42 @@
+schema_version: se_artifact_to_input_map_v0
+map_identity:
+  map_id: <map_id>
+  workflow_id: se_cross_stage_mapping_governance_v0
+  project_code: <project_code>
+  run_id: <run_id>
+boundary:
+  governance_mapping_only: true
+  input_mapping_is_not_input_satisfaction: true
+  source_payloads_included: false
+  hwp_hwpx_body_reviewed: false
+artifact_input_rows:
+  - map_row_id: <map_row_id>
+    artifact_row_id: <artifact_row_id>
+    stage_code: <stage_code>
+    stage_name: <stage_name>
+    artifact_family: <artifact_family>
+    artifact_title_or_filename: <title_or_filename_only>
+    expected_inputs:
+      - input_id: <input_id>
+        input_family: source_packet|owner_decision|requirements_ref|interface_ref|test_result|configuration_item|review_record|lesson_learned|other
+        input_description: <public_safe_description>
+        input_status: present_ref_only|missing|partial|blocked|not_applicable|unknown
+        input_ref: <portable_ref_or_null>
+        owning_workflow_id: <workflow_id_or_owner_process>
+        source_gap_followup_candidate: false
+        owner_decision_needed: false
+    downstream_consumers:
+      - workflow_id: <workflow_id>
+        expected_input: <expected_input_name>
+        route_status: planned_not_executed|waiting_for_source|waiting_for_owner|blocked|not_applicable
+    current_claim_ceiling: observed|mapped_governance_only|source_gap_followup_needed|owner_decision_needed|blocked_missing_download|not_applicable_owner_marked|rejected_or_blocked
+    non_claims:
+      - input_satisfied
+      - source_supported
+      - artifact_complete
+      - stage_ready
+map_checks:
+  all_rows_have_stage_code: false
+  all_rows_have_current_claim_ceiling: false
+  no_input_satisfaction_claims: true
+  no_hwp_hwpx_body_claims: true

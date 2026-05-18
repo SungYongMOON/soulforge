@@ -21,6 +21,8 @@ optional_inputs:
   - component_inventory
   - existing_source_packets
   - owner_approved_local_source_manifest
+  - owner_held_archive_policy
+  - owner_held_archive_refs
   - downstream_source_requirements
 outputs:
   - source_packet_manifest
@@ -28,6 +30,7 @@ outputs:
   - source_gap_report
   - owner_followup_needed
   - download_or_reuse_manifest
+  - owner_held_source_archive_manifest
   - downstream_ready_refs
   - boundary_review_note
 validation_level: pilot_executed_private_fixture
@@ -99,5 +102,8 @@ notes:
   - Random mirrors, forums, distributor copies without official provenance, model aggregators, and search snippets are not official sources.
   - Owner-approved local sources require an approval scope before executor use; otherwise record owner follow-up instead of silently using the file.
   - Downloads, reused local files, hashes, caches, vendor binaries, model archives, and raw project payloads belong only in project-local or private run outputs.
+  - Owner-held archive surfaces such as Google Drive may store initial candidates, source files, working bundles, and canon packages, but workflow packets must record status labels and manifest refs instead of treating archive presence as canon truth.
+  - When `agent_upload_authority` is `codex_skill_auto_sync`, an approved Codex skill or Google Drive connector may upload or sync bounded archive files without per-file owner confirmation.
+  - Automatic upload/sync still must reject secrets, credentials, unsupported private payloads, ZIP-as-truth storage, and files outside the declared archive policy.
   - Public workflow canon stores only portable orchestration rules, source-state semantics, and output-shape templates.
   - Public workflow files must not contain datasheet text, model payloads, raw XML, private project values, runtime absolute paths, credentials, cookies, sessions, or private run truth.

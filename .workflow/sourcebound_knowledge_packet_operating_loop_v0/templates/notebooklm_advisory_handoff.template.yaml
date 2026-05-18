@@ -9,6 +9,7 @@ authority_boundary:
   source_refs_remain_authority: true
 allowed_payload_manifest:
   source_ref_ids: []
+  reviewed_or_canon_package_archive_refs: []
   owner_visible_source_labels: []
   bounded_question_set: []
   expected_return_shape: observations_with_source_refs_and_uncertainty
@@ -22,3 +23,7 @@ return_handling:
   accepted_use: advisory_query_context
   required_followup: cite_back_to_source_refs_and_review_gate
   forbidden_use: acceptance_or_canon_authority
+storage_boundary:
+  notebooklm_is_query_interface_not_backup_archive: true
+  google_drive_or_owner_archive_is_package_storage: true
+  candidate_or_working_packets_require_review_before_canon_query_use: true

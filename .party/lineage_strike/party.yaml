@@ -2,8 +2,12 @@ party_id: lineage_strike
 kind: party_template
 status: active
 title: Lineage Strike
-summary: Canonical lineage-production party template for source review, boundary stabilization, and follow-up drafting.
+summary: Canonical lineage-production workflow-chain party for source review, boundary stabilization, and follow-up drafting.
 default_workflow_id: build_lineage_map
+workflow_chain:
+  - order: 1
+    workflow_id: build_lineage_map
+    role: primary_lineage_mapping
 preferred_monster_types:
   - lineage_request
   - summary_report_request
@@ -13,5 +17,6 @@ allowed_classes: allowed_classes.yaml
 allowed_workflows: allowed_workflows.yaml
 appserver_profile: appserver_profile.yaml
 notes:
-  - Party owns team composition and routing hints only; workflow steps remain in .workflow/.
-  - Slot to unit assignment is reusable canon for the demo lineup, not project-local run truth.
+  - Party owns workflow-chain routing hints only; workflow steps remain in .workflow/.
+  - Model, reasoning, species, class, and unit optimization remain workflow-owned profile/calibration data.
+  - Slot files are retained for validator compatibility and fallback display, not as optimizer authority.

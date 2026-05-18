@@ -1,0 +1,130 @@
+schema_version: soulforge_step_graph_v0
+workflow_id: se_cross_stage_mapping_governance_v0
+entrypoint: run
+steps:
+  - step_id: collect_allowed_refs
+    role: controller
+    action: Collect only approved stage scan refs, source gap refs, existing PDF/HTML/intake metadata, and planning docs.
+    outputs:
+      - stage_gap_scan_index
+      - artifact_folder_inventory_index
+  - step_id: inspect_artifact_folders_metadata
+    role: controller
+    action: For each approved artifact folder ref, inspect only folder metadata and already-approved governance refs; do not author artifacts or inspect artifact bodies.
+    inputs:
+      - artifact_folder_inventory_index
+      - stage_gap_scan_index
+    outputs:
+      - per_artifact_folder_inspection_packet
+  - step_id: register_required_content_gaps
+    role: controller
+    action: Record required content categories that are missing, blocked, ambiguous, or out of scope using metadata-only observations.
+    inputs:
+      - per_artifact_folder_inspection_packet
+      - stage_gap_scan_index
+    outputs:
+      - required_content_gap_register
+  - step_id: compare_inspection_delta
+    role: controller
+    action: Compare current folder inspection metadata against prior inspection packet refs and record added, removed, changed, stable, or blocked observations.
+    inputs:
+      - per_artifact_folder_inspection_packet
+    outputs:
+      - inspection_delta_register
+  - step_id: build_cross_stage_matrix
+    role: controller
+    action: Normalize stage and artifact family coverage rows across the supported lifecycle stages.
+    inputs:
+      - stage_gap_scan_index
+      - per_artifact_folder_inspection_packet
+    outputs:
+      - cross_stage_artifact_matrix
+  - step_id: map_artifacts_to_inputs
+    role: controller
+    action: Map each artifact row to required inputs, owning workflow, current evidence posture, and downstream consumer.
+    inputs:
+      - cross_stage_artifact_matrix
+    outputs:
+      - artifact_to_input_map
+  - step_id: register_input_basis_gaps
+    role: controller
+    action: Record missing or insufficient input basis refs without claiming source support, input satisfaction, or artifact completion.
+    inputs:
+      - per_artifact_folder_inspection_packet
+      - artifact_to_input_map
+    outputs:
+      - input_basis_gap_register
+  - step_id: assign_claim_ceilings
+    role: controller
+    action: Apply governance-only claim ceilings and explicit non-claims to each row.
+    inputs:
+      - artifact_to_input_map
+    outputs:
+      - claim_ceiling_register
+  - step_id: route_missing_downloads
+    role: controller
+    action: Create missing-download follow-up rows without downloading, extracting, or validating source payloads.
+    inputs:
+      - artifact_to_input_map
+      - claim_ceiling_register
+    outputs:
+      - missing_download_register
+  - step_id: route_owner_source_followups
+    role: controller
+    action: Convert content gaps, input basis gaps, and missing-download rows into owner/source follow-up rows for owning workflows or owner action.
+    inputs:
+      - required_content_gap_register
+      - input_basis_gap_register
+      - missing_download_register
+    outputs:
+      - owner_source_followup_rows
+  - step_id: plan_downstream_reruns
+    role: controller
+    action: Record downstream rerun route recommendations for owning workflows without executing reruns or claiming their results.
+    inputs:
+      - inspection_delta_register
+      - owner_source_followup_rows
+      - artifact_to_input_map
+    outputs:
+      - downstream_rerun_routes
+  - step_id: write_governance_packet
+    role: controller
+    action: Aggregate matrix, input map, ceiling, and follow-up refs into one packet.
+    inputs:
+      - stage_gap_scan_index
+      - cross_stage_artifact_matrix
+      - artifact_to_input_map
+      - claim_ceiling_register
+      - missing_download_register
+      - artifact_folder_inventory_index
+      - per_artifact_folder_inspection_packet
+      - required_content_gap_register
+      - input_basis_gap_register
+      - inspection_delta_register
+      - owner_source_followup_rows
+      - downstream_rerun_routes
+    outputs:
+      - mapping_governance_packet
+  - step_id: boundary_review
+    role: boundary_reviewer
+    action: Confirm HWP/HWPX body review stayed out of scope and no authority claims were introduced.
+    inputs:
+      - mapping_governance_packet
+      - claim_ceiling_register
+      - missing_download_register
+      - per_artifact_folder_inspection_packet
+      - required_content_gap_register
+      - input_basis_gap_register
+      - inspection_delta_register
+      - owner_source_followup_rows
+      - downstream_rerun_routes
+    outputs:
+      - boundary_review_note
+stop_conditions:
+  - hwp_or_hwpx_body_review_would_be_required
+  - private_raw_payload_would_be_needed
+  - source_truth_or_readiness_approval_would_be_claimed
+  - owner_decision_required_for_claim_upgrade
+  - missing_download_requires_owner_action_or_source_followup
+  - artifact_folder_body_inspection_would_be_required
+  - downstream_rerun_execution_would_be_required

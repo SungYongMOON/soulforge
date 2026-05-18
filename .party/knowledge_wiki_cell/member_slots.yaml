@@ -1,0 +1,27 @@
+party_id: knowledge_wiki_cell
+kind: member_slots
+status: active
+slots:
+  - slot_id: source_intake_stage
+    title: Source Intake Stage
+    workflow_id: official_source_packet_collect_v0
+    execution_contract: subagent_required
+    summary: Fresh subagent stage that binds approved sources, extracted ZIP inventories, gaps, and downstream-ready refs.
+  - slot_id: wiki_projection_stage
+    title: Wiki Projection Stage
+    workflow_id: sourcebound_knowledge_packet_operating_loop_v0
+    execution_contract: subagent_required
+    summary: Fresh subagent stage that builds private sourcebound projection, lint, concept candidates, and claim ceiling route.
+  - slot_id: access_capture_stage
+    title: Access Capture Stage
+    workflow_id: knowledge_access_event_capture_v0
+    execution_contract: subagent_required
+    summary: Fresh subagent stage that records metadata-only use, accumulation deltas, and candidate linkage signals.
+  - slot_id: review_closeout_stage
+    title: Review Closeout Stage
+    workflow_id: post_development_review_gate_v0
+    execution_contract: subagent_required
+    summary: Fresh subagent stage that checks boundary, evidence, claim ceiling, and closeout readiness.
+notes:
+  - Slots mirror the workflow chain for display and validator compatibility only.
+  - Model, reasoning effort, species, class, and unit choices remain workflow-owned profile data.

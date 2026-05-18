@@ -1,0 +1,101 @@
+party_id: knowledge_wiki_cell
+kind: routing_rules
+status: active
+current_default_route:
+  route_surface: registered_composite_workflow_party
+  party_id: knowledge_wiki_cell
+  default_workflow_id: se_knowledge_wiki_pipeline_v0
+future_candidate_route:
+  workflow_candidate_id: se_knowledge_wiki_pipeline_v0
+  registration_state: registered_selected_default_entry
+  switch_condition: "Already switched by owner direction; future changes should review downstream evidence and route safety again."
+request_classes:
+  - request_class: se_knowledge_wiki_request
+    trigger_signals:
+      - "SE materials to private wikiization"
+      - "read DAPA or SE PDF and HWP into private wiki"
+      - "build a private markdown wiki over official or owner-approved source packets"
+    route: route_to_party_chain
+    note: "Default entry for fresh SE wikiization requests through the registered composite workflow."
+  - request_class: llm_wiki_request
+    trigger_signals:
+      - "Karpathy-style LLM wiki"
+      - "compiled projection and concept pages"
+      - "source register and private question surface"
+    route: route_to_party_chain
+    note: "Use the same chain when the user explicitly frames the task as an LLM-wiki or sourcebound wiki request."
+  - request_class: refresh_existing_projection
+    trigger_signals:
+      - "refresh an existing private wiki packet"
+      - "refresh source id register"
+      - "refresh compiled projection"
+    route: route_to_party_chain
+    note: "Prefer refresh over starting a second disconnected packet when an existing private packet already exists."
+  - request_class: query_only_with_existing_projection
+    trigger_signals:
+      - "answer only from an existing private projection"
+      - "do not run new intake"
+      - "query the current wiki packet only"
+    route: route_to_existing_projection_when_present_otherwise_party_chain
+    note: "If the existing packet is absent, fall back to the normal chain."
+  - request_class: exact_authority_review
+    trigger_signals:
+      - "exact compliance mapping"
+      - "exact authority answer"
+      - "page-exact HWP citation"
+      - "show the exact governing source support"
+    route: insert_source_sufficiency_gate
+    note: "Raise authority checks before allowing stronger answers."
+  - request_class: public_promotion_request
+    trigger_signals:
+      - "public-safe abstraction"
+      - "public canon promotion"
+      - "canon-facing workflow or ontology promotion"
+    route: insert_source_sufficiency_gate_and_owner_decision_gate
+    note: "Promotion-sensitive requests require both stronger source review and owner-facing decision handling."
+optional_gate_rules:
+  - gate: source_packet_sufficiency_review_v0
+    insert_when:
+      - "exact compliance mapping is requested"
+      - "page-exact HWP citation is requested"
+      - "public-safe or stronger authority claim is requested"
+      - "a support-only reference is being used to answer a doctrine question"
+      - "a local copy needs stronger authority confirmation before broader reuse"
+  - gate: owner_decision_packet_v0
+    insert_when:
+      - "public promotion or canon-facing abstraction is requested"
+      - "blocked authority upgrade needs owner choice"
+      - "owner must approve hold_private vs broader reuse"
+      - "the packet would otherwise cross from private derivative use into a public-facing claim surface"
+hwp_handling_rules:
+  - case: hwp_wikiization_general
+    route: route_to_party_chain
+    note: "Readable HWP body extraction for private wikiization is allowed when handled inside approved private downstream stages."
+  - case: hwp_page_exact_or_layout_sensitive
+    route: insert_source_sufficiency_gate
+    note: "Page-stable or layout-sensitive HWP claims need a stronger gate or a better rendering surface."
+  - case: hwp_render_or_extraction_boundary
+    route: hold_private_or_blocked_if_surface_not_approved
+    note: "Do not assume public-safe HWP rendering, OCR, or page-map fidelity without explicit evidence."
+zip_handling_rules:
+  - case: extracted_inventory_available
+    route: route_to_party_chain
+    note: "Use extracted files plus inventory refs."
+  - case: zip_container_as_truth
+    route: blocked
+    note: "Do not use the ZIP file itself as the source-truth surface."
+blocked_routes:
+  - blocked_case: zip_container_as_truth
+    response: "Require extracted contents and inventory only."
+  - blocked_case: hwp_page_exact_without_page_surface
+    response: "Lower the claim ceiling or require a page-stable render."
+  - blocked_case: public_promotion_without_authority_register
+    response: "Hold private and route through stronger review."
+  - blocked_case: obsidian_export_without_canon_backed_source
+    response: "Generate the Obsidian view only from `.registry/knowledge` or an approved canon package."
+  - blocked_case: secret_or_credential_file_request
+    response: "Stop and keep secret handling outside the lane."
+notes:
+  - This is a routing draft, not active autohunt state.
+  - The currently routable surface is the registered composite workflow entry `se_knowledge_wiki_pipeline_v0`.
+  - The older stage-first chain remains the downstream execution lane owned by the composite workflow.

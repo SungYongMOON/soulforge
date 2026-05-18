@@ -2,8 +2,18 @@ party_id: guild_master_cell
 kind: party_template
 status: active
 title: Guild Master Cell
-summary: Canonical party template for deciding when a request becomes a reusable skill package, needs post-development review handoff, or should enter strategic vision/gap review.
+summary: Canonical workflow-chain party for skill authoring, post-development review handoff, and strategic vision/gap review routing.
 default_workflow_id: author_skill_package
+workflow_chain:
+  - order: 1
+    workflow_id: author_skill_package
+    role: primary_authoring
+  - order: 2
+    workflow_id: post_development_review_gate_v0
+    role: closeout_review_when_needed
+  - order: 3
+    workflow_id: ouroboros_strategic_review_harness_v0
+    role: strategic_gap_review_when_needed
 preferred_monster_types:
   - skill_authoring_request
   - skill_revision_request
@@ -17,5 +27,6 @@ allowed_classes: allowed_classes.yaml
 allowed_workflows: allowed_workflows.yaml
 appserver_profile: appserver_profile.yaml
 notes:
-  - Party owns composition and routing hints only; skill package content still belongs to `.registry/skills/`.
-  - Slot to unit assignment is reusable canon for the guild-master authoring lane, not project-local run truth.
+  - Party owns workflow-chain routing hints only; skill package content still belongs to `.registry/skills/`.
+  - Model, reasoning, species, class, and unit optimization remain workflow-owned profile/calibration data.
+  - Slot files are retained for validator compatibility and fallback display, not as optimizer authority.

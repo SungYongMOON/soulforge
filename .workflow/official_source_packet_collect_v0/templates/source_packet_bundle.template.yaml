@@ -12,6 +12,15 @@ approval:
   approval_scope: "human_review_preparation|executor_use|verifier_only"
   approved_for_executor: false
   public_safe_summary_allowed: false
+owner_held_archive_policy:
+  archive_surface: "google_drive|other_owner_held_archive|not_applicable"
+  archive_role: "inbox_candidate_and_backup|canon_package_backup|not_applicable"
+  agent_upload_authority: "none|owner_approved_connector_action|codex_skill_auto_sync"
+  per_file_owner_confirmation_required: false
+  allowed_tooling:
+    - codex_skill
+    - google_drive_connector
+  archive_presence_is_canon_authority: false
 scope:
   baseline_refs: []
   identifier_scope_ref: "<project_local_identifier_scope_manifest>"
@@ -101,6 +110,27 @@ download_or_reuse_manifest:
     checksum_sha256: null
     terms_or_license_note_required: true
     result_status: "planned|completed|blocked|not_applicable"
+owner_held_source_archive_manifest:
+  manifest_status: "draft|ready|blocked|not_applicable"
+  archive_surface: "google_drive|other_owner_held_archive|not_applicable"
+  archive_status_labels:
+    - inbox
+    - candidate_source
+    - working_packet
+    - reviewed_private
+    - canon_package
+    - obsolete_or_blocked
+  archive_entries:
+    - archive_entry_id: "<archive_entry_id>"
+      related_source_id: "<source_id_or_null>"
+      related_action_id: "<action_id_or_null>"
+      status_label: "inbox|candidate_source|working_packet|reviewed_private|canon_package|obsolete_or_blocked"
+      archive_ref: "<owner_visible_archive_ref_or_null>"
+      local_or_private_work_ref: "<repo_relative_or_project_local_ref_or_null>"
+      checksum_sha256: null
+      upload_or_sync_status: "not_requested|planned|completed_by_codex_skill_or_connector|completed_by_owner_or_connector|blocked"
+      canon_authority: false
+      required_next_action: "<codex_skill_or_owner_or_connector_action_or_null>"
 downstream_ready_refs:
   materials:
     readiness: "ready|review_only|blocked|not_applicable"
@@ -138,4 +168,6 @@ boundary_notes:
   no_runtime_absolute_paths_in_public_package: true
   no_credentials_cookies_tokens_or_sessions_used_by_agent: true
   downstream_must_preserve_source_states: true
-
+  owner_archive_presence_is_not_source_or_canon_authority: true
+  codex_skill_auto_sync_allowed_without_per_file_confirmation_when_declared: true
+  remote_archive_mutation_must_stay_inside_declared_archive_policy: true

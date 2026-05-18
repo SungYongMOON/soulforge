@@ -1,0 +1,31 @@
+workflow_id: se_knowledge_wiki_pipeline_v0
+kind: role_slots
+status: active
+slots:
+  - slot_id: pipeline_controller
+    title: Pipeline Controller
+    summary: Binds the request boundary, allowed sources, owner-held archive policy, and private/public claim posture before any stage routing begins.
+  - slot_id: request_router
+    title: Request Router
+    summary: Classifies whether the request needs a fresh pipeline, a projection refresh, a query-only reuse path, or stronger authority gates.
+  - slot_id: pipeline_planner
+    title: Pipeline Planner
+    summary: Assembles the registered workflow chain, archive manifest stages, Obsidian export decision stage, and optional insertion points without taking ownership of stage internals.
+  - slot_id: source_intake_coordinator
+    title: Source Intake Coordinator
+    summary: Routes the request into the official-source intake stage or reuses existing approved source packet refs.
+  - slot_id: projection_coordinator
+    title: Projection Coordinator
+    summary: Routes the request into the sourcebound private projection stage and preserves derivative-packet boundaries.
+  - slot_id: metadata_capture_coordinator
+    title: Metadata Capture Coordinator
+    summary: Ensures metadata-only packet use and knowledge-access capture run after projection work is bounded.
+  - slot_id: optional_gate_router
+    title: Optional Gate Router
+    summary: Inserts source sufficiency or owner decision gates only when the request demands stronger authority than the default private wiki lane.
+  - slot_id: review_coordinator
+    title: Review Coordinator
+    summary: Routes the final packet set through the post-development review gate without replacing that workflow's authority.
+  - slot_id: boundary_reviewer
+    title: Boundary Reviewer
+    summary: Checks orchestration-only posture, ZIP/HWP limits, and public/private claim ceilings for the composite package itself.

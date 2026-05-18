@@ -2,8 +2,12 @@ party_id: vanguard_strike
 kind: party_template
 status: active
 title: Vanguard Strike
-summary: Canonical assault party template that keeps reusable fit notes separate from mission runtime performance data.
+summary: Canonical frontline workflow-chain party that keeps reusable routing notes separate from mission runtime performance data.
 default_workflow_id: frontline_assault
+workflow_chain:
+  - order: 1
+    workflow_id: frontline_assault
+    role: primary_frontline_assault
 preferred_monster_types:
   - frontline_assault_request
 member_slots: member_slots.yaml
@@ -12,5 +16,7 @@ allowed_classes: allowed_classes.yaml
 allowed_workflows: allowed_workflows.yaml
 appserver_profile: appserver_profile.yaml
 notes:
-  - "`default_workflow_id` is a party-level routing hint, not an embedded workflow body."
+  - "`default_workflow_id` is a party-level entry hint, not an embedded workflow body."
+  - Model, reasoning, species, class, and unit optimization remain workflow-owned profile/calibration data.
+  - Slot files are retained for validator compatibility and fallback display, not as optimizer authority.
   - Observations stay in the party canon while raw battle logs and performance truth remain in `_workspaces/<project_code>/`.

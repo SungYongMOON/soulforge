@@ -43,7 +43,8 @@
 
 - `unit has_species species`
 - `unit has_class class`
-- `party assigns unit`
+- `party chains workflow`
+- `workflow profile may recommend unit`
 - `workflow guides mission`
 - `monster triggers mission`
 - `mission consumes artifact`

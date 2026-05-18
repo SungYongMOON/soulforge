@@ -93,13 +93,13 @@ _workmeta/
 - `_workmeta/<project_code>/` 는 분리된 registry 가 아니라 companion private root 안의 shared metadata plane 이며 contract, binding, raw execution truth, owner-handoff metadata 보관 위치다.
 - `_workmeta/<project_code>/monsters/` 는 project-side monster current state owner 다.
 - assigned execution plan 과 mission-level 배정 owner 는 `_workmeta/` 가 아니라 `.mission/` 이 소유한다.
-- `_workmeta/<project_code>/autohunt/` 는 mailbox routing, workflow-party selection, retry-escalation 같은 자동사냥 운영 정책을 두는 local operating surface 다.
-- runner 는 `_workmeta/<project_code>/` contract, binding, workflow, party 를 읽어 current step execution packet 을 만드는 execution role 이며 별도 canonical root 나 required local folder 가 아니다.
+- `_workmeta/<project_code>/autohunt/` 는 mailbox routing, party workflow-chain 또는 단일 workflow selection, retry-escalation 같은 자동사냥 운영 정책을 두는 local operating surface 다.
+- runner 는 `_workmeta/<project_code>/` contract, binding, workflow, party 를 읽어 current workflow-chain execution packet 을 만드는 execution role 이며 별도 canonical root 나 required local folder 가 아니다.
 - runner prototype 는 한 예시로 `_workmeta/<project_code>/tools/` 아래 script 형태로 materialize 할 수 있지만, 이 경로 자체를 현행 표준 구현 위치로 고정하지는 않는다.
 - `contract.yaml` 은 `.unit/<unit_id>/unit.yaml` 을 `unit_ref` 로 가리키고, binding file 은 `.workflow/<workflow_id>/workflow.yaml` 과 `.party/<party_id>/party.yaml` 을 id 기준으로 연결한다.
 - binding set 은 `workflow_binding.yaml`, `party_binding.yaml`, `appserver_binding.yaml`, `mailbox_binding.yaml` 을 기본으로 두고, 필요하면 `execution_profile_binding.yaml` 과 `skill_execution_binding.yaml` 을 추가해 local runtime execution 을 설명한다.
 - raw run 의 정본 owner 는 `_workmeta/<project_code>/runs/<run_id>/` 다.
-- `.mission/<mission_id>/mission.yaml` 은 workflow, party, unit assignment 를 묶은 held execution plan owner 다.
+- `.mission/<mission_id>/mission.yaml` 은 workflow, party workflow-chain, runtime assignment 를 묶은 held execution plan owner 다.
 - binding file 과 appserver/mailbox/execution operating metadata 는 orchestration contract 이며 raw truth owner 가 아니다.
 - `autohunt/` 는 run queue 와 routing policy 를 다루지만 raw truth owner 가 아니다.
 - `dungeons/`, `analytics/`, `nightly_healing/`, `reports/`, `log/`, `artifacts/` 는 모두 owner-only private metadata 영역이며, current-default 에서는 `_workmeta` shared plane 을 통해 다른 owner PC 와 공유할 수 있다.
@@ -112,7 +112,7 @@ _workmeta/
 - `gateway` inbox / mailbox / monster event staging 은 `guild_hall/state/gateway/` 안에 남긴다.
 - held mission metadata 와 readiness 는 `.mission/<mission_id>/` 아래에 남긴다.
 - `.registry`, `.unit`, `.workflow`, `.party`, `guild_hall` 은 project binding 대상 또는 운영 owner 일 뿐, per-project 실자료 owner 가 아니다.
-- `.mission` 은 workflow/party/unit resolve 결과를 project-local run truth 와 분리해 소유한다.
+- `.mission` 은 workflow/party-chain/runtime assignment resolve 결과를 project-local run truth 와 분리해 소유한다.
 - `_workmeta/` 도 local execution surface 일 뿐 mission assignment owner 는 아니다.
 - `_workmeta/system/` 은 project onboarding root 가 아니라 reusable workflow lab owner 다.
 - 첫 실제 프로젝트 온보딩은 read-only structure review 후 bounded first run/use 를 수행하고, 그 다음 `_workmeta` local rule 을 보정하는 순서를 기본안으로 본다.
@@ -120,7 +120,7 @@ _workmeta/
 - tracked example 의 `runner/` packet sample 은 설명용 mirror 이며, local runtime 의 required directory 를 뜻하지 않는다.
 - `execution_profile_binding.yaml` 은 workflow step 의 `execution_profile_ref` 를 model, reasoning, attached skill name, MCP/tool preference 로 resolve 하는 local runtime metadata 다.
 - `skill_execution_binding.yaml` 은 canonical `skill_id` 를 installed Codex skill name 으로 resolve 하는 local runtime metadata 다.
-- `autohunt/policy.yaml`, `routing.yaml`, `mailbox_rules.yaml` 은 monster routing 과 자동사냥 운영 정책을 설명하는 local operating metadata 다.
+- `autohunt/policy.yaml`, `routing.yaml`, `mailbox_rules.yaml` 은 monster routing 과 party/workflow-chain 자동사냥 운영 정책을 설명하는 local operating metadata 다.
 - `.workflow/history` 와 `.party/stats` 에 public repo 로 올라올 수 있는 것은 curated summary 뿐이다.
 - raw execution truth 를 public repo 루트로 재배치하는 `.run/` 모델은 사용하지 않는다.
 

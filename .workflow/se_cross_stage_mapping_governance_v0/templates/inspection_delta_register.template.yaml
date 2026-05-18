@@ -1,0 +1,35 @@
+schema_version: se_inspection_delta_register_v0
+register_identity:
+  register_id: <register_id>
+  workflow_id: se_cross_stage_mapping_governance_v0
+  project_code: <project_code>
+  run_id: <run_id>
+  inspection_round_id: <inspection_round_id>
+boundary:
+  delta_is_metadata_comparison_only: true
+  prior_packets_are_observation_refs_only: true
+  artifact_bodies_read: false
+  hwp_hwpx_body_reviewed: false
+  artifact_authoring_performed: false
+comparison_refs:
+  current_inspection_packet_ref: per_artifact_folder_inspection_packet.yaml
+  prior_inspection_packet_refs: []
+inspection_delta_rows:
+  - delta_row_id: <delta_row_id>
+    related_folder_id: <folder_id>
+    related_inspection_row_id: <inspection_row_id>
+    prior_row_ref: <portable_ref_or_null>
+    delta_kind: added_metadata|removed_metadata|changed_metadata|stable_metadata|new_gap|gap_resolved_pending_reindex|blocked|unknown
+    delta_subject_kind: folder|metadata_item|required_content_gap|input_basis_gap|owner_followup|downstream_route
+    public_safe_delta_summary: <summary_without_payload>
+    rerun_recommended: false
+    target_downstream_workflow_ids: []
+    current_claim_ceiling: observed|mapped_governance_only|source_gap_followup_needed|owner_decision_needed|blocked_missing_download|not_applicable_owner_marked|rejected_or_blocked
+    non_claims:
+      - artifact_changed_from_body_review
+      - gap_resolved_without_owning_workflow_reindex
+      - downstream_rerun_executed
+register_checks:
+  no_payload_deltas_included: true
+  no_body_based_delta_claims: true
+  unresolved_deltas_have_route: false

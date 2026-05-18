@@ -1,0 +1,55 @@
+schema_version: se_per_artifact_folder_inspection_packet_v0
+packet_identity:
+  packet_id: <packet_id>
+  workflow_id: se_cross_stage_mapping_governance_v0
+  project_code: <project_code>
+  run_id: <run_id>
+  inspection_round_id: <inspection_round_id>
+  inspected_at: <iso8601_timestamp>
+boundary:
+  inspection_mode: repeated_artifact_folder_metadata_inspection
+  metadata_only: true
+  artifact_authoring_performed: false
+  artifact_bodies_read: false
+  hwp_hwpx_body_reviewed: false
+  hwp_hwpx_extraction_attempted: false
+  evidence_authority_claimed: false
+  readiness_claimed: false
+input_refs:
+  artifact_folder_inventory_index_ref: artifact_folder_inventory_index.yaml
+  stage_gap_scan_index_ref: stage_gap_scan_index.yaml
+  prior_inspection_packet_refs: []
+folder_inspection_rows:
+  - inspection_row_id: <inspection_row_id>
+    folder_id: <folder_id>
+    folder_ref: <portable_folder_ref_or_packet_row_id>
+    stage_code: <stage_code>
+    stage_name: <stage_name>
+    artifact_family: <artifact_family>
+    requirement_packet_ref: <portable_ref_or_null>
+    expected_content_families:
+      - content_family: requirement|design_description|interface|verification_result|configuration_record|review_record|source_packet|lesson_learned|other
+        expected_state: required|optional|not_applicable|unknown
+        basis_ref: <portable_ref_or_null>
+    observed_metadata_items:
+      - item_id: <item_id>
+        item_kind: folder_name|filename|title|sidecar_metadata|pdf_html_derivative_ref|intake_note_ref|planning_doc_ref|stage_scan_row_ref
+        item_label: <public_safe_label>
+        item_ref: <portable_ref_or_null>
+        body_review_performed: false
+    inspection_status: observed|partial|gap_found|blocked|not_applicable|unknown
+    required_content_gap_ids: []
+    input_basis_gap_ids: []
+    downstream_rerun_route_ids: []
+    current_claim_ceiling: observed|mapped_governance_only|source_gap_followup_needed|owner_decision_needed|blocked_missing_download|not_applicable_owner_marked|rejected_or_blocked
+    non_claims:
+      - artifact_authored
+      - artifact_complete
+      - source_supported
+      - input_satisfied
+      - stage_ready
+packet_checks:
+  every_row_links_folder_id: false
+  no_artifact_authoring_claims: true
+  no_artifact_body_review_claims: true
+  no_hwp_hwpx_body_claims: true

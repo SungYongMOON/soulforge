@@ -10,7 +10,7 @@
 - `.registry` = outer canon/store
 - `.unit` = active agent unit owner
 - `.workflow` = independent orchestration canon
-- `.party` = independent orchestration template
+- `.party` = independent workflow-chain orchestration template
 - `.mission` = held mission plan owner
 - `_workspaces` = project-local materialization site
 
@@ -24,7 +24,7 @@ flowchart TD
   R --> RR["skills / tools / knowledge"]
   S --> U[".unit<br/>active unit owner"]
   S --> W[".workflow<br/>independent orchestration canon"]
-  S --> PT[".party<br/>independent orchestration template"]
+  S --> PT[".party<br/>independent workflow-chain orchestration template"]
   S --> MI[".mission<br/>held mission plan"]
   S --> M["_workspaces<br/>project-local materialization site"]
   MI --> MP["mission.yaml / readiness.yaml<br/>resolved plan owner"]
@@ -60,7 +60,7 @@ flowchart TD
 - `.registry` 는 outer canon/store owner 다.
 - `.unit` 이 active binding 과 owner surface 를 가진다.
 - `.workflow` 와 `.party` 는 `.registry` 하위가 아니라 독립 root 다.
-- `.mission` 은 workflow/party/unit resolve 결과를 소유하는 독립 root 다.
+- `.mission` 은 workflow/party-chain/runtime assignment resolve 결과를 소유하는 독립 root 다.
 - species/hero canon 은 `.registry/species/<species_id>/species.yaml` 와 inline `heroes:` 에 둔다.
 - `_workspaces/<project_code>/` actual content 는 local-only project materialization content 로 관리한다.
 - assigned execution plan 과 mission-level 배정 owner 는 `.mission` 이 소유한다.

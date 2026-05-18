@@ -16,11 +16,10 @@ slots:
     summary: Classifies every requested source as official, owner-approved local, missing, blocked, not applicable, candidate, third-party, or conflicting.
   - slot_id: packet_manifest_writer
     title: Packet Manifest Writer
-    summary: Writes the source packet manifest, inventory, gap report, follow-up queue, and download-or-reuse manifest.
+    summary: Writes the source packet manifest, inventory, gap report, follow-up queue, download-or-reuse manifest, and owner-held archive manifest.
   - slot_id: downstream_readiness_reviewer
     title: Downstream Readiness Reviewer
     summary: Maps source evidence and source gaps to materials, layout, simulation, ECAD, and harness readiness refs.
   - slot_id: boundary_reviewer
     title: Boundary Reviewer
     summary: Checks public/private boundaries, provenance completeness, owner follow-up, and overclaim risks before completion.
-

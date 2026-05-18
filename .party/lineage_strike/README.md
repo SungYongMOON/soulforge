@@ -1,5 +1,6 @@
 # lineage_strike
 
-- `lineage_strike/` 는 lineage-production reusable party template 이다.
-- 이 party 는 `build_lineage_map` 을 기본 workflow 로 보고, `investigator` 와 `stabilizer` slot 을 canonical demo unit 에 연결한다.
-- workflow step 순서는 `.workflow/` 가 소유하고, 이 폴더는 team composition 과 routing hint 만 소유한다.
+- `lineage_strike/` is a reusable workflow-chain party for lineage production.
+- The party enters through `build_lineage_map` and records chain-level routing only.
+- Workflow step order and optimized execution profiles remain under `.workflow/**`.
+- Slot files in this folder are compatibility/fallback metadata only; they are not the source of optimized model, effort, species, class, or unit choices.

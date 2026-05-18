@@ -1,0 +1,76 @@
+schema_version: se_stage_gap_scan_index_v0
+index_identity:
+  index_id: <index_id>
+  workflow_id: se_cross_stage_mapping_governance_v0
+  project_code: <project_code>
+  run_id: <run_id>
+boundary:
+  stage_scan_refs_are_read_only: true
+  index_is_not_stage_scan_execution: true
+  readiness_approval_claimed: false
+  hwp_hwpx_body_reviewed: false
+indexed_stage_scans:
+  - stage_code: 000_REF
+    stage_name: REF
+    stage_gap_scan_packet_ref: <portable_ref_or_null>
+    stage_required_artifact_matrix_ref: <portable_ref_or_null>
+    stage_input_gap_register_ref: <portable_ref_or_null>
+    stage_blocker_register_ref: <portable_ref_or_null>
+    downstream_route_map_ref: <portable_ref_or_null>
+    scan_status: present|missing|partial|not_applicable|blocked|unknown
+    current_claim_ceiling: observed|mapped_governance_only|owner_decision_needed|rejected_or_blocked
+  - stage_code: 020_MGMT
+    stage_name: MGMT
+    stage_gap_scan_packet_ref: <portable_ref_or_null>
+    scan_status: present|missing|partial|not_applicable|blocked|unknown
+    current_claim_ceiling: observed|mapped_governance_only|owner_decision_needed|rejected_or_blocked
+  - stage_code: 030_SRR
+    stage_name: SRR
+    stage_gap_scan_packet_ref: <portable_ref_or_null>
+    scan_status: present|missing|partial|not_applicable|blocked|unknown
+    current_claim_ceiling: observed|mapped_governance_only|owner_decision_needed|rejected_or_blocked
+  - stage_code: 060_SFR
+    stage_name: SFR
+    stage_gap_scan_packet_ref: <portable_ref_or_null>
+    scan_status: present|missing|partial|not_applicable|blocked|unknown
+    current_claim_ceiling: observed|mapped_governance_only|owner_decision_needed|rejected_or_blocked
+  - stage_code: 090_PDR
+    stage_name: PDR
+    stage_gap_scan_packet_ref: <portable_ref_or_null>
+    scan_status: present|missing|partial|not_applicable|blocked|unknown
+    current_claim_ceiling: observed|mapped_governance_only|owner_decision_needed|rejected_or_blocked
+  - stage_code: 120_CDR
+    stage_name: CDR
+    stage_gap_scan_packet_ref: <portable_ref_or_null>
+    scan_status: present|missing|partial|not_applicable|blocked|unknown
+    current_claim_ceiling: observed|mapped_governance_only|owner_decision_needed|rejected_or_blocked
+  - stage_code: 150_TRR_DT
+    stage_name: TRR_DT
+    stage_gap_scan_packet_ref: <portable_ref_or_null>
+    scan_status: present|missing|partial|not_applicable|blocked|unknown
+    current_claim_ceiling: observed|mapped_governance_only|owner_decision_needed|rejected_or_blocked
+  - stage_code: 180_FCA_OT
+    stage_name: FCA_OT
+    stage_gap_scan_packet_ref: <portable_ref_or_null>
+    scan_status: present|missing|partial|not_applicable|blocked|unknown
+    current_claim_ceiling: observed|mapped_governance_only|owner_decision_needed|rejected_or_blocked
+  - stage_code: 210_PCA
+    stage_name: PCA
+    stage_gap_scan_packet_ref: <portable_ref_or_null>
+    scan_status: present|missing|partial|not_applicable|blocked|unknown
+    current_claim_ceiling: observed|mapped_governance_only|owner_decision_needed|rejected_or_blocked
+  - stage_code: 240_LL
+    stage_name: LL
+    stage_gap_scan_packet_ref: <portable_ref_or_null>
+    scan_status: present|missing|partial|not_applicable|blocked|unknown
+    current_claim_ceiling: observed|mapped_governance_only|owner_decision_needed|rejected_or_blocked
+  - stage_code: 270_UNCLASSIFIED
+    stage_name: UNCLASSIFIED
+    stage_gap_scan_packet_ref: <portable_ref_or_null>
+    scan_status: present|missing|partial|not_applicable|blocked|unknown
+    current_claim_ceiling: observed|mapped_governance_only|owner_decision_needed|rejected_or_blocked
+index_checks:
+  all_current_stage_codes_present: true
+  trr_dt_fca_ot_ll_present: true
+  missing_stage_scan_refs_are_blockers_not_readiness_claims: true
+  no_hwp_hwpx_body_review_claims: true

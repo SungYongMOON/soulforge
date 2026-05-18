@@ -1,0 +1,46 @@
+schema_version: soulforge_role_slots_v0
+workflow_id: se_cross_stage_mapping_governance_v0
+roles:
+  - role_id: controller
+    responsibility: Select approved input refs, enforce boundaries, and emit the final governance packet set.
+    may_read:
+      - public_safe_workflow_contracts
+      - stage_gap_scan_outputs
+      - source_gap_followup_outputs
+      - existing_pdf_or_html_metadata
+      - intake_notes
+      - repo_planning_docs
+      - artifact_folder_metadata
+      - prior_inspection_packet_metadata
+    must_not_read:
+      - hwp_body
+      - hwpx_body
+      - artifact_file_body
+      - secret_values
+      - private_raw_payloads_not_approved_for_summary
+    may_write:
+      - mapping_governance_packet
+      - cross_stage_artifact_matrix
+      - artifact_to_input_map
+      - claim_ceiling_register
+      - missing_download_register
+      - stage_gap_scan_index
+      - boundary_review_note
+      - artifact_folder_inventory_index
+      - per_artifact_folder_inspection_packet
+      - required_content_gap_register
+      - input_basis_gap_register
+      - inspection_delta_register
+      - owner_source_followup_rows
+      - downstream_rerun_routes
+  - role_id: boundary_reviewer
+    responsibility: Check that all rows remain governance-only and public-safe before handoff.
+    may_read:
+      - generated_governance_outputs
+    must_not_claim:
+      - evidence_authority
+      - readiness_approval
+      - hwp_body_review
+      - download_completion
+      - artifact_authoring
+      - downstream_rerun_completion

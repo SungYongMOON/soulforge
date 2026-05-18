@@ -56,7 +56,7 @@ flowchart TD
 
 - 반복되는 행동은 skill 로
 - 반복되는 절차는 workflow 로
-- 반복되는 팀 조합은 party 로 올린다.
+- 반복되는 workflow 조합과 실행 묶음은 party 로 올린다.
 
 ### 4. 길마 lane 확립
 

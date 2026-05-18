@@ -1,0 +1,35 @@
+schema_version: se_input_basis_gap_register_v0
+register_identity:
+  register_id: <register_id>
+  workflow_id: se_cross_stage_mapping_governance_v0
+  project_code: <project_code>
+  run_id: <run_id>
+boundary:
+  input_basis_mapping_only: true
+  input_satisfaction_claimed: false
+  source_truth_claimed: false
+  hwp_hwpx_body_reviewed: false
+input_basis_gap_rows:
+  - input_basis_gap_id: <input_basis_gap_id>
+    related_folder_id: <folder_id>
+    related_inspection_row_id: <inspection_row_id>
+    related_map_row_id: <map_row_id_or_null>
+    stage_code: <stage_code>
+    stage_name: <stage_name>
+    artifact_family: <artifact_family>
+    input_family: source_packet|owner_decision|requirements_ref|interface_ref|test_result|configuration_item|review_record|lesson_learned|other
+    expected_input_ref: <portable_ref_or_null>
+    input_basis_status: missing|partial|ambiguous|blocked|out_of_scope|not_applicable|unknown
+    basis_gap_reason: missing_ref|insufficient_metadata|identity_ambiguity|revision_ambiguity|owner_decision_needed|hwp_hwpx_body_out_of_scope|source_gap_followup_needed|other
+    owner_action_needed: provide_ref|confirm_identity|confirm_revision|approve_local_ref|route_source_gap_followup|accept_not_applicable|none
+    target_followup_workflow_id: <workflow_id_or_null>
+    current_claim_ceiling: source_gap_followup_needed|owner_decision_needed|blocked_missing_download|not_applicable_owner_marked|rejected_or_blocked
+    non_claims:
+      - input_satisfied
+      - source_supported
+      - artifact_complete
+      - stage_ready
+register_checks:
+  every_input_basis_gap_has_route: false
+  no_input_satisfaction_claims: true
+  no_source_truth_claims: true

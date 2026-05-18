@@ -19,7 +19,7 @@ slots:
     summary: Extracts source-cited concept candidates and preserves blockers or review states.
   - slot_id: promotion_router
     title: Promotion Router
-    summary: Assigns claim ceilings and routes concept candidates toward workflow, ontology, owner decision, source follow-up, or private hold.
+    summary: Assigns claim ceilings, prepares archive package manifests, and routes concept candidates toward workflow, ontology, owner decision, source follow-up, or private hold.
   - slot_id: advisory_handoff_preparer
     title: Advisory Handoff Preparer
     summary: Prepares optional owner-operated NotebookLM-style handoff metadata without making advisory tools authoritative.

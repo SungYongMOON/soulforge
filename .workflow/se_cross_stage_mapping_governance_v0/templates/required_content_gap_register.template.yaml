@@ -1,0 +1,35 @@
+schema_version: se_required_content_gap_register_v0
+register_identity:
+  register_id: <register_id>
+  workflow_id: se_cross_stage_mapping_governance_v0
+  project_code: <project_code>
+  run_id: <run_id>
+boundary:
+  gap_register_is_metadata_only: true
+  artifact_authoring_performed: false
+  artifact_completion_claimed: false
+  hwp_hwpx_body_reviewed: false
+required_content_gap_rows:
+  - content_gap_id: <content_gap_id>
+    related_folder_id: <folder_id>
+    related_inspection_row_id: <inspection_row_id>
+    related_artifact_row_ids: []
+    stage_code: <stage_code>
+    stage_name: <stage_name>
+    artifact_family: <artifact_family>
+    required_content_family: requirement|design_description|interface|verification_result|configuration_record|review_record|source_packet|lesson_learned|other
+    gap_state: missing|partial|ambiguous|blocked|out_of_scope|not_applicable|unknown
+    gap_basis_ref: <portable_metadata_ref_or_null>
+    gap_basis_kind: stage_gap_scan|requirement_packet|filename|title|sidecar_metadata|pdf_html_derivative|intake_note|planning_doc|owner_mark|none
+    owner_action_needed: provide_file|confirm_applicability|confirm_required_content|approve_not_applicable|route_to_owning_workflow|none
+    target_followup_workflow_id: <workflow_id_or_null>
+    current_claim_ceiling: source_gap_followup_needed|owner_decision_needed|blocked_missing_download|not_applicable_owner_marked|rejected_or_blocked
+    non_claims:
+      - content_absent_proven_from_body
+      - artifact_complete
+      - source_supported
+      - readiness_blocker_resolved
+register_checks:
+  every_gap_has_owner_or_workflow_route: false
+  no_body_based_absence_claims: true
+  no_artifact_authoring_claims: true

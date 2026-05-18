@@ -1,0 +1,78 @@
+schema_version: se_claim_ceiling_register_v0
+register_identity:
+  register_id: <register_id>
+  workflow_id: se_cross_stage_mapping_governance_v0
+  project_code: <project_code>
+  run_id: <run_id>
+allowed_claim_ceilings:
+  - ceiling: observed
+    meaning: A public-safe row, filename, title, packet reference, or note is visible.
+    allowed_basis:
+      - stage_gap_scan_row
+      - source_gap_followup_row
+      - filename_or_title
+      - pdf_or_html_derivative_ref
+      - intake_note_ref
+      - planning_doc_ref
+  - ceiling: mapped_governance_only
+    meaning: An observed row is mapped to stage, artifact family, input need, or downstream route.
+    allowed_basis:
+      - artifact_to_input_map_row
+      - cross_stage_artifact_matrix_row
+  - ceiling: source_gap_followup_needed
+    meaning: A source or download gap should be routed to follow-up; no source support is claimed.
+    allowed_basis:
+      - missing_download_register_row
+      - upstream_source_gap_row
+  - ceiling: owner_decision_needed
+    meaning: Owner confirmation is needed before the row can move or be excluded.
+    allowed_basis:
+      - owner_input_queue_ref
+      - unresolved_scope_or_applicability_question
+  - ceiling: blocked_missing_download
+    meaning: Evidence work is blocked because a needed source/download is missing.
+    allowed_basis:
+      - missing_download_register_row
+      - download_or_reuse_manifest_gap
+  - ceiling: not_applicable_owner_marked
+    meaning: Owner or upstream packet marks the row not applicable.
+    allowed_basis:
+      - owner_mark
+      - upstream_not_applicable_row
+  - ceiling: rejected_or_blocked
+    meaning: The row cannot support a governance claim under the current boundary.
+    allowed_basis:
+      - boundary_violation
+      - unsupported_input
+      - hwp_hwpx_body_required
+forbidden_claim_upgrades:
+  - source_supported_evidence
+  - validated_private_truth
+  - canon_entry
+  - artifact_completion
+  - stage_readiness
+  - review_approval
+  - audit_closure
+  - verification_completion
+  - final_readiness
+  - hwp_or_hwpx_body_reviewed
+ceiling_rows:
+  - ceiling_row_id: <ceiling_row_id>
+    subject_ref: <artifact_row_id_or_map_row_id_or_gap_id>
+    subject_type: artifact_row|input_map_row|missing_download_row|artifact_folder_row|folder_inspection_row|required_content_gap_row|input_basis_gap_row|inspection_delta_row|owner_source_followup_row|downstream_rerun_route_row|stage_summary
+    stage_code: <stage_code>
+    stage_name: <stage_name>
+    assigned_ceiling: observed|mapped_governance_only|source_gap_followup_needed|owner_decision_needed|blocked_missing_download|not_applicable_owner_marked|rejected_or_blocked
+    basis_refs: []
+    downgrade_reason: <reason_if_any>
+    required_for_upgrade:
+      - owning_workflow_evidence
+      - owner_decision
+      - source_reindex
+      - review_gate_packet
+      - verifier_acceptance
+    explicit_non_claims: []
+register_checks:
+  every_subject_has_ceiling: false
+  no_forbidden_claim_upgrades: true
+  hwp_hwpx_body_review_not_claimed: true

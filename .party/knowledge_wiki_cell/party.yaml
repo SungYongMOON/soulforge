@@ -1,0 +1,34 @@
+party_id: knowledge_wiki_cell
+kind: party_template
+status: active
+title: Knowledge Wiki Cell
+summary: Canonical party for Karpathy-style sourcebound wiki materialization, routed through the registered composite SE knowledge wiki pipeline.
+default_workflow_id: se_knowledge_wiki_pipeline_v0
+workflow_chain:
+  - order: 1
+    workflow_id: se_knowledge_wiki_pipeline_v0
+    role: composite_request_router_and_stage_chain_owner
+    execution_contract: subagent_required
+preferred_monster_types:
+  - knowledge_wiki_request
+  - llm_wiki_request
+  - karpathy_style_wiki_request
+  - sourcebound_knowledge_request
+  - se_knowledge_wiki_request
+member_slots: member_slots.yaml
+allowed_species: allowed_species.yaml
+allowed_classes: allowed_classes.yaml
+allowed_workflows: allowed_workflows.yaml
+appserver_profile: appserver_profile.yaml
+notes:
+  - Party owns the workflow chain only; each workflow owns its own internal steps and optimized execution profile.
+  - Each workflow in this party chain is expected to execute through a fresh subagent stage in real runs.
+  - Source truth remains in source packets or owner-held files; generated wiki material is private derivative projection until reviewed.
+  - Google Drive or another owner-held archive may be used as the central file archive and backup for inbox candidates, source files, working bundles, and canon packages.
+  - Archive manifest handling belongs inside the source intake, sourcebound projection, or composite SE pipeline stages; the party records the chain and must not treat archive presence as canon.
+  - When archive policy declares `codex_skill_auto_sync`, the party may let approved Codex skills or the Google Drive connector upload/sync bounded archive files without per-file owner confirmation.
+  - Automatic upload/sync remains storage authority only; it cannot promote canon, approve source truth, or bypass secret/private boundaries.
+  - ZIP containers are not retained as source truth; extracted files and inventories are used instead.
+  - NotebookLM or other advisory handoffs may assist navigation but cannot approve source truth, ontology canon, or workflow promotion.
+  - Obsidian output is a generated read-only view over canon-backed `.registry/knowledge` entries or approved canon packages only. It must not read directly from `_workmeta` payloads, NotebookLM answers, or Drive candidate storage.
+  - The default party entry is now `.workflow/se_knowledge_wiki_pipeline_v0/`, which internally routes through the registered source intake, sourcebound packet, knowledge access, and review stages.

@@ -6,6 +6,7 @@
 - 각 workflow 는 작업 공략서, 협업 절차, handoff 규칙을 소유한다.
 - `.workflow/` 는 `.registry` 아래로 들어가지 않는 독립 orchestration root 다.
 - `.workflow/` 는 workflow-level profile calibration 결과와 public-safe candidate archive 를 소유할 수 있다.
+- `.workflow/` 는 각 workflow 의 optimized model, reasoning effort, species, class, unit/profile recommendation 을 소유한다.
 - `.workflow/` 는 project-local raw run dump, battle log, private transcript owner 가 아니다.
 
 ## canon 과 authoring 구분
@@ -44,9 +45,10 @@ flowchart TD
   SG --> SLOT["actor_slot"]
   SG --> SK["action.skill_id"]
   SG --> EP["execution_profile_ref"]
-  SLOT --> PT[".party/<party_id>/member_slots.yaml"]
+  PT[".party/<party_id>/party.yaml"] --> WF
   SK --> REG[".registry/skills/<skill_id>/skill.yaml"]
   EP --> BIND["_workmeta/<project_code>/bindings/execution_profile_binding.yaml"]
+  PP --> OPT["optimized execution profile"]
 ```
 
 ## 실행 시퀀스
@@ -59,10 +61,11 @@ sequenceDiagram
   participant PT as party
   participant BD as bindings
   participant SA as sub-agent
-  AH->>RUN: workflow_id + party_id + entry_step_id
+  AH->>RUN: party_id or workflow_id + entry_step_id
+  RUN->>PT: resolve workflow chain when party_id exists
+  PT-->>RUN: selected entry workflow / next workflow hints
   RUN->>WF: read actor_slot, skill_id, execution_profile_ref
-  RUN->>PT: resolve actor_slot -> unit_id
-  RUN->>BD: resolve skill_id / execution_profile_ref
+  RUN->>BD: resolve skill_id / workflow-owned execution_profile_ref
   RUN->>SA: spawn payload
   SA-->>RUN: result
 ```
@@ -96,6 +99,8 @@ sequenceDiagram
 - workflow 자체를 최적화하기 위해 public-safe synthetic fixture 로 돌린 profile calibration 은 해당 workflow 의 반복 실행 정책을 바꾸는 근거이므로 `<workflow_id>/calibrations/<calibration_id>/` 아래에 둘 수 있다.
 - calibration archive 에는 golden, frozen quality gate, candidate outputs, telemetry, evaluation, recommendation 을 둘 수 있으나 raw/private/secret 입력이나 실제 프로젝트 원문은 넣지 않는다.
 - `profile_policy.yaml` 은 calibration 결과가 현재 workflow 를 어떻게 업데이트했는지, primary profile 과 shadow top-k profile 을 기록한다.
+- 모델, reasoning 강도, species, class, unit 조합의 최적값은 party 가 아니라 해당 workflow 의 `profile_policy.yaml` 과 `calibrations/` 가 소유한다.
+- party 는 여러 workflow 를 낮은 단계로 펼치지 않도록 묶는 chain/loadout 이며, workflow 내부 step 이나 profile 결과를 복제하지 않는다.
 - workflow creator 는 새 workflow 를 등록할 때 `profile_policy.yaml` 을 draft 로 만들고 `calibrations/` placeholder 를 함께 만든다.
 - profile optimizer 는 등록된 workflow 를 대상으로 subagent quality full matrix 결과를 `calibrations/<calibration_id>/` 에 저장하고, 품질 통과 후보만 CLI telemetry probe 로 측정한 뒤 `profile_policy.yaml` 을 active 추천값으로 갱신한다.
 - held mission assignment 는 `.mission/` 이, project-local raw run 은 `_workmeta/<project_code>/runs/<run_id>/` 가 소유한다.
@@ -143,6 +148,7 @@ sequenceDiagram
 - [`post_development_review_gate_v0/workflow.yaml`](post_development_review_gate_v0/workflow.yaml): private-pilot-executed generic closing workflow for routing bounded development work through deterministic validation, boundary inspection, value judgment, optional B/V escalation, and supervisor decision before acceptance.
 - [`sourcebound_knowledge_packet_operating_loop_v0/workflow.yaml`](sourcebound_knowledge_packet_operating_loop_v0/workflow.yaml): pilot-executed private-evidence workflow for operating a Karpathy-style source-bound knowledge packet loop from source refs through private projection, contradiction/gap lint, concept candidates, claim ceilings, optional advisory NotebookLM handoff, and workflowization routing.
 - [`knowledge_access_event_capture_v0/workflow.yaml`](knowledge_access_event_capture_v0/workflow.yaml): reviewed public-safe draft workflow for capturing metadata-only knowledge access events, usage counts, hot/warm/cold retention labels, strong/weak/orphan/redundant link candidates, and graph update packets without copying knowledge payloads.
+- [`se_knowledge_wiki_pipeline_v0/workflow.yaml`](se_knowledge_wiki_pipeline_v0/workflow.yaml): registered composite workflow entry for SE/LLM-wiki wikiization requests, routing archive policy, source intake, sourcebound packet work, Obsidian export decisions, metadata capture, and review closeout without granting source or canon authority to Drive, NotebookLM, or Obsidian.
 - [`ouroboros_strategic_review_harness_v0/workflow.yaml`](ouroboros_strategic_review_harness_v0/workflow.yaml): reviewed public-safe draft workflow for periodically checking vision alignment and owner-intent gaps, producing owner questions and canon constraint candidates instead of inferring missing intent.
 - [`authoring/task_note.template.md`](authoring/task_note.template.md): raw task memo template for converting real work into workflow drafts.
 - [`authoring/workflow_draft.template.yaml`](authoring/workflow_draft.template.yaml): workflow draft template for step sequencing, actors, skills, and outputs.

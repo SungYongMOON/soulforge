@@ -1,0 +1,27 @@
+workflow_id: sourcebound_knowledge_packet_operating_loop_v0
+kind: knowledge_package_archive_manifest
+status: draft
+archive_manifest_id: "<archive_manifest_id>"
+archive_surface: "google_drive|other_owner_held_archive|not_applicable"
+authority_boundary:
+  archive_is_storage_and_backup_not_authority: true
+  archive_presence_is_not_canon_promotion: true
+  source_refs_and_review_gate_remain_authority: true
+  codex_skill_auto_sync_allowed_when_declared: true
+  per_file_owner_confirmation_not_required_when_declared: true
+  sync_must_stay_inside_declared_archive_policy: true
+package_entries:
+  - package_entry_id: "<package_entry_id>"
+    sourcebound_packet_ref: "<sourcebound_knowledge_packet_manifest_ref>"
+    package_role: "working_packet|reviewed_private|canon_package|obsolete_or_blocked"
+    archive_ref: "<owner_visible_archive_ref_or_null>"
+    local_or_private_work_ref: "<repo_relative_or_project_local_ref_or_null>"
+    upload_or_sync_status: "not_requested|planned|completed_by_codex_skill_or_connector|completed_by_owner_or_connector|blocked"
+    claim_ceiling: "observed|source_supported|validated_private|canon_candidate|canon_entry|rejected_or_blocked"
+    required_next_action: "<codex_skill_or_owner_or_connector_action_or_null>"
+notebooklm_handoff_source:
+  use_only_canon_or_reviewed_package_refs: true
+  candidate_or_working_packets_are_not_notebooklm_canon_by_default: true
+obsidian_export_source:
+  use_only_canon_entry_or_approved_canon_package_refs: true
+  working_packets_are_not_exported_to_canon_only_view: true

@@ -1,0 +1,21 @@
+schema_version: soulforge_monster_rules_v0
+workflow_id: se_cross_stage_mapping_governance_v0
+monsters:
+  - monster_id: hwp_body_scope_creep
+    trigger: A row requires HWP/HWPX body content, extraction, or hidden document inference.
+    required_response: Stop the row at `rejected_or_blocked` or `owner_decision_needed`; do not read or extract the body.
+  - monster_id: governance_becomes_evidence_authority
+    trigger: A row attempts to claim source support, private validation, artifact completion, or readiness.
+    required_response: Downgrade to the weakest supported governance ceiling and route evidence work to the owning workflow.
+  - monster_id: missing_download_treated_as_resolved
+    trigger: A missing source or account-gated download is marked resolved without owning workflow re-index.
+    required_response: Keep the row in `blocked_missing_download` or `source_gap_followup_needed`.
+  - monster_id: private_payload_leak
+    trigger: Raw source payload, runtime absolute path, credential, or private project truth is about to enter public workflow output.
+    required_response: Remove payload details and keep only portable refs or safe summaries.
+  - monster_id: metadata_inspection_becomes_artifact_authoring
+    trigger: Per-folder inspection attempts to create, repair, rewrite, complete, or approve an artifact.
+    required_response: Stop at metadata gap registration and route authoring or approval to the owning workflow.
+  - monster_id: downstream_rerun_treated_as_completed
+    trigger: A downstream rerun route is recorded as executed, passed, or accepted by this workflow.
+    required_response: Keep only a rerun recommendation row and require the owning workflow to execute and report its own result.

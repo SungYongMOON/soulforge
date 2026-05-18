@@ -1,0 +1,125 @@
+schema_version: se_cross_stage_mapping_governance_packet_v0
+packet_identity:
+  packet_id: <packet_id>
+  workflow_id: se_cross_stage_mapping_governance_v0
+  created_at: <iso8601_timestamp>
+  created_by: <agent_or_owner>
+  project_code: <project_code>
+  run_id: <run_id>
+scope:
+  lifecycle_scope: full_se_lifecycle
+  included_stage_codes:
+    - 000_REF
+    - 020_MGMT
+    - 030_SRR
+    - 060_SFR
+    - 090_PDR
+    - 120_CDR
+    - 150_TRR_DT
+    - 180_FCA_OT
+    - 210_PCA
+    - 240_LL
+    - 270_UNCLASSIFIED
+  stage_names:
+    - REF
+    - MGMT
+    - SRR
+    - SFR
+    - PDR
+    - CDR
+    - TRR_DT
+    - FCA_OT
+    - PCA
+    - LL
+    - UNCLASSIFIED
+  governance_posture: structure_only_not_evidence_authority
+boundary:
+  storage_scope: _workmeta/<project_code> | _workmeta/system
+  public_safe_summary_allowed: true
+  upstream_artifacts_read_only: true
+  hwp_hwpx_body_review_in_scope: false
+  hwp_hwpx_extraction_in_scope: false
+  allowed_hwp_hwpx_context:
+    - filenames
+    - titles
+    - existing_pdf_derivatives
+    - existing_html_derivatives
+    - existing_intake_notes
+    - current_repo_planning_docs
+  source_payloads_included: false
+  runtime_absolute_paths_included: false
+  evidence_authority_claimed: false
+  final_readiness_claimed: false
+input_refs:
+  stage_gap_scan_refs: []
+  source_gap_followup_refs: []
+  sufficiency_review_refs: []
+  review_gate_packet_refs: []
+  readiness_digest_refs: []
+  existing_pdf_or_html_refs: []
+  intake_note_refs: []
+  repo_planning_doc_refs: []
+output_refs:
+  cross_stage_artifact_matrix_ref: cross_stage_artifact_matrix.yaml
+  artifact_to_input_map_ref: artifact_to_input_map.yaml
+  claim_ceiling_register_ref: claim_ceiling_register.yaml
+  missing_download_register_ref: missing_download_register.yaml
+  stage_gap_scan_index_ref: stage_gap_scan_index.yaml
+  boundary_review_note_ref: boundary_review_note.md
+  artifact_folder_inventory_index_ref: artifact_folder_inventory_index.yaml
+  per_artifact_folder_inspection_packet_ref: per_artifact_folder_inspection_packet.yaml
+  required_content_gap_register_ref: required_content_gap_register.yaml
+  input_basis_gap_register_ref: input_basis_gap_register.yaml
+  inspection_delta_register_ref: inspection_delta_register.yaml
+  owner_source_followup_rows_ref: owner_source_followup_rows.yaml
+  downstream_rerun_routes_ref: downstream_rerun_routes.yaml
+aggregate_summary:
+  total_stage_count: 0
+  total_artifact_rows: 0
+  total_artifact_folder_rows: 0
+  mapped_artifact_rows: 0
+  unmapped_artifact_rows: 0
+  missing_download_rows: 0
+  required_content_gap_rows: 0
+  input_basis_gap_rows: 0
+  inspection_delta_rows: 0
+  owner_source_followup_rows: 0
+  downstream_rerun_route_rows: 0
+  owner_decision_needed_rows: 0
+  blocked_rows: 0
+  not_applicable_rows: 0
+  strongest_packet_claim_ceiling: observed
+stage_summaries:
+  - stage_code: <stage_code>
+    stage_name: <stage_name>
+    artifact_row_count: 0
+    mapped_row_count: 0
+    missing_download_count: 0
+    required_content_gap_count: 0
+    input_basis_gap_count: 0
+    downstream_rerun_route_count: 0
+    owner_decision_needed_count: 0
+    blocker_count: 0
+    strongest_stage_claim_ceiling: observed
+    downstream_route_summary: []
+non_claims:
+  - artifact_completion
+  - source_supported_evidence
+  - validated_private_truth
+  - stage_readiness
+  - review_approval
+  - audit_closure
+  - verification_completion
+  - final_readiness
+  - hwp_or_hwpx_body_coverage
+  - download_completed
+  - owner_decision_created
+  - artifact_authoring
+  - artifact_body_review
+  - downstream_rerun_executed
+next_actions:
+  - action_id: <action_id>
+    action_type: source_gap_followup|owner_decision|stage_gap_scan_rerun|readiness_digest_update|downstream_rerun_recommendation|blocked
+    target_workflow_id: <workflow_id_or_null>
+    row_refs: []
+    reason: <public_safe_reason>

@@ -15,6 +15,7 @@ steps:
       validates:
         - private_output_root_declared
         - source_truth_owner_declared
+        - owner_held_archive_policy_declared_when_archive_package_requested
         - public_package_payload_free
         - advisory_tool_non_authority_policy_declared
     summary: Resolve the bounded source scope, private output root, and promotion ceiling before any projection work.
@@ -138,7 +139,35 @@ steps:
         - hold_private
     summary: Decide the maximum safe claim and next route for each concept candidate before workflowization.
     next:
+      on_success: prepare_knowledge_package_archive_manifest
+      on_fail: stop
+  - step_id: prepare_knowledge_package_archive_manifest
+    title: Prepare Knowledge Package Archive Manifest
+    actor_slot: promotion_router
+    action:
+      kind: owner_held_archive_package_manifest_prepare
+      artifacts_in:
+        - sourcebound_knowledge_packet_manifest
+        - compiled_projection_index
+        - compiled_projection_log
+        - concept_candidate_register
+        - claim_ceiling_and_promotion_route
+      artifact_out: knowledge_package_archive_manifest
+      archive_status_labels:
+        - working_packet
+        - reviewed_private
+        - canon_package
+        - obsolete_or_blocked
+      rules:
+        archive_is_storage_and_backup_not_authority: true
+        canon_package_requires_review_or_owner_decision: true
+        codex_skill_auto_sync_allowed_when_declared: true
+        per_file_owner_confirmation_not_required_when_declared: true
+        public_package_stores_no_projection_payload: true
+    summary: Prepare the manifest for Drive or another owner-held archive so working packets and later canon packages can be backed up without treating storage as approval.
+    next:
       on_success: capture_ontology_candidate_rules
+      on_skip: capture_ontology_candidate_rules
       on_fail: stop
   - step_id: capture_ontology_candidate_rules
     title: Capture Ontology Candidate Rules
@@ -230,6 +259,7 @@ steps:
         - sourcebound_knowledge_packet_manifest
         - concept_candidate_register
         - claim_ceiling_and_promotion_route
+        - knowledge_package_archive_manifest
         - optional_notebooklm_advisory_handoff
         - notebooklm_handoff_validation
         - ontology_candidate_rule_register
@@ -239,6 +269,7 @@ steps:
         - projection_boundary
         - concept_candidate_routes
         - claim_ceiling_summary
+        - knowledge_package_archive_summary
         - ontology_candidate_rule_summary
         - notebooklm_handoff_validation_summary
         - workflow_or_ontology_candidate_delta

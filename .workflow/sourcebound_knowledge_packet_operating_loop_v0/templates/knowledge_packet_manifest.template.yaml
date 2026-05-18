@@ -14,9 +14,16 @@ projection_outputs:
   index_path: "compiled_projection/index.md"
   log_path: "compiled_projection/log.md"
   query_pages: []
+owner_held_archive:
+  archive_surface: "google_drive|other_owner_held_archive|not_applicable"
+  archive_manifest_ref: "knowledge_package_archive_manifest.yaml"
+  archive_is_storage_and_backup_not_authority: true
+  agent_upload_authority: "none|owner_approved_connector_action|codex_skill_auto_sync"
+  per_file_owner_confirmation_required: false
 operation_log_events:
   - source_ref_intake
   - projection_compile
   - lint
   - concept_candidate_extraction
   - claim_ceiling_route
+  - archive_manifest_prepare

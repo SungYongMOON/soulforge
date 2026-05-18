@@ -12,6 +12,11 @@ conceptualization:
   concept_candidate_register_ref: null
   contradiction_gap_lint_report_ref: null
   claim_ceiling_route_ref: null
+knowledge_package_archive_summary:
+  knowledge_package_archive_manifest_ref: null
+  archive_surface: "google_drive|other_owner_held_archive|not_applicable"
+  archive_is_storage_and_backup_not_authority: true
+  canon_package_requires_review_or_owner_decision: true
 ontology_candidate_rule_summary:
   ontology_candidate_rule_register_ref: null
   candidate_rule_count: 0

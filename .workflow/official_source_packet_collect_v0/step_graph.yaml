@@ -15,6 +15,8 @@ steps:
         - output_root_is_project_local_or_private_workmeta
         - public_package_contains_no_payloads
         - source_policy_declares_official_and_owner_local_rules
+        - owner_held_archive_policy_declared_when_remote_archive_requested
+        - codex_skill_auto_sync_scope_declared_when_enabled
         - no_runtime_absolute_paths_in_public_package
       creates:
         - source_packet_output_root
@@ -61,6 +63,7 @@ steps:
       artifacts_out:
         - source_inventory_draft
         - download_or_reuse_manifest_draft
+        - owner_held_source_archive_manifest_draft
       source_kinds:
         - datasheet
         - evaluation_board_or_reference_design
@@ -104,6 +107,7 @@ steps:
         - identifier_inventory
         - source_inventory_draft
         - download_or_reuse_manifest_draft
+        - owner_held_source_archive_manifest_draft
       artifacts_out:
         - source_inventory
         - source_gap_report
@@ -157,12 +161,14 @@ steps:
         - source_gap_report
         - owner_followup_needed
         - download_or_reuse_manifest_draft
+        - owner_held_source_archive_manifest_draft
       artifacts_out:
         - source_packet_manifest
         - source_inventory
         - source_gap_report
         - owner_followup_needed
         - download_or_reuse_manifest
+        - owner_held_source_archive_manifest
       required_sections:
         - packet_identity
         - approval
@@ -172,11 +178,14 @@ steps:
         - source_gap_report
         - owner_followup_needed
         - download_or_reuse_manifest
+        - owner_held_source_archive_manifest
         - boundary_notes
       write_policy:
         write_project_local_packet_only: true
         do_not_copy_raw_vendor_payload_to_public_canon: true
         do_not_embed_secret_or_session_material: true
+        codex_skill_auto_sync_allowed_when_declared: true
+        per_file_owner_confirmation_not_required_when_declared: true
     summary: Materialize the reusable project-local packet shape with explicit provenance, gap, blocker, and owner-action sections.
     next:
       on_success: partition_downstream_ready_refs
@@ -232,6 +241,7 @@ steps:
         - source_gap_report
         - owner_followup_needed
         - download_or_reuse_manifest
+        - owner_held_source_archive_manifest
         - downstream_ready_refs
       artifact_out: boundary_review_note
       checks:
@@ -240,10 +250,12 @@ steps:
         - provenance_fields_present_for_executor_approved_sources
         - owner_followup_is_structured
         - downstream_readiness_does_not_overclaim
+        - owner_archive_manifest_distinguishes_inbox_candidate_working_canon_blocked
+        - remote_archive_presence_not_treated_as_source_or_canon_authority
+        - codex_skill_auto_sync_stays_inside_declared_archive_policy
         - no_raw_payloads_or_runtime_absolute_paths_in_public_package
         - no_secret_or_account_state_requested_from_agent
     summary: Confirm the packet can be safely handed to downstream workflows or stop with exact owner follow-up needed.
     next:
       on_success: complete
       on_fail: stop
-
