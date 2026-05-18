@@ -1,0 +1,7 @@
+interface:
+  display_name: "Soulforge Workflow Check"
+  short_description: "Review and close Soulforge workflow changes safely."
+  default_prompt: "Use $soulforge-workflow-check to review or close this Soulforge workflow or party change with validator results, boundary checks, registration posture, supported status, and remaining blockers."
+
+policy:
+  allow_implicit_invocation: true

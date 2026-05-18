@@ -1,5 +1,13 @@
 ﻿# CHANGELOG
 
+## 2026-05-19
+
+### Revision `working` - Workflow check skill registered
+
+- Added `.registry/skills/workflow_check/` as the tracked canonical skill package for the installed `soulforge-workflow-check` Codex skill.
+- Added the Codex bridge and UI metadata so other PCs can materialize it with `npm run skills:sync -- workflow_check` or the bootstrap `--all` sync.
+- Linked the skill from `.registry/skills/README.md` and kept registration/default-route authority outside the checker itself.
+
 ## 2026-05-18
 
 ### Revision `working` - Knowledge wiki Obsidian contract and synthetic pilot smoke

@@ -1,0 +1,51 @@
+skill_id: workflow_check
+kind: skill
+status: active
+title: Workflow Check
+summary: Review or close Soulforge workflow, party, router, and registration changes with validator evidence, boundary posture, exact status labels, and default-route safety.
+behavior:
+  intent: >
+    Provide the Codex-facing checker for Soulforge workflow and party changes so
+    agents close authoring, registration, router, and default-route questions
+    with explicit contract inspection, deterministic validation, boundary review,
+    and conservative claim ceilings.
+  use_when:
+    - workflow or party edits under `.workflow/**` or `.party/**` need review
+    - route/default-switch questions involve `.workflow/index.yaml` or party routing docs
+    - a workflow status needs to be stated as draft, pilot-ready, pilot-executed, canon-ready, registered, or blocked
+    - a post-smoke review must name validator results, public/private boundary posture, and registration/default-route safety
+    - Drive, NotebookLM, Obsidian, `_workmeta`, or source packets might be mistaken for canon authority
+  avoid_when:
+    - the task is pure skill package authoring with no workflow, party, router, or registration question
+    - the task is a simple command output request with no repo judgment
+    - the user explicitly asks to register or switch a default route without the required owner intent
+  expected_outcome:
+    - actual workflow, party, router, or registration contract files are inspected before judgment
+    - relevant deterministic validators are run or a clear skipped reason is recorded
+    - registration and default-route posture are separated from smoke execution or advisory storage
+    - the strongest supported status label and `default-route-safe: yes|no|blocked` are stated
+    - remaining blockers or required next actions are explicit
+execution_requirements:
+  required_capabilities:
+    - workflow_package_review
+    - deterministic_validation_review
+    - boundary_review
+    - registration_posture_review
+  preferred_capabilities:
+    - fresh_context_inspector_review
+    - yaml_review
+    - status_labeling
+    - route_safety_review
+  preferred_tools:
+    - rg
+    - git_status
+    - git_diff
+    - yaml_reader
+    - npm_validate
+  notes:
+    - "The Codex bridge is tracked under `codex/` and syncs to `soulforge-workflow-check` through `npm run skills:sync -- workflow_check`."
+    - "This skill checks workflow/party/route claims; it does not itself authorize registration or default-route switches."
+    - "Actual model availability, subagent access, MCP/tool set, and local install path remain runtime concerns."
+notes:
+  - "`workflow_check` is the canonical Soulforge skill package for workflow, party, router, and registration closeout checks."
+  - "The installed Codex mirror name is normally `soulforge-workflow-check` after `npm run skills:sync -- workflow_check`."
