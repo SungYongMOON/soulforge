@@ -83,6 +83,7 @@ _workmeta/
 - `_workspaces/<project_code>/` 가 실제 과제 현장 materialization root 다.
 - `_workspaces/system/` 은 특정 delivery project 가 아닌 reusable workflow lab pilot output 과 fixture materialization 을 두는 reserved local-only root 다.
 - 실제 프로젝트가 다른 경로에 이미 있으면 `_workspaces/<project_code>/` direct child 로 보이도록 local-only directory link 를 둘 수 있다.
+- 다른 owner PC 에서도 같은 실자료를 읽어야 하는 프로젝트는 실제 파일을 owner-approved shared worksite 에 두고, `_workspaces/<project_code>/` 는 그 위치를 가리키는 link view 로 둔다.
 - `_workmeta/<project_code>/` 는 Soulforge root 아래 nested private metadata repo 다.
 - `_workmeta/system/` 은 project-agnostic reusable workflow evolution run evidence 와 procedure capture 를 두는 reserved lab metadata root 다.
 - `guild_hall/state/gateway/` 가 mail fetch 와 project assignment 전 intake staging 을 함께 담는 cross-project ingress root 다.
@@ -107,7 +108,8 @@ _workmeta/
 
 ## owner 경계
 
-- 프로젝트 실자료와 산출물은 `_workspaces/<project_code>/` 안에 남긴다.
+- 프로젝트 실자료와 산출물은 `_workspaces/<project_code>/` view 안에서 접근 가능해야 한다.
+- 여러 PC 공유가 필요한 실자료는 `_workspaces` 내부 사본이 아니라 owner-approved shared worksite 원본에 두고, `_workspaces/<project_code>/` 는 local-only link 로 연결한다.
 - 특정 프로젝트 owner 가 없는 reusable workflow pilot 출력은 `_workspaces/system/` 안에 남긴다.
 - `gateway` inbox / mailbox / monster event staging 은 `guild_hall/state/gateway/` 안에 남긴다.
 - held mission metadata 와 readiness 는 `.mission/<mission_id>/` 아래에 남긴다.
@@ -128,6 +130,7 @@ _workmeta/
 
 - public repo 에서는 `_workspaces/README.md` 만 추적한다.
 - 실제 `<project_code>` 와 그 하위 파일은 local environment 에서만 materialize 한다.
+- shared worksite target 의 실제 host-local path 는 public tracked 문서에 남기지 않고 owner-only binding 또는 workmeta note 로만 기록한다.
 - canonical 문서에는 실제 project code, 실제 과제명, 외부 로컬 경로, private workspace 경로 예시를 적지 않는다.
 - tracked 정본 문서와 public-safe example 에서는 실제 과제 식별자 대신 `demo_project`, `example_project`, `Example Project` 같은 generic placeholder 만 쓴다.
 - project assignment 규칙을 정본으로 승격할 때는 비밀 project code, 내부 관리번호, 외부에 닫힌 식별자를 직접 판정 키로 적지 않는다.

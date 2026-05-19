@@ -14,15 +14,16 @@
 
 1. canonical project root 는 항상 `_workspaces/<project_code>/` direct child 로 본다.
 2. 실제 프로젝트가 Soulforge 바깥에 이미 있으면, local-only materialization 은 OS-local directory link 로 둘 수 있다.
-3. Windows 에서는 directory link 기본값으로 junction 을 권장한다.
-4. macOS/Linux 에서는 directory symlink 를 권장한다.
-5. tracked 문서와 public changelog 에는 actual host-local source path 를 적지 않는다.
-6. tracked 정본 문서, public changelog, public-safe example 에는 실제 project code, 실제 과제명, 실제 display name 을 적지 않고 generic example 으로만 표현한다.
-7. `project_code` 는 경로와 식별자에 쓰는 짧고 안정적인 id 로 둔다.
-8. 사람에게 보여줄 full project title 은 `_workmeta/<project_code>/contract.yaml` 의 `display_name` 에 둔다.
-9. 첫 실제 프로젝트 온보딩은 `_workmeta/<project_code>/` 를 바로 active 로 만들지 않고, 먼저 read-only intake 로 구조와 민감 경계를 확인한 뒤 아주 작은 first run/use 로 들어간다.
-10. first run/use 에서 확인한 문제는 `_workspaces` 수정과 `_workmeta` metadata 기록으로 먼저 정리한다.
-11. 첫 실제 프로젝트 온보딩에서 얻은 안정 규칙은 다음 변경에서 workspace manual 과 changelog 로 승격한다.
+3. 다른 owner PC 에서도 같은 실자료를 읽어야 하면 실제 project root 는 owner-approved shared worksite 에 두고, `_workspaces/<project_code>/` 는 그 위치를 가리키는 link 로 둔다.
+4. Windows 에서는 directory link 기본값으로 junction 을 권장한다.
+5. macOS/Linux 에서는 directory symlink 를 권장한다.
+6. tracked 문서와 public changelog 에는 actual host-local source path 를 적지 않는다.
+7. tracked 정본 문서, public changelog, public-safe example 에는 실제 project code, 실제 과제명, 실제 display name 을 적지 않고 generic example 으로만 표현한다.
+8. `project_code` 는 경로와 식별자에 쓰는 짧고 안정적인 id 로 둔다.
+9. 사람에게 보여줄 full project title 은 `_workmeta/<project_code>/contract.yaml` 의 `display_name` 에 둔다.
+10. 첫 실제 프로젝트 온보딩은 `_workmeta/<project_code>/` 를 바로 active 로 만들지 않고, 먼저 read-only intake 로 구조와 민감 경계를 확인한 뒤 아주 작은 first run/use 로 들어간다.
+11. first run/use 에서 확인한 문제는 `_workspaces` 수정과 `_workmeta` metadata 기록으로 먼저 정리한다.
+12. 첫 실제 프로젝트 온보딩에서 얻은 안정 규칙은 다음 변경에서 workspace manual 과 changelog 로 승격한다.
 
 ## 추천 값
 
@@ -39,7 +40,7 @@ Windows PowerShell:
 
 ```powershell
 $projectCode = "demo_project"
-$target = "<local-project-root>"
+$target = "<owner-approved-shared-or-local-project-root>"
 New-Item -ItemType Junction -Path "_workspaces/$projectCode" -Target $target
 ```
 
@@ -47,11 +48,11 @@ macOS/Linux:
 
 ```bash
 project_code="demo_project"
-target="/path/to/project-root"
+target="/path/to/owner-approved-shared-or-local-project-root"
 ln -s "$target" "_workspaces/$project_code"
 ```
 
-위 명령은 local-only materialization 예시일 뿐이며, tracked 문서에는 실제 target path 를 남기지 않는다.
+위 명령은 local-only materialization 예시일 뿐이며, tracked 문서에는 실제 target path 를 남기지 않는다. 사진, 영상, 측정 로그처럼 다른 PC 에서도 바로 읽어야 하는 payload 는 shared worksite 를 target 으로 둔다.
 
 ## 첫 온보딩 절차
 

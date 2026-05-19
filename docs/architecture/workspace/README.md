@@ -100,6 +100,7 @@
 - `WORKFLOW_EVOLUTION_HARNESS_INSTALL_V0.md` 는 owner PC 에서 Codex `/goal` 과 promptfoo 같은 harness 후보를 설치하고, workflow evolution 실험을 운영 clone 과 분리하는 절차를 둔다.
 - `INSTALLATION_MANUAL_V0.md` 는 다른 PC 에서 clone 후 무엇을 어떤 순서로 설치해야 하는지 한 장짜리 상위 bootstrap 문서다.
 - `PROJECT_ONBOARDING_V0.md` 는 첫 실제 프로젝트를 `_workspaces/<project_code>/` 에 붙일 때 short `project_code`, full `display_name`, read-only first, local-only link materialization 규칙을 잠근다.
+- shared project payload 는 owner-approved shared worksite 에 두고 `_workspaces/<project_code>/` 는 junction/symlink view 로 materialize 하는 것을 current-default 로 둔다.
 - `PROJECT_START_WORKFLOW_V0.md` 는 첫 과제 시작 시 사람과 Codex 가 어디에 기록하고 어떤 순서로 bounded task 를 열지 잠근다.
 - `BOOTSTRAP_PROFILES_V0.md` 는 `public-only`, `operator`, `owner-with-state` bootstrap 기본 프로필을 잠근다.
 - `PRIVATE_STATE_REPO_V0.md` 는 optional private state repo 로 어떤 운영 기록만 따로 mirror 할지 잠근다.

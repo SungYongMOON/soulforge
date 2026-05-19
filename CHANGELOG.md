@@ -1,5 +1,13 @@
 ﻿# CHANGELOG
 
+## 2026-05-20
+
+### Revision `working` - Workspace shared-link rule clarified
+
+- Clarified that project payloads shared across owner PCs should live in an owner-approved shared worksite, with `_workspaces/<project_code>/` materialized as a local junction or symlink view.
+- Updated onboarding, workspace model, installation, and multi-PC docs to keep host-local shared target paths out of public tracked files.
+- Kept public Git scope limited to generic workspace rules; raw project media and measurement payloads remain outside public tracking.
+
 ## 2026-05-19
 
 ### Revision `working` - 21 workflow optimizer gap batch closed

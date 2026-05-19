@@ -103,7 +103,7 @@ flowchart LR
 | `_workmeta/<project_code>/dev_worker_queue/**` | `portable_dev_pc`, owner-approved promotion helper, 또는 auto-policy promotion helper | owner-approved 또는 auto-policy-approved ready task packet 만 둔다. `dev_worker_pc` 는 이 큐를 claim 할 수 있다. |
 | `guild_hall/state/**` | `always_on_node` | local runtime 이며 public Git 에 올리지 않는다. 필요한 연속성만 `private-state/` 로 mirror 한다. |
 | `private-state/**` | `always_on_node` | owner-only private repo 에 selected continuity subset 과 activity sync 결과만 commit/push 한다. secret 값은 넣지 않는다. |
-| `_workspaces/<project_code>/**` | `work_pc`, tool-bound 범위에서는 `tool_pc` | 실제 프로젝트 파일 local-only 이며 public Git 에 올리지 않는다. tool 산출물은 해당 tool 이 설치된 PC 에서 다룬다. |
+| `_workspaces/<project_code>/**` | `work_pc`, tool-bound 범위에서는 `tool_pc` | 실제 프로젝트 worksite view 이며 public Git 에 올리지 않는다. 여러 PC 공유가 필요한 payload 는 owner-approved shared worksite 를 link target 으로 둔다. |
 | `_workmeta/<project_code>/**` | `work_pc`, tool-bound run 범위에서는 `tool_pc` | owner-only private shared metadata plane 이며 project metadata, worklog, run truth, log, analytics, selected artifact metadata 를 commit/push 한다. actual project files 와 machine-local temp/cache 는 `_workspaces` 또는 local runtime 에 둔다. |
 | `node_identity.yaml` | 각 PC 자신 | `guild_hall/state/local/` 아래 local-only binding 이며 어떤 Git 에도 올리지 않는다. |
 
@@ -116,11 +116,11 @@ flowchart LR
 | 맥북에어 개발면 | `portable_dev_pc` | public `Soulforge`, 필요 시 `_workmeta/**` | Soulforge 코드, 문서, UI, architecture 판단과 review/merge 준비를 담당한다. `gateway_fetch_primary` 와 `night_watch_active` 는 기본 blocked 다. |
 | 맥미니 운영용 clone | `always_on_node` | `guild_hall/state/**`, `private-state/**` mirror | 24시간 gateway fetch, healer, town_crier, night_watch, activity sync 를 담당한다. 이 clone 은 clean `main` + pull/run-only 상태로 유지한다. |
 | 맥미니 개발용 worktree/clone | `dev_worker_pc` 또는 bounded task branch producer | `codex/<node-id>-<task>` task branch, 필요 시 `_workmeta/**` | 같은 물리 Mac mini 에서 장시간 개발을 돌릴 때만 별도 worktree/clone 으로 만든다. 운영용 clone 을 직접 수정하지 않는다. |
-| OneDrive 등 cloud project worksite | `work_pc` / project worksite binding | `_workspaces/<project_code>/` materialization 또는 owner-approved external project path | 실제 프로젝트 파일과 사람이 열어볼 산출물만 둔다. public repo, `_workmeta`, `private-state`, `guild_hall/state/**` runtime, secret/env/session 은 cloud sync 대상이 아니다. |
+| OneDrive 등 cloud project worksite | `work_pc` / project worksite binding | `_workspaces/<project_code>/` link target 또는 owner-approved external project path | 여러 PC 에서 같은 사진, 영상, 측정 로그, 산출물을 읽어야 할 때 실제 파일을 둔다. public repo, `_workmeta`, `private-state`, `guild_hall/state/**` runtime, secret/env/session 은 cloud sync 대상이 아니다. |
 
 맥미니가 운영과 개발을 모두 맡더라도 역할은 한 clone 안에서 섞지 않는다. 운영용 clone 은 `always_on_node` identity 를 갖고, 개발용 worktree/clone 은 별도의 local `node_identity.yaml` 로 `dev_worker_pc` 성격을 선언한다.
 
-OneDrive 같은 cloud path 를 `_workspaces` 로 쓰려면 project 별 binding 에만 기록한다. public tracked tree 에 machine-local 절대경로를 넣지 않고, symlink/junction 생성은 사용자가 `project_code` 와 대상 path 를 명시했을 때만 수행한다.
+OneDrive 같은 cloud path 를 `_workspaces` 로 쓰려면 실제 파일은 cloud/shared project worksite 에 두고 `_workspaces/<project_code>/` 는 link 로 둔다. project 별 binding 에만 target 을 기록하고, public tracked tree 에 machine-local 절대경로를 넣지 않는다. symlink/junction 생성은 사용자가 `project_code` 와 대상 path 를 명시했을 때만 수행한다.
 
 중복 방지 규칙:
 
@@ -323,7 +323,7 @@ local_paths:
 
 ## Git 으로 따라오지 않는 것
 
-- `_workspaces/<project_code>/` 실제 프로젝트 파일
+- `_workspaces/<project_code>/` 실제 프로젝트 payload 또는 shared worksite link target
 - `guild_hall/state/gateway/` 실제 mailbox, intake inbox, event log
 - `guild_hall/state/town_crier/` 실제 queue, send log, telegram env
 - `guild_hall/state/operations/` active total-activity context
@@ -352,7 +352,7 @@ local_paths:
 15. recent context 가 필요하면 `guild_hall/state/operations/soulforge_activity/latest_context.json` 을 먼저 읽고, 더 필요할 때만 현재 월 `events/*.jsonl` 마지막 몇 건을 추가로 본다.
 16. `npm run guild-hall:doctor` 로 bootstrap readiness 를 먼저 확인한다.
 17. 첫 `guild-hall:gateway:fetch` 또는 `guild-hall:gateway:intake` 실행 시 `guild_hall/state/gateway/**` local runtime 폴더는 스크립트가 자동으로 만든다.
-18. 실제 프로젝트별 `_workspaces/<project_code>/` 와 폴더 트리는 그 PC 의 현장 구조에 맞춰 따로 만든다.
+18. 실제 프로젝트별 `_workspaces/<project_code>/` 와 폴더 트리는 그 PC 의 현장 구조에 맞춰 따로 만든다. 여러 PC 에서 같은 실자료를 봐야 하면 shared worksite 를 먼저 만들고 `_workspaces/<project_code>/` 는 junction/symlink 로 연결한다.
 
 ## 다른 PC skill 세팅
 
@@ -413,10 +413,11 @@ skill_bindings:
 3. Soulforge 전체 활동 recent-context 는 project `_workmeta` 가 아니라 `guild_hall/state/operations/soulforge_activity/**` 를 active owner 로 두고, owner-only `private-state/` 로만 mirror 한다.
 4. canonical 구조, 계약 문서, public-safe sample 은 Git 으로 옮긴다.
 5. project 실자료는 GitHub 에 올리지 않는다. mailbox 원문/event/raw/attachment 는 public GitHub 에 올리지 않고, 필요할 때 owner-only `private-state/` mirror 로만 옮긴다.
-6. 다른 PC 의 경로가 달라도 `docs/architecture/workspace/examples/**` 와 contract 문서만으로 같은 구조를 재현할 수 있어야 한다.
-7. 같은 job 을 여러 PC 가 동시에 처리하지 않도록, current-default 에서는 PC 역할과 primary writer 를 사람이 먼저 정하고 자동화는 그 범위를 넘지 않는다.
-8. tool 이 특정 PC 에만 설치된 작업은 해당 `tool_pc` 가 처리하고, 다른 node 는 dispatch 준비, 초안, 검증 요청까지만 수행한다.
-9. 나중에 autohunt 가 여러 node 로 확장되더라도 `node role -> capability -> claim -> run truth` 순서로 연결하고, local runtime identity 를 public tracked canon 으로 승격하지 않는다.
+6. 사진, 영상, 측정 로그처럼 여러 PC 에서 읽어야 하는 실자료는 owner-approved shared worksite 에 두고, 각 PC 의 `_workspaces/<project_code>/` 는 junction/symlink 로 연결한다.
+7. 다른 PC 의 경로가 달라도 `docs/architecture/workspace/examples/**` 와 contract 문서만으로 같은 구조를 재현할 수 있어야 한다.
+8. 같은 job 을 여러 PC 가 동시에 처리하지 않도록, current-default 에서는 PC 역할과 primary writer 를 사람이 먼저 정하고 자동화는 그 범위를 넘지 않는다.
+9. tool 이 특정 PC 에만 설치된 작업은 해당 `tool_pc` 가 처리하고, 다른 node 는 dispatch 준비, 초안, 검증 요청까지만 수행한다.
+10. 나중에 autohunt 가 여러 node 로 확장되더라도 `node role -> capability -> claim -> run truth` 순서로 연결하고, local runtime identity 를 public tracked canon 으로 승격하지 않는다.
 
 ## 기본 실행 예시
 
@@ -452,7 +453,7 @@ npm run guild-hall:gateway:fetch:healthcheck -- --json
 - `guild-hall:notify:emit` 은 enabled 상태일 때만 scope/event 기준으로 `town_crier` queue 에 notify request 를 적재한다.
 - `guild-hall:gateway:update` 는 이미 생긴 inbox/monster record 를 갱신한다.
 - `skills:sync` 는 tracked `.registry/skills/<skill_id>/codex/**` bridge 를 local `~/.codex/skills/soulforge-<skill-id>/` 로 materialize 한다.
-- 실제 프로젝트 쪽 `_workspaces/<project_code>/` materialization 은 별도 assignment/execution 단계가 맡는다.
+- 실제 프로젝트 쪽 `_workspaces/<project_code>/` materialization 과 shared worksite link 생성은 별도 assignment/execution 단계가 맡는다.
 
 ## 권장 Git 운용
 

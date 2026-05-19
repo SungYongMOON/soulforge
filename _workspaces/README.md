@@ -4,7 +4,8 @@
 
 - `_workspaces/` 는 public repo 에서 reserved/local-only project materialization mount point 다.
 - public GitHub 에서는 `_workspaces/README.md` 만 추적한다.
-- 실제 `_workspaces/<project_code>/` 는 로컬 환경에서만 materialize 되는 private project worksite 다.
+- 실제 `_workspaces/<project_code>/` 는 로컬 환경에서만 materialize 되는 private project worksite view 다.
+- 여러 owner PC 에서 같은 실자료를 읽어야 하는 프로젝트는 실제 파일을 owner-approved shared worksite 에 두고, `_workspaces/<project_code>/` 는 그 위치를 가리키는 local-only directory link 로 둔다.
 - reserved `_workspaces/system/` 은 특정 프로젝트에 속하지 않는 reusable workflow lab pilot output, fixture materialization, downloaded reference file 을 두는 local-only workspace 다.
 - cross-project ingress/runtime 은 `_workspaces/` 가 아니라 `guild_hall/state/**` 가 맡는다.
 - `company/`, `personal` 분기는 새 정본에 포함하지 않는다.
@@ -33,9 +34,10 @@ _workspaces/
 
 ## owner 경계
 
-- `_workspaces/<project_code>/` 는 실제 프로젝트 파일, 산출물, 로컬 운영 상태를 담는 materialization site 다.
+- `_workspaces/<project_code>/` 는 실제 프로젝트 파일, 산출물, 로컬 운영 상태를 보여주는 materialization site 다.
 - `_workspaces/system/` 은 특정 프로젝트 owner 가 없는 reusable workflow 실험, fixture 출력, pilot 산출물을 담는 reserved lab workspace 다.
 - 실제 프로젝트가 다른 로컬 경로에 이미 있으면 `_workspaces/<project_code>/` direct child 로 보이도록 local-only directory link 를 둘 수 있다.
+- 다른 owner PC 에서도 읽어야 하는 사진, 영상, 측정 로그 같은 payload 는 `_workspaces` 내부 사본이 아니라 owner-approved shared worksite 원본을 link target 으로 둔다.
 - `guild_hall/state/**` 는 cross-project ingress, notify, assignment 같은 운영 runtime 이고 `_workspaces/` owner 가 아니다.
 - held mission plan 과 readiness owner 는 이 경로가 아니라 루트 `.mission/` 이 소유한다.
 - project metadata companion root 는 Soulforge root 아래 nested private repo `_workmeta/<project_code>/` 이다.
@@ -54,6 +56,7 @@ _workspaces/
 - repo 안에 남아 있는 legacy sample 또는 과거 경로 흔적은 정본이 아니며 후속 cleanup 범위다.
 - `guild_hall/state/**` 는 `guild-hall:gateway:*` 또는 `guild-hall:town-crier:*` 첫 실행 시 필요한 local runtime 폴더가 자동으로 materialize 된다.
 - `_workspaces/**` 전체를 public Git 으로 올리지 않으며, 필요한 subset 만 `PRIVATE_STATE_REPO_V0.md` 기준으로 별도 private repo 에 넣는다.
+- shared worksite link target 의 실제 host path 는 public tracked 문서에 쓰지 않고 project-local binding 이나 owner note 에만 둔다.
 - 첫 실제 프로젝트 온보딩 절차와 short `project_code` / full `display_name` 규칙은 `PROJECT_ONBOARDING_V0.md` 를 따른다.
 - first run/use 중 생기는 local-only working note 는 `_workmeta/<project_code>/reports/onboarding/`, 근거 artifact 는 `_workmeta/<project_code>/artifacts/onboarding/` 를 기본안으로 둔다.
 - 사람과 Codex 가 같이 진행한 시작 단계 기록은 `_workmeta/<project_code>/reports/onboarding/project_start_worklog.md` 를 기본안으로 둔다.
@@ -71,4 +74,3 @@ _workspaces/
 - [`docs/architecture/workspace/PROJECT_START_WORKFLOW_V0.md`](../docs/architecture/workspace/PROJECT_START_WORKFLOW_V0.md)
 - [`docs/architecture/workspace/MULTI_PC_DEVELOPMENT_V0.md`](../docs/architecture/workspace/MULTI_PC_DEVELOPMENT_V0.md)
 - [`docs/architecture/workspace/PRIVATE_STATE_REPO_V0.md`](../docs/architecture/workspace/PRIVATE_STATE_REPO_V0.md)
-

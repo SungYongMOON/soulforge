@@ -205,6 +205,7 @@ Copy-Item "private-state/guild_hall/state/gateway/log/mail_send/*" "guild_hall/s
 
 `_workspaces/<project_code>/` 실제 worksite 는 `private-state/` 복원 대상이 아니다.
 대상 PC 에서는 project root 를 다시 materialize 하거나 local directory link / junction / symlink 를 새로 만든다.
+여러 PC 에서 같은 실자료를 봐야 하는 프로젝트는 shared worksite 를 먼저 동기화한 뒤 `_workspaces/<project_code>/` 를 그 위치로 연결한다.
 
 ## Chapter 5. NotebookLM MCP 설치
 
@@ -323,7 +324,7 @@ AI 는 아래 순서만 따르게 한다.
 - `guild_hall/state/**` 와 `_workspaces/**` 는 Git 으로 안 따라온다.
 - 기존 PC 의 auth/session 을 새 PC 로 복사하지 않는다.
 - `guild_hall/state/**` continuity subset 은 [`PRIVATE_STATE_REPO_V0.md`](../../../docs/architecture/workspace/PRIVATE_STATE_REPO_V0.md) 기준의 nested `private-state/` 로 옮긴다.
-- `_workspaces/**` 실제 project data 는 current `private-state/` allowlist 에 넣지 않으며, 필요하면 owner 가 별도 private transfer 나 local directory link 재생성으로 이어받는다.
+- `_workspaces/**` 실제 project data 는 current `private-state/` allowlist 에 넣지 않으며, 필요하면 owner 가 별도 private transfer, shared worksite 동기화, 또는 local directory link 재생성으로 이어받는다.
 
 ## 연결 문서
 
