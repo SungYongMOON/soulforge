@@ -1,23 +1,65 @@
 workflow_id: knowledge_candidate_triage_v0
 kind: workflow_profile_policy
 status: active
-calibration_mode: not_yet_calibrated
+last_calibration_id: cal_20260519_quality_equiv_001
+calibration_mode: cli_only_calibration
+matrix_mode: minimal_required_quality_equivalence
+measurement_policy:
+  quality_source: cli_only_calibration
+  telemetry_source: cli_only_calibration_all_candidates
+  subagent_token_usage_available: false
+  telemetry_exact_for_subagent: false
+  telemetry_exact_for_cli: true
+  cost_confidence: relative_not_exact
+  quality_equivalence_policy: batch_20260519
 primary_profile:
   model: gpt-5.5
-  reasoning_effort: high
+  reasoning_effort: low
   species: dwarf
   class: archivist
-  label: "draft_default_archivist"
-shadow_profiles:
+  label: gpt-5.5|low|dwarf|archivist
+  quality_score: 97
+  quality_class: quality_equivalent_pass
+  baseline_relative_quality: 1
+  input_tokens: 26025
+  cached_input_tokens: 24960
+  output_tokens: 1202
+  total_tokens: 51699
+  reasoning_output_tokens: 516
+  wall_s: 19.29
+shadow_top_k:
   - rank: 2
+    label: gpt-5.5|medium|dwarf|archivist
     model: gpt-5.5
-    reasoning_effort: high
+    reasoning_effort: medium
     species: dwarf
-    class: auditor
-    label: "draft_default_auditor"
+    class: archivist
+    quality_score: 97
+    quality_class: quality_equivalent_pass
+    baseline_relative_quality: 1
+    total_tokens: 51672
+    reasoning_output_tokens: 42
+    wall_s: 19.36
+  - rank: 3
+    label: gpt-5.5|xhigh|dwarf|archivist
+    model: gpt-5.5
+    reasoning_effort: xhigh
+    species: dwarf
+    class: archivist
+    quality_score: 97
+    quality_class: quality_equivalent_pass
+    baseline_relative_quality: 1
+    total_tokens: 52187
+    reasoning_output_tokens: 516
+    wall_s: 26.91
 rerun_triggers:
-  - repeated_project_use
-  - profile_optimization_requested
-  - output_shape_changed
+  - workflow prompt changed
+  - output schema changed
+  - model pricing or availability changed
+  - primary profile fails quality gate
+  - new public-safe fixture family added
+calibration_archive_ref: calibrations/cal_20260519_quality_equiv_001/
 notes:
-  - This is a draft default profile only; actual class/species selection may later be optimized by the workflow optimizer.
+  - This policy was updated from a public-safe synthetic batch calibration.
+  - Workflow readiness label remains pilot-executed; optimization does not promote a stronger workflow authority state by itself.
+  - Primary selection prefers the lowest-cost quality-equivalent candidate in this batch.

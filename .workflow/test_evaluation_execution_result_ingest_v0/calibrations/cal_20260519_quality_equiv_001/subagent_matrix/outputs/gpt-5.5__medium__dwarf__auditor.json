@@ -1,0 +1,39 @@
+{
+  "workflow_id": "test_evaluation_execution_result_ingest_v0",
+  "candidate_label": "gpt-5.5|medium|dwarf|auditor",
+  "profile": {
+    "model": "gpt-5.5",
+    "reasoning_effort": "medium",
+    "species": "dwarf",
+    "class": "auditor"
+  },
+  "outputs": {
+    "execution_run_packet": "Synthetic execution run packet records a contract-only ingest pass for one inspection result and one blocked execution result. It preserves result evidence as summarized verdict rows, records the blocker without resolving it, and does not claim acceptance, approval, production readiness, or usable status.",
+    "execution_result_register": "Register contains two synthetic rows: row_001 inspection result marked passed for the scoped inspection item; row_002 execution result marked blocked because required execution conditions or evidence were not available within the synthetic scenario. Both rows are public-safe summaries only.",
+    "result_verdicts": "row_001 verdict: pass candidate for acceptance review preparation, not accepted. row_002 verdict: blocked candidate requiring owner follow-up before any acceptance decision. No row is promoted to accepted, approved, or final verification status.",
+    "run_blockers": "Blocked execution row row_002 remains unresolved. The blocker is preserved as a workflow output and must be carried into owner follow-up or acceptance-review triage before any accepted_verification_result_packet_v0 decision.",
+    "owner_followup_needed": "Owner follow-up is needed for row_002 to determine whether missing execution basis, missing evidence, scope mismatch, or policy constraint caused the blocked state. Owner follow-up is not needed to record row_001 as a passed inspection candidate, but acceptance remains out of scope.",
+    "downstream_handoff": "Handoff one public-safe acceptance-review package containing the passed inspection candidate, the blocked execution candidate, blocker summary, boundary note, and explicit no-acceptance disclaimer for later accepted_verification_result_packet_v0 evaluation.",
+    "boundary_review_note": "This calibration output is synthetic and contract-only. It does not include raw logs, private project outputs, waveform data, vendor payloads, credentials, sessions, runtime absolute paths, hidden references, tool execution claims, file mutation claims, or upstream artifact mutation claims."
+  },
+  "provenance": [
+    "Public-safe synthetic workflow contract for test_evaluation_execution_result_ingest_v0",
+    "Synthetic scenario facts: one passed inspection row, one blocked execution row, one downstream handoff to acceptance review"
+  ],
+  "gaps": [
+    "No scoped acceptance basis is provided, so no accepted, rejected, or inconclusive acceptance result can be claimed.",
+    "No raw execution evidence, logs, private references, or owner decision records are included or inferred."
+  ],
+  "downstream_handoff": [
+    "Send row_001 passed inspection candidate and row_002 blocked execution candidate to acceptance review without acceptance claims.",
+    "Carry blocker summary, owner follow-up need, and boundary review note into accepted_verification_result_packet_v0 or equivalent acceptance consumer."
+  ],
+  "boundary_review_note": [
+    "Public-safe synthetic boundaries are explicit and limited to the provided contract and scenario facts.",
+    "Output preserves evidence summaries, blocker state, boundary constraints, and downstream handoff while avoiding raw/private evidence and stronger authority claims."
+  ],
+  "no_claims": [
+    "No claim of pilot execution, owner acceptance, TRR/DT/FCA/OT/PCA approval, usable status, production readiness, optimizer result, or accepted verification result.",
+    "No claim of tool use, file edits, runtime paths, hidden private evidence, upstream artifact mutation, or source/canon authority beyond the provided synthetic contract."
+  ]
+}

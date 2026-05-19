@@ -1,0 +1,23 @@
+{
+  "workflow_id": "se_stage_artifact_gap_scan_v0",
+  "evaluator": "controller_structural_quality_review",
+  "baseline_profile": "gpt-5.5|xhigh|dwarf|administrator",
+  "conclusion": "gpt-5.5|medium|dwarf|administrator is the lowest-cost quality-equivalent candidate in this batch.",
+  "compared_candidates": [
+    {
+      "label": "gpt-5.5|low|dwarf|administrator",
+      "quality_class": "minimum_viable_pass",
+      "output_quality_score": 89
+    },
+    {
+      "label": "gpt-5.5|medium|dwarf|administrator",
+      "quality_class": "quality_equivalent_pass",
+      "output_quality_score": 97
+    },
+    {
+      "label": "gpt-5.5|xhigh|dwarf|administrator",
+      "quality_class": "quality_equivalent_pass",
+      "output_quality_score": 97
+    }
+  ]
+}

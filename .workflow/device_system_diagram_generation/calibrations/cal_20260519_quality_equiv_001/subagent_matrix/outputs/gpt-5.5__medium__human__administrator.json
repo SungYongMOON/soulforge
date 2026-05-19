@@ -1,0 +1,37 @@
+{
+  "workflow_id": "device_system_diagram_generation",
+  "candidate_label": "gpt-5.5|medium|human|administrator",
+  "profile": {
+    "model": "gpt-5.5",
+    "reasoning_effort": "medium",
+    "species": "human",
+    "class": "administrator"
+  },
+  "outputs": {
+    "diagram_input_yaml": "A public-safe structured diagram input representing one Markdown device description. It includes four synthetic device elements: power_block, controller, sensor, and external_connector. Relationships describe power delivery from power_block to controller and sensor, control/data exchange between controller and sensor, and external interface linkage between controller and external_connector. The YAML treats the editable draw.io diagram as the source of truth target and labels SVG, PPTX, and PNG as derived outputs.",
+    "drawio_master": "An editable draw.io master diagram package for the synthetic device system. It is the source of truth for the generated diagram content and preserves the core blocks, boundaries, labels, and relationships derived from the Markdown description. It does not embed runtime project paths, private packets, hidden references, or raw execution evidence.",
+    "svg_exports": "Derived SVG diagram exports generated conceptually from the draw.io master. These exports are for viewing, review, and downstream embedding only. They do not replace the draw.io master as the source of truth.",
+    "powerpoint_deck": "A derived PowerPoint deck containing the device system diagram for presentation use. The deck reflects the same synthetic system blocks and relationships as the draw.io master but remains downstream presentation material, not canonical diagram source.",
+    "preview_png": "A derived PNG preview image suitable for quick inspection of the generated device system diagram. The preview is bounded to the synthetic scenario and is not treated as editable source or canon authority."
+  },
+  "provenance": [
+    "Based only on the public-safe synthetic workflow contract for device_system_diagram_generation.",
+    "Uses the synthetic scenario facts: one Markdown description names a power block, controller, sensor, and external connector; draw.io is the source of truth; SVG, PPTX, and PNG are derived artifacts."
+  ],
+  "gaps": [
+    "No actual Markdown source content is provided beyond the synthetic device element summary.",
+    "No project-local binding, concrete path, tool location, rendering log, or runtime validation evidence is included or claimed."
+  ],
+  "downstream_handoff": [
+    "Use the draw.io master as the authoritative editable diagram source for later updates.",
+    "Use SVG, PPTX, and PNG only as derived artifacts for review, presentation, or preview workflows."
+  ],
+  "boundary_review_note": [
+    "This calibration output stays within the public-safe synthetic contract and does not reference runtime project paths, REF packets, candidates, hidden references, or raw run evidence.",
+    "The workflow is described as owner-accepted usable under the supplied contract, without promoting it to stricter REF canon-ready authority."
+  ],
+  "no_claims": [
+    "No claim is made that tools were run, files were edited, exports were generated, or upstream artifacts were mutated.",
+    "No claim is made about private evidence, hidden references, actual filesystem paths, or project-local execution state."
+  ]
+}

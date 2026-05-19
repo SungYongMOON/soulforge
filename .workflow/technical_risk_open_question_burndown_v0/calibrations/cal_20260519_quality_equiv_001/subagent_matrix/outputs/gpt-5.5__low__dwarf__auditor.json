@@ -1,0 +1,39 @@
+{
+  "workflow_id": "technical_risk_open_question_burndown_v0",
+  "candidate_label": "gpt-5.5|low|dwarf|auditor",
+  "profile": {
+    "model": "gpt-5.5",
+    "reasoning_effort": "low",
+    "species": "dwarf",
+    "class": "auditor"
+  },
+  "outputs": {
+    "technical_risk_register": "Risk TR-001: Medium technical risk. A referenced interface or quantitative assumption remains insufficiently specified within the synthetic risk scope, creating implementation or review ambiguity if treated as resolved. Status: open. Severity: medium. Boundary: recorded as uncertainty only, not as a defect confirmation or design decision.",
+    "open_question_register": "Open Question OQ-001: What approved source or owner decision is required to confirm the unresolved interface or quantitative field? Status: open. Blocking state: blocks closure of TR-001 until answered by an approved public-safe input or owner follow-up.",
+    "burndown_summary": "Burndown state: 1 medium technical risk open, 1 open question open, 1 closure criterion defined, 1 rerun route available. No risk is closed in this calibration output because the synthetic facts do not provide confirming evidence or owner resolution.",
+    "closure_criteria_register": "Closure Criterion CC-001: TR-001 and OQ-001 may be marked closed only when an approved risk-scope reference or owner-approved public-safe response explicitly resolves the ambiguous field and preserves boundary-safe provenance. Until then, closure remains blocked.",
+    "owner_followup_needed": "Owner follow-up needed: yes. The owner or approved source steward must provide the missing confirming detail for OQ-001 or explicitly defer it with accepted residual risk.",
+    "rerun_routes": "Rerun Route RR-001: Rerun technical_risk_open_question_burndown_v0 after the approved source detail or owner response is available, using the same public-safe boundary constraints and without importing private/raw evidence.",
+    "boundary_review_note": "Boundary review: output is synthetic and public-safe. It does not claim tool use, file edits, runtime paths, hidden references, private/raw evidence, upstream mutation, or final technical resolution."
+  },
+  "provenance": [
+    "Public-safe synthetic workflow contract supplied in the prompt.",
+    "Synthetic scenario facts supplied in the prompt: one medium technical risk, one open question, one closure criterion, and one rerun route."
+  ],
+  "gaps": [
+    "The concrete technical domain, source references, interface name, and quantitative field are intentionally unspecified in the synthetic scenario.",
+    "No approved resolving evidence or owner answer is present, so no closure or stronger authority can be claimed."
+  ],
+  "downstream_handoff": [
+    "Carry TR-001, OQ-001, CC-001, and RR-001 into calibration comparison as a bounded synthetic register.",
+    "Route owner follow-up before any future run attempts to close the risk or question."
+  ],
+  "boundary_review_note": [
+    "Public-safe synthetic boundaries were preserved.",
+    "No upstream artifacts, runtime paths, hidden refs, private evidence, or mutation claims are included."
+  ],
+  "no_claims": [
+    "No claim of tool use, file inspection, edits, commits, runtime execution, or hidden evidence.",
+    "No claim that the medium risk or open question has been resolved."
+  ]
+}

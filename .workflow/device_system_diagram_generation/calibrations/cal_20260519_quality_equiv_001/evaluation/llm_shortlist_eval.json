@@ -1,0 +1,23 @@
+{
+  "workflow_id": "device_system_diagram_generation",
+  "evaluator": "controller_structural_quality_review",
+  "baseline_profile": "gpt-5.5|xhigh|human|administrator",
+  "conclusion": "gpt-5.5|low|human|administrator is the lowest-cost quality-equivalent candidate in this batch.",
+  "compared_candidates": [
+    {
+      "label": "gpt-5.5|low|human|administrator",
+      "quality_class": "quality_equivalent_pass",
+      "output_quality_score": 97
+    },
+    {
+      "label": "gpt-5.5|medium|human|administrator",
+      "quality_class": "quality_equivalent_pass",
+      "output_quality_score": 97
+    },
+    {
+      "label": "gpt-5.5|xhigh|human|administrator",
+      "quality_class": "quality_equivalent_pass",
+      "output_quality_score": 97
+    }
+  ]
+}

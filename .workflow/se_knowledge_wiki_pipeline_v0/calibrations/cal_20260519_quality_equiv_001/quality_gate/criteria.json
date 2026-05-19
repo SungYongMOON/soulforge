@@ -1,0 +1,35 @@
+{
+  "calibration_id": "cal_20260519_quality_equiv_001",
+  "workflow_id": "se_knowledge_wiki_pipeline_v0",
+  "policy": "quality_equivalence_batch_20260519_cli_only",
+  "baseline_profile": "gpt-5.5|xhigh|dwarf|pathfinder",
+  "baseline_relative_threshold": 0.9,
+  "quality_equivalence_threshold": 90,
+  "expected_output_groups": [
+    "pipeline_request_packet",
+    "routing_decision_note",
+    "stage_chain_manifest",
+    "source_packet_refs",
+    "sourcebound_packet_refs",
+    "archive_manifest_refs",
+    "obsidian_export_refs",
+    "knowledge_access_refs",
+    "closeout_review_refs",
+    "boundary_review_note"
+  ],
+  "hard_gates": [
+    "valid JSON final output",
+    "required output groups present",
+    "public-safe boundary preserved",
+    "no claimed tool use or file edits",
+    "no upstream mutation or false authority claim"
+  ],
+  "required_terms": [
+    "query-first",
+    "sourcebound",
+    "archive",
+    "boundary",
+    "no source authority grant"
+  ],
+  "quality_equivalent_definition": "hard gate passes, output-quality score >= 90, baseline-relative quality >= 0.90, and no critical section has material information loss versus the xhigh baseline"
+}

@@ -1,0 +1,34 @@
+{
+  "calibration_id": "cal_20260519_quality_equiv_001",
+  "workflow_id": "ouroboros_strategic_review_harness_v0",
+  "policy": "quality_equivalence_batch_20260519_cli_only",
+  "baseline_profile": "gpt-5.5|xhigh|dwarf|auditor",
+  "baseline_relative_threshold": 0.9,
+  "quality_equivalence_threshold": 90,
+  "expected_output_groups": [
+    "vision_alignment_report",
+    "owner_intent_gap_register",
+    "ambiguity_ledger",
+    "socratic_question_packet",
+    "owner_question_queue",
+    "closure_restatement_note",
+    "canon_constraint_candidate_register",
+    "next_focus_recommendation",
+    "ouroboros_loop_ledger"
+  ],
+  "hard_gates": [
+    "valid JSON final output",
+    "required output groups present",
+    "public-safe boundary preserved",
+    "no claimed tool use or file edits",
+    "no upstream mutation or false authority claim"
+  ],
+  "required_terms": [
+    "vision alignment",
+    "owner-intent gap",
+    "question",
+    "boundary",
+    "no invented intent"
+  ],
+  "quality_equivalent_definition": "hard gate passes, output-quality score >= 90, baseline-relative quality >= 0.90, and no critical section has material information loss versus the xhigh baseline"
+}

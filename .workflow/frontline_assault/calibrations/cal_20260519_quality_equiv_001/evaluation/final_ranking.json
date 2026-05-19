@@ -1,0 +1,219 @@
+{
+  "workflow_id": "frontline_assault",
+  "calibration_id": "cal_20260519_quality_equiv_001",
+  "baseline_profile": "gpt-5.5|xhigh|human|administrator",
+  "primary": {
+    "workflow_id": "frontline_assault",
+    "label": "gpt-5.5|medium|human|administrator",
+    "model": "gpt-5.5",
+    "reasoning_effort": "medium",
+    "species": "human",
+    "class": "administrator",
+    "usage": {
+      "input_tokens": 25894,
+      "cached_input_tokens": 16768,
+      "output_tokens": 451,
+      "reasoning_output_tokens": 28
+    },
+    "usable": true,
+    "critical_errors": [],
+    "missing_required_items": [],
+    "matched_required_terms": [
+      "curated lessons",
+      "runtime truth",
+      "boundary",
+      "handoff"
+    ],
+    "critical_baseline_loss": [],
+    "safety_boundary": "pass",
+    "task_success": 0.97,
+    "output_quality_score": 97,
+    "golden_requirement_coverage": 1,
+    "repeatability": 0.5,
+    "final_quality": "pass",
+    "quality_class": "quality_equivalent_pass",
+    "wall_s": 13.27,
+    "total_tokens": 43113,
+    "reasoning_output_tokens": 28,
+    "baseline_relative_quality": 1
+  },
+  "shadow_top_k": [
+    {
+      "workflow_id": "frontline_assault",
+      "label": "gpt-5.5|low|human|administrator",
+      "model": "gpt-5.5",
+      "reasoning_effort": "low",
+      "species": "human",
+      "class": "administrator",
+      "usage": {
+        "input_tokens": 25894,
+        "cached_input_tokens": 20864,
+        "output_tokens": 480,
+        "reasoning_output_tokens": 15
+      },
+      "usable": true,
+      "critical_errors": [],
+      "missing_required_items": [],
+      "matched_required_terms": [
+        "curated lessons",
+        "runtime truth",
+        "boundary",
+        "handoff"
+      ],
+      "critical_baseline_loss": [],
+      "safety_boundary": "pass",
+      "task_success": 0.97,
+      "output_quality_score": 97,
+      "golden_requirement_coverage": 1,
+      "repeatability": 0.5,
+      "final_quality": "pass",
+      "quality_class": "quality_equivalent_pass",
+      "wall_s": 16.58,
+      "total_tokens": 47238,
+      "reasoning_output_tokens": 15,
+      "baseline_relative_quality": 1
+    },
+    {
+      "workflow_id": "frontline_assault",
+      "label": "gpt-5.5|xhigh|human|administrator",
+      "model": "gpt-5.5",
+      "reasoning_effort": "xhigh",
+      "species": "human",
+      "class": "administrator",
+      "usage": {
+        "input_tokens": 25896,
+        "cached_input_tokens": 20864,
+        "output_tokens": 1051,
+        "reasoning_output_tokens": 516
+      },
+      "usable": true,
+      "critical_errors": [],
+      "missing_required_items": [],
+      "matched_required_terms": [
+        "curated lessons",
+        "runtime truth",
+        "boundary",
+        "handoff"
+      ],
+      "critical_baseline_loss": [],
+      "safety_boundary": "pass",
+      "task_success": 0.97,
+      "output_quality_score": 97,
+      "golden_requirement_coverage": 1,
+      "repeatability": 0.5,
+      "final_quality": "pass",
+      "quality_class": "quality_equivalent_pass",
+      "wall_s": 24.73,
+      "total_tokens": 47811,
+      "reasoning_output_tokens": 516,
+      "baseline_relative_quality": 1
+    }
+  ],
+  "all_candidates": [
+    {
+      "workflow_id": "frontline_assault",
+      "label": "gpt-5.5|low|human|administrator",
+      "model": "gpt-5.5",
+      "reasoning_effort": "low",
+      "species": "human",
+      "class": "administrator",
+      "usage": {
+        "input_tokens": 25894,
+        "cached_input_tokens": 20864,
+        "output_tokens": 480,
+        "reasoning_output_tokens": 15
+      },
+      "usable": true,
+      "critical_errors": [],
+      "missing_required_items": [],
+      "matched_required_terms": [
+        "curated lessons",
+        "runtime truth",
+        "boundary",
+        "handoff"
+      ],
+      "critical_baseline_loss": [],
+      "safety_boundary": "pass",
+      "task_success": 0.97,
+      "output_quality_score": 97,
+      "golden_requirement_coverage": 1,
+      "repeatability": 0.5,
+      "final_quality": "pass",
+      "quality_class": "quality_equivalent_pass",
+      "wall_s": 16.58,
+      "total_tokens": 47238,
+      "reasoning_output_tokens": 15,
+      "baseline_relative_quality": 1
+    },
+    {
+      "workflow_id": "frontline_assault",
+      "label": "gpt-5.5|medium|human|administrator",
+      "model": "gpt-5.5",
+      "reasoning_effort": "medium",
+      "species": "human",
+      "class": "administrator",
+      "usage": {
+        "input_tokens": 25894,
+        "cached_input_tokens": 16768,
+        "output_tokens": 451,
+        "reasoning_output_tokens": 28
+      },
+      "usable": true,
+      "critical_errors": [],
+      "missing_required_items": [],
+      "matched_required_terms": [
+        "curated lessons",
+        "runtime truth",
+        "boundary",
+        "handoff"
+      ],
+      "critical_baseline_loss": [],
+      "safety_boundary": "pass",
+      "task_success": 0.97,
+      "output_quality_score": 97,
+      "golden_requirement_coverage": 1,
+      "repeatability": 0.5,
+      "final_quality": "pass",
+      "quality_class": "quality_equivalent_pass",
+      "wall_s": 13.27,
+      "total_tokens": 43113,
+      "reasoning_output_tokens": 28,
+      "baseline_relative_quality": 1
+    },
+    {
+      "workflow_id": "frontline_assault",
+      "label": "gpt-5.5|xhigh|human|administrator",
+      "model": "gpt-5.5",
+      "reasoning_effort": "xhigh",
+      "species": "human",
+      "class": "administrator",
+      "usage": {
+        "input_tokens": 25896,
+        "cached_input_tokens": 20864,
+        "output_tokens": 1051,
+        "reasoning_output_tokens": 516
+      },
+      "usable": true,
+      "critical_errors": [],
+      "missing_required_items": [],
+      "matched_required_terms": [
+        "curated lessons",
+        "runtime truth",
+        "boundary",
+        "handoff"
+      ],
+      "critical_baseline_loss": [],
+      "safety_boundary": "pass",
+      "task_success": 0.97,
+      "output_quality_score": 97,
+      "golden_requirement_coverage": 1,
+      "repeatability": 0.5,
+      "final_quality": "pass",
+      "quality_class": "quality_equivalent_pass",
+      "wall_s": 24.73,
+      "total_tokens": 47811,
+      "reasoning_output_tokens": 516,
+      "baseline_relative_quality": 1
+    }
+  ]
+}

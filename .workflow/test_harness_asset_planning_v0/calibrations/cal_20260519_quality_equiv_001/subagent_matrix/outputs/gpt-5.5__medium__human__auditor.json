@@ -1,0 +1,40 @@
+{
+  "workflow_id": "test_harness_asset_planning_v0",
+  "candidate_label": "gpt-5.5|medium|human|auditor",
+  "profile": {
+    "model": "gpt-5.5",
+    "reasoning_effort": "medium",
+    "species": "human",
+    "class": "auditor"
+  },
+  "outputs": {
+    "test_harness_manifest": "Synthetic planning manifest identifies two non-executed harness asset needs: one physical fixture for page-module verification alignment and one simulation harness for composed harness candidate readiness review. Manifest status is planning-only and does not assert availability, execution, validation, or TRR approval.",
+    "test_interface_list": "Planned interfaces: physical fixture interface for module-to-fixture mechanical/electrical alignment; simulation harness interface for candidate input/output stimulus and observation points. Interface definitions remain placeholder-level because the synthetic contract provides no page-module pinout, protocol, timing, or acceptance details.",
+    "simulation_fixture_needs": "One simulation harness is needed to model composed harness candidate behavior under synthetic stimulus. Required planning details include stimulus shape, observable outputs, pass/fail criteria owner, and traceability to verification readiness references. No simulation run is claimed.",
+    "instrumentation_resource_list": "Instrumentation planning should reserve non-specific measurement and observation resources suitable for the physical fixture and simulation harness. Exact instruments, licenses, probes, data capture settings, and calibration records are owner-supplied follow-up inputs, not inferred from the synthetic contract.",
+    "trr_readiness_checklist": "TRR readiness planning checklist: confirm harness asset ownership; confirm physical fixture requirement; confirm simulation harness requirement; resolve the planning blocker; obtain owner follow-up input; map planned interfaces to verification readiness refs; document boundary limits; explicitly record that no tests, simulations, or TRR approval occurred.",
+    "planning_blockers": "One planning blocker is present: acceptance criteria and interface details are insufficient to complete concrete harness asset specifications beyond high-level physical and simulation needs.",
+    "owner_followup_needed": "One owner follow-up item is needed: provide approved interface details, acceptance criteria, and resource constraints for the physical fixture and simulation harness so planning can be refined without crossing into execution or approval.",
+    "boundary_review_note": "Public-safe synthetic output only. This plan preserves planning-only scope, readiness/blocker semantics, and boundary limits. It does not claim tool use, file edits, runtime paths, hidden evidence, upstream mutation, test execution, simulation execution, or TRR approval."
+  },
+  "provenance": [
+    "Public-safe synthetic workflow contract for test_harness_asset_planning_v0.",
+    "Synthetic scenario facts specifying one physical fixture need, one simulation harness need, one planning blocker, and one owner follow-up item."
+  ],
+  "gaps": [
+    "No concrete page-module interface, protocol, timing, pinout, environmental, or acceptance criteria were provided.",
+    "No approved resource inventory, fixture design constraints, instrumentation constraints, or TRR authority decision criteria were provided."
+  ],
+  "downstream_handoff": [
+    "Owner should supply approved interface and acceptance details before converting this planning manifest into asset specifications.",
+    "A later readiness review may use this plan as input, but must separately verify blockers, evidence, execution results, and approval authority."
+  ],
+  "boundary_review_note": [
+    "Output is limited to public-safe synthetic planning semantics from the supplied contract.",
+    "No execution, mutation, hidden evidence, runtime path, tool-use, file-edit, canon promotion, or TRR approval claim is made."
+  ],
+  "no_claims": [
+    "No tests or simulations were run or implied.",
+    "No upstream artifacts were edited, approved, promoted, or used as hidden evidence."
+  ]
+}

@@ -1,0 +1,14 @@
+workflow_id: source_packet_sufficiency_review_v0
+calibration_id: cal_20260519_quality_equiv_001
+date: 2026-05-19
+mode: cli_only_calibration
+subagent_runner_status: not_used_batch_cli_only_surface
+fallback_status: not_required_for_repo_batch_pattern
+baseline_profile: gpt-5.5|xhigh|dwarf|auditor
+candidate_count: 3
+required_actual_gpt_5_5_candidates:
+  - low
+  - medium
+  - xhigh
+public_safe: true
+archive_note: No private raw input, secret, _workspaces material, or customer data included.

@@ -1,0 +1,40 @@
+{
+  "workflow_id": "page_module_trace_matrix_v0",
+  "candidate_label": "gpt-5.5|low|elf|auditor",
+  "profile": {
+    "model": "gpt-5.5",
+    "reasoning_effort": "low",
+    "species": "elf",
+    "class": "auditor"
+  },
+  "outputs": {
+    "trace_matrix": "row_id,module_ref,packet_ref,evidence_authority,trace_link,consumer_ceiling\nT-001,page_module_A,approved_source_packet_ref,source_confirmed,source-to-module requirement trace,harness may treat as source-bounded candidate only\nT-002,page_module_B,layout_or_materials_packet_ref,review_required,derived or incomplete support requiring human review,harness must not elevate beyond review_required\nT-003,page_module_C,missing_packet_ref,missing,no approved supporting evidence available,harness blocked from source-supported claim",
+    "evidence_authority_map": "source_confirmed means an approved source packet supports the row within the synthetic scenario. derived means downstream reasoning may exist but cannot replace source authority. review_required means the row needs review before stronger claims. missing means no approved evidence is available. Harness claim status must remain separate from these authority states.",
+    "trace_gap_register": "G-001: page_module_B has review_required authority; blocker is unresolved review of packet support. G-002: page_module_C has missing authority; blocker is absent approved evidence. G-003: harness delta cannot raise any row above its evidence authority ceiling.",
+    "harness_trace_delta": "Harness consumers receive row-level ceilings and blockers only. T-001 may be consumed as source-bounded input but not as completed verification. T-002 remains review_required. T-003 remains blocked. No harness delta may convert review_required or missing into source_confirmed.",
+    "verification_seed_matrix": "Seed V-001 from T-001: verify source-to-module trace consistency. Seed V-002 from T-002: verify whether review can resolve authority. Seed V-003 from T-003: verify whether approved evidence exists before any downstream claim.",
+    "review_gate_evidence_index": "Index R-001: T-001, source_confirmed, review may inspect trace completeness. Index R-002: T-002, review_required, review decision needed. Index R-003: T-003, missing, evidence acquisition or explicit gap acceptance needed.",
+    "trace_provenance": "Synthetic public-safe workflow contract only. Scenario facts establish one source-supported row, one review-required row, one missing-evidence row, and one harness delta constrained below source authority.",
+    "boundary_review_note": "This calibration output does not claim file edits, tool execution, runtime paths, hidden references, private evidence, upstream mutation, completed verification, or review approval."
+  },
+  "provenance": [
+    "Public-safe synthetic Page Module Trace Matrix v0 workflow contract",
+    "Synthetic scenario facts and boundary policy supplied in the prompt"
+  ],
+  "gaps": [
+    "No real packet contents are available or claimed; all rows are synthetic calibration rows.",
+    "Review-required and missing-evidence rows cannot be promoted to source_confirmed within this contract."
+  ],
+  "downstream_handoff": [
+    "Harness receives claim-strength ceilings plus blockers, not automatic source-supported verdicts.",
+    "Verification and review receive seed/index rows, not completed verification evidence or review decisions."
+  ],
+  "boundary_review_note": [
+    "No upstream artifacts are mutated or treated as replaced.",
+    "Public canon scope is limited to portable orchestration rules, state semantics, and sanitized templates."
+  ],
+  "no_claims": [
+    "No tool use, file edits, runtime paths, hidden refs, or private/raw evidence are claimed.",
+    "No authority stronger than the synthetic contract is promoted."
+  ]
+}

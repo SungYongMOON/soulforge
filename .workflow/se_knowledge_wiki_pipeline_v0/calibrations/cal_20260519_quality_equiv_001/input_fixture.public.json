@@ -1,0 +1,44 @@
+{
+  "workflow_id": "se_knowledge_wiki_pipeline_v0",
+  "fixture_id": "PUBLIC_SYNTH_SE_KNOWLEDGE_WIKI_PIPELINE_V0",
+  "source_kind": "synthetic_from_workflow_contract_metadata_only",
+  "public_safe": true,
+  "workflow_title": "SE Knowledge Wiki Pipeline v0",
+  "workflow_summary": "Composite request-level workflow candidate that routes SE/LLM-wiki wikiization requests through registered source intake, sourcebound projection, archive/package handoff, Obsidian export decisioning, metadata capture, and closeout review stages while inserting stronger gates only when the request demands them.",
+  "workflow_readiness_label": "pilot-executed",
+  "input_refs": [
+    "knowledge_wiki_request_packet",
+    "approved_source_policy",
+    "source_scope_binding"
+  ],
+  "expected_output_groups": [
+    "pipeline_request_packet",
+    "routing_decision_note",
+    "stage_chain_manifest",
+    "source_packet_refs",
+    "sourcebound_packet_refs",
+    "archive_manifest_refs",
+    "obsidian_export_refs",
+    "knowledge_access_refs",
+    "closeout_review_refs",
+    "boundary_review_note"
+  ],
+  "must_preserve": [
+    "query-first",
+    "sourcebound",
+    "archive",
+    "boundary",
+    "no source authority grant"
+  ],
+  "scenario_facts": [
+    "one request can reuse an existing projection",
+    "one stage requires fresh sourcebound work",
+    "one archive/storage note must remain non-authoritative",
+    "one closeout review ref is required"
+  ],
+  "boundary_policy": [
+    "Do not claim tool use, file edits, runtime paths, or hidden private evidence.",
+    "Do not mutate upstream artifacts or promote stronger source/canon authority than the contract supports.",
+    "Keep public-safe synthetic boundaries explicit."
+  ]
+}

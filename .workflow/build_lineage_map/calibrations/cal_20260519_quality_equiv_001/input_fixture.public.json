@@ -1,0 +1,33 @@
+{
+  "workflow_id": "build_lineage_map",
+  "fixture_id": "PUBLIC_SYNTH_BUILD_LINEAGE_MAP",
+  "source_kind": "synthetic_from_workflow_contract",
+  "public_safe": true,
+  "workflow_title": "Build Lineage Map",
+  "workflow_summary": "Bounded opening workflow for lineage-map production that stops at evidence-backed planning artifacts.",
+  "workflow_readiness_label": "registered",
+  "input_refs": [
+    "source_documents",
+    "source_notes"
+  ],
+  "expected_output_groups": [
+    "research_notes.md",
+    "lineage_pbs.md"
+  ],
+  "must_preserve": [
+    "evidence-backed",
+    "planning",
+    "runtime truth",
+    "boundary"
+  ],
+  "scenario_facts": [
+    "two source documents partially agree",
+    "one unresolved ambiguity stays in research notes",
+    "the output stops at planning artifacts and does not claim finished delivery"
+  ],
+  "boundary_policy": [
+    "Do not claim tool use, file edits, runtime paths, or hidden private evidence.",
+    "Do not mutate upstream artifacts or promote stronger source/canon authority than the contract supports.",
+    "Keep public-safe synthetic boundaries explicit."
+  ]
+}

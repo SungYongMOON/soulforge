@@ -1,55 +1,65 @@
 workflow_id: post_development_review_gate_v0
 kind: workflow_profile_policy
 status: active
-calibration_mode: conservative_locked_unoptimized
+last_calibration_id: cal_20260519_quality_equiv_001
+calibration_mode: conservative_locked_shadow_calibrated
+matrix_mode: minimal_required_quality_equivalence
 measurement_policy:
-  quality_source: policy_locked_for_gate_safety
-  telemetry_source: not_optimized
+  quality_source: cli_only_calibration
+  telemetry_source: cli_only_calibration_all_candidates
   subagent_token_usage_available: false
   telemetry_exact_for_subagent: false
-  cost_confidence: deliberately_not_optimized
+  telemetry_exact_for_cli: true
+  cost_confidence: relative_not_exact
+  quality_equivalence_policy: batch_20260519
 primary_profile:
   model: gpt-5.5
   reasoning_effort: xhigh
   species: dwarf
   class: auditor
-  candidate_id: conservative_locked_gate_judge
-  quality_gate: locked_for_final_acceptance_review
-shadow_top_k: []
-manual_profile_hints:
-  level_0_self_check:
+  label: gpt-5.5|xhigh|dwarf|auditor
+  quality_score: 97
+  quality_class: quality_equivalent_pass
+  baseline_relative_quality: 1
+  input_tokens: 26142
+  cached_input_tokens: 7552
+  output_tokens: 1099
+  total_tokens: 34793
+  reasoning_output_tokens: 516
+  wall_s: 27.7
+shadow_top_k:
+  - rank: 2
+    label: gpt-5.5|medium|dwarf|auditor
     model: gpt-5.5
     reasoning_effort: medium
-    species: human
-    class: administrator
-  level_1_inspector:
-    model: gpt-5.5
-    reasoning_effort: high
     species: dwarf
     class: auditor
-  level_2_inspector_and_judge:
+    quality_score: 97
+    quality_class: quality_equivalent_pass
+    baseline_relative_quality: 1
+    total_tokens: 43537
+    reasoning_output_tokens: 30
+    wall_s: 19.01
+  - rank: 3
+    label: gpt-5.5|low|dwarf|auditor
     model: gpt-5.5
-    reasoning_effort: xhigh
-    species: dwarf
-    class: auditor
-  level_3_b_v_gate_coordination:
-    model: gpt-5.5
-    reasoning_effort: xhigh
-    species: human
-    class: administrator
-  packet_normalization_only:
-    model: null
     reasoning_effort: low
-    species: archivist
-    class: archivist
-    allowed_only_when: final_acceptance_decision_is_not_being_made
+    species: dwarf
+    class: auditor
+    quality_score: 89
+    quality_class: minimum_viable_pass
+    baseline_relative_quality: 0.918
+    total_tokens: 47709
+    reasoning_output_tokens: 52
+    wall_s: 17.76
 rerun_triggers:
-  - review_level_routing_rule_changes
-  - packet_schema_changes
-  - validator_command_surface_changes
-  - owner_approves_quality_shadow_calibration
-  - locked_profile_unavailable_in_runtime
+  - workflow prompt changed
+  - output schema changed
+  - model pricing or availability changed
+  - primary profile fails quality gate
+  - new public-safe fixture family added
+calibration_archive_ref: calibrations/cal_20260519_quality_equiv_001/
 notes:
-  - This is a gatekeeper workflow, so final acceptance review is intentionally locked to the strongest available profile instead of cost-optimized.
-  - "`workflow-optimizer` may be used later only as a quality-shadow exercise or to validate the lock, not to replace final acceptance review with a cheaper profile by default."
-  - If the locked model or reasoning level is unavailable in a runtime, record the limitation in the review packet and do not overclaim high-confidence acceptance.
+  - This policy was updated from a public-safe synthetic batch calibration.
+  - Workflow readiness label remains pilot-executed; optimization does not promote a stronger workflow authority state by itself.
+  - Final acceptance review remains locked to the strongest profile; lower-effort candidates are shadow evidence only.

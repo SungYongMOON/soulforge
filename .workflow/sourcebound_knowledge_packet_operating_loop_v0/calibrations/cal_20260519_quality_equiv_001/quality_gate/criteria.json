@@ -1,0 +1,38 @@
+{
+  "calibration_id": "cal_20260519_quality_equiv_001",
+  "workflow_id": "sourcebound_knowledge_packet_operating_loop_v0",
+  "policy": "quality_equivalence_batch_20260519_cli_only",
+  "baseline_profile": "gpt-5.5|xhigh|dwarf|archivist",
+  "baseline_relative_threshold": 0.9,
+  "quality_equivalence_threshold": 90,
+  "expected_output_groups": [
+    "source_intake_manifest",
+    "sourcebound_knowledge_packet_manifest",
+    "compiled_projection_index",
+    "compiled_projection_log",
+    "contradiction_gap_lint_report",
+    "concept_candidate_register",
+    "claim_ceiling_and_promotion_route",
+    "knowledge_package_archive_manifest",
+    "optional_notebooklm_advisory_handoff",
+    "notebooklm_handoff_validation",
+    "ontology_candidate_rule_register",
+    "workflowization_review_packet",
+    "boundary_review_note"
+  ],
+  "hard_gates": [
+    "valid JSON final output",
+    "required output groups present",
+    "public-safe boundary preserved",
+    "no claimed tool use or file edits",
+    "no upstream mutation or false authority claim"
+  ],
+  "required_terms": [
+    "source-bound",
+    "claim ceiling",
+    "metadata-only",
+    "boundary",
+    "no canon promotion"
+  ],
+  "quality_equivalent_definition": "hard gate passes, output-quality score >= 90, baseline-relative quality >= 0.90, and no critical section has material information loss versus the xhigh baseline"
+}

@@ -1,0 +1,39 @@
+{
+  "workflow_id": "wiki_curation_maintenance_v0",
+  "candidate_label": "gpt-5.5|low|dwarf|archivist",
+  "profile": {
+    "model": "gpt-5.5",
+    "reasoning_effort": "low",
+    "species": "dwarf",
+    "class": "archivist"
+  },
+  "outputs": {
+    "source_ledger_curation_packet": "Metadata-only curation packet records one synthetic source ledger update for the bounded wiki maintenance scope. The update marks that a ledger entry needs alignment with the current curation scope binding, without asserting source truth, canon status, runtime evidence, or upstream mutation.",
+    "packet_map_update_note": "Metadata-only packet map note records one synthetic packet map update. The note links the curation packet to the expected wiki maintenance output groups at a descriptive level only and does not create, modify, or validate any upstream packet artifact.",
+    "notebook_binding_update_note": "Metadata-only notebook binding note records that the synthetic maintenance packet should remain associated with the wiki curation scope and current public readiness label, pilot-executed. No notebook content, private note, or source evidence is claimed.",
+    "lifecycle_state_delta": "Lifecycle state delta keeps the workflow at pilot-executed for this calibration scenario. The delta records maintenance activity as curation-only and does not promote the workflow, source ledger, packet map, notebook binding, or downstream artifact to stronger authority.",
+    "residual_gap_register": "Residual gap register records one residual gap: the synthetic update packet identifies a pending owner or sourcebound review decision before any source-truth or canon claim can be made. The gap remains open for downstream review handoff.",
+    "review_handoff": "Review handoff sends the metadata-only curation packet, packet map note, lifecycle delta, and residual gap to the next reviewer for comparison against the workflow contract, curation policy, lifecycle policy, and boundary policy. The handoff asks the reviewer to confirm that no source-truth claim or upstream mutation is implied.",
+    "boundary_review_note": "Boundary review note confirms that this synthetic calibration output is public-safe, metadata-only, curation-focused, and limited to the provided contract facts. It makes no claim of tool use, file edits, runtime paths, hidden references, private/raw evidence, upstream mutation, source truth, or canon promotion."
+  },
+  "provenance": [
+    "Public-safe synthetic workflow contract for wiki_curation_maintenance_v0.",
+    "Synthetic scenario facts: one source ledger update, one packet map update, one residual gap, and one review handoff."
+  ],
+  "gaps": [
+    "Owner or sourcebound review is still required before any source-truth or canon authority can be asserted.",
+    "The synthetic contract does not provide concrete source contents, runtime artifacts, notebook bodies, or upstream artifact state."
+  ],
+  "downstream_handoff": [
+    "Compare the metadata-only curation packet against the declared curation_scope_binding, curation_policy, and lifecycle_policy.",
+    "Review the residual gap and decide whether it should remain open, be routed for sourcebound review, or be closed by an authorized owner decision."
+  ],
+  "boundary_review_note": [
+    "All outputs remain public-safe and synthetic.",
+    "No tool use, file edit, runtime path, hidden private evidence, upstream mutation, source-truth claim, or canon promotion is claimed."
+  ],
+  "no_claims": [
+    "No direct source-truth claim is made.",
+    "No upstream artifact mutation, hidden reference access, private/raw evidence inspection, runtime path use, or file edit is claimed."
+  ]
+}

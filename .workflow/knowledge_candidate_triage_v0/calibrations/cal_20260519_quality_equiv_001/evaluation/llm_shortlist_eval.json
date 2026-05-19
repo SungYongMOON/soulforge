@@ -1,0 +1,23 @@
+{
+  "workflow_id": "knowledge_candidate_triage_v0",
+  "evaluator": "controller_structural_quality_review",
+  "baseline_profile": "gpt-5.5|xhigh|dwarf|archivist",
+  "conclusion": "gpt-5.5|low|dwarf|archivist is the lowest-cost quality-equivalent candidate in this batch.",
+  "compared_candidates": [
+    {
+      "label": "gpt-5.5|low|dwarf|archivist",
+      "quality_class": "quality_equivalent_pass",
+      "output_quality_score": 97
+    },
+    {
+      "label": "gpt-5.5|medium|dwarf|archivist",
+      "quality_class": "quality_equivalent_pass",
+      "output_quality_score": 97
+    },
+    {
+      "label": "gpt-5.5|xhigh|dwarf|archivist",
+      "quality_class": "quality_equivalent_pass",
+      "output_quality_score": 97
+    }
+  ]
+}

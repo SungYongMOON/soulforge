@@ -1,0 +1,36 @@
+{
+  "workflow_id": "frontline_assault",
+  "candidate_label": "gpt-5.5|low|human|administrator",
+  "profile": {
+    "model": "gpt-5.5",
+    "reasoning_effort": "low",
+    "species": "human",
+    "class": "administrator"
+  },
+  "outputs": {
+    "scout_report": "A single frontline objective is confirmed for coordination. The available public-safe synthetic contract does not define execution mode, project context, operational owner, or runtime evidence. One threat signal is present but ambiguous and must remain unresolved rather than elevated into confirmed risk or canon lesson.",
+    "decision_note": "Proceed only as a calibration-level workflow coordination result. Treat the confirmed objective as the bounded planning anchor, preserve the ambiguous threat signal as an unresolved gap, and avoid converting synthetic scenario facts into runtime truth. No upstream artifact change or authority promotion is supported by the contract.",
+    "delivery_handoff": "Prepare a downstream handoff that names the confirmed objective, carries the unresolved threat signal forward without resolution, and marks delivery as dependent on later runtime execution. The handoff should separate curated workflow notes from future runtime truth and require later execution evidence before closure.",
+    "boundary_review_note": "This calibration output is public-safe and synthetic. It does not assert tool use, file edits, runtime paths, hidden references, private evidence, or mutation of upstream artifacts. Curated lessons, runtime truth, boundary, and handoff remain distinct as required by the contract."
+  },
+  "provenance": [
+    "Synthetic workflow contract for Frontline Assault with readiness label registered.",
+    "Synthetic scenario facts and boundary policy supplied in the prompt."
+  ],
+  "gaps": [
+    "Execution mode is unspecified, so no operational sequence or runtime validation can be inferred.",
+    "The ambiguous threat signal is intentionally unresolved and must not be classified as confirmed threat or dismissed."
+  ],
+  "downstream_handoff": [
+    "Carry the confirmed frontline objective into later runtime execution as the planning anchor.",
+    "Carry the delivery handoff as pending until later execution provides public-safe completion evidence."
+  ],
+  "boundary_review_note": [
+    "Curated lessons may be represented only as workflow-level notes under this synthetic contract.",
+    "Runtime truth remains outside this calibration output and must be established only during later execution."
+  ],
+  "no_claims": [
+    "No claim of tool use, file edits, runtime paths, hidden refs, or private/raw evidence.",
+    "No claim that upstream artifacts were mutated or that this output has stronger canon authority than the supplied contract."
+  ]
+}

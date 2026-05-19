@@ -1,0 +1,38 @@
+{
+  "workflow_id": "monster_knowledge_preflight_v0",
+  "candidate_label": "gpt-5.5|low|dwarf|pathfinder",
+  "profile": {
+    "model": "gpt-5.5",
+    "reasoning_effort": "low",
+    "species": "dwarf",
+    "class": "pathfinder"
+  },
+  "outputs": {
+    "knowledge_preflight_packet": "Metadata-only preflight packet for a knowledge-heavy monster. Existing wiki binding is available, one approved source ref is available, one source gap remains, and no upstream artifact mutation is authorized. Packet should reference available project knowledge surfaces abstractly by approved ref rather than embedding private/raw evidence or asserting canonical truth.",
+    "wiki_first_query_plan": "Start with the existing wiki binding. Query for the monster request scope, known terminology, prior project framing, and any stated limits. Use the wiki result to decide whether the single approved source ref is sufficient for the main workflow or whether the remaining source gap must be escalated before stronger claims are made.",
+    "source_scope_recommendation": "Use wiki-first metadata inspection plus the one approved source ref as the initial scope. Treat the unresolved source gap as a blocker for high-confidence or canon-level claims. Do not broaden into unapproved routes unless the main workflow explicitly requests and receives approved source expansion.",
+    "claim_ceiling_seed": "Allowed claim ceiling is preliminary, metadata-guided, and source-bounded. The worker may say that a wiki binding exists, one approved source ref exists, and one source gap remains. The worker may not claim final canon status, complete source coverage, hidden evidence support, or verified raw-truth conclusions.",
+    "main_workflow_handoff": "Hand off a pathfinder-style preflight result: query wiki first, consult the approved source ref only as needed, preserve the source gap as an explicit uncertainty, and keep claim strength below canon/final authority until follow-on sourcing resolves the gap. Archivist follow-on is appropriate if source organization becomes the task; auditor posture is reserved for expanded claims or validation pressure.",
+    "boundary_review_note": "Public-safe synthetic calibration only. No tool use, file edits, runtime paths, hidden refs, private/raw evidence, or upstream mutations are claimed. The packet remains metadata-only and does not promote authority beyond the supplied workflow contract."
+  },
+  "provenance": [
+    "Synthetic workflow contract for Monster Knowledge Preflight v0 supplied in the prompt.",
+    "Synthetic scenario facts and boundary policy supplied in the prompt."
+  ],
+  "gaps": [
+    "One source gap remains unresolved and must be carried into the main workflow handoff.",
+    "No concrete wiki contents, source contents, runtime paths, or private evidence are available under the public-safe synthetic contract."
+  ],
+  "downstream_handoff": [
+    "Main workflow should begin with wiki-first querying and use the approved source ref only within the stated scope.",
+    "Main workflow should preserve the source gap and keep claims below final/canon authority unless approved follow-on sourcing resolves it."
+  ],
+  "boundary_review_note": [
+    "Output is limited to public-safe synthetic metadata derived from the supplied contract.",
+    "No tool use, file edits, runtime paths, hidden private evidence, upstream mutation, or stronger source authority is asserted."
+  ],
+  "no_claims": [
+    "No claim that the wiki or source ref was actually inspected outside the synthetic scenario facts.",
+    "No claim that the remaining source gap is resolved, that the packet is canon, or that private/raw evidence supports the result."
+  ]
+}

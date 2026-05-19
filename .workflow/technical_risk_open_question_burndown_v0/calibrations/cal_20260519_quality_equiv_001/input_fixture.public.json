@@ -1,0 +1,40 @@
+{
+  "workflow_id": "technical_risk_open_question_burndown_v0",
+  "fixture_id": "PUBLIC_SYNTH_TECHNICAL_RISK_OPEN_QUESTION_BURNDOWN_V0",
+  "source_kind": "synthetic_from_workflow_contract",
+  "public_safe": true,
+  "workflow_title": "Technical Risk Open Question Burndown v0",
+  "workflow_summary": "Convert source gaps, ambiguous interfaces, unresolved quantitative fields, blocked simulation needs, and review action items into a bounded technical-risk and open-question register with closure criteria and burndown status.",
+  "workflow_readiness_label": "pilot-executed",
+  "input_refs": [
+    "risk_scope_refs",
+    "approved_risk_register_policy"
+  ],
+  "expected_output_groups": [
+    "technical_risk_register",
+    "open_question_register",
+    "burndown_summary",
+    "closure_criteria_register",
+    "owner_followup_needed",
+    "rerun_routes",
+    "boundary_review_note"
+  ],
+  "must_preserve": [
+    "risk",
+    "open question",
+    "closure criteria",
+    "boundary",
+    "no false resolution"
+  ],
+  "scenario_facts": [
+    "one medium technical risk",
+    "one open question",
+    "one closure criterion",
+    "one rerun route"
+  ],
+  "boundary_policy": [
+    "Do not claim tool use, file edits, runtime paths, or hidden private evidence.",
+    "Do not mutate upstream artifacts or promote stronger source/canon authority than the contract supports.",
+    "Keep public-safe synthetic boundaries explicit."
+  ]
+}

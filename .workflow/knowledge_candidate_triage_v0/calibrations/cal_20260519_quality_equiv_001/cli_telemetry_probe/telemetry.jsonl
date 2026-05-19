@@ -1,0 +1,3 @@
+{"workflow_id":"knowledge_candidate_triage_v0","label":"gpt-5.5|low|dwarf|archivist","total_tokens":51699,"wall_s":19.29,"reasoning_output_tokens":10,"quality_class":"quality_equivalent_pass"}
+{"workflow_id":"knowledge_candidate_triage_v0","label":"gpt-5.5|medium|dwarf|archivist","total_tokens":51672,"wall_s":19.36,"reasoning_output_tokens":42,"quality_class":"quality_equivalent_pass"}
+{"workflow_id":"knowledge_candidate_triage_v0","label":"gpt-5.5|xhigh|dwarf|archivist","total_tokens":52187,"wall_s":26.91,"reasoning_output_tokens":516,"quality_class":"quality_equivalent_pass"}

@@ -1,0 +1,3 @@
+{"workflow_id":"se_stage_artifact_gap_scan_v0","label":"gpt-5.5|low|dwarf|administrator","total_tokens":47952,"wall_s":21.74,"reasoning_output_tokens":13,"quality_class":"minimum_viable_pass"}
+{"workflow_id":"se_stage_artifact_gap_scan_v0","label":"gpt-5.5|medium|dwarf|administrator","total_tokens":43890,"wall_s":22.47,"reasoning_output_tokens":39,"quality_class":"quality_equivalent_pass"}
+{"workflow_id":"se_stage_artifact_gap_scan_v0","label":"gpt-5.5|xhigh|dwarf|administrator","total_tokens":48494,"wall_s":39.61,"reasoning_output_tokens":516,"quality_class":"quality_equivalent_pass"}

@@ -1,0 +1,3 @@
+{"workflow_id":"functional_configuration_audit_page_library_v0","label":"gpt-5.5|low|dwarf|auditor","total_tokens":47670,"wall_s":19.12,"reasoning_output_tokens":32,"quality_class":"quality_equivalent_pass"}
+{"workflow_id":"functional_configuration_audit_page_library_v0","label":"gpt-5.5|medium|dwarf|auditor","total_tokens":47685,"wall_s":20.61,"reasoning_output_tokens":16,"quality_class":"quality_equivalent_pass"}
+{"workflow_id":"functional_configuration_audit_page_library_v0","label":"gpt-5.5|xhigh|dwarf|auditor","total_tokens":34821,"wall_s":27.66,"reasoning_output_tokens":516,"quality_class":"quality_equivalent_pass"}

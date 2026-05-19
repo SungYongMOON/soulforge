@@ -1,0 +1,40 @@
+{
+  "workflow_id": "test_harness_asset_planning_v0",
+  "candidate_label": "gpt-5.5|low|human|auditor",
+  "profile": {
+    "model": "gpt-5.5",
+    "reasoning_effort": "low",
+    "species": "human",
+    "class": "auditor"
+  },
+  "outputs": {
+    "test_harness_manifest": "Synthetic planning manifest includes one physical fixture asset and one simulation harness asset for verifying page modules and composed harness candidates. Scope is limited to asset planning and readiness preparation; no test execution, simulation execution, TRR approval, or upstream mutation is included.",
+    "test_interface_list": "Planned interfaces: physical fixture connection interface for module-under-test alignment and a simulation harness interface for synthetic signal or behavior injection. Interface details remain placeholder-level because the synthetic contract does not provide pin maps, protocols, timing limits, or acceptance thresholds.",
+    "simulation_fixture_needs": "One simulation harness need is identified: a synthetic simulation fixture capable of exercising the composed harness candidate in a controlled planning context. Required definition gaps include simulated inputs, expected observable outputs, timing assumptions, and pass/fail criteria for later owner approval.",
+    "instrumentation_resource_list": "One physical fixture need is identified and should be paired with public-safe instrumentation planning entries such as measurement channel count, observation points, calibration expectations, and data capture format. No specific lab equipment, runtime setup, or execution claim is made.",
+    "trr_readiness_checklist": "TRR readiness planning checklist: confirm physical fixture ownership, confirm simulation harness ownership, define interfaces, define required observations, define blocker disposition, confirm owner follow-up closure, confirm no execution has occurred under this workflow, and confirm public-safe boundary review before handoff.",
+    "planning_blockers": "One planning blocker is present: required verification acceptance criteria are not sufficiently specified in the synthetic scenario. This blocks readiness confidence for TRR preparation but does not imply test failure or design rejection.",
+    "owner_followup_needed": "One owner follow-up item is required: the owner must provide or approve the missing verification acceptance criteria and clarify whether the physical fixture and simulation harness are both required for the same module candidate or for separate verification slices.",
+    "boundary_review_note": "Public-safe synthetic boundary is preserved. This result only plans harness assets and readiness questions from the supplied contract and scenario facts. It does not claim tool use, file edits, runtime paths, hidden references, private evidence, test execution, simulation execution, TRR approval, or upstream artifact mutation."
+  },
+  "provenance": [
+    "Public-safe synthetic workflow contract for test_harness_asset_planning_v0.",
+    "Synthetic scenario facts listing one physical fixture need, one simulation harness need, one planning blocker, and one owner follow-up item."
+  ],
+  "gaps": [
+    "The contract does not provide concrete module identities, electrical or software interfaces, acceptance criteria, timing limits, or measurement tolerances.",
+    "The scenario does not specify whether the physical fixture and simulation harness verify the same candidate, separate candidates, or staged readiness slices."
+  ],
+  "downstream_handoff": [
+    "Hand off the manifest, interface placeholders, blocker, and owner follow-up item to the workflow owner for refinement before any TRR readiness decision.",
+    "Use this output only as a calibration planning artifact; downstream execution or approval requires a separate authorized workflow or owner decision."
+  ],
+  "boundary_review_note": [
+    "Planning-only scope maintained; no tests, simulations, TRR approvals, or upstream mutations are claimed.",
+    "Public-safe synthetic boundaries maintained; no runtime paths, hidden refs, tool use, file edits, private/raw evidence, or stronger canon authority are asserted."
+  ],
+  "no_claims": [
+    "No claim of executing tests, simulations, validators, tools, or file operations.",
+    "No claim of accessing hidden references, private evidence, runtime paths, raw data, or mutating upstream artifacts."
+  ]
+}

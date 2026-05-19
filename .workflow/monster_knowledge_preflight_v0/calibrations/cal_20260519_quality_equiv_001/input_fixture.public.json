@@ -1,0 +1,40 @@
+{
+  "workflow_id": "monster_knowledge_preflight_v0",
+  "fixture_id": "PUBLIC_SYNTH_MONSTER_KNOWLEDGE_PREFLIGHT_V0",
+  "source_kind": "synthetic_from_workflow_contract_metadata_only",
+  "public_safe": true,
+  "workflow_title": "Monster Knowledge Preflight v0",
+  "workflow_summary": "Inspect project wiki, NotebookLM bindings, source ledgers, and approved reference routes before a knowledge-heavy monster enters its main workflow, so the worker can query first and deepen only when needed.",
+  "workflow_readiness_label": "pilot-executed",
+  "input_refs": [
+    "monster_request_binding",
+    "project_knowledge_context_refs",
+    "preflight_policy"
+  ],
+  "expected_output_groups": [
+    "knowledge_preflight_packet",
+    "wiki_first_query_plan",
+    "source_scope_recommendation",
+    "claim_ceiling_seed",
+    "main_workflow_handoff",
+    "boundary_review_note"
+  ],
+  "must_preserve": [
+    "query first",
+    "metadata-only",
+    "source gap",
+    "boundary",
+    "claim ceiling"
+  ],
+  "scenario_facts": [
+    "existing wiki binding is available",
+    "one approved source ref exists",
+    "one source gap remains",
+    "the packet stays metadata-only"
+  ],
+  "boundary_policy": [
+    "Do not claim tool use, file edits, runtime paths, or hidden private evidence.",
+    "Do not mutate upstream artifacts or promote stronger source/canon authority than the contract supports.",
+    "Keep public-safe synthetic boundaries explicit."
+  ]
+}

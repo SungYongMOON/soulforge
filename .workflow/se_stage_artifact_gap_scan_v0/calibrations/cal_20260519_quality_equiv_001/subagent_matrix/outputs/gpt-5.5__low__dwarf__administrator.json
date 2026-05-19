@@ -1,0 +1,43 @@
+{
+  "workflow_id": "se_stage_artifact_gap_scan_v0",
+  "candidate_label": "gpt-5.5|low|dwarf|administrator",
+  "profile": {
+    "model": "gpt-5.5",
+    "reasoning_effort": "low",
+    "species": "dwarf",
+    "class": "administrator"
+  },
+  "outputs": {
+    "stage_artifact_gap_scan_packet": "대상 stage에 대해 public-safe synthetic contract 범위에서 산출물 존재 여부, 누락 항목, owner input 필요 여부, downstream route 후보를 분리해 기록한다. 이 packet은 gap scan 결과이며 문서 작성, 승인, readiness 확정으로 해석하지 않는다.",
+    "stage_required_artifact_matrix": "필수 산출물 2건 중 1건은 존재로 표시하고, 1건은 missing으로 표시한다. 존재 산출물은 expected artifact exists로만 기록하며 실제 파일 경로나 원문 근거는 주장하지 않는다. 누락 산출물은 expected artifact missing으로 남기고 추론 보완하지 않는다.",
+    "stage_input_gap_register": "owner input 1건이 필요하다. 입력 공백은 owner_input_needed로 분류하며, engineering truth가 부족한 상태에서 임의 결론이나 stage readiness 판단으로 대체하지 않는다.",
+    "owner_input_queue": "owner에게 확인해야 할 항목: 누락된 expected artifact의 작성 여부, 작성 책임자, 필요한 입력 근거의 제공 가능 여부. 답변 전까지 해당 항목은 blocker 또는 owner_input_needed 상태로 유지한다.",
+    "draftable_artifact_queue": "현재 synthetic facts만으로는 누락 산출물을 draftable로 확정하지 않는다. owner input과 approved_scan_policy 확인 후 draft 가능 여부를 별도 라우트에서 판단해야 한다.",
+    "diagram_need_register": "diagram 필요 여부는 제공된 synthetic facts만으로 확정하지 않는다. stage_expected_artifact_policy가 diagram 산출물을 요구하면 source_needed 또는 owner_input_needed로 등록한다.",
+    "stage_blocker_register": "blocker 1건: expected artifact 1건 missing. owner_input_needed 1건: owner 확인 입력 필요. source_needed는 approved_scan_policy 또는 stage_expected_artifact_policy가 추가 근거를 요구하는 경우에만 활성화한다.",
+    "downstream_workflow_route_map": "권장 downstream route 1건을 등록한다. 첫 safe move는 문서 작성이나 approval review가 아니라 stage gap scan 후 owner input 수집 및 누락 산출물 처리 라우팅이다.",
+    "stage_scan_summary": "Synthetic scenario 기준으로 expected artifact는 1건 존재, 1건 누락, owner input 1건 필요, downstream route 1건 권장 상태다. 이는 bounded controller scan 결과이며 readiness claim이 아니다.",
+    "stage_readiness_summary": "stage readiness는 확정하지 않는다. 현재 상태는 registered workflow contract 기반의 synthetic gap scan 결과이며, missing artifact와 owner_input_needed가 남아 있으므로 준비 완료 또는 production-ready로 주장할 수 없다.",
+    "boundary_review_note": "public-safe synthetic contract만 사용했다. tool use, file edit, runtime path, hidden ref, private/raw evidence, upstream mutation, stronger canon authority, readiness approval claim은 포함하지 않는다."
+  },
+  "provenance": [
+    "Public-safe synthetic workflow contract for se_stage_artifact_gap_scan_v0",
+    "Synthetic scenario facts supplied in the prompt"
+  ],
+  "gaps": [
+    "expected artifact 1건 missing",
+    "owner input 1건 required"
+  ],
+  "downstream_handoff": [
+    "owner input 수집 라우트로 넘긴다",
+    "누락 expected artifact 처리 여부를 downstream workflow route에서 별도 판단한다"
+  ],
+  "boundary_review_note": [
+    "이 결과는 synthetic calibration output이며 실제 repository state나 private evidence를 주장하지 않는다",
+    "문서 작성, 승인 판단, readiness 등록, production-ready claim으로 승격하지 않는다"
+  ],
+  "no_claims": [
+    "No tool use, file edit, runtime path, hidden ref, or private/raw evidence claim",
+    "No upstream mutation, readiness approval, source authority promotion, or production-ready claim"
+  ]
+}

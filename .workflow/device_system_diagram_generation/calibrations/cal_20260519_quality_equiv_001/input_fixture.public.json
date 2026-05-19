@@ -1,0 +1,35 @@
+{
+  "workflow_id": "device_system_diagram_generation",
+  "fixture_id": "PUBLIC_SYNTH_DEVICE_SYSTEM_DIAGRAM_GENERATION",
+  "source_kind": "synthetic_from_workflow_contract",
+  "public_safe": true,
+  "workflow_title": "Device System Diagram Generation",
+  "workflow_summary": "Generate an editable draw.io device system diagram package from one Markdown description, then derive SVG, PPTX, and preview PNG outputs.",
+  "workflow_readiness_label": "canon-ready",
+  "input_refs": [
+    "device_description_markdown"
+  ],
+  "expected_output_groups": [
+    "diagram_input_yaml",
+    "drawio_master",
+    "svg_exports",
+    "powerpoint_deck",
+    "preview_png"
+  ],
+  "must_preserve": [
+    "drawio",
+    "source of truth",
+    "derived",
+    "boundary"
+  ],
+  "scenario_facts": [
+    "one markdown device description names a power block, controller, sensor, and external connector",
+    "drawio master remains the source of truth",
+    "svg, pptx, and png are derived outputs only"
+  ],
+  "boundary_policy": [
+    "Do not claim tool use, file edits, runtime paths, or hidden private evidence.",
+    "Do not mutate upstream artifacts or promote stronger source/canon authority than the contract supports.",
+    "Keep public-safe synthetic boundaries explicit."
+  ]
+}

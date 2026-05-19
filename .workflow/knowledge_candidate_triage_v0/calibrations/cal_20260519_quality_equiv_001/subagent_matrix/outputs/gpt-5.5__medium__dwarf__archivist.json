@@ -1,0 +1,38 @@
+{
+  "workflow_id": "knowledge_candidate_triage_v0",
+  "candidate_label": "gpt-5.5|medium|dwarf|archivist",
+  "profile": {
+    "model": "gpt-5.5",
+    "reasoning_effort": "medium",
+    "species": "dwarf",
+    "class": "archivist"
+  },
+  "outputs": {
+    "candidate_triage_register": "Synthetic triage register: Candidate A is classified as packet-eligible because it is bounded, public-safe, and suitable for downstream packaging without claiming canon authority. Candidate B is classified as owner-review because it may affect approval, placement, or interpretation and needs an explicit owner gate before stronger routing. Candidate C is classified as hold-private because its content is treated as protected or unsuitable for public-safe packet preparation. Candidate D is rejected because the rejection reason is explicit: the candidate attempts to claim source truth or canon authority beyond the synthetic contract.",
+    "bookshelf_placement_decision": "Candidate A may be placed in a packet-eligible inbox or staging shelf only. Candidate B remains in owner-review queue pending decision. Candidate C remains hold-private and is not placed in a public bookshelf. Candidate D is rejected and should not be routed to CANON, packet preparation, or owner approval except as a negative calibration example.",
+    "notebooklm_packet_eligibility_note": "Only Candidate A is eligible for a NotebookLM-style packet under this synthetic scenario. Eligibility means public-safe packet preparation readiness, not truth validation, canon promotion, or owner approval. Candidate B is not eligible until owner review resolves. Candidate C is not eligible due to hold-private status. Candidate D is not eligible due to explicit rejection.",
+    "owner_review_queue": "Owner review queue contains Candidate B. Review question: decide whether the candidate can remain a candidate artifact, be downgraded to inbox, be held private, or be rejected. The archivist posture does not approve or promote it.",
+    "downstream_route_map": "Candidate A routes to packet-eligible staging. Candidate B routes to owner-review. Candidate C routes to hold-private. Candidate D routes to rejected. No candidate routes directly to CANON in this calibration case.",
+    "boundary_review_note": "This result uses only the public-safe synthetic workflow contract and scenario facts. It does not claim tool use, file edits, runtime paths, hidden references, private evidence, source truth, canon approval, or upstream mutation."
+  },
+  "provenance": [
+    "Public-safe synthetic workflow contract for Knowledge Candidate Triage v0.",
+    "Synthetic scenario facts and boundary policy supplied in the prompt."
+  ],
+  "gaps": [
+    "Candidate identities, source contents, and evidence details are intentionally absent from the synthetic scenario.",
+    "No owner decision, canon approval, or source validation is provided by the contract."
+  ],
+  "downstream_handoff": [
+    "Prepare Candidate A as packet-eligible staging material without claiming truth or canon status.",
+    "Send Candidate B to owner review, keep Candidate C hold-private, and retain Candidate D only as a rejected calibration case."
+  ],
+  "boundary_review_note": [
+    "All classifications are synthetic and contract-bounded.",
+    "No upstream artifacts are mutated and no hidden/private evidence is referenced."
+  ],
+  "no_claims": [
+    "No claim of tool execution, file editing, runtime inspection, or hidden reference access.",
+    "No claim that any candidate is source truth, CANON, owner-approved, or production-ready."
+  ]
+}

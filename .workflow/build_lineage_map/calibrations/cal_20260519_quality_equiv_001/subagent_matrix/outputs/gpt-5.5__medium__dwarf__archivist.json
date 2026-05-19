@@ -1,0 +1,34 @@
+{
+  "workflow_id": "build_lineage_map",
+  "candidate_label": "gpt-5.5|medium|dwarf|archivist",
+  "profile": {
+    "model": "gpt-5.5",
+    "reasoning_effort": "medium",
+    "species": "dwarf",
+    "class": "archivist"
+  },
+  "outputs": {
+    "research_notes.md": "# Research Notes\n\n## Scope\nThis opening phase prepares evidence-backed planning notes for a lineage map. It does not produce a finished lineage delivery.\n\n## Source Alignment\nTwo synthetic source documents partially agree on the existence of a lineage relationship and on the need to preserve boundary-aware runtime truth. Their agreement is sufficient to plan a cautious lineage-map structure, but not sufficient to assert final lineage authority.\n\n## Stabilized Observations\n- The workflow is registered as a bounded opening procedure.\n- The expected outputs are planning artifacts: research notes and a lineage PBS.\n- The opening handoff should reduce risk before structure drafting.\n- Evidence-backed planning is required; unsupported canon promotion is out of scope.\n\n## Ambiguity\nOne unresolved ambiguity remains: the two source documents do not fully settle which lineage relationship should be treated as primary when their partial agreement diverges. This ambiguity must stay visible in downstream planning and must not be resolved by assumption.\n\n## Boundary Notes\nThis note set is synthetic and public-safe. It does not claim access to private evidence, hidden references, runtime artifacts, tool execution, or upstream mutation.",
+    "lineage_pbs.md": "# Lineage PBS\n\n## Purpose\nCreate a planning breakdown for a lineage map while stopping before final delivery.\n\n## Product Breakdown\n1. Evidence Register\n   - Record source-document agreement points.\n   - Record source-document divergence points.\n   - Preserve unresolved ambiguity without forced resolution.\n\n2. Lineage Planning Frame\n   - Identify candidate entities or nodes only where supported by the synthetic facts.\n   - Mark relationship confidence as partial when sources only partially agree.\n   - Separate planning claims from final lineage claims.\n\n3. Risk Boundary\n   - Stabilizer slot bounds risk before investigator drafting.\n   - Investigator slot drafts only the first structure.\n   - No upstream artifact mutation or canon promotion is included.\n\n4. Handoff Package\n   - Carry forward the unresolved ambiguity.\n   - State that outputs are planning artifacts only.\n   - Require downstream review before any finished delivery claim.\n\n## Completion Criteria\n- Research notes identify agreement, divergence, and ambiguity.\n- PBS describes planning work products and stop conditions.\n- No finished lineage map is claimed."
+  },
+  "provenance": [
+    "Public-safe synthetic workflow contract for Build Lineage Map.",
+    "Synthetic scenario facts stating partial source agreement, one unresolved ambiguity, and planning-only output."
+  ],
+  "gaps": [
+    "Primary lineage relationship remains ambiguous because the synthetic facts do not resolve the partial disagreement.",
+    "No finished lineage map can be asserted from the provided contract because the workflow stops at planning artifacts."
+  ],
+  "downstream_handoff": [
+    "Use the research notes as the bounded evidence summary for the next planning or investigation step.",
+    "Carry the unresolved ambiguity forward as an explicit review item before any lineage delivery claim."
+  ],
+  "boundary_review_note": [
+    "Output stays within the synthetic contract and does not rely on private/raw evidence.",
+    "No tool use, file edits, runtime paths, hidden references, upstream mutation, or stronger canon authority are claimed."
+  ],
+  "no_claims": [
+    "No claim that a finished lineage map was produced.",
+    "No claim that source ambiguity was resolved beyond the supplied synthetic facts."
+  ]
+}

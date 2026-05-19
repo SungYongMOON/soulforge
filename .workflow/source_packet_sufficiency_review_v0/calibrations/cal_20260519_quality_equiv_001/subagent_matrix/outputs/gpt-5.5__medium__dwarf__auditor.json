@@ -1,0 +1,39 @@
+{
+  "workflow_id": "source_packet_sufficiency_review_v0",
+  "candidate_label": "gpt-5.5|medium|dwarf|auditor",
+  "profile": {
+    "model": "gpt-5.5",
+    "reasoning_effort": "medium",
+    "species": "dwarf",
+    "class": "auditor"
+  },
+  "outputs": {
+    "source_sufficiency_packet": "Synthetic sufficiency result: one bounded claim family is marked sufficient because the provided public-safe source packet facts indicate enough evidence for that claim family. One separate claim family is marked blocked because required layout guidance is missing. The review preserves missing evidence as an explicit blocker and does not upgrade any claim beyond the approved sufficiency policy.",
+    "evidence_coverage_table": "claim_family | coverage_status | evidence_basis | limitation\nclaim_family_A | sufficient | synthetic scenario states enough evidence is present | claim limited to the bounded family reviewed\nclaim_family_B | blocked | missing layout guidance | no layout-dependent claim may be made\nowner_followup | open | synthetic scenario states one follow-up remains | final sufficiency cannot close until owner response is available",
+    "blocked_fields_register": "blocked_field | reason | effect\nlayout_guidance | missing | blocks claim_family_B and any layout-dependent downstream claim\nowner_followup_resolution | still open | prevents closure of the full packet as complete",
+    "owner_followup_needed": "One owner follow-up remains open. The required follow-up is to provide or confirm the missing decision/evidence needed to close the open item under the approved sufficiency policy. Until then, the packet remains partially blocked.",
+    "allowed_claim_ceiling": "Allowed claim ceiling: claim_family_A may be described as sufficient only for the bounded synthetic review scope. claim_family_B may only be described as blocked due to missing layout guidance. The overall packet may be described as partially sufficient with explicit blockers, not fully sufficient or canonically complete.",
+    "rerun_routes": "Rerun the sufficiency review after layout guidance is supplied or explicitly waived by the approved policy, and after the owner follow-up is resolved. If either remains unavailable, rerun only to confirm continued blocked status, not to infer sufficiency.",
+    "boundary_review_note": "This is a public-safe synthetic calibration output. It does not claim tool use, file edits, runtime paths, hidden references, private/raw evidence, upstream mutation, or stronger source authority than the supplied workflow contract."
+  },
+  "provenance": [
+    "Public-safe synthetic workflow contract for source_packet_sufficiency_review_v0.",
+    "Synthetic scenario facts and boundary policy supplied in the prompt."
+  ],
+  "gaps": [
+    "Missing layout guidance blocks one claim family.",
+    "One owner follow-up remains open."
+  ],
+  "downstream_handoff": [
+    "Pass claim_family_A forward only with the bounded sufficient label and stated claim ceiling.",
+    "Route claim_family_B and the open owner follow-up to follow-up collection or rerun after evidence changes."
+  ],
+  "boundary_review_note": [
+    "Public workflow canon is treated only as portable orchestration rules, state semantics, and sanitized templates.",
+    "No upstream artifacts are mutated, and no private/raw evidence or hidden references are invoked."
+  ],
+  "no_claims": [
+    "No claim of tool execution, file edits, runtime inspection, or path-based evidence.",
+    "No claim that the full source packet is complete, canonically authoritative, or sufficient for layout-dependent conclusions."
+  ]
+}

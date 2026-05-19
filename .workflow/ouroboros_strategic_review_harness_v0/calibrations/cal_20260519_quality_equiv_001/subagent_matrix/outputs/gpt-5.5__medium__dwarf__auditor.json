@@ -1,0 +1,41 @@
+{
+  "workflow_id": "ouroboros_strategic_review_harness_v0",
+  "candidate_label": "gpt-5.5|medium|dwarf|auditor",
+  "profile": {
+    "model": "gpt-5.5",
+    "reasoning_effort": "medium",
+    "species": "dwarf",
+    "class": "auditor"
+  },
+  "outputs": {
+    "vision_alignment_report": "Synthetic review confirms one roadmap-aligned direction: the harness preserves Soulforge vision alignment by separating strategic review from implementation, treating the workflow as a question-generating and constraint-candidate surface rather than an authority that changes canon. The draft readiness label is consistent with a manual or read-only first pass before active automation.",
+    "owner_intent_gap_register": "One owner-intent gap is present: whether the owner wants the first real use of the harness to focus on whole-repository strategic alignment or on a narrower active slice. This is an intent question, not a defect, because the contract names input groups but does not select a priority scope.",
+    "ambiguity_ledger": "Ambiguity recorded: the contract identifies vision, roadmap, canon catalog, and recent activity references as input classes, but the synthetic scenario does not define their contents. The output must therefore avoid inferring specific roadmap items, canon changes, private evidence, or runtime findings beyond the single stated alignment confirmation, gap question, recommendation, and constraint candidate.",
+    "socratic_question_packet": "Primary question: Should the first manual/read-only calibration run review the full Soulforge strategic direction, or should it be bounded to one active slice so the owner can judge signal quality before broader use? Follow-up framing: What decision would the owner expect the harness to make easier after one loop?",
+    "owner_question_queue": "1. Choose initial review scope: full strategic direction or one active slice. 2. Identify what kind of answer should count as useful: clearer next focus, exposed missing intent, or candidate canon constraint. 3. Confirm whether unanswered owner intent should remain queued rather than converted into assumptions.",
+    "closure_restatement_note": "This synthetic run restates closure without claiming execution: the harness is draft, public-safe, and bounded to strategic review outputs. It confirms one roadmap alignment, records one owner-intent gap as a question, proposes one next focus, and registers one canon constraint candidate without mutating upstream artifacts.",
+    "canon_constraint_candidate_register": "Candidate constraint: Any future automation of `ouroboros_strategic_review_harness_v0` should keep owner-intent gaps as explicit questions until answered, and should not convert them into canon, roadmap priority, or implementation direction by inference. This remains a candidate, not promoted canon.",
+    "next_focus_recommendation": "Recommended next focus: perform a manual or read-only calibration pass on a narrow active slice before enabling local automation. The comparison target should be whether the harness produces useful owner questions and constraint candidates while preserving boundary language and avoiding invented intent.",
+    "ouroboros_loop_ledger": "Loop result: alignment lane produced one roadmap alignment confirmation; intent-gap lane produced one owner question; synthesis lane produced one next-focus recommendation and one canon constraint candidate. No upstream mutation, authority promotion, private evidence, or runtime claim is included."
+  },
+  "provenance": [
+    "Public-safe synthetic workflow contract supplied in the prompt.",
+    "Synthetic scenario facts and boundary policy supplied in the prompt."
+  ],
+  "gaps": [
+    "Actual vision, roadmap, canon catalog, and recent activity contents were not provided in the synthetic contract.",
+    "Owner priority for first real review scope is unresolved and must remain a question."
+  ],
+  "downstream_handoff": [
+    "Use this output only as calibration material for comparing whether a candidate profile preserves public-safe boundaries and avoids invented owner intent.",
+    "For a real run, bind actual inputs through the appropriate non-synthetic review process and keep applied reports in the allowed private or project-local reporting surface described by the contract."
+  ],
+  "boundary_review_note": [
+    "No tool use, file edit, runtime path, hidden reference, or private/raw evidence is claimed.",
+    "No upstream artifact mutation or canon promotion is claimed; the canon item is explicitly only a candidate constraint."
+  ],
+  "no_claims": [
+    "No claim that the workflow was executed against real repository materials.",
+    "No claim that the recommendation or candidate constraint has owner approval or canonical authority."
+  ]
+}

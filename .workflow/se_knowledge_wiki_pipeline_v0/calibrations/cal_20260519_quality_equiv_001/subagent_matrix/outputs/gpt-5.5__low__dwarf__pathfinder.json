@@ -1,0 +1,42 @@
+{
+  "workflow_id": "se_knowledge_wiki_pipeline_v0",
+  "candidate_label": "gpt-5.5|low|dwarf|pathfinder",
+  "profile": {
+    "model": "gpt-5.5",
+    "reasoning_effort": "low",
+    "species": "dwarf",
+    "class": "pathfinder"
+  },
+  "outputs": {
+    "pipeline_request_packet": "Synthetic pipeline request packet for an SE/LLM-wiki wikiization request. Inputs are bounded to knowledge_wiki_request_packet, approved_source_policy, and source_scope_binding. The packet preserves query-first handling, sourcebound constraints, archive handoff, boundary review, and no source authority grant.",
+    "routing_decision_note": "Route as party_sequence through the composite workflow. Reuse an existing bounded projection for the query_only_with_existing_projection portion, run fresh sourcebound work for the stage that lacks an approved projection, keep archive/storage notes non-authoritative, and require one closeout review reference before handoff.",
+    "stage_chain_manifest": "Stage chain: request intake and routing decision; conditional source intake only where no bounded projection exists; sourcebound projection for the fresh-work stage; archive/package handoff as storage metadata only; Obsidian export decisioning as read-only local view over canon-backed knowledge; metadata capture; closeout review and boundary review.",
+    "source_packet_refs": "Synthetic source packet refs: reused_projection_input_ref for the existing bounded projection path; fresh_source_intake_ref for the stage requiring new sourcebound work. These refs identify approved synthetic inputs only and do not grant source authority.",
+    "sourcebound_packet_refs": "Synthetic sourcebound packet refs: existing_projection_ref reused under query_only_with_existing_projection; fresh_sourcebound_projection_ref created for the stage requiring fresh work. Both remain bounded by approved_source_policy and source_scope_binding.",
+    "archive_manifest_refs": "Synthetic archive manifest refs: pre_intake_storage_candidate_ref and post_projection_package_backup_ref. These are owner-held storage or backup notes only and do not promote canon, source authority, or workflow readiness.",
+    "obsidian_export_refs": "Synthetic Obsidian export refs: read_only_wiki_view_ref generated only from canon-backed knowledge outputs. The export is not a canon owner surface and excludes raw source payloads, private workmeta payloads, and NotebookLM answers.",
+    "knowledge_access_refs": "Synthetic knowledge access refs: metadata_capture_ref and access_boundary_ref recording what public-safe synthetic knowledge view was requested, which projection refs were eligible, and which payload categories were excluded.",
+    "closeout_review_refs": "Synthetic closeout review refs: required_closeout_review_ref confirming request-level completion criteria, boundary posture, non-authoritative archive handling, and no unauthorized promotion.",
+    "boundary_review_note": "Public-safe boundary note: this calibration output uses only the synthetic workflow contract, makes no claims about tool use, file edits, runtime paths, hidden refs, private evidence, upstream mutation, or canon promotion beyond the stated pilot-executed readiness label."
+  },
+  "provenance": [
+    "Synthetic public-safe workflow contract for SE Knowledge Wiki Pipeline v0.",
+    "Synthetic scenario facts and boundary policy supplied in the calibration request."
+  ],
+  "gaps": [
+    "No real source packets, runtime artifacts, private projections, archive manifests, or closeout records are asserted.",
+    "No upstream registration, readiness change, canon promotion, or Obsidian export materialization is claimed."
+  ],
+  "downstream_handoff": [
+    "Use the composite workflow as the request-level entry for knowledge_wiki_cell when the request matches the bounded wikiization pattern.",
+    "Send execution to the registered downstream four-stage lane, preserving query-first, sourcebound, archive, boundary, and no-source-authority-grant constraints."
+  ],
+  "boundary_review_note": [
+    "All refs are synthetic labels for calibration comparison, not runtime paths or evidence claims.",
+    "Archive/storage refs remain non-authoritative, and Obsidian export remains a read-only view over canon-backed knowledge only."
+  ],
+  "no_claims": [
+    "No tool use, file edits, runtime paths, hidden refs, private/raw evidence, or upstream artifact mutation are claimed.",
+    "No stronger source authority, canon ownership, public readiness, or storage-based promotion is claimed."
+  ]
+}

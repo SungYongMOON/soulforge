@@ -1,0 +1,42 @@
+{
+  "workflow_id": "llm_wiki_builder_v0",
+  "fixture_id": "PUBLIC_SYNTH_LLM_WIKI_BUILDER_V0",
+  "source_kind": "synthetic_from_workflow_contract_metadata_only",
+  "public_safe": true,
+  "workflow_title": "LLM Wiki Builder v0",
+  "workflow_summary": "Orchestrate query-first project wiki use, candidate triage, optional sourcebound deepening, curation planning, usage-capture handoff, and governance routing for bounded knowledge-heavy project work.",
+  "workflow_readiness_label": "pilot-executed",
+  "input_refs": [
+    "builder_request_binding",
+    "project_wiki_context_refs",
+    "builder_policy"
+  ],
+  "expected_output_groups": [
+    "builder_scope_packet",
+    "preflight_result_ref",
+    "candidate_triage_ref",
+    "sourcebound_route_ref",
+    "curation_result_ref",
+    "usage_capture_note",
+    "final_builder_handoff",
+    "boundary_review_note"
+  ],
+  "must_preserve": [
+    "query-first",
+    "triage",
+    "sourcebound",
+    "boundary",
+    "authority stays with sources"
+  ],
+  "scenario_facts": [
+    "preflight passes with one source gap",
+    "triage routes one candidate to sourcebound deepening",
+    "one curation follow-up remains",
+    "one usage-capture handoff is explicit"
+  ],
+  "boundary_policy": [
+    "Do not claim tool use, file edits, runtime paths, or hidden private evidence.",
+    "Do not mutate upstream artifacts or promote stronger source/canon authority than the contract supports.",
+    "Keep public-safe synthetic boundaries explicit."
+  ]
+}

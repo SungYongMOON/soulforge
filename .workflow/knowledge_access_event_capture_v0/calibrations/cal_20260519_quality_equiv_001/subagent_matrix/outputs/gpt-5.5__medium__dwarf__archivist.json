@@ -1,0 +1,42 @@
+{
+  "workflow_id": "knowledge_access_event_capture_v0",
+  "candidate_label": "gpt-5.5|medium|dwarf|archivist",
+  "profile": {
+    "model": "gpt-5.5",
+    "reasoning_effort": "medium",
+    "species": "dwarf",
+    "class": "archivist"
+  },
+  "outputs": {
+    "project_binding": "Synthetic calibration binding only. Scope is a public-safe metadata-only workflow calibration for knowledge_access_event_capture_v0; no project runtime path, private packet, source payload, or upstream artifact mutation is represented.",
+    "knowledge_access_event_batch": "Batch contains three synthetic metadata-only access events. Each event carries only stable abstract refs, event ids, event type hints, recency/order hints, and outcome state placeholders suitable for later rollup.",
+    "normalized_access_event_log": "Normalized log preserves three event records as metadata rows: event_001 uses knowledge_node_ref_alpha with successful reuse outcome; event_002 uses workflow_ref_beta with advisory handoff outcome; event_003 references concept_ref_gamma with unresolved linkage outcome. No source text or private evidence is included.",
+    "usage_rollup": "Rollup records total_access_events=3, distinct_refs=3, successful_reuse_count=1, advisory_handoff_count=1, unresolved_linkage_count=1, and candidate_hot_ref_count=1. Counts are synthetic calibration signals only.",
+    "retention_label_packet": "One hot retention label candidate is assigned to knowledge_node_ref_alpha based on repeated or recent synthetic usefulness implied by the scenario. The label is a candidate retention signal and does not authorize canon promotion, archival action, or deletion.",
+    "link_strength_analysis": "Candidate link strength analysis marks edge_ref_alpha_to_beta as weak-to-observe and edge_ref_gamma_to_unknown as orphan_candidate. The orphan candidate is a routing signal for review, not proof that a source relationship is invalid or absent.",
+    "knowledge_accumulation_delta": "Metadata-only delta records observed use of three refs, one hot retention candidate, one orphan candidate edge, and one graph update candidate. Delta describes access-pattern change only; it is not source truth, ontology acceptance, or canon promotion.",
+    "graph_update_packet": "One graph update packet candidate is prepared with stable abstract node refs, one candidate edge ref, access counts, recency hint, outcome hint, and confidence_hint=low_to_medium. It is suitable for downstream visualization or graph-review workflows after policy review.",
+    "orphan_redundancy_candidate_register": "Register contains orphan_candidate=edge_ref_gamma_to_unknown with reason=unresolved synthetic linkage in metadata-only event_003. No redundant candidate is asserted because the synthetic facts do not provide duplication evidence.",
+    "boundary_review_note": "Public-safe synthetic boundaries preserved: metadata-only rows, candidate labels only, no source payloads, no advisory answer contents, no credentials, no local runtime paths, no hidden refs, no file edits, no tool-use claims, and no upstream mutation."
+  },
+  "provenance": [
+    "Public-safe synthetic workflow contract supplied in prompt.",
+    "Synthetic scenario facts supplied in prompt: three metadata-only access events, one hot retention label, one orphan candidate edge, and one graph update packet candidate."
+  ],
+  "gaps": [
+    "No real knowledge_access_scope, node registry, ledger rows, retention policy thresholds, or owner decisions were supplied.",
+    "No evidence is available to promote candidate labels into accepted retention, graph, ontology, archive, retire, orphan, or redundancy actions."
+  ],
+  "downstream_handoff": [
+    "Send retention_label_packet and usage_rollup to a policy-aware retention review lane before any action is accepted.",
+    "Send graph_update_packet and orphan_redundancy_candidate_register to a graph or visualization review lane as candidate metadata only."
+  ],
+  "boundary_review_note": [
+    "Output remains metadata-only and public-safe under the synthetic contract.",
+    "All labels and graph changes are candidate signals only; no source truth, private evidence, runtime artifact, or canon authority is claimed."
+  ],
+  "no_claims": [
+    "No tool use, file edit, runtime path, hidden reference, private/raw evidence, or upstream artifact mutation is claimed.",
+    "No production readiness, profile optimization, ontology acceptance, source truth, or canon promotion is claimed."
+  ]
+}

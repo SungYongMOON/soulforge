@@ -1,0 +1,41 @@
+{
+  "workflow_id": "workflow_knowledge_preflight_v0",
+  "fixture_id": "PUBLIC_SYNTH_WORKFLOW_KNOWLEDGE_PREFLIGHT_V0",
+  "source_kind": "synthetic_from_workflow_contract_metadata_only",
+  "public_safe": true,
+  "workflow_title": "Workflow Knowledge Preflight v0",
+  "workflow_summary": "Investigate needed knowledge in a fixed order before a target workflow starts, so the target receives grounded reusable refs, uncertainty notes, claim-seed guidance, and source-deepening routes without re-reading everything from scratch.",
+  "workflow_readiness_label": "draft",
+  "input_refs": [
+    "workflow_request_binding",
+    "target_workflow_id",
+    "project_knowledge_context_refs",
+    "preflight_policy"
+  ],
+  "expected_output_groups": [
+    "knowledge_preflight_packet",
+    "query_first_plan",
+    "source_scope_recommendation",
+    "claim_ceiling_seed",
+    "target_workflow_handoff",
+    "boundary_review_note"
+  ],
+  "must_preserve": [
+    "fixed order",
+    "query-first",
+    "metadata-only",
+    "boundary",
+    "not an end-to-end replacement"
+  ],
+  "scenario_facts": [
+    "registry knowledge provides one starting ref",
+    "NotebookLM provides one binding but no authority",
+    "one source packet gap remains",
+    "the target workflow receives only refs and claim-seed guidance"
+  ],
+  "boundary_policy": [
+    "Do not claim tool use, file edits, runtime paths, or hidden private evidence.",
+    "Do not mutate upstream artifacts or promote stronger source/canon authority than the contract supports.",
+    "Keep public-safe synthetic boundaries explicit."
+  ]
+}

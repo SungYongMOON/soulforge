@@ -1,0 +1,39 @@
+{
+  "workflow_id": "source_packet_sufficiency_review_v0",
+  "candidate_label": "gpt-5.5|low|dwarf|auditor",
+  "profile": {
+    "model": "gpt-5.5",
+    "reasoning_effort": "low",
+    "species": "dwarf",
+    "class": "auditor"
+  },
+  "outputs": {
+    "source_sufficiency_packet": "Synthetic sufficiency review result: one bounded claim family is sufficient, one bounded claim family is blocked, and one owner follow-up remains open. The packet supports only a public-safe calibration decision about evidence sufficiency, not source authority promotion or final canon acceptance.",
+    "evidence_coverage_table": "claim_family | coverage_state | evidence_basis | decision\nclaim_family_a | sufficient | collected source packet facts satisfy the approved sufficiency policy for the bounded claim | allowed within ceiling\nclaim_family_b | blocked | missing layout guidance prevents the intended claim strength | blocked until guidance is supplied\nowner_followup | open | one owner response remains unresolved | cannot close review fully",
+    "blocked_fields_register": "blocked_field | reason | unblock_condition\nlayout_guidance | required evidence is missing for claim_family_b | provide owner-approved or contract-allowed layout guidance source\nowner_followup_response | follow-up remains open | owner resolves or explicitly defers the item",
+    "owner_followup_needed": "Owner follow-up is needed for the open question tied to the blocked or unresolved sufficiency item. Until it is answered, the workflow may report a partial sufficiency result only.",
+    "allowed_claim_ceiling": "Allowed claim ceiling: claim_family_a may be described as sufficient for the bounded synthetic scope. claim_family_b may only be described as blocked by missing layout guidance. The overall packet may not be described as fully sufficient, source-complete, canon-promoted, or validated against private/raw evidence.",
+    "rerun_routes": "Rerun after missing layout guidance is added, after owner follow-up is resolved, or after the approved sufficiency policy changes. Rerun should preserve no-mutation behavior and keep blocked fields visible.",
+    "boundary_review_note": "This is a public-safe synthetic review. It does not assert tool use, file edits, runtime paths, hidden references, private/raw evidence, or upstream mutation."
+  },
+  "provenance": [
+    "Public-safe synthetic workflow contract supplied in the prompt.",
+    "Synthetic scenario facts supplied in the prompt."
+  ],
+  "gaps": [
+    "Missing layout guidance blocks one claim family.",
+    "One owner follow-up remains open."
+  ],
+  "downstream_handoff": [
+    "Pass claim_family_a forward only with the bounded sufficient label and stated claim ceiling.",
+    "Return claim_family_b to evidence collection or owner follow-up before any stronger claim is made."
+  ],
+  "boundary_review_note": [
+    "No upstream artifacts were mutated or claimed to be mutated.",
+    "No private/raw evidence, hidden refs, runtime paths, file edits, or tool use are asserted."
+  ],
+  "no_claims": [
+    "Do not claim full source packet sufficiency for all claim families.",
+    "Do not claim canon promotion, source authority upgrade, private evidence review, or completed owner closure."
+  ]
+}

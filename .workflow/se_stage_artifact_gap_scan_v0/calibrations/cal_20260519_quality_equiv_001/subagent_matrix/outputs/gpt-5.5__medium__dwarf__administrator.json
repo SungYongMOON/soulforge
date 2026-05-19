@@ -1,0 +1,43 @@
+{
+  "workflow_id": "se_stage_artifact_gap_scan_v0",
+  "candidate_label": "gpt-5.5|medium|dwarf|administrator",
+  "profile": {
+    "model": "gpt-5.5",
+    "reasoning_effort": "medium",
+    "species": "dwarf",
+    "class": "administrator"
+  },
+  "outputs": {
+    "stage_artifact_gap_scan_packet": "대상 stage에 대해 합성 계약 기준으로 산출물 존재 여부, 입력 결손, owner 확인 필요 항목, downstream route 후보를 분리 기록한다. 현재 확인 가능한 범위에서는 기대 산출물 1건이 존재하고, 기대 산출물 1건은 미확보 상태다. 이 packet은 readiness 승인이나 문서 작성 결과가 아니라 gap scan 결과다.",
+    "stage_required_artifact_matrix": "필수 산출물 A: 존재 확인됨, gap 없음. 필수 산출물 B: 미존재, gap 상태 유지. 각 항목은 approved_scan_policy 범위에서만 분류되며, 누락 항목은 추론으로 보완하지 않는다.",
+    "stage_input_gap_register": "입력 결손 1건: owner가 제공해야 하는 stage-specific engineering truth가 아직 부족하다. 상태는 owner_input_needed로 유지하며, source_needed 또는 blocker로 승격할지는 owner 응답 이후 판단한다.",
+    "owner_input_queue": "owner 확인 필요 1건: 누락된 기대 산출물 B를 작성 또는 검토하기 위해 필요한 원천 입력을 제공해야 한다. 요청은 stage 범위, 필요한 입력 종류, downstream 영향만 포함하고 승인 판단은 포함하지 않는다.",
+    "draftable_artifact_queue": "초안화 가능 후보: 존재 확인된 산출물 A를 참조해 gap scan summary 또는 route handoff note 수준의 보조 문서는 작성 가능하다. 단, 누락된 engineering truth를 포함하는 산출물 B 자체는 owner input 전까지 draftable로 보지 않는다.",
+    "diagram_need_register": "다이어그램 필요성: 현재 합성 사실만으로는 필수 다이어그램 요구가 확인되지 않는다. stage_expected_artifact_policy가 다이어그램을 요구하거나 owner input이 구조 관계를 제시하는 경우 별도 diagram_needed 항목으로 등록한다.",
+    "stage_blocker_register": "blocker 후보 1건: 필수 산출물 B 누락과 관련 owner input 미확보. 현재 상태는 no readiness claim 조건을 유지해야 하며, stage 완료 또는 승인 가능성으로 해석하지 않는다.",
+    "downstream_workflow_route_map": "추천 downstream route 1건: owner input 확보 후 누락 산출물 B의 작성 또는 보완을 다루는 후속 workflow로 넘긴다. 현재 scan 단계에서는 review approval 또는 readiness 등록 workflow로 직접 라우팅하지 않는다.",
+    "stage_scan_summary": "합성 stage gap scan 결과: 기대 산출물 2건 중 1건 존재, 1건 누락. owner input 1건 필요. downstream route 1건 추천. 이 결과는 controller workflow의 bounded scan 산출이며 production-ready 또는 profile-optimized 주장을 포함하지 않는다.",
+    "stage_readiness_summary": "readiness 상태: 판단 보류. 등록된 workflow package는 stage readiness 등록을 의미하지 않으며, 누락 산출물과 owner input 미확보가 남아 있으므로 readiness claim을 생성하지 않는다.",
+    "boundary_review_note": "공개 안전 합성 계약만 사용했다. tool use, file edit, runtime path, hidden reference, private/raw evidence, upstream mutation, canon authority 강화 주장을 하지 않는다."
+  },
+  "provenance": [
+    "제공된 public-safe synthetic workflow contract",
+    "제공된 synthetic scenario facts 및 boundary policy"
+  ],
+  "gaps": [
+    "기대 산출물 1건이 아직 missing 상태다.",
+    "owner input 1건이 필요하며 추론으로 보완할 수 없다."
+  ],
+  "downstream_handoff": [
+    "owner input 확보 후 누락 산출물 보완 route로 전달한다.",
+    "readiness approval이나 canon promotion route가 아니라 bounded follow-up route로 제한한다."
+  ],
+  "boundary_review_note": [
+    "공개 안전 합성 정보만 근거로 사용했다.",
+    "stage gap scan 결과를 readiness claim, production-ready claim, profile-optimized claim으로 승격하지 않는다."
+  ],
+  "no_claims": [
+    "tool use, file edits, runtime paths, hidden refs, private/raw evidence를 사용하거나 확인했다고 주장하지 않는다.",
+    "upstream artifact mutation, stage readiness 승인, 강한 source/canon authority promotion을 주장하지 않는다."
+  ]
+}

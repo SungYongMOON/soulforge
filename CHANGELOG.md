@@ -2,6 +2,12 @@
 
 ## 2026-05-19
 
+### Revision `working` - 21 workflow optimizer gap batch closed
+
+- Applied workflow-check and workflow-optimizer follow-through to the 21 workflows listed in the 2026-05-19 optimizer gap scan.
+- Added or replaced `profile_policy.yaml` calibration state, public-safe `calibrations/cal_20260519_quality_equiv_001/` archives, and `history/2026-05-19_quality_equiv_001.md` notes across the affected workflow packages.
+- Added missing workflow package READMEs for `frontline_assault` and `build_lineage_map`, while keeping readiness labels conservative and leaving `post_development_review_gate_v0` locked to its strongest review profile.
+
 ### Revision `working` - Workflow check skill registered
 
 - Added `.registry/skills/workflow_check/` as the tracked canonical skill package for the installed `soulforge-workflow-check` Codex skill.

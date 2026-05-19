@@ -1,0 +1,43 @@
+{
+  "workflow_id": "page_module_trace_matrix_v0",
+  "fixture_id": "PUBLIC_SYNTH_PAGE_MODULE_TRACE_MATRIX_V0",
+  "source_kind": "synthetic_from_workflow_contract",
+  "public_safe": true,
+  "workflow_title": "Page Module Trace Matrix v0",
+  "workflow_summary": "Build a row-level governance matrix over page-module, source, materials, layout, quantitative, and harness packets so later harness, verification, and review workflows can consume explicit evidence authority, gaps, and trace links without replacing upstream artifact owners.",
+  "workflow_readiness_label": "pilot-executed",
+  "input_refs": [
+    "trace_matrix_project_binding",
+    "page_module_spec_refs",
+    "page_asset_manifest_refs",
+    "approved_trace_intake_policy"
+  ],
+  "expected_output_groups": [
+    "trace_matrix",
+    "evidence_authority_map",
+    "trace_gap_register",
+    "harness_trace_delta",
+    "verification_seed_matrix",
+    "review_gate_evidence_index",
+    "trace_provenance",
+    "boundary_review_note"
+  ],
+  "must_preserve": [
+    "evidence authority",
+    "trace",
+    "boundary",
+    "no mutation",
+    "verification seed"
+  ],
+  "scenario_facts": [
+    "one source-supported row",
+    "one review-required row",
+    "one missing-evidence row",
+    "one harness delta must stay below source authority"
+  ],
+  "boundary_policy": [
+    "Do not claim tool use, file edits, runtime paths, or hidden private evidence.",
+    "Do not mutate upstream artifacts or promote stronger source/canon authority than the contract supports.",
+    "Keep public-safe synthetic boundaries explicit."
+  ]
+}

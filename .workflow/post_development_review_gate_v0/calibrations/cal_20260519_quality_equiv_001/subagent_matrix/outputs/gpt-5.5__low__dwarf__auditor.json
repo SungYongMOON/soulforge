@@ -1,0 +1,39 @@
+{
+  "workflow_id": "post_development_review_gate_v0",
+  "candidate_label": "gpt-5.5|low|dwarf|auditor",
+  "profile": {
+    "model": "gpt-5.5",
+    "reasoning_effort": "low",
+    "species": "dwarf",
+    "class": "auditor"
+  },
+  "outputs": {
+    "post_development_review_packet": "Synthetic Level 2 close packet for Post-development Review Gate v0. Inputs represented by the public-safe scenario only: builder_report present, changed_file_refs abstracted, validation_command_refs abstracted, output_state reviewed, and applicable_owner_contract_refs represented by the supplied contract. Required preserved checks are recorded: validation passed, boundary clean, judge decision required, supervisor disposition recorded, and knowledge_trigger_check set to metadata_only_record.",
+    "validation_log": "One synthetic validation command is recorded as passed. No command name, runtime path, tool transcript, artifact mutation, or hidden execution evidence is claimed.",
+    "boundary_review_note": "Boundary inspection result is clean for the synthetic scenario. The packet remains public-safe and does not include private/raw evidence, hidden refs, runtime paths, or claims of upstream mutation.",
+    "judge_decision_note": "Level 2 judge decision is needed because acceptance requires value/risk judgment beyond deterministic validation. Decision basis is limited to the synthetic contract: passed validation, clean boundary finding, and metadata_only_record knowledge trigger.",
+    "bv_gate_handoff": "No full B/V gate evidence is claimed. Level 3 escalation is not triggered by the supplied facts, but this handoff records that any future stronger source/canon claim would require separate executor and verifier evidence before acceptance.",
+    "supervisor_decision": "Supervisor disposition: accept the synthetic packet as a calibration-ready Level 2 review record, with no upstream artifact mutation and no promotion of authority beyond pilot-executed workflow contract status.",
+    "followup_register": "Follow-up: retain the knowledge_trigger_check as metadata_only_record only; keep public-safe boundary constraints explicit; do not promote this synthetic result to source truth, canon authority, or runtime evidence."
+  },
+  "provenance": [
+    "Public-safe synthetic workflow contract supplied in the prompt.",
+    "Synthetic scenario facts supplied in the prompt: one validation passed, one clean boundary finding, one Level 2 judge decision needed, and knowledge trigger metadata_only_record."
+  ],
+  "gaps": [
+    "No concrete builder report, changed file refs, validation command names, output artifacts, or owner contract documents were provided.",
+    "No fresh executor/verifier evidence is present, so no Level 3 B/V conclusion or source/canon truth can be claimed."
+  ],
+  "downstream_handoff": [
+    "Use this as a calibration comparison packet for post_development_review_gate_v0 only.",
+    "If future claims require stronger authority, route to a full B/V gate with separate executor and verifier evidence."
+  ],
+  "boundary_review_note": [
+    "Public-safe synthetic boundary preserved: no tool use, file edit, runtime path, hidden ref, private/raw evidence, or upstream mutation is claimed.",
+    "Authority boundary preserved: this packet records review routing and candidate knowledge signal only, not source truth, canon promotion, or final owner authority."
+  ],
+  "no_claims": [
+    "No claim of executing commands, reading files, editing files, mutating artifacts, or inspecting private evidence.",
+    "No claim that metadata_only_record is source truth, canon authority, or sufficient B/V evidence."
+  ]
+}

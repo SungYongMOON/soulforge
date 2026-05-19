@@ -1,0 +1,39 @@
+{
+  "workflow_id": "technical_risk_open_question_burndown_v0",
+  "candidate_label": "gpt-5.5|medium|dwarf|auditor",
+  "profile": {
+    "model": "gpt-5.5",
+    "reasoning_effort": "medium",
+    "species": "dwarf",
+    "class": "auditor"
+  },
+  "outputs": {
+    "technical_risk_register": "TR-001 | severity: medium | status: open | risk: the scoped technical interface contains an unresolved quantitative field, so downstream implementation or review could proceed with an incorrect assumption. | impact: moderate rework or delayed approval if the field is later constrained differently. | containment: keep the field marked unresolved and block any claim of final technical closure until the closure criterion is met.",
+    "open_question_register": "OQ-001 | status: open | question: what approved quantitative value or bounded range should be used for the unresolved interface field? | required respondent: owner or approved technical authority identified by the risk register policy. | linked risk: TR-001.",
+    "burndown_summary": "Synthetic burndown contains one medium technical risk, one open question, one closure criterion, and one rerun route. Current status remains open because the workflow preserves uncertainty and does not resolve the question by itself.",
+    "closure_criteria_register": "CC-001 | linked items: TR-001, OQ-001 | criterion: an approved source or owner response provides the missing quantitative value or range, and the risk register is updated without introducing private/raw evidence into public-safe output. | close condition: TR-001 and OQ-001 may be marked closed only after this criterion is satisfied.",
+    "owner_followup_needed": "Yes. Owner follow-up is needed to provide or approve the unresolved quantitative field for OQ-001. No stronger authority is inferred from the synthetic contract.",
+    "rerun_routes": "RR-001 | trigger: approved value/range is supplied, or the risk scope changes. | route: rerun the technical risk open question burndown workflow to update risk status, open-question status, and closure criteria.",
+    "boundary_review_note": "Output is public-safe and synthetic. It does not claim tool use, file edits, runtime paths, hidden references, private/raw evidence, upstream mutation, or final technical resolution."
+  },
+  "provenance": [
+    "Public-safe synthetic workflow contract for technical_risk_open_question_burndown_v0.",
+    "Synthetic scenario facts: one medium technical risk, one open question, one closure criterion, and one rerun route."
+  ],
+  "gaps": [
+    "The actual quantitative field value or range is not supplied in the synthetic contract.",
+    "The approved owner or technical authority identity is not specified beyond the generic policy role."
+  ],
+  "downstream_handoff": [
+    "Carry TR-001, OQ-001, CC-001, and RR-001 into downstream comparison as synthetic calibration artifacts only.",
+    "Request owner-approved quantitative input before marking the risk or open question closed."
+  ],
+  "boundary_review_note": [
+    "No private/raw evidence, hidden references, runtime paths, or tool execution are claimed.",
+    "No upstream artifacts are mutated, and no stronger canon/source authority is promoted beyond the supplied contract."
+  ],
+  "no_claims": [
+    "No claim that the technical risk has been resolved.",
+    "No claim that files, tools, runtime logs, hidden references, or private evidence were accessed or changed."
+  ]
+}

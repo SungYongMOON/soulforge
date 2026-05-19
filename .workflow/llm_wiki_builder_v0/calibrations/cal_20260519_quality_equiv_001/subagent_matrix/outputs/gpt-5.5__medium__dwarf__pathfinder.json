@@ -1,0 +1,40 @@
+{
+  "workflow_id": "llm_wiki_builder_v0",
+  "candidate_label": "gpt-5.5|medium|dwarf|pathfinder",
+  "profile": {
+    "model": "gpt-5.5",
+    "reasoning_effort": "medium",
+    "species": "dwarf",
+    "class": "pathfinder"
+  },
+  "outputs": {
+    "builder_scope_packet": "Bounded builder route for a knowledge-heavy project wiki task. Scope covers query-first wiki use, candidate triage, one optional sourcebound deepening route, curation planning, usage-capture handoff, and boundary review. Authority remains with provided sources, owner decisions, and the review gate; this packet does not assert independent canon authority.",
+    "preflight_result_ref": "Synthetic preflight result: pass with one source gap. Inputs are sufficient to proceed through triage, but the unresolved source gap must remain visible and must not be treated as closed by the builder route.",
+    "candidate_triage_ref": "Synthetic triage result: one candidate identified for sourcebound deepening. Other candidate handling remains limited to public-safe triage status and does not imply promotion, acceptance, or source authority.",
+    "sourcebound_route_ref": "One candidate is routed to sourcebound deepening because the available context is not enough to support stronger treatment. The route preserves source authority and requires bounded source-backed verification before any later curation or promotion decision.",
+    "curation_result_ref": "Curation planning result: one follow-up remains. The follow-up should be carried as unresolved curation work and should not be collapsed into completed wiki knowledge or canonical guidance.",
+    "usage_capture_note": "One usage-capture handoff is explicit. Capture should record the repeatable route shape: query-first lookup, preflight with source-gap visibility, candidate triage, sourcebound escalation when needed, curation follow-up tracking, and final boundary review.",
+    "final_builder_handoff": "Builder handoff: proceed only within the pilot-executed workflow contract. The handoff carries one known source gap, one sourcebound candidate, one curation follow-up, and one usage-capture item. No upstream artifact mutation or authority promotion is included.",
+    "boundary_review_note": "Public-safe synthetic boundary preserved. This result does not claim tool use, file edits, runtime paths, hidden references, private/raw evidence, upstream mutation, or source/canon authority beyond the supplied contract."
+  },
+  "provenance": [
+    "Public-safe synthetic workflow contract for llm_wiki_builder_v0.",
+    "Synthetic scenario facts supplied in the calibration prompt."
+  ],
+  "gaps": [
+    "One source gap remains after preflight and must stay unresolved until source-backed closure.",
+    "One curation follow-up remains and is not treated as completed knowledge."
+  ],
+  "downstream_handoff": [
+    "Route the selected candidate through sourcebound deepening before stronger wiki curation or promotion decisions.",
+    "Carry the explicit usage-capture note into the appropriate governance/review handoff while preserving public-safe boundaries."
+  ],
+  "boundary_review_note": [
+    "No tool use, file edit, runtime path, hidden reference, or private/raw evidence is claimed.",
+    "No upstream artifact mutation or stronger source/canon authority is asserted beyond the synthetic contract."
+  ],
+  "no_claims": [
+    "No claim that any repository, file, workflow artifact, or private evidence was inspected or changed.",
+    "No claim that the pilot-executed workflow is production-ready, canon-promoted, or source-authoritative beyond the provided contract."
+  ]
+}

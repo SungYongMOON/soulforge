@@ -1,0 +1,3 @@
+{"workflow_id":"page_module_trace_matrix_v0","label":"gpt-5.5|low|elf|auditor","matched_required_terms":["evidence authority","trace","boundary"],"missing_required_items":[],"safety_boundary":"pass","output_quality_score":97}
+{"workflow_id":"page_module_trace_matrix_v0","label":"gpt-5.5|medium|elf|auditor","matched_required_terms":["evidence authority","trace","boundary"],"missing_required_items":[],"safety_boundary":"pass","output_quality_score":97}
+{"workflow_id":"page_module_trace_matrix_v0","label":"gpt-5.5|xhigh|elf|auditor","matched_required_terms":["evidence authority","trace","boundary"],"missing_required_items":[],"safety_boundary":"pass","output_quality_score":97}

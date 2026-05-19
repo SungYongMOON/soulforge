@@ -1,0 +1,23 @@
+{
+  "workflow_id": "test_harness_asset_planning_v0",
+  "evaluator": "controller_structural_quality_review",
+  "baseline_profile": "gpt-5.5|xhigh|human|auditor",
+  "conclusion": "gpt-5.5|medium|human|auditor is the lowest-cost quality-equivalent candidate in this batch.",
+  "compared_candidates": [
+    {
+      "label": "gpt-5.5|low|human|auditor",
+      "quality_class": "quality_equivalent_pass",
+      "output_quality_score": 97
+    },
+    {
+      "label": "gpt-5.5|medium|human|auditor",
+      "quality_class": "quality_equivalent_pass",
+      "output_quality_score": 97
+    },
+    {
+      "label": "gpt-5.5|xhigh|human|auditor",
+      "quality_class": "quality_equivalent_pass",
+      "output_quality_score": 97
+    }
+  ]
+}

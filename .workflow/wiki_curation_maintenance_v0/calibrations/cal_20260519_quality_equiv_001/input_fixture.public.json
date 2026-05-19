@@ -1,0 +1,41 @@
+{
+  "workflow_id": "wiki_curation_maintenance_v0",
+  "fixture_id": "PUBLIC_SYNTH_WIKI_CURATION_MAINTENANCE_V0",
+  "source_kind": "synthetic_from_workflow_contract_metadata_only",
+  "public_safe": true,
+  "workflow_title": "Wiki Curation Maintenance v0",
+  "workflow_summary": "Maintain project wiki state after bounded work by producing metadata-only update packets for source ledgers, packet maps, notebook bindings, lifecycle states, residual gaps, and review handoff.",
+  "workflow_readiness_label": "pilot-executed",
+  "input_refs": [
+    "curation_scope_binding",
+    "curation_policy",
+    "lifecycle_policy"
+  ],
+  "expected_output_groups": [
+    "source_ledger_curation_packet",
+    "packet_map_update_note",
+    "notebook_binding_update_note",
+    "lifecycle_state_delta",
+    "residual_gap_register",
+    "review_handoff",
+    "boundary_review_note"
+  ],
+  "must_preserve": [
+    "metadata-only",
+    "curation",
+    "residual gap",
+    "boundary",
+    "no source-truth claim"
+  ],
+  "scenario_facts": [
+    "one source ledger update",
+    "one packet map update",
+    "one residual gap",
+    "one review handoff"
+  ],
+  "boundary_policy": [
+    "Do not claim tool use, file edits, runtime paths, or hidden private evidence.",
+    "Do not mutate upstream artifacts or promote stronger source/canon authority than the contract supports.",
+    "Keep public-safe synthetic boundaries explicit."
+  ]
+}

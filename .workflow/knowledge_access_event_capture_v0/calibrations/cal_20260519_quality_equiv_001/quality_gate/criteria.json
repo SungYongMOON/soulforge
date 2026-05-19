@@ -1,0 +1,35 @@
+{
+  "calibration_id": "cal_20260519_quality_equiv_001",
+  "workflow_id": "knowledge_access_event_capture_v0",
+  "policy": "quality_equivalence_batch_20260519_cli_only",
+  "baseline_profile": "gpt-5.5|xhigh|dwarf|archivist",
+  "baseline_relative_threshold": 0.9,
+  "quality_equivalence_threshold": 90,
+  "expected_output_groups": [
+    "project_binding",
+    "knowledge_access_event_batch",
+    "normalized_access_event_log",
+    "usage_rollup",
+    "retention_label_packet",
+    "link_strength_analysis",
+    "knowledge_accumulation_delta",
+    "graph_update_packet",
+    "orphan_redundancy_candidate_register",
+    "boundary_review_note"
+  ],
+  "hard_gates": [
+    "valid JSON final output",
+    "required output groups present",
+    "public-safe boundary preserved",
+    "no claimed tool use or file edits",
+    "no upstream mutation or false authority claim"
+  ],
+  "required_terms": [
+    "metadata-only",
+    "retention",
+    "graph update",
+    "boundary",
+    "not source truth"
+  ],
+  "quality_equivalent_definition": "hard gate passes, output-quality score >= 90, baseline-relative quality >= 0.90, and no critical section has material information loss versus the xhigh baseline"
+}

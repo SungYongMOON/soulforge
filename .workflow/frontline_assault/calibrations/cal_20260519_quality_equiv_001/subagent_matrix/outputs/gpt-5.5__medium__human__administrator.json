@@ -1,0 +1,36 @@
+{
+  "workflow_id": "frontline_assault",
+  "candidate_label": "gpt-5.5|medium|human|administrator",
+  "profile": {
+    "model": "gpt-5.5",
+    "reasoning_effort": "medium",
+    "species": "human",
+    "class": "administrator"
+  },
+  "outputs": {
+    "scout_report": "Synthetic scout report: one frontline objective is confirmed and should be treated as the only actionable objective in this calibration pass. One threat signal is present but ambiguous; it is recorded as unresolved and must not be converted into a confirmed risk, blocker, or canon lesson. No additional inputs are assumed.",
+    "decision_note": "Proceed only with coordination around the confirmed frontline objective. Keep the ambiguous threat signal open for later runtime evaluation without resolving or escalating it in this synthetic pass. Curated lessons may be shaped only as workflow-level observations, while runtime truth remains outside this calibration output.",
+    "delivery_handoff": "Delivery handoff is prepared as a downstream placeholder: later runtime execution must validate the objective state, inspect the unresolved threat signal, and complete delivery-specific decisions before any final operational claim is made. This handoff does not assert that execution occurred.",
+    "boundary_review_note": "Public-safe synthetic boundary preserved. This output uses only the provided workflow contract and scenario facts, makes no claim of tool use or artifact mutation, and does not promote hidden evidence, runtime paths, or stronger canon authority."
+  },
+  "provenance": [
+    "Public-safe synthetic workflow contract for frontline_assault.",
+    "Provided synthetic scenario facts and boundary policy only."
+  ],
+  "gaps": [
+    "Execution mode is unspecified in the contract.",
+    "The ambiguous threat signal has no resolution criteria in the synthetic facts."
+  ],
+  "downstream_handoff": [
+    "Later runtime execution must validate delivery readiness before action is considered complete.",
+    "Carry forward the unresolved threat signal as an open item without treating it as confirmed."
+  ],
+  "boundary_review_note": [
+    "Curated lessons are kept distinct from runtime truth.",
+    "No upstream artifacts, private evidence, runtime paths, or hidden refs are claimed or mutated."
+  ],
+  "no_claims": [
+    "No tool use, file edits, or runtime execution are claimed.",
+    "No private/raw evidence, hidden reference material, or stronger source authority is claimed."
+  ]
+}

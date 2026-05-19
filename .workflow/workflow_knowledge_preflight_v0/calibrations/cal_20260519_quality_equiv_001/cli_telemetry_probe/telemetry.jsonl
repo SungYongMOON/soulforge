@@ -1,0 +1,3 @@
+{"workflow_id":"workflow_knowledge_preflight_v0","label":"gpt-5.5|low|dwarf|pathfinder","total_tokens":47596,"wall_s":19.05,"reasoning_output_tokens":13,"quality_class":"minimum_viable_pass"}
+{"workflow_id":"workflow_knowledge_preflight_v0","label":"gpt-5.5|medium|dwarf|pathfinder","total_tokens":43490,"wall_s":20.39,"reasoning_output_tokens":16,"quality_class":"quality_equivalent_pass"}
+{"workflow_id":"workflow_knowledge_preflight_v0","label":"gpt-5.5|xhigh|dwarf|pathfinder","total_tokens":34731,"wall_s":27.49,"reasoning_output_tokens":516,"quality_class":"quality_equivalent_pass"}

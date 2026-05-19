@@ -1,0 +1,21 @@
+workflow_id: page_module_trace_matrix_v0
+calibration_id: cal_20260519_quality_equiv_001
+calibration_mode: cli_only_calibration
+status: quality_equivalent_calibrated
+baseline_profile: gpt-5.5|xhigh|elf|auditor
+recommended_primary:
+  label: gpt-5.5|low|elf|auditor
+  model: gpt-5.5
+  reasoning_effort: low
+  species: elf
+  class: auditor
+  quality_score: 97
+  quality_class: quality_equivalent_pass
+  baseline_relative_quality: 1
+candidate_class_counts:
+  quality_equivalent_pass: 3
+  minimum_viable_pass: 0
+  fail: 0
+telemetry_limitations:
+  - Quality and telemetry both come from Codex CLI candidate runs.
+  - This batch uses the repo-local minimal required quality-equivalence pattern rather than a full cross-model matrix.

@@ -1,0 +1,3 @@
+{"workflow_id":"post_development_review_gate_v0","label":"gpt-5.5|low|dwarf|auditor","total_tokens":47709,"wall_s":17.76,"reasoning_output_tokens":52,"quality_class":"minimum_viable_pass"}
+{"workflow_id":"post_development_review_gate_v0","label":"gpt-5.5|medium|dwarf|auditor","total_tokens":43537,"wall_s":19.01,"reasoning_output_tokens":30,"quality_class":"quality_equivalent_pass"}
+{"workflow_id":"post_development_review_gate_v0","label":"gpt-5.5|xhigh|dwarf|auditor","total_tokens":34793,"wall_s":27.7,"reasoning_output_tokens":516,"quality_class":"quality_equivalent_pass"}

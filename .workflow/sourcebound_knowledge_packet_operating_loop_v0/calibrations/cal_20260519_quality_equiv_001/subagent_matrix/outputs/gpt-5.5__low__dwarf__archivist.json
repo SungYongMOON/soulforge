@@ -1,0 +1,45 @@
+{
+  "workflow_id": "sourcebound_knowledge_packet_operating_loop_v0",
+  "candidate_label": "gpt-5.5|low|dwarf|archivist",
+  "profile": {
+    "model": "gpt-5.5",
+    "reasoning_effort": "low",
+    "species": "dwarf",
+    "class": "archivist"
+  },
+  "outputs": {
+    "source_intake_manifest": "Synthetic intake records one approved source reference under source_scope_binding and approved_source_policy. Intake status is source-bound, metadata-only, and non-promotional. No copied payload, extracted text, private hash, runtime path, or hidden evidence is represented.",
+    "sourcebound_knowledge_packet_manifest": "Synthetic packet contains one bounded source reference, scope label, claim ceiling label, and output group placeholders. Packet authority is limited to approved-source-derived working knowledge and remains below canon authority.",
+    "compiled_projection_index": "Projection index lists one synthetic source ref, one derived projection entry, one contradiction-gap entry, one concept-candidate entry, and one promotion-route entry. Index is metadata-only and portable.",
+    "compiled_projection_log": "Projection log states that the approved source ref was considered within the declared scope, producing one working projection. The projection is not canon, not source truth beyond the approved ref metadata, and not an upstream artifact mutation.",
+    "contradiction_gap_lint_report": "Lint report records one contradiction gap: the synthetic projection contains an unresolved tension against the expected knowledge packet scope. Status is open. Required action is owner or workflow review before any stronger claim is made.",
+    "concept_candidate_register": "Register records one concept candidate extracted from the synthetic projection. Candidate status is review-needed, reusable-pattern-possible, and not promoted to ontology, class, skill, workflow, or canon.",
+    "claim_ceiling_and_promotion_route": "Claim ceiling remains below canon authority. Permitted claim: synthetic, source-bound working packet candidate. Disallowed claim: canonical truth, approved ontology, accepted workflow update, or verified source payload truth. Promotion route requires separate review authority.",
+    "knowledge_package_archive_manifest": "Archive manifest describes preparation metadata for a bounded package. Archive presence may support backup or handoff but does not prove truth, approve canon, or expand access beyond declared boundary policy.",
+    "optional_notebooklm_advisory_handoff": "Optional advisory handoff may include metadata describing the approved source ref and questions for review. Any NotebookLM-style answer is advisory context only and cannot accept, reject, promote, or canonicalize the packet.",
+    "notebooklm_handoff_validation": "Validation confirms that advisory handoff, if used, remains metadata-only and bounded to the declared policy. It cannot bypass source approval, secret handling, private boundaries, or claim ceiling rules.",
+    "ontology_candidate_rule_register": "One ontology candidate rule is recorded as a possible reusable relation pattern. Status is candidate-only. It requires separate ontology review and cannot be treated as established canon.",
+    "workflowization_review_packet": "Workflowization packet records that the loop produced one approved source ref, one contradiction gap, one concept candidate, and a below-canon claim ceiling. It is suitable for calibration review but not upstream mutation.",
+    "boundary_review_note": "Synthetic boundary held: no tool use claimed, no file edits claimed, no runtime paths disclosed, no hidden refs used, no private/raw evidence represented, and no upstream artifact mutation or canon promotion asserted."
+  },
+  "provenance": [
+    "Public-safe synthetic workflow contract supplied in the prompt.",
+    "Synthetic scenario facts supplied in the prompt: one approved source ref, one contradiction gap, one concept candidate, and one claim ceiling below canon authority."
+  ],
+  "gaps": [
+    "The single contradiction gap remains unresolved and blocks stronger claims.",
+    "No private source payload, extracted text, runtime evidence, or owner approval artifact is available in this synthetic calibration output."
+  ],
+  "downstream_handoff": [
+    "Route contradiction gap to review before promotion or canon-facing use.",
+    "Route concept candidate to separate ontology or workflowization review while preserving candidate-only status."
+  ],
+  "boundary_review_note": [
+    "Output is metadata-only and source-bound to the synthetic contract.",
+    "No tool use, file edits, runtime paths, hidden private evidence, upstream mutation, or canon promotion is claimed."
+  ],
+  "no_claims": [
+    "Does not claim canonical truth or accepted promotion authority.",
+    "Does not claim validation from NotebookLM, archive presence, private evidence, hidden refs, or runtime execution."
+  ]
+}

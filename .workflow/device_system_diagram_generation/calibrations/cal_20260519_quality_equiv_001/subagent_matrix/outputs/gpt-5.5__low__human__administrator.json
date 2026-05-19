@@ -1,0 +1,37 @@
+{
+  "workflow_id": "device_system_diagram_generation",
+  "candidate_label": "gpt-5.5|low|human|administrator",
+  "profile": {
+    "model": "gpt-5.5",
+    "reasoning_effort": "low",
+    "species": "human",
+    "class": "administrator"
+  },
+  "outputs": {
+    "diagram_input_yaml": "Public-safe synthetic YAML describing one device system from a Markdown input: a power block supplies the controller, the controller coordinates the sensor, and the external connector exposes system I/O. The YAML should identify blocks, relationships, artifact roles, and boundary notes without embedding runtime paths or private evidence.",
+    "drawio_master": "Editable draw.io master diagram representing the power block, controller, sensor, and external connector. This artifact is the source of truth for the generated device system diagram package.",
+    "svg_exports": "Derived SVG exports generated from the draw.io master for public-safe visual consumption. SVG files are not source-of-truth artifacts and should remain traceable to the editable draw.io master.",
+    "powerpoint_deck": "Derived PPTX deck containing the device system diagram view based on the draw.io master. The deck is a presentation artifact only and should not override the draw.io source of truth.",
+    "preview_png": "Derived PNG preview of the device system diagram for quick inspection. The PNG is not editable source material and should be treated as a convenience export."
+  },
+  "provenance": [
+    "Synthetic contract states that the workflow generates an editable draw.io device system diagram package from one Markdown device description.",
+    "Synthetic scenario states that the device description includes a power block, controller, sensor, and external connector, with draw.io as source of truth and SVG, PPTX, and PNG as derived outputs."
+  ],
+  "gaps": [
+    "No actual Markdown content, concrete device naming, pin-level detail, styling rules, or layout constraints are provided in the synthetic contract.",
+    "No project-local bindings, tool locations, runtime paths, or validation evidence are included or claimed."
+  ],
+  "downstream_handoff": [
+    "Use the draw.io master as the canonical editable diagram handoff artifact for any later diagram update.",
+    "Treat SVG, PPTX, and PNG as derived outputs that should be regenerated from the draw.io master when the diagram changes."
+  ],
+  "boundary_review_note": [
+    "This calibration output stays within the public-safe synthetic workflow contract and does not claim hidden references, REF packets, candidates, raw run evidence, runtime paths, file edits, or tool execution.",
+    "The workflow readiness is represented only as owner-accepted usable / canon-ready per the provided contract, not as strict REF canon-ready authority."
+  ],
+  "no_claims": [
+    "No claim is made that upstream artifacts were mutated, inspected, validated, or promoted.",
+    "No claim is made about actual filesystem paths, private evidence, raw run logs, or tool execution results."
+  ]
+}

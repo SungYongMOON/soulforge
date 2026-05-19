@@ -1,0 +1,48 @@
+{
+  "workflow_id": "sourcebound_knowledge_packet_operating_loop_v0",
+  "fixture_id": "PUBLIC_SYNTH_SOURCEBOUND_KNOWLEDGE_PACKET_OPERATING_LOOP_V0",
+  "source_kind": "synthetic_from_workflow_contract_metadata_only",
+  "public_safe": true,
+  "workflow_title": "Sourcebound Knowledge Packet Operating Loop v0",
+  "workflow_summary": "Operate a Karpathy-style source-bound knowledge packet loop from approved source intake through private compiled projection, contradiction/gap lint, concept-candidate extraction, claim ceiling review, optional advisory bookshelf handoff, and workflowization routing.",
+  "workflow_readiness_label": "pilot-executed",
+  "input_refs": [
+    "source_scope_binding",
+    "approved_source_policy",
+    "knowledge_packet_scope",
+    "promotion_policy"
+  ],
+  "expected_output_groups": [
+    "source_intake_manifest",
+    "sourcebound_knowledge_packet_manifest",
+    "compiled_projection_index",
+    "compiled_projection_log",
+    "contradiction_gap_lint_report",
+    "concept_candidate_register",
+    "claim_ceiling_and_promotion_route",
+    "knowledge_package_archive_manifest",
+    "optional_notebooklm_advisory_handoff",
+    "notebooklm_handoff_validation",
+    "ontology_candidate_rule_register",
+    "workflowization_review_packet",
+    "boundary_review_note"
+  ],
+  "must_preserve": [
+    "source-bound",
+    "claim ceiling",
+    "metadata-only",
+    "boundary",
+    "no canon promotion"
+  ],
+  "scenario_facts": [
+    "one approved source ref",
+    "one contradiction gap",
+    "one concept candidate",
+    "one claim ceiling that remains below canon authority"
+  ],
+  "boundary_policy": [
+    "Do not claim tool use, file edits, runtime paths, or hidden private evidence.",
+    "Do not mutate upstream artifacts or promote stronger source/canon authority than the contract supports.",
+    "Keep public-safe synthetic boundaries explicit."
+  ]
+}

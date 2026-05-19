@@ -1,0 +1,43 @@
+{
+  "workflow_id": "post_development_review_gate_v0",
+  "fixture_id": "PUBLIC_SYNTH_POST_DEVELOPMENT_REVIEW_GATE_V0",
+  "source_kind": "synthetic_from_workflow_contract",
+  "public_safe": true,
+  "workflow_title": "Post-development Review Gate v0",
+  "workflow_summary": "Route every bounded Soulforge development result through a risk-tiered closing review so deterministic validation, boundary inspection, value judgment, and optional B/V verification are recorded before a change is accepted, revised, blocked, or escalated to the owner.",
+  "workflow_readiness_label": "pilot-executed",
+  "input_refs": [
+    "builder_report",
+    "changed_file_refs",
+    "validation_command_refs",
+    "output_state",
+    "applicable_owner_contract_refs"
+  ],
+  "expected_output_groups": [
+    "post_development_review_packet",
+    "validation_log",
+    "boundary_review_note",
+    "judge_decision_note",
+    "bv_gate_handoff",
+    "supervisor_decision",
+    "followup_register"
+  ],
+  "must_preserve": [
+    "validation",
+    "boundary",
+    "judge",
+    "supervisor",
+    "knowledge trigger"
+  ],
+  "scenario_facts": [
+    "one validation command passed",
+    "one boundary finding is clean",
+    "one level-2 judge decision is needed",
+    "one knowledge trigger result is metadata_only_record"
+  ],
+  "boundary_policy": [
+    "Do not claim tool use, file edits, runtime paths, or hidden private evidence.",
+    "Do not mutate upstream artifacts or promote stronger source/canon authority than the contract supports.",
+    "Keep public-safe synthetic boundaries explicit."
+  ]
+}

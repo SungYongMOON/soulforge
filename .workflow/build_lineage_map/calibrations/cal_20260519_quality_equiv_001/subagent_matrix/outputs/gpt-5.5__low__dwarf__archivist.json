@@ -1,0 +1,34 @@
+{
+  "workflow_id": "build_lineage_map",
+  "candidate_label": "gpt-5.5|low|dwarf|archivist",
+  "profile": {
+    "model": "gpt-5.5",
+    "reasoning_effort": "low",
+    "species": "dwarf",
+    "class": "archivist"
+  },
+  "outputs": {
+    "research_notes.md": "# Research Notes\n\n## Scope\nThis opening phase prepares evidence-backed planning artifacts for a lineage map. It does not produce a finished lineage delivery.\n\n## Source Comparison\nTwo provided source documents partially agree on the existence of a shared lineage relationship, but they differ on the ordering and interpretation of at least one intermediate step.\n\n## Stable Points\n- Both source documents support that lineage-map planning is appropriate.\n- Both sources provide enough overlap to begin a bounded planning structure.\n- The workflow remains in a planning posture and preserves boundary review before downstream work.\n\n## Unresolved Ambiguity\nThe exact relationship between the intermediate lineage node and the later derived node remains unresolved because the two source documents do not fully agree.\n\n## Boundary Note\nThese notes are synthetic and public-safe. They do not rely on private evidence, hidden references, runtime inspection, or upstream mutation.",
+    "lineage_pbs.md": "# Lineage PBS\n\n## Purpose\nDefine the planning breakdown structure for a future lineage-map production pass.\n\n## Planned Output Groups\n- research_notes.md: captures source agreement, disagreement, and unresolved ambiguity.\n- lineage_pbs.md: defines the planning structure for later lineage-map work.\n\n## Planning Breakdown\n1. Establish source inventory from the provided synthetic source documents and notes.\n2. Identify points of agreement between the two sources.\n3. Isolate unresolved disagreement without forcing a canonical conclusion.\n4. Draft a tentative lineage structure only as a planning aid.\n5. Hand off the ambiguity and planning constraints to the next downstream role.\n\n## Completion Boundary\nThis phase is complete when the planning artifacts identify supported facts, preserve the ambiguity, and avoid claiming final lineage delivery."
+  },
+  "provenance": [
+    "Synthetic workflow contract for Build Lineage Map, readiness label registered, execution mode party_sequence.",
+    "Synthetic scenario facts stating that two source documents partially agree and one ambiguity remains unresolved."
+  ],
+  "gaps": [
+    "The intermediate lineage relationship cannot be resolved from the synthetic facts provided.",
+    "No finished delivery artifact is claimed because the workflow contract limits this phase to evidence-backed planning outputs."
+  ],
+  "downstream_handoff": [
+    "Use research_notes.md as the bounded evidence summary for the next investigator or mapper phase.",
+    "Carry the unresolved ambiguity forward explicitly instead of promoting either source document to stronger authority."
+  ],
+  "boundary_review_note": [
+    "Output remains public-safe and synthetic; it does not claim private/raw evidence or hidden references.",
+    "No upstream artifacts are mutated, and no runtime path or file operation is asserted."
+  ],
+  "no_claims": [
+    "No claim of tool use, file edits, runtime inspection, or hidden evidence.",
+    "No claim that a final lineage map has been delivered or canonically resolved."
+  ]
+}

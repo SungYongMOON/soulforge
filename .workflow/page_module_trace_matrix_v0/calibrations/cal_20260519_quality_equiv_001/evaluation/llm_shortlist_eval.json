@@ -1,0 +1,23 @@
+{
+  "workflow_id": "page_module_trace_matrix_v0",
+  "evaluator": "controller_structural_quality_review",
+  "baseline_profile": "gpt-5.5|xhigh|elf|auditor",
+  "conclusion": "gpt-5.5|low|elf|auditor is the lowest-cost quality-equivalent candidate in this batch.",
+  "compared_candidates": [
+    {
+      "label": "gpt-5.5|low|elf|auditor",
+      "quality_class": "quality_equivalent_pass",
+      "output_quality_score": 97
+    },
+    {
+      "label": "gpt-5.5|medium|elf|auditor",
+      "quality_class": "quality_equivalent_pass",
+      "output_quality_score": 97
+    },
+    {
+      "label": "gpt-5.5|xhigh|elf|auditor",
+      "quality_class": "quality_equivalent_pass",
+      "output_quality_score": 97
+    }
+  ]
+}

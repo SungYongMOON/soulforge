@@ -1,0 +1,42 @@
+{
+  "workflow_id": "knowledge_access_event_capture_v0",
+  "candidate_label": "gpt-5.5|low|dwarf|archivist",
+  "profile": {
+    "model": "gpt-5.5",
+    "reasoning_effort": "low",
+    "species": "dwarf",
+    "class": "archivist"
+  },
+  "outputs": {
+    "project_binding": "Synthetic public-safe calibration binding for knowledge_access_event_capture_v0. Scope is limited to metadata-only access events for existing knowledge references; no source payloads, private packets, runtime paths, or advisory text are included.",
+    "knowledge_access_event_batch": "Batch contains three synthetic metadata-only access events: event_001 references node_ref:workflow_alpha during task_ref:task_capture; event_002 references node_ref:skill_beta during task_ref:task_capture; event_003 references node_ref:packet_gamma during handoff_ref:handoff_review. Events carry only stable refs, event ids, access category, timestamp bucket, and outcome state.",
+    "normalized_access_event_log": "Normalized log preserves event_id, stable_node_ref, optional edge_ref, access_context_ref, access_type, timestamp_bucket, outcome_state, and confidence_hint. All three rows are treated as metadata-only ledger/register rows and not as source truth.",
+    "usage_rollup": "Rollup reports three total synthetic access events across three referenced nodes. node_ref:workflow_alpha receives the highest recency-weighted count and is the only hot retention candidate. node_ref:skill_beta and node_ref:packet_gamma remain unpromoted candidate observations.",
+    "retention_label_packet": "Retention packet assigns candidate label hot to node_ref:workflow_alpha based on synthetic recency/count policy. No archive, stale, or retire action is accepted. Label is a candidate signal pending project policy or owner decision.",
+    "link_strength_analysis": "Analysis identifies one orphan candidate edge: edge_ref:skill_beta_to_packet_gamma has observed adjacency but insufficient confirmed relation support. It is marked weak/orphan_candidate with low confidence and no canon promotion.",
+    "knowledge_accumulation_delta": "Delta records metadata-only observed changes: three new access observations, one hot retention candidate, one orphan candidate edge, and one graph update candidate. Delta is not ontology acceptance, source truth, or canon promotion.",
+    "graph_update_packet": "Graph update candidate contains node refs node_ref:workflow_alpha, node_ref:skill_beta, node_ref:packet_gamma; event refs event_001, event_002, event_003; candidate edge edge_ref:skill_beta_to_packet_gamma; counts, recency bucket, outcome states, and confidence hints. It is suitable only for later graph or visualization review.",
+    "orphan_redundancy_candidate_register": "Register contains one orphan candidate: edge_ref:skill_beta_to_packet_gamma, reason: observed metadata adjacency without enough confirmed relation evidence. No redundant node candidate is asserted.",
+    "boundary_review_note": "Public-safe synthetic output only. It does not include copied source text, private packet payloads, advisory answers, credentials, local runtime paths, hidden refs, tool traces, file edits, or upstream mutations."
+  },
+  "provenance": [
+    "Public-safe synthetic workflow contract supplied in prompt",
+    "Synthetic scenario facts supplied in prompt: three metadata-only access events, one hot retention label, one orphan candidate edge, one graph update packet candidate"
+  ],
+  "gaps": [
+    "No real ledger/register rows were provided or inspected",
+    "Retention and link labels remain candidate signals because no project policy acceptance or owner decision is included"
+  ],
+  "downstream_handoff": [
+    "Route retention_label_packet to a later retention policy review before any action",
+    "Route graph_update_packet and orphan_redundancy_candidate_register to later graph/visualization or ontology review without canon promotion"
+  ],
+  "boundary_review_note": [
+    "Metadata-only boundaries preserved",
+    "No upstream artifact mutation, runtime path disclosure, private evidence claim, or source truth promotion is made"
+  ],
+  "no_claims": [
+    "No claim of tool use, file reads, file edits, runtime execution, hidden reference access, or private/raw evidence inspection",
+    "No claim that draft workflow output is production-ready, canon authority, ontology acceptance, or final retention action"
+  ]
+}

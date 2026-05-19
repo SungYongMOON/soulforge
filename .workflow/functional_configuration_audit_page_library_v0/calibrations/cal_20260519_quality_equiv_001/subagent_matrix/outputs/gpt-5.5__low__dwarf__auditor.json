@@ -1,0 +1,40 @@
+{
+  "workflow_id": "functional_configuration_audit_page_library_v0",
+  "candidate_label": "gpt-5.5|low|dwarf|auditor",
+  "profile": {
+    "model": "gpt-5.5",
+    "reasoning_effort": "low",
+    "species": "dwarf",
+    "class": "auditor"
+  },
+  "outputs": {
+    "functional_audit_packet": "Synthetic FCA/SVR-style audit packet for configured page modules and harness compositions. Scope is limited to the provided public-safe contract, declared inputs, expected output groups, and synthetic scenario facts. The audit records one verified claim, one unverified claim, one discrepancy, and one associated residual risk. It does not approve acceptance, close discrepancies, mutate artifacts, or promote any private or hidden source authority.",
+    "verified_claim_register": "VERIFIED-001: A declared functional or performance claim is marked verified because the synthetic scenario states that one claim has accepted verification evidence. Verification status is bounded to this calibration scenario only and does not imply system acceptance.",
+    "unverified_claim_register": "UNVERIFIED-001: A declared functional or performance claim remains unverified because the synthetic scenario states that one claim lacks accepted verification evidence. The claim should remain open for downstream evidence collection or policy review.",
+    "discrepancy_register": "DISC-001: One discrepancy is recorded where declared claim satisfaction and accepted evidence status do not fully align. The discrepancy remains open and is not closed by this workflow.",
+    "residual_risk_register": "RISK-001: Residual risk remains because the discrepancy is unresolved and at least one claim is unverified. Risk is limited to audit readiness and downstream governance handling, not operational acceptance.",
+    "audit_readiness": "Pilot-executed synthetic audit is ready for calibration comparison only. It is not an acceptance decision, release approval, or source-of-truth promotion.",
+    "closure_handoff": "Handoff should preserve the verified claim, unverified claim, discrepancy, and residual risk as separate records. Downstream owners may collect additional accepted evidence, resolve the discrepancy, or route for acceptance review outside this workflow.",
+    "boundary_review_note": "Public-safe boundary preserved. This packet uses only the provided synthetic workflow contract and scenario facts, does not claim runtime execution, and does not reference private evidence, hidden refs, file paths, or artifact mutation."
+  },
+  "provenance": [
+    "Public-safe synthetic workflow contract for functional_configuration_audit_page_library_v0",
+    "Synthetic scenario facts: one verified claim, one unverified claim, one discrepancy with residual risk"
+  ],
+  "gaps": [
+    "No concrete claim text, evidence identifiers, measurement thresholds, or page module names were provided.",
+    "No accepted policy details beyond the high-level approved_audit_policy input were provided."
+  ],
+  "downstream_handoff": [
+    "Preserve VERIFIED-001, UNVERIFIED-001, DISC-001, and RISK-001 as separate governance records.",
+    "Route unresolved discrepancy and unverified claim to downstream evidence collection or acceptance authority without treating this audit as closure."
+  ],
+  "boundary_review_note": [
+    "No tool use, file edits, runtime paths, hidden refs, or private/raw evidence are claimed.",
+    "No upstream artifacts are mutated and no stronger source or canon authority is asserted beyond the supplied synthetic contract."
+  ],
+  "no_claims": [
+    "No acceptance claim is made.",
+    "No discrepancy closure, production readiness, or private evidence validation claim is made."
+  ]
+}

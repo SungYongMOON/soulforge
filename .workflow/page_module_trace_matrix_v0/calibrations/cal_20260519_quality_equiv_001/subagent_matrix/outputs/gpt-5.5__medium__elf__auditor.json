@@ -1,0 +1,40 @@
+{
+  "workflow_id": "page_module_trace_matrix_v0",
+  "candidate_label": "gpt-5.5|medium|elf|auditor",
+  "profile": {
+    "model": "gpt-5.5",
+    "reasoning_effort": "medium",
+    "species": "elf",
+    "class": "auditor"
+  },
+  "outputs": {
+    "trace_matrix": "Rows: R1 page_module=synthetic_source_supported_module, source_state=source_confirmed, trace_link=approved synthetic page/source/materials/layout refs, downstream_ceiling=source_confirmed; R2 page_module=synthetic_review_required_module, source_state=review_required, trace_link=approved synthetic refs with unresolved authority question, downstream_ceiling=review_required; R3 page_module=synthetic_missing_evidence_module, source_state=missing, trace_link=no approved evidence packet available in synthetic scenario, downstream_ceiling=missing.",
+    "evidence_authority_map": "Authority states remain row-level: source_confirmed means the row can be treated as source-supported within the synthetic contract; review_required means the row needs reviewer judgment before stronger use; missing means downstream consumers must treat the row as blocked. Derived and harness-local observations cannot raise source authority.",
+    "trace_gap_register": "G1 R2 requires review before it can be consumed as source-supported. G2 R3 lacks approved evidence and must remain blocked. G3 harness delta may record a weaker or equal claim-strength ceiling, but cannot convert review_required or missing rows into source_confirmed rows.",
+    "harness_trace_delta": "Harness handoff: R1 may be exposed with source_confirmed ceiling. R2 must be exposed as review_required with explicit blocker. R3 must be exposed as missing with explicit blocker. Any harness delta stays below or equal to row authority and does not create an automatic source-supported connection verdict.",
+    "verification_seed_matrix": "Seeds: V1 from R1 checks trace preservation from approved refs to row-level source_confirmed state. V2 from R2 checks that review_required is preserved and not collapsed into harness status. V3 from R3 checks missing evidence remains a blocker. V4 checks harness deltas do not exceed row authority.",
+    "review_gate_evidence_index": "Review gate index: I1 R1 evidence authority and trace preserved; I2 R2 reviewer decision needed before authority promotion; I3 R3 evidence absent and blocked; I4 boundary check confirms no upstream mutation and no private/raw evidence dependency; I5 public-safe canon stores only orchestration rules, state semantics, and sanitized templates.",
+    "trace_provenance": "Synthetic provenance only: trace_matrix_project_binding, page_module_spec_refs, page_asset_manifest_refs, and approved_trace_intake_policy as named public-safe input classes. No runtime path, hidden reference, private packet, or raw evidence is asserted.",
+    "boundary_review_note": "This calibration output is a public-safe synthetic trace artifact. It does not mutate upstream artifacts, does not replace page/source/materials/layout/quantitative/interface-control/harness owners, and does not promote stronger source or canon authority than the synthetic contract supports."
+  },
+  "provenance": [
+    "Public-safe workflow contract for page_module_trace_matrix_v0.",
+    "Synthetic scenario facts supplied in the prompt."
+  ],
+  "gaps": [
+    "Review-required row has no completed review decision in the synthetic scenario.",
+    "Missing-evidence row has no approved evidence packet and remains blocked."
+  ],
+  "downstream_handoff": [
+    "Harness consumers receive row-level claim-strength ceilings plus explicit blockers, not automatic source-supported verdicts.",
+    "Verification and review consumers receive seed/index rows, not completed verification evidence or final review decisions."
+  ],
+  "boundary_review_note": [
+    "No tool use, file edit, runtime path, hidden reference, private evidence, or raw evidence is claimed.",
+    "Upstream source XML, normalized sidecars, intake packets, source packets, materials outputs, layout guides, quantitative overlays, and harness contracts are treated as non-mutated owners."
+  ],
+  "no_claims": [
+    "No claim that this output was written to a project-local runtime path or upstream artifact.",
+    "No claim that review_required or missing rows have source_confirmed authority."
+  ]
+}

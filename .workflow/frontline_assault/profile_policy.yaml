@@ -1,0 +1,65 @@
+workflow_id: frontline_assault
+kind: workflow_profile_policy
+status: active
+last_calibration_id: cal_20260519_quality_equiv_001
+calibration_mode: cli_only_calibration
+matrix_mode: minimal_required_quality_equivalence
+measurement_policy:
+  quality_source: cli_only_calibration
+  telemetry_source: cli_only_calibration_all_candidates
+  subagent_token_usage_available: false
+  telemetry_exact_for_subagent: false
+  telemetry_exact_for_cli: true
+  cost_confidence: relative_not_exact
+  quality_equivalence_policy: batch_20260519
+primary_profile:
+  model: gpt-5.5
+  reasoning_effort: medium
+  species: human
+  class: administrator
+  label: gpt-5.5|medium|human|administrator
+  quality_score: 97
+  quality_class: quality_equivalent_pass
+  baseline_relative_quality: 1
+  input_tokens: 25896
+  cached_input_tokens: 20864
+  output_tokens: 1051
+  total_tokens: 43113
+  reasoning_output_tokens: 516
+  wall_s: 13.27
+shadow_top_k:
+  - rank: 2
+    label: gpt-5.5|low|human|administrator
+    model: gpt-5.5
+    reasoning_effort: low
+    species: human
+    class: administrator
+    quality_score: 97
+    quality_class: quality_equivalent_pass
+    baseline_relative_quality: 1
+    total_tokens: 47238
+    reasoning_output_tokens: 15
+    wall_s: 16.58
+  - rank: 3
+    label: gpt-5.5|xhigh|human|administrator
+    model: gpt-5.5
+    reasoning_effort: xhigh
+    species: human
+    class: administrator
+    quality_score: 97
+    quality_class: quality_equivalent_pass
+    baseline_relative_quality: 1
+    total_tokens: 47811
+    reasoning_output_tokens: 516
+    wall_s: 24.73
+rerun_triggers:
+  - workflow prompt changed
+  - output schema changed
+  - model pricing or availability changed
+  - primary profile fails quality gate
+  - new public-safe fixture family added
+calibration_archive_ref: calibrations/cal_20260519_quality_equiv_001/
+notes:
+  - This policy was updated from a public-safe synthetic batch calibration.
+  - Workflow readiness label remains registered; optimization does not promote a stronger workflow authority state by itself.
+  - Primary selection prefers the lowest-cost quality-equivalent candidate in this batch.

@@ -1,26 +1,65 @@
 workflow_id: technical_risk_open_question_burndown_v0
 kind: workflow_profile_policy
-status: draft
-calibration_mode: uncalibrated_contract_package
+status: active
+last_calibration_id: cal_20260519_quality_equiv_001
+calibration_mode: cli_only_calibration
+matrix_mode: minimal_required_quality_equivalence
 measurement_policy:
-  quality_source: not_yet_measured
-  telemetry_source: not_yet_measured
+  quality_source: cli_only_calibration
+  telemetry_source: cli_only_calibration_all_candidates
   subagent_token_usage_available: false
   telemetry_exact_for_subagent: false
-  cost_confidence: unknown
+  telemetry_exact_for_cli: true
+  cost_confidence: relative_not_exact
+  quality_equivalence_policy: batch_20260519
 primary_profile:
-  model: null
-  reasoning_effort: null
-  species: null
-  class: null
-  candidate_id: null
-  quality_gate: pending_profile_calibration
-shadow_top_k: []
+  model: gpt-5.5
+  reasoning_effort: low
+  species: dwarf
+  class: auditor
+  label: gpt-5.5|low|dwarf|auditor
+  quality_score: 97
+  quality_class: quality_equivalent_pass
+  baseline_relative_quality: 1
+  input_tokens: 26025
+  cached_input_tokens: 20864
+  output_tokens: 832
+  total_tokens: 47535
+  reasoning_output_tokens: 240
+  wall_s: 17.72
+shadow_top_k:
+  - rank: 2
+    label: gpt-5.5|medium|dwarf|auditor
+    model: gpt-5.5
+    reasoning_effort: medium
+    species: dwarf
+    class: auditor
+    quality_score: 97
+    quality_class: quality_equivalent_pass
+    baseline_relative_quality: 1
+    total_tokens: 43587
+    reasoning_output_tokens: 52
+    wall_s: 19.99
+  - rank: 3
+    label: gpt-5.5|xhigh|dwarf|auditor
+    model: gpt-5.5
+    reasoning_effort: xhigh
+    species: dwarf
+    class: auditor
+    quality_score: 97
+    quality_class: quality_equivalent_pass
+    baseline_relative_quality: 1
+    total_tokens: 47721
+    reasoning_output_tokens: 240
+    wall_s: 23.89
 rerun_triggers:
-  - risk_row_schema_changes
-  - closure_criteria_rule_changes
-  - first_profile_calibration_run
+  - workflow prompt changed
+  - output schema changed
+  - model pricing or availability changed
+  - primary profile fails quality gate
+  - new public-safe fixture family added
+calibration_archive_ref: calibrations/cal_20260519_quality_equiv_001/
 notes:
-  - The package now has a controlled private representative risk/open-question pilot, but it still has no calibrated execution profile.
-  - Bind model, reasoning, party, and boundary handling per project until public-safe calibration evidence exists.
-  - Do not call this usable or production-ready until profile calibration and independent boundary review pass.
+  - This policy was updated from a public-safe synthetic batch calibration.
+  - Workflow readiness label remains pilot-executed; optimization does not promote a stronger workflow authority state by itself.
+  - Primary selection prefers the lowest-cost quality-equivalent candidate in this batch.

@@ -1,0 +1,42 @@
+{
+  "workflow_id": "device_system_diagram_generation",
+  "candidate_label": "gpt-5.5|xhigh|human|administrator",
+  "profile": {
+    "model": "gpt-5.5",
+    "reasoning_effort": "xhigh",
+    "species": "human",
+    "class": "administrator"
+  },
+  "outputs": {
+    "diagram_input_yaml": "title: Synthetic Device System\nreadiness_label: owner-accepted usable\nsource_document: device_description_markdown\nblocks:\n  - id: power_block\n    label: Power Block\n    role: power conditioning and distribution\n  - id: controller\n    label: Controller\n    role: device control and coordination\n  - id: sensor\n    label: Sensor\n    role: measurement input\n  - id: external_connector\n    label: External Connector\n    role: external interface\nrelationships:\n  - from: external_connector\n    to: power_block\n    kind: external_power_or_interface_ingress\n    note: synthetic default relationship, not private evidence\n  - from: power_block\n    to: controller\n    kind: power\n    note: derived from named power block and controller presence\n  - from: power_block\n    to: sensor\n    kind: power\n    note: synthetic default relationship\n  - from: sensor\n    to: controller\n    kind: signal\n    note: synthetic default relationship\n  - from: controller\n    to: external_connector\n    kind: control_or_data_interface\n    note: synthetic default relationship\nartifact_policy:\n  source_of_truth: drawio_master\n  derived_outputs:\n    - svg_exports\n    - powerpoint_deck\n    - preview_png\nboundary:\n  runtime_paths: excluded\n  private_evidence: excluded\n  hidden_refs: excluded",
+    "drawio_master": "Editable draw.io master containing four device blocks: Power Block, Controller, Sensor, and External Connector. The draw.io master is the source of truth for the diagram package. Layout places External Connector at the boundary, Power Block on the power side, Controller centrally, and Sensor as an input block connected to Controller. Relationship labels distinguish power, signal, and external interface links. No runtime path, hidden reference, or private evidence is embedded.",
+    "svg_exports": "Derived SVG export set from the draw.io master only. Expected public-safe exports: full system diagram SVG and optional block-focused SVG slices if configured by project-local bindings. SVGs are not authoritative and must be regenerated from the draw.io master after diagram changes.",
+    "powerpoint_deck": "Derived PowerPoint deck from the draw.io master and SVG exports. Expected public-safe deck content: title slide for the synthetic device system, one full system diagram slide, and optional notes slide summarizing that draw.io is the source of truth while SVG, PPTX, and PNG are derived.",
+    "preview_png": "Derived preview PNG generated from the draw.io master or SVG export for quick visual inspection. The preview PNG is non-authoritative and should not be edited as source."
+  },
+  "provenance": [
+    "Public-safe synthetic workflow contract for Device System Diagram Generation.",
+    "Synthetic scenario facts naming a power block, controller, sensor, and external connector.",
+    "Boundary policy stating that runtime paths, hidden refs, candidates, and raw evidence are excluded."
+  ],
+  "gaps": [
+    "Actual markdown wording, exact connectivity, labels, electrical directionality, and visual style are not specified in the synthetic contract.",
+    "Project-local bindings for input/output locations and tool locations are intentionally excluded.",
+    "Current registration is owner-accepted usable, not strict REF canon-ready."
+  ],
+  "downstream_handoff": [
+    "Use the editable draw.io master as the only diagram source of truth.",
+    "Regenerate SVG, PPTX, and PNG artifacts whenever the draw.io master changes.",
+    "Keep project-local paths and tool bindings outside the public workflow canon."
+  ],
+  "boundary_review_note": [
+    "This calibration output stays within the public-safe synthetic contract and does not reference private/raw run evidence.",
+    "No upstream artifacts are mutated or promoted.",
+    "Derived outputs are described as non-authoritative artifacts, with draw.io retained as source of truth."
+  ],
+  "no_claims": [
+    "No claim of tool execution, file creation, file editing, or export generation is made.",
+    "No runtime paths, hidden references, REF packets, private candidates, or raw evidence are disclosed.",
+    "No stronger canon authority than owner-accepted usable is asserted."
+  ]
+}

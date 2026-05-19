@@ -1,0 +1,3 @@
+{"workflow_id":"frontline_assault","label":"gpt-5.5|low|human|administrator","total_tokens":47238,"wall_s":16.58,"reasoning_output_tokens":15,"quality_class":"quality_equivalent_pass"}
+{"workflow_id":"frontline_assault","label":"gpt-5.5|medium|human|administrator","total_tokens":43113,"wall_s":13.27,"reasoning_output_tokens":28,"quality_class":"quality_equivalent_pass"}
+{"workflow_id":"frontline_assault","label":"gpt-5.5|xhigh|human|administrator","total_tokens":47811,"wall_s":24.73,"reasoning_output_tokens":516,"quality_class":"quality_equivalent_pass"}

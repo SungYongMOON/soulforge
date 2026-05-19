@@ -1,0 +1,41 @@
+{
+  "workflow_id": "ouroboros_strategic_review_harness_v0",
+  "candidate_label": "gpt-5.5|low|dwarf|auditor",
+  "profile": {
+    "model": "gpt-5.5",
+    "reasoning_effort": "low",
+    "species": "dwarf",
+    "class": "auditor"
+  },
+  "outputs": {
+    "vision_alignment_report": "Synthetic review confirms one roadmap-aligned direction: the harness supports Soulforge strategic continuity by separating vision alignment checks from owner-intent gap discovery. It preserves the contract's stated purpose by producing questions, candidate constraints, and next-focus recommendations without treating missing intent as established canon.",
+    "owner_intent_gap_register": "Gap 1: The contract does not specify which owner should answer the first manual review question before automation is considered. This remains an owner-intent gap, not an inferred rule.",
+    "ambiguity_ledger": "Ambiguity 1: The readiness transition from draft to a stronger operating posture is not defined. Ambiguity 2: The distinction between a canon constraint candidate and an approved canon constraint must remain explicit until owner review.",
+    "socratic_question_packet": "Question 1: What specific owner decision would make a first manual or read-only night_watch run complete enough to decide whether automation should remain deferred, be revised, or be activated later?",
+    "owner_question_queue": "Owner question: Who is the accountable owner for deciding whether the first manual or read-only night_watch candidate run has produced sufficient evidence to continue calibration?",
+    "closure_restatement_note": "This synthetic calibration restates only the public-safe contract: the workflow is a draft strategic review harness for vision alignment and owner-intent gap surfacing. It does not replace post_development_review_gate_v0, does not promote reports to canon, and does not infer missing owner intent.",
+    "canon_constraint_candidate_register": "Candidate constraint: Public canon should store only portable routing rules and blank templates for this harness; applied strategic review reports should remain outside public canon and must not be treated as source authority by this workflow alone.",
+    "next_focus_recommendation": "Next focus: run one bounded manual or read-only calibration pass using synthetic or approved public-safe inputs, then compare whether the generated questions and candidate constraints remain clearly separated from canon authority.",
+    "ouroboros_loop_ledger": "Loop 1: Checked vision alignment, identified one owner-intent gap, converted the gap into an owner question, recorded one canon constraint candidate, and selected a next focus. Loop status: open pending owner answer; no stronger authority claimed."
+  },
+  "provenance": [
+    "Public-safe synthetic workflow contract supplied in the prompt.",
+    "Synthetic scenario facts supplied in the prompt: one roadmap alignment confirmation, one owner-intent gap question, one next-focus recommendation, and one canon constraint candidate."
+  ],
+  "gaps": [
+    "The contract does not define a concrete owner or decision threshold for graduating beyond draft readiness.",
+    "The contract does not provide actual vision, roadmap, canon catalog, or recent activity content; this calibration therefore cannot validate real alignment."
+  ],
+  "downstream_handoff": [
+    "Use this output only as a calibration comparison artifact for the draft harness shape.",
+    "Route any real applied report through the appropriate bounded review path before treating it as operational evidence."
+  ],
+  "boundary_review_note": [
+    "No tool use, file edits, runtime paths, hidden references, or private/raw evidence are claimed.",
+    "No upstream artifacts are mutated, and no candidate item is promoted to canon authority."
+  ],
+  "no_claims": [
+    "No claim is made that the workflow has been executed against real repository materials.",
+    "No claim is made that owner intent has been resolved beyond the synthetic contract facts."
+  ]
+}

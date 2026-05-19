@@ -1,0 +1,40 @@
+{
+  "workflow_id": "physical_configuration_audit_asset_package_v0",
+  "candidate_label": "gpt-5.5|medium|dwarf|auditor",
+  "profile": {
+    "model": "gpt-5.5",
+    "reasoning_effort": "medium",
+    "species": "dwarf",
+    "class": "auditor"
+  },
+  "outputs": {
+    "physical_audit_packet": "Synthetic PCA-style audit packet for the declared release-candidate artifact package. Scope is limited to physical/configuration alignment against the declared baseline, approved audit policy, and package inventory semantics. Functional adequacy is not evaluated.",
+    "artifact_inventory_report": "Inventory result: one declared artifact is present and aligned for checksum comparison; one declared artifact is absent from the release-candidate package. The missing artifact is treated as a baseline-to-package discrepancy.",
+    "checksum_report": "Checksum result: one artifact checksum matches the declared checksum baseline. No checksum mismatch is asserted beyond the separately identified missing artifact condition.",
+    "missing_or_mismatched_artifacts": "Missing artifacts: one expected baseline artifact is not present in the release-candidate package. Mismatched artifacts: none established by the synthetic facts. The missing artifact remains an unresolved discrepancy.",
+    "release_blocking_discrepancies": "Release-blocking discrepancy: the missing baseline artifact prevents clean physical/configuration closure for this synthetic package. Release should remain blocked until owner disposition, waiver, or corrected package evidence is provided.",
+    "owner_followup_needed": "Owner follow-up is needed to provide the missing artifact, revise the declared package inventory, or issue an approved disposition under the physical audit policy. Any resolution must preserve baseline, checksum, discrepancy, and boundary semantics.",
+    "closure_handoff": "Closure handoff: record one checksum match, one missing artifact, and one release-blocking discrepancy. Downstream review may consume this as a governance alignment result only, with no claim about system function or adequacy.",
+    "boundary_review_note": "Public-safe synthetic boundary maintained. This result uses only the supplied workflow contract and scenario facts, makes no tool-use or file-edit claim, references no runtime paths or private evidence, and does not mutate or promote upstream artifacts."
+  },
+  "provenance": [
+    "Public-safe synthetic workflow contract for physical_configuration_audit_asset_package_v0.",
+    "Synthetic scenario facts: one checksum match, one missing artifact, one release-blocking discrepancy."
+  ],
+  "gaps": [
+    "The missing artifact identity, attachment record, and expected checksum are not specified in the synthetic facts.",
+    "No owner disposition, waiver, corrected package inventory, or closure evidence is included."
+  ],
+  "downstream_handoff": [
+    "Treat the packet as a physical/configuration audit calibration output, not a functional acceptance result.",
+    "Require owner resolution of the missing artifact before release closure can be represented as clean."
+  ],
+  "boundary_review_note": [
+    "No hidden refs, private/raw evidence, runtime paths, or tool execution are claimed.",
+    "No upstream artifacts are mutated, and no stronger canon/source authority is asserted than the contract supports."
+  ],
+  "no_claims": [
+    "No functional adequacy, performance, safety, or mission-readiness claim is made.",
+    "No file edits, checksum tool execution, repository mutation, or private evidence inspection is claimed."
+  ]
+}

@@ -1,0 +1,3 @@
+{"workflow_id":"monster_knowledge_preflight_v0","label":"gpt-5.5|low|dwarf|pathfinder","total_tokens":47569,"wall_s":20.52,"reasoning_output_tokens":15,"quality_class":"quality_equivalent_pass"}
+{"workflow_id":"monster_knowledge_preflight_v0","label":"gpt-5.5|medium|dwarf|pathfinder","total_tokens":51659,"wall_s":17.74,"reasoning_output_tokens":25,"quality_class":"quality_equivalent_pass"}
+{"workflow_id":"monster_knowledge_preflight_v0","label":"gpt-5.5|xhigh|dwarf|pathfinder","total_tokens":47977,"wall_s":25.47,"reasoning_output_tokens":516,"quality_class":"quality_equivalent_pass"}

@@ -1,0 +1,38 @@
+{
+  "workflow_id": "workflow_knowledge_preflight_v0",
+  "candidate_label": "gpt-5.5|medium|dwarf|pathfinder",
+  "profile": {
+    "model": "gpt-5.5",
+    "reasoning_effort": "medium",
+    "species": "dwarf",
+    "class": "pathfinder"
+  },
+  "outputs": {
+    "knowledge_preflight_packet": "Metadata-only preflight packet for target workflow. Starting knowledge surface: one registry/canon-backed knowledge ref. Secondary context: one NotebookLM binding available as a navigation aid only, with no independent authority. Remaining uncertainty: one source packet gap must be resolved before any stronger factual claim is made. Packet should contain refs, uncertainty notes, and claim-seed guidance only.",
+    "query_first_plan": "Follow fixed order before target execution: 1. inspect registry knowledge and canon-backed export refs first; 2. use NotebookLM binding second only to identify possible related material; 3. check source-packet availability third and mark the remaining source packet gap; 4. defer Drive/package refs unless the source gap cannot be resolved from earlier metadata surfaces. Do not perform target workflow work inside preflight.",
+    "source_scope_recommendation": "Use the registry knowledge ref as the initial scoped source. Treat NotebookLM as a non-authoritative index binding. Keep the unresolved source packet as a required deepening route. Avoid widening to package or Drive refs unless the target workflow explicitly needs them after receiving the preflight handoff.",
+    "claim_ceiling_seed": "Allowed claims: registry knowledge supplies an initial ref; NotebookLM supplies one non-authoritative binding; one source packet gap remains; target workflow receives refs and claim guidance only. Disallowed claims: source completeness, private evidence confirmation, runtime inspection, file mutation, canon promotion, or end-to-end workflow completion.",
+    "target_workflow_handoff": "Hand off the registry knowledge ref, the NotebookLM binding marked non-authoritative, the unresolved source packet gap, and the claim ceiling seed. The target workflow must decide whether to deepen sources before making implementation, canon, or evidence-backed claims.",
+    "boundary_review_note": "Synthetic public-safe calibration only. No tool use, file edits, runtime paths, hidden refs, private/raw evidence, or upstream mutation are claimed. Authority remains limited to the supplied workflow contract and scenario facts."
+  },
+  "provenance": [
+    "Public-safe synthetic workflow contract for Workflow Knowledge Preflight v0.",
+    "Synthetic scenario facts and boundary policy supplied in the calibration prompt."
+  ],
+  "gaps": [
+    "One source packet gap remains unresolved.",
+    "NotebookLM binding is available only as a non-authoritative navigation aid."
+  ],
+  "downstream_handoff": [
+    "Provide only refs, uncertainty notes, and claim-seed guidance to the target workflow.",
+    "Require the target workflow to perform any needed source deepening before stronger claims or execution decisions."
+  ],
+  "boundary_review_note": [
+    "Metadata-only preflight; not an end-to-end replacement for the target workflow.",
+    "No mutation, runtime inspection, hidden evidence, or authority promotion is claimed."
+  ],
+  "no_claims": [
+    "No claim that tools were used, files were edited, or runtime paths were inspected.",
+    "No claim that private/raw evidence was accessed or that the unresolved source packet gap was closed."
+  ]
+}

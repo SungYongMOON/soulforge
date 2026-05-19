@@ -1,0 +1,40 @@
+{
+  "workflow_id": "functional_configuration_audit_page_library_v0",
+  "candidate_label": "gpt-5.5|medium|dwarf|auditor",
+  "profile": {
+    "model": "gpt-5.5",
+    "reasoning_effort": "medium",
+    "species": "dwarf",
+    "class": "auditor"
+  },
+  "outputs": {
+    "functional_audit_packet": "Synthetic FCA/SVR-style audit packet for functional_configuration_audit_page_library_v0. The audit scope is limited to the public-safe contract facts: configured page modules and harness compositions are checked only against declared functional or performance claims, accepted verification evidence, and known gaps. The packet records one verified claim, one unverified claim, and one discrepancy with residual risk. It does not approve acceptance, close discrepancies, mutate upstream artifacts, or elevate any synthetic fact into canon authority.",
+    "verified_claim_register": "Verified claim register contains one claim: a configured page module or harness composition satisfies one declared functional/performance claim because the synthetic scenario states that one claim is verified by accepted evidence. The register preserves the accepted-evidence boundary and does not infer broader system acceptance.",
+    "unverified_claim_register": "Unverified claim register contains one claim: a configured page module or harness composition has a declared functional/performance claim that is not supported by accepted verification evidence within the synthetic scenario. The claim remains open and cannot be treated as satisfied, accepted, or ready for closure.",
+    "discrepancy_register": "Discrepancy register contains one discrepancy: a declared configuration, module behavior, harness composition, or performance expectation conflicts with the accepted evidence or known gap context in the synthetic scenario. The discrepancy is recorded as unresolved and is not closed by this audit output.",
+    "residual_risk_register": "Residual risk register contains one residual risk tied to the unresolved discrepancy. The risk remains because the discrepancy has not been accepted, waived, remediated, or closed within the public-safe synthetic contract.",
+    "audit_readiness": "Audit readiness: pilot-executed calibration output is structurally ready for comparison against the expected output groups, but not ready for acceptance authority. The audit preserves verified, unverified, discrepancy, residual-risk, no-acceptance, and boundary semantics.",
+    "closure_handoff": "Closure handoff: downstream consumers should review the verified claim, obtain accepted evidence for the unverified claim, and route the unresolved discrepancy and residual risk through the appropriate non-synthetic governance process. This handoff does not mutate upstream artifacts and does not approve acceptance.",
+    "boundary_review_note": "Boundary review: output uses only the public-safe synthetic workflow contract and scenario facts. It makes no claims about tool use, file edits, runtime paths, hidden references, private/raw evidence, or upstream artifact mutation."
+  },
+  "provenance": [
+    "Public-safe synthetic workflow contract for Functional Configuration Audit Page Library v0.",
+    "Synthetic scenario facts: one verified claim, one unverified claim, and one discrepancy with residual risk."
+  ],
+  "gaps": [
+    "The synthetic contract does not identify the specific page module, harness composition, claim text, evidence artifact, or policy clause.",
+    "The synthetic scenario does not provide remediation status, waiver authority, acceptance authority, or discrepancy closure criteria."
+  ],
+  "downstream_handoff": [
+    "Preserve the verified claim as evidence-supported only within the synthetic scenario boundary.",
+    "Route the unverified claim, discrepancy, and residual risk to a downstream governance process that can inspect accepted evidence and decide remediation or closure outside this calibration output."
+  ],
+  "boundary_review_note": [
+    "No tool use, file edits, runtime paths, hidden references, or private/raw evidence are claimed.",
+    "No upstream artifacts are mutated, and no stronger source, canon, or acceptance authority is promoted beyond the public-safe synthetic contract."
+  ],
+  "no_claims": [
+    "No claim is made that the system is accepted, production-ready, discrepancy-free, or fully compliant.",
+    "No claim is made that the synthetic audit packet represents private evidence, hidden references, runtime execution, or canonical source truth."
+  ]
+}
