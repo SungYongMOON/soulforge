@@ -1,0 +1,7 @@
+interface:
+  display_name: "Soulforge GitHub Up"
+  short_description: "Upload/publish Soulforge changes to GitHub."
+  default_prompt: "Use $soulforge-github-up to run GitHub up through the registered upload workflow, including repo inventory, validation, commit plan, separate Git roots, push results, and blockers."
+
+policy:
+  allow_implicit_invocation: true

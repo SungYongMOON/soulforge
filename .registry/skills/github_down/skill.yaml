@@ -1,0 +1,48 @@
+skill_id: github_down
+kind: skill
+status: active
+title: GitHub Down
+summary: Route Soulforge GitHub download/update requests to the registered latest-update workflow without moving policy out of workflow canon.
+behavior:
+  intent: >
+    Provide the Codex-facing bridge for GitHub down operations. The source
+    procedure remains `.workflow/latest_update_sync_and_followup_v0`; this skill
+    maps user download/update language to that workflow and keeps public,
+    `_workmeta`, and `private-state` repo boundaries explicit.
+  use_when:
+    - the user asks for GitHub down, download, pull, fetch, sync, or update Soulforge from GitHub
+    - the user asks to update installed Codex skills after a GitHub pull
+    - a global Codex skill mirror should be materialized from tracked `.registry/skills/**/codex` bridges
+  avoid_when:
+    - the requested operation is for uploading, committing, or pushing changes
+    - the requested operation is for a non-Soulforge repository
+    - local secret values, credential contents, or account-bound session payloads would need to be inspected
+  expected_outcome:
+    - GitHub down requests run or report the full owner-with-state update surface
+    - public repo, `_workmeta`, and `private-state` freshness are checked separately
+    - installed Codex skill mirrors are synced only from tracked repo bridges
+    - workspace junction state is checked from the private binding when available
+    - blockers are reported with the owning repo or runtime boundary
+execution_requirements:
+  required_capabilities:
+    - git_status_review
+    - repo_freshness_sync
+    - codex_skill_sync
+    - boundary_review
+  preferred_capabilities:
+    - nested_repo_sync
+    - workspace_junction_audit
+  preferred_tools:
+    - rg
+    - git_status
+    - git_fetch
+    - git_pull_rebase
+    - npm_skills_sync
+    - npm_doctor
+  notes:
+    - "The latest-update workflow remains `.workflow/latest_update_sync_and_followup_v0/`."
+    - "This skill is a Codex wrapper. It does not own GitHub policy, owner approval, destructive rewrites, secret inspection, or default-route changes."
+    - "Installed mirror name after sync is normally `soulforge-github-down`."
+notes:
+  - "`github_down` is the canonical Soulforge skill package for GitHub download/update Codex invocation."
+  - "Run `npm run skills:sync -- github_down` or `npm run skills:sync -- --all` to materialize the installed Codex wrapper."

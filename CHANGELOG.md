@@ -2,6 +2,13 @@
 
 ## 2026-05-20
 
+### Revision `working` - GitHub up/down Codex wrappers added
+
+- Added `.registry/skills/github_down/` as the tracked Codex wrapper for GitHub down/latest-update/download requests.
+- Added `.registry/skills/github_up/` as the tracked Codex wrapper for GitHub up/upload/publish requests.
+- Bound the wrappers to the existing `.workflow/latest_update_sync_and_followup_v0/` and `.workflow/github_upload_publish_v0/` procedures instead of moving GitHub policy into skills.
+- Documented that `skill sync` only materializes repo-tracked `.registry/skills/**/codex` wrappers and cannot infer local-only skills from another PC.
+
 ### Revision `working` - GitHub upload workflow added
 
 - Added `.workflow/github_upload_publish_v0/` as a reusable upload workflow for validating, committing, and pushing public Soulforge changes together with `_workmeta` and `private-state` metadata repo changes.

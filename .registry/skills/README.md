@@ -1,5 +1,8 @@
 # .registry/skills
 
+- `github_down/` is the tracked Codex wrapper for routing GitHub download/update requests to `.workflow/latest_update_sync_and_followup_v0/`.
+- `github_up/` is the tracked Codex wrapper for routing GitHub upload/publish requests to `.workflow/github_upload_publish_v0/`.
+
 - `workflow_generator/` is the tracked source-bound workflow generation and evolution skill; its `codex/` bridge syncs to the installed `soulforge-workflow-generator` Codex skill.
 
 - `skills/` 는 reusable skill canon 을 두는 registry surface 다.

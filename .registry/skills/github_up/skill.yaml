@@ -1,0 +1,48 @@
+skill_id: github_up
+kind: skill
+status: active
+title: GitHub Up
+summary: Route Soulforge GitHub upload/publish requests to the registered upload workflow without moving policy out of workflow canon.
+behavior:
+  intent: >
+    Provide the Codex-facing bridge for GitHub up operations. The source
+    procedure remains `.workflow/github_upload_publish_v0`; this skill maps user
+    upload/publish language to that workflow and keeps public, `_workmeta`, and
+    `private-state` repo boundaries explicit.
+  use_when:
+    - the user asks for GitHub up, upload, publish, commit, push, or send Soulforge changes to GitHub
+    - public, `_workmeta`, and `private-state` repo changes should be published together while preserving boundaries
+  avoid_when:
+    - the requested operation is for downloading, pulling, or updating from GitHub
+    - the requested operation is for a non-Soulforge repository
+    - local secret values, credential contents, or account-bound session payloads would need to be inspected
+  expected_outcome:
+    - GitHub up requests inventory each Git root separately before commit or push
+    - validators are run or skipped with explicit reasons
+    - public repo commits exclude private payloads
+    - changed repos are committed and pushed only when intentionally in scope
+    - blockers are reported with the owning repo or runtime boundary
+execution_requirements:
+  required_capabilities:
+    - git_status_review
+    - deterministic_validation_review
+    - commit_plan_authoring
+    - boundary_review
+  preferred_capabilities:
+    - nested_repo_publish
+    - push_receipt_reporting
+  preferred_tools:
+    - rg
+    - git_status
+    - git_diff
+    - git_add
+    - git_commit
+    - git_push
+    - npm_validate
+  notes:
+    - "The upload workflow remains `.workflow/github_upload_publish_v0/`."
+    - "This skill is a Codex wrapper. It does not own GitHub policy, owner approval, destructive rewrites, secret inspection, or default-route changes."
+    - "Installed mirror name after sync is normally `soulforge-github-up`."
+notes:
+  - "`github_up` is the canonical Soulforge skill package for GitHub upload/publish Codex invocation."
+  - "Run `npm run skills:sync -- github_up` or `npm run skills:sync -- --all` to materialize the installed Codex wrapper."
