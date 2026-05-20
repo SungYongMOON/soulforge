@@ -3,6 +3,7 @@ import { promises as fs } from "node:fs";
 import path from "node:path";
 import YAML from "yaml";
 
+import { syncMonsterIndexInbox } from "../gateway/monster_index.mjs";
 import { appendJsonl, readJson, relativeToRepo, writeJson } from "../shared/io.mjs";
 
 export const FILING_PACKET_SCHEMA_VERSION = "soulforge.dungeon_assignment.filing_packet.v1";
@@ -81,16 +82,32 @@ export async function materializeDungeonAssignment(options) {
     },
     blockedReasons,
   });
+  const gatewaySyncPlan = await buildGatewayTransferSyncPlan({
+    repoRoot,
+    source,
+    routing,
+    now,
+    projectMonsterRef: plan.summary.project_monster_ref ?? null,
+    missionRef:
+      plan.summary.mission_handoff?.status === "created_private_handoff"
+        ? plan.summary.mission_handoff.mission_ref
+        : null,
+  });
+  const writes = [...plan.writes, ...gatewaySyncPlan.writes];
+  const summary = {
+    ...plan.summary,
+    gateway_sync_back: gatewaySyncPlan.summary,
+  };
 
   if (options.dryRun) {
     return {
-      ...plan.summary,
+      ...summary,
       dry_run: true,
-      planned_writes: plan.writes.map((write) => write.repo_path),
+      planned_writes: writes.map((write) => write.repo_path),
     };
   }
 
-  for (const write of plan.writes) {
+  for (const write of writes) {
     if (write.kind === "json") {
       await writeJson(write.file_path, write.value);
     } else if (write.kind === "yaml") {
@@ -102,10 +119,18 @@ export async function materializeDungeonAssignment(options) {
     }
   }
 
+  if (gatewaySyncPlan.indexSync) {
+    await syncMonsterIndexInbox(
+      gatewaySyncPlan.indexSync.intake_inbox_root,
+      gatewaySyncPlan.indexSync.inbox_id,
+      gatewaySyncPlan.indexSync.monsters,
+    );
+  }
+
   return {
-    ...plan.summary,
+    ...summary,
     dry_run: false,
-    written_refs: plan.writes.map((write) => write.repo_path),
+    written_refs: writes.map((write) => write.repo_path),
   };
 }
 
@@ -237,6 +262,141 @@ export function buildFilingPlan({
       mission_handoff: missionPlan.summary,
     },
     writes,
+  };
+}
+
+async function buildGatewayTransferSyncPlan({ repoRoot, source, routing, now, projectMonsterRef, missionRef }) {
+  if (source.source_kind !== "gateway_monster" || !source.gateway_inbox_ref || !projectMonsterRef) {
+    return {
+      summary: { status: "not_applicable" },
+      writes: [],
+      indexSync: null,
+    };
+  }
+
+  const inboxDir = resolveRepoOrAbsolute(repoRoot, source.gateway_inbox_ref);
+  const inboxFile = path.join(inboxDir, "inbox.json");
+  const monstersFile = path.join(inboxDir, "monsters.json");
+  const historyFile = path.join(inboxDir, "history.jsonl");
+  const inboxDocument = await readJson(inboxFile);
+  const monsterDocument = await readJson(monstersFile);
+  const index = normalizeMonsterArray(monsterDocument.monsters).findIndex(
+    (entry) => entry.monster_id === source.gateway_monster.monster_id,
+  );
+
+  if (index === -1) {
+    throw new Error(`gateway monster not found for sync-back: ${source.gateway_monster.monster_id}`);
+  }
+
+  const before = monsterDocument.monsters[index];
+  const nextState = {
+    ...before,
+    assignment_status: "transferred",
+    assigned_project_code: routing.project_code,
+    assigned_stage: routing.stage ?? before.assigned_stage ?? null,
+    project_monster_ref: projectMonsterRef,
+    transferred_at: now,
+    assignment_block_reason: null,
+    assignment_updated_at: now,
+    mission_ref: missionRef ?? before.mission_ref ?? null,
+  };
+  const stateChanges = collectChangedKeys(before, nextState).filter((change) => change !== "updated_at");
+
+  if (stateChanges.length === 0) {
+    return {
+      summary: {
+        status: "already_synced",
+        inbox_ref: relativeToRepo(repoRoot, inboxDir),
+        monster_id: before.monster_id,
+      },
+      writes: [],
+      indexSync: null,
+    };
+  }
+
+  const after = {
+    ...nextState,
+    updated_at: now,
+  };
+  const changes = collectChangedKeys(before, after);
+  monsterDocument.monsters[index] = after;
+  inboxDocument.assignment_status = computeGatewayInboxAssignmentStatus(monsterDocument.monsters);
+  inboxDocument.updated_at = now;
+
+  const updatedEvent = {
+    event_type: "monster_updated",
+    at: now,
+    inbox_id: inboxDocument.workspace_intake_inbox_id ?? path.basename(inboxDir),
+    source_ref: inboxDocument.source_ref ?? null,
+    monster_id: after.monster_id,
+    changes,
+    before: pickRecordFields(before, changes),
+    after: pickRecordFields(after, changes),
+  };
+  const transferEvent = {
+    event_type: "transferred_to_project",
+    at: now,
+    inbox_id: inboxDocument.workspace_intake_inbox_id ?? path.basename(inboxDir),
+    source_ref: inboxDocument.source_ref ?? null,
+    monster_id: after.monster_id,
+    assigned_project_code: after.assigned_project_code,
+    assigned_stage: after.assigned_stage,
+    assigned_target_inbox_ref: after.assigned_target_inbox_ref ?? null,
+    project_monster_ref: after.project_monster_ref,
+    transferred_at: after.transferred_at,
+  };
+  const globalEventFile = buildGatewayMonsterEventFile(repoRoot, now);
+
+  return {
+    summary: {
+      status: "updated",
+      inbox_ref: relativeToRepo(repoRoot, inboxDir),
+      monster_id: after.monster_id,
+      assignment_status: after.assignment_status,
+    },
+    writes: [
+      {
+        kind: "json",
+        file_path: monstersFile,
+        repo_path: relativeToRepo(repoRoot, monstersFile),
+        value: monsterDocument,
+      },
+      {
+        kind: "json",
+        file_path: inboxFile,
+        repo_path: relativeToRepo(repoRoot, inboxFile),
+        value: inboxDocument,
+      },
+      {
+        kind: "jsonl",
+        file_path: historyFile,
+        repo_path: relativeToRepo(repoRoot, historyFile),
+        value: updatedEvent,
+      },
+      {
+        kind: "jsonl",
+        file_path: historyFile,
+        repo_path: relativeToRepo(repoRoot, historyFile),
+        value: transferEvent,
+      },
+      {
+        kind: "jsonl",
+        file_path: globalEventFile,
+        repo_path: relativeToRepo(repoRoot, globalEventFile),
+        value: updatedEvent,
+      },
+      {
+        kind: "jsonl",
+        file_path: globalEventFile,
+        repo_path: relativeToRepo(repoRoot, globalEventFile),
+        value: transferEvent,
+      },
+    ],
+    indexSync: {
+      intake_inbox_root: path.dirname(inboxDir),
+      inbox_id: path.basename(inboxDir),
+      monsters: monsterDocument.monsters,
+    },
   };
 }
 
@@ -1070,6 +1230,60 @@ function resolveRouting(source, options) {
   };
 }
 
+function computeGatewayInboxAssignmentStatus(monsters) {
+  if (monsters.length === 0) {
+    return "not_required";
+  }
+
+  const statuses = monsters.map((monster) => monster.assignment_status ?? "pending_dungeon_assignment");
+
+  if (statuses.every((status) => status === "transferred")) {
+    return "assigned";
+  }
+
+  if (statuses.every((status) => status === "assigned" || status === "transferred")) {
+    return "assigned";
+  }
+
+  if (statuses.some((status) => status === "assigned" || status === "transferred")) {
+    return "partially_assigned";
+  }
+
+  if (statuses.every((status) => status === "blocked")) {
+    return "blocked";
+  }
+
+  return "pending_dungeon_assignment";
+}
+
+function collectChangedKeys(before, after) {
+  const keys = new Set([...Object.keys(before ?? {}), ...Object.keys(after ?? {})]);
+  const changes = [];
+
+  for (const key of keys) {
+    if (JSON.stringify(before?.[key]) !== JSON.stringify(after?.[key])) {
+      changes.push(key);
+    }
+  }
+
+  return changes.sort();
+}
+
+function pickRecordFields(record, keys) {
+  const selected = {};
+  for (const key of keys) {
+    selected[key] = record?.[key] ?? null;
+  }
+  return selected;
+}
+
+function buildGatewayMonsterEventFile(repoRoot, at) {
+  const stamp = new Date(at);
+  const year = String(stamp.getUTCFullYear());
+  const month = String(stamp.getUTCMonth() + 1).padStart(2, "0");
+  return path.join(repoRoot, "guild_hall", "state", "gateway", "log", "monster_events", year, `${year}-${month}.jsonl`);
+}
+
 function clonePublicMonsterFields(monster) {
   return {
     monster_id: monster.monster_id,
@@ -1192,6 +1406,13 @@ function safePublicToken(value, label) {
     throw new Error(`${label} must contain only public-safe token characters`);
   }
   return raw;
+}
+
+function normalizeMonsterArray(value) {
+  if (!value) {
+    return [];
+  }
+  return Array.isArray(value) ? value : [value];
 }
 
 function normalizeNow(value) {

@@ -51,8 +51,15 @@ test("materializes private filing, project monster, and workspace bridge for a g
       "filing_packet.json",
     ),
   );
+  const updatedInbox = await readJson(path.join(inboxDir, "inbox.json"));
+  const updatedGatewayMonsters = await readJson(path.join(inboxDir, "monsters.json"));
   const mailHistory = await readFile(
     path.join(repoRoot, "_workspaces", "P26-030", "020_MGMT", "027_수신이력_이동이력", "mail_receive_history.jsonl"),
+    "utf8",
+  );
+  const gatewayHistory = await readFile(path.join(inboxDir, "history.jsonl"), "utf8");
+  const gatewayEvents = await readFile(
+    path.join(repoRoot, "guild_hall", "state", "gateway", "log", "monster_events", "2026", "2026-05.jsonl"),
     "utf8",
   );
   const rendered = JSON.stringify({ result, filingPacket, projectMonster, workspacePacket, mailHistory });
@@ -64,6 +71,12 @@ test("materializes private filing, project monster, and workspace bridge for a g
   assert.equal(projectMonster.source_monster_id, "monster_hiworks_evt_001_a");
   assert.equal(workspacePacket.monster_id, "monster_hiworks_evt_001_a");
   assert.match(mailHistory, /mail_filing_received/);
+  assert.equal(updatedInbox.assignment_status, "assigned");
+  assert.equal(updatedGatewayMonsters.monsters[0].assignment_status, "transferred");
+  assert.equal(updatedGatewayMonsters.monsters[0].project_monster_ref, "_workmeta/P26-030/monsters/monster_hiworks_evt_001_a.yaml");
+  assert.equal(updatedGatewayMonsters.monsters[0].transferred_at, "2026-05-17T03:00:00.000Z");
+  assert.match(gatewayHistory, /transferred_to_project/);
+  assert.match(gatewayEvents, /transferred_to_project/);
   assert(!rendered.includes("private body must not be copied"));
   assert(!rendered.includes("<html>private html</html>"));
   assert(!rendered.includes("secret.xlsx"));
@@ -304,6 +317,8 @@ test("private mission handoff writes project-local mission artifacts without raw
     readiness_status: "ready",
     mission_ref: "_workmeta/P26-030/missions/private_mail_handoff_demo_001",
   });
+  const updatedGatewayMonsters = await readJson(path.join(inboxDir, "monsters.json"));
+  assert.equal(updatedGatewayMonsters.monsters[0].mission_ref, "_workmeta/P26-030/missions/private_mail_handoff_demo_001");
   await assert.rejects(readFile(path.join(repoRoot, ".mission", "private_mail_handoff_demo_001", "mission.yaml"), "utf8"));
   assert(!rendered.includes("Private project request"));
   assert(!rendered.includes("Review private project request"));

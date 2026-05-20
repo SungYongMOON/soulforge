@@ -19,6 +19,7 @@
 | `MAIL_CANDIDATE_QUEUE_V0.md` | fresh mail event 를 업무화 검토 후보 queue 로 보류하는 local-only 계약이다. |
 | `WORKSPACE_INTAKE_INBOX_V0.md` | intake inbox 의 current JSON 과 append-only JSONL event stream shape 를 둔다. |
 | `DUNGEON_ASSIGNMENT_REQUEST_V0.md` | gateway monster 를 project dungeon/stage 로 배정하는 요청 계약이다. |
+| `MAIL_WORK_STATUS_V0.md` | mail-derived work item 의 candidate -> monster -> mission -> battle projection 계약이다. |
 | `INSTALLATION_MANUAL_V0.md` | 다른 PC 에서 clone 후 runtime 을 materialize 하는 상위 설치 절차다. |
 | `PRIVATE_STATE_REPO_V0.md` | owner-only `private-state/` continuity mirror 의 allowlist 와 restore 절차다. |
 | `../bootstrap/BOOTSTRAP_PROFILES_V0.md` | workspace 설치 흐름에서 참조하는 bootstrap profile 정의다. |
@@ -60,6 +61,7 @@
 - [`MAIL_CANDIDATE_QUEUE_V0.md`](MAIL_CANDIDATE_QUEUE_V0.md)
 - [`WORKSPACE_INTAKE_INBOX_V0.md`](WORKSPACE_INTAKE_INBOX_V0.md)
 - [`DUNGEON_ASSIGNMENT_REQUEST_V0.md`](DUNGEON_ASSIGNMENT_REQUEST_V0.md)
+- [`MAIL_WORK_STATUS_V0.md`](MAIL_WORK_STATUS_V0.md)
 - [`INSTALLATION_MANUAL_V0.md`](INSTALLATION_MANUAL_V0.md)
 - [`PRIVATE_STATE_REPO_V0.md`](PRIVATE_STATE_REPO_V0.md)
 - [`../bootstrap/BOOTSTRAP_PROFILES_V0.md`](../bootstrap/BOOTSTRAP_PROFILES_V0.md)
@@ -92,7 +94,7 @@
 
 - Stable
 - mission/workspace 구조와 `_workmeta` 계약의 root-owned 정본 묶음이다.
-- current-default v0 workspace contract draft 는 `MAIL_INTAKE_REQUEST_V0.md`, `MAIL_CANDIDATE_QUEUE_V0.md`, `WORKSPACE_INTAKE_INBOX_V0.md`, `DUNGEON_ASSIGNMENT_REQUEST_V0.md`, `MAIL_TO_MISSION_HANDOFF_V0.md`, `MONSTER_FAMILY_LINEUP_V0.md`, `MONSTER_CANDIDATE_CONTRACT_V0.md`, `BATTLE_LOG_STORAGE_PLAN.md`, `MISSION_CLOSE_PROVENANCE_V0.md`, `SE_DUNGEON_STAGE_MODEL_V0.md`, `MAILBOX_CONCRETE_CONTRACT_V0.md` 에서 추가로 잠근다.
+- current-default v0 workspace contract draft 는 `MAIL_INTAKE_REQUEST_V0.md`, `MAIL_CANDIDATE_QUEUE_V0.md`, `WORKSPACE_INTAKE_INBOX_V0.md`, `DUNGEON_ASSIGNMENT_REQUEST_V0.md`, `MAIL_WORK_STATUS_V0.md`, `MAIL_TO_MISSION_HANDOFF_V0.md`, `MONSTER_FAMILY_LINEUP_V0.md`, `MONSTER_CANDIDATE_CONTRACT_V0.md`, `BATTLE_LOG_STORAGE_PLAN.md`, `MISSION_CLOSE_PROVENANCE_V0.md`, `SE_DUNGEON_STAGE_MODEL_V0.md`, `MAILBOX_CONCRETE_CONTRACT_V0.md` 에서 추가로 잠근다.
 - `WORKSPACE_INTAKE_INBOX_V0.md` 는 `gateway` intake logging 의 source-of-truth shape 를 `JSON` current state + monthly `JSONL` event stream 기준으로 잠그고, `CSV` 는 파생 export 로만 다룬다.
 - `BATTLE_LOG_STORAGE_PLAN.md` 와 `schema/battle_event.schema.yaml` 는 mission-level terminal battle outcome 을 monthly `JSONL` event stream 으로 남기는 최소 event schema 를 잠근다.
 - `GATEWAY_MAIL_FETCH_V0.md`, `MAIL_CANDIDATE_QUEUE_V0.md`, `MAIL_SEND_V0.md`, `GATEWAY_NOTIFY_V0.md`, `NOTIFY_MODEL_V0.md`, `NOTIFY_BRIEF_FORMAT_V0.md` 는 `guild_hall` owner 의 runtime 계약이지만, `_workspaces/<project_code>/` handoff 와 clone/bootstrap 흐름 때문에 workspace 문서군에서도 함께 참조한다.

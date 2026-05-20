@@ -16,6 +16,11 @@ import {
   triageMailCandidate,
   triagePendingMailCandidates,
 } from "./mail_candidate.mjs";
+import {
+  defaultMailWorkStatusLatestFile,
+  listMailWorkStatus,
+  refreshMailWorkStatus,
+} from "./mail_work_status.mjs";
 import { renderMonsterCreatedMessage, sanitizeId } from "./message_rendering.mjs";
 import {
   appendJsonl,
@@ -63,6 +68,16 @@ async function main() {
 
   if (command === "promote-mail-candidate") {
     await runPromoteMailCandidate(args);
+    return;
+  }
+
+  if (command === "list-mail-work-status") {
+    await runListMailWorkStatus(args);
+    return;
+  }
+
+  if (command === "refresh-mail-work-status") {
+    await runRefreshMailWorkStatus(args);
     return;
   }
 
@@ -126,6 +141,8 @@ function printUsageAndExit() {
       "  node guild_hall/gateway/cli.mjs update-monster --inbox-id <id> --monster-id <id> --patch-file <path>",
       "  node guild_hall/gateway/cli.mjs list-mail-candidates [--queue-root <path>] [--status <status|all>]",
       "  node guild_hall/gateway/cli.mjs promote-mail-candidate --candidate-file <path> [--output-file <path>] [--allow-output-outside-state] [--no-status-update] [--force]",
+      "  node guild_hall/gateway/cli.mjs list-mail-work-status [--latest-file <path>] [--work-status <status|all>] [--project-code <code>]",
+      "  node guild_hall/gateway/cli.mjs refresh-mail-work-status [--latest-file <path>] [--queue-root <path>] [--intake-inbox-root <path>] [--workmeta-root <path>]",
       "  node guild_hall/gateway/cli.mjs triage-mail-candidate (--candidate-file <path> | --all-pending) [--queue-root <path>] [--binding-file <path>] [--private-deep] [--force]",
       "  node guild_hall/gateway/cli.mjs notify-gateway --event <event> (--on | --off)",
       "  node guild_hall/gateway/cli.mjs notify-mission --mission-id <id> --event <event> (--on | --off)",
@@ -168,6 +185,30 @@ async function runPromoteMailCandidate(args) {
     updateCandidate: !args["no-status-update"],
     force: Boolean(args.force),
     allowOutputOutsideState: Boolean(args["allow-output-outside-state"]),
+  });
+  printJson(result);
+}
+
+async function runListMailWorkStatus(args) {
+  const latestFile = args["latest-file"] ? path.resolve(String(args["latest-file"])) : defaultMailWorkStatusLatestFile(repoRoot);
+  const rawWorkStatus = String(args["work-status"] ?? "all").trim();
+  const workStatus = rawWorkStatus === "all" ? "" : rawWorkStatus;
+  const result = await listMailWorkStatus({
+    repoRoot,
+    latestFile,
+    workStatus,
+    projectCode: args["project-code"] ? String(args["project-code"]) : "",
+  });
+  printJson(result);
+}
+
+async function runRefreshMailWorkStatus(args) {
+  const result = await refreshMailWorkStatus({
+    repoRoot,
+    queueRoot: args["queue-root"] ? path.resolve(String(args["queue-root"])) : undefined,
+    intakeInboxRoot: args["intake-inbox-root"] ? path.resolve(String(args["intake-inbox-root"])) : undefined,
+    workmetaRoot: args["workmeta-root"] ? path.resolve(String(args["workmeta-root"])) : undefined,
+    outputFile: args["latest-file"] ? path.resolve(String(args["latest-file"])) : undefined,
   });
   printJson(result);
 }

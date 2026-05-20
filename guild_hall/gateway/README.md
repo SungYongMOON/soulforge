@@ -16,6 +16,8 @@
   - intake inbox dedupe manifest cache helper
 - `mail_candidate.mjs`
   - mail candidate listing and promotion helper
+- `mail_work_status.mjs`
+  - mail-derived work item 상태를 candidate -> monster -> mission -> battle 기준으로 projection 하는 local-only helper
 - `mail_fetch/collector/storage/mail_candidate_queue.py`
   - fresh mail event 를 업무화 검토 후보 queue 로 적재하는 local-only writer
 
@@ -31,3 +33,7 @@
   - `guild_hall/state/gateway/mail_candidate/queue/pending/**` 의 pending 후보 summary 를 본다.
 - `guild-hall:gateway:mail-candidate:promote`
   - 후보 1건을 local-only `mail_intake_request` payload 로 바꾸고 candidate status 를 갱신한다.
+- `guild-hall:gateway:mail-work:refresh`
+  - `mail_candidate`, `intake_inbox`, `_workmeta` mission/battle metadata 를 합쳐 `mail_work_status/latest.json` 을 갱신한다.
+- `guild-hall:gateway:mail-work:list`
+  - latest projection 을 읽어 mail-derived work item 의 현재 상태를 본다.

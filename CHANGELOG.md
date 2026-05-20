@@ -9,6 +9,12 @@
 - Bound the wrappers to the existing `.workflow/latest_update_sync_and_followup_v0/` and `.workflow/github_upload_publish_v0/` procedures instead of moving GitHub policy into skills.
 - Documented that `skill sync` only materializes repo-tracked `.registry/skills/**/codex` wrappers and cannot infer local-only skills from another PC.
 
+### Revision `working` - Mail work status projection and gateway sync-back added
+
+- Added `docs/architecture/workspace/MAIL_WORK_STATUS_V0.md` and `guild_hall/gateway/mail_work_status.mjs` so local-only `mail_work_status/latest.json` can reconcile mail candidate, gateway intake, project monster, private mission index, and battle event metadata into one status projection.
+- Added `guild-hall:gateway:mail-work:refresh` and `guild-hall:gateway:mail-work:list` command surfaces plus gateway projection tests.
+- Updated dungeon assignment filing so gateway-origin monsters sync back to `transferred` current state, populate `project_monster_ref` and private `mission_ref` when available, and append matching gateway history / global event rows without copying raw mail payload.
+
 ### Revision `working` - GitHub upload workflow added
 
 - Added `.workflow/github_upload_publish_v0/` as a reusable upload workflow for validating, committing, and pushing public Soulforge changes together with `_workmeta` and `private-state` metadata repo changes.
