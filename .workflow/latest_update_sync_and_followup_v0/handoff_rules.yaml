@@ -1,0 +1,28 @@
+workflow_id: latest_update_sync_and_followup_v0
+kind: handoff_rules
+status: draft
+rules:
+  - from: update_scope_binder
+    to: repo_sync_preflight_runner
+    condition: latest_update_scope_packet_written
+    summary: Repo sync receives only declared roots, sync policy, and update trigger metadata.
+  - from: repo_sync_preflight_runner
+    to: codex_skill_sync_auditor
+    condition: repo_sync_preflight_report_written
+    summary: Skill sync receives only repo freshness status, canonical skill bridge refs, and sync policy; it does not receive project payloads or secrets.
+  - from: codex_skill_sync_auditor
+    to: material_completeness_auditor
+    condition: codex_skill_sync_patch_report_written
+    summary: Material audit proceeds only after Codex skill mirror drift and any allowed patch actions are explicit.
+  - from: material_completeness_auditor
+    to: workspace_junction_auditor
+    condition: material_completeness_audit_written
+    summary: Junction audit receives the active project/material gap context and the private junction binding ref.
+  - from: workspace_junction_auditor
+    to: followup_router
+    condition: workspace_junction_refresh_report_written
+    summary: Follow-up routing receives classified junction states without host-local absolute roots in reusable output.
+  - from: followup_router
+    to: boundary_handoff_reviewer
+    condition: followup_route_packet_written
+    summary: Final handoff receives follow-up routes, blockers, and owner-decision needs.

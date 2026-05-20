@@ -1,0 +1,33 @@
+workflow_id: github_upload_publish_v0
+kind: handoff_rules
+status: active
+rules:
+  - from: upload_scope_binder
+    to: repo_change_inventory_runner
+    condition: upload_scope_packet_written
+    summary: Inventory receives only repo ids, root refs, remote policy, and inclusion policy.
+  - from: repo_change_inventory_runner
+    to: validation_runner
+    condition: repo_change_inventory_written
+    summary: Validators run only after dirty and clean repo states are explicit.
+  - from: validation_runner
+    to: commit_planner
+    condition: validation_matrix_written
+    summary: Commit planning proceeds only after pass, fail, skipped, or blocked validator states are recorded.
+  - from: commit_planner
+    to: git_commit_runner
+    condition: commit_plan_written
+    summary: Commit runner receives scoped per-repo path and message decisions.
+  - from: git_commit_runner
+    to: git_push_runner
+    condition: commit_result_report_written
+    summary: Push runner receives repo-local commit results only.
+  - from: git_push_runner
+    to: upload_receipt_recorder
+    condition: push_result_report_written
+    summary: Receipt records push outcomes without secret values or raw private payloads.
+  - from: upload_receipt_recorder
+    to: boundary_handoff_reviewer
+    condition: upload_receipt_written
+    summary: Closeout receives receipt refs, validation refs, and blockers.
+

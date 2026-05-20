@@ -1,0 +1,17 @@
+schema_version: latest_update_sync_and_followup_v0.codex_skill_sync_patch_report
+workflow_id: latest_update_sync_and_followup_v0
+policy: "report_only | sync_missing_and_stale | blocked"
+canonical_command: "npm run skills:sync -- --all | npm run skills:sync -- <skill_id...>"
+status: "synced | no_changes_needed | report_only_drift_found | blocked | failed"
+attempted_skill_ids: []
+synced_skill_ids: []
+skipped_skill_rows:
+  - skill_id: ""
+    reason: ""
+validation:
+  quick_validate_installed_mirrors: "pass | fail | skipped | blocked"
+  command_refs: []
+blockers: []
+notes: []
+host_local_absolute_paths_in_public_output: false
+

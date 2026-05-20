@@ -1,0 +1,82 @@
+workflow_id: github_upload_publish_v0
+kind: step_graph
+status: active
+steps:
+  - step_id: bind_upload_scope
+    title: Bind Upload Scope
+    actor_slot: upload_scope_binder
+    action: Bind requested upload scope, repo roots, remotes, validation policy, commit message policy, and whether metadata repos should be included.
+    outputs:
+      - upload_scope_packet
+    next:
+      - inventory_repo_changes
+  - step_id: inventory_repo_changes
+    title: Inventory Repo Changes
+    actor_slot: repo_change_inventory_runner
+    action: Run status for public `Soulforge`, `_workmeta`, and `private-state`; classify each as changed, clean, blocked, or out of scope.
+    inputs:
+      - upload_scope_packet
+    outputs:
+      - repo_change_inventory
+    next:
+      - run_upload_validations
+  - step_id: run_upload_validations
+    title: Run Upload Validations
+    actor_slot: validation_runner
+    action: Run required validators for changed public and private surfaces, record skipped validators with reason, and block publish on relevant failures.
+    inputs:
+      - repo_change_inventory
+    outputs:
+      - validation_matrix
+    next:
+      - prepare_commit_plan
+  - step_id: prepare_commit_plan
+    title: Prepare Commit Plan
+    actor_slot: commit_planner
+    action: Decide per repo whether to commit, what paths are included, what commit message to use, and which dirty changes are intentionally included or excluded.
+    inputs:
+      - validation_matrix
+    outputs:
+      - commit_plan
+    next:
+      - commit_changed_repos
+  - step_id: commit_changed_repos
+    title: Commit Changed Repos
+    actor_slot: git_commit_runner
+    action: Stage and commit each changed repo from its own Git root without rewriting history or crossing public/private boundaries.
+    inputs:
+      - commit_plan
+    outputs:
+      - commit_result_report
+    next:
+      - push_changed_repos
+  - step_id: push_changed_repos
+    title: Push Changed Repos
+    actor_slot: git_push_runner
+    action: Push each committed repo to its own configured origin and branch, then record push status or blockers.
+    inputs:
+      - commit_result_report
+    outputs:
+      - push_result_report
+    next:
+      - record_upload_receipt
+  - step_id: record_upload_receipt
+    title: Record Upload Receipt
+    actor_slot: upload_receipt_recorder
+    action: Write a private metadata receipt with repo ids, branches, commit refs when available, push results, validators, known gaps, and next actions.
+    inputs:
+      - push_result_report
+    outputs:
+      - upload_receipt
+    next:
+      - review_boundary_and_handoff
+  - step_id: review_boundary_and_handoff
+    title: Review Boundary And Handoff
+    actor_slot: boundary_handoff_reviewer
+    action: Run closeout review, name the strongest supported status, and confirm no public/private or secret boundary was crossed.
+    inputs:
+      - upload_receipt
+    outputs:
+      - boundary_review_note
+    next: []
+

@@ -2,6 +2,20 @@
 
 ## 2026-05-20
 
+### Revision `working` - GitHub upload workflow added
+
+- Added `.workflow/github_upload_publish_v0/` as a reusable upload workflow for validating, committing, and pushing public Soulforge changes together with `_workmeta` and `private-state` metadata repo changes.
+- Registered the workflow in `.workflow/index.yaml`, added it to `guild_master_cell` allowed workflows, and recorded the Korean global-name candidate `운영_깃허브업로드_v0`.
+- Kept public/private Git roots separate and required validation plus boundary review before claiming upload completion.
+
+### Revision `working` - Latest update follow-up workflow added
+
+- Added `.workflow/latest_update_sync_and_followup_v0/` as a draft event-driven workflow for checking latest GitHub/upstream updates, companion repo freshness, project material completeness, workspace junction state, and follow-up routes.
+- Registered the workflow in `.workflow/index.yaml` and linked it from `.workflow/README.md`.
+- Ran a report-only private pilot, moved the workflow to active report-only maturity, added it to `guild_master_cell` allowed workflows, and recorded the Korean global-name candidate `운영_최신업데이트후속점검_v0`.
+- Added Codex skill mirror drift handling so latest-update runs can compare `.registry/skills/**/codex` against the local installed skill mirror and sync missing or stale skills through `npm run skills:sync`.
+- Kept junction repair authority owner-gated: public workflow canon references `_workmeta/system/bindings/workspace_junctions.yaml` as portable intent only and does not store host-local cloud roots, secrets, source payloads, or automatic mutation authority.
+
 ### Revision `working` - Workspace shared-link rule clarified
 
 - Clarified that project payloads shared across owner PCs should live in an owner-approved shared worksite, with `_workspaces/<project_code>/` materialized as a local junction or symlink view.

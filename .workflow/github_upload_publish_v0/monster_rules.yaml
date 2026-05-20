@@ -1,0 +1,23 @@
+workflow_id: github_upload_publish_v0
+kind: monster_rules
+status: active
+rules:
+  - monster_id: public_private_boundary_mix
+    response: block_public_commit_and_split_scope
+    summary: Public repo must not commit `_workmeta`, `private-state`, raw project payloads, secrets, or private runtime evidence.
+  - monster_id: dirty_repo_not_in_plan
+    response: stop_and_record_scope_decision_needed
+    summary: Do not silently ignore or commit a dirty repo; record whether it is included, excluded, or blocked.
+  - monster_id: validation_failure_before_push
+    response: block_commit_or_push_until_resolved
+    summary: Relevant validator failure blocks publish unless owner explicitly accepts a documented exception.
+  - monster_id: destructive_git_rewrite_requested_implicitly
+    response: refuse_without_explicit_owner_instruction
+    summary: No reset, checkout, rebase, amend, force push, or history rewrite is implied by upload.
+  - monster_id: remote_push_failed
+    response: record_blocker_and_stop_remaining_dependent_steps
+    summary: Failed push must be recorded with repo id and next action; do not claim upload complete.
+  - monster_id: secret_value_in_receipt_or_log
+    response: redact_and_rewrite_receipt
+    summary: Receipts and closeout notes may include paths and ids, not secret values.
+

@@ -1,0 +1,12 @@
+schema_version: github_upload_publish_v0.boundary_review_note
+workflow_id: github_upload_publish_v0
+claim_ceiling: "observed | source_supported | rejected_or_blocked"
+checks:
+  public_private_boundary: "pass | fail | blocked"
+  secret_raw_payload_absent: "pass | fail | blocked"
+  validation_before_push: "pass | fail | blocked"
+  destructive_git_operation_absent: "pass | fail | blocked"
+  output_state_named: "pass | fail | blocked"
+result: "pass | fail | blocked"
+notes: []
+

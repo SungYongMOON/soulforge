@@ -3,5 +3,7 @@ kind: allowed_workflows
 status: active
 workflow_ids:
   - author_skill_package
+  - github_upload_publish_v0
+  - latest_update_sync_and_followup_v0
   - post_development_review_gate_v0
   - ouroboros_strategic_review_harness_v0

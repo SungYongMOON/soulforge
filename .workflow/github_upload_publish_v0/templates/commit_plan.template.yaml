@@ -1,0 +1,13 @@
+schema_version: github_upload_publish_v0.commit_plan
+workflow_id: github_upload_publish_v0
+status: "ready | blocked | no_changes"
+commit_rows:
+  - repo_id: ""
+    root_ref: ""
+    include_paths: []
+    exclude_paths: []
+    commit_message: ""
+    commit_required: null
+    blocker: null
+notes: []
+

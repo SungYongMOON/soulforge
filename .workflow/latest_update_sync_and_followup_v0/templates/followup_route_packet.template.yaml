@@ -1,0 +1,23 @@
+schema_version: latest_update_sync_and_followup_v0.followup_route_packet
+workflow_id: latest_update_sync_and_followup_v0
+status: "no_followup | followup_needed | blocked"
+routes:
+  curation:
+    needed: false
+    refs: []
+  gateway:
+    needed: false
+    refs: []
+  snapshot:
+    needed: false
+    refs: []
+  skill_sync:
+    needed: false
+    refs: []
+  owner_decision:
+    needed: false
+    questions: []
+  post_development_review:
+    needed: true
+    reason: ""
+next_actions: []

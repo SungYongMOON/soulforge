@@ -1,0 +1,11 @@
+schema_version: github_upload_publish_v0.validation_matrix
+workflow_id: github_upload_publish_v0
+status: "pass | fail | blocked"
+validator_rows:
+  - repo_id: ""
+    command: ""
+    result: "pass | fail | skipped | blocked"
+    reason: ""
+blockers: []
+notes: []
+

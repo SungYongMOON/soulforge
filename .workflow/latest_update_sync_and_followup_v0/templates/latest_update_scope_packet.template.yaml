@@ -1,0 +1,19 @@
+schema_version: latest_update_sync_and_followup_v0.latest_update_scope_packet
+workflow_id: latest_update_sync_and_followup_v0
+trigger:
+  kind: ""
+  update_ref: ""
+  observed_at: ""
+scope:
+  project_mode: ""
+  project_codes: []
+allowed_roots:
+  public_repo: "Soulforge"
+  workmeta_repo: "_workmeta"
+  private_state_repo: "private-state"
+policies:
+  repo_sync_policy: ""
+  skill_sync_policy: ""
+  material_download_policy: ""
+  junction_repair_policy: ""
+blockers: []

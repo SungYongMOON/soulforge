@@ -1,0 +1,11 @@
+workflow_id: github_upload_publish_v0
+kind: party_compatibility
+status: active
+compatible_parties:
+  - party_id: solo_operator
+    status: supported
+  - party_id: guild_master_cell
+    status: supported_for_cross_repo_publish
+notes:
+  - This workflow coordinates Git roots; it does not replace each repo's own branch, remote, or access policy.
+

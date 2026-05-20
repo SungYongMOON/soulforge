@@ -1,0 +1,12 @@
+workflow_id: github_upload_publish_v0
+kind: profile_policy
+status: draft
+current_profile:
+  model: default
+  reasoning_effort: default
+  species: null
+  class: null
+  basis: initial_workflow_registration
+notes:
+  - Git command execution and deterministic validators matter more than model profile for this workflow.
+

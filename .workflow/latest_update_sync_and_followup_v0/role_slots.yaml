@@ -1,0 +1,25 @@
+workflow_id: latest_update_sync_and_followup_v0
+kind: role_slots
+status: draft
+slots:
+  - slot_id: update_scope_binder
+    title: Update Scope Binder
+    summary: Binds the update trigger, repo roots, companion roots, active project filter, and allowed mutation policy.
+  - slot_id: repo_sync_preflight_runner
+    title: Repo Sync Preflight Runner
+    summary: Checks latest public/private companion repo state before downstream judgment.
+  - slot_id: codex_skill_sync_auditor
+    title: Codex Skill Sync Auditor
+    summary: Compares tracked Codex skill bridges to the local installed skill mirror and applies canonical sync only when policy allows.
+  - slot_id: material_completeness_auditor
+    title: Material Completeness Auditor
+    summary: Checks whether latest updates imply missing project folders, metadata companions, ledgers, or follow-up state.
+  - slot_id: workspace_junction_auditor
+    title: Workspace Junction Auditor
+    summary: Compares `_workmeta/system/bindings/workspace_junctions.yaml` against local `_workspaces/<alias>` link state.
+  - slot_id: followup_router
+    title: Follow-up Router
+    summary: Routes needed work to curation, gateway, snapshot, owner-decision, or blocked follow-up surfaces.
+  - slot_id: boundary_handoff_reviewer
+    title: Boundary Handoff Reviewer
+    summary: Records public/private boundary status, claim ceiling, and next action.

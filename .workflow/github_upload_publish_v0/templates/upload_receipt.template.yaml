@@ -1,0 +1,14 @@
+schema_version: github_upload_publish_v0.upload_receipt
+workflow_id: github_upload_publish_v0
+uploaded_at: ""
+status: "complete | partial | blocked"
+repo_receipts:
+  - repo_id: ""
+    branch: ""
+    commit_ref: ""
+    pushed: null
+    validation_refs: []
+    notes: []
+remaining_risks: []
+next_actions: []
+

@@ -1,0 +1,24 @@
+schema_version: latest_update_sync_and_followup_v0.repo_sync_preflight_report
+workflow_id: latest_update_sync_and_followup_v0
+status: "passed | blocked | skipped"
+repo_results:
+  - repo_id: "soulforge"
+    branch: ""
+    clean: null
+    fetch_status: ""
+    pull_status: ""
+    blocker: null
+  - repo_id: "workmeta"
+    branch: ""
+    clean: null
+    fetch_status: ""
+    pull_status: ""
+    blocker: null
+  - repo_id: "private-state"
+    branch: ""
+    clean: null
+    fetch_status: ""
+    pull_status: ""
+    blocker: null
+next_allowed: false
+notes: []

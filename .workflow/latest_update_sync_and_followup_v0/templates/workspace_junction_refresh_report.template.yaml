@@ -1,0 +1,18 @@
+schema_version: latest_update_sync_and_followup_v0.workspace_junction_refresh_report
+workflow_id: latest_update_sync_and_followup_v0
+junction_binding_ref: "_workmeta/system/bindings/workspace_junctions.yaml"
+status: "passed | gaps_found | blocked"
+local_cloud_root_resolution:
+  required: true
+  provided_ref: ""
+  status: "present | missing | not_needed_for_report_only"
+junction_rows:
+  - workspace_alias: ""
+    project_code: null
+    link_relative_path: ""
+    declared_state: ""
+    observed_local_state: "present | missing | stale | inactive | unknown"
+    action: "none | report_gap | repair_candidate | owner_decision_required"
+    notes: []
+portable_binding_updates_needed: []
+host_local_absolute_paths_in_output: false

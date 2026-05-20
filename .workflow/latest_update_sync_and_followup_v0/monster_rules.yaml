@@ -1,0 +1,25 @@
+workflow_id: latest_update_sync_and_followup_v0
+kind: monster_rules
+status: draft
+rules:
+  - monster_id: stale_repo_copy_used_for_judgment
+    response: block_followup_until_sync_state_known
+    summary: Do not judge material or junction state from stale public/private companion repos.
+  - monster_id: host_local_cloud_root_written_to_public_canon
+    response: remove_path_and_hold_private
+    summary: Public workflow canon must not contain host-local OneDrive, home, drive-letter, or absolute cloud roots.
+  - monster_id: workspace_junction_binding_missing
+    response: owner_decision_or_private_binding_required
+    summary: Junction state refresh needs `_workmeta/system/bindings/workspace_junctions.yaml` or a scoped replacement binding.
+  - monster_id: codex_skill_mirror_stale_or_missing
+    response: sync_from_tracked_bridge_or_report_owner_decision
+    summary: Missing or stale installed Codex skills should be synced from `.registry/skills/**/codex` through the canonical sync command when policy allows.
+  - monster_id: ad_hoc_skill_patch_outside_registry
+    response: block_and_route_to_skill_authoring
+    summary: Do not hand-edit installed skill mirrors; patch the tracked `.registry/skills/<skill_id>/codex` bridge first, then sync.
+  - monster_id: automatic_junction_repair_without_authority
+    response: report_only_and_request_owner_decision
+    summary: Missing junctions can be reported without mutation; repair needs local root resolution and explicit mutation authority.
+  - monster_id: private_payload_copied_to_public_followup
+    response: redact_and_route_to_private_evidence
+    summary: Source payloads, mail bodies, and raw private material stay out of public workflow outputs.

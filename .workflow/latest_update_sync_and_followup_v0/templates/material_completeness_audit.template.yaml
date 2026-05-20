@@ -1,0 +1,12 @@
+schema_version: latest_update_sync_and_followup_v0.material_completeness_audit
+workflow_id: latest_update_sync_and_followup_v0
+status: "passed | gaps_found | blocked"
+project_rows:
+  - project_code: ""
+    workspace_present: null
+    workmeta_present: null
+    private_state_needed: null
+    source_ledger_present: null
+    material_gap_notes: []
+blocked_followups: []
+notes: []

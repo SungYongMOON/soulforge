@@ -1,0 +1,83 @@
+workflow_id: github_upload_publish_v0
+kind: workflow
+status: active
+title: GitHub Upload Publish v0
+summary: Repeatable workflow for validating, committing, and pushing Soulforge public repo changes together with companion `_workmeta` and `private-state` metadata repo changes.
+entrypoint: run
+execution_mode: local_tool_sequence
+role_slots: role_slots.yaml
+step_graph: step_graph.yaml
+handoff_rules: handoff_rules.yaml
+monster_rules: monster_rules.yaml
+party_compatibility: party_compatibility.yaml
+profile_policy: profile_policy.yaml
+inputs:
+  - upload_scope_binding
+  - repo_boundary_policy
+  - commit_message_policy
+optional_inputs:
+  - public_validation_policy
+  - workmeta_validation_policy
+  - private_state_validation_policy
+  - push_policy
+outputs:
+  - upload_scope_packet
+  - repo_change_inventory
+  - validation_matrix
+  - commit_plan
+  - push_result_report
+  - upload_receipt
+  - boundary_review_note
+validation_level: pilot_ready_private_evidence
+registration_policy: owner_requested_registration
+repo_surfaces:
+  - repo_id: public
+    root_ref: "."
+    remote_policy: own_origin
+    commit_when_dirty: true
+  - repo_id: workmeta
+    root_ref: "_workmeta"
+    remote_policy: own_origin
+    commit_when_dirty: true
+  - repo_id: private_state
+    root_ref: "private-state"
+    remote_policy: own_origin
+    commit_when_dirty: true
+downstream_workflows:
+  - workflow_id: post_development_review_gate_v0
+    expected_input: upload_changes_public_or_private_state
+    status: required_before_completion_claim
+operating_contract:
+  owns:
+    - upload_scope_packet_shape
+    - repo_change_inventory_shape
+    - validation_matrix_shape
+    - commit_plan_shape
+    - push_result_report_shape
+    - upload_receipt_shape
+    - boundary_review_note_shape
+  does_not_own:
+    - secret_value_inspection
+    - public_commit_of_private_payloads
+    - destructive_git_rewrites
+    - remote_branch_policy_changes
+    - owner_approval_for_unrelated_scope
+  boundaries:
+    public_and_metadata_repos_checked_together: true
+    each_repo_commits_from_own_git_root: true
+    private_payloads_excluded_from_public_repo: true
+    no_secret_values_in_logs_or_receipts: true
+    private_state_only_when_dirty: true
+  required_output_shapes:
+    upload_scope_packet: templates/upload_scope_packet.template.yaml
+    repo_change_inventory: templates/repo_change_inventory.template.yaml
+    validation_matrix: templates/validation_matrix.template.yaml
+    commit_plan: templates/commit_plan.template.yaml
+    push_result_report: templates/push_result_report.template.yaml
+    upload_receipt: templates/upload_receipt.template.yaml
+    boundary_review_note: templates/boundary_review_note.template.yaml
+notes:
+  - This workflow exists because publishing public changes and metadata changes together was repeatedly requested.
+  - It does not collapse public, `_workmeta`, and `private-state` into one Git repo; it coordinates their separate Git roots.
+  - If a repo has unrelated dirty changes, record the scope explicitly before committing it.
+

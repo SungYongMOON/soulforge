@@ -1,0 +1,19 @@
+schema_version: github_upload_publish_v0.upload_scope_packet
+workflow_id: github_upload_publish_v0
+trigger:
+  kind: ""
+  requested_at: ""
+scope:
+  include_public_repo: true
+  include_workmeta_repo: true
+  include_private_state_repo_when_dirty: true
+repo_roots:
+  public: "."
+  workmeta: "_workmeta"
+  private_state: "private-state"
+policies:
+  validation_policy: ""
+  commit_message_policy: ""
+  push_policy: ""
+blockers: []
+

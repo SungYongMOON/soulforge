@@ -1,0 +1,29 @@
+workflow_id: github_upload_publish_v0
+kind: role_slots
+status: active
+slots:
+  - slot_id: upload_scope_binder
+    title: Upload Scope Binder
+    summary: Binds which Git roots participate in the upload and which validation and commit policies apply.
+  - slot_id: repo_change_inventory_runner
+    title: Repo Change Inventory Runner
+    summary: Reviews status for public, `_workmeta`, and `private-state` without crossing repo boundaries.
+  - slot_id: validation_runner
+    title: Validation Runner
+    summary: Runs relevant validators before any commit or push.
+  - slot_id: commit_planner
+    title: Commit Planner
+    summary: Creates per-repo commit scope and message decisions.
+  - slot_id: git_commit_runner
+    title: Git Commit Runner
+    summary: Stages and commits changed files from each repo root.
+  - slot_id: git_push_runner
+    title: Git Push Runner
+    summary: Pushes committed repos to their configured remotes.
+  - slot_id: upload_receipt_recorder
+    title: Upload Receipt Recorder
+    summary: Writes private upload receipt evidence after push attempts.
+  - slot_id: boundary_handoff_reviewer
+    title: Boundary Handoff Reviewer
+    summary: Confirms status labels, public/private boundaries, and remaining risks.
+

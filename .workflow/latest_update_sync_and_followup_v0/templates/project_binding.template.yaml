@@ -1,0 +1,22 @@
+schema_version: latest_update_sync_and_followup_v0.project_binding
+workflow_id: latest_update_sync_and_followup_v0
+project_scope:
+  mode: "all_active | selected_projects | single_project"
+  project_codes: []
+trigger:
+  kind: "github_patch | upstream_update | manual_latest_check"
+  update_ref: ""
+repo_roots:
+  public_repo: "Soulforge"
+  workmeta_repo: "_workmeta"
+  private_state_repo: "private-state"
+junction_binding:
+  repo_path: "_workmeta/system/bindings/workspace_junctions.yaml"
+  local_cloud_root_resolution_ref: ""
+mutation_policy:
+  repo_sync: "check_only | ff_pull_allowed"
+  junction_repair: "report_only | repair_allowed_after_owner_confirmation"
+  material_download: "report_only | download_allowed_after_owner_confirmation"
+boundary:
+  no_host_local_absolute_paths_in_public_outputs: true
+  no_secret_or_payload_copy: true

@@ -1,0 +1,72 @@
+workflow_id: latest_update_sync_and_followup_v0
+kind: step_graph
+status: draft
+steps:
+  - step_id: bind_update_scope
+    title: Bind Update Scope
+    actor_slot: update_scope_binder
+    action: Bind the triggering GitHub/upstream update, allowed repo roots, companion roots, active project filter, and mutation policy.
+    outputs:
+      - latest_update_scope_packet
+    next:
+      - run_repo_sync_preflight
+  - step_id: run_repo_sync_preflight
+    title: Run Repo Sync Preflight
+    actor_slot: repo_sync_preflight_runner
+    action: Check public `Soulforge`, `_workmeta`, and `private-state` freshness before any project or junction judgment.
+    inputs:
+      - latest_update_scope_packet
+    outputs:
+      - repo_sync_preflight_report
+    next:
+      - sync_codex_skill_mirrors
+  - step_id: sync_codex_skill_mirrors
+    title: Sync Codex Skill Mirrors
+    actor_slot: codex_skill_sync_auditor
+    action: Compare tracked `.registry/skills/**/codex` skill bridges to the local installed Codex skill mirror, classify latest, missing, or update_available rows, and when policy allows run the canonical skill sync command for missing or stale mirrors.
+    inputs:
+      - repo_sync_preflight_report
+    outputs:
+      - codex_skill_sync_audit
+      - codex_skill_sync_patch_report
+    next:
+      - audit_material_completeness
+  - step_id: audit_material_completeness
+    title: Audit Material Completeness
+    actor_slot: material_completeness_auditor
+    action: Check whether the latest update implies missing project folders, metadata companions, source ledgers, or follow-up state.
+    inputs:
+      - codex_skill_sync_patch_report
+    outputs:
+      - material_completeness_audit
+    next:
+      - refresh_workspace_junction_state
+  - step_id: refresh_workspace_junction_state
+    title: Refresh Workspace Junction State
+    actor_slot: workspace_junction_auditor
+    action: Read `_workmeta/system/bindings/workspace_junctions.yaml`, compare declared junction intent to local `_workspaces/<alias>` link state, and classify missing, stale, renamed, inactive, or repairable entries.
+    inputs:
+      - material_completeness_audit
+    outputs:
+      - workspace_junction_refresh_report
+    next:
+      - route_followup_work
+  - step_id: route_followup_work
+    title: Route Follow-up Work
+    actor_slot: followup_router
+    action: Route needed work to curation, gateway, snapshot, owner-decision, or blocked follow-up without copying private payloads into public surfaces.
+    inputs:
+      - workspace_junction_refresh_report
+    outputs:
+      - followup_route_packet
+    next:
+      - review_boundary_and_handoff
+  - step_id: review_boundary_and_handoff
+    title: Review Boundary And Handoff
+    actor_slot: boundary_handoff_reviewer
+    action: Record the weakest supported claim ceiling, public/private boundary status, next action, and whether owner approval is required.
+    inputs:
+      - followup_route_packet
+    outputs:
+      - boundary_review_note
+    next: []

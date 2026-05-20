@@ -1,0 +1,18 @@
+schema_version: latest_update_sync_and_followup_v0.codex_skill_sync_audit
+workflow_id: latest_update_sync_and_followup_v0
+canonical_skill_root_ref: ".registry/skills"
+canonical_bridge_glob: ".registry/skills/**/codex/SKILL.md"
+installed_skill_root_ref: "CODEX_HOME/skills | <runtime_default_codex_home>/skills"
+status: "latest | updates_available | missing_install | blocked"
+skill_rows:
+  - skill_id: ""
+    installed_skill_name: ""
+    canonical_bridge_ref: ""
+    installed_mirror_ref: ""
+    status: "latest | update_available | missing_install | canon_only | blocked"
+    diff_summary:
+      - ""
+    action: "none | sync_required | owner_decision_required"
+notes: []
+host_local_absolute_paths_in_public_output: false
+

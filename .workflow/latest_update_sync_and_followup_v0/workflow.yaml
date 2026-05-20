@@ -1,0 +1,102 @@
+workflow_id: latest_update_sync_and_followup_v0
+kind: workflow
+status: active
+title: Latest Update Sync And Follow-up v0
+summary: Event-driven workflow for pulling latest GitHub/upstream state, syncing Codex skill mirrors from tracked skill bridges, checking companion metadata, refreshing workspace junction status from the private portable junction binding, and routing follow-up work.
+entrypoint: run
+execution_mode: local_tool_sequence
+role_slots: role_slots.yaml
+step_graph: step_graph.yaml
+handoff_rules: handoff_rules.yaml
+monster_rules: monster_rules.yaml
+party_compatibility: party_compatibility.yaml
+profile_policy: profile_policy.yaml
+inputs:
+  - latest_update_scope_binding
+  - repo_sync_policy
+  - skill_sync_policy
+  - junction_binding_ref
+optional_inputs:
+  - active_project_filter
+  - local_cloud_root_resolution_ref
+  - material_completeness_policy
+  - curation_policy
+  - gateway_queue_refs
+  - snapshot_policy
+  - owner_decision_refs
+outputs:
+  - latest_update_scope_packet
+  - repo_sync_preflight_report
+  - codex_skill_sync_audit
+  - codex_skill_sync_patch_report
+  - material_completeness_audit
+  - workspace_junction_refresh_report
+  - followup_route_packet
+  - boundary_review_note
+validation_level: pilot_executed_report_only_private_evidence
+registration_policy: owner_requested_registration
+upstream_surfaces:
+  - surface_id: github_or_upstream_update
+    expected_signal: new_patch_or_latest_update
+    status: trigger
+  - surface_id: workspace_junction_binding
+    expected_ref: _workmeta/system/bindings/workspace_junctions.yaml
+    status: required_private_binding
+  - surface_id: codex_skill_bridge_registry
+    expected_ref: .registry/skills/**/codex/SKILL.md
+    status: optional_sync_surface
+downstream_workflows:
+  - workflow_id: wiki_curation_maintenance_v0
+    expected_input: metadata_or_source_curation_needed
+    status: optional_followup
+  - workflow_id: knowledge_access_event_capture_v0
+    expected_input: metadata_only_usage_signal_needed
+    status: optional_followup
+  - workflow_id: owner_decision_packet_v0
+    expected_input: local_root_or_mutation_authority_missing
+    status: optional_owner_gate
+  - workflow_id: post_development_review_gate_v0
+    expected_input: workflow_changed_state_or_claim_posture
+    status: required_before_completion_claim
+operating_contract:
+  owns:
+    - latest_update_scope_packet_shape
+    - repo_sync_preflight_report_shape
+    - codex_skill_sync_audit_shape
+    - codex_skill_sync_patch_report_shape
+    - material_completeness_audit_shape
+    - workspace_junction_refresh_report_shape
+    - followup_route_packet_shape
+    - boundary_review_note_shape
+  does_not_own:
+    - GitHub merge_or_rebase
+    - host_local_cloud_root_configuration
+    - secret_material_inspection
+    - source_payload_download_authority
+    - automatic_junction_repair_without_binding
+    - NotebookLM_runtime_operation
+    - ad_hoc_global_skill_editing
+    - owner_approval_authority
+    - canon_promotion
+  boundaries:
+    event_driven_not_morning_scheduled: true
+    public_private_companion_state_checked_before_followup: true
+    junction_intent_source_is_private_binding: true
+    skill_mirror_source_is_tracked_codex_bridge: true
+    host_local_absolute_paths_forbidden_in_public_package: true
+    no_payload_copy_into_public_package: true
+  required_output_shapes:
+    project_binding: templates/project_binding.template.yaml
+    latest_update_scope_packet: templates/latest_update_scope_packet.template.yaml
+    repo_sync_preflight_report: templates/repo_sync_preflight_report.template.yaml
+    codex_skill_sync_audit: templates/codex_skill_sync_audit.template.yaml
+    codex_skill_sync_patch_report: templates/codex_skill_sync_patch_report.template.yaml
+    material_completeness_audit: templates/material_completeness_audit.template.yaml
+    workspace_junction_refresh_report: templates/workspace_junction_refresh_report.template.yaml
+    followup_route_packet: templates/followup_route_packet.template.yaml
+    boundary_review_note: templates/boundary_review_note.template.yaml
+notes:
+  - This workflow is triggered by latest update signals, not by a fixed time of day.
+  - "Codex skill sync compares `.registry/skills/**/codex` against the local installed mirror under `CODEX_HOME/skills` or the runtime default; public workflow outputs must not store the host-local absolute install root."
+  - "`_workmeta/system/bindings/workspace_junctions.yaml` is the portable junction intent source; each PC resolves its local cloud root outside workflow canon."
+  - Report-only pilot evidence exists, but do not report production-ready, source-truth, unattended automation, or default-route claims from this package alone.

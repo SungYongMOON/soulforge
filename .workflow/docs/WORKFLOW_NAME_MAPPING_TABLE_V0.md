@@ -4,7 +4,7 @@ Status: `draft`
 Owner: `.workflow`
 Claim ceiling: `canon_candidate`
 
-이 문서는 2026-05-18 기준 `.workflow/index.yaml` 에 등록된 workflow 44개의 이름 매핑 초안이다. 여기의 `global_name_ko` 와 `display_name_ko` 는 alias 후보이며, 실제 rename, folder 변경, `workflow_id` 변경, validator enforcement 를 의미하지 않는다.
+이 문서는 `.workflow/index.yaml` 에 등록된 workflow 의 이름 매핑 초안이다. 여기의 `global_name_ko` 와 `display_name_ko` 는 alias 후보이며, 실제 rename, folder 변경, `workflow_id` 변경, validator enforcement 를 의미하지 않는다.
 
 ## 목적
 
@@ -66,6 +66,8 @@ Claim ceiling: `canon_candidate`
 | `knowledge_candidate_triage_v0` | `지식_후보선별_v0` | `지식/후보/선별` | 지식 | 후보 material routing 이며 canon promotion 이 아니다. |
 | `wiki_curation_maintenance_v0` | `지식_위키큐레이션유지_v0` | `지식/위키큐레이션/유지` | 지식 | metadata-only maintenance 로 제한한다. |
 | `llm_wiki_builder_v0` | `지식_LLM위키빌더_v0` | `지식/LLM위키/빌더` | 지식 | stack orchestrator 후보 이름이며 source truth 가 아니다. |
+| `latest_update_sync_and_followup_v0` | `운영_최신업데이트후속점검_v0` | `운영/최신업데이트/후속점검` | 운영 | GitHub/upstream update 후 repo, metadata, junction, follow-up route 를 report-only 또는 owner-gated mutation 으로 점검한다. |
+| `github_upload_publish_v0` | `운영_깃허브업로드_v0` | `운영/깃허브/업로드` | 운영 | public repo 와 `_workmeta`, `private-state` companion repo 를 각각 검증, 커밋, 푸시하는 업로드 절차다. |
 | `knowledge_access_event_capture_v0` | `지식_접근이벤트기록_v0` | `지식/접근이벤트/기록` | 지식 | metadata-only event capture 로 제한한다. |
 | `ouroboros_strategic_review_harness_v0` | `운영_오로보로스전략검토_v0` | `운영/오로보로스전략/검토하네스` | 운영 | vision alignment 질문/후보 생성이며 owner intent 를 추론하지 않는다. |
 

@@ -1,0 +1,15 @@
+schema_version: github_upload_publish_v0.repo_change_inventory
+workflow_id: github_upload_publish_v0
+status: "changed | clean | blocked"
+repo_rows:
+  - repo_id: ""
+    root_ref: ""
+    branch: ""
+    upstream: ""
+    clean: null
+    changed_paths: []
+    unrelated_or_preexisting_changes: []
+    include_in_upload: null
+    blocker: null
+notes: []
+

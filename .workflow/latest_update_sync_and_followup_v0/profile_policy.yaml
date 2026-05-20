@@ -1,0 +1,14 @@
+workflow_id: latest_update_sync_and_followup_v0
+kind: profile_policy
+status: draft
+default_profile:
+  model: unspecified
+  reasoning_effort: unspecified
+  class: auditor
+  rationale: Use an audit-oriented posture because the workflow checks freshness, boundaries, and junction consistency before follow-up.
+readiness:
+  current_label: draft_private_evidence
+  production_ready: false
+  reason: No controlled project pilot or fresh evaluator verification has run yet.
+notes:
+  - Do not hard-code model, species, class, or unit choices into the workflow package beyond broad role posture.

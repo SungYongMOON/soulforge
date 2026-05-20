@@ -1,0 +1,14 @@
+schema_version: github_upload_publish_v0.push_result_report
+workflow_id: github_upload_publish_v0
+status: "pushed | partial | blocked | no_changes"
+push_rows:
+  - repo_id: ""
+    root_ref: ""
+    branch: ""
+    remote: ""
+    before_ref: ""
+    after_ref: ""
+    push_result: "pushed | skipped | failed | blocked"
+    blocker: null
+notes: []
+
