@@ -1,0 +1,37 @@
+workflow_id: se_assistant_operating_loop_v0
+kind: monster_rules
+status: active
+rules:
+  - monster_id: operating_loop_reported_as_design_authority
+    response: relabel_as_route_recommendation_only
+    summary: The loop may organize requests and next actions, but design choices remain owner-held.
+  - monster_id: foldertree_scaffold_treated_as_project_truth
+    response: cap_to_scaffold_manifest_or_dry_run_ref
+    summary: "`se_foldertree_generate` output is scaffold support, not project source truth or plan approval."
+  - monster_id: stage_gap_scan_treated_as_artifact_completion
+    response: route_to_gap_visibility_only
+    summary: Stage scans expose missing inputs and draftable lanes; they do not complete artifacts.
+  - monster_id: source_intake_treated_as_source_truth_approval
+    response: route_to_source_sufficiency_or_owner_decision
+    summary: Source intake can bind refs and gaps, but source truth approval stays outside this workflow.
+  - monster_id: readiness_digest_treated_as_review_approval
+    response: relabel_as_reporting_only
+    summary: Readiness digest output is an owner-readable rollup, not review approval or verification completion.
+  - monster_id: governance_route_treated_as_governance_decision
+    response: require_explicit_downstream_packet_or_owner_decision
+    summary: Routing to governance does not decide owner, source, promotion, or review outcomes.
+  - monster_id: owner_input_queue_treated_as_filled_fact
+    response: keep_owner_question_open
+    summary: Owner-input rows stay questions or blockers until owner evidence exists.
+  - monster_id: public_private_promotion_implied_by_closeout
+    response: block_and_request_owner_authority
+    summary: Closeout may recommend promotion review, but cannot promote public or private material.
+  - monster_id: party_lane_name_treated_as_party_binding
+    response: keep_execution_binding_unbound
+    summary: Classification lanes are discovery metadata only and do not bind a party.
+  - monster_id: runtime_absolute_path_in_reusable_package
+    response: replace_with_repo_relative_path_or_stable_id
+    summary: Reusable workflow files must use Soulforge-root-relative POSIX paths or stable ids only.
+  - monster_id: private_payload_or_secret_in_public_package
+    response: remove_payload_and_keep_placeholder_ref
+    summary: Public-safe workflow packages must not contain secrets, raw private data, or protected project payload.

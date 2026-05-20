@@ -1,0 +1,66 @@
+route_map_id: operating_loop_route_map_<id>
+route_map_kind: se_assistant_operating_loop_route_map
+workflow_id: se_assistant_operating_loop_v0
+output_state: registered
+request_ref:
+route_status: planned
+claim_ceiling: observed
+steps:
+  - step_id: request_intake
+    status: pending
+    delegated_to: local_controller
+    input_refs: []
+    output_refs: []
+    blockers: []
+  - step_id: boundary_classification
+    status: pending
+    delegated_to: local_controller
+    input_refs: []
+    output_refs: []
+    blockers: []
+  - step_id: optional_foldertree_generate
+    status: skipped
+    delegated_to: se_foldertree_generate
+    input_refs: []
+    output_refs: []
+    blockers: []
+  - step_id: stage_gap_scan_route
+    status: pending
+    delegated_to: se_stage_artifact_gap_scan_v0
+    input_refs: []
+    output_refs: []
+    blockers: []
+  - step_id: source_knowledge_intake_route
+    status: pending
+    delegated_to: se_knowledge_wiki_pipeline_v0
+    input_refs: []
+    output_refs: []
+    blockers: []
+  - step_id: optional_cross_stage_governance_route
+    status: pending
+    delegated_to: available_governance_workflow
+    input_refs: []
+    output_refs: []
+    blockers: []
+  - step_id: readiness_digest_route
+    status: pending
+    delegated_to: project_readiness_digest_v0
+    input_refs: []
+    output_refs: []
+    blockers: []
+  - step_id: owner_decision_review_closeout
+    status: pending
+    delegated_to: local_controller
+    input_refs: []
+    output_refs: []
+    blockers: []
+non_claims:
+  source_truth: not_claimed
+  artifact_completion: not_claimed
+  design_authority: not_claimed
+  review_approval: not_claimed
+  verification_completion: not_claimed
+  promotion: not_claimed
+next_action_recommendations: []
+owner_questions: []
+boundary_review_ref: null

@@ -1,0 +1,32 @@
+party_id: systems_engineering_cell
+kind: member_slots
+status: active
+slots:
+  - slot_id: request_router
+    title: Request Router
+    workflow_id: se_assistant_operating_loop_v0
+    execution_contract: subagent_preferred
+    summary: Classifies the SE request, checks boundaries, and selects the smallest safe workflow route.
+  - slot_id: stage_gap_scanner
+    title: Stage Gap Scanner
+    workflow_id: se_stage_artifact_gap_scan_v0
+    execution_contract: subagent_preferred
+    summary: Builds stage artifact, gap, owner-question, blocker, and downstream-route packets.
+  - slot_id: source_knowledge_stage
+    title: Source Knowledge Stage
+    workflow_id: se_knowledge_wiki_pipeline_v0
+    execution_contract: subagent_required_for_sourcebound_work
+    summary: Routes source-heavy or wiki-heavy support through source intake, sourcebound projection, metadata capture, and closeout.
+  - slot_id: readiness_writer
+    title: Readiness Writer
+    workflow_id: project_readiness_digest_v0
+    execution_contract: subagent_optional
+    summary: Produces owner-readable status and next-action digest from bounded upstream refs.
+  - slot_id: closeout_reviewer
+    title: Closeout Reviewer
+    workflow_id: post_development_review_gate_v0
+    execution_contract: subagent_preferred
+    summary: Checks validators, boundary posture, claim ceiling, and knowledge trigger closeout before acceptance.
+notes:
+  - Slots are display and compatibility surfaces only.
+  - Detailed step order, actor selection, and execution profiles remain workflow-owned.

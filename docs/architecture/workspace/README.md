@@ -37,6 +37,7 @@
 | `BATTLE_LOG_STORAGE_PLAN.md` | battle log 저장 위치, event stream, chain sample 기준이다. |
 | `MISSION_CLOSE_PROVENANCE_V0.md` | mission terminal 상태와 battle event provenance pointer 계약이다. |
 | `SE_DUNGEON_STAGE_MODEL_V0.md` | project=dungeon, stage/floor, boss clear 를 UI/업무 단계에 연결한다. |
+| `SE_ASSISTANT_OPERATING_MODEL_V0.md` | Defines the public-safe SE assistant operating loop, authority boundary, request flow, and project use path. |
 | `MAILBOX_CONCRETE_CONTRACT_V0.md` | mailbox concrete source 와 gateway state surface 의 public-safe 계약이다. |
 | `AUTOHUNT_MODEL.md` | `_workmeta/<project_code>/autohunt/` 의 routing, policy, capability 확장선을 둔다. |
 | `WIKI_CURATION_MAINTENANCE_V0.md` | project wiki/source ledger/packet map 을 어떻게 유지보수할지 current-default runbook 을 둔다. |
@@ -79,6 +80,7 @@
 - [`BATTLE_LOG_STORAGE_PLAN.md`](BATTLE_LOG_STORAGE_PLAN.md)
 - [`MISSION_CLOSE_PROVENANCE_V0.md`](MISSION_CLOSE_PROVENANCE_V0.md)
 - [`SE_DUNGEON_STAGE_MODEL_V0.md`](SE_DUNGEON_STAGE_MODEL_V0.md)
+- [`SE_ASSISTANT_OPERATING_MODEL_V0.md`](SE_ASSISTANT_OPERATING_MODEL_V0.md)
 - [`MAILBOX_CONCRETE_CONTRACT_V0.md`](MAILBOX_CONCRETE_CONTRACT_V0.md)
 - [`AUTOHUNT_MODEL.md`](AUTOHUNT_MODEL.md)
 - [`WIKI_CURATION_MAINTENANCE_V0.md`](WIKI_CURATION_MAINTENANCE_V0.md)

@@ -1,0 +1,172 @@
+workflow_id: se_assistant_operating_loop_v0
+kind: step_graph
+status: active
+steps:
+  - step_id: request_intake
+    title: Request Intake
+    actor_slot: se_request_controller
+    action:
+      kind: se_assistant_request_normalization
+    inputs:
+      - se_assistant_request_packet
+      - approved_boundary_policy
+    outputs:
+      - normalized_request_scope
+    next:
+      - boundary_classification
+  - step_id: boundary_classification
+    title: Boundary Classification
+    actor_slot: boundary_classifier
+    action:
+      kind: public_private_source_owner_boundary_classification
+    inputs:
+      - normalized_request_scope
+    outputs:
+      - boundary_classification_note
+      - route_constraints
+    next:
+      default: optional_foldertree_generate
+      when_boundary_blocked: owner_decision_review_closeout
+  - step_id: optional_foldertree_generate
+    title: Optional Foldertree Generate
+    actor_slot: foldertree_router
+    delegates_to_skill_id: se_foldertree_generate
+    condition: Only when the owner asks for scaffold generation or no project scaffold exists, and required runtime inputs are known.
+    action:
+      kind: optional_scaffold_skill_route
+    inputs:
+      - normalized_request_scope
+      - route_constraints
+    optional_inputs:
+      - foldertree_request_packet
+    outputs:
+      - foldertree_manifest_refs
+      - foldertree_route_blockers
+    next:
+      - stage_gap_scan_route
+  - step_id: stage_gap_scan_route
+    title: Stage Gap Scan Route
+    actor_slot: stage_scan_router
+    delegates_to_workflow_id: se_stage_artifact_gap_scan_v0
+    condition: Only when a target stage or stage scan binding is available.
+    action:
+      kind: stage_gap_scan_workflow_route
+    inputs:
+      - normalized_request_scope
+      - route_constraints
+    optional_inputs:
+      - foldertree_manifest_refs
+      - existing_foldertree_manifest_refs
+      - stage_gap_scan_binding_refs
+    outputs:
+      - stage_gap_scan_refs
+      - owner_input_queue_refs
+      - blocker_register_refs
+    next:
+      default: source_knowledge_intake_route
+      when_no_stage_scope: source_knowledge_intake_route
+  - step_id: source_knowledge_intake_route
+    title: Source Knowledge Intake Route
+    actor_slot: source_knowledge_router
+    delegates_to_workflow_id: se_knowledge_wiki_pipeline_v0
+    condition: Only when source or knowledge intake is requested and owner-approved source scope exists.
+    action:
+      kind: source_or_knowledge_intake_workflow_route
+    inputs:
+      - normalized_request_scope
+      - route_constraints
+    optional_inputs:
+      - approved_source_scope_refs
+      - knowledge_wiki_request_packet
+      - stage_gap_scan_refs
+    outputs:
+      - source_or_knowledge_intake_refs
+      - source_gap_refs
+      - claim_ceiling_refs
+    next:
+      - optional_cross_stage_governance_route
+  - step_id: optional_cross_stage_governance_route
+    title: Optional Cross Stage Governance Route
+    actor_slot: governance_router
+    condition: Only when an available governance workflow is needed for owner decision, source sufficiency, source gap, or review evidence handling.
+    action:
+      kind: governance_workflow_insertion_route
+    inputs:
+      - normalized_request_scope
+      - route_constraints
+    optional_inputs:
+      - stage_gap_scan_refs
+      - source_or_knowledge_intake_refs
+      - source_gap_refs
+      - claim_ceiling_refs
+      - cross_stage_governance_refs
+      - owner_decision_refs
+    outputs:
+      - governance_route_refs
+      - governance_blockers
+    next:
+      - readiness_digest_route
+  - step_id: readiness_digest_route
+    title: Readiness Digest Route
+    actor_slot: readiness_digest_router
+    delegates_to_workflow_id: project_readiness_digest_v0
+    condition: Only when bounded status refs exist and the owner needs a digest or next-action rollup.
+    action:
+      kind: readiness_digest_workflow_route
+    inputs:
+      - normalized_request_scope
+      - route_constraints
+    optional_inputs:
+      - stage_gap_scan_refs
+      - owner_input_queue_refs
+      - blocker_register_refs
+      - source_or_knowledge_intake_refs
+      - governance_route_refs
+      - readiness_digest_scope_refs
+    outputs:
+      - readiness_digest_refs
+      - next_action_recommendations
+    next:
+      - owner_decision_review_closeout
+  - step_id: owner_decision_review_closeout
+    title: Owner Decision Review Closeout
+    actor_slot: owner_closeout_liaison
+    action:
+      kind: owner_decision_and_review_closeout_routing
+    inputs:
+      - normalized_request_scope
+      - route_constraints
+    optional_inputs:
+      - stage_gap_scan_refs
+      - owner_input_queue_refs
+      - blocker_register_refs
+      - source_or_knowledge_intake_refs
+      - governance_route_refs
+      - readiness_digest_refs
+      - next_action_recommendations
+    outputs:
+      - owner_review_closeout_note
+      - operating_loop_route_map
+    next:
+      - boundary_review
+  - step_id: boundary_review
+    title: Boundary Review
+    actor_slot: boundary_reviewer
+    action:
+      kind: loop_boundary_and_non_claim_review
+    inputs:
+      - operating_loop_route_map
+      - owner_review_closeout_note
+    outputs:
+      - boundary_review_note
+    next: []
+stop_conditions:
+  - approved_boundary_policy_missing
+  - owner_scope_or_project_binding_missing_for_execution
+  - foldertree_runtime_inputs_missing
+  - unsupported_foldertree_profile
+  - target_stage_missing_for_stage_scan
+  - approved_source_scope_missing_for_source_intake
+  - governance_workflow_required_but_unavailable
+  - review_or_verification_approval_requested_from_this_workflow
+  - public_private_promotion_requested_without_owner_authority

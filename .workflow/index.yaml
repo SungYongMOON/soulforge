@@ -97,6 +97,8 @@ entries:
     path: knowledge_access_event_capture_v0/workflow.yaml
   - workflow_id: se_knowledge_wiki_pipeline_v0
     path: se_knowledge_wiki_pipeline_v0/workflow.yaml
+  - workflow_id: se_assistant_operating_loop_v0
+    path: se_assistant_operating_loop_v0/workflow.yaml
   - workflow_id: ouroboros_strategic_review_harness_v0
     path: ouroboros_strategic_review_harness_v0/workflow.yaml
 notes:

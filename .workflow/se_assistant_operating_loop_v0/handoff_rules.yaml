@@ -1,0 +1,36 @@
+workflow_id: se_assistant_operating_loop_v0
+kind: handoff_rules
+status: active
+rules:
+  - from: se_request_controller
+    to: boundary_classifier
+    condition: request_scope_normalized
+    summary: Pass only the bounded request, stated owner intent, and approved boundary policy; do not pass raw private payload into the reusable package.
+  - from: boundary_classifier
+    to: foldertree_router
+    condition: scaffold_route_allowed_or_needed
+    summary: Foldertree routing receives scaffold intent and runtime input requirements only; project-local paths and values stay in run binding.
+  - from: foldertree_router
+    to: stage_scan_router
+    condition: scaffold_skipped_or_manifest_refs_available
+    summary: Stage scan routing may use scaffold manifest refs, but scaffold existence does not imply design readiness.
+  - from: stage_scan_router
+    to: source_knowledge_router
+    condition: stage_gap_scan_refs_or_source_questions_present
+    summary: Source and knowledge intake receives gap/source-needed refs, not invented source truth or artifact completion claims.
+  - from: source_knowledge_router
+    to: governance_router
+    condition: claim_ceiling_or_owner_decision_issue_present
+    summary: Governance receives claim ceilings, gaps, and decision needs; it does not receive authority to approve them inside this workflow.
+  - from: governance_router
+    to: readiness_digest_router
+    condition: governance_route_completed_skipped_or_blocked
+    summary: Readiness digest receives bounded status refs and blockers; it reports current posture only.
+  - from: readiness_digest_router
+    to: owner_closeout_liaison
+    condition: digest_refs_or_next_actions_available
+    summary: Closeout receives digest refs and next actions, then reduces unresolved items into owner questions, blockers, and route recommendations.
+  - from: owner_closeout_liaison
+    to: boundary_reviewer
+    condition: closeout_note_and_route_map_written
+    summary: Boundary review checks the final route map for overclaim, public/private leakage, absolute paths, and upstream mutation.

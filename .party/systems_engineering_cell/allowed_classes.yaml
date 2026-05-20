@@ -1,0 +1,8 @@
+party_id: systems_engineering_cell
+kind: allowed_classes
+status: active
+class_ids: []
+selection_policy: workflow_profile_owned
+notes:
+  - Class selection is not party authority for this chain.
+  - Common fits include administrator for routing, auditor for boundary checks, archivist for evidence mapping, and pathfinder for navigation, but workflow profile policy remains authoritative.

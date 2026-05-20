@@ -1,0 +1,30 @@
+queue_id: owner_input_and_decision_queue_<id>
+queue_kind: owner_input_and_decision_queue
+workflow_id: se_assistant_operating_loop_v0
+request_ref: null
+claim_ceiling: observed
+owner_input_items:
+  - item_id: owner_input_<id>
+    status: open
+    question: null
+    needed_for:
+      - route_decision
+    blocking_level: unknown
+    downstream_route: null
+owner_decision_items:
+  - item_id: owner_decision_<id>
+    status: open
+    decision_needed: null
+    decision_type: owner_judgment
+    downstream_route: owner_decision_packet_v0
+    cannot_be_inferred_by_agent: true
+source_gap_items:
+  - item_id: source_gap_<id>
+    status: open
+    missing_source_or_evidence: null
+    downstream_route: source_gap_followup_packet_v0
+blockers: []
+non_claims:
+  missing_input_filled: false
+  owner_decision_created: false
+  source_gap_resolved: false

@@ -1,0 +1,38 @@
+route_packet_id: se_assistant_route_packet_<id>
+packet_kind: se_assistant_route_packet
+workflow_id: se_assistant_operating_loop_v0
+request_ref: null
+route_status: planned
+claim_ceiling: observed
+selected_routes:
+  scaffold_generation:
+    route: se_foldertree_generate
+    status: skipped
+    reason: null
+    required_missing_inputs: []
+  stage_gap_scan:
+    route: se_stage_artifact_gap_scan_v0
+    status: pending
+    target_stage_codes: []
+  source_or_knowledge:
+    route: se_knowledge_wiki_pipeline_v0
+    status: optional
+    required_source_scope_refs: []
+  readiness_digest:
+    route: project_readiness_digest_v0
+    status: optional
+  owner_decision:
+    route: owner_decision_packet_v0
+    status: optional
+  closeout_review:
+    route: post_development_review_gate_v0
+    status: required_when_state_or_claim_changes
+blocked_routes: []
+owner_questions: []
+non_claims:
+  design_authority: not_claimed
+  source_truth: not_claimed
+  artifact_completion: not_claimed
+  review_approval: not_claimed
+  verification_completion: not_claimed
+  public_promotion: not_claimed

@@ -2,6 +2,13 @@
 
 ## 2026-05-20
 
+### Revision `working` - SE assistant operating loop registered
+
+- Added `.workflow/se_assistant_operating_loop_v0/` as a structure-only request router for systems-engineering assistant work across scaffold, stage-gap, source/wiki, readiness, owner-decision, review, and closeout workflows.
+- Added `.party/systems_engineering_cell/` as the reusable party/loadout for SE assistant routing, while keeping workflow profile choices and project-local run truth outside party canon.
+- Added `docs/architecture/workspace/SE_ASSISTANT_OPERATING_MODEL_V0.md` and tightened Boss Clear wording so stage completion cannot be inferred from folder/output presence alone.
+- Kept the new route below production-ready or pilot-executed claims; it is registered public-safe orchestration structure, not design authority, source truth, review approval, or verification acceptance.
+
 ### Revision `working` - Long-thread handoff Codex wrapper added
 
 - Added `.registry/skills/long_thread_handoff/` as the tracked Codex wrapper for explicit long-thread contamination-free handoff requests.

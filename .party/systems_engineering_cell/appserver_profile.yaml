@@ -1,0 +1,12 @@
+party_id: systems_engineering_cell
+kind: appserver_profile
+status: active
+profile:
+  mode: subagent_chain
+  summary: Resolve the SE assistant operating loop, then dispatch sourcebound, review, or specialist stages to fresh subagents when the route requires separation.
+  public_payload_policy: metadata_and_orchestration_only
+  private_output_policy: project_local_run_truth_and_owner_evidence
+notes:
+  - Public party files must remain portable and payload-free.
+  - Runtime paths, copied source documents, private project data, and run outputs belong under `_workmeta/<project_code>/` or another approved private surface.
+  - Subagent separation is preferred for sourcebound, review, verification, and closeout stages.

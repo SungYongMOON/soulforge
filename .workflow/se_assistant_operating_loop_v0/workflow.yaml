@@ -1,0 +1,133 @@
+workflow_id: se_assistant_operating_loop_v0
+kind: workflow
+status: active
+title: SE Assistant Operating Loop v0
+summary: Request-level systems-engineering assistant workflow that routes scaffold, stage-gap, source/wiki, readiness, owner-decision, review, and closeout work without becoming design, source, review, or verification authority.
+entrypoint: run
+execution_mode: party_sequence
+role_slots: role_slots.yaml
+step_graph: step_graph.yaml
+handoff_rules: handoff_rules.yaml
+monster_rules: monster_rules.yaml
+party_compatibility: party_compatibility.yaml
+profile_policy: profile_policy.yaml
+inputs:
+  - se_assistant_request_packet
+  - approved_boundary_policy
+  - project_context_ref
+optional_inputs:
+  - foldertree_request_ref
+  - mission_candidate_refs
+  - stage_status_refs
+  - source_packet_refs
+  - source_gap_refs
+  - review_gate_packet_refs
+  - owner_decision_refs
+  - readiness_digest_refs
+  - workflow_route_policy_refs
+outputs:
+  - se_assistant_route_packet
+  - boundary_classification_note
+  - scaffold_route_decision
+  - stage_scan_request_bundle
+  - source_or_knowledge_route_bundle
+  - owner_input_and_decision_queue
+  - readiness_digest_request
+  - review_closeout_request
+  - boundary_review_note
+validation_level: structure_only_public_safe
+registration_policy: owner_requested_structure_completion
+output_state: registered
+classification_lane:
+  primary: systems_engineering
+  primary_name_ko: systems_engineering
+  secondary:
+    - project_management
+    - knowledge_work
+    - review
+  secondary_name_ko:
+    - project_management
+    - knowledge_work
+    - review
+  purpose: discovery_only
+  authority: none
+execution_binding:
+  party_required: false
+  candidate_party_id: systems_engineering_cell
+  bound_party_id: systems_engineering_cell
+  binding_authority: party_index_and_allowed_workflows
+constituent_workflows:
+  required:
+    - se_stage_artifact_gap_scan_v0
+    - project_readiness_digest_v0
+    - owner_decision_packet_v0
+    - post_development_review_gate_v0
+  optional:
+    - se_knowledge_wiki_pipeline_v0
+    - source_gap_followup_packet_v0
+    - source_packet_sufficiency_review_v0
+    - review_gate_evidence_pack_v0
+    - technical_risk_open_question_burndown_v0
+    - configuration_baseline_and_change_control_v0
+    - verification_plan_from_page_contracts_v0
+    - test_harness_asset_planning_v0
+    - accepted_verification_result_packet_v0
+    - functional_configuration_audit_page_library_v0
+    - physical_configuration_audit_asset_package_v0
+    - review_action_item_closure_loop_v0
+skill_routes:
+  - skill_id: se_foldertree_generate
+    route_kind: optional_scaffold_generation
+    authority: scaffold_only
+request_modes:
+  - project_start_scaffold
+  - single_stage_gap_scan
+  - source_gap_or_wiki_support
+  - review_readiness_preparation
+  - owner_decision_preparation
+  - cross_stage_status_digest
+  - blocked_boundary_case
+operating_contract:
+  owns:
+    - request_boundary_classification
+    - route_packet_shape
+    - scaffold_route_decision
+    - stage_scan_request_bundle
+    - source_or_knowledge_route_bundle
+    - owner_input_and_decision_queue
+    - readiness_digest_request
+    - closeout_review_request
+    - boundary_review_note_shape
+  does_not_own:
+    - source_truth
+    - engineering_fact_invention
+    - design_authority
+    - artifact_body_authoring_by_default
+    - owner_decision_creation
+    - review_gate_approval
+    - verification_acceptance
+    - stage_clearance_approval
+    - foldertree_spec_authority
+    - public_canon_promotion
+    - project_local_payload_storage
+  boundaries:
+    public_safe_orchestration_only: true
+    missing_truth_routes_to_gap_or_owner_queue: true
+    sourcebound_work_requires_source_workflow: true
+    review_claims_require_review_workflow: true
+    verification_claims_require_accepted_result_or_verification_workflow: true
+    no_runtime_absolute_paths_in_public_package: true
+    no_private_payload_copy_into_public_package: true
+  required_output_shapes:
+    se_assistant_request_packet: templates/se_assistant_request_packet.template.yaml
+    se_assistant_route_packet: templates/se_assistant_route_packet.template.yaml
+    boundary_classification_note: templates/boundary_classification_note.template.md
+    owner_input_and_decision_queue: templates/owner_input_and_decision_queue.template.yaml
+    operating_loop_route_map: templates/operating_loop_route_map.template.yaml
+    owner_review_closeout_note: templates/owner_review_closeout_note.template.md
+    boundary_review_note: templates/boundary_review_note.template.md
+notes:
+  - "This workflow is the request-level router for the SE assistant lane."
+  - "Registration means the structure is callable through `.party/systems_engineering_cell`; it does not imply pilot execution or production readiness."
+  - "`se_foldertree_generate` remains scaffold-only and must not be treated as design, source, or compliance authority."
+  - "`se_cross_stage_mapping_governance_v0` is intentionally excluded until its draft/pilot/registration posture is resolved."

@@ -40,6 +40,21 @@ read-only snapshot
 
 ## SE assistant program direction
 
+Current structural target:
+
+- Keep `snapshot_to_operation_board_v0` as the active slice and make the SE
+  assistant a bounded follow-on operating lane.
+- Use `systems_engineering_cell` as the party/loadout for SE assistant requests.
+- Use `se_assistant_operating_loop_v0` as the request-level router before
+  calling stage gap scan, source/wiki, readiness, owner-decision, review, or
+  closeout workflows.
+- Keep `se_foldertree_generate` limited to scaffold generation and plan-tracking
+  bootstrap.
+- Treat missing engineering truth as owner input, source gap, blocker,
+  draftable queue, or downstream route; never infer it into the design record.
+- Keep stage readiness, review approval, verification acceptance, and public
+  canon promotion outside the assistant's authority.
+
 이 program lane 은 `snapshot_to_operation_board_v0` 를 대체하지 않는다. 현재 active slice 는 read-only snapshot 과 작전판 v0 로 유지하고, SE assistant 는 그 snapshot 이 안정된 뒤 project work 를 더 잘 굴리기 위한 후속 방향으로 둔다.
 
 핵심 owner 분리:

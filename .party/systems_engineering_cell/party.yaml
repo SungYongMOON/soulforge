@@ -1,0 +1,57 @@
+party_id: systems_engineering_cell
+kind: party_template
+status: active
+title: Systems Engineering Cell
+summary: Reusable workflow-chain party for routing systems-engineering assistant requests across scaffold, stage-gap, source, readiness, owner-decision, and closeout workflows without granting design authority.
+service_lane:
+  primary: systems_engineering
+  primary_name_ko: systems_engineering
+  secondary:
+    - project_management
+    - knowledge_work
+    - review
+  secondary_name_ko:
+    - project_management
+    - knowledge_work
+    - review
+  purpose: execution_fit
+  authority: routing_hint_only
+default_workflow_id: se_assistant_operating_loop_v0
+workflow_chain:
+  - order: 1
+    workflow_id: se_assistant_operating_loop_v0
+    role: request_router_and_stage_chain_owner
+    execution_contract: subagent_preferred
+  - order: 2
+    workflow_id: se_stage_artifact_gap_scan_v0
+    role: stage_gap_scan_when_needed
+    execution_contract: subagent_preferred
+  - order: 3
+    workflow_id: se_knowledge_wiki_pipeline_v0
+    role: source_or_knowledge_pipeline_when_needed
+    execution_contract: subagent_required_for_sourcebound_work
+  - order: 4
+    workflow_id: project_readiness_digest_v0
+    role: owner_readable_status_when_needed
+    execution_contract: subagent_optional
+  - order: 5
+    workflow_id: post_development_review_gate_v0
+    role: closeout_review_when_state_or_claim_changes
+    execution_contract: subagent_preferred
+preferred_monster_types:
+  - se_assistant_request
+  - systems_engineering_project_start
+  - se_stage_gap_scan_request
+  - se_source_gap_request
+  - se_review_readiness_request
+  - se_owner_decision_request
+member_slots: member_slots.yaml
+allowed_species: allowed_species.yaml
+allowed_classes: allowed_classes.yaml
+allowed_workflows: allowed_workflows.yaml
+appserver_profile: appserver_profile.yaml
+notes:
+  - Party owns the reusable workflow-chain loadout only.
+  - Workflow-local profile policies own model, reasoning effort, species, class, and unit/profile recommendations.
+  - Design authority, source truth, review approval, verification acceptance, and public/private promotion stay with the owning workflow, mission, source packet, review gate, or owner decision.
+  - The default workflow is an assistant operating loop, not unattended automation and not a default route switch for every project.

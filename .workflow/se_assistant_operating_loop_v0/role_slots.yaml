@@ -1,0 +1,22 @@
+workflow_id: se_assistant_operating_loop_v0
+kind: role_slots
+status: active
+slots:
+  - slot_id: se_request_controller
+    summary: Normalize the owner request, lock the requested outcome, and keep the workflow in orchestration-only posture.
+  - slot_id: boundary_classifier
+    summary: Classify public/private, source, owner-decision, mission, and stage boundaries before any downstream route.
+  - slot_id: foldertree_router
+    summary: Decide whether `se_foldertree_generate` is applicable and block when required runtime inputs or supported profiles are missing.
+  - slot_id: stage_scan_router
+    summary: Prepare or route a stage gap scan without treating the scan as artifact completion or review readiness.
+  - slot_id: source_knowledge_router
+    summary: Route approved source or knowledge intake work while preserving source authority outside this workflow.
+  - slot_id: governance_router
+    summary: Insert owner-decision, source-sufficiency, source-gap, or review-evidence workflows when available and needed.
+  - slot_id: readiness_digest_router
+    summary: Prepare owner-readable readiness digest inputs from bounded refs without replacing upstream truth.
+  - slot_id: owner_closeout_liaison
+    summary: Reduce unresolved items into owner decisions, open questions, blockers, and next route recommendations.
+  - slot_id: boundary_reviewer
+    summary: Check the loop output for overclaim, path portability, upstream mutation, and public/private leakage.

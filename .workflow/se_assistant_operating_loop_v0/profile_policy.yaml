@@ -1,0 +1,25 @@
+workflow_id: se_assistant_operating_loop_v0
+kind: workflow_profile_policy
+status: active
+validation_level: structure_only_public_safe
+calibration_status: none
+profile_binding_policy:
+  model: runtime_binding
+  reasoning_effort: runtime_binding
+  species: runtime_binding
+  class: runtime_binding
+  party: runtime_binding_or_unbound
+selection_rules:
+  - Do not hard-code model, species, or class choices into this reusable workflow package.
+  - Use the lowest authority profile that can classify boundaries and route to existing workflows.
+  - Require project-local binding before any pilot execution.
+  - Require separate review evidence before claiming usable or production-ready status.
+rerun_triggers:
+  - workflow step graph changes
+  - output templates change
+  - a project-local pilot run is authorized
+  - downstream workflow ids or contracts change
+non_claims:
+  - no_profile_optimization_claim
+  - no_cost_or_quality_calibration_claim
+  - no_production_ready_claim

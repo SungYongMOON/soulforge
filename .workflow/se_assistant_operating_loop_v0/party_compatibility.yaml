@@ -1,0 +1,27 @@
+workflow_id: se_assistant_operating_loop_v0
+kind: party_compatibility
+status: active
+execution_binding:
+  party_required: false
+  candidate_party_id: systems_engineering_cell
+  bound_party_id: systems_engineering_cell
+  binding_authority: party_index_and_allowed_workflows
+compatible_party_templates:
+  - systems_engineering_cell
+  - systems_pm_planning
+  - sourcebound_extraction_review
+  - review_gate_preparation
+required_capabilities:
+  - request_boundary_classification
+  - project_local_binding_resolution
+  - scaffold_route_selection
+  - stage_gap_scan_routing
+  - source_or_knowledge_intake_routing
+  - governance_gate_insertion
+  - readiness_digest_preparation
+  - owner_question_reduction
+  - public_private_boundary_review
+notes:
+  - "Template compatibility is advisory only."
+  - "`systems_engineering_cell` is the current registered party/loadout for this request-level loop."
+  - "Real execution binding belongs in mission or project-local run evidence."

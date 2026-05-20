@@ -1,0 +1,32 @@
+packet_id: se_assistant_request_packet_<id>
+packet_kind: se_assistant_request_packet
+request_summary:
+owner_intent:
+requested_mode: request_triage
+project_binding:
+  project_code: null
+  mission_id: null
+  project_local_run_ref: null
+boundary_policy:
+  public_safe_package_only: true
+  private_payload_allowed_in_reusable_package: false
+  secret_payload_allowed: false
+  host_absolute_paths_allowed_in_reusable_package: false
+classification:
+  requested_foldertree_scaffold: false
+  requested_stage_gap_scan: false
+  requested_source_or_knowledge_intake: false
+  requested_cross_stage_governance: false
+  requested_readiness_digest: false
+  requested_owner_closeout: true
+stage_scope:
+  target_stage_codes: []
+  stage_scope_status: unknown
+source_scope:
+  approved_source_scope_refs: []
+  source_scope_status: unknown
+expected_outputs:
+  - operating_loop_route_map
+claim_ceiling: observed
+open_questions: []
+blocked_reasons: []
