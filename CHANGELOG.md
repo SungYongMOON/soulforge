@@ -2,6 +2,12 @@
 
 ## 2026-05-20
 
+### Revision `working` - Long-thread handoff Codex wrapper added
+
+- Added `.registry/skills/long_thread_handoff/` as the tracked Codex wrapper for explicit long-thread contamination-free handoff requests.
+- Kept the launcher opt-in only, so normal short tasks do not automatically inherit the fresh-subagent manager mode.
+- Preserved Telegram delivery as a safe closeout handoff unless a configured sender and explicit authorization are available.
+
 ### Revision `working` - GitHub up/down Codex wrappers added
 
 - Added `.registry/skills/github_down/` as the tracked Codex wrapper for GitHub down/latest-update/download requests.

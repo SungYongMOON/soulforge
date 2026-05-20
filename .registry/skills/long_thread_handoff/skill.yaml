@@ -1,0 +1,48 @@
+skill_id: long_thread_handoff
+kind: skill
+status: active
+title: Long Thread Handoff
+summary: Replace the repeated long-thread manager prompt with an explicit Codex launcher for contamination-free Soulforge handoff through fresh subagents.
+behavior:
+  intent: >
+    Provide a Codex-facing bridge for long Soulforge thread closeout and continuation.
+    The skill compresses the user's repeated prompt into an explicit invocation that
+    declares the goal, writes or refreshes a compact handoff checkpoint, delegates
+    material work and review to fresh subagents when available, and keeps Telegram
+    completion notification behind safe delivery and authorization boundaries.
+  use_when:
+    - the user explicitly asks for Soulforge long-thread handoff mode
+    - the user writes "장기작업 인계 시작", "오염방지 인계모드", "긴 스레드 인계", or equivalent wording
+    - the user wants to avoid re-pasting the long manager/subagent/workflow-check/Telegram prompt near the end of a long thread
+  avoid_when:
+    - the task is a normal short request that does not need context rotation or handoff
+    - the user wants all current context forked into subagents rather than a compact handoff
+    - Telegram delivery would require reading or exposing credentials, tokens, sessions, or secret files
+  expected_outcome:
+    - the current thread is summarized into a compact `NIGHT_WORK_HANDOFF`-style checkpoint
+    - fresh subagents receive only the checkpoint, target files, boundaries, and acceptance criteria
+    - workflow creation or material evolution is routed through `soulforge-workflow-generator`
+    - workflow review is routed through `soulforge-workflow-check`
+    - completion reports name subagent roles, validation status, Telegram sent/not-sent status, and remaining blockers
+execution_requirements:
+  required_capabilities:
+    - goal_declaration
+    - compact_handoff_authoring
+    - subagent_orchestration
+    - boundary_review
+  preferred_capabilities:
+    - gpt_5_5_xhigh_subagents
+    - workflow_generator_bridge
+    - workflow_check_bridge
+    - telegram_safe_handoff
+  preferred_tools:
+    - spawn_agent
+    - wait_agent
+    - git_status
+    - yaml_validator
+  notes:
+    - "Actual model, subagent availability, Telegram delivery, and installed Codex skill paths resolve in the local runtime."
+    - "The installed mirror name after sync is normally `soulforge-long-thread-handoff`."
+notes:
+  - "`long_thread_handoff` is an explicit opt-in launcher, not an implicit default for all Soulforge work."
+  - "Runtime transcripts, private payloads, Telegram credentials, and raw project truth stay outside the tracked skill package."
