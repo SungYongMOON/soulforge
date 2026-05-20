@@ -5,6 +5,7 @@ import YAML from "yaml";
 import { pathExists, readJson, relativeToRepo, writeJson } from "../shared/io.mjs";
 
 export const MAIL_WORK_STATUS_SCHEMA_VERSION = "soulforge.gateway.mail_work_status.v1";
+export const MAIL_WORK_PRIORITY_SCHEMA_VERSION = "soulforge.gateway.mail_work_priority.v1";
 
 export function defaultMailCandidateQueueRoot(repoRoot) {
   return path.join(repoRoot, "guild_hall", "state", "gateway", "mail_candidate");
@@ -20,6 +21,10 @@ export function defaultMailWorkStatusRoot(repoRoot) {
 
 export function defaultMailWorkStatusLatestFile(repoRoot) {
   return path.join(defaultMailWorkStatusRoot(repoRoot), "latest.json");
+}
+
+export function defaultMailWorkPriorityLatestFile(repoRoot) {
+  return path.join(defaultMailWorkStatusRoot(repoRoot), "priority_latest.json");
 }
 
 export function defaultWorkmetaRoot(repoRoot) {
@@ -96,6 +101,93 @@ export async function listMailWorkStatus({
   };
 }
 
+export async function refreshMailWorkPriority({
+  repoRoot,
+  queueRoot = defaultMailCandidateQueueRoot(repoRoot),
+  intakeInboxRoot = defaultGatewayIntakeInboxRoot(repoRoot),
+  workmetaRoot = defaultWorkmetaRoot(repoRoot),
+  outputFile = defaultMailWorkPriorityLatestFile(repoRoot),
+}) {
+  const projection = await buildMailWorkPriorityProjection({
+    repoRoot,
+    queueRoot,
+    intakeInboxRoot,
+    workmetaRoot,
+  });
+  await writeJson(outputFile, projection);
+  return {
+    request_id: "mail_work_priority_refresh",
+    status: "refreshed",
+    projection_ref: relativeToRepo(repoRoot, outputFile),
+    generated_at: projection.generated_at,
+    count: projection.count,
+    counts: projection.counts,
+    entries: projection.entries,
+  };
+}
+
+export async function listMailWorkPriority({
+  repoRoot,
+  queueRoot = defaultMailCandidateQueueRoot(repoRoot),
+  intakeInboxRoot = defaultGatewayIntakeInboxRoot(repoRoot),
+  workmetaRoot = defaultWorkmetaRoot(repoRoot),
+  latestFile = defaultMailWorkPriorityLatestFile(repoRoot),
+  workStatus = "",
+  operatingState = "",
+  routeCandidate = "",
+  routeConfidence = "",
+  threadGroup = "",
+  priorityFlag = "",
+}) {
+  let projectionSource = "latest";
+  let projection;
+
+  if (await pathExists(latestFile)) {
+    projection = await readJson(latestFile);
+  } else {
+    projectionSource = "computed";
+    projection = await buildMailWorkPriorityProjection({
+      repoRoot,
+      queueRoot,
+      intakeInboxRoot,
+      workmetaRoot,
+    });
+  }
+
+  let entries = Array.isArray(projection.entries) ? [...projection.entries] : [];
+  if (workStatus) {
+    entries = entries.filter((entry) => entry.work_status === workStatus);
+  }
+  if (operatingState) {
+    entries = entries.filter((entry) => entry.operating_state_ko === operatingState);
+  }
+  if (routeCandidate) {
+    entries = entries.filter((entry) => entry.route_candidate === routeCandidate);
+  }
+  if (routeConfidence) {
+    entries = entries.filter((entry) => entry.route_confidence === routeConfidence);
+  }
+  if (threadGroup) {
+    entries = entries.filter((entry) => entry.thread_group === threadGroup);
+  }
+  if (priorityFlag) {
+    entries = entries.filter((entry) => normalizeArray(entry.priority_flags_ko).includes(priorityFlag));
+  }
+
+  return {
+    request_id: "mail_work_priority_list",
+    status: "ok",
+    projection_source: projectionSource,
+    projection_ref: projectionSource === "latest" ? relativeToRepo(repoRoot, latestFile) : null,
+    generated_at: projection.generated_at ?? null,
+    count: entries.length,
+    total_count: Number(projection.count ?? entries.length),
+    counts: countByPriorityState(entries),
+    route_counts: countByRoute(entries),
+    entries,
+  };
+}
+
 export async function buildMailWorkStatusProjection({
   repoRoot,
   queueRoot = defaultMailCandidateQueueRoot(repoRoot),
@@ -152,6 +244,44 @@ export async function buildMailWorkStatusProjection({
   };
 }
 
+export async function buildMailWorkPriorityProjection({
+  repoRoot,
+  queueRoot = defaultMailCandidateQueueRoot(repoRoot),
+  intakeInboxRoot = defaultGatewayIntakeInboxRoot(repoRoot),
+  workmetaRoot = defaultWorkmetaRoot(repoRoot),
+}) {
+  const statusProjection = await buildMailWorkStatusProjection({
+    repoRoot,
+    queueRoot,
+    intakeInboxRoot,
+    workmetaRoot,
+  });
+  const preparedEntries = normalizeArray(statusProjection.entries)
+    .filter((entry) => entry?.candidate_id)
+    .map((entry) => ({
+      entry,
+      thread_group: resolveThreadGroup(entry),
+    }));
+  const threadCounts = countByThreadGroup(preparedEntries);
+  const entries = preparedEntries
+    .map(({ entry, thread_group }) => buildPriorityRow(entry, thread_group, Number(threadCounts.get(thread_group) ?? 1)))
+    .sort(comparePriorityEntries);
+
+  return {
+    schema_version: MAIL_WORK_PRIORITY_SCHEMA_VERSION,
+    kind: "mail_work_priority_projection",
+    generated_at: statusProjection.generated_at,
+    source_schema_version: statusProjection.schema_version,
+    count: entries.length,
+    counts: countByPriorityState(entries),
+    route_counts: countByRoute(entries),
+    entries,
+    boundary: {
+      raw_payload_copied: false,
+    },
+  };
+}
+
 async function loadGatewayRecords({ repoRoot, intakeInboxRoot, candidates, records, consumedCandidateIds }) {
   if (!(await pathExists(intakeInboxRoot))) {
     return;
@@ -191,6 +321,9 @@ async function loadGatewayRecords({ repoRoot, intakeInboxRoot, candidates, recor
           monster_ref: `${relativeToRepo(repoRoot, monstersFile)}#monster_id=${monster.monster_id}`,
           history_ref: relativeToRepo(repoRoot, path.join(inboxDir, "history.jsonl")),
           source_ref: inbox.source_ref ?? null,
+          subject: inbox.subject ?? null,
+          received_at: inbox.received_at ?? null,
+          thread_ref: inbox.thread_ref ?? null,
           updated_at: latestTimestamp([
             inbox.updated_at,
             monster.updated_at,
@@ -352,6 +485,8 @@ function finalizeProjectionRecord({ projectState, record }) {
   const battle = missionId && projectCode ? projectState.battlesByKey.get(projectKey(projectCode, missionId)) ?? null : null;
   const work = resolveWorkStatus({ battle, candidate, gateway, mission, project });
   const mailSourceRef = firstNonEmpty(candidate?.event_id, gateway?.source_ref, ...normalizeArray(project?.source_refs));
+  const subject = firstNonEmpty(candidate?.subject, gateway?.subject);
+  const receivedAt = firstNonEmpty(candidate?.received_at, gateway?.received_at);
   const updatedAt = latestTimestamp([
     candidate?.updated_at,
     gateway?.updated_at,
@@ -373,6 +508,14 @@ function finalizeProjectionRecord({ projectState, record }) {
     terminal_result: work.terminal_result,
     work_status: work.work_status,
     status_reason: work.status_reason,
+    subject,
+    received_at: receivedAt,
+    mail_source: candidate?.source ?? null,
+    mail_workspace: candidate?.workspace ?? null,
+    attachment_count: Number(candidate?.attachment_count ?? 0),
+    attachment_types: normalizeArray(candidate?.attachment_types),
+    classification_bucket: candidate?.classification_bucket ?? null,
+    thread_ref: gateway?.thread_ref ?? null,
     refs: compactObject({
       candidate_ref: candidate?.candidate_ref ?? null,
       mail_intake_request_ref: candidate?.intake_request_ref ?? null,
@@ -489,11 +632,22 @@ async function loadCandidates(repoRoot, queueRoot) {
 
     const candidateFile = path.join(pendingRoot, entry.name);
     const candidate = await readJson(candidateFile);
-    const eventId = candidate?.source_event?.event_id ?? null;
+    const sourceEvent = candidate?.source_event ?? {};
+    const mailSummary = candidate?.mail_summary ?? {};
+    const eventId = sourceEvent.event_id ?? null;
+    const classification = mailSummary.classification ?? null;
     const summary = {
       candidate_id: candidate.candidate_id ?? null,
       status: candidate.status ?? null,
       event_id: eventId,
+      source: sourceEvent.source ?? null,
+      workspace: sourceEvent.workspace ?? null,
+      received_at: sourceEvent.received_at ?? null,
+      subject: mailSummary.subject ?? null,
+      attachment_count: Number(mailSummary.attachment_count ?? 0),
+      attachment_types: normalizeArray(mailSummary.attachment_types),
+      classification_bucket:
+        typeof classification === "string" ? classification : classification?.bucket ?? null,
       candidate_ref: relativeToRepo(repoRoot, candidateFile),
       intake_request_ref: candidate?.business_review?.intake_request_ref ?? null,
       updated_at: latestTimestamp([candidate.updated_at, candidate.created_at]),
@@ -554,6 +708,308 @@ function findCandidateBySourceRefs(byEventId, sourceRefs) {
   return null;
 }
 
+function buildPriorityRow(entry, threadGroup, threadCount) {
+  const route = resolvePriorityRoute(entry);
+  const operatingState = resolveOperatingState(entry, route, threadCount);
+  const priorityFlags = resolvePriorityFlags(entry, operatingState, route, threadCount);
+
+  return {
+    candidate_id: entry.candidate_id ?? null,
+    mail_source_ref: entry.mail_source_ref ?? null,
+    subject: entry.subject ?? null,
+    received_at: entry.received_at ?? null,
+    operating_state_ko: operatingState,
+    route_candidate: route.route_candidate,
+    route_confidence: route.route_confidence,
+    thread_group: threadGroup,
+    priority_flags_ko: priorityFlags,
+    next_action_ko: resolveNextActionKo(entry, operatingState, route, threadCount),
+    owner_question_ko: resolveOwnerQuestionKo(entry, operatingState, route, threadCount),
+    work_status: entry.work_status ?? "unknown",
+    refs: entry.refs ?? {},
+    boundary: {
+      raw_payload_copied: false,
+    },
+  };
+}
+
+function resolvePriorityRoute(entry) {
+  const subjectText = normalizeSearchText(entry.subject);
+  if (isPromoLike(subjectText)) {
+    return {
+      route_candidate: "none/promo",
+      route_confidence: "none",
+      route_kind: "non_work",
+    };
+  }
+  if (isPersonalAdminLike(subjectText)) {
+    return {
+      route_candidate: "none/personal",
+      route_confidence: "none",
+      route_kind: "personal_admin",
+    };
+  }
+  if (isExactP26030Subject(subjectText)) {
+    return {
+      route_candidate: "P26-030",
+      route_confidence: "exact",
+      route_kind: "exact_work",
+    };
+  }
+  if (isWorkLikeSubject(subjectText, entry)) {
+    return {
+      route_candidate: "P00-000_INBOX",
+      route_confidence: "review",
+      route_kind: "work_review",
+    };
+  }
+  return {
+    route_candidate: "none/personal",
+    route_confidence: "none",
+    route_kind: "non_work",
+  };
+}
+
+function resolveOperatingState(entry, route, threadCount) {
+  if (isTerminalWorkStatus(entry.work_status)) {
+    return "기존 일에 붙이기";
+  }
+  if (route.route_kind === "non_work") {
+    return "일 아님";
+  }
+  if (route.route_kind === "personal_admin") {
+    return "개인/관리 보류";
+  }
+  if (threadCount > 1 || hasExistingWorkSurface(entry)) {
+    return "기존 일에 붙이기";
+  }
+  if (route.route_kind === "exact_work") {
+    return "새 일";
+  }
+  if (route.route_kind === "work_review") {
+    return "프로젝트 확인 보류";
+  }
+  return "내용 애매 보류";
+}
+
+function resolvePriorityFlags(entry, operatingState, route, threadCount) {
+  if (isTerminalWorkStatus(entry.work_status)) {
+    return [];
+  }
+  const subjectText = normalizeSearchText(entry.subject);
+  const flags = [];
+  if (route.route_confidence === "exact" || hasDueOrUrgentHint(subjectText)) {
+    flags.push("오늘 처리");
+  }
+  if (needsHumanReview(subjectText, route)) {
+    flags.push("사람 병목");
+  }
+  if (hasMaterialReviewHint(subjectText, entry)) {
+    flags.push("자료 확인");
+  }
+  if (threadCount > 1) {
+    flags.push("스레드 묶기");
+  }
+  if (operatingState.endsWith("보류") || route.route_confidence === "none") {
+    flags.push("보류");
+  }
+  return uniqueValues(flags);
+}
+
+function resolveNextActionKo(entry, operatingState, route, threadCount) {
+  if (isTerminalWorkStatus(entry.work_status)) {
+    return "이미 처리된 상태를 유지하고 후속 필요 여부만 확인한다.";
+  }
+  if (operatingState === "일 아님") {
+    return "업무 큐에서 제외하고 필요 시 개인 참고로만 둔다.";
+  }
+  if (operatingState === "개인/관리 보류") {
+    return "project monster로 만들지 않고 개인/관리 확인만 한다.";
+  }
+  if (threadCount > 1 || operatingState === "기존 일에 붙이기") {
+    return "같은 thread_group의 기존 업무에 붙일 후보인지 확인한다.";
+  }
+  if (route.route_confidence === "exact") {
+    return "P26-030 큐에서 오늘 처리 여부와 기존 작업 연결 여부를 확인한다.";
+  }
+  if (route.route_confidence === "review") {
+    return "프로젝트 코드를 확인한 뒤 수동으로 업무화/보류를 결정한다.";
+  }
+  return "메일 metadata만으로 업무 여부를 owner가 확인한다.";
+}
+
+function resolveOwnerQuestionKo(entry, operatingState, route, threadCount) {
+  if (isTerminalWorkStatus(entry.work_status)) {
+    return "후속 조치가 남아 있나요?";
+  }
+  if (operatingState === "일 아님") {
+    return "업무 큐에서 제외해도 될까요?";
+  }
+  if (operatingState === "개인/관리 보류") {
+    return "개인/관리 확인만 하고 project monster로 만들지 않을까요?";
+  }
+  if (threadCount > 1 || operatingState === "기존 일에 붙이기") {
+    return "이 메일을 같은 thread_group의 기존 업무에 붙일까요?";
+  }
+  if (route.route_confidence === "exact") {
+    return "P26-030의 새 업무로 둘까요, 기존 업무에 붙일까요?";
+  }
+  if (route.route_confidence === "review") {
+    return "어느 프로젝트 코드로 보낼까요?";
+  }
+  return "metadata만으로 업무 판단을 보류할까요?";
+}
+
+function resolveThreadGroup(entry) {
+  const subjectText = normalizeSearchText(entry.subject);
+  if (subjectText.includes("sensor production schedule") || subjectText.includes("센서 일정")) {
+    return "센서 일정/status";
+  }
+  if (subjectText.includes("sensor") && (subjectText.includes("schedule") || subjectText.includes("status"))) {
+    return "센서 일정/status";
+  }
+  if (subjectText.includes("주간 진행상황")) {
+    return "센서 일정/status";
+  }
+  if (subjectText.includes("p978") || subjectText.includes("시운전절차서")) {
+    return "P978 시운전절차서";
+  }
+  if (subjectText.includes("q4") && (subjectText.includes("진행 독려") || subjectText.includes("품질점검"))) {
+    return "Q4 진행 독려";
+  }
+  if (subjectText.includes("환경시험절차서") || (subjectText.includes("환경시험") && subjectText.includes("절차서"))) {
+    return "환경시험절차서";
+  }
+  if (subjectText.includes("p23-043") || (subjectText.includes("requested access") && subjectText.includes("조향장치"))) {
+    return "P23-043 접근권한";
+  }
+  if (subjectText.includes("해경") || subjectText.includes("실증시험") || (subjectText.includes("시험") && subjectText.includes("협조"))) {
+    return "해경/시험 협조";
+  }
+  if (
+    subjectText.includes("pc 정보") ||
+    subjectText.includes("저장장치") ||
+    subjectText.includes("로그인 알림") ||
+    subjectText.includes("급여명세서")
+  ) {
+    return "내부 자산/admin";
+  }
+  return `subject:${normalizeSubjectForThread(entry.subject)}`;
+}
+
+function hasExistingWorkSurface(entry) {
+  return Boolean(entry.monster_id || entry.project_code || entry.project_monster_ref || entry.mission_id);
+}
+
+function isExactP26030Subject(subjectText) {
+  return subjectText.includes("기0탐") || subjectText.includes("기뢰탐색음탐기") || subjectText.includes("kvds");
+}
+
+function isWorkLikeSubject(subjectText, entry) {
+  if (!subjectText) {
+    return false;
+  }
+  if (/(^|\b)p\d{2,3}-?\d{3}(\b|$)/iu.test(subjectText)) {
+    return true;
+  }
+  return [
+    "요청",
+    "협조",
+    "검토",
+    "작성",
+    "확인",
+    "회신",
+    "문의",
+    "공유",
+    "결과",
+    "보고서",
+    "절차서",
+    "일정",
+    "status",
+    "sensor",
+    "해경",
+    "시험",
+    "무인수상정",
+    "음탐기",
+    "예인형수중탐색장치",
+    "bom",
+    "dxf",
+    "step",
+    "자료",
+    "납품",
+    "검사성적서",
+    "requested access",
+  ].some((keyword) => subjectText.includes(keyword)) || Number(entry.attachment_count ?? 0) > 0;
+}
+
+function isPersonalAdminLike(subjectText) {
+  return [
+    "정보보호",
+    "신용정보",
+    "신용관리",
+    "출금완료",
+    "입금완료",
+    "withdrawal",
+    "binance",
+    "upbit",
+    "korbit",
+    "청구서",
+    "영수증",
+    "급여명세서",
+    "billing",
+    "receipt",
+    "invoice",
+    "카드",
+    "nice지키미",
+    "약관",
+    "정책 변경",
+    "이용 기간 종료",
+    "서비스 이용내역",
+    "로그인 알림",
+    "pc 정보",
+    "저장장치",
+  ].some((keyword) => subjectText.includes(keyword));
+}
+
+function isPromoLike(subjectText) {
+  return [
+    "무료",
+    "프로모션",
+    "할인",
+    "슬로건",
+    "엠블럼",
+    "선호도 투표",
+    "주얼",
+    "youtube",
+  ].some((keyword) => subjectText.includes(keyword));
+}
+
+function hasDueOrUrgentHint(subjectText) {
+  return subjectText.includes("urgent") || subjectText.includes("오늘") || subjectText.includes("까지") || /~\s?\d/u.test(subjectText);
+}
+
+function needsHumanReview(subjectText, route) {
+  if (route.route_confidence === "review") {
+    return true;
+  }
+  return ["회신", "확인", "협조", "문의", "요청", "독려", "requested access"].some((keyword) =>
+    subjectText.includes(keyword),
+  );
+}
+
+function hasMaterialReviewHint(subjectText, entry) {
+  if (Number(entry.attachment_count ?? 0) > 0) {
+    return true;
+  }
+  return ["자료", "파일", "첨부", "절차서", "bom", "dxf", "step", "검사성적서", "보고서"].some((keyword) =>
+    subjectText.includes(keyword),
+  );
+}
+
+function isTerminalWorkStatus(workStatus) {
+  return ["completed", "completed_with_follow_up", "blocked", "failed"].includes(workStatus);
+}
+
 function extractMissionId(ref) {
   if (!ref) {
     return null;
@@ -612,6 +1068,23 @@ function latestTimestamp(values) {
   return latest;
 }
 
+function normalizeSearchText(value) {
+  return String(value ?? "")
+    .normalize("NFKC")
+    .toLowerCase()
+    .replace(/\s+/gu, " ")
+    .trim();
+}
+
+function normalizeSubjectForThread(value) {
+  const normalized = normalizeSearchText(value)
+    .replace(/^((re|fw|fwd)\s*:\s*)+/u, "")
+    .replace(/\[[^\]]+\]/gu, "")
+    .replace(/[^\p{Letter}\p{Number}]+/gu, " ")
+    .trim();
+  return normalized || "unknown";
+}
+
 function compareTimestamps(left, right) {
   const leftEpoch = Date.parse(left ?? "");
   const rightEpoch = Date.parse(right ?? "");
@@ -626,6 +1099,45 @@ function compareTimestamps(left, right) {
     return 1;
   }
   return leftEpoch - rightEpoch;
+}
+
+function comparePriorityEntries(left, right) {
+  const leftRank = priorityRank(left);
+  const rightRank = priorityRank(right);
+  if (leftRank !== rightRank) {
+    return leftRank - rightRank;
+  }
+
+  const timestampCompare = compareTimestamps(right.received_at, left.received_at);
+  if (timestampCompare !== 0) {
+    return timestampCompare;
+  }
+
+  return `${left.thread_group}:${left.candidate_id ?? ""}:${left.mail_source_ref ?? ""}`.localeCompare(
+    `${right.thread_group}:${right.candidate_id ?? ""}:${right.mail_source_ref ?? ""}`,
+  );
+}
+
+function priorityRank(entry) {
+  if (isTerminalWorkStatus(entry.work_status)) {
+    return 100;
+  }
+  if (entry.route_confidence === "exact") {
+    return 10;
+  }
+  if (entry.operating_state_ko === "기존 일에 붙이기") {
+    return 20;
+  }
+  if (entry.route_confidence === "review") {
+    return 30;
+  }
+  if (entry.operating_state_ko === "개인/관리 보류") {
+    return 80;
+  }
+  if (entry.operating_state_ko === "일 아님") {
+    return 90;
+  }
+  return 50;
 }
 
 function compareProjectionEntries(left, right) {
@@ -644,6 +1156,33 @@ function countByWorkStatus(entries) {
   for (const entry of normalizeArray(entries)) {
     const key = entry?.work_status ?? "unknown";
     counts[key] = Number(counts[key] ?? 0) + 1;
+  }
+  return counts;
+}
+
+function countByPriorityState(entries) {
+  const counts = {};
+  for (const entry of normalizeArray(entries)) {
+    const key = entry?.operating_state_ko ?? "내용 애매 보류";
+    counts[key] = Number(counts[key] ?? 0) + 1;
+  }
+  return counts;
+}
+
+function countByRoute(entries) {
+  const counts = {};
+  for (const entry of normalizeArray(entries)) {
+    const key = entry?.route_candidate ?? "none/personal";
+    counts[key] = Number(counts[key] ?? 0) + 1;
+  }
+  return counts;
+}
+
+function countByThreadGroup(entries) {
+  const counts = new Map();
+  for (const entry of normalizeArray(entries)) {
+    const key = entry.thread_group ?? "subject:unknown";
+    counts.set(key, Number(counts.get(key) ?? 0) + 1);
   }
   return counts;
 }

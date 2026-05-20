@@ -9,6 +9,12 @@
 - Added `docs/architecture/workspace/SE_ASSISTANT_OPERATING_MODEL_V0.md` and tightened Boss Clear wording so stage completion cannot be inferred from folder/output presence alone.
 - Kept the new route below production-ready or pilot-executed claims; it is registered public-safe orchestration structure, not design authority, source truth, review approval, or verification acceptance.
 
+### Revision `working` - Mail work priority queue projection added
+
+- Added metadata-only `mail_work_priority` refresh/list command surfaces on top of `mail_work_status`, writing local priority output to `guild_hall/state/gateway/mail_work_status/priority_latest.json`.
+- Added deterministic subject-only routing rules for exact `P26-030`, unresolved work review inbox, duplicate thread grouping, personal/admin holds, and promo/non-work holds without reading raw mail payloads.
+- Documented the priority projection contract and added gateway tests for exact routing, duplicate threads, personal/admin, promo non-work, raw boundary false, and list filtering.
+
 ### Revision `working` - Long-thread handoff Codex wrapper added
 
 - Added `.registry/skills/long_thread_handoff/` as the tracked Codex wrapper for explicit long-thread contamination-free handoff requests.

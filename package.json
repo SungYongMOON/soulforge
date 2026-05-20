@@ -61,6 +61,8 @@
     "guild-hall:gateway:mail-candidate:promote": "node guild_hall/gateway/cli.mjs promote-mail-candidate",
     "guild-hall:gateway:mail-work:list": "node guild_hall/gateway/cli.mjs list-mail-work-status",
     "guild-hall:gateway:mail-work:refresh": "node guild_hall/gateway/cli.mjs refresh-mail-work-status",
+    "guild-hall:gateway:mail-work:priority:list": "node guild_hall/gateway/cli.mjs list-mail-work-priority",
+    "guild-hall:gateway:mail-work:priority:refresh": "node guild_hall/gateway/cli.mjs refresh-mail-work-priority",
     "guild-hall:notify:gateway": "node guild_hall/gateway/cli.mjs notify-gateway",
     "guild-hall:notify:mission": "node guild_hall/gateway/cli.mjs notify-mission",
     "guild-hall:notify:status": "node guild_hall/gateway/cli.mjs notify-status",

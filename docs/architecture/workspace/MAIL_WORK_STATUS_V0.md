@@ -8,6 +8,7 @@
 ## 한 줄 정의
 
 - `mail_work_status` 는 `mail_candidate`, `workspace intake inbox`, project-local monster, private mission index, battle event metadata 를 `monster_id` 중심으로 조인한 local-only 현재 상태 projection 이다.
+- `mail_work_priority` 는 `mail_work_status` 와 candidate metadata-only summary 위에 사람이 먼저 볼 대기열 상태를 얹은 local-only priority projection 이다.
 
 ## world model
 
@@ -20,6 +21,8 @@ mail rumor -> candidate note -> gateway monster -> project monster
 
 - canonical local output:
   - `guild_hall/state/gateway/mail_work_status/latest.json`
+- priority local output:
+  - `guild_hall/state/gateway/mail_work_status/priority_latest.json`
 - owner:
   - `guild_hall/state/gateway/**`
 - tracked public repo 대상이 아니다.
@@ -70,6 +73,46 @@ mail rumor -> candidate note -> gateway monster -> project monster
 - `updated_at`
 - `boundary.raw_payload_copied`
 
+### priority root
+
+- `schema_version`: `soulforge.gateway.mail_work_priority.v1`
+- `kind`: `mail_work_priority_projection`
+- `generated_at`
+- `source_schema_version`
+- `count`
+- `counts`
+- `route_counts`
+- `entries`
+- `boundary.raw_payload_copied`
+
+### priority row minimum fields
+
+- `candidate_id`
+- `mail_source_ref`
+- `subject`
+- `received_at`
+- `operating_state_ko`
+  - `새 일`
+  - `기존 일에 붙이기`
+  - `프로젝트 확인 보류`
+  - `내용 애매 보류`
+  - `개인/관리 보류`
+  - `일 아님`
+- `route_candidate`
+  - 예: `P26-030`, `P00-000_INBOX`, `none/personal`, `none/promo`
+- `route_confidence`
+  - `exact`
+  - `review`
+  - `none`
+- `thread_group`
+- `priority_flags_ko`
+  - 예: `오늘 처리`, `사람 병목`, `자료 확인`, `스레드 묶기`, `보류`
+- `next_action_ko`
+- `owner_question_ko`
+- `work_status`
+- `refs`
+- `boundary.raw_payload_copied`
+
 ## status enum
 
 - `candidate_pending`
@@ -105,6 +148,24 @@ mail rumor -> candidate note -> gateway monster -> project monster
 4. project-local monster 가 실제로 materialize 되면 gateway current state 는 `transferred` 로 sync-back 되어야 한다.
 5. projection 은 metadata-only summary 이다. `refs` 는 pointer surface 만 들고 raw payload 는 복사하지 않는다.
 6. stale `latest.json` 을 읽을 수 있으므로 refresh surface 를 별도로 둔다.
+7. priority projection 은 raw mail 본문, HTML, attachment payload, provider payload, secret 을 읽지 않고 candidate metadata 와 status projection 결과만 사용한다.
+8. exact `P26-030` route 는 subject 에 `기0탐`, `기뢰탐색음탐기`, `KVDS` 중 하나가 있을 때만 `route_confidence: exact` 로 둔다.
+9. 업무처럼 보이지만 project code 가 확정되지 않은 후보는 `P00-000_INBOX` + `route_confidence: review` 로 둔다.
+10. personal/security/finance/billing/subscription/promo/terms 류는 project monster 로 만들지 않고 `개인/관리 보류` 또는 `일 아님` 으로 둔다.
+11. priority `thread_group` 은 subject metadata 의 deterministic matching 으로만 만든다. current-default group 은 `센서 일정/status`, `P978 시운전절차서`, `Q4 진행 독려`, `환경시험절차서`, `P23-043 접근권한`, `해경/시험 협조`, `내부 자산/admin` 이다.
+12. priority projection 은 자동 발송, 자동 mission 생성, 자동 completion, 전체 후보 자동 filing 을 하지 않는다.
+13. terminal `work_status` 인 `completed`, `completed_with_follow_up`, `blocked`, `failed` 는 완료 truth 를 우선한다. priority view 에서는 새 행동 플래그를 붙이지 않고 뒤쪽에 둔다.
+
+## commands
+
+```bash
+npm run guild-hall:gateway:mail-work:refresh
+npm run guild-hall:gateway:mail-work:list
+npm run guild-hall:gateway:mail-work:priority:refresh
+npm run guild-hall:gateway:mail-work:priority:list
+```
+
+priority list 는 `--work-status`, `--operating-state`, `--route-candidate`, `--route-confidence`, `--thread-group`, `--priority-flag` 로 latest priority projection 을 필터링할 수 있다.
 
 ## sample
 
@@ -137,6 +198,49 @@ mail rumor -> candidate note -> gateway monster -> project monster
         "candidate_ref": "guild_hall/state/gateway/mail_candidate/queue/pending/mail_candidate_mail_evt_001.json"
       },
       "updated_at": "2026-05-20T02:00:00.000Z",
+      "boundary": {
+        "raw_payload_copied": false
+      }
+    }
+  ],
+  "boundary": {
+    "raw_payload_copied": false
+  }
+}
+```
+
+## priority sample
+
+```json
+{
+  "schema_version": "soulforge.gateway.mail_work_priority.v1",
+  "kind": "mail_work_priority_projection",
+  "generated_at": "2026-05-20T02:10:00.000Z",
+  "source_schema_version": "soulforge.gateway.mail_work_status.v1",
+  "count": 1,
+  "counts": {
+    "새 일": 1
+  },
+  "route_counts": {
+    "P26-030": 1
+  },
+  "entries": [
+    {
+      "candidate_id": "mail_candidate_mail_evt_001",
+      "mail_source_ref": "mail_evt_001",
+      "subject": "[KVDS] Synthetic source packet request",
+      "received_at": "2026-05-20T02:00:00.000Z",
+      "operating_state_ko": "새 일",
+      "route_candidate": "P26-030",
+      "route_confidence": "exact",
+      "thread_group": "subject:synthetic source packet request",
+      "priority_flags_ko": ["오늘 처리", "자료 확인"],
+      "next_action_ko": "P26-030 큐에서 오늘 처리 여부와 기존 작업 연결 여부를 확인한다.",
+      "owner_question_ko": "P26-030의 새 업무로 둘까요, 기존 업무에 붙일까요?",
+      "work_status": "candidate_pending",
+      "refs": {
+        "candidate_ref": "guild_hall/state/gateway/mail_candidate/queue/pending/mail_candidate_mail_evt_001.json"
+      },
       "boundary": {
         "raw_payload_copied": false
       }

@@ -6,8 +6,11 @@ import { mkdir, mkdtemp, readFile, writeFile } from "node:fs/promises";
 import YAML from "yaml";
 
 import {
+  defaultMailWorkPriorityLatestFile,
   defaultMailWorkStatusLatestFile,
+  listMailWorkPriority,
   listMailWorkStatus,
+  refreshMailWorkPriority,
   refreshMailWorkStatus,
 } from "./mail_work_status.mjs";
 
@@ -47,6 +50,7 @@ test("refreshMailWorkStatus joins candidate, gateway, project, mission, and batt
       candidate_id: "mail_candidate_mail_evt_completed",
       event_id: "mail_evt_completed",
       status: "promoted_to_intake_request",
+      subject: "[KVDS] Synthetic completed follow-up request",
     }),
   );
 
@@ -157,6 +161,15 @@ test("refreshMailWorkStatus joins candidate, gateway, project, mission, and batt
   assert.equal(completed.battle_event_id, "battle-2026-05-20-0001");
   assert.equal(completed.terminal_result, "completed_with_follow_up");
   assert.equal(completed.work_status, "completed_with_follow_up");
+
+  await refreshMailWorkPriority({ repoRoot });
+  const priorityProjection = JSON.parse(await readFile(defaultMailWorkPriorityLatestFile(repoRoot), "utf8"));
+  const completedPriority = priorityProjection.entries.find((entry) => entry.candidate_id === "mail_candidate_mail_evt_completed");
+  const topPriority = priorityProjection.entries[0];
+  assert.equal(completedPriority.work_status, "completed_with_follow_up");
+  assert.equal(completedPriority.route_candidate, "P26-030");
+  assert.deepEqual(completedPriority.priority_flags_ko, []);
+  assert.notEqual(topPriority.candidate_id, "mail_candidate_mail_evt_completed");
 });
 
 test("listMailWorkStatus filters from latest projection", async () => {
@@ -189,6 +202,156 @@ test("listMailWorkStatus filters from latest projection", async () => {
   assert.equal(result.projection_source, "latest");
   assert.equal(result.count, 1);
   assert.equal(result.entries[0].candidate_id, "mail_candidate_mail_evt_filter");
+});
+
+test("refreshMailWorkPriority routes exact P26, thread duplicates, admin holds, and promo non-work", async () => {
+  const repoRoot = await createRepoRoot();
+  const candidates = [
+    sampleCandidate({
+      candidate_id: "mail_candidate_kvds",
+      event_id: "mail_evt_kvds",
+      status: "pending_review",
+      subject: "[KVDS] Synthetic BOM and STEP source packet request",
+      received_at: "2026-05-20T01:00:00.000Z",
+      attachment_count: 2,
+      attachment_types: ["binary_attachment"],
+    }),
+    sampleCandidate({
+      candidate_id: "mail_candidate_mine_exact",
+      event_id: "mail_evt_mine_exact",
+      status: "pending_review",
+      subject: "[기뢰탐색음탐기] Synthetic source review request",
+      received_at: "2026-05-20T01:05:00.000Z",
+    }),
+    sampleCandidate({
+      candidate_id: "mail_candidate_project_code_only",
+      event_id: "mail_evt_project_code_only",
+      status: "pending_review",
+      subject: "P26-030 synthetic status note",
+      received_at: "2026-05-20T01:06:00.000Z",
+    }),
+    sampleCandidate({
+      candidate_id: "mail_candidate_sensor_1",
+      event_id: "mail_evt_sensor_1",
+      status: "pending_review",
+      subject: "Synthetic sensor production schedule status follow-up",
+      received_at: "2026-05-20T01:10:00.000Z",
+      attachment_count: 1,
+      attachment_types: ["body_link"],
+    }),
+    sampleCandidate({
+      candidate_id: "mail_candidate_sensor_2",
+      event_id: "mail_evt_sensor_2",
+      status: "pending_review",
+      subject: "Synthetic sensor production schedule status follow-up URGENT",
+      received_at: "2026-05-20T01:20:00.000Z",
+      attachment_count: 1,
+      attachment_types: ["body_link"],
+    }),
+    sampleCandidate({
+      candidate_id: "mail_candidate_login",
+      event_id: "mail_evt_login",
+      status: "pending_review",
+      subject: "Synthetic 새로운 환경 로그인 알림",
+      received_at: "2026-05-20T01:30:00.000Z",
+      from: [{ name: null, address: "noreply@hiworks.com" }],
+    }),
+    sampleCandidate({
+      candidate_id: "mail_candidate_promo",
+      event_id: "mail_evt_promo",
+      status: "pending_review",
+      subject: "Synthetic 무료 주얼 만료 알림",
+      received_at: "2026-05-20T01:40:00.000Z",
+      source: "gmail",
+      workspace: "personal",
+      from: [{ name: null, address: "no-reply@youtube.com" }],
+    }),
+  ];
+
+  for (const candidate of candidates) {
+    await writeJson(
+      path.join(repoRoot, "guild_hall", "state", "gateway", "mail_candidate", "queue", "pending", `${candidate.candidate_id}.json`),
+      candidate,
+    );
+  }
+
+  const refresh = await refreshMailWorkPriority({ repoRoot });
+  const projection = JSON.parse(await readFile(defaultMailWorkPriorityLatestFile(repoRoot), "utf8"));
+
+  assert.equal(refresh.status, "refreshed");
+  assert.equal(projection.schema_version, "soulforge.gateway.mail_work_priority.v1");
+  assert.equal(projection.boundary.raw_payload_copied, false);
+
+  const exact = projection.entries.find((entry) => entry.candidate_id === "mail_candidate_kvds");
+  assert.equal(exact.route_candidate, "P26-030");
+  assert.equal(exact.route_confidence, "exact");
+  assert.equal(exact.operating_state_ko, "새 일");
+  assert.equal(exact.boundary.raw_payload_copied, false);
+  assert.ok(exact.priority_flags_ko.includes("오늘 처리"));
+  assert.ok(exact.priority_flags_ko.includes("자료 확인"));
+
+  const mineExact = projection.entries.find((entry) => entry.candidate_id === "mail_candidate_mine_exact");
+  assert.equal(mineExact.route_candidate, "P26-030");
+  assert.equal(mineExact.route_confidence, "exact");
+
+  const projectCodeOnly = projection.entries.find((entry) => entry.candidate_id === "mail_candidate_project_code_only");
+  assert.equal(projectCodeOnly.route_candidate, "P00-000_INBOX");
+  assert.equal(projectCodeOnly.route_confidence, "review");
+
+  const sensorRows = projection.entries.filter((entry) => entry.thread_group === "센서 일정/status");
+  assert.equal(sensorRows.length, 2);
+  assert.deepEqual(
+    sensorRows.map((entry) => entry.operating_state_ko).sort(),
+    ["기존 일에 붙이기", "기존 일에 붙이기"],
+  );
+  assert.ok(sensorRows.every((entry) => entry.priority_flags_ko.includes("스레드 묶기")));
+  assert.ok(sensorRows.every((entry) => entry.route_candidate === "P00-000_INBOX"));
+  assert.ok(sensorRows.every((entry) => entry.route_confidence === "review"));
+
+  const admin = projection.entries.find((entry) => entry.candidate_id === "mail_candidate_login");
+  assert.equal(admin.operating_state_ko, "개인/관리 보류");
+  assert.equal(admin.route_candidate, "none/personal");
+  assert.equal(admin.route_confidence, "none");
+
+  const promo = projection.entries.find((entry) => entry.candidate_id === "mail_candidate_promo");
+  assert.equal(promo.operating_state_ko, "일 아님");
+  assert.equal(promo.route_candidate, "none/promo");
+  assert.equal(promo.route_confidence, "none");
+});
+
+test("listMailWorkPriority filters from latest priority projection", async () => {
+  const repoRoot = await createRepoRoot();
+
+  await writeJson(
+    path.join(repoRoot, "guild_hall", "state", "gateway", "mail_candidate", "queue", "pending", "mail_candidate_kvds.json"),
+    sampleCandidate({
+      candidate_id: "mail_candidate_kvds",
+      event_id: "mail_evt_kvds",
+      status: "pending_review",
+      subject: "[기0탐] Synthetic attendance reply request",
+    }),
+  );
+  await writeJson(
+    path.join(repoRoot, "guild_hall", "state", "gateway", "mail_candidate", "queue", "pending", "mail_candidate_receipt.json"),
+    sampleCandidate({
+      candidate_id: "mail_candidate_receipt",
+      event_id: "mail_evt_receipt",
+      status: "pending_review",
+      subject: "Synthetic Apple receipt notice",
+      source: "gmail",
+      workspace: "personal",
+    }),
+  );
+
+  await refreshMailWorkPriority({ repoRoot });
+  const result = await listMailWorkPriority({
+    repoRoot,
+    routeCandidate: "P26-030",
+  });
+
+  assert.equal(result.projection_source, "latest");
+  assert.equal(result.count, 1);
+  assert.equal(result.entries[0].candidate_id, "mail_candidate_kvds");
 });
 
 async function createRepoRoot() {
@@ -235,7 +398,18 @@ function sampleGatewayMonster(overrides = {}) {
   };
 }
 
-function sampleCandidate({ candidate_id, event_id, status }) {
+function sampleCandidate({
+  candidate_id,
+  event_id,
+  status,
+  subject = "Mail candidate",
+  received_at = "2026-05-20T01:54:00.000Z",
+  source = "hiworks",
+  workspace = "company",
+  from = [{ name: "Sender", address: "sender@example.test" }],
+  attachment_count = 0,
+  attachment_types = [],
+}) {
   return {
     schema_version: "mail_candidate.queue_item.v1",
     candidate_id,
@@ -244,18 +418,18 @@ function sampleCandidate({ candidate_id, event_id, status }) {
     updated_at: "2026-05-20T02:00:00.000Z",
     source_event: {
       event_id,
-      source: "hiworks",
-      workspace: "company",
+      source,
+      workspace,
       event_file: "guild_hall/state/gateway/mailbox/company/mail/events/hiworks/2026/2026-05.jsonl",
-      received_at: "2026-05-20T01:54:00.000Z",
+      received_at,
     },
     mail_summary: {
-      subject: "Mail candidate",
-      from: [{ name: "Sender", address: "sender@example.test" }],
+      subject,
+      from,
       to_count: 1,
       cc_count: 0,
-      attachment_count: 0,
-      attachment_types: [],
+      attachment_count,
+      attachment_types,
       classification: "mail",
     },
     business_review: {

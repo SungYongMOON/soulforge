@@ -17,8 +17,11 @@ import {
   triagePendingMailCandidates,
 } from "./mail_candidate.mjs";
 import {
+  defaultMailWorkPriorityLatestFile,
   defaultMailWorkStatusLatestFile,
+  listMailWorkPriority,
   listMailWorkStatus,
+  refreshMailWorkPriority,
   refreshMailWorkStatus,
 } from "./mail_work_status.mjs";
 import { renderMonsterCreatedMessage, sanitizeId } from "./message_rendering.mjs";
@@ -78,6 +81,16 @@ async function main() {
 
   if (command === "refresh-mail-work-status") {
     await runRefreshMailWorkStatus(args);
+    return;
+  }
+
+  if (command === "list-mail-work-priority") {
+    await runListMailWorkPriority(args);
+    return;
+  }
+
+  if (command === "refresh-mail-work-priority") {
+    await runRefreshMailWorkPriority(args);
     return;
   }
 
@@ -143,6 +156,8 @@ function printUsageAndExit() {
       "  node guild_hall/gateway/cli.mjs promote-mail-candidate --candidate-file <path> [--output-file <path>] [--allow-output-outside-state] [--no-status-update] [--force]",
       "  node guild_hall/gateway/cli.mjs list-mail-work-status [--latest-file <path>] [--work-status <status|all>] [--project-code <code>]",
       "  node guild_hall/gateway/cli.mjs refresh-mail-work-status [--latest-file <path>] [--queue-root <path>] [--intake-inbox-root <path>] [--workmeta-root <path>]",
+      "  node guild_hall/gateway/cli.mjs list-mail-work-priority [--latest-file <path>] [--work-status <status|all>] [--operating-state <ko>] [--route-candidate <code>] [--route-confidence <exact|review|none>] [--thread-group <label>] [--priority-flag <ko>]",
+      "  node guild_hall/gateway/cli.mjs refresh-mail-work-priority [--latest-file <path>] [--queue-root <path>] [--intake-inbox-root <path>] [--workmeta-root <path>]",
       "  node guild_hall/gateway/cli.mjs triage-mail-candidate (--candidate-file <path> | --all-pending) [--queue-root <path>] [--binding-file <path>] [--private-deep] [--force]",
       "  node guild_hall/gateway/cli.mjs notify-gateway --event <event> (--on | --off)",
       "  node guild_hall/gateway/cli.mjs notify-mission --mission-id <id> --event <event> (--on | --off)",
@@ -204,6 +219,34 @@ async function runListMailWorkStatus(args) {
 
 async function runRefreshMailWorkStatus(args) {
   const result = await refreshMailWorkStatus({
+    repoRoot,
+    queueRoot: args["queue-root"] ? path.resolve(String(args["queue-root"])) : undefined,
+    intakeInboxRoot: args["intake-inbox-root"] ? path.resolve(String(args["intake-inbox-root"])) : undefined,
+    workmetaRoot: args["workmeta-root"] ? path.resolve(String(args["workmeta-root"])) : undefined,
+    outputFile: args["latest-file"] ? path.resolve(String(args["latest-file"])) : undefined,
+  });
+  printJson(result);
+}
+
+async function runListMailWorkPriority(args) {
+  const latestFile = args["latest-file"] ? path.resolve(String(args["latest-file"])) : defaultMailWorkPriorityLatestFile(repoRoot);
+  const rawWorkStatus = String(args["work-status"] ?? "all").trim();
+  const workStatus = rawWorkStatus === "all" ? "" : rawWorkStatus;
+  const result = await listMailWorkPriority({
+    repoRoot,
+    latestFile,
+    workStatus,
+    operatingState: args["operating-state"] ? String(args["operating-state"]) : "",
+    routeCandidate: args["route-candidate"] ? String(args["route-candidate"]) : "",
+    routeConfidence: args["route-confidence"] ? String(args["route-confidence"]) : "",
+    threadGroup: args["thread-group"] ? String(args["thread-group"]) : "",
+    priorityFlag: args["priority-flag"] ? String(args["priority-flag"]) : "",
+  });
+  printJson(result);
+}
+
+async function runRefreshMailWorkPriority(args) {
+  const result = await refreshMailWorkPriority({
     repoRoot,
     queueRoot: args["queue-root"] ? path.resolve(String(args["queue-root"])) : undefined,
     intakeInboxRoot: args["intake-inbox-root"] ? path.resolve(String(args["intake-inbox-root"])) : undefined,
