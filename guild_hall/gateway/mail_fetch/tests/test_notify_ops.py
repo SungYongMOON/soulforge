@@ -45,7 +45,10 @@ def _hiworks_event() -> EmailEvent:
         subject="견적서 검토 요청 https://example.test/private",
         from_addrs=[Address(name="홍길동", address="hong@example.test")],
         received_at="2026-05-08T04:43:20+00:00",
-        attachments=[Attachment(type="binary_attachment", name="secret.pdf")],
+        attachments=[
+            Attachment(type="binary_attachment", name="secret.pdf"),
+            Attachment(type="body_link", mime="text/uri-list", url="https://example.test/banner.png"),
+        ],
         body_text="본문은 알림에 들어가면 안 됩니다.",
         body_html="<html>본문</html>",
         raw={"raw": "raw body must not appear"},
@@ -64,6 +67,18 @@ def test_format_mail_received_brief_is_korean_and_body_safe() -> None:
     assert "본문" not in message
     assert "secret.pdf" not in message
     assert "example.test/private" not in message
+
+
+def test_format_mail_received_brief_does_not_count_body_links_as_attachments() -> None:
+    event = _hiworks_event()
+    event.attachments = [
+        Attachment(type="body_link", mime="text/uri-list", url="https://example.test/banner.png"),
+        Attachment(type="body_link", mime="text/uri-list", url="https://example.test/profile"),
+    ]
+
+    message = format_mail_received_brief(event)
+
+    assert "첨부 파일은 없습니다." in message
 
 
 def test_mail_received_policy_gates_notification_queue(tmp_path: Path) -> None:

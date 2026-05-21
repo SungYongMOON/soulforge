@@ -31,6 +31,19 @@ class Attachment:
     metadata: Optional[Dict[str, Any]] = None
 
 
+def message_attachments(attachments: Optional[List[Attachment]]) -> List[Attachment]:
+    """Return actual message attachments, excluding links discovered in body text."""
+    return [
+        item
+        for item in attachments or []
+        if str(item.type or "").strip().lower() != "body_link"
+    ]
+
+
+def message_attachment_count(attachments: Optional[List[Attachment]]) -> int:
+    return len(message_attachments(attachments))
+
+
 @dataclass
 class EmailEvent:
     event_id: str

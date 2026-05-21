@@ -1,5 +1,12 @@
 ﻿# CHANGELOG
 
+## 2026-05-21
+
+### Revision `working` - Mail notify attachment count excludes body links
+
+- Updated gateway mail notification and mail candidate summaries so body links discovered in message HTML/text are not counted as user-visible attached files.
+- Kept `body_link` entries in the event attachment array for link handling, while reporting attachment counts from actual message attachment parts only.
+
 ## 2026-05-20
 
 ### Revision `working` - SE assistant operating loop registered

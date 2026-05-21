@@ -8,7 +8,7 @@ from pathlib import Path
 import re
 from typing import Any, Dict, List, Optional
 
-from ..models import EmailEvent
+from ..models import EmailEvent, message_attachment_count, message_attachments
 from .sink import _event_path, _month_key_for_event
 
 
@@ -115,8 +115,10 @@ class MailCandidateQueue:
                 "from": [asdict(item) for item in event.from_addrs],
                 "to_count": len(event.to_addrs or []),
                 "cc_count": len(event.cc_addrs or []),
-                "attachment_count": len(event.attachments or []),
-                "attachment_types": sorted({str(item.type or "") for item in event.attachments if item.type}),
+                "attachment_count": message_attachment_count(event.attachments),
+                "attachment_types": sorted(
+                    {str(item.type or "") for item in message_attachments(event.attachments) if item.type}
+                ),
                 "classification": classification,
             },
             "business_review": {

@@ -24,7 +24,12 @@ def _event(*, bucket: str = "mail") -> EmailEvent:
                 type="reference_attachment",
                 name="private-checklist.xlsx",
                 url="https://example.test/private-checklist.xlsx",
-            )
+            ),
+            Attachment(
+                type="body_link",
+                mime="text/uri-list",
+                url="https://example.test/signature.png",
+            ),
         ],
         raw={"raw": "raw body must not appear"},
         metadata={
@@ -63,6 +68,7 @@ def test_mail_candidate_queue_writes_body_safe_pending_item(tmp_path: Path) -> N
     )
     assert payload["mail_summary"]["subject"] == "PDR 검토 요청"
     assert payload["mail_summary"]["attachment_count"] == 1
+    assert payload["mail_summary"]["attachment_types"] == ["reference_attachment"]
     assert payload["business_review"]["next_action"] == "review_for_mail_intake_request"
 
     assert "메일 본문" not in rendered

@@ -8,7 +8,7 @@ import re
 from typing import Any, Dict, List, Optional, Sequence
 from uuid import uuid4
 
-from ..models import EmailEvent
+from ..models import EmailEvent, message_attachment_count
 
 
 MAIL_RECEIVED_EVENT = "mail_received"
@@ -119,7 +119,7 @@ def format_mail_received_brief(event: EmailEvent) -> str:
     source_label = _source_label(event.source)
     subject = _safe_line(event.subject, fallback="제목 없음", max_len=80)
     sender = _sender_label(event)
-    attachment_count = len(event.attachments or [])
+    attachment_count = message_attachment_count(event.attachments)
 
     return "\n".join(
         [
