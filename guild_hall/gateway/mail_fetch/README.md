@@ -24,6 +24,7 @@
 - mailbox root: `guild_hall/state/gateway/mailbox/`
 - runtime root: `guild_hall/state/gateway/log/mail_fetch/`
 - mail candidate queue root: `guild_hall/state/gateway/mail_candidate/`
+- pre-project mail history root: `_workmeta/P00-000_INBOX/reports/메일_이력/`
 - default env file: `guild_hall/state/gateway/mailbox/state/email_fetch.env`
 
 ## 기본 실행
@@ -37,6 +38,7 @@ python3 guild_hall/gateway/mail_fetch/healthcheck.py --json
 
 - 실제 토큰, 비밀번호, Telegram 자격증명은 local env file 에만 둔다.
 - `guild_hall/state/**` 실자료는 GitHub 에 올리지 않는다.
+- 업무 후보 메일 수신 이력은 monster 생성 여부와 무관하게 `mail_candidate_queue` 단계에서 `P00-000_INBOX` private 이력으로 먼저 쌓는다.
 
 ## 관련 문서
 

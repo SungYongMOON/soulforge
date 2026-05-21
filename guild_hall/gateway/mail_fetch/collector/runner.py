@@ -777,6 +777,8 @@ def run_once(config: CollectorConfig) -> Dict[str, Any]:
                     "skipped": 0,
                     "skipped_reason": "dry_run",
                     "queue_files": [],
+                    "history_updated": 0,
+                    "history_files": [],
                 }
 
             source_row["new_events"] = len(fresh_events)

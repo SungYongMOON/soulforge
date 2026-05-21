@@ -82,6 +82,60 @@ test("intake CLI rejects a local root flag without a value", async () => {
   );
 });
 
+test("intake CLI updates project-local Korean mail history files for assigned monsters", async () => {
+  const tempRoot = await makeTempRoot();
+  const localRoot = path.join(tempRoot, "synthetic-root");
+  const eventId = `synthetic_project_${randomUUID()}`;
+  const payloadFile = path.join(tempRoot, "payload.json");
+
+  await writeJson(payloadFile, {
+    action: "mail_intake_request",
+    event_id: eventId,
+    source: "synthetic",
+    mailbox_id: "synthetic_mailbox",
+    provider_message_id: `provider-${eventId}`,
+    received_at: "2026-05-21T00:00:00.000Z",
+    event_ref: `synthetic/events/${eventId}.jsonl`,
+    raw_ref: `synthetic/raw/${eventId}.jsonl`,
+    subject: "Synthetic assigned project mail",
+    from: [{ name: "Sender", address: "sender@example.test" }],
+    attachment_refs: ["synthetic/attachment/private.xlsx"],
+    monsters: [
+      {
+        monster_id: "monster_synthetic_project_001",
+        monster_family: "synthetic_monster",
+        objective: "Confirm project mail history writer",
+        dedupe_key: `synthetic:${eventId}`,
+        assigned_project_code: "P26-030",
+        assigned_stage: "030_SRR",
+        assignment_status: "assigned",
+      },
+    ],
+  });
+
+  const { stdout } = await execFile(process.execPath, [
+    cliPath,
+    "intake",
+    "--payload-file",
+    payloadFile,
+    "--local-root",
+    localRoot,
+  ]);
+
+  const result = JSON.parse(stdout);
+  const historyRoot = path.join(localRoot, "_workmeta", "P26-030", "reports", "메일_이력");
+  const csv = await readFile(path.join(historyRoot, "메일_이력.csv"), "utf8");
+  const xlsx = await readFile(path.join(historyRoot, "메일_이력.xlsx"));
+  const schedule = await readFile(path.join(historyRoot, "메일_일정이벤트.ics"), "utf8");
+
+  assert.equal(result.status, "materialized");
+  assert.match(csv, /monster_created/);
+  assert.match(csv, /Synthetic assigned project mail/);
+  assert.equal(xlsx.subarray(0, 2).toString("utf8"), "PK");
+  assert.match(schedule, /BEGIN:VEVENT/);
+  assert(!csv.includes("private.xlsx"));
+});
+
 async function makeTempRoot() {
   return mkdtemp(path.join(os.tmpdir(), "soulforge-gateway-cli-"));
 }

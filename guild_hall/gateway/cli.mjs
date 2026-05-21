@@ -26,6 +26,10 @@ import {
 } from "./mail_work_status.mjs";
 import { renderMonsterCreatedMessage, sanitizeId } from "./message_rendering.mjs";
 import {
+  buildProjectMailHistoryEntry,
+  upsertProjectMailHistory,
+} from "./project_mail_history_writer.mjs";
+import {
   appendJsonl,
   pathExists,
   readJson,
@@ -405,6 +409,19 @@ async function runIntake(args) {
     };
     await appendJsonl(historyFile, createdEvent);
     await appendGlobalEvent(createdEvent, context);
+    await writeProjectMailHistoryFromGatewayEvent({
+      context,
+      projectCode: monster.assigned_project_code,
+      eventType: "monster_created",
+      at: now,
+      monster,
+      mail: mailSummaryFromPayload(payload, { from }),
+      refs: {
+        gateway_monster_ref: `${relativeToRepo(monstersFile, context)}#monster_id=${monster.monster_id}`,
+        project_monster_ref: monster.project_monster_ref,
+        mission_ref: monster.mission_ref,
+      },
+    });
   }
 
   if (createdMonsters.length > 0) {
@@ -674,6 +691,19 @@ async function runUpdateMonster(args) {
     }
   }
 
+  await writeProjectMailHistoryFromGatewayEvent({
+    projectCode: after.assigned_project_code,
+    eventType: "monster_updated",
+    at: now,
+    monster: after,
+    mail: mailSummaryFromInbox(inboxDocument),
+    refs: {
+      gateway_monster_ref: `${relativeToRepo(monstersFile)}#monster_id=${after.monster_id}`,
+      project_monster_ref: after.project_monster_ref,
+      mission_ref: after.mission_ref,
+    },
+  });
+
   printJson({
     request_id: `monster_update_${inboxId}_${monsterId}`,
     status: "updated",
@@ -816,6 +846,19 @@ async function touchExistingMonster(match, rawMonster, payload, now, context = d
     };
     await appendJsonl(historyFile, touchEvent);
     await appendGlobalEvent(touchEvent, context);
+    await writeProjectMailHistoryFromGatewayEvent({
+      context,
+      projectCode: after.assigned_project_code,
+      eventType: "monster_touched_by_mail",
+      at: now,
+      monster: after,
+      mail: mailSummaryFromPayload(payload),
+      refs: {
+        gateway_monster_ref: `${relativeToRepo(monstersFile, context)}#monster_id=${after.monster_id}`,
+        project_monster_ref: after.project_monster_ref,
+        mission_ref: after.mission_ref,
+      },
+    });
   }
 
   return {
@@ -1019,6 +1062,62 @@ function normalizeAddressEntries(value) {
       };
     })
     .filter((entry) => entry && entry.address);
+}
+
+async function writeProjectMailHistoryFromGatewayEvent({
+  context = defaultContext,
+  projectCode,
+  eventType,
+  at,
+  monster,
+  mail,
+  refs,
+}) {
+  if (!projectCode) {
+    return {
+      status: "skipped",
+      reason: "missing_project_code",
+    };
+  }
+
+  const entry = buildProjectMailHistoryEntry({
+    eventType,
+    at,
+    projectCode,
+    stage: monster.assigned_stage ?? null,
+    monster,
+    mail,
+    refs,
+  });
+  return upsertProjectMailHistory({
+    repoRoot: context.repoRoot,
+    projectCode,
+    entry,
+  });
+}
+
+function mailSummaryFromPayload(payload, overrides = {}) {
+  return {
+    source_ref: payload.event_id ?? null,
+    received_at: payload.received_at ?? null,
+    mailbox_id: payload.mailbox_id ?? null,
+    thread_ref: payload.thread_ref ?? null,
+    subject: payload.subject ?? null,
+    from: overrides.from ?? normalizeAddressEntries(payload.from),
+    attachment_count: normalizeArray(payload.attachment_refs).length,
+  };
+}
+
+function mailSummaryFromInbox(inboxDocument) {
+  return {
+    source_ref: inboxDocument.source_ref ?? null,
+    received_at: inboxDocument.received_at ?? null,
+    mailbox_id: inboxDocument.mailbox_id ?? null,
+    thread_ref: inboxDocument.thread_ref ?? null,
+    subject: inboxDocument.subject ?? null,
+    from: normalizeAddressEntries(inboxDocument.from),
+    attachment_count: normalizeArray(inboxDocument.attachment_refs).length,
+  };
 }
 
 function requireToggleValue(args) {

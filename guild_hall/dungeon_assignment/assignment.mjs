@@ -4,6 +4,11 @@ import path from "node:path";
 import YAML from "yaml";
 
 import { syncMonsterIndexInbox } from "../gateway/monster_index.mjs";
+import {
+  buildProjectMailHistoryEntry,
+  projectMailHistoryRefs,
+  upsertProjectMailHistory,
+} from "../gateway/project_mail_history_writer.mjs";
 import { appendJsonl, readJson, relativeToRepo, writeJson } from "../shared/io.mjs";
 
 export const FILING_PACKET_SCHEMA_VERSION = "soulforge.dungeon_assignment.filing_packet.v1";
@@ -98,12 +103,23 @@ export async function materializeDungeonAssignment(options) {
     ...plan.summary,
     gateway_sync_back: gatewaySyncPlan.summary,
   };
+  const privateMailHistoryPlan = buildAssignmentMailHistoryPlan({
+    repoRoot,
+    source,
+    routing,
+    now,
+    summary,
+  });
+  const plannedWriteRefs = [
+    ...writes.map((write) => write.repo_path),
+    ...privateMailHistoryPlan.planned_refs,
+  ];
 
   if (options.dryRun) {
     return {
       ...summary,
       dry_run: true,
-      planned_writes: writes.map((write) => write.repo_path),
+      planned_writes: plannedWriteRefs,
     };
   }
 
@@ -126,11 +142,23 @@ export async function materializeDungeonAssignment(options) {
       gatewaySyncPlan.indexSync.monsters,
     );
   }
+  const privateMailHistory = privateMailHistoryPlan.entry
+    ? await upsertProjectMailHistory({
+        repoRoot,
+        projectCode: routing.project_code,
+        entry: privateMailHistoryPlan.entry,
+      })
+    : {
+        status: "skipped",
+        reason: "missing_project_code",
+        written_refs: [],
+      };
 
   return {
     ...summary,
+    private_mail_history: privateMailHistory,
     dry_run: false,
-    written_refs: writes.map((write) => write.repo_path),
+    written_refs: [...writes.map((write) => write.repo_path), ...privateMailHistory.written_refs],
   };
 }
 
@@ -656,6 +684,56 @@ function buildWorkspaceHistoryEvent({
     project_monster_ref: projectMonsterRef,
     workspace_filing_ref: workspacePacketRef,
     raw_payload_copied: false,
+  };
+}
+
+function buildAssignmentMailHistoryPlan({ repoRoot, source, routing, now, summary }) {
+  if (!routing.project_code) {
+    return {
+      entry: null,
+      planned_refs: [],
+    };
+  }
+
+  const missionRef =
+    summary.mission_handoff?.status === "created_private_handoff"
+      ? summary.mission_handoff.mission_ref
+      : null;
+  const entry = buildProjectMailHistoryEntry({
+    eventType: "mail_filing_received",
+    at: now,
+    projectCode: routing.project_code,
+    stage: routing.stage,
+    monster: {
+      ...source.gateway_monster,
+      assigned_stage: routing.stage,
+      assignment_status: summary.status,
+      project_monster_ref: summary.project_monster_ref ?? null,
+      filing_packet_ref: summary.filing_packet_ref ?? null,
+      mission_ref: missionRef,
+    },
+    mail: {
+      source_ref: source.gateway_refs.source_ref,
+      received_at: source.gateway_refs.received_at,
+      mailbox_id: source.gateway_refs.mailbox_id,
+      thread_ref: null,
+      subject: source.mail_summary.subject,
+      from: source.mail_summary.from,
+      attachment_count:
+        source.gateway_refs.attachment_ref_count ?? Number(source.mail_summary.attachment_count ?? 0),
+    },
+    refs: {
+      gateway_monster_ref: source.gateway_monster_ref,
+      project_monster_ref: summary.project_monster_ref ?? null,
+      filing_packet_ref: summary.filing_packet_ref ?? null,
+      mission_ref: missionRef,
+    },
+    workStatus: summary.status,
+  });
+
+  return {
+    entry,
+    planned_refs: projectMailHistoryRefs(repoRoot, routing.project_code),
   };
 }
 

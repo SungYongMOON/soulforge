@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import csv
 import json
 from pathlib import Path
 
@@ -55,9 +56,23 @@ def test_mail_candidate_queue_writes_body_safe_pending_item(tmp_path: Path) -> N
     assert result.queued == 1
     assert result.skipped == 0
     assert len(result.queue_files) == 1
+    assert result.history_updated == 1
+    assert result.history_files == [
+        "_workmeta/P00-000_INBOX/reports/메일_이력/메일_이력.csv",
+        "_workmeta/P00-000_INBOX/reports/메일_이력/메일_이력.xlsx",
+        "_workmeta/P00-000_INBOX/reports/메일_이력/메일_일정이벤트.ics",
+    ]
 
     payload = json.loads((tmp_path / result.queue_files[0]).read_text(encoding="utf-8"))
     rendered = json.dumps(payload, ensure_ascii=False)
+    history_root = tmp_path / "_workmeta" / "P00-000_INBOX" / "reports" / "메일_이력"
+    history_rows = list(csv.DictReader((history_root / "메일_이력.csv").open("r", encoding="utf-8-sig")))
+    history_rendered = "\n".join(
+        [
+            (history_root / "메일_이력.csv").read_text(encoding="utf-8-sig"),
+            (history_root / "메일_일정이벤트.ics").read_text(encoding="utf-8"),
+        ]
+    )
 
     assert payload["schema_version"] == "mail_candidate.queue_item.v1"
     assert payload["status"] == "pending_review"
@@ -70,12 +85,26 @@ def test_mail_candidate_queue_writes_body_safe_pending_item(tmp_path: Path) -> N
     assert payload["mail_summary"]["attachment_count"] == 1
     assert payload["mail_summary"]["attachment_types"] == ["reference_attachment"]
     assert payload["business_review"]["next_action"] == "review_for_mail_intake_request"
+    assert len(history_rows) == 1
+    assert history_rows[0]["프로젝트코드"] == "P00-000_INBOX"
+    assert history_rows[0]["단계"] == "mail_candidate_queue"
+    assert history_rows[0]["후보ID"] == payload["candidate_id"]
+    assert history_rows[0]["몬스터ID"] == ""
+    assert history_rows[0]["이벤트유형"] == "mail_received"
+    assert history_rows[0]["작업상태"] == "candidate_pending"
+    assert (history_root / "메일_이력.xlsx").read_bytes()[:2] == b"PK"
+    assert "BEGIN:VEVENT" in history_rendered
 
     assert "메일 본문" not in rendered
     assert "비공개 본문" not in rendered
     assert "raw body" not in rendered
     assert "private-checklist.xlsx" not in rendered
     assert "example.test/private" not in rendered
+    assert "메일 본문" not in history_rendered
+    assert "비공개 본문" not in history_rendered
+    assert "raw body" not in history_rendered
+    assert "private-checklist.xlsx" not in history_rendered
+    assert "example.test/private" not in history_rendered
 
 
 def test_mail_candidate_queue_skips_non_mail_buckets_and_is_idempotent(tmp_path: Path) -> None:
@@ -95,3 +124,9 @@ def test_mail_candidate_queue_skips_non_mail_buckets_and_is_idempotent(tmp_path:
     assert second.queued == 0
     assert second.skipped == 1
     assert second.skipped_reason == "already_queued"
+    assert first.history_updated == 1
+    assert second.history_updated == 1
+
+    history_csv = tmp_path / "_workmeta" / "P00-000_INBOX" / "reports" / "메일_이력" / "메일_이력.csv"
+    history_rows = list(csv.DictReader(history_csv.open("r", encoding="utf-8-sig")))
+    assert len(history_rows) == 1

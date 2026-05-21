@@ -2,6 +2,13 @@
 
 ## 2026-05-21
 
+### Revision `working` - Project mail history private writer added
+
+- Added a `_workmeta/<project_code>/reports/메일_이력/` private writer for mail-derived monster create/update/filing events.
+- Added candidate-stage `_workmeta/P00-000_INBOX/reports/메일_이력/` history so received work-like mail is recorded before and even without monster creation.
+- The writer now refreshes Korean-named `메일_이력.csv`, `메일_이력.xlsx`, and `메일_일정이벤트.ics` outputs with `이력키` upsert dedupe.
+- Wired mail fetch candidate queue, gateway intake/update, and dungeon assignment filing to the writers without copying raw mail body, HTML, raw payload, attachment names, URLs, or local paths.
+
 ### Revision `working` - Always-on healer seven checks added
 
 - Added a reusable healer check module for snapshot/map freshness, launchd liveness, stray development-file placement, report freshness, repo sync, secret/raw path leakage, and restore readiness.

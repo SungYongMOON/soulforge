@@ -9,6 +9,7 @@ import re
 from typing import Any, Dict, List, Optional
 
 from ..models import EmailEvent, message_attachment_count, message_attachments
+from .project_mail_history import ProjectMailHistoryWriter
 from .sink import _event_path, _month_key_for_event
 
 
@@ -22,6 +23,8 @@ class MailCandidateQueueSummary:
     skipped: int = 0
     skipped_reason: str = ""
     queue_files: List[str] = field(default_factory=list)
+    history_updated: int = 0
+    history_files: List[str] = field(default_factory=list)
 
     def to_dict(self) -> Dict[str, Any]:
         return {
@@ -30,6 +33,8 @@ class MailCandidateQueueSummary:
             "skipped": self.skipped,
             "skipped_reason": self.skipped_reason,
             "queue_files": list(self.queue_files),
+            "history_updated": self.history_updated,
+            "history_files": list(self.history_files),
         }
 
 
@@ -52,6 +57,7 @@ class MailCandidateQueue:
             "hiworks": "company",
             "o365": "company",
         }
+        self.history_writer = ProjectMailHistoryWriter(repo_root=self.repo_root)
 
     def enqueue_events(self, events: List[EmailEvent]) -> MailCandidateQueueSummary:
         candidates = [event for event in events if _is_candidate_event(event)]
@@ -72,6 +78,9 @@ class MailCandidateQueue:
             queue_file = pending_root / f"{candidate_id}.json"
             if queue_file.exists():
                 summary.skipped += 1
+                history_summary = self.history_writer.record_mail_received(event, candidate_id=candidate_id)
+                summary.history_updated += history_summary.updated
+                _extend_unique(summary.history_files, history_summary.history_files)
                 continue
 
             created_at = _now_iso()
@@ -79,8 +88,11 @@ class MailCandidateQueue:
             tmp_file = queue_file.with_suffix(queue_file.suffix + ".tmp")
             tmp_file.write_text(json.dumps(payload, ensure_ascii=False, indent=2) + "\n", encoding="utf-8")
             tmp_file.replace(queue_file)
+            history_summary = self.history_writer.record_mail_received(event, candidate_id=candidate_id)
             summary.queued += 1
             summary.queue_files.append(_repo_relative(self.repo_root, queue_file))
+            summary.history_updated += history_summary.updated
+            _extend_unique(summary.history_files, history_summary.history_files)
 
         if summary.queued == 0 and summary.skipped > 0:
             summary.skipped_reason = "already_queued"
@@ -192,6 +204,12 @@ def _safe_int(value: Any) -> int:
         return int(value or 0)
     except Exception:
         return 0
+
+
+def _extend_unique(target: List[str], values: List[str]) -> None:
+    for value in values:
+        if value not in target:
+            target.append(value)
 
 
 def _repo_relative(repo_root: Path, file_path: Path) -> str:

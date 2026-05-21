@@ -57,12 +57,23 @@ test("materializes private filing, project monster, and workspace bridge for a g
     path.join(repoRoot, "_workspaces", "P26-030", "020_MGMT", "027_수신이력_이동이력", "mail_receive_history.jsonl"),
     "utf8",
   );
+  const privateMailHistoryCsv = await readFile(
+    path.join(repoRoot, "_workmeta", "P26-030", "reports", "메일_이력", "메일_이력.csv"),
+    "utf8",
+  );
+  const privateMailHistoryXlsx = await readFile(
+    path.join(repoRoot, "_workmeta", "P26-030", "reports", "메일_이력", "메일_이력.xlsx"),
+  );
+  const privateMailSchedule = await readFile(
+    path.join(repoRoot, "_workmeta", "P26-030", "reports", "메일_이력", "메일_일정이벤트.ics"),
+    "utf8",
+  );
   const gatewayHistory = await readFile(path.join(inboxDir, "history.jsonl"), "utf8");
   const gatewayEvents = await readFile(
     path.join(repoRoot, "guild_hall", "state", "gateway", "log", "monster_events", "2026", "2026-05.jsonl"),
     "utf8",
   );
-  const rendered = JSON.stringify({ result, filingPacket, projectMonster, workspacePacket, mailHistory });
+  const rendered = JSON.stringify({ result, filingPacket, projectMonster, workspacePacket, mailHistory, privateMailHistoryCsv, privateMailSchedule });
 
   assert.equal(result.status, "filed");
   assert.equal(filingPacket.gateway_monster_id, "monster_hiworks_evt_001_a");
@@ -71,6 +82,10 @@ test("materializes private filing, project monster, and workspace bridge for a g
   assert.equal(projectMonster.source_monster_id, "monster_hiworks_evt_001_a");
   assert.equal(workspacePacket.monster_id, "monster_hiworks_evt_001_a");
   assert.match(mailHistory, /mail_filing_received/);
+  assert.match(privateMailHistoryCsv, /mail_filing_received/);
+  assert.equal(privateMailHistoryXlsx.subarray(0, 2).toString("utf8"), "PK");
+  assert.match(privateMailSchedule, /BEGIN:VEVENT/);
+  assert(result.written_refs.includes("_workmeta/P26-030/reports/메일_이력/메일_이력.csv"));
   assert.equal(updatedInbox.assignment_status, "assigned");
   assert.equal(updatedGatewayMonsters.monsters[0].assignment_status, "transferred");
   assert.equal(updatedGatewayMonsters.monsters[0].project_monster_ref, "_workmeta/P26-030/monsters/monster_hiworks_evt_001_a.yaml");
@@ -422,6 +437,7 @@ test("CLI file command supports dry-run planning", async () => {
   assert.equal(result.dry_run, true);
   assert.equal(result.status, "filed");
   assert(result.planned_writes.some((entry) => entry.includes("_workmeta/P26-030/monsters/monster_hiworks_evt_cli_a.yaml")));
+  assert(result.planned_writes.includes("_workmeta/P26-030/reports/메일_이력/메일_이력.csv"));
 });
 
 test("CLI file command supports private mission handoff dry-run planning", async () => {
