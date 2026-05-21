@@ -1,0 +1,87 @@
+workflow_id: allegro_pcb_dbdoctor_uprev_batch_v0
+calibration_id: cal_20260521_cli_quality_equiv_001
+recommended_profile:
+  model: gpt-5.4-mini
+  reasoning_effort: medium
+  species: dwarf
+  class: auditor
+  candidate_id: C05MR
+quality_gate:
+  baseline_candidate_id: C01
+  baseline_profile: gpt-5.5/xhigh/dwarf/auditor
+  selected_quality_class: quality_pass
+  selected_quality_score: 94
+  quality_source: cli_only_calibration_with_shape_clarified_finalist_rerun
+cli_proxy_telemetry:
+  input_tokens: 17622
+  cached_input_tokens: 2432
+  output_tokens: 2850
+  reasoning_output_tokens: 516
+  wall_time_seconds: 24.657
+why_selected:
+  - Passed all hard quality gates after shape-clarified finalist rerun.
+  - Preserved top-level .brd scope, RF_COLLIDE collision blocking, notes.txt extension blocking, nested/NESTED_D.brd recursive-scope blocking, and all three DB Doctor result classifications.
+  - Lowest model tier and fastest measured wall time among quality-passing exact-shape candidates.
+  - Quality gap to the stronger C04R shadow is below the 10-point materiality threshold.
+measurement_policy:
+  calibration_mode: cli_only_calibration_with_shape_clarified_finalist_rerun
+  default_subagent_quality_first: blocked_runtime_subagent_unavailable
+  quality_source: cli_only_calibration_with_shape_clarified_finalist_rerun
+  telemetry_source: codex_exec_json_cli_proxy
+  subagent_token_usage_available: false
+  telemetry_exact_for_subagent: false
+  telemetry_exact_for_cli: true
+  cost_confidence: relative_not_exact
+boundary_assumptions:
+  - Public-safe synthetic fixture only.
+  - No raw PCB payload, private project material, runtime absolute path, credential, cookie, secret, _workspaces output, or private run truth is intentionally archived.
+  - Candidate outputs are synthetic workflow packets and do not claim actual Cadence DB Doctor execution.
+shadow_profiles:
+  - rank: 2
+    candidate_id: C04R
+    model: gpt-5.4
+    reasoning_effort: medium
+    species: dwarf
+    class: auditor
+    quality_score: 97
+    quality_class: quality_pass
+    output_tokens: 2558
+    reasoning_output_tokens: 55
+    wall_time_seconds: 50.842
+  - rank: 3
+    candidate_id: C02
+    model: gpt-5.5
+    reasoning_effort: medium
+    species: dwarf
+    class: auditor
+    quality_score: 96
+    quality_class: quality_pass
+    output_tokens: 5656
+    reasoning_output_tokens: 668
+    wall_time_seconds: 113.958
+  - rank: 4
+    candidate_id: C03
+    model: gpt-5.4
+    reasoning_effort: high
+    species: dwarf
+    class: auditor
+    quality_score: 94
+    quality_class: quality_pass
+    output_tokens: 12762
+    reasoning_output_tokens: 5843
+    wall_time_seconds: 247.226
+non_promoted_candidates:
+  - candidate_id: C01
+    reason: Missing required root output shape despite strong baseline content.
+  - candidate_id: C04
+    reason: Missing required root output shape.
+  - candidate_id: C05
+    reason: gpt-5.4-mini/xhigh runtime stalled and was terminated with no output.
+  - candidate_id: C05M
+    reason: Missing required workflow_output_packet section names.
+  - candidate_id: C06
+    reason: Missing required workflow_output_packet section names.
+  - candidate_id: C07
+    reason: Missing required workflow_output_packet section names.
+  - candidate_id: C08
+    reason: Missing required workflow_output_packet section names.

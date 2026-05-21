@@ -1,0 +1,31 @@
+workflow_id: allegro_pcb_dbdoctor_uprev_batch_v0
+kind: role_slots
+status: active
+slots:
+  - slot_id: runtime_scope_binder
+    title: Runtime Scope Binder
+    summary: Binds owner-approved runtime roots, DB Doctor locator, mutation mode, extension policy, and output packet labels.
+  - slot_id: path_policy_checker
+    title: Path Policy Checker
+    summary: Confirms runtime paths are absolute, existing, and confined to the approved input root before any mutation.
+  - slot_id: inventory_runner
+    title: Inventory Runner
+    summary: Lists candidate legacy database files without descending into already materialized packets by default.
+  - slot_id: packet_planner
+    title: Packet Planner
+    summary: Produces the old/new folder plan, collision report, and exact target paths.
+  - slot_id: packet_materializer
+    title: Packet Materializer
+    summary: Creates packet folders and moves originals only after mutation authority is explicit.
+  - slot_id: dbdoctor_runner
+    title: DB Doctor Runner
+    summary: Runs DB Doctor in outfile mode and captures stdout, stderr, exit code, and logs.
+  - slot_id: result_classifier
+    title: Result Classifier
+    summary: Interprets DB Doctor output using file existence and log evidence rather than process code alone.
+  - slot_id: cleanup_verifier
+    title: Cleanup Verifier
+    summary: Checks old/new counts, leftover temp files, log presence, and retry blockers.
+  - slot_id: boundary_closeout_reviewer
+    title: Boundary Closeout Reviewer
+    summary: Names output state, boundary posture, non-claims, and follow-up routes.

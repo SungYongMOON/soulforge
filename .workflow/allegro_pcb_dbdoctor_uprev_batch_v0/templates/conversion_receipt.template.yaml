@@ -1,0 +1,29 @@
+schema_version: allegro_pcb_dbdoctor_uprev_batch_v0.conversion_receipt
+scope_id: "<scope-id>"
+created_at: "<iso8601>"
+output_state: "dry_run | materialized | converted | partially_converted | blocked"
+counts:
+  planned_packets: 0
+  old_version_database_files: 0
+  new_version_database_files: 0
+  logs_written: 0
+  temp_files_remaining: 0
+result_matrix:
+  - packet_id: "<file-stem>"
+    process_exit_code: null
+    output_file_exists: false
+    revision_complete_text_seen: false
+    saved_to_disk_text_seen: false
+    warning_count: null
+    detected_error_count: null
+    fixed_error_count: null
+    status: "not_run | warning_bearing_completion | success | failed | blocked"
+    log_runtime_path_ref: "<private-runtime-ref>"
+blockers: []
+non_claims:
+  electrical_correctness: false
+  manufacturing_readiness: false
+  unattended_full_archive_ready: false
+followup_routes:
+  owner_decision_packet_v0: []
+  post_development_review_gate_v0: []

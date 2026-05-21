@@ -1,0 +1,54 @@
+skill_id: pcb_revision_library_cell_launcher
+kind: skill
+status: active
+title: PCB Revision Library Cell Launcher
+summary: Route Cadence Allegro PCB revision and board-library extraction requests through the existing PCB Revision Library Cell party without moving party, workflow, profile policy, project payload, or authority decisions into the skill.
+behavior:
+  intent: >
+    Provide a thin Codex launcher for `.party/pcb_revision_library_cell`.
+    The launcher helps a future Codex run resolve the registered party,
+    confirm the DB Doctor uprev to dlib export chain, read workflow-owned
+    profile policies at execution time, and route a bounded PCB revision or
+    board-library extraction request without rediscovering the workflow pair.
+    It is an invocation bridge only; it does not become Cadence automation,
+    board mutation authority, design approval, or manufacturing readiness.
+  use_when:
+    - the user asks to run or route `pcb_revision_library_cell`
+    - the user asks for a Cadence Allegro PCB revision and library extraction route
+    - the user asks for DB Doctor uprev followed by dlib library export and organization
+    - the request mentions legacy board uprev, old/new board packets, board-local dlib export, or Allegro library organization
+    - a PCB revision/library request should use the existing party chain instead of asking Codex to rediscover the two workflow sequence
+  avoid_when:
+    - the user asks to create or change the `pcb_revision_library_cell` party itself
+    - the request requires approving electrical correctness, manufacturing readiness, symbol geometry, padstack engineering, or release acceptance
+    - the request would copy raw PCB payloads, Cadence install paths, generated scripts, tool logs, private run truth, runtime absolute paths, or secrets into public skill canon
+    - the request needs full-archive mutation, overwrite/delete policy, rerun authority, default-route switching, or public/private promotion without separate owner approval
+  expected_outcome:
+    - Codex reads `.party/pcb_revision_library_cell/party.yaml` and `allowed_workflows.yaml`
+    - Codex resolves `allegro_pcb_dbdoctor_uprev_batch_v0` before `allegro_pcb_dlib_export_organize_v0`
+    - Codex reads each selected workflow's `workflow.yaml` and `profile_policy.yaml` before planning execution
+    - model, reasoning effort, species, and class are inherited as workflow-owned hints rather than copied as launcher authority
+    - runtime paths, owner approvals, Cadence execution logs, PCB payloads, and review evidence stay in their proper owner surfaces
+execution_requirements:
+  required_capabilities:
+    - party_launcher_routing
+    - allegro_pcb_revision_boundary_review
+    - workflow_profile_policy_resolution
+    - public_private_boundary_review
+  preferred_capabilities:
+    - yaml_review
+    - cadence_allegro_request_triage
+    - owner_mutation_scope_check
+    - post_development_review_awareness
+  preferred_tools:
+    - rg
+    - yaml_reader
+    - markdown_editor
+    - soulforge_validators
+  notes:
+    - "The launcher must resolve party and workflow-owned profile policies at execution time; do not copy optimizer profile values into `codex/SKILL.md` as binding authority."
+    - "DB Doctor uprev is the predecessor stage; dlib export and organization is the successor stage."
+    - "Actual Cadence availability, board roots, generated scripts, logs, payloads, owner approvals, and private run truth remain runtime concerns outside public skill canon."
+notes:
+  - "`pcb_revision_library_cell_launcher` is a thin Codex bridge for the registered `.party/pcb_revision_library_cell` loadout."
+  - "The installed Codex mirror name is normally `soulforge-pcb-revision-library-cell-launcher` after `npm run skills:sync -- pcb_revision_library_cell_launcher`."

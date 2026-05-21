@@ -1,0 +1,17 @@
+party_id: pcb_revision_library_cell
+kind: member_slots
+status: active
+slots:
+  - slot_id: dbdoctor_uprev_stage
+    title: DB Doctor Uprev Stage
+    workflow_id: allegro_pcb_dbdoctor_uprev_batch_v0
+    execution_contract: local_cadence_tool_required_owner_mutation_scope_required
+    summary: Plans old/new board packets, runs DB Doctor through explicit runtime bindings, and classifies conversion success from output and log evidence.
+  - slot_id: dlib_export_stage
+    title: Dlib Export Stage
+    workflow_id: allegro_pcb_dlib_export_organize_v0
+    execution_contract: local_cadence_tool_required_owner_mutation_scope_required
+    summary: Exports Allegro board libraries with dlib, organizes padpath/psmpath/devpath/logs folders, and records a bounded export receipt.
+notes:
+  - Slots mirror the workflow chain for display and validator compatibility only.
+  - Detailed step order, Cadence command behavior, and execution profiles remain workflow-owned.

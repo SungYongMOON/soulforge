@@ -16,6 +16,12 @@ archive and backup: incoming candidate files go to an inbox/candidate manifest,
 working packets and canon packages get archive refs later, and the workflow keeps
 status labels so storage does not look like approval.
 
+Drive and NotebookLM placement follows
+`docs/architecture/guild_hall/KNOWLEDGE_WAREHOUSE_BOOKSHELF_RULES_V0.md`:
+Google Drive is the source warehouse, NotebookLM notebooks are query
+bookshelves, `_workmeta` is the source catalog, and Drive manifests or
+shortcuts must not become source truth or canon authority.
+
 This party does not own the inner steps of those workflows and does not choose the best model, reasoning effort, species, class, or unit. Those choices stay with each workflow's profile and calibration files.
 
 Each workflow stage in a real run should be executed by a fresh subagent and should write private evidence under `_workmeta/<project_code>/runs/<run_id>/` or `_workmeta/system/runs/<run_id>/`.

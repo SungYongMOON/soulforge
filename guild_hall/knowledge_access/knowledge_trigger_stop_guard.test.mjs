@@ -21,6 +21,7 @@ test("knowledge trigger stop guard accepts valid closeout lines", () => {
   assert.equal(hasKnowledgeTriggerCloseout("지식 트리거 확인: 없음"), true);
   assert.equal(hasKnowledgeTriggerCloseout("지식 트리거 확인: 메타데이터 기록"), true);
   assert.equal(hasKnowledgeTriggerCloseout("지식 트리거 확인: 소스 기반 검토 후보"), true);
+  assert.equal(hasKnowledgeTriggerCloseout("지식 트리거 확인: 책임자 판단 필요"), true);
   assert.equal(hasKnowledgeTriggerCloseout("지식 트리거 확인: 오너 판단 필요"), true);
   assert.equal(hasKnowledgeTriggerCloseout("Knowledge trigger check: validated_private"), false);
   assert.equal(hasKnowledgeTriggerCloseout("지식 트리거 확인: 검증된 비공개"), false);

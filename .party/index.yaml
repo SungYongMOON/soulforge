@@ -3,16 +3,14 @@ owner: .party
 kind: party_template_catalog
 status: active
 entries:
-  - party_id: vanguard_strike
-    path: vanguard_strike/party.yaml
-  - party_id: lineage_strike
-    path: lineage_strike/party.yaml
   - party_id: guild_master_cell
     path: guild_master_cell/party.yaml
   - party_id: knowledge_wiki_cell
     path: knowledge_wiki_cell/party.yaml
   - party_id: systems_engineering_cell
     path: systems_engineering_cell/party.yaml
+  - party_id: pcb_revision_library_cell
+    path: pcb_revision_library_cell/party.yaml
 notes:
   - Party catalog lists reusable workflow-chain loadouts.
   - Workflow optimizer results for model, reasoning, species, class, and unit choices belong under each .workflow entry, not in party canon.

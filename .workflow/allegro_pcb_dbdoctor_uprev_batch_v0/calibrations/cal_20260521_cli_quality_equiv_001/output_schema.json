@@ -1,0 +1,30 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "type": "object",
+  "additionalProperties": true,
+  "required": ["profile_metadata", "workflow_output_packet", "provenance"],
+  "properties": {
+    "profile_metadata": {
+      "type": "object",
+      "required": ["workflow_id", "candidate_id", "model", "reasoning_effort", "species", "class"]
+    },
+    "workflow_output_packet": {
+      "type": "object",
+      "required": [
+        "bound_runtime_scope",
+        "path_policy_report",
+        "inventory_report",
+        "conversion_plan",
+        "old_new_packet_manifest",
+        "dbdoctor_execution_logs",
+        "conversion_result_matrix",
+        "conversion_receipt",
+        "boundary_review_note"
+      ]
+    },
+    "provenance": {
+      "type": "object",
+      "required": ["fixture_id", "public_safety"]
+    }
+  }
+}

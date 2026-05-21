@@ -1,0 +1,42 @@
+party_id: pcb_revision_library_cell
+kind: party_template
+status: active
+title: PCB Revision Library Cell
+summary: Reusable workflow-chain party for Cadence Allegro legacy PCB database uprev followed by board-local dlib library export and organization.
+service_lane:
+  primary: design_asset
+  primary_name_ko: design_asset
+  secondary:
+    - workspace_management
+    - review_governance
+  secondary_name_ko:
+    - workspace_management
+    - review_governance
+  purpose: execution_fit
+  authority: routing_hint_only
+default_workflow_id: allegro_pcb_dbdoctor_uprev_batch_v0
+workflow_chain:
+  - order: 1
+    workflow_id: allegro_pcb_dbdoctor_uprev_batch_v0
+    role: legacy_board_database_uprev_stage
+    execution_contract: local_cadence_tool_required_owner_mutation_scope_required
+  - order: 2
+    workflow_id: allegro_pcb_dlib_export_organize_v0
+    role: upreved_board_library_export_and_organize_stage
+    execution_contract: local_cadence_tool_required_owner_mutation_scope_required
+preferred_monster_types:
+  - allegro_pcb_revision_request
+  - allegro_legacy_board_uprev_request
+  - allegro_board_library_export_request
+  - allegro_dlib_organize_request
+  - pcb_revision_library_request
+member_slots: member_slots.yaml
+allowed_species: allowed_species.yaml
+allowed_classes: allowed_classes.yaml
+allowed_workflows: allowed_workflows.yaml
+appserver_profile: appserver_profile.yaml
+notes:
+  - Party owns the two-workflow chain only; each workflow owns its own tool sequence, success classifier, mutation guard, and optimized execution profile.
+  - DB Doctor uprev runs before dlib export because dlib library extraction should target the selected current/new board database output when a revision conversion is part of the scope.
+  - Runtime board roots, Cadence executable paths, generated scripts, logs, PCB payloads, and owner mutation approvals remain runtime/private inputs and evidence.
+  - The party does not claim electrical correctness, manufacturing readiness, symbol geometry correctness, padstack engineering approval, or unattended archive-wide mutation.

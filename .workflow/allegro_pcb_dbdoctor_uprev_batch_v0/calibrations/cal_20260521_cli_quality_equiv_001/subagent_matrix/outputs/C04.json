@@ -1,0 +1,291 @@
+{
+  "packet_meta": {
+    "packet_kind": "allegro_pcb_dbdoctor_uprev_batch_v0_public_safe_synthetic_output",
+    "workflow_id": "allegro_pcb_dbdoctor_uprev_batch_v0",
+    "fixture_id": "allegro_dbdoctor_uprev_public_synthetic_001",
+    "fixture_kind": "public_safe_synthetic_workflow_contract_fixture",
+    "candidate_id": "C04",
+    "model": "gpt-5.4",
+    "reasoning_effort": "medium",
+    "species": "dwarf",
+    "class": "auditor",
+    "role": "candidate_5_4_medium",
+    "synthetic_only": true,
+    "public_safe": true
+  },
+  "boundary_posture": {
+    "public_safety": {
+      "contains_real_pcb_payload": false,
+      "contains_project_private_material": false,
+      "contains_runtime_absolute_paths": false,
+      "contains_credentials_or_secrets": false,
+      "basis": "Synthetic fields derived from the public workflow contract only. Runtime paths are represented by opaque tokens, not host paths."
+    },
+    "runtime_binding": {
+      "input_root_ref": "runtime_ref://owner-approved/allegro_batch_root",
+      "dbdoctor_executable_ref": "runtime_ref://owner-approved/cadence_dbdoctor_executable",
+      "runtime_refs_are_absolute_in_private_evidence": true,
+      "runtime_refs_are_redacted_for_public_archive": true,
+      "dbdoctor_locator": {
+        "method": "explicit_executable",
+        "runtime_locator_ref": "runtime_ref://owner-approved/cadence_dbdoctor_executable"
+      }
+    },
+    "hard_non_claims": [
+      "No claim is made that Cadence DB Doctor was executed.",
+      "No claim is made that real PCB database payloads were inspected.",
+      "No claim is made about electrical correctness.",
+      "No claim is made about manufacturing readiness.",
+      "No claim is made about Cadence license state, installation state, or executable validity beyond the supplied runtime_ref binding.",
+      "No claim is made that unattended full-archive mutation is authorized."
+    ]
+  },
+  "policy_basis": {
+    "mutation_authority_policy": {
+      "mutation_mode": "convert",
+      "owner_approval_ref": "owner_approval_ref://synthetic/allow_default_brd_convert_only",
+      "full_archive_mutation_authorized": false,
+      "top_level_files_only": true,
+      "recursive_scan_authorized": false,
+      "non_default_extensions_authorized": false
+    },
+    "database_policy": {
+      "extension_allowlist": [
+        ".brd"
+      ],
+      "non_allowlisted_extensions": "block",
+      "existing_packet_policy": "stop",
+      "packet_labels": {
+        "old_version_folder_name": "old_version",
+        "new_version_folder_name": "new_version"
+      }
+    },
+    "enforcement_summary": [
+      "Only top-level .brd files are in default scope.",
+      "Non-allowlisted extensions are blocked.",
+      "Recursive or nested .brd inputs are out of scope unless owner policy explicitly authorizes recursion.",
+      "Existing packet folder collisions are stop blockers."
+    ]
+  },
+  "inventory": {
+    "in_scope_candidates": [
+      {
+        "entry_id": "F001",
+        "relative_name": "PWR_A.brd",
+        "scope_decision": "in_scope",
+        "reason": "Top-level .brd file and no existing packet collision."
+      },
+      {
+        "entry_id": "F002",
+        "relative_name": "CTRL_B.brd",
+        "scope_decision": "in_scope",
+        "reason": "Top-level .brd file and no existing packet collision."
+      },
+      {
+        "entry_id": "F003",
+        "relative_name": "BROKEN_C.brd",
+        "scope_decision": "in_scope",
+        "reason": "Top-level .brd file and no existing packet collision."
+      }
+    ],
+    "blocked_or_out_of_scope": [
+      {
+        "entry_id": "F004",
+        "relative_name": "RF_COLLIDE.brd",
+        "scope_decision": "blocked",
+        "reason": "Existing packet folder collision.",
+        "policy_basis": "existing_packet_policy=stop",
+        "collision_reason": "A packet folder named RF_COLLIDE already exists under the approved root."
+      },
+      {
+        "entry_id": "F005",
+        "relative_name": "notes.txt",
+        "scope_decision": "blocked",
+        "reason": "Extension is not allowlisted.",
+        "policy_basis": "non_allowlisted_extensions=block"
+      },
+      {
+        "entry_id": "F006",
+        "relative_name": "nested/NESTED_D.brd",
+        "scope_decision": "out_of_scope",
+        "reason": "Nested .brd file requires recursive scan, which is not authorized.",
+        "policy_basis": "top_level_files_only=true and recursive_scan_authorized=false"
+      }
+    ]
+  },
+  "packet_plan": {
+    "planned_packets": [
+      {
+        "entry_id": "F001",
+        "relative_name": "PWR_A.brd",
+        "packet_name": "PWR_A",
+        "materialization_status": "planned",
+        "old_version_folder_name": "old_version",
+        "new_version_folder_name": "new_version"
+      },
+      {
+        "entry_id": "F002",
+        "relative_name": "CTRL_B.brd",
+        "packet_name": "CTRL_B",
+        "materialization_status": "planned",
+        "old_version_folder_name": "old_version",
+        "new_version_folder_name": "new_version"
+      },
+      {
+        "entry_id": "F003",
+        "relative_name": "BROKEN_C.brd",
+        "packet_name": "BROKEN_C",
+        "materialization_status": "planned",
+        "old_version_folder_name": "old_version",
+        "new_version_folder_name": "new_version"
+      }
+    ],
+    "blocked_packets": [
+      {
+        "entry_id": "F004",
+        "relative_name": "RF_COLLIDE.brd",
+        "packet_name": "RF_COLLIDE",
+        "materialization_status": "blocked",
+        "reason": "Packet collision must stop planning before materialization.",
+        "policy_basis": "existing_packet_policy=stop"
+      }
+    ]
+  },
+  "conversion_classification": {
+    "classified_observations": [
+      {
+        "entry_id": "F001",
+        "relative_name": "PWR_A.brd",
+        "command_role": "outfile_conversion",
+        "classification": "converted_success",
+        "decision_basis": {
+          "output_exists": true,
+          "process_code": 0,
+          "completion_text_present": true,
+          "saved_to_disk_text_present": true,
+          "detected_error_count": 0,
+          "warning_count": 0,
+          "temp_files_remaining_count": 0
+        },
+        "notes": [
+          "Success classification is based on output existence plus completion and saved-to-disk markers plus zero detected errors."
+        ],
+        "blockers": []
+      },
+      {
+        "entry_id": "F002",
+        "relative_name": "CTRL_B.brd",
+        "command_role": "outfile_conversion",
+        "classification": "converted_with_warnings",
+        "decision_basis": {
+          "output_exists": true,
+          "process_code": 3,
+          "completion_text_present": true,
+          "saved_to_disk_text_present": true,
+          "detected_error_count": 0,
+          "warning_count": 2,
+          "temp_files_remaining_count": 1
+        },
+        "notes": [
+          "Nonzero process code is not treated as automatic failure because output exists, completion text is present, saved-to-disk text is present, and detected errors are zero.",
+          "Warning-bearing conversion requires cleanup review."
+        ],
+        "blockers": [
+          "Temp file cleanup review required for CTRL_B.tmp."
+        ]
+      },
+      {
+        "entry_id": "F003",
+        "relative_name": "BROKEN_C.brd",
+        "command_role": "outfile_conversion",
+        "classification": "conversion_failed",
+        "decision_basis": {
+          "output_exists": false,
+          "process_code": 2,
+          "completion_text_present": false,
+          "saved_to_disk_text_present": false,
+          "detected_error_count": 1,
+          "warning_count": 1,
+          "temp_files_remaining_count": 1
+        },
+        "notes": [
+          "Failure classification is based on missing output together with missing completion and saved-to-disk markers and nonzero detected errors."
+        ],
+        "blockers": [
+          "Owner decision or retry policy required.",
+          "Temp file cleanup review required for BROKEN_C.jrl."
+        ]
+      }
+    ],
+    "classification_rules_applied": [
+      "Output existence alone is not sufficient for success.",
+      "Success requires output existence, completion text, saved-to-disk text, and zero detected errors.",
+      "Warning-bearing nonzero exit is allowed when output exists, completion text and saved-to-disk text are present, and detected errors are zero.",
+      "Missing output or missing completion/saved-to-disk confirmation or nonzero detected errors prevents success classification."
+    ]
+  },
+  "blockers_and_owner_decisions": {
+    "active_blockers": [
+      {
+        "severity": "stop",
+        "entry_id": "F004",
+        "relative_name": "RF_COLLIDE.brd",
+        "blocker_type": "packet_collision",
+        "required_next_action": "Owner must resolve or explicitly override collision policy before packet materialization."
+      },
+      {
+        "severity": "review_required",
+        "entry_id": "F002",
+        "relative_name": "CTRL_B.brd",
+        "blocker_type": "temp_file_cleanup",
+        "required_next_action": "Review and clear remaining temp artifact policy for CTRL_B.tmp."
+      },
+      {
+        "severity": "stop",
+        "entry_id": "F003",
+        "relative_name": "BROKEN_C.brd",
+        "blocker_type": "conversion_failure",
+        "required_next_action": "Owner must choose retry, remediation, or exclusion policy before treating this item as complete."
+      },
+      {
+        "severity": "review_required",
+        "entry_id": "F003",
+        "relative_name": "BROKEN_C.brd",
+        "blocker_type": "temp_file_cleanup",
+        "required_next_action": "Review and clear remaining temp artifact policy for BROKEN_C.jrl."
+      },
+      {
+        "severity": "policy_block",
+        "entry_id": "F005",
+        "relative_name": "notes.txt",
+        "blocker_type": "extension_not_allowlisted",
+        "required_next_action": "No action unless owner expands the extension allowlist."
+      },
+      {
+        "severity": "policy_block",
+        "entry_id": "F006",
+        "relative_name": "nested/NESTED_D.brd",
+        "blocker_type": "recursive_scan_not_authorized",
+        "required_next_action": "No action unless owner authorizes recursive scan or explicitly includes nested inputs."
+      }
+    ]
+  },
+  "closeout_review": {
+    "status_summary": {
+      "in_scope_candidate_count": 3,
+      "planned_packet_count": 3,
+      "converted_success_count": 1,
+      "converted_with_warnings_count": 1,
+      "conversion_failed_count": 1,
+      "blocked_input_count": 2,
+      "out_of_scope_count": 1
+    },
+    "boundary_review": [
+      "Runtime absolute paths remain redacted as runtime_ref tokens only.",
+      "No PCB payload contents are included.",
+      "No private project facts, credentials, or secrets are included.",
+      "This packet does not authorize recursive scanning, non-allowlisted extension handling, collision override, or full-archive mutation."
+    ],
+    "next_action": "Proceed only with owner-reviewed handling for collision, cleanup, and failed-conversion blockers; keep runtime path values and any real PCB payload evidence outside the public archive."
+  }
+}

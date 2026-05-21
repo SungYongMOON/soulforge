@@ -1,0 +1,4 @@
+interface:
+  display_name: "Knowledge Wiki Cell Launcher"
+  short_description: "Route sourcebound wiki work through the party"
+  default_prompt: "Use $soulforge-knowledge-wiki-cell-launcher to route this sourcebound knowledge wiki request through the Knowledge Wiki Cell party."

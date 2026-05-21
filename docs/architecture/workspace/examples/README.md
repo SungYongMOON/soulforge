@@ -18,6 +18,6 @@
 - gateway sample 은 notify policy 예시도 함께 둬서 다른 PC 가 local `guild_hall/state/gateway/bindings/notify_policy.yaml` 를 재현할 수 있게 한다.
 - gateway/town_crier chain sample 은 같은 monster 가 `notify -> battle_log -> morning_report` 에서 같은 의미로 읽히는 예시를 함께 둔다.
 - gateway outbound sample 은 `mail_send.env` 와 별개로 `outbound/**` snapshot 과 `log/mail_send/**` append-only send log shape 를 보여준다.
-- LLM wiki bookshelf sample 은 `llm_wiki_bookshelf/` 아래에 Google Drive source bookshelf 와 NotebookLM packet planning 을 위한 offline/manual metadata-only checklist 와 template 만 둔다.
+- LLM wiki bookshelf sample 은 `llm_wiki_bookshelf/` 아래에 Google Drive source warehouse 와 NotebookLM query bookshelf planning 을 위한 offline/manual metadata-only checklist 와 template 만 둔다.
 - separate private state repo 템플릿이 필요하면 `private_state_repo/` 예시와 `PRIVATE_STATE_REPO_V0.md` 를 함께 본다.
 - 다른 PC 세팅 순서는 [`../MULTI_PC_DEVELOPMENT_V0.md`](../../../../docs/architecture/workspace/MULTI_PC_DEVELOPMENT_V0.md) 를 먼저 본다.

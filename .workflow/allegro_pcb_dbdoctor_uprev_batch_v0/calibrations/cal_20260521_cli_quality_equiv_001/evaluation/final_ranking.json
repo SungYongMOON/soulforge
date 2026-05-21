@@ -1,0 +1,53 @@
+{
+  "calibration_id": "cal_20260521_cli_quality_equiv_001",
+  "workflow_id": "allegro_pcb_dbdoctor_uprev_batch_v0",
+  "ranking": [
+    {
+      "rank": 1,
+      "candidate_id": "C05MR",
+      "model": "gpt-5.4-mini",
+      "reasoning_effort": "medium",
+      "species": "dwarf",
+      "class": "auditor",
+      "quality_score": 94,
+      "quality_class": "quality_pass",
+      "selection_reason": "Lowest model tier and fastest measured wall time among quality-passing exact-shape candidates; quality gap to C04R is below the 10-point materiality threshold."
+    },
+    {
+      "rank": 2,
+      "candidate_id": "C04R",
+      "model": "gpt-5.4",
+      "reasoning_effort": "medium",
+      "species": "dwarf",
+      "class": "auditor",
+      "quality_score": 97,
+      "quality_class": "quality_pass",
+      "selection_reason": "Best concise exact-shape output and first quality-first shadow."
+    },
+    {
+      "rank": 3,
+      "candidate_id": "C02",
+      "model": "gpt-5.5",
+      "reasoning_effort": "medium",
+      "species": "dwarf",
+      "class": "auditor",
+      "quality_score": 96,
+      "quality_class": "quality_pass",
+      "selection_reason": "Comprehensive original matrix pass; retained as higher-confidence fallback."
+    },
+    {
+      "rank": 4,
+      "candidate_id": "C03",
+      "model": "gpt-5.4",
+      "reasoning_effort": "high",
+      "species": "dwarf",
+      "class": "auditor",
+      "quality_score": 94,
+      "quality_class": "quality_pass",
+      "selection_reason": "Passed, but was much slower and token-heavier than medium-effort finalists."
+    }
+  ],
+  "selected_primary_candidate_id": "C05MR",
+  "policy_promotion_allowed": true,
+  "policy_promotion_basis": "At least one exact-shape quality-passing candidate exists, and the selected profile is the lowest model tier with acceptable quality."
+}

@@ -1,0 +1,10 @@
+{"candidate_id":"C01","model":"gpt-5.5","reasoning_effort":"xhigh","species":"dwarf","class":"auditor","role":"quality_baseline_and_candidate","output_path":"subagent_matrix/outputs/C01.json"}
+{"candidate_id":"C02","model":"gpt-5.5","reasoning_effort":"medium","species":"dwarf","class":"auditor","role":"candidate_5_5_medium","output_path":"subagent_matrix/outputs/C02.json"}
+{"candidate_id":"C03","model":"gpt-5.4","reasoning_effort":"high","species":"dwarf","class":"auditor","role":"candidate_5_4_high","output_path":"subagent_matrix/outputs/C03.json"}
+{"candidate_id":"C04","model":"gpt-5.4","reasoning_effort":"medium","species":"dwarf","class":"auditor","role":"candidate_5_4_medium","output_path":"subagent_matrix/outputs/C04.json"}
+{"candidate_id":"C05M","model":"gpt-5.4-mini","reasoning_effort":"medium","species":"dwarf","class":"auditor","role":"mini_medium_retry_after_xhigh_runtime_stall","output_path":"subagent_matrix/outputs/C05M.json"}
+{"candidate_id":"C06","model":"gpt-5.4","reasoning_effort":"medium","species":"human","class":"auditor","role":"species_shadow_human_auditor","output_path":"subagent_matrix/outputs/C06.json"}
+{"candidate_id":"C07","model":"gpt-5.4","reasoning_effort":"medium","species":"dwarf","class":"administrator","role":"class_shadow_administrator","output_path":"subagent_matrix/outputs/C07.json"}
+{"candidate_id":"C08","model":"gpt-5.4","reasoning_effort":"medium","species":"dwarf","class":"archivist","role":"class_shadow_archivist","output_path":"subagent_matrix/outputs/C08.json"}
+{"candidate_id":"C04R","model":"gpt-5.4","reasoning_effort":"medium","species":"dwarf","class":"auditor","role":"shape_clarified_finalist_rerun","output_path":"subagent_matrix/outputs/C04R.json"}
+{"candidate_id":"C05MR","model":"gpt-5.4-mini","reasoning_effort":"medium","species":"dwarf","class":"auditor","role":"shape_clarified_mini_finalist_rerun","output_path":"subagent_matrix/outputs/C05MR.json"}

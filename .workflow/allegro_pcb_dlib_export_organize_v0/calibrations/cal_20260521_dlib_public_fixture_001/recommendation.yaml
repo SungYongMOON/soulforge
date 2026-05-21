@@ -1,0 +1,146 @@
+﻿{
+    "workflow_id":  "allegro_pcb_dlib_export_organize_v0",
+    "calibration_id":  "cal_20260521_dlib_public_fixture_001",
+    "calibration_mode":  "staged_cli_isolated_candidate_matrix_with_semantic_gate",
+    "recommended_profile":  {
+                                "model":  "gpt-5.5",
+                                "reasoning_effort":  "medium",
+                                "species":  "dwarf",
+                                "class":  "archivist",
+                                "candidate_id":  "B2_gpt_5_5_medium_dwarf_archivist",
+                                "quality_score":  97,
+                                "quality_gate":  "pass",
+                                "quality_class":  "quality_equivalent_pass",
+                                "telemetry_proxy":  {
+                                                        "input_tokens":  16636,
+                                                        "cached_input_tokens":  7552,
+                                                        "output_tokens":  732,
+                                                        "reasoning_output_tokens":  22,
+                                                        "wall_time_seconds":  17.688
+                                                    }
+                            },
+    "shadow_top_k":  [
+                         {
+                             "candidate_id":  "B2_gpt_5_4_mini_high_dwarf_archivist",
+                             "stage":  "stage_b2_model_effort_semantic_winner",
+                             "model":  "gpt-5.4-mini",
+                             "reasoning_effort":  "high",
+                             "species":  "dwarf",
+                             "class":  "archivist",
+                             "quality_gate":  "pass",
+                             "quality_class":  "quality_equivalent_pass",
+                             "quality_score":  100,
+                             "missing_required_items":  [
+
+                                                        ],
+                             "critical_errors":  [
+
+                                                 ],
+                             "wall_time_seconds":  27.498,
+                             "usage":  {
+                                           "input_tokens":  14902,
+                                           "cached_input_tokens":  2432,
+                                           "output_tokens":  2829,
+                                           "reasoning_output_tokens":  2070
+                                       },
+                             "output_path":  ".workflow\\allegro_pcb_dlib_export_organize_v0\\calibrations\\cal_20260521_dlib_public_fixture_001\\subagent_matrix\\outputs\\B2_gpt_5_4_mini_high_dwarf_archivist.output.md",
+                             "telemetry_source":  "codex_exec_json_cli_proxy_same_run",
+                             "rank":  1
+                         },
+                         {
+                             "candidate_id":  "A_gpt_5_4_mini_low_dwarf_archivist",
+                             "stage":  "stage_a_species_class",
+                             "model":  "gpt-5.4-mini",
+                             "reasoning_effort":  "low",
+                             "species":  "dwarf",
+                             "class":  "archivist",
+                             "quality_gate":  "pass",
+                             "quality_class":  "quality_equivalent_pass",
+                             "quality_score":  97,
+                             "missing_required_items":  [
+                                                            "secret/private-state boundary explicitness"
+                                                        ],
+                             "critical_errors":  [
+
+                                                 ],
+                             "wall_time_seconds":  13.963,
+                             "usage":  {
+                                           "input_tokens":  14817,
+                                           "cached_input_tokens":  13184,
+                                           "output_tokens":  1396,
+                                           "reasoning_output_tokens":  86
+                                       },
+                             "output_path":  ".workflow\\allegro_pcb_dlib_export_organize_v0\\calibrations\\cal_20260521_dlib_public_fixture_001\\subagent_matrix\\outputs\\A_gpt_5_4_mini_low_dwarf_archivist.output.md",
+                             "telemetry_source":  "codex_exec_json_cli_proxy_same_run",
+                             "rank":  4
+                         },
+                         {
+                             "candidate_id":  "B2_gpt_5_5_high_dwarf_archivist",
+                             "stage":  "stage_b2_model_effort_semantic_winner",
+                             "model":  "gpt-5.5",
+                             "reasoning_effort":  "high",
+                             "species":  "dwarf",
+                             "class":  "archivist",
+                             "quality_gate":  "pass",
+                             "quality_class":  "quality_equivalent_pass",
+                             "quality_score":  97,
+                             "missing_required_items":  [
+                                                            "secret/private-state boundary explicitness"
+                                                        ],
+                             "critical_errors":  [
+
+                                                 ],
+                             "wall_time_seconds":  28.158,
+                             "usage":  {
+                                           "input_tokens":  16636,
+                                           "cached_input_tokens":  7552,
+                                           "output_tokens":  984,
+                                           "reasoning_output_tokens":  258
+                                       },
+                             "output_path":  ".workflow\\allegro_pcb_dlib_export_organize_v0\\calibrations\\cal_20260521_dlib_public_fixture_001\\subagent_matrix\\outputs\\B2_gpt_5_5_high_dwarf_archivist.output.md",
+                             "telemetry_source":  "codex_exec_json_cli_proxy_same_run",
+                             "rank":  3
+                         },
+                         {
+                             "candidate_id":  "B2_gpt_5_5_xhigh_dwarf_archivist",
+                             "stage":  "stage_b2_model_effort_semantic_winner",
+                             "model":  "gpt-5.5",
+                             "reasoning_effort":  "xhigh",
+                             "species":  "dwarf",
+                             "class":  "archivist",
+                             "quality_gate":  "pass",
+                             "quality_class":  "quality_equivalent_pass",
+                             "quality_score":  97,
+                             "missing_required_items":  [
+                                                            "secret/private-state boundary explicitness"
+                                                        ],
+                             "critical_errors":  [
+
+                                                 ],
+                             "wall_time_seconds":  29.641,
+                             "usage":  {
+                                           "input_tokens":  16637,
+                                           "cached_input_tokens":  7552,
+                                           "output_tokens":  1167,
+                                           "reasoning_output_tokens":  516
+                                       },
+                             "output_path":  ".workflow\\allegro_pcb_dlib_export_organize_v0\\calibrations\\cal_20260521_dlib_public_fixture_001\\subagent_matrix\\outputs\\B2_gpt_5_5_xhigh_dwarf_archivist.output.md",
+                             "telemetry_source":  "codex_exec_json_cli_proxy_same_run",
+                             "rank":  5
+                         }
+                     ],
+    "selection_reason":  "Selected among quality-passing candidates because quality delta versus the 100-point mini/high candidate was small, while output plus reasoning tokens and wall time were much lower. Model-dollar pricing was not emitted, so cost confidence is relative_not_exact.",
+    "recommendation_basis":  [
+                                 "Stage A selected dwarf/archivist as the strongest species/class under semantic gate review.",
+                                 "Stage B2 compared gpt-5.4-mini, gpt-5.4, and gpt-5.5 across low/medium/high/xhigh for dwarf/archivist.",
+                                 "Candidate prompts used only a public-safe synthetic fixture and did not include golden output or frozen criteria.",
+                                 "CLI telemetry is exact for these CLI candidate runs, not exact for subagent runs."
+                             ],
+    "measurement_limitations":  [
+                                    "No real Allegro/Cadence execution was performed.",
+                                    "No raw PCB payload, installed Cadence path, project runtime path, private-state data, _workspaces output, or _workmeta run truth was used.",
+                                    "Default 180-candidate full matrix was not run; this is a staged calibration.",
+                                    "Provider dollar pricing was not emitted by the CLI telemetry."
+                                ],
+    "archive_ref":  ".workflow/allegro_pcb_dlib_export_organize_v0/calibrations/cal_20260521_dlib_public_fixture_001"
+}

@@ -18,8 +18,8 @@
 
 | Surface | Role |
 | --- | --- |
-| Google Drive bookshelf | stores approved source files or Drive-native refs |
-| NotebookLM | advisory query surface over approved source sets |
+| Google Drive source warehouse | stores approved source files or Drive-native refs |
+| NotebookLM query bookshelf | advisory query surface over approved source sets |
 | `_workmeta/<project_code>/reports/source_research/**` | project-local metadata owner for bindings, source ledgers, and query logs |
 | `guild_hall/knowledge_access` | metadata-only usage signal and rollup layer |
 | review gate and owner decision | claim-ceiling and approval authority |
@@ -28,7 +28,7 @@
 
 Run curation after:
 
-1. a new source is approved for bookshelf placement
+1. a new source is approved for Drive warehouse placement or NotebookLM packet use
 2. a source changes state to superseded, rejected, or unclear
 3. a query-first task finds a stable new source grouping or stable source gap
 4. a sourcebound loop produces concept candidates or a stronger claim route
@@ -54,7 +54,7 @@ Run curation after:
 
 ### 2. Update Source Lifecycle State
 
-- set bookshelf folder state
+- set warehouse lifecycle or folder state
 - set approval status
 - set superseded or rejected state when needed
 - keep the replacement relation as metadata
@@ -114,5 +114,5 @@ Run curation after:
 - The runbook remains the human-readable default even after the executable
   `wiki_curation_maintenance_v0` package exists.
 - It is already usable for projects because the ledgers, packet maps, Drive
-  bookshelf refs, and query logs now exist, and the builder can now route into
+  warehouse refs, and query logs now exist, and the builder can now route into
   the executable curation layer.

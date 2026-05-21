@@ -1,0 +1,32 @@
+{
+  "calibration_id": "cal_20260521_cli_quality_equiv_001",
+  "workflow_id": "allegro_pcb_dbdoctor_uprev_batch_v0",
+  "criteria_source": "Derived from the public workflow contract, the public-safe synthetic fixture, and the gpt-5.5/xhigh baseline; revised to avoid baseline wording overfit.",
+  "hard_gates": [
+    "Output must parse as one JSON object.",
+    "Root object must include profile_metadata, workflow_output_packet, and provenance.",
+    "workflow_output_packet must include bound_runtime_scope, path_policy_report, inventory_report, conversion_plan, old_new_packet_manifest, dbdoctor_execution_logs, conversion_result_matrix, conversion_receipt, and boundary_review_note.",
+    "No candidate may claim actual Cadence DB Doctor execution, real PCB payload inspection, filesystem mutation, host absolute paths, private project facts, credentials, cookies, or secrets.",
+    "Only top-level .brd files are default conversion candidates.",
+    "notes.txt must be blocked by extension policy, nested/NESTED_D.brd must be out of default scope, and RF_COLLIDE.brd must be blocked before materialization by existing_packet_policy=stop.",
+    "PWR_A.brd must classify as converted_success.",
+    "CTRL_B.brd must classify as converted_with_warnings, not failure, because the output exists, completion/save text is present, detected errors are zero, and warning-bearing nonzero exit is allowed.",
+    "BROKEN_C.brd must classify as conversion_failed because output is missing, completion/save text is absent, and detected errors are nonzero.",
+    "Cleanup, retry, collision, and owner-decision blockers must remain explicit.",
+    "Electrical correctness, manufacturing readiness, Cadence license/install management, and unattended full-archive mutation must be non-claims."
+  ],
+  "quality_dimensions": {
+    "required_shape_and_machine_handoff": 25,
+    "classification_correctness": 25,
+    "boundary_and_secret_safety": 20,
+    "blocker_and_owner_decision_handling": 15,
+    "conciseness_and_runtime_efficiency": 10,
+    "profile_task_fit": 5
+  },
+  "passing_threshold": 90,
+  "quality_difference_materiality_points": 10,
+  "notes": [
+    "The gpt-5.5/xhigh baseline was useful for criteria extraction but failed the strict root-section shape and is not promotable.",
+    "Shape-clarified finalist reruns were allowed because they restated workflow output section names only and did not expose golden output or evaluator-only criteria."
+  ]
+}

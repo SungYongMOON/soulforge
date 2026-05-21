@@ -21,12 +21,12 @@ packet:
       - source-YYYYMMDD-short-label
     exclude_source_handles:
       - superseded-or-rejected-source-handle
-    selection_rule: Use only owner-approved CANON source handles for the scoped topic.
-  allowed_folder_states:
+    selection_rule: Use only owner-approved CANON source handles for the scoped NotebookLM bookshelf topic.
+  allowed_warehouse_states:
     - 10_CANON_source
     - 20_Project_CANON
     - 30_Domain_CANON
-  excluded_folder_states:
+  excluded_warehouse_states:
     - 00_INBOX_candidate
     - 80_SUPERSEDED
     - 90_REJECTED_or_UNCLEAR

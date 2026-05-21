@@ -1,0 +1,4 @@
+interface:
+  display_name: "Systems Engineering Cell Launcher"
+  short_description: "Route SE requests through the party"
+  default_prompt: "Use $soulforge-systems-engineering-cell-launcher to find where this SE project is blocked and route the next workflow."

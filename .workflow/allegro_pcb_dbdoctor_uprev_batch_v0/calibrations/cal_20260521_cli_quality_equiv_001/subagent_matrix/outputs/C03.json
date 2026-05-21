@@ -1,0 +1,605 @@
+{
+  "profile_metadata": {
+    "workflow_id": "allegro_pcb_dbdoctor_uprev_batch_v0",
+    "candidate_id": "C03",
+    "model": "gpt-5.4",
+    "reasoning_effort": "high",
+    "species": "dwarf",
+    "class": "auditor",
+    "role": "candidate_5_4_high",
+    "task_mode": "cli_only_calibration_candidate"
+  },
+  "workflow_output_packet": {
+    "packet_metadata": {
+      "packet_kind": "synthetic_cli_only_calibration_output_packet",
+      "claim_ceiling": "observed",
+      "execution_claim": "Synthetic fixture classification only. No Cadence DB Doctor execution, filesystem mutation, or real PCB payload inspection is claimed."
+    },
+    "bound_runtime_scope": {
+      "schema_version": "allegro_pcb_dbdoctor_uprev_batch_v0.batch_scope_packet",
+      "scope_id": "allegro_dbdoctor_uprev_public_synthetic_001",
+      "input_root_runtime_ref": "runtime_ref://owner-approved/allegro_batch_root",
+      "dbdoctor_executable_runtime_ref": "runtime_ref://owner-approved/cadence_dbdoctor_executable",
+      "dbdoctor_locator": {
+        "method": "explicit_executable",
+        "runtime_locator_ref": "runtime_ref://owner-approved/cadence_dbdoctor_executable"
+      },
+      "mutation_mode": "convert",
+      "owner_approval_ref": "owner_approval_ref://synthetic/allow_default_brd_convert_only",
+      "database_policy": {
+        "top_level_files_only": true,
+        "recursive_scan_authorized": false,
+        "extension_allowlist": [
+          ".brd"
+        ],
+        "non_allowlisted_extensions": "block"
+      },
+      "packet_labels": {
+        "old_version_folder_name": "old_version",
+        "new_version_folder_name": "new_version"
+      },
+      "existing_packet_policy": "stop",
+      "success_policy": {
+        "require_output_file": true,
+        "require_revision_complete_text": true,
+        "require_saved_to_disk_text": true,
+        "require_zero_detected_errors": true,
+        "allow_warning_bearing_nonzero_exit": true
+      },
+      "public_boundary": {
+        "store_runtime_paths_in_public_package": false,
+        "copy_pcb_payload_to_public_repo": false,
+        "runtime_refs_are_redacted_for_public_archive": true
+      }
+    },
+    "path_policy_report": {
+      "policy_result": "pass_with_redacted_runtime_refs",
+      "checks": {
+        "input_root_runtime_ref_supplied": true,
+        "dbdoctor_executable_runtime_ref_supplied": true,
+        "fixture_declares_private_absolute_runtime_paths": true,
+        "public_output_uses_runtime_refs_only": true,
+        "computed_packet_targets_confined_to_approved_root_by_relative_plan": true,
+        "relative_runtime_paths_emitted_in_public_output": false,
+        "host_absolute_paths_emitted_in_public_output": false
+      },
+      "notes": [
+        "Absolute runtime path satisfaction is taken from the fixture contract, not from direct host-path inspection.",
+        "Planned packet targets are expressed only as paths relative to the approved root."
+      ],
+      "blockers": []
+    },
+    "inventory_report": {
+      "inventory_mode": "top_level_allowlist_only",
+      "summary": {
+        "listed_entries_total": 6,
+        "top_level_entries_total": 5,
+        "top_level_allowlisted_brd_entries": 4,
+        "planned_conversion_candidates": 3,
+        "blocked_existing_packet_collisions": 1,
+        "blocked_non_allowlisted_extensions": 1,
+        "out_of_scope_nested_entries": 1
+      },
+      "entries": [
+        {
+          "entry_id": "F001",
+          "relative_name": "PWR_A.brd",
+          "kind": "file",
+          "extension": ".brd",
+          "depth": 0,
+          "inventory_decision": "candidate_in_scope",
+          "reason": "Top-level allowlisted .brd file with no existing packet collision."
+        },
+        {
+          "entry_id": "F002",
+          "relative_name": "CTRL_B.brd",
+          "kind": "file",
+          "extension": ".brd",
+          "depth": 0,
+          "inventory_decision": "candidate_in_scope",
+          "reason": "Top-level allowlisted .brd file with no existing packet collision."
+        },
+        {
+          "entry_id": "F003",
+          "relative_name": "BROKEN_C.brd",
+          "kind": "file",
+          "extension": ".brd",
+          "depth": 0,
+          "inventory_decision": "candidate_in_scope",
+          "reason": "Top-level allowlisted .brd file with no existing packet collision."
+        },
+        {
+          "entry_id": "F004",
+          "relative_name": "RF_COLLIDE.brd",
+          "kind": "file",
+          "extension": ".brd",
+          "depth": 0,
+          "inventory_decision": "blocked_existing_packet_collision",
+          "reason": "Existing packet folder collision and existing_packet_policy is stop.",
+          "collision_reason": "A packet folder named RF_COLLIDE already exists under the approved root."
+        },
+        {
+          "entry_id": "F005",
+          "relative_name": "notes.txt",
+          "kind": "file",
+          "extension": ".txt",
+          "depth": 0,
+          "inventory_decision": "blocked_non_allowlisted_extension",
+          "reason": "Extension .txt is outside the active allowlist and non-default extensions are not owner-authorized."
+        },
+        {
+          "entry_id": "F006",
+          "relative_name": "nested/NESTED_D.brd",
+          "kind": "file",
+          "extension": ".brd",
+          "depth": 1,
+          "inventory_decision": "out_of_scope_recursive_not_authorized",
+          "reason": "Nested .brd entry is outside default scope because recursive scan is not authorized."
+        }
+      ]
+    },
+    "conversion_plan": {
+      "schema_version": "allegro_pcb_dbdoctor_uprev_batch_v0.conversion_plan",
+      "scope_id": "allegro_dbdoctor_uprev_public_synthetic_001",
+      "input_root_runtime_path_ref": "runtime_ref://owner-approved/allegro_batch_root",
+      "mutation_mode": "convert",
+      "path_policy": {
+        "input_root_is_absolute_by_fixture_contract": true,
+        "dbdoctor_path_is_absolute_by_fixture_contract": true,
+        "computed_targets_confined_to_input_root": true
+      },
+      "inventory_summary": {
+        "candidate_file_count": 3,
+        "skipped_or_out_of_scope_count": 1,
+        "non_allowlisted_file_count": 1
+      },
+      "collision_summary": {
+        "packet_folder_collisions": 1,
+        "output_file_collisions": 0,
+        "owner_policy_required": true
+      },
+      "planned_packets": [
+        {
+          "packet_id": "PWR_A",
+          "entry_id": "F001",
+          "source_file_relative": "PWR_A.brd",
+          "packet_folder_relative": "PWR_A",
+          "old_version_file_relative": "PWR_A/old_version/PWR_A.brd",
+          "new_version_file_relative": "PWR_A/new_version/PWR_A.brd",
+          "dbdoctor_log_relative": "PWR_A/new_version/dbdoctor_25_1.log",
+          "status": "planned",
+          "blockers": []
+        },
+        {
+          "packet_id": "CTRL_B",
+          "entry_id": "F002",
+          "source_file_relative": "CTRL_B.brd",
+          "packet_folder_relative": "CTRL_B",
+          "old_version_file_relative": "CTRL_B/old_version/CTRL_B.brd",
+          "new_version_file_relative": "CTRL_B/new_version/CTRL_B.brd",
+          "dbdoctor_log_relative": "CTRL_B/new_version/dbdoctor_25_1.log",
+          "status": "planned",
+          "blockers": []
+        },
+        {
+          "packet_id": "BROKEN_C",
+          "entry_id": "F003",
+          "source_file_relative": "BROKEN_C.brd",
+          "packet_folder_relative": "BROKEN_C",
+          "old_version_file_relative": "BROKEN_C/old_version/BROKEN_C.brd",
+          "new_version_file_relative": "BROKEN_C/new_version/BROKEN_C.brd",
+          "dbdoctor_log_relative": "BROKEN_C/new_version/dbdoctor_25_1.log",
+          "status": "planned",
+          "blockers": []
+        }
+      ],
+      "unplanned_blocked_packets": [
+        {
+          "packet_id": "RF_COLLIDE",
+          "entry_id": "F004",
+          "source_file_relative": "RF_COLLIDE.brd",
+          "status": "blocked",
+          "blocked_reason": "A packet folder named RF_COLLIDE already exists under the approved root.",
+          "required_owner_decision": "Authorize a collision policy change, choose a different packet target, or leave this entry blocked."
+        }
+      ],
+      "operator_decision": {
+        "proceed_to_materialize_for_non_blocked_packets": true,
+        "proceed_to_convert_for_non_blocked_packets": true,
+        "decision_ref": "owner_approval_ref://synthetic/allow_default_brd_convert_only",
+        "blocked_packet_ids": [
+          "RF_COLLIDE"
+        ]
+      }
+    },
+    "old_new_packet_manifest": {
+      "manifest_state": "synthetic_plan_only",
+      "mutation_claim": "No real packet folders or file moves are claimed by this public-safe packet.",
+      "packet_entries": [
+        {
+          "packet_id": "PWR_A",
+          "entry_id": "F001",
+          "packet_folder_relative": "PWR_A",
+          "old_version_folder_relative": "PWR_A/old_version",
+          "new_version_folder_relative": "PWR_A/new_version",
+          "old_version_file_relative": "PWR_A/old_version/PWR_A.brd",
+          "new_version_file_relative": "PWR_A/new_version/PWR_A.brd",
+          "materialization_status": "planned_only"
+        },
+        {
+          "packet_id": "CTRL_B",
+          "entry_id": "F002",
+          "packet_folder_relative": "CTRL_B",
+          "old_version_folder_relative": "CTRL_B/old_version",
+          "new_version_folder_relative": "CTRL_B/new_version",
+          "old_version_file_relative": "CTRL_B/old_version/CTRL_B.brd",
+          "new_version_file_relative": "CTRL_B/new_version/CTRL_B.brd",
+          "materialization_status": "planned_only"
+        },
+        {
+          "packet_id": "BROKEN_C",
+          "entry_id": "F003",
+          "packet_folder_relative": "BROKEN_C",
+          "old_version_folder_relative": "BROKEN_C/old_version",
+          "new_version_folder_relative": "BROKEN_C/new_version",
+          "old_version_file_relative": "BROKEN_C/old_version/BROKEN_C.brd",
+          "new_version_file_relative": "BROKEN_C/new_version/BROKEN_C.brd",
+          "materialization_status": "planned_only"
+        }
+      ],
+      "blocked_entries": [
+        {
+          "packet_id": "RF_COLLIDE",
+          "entry_id": "F004",
+          "materialization_status": "blocked",
+          "reason": "Existing packet collision under stop policy."
+        }
+      ]
+    },
+    "dbdoctor_execution_logs": {
+      "execution_claim": "Synthetic observations only. No live Cadence invocation or real database inspection is claimed.",
+      "dbdoctor_executable_ref": "runtime_ref://owner-approved/cadence_dbdoctor_executable",
+      "observations": [
+        {
+          "packet_id": "PWR_A",
+          "entry_id": "F001",
+          "relative_name": "PWR_A.brd",
+          "command_role": "outfile_conversion",
+          "output_exists": true,
+          "process_code": 0,
+          "stdout_markers": [
+            "Database revision complete",
+            "Saved to disk"
+          ],
+          "stderr_markers": [],
+          "log_summary": {
+            "warning_count": 0,
+            "detected_error_count": 0,
+            "completion_text_present": true,
+            "saved_to_disk_text_present": true
+          },
+          "temp_files_remaining": []
+        },
+        {
+          "packet_id": "CTRL_B",
+          "entry_id": "F002",
+          "relative_name": "CTRL_B.brd",
+          "command_role": "outfile_conversion",
+          "output_exists": true,
+          "process_code": 3,
+          "stdout_markers": [
+            "Database revision complete",
+            "Saved to disk"
+          ],
+          "stderr_markers": [
+            "Warnings emitted"
+          ],
+          "log_summary": {
+            "warning_count": 2,
+            "detected_error_count": 0,
+            "completion_text_present": true,
+            "saved_to_disk_text_present": true
+          },
+          "temp_files_remaining": [
+            "CTRL_B.tmp"
+          ]
+        },
+        {
+          "packet_id": "BROKEN_C",
+          "entry_id": "F003",
+          "relative_name": "BROKEN_C.brd",
+          "command_role": "outfile_conversion",
+          "output_exists": false,
+          "process_code": 2,
+          "stdout_markers": [
+            "Revision started"
+          ],
+          "stderr_markers": [
+            "Detected error: missing padstack library reference"
+          ],
+          "log_summary": {
+            "warning_count": 1,
+            "detected_error_count": 1,
+            "completion_text_present": false,
+            "saved_to_disk_text_present": false
+          },
+          "temp_files_remaining": [
+            "BROKEN_C.jrl"
+          ]
+        }
+      ],
+      "not_run_or_not_applicable": [
+        {
+          "entry_id": "F004",
+          "relative_name": "RF_COLLIDE.brd",
+          "reason": "Blocked before materialization by existing packet collision."
+        },
+        {
+          "entry_id": "F005",
+          "relative_name": "notes.txt",
+          "reason": "Blocked by extension policy."
+        },
+        {
+          "entry_id": "F006",
+          "relative_name": "nested/NESTED_D.brd",
+          "reason": "Out of default scope because recursive scan is not authorized."
+        }
+      ]
+    },
+    "conversion_result_matrix": {
+      "success_rule": {
+        "require_output_exists": true,
+        "require_completion_text": true,
+        "require_saved_to_disk_text": true,
+        "require_zero_detected_errors": true,
+        "allow_warning_bearing_nonzero_exit_when_other_success_conditions_hold": true
+      },
+      "results": [
+        {
+          "packet_id": "PWR_A",
+          "entry_id": "F001",
+          "classification": "converted_success",
+          "status": "success",
+          "basis": "Output exists, completion text is present, saved-to-disk text is present, and detected_error_count is zero.",
+          "process_code": 0,
+          "warning_count": 0,
+          "detected_error_count": 0,
+          "temp_files_remaining": [],
+          "cleanup_state": "clean",
+          "blockers": []
+        },
+        {
+          "packet_id": "CTRL_B",
+          "entry_id": "F002",
+          "classification": "converted_with_warnings",
+          "status": "warning_bearing_completion",
+          "basis": "Output exists, completion text is present, saved-to-disk text is present, detected_error_count is zero, and warning-bearing nonzero exit is allowed.",
+          "process_code": 3,
+          "warning_count": 2,
+          "detected_error_count": 0,
+          "temp_files_remaining": [
+            "CTRL_B.tmp"
+          ],
+          "cleanup_state": "cleanup_review_required",
+          "blockers": [
+            "Leftover temp file requires cleanup review before closeout."
+          ]
+        },
+        {
+          "packet_id": "BROKEN_C",
+          "entry_id": "F003",
+          "classification": "conversion_failed",
+          "status": "failed",
+          "basis": "Output is missing, completion text is absent, saved-to-disk text is absent, and detected_error_count is nonzero.",
+          "process_code": 2,
+          "warning_count": 1,
+          "detected_error_count": 1,
+          "temp_files_remaining": [
+            "BROKEN_C.jrl"
+          ],
+          "cleanup_state": "cleanup_and_retry_or_owner_decision_required",
+          "blockers": [
+            "Detected error: missing padstack library reference.",
+            "No converted output observed.",
+            "Leftover temp file requires cleanup review."
+          ]
+        },
+        {
+          "packet_id": "RF_COLLIDE",
+          "entry_id": "F004",
+          "classification": "blocked_existing_packet_collision",
+          "status": "blocked",
+          "basis": "Existing packet folder collision under stop policy blocks materialization and conversion for this entry.",
+          "blockers": [
+            "Owner decision required before any mutation of this packet target."
+          ]
+        },
+        {
+          "packet_id": "notes",
+          "entry_id": "F005",
+          "classification": "blocked_non_allowlisted_extension",
+          "status": "blocked",
+          "basis": "Extension .txt is outside the active allowlist and non-default extensions are not authorized.",
+          "blockers": [
+            "Owner extension-policy change would be required to include this file."
+          ]
+        },
+        {
+          "packet_id": "NESTED_D",
+          "entry_id": "F006",
+          "classification": "blocked_recursive_scope_not_authorized",
+          "status": "blocked",
+          "basis": "Nested .brd entry is outside default scope because recursive scan is not authorized.",
+          "blockers": [
+            "Owner recursive-scan authorization would be required to include this file."
+          ]
+        }
+      ],
+      "summary_counts": {
+        "inventory": {
+          "listed_entries_total": 6,
+          "planned_non_colliding_packets": 3,
+          "blocked_existing_packet_collision": 1,
+          "blocked_non_allowlisted_extension": 1,
+          "blocked_recursive_scope_not_authorized": 1
+        },
+        "conversion": {
+          "converted_success": 1,
+          "converted_with_warnings": 1,
+          "conversion_failed": 1
+        },
+        "cleanup": {
+          "entries_with_temp_files_remaining": 2
+        }
+      },
+      "global_blockers": [
+        "RF_COLLIDE packet collision requires owner decision before mutation.",
+        "BROKEN_C conversion failure requires retry policy or owner decision.",
+        "CTRL_B leftover temp file requires cleanup review.",
+        "BROKEN_C leftover temp file requires cleanup review."
+      ]
+    },
+    "conversion_receipt": {
+      "schema_version": "allegro_pcb_dbdoctor_uprev_batch_v0.conversion_receipt",
+      "scope_id": "allegro_dbdoctor_uprev_public_synthetic_001",
+      "output_state": "partially_converted",
+      "counts": {
+        "planned_packets": 3,
+        "converted_success_or_warning": 2,
+        "conversion_failed": 1,
+        "blocked_inventory_entries": 3,
+        "temp_files_remaining": 2
+      },
+      "result_matrix": [
+        {
+          "packet_id": "PWR_A",
+          "process_exit_code": 0,
+          "output_file_exists": true,
+          "revision_complete_text_seen": true,
+          "saved_to_disk_text_seen": true,
+          "warning_count": 0,
+          "detected_error_count": 0,
+          "fixed_error_count": null,
+          "status": "success",
+          "log_runtime_path_ref": null
+        },
+        {
+          "packet_id": "CTRL_B",
+          "process_exit_code": 3,
+          "output_file_exists": true,
+          "revision_complete_text_seen": true,
+          "saved_to_disk_text_seen": true,
+          "warning_count": 2,
+          "detected_error_count": 0,
+          "fixed_error_count": null,
+          "status": "warning_bearing_completion",
+          "log_runtime_path_ref": null
+        },
+        {
+          "packet_id": "BROKEN_C",
+          "process_exit_code": 2,
+          "output_file_exists": false,
+          "revision_complete_text_seen": false,
+          "saved_to_disk_text_seen": false,
+          "warning_count": 1,
+          "detected_error_count": 1,
+          "fixed_error_count": null,
+          "status": "failed",
+          "log_runtime_path_ref": null
+        }
+      ],
+      "blockers": [
+        {
+          "packet_id": "CTRL_B",
+          "blocker": "cleanup_review_required",
+          "detail": "CTRL_B.tmp remains after warning-bearing completion."
+        },
+        {
+          "packet_id": "BROKEN_C",
+          "blocker": "conversion_failed",
+          "detail": "Missing padstack library reference reported and no converted output observed."
+        },
+        {
+          "packet_id": "BROKEN_C",
+          "blocker": "cleanup_review_required",
+          "detail": "BROKEN_C.jrl remains after failure."
+        },
+        {
+          "packet_id": "RF_COLLIDE",
+          "blocker": "existing_packet_collision",
+          "detail": "Existing packet folder collision blocks mutation under stop policy."
+        }
+      ],
+      "non_claims": {
+        "electrical_correctness": false,
+        "manufacturing_readiness": false,
+        "symbol_or_padstack_library_validity": false,
+        "cadence_license_or_install_management": false,
+        "unattended_full_archive_ready": false
+      },
+      "followup_routes": {
+        "owner_decision_packet_v0": [
+          "existing packet collision for RF_COLLIDE",
+          "BROKEN_C retry or owner disposition for missing padstack library reference",
+          "policy decision if notes.txt or nested/NESTED_D.brd must enter scope"
+        ],
+        "post_development_review_gate_v0": []
+      }
+    },
+    "boundary_review_note": {
+      "boundary_result": "public_safe_synthetic_packet_only",
+      "runtime_path_posture": "Only supplied runtime_ref tokens are retained; no host absolute paths are emitted.",
+      "payload_posture": "No PCB database payloads, private logs, credentials, or secrets are included.",
+      "claims_not_made": [
+        "No claim of Cadence DB Doctor execution by this candidate.",
+        "No claim of real filesystem mutation, move, delete, or packet creation.",
+        "No claim of electrical correctness.",
+        "No claim of manufacturing readiness.",
+        "No claim of Cadence license or installation management.",
+        "No claim of unattended full-archive mutation readiness."
+      ],
+      "closeout": {
+        "status": "partial_with_blockers",
+        "known_blockers": [
+          "RF_COLLIDE collision remains blocked by owner policy.",
+          "BROKEN_C remains a failed conversion candidate.",
+          "CTRL_B and BROKEN_C both carry temp-file cleanup review requirements."
+        ],
+        "next_action": "Route RF_COLLIDE and BROKEN_C to owner decision or retry policy, review temp-file cleanup for CTRL_B and BROKEN_C in private run evidence, and keep runtime absolute paths plus any real PCB payloads outside the public archive."
+      }
+    }
+  },
+  "provenance": {
+    "fixture_id": "allegro_dbdoctor_uprev_public_synthetic_001",
+    "fixture_kind": "public_safe_synthetic_workflow_contract_fixture",
+    "public_safety": {
+      "contains_real_pcb_payload": false,
+      "contains_project_private_material": false,
+      "contains_runtime_absolute_paths": false,
+      "contains_credentials_or_secrets": false,
+      "basis": "Synthetic fields derived from the public workflow contract only. Runtime paths are represented by opaque tokens, not host paths."
+    },
+    "source_basis": {
+      "derived_only_from_fixture_sections": [
+        "runtime_binding",
+        "mutation_authority_policy",
+        "database_policy",
+        "input_root_listing",
+        "synthetic_dbdoctor_observations",
+        "expected_workflow_behavior_summary"
+      ],
+      "excluded_from_claims": [
+        "real Cadence execution",
+        "real PCB payload inspection",
+        "host absolute paths",
+        "private project facts",
+        "credentials",
+        "secrets"
+      ]
+    },
+    "knowledge_trigger_check": {
+      "result": "none",
+      "basis": "This response classifies a supplied synthetic fixture and does not create reusable canon, sourcebound knowledge, or private runtime evidence."
+    }
+  }
+}

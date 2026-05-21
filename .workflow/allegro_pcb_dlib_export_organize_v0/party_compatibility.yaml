@@ -1,0 +1,23 @@
+workflow_id: allegro_pcb_dlib_export_organize_v0
+kind: party_compatibility
+status: active
+execution_binding:
+  party_required: false
+  candidate_party_id: null
+  bound_party_id: null
+  binding_authority: none
+compatible_party_templates:
+  - solo_operator
+  - systems_engineering_cell
+  - pcb_revision_library_cell
+required_capabilities:
+  - absolute_runtime_path_binding
+  - local_Cadence_Allegro_tool_execution
+  - filesystem_mutation_planning
+  - dlib_log_capture
+  - library_file_classification
+  - public_private_boundary_review
+notes:
+  - "Compatibility is advisory only. Real execution binding belongs in mission, party allowed-workflow policy, or project-local run evidence."
+  - "The workflow can be run by a solo operator with local Cadence Allegro access and explicit owner-approved mutation scope."
+  - "`pcb_revision_library_cell` chains this workflow after `allegro_pcb_dbdoctor_uprev_batch_v0` when library export should target upreved board outputs."

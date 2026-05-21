@@ -177,6 +177,13 @@ flowchart LR
 9. 필요한 것만 정본 후보로 올린다.
 10. owner나 review gate가 승인하면 정본에 등록한다.
 
+등록 시점 규칙도 같이 적용한다.
+
+- 후보 기준을 통과하면 후보, 메타데이터, sourcebound 검토, follow-up, owner-decision 표면에 같은 작업 안에서 등록한다.
+- 정본 기준을 통과하면 `.registry/knowledge/**` 또는 해당 owner의 canon/package 표면에 같은 작업 안에서 등록한다.
+- 통과한 기준이 있는데도 막연히 "나중에"로 미루지 않는다. 보류하려면 owner hold, owner surface 불명확, validator 차단, public/private 경계 위험 같은 구체적인 이유를 남긴다.
+- 5문항 지식 트리거 통과는 후보 등록 기준이지, 그 자체로 공개 정본 등록 기준은 아니다.
+
 ## 지금 만들어진 실행 체인
 
 이 작업을 매번 말로 길게 지시하지 않기 위해 `knowledge_wiki_cell` party를 만들었다.
@@ -241,7 +248,7 @@ PDF에서 나온 projection은 private sandbox 상태다. 즉, "읽고 정리한
 4. figure, table, formula처럼 LLM 텍스트 추출만으로 약한 부분을 gap으로 표시한다.
 5. review gate에서 claim ceiling을 정한다.
 6. 팀원이 같이 볼 수 있는 public-safe 요약과 private wiki 본문을 분리한다.
-7. 반복해서 쓸 가치가 있는 것만 정본 후보로 올린다.
+7. 반복해서 쓸 가치가 있는 것은 정본 후보로 올리고, 정본 기준까지 통과하면 같은 작업에서 정본 등록까지 닫는다.
 
 ## 팀원이 기억하면 되는 것
 

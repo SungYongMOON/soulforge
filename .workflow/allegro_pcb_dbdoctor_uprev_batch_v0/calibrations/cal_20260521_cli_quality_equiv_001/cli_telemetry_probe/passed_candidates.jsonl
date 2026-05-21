@@ -1,0 +1,4 @@
+{"candidate_id":"C02","model":"gpt-5.5","reasoning_effort":"medium","species":"dwarf","class":"auditor","quality_score":96,"quality_class":"quality_pass","telemetry_ref":"cli_telemetry_probe/telemetry.jsonl"}
+{"candidate_id":"C03","model":"gpt-5.4","reasoning_effort":"high","species":"dwarf","class":"auditor","quality_score":94,"quality_class":"quality_pass","telemetry_ref":"cli_telemetry_probe/telemetry.jsonl"}
+{"candidate_id":"C04R","model":"gpt-5.4","reasoning_effort":"medium","species":"dwarf","class":"auditor","quality_score":97,"quality_class":"quality_pass","telemetry_ref":"cli_telemetry_probe/telemetry.jsonl"}
+{"candidate_id":"C05MR","model":"gpt-5.4-mini","reasoning_effort":"medium","species":"dwarf","class":"auditor","quality_score":94,"quality_class":"quality_pass","telemetry_ref":"cli_telemetry_probe/telemetry.jsonl"}

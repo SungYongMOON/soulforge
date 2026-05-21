@@ -1,0 +1,496 @@
+{
+  "profile_metadata": {
+    "workflow_id": "allegro_pcb_dbdoctor_uprev_batch_v0",
+    "candidate_id": "C02",
+    "model": "gpt-5.5",
+    "reasoning_effort": "medium",
+    "species": "dwarf",
+    "class": "auditor",
+    "role": "candidate_5_5_medium",
+    "execution_context": "cli_only_calibration",
+    "output_mode": "public_safe_synthetic_packet_only"
+  },
+  "provenance": {
+    "fixture_id": "allegro_dbdoctor_uprev_public_synthetic_001",
+    "fixture_kind": "public_safe_synthetic_workflow_contract_fixture",
+    "public_safety": {
+      "contains_real_pcb_payload": false,
+      "contains_project_private_material": false,
+      "contains_runtime_absolute_paths": false,
+      "contains_credentials_or_secrets": false,
+      "basis": "Synthetic fields derived from the public workflow contract only. Runtime paths are represented by supplied opaque runtime_ref tokens, not host paths."
+    },
+    "non_claims": {
+      "cadence_dbdoctor_executed": false,
+      "real_pcb_database_payloads_inspected": false,
+      "runtime_host_paths_known_or_reported": false,
+      "golden_output_used_or_disclosed": false
+    }
+  },
+  "workflow_output_packet": {
+    "bound_runtime_scope": {
+      "scope_id": "fixture_scope://allegro_dbdoctor_uprev_public_synthetic_001",
+      "workflow_id": "allegro_pcb_dbdoctor_uprev_batch_v0",
+      "input_root_ref": "runtime_ref://owner-approved/allegro_batch_root",
+      "dbdoctor_executable_ref": "runtime_ref://owner-approved/cadence_dbdoctor_executable",
+      "dbdoctor_locator": {
+        "method": "explicit_executable",
+        "runtime_locator_ref": "runtime_ref://owner-approved/cadence_dbdoctor_executable"
+      },
+      "mutation_mode": "convert",
+      "owner_approval_ref": "owner_approval_ref://synthetic/allow_default_brd_convert_only",
+      "full_archive_mutation_authorized": false,
+      "top_level_files_only": true,
+      "recursive_scan_authorized": false,
+      "non_default_extensions_authorized": false,
+      "runtime_refs_are_redacted_for_public_archive": true,
+      "execution_basis": "synthetic_fixture_observations_only"
+    },
+    "path_policy_report": {
+      "runtime_path_redaction_preserved": true,
+      "public_packet_contains_runtime_absolute_paths": false,
+      "input_root_ref_used": "runtime_ref://owner-approved/allegro_batch_root",
+      "dbdoctor_executable_ref_used": "runtime_ref://owner-approved/cadence_dbdoctor_executable",
+      "computed_targets_confined_to_approved_root": "not_executed_synthetic_plan_only",
+      "blocked_conditions": [
+        {
+          "condition": "runtime_absolute_path_public_disclosure",
+          "status": "blocked_by_policy"
+        },
+        {
+          "condition": "recursive_scan",
+          "status": "blocked_by_policy"
+        },
+        {
+          "condition": "non_allowlisted_extension",
+          "status": "blocked_by_policy"
+        },
+        {
+          "condition": "existing_packet_collision",
+          "status": "blocked_unless_owner_policy_authorizes"
+        }
+      ]
+    },
+    "inventory_report": {
+      "inventory_policy": {
+        "top_level_files_only": true,
+        "extension_allowlist": [
+          ".brd"
+        ],
+        "non_allowlisted_extensions": "block",
+        "recursive_scan_authorized": false,
+        "existing_packet_policy": "stop"
+      },
+      "entries": [
+        {
+          "entry_id": "F001",
+          "relative_name": "PWR_A.brd",
+          "kind": "file",
+          "extension": ".brd",
+          "depth": 0,
+          "inventory_status": "in_scope_candidate",
+          "blockers": []
+        },
+        {
+          "entry_id": "F002",
+          "relative_name": "CTRL_B.brd",
+          "kind": "file",
+          "extension": ".brd",
+          "depth": 0,
+          "inventory_status": "in_scope_candidate",
+          "blockers": []
+        },
+        {
+          "entry_id": "F003",
+          "relative_name": "BROKEN_C.brd",
+          "kind": "file",
+          "extension": ".brd",
+          "depth": 0,
+          "inventory_status": "in_scope_candidate",
+          "blockers": []
+        },
+        {
+          "entry_id": "F004",
+          "relative_name": "RF_COLLIDE.brd",
+          "kind": "file",
+          "extension": ".brd",
+          "depth": 0,
+          "inventory_status": "blocked_existing_packet_collision",
+          "blockers": [
+            "existing packet folder collision",
+            "existing_packet_policy is stop",
+            "owner decision required before materialization"
+          ],
+          "collision_reason": "A packet folder named RF_COLLIDE already exists under the approved root."
+        },
+        {
+          "entry_id": "F005",
+          "relative_name": "notes.txt",
+          "kind": "file",
+          "extension": ".txt",
+          "depth": 0,
+          "inventory_status": "blocked_non_allowlisted_extension",
+          "blockers": [
+            "extension .txt is outside allowlist",
+            "non_default_extensions_authorized is false"
+          ]
+        },
+        {
+          "entry_id": "F006",
+          "relative_name": "nested/NESTED_D.brd",
+          "kind": "file",
+          "extension": ".brd",
+          "depth": 1,
+          "inventory_status": "blocked_recursive_or_nested_scope",
+          "blockers": [
+            "depth is greater than 0",
+            "recursive_scan_authorized is false"
+          ]
+        }
+      ],
+      "summary": {
+        "in_scope_candidate_count": 3,
+        "blocked_collision_count": 1,
+        "blocked_extension_count": 1,
+        "blocked_recursive_count": 1
+      }
+    },
+    "conversion_plan": {
+      "scope_id": "fixture_scope://allegro_dbdoctor_uprev_public_synthetic_001",
+      "mutation_mode": "convert",
+      "packet_labels": {
+        "old_version_folder_name": "old_version",
+        "new_version_folder_name": "new_version"
+      },
+      "planned_packets": [
+        {
+          "entry_id": "F001",
+          "packet_id": "PWR_A",
+          "source_relative_name": "PWR_A.brd",
+          "old_version_folder_name": "old_version",
+          "new_version_folder_name": "new_version",
+          "command_role": "outfile_conversion",
+          "status": "planned",
+          "blockers": []
+        },
+        {
+          "entry_id": "F002",
+          "packet_id": "CTRL_B",
+          "source_relative_name": "CTRL_B.brd",
+          "old_version_folder_name": "old_version",
+          "new_version_folder_name": "new_version",
+          "command_role": "outfile_conversion",
+          "status": "planned",
+          "blockers": []
+        },
+        {
+          "entry_id": "F003",
+          "packet_id": "BROKEN_C",
+          "source_relative_name": "BROKEN_C.brd",
+          "old_version_folder_name": "old_version",
+          "new_version_folder_name": "new_version",
+          "command_role": "outfile_conversion",
+          "status": "planned",
+          "blockers": []
+        },
+        {
+          "entry_id": "F004",
+          "packet_id": "RF_COLLIDE",
+          "source_relative_name": "RF_COLLIDE.brd",
+          "status": "blocked",
+          "blockers": [
+            "existing packet folder collision",
+            "owner policy must explicitly authorize overwrite, resume, or skip"
+          ]
+        }
+      ],
+      "operator_decision": {
+        "proceed_to_materialize": false,
+        "proceed_to_convert": false,
+        "decision_ref": "synthetic_packet_only_no_filesystem_mutation"
+      }
+    },
+    "old_new_packet_manifest": {
+      "manifest_state": "synthetic_plan_not_materialized",
+      "public_packet_contains_payload": false,
+      "packets": [
+        {
+          "entry_id": "F001",
+          "packet_id": "PWR_A",
+          "old_version_planned": true,
+          "new_version_planned": true,
+          "materialized_in_this_response": false
+        },
+        {
+          "entry_id": "F002",
+          "packet_id": "CTRL_B",
+          "old_version_planned": true,
+          "new_version_planned": true,
+          "materialized_in_this_response": false
+        },
+        {
+          "entry_id": "F003",
+          "packet_id": "BROKEN_C",
+          "old_version_planned": true,
+          "new_version_planned": true,
+          "materialized_in_this_response": false
+        },
+        {
+          "entry_id": "F004",
+          "packet_id": "RF_COLLIDE",
+          "old_version_planned": false,
+          "new_version_planned": false,
+          "materialized_in_this_response": false,
+          "status": "blocked_existing_packet_collision"
+        }
+      ]
+    },
+    "dbdoctor_execution_logs": {
+      "execution_claim": "not_executed_by_candidate",
+      "classification_source": "synthetic_dbdoctor_observations",
+      "runtime_log_paths_redacted": true,
+      "observations": [
+        {
+          "entry_id": "F001",
+          "relative_name": "PWR_A.brd",
+          "command_role": "outfile_conversion",
+          "output_exists": true,
+          "process_code": 0,
+          "completion_text_present": true,
+          "saved_to_disk_text_present": true,
+          "warning_count": 0,
+          "detected_error_count": 0,
+          "temp_files_remaining": []
+        },
+        {
+          "entry_id": "F002",
+          "relative_name": "CTRL_B.brd",
+          "command_role": "outfile_conversion",
+          "output_exists": true,
+          "process_code": 3,
+          "completion_text_present": true,
+          "saved_to_disk_text_present": true,
+          "warning_count": 2,
+          "detected_error_count": 0,
+          "temp_files_remaining": [
+            "CTRL_B.tmp"
+          ]
+        },
+        {
+          "entry_id": "F003",
+          "relative_name": "BROKEN_C.brd",
+          "command_role": "outfile_conversion",
+          "output_exists": false,
+          "process_code": 2,
+          "completion_text_present": false,
+          "saved_to_disk_text_present": false,
+          "warning_count": 1,
+          "detected_error_count": 1,
+          "temp_files_remaining": [
+            "BROKEN_C.jrl"
+          ]
+        }
+      ]
+    },
+    "conversion_result_matrix": [
+      {
+        "entry_id": "F001",
+        "packet_id": "PWR_A",
+        "relative_name": "PWR_A.brd",
+        "process_code": 0,
+        "output_exists": true,
+        "completion_text_present": true,
+        "saved_to_disk_text_present": true,
+        "warning_count": 0,
+        "detected_error_count": 0,
+        "temp_files_remaining": [],
+        "classification": "converted_success",
+        "classification_basis": [
+          "output exists",
+          "completion text is present",
+          "saved-to-disk text is present",
+          "detected errors are zero"
+        ],
+        "blockers": []
+      },
+      {
+        "entry_id": "F002",
+        "packet_id": "CTRL_B",
+        "relative_name": "CTRL_B.brd",
+        "process_code": 3,
+        "output_exists": true,
+        "completion_text_present": true,
+        "saved_to_disk_text_present": true,
+        "warning_count": 2,
+        "detected_error_count": 0,
+        "temp_files_remaining": [
+          "CTRL_B.tmp"
+        ],
+        "classification": "converted_with_warnings",
+        "classification_basis": [
+          "output exists",
+          "completion text is present",
+          "saved-to-disk text is present",
+          "detected errors are zero",
+          "warning-bearing nonzero process code is allowed by policy"
+        ],
+        "blockers": [
+          "cleanup_review_required_for_remaining_temp_files",
+          "warning_review_required"
+        ]
+      },
+      {
+        "entry_id": "F003",
+        "packet_id": "BROKEN_C",
+        "relative_name": "BROKEN_C.brd",
+        "process_code": 2,
+        "output_exists": false,
+        "completion_text_present": false,
+        "saved_to_disk_text_present": false,
+        "warning_count": 1,
+        "detected_error_count": 1,
+        "temp_files_remaining": [
+          "BROKEN_C.jrl"
+        ],
+        "classification": "conversion_failed",
+        "classification_basis": [
+          "output is missing",
+          "completion text is missing",
+          "saved-to-disk text is missing",
+          "detected errors are nonzero"
+        ],
+        "blockers": [
+          "owner_decision_or_retry_policy_required",
+          "cleanup_required_for_remaining_temp_files"
+        ]
+      },
+      {
+        "entry_id": "F004",
+        "packet_id": "RF_COLLIDE",
+        "relative_name": "RF_COLLIDE.brd",
+        "classification": "blocked_before_conversion",
+        "classification_basis": [
+          "existing packet collision",
+          "existing_packet_policy is stop"
+        ],
+        "blockers": [
+          "owner decision required before any packet materialization"
+        ]
+      }
+    ],
+    "conversion_receipt": {
+      "scope_id": "fixture_scope://allegro_dbdoctor_uprev_public_synthetic_001",
+      "output_state": "partially_converted_with_blockers_synthetic",
+      "counts": {
+        "planned_packets": 3,
+        "blocked_before_conversion": 1,
+        "converted_success": 1,
+        "converted_with_warnings": 1,
+        "conversion_failed": 1,
+        "temp_files_remaining": 2,
+        "non_allowlisted_blocked": 1,
+        "recursive_or_nested_blocked": 1
+      },
+      "success_policy": {
+        "require_output_file": true,
+        "require_revision_complete_text": true,
+        "require_saved_to_disk_text": true,
+        "require_zero_detected_errors": true,
+        "allow_warning_bearing_nonzero_exit": true,
+        "output_existence_alone_is_success": false,
+        "nonzero_process_code_alone_is_failure": false
+      },
+      "blockers": [
+        {
+          "blocker_id": "B001",
+          "applies_to": "RF_COLLIDE",
+          "kind": "existing_packet_collision",
+          "required_action": "owner decision required before materialization"
+        },
+        {
+          "blocker_id": "B002",
+          "applies_to": "CTRL_B",
+          "kind": "cleanup_review",
+          "required_action": "review warnings and remove or adjudicate remaining temp file"
+        },
+        {
+          "blocker_id": "B003",
+          "applies_to": "BROKEN_C",
+          "kind": "conversion_failure",
+          "required_action": "owner decision or retry policy required"
+        },
+        {
+          "blocker_id": "B004",
+          "applies_to": "BROKEN_C",
+          "kind": "cleanup_required",
+          "required_action": "remove or adjudicate remaining journal/temp artifact after failure"
+        },
+        {
+          "blocker_id": "B005",
+          "applies_to": "notes.txt",
+          "kind": "extension_policy_block",
+          "required_action": "owner policy required to include non-allowlisted extensions"
+        },
+        {
+          "blocker_id": "B006",
+          "applies_to": "nested/NESTED_D.brd",
+          "kind": "recursive_scope_block",
+          "required_action": "owner policy required to authorize recursive scan"
+        }
+      ],
+      "non_claims": {
+        "electrical_correctness": false,
+        "manufacturing_readiness": false,
+        "cadence_license_or_install_management": false,
+        "unattended_full_archive_mutation": false,
+        "symbol_or_padstack_library_validity": false,
+        "real_payload_integrity": false
+      },
+      "followup_routes": {
+        "owner_decision_packet_v0": [
+          "existing packet collision for RF_COLLIDE",
+          "retry or hold decision for BROKEN_C",
+          "cleanup adjudication for CTRL_B and BROKEN_C",
+          "optional policy decision for recursive scan or non-default extension handling"
+        ],
+        "post_development_review_gate_v0": [
+          "boundary posture and claim ceiling review before any stronger completion claim"
+        ]
+      }
+    },
+    "boundary_review_note": {
+      "workflow": "allegro_pcb_dbdoctor_uprev_batch_v0",
+      "scope": {
+        "runtime_scope_id": "fixture_scope://allegro_dbdoctor_uprev_public_synthetic_001",
+        "mutation_mode": "convert",
+        "extension_policy": "allow .brd only",
+        "owner_approval_ref": "owner_approval_ref://synthetic/allow_default_brd_convert_only"
+      },
+      "checks": {
+        "runtime_absolute_paths_not_public": true,
+        "raw_pcb_payloads_outside_public_archive": true,
+        "credentials_or_secrets_absent": true,
+        "top_level_inventory_only": true,
+        "recursive_nested_brd_blocked": true,
+        "non_allowlisted_extensions_blocked": true,
+        "existing_packet_collision_blocked": true,
+        "dbdoctor_execution_not_claimed": true
+      },
+      "strongest_supported_status": "observed_synthetic_classification_with_blockers",
+      "claim_ceiling": "observed",
+      "remaining_blockers": [
+        "RF_COLLIDE packet collision requires owner decision",
+        "CTRL_B warnings and temp file require cleanup review",
+        "BROKEN_C conversion failure requires retry policy or owner decision",
+        "BROKEN_C remaining temp file requires cleanup adjudication",
+        "notes.txt requires explicit owner policy for non-allowlisted extension inclusion",
+        "nested/NESTED_D.brd requires explicit owner policy for recursive scan"
+      ],
+      "next_action": "Route blockers to owner decision or retry policy; do not claim production readiness or unattended archive-wide mutation from this synthetic packet.",
+      "knowledge_trigger_check": {
+        "result": "none",
+        "basis": "This response classifies a supplied synthetic fixture and does not create reusable canon, sourcebound knowledge, or private evidence."
+      }
+    }
+  }
+}

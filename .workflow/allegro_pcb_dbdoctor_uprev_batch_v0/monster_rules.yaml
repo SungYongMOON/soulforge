@@ -1,0 +1,34 @@
+workflow_id: allegro_pcb_dbdoctor_uprev_batch_v0
+kind: monster_rules
+status: active
+rules:
+  - monster_id: relative_runtime_path_supplied
+    response: block_before_inventory
+    summary: User-supplied input roots and DB Doctor tool paths must be absolute runtime paths; relative paths are not accepted for PCB mutation.
+  - monster_id: computed_packet_path_escapes_root
+    response: block_and_record_path_escape
+    summary: Any computed old/new packet path outside the approved input root blocks the run.
+  - monster_id: existing_packet_folder_collision
+    response: stop_for_owner_policy
+    summary: Existing per-file packet folders require skip, resume, overwrite, or rename policy before mutation.
+  - monster_id: non_default_database_extension_seen
+    response: inventory_only_until_owner_policy
+    summary: Extensions outside the active allowlist are recorded but not converted unless owner policy explicitly includes them.
+  - monster_id: dbdoctor_tool_missing
+    response: block_with_locator_followup
+    summary: Missing DB Doctor executable or unresolved utility locator blocks conversion without modifying source files.
+  - monster_id: dbdoctor_nonzero_without_output
+    response: classify_failure_and_preserve_logs
+    summary: A non-zero process code without output file and completion log is a conversion failure.
+  - monster_id: dbdoctor_nonzero_with_output_and_zero_errors
+    response: classify_warning_bearing_completion
+    summary: Non-zero process code can be accepted only when the output file exists, completion/save text is present, and detected errors are zero.
+  - monster_id: leftover_temp_files_after_conversion
+    response: record_cleanup_blocker_or_clean_if_safe
+    summary: DB Doctor temp files must be removed only when they are inside the new-version folder and match the known temp pattern.
+  - monster_id: raw_pcb_payload_in_public_repo
+    response: remove_from_public_scope_and_route_private
+    summary: PCB databases and tool logs from real projects do not belong in public workflow canon.
+  - monster_id: production_ready_claim_requested
+    response: require_separate_full_archive_pilot_and_review
+    summary: This registered workflow is not an unattended production-ready archive converter until stronger pilots and review evidence exist.

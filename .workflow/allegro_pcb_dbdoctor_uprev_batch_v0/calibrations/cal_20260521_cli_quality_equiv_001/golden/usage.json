@@ -1,0 +1,15 @@
+{
+    "candidate_id":  "C01",
+    "model":  "gpt-5.5",
+    "reasoning_effort":  "xhigh",
+    "species":  "dwarf",
+    "class":  "auditor",
+    "usage":  {
+                  "input_tokens":  49012,
+                  "cached_input_tokens":  26368,
+                  "output_tokens":  6195,
+                  "reasoning_output_tokens":  3049
+              },
+    "wall_time_seconds":  119.579,
+    "telemetry_source":  "codex_exec_json_cli_proxy"
+}

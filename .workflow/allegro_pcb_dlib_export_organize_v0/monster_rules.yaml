@@ -1,0 +1,43 @@
+workflow_id: allegro_pcb_dlib_export_organize_v0
+kind: monster_rules
+status: active
+rules:
+  - monster_id: relative_runtime_path_supplied
+    response: block_before_inventory
+    summary: User-supplied input roots and Allegro tool paths must be absolute runtime paths.
+  - monster_id: computed_output_path_escapes_root
+    response: block_and_record_path_escape
+    summary: Any computed lib, transient export, script, or cleanup path outside the approved scope blocks the run.
+  - monster_id: allegro_tool_missing
+    response: block_with_locator_followup
+    summary: Missing Allegro executable or unresolved utility locator blocks export without modifying source files.
+  - monster_id: no_target_brd_files
+    response: stop_with_inventory_report
+    summary: Empty target inventory is a blocked run, not a successful export.
+  - monster_id: multiple_brd_files_in_one_target_folder
+    response: stop_for_owner_selection
+    summary: Multiple board files in one target folder require owner selection or an explicit per-file output policy.
+  - monster_id: existing_lib_folder_with_files
+    response: require_rerun_or_overwrite_policy
+    summary: Existing library output requires skip, merge, overwrite, archive, or clean-rerun policy before mutation.
+  - monster_id: dlib_export_folder_not_created
+    response: classify_failure_and_preserve_logs
+    summary: Missing direct or transient dlib output after execution is an export failure unless logs show a deliberate no-op.
+  - monster_id: dlib_errors_reported
+    response: classify_failure_and_preserve_logs
+    summary: "`dump_libraries.log` with non-zero reported errors blocks success for that board."
+  - monster_id: unknown_export_file_type
+    response: move_to_other_and_require_review
+    summary: "Unknown file types are preserved under `other` and keep the receipt in review-required state."
+  - monster_id: lib_root_files_left_after_organization
+    response: classify_cleanup_failure
+    summary: "Files left directly under `lib` after organization indicate an incomplete classification pass."
+  - monster_id: transient_export_folder_left_after_cleanup
+    response: classify_cleanup_blocker
+    summary: Transient export folders left in target board folders require cleanup or owner decision.
+  - monster_id: raw_pcb_payload_in_public_repo
+    response: remove_from_public_scope_and_route_private
+    summary: PCB databases and tool logs from real projects do not belong in public workflow canon.
+  - monster_id: production_ready_claim_requested
+    response: require_cross_machine_cold_replay_and_review
+    summary: This registered workflow is not an unattended production-ready library export procedure until stronger pilots and review evidence exist.

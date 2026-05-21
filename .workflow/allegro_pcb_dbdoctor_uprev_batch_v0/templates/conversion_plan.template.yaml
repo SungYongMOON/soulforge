@@ -1,0 +1,29 @@
+schema_version: allegro_pcb_dbdoctor_uprev_batch_v0.conversion_plan
+scope_id: "<scope-id>"
+created_at: "<iso8601>"
+input_root_runtime_path_ref: "<private-runtime-ref>"
+mutation_mode: "dry_run | materialize_only | convert | verify_only"
+path_policy:
+  input_root_is_absolute: true
+  dbdoctor_path_is_absolute: true
+  computed_targets_confined_to_input_root: true
+inventory_summary:
+  candidate_file_count: 0
+  skipped_file_count: 0
+  non_allowlisted_file_count: 0
+collision_summary:
+  packet_folder_collisions: 0
+  output_file_collisions: 0
+  owner_policy_required: false
+planned_packets:
+  - packet_id: "<file-stem>"
+    source_file_runtime_path: "<absolute-runtime-path-private>"
+    old_version_file_runtime_path: "<absolute-runtime-path-private>"
+    new_version_file_runtime_path: "<absolute-runtime-path-private>"
+    dbdoctor_log_runtime_path: "<absolute-runtime-path-private>"
+    status: "planned | blocked | skipped"
+    blockers: []
+operator_decision:
+  proceed_to_materialize: false
+  proceed_to_convert: false
+  decision_ref: "<owner-or-run-ref>"

@@ -21,7 +21,7 @@
 
 | Layer | Role | Primary surface now | Current state |
 | --- | --- | --- | --- |
-| Intake | Receive raw or candidate material without overclaim. | `AUTOHUNT_MODEL`, source packets, Drive bookshelf, manual capture | existing, split |
+| Intake | Receive raw or candidate material without overclaim. | `AUTOHUNT_MODEL`, source packets, Drive warehouse, manual capture | existing, split |
 | Candidate triage | Decide whether material stays candidate, becomes CANON, needs owner review, or is rejected. | `knowledge_candidate_triage_v0` | added as dedicated workflow |
 | Research preflight | Check project wiki and query-first routes before the main monster workflow runs. | `monster_knowledge_preflight_v0` | added as dedicated workflow |
 | Curation | Turn approved sources and bounded query results into reusable project wiki state. | `wiki_curation_maintenance_v0` + `WIKI_CURATION_MAINTENANCE_V0.md` | existing |
@@ -33,7 +33,7 @@
 ### Intake
 
 - `AUTOHUNT_MODEL.md` owns `monster_type -> workflow_id + party_id` routing.
-- The Drive bookshelf owns candidate and CANON source placement.
+- The Drive warehouse stores candidate and CANON source files or refs.
 - `_workmeta/**/reports/procedure_capture/**` owns manual candidate capture when
   a worker notices a reusable pattern during bounded work.
 
@@ -45,6 +45,9 @@
 - Use it when a source, candidate note, or knowledge artifact must be placed
   into `00_INBOX_candidate`, `10_CANON_source`, `20_Project_CANON`,
   `30_Domain_CANON`, `80_SUPERSEDED`, or `90_REJECTED_or_UNCLEAR`.
+- If the criteria for a placement route pass, write the placement record in the
+  same bounded task. Do not leave a passed candidate or CANON-source placement
+  as chat memory or vague future work.
 
 ### Research Preflight
 
@@ -65,9 +68,10 @@
   metadata-only update packets for source ledgers, packet maps, notebook
   bindings, lifecycle state, and residual gaps.
 - `WIKI_CURATION_MAINTENANCE_V0.md` is the current-default runbook for
-  day-to-day ledger, packet-map, and bookshelf maintenance.
+  day-to-day ledger, packet-map, Drive warehouse, and NotebookLM binding
+  maintenance.
 - Use curation after:
-  - a new approved source enters the bookshelf
+  - a new approved source enters a warehouse state or NotebookLM binding
   - a NotebookLM query exposes a stable new gap or reusable source grouping
   - a source is superseded, rejected, or reclassified
 
@@ -92,6 +96,9 @@
 - `post_development_review_gate_v0` owns final review routing and end-of-task
   knowledge trigger closure.
 - NotebookLM, access ledgers, and analytics labels remain advisory only.
+- Governance closes at the weakest supported claim ceiling, but that ceiling is
+  also the required registration target: candidate ceilings register candidates,
+  canon ceilings register canon, and blocked ceilings register the blocker.
 
 ## Monster Integration
 
@@ -143,7 +150,8 @@ This is a role recommendation, not a locked runtime assignment.
    route.
 6. Curate the result back into the project wiki state if it is likely to be
    reused.
-7. Close through the review gate at the weakest supported claim ceiling.
+7. Close through the review gate at the weakest supported claim ceiling and
+   register the matching result in that ceiling's owner surface.
 
 ## Residual Gaps
 
@@ -160,6 +168,7 @@ product sense.
 ## Related Surfaces
 
 - [KNOWLEDGE_OPERATING_MODEL_V0.md](KNOWLEDGE_OPERATING_MODEL_V0.md)
+- [KNOWLEDGE_WAREHOUSE_BOOKSHELF_RULES_V0.md](KNOWLEDGE_WAREHOUSE_BOOKSHELF_RULES_V0.md)
 - [WIKI_CURATION_MAINTENANCE_V0.md](../workspace/WIKI_CURATION_MAINTENANCE_V0.md)
 - [AUTOHUNT_MODEL.md](../workspace/AUTOHUNT_MODEL.md)
 - [llm_wiki_builder_v0](../../../.workflow/llm_wiki_builder_v0/README.md)

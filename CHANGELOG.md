@@ -27,6 +27,88 @@
 - Updated gateway mail notification and mail candidate summaries so body links discovered in message HTML/text are not counted as user-visible attached files.
 - Kept `body_link` entries in the event attachment array for link handling, while reporting attachment counts from actual message attachment parts only.
 
+### Revision `working` - PCB Revision Library Cell launcher skill added
+
+- Added `.registry/skills/pcb_revision_library_cell_launcher/` as the tracked Codex launcher for invoking the existing `.party/pcb_revision_library_cell` loadout.
+- Framed the launcher around the practical route `allegro_pcb_dbdoctor_uprev_batch_v0` before `allegro_pcb_dlib_export_organize_v0`.
+- Kept party chains, workflow procedures, optimizer profile policies, PCB payloads, Cadence paths, generated scripts, tool logs, owner mutation approvals, electrical/manufacturing claims, and local runtime bindings outside the launcher skill.
+- Documented the Codex bridge shape so the installed mirror can be synced as `soulforge-pcb-revision-library-cell-launcher`.
+
+### Revision `working` - PCB revision/library party registered
+
+- Added `.party/pcb_revision_library_cell/` as the reusable party for chaining `allegro_pcb_dbdoctor_uprev_batch_v0` into `allegro_pcb_dlib_export_organize_v0`.
+- Registered the party in `.party/index.yaml`, updated party docs, and added compatibility hints to both Allegro workflow packages.
+- Kept runtime board roots, Cadence executable paths, generated scripts, PCB payloads, tool logs, owner mutation approvals, and workflow profile choices outside party canon.
+- Preserved non-claims for electrical correctness, manufacturing readiness, symbol geometry correctness, padstack engineering approval, and unattended archive-wide mutation.
+
+### Revision `working` - Systems Engineering Cell launcher skill added
+
+- Added `.registry/skills/systems_engineering_cell_launcher/` as the tracked Codex launcher for invoking the existing `.party/systems_engineering_cell` loadout.
+- Framed the launcher around the practical request "find where this SE project is blocked and route the next workflow" rather than design automation.
+- Kept party chains, workflow procedures, optimizer profile policies, project payloads, design authority, review approval, verification acceptance, owner decisions, and local runtime bindings outside the launcher skill.
+- Documented the Codex bridge shape so the installed mirror can be synced as `soulforge-systems-engineering-cell-launcher`.
+
+### Revision `working` - Allegro DB Doctor workflow profile calibrated
+
+- Added public-safe synthetic CLI calibration archive `cal_20260521_cli_quality_equiv_001` for `.workflow/allegro_pcb_dbdoctor_uprev_batch_v0/`.
+- Updated the workflow profile policy to prefer `gpt-5.4-mini` / `medium` / `dwarf` / `auditor`, with `gpt-5.4` / `medium` and `gpt-5.5` / `medium` shadows for quality-sensitive reruns.
+- Kept DB Doctor runtime paths, real PCB payloads, private run truth, and secrets out of the public archive; the calibration remains a profile recommendation, not an unattended full-archive conversion claim.
+
+### Revision `working` - Knowledge Wiki Cell launcher skill added
+
+- Added `.registry/skills/knowledge_wiki_cell_launcher/` as the tracked Codex launcher for invoking the existing `.party/knowledge_wiki_cell` loadout.
+- Kept party chains, workflow procedures, optimizer profile policies, source truth, owner decisions, archive authority, and local runtime bindings outside the launcher skill.
+- Documented the Codex bridge shape so the installed mirror can be synced as `soulforge-knowledge-wiki-cell-launcher`.
+
+### Revision `working` - Sample party templates retired
+
+- Removed the sample `vanguard_strike` and `lineage_strike` party packages from active `.party` canon.
+- Updated the party catalog, party README, naming draft docs, workflow compatibility notes, and sample species bias so no active reference points at the retired party ids.
+- Kept the underlying sample workflows as unbound workflow entries rather than deleting additional workflow canon in the same cleanup.
+
+### Revision `working` - Korean knowledge closeout wording clarified
+
+- Clarified that bounded Soulforge completion reports should show user-facing Korean knowledge trigger and claim-ceiling labels first, such as `지식 트리거 확인: 책임자 판단 필요` and `주장 한계: 관찰됨`.
+- Kept internal enum values for ledger, CLI, review packet, and template compatibility, while treating enum-only final wording as legacy/compatibility rather than the preferred user surface.
+- Updated the knowledge trigger stop guard to accept `책임자 판단 필요` while preserving the older `오너 판단 필요` and English compatibility lines.
+
+### Revision `working` - Knowledge pass-to-registration rule clarified
+
+- Clarified that knowledge, source, candidate, and canon criteria that pass must be registered in the matching owner surface during the same bounded task.
+- Split the 5-question knowledge trigger check from public canon registration: trigger pass records candidate, metadata, follow-up, sourcebound review, or owner-decision evidence; canon pass records the canon entry or package.
+- Required concrete hold reasons when passed registration is deferred, such as owner hold, unclear owner surface, validator blockage, missing access, or public/private boundary risk.
+
+### Revision `working` - Party launcher skill author added
+
+- Added `.registry/skills/party_launcher_skill_author/` as the tracked Codex authoring aid for turning an existing `.party/<party_id>` loadout into a thin callable launcher skill.
+- Kept party chains, workflow procedures, optimizer profile policy, runtime bindings, project payloads, and default-route authority outside the generated launcher skill.
+- Documented the Codex app bridge shape with lean `codex/SKILL.md`, `codex/agents/openai.yaml`, and on-demand `codex/references/mapping.md`, so the installed mirror can be synced as `soulforge-party-launcher-skill-author`.
+
+### Revision `working` - Drive warehouse and NotebookLM bookshelf rules clarified
+
+- Added `KNOWLEDGE_WAREHOUSE_BOOKSHELF_RULES_V0.md` to separate Google Drive as the source warehouse, NotebookLM notebooks as query bookshelves, `_workmeta` as the source catalog, and ontology candidates as review-gated metadata.
+- Updated the knowledge operating model, workflow stack, curation runbook, and public LLM wiki example templates so Drive folders are no longer described as NotebookLM bookshelves.
+- Linked the same warehouse/bookshelf rule from `knowledge_wiki_cell` so party execution inherits the terminology without duplicating the rule body.
+- Preserved the existing `Soulforge_LLM_Wiki_Bookshelf/` Drive root as a compatibility label while clarifying that its role is warehouse/archive storage, not query authority or canon.
+
+### Revision `working` - Allegro DB Doctor uprev workflow added
+
+- Added `.workflow/allegro_pcb_dbdoctor_uprev_batch_v0/` as a registered workflow for owner-gated Cadence DB Doctor legacy PCB database uprev batches.
+- Kept sample folders and installed Cadence executable paths out of the public workflow package; operators supply absolute runtime paths through the batch scope packet.
+- Captured the old/new packet shape, DB Doctor `-outfile` route, log-based warning-bearing completion classifier, and non-claims for electrical correctness, manufacturing readiness, and unattended full-archive mutation.
+
+### Revision `working` - Allegro dlib export organize workflow added
+
+- Added `.workflow/allegro_pcb_dlib_export_organize_v0/` as a registered workflow for owner-gated Cadence Allegro `dlib` board library export and library folder organization.
+- Kept board roots, installed Allegro paths, generated scripts, and raw PCB payloads out of the public workflow package; operators supply absolute runtime paths through the library export scope packet.
+- Captured the `padpath`, `psmpath`, `devpath`, and `logs` folder classification rules, `dump_libraries.log` zero-error success check, transient export folder cleanup check, and non-claims for electrical correctness, symbol geometry correctness, manufacturing readiness, and unattended full-archive mutation.
+
+### Revision `working` - Allegro dlib workflow profile calibrated
+
+- Added public-safe staged CLI calibration archive `.workflow/allegro_pcb_dlib_export_organize_v0/calibrations/cal_20260521_dlib_public_fixture_001/`.
+- Promoted the workflow profile policy to `gpt-5.5` / `medium` / `dwarf` / `archivist` after semantic quality-gate review on a synthetic fixture.
+- Recorded calibration limitations: no real Allegro execution, raw PCB payload, installed Cadence path, private-state data, `_workspaces` output, or `_workmeta` run truth was used.
+
 ## 2026-05-20
 
 ### Revision `working` - SE assistant operating loop registered

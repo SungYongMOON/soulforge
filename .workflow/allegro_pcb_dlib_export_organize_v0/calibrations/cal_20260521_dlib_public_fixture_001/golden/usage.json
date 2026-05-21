@@ -1,0 +1,20 @@
+﻿{
+    "candidate_id":  "golden_gpt_5_5_xhigh_dwarf_auditor",
+    "model":  "gpt-5.5",
+    "reasoning_effort":  "xhigh",
+    "species":  "dwarf",
+    "class":  "auditor",
+    "run_status":  "completed",
+    "process_exit_code":  0,
+    "wall_time_seconds":  32.656,
+    "usage":  {
+                  "input_tokens":  16553,
+                  "cached_input_tokens":  7552,
+                  "output_tokens":  1351,
+                  "reasoning_output_tokens":  516
+              },
+    "prompt_path":  ".workflow\\allegro_pcb_dlib_export_organize_v0\\calibrations\\cal_20260521_dlib_public_fixture_001\\golden\\golden_gpt_5_5_xhigh_dwarf_auditor.md",
+    "output_path":  ".workflow\\allegro_pcb_dlib_export_organize_v0\\calibrations\\cal_20260521_dlib_public_fixture_001\\golden\\golden_gpt_5_5_xhigh_dwarf_auditor.output.md",
+    "events_path":  ".workflow\\allegro_pcb_dlib_export_organize_v0\\calibrations\\cal_20260521_dlib_public_fixture_001\\golden\\golden_gpt_5_5_xhigh_dwarf_auditor.jsonl",
+    "stderr_path":  ".workflow\\allegro_pcb_dlib_export_organize_v0\\calibrations\\cal_20260521_dlib_public_fixture_001\\golden\\golden_gpt_5_5_xhigh_dwarf_auditor.stderr.txt"
+}

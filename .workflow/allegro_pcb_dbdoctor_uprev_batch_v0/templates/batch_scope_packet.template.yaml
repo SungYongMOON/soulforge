@@ -1,0 +1,32 @@
+schema_version: allegro_pcb_dbdoctor_uprev_batch_v0.batch_scope_packet
+scope_id: "<owner-chosen-scope-id>"
+created_at: "<iso8601>"
+input_root_runtime_path: "<absolute-runtime-path-required>"
+dbdoctor_executable_runtime_path: "<absolute-runtime-path-required-or-null>"
+dbdoctor_locator:
+  method: "explicit_executable | start_menu_shortcut | environment_probe"
+  runtime_locator_ref: "<runtime-only-ref-or-null>"
+mutation_mode: "dry_run | materialize_only | convert | verify_only"
+owner_approval_ref: "<required-for-materialize-or-convert>"
+database_policy:
+  top_level_files_only: true
+  extension_allowlist:
+    - ".brd"
+  non_allowlisted_extensions: "record_only | block | owner_approved_include"
+packet_labels:
+  old_version_folder_name: "구버전"
+  new_version_folder_name: "신버전"
+existing_packet_policy: "stop | skip_existing | resume_if_output_missing | owner_approved_overwrite"
+log_policy:
+  capture_stdout: true
+  capture_stderr: true
+  write_dbdoctor_log_name: "dbdoctor_25_1.log"
+success_policy:
+  require_output_file: true
+  require_revision_complete_text: true
+  require_saved_to_disk_text: true
+  require_zero_detected_errors: true
+  allow_warning_bearing_nonzero_exit: true
+public_boundary:
+  store_runtime_paths_in_public_package: false
+  copy_pcb_payload_to_public_repo: false

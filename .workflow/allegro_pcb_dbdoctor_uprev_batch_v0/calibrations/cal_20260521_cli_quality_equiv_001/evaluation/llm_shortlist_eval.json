@@ -1,0 +1,24 @@
+{
+  "reviewer_context": "same_context_manual_checklist",
+  "shortlist": [
+    {
+      "candidate_id": "C05MR",
+      "quality_score": 94,
+      "status": "pass",
+      "selection_case": "Lowest model tier, fastest wall time, exact required shape after finalist rerun, all core classifications and blockers preserved."
+    },
+    {
+      "candidate_id": "C04R",
+      "quality_score": 97,
+      "status": "pass",
+      "selection_case": "Best concise quality and exact shape; retained as quality-first shadow because it uses the larger gpt-5.4 model and is slower than C05MR."
+    },
+    {
+      "candidate_id": "C02",
+      "quality_score": 96,
+      "status": "pass",
+      "selection_case": "Most comprehensive original exact-shape candidate; retained as high-confidence fallback but token/wall-time heavier."
+    }
+  ],
+  "decision": "Recommend C05MR as primary because quality passed and the quality gap versus C04R is below the 10-point materiality threshold. Retain C04R as the first shadow when quality margin matters more than model-tier cost."
+}

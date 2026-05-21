@@ -1,0 +1,31 @@
+packet_type: library_export_scope_packet
+version: v0
+workflow_id: allegro_pcb_dlib_export_organize_v0
+runtime_scope:
+  input_root_runtime_path: "<absolute runtime path, private evidence only>"
+  target_folder_selector:
+    mode: explicit_folders_or_label_scan
+    folder_label: "<runtime supplied, optional>"
+    explicit_target_folders_runtime_paths: []
+  board_extension_allowlist:
+    - .brd
+  recursive_search_enabled: false
+allegro_runtime_binding:
+  allegro_executable_runtime_path: "<absolute runtime path, private evidence only>"
+  locator_policy: explicit_path_or_approved_local_locator
+mutation_policy:
+  mutation_mode: export_and_organize
+  existing_lib_policy: stop_if_populated
+  overwrite_existing_files: false
+  owner_approval_ref: null
+library_layout:
+  library_root_name: lib
+  padstack_folder: padpath
+  symbol_folder: psmpath
+  device_folder: devpath
+  log_folder: logs
+  unknown_folder: other
+evidence_policy:
+  private_run_root_runtime_path: "<absolute runtime path, private evidence only>"
+  preserve_tool_journals_in_private_evidence: true
+  preserve_dlib_logs_in_library_logs: true

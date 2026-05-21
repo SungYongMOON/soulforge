@@ -1,0 +1,95 @@
+workflow_id: allegro_pcb_dbdoctor_uprev_batch_v0
+kind: step_graph
+status: active
+steps:
+  - step_id: bind_runtime_scope
+    title: Bind Runtime Scope
+    actor_slot: runtime_scope_binder
+    action: Collect input root, DB Doctor executable or locator, extension allowlist, old/new folder labels, mutation mode, and owner approval reference without writing runtime paths into workflow canon.
+    inputs:
+      - batch_scope_packet
+      - dbdoctor_runtime_binding
+      - mutation_authority_policy
+    outputs:
+      - bound_runtime_scope
+    next:
+      - validate_absolute_paths
+  - step_id: validate_absolute_paths
+    title: Validate Absolute Paths
+    actor_slot: path_policy_checker
+    action: Reject relative input roots, relative tool paths, path traversal, missing roots, missing DB Doctor executable, and computed packet paths that escape the owner-approved input root.
+    inputs:
+      - bound_runtime_scope
+    outputs:
+      - path_policy_report
+    next:
+      - inventory_legacy_databases
+  - step_id: inventory_legacy_databases
+    title: Inventory Legacy Databases
+    actor_slot: inventory_runner
+    action: Enumerate only top-level files matching the active extension allowlist unless the owner explicitly enables recursive or non-default extension handling.
+    inputs:
+      - path_policy_report
+    outputs:
+      - inventory_report
+    next:
+      - plan_old_new_packets
+  - step_id: plan_old_new_packets
+    title: Plan Old New Packets
+    actor_slot: packet_planner
+    action: Derive one packet folder per file stem, plan sibling old/new folders, detect folder/file collisions, and prepare the exact move and output targets.
+    inputs:
+      - inventory_report
+    outputs:
+      - conversion_plan
+    next:
+      - materialize_old_new_packets
+  - step_id: materialize_old_new_packets
+    title: Materialize Old New Packets
+    actor_slot: packet_materializer
+    action: Create packet folders and move originals into the old-version folder only when mutation authority is confirmed; otherwise stop after dry-run plan output.
+    inputs:
+      - conversion_plan
+    outputs:
+      - old_new_packet_manifest
+    next:
+      - run_dbdoctor_outfile
+  - step_id: run_dbdoctor_outfile
+    title: Run DB Doctor Outfile
+    actor_slot: dbdoctor_runner
+    action: For each packet, run DB Doctor with outfile mode, write the new-version database into the new-version folder, set the working directory to that folder, and capture stdout, stderr, command metadata, and process code.
+    inputs:
+      - old_new_packet_manifest
+    outputs:
+      - dbdoctor_execution_logs
+    next:
+      - classify_conversion_results
+  - step_id: classify_conversion_results
+    title: Classify Conversion Results
+    actor_slot: result_classifier
+    action: Classify each conversion from output existence, log completion text, save text, warning/error counts, and process code; record warning-bearing completion separately from failure.
+    inputs:
+      - dbdoctor_execution_logs
+    outputs:
+      - conversion_result_matrix
+    next:
+      - cleanup_and_verify_packets
+  - step_id: cleanup_and_verify_packets
+    title: Cleanup And Verify Packets
+    actor_slot: cleanup_verifier
+    action: Check for leftover DB Doctor temp files, verify old/new database counts, preserve conversion logs, and record retry or owner-decision blockers.
+    inputs:
+      - conversion_result_matrix
+    outputs:
+      - conversion_receipt
+    next:
+      - review_boundary_and_close
+  - step_id: review_boundary_and_close
+    title: Review Boundary And Close
+    actor_slot: boundary_closeout_reviewer
+    action: Confirm public/private boundary posture, output state, known gaps, and whether any follow-up should route to owner decision or post-development review.
+    inputs:
+      - conversion_receipt
+    outputs:
+      - boundary_review_note
+    next: []

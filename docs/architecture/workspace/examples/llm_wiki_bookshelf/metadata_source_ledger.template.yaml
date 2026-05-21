@@ -1,11 +1,14 @@
 schema_version: soulforge.llm_wiki_bookshelf.metadata_source_ledger.v0
 template_status: public_safe_example_template
 ledger_owner: _workmeta/<project_code>/reports/source_research
-bookshelf_surface:
-  storage_owner: owner_managed_google_drive_bookshelf
-  storage_role: canonical_source_bookshelf_for_llm_wiki
+warehouse_surface:
+  storage_owner: owner_managed_google_drive_source_warehouse
+  storage_role: source_warehouse_for_llm_wiki
   active_work_file_owner: onedrive_or_project_worksite
   source_payloads_stored_in_public_repo: false
+notebooklm_bookshelf_surface:
+  role: advisory_query_bookshelf
+  source_selection_owner: _workmeta_notebooklm_binding
 metadata_boundary:
   metadata_only: true
   source_payloads_included: false
@@ -29,11 +32,12 @@ source_entries:
     title_label: Public-safe source label
     source_kind: pdf | drive_native_doc | web_export | owner_approved_note | source_packet
     source_class: official_reference | owner_approved | public_reference | project_source_packet
-    bookshelf_state: 00_INBOX_candidate
+    warehouse_state: 00_INBOX_candidate
+    legacy_bookshelf_state_alias: 00_INBOX_candidate
     storage_locator:
-      storage_surface: google_drive_bookshelf
+      storage_surface: google_drive_source_warehouse
       locator_kind: owner_held_label
-      locator_label: Bookshelf folder label or owner-held ref, not a live ID
+      locator_label: Warehouse folder label or owner-held ref, not a live ID
     version:
       version_label: v0
       effective_date: YYYY-MM-DD

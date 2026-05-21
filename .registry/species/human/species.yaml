@@ -10,7 +10,6 @@ heroes:
     profile_ref: wandering_knight_field
     biases:
       frontline_assault: 0.95
-      vanguard_strike: 0.9
   - hero_id: quiet_archivist
     title: 조용한 기록관
     summary: A careful evidence-first exemplar who organizes uncertain records before drafting outputs.

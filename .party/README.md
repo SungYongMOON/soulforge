@@ -10,7 +10,7 @@
 - `.party/` 는 `.registry` 아래로 들어가지 않는 독립 orchestration root 다.
 - `.party/` 는 raw battle log, project-specific operational metrics owner 가 아니다.
 - party 이름을 새로 정하거나 표시 이름을 붙일 때는 draft 규격인 [`docs/PARTY_NAMING_CONTRACT_V0.md`](docs/PARTY_NAMING_CONTRACT_V0.md) 를 먼저 참고한다.
-- 2026-05-18 기준 전체 party alias 후보 목록은 draft 매핑표인 [`docs/PARTY_NAME_MAPPING_TABLE_V0.md`](docs/PARTY_NAME_MAPPING_TABLE_V0.md) 에 둔다. 이 표는 rename 이나 validator enforcement 가 아니다.
+- 2026-05-21 기준 active party alias 후보 목록은 draft 매핑표인 [`docs/PARTY_NAME_MAPPING_TABLE_V0.md`](docs/PARTY_NAME_MAPPING_TABLE_V0.md) 에 둔다. 이 표는 rename 이나 validator enforcement 가 아니다.
 - 사람이 보기 쉬운 파생 정적 검토 뷰는 [`docs/PARTY_NAMING_DRAFT_V0.html`](docs/PARTY_NAMING_DRAFT_V0.html) 에 둔다. 정본은 Markdown/YAML/JSON 이며 HTML 은 rename, alias catalog, validator enforcement 를 만들지 않는다.
 
 ## lane 과 workflow 구분
@@ -86,11 +86,9 @@ sequenceDiagram
 - party 는 chain-level routing 과 handoff 를 제공하고, 실제 실행 결과와 raw 성능 truth 는 `_workmeta/<project_code>/runs/<run_id>/` 에 남긴다.
 - 기존 `member_slots` 기반 party 파일은 backward-compatible fallback 으로 남기되, 새로운 정본 해석에서는 workflow chain 이 우선이다.
 
-## 샘플 구성
+## 등록 구성
 
-- [`vanguard_strike/party.yaml`](vanguard_strike/party.yaml): Vanguard Strike party template for a frontline workflow loadout.
-- [`lineage_strike/party.yaml`](lineage_strike/party.yaml): lineage-map workflow loadout.
 - [`guild_master_cell/party.yaml`](guild_master_cell/party.yaml): guild-master authoring/review workflow chain.
 - [`knowledge_wiki_cell/party.yaml`](knowledge_wiki_cell/party.yaml): Karpathy-style sourcebound wikiization workflow chain.
 - [`systems_engineering_cell/party.yaml`](systems_engineering_cell/party.yaml): systems-engineering assistant workflow chain for scaffold, stage-gap, source, readiness, owner-decision, and closeout routing.
-- [`vanguard_strike/stats/README.md`](vanguard_strike/stats/README.md): canonical stats guidance that keeps observational notes outside project runtime truth.
+- [`pcb_revision_library_cell/party.yaml`](pcb_revision_library_cell/party.yaml): Cadence Allegro PCB DB Doctor uprev followed by dlib board-library export and organization.

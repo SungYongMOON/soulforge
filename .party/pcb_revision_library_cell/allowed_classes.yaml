@@ -1,0 +1,8 @@
+party_id: pcb_revision_library_cell
+kind: allowed_classes
+status: active
+class_ids: []
+selection_policy: workflow_profile_owned
+notes:
+  - Class selection is not party authority for this chain.
+  - DB Doctor uprev currently calibrates toward an auditor profile; dlib export currently calibrates toward an archivist profile, but workflow `profile_policy.yaml` remains authoritative.

@@ -1,0 +1,36 @@
+workflow_id: allegro_pcb_dbdoctor_uprev_batch_v0
+kind: handoff_rules
+status: active
+rules:
+  - from: runtime_scope_binder
+    to: path_policy_checker
+    condition: bound_runtime_scope_written
+    summary: Path checking receives runtime paths only as runtime inputs or private evidence, never as public workflow constants.
+  - from: path_policy_checker
+    to: inventory_runner
+    condition: absolute_paths_passed
+    summary: Inventory starts only after the input root and DB Doctor tool path are confirmed absolute and in scope.
+  - from: inventory_runner
+    to: packet_planner
+    condition: inventory_report_written
+    summary: Planning receives candidate file identities and extension classifications, not recursive raw folder dumps.
+  - from: packet_planner
+    to: packet_materializer
+    condition: collision_report_clear_or_owner_approved
+    summary: Materialization proceeds only when packet folder collisions and overwrite questions are resolved.
+  - from: packet_materializer
+    to: dbdoctor_runner
+    condition: old_new_packet_manifest_written
+    summary: DB Doctor receives one old-file input and one new-file output target per packet.
+  - from: dbdoctor_runner
+    to: result_classifier
+    condition: execution_logs_written
+    summary: Classification receives captured stdout, stderr, process code, and output-file state.
+  - from: result_classifier
+    to: cleanup_verifier
+    condition: conversion_result_matrix_written
+    summary: Cleanup checks only after each conversion has a status label and blocker state.
+  - from: cleanup_verifier
+    to: boundary_closeout_reviewer
+    condition: conversion_receipt_written
+    summary: Closeout receives receipt, validation summary, non-claims, and follow-up routes.

@@ -1,0 +1,32 @@
+packet_type: dlib_execution_plan
+version: v0
+workflow_id: allegro_pcb_dlib_export_organize_v0
+plan_status: draft
+targets:
+  - target_id: "<stable per-board id>"
+    board_file_runtime_path: "<absolute runtime path, private evidence only>"
+    board_folder_runtime_path: "<absolute runtime path, private evidence only>"
+    library_root_runtime_path: "<absolute runtime path, private evidence only>"
+    transient_export_folder_candidates:
+      - export_libraries
+    generated_script_runtime_path: "<absolute runtime path under private run root>"
+    journal_runtime_path: "<absolute runtime path under private run root>"
+    expected_folders:
+      padpath: padpath
+      psmpath: psmpath
+      devpath: devpath
+      logs: logs
+      other: other
+    owner_policy:
+      existing_lib_policy: stop_if_populated
+      overwrite_existing_files: false
+      cleanup_transient_export_folder: true
+dlib_script_contract:
+  commands:
+    - open_dlib_form
+    - enable_mechanical_package_format_shape_device_pad_exports
+    - keep_dependencies_enabled
+    - keep_cross_section_layers_unpurged
+    - execute_export
+    - close_form_and_exit
+  public_package_must_not_store_generated_script: true

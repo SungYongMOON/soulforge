@@ -3,6 +3,10 @@
 - `github_down/` is the tracked Codex wrapper for routing GitHub download/update requests to `.workflow/latest_update_sync_and_followup_v0/`.
 - `github_up/` is the tracked Codex wrapper for routing GitHub upload/publish requests to `.workflow/github_upload_publish_v0/`.
 - `long_thread_handoff/` is the tracked Codex wrapper for explicit long-thread contamination-free handoff requests.
+- `party_launcher_skill_author/` is the tracked Codex authoring aid for turning an existing `.party/<party_id>` loadout into a thin launcher skill without moving party, workflow, or profile policy into the skill.
+- `knowledge_wiki_cell_launcher/` is the tracked Codex launcher for invoking the existing `.party/knowledge_wiki_cell` loadout while resolving workflow-owned profile policy at execution time.
+- `systems_engineering_cell_launcher/` is the tracked Codex launcher for routing SE assistant requests through the existing `.party/systems_engineering_cell` loadout while preserving design, review, verification, and owner-decision boundaries.
+- `pcb_revision_library_cell_launcher/` is the tracked Codex launcher for routing Cadence Allegro PCB revision/library requests through the existing `.party/pcb_revision_library_cell` loadout while preserving workflow-owned profile policy, runtime, mutation, and engineering-approval boundaries.
 
 - `workflow_generator/` is the tracked source-bound workflow generation and evolution skill; its `codex/` bridge syncs to the installed `soulforge-workflow-generator` Codex skill.
 
@@ -24,4 +28,8 @@
 - `workflow_optimizer/` 는 workflow profile calibration 을 수행하고, 결과를 대상 `.workflow/<workflow_id>/profile_policy.yaml` 및 `calibrations/` 아래에 남기도록 돕는 Codex bridge 포함 skill package 다.
 - `post_development_review_gate/` 는 등록된 `.workflow/post_development_review_gate_v0/` 를 Codex 작업 종료 시 호출하게 하는 bridge skill package 다.
 - `workflow_check/` is the tracked Codex bridge for reviewing workflow, party, router, registration, and default-route posture before closeout.
+- `party_launcher_skill_author/` is the tracked Codex bridge for generating party launcher skills that resolve workflow-owned profile policy at execution time.
+- `knowledge_wiki_cell_launcher/` is the tracked Codex bridge for routing knowledge wiki and sourcebound wiki requests through `knowledge_wiki_cell`.
+- `systems_engineering_cell_launcher/` is the tracked Codex bridge for routing project-start, stage-gap, source-gap, readiness, owner-decision, review, and closeout requests through `systems_engineering_cell`.
+- `pcb_revision_library_cell_launcher/` is the tracked Codex bridge for routing PCB DB Doctor uprev and dlib export/organization requests through `pcb_revision_library_cell`.
 - boundary 규칙은 [`.registry/docs/architecture/SKILL_CANON_BOUNDARY.md`](../docs/architecture/SKILL_CANON_BOUNDARY.md) 를 따른다.

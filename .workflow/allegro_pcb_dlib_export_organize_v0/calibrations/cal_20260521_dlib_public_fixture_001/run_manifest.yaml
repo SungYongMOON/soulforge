@@ -1,0 +1,84 @@
+﻿{
+    "calibration_id":  "cal_20260521_dlib_public_fixture_001",
+    "workflow_id":  "allegro_pcb_dlib_export_organize_v0",
+    "kind":  "workflow_profile_calibration",
+    "created_at":  "2026-05-21T12:51:42.8942758Z",
+    "fixture_type":  "public_safe_synthetic_from_contract",
+    "calibration_mode":  "staged_cli_isolated_candidate_matrix_with_semantic_gate",
+    "runtime_status":  "codex_cli_candidate_runner_used; spawn_agent_not_used_under_current_thread_policy",
+    "baseline_profile":  {
+                             "model":  "gpt-5.5",
+                             "reasoning_effort":  "xhigh",
+                             "species":  "dwarf",
+                             "class":  "auditor"
+                         },
+    "stage_a":  {
+                    "model":  "gpt-5.4-mini",
+                    "reasoning_effort":  "low",
+                    "species":  [
+                                    "human",
+                                    "elf",
+                                    "dwarf",
+                                    "orc",
+                                    "darkelf"
+                                ],
+                    "classes":  [
+                                    "administrator",
+                                    "archivist",
+                                    "auditor"
+                                ],
+                    "semantic_winner_species":  "dwarf",
+                    "semantic_winner_class":  "archivist"
+                },
+    "stage_b":  {
+                    "models":  [
+                                   "gpt-5.4-mini",
+                                   "gpt-5.4",
+                                   "gpt-5.5"
+                               ],
+                    "reasoning_efforts":  [
+                                              "low",
+                                              "medium",
+                                              "high",
+                                              "xhigh"
+                                          ],
+                    "initial_exact_gate_species":  "orc",
+                    "initial_exact_gate_class":  "auditor"
+                },
+    "stage_b2":  {
+                     "models":  [
+                                    "gpt-5.4-mini",
+                                    "gpt-5.4",
+                                    "gpt-5.5"
+                                ],
+                     "reasoning_efforts":  [
+                                               "low",
+                                               "medium",
+                                               "high",
+                                               "xhigh"
+                                           ],
+                     "semantic_winner_species":  "dwarf",
+                     "semantic_winner_class":  "archivist"
+                 },
+    "measurement_policy":  {
+                               "quality_source":  "staged_cli_isolated_candidate_matrix_semantic_gate",
+                               "telemetry_source":  "codex_cli_same_candidate_runs",
+                               "subagent_token_usage_available":  false,
+                               "telemetry_exact_for_subagent":  false,
+                               "cost_confidence":  "relative_not_exact"
+                           },
+    "recommendation":  {
+                           "primary_candidate_id":  "B2_gpt_5_5_medium_dwarf_archivist",
+                           "primary_model":  "gpt-5.5",
+                           "primary_reasoning_effort":  "medium",
+                           "primary_species":  "dwarf",
+                           "primary_class":  "archivist"
+                       },
+    "archive_public_safe":  true,
+    "boundary_notes":  [
+                           "Fixture is public-safe synthetic from workflow contract.",
+                           "Candidate prompts did not include golden output or frozen criteria.",
+                           "Archive stores no real board path, installed Cadence path, generated script path, raw PCB payload, credential, cookie, private-state data, _workspaces output, or _workmeta run truth.",
+                           "Local CLI temp paths were sanitized before archive copy."
+                       ]
+}

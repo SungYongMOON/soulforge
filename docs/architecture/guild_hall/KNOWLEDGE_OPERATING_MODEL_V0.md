@@ -43,6 +43,14 @@ recorded on purpose.
 - End-of-work sweep is the catch point: if a useful pattern appears during work
   but no ledger row or candidate capture was made, record the gap and next
   action instead of pretending the system observed it.
+- A passed layer must register in that layer's owner surface during the same
+  bounded task when the surface is clear and writable. Candidate-level passes
+  write candidate, metadata, sourcebound review, follow-up, or owner-decision
+  records. Canon-level passes write the matching canon entry or package with the
+  required owner, schema, README, changelog, and review evidence.
+- Do not defer a passed registration to a vague later task. A hold needs a
+  concrete blocker such as owner hold, unclear owner surface, missing access,
+  failed validator, or public/private boundary risk.
 
 ## Current Workflow Stack
 
@@ -65,32 +73,38 @@ recorded on purpose.
 - `owner_decision_packet_v0` and `post_development_review_gate_v0` remain the
   approval and claim-governance layers.
 
-## External Bookshelf Owner Model
+## External Drive Warehouse And NotebookLM Bookshelf Model
 
 Soulforge may use an owner-managed Google Drive folder as the shared LLM wiki
-source bookshelf. This bookshelf is an owner-held source storage surface, not
-public repository canon and not a replacement for `_workmeta` ledgers.
+source warehouse. NotebookLM notebooks are query bookshelves assembled from
+approved warehouse source handles. The warehouse is an owner-held source storage
+surface, not public repository canon and not a replacement for `_workmeta`
+ledgers.
+
+The terminology and placement rules are fixed in
+`KNOWLEDGE_WAREHOUSE_BOOKSHELF_RULES_V0.md`.
 
 Recommended folder state model:
 
 ```text
 Google Drive
-  Soulforge_LLM_Wiki_Bookshelf/
+  Soulforge_LLM_Wiki_Bookshelf/  # compatibility label; role is source warehouse
     00_INBOX_candidate/
     10_CANON_source/
     20_Project_CANON/
     30_Domain_CANON/
     80_SUPERSEDED/
     90_REJECTED_or_UNCLEAR/
+    _BOOKSHELF_MANIFESTS/
 ```
 
 Owner split:
 
 | Surface | Role | Boundary |
 | --- | --- | --- |
-| Google Drive | Shared source bookshelf visible to approved PCs and NotebookLM. | Holds owner-approved source files or Drive-native source refs. Folder placement is not a canon claim by itself; `_workmeta` records the approval basis and use. |
-| NotebookLM | Advisory query and summary interface over selected bookshelf sources. | It should use CANON source selections, not local-only files or unreviewed inbox candidates. NotebookLM output stays advisory until checked against sources and review gates. |
-| OneDrive or cloud project worksites | Active project files, editable outputs, and shared work products. | Not the LLM wiki source-truth owner unless a source is explicitly approved, copied or linked into the Google Drive bookshelf, and recorded in `_workmeta`. |
+| Google Drive | Shared source warehouse visible to approved PCs and usable as the owner-held source archive for NotebookLM. | Holds owner-approved source files or Drive-native source refs. Folder placement is not a canon claim by itself; `_workmeta` records the approval basis and use. |
+| NotebookLM | Advisory query bookshelf over selected warehouse sources. | It should use CANON source selections, not local-only files or unreviewed inbox candidates. NotebookLM output stays advisory until checked against sources and review gates. |
+| OneDrive or cloud project worksites | Active project files, editable outputs, and shared work products. | Not the LLM wiki source-truth owner unless a source is explicitly approved, copied or linked into the Google Drive source warehouse, and recorded in `_workmeta`. |
 | Soulforge / `_workmeta` | Metadata owner for source ledgers, NotebookLM bindings, query/use logs, and task linkage. | Stores refs, ids, approval notes, claim ceilings, and usage evidence. It does not store raw source bodies in public canon. |
 | Local PC | Cache or working copy. | Never the source owner by default. Local-only material stays candidate/private until approved and recorded. |
 
@@ -157,6 +171,9 @@ Use the weakest state that is fully supported by evidence:
   raises the state.
 - A public canon entry must not be added or upgraded unless the source boundary,
   private/raw exclusion, owner surface, and validation or review route are clear.
+- When those public-canon guards are clear, add or upgrade the canon entry in
+  the same bounded task and record the review evidence. Treat further delay as a
+  hold decision, not as the default.
 
 ## Example Scenario
 

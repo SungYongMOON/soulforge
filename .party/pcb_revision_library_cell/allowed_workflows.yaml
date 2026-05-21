@@ -1,0 +1,13 @@
+party_id: pcb_revision_library_cell
+kind: allowed_workflows
+status: active
+workflow_ids:
+  - allegro_pcb_dbdoctor_uprev_batch_v0
+  - allegro_pcb_dlib_export_organize_v0
+optional_workflow_ids:
+  - owner_decision_packet_v0
+  - post_development_review_gate_v0
+notes:
+  - Required workflow ids form the canonical PCB revision/library chain: DB Doctor uprev first, then dlib library export and organization.
+  - "`owner_decision_packet_v0` is inserted when full-archive mutation, extension policy, overwrite/delete policy, or rerun authority needs scoped owner approval."
+  - "`post_development_review_gate_v0` is inserted before claiming a bounded development or workflow/package change is accepted."

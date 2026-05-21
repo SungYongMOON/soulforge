@@ -23,7 +23,14 @@ npm run validate:knowledge-access
 
 ## Optional Stop Hook Guard
 
-`knowledge_trigger_stop_guard.mjs` is a low-noise Codex `Stop` hook helper. It does not judge knowledge and does not read transcripts. It only inspects the hook payload's final assistant message and blocks bounded Soulforge completion reports that forgot the Korean `지식 트리거 확인:` closeout line. Legacy `Knowledge trigger check:` lines are still accepted for compatibility.
+`knowledge_trigger_stop_guard.mjs` is a low-noise Codex `Stop` hook helper. It does not judge knowledge and does not read transcripts. It only inspects the hook payload's final assistant message and blocks bounded Soulforge completion reports that forgot the Korean `지식 트리거 확인:` closeout line. New reports should use user-facing Korean labels such as `지식 트리거 확인: 책임자 판단 필요`; legacy `지식 트리거 확인: 오너 판단 필요` and `Knowledge trigger check:` lines are still accepted for compatibility.
+
+Preferred closeout wording:
+
+```text
+지식 트리거 확인: 책임자 판단 필요
+주장 한계: 관찰됨 - 자료를 찾고 정리했지만 아직 검증/승인된 지식은 아님
+```
 
 Example user-local Codex hook config:
 

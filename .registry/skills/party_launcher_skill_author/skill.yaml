@@ -1,0 +1,50 @@
+skill_id: party_launcher_skill_author
+kind: skill
+status: active
+title: Party Launcher Skill Author
+summary: Create a thin Codex-callable launcher skill for an existing Soulforge party without moving party, workflow, or profile policy into the skill.
+behavior:
+  intent: >
+    Provide the Codex-facing authoring aid for turning an existing `.party/<party_id>`
+    workflow-chain loadout into a thin launcher skill. The generated launcher
+    skill should route to the party and resolve workflow-owned profile policy at
+    execution time instead of copying workflow bodies, optimized profiles, or
+    runtime bindings into the skill.
+  use_when:
+    - the user asks to make an existing Soulforge party callable as a Codex skill
+    - the user says Korean phrases such as "파티를 스킬로 만들어줘", "파티스킬로 만들어줘", or "/로 호출하게 해줘"
+    - a registered party needs a thin launcher bridge for repeated invocation
+    - a party workflow chain should keep model, reasoning, species, class, and unit/profile resolution under workflow-owned profile policy
+  avoid_when:
+    - the target party does not exist yet and the user has not asked to create it first
+    - the request is to author the party workflow chain itself rather than a launcher bridge
+    - the request requires copying project raw payloads, local absolute paths, secrets, or runtime truth into tracked skill canon
+    - the user wants to switch a default route, grant unattended automation authority, or mutate project files without a separate owner decision
+  expected_outcome:
+    - an existing party is wrapped by a minimal `.registry/skills/<launcher_skill_id>/` package
+    - the generated Codex bridge reads the party and workflow profile policies before routing execution
+    - Codex app skill structure is preserved with lean `codex/SKILL.md`, optional `references/`, and `agents/openai.yaml`
+    - party/workflow/profile ownership remains separate from local runtime bindings and installed skill mirrors
+execution_requirements:
+  required_capabilities:
+    - party_package_review
+    - skill_package_authoring
+    - codex_skill_bridge_authoring
+    - boundary_review
+  preferred_capabilities:
+    - yaml_review
+    - deterministic_validation_review
+    - installed_skill_sync
+  preferred_tools:
+    - rg
+    - yaml_reader
+    - markdown_editor
+    - npm_skills_sync
+    - skill_validator
+  notes:
+    - "The source party must already exist under `.party/<party_id>/` unless a separate party-authoring task is explicitly in scope."
+    - "Generated launcher skills should read party and workflow profile policy at execution time; do not copy optimizer outputs into the launcher body."
+    - "Actual model execution, attached skill set, MCP/tools, install path, and host-local runtime values remain local runtime binding concerns."
+notes:
+  - "`party_launcher_skill_author` is the canonical Soulforge skill package for creating thin Codex launcher skills from existing party loadouts."
+  - "The installed Codex mirror name is normally `soulforge-party-launcher-skill-author` after `npm run skills:sync -- party_launcher_skill_author`."

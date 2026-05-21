@@ -1,0 +1,2 @@
+{"candidate_id":"C04R","started_at":"2026-05-21T21:45:30.6578042+09:00","ended_at":"2026-05-21T21:46:21.5095559+09:00","wall_seconds":50.842,"prompt_path":"prompts/C04R.prompt.md","output_path":"subagent_matrix/outputs/C04R.json","raw_cli_events_archived":false,"stderr_archived":false}
+{"candidate_id":"C05MR","started_at":"2026-05-21T21:46:21.5694850+09:00","ended_at":"2026-05-21T21:46:46.2263544+09:00","wall_seconds":24.657,"prompt_path":"prompts/C05MR.prompt.md","output_path":"subagent_matrix/outputs/C05MR.json","raw_cli_events_archived":false,"stderr_archived":false}

@@ -1,0 +1,37 @@
+packet_type: library_organization_manifest
+version: v0
+workflow_id: allegro_pcb_dlib_export_organize_v0
+target_id: "<stable per-board id>"
+classification_rules:
+  padpath_extensions:
+    - .pad
+  psmpath_extensions:
+    - .psm
+    - .dra
+    - .bsm
+    - .fsm
+    - .ssm
+    - .osm
+    - .mdd
+  devpath_name_patterns:
+    - "*.txt"
+    - "*.txt,*"
+    - "*.map"
+    - "*.map,*"
+  logs_name_patterns:
+    - "*.log"
+    - "*.log,*"
+classification_counts:
+  padpath: 0
+  psmpath: 0
+  devpath: 0
+  logs: 0
+  other: 0
+root_files_left_after_organization: 0
+unknown_files:
+  count: 0
+  review_required: false
+  examples: []
+path_policy:
+  all_outputs_inside_board_library_root: true
+  no_public_runtime_paths_in_canon: true

@@ -1,0 +1,37 @@
+workflow_id: allegro_pcb_dlib_export_organize_v0
+kind: role_slots
+status: active
+slots:
+  - slot_id: runtime_scope_binder
+    title: Runtime Scope Binder
+    summary: Binds owner-approved runtime roots, Allegro locator, board selector, library root name, organization policy, and mutation mode.
+  - slot_id: tool_readiness_checker
+    title: Tool Readiness Checker
+    summary: Confirms paths are absolute, scoped, existing, and that Allegro dlib execution is available before mutation.
+  - slot_id: board_inventory_runner
+    title: Board Inventory Runner
+    summary: Lists target board files and folder-level conditions without copying raw PCB payloads into workflow canon.
+  - slot_id: library_export_planner
+    title: Library Export Planner
+    summary: Produces one board-local dlib export plan and expected library layout per target board.
+  - slot_id: library_root_preparer
+    title: Library Root Preparer
+    summary: Creates or validates board-local lib, padpath, psmpath, devpath, logs, and optional other folders under owner policy.
+  - slot_id: dlib_export_runner
+    title: Dlib Export Runner
+    summary: Runs Allegro read-only with a runtime-generated dlib script and captures execution evidence.
+  - slot_id: export_payload_collector
+    title: Export Payload Collector
+    summary: Collects dlib output from direct or transient export locations into the board-local library root.
+  - slot_id: library_file_classifier
+    title: Library File Classifier
+    summary: Sorts exported files into Allegro reference folders by extension and name pattern.
+  - slot_id: verification_runner
+    title: Verification Runner
+    summary: Checks dlib log success, output folder counts, root cleanliness, and unknown-file blockers.
+  - slot_id: cleanup_runner
+    title: Cleanup Runner
+    summary: Removes workflow-created transient artifacts only when path checks prove they are safe.
+  - slot_id: boundary_closeout_reviewer
+    title: Boundary Closeout Reviewer
+    summary: Names output state, boundary posture, non-claims, and follow-up routes.

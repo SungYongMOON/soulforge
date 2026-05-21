@@ -27,6 +27,10 @@ entries:
     path: exp_xml_component_materials/workflow.yaml
   - workflow_id: component_pcb_layout_guide_extraction
     path: component_pcb_layout_guide_extraction/workflow.yaml
+  - workflow_id: allegro_pcb_dbdoctor_uprev_batch_v0
+    path: allegro_pcb_dbdoctor_uprev_batch_v0/workflow.yaml
+  - workflow_id: allegro_pcb_dlib_export_organize_v0
+    path: allegro_pcb_dlib_export_organize_v0/workflow.yaml
   - workflow_id: page_quantitative_enrichment_v0
     path: page_quantitative_enrichment_v0/workflow.yaml
   - workflow_id: simulation_source_collect_v0

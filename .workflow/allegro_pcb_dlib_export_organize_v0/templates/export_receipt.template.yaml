@@ -1,0 +1,39 @@
+packet_type: export_receipt
+version: v0
+workflow_id: allegro_pcb_dlib_export_organize_v0
+run_status: completed_or_blocked
+summary:
+  targets_planned: 0
+  targets_exported: 0
+  targets_failed: 0
+  targets_review_required: 0
+per_target:
+  - target_id: "<stable per-board id>"
+    board_identity: "<file name or redacted private identity>"
+    dlib_process_code: null
+    dump_libraries_log_present: false
+    dlib_errors_reported: null
+    padpath_count: 0
+    psmpath_count: 0
+    devpath_count: 0
+    logs_count: 0
+    other_count: 0
+    root_files_left_after_organization: null
+    transient_export_folder_left: null
+    status: completed_or_failed_or_review_required
+    blocker: null
+cleanup:
+  generated_scripts_removed_or_private: true
+  transient_export_folders_removed: true
+  tool_journals_not_left_in_public_package: true
+boundary:
+  runtime_paths_public: false
+  raw_pcb_payload_public: false
+  secrets_inspected: false
+non_claims:
+  - no_electrical_correctness_claim
+  - no_symbol_geometry_correctness_claim
+  - no_manufacturing_readiness_claim
+next_action:
+  type: none_or_owner_decision_or_retry
+  detail: null

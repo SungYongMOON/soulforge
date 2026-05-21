@@ -1,0 +1,302 @@
+{
+  "profile_metadata": {
+    "candidate_id": "C05M",
+    "model": "gpt-5.4-mini",
+    "reasoning_effort": "medium",
+    "species": "dwarf",
+    "class": "auditor",
+    "role": "mini_medium_retry_after_xhigh_runtime_stall",
+    "workflow_id": "allegro_pcb_dbdoctor_uprev_batch_v0",
+    "fixture_id": "allegro_dbdoctor_uprev_public_synthetic_001",
+    "fixture_kind": "public_safe_synthetic_workflow_contract_fixture",
+    "claim_ceiling": "observed",
+    "output_state": "blocked"
+  },
+  "workflow_output_packet": {
+    "workflow_id": "allegro_pcb_dbdoctor_uprev_batch_v0",
+    "fixture_id": "allegro_dbdoctor_uprev_public_synthetic_001",
+    "runtime_binding": {
+      "input_root_ref": "runtime_ref://owner-approved/allegro_batch_root",
+      "dbdoctor_executable_ref": "runtime_ref://owner-approved/cadence_dbdoctor_executable",
+      "locator_mode": "explicit_executable",
+      "path_redaction": "public_archive_tokens_only"
+    },
+    "policy_snapshot": {
+      "mutation_mode": "convert",
+      "owner_approval_ref": "owner_approval_ref://synthetic/allow_default_brd_convert_only",
+      "full_archive_mutation_authorized": false,
+      "top_level_files_only": true,
+      "recursive_scan_authorized": false,
+      "non_default_extensions_authorized": false,
+      "extension_allowlist": [
+        ".brd"
+      ],
+      "existing_packet_policy": "stop",
+      "packet_labels": {
+        "old_version_folder_name": "old_version",
+        "new_version_folder_name": "new_version"
+      }
+    },
+    "inventory": {
+      "conversion_candidates": [
+        {
+          "entry_id": "F001",
+          "relative_name": "PWR_A.brd",
+          "kind": "file",
+          "extension": ".brd",
+          "depth": 0,
+          "scope": "in_scope_top_level",
+          "policy_status": "allowed"
+        },
+        {
+          "entry_id": "F002",
+          "relative_name": "CTRL_B.brd",
+          "kind": "file",
+          "extension": ".brd",
+          "depth": 0,
+          "scope": "in_scope_top_level",
+          "policy_status": "allowed"
+        },
+        {
+          "entry_id": "F003",
+          "relative_name": "BROKEN_C.brd",
+          "kind": "file",
+          "extension": ".brd",
+          "depth": 0,
+          "scope": "in_scope_top_level",
+          "policy_status": "allowed"
+        }
+      ],
+      "blocked_entries": [
+        {
+          "entry_id": "F004",
+          "relative_name": "RF_COLLIDE.brd",
+          "kind": "file",
+          "extension": ".brd",
+          "depth": 0,
+          "scope": "in_scope_top_level",
+          "policy_status": "blocked",
+          "block_reason": "existing_packet_policy_is_stop_and_a_packet_folder_collision_exists"
+        },
+        {
+          "entry_id": "F005",
+          "relative_name": "notes.txt",
+          "kind": "file",
+          "extension": ".txt",
+          "depth": 0,
+          "scope": "blocked_by_extension_policy",
+          "policy_status": "blocked",
+          "block_reason": "non_allowlisted_extension"
+        },
+        {
+          "entry_id": "F006",
+          "relative_name": "nested/NESTED_D.brd",
+          "kind": "file",
+          "extension": ".brd",
+          "depth": 1,
+          "scope": "out_of_scope_by_default",
+          "policy_status": "blocked",
+          "block_reason": "recursive_scan_not_authorized"
+        }
+      ]
+    },
+    "packet_plan": [
+      {
+        "entry_id": "F001",
+        "relative_name": "PWR_A.brd",
+        "packet_folders": {
+          "old_version": "old_version",
+          "new_version": "new_version"
+        },
+        "materialization_status": "planned",
+        "collision_status": "none"
+      },
+      {
+        "entry_id": "F002",
+        "relative_name": "CTRL_B.brd",
+        "packet_folders": {
+          "old_version": "old_version",
+          "new_version": "new_version"
+        },
+        "materialization_status": "planned",
+        "collision_status": "none"
+      },
+      {
+        "entry_id": "F003",
+        "relative_name": "BROKEN_C.brd",
+        "packet_folders": {
+          "old_version": "old_version",
+          "new_version": "new_version"
+        },
+        "materialization_status": "planned",
+        "collision_status": "none"
+      },
+      {
+        "entry_id": "F004",
+        "relative_name": "RF_COLLIDE.brd",
+        "packet_folders": {
+          "old_version": "old_version",
+          "new_version": "new_version"
+        },
+        "materialization_status": "blocked",
+        "collision_status": "existing_packet_folder_collision",
+        "stop_reason": "existing_packet_policy_is_stop"
+      }
+    ],
+    "synthetic_dbdoctor_classifications": [
+      {
+        "entry_id": "F001",
+        "relative_name": "PWR_A.brd",
+        "command_role": "outfile_conversion",
+        "classification": "converted_success",
+        "basis": {
+          "output_exists": true,
+          "process_code": 0,
+          "completion_text_present": true,
+          "saved_to_disk_text_present": true,
+          "warning_count": 0,
+          "detected_error_count": 0,
+          "temp_files_remaining": []
+        },
+        "cleanup_state": "clean",
+        "blockers": [],
+        "claim_notes": [
+          "This is a synthetic classification from the supplied observation record only.",
+          "No electrical correctness or manufacturing readiness claim is made."
+        ]
+      },
+      {
+        "entry_id": "F002",
+        "relative_name": "CTRL_B.brd",
+        "command_role": "outfile_conversion",
+        "classification": "converted_with_warnings",
+        "basis": {
+          "output_exists": true,
+          "process_code": 3,
+          "completion_text_present": true,
+          "saved_to_disk_text_present": true,
+          "warning_count": 2,
+          "detected_error_count": 0,
+          "temp_files_remaining": [
+            "CTRL_B.tmp"
+          ]
+        },
+        "cleanup_state": "cleanup_review_required",
+        "blockers": [
+          "temp_file_remaining"
+        ],
+        "claim_notes": [
+          "Warning-bearing nonzero exit is accepted because output exists and completion/save text are present with zero detected errors.",
+          "No electrical correctness or manufacturing readiness claim is made."
+        ]
+      },
+      {
+        "entry_id": "F003",
+        "relative_name": "BROKEN_C.brd",
+        "command_role": "outfile_conversion",
+        "classification": "conversion_failed",
+        "basis": {
+          "output_exists": false,
+          "process_code": 2,
+          "completion_text_present": false,
+          "saved_to_disk_text_present": false,
+          "warning_count": 1,
+          "detected_error_count": 1,
+          "temp_files_remaining": [
+            "BROKEN_C.jrl"
+          ]
+        },
+        "cleanup_state": "retry_or_cleanup_required",
+        "blockers": [
+          "missing_output",
+          "detected_error_present",
+          "temp_file_remaining",
+          "owner_decision_or_retry_policy_required"
+        ],
+        "claim_notes": [
+          "Failure is classified from missing output plus nonzero detected errors, not from process code alone.",
+          "No electrical correctness or manufacturing readiness claim is made."
+        ]
+      }
+    ],
+    "blockers": [
+      {
+        "entry_id": "F004",
+        "type": "collision",
+        "severity": "hard_stop",
+        "status": "blocked_before_materialization",
+        "reason": "A packet folder named RF_COLLIDE already exists and the policy is stop."
+      },
+      {
+        "entry_id": "F005",
+        "type": "extension_policy",
+        "severity": "hard_stop",
+        "status": "blocked",
+        "reason": "notes.txt is not allowlisted."
+      },
+      {
+        "entry_id": "F006",
+        "type": "scope_policy",
+        "severity": "hard_stop",
+        "status": "blocked",
+        "reason": "nested/NESTED_D.brd is recursive and recursive scan is not authorized."
+      },
+      {
+        "entry_id": "F002",
+        "type": "cleanup_review",
+        "severity": "soft_blocker",
+        "status": "pending_cleanup_review",
+        "reason": "CTRL_B.tmp remains after a successful-with-warnings conversion."
+      },
+      {
+        "entry_id": "F003",
+        "type": "failure_retry_owner_decision",
+        "severity": "hard_stop",
+        "status": "owner_decision_needed",
+        "reason": "BROKEN_C.brd has no output, one detected error, and BROKEN_C.jrl remains."
+      }
+    ],
+    "cleanup_summary": {
+      "clean_entries": [
+        "F001"
+      ],
+      "cleanup_review_entries": [
+        "F002",
+        "F003"
+      ]
+    },
+    "non_claims": [
+      "No claim of real Cadence DB Doctor execution is made.",
+      "No claim of inspecting real PCB database payloads is made.",
+      "No claim of electrical correctness is made.",
+      "No claim of manufacturing readiness is made.",
+      "No claim of Cadence license or install management is made.",
+      "No claim of unattended full-archive mutation is made.",
+      "No runtime absolute paths are included."
+    ],
+    "closeout_boundary_review": {
+      "boundary_status": "held",
+      "summary": "The synthetic packet is complete for the allowed top-level .brd candidates, but overall closeout remains blocked by a packet-folder collision, one non-allowlisted file, one out-of-scope nested .brd, and a failed conversion that needs owner decision or retry policy.",
+      "next_action": "Route F004 to owner decision because existing_packet_policy is stop, record cleanup review for F002, and defer F003 until the missing-output error path is resolved or explicitly waived."
+    }
+  },
+  "provenance": {
+    "source_type": "user_supplied_public_safe_synthetic_fixture",
+    "basis": "Synthetic fields derived from the public workflow contract only.",
+    "public_safety": {
+      "contains_real_pcb_payload": false,
+      "contains_project_private_material": false,
+      "contains_runtime_absolute_paths": false,
+      "contains_credentials_or_secrets": false
+    },
+    "runtime_refs_used": [
+      "runtime_ref://owner-approved/allegro_batch_root",
+      "runtime_ref://owner-approved/cadence_dbdoctor_executable"
+    ],
+    "boundary_notes": [
+      "Runtime values are represented only by opaque runtime_ref tokens.",
+      "No private project facts, raw payload content, or secret material are included.",
+      "The packet preserves the top-level-only scope and collision stop policy."
+    ]
+  }
+}

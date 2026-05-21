@@ -1,0 +1,54 @@
+skill_id: systems_engineering_cell_launcher
+kind: skill
+status: active
+title: Systems Engineering Cell Launcher
+summary: Route systems-engineering assistant requests through the existing Systems Engineering Cell party without moving party, workflow, profile policy, project payload, or authority decisions into the skill.
+behavior:
+  intent: >
+    Provide a thin Codex launcher for `.party/systems_engineering_cell`.
+    The launcher helps a future Codex run classify a bounded SE request,
+    identify where the project or artifact flow is blocked, and route the
+    request to the appropriate registered workflow for scaffold, stage-gap,
+    source/wiki, readiness, owner decision, review evidence, or closeout work.
+    It is an invocation bridge only; it does not become a design authority or
+    an unattended SE automation.
+  use_when:
+    - the user asks to run or route `systems_engineering_cell`
+    - the user asks Korean phrases such as "SE 셀로 봐줘", "이 과제 어디서 막혔는지 SE 관점으로 정리해줘", "현재 프로젝트 stage gap 봐줘", or "리뷰 준비 상태 정리해줘"
+    - a project or artifact needs SE-oriented next-action, blocker, source-gap, owner-question, or readiness routing
+    - a request should start from the existing SE assistant operating loop instead of asking Codex to rediscover the SE workflow family
+  avoid_when:
+    - the user asks for final design decisions, verified engineering values, review approval, verification acceptance, or stage clearance without the owning evidence workflow and owner decision
+    - the request requires copying raw project payloads, source documents, private run truth, local absolute paths, credentials, or secrets into public skill canon
+    - the request should create or change the `systems_engineering_cell` party itself rather than invoke it
+    - the user wants unattended project mutation, default-route switching, or public/private promotion authority without separate owner approval
+  expected_outcome:
+    - Codex reads `.party/systems_engineering_cell/party.yaml` and `allowed_workflows.yaml`
+    - Codex resolves the default `se_assistant_operating_loop_v0` route before selecting downstream workflows
+    - Codex reports the safest next route, blocker, owner question, or missing binding instead of inventing unavailable engineering truth
+    - model, reasoning effort, species, and class are inherited as workflow-owned hints or runtime bindings rather than copied as launcher authority
+    - project-local evidence, source truth, review acceptance, and owner decisions stay in their proper owner surfaces
+execution_requirements:
+  required_capabilities:
+    - party_launcher_routing
+    - se_request_boundary_classification
+    - workflow_profile_policy_resolution
+    - public_private_boundary_review
+  preferred_capabilities:
+    - yaml_review
+    - stage_gap_scan_routing
+    - source_gap_routing
+    - readiness_digest_routing
+    - owner_decision_queueing
+  preferred_tools:
+    - rg
+    - yaml_reader
+    - markdown_editor
+    - soulforge_validators
+  notes:
+    - "The launcher must resolve party and workflow-owned profile policies at execution time; do not copy optimizer profile values into `codex/SKILL.md` as binding authority."
+    - "The default user-facing posture is: find where the SE work is blocked, then recommend the next workflow route."
+    - "Actual project paths, mission bindings, source payloads, connector availability, and local runtime values remain outside public skill canon."
+notes:
+  - "`systems_engineering_cell_launcher` is a thin Codex bridge for the registered `.party/systems_engineering_cell` loadout."
+  - "The installed Codex mirror name is normally `soulforge-systems-engineering-cell-launcher` after `npm run skills:sync -- systems_engineering_cell_launcher`."

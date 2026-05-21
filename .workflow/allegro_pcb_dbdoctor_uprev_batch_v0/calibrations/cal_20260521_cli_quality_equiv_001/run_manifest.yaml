@@ -1,0 +1,118 @@
+calibration_id: cal_20260521_cli_quality_equiv_001
+workflow_id: allegro_pcb_dbdoctor_uprev_batch_v0
+kind: workflow_profile_calibration_archive
+status: complete
+created_at: 2026-05-21T21:23:00+09:00
+completed_at: 2026-05-21T21:47:00+09:00
+calibration_mode: cli_only_calibration_with_shape_clarified_finalist_rerun
+source_skill: workflow-optimizer
+boundary: public_safe_synthetic_fixture
+runtime_note:
+  default_subagent_quality_first: blocked_runtime_subagent_unavailable
+  fallback_used: cli_only_calibration
+  reason: Isolated subagent use is not available under the current higher-priority runtime policy; Codex CLI candidates were run read-only and explicitly labeled as CLI-only calibration evidence.
+  raw_cli_events_archived: false
+  stderr_archived: false
+baseline:
+  candidate_id: C01
+  model: gpt-5.5
+  reasoning_effort: xhigh
+  species: dwarf
+  class: auditor
+  result: baseline_generated_but_not_promotable_due_required_shape_gap
+matrix:
+  candidates:
+    - candidate_id: C01
+      model: gpt-5.5
+      reasoning_effort: xhigh
+      species: dwarf
+      class: auditor
+      role: quality_baseline_and_candidate
+    - candidate_id: C02
+      model: gpt-5.5
+      reasoning_effort: medium
+      species: dwarf
+      class: auditor
+      role: candidate_5_5_medium
+    - candidate_id: C03
+      model: gpt-5.4
+      reasoning_effort: high
+      species: dwarf
+      class: auditor
+      role: candidate_5_4_high
+    - candidate_id: C04
+      model: gpt-5.4
+      reasoning_effort: medium
+      species: dwarf
+      class: auditor
+      role: candidate_5_4_medium
+    - candidate_id: C05
+      model: gpt-5.4-mini
+      reasoning_effort: xhigh
+      species: dwarf
+      class: auditor
+      role: runtime_stalled_no_output
+    - candidate_id: C05M
+      model: gpt-5.4-mini
+      reasoning_effort: medium
+      species: dwarf
+      class: auditor
+      role: mini_medium_retry_after_xhigh_runtime_stall
+    - candidate_id: C06
+      model: gpt-5.4
+      reasoning_effort: medium
+      species: human
+      class: auditor
+      role: species_shadow_human_auditor
+    - candidate_id: C07
+      model: gpt-5.4
+      reasoning_effort: medium
+      species: dwarf
+      class: administrator
+      role: class_shadow_administrator
+    - candidate_id: C08
+      model: gpt-5.4
+      reasoning_effort: medium
+      species: dwarf
+      class: archivist
+      role: class_shadow_archivist
+    - candidate_id: C04R
+      model: gpt-5.4
+      reasoning_effort: medium
+      species: dwarf
+      class: auditor
+      role: shape_clarified_finalist_rerun
+    - candidate_id: C05MR
+      model: gpt-5.4-mini
+      reasoning_effort: medium
+      species: dwarf
+      class: auditor
+      role: shape_clarified_mini_finalist_rerun
+quality_gate:
+  criteria: quality_gate/criteria.json
+  evaluator_review: quality_gate/evaluator_review.json
+telemetry:
+  source: codex_exec_json_cli_proxy
+  passed_candidates: cli_telemetry_probe/passed_candidates.jsonl
+  telemetry_jsonl: cli_telemetry_probe/telemetry.jsonl
+evaluation:
+  rule_eval: evaluation/rule_eval.jsonl
+  shortlist: evaluation/llm_shortlist_eval.json
+  final_ranking: evaluation/final_ranking.json
+recommendation:
+  model: gpt-5.4-mini
+  reasoning_effort: medium
+  species: dwarf
+  class: auditor
+  candidate_id: C05MR
+public_safety:
+  fixture_contains_real_pcb_payload: false
+  fixture_contains_project_private_material: false
+  fixture_contains_runtime_absolute_paths: false
+  fixture_contains_secrets: false
+  archive_raw_cli_events_redacted: true
+notes:
+  - Candidate prompts did not include golden output or evaluator-only criteria.
+  - The shape-clarified finalist rerun restated required workflow section names only.
+  - Exact subagent token usage is unavailable because subagent quality-first mode was blocked in this runtime.
+  - The initial PowerShell runner stopped at the C05 runtime stall before writing its raw run manifest; C01-C04 are preserved through candidate outputs and telemetry rows.

@@ -12,7 +12,7 @@ Claim ceiling: `canon_candidate`
 
 Soulforge 에서 party 는 `.party/` 가 소유하는 reusable orchestration template 이다. party 는 member slot, allowed workflow/species/class, default workflow 같은 조합 정보를 소유하지만 workflow step 자체나 project-local run truth 를 소유하지 않는다.
 
-2026-05-18 현재 `.party/index.yaml` 에서 관찰한 canon party 는 `vanguard_strike`, `lineage_strike`, `guild_master_cell` 3개다. 이 문서는 그 현실을 전제로 한 authoring 초안이며, 기존 party 를 즉시 rename 하거나 validator 로 강제하지 않는다.
+2026-05-21 현재 `.party/index.yaml` 에서 관찰한 active canon party 는 `guild_master_cell`, `knowledge_wiki_cell`, `systems_engineering_cell`, `pcb_revision_library_cell` 4개다. 이전 샘플 party 였던 `vanguard_strike` 와 `lineage_strike` 는 active party canon 에서 제외되었으며, 이 문서는 현재 등록된 party 를 즉시 rename 하거나 validator 로 강제하지 않는다.
 
 ## 이름 3계층 구조
 
@@ -78,14 +78,14 @@ global_name_ko -> workflow_id -> party_id -> path
 ## template/pattern 과 canonical party id 분리
 
 - `party template`, `lineup pattern`, `role composition`, `member slot pattern` 같은 설명어를 실제 canonical `party_id` 와 섞지 않는다.
-- `vanguard_strike`, `lineage_strike`, `guild_master_cell` 은 현재 `.party/index.yaml` 에 등록된 canonical party id 다.
+- `guild_master_cell`, `knowledge_wiki_cell`, `systems_engineering_cell`, `pcb_revision_library_cell` 은 현재 `.party/index.yaml` 에 등록된 canonical party id 다.
 - "전방 타격형", "계보 생산형", "길드마스터형" 같은 표현은 display 또는 pattern 설명으로만 쓰고, catalog key 로 쓰려면 별도 owner 판단이 필요하다.
 - 새 pattern 이 보이더라도 즉시 `.party/<new_party_id>/` 를 만들지 않고 기존 party 의 alias, README 설명, 또는 후속 candidate 로 먼저 둔다.
 
 ## rename/deprecation posture
 
-- 이 문서는 기존 3개 party 를 rename 하지 않는다.
-- 기존 `party_id` 는 `observed current id` 로 유지한다.
+- 이 문서는 현재 등록된 party 를 rename 하지 않는다.
+- 현재 등록된 `party_id` 는 `observed current id` 로 유지한다.
 - rename 이 필요하면 downstream refs, workflow compatibility, mission refs, README, changelog, private run evidence 를 포함한 migration packet 이 먼저 필요하다.
 - alias 후보는 먼저 `global_name_ko` 로 문서화하고, runner/catalog 저장 위치는 후속 owner 판단으로 남긴다.
 - deprecation 은 실제 사용 중지 근거, 대체 party, compatibility 영향, public/private evidence 경계가 확인되기 전까지 claim 하지 않는다.

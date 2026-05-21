@@ -6,7 +6,7 @@ import process from "node:process";
 import { fileURLToPath } from "node:url";
 
 export const KNOWLEDGE_TRIGGER_CLOSEOUT_RE =
-  /^\s*(?:Knowledge trigger check:\s*(?:no_trigger|metadata_only_record|sourcebound_review_candidate|owner_decision_needed)\b|지식 트리거 확인:\s*(?:없음|메타데이터\s*기록|소스\s*기반\s*검토\s*후보|오너\s*판단\s*필요)(?=\s|$|[.,。]))/im;
+  /^\s*(?:Knowledge trigger check:\s*(?:no_trigger|metadata_only_record|sourcebound_review_candidate|owner_decision_needed)\b|지식 트리거 확인:\s*(?:없음|메타데이터\s*기록|소스\s*기반\s*검토\s*후보|(?:책임자|오너)\s*판단\s*필요)(?=\s|$|[.,。]))/im;
 
 const COMPLETION_MARKERS = [
   /(?:구현|수정|변경|적용|패치|검증|테스트|작업|반영|추가|보강).{0,16}(?:완료|했습니다|했습니다\.|통과|pass)/u,

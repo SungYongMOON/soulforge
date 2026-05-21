@@ -1,0 +1,44 @@
+workflow_id: allegro_pcb_dlib_export_organize_v0
+kind: handoff_rules
+status: active
+rules:
+  - from: runtime_scope_binder
+    to: tool_readiness_checker
+    condition: bound_runtime_scope_written
+    summary: Path checking receives runtime paths only as runtime inputs or private evidence, never as public workflow constants.
+  - from: tool_readiness_checker
+    to: board_inventory_runner
+    condition: absolute_paths_and_allegro_tool_passed
+    summary: Inventory starts only after the input root and Allegro tool locator are confirmed absolute, available, and in scope.
+  - from: board_inventory_runner
+    to: library_export_planner
+    condition: target_board_inventory_written
+    summary: Planning receives target folder and board identities plus collision states, not recursive raw payload dumps.
+  - from: library_export_planner
+    to: library_root_preparer
+    condition: dlib_execution_plan_written
+    summary: Library folder creation proceeds only after output roots and overwrite/rerun policy are explicit.
+  - from: library_root_preparer
+    to: dlib_export_runner
+    condition: prepared_library_roots_written
+    summary: Allegro receives one board file and one board-local output policy at a time.
+  - from: dlib_export_runner
+    to: export_payload_collector
+    condition: dlib_execution_logs_written
+    summary: Collection receives captured logs, process code, and discovered direct or transient output locations.
+  - from: export_payload_collector
+    to: library_file_classifier
+    condition: collected_export_payload_written
+    summary: Classification starts only after all exported files are inside the board-local library root.
+  - from: library_file_classifier
+    to: verification_runner
+    condition: library_organization_manifest_written
+    summary: Verification receives folder counts, unknown-file flags, and log locations.
+  - from: verification_runner
+    to: cleanup_runner
+    condition: export_result_matrix_written
+    summary: Cleanup removes only known workflow-created transient artifacts after result classification.
+  - from: cleanup_runner
+    to: boundary_closeout_reviewer
+    condition: export_receipt_written
+    summary: Closeout receives receipt, validation summary, non-claims, and follow-up routes.

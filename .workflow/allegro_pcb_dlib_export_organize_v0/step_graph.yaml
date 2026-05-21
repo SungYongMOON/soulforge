@@ -1,0 +1,115 @@
+workflow_id: allegro_pcb_dlib_export_organize_v0
+kind: step_graph
+status: active
+steps:
+  - step_id: bind_runtime_scope
+    title: Bind Runtime Scope
+    actor_slot: runtime_scope_binder
+    action: Collect input root, Allegro executable or locator, board selection policy, version-folder selector, library root name, mutation mode, and owner approval reference without writing runtime paths into workflow canon.
+    inputs:
+      - library_export_scope_packet
+      - allegro_runtime_binding
+      - owner_mutation_policy
+    outputs:
+      - bound_runtime_scope
+    next:
+      - validate_tool_and_paths
+  - step_id: validate_tool_and_paths
+    title: Validate Tool And Paths
+    actor_slot: tool_readiness_checker
+    action: Reject relative input roots, relative tool paths, path traversal, missing roots, missing Allegro executable or unresolved locator, and computed output paths that escape the owner-approved input root.
+    inputs:
+      - bound_runtime_scope
+    outputs:
+      - path_and_tool_report
+    next:
+      - inventory_target_boards
+  - step_id: inventory_target_boards
+    title: Inventory Target Boards
+    actor_slot: board_inventory_runner
+    action: Enumerate target board files using the declared version-folder selector and extension allowlist; detect empty matches, duplicates, multiple boards per target folder, and pre-existing library roots.
+    inputs:
+      - path_and_tool_report
+    outputs:
+      - target_board_inventory
+    next:
+      - plan_library_export
+  - step_id: plan_library_export
+    title: Plan Library Export
+    actor_slot: library_export_planner
+    action: Build one export plan per board folder, including board file identity, board-local library root, transient export folder candidates, generated script path, log targets, overwrite policy, and expected organization folders.
+    inputs:
+      - target_board_inventory
+    outputs:
+      - dlib_execution_plan
+    next:
+      - prepare_library_roots
+  - step_id: prepare_library_roots
+    title: Prepare Library Roots
+    actor_slot: library_root_preparer
+    action: Create the board-local library root and organization folders only inside the declared board folder; apply owner policy for existing lib roots, stale files, and rerun cleanup.
+    inputs:
+      - dlib_execution_plan
+    outputs:
+      - prepared_library_roots
+    next:
+      - run_allegro_dlib_export
+  - step_id: run_allegro_dlib_export
+    title: Run Allegro Dlib Export
+    actor_slot: dlib_export_runner
+    action: Generate a runtime-only Allegro script that opens dlib, enables the selected export elements, executes export, and exits; run Allegro read-only with script replay per board and capture journal, stdout, stderr, process code, and dlib logs.
+    inputs:
+      - prepared_library_roots
+    outputs:
+      - dlib_execution_logs
+    next:
+      - collect_export_payload
+  - step_id: collect_export_payload
+    title: Collect Export Payload
+    actor_slot: export_payload_collector
+    action: Move or accept dlib output from the declared transient export folder or direct output location into the board-local library root, preserving Cadence logs and rejecting any source path outside the board folder.
+    inputs:
+      - dlib_execution_logs
+    outputs:
+      - collected_export_payload
+    next:
+      - classify_library_files
+  - step_id: classify_library_files
+    title: Classify Library Files
+    actor_slot: library_file_classifier
+    action: Move padstack files to padpath, symbol and drawing files to psmpath, device and map files to devpath, logs to logs, and unknown files to other with an explicit review flag.
+    inputs:
+      - collected_export_payload
+    outputs:
+      - library_organization_manifest
+    next:
+      - verify_export_results
+  - step_id: verify_export_results
+    title: Verify Export Results
+    actor_slot: verification_runner
+    action: Verify dump_libraries.log exists, detected dlib errors are zero, organization folder counts are recorded, no files remain directly under lib root, board files were not saved by the workflow, and unexpected unknown files are handled.
+    inputs:
+      - library_organization_manifest
+    outputs:
+      - export_result_matrix
+    next:
+      - cleanup_transient_artifacts
+  - step_id: cleanup_transient_artifacts
+    title: Cleanup Transient Artifacts
+    actor_slot: cleanup_runner
+    action: Remove only workflow-created transient export folders and runtime scripts when they are inside approved temp/run roots or board-local transient folders; preserve dlib logs in logs and private execution evidence in the run root.
+    inputs:
+      - export_result_matrix
+    outputs:
+      - export_receipt
+    next:
+      - review_boundary_and_close
+  - step_id: review_boundary_and_close
+    title: Review Boundary And Close
+    actor_slot: boundary_closeout_reviewer
+    action: Confirm output state, public/private boundary posture, path policy, non-claims, owner-decision follow-ups, and post-development review requirements.
+    inputs:
+      - export_receipt
+    outputs:
+      - boundary_review_note
+    next: []

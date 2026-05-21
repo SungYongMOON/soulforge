@@ -1,0 +1,4 @@
+interface:
+  display_name: "PCB Revision Library Cell Launcher"
+  short_description: "Route PCB uprev and dlib export"
+  default_prompt: "Use $soulforge-pcb-revision-library-cell-launcher to route this PCB revision/library request through DB Doctor uprev and dlib export."
