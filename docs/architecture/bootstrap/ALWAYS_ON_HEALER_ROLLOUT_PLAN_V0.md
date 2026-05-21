@@ -42,6 +42,13 @@ npm run guild-hall:healer:run -- --skip-validate --json
 - 포함 점검:
   - `git status --short --branch`
   - `gateway:fetch:healthcheck`
+  - 최신 지도/snapshot freshness
+  - launchd always-on job 생존 상태
+  - 임시 TODO/scratch/patch 파일 위치 후보
+  - activity report / `latest_context.json` 신선도
+  - public repo, `_workmeta`, `private-state` 동기화 상태
+  - 변경 파일명 기준 secret/raw/mail/runtime 유출 후보
+  - active/private 이어받기 표면과 `NIGHT_WORK_HANDOFF` 존재 여부
   - healer report/activity event 기록
 - 제외 점검:
   - root validation
@@ -66,8 +73,8 @@ npm run guild-hall:healer:run -- --json
   - `git status --short --branch`
   - `npm run validate`
   - `gateway:fetch:healthcheck`
+  - Healer light 의 7개 24시간 PC 점검
 - 향후 단계적으로 추가할 후보:
-  - `npm run validate:snapshot`
   - `npm run validate:gateway`
   - `npm run ui:done:check`
 - 추가 기준:
@@ -154,6 +161,41 @@ npm run guild-hall:always-on:install -- --local-root <actual Soulforge root> --j
 npm run guild-hall:always-on:verify -- --local-root <actual Soulforge root> --check-launchctl --json
 ```
 
+이번 7개 점검 반영 절차:
+
+1. 운영 clone 이 `main` 이고 public worktree 가 clean 인지 확인한다.
+2. public repo 를 `git pull --ff-only origin main` 으로 최신화한다.
+3. `_workmeta` 가 연결된 owner-with-state PC 라면 `_workmeta` 도 `git pull --ff-only origin main` 으로 최신화한다.
+4. local snapshot 을 `npm run guild-hall:snapshot` 으로 갱신한다.
+5. LaunchAgent 를 아래 명령으로 설치하거나 갱신한다.
+
+```bash
+npm run guild-hall:always-on:install -- --local-root "$(pwd)" --json
+```
+
+6. 설치 상태를 아래 명령으로 확인한다.
+
+```bash
+npm run guild-hall:always-on:verify -- --local-root "$(pwd)" --check-launchctl --json
+```
+
+7. healer light 를 먼저 실행한다.
+
+```bash
+npm run guild-hall:healer:run -- --skip-validate --notify-on-failure --json
+```
+
+8. healer full 을 한 번 실행한다.
+
+```bash
+npm run guild-hall:healer:run -- --notify-on-failure --json
+```
+
+9. 첫 실행에서 경고가 남으면 `latest_context.json` 또는 healer report 의
+   `Next Action` 을 기준으로 처리한다. 메일 후보를 monster/mission 으로
+   실제 해결하는 루프는 이 반영 절차의 성공 기준이 아니라 later addition
+   으로 둔다.
+
 ### Phase 3. LLM 감시 축소
 
 - healer light/full 이 안정되면 Codex `Soulforge 운영 감시` heartbeat 를 daily report 계층으로 더 낮추거나 pause 한다.
@@ -168,6 +210,7 @@ npm run guild-hall:always-on:verify -- --local-root <actual Soulforge root> --ch
 - activity sync 실행 자체가 GitHub/DNS/network 계열 문제로 실패하면 같은 재시도 정책을 적용한다. 재시도 후에도 실패하면 다음 정기 실행까지 기다리고, owner 에게는 `stale_sync_blocked` 와 마지막 안전 상태만 보고한다.
 - 실제 메일 원문, HTML body, attachment, mailbox cursor 는 24시간 PC 의 local `guild_hall/state/gateway/**` 에 남긴다.
 - 후보를 실제 monster/intake request 로 승격하는 작업은 원문과 local runtime 을 가진 24시간 PC 에서 수행하는 것을 기본값으로 본다.
+- 메일 후보를 monster/mission 으로 실제 해결하는 자동 루프는 본 healer 7개 점검의 성공 기준에 포함하지 않고, later addition 으로 따로 구현한다.
 
 ## MacBook Air 와 24시간 PC 역할 분리
 

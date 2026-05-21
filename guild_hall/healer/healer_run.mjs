@@ -10,6 +10,7 @@ import {
 } from "../activity/activity_log.mjs";
 import { normalizeRepoPath, relativeToRepo, writeJson } from "../shared/io.mjs";
 import { enqueueNotification } from "../town_crier/runtime.mjs";
+import { runAlwaysOnChecks } from "./always_on_checks.mjs";
 
 export const HEALER_AUTOMATION_ID = "soulforge-healer-run";
 
@@ -19,6 +20,7 @@ export async function runHealerOnce(options = {}) {
   const now = options.now instanceof Date ? options.now : new Date();
   const identity = options.identity ?? (await loadNodeIdentity(repoRoot));
   const runCommand = options.runCommand ?? defaultRunCommand;
+  const alwaysOnCheckRunner = options.alwaysOnCheckRunner ?? runAlwaysOnChecks;
   const checks = [];
 
   checks.push(
@@ -60,13 +62,32 @@ export async function runHealerOnce(options = {}) {
     );
   }
 
+  if (options.skipAlwaysOnChecks) {
+    checks.push(skippedCheck("always_on_checks", "skipped by --skip-always-on-checks"));
+  } else {
+    const alwaysOnChecks = await alwaysOnCheckRunner({
+      repoRoot,
+      activityRoot,
+      runCommand,
+      mapPath: path.join(activityRoot, "latest_context.json"),
+      latestContextPath: path.join(activityRoot, "latest_context.json"),
+      reportLogRoot: path.join(activityRoot, "log"),
+      ...(options.alwaysOnCheckOptions ?? {}),
+    });
+    checks.push(...alwaysOnChecks);
+  }
+
   const failedChecks = checks.filter((check) => check.status === "failed");
+  const warningChecks = checks.filter((check) => check.status === "warn");
   const result = failedChecks.length > 0 ? "failed" : "completed";
   const summary = buildSummary(result, checks);
   const nextAction =
-    result === "completed"
-      ? "Continue scheduled gateway/night_watch work; use latest_context.json as the handoff surface."
-      : `Inspect failed checks: ${failedChecks.map((check) => check.id).join(", ")}.`;
+    result !== "completed"
+      ? `Inspect failed checks: ${failedChecks.map((check) => check.id).join(", ")}.`
+      : warningChecks.length > 0
+        ? `Review warning checks: ${warningChecks.map((check) => check.id).join(", ")}.`
+        : "Continue scheduled gateway/night_watch work; use latest_context.json as the handoff surface.";
+  const carryForward = result !== "completed" || warningChecks.length > 0;
   const report = await writeHealerReport({
     repoRoot,
     activityRoot,
@@ -75,6 +96,7 @@ export async function runHealerOnce(options = {}) {
     result,
     summary,
     nextAction,
+    carryForward,
     checks,
   });
   const notification =
@@ -100,7 +122,7 @@ export async function runHealerOnce(options = {}) {
       refs: [report.report_ref],
       detail_owner: "guild_hall/healer + guild_hall/state/operations/soulforge_activity",
       next_action: nextAction,
-      carry_forward: result !== "completed",
+      carry_forward: carryForward,
     },
   });
   const runSummary = {
@@ -175,7 +197,7 @@ async function defaultRunCommand({ command, args, cwd }) {
   };
 }
 
-async function writeHealerReport({ repoRoot, activityRoot, now, identity, result, summary, nextAction, checks }) {
+async function writeHealerReport({ repoRoot, activityRoot, now, identity, result, summary, nextAction, carryForward, checks }) {
   const stamps = buildDateStamps(now);
   const logDir = path.join(activityRoot, "log", stamps.year, stamps.date);
   const reportPath = path.join(logDir, `${stamps.timeSecond}-healer-run.md`);
@@ -201,6 +223,9 @@ async function writeHealerReport({ repoRoot, activityRoot, now, identity, result
   for (const check of checks) {
     lines.push(`### ${check.id}`);
     lines.push(`- command: ${check.command ?? "(skipped)"}`);
+    if (check.source) {
+      lines.push(`- source: ${check.source}`);
+    }
     lines.push(`- status: ${check.status}`);
     lines.push(`- exit_code: ${check.exit_code ?? "(none)"}`);
     lines.push(`- duration_ms: ${check.duration_ms}`);
@@ -220,7 +245,7 @@ async function writeHealerReport({ repoRoot, activityRoot, now, identity, result
   lines.push("");
   lines.push("## Carry Forward");
   lines.push("");
-  lines.push(`- carry_forward: ${result !== "completed" ? "true" : "false"}`);
+  lines.push(`- carry_forward: ${carryForward ? "true" : "false"}`);
   lines.push("");
   lines.push("## Refs");
   lines.push("");
@@ -237,14 +262,16 @@ async function writeHealerReport({ repoRoot, activityRoot, now, identity, result
 }
 
 function buildSummary(result, checks) {
+  const passedCount = checks.filter((check) => check.status === "passed").length;
+  const warningCount = checks.filter((check) => check.status === "warn").length;
+  const skippedCount = checks.filter((check) => check.status === "skipped").length;
+
   if (result === "completed") {
-    const passedCount = checks.filter((check) => check.status === "passed").length;
-    const skippedCount = checks.filter((check) => check.status === "skipped").length;
-    return `healer run completed: ${passedCount} checks passed, ${skippedCount} checks skipped.`;
+    return `healer run completed: ${passedCount} checks passed, ${warningCount} warnings, ${skippedCount} checks skipped.`;
   }
 
   const failed = checks.filter((check) => check.status === "failed").map((check) => check.id).join(", ");
-  return `healer run failed: ${failed}.`;
+  return `healer run failed: ${failed}; ${warningCount} warning(s), ${skippedCount} skipped.`;
 }
 
 async function enqueueHealerFailureNotification({ repoRoot, failedChecks, summary, reportRef }) {

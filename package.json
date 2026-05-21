@@ -15,7 +15,7 @@
     "validate:role-boundary": "node guild_hall/validate/role_boundary_validate.mjs",
     "validate:snapshot": "node --test guild_hall/snapshot/snapshot.test.mjs && node guild_hall/snapshot/cli.mjs --check",
     "validate:ui": "npm run ui:validate",
-    "validate:activity": "node --test guild_hall/activity/activity_log.test.mjs guild_hall/healer/healer_run.test.mjs",
+    "validate:activity": "node --test guild_hall/activity/activity_log.test.mjs guild_hall/healer/healer_run.test.mjs guild_hall/healer/always_on_checks.test.mjs",
     "validate:knowledge-access": "node --test guild_hall/knowledge_access/knowledge_access.test.mjs guild_hall/knowledge_access/knowledge_trigger_stop_guard.test.mjs",
     "validate:always-on": "node --test guild_hall/always_on_launchd/launchd.test.mjs",
     "validate:dev-worker": "node --test guild_hall/dev_worker/dev_worker.test.mjs",

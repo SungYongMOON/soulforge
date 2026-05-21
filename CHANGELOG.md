@@ -2,6 +2,19 @@
 
 ## 2026-05-21
 
+### Revision `working` - Always-on healer seven checks added
+
+- Added a reusable healer check module for snapshot/map freshness, launchd liveness, stray development-file placement, report freshness, repo sync, secret/raw path leakage, and restore readiness.
+- Integrated the seven checks into `guild-hall:healer:run`, with warning checks carried forward in activity context without marking the whole run failed.
+- Documented the 24-hour PC check set and kept the mail-candidate-to-monster resolver classified as later work outside the healer success criteria.
+- Added the concrete 24-hour PC pull, snapshot refresh, launchd install/verify, and healer light/full smoke rollout checklist.
+
+### Revision `working` - Development intake storage rule clarified
+
+- Added a roadmap-owned storage rule for development candidates, backlog, and future work so agents do not create ad hoc TODO or plan files.
+- Routed unclear work to roadmap-level candidates, concrete owner work to existing owner surfaces, and unapproved agent-discovered implementation work to `_workmeta/**/dev_worker_candidate_queue`.
+- Added a short `AGENTS.md` pointer so future development-intent capture checks the roadmap rule before writing files.
+
 ### Revision `working` - Mail notify attachment count excludes body links
 
 - Updated gateway mail notification and mail candidate summaries so body links discovered in message HTML/text are not counted as user-visible attached files.

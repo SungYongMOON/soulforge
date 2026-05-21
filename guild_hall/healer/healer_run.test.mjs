@@ -15,6 +15,7 @@ test("runHealerOnce writes a report and activity event", async () => {
       repoRoot,
       activityRoot,
       now: new Date("2026-05-08T04:05:06.000Z"),
+      skipAlwaysOnChecks: true,
       runCommand: async ({ command, args }) => {
         commands.push([command, ...args].join(" "));
         if (args.includes("guild-hall:gateway:fetch:healthcheck")) {
@@ -58,6 +59,7 @@ test("runHealerOnce carries forward failed checks", async () => {
       activityRoot,
       now: new Date("2026-05-08T05:05:06.000Z"),
       skipGatewayHealthcheck: true,
+      skipAlwaysOnChecks: true,
       runCommand: async ({ args }) => {
         if (args.includes("validate")) {
           return { status: 1, stdout: "validation failed\n", stderr: "" };
@@ -84,6 +86,7 @@ test("runHealerOnce fails when gateway healthcheck reports critical JSON", async
       repoRoot,
       activityRoot,
       now: new Date("2026-05-08T06:05:06.000Z"),
+      skipAlwaysOnChecks: true,
       runCommand: async ({ args }) => {
         if (args.includes("guild-hall:gateway:fetch:healthcheck")) {
           return {
@@ -122,6 +125,7 @@ test("runHealerOnce queues a healer failure notification when enabled", async ()
       now: new Date("2026-05-08T07:05:06.000Z"),
       notifyOnFailure: true,
       skipGatewayHealthcheck: true,
+      skipAlwaysOnChecks: true,
       runCommand: async ({ args }) => {
         if (args.includes("validate")) {
           return { status: 1, stdout: "validation failed\n", stderr: "" };
@@ -147,6 +151,52 @@ test("runHealerOnce queues a healer failure notification when enabled", async ()
     assert.equal(queued.owner_scope, "healer");
     assert.equal(queued.event, "healer_failed");
     assert.equal(queued.text.includes(result.files.report_ref), true);
+  } finally {
+    await rm(repoRoot, { recursive: true, force: true });
+  }
+});
+
+test("runHealerOnce carries warning always-on checks forward without failing the run", async () => {
+  const repoRoot = await mkdtemp(path.join(os.tmpdir(), "soulforge-healer-warning-"));
+  const activityRoot = path.join(repoRoot, "guild_hall", "state", "operations", "soulforge_activity");
+
+  try {
+    const result = await runHealerOnce({
+      repoRoot,
+      activityRoot,
+      now: new Date("2026-05-08T08:05:06.000Z"),
+      skipValidate: true,
+      skipGatewayHealthcheck: true,
+      alwaysOnCheckRunner: async (alwaysOnOptions) => {
+        assert.equal(alwaysOnOptions.mapPath, path.join(activityRoot, "latest_context.json"));
+        assert.equal(alwaysOnOptions.reportLogRoot, path.join(activityRoot, "log"));
+        return [
+          {
+            id: "repo_sync",
+            command: "git status --short --branch",
+            status: "warn",
+            exit_code: 0,
+            started_at: "2026-05-08T08:05:06.000Z",
+            ended_at: "2026-05-08T08:05:06.000Z",
+            duration_ms: 0,
+            summary: "1 worktree change(s)",
+            output_tail: "soulforge: warn - 1 worktree change(s)",
+          },
+        ];
+      },
+      runCommand: async () => ({ status: 0, stdout: "ok\n", stderr: "" }),
+    });
+
+    assert.equal(result.result, "completed");
+    assert.equal(result.checks.some((check) => check.status === "warn"), true);
+
+    const reportRaw = await readFile(result.files.report_path, "utf8");
+    assert.equal(reportRaw.includes("1 warnings"), true);
+    assert.equal(reportRaw.includes("carry_forward: true"), true);
+
+    const latest = JSON.parse(await readFile(result.files.latest_context_path, "utf8"));
+    assert.equal(latest.open_threads[0].result, "completed");
+    assert.equal(latest.open_threads[0].next_action.includes("repo_sync"), true);
   } finally {
     await rm(repoRoot, { recursive: true, force: true });
   }

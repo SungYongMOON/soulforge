@@ -17,6 +17,12 @@ npm run guild-hall:healer:run -- --json
 npm run guild-hall:healer:run -- --skip-validate --json
 ```
 
+개발 PC 처럼 launchd 설치나 private-state mirror 가 아직 준비되지 않은 환경에서는 7개 운영 점검만 잠시 건너뛸 수 있다.
+
+```bash
+npm run guild-hall:healer:run -- --skip-always-on-checks --json
+```
+
 실패 시 `town_crier` queue 로 Telegram brief 요청을 남기려면 아래처럼 실행한다.
 
 ```bash
@@ -38,11 +44,20 @@ npm run guild-hall:healer:run -- --skip-validate --notify-on-failure --json
 - `npm run validate`
 - `npm run guild-hall:gateway:fetch:healthcheck -- --json`
   - JSON `status` 가 `WARN` 또는 `CRITICAL` 이면 command exit code 가 0 이어도 healer 점검은 실패로 기록한다.
+- 7개 24시간 PC 점검:
+  - 최신 지도 점검: local snapshot 과 `latest_context.json` 이 낡지 않았는지 본다.
+  - 자동작업 생존 점검: launchd plist 와 `launchctl` 로 always-on job 이 설치/로드됐는지 본다.
+  - 쓰레기 파일 위치 점검: 루트 근처의 임시 TODO, patch, scratch 파일 후보를 파일명 기준으로 찾는다.
+  - 보고서 신선도 점검: activity report 와 `latest_context.json` 이 최근 것인지 본다.
+  - 저장소 동기화 점검: public repo, `_workmeta`, `private-state` 의 branch/dirty/upstream 상태를 읽기 전용으로 본다.
+  - 비밀/원문 유출 점검: 이번 변경 파일명에 secret/raw/mail/runtime 후보가 있는지 본다. 파일 내용은 읽지 않는다.
+  - 복구 가능성 점검: active activity context, `_workmeta`, `private-state`, `NIGHT_WORK_HANDOFF` 같은 이어받기 표면이 있는지 본다.
 - `--notify-on-failure`
   - healer 실패 시 `town_crier` queue 에 짧은 실패 요약과 report ref 만 적재한다.
 
 ## 경계
 
 - healer 는 자동 커밋, 자동 푸시, merge, reset, stash 를 하지 않는다.
-- 실패한 점검은 `carry_forward: true` 로 activity log 에 남기고, 다음 사람이 고칠 수 있게 report path 만 연결한다.
+- 실패한 점검과 경고 점검은 `carry_forward: true` 로 activity log 에 남기고, 다음 사람이 고칠 수 있게 report path 만 연결한다.
+- 메일 후보를 실제 monster/mission 으로 해결하는 루프는 이 healer 점검의 해결 범위가 아니며 later addition 으로 둔다.
 - raw mail body, secret, token, attachment binary 는 report 나 event 에 기록하지 않는다.

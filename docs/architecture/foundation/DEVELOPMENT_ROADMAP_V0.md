@@ -16,6 +16,24 @@
 - `ui-workspace/docs/**` 는 UI 구현 세부 계획을 소유한다. UI 전체 우선순위는 이 문서에서 먼저 정한다.
 - `_workmeta/**` 는 project-local evidence, worklog, promotion candidate 를 소유한다. 큰 제품 방향을 `_workmeta` 에만 남기지 않는다.
 
+## 개발 예정 저장 규칙
+
+개발하기로 한 내용이 흩어지지 않게 아래 순서로 저장한다.
+
+1. 아직 owner, 입력, 출력, 검증이 불명확하면 새 파일을 만들지 않고 이 문서의 `다음 후보` 또는 `현재 보류` 수준으로만 남긴다.
+2. public-safe 이고 Soulforge 전체 우선순위에 영향을 주면 이 문서에 한 줄 후보로만 남긴다.
+3. 특정 owner 로 내려갈 만큼 구체적이면 아래 `구체화 규칙` 표의 저장 위치로 보낸다.
+4. project-local 이거나 raw/private 근거가 섞이면 `_workmeta/<project_code>/reports/procedure_capture/` 또는 해당 project 의 queue 로 보낸다.
+5. agent 가 발견했지만 아직 owner-approved 가 아닌 구현 작업은 `_workmeta/<project_code>/dev_worker_candidate_queue/*.yaml` 에 `status: proposed` 로만 둔다.
+6. 바로 실행 가능한 public-safe 개발 작업은 `.mission/<mission_id>/dev_worker_request.yaml` 처럼 명시 task packet 으로 만들고, private 작업은 `_workmeta/<project_code>/dev_worker_queue/*.yaml` 에 둔다.
+
+금지:
+
+- top-level 임시 TODO, 임의 `*_plan.md`, owner 없는 scratch 파일을 만들지 않는다.
+- README, CHANGELOG, architecture 문서에 같은 backlog 를 중복 복제하지 않는다.
+- chat transcript, raw mail, secret, `_workspaces` 실자료를 개발 예정 기록으로 저장하지 않는다.
+- 저장 위치가 애매하면 private 쪽으로 해석하되, 임의 project code 를 고르지 않고 `ASSUMPTIONS` 로 모호성을 보고한다.
+
 ## 현재 큰 방향
 
 Soulforge는 현실 업무를 게임식 운영 루프로 바꾸는 시스템이다. 지금 개발의 중심은 세계관 확장이 아니라, 실제 하루 업무를 끝까지 굴릴 수 있는 작은 playable loop 를 만드는 것이다.
