@@ -32,6 +32,33 @@ required_fields:
     type: string
     description: Directory name for raw truth.
 optional_fields:
+  - name: short_name
+    type: string
+    description: Human-facing short label. Actual value remains private for real projects.
+  - name: project_title
+    type: string
+    description: Human-facing full title. Actual value remains private for real projects.
+  - name: customer
+    type: string
+    description: Customer or counterparty label. Actual value remains private for real projects.
+  - name: workspace_ref
+    type: string
+    description: Relative pointer from contract.yaml to _workspaces/<project_code>.
+  - name: workspace_materialization
+    type: object
+    description: Portable cloud/link intent without host-local absolute paths.
+  - name: ledger_ref
+    type: object
+    description: Source workbook manifest/checksum/row pointer for recurring project ledger updates.
+  - name: responsibility
+    type: object
+    description: Observed ledger responsibility plus owner-corrected current operating responsibility.
+  - name: schedule
+    type: object
+    description: Schedule metadata observed from an owner-provided source.
+  - name: status_hint
+    type: object
+    description: Current/open/closed hint and claim ceiling for metadata-only project state.
   - name: notes
     type: list[string]
     description: Human-readable notes.
@@ -60,9 +87,18 @@ field_rules:
     rule: Use runs/. Raw truth always materializes under runs/<run_id>/.
   - field: status
     rule: Use only draft, active, archived.
+  - field: workspace_materialization
+    rule: Store only portable aliases and relative paths. Do not store host-local absolute OneDrive or filesystem paths in public-tracked documents.
+  - field: ledger_ref
+    rule: Point to a private manifest/checksum and source row identity. Do not copy workbook payload, row dumps, or real project lists into public repo.
+  - field: responsibility
+    rule: Preserve source-observed owner cells separately from owner-corrected current operating responsibility.
+  - field: status_hint
+    rule: Treat workbook-derived state as metadata-only identity/status support, not design truth, review approval, or verification acceptance.
 notes:
   - The same contract shape applies to local _workmeta/<project_code>/contract.yaml and to tracked examples under docs/architecture/workspace/examples/.
   - Tracked example contracts live under docs/architecture/workspace/examples/, not under _workspaces/.
   - Actual runtime data remains local-only under runs/<run_id>/.
   - Optional runtime execution bindings can refine how workflow steps choose models, attached skills, and MCP/tool preferences.
+  - Recurring owner-provided project ledger updates follow docs/architecture/workspace/PROJECT_LEDGER_UPDATE_V0.md.
 

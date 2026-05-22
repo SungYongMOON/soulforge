@@ -135,6 +135,8 @@ _workmeta/
 - tracked 정본 문서와 public-safe example 에서는 실제 과제 식별자 대신 `demo_project`, `example_project`, `Example Project` 같은 generic placeholder 만 쓴다.
 - project assignment 규칙을 정본으로 승격할 때는 비밀 project code, 내부 관리번호, 외부에 닫힌 식별자를 직접 판정 키로 적지 않는다.
 - 여러 과제에 겹칠 수 있는 약어, 제품군명, 일반 사업유형은 단독 project hint 로 확정하지 않고 보조 힌트로만 다룬다.
+- owner-provided recurring PJT ledger 는 project identity/status 를 갱신하는 private source input 으로만 쓰고, workbook 원본이나 실제 row 목록은 public repo 에 두지 않는다.
+- recurring ledger update 절차는 [`PROJECT_LEDGER_UPDATE_V0.md`](PROJECT_LEDGER_UPDATE_V0.md) 를 따른다.
 - 실제 프로젝트 첫 온보딩 절차는 [`PROJECT_ONBOARDING_V0.md`](PROJECT_ONBOARDING_V0.md) 를 따른다.
 - first run/use 중 생기는 실제 프로젝트별 working note 와 evidence 는 `_workmeta/<project_code>/reports/onboarding/`, `_workmeta/<project_code>/artifacts/onboarding/` 같은 owner-only shared metadata 경로에 둔다.
 - 새 시작 행위의 대화 순서와 실제 작업 순서는 사용자가 따로 요청하지 않아도 `_workmeta/<project_code>/reports/onboarding/project_start_worklog.md` 같은 shared workflow record 로 남기는 것을 기본안으로 본다.

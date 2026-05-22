@@ -2,6 +2,13 @@
 
 ## 2026-05-22
 
+### Revision `working` - Recurring project ledger update canon added
+
+- Added `PROJECT_LEDGER_UPDATE_V0.md` as the public-safe procedure for treating owner-provided recurring company PJT ledger workbooks as private project-registration source inputs.
+- Clarified that workbook payloads, real project lists, actual project codes, project names, 담당자 values, customer names, row dumps, and host-local OneDrive paths stay out of public repo.
+- Extended the workmeta contract schema with optional ledger, workspace materialization, responsibility, schedule, and status hint fields for private metadata projection.
+- Linked the recurring ledger rule from workspace onboarding, workspace project model, workspace docs index, and `_workspaces/README.md`.
+
 ### Revision `working` - SE current-authority route wording tightened
 
 - Tightened Systems Engineering Cell party and launcher wording so official/current source questions and accepted review/action/verification claims route to source acquisition, sufficiency review, review/action closure, or accepted-result workflows before stronger claims.

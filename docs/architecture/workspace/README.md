@@ -12,6 +12,7 @@
 | --- | --- |
 | `WORKSPACE_PROJECT_MODEL.md` | `_workspaces`, `_workmeta`, `.mission`, gateway handoff 의 owner 경계를 고정한다. |
 | `PROJECT_ONBOARDING_V0.md` | 실제 프로젝트를 `_workspaces/<project_code>/` 로 처음 붙이는 절차를 둔다. |
+| `PROJECT_LEDGER_UPDATE_V0.md` | 주기적으로 전달되는 회사 PJT 관리 대장을 private source 로 받아 project registration 을 갱신하는 public-safe 절차다. |
 | `PROJECT_START_WORKFLOW_V0.md` | 첫 project task 를 열 때 기록 위치와 bounded 시작 순서를 둔다. |
 | `MISSION_MODEL.md` | monster, mission, artifact, readiness, raw run truth 의 관계를 고정한다. |
 | `MISSION_MANUAL_DRAFT.md` | mission 운용 manual 초안을 누적한다. |
@@ -55,6 +56,7 @@
 - [`../guild_hall/README.md`](../guild_hall/README.md)
 - [`WORKSPACE_PROJECT_MODEL.md`](WORKSPACE_PROJECT_MODEL.md)
 - [`PROJECT_ONBOARDING_V0.md`](PROJECT_ONBOARDING_V0.md)
+- [`PROJECT_LEDGER_UPDATE_V0.md`](PROJECT_LEDGER_UPDATE_V0.md)
 - [`PROJECT_START_WORKFLOW_V0.md`](PROJECT_START_WORKFLOW_V0.md)
 - [`MISSION_MODEL.md`](MISSION_MODEL.md)
 - [`MISSION_MANUAL_DRAFT.md`](MISSION_MANUAL_DRAFT.md)
@@ -104,6 +106,7 @@
 - `WORKFLOW_EVOLUTION_HARNESS_INSTALL_V0.md` 는 owner PC 에서 Codex `/goal` 과 promptfoo 같은 harness 후보를 설치하고, workflow evolution 실험을 운영 clone 과 분리하는 절차를 둔다.
 - `INSTALLATION_MANUAL_V0.md` 는 다른 PC 에서 clone 후 무엇을 어떤 순서로 설치해야 하는지 한 장짜리 상위 bootstrap 문서다.
 - `PROJECT_ONBOARDING_V0.md` 는 첫 실제 프로젝트를 `_workspaces/<project_code>/` 에 붙일 때 short `project_code`, full `display_name`, read-only first, local-only link materialization 규칙을 잠근다.
+- `PROJECT_LEDGER_UPDATE_V0.md` 는 owner 가 주기적으로 전달하는 회사 PJT 관리 대장을 private source 로 보관하고 current/open project metadata 를 갱신하는 절차를 잠근다.
 - shared project payload 는 owner-approved shared worksite 에 두고 `_workspaces/<project_code>/` 는 junction/symlink view 로 materialize 하는 것을 current-default 로 둔다.
 - `PROJECT_START_WORKFLOW_V0.md` 는 첫 과제 시작 시 사람과 Codex 가 어디에 기록하고 어떤 순서로 bounded task 를 열지 잠근다.
 - `BOOTSTRAP_PROFILES_V0.md` 는 `public-only`, `operator`, `owner-with-state` bootstrap 기본 프로필을 잠근다.

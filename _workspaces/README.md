@@ -58,6 +58,7 @@ _workspaces/
 - `_workspaces/**` 전체를 public Git 으로 올리지 않으며, 필요한 subset 만 `PRIVATE_STATE_REPO_V0.md` 기준으로 별도 private repo 에 넣는다.
 - shared worksite link target 의 실제 host path 는 public tracked 문서에 쓰지 않고 project-local binding 이나 owner note 에만 둔다.
 - 첫 실제 프로젝트 온보딩 절차와 short `project_code` / full `display_name` 규칙은 `PROJECT_ONBOARDING_V0.md` 를 따른다.
+- 주기적으로 전달되는 회사 PJT 관리 대장으로 project registration 을 갱신할 때는 `PROJECT_LEDGER_UPDATE_V0.md` 를 따른다.
 - first run/use 중 생기는 local-only working note 는 `_workmeta/<project_code>/reports/onboarding/`, 근거 artifact 는 `_workmeta/<project_code>/artifacts/onboarding/` 를 기본안으로 둔다.
 - 사람과 Codex 가 같이 진행한 시작 단계 기록은 `_workmeta/<project_code>/reports/onboarding/project_start_worklog.md` 를 기본안으로 둔다.
 - 사용자가 따로 요청하지 않아도 새 시작 행위의 실제 작업 순서와 절차 초안은 `_workmeta/<project_code>/reports/onboarding/project_start_worklog.md` 에 남기는 것을 기본안으로 둔다.
@@ -71,6 +72,7 @@ _workspaces/
 - [`docs/architecture/foundation/TARGET_TREE.md`](../docs/architecture/foundation/TARGET_TREE.md)
 - [`docs/architecture/workspace/WORKSPACE_PROJECT_MODEL.md`](../docs/architecture/workspace/WORKSPACE_PROJECT_MODEL.md)
 - [`docs/architecture/workspace/PROJECT_ONBOARDING_V0.md`](../docs/architecture/workspace/PROJECT_ONBOARDING_V0.md)
+- [`docs/architecture/workspace/PROJECT_LEDGER_UPDATE_V0.md`](../docs/architecture/workspace/PROJECT_LEDGER_UPDATE_V0.md)
 - [`docs/architecture/workspace/PROJECT_START_WORKFLOW_V0.md`](../docs/architecture/workspace/PROJECT_START_WORKFLOW_V0.md)
 - [`docs/architecture/workspace/MULTI_PC_DEVELOPMENT_V0.md`](../docs/architecture/workspace/MULTI_PC_DEVELOPMENT_V0.md)
 - [`docs/architecture/workspace/PRIVATE_STATE_REPO_V0.md`](../docs/architecture/workspace/PRIVATE_STATE_REPO_V0.md)

@@ -24,6 +24,7 @@
 10. 첫 실제 프로젝트 온보딩은 `_workmeta/<project_code>/` 를 바로 active 로 만들지 않고, 먼저 read-only intake 로 구조와 민감 경계를 확인한 뒤 아주 작은 first run/use 로 들어간다.
 11. first run/use 에서 확인한 문제는 `_workspaces` 수정과 `_workmeta` metadata 기록으로 먼저 정리한다.
 12. 첫 실제 프로젝트 온보딩에서 얻은 안정 규칙은 다음 변경에서 workspace manual 과 changelog 로 승격한다.
+13. 주기적으로 전달되는 회사 PJT 관리 대장으로 새 current project 를 발견하면 `PROJECT_LEDGER_UPDATE_V0.md` 의 intake/update 절차를 먼저 따른다.
 
 ## 추천 값
 
@@ -130,9 +131,18 @@ ln -s "$target" "_workspaces/$project_code"
 - 첫 mission scope 와 binding resolve 후:
   - `status: active`
 
+## 반복 대장 기반 온보딩
+
+- owner 가 최신 회사 PJT 관리 대장을 전달하면 그 workbook 은 public repo 가 아니라 private source root 와 manifest 에만 둔다.
+- 대장에서 발견한 새 current/open project 는 first onboarding 후보가 될 수 있다.
+- 이 경우에도 실제 project file root 는 owner-approved shared worksite 에 먼저 만들고, `_workspaces/<project_code>` 는 junction/symlink view 로 둔다.
+- workbook 의 담당 셀은 source observation 이고, owner 가 알려준 최신 담당 변경은 current operating responsibility 로 별도 기록한다.
+- 반복 대장 intake 와 diff 절차는 [`PROJECT_LEDGER_UPDATE_V0.md`](PROJECT_LEDGER_UPDATE_V0.md) 가 소유한다.
+
 ## 관련 경로
 
 - [`PROJECT_START_WORKFLOW_V0.md`](PROJECT_START_WORKFLOW_V0.md)
+- [`PROJECT_LEDGER_UPDATE_V0.md`](PROJECT_LEDGER_UPDATE_V0.md)
 - [`WORKSPACE_PROJECT_MODEL.md`](WORKSPACE_PROJECT_MODEL.md)
 - [`WORKMETA_MINIMUM_SCHEMA.md`](WORKMETA_MINIMUM_SCHEMA.md)
 - [`WORKMETA_RESOLVE_CONTRACT.md`](WORKMETA_RESOLVE_CONTRACT.md)
