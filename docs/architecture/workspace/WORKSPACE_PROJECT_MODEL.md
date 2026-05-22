@@ -4,7 +4,8 @@
 
 - `_workspaces/<project_code>/` 직행 구조를 고정한다.
 - public repo 와 local/private project worksite 의 경계를 명확히 한다.
-- `_workmeta/<project_code>/` 가 소유하는 운영 계약, binding, raw execution truth 의 위치를 고정한다.
+- `_workmeta/<project_code>/` 가 소유하는 운영 계약, binding, 실행 기록 메타데이터의 위치를 고정한다.
+- 실제 HWP/HWPX, Excel, PDF, PPT, 압축파일, 메일 파일 같은 원문 파일은 `_workmeta` 가 아니라 `_workspaces` 또는 owner-approved shared worksite 에 둔다는 경계를 고정한다.
 - held mission plan owner 는 `.mission/` 이고, `_workspaces/` 는 project-local worksite owner, `_workmeta/` 는 companion private metadata owner 임을 고정한다.
 - cross-project ingress/staging 은 `_workspaces/` 가 아니라 `guild_hall/state/gateway/**` 가 맡는다는 기준을 같이 잠근다.
 
@@ -93,7 +94,9 @@ _workmeta/
 - project 후보는 `_workspaces/<project_code>/` direct child 구조를 사용한다.
 - project 가 없는 reusable workflow 실험은 reserved `system/` owner 아래에서 관리할 수 있다.
 - `project_code` 는 경로와 식별에 쓰는 짧고 안정적인 id 로 두고, 사람용 full title 은 `contract.yaml` 의 `display_name` 에 둔다.
-- `_workmeta/<project_code>/` 는 분리된 registry 가 아니라 companion private root 안의 shared metadata plane 이며 contract, binding, raw execution truth, owner-handoff metadata 보관 위치다.
+- `_workmeta/<project_code>/` 는 분리된 registry 가 아니라 companion private root 안의 shared metadata plane 이며 contract, binding, 실행 기록 메타데이터, owner-handoff metadata 보관 위치다.
+- `_workmeta` 의 실행 기록은 원문 파일 보관을 뜻하지 않는다. HWP/HWPX, Word, Excel, PowerPoint, PDF, 압축파일, 메일 원문/첨부 같은 실제 원문 파일은 `_workspaces/<project_code>/...`, `_workspaces/system/...`, 또는 owner-approved shared worksite 에 둔다.
+- `_workmeta` 에는 실제 원문 파일 대신 workspace/shared worksite 경로, 크기, 해시, 출처, 사용 상태, 차단 사유 같은 포인터 메타데이터만 남긴다.
 - `_workmeta/<project_code>/monsters/` 는 project-side monster current state owner 다.
 - assigned execution plan 과 mission-level 배정 owner 는 `_workmeta/` 가 아니라 `.mission/` 이 소유한다.
 - `_workmeta/<project_code>/autohunt/` 는 mailbox routing, party workflow-chain 또는 단일 workflow selection, retry-escalation 같은 자동사냥 운영 정책을 두는 local operating surface 다.
@@ -101,10 +104,10 @@ _workmeta/
 - runner prototype 는 한 예시로 `_workmeta/<project_code>/tools/` 아래 script 형태로 materialize 할 수 있지만, 이 경로 자체를 현행 표준 구현 위치로 고정하지는 않는다.
 - `contract.yaml` 은 `.unit/<unit_id>/unit.yaml` 을 `unit_ref` 로 가리키고, binding file 은 `.workflow/<workflow_id>/workflow.yaml` 과 `.party/<party_id>/party.yaml` 을 id 기준으로 연결한다.
 - binding set 은 `workflow_binding.yaml`, `party_binding.yaml`, `appserver_binding.yaml`, `mailbox_binding.yaml` 을 기본으로 두고, 필요하면 `execution_profile_binding.yaml` 과 `skill_execution_binding.yaml` 을 추가해 local runtime execution 을 설명한다.
-- raw run 의 정본 owner 는 `_workmeta/<project_code>/runs/<run_id>/` 다.
+- 실행 기록 메타데이터의 정본 owner 는 `_workmeta/<project_code>/runs/<run_id>/` 다.
 - `.mission/<mission_id>/mission.yaml` 은 workflow, party workflow-chain, runtime assignment 를 묶은 held execution plan owner 다.
-- binding file 과 appserver/mailbox/execution operating metadata 는 orchestration contract 이며 raw truth owner 가 아니다.
-- `autohunt/` 는 run queue 와 routing policy 를 다루지만 raw truth owner 가 아니다.
+- binding file 과 appserver/mailbox/execution operating metadata 는 orchestration contract 이며 실행 기록 owner 가 아니다.
+- `autohunt/` 는 run queue 와 routing policy 를 다루지만 실행 기록 owner 가 아니다.
 - `dungeons/`, `analytics/`, `nightly_healing/`, `reports/`, `log/`, `artifacts/` 는 모두 owner-only private metadata 영역이며, current-default 에서는 `_workmeta` shared plane 을 통해 다른 owner PC 와 공유할 수 있다.
 - tracked contract example 은 `docs/architecture/workspace/examples/<project_code>/_workmeta/` 아래에만 둔다.
 
@@ -127,7 +130,7 @@ _workmeta/
 - `skill_execution_binding.yaml` 은 canonical `skill_id` 를 installed Codex skill name 으로 resolve 하는 local runtime metadata 다.
 - `autohunt/policy.yaml`, `routing.yaml`, `mailbox_rules.yaml` 은 monster routing 과 party/workflow-chain 자동사냥 운영 정책을 설명하는 local operating metadata 다.
 - `.workflow/history` 와 `.party/stats` 에 public repo 로 올라올 수 있는 것은 curated summary 뿐이다.
-- raw execution truth 를 public repo 루트로 재배치하는 `.run/` 모델은 사용하지 않는다.
+- 실행 기록 메타데이터를 public repo 루트로 재배치하는 `.run/` 모델은 사용하지 않는다.
 
 ## 보안과 추적 정책
 
@@ -143,5 +146,7 @@ _workmeta/
 - recurring ledger update 절차는 [`PROJECT_LEDGER_UPDATE_V0.md`](PROJECT_LEDGER_UPDATE_V0.md) 를 따른다.
 - 실제 프로젝트 첫 온보딩 절차는 [`PROJECT_ONBOARDING_V0.md`](PROJECT_ONBOARDING_V0.md) 를 따른다.
 - first run/use 중 생기는 실제 프로젝트별 working note 와 evidence 는 `_workmeta/<project_code>/reports/onboarding/`, `_workmeta/<project_code>/artifacts/onboarding/` 같은 owner-only shared metadata 경로에 둔다.
+- 이 evidence 는 원문 파일 사본이 아니라 설명, 포인터, 해시, 검증 결과, 판단 이유 같은 metadata 여야 한다. 실제 참조/입력/산출 파일은 `_workspaces` 또는 owner-approved shared worksite 에 둔다.
+- `_workmeta` 에 저장하지 않는 대표 원문 파일은 `.hwp`, `.hwpx`, `.docx`, `.xlsx`, `.xlsm`, `.xls`, `.pptx`, `.ppt`, `.pdf`, `.zip`, `.7z`, `.rar`, `.egg`, `.msg`, `.eml`, `.pst`, `.ost`, `.mbox` 다.
 - 새 시작 행위의 대화 순서와 실제 작업 순서는 사용자가 따로 요청하지 않아도 `_workmeta/<project_code>/reports/onboarding/project_start_worklog.md` 같은 shared workflow record 로 남기는 것을 기본안으로 본다.
 - validator 는 public-safe mode 와 opt-in local scan 을 구분해 동작한다.

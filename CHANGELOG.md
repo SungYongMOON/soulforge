@@ -15,6 +15,12 @@
 - Extended the workmeta contract schema with optional ledger, workspace materialization, responsibility, schedule, and status hint fields for private metadata projection.
 - Linked the recurring ledger rule from workspace onboarding, workspace project model, workspace docs index, and `_workspaces/README.md`.
 
+### Revision `working` - `_workmeta` raw payload storage boundary clarified
+
+- Clarified that `_workmeta` stores metadata, run records, evidence summaries, pointers, sizes, hashes, source notes, and relocation manifests, not actual source/reference files.
+- Routed HWP/HWPX, Word, Excel, PowerPoint, PDF, archive, and mail payload files to `_workspaces` or owner-approved shared worksite storage.
+- Updated workspace/workmeta contracts and procedure-capture rules so future SE reference packets keep raw files out of `_workmeta`.
+
 ### Revision `working` - SE current-authority route wording tightened
 
 - Tightened Systems Engineering Cell party and launcher wording so official/current source questions and accepted review/action/verification claims route to source acquisition, sufficiency review, review/action closure, or accepted-result workflows before stronger claims.

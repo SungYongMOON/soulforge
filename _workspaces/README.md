@@ -44,9 +44,11 @@ _workspaces/
 - `guild_hall/state/**` 는 cross-project ingress, notify, assignment 같은 운영 runtime 이고 `_workspaces/` owner 가 아니다.
 - held mission plan 과 readiness owner 는 이 경로가 아니라 루트 `.mission/` 이 소유한다.
 - project metadata companion root 는 Soulforge root 아래 nested private repo `_workmeta/<project_code>/` 이다.
-- raw execution truth 는 `_workmeta/<project_code>/runs/<run_id>/` 아래에 남긴다.
+- 실행 기록은 `_workmeta/<project_code>/runs/<run_id>/` 아래에 남기되, 여기서 기록은 판단 근거, 검증 로그 같은 메타데이터를 뜻한다.
+- HWP/HWPX, Word, Excel, PowerPoint, PDF, 압축파일, 메일 원문/첨부 같은 실제 원문 파일은 `_workmeta` 에 두지 않고 `_workspaces/<project_code>/`, `_workspaces/system/`, 또는 owner-approved shared worksite 에 둔다.
+- `_workmeta` 는 실제 원문 파일을 직접 보관하지 않고 workspace/shared worksite 경로, 크기, 해시, 출처, 사용 상태만 기록한다.
 - project-side monster record 는 `_workmeta/<project_code>/monsters/` 아래에 남긴다.
-- `_workmeta/<project_code>/` 는 local contract, bindings, autohunt metadata, raw run truth 를 두는 실행 surface 이며 mission owner 가 아니다.
+- `_workmeta/<project_code>/` 는 local contract, bindings, autohunt metadata, 실행 기록 메타데이터를 두는 실행 surface 이며 mission owner 가 아니다.
 - `dungeons/`, `analytics/`, `nightly_healing/`, `reports/`, `log/`, `artifacts/` 는 public tracking 대상이 아니다.
 - `.registry`, `.unit`, `.workflow`, `.party` 는 `_workspaces` 를 참조할 수 있지만 per-project 실자료를 흡수하지 않는다.
 
@@ -56,6 +58,7 @@ _workspaces/
 - `_workspaces/system/**` 도 local-only runtime 이며 public GitHub 에 올리지 않는다.
 - tracked 문서와 public-safe example 에는 실제 project code, 실제 과제명, 실제 display name 을 적지 않고 generic example 만 쓴다.
 - `_workmeta/<project_code>/` 계약 파일도 public tracking 대상이 아니다.
+- `_workmeta` 에 실제 원문 파일을 저장하지 않는다. 대표적으로 `.hwp`, `.hwpx`, `.docx`, `.xlsx`, `.xlsm`, `.xls`, `.pptx`, `.ppt`, `.pdf`, `.zip`, `.7z`, `.rar`, `.egg`, `.msg`, `.eml`, `.pst`, `.ost`, `.mbox` 파일은 workspace/shared worksite 쪽에 두고 `_workmeta` 에는 포인터 메타데이터만 남긴다.
 - repo 안에 남아 있는 legacy sample 또는 과거 경로 흔적은 정본이 아니며 후속 cleanup 범위다.
 - `guild_hall/state/**` 는 `guild-hall:gateway:*` 또는 `guild-hall:town-crier:*` 첫 실행 시 필요한 local runtime 폴더가 자동으로 materialize 된다.
 - `_workspaces/**` 전체를 public Git 으로 올리지 않으며, 필요한 subset 만 `PRIVATE_STATE_REPO_V0.md` 기준으로 별도 private repo 에 넣는다.
