@@ -116,18 +116,18 @@
     "catalog_ref": ".party/index.yaml",
     "items": [
       {
-        "id": "vanguard_strike",
-        "display_name": "Vanguard Strike",
-        "summary": "Vanguard Strike party template with sanitized stats guidance only.",
-        "source_ref": ".party/vanguard_strike/party.yaml",
+        "id": "systems_engineering_cell",
+        "display_name": "Systems Engineering Cell",
+        "summary": "Systems Engineering Cell party template with sanitized stats guidance only.",
+        "source_ref": ".party/systems_engineering_cell/party.yaml",
         "status": "active",
-        "member_slots_ref": ".party/vanguard_strike/member_slots.yaml",
-        "allowed_species_ref": ".party/vanguard_strike/allowed_species.yaml",
-        "allowed_classes_ref": ".party/vanguard_strike/allowed_classes.yaml",
-        "allowed_workflows_ref": ".party/vanguard_strike/allowed_workflows.yaml",
-        "appserver_profile_ref": ".party/vanguard_strike/appserver_profile.yaml",
+        "member_slots_ref": ".party/systems_engineering_cell/member_slots.yaml",
+        "allowed_species_ref": ".party/systems_engineering_cell/allowed_species.yaml",
+        "allowed_classes_ref": ".party/systems_engineering_cell/allowed_classes.yaml",
+        "allowed_workflows_ref": ".party/systems_engineering_cell/allowed_workflows.yaml",
+        "appserver_profile_ref": ".party/systems_engineering_cell/appserver_profile.yaml",
         "stats_policy": "curated_summary_only",
-        "stats_ref": ".party/vanguard_strike/stats/README.md"
+        "stats_ref": ".party/systems_engineering_cell/stats/README.md"
       }
     ]
   },
