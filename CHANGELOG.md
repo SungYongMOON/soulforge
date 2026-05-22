@@ -2,6 +2,12 @@
 
 ## 2026-05-22
 
+### Revision `working` - Workspace root junction exclusion rule clarified
+
+- Clarified that shared cloud/company roots are external link targets, not `_workspaces/company` direct-child materialization roots.
+- Updated `_workspaces`, workspace model, installation, and multi-PC docs so other PCs remove stale root junction pointers locally while preserving the shared worksite target.
+- Kept project payloads, host-local absolute paths, private binding values, and real workspace contents out of public canon.
+
 ### Revision `working` - Recurring project ledger update canon added
 
 - Added `PROJECT_LEDGER_UPDATE_V0.md` as the public-safe procedure for treating owner-provided recurring company PJT ledger workbooks as private project-registration source inputs.

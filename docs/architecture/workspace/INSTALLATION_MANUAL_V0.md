@@ -206,6 +206,9 @@ Copy-Item "private-state/guild_hall/state/gateway/log/mail_send/*" "guild_hall/s
 `_workspaces/<project_code>/` 실제 worksite 는 `private-state/` 복원 대상이 아니다.
 대상 PC 에서는 project root 를 다시 materialize 하거나 local directory link / junction / symlink 를 새로 만든다.
 여러 PC 에서 같은 실자료를 봐야 하는 프로젝트는 shared worksite 를 먼저 동기화한 뒤 `_workspaces/<project_code>/` 를 그 위치로 연결한다.
+shared worksite 의 상위 root 전체는 `_workspaces/company` 같은 direct child 로 만들지 않는다.
+기존 PC 에서 가져온 흔적으로 `_workspaces/company` 또는 `_workspaces/personal` 정션이 있으면 target 을 확인한 뒤 junction pointer 만 제거하고, 원본 shared worksite 는 삭제하지 않는다.
+그 다음 registered project code, reserved `system`, owner-approved non-project alias 만 `_workspaces` 아래에 materialize 한다.
 
 ## Chapter 5. NotebookLM MCP 설치
 

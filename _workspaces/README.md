@@ -9,6 +9,8 @@
 - reserved `_workspaces/system/` 은 특정 프로젝트에 속하지 않는 reusable workflow lab pilot output, fixture materialization, downloaded reference file 을 두는 local-only workspace 다.
 - cross-project ingress/runtime 은 `_workspaces/` 가 아니라 `guild_hall/state/**` 가 맡는다.
 - `company/`, `personal` 분기는 새 정본에 포함하지 않는다.
+- cloud/company root 는 project worksite 의 link target 을 해석하기 위한 외부 루트일 수는 있지만, `_workspaces/company` 같은 direct child junction 으로 materialize 하지 않는다.
+- `_workspaces` direct child 는 `<project_code>/`, reserved `system/`, 또는 owner 가 명시적으로 승인하고 binding 에 등록한 non-project alias 로 제한한다.
 - tracked sample 이 필요하면 `_workspaces/` 아래가 아니라 `docs/architecture/workspace/examples/` 아래에 둔다.
 - 다른 PC 나 다른 LLM 이 runtime shape 를 따라야 하면 `docs/architecture/workspace/examples/guild_hall/state/gateway/` 와 `docs/architecture/workspace/examples/` 의 public-safe mirror sample 을 먼저 읽는다.
 - 다른 PC 에서 repo 를 clone 해도 실제 `_workspaces/**` 실자료는 따라오지 않으며, local runtime 은 각 PC 에서 다시 materialize 해야 한다.
@@ -38,6 +40,7 @@ _workspaces/
 - `_workspaces/system/` 은 특정 프로젝트 owner 가 없는 reusable workflow 실험, fixture 출력, pilot 산출물을 담는 reserved lab workspace 다.
 - 실제 프로젝트가 다른 로컬 경로에 이미 있으면 `_workspaces/<project_code>/` direct child 로 보이도록 local-only directory link 를 둘 수 있다.
 - 다른 owner PC 에서도 읽어야 하는 사진, 영상, 측정 로그 같은 payload 는 `_workspaces` 내부 사본이 아니라 owner-approved shared worksite 원본을 link target 으로 둔다.
+- shared worksite 의 상위 root 전체를 `_workspaces` 아래에 정션으로 걸지 않는다. 필요한 project 또는 승인된 alias 만 direct child 로 둔다.
 - `guild_hall/state/**` 는 cross-project ingress, notify, assignment 같은 운영 runtime 이고 `_workspaces/` owner 가 아니다.
 - held mission plan 과 readiness owner 는 이 경로가 아니라 루트 `.mission/` 이 소유한다.
 - project metadata companion root 는 Soulforge root 아래 nested private repo `_workmeta/<project_code>/` 이다.
@@ -59,6 +62,7 @@ _workspaces/
 - shared worksite link target 의 실제 host path 는 public tracked 문서에 쓰지 않고 project-local binding 이나 owner note 에만 둔다.
 - 첫 실제 프로젝트 온보딩 절차와 short `project_code` / full `display_name` 규칙은 `PROJECT_ONBOARDING_V0.md` 를 따른다.
 - 주기적으로 전달되는 회사 PJT 관리 대장으로 project registration 을 갱신할 때는 `PROJECT_LEDGER_UPDATE_V0.md` 를 따른다.
+- 다른 PC 에서 pull 후 `_workspaces/company` 또는 `_workspaces/personal` 같은 root junction 이 남아 있으면, 먼저 target 을 확인한 뒤 junction pointer 만 제거하고 원본 shared worksite 는 보존한다.
 - first run/use 중 생기는 local-only working note 는 `_workmeta/<project_code>/reports/onboarding/`, 근거 artifact 는 `_workmeta/<project_code>/artifacts/onboarding/` 를 기본안으로 둔다.
 - 사람과 Codex 가 같이 진행한 시작 단계 기록은 `_workmeta/<project_code>/reports/onboarding/project_start_worklog.md` 를 기본안으로 둔다.
 - 사용자가 따로 요청하지 않아도 새 시작 행위의 실제 작업 순서와 절차 초안은 `_workmeta/<project_code>/reports/onboarding/project_start_worklog.md` 에 남기는 것을 기본안으로 둔다.

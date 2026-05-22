@@ -122,6 +122,10 @@ flowchart LR
 
 OneDrive 같은 cloud path 를 `_workspaces` 로 쓰려면 실제 파일은 cloud/shared project worksite 에 두고 `_workspaces/<project_code>/` 는 link 로 둔다. project 별 binding 에만 target 을 기록하고, public tracked tree 에 machine-local 절대경로를 넣지 않는다. symlink/junction 생성은 사용자가 `project_code` 와 대상 path 를 명시했을 때만 수행한다.
 
+cloud/shared worksite 의 상위 root 전체를 `_workspaces/company` 같은 direct child 로 materialize 하지 않는다. 다른 PC 에서 pull 한 뒤 이전 작업 흔적으로 `_workspaces/company` 또는 `_workspaces/personal` 정션이 남아 있으면, target 이 shared worksite root 인지 확인한 뒤 junction pointer 만 제거하고 원본 shared worksite 는 보존한다. 이후 `_workspaces` 아래에는 registered project code, reserved `system`, owner-approved non-project alias 만 다시 materialize 한다.
+
+Git push/pull 로 전파되는 것은 public-safe 규칙과 owner-only `_workmeta` binding intent 뿐이다. 각 PC 의 실제 junction, symlink, local absolute path, cloud sync 상태는 Git 이 자동으로 고치지 않으므로 해당 PC 에서 bootstrap/repair 단계를 한 번 수행해야 한다.
+
 중복 방지 규칙:
 
 1. `gateway_fetch_primary` 와 `night_watch_active` 는 current-default 에서 `always_on_node` 한 대만 가진다.
