@@ -116,18 +116,18 @@
     "catalog_ref": ".party/index.yaml",
     "items": [
       {
-        "id": "vanguard_strike",
-        "display_name": "Vanguard Strike",
-        "summary": "Vanguard Strike party template with sanitized stats guidance only.",
-        "source_ref": ".party/vanguard_strike/party.yaml",
+        "id": "guild_master_cell",
+        "display_name": "Guild Master Cell",
+        "summary": "Canonical workflow-chain party for skill authoring, post-development review handoff, and strategic vision/gap review routing.",
+        "source_ref": ".party/guild_master_cell/party.yaml",
         "status": "active",
-        "member_slots_ref": ".party/vanguard_strike/member_slots.yaml",
-        "allowed_species_ref": ".party/vanguard_strike/allowed_species.yaml",
-        "allowed_classes_ref": ".party/vanguard_strike/allowed_classes.yaml",
-        "allowed_workflows_ref": ".party/vanguard_strike/allowed_workflows.yaml",
-        "appserver_profile_ref": ".party/vanguard_strike/appserver_profile.yaml",
+        "member_slots_ref": ".party/guild_master_cell/member_slots.yaml",
+        "allowed_species_ref": ".party/guild_master_cell/allowed_species.yaml",
+        "allowed_classes_ref": ".party/guild_master_cell/allowed_classes.yaml",
+        "allowed_workflows_ref": ".party/guild_master_cell/allowed_workflows.yaml",
+        "appserver_profile_ref": ".party/guild_master_cell/appserver_profile.yaml",
         "stats_policy": "curated_summary_only",
-        "stats_ref": ".party/vanguard_strike/stats/README.md"
+        "stats_ref": ".party/guild_master_cell/stats/README.md"
       }
     ]
   },
