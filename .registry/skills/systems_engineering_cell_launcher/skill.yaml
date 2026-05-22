@@ -24,6 +24,7 @@ behavior:
     - the user wants unattended project mutation, default-route switching, or public/private promotion authority without separate owner approval
   expected_outcome:
     - Codex reads `.party/systems_engineering_cell/party.yaml` and `allowed_workflows.yaml`
+    - Codex treats party-declared reference lookup route candidates as route hints, not as source truth or launcher-owned knowledge
     - Codex resolves the default `se_assistant_operating_loop_v0` route before selecting downstream workflows
     - Codex reports the safest next route, blocker, owner question, or missing binding instead of inventing unavailable engineering truth
     - model, reasoning effort, species, and class are inherited as workflow-owned hints or runtime bindings rather than copied as launcher authority
@@ -38,6 +39,8 @@ execution_requirements:
     - yaml_review
     - stage_gap_scan_routing
     - source_gap_routing
+    - reference_lookup_route_awareness
+    - cross_stage_governance_routing
     - readiness_digest_routing
     - owner_decision_queueing
   preferred_tools:
@@ -47,8 +50,12 @@ execution_requirements:
     - soulforge_validators
   notes:
     - "The launcher must resolve party and workflow-owned profile policies at execution time; do not copy optimizer profile values into `codex/SKILL.md` as binding authority."
+    - "Registered private lookup candidates declared by the party are route hints only; keep private evidence paths, source excerpts, and reference-example payloads out of public skill canon."
+    - "Registered cross-stage governance routing is governance-only; it does not create source truth, artifact authority, or readiness approval."
+    - "Official/current status and accepted review/verification claims must route through source acquisition, sufficiency review, review/action closure, or accepted-result workflows before being stated as stronger claims."
     - "The default user-facing posture is: find where the SE work is blocked, then recommend the next workflow route."
     - "Actual project paths, mission bindings, source payloads, connector availability, and local runtime values remain outside public skill canon."
 notes:
   - "`systems_engineering_cell_launcher` is a thin Codex bridge for the registered `.party/systems_engineering_cell` loadout."
   - "The installed Codex mirror name is normally `soulforge-systems-engineering-cell-launcher` after `npm run skills:sync -- systems_engineering_cell_launcher`."
+  - "Reference lookup awareness is owned by the party and private procedure evidence; this skill only points Codex back to the party route hint."

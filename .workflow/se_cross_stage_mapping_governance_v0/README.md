@@ -99,9 +99,12 @@ Repeated per-folder inspection keeps compatibility by linking folder observation
 
 ## Current State
 
-- `output_state: draft`
-- `validation_level: structure_only_public_safe_draft`
-- `registration_policy: not_registered`
-- no pilot execution has run
-- `.workflow/index.yaml` has not been updated
-- repeated per-artifact-folder inspection mode is draft metadata-only design, not pilot evidence
+- `output_state: active_governance_only`
+- `validation_level: pilot_executed_private_candidate`
+- `registration_policy: registered_governance_only`
+- `.workflow/index.yaml` includes this workflow as a registered workflow id
+- Systems Engineering Cell may use it as an optional governance route
+- private pilot evidence exists for primary artifact-family governance shape,
+  but private run truth stays outside public canon
+- repeated per-artifact-folder inspection mode remains metadata-only and does
+  not create artifact/source/readiness authority

@@ -73,6 +73,8 @@ entries:
     path: technical_risk_open_question_burndown_v0/workflow.yaml
   - workflow_id: se_stage_artifact_gap_scan_v0
     path: se_stage_artifact_gap_scan_v0/workflow.yaml
+  - workflow_id: se_cross_stage_mapping_governance_v0
+    path: se_cross_stage_mapping_governance_v0/workflow.yaml
   - workflow_id: project_readiness_digest_v0
     path: project_readiness_digest_v0/workflow.yaml
   - workflow_id: accepted_verification_result_packet_v0

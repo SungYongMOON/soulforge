@@ -1,5 +1,31 @@
 ﻿# CHANGELOG
 
+## 2026-05-22
+
+### Revision `working` - SE current-authority route wording tightened
+
+- Tightened Systems Engineering Cell party and launcher wording so official/current source questions and accepted review/action/verification claims route to source acquisition, sufficiency review, review/action closure, or accepted-result workflows before stronger claims.
+- Reflected the private current-source and claim-specific evidence route pilots as route posture only, without embedding private evidence paths, raw source payloads, project truth, official artifact authority, review approval, action closure, or verification acceptance.
+
+### Revision `working` - SE cross-stage governance workflow registered
+
+- Registered `se_cross_stage_mapping_governance_v0` as a governance-only workflow after private pilot review across the primary SE artifact-family rows.
+- Added it as an optional Systems Engineering Cell route for cross-stage artifact coverage, claim ceilings, source gaps, owner-decision needs, and downstream rerun aggregation.
+- Kept source truth, official artifact authority, stage readiness, review approval, verification acceptance, private evidence, and raw reference payloads outside the public route.
+
+### Revision `working` - SE requirements traceability route pilot added
+
+- Added a private `requirements_traceability_set` source acquisition and lookup pilot that keeps DAPA public sources at general-context scope, P25 examples at reference-only scope, and project-specific requirement/RTM/test/acceptance sources as explicit gaps.
+- Added `page_module_trace_matrix_v0` as an optional Systems Engineering Cell route for trace-governance rows, missing evidence rows, and review/verification seed rows after source-intake state is known.
+- Kept the route below final RTM authority, review approval, verification completion, production-ready behavior, and official artifact authority.
+
+### Revision `working` - Systems Engineering Cell reference lookup route added
+
+- Added party-owned `reference_lookup_route_candidates` to `systems_engineering_cell` so source-sensitive SE requests first consider official source packs and registered reference-example lookup hints.
+- Kept `se_authority_example_bridge_agentic_lookup_v0` at `pilot_executed_private_candidate` posture: route hint only, not public canon, production-ready behavior, or official artifact authority.
+- Thinly synced the Systems Engineering Cell launcher skill so it can notice party-declared private lookup candidates without embedding private evidence paths, source excerpts, or raw reference content.
+- Recorded next pilot families as `requirements_traceability_set` and `quality_qgate_forms`.
+
 ## 2026-05-21
 
 ### Revision `working` - Project mail history private writer added

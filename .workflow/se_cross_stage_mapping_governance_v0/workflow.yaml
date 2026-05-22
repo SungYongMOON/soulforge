@@ -1,6 +1,6 @@
 workflow_id: se_cross_stage_mapping_governance_v0
 kind: workflow
-status: draft
+status: active
 title: SE Cross-Stage Mapping Governance v0
 summary: Aggregate cross-stage SE artifact coverage, artifact-to-input mapping, claim ceilings, and missing-download follow-up without becoming evidence authority or final readiness authority.
 entrypoint: run
@@ -43,9 +43,9 @@ outputs:
   - inspection_delta_register
   - owner_source_followup_rows
   - downstream_rerun_routes
-validation_level: structure_only_public_safe_draft
-registration_policy: not_registered
-output_state: draft
+validation_level: pilot_executed_private_candidate
+registration_policy: registered_governance_only
+output_state: active_governance_only
 workflow_modes:
   - cross_stage_coverage_aggregation
   - artifact_to_input_mapping
@@ -103,6 +103,8 @@ boundary:
 allowed_claim_ceilings:
   - observed
   - mapped_governance_only
+  - pilot_executed_private_candidate
+  - pilot_executed_private_candidate_with_owner_decision_needed
   - source_gap_followup_needed
   - owner_decision_needed
   - blocked_missing_download
@@ -224,5 +226,6 @@ notes:
   - This workflow is compatible with source gap follow-up by emitting missing-download and source-gap rows that can be deduplicated by `source_gap_followup_packet_v0`.
   - Repeated per-artifact-folder inspection is metadata-only and links back to existing matrix, map, gap, and follow-up rows where available.
   - Downstream rerun routes are recommendations to owning workflows, not rerun execution or acceptance evidence.
+  - Private pilots have validated the workflow shape for primary SE artifact-family governance, but private run truth remains outside public canon.
   - Public workflow canon stores only portable procedure, state semantics, and sanitized templates.
   - Raw project payloads, source files, HWP/HWPX bodies, runtime absolute paths, credentials, cookies, sessions, and private run truth do not belong in this package.

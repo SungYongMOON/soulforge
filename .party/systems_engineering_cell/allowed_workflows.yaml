@@ -12,6 +12,8 @@ workflow_ids:
 optional_workflow_ids:
   - source_gap_followup_packet_v0
   - source_packet_sufficiency_review_v0
+  - page_module_trace_matrix_v0
+  - se_cross_stage_mapping_governance_v0
   - technical_risk_open_question_burndown_v0
   - configuration_baseline_and_change_control_v0
   - verification_plan_from_page_contracts_v0
@@ -23,5 +25,8 @@ optional_workflow_ids:
 notes:
   - "Required workflow ids form the minimal SE assistant route from request classification through stage scan, source/wiki support, readiness reporting, owner decision, review evidence, and closeout."
   - "Optional workflow ids are downstream specialist lanes selected by the operating loop when a stage scan or source/review packet exposes that need."
+  - "`page_module_trace_matrix_v0` may be used for source-aware trace governance rows, missing evidence rows, and review/verification seeds; it is not final requirements truth or verification completion."
+  - "`se_cross_stage_mapping_governance_v0` may be used for cross-stage artifact-family governance, claim ceilings, source gaps, and downstream rerun route aggregation; it is not source truth, readiness approval, or artifact authority."
+  - "When source/evidence support is unclear, first check party-declared reference lookup route candidates as route hints; if authority remains missing, use source-gap, sufficiency-review, or owner-decision workflows."
+  - "When a request asks for official/current status, review approval, action closure, or accepted verification, route to source acquisition, sufficiency review, review/action closure, or accepted-result workflows before making stronger claims."
   - "`se_foldertree_generate` is a skill, not a workflow, and is invoked through the operating-loop workflow rather than listed here."
-  - "`se_cross_stage_mapping_governance_v0` remains a draft workflow package and is intentionally not allowed here until registration/pilot posture is resolved."

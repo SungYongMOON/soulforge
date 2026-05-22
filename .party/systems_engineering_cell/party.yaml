@@ -45,6 +45,37 @@ preferred_monster_types:
   - se_source_gap_request
   - se_review_readiness_request
   - se_owner_decision_request
+reference_lookup_route_candidates:
+  - candidate_id: se_authority_example_bridge_agentic_lookup_v0
+    status: pilot_executed_private_candidate
+    posture: route_hint_only
+    use_when:
+      - An SE request needs an official source basis before drafting or gap analysis.
+      - An artifact question needs observed field or form-shape examples without treating examples as authority.
+      - The request touches requirements traceability, quality gate forms, BOM or configuration, interface, test, review, or acceptance evidence.
+    route_order:
+      - Check whether an official source pack is available for the requested artifact family.
+      - Check the registered reference example lookup candidate for observed form and field-shape hints.
+      - If the request asks whether a source, form, result, review, or closure state is official/current/accepted, route to current-source acquisition or claim-specific evidence review before answering as authority.
+      - Route missing official authority, source scope, or owner approval to the proper source-gap, sufficiency-review, or owner-decision workflow.
+    allowed_downstream_workflows:
+      - se_knowledge_wiki_pipeline_v0
+      - source_gap_followup_packet_v0
+      - source_packet_sufficiency_review_v0
+      - page_module_trace_matrix_v0
+      - se_cross_stage_mapping_governance_v0
+      - owner_decision_packet_v0
+    next_pilot_candidates:
+      - current_source_authority_acquisition_queue
+      - claim_specific_review_verification_evidence_refresh
+      - owner_decision_sparse_lane_classification
+    non_claims:
+      - Not public canon.
+      - Not production-ready.
+      - Not official artifact authority.
+      - Does not make any reference example project authoritative.
+      - Does not turn trace governance rows into final requirements truth or verification completion.
+      - Does not turn cross-stage governance rows into source truth, readiness approval, or artifact authority.
 member_slots: member_slots.yaml
 allowed_species: allowed_species.yaml
 allowed_classes: allowed_classes.yaml
@@ -55,3 +86,4 @@ notes:
   - Workflow-local profile policies own model, reasoning effort, species, class, and unit/profile recommendations.
   - Design authority, source truth, review approval, verification acceptance, and public/private promotion stay with the owning workflow, mission, source packet, review gate, or owner decision.
   - The default workflow is an assistant operating loop, not unattended automation and not a default route switch for every project.
+  - Reference lookup candidates are party-level route hints only; private evidence, raw source payloads, and project-local run truth stay outside party canon.
