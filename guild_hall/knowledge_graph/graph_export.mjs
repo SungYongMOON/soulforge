@@ -931,6 +931,12 @@ function renderGraphHtml3d(graph) {
     .legend-swatch { width: 14px; height: 14px; border-radius: 999px; flex: 0 0 auto; border: 1px solid rgba(255, 255, 255, .34); box-shadow: 0 0 0 2px rgba(15, 23, 42, .6); }
     .legend-line { height: 4px; width: 28px; border-radius: 999px; flex: 0 0 auto; box-shadow: 0 0 0 1px rgba(255, 255, 255, .12); }
     .tooltip { position: absolute; min-width: 220px; max-width: 340px; pointer-events: none; background: rgba(15, 23, 42, .94); color: white; border-radius: 8px; padding: 10px 12px; font-size: 12px; line-height: 1.4; display: none; border: 1px solid rgba(148, 163, 184, .28); }
+    .context-menu { position: absolute; display: none; z-index: 20; min-width: 220px; max-width: min(360px, calc(100vw - 24px)); max-height: calc(100vh - 24px); overflow: auto; color: #dbeafe; background: rgba(15, 23, 42, .96); border: 1px solid rgba(148, 163, 184, .32); border-radius: 8px; padding: 8px; box-shadow: 0 16px 48px rgba(0, 0, 0, .38); backdrop-filter: blur(10px); }
+    .context-menu-title { color: #f8fafc; font-size: 13px; font-weight: 800; line-height: 1.25; margin: 3px 4px 7px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+    .context-menu button { width: 100%; display: block; text-align: left; margin: 4px 0; background: rgba(30, 41, 59, .86); border-color: rgba(148, 163, 184, .24); color: #e0f2fe; }
+    .context-menu button:hover { background: rgba(14, 116, 144, .42); border-color: rgba(56, 189, 248, .46); }
+    .context-menu-prompt { display: none; width: 100%; min-height: 132px; margin-top: 8px; resize: vertical; border-radius: 6px; border: 1px solid rgba(148, 163, 184, .28); background: rgba(2, 6, 23, .78); color: #dbeafe; font: 11px/1.45 ui-monospace, SFMono-Regular, Menlo, monospace; padding: 8px; box-sizing: border-box; }
+    .context-menu-status { min-height: 17px; margin: 7px 4px 2px; }
     a { color: #93c5fd; }
     @media (max-width: 760px) {
       body { overflow: hidden; }
@@ -1065,6 +1071,14 @@ function renderGraphHtml3d(graph) {
       <div class="hud" id="hud">3D graph initializing</div>
       <div class="legend-panel" id="legendPanel"></div>
       <div class="tooltip" id="tooltip"></div>
+      <div class="context-menu" id="nodeContextMenu" role="menu" aria-hidden="true">
+        <div class="context-menu-title" id="contextMenuTitle">노드 탐구</div>
+        <button id="copyExplorePrompt" type="button">탐구 프롬프트 복사</button>
+        <button id="focusContextNode" type="button">연결만 보기</button>
+        <button id="copyNodeRef" type="button">ref 복사</button>
+        <textarea id="contextMenuPrompt" class="context-menu-prompt" readonly aria-label="수동 복사용 탐구 프롬프트"></textarea>
+        <div class="meta context-menu-status" id="contextMenuStatus">우클릭한 노드에서 시작합니다.</div>
+      </div>
     </main>
   </div>
   <script id="graph-data" type="application/json">${escapeScriptJson(graph)}</script>
@@ -1423,6 +1437,13 @@ const canvas = document.getElementById("graph3d");
 const tooltip = document.getElementById("tooltip");
 const hud = document.getElementById("hud");
 const legendPanel = document.getElementById("legendPanel");
+const nodeContextMenu = document.getElementById("nodeContextMenu");
+const contextMenuTitle = document.getElementById("contextMenuTitle");
+const contextMenuStatus = document.getElementById("contextMenuStatus");
+const contextMenuPrompt = document.getElementById("contextMenuPrompt");
+const copyExplorePromptButton = document.getElementById("copyExplorePrompt");
+const focusContextNodeButton = document.getElementById("focusContextNode");
+const copyNodeRefButton = document.getElementById("copyNodeRef");
 const ruleNodeSizeMeaning = document.getElementById("ruleNodeSizeMeaning");
 const ruleComponentHaloMeaning = document.getElementById("ruleComponentHaloMeaning");
 const connectivityEls = {
@@ -1567,6 +1588,7 @@ let focusedNodeCount = 0;
 let focusedEdgeCount = 0;
 let visibleConnectivity = { components: 0, isolated: 0, largest: 0 };
 let componentGlowPointTexture = null;
+let contextNodeRef = null;
 
 initControls();
 resize();
@@ -1576,7 +1598,16 @@ animate();
 window.addEventListener("resize", resize);
 canvas.addEventListener("pointermove", onPointerMove);
 canvas.addEventListener("pointerleave", () => { tooltip.style.display = "none"; });
+canvas.addEventListener("contextmenu", onCanvasContextMenu);
 canvas.addEventListener("dblclick", onCanvasDoubleClick);
+nodeContextMenu.addEventListener("click", (event) => event.stopPropagation());
+copyExplorePromptButton.addEventListener("click", () => copyContextExplorePrompt());
+focusContextNodeButton.addEventListener("click", () => focusContextNode());
+copyNodeRefButton.addEventListener("click", () => copyContextNodeRef());
+window.addEventListener("click", hideContextMenu);
+window.addEventListener("keydown", (event) => {
+  if (event.key === "Escape") hideContextMenu();
+});
 
 function initControls() {
   const saveSettingsButton = document.getElementById("saveSettings");
@@ -1884,12 +1915,13 @@ function rebuild() {
     componentShellPointScale: state.componentShellPointScale,
     componentShellOpacityScale: state.componentShellOpacityScale,
     componentShellDepth: state.componentShellDepth,
-	    componentShellInnerRadius: state.componentShellInnerRadius,
-	    componentShellJitter: state.componentShellJitter,
-	    autoRotate: controls.autoRotate,
-	    savedSettingsLoaded,
-	    settingsStorageKey: SETTINGS_STORAGE_KEY,
-	    focusRef: state.focusRef,
+    componentShellInnerRadius: state.componentShellInnerRadius,
+    componentShellJitter: state.componentShellJitter,
+    autoRotate: controls.autoRotate,
+    savedSettingsLoaded,
+    settingsStorageKey: SETTINGS_STORAGE_KEY,
+    focusRef: state.focusRef,
+    contextNodeRef,
     focusDepth: state.focusDepth,
     focusedNodeCount,
     focusedEdgeCount,
@@ -2357,9 +2389,218 @@ function onCanvasDoubleClick(event) {
   clearFocus();
 }
 
+function onCanvasContextMenu(event) {
+  event.preventDefault();
+  const hit = raycastNodeFromEvent(event);
+  if (!hit) {
+    hideContextMenu();
+    return;
+  }
+  const node = hit.object.userData.payload;
+  contextNodeRef = node.node_ref;
+  tooltip.style.display = "none";
+  showContextMenu(node, event);
+}
+
+function showContextMenu(node, event) {
+  contextMenuTitle.textContent = node.label;
+  contextMenuStatus.textContent = labelForNodeType(node.node_type) + " / " + node.node_ref;
+  hidePromptFallback();
+  nodeContextMenu.style.display = "block";
+  nodeContextMenu.setAttribute("aria-hidden", "false");
+  const host = nodeContextMenu.parentElement;
+  const hostRect = host.getBoundingClientRect();
+  const rect = nodeContextMenu.getBoundingClientRect();
+  const margin = 8;
+  const maxX = Math.max(margin, hostRect.width - rect.width - margin);
+  const maxY = Math.max(margin, hostRect.height - rect.height - margin);
+  const x = clamp(event.clientX - hostRect.left, margin, maxX);
+  const y = clamp(event.clientY - hostRect.top, margin, maxY);
+  nodeContextMenu.style.left = x + "px";
+  nodeContextMenu.style.top = y + "px";
+  if (window.__soulforgeGraphPreview) {
+    window.__soulforgeGraphPreview.contextNodeRef = contextNodeRef;
+  }
+}
+
+function hideContextMenu() {
+  nodeContextMenu.style.display = "none";
+  nodeContextMenu.setAttribute("aria-hidden", "true");
+  hidePromptFallback();
+}
+
+async function copyContextExplorePrompt() {
+  const node = contextNode();
+  if (!node) {
+    setContextMenuStatus("탐구할 노드를 찾지 못했습니다.");
+    return;
+  }
+  const prompt = buildExplorePrompt(node);
+  const copied = await copyTextToClipboard(prompt);
+  if (copied) {
+    hidePromptFallback();
+    setContextMenuStatus("탐구 프롬프트를 복사했습니다.");
+    return;
+  }
+  showPromptFallback(prompt);
+  setContextMenuStatus("복사 실패: 아래 프롬프트를 직접 복사하세요.");
+}
+
+function focusContextNode() {
+  const node = contextNode();
+  if (!node) {
+    setContextMenuStatus("포커스할 노드를 찾지 못했습니다.");
+    return;
+  }
+  hideContextMenu();
+  focusNode(node.node_ref);
+}
+
+async function copyContextNodeRef() {
+  const node = contextNode();
+  if (!node) {
+    setContextMenuStatus("복사할 ref를 찾지 못했습니다.");
+    return;
+  }
+  const copied = await copyTextToClipboard(node.node_ref);
+  if (copied) {
+    hidePromptFallback();
+    setContextMenuStatus("ref를 복사했습니다.");
+    return;
+  }
+  showPromptFallback(node.node_ref);
+  setContextMenuStatus("복사 실패: 아래 ref를 직접 복사하세요.");
+}
+
+function contextNode() {
+  if (!contextNodeRef) return null;
+  return currentVisibleNodes.find((node) => node.node_ref === contextNodeRef) ?? graph.nodes.find((node) => node.node_ref === contextNodeRef) ?? null;
+}
+
+function setContextMenuStatus(message) {
+  contextMenuStatus.textContent = message;
+}
+
+function showPromptFallback(text) {
+  contextMenuPrompt.value = text;
+  contextMenuPrompt.style.display = "block";
+  contextMenuPrompt.focus();
+  contextMenuPrompt.select();
+}
+
+function hidePromptFallback() {
+  contextMenuPrompt.value = "";
+  contextMenuPrompt.style.display = "none";
+}
+
+async function copyTextToClipboard(text) {
+  try {
+    if (navigator.clipboard?.writeText) {
+      await navigator.clipboard.writeText(text);
+      return true;
+    }
+  } catch (error) {}
+  try {
+    const textArea = document.createElement("textarea");
+    textArea.value = text;
+    textArea.setAttribute("readonly", "");
+    textArea.style.position = "fixed";
+    textArea.style.left = "-9999px";
+    document.body.append(textArea);
+    textArea.select();
+    const copied = document.execCommand("copy");
+    textArea.remove();
+    return copied;
+  } catch (error) {
+    return false;
+  }
+}
+
+function buildExplorePrompt(node) {
+  const relations = contextRelationsFor(node.node_ref);
+  const relationLimit = 24;
+  const relationLines = relations.slice(0, relationLimit).map((edge) => describeEdgeForPrompt(edge, node.node_ref));
+  const hiddenCount = Math.max(0, relations.length - relationLimit);
+  const lines = [
+    "Soulforge knowledge graph에서 아래 노드를 탐구해줘.",
+    "",
+    "출발 노드:",
+    "- label: " + node.label,
+    "- ref: " + node.node_ref,
+    "- type: " + labelForNodeType(node.node_type) + " (" + node.node_type + ")",
+    "- usage: " + node.metrics.total_access_count,
+    "- visible_degree: " + (node.runtime_visible_degree ?? "unknown"),
+    "- last_access: " + (node.metrics.last_access_timestamp_utc || "none"),
+    "- trust: " + node.trust.claim_ceiling,
+    "- status: " + node.lifecycle.status,
+    "",
+    "현재 보기:",
+    "- layout: " + state.layout,
+    "- focus_depth: " + state.focusDepth,
+    "- node_size_mode: " + (state.nodeSizeMode === "degree" ? "연결수" : "사용량"),
+    "- visible_nodes: " + visibleNodeCount,
+    "- visible_edges: " + visibleEdgeCount,
+    "- active_node_types: " + activeLabels(state.nodeTypes, labelForNodeType),
+    "- active_relation_types: " + activeLabels(state.edgeTypes, labelForRelationType),
+    "",
+    "주변 연결(현재 필터 기준):",
+    ...(relationLines.length > 0 ? relationLines : ["- 없음"]),
+    ...(hiddenCount > 0 ? ["- ... " + hiddenCount + "개 더 있음"] : []),
+    "",
+    "탐구 요청:",
+    "1. 이 노드가 현재 그래프에서 어떤 의미를 갖는지 설명해줘.",
+    "2. 관계 타입별로 추천/사용/체인/라우팅 등 의미를 분리해줘.",
+    "3. 빠진 연결 후보, 과도한 연결, 이상한 연결을 지적해줘.",
+    "4. source_refs 기준으로 검증해야 할 근거를 정리해줘.",
+    "5. 필요하면 _workmeta에 남길 탐구 기록 초안을 제안해줘.",
+    "",
+    "경계:",
+    "- 그래프 출력은 메타데이터 기반 관찰 신호이며 source truth나 정본 승격이 아님.",
+    "- private/raw/secret payload를 복사하지 말고 ref와 메타데이터만 사용해줘.",
+  ];
+  return lines.join("\n");
+}
+
+function contextRelationsFor(nodeRef) {
+  return currentVisibleEdges
+    .filter((edge) => edge.from_ref === nodeRef || edge.to_ref === nodeRef)
+    .sort((a, b) => {
+      const evidenceDelta = (b.metrics?.evidence_event_count ?? 0) - (a.metrics?.evidence_event_count ?? 0);
+      if (evidenceDelta !== 0) return evidenceDelta;
+      return a.relation_type.localeCompare(b.relation_type);
+    });
+}
+
+function describeEdgeForPrompt(edge, nodeRef) {
+  const from = visibleNodeFor(edge.from_ref);
+  const to = visibleNodeFor(edge.to_ref);
+  const direction = edge.directed ? (edge.from_ref === nodeRef ? "outgoing" : "incoming") : "undirected";
+  const sourceRefs = Object.values(edge.source_refs ?? {}).filter(Boolean);
+  return "- " + labelForRelationType(edge.relation_type) + " (" + edge.relation_type + ", " + edge.relation_state + ", " + direction + "): " +
+    labelAndRef(from, edge.from_ref) + " -> " + labelAndRef(to, edge.to_ref) +
+    " / evidence=" + (edge.metrics?.evidence_event_count ?? edge.evidence_event_count ?? 0) +
+    " / last=" + (edge.metrics?.last_evidence_timestamp_utc || edge.last_evidence_timestamp_utc || "none") +
+    " / source_refs=" + (sourceRefs.length > 0 ? sourceRefs.join(", ") : "none");
+}
+
+function visibleNodeFor(nodeRef) {
+  return currentVisibleNodes.find((node) => node.node_ref === nodeRef) ?? graph.nodes.find((node) => node.node_ref === nodeRef) ?? null;
+}
+
+function labelAndRef(node, fallbackRef) {
+  if (!node) return fallbackRef;
+  return node.label + " [" + labelForNodeType(node.node_type) + "] <" + node.node_ref + ">";
+}
+
+function activeLabels(record, labeler) {
+  const labels = Object.keys(record).filter((key) => record[key]).sort().map((key) => labeler(key));
+  return labels.length > 0 ? labels.join(", ") : "없음";
+}
+
 function clearFocus() {
   state.focusRef = null;
   tooltip.style.display = "none";
+  hideContextMenu();
   rebuild();
   updateHud();
 }

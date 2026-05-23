@@ -66,6 +66,7 @@
 - Replaced the shell's spiral-like point placement with seeded 3D sphere-volume sampling so close zoom reads as a sphere instead of filled orbit lines.
 - Added in-preview controls for `연두 윤곽 글로우` point spacing, point size, brightness, depth, inner radius, and jitter so the owner can tune the component cloud directly.
 - Set the owner's tuned `연두 윤곽 글로우` values as the new 3D preview defaults and added a single `현재 설정 저장` button that persists the full local view configuration in browser storage.
+- Added a node right-click exploration menu to the 3D preview with `탐구 프롬프트 복사`, `연결만 보기`, and `ref 복사` actions, including a manual-copy fallback when clipboard access is blocked, so graph observations can be carried into a Codex follow-up without changing graph data.
 - Explicitly added `Knowledge` to the foundation ontology relation matrix so graph nodes align with `.registry/knowledge/**` canon entries and class-local `knowledge_refs.yaml` bindings.
 - Kept graph weights, usage counts, recency, Obsidian links, and generated previews as navigation signals only, not source truth, ontology acceptance, owner approval, archive/retire execution, or canon promotion.
 

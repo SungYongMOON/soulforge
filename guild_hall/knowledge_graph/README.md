@@ -54,6 +54,12 @@ rendered halo, not graph data or component membership.
 The 3D preview also exposes a single `현재 설정 저장` button. It stores the local
 view configuration in the browser for the current export id and restores it on
 the next open; this is a presentation preference, not graph data.
+Right-clicking a 3D node opens a small exploration menu. The menu can copy a
+Codex-ready exploration prompt, focus the graph on that node's visible
+connections, or copy the node ref. The copied prompt contains only metadata
+refs, current filters, visible relation summaries, and boundary reminders. If
+the browser blocks clipboard access, the menu exposes the same text in a readonly
+manual-copy field.
 The 3D preview keeps the canvas fixed to the viewport and scrolls the sidebar
 independently. Sidebar controls are grouped into collapsible sections so the
 graph does not get clipped when the operator moves through longer settings.

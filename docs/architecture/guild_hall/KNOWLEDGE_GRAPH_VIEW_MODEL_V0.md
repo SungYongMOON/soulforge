@@ -245,6 +245,10 @@ place it. Visual encoding decides how to read it.
 - default HTML preview is a Three.js 3D view, with a generated 2D SVG fallback;
 - supports node double-click focus for connected chains and background
   double-click to clear focus;
+- may expose a node context menu for local exploration actions such as copying
+  a Codex-ready exploration prompt, focusing visible connections, or copying a
+  node ref. Prompt contents must remain metadata-only and must not copy raw
+  private payloads, secrets, or stronger authority claims;
 - may localize display labels and show a palette legend, as long as the
   underlying `node_type` and `relation_type` values remain unchanged in data;
 - may include projects, workflows, parties, species, classes, units, model
