@@ -16,7 +16,7 @@ slots:
     summary: Checks whether latest updates imply missing project folders, metadata companions, ledgers, or follow-up state.
   - slot_id: workspace_junction_auditor
     title: Workspace Junction Auditor
-    summary: Compares `_workmeta/system/bindings/workspace_junctions.yaml` against local `_workspaces/<alias>` link state.
+    summary: Compares `_workmeta/system/bindings/workspace_junctions.yaml` against local `_workspaces/<alias>` link state and verifies target suffixes against binding `cloud_relative_path`.
   - slot_id: followup_router
     title: Follow-up Router
     summary: Routes needed work to curation, gateway, snapshot, owner-decision, or blocked follow-up surfaces.

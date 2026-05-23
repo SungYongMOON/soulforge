@@ -2,6 +2,12 @@
 
 ## 2026-05-23
 
+### Revision `working` - GitHub down strict junction audit added
+
+- Added `guild-hall:workspace-junction:audit` and `validate:workspace-junction` to make GitHub-down workspace junction checks deterministic.
+- The audit now verifies each `_workspaces/<alias>` link target suffix against `_workmeta/system/bindings/workspace_junctions.yaml` `cloud_relative_path`, reports extra root mirrors such as `_workspaces/company`, and avoids printing host-local cloud roots.
+- Updated the latest-update workflow and `github_down` Codex bridge so future download/update runs do not treat a merely existing but mis-targeted link as ready.
+
 ### Revision `working` - Tracked absolute paths normalized
 
 - Replaced concrete host-local absolute paths in tracked test fixtures, calibration telemetry, public-safe docs, and helper references with relative or portable placeholders.

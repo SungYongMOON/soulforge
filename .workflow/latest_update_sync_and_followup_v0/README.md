@@ -5,10 +5,10 @@ Soulforge after GitHub or another approved upstream surface changes.
 
 It pulls the latest repo state, checks whether installed Codex skill mirrors are
 current against `.registry/skills/**/codex`, syncs missing or stale mirrors when
-policy allows, checks companion metadata state, refreshes workspace junction
-status from `_workmeta/system/bindings/workspace_junctions.yaml`, and routes
-follow-up work to curation, gateway, snapshot, skill sync, or owner-decision
-surfaces.
+policy allows, checks companion metadata state, runs the strict workspace
+junction audit from `_workmeta/system/bindings/workspace_junctions.yaml`, and
+routes follow-up work to curation, gateway, snapshot, skill sync, or
+owner-decision surfaces.
 
 ## Outputs
 
@@ -28,6 +28,11 @@ surfaces.
   bodies, NotebookLM answers, or private runtime paths.
 - It does not automatically create or repair junctions unless a project binding
   explicitly provides local root resolution and mutation authority.
+- Junction readiness requires more than link existence: the local link target
+  suffix must match the binding `cloud_relative_path`, and root mirror entries
+  such as `_workspaces/company` are reported as gaps.
+- The report-only command is `npm run guild-hall:workspace-junction:audit`; it
+  must not print host-local cloud roots.
 - It does not hand-edit installed Codex skill mirrors. Skill updates must come
   from tracked `.registry/skills/**/codex` bridges through the canonical sync
   command.

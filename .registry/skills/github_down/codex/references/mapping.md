@@ -14,7 +14,7 @@
 - Workflow used
 - Repo results for `.`, `_workmeta`, and `private-state`
 - Skill sync result
-- Workspace junction status
+- Workspace junction status, including strict target-suffix audit result
 - Readiness check result
 - Public/private/secret boundary status
 - Remaining blockers or required owner action
@@ -25,3 +25,4 @@
 - This skill only maps user wording to the correct workflow and runtime steps.
 - Installed skill mirrors come only from tracked `.registry/skills/**/codex` bridges.
 - Local root resolution, cloud sync roots, credentials, and account/session state remain runtime concerns.
+- Junction readiness requires the report-only strict audit: each `_workspaces/<alias>` link must exist, be a symlink/junction, have a live target, and point to a target whose suffix matches the binding `cloud_relative_path`. Reports must not print host-local cloud roots.

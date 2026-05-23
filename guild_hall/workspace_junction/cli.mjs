@@ -1,0 +1,86 @@
+#!/usr/bin/env node
+
+import path from "node:path";
+import process from "node:process";
+import { auditWorkspaceJunctions } from "./audit.mjs";
+
+async function main() {
+  const [command = "audit", ...rest] = process.argv.slice(2);
+  if (command !== "audit") {
+    process.stderr.write(`unknown command: ${command}\n`);
+    process.exitCode = 2;
+    return;
+  }
+
+  const args = parseArgs(rest);
+  const repoRoot = path.resolve(args["repo-root"] ?? process.cwd());
+  const result = auditWorkspaceJunctions({
+    repoRoot,
+    bindingRef: args.binding ?? "_workmeta/system/bindings/workspace_junctions.yaml",
+    workspaceRootRef: args["workspace-root"] ?? "_workspaces",
+  });
+
+  if (args.json) {
+    process.stdout.write(`${JSON.stringify(result, null, 2)}\n`);
+  } else {
+    process.stdout.write(formatText(result));
+  }
+
+  if (result.status !== "passed") {
+    process.exitCode = 1;
+  }
+}
+
+function formatText(result) {
+  const lines = [
+    `workspace_junction_audit: ${result.status}`,
+    `reason: ${result.reason}`,
+    `binding: ${result.binding_ref}`,
+    `declared_active: ${result.declared_active_count ?? 0}`,
+    `checked: ${result.checked_count ?? 0}`,
+    `root_consistency: ${result.root_consistency ?? "unknown"}`,
+    `problems: ${result.problems.length}`,
+    `extras: ${result.extras.length}`,
+  ];
+
+  for (const row of result.problems) {
+    lines.push(
+      `- ${row.workspace_alias}: ${row.observed_local_state}; action=${row.action}; expected=${row.expected_target_suffix ?? ""}; actual_tail=${row.actual_target_tail ?? ""}`,
+    );
+  }
+
+  return `${lines.join("\n")}\n`;
+}
+
+function parseArgs(argv) {
+  const args = {};
+
+  for (let index = 0; index < argv.length; index += 1) {
+    const token = argv[index];
+    if (!token.startsWith("--")) continue;
+
+    const raw = token.slice(2);
+    const separatorIndex = raw.indexOf("=");
+    const key = separatorIndex === -1 ? raw : raw.slice(0, separatorIndex);
+    const inlineValue = separatorIndex === -1 ? undefined : raw.slice(separatorIndex + 1);
+    const next = argv[index + 1];
+
+    if (inlineValue !== undefined) {
+      args[key] = inlineValue;
+      continue;
+    }
+    if (next && !next.startsWith("--")) {
+      args[key] = next;
+      index += 1;
+      continue;
+    }
+    args[key] = true;
+  }
+
+  return args;
+}
+
+main().catch((error) => {
+  process.stderr.write(`${error.message}\n`);
+  process.exitCode = 1;
+});

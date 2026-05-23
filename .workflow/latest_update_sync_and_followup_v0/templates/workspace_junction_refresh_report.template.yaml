@@ -11,7 +11,10 @@ junction_rows:
     project_code: null
     link_relative_path: ""
     declared_state: ""
-    observed_local_state: "present | missing | stale | inactive | unknown"
+    observed_local_state: "link_ok | missing | link_broken | directory_not_link | file_not_link | extra_link | extra_entry | inactive | unknown"
+    expected_target_suffix: ""
+    target_suffix_ok: "true | false | unknown"
+    actual_target_tail: ""
     action: "none | report_gap | repair_candidate | owner_decision_required"
     notes: []
 portable_binding_updates_needed: []

@@ -27,7 +27,7 @@ Default scope is `owner-with-state` when the current machine has `_workmeta/` an
 5. Pull only repos that are behind and safe to update.
 6. Do not pull through dirty tracked changes, detached HEAD, missing remotes, conflicts, or divergent history. Report the owning repo and blocker instead.
 7. Run `npm.cmd run skills:sync -- --all` after public repo updates, or when the user asks for skill update/global skill registration.
-8. Check `_workmeta/system/bindings/workspace_junctions.yaml` when present and report `_workspaces/<alias>` junction/link gaps.
+8. Run `npm run guild-hall:workspace-junction:audit` when `_workmeta/system/bindings/workspace_junctions.yaml` is present. Report missing links, broken links, non-link entries, extra root mirrors, and any link whose target suffix does not match the binding `cloud_relative_path`.
 9. Do not repair junctions unless the user explicitly grants mutation authority and the local cloud root resolution is available.
 10. Run the relevant doctor/readiness check and report ahead/behind, pulled repos, synced skills, junction status, and blockers.
 
@@ -37,7 +37,7 @@ Global skill registration means syncing repo-tracked Codex wrappers. If a skill 
 
 - Do not read `.env`, token, password, cookie, session, or credential JSON contents.
 - Do not print secret values or local account-bound payloads.
-- Do not copy `_workmeta`, `private-state`, mail payloads, project raw truth, or runtime absolute paths into public workflow or skill canon.
+- Do not copy `_workmeta`, `private-state`, mail payloads, project raw truth, or runtime absolute paths into public workflow or skill canon. Junction reports may include aliases, expected suffixes, and redacted target tails, not host-local roots.
 
 ## Mapping
 

@@ -11,6 +11,9 @@ rules:
   - monster_id: workspace_junction_binding_missing
     response: owner_decision_or_private_binding_required
     summary: Junction state refresh needs `_workmeta/system/bindings/workspace_junctions.yaml` or a scoped replacement binding.
+  - monster_id: workspace_junction_target_mismatch
+    response: report_gap_and_repair_only_with_authority
+    summary: A link that exists but points outside the binding `cloud_relative_path` suffix is stale and must not be treated as ready.
   - monster_id: codex_skill_mirror_stale_or_missing
     response: sync_from_tracked_bridge_or_report_owner_decision
     summary: Missing or stale installed Codex skills should be synced from `.registry/skills/**/codex` through the canonical sync command when policy allows.

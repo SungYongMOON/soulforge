@@ -21,7 +21,7 @@ behavior:
     - GitHub down requests run or report the full owner-with-state update surface
     - public repo, `_workmeta`, and `private-state` freshness are checked separately
     - installed Codex skill mirrors are synced only from tracked repo bridges
-    - workspace junction state is checked from the private binding when available
+    - workspace junction state is checked from the private binding when available, including link target suffix match against `cloud_relative_path`
     - blockers are reported with the owning repo or runtime boundary
 execution_requirements:
   required_capabilities:
@@ -41,6 +41,7 @@ execution_requirements:
     - npm_doctor
   notes:
     - "The latest-update workflow remains `.workflow/latest_update_sync_and_followup_v0/`."
+    - "Strict junction audit command: `npm run guild-hall:workspace-junction:audit`."
     - "This skill is a Codex wrapper. It does not own GitHub policy, owner approval, destructive rewrites, secret inspection, or default-route changes."
     - "Installed mirror name after sync is normally `soulforge-github-down`."
 notes:

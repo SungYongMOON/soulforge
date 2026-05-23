@@ -2,7 +2,7 @@ workflow_id: latest_update_sync_and_followup_v0
 kind: workflow
 status: active
 title: Latest Update Sync And Follow-up v0
-summary: Event-driven workflow for pulling latest GitHub/upstream state, syncing Codex skill mirrors from tracked skill bridges, checking companion metadata, refreshing workspace junction status from the private portable junction binding, and routing follow-up work.
+summary: Event-driven workflow for pulling latest GitHub/upstream state, syncing Codex skill mirrors from tracked skill bridges, checking companion metadata, strictly auditing workspace junction targets from the private portable junction binding, and routing follow-up work.
 entrypoint: run
 execution_mode: local_tool_sequence
 role_slots: role_slots.yaml
@@ -82,6 +82,7 @@ operating_contract:
     event_driven_not_morning_scheduled: true
     public_private_companion_state_checked_before_followup: true
     junction_intent_source_is_private_binding: true
+    junction_target_suffix_verified_against_binding: true
     skill_mirror_source_is_tracked_codex_bridge: true
     host_local_absolute_paths_forbidden_in_public_package: true
     no_payload_copy_into_public_package: true
@@ -99,4 +100,5 @@ notes:
   - This workflow is triggered by latest update signals, not by a fixed time of day.
   - "Codex skill sync compares `.registry/skills/**/codex` against the local installed mirror under `CODEX_HOME/skills` or the runtime default; public workflow outputs must not store the host-local absolute install root."
   - "`_workmeta/system/bindings/workspace_junctions.yaml` is the portable junction intent source; each PC resolves its local cloud root outside workflow canon."
+  - "`npm run guild-hall:workspace-junction:audit` is the canonical report-only strict audit surface; it verifies local link existence and that each target suffix matches the binding `cloud_relative_path` without printing host-local roots."
   - Report-only pilot evidence exists, but do not report production-ready, source-truth, unattended automation, or default-route claims from this package alone.

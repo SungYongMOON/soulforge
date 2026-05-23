@@ -44,7 +44,7 @@ steps:
   - step_id: refresh_workspace_junction_state
     title: Refresh Workspace Junction State
     actor_slot: workspace_junction_auditor
-    action: Read `_workmeta/system/bindings/workspace_junctions.yaml`, compare declared junction intent to local `_workspaces/<alias>` link state, and classify missing, stale, renamed, inactive, or repairable entries.
+    action: Run `npm run guild-hall:workspace-junction:audit` or an equivalent strict audit that reads `_workmeta/system/bindings/workspace_junctions.yaml`, compares declared junction intent to local `_workspaces/<alias>` link state, verifies each link target suffix against `cloud_relative_path`, and classifies missing, stale target, extra root mirror, inactive, or repairable entries.
     inputs:
       - material_completeness_audit
     outputs:
