@@ -953,6 +953,7 @@ function renderGraphHtml3d(graph) {
     .context-menu button { width: 100%; display: block; text-align: left; margin: 4px 0; background: rgba(30, 41, 59, .86); border-color: rgba(148, 163, 184, .24); color: #e0f2fe; }
     .context-menu button:hover { background: rgba(14, 116, 144, .42); border-color: rgba(56, 189, 248, .46); }
     .context-menu-prompt { display: none; width: 100%; min-height: 132px; margin-top: 8px; resize: vertical; border-radius: 6px; border: 1px solid rgba(148, 163, 184, .28); background: rgba(2, 6, 23, .78); color: #dbeafe; font: 11px/1.45 ui-monospace, SFMono-Regular, Menlo, monospace; padding: 8px; box-sizing: border-box; }
+    .detection-bridge-command { display: none; width: 100%; min-height: 96px; margin-top: 8px; resize: vertical; border-radius: 6px; border: 1px solid rgba(148, 163, 184, .28); background: rgba(2, 6, 23, .78); color: #dbeafe; font: 11px/1.45 ui-monospace, SFMono-Regular, Menlo, monospace; padding: 8px; box-sizing: border-box; }
     .context-menu-status { min-height: 17px; margin: 7px 4px 2px; }
     a { color: #93c5fd; }
     @media (max-width: 760px) {
@@ -985,7 +986,9 @@ function renderGraphHtml3d(graph) {
             <label class="meta" for="detectionNodeRef">노드 ref</label>
             <input id="detectionNodeRef" type="text" autocomplete="off" placeholder=".registry/knowledge/graph_rag">
             <button id="openDetectionCardByRef" type="button">ref로 열기</button>
+            <button id="copyDetectionBridgeCommand" type="button">gpt-5.5 검토 명령 복사</button>
             <button id="closeDetectionCard" type="button">닫기</button>
+            <textarea id="detectionBridgeCommand" class="detection-bridge-command" readonly aria-label="수동 복사용 gpt-5.5 검토 명령"></textarea>
             <div class="meta" id="detectionCardStatus" aria-live="polite">노드를 우클릭하고 탐지 카드 열기를 누르거나 ref를 입력하세요.</div>
           </div>
           <div class="detection-card-body" id="detectionCardBody" tabindex="-1">
@@ -1483,6 +1486,8 @@ const detectionCardBody = document.getElementById("detectionCardBody");
 const detectionCardStatus = document.getElementById("detectionCardStatus");
 const detectionNodeRefInput = document.getElementById("detectionNodeRef");
 const openDetectionCardByRefButton = document.getElementById("openDetectionCardByRef");
+const copyDetectionBridgeCommandButton = document.getElementById("copyDetectionBridgeCommand");
+const detectionBridgeCommand = document.getElementById("detectionBridgeCommand");
 const closeDetectionCardButton = document.getElementById("closeDetectionCard");
 const ruleNodeSizeMeaning = document.getElementById("ruleNodeSizeMeaning");
 const ruleComponentHaloMeaning = document.getElementById("ruleComponentHaloMeaning");
@@ -1648,6 +1653,7 @@ copyExplorePromptButton.addEventListener("click", () => copyContextExplorePrompt
 focusContextNodeButton.addEventListener("click", () => focusContextNode());
 copyNodeRefButton.addEventListener("click", () => copyContextNodeRef());
 openDetectionCardByRefButton.addEventListener("click", () => openDetectionCardFromInput());
+copyDetectionBridgeCommandButton.addEventListener("click", () => copyDetectionBridgeCommandFromCard());
 closeDetectionCardButton.addEventListener("click", () => closeDetectionCard());
 detectionNodeRefInput.addEventListener("keydown", (event) => {
   if (event.key === "Enter") openDetectionCardFromInput();
@@ -2582,6 +2588,8 @@ function openDetectionCardForNode(nodeRef) {
   detectionCardFocusRef = node.node_ref;
   detectionCardPanel.open = true;
   detectionNodeRefInput.value = node.node_ref;
+  detectionBridgeCommand.value = buildDetectionBridgeCommand(node.node_ref);
+  detectionBridgeCommand.style.display = "none";
   renderDetectionCard(activeDetectionCardPayload);
   setDetectionCardStatus("탐지 카드를 열었습니다: " + node.label);
   syncDetectionCardDebugState();
@@ -2593,9 +2601,47 @@ function closeDetectionCard() {
   activeDetectionCardPayload = null;
   detectionCardFocusRef = null;
   detectionCardPanel.open = false;
+  detectionBridgeCommand.value = "";
+  detectionBridgeCommand.style.display = "none";
   renderDetectionCardPlaceholder("노드를 우클릭하고 탐지 카드 열기를 누르거나 ref를 입력하세요.");
   setDetectionCardStatus("탐지 카드를 닫았습니다.");
   syncDetectionCardDebugState();
+}
+
+async function copyDetectionBridgeCommandFromCard() {
+  const nodeRef = detectionCardFocusRef ?? detectionNodeRefInput.value.trim();
+  if (!nodeRef) {
+    setDetectionCardStatus("먼저 탐지 카드를 열 노드 ref를 입력하세요.");
+    detectionNodeRefInput.focus();
+    return;
+  }
+  const command = buildDetectionBridgeCommand(nodeRef);
+  detectionBridgeCommand.value = command;
+  const copied = await copyTextToClipboard(command);
+  if (copied) {
+    detectionBridgeCommand.style.display = "none";
+    setDetectionCardStatus("gpt-5.5 Codex 검토 명령을 복사했습니다. 터미널에서 실행하면 관계 후보 검토를 받을 수 있습니다.");
+    return;
+  }
+  detectionBridgeCommand.style.display = "block";
+  detectionBridgeCommand.focus();
+  detectionBridgeCommand.select();
+  setDetectionCardStatus("복사 실패: 아래 명령을 직접 복사하세요.");
+}
+
+function buildDetectionBridgeCommand(nodeRef) {
+  const graphRef = "_workspaces/system/knowledge_view/graph_export/" + (graph.export_id || "knowledge_graph_view_v0") + "/graph.json";
+  return [
+    "npm run guild-hall:knowledge-graph -- review",
+    "--node-ref " + shellQuoteForCommand(nodeRef),
+    "--graph-ref " + shellQuoteForCommand(graphRef),
+    "--model gpt-5.5",
+    "--text",
+  ].join(" ");
+}
+
+function shellQuoteForCommand(value) {
+  return "'" + String(value).replaceAll("'", "'\"'\"'") + "'";
 }
 
 function buildDetectionCardPayload(nodeRef) {
@@ -3103,6 +3149,7 @@ function buildDetectionCardDebugFields() {
   return {
     detectionCardOpen: Boolean(detectionCardPanel.open && activeDetectionCardPayload),
     detectionCardFocusRef,
+    detectionBridgeCommand: detectionCardFocusRef ? buildDetectionBridgeCommand(detectionCardFocusRef) : "",
     detectionCardPlan: activeDetectionCardPayload,
     detectionCardMissingCodes: activeDetectionCardPayload?.missing_evidence_items.map((item) => item.code) ?? [],
     detectionCardNextActionCodes: activeDetectionCardPayload?.next_action_items.map((item) => item.code) ?? [],

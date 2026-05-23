@@ -2,7 +2,13 @@
 
 import path from "node:path";
 import process from "node:process";
+import { runCodexBridgeAsk } from "../codex_bridge/codex_bridge.mjs";
 import { exportKnowledgeGraph } from "./graph_export.mjs";
+import {
+  DEFAULT_KNOWLEDGE_GRAPH_REVIEW_MODEL,
+  DEFAULT_KNOWLEDGE_GRAPH_REVIEW_OUTPUT_REF,
+  buildKnowledgeGraphReviewRequest,
+} from "./llm_review.mjs";
 import { buildRetrievalPlan } from "./retrieval_plan.mjs";
 
 async function main() {
@@ -36,6 +42,47 @@ async function main() {
       maxSourceRefs: args["max-source-refs"],
     });
     printJson(result);
+    return;
+  }
+
+  if (command === "review") {
+    const question = optionalStringArg(args, "question") ?? args._?.join(" ");
+    const plan = await buildRetrievalPlan({
+      repoRoot,
+      question,
+      nodeRef: optionalStringArg(args, "node-ref"),
+      graphRef: optionalStringArg(args, "graph-ref"),
+      exportId: optionalStringArg(args, "export-id"),
+      maxNodes: args["max-nodes"],
+      maxPaths: args["max-paths"],
+      maxSourceRefs: args["max-source-refs"],
+    });
+    const request = buildKnowledgeGraphReviewRequest(plan, {
+      model: optionalStringArg(args, "model") ?? DEFAULT_KNOWLEDGE_GRAPH_REVIEW_MODEL,
+      outputRef: optionalStringArg(args, "output-ref") ?? DEFAULT_KNOWLEDGE_GRAPH_REVIEW_OUTPUT_REF,
+    });
+    const result = await runCodexBridgeAsk({
+      repoRoot,
+      command: optionalStringArg(args, "command"),
+      prompt: request.prompt,
+      context: JSON.stringify(request.context, null, 2),
+      mode: request.mode,
+      model: request.model,
+      profile: optionalStringArg(args, "profile"),
+      outputRef: request.output_ref,
+      jsonEvents: Boolean(args.json),
+    });
+    if (args.text) {
+      process.stdout.write(`${result.response.text}\n`);
+      return;
+    }
+    printJson({
+      schema_version: "soulforge.knowledge_graph_llm_review_response.v0",
+      kind: "knowledge_graph_relation_candidate_review",
+      status: result.status,
+      request,
+      bridge: result,
+    });
     return;
   }
 
@@ -101,11 +148,13 @@ function printUsageAndExit() {
       "Usage:",
       "  node guild_hall/knowledge_graph/cli.mjs export [--export-id <id>] [--output-root <repo-relative-output-root>] [--ledger-ref <repo-relative-jsonl>]...",
       "  node guild_hall/knowledge_graph/cli.mjs plan --question <question> [--node-ref <node-ref>] [--graph-ref <repo-relative-graph-json>] [--export-id <id>] [--max-nodes <n>] [--max-paths <n>] [--max-source-refs <n>]",
+      "  node guild_hall/knowledge_graph/cli.mjs review --node-ref <node-ref> [--question <question>] [--graph-ref <repo-relative-graph-json>] [--model gpt-5.5] [--output-ref <repo-relative-md>] [--text]",
       "",
       "Notes:",
       "  Generates metadata-only graph.json, a default Three.js graph_preview.html, graph_preview_2d.html, and an Obsidian-readable generated vault under _workspaces/system/knowledge_view by default.",
       "  Explicit ledger refs/files may add usage and recency signals. Usage counts are navigation signals, not truth or acceptance.",
       "  The plan command reads metadata-only graph data and returns selected-node-aware candidate nodes, relation paths, source refs, missing evidence, next actions, and a detection_card render contract. It does not load source text or generate answers.",
+      "  The review command sends the compact metadata-only plan to the Codex bridge for advisory relation-candidate review. It defaults to gpt-5.5 and still cannot claim source truth, owner approval, or canon promotion.",
     ].join("\n"),
   );
   process.exit(1);

@@ -4,6 +4,10 @@ import os from "node:os";
 import path from "node:path";
 import test from "node:test";
 import { exportKnowledgeGraph } from "./graph_export.mjs";
+import {
+  DEFAULT_KNOWLEDGE_GRAPH_REVIEW_MODEL,
+  buildKnowledgeGraphReviewRequest,
+} from "./llm_review.mjs";
 import { buildRetrievalPlan } from "./retrieval_plan.mjs";
 
 test("exportKnowledgeGraph writes metadata-only graph, HTML preview, and Obsidian notes", async () => {
@@ -155,6 +159,9 @@ test("exportKnowledgeGraph writes metadata-only graph, HTML preview, and Obsidia
     assert.match(html, /id="detectionNodeRef"/);
     assert.match(html, /id="openDetectionCard"/);
     assert.match(html, /id="openDetectionCardByRef"/);
+    assert.match(html, /id="copyDetectionBridgeCommand"/);
+    assert.match(html, /id="detectionBridgeCommand"/);
+    assert.match(html, /gpt-5\.5 검토 명령 복사/);
     assert.match(html, /탐지 카드는 답변이 아니라 검토 안내/);
     assert.match(html, /탐지 카드 열기/);
     assert.match(html, /탐구 프롬프트 복사/);
@@ -226,6 +233,10 @@ test("exportKnowledgeGraph writes metadata-only graph, HTML preview, and Obsidia
     assert.match(bundle, /buildDetectionCardPayload/);
     assert.match(bundle, /renderDetectionCard/);
     assert.match(bundle, /renderDetectionOperatorGuide/);
+    assert.match(bundle, /buildDetectionBridgeCommand/);
+    assert.match(bundle, /copyDetectionBridgeCommandFromCard/);
+    assert.match(bundle, /npm run guild-hall:knowledge-graph -- review/);
+    assert.match(bundle, /--model gpt-5\.5/);
     assert.match(bundle, /detectionJudgementText/);
     assert.match(bundle, /missingEvidenceItemsFor/);
     assert.match(bundle, /nextActionItemsFor/);
@@ -350,6 +361,17 @@ test("exportKnowledgeGraph writes metadata-only graph, HTML preview, and Obsidia
     assert.equal(selectedPlan.source_refs.length <= 2, true);
     assert.equal(selectedPlan.boundary.no_notebooklm_answers, true);
     assert.equal(selectedPlan.boundary.no_vector_search, true);
+    const reviewRequest = buildKnowledgeGraphReviewRequest(selectedPlan);
+    assert.equal(reviewRequest.schema_version, "soulforge.knowledge_graph_llm_review_request.v0");
+    assert.equal(reviewRequest.model, DEFAULT_KNOWLEDGE_GRAPH_REVIEW_MODEL);
+    assert.equal(reviewRequest.mode, "knowledge_graph_relation_candidate_review");
+    assert.equal(reviewRequest.boundary.relation_candidates_only, true);
+    assert.equal(reviewRequest.context.selected_node_ref, ".registry/knowledge/graph_rag");
+    assert.equal(reviewRequest.context.candidate_nodes[0].node_ref, ".registry/knowledge/graph_rag");
+    assert.match(reviewRequest.prompt, /관계 후보/);
+    assert.match(reviewRequest.prompt, /owner approval/);
+    assert.match(reviewRequest.prompt, /canon promotion/);
+    assert.match(reviewRequest.prompt, /apply_now/);
 
     const isolatedPlan = await buildRetrievalPlan({
       repoRoot,

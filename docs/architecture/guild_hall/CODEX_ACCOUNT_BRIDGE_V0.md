@@ -41,8 +41,9 @@ For the knowledge graph preview, the preferred flow is:
 
 1. Use `retrieval_plan` to create deterministic candidate nodes, relation paths,
    missing evidence, and next actions.
-2. Use the Codex bridge only when the owner asks for deeper explanation or a
-   review-style narrative.
+2. Use `guild-hall:knowledge-graph -- review` when the owner asks for deeper
+   relation-candidate review from the Codex bridge. This command defaults to
+   `gpt-5.5` and sends only the compact metadata plan.
 3. Keep hover cards and basic 탐지 카드 rendering local and deterministic.
 4. Keep source text loading, NotebookLM output, and final RAG answer generation
    in separate sourcebound workflows.

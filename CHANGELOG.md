@@ -1,5 +1,13 @@
 ﻿# CHANGELOG
 
+## 2026-05-24
+
+### Revision `working` - Knowledge graph Codex review command connected
+
+- Added `guild-hall:knowledge-graph -- review` to send a compact metadata-only retrieval plan through the Codex bridge for advisory relation-candidate review, defaulting to `gpt-5.5`.
+- Added a generated 3D 탐지 카드 button that copies the exact terminal command for the selected node instead of letting the static browser execute local commands.
+- Kept the bridge path below RAG answer generation, source truth, owner approval, validation, ontology acceptance, canon promotion, and graph mutation.
+
 ## 2026-05-23
 
 ### Revision `working` - Knowledge graph detection card guidance clarified

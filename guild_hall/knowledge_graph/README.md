@@ -16,6 +16,7 @@ npm run guild-hall:knowledge-graph -- export --export-id knowledge_graph_v0
 npm run guild-hall:knowledge-graph -- export --ledger-ref _workmeta/system/reports/knowledge_access/events/2026/2026-05.jsonl --export-id knowledge_graph_live_v0
 npm run guild-hall:knowledge-graph -- plan --question "GraphRAG multi-hop source-backed retrieval plan"
 npm run guild-hall:knowledge-graph -- plan --node-ref ".registry/knowledge/graph_rag" --question "이 노드 기준으로 탐지 카드"
+npm run guild-hall:knowledge-graph -- review --node-ref ".registry/knowledge/graph_rag" --graph-ref _workspaces/system/knowledge_view/graph_export/knowledge_graph_v0/graph.json --model gpt-5.5 --text
 npm run validate:knowledge-graph
 ```
 
@@ -70,6 +71,10 @@ The card starts with an operator-facing Korean `판정` and `지금 할 일` blo
 the owner can tell whether the selected node is only a map cue, needs source
 edges, needs retrieval wiring, or needs benchmark validation before it can be
 used for any RAG answer workflow.
+The card can also copy a terminal command that runs the metadata-only plan
+through the Codex bridge with `gpt-5.5`. The browser still does not execute
+local commands; it only copies the command so the owner can run the advisory
+relation-candidate review deliberately.
 The 3D preview keeps the canvas fixed to the viewport and scrolls the sidebar
 independently. Sidebar controls are grouped into collapsible sections so the
 graph does not get clipped when the operator moves through longer settings.
@@ -113,6 +118,14 @@ and missing, the command fails instead of silently falling back to another graph
 It does not load source text, query NotebookLM, run vector search, or generate an
 answer.
 
+The `review` command wraps the same plan in a compact metadata-only request and
+sends it to `guild_hall/codex_bridge` for advisory relation-candidate review.
+It defaults to `--model gpt-5.5`, writes the last bridge response under ignored
+`guild_hall/state/tools/codex_bridge/`, and returns either JSON or plain text
+with `--text`. The result may suggest candidate relation shapes, but it cannot
+claim source truth, owner approval, validation, ontology acceptance, canon
+promotion, or completed implementation.
+
 ## Boundary
 
 - Reads public canon metadata and explicit ledger refs/files only.
@@ -123,4 +136,7 @@ answer.
   evidence or retrieval quality validation.
 - The 3D preview 탐지 카드 is also local and metadata-only: it does not call
   NotebookLM, Codex bridge, vector search, source readers, or graph mutation.
+- The copied `review` command is an explicit operator action. It sends only the
+  compact metadata plan to the Codex bridge and produces advisory relation
+  candidates, not RAG answers or graph mutations.
 - Obsidian output is a generated read-only view.
