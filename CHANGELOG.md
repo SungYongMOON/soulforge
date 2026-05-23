@@ -27,6 +27,30 @@
 - Routed HWP/HWPX, Word, Excel, PowerPoint, PDF, archive, and mail payload files to `_workspaces` or owner-approved shared worksite storage.
 - Updated workspace/workmeta contracts and procedure-capture rules so future SE reference packets keep raw files out of `_workmeta`.
 
+### Revision `working` - Knowledge graph view v0 added
+
+- Added a metadata-only knowledge graph view model for one-variable/one-meaning visual encoding, source trace, graph scope, layout presets, and the Obsidian canon read view versus operations graph view split.
+- Added `guild_hall/knowledge_graph` to generate local `_workspaces/system/knowledge_view/**` graph JSON, adjustable HTML preview, and Obsidian-readable read-only notes from public canon metadata plus explicit knowledge-access ledger refs.
+- Upgraded the default generated HTML preview to a bundled Three.js 3D graph while keeping `graph_preview_2d.html` as the SVG fallback view.
+- Added generated connectivity diagnostics to `graph.json`, the 3D preview sidebar, and the Obsidian graph index so sparse layouts can be checked by component count, isolated nodes, relation counts, and extraction-scope gaps.
+- Fixed generated graph tooltip positioning so hover cards use graph-panel-relative coordinates and stay near the hovered node instead of drifting by the sidebar offset.
+- Added workflow profile policy extraction so `.workflow/*/profile_policy.yaml` primary species/class recommendations render as `recommends` edges, and added 3D node double-click focus with adjustable chain depth plus background double-click reset.
+- Updated the 3D preview so connectivity counters follow the currently selected node/relation filters, node and relation controls use Korean labels, and the active palette appears as a top-right legend.
+- Separated the default relation-color palette into higher-contrast hues so common edge types such as chain, routing, use, class, species, and recommendation lines are easier to distinguish on the dark 3D canvas.
+- Added short connectivity metric definitions and optional component halos so large visible connected components can be read as subtle grouped outlines without changing node-type colors.
+- Increased knowledge graph node-size thresholds, added a 3D node-size basis selector that defaults to visible connection count, and slightly reduced/repositioned arrowheads so usage or hub differences read more clearly against directed edges.
+- Added an in-preview collapsible visual-rules panel explaining node size, node color, border, opacity, edge width/color/style, arrows, and component outlines directly in the 3D graph UI.
+- Added 3D preview sliders for overall node scale and relative node-size spread so circle size can be tuned interactively without changing graph data.
+- Added selectable component halo styles so the owner can switch between visible multi-angle component outlines and restrained single-line outlines.
+- Replaced the 3D default component halo from a lime multi-ring outline with a softer `연두 글로우` cloud so component grouping is visible without large crossing bands.
+- Brightened the 3D `연두 글로우`, fixed the preview to scroll only the sidebar instead of clipping the canvas, and grouped sidebar settings into collapsible sections.
+- Refined the 3D `연두 글로우` particles from sparse square points into denser soft round points so component clouds read less like pixel noise.
+- Spread the 3D `연두 글로우` particles across the full component cloud instead of concentrating them near the center.
+- Tightened the 3D candidate-edge dash spacing and clarified the visual rules panel so candidate relations read as short dotted lines rather than broken geometry.
+- Hid unrelated component glows during node focus so only the selected focus range keeps its `연두 글로우`.
+- Explicitly added `Knowledge` to the foundation ontology relation matrix so graph nodes align with `.registry/knowledge/**` canon entries and class-local `knowledge_refs.yaml` bindings.
+- Kept graph weights, usage counts, recency, Obsidian links, and generated previews as navigation signals only, not source truth, ontology acceptance, owner approval, archive/retire execution, or canon promotion.
+
 ### Revision `working` - SE current-authority route wording tightened
 
 - Tightened Systems Engineering Cell party and launcher wording so official/current source questions and accepted review/action/verification claims route to source acquisition, sufficiency review, review/action closure, or accepted-result workflows before stronger claims.

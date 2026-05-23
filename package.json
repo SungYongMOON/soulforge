@@ -17,6 +17,7 @@
     "validate:ui": "npm run ui:validate",
     "validate:activity": "node --test guild_hall/activity/activity_log.test.mjs guild_hall/healer/healer_run.test.mjs guild_hall/healer/always_on_checks.test.mjs",
     "validate:knowledge-access": "node --test guild_hall/knowledge_access/knowledge_access.test.mjs guild_hall/knowledge_access/knowledge_trigger_stop_guard.test.mjs",
+    "validate:knowledge-graph": "node --test guild_hall/knowledge_graph/knowledge_graph.test.mjs",
     "validate:always-on": "node --test guild_hall/always_on_launchd/launchd.test.mjs",
     "validate:dev-worker": "node --test guild_hall/dev_worker/dev_worker.test.mjs",
     "validate:workmeta-sync": "node --test guild_hall/workmeta_sync/sync.test.mjs",
@@ -45,6 +46,7 @@
     "guild-hall:activity:project-mail-candidates": "node guild_hall/activity/cli.mjs project-mail-candidates",
     "guild-hall:activity:sync": "node guild_hall/activity/cli.mjs sync",
     "guild-hall:knowledge-access": "node guild_hall/knowledge_access/cli.mjs",
+    "guild-hall:knowledge-graph": "node guild_hall/knowledge_graph/cli.mjs",
     "guild-hall:healer:run": "node guild_hall/healer/cli.mjs run",
     "guild-hall:snapshot": "node guild_hall/snapshot/cli.mjs --write",
     "guild-hall:snapshot:check-fresh": "node guild_hall/snapshot/cli.mjs --check-fresh",
@@ -93,6 +95,8 @@
     "renderer:web:preview": "npm run ui:preview"
   },
   "dependencies": {
+    "esbuild": "^0.28.0",
+    "three": "^0.184.0",
     "yaml": "^2.8.1"
   }
 }

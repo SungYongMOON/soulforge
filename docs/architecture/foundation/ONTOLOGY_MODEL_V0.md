@@ -12,7 +12,7 @@
 
 ## ontology-style 이 의미하는 것
 
-- `species`, `class`, `unit`, `workflow`, `party`, `mission`, `monster`, `artifact`, `event` 는 서로 다른 개체 타입으로 본다.
+- `knowledge`, `species`, `class`, `unit`, `workflow`, `party`, `mission`, `monster`, `artifact`, `event` 는 서로 다른 개체 타입으로 본다.
 - 각 개체는 `id`, `kind`, `owner surface`, `주요 관계` 를 분리해서 읽는다.
 - 같은 파일도 ontology 관점에서는 `artifact instance` 로 읽는다.
 - 같은 artifact 는 시점에 따라 한 mission 의 output 이었다가 다음 mission 의 input 이 될 수 있다.
@@ -24,6 +24,8 @@
   - 예: `human`, `orc`, `elf`, `dwarf`, `darkelf`
 - `Class`
   - 예: `knight`, `archivist`, `administrator`, `pathfinder`, `marshal`, `auditor`
+- `Knowledge`
+  - 예: `source_criticism`, `boundary_governance`, `lineage_method`
 - `Unit`
   - 실제 배치된 조합
 - `Workflow`
@@ -43,6 +45,8 @@
 
 - `unit has_species species`
 - `unit has_class class`
+- `class uses knowledge`
+- `workflow may use knowledge`
 - `party chains workflow`
 - `workflow profile may recommend unit`
 - `workflow guides mission`

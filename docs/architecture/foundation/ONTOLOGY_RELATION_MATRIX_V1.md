@@ -11,6 +11,7 @@
 | --- | --- | --- | --- |
 | `Species` | `.registry/species/<species_id>/` | `species.yaml` | `unit has_species species` |
 | `Class` | `.registry/classes/<class_id>/` | `class.yaml` | `unit has_class class` |
+| `Knowledge` | `.registry/knowledge/<knowledge_id>/` | `knowledge.yaml` | `class uses knowledge`, `workflow may use knowledge` |
 | `Unit` | `.unit/<unit_id>/` | `unit.yaml` | `workflow profile may recommend unit` |
 | `Workflow` | `.workflow/<workflow_id>/` | `workflow.yaml` | `workflow guides mission` |
 | `Party` | `.party/<party_id>/` | `party.yaml` | `party chains workflow`, `party routes workflow` |
@@ -25,6 +26,8 @@
 | --- | --- | --- | --- |
 | `unit has_species species` | `.unit/<unit_id>/unit.yaml` | `.registry/species/<species_id>/species.yaml` | `identity.species_id` |
 | `unit has_class class` | `.unit/<unit_id>/unit.yaml` | `.registry/classes/<class_id>/class.yaml` | `class_ids[]` |
+| `class uses knowledge` | `.registry/classes/<class_id>/knowledge_refs.yaml` | `.registry/knowledge/<knowledge_id>/knowledge.yaml` | `assign[].ref` |
+| `workflow may use knowledge` | `knowledge_access` ledger or workflow-local metadata | `.registry/knowledge/<knowledge_id>/knowledge.yaml` | metadata-only access/ref rows; signal not acceptance |
 | `workflow profile recommends unit` | `.workflow/<workflow_id>/profile_policy.yaml` + calibrations | `.unit/<unit_id>/unit.yaml` | optimized execution profile when available |
 | `workflow guides mission` | `.mission/<mission_id>/mission.yaml` | `.workflow/<workflow_id>/workflow.yaml` | `workflow_id` |
 | `party chains workflow` | `.party/<party_id>/party.yaml` | `.workflow/<workflow_id>/workflow.yaml` | `workflow_chain`, `default_workflow_id`, `allowed_workflows.yaml` |
@@ -49,9 +52,10 @@
 2. `unit.identity.species_id` 는 존재하는 `Species` 여야 한다.
 3. `unit.identity.hero_id` 는 해당 species 안의 `heroes[].hero_id` 안에서 resolve 되어야 한다.
 4. `unit.class_ids[]` 는 존재하는 `Class` 여야 한다.
-5. `mission.workflow_id` 가 있으면 존재하는 `Workflow` 여야 한다.
-6. `mission.party_id` 는 존재하는 `Party` 여야 한다.
-7. `mission.workflow_id = null` 은 `readiness.status = blocked` 와 `checks.workflow_present = missing` 일 때만 허용한다.
+5. `.registry/classes/<class_id>/knowledge_refs.yaml` 의 `assign[].ref` 는 존재하는 `Knowledge` 여야 한다.
+6. `mission.workflow_id` 가 있으면 존재하는 `Workflow` 여야 한다.
+7. `mission.party_id` 는 존재하는 `Party` 여야 한다.
+8. `mission.workflow_id = null` 은 `readiness.status = blocked` 와 `checks.workflow_present = missing` 일 때만 허용한다.
 
 ## promotion 흐름
 
