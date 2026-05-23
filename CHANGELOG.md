@@ -1,5 +1,13 @@
 ﻿# CHANGELOG
 
+## 2026-05-23
+
+### Revision `working` - Grill Me candidate skill added
+
+- Added `.registry/skills/grill_me/` as a tracked candidate Codex skill for `/grill-me` style plan pressure-testing and design-decision interviews.
+- Kept the package as a Soulforge implementation of the interview pattern rather than copying external product runtime content.
+- Documented the installed mirror target as `soulforge-grill-me` through the existing skill sync flow.
+
 ## 2026-05-22
 
 ### Revision `working` - P26-014 masked KVDS mail routing added

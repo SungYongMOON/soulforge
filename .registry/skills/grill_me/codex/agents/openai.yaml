@@ -1,0 +1,7 @@
+interface:
+  display_name: "Soulforge Grill Me"
+  short_description: "Pressure-test plans through focused interview."
+  default_prompt: "Use $soulforge-grill-me to pressure-test this implementation plan with one focused design-decision question at a time."
+
+policy:
+  allow_implicit_invocation: true

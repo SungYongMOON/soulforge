@@ -1,0 +1,36 @@
+skill_id: grill_me
+kind: skill
+status: candidate
+title: Grill Me
+summary: Pressure-test a plan through a focused decision interview before implementation.
+behavior:
+  intent: Surface hidden assumptions, unresolved design choices, and risky tradeoffs in a user-provided plan, then converge on an updated decision record without taking design authority away from the owner.
+  use_when:
+    - the user asks for `/grill-me`, "grill me", a design interview, or plan pressure-testing
+    - an implementation plan, workflow draft, architecture choice, or project direction needs targeted questioning before execution
+    - the owner wants ambiguous decisions converted into explicit options, tradeoffs, and next actions
+  avoid_when:
+    - the user is asking for immediate implementation and the decision path is already explicit
+    - the task is a pure code review, validation run, or final approval gate
+    - the interview would require private runtime truth or source material that is not available in the current context
+  expected_outcome:
+    - the key decision questions are ranked by leverage and risk
+    - owner answers are turned into a compact decision register
+    - the plan patch, remaining assumptions, and blocked questions are explicit
+execution_requirements:
+  required_capabilities:
+    - plan_review
+    - interactive_interview
+    - tradeoff_analysis
+  preferred_capabilities:
+    - structured_drafting
+    - boundary_review
+  preferred_tools:
+    - rg
+    - markdown_editor
+  notes:
+    - "The skill asks one question at a time and stops at owner decision boundaries."
+    - "Actual model, runtime context, attached tools, and installed skill name resolve in local runtime bindings."
+notes:
+  - "`grill_me` is a candidate Soulforge skill for design-decision interview and plan alignment before implementation."
+  - "This package is a Soulforge implementation of the interview pattern; it does not copy an external product's bundled skill content."

@@ -2,6 +2,7 @@
 
 - `github_down/` is the tracked Codex wrapper for routing GitHub download/update requests to `.workflow/latest_update_sync_and_followup_v0/`.
 - `github_up/` is the tracked Codex wrapper for routing GitHub upload/publish requests to `.workflow/github_upload_publish_v0/`.
+- `grill_me/` is the tracked Codex candidate skill for `/grill-me` style plan pressure-testing and design-decision interview.
 - `long_thread_handoff/` is the tracked Codex wrapper for explicit long-thread contamination-free handoff requests.
 - `party_launcher_skill_author/` is the tracked Codex authoring aid for turning an existing `.party/<party_id>` loadout into a thin launcher skill without moving party, workflow, or profile policy into the skill.
 - `knowledge_wiki_cell_launcher/` is the tracked Codex launcher for invoking the existing `.party/knowledge_wiki_cell` loadout while resolving workflow-owned profile policy at execution time.
@@ -20,6 +21,7 @@
 - 다른 PC 에서 실제 Codex installed mirror 가 필요하면 tracked `codex/` bridge 를 local `~/.codex/skills/` 로 sync 한다. bootstrap/doctor 기본 목표는 sync 가능한 `codex/` bridge 전체를 local 에 materialize 하는 것이다.
 - `codex/SKILL.md` 가 없는 skill folder 는 canon-only 또는 test package 로 둘 수 있고, local install mirror 기본 대상에 넣지 않는다.
 - baseline 절차는 [`.registry/docs/operations/SKILL_INSTALL_SYNC.md`](../docs/operations/SKILL_INSTALL_SYNC.md) 를 따른다.
+- `grill_me/` 는 `/grill-me` 스타일의 대화형 설계 의사결정 인터뷰를 Codex bridge 로 제공하는 candidate skill package 다.
 - `skill_check/` 는 tracked skill package 가 canon, optional executor bridge, local runtime binding owner 를 섞지 않는지 검토하는 active authoring-aid sample 이다.
 - `mission_check/` 는 `.mission/<mission_id>/readiness.yaml` 과 related mission plan surface 를 boundary-safe 하게 검토하는 mission readiness review sample 이다.
 - `hwpx_document/` 는 lean bridge 문서만이 아니라 bundled `scripts/`, `templates/`, `references/` 도 함께 sync 하는 resource-heavy skill package sample 이다.
