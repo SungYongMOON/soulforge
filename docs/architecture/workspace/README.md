@@ -13,6 +13,7 @@
 | `WORKSPACE_PROJECT_MODEL.md` | `_workspaces`, `_workmeta`, `.mission`, gateway handoff 의 owner 경계를 고정한다. |
 | `PROJECT_ONBOARDING_V0.md` | 실제 프로젝트를 `_workspaces/<project_code>/` 로 처음 붙이는 절차를 둔다. |
 | `PROJECT_LEDGER_UPDATE_V0.md` | 주기적으로 전달되는 회사 PJT 관리 대장을 private source 로 받아 project registration 을 갱신하는 public-safe 절차다. |
+| `HWP_NORMALIZATION_V0.md` | HWP 원문을 직접 읽지 않고 먼저 HWPX 로 정규화한 뒤 HWPX 파생본만 분석하는 전사 처리 순서다. |
 | `PROJECT_START_WORKFLOW_V0.md` | 첫 project task 를 열 때 기록 위치와 bounded 시작 순서를 둔다. |
 | `MISSION_MODEL.md` | monster, mission, artifact, readiness, raw run truth 의 관계를 고정한다. |
 | `MISSION_MANUAL_DRAFT.md` | mission 운용 manual 초안을 누적한다. |
@@ -57,6 +58,7 @@
 - [`WORKSPACE_PROJECT_MODEL.md`](WORKSPACE_PROJECT_MODEL.md)
 - [`PROJECT_ONBOARDING_V0.md`](PROJECT_ONBOARDING_V0.md)
 - [`PROJECT_LEDGER_UPDATE_V0.md`](PROJECT_LEDGER_UPDATE_V0.md)
+- [`HWP_NORMALIZATION_V0.md`](HWP_NORMALIZATION_V0.md)
 - [`PROJECT_START_WORKFLOW_V0.md`](PROJECT_START_WORKFLOW_V0.md)
 - [`MISSION_MODEL.md`](MISSION_MODEL.md)
 - [`MISSION_MANUAL_DRAFT.md`](MISSION_MANUAL_DRAFT.md)

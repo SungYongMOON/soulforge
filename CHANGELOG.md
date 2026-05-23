@@ -2,6 +2,12 @@
 
 ## 2026-05-22
 
+### Revision `working` - HWP normalization-first rule added
+
+- Added `HWP_NORMALIZATION_V0.md` as the public-safe rule that HWP source files are not body-analysis targets until re-saved/exported as HWPX derivatives.
+- Clarified workspace/workmeta contracts so HWP originals, HWPX exports, and optional PDF/text companions stay in `_workspaces` or owner-approved shared worksite storage while `_workmeta` records only inventory, queue, hash, status, extraction summary, and comparison metadata.
+- Kept password entry owner-controlled, NAS/source originals read-only, and P25/reference examples below official/current/approved/accepted authority claims.
+
 ### Revision `working` - Workspace root junction exclusion rule clarified
 
 - Clarified that shared cloud/company roots are external link targets, not `_workspaces/company` direct-child materialization roots.

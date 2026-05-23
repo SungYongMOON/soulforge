@@ -6,6 +6,7 @@
 - public repo 와 local/private project worksite 의 경계를 명확히 한다.
 - `_workmeta/<project_code>/` 가 소유하는 운영 계약, binding, 실행 기록 메타데이터의 위치를 고정한다.
 - 실제 HWP/HWPX, Excel, PDF, PPT, 압축파일, 메일 파일 같은 원문 파일은 `_workmeta` 가 아니라 `_workspaces` 또는 owner-approved shared worksite 에 둔다는 경계를 고정한다.
+- HWP 원문은 먼저 HWPX 로 정규화하고, 본문 분석은 HWPX 파생본을 대상으로 한다는 전사 처리 순서를 고정한다.
 - held mission plan owner 는 `.mission/` 이고, `_workspaces/` 는 project-local worksite owner, `_workmeta/` 는 companion private metadata owner 임을 고정한다.
 - cross-project ingress/staging 은 `_workspaces/` 가 아니라 `guild_hall/state/gateway/**` 가 맡는다는 기준을 같이 잠근다.
 
@@ -97,6 +98,7 @@ _workmeta/
 - `_workmeta/<project_code>/` 는 분리된 registry 가 아니라 companion private root 안의 shared metadata plane 이며 contract, binding, 실행 기록 메타데이터, owner-handoff metadata 보관 위치다.
 - `_workmeta` 의 실행 기록은 원문 파일 보관을 뜻하지 않는다. HWP/HWPX, Word, Excel, PowerPoint, PDF, 압축파일, 메일 원문/첨부 같은 실제 원문 파일은 `_workspaces/<project_code>/...`, `_workspaces/system/...`, 또는 owner-approved shared worksite 에 둔다.
 - `_workmeta` 에는 실제 원문 파일 대신 workspace/shared worksite 경로, 크기, 해시, 출처, 사용 상태, 차단 사유 같은 포인터 메타데이터만 남긴다.
+- HWP 는 원문 자체를 본문 분석 대상으로 삼지 않는다. 모든 HWP 는 [`HWP_NORMALIZATION_V0.md`](HWP_NORMALIZATION_V0.md) 에 따라 workspace/shared worksite 작업본에서 HWPX 로 저장/export 한 뒤, HWPX 파생본만 읽는다.
 - `_workmeta/<project_code>/monsters/` 는 project-side monster current state owner 다.
 - assigned execution plan 과 mission-level 배정 owner 는 `_workmeta/` 가 아니라 `.mission/` 이 소유한다.
 - `_workmeta/<project_code>/autohunt/` 는 mailbox routing, party workflow-chain 또는 단일 workflow selection, retry-escalation 같은 자동사냥 운영 정책을 두는 local operating surface 다.
@@ -148,5 +150,6 @@ _workmeta/
 - first run/use 중 생기는 실제 프로젝트별 working note 와 evidence 는 `_workmeta/<project_code>/reports/onboarding/`, `_workmeta/<project_code>/artifacts/onboarding/` 같은 owner-only shared metadata 경로에 둔다.
 - 이 evidence 는 원문 파일 사본이 아니라 설명, 포인터, 해시, 검증 결과, 판단 이유 같은 metadata 여야 한다. 실제 참조/입력/산출 파일은 `_workspaces` 또는 owner-approved shared worksite 에 둔다.
 - `_workmeta` 에 저장하지 않는 대표 원문 파일은 `.hwp`, `.hwpx`, `.docx`, `.xlsx`, `.xlsm`, `.xls`, `.pptx`, `.ppt`, `.pdf`, `.zip`, `.7z`, `.rar`, `.egg`, `.msg`, `.eml`, `.pst`, `.ost`, `.mbox` 다.
+- `.hwp` 는 별도 전처리 대상이다. HWP 파일을 발견하면 먼저 HWPX 정규화 큐에 올리고, HWPX export 가 생기기 전에는 본문/양식/항목 추출 근거로 쓰지 않는다.
 - 새 시작 행위의 대화 순서와 실제 작업 순서는 사용자가 따로 요청하지 않아도 `_workmeta/<project_code>/reports/onboarding/project_start_worklog.md` 같은 shared workflow record 로 남기는 것을 기본안으로 본다.
 - validator 는 public-safe mode 와 opt-in local scan 을 구분해 동작한다.

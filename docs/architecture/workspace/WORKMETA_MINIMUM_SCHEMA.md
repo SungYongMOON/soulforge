@@ -6,6 +6,7 @@
 - public repo 기본 모드에서는 이 내용을 강제하지 않고, local-only contract 안내와 tracked example anchor 로 유지한다.
 - `_workmeta/<project_code>/` 는 owner-only shared metadata plane 으로서 contract, binding, handoff note, run truth metadata 를 다루며 mission assignment owner 를 뜻하지 않는다.
 - HWP/HWPX, Word, Excel, PowerPoint, PDF, 압축파일, 메일 원문/첨부 같은 실제 원문 파일은 `_workmeta` 에 저장하지 않고 `_workspaces` 또는 owner-approved shared worksite 에 둔다.
+- HWP 본문 분석은 HWP 원문이 아니라 HWPX 정규화 파생본을 대상으로 하며, `_workmeta` 는 변환 큐와 상태 메타데이터만 저장한다.
 - held mission plan 과 readiness owner 는 `.mission/` 이고, `_workmeta/<project_code>/` 는 그 mission 이 참조하는 project metadata contract 를 다룬다.
 - reserved `_workmeta/system/` 은 project-agnostic reusable workflow lab evidence 와 procedure capture 를 두는 별도 support lane 이다.
 
@@ -177,3 +178,4 @@ runtime_truth_root: runs/
 10. 사람과 Codex 가 같이 진행하는 시작 단계 기록은 `reports/onboarding/project_start_worklog.md` 에 append 하는 것을 기본안으로 본다.
 11. 새 시작 행위의 실제 작업 순서와 절차 초안도 `reports/onboarding/project_start_worklog.md` 또는 같은 경로의 topic note 로 함께 저장하는 것을 기본안으로 본다.
 12. `_workmeta` 에 실제 원문 파일을 저장하지 않는다. 대표적으로 `.hwp`, `.hwpx`, `.docx`, `.xlsx`, `.xlsm`, `.xls`, `.pptx`, `.ppt`, `.pdf`, `.zip`, `.7z`, `.rar`, `.egg`, `.msg`, `.eml`, `.pst`, `.ost`, `.mbox` 파일은 `_workspaces` 또는 owner-approved shared worksite 에 두고 `_workmeta` 에는 포인터 메타데이터만 남긴다.
+13. `.hwp` 파일은 `HWP_NORMALIZATION_V0.md` 의 정규화 큐를 거친다. `_workmeta` 에는 `inventory.yaml`, `conversion_queue.yaml`, `export_manifest.yaml`, `extraction_status.yaml`, `comparison_summary.yaml` 같은 메타데이터만 두고, HWPX/PDF/text export 원문은 workspace/shared worksite 에 둔다.

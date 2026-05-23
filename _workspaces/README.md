@@ -47,6 +47,7 @@ _workspaces/
 - 실행 기록은 `_workmeta/<project_code>/runs/<run_id>/` 아래에 남기되, 여기서 기록은 판단 근거, 검증 로그 같은 메타데이터를 뜻한다.
 - HWP/HWPX, Word, Excel, PowerPoint, PDF, 압축파일, 메일 원문/첨부 같은 실제 원문 파일은 `_workmeta` 에 두지 않고 `_workspaces/<project_code>/`, `_workspaces/system/`, 또는 owner-approved shared worksite 에 둔다.
 - `_workmeta` 는 실제 원문 파일을 직접 보관하지 않고 workspace/shared worksite 경로, 크기, 해시, 출처, 사용 상태만 기록한다.
+- HWP 파일은 본문 분석 전에 workspace/shared worksite 작업본에서 먼저 HWPX 로 저장/export 한다. HWPX 파생본이 생기기 전에는 HWP 원문을 본문/양식/항목 추출 근거로 읽지 않는다.
 - project-side monster record 는 `_workmeta/<project_code>/monsters/` 아래에 남긴다.
 - `_workmeta/<project_code>/` 는 local contract, bindings, autohunt metadata, 실행 기록 메타데이터를 두는 실행 surface 이며 mission owner 가 아니다.
 - `dungeons/`, `analytics/`, `nightly_healing/`, `reports/`, `log/`, `artifacts/` 는 public tracking 대상이 아니다.
@@ -59,6 +60,7 @@ _workspaces/
 - tracked 문서와 public-safe example 에는 실제 project code, 실제 과제명, 실제 display name 을 적지 않고 generic example 만 쓴다.
 - `_workmeta/<project_code>/` 계약 파일도 public tracking 대상이 아니다.
 - `_workmeta` 에 실제 원문 파일을 저장하지 않는다. 대표적으로 `.hwp`, `.hwpx`, `.docx`, `.xlsx`, `.xlsm`, `.xls`, `.pptx`, `.ppt`, `.pdf`, `.zip`, `.7z`, `.rar`, `.egg`, `.msg`, `.eml`, `.pst`, `.ost`, `.mbox` 파일은 workspace/shared worksite 쪽에 두고 `_workmeta` 에는 포인터 메타데이터만 남긴다.
+- `.hwp` 는 먼저 HWPX 로 정규화한다. 표준 절차는 [`docs/architecture/workspace/HWP_NORMALIZATION_V0.md`](../docs/architecture/workspace/HWP_NORMALIZATION_V0.md) 를 따른다.
 - repo 안에 남아 있는 legacy sample 또는 과거 경로 흔적은 정본이 아니며 후속 cleanup 범위다.
 - `guild_hall/state/**` 는 `guild-hall:gateway:*` 또는 `guild-hall:town-crier:*` 첫 실행 시 필요한 local runtime 폴더가 자동으로 materialize 된다.
 - `_workspaces/**` 전체를 public Git 으로 올리지 않으며, 필요한 subset 만 `PRIVATE_STATE_REPO_V0.md` 기준으로 별도 private repo 에 넣는다.
@@ -80,6 +82,7 @@ _workspaces/
 - [`docs/architecture/workspace/WORKSPACE_PROJECT_MODEL.md`](../docs/architecture/workspace/WORKSPACE_PROJECT_MODEL.md)
 - [`docs/architecture/workspace/PROJECT_ONBOARDING_V0.md`](../docs/architecture/workspace/PROJECT_ONBOARDING_V0.md)
 - [`docs/architecture/workspace/PROJECT_LEDGER_UPDATE_V0.md`](../docs/architecture/workspace/PROJECT_LEDGER_UPDATE_V0.md)
+- [`docs/architecture/workspace/HWP_NORMALIZATION_V0.md`](../docs/architecture/workspace/HWP_NORMALIZATION_V0.md)
 - [`docs/architecture/workspace/PROJECT_START_WORKFLOW_V0.md`](../docs/architecture/workspace/PROJECT_START_WORKFLOW_V0.md)
 - [`docs/architecture/workspace/MULTI_PC_DEVELOPMENT_V0.md`](../docs/architecture/workspace/MULTI_PC_DEVELOPMENT_V0.md)
 - [`docs/architecture/workspace/PRIVATE_STATE_REPO_V0.md`](../docs/architecture/workspace/PRIVATE_STATE_REPO_V0.md)
