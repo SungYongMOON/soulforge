@@ -3,6 +3,7 @@
 import path from "node:path";
 import process from "node:process";
 import { exportKnowledgeGraph } from "./graph_export.mjs";
+import { buildRetrievalPlan } from "./retrieval_plan.mjs";
 
 async function main() {
   const [command, ...rest] = process.argv.slice(2);
@@ -22,6 +23,22 @@ async function main() {
     return;
   }
 
+  if (command === "plan") {
+    const question = optionalStringArg(args, "question") ?? args._?.join(" ");
+    const result = await buildRetrievalPlan({
+      repoRoot,
+      question,
+      nodeRef: optionalStringArg(args, "node-ref"),
+      graphRef: optionalStringArg(args, "graph-ref"),
+      exportId: optionalStringArg(args, "export-id"),
+      maxNodes: args["max-nodes"],
+      maxPaths: args["max-paths"],
+      maxSourceRefs: args["max-source-refs"],
+    });
+    printJson(result);
+    return;
+  }
+
   printUsageAndExit();
 }
 
@@ -30,6 +47,7 @@ function parseArgs(argv) {
   for (let index = 0; index < argv.length; index += 1) {
     const token = argv[index];
     if (!token.startsWith("--")) {
+      args._ = [...(args._ ?? []), token];
       continue;
     }
     const parsed = parseFlagToken(token);
@@ -47,6 +65,18 @@ function parseArgs(argv) {
     }
   }
   return args;
+}
+
+function optionalStringArg(args, key) {
+  const value = args[key];
+  if (value === undefined) return undefined;
+  if (value === true) {
+    throw new Error(`--${key} requires a value`);
+  }
+  if (Array.isArray(value)) {
+    throw new Error(`--${key} accepts one value`);
+  }
+  return String(value);
 }
 
 function parseFlagToken(token) {
@@ -70,10 +100,12 @@ function printUsageAndExit() {
     [
       "Usage:",
       "  node guild_hall/knowledge_graph/cli.mjs export [--export-id <id>] [--output-root <repo-relative-output-root>] [--ledger-ref <repo-relative-jsonl>]...",
+      "  node guild_hall/knowledge_graph/cli.mjs plan --question <question> [--node-ref <node-ref>] [--graph-ref <repo-relative-graph-json>] [--export-id <id>] [--max-nodes <n>] [--max-paths <n>] [--max-source-refs <n>]",
       "",
       "Notes:",
       "  Generates metadata-only graph.json, a default Three.js graph_preview.html, graph_preview_2d.html, and an Obsidian-readable generated vault under _workspaces/system/knowledge_view by default.",
       "  Explicit ledger refs/files may add usage and recency signals. Usage counts are navigation signals, not truth or acceptance.",
+      "  The plan command reads metadata-only graph data and returns selected-node-aware candidate nodes, relation paths, source refs, missing evidence, next actions, and a detection_card render contract. It does not load source text or generate answers.",
     ].join("\n"),
   );
   process.exit(1);

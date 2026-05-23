@@ -172,6 +172,118 @@ Non-goals:
 - Do not treat NotebookLM output as validation, owner approval, ontology
   acceptance, or public canon promotion.
 
+### Knowledge graph 탐지 카드 integration candidate
+
+이 후보는 현재 metadata-only 지식 그래프 preview 와 retrieval-plan CLI 를
+그래픽 UI 에서 노드 기반 `탐지 카드` 로 여는 흐름으로 확장한다. 목적은
+RAG/GraphRAG 답변 엔진을 바로 만드는 것이 아니라, 사용자가 노드를 눌렀을
+때 "이 노드를 기준으로 어떤 관련 지식, 근거 경로, 부족한 증거, 다음 검토
+행동이 보이는가" 를 같은 계약으로 확인하게 만드는 것이다.
+
+Owner split:
+
+- `guild_hall/knowledge_graph`: graph export, planner scoring, CLI output
+  contract, preview-side metadata-only 탐지 카드 payload 를 소유한다.
+- `docs/architecture/guild_hall/KNOWLEDGE_GRAPH_VIEW_MODEL_V0.md`: 그래프
+  시각화와 탐지 카드가 claim/trust/source boundary 를 어떻게 표현하는지
+  기록한다.
+- `ui-workspace/**`: root-owned UI 에 같은 contract 를 소비하는 구현이
+  필요해질 때만 세부 계획을 내려받는다.
+- `_workmeta/system/**`: NotebookLM 결과, source delta, pilot evidence,
+  review packet 같은 private/procedure evidence 를 남긴다.
+
+Recommended sequence:
+
+1. planner output contract 와 fixture 를 안정화한다.
+2. 같은 planner logic 을 3D graph preview/browser side 에 붙인다.
+3. 노드 context menu 에 `탐지 카드 열기` action 을 추가한다.
+4. 오른쪽 sidebar/panel 에 owner-readable 탐지 카드를 표시한다.
+5. 검토된 source refs 만 public-safe source node 와 `supports` /
+   `derived_from` edge 로 확장해 카드 품질을 올린다.
+
+#### Step 1 detailed plan - planner contract stabilization
+
+Goal:
+
+- 그래픽 UI 가 재해석 없이 사용할 수 있는 `retrieval_plan` JSON contract 를
+  고정한다.
+- question-only 탐색과 selected-node 탐색을 같은 출력 shape 으로 다룬다.
+- 현재 구현이 metadata-only navigation/review planner 임을 output 자체에
+  드러낸다.
+
+Inputs:
+
+- generated `graph.json` 또는 exporter in-memory graph.
+- user question string.
+- optional selected node ref, 예: `.registry/knowledge/graph_rag`.
+- optional limits: max candidate nodes, max relation paths, max source refs.
+
+Output contract:
+
+- `schema_version`: contract version.
+- `question`: 원문 질문.
+- `selected_node_ref`: 선택 노드가 있을 때만 채움.
+- `boundary`: answer generation, source text loading, NotebookLM querying,
+  vector search, canon promotion 을 하지 않는다는 한계.
+- `candidate_nodes[]`: ref, label, type, score, score reasons, claim ceiling,
+  source refs.
+- `relation_paths[]`: selected/query candidate 주변의 짧은 relation path.
+- `missing_evidence[]`: source/support edge, vector baseline, benchmark,
+  sourcebound validation 등 부족한 증거.
+- `next_actions[]`: UI 가 버튼이나 작업 제안으로 보여줄 수 있는 다음 행동.
+
+Tasks:
+
+1. CLI 에 selected-node 모드를 추가할지 결정하고, 필요하면 `--node-ref` 같은
+   explicit option 으로 붙인다.
+2. planner module 의 output field 이름과 필수/선택 필드를 fixture 로 고정한다.
+3. 최소 fixture 3개를 둔다: query-only GraphRAG, selected-node 탐색,
+   evidence/path 가 부족한 isolated node.
+4. test 는 ranking 점수 전체가 아니라 contract shape, deterministic ordering,
+   missing-evidence honesty 를 확인한다.
+5. README 와 view model 문서는 UI 소비자가 알아야 하는 입력/출력/한계만
+   남기고, 장기 RAG 엔진 설명으로 부풀리지 않는다.
+
+Acceptance criteria:
+
+- CLI sample 이 stable JSON 을 출력하고, 그래픽 UI 가 별도 추론 없이 카드
+  제목, 후보 노드, 근거 경로, 부족한 증거, 다음 행동을 렌더링할 수 있다.
+- selected node 가 주어져도 source text, NotebookLM answer, vector result 를
+  꾸며내지 않는다.
+- fixture 테스트가 future UI port 의 회귀 기준으로 쓸 만큼 작고 명확하다.
+
+Validation:
+
+- `node --check guild_hall/knowledge_graph/retrieval_plan.mjs`
+- `node --check guild_hall/knowledge_graph/cli.mjs`
+- `npm run validate:knowledge-graph`
+- representative CLI samples for question-only and selected-node modes.
+- `npm run validate`
+
+Non-goals:
+
+- browser UI 카드 렌더링.
+- GraphRAG/RAG 답변 생성.
+- source body import, private payload indexing, NotebookLM source import.
+- ontology acceptance, owner approval, canon promotion.
+
+Step 1 implementation status:
+
+- 2026-05-23 pilot slice added selected-node-aware planner output, stable
+  `candidate_nodes` / `selected_node` / `detection_card` fields, coded
+  missing-evidence and next-action items, source-ref limits, explicit
+  `--graph-ref` failure, and fixture coverage. Browser-side rendering remains
+  Step 2.
+
+Step 2/3/4 implementation status:
+
+- 2026-05-23 pilot slice added the same metadata-only card shape to the
+  generated 3D preview browser side, added the node context-menu action
+  `탐지 카드 열기`, and rendered the selected-node card in the preview sidebar.
+  The browser card is local-only and still does not load source text, call
+  NotebookLM, run vector search, auto-call the Codex bridge, mutate graph data,
+  or promote canon.
+
 ## Active Slice 001
 
 ### 이름
@@ -226,6 +338,7 @@ Non-goals:
 | 5 | OpenClaw snapshot bridge | snapshot 출력 경계가 안정됨 | `guild_hall`, external host setup |
 | 6 | nightly sweep advisory | mission/battle log 상태가 안정됨 | `.mission`, `guild_hall/night_watch` |
 | 7 | engineering co-pilot expansion | SE assistant lane, knowledge ledger, private worklog evidence 흐름이 안정됨 | `.workflow`, `.mission`, `_workmeta`, `guild_hall/night_watch`, `.registry` |
+| 8 | knowledge graph 탐지 카드 integration | retrieval-plan command contract 와 graph export 가 안정됨 | `guild_hall/knowledge_graph`, `docs/architecture/guild_hall`, `ui-workspace`, `_workmeta/system` |
 
 ## 구체화 규칙
 

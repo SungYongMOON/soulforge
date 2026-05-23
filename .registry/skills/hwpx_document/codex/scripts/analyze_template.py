@@ -8,7 +8,7 @@ HWPX 파일을 분석하여 문서의 전체 구조, 스타일 정의, 테이블
 
 Usage:
     python3 analyze_template.py <input.hwpx>
-    python3 analyze_template.py <input.hwpx> --extract-header /tmp/ref_header.xml
+    python3 analyze_template.py <input.hwpx> --extract-header _workspaces/system/ref_header.xml
 """
 
 import sys

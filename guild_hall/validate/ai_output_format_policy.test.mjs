@@ -104,9 +104,9 @@ test("validatePolicyDoc fails when required terms are missing", async () => {
 });
 
 test("parseArgs supports fixture roots for deterministic CLI checks", () => {
-  assert.deepEqual(parseArgs(["--json", "--root", "/tmp/example", "--policy-path=policy.md"]), {
+  assert.deepEqual(parseArgs(["--json", "--root", "_workspaces/example", "--policy-path=policy.md"]), {
     json: true,
-    root: "/tmp/example",
+    root: "_workspaces/example",
     policyPath: "policy.md",
   });
 });

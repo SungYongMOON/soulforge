@@ -4,6 +4,6 @@
     "reasoning_effort":  "xhigh",
     "exit_code":  0,
     "wall_time_seconds":  121.483,
-    "events_path":  "C:\\Soulforge\\.workflow\\page_xml_normalize_spec_v0\\calibrations\\20260515-021140_repeat_topk_contract_refresh\\cli_telemetry_probe\\repeat_topk_gpt_5_5_xhigh_elf_auditor.events.jsonl",
-    "output_path":  "C:\\Soulforge\\.workflow\\page_xml_normalize_spec_v0\\calibrations\\20260515-021140_repeat_topk_contract_refresh\\cli_telemetry_probe\\outputs\\repeat_topk_gpt_5_5_xhigh_elf_auditor.md"
+    "events_path":  ".workflow/page_xml_normalize_spec_v0/calibrations/20260515-021140_repeat_topk_contract_refresh/cli_telemetry_probe/repeat_topk_gpt_5_5_xhigh_elf_auditor.events.jsonl",
+    "output_path":  ".workflow/page_xml_normalize_spec_v0/calibrations/20260515-021140_repeat_topk_contract_refresh/cli_telemetry_probe/outputs/repeat_topk_gpt_5_5_xhigh_elf_auditor.md"
 }

@@ -4,7 +4,7 @@ import { buildDailyWorkPacket, renderDailyWorkPacketMarkdown } from "./daily_wor
 
 test("buildDailyWorkPacket derives blocked mission items and owner questions", async () => {
   const packet = await buildDailyWorkPacket({
-    repoRoot: "C:/Soulforge",
+    repoRoot: "workspace_root",
     generatedAt: new Date("2026-05-16T00:00:00.000Z"),
     snapshot: {
       repo: { branch: "main" },

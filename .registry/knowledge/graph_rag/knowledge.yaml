@@ -1,0 +1,40 @@
+knowledge_id: graph_rag
+kind: knowledge
+status: active
+title: GraphRAG
+summary: Source-supported reusable knowledge for graph-assisted retrieval augmented generation, including when graph structure helps retrieval, query routing, and corpus-level synthesis.
+claim_ceiling: source_supported
+focus:
+  primary_domain: graph-assisted retrieval augmented generation
+  applied_to:
+    - sourcebound knowledge wiki research
+    - multi-hop retrieval planning
+    - corpus-level synthesis questions
+    - graph and vector retrieval comparison
+    - NotebookLM source packet preparation
+source_support:
+  public_source_refs:
+    - https://www.microsoft.com/en-us/research/project/graphrag/
+    - https://github.com/microsoft/graphrag
+    - https://microsoft.github.io/graphrag/index/overview/
+    - https://arxiv.org/abs/2404.16130
+    - https://www.microsoft.com/en-us/research/blog/introducing-drift-search-combining-global-and-local-search-methods-to-improve-quality-and-efficiency/
+    - https://www.microsoft.com/en-us/research/blog/lazygraphrag-setting-a-new-standard-for-quality-and-cost/
+    - https://arxiv.org/abs/2408.08921
+    - https://arxiv.org/abs/2502.11371
+    - https://docs.llamaindex.ai/en/stable/module_guides/indexing/lpg_index_guide/
+    - https://neo4j.com/docs/neo4j-graphrag-python/current/index.html
+claim_scope:
+  supported:
+    - GraphRAG is a family of graph-assisted RAG patterns rather than one single standard.
+    - GraphRAG is most relevant when questions require relationships, multi-hop evidence, entity neighborhoods, or corpus-level synthesis.
+    - Vector-only RAG remains an important baseline and may be sufficient for local factual or single-chunk questions.
+    - GraphRAG implementation choices include Microsoft GraphRAG-style community reports, property graph retrieval, graph database traversal, and graph/vector hybrid retrieval.
+  excluded:
+    - production adoption decision for Soulforge
+    - benchmark superiority across all corpora
+    - source truth, ontology acceptance, or NotebookLM answer authority
+    - private project corpus suitability
+notes:
+  - Registered through knowledge_wiki_cell from the GraphRAG public-source research packet.
+  - Use this as reusable orientation and routing knowledge, not as an implementation approval.

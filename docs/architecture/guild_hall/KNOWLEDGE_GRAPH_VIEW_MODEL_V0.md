@@ -232,6 +232,21 @@ place it. Visual encoding decides how to read it.
 
 ## Export Surface Split
 
+`retrieval_plan_command`:
+
+- reads a metadata-only `graph.json` or builds the same graph in memory;
+- returns selected-node-aware `candidate_nodes`, one-hop relation paths, source
+  refs, claim ceilings, coded missing-evidence items, coded next-action items,
+  and a `detection_card` render contract;
+- may run in question-only mode or selected-node mode through an explicit
+  `node_ref`; selected-node mode pins the selected node as the primary candidate
+  without loading source text or generating an answer;
+- fails when an explicit `graph_ref` is requested but not found, instead of
+  silently switching to another graph;
+- does not load source text, run vector search, query NotebookLM, assemble
+  citations, generate answers, mutate graph data, or promote canon;
+- is a navigation and sourcebound review planning surface only.
+
 `obsidian_canon_read_view`:
 
 - generated read-only markdown view;
@@ -249,6 +264,12 @@ place it. Visual encoding decides how to read it.
   a Codex-ready exploration prompt, focusing visible connections, or copying a
   node ref. Prompt contents must remain metadata-only and must not copy raw
   private payloads, secrets, or stronger authority claims;
+- may expose `탐지 카드 열기` for a selected node. The browser-side card should
+  mirror the retrieval-plan render contract (`candidate_nodes`, one-hop
+  `relation_paths`, `source_refs`, `missing_evidence_items`,
+  `next_action_items`, `detection_card`) using only the embedded graph metadata.
+  It must not call NotebookLM, Codex bridge, vector search, source readers,
+  answer generation, graph mutation, or canon promotion;
 - may localize display labels and show a palette legend, as long as the
   underlying `node_type` and `relation_type` values remain unchanged in data;
 - may include projects, workflows, parties, species, classes, units, model

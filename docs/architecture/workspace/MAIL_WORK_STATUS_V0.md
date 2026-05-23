@@ -23,8 +23,11 @@ mail rumor -> candidate note -> gateway monster -> project monster
   - `guild_hall/state/gateway/mail_work_status/latest.json`
 - priority local output:
   - `guild_hall/state/gateway/mail_work_status/priority_latest.json`
+- weekly unresolved visibility register:
+  - `_workmeta/P00-000_INBOX/reports/triage/unresolved_weekly_visibility_register.md`
 - owner:
   - `guild_hall/state/gateway/**`
+  - `_workmeta/P00-000_INBOX/reports/triage/**` for private unresolved planning visibility
 - tracked public repo 대상이 아니다.
 
 ## source surface
@@ -35,6 +38,9 @@ mail rumor -> candidate note -> gateway monster -> project monster
 - `_workmeta/<project_code>/monsters/*.yaml`
 - `_workmeta/<project_code>/missions/index.yaml`
 - `_workmeta/<project_code>/log/events/**/battle_events.jsonl`
+- `guild_hall/state/gateway/mailbox/**/{mail,quarantine}/events/**/*.jsonl`
+  - weekly visibility register only
+  - event-only fallback metadata is read so quarantine or non-candidate work-like mail can be noticed
 
 읽지 않는 것:
 
@@ -107,11 +113,61 @@ mail rumor -> candidate note -> gateway monster -> project monster
 - `thread_group`
 - `priority_flags_ko`
   - 예: `오늘 처리`, `사람 병목`, `자료 확인`, `스레드 묶기`, `보류`
+- `due_date`
+  - normalized `YYYY-MM-DD` when a deterministic date hint exists
+- `due_text`
+  - text-only urgency marker such as `긴급` when no deterministic date exists
+- `due_source`
+  - `gateway_d_day`, `subject`, or `subject_text`
+- `deadline_confidence`
+  - `structured_d_day`, `subject_full_date`, `subject_short_year_date`, `subject_month_day`, or `text_only`
+- `week_window_match`
+  - boolean/null projection for the supplied `--week-start` and `--week-end` window
+- `route_hint_candidates`
+  - metadata-only project hints that are not strong enough to set `route_candidate`
+  - example: broad AUV/AXV/mAUV/O-ring hints may expose `P25-057` and `P26-016` while leaving the actual route at `P00-000_INBOX`
+- `attachment_count`
+- `attachment_types`
+  - sanitized type labels only, never filenames, URLs, paths, provider ids, or arbitrary upstream strings
+- `classification_bucket`
 - `next_action_ko`
 - `owner_question_ko`
 - `work_status`
 - `refs`
 - `boundary.raw_payload_copied`
+
+### weekly visibility register row minimum fields
+
+- `week_start`
+- `week_end`
+- `visibility_id`
+- `source_kind`
+  - `mail_work_priority`
+  - `mailbox_event_only`
+- `source_ref`
+- `candidate_id`
+  - `null` for event-only/quarantine rows that have not become mail candidates
+- `bucket`
+  - `mail`
+  - `quarantine`
+- `received_at`
+- `due_date_or_window`
+- `project_context`
+  - exact project code or route hints
+- `route_candidate`
+- `route_confidence`
+- `subject_hint`
+- `attachment_count`
+- `attachment_types`
+  - sanitized type labels only, never filenames, URLs, paths, provider ids, or arbitrary upstream strings
+- `blocked_attachment_count`
+- `work_status`
+- `why_visible`
+- `next_action`
+- `owner_question`
+- `destination`
+- `claim_ceiling`
+- `promotion_allowed`
 
 ## status enum
 
@@ -155,6 +211,13 @@ mail rumor -> candidate note -> gateway monster -> project monster
 11. priority `thread_group` 은 subject metadata 의 deterministic matching 으로만 만든다. current-default group 은 `센서 일정/status`, `P978 시운전절차서`, `Q4 진행 독려`, `환경시험절차서`, `P23-043 접근권한`, `해경/시험 협조`, `내부 자산/admin` 이다.
 12. priority projection 은 자동 발송, 자동 mission 생성, 자동 completion, 전체 후보 자동 filing 을 하지 않는다.
 13. terminal `work_status` 인 `completed`, `completed_with_follow_up`, `blocked`, `failed` 는 완료 truth 를 우선한다. priority view 에서는 새 행동 플래그를 붙이지 않고 뒤쪽에 둔다.
+14. priority due-date parsing 은 deterministic subject/date metadata 와 gateway `d_day` 만 사용한다. mail body, HTML, attachment payload, provider payload 는 읽지 않는다.
+15. `route_hint_candidates` 는 weekly planning visibility signal 이며 project assignment truth 가 아니다. exact route 가 안전하지 않으면 `route_candidate: P00-000_INBOX` 로 남긴다.
+16. weekly visibility register 는 다음 주 확정 업무표가 아니라 미분류/미승격 mail-derived work 를 주간 계획에서 빠뜨리지 않기 위한 private 장부다.
+17. event-only/quarantine row 는 `candidate_id: null`, `promotion_allowed: false`, `claim_ceiling: observed` 로 둔다. owner 가 source mailbox/event pointer 를 직접 확인하기 전까지 project monster 로 승격하지 않는다.
+18. weekly visibility register 는 subject/date/attachment count/type/source pointer 같은 whitelist field 만 기록한다. mail body, HTML, raw provider payload, attachment filename, attachment URL, local path, provider attachment id, secret 값은 쓰지 않는다.
+19. weekly visibility register 의 attachment type 은 allowlist label 로 sanitize 한다. unknown upstream type/mime 값은 `attachment_metadata` 또는 coarse `mime_*` label 로 낮춘다.
+20. weekly visibility register output path 는 `_workmeta/P00-000_INBOX/reports/triage/**` 아래에만 쓸 수 있다.
 
 ## commands
 
@@ -163,9 +226,14 @@ npm run guild-hall:gateway:mail-work:refresh
 npm run guild-hall:gateway:mail-work:list
 npm run guild-hall:gateway:mail-work:priority:refresh
 npm run guild-hall:gateway:mail-work:priority:list
+npm run guild-hall:gateway:mail-work:weekly-visibility -- --week-start 2026-05-25 --week-end 2026-05-31
 ```
 
 priority list 는 `--work-status`, `--operating-state`, `--route-candidate`, `--route-confidence`, `--thread-group`, `--priority-flag` 로 latest priority projection 을 필터링할 수 있다.
+`--week-start <YYYY-MM-DD> --week-end <YYYY-MM-DD>` 를 주면 각 row 의 `week_window_match` 를 계산한다.
+`--week-window-only` 를 함께 주면 deterministic `due_date` 가 해당 주간 창 안에 들어온 row 만 출력한다.
+
+weekly visibility register 는 같은 week window 를 필수로 받으며, priority row 와 mailbox event-only fallback row 를 합쳐 `_workmeta/P00-000_INBOX/reports/triage/unresolved_weekly_visibility_register.md` 를 갱신한다.
 
 ## sample
 

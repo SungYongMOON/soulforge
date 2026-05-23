@@ -275,7 +275,7 @@ async function addKnowledgeNodes({ repoRoot, nodes }) {
         trust: `.registry/knowledge/${data.knowledge_id}/knowledge.yaml`,
         lifecycle: `.registry/knowledge/${data.knowledge_id}/knowledge.yaml`,
       },
-      trust: { claim_ceiling: "canon_entry" },
+      trust: { claim_ceiling: data.claim_ceiling ?? "canon_entry" },
       lifecycle: { status: data.status ?? "unknown" },
     });
   }
@@ -900,8 +900,8 @@ function renderGraphHtml3d(graph) {
     h1 { font-size: 18px; margin: 0 0 10px; letter-spacing: 0; }
     h2 { font-size: 13px; margin: 20px 0 8px; text-transform: uppercase; letter-spacing: .04em; color: #94a3b8; }
     label, select, input, button { font: inherit; }
-    select, input[type="range"] { width: 100%; }
-	    select { color: #e5e7eb; background: #111827; border: 1px solid #334155; border-radius: 6px; padding: 7px 8px; }
+    select, input[type="range"], input[type="text"] { width: 100%; }
+	    select, input[type="text"] { color: #e5e7eb; background: #111827; border: 1px solid #334155; border-radius: 6px; padding: 7px 8px; }
 	    button { color: #e0f2fe; background: #12304a; border: 1px solid rgba(56, 189, 248, .46); border-radius: 6px; padding: 8px 10px; cursor: pointer; font-weight: 750; }
 	    button:hover { background: #164466; }
 	    input[type="color"] { width: 28px; height: 24px; padding: 0; background: transparent; border: 0; }
@@ -922,6 +922,18 @@ function renderGraphHtml3d(graph) {
     .rule span { color: #a9b6ca; }
     .section-body { display: grid; gap: 8px; padding: 10px 11px 12px; }
     .section-body h2 { margin: 8px 0 0; }
+    .detection-card-panel { border-color: rgba(56, 189, 248, .34); }
+    .detection-card-controls { display: grid; gap: 7px; }
+    .detection-card-body { outline: none; }
+    .detection-card { display: grid; gap: 10px; overflow-wrap: anywhere; }
+    .detection-card-title { color: #f8fafc; font-size: 14px; font-weight: 800; line-height: 1.3; }
+    .detection-card-section { display: grid; gap: 6px; }
+    .detection-card-section-title { color: #a5b4fc; font-size: 12px; font-weight: 800; letter-spacing: .04em; text-transform: uppercase; }
+    .detection-card-list { display: grid; gap: 6px; margin: 0; padding: 0; list-style: none; }
+    .detection-card-list li { border: 1px solid rgba(148, 163, 184, .20); border-radius: 6px; padding: 7px 8px; background: rgba(2, 6, 23, .34); color: #cbd5e1; font-size: 12px; line-height: 1.38; }
+    .detection-card-item-title { display: block; color: #e0f2fe; font-weight: 750; }
+    .detection-card-code { color: #fef08a; font: 11px/1.35 ui-monospace, SFMono-Regular, Menlo, monospace; }
+    .detection-card-boundary { border-top: 1px solid rgba(148, 163, 184, .18); padding-top: 8px; }
     #graph3d { width: 100%; height: 100%; display: block; background: #05070b; }
     .hud { position: absolute; left: 18px; bottom: 16px; color: #cbd5e1; font-size: 12px; background: rgba(15, 23, 42, .72); border: 1px solid rgba(148, 163, 184, .22); border-radius: 8px; padding: 9px 11px; backdrop-filter: blur(10px); }
     .legend-panel { position: absolute; top: 16px; right: 18px; width: max-content; min-width: 170px; max-width: min(250px, calc(100% - 36px)); max-height: calc(100vh - 32px); overflow: auto; color: #e0f2fe; background: rgba(15, 23, 42, .84); border: 1px solid rgba(148, 163, 184, .26); border-radius: 8px; padding: 12px 14px; font-size: 13px; font-weight: 650; backdrop-filter: blur(10px); }
@@ -959,6 +971,21 @@ function renderGraphHtml3d(graph) {
         <div class="section-body">
           <button id="saveSettings" type="button">현재 설정 저장</button>
           <div class="meta" id="saveSettingsStatus">저장하면 이 브라우저에서 다음에 열 때 자동으로 불러옵니다.</div>
+        </div>
+      </details>
+      <details class="rule-panel detection-card-panel" id="detectionCardPanel" aria-labelledby="detectionCardSummary">
+        <summary id="detectionCardSummary">탐지 카드</summary>
+        <div class="section-body">
+          <div class="detection-card-controls">
+            <label class="meta" for="detectionNodeRef">노드 ref</label>
+            <input id="detectionNodeRef" type="text" autocomplete="off" placeholder=".registry/knowledge/graph_rag">
+            <button id="openDetectionCardByRef" type="button">ref로 열기</button>
+            <button id="closeDetectionCard" type="button">닫기</button>
+            <div class="meta" id="detectionCardStatus" aria-live="polite">노드를 우클릭하고 탐지 카드 열기를 누르거나 ref를 입력하세요.</div>
+          </div>
+          <div class="detection-card-body" id="detectionCardBody" tabindex="-1">
+            <div class="meta">선택한 노드 기준의 후보 노드, 관계 경로, 부족한 증거, 다음 행동을 메타데이터만으로 표시합니다.</div>
+          </div>
         </div>
       </details>
       <details class="rule-panel" id="visualRules">
@@ -1073,6 +1100,7 @@ function renderGraphHtml3d(graph) {
       <div class="tooltip" id="tooltip"></div>
       <div class="context-menu" id="nodeContextMenu" role="menu" aria-hidden="true">
         <div class="context-menu-title" id="contextMenuTitle">노드 탐구</div>
+        <button id="openDetectionCard" type="button">탐지 카드 열기</button>
         <button id="copyExplorePrompt" type="button">탐구 프롬프트 복사</button>
         <button id="focusContextNode" type="button">연결만 보기</button>
         <button id="copyNodeRef" type="button">ref 복사</button>
@@ -1441,9 +1469,16 @@ const nodeContextMenu = document.getElementById("nodeContextMenu");
 const contextMenuTitle = document.getElementById("contextMenuTitle");
 const contextMenuStatus = document.getElementById("contextMenuStatus");
 const contextMenuPrompt = document.getElementById("contextMenuPrompt");
+const openDetectionCardButton = document.getElementById("openDetectionCard");
 const copyExplorePromptButton = document.getElementById("copyExplorePrompt");
 const focusContextNodeButton = document.getElementById("focusContextNode");
 const copyNodeRefButton = document.getElementById("copyNodeRef");
+const detectionCardPanel = document.getElementById("detectionCardPanel");
+const detectionCardBody = document.getElementById("detectionCardBody");
+const detectionCardStatus = document.getElementById("detectionCardStatus");
+const detectionNodeRefInput = document.getElementById("detectionNodeRef");
+const openDetectionCardByRefButton = document.getElementById("openDetectionCardByRef");
+const closeDetectionCardButton = document.getElementById("closeDetectionCard");
 const ruleNodeSizeMeaning = document.getElementById("ruleNodeSizeMeaning");
 const ruleComponentHaloMeaning = document.getElementById("ruleComponentHaloMeaning");
 const connectivityEls = {
@@ -1589,6 +1624,8 @@ let focusedEdgeCount = 0;
 let visibleConnectivity = { components: 0, isolated: 0, largest: 0 };
 let componentGlowPointTexture = null;
 let contextNodeRef = null;
+let activeDetectionCardPayload = null;
+let detectionCardFocusRef = null;
 
 initControls();
 resize();
@@ -1601,12 +1638,22 @@ canvas.addEventListener("pointerleave", () => { tooltip.style.display = "none"; 
 canvas.addEventListener("contextmenu", onCanvasContextMenu);
 canvas.addEventListener("dblclick", onCanvasDoubleClick);
 nodeContextMenu.addEventListener("click", (event) => event.stopPropagation());
+openDetectionCardButton.addEventListener("click", () => showDetectionCardForContextNode());
 copyExplorePromptButton.addEventListener("click", () => copyContextExplorePrompt());
 focusContextNodeButton.addEventListener("click", () => focusContextNode());
 copyNodeRefButton.addEventListener("click", () => copyContextNodeRef());
+openDetectionCardByRefButton.addEventListener("click", () => openDetectionCardFromInput());
+closeDetectionCardButton.addEventListener("click", () => closeDetectionCard());
+detectionNodeRefInput.addEventListener("keydown", (event) => {
+  if (event.key === "Enter") openDetectionCardFromInput();
+});
 window.addEventListener("click", hideContextMenu);
 window.addEventListener("keydown", (event) => {
-  if (event.key === "Escape") hideContextMenu();
+  if (event.key !== "Escape") return;
+  hideContextMenu();
+  if (detectionCardPanel.open && detectionCardPanel.contains(document.activeElement)) {
+    closeDetectionCard();
+  }
 });
 
 function initControls() {
@@ -1902,6 +1949,7 @@ function rebuild() {
   applyFocus();
   updateHud();
   updateVisualRules();
+  const detectionCardDebugFields = buildDetectionCardDebugFields();
   window.__soulforgeGraphPreview = {
     mode: "3d",
     visibleNodeCount,
@@ -1927,6 +1975,9 @@ function rebuild() {
     focusedEdgeCount,
     componentHaloCount: componentVisuals.length,
     canvasPixelProbe,
+    openDetectionCardForNode,
+    closeDetectionCard,
+    ...detectionCardDebugFields,
   };
 }
 
@@ -2491,6 +2542,525 @@ function showPromptFallback(text) {
 function hidePromptFallback() {
   contextMenuPrompt.value = "";
   contextMenuPrompt.style.display = "none";
+}
+
+function showDetectionCardForContextNode() {
+  const node = contextNode();
+  if (!node) {
+    setContextMenuStatus("탐지 카드를 열 노드를 찾지 못했습니다.");
+    return null;
+  }
+  const payload = openDetectionCardForNode(node.node_ref);
+  if (payload) {
+    hideContextMenu();
+  }
+  return payload;
+}
+
+function openDetectionCardFromInput() {
+  const nodeRef = detectionNodeRefInput.value.trim();
+  if (!nodeRef) {
+    setDetectionCardStatus("노드 ref를 입력하세요.");
+    detectionNodeRefInput.focus();
+    return null;
+  }
+  return openDetectionCardForNode(nodeRef);
+}
+
+function openDetectionCardForNode(nodeRef) {
+  const node = visibleNodeFor(String(nodeRef ?? "").trim());
+  if (!node) {
+    setDetectionCardStatus("해당 ref의 노드를 찾지 못했습니다.");
+    return null;
+  }
+  activeDetectionCardPayload = buildDetectionCardPayload(node.node_ref);
+  detectionCardFocusRef = node.node_ref;
+  detectionCardPanel.open = true;
+  detectionNodeRefInput.value = node.node_ref;
+  renderDetectionCard(activeDetectionCardPayload);
+  setDetectionCardStatus("탐지 카드를 열었습니다: " + node.label);
+  syncDetectionCardDebugState();
+  detectionCardBody.focus({ preventScroll: true });
+  return activeDetectionCardPayload;
+}
+
+function closeDetectionCard() {
+  activeDetectionCardPayload = null;
+  detectionCardFocusRef = null;
+  detectionCardPanel.open = false;
+  renderDetectionCardPlaceholder("노드를 우클릭하고 탐지 카드 열기를 누르거나 ref를 입력하세요.");
+  setDetectionCardStatus("탐지 카드를 닫았습니다.");
+  syncDetectionCardDebugState();
+}
+
+function buildDetectionCardPayload(nodeRef) {
+  const selectedNode = visibleNodeFor(nodeRef);
+  const relations = contextRelationsFor(nodeRef);
+  const selectedCandidate = formatDetectionCandidate({
+    node: selectedNode,
+    relationEdges: relations,
+    score: 100,
+    reasons: ["selected:node_ref", "visible:current_filter"],
+    isSelected: true,
+  });
+  const candidateNodes = [
+    selectedCandidate,
+    ...buildNeighborDetectionCandidates(nodeRef, relations).slice(0, 7),
+  ];
+  const candidateRefs = new Set(candidateNodes.map((candidate) => candidate.node_ref));
+  const relationPaths = relations
+    .filter((edge) => candidateRefs.has(edge.from_ref) || candidateRefs.has(edge.to_ref))
+    .slice(0, 24)
+    .map((edge) => formatDetectionRelationPath(edge, nodeRef));
+  const sourceRefs = collectDetectionSourceRefs(candidateNodes, relationPaths, 20);
+  const missingEvidenceItems = missingEvidenceItemsFor({
+    selectedNodeRef: nodeRef,
+    candidateNodes,
+    relationPaths,
+  });
+  const nextActionItems = nextActionItemsFor({
+    missingEvidenceItems,
+    candidateNodes,
+    selectedNodeRef: nodeRef,
+  });
+  const missingEvidence = missingEvidenceItems.map((item) => item.label);
+  const nextActions = nextActionItems.map((item) => item.label);
+  const detectionCard = {
+    title: "탐지 카드: " + selectedNode.label,
+    focus_node_ref: selectedNode.node_ref,
+    focus_node_type: selectedNode.node_type,
+    claim_ceiling: selectedCandidate.claim_ceiling,
+    summary: "Metadata-only graph detection card payload. Render this as navigation and review guidance, not as an answer.",
+    counts: {
+      candidate_nodes: candidateNodes.length,
+      relation_paths: relationPaths.length,
+      source_refs: sourceRefs.length,
+      missing_evidence: missingEvidenceItems.length,
+      next_actions: nextActionItems.length,
+    },
+    render_contract: {
+      title_from: "detection_card.title",
+      focus_from: "detection_card.focus_node_ref",
+      candidates_from: "candidate_nodes",
+      relation_paths_from: "relation_paths",
+      source_refs_from: "source_refs",
+      missing_evidence_from: "missing_evidence",
+      missing_evidence_items_from: "missing_evidence_items",
+      next_actions_from: "next_actions",
+      next_action_items_from: "next_action_items",
+    },
+  };
+  return {
+    schema_version: "soulforge.knowledge_graph_browser_detection_card.v0",
+    status: "metadata_only",
+    display: {
+      mode: "selected_node",
+      title: detectionCard.title,
+    },
+    selected_node_ref: nodeRef,
+    selected_node: selectedCandidate,
+    input: {
+      source: "3d_preview",
+      question_text: "",
+      max_nodes: 8,
+      max_paths: 24,
+      max_source_refs: 20,
+    },
+    candidate_nodes: candidateNodes,
+    candidates: candidateNodes,
+    relation_paths: relationPaths,
+    source_refs: sourceRefs,
+    missing_evidence: missingEvidence,
+    missing_evidence_items: missingEvidenceItems,
+    next_actions: nextActions,
+    next_action_items: nextActionItems,
+    detection_card: detectionCard,
+    boundary: {
+      metadata_only: true,
+      no_answer_generated: true,
+      no_source_text_loaded: true,
+      no_notebooklm_answers: true,
+      no_vector_search: true,
+      no_codex_bridge_auto_call: true,
+      no_private_payloads: true,
+      no_canon_promotion: true,
+    },
+  };
+}
+
+function buildNeighborDetectionCandidates(selectedNodeRef, relations) {
+  const byRef = new Map();
+  for (const edge of relations) {
+    const otherRef = edge.from_ref === selectedNodeRef ? edge.to_ref : edge.from_ref;
+    const node = visibleNodeFor(otherRef);
+    if (!node) continue;
+    const item = byRef.get(otherRef) ?? {
+      node,
+      relationEdges: [],
+      score: 0,
+      reasons: new Set(["neighbor:one_hop", "visible:current_filter"]),
+    };
+    item.relationEdges.push(edge);
+    item.score += 1 + (edge.metrics?.evidence_event_count ?? edge.evidence_event_count ?? 0);
+    item.reasons.add("relation:" + edge.relation_type);
+    byRef.set(otherRef, item);
+  }
+  return [...byRef.values()]
+    .sort((left, right) => right.score - left.score || left.node.node_ref.localeCompare(right.node.node_ref))
+    .map((item) =>
+      formatDetectionCandidate({
+        node: item.node,
+        relationEdges: item.relationEdges,
+        score: item.score,
+        reasons: [...item.reasons].sort(),
+        isSelected: false,
+      }),
+    );
+}
+
+function formatDetectionCandidate({ node, relationEdges, score, reasons, isSelected }) {
+  return {
+    node_ref: node.node_ref,
+    label: node.label,
+    node_type: node.node_type,
+    score,
+    match_reasons: reasons,
+    is_selected: isSelected,
+    claim_ceiling: node.trust?.claim_ceiling ?? "unknown",
+    lifecycle_status: node.lifecycle?.status ?? "unknown",
+    source_refs: compactDetectionSourceRefs(node.source_refs),
+    visible_degree: relationEdges.length,
+    relation_type_counts: countByValues(relationEdges.map((edge) => edge.relation_type)),
+  };
+}
+
+function formatDetectionRelationPath(edge, selectedNodeRef) {
+  const fromNode = visibleNodeFor(edge.from_ref);
+  const toNode = visibleNodeFor(edge.to_ref);
+  return {
+    path_ref: edge.edge_ref,
+    depth: 1,
+    from: formatDetectionPathNode(fromNode, edge.from_ref),
+    relation_type: edge.relation_type,
+    relation_state: edge.relation_state,
+    directed: edge.directed,
+    direction_from_selected: edge.directed ? (edge.from_ref === selectedNodeRef ? "outgoing" : "incoming") : "undirected",
+    to: formatDetectionPathNode(toNode, edge.to_ref),
+    source_refs: compactDetectionSourceRefs(edge.source_refs),
+    evidence_event_count: edge.metrics?.evidence_event_count ?? edge.evidence_event_count ?? 0,
+    claim_ceiling_hint: weakestClaimCeilingForCard([
+      fromNode?.trust?.claim_ceiling,
+      toNode?.trust?.claim_ceiling,
+    ]),
+  };
+}
+
+function formatDetectionPathNode(node, fallbackRef) {
+  return {
+    node_ref: node?.node_ref ?? fallbackRef,
+    label: node?.label ?? fallbackRef,
+    node_type: node?.node_type ?? "unknown_node",
+    claim_ceiling: node?.trust?.claim_ceiling ?? "unknown",
+  };
+}
+
+function collectDetectionSourceRefs(candidateNodes, relationPaths, maxSourceRefs) {
+  const refs = new Map();
+  for (const candidate of candidateNodes) {
+    for (const [role, value] of Object.entries(candidate.source_refs ?? {})) {
+      addDetectionSourceRef(refs, value, role, candidate.node_ref);
+    }
+  }
+  for (const pathItem of relationPaths) {
+    for (const [role, value] of Object.entries(pathItem.source_refs ?? {})) {
+      addDetectionSourceRef(refs, value, role, pathItem.path_ref);
+    }
+  }
+  return [...refs.values()]
+    .map((item) => ({
+      ...item,
+      roles: [...item.roles].sort(),
+      referenced_by: [...item.referenced_by].sort(),
+    }))
+    .sort((left, right) => left.ref.localeCompare(right.ref))
+    .slice(0, maxSourceRefs);
+}
+
+function addDetectionSourceRef(refs, value, role, referencedBy) {
+  if (!value || typeof value !== "string") return;
+  const item =
+    refs.get(value) ??
+    {
+      ref: value,
+      ref_type: value.startsWith("http") ? "url" : "repo_metadata_ref",
+      roles: new Set(),
+      referenced_by: new Set(),
+    };
+  item.roles.add(role);
+  item.referenced_by.add(referencedBy);
+  refs.set(value, item);
+}
+
+function missingEvidenceItemsFor({ selectedNodeRef, candidateNodes, relationPaths }) {
+  const missing = [];
+  const addMissing = (code, label, refs = []) => {
+    missing.push({ code, label, related_refs: refs });
+  };
+  const nodeTypes = new Set((graph.nodes ?? []).map((node) => node.node_type));
+  const relationTypes = new Set((graph.edges ?? []).map((edge) => edge.relation_type));
+  if (selectedNodeRef && relationPaths.length === 0) {
+    addMissing(
+      "selected_node_no_relation_paths",
+      "Selected node has no relation paths in the current metadata graph, so the card can only show node-local metadata.",
+      [selectedNodeRef],
+    );
+  }
+  if (candidateNodes.length === 0) {
+    addMissing("no_strong_metadata_match", "No metadata node match was found for the selected ref.");
+  }
+  if (graph.graph_scope?.canon_only || (graph.graph_scope?.ledger_refs ?? []).length === 0) {
+    addMissing(
+      "no_knowledge_access_ledger_refs",
+      "No explicit knowledge-access ledger refs are included, so usage and recency are navigation defaults only.",
+    );
+  }
+  if (!nodeTypes.has("source") || !relationTypes.has("supports")) {
+    addMissing(
+      "no_source_support_edges",
+      "No source nodes or supports edges are present, so the card can point to metadata refs but not evidence-source support paths.",
+    );
+  }
+  addMissing(
+    "no_vector_or_hybrid_retriever",
+    "No vector/BM25 baseline, embedding index, graph traversal engine, or hybrid retriever is attached to this browser preview.",
+  );
+  if (relationPaths.length > 0) {
+    addMissing("one_hop_paths_only", "Relation paths are one-hop metadata paths only; no query-time multi-hop path scoring is implemented.");
+  }
+  if (!nodeTypes.has("validation") && !relationTypes.has("validates")) {
+    addMissing("no_validation_benchmark", "No validation or benchmark node is present for corpus-specific retrieval quality claims.");
+  }
+  return dedupeDetectionItemsByCode(missing);
+}
+
+function nextActionItemsFor({ missingEvidenceItems, candidateNodes, selectedNodeRef }) {
+  const codes = new Set(missingEvidenceItems.map((item) => item.code));
+  const actions = [];
+  const addAction = (code, label, refs = []) => {
+    actions.push({ code, label, related_refs: refs });
+  };
+  if (selectedNodeRef && codes.has("selected_node_no_relation_paths")) {
+    addAction(
+      "add_selected_node_relation_edges",
+      "Add reviewed relation edges for the selected node before treating it as a connected evidence path.",
+      [selectedNodeRef],
+    );
+  }
+  if (codes.has("no_source_support_edges")) {
+    addAction("add_source_support_edges", "Add public-safe source nodes plus supports or derived_from edges for reviewed source refs.");
+  }
+  if (codes.has("no_knowledge_access_ledger_refs")) {
+    addAction("regenerate_with_ledger_refs", "Regenerate the graph with explicit knowledge-access ledger refs when usage or recency matters.");
+  }
+  if (codes.has("no_vector_or_hybrid_retriever")) {
+    addAction("keep_metadata_only_until_sourcebound_retrieval", "Keep this card metadata-only; add a separate sourcebound retrieval workflow before any answer generation.");
+  }
+  if (codes.has("no_validation_benchmark")) {
+    addAction("add_validation_benchmark", "Add a validation or benchmark node before making retrieval quality claims.");
+  }
+  if (candidateNodes.length > 0) {
+    addAction(
+      "use_candidates_for_sourcebound_review",
+      "Use the selected and neighboring candidate nodes as the next sourcebound review scope.",
+      candidateNodes.map((candidate) => candidate.node_ref),
+    );
+  }
+  return dedupeDetectionItemsByCode(actions);
+}
+
+function dedupeDetectionItemsByCode(items) {
+  const byCode = new Map();
+  for (const item of items) {
+    if (!byCode.has(item.code)) byCode.set(item.code, item);
+  }
+  return [...byCode.values()];
+}
+
+function renderDetectionCard(payload) {
+  const root = createDetectionElement("div", "detection-card");
+  root.append(
+    createDetectionElement("div", "detection-card-title", payload.detection_card.title),
+    createDetectionElement(
+      "div",
+      "meta",
+      "focus: " + payload.detection_card.focus_node_ref + " / claim: " + payload.detection_card.claim_ceiling,
+    ),
+    renderDetectionMetrics(payload),
+  );
+  appendDetectionSection(root, "후보 노드", payload.candidate_nodes, renderDetectionCandidateItem, "후보 노드가 없습니다.");
+  appendDetectionSection(root, "근거 경로", payload.relation_paths, renderDetectionRelationItem, "현재 필터 기준 관계 경로가 없습니다.");
+  appendDetectionSection(root, "출처 ref", payload.source_refs, renderDetectionSourceItem, "출처 ref가 없습니다.");
+  appendDetectionSection(root, "부족한 증거", payload.missing_evidence_items, renderDetectionCodedItem, "부족한 증거 코드가 없습니다.");
+  appendDetectionSection(root, "다음 행동", payload.next_action_items, renderDetectionCodedItem, "다음 행동 코드가 없습니다.");
+  root.append(
+    createDetectionElement(
+      "div",
+      "meta detection-card-boundary",
+      "메타데이터 전용: 답변 생성, 원문 로딩, NotebookLM 답변, vector search, Codex bridge 자동 호출, private payload 사용 없음.",
+    ),
+  );
+  detectionCardBody.replaceChildren(root);
+}
+
+function renderDetectionCardPlaceholder(message) {
+  detectionCardBody.replaceChildren(createDetectionElement("div", "meta", message));
+}
+
+function renderDetectionMetrics(payload) {
+  const grid = createDetectionElement("div", "metric-grid");
+  grid.append(
+    renderDetectionMetric(String(payload.detection_card.counts.candidate_nodes), "후보"),
+    renderDetectionMetric(String(payload.detection_card.counts.relation_paths), "경로"),
+    renderDetectionMetric(String(payload.detection_card.counts.source_refs), "출처 ref"),
+    renderDetectionMetric(
+      payload.detection_card.counts.missing_evidence + " / " + payload.detection_card.counts.next_actions,
+      "부족 / 행동",
+    ),
+  );
+  return grid;
+}
+
+function renderDetectionMetric(value, label) {
+  const item = createDetectionElement("div", "metric");
+  item.append(createDetectionElement("strong", "", value), createDetectionElement("span", "", label));
+  return item;
+}
+
+function appendDetectionSection(root, title, items, renderer, emptyText) {
+  const section = createDetectionElement("div", "detection-card-section");
+  section.append(createDetectionElement("div", "detection-card-section-title", title));
+  const list = createDetectionElement("ul", "detection-card-list");
+  if (items.length === 0) {
+    list.append(createDetectionElement("li", "meta", emptyText));
+  } else {
+    for (const item of items) {
+      list.append(renderer(item));
+    }
+  }
+  section.append(list);
+  root.append(section);
+}
+
+function renderDetectionCandidateItem(candidate) {
+  const item = createDetectionElement("li", "");
+  item.append(
+    createDetectionElement(
+      "span",
+      "detection-card-item-title",
+      candidate.label + (candidate.is_selected ? " (선택)" : ""),
+    ),
+    createDetectionElement(
+      "span",
+      "meta",
+      labelForNodeType(candidate.node_type) + " / score " + candidate.score + " / degree " + candidate.visible_degree + " / claim " + candidate.claim_ceiling,
+    ),
+    createDetectionElement("span", "meta", candidate.node_ref),
+  );
+  return item;
+}
+
+function renderDetectionRelationItem(pathItem) {
+  const item = createDetectionElement("li", "");
+  item.append(
+    createDetectionElement(
+      "span",
+      "detection-card-item-title",
+      labelForRelationType(pathItem.relation_type) + " / " + pathItem.relation_state + " / " + pathItem.direction_from_selected,
+    ),
+    createDetectionElement("span", "meta", pathItem.from.label + " -> " + pathItem.to.label),
+    createDetectionElement(
+      "span",
+      "meta",
+      "evidence " + pathItem.evidence_event_count + " / claim hint " + pathItem.claim_ceiling_hint,
+    ),
+  );
+  return item;
+}
+
+function renderDetectionSourceItem(sourceRef) {
+  const item = createDetectionElement("li", "");
+  item.append(
+    createDetectionElement("span", "detection-card-item-title", sourceRef.ref),
+    createDetectionElement("span", "meta", sourceRef.ref_type + " / roles: " + sourceRef.roles.join(", ")),
+  );
+  return item;
+}
+
+function renderDetectionCodedItem(codedItem) {
+  const item = createDetectionElement("li", "");
+  item.append(
+    createDetectionElement("span", "detection-card-code", codedItem.code),
+    createDetectionElement("span", "meta", codedItem.label),
+  );
+  return item;
+}
+
+function createDetectionElement(tagName, className, text) {
+  const element = document.createElement(tagName);
+  if (className) element.className = className;
+  if (text !== undefined) element.textContent = text;
+  return element;
+}
+
+function compactDetectionSourceRefs(sourceRefs) {
+  return Object.fromEntries(Object.entries(sourceRefs ?? {}).filter(([, value]) => value !== null && value !== undefined));
+}
+
+function countByValues(values) {
+  const counts = {};
+  for (const value of values) {
+    counts[value] = (counts[value] ?? 0) + 1;
+  }
+  return counts;
+}
+
+function weakestClaimCeilingForCard(values) {
+  const order = ["unknown", "rejected_or_blocked", "observed", "source_supported", "validated_private", "canon_candidate", "canon_entry"];
+  const present = values.filter(Boolean);
+  if (present.length === 0) return "unknown";
+  return present.sort((left, right) => claimOrderIndexForCard(left, order) - claimOrderIndexForCard(right, order))[0] ?? "unknown";
+}
+
+function claimOrderIndexForCard(value, order) {
+  const index = order.indexOf(value);
+  return index === -1 ? 0 : index;
+}
+
+function setDetectionCardStatus(message) {
+  detectionCardStatus.textContent = message;
+}
+
+function buildDetectionCardDebugFields() {
+  return {
+    detectionCardOpen: Boolean(detectionCardPanel.open && activeDetectionCardPayload),
+    detectionCardFocusRef,
+    detectionCardPlan: activeDetectionCardPayload,
+    detectionCardMissingCodes: activeDetectionCardPayload?.missing_evidence_items.map((item) => item.code) ?? [],
+    detectionCardNextActionCodes: activeDetectionCardPayload?.next_action_items.map((item) => item.code) ?? [],
+    detectionCardCounts: activeDetectionCardPayload?.detection_card.counts ?? {
+      candidate_nodes: 0,
+      relation_paths: 0,
+      source_refs: 0,
+      missing_evidence: 0,
+      next_actions: 0,
+    },
+  };
+}
+
+function syncDetectionCardDebugState() {
+  if (window.__soulforgeGraphPreview) {
+    Object.assign(window.__soulforgeGraphPreview, buildDetectionCardDebugFields());
+  }
 }
 
 async function copyTextToClipboard(text) {

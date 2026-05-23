@@ -4,7 +4,7 @@ created_date: 2026-05-15
 kind: workflow_profile_calibration
 mode: subagent_quality_equivalence_public_synthetic
 skill_revision:
-  path: C:/Users/user/.codex/skills/soulforge-workflow-optimizer/SKILL.md
+  path: codex_skills/soulforge-workflow-optimizer/SKILL.md
   validation: quick_validate_passed_with_uv_pyyaml
 boundary:
   fixture_class: public_safe_synthetic

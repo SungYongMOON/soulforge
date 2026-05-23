@@ -25,7 +25,7 @@ Generated reusable workflow material must be portable across PCs. Use Soulforge-
 - source packets or extraction packets that may become canon
 - public-safe examples
 
-Do not store host-specific absolute paths, drive letters, usernames, home directories, or installed local skill paths in reusable workflow packages. Examples that must not appear in reusable material include `C:\Soulforge\...`, `C:\Users\...`, `/Users/name/...`, and `~/.codex/...`.
+Do not store host-specific absolute paths, drive letters, usernames, home directories, or installed local skill paths in reusable workflow packages. When examples are needed, describe the category with placeholders such as `workspace_root/...`, `user_home/...`, `codex_home/skills/...`, or `plugin_cache/...` instead of a real path.
 
 Runtime tools may still need absolute paths. Keep those only in local/private run evidence or subagent prompts and label them as `*_runtime_path`. Pair them with a portable identity:
 

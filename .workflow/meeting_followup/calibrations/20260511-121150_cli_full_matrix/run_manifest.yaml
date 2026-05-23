@@ -4,8 +4,8 @@ kind: workflow_profile_calibration_archive
 status: imported
 archive_mode: legacy_cli_full_matrix_import
 created_from:
-  matrix_file: /tmp/soulforge_profile_full_matrix_20260511-121150.json
-  shortlist_file: /tmp/soulforge_profile_llm_shortlist_eval_20260511-121150.json
+  matrix_file: _workspaces/system/calibration/soulforge_profile_full_matrix_20260511-121150.json
+  shortlist_file: _workspaces/system/calibration/soulforge_profile_llm_shortlist_eval_20260511-121150.json
 public_safe: true
 candidate_count: 300
 rule_pass_count: 95

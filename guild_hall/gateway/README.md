@@ -17,7 +17,7 @@
 - `mail_candidate.mjs`
   - mail candidate listing and promotion helper
 - `mail_work_status.mjs`
-  - mail-derived work item 상태를 candidate -> monster -> mission -> battle 기준으로 projection 하는 local-only helper
+  - mail-derived work item 상태를 candidate -> monster -> mission -> battle 기준으로 projection 하고, 주간 계획 누락 방지용 P00 visibility register 를 갱신하는 local-only helper
 - `project_mail_history_writer.mjs`
   - assigned project 가 있는 mail-derived monster 생성/갱신 이벤트를 `_workmeta/<project_code>/reports/메일_이력/` 아래 한글 파일명 CSV/엑셀/일정 이벤트 산출물로 갱신하는 private writer
 - `mail_fetch/collector/storage/mail_candidate_queue.py`
@@ -39,6 +39,12 @@
   - `mail_candidate`, `intake_inbox`, `_workmeta` mission/battle metadata 를 합쳐 `mail_work_status/latest.json` 을 갱신한다.
 - `guild-hall:gateway:mail-work:list`
   - latest projection 을 읽어 mail-derived work item 의 현재 상태를 본다.
+- `guild-hall:gateway:mail-work:priority:refresh`
+  - candidate/status metadata 를 priority projection 으로 갱신하고 due date, week-window match, route hint 후보를 붙인다.
+- `guild-hall:gateway:mail-work:priority:list`
+  - priority projection 을 필터링해서 사람이 먼저 볼 대기열을 본다. `--week-start`, `--week-end`, `--week-window-only` 로 주간 기한 후보만 좁힐 수 있다.
+- `guild-hall:gateway:mail-work:weekly-visibility`
+  - `_workmeta/P00-000_INBOX/reports/triage/unresolved_weekly_visibility_register.md` 를 갱신한다. candidate 로 못 올라온 mailbox event-only/quarantine row 는 metadata-only 로만 표시하고 자동 승격하지 않는다.
 
 ## project mail history private writer
 

@@ -2,6 +2,56 @@
 
 ## 2026-05-23
 
+### Revision `working` - Tracked absolute paths normalized
+
+- Replaced concrete host-local absolute paths in tracked test fixtures, calibration telemetry, public-safe docs, and helper references with relative or portable placeholders.
+- Extended the path-policy cleanup from changed-file scope to tracked-repo scope so `validate:path-policy:all` reports zero tracked violations.
+- Kept runtime-local roots, plugin cache locations, generated outputs, and source-file locations as metadata placeholders rather than repo-specific machine paths.
+
+### Revision `working` - Knowledge graph preview detection card added
+
+- Added a local metadata-only `탐지 카드 열기` action to the generated 3D knowledge graph node context menu.
+- Rendered the selected-node card in the preview sidebar with candidate nodes, one-hop relation paths, source refs, coded missing-evidence items, and coded next-action items built only from embedded graph metadata.
+- Added browser-test hooks for the card state while keeping the preview below NotebookLM, vector search, source text loading, Codex bridge auto-calls, graph mutation, and canon promotion.
+
+### Revision `working` - Weekly mail visibility register added
+
+- Added a metadata-only weekly visibility register for unresolved mail-derived work under `_workmeta/P00-000_INBOX/reports/triage/unresolved_weekly_visibility_register.md`.
+- Extended mail work priority rows with deterministic due-date extraction, week-window matching, and route hint candidates so broad AUV/AXV/mAUV/O-ring and P24-049/군집/LIG SAS signals are visible without unsafe auto-assignment.
+- Added `guild-hall:gateway:mail-work:weekly-visibility` plus week-window priority filtering, including event-only/quarantine fallback rows that remain `claim_ceiling: observed` and do not copy mail bodies, raw provider payloads, attachment filenames, URLs, or local paths.
+- Guarded the private register output path, sanitized attachment type labels, and suppressed event-only fallback rows for mailbox events that already have gateway/project work status.
+
+### Revision `working` - Knowledge graph retrieval plan contract stabilized
+
+- Extended the metadata-only retrieval planner with selected-node mode through `--node-ref`, stable `candidate_nodes`, `selected_node`, `input`, coded missing/action items, and `detection_card` fields for future graph UI 탐지 카드 rendering.
+- Made explicit missing `--graph-ref` paths fail instead of silently falling back to a different in-memory graph.
+- Added fixture coverage for question-only planning, selected-node planning, and isolated selected-node missing-evidence honesty.
+- Kept the planner below RAG/GraphRAG answer generation: it still does not load source text, query NotebookLM, run vector search, use a local LLM, mutate graph data, or promote canon.
+
+### Revision `working` - Codex account bridge added
+
+- Added `guild_hall/codex_bridge` and `npm run guild-hall:codex-bridge` to wrap the installed `codex exec` command for bounded analysis through the current Codex/ChatGPT login without storing an API key.
+- Kept the bridge read-only, ephemeral, and advisory by default, with no auth-file reading and no claims of source truth, owner approval, ontology acceptance, canon promotion, or production readiness.
+- Documented when to use the Codex account bridge versus deterministic graph CLI output or future sourcebound RAG workflows.
+
+### Revision `working` - Knowledge graph detection-card roadmap recorded
+
+- Added a roadmap candidate for extending the metadata-only knowledge graph preview and retrieval-plan CLI into a node-driven `탐지 카드` flow.
+- Captured the recommended implementation sequence: planner contract stabilization, browser-side planner reuse, node context-menu action, sidebar card rendering, and later reviewed source/support edges.
+- Scoped step 1 to stable planner JSON, fixtures, and validation so the graphics UI can consume the result without treating it as GraphRAG/RAG answer generation.
+
+### Revision `working` - Knowledge graph retrieval plan command added
+
+- Added a metadata-only `guild-hall:knowledge-graph -- plan` command that maps a question to candidate graph nodes, one-hop relation paths, source refs, claim ceilings, missing evidence, and next-action hints.
+- Kept the command below GraphRAG/RAG answer generation: it does not load source text, query NotebookLM, run vector search, assemble citations, mutate graph data, or promote canon.
+- Documented the retrieval plan surface as a navigation and sourcebound review planning step before any future retrieval workflow.
+
+### Revision `working` - GraphRAG knowledge entry registered
+
+- Added `.registry/knowledge/graph_rag/` as a source-supported reusable knowledge entry for GraphRAG / graph-assisted RAG orientation and query-routing decisions.
+- Recorded claim limits so the entry does not assert Soulforge production adoption, benchmark superiority, private corpus suitability, source truth, ontology acceptance, or NotebookLM answer authority.
+- Updated the knowledge graph exporter to read `claim_ceiling` from knowledge entries when present instead of always rendering registry knowledge as `canon_entry`.
+
 ### Revision `working` - Grill Me candidate skill added
 
 - Added `.registry/skills/grill_me/` as a tracked candidate Codex skill for `/grill-me` style plan pressure-testing and design-decision interviews.

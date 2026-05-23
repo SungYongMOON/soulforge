@@ -42,6 +42,6 @@ test("installLaunchdFiles copies plists into install dir", async () => {
 });
 
 test("buildLaunchdDefinitions keeps night_watch out of launchd job set", () => {
-  const definitions = buildLaunchdDefinitions({ repoRoot: "/tmp/soulforge" });
+  const definitions = buildLaunchdDefinitions({ repoRoot: "workspace_root" });
   assert.equal(definitions.some((definition) => definition.label.includes("night-watch")), false);
 });

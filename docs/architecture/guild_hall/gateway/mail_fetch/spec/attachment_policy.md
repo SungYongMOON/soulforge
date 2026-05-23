@@ -79,7 +79,7 @@
 - 동일 host가 `EMAIL_FETCH_ALLOWED_LINK_HOSTS`와 `EMAIL_FETCH_DENIED_LINK_HOSTS`에 동시에 존재하면 실패
 
 4. 권장 운영
-- 실데이터 검증은 운영 런타임이 아닌 격리 런타임(`/tmp/...`)에서 먼저 수행
+- 실데이터 검증은 운영 런타임이 아닌 격리 런타임(`isolated-runtime/...`)에서 먼저 수행
 - 검증 후 운영 `.env`에 승격
 
 ## 광고/격리 분류 기준

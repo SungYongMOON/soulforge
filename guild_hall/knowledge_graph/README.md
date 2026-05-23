@@ -14,6 +14,8 @@ promotion.
 ```bash
 npm run guild-hall:knowledge-graph -- export --export-id knowledge_graph_v0
 npm run guild-hall:knowledge-graph -- export --ledger-ref _workmeta/system/reports/knowledge_access/events/2026/2026-05.jsonl --export-id knowledge_graph_live_v0
+npm run guild-hall:knowledge-graph -- plan --question "GraphRAG multi-hop source-backed retrieval plan"
+npm run guild-hall:knowledge-graph -- plan --node-ref ".registry/knowledge/graph_rag" --question "이 노드 기준으로 탐지 카드"
 npm run validate:knowledge-graph
 ```
 
@@ -55,10 +57,14 @@ The 3D preview also exposes a single `현재 설정 저장` button. It stores th
 view configuration in the browser for the current export id and restores it on
 the next open; this is a presentation preference, not graph data.
 Right-clicking a 3D node opens a small exploration menu. The menu can copy a
-Codex-ready exploration prompt, focus the graph on that node's visible
-connections, or copy the node ref. The copied prompt contains only metadata
-refs, current filters, visible relation summaries, and boundary reminders. If
-the browser blocks clipboard access, the menu exposes the same text in a readonly
+metadata-only `탐지 카드` into the sidebar, copy a Codex-ready exploration
+prompt, focus the graph on that node's visible connections, or copy the node
+ref. The card mirrors the planner contract shape with `candidate_nodes`,
+one-hop `relation_paths`, `source_refs`, `missing_evidence_items`, and
+`next_action_items`, but it is built only from the embedded `graph.json` data
+already present in the preview. The copied prompt contains only metadata refs,
+current filters, visible relation summaries, and boundary reminders. If the
+browser blocks clipboard access, the menu exposes the same text in a readonly
 manual-copy field.
 The 3D preview keeps the canvas fixed to the viewport and scrolls the sidebar
 independently. Sidebar controls are grouped into collapsible sections so the
@@ -91,10 +97,26 @@ a background double-click clears the focus. The preview uses Korean display
 labels for node and relation filters, with a top-right palette legend for the
 currently visible colors.
 
+The `plan` command is a metadata-only retrieval planner. It reads a generated
+`graph.json` if present, or builds an in-memory graph from the same public canon
+metadata, then returns `candidate_nodes`, one-hop `relation_paths`, `source_refs`,
+claim ceilings, `missing_evidence_items`, `next_action_items`, and a
+`detection_card` render contract. It supports either question-only mode or
+selected-node mode through `--node-ref`. A selected node is pinned as the primary
+candidate with `is_selected: true` so future graph UI cards can render the same
+shape without inventing extra judgment. If an explicit `--graph-ref` is supplied
+and missing, the command fails instead of silently falling back to another graph.
+It does not load source text, query NotebookLM, run vector search, or generate an
+answer.
+
 ## Boundary
 
 - Reads public canon metadata and explicit ledger refs/files only.
 - Does not scan private roots by default.
 - Does not copy raw source text, private packet payloads, NotebookLM answers,
   secrets, credentials, or runtime absolute paths into graph data.
+- The retrieval plan output is a navigation signal and review scope, not answer
+  evidence or retrieval quality validation.
+- The 3D preview 탐지 카드 is also local and metadata-only: it does not call
+  NotebookLM, Codex bridge, vector search, source readers, or graph mutation.
 - Obsidian output is a generated read-only view.

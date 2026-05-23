@@ -21,6 +21,7 @@ import {
   defaultMailWorkStatusLatestFile,
   listMailWorkPriority,
   listMailWorkStatus,
+  refreshMailWeeklyVisibilityRegister,
   refreshMailWorkPriority,
   refreshMailWorkStatus,
 } from "./mail_work_status.mjs";
@@ -98,6 +99,11 @@ async function main() {
     return;
   }
 
+  if (command === "refresh-mail-weekly-visibility") {
+    await runRefreshMailWeeklyVisibilityRegister(args);
+    return;
+  }
+
   if (command === "triage-mail-candidate") {
     await runTriageMailCandidate(args);
     return;
@@ -160,8 +166,9 @@ function printUsageAndExit() {
       "  node guild_hall/gateway/cli.mjs promote-mail-candidate --candidate-file <path> [--output-file <path>] [--allow-output-outside-state] [--no-status-update] [--force]",
       "  node guild_hall/gateway/cli.mjs list-mail-work-status [--latest-file <path>] [--work-status <status|all>] [--project-code <code>]",
       "  node guild_hall/gateway/cli.mjs refresh-mail-work-status [--latest-file <path>] [--queue-root <path>] [--intake-inbox-root <path>] [--workmeta-root <path>]",
-      "  node guild_hall/gateway/cli.mjs list-mail-work-priority [--latest-file <path>] [--work-status <status|all>] [--operating-state <ko>] [--route-candidate <code>] [--route-confidence <exact|review|none>] [--thread-group <label>] [--priority-flag <ko>]",
-      "  node guild_hall/gateway/cli.mjs refresh-mail-work-priority [--latest-file <path>] [--queue-root <path>] [--intake-inbox-root <path>] [--workmeta-root <path>]",
+      "  node guild_hall/gateway/cli.mjs list-mail-work-priority [--latest-file <path>] [--work-status <status|all>] [--operating-state <ko>] [--route-candidate <code>] [--route-confidence <exact|review|none>] [--thread-group <label>] [--priority-flag <ko>] [--week-start <YYYY-MM-DD>] [--week-end <YYYY-MM-DD>] [--week-window-only]",
+      "  node guild_hall/gateway/cli.mjs refresh-mail-work-priority [--latest-file <path>] [--queue-root <path>] [--intake-inbox-root <path>] [--workmeta-root <path>] [--week-start <YYYY-MM-DD>] [--week-end <YYYY-MM-DD>]",
+      "  node guild_hall/gateway/cli.mjs refresh-mail-weekly-visibility --week-start <YYYY-MM-DD> --week-end <YYYY-MM-DD> [--output-file <path>] [--mailbox-root <path>]",
       "  node guild_hall/gateway/cli.mjs triage-mail-candidate (--candidate-file <path> | --all-pending) [--queue-root <path>] [--binding-file <path>] [--private-deep] [--force]",
       "  node guild_hall/gateway/cli.mjs notify-gateway --event <event> (--on | --off)",
       "  node guild_hall/gateway/cli.mjs notify-mission --mission-id <id> --event <event> (--on | --off)",
@@ -245,6 +252,9 @@ async function runListMailWorkPriority(args) {
     routeConfidence: args["route-confidence"] ? String(args["route-confidence"]) : "",
     threadGroup: args["thread-group"] ? String(args["thread-group"]) : "",
     priorityFlag: args["priority-flag"] ? String(args["priority-flag"]) : "",
+    weekStart: args["week-start"] ? String(args["week-start"]) : "",
+    weekEnd: args["week-end"] ? String(args["week-end"]) : "",
+    weekWindowOnly: Boolean(args["week-window-only"]),
   });
   printJson(result);
 }
@@ -256,6 +266,22 @@ async function runRefreshMailWorkPriority(args) {
     intakeInboxRoot: args["intake-inbox-root"] ? path.resolve(String(args["intake-inbox-root"])) : undefined,
     workmetaRoot: args["workmeta-root"] ? path.resolve(String(args["workmeta-root"])) : undefined,
     outputFile: args["latest-file"] ? path.resolve(String(args["latest-file"])) : undefined,
+    weekStart: args["week-start"] ? String(args["week-start"]) : "",
+    weekEnd: args["week-end"] ? String(args["week-end"]) : "",
+  });
+  printJson(result);
+}
+
+async function runRefreshMailWeeklyVisibilityRegister(args) {
+  const result = await refreshMailWeeklyVisibilityRegister({
+    repoRoot,
+    queueRoot: args["queue-root"] ? path.resolve(String(args["queue-root"])) : undefined,
+    intakeInboxRoot: args["intake-inbox-root"] ? path.resolve(String(args["intake-inbox-root"])) : undefined,
+    workmetaRoot: args["workmeta-root"] ? path.resolve(String(args["workmeta-root"])) : undefined,
+    mailboxRoot: args["mailbox-root"] ? path.resolve(String(args["mailbox-root"])) : undefined,
+    outputFile: args["output-file"] ? path.resolve(String(args["output-file"])) : undefined,
+    weekStart: args["week-start"] ? String(args["week-start"]) : "",
+    weekEnd: args["week-end"] ? String(args["week-end"]) : "",
   });
   printJson(result);
 }

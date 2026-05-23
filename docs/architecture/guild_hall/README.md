@@ -14,6 +14,7 @@
 | `KNOWLEDGE_WORKFLOW_STACK_V0.md` | project work 에서 실제로 knowledge layer 를 어떤 순서와 workflow stack 으로 쓰는지 고정한다. |
 | `KNOWLEDGE_WAREHOUSE_BOOKSHELF_RULES_V0.md` | Fixes the Google Drive source warehouse, NotebookLM query bookshelf, source catalog, and ontology-candidate vocabulary and placement rules. |
 | `KNOWLEDGE_GRAPH_VIEW_MODEL_V0.md` | Defines the metadata-only graph view, visual encoding, source trace, layout, and Obsidian/operations export split for knowledge graph views. |
+| `CODEX_ACCOUNT_BRIDGE_V0.md` | Describes the account-based Codex CLI bridge for advisory analysis without storing an API key. |
 | `KNOWLEDGE_WIKI_WORLDVIEW_V0.md` / `knowledge_wiki_worldview_v0.html` | Teammate-facing overview of the Soulforge knowledge wiki worldview, current status, operating rules, and next steps. |
 | `SOULFORGE_ACTIVITY_LOG_V0.md` | cross-project recent-context 와 carry-forward event surface 를 설명한다. |
 | `SOULFORGE_SNAPSHOT_V0.md` | UI/external host 가 읽을 sanitized read-only snapshot 계약이다. |
@@ -62,6 +63,7 @@
 - [`KNOWLEDGE_WORKFLOW_STACK_V0.md`](KNOWLEDGE_WORKFLOW_STACK_V0.md)
 - [`KNOWLEDGE_WAREHOUSE_BOOKSHELF_RULES_V0.md`](KNOWLEDGE_WAREHOUSE_BOOKSHELF_RULES_V0.md)
 - [`KNOWLEDGE_GRAPH_VIEW_MODEL_V0.md`](KNOWLEDGE_GRAPH_VIEW_MODEL_V0.md)
+- [`CODEX_ACCOUNT_BRIDGE_V0.md`](CODEX_ACCOUNT_BRIDGE_V0.md)
 - [`KNOWLEDGE_WIKI_WORLDVIEW_V0.md`](KNOWLEDGE_WIKI_WORLDVIEW_V0.md)
 - [`knowledge_wiki_worldview_v0.html`](knowledge_wiki_worldview_v0.html)
 - [`SOULFORGE_ACTIVITY_LOG_V0.md`](SOULFORGE_ACTIVITY_LOG_V0.md)

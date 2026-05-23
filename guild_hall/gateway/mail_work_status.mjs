@@ -1,4 +1,5 @@
 import { promises as fs } from "node:fs";
+import { createHash } from "node:crypto";
 import path from "node:path";
 import YAML from "yaml";
 
@@ -29,6 +30,20 @@ export function defaultMailWorkPriorityLatestFile(repoRoot) {
 
 export function defaultWorkmetaRoot(repoRoot) {
   return path.join(repoRoot, "_workmeta");
+}
+
+export function defaultMailboxRoot(repoRoot) {
+  return path.join(repoRoot, "guild_hall", "state", "gateway", "mailbox");
+}
+
+export function defaultMailWeeklyVisibilityRegisterFile(repoRoot) {
+  return path.join(
+    defaultWorkmetaRoot(repoRoot),
+    "P00-000_INBOX",
+    "reports",
+    "triage",
+    "unresolved_weekly_visibility_register.md",
+  );
 }
 
 export async function refreshMailWorkStatus({
@@ -107,12 +122,16 @@ export async function refreshMailWorkPriority({
   intakeInboxRoot = defaultGatewayIntakeInboxRoot(repoRoot),
   workmetaRoot = defaultWorkmetaRoot(repoRoot),
   outputFile = defaultMailWorkPriorityLatestFile(repoRoot),
+  weekStart = "",
+  weekEnd = "",
 }) {
   const projection = await buildMailWorkPriorityProjection({
     repoRoot,
     queueRoot,
     intakeInboxRoot,
     workmetaRoot,
+    weekStart,
+    weekEnd,
   });
   await writeJson(outputFile, projection);
   return {
@@ -138,7 +157,11 @@ export async function listMailWorkPriority({
   routeConfidence = "",
   threadGroup = "",
   priorityFlag = "",
+  weekStart = "",
+  weekEnd = "",
+  weekWindowOnly = false,
 }) {
+  const weekWindow = normalizeWeekWindow({ weekStart, weekEnd });
   let projectionSource = "latest";
   let projection;
 
@@ -173,6 +196,11 @@ export async function listMailWorkPriority({
   if (priorityFlag) {
     entries = entries.filter((entry) => normalizeArray(entry.priority_flags_ko).includes(priorityFlag));
   }
+  if (weekWindow.active) {
+    entries = entries
+      .map((entry) => withWeekWindowMatch(entry, weekWindow))
+      .filter((entry) => !weekWindowOnly || entry.week_window_match === true);
+  }
 
   return {
     request_id: "mail_work_priority_list",
@@ -185,6 +213,103 @@ export async function listMailWorkPriority({
     counts: countByPriorityState(entries),
     route_counts: countByRoute(entries),
     entries,
+  };
+}
+
+export async function refreshMailWeeklyVisibilityRegister({
+  repoRoot,
+  queueRoot = defaultMailCandidateQueueRoot(repoRoot),
+  intakeInboxRoot = defaultGatewayIntakeInboxRoot(repoRoot),
+  workmetaRoot = defaultWorkmetaRoot(repoRoot),
+  mailboxRoot = defaultMailboxRoot(repoRoot),
+  outputFile = defaultMailWeeklyVisibilityRegisterFile(repoRoot),
+  weekStart,
+  weekEnd,
+}) {
+  assertWeeklyVisibilityOutputPath(repoRoot, outputFile);
+  const register = await buildMailWeeklyVisibilityRegister({
+    repoRoot,
+    queueRoot,
+    intakeInboxRoot,
+    workmetaRoot,
+    mailboxRoot,
+    weekStart,
+    weekEnd,
+  });
+  await fs.mkdir(path.dirname(outputFile), { recursive: true });
+  await fs.writeFile(outputFile, renderMailWeeklyVisibilityRegisterMarkdown(register), "utf8");
+  return {
+    request_id: "mail_weekly_visibility_register_refresh",
+    status: "refreshed",
+    register_ref: relativeToRepo(repoRoot, outputFile),
+    generated_at: register.generated_at,
+    week_start: register.week_start,
+    week_end: register.week_end,
+    count: register.count,
+    counts: register.counts,
+    rows: register.rows,
+  };
+}
+
+export async function buildMailWeeklyVisibilityRegister({
+  repoRoot,
+  queueRoot = defaultMailCandidateQueueRoot(repoRoot),
+  intakeInboxRoot = defaultGatewayIntakeInboxRoot(repoRoot),
+  workmetaRoot = defaultWorkmetaRoot(repoRoot),
+  mailboxRoot = defaultMailboxRoot(repoRoot),
+  weekStart,
+  weekEnd,
+}) {
+  const weekWindow = normalizeWeekWindow({ weekStart, weekEnd });
+  if (!weekWindow.weekStart || !weekWindow.weekEnd) {
+    throw new Error("week-start and week-end are required for weekly visibility register");
+  }
+
+  const priorityProjection = await buildMailWorkPriorityProjection({
+    repoRoot,
+    queueRoot,
+    intakeInboxRoot,
+    workmetaRoot,
+    weekStart: weekWindow.weekStart,
+    weekEnd: weekWindow.weekEnd,
+  });
+  const priorityRows = normalizeArray(priorityProjection.entries)
+    .filter((entry) => shouldIncludePriorityInWeeklyVisibility(entry))
+    .map((entry) => buildVisibilityRowFromPriority(entry, weekWindow));
+  const statusProjection = await buildMailWorkStatusProjection({
+    repoRoot,
+    queueRoot,
+    intakeInboxRoot,
+    workmetaRoot,
+  });
+  const candidateEventIds = new Set(
+    [...normalizeArray(priorityProjection.entries), ...normalizeArray(statusProjection.entries)]
+      .map((entry) => entry.mail_source_ref)
+      .filter(Boolean),
+  );
+  const eventOnlyRows = await buildEventOnlyVisibilityRows({
+    repoRoot,
+    mailboxRoot,
+    weekWindow,
+    candidateEventIds,
+  });
+  const rows = [...priorityRows, ...eventOnlyRows].sort(compareVisibilityRows);
+
+  return {
+    schema_version: "soulforge.mail_weekly_visibility_register.v0",
+    kind: "mail_weekly_visibility_register",
+    generated_at: new Date().toISOString(),
+    week_start: weekWindow.weekStart,
+    week_end: weekWindow.weekEnd,
+    count: rows.length,
+    counts: countByVisibilitySource(rows),
+    rows,
+    boundary: {
+      body_copied: false,
+      attachment_payload_copied: false,
+      attachment_names_copied: false,
+      secret_read: false,
+    },
   };
 }
 
@@ -249,7 +374,10 @@ export async function buildMailWorkPriorityProjection({
   queueRoot = defaultMailCandidateQueueRoot(repoRoot),
   intakeInboxRoot = defaultGatewayIntakeInboxRoot(repoRoot),
   workmetaRoot = defaultWorkmetaRoot(repoRoot),
+  weekStart = "",
+  weekEnd = "",
 }) {
+  const weekWindow = normalizeWeekWindow({ weekStart, weekEnd });
   const statusProjection = await buildMailWorkStatusProjection({
     repoRoot,
     queueRoot,
@@ -264,7 +392,12 @@ export async function buildMailWorkPriorityProjection({
     }));
   const threadCounts = countByThreadGroup(preparedEntries);
   const entries = preparedEntries
-    .map(({ entry, thread_group }) => buildPriorityRow(entry, thread_group, Number(threadCounts.get(thread_group) ?? 1)))
+    .map(({ entry, thread_group }) =>
+      buildPriorityRow(entry, thread_group, Number(threadCounts.get(thread_group) ?? 1), {
+        weekStart: weekWindow.weekStart,
+        weekEnd: weekWindow.weekEnd,
+      }),
+    )
     .sort(comparePriorityEntries);
 
   return {
@@ -406,6 +539,8 @@ async function loadProjectMonsters(repoRoot, projectRoot, projectCode, projectMo
       project_code: monster.project_code ?? projectCode,
       stage: monster.stage ?? null,
       status: monster.status ?? null,
+      due_state: monster.due_state ?? null,
+      d_day: monster.d_day ?? null,
       mission_ref: monster.mission_ref ?? null,
       source_refs: normalizeArray(monster.source_refs),
       updated_at: latestTimestamp([monster.updated_at, monster.created_at]),
@@ -487,6 +622,8 @@ function finalizeProjectionRecord({ projectState, record }) {
   const mailSourceRef = firstNonEmpty(candidate?.event_id, gateway?.source_ref, ...normalizeArray(project?.source_refs));
   const subject = firstNonEmpty(candidate?.subject, gateway?.subject);
   const receivedAt = firstNonEmpty(candidate?.received_at, gateway?.received_at);
+  const dueState = firstNonEmpty(project?.due_state, gateway?.monster?.due_state);
+  const dDay = firstNonEmpty(project?.d_day, gateway?.monster?.d_day);
   const updatedAt = latestTimestamp([
     candidate?.updated_at,
     gateway?.updated_at,
@@ -510,6 +647,8 @@ function finalizeProjectionRecord({ projectState, record }) {
     status_reason: work.status_reason,
     subject,
     received_at: receivedAt,
+    due_state: dueState,
+    d_day: dDay,
     mail_source: candidate?.source ?? null,
     mail_workspace: candidate?.workspace ?? null,
     attachment_count: Number(candidate?.attachment_count ?? 0),
@@ -708,10 +847,11 @@ function findCandidateBySourceRefs(byEventId, sourceRefs) {
   return null;
 }
 
-function buildPriorityRow(entry, threadGroup, threadCount) {
+function buildPriorityRow(entry, threadGroup, threadCount, options = {}) {
   const route = resolvePriorityRoute(entry);
   const operatingState = resolveOperatingState(entry, route, threadCount);
   const priorityFlags = resolvePriorityFlags(entry, operatingState, route, threadCount);
+  const planningFields = deriveMailPlanningFields(entry, route, options);
 
   return {
     candidate_id: entry.candidate_id ?? null,
@@ -722,6 +862,15 @@ function buildPriorityRow(entry, threadGroup, threadCount) {
     route_candidate: route.route_candidate,
     route_confidence: route.route_confidence,
     thread_group: threadGroup,
+    due_date: planningFields.due_date,
+    due_text: planningFields.due_text,
+    due_source: planningFields.due_source,
+    deadline_confidence: planningFields.deadline_confidence,
+    week_window_match: planningFields.week_window_match,
+    route_hint_candidates: planningFields.route_hint_candidates,
+    attachment_count: Number(entry.attachment_count ?? 0),
+    attachment_types: sanitizeAttachmentTypeLabels(entry.attachment_types),
+    classification_bucket: entry.classification_bucket ?? null,
     priority_flags_ko: priorityFlags,
     next_action_ko: resolveNextActionKo(entry, operatingState, route, threadCount),
     owner_question_ko: resolveOwnerQuestionKo(entry, operatingState, route, threadCount),
@@ -730,6 +879,167 @@ function buildPriorityRow(entry, threadGroup, threadCount) {
     boundary: {
       raw_payload_copied: false,
     },
+  };
+}
+
+export function resolveMailPlanningRoute(entry) {
+  const route = resolvePriorityRoute(entry ?? {});
+  return {
+    route_candidate: route.route_candidate,
+    route_confidence: route.route_confidence,
+    route_kind: route.route_kind,
+  };
+}
+
+export function deriveMailPlanningFields(entry = {}, route = resolvePriorityRoute(entry), options = {}) {
+  const due = extractDueHintFromDday(entry.d_day) ?? extractDueHintFromSubject(entry.subject, entry.received_at);
+  const dueDate = due?.due_date ?? null;
+
+  return {
+    due_date: dueDate,
+    due_text: due?.due_text ?? null,
+    due_source: due?.due_source ?? null,
+    deadline_confidence: due?.deadline_confidence ?? null,
+    week_window_match: matchWeekWindow(dueDate, options),
+    route_hint_candidates: resolveRouteHintCandidates(entry, route),
+  };
+}
+
+export function withWeekWindowMatch(entry = {}, options = {}) {
+  return {
+    ...entry,
+    week_window_match: matchWeekWindow(entry.due_date ?? null, options),
+  };
+}
+
+function shouldIncludePriorityInWeeklyVisibility(entry) {
+  if (isTerminalWorkStatus(entry.work_status)) {
+    return false;
+  }
+  if (["none/personal", "none/promo"].includes(entry.route_candidate)) {
+    return false;
+  }
+  if (entry.route_candidate === "P00-000_INBOX") {
+    return true;
+  }
+  if (entry.week_window_match === true) {
+    return true;
+  }
+  return normalizeArray(entry.priority_flags_ko).some((flag) => ["오늘 처리", "사람 병목"].includes(flag));
+}
+
+function buildVisibilityRowFromPriority(entry, weekWindow) {
+  const sourceRef = firstNonEmpty(entry.refs?.candidate_ref, entry.mail_source_ref);
+  return compactObject({
+    week_start: weekWindow.weekStart,
+    week_end: weekWindow.weekEnd,
+    visibility_id: visibilityId("mail_work_priority", sourceRef ?? entry.candidate_id, weekWindow),
+    source_kind: "mail_work_priority",
+    source_ref: sourceRef,
+    candidate_id: entry.candidate_id ?? null,
+    bucket: entry.classification_bucket ?? "mail",
+    received_at: entry.received_at ?? null,
+    due_date_or_window: entry.due_date ?? entry.due_text ?? null,
+    project_context: summarizeProjectContext(entry.route_candidate, entry.route_hint_candidates),
+    route_candidate: entry.route_candidate ?? null,
+    route_confidence: entry.route_confidence ?? null,
+    subject_hint: truncateText(entry.subject, 160),
+    attachment_count: Number(entry.attachment_count ?? 0),
+    attachment_types: sanitizeAttachmentTypeLabels(entry.attachment_types),
+    blocked_attachment_count: 0,
+    work_status: entry.work_status ?? "unknown",
+    why_visible: resolveVisibilityReason(entry),
+    next_action: entry.next_action_ko ?? null,
+    owner_question: entry.owner_question_ko ?? null,
+    destination: entry.route_candidate === "P00-000_INBOX" ? "_workmeta/P00-000_INBOX/reports/triage" : entry.route_candidate,
+    claim_ceiling: "observed",
+    promotion_allowed: entry.route_confidence === "exact",
+  });
+}
+
+async function buildEventOnlyVisibilityRows({ repoRoot, mailboxRoot, weekWindow, candidateEventIds }) {
+  if (!(await pathExists(mailboxRoot))) {
+    return [];
+  }
+
+  const files = await collectFiles(mailboxRoot, (filePath) => {
+    const normalized = filePath.split(path.sep).join("/");
+    return (
+      filePath.endsWith(".jsonl") &&
+      (normalized.includes("/mail/events/") || normalized.includes("/quarantine/events/"))
+    );
+  });
+  const rows = [];
+
+  for (const filePath of files) {
+    const raw = await fs.readFile(filePath, "utf8");
+    for (const line of raw.split(/\r?\n/u)) {
+      if (!line.trim()) {
+        continue;
+      }
+      const event = JSON.parse(line.replace(/^\uFEFF/u, ""));
+      const eventId = String(event.event_id ?? "").trim();
+      if (!eventId || candidateEventIds.has(eventId)) {
+        continue;
+      }
+      const row = buildVisibilityRowFromMailboxEvent({ repoRoot, filePath, event, weekWindow });
+      if (row) {
+        rows.push(row);
+      }
+    }
+  }
+
+  return rows;
+}
+
+function buildVisibilityRowFromMailboxEvent({ repoRoot, filePath, event, weekWindow }) {
+  const bucket = mailboxBucketFromPath(filePath, event);
+  const attachmentSummary = summarizeEventAttachments(event);
+  const summaryEntry = {
+    mail_source_ref: event.event_id ?? null,
+    subject: event.subject ?? null,
+    received_at: event.received_at ?? null,
+    attachment_count: attachmentSummary.attachment_count,
+    attachment_types: attachmentSummary.attachment_types,
+    classification_bucket: bucket,
+    work_status: "event_only_review_needed",
+  };
+  const route = resolvePriorityRoute(summaryEntry);
+  const planningFields = deriveMailPlanningFields(summaryEntry, route, weekWindow);
+  const visible =
+    planningFields.week_window_match === true ||
+    (bucket === "quarantine" && isWorkLikeSubject(normalizeSearchText(summaryEntry.subject), summaryEntry)) ||
+    (route.route_candidate === "P00-000_INBOX" && normalizeArray(planningFields.route_hint_candidates).length > 0);
+
+  if (!visible || ["none/personal", "none/promo"].includes(route.route_candidate)) {
+    return null;
+  }
+
+  const sourceRef = `${relativeToRepo(repoRoot, filePath)}#event_id=${event.event_id}`;
+  return {
+    week_start: weekWindow.weekStart,
+    week_end: weekWindow.weekEnd,
+    visibility_id: visibilityId("mailbox_event_only", sourceRef, weekWindow),
+    source_kind: "mailbox_event_only",
+    source_ref: sourceRef,
+    candidate_id: null,
+    bucket,
+    received_at: event.received_at ?? null,
+    due_date_or_window: planningFields.due_date ?? planningFields.due_text ?? null,
+    project_context: summarizeProjectContext(route.route_candidate, planningFields.route_hint_candidates),
+    route_candidate: route.route_candidate,
+    route_confidence: route.route_confidence,
+    subject_hint: truncateText(event.subject, 160),
+    attachment_count: attachmentSummary.attachment_count,
+    attachment_types: attachmentSummary.attachment_types,
+    blocked_attachment_count: attachmentSummary.blocked_attachment_count,
+    work_status: "event_only_review_needed",
+    why_visible: bucket === "quarantine" ? "quarantine_worklike_event" : "event_only_due_or_route_hint",
+    next_action: "owner reviews source mailbox/event pointer on the owner node",
+    owner_question: "이 event-only 메일을 후보/프로젝트 장부로 승격할까요?",
+    destination: "_workmeta/P00-000_INBOX/reports/triage",
+    claim_ceiling: "observed",
+    promotion_allowed: false,
   };
 }
 
@@ -985,7 +1295,14 @@ function isPromoLike(subjectText) {
 }
 
 function hasDueOrUrgentHint(subjectText) {
-  return subjectText.includes("urgent") || subjectText.includes("오늘") || subjectText.includes("까지") || /~\s?\d/u.test(subjectText);
+  return (
+    subjectText.includes("urgent") ||
+    subjectText.includes("긴급") ||
+    subjectText.includes("asap") ||
+    subjectText.includes("오늘") ||
+    subjectText.includes("까지") ||
+    /~\s?\d/u.test(subjectText)
+  );
 }
 
 function needsHumanReview(subjectText, route) {
@@ -1004,6 +1321,413 @@ function hasMaterialReviewHint(subjectText, entry) {
   return ["자료", "파일", "첨부", "절차서", "bom", "dxf", "step", "검사성적서", "보고서"].some((keyword) =>
     subjectText.includes(keyword),
   );
+}
+
+function extractDueHintFromSubject(subject, receivedAt) {
+  const sourceText = String(subject ?? "");
+  const baseYear = yearFromTimestamp(receivedAt) ?? new Date().getUTCFullYear();
+  const candidates = [];
+  const patterns = [
+    {
+      regexp: /(?<!\d)(20\d{2})\s*[-./년]\s*(\d{1,2})\s*[-./월]\s*(\d{1,2})/gu,
+      build: (match) => ({
+        year: Number(match[1]),
+        month: Number(match[2]),
+        day: Number(match[3]),
+        confidence: "subject_full_date",
+      }),
+    },
+    {
+      regexp: /'(\d{2})\s*[.]\s*(\d{1,2})\s*[.]\s*(\d{1,2})/gu,
+      build: (match) => ({
+        year: 2000 + Number(match[1]),
+        month: Number(match[2]),
+        day: Number(match[3]),
+        confidence: "subject_short_year_date",
+      }),
+    },
+    {
+      regexp: /(?:~|까지|기한|due|by)\s*'?(\d{1,2})\s*[./]\s*(\d{1,2})/giu,
+      build: (match) => ({
+        year: baseYear,
+        month: Number(match[1]),
+        day: Number(match[2]),
+        confidence: "subject_month_day",
+      }),
+    },
+    {
+      regexp: /(\d{1,2})\s*월\s*(\d{1,2})\s*일/gu,
+      build: (match) => ({
+        year: baseYear,
+        month: Number(match[1]),
+        day: Number(match[2]),
+        confidence: "subject_month_day",
+      }),
+    },
+  ];
+
+  for (const pattern of patterns) {
+    for (const match of sourceText.matchAll(pattern.regexp)) {
+      const parsed = pattern.build(match);
+      const dueDate = formatDateOnly(parsed.year, parsed.month, parsed.day);
+      if (!dueDate) {
+        continue;
+      }
+      candidates.push({
+        due_date: dueDate,
+        due_text: match[0],
+        due_source: "subject",
+        deadline_confidence: parsed.confidence,
+      });
+    }
+  }
+
+  if (candidates.length > 0) {
+    candidates.sort((left, right) => left.due_date.localeCompare(right.due_date) || left.due_text.localeCompare(right.due_text));
+    return candidates[0];
+  }
+
+  const textOnlyMatch = sourceText.match(/오늘|urgent|긴급|asap/iu);
+  if (textOnlyMatch) {
+    return {
+      due_date: null,
+      due_text: textOnlyMatch[0],
+      due_source: "subject_text",
+      deadline_confidence: "text_only",
+    };
+  }
+
+  return null;
+}
+
+function extractDueHintFromDday(value) {
+  const normalized = normalizeDateOnly(String(value ?? "").slice(0, 10));
+  if (!normalized) {
+    return null;
+  }
+  return {
+    due_date: normalized,
+    due_text: String(value),
+    due_source: "gateway_d_day",
+    deadline_confidence: "structured_d_day",
+  };
+}
+
+function resolveRouteHintCandidates(entry, route) {
+  const subjectText = normalizeSearchText(entry.subject);
+  const hints = [];
+
+  if (isProjectRoute(route.route_candidate)) {
+    hints.push(route.route_candidate);
+  }
+
+  for (const match of subjectText.matchAll(/\bp\d{2}-\d{3}\b/giu)) {
+    hints.push(match[0].toUpperCase());
+  }
+
+  if (
+    subjectText.includes("p25-057") ||
+    (subjectText.includes("auv") && subjectText.includes("장비") && subjectText.includes("3종") && !subjectText.includes("양산"))
+  ) {
+    hints.push("P25-057");
+  }
+  if (
+    subjectText.includes("p26-016") ||
+    (subjectText.includes("auv") && subjectText.includes("3종") && subjectText.includes("양산"))
+  ) {
+    hints.push("P26-016");
+  }
+  if (subjectText.includes("p26-005") || subjectText.includes("seaview sss dual kit")) {
+    hints.push("P26-005");
+  }
+  if (
+    subjectText.includes("p24-049") ||
+    subjectText.includes("저주파 sas") ||
+    subjectText.includes("lig sas") ||
+    subjectText.includes("군집")
+  ) {
+    hints.push("P24-049");
+  }
+  if (
+    subjectText.includes("auv") ||
+    subjectText.includes("mauv") ||
+    subjectText.includes("axv") ||
+    subjectText.includes("오링") ||
+    subjectText.includes("o-ring") ||
+    subjectText.includes("oring")
+  ) {
+    hints.push("P25-057", "P26-016");
+  }
+
+  return uniqueValues(hints);
+}
+
+function matchWeekWindow(dueDate, options = {}) {
+  if (!dueDate) {
+    return null;
+  }
+
+  const weekStart = normalizeDateOnly(options.weekStart);
+  const weekEnd = normalizeDateOnly(options.weekEnd);
+  if (!weekStart && !weekEnd) {
+    return null;
+  }
+  if (weekStart && dueDate < weekStart) {
+    return false;
+  }
+  if (weekEnd && dueDate > weekEnd) {
+    return false;
+  }
+  return true;
+}
+
+function normalizeWeekWindow({ weekStart = "", weekEnd = "" } = {}) {
+  const normalizedStart = weekStart ? normalizeDateOnly(weekStart) : null;
+  const normalizedEnd = weekEnd ? normalizeDateOnly(weekEnd) : null;
+  if (weekStart && !normalizedStart) {
+    throw new Error("week-start must be YYYY-MM-DD");
+  }
+  if (weekEnd && !normalizedEnd) {
+    throw new Error("week-end must be YYYY-MM-DD");
+  }
+  if (normalizedStart && normalizedEnd && normalizedStart > normalizedEnd) {
+    throw new Error("week-start must be on or before week-end");
+  }
+  return {
+    active: Boolean(normalizedStart || normalizedEnd),
+    weekStart: normalizedStart,
+    weekEnd: normalizedEnd,
+  };
+}
+
+function summarizeProjectContext(routeCandidate, routeHintCandidates) {
+  const hints = normalizeArray(routeHintCandidates);
+  if (isProjectRoute(routeCandidate) && hints.includes(routeCandidate)) {
+    return routeCandidate;
+  }
+  if (hints.length > 0) {
+    return hints.join(", ");
+  }
+  return routeCandidate ?? "P00-000_INBOX";
+}
+
+function resolveVisibilityReason(entry) {
+  if (entry.week_window_match === true) {
+    return "due_date_in_week_window";
+  }
+  if (entry.route_candidate === "P00-000_INBOX") {
+    return "project_confirm_hold";
+  }
+  if (normalizeArray(entry.priority_flags_ko).includes("오늘 처리")) {
+    return "urgent_or_due_hint";
+  }
+  if (normalizeArray(entry.priority_flags_ko).includes("사람 병목")) {
+    return "owner_question_route";
+  }
+  return "manual_review_visible";
+}
+
+function summarizeEventAttachments(event) {
+  const attachments = normalizeArray(event?.attachments);
+  const classification = event?.metadata?.classification;
+  return {
+    attachment_count: attachments.length,
+    attachment_types: sanitizeAttachmentTypeLabels(
+      attachments.map((attachment) => attachment?.type ?? attachment?.mime).filter(Boolean),
+    ),
+    blocked_attachment_count: Number(classification?.blocked_attachment_count ?? 0),
+  };
+}
+
+function mailboxBucketFromPath(filePath, event) {
+  const classification = event?.metadata?.classification;
+  if (classification?.bucket) {
+    return String(classification.bucket);
+  }
+  const normalized = filePath.split(path.sep).join("/");
+  if (normalized.includes("/quarantine/events/")) {
+    return "quarantine";
+  }
+  if (normalized.includes("/ads/events/")) {
+    return "ads";
+  }
+  return "mail";
+}
+
+function visibilityId(sourceKind, sourceRef, weekWindow) {
+  const digest = createHash("sha256")
+    .update(`${sourceKind}:${sourceRef ?? "unknown"}:${weekWindow.weekStart}:${weekWindow.weekEnd}`)
+    .digest("hex")
+    .slice(0, 16);
+  return `mailvis_${weekWindow.weekStart.replaceAll("-", "")}_${digest}`;
+}
+
+function compareVisibilityRows(left, right) {
+  const leftDue = left.due_date_or_window ?? "9999-99-99";
+  const rightDue = right.due_date_or_window ?? "9999-99-99";
+  if (leftDue !== rightDue) {
+    return leftDue.localeCompare(rightDue);
+  }
+
+  const timestampCompare = compareTimestamps(right.received_at, left.received_at);
+  if (timestampCompare !== 0) {
+    return timestampCompare;
+  }
+
+  return String(left.visibility_id ?? "").localeCompare(String(right.visibility_id ?? ""));
+}
+
+function countByVisibilitySource(rows) {
+  const counts = {};
+  for (const row of normalizeArray(rows)) {
+    const key = row?.source_kind ?? "unknown";
+    counts[key] = Number(counts[key] ?? 0) + 1;
+  }
+  return counts;
+}
+
+function renderMailWeeklyVisibilityRegisterMarkdown(register) {
+  const rows = normalizeArray(register.rows).map((row) => [
+    row.week_start,
+    row.week_end,
+    row.visibility_id,
+    row.source_kind,
+    row.candidate_id ?? "",
+    row.bucket,
+    row.received_at,
+    row.due_date_or_window ?? "",
+    row.project_context ?? "",
+    row.route_candidate ?? "",
+    row.route_confidence ?? "",
+    row.work_status ?? "",
+    row.subject_hint ?? "",
+    row.attachment_count ?? 0,
+    normalizeArray(row.attachment_types).join(", "),
+    row.blocked_attachment_count ?? 0,
+    row.why_visible ?? "",
+    row.next_action ?? "",
+    row.owner_question ?? "",
+    row.destination ?? "",
+    row.claim_ceiling ?? "",
+    row.promotion_allowed === true ? "true" : "false",
+    row.source_ref ?? "",
+  ]);
+  const lines = [
+    "# P00 Unresolved Weekly Visibility Register",
+    "",
+    `- Generated at: ${register.generated_at}`,
+    `- Week window: ${register.week_start} to ${register.week_end}`,
+    `- Count: ${register.count}`,
+    "- Claim ceiling: observed",
+    "- Boundary: body copied false; attachment payload copied false; attachment names copied false; secret read false.",
+    "",
+    "| Week start | Week end | Visibility ID | Source kind | Candidate ID | Bucket | Received at | Due/date hint | Project context | Route candidate | Route confidence | Work status | Subject hint | Attachment count | Attachment types | Blocked attachments | Why visible | Next action | Owner question | Destination | Claim ceiling | Promotion allowed | Source ref |",
+    "| --- | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- | ---: | --- | ---: | --- | --- | --- | --- | --- | --- | --- |",
+    ...rows.map((row) => `| ${row.map(markdownCell).join(" | ")} |`),
+  ];
+  return `${lines.join("\n")}\n`;
+}
+
+function sanitizeAttachmentTypeLabels(values) {
+  const labels = [];
+  for (const value of normalizeArray(values)) {
+    const raw = String(value ?? "").trim().toLowerCase();
+    if (!raw) {
+      continue;
+    }
+    if (SAFE_ATTACHMENT_TYPE_LABELS.has(raw)) {
+      labels.push(raw);
+      continue;
+    }
+    if (raw.startsWith("image/")) {
+      labels.push("mime_image");
+      continue;
+    }
+    if (raw.startsWith("text/")) {
+      labels.push("mime_text");
+      continue;
+    }
+    if (raw.startsWith("application/")) {
+      labels.push("mime_application");
+      continue;
+    }
+    labels.push("attachment_metadata");
+  }
+  return uniqueValues(labels).sort();
+}
+
+const SAFE_ATTACHMENT_TYPE_LABELS = new Set([
+  "binary_attachment",
+  "body_link",
+  "inline_attachment",
+  "calendar_invite",
+  "message_part",
+  "attachment_metadata",
+  "mime_image",
+  "mime_text",
+  "mime_application",
+]);
+
+function assertWeeklyVisibilityOutputPath(repoRoot, outputFile) {
+  const allowedRoot = path.join(defaultWorkmetaRoot(repoRoot), "P00-000_INBOX", "reports", "triage");
+  if (!isPathInside(allowedRoot, outputFile)) {
+    throw new Error("weekly visibility register output-file must stay under _workmeta/P00-000_INBOX/reports/triage");
+  }
+}
+
+function isPathInside(rootPath, targetPath) {
+  const relative = path.relative(path.resolve(rootPath), path.resolve(targetPath));
+  return relative === "" || (!relative.startsWith("..") && !path.isAbsolute(relative));
+}
+
+function markdownCell(value) {
+  return String(value ?? "")
+    .replace(/\r?\n/gu, " ")
+    .replace(/\|/gu, "\\|")
+    .trim();
+}
+
+function truncateText(value, limit) {
+  const text = String(value ?? "").replace(/\s+/gu, " ").trim();
+  if (text.length <= limit) {
+    return text;
+  }
+  return `${text.slice(0, Math.max(0, limit - 3))}...`;
+}
+
+function isProjectRoute(value) {
+  return /^P\d{2}-\d{3}$/u.test(String(value ?? ""));
+}
+
+function yearFromTimestamp(value) {
+  const date = new Date(String(value ?? ""));
+  if (Number.isNaN(date.getTime())) {
+    return null;
+  }
+  return date.getUTCFullYear();
+}
+
+function normalizeDateOnly(value) {
+  const match = String(value ?? "").match(/^(\d{4})-(\d{2})-(\d{2})$/u);
+  if (!match) {
+    return null;
+  }
+  return formatDateOnly(Number(match[1]), Number(match[2]), Number(match[3]));
+}
+
+function formatDateOnly(year, month, day) {
+  if (!Number.isInteger(year) || !Number.isInteger(month) || !Number.isInteger(day)) {
+    return null;
+  }
+  const date = new Date(Date.UTC(year, month - 1, day));
+  if (
+    date.getUTCFullYear() !== year ||
+    date.getUTCMonth() !== month - 1 ||
+    date.getUTCDate() !== day
+  ) {
+    return null;
+  }
+  return `${String(year).padStart(4, "0")}-${String(month).padStart(2, "0")}-${String(day).padStart(2, "0")}`;
 }
 
 function isTerminalWorkStatus(workStatus) {

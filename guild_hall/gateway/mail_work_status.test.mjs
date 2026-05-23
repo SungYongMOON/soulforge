@@ -6,10 +6,12 @@ import { mkdir, mkdtemp, readFile, writeFile } from "node:fs/promises";
 import YAML from "yaml";
 
 import {
+  defaultMailWeeklyVisibilityRegisterFile,
   defaultMailWorkPriorityLatestFile,
   defaultMailWorkStatusLatestFile,
   listMailWorkPriority,
   listMailWorkStatus,
+  refreshMailWeeklyVisibilityRegister,
   refreshMailWorkPriority,
   refreshMailWorkStatus,
 } from "./mail_work_status.mjs";
@@ -287,6 +289,8 @@ test("refreshMailWorkPriority routes exact P26-014, thread duplicates, admin hol
   assert.equal(exact.route_confidence, "exact");
   assert.equal(exact.operating_state_ko, "새 일");
   assert.equal(exact.boundary.raw_payload_copied, false);
+  assert.equal(exact.attachment_count, 2);
+  assert.deepEqual(exact.attachment_types, ["binary_attachment"]);
   assert.ok(exact.priority_flags_ko.includes("오늘 처리"));
   assert.ok(exact.priority_flags_ko.includes("자료 확인"));
 
@@ -317,6 +321,217 @@ test("refreshMailWorkPriority routes exact P26-014, thread duplicates, admin hol
   assert.equal(promo.operating_state_ko, "일 아님");
   assert.equal(promo.route_candidate, "none/promo");
   assert.equal(promo.route_confidence, "none");
+});
+
+test("mail work priority exposes planning due fields and week window filtering", async () => {
+  const repoRoot = await createRepoRoot();
+  const candidates = [
+    sampleCandidate({
+      candidate_id: "mail_candidate_auv_due",
+      event_id: "mail_evt_auv_due",
+      status: "pending_review",
+      subject: "[LIG D&A] AUV 사업 조달 LT 점검 자료 작성 요청(~5/27)",
+      received_at: "2026-05-20T01:00:00.000Z",
+    }),
+    sampleCandidate({
+      candidate_id: "mail_candidate_future_due",
+      event_id: "mail_evt_future_due",
+      status: "pending_review",
+      subject: "Synthetic later review request(~6/3)",
+      received_at: "2026-05-20T01:05:00.000Z",
+    }),
+    sampleCandidate({
+      candidate_id: "mail_candidate_urgent_text",
+      event_id: "mail_evt_urgent_text",
+      status: "pending_review",
+      subject: "긴급 Synthetic owner confirmation request",
+      received_at: "2026-05-20T01:10:00.000Z",
+    }),
+  ];
+
+  for (const candidate of candidates) {
+    await writeJson(
+      path.join(repoRoot, "guild_hall", "state", "gateway", "mail_candidate", "queue", "pending", `${candidate.candidate_id}.json`),
+      candidate,
+    );
+  }
+
+  await refreshMailWorkPriority({
+    repoRoot,
+    weekStart: "2026-05-25",
+    weekEnd: "2026-05-31",
+  });
+  const projection = JSON.parse(await readFile(defaultMailWorkPriorityLatestFile(repoRoot), "utf8"));
+  const auvDue = projection.entries.find((entry) => entry.candidate_id === "mail_candidate_auv_due");
+  const futureDue = projection.entries.find((entry) => entry.candidate_id === "mail_candidate_future_due");
+  const urgentText = projection.entries.find((entry) => entry.candidate_id === "mail_candidate_urgent_text");
+
+  assert.equal(auvDue.due_date, "2026-05-27");
+  assert.equal(auvDue.due_source, "subject");
+  assert.equal(auvDue.deadline_confidence, "subject_month_day");
+  assert.equal(auvDue.week_window_match, true);
+  assert.deepEqual(auvDue.route_hint_candidates, ["P25-057", "P26-016"]);
+  assert.equal(futureDue.week_window_match, false);
+  assert.equal(urgentText.due_date, null);
+  assert.equal(urgentText.due_source, "subject_text");
+  assert.equal(urgentText.deadline_confidence, "text_only");
+
+  const filtered = await listMailWorkPriority({
+    repoRoot,
+    weekStart: "2026-05-25",
+    weekEnd: "2026-05-31",
+    weekWindowOnly: true,
+  });
+
+  assert.deepEqual(filtered.entries.map((entry) => entry.candidate_id), ["mail_candidate_auv_due"]);
+  await assert.rejects(
+    listMailWorkPriority({
+      repoRoot,
+      weekStart: "2026-06-01",
+      weekEnd: "2026-05-31",
+    }),
+    /week-start must be on or before week-end/,
+  );
+});
+
+test("weekly visibility register includes unresolved priority and quarantine event-only metadata safely", async () => {
+  const repoRoot = await createRepoRoot();
+
+  await writeJson(
+    path.join(repoRoot, "guild_hall", "state", "gateway", "mail_candidate", "queue", "pending", "mail_candidate_o_ring.json"),
+    sampleCandidate({
+      candidate_id: "mail_candidate_o_ring",
+      event_id: "mail_evt_o_ring",
+      status: "pending_review",
+      subject: "[LIG DNA][AXV][중요] 오링 홈 치수 및 대체 오링 선정 관련 업무 요청 건. (~'26.05.27)",
+      received_at: "2026-05-20T04:50:14.000Z",
+      attachment_count: 1,
+      attachment_types: ["do-not-copy.xlsx"],
+    }),
+  );
+
+  await writeGatewayInbox(repoRoot, "mail_evt_gateway_known", {
+    source_ref: "mail_evt_gateway_known",
+    assignment_status: "pending_dungeon_assignment",
+    monsters: [
+      sampleGatewayMonster({
+        monster_id: "mail_evt_gateway_known_001",
+        source_refs: ["mail_evt_gateway_known"],
+        assignment_status: "pending_dungeon_assignment",
+      }),
+    ],
+  });
+
+  await writeJsonl(
+    path.join(
+      repoRoot,
+      "guild_hall",
+      "state",
+      "gateway",
+      "mailbox",
+      "company",
+      "quarantine",
+      "events",
+      "hiworks",
+      "2026",
+      "2026-05.jsonl",
+    ),
+    {
+      schema_version: "email.fetch.event.v1",
+      event_id: "mail_evt_quarantine_p24049",
+      source: "hiworks",
+      subject: "[P24-049 LIG SAS] 프로젝트 공유 건",
+      received_at: "2026-05-21T05:34:07.000Z",
+      body_text: "DO NOT COPY BODY",
+      body_html: "<p>DO NOT COPY HTML</p>",
+      raw: { provider_payload: "DO NOT COPY RAW" },
+      attachments: [
+        {
+          type: "do-not-copy.xlsx",
+          name: "do-not-copy.xlsx",
+          url: "https://example.invalid/secret-download",
+          local_path: "quarantine/do-not-copy.xlsx",
+          provider_attachment_id: "do-not-copy-provider-id",
+        },
+      ],
+      metadata: {
+        classification: {
+          bucket: "quarantine",
+          blocked_attachment_count: 1,
+        },
+      },
+    },
+  );
+  await writeJsonl(
+    path.join(
+      repoRoot,
+      "guild_hall",
+      "state",
+      "gateway",
+      "mailbox",
+      "company",
+      "mail",
+      "events",
+      "hiworks",
+      "2026",
+      "2026-05.jsonl",
+    ),
+    {
+      schema_version: "email.fetch.event.v1",
+      event_id: "mail_evt_gateway_known",
+      source: "hiworks",
+      subject: "[LIG AUV] already materialized event should not reappear",
+      received_at: "2026-05-21T05:34:07.000Z",
+      attachments: [
+        {
+          type: "binary_attachment",
+        },
+      ],
+      metadata: {
+        classification: {
+          bucket: "mail",
+          blocked_attachment_count: 0,
+        },
+      },
+    },
+  );
+
+  const result = await refreshMailWeeklyVisibilityRegister({
+    repoRoot,
+    weekStart: "2026-05-25",
+    weekEnd: "2026-05-31",
+  });
+  const registerText = await readFile(defaultMailWeeklyVisibilityRegisterFile(repoRoot), "utf8");
+
+  assert.equal(result.status, "refreshed");
+  assert.equal(result.count, 2);
+  assert.ok(result.rows.some((row) => row.candidate_id === "mail_candidate_o_ring"));
+  const oRingRow = result.rows.find((row) => row.candidate_id === "mail_candidate_o_ring");
+  assert.equal(oRingRow.due_date_or_window, "2026-05-27");
+  assert.equal(oRingRow.attachment_count, 1);
+  assert.deepEqual(oRingRow.attachment_types, ["attachment_metadata"]);
+  assert.ok(!result.rows.some((row) => String(row.source_ref).includes("mail_evt_gateway_known")));
+  const quarantineRow = result.rows.find((row) => row.source_kind === "mailbox_event_only");
+  assert.equal(quarantineRow.candidate_id, null);
+  assert.equal(quarantineRow.bucket, "quarantine");
+  assert.equal(quarantineRow.work_status, "event_only_review_needed");
+  assert.equal(quarantineRow.promotion_allowed, false);
+  assert.equal(quarantineRow.blocked_attachment_count, 1);
+  assert.deepEqual(quarantineRow.attachment_types, ["attachment_metadata"]);
+  assert.match(registerText, /P00 Unresolved Weekly Visibility Register/);
+  assert.match(registerText, /Candidate ID/);
+  assert.match(registerText, /Promotion allowed/);
+  assert.match(registerText, /mail_candidate_o_ring/);
+  assert.doesNotMatch(registerText, /body_text|body_html|provider_payload|do-not-copy|secret-download|local_path|provider_attachment_id|token|password|cookie/);
+  await assert.rejects(
+    refreshMailWeeklyVisibilityRegister({
+      repoRoot,
+      weekStart: "2026-05-25",
+      weekEnd: "2026-05-31",
+      outputFile: path.join(repoRoot, "guild_hall", "state", "gateway", "weekly_visibility.md"),
+    }),
+    /weekly visibility register output-file must stay under _workmeta\/P00-000_INBOX\/reports\/triage/,
+  );
 });
 
 test("listMailWorkPriority filters from latest priority projection", async () => {

@@ -4,6 +4,7 @@ import os from "node:os";
 import path from "node:path";
 import test from "node:test";
 import { exportKnowledgeGraph } from "./graph_export.mjs";
+import { buildRetrievalPlan } from "./retrieval_plan.mjs";
 
 test("exportKnowledgeGraph writes metadata-only graph, HTML preview, and Obsidian notes", async () => {
   const repoRoot = await mkdtemp(path.join(os.tmpdir(), "soulforge-knowledge-graph-"));
@@ -85,8 +86,8 @@ test("exportKnowledgeGraph writes metadata-only graph, HTML preview, and Obsidia
     assert.notEqual(graph.palettes.relation_type.has_class, graph.palettes.relation_type.recommends);
     assert.equal(graph.connectivity_analysis.node_count, graph.nodes.length);
     assert.equal(graph.connectivity_analysis.edge_count, graph.edges.length);
-    assert.equal(graph.connectivity_analysis.weak_component_count, 1);
-    assert.equal(graph.connectivity_analysis.isolated_count, 0);
+    assert.equal(graph.connectivity_analysis.weak_component_count, 2);
+    assert.equal(graph.connectivity_analysis.isolated_count, 1);
     assert.deepEqual(graph.connectivity_analysis.dangling_edge_refs, []);
     assert.match(graph.connectivity_analysis.interpretation, /generated graph/);
 
@@ -96,6 +97,10 @@ test("exportKnowledgeGraph writes metadata-only graph, HTML preview, and Obsidia
     assert.equal(knowledgeNode.metrics.total_access_count, 1);
     assert.equal(knowledgeNode.visual.size_px, 14);
     assert.equal(knowledgeNode.trust.claim_ceiling, "canon_entry");
+
+    const candidateKnowledgeNode = graph.nodes.find((node) => node.node_ref === ".registry/knowledge/graph_rag");
+    assert.ok(candidateKnowledgeNode);
+    assert.equal(candidateKnowledgeNode.trust.claim_ceiling, "source_supported");
 
     const usageEdge = graph.edges.find(
       (edge) =>
@@ -145,6 +150,12 @@ test("exportKnowledgeGraph writes metadata-only graph, HTML preview, and Obsidia
     assert.match(html, /id="saveSettings"/);
     assert.match(html, /현재 설정 저장/);
     assert.match(html, /id="nodeContextMenu"/);
+    assert.match(html, /id="detectionCardPanel"/);
+    assert.match(html, /id="detectionCardBody"/);
+    assert.match(html, /id="detectionNodeRef"/);
+    assert.match(html, /id="openDetectionCard"/);
+    assert.match(html, /id="openDetectionCardByRef"/);
+    assert.match(html, /탐지 카드 열기/);
     assert.match(html, /탐구 프롬프트 복사/);
     assert.match(html, /연결만 보기/);
     assert.match(html, /ref 복사/);
@@ -209,9 +220,30 @@ test("exportKnowledgeGraph writes metadata-only graph, HTML preview, and Obsidia
     assert.match(bundle, /showPromptFallback/);
     assert.match(bundle, /contextRelationsFor/);
     assert.match(bundle, /contextNodeRef/);
+    assert.match(bundle, /showDetectionCardForContextNode/);
+    assert.match(bundle, /openDetectionCardForNode/);
+    assert.match(bundle, /buildDetectionCardPayload/);
+    assert.match(bundle, /renderDetectionCard/);
+    assert.match(bundle, /missingEvidenceItemsFor/);
+    assert.match(bundle, /nextActionItemsFor/);
+    assert.match(bundle, /detectionCardPlan/);
+    assert.match(bundle, /candidate_nodes/);
+    assert.match(bundle, /relation_paths/);
+    assert.match(bundle, /missing_evidence_items/);
+    assert.match(bundle, /next_action_items/);
+    assert.match(bundle, /no_source_text_loaded/);
+    assert.match(bundle, /no_notebooklm_answers/);
+    assert.match(bundle, /no_vector_search/);
+    assert.match(bundle, /no_codex_bridge_auto_call/);
+    assert.match(bundle, /selected_node_no_relation_paths/);
+    assert.match(bundle, /add_selected_node_relation_edges/);
     assert.match(bundle, /componentHaloCount/);
     assert.match(bundle, /focusedComponentHaloCount/);
     assert.match(exporterSource, /선택 범위의 글로우만/);
+    assert.doesNotMatch(exporterSource, /fetch\s*\(/);
+    assert.doesNotMatch(exporterSource, /XMLHttpRequest/);
+    assert.doesNotMatch(exporterSource, /WebSocket/);
+    assert.doesNotMatch(exporterSource, /buildRetrievalPlan\s*\(/);
     assert.match(bundle, /componentShellPointGeometry/);
     assert.match(bundle, /componentShellPointCount/);
     assert.match(bundle, /shellPointSpacing/);
@@ -250,6 +282,95 @@ test("exportKnowledgeGraph writes metadata-only graph, HTML preview, and Obsidia
     assert.match(indexNote, /generated: true/);
     assert.match(indexNote, /read_only: true/);
     assert.match(indexNote, /## Connectivity/);
+
+    const plan = await buildRetrievalPlan({
+      repoRoot,
+      graphRef: result.graph_ref,
+      question: "GraphRAG multi-hop source-backed retrieval plan",
+      maxNodes: 4,
+      maxPaths: 6,
+    });
+    assert.equal(plan.schema_version, "soulforge.knowledge_graph_retrieval_plan.v0");
+    assert.equal(plan.status, "metadata_only");
+    assert.equal(plan.boundary.no_answer_generated, true);
+    assert.equal(plan.boundary.no_source_text_loaded, true);
+    assert.equal(plan.question.detected_modes.includes("multi_hop"), true);
+    assert.equal(plan.question.detected_modes.includes("graph_vector_comparison"), true);
+    assert.equal(plan.selected_node_ref, null);
+    assert.equal(plan.selected_node, null);
+    assert.equal(plan.display.mode, "question");
+    assert.equal(plan.display.title, plan.detection_card.title);
+    assert.equal(plan.input.question_text, "GraphRAG multi-hop source-backed retrieval plan");
+    assert.equal(plan.input.max_source_refs, 20);
+    assert.deepEqual(plan.candidate_nodes, plan.candidates);
+    assert.equal(plan.candidates[0].node_ref, ".registry/knowledge/graph_rag");
+    assert.equal(plan.candidates[0].is_selected, false);
+    assert.equal(plan.candidates[0].claim_ceiling, "source_supported");
+    assert.ok(plan.relation_paths.find((item) => item.to.node_ref === ".registry/knowledge/graph_rag"));
+    const graphRagSourceRef = plan.source_refs.find((item) => item.ref === ".registry/knowledge/graph_rag/knowledge.yaml");
+    assert.ok(graphRagSourceRef);
+    assert.equal(Array.isArray(graphRagSourceRef.roles), true);
+    assert.ok(graphRagSourceRef.referenced_by.includes(".registry/knowledge/graph_rag"));
+    assert.ok(plan.missing_evidence.some((item) => item.includes("No vector/BM25 baseline")));
+    assert.ok(plan.missing_evidence_items.some((item) => item.code === "no_vector_or_hybrid_retriever"));
+    assert.ok(plan.missing_evidence.some((item) => item.includes("No source nodes")));
+    assert.ok(plan.next_action_items.some((item) => item.code === "add_source_support_edges"));
+    assert.equal(plan.detection_card.render_contract.candidates_from, "candidate_nodes");
+    assert.equal(plan.detection_card.render_contract.relation_paths_from, "relation_paths");
+    assert.equal(plan.detection_card.render_contract.missing_evidence_items_from, "missing_evidence_items");
+    assert.equal(plan.detection_card.render_contract.next_action_items_from, "next_action_items");
+    assert.equal(plan.detection_card.counts.candidate_nodes, plan.candidate_nodes.length);
+    assert.equal(plan.detection_card.counts.source_refs, plan.source_refs.length);
+
+    const selectedPlan = await buildRetrievalPlan({
+      repoRoot,
+      graphRef: result.graph_ref,
+      question: "이 노드 기준으로 탐지 카드",
+      nodeRef: ".registry/knowledge/graph_rag",
+      maxNodes: 3,
+      maxPaths: 6,
+      maxSourceRefs: 2,
+    });
+    assert.equal(selectedPlan.selected_node_ref, ".registry/knowledge/graph_rag");
+    assert.equal(selectedPlan.selected_node.node_ref, ".registry/knowledge/graph_rag");
+    assert.equal(selectedPlan.selected_node.is_selected, true);
+    assert.equal(selectedPlan.selected_node.match_reasons.includes("selected:node_ref"), true);
+    assert.equal(selectedPlan.display.mode, "selected_node");
+    assert.equal(selectedPlan.candidate_nodes[0].node_ref, ".registry/knowledge/graph_rag");
+    assert.equal(selectedPlan.candidate_nodes[0].is_selected, true);
+    assert.equal(selectedPlan.candidate_nodes[0].match_reasons.includes("selected:node_ref"), true);
+    assert.equal(selectedPlan.detection_card.title, "탐지 카드: GraphRAG");
+    assert.equal(selectedPlan.detection_card.focus_node_ref, ".registry/knowledge/graph_rag");
+    assert.equal(selectedPlan.detection_card.claim_ceiling, "source_supported");
+    assert.equal(selectedPlan.source_refs.length <= 2, true);
+    assert.equal(selectedPlan.boundary.no_notebooklm_answers, true);
+    assert.equal(selectedPlan.boundary.no_vector_search, true);
+
+    const isolatedPlan = await buildRetrievalPlan({
+      repoRoot,
+      graphRef: result.graph_ref,
+      nodeRef: ".registry/knowledge/isolated_note",
+      maxNodes: 3,
+      maxPaths: 6,
+    });
+    assert.equal(isolatedPlan.question.text, "");
+    assert.equal(isolatedPlan.selected_node_ref, ".registry/knowledge/isolated_note");
+    assert.equal(isolatedPlan.candidate_nodes[0].node_ref, ".registry/knowledge/isolated_note");
+    assert.equal(isolatedPlan.relation_paths.length, 0);
+    assert.ok(isolatedPlan.missing_evidence.some((item) => item.includes("Selected node has no relation paths")));
+    assert.ok(isolatedPlan.missing_evidence_items.some((item) => item.code === "selected_node_no_relation_paths"));
+    assert.ok(isolatedPlan.next_actions.some((item) => item.includes("selected node")));
+    assert.ok(isolatedPlan.next_action_items.some((item) => item.code === "add_selected_node_relation_edges"));
+
+    await assert.rejects(
+      () =>
+        buildRetrievalPlan({
+          repoRoot,
+          graphRef: "missing/graph.json",
+          question: "GraphRAG",
+        }),
+      /explicit --graph-ref was not found/,
+    );
   } finally {
     await rm(repoRoot, { recursive: true, force: true });
   }
@@ -262,6 +383,20 @@ async function writeFixtureRepo(repoRoot) {
     status: "active",
     title: "Source Criticism",
   });
+  await writeYaml(repoRoot, ".registry/knowledge/graph_rag/knowledge.yaml", {
+    knowledge_id: "graph_rag",
+    kind: "knowledge",
+    status: "active",
+    title: "GraphRAG",
+    claim_ceiling: "source_supported",
+  });
+  await writeYaml(repoRoot, ".registry/knowledge/isolated_note/knowledge.yaml", {
+    knowledge_id: "isolated_note",
+    kind: "knowledge",
+    status: "active",
+    title: "Isolated Note",
+    claim_ceiling: "observed",
+  });
   await writeYaml(repoRoot, ".registry/classes/archivist/class.yaml", {
     class_id: "archivist",
     kind: "class",
@@ -272,7 +407,10 @@ async function writeFixtureRepo(repoRoot) {
     class_id: "archivist",
     kind: "knowledge_refs",
     status: "active",
-    assign: [{ assign: "source_criticism", ref: "source_criticism" }],
+    assign: [
+      { assign: "source_criticism", ref: "source_criticism" },
+      { assign: "graph_rag", ref: "graph_rag" },
+    ],
   });
   await writeYaml(repoRoot, ".registry/species/human/species.yaml", {
     species_id: "human",

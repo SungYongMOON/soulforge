@@ -21,6 +21,6 @@
 ## 로컬 생성
 
 - 현재 PC 에 local automation 을 다시 만들 때는 아래 명령을 쓴다.
-- `npm run guild-hall:night-watch:render -- --install --local-root /Volumes/OPENCLAW_WS/Soulforge --workmeta-root /Volumes/OPENCLAW_WS/Soulforge/_workmeta --private-state-root /Volumes/OPENCLAW_WS/Soulforge/private-state`
+- `npm run guild-hall:night-watch:render -- --install --local-root <runtime-local-root> --workmeta-root <runtime-workmeta-root> --private-state-root <runtime-private-state-root>`
 - Stage 0 preflight 를 단독으로 실행할 때는 아래 명령을 쓴다.
-- `npm run guild-hall:night-watch:preflight -- --local-root /Volumes/OPENCLAW_WS/Soulforge --workmeta-root /Volumes/OPENCLAW_WS/Soulforge/_workmeta --private-state-root /Volumes/OPENCLAW_WS/Soulforge/private-state`
+- `npm run guild-hall:night-watch:preflight -- --local-root <runtime-local-root> --workmeta-root <runtime-workmeta-root> --private-state-root <runtime-private-state-root>`
