@@ -155,6 +155,7 @@ test("exportKnowledgeGraph writes metadata-only graph, HTML preview, and Obsidia
     assert.match(html, /id="detectionNodeRef"/);
     assert.match(html, /id="openDetectionCard"/);
     assert.match(html, /id="openDetectionCardByRef"/);
+    assert.match(html, /탐지 카드는 답변이 아니라 검토 안내/);
     assert.match(html, /탐지 카드 열기/);
     assert.match(html, /탐구 프롬프트 복사/);
     assert.match(html, /연결만 보기/);
@@ -224,6 +225,8 @@ test("exportKnowledgeGraph writes metadata-only graph, HTML preview, and Obsidia
     assert.match(bundle, /openDetectionCardForNode/);
     assert.match(bundle, /buildDetectionCardPayload/);
     assert.match(bundle, /renderDetectionCard/);
+    assert.match(bundle, /renderDetectionOperatorGuide/);
+    assert.match(bundle, /detectionJudgementText/);
     assert.match(bundle, /missingEvidenceItemsFor/);
     assert.match(bundle, /nextActionItemsFor/);
     assert.match(bundle, /detectionCardPlan/);
@@ -240,6 +243,8 @@ test("exportKnowledgeGraph writes metadata-only graph, HTML preview, and Obsidia
     assert.match(bundle, /componentHaloCount/);
     assert.match(bundle, /focusedComponentHaloCount/);
     assert.match(exporterSource, /선택 범위의 글로우만/);
+    assert.match(exporterSource, /지금 할 일/);
+    assert.match(exporterSource, /아직 근거 문단을 찾아 답하는 RAG 답변기는 아닙니다/);
     assert.doesNotMatch(exporterSource, /fetch\s*\(/);
     assert.doesNotMatch(exporterSource, /XMLHttpRequest/);
     assert.doesNotMatch(exporterSource, /WebSocket/);

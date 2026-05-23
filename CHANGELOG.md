@@ -2,6 +2,11 @@
 
 ## 2026-05-23
 
+### Revision `working` - Knowledge graph detection card guidance clarified
+
+- Added an operator-facing Korean `판정` and `지금 할 일` block at the top of generated 3D preview detection cards.
+- Clarified in the preview that a detection card is a review guide, not a RAG answer surface, and mapped missing-evidence signals to concrete next steps such as adding source/support edges, retrieval wiring, and benchmark checks.
+
 ### Revision `working` - GitHub down strict junction audit added
 
 - Added `guild-hall:workspace-junction:audit` and `validate:workspace-junction` to make GitHub-down workspace junction checks deterministic.

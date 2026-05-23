@@ -66,6 +66,10 @@ already present in the preview. The copied prompt contains only metadata refs,
 current filters, visible relation summaries, and boundary reminders. If the
 browser blocks clipboard access, the menu exposes the same text in a readonly
 manual-copy field.
+The card starts with an operator-facing Korean `판정` and `지금 할 일` block so
+the owner can tell whether the selected node is only a map cue, needs source
+edges, needs retrieval wiring, or needs benchmark validation before it can be
+used for any RAG answer workflow.
 The 3D preview keeps the canvas fixed to the viewport and scrolls the sidebar
 independently. Sidebar controls are grouped into collapsible sections so the
 graph does not get clipped when the operator moves through longer settings.

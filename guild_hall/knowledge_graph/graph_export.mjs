@@ -927,6 +927,11 @@ function renderGraphHtml3d(graph) {
     .detection-card-body { outline: none; }
     .detection-card { display: grid; gap: 10px; overflow-wrap: anywhere; }
     .detection-card-title { color: #f8fafc; font-size: 14px; font-weight: 800; line-height: 1.3; }
+    .detection-card-guide { display: grid; gap: 8px; border: 1px solid rgba(56, 189, 248, .28); border-radius: 8px; padding: 9px; background: rgba(8, 47, 73, .34); }
+    .detection-card-guide-title { color: #bae6fd; font-size: 12px; font-weight: 850; }
+    .detection-card-guide-judgement { color: #f8fafc; font-size: 13px; font-weight: 800; line-height: 1.35; }
+    .detection-card-guide ol { display: grid; gap: 5px; margin: 0; padding-left: 18px; color: #cbd5e1; font-size: 12px; line-height: 1.42; }
+    .detection-card-guide li::marker { color: #38bdf8; font-weight: 800; }
     .detection-card-section { display: grid; gap: 6px; }
     .detection-card-section-title { color: #a5b4fc; font-size: 12px; font-weight: 800; letter-spacing: .04em; text-transform: uppercase; }
     .detection-card-list { display: grid; gap: 6px; margin: 0; padding: 0; list-style: none; }
@@ -984,7 +989,7 @@ function renderGraphHtml3d(graph) {
             <div class="meta" id="detectionCardStatus" aria-live="polite">노드를 우클릭하고 탐지 카드 열기를 누르거나 ref를 입력하세요.</div>
           </div>
           <div class="detection-card-body" id="detectionCardBody" tabindex="-1">
-            <div class="meta">선택한 노드 기준의 후보 노드, 관계 경로, 부족한 증거, 다음 행동을 메타데이터만으로 표시합니다.</div>
+            <div class="meta">탐지 카드는 답변이 아니라 검토 안내입니다. 카드를 열면 맨 위의 판정과 지금 할 일을 먼저 보세요.</div>
           </div>
         </div>
       </details>
@@ -2896,6 +2901,7 @@ function renderDetectionCard(payload) {
       "focus: " + payload.detection_card.focus_node_ref + " / claim: " + payload.detection_card.claim_ceiling,
     ),
     renderDetectionMetrics(payload),
+    renderDetectionOperatorGuide(payload),
   );
   appendDetectionSection(root, "후보 노드", payload.candidate_nodes, renderDetectionCandidateItem, "후보 노드가 없습니다.");
   appendDetectionSection(root, "근거 경로", payload.relation_paths, renderDetectionRelationItem, "현재 필터 기준 관계 경로가 없습니다.");
@@ -3003,6 +3009,59 @@ function renderDetectionCodedItem(codedItem) {
     createDetectionElement("span", "meta", codedItem.label),
   );
   return item;
+}
+
+function renderDetectionOperatorGuide(payload) {
+  const guide = createDetectionElement("div", "detection-card-guide");
+  guide.append(
+    createDetectionElement("div", "detection-card-guide-title", "판정"),
+    createDetectionElement("div", "detection-card-guide-judgement", detectionJudgementText(payload)),
+    createDetectionElement("div", "detection-card-guide-title", "지금 할 일"),
+  );
+  const steps = createDetectionElement("ol", "");
+  for (const step of detectionOperatorSteps(payload)) {
+    steps.append(createDetectionElement("li", "", step));
+  }
+  guide.append(steps);
+  return guide;
+}
+
+function detectionJudgementText(payload) {
+  const codes = new Set(payload.missing_evidence_items.map((item) => item.code));
+  if (codes.has("selected_node_no_relation_paths")) {
+    return "이 노드는 아직 주변 관계가 없어 답변 재료로 쓰기 어렵습니다. 먼저 연결할 대상부터 정해야 합니다.";
+  }
+  if (codes.has("no_source_support_edges") || codes.has("no_vector_or_hybrid_retriever")) {
+    return "이 카드는 관련 노드와 파일 ref를 보여 주지만, 아직 근거 문단을 찾아 답하는 RAG 답변기는 아닙니다.";
+  }
+  if (codes.has("no_validation_benchmark")) {
+    return "근거 연결은 일부 있지만, 검색 품질 검증이 없어 최종 답변 품질을 주장할 수 없습니다.";
+  }
+  return "현재 카드 기준으로 큰 차단 신호는 적지만, 답변 생성 전에는 출처와 검증 범위를 다시 확인해야 합니다.";
+}
+
+function detectionOperatorSteps(payload) {
+  const codes = new Set(payload.missing_evidence_items.map((item) => item.code));
+  const steps = [];
+  if (codes.has("selected_node_no_relation_paths")) {
+    steps.push("후보 노드에서 이 노드와 실제로 연결할 대상을 고르고 관계선을 추가할지 검토하세요.");
+  }
+  if (codes.has("no_source_support_edges")) {
+    steps.push("출처 ref 중 실제 근거가 되는 파일을 골라 source 노드로 등록하고 supports 또는 derived_from 관계를 붙이세요.");
+  }
+  if (codes.has("no_vector_or_hybrid_retriever")) {
+    steps.push("문서 본문 검색, 벡터/BM25, NotebookLM 같은 별도 retrieval 단계를 붙이기 전까지는 이 화면으로 답을 만들지 마세요.");
+  }
+  if (codes.has("one_hop_paths_only")) {
+    steps.push("근거 경로는 바로 옆 관계만 보여 주므로, 여러 단계 추론이 필요하면 sourcebound review 범위를 따로 만드세요.");
+  }
+  if (codes.has("no_validation_benchmark")) {
+    steps.push("검색 결과가 맞는지 볼 기준 질문이나 benchmark 노드를 만든 뒤 답변 품질을 판단하세요.");
+  }
+  if (steps.length === 0) {
+    steps.push("후보 노드와 근거 경로를 검토한 뒤, 필요한 출처 ref를 sourcebound review 범위로 넘기세요.");
+  }
+  return steps;
 }
 
 function createDetectionElement(tagName, className, text) {
