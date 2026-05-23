@@ -173,9 +173,19 @@ Interactive previews may add background component halos or hulls to make weak
 components visible. Component halos mean "currently visible connected
 component" and must not replace node color, because node color remains reserved
 for node type.
-Previews may expose component-halo style controls, such as single-line,
-multi-ring, or stronger-line outlines. These controls change only component
+Previews may expose component-halo style controls, such as dotted spherical cloud,
+single-line, or stronger-line outlines. These controls change only component
 visibility, not component membership or graph data.
+If a glow style is used, it should stay boundary-biased enough that the
+component reads as a group outline rather than a center-heavy cloud.
+Runtime controls may tune halo point spacing, point size, opacity, depth,
+inner radius, jitter, and shape. These controls remain presentation-only and
+must not change component membership or graph data.
+Interactive previews may persist local view settings in browser storage for a
+specific export id. Saved settings may restore layout, filters, palettes, node
+scale controls, component-halo controls, focus depth, and time thresholds, but
+they remain local presentation state and must not alter exported graph JSON,
+source refs, component membership, or claim state.
 
 ## Trust And Lifecycle
 

@@ -43,10 +43,17 @@ full-export diagnostic.
 The 3D preview can draw subtle component halos around the largest visible
 connected components. These halos express the current component grouping without
 reusing node color, which remains reserved for node type.
-The halo style is selectable: `연두 글로우` for a brighter soft lime component cloud
-with many evenly spread round particle points,
+The halo style is selectable: `연두 윤곽 글로우` for a lime dotted spherical cloud
+whose point spacing, point count, point size, opacity, and shell shape can be
+tuned in the renderer profile,
 `얇은 한 줄` for a restrained single-ring outline, or `굵은 한 줄` for a stronger
 single-ring outline.
+The preview exposes local sliders for the dotted cloud's point spacing, point
+size, brightness, depth, inner radius, and jitter. These sliders affect only the
+rendered halo, not graph data or component membership.
+The 3D preview also exposes a single `현재 설정 저장` button. It stores the local
+view configuration in the browser for the current export id and restores it on
+the next open; this is a presentation preference, not graph data.
 The 3D preview keeps the canvas fixed to the viewport and scrolls the sidebar
 independently. Sidebar controls are grouped into collapsible sections so the
 graph does not get clipped when the operator moves through longer settings.

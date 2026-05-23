@@ -48,6 +48,11 @@
 - Spread the 3D `연두 글로우` particles across the full component cloud instead of concentrating them near the center.
 - Tightened the 3D candidate-edge dash spacing and clarified the visual rules panel so candidate relations read as short dotted lines rather than broken geometry.
 - Hid unrelated component glows during node focus so only the selected focus range keeps its `연두 글로우`.
+- Changed the default component glow into a boundary-oriented `연두 윤곽 글로우` with a dotted spherical cloud so groups are wrapped by adjustable round points instead of filled from the center.
+- Scaled `연두 윤곽 글로우` shell point count from component radius so large components keep visible point spacing instead of disappearing into sparse dots.
+- Replaced the shell's spiral-like point placement with seeded 3D sphere-volume sampling so close zoom reads as a sphere instead of filled orbit lines.
+- Added in-preview controls for `연두 윤곽 글로우` point spacing, point size, brightness, depth, inner radius, and jitter so the owner can tune the component cloud directly.
+- Set the owner's tuned `연두 윤곽 글로우` values as the new 3D preview defaults and added a single `현재 설정 저장` button that persists the full local view configuration in browser storage.
 - Explicitly added `Knowledge` to the foundation ontology relation matrix so graph nodes align with `.registry/knowledge/**` canon entries and class-local `knowledge_refs.yaml` bindings.
 - Kept graph weights, usage counts, recency, Obsidian links, and generated previews as navigation signals only, not source truth, ontology acceptance, owner approval, archive/retire execution, or canon promotion.
 

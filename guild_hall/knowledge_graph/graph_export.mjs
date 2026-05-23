@@ -901,8 +901,10 @@ function renderGraphHtml3d(graph) {
     h2 { font-size: 13px; margin: 20px 0 8px; text-transform: uppercase; letter-spacing: .04em; color: #94a3b8; }
     label, select, input, button { font: inherit; }
     select, input[type="range"] { width: 100%; }
-    select { color: #e5e7eb; background: #111827; border: 1px solid #334155; border-radius: 6px; padding: 7px 8px; }
-    input[type="color"] { width: 28px; height: 24px; padding: 0; background: transparent; border: 0; }
+	    select { color: #e5e7eb; background: #111827; border: 1px solid #334155; border-radius: 6px; padding: 7px 8px; }
+	    button { color: #e0f2fe; background: #12304a; border: 1px solid rgba(56, 189, 248, .46); border-radius: 6px; padding: 8px 10px; cursor: pointer; font-weight: 750; }
+	    button:hover { background: #164466; }
+	    input[type="color"] { width: 28px; height: 24px; padding: 0; background: transparent; border: 0; }
     input[type="range"] { accent-color: #38bdf8; }
     .check { display: flex; align-items: center; gap: 8px; margin: 6px 0; font-size: 13px; color: #dbeafe; }
     .legend-row { display: flex; align-items: center; gap: 8px; margin: 5px 0; font-size: 12px; color: #cbd5e1; }
@@ -946,6 +948,13 @@ function renderGraphHtml3d(graph) {
     <aside>
       <h1>Soulforge Knowledge Graph</h1>
       <div class="meta">3D 미리보기<br>생성: ${escapeHtml(graph.generated_at_utc)}<br>전체 노드: ${graph.nodes.length} / 전체 선: ${graph.edges.length}<br>출력은 메타데이터 전용이며 권한 판단이 아닙니다.<br><a href="./graph_preview_2d.html">2D 대체 보기 열기</a></div>
+      <details class="rule-panel" id="settingsControls" open>
+        <summary>설정 저장</summary>
+        <div class="section-body">
+          <button id="saveSettings" type="button">현재 설정 저장</button>
+          <div class="meta" id="saveSettingsStatus">저장하면 이 브라우저에서 다음에 열 때 자동으로 불러옵니다.</div>
+        </div>
+      </details>
       <details class="rule-panel" id="visualRules">
         <summary>시각 규칙 보기</summary>
         <div class="rule-list">
@@ -976,11 +985,25 @@ function renderGraphHtml3d(graph) {
           <label class="check"><input id="componentHalos" type="checkbox" checked> 덩어리 윤곽 표시</label>
           <label class="meta" for="componentHaloStyle">덩어리 표현</label>
           <select id="componentHaloStyle">
-            <option value="glow">연두 글로우</option>
+            <option value="glow">연두 윤곽 글로우</option>
             <option value="line">얇은 한 줄</option>
             <option value="bold">굵은 한 줄</option>
           </select>
-          <div class="meta">연두 글로우는 덩어리를 부드럽게 감싸고, 한 줄은 가장 절제된 표현입니다.</div>
+          <div class="meta">연두 윤곽 글로우는 둥근 점 구름으로 덩어리 경계를 감싸고, 한 줄은 가장 절제된 표현입니다.</div>
+          <h2>윤곽 점 구름</h2>
+          <label class="meta" for="componentShellSpacing">점 간격: <span id="componentShellSpacingValue">22</span></label>
+          <input id="componentShellSpacing" type="range" min="8" max="34" step="1" value="22">
+          <label class="meta" for="componentShellPointScale">점 크기: <span id="componentShellPointScaleValue">1.65</span>x</label>
+          <input id="componentShellPointScale" type="range" min="0.45" max="2.20" step="0.05" value="1.65">
+          <label class="meta" for="componentShellOpacityScale">점 밝기: <span id="componentShellOpacityScaleValue">1.60</span>x</label>
+          <input id="componentShellOpacityScale" type="range" min="0.20" max="1.60" step="0.05" value="1.60">
+          <label class="meta" for="componentShellDepth">구 깊이: <span id="componentShellDepthValue">1.00</span>x</label>
+          <input id="componentShellDepth" type="range" min="0.25" max="2.40" step="0.05" value="1.00">
+          <label class="meta" for="componentShellInnerRadius">속 비움: <span id="componentShellInnerRadiusValue">0.90</span></label>
+          <input id="componentShellInnerRadius" type="range" min="0" max="0.90" step="0.01" value="0.90">
+          <label class="meta" for="componentShellJitter">흔들림: <span id="componentShellJitterValue">0.12</span></label>
+          <input id="componentShellJitter" type="range" min="0" max="0.12" step="0.005" value="0.12">
+          <div class="meta">점 간격은 작을수록 촘촘합니다. 구 깊이는 얕고 납작한 느낌을 깊게 만들고, 속 비움은 낮을수록 중심까지 채웁니다.</div>
         </div>
       </details>
       <details class="rule-panel" id="nodeSizeControls" open>
@@ -1409,6 +1432,26 @@ const connectivityEls = {
   edges: document.getElementById("metricEdges"),
   summary: document.getElementById("connectivitySummary"),
 };
+const SETTINGS_STORAGE_KEY = "soulforge.knowledgeGraph3d.settings.v1:" + graph.export_id;
+const NUMBER_SETTING_KEYS = [
+  "hotDays",
+  "staleDays",
+  "nodeGlobalScale",
+  "nodeRelativeScale",
+  "componentShellSpacing",
+  "componentShellPointScale",
+  "componentShellOpacityScale",
+  "componentShellDepth",
+  "componentShellInnerRadius",
+  "componentShellJitter",
+];
+const STRING_SETTING_OPTIONS = {
+  layout: new Set(["force_3d", "semantic_shell", "radial_layers"]),
+  nodeSizeMode: new Set(["degree", "usage"]),
+  componentHaloStyle: new Set(["glow", "line", "bold"]),
+  focusDepth: new Set(["1", "2", "all"]),
+};
+const BOOLEAN_SETTING_KEYS = ["showComponentHalos", "autoRotate"];
 
 const NODE_TYPE_LABELS = {
   agent_run: "실행 기록",
@@ -1471,7 +1514,14 @@ const state = {
   nodeRelativeScale: 0.75,
   showComponentHalos: true,
   componentHaloStyle: "glow",
+  componentShellSpacing: 22,
+  componentShellPointScale: 1.65,
+  componentShellOpacityScale: 1.6,
+  componentShellDepth: 1,
+  componentShellInnerRadius: 0.9,
+  componentShellJitter: 0.12,
   focusDepth: "2",
+  autoRotate: false,
   focusRef: null,
 };
 
@@ -1489,6 +1539,8 @@ controls.autoRotate = false;
 controls.autoRotateSpeed = 0.42;
 controls.minDistance = 160;
 controls.maxDistance = 1450;
+const savedSettingsLoaded = loadSavedSettings();
+controls.autoRotate = state.autoRotate;
 
 const graphGroup = new THREE.Group();
 scene.add(graphGroup);
@@ -1514,7 +1566,6 @@ let visibleEdgeCount = 0;
 let focusedNodeCount = 0;
 let focusedEdgeCount = 0;
 let visibleConnectivity = { components: 0, isolated: 0, largest: 0 };
-let componentGlowTexture = null;
 let componentGlowPointTexture = null;
 
 initControls();
@@ -1528,6 +1579,11 @@ canvas.addEventListener("pointerleave", () => { tooltip.style.display = "none"; 
 canvas.addEventListener("dblclick", onCanvasDoubleClick);
 
 function initControls() {
+  const saveSettingsButton = document.getElementById("saveSettings");
+  saveSettingsButton.addEventListener("click", saveSettings);
+  setSettingsStatus(savedSettingsLoaded
+    ? "저장된 설정을 불러왔습니다. 새 값은 버튼을 누르면 다시 저장됩니다."
+    : "현재 기본값으로 시작했습니다. 버튼을 누르면 이 브라우저에 저장됩니다.");
   const layout = document.getElementById("layout");
   layout.value = state.layout;
   layout.addEventListener("change", () => {
@@ -1562,17 +1618,28 @@ function initControls() {
     updateVisualRules();
     rebuild();
   });
+  bindRange("componentShellSpacing", "componentShellSpacingValue", "componentShellSpacing");
+  bindRange("componentShellPointScale", "componentShellPointScaleValue", "componentShellPointScale");
+  bindRange("componentShellOpacityScale", "componentShellOpacityScaleValue", "componentShellOpacityScale");
+  bindRange("componentShellDepth", "componentShellDepthValue", "componentShellDepth");
+  bindRange("componentShellInnerRadius", "componentShellInnerRadiusValue", "componentShellInnerRadius");
+  bindRange("componentShellJitter", "componentShellJitterValue", "componentShellJitter");
   const autoRotate = document.getElementById("autoRotate");
   autoRotate.checked = controls.autoRotate;
   autoRotate.addEventListener("change", () => {
-    controls.autoRotate = autoRotate.checked;
+    state.autoRotate = autoRotate.checked;
+    controls.autoRotate = state.autoRotate;
     updateHud();
   });
   const focusDepth = document.getElementById("focusDepth");
   focusDepth.value = state.focusDepth;
   focusDepth.addEventListener("change", () => {
     state.focusDepth = focusDepth.value;
-    applyFocus();
+    if (state.focusRef) {
+      rebuild();
+    } else {
+      applyFocus();
+    }
     updateHud();
   });
 }
@@ -1580,11 +1647,89 @@ function initControls() {
 function bindRange(inputId, outputId, stateKey) {
   const input = document.getElementById(inputId);
   const output = document.getElementById(outputId);
+  input.value = String(state[stateKey]);
+  output.textContent = input.value;
   input.addEventListener("input", () => {
     state[stateKey] = Number(input.value);
     output.textContent = input.value;
     rebuild();
   });
+}
+
+function saveSettings() {
+  try {
+    localStorage.setItem(SETTINGS_STORAGE_KEY, JSON.stringify(serializeSettings()));
+    setSettingsStatus("저장됨: " + new Date().toLocaleString("ko-KR"));
+  } catch (error) {
+    setSettingsStatus("저장 실패: 브라우저 저장소를 사용할 수 없습니다.");
+  }
+}
+
+function serializeSettings() {
+  const settings = {
+    version: 1,
+    savedAt: new Date().toISOString(),
+    nodeTypes: { ...state.nodeTypes },
+    edgeTypes: { ...state.edgeTypes },
+    nodeColors: { ...state.nodeColors },
+    relationColors: { ...state.relationColors },
+  };
+  for (const key of NUMBER_SETTING_KEYS) settings[key] = state[key];
+  for (const key of Object.keys(STRING_SETTING_OPTIONS)) settings[key] = state[key];
+  for (const key of BOOLEAN_SETTING_KEYS) settings[key] = key === "autoRotate" ? controls.autoRotate : state[key];
+  return settings;
+}
+
+function loadSavedSettings() {
+  try {
+    const raw = localStorage.getItem(SETTINGS_STORAGE_KEY);
+    if (!raw) return false;
+    return applySavedSettings(JSON.parse(raw));
+  } catch (error) {
+    return false;
+  }
+}
+
+function applySavedSettings(saved) {
+  if (!isPlainRecord(saved) || saved.version !== 1) return false;
+  for (const key of NUMBER_SETTING_KEYS) {
+    const value = Number(saved[key]);
+    if (Number.isFinite(value)) state[key] = value;
+  }
+  for (const [key, options] of Object.entries(STRING_SETTING_OPTIONS)) {
+    if (typeof saved[key] === "string" && options.has(saved[key])) state[key] = saved[key];
+  }
+  for (const key of BOOLEAN_SETTING_KEYS) {
+    if (typeof saved[key] === "boolean") state[key] = saved[key];
+  }
+  applySavedBooleanMap(state.nodeTypes, saved.nodeTypes);
+  applySavedBooleanMap(state.edgeTypes, saved.edgeTypes);
+  applySavedColorMap(state.nodeColors, saved.nodeColors);
+  applySavedColorMap(state.relationColors, saved.relationColors);
+  return true;
+}
+
+function applySavedBooleanMap(target, source) {
+  if (!isPlainRecord(source)) return;
+  for (const key of Object.keys(target)) {
+    if (typeof source[key] === "boolean") target[key] = source[key];
+  }
+}
+
+function applySavedColorMap(target, source) {
+  if (!isPlainRecord(source)) return;
+  for (const key of Object.keys(target)) {
+    if (typeof source[key] === "string" && /^#[0-9a-f]{6}$/i.test(source[key])) target[key] = source[key];
+  }
+}
+
+function isPlainRecord(value) {
+  return Boolean(value) && typeof value === "object" && !Array.isArray(value);
+}
+
+function setSettingsStatus(message) {
+  const status = document.getElementById("saveSettingsStatus");
+  if (status) status.textContent = message;
 }
 
 function renderFilter(id, target, onChange) {
@@ -1656,11 +1801,13 @@ function rebuild() {
   const positioned = layoutNodes3d(nodes, edges);
   const byRef = new Map(positioned.map((node) => [node.node_ref, node]));
   const visibleComponents = componentGroupsFor(positioned, edges);
+  const focusRefs = state.focusRef ? connectedRefsFor(state.focusRef) : null;
+  const haloComponents = focusRefs ? focusComponentGroupsFor(positioned, edges, focusRefs) : visibleComponents;
   const degreeByRef = visibleDegreeByRef(positioned, edges);
   const nodeRadiusByRef = new Map(
     positioned.map((node) => [node.node_ref, renderedNodeRadius(node, degreeByRef.get(node.node_ref) ?? 0)]),
   );
-  addComponentHalos(visibleComponents);
+  addComponentHalos(haloComponents, { includeSingletons: Boolean(focusRefs), fallbackNodes: focusRefs ? [] : positioned });
 
   for (const edge of edges) {
     const from = byRef.get(edge.from_ref);
@@ -1733,7 +1880,16 @@ function rebuild() {
     nodeGlobalScale: state.nodeGlobalScale,
     nodeRelativeScale: state.nodeRelativeScale,
     componentHaloStyle: state.componentHaloStyle,
-    focusRef: state.focusRef,
+    componentShellSpacing: state.componentShellSpacing,
+    componentShellPointScale: state.componentShellPointScale,
+    componentShellOpacityScale: state.componentShellOpacityScale,
+    componentShellDepth: state.componentShellDepth,
+	    componentShellInnerRadius: state.componentShellInnerRadius,
+	    componentShellJitter: state.componentShellJitter,
+	    autoRotate: controls.autoRotate,
+	    savedSettingsLoaded,
+	    settingsStorageKey: SETTINGS_STORAGE_KEY,
+	    focusRef: state.focusRef,
     focusDepth: state.focusDepth,
     focusedNodeCount,
     focusedEdgeCount,
@@ -1749,11 +1905,12 @@ function updateHud() {
 
 function updateVisualRules() {
   const scaleText = " 전체 " + state.nodeGlobalScale.toFixed(2) + "x, 상대 " + state.nodeRelativeScale.toFixed(2) + "x.";
+  const shellText = " 점 간격 " + state.componentShellSpacing.toFixed(0) + ", 깊이 " + state.componentShellDepth.toFixed(2) + "x, 속 비움 " + state.componentShellInnerRadius.toFixed(2) + ".";
   ruleNodeSizeMeaning.textContent = state.nodeSizeMode === "degree"
     ? "현재는 연결수입니다. 필터 후 보이는 선이 많이 붙은 노드일수록 큽니다." + scaleText
     : "현재는 사용량입니다. 방명록/접근 기록에 많이 등장한 노드일수록 큽니다." + scaleText;
   const styleText = {
-    glow: "현재는 연두 글로우입니다. 포커스 중에는 선택 범위의 글로우만 남깁니다.",
+    glow: "현재는 연두 윤곽 글로우입니다. 둥근 점 구름으로 덩어리 경계를 감쌉니다. 연결 덩어리가 없으면 현재 보이는 범위를 감쌉니다. 포커스 중에는 선택 범위 기준으로 윤곽을 다시 그립니다." + shellText,
     line: "현재는 얇은 한 줄입니다. 가장 절제된 덩어리 윤곽만 보여줍니다.",
     bold: "현재는 굵은 한 줄입니다. 한 방향 윤곽을 더 강하게 보여줍니다.",
   };
@@ -1822,6 +1979,12 @@ function componentGroupsFor(nodes, edges) {
   return components.sort((left, right) => right.length - left.length);
 }
 
+function focusComponentGroupsFor(nodes, edges, focusRefs) {
+  const focusedNodes = nodes.filter((node) => focusRefs.has(node.node_ref));
+  const focusedEdges = edges.filter((edge) => focusRefs.has(edge.from_ref) && focusRefs.has(edge.to_ref));
+  return componentGroupsFor(focusedNodes, focusedEdges);
+}
+
 function renderPaletteLegend(nodes, edges) {
   const visibleNodeTypes = [...new Set(nodes.map((node) => node.node_type))].sort();
   const visibleRelationTypes = [...new Set(edges.map((edge) => edge.relation_type))].sort();
@@ -1859,13 +2022,16 @@ function appendLegendSection(titleText, keys, colorFor, labelFor, kind) {
   }
 }
 
-function addComponentHalos(components) {
+function addComponentHalos(components, options = {}) {
   if (!state.showComponentHalos) return;
-  const candidates = components.filter((component) => component.length > 1).slice(0, 8);
+  const minimumSize = options.includeSingletons ? 1 : 2;
+  const fallbackNodes = options.fallbackNodes ?? [];
+  const componentCandidates = components.filter((component) => component.length >= minimumSize);
+  const candidates = (componentCandidates.length > 0 ? componentCandidates : [fallbackNodes].filter((component) => component.length > 0)).slice(0, 8);
   for (let index = 0; index < candidates.length; index += 1) {
     const component = candidates[index];
     const positions = component.map((node) => node.position).filter(Boolean);
-    if (positions.length < 2) continue;
+    if (positions.length < 1) continue;
     const center = positions.reduce((sum, position) => sum.add(position), new THREE.Vector3()).multiplyScalar(1 / positions.length);
     const maxDistance = positions.reduce((max, position) => Math.max(max, position.distanceTo(center)), 0);
     const radius = clamp(maxDistance + 28, 34, 520);
@@ -1912,17 +2078,26 @@ function componentHaloProfile(index, radius) {
       renderOrder: -2,
     };
   }
+  const shellPointSpacing = index === 0 ? state.componentShellSpacing : state.componentShellSpacing * 1.2;
   return {
     kind: "glow",
-    spriteScale: index === 0 ? 2.1 : 1.72,
-    pointCount: index === 0 ? 760 : 520,
-    pointSize: index === 0 ? 2.15 : 1.85,
-    opacity: index === 0 ? 0.62 : 0.42,
-    pointOpacity: index === 0 ? 0.4 : 0.3,
+    shellPointSpacing,
+    shellPointCount: componentShellPointCount(radius, shellPointSpacing, index === 0 ? 30000 : 18000),
+    shellPointSize: (index === 0 ? 2.45 : 2.05) * state.componentShellPointScale,
+    shellPointOpacity: clamp((index === 0 ? 0.56 : 0.38) * state.componentShellOpacityScale, 0.04, 0.95),
+    shellShape: [1, 1, state.componentShellDepth],
+    shellInnerRadius: state.componentShellInnerRadius,
+    shellJitter: state.componentShellJitter,
     depthTest: false,
     blending: THREE.AdditiveBlending,
     renderOrder: -1,
   };
+}
+
+function componentShellPointCount(radius, spacing, maxCount) {
+  const shellArea = 4 * Math.PI * radius * radius;
+  const count = Math.round(shellArea / (spacing * spacing));
+  return clamp(count, 760, maxCount);
 }
 
 function addComponentRings(center, radius, color, profile) {
@@ -1950,62 +2125,55 @@ function addComponentRings(center, radius, color, profile) {
 }
 
 function addComponentGlow(center, radius, color, profile, seed) {
-  const glow = new THREE.Sprite(
-    new THREE.SpriteMaterial({
-      map: getComponentGlowTexture(),
-      color: new THREE.Color(color),
-      transparent: true,
-      opacity: profile.opacity,
-      depthWrite: false,
-      depthTest: profile.depthTest,
-      blending: profile.blending,
-    }),
-  );
-  glow.position.copy(center);
-  const scale = radius * profile.spriteScale;
-  glow.scale.set(scale, scale, 1);
-  glow.renderOrder = profile.renderOrder;
-  glow.material.userData.baseOpacity = profile.opacity;
-  graphGroup.add(glow);
-
-  const geometry = componentPointCloudGeometry(radius, profile.pointCount, seed);
-  const points = new THREE.Points(
-    geometry,
+  const shell = new THREE.Points(
+    componentShellPointGeometry(radius, profile.shellPointCount, seed, profile),
     new THREE.PointsMaterial({
       map: getComponentGlowPointTexture(),
       color: new THREE.Color(color),
-      size: profile.pointSize,
+      size: profile.shellPointSize,
       sizeAttenuation: false,
       transparent: true,
-      opacity: profile.pointOpacity,
+      opacity: profile.shellPointOpacity,
       alphaTest: 0.02,
       depthWrite: false,
       depthTest: profile.depthTest,
       blending: profile.blending,
     }),
   );
-  points.position.copy(center);
-  points.renderOrder = profile.renderOrder + 1;
-  points.material.userData.baseOpacity = profile.pointOpacity;
-  graphGroup.add(points);
-  return [glow, points];
+  shell.position.copy(center);
+  shell.renderOrder = profile.renderOrder + 1;
+  shell.material.userData.baseOpacity = profile.shellPointOpacity;
+  graphGroup.add(shell);
+  return [shell];
 }
 
-function getComponentGlowTexture() {
-  if (componentGlowTexture) return componentGlowTexture;
-  const textureCanvas = document.createElement("canvas");
-  textureCanvas.width = 128;
-  textureCanvas.height = 128;
-  const context = textureCanvas.getContext("2d");
-  const gradient = context.createRadialGradient(64, 64, 0, 64, 64, 64);
-  gradient.addColorStop(0, "rgba(255,255,255,0.86)");
-  gradient.addColorStop(0.32, "rgba(255,255,255,0.42)");
-  gradient.addColorStop(0.68, "rgba(255,255,255,0.13)");
-  gradient.addColorStop(1, "rgba(255,255,255,0)");
-  context.fillStyle = gradient;
-  context.fillRect(0, 0, 128, 128);
-  componentGlowTexture = new THREE.CanvasTexture(textureCanvas);
-  return componentGlowTexture;
+function componentShellPointGeometry(radius, count, seed, profile) {
+  const positions = new Float32Array(count * 3);
+  const shape = profile.shellShape ?? [1, 1, 1];
+  const innerRadius = profile.shellInnerRadius ?? 0.62;
+  const jitterScale = profile.shellJitter ?? 0.04;
+  for (let index = 0; index < count; index += 1) {
+    const u = seededUnit(index, seed, 0);
+    const v = seededUnit(index, seed, 1);
+    const w = seededUnit(index, seed, 2);
+    const theta = u * Math.PI * 2;
+    const z = 1 - 2 * v;
+    const radial = Math.sqrt(Math.max(0, 1 - z * z));
+    const volumeRadius = Math.cbrt(innerRadius ** 3 + w * (1 - innerRadius ** 3));
+    const jitter = (seededUnit(index, seed, 3) - 0.5) * jitterScale;
+    const shellRadius = radius * (volumeRadius + jitter);
+    positions[index * 3] = Math.cos(theta) * radial * shellRadius * shape[0];
+    positions[index * 3 + 1] = Math.sin(theta) * radial * shellRadius * shape[1];
+    positions[index * 3 + 2] = z * shellRadius * shape[2];
+  }
+  const geometry = new THREE.BufferGeometry();
+  geometry.setAttribute("position", new THREE.BufferAttribute(positions, 3));
+  return geometry;
+}
+
+function seededUnit(index, seed, salt) {
+  const value = Math.sin((index + 1) * (12.9898 + salt * 7.233) + seed * (78.233 + salt * 19.19)) * 43758.5453;
+  return value - Math.floor(value);
 }
 
 function getComponentGlowPointTexture() {
@@ -2023,24 +2191,6 @@ function getComponentGlowPointTexture() {
   context.fillRect(0, 0, 64, 64);
   componentGlowPointTexture = new THREE.CanvasTexture(textureCanvas);
   return componentGlowPointTexture;
-}
-
-function componentPointCloudGeometry(radius, count, seed) {
-  const positions = new Float32Array(count * 3);
-  const goldenAngle = Math.PI * (3 - Math.sqrt(5));
-  for (let index = 0; index < count; index += 1) {
-    const radialT = (((index * 37) + seed * 53) % count + 0.5) / count;
-    const theta = index * goldenAngle + seed * 0.53;
-    const radial = radius * (0.16 + 0.9 * Math.pow(radialT, 0.36));
-    const band = (index % 9) - 4;
-    const depthWave = Math.sin(index * 1.618 + seed) * radius * 0.045;
-    positions[index * 3] = Math.cos(theta) * radial * 1.08;
-    positions[index * 3 + 1] = Math.sin(theta) * radial * 0.86;
-    positions[index * 3 + 2] = band * radius * 0.032 + depthWave;
-  }
-  const geometry = new THREE.BufferGeometry();
-  geometry.setAttribute("position", new THREE.BufferAttribute(positions, 3));
-  return geometry;
 }
 
 function addEdgeMeshes(from, to, width, color, opacity, segments, edge) {
@@ -2193,7 +2343,7 @@ function onPointerMove(event) {
 
 function focusNode(focusRef) {
   state.focusRef = focusRef;
-  applyFocus();
+  rebuild();
   updateHud();
 }
 
@@ -2210,7 +2360,7 @@ function onCanvasDoubleClick(event) {
 function clearFocus() {
   state.focusRef = null;
   tooltip.style.display = "none";
-  applyFocus();
+  rebuild();
   updateHud();
 }
 
