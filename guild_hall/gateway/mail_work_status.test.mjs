@@ -167,7 +167,7 @@ test("refreshMailWorkStatus joins candidate, gateway, project, mission, and batt
   const completedPriority = priorityProjection.entries.find((entry) => entry.candidate_id === "mail_candidate_mail_evt_completed");
   const topPriority = priorityProjection.entries[0];
   assert.equal(completedPriority.work_status, "completed_with_follow_up");
-  assert.equal(completedPriority.route_candidate, "P26-030");
+  assert.equal(completedPriority.route_candidate, "P26-014");
   assert.deepEqual(completedPriority.priority_flags_ko, []);
   assert.notEqual(topPriority.candidate_id, "mail_candidate_mail_evt_completed");
 });
@@ -204,7 +204,7 @@ test("listMailWorkStatus filters from latest projection", async () => {
   assert.equal(result.entries[0].candidate_id, "mail_candidate_mail_evt_filter");
 });
 
-test("refreshMailWorkPriority routes exact P26, thread duplicates, admin holds, and promo non-work", async () => {
+test("refreshMailWorkPriority routes exact P26-014, thread duplicates, admin holds, and promo non-work", async () => {
   const repoRoot = await createRepoRoot();
   const candidates = [
     sampleCandidate({
@@ -283,7 +283,7 @@ test("refreshMailWorkPriority routes exact P26, thread duplicates, admin holds, 
   assert.equal(projection.boundary.raw_payload_copied, false);
 
   const exact = projection.entries.find((entry) => entry.candidate_id === "mail_candidate_kvds");
-  assert.equal(exact.route_candidate, "P26-030");
+  assert.equal(exact.route_candidate, "P26-014");
   assert.equal(exact.route_confidence, "exact");
   assert.equal(exact.operating_state_ko, "새 일");
   assert.equal(exact.boundary.raw_payload_copied, false);
@@ -291,7 +291,7 @@ test("refreshMailWorkPriority routes exact P26, thread duplicates, admin holds, 
   assert.ok(exact.priority_flags_ko.includes("자료 확인"));
 
   const mineExact = projection.entries.find((entry) => entry.candidate_id === "mail_candidate_mine_exact");
-  assert.equal(mineExact.route_candidate, "P26-030");
+  assert.equal(mineExact.route_candidate, "P26-014");
   assert.equal(mineExact.route_confidence, "exact");
 
   const projectCodeOnly = projection.entries.find((entry) => entry.candidate_id === "mail_candidate_project_code_only");
@@ -342,16 +342,28 @@ test("listMailWorkPriority filters from latest priority projection", async () =>
       workspace: "personal",
     }),
   );
+  await writeJson(
+    path.join(repoRoot, "guild_hall", "state", "gateway", "mail_candidate", "queue", "pending", "mail_candidate_masked_kvds.json"),
+    sampleCandidate({
+      candidate_id: "mail_candidate_masked_kvds",
+      event_id: "mail_evt_masked_kvds",
+      status: "pending_review",
+      subject: "[기ㅇ탐ㅇㅇㅇㅇ] 예인몸체 자료 송부의 건",
+    }),
+  );
 
   await refreshMailWorkPriority({ repoRoot });
   const result = await listMailWorkPriority({
     repoRoot,
-    routeCandidate: "P26-030",
+    routeCandidate: "P26-014",
   });
 
   assert.equal(result.projection_source, "latest");
-  assert.equal(result.count, 1);
-  assert.equal(result.entries[0].candidate_id, "mail_candidate_kvds");
+  assert.equal(result.count, 2);
+  assert.deepEqual(
+    result.entries.map((entry) => entry.candidate_id).sort(),
+    ["mail_candidate_kvds", "mail_candidate_masked_kvds"],
+  );
 });
 
 async function createRepoRoot() {

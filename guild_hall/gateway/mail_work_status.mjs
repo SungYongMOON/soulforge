@@ -451,7 +451,7 @@ async function loadBattleEvents(repoRoot, projectRoot, projectCode, battlesByKey
       if (!line.trim()) {
         continue;
       }
-      const event = JSON.parse(line);
+      const event = JSON.parse(line.replace(/^\uFEFF/u, ""));
       if (!event.mission_id || !event.project_code) {
         continue;
       }
@@ -749,9 +749,9 @@ function resolvePriorityRoute(entry) {
       route_kind: "personal_admin",
     };
   }
-  if (isExactP26030Subject(subjectText)) {
+  if (isExactP26014Subject(subjectText)) {
     return {
-      route_candidate: "P26-030",
+      route_candidate: "P26-014",
       route_confidence: "exact",
       route_kind: "exact_work",
     };
@@ -830,7 +830,7 @@ function resolveNextActionKo(entry, operatingState, route, threadCount) {
     return "같은 thread_group의 기존 업무에 붙일 후보인지 확인한다.";
   }
   if (route.route_confidence === "exact") {
-    return "P26-030 큐에서 오늘 처리 여부와 기존 작업 연결 여부를 확인한다.";
+    return "P26-014 큐에서 오늘 처리 여부와 기존 작업 연결 여부를 확인한다.";
   }
   if (route.route_confidence === "review") {
     return "프로젝트 코드를 확인한 뒤 수동으로 업무화/보류를 결정한다.";
@@ -852,7 +852,7 @@ function resolveOwnerQuestionKo(entry, operatingState, route, threadCount) {
     return "이 메일을 같은 thread_group의 기존 업무에 붙일까요?";
   }
   if (route.route_confidence === "exact") {
-    return "P26-030의 새 업무로 둘까요, 기존 업무에 붙일까요?";
+    return "P26-014의 새 업무로 둘까요, 기존 업무에 붙일까요?";
   }
   if (route.route_confidence === "review") {
     return "어느 프로젝트 코드로 보낼까요?";
@@ -901,8 +901,8 @@ function hasExistingWorkSurface(entry) {
   return Boolean(entry.monster_id || entry.project_code || entry.project_monster_ref || entry.mission_id);
 }
 
-function isExactP26030Subject(subjectText) {
-  return subjectText.includes("기0탐") || subjectText.includes("기뢰탐색음탐기") || subjectText.includes("kvds");
+function isExactP26014Subject(subjectText) {
+  return /기[0-9ㅇᄋ○oO영공xX]탐/iu.test(subjectText) || subjectText.includes("기뢰탐색음탐기") || subjectText.includes("kvds");
 }
 
 function isWorkLikeSubject(subjectText, entry) {

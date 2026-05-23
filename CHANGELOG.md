@@ -2,6 +2,11 @@
 
 ## 2026-05-22
 
+### Revision `working` - P26-014 masked KVDS mail routing added
+
+- Updated gateway mail priority routing so KVDS/기뢰탐색음탐기 exact matches route to official `P26-014`, including masked `기X탐` subject prefixes such as `기0탐` and `기ㅇ탐`.
+- Updated the mail work status contract sample and P26-014 private routing rule to keep the former P26-030 working label from capturing new KVDS 체계개발 mail.
+
 ### Revision `working` - HWP normalization-first rule added
 
 - Added `HWP_NORMALIZATION_V0.md` as the public-safe rule that HWP source files are not body-analysis targets until re-saved/exported as HWPX derivatives.

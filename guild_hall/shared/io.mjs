@@ -3,7 +3,7 @@ import path from "node:path";
 
 export async function readJson(filePath) {
   const raw = await fs.readFile(filePath, "utf8");
-  return JSON.parse(raw);
+  return JSON.parse(raw.replace(/^\uFEFF/u, ""));
 }
 
 export async function writeJson(filePath, value, options = {}) {

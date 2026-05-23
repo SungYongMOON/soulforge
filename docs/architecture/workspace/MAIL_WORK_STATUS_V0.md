@@ -99,7 +99,7 @@ mail rumor -> candidate note -> gateway monster -> project monster
   - `개인/관리 보류`
   - `일 아님`
 - `route_candidate`
-  - 예: `P26-030`, `P00-000_INBOX`, `none/personal`, `none/promo`
+  - 예: `P26-014`, `P00-000_INBOX`, `none/personal`, `none/promo`
 - `route_confidence`
   - `exact`
   - `review`
@@ -149,7 +149,7 @@ mail rumor -> candidate note -> gateway monster -> project monster
 5. projection 은 metadata-only summary 이다. `refs` 는 pointer surface 만 들고 raw payload 는 복사하지 않는다.
 6. stale `latest.json` 을 읽을 수 있으므로 refresh surface 를 별도로 둔다.
 7. priority projection 은 raw mail 본문, HTML, attachment payload, provider payload, secret 을 읽지 않고 candidate metadata 와 status projection 결과만 사용한다.
-8. exact `P26-030` route 는 subject 에 `기0탐`, `기뢰탐색음탐기`, `KVDS` 중 하나가 있을 때만 `route_confidence: exact` 로 둔다.
+8. exact `P26-014` route 는 subject 에 `기0탐`, `기ㅇ탐` 같은 `기X탐` 마스킹 패턴, `기뢰탐색음탐기`, `KVDS` 중 하나가 있을 때만 `route_confidence: exact` 로 둔다.
 9. 업무처럼 보이지만 project code 가 확정되지 않은 후보는 `P00-000_INBOX` + `route_confidence: review` 로 둔다.
 10. personal/security/finance/billing/subscription/promo/terms 류는 project monster 로 만들지 않고 `개인/관리 보류` 또는 `일 아님` 으로 둔다.
 11. priority `thread_group` 은 subject metadata 의 deterministic matching 으로만 만든다. current-default group 은 `센서 일정/status`, `P978 시운전절차서`, `Q4 진행 독려`, `환경시험절차서`, `P23-043 접근권한`, `해경/시험 협조`, `내부 자산/admin` 이다.
@@ -222,7 +222,7 @@ priority list 는 `--work-status`, `--operating-state`, `--route-candidate`, `--
     "새 일": 1
   },
   "route_counts": {
-    "P26-030": 1
+    "P26-014": 1
   },
   "entries": [
     {
@@ -231,12 +231,12 @@ priority list 는 `--work-status`, `--operating-state`, `--route-candidate`, `--
       "subject": "[KVDS] Synthetic source packet request",
       "received_at": "2026-05-20T02:00:00.000Z",
       "operating_state_ko": "새 일",
-      "route_candidate": "P26-030",
+      "route_candidate": "P26-014",
       "route_confidence": "exact",
       "thread_group": "subject:synthetic source packet request",
       "priority_flags_ko": ["오늘 처리", "자료 확인"],
-      "next_action_ko": "P26-030 큐에서 오늘 처리 여부와 기존 작업 연결 여부를 확인한다.",
-      "owner_question_ko": "P26-030의 새 업무로 둘까요, 기존 업무에 붙일까요?",
+      "next_action_ko": "P26-014 큐에서 오늘 처리 여부와 기존 작업 연결 여부를 확인한다.",
+      "owner_question_ko": "P26-014의 새 업무로 둘까요, 기존 업무에 붙일까요?",
       "work_status": "candidate_pending",
       "refs": {
         "candidate_ref": "guild_hall/state/gateway/mail_candidate/queue/pending/mail_candidate_mail_evt_001.json"
