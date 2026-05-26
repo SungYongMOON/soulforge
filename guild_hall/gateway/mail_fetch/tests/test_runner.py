@@ -251,10 +251,12 @@ def test_run_once_processes_hiworks_source(monkeypatch, tmp_path: Path) -> None:
     assert summary["sources"][0]["mail_candidates"]["history_updated"] == 1
     assert summary["sources"][0]["mail_candidates"]["history_files"] == [
         "_workmeta/P00-000_INBOX/reports/메일_이력/메일_이력.csv",
-        "_workmeta/P00-000_INBOX/reports/메일_이력/메일_이력.xlsx",
+        "_workspaces/P00-000_INBOX/reports/메일_이력/메일_이력.xlsx",
         "_workmeta/P00-000_INBOX/reports/메일_이력/메일_일정이벤트.ics",
     ]
     assert (tmp_path / "_workmeta" / "P00-000_INBOX" / "reports" / "메일_이력" / "메일_이력.csv").exists()
+    assert not (tmp_path / "_workmeta" / "P00-000_INBOX" / "reports" / "메일_이력" / "메일_이력.xlsx").exists()
+    assert (tmp_path / "_workspaces" / "P00-000_INBOX" / "reports" / "메일_이력" / "메일_이력.xlsx").exists()
 
 
 def test_run_once_enqueues_mail_received_notifications_for_fresh_events(monkeypatch, tmp_path: Path) -> None:

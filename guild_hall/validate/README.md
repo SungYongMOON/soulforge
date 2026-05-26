@@ -17,6 +17,9 @@
   - concrete local absolute paths such as Windows drive-root paths, POSIX user-volume paths, and local file URI paths 를 차단
   - 기본 `changed` scope 는 현재 변경분만 검사해서 새 upload 후보에 절대경로가 섞이는 것을 막음
   - `--scope tracked` 는 과거 tracked debt 전체를 점검하는 audit 모드
+- `workmeta_payload_policy.mjs`
+  - `_workmeta` 안에 HWP/HWPX, Office, PDF, 압축파일, mail raw/archive 확장자 파일이 생기면 차단
+  - 파일 내용은 읽지 않고 경로와 확장자만 검사해서 ignored local payload 재생성을 잡음
 - `run_ui_workspace_command.mjs`
   - root npm script 에서 `ui-workspace` script 를 실행하는 portability wrapper
   - `UI_LINT_CANONICAL_ROOT` 기본값을 설정하고 Windows 에서는 `npm.cmd`, 그 외 환경에서는 `npm` 을 직접 실행
@@ -36,6 +39,7 @@
   - `npm run validate:path-policy`
   - `npm run validate:path-policy:all`
   - `npm run validate:path-policy:state`
+  - `npm run validate:workmeta-payload`
   - `npm run validate:role-boundary`
   - `npm run validate:activity`
   - `npm run validate:knowledge-access`

@@ -19,7 +19,7 @@
 - `mail_work_status.mjs`
   - mail-derived work item 상태를 candidate -> monster -> mission -> battle 기준으로 projection 하고, 주간 계획 누락 방지용 P00 visibility register 를 갱신하는 local-only helper
 - `project_mail_history_writer.mjs`
-  - assigned project 가 있는 mail-derived monster 생성/갱신 이벤트를 `_workmeta/<project_code>/reports/메일_이력/` 아래 한글 파일명 CSV/엑셀/일정 이벤트 산출물로 갱신하는 private writer
+  - assigned project 가 있는 mail-derived monster 생성/갱신 이벤트를 `_workmeta/<project_code>/reports/메일_이력/` 아래 metadata CSV/일정 이벤트로 갱신하고, Excel 보기용 export 는 `_workspaces/<project_code>/reports/메일_이력/` 아래에 쓰는 private writer
 - `mail_fetch/collector/storage/mail_candidate_queue.py`
   - fresh mail event 를 업무화 검토 후보 queue 로 적재하고, monster 생성 전 수신 이력을 `_workmeta/P00-000_INBOX/reports/메일_이력/` 로 남기는 local-only writer
 
@@ -52,6 +52,6 @@
 - 24시간 mail fetch 는 업무 후보 메일을 큐에 적재할 때 `_workmeta/P00-000_INBOX/reports/메일_이력/` 에 `mail_received` 행을 먼저 upsert 한다.
 - mail intake/update 중 monster 에 `assigned_project_code` 가 있으면 `_workmeta/<project_code>/reports/메일_이력/` 에 monster 생성/갱신 후속 행을 upsert 한다.
 - dungeon assignment 가 project filing 을 수행하면 같은 프로젝트 이력에 `mail_filing_received` 후속 행을 upsert 한다.
-- 산출물 파일명은 `메일_이력.csv`, `메일_이력.xlsx`, `메일_일정이벤트.ics` 로 고정한다.
-- 같은 project/event/candidate-or-monster/mail source 조합은 같은 `이력키` 로 upsert 하므로 재실행해도 CSV/엑셀/일정 이벤트에 중복 행을 만들지 않는다.
+- `_workmeta` 에는 `메일_이력.csv`, `메일_일정이벤트.ics` 만 쓴다. Excel export 인 `메일_이력.xlsx` 는 `_workspaces/<project_code>/reports/메일_이력/` 아래에만 쓴다.
+- 같은 project/event/candidate-or-monster/mail source 조합은 같은 `이력키` 로 upsert 하므로 재실행해도 CSV/Excel export/일정 이벤트에 중복 행을 만들지 않는다.
 - writer 는 메일 본문, HTML, raw payload, attachment path/name/url 을 복사하지 않고 gateway/project/filing/mission pointer 와 metadata 만 적는다.

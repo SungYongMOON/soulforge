@@ -124,14 +124,16 @@ test("intake CLI updates project-local Korean mail history files for assigned mo
 
   const result = JSON.parse(stdout);
   const historyRoot = path.join(localRoot, "_workmeta", "P26-030", "reports", "메일_이력");
+  const workspaceHistoryRoot = path.join(localRoot, "_workspaces", "P26-030", "reports", "메일_이력");
   const csv = await readFile(path.join(historyRoot, "메일_이력.csv"), "utf8");
-  const xlsx = await readFile(path.join(historyRoot, "메일_이력.xlsx"));
+  const xlsx = await readFile(path.join(workspaceHistoryRoot, "메일_이력.xlsx"));
   const schedule = await readFile(path.join(historyRoot, "메일_일정이벤트.ics"), "utf8");
 
   assert.equal(result.status, "materialized");
   assert.match(csv, /monster_created/);
   assert.match(csv, /Synthetic assigned project mail/);
   assert.equal(xlsx.subarray(0, 2).toString("utf8"), "PK");
+  assert.equal(await pathExists(path.join(historyRoot, "메일_이력.xlsx")), false);
   assert.match(schedule, /BEGIN:VEVENT/);
   assert(!csv.includes("private.xlsx"));
 });

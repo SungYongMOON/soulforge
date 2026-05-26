@@ -25,6 +25,7 @@
 - runtime root: `guild_hall/state/gateway/log/mail_fetch/`
 - mail candidate queue root: `guild_hall/state/gateway/mail_candidate/`
 - pre-project mail history root: `_workmeta/P00-000_INBOX/reports/메일_이력/`
+- pre-project mail history Excel export root: `_workspaces/P00-000_INBOX/reports/메일_이력/`
 - default env file: `guild_hall/state/gateway/mailbox/state/email_fetch.env`
 
 ## 기본 실행

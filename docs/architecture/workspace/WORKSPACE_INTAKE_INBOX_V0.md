@@ -27,11 +27,11 @@
 - `guild_hall/state/gateway/intake_inbox/_index/monster_index.json`
 - `guild_hall/state/gateway/log/monster_events/YYYY/YYYY-MM.jsonl`
 - `_workmeta/P00-000_INBOX/reports/메일_이력/메일_이력.csv`
-- `_workmeta/P00-000_INBOX/reports/메일_이력/메일_이력.xlsx`
 - `_workmeta/P00-000_INBOX/reports/메일_이력/메일_일정이벤트.ics`
+- `_workspaces/P00-000_INBOX/reports/메일_이력/메일_이력.xlsx`
 - `_workmeta/<project_code>/reports/메일_이력/메일_이력.csv`
-- `_workmeta/<project_code>/reports/메일_이력/메일_이력.xlsx`
 - `_workmeta/<project_code>/reports/메일_이력/메일_일정이벤트.ics`
+- `_workspaces/<project_code>/reports/메일_이력/메일_이력.xlsx`
 
 ## logging storage model
 
@@ -40,7 +40,8 @@
 - `_index/monster_index.json` 은 `monster_id` / `dedupe_key` lookup 을 빠르게 하기 위한 rebuildable local manifest cache 다.
 - `monster_events/YYYY/YYYY-MM.jsonl` 은 workspace-level append-only global event stream 이다.
 - `_workmeta/P00-000_INBOX/reports/메일_이력/**` 는 monster 생성 전 `mail_candidate_queue` 단계에서 수신 메일 후보 이력을 먼저 쌓는 private derived view 다.
-- `_workmeta/<project_code>/reports/메일_이력/**` 는 assigned project 가 생긴 뒤 mail-derived monster 생성/갱신/파일링 이벤트를 프로젝트별 CSV/엑셀/일정 이벤트로 upsert 한 private derived view 다.
+- `_workmeta/<project_code>/reports/메일_이력/**` 는 assigned project 가 생긴 뒤 mail-derived monster 생성/갱신/파일링 이벤트를 프로젝트별 CSV/일정 이벤트로 upsert 한 private derived view 다.
+- Excel 보기용 export 는 `_workmeta` 에 두지 않고 `_workspaces/<project_code>/reports/메일_이력/메일_이력.xlsx` 아래에만 둔다.
 - source of truth 는 `JSON` current state + `JSONL` event log 조합으로 본다.
 - `CSV` 는 source of truth 로 쓰지 않고, family count, daily volume, unknown ratio 같은 파생 분석 export 로만 쓴다.
 - 분석이 커져도 먼저 monthly `JSONL` partition 을 유지하고, 반복 질의가 늘면 `SQLite` 또는 `DuckDB` 파생 view 를 추가하는 쪽을 기본안으로 본다.

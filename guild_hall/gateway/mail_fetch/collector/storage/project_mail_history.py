@@ -69,10 +69,12 @@ class ProjectMailHistoryWriter:
         *,
         repo_root: Path,
         workmeta_root: Optional[Path] = None,
+        workspace_root: Optional[Path] = None,
         default_project_code: str = DEFAULT_INBOX_PROJECT_CODE,
     ) -> None:
         self.repo_root = Path(repo_root).expanduser()
         self.workmeta_root = Path(workmeta_root).expanduser() if workmeta_root else self.repo_root / "_workmeta"
+        self.workspace_root = Path(workspace_root).expanduser() if workspace_root else self.repo_root / "_workspaces"
         self.default_project_code = _safe_project_code(default_project_code)
 
     def record_mail_received(
@@ -101,9 +103,11 @@ class ProjectMailHistoryWriter:
         _assert_no_duplicate_history_keys(next_rows)
 
         paths["root"].mkdir(parents=True, exist_ok=True)
+        paths["workspace_root"].mkdir(parents=True, exist_ok=True)
         _write_csv(paths["csv"], next_rows)
         _write_xlsx(paths["xlsx"], next_rows)
         _write_ics(paths["ics"], next_rows)
+        _remove_legacy_workmeta_xlsx(paths["legacy_xlsx"])
 
         return ProjectMailHistorySummary(
             enabled=True,
@@ -153,10 +157,13 @@ class ProjectMailHistoryWriter:
     def _paths(self, project_code: str) -> Dict[str, Path]:
         project_root = self.workmeta_root / _safe_project_code(project_code)
         history_root = project_root / HISTORY_DIR
+        workspace_history_root = self.workspace_root / _safe_project_code(project_code) / HISTORY_DIR
         return {
             "root": history_root,
             "csv": history_root / CSV_FILE_NAME,
-            "xlsx": history_root / XLSX_FILE_NAME,
+            "legacy_xlsx": history_root / XLSX_FILE_NAME,
+            "workspace_root": workspace_history_root,
+            "xlsx": workspace_history_root / XLSX_FILE_NAME,
             "ics": history_root / SCHEDULE_FILE_NAME,
         }
 
@@ -186,6 +193,13 @@ def _write_xlsx(path: Path, rows: List[Dict[str, str]]) -> None:
         archive.writestr("xl/_rels/workbook.xml.rels", _workbook_rels_xml())
         archive.writestr("xl/styles.xml", _styles_xml())
         archive.writestr("xl/worksheets/sheet1.xml", sheet_xml)
+
+
+def _remove_legacy_workmeta_xlsx(path: Path) -> None:
+    try:
+        path.unlink()
+    except FileNotFoundError:
+        return
 
 
 def _write_ics(path: Path, rows: List[Dict[str, str]]) -> None:

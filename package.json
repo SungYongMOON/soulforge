@@ -11,6 +11,7 @@
     "validate:path-policy": "node --test guild_hall/validate/local_absolute_path_policy.test.mjs && node guild_hall/validate/local_absolute_path_policy.mjs --scope changed",
     "validate:path-policy:all": "node guild_hall/validate/local_absolute_path_policy.mjs --scope tracked",
     "validate:path-policy:state": "node guild_hall/validate/local_absolute_path_policy.mjs --scope changed --include-nested",
+    "validate:workmeta-payload": "node --test guild_hall/validate/workmeta_payload_policy.test.mjs && node guild_hall/validate/workmeta_payload_policy.mjs",
     "validate:ai-output-format": "node --test guild_hall/validate/ai_output_format_policy.test.mjs && node guild_hall/validate/ai_output_format_policy.mjs",
     "validate:role-boundary": "node guild_hall/validate/role_boundary_validate.mjs",
     "validate:snapshot": "node --test guild_hall/snapshot/snapshot.test.mjs && node guild_hall/snapshot/cli.mjs --check",

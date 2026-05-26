@@ -53,19 +53,26 @@ const FORBIDDEN_PAYLOAD_KEYS = new Set([
 
 export function projectMailHistoryPaths(repoRoot, projectCode) {
   const safeProjectCode = safePathToken(projectCode, "project_code");
-  const projectRoot = path.join(path.resolve(repoRoot), "_workmeta", safeProjectCode);
+  const root = path.resolve(repoRoot);
+  const projectRoot = path.join(root, "_workmeta", safeProjectCode);
   const historyRoot = path.join(projectRoot, HISTORY_DIR);
+  const workspaceProjectRoot = path.join(root, "_workspaces", safeProjectCode);
+  const workspaceHistoryRoot = path.join(workspaceProjectRoot, HISTORY_DIR);
   const paths = {
     project_root: projectRoot,
     history_root: historyRoot,
+    workspace_project_root: workspaceProjectRoot,
+    workspace_history_root: workspaceHistoryRoot,
     csv_path: path.join(historyRoot, CSV_FILE_NAME),
-    xlsx_path: path.join(historyRoot, XLSX_FILE_NAME),
+    legacy_workmeta_xlsx_path: path.join(historyRoot, XLSX_FILE_NAME),
+    xlsx_path: path.join(workspaceHistoryRoot, XLSX_FILE_NAME),
     schedule_path: path.join(historyRoot, SCHEDULE_FILE_NAME),
   };
 
-  for (const filePath of [paths.csv_path, paths.xlsx_path, paths.schedule_path]) {
+  for (const filePath of [paths.csv_path, paths.legacy_workmeta_xlsx_path, paths.schedule_path]) {
     assertInside(projectRoot, filePath, "_workmeta project root");
   }
+  assertInside(workspaceProjectRoot, paths.xlsx_path, "_workspaces project root");
 
   return paths;
 }
@@ -158,9 +165,11 @@ export async function upsertProjectMailHistory({
   assertNoDuplicateHistoryKeys(rows);
 
   await fs.mkdir(paths.history_root, { recursive: true });
+  await fs.mkdir(paths.workspace_history_root, { recursive: true });
   await fs.writeFile(paths.csv_path, renderCsv(rows), "utf8");
   await fs.writeFile(paths.xlsx_path, buildXlsxBuffer(rows));
   await fs.writeFile(paths.schedule_path, renderScheduleIcs(rows), "utf8");
+  await removeLegacyWorkmetaXlsx(paths.legacy_workmeta_xlsx_path);
 
   return {
     status: "updated",
@@ -169,11 +178,22 @@ export async function upsertProjectMailHistory({
     dedupe_status: replacedExisting ? "replaced_existing" : "inserted",
     written_refs: projectMailHistoryRefs(repoRoot, safeProjectCode),
     boundary: {
-      owner: "_workmeta/<project_code>/reports/메일_이력",
+      metadata_owner: "_workmeta/<project_code>/reports/메일_이력",
+      export_owner: "_workspaces/<project_code>/reports/메일_이력",
       raw_payload_copied: false,
       public_safe: false,
     },
   };
+}
+
+async function removeLegacyWorkmetaXlsx(filePath) {
+  try {
+    await fs.unlink(filePath);
+  } catch (error) {
+    if (error?.code !== "ENOENT") {
+      throw error;
+    }
+  }
 }
 
 function buildHistoryKey({ projectCode, eventType, monsterId, sourceRef }) {

@@ -62,7 +62,7 @@ test("materializes private filing, project monster, and workspace bridge for a g
     "utf8",
   );
   const privateMailHistoryXlsx = await readFile(
-    path.join(repoRoot, "_workmeta", "P26-030", "reports", "메일_이력", "메일_이력.xlsx"),
+    path.join(repoRoot, "_workspaces", "P26-030", "reports", "메일_이력", "메일_이력.xlsx"),
   );
   const privateMailSchedule = await readFile(
     path.join(repoRoot, "_workmeta", "P26-030", "reports", "메일_이력", "메일_일정이벤트.ics"),
@@ -84,6 +84,10 @@ test("materializes private filing, project monster, and workspace bridge for a g
   assert.match(mailHistory, /mail_filing_received/);
   assert.match(privateMailHistoryCsv, /mail_filing_received/);
   assert.equal(privateMailHistoryXlsx.subarray(0, 2).toString("utf8"), "PK");
+  await assert.rejects(
+    readFile(path.join(repoRoot, "_workmeta", "P26-030", "reports", "메일_이력", "메일_이력.xlsx")),
+    (error) => error.code === "ENOENT",
+  );
   assert.match(privateMailSchedule, /BEGIN:VEVENT/);
   assert(result.written_refs.includes("_workmeta/P26-030/reports/메일_이력/메일_이력.csv"));
   assert.equal(updatedInbox.assignment_status, "assigned");

@@ -59,7 +59,7 @@ def test_mail_candidate_queue_writes_body_safe_pending_item(tmp_path: Path) -> N
     assert result.history_updated == 1
     assert result.history_files == [
         "_workmeta/P00-000_INBOX/reports/메일_이력/메일_이력.csv",
-        "_workmeta/P00-000_INBOX/reports/메일_이력/메일_이력.xlsx",
+        "_workspaces/P00-000_INBOX/reports/메일_이력/메일_이력.xlsx",
         "_workmeta/P00-000_INBOX/reports/메일_이력/메일_일정이벤트.ics",
     ]
 
@@ -92,7 +92,10 @@ def test_mail_candidate_queue_writes_body_safe_pending_item(tmp_path: Path) -> N
     assert history_rows[0]["몬스터ID"] == ""
     assert history_rows[0]["이벤트유형"] == "mail_received"
     assert history_rows[0]["작업상태"] == "candidate_pending"
-    assert (history_root / "메일_이력.xlsx").read_bytes()[:2] == b"PK"
+    assert not (history_root / "메일_이력.xlsx").exists()
+    assert (
+        tmp_path / "_workspaces" / "P00-000_INBOX" / "reports" / "메일_이력" / "메일_이력.xlsx"
+    ).read_bytes()[:2] == b"PK"
     assert "BEGIN:VEVENT" in history_rendered
 
     assert "메일 본문" not in rendered

@@ -9,6 +9,7 @@ const mode = args.mode ?? "validate";
 const STEPS_BY_MODE = {
   validate: [
     ["path-policy", "npm run validate:path-policy"],
+    ["workmeta-payload", "npm run validate:workmeta-payload"],
     ["role-boundary", "npm run validate:role-boundary"],
     ["canon", "npm run validate:canon"],
     ["ai-output-format", "npm run validate:ai-output-format"],
@@ -24,6 +25,7 @@ const STEPS_BY_MODE = {
   ],
   "done-check": [
     ["path-policy", "npm run validate:path-policy"],
+    ["workmeta-payload", "npm run validate:workmeta-payload"],
     ["role-boundary", "npm run validate:role-boundary"],
     ["canon", "npm run validate:canon"],
     ["ai-output-format", "npm run validate:ai-output-format"],

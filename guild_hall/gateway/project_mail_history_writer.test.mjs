@@ -10,7 +10,7 @@ import {
   upsertProjectMailHistory,
 } from "./project_mail_history_writer.mjs";
 
-test("upsertProjectMailHistory writes Korean CSV, XLSX, and schedule files without duplicate rows", async () => {
+test("upsertProjectMailHistory writes Korean metadata plus workspace XLSX export without duplicate rows", async () => {
   const repoRoot = await createRepoRoot();
   const projectCode = "P26-030";
   const firstEntry = sampleEntry({ projectCode, subject: "Synthetic project mail request" });
@@ -28,13 +28,14 @@ test("upsertProjectMailHistory writes Korean CSV, XLSX, and schedule files witho
   assert.equal(second.dedupe_status, "replaced_existing");
   assert.deepEqual(second.written_refs, [
     "_workmeta/P26-030/reports/메일_이력/메일_이력.csv",
-    "_workmeta/P26-030/reports/메일_이력/메일_이력.xlsx",
+    "_workspaces/P26-030/reports/메일_이력/메일_이력.xlsx",
     "_workmeta/P26-030/reports/메일_이력/메일_일정이벤트.ics",
   ]);
   assert.equal(dataRows.length, 1);
   assert.match(csv.split(/\r?\n/u)[0], /후보ID/);
   assert.match(csv, /Synthetic project mail request revised/);
   assert.equal(xlsx.subarray(0, 2).toString("utf8"), "PK");
+  await assert.rejects(readFile(paths.legacy_workmeta_xlsx_path), (error) => error.code === "ENOENT");
   assert.match(schedule, /BEGIN:VEVENT/);
   assert.match(schedule, /Synthetic project mail request revised/);
   assert.match(schedule, /원문복사여부: false/);
