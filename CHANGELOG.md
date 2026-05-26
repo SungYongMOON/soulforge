@@ -2,6 +2,12 @@
 
 ## 2026-05-26
 
+### Revision `working` - Workspace junction and Codex bridge portability fixes
+
+- Treated `_workspaces/00_project_index.html` as a local navigation surface instead of a junction gap, matching the workspace binding rule that human index views are not routing authority.
+- Made the Codex account bridge argument test expect the platform-native resolved repo root so Windows clones do not fail `done:check` on `/repo` versus drive-qualified paths.
+- Kept junction repair owner-gated: the audit reports relative aliases, expected suffixes, and redacted target tails only, and does not write host-local cloud roots into tracked canon.
+
 ### Revision `working` - RAG and gateway path portability tightened
 
 - Tightened RAG/source-text profile and extraction packet validators so URL-like path fields such as `file://...` cannot bypass local absolute path guards.

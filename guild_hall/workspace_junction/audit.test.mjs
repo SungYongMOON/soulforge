@@ -1,7 +1,7 @@
 import assert from "node:assert/strict";
 import { mkdtempSync, mkdirSync, symlinkSync, writeFileSync } from "node:fs";
-import os from "node:os";
 import path from "node:path";
+import os from "node:os";
 import test from "node:test";
 import { auditWorkspaceJunctions } from "./audit.mjs";
 
@@ -25,6 +25,14 @@ test("reports stale target suffix and extra root mirror", () => {
   assert.equal(result.extras.some((row) => row.workspace_alias === "company"), true);
 });
 
+test("ignores local workspace navigation index files", () => {
+  const repoRoot = makeFixture({ navigationIndex: true });
+  const result = auditWorkspaceJunctions({ repoRoot });
+
+  assert.equal(result.status, "passed");
+  assert.equal(result.extras.some((row) => row.workspace_alias === "00_project_index.html"), false);
+});
+
 function makeFixture(options = {}) {
   const repoRoot = mkdtempSync(path.join(os.tmpdir(), "soulforge-junction-audit-"));
   const bindingDir = path.join(repoRoot, "_workmeta", "system", "bindings");
@@ -45,6 +53,9 @@ function makeFixture(options = {}) {
   linkDir(options.stale ? wrongTarget : projectTarget, path.join(workspaceRoot, "P24-049"));
   if (options.extra) {
     linkDir(cloudRoot, path.join(workspaceRoot, "company"));
+  }
+  if (options.navigationIndex) {
+    writeFileSync(path.join(workspaceRoot, "00_project_index.html"), "<!doctype html>\n", "utf8");
   }
 
   writeFileSync(

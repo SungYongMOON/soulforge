@@ -1,5 +1,6 @@
 import test from "node:test";
 import assert from "node:assert/strict";
+import path from "node:path";
 import {
   buildCodexBridgePrompt,
   buildCodexExecArgs,
@@ -7,8 +8,9 @@ import {
 } from "./codex_bridge.mjs";
 
 test("buildCodexExecArgs uses read-only ephemeral Codex exec without API key flags", () => {
+  const repoRoot = path.resolve("/repo");
   const args = buildCodexExecArgs({
-    repoRoot: "/repo",
+    repoRoot,
     outputLastMessage: "guild_hall/state/tools/codex_bridge/out.md",
   });
 
@@ -20,7 +22,7 @@ test("buildCodexExecArgs uses read-only ephemeral Codex exec without API key fla
     "--sandbox",
     "read-only",
     "--cd",
-    "/repo",
+    repoRoot,
   ]);
   assert.ok(args.includes("--output-last-message"));
   assert.equal(args.at(-1), "-");
