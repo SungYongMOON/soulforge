@@ -2,6 +2,7 @@ import crypto from "node:crypto";
 import path from "node:path";
 import { promises as fs } from "node:fs";
 import { normalizeRepoPath, readJson, writeJson } from "../shared/io.mjs";
+import { validateSourceSyncReadyRef } from "./source_sync_ready_manifest.mjs";
 
 export const KNOWLEDGE_SOURCE_CARD_SCHEMA_VERSION = "soulforge.knowledge_source_card.v0";
 export const SOURCE_TEXT_INDEX_SCHEMA_VERSION = "soulforge.source_text_index.v0";
@@ -96,10 +97,12 @@ export function validateKnowledgeSourceCard(card) {
   if (!isSafeId(card?.source_id)) blockers.push("source_id_unsafe");
   if (!card?.title || typeof card.title !== "string") blockers.push("source_card_title_required");
   const sourceRef = sourceCardSourceRef(card);
+  const readyRef = sourceCardSyncReadyRef(card);
   if (!safeWorkspaceKnowledgeRef(sourceRef)) blockers.push("source_ref_must_be_under_workspaces_knowledge");
   if (!SUPPORTED_SOURCE_EXTENSIONS.has(path.extname(String(sourceRef ?? "")).toLowerCase())) {
     blockers.push("source_kind_extension_unsupported");
   }
+  if (readyRef !== null && !safeWorkspaceKnowledgeJsonRef(readyRef)) blockers.push("source_sync_ready_ref_must_be_workspace_knowledge_json");
   if (card?.rag_permissions?.source_text_retrieval !== true) blockers.push("source_text_retrieval_permission_required");
   if (card?.rag_permissions?.index_build !== true) blockers.push("index_build_permission_required");
   if (card?.rag_permissions?.answer_synthesis !== true) blockers.push("answer_synthesis_permission_required");
@@ -127,6 +130,17 @@ export async function buildSourceTextIndex(options = {}) {
     sourceCardRef: options.sourceCardRef,
   });
   const cardValidation = validateKnowledgeSourceCard(sourceCard);
+  const sourceRef = sourceCardSourceRef(sourceCard);
+  const readyManifestRef = options.readyManifestRef ?? sourceCardSyncReadyRef(sourceCard);
+  const syncReadyValidation = readyManifestRef
+    ? await validateSourceSyncReadyRef({
+      repoRoot,
+      readyRef: readyManifestRef,
+      sourceCardRef: options.sourceCardRef,
+      sourceTextRef: sourceRef,
+      stableMs: options.stableMs,
+    })
+    : null;
   const indexId = normalizeSimpleId(
     options.indexId ?? `source_text_index_${sourceCard?.source_id ?? "unknown"}_${stableHash(sourceCard?.source_ref ?? "").slice(0, 8)}`,
     "index_id",
@@ -144,12 +158,43 @@ export async function buildSourceTextIndex(options = {}) {
       source_refs: {
         source_card_ref: options.sourceCardRef ?? null,
         source_id: sourceCard?.source_id ?? null,
-        source_ref: sourceCardSourceRef(sourceCard),
+        source_ref: sourceRef,
+        source_sync_ready_ref: readyManifestRef ?? null,
       },
       boundary: sourceTextIndexBoundary({ sourceTextLoaded: false }),
+      permissions: blockedSourceTextIndexPermissions(),
       validation: {
         status: "blocked",
         upstream_validation: cardValidation,
+        sync_ready_validation: syncReadyValidation,
+      },
+      counts: {
+        chunk_count: 0,
+        indexed_source_count: 0,
+      },
+      chunks: [],
+    };
+  }
+  if (syncReadyValidation && syncReadyValidation.status !== "pass") {
+    return {
+      schema_version: SOURCE_TEXT_INDEX_SCHEMA_VERSION,
+      kind: "source_text_index",
+      index_id: indexId,
+      generator_id: SOURCE_TEXT_INDEX_GENERATOR_ID,
+      generated_at_utc: generatedAtUtc,
+      status: "blocked_sync_not_ready",
+      source_refs: {
+        source_card_ref: options.sourceCardRef ?? null,
+        source_id: sourceCard?.source_id ?? null,
+        source_ref: sourceRef,
+        source_sync_ready_ref: readyManifestRef,
+      },
+      boundary: sourceTextIndexBoundary({ sourceTextLoaded: false }),
+      permissions: blockedSourceTextIndexPermissions(),
+      validation: {
+        status: "blocked",
+        upstream_validation: cardValidation.status,
+        sync_ready_validation: syncReadyValidation,
       },
       counts: {
         chunk_count: 0,
@@ -159,7 +204,6 @@ export async function buildSourceTextIndex(options = {}) {
     };
   }
 
-  const sourceRef = sourceCardSourceRef(sourceCard);
   const sourcePath = path.join(repoRoot, safeRepoRelativePath(sourceRef));
   const rawText = await fs.readFile(sourcePath, "utf8");
   const normalizedText = normalizeSourceText(rawText, sourceCard.source_kind);
@@ -181,6 +225,7 @@ export async function buildSourceTextIndex(options = {}) {
       source_card_ref: options.sourceCardRef ?? null,
       source_id: sourceCard.source_id,
       source_ref: sourceRef,
+      source_sync_ready_ref: readyManifestRef ?? null,
       derived_text_ref: derivedTextRef,
     },
     source_card_summary: {
@@ -207,6 +252,7 @@ export async function buildSourceTextIndex(options = {}) {
     validation: {
       status: "unchecked",
       upstream_validation: cardValidation.status,
+      sync_ready_validation: syncReadyValidation?.status ?? "not_required",
     },
   };
 }
@@ -246,11 +292,16 @@ export function validateSourceTextIndex(index) {
   if (index?.schema_version !== SOURCE_TEXT_INDEX_SCHEMA_VERSION) blockers.push("schema_version_mismatch");
   if (index?.kind !== "source_text_index") blockers.push("kind_must_be_source_text_index");
   if (!isSafeId(index?.index_id)) blockers.push("index_id_unsafe");
-  if (!["ready", "blocked_empty_source_text", "blocked_invalid_source_card"].includes(index?.status)) {
+  if (!["ready", "blocked_empty_source_text", "blocked_invalid_source_card", "blocked_sync_not_ready"].includes(index?.status)) {
     blockers.push("source_text_index_status_unknown");
   }
   if (!safeWorkspaceKnowledgeRef(index?.source_refs?.source_ref)) blockers.push("source_ref_must_be_under_workspaces_knowledge");
-  if (!safeWorkspaceKnowledgeRef(index?.source_refs?.derived_text_ref)) blockers.push("derived_text_ref_must_be_under_workspaces_knowledge");
+  if (index?.status === "ready" && !safeWorkspaceKnowledgeRef(index?.source_refs?.derived_text_ref)) {
+    blockers.push("derived_text_ref_must_be_under_workspaces_knowledge");
+  }
+  if (index?.status !== "ready" && index?.source_refs?.derived_text_ref !== undefined && !safeWorkspaceKnowledgeRef(index.source_refs.derived_text_ref)) {
+    blockers.push("derived_text_ref_must_be_under_workspaces_knowledge");
+  }
   if (index?.boundary?.storage_scope !== "_workspaces_private_payload") blockers.push("storage_scope_must_be_workspaces_private_payload");
   if (index?.boundary?.source_text_loaded !== true && index?.status === "ready") blockers.push("ready_index_must_mark_source_text_loaded");
   if (index?.boundary?.public_repo_safe !== false) blockers.push("source_text_index_must_not_be_public_repo_safe");
@@ -451,6 +502,16 @@ function sourceTextAnswerRunBoundary() {
   };
 }
 
+function blockedSourceTextIndexPermissions() {
+  return {
+    source_text_retrieval_allowed: false,
+    index_build_allowed: false,
+    answer_synthesis_allowed: false,
+    public_canon_promotion_allowed: false,
+    notebooklm_packet_allowed: false,
+  };
+}
+
 function normalizeSourceText(rawText, sourceKind = "text") {
   const withoutBom = String(rawText ?? "").replace(/^\uFEFF/u, "");
   const normalized = withoutBom.replace(/\r\n?/g, "\n").replace(/[ \t]+$/gm, "");
@@ -465,6 +526,17 @@ function sourceCardSourceRef(card) {
   if (typeof value === "string") return value;
   if (value && typeof value === "object" && typeof value.repo_relative_path === "string") {
     return value.repo_relative_path;
+  }
+  return null;
+}
+
+function sourceCardSyncReadyRef(card) {
+  for (const key of ["source_sync_ready_ref", "sync_ready_ref", "ready_manifest_ref"]) {
+    const value = card?.[key];
+    if (typeof value === "string") return value;
+    if (value && typeof value === "object" && typeof value.repo_relative_path === "string") {
+      return value.repo_relative_path;
+    }
   }
   return null;
 }
@@ -599,6 +671,10 @@ function safeWorkspaceKnowledgeRef(value) {
     return false;
   }
   return normalized.startsWith("_workspaces/knowledge/") && !normalized.includes("/../");
+}
+
+function safeWorkspaceKnowledgeJsonRef(value) {
+  return safeWorkspaceKnowledgeRef(value) && String(value).endsWith(".json");
 }
 
 function officialSourcePromotionAllowed(card) {

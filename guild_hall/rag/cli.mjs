@@ -26,6 +26,9 @@ import {
   validateCompanyKnowledgeIntakePacket,
 } from "./company_knowledge_intake_packet.mjs";
 import {
+  validateSourceSyncReadyRef,
+} from "./source_sync_ready_manifest.mjs";
+import {
   buildSourceTextExtractionRunReport,
   loadSourceTextExtractionRunReport,
   validateSourceTextExtractionRunReport,
@@ -425,6 +428,7 @@ async function main() {
   }
 
   if (command === "source-text-index") {
+    const readyManifestRef = optionalStringArg(args, "ready-ref") ?? optionalStringArg(args, "source-sync-ready-ref");
     if (args.write) {
       printJson(
         await writeSourceTextIndex({
@@ -433,6 +437,8 @@ async function main() {
           outputRef: optionalStringArg(args, "output-ref"),
           indexId: optionalStringArg(args, "index-id"),
           maxChars: args["max-chars"],
+          readyManifestRef,
+          stableMs: args["stable-ms"],
           now: optionalStringArg(args, "now"),
         }),
       );
@@ -444,6 +450,8 @@ async function main() {
         sourceCardRef: optionalStringArg(args, "source-card-ref"),
         indexId: optionalStringArg(args, "index-id"),
         maxChars: args["max-chars"],
+        readyManifestRef,
+        stableMs: args["stable-ms"],
         now: optionalStringArg(args, "now"),
       }),
     );
@@ -456,6 +464,22 @@ async function main() {
       sourceTextIndexRef: optionalStringArg(args, "source-text-index-ref"),
     });
     printJson(validateSourceTextIndex(index));
+    return;
+  }
+
+  if (command === "validate-source-sync-ready" || command === "validate-source-ready-manifest") {
+    const validation = await validateSourceSyncReadyRef({
+      repoRoot,
+      readyRef: optionalStringArg(args, "ready-ref"),
+      sourceCardRef: optionalStringArg(args, "source-card-ref"),
+      sourceTextRef: optionalStringArg(args, "source-text-ref"),
+      stableMs: args["stable-ms"],
+      checkFiles: args["metadata-only"] !== true,
+    });
+    printJson(validation);
+    if (validation.status !== "pass") {
+      process.exitCode = 1;
+    }
     return;
   }
 
@@ -778,7 +802,8 @@ function printUsageAndExit() {
       "  node guild_hall/rag/cli.mjs source-text-extraction-run-report [--write] --packet-ref <repo-relative-json> [--report-id <id>] [--project-code <code>] [--output-ref <repo-relative-json>]",
       "  node guild_hall/rag/cli.mjs validate-source-text-extraction-run-report --run-report-ref <repo-relative-json>",
       "  node guild_hall/rag/cli.mjs validate-knowledge-source-card --source-card-ref <repo-relative-json>",
-      "  node guild_hall/rag/cli.mjs source-text-index [--write] --source-card-ref <repo-relative-json> [--index-id <id>] [--max-chars <n>] [--output-ref <repo-relative-json>]",
+      "  node guild_hall/rag/cli.mjs validate-source-sync-ready --ready-ref <repo-relative-json> [--source-card-ref <repo-relative-json>] [--source-text-ref <repo-relative-text>] [--stable-ms <n>] [--metadata-only]",
+      "  node guild_hall/rag/cli.mjs source-text-index [--write] --source-card-ref <repo-relative-json> [--ready-ref <repo-relative-json>] [--stable-ms <n>] [--index-id <id>] [--max-chars <n>] [--output-ref <repo-relative-json>]",
       "  node guild_hall/rag/cli.mjs validate-source-text-index --source-text-index-ref <repo-relative-json>",
       "  node guild_hall/rag/cli.mjs source-text-answer-run [--write] --source-text-index-ref <repo-relative-json> --question <question> [--run-id <id>] [--max-chunks <n>] [--text]",
       "  node guild_hall/rag/cli.mjs validate-source-text-answer-run --run-ref <repo-relative-json>",

@@ -1,0 +1,50 @@
+{
+  "schema_version": "soulforge.source_sync_ready_manifest.v0",
+  "kind": "source_sync_ready_manifest",
+  "manifest_id": "company_private_reference_001_ready",
+  "source_id": "company_private_reference_001",
+  "source_card_ref": "_workspaces/knowledge/source_cards/company_private_reference_001.source_card.json",
+  "status": "ready_for_index",
+  "created_at_utc": "2026-05-26T00:00:00Z",
+  "producer": {
+    "origin_label": "company_pc_label",
+    "tool_label": "local_export_program_label",
+    "prepared_by_role": "owner_or_steward"
+  },
+  "boundary": {
+    "metadata_only": true,
+    "ready_file_is_not_owner_approval": true,
+    "ready_file_is_not_source_truth": true,
+    "raw_payloads_included": false,
+    "source_payloads_included": false,
+    "source_text_included": false,
+    "chunk_payloads_included": false,
+    "notebooklm_answers_included": false,
+    "secrets_or_session_included": false,
+    "runtime_absolute_paths_included": false
+  },
+  "indexing_gate": {
+    "source_text_ref": "_workspaces/knowledge/common/company_private_reference_001/derived_text/company_private_reference_001.md",
+    "min_stable_ms": 2000,
+    "requires_source_card_validation": true,
+    "requires_hash_match": true
+  },
+  "files": [
+    {
+      "role": "source_card",
+      "repo_relative_path": "_workspaces/knowledge/source_cards/company_private_reference_001.source_card.json",
+      "size_bytes": 0,
+      "sha256": "sha256:aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+      "required": true,
+      "media_type_label": "application_json"
+    },
+    {
+      "role": "derived_text",
+      "repo_relative_path": "_workspaces/knowledge/common/company_private_reference_001/derived_text/company_private_reference_001.md",
+      "size_bytes": 0,
+      "sha256": "sha256:bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb",
+      "required": true,
+      "media_type_label": "text_markdown"
+    }
+  ]
+}

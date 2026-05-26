@@ -55,6 +55,7 @@ const SOURCE_KEYS = new Set([
   "source_id",
   "source_label",
   "source_ref",
+  "source_sync_ready_ref",
   "source_hash",
   "source_size_bytes",
   "source_class",
@@ -275,6 +276,13 @@ export function validateCompanyKnowledgeIntakePacket(packet) {
     if (!isSafeLabel(source.source_label)) blockers.push(`source_label_unsafe:${trail}`);
     if (!isSafeRef(source.source_ref)) blockers.push(`source_ref_unsafe:${trail}`);
     if (!isSafeCompanySourceRef(source.source_ref)) blockers.push(`source_ref_must_be_soulforge_knowledge_relative:${trail}`);
+    if (source.source_sync_ready_ref !== undefined) {
+      if (!isSafeRef(source.source_sync_ready_ref)) blockers.push(`source_sync_ready_ref_unsafe:${trail}`);
+      if (!isSafeCompanySourceRef(source.source_sync_ready_ref)) {
+        blockers.push(`source_sync_ready_ref_must_be_soulforge_knowledge_relative:${trail}`);
+      }
+      if (!String(source.source_sync_ready_ref).endsWith(".json")) blockers.push(`source_sync_ready_ref_must_be_json:${trail}`);
+    }
     if (!isSafeHash(source.source_hash)) blockers.push(`source_hash_unsafe:${trail}`);
     if (!Number.isSafeInteger(source.source_size_bytes) || source.source_size_bytes < 0) {
       blockers.push(`source_size_bytes_invalid:${trail}`);

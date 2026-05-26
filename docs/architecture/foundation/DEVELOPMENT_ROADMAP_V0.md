@@ -117,6 +117,11 @@ Purpose:
   paths safe enough to support later operation-board and knowledge-use views;
 - define the separate owner-approved private source-text lane under
   `_workspaces/knowledge/**`;
+- standardize a parser-first source extraction stage before source-text
+  indexing so company-PC intake does not rely on direct LLM file reading;
+- add a source sync ready manifest gate for cloud/OneDrive handoff so another
+  PC's export is not indexed until file size, SHA-256, and optional stability
+  checks pass locally;
 - keep raw questions ephemeral and store only labels, query fingerprints, token
   fingerprints, source-card refs, hashes, and status metadata in JSON/review
   artifacts;
@@ -133,14 +138,23 @@ Boundaries:
   source text and must keep public tracked files and `_workmeta` metadata-only
   unless an explicit private workspace command/source card allows private proof
   payloads under `_workspaces/knowledge/**`.
+- LLM, NotebookLM, LlamaParse, and other cloud/advisory parsers are not default
+  raw-document extraction authority. They may help only behind owner approval
+  and cannot replace parser evidence, hashes, tool/version metadata, or source
+  cards.
 
 Follow-on fit:
 
 1. Stabilize the metadata-only RAG command and validation surface.
 2. Add the company intake packet validator after the code command exists.
-3. Use the resulting metadata to support later knowledge-use analytics and
+3. Add the source sync ready manifest gate before source-text indexing for
+   cross-PC OneDrive handoff.
+4. Add a Docling-first local extraction worker standard before source-text
+   indexing, with fallback routes for broad text/metadata extraction, PDF
+   checks, Office conversion, OCR, and HWP-to-HWPX normalization.
+5. Use the resulting metadata to support later knowledge-use analytics and
    sourcebound review queues.
-4. Keep any answer-quality, NotebookLM, source-text BM25/vector, or ontology
+6. Keep any answer-quality, NotebookLM, source-text BM25/vector, or ontology
    promotion work behind separate owner/review gates.
 
 ## 장기 후보: engineering co-pilot expansion

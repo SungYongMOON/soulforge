@@ -84,7 +84,9 @@ npm run guild-hall:rag -- validate-source-text-extraction-packet --packet-ref _w
 npm run guild-hall:rag -- source-text-extraction-run-report --write --packet-ref _workmeta/system/reports/rag/source_text_extraction_packets/soulforge_source_text_extraction_packet_20260524/source_text_extraction_packet.json --report-id soulforge_source_text_extraction_run_report_20260524
 npm run guild-hall:rag -- validate-source-text-extraction-run-report --run-report-ref _workmeta/system/reports/rag/source_text_extraction_runs/soulforge_source_text_extraction_packet_20260524/source_text_extraction_run_report.json
 npm run guild-hall:rag -- validate-knowledge-source-card --source-card-ref _workspaces/knowledge/source_cards/soulforge_common_knowledge_starter.source_card.json
+npm run guild-hall:rag -- validate-source-sync-ready --ready-ref _workspaces/knowledge/common/<source_id>/source_sync_ready_manifest.json --source-card-ref _workspaces/knowledge/source_cards/<source_id>.source_card.json --source-text-ref _workspaces/knowledge/common/<source_id>/derived_text/<source_id>.md --stable-ms 2000
 npm run guild-hall:rag -- source-text-index --write --source-card-ref _workspaces/knowledge/source_cards/soulforge_common_knowledge_starter.source_card.json --index-id soulforge_common_knowledge_starter_20260525
+npm run guild-hall:rag -- source-text-index --write --source-card-ref _workspaces/knowledge/source_cards/<source_id>.source_card.json --ready-ref _workspaces/knowledge/common/<source_id>/source_sync_ready_manifest.json --stable-ms 2000 --index-id <source_id>_source_text_index
 npm run guild-hall:rag -- validate-source-text-index --source-text-index-ref _workspaces/knowledge/rag/indexes_local/source_text_indexes/soulforge_common_knowledge_starter_20260525/source_text_index.json
 npm run guild-hall:rag -- source-text-answer-run --write --source-text-index-ref _workspaces/knowledge/rag/indexes_local/source_text_indexes/soulforge_common_knowledge_starter_20260525/source_text_index.json --question "NotebookLM authority" --run-id soulforge_common_knowledge_answer_20260525
 npm run guild-hall:rag -- validate-source-text-answer-run --run-ref _workspaces/knowledge/rag/answer_runs/soulforge_common_knowledge_answer_20260525/source_text_answer_run.json
@@ -127,6 +129,83 @@ If a later owner decision grants private source-text retrieval, only the
 separate source-text lane may read approved `_workspaces/knowledge/**` source
 text. The default metadata manifest, metadata index, trace/evaluation, and
 answer paths remain metadata-only.
+
+## Source Extraction Tooling Standard
+
+Soulforge source-text RAG is parser-first, not LLM-first. Raw PDF, Office,
+image, HWP/HWPX, archive, or mail payloads are not handed directly to an LLM as
+the durable extraction authority.
+
+The standard flow is:
+
+1. keep the original source under `_workspaces/knowledge/**` or another
+   owner-approved worksite;
+2. run a local extraction worker that converts the source into rebuildable
+   Markdown, text, and structured metadata under `_workspaces/knowledge/**`;
+3. record only metadata in `_workmeta/**`: source refs, hashes, tool ids,
+   tool versions, page/slide/sheet counts, warnings, blocker codes, and output
+   refs;
+4. write a source sync ready manifest after upload/export completion, listing
+   the source card and derived text by Soulforge-root-relative path with size
+   and SHA-256;
+5. validate the ready manifest on the indexing PC so OneDrive/cloud sync delay
+   is caught before source text is read;
+6. point the source card at the derived Markdown/text using a Soulforge-root
+   relative path;
+7. run `source-text-index` only after the source card grants retrieval and
+   index-build permission.
+
+Default company-PC tool order:
+
+- Docling first for local PDF, Word, PowerPoint, Excel, image, Markdown, and
+  JSON-oriented conversion where it can produce stable RAG-friendly output.
+- Apache Tika as a broad fallback for text and metadata extraction across many
+  file types.
+- PyMuPDF or `pypdf` for PDF-specific page/text checks and fallback extraction.
+- LibreOffice headless for Office conversion fallback before text indexing.
+- Tesseract OCR with Korean/English language data only when a source is scanned
+  or image-only.
+- HWP must follow `HWP_NORMALIZATION_V0`: first export/save to HWPX, then parse
+  the HWPX or its approved derived text. Direct HWP extraction is diagnostic
+  only and is not citation authority.
+
+Unstructured-style partitioning and LlamaIndex/LangChain ingestion can remain
+adapter candidates, but they are orchestration/partitioning routes, not a
+replacement for Soulforge's source-card, hash, path, and `_workmeta`
+boundaries. LLM, NotebookLM, LlamaParse, and cloud OCR/parser outputs are
+owner-approved advisory/external routes only. They cannot grant source truth,
+owner approval, ontology acceptance, or public-canon promotion.
+
+## Source Sync Ready Manifest
+
+`source_sync_ready_manifest_v0` is the small `ready.json`-style handoff file for
+cloud-synced source intake. It exists because another PC may finish export
+before OneDrive has uploaded or this PC has downloaded every file.
+
+The manifest may contain only metadata:
+
+- source id and source card ref;
+- derived source text ref used by the source card;
+- file roles, Soulforge-root-relative paths, byte sizes, SHA-256 hashes, and
+  media labels;
+- producer labels, stable-wait milliseconds, and boundary flags.
+
+It must not contain raw document text, chunks, excerpts, NotebookLM answers,
+account ids, secrets, absolute host paths, `file://` URLs, or owner approval.
+
+`validate-source-sync-ready` reads the listed files from this PC, compares size
+and SHA-256, and optionally waits with `--stable-ms` to check that size, mtime,
+and hash stay unchanged. `source-text-index --ready-ref ...` performs the same
+gate before indexing and returns `blocked_sync_not_ready` instead of reading
+source text if the ready manifest fails.
+
+Operational rule:
+
+- for local starter/demo sources, a ready manifest is optional;
+- for company-PC or cross-PC OneDrive intake, create and validate a ready
+  manifest before indexing;
+- `source_sync_ready_manifest_v0` is readiness evidence only, not source truth,
+  owner approval, or canon promotion.
 
 ## Manifest Boundary
 
@@ -196,9 +275,17 @@ an owner-approved DAPA/Korea.kr source. That stronger permission does not make
 the source-text index public-repo safe: full source text, extracted text, chunk
 payloads, and answer-run payloads still stay under `_workspaces/knowledge/**`.
 
-The first supported source payloads are text and markdown starter sources. HWP
-remains a preprocessing target and must be converted to HWPX before any future
-body extraction route can read it.
+The first supported source payloads are text and markdown starter sources.
+`source-text-index` remains downstream of parser-first extraction: it consumes
+approved derived Markdown/text, not arbitrary raw office files. HWP remains a
+preprocessing target and must be converted to HWPX before any future body
+extraction route can read it.
+
+For cross-PC OneDrive intake, source cards should reference a
+`source_sync_ready_manifest_v0` through `source_sync_ready_ref`, or the operator
+must pass the same ready manifest explicitly with `--ready-ref`. The indexer may
+read the derived text only after the ready manifest, source card, and file
+hashes match on the local PC.
 
 This lane may write private workspace payloads only when the command and source
 card explicitly allow them:
@@ -660,7 +747,11 @@ NotebookLM synthesis, public canon promotion, or source-text RAG.
 1. Extend graph lens projection with stronger per-project/per-workflow views and
    operator review queues.
 2. Add explicit owner-approved source-slice records for source-text access.
-3. Add BM25/vector indexes for approved source slices only.
-4. Add citation-quality evaluation beyond the current smoke retrieval check.
-5. Add source-text answer synthesis only after validators and owner boundaries
+3. Add the parser-first local extraction worker that writes derived Markdown,
+   text, and metadata under approved `_workspaces/knowledge/**` paths.
+4. Add extraction workers that create source sync ready manifests as their final
+   cross-PC handoff marker.
+5. Add BM25/vector indexes for approved source slices only.
+6. Add citation-quality evaluation beyond the current smoke retrieval check.
+7. Add source-text answer synthesis only after validators and owner boundaries
    pass.

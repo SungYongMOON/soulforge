@@ -1,4 +1,5 @@
 import assert from "node:assert/strict";
+import crypto from "node:crypto";
 import { mkdir, mkdtemp, readFile, rm, writeFile } from "node:fs/promises";
 import os from "node:os";
 import path from "node:path";
@@ -71,6 +72,10 @@ import {
   loadCompanyKnowledgeIntakePacket,
   validateCompanyKnowledgeIntakePacket,
 } from "./company_knowledge_intake_packet.mjs";
+import {
+  SOURCE_SYNC_READY_MANIFEST_SCHEMA_VERSION,
+  validateSourceSyncReadyManifest,
+} from "./source_sync_ready_manifest.mjs";
 
 test("metadata-only RAG manifest validates and answers from graph metadata", async () => {
   const repoRoot = await mkdtemp(path.join(os.tmpdir(), "soulforge-rag-"));
@@ -1919,6 +1924,145 @@ test("source-text index reads owner-approved workspace knowledge source cards", 
   }
 });
 
+test("source sync ready manifest gates OneDrive-style source-text indexing", async () => {
+  const repoRoot = await mkdtemp(path.join(os.tmpdir(), "soulforge-rag-sync-ready-"));
+  try {
+    const sourceRef = "_workspaces/knowledge/common/systems_engineering/starter/sync_ready_fixture.md";
+    const sourceCardRef = "_workspaces/knowledge/source_cards/sync_ready_fixture.source_card.json";
+    const readyRef = "_workspaces/knowledge/common/systems_engineering/starter/sync_ready_fixture.ready.json";
+    const sourceText = [
+      "# Sync Ready Fixture",
+      "",
+      "This derived Markdown file is ready only when the ready manifest size and sha256 match.",
+    ].join("\n");
+    const sourceFileText = `${sourceText}\n`;
+    await writeFileWithParents(repoRoot, sourceRef, sourceText);
+    const sourceCard = {
+      schema_version: "soulforge.knowledge_source_card.v0",
+      source_id: "sync_ready_fixture",
+      title: "Sync Ready Fixture",
+      source_ref: {
+        repo_relative_path: sourceRef,
+      },
+      source_sync_ready_ref: readyRef,
+      source_kind: "markdown_source_text",
+      domains: ["systems_engineering", "knowledge_management"],
+      sensitivity: "internal_common",
+      approval_status: "owner_approved_starter_source",
+      rag_permissions: {
+        source_text_retrieval: true,
+        index_build: true,
+        answer_synthesis: true,
+      },
+      public_canon_promotion_allowed: false,
+      notebooklm_packet_allowed: false,
+      claim_ceiling: "observed",
+    };
+    const sourceCardText = `${JSON.stringify(sourceCard, null, 2)}\n`;
+    await writeFileWithParents(repoRoot, sourceCardRef, JSON.stringify(sourceCard, null, 2));
+    const readyManifest = {
+      schema_version: SOURCE_SYNC_READY_MANIFEST_SCHEMA_VERSION,
+      kind: "source_sync_ready_manifest",
+      manifest_id: "sync_ready_fixture_ready",
+      source_id: "sync_ready_fixture",
+      source_card_ref: sourceCardRef,
+      status: "ready_for_index",
+      created_at_utc: "2026-05-26T08:30:00Z",
+      producer: {
+        origin_label: "company_pc_fixture",
+        tool_label: "owner_export_program_fixture",
+        prepared_by_role: "owner_or_steward",
+      },
+      boundary: {
+        metadata_only: true,
+        ready_file_is_not_owner_approval: true,
+        ready_file_is_not_source_truth: true,
+        raw_payloads_included: false,
+        source_payloads_included: false,
+        source_text_included: false,
+        chunk_payloads_included: false,
+        notebooklm_answers_included: false,
+        secrets_or_session_included: false,
+        runtime_absolute_paths_included: false,
+      },
+      indexing_gate: {
+        source_text_ref: sourceRef,
+        min_stable_ms: 0,
+        requires_source_card_validation: true,
+        requires_hash_match: true,
+      },
+      files: [
+        {
+          role: "source_card",
+          repo_relative_path: sourceCardRef,
+          size_bytes: Buffer.byteLength(sourceCardText),
+          sha256: `sha256:${sha256Hex(sourceCardText)}`,
+          required: true,
+          media_type_label: "application_json",
+        },
+        {
+          role: "derived_text",
+          repo_relative_path: sourceRef,
+          size_bytes: Buffer.byteLength(sourceFileText),
+          sha256: `sha256:${sha256Hex(sourceFileText)}`,
+          required: true,
+          media_type_label: "text_markdown",
+        },
+      ],
+    };
+    await writeFileWithParents(repoRoot, readyRef, JSON.stringify(readyManifest, null, 2));
+
+    const readyValidation = await validateSourceSyncReadyManifest(readyManifest, {
+      repoRoot,
+      readyRef,
+      sourceCardRef,
+      sourceTextRef: sourceRef,
+    });
+    assert.equal(readyValidation.schema_version, "soulforge.source_sync_ready_manifest_validation.v0");
+    assert.equal(readyValidation.status, "pass");
+    assert.equal(readyValidation.counts.checked_file_count, 2);
+    assert.equal(readyValidation.files.every((file) => file.exists && file.size_match && file.sha256_match), true);
+
+    const gatedIndex = await buildSourceTextIndex({
+      repoRoot,
+      sourceCardRef,
+      indexId: "sync_ready_fixture_index",
+      now: "2026-05-26T08:31:00Z",
+    });
+    assert.equal(gatedIndex.status, "ready");
+    assert.equal(gatedIndex.source_refs.source_sync_ready_ref, readyRef);
+    assert.equal(gatedIndex.validation.sync_ready_validation, "pass");
+    assert.equal(validateSourceTextIndex(gatedIndex).status, "pass");
+
+    const brokenReadyRef = "_workspaces/knowledge/common/systems_engineering/starter/sync_ready_fixture_broken.ready.json";
+    const brokenReadyManifest = {
+      ...readyManifest,
+      manifest_id: "sync_ready_fixture_broken_ready",
+      files: [
+        readyManifest.files[0],
+        {
+          ...readyManifest.files[1],
+          sha256: `sha256:${"0".repeat(64)}`,
+        },
+      ],
+    };
+    await writeFileWithParents(repoRoot, brokenReadyRef, JSON.stringify(brokenReadyManifest, null, 2));
+    const blockedIndex = await buildSourceTextIndex({
+      repoRoot,
+      sourceCardRef,
+      readyManifestRef: brokenReadyRef,
+      indexId: "sync_ready_fixture_blocked_index",
+    });
+    assert.equal(blockedIndex.status, "blocked_sync_not_ready");
+    assert.equal(blockedIndex.boundary.source_text_loaded, false);
+    assert.equal(blockedIndex.counts.chunk_count, 0);
+    assert.ok(blockedIndex.validation.sync_ready_validation.blockers.includes("file_sha256_mismatch:files[1]"));
+    assert.equal(validateSourceTextIndex(blockedIndex).status, "pass");
+  } finally {
+    await rm(repoRoot, { recursive: true, force: true });
+  }
+});
+
 test("source-text retrieval normalizes Korean technical queries and ranks dense matches", async () => {
   const repoRoot = await mkdtemp(path.join(os.tmpdir(), "soulforge-rag-korean-retrieval-"));
   try {
@@ -2145,6 +2289,10 @@ async function writeExtractionStatusFixture(repoRoot) {
     ].join("\n"),
     "utf8",
   );
+}
+
+function sha256Hex(value) {
+  return crypto.createHash("sha256").update(value).digest("hex");
 }
 
 function formatYamlValue(value, depth) {

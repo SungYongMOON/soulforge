@@ -35,7 +35,9 @@ npm run guild-hall:rag -- validate-source-text-extraction-packet --packet-ref _w
 npm run guild-hall:rag -- source-text-extraction-run-report --write --packet-ref _workmeta/system/reports/rag/source_text_extraction_packets/source_text_extraction_packet_v0/source_text_extraction_packet.json
 npm run guild-hall:rag -- validate-source-text-extraction-run-report --run-report-ref _workmeta/system/reports/rag/source_text_extraction_runs/source_text_extraction_packet_v0/source_text_extraction_run_report.json
 npm run guild-hall:rag -- validate-knowledge-source-card --source-card-ref _workspaces/knowledge/source_cards/soulforge_common_knowledge_starter.source_card.json
+npm run guild-hall:rag -- validate-source-sync-ready --ready-ref _workspaces/knowledge/common/<source_id>/source_sync_ready_manifest.json --source-card-ref _workspaces/knowledge/source_cards/<source_id>.source_card.json --source-text-ref _workspaces/knowledge/common/<source_id>/derived_text/<source_id>.md --stable-ms 2000
 npm run guild-hall:rag -- source-text-index --write --source-card-ref _workspaces/knowledge/source_cards/soulforge_common_knowledge_starter.source_card.json --index-id soulforge_common_knowledge_starter_20260525
+npm run guild-hall:rag -- source-text-index --write --source-card-ref _workspaces/knowledge/source_cards/<source_id>.source_card.json --ready-ref _workspaces/knowledge/common/<source_id>/source_sync_ready_manifest.json --stable-ms 2000 --index-id <source_id>_source_text_index
 npm run guild-hall:rag -- validate-source-text-index --source-text-index-ref _workspaces/knowledge/rag/indexes_local/source_text_indexes/soulforge_common_knowledge_starter_20260525/source_text_index.json
 npm run guild-hall:rag -- source-text-answer-run --write --source-text-index-ref _workspaces/knowledge/rag/indexes_local/source_text_indexes/soulforge_common_knowledge_starter_20260525/source_text_index.json --question "NotebookLM authority" --run-id soulforge_common_knowledge_answer_20260525 --text
 npm run guild-hall:rag -- validate-source-text-answer-run --run-ref _workspaces/knowledge/rag/answer_runs/soulforge_common_knowledge_answer_20260525/source_text_answer_run.json
@@ -82,6 +84,52 @@ npm run guild-hall:rag -- validate-company-knowledge-intake-packet --packet-ref 
 The validator accepts JSON packets only. It checks that the packet is
 metadata-only, uses labels/fingerprints instead of raw questions or source
 payloads, and keeps stronger permissions false until owner review.
+
+## Source Extraction Tooling Standard
+
+The source-text lane is parser-first, not LLM-first. The current
+`source-text-index` command consumes approved derived `.txt` or `.md` files
+under `_workspaces/knowledge/**`; it is not the raw PDF/Word/PPT/Excel/HWP
+reader.
+
+For company-PC intake, use this order before making or indexing a source card:
+
+1. keep originals in `_workspaces/knowledge/**` or an owner-approved worksite;
+2. extract locally to rebuildable Markdown/text plus structured metadata;
+3. record only hashes, tool/version ids, counts, warnings, blocker codes, and
+   Soulforge-root-relative output refs in `_workmeta/**`;
+4. write a `source_sync_ready_manifest_v0` after the files are fully exported
+   and visible to OneDrive, listing the source card and derived text with size
+   and SHA-256;
+5. validate the ready manifest from the indexing PC, optionally with
+   `--stable-ms 2000`;
+6. point the source card at the approved derived `.md` or `.txt`;
+7. run `source-text-index` only after the card grants retrieval and index-build
+   permission.
+
+Default tool order:
+
+- Docling first for local PDF/Office/image conversion to RAG-friendly Markdown
+  and JSON-style structure.
+- Apache Tika for broad text and metadata fallback.
+- PyMuPDF or `pypdf` for PDF-specific page/text checks.
+- LibreOffice headless for Office conversion fallback.
+- Tesseract OCR with Korean/English language data for scanned or image-only
+  sources.
+- HWP must be normalized to HWPX first, then parsed from HWPX or approved
+  derived text.
+
+LLM, NotebookLM, LlamaParse, cloud OCR/parser output, and Unstructured-style
+partitioning may be advisory or adapter routes only when owner-approved. They
+do not replace source cards, parser evidence, hashes, relative paths, or
+metadata-only `_workmeta` records.
+
+For cross-PC OneDrive intake, the ready manifest is the gate between "the other
+PC says export is done" and "this PC can safely index it." The validator reads
+the local files, checks byte size and SHA-256, and can wait briefly to confirm
+size, mtime, and hash stay unchanged. If the ready manifest fails,
+`source-text-index --ready-ref ...` returns `blocked_sync_not_ready` and does
+not read the source text.
 
 ## Boundary
 
@@ -131,11 +179,17 @@ payloads, and keeps stronger permissions false until owner review.
   writes a report-only dry run. It does not open source locators, import
   extractor libraries, read source files, write private payloads, build indexes,
   or treat the report as citation evidence.
+- `validate-source-sync-ready` checks a metadata-only ready manifest before
+  cross-PC source-text indexing. It validates Soulforge-root-relative refs,
+  source card/source text ref matches, local file existence, byte size, SHA-256,
+  and optional stability delay. It is not owner approval or source truth.
 - `source-text-index` is the first owner-approved source-text lane. It reads
-  only owner-approved source cards and source text under
-  `_workspaces/knowledge/**`, supports text/markdown starter sources, writes
-  derived text and chunk indexes under `_workspaces/knowledge/rag/**` only when
-  explicitly allowed by the command/source card, and is not public-repo safe.
+  only owner-approved source cards and derived source text under
+  `_workspaces/knowledge/**`, supports text/markdown starter sources after
+  parser-first extraction, can require a source sync ready manifest through
+  `--ready-ref` or source-card `source_sync_ready_ref`, writes derived text and
+  chunk indexes under `_workspaces/knowledge/rag/**` only when explicitly
+  allowed by the command/source card, and is not public-repo safe.
 - Official public source cards may allow public summary, ontology seed,
   NotebookLM packet membership, and registry entry creation when the source
   card records official source authority. This permission applies to public-safe

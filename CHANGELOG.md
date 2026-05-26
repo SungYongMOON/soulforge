@@ -2,6 +2,32 @@
 
 ## 2026-05-26
 
+### Revision `working` - RAG source sync ready gate added
+
+- Added `source_sync_ready_manifest_v0` validation for OneDrive/cross-PC source
+  handoff, checking Soulforge-root-relative refs, source card/source text
+  matching, byte sizes, SHA-256 hashes, and optional file stability delay.
+- Added `validate-source-sync-ready` and `source-text-index --ready-ref` so
+  indexing can block with `blocked_sync_not_ready` instead of reading a file
+  that has not fully synced locally.
+- Added a public-safe ready manifest template for company knowledge intake and
+  kept the manifest metadata-only: no source payloads, chunks, NotebookLM
+  answers, credentials, local absolute paths, owner approval, or source truth.
+
+### Revision `working` - RAG source extraction tool standard selected
+
+- Set the RAG/source-text intake method as parser-first rather than direct
+  LLM raw-document analysis.
+- Selected a Docling-first local extraction standard with Apache Tika,
+  PyMuPDF/`pypdf`, LibreOffice headless, and Tesseract OCR as fallback routes.
+- Kept HWP under the existing HWP-to-HWPX normalization rule before any body
+  extraction, and kept LLM/NotebookLM/LlamaParse/cloud parser outputs advisory
+  unless explicitly owner-approved.
+- Clarified that `source-text-index` consumes approved derived `.md`/`.txt`
+  under `_workspaces/knowledge/**` after extraction, while `_workmeta/**`
+  records only hashes, tool/version metadata, counts, warnings, blocker codes,
+  and relative output refs.
+
 ### Revision `working` - Workspace junction and Codex bridge portability fixes
 
 - Treated `_workspaces/00_project_index.html` as a local navigation surface instead of a junction gap, matching the workspace binding rule that human index views are not routing authority.
