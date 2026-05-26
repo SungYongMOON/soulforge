@@ -61,6 +61,60 @@ Workflow evolution 실험을 맡는 owner PC 는 추가로 아래 optional harne
 
 설치 절차는 [`../bootstrap/WORKFLOW_EVOLUTION_HARNESS_INSTALL_V0.md`](../bootstrap/WORKFLOW_EVOLUTION_HARNESS_INSTALL_V0.md) 를 따른다.
 
+### RAG/source-text extraction runtime
+
+RAG/source-text extraction is not required for a plain `public-only` clone.
+It is required on an `owner-with-state` or approved `tool_pc` when that PC will
+turn PDF, Office, image, or HWP/HWPX source material into approved derived
+Markdown/text before `source-text-index`.
+
+Install or verify these programs before running source extraction:
+
+- Python 3.12 local runtime, preferably under
+  `guild_hall/state/tools/source_extraction_venv`.
+- Docling as the first parser/converter route.
+- Apache Tika plus a Java runtime for broad text/metadata fallback.
+- PyMuPDF and `pypdf` for PDF page/text checks.
+- LibreOffice headless for Office conversion fallback.
+- Tesseract OCR with English and Korean language data (`eng`, `kor`,
+  `kor_vert`, `osd`) for scanned or image-only sources.
+- A licensed HWP/Hancom converter when `.hwp` files must be normalized to HWPX.
+
+Windows PowerShell baseline:
+
+```powershell
+uv python install 3.12
+uv venv "guild_hall/state/tools/source_extraction_venv" --python 3.12
+uv pip install --python "guild_hall/state/tools/source_extraction_venv/Scripts/python.exe" docling pypdf pymupdf pytesseract tika python-docx python-pptx openpyxl lxml beautifulsoup4 olefile
+
+winget install --source winget --accept-source-agreements --accept-package-agreements --disable-interactivity --silent --exact --id EclipseAdoptium.Temurin.21.JRE
+winget install --source winget --accept-source-agreements --accept-package-agreements --disable-interactivity --silent --exact --id TheDocumentFoundation.LibreOffice
+winget install --source winget --accept-source-agreements --accept-package-agreements --disable-interactivity --silent --exact --id tesseract-ocr.tesseract
+```
+
+If Korean OCR data is not installed by the Tesseract package, place Korean
+traineddata in a local-only directory such as `guild_hall/state/tools/tessdata`
+and set the PC-local `TESSDATA_PREFIX` accordingly. Do not write machine-local
+absolute install paths into public tracked docs. Record the actual paths,
+versions, hashes, smoke-test results, and any missing HWP/HWPX converter state
+under `_workmeta/system/reports/procedure_capture/source_extraction_runtime/`.
+
+Minimum smoke checks:
+
+```powershell
+& "guild_hall/state/tools/source_extraction_venv/Scripts/docling.exe" --version
+& "guild_hall/state/tools/source_extraction_venv/Scripts/python.exe" -c "import docling, fitz, pypdf, pytesseract, tika, docx, pptx, openpyxl, lxml, bs4, olefile; print('imports_ok')"
+tesseract --list-langs
+soffice --headless --version
+java -version
+npm.cmd run validate:rag
+```
+
+If a command is not on PATH immediately after installation, verify it by exact
+local path, then record that path in `_workmeta/system` only. Future public
+automation should consume a preflight result, not hard-coded local install
+paths.
+
 ## Chapter 2. 저장소 준비
 
 ```bash

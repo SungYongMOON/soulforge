@@ -2,6 +2,18 @@
 
 ## 2026-05-26
 
+### Revision `working` - RAG source extraction runtime install guidance added
+
+- Added the RAG/source-text extraction runtime to the installation manual for
+  owner/tool PCs that convert source documents before indexing.
+- Documented the required Docling-first toolchain, including Tika/Java,
+  PyMuPDF/`pypdf`, LibreOffice, Tesseract Korean OCR data, and HWP-to-HWPX
+  converter requirements.
+- Clarified that actual local executable paths, versions, OCR data hashes, and
+  smoke results belong under `_workmeta/system/reports/procedure_capture/source_extraction_runtime/`,
+  while public docs keep only portable tool families, package ids, and
+  validation commands.
+
 ### Revision `working` - Mail history Excel export moved out of `_workmeta`
 
 - Changed the gateway project mail history writers so `_workmeta/<project_code>/reports/메일_이력/` keeps only metadata-oriented CSV and calendar outputs.

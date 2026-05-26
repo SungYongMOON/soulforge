@@ -169,6 +169,24 @@ Default company-PC tool order:
   the HWPX or its approved derived text. Direct HWP extraction is diagnostic
   only and is not citation authority.
 
+Local runtime requirement:
+
+- `public-only` clones do not need the source extraction runtime.
+- `owner-with-state` and approved `tool_pc` nodes that perform source-text
+  extraction must install the runtime described in
+  `docs/architecture/workspace/INSTALLATION_MANUAL_V0.md`.
+- The preferred local Python environment is
+  `guild_hall/state/tools/source_extraction_venv` with Python 3.12 and Docling,
+  Tika, PyMuPDF/`pypdf`, OCR, and Office/HWPX helper libraries installed.
+- Java, LibreOffice, Tesseract OCR, Korean OCR data, and an owner-approved
+  HWP-to-HWPX converter are PC-local dependencies. Public docs may name the
+  required tool families and package ids, but actual executable paths and
+  version evidence belong under
+  `_workmeta/system/reports/procedure_capture/source_extraction_runtime/`.
+- No source-text index may treat a missing extraction runtime, missing Korean
+  OCR data, or missing HWPX converter as silently acceptable. It must be a
+  blocker or a recorded fallback route before indexing.
+
 Unstructured-style partitioning and LlamaIndex/LangChain ingestion can remain
 adapter candidates, but they are orchestration/partitioning routes, not a
 replacement for Soulforge's source-card, hash, path, and `_workmeta`

@@ -119,6 +119,40 @@ Default tool order:
 - HWP must be normalized to HWPX first, then parsed from HWPX or approved
   derived text.
 
+Required local runtime before real source extraction:
+
+- Create the extraction venv at `guild_hall/state/tools/source_extraction_venv`
+  with Python 3.12.
+- Install Docling, `pypdf`, PyMuPDF, `pytesseract`, Tika, `python-docx`,
+  `python-pptx`, `openpyxl`, `lxml`, BeautifulSoup, and `olefile` into that
+  venv.
+- Install Java, LibreOffice, and Tesseract on the PC, or provide equivalent
+  executables through local-only runtime binding.
+- Ensure Tesseract can see `eng`, `kor`, `kor_vert`, and `osd` language data
+  before processing Korean scanned documents.
+- Ensure `.hwp` sources can be exported to HWPX through an owner-approved
+  licensed tool before any body extraction route reads them.
+- Record actual executable paths, versions, OCR data hashes, smoke checks, and
+  blockers under
+  `_workmeta/system/reports/procedure_capture/source_extraction_runtime/`.
+
+Windows PowerShell bootstrap for an owner/tool PC:
+
+```powershell
+uv python install 3.12
+uv venv "guild_hall/state/tools/source_extraction_venv" --python 3.12
+uv pip install --python "guild_hall/state/tools/source_extraction_venv/Scripts/python.exe" docling pypdf pymupdf pytesseract tika python-docx python-pptx openpyxl lxml beautifulsoup4 olefile
+winget install --source winget --accept-source-agreements --accept-package-agreements --disable-interactivity --silent --exact --id EclipseAdoptium.Temurin.21.JRE
+winget install --source winget --accept-source-agreements --accept-package-agreements --disable-interactivity --silent --exact --id TheDocumentFoundation.LibreOffice
+winget install --source winget --accept-source-agreements --accept-package-agreements --disable-interactivity --silent --exact --id tesseract-ocr.tesseract
+npm.cmd run validate:rag
+```
+
+Keep the runtime itself under `guild_hall/state/tools/**` or the OS package
+manager. Keep source payloads and derived private text under
+`_workspaces/knowledge/**`. Keep only metadata, hashes, versions, refs, and
+review packets under `_workmeta/**`.
+
 LLM, NotebookLM, LlamaParse, cloud OCR/parser output, and Unstructured-style
 partitioning may be advisory or adapter routes only when owner-approved. They
 do not replace source cards, parser evidence, hashes, relative paths, or
