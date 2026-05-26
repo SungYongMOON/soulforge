@@ -2,15 +2,18 @@ party_id: knowledge_wiki_cell
 kind: allowed_workflows
 status: active
 workflow_ids:
-  - se_knowledge_wiki_pipeline_v0
+  - knowledge_wiki_pipeline_v0
   - official_source_packet_collect_v0
   - sourcebound_knowledge_packet_operating_loop_v0
   - knowledge_access_event_capture_v0
   - post_development_review_gate_v0
 optional_workflow_ids:
+  - dual_deep_research_v0
   - source_packet_sufficiency_review_v0
   - owner_decision_packet_v0
+  - rag_metadata_refresh_v0
 notes:
   - Required workflow ids include the registered composite entry plus the downstream workflows it owns.
-  - Optional workflow ids may be inserted when source sufficiency or owner promotion decisions are blocked.
-  - `se_knowledge_wiki_pipeline_v0` is now registered and selected as the party default entry by owner direction.
+  - Optional workflow ids may be inserted when dual-path deep research, source sufficiency, owner promotion decisions, or metadata-only RAG refresh handoffs are needed.
+  - "`knowledge_wiki_pipeline_v0` is now registered and selected as the party default entry by owner direction."
+  - "`rag_metadata_refresh_v0` is an optional downstream workflow; `knowledge_wiki_cell` may prepare a metadata-only handoff but does not own RAG index refresh or answer authority."

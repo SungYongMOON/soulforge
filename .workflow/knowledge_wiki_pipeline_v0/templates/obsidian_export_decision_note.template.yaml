@@ -1,0 +1,52 @@
+workflow_id: knowledge_wiki_pipeline_v0
+kind: obsidian_export_decision_note
+status: draft
+decision_id: "<decision_id>"
+request_state: "not_requested|requested|blocked|eligible"
+requested_surface: "obsidian_canon_read_view|not_requested"
+target_vault_surface:
+  surface_kind: "_workspaces_local_generated_export|owner_selected_local_folder|not_requested"
+  suggested_runtime_repo_path: "_workspaces/system/knowledge_view/obsidian_export/<export_id>"
+  top_level_root_creation_allowed: false
+  drive_synced_folder_as_primary_surface: false
+source_authority:
+  canon_registry_required: true
+  allowed_registry_refs:
+    - ".registry/knowledge/<knowledge_id>/knowledge.yaml"
+  allowed_canon_package_archive_refs: []
+  archive_presence_is_not_canon_authority: true
+  notebooklm_is_not_authority: true
+  workmeta_projection_is_not_export_source: true
+eligibility:
+  decision: "generate_read_only|block_until_canon_entry|not_requested"
+  reason: null
+  blocking_conditions: []
+note_generation_contract:
+  file_name_pattern: "<knowledge_id>.md"
+  folder_pattern: "<domain_or_flat_folder>"
+  frontmatter_required:
+    - knowledge_id
+    - title
+    - generated
+    - read_only
+    - canon_source_refs
+    - claim_ceiling
+    - owner_surface
+    - generated_at
+  wikilink_policy: "[[<knowledge_id>]]"
+  raw_private_payload_embedded: false
+  human_edit_policy: "do_not_hand_edit_regenerate_only"
+reference_rendering_policy:
+  drive_ref: "metadata_only_optional"
+  notebooklm_ref: "metadata_only_optional"
+  workmeta_ref: "metadata_only_optional"
+  private_paths_in_body: false
+validation_requirements:
+  generated_view_must_be_read_only: true
+  body_must_derive_from_registry_knowledge_only: true
+  forbidden_inputs:
+    - "_workmeta private projection payload"
+    - "raw source attachments"
+    - "NotebookLM answers"
+    - "Drive candidate files"
+    - "owner decision notes not promoted to canon"

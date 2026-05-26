@@ -4,7 +4,7 @@ status: active
 workflow_ids:
   - se_assistant_operating_loop_v0
   - se_stage_artifact_gap_scan_v0
-  - se_knowledge_wiki_pipeline_v0
+  - knowledge_wiki_pipeline_v0
   - project_readiness_digest_v0
   - owner_decision_packet_v0
   - review_gate_evidence_pack_v0

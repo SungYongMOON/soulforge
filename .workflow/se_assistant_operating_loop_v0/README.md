@@ -44,7 +44,7 @@ workflows.
 2. If scaffold inputs are present and supported, route to
    `se_foldertree_generate`; otherwise record missing scaffold inputs.
 3. Route active-stage work to `se_stage_artifact_gap_scan_v0`.
-4. Route source-heavy work to `se_knowledge_wiki_pipeline_v0` or source-gap
+4. Route source-heavy work to `knowledge_wiki_pipeline_v0` or source-gap
    workflows.
 5. Route owner judgment needs to `owner_decision_packet_v0`.
 6. Route status summaries to `project_readiness_digest_v0`.

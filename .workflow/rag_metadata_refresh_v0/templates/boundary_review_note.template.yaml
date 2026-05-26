@@ -1,0 +1,43 @@
+workflow_id: rag_metadata_refresh_v0
+kind: boundary_review_note
+schema_version: v0
+status: draft
+review_id: "<review_id>"
+review_scope_ref: "<refresh_scope_or_packet_ref>"
+checks:
+  metadata_only:
+    pass: null
+    notes: null
+  existing_generated_surfaces_only:
+    pass: null
+    notes: null
+  no_raw_source_text:
+    pass: null
+    notes: null
+  no_source_text_index_or_embedding_payload:
+    pass: null
+    notes: null
+  no_notebooklm_upload_or_query:
+    pass: null
+    notes: null
+  no_drive_mutation:
+    pass: null
+    notes: null
+  no_owner_approval_inference:
+    pass: null
+    notes: null
+  no_public_canon_promotion:
+    pass: null
+    notes: null
+  no_ontology_acceptance:
+    pass: null
+    notes: null
+  no_default_route_switch:
+    pass: null
+    notes: null
+  graph_and_rag_projection_not_truth:
+    pass: null
+    notes: null
+boundary_decision: review_required
+blockers: []
+downstream_routes: []

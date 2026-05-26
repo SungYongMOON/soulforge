@@ -1,0 +1,42 @@
+knowledge_id: sonar_signal_chain
+kind: knowledge
+status: active
+title: Sonar Signal Chain
+summary: Source-supported reusable orientation for sonar engineering from underwater acoustics and hydrophone sensing through AFE, ADC, digital front-end processing, beamforming, detection, and calibration.
+claim_ceiling: source_supported
+focus:
+  primary_domain: sonar receive-chain and sourcebound signal-processing knowledge
+  applied_to:
+    - sonar engineering knowledge wiki research
+    - hydrophone and transducer source packet preparation
+    - analog front-end and ADC receive-chain review
+    - digital demodulation and beamforming orientation
+    - hydrophone calibration and QA source sufficiency review
+source_support:
+  public_source_refs:
+    - https://www.ti.com/tool/TIDA-00419
+    - https://www.ti.com/lit/ug/tidu702/tidu702.pdf
+    - https://www.ti.com/lit/pdf/sloa257
+    - https://dosits.org/science/advanced-topics/detection-threshold-for-sonar/
+    - https://cdn.ioos.noaa.gov/media/2017/12/QARTOD_PassiveAcousticsManual_Final_V1.0_signed.pdf
+    - https://eprintspublications.npl.co.uk/3981/
+    - https://iho.int/standards-and-specifications
+    - https://www.mathworks.com/help/phased/detection.html
+    - https://www.mathworks.com/help/phased/ug/constant-false-alarm-rate-cfar-detection.html
+claim_scope:
+  supported:
+    - Sonar engineering knowledge should be organized as a chain from underwater acoustic environment and sonar equation, through hydrophone/transducer behavior, AFE conditioning, ADC/clocking, digital demodulation, beamforming/DOA, detection, and calibration/QA.
+    - TI AFE5809/TIDA-00419 sources support a receive-chain orientation including analog conditioning, ADC, digital demodulation, I/Q processing, decimation, and downstream beamforming/envelope-processing concerns.
+    - DOSITS-style sonar references support keeping sonar equation, detection threshold, false alarm, and detection probability concepts as explicit detection knowledge rather than burying them inside AFE notes.
+    - QARTOD/NPL/IHO-style sources support treating hydrophone calibration, acoustic measurement QA, metadata, and survey context as separate source sufficiency lanes.
+    - CFAR and ROC/Pd/Pfa topics belong in the detection lane and require explicit detection-theory sources before stronger claims are made.
+  excluded:
+    - military operational doctrine or tactical employment of sonar systems
+    - production design approval for any specific sonar hardware
+    - component value recommendations not directly supported by an approved source packet
+    - treating NotebookLM, LLM, forum, Scribd, YouTube, or generic blog outputs as source truth
+    - claiming a completed sourcebound knowledge packet for every sonar subtopic
+notes:
+  - Registered through the knowledge wiki route after the owner clarified that wiki skill use should register the reusable knowledge seed.
+  - Use this as public-safe orientation and routing knowledge; detailed source packets and private projections remain under `_workmeta` or owner-held source storage.
+  - The current entry captures the reusable map and source-support boundary, not a complete sonar design handbook.

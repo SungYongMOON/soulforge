@@ -1,0 +1,112 @@
+knowledge_id: dapa_weapon_system_test_eval_guidebook
+kind: knowledge
+status: active
+title: 무기체계 시험평가 실무 가이드북
+summary: Official public DAPA reference knowledge for weapon-system test and evaluation, including the relation between test/evaluation and systems engineering, acquisition-stage decision support, development test evaluation, operational test evaluation, verification, reliability testing, and risk reduction.
+claim_ceiling: source_supported
+canon_registration:
+  state: canon_entry
+  registration_basis: official_public_dapa_source_owner_rule
+  registered_surfaces:
+    - public_safe_summary
+    - ontology_seed
+    - notebooklm_packet_manifest_ref
+    - registry_entry
+focus:
+  primary_domain: defense acquisition test and evaluation
+  applied_to:
+    - systems engineering sourcebound knowledge
+    - weapon-system acquisition stage review
+    - test and evaluation planning
+    - requirement verification orientation
+    - reliability and software reliability test orientation
+source_support:
+  source_status: owner_approved_official_public_source
+  public_source_refs:
+    - https://m.korea.kr/expertWeb/resources/files/data/document_file/2012/%EB%AC%B4%EA%B8%B0%EC%B2%B4%EA%B3%84%20%EC%8B%9C%ED%97%98%ED%8F%89%EA%B0%80%20%EC%8B%A4%EB%AC%B4%20%EA%B0%80%EC%9D%B4%EB%93%9C%EB%B6%81.pdf
+  local_source_card_refs:
+    - _workspaces/knowledge/common/systems_engineering/dapa/weapon_system_test_eval_guidebook/source_cards/dapa_weapon_system_test_eval_guidebook.source_card.json
+  original_pdf_sha256: bd26c922ebc79960d670e951c16466fbff679d70e0e9aeff47aab4cacaeb4068
+public_registration:
+  registry_state: canon_entry
+  registration_basis: official_public_dapa_source_owner_rule
+  source_summary_allowed: true
+  ontology_seed_allowed: true
+  notebooklm_packet_allowed: true
+  public_registry_entry_allowed: true
+  raw_full_text_public_copy_allowed: false
+  chunk_public_copy_allowed: false
+notebooklm:
+  packet_membership_allowed: true
+  packet_manifest_ref: _workmeta/system/reports/source_research/dapa_weapon_system_test_eval_guidebook/notebooklm_packet_manifest.yaml
+  output_authority: advisory_query_surface_only
+ontology_seed:
+  entities:
+    - entity_id: weapon_system_test_evaluation_guidebook
+      type: official_source
+      label: 무기체계 시험평가 실무 가이드북
+    - entity_id: test_and_evaluation
+      type: concept
+      label: Test and Evaluation
+    - entity_id: systems_engineering_process
+      type: concept
+      label: Systems Engineering Process
+    - entity_id: development_test_evaluation
+      type: concept
+      label: Development Test and Evaluation
+    - entity_id: operational_test_evaluation
+      type: concept
+      label: Operational Test and Evaluation
+    - entity_id: verification
+      type: concept
+      label: Verification
+    - entity_id: reliability_test
+      type: concept
+      label: Reliability Test
+    - entity_id: acquisition_risk_reduction
+      type: concept
+      label: Acquisition Risk Reduction
+  relations:
+    - subject: test_and_evaluation
+      predicate: part_of
+      object: systems_engineering_process
+      support: official_source
+    - subject: test_and_evaluation
+      predicate: supports
+      object: acquisition_decision_making
+      support: official_source
+    - subject: test_and_evaluation
+      predicate: reduces
+      object: acquisition_risk_reduction
+      support: official_source
+    - subject: development_test_evaluation
+      predicate: verifies
+      object: technical_performance_and_design_requirements
+      support: official_source
+    - subject: operational_test_evaluation
+      predicate: confirms
+      object: operational_effectiveness_and_suitability
+      support: official_source
+    - subject: verification
+      predicate: checks
+      object: requirements_and_physical_architecture_alignment
+      support: official_source
+    - subject: reliability_test
+      predicate: supports
+      object: weapon_system_quality_and_reliability_assessment
+      support: official_source
+claim_scope:
+  supported:
+    - Test and evaluation is treated as part of the systems engineering process for system development and acquisition.
+    - Test and evaluation supports acquisition decision making by providing data for performance confirmation, trade-off analysis, risk reduction, and requirement review.
+    - Development test evaluation and operational test evaluation are distinct but related evidence lanes for technical performance and operational suitability.
+    - Verification checks whether requirements, design, physical architecture, and related specifications are satisfied.
+    - Reliability testing is a reusable sublane of weapon-system test and evaluation planning and assessment.
+  excluded:
+    - current legal or regulatory authority beyond this 2012 source
+    - project-specific acceptance, customer approval, or stage readiness
+    - copying the full source text or chunk index into public tracked files
+    - treating NotebookLM answers as validation or source truth
+notes:
+  - Registered after owner clarified that official public DAPA materials should be summarized, mapped into ontology seeds, prepared for NotebookLM, and publicly registered.
+  - The source is canon/approved reference knowledge; generated summaries, chunks, answer runs, and NotebookLM answers must still cite the source and stay within their own artifact boundaries.

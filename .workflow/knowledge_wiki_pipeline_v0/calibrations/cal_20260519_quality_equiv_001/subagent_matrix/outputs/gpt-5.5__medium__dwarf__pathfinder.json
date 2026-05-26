@@ -1,0 +1,42 @@
+{
+  "workflow_id": "knowledge_wiki_pipeline_v0",
+  "candidate_label": "gpt-5.5|medium|dwarf|pathfinder",
+  "profile": {
+    "model": "gpt-5.5",
+    "reasoning_effort": "medium",
+    "species": "dwarf",
+    "class": "pathfinder"
+  },
+  "outputs": {
+    "pipeline_request_packet": "Synthetic calibration request packet for an knowledge wikiization request. The packet binds the request to approved_source_policy and source_scope_binding, preserves query-first handling, and separates reusable existing projection use from any required fresh sourcebound stage.",
+    "routing_decision_note": "Route as a composite party_sequence. Reuse the bounded existing projection for the query_only_with_existing_projection portion. Invoke fresh sourcebound work only for the stage whose requested scope is not covered by the existing projection. Treat archive/storage notes as handoff metadata only, not source or canon authority.",
+    "stage_chain_manifest": "Stage chain: request intake and routing decision; existing projection eligibility check; fresh sourcebound projection for uncovered scope; archive/package handoff note; Obsidian export decision; metadata and knowledge access capture; closeout review. Stronger gates are inserted only for the fresh sourcebound stage and the required closeout review.",
+    "source_packet_refs": "Synthetic public-safe refs: approved_source_policy_ref, source_scope_binding_ref, request_packet_ref. These refs identify bounded policy and scope anchors only and do not expose raw source payloads or private evidence.",
+    "sourcebound_packet_refs": "Synthetic public-safe refs: existing_projection_ref for the reusable bounded projection; fresh_sourcebound_stage_ref for the uncovered scope requiring new sourcebound work. Neither ref grants independent source authority beyond the approved request scope.",
+    "archive_manifest_refs": "Synthetic public-safe refs: pre_intake_owner_archive_ref and post_projection_package_backup_ref. These refs record storage or handoff status only; they do not promote canon, source authority, or workflow readiness.",
+    "obsidian_export_refs": "Synthetic public-safe ref: generated_read_only_obsidian_view_ref. The export is a local read-only view over canon-backed knowledge only and excludes raw source files, private payloads, and NotebookLM answers.",
+    "knowledge_access_refs": "Synthetic public-safe refs: metadata_capture_ref and knowledge_access_event_ref. These capture access/routing metadata for the bounded request without disclosing private/raw evidence.",
+    "closeout_review_refs": "Synthetic public-safe ref: required_closeout_review_ref. The closeout confirms boundary preservation, sourcebound handling, archive non-authority, and absence of upstream mutation claims.",
+    "boundary_review_note": "Public-safe boundary review: no tool use, file edits, runtime paths, hidden refs, private/raw evidence, upstream mutation, or source/canon authority promotion is claimed."
+  },
+  "provenance": [
+    "Derived only from the supplied public-safe synthetic workflow contract.",
+    "Uses the stated synthetic scenario facts: one reusable projection, one fresh sourcebound stage, one non-authoritative archive note, and one required closeout review ref."
+  ],
+  "gaps": [
+    "No real source packet contents, runtime evidence, private projection payloads, or archive locations are available or asserted.",
+    "Calibration cannot validate actual execution success, file state, or upstream registration state beyond the synthetic contract statements."
+  ],
+  "downstream_handoff": [
+    "Hand off the reusable existing projection ref only for the bounded query_only_with_existing_projection scope.",
+    "Hand off the fresh_sourcebound_stage_ref, archive manifest refs, Obsidian export ref, knowledge access ref, and closeout review ref as synthetic comparison artifacts, not as canon promotion evidence."
+  ],
+  "boundary_review_note": [
+    "Archive/storage refs remain non-authoritative and do not promote canon or source authority.",
+    "Obsidian export remains a generated read-only local view and must not expose private/raw payloads, NotebookLM answers, or hidden evidence."
+  ],
+  "no_claims": [
+    "No claim of tool use, file edits, runtime paths, hidden private evidence, or upstream artifact mutation.",
+    "No claim that archive storage, Obsidian export, or synthetic refs grant stronger source authority, canon ownership, or readiness than pilot-executed."
+  ]
+}

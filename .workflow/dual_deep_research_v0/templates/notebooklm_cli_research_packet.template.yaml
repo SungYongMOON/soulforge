@@ -1,0 +1,30 @@
+workflow_id: dual_deep_research_v0
+kind: notebooklm_cli_research_packet
+schema_version: v0
+status: draft
+packet_id: "<packet_id>"
+goal_declaration_ref: "<goal_id>"
+subagent_stage:
+  stage_id: notebooklm_cli_deep_research
+  fresh_subagent_used: null
+  subagent_blocker: null
+runtime:
+  cli_surface: nlm
+  login_check_command: "nlm login --check"
+  deep_research_commands:
+    - "nlm research start \"<topic>\" --mode deep --title \"<notebook title>\""
+    - "nlm research status <notebook_id> --max-wait 300"
+    - "nlm research import <notebook_id> <task_id>"
+  blocker: null
+notebook_ref:
+  notebook_label: null
+  notebook_id_ref: null
+  note_label: null
+source_handles: []
+advisory_findings:
+  - claim_id: "<claim_id>"
+    summary: ""
+    notebooklm_source_refs: []
+    caveat: null
+gaps: []
+raw_answer_payload_copied: false

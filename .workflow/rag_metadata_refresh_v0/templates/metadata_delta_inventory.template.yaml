@@ -1,0 +1,27 @@
+workflow_id: rag_metadata_refresh_v0
+kind: metadata_delta_inventory
+schema_version: v0
+status: draft
+inventory_id: "<inventory_id>"
+source_delta_refs: []
+delta_items:
+  - delta_id: "<delta_id>"
+    changed_ref: "<wiki_or_sourcebound_metadata_ref>"
+    change_type: "<added|updated|deprecated|renamed|blocked|unknown>"
+    source_ref: "<source_ref>"
+    source_slice_ref: "<source_slice_ref>"
+    packet_ref: "<packet_ref>"
+    claim_ceiling: observed
+    lifecycle_state: review_required
+    route_hint: review_required
+    owner_decision_ref: null
+    timestamp_utc: null
+    evidence_event_refs: []
+forbidden_payload_check:
+  raw_source_text_present: false
+  copied_source_excerpt_present: false
+  private_packet_payload_present: false
+  notebooklm_answer_payload_present: false
+  embedding_or_bm25_payload_present: false
+  secret_or_session_present: false
+  host_absolute_path_present: false

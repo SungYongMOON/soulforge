@@ -106,6 +106,43 @@ first workflow posture:
 - 첫 workflow 는 문서 작성기가 아니라 `design-support gap scan` 이다.
 - 현재 stage 에서 필요한 문서, 도식, 분석, trace, review evidence 중 무엇이 있는지, 없는지, AI가 초안 가능한지, owner input이 필요한지 판정하는 데 집중한다.
 
+## RAG/source-text standardization support lane
+
+RAG/source-text standardization is a bounded support and follow-on lane. It
+does not replace the active playable loop roadmap.
+
+Purpose:
+
+- keep metadata-only RAG manifest, metadata index, trace/evaluation, and answer
+  paths safe enough to support later operation-board and knowledge-use views;
+- define the separate owner-approved private source-text lane under
+  `_workspaces/knowledge/**`;
+- keep raw questions ephemeral and store only labels, query fingerprints, token
+  fingerprints, source-card refs, hashes, and status metadata in JSON/review
+  artifacts;
+- provide a public-safe company knowledge intake packet template for parallel
+  PC handoff without copying company source text, NotebookLM answers, account
+  IDs, conversation IDs, secrets, or private payloads.
+
+Boundaries:
+
+- This lane is support infrastructure for knowledge retrieval and evidence
+  hygiene, not the current active slice.
+- It must not delay or redefine `snapshot_to_operation_board_v0`.
+- Source-text commands may read only owner-approved `_workspaces/knowledge/**`
+  source text and must keep public tracked files and `_workmeta` metadata-only
+  unless an explicit private workspace command/source card allows private proof
+  payloads under `_workspaces/knowledge/**`.
+
+Follow-on fit:
+
+1. Stabilize the metadata-only RAG command and validation surface.
+2. Add the company intake packet validator after the code command exists.
+3. Use the resulting metadata to support later knowledge-use analytics and
+   sourcebound review queues.
+4. Keep any answer-quality, NotebookLM, source-text BM25/vector, or ontology
+   promotion work behind separate owner/review gates.
+
 ## 장기 후보: engineering co-pilot expansion
 
 이 후보는 `snapshot_to_operation_board_v0` 와 SE assistant lane 이 안정된 뒤, 실제 설계 업무를 더 넓게 보조하는 후속 방향으로 둔다. 핵심은 owner 의 거친 아이디어, 작업 흔적, 자료 접근 패턴을 실행 가능한 산출물 준비와 개선 제안으로 바꾸는 것이다.

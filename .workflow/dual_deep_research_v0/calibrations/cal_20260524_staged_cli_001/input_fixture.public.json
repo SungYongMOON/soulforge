@@ -1,0 +1,40 @@
+{
+  "workflow_id": "dual_deep_research_v0",
+  "fixture_kind": "public_safe_synthetic_optimizer_fixture",
+  "user_research_request": "Find what must be true before a Soulforge workflow may automatically hand a research delta to the Knowledge Wiki Cell.",
+  "allowed_inputs": [
+    "public-safe workflow contract summary",
+    "synthetic NotebookLM advisory packet",
+    "synthetic Codex direct advisory packet"
+  ],
+  "forbidden_inputs": [
+    "real NotebookLM state",
+    "raw NotebookLM answer payload",
+    "web browsing",
+    "secret/session material",
+    "Google Drive/wiki mutation",
+    "private _workspaces material"
+  ],
+  "downstream_target": {
+    "party_id": "knowledge_wiki_cell",
+    "workflow_id": "knowledge_wiki_pipeline_v0"
+  },
+  "stop_condition": "If the packet would need real source truth, NotebookLM account state, owner approval, or wiki mutation, record a blocker instead of claiming completion.",
+  "synthetic_notebooklm_claims": {
+    "N1": "Goal must be declared before material research.",
+    "N2": "NotebookLM and Codex research lanes must remain separated until comparison.",
+    "N3": "Common claims should be removed from the delta view but retained as trace metadata.",
+    "N4": "Handoff should target knowledge_wiki_cell / knowledge_wiki_pipeline_v0 after boundary pass.",
+    "N5": "The research workflow itself may register the result in the wiki if both lanes agree.",
+    "N6": "If a new workflow is needed, route creation through workflow-generator."
+  },
+  "synthetic_codex_claims": {
+    "C1": "A goal declaration is required before material research begins.",
+    "C2": "The two research paths must stay independent until both packets are complete.",
+    "C3": "Agreement between NotebookLM and Codex is not source truth and must not imply owner approval.",
+    "C4": "Delta handoff may be prepared for knowledge_wiki_cell, but registration judgment belongs downstream.",
+    "C5": "Common claims are trace metadata and should not be repeated as delta recommendations.",
+    "C6": "Created or evolved workflows require workflow-check before readiness, registration, promotion, default-route switch, or default-route-safety claims.",
+    "C7": "Google Drive placement and NotebookLM packet-map mutation are outside this workflow."
+  }
+}

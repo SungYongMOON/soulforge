@@ -1,0 +1,30 @@
+workflow_id: rag_metadata_refresh_v0
+kind: workflow_profile_policy
+status: draft
+calibration_mode: not_calibrated
+measurement_policy:
+  quality_source: none_yet
+  telemetry_source: none_yet
+  subagent_token_usage_available: false
+  telemetry_exact_for_subagent: false
+  telemetry_exact_for_cli: false
+  cost_confidence: unknown
+primary_profile:
+  model: null
+  reasoning_effort: null
+  species: null
+  class: null
+  label: unbound_until_project_or_mission_binding
+shadow_top_k: []
+rerun_triggers:
+  - workflow prompt changed
+  - output schema changed
+  - RAG metadata surface schema changed
+  - sourcebound or wiki metadata delta schema changed
+  - graph lens export policy changed
+  - first controlled pilot exposes a new failure mode
+  - owner-decision record authority policy changed
+notes:
+  - This workflow is not profile-optimized and has no calibrated runtime profile.
+  - Runtime model, reasoning, species, class, party, and project choices are intentionally unbound.
+  - Any production-ready, canon-ready, or default-route-safe claim requires separate controlled execution and review evidence.

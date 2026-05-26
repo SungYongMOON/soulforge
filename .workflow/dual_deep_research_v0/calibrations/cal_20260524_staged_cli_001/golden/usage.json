@@ -1,0 +1,16 @@
+{
+  "profile": {
+    "model": "gpt-5.5",
+    "reasoning_effort": "xhigh",
+    "species": "human",
+    "class": "auditor"
+  },
+  "usage": {
+    "input_tokens": 21670,
+    "cached_input_tokens": 7552,
+    "output_tokens": 2223,
+    "reasoning_output_tokens": 516
+  },
+  "wall_seconds": 47,
+  "note": "Golden output was used only to derive evaluator criteria. Candidate prompts did not receive golden output or criteria."
+}

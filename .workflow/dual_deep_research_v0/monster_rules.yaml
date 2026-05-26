@@ -1,0 +1,22 @@
+workflow_id: dual_deep_research_v0
+kind: monster_rules
+status: active
+rules:
+  - monster_id: notebooklm_cli_ignored_for_browser_default
+    response: restore_cli_first_path_or_record_runtime_blocker
+    summary: NotebookLM live work must use the repo-defined `nlm` / `notebooklm-mcp` path unless a documented exception applies.
+  - monster_id: cli_contract_rediscovered_every_run
+    response: use_workflow_notebooklm_cli_contract
+    summary: Future agents should read this workflow's fixed CLI contract instead of repeatedly searching for the basic NotebookLM command shape.
+  - monster_id: notebooklm_answer_treated_as_verdict
+    response: demote_to_advisory_and_require_source_or_owner_review
+    summary: NotebookLM Deep Research output cannot validate source truth, owner approval, ontology acceptance, or canon promotion.
+  - monster_id: codex_research_contaminated_by_notebooklm
+    response: rerun_codex_direct_path_from_frozen_brief
+    summary: Codex direct research must be independent until the comparison stage.
+  - monster_id: common_claims_reported_as_delta
+    response: move_common_claims_to_trace_and_keep_delta_non_overlap_only
+    summary: Common findings stay visible for trace but should not clutter owner-facing delta recommendations.
+  - monster_id: unapproved_source_upload_attempt
+    response: block_upload_and_route_owner_decision
+    summary: "`nlm source add/sync` and similar source mutation commands require explicit owner approval."

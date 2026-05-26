@@ -1,0 +1,18 @@
+workflow_id: rag_metadata_refresh_v0
+kind: owner_decision_record_refresh_candidate
+schema_version: v0
+status: draft
+candidate_id: "<candidate_id>"
+source_refs:
+  source_slice_decision_packet_refresh_ref: "<source_slice_decision_packet_refresh_ref>"
+owner_decision_record_updates:
+  - owner_decision_record_ref: "<owner_decision_record_ref>"
+    mirrored_owner_decision_ref: "<owner_decision_ref>"
+    mirrored_state: "<approved|rejected|held|needs_owner|unknown>"
+    refresh_action: hold
+    authority_created_here: false
+    notes: null
+rules:
+  mirror_external_authority_only: true
+  owner_approval_granted_here: false
+  absent_owner_decision_means_needs_owner: true

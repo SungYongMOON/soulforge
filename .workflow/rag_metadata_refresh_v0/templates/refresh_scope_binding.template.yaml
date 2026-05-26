@@ -1,0 +1,25 @@
+workflow_id: rag_metadata_refresh_v0
+kind: refresh_scope_binding
+schema_version: v0
+status: draft
+binding_id: "<binding_id>"
+project_ref: "<project_ref>"
+refresh_scope:
+  scope_id: "<scope_id>"
+  trigger: wiki_or_sourcebound_metadata_changed
+  existing_rag_surface_refs: []
+  wiki_or_sourcebound_metadata_delta_refs: []
+refresh_policy:
+  generated_surfaces_only: true
+  metadata_only: true
+  create_missing_surfaces_allowed: false
+  mark_missing_surfaces_blocked: true
+  default_route_switch_allowed: false
+boundary:
+  read_source_text: false
+  build_source_text_index: false
+  upload_or_query_notebooklm: false
+  mutate_drive: false
+  grant_owner_approval: false
+  promote_public_canon: false
+  accept_ontology: false

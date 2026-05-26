@@ -1,0 +1,36 @@
+workflow_id: rag_metadata_refresh_v0
+kind: handoff_rules
+status: draft
+rules:
+  - from: refresh_scope_binder
+    to: metadata_delta_collector
+    condition: refresh_scope_bound
+    summary: Collector receives only approved wiki/sourcebound metadata delta refs and a payload-free refresh policy.
+  - from: metadata_delta_collector
+    to: rag_surface_inventory_author
+    condition: metadata_delta_inventory_written
+    summary: Inventory author receives stable refs, claim ceilings, states, and route hints, not source text or copied private packet payloads.
+  - from: rag_surface_inventory_author
+    to: manifest_index_refresher
+    condition: existing_rag_surfaces_inventoried
+    summary: Manifest/index refresher receives the generated-surface inventory and must mark missing or stale refs explicitly.
+  - from: manifest_index_refresher
+    to: source_slice_card_refresher
+    condition: manifest_and_metadata_index_refresh_packets_written
+    summary: Card refresher receives manifest and metadata-index deltas with retrieval keys and source refs, never BM25, vectors, or source text.
+  - from: source_slice_card_refresher
+    to: review_decision_refresher
+    condition: source_slice_card_refresh_set_written
+    summary: Review/decision refresher receives card metadata and may only mirror external owner-decision refs.
+  - from: review_decision_refresher
+    to: retrieval_trace_evaluator
+    condition: triage_review_decision_packets_written
+    summary: Retrieval evaluator receives metadata packets for coverage and staleness checks, not query authority or source relevance verdicts.
+  - from: retrieval_trace_evaluator
+    to: graph_lens_exporter
+    condition: retrieval_trace_evaluation_refresh_written
+    summary: Graph lens exporter receives metadata refs only and must label edges as navigation signals.
+  - from: graph_lens_exporter
+    to: boundary_router
+    condition: graph_lens_export_written_or_skipped
+    summary: Boundary router receives all refresh outputs and determines hold or downstream review routes without mutating canon, Drive, NotebookLM, ontology, or default routes.

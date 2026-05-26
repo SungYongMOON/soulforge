@@ -55,7 +55,7 @@ downstream_workflows:
   - workflow_id: knowledge_candidate_triage_v0
     expected_input: repeated_gap_or_candidate_followup
     status: optional_candidate_route
-  - workflow_id: se_knowledge_wiki_pipeline_v0
+  - workflow_id: knowledge_wiki_pipeline_v0
     expected_input: reusable_gap_or_missing_knowledge_candidate
     status: optional_wikiization_handoff
   - workflow_id: owner_decision_packet_v0

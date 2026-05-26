@@ -1,0 +1,14 @@
+workflow_id: dual_deep_research_v0
+kind: party_compatibility
+status: active
+compatible_party_ids:
+  - knowledge_wiki_cell
+fit_tags:
+  - notebooklm_cli_deep_research
+  - dual_path_source_research
+  - sourcebound_wiki_preparation
+  - metadata_only_handoff
+notes:
+  - This workflow is a candidate optional route for `knowledge_wiki_cell`; it does not require a new party.
+  - It owns the deep-research comparison slice only.
+  - After `research_delta_handoff` is written, the default downstream owner is `knowledge_wiki_cell` through `knowledge_wiki_pipeline_v0`; wiki materialization and registration judgment remain downstream.

@@ -1,0 +1,18 @@
+workflow_id: rag_metadata_refresh_v0
+kind: source_slice_review_refresh_packet
+schema_version: v0
+status: draft
+packet_id: "<packet_id>"
+source_refs:
+  source_slice_triage_refresh_packet_ref: "<source_slice_triage_refresh_packet_ref>"
+review_items:
+  - source_slice_ref: "<source_slice_ref>"
+    review_state: review_required
+    review_ref: null
+    claim_ceiling: observed
+    blockers: []
+    downstream_route: hold_private_metadata
+rules:
+  review_state_is_metadata_until_review_gate_accepts: true
+  source_text_not_reviewed_here: true
+  public_canon_promotion_not_performed: true

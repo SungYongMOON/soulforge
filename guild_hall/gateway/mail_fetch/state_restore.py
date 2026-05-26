@@ -45,6 +45,7 @@ def main() -> int:
         "EMAIL_FETCH_RUNTIME_DIR",
         repo_root / "guild_hall" / "state" / "gateway" / "log" / "mail_fetch",
         base_dir=env_file.parent,
+        repo_root=repo_root,
     )
     keep = args.keep if args.keep > 0 else max(env_int(env, "EMAIL_FETCH_STATE_BACKUP_KEEP", 30), 1)
     result = restore_state_snapshot(

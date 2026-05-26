@@ -1,0 +1,205 @@
+workflow_id: dual_deep_research_v0
+kind: step_graph
+status: active
+steps:
+  - step_id: declare_goal
+    title: Declare Goal
+    actor_slot: research_controller
+    action:
+      kind: goal_declaration
+      requires:
+        - dual_research_request_binding
+        - source_scope_policy
+        - notebooklm_cli_policy
+      validates:
+        - objective_is_explicit
+        - success_conditions_named
+        - stop_conditions_named
+        - allowed_inputs_named
+        - downstream_handoff_limits_named
+      artifact_out: goal_declaration
+    summary: Declare the bounded research goal, success conditions, stop conditions, allowed inputs, and claim ceiling before any NotebookLM, Codex, comparison, or handoff stage runs.
+    next:
+      on_success: bind_research_brief
+      on_fail: stop
+  - step_id: bind_research_brief
+    title: Bind Research Brief
+    actor_slot: research_controller
+    action:
+      kind: dual_research_brief_binding
+      requires:
+        - goal_declaration
+        - dual_research_request_binding
+        - source_scope_policy
+        - notebooklm_cli_policy
+      validates:
+        - question_is_bounded
+        - source_scope_declared
+        - downstream_registration_out_of_scope_or_explicit
+        - public_private_boundary_declared
+      artifact_out: frozen_research_brief
+    summary: Freeze the question, scope, exclusions, approved source handles, claim ceiling, and stop condition before either research path runs.
+    next:
+      on_success: prepare_subagent_stages
+      on_fail: stop
+  - step_id: prepare_subagent_stages
+    title: Prepare Subagent Stages
+    actor_slot: research_controller
+    action:
+      kind: fresh_subagent_stage_preparation
+      artifacts_in:
+        - goal_declaration
+        - frozen_research_brief
+      artifact_out: subagent_stage_manifest
+      stages:
+        - notebooklm_operator
+        - codex_researcher
+        - comparison_archivist
+      required_separation:
+        notebooklm_operator_receives_codex_findings: false
+        codex_researcher_receives_notebooklm_findings: false
+        comparison_archivist_receives_both_after_packets_complete: true
+      blocked_if:
+        - subagent_runtime_unavailable_and_fresh_context_required_for_claim
+        - visible_inputs_include_raw_payload_or_secret
+    summary: Prepare fresh subagent prompts, visible inputs, expected outputs, and isolation rules before material research execution.
+    next:
+      on_success: run_notebooklm_cli_deep_research
+      on_fail: stop
+  - step_id: run_notebooklm_cli_deep_research
+    title: Run NotebookLM CLI Deep Research
+    actor_slot: notebooklm_operator
+    action:
+      kind: notebooklm_cli_first_deep_research
+      artifacts_in:
+        - subagent_stage_manifest
+        - frozen_research_brief
+        - approved_source_handles
+        - notebooklm_binding_refs
+        - notebooklm_source_ledger_refs
+      artifact_out: notebooklm_cli_research_packet
+      fixed_cli_contract:
+        - "nlm login --check"
+        - "nlm notebook list --json"
+        - "nlm source list <notebook_id> --json"
+        - "nlm research start \"<topic>\" --mode deep --title \"<notebook title>\""
+        - "nlm research status <notebook_id> --max-wait 300"
+        - "nlm research import <notebook_id> <task_id>"
+      owner_approval_required_for:
+        - source_upload
+        - source_sync
+        - notebook_mutation_beyond_research_note
+      forbidden_content:
+        - raw_notebooklm_answer_payload_in_public_package
+        - secret_or_session_material
+        - host_local_absolute_path
+      execution_contract: fresh_subagent_required_when_available
+    summary: In a fresh NotebookLM-operator subagent, use the repo-defined CLI path to create or reuse the research notebook/note, start Deep Research, import the result metadata, and summarize advisory findings.
+    next:
+      on_success: run_codex_direct_research
+      on_fail: record_notebooklm_runtime_blocker
+  - step_id: record_notebooklm_runtime_blocker
+    title: Record NotebookLM Runtime Blocker
+    actor_slot: notebooklm_operator
+    action:
+      kind: notebooklm_cli_blocker_record
+      artifacts_in:
+        - subagent_stage_manifest
+        - frozen_research_brief
+      artifact_out: notebooklm_cli_research_packet
+      setup_ref: docs/architecture/workspace/NOTEBOOKLM_MCP_SETUP_V0.md
+    summary: If the CLI is missing, logged out, or blocked, record the blocker and setup route instead of pretending NotebookLM ran.
+    next:
+      on_success: run_codex_direct_research
+      on_fail: stop
+  - step_id: run_codex_direct_research
+    title: Run Codex Direct Research
+    actor_slot: codex_researcher
+    action:
+      kind: independent_codex_source_research
+      artifacts_in:
+        - subagent_stage_manifest
+        - frozen_research_brief
+        - codex_source_refs
+      artifact_out: codex_direct_research_packet
+      isolation_rule: do_not_read_notebooklm_findings_before_direct_packet_is_complete
+      source_policy:
+        prefer_primary_or_official_sources: true
+        browse_for_current_or_unstable_facts: true
+        cite_source_refs_or_mark_gap: true
+      execution_contract: fresh_subagent_required_when_available
+    summary: In a fresh Codex-researcher subagent, research the same frozen question independently from NotebookLM so the comparison is not contaminated by NotebookLM's answer.
+    next:
+      on_success: normalize_and_compare_claims
+      on_fail: stop
+  - step_id: normalize_and_compare_claims
+    title: Normalize And Compare Claims
+    actor_slot: comparison_archivist
+    action:
+      kind: dual_path_claim_normalization_and_comparison
+      artifacts_in:
+        - subagent_stage_manifest
+        - notebooklm_cli_research_packet
+        - codex_direct_research_packet
+      artifact_out: dual_research_comparison_packet
+      claim_buckets:
+        - common
+        - notebooklm_only
+        - codex_only
+        - conflict
+        - gap
+      dedupe_rule: common_claims_remain_trace_metadata_but_are_excluded_from_delta_recommendations
+      execution_contract: fresh_subagent_required_when_available
+    summary: In a fresh comparison-archivist subagent, convert both outputs into atomic claims, identify common overlap, isolate one-sided claims, conflicts, and gaps, and avoid treating agreement as validation.
+    next:
+      on_success: assemble_delta_handoff
+      on_fail: stop
+  - step_id: assemble_delta_handoff
+    title: Assemble Delta Handoff
+    actor_slot: handoff_router
+    action:
+      kind: research_delta_and_downstream_route_assembly
+      artifacts_in:
+        - frozen_research_brief
+        - dual_research_comparison_packet
+        - owner_decision_refs
+      artifacts_out:
+        - research_delta_handoff
+        - boundary_review_note
+      default_downstream_handoff:
+        party_id: knowledge_wiki_cell
+        workflow_id: knowledge_wiki_pipeline_v0
+        handoff_mode: automatic_after_boundary_pass
+        registration_judgment_owner: downstream_workflow
+        registration_performed_here: false
+      workflow_authoring_guard:
+        trigger: downstream_or_adjacent_workflow_creation_or_evolution_needed
+        required_creation_or_evolution_route: "$soulforge-workflow-generator"
+        required_review_before_completion_or_claim: "$soulforge-workflow-check"
+        performed_here: false
+        registration_or_promotion_claim_here: false
+        default_route_switch_or_safety_claim_here: false
+      route_targets:
+        - knowledge_wiki_cell_pipeline
+        - none
+        - sourcebound_review
+        - knowledge_candidate_triage
+        - wiki_curation_maintenance
+        - knowledge_access_event_capture
+        - owner_decision
+        - workflow_creation_or_evolution_needed
+      route_hints_are_advisory: true
+      checks:
+        - no_source_truth_overclaim
+        - no_owner_approval_inference
+        - no_notebooklm_answer_as_verdict
+        - no_canon_promotion_inference
+        - no_registration_judgment_in_research_workflow
+        - downstream_or_adjacent_workflow_authoring_routed_to_workflow_generator
+        - created_or_evolved_workflow_review_route_required_before_claim
+        - no_default_route_switch_or_safety_claim
+        - handoff_packet_prepared_for_knowledge_wiki_cell
+    summary: Package only the non-overlap, conflicts, and gaps as research delta items, then prepare the automatic Knowledge Wiki Cell handoff while leaving registration judgment to the downstream party/workflow. If a downstream or adjacent workflow must be created or evolved, route that separate workflow work through `$soulforge-workflow-generator` and require `$soulforge-workflow-check` before any completion, readiness, registration, promotion, or default-route claim.
+    next:
+      on_success: complete
+      on_fail: stop

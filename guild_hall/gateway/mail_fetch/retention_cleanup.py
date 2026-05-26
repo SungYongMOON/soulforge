@@ -41,12 +41,14 @@ def main() -> int:
         "EMAIL_FETCH_RUNTIME_DIR",
         repo_root / "guild_hall" / "state" / "gateway" / "log" / "mail_fetch",
         base_dir=env_file.parent,
+        repo_root=repo_root,
     )
     inbox_root = env_path(
         env,
         "EMAIL_FETCH_INBOX_ROOT",
         repo_root / "guild_hall" / "state" / "gateway" / "mailbox",
         base_dir=env_file.parent,
+        repo_root=repo_root,
     )
     report_only = not args.apply if args.apply else env_bool(env, "EMAIL_FETCH_RETENTION_REPORT_ONLY", True)
     result = run_retention_cleanup(

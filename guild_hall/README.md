@@ -13,6 +13,7 @@
 - `activity/`: Soulforge 전체 recent-context 장부 append/refresh 구현
 - `knowledge_access/`: metadata-only knowledge ref read/use ledger append helper
 - `knowledge_graph/`: metadata-only knowledge graph JSON, HTML preview, and generated Obsidian view helper
+- `rag/`: metadata-only RAG manifest, source-slice cards, decision records, metadata retrieval index, trace/evaluation, and indexed answer helper
 - `healer/`: 24시간 PC self-check 와 activity report writer
 - `shared/`: guild_hall owner 들이 함께 쓰는 repo path / JSON state helper
 - `snapshot/`: UI 와 외부 host 가 읽는 read-only sanitized 상태 projection
@@ -33,6 +34,8 @@
 - cross-project 운영 명령 표면은 `guild-hall:*` 만 canonical 로 사용한다.
 - `knowledge_access/` 는 명시된 ledger root/file 에만 쓰며 source payload 를 ledger row 에 저장하지 않는다.
 - `knowledge_graph/` 는 generated local view 만 만들며 graph weight, usage count, Obsidian link 를 truth/approval 로 취급하지 않는다.
+- `rag/` 의 기본 manifest/index/trace/evaluation/answer path 는 metadata-only 이며 source text, private payload, NotebookLM answer, chunk, source-text vector/BM25 store 를 읽지 않는다.
+- `rag/` 의 승인된 private source-text command 는 별도 lane 이며 owner-approved `_workspaces/knowledge/**` source text 만 읽을 수 있다. 이 lane 의 저장 출력도 기본은 metadata-only 이고, 명시 승인된 command/source card 가 허용한 경우에만 `_workspaces/knowledge/**` 아래 private proof payload 를 남긴다.
 - `guild_hall/state/**` 는 local-only state 이며 public repo 에 올리지 않는다.
 
 ## 관련 경로

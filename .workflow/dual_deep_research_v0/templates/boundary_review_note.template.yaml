@@ -1,0 +1,31 @@
+workflow_id: dual_deep_research_v0
+kind: boundary_review_note
+schema_version: v0
+status: draft
+review_id: "<review_id>"
+decision: pending
+checks:
+  goal_declared_before_material_research: unchecked
+  fresh_subagent_stages_used_or_blocker_recorded: unchecked
+  notebooklm_cli_first_used_or_blocker_recorded: unchecked
+  codex_path_independent_until_comparison: unchecked
+  common_claims_removed_from_delta: unchecked
+  no_raw_notebooklm_answer_payload: unchecked
+  no_source_payload_copy: unchecked
+  no_secret_or_session_material: unchecked
+  no_owner_approval_inference: unchecked
+  no_canon_promotion_inference: unchecked
+  workflow_creation_or_evolution_routed_to_workflow_generator: unchecked
+  workflow_check_required_before_completion_claim: unchecked
+  no_default_route_switch_or_safety_claim: unchecked
+  handoff_to_knowledge_wiki_cell_prepared: unchecked
+  registration_judgment_left_to_downstream_workflow: unchecked
+evidence_refs: []
+findings: []
+non_claims:
+  - no_source_truth_claim
+  - no_owner_approval_claim
+  - no_ontology_acceptance_claim
+  - no_canon_promotion_claim
+  - no_workflow_creation_or_evolution_claim
+  - no_workflow_completion_or_registration_claim

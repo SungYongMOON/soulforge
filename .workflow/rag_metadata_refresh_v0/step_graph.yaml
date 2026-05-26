@@ -1,0 +1,269 @@
+workflow_id: rag_metadata_refresh_v0
+kind: step_graph
+status: draft
+steps:
+  - step_id: bind_refresh_scope
+    title: Bind Refresh Scope
+    actor_slot: refresh_scope_binder
+    action:
+      kind: rag_metadata_refresh_scope_binding
+      requires:
+        - rag_metadata_refresh_scope
+        - wiki_or_sourcebound_metadata_delta_refs
+        - existing_rag_surface_refs
+        - refresh_policy
+      validates:
+        - existing_generated_surfaces_declared
+        - metadata_delta_refs_are_repo_relative_or_stable_ids
+        - raw_source_text_not_requested
+        - notebooklm_and_drive_mutation_out_of_scope
+        - default_route_switch_out_of_scope
+      artifact_out: refresh_scope_binding
+    summary: Bind the metadata-only refresh request, allowed surfaces, policy, and explicit exclusions before inspecting generated RAG metadata.
+    next:
+      on_success: collect_metadata_deltas
+      on_fail: stop
+  - step_id: collect_metadata_deltas
+    title: Collect Metadata Deltas
+    actor_slot: metadata_delta_collector
+    action:
+      kind: wiki_sourcebound_metadata_delta_collection
+      artifacts_in:
+        - refresh_scope_binding
+        - wiki_or_sourcebound_metadata_delta_refs
+      artifact_out: metadata_delta_inventory
+      allowed_content:
+        - stable_ref
+        - source_ref
+        - source_slice_ref
+        - packet_ref
+        - claim_ceiling
+        - lifecycle_state
+        - route_hint
+        - owner_decision_ref
+        - evidence_event_id
+        - timestamp_utc
+      forbidden_content:
+        - raw_source_text
+        - copied_source_excerpt
+        - private_packet_payload
+        - notebooklm_answer_payload
+        - embedding_vector_payload
+        - bm25_term_index_payload
+        - credential_or_session_material
+        - host_absolute_path
+    summary: Gather wiki/sourcebound metadata changes by stable refs only, preserving source pointers and claim ceilings without reading source text.
+    next:
+      on_success: inventory_existing_rag_surfaces
+      on_fail: stop
+  - step_id: inventory_existing_rag_surfaces
+    title: Inventory Existing RAG Surfaces
+    actor_slot: rag_surface_inventory_author
+    action:
+      kind: generated_rag_surface_inventory
+      artifacts_in:
+        - refresh_scope_binding
+        - existing_rag_surface_refs
+        - prior_rag_manifest_refs
+        - prior_source_slice_card_refs
+        - prior_source_slice_triage_refs
+        - prior_source_slice_review_refs
+        - prior_source_slice_decision_packet_refs
+        - prior_owner_decision_record_refs
+        - prior_metadata_index_refs
+        - prior_retrieval_trace_refs
+        - prior_retrieval_evaluation_refs
+      artifact_out: rag_surface_inventory
+      inventory_rules:
+        generated_surfaces_only: true
+        store_refs_not_payloads: true
+        missing_surface_is_blocker_or_create_candidate_per_policy: true
+        stale_surface_flagged_not_silently_overwritten: true
+    summary: Inventory the existing generated RAG metadata surfaces to be refreshed and flag missing, stale, duplicate, or boundary-unsafe refs.
+    next:
+      on_success: refresh_manifest_and_metadata_index
+      on_fail: stop
+  - step_id: refresh_manifest_and_metadata_index
+    title: Refresh Manifest And Metadata Index
+    actor_slot: manifest_index_refresher
+    action:
+      kind: rag_manifest_and_metadata_index_delta_assembly
+      artifacts_in:
+        - refresh_scope_binding
+        - metadata_delta_inventory
+        - rag_surface_inventory
+      artifacts_out:
+        - rag_manifest_refresh_packet
+        - metadata_index_refresh_packet
+      update_semantics:
+        manifest_records_stable_refs_and_state: true
+        metadata_index_records_retrieval_keys_not_source_text: true
+        removed_or_renamed_refs_marked_deprecated_not_deleted_by_default: true
+        source_ref_and_claim_ceiling_changes_are_traceable: true
+        owner_decision_refs_preserved_not_inferred: true
+    summary: Produce manifest and metadata-index refresh deltas that update refs, states, keys, and lineage without building source-text indexes.
+    next:
+      on_success: refresh_source_slice_cards
+      on_fail: stop
+  - step_id: refresh_source_slice_cards
+    title: Refresh Source-Slice Cards
+    actor_slot: source_slice_card_refresher
+    action:
+      kind: source_slice_card_metadata_refresh
+      artifacts_in:
+        - metadata_delta_inventory
+        - rag_surface_inventory
+        - rag_manifest_refresh_packet
+        - metadata_index_refresh_packet
+      artifact_out: source_slice_card_refresh_set
+      card_fields:
+        - card_ref
+        - source_slice_ref
+        - source_ref
+        - packet_ref
+        - claim_ceiling
+        - lifecycle_state
+        - retrieval_key
+        - route_hint
+        - owner_decision_ref
+        - refresh_action
+      card_rules:
+        no_source_text_snippets: true
+        claim_ceiling_downgrades_preserved: true
+        duplicate_slice_refs_flagged: true
+        stale_or_missing_refs_route_to_review: true
+    summary: Refresh source-slice card metadata for changed refs, claim ceilings, states, retrieval keys, and route hints.
+    next:
+      on_success: refresh_triage_review_decision_packets
+      on_fail: stop
+  - step_id: refresh_triage_review_decision_packets
+    title: Refresh Triage Review And Decision Packets
+    actor_slot: review_decision_refresher
+    action:
+      kind: source_slice_triage_review_decision_refresh
+      artifacts_in:
+        - source_slice_card_refresh_set
+        - metadata_delta_inventory
+        - owner_decision_refs
+        - prior_source_slice_triage_refs
+        - prior_source_slice_review_refs
+        - prior_source_slice_decision_packet_refs
+        - prior_owner_decision_record_refs
+      artifacts_out:
+        - source_slice_triage_refresh_packet
+        - source_slice_review_refresh_packet
+        - source_slice_decision_packet_refresh
+        - owner_decision_record_refresh_candidate
+      decision_rules:
+        triage_labels_are_candidates: true
+        review_outcomes_are_metadata_until_review_gate_accepts: true
+        owner_decision_record_mirrors_external_owner_refs_only: true
+        owner_approval_not_created_here: true
+        route_changes_require_downstream_authority: true
+    summary: Refresh triage, review, decision packet, and owner decision record metadata while preserving external authority boundaries.
+    next:
+      on_success: refresh_retrieval_trace_evaluation
+      on_fail: stop
+  - step_id: refresh_retrieval_trace_evaluation
+    title: Refresh Retrieval Trace Evaluation
+    actor_slot: retrieval_trace_evaluator
+    action:
+      kind: retrieval_trace_and_evaluation_metadata_refresh
+      artifacts_in:
+        - rag_manifest_refresh_packet
+        - metadata_index_refresh_packet
+        - source_slice_card_refresh_set
+        - prior_retrieval_trace_refs
+        - prior_retrieval_evaluation_refs
+      artifact_out: retrieval_trace_evaluation_refresh
+      evaluation_scope:
+        metadata_coverage: true
+        stale_ref_detection: true
+        missing_slice_ref_detection: true
+        duplicate_key_detection: true
+        claim_ceiling_route_consistency: true
+        source_text_relevance_scoring: false
+        notebooklm_query_verification: false
+        vector_similarity_evaluation: false
+    summary: Refresh retrieval trace and evaluation metadata for coverage, staleness, duplicate keys, and route consistency without querying source text, vectors, or NotebookLM.
+    next:
+      on_success: optional_graph_lens_export
+      on_fail: stop
+  - step_id: optional_graph_lens_export
+    title: Optional Graph Lens Export
+    actor_slot: graph_lens_exporter
+    condition: only when graph_lens_export_policy_refs request a metadata-only read-view export
+    action:
+      kind: metadata_only_graph_lens_export_candidate
+      artifacts_in:
+        - rag_manifest_refresh_packet
+        - metadata_index_refresh_packet
+        - source_slice_card_refresh_set
+        - retrieval_trace_evaluation_refresh
+        - graph_lens_export_policy_refs
+      artifact_out: graph_lens_export_candidate
+      export_rules:
+        graph_nodes_are_refs: true
+        graph_edges_are_navigation_signals: true
+        evidence_event_ids_preserved: true
+        graph_lens_not_source_truth: true
+        ontology_acceptance_not_performed: true
+        graph_store_mutation_not_performed: true
+    summary: Optionally create a graph lens export candidate from refreshed metadata refs for visualization or review, not truth or ontology mutation.
+    next:
+      on_success: boundary_review_and_route
+      on_skipped: boundary_review_and_route
+      on_fail: stop
+  - step_id: boundary_review_and_route
+    title: Boundary Review And Route
+    actor_slot: boundary_router
+    action:
+      kind: rag_metadata_refresh_boundary_review_and_downstream_route
+      artifacts_in:
+        - refresh_scope_binding
+        - metadata_delta_inventory
+        - rag_surface_inventory
+        - rag_manifest_refresh_packet
+        - metadata_index_refresh_packet
+        - source_slice_card_refresh_set
+        - source_slice_triage_refresh_packet
+        - source_slice_review_refresh_packet
+        - source_slice_decision_packet_refresh
+        - owner_decision_record_refresh_candidate
+        - retrieval_trace_evaluation_refresh
+        - graph_lens_export_candidate
+      artifact_out: boundary_review_note
+      checks:
+        - no_raw_source_text
+        - no_source_text_index_payload
+        - no_embedding_vector_payload
+        - no_notebooklm_upload_or_query
+        - no_drive_mutation
+        - no_owner_approval_inference
+        - no_public_canon_promotion
+        - no_ontology_acceptance
+        - no_default_route_switch
+        - graph_or_rag_projection_not_truth
+      routes:
+        - hold_private_metadata
+        - owner_decision_packet_v0
+        - source_packet_sufficiency_review_v0
+        - knowledge_access_event_capture_v0
+        - post_development_review_gate_v0
+    summary: Close with a boundary note and downstream route recommendations, never with authority upgrade or default-route mutation.
+    next:
+      on_success: complete
+      on_fail: stop
+stop_conditions:
+  - refresh_request_requires_raw_source_text_read
+  - refresh_request_requires_bm25_or_vector_source_text_index_build
+  - refresh_request_requires_embedding_vector_payload_generation
+  - refresh_request_requires_notebooklm_upload_or_query
+  - refresh_request_requires_google_drive_mutation
+  - existing_rag_surface_refs_missing_without_create_policy
+  - owner_approval_required_but_absent
+  - public_canon_promotion_requested
+  - ontology_acceptance_requested
+  - default_route_switch_requested
+  - graph_or_rag_projection_treated_as_source_truth
+  - runtime_absolute_path_or_secret_detected

@@ -1,0 +1,92 @@
+workflow_id: dual_deep_research_v0
+kind: workflow_profile_policy
+status: active
+last_calibration_id: cal_20260524_staged_cli_001
+calibration_mode: public_safe_synthetic_staged_cli_isolated
+measurement_policy:
+  quality_source: cli_isolated_staged_candidate_matrix
+  telemetry_source: same_cli_isolated_candidate_runs
+  subagent_token_usage_available: false
+  telemetry_exact_for_subagent: false
+  model_price_usd_measured: false
+  cost_confidence: relative_not_exact
+primary_profile:
+  candidate_id: A_mini_low_dwarf_archivist
+  model: gpt-5.4-mini
+  reasoning_effort: low
+  species: dwarf
+  class: archivist
+  label: calibrated-cheapest-quality-pass
+  quality_score: 91
+  input_tokens: 19944
+  cached_input_tokens: 3456
+  output_tokens: 1956
+  reasoning_output_tokens: 100
+  wall_seconds: 31
+  telemetry_source: same_cli_isolated_candidate_run
+shadow_top_k:
+  - rank: 2
+    candidate_id: B_55_low_dwarf_archivist
+    model: gpt-5.5
+    reasoning_effort: low
+    species: dwarf
+    class: archivist
+    label: high-assurance-shadow
+    quality_score: 96
+    input_tokens: 21680
+    cached_input_tokens: 4480
+    output_tokens: 1619
+    reasoning_output_tokens: 38
+    wall_seconds: 33
+  - rank: 3
+    candidate_id: B_54_low_human_archivist
+    model: gpt-5.4
+    reasoning_effort: low
+    species: human
+    class: archivist
+    label: middle-model-shadow
+    quality_score: 95
+    input_tokens: 20295
+    cached_input_tokens: 3456
+    output_tokens: 2473
+    reasoning_output_tokens: 37
+    wall_seconds: 49
+  - rank: 4
+    candidate_id: B_55_low_human_archivist
+    model: gpt-5.5
+    reasoning_effort: low
+    species: human
+    class: archivist
+    label: frontier-human-archivist-shadow
+    quality_score: 93
+    input_tokens: 21680
+    cached_input_tokens: 7552
+    output_tokens: 1961
+    reasoning_output_tokens: 33
+    wall_seconds: 41
+  - rank: 5
+    candidate_id: A_mini_low_human_auditor
+    model: gpt-5.4-mini
+    reasoning_effort: low
+    species: human
+    class: auditor
+    label: cheap-auditor-shadow
+    quality_score: 88
+    input_tokens: 19943
+    cached_input_tokens: 3456
+    output_tokens: 1897
+    reasoning_output_tokens: 104
+    wall_seconds: 28
+rerun_triggers:
+  - workflow prompt changed
+  - output schema changed
+  - NotebookLM CLI command contract changed
+  - source authority or upload policy changed
+  - first private pilot exposes a new failure mode
+  - first real NotebookLM or Codex research pilot fails boundary review
+  - downstream knowledge_wiki_cell handoff contract changes
+calibration_archive_ref: calibrations/cal_20260524_staged_cli_001/
+notes:
+  - Public-safe synthetic calibration selected the cheapest passing profile; it does not prove real NotebookLM, web, Drive, wiki, source, account, or owner-decision behavior.
+  - Use the high-assurance shadow profile for the first real pilot or when a handoff has elevated boundary risk.
+  - CLI operations and source selection are runtime-owned; this file does not bind account sessions, MCP endpoints, or host-local paths.

@@ -68,7 +68,7 @@ steps:
   - step_id: source_knowledge_intake_route
     title: Source Knowledge Intake Route
     actor_slot: source_knowledge_router
-    delegates_to_workflow_id: se_knowledge_wiki_pipeline_v0
+    delegates_to_workflow_id: knowledge_wiki_pipeline_v0
     condition: Only when source or knowledge intake is requested and owner-approved source scope exists.
     action:
       kind: source_or_knowledge_intake_workflow_route

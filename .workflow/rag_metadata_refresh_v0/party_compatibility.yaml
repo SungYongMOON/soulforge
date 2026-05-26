@@ -1,0 +1,21 @@
+workflow_id: rag_metadata_refresh_v0
+kind: party_compatibility
+status: draft
+compatible_parties:
+  - party_id: solo_operator
+    status: supported_for_private_metadata_refresh_draft
+  - party_id: owner_plus_executor
+    status: supported_for_owner_decision_ref_reconciliation
+  - party_id: knowledge_curator_pair
+    status: recommended_for_first_controlled_pilot
+  - party_id: b_v_review_pair
+    status: required_for_production_ready_or_default_route_safety_claims
+fit_tags:
+  - metadata_only_rag_refresh
+  - sourcebound_wiki_metadata_maintenance
+  - retrieval_trace_evaluation_metadata
+  - graph_lens_candidate_export
+notes:
+  - This package leaves execution binding unbound; party fit is a discovery hint only.
+  - A solo operator may draft metadata refresh packets, but owner approval, canon promotion, ontology acceptance, Drive mutation, and route switching require separate authority.
+  - Model, species, class, reasoning, and project binding belong in project-local bindings or mission notes, not in this workflow package.

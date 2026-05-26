@@ -1,0 +1,7 @@
+{"candidate_id":"A_mini_low_human_auditor","model":"gpt-5.4-mini","reasoning_effort":"low","species":"human","class":"auditor"}
+{"candidate_id":"A_mini_low_dwarf_archivist","model":"gpt-5.4-mini","reasoning_effort":"low","species":"dwarf","class":"archivist"}
+{"candidate_id":"B_54_low_human_archivist","model":"gpt-5.4","reasoning_effort":"low","species":"human","class":"archivist"}
+{"candidate_id":"B_54_medium_human_archivist","model":"gpt-5.4","reasoning_effort":"medium","species":"human","class":"archivist"}
+{"candidate_id":"B_55_low_human_archivist","model":"gpt-5.5","reasoning_effort":"low","species":"human","class":"archivist"}
+{"candidate_id":"B_55_medium_human_archivist","model":"gpt-5.5","reasoning_effort":"medium","species":"human","class":"archivist"}
+{"candidate_id":"B_55_low_dwarf_archivist","model":"gpt-5.5","reasoning_effort":"low","species":"dwarf","class":"archivist"}

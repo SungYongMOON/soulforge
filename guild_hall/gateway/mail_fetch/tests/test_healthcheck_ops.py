@@ -7,6 +7,7 @@ import subprocess
 import sys
 from typing import Any, Dict, List
 
+from collector.ops.env_loader import env_path
 from collector.ops.healthcheck import HealthConfig, run_healthcheck
 
 
@@ -211,3 +212,27 @@ def test_healthcheck_cli_resolves_relative_runtime_dir_from_env_file(tmp_path: P
     assert payload["runtime_root"] == str(expected_runtime_root)
     assert payload["monitor_state_file"] == str(expected_runtime_root / "monitor" / "health_state.json")
     assert (expected_runtime_root / "monitor" / "health_state.json").exists()
+
+
+def test_env_path_resolves_soulforge_root_relative_refs(tmp_path: Path) -> None:
+    repo_root = tmp_path / "Soulforge"
+    env_dir = repo_root / "guild_hall" / "state" / "gateway" / "mailbox" / "state"
+    env_dir.mkdir(parents=True, exist_ok=True)
+
+    repo_relative = env_path(
+        {"EMAIL_FETCH_RUNTIME_DIR": "guild_hall/state/gateway/log/mail_fetch"},
+        "EMAIL_FETCH_RUNTIME_DIR",
+        repo_root / "default",
+        base_dir=env_dir,
+        repo_root=repo_root,
+    )
+    assert repo_relative == (repo_root / "guild_hall" / "state" / "gateway" / "log" / "mail_fetch").resolve()
+
+    legacy_env_relative = env_path(
+        {"EMAIL_FETCH_RUNTIME_DIR": "../../log/mail_fetch"},
+        "EMAIL_FETCH_RUNTIME_DIR",
+        repo_root / "default",
+        base_dir=env_dir,
+        repo_root=repo_root,
+    )
+    assert legacy_env_relative == (env_dir / "../../log/mail_fetch").resolve()

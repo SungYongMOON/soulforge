@@ -1,0 +1,18 @@
+workflow_id: rag_metadata_refresh_v0
+kind: source_slice_decision_packet_refresh
+schema_version: v0
+status: draft
+packet_id: "<packet_id>"
+source_refs:
+  source_slice_review_refresh_packet_ref: "<source_slice_review_refresh_packet_ref>"
+decision_items:
+  - source_slice_ref: "<source_slice_ref>"
+    decision_packet_ref: "<decision_packet_ref>"
+    decision_state: review_required
+    owner_decision_ref: null
+    route_hint: owner_decision_if_authority_change_needed
+    evidence_event_refs: []
+rules:
+  decision_state_is_metadata_signal: true
+  owner_decision_required_for_authority_change: true
+  ontology_acceptance_not_performed: true

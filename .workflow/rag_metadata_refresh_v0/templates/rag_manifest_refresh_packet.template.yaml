@@ -1,0 +1,24 @@
+workflow_id: rag_metadata_refresh_v0
+kind: rag_manifest_refresh_packet
+schema_version: v0
+status: draft
+packet_id: "<packet_id>"
+source_refs:
+  refresh_scope_binding_ref: "<refresh_scope_binding_ref>"
+  metadata_delta_inventory_ref: "<metadata_delta_inventory_ref>"
+  rag_surface_inventory_ref: "<rag_surface_inventory_ref>"
+manifest_updates:
+  - manifest_ref: "<rag_manifest_ref>"
+    target_ref: "<rag_surface_or_slice_ref>"
+    action: "<add|update|deprecate|hold|block>"
+    source_ref: "<source_ref>"
+    source_slice_ref: "<source_slice_ref>"
+    packet_ref: "<packet_ref>"
+    claim_ceiling: observed
+    lifecycle_state: review_required
+    owner_decision_ref: null
+    evidence_event_refs: []
+rules:
+  source_text_not_embedded: true
+  owner_decision_not_inferred: true
+  missing_or_renamed_refs_traceable: true

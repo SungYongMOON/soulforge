@@ -32,7 +32,7 @@ steps:
     blockers: []
   - step_id: source_knowledge_intake_route
     status: pending
-    delegated_to: se_knowledge_wiki_pipeline_v0
+    delegated_to: knowledge_wiki_pipeline_v0
     input_refs: []
     output_refs: []
     blockers: []

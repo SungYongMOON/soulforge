@@ -1,0 +1,19 @@
+workflow_id: dual_deep_research_v0
+kind: frozen_research_brief
+schema_version: v0
+status: draft
+brief_id: "<brief_id>"
+goal_declaration_ref: "<goal_id>"
+question: "<bounded_question>"
+scope: []
+exclusions: []
+approved_source_handles: []
+notebooklm_target:
+  notebook_label: null
+  note_label: null
+  source_ids: []
+codex_direct_research_policy:
+  independent_until_comparison: true
+  prefer_primary_or_official_sources: true
+stop_condition: "<stop_condition>"
+claim_ceiling_seed: observed

@@ -1,0 +1,24 @@
+workflow_id: dual_deep_research_v0
+kind: codex_direct_research_packet
+schema_version: v0
+status: draft
+packet_id: "<packet_id>"
+goal_declaration_ref: "<goal_id>"
+subagent_stage:
+  stage_id: codex_direct_research
+  fresh_subagent_used: null
+  subagent_blocker: null
+independence:
+  frozen_brief_ref: "<brief_id>"
+  notebooklm_findings_read_before_completion: false
+sources_reviewed:
+  - source_ref: "<source_ref>"
+    source_kind: official | primary | repo_local | owner_approved | other
+    supports_claims: []
+findings:
+  - claim_id: "<claim_id>"
+    summary: ""
+    source_refs: []
+    confidence: low
+    caveat: null
+gaps: []

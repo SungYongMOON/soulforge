@@ -1,0 +1,22 @@
+workflow_id: rag_metadata_refresh_v0
+kind: metadata_index_refresh_packet
+schema_version: v0
+status: draft
+packet_id: "<packet_id>"
+source_refs:
+  metadata_delta_inventory_ref: "<metadata_delta_inventory_ref>"
+  rag_surface_inventory_ref: "<rag_surface_inventory_ref>"
+index_updates:
+  - index_ref: "<metadata_index_ref>"
+    retrieval_key: "<retrieval_key>"
+    target_ref: "<source_slice_or_packet_ref>"
+    source_ref: "<source_ref>"
+    claim_ceiling: observed
+    lifecycle_state: review_required
+    action: hold
+    evidence_event_refs: []
+rules:
+  metadata_index_only: true
+  no_source_text_terms: true
+  no_embedding_vectors: true
+  no_similarity_scores_from_source_text: true

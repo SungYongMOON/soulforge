@@ -1,0 +1,14 @@
+workflow_id: dual_deep_research_v0
+kind: role_slots
+status: active
+slots:
+  - slot_id: research_controller
+    summary: declares the goal, freezes the research brief, prepares subagent stages, and keeps material research paths separated
+  - slot_id: notebooklm_operator
+    summary: runs the repo-defined NotebookLM CLI-first Deep Research path and records blockers without reading secrets or copying raw answers
+  - slot_id: codex_researcher
+    summary: performs independent direct source research from the frozen brief before seeing NotebookLM findings
+  - slot_id: comparison_archivist
+    summary: normalizes both outputs into atomic claims and separates common, one-sided, conflict, and gap buckets
+  - slot_id: handoff_router
+    summary: prepares the delta-focused downstream route while preserving claim ceilings and authority boundaries

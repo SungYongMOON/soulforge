@@ -39,6 +39,13 @@ Use this split instead:
 5. Preserve bookshelf reconstruction through manifests and optional Drive
    shortcuts, not duplicate source files.
 
+Official public agency sources can enter the approved lane without a per-source
+owner prompt when the owner has declared that source family canonical. In that
+case Soulforge may create public-safe summaries, ontology seeds, NotebookLM
+packet manifests, and `.registry/knowledge` entries in the same bounded task.
+The full source body, extracted text, chunks, and NotebookLM answers still stay
+out of public tracked files.
+
 ## Recommended Drive Shape
 
 The historical root label `Soulforge_LLM_Wiki_Bookshelf/` may remain as a
@@ -110,7 +117,7 @@ source_card:
   projects:
     - project_or_null
   sensitivity: public | owner_private | project_private | restricted
-  approval_status: candidate | owner_approved | rejected | superseded
+  approval_status: candidate | owner_approved | owner_approved_official_public_source | rejected | superseded
   claim_ceiling: observed | source_supported | validated_private | canon_candidate | canon_entry | rejected_or_blocked
   candidate_bookshelves:
     - NOTEBOOKLM__BOOKSHELF_NAME
@@ -118,6 +125,13 @@ source_card:
     - NOTEBOOKLM__OTHER_BOOKSHELF
   reason: Public-safe placement reason.
 ```
+
+This warehouse card shape is a catalog/placement record. It is not identical to
+the RAG `soulforge.knowledge_source_card.v0` used by `guild_hall/rag`, which can
+point at extracted `.md`/`.txt` source text under `_workspaces/knowledge/**`.
+RAG source cards may therefore use text-oriented values such as
+`source_kind: markdown_source_text` and more specific public-source labels, while
+the warehouse catalog card keeps durable Drive/NotebookLM placement vocabulary.
 
 Every durable NotebookLM bookshelf should have a bookshelf card:
 
@@ -165,6 +179,9 @@ Use `_workmeta` to record candidate graph edges such as:
 
 NotebookLM can help discover candidate relations, but it cannot accept ontology,
 raise claim ceilings, mutate graph truth, or promote canon by itself.
+Official public source authority can support ontology seed registration; the
+authority comes from the approved source and review route, not from NotebookLM
+answers.
 
 ## Workbench Rule
 

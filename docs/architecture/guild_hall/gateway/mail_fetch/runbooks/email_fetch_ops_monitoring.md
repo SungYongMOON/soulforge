@@ -25,9 +25,11 @@ npm run guild-hall:gateway:fetch:healthcheck -- --json
 - 상태 파일: `guild_hall/state/gateway/log/mail_fetch/monitor/health_state.json`
 
 경로 해석:
-- `EMAIL_FETCH_RUNTIME_DIR` 가 절대 경로면 그대로 사용한다.
-- 상대 경로면 `email_fetch.env` 파일이 있는 디렉터리를 기준으로 해석한다.
-- 운영 node 에서는 launchd/crontab/shell 의 현재 위치가 달라도 같은 runtime 을 보도록 절대 경로를 권장한다.
+- `EMAIL_FETCH_RUNTIME_DIR` 는 Soulforge root 기준 상대경로를 권장한다.
+- `guild_hall/...`, `_workspaces/...`, `_workmeta/...` 처럼 Soulforge 내부 root 로
+  시작하는 값은 현재 clone 기준으로 해석한다.
+- 기존 env 호환을 위해 `../../log/mail_fetch` 처럼 env 파일 위치 기준 상대경로도
+  유지하지만, 새 기록에는 PC별 mount/home 절대경로를 쓰지 않는다.
 
 주요 환경변수:
 - `EMAIL_FETCH_HEALTH_MAX_STALE_SEC` (기본 `900`)

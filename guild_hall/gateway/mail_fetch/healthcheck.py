@@ -62,6 +62,7 @@ def main() -> int:
         "EMAIL_FETCH_RUNTIME_DIR",
         repo_root / "guild_hall" / "state" / "gateway" / "log" / "mail_fetch",
         base_dir=env_file.parent,
+        repo_root=repo_root,
     )
 
     result = run_healthcheck(

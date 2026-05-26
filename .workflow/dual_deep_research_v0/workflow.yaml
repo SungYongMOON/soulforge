@@ -1,0 +1,194 @@
+workflow_id: dual_deep_research_v0
+kind: workflow
+status: active
+title: Dual Deep Research v0
+summary: Run NotebookLM CLI Deep Research and Codex direct source research as separate advisory paths, then compare, deduplicate common claims from the delta view, and hand off the research packet to the Knowledge Wiki Cell for downstream registration judgment.
+entrypoint: run
+execution_mode: local_tool_sequence
+role_slots: role_slots.yaml
+step_graph: step_graph.yaml
+handoff_rules: handoff_rules.yaml
+monster_rules: monster_rules.yaml
+party_compatibility: party_compatibility.yaml
+profile_policy: profile_policy.yaml
+classification_lane:
+  primary: knowledge_management
+  primary_name_ko: 지식 관리
+  secondary:
+    - source_research
+    - notebooklm_operations
+    - wiki_preparation
+  secondary_name_ko:
+    - 소스 조사
+    - NotebookLM 운영
+    - 위키 준비
+  purpose: discovery_only
+  authority: none
+execution_binding:
+  party_required: false
+  candidate_party_id: knowledge_wiki_cell
+  bound_party_id: null
+  binding_authority: none
+inputs:
+  - dual_research_request_binding
+  - source_scope_policy
+  - notebooklm_cli_policy
+optional_inputs:
+  - approved_source_handles
+  - notebooklm_binding_refs
+  - notebooklm_source_ledger_refs
+  - notebooklm_packet_map_refs
+  - codex_source_refs
+  - owner_decision_refs
+outputs:
+  - goal_declaration
+  - frozen_research_brief
+  - subagent_stage_manifest
+  - notebooklm_cli_research_packet
+  - codex_direct_research_packet
+  - dual_research_comparison_packet
+  - research_delta_handoff
+  - boundary_review_note
+validation_level: draft
+registration_policy: delegated_to_knowledge_wiki_cell_after_handoff
+upstream_workflows:
+  - workflow_id: workflow_knowledge_preflight_v0
+    expected_outputs:
+      - source_scope_recommendation
+      - claim_ceiling_seed
+    status: optional_front_gate
+downstream_workflows:
+  - workflow_id: knowledge_wiki_pipeline_v0
+    party_id: knowledge_wiki_cell
+    expected_input: research_delta_handoff_as_knowledge_wiki_request_packet
+    status: default_downstream_handoff_owner
+  - workflow_id: sourcebound_knowledge_packet_operating_loop_v0
+    expected_input: delta_items_requiring_sourcebound_deepening
+    status: downstream_pipeline_route_option
+  - workflow_id: knowledge_candidate_triage_v0
+    expected_input: repeated_claim_or_source_candidates_from_delta
+    status: downstream_pipeline_route_option
+  - workflow_id: wiki_curation_maintenance_v0
+    expected_input: accepted_research_metadata_for_wiki_state_update
+    status: downstream_pipeline_route_option
+  - workflow_id: knowledge_access_event_capture_v0
+    expected_input: metadata_only_research_use_event
+    status: downstream_pipeline_route_option
+  - workflow_id: owner_decision_packet_v0
+    expected_input: source_upload_registration_or_promotion_decision_needed
+    status: downstream_pipeline_route_option
+  - workflow_id: post_development_review_gate_v0
+    expected_input: workflow_or_skill_change_or_promotion_claim
+    status: required_before_public_or_canon_promotion
+operating_contract:
+  owns:
+    - goal_declaration_shape
+    - frozen_research_brief_shape
+    - subagent_stage_manifest_shape
+    - fresh_subagent_execution_policy
+    - notebooklm_cli_first_deep_research_sequence
+    - codex_independent_research_sequence
+    - dual_path_claim_comparison_shape
+    - common_claim_dedupe_rule
+    - delta_handoff_shape
+    - knowledge_wiki_cell_handoff_shape
+  does_not_own:
+    - source_truth
+    - notebooklm_account_auth
+    - notebooklm_answer_authority
+    - notebooklm_packet_map_mutation
+    - source_upload_approval
+    - google_drive_registration
+    - google_drive_placement
+    - owner_approval
+    - wiki_canon_promotion
+    - knowledge_wiki_cell_routing_decision
+    - registration_judgment
+    - knowledge_wiki_registration_execution
+    - ontology_acceptance
+    - downstream_or_adjacent_workflow_creation
+    - downstream_or_adjacent_workflow_evolution
+    - created_or_evolved_workflow_completion_claim
+    - created_or_evolved_workflow_readiness_claim
+    - default_route_switching
+    - default_route_safety_claim
+    - subagent_runtime_binding
+  workflow_authoring_contract:
+    trigger_conditions:
+      - downstream_or_adjacent_workflow_must_be_created_or_evolved
+      - existing_downstream_workflow_is_missing_insufficient_or_stale_for_research_delta
+      - repeatable_procedure_gap_is_found_outside_dual_research_scope
+    required_creation_or_evolution_route: "$soulforge-workflow-generator"
+    required_review_route_before_completion_or_claim: "$soulforge-workflow-check"
+    dual_research_action: record_need_and_route_out
+    performed_here: false
+    claim_boundary:
+      workflow_creation_or_evolution_claimed_here: false
+      workflow_check_claimed_here: false
+      registration_judgment_claimed_here: false
+      owner_approval_claimed_here: false
+      drive_placement_claimed_here: false
+      notebooklm_packet_map_mutation_claimed_here: false
+      wiki_or_canon_promotion_claimed_here: false
+      default_route_switch_or_safety_claimed_here: false
+  notebooklm_cli_contract:
+    setup_ref: docs/architecture/workspace/NOTEBOOKLM_MCP_SETUP_V0.md
+    private_operating_refs:
+      - _workmeta/system/reports/procedure_capture/notebooklm_operating_plan_v0.md
+      - _workmeta/system/reports/procedure_capture/notebooklm_usage_manual_v0.md
+    default_commands:
+      - "nlm login --check"
+      - "nlm notebook list --json"
+      - "nlm notebook get <notebook_id> --json"
+      - "nlm source list <notebook_id> --json"
+      - "nlm research start \"<topic>\" --mode deep --title \"<notebook title>\""
+      - "nlm research status <notebook_id> --max-wait 300"
+      - "nlm research import <notebook_id> <task_id>"
+      - "nlm notebook query <notebook_id> \"<question>\" --source-ids \"<source_id_1>,<source_id_2>\" --json --timeout 240"
+    owner_approved_mutation_commands:
+      - "nlm note create/update"
+      - "nlm source add/sync"
+    browser_ui_fallback_allowed_only_for:
+      - cli_gap
+      - login_recovery
+      - visual_confirmation
+      - explicit_owner_request
+  boundaries:
+    notebooklm_cli_first: true
+    browser_ui_is_exception: true
+    notebooklm_output_is_advisory: true
+    codex_output_is_advisory: true
+    agreement_is_not_truth_by_itself: true
+    codex_direct_path_independent_until_comparison: true
+    common_findings_removed_from_delta_but_kept_as_trace: true
+    no_payload_copy_into_public_package: true
+    goal_declared_before_material_research: true
+    material_research_runs_through_fresh_subagents: true
+    subagent_visible_inputs_are_bounded: true
+    controller_does_not_merge_paths_before_comparison: true
+    automatic_handoff_to_knowledge_wiki_cell_after_research: true
+    handoff_is_not_registration: true
+    knowledge_wiki_cell_owns_registration_judgment: true
+    adjacent_workflow_authoring_routes_to_workflow_generator: true
+    created_or_evolved_workflow_requires_workflow_check_before_claim: true
+    dual_research_lane_is_investigation_only: true
+    no_workflow_registration_or_promotion_claim_from_research_lane: true
+    no_default_route_switch_or_safety_claim_from_research_lane: true
+  required_output_shapes:
+    project_binding: templates/project_binding.template.yaml
+    goal_declaration: templates/goal_declaration.template.yaml
+    frozen_research_brief: templates/frozen_research_brief.template.yaml
+    subagent_stage_manifest: templates/subagent_stage_manifest.template.yaml
+    notebooklm_cli_research_packet: templates/notebooklm_cli_research_packet.template.yaml
+    codex_direct_research_packet: templates/codex_direct_research_packet.template.yaml
+    dual_research_comparison_packet: templates/dual_research_comparison_packet.template.yaml
+    research_delta_handoff: templates/research_delta_handoff.template.yaml
+    boundary_review_note: templates/boundary_review_note.template.yaml
+notes:
+  - "The NotebookLM CLI command contract is recorded here from existing Soulforge NotebookLM operating docs; future agents should not rediscover it from scratch before every run."
+  - "Declare the goal before any NotebookLM, Codex, comparison, sourcebound, or registration stage. The goal declaration must include success conditions, stop conditions, allowed inputs, and downstream handoff limits."
+  - "Material stages should run through fresh subagents when the runtime permits it: one NotebookLM operator, one Codex direct researcher, and one comparison verifier/archivist. If subagents are unavailable, record the blocker and do not claim fresh-context validation."
+  - "If `nlm` or `notebooklm-mcp` is missing, record a runtime blocker and use `docs/architecture/workspace/NOTEBOOKLM_MCP_SETUP_V0.md`; do not treat the browser UI as the default path."
+  - "After the research packet is assembled, automatically hand it to `knowledge_wiki_cell` through `knowledge_wiki_pipeline_v0`; that downstream party/workflow judges registration, source sufficiency, owner-decision needs, and storage/wiki actions."
+  - "This workflow stops at the research comparison and handoff slice. Drive upload, NotebookLM packet-map updates, wiki registration, and canon promotion are downstream owner/workflow actions."
+  - "If this research lane reveals that a downstream or adjacent workflow must be created or evolved, record the need and route that work through `$soulforge-workflow-generator`; any created or evolved workflow must be reviewed through `$soulforge-workflow-check` before completion, readiness, registration, promotion, default-route switch, or default-route-safety claims."

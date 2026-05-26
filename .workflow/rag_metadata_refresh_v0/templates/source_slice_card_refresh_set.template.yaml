@@ -1,0 +1,25 @@
+workflow_id: rag_metadata_refresh_v0
+kind: source_slice_card_refresh_set
+schema_version: v0
+status: draft
+refresh_set_id: "<refresh_set_id>"
+source_refs:
+  rag_manifest_refresh_packet_ref: "<rag_manifest_refresh_packet_ref>"
+  metadata_index_refresh_packet_ref: "<metadata_index_refresh_packet_ref>"
+cards:
+  - card_ref: "<source_slice_card_ref>"
+    source_slice_ref: "<source_slice_ref>"
+    source_ref: "<source_ref>"
+    packet_ref: "<packet_ref>"
+    retrieval_key: "<retrieval_key>"
+    claim_ceiling: observed
+    lifecycle_state: review_required
+    route_hint: review_required
+    owner_decision_ref: null
+    refresh_action: hold
+    blockers: []
+forbidden_fields_absent:
+  raw_source_text: true
+  copied_source_excerpt: true
+  embedding_vector: true
+  bm25_terms: true

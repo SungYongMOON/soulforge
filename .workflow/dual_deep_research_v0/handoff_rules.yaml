@@ -1,0 +1,48 @@
+workflow_id: dual_deep_research_v0
+kind: handoff_rules
+status: active
+rules:
+  - from: research_controller
+    to: research_controller
+    condition: goal_declared
+    summary: Brief binding starts only after the goal declaration names success conditions, stop conditions, allowed inputs, and downstream handoff limits.
+  - from: research_controller
+    to: research_controller
+    condition: frozen_brief_written
+    summary: Subagent stage preparation receives the goal declaration and frozen brief, then writes stage prompts, visible inputs, and isolation rules.
+  - from: research_controller
+    to: notebooklm_operator
+    condition: subagent_stage_manifest_written
+    summary: Fresh NotebookLM subagent receives the frozen question, approved source handles, notebook binding refs, and no broader context than needed.
+  - from: research_controller
+    to: codex_researcher
+    condition: subagent_stage_manifest_written
+    summary: Fresh Codex direct-research subagent receives the same frozen brief but not NotebookLM findings until its independent packet is complete.
+  - from: notebooklm_operator
+    to: comparison_archivist
+    condition: notebooklm_packet_or_blocker_written
+    summary: Fresh comparison subagent receives only advisory findings, source handles, gaps, and blocker metadata, not raw NotebookLM answer payloads.
+  - from: codex_researcher
+    to: comparison_archivist
+    condition: codex_direct_packet_written
+    summary: Comparison receives Codex direct claims and source refs after the direct research path is complete.
+  - from: comparison_archivist
+    to: handoff_router
+    condition: comparison_packet_written
+    summary: Handoff receives common trace metadata plus delta, conflict, and gap buckets, then prepares the automatic `knowledge_wiki_cell` pipeline request without making the registration decision.
+  - from: handoff_router
+    to: knowledge_wiki_cell
+    condition: research_delta_handoff_written_and_boundary_review_passed
+    summary: Knowledge Wiki Cell receives the research handoff packet through `knowledge_wiki_pipeline_v0` and owns any source sufficiency, owner decision, wiki registration, Drive, or NotebookLM packet-map judgment.
+  - from: handoff_router
+    to: soulforge_workflow_generator
+    condition: downstream_or_adjacent_workflow_creation_or_evolution_needed
+    summary: If the research lane exposes a downstream or adjacent workflow gap, record the need and route creation or evolution through `$soulforge-workflow-generator`; this workflow does not create, evolve, register, or promote that workflow itself.
+  - from: soulforge_workflow_generator
+    to: soulforge_workflow_check
+    condition: workflow_created_or_evolved
+    summary: Any created or evolved workflow must be reviewed through `$soulforge-workflow-check` before completion, readiness, registration, promotion, default-route switch, or default-route-safety claims.
+  - from: handoff_router
+    to: owner_decision_packet_v0
+    condition: default_route_switch_or_default_route_safety_claim_needed
+    summary: Default-route switching and default-route-safety claims are outside the dual research lane and require explicit downstream owner/review handling.

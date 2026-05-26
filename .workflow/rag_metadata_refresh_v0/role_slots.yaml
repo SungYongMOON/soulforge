@@ -1,0 +1,31 @@
+workflow_id: rag_metadata_refresh_v0
+kind: role_slots
+status: draft
+slots:
+  - slot_id: refresh_scope_binder
+    title: Refresh Scope Binder
+    summary: Binds the metadata-only RAG refresh scope, existing generated surfaces, allowed deltas, and explicit exclusions.
+  - slot_id: metadata_delta_collector
+    title: Metadata Delta Collector
+    summary: Collects wiki/sourcebound metadata changes by stable refs without source text, private payloads, vectors, or NotebookLM answers.
+  - slot_id: rag_surface_inventory_author
+    title: RAG Surface Inventory Author
+    summary: Inventories existing generated RAG metadata surfaces and records missing, stale, duplicate, or boundary-unsafe refs.
+  - slot_id: manifest_index_refresher
+    title: Manifest Index Refresher
+    summary: Produces RAG manifest and metadata-index refresh deltas over refs, retrieval keys, states, and lineage.
+  - slot_id: source_slice_card_refresher
+    title: Source-Slice Card Refresher
+    summary: Refreshes source-slice card metadata including claim ceilings, lifecycle states, route hints, and owner-decision refs.
+  - slot_id: review_decision_refresher
+    title: Review Decision Refresher
+    summary: Refreshes triage, review, decision packet, and owner decision record metadata while preserving external authority.
+  - slot_id: retrieval_trace_evaluator
+    title: Retrieval Trace Evaluator
+    summary: Refreshes retrieval trace/evaluation metadata for coverage, staleness, duplicate keys, and route consistency.
+  - slot_id: graph_lens_exporter
+    title: Graph Lens Exporter
+    summary: Optionally prepares read-only graph lens export candidates from metadata refs and evidence event ids.
+  - slot_id: boundary_router
+    title: Boundary Router
+    summary: Confirms metadata-only boundaries and routes owner, source sufficiency, knowledge access, or review-gate follow-ups.

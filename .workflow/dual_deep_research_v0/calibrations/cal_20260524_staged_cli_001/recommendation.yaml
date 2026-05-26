@@ -1,0 +1,69 @@
+workflow_id: dual_deep_research_v0
+calibration_id: cal_20260524_staged_cli_001
+kind: workflow_profile_recommendation
+status: recommended
+primary_profile:
+  candidate_id: A_mini_low_dwarf_archivist
+  model: gpt-5.4-mini
+  reasoning_effort: low
+  species: dwarf
+  class: archivist
+  quality_score: 91
+  input_tokens: 19944
+  cached_input_tokens: 3456
+  output_tokens: 1956
+  reasoning_output_tokens: 100
+  wall_seconds: 31
+  selection_reason: Lowest-cost model family that passed the revised public-safe synthetic quality gate; stronger boundary structure than cheaper/faster mini candidates.
+shadow_top_k:
+  - candidate_id: B_55_low_dwarf_archivist
+    model: gpt-5.5
+    reasoning_effort: low
+    species: dwarf
+    class: archivist
+    quality_score: 96
+    output_tokens: 1619
+    reasoning_output_tokens: 38
+    wall_seconds: 33
+    role: high_assurance_shadow
+  - candidate_id: B_54_low_human_archivist
+    model: gpt-5.4
+    reasoning_effort: low
+    species: human
+    class: archivist
+    quality_score: 95
+    output_tokens: 2473
+    reasoning_output_tokens: 37
+    wall_seconds: 49
+    role: middle_model_shadow
+  - candidate_id: B_55_low_human_archivist
+    model: gpt-5.5
+    reasoning_effort: low
+    species: human
+    class: archivist
+    quality_score: 93
+    output_tokens: 1961
+    reasoning_output_tokens: 33
+    wall_seconds: 41
+    role: frontier_human_archivist_shadow
+  - candidate_id: A_mini_low_human_auditor
+    model: gpt-5.4-mini
+    reasoning_effort: low
+    species: human
+    class: auditor
+    quality_score: 88
+    output_tokens: 1897
+    reasoning_output_tokens: 104
+    wall_seconds: 28
+    role: cheap_auditor_shadow
+measurement_limits:
+  quality_source: cli_isolated_staged_candidate_matrix
+  telemetry_source: same_cli_isolated_candidate_runs
+  model_price_usd_measured: false
+  subagent_token_usage_available: false
+  telemetry_exact_for_subagent: false
+  cost_confidence: relative_not_exact
+boundary_assumptions:
+  - Public-safe synthetic fixture only.
+  - No real NotebookLM, web, Drive, wiki, source, account, owner approval, or private workspace material was used.
+  - Result optimizes workflow execution profile, not actual research truth.

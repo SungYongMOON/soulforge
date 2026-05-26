@@ -17,7 +17,7 @@ The assistant lane already has these reusable parts:
 | `.registry/skills/se_foldertree_generate/` | Creates SE project folder scaffolds and plan-tracking files from a declared supported spec. |
 | `docs/architecture/workspace/SE_DUNGEON_STAGE_MODEL_V0.md` | Maps project, stage, artifact, monster, and boss-clear concepts into the Soulforge dungeon model. |
 | `.workflow/se_stage_artifact_gap_scan_v0/` | Scans one stage for expected artifacts, current evidence, gaps, owner questions, blockers, and downstream routes. |
-| `.workflow/se_knowledge_wiki_pipeline_v0/` | Routes SE knowledge/wikiization requests through source intake, sourcebound projection, metadata capture, and closeout review. |
+| `.workflow/knowledge_wiki_pipeline_v0/` | Routes general knowledge wikiization requests through source intake, sourcebound projection, metadata capture, and closeout review. |
 | `.workflow/project_readiness_digest_v0/` | Produces owner-readable status, blocker, backlog, and next-action summaries from bounded refs. |
 | `.workflow/owner_decision_packet_v0/` | Records scoped owner decisions and downstream effects without becoming source truth. |
 | `.workflow/review_gate_evidence_pack_v0/` | Packages review-readiness evidence without approving gates. |

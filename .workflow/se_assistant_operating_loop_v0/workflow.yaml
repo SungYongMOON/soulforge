@@ -63,7 +63,7 @@ constituent_workflows:
     - owner_decision_packet_v0
     - post_development_review_gate_v0
   optional:
-    - se_knowledge_wiki_pipeline_v0
+    - knowledge_wiki_pipeline_v0
     - source_gap_followup_packet_v0
     - source_packet_sufficiency_review_v0
     - review_gate_evidence_pack_v0

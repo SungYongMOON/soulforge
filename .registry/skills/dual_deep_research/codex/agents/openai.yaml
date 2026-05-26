@@ -1,0 +1,7 @@
+interface:
+  display_name: "Soulforge Dual Deep Research"
+  short_description: "Run calibrated NotebookLM/Codex deep research."
+  default_prompt: "Use $soulforge-dual-deep-research to run the calibrated dual-path deep research workflow with NotebookLM CLI and Codex direct research, then compare the findings."
+
+policy:
+  allow_implicit_invocation: true

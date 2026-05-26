@@ -43,11 +43,37 @@ def env_int(env: Dict[str, str], key: str, default: int) -> int:
         return default
 
 
-def env_path(env: Dict[str, str], key: str, default: Path, *, base_dir: Path) -> Path:
+def _is_repo_relative_ref(raw: str) -> bool:
+    normalized = str(raw or "").replace("\\", "/").strip()
+    return normalized.startswith((
+        ".registry/",
+        ".mission/",
+        ".party/",
+        ".unit/",
+        ".workflow/",
+        "_workmeta/",
+        "_workspaces/",
+        "docs/",
+        "guild_hall/",
+        "private-state/",
+        "ui-workspace/",
+    ))
+
+
+def env_path(
+    env: Dict[str, str],
+    key: str,
+    default: Path,
+    *,
+    base_dir: Path,
+    repo_root: Optional[Path] = None,
+) -> Path:
     raw = str(env.get(key, "")).strip()
     if not raw:
         return default
     path = Path(raw).expanduser()
     if path.is_absolute():
         return path
+    if repo_root is not None and _is_repo_relative_ref(raw):
+        return (repo_root / path).resolve()
     return (base_dir / path).resolve()

@@ -1,0 +1,71 @@
+{
+  "schema_version": "soulforge.company_knowledge_intake_packet.v0",
+  "kind": "company_knowledge_intake_packet",
+  "packet_id": "company_knowledge_intake_template_v0",
+  "packet_status": "template_placeholder",
+  "generated_at_utc": "2026-05-26T00:00:00Z",
+  "handoff": {
+    "origin_label": "company_pc_label",
+    "return_label": "soulforge_local_label",
+    "purpose_label": "metadata_intake_dry_run",
+    "prepared_by_role": "owner_or_steward"
+  },
+  "boundary": {
+    "metadata_only": true,
+    "packet_is_not_owner_approval": true,
+    "raw_payloads_included": false,
+    "source_payloads_included": false,
+    "source_text_included": false,
+    "chunk_payloads_included": false,
+    "mail_bodies_included": false,
+    "attachments_included": false,
+    "notebooklm_answers_included": false,
+    "notebooklm_questions_included": false,
+    "notebooklm_conversation_ids_included": false,
+    "secrets_or_session_included": false,
+    "live_account_state_included": false,
+    "runtime_absolute_paths_included": false,
+    "source_text_retrieval_allowed": false,
+    "index_build_allowed": false,
+    "notebooklm_packet_allowed": false,
+    "public_canon_promotion_allowed": false
+  },
+  "question_refs": [
+    {
+      "question_label": "intake_prompt_label_001",
+      "question_fingerprint": "1111111111111111111111111111111111111111111111111111111111111111",
+      "query_token_count": 1,
+      "query_token_fingerprints": [
+        "22222222222222222222222222222222"
+      ]
+    }
+  ],
+  "sources": [
+    {
+      "source_id": "company_private_reference_001",
+      "source_label": "company_private_reference_001",
+      "source_ref": "_workspaces/knowledge/source_cards/company_private_reference_001.source_card.json",
+      "source_hash": "sha256:aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+      "source_size_bytes": 0,
+      "source_class": "company_private",
+      "locator_kind": "owner_label",
+      "locator_label": "owner_held_reference_001",
+      "approval_status": "pending_owner_review",
+      "permissions": {
+        "metadata_only": true,
+        "source_text_retrieval_allowed": false,
+        "index_build_allowed": false,
+        "notebooklm_packet_allowed": false,
+        "public_canon_promotion_allowed": false,
+        "attachment_access_allowed": false,
+        "live_account_access_allowed": false,
+        "secret_access_allowed": false,
+        "raw_payload_access_allowed": false
+      }
+    }
+  ],
+  "handoff_state": {
+    "claim_ceiling": "observed",
+    "next_action": "owner_review"
+  }
+}

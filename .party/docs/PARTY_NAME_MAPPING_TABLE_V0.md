@@ -19,7 +19,7 @@ Claim ceiling: `canon_candidate`
 | party_id | 권장 global_name_ko | 권장 display_name_ko | 기본 workflow | 비고 |
 | --- | --- | --- | --- | --- |
 | `guild_master_cell` | `파티_길드마스터셀` | `파티/길드마스터/작성검토셀` | `author_skill_package` | current default authoring lane 이지만 universal party standard 로 고정하지 않는다. |
-| `knowledge_wiki_cell` | `파티_지식위키셀` | `파티/지식위키/sourcebound셀` | `se_knowledge_wiki_pipeline_v0` | sourcebound wikiization route 이며 source truth 나 canon promotion authority 를 갖지 않는다. |
+| `knowledge_wiki_cell` | `파티_지식위키셀` | `파티/지식위키/sourcebound셀` | `knowledge_wiki_pipeline_v0` | sourcebound wikiization route 이며 source truth 나 canon promotion authority 를 갖지 않는다. |
 | `systems_engineering_cell` | `파티_시스템엔지니어링셀` | `파티/시스템엔지니어링/지원셀` | `se_assistant_operating_loop_v0` | SE assistant routing loadout 이며 design/review/verification authority 를 갖지 않는다. |
 | `pcb_revision_library_cell` | `파티_피씨비개정라이브러리셀` | `파티/PCB/개정라이브러리셀` | `allegro_pcb_dbdoctor_uprev_batch_v0` | DB Doctor uprev 후 dlib library export 를 연결하는 loadout 이며 electrical/manufacturing authority 를 갖지 않는다. |
 
@@ -36,7 +36,7 @@ workflow global_name_ko 후보 -> workflow_id -> party_id -> .party/<party_id>/p
 | workflow alias 후보 | workflow_id | party_id | path |
 | --- | --- | --- | --- |
 | `작성_스킬패키지생성` | `author_skill_package` | `guild_master_cell` | `.party/guild_master_cell/party.yaml` |
-| `지식_위키파이프라인` | `se_knowledge_wiki_pipeline_v0` | `knowledge_wiki_cell` | `.party/knowledge_wiki_cell/party.yaml` |
+| `지식_위키파이프라인` | `knowledge_wiki_pipeline_v0` | `knowledge_wiki_cell` | `.party/knowledge_wiki_cell/party.yaml` |
 | `설계지원_운영루프` | `se_assistant_operating_loop_v0` | `systems_engineering_cell` | `.party/systems_engineering_cell/party.yaml` |
 | `설계자산_피씨비DB닥터업리비전` | `allegro_pcb_dbdoctor_uprev_batch_v0` | `pcb_revision_library_cell` | `.party/pcb_revision_library_cell/party.yaml` |
 

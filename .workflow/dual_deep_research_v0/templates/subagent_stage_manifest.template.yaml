@@ -1,0 +1,51 @@
+workflow_id: dual_deep_research_v0
+kind: subagent_stage_manifest
+schema_version: v0
+status: draft
+manifest_id: "<manifest_id>"
+goal_declaration_ref: "<goal_id>"
+frozen_research_brief_ref: "<brief_id>"
+subagent_policy:
+  fresh_context_required_for_material_stages: true
+  controller_may_prepare_inputs: true
+  controller_may_not_merge_research_paths_before_comparison: true
+  if_subagents_unavailable: record_blocker_and_lower_claim
+stages:
+  - stage_id: notebooklm_cli_deep_research
+    actor_slot: notebooklm_operator
+    fresh_subagent_required: true
+    visible_inputs:
+      - goal_declaration
+      - frozen_research_brief
+      - approved_source_handles
+      - notebooklm_binding_refs
+      - notebooklm_source_ledger_refs
+    hidden_or_forbidden_inputs:
+      - codex_direct_research_packet
+      - raw_notebooklm_answer_payload
+      - secret_or_session_material
+    expected_output: notebooklm_cli_research_packet
+  - stage_id: codex_direct_research
+    actor_slot: codex_researcher
+    fresh_subagent_required: true
+    visible_inputs:
+      - goal_declaration
+      - frozen_research_brief
+      - codex_source_refs
+    hidden_or_forbidden_inputs:
+      - notebooklm_cli_research_packet
+      - raw_notebooklm_answer_payload
+      - secret_or_session_material
+    expected_output: codex_direct_research_packet
+  - stage_id: compare_and_dedupe
+    actor_slot: comparison_archivist
+    fresh_subagent_required: true
+    visible_inputs:
+      - goal_declaration
+      - frozen_research_brief
+      - notebooklm_cli_research_packet
+      - codex_direct_research_packet
+    hidden_or_forbidden_inputs:
+      - raw_source_payload
+      - secret_or_session_material
+    expected_output: dual_research_comparison_packet

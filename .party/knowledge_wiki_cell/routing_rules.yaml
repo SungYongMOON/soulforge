@@ -4,19 +4,22 @@ status: active
 current_default_route:
   route_surface: registered_composite_workflow_party
   party_id: knowledge_wiki_cell
-  default_workflow_id: se_knowledge_wiki_pipeline_v0
+  default_workflow_id: knowledge_wiki_pipeline_v0
 future_candidate_route:
-  workflow_candidate_id: se_knowledge_wiki_pipeline_v0
+  workflow_candidate_id: knowledge_wiki_pipeline_v0
   registration_state: registered_selected_default_entry
   switch_condition: "Already switched by owner direction; future changes should review downstream evidence and route safety again."
 request_classes:
-  - request_class: se_knowledge_wiki_request
+  - request_class: knowledge_wiki_request
     trigger_signals:
+      - "general knowledge wikiization"
+      - "sourcebound knowledge packet"
+      - "LLM wiki or sourcebound wiki request"
       - "SE materials to private wikiization"
       - "read DAPA or SE PDF and HWP into private wiki"
       - "build a private markdown wiki over official or owner-approved source packets"
     route: route_to_party_chain
-    note: "Default entry for fresh SE wikiization requests through the registered composite workflow."
+    note: "Default entry for fresh knowledge wikiization requests through the registered composite workflow; SE materials are one supported subclass, not the owner of this route."
   - request_class: llm_wiki_request
     trigger_signals:
       - "Karpathy-style LLM wiki"
@@ -97,5 +100,5 @@ blocked_routes:
     response: "Stop and keep secret handling outside the lane."
 notes:
   - This is a routing draft, not active autohunt state.
-  - The currently routable surface is the registered composite workflow entry `se_knowledge_wiki_pipeline_v0`.
+  - The currently routable surface is the registered composite workflow entry `knowledge_wiki_pipeline_v0`.
   - The older stage-first chain remains the downstream execution lane owned by the composite workflow.

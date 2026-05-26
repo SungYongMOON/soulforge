@@ -14,6 +14,8 @@ promotion.
 ```bash
 npm run guild-hall:knowledge-graph -- export --export-id knowledge_graph_v0
 npm run guild-hall:knowledge-graph -- export --ledger-ref _workmeta/system/reports/knowledge_access/events/2026/2026-05.jsonl --export-id knowledge_graph_live_v0
+npm run guild-hall:knowledge-graph -- export --rag-manifest-ref _workspaces/system/rag/manifests/soulforge_metadata_rag_mvp_20260524/rag_manifest.json --export-id knowledge_graph_rag_lens_v0
+npm run guild-hall:knowledge-graph -- export --rag-manifest-ref _workspaces/system/rag/manifests/soulforge_metadata_rag_mvp_20260524/rag_manifest.json --source-slice-triage-register-ref _workmeta/system/reports/rag/source_slice_triage_register/soulforge_source_triage_register_20260524/source_slice_triage_register.json --source-slice-review-queue-ref _workmeta/system/reports/rag/source_slice_review_queue/soulforge_source_review_queue_20260524/source_slice_review_queue.json --export-id knowledge_graph_rag_triage_lens_v0
 npm run guild-hall:knowledge-graph -- plan --question "GraphRAG multi-hop source-backed retrieval plan"
 npm run guild-hall:knowledge-graph -- plan --node-ref ".registry/knowledge/graph_rag" --question "이 노드 기준으로 탐지 카드"
 npm run guild-hall:knowledge-graph -- review --node-ref ".registry/knowledge/graph_rag" --graph-ref _workspaces/system/knowledge_view/graph_export/knowledge_graph_v0/graph.json --model gpt-5.5 --text
@@ -42,6 +44,24 @@ preview is present in the generated graph data or only caused by layout.
 The 3D sidebar recalculates connectivity from the currently visible node and
 relation filters. The generated `graph.json` connectivity block remains the
 full-export diagnostic.
+
+When `--rag-manifest-ref` is supplied, the exporter embeds a metadata-only
+`rag_projection` block into `graph.json` and annotates matching graph nodes with
+RAG readiness, lens profile ids, source-handle counts, blockers, and weakest
+claim ceilings from the manifest. The 3D preview exposes a `RAG 렌즈` control so
+the owner can inspect all manifest-linked nodes, only answer-ready nodes, or a
+specific manifest lens profile. This projection is a view overlay. It does not
+load source text, chunk text, NotebookLM answers, vector stores, BM25 indexes,
+private payloads, secrets, or runtime absolute paths.
+
+When `--source-slice-triage-register-ref` is supplied, the exporter embeds a
+metadata-only `source_slice_projection` block and annotates matching graph nodes
+with redacted source-slice registration counts. The 3D preview exposes a
+`RAG 등록 상태` control for all nodes, metadata-registered nodes, owner-review
+items, blocked items, and stronger-permission-needed nodes. This projection uses
+counts and status labels only. It does not expose source text, source locator
+payloads, source-handle arrays, indexes, NotebookLM answers, applied owner
+decisions, or public canon promotion.
 
 The 3D preview can draw subtle component halos around the largest visible
 connected components. These halos express the current component grouping without
@@ -132,6 +152,8 @@ promotion, or completed implementation.
 - Does not scan private roots by default.
 - Does not copy raw source text, private packet payloads, NotebookLM answers,
   secrets, credentials, or runtime absolute paths into graph data.
+- `--rag-manifest-ref` adds only sanitized manifest projection metadata. It is
+  not a source reader, vector search, NotebookLM bridge, or answer engine.
 - The retrieval plan output is a navigation signal and review scope, not answer
   evidence or retrieval quality validation.
 - The 3D preview 탐지 카드 is also local and metadata-only: it does not call

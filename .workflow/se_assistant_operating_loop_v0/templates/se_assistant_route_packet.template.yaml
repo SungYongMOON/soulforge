@@ -15,7 +15,7 @@ selected_routes:
     status: pending
     target_stage_codes: []
   source_or_knowledge:
-    route: se_knowledge_wiki_pipeline_v0
+    route: knowledge_wiki_pipeline_v0
     status: optional
     required_source_scope_refs: []
   readiness_digest:

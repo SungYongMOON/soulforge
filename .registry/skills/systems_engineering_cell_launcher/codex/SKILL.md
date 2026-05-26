@@ -28,7 +28,7 @@ The skill is a thin bridge. It does not own the party, workflow chain, profile p
 - Use `se_foldertree_generate` only when the request is scaffold generation and required runtime inputs are known.
 - Use `se_stage_artifact_gap_scan_v0` when the user asks what a stage or artifact set is missing.
 - Use party-declared reference lookup route candidates first when source/evidence support is unclear; they can point Codex toward official source packs and registered private lookup evidence, but they do not become source truth.
-- Use `se_knowledge_wiki_pipeline_v0`, `source_gap_followup_packet_v0`, or `source_packet_sufficiency_review_v0` when source/evidence support remains unclear.
+- Use `knowledge_wiki_pipeline_v0`, `source_gap_followup_packet_v0`, or `source_packet_sufficiency_review_v0` when source/evidence support remains unclear.
 - Use `page_module_trace_matrix_v0` when a requirements/verification question needs trace-governance rows, missing evidence rows, or review/verification seed rows; do not treat it as final requirements truth.
 - Use `se_cross_stage_mapping_governance_v0` when the request needs cross-stage artifact-family coverage, claim ceilings, source gaps, owner-decision needs, or downstream rerun route aggregation; do not treat it as source truth or readiness approval.
 - Use source acquisition and sufficiency review before answering that a source, form, field set, or revision is official or current.

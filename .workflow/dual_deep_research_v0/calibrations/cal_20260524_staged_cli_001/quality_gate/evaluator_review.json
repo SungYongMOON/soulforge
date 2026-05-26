@@ -1,0 +1,19 @@
+{
+  "evaluator": "fresh_subagent_Herschel",
+  "sufficient": true,
+  "missing_critical_criteria": [],
+  "overfit_risks": [
+    "Exact top-level labels could overfit; semantic equivalents should pass.",
+    "N4/C4 should not be forced as exact identity; aligned handoff/registration-boundary trace is acceptable."
+  ],
+  "unsafe_assumptions": [
+    "Synthetic NotebookLM output must not imply real CLI execution.",
+    "Handoff target remains advisory, not execution or registration.",
+    "Agreement between lanes must never score as source truth, owner approval, or canon readiness."
+  ],
+  "revisions_applied": [
+    "Allowed semantic equivalents.",
+    "Revised common-trace criterion for N4/C4.",
+    "Added hard fail for overstrong source/canon status and workflow policy/default route mutation claims."
+  ]
+}

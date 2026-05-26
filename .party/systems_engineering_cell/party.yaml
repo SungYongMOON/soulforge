@@ -27,7 +27,7 @@ workflow_chain:
     role: stage_gap_scan_when_needed
     execution_contract: subagent_preferred
   - order: 3
-    workflow_id: se_knowledge_wiki_pipeline_v0
+    workflow_id: knowledge_wiki_pipeline_v0
     role: source_or_knowledge_pipeline_when_needed
     execution_contract: subagent_required_for_sourcebound_work
   - order: 4
@@ -59,7 +59,7 @@ reference_lookup_route_candidates:
       - If the request asks whether a source, form, result, review, or closure state is official/current/accepted, route to current-source acquisition or claim-specific evidence review before answering as authority.
       - Route missing official authority, source scope, or owner approval to the proper source-gap, sufficiency-review, or owner-decision workflow.
     allowed_downstream_workflows:
-      - se_knowledge_wiki_pipeline_v0
+      - knowledge_wiki_pipeline_v0
       - source_gap_followup_packet_v0
       - source_packet_sufficiency_review_v0
       - page_module_trace_matrix_v0

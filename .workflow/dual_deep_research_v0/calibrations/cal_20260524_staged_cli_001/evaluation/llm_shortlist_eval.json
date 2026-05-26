@@ -1,0 +1,72 @@
+{
+  "evaluator_basis": "fresh criteria evaluator plus controller review of candidate outputs",
+  "baseline_candidate_id": "golden_gpt55_xhigh_human_auditor",
+  "quality_equivalent_or_passing_candidates": [
+    "A_mini_low_human_auditor",
+    "A_mini_low_dwarf_archivist",
+    "B_54_low_human_archivist",
+    "B_54_medium_human_archivist",
+    "B_55_low_human_archivist",
+    "B_55_medium_human_archivist",
+    "B_55_low_dwarf_archivist"
+  ],
+  "rejected_candidates": [
+    {
+      "candidate_id": "A_mini_low_human_administrator",
+      "reasons": [
+        "Failed hard gate: common claims not clearly excluded from delta recommendations."
+      ]
+    },
+    {
+      "candidate_id": "A_mini_low_human_archivist",
+      "reasons": [
+        "Failed hard gate: common/delta separation too implicit."
+      ]
+    },
+    {
+      "candidate_id": "A_mini_low_elf_archivist",
+      "reasons": [
+        "Useful structure, but normalized_delta repeats common workflow facts as recommendations."
+      ]
+    },
+    {
+      "candidate_id": "B_55_high_human_archivist",
+      "reasons": [
+        "High effort did not improve the target gate; common/delta exclusion too implicit and reasoning tokens high."
+      ]
+    },
+    {
+      "candidate_id": "B_55_medium_dwarf_archivist",
+      "reasons": [
+        "Too terse; misses workflow-generator/check and boundary denials."
+      ]
+    }
+  ],
+  "shortlist_notes": [
+    {
+      "candidate_id": "A_mini_low_dwarf_archivist",
+      "role": "primary_lowest_cost_quality_pass",
+      "reason": "Lowest-cost model family passing the revised quality gate; stronger output than other mini passing candidates with token difference treated as noise."
+    },
+    {
+      "candidate_id": "B_55_low_dwarf_archivist",
+      "role": "high_assurance_shadow",
+      "reason": "Best quality output and compact for gpt-5.5; use when first real pilot or higher-risk handoff needs stronger boundary discipline."
+    },
+    {
+      "candidate_id": "B_54_low_human_archivist",
+      "role": "middle_model_shadow",
+      "reason": "Strong structure but longer output and slower wall time than primary."
+    },
+    {
+      "candidate_id": "B_55_low_human_archivist",
+      "role": "frontier_human_archivist_shadow",
+      "reason": "Good pass but less compact than dwarf archivist."
+    },
+    {
+      "candidate_id": "A_mini_low_human_auditor",
+      "role": "cheap_auditor_shadow",
+      "reason": "Cheap pass, but one-sided bucket handling weaker than primary."
+    }
+  ]
+}

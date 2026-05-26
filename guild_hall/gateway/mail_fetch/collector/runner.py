@@ -205,18 +205,44 @@ def _env_int(env: Dict[str, str], key: str, default: int) -> int:
         return default
 
 
-def _resolve_path(raw: str, *, base_dir: Path) -> Path:
+def _is_repo_relative_ref(raw: str) -> bool:
+    normalized = str(raw or "").replace("\\", "/").strip()
+    return normalized.startswith((
+        ".registry/",
+        ".mission/",
+        ".party/",
+        ".unit/",
+        ".workflow/",
+        "_workmeta/",
+        "_workspaces/",
+        "docs/",
+        "guild_hall/",
+        "private-state/",
+        "ui-workspace/",
+    ))
+
+
+def _resolve_path(raw: str, *, base_dir: Path, repo_root: Optional[Path] = None) -> Path:
     resolved = Path(raw).expanduser()
     if resolved.is_absolute():
         return resolved
+    if repo_root is not None and _is_repo_relative_ref(raw):
+        return (repo_root / resolved).resolve()
     return (base_dir / resolved).resolve()
 
 
-def _env_path(env: Dict[str, str], key: str, default: Path, *, base_dir: Path) -> Path:
+def _env_path(
+    env: Dict[str, str],
+    key: str,
+    default: Path,
+    *,
+    base_dir: Path,
+    repo_root: Optional[Path] = None,
+) -> Path:
     raw = str(env.get(key, "")).strip()
     if not raw:
         return default
-    return _resolve_path(raw, base_dir=base_dir)
+    return _resolve_path(raw, base_dir=base_dir, repo_root=repo_root)
 
 
 def _split_csv(value: str) -> Tuple[str, ...]:
@@ -373,12 +399,19 @@ def build_config_from_env(repo_root: Path, env_file: Path) -> CollectorConfig:
     env_base_dir = env_file.parent
 
     default_runtime = repo_root / "guild_hall" / "state" / "gateway" / "log" / "mail_fetch"
-    runtime_root = _env_path(env, "EMAIL_FETCH_RUNTIME_DIR", default_runtime, base_dir=env_base_dir)
+    runtime_root = _env_path(
+        env,
+        "EMAIL_FETCH_RUNTIME_DIR",
+        default_runtime,
+        base_dir=env_base_dir,
+        repo_root=repo_root,
+    )
     inbox_root = _env_path(
         env,
         "EMAIL_FETCH_INBOX_ROOT",
         repo_root / "guild_hall" / "state" / "gateway" / "mailbox",
         base_dir=env_base_dir,
+        repo_root=repo_root,
     )
 
     attachment_max = _env_int(env, "EMAIL_FETCH_ATTACHMENT_MAX_BYTES", 30 * 1024 * 1024)
@@ -469,6 +502,7 @@ def build_config_from_env(repo_root: Path, env_file: Path) -> CollectorConfig:
             "EMAIL_FETCH_MAIL_CANDIDATE_QUEUE_ROOT",
             repo_root / "guild_hall" / "state" / "gateway" / "mail_candidate",
             base_dir=env_base_dir,
+            repo_root=repo_root,
         ),
         limit=max(limit, 1),
         retry_max=max(_env_int(env, "EMAIL_FETCH_RETRY_MAX", 3), 1),

@@ -1,0 +1,218 @@
+workflow_id: rag_metadata_refresh_v0
+kind: workflow
+status: active
+title: RAG Metadata Refresh v0
+summary: Refresh existing generated RAG metadata surfaces after wiki or sourcebound metadata changes by reconciling manifests, source-slice cards, triage/review/decision packets, owner-decision record refs, metadata indexes, retrieval traces/evaluations, and optional graph lens exports without reading source text or changing authority state.
+entrypoint: run
+execution_mode: local_tool_sequence
+role_slots: role_slots.yaml
+step_graph: step_graph.yaml
+handoff_rules: handoff_rules.yaml
+monster_rules: monster_rules.yaml
+party_compatibility: party_compatibility.yaml
+profile_policy: profile_policy.yaml
+classification_lane:
+  primary: knowledge_management
+  primary_name_ko: 지식 관리
+  secondary:
+    - rag_metadata
+    - wiki_maintenance
+    - sourcebound_projection
+  secondary_name_ko:
+    - RAG 메타데이터
+    - 위키 유지보수
+    - 소스바운드 프로젝션
+  purpose: discovery_only
+  authority: none
+execution_binding:
+  party_required: false
+  candidate_party_id: null
+  bound_party_id: null
+  binding_authority: none
+inputs:
+  - rag_metadata_refresh_scope
+  - wiki_or_sourcebound_metadata_delta_refs
+  - existing_rag_surface_refs
+  - refresh_policy
+optional_inputs:
+  - prior_rag_manifest_refs
+  - prior_source_slice_card_refs
+  - prior_source_slice_triage_refs
+  - prior_source_slice_review_refs
+  - prior_source_slice_decision_packet_refs
+  - prior_owner_decision_record_refs
+  - prior_metadata_index_refs
+  - prior_retrieval_trace_refs
+  - prior_retrieval_evaluation_refs
+  - graph_lens_export_policy_refs
+  - owner_decision_refs
+outputs:
+  - refresh_scope_binding
+  - metadata_delta_inventory
+  - rag_surface_inventory
+  - rag_manifest_refresh_packet
+  - source_slice_card_refresh_set
+  - source_slice_triage_refresh_packet
+  - source_slice_review_refresh_packet
+  - source_slice_decision_packet_refresh
+  - owner_decision_record_refresh_candidate
+  - metadata_index_refresh_packet
+  - retrieval_trace_evaluation_refresh
+  - graph_lens_export_candidate
+  - boundary_review_note
+validation_level: registered_package_ready_draft
+registration_policy: owner_requested_registration
+output_state: pilot-ready
+readiness_posture:
+  package_state: registered-package-ready
+  pilot_ready: true
+  pilot_executed: false
+  canon_ready: false
+  registered: true
+  default_route_safe: false
+  default_route_safety_claimed: false
+upstream_workflows:
+  - workflow_id: knowledge_wiki_pipeline_v0
+    expected_outputs:
+      - sourcebound_packet_refs
+      - knowledge_access_refs
+      - obsidian_export_refs
+      - boundary_review_note
+    status: optional_metadata_delta_source
+  - workflow_id: sourcebound_knowledge_packet_operating_loop_v0
+    expected_outputs:
+      - sourcebound_knowledge_packet_manifest
+      - compiled_projection_index
+      - contradiction_gap_lint_report
+      - concept_candidate_register
+      - claim_ceiling_and_promotion_route
+      - workflowization_review_packet
+    status: optional_metadata_delta_source
+  - workflow_id: knowledge_access_event_capture_v0
+    expected_outputs:
+      - usage_rollup
+      - retention_label_packet
+      - link_strength_analysis
+      - graph_update_packet
+      - boundary_review_note
+    status: optional_usage_or_graph_signal_source
+downstream_workflows:
+  - workflow_id: knowledge_access_event_capture_v0
+    expected_input: metadata_only_rag_refresh_event
+    status: optional_usage_lineage_capture
+  - workflow_id: owner_decision_packet_v0
+    expected_input: source_slice_or_route_decision_needing_owner_authority
+    status: required_before_owner_approval_or_policy_change
+  - workflow_id: source_packet_sufficiency_review_v0
+    expected_input: stale_or_missing_source_ref_signal_from_metadata_only_refresh
+    status: optional_source_gap_review
+  - workflow_id: post_development_review_gate_v0
+    expected_input: rag_metadata_refresh_boundary_or_route_change_packet
+    status: required_before_public_or_canon_promotion
+operating_contract:
+  owns:
+    - refresh_scope_binding_shape
+    - metadata_delta_inventory_shape
+    - existing_rag_surface_inventory_shape
+    - rag_manifest_refresh_packet_shape
+    - source_slice_card_refresh_shape
+    - source_slice_triage_refresh_shape
+    - source_slice_review_refresh_shape
+    - source_slice_decision_packet_refresh_shape
+    - owner_decision_record_refresh_candidate_shape
+    - metadata_index_refresh_packet_shape
+    - retrieval_trace_evaluation_refresh_shape
+    - optional_graph_lens_export_candidate_shape
+    - metadata_only_boundary_review_shape
+  does_not_own:
+    - source_truth
+    - raw_source_text_reading
+    - bm25_source_text_index_construction
+    - vector_source_text_index_construction
+    - source_text_embedding_generation
+    - notebooklm_upload
+    - notebooklm_query
+    - google_drive_mutation
+    - owner_approval_authority
+    - public_canon_promotion
+    - ontology_acceptance
+    - default_route_switching
+    - default_route_safety_claim
+    - graph_projection_truth
+    - rag_projection_truth
+  refresh_surface_contract:
+    allowed_existing_surfaces:
+      - rag_manifest
+      - source_slice_cards
+      - source_slice_triage
+      - source_slice_review
+      - source_slice_decision_packet
+      - owner_decision_record
+      - metadata_index
+      - retrieval_trace
+      - retrieval_evaluation
+      - graph_lens_export
+    allowed_metadata_fields:
+      - stable_ref
+      - source_ref
+      - source_slice_ref
+      - packet_ref
+      - claim_ceiling
+      - lifecycle_state
+      - retrieval_key
+      - route_hint
+      - owner_decision_ref
+      - owner_decision_state
+      - evaluation_metric
+      - evidence_event_id
+      - timestamp_utc
+      - hash_or_size_pointer
+      - graph_node_ref
+      - graph_edge_ref
+    forbidden_payloads:
+      - raw_source_text
+      - copied_source_excerpt
+      - private_packet_payload
+      - notebooklm_answer_payload
+      - embedding_vector_payload
+      - bm25_term_index_payload
+      - drive_file_content_payload
+      - credential_or_session_material
+      - host_absolute_path
+  boundaries:
+    metadata_only_refresh: true
+    existing_generated_surfaces_only: true
+    source_text_reading_allowed: false
+    bm25_or_vector_source_text_indexing_allowed: false
+    source_text_embedding_generation_allowed: false
+    notebooklm_upload_or_query_allowed: false
+    drive_mutation_allowed: false
+    owner_approval_granted_here: false
+    public_canon_promotion_allowed: false
+    ontology_acceptance_allowed: false
+    default_route_switch_allowed: false
+    default_route_safe: false
+    graph_lens_is_navigation_projection_not_truth: true
+    rag_surfaces_are_retrieval_metadata_not_source_truth: true
+    owner_decision_record_refresh_preserves_external_authority_refs: true
+    public_package_payload_free: true
+  required_output_shapes:
+    refresh_scope_binding: templates/refresh_scope_binding.template.yaml
+    metadata_delta_inventory: templates/metadata_delta_inventory.template.yaml
+    rag_surface_inventory: templates/rag_surface_inventory.template.yaml
+    rag_manifest_refresh_packet: templates/rag_manifest_refresh_packet.template.yaml
+    source_slice_card_refresh_set: templates/source_slice_card_refresh_set.template.yaml
+    source_slice_triage_refresh_packet: templates/source_slice_triage_refresh_packet.template.yaml
+    source_slice_review_refresh_packet: templates/source_slice_review_refresh_packet.template.yaml
+    source_slice_decision_packet_refresh: templates/source_slice_decision_packet_refresh.template.yaml
+    owner_decision_record_refresh_candidate: templates/owner_decision_record_refresh_candidate.template.yaml
+    metadata_index_refresh_packet: templates/metadata_index_refresh_packet.template.yaml
+    retrieval_trace_evaluation_refresh: templates/retrieval_trace_evaluation_refresh.template.yaml
+    graph_lens_export_candidate: templates/graph_lens_export_candidate.template.yaml
+    boundary_review_note: templates/boundary_review_note.template.yaml
+notes:
+  - This package is a metadata-only refresh lane for already-generated RAG surfaces after wiki/sourcebound metadata changes; it does not create source-text search indexes or embeddings.
+  - The workflow may mark existing RAG surfaces stale, refreshed, blocked, or owner-review-needed by ref, but it must not infer source truth from retrieval, graph, or usage signals.
+  - Owner decision records may be synchronized to known owner decision refs and states only; this workflow cannot create approval.
+  - Optional graph lens export is a read-only navigation projection over metadata refs and evidence event ids, not a source of truth or ontology acceptance.
+  - This registered package is ready for controlled pilot binding but has not been pilot-executed, canon-promoted, or made default-route-safe.

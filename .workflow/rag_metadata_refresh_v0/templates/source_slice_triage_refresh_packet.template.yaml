@@ -1,0 +1,18 @@
+workflow_id: rag_metadata_refresh_v0
+kind: source_slice_triage_refresh_packet
+schema_version: v0
+status: draft
+packet_id: "<packet_id>"
+source_refs:
+  source_slice_card_refresh_set_ref: "<source_slice_card_refresh_set_ref>"
+triage_items:
+  - source_slice_ref: "<source_slice_ref>"
+    triage_label: review_required
+    reason: "<metadata_only_reason>"
+    claim_ceiling: observed
+    route_hint: review_required
+    evidence_event_refs: []
+rules:
+  triage_label_is_candidate: true
+  source_truth_not_inferred: true
+  owner_approval_not_granted: true

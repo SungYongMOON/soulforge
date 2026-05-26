@@ -1,0 +1,25 @@
+workflow_id: rag_metadata_refresh_v0
+kind: rag_surface_inventory
+schema_version: v0
+status: draft
+inventory_id: "<inventory_id>"
+surface_refs:
+  rag_manifest_refs: []
+  source_slice_card_refs: []
+  source_slice_triage_refs: []
+  source_slice_review_refs: []
+  source_slice_decision_packet_refs: []
+  owner_decision_record_refs: []
+  metadata_index_refs: []
+  retrieval_trace_refs: []
+  retrieval_evaluation_refs: []
+surface_states:
+  - surface_ref: "<surface_ref>"
+    surface_kind: "<surface_kind>"
+    state: review_required
+    stale_reason: null
+    duplicate_of_ref: null
+    missing_required_ref: null
+boundary:
+  generated_surface_only: true
+  refs_not_payloads: true

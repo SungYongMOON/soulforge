@@ -95,14 +95,18 @@ entries:
     path: llm_wiki_builder_v0/workflow.yaml
   - workflow_id: workflow_knowledge_preflight_v0
     path: workflow_knowledge_preflight_v0/workflow.yaml
+  - workflow_id: dual_deep_research_v0
+    path: dual_deep_research_v0/workflow.yaml
   - workflow_id: latest_update_sync_and_followup_v0
     path: latest_update_sync_and_followup_v0/workflow.yaml
   - workflow_id: github_upload_publish_v0
     path: github_upload_publish_v0/workflow.yaml
   - workflow_id: knowledge_access_event_capture_v0
     path: knowledge_access_event_capture_v0/workflow.yaml
-  - workflow_id: se_knowledge_wiki_pipeline_v0
-    path: se_knowledge_wiki_pipeline_v0/workflow.yaml
+  - workflow_id: rag_metadata_refresh_v0
+    path: rag_metadata_refresh_v0/workflow.yaml
+  - workflow_id: knowledge_wiki_pipeline_v0
+    path: knowledge_wiki_pipeline_v0/workflow.yaml
   - workflow_id: se_assistant_operating_loop_v0
     path: se_assistant_operating_loop_v0/workflow.yaml
   - workflow_id: ouroboros_strategic_review_harness_v0

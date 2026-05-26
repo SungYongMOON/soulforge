@@ -5,11 +5,18 @@ import { fileURLToPath } from "node:url";
 import { build as buildBundle } from "esbuild";
 import { parse as parseYaml } from "yaml";
 import { analyzeKnowledgeAccessLedgers } from "../knowledge_access/ledger.mjs";
-import { normalizeRepoPath, pathExists, writeJson } from "../shared/io.mjs";
+import { normalizeRepoPath, pathExists, readJson, writeJson } from "../shared/io.mjs";
 
 export const KNOWLEDGE_GRAPH_SCHEMA_VERSION = "soulforge.knowledge_graph_view.v0";
 export const KNOWLEDGE_GRAPH_VISUAL_MAPPING_VERSION = "soulforge.knowledge_graph_visual_mapping.v0";
 export const KNOWLEDGE_GRAPH_GENERATOR_ID = "guild_hall.knowledge_graph.exporter.v0";
+export const KNOWLEDGE_GRAPH_RAG_PROJECTION_SCHEMA_VERSION = "soulforge.knowledge_graph_rag_projection.v0";
+export const KNOWLEDGE_GRAPH_SOURCE_SLICE_PROJECTION_SCHEMA_VERSION =
+  "soulforge.knowledge_graph_source_slice_projection.v0";
+
+const RAG_MANIFEST_SCHEMA_VERSION = "soulforge.rag_manifest.v0";
+const SOURCE_SLICE_TRIAGE_REGISTER_SCHEMA_VERSION = "soulforge.source_slice_triage_register.v0";
+const SOURCE_SLICE_REVIEW_QUEUE_SCHEMA_VERSION = "soulforge.source_slice_review_queue.v0";
 
 export const NODE_TYPES = [
   "knowledge",
@@ -77,6 +84,73 @@ const RELATION_COLORS = {
   related_candidate: "#94a3b8",
 };
 
+const FORBIDDEN_RAG_PROJECTION_KEYS = new Set([
+  "body",
+  "body_html",
+  "body_text",
+  "chunk",
+  "chunk_text",
+  "content",
+  "bm25",
+  "bm25_index",
+  "chunk_ref",
+  "embedding",
+  "embeddings",
+  "excerpt",
+  "html",
+  "index_payload",
+  "index_ref",
+  "notebooklm_answer",
+  "notebooklm_answer_text",
+  "payload",
+  "private_payload",
+  "raw",
+  "raw_payload",
+  "ready_for_index",
+  "secret",
+  "source_body",
+  "source_text_ref",
+  "source_text",
+  "text",
+  "vector",
+  "vector_index",
+  "vector_store",
+  "vectors",
+]);
+
+const FORBIDDEN_RAG_PROJECTION_KEY_PATTERNS = [
+  /body/i,
+  /chunk/i,
+  /content/i,
+  /embedding/i,
+  /excerpt/i,
+  /payload/i,
+  /raw/i,
+  /secret/i,
+  /source.*locator.*payload/i,
+  /source.*text/i,
+  /text.*source/i,
+  /notebooklm.*answer/i,
+  /bm25/i,
+  /vector/i,
+  /index.*payload/i,
+  /owner.*decision.*payload/i,
+];
+
+const CLAIM_STRENGTH = {
+  unknown: 0,
+  rejected_or_blocked: 0,
+  observed: 1,
+  source_supported: 2,
+  validated_private: 3,
+  canon_candidate: 4,
+  canon_entry: 5,
+};
+
+const SAFE_RAG_ID_PATTERN = /^[A-Za-z0-9][A-Za-z0-9_.:-]{0,159}$/;
+const SAFE_RAG_TIMESTAMP_PATTERN = /^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}(?:\.\d+)?Z$/;
+const RELATION_TYPES = Object.keys(RELATION_COLORS);
+
 const DEFAULT_ENCODING = {
   node_size_by: "total_access_count",
   node_opacity_by: "days_since_last_access",
@@ -107,7 +181,8 @@ export async function exportKnowledgeGraph(options = {}) {
   const exportId = normalizeExportId(options.exportId ?? "knowledge_graph_view_v0");
   const now = normalizeNow(options.now);
   const generatedAtUtc = formatTimestampUtc(now);
-  const outputRoot = path.resolve(repoRoot, options.outputRoot ?? "_workspaces/system/knowledge_view");
+  const outputRootRef = safeKnowledgeGraphOutputRoot(options.outputRoot ?? "_workspaces/system/knowledge_view");
+  const outputRoot = path.join(repoRoot, outputRootRef);
   const graphDir = path.join(outputRoot, "graph_export", exportId);
   const obsidianDir = path.join(outputRoot, "obsidian_export", exportId);
 
@@ -118,6 +193,11 @@ export async function exportKnowledgeGraph(options = {}) {
     now,
     ledgerRefs: normalizeInputList(options.ledgerRefs ?? options.ledgerRef),
     ledgerFiles: normalizeInputList(options.ledgerFiles ?? options.ledgerFile),
+    ragManifestRefs: normalizeInputList(options.ragManifestRefs ?? options.ragManifestRef),
+    sourceSliceTriageRegisterRefs: normalizeInputList(
+      options.sourceSliceTriageRegisterRefs ?? options.sourceSliceTriageRegisterRef,
+    ),
+    sourceSliceReviewQueueRefs: normalizeInputList(options.sourceSliceReviewQueueRefs ?? options.sourceSliceReviewQueueRef),
   });
 
   await fs.mkdir(graphDir, { recursive: true });
@@ -153,11 +233,20 @@ export async function buildKnowledgeGraph({
   now = new Date(),
   ledgerRefs = [],
   ledgerFiles = [],
+  ragManifestRefs = [],
+  sourceSliceTriageRegisterRefs = [],
+  sourceSliceReviewQueueRefs = [],
 } = {}) {
   const root = path.resolve(repoRoot ?? process.cwd());
   const nodes = new Map();
   const edges = new Map();
   const usage = await loadUsageRollup({ repoRoot: root, ledgerRefs, ledgerFiles });
+  const ragProjection = await loadRagProjection({ repoRoot: root, ragManifestRefs });
+  const sourceSliceProjection = await loadSourceSliceProjection({
+    repoRoot: root,
+    sourceSliceTriageRegisterRefs,
+    sourceSliceReviewQueueRefs,
+  });
 
   await addKnowledgeNodes({ repoRoot: root, nodes });
   await addClassNodesAndEdges({ repoRoot: root, nodes, edges });
@@ -167,6 +256,8 @@ export async function buildKnowledgeGraph({
   await addWorkflowProfilePolicyEdges({ repoRoot: root, edges });
   await addPartyNodesAndEdges({ repoRoot: root, nodes, edges });
   addUsageNodesAndEdges({ nodes, edges, usage });
+  applyRagProjectionToNodes(nodes, ragProjection);
+  applySourceSliceProjectionToNodes(nodes, sourceSliceProjection);
 
   const nodeList = [...nodes.values()]
     .map((node) => applyNodeMetricsAndVisuals(node, usage.byTarget.get(node.node_ref), now))
@@ -174,6 +265,8 @@ export async function buildKnowledgeGraph({
   const edgeList = [...edges.values()]
     .map((edge) => applyEdgeVisuals(edge, now))
     .sort((left, right) => left.edge_ref.localeCompare(right.edge_ref));
+  finalizeRagProjectionForGraph(ragProjection, nodeList, edgeList);
+  finalizeSourceSliceProjectionForGraph(sourceSliceProjection);
   const connectivityAnalysis = analyzeGraphConnectivity(nodeList, edgeList);
 
   return {
@@ -189,14 +282,31 @@ export async function buildKnowledgeGraph({
       ontology_contract: "docs/architecture/foundation/ONTOLOGY_MODEL_V0.md",
       relation_contract: "docs/architecture/foundation/ONTOLOGY_RELATION_MATRIX_V1.md",
       ledger_refs: usage.ledgerRefs,
+      rag_manifest_refs: ragProjection?.manifest_refs.map((item) => item.manifest_ref) ?? [],
+      source_slice_triage_register_refs:
+        sourceSliceProjection?.triage_register_refs.map((item) => item.triage_register_ref) ?? [],
+      source_slice_review_queue_refs:
+        sourceSliceProjection?.review_queue_refs.map((item) => item.review_queue_ref) ?? [],
     },
     graph_scope: {
       time_window: usage.timeWindow,
-      source_surfaces: ["public_canon", "explicit_knowledge_access_ledgers"],
+      source_surfaces: [
+        "public_canon",
+        "explicit_knowledge_access_ledgers",
+        ...(ragProjection ? ["explicit_rag_manifest_refs"] : []),
+        ...(sourceSliceProjection?.triage_register_refs.length ? ["explicit_source_slice_triage_register_refs"] : []),
+        ...(sourceSliceProjection?.review_queue_refs.length ? ["explicit_source_slice_review_queue_refs"] : []),
+      ],
       included_node_types: NODE_TYPES,
       included_relation_types: sortedUnique(edgeList.map((edge) => edge.relation_type)),
+      included_lens_profile_ids: ragProjection?.lens_profiles.map((profile) => profile.lens_id) ?? [],
       ledger_refs: usage.ledgerRefs,
-      canon_only: usage.ledgerRefs.length === 0,
+      rag_manifest_refs: ragProjection?.manifest_refs.map((item) => item.manifest_ref) ?? [],
+      source_slice_triage_register_refs:
+        sourceSliceProjection?.triage_register_refs.map((item) => item.triage_register_ref) ?? [],
+      source_slice_review_queue_refs:
+        sourceSliceProjection?.review_queue_refs.map((item) => item.review_queue_ref) ?? [],
+      canon_only: usage.ledgerRefs.length === 0 && !ragProjection && !sourceSliceProjection,
       metadata_only: true,
     },
     visual_encoding: DEFAULT_ENCODING,
@@ -230,11 +340,15 @@ export async function buildKnowledgeGraph({
         { min: 10, width_px: 6 },
       ],
     },
+    rag_projection: ragProjection,
+    source_slice_projection: sourceSliceProjection,
     nodes: nodeList,
     edges: edgeList,
     boundary: {
       metadata_only: true,
       no_raw_payloads: true,
+      no_rag_source_payloads: true,
+      no_source_slice_payloads: true,
       no_notebooklm_answers: true,
       no_private_payloads: true,
       no_secret_or_session: true,
@@ -625,6 +739,848 @@ async function loadUsageRollup({ repoRoot, ledgerRefs, ledgerFiles }) {
   };
 }
 
+async function loadRagProjection({ repoRoot, ragManifestRefs }) {
+  if (ragManifestRefs.length === 0) {
+    return null;
+  }
+  const loaded = [];
+  for (const rawRef of ragManifestRefs) {
+    const manifestRef = safeRepoRelativeMetadataRef(rawRef);
+    const manifestPath = path.join(repoRoot, manifestRef);
+    if (!(await pathExists(manifestPath))) {
+      throw new Error(`explicit --rag-manifest-ref was not found: ${manifestRef}`);
+    }
+    const manifest = await readJson(manifestPath);
+    const validation = validateRagManifestForGraphProjection(manifest);
+    if (validation.status !== "pass") {
+      throw new Error(`rag_manifest_invalid:${manifestRef}:${validation.blockers.join(",")}`);
+    }
+    loaded.push({ manifest_ref: manifestRef, manifest, validation });
+  }
+  return buildRagProjection(loaded);
+}
+
+function validateRagManifestForGraphProjection(manifest) {
+  const blockers = [];
+  if (manifest?.schema_version !== RAG_MANIFEST_SCHEMA_VERSION) blockers.push("schema_version_mismatch");
+  if (manifest?.kind !== "rag_manifest") blockers.push("kind_must_be_rag_manifest");
+  const boundary = manifest?.boundary ?? {};
+  if (boundary.metadata_only !== true) blockers.push("boundary_metadata_only_must_be_true");
+  if (boundary.source_payloads_included !== false) blockers.push("source_payloads_must_not_be_included");
+  if (boundary.chunk_text_included !== false) blockers.push("chunk_text_must_not_be_included");
+  if (boundary.notebooklm_answers_included !== false) blockers.push("notebooklm_answers_must_not_be_included");
+  if (boundary.secrets_or_session_included !== false) blockers.push("secrets_or_session_must_not_be_included");
+  if (boundary.runtime_absolute_paths_included !== false) blockers.push("runtime_absolute_paths_must_not_be_included");
+  const sources = projectionArrayField(manifest, "sources", blockers);
+  const retrievalUnits = projectionArrayField(manifest, "retrieval_units", blockers);
+  const graphBindings = projectionArrayField(manifest, "graph_bindings", blockers);
+  const lensProfiles = projectionArrayField(manifest, "lens_profiles", blockers);
+  if (!isSafeProjectionId(manifest?.manifest_id)) blockers.push("manifest_id_unsafe");
+  if (manifest?.generated_at_utc && !SAFE_RAG_TIMESTAMP_PATTERN.test(manifest.generated_at_utc)) {
+    blockers.push("generated_at_utc_unsafe");
+  }
+  if (manifest?.freshness?.graph_export_id && !isSafeProjectionId(manifest.freshness.graph_export_id)) {
+    blockers.push("freshness_graph_export_id_unsafe");
+  }
+  if (
+    manifest?.freshness?.graph_generated_at_utc &&
+    !SAFE_RAG_TIMESTAMP_PATTERN.test(manifest.freshness.graph_generated_at_utc)
+  ) {
+    blockers.push("freshness_graph_generated_at_utc_unsafe");
+  }
+  if (manifest?.freshness?.graph_source_hash && !isSafeProjectionId(manifest.freshness.graph_source_hash)) {
+    blockers.push("freshness_graph_source_hash_unsafe");
+  }
+  for (const profile of lensProfiles) {
+    if (!profile || typeof profile !== "object" || Array.isArray(profile)) {
+      blockers.push("lens_profile_must_be_object");
+      continue;
+    }
+    if (!isSafeProjectionId(profile.lens_id)) blockers.push("lens_profile_id_unsafe");
+    for (const nodeType of projectionArrayField(profile, "node_types", blockers, { required: false })) {
+      if (!NODE_TYPES.includes(nodeType)) blockers.push("lens_profile_unknown_node_type");
+    }
+    for (const relationType of projectionArrayField(profile, "relation_types", blockers, { required: false })) {
+      if (!RELATION_TYPES.includes(relationType)) blockers.push("lens_profile_unknown_relation_type");
+    }
+  }
+  for (const source of sources) {
+    if (!source || typeof source !== "object" || Array.isArray(source)) {
+      blockers.push("source_must_be_object");
+      continue;
+    }
+    if (!isSafeProjectionId(source.source_handle)) blockers.push("source_handle_unsafe");
+    if (!isSafeProjectionRef(source.storage_locator)) {
+      blockers.push("unsafe_source_locator");
+    }
+  }
+  const sourceHandles = new Set(sources.map((source) => source?.source_handle).filter(Boolean));
+  for (const unit of retrievalUnits) {
+    if (!unit || typeof unit !== "object" || Array.isArray(unit)) {
+      blockers.push("retrieval_unit_must_be_object");
+      continue;
+    }
+    if (!isSafeProjectionUnitRef(unit.unit_ref)) blockers.push("retrieval_unit_ref_unsafe");
+    if (!isSafeProjectionRef(unit.graph_node_ref)) blockers.push("retrieval_unit_graph_node_ref_unsafe");
+    if (!isSafeProjectionId(unit.node_type) || !NODE_TYPES.includes(unit.node_type)) blockers.push("retrieval_unit_unknown_node_type");
+    if (!Object.hasOwn(CLAIM_STRENGTH, unit.claim_ceiling ?? "unknown")) blockers.push("retrieval_unit_unknown_claim_ceiling");
+    if (unit.retrieval?.status && !isSafeProjectionId(unit.retrieval.status)) blockers.push("retrieval_unit_status_unsafe");
+    if (unit.retrieval?.blocker_code && !isSafeProjectionId(unit.retrieval.blocker_code)) {
+      blockers.push("retrieval_unit_blocker_code_unsafe");
+    }
+    const unitSourceHandles = projectionArrayField(unit, "source_handles", blockers, { required: false });
+    for (const handle of unitSourceHandles) {
+      if (!isSafeProjectionId(handle)) {
+        blockers.push("retrieval_unit_source_handle_unsafe");
+        continue;
+      }
+      if (!sourceHandles.has(handle)) {
+        blockers.push("retrieval_unit_unknown_source");
+      }
+    }
+  }
+  for (const binding of graphBindings) {
+    if (!binding || typeof binding !== "object" || Array.isArray(binding)) {
+      blockers.push("graph_binding_must_be_object");
+      continue;
+    }
+    if (!isSafeProjectionId(binding.binding_ref)) blockers.push("graph_binding_ref_unsafe");
+    if (!isSafeProjectionRef(binding.from_ref)) blockers.push("graph_binding_from_ref_unsafe");
+    if (!isSafeProjectionRef(binding.to_ref)) blockers.push("graph_binding_to_ref_unsafe");
+    if (!RELATION_TYPES.includes(binding.relation_type)) blockers.push("graph_binding_unknown_relation_type");
+  }
+  blockers.push(...findUnsafeProjectionValues(manifest));
+  return {
+    status: blockers.length === 0 ? "pass" : "blocked",
+    blockers: [...new Set(blockers)].sort(),
+  };
+}
+
+function buildRagProjection(loadedManifests) {
+  const manifestRefs = [];
+  const lensProfilesById = new Map();
+  const overlaysByNode = new Map();
+  let retrievalUnitCount = 0;
+  let blockedUnitCount = 0;
+  const allSourceHandles = new Set();
+
+  for (const { manifest_ref: manifestRef, manifest } of loadedManifests) {
+    manifestRefs.push({
+      manifest_ref: manifestRef,
+      manifest_id: manifest.manifest_id,
+      generated_at_utc: manifest.generated_at_utc ?? null,
+      freshness: {
+        graph_export_id: manifest.freshness?.graph_export_id ?? null,
+        graph_generated_at_utc: manifest.freshness?.graph_generated_at_utc ?? null,
+        graph_source_hash: manifest.freshness?.graph_source_hash ?? null,
+      },
+      source_count: manifest.sources.length,
+      retrieval_unit_count: manifest.retrieval_units.length,
+      graph_binding_count: manifest.graph_bindings.length,
+    });
+    for (const profile of manifest.lens_profiles ?? []) {
+      if (profile?.lens_id && !lensProfilesById.has(profile.lens_id)) {
+        lensProfilesById.set(profile.lens_id, {
+          lens_id: profile.lens_id,
+          title: profile.lens_id,
+          node_types: [...new Set(profile.node_types ?? [])].sort(),
+          relation_types: [...new Set(profile.relation_types ?? [])].sort(),
+        });
+      }
+    }
+    for (const unit of manifest.retrieval_units ?? []) {
+      retrievalUnitCount += 1;
+      const sourceHandles = [...new Set(unit.source_handles ?? [])].sort();
+      sourceHandles.forEach((handle) => allSourceHandles.add(handle));
+      const answerEligible = isRagUnitAnswerEligible(unit);
+      if (!answerEligible) blockedUnitCount += 1;
+      const lensProfileIds = lensIdsForRagUnit(unit, manifest.lens_profiles ?? []);
+      const overlay = overlaysByNode.get(unit.graph_node_ref) ?? {
+        node_ref: unit.graph_node_ref,
+        manifest_ids: new Set(),
+        source_handles: new Set(),
+        lens_profile_ids: new Set(),
+        claim_ceilings: [],
+        retrieval_statuses: new Set(),
+        allowed_for_retrieval: false,
+        blocked_reason_codes: new Set(),
+        payload_state: "not_in_manifest",
+      };
+      overlay.manifest_ids.add(manifest.manifest_id);
+      sourceHandles.forEach((handle) => overlay.source_handles.add(handle));
+      lensProfileIds.forEach((lensId) => overlay.lens_profile_ids.add(lensId));
+      overlay.claim_ceilings.push(unit.claim_ceiling ?? "unknown");
+      overlay.retrieval_statuses.add(unit.retrieval?.status ?? "unknown");
+      overlay.allowed_for_retrieval ||= answerEligible;
+      if (unit.retrieval?.blocker_code) overlay.blocked_reason_codes.add(unit.retrieval.blocker_code);
+      overlaysByNode.set(unit.graph_node_ref, overlay);
+    }
+  }
+
+  const nodeOverlays = [...overlaysByNode.values()]
+    .map((overlay) => {
+      const sourceHandles = [...overlay.source_handles].sort();
+      const allowed = overlay.allowed_for_retrieval;
+      return {
+        node_ref: overlay.node_ref,
+        manifest_ids: [...overlay.manifest_ids].sort(),
+        lens_profile_ids: [...overlay.lens_profile_ids].sort(),
+        claim_ceiling: weakestClaimCeiling(overlay.claim_ceilings),
+        retrieval_status: [...overlay.retrieval_statuses].sort().join("+"),
+        allowed_for_retrieval: allowed,
+        readiness: ragReadinessForOverlay({ allowed, sourceHandles, blockedReasonCodes: overlay.blocked_reason_codes }),
+        source_handle_count: sourceHandles.length,
+        payload_state: overlay.payload_state,
+        blocked_reason_codes: [...overlay.blocked_reason_codes].sort(),
+      };
+    })
+    .sort((left, right) => left.node_ref.localeCompare(right.node_ref));
+
+  return {
+    schema_version: KNOWLEDGE_GRAPH_RAG_PROJECTION_SCHEMA_VERSION,
+    kind: "knowledge_graph_rag_projection",
+    status: "metadata_only",
+    manifest_refs: manifestRefs.sort((left, right) => left.manifest_ref.localeCompare(right.manifest_ref)),
+    lens_profiles: [...lensProfilesById.values()].sort((left, right) => left.lens_id.localeCompare(right.lens_id)),
+    node_overlays: nodeOverlays,
+    node_overlay_count: nodeOverlays.length,
+    retrieval_unit_count: retrievalUnitCount,
+    blocked_unit_count: blockedUnitCount,
+    source_handle_count: allSourceHandles.size,
+    matched_node_count: 0,
+    unmatched_node_refs: [],
+    readiness_counts: {},
+    boundary: {
+      metadata_only: true,
+      no_source_text_loaded: true,
+      no_chunk_text_loaded: true,
+      no_notebooklm_answers: true,
+      no_vector_search: true,
+      no_private_payloads: true,
+      projection_is_not_answer: true,
+    },
+  };
+}
+
+function applyRagProjectionToNodes(nodes, ragProjection) {
+  if (!ragProjection) return;
+  const matched = [];
+  const unmatched = [];
+  for (const overlay of ragProjection.node_overlays) {
+    const node = nodes.get(overlay.node_ref);
+    if (!node) {
+      unmatched.push(overlay.node_ref);
+      continue;
+    }
+    node.rag = {
+      manifest_ids: overlay.manifest_ids,
+      lens_profile_ids: overlay.lens_profile_ids,
+      claim_ceiling: overlay.claim_ceiling,
+      retrieval_status: overlay.retrieval_status,
+      allowed_for_retrieval: overlay.allowed_for_retrieval,
+      readiness: overlay.readiness,
+      source_handle_count: overlay.source_handle_count,
+      payload_state: overlay.payload_state,
+      blocked_reason_codes: overlay.blocked_reason_codes,
+    };
+    matched.push(overlay.node_ref);
+  }
+  ragProjection.matched_node_count = matched.length;
+  ragProjection.unmatched_node_refs = unmatched.sort();
+}
+
+function finalizeRagProjectionForGraph(ragProjection) {
+  if (!ragProjection) return;
+  const counts = {};
+  for (const overlay of ragProjection.node_overlays) {
+    counts[overlay.readiness] = (counts[overlay.readiness] ?? 0) + 1;
+  }
+  ragProjection.readiness_counts = counts;
+}
+
+async function loadSourceSliceProjection({ repoRoot, sourceSliceTriageRegisterRefs, sourceSliceReviewQueueRefs }) {
+  if (sourceSliceTriageRegisterRefs.length === 0 && sourceSliceReviewQueueRefs.length === 0) {
+    return null;
+  }
+  const loadedRegisters = [];
+  for (const rawRef of sourceSliceTriageRegisterRefs) {
+    const triageRegisterRef = safeSourceSliceTriageRegisterRef(rawRef);
+    const registerPath = path.join(repoRoot, triageRegisterRef);
+    if (!(await pathExists(registerPath))) {
+      throw new Error(`explicit --source-slice-triage-register-ref was not found: ${triageRegisterRef}`);
+    }
+    const register = await readJson(registerPath);
+    const validation = validateSourceSliceTriageRegisterForGraphProjection(register);
+    if (validation.status !== "pass") {
+      throw new Error(`source_slice_triage_register_invalid:${triageRegisterRef}:${validation.blockers.join(",")}`);
+    }
+    loadedRegisters.push({ triage_register_ref: triageRegisterRef, register, validation });
+  }
+
+  const loadedQueues = [];
+  for (const rawRef of sourceSliceReviewQueueRefs) {
+    const reviewQueueRef = safeSourceSliceReviewQueueRef(rawRef);
+    const queuePath = path.join(repoRoot, reviewQueueRef);
+    if (!(await pathExists(queuePath))) {
+      throw new Error(`explicit --source-slice-review-queue-ref was not found: ${reviewQueueRef}`);
+    }
+    const queue = await readJson(queuePath);
+    const validation = validateSourceSliceReviewQueueForGraphProjection(queue);
+    if (validation.status !== "pass") {
+      throw new Error(`source_slice_review_queue_invalid:${reviewQueueRef}:${validation.blockers.join(",")}`);
+    }
+    loadedQueues.push({ review_queue_ref: reviewQueueRef, queue, validation });
+  }
+
+  return buildSourceSliceProjection({ loadedRegisters, loadedQueues });
+}
+
+function validateSourceSliceTriageRegisterForGraphProjection(register) {
+  const blockers = [];
+  if (register?.schema_version !== SOURCE_SLICE_TRIAGE_REGISTER_SCHEMA_VERSION) blockers.push("schema_version_mismatch");
+  if (register?.kind !== "source_slice_triage_register") blockers.push("kind_must_be_source_slice_triage_register");
+  if (!isSafeProjectionId(register?.register_id)) blockers.push("register_id_unsafe");
+  const boundary = register?.boundary ?? {};
+  if (boundary.metadata_only !== true) blockers.push("boundary_metadata_only_must_be_true");
+  if (boundary.source_payloads_included !== false) blockers.push("source_payloads_must_not_be_included");
+  if (boundary.notebooklm_answers_included !== false) blockers.push("notebooklm_answers_must_not_be_included");
+  if (boundary.secrets_or_session_included !== false) blockers.push("secrets_or_session_must_not_be_included");
+  if (boundary.runtime_absolute_paths_included !== false) blockers.push("runtime_absolute_paths_must_not_be_included");
+  if (boundary.register_is_not_owner_approval !== true) blockers.push("register_must_not_be_owner_approval");
+  if (boundary.register_applies_no_source_text_decisions !== true) blockers.push("register_must_apply_no_source_text_decisions");
+  if (boundary.source_text_retrieval_allowed !== false) blockers.push("source_text_retrieval_must_not_be_allowed");
+  if (boundary.index_build_allowed !== false) blockers.push("index_build_must_not_be_allowed");
+
+  const standingPolicy = register?.triage_policy?.standing_owner_policy ?? {};
+  const triagePolicy = register?.triage_policy ?? {};
+  const grants = standingPolicy.grants ?? {};
+  if (triagePolicy.metadata_knowledge_registration_allowed !== true) {
+    blockers.push("triage_policy_metadata_registration_must_be_allowed");
+  }
+  if (triagePolicy.register_is_not_owner_approval !== true) {
+    blockers.push("triage_policy_must_not_be_owner_approval");
+  }
+  if (triagePolicy.source_text_retrieval_allowed !== false) {
+    blockers.push("triage_policy_source_text_must_not_be_allowed");
+  }
+  if (triagePolicy.index_build_allowed !== false) {
+    blockers.push("triage_policy_index_build_must_not_be_allowed");
+  }
+  if (triagePolicy.notebooklm_packet_membership_allowed !== false) {
+    blockers.push("triage_policy_notebooklm_packet_must_not_be_allowed");
+  }
+  if (triagePolicy.public_canon_promotion_allowed !== false) {
+    blockers.push("triage_policy_public_canon_must_not_be_allowed");
+  }
+  if (standingPolicy.owner_defined_criteria_are_policy !== true) {
+    blockers.push("standing_policy_owner_criteria_must_be_policy");
+  }
+  if (standingPolicy.auto_register_passed_metadata !== true) {
+    blockers.push("standing_policy_auto_register_metadata_must_be_true");
+  }
+  if (standingPolicy.stronger_permissions_default_false !== true) {
+    blockers.push("standing_policy_stronger_permissions_default_false_required");
+  }
+  if (grants.metadata_knowledge !== true) blockers.push("standing_policy_metadata_knowledge_must_be_granted");
+  if (grants.source_text_retrieval !== false) blockers.push("standing_policy_source_text_must_not_be_granted");
+  if (grants.index_build !== false) blockers.push("standing_policy_index_build_must_not_be_granted");
+  if (grants.notebooklm_packet !== false) blockers.push("standing_policy_notebooklm_packet_must_not_be_granted");
+  if (grants.public_canon !== false) blockers.push("standing_policy_public_canon_must_not_be_granted");
+
+  for (const field of ["registered_items", "owner_review_items", "blocked_items"]) {
+    for (const item of projectionArrayField(register, field, blockers, { required: false })) {
+      validateSourceSliceTriageItemForGraphProjection(item, field, blockers);
+    }
+  }
+  blockers.push(...findUnsafeProjectionValues(register));
+  return {
+    status: blockers.length === 0 ? "pass" : "blocked",
+    blockers: [...new Set(blockers)].sort(),
+  };
+}
+
+function validateSourceSliceTriageItemForGraphProjection(item, field, blockers) {
+  if (!item || typeof item !== "object" || Array.isArray(item)) {
+    blockers.push(`${field}_item_must_be_object`);
+    return;
+  }
+  if (!isSafeProjectionId(item.triage_item_ref)) blockers.push(`${field}_triage_item_ref_unsafe`);
+  if (!isSafeProjectionId(item.source_slice_ref)) blockers.push(`${field}_source_slice_ref_unsafe`);
+  if (!isSafeProjectionId(item.source_handle)) blockers.push(`${field}_source_handle_unsafe`);
+  if (!isSafeProjectionRef(item.source_locator_ref)) blockers.push(`${field}_source_locator_ref_unsafe`);
+  if (!Object.hasOwn(CLAIM_STRENGTH, item.claim_ceiling ?? "unknown")) blockers.push(`${field}_claim_ceiling_unknown`);
+  for (const nodeRef of projectionArrayField(item, "covered_graph_node_refs", blockers, { required: false })) {
+    if (!isSafeProjectionRef(nodeRef)) blockers.push(`${field}_covered_graph_node_ref_unsafe`);
+  }
+  for (const code of projectionArrayField(item, "blocker_codes", blockers, { required: false })) {
+    if (!isSafeProjectionId(code)) blockers.push(`${field}_blocker_code_unsafe`);
+  }
+  const result = item.criteria_result ?? {};
+  if (result.route && !isSafeProjectionId(result.route)) blockers.push(`${field}_criteria_route_unsafe`);
+  if (result.registration_scope && !isSafeProjectionId(result.registration_scope)) {
+    blockers.push(`${field}_registration_scope_unsafe`);
+  }
+  const boundary = result.boundary_contract ?? {};
+  if (boundary.metadata_only !== true) blockers.push(`${field}_boundary_metadata_only_must_be_true`);
+  if (boundary.allowed_for_source_text_retrieval !== false) {
+    blockers.push(`${field}_source_text_retrieval_must_not_be_allowed`);
+  }
+  if (boundary.allowed_for_index_build !== false) blockers.push(`${field}_index_build_must_not_be_allowed`);
+  if (boundary.allowed_for_notebooklm_packet !== false) blockers.push(`${field}_notebooklm_packet_must_not_be_allowed`);
+  if (boundary.applied_owner_decision !== false) blockers.push(`${field}_applied_owner_decision_must_be_false`);
+  if (boundary.public_canon_promotion_allowed !== false) blockers.push(`${field}_public_canon_must_not_be_allowed`);
+}
+
+function validateSourceSliceReviewQueueForGraphProjection(queue) {
+  const blockers = [];
+  if (queue?.schema_version !== SOURCE_SLICE_REVIEW_QUEUE_SCHEMA_VERSION) blockers.push("schema_version_mismatch");
+  if (queue?.kind !== "source_slice_review_queue") blockers.push("kind_must_be_source_slice_review_queue");
+  if (!isSafeProjectionId(queue?.queue_id)) blockers.push("queue_id_unsafe");
+  const boundary = queue?.boundary ?? {};
+  if (boundary.metadata_only !== true) blockers.push("boundary_metadata_only_must_be_true");
+  if (boundary.source_payloads_included !== false) blockers.push("source_payloads_must_not_be_included");
+  if (boundary.notebooklm_answers_included !== false) blockers.push("notebooklm_answers_must_not_be_included");
+  if (boundary.secrets_or_session_included !== false) blockers.push("secrets_or_session_must_not_be_included");
+  if (boundary.runtime_absolute_paths_included !== false) blockers.push("runtime_absolute_paths_must_not_be_included");
+  if (boundary.queue_is_not_owner_approval !== true) blockers.push("queue_must_not_be_owner_approval");
+  if (boundary.queue_applies_no_decisions !== true) blockers.push("queue_must_apply_no_decisions");
+  if (boundary.source_text_retrieval_allowed !== false) blockers.push("source_text_retrieval_must_not_be_allowed");
+  if (boundary.index_build_allowed !== false) blockers.push("index_build_must_not_be_allowed");
+  const reviewPolicy = queue?.review_policy ?? {};
+  if (reviewPolicy.metadata_only !== true) blockers.push("review_policy_metadata_only_must_be_true");
+  if (reviewPolicy.queue_is_not_owner_approval !== true) blockers.push("review_policy_must_not_be_owner_approval");
+  if (reviewPolicy.queue_applies_no_decisions !== true) blockers.push("review_policy_must_apply_no_decisions");
+  if (reviewPolicy.source_text_retrieval_allowed !== false) {
+    blockers.push("review_policy_source_text_must_not_be_allowed");
+  }
+  if (reviewPolicy.index_build_allowed !== false) blockers.push("review_policy_index_build_must_not_be_allowed");
+  for (const item of projectionArrayField(queue, "items", blockers, { required: false })) {
+    validateSourceSliceReviewItemForGraphProjection(item, blockers);
+  }
+  blockers.push(...findUnsafeProjectionValues(queue));
+  return {
+    status: blockers.length === 0 ? "pass" : "blocked",
+    blockers: [...new Set(blockers)].sort(),
+  };
+}
+
+function validateSourceSliceReviewItemForGraphProjection(item, blockers) {
+  if (!item || typeof item !== "object" || Array.isArray(item)) {
+    blockers.push("review_item_must_be_object");
+    return;
+  }
+  if (!isSafeProjectionId(item.review_item_ref)) blockers.push("review_item_ref_unsafe");
+  if (!isSafeProjectionId(item.source_slice_ref)) blockers.push("review_source_slice_ref_unsafe");
+  if (!isSafeProjectionId(item.source_handle)) blockers.push("review_source_handle_unsafe");
+  if (!isSafeProjectionRef(item.source_locator_ref)) blockers.push("review_source_locator_ref_unsafe");
+  if (!Object.hasOwn(CLAIM_STRENGTH, item.claim_ceiling ?? "unknown")) blockers.push("review_claim_ceiling_unknown");
+  for (const nodeRef of projectionArrayField(item, "covered_graph_node_refs", blockers, { required: false })) {
+    if (!isSafeProjectionRef(nodeRef)) blockers.push("review_covered_graph_node_ref_unsafe");
+  }
+  const decision = item.decision ?? {};
+  if (decision.applied_decision !== "none") blockers.push("review_applied_decision_must_be_none");
+  if (decision.owner_approval_granted !== false) blockers.push("review_owner_approval_must_not_be_granted");
+  if (decision.source_text_retrieval_allowed !== false) blockers.push("review_source_text_retrieval_must_not_be_allowed");
+  if (decision.index_build_allowed !== false) blockers.push("review_index_build_must_not_be_allowed");
+}
+
+function buildSourceSliceProjection({ loadedRegisters, loadedQueues }) {
+  const overlaysByNode = new Map();
+  const triageRegisterRefs = loadedRegisters.map(({ triage_register_ref: triageRegisterRef, register }) => ({
+    triage_register_ref: triageRegisterRef,
+    register_id: register.register_id,
+    card_count: register.counts?.card_count ?? 0,
+    registered_count: register.counts?.registered_count ?? 0,
+    owner_review_count: register.counts?.owner_review_count ?? 0,
+    blocked_count: register.counts?.blocked_count ?? 0,
+    standing_owner_policy_ref: register.triage_policy?.standing_owner_policy?.policy_ref ?? null,
+  }));
+  const reviewQueueRefs = loadedQueues.map(({ review_queue_ref: reviewQueueRef, queue }) => ({
+    review_queue_ref: reviewQueueRef,
+    queue_id: queue.queue_id,
+    card_count: queue.counts?.card_count ?? 0,
+    item_count: queue.counts?.item_count ?? 0,
+  }));
+
+  for (const { register } of loadedRegisters) {
+    for (const item of register.registered_items ?? []) {
+      addSourceSliceProjectionItem(overlaysByNode, item, "registered_metadata_knowledge");
+    }
+    for (const item of register.owner_review_items ?? []) {
+      addSourceSliceProjectionItem(overlaysByNode, item, "owner_review_required");
+    }
+    for (const item of register.blocked_items ?? []) {
+      addSourceSliceProjectionItem(overlaysByNode, item, "blocked_unsafe_source_locator");
+    }
+  }
+  for (const { queue } of loadedQueues) {
+    for (const item of queue.items ?? []) {
+      addSourceSliceReviewQueueProjectionItem(overlaysByNode, item);
+    }
+  }
+
+  const nodeOverlays = [...overlaysByNode.values()]
+    .map((overlay) => {
+      const sourceHandles = [...overlay.source_handles].sort();
+      const triageRoutes = [...overlay.triage_routes].sort();
+      const registrationScopes = [...overlay.registration_scopes].sort();
+      const strongerPermissionsDefaultFalse = overlay.stronger_permissions_default_false_count > 0;
+      return {
+        node_ref: overlay.node_ref,
+        source_slice_count: overlay.source_slice_refs.size,
+        source_handle_count: sourceHandles.length,
+        registered_metadata_count: overlay.registered_metadata_count,
+        owner_review_count: overlay.owner_review_count,
+        blocked_count: overlay.blocked_count,
+        review_queue_item_count: overlay.review_queue_item_count,
+        registration_status: sourceSliceRegistrationStatus(overlay),
+        triage_routes: triageRoutes,
+        registration_scopes: registrationScopes,
+        claim_ceiling: weakestClaimCeiling(overlay.claim_ceilings),
+        stronger_permission_state: strongerPermissionsDefaultFalse
+          ? "metadata_registered_stronger_permissions_default_false"
+          : "not_applicable",
+        stronger_permissions_default_false: strongerPermissionsDefaultFalse,
+      };
+    })
+    .sort((left, right) => left.node_ref.localeCompare(right.node_ref));
+
+  const totals = nodeOverlays.reduce(
+    (acc, overlay) => {
+      acc.source_slice_count += overlay.source_slice_count;
+      acc.registered_metadata_count += overlay.registered_metadata_count;
+      acc.owner_review_count += overlay.owner_review_count;
+      acc.blocked_count += overlay.blocked_count;
+      acc.review_queue_item_count += overlay.review_queue_item_count;
+      if (overlay.stronger_permissions_default_false) acc.stronger_permissions_default_false_count += 1;
+      return acc;
+    },
+    {
+      source_slice_count: 0,
+      registered_metadata_count: 0,
+      owner_review_count: 0,
+      blocked_count: 0,
+      review_queue_item_count: 0,
+      stronger_permissions_default_false_count: 0,
+    },
+  );
+
+  return {
+    schema_version: KNOWLEDGE_GRAPH_SOURCE_SLICE_PROJECTION_SCHEMA_VERSION,
+    kind: "knowledge_graph_source_slice_projection",
+    status: "metadata_only",
+    triage_register_refs: triageRegisterRefs.sort((left, right) =>
+      left.triage_register_ref.localeCompare(right.triage_register_ref),
+    ),
+    review_queue_refs: reviewQueueRefs.sort((left, right) => left.review_queue_ref.localeCompare(right.review_queue_ref)),
+    node_overlays: nodeOverlays,
+    node_overlay_count: nodeOverlays.length,
+    totals,
+    registration_status_counts: {},
+    matched_node_count: 0,
+    unmatched_node_refs: [],
+    boundary: {
+      metadata_only: true,
+      no_source_payloads: true,
+      no_source_text_loaded: true,
+      no_index_build: true,
+      no_notebooklm_answers: true,
+      no_owner_approval_mutation: true,
+      no_public_canon_promotion: true,
+      projection_is_not_answer: true,
+    },
+  };
+}
+
+function addSourceSliceProjectionItem(overlaysByNode, item, fallbackRoute) {
+  const route = item.criteria_result?.route ?? fallbackRoute;
+  for (const nodeRef of item.covered_graph_node_refs ?? []) {
+    const overlay = sourceSliceOverlayFor(overlaysByNode, nodeRef);
+    overlay.source_slice_refs.add(item.source_slice_ref);
+    overlay.source_handles.add(item.source_handle);
+    overlay.triage_routes.add(route);
+    if (item.criteria_result?.registration_scope) overlay.registration_scopes.add(item.criteria_result.registration_scope);
+    overlay.claim_ceilings.push(item.claim_ceiling ?? "unknown");
+    if (route === "registered_metadata_knowledge") overlay.registered_metadata_count += 1;
+    else if (route === "blocked_unsafe_source_locator") overlay.blocked_count += 1;
+    else overlay.owner_review_count += 1;
+    if (sourceSliceItemHasStrongerPermissionsDefaultFalse(item)) {
+      overlay.stronger_permissions_default_false_count += 1;
+    }
+  }
+}
+
+function addSourceSliceReviewQueueProjectionItem(overlaysByNode, item) {
+  for (const nodeRef of item.covered_graph_node_refs ?? []) {
+    const overlay = sourceSliceOverlayFor(overlaysByNode, nodeRef);
+    overlay.source_slice_refs.add(item.source_slice_ref);
+    overlay.source_handles.add(item.source_handle);
+    overlay.triage_routes.add(item.triage_route ?? "owner_review_required");
+    overlay.claim_ceilings.push(item.claim_ceiling ?? "observed");
+    overlay.review_queue_item_count += 1;
+    if (reviewQueueItemHasStrongerPermissionsDefaultFalse(item)) {
+      overlay.stronger_permissions_default_false_count += 1;
+    }
+  }
+}
+
+function sourceSliceOverlayFor(overlaysByNode, nodeRef) {
+  const existing = overlaysByNode.get(nodeRef);
+  if (existing) return existing;
+  const overlay = {
+    node_ref: nodeRef,
+    source_slice_refs: new Set(),
+    source_handles: new Set(),
+    triage_routes: new Set(),
+    registration_scopes: new Set(),
+    claim_ceilings: [],
+    registered_metadata_count: 0,
+    owner_review_count: 0,
+    blocked_count: 0,
+    review_queue_item_count: 0,
+    stronger_permissions_default_false_count: 0,
+  };
+  overlaysByNode.set(nodeRef, overlay);
+  return overlay;
+}
+
+function sourceSliceItemHasStrongerPermissionsDefaultFalse(item) {
+  const boundary = item.criteria_result?.boundary_contract ?? {};
+  return (
+    boundary.allowed_for_source_text_retrieval === false ||
+    boundary.allowed_for_index_build === false ||
+    boundary.allowed_for_notebooklm_packet === false ||
+    boundary.public_canon_promotion_allowed === false
+  );
+}
+
+function reviewQueueItemHasStrongerPermissionsDefaultFalse(item) {
+  const decision = item.decision ?? {};
+  return decision.source_text_retrieval_allowed === false || decision.index_build_allowed === false;
+}
+
+function sourceSliceRegistrationStatus(overlay) {
+  const activeKinds = [
+    overlay.registered_metadata_count > 0 ? "registered" : null,
+    overlay.owner_review_count > 0 || overlay.review_queue_item_count > 0 ? "owner_review" : null,
+    overlay.blocked_count > 0 ? "blocked" : null,
+  ].filter(Boolean);
+  if (activeKinds.length > 1) return "mixed";
+  if (overlay.blocked_count > 0) return "blocked_unsafe_source_locator";
+  if (overlay.owner_review_count > 0 || overlay.review_queue_item_count > 0) return "owner_review_required";
+  if (overlay.registered_metadata_count > 0) return "registered_metadata_knowledge";
+  return "not_in_triage_register";
+}
+
+function applySourceSliceProjectionToNodes(nodes, sourceSliceProjection) {
+  if (!sourceSliceProjection) return;
+  const matched = [];
+  const unmatched = [];
+  for (const overlay of sourceSliceProjection.node_overlays) {
+    const node = nodes.get(overlay.node_ref);
+    if (!node) {
+      unmatched.push(overlay.node_ref);
+      continue;
+    }
+    node.source_slice = {
+      source_slice_count: overlay.source_slice_count,
+      source_handle_count: overlay.source_handle_count,
+      registered_metadata_count: overlay.registered_metadata_count,
+      owner_review_count: overlay.owner_review_count,
+      blocked_count: overlay.blocked_count,
+      review_queue_item_count: overlay.review_queue_item_count,
+      registration_status: overlay.registration_status,
+      triage_routes: overlay.triage_routes,
+      registration_scopes: overlay.registration_scopes,
+      claim_ceiling: overlay.claim_ceiling,
+      stronger_permission_state: overlay.stronger_permission_state,
+      stronger_permissions_default_false: overlay.stronger_permissions_default_false,
+    };
+    matched.push(overlay.node_ref);
+  }
+  sourceSliceProjection.matched_node_count = matched.length;
+  sourceSliceProjection.unmatched_node_refs = unmatched.sort();
+}
+
+function finalizeSourceSliceProjectionForGraph(sourceSliceProjection) {
+  if (!sourceSliceProjection) return;
+  const counts = {};
+  for (const overlay of sourceSliceProjection.node_overlays) {
+    counts[overlay.registration_status] = (counts[overlay.registration_status] ?? 0) + 1;
+  }
+  sourceSliceProjection.visibility_counts = counts;
+  sourceSliceProjection.registration_status_counts = counts;
+}
+
+function isRagUnitAnswerEligible(unit) {
+  if (unit?.claim_ceiling === "rejected_or_blocked") return false;
+  const retrieval = unit?.retrieval ?? {};
+  if (retrieval.status === "blocked") return false;
+  if (retrieval.allowed_for_retrieval === false) return false;
+  return true;
+}
+
+function lensIdsForRagUnit(unit, lensProfiles) {
+  const matching = [];
+  for (const profile of lensProfiles ?? []) {
+    if (!profile?.lens_id) continue;
+    const nodeTypes = new Set(profile.node_types ?? []);
+    if (nodeTypes.has(unit.node_type)) {
+      matching.push(profile.lens_id);
+    }
+  }
+  return matching.length > 0 ? matching.sort() : ["rag_knowledge_readiness"];
+}
+
+function ragReadinessForOverlay({ allowed, sourceHandles, blockedReasonCodes }) {
+  if (!allowed || blockedReasonCodes.size > 0) return "blocked";
+  if (sourceHandles.length === 0) return "metadata_no_source_handle";
+  return "metadata_answer_ready";
+}
+
+function weakestClaimCeiling(values) {
+  const candidates = values.filter(Boolean);
+  if (candidates.length === 0) return "observed";
+  return candidates.sort((left, right) => (CLAIM_STRENGTH[left] ?? 0) - (CLAIM_STRENGTH[right] ?? 0))[0] ?? "observed";
+}
+
+function projectionArrayField(value, key, blockers, options = {}) {
+  const required = options.required !== false;
+  const child = value?.[key];
+  if (child === undefined || child === null) {
+    if (required) blockers.push(`${key}_must_be_array`);
+    return [];
+  }
+  if (!Array.isArray(child)) {
+    blockers.push(`${key}_must_be_array`);
+    return [];
+  }
+  return child;
+}
+
+function findUnsafeProjectionValues(value, trail = "manifest") {
+  const blockers = [];
+  if (Array.isArray(value)) {
+    value.forEach((item, index) => {
+      blockers.push(...findUnsafeProjectionValues(item, `${trail}[${index}]`));
+    });
+    return blockers;
+  }
+  if (value && typeof value === "object") {
+    for (const [key, child] of Object.entries(value)) {
+      const normalizedKey = key.toLowerCase();
+      if (FORBIDDEN_RAG_PROJECTION_KEYS.has(normalizedKey)) {
+        blockers.push(`forbidden_payload_key:${trail}.${key}`);
+      }
+      if (shouldCheckForbiddenProjectionKeyPattern(key) && FORBIDDEN_RAG_PROJECTION_KEY_PATTERNS.some((pattern) => pattern.test(key))) {
+        blockers.push(`forbidden_payload_key_pattern:${trail}.${key}`);
+      }
+      blockers.push(...findUnsafeProjectionValues(child, `${trail}.${key}`));
+    }
+    return blockers;
+  }
+  if (typeof value !== "string") {
+    return blockers;
+  }
+  if (hasUnsafeProjectionString(value)) {
+    blockers.push(`unsafe_manifest_string:${trail}`);
+  }
+  return blockers;
+}
+
+function shouldCheckForbiddenProjectionKeyPattern(key) {
+  const normalized = String(key ?? "").toLowerCase();
+  if (normalized.endsWith("_included")) return false;
+  if (normalized.endsWith("_allowed")) return false;
+  if (normalized.endsWith("_state")) return false;
+  if (normalized.endsWith("source_text_retrieval")) return false;
+  if (normalized.endsWith("source_text_decisions")) return false;
+  if (normalized.endsWith("index_build")) return false;
+  if (normalized.endsWith("notebooklm_packet")) return false;
+  if (normalized.endsWith("notebooklm_packet_membership")) return false;
+  if (normalized.endsWith("public_canon")) return false;
+  if (normalized.endsWith("public_canon_promotion")) return false;
+  if (normalized === "content_hash_or_null") return false;
+  if (normalized === "token_count_or_null") return false;
+  return true;
+}
+
+function safeRepoRelativeMetadataRef(value) {
+  const ref = normalizeRepoPath(value);
+  if (!isSafeProjectionRef(ref)) {
+    throw new Error(`unsafe repo-relative path: ${value}`);
+  }
+  return ref;
+}
+
+function safeKnowledgeGraphOutputRoot(value) {
+  const ref = normalizeRepoPath(value);
+  if (
+    path.isAbsolute(ref) ||
+    ref.includes("..") ||
+    ref.includes("\\") ||
+    (ref !== "_workspaces/system/knowledge_view" && !ref.startsWith("_workspaces/system/knowledge_view/"))
+  ) {
+    throw new Error("knowledge graph output root must be under _workspaces/system/knowledge_view/");
+  }
+  return ref;
+}
+
+function safeSourceSliceTriageRegisterRef(value) {
+  const ref = safeRepoRelativeMetadataRef(value);
+  if (!/^_workmeta\/[A-Za-z0-9][A-Za-z0-9_.-]{0,80}\/reports\/rag\/source_slice_triage_register\//.test(ref)) {
+    throw new Error(`unsafe source slice triage register ref: ${ref}`);
+  }
+  return ref;
+}
+
+function safeSourceSliceReviewQueueRef(value) {
+  const ref = safeRepoRelativeMetadataRef(value);
+  if (!/^_workmeta\/[A-Za-z0-9][A-Za-z0-9_.-]{0,80}\/reports\/rag\/source_slice_review_queue\//.test(ref)) {
+    throw new Error(`unsafe source slice review queue ref: ${ref}`);
+  }
+  return ref;
+}
+
+function isSafeProjectionId(value) {
+  return typeof value === "string" && SAFE_RAG_ID_PATTERN.test(value) && !hasUnsafeProjectionString(value);
+}
+
+function isSafeProjectionUnitRef(value) {
+  if (typeof value !== "string") return false;
+  if (value.startsWith("graph_node:")) return isSafeProjectionRef(value.slice("graph_node:".length));
+  return isSafeProjectionId(value);
+}
+
+function isSafeProjectionRef(value) {
+  const ref = String(value ?? "");
+  if (!ref || path.isAbsolute(ref) || ref.includes("..")) return false;
+  if (/[A-Za-z]:[\\/]/.test(ref)) return false;
+  if (/\/Users\/|\/Volumes\/|\/private\/|\/var\/folders\//.test(ref)) return false;
+  if (/(^|[/_.-])(secret|token|cookie|credential|session|password|passwd|private_key)([/_.-]|$)/i.test(ref)) {
+    return false;
+  }
+  if (
+    ref.startsWith("_workspaces/") &&
+    !ref.startsWith("_workspaces/system/knowledge_view/") &&
+    !ref.startsWith("_workspaces/system/rag/")
+  ) {
+    return false;
+  }
+  return true;
+}
+
+function hasUnsafeProjectionString(value) {
+  const text = value.trim();
+  if (!text) return false;
+  if (/[A-Za-z]:[\\/]/.test(text)) return true;
+  if (/\/Users\/|\/Volumes\/|\/private\/|\/var\/folders\//.test(text)) return true;
+  if (/(^|[\s/_.-])(secret|token|cookie|credential|session|password|passwd|private_key)([\s/_.-]|$)/i.test(text)) {
+    return true;
+  }
+  return false;
+}
+
 function applyNodeMetricsAndVisuals(node, usageRow, now) {
   const metrics = {
     total_access_count: usageRow?.total_access_count ?? 0,
@@ -972,6 +1928,8 @@ function renderGraphHtml3d(graph) {
     <aside>
       <h1>Soulforge Knowledge Graph</h1>
       <div class="meta">3D 미리보기<br>생성: ${escapeHtml(graph.generated_at_utc)}<br>전체 노드: ${graph.nodes.length} / 전체 선: ${graph.edges.length}<br>출력은 메타데이터 전용이며 권한 판단이 아닙니다.<br><a href="./graph_preview_2d.html">2D 대체 보기 열기</a></div>
+      ${renderRagLensControlsHtml(graph)}
+      ${renderSourceSliceControlsHtml(graph)}
       <details class="rule-panel" id="settingsControls" open>
         <summary>설정 저장</summary>
         <div class="section-body">
@@ -1122,6 +2080,57 @@ function renderGraphHtml3d(graph) {
 </body>
 </html>
 `;
+}
+
+function renderRagLensControlsHtml(graph) {
+  const projection = graph.rag_projection;
+  const profiles = projection?.lens_profiles ?? [];
+  const profileOptions = profiles
+    .map((profile) => `<option value="${escapeHtml(profile.lens_id)}">${escapeHtml(profile.title ?? profile.lens_id)}</option>`)
+    .join("");
+  const disabled = projection ? "" : " disabled";
+  const summary = projection
+    ? `Manifest ${projection.manifest_refs.map((item) => item.manifest_id).join(", ")} 기준. 매칭 노드 ${projection.matched_node_count}, source handle ${projection.source_handle_count}.`
+    : "RAG manifest를 지정하지 않아 렌즈 overlay가 없습니다.";
+  return `
+      <details class="rule-panel" id="ragLensControls" ${projection ? "open" : ""}>
+        <summary>RAG 렌즈</summary>
+        <div class="section-body">
+          <label class="meta" for="ragLensMode">렌즈</label>
+          <select id="ragLensMode"${disabled}>
+            <option value="all">전체 보기</option>
+            ${profileOptions}
+          </select>
+          <label class="check"><input id="ragAnswerReadyOnly" type="checkbox"${disabled}> metadata 답변 가능 노드만</label>
+          <div class="meta" id="ragLensSummary">${escapeHtml(summary)}</div>
+          <div class="meta">RAG 렌즈는 manifest metadata overlay입니다. 원문, chunk, vector, NotebookLM 답변은 이 preview에 포함되지 않습니다.</div>
+        </div>
+      </details>`;
+}
+
+function renderSourceSliceControlsHtml(graph) {
+  const projection = graph.source_slice_projection;
+  const disabled = projection ? "" : " disabled";
+  const totals = projection?.totals ?? {};
+  const summary = projection
+    ? `등록 ${totals.registered_metadata_count ?? 0}, 검토 ${totals.owner_review_count ?? 0}, 차단 ${totals.blocked_count ?? 0}, queue ${totals.review_queue_item_count ?? 0}.`
+    : "source slice triage register를 지정하지 않아 등록 상태 overlay가 없습니다.";
+  return `
+      <details class="rule-panel" id="sourceSliceControls" ${projection ? "open" : ""}>
+        <summary>RAG 등록 상태</summary>
+        <div class="section-body">
+          <label class="meta" for="sourceSliceMode">표시 상태</label>
+          <select id="sourceSliceMode"${disabled}>
+            <option value="all">전체 보기</option>
+            <option value="registered_metadata_knowledge">metadata 등록 노드</option>
+            <option value="owner_review_required">검토 필요 노드</option>
+            <option value="blocked_unsafe_source_locator">차단 노드</option>
+            <option value="stronger_permission_needed">강한 권한 필요 노드</option>
+          </select>
+          <div class="meta" id="sourceSliceSummary">${escapeHtml(summary)}</div>
+          <div class="meta">등록 상태는 source slice triage metadata입니다. public canon, 원문 읽기, index build, NotebookLM 투입 승인이 아닙니다.</div>
+        </div>
+      </details>`;
 }
 
 function renderGraphHtml2d(graph) {
@@ -1491,6 +2500,11 @@ const detectionBridgeCommand = document.getElementById("detectionBridgeCommand")
 const closeDetectionCardButton = document.getElementById("closeDetectionCard");
 const ruleNodeSizeMeaning = document.getElementById("ruleNodeSizeMeaning");
 const ruleComponentHaloMeaning = document.getElementById("ruleComponentHaloMeaning");
+const ragLensMode = document.getElementById("ragLensMode");
+const ragAnswerReadyOnly = document.getElementById("ragAnswerReadyOnly");
+const ragLensSummary = document.getElementById("ragLensSummary");
+const sourceSliceMode = document.getElementById("sourceSliceMode");
+const sourceSliceSummary = document.getElementById("sourceSliceSummary");
 const connectivityEls = {
   components: document.getElementById("metricComponents"),
   isolated: document.getElementById("metricIsolated"),
@@ -1499,6 +2513,14 @@ const connectivityEls = {
   summary: document.getElementById("connectivitySummary"),
 };
 const SETTINGS_STORAGE_KEY = "soulforge.knowledgeGraph3d.settings.v1:" + graph.export_id;
+const RAG_LENS_OPTIONS = new Set(["all", ...((graph.rag_projection?.lens_profiles ?? []).map((profile) => profile.lens_id))]);
+const SOURCE_SLICE_OPTIONS = new Set([
+  "all",
+  "registered_metadata_knowledge",
+  "owner_review_required",
+  "blocked_unsafe_source_locator",
+  "stronger_permission_needed",
+]);
 const NUMBER_SETTING_KEYS = [
   "hotDays",
   "staleDays",
@@ -1516,8 +2538,10 @@ const STRING_SETTING_OPTIONS = {
   nodeSizeMode: new Set(["degree", "usage"]),
   componentHaloStyle: new Set(["glow", "line", "bold"]),
   focusDepth: new Set(["1", "2", "all"]),
+  ragLensMode: RAG_LENS_OPTIONS,
+  sourceSliceMode: SOURCE_SLICE_OPTIONS,
 };
-const BOOLEAN_SETTING_KEYS = ["showComponentHalos", "autoRotate"];
+const BOOLEAN_SETTING_KEYS = ["showComponentHalos", "autoRotate", "ragAnswerReadyOnly"];
 
 const NODE_TYPE_LABELS = {
   agent_run: "실행 기록",
@@ -1588,6 +2612,9 @@ const state = {
   componentShellJitter: 0.12,
   focusDepth: "2",
   autoRotate: false,
+  ragLensMode: "all",
+  ragAnswerReadyOnly: false,
+  sourceSliceMode: "all",
   focusRef: null,
 };
 
@@ -1731,6 +2758,27 @@ function initControls() {
     }
     updateHud();
   });
+  if (ragLensMode) {
+    ragLensMode.value = state.ragLensMode;
+    ragLensMode.addEventListener("change", () => {
+      state.ragLensMode = ragLensMode.value;
+      rebuild();
+    });
+  }
+  if (ragAnswerReadyOnly) {
+    ragAnswerReadyOnly.checked = state.ragAnswerReadyOnly;
+    ragAnswerReadyOnly.addEventListener("change", () => {
+      state.ragAnswerReadyOnly = ragAnswerReadyOnly.checked;
+      rebuild();
+    });
+  }
+  if (sourceSliceMode) {
+    sourceSliceMode.value = state.sourceSliceMode;
+    sourceSliceMode.addEventListener("change", () => {
+      state.sourceSliceMode = sourceSliceMode.value;
+      rebuild();
+    });
+  }
 }
 
 function bindRange(inputId, outputId, stateKey) {
@@ -1873,6 +2921,35 @@ function labelForRelationType(type) {
   return RELATION_TYPE_LABELS[type] ?? type;
 }
 
+function ragNodePassesLens(node) {
+  if (!graph.rag_projection) return true;
+  if (state.ragAnswerReadyOnly && node.rag?.readiness !== "metadata_answer_ready") return false;
+  if (state.ragLensMode === "all") return true;
+  return Boolean(node.rag?.lens_profile_ids?.includes(state.ragLensMode));
+}
+
+function ragEdgePassesLens(edge) {
+  if (!graph.rag_projection || state.ragLensMode === "all") return true;
+  const profile = graph.rag_projection.lens_profiles?.find((item) => item.lens_id === state.ragLensMode);
+  const relationTypes = profile?.relation_types ?? [];
+  return relationTypes.length === 0 || relationTypes.includes(edge.relation_type);
+}
+
+function sourceSliceNodePassesVisibility(node) {
+  if (!graph.source_slice_projection || state.sourceSliceMode === "all") return true;
+  const overlay = node.source_slice;
+  if (!overlay) return false;
+  if (state.sourceSliceMode === "registered_metadata_knowledge") return overlay.registered_metadata_count > 0;
+  if (state.sourceSliceMode === "owner_review_required") {
+    return overlay.owner_review_count > 0 || overlay.review_queue_item_count > 0;
+  }
+  if (state.sourceSliceMode === "blocked_unsafe_source_locator") return overlay.blocked_count > 0;
+  if (state.sourceSliceMode === "stronger_permission_needed") {
+    return Boolean(overlay.stronger_permissions_default_false);
+  }
+  return true;
+}
+
 function rebuild() {
   disposeChildren(graphGroup);
   graphGroup.clear();
@@ -1881,9 +2958,13 @@ function rebuild() {
   edgeVisuals = [];
   componentVisuals = [];
 
-  const nodes = graph.nodes.filter((node) => state.nodeTypes[node.node_type]);
+  const nodes = graph.nodes.filter(
+    (node) => state.nodeTypes[node.node_type] && ragNodePassesLens(node) && sourceSliceNodePassesVisibility(node),
+  );
   const nodeRefs = new Set(nodes.map((node) => node.node_ref));
-  const edges = graph.edges.filter((edge) => state.edgeTypes[edge.relation_type] && nodeRefs.has(edge.from_ref) && nodeRefs.has(edge.to_ref));
+  const edges = graph.edges.filter(
+    (edge) => state.edgeTypes[edge.relation_type] && ragEdgePassesLens(edge) && nodeRefs.has(edge.from_ref) && nodeRefs.has(edge.to_ref),
+  );
   currentVisibleNodes = nodes;
   currentVisibleEdges = edges;
   if (state.focusRef && !nodeRefs.has(state.focusRef)) state.focusRef = null;
@@ -1960,6 +3041,8 @@ function rebuild() {
   applyFocus();
   updateHud();
   updateVisualRules();
+  updateRagLensSummary();
+  updateSourceSliceSummary();
   const detectionCardDebugFields = buildDetectionCardDebugFields();
   window.__soulforgeGraphPreview = {
     mode: "3d",
@@ -1979,6 +3062,13 @@ function rebuild() {
     autoRotate: controls.autoRotate,
     savedSettingsLoaded,
     settingsStorageKey: SETTINGS_STORAGE_KEY,
+    ragProjectionPresent: Boolean(graph.rag_projection),
+    ragLensMode: state.ragLensMode,
+    ragAnswerReadyOnly: state.ragAnswerReadyOnly,
+    ragProjection: graph.rag_projection,
+    sourceSliceProjectionPresent: Boolean(graph.source_slice_projection),
+    sourceSliceMode: state.sourceSliceMode,
+    sourceSliceProjection: graph.source_slice_projection,
     focusRef: state.focusRef,
     contextNodeRef,
     focusDepth: state.focusDepth,
@@ -1994,7 +3084,11 @@ function rebuild() {
 
 function updateHud() {
   const focusText = state.focusRef ? " / 포커스 " + focusedNodeCount + " 노드 / " + focusedEdgeCount + " 선" : "";
-  hud.textContent = "3D 노드 " + visibleNodeCount + " / 선 " + visibleEdgeCount + " / 배치 " + state.layout + " / 회전 " + (controls.autoRotate ? "켜짐" : "꺼짐") + focusText;
+  const ragText = graph.rag_projection ? " / RAG " + (state.ragLensMode === "all" ? "전체" : state.ragLensMode) : "";
+  const sourceSliceText = graph.source_slice_projection
+    ? " / 등록 " + (state.sourceSliceMode === "all" ? "전체" : state.sourceSliceMode)
+    : "";
+  hud.textContent = "3D 노드 " + visibleNodeCount + " / 선 " + visibleEdgeCount + " / 배치 " + state.layout + " / 회전 " + (controls.autoRotate ? "켜짐" : "꺼짐") + ragText + sourceSliceText + focusText;
 }
 
 function updateVisualRules() {
@@ -2011,6 +3105,41 @@ function updateVisualRules() {
   ruleComponentHaloMeaning.textContent = state.showComponentHalos
     ? styleText[state.componentHaloStyle] ?? styleText.glow
     : "현재는 꺼져 있습니다. 덩어리 배경 윤곽을 표시하지 않습니다.";
+}
+
+function updateRagLensSummary() {
+  if (!ragLensSummary) return;
+  if (!graph.rag_projection) {
+    ragLensSummary.textContent = "RAG manifest를 지정하지 않아 렌즈 overlay가 없습니다.";
+    return;
+  }
+  const mode = state.ragLensMode === "all" ? "전체" : state.ragLensMode;
+  const readiness = graph.rag_projection.readiness_counts ?? {};
+  ragLensSummary.textContent =
+    "렌즈 " + mode +
+    " / 보이는 노드 " + visibleNodeCount +
+    " / metadata 답변 가능 " + (readiness.metadata_answer_ready ?? 0) +
+    " / source handle 없음 " + (readiness.metadata_no_source_handle ?? 0) +
+    " / blocked " + (readiness.blocked ?? 0);
+}
+
+function updateSourceSliceSummary() {
+  if (!sourceSliceSummary) return;
+  if (!graph.source_slice_projection) {
+    sourceSliceSummary.textContent = "source slice triage register를 지정하지 않아 등록 상태 overlay가 없습니다.";
+    return;
+  }
+  const totals = graph.source_slice_projection.totals ?? {};
+  const counts = graph.source_slice_projection.visibility_counts ?? graph.source_slice_projection.registration_status_counts ?? {};
+  const mode = state.sourceSliceMode === "all" ? "전체" : state.sourceSliceMode;
+  sourceSliceSummary.textContent =
+    "상태 " + mode +
+    " / 보이는 노드 " + visibleNodeCount +
+    " / metadata 등록 " + (totals.registered_metadata_count ?? 0) +
+    " / 검토 " + (totals.owner_review_count ?? 0) +
+    " / 차단 " + (totals.blocked_count ?? 0) +
+    " / 강한 권한 기본차단 " + (totals.stronger_permissions_default_false_count ?? 0) +
+    " / mixed " + (counts.mixed ?? 0);
 }
 
 function updateConnectivityPanel(nodes, edges, components) {
@@ -2779,6 +3908,8 @@ function formatDetectionCandidate({ node, relationEdges, score, reasons, isSelec
     is_selected: isSelected,
     claim_ceiling: node.trust?.claim_ceiling ?? "unknown",
     lifecycle_status: node.lifecycle?.status ?? "unknown",
+    rag: node.rag ?? null,
+    source_slice: node.source_slice ?? null,
     source_refs: compactDetectionSourceRefs(node.source_refs),
     visible_degree: relationEdges.length,
     relation_type_counts: countByValues(relationEdges.map((edge) => edge.relation_type)),
@@ -2875,6 +4006,35 @@ function missingEvidenceItemsFor({ selectedNodeRef, candidateNodes, relationPath
       "No explicit knowledge-access ledger refs are included, so usage and recency are navigation defaults only.",
     );
   }
+  if (graph.rag_projection && selectedNodeRef && !visibleNodeFor(selectedNodeRef)?.rag) {
+    addMissing(
+      "node_not_in_rag_manifest",
+      "Selected node is not covered by the current RAG manifest overlay, so RAG lens readiness is unknown for this node.",
+      [selectedNodeRef],
+    );
+  }
+  const selectedNode = selectedNodeRef ? visibleNodeFor(selectedNodeRef) : null;
+  if (graph.source_slice_projection && selectedNodeRef && !selectedNode?.source_slice) {
+    addMissing(
+      "node_not_in_source_slice_triage",
+      "Selected node is not covered by the current source-slice triage overlay, so RAG registration status is unknown for this node.",
+      [selectedNodeRef],
+    );
+  }
+  if (selectedNode?.source_slice?.owner_review_count > 0 || selectedNode?.source_slice?.review_queue_item_count > 0) {
+    addMissing(
+      "source_slice_owner_review_pending",
+      "Selected node has source-slice items waiting for owner review before stronger source use.",
+      [selectedNodeRef],
+    );
+  }
+  if (selectedNode?.source_slice?.blocked_count > 0) {
+    addMissing(
+      "source_slice_blocked",
+      "Selected node has blocked source-slice items and must not be indexed or promoted without fixing the blocker.",
+      [selectedNodeRef],
+    );
+  }
   if (!nodeTypes.has("source") || !relationTypes.has("supports")) {
     addMissing(
       "no_source_support_edges",
@@ -2915,6 +4075,26 @@ function nextActionItemsFor({ missingEvidenceItems, candidateNodes, selectedNode
   }
   if (codes.has("no_vector_or_hybrid_retriever")) {
     addAction("keep_metadata_only_until_sourcebound_retrieval", "Keep this card metadata-only; add a separate sourcebound retrieval workflow before any answer generation.");
+  }
+  if (codes.has("node_not_in_rag_manifest")) {
+    addAction("regenerate_rag_manifest_for_scope", "Regenerate or extend the RAG manifest if this node should be part of a RAG lens.");
+  }
+  if (codes.has("node_not_in_source_slice_triage")) {
+    addAction("regenerate_source_slice_triage_for_scope", "Regenerate source slice cards and triage register if this node should show RAG registration status.", [selectedNodeRef]);
+  }
+  if (codes.has("source_slice_owner_review_pending")) {
+    addAction("review_source_slice_hold_items", "Review only the source-slice hold items before granting any stronger source use.", [selectedNodeRef]);
+  }
+  if (codes.has("source_slice_blocked")) {
+    addAction("fix_or_block_source_slice", "Fix the unsafe source locator or keep the source slice blocked; do not build indexes from it.", [selectedNodeRef]);
+  }
+  const selectedNode = selectedNodeRef ? visibleNodeFor(selectedNodeRef) : null;
+  if (selectedNode?.source_slice?.stronger_permissions_default_false) {
+    addAction(
+      "keep_stronger_permissions_separate",
+      "Keep source-text retrieval, index build, NotebookLM packet use, and public canon promotion separate from metadata registration.",
+      [selectedNodeRef],
+    );
   }
   if (codes.has("no_validation_benchmark")) {
     addAction("add_validation_benchmark", "Add a validation or benchmark node before making retrieval quality claims.");
@@ -3016,6 +4196,28 @@ function renderDetectionCandidateItem(candidate) {
       "meta",
       labelForNodeType(candidate.node_type) + " / score " + candidate.score + " / degree " + candidate.visible_degree + " / claim " + candidate.claim_ceiling,
     ),
+    ...(candidate.rag
+      ? [
+          createDetectionElement(
+            "span",
+            "meta",
+            "RAG: " + candidate.rag.readiness + " / lenses " + candidate.rag.lens_profile_ids.join(", ") + " / source handles " + candidate.rag.source_handle_count,
+          ),
+        ]
+      : []),
+    ...(candidate.source_slice
+      ? [
+          createDetectionElement(
+            "span",
+            "meta",
+            "등록: " + candidate.source_slice.registration_status +
+              " / metadata " + candidate.source_slice.registered_metadata_count +
+              " / 검토 " + (candidate.source_slice.owner_review_count + candidate.source_slice.review_queue_item_count) +
+              " / 차단 " + candidate.source_slice.blocked_count +
+              " / 강한 권한 기본차단 " + (candidate.source_slice.stronger_permissions_default_false ? "예" : "아니오"),
+          ),
+        ]
+      : []),
     createDetectionElement("span", "meta", candidate.node_ref),
   );
   return item;
@@ -3209,6 +4411,14 @@ function buildExplorePrompt(node) {
     "- last_access: " + (node.metrics.last_access_timestamp_utc || "none"),
     "- trust: " + node.trust.claim_ceiling,
     "- status: " + node.lifecycle.status,
+    "- rag_readiness: " + (node.rag?.readiness ?? "not_in_manifest"),
+    "- rag_lenses: " + (node.rag?.lens_profile_ids?.join(", ") ?? "none"),
+    "- rag_source_handle_count: " + (node.rag?.source_handle_count ?? 0),
+    "- source_slice_registration_status: " + (node.source_slice?.registration_status ?? "not_in_triage_register"),
+    "- source_slice_registered_metadata_count: " + (node.source_slice?.registered_metadata_count ?? 0),
+    "- source_slice_owner_review_count: " + (node.source_slice ? node.source_slice.owner_review_count + node.source_slice.review_queue_item_count : 0),
+    "- source_slice_blocked_count: " + (node.source_slice?.blocked_count ?? 0),
+    "- source_slice_stronger_permissions_default_false: " + (node.source_slice?.stronger_permissions_default_false ?? false),
     "",
     "현재 보기:",
     "- layout: " + state.layout,
@@ -3425,7 +4635,18 @@ function nodeTooltip(node) {
     "원 크기 기준: " + (node.runtime_node_size_mode === "degree" ? "연결수" : "사용량") + "<br>" +
     "마지막 사용: " + escapeHtmlText(node.metrics.last_access_timestamp_utc || "없음") + "<br>" +
     "신뢰: " + escapeHtmlText(node.trust.claim_ceiling) + "<br>" +
-    "상태: " + escapeHtmlText(node.lifecycle.status);
+    "상태: " + escapeHtmlText(node.lifecycle.status) +
+    sourceSliceTooltipText(node);
+}
+
+function sourceSliceTooltipText(node) {
+  const sourceSlice = node.source_slice;
+  if (!sourceSlice) return "";
+  return "<br>RAG 등록: " + escapeHtmlText(sourceSlice.registration_status) +
+    "<br>metadata 등록: " + sourceSlice.registered_metadata_count +
+    " / 검토: " + (sourceSlice.owner_review_count + sourceSlice.review_queue_item_count) +
+    " / 차단: " + sourceSlice.blocked_count +
+    "<br>강한 권한 기본차단: " + (sourceSlice.stronger_permissions_default_false ? "예" : "아니오");
 }
 
 function resize() {

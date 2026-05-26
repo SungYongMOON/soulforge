@@ -1,0 +1,37 @@
+workflow_id: dual_deep_research_v0
+kind: research_delta_handoff
+schema_version: v0
+status: draft
+handoff_id: "<handoff_id>"
+delta_items:
+  - item_id: "<item_id>"
+    source_bucket: notebooklm_only | codex_only | conflict | gap
+    recommended_handoff: knowledge_wiki_cell_pipeline
+    summary: ""
+    recommended_route: sourcebound_review | knowledge_candidate_triage | wiki_curation_maintenance | knowledge_access_event_capture | owner_decision | none
+    route_hint_is_advisory: true
+    reason: ""
+common_trace_ref: "<comparison_common_bucket_ref>"
+downstream_handoff:
+  party_id: knowledge_wiki_cell
+  workflow_id: knowledge_wiki_pipeline_v0
+  handoff_mode: automatic_after_boundary_pass
+  request_class_hint: fresh_pipeline
+  registration_judgment_owner: downstream_workflow
+  registration_performed_here: false
+downstream_registration:
+  requested_by_research_workflow: false
+  delegated_to_knowledge_wiki_cell: true
+  performed_here: false
+  blocked_until_owner_decision: "<decided_downstream>"
+workflow_authoring_route:
+  needed: "<true_or_false>"
+  trigger_item_refs: []
+  required_creation_or_evolution_route: "$soulforge-workflow-generator"
+  required_review_before_completion_or_claim: "$soulforge-workflow-check"
+  performed_by_this_workflow: false
+  registration_or_canon_judgment_here: false
+  default_route_switch_or_safety_claim_here: false
+  default_route_owner_review_required_if_needed: true
+claim_ceiling: observed
+next_action: ""

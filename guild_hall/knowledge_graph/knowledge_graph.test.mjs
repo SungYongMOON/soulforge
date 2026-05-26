@@ -78,6 +78,15 @@ test("exportKnowledgeGraph writes metadata-only graph, HTML preview, and Obsidia
     assert.equal(result.status, "exported");
     assert.equal(result.node_count > 0, true);
     assert.equal(result.edge_count > 0, true);
+    await assert.rejects(
+      () =>
+        exportKnowledgeGraph({
+          repoRoot,
+          exportId: "fixture_graph_bad_output_root",
+          outputRoot: "docs/knowledge_view",
+        }),
+      /knowledge graph output root must be under _workspaces\/system\/knowledge_view/,
+    );
 
     const graph = JSON.parse(await readFile(path.join(repoRoot, result.graph_ref), "utf8"));
     assert.equal(graph.schema_version, "soulforge.knowledge_graph_view.v0");
@@ -299,6 +308,270 @@ test("exportKnowledgeGraph writes metadata-only graph, HTML preview, and Obsidia
     assert.match(indexNote, /read_only: true/);
     assert.match(indexNote, /## Connectivity/);
 
+    const ragManifestRef = "_workspaces/system/rag/manifests/fixture_manifest/rag_manifest.json";
+    await writeFixtureRagManifest(repoRoot, ragManifestRef);
+    const ragResult = await exportKnowledgeGraph({
+      repoRoot,
+      exportId: "fixture_graph_rag_lens",
+      ledgerRefs: "_workmeta/system/reports/knowledge_access/events.jsonl",
+      ragManifestRefs: ragManifestRef,
+      now: "2026-05-22T02:00:00Z",
+    });
+    const ragGraph = JSON.parse(await readFile(path.join(repoRoot, ragResult.graph_ref), "utf8"));
+    assert.equal(ragGraph.boundary.metadata_only, true);
+    assert.equal(ragGraph.boundary.no_rag_source_payloads, true);
+    assert.equal(ragGraph.source_refs.rag_manifest_refs[0], ragManifestRef);
+    assert.equal(ragGraph.graph_scope.source_surfaces.includes("explicit_rag_manifest_refs"), true);
+    assert.equal(ragGraph.graph_scope.rag_manifest_refs[0], ragManifestRef);
+    assert.equal(ragGraph.graph_scope.included_lens_profile_ids.includes("rag_knowledge_readiness"), true);
+    assert.equal(ragGraph.rag_projection.schema_version, "soulforge.knowledge_graph_rag_projection.v0");
+    assert.equal(ragGraph.rag_projection.boundary.no_source_text_loaded, true);
+    assert.equal(ragGraph.rag_projection.matched_node_count, 2);
+    assert.equal(ragGraph.rag_projection.readiness_counts.metadata_answer_ready, 1);
+    assert.equal(ragGraph.rag_projection.readiness_counts.blocked, 1);
+    assert.equal(
+      ragGraph.rag_projection.lens_profiles.find((profile) => profile.lens_id === "rag_knowledge_readiness")?.title,
+      "rag_knowledge_readiness",
+    );
+    assert.equal(
+      Object.hasOwn(ragGraph.rag_projection.lens_profiles.find((profile) => profile.lens_id === "rag_knowledge_readiness"), "purpose"),
+      false,
+    );
+    const ragOverlayNode = ragGraph.nodes.find((node) => node.node_ref === ".registry/knowledge/graph_rag");
+    assert.ok(ragOverlayNode.rag);
+    assert.equal(ragOverlayNode.rag.readiness, "metadata_answer_ready");
+    assert.equal(ragOverlayNode.rag.source_handle_count, 1);
+    assert.equal(Object.hasOwn(ragOverlayNode.rag, "source_handles"), false);
+    assert.equal(Object.hasOwn(ragOverlayNode.rag, "retrieval_unit_refs"), false);
+    assert.equal(ragOverlayNode.rag.lens_profile_ids.includes("rag_knowledge_readiness"), true);
+    const blockedOverlayNode = ragGraph.nodes.find((node) => node.node_ref === ".registry/knowledge/isolated_note");
+    assert.equal(blockedOverlayNode.rag.readiness, "blocked");
+    assert.equal(blockedOverlayNode.rag.allowed_for_retrieval, false);
+    const ragHtml = await readFile(path.join(repoRoot, ragResult.html_ref), "utf8");
+    assert.match(ragHtml, /id="ragLensMode"/);
+    assert.match(ragHtml, /RAG 렌즈/);
+    assert.match(ragHtml, /metadata 답변 가능 노드만/);
+    const ragGraphDataMatch = ragHtml.match(/<script id="graph-data" type="application\/json">([\s\S]*?)<\/script>/);
+    assert.ok(ragGraphDataMatch);
+    const embeddedRagGraph = JSON.parse(ragGraphDataMatch[1]);
+    assert.equal(embeddedRagGraph.rag_projection.node_overlay_count, 2);
+    assert.doesNotMatch(
+      ragGraphDataMatch[1],
+      /"source_text"\s*:|"chunk_text"\s*:|"notebooklm_answer"\s*:|"raw_payload"\s*:|\/Users\/|\/Volumes\//,
+    );
+    assert.doesNotMatch(ragGraphDataMatch[1], /"source_handles"\s*:|"retrieval_unit_refs"\s*:|Show metadata-only source/);
+    const ragBundle = await readFile(path.join(repoRoot, ragResult.bundle_ref), "utf8");
+    assert.match(ragBundle, /ragNodePassesLens/);
+    assert.match(ragBundle, /ragEdgePassesLens/);
+    assert.match(ragBundle, /ragProjectionPresent/);
+    assert.match(ragBundle, /ragLensMode/);
+    assert.match(ragBundle, /node_not_in_rag_manifest/);
+
+    const triageRef =
+      "_workmeta/system/reports/rag/source_slice_triage_register/fixture_register/source_slice_triage_register.json";
+    const reviewQueueRef =
+      "_workmeta/system/reports/rag/source_slice_review_queue/fixture_queue/source_slice_review_queue.json";
+    await writeFixtureSourceSliceTriageRegister(repoRoot, triageRef);
+    await writeFixtureSourceSliceReviewQueue(repoRoot, reviewQueueRef, triageRef);
+    const sourceSliceResult = await exportKnowledgeGraph({
+      repoRoot,
+      exportId: "fixture_graph_source_slice_lens",
+      ledgerRefs: "_workmeta/system/reports/knowledge_access/events.jsonl",
+      ragManifestRefs: ragManifestRef,
+      sourceSliceTriageRegisterRefs: triageRef,
+      sourceSliceReviewQueueRefs: reviewQueueRef,
+      now: "2026-05-22T02:00:00Z",
+    });
+    const sourceSliceGraph = JSON.parse(await readFile(path.join(repoRoot, sourceSliceResult.graph_ref), "utf8"));
+    assert.equal(sourceSliceGraph.boundary.no_source_slice_payloads, true);
+    assert.equal(sourceSliceGraph.source_refs.source_slice_triage_register_refs[0], triageRef);
+    assert.equal(sourceSliceGraph.source_refs.source_slice_review_queue_refs[0], reviewQueueRef);
+    assert.equal(sourceSliceGraph.graph_scope.source_surfaces.includes("explicit_source_slice_triage_register_refs"), true);
+    assert.equal(sourceSliceGraph.source_slice_projection.schema_version, "soulforge.knowledge_graph_source_slice_projection.v0");
+    assert.equal(sourceSliceGraph.source_slice_projection.boundary.no_source_text_loaded, true);
+    assert.equal(sourceSliceGraph.source_slice_projection.boundary.no_index_build, true);
+    assert.equal(sourceSliceGraph.source_slice_projection.matched_node_count, 2);
+    assert.equal(sourceSliceGraph.source_slice_projection.totals.registered_metadata_count, 1);
+    assert.equal(sourceSliceGraph.source_slice_projection.totals.owner_review_count, 1);
+    assert.equal(sourceSliceGraph.source_slice_projection.totals.review_queue_item_count, 1);
+    assert.equal(sourceSliceGraph.source_slice_projection.totals.stronger_permissions_default_false_count, 2);
+    assert.equal(sourceSliceGraph.source_slice_projection.visibility_counts.registered_metadata_knowledge, 1);
+    assert.equal(sourceSliceGraph.source_slice_projection.visibility_counts.owner_review_required, 1);
+    const registeredSourceSliceNode = sourceSliceGraph.nodes.find((node) => node.node_ref === ".registry/knowledge/graph_rag");
+    assert.equal(registeredSourceSliceNode.source_slice.registration_status, "registered_metadata_knowledge");
+    assert.equal(registeredSourceSliceNode.source_slice.registered_metadata_count, 1);
+    assert.equal(registeredSourceSliceNode.source_slice.stronger_permissions_default_false, true);
+    assert.equal(Object.hasOwn(registeredSourceSliceNode.source_slice, "source_handles"), false);
+    assert.equal(Object.hasOwn(registeredSourceSliceNode.source_slice, "source_locator_ref"), false);
+    const reviewSourceSliceNode = sourceSliceGraph.nodes.find((node) => node.node_ref === ".registry/knowledge/isolated_note");
+    assert.equal(reviewSourceSliceNode.source_slice.registration_status, "owner_review_required");
+    assert.equal(reviewSourceSliceNode.source_slice.review_queue_item_count, 1);
+    const sourceSliceHtml = await readFile(path.join(repoRoot, sourceSliceResult.html_ref), "utf8");
+    assert.match(sourceSliceHtml, /id="sourceSliceMode"/);
+    assert.match(sourceSliceHtml, /RAG 등록 상태/);
+    assert.match(sourceSliceHtml, /metadata 등록 노드/);
+    const sourceSliceGraphDataMatch = sourceSliceHtml.match(/<script id="graph-data" type="application\/json">([\s\S]*?)<\/script>/);
+    assert.ok(sourceSliceGraphDataMatch);
+    const embeddedSourceSliceGraph = JSON.parse(sourceSliceGraphDataMatch[1]);
+    assert.equal(embeddedSourceSliceGraph.source_slice_projection.node_overlay_count, 2);
+    assert.doesNotMatch(
+      sourceSliceGraphDataMatch[1],
+      /"source_text"\s*:|"chunk_text"\s*:|"notebooklm_answer"\s*:|"raw_payload"\s*:|"source_handles"\s*:|"source_locator_ref"\s*:|\/Users\/|\/Volumes\//,
+    );
+    const sourceSliceBundle = await readFile(path.join(repoRoot, sourceSliceResult.bundle_ref), "utf8");
+    assert.match(sourceSliceBundle, /sourceSliceNodePassesVisibility/);
+    assert.match(sourceSliceBundle, /sourceSliceProjectionPresent/);
+    assert.match(sourceSliceBundle, /node_not_in_source_slice_triage/);
+
+    await writeFixtureSourceSliceTriageRegister(
+      repoRoot,
+      "_workmeta/system/reports/rag/source_slice_triage_register/bad_public_canon/source_slice_triage_register.json",
+      { standingGrants: { public_canon: true } },
+    );
+    await assert.rejects(
+      () =>
+        exportKnowledgeGraph({
+          repoRoot,
+          exportId: "fixture_graph_bad_source_slice_grant",
+          sourceSliceTriageRegisterRefs:
+            "_workmeta/system/reports/rag/source_slice_triage_register/bad_public_canon/source_slice_triage_register.json",
+        }),
+      /standing_policy_public_canon_must_not_be_granted/,
+    );
+
+    await writeFixtureSourceSliceTriageRegister(
+      repoRoot,
+      "_workmeta/system/reports/rag/source_slice_triage_register/bad_policy_source_text/source_slice_triage_register.json",
+      { triagePolicy: { source_text_retrieval_allowed: true } },
+    );
+    await assert.rejects(
+      () =>
+        exportKnowledgeGraph({
+          repoRoot,
+          exportId: "fixture_graph_bad_triage_policy_source_text",
+          sourceSliceTriageRegisterRefs:
+            "_workmeta/system/reports/rag/source_slice_triage_register/bad_policy_source_text/source_slice_triage_register.json",
+        }),
+      /triage_policy_source_text_must_not_be_allowed/,
+    );
+
+    await writeFixtureSourceSliceTriageRegister(
+      repoRoot,
+      "_workmeta/system/reports/rag/source_slice_triage_register/bad_source_text_excerpt/source_slice_triage_register.json",
+      { extraRoot: { source_text_excerpt: "payload must be rejected" } },
+    );
+    await assert.rejects(
+      () =>
+        exportKnowledgeGraph({
+          repoRoot,
+          exportId: "fixture_graph_bad_source_text_excerpt",
+          sourceSliceTriageRegisterRefs:
+            "_workmeta/system/reports/rag/source_slice_triage_register/bad_source_text_excerpt/source_slice_triage_register.json",
+        }),
+      /forbidden_payload_key_pattern/,
+    );
+
+    await writeFixtureSourceSliceReviewQueue(
+      repoRoot,
+      "_workmeta/system/reports/rag/source_slice_review_queue/bad_review_policy/source_slice_review_queue.json",
+      triageRef,
+      { reviewPolicy: { index_build_allowed: true } },
+    );
+    await assert.rejects(
+      () =>
+        exportKnowledgeGraph({
+          repoRoot,
+          exportId: "fixture_graph_bad_review_policy",
+          sourceSliceReviewQueueRefs:
+            "_workmeta/system/reports/rag/source_slice_review_queue/bad_review_policy/source_slice_review_queue.json",
+        }),
+      /review_policy_index_build_must_not_be_allowed/,
+    );
+
+    await writeFixtureSourceSliceReviewQueue(
+      repoRoot,
+      "_workmeta/system/reports/rag/source_slice_review_queue/queue_only/source_slice_review_queue.json",
+      triageRef,
+      { nodeRef: ".registry/knowledge/graph_rag", sourceSliceRef: "source_slice:fixture_queue_only" },
+    );
+    const queueOnlyResult = await exportKnowledgeGraph({
+      repoRoot,
+      exportId: "fixture_graph_queue_only_source_slice",
+      sourceSliceReviewQueueRefs:
+        "_workmeta/system/reports/rag/source_slice_review_queue/queue_only/source_slice_review_queue.json",
+    });
+    const queueOnlyGraph = JSON.parse(await readFile(path.join(repoRoot, queueOnlyResult.graph_ref), "utf8"));
+    const queueOnlyNode = queueOnlyGraph.nodes.find((node) => node.node_ref === ".registry/knowledge/graph_rag");
+    assert.equal(queueOnlyNode.source_slice.stronger_permissions_default_false, true);
+    assert.equal(queueOnlyGraph.source_slice_projection.totals.stronger_permissions_default_false_count, 1);
+
+    await writeFixtureSourceSliceTriageRegister(
+      repoRoot,
+      "_workspaces/system/rag/source_slice_triage_register/bad_root/source_slice_triage_register.json",
+    );
+    await assert.rejects(
+      () =>
+        exportKnowledgeGraph({
+          repoRoot,
+          exportId: "fixture_graph_bad_source_slice_root",
+          sourceSliceTriageRegisterRefs:
+            "_workspaces/system/rag/source_slice_triage_register/bad_root/source_slice_triage_register.json",
+        }),
+      /unsafe source slice triage register ref/,
+    );
+
+    await writeFixtureRagManifest(repoRoot, "_workspaces/system/rag/manifests/bad_boundary/rag_manifest.json", {
+      boundary: { chunk_text_included: true },
+    });
+    await assert.rejects(
+      () =>
+        exportKnowledgeGraph({
+          repoRoot,
+          exportId: "fixture_graph_bad_rag_boundary",
+          ragManifestRefs: "_workspaces/system/rag/manifests/bad_boundary/rag_manifest.json",
+        }),
+      /rag_manifest_invalid/,
+    );
+
+    await writeFixtureRagManifest(repoRoot, "_workspaces/system/rag/manifests/bad_handle/rag_manifest.json", {
+      sourceHandles: ["unknown_source_handle"],
+    });
+    await assert.rejects(
+      () =>
+        exportKnowledgeGraph({
+          repoRoot,
+          exportId: "fixture_graph_bad_rag_handle",
+          ragManifestRefs: "_workspaces/system/rag/manifests/bad_handle/rag_manifest.json",
+        }),
+      /retrieval_unit_unknown_source/,
+    );
+
+    await writeFixtureRagManifest(repoRoot, "_workspaces/system/rag/manifests/bad_handle_shape/rag_manifest.json", {
+      sourceHandles: ["source handle prose"],
+    });
+    await assert.rejects(
+      () =>
+        exportKnowledgeGraph({
+          repoRoot,
+          exportId: "fixture_graph_bad_rag_handle_shape",
+          ragManifestRefs: "_workspaces/system/rag/manifests/bad_handle_shape/rag_manifest.json",
+        }),
+      /retrieval_unit_source_handle_unsafe/,
+    );
+
+    await writeFixtureRagManifest(repoRoot, "_workspaces/system/rag/manifests/bad_freshness_timestamp/rag_manifest.json", {
+      freshness: { graph_generated_at_utc: "private prose timestamp" },
+    });
+    await assert.rejects(
+      () =>
+        exportKnowledgeGraph({
+          repoRoot,
+          exportId: "fixture_graph_bad_rag_freshness_timestamp",
+          ragManifestRefs: "_workspaces/system/rag/manifests/bad_freshness_timestamp/rag_manifest.json",
+        }),
+      /freshness_graph_generated_at_utc_unsafe/,
+    );
+
     const plan = await buildRetrievalPlan({
       repoRoot,
       graphRef: result.graph_ref,
@@ -402,6 +675,367 @@ test("exportKnowledgeGraph writes metadata-only graph, HTML preview, and Obsidia
     await rm(repoRoot, { recursive: true, force: true });
   }
 });
+
+async function writeFixtureRagManifest(repoRoot, relativePath, overrides = {}) {
+  const manifest = {
+    schema_version: "soulforge.rag_manifest.v0",
+    kind: "rag_manifest",
+    status: "draft",
+    manifest_id: "fixture_rag_manifest",
+    generator_id: "fixture",
+    generated_at_utc: "2026-05-22T02:30:00Z",
+    scope: {
+      owner_surface: "guild_hall/rag",
+      project_code: null,
+      allowed_use: "metadata_navigation",
+      source_surfaces: ["public_canon", "explicit_rag_manifest_refs"],
+      lens_profile_ids: ["rag_knowledge_readiness", "soulforge_balance"],
+    },
+    source_refs: {
+      graph_ref: "_workspaces/system/knowledge_view/graph_export/fixture_graph/graph.json",
+      graph_loaded_from: "generated_graph_json",
+      snapshot_ref: null,
+      source_ledger_refs: [],
+      packet_map_refs: [],
+      knowledge_access_ledger_refs: [],
+    },
+    freshness: {
+      graph_export_id: "fixture_graph",
+      graph_generated_at_utc: "2026-05-22T02:00:00Z",
+      graph_source_hash: "fixture_hash",
+      snapshot_source_observations_fingerprint: null,
+      ...(overrides.freshness ?? {}),
+    },
+    boundary: {
+      metadata_only: true,
+      source_payloads_included: false,
+      chunk_text_included: false,
+      node_metadata_included: true,
+      notebooklm_answers_included: false,
+      secrets_or_session_included: false,
+      runtime_absolute_paths_included: false,
+      answer_generation_allowed: "metadata_only",
+      ...(overrides.boundary ?? {}),
+    },
+    lens_profiles: [
+      {
+        lens_id: "rag_knowledge_readiness",
+        title: "RAG Knowledge Readiness",
+        purpose: "Show metadata-only source, claim, graph, and retrieval readiness.",
+        node_types: ["knowledge", "source", "validation", "workflow", "party"],
+        relation_types: ["supports", "derived_from", "uses", "routes_to"],
+      },
+      {
+        lens_id: "soulforge_balance",
+        title: "Soulforge Balance",
+        purpose: "Show whole-system balance across canon, workflow, party, unit, model, and knowledge surfaces.",
+        node_types: ["knowledge", "workflow", "party", "species", "class", "unit"],
+        relation_types: ["uses", "recommends", "routes_to", "chains", "has_species", "has_class"],
+      },
+    ],
+    sources: [
+      {
+        source_handle: "source_fixture_graph_rag",
+        title_label: "knowledge.yaml",
+        source_kind: "repo_metadata_ref",
+        source_class: "metadata_only",
+        warehouse_state: "observed",
+        storage_locator: ".registry/knowledge/graph_rag/knowledge.yaml",
+        version: null,
+        source_hash: "fixture_source_hash",
+        owner_approval: "public_canon_or_explicit_metadata",
+        sensitivity: "public_safe_metadata",
+        notebooklm_use: "not_included",
+        review_state: { claim_ceiling: "source_supported" },
+        tags: { domains: [], projects: [], organizations: [] },
+        audit: { created_at_utc: null, updated_at_utc: null },
+      },
+    ],
+    retrieval_units: [
+      {
+        unit_ref: "graph_node:.registry/knowledge/graph_rag",
+        unit_type: "graph_node_metadata",
+        graph_node_ref: ".registry/knowledge/graph_rag",
+        source_handles: overrides.sourceHandles ?? ["source_fixture_graph_rag"],
+        title_label: "GraphRAG",
+        summary: "GraphRAG combines graph navigation with retrieval readiness.",
+        node_type: "knowledge",
+        owner_surface: ".registry/knowledge",
+        claim_ceiling: "source_supported",
+        lifecycle_status: "active",
+        retrieval: {
+          status: "metadata_only",
+          allowed_for_retrieval: true,
+          allowed_modes: ["metadata_graph_answer"],
+          blocker_code: null,
+          next_owner_action_ref: null,
+        },
+        payload_state: "not_in_manifest",
+        content_hash_or_null: "fixture_content_hash",
+        token_count_or_null: 4,
+      },
+      {
+        unit_ref: "graph_node:.registry/knowledge/isolated_note",
+        unit_type: "graph_node_metadata",
+        graph_node_ref: ".registry/knowledge/isolated_note",
+        source_handles: [],
+        title_label: "Isolated Note",
+        summary: null,
+        node_type: "knowledge",
+        owner_surface: ".registry/knowledge",
+        claim_ceiling: "rejected_or_blocked",
+        lifecycle_status: "active",
+        retrieval: {
+          status: "blocked",
+          allowed_for_retrieval: false,
+          allowed_modes: ["metadata_graph_answer"],
+          blocker_code: "fixture_blocked",
+          next_owner_action_ref: null,
+        },
+        payload_state: "not_in_manifest",
+        content_hash_or_null: "fixture_blocked_hash",
+        token_count_or_null: 2,
+      },
+    ],
+    graph_bindings: [],
+    indexes: [],
+    validation: { status: "unchecked", blockers: [] },
+  };
+  const filePath = path.join(repoRoot, relativePath);
+  await mkdir(path.dirname(filePath), { recursive: true });
+  await writeFile(filePath, `${JSON.stringify(manifest, null, 2)}\n`, "utf8");
+}
+
+async function writeFixtureSourceSliceTriageRegister(repoRoot, relativePath, overrides = {}) {
+  const grants = {
+    metadata_knowledge: true,
+    source_text_retrieval: false,
+    index_build: false,
+    notebooklm_packet: false,
+    public_canon: false,
+    ...(overrides.standingGrants ?? {}),
+  };
+  const register = {
+    schema_version: "soulforge.source_slice_triage_register.v0",
+    kind: "source_slice_triage_register",
+    status: "metadata_only",
+    register_id: "fixture_register",
+    generator_id: "fixture",
+    generated_at_utc: "2026-05-22T02:40:00Z",
+    source_refs: {
+      source_slice_ref: "_workspaces/system/rag/source_slice_cards/fixture/source_slice_cards.json",
+      slice_set_id: "fixture_source_slices",
+      manifest_ref: "_workspaces/system/rag/manifests/fixture_manifest/rag_manifest.json",
+      manifest_id: "fixture_rag_manifest",
+      graph_ref: "_workspaces/system/knowledge_view/graph_export/fixture_graph/graph.json",
+    },
+    triage_policy: {
+      purpose: "apply_existing_wiki_intake_criteria_to_rag_metadata_knowledge",
+      source_policy_ref: "docs/architecture/workspace/examples/llm_wiki_bookshelf/canonical_source_intake_checklist.md",
+      standing_owner_policy: {
+        policy_ref: "standing_owner_policy:rag_source_slice_metadata_v0",
+        owner_defined_criteria_are_policy: true,
+        auto_register_passed_metadata: true,
+        stronger_permissions_default_false: true,
+        grants,
+      },
+      metadata_knowledge_registration_allowed: true,
+      register_is_not_owner_approval: true,
+      source_text_retrieval_allowed: false,
+      index_build_allowed: false,
+      notebooklm_packet_membership_allowed: false,
+      public_canon_promotion_allowed: false,
+      ...(overrides.triagePolicy ?? {}),
+    },
+    counts: {
+      card_count: 2,
+      registered_count: 1,
+      owner_review_count: 1,
+      blocked_count: 0,
+      route_counts: { registered_metadata_knowledge: 1, owner_review_required: 1 },
+      sensitivity_counts: { public_safe_metadata: 2 },
+      claim_ceiling_counts: { observed: 2 },
+    },
+    registered_items: [
+      sourceSliceTriageItem({
+        nodeRef: ".registry/knowledge/graph_rag",
+        sourceHandle: "source_fixture_graph_rag",
+        sourceSliceRef: "source_slice:fixture_graph_rag",
+        triageItemRef: "source_slice_triage:fixture_graph_rag",
+        sourceLocatorRef: ".registry/knowledge/graph_rag/knowledge.yaml",
+        route: "registered_metadata_knowledge",
+        result: "accepted_for_metadata_knowledge",
+        registrationScope: "rag_metadata_knowledge_only",
+      }),
+    ],
+    owner_review_items: [
+      sourceSliceTriageItem({
+        nodeRef: ".registry/knowledge/isolated_note",
+        sourceHandle: "source_fixture_isolated_note",
+        sourceSliceRef: "source_slice:fixture_isolated_note",
+        triageItemRef: "source_slice_triage:fixture_isolated_note",
+        sourceLocatorRef: ".registry/knowledge/isolated_note/knowledge.yaml",
+        route: "owner_review_required",
+        result: "owner_review_required",
+        registrationScope: "not_registered",
+      }),
+    ],
+    blocked_items: [],
+    boundary: {
+      metadata_only: true,
+      source_payloads_included: false,
+      notebooklm_answers_included: false,
+      secrets_or_session_included: false,
+      runtime_absolute_paths_included: false,
+      register_is_not_owner_approval: true,
+      register_applies_no_source_text_decisions: true,
+      source_text_retrieval_allowed: false,
+      index_build_allowed: false,
+      ...(overrides.boundary ?? {}),
+    },
+    ...(overrides.extraRoot ?? {}),
+  };
+  const filePath = path.join(repoRoot, relativePath);
+  await mkdir(path.dirname(filePath), { recursive: true });
+  await writeFile(filePath, `${JSON.stringify(register, null, 2)}\n`, "utf8");
+}
+
+async function writeFixtureSourceSliceReviewQueue(repoRoot, relativePath, triageRef, overrides = {}) {
+  const nodeRef = overrides.nodeRef ?? ".registry/knowledge/isolated_note";
+  const sourceSliceRef = overrides.sourceSliceRef ?? "source_slice:fixture_isolated_note";
+  const queue = {
+    schema_version: "soulforge.source_slice_review_queue.v0",
+    kind: "source_slice_review_queue",
+    status: "metadata_only",
+    queue_id: "fixture_queue",
+    generator_id: "fixture",
+    generated_at_utc: "2026-05-22T02:45:00Z",
+    source_refs: {
+      source_slice_ref: "_workspaces/system/rag/source_slice_cards/fixture/source_slice_cards.json",
+      triage_register_ref: triageRef,
+      register_id: "fixture_register",
+      slice_set_id: "fixture_source_slices",
+      manifest_ref: "_workspaces/system/rag/manifests/fixture_manifest/rag_manifest.json",
+      manifest_id: "fixture_rag_manifest",
+      graph_ref: "_workspaces/system/knowledge_view/graph_export/fixture_graph/graph.json",
+    },
+    review_policy: {
+      purpose: "owner_source_slice_decision_preparation_for_triage_holds",
+      metadata_only: true,
+      queue_is_not_owner_approval: true,
+      queue_applies_no_decisions: true,
+      source_text_retrieval_allowed: false,
+      index_build_allowed: false,
+      allowed_next_actions: ["owner_approve_hold_or_block"],
+      ...(overrides.reviewPolicy ?? {}),
+    },
+    counts: {
+      card_count: 2,
+      item_count: 1,
+      decision_counts: { pending_owner_review: 1 },
+      sensitivity_counts: { public_safe_metadata: 1 },
+      priority_counts: { needs_owner_review: 1 },
+    },
+    items: [
+      {
+        review_item_ref: "source_slice_review:fixture_isolated_note",
+        source_slice_ref: sourceSliceRef,
+        source_handle: "source_fixture_isolated_note",
+        source_locator_ref: ".registry/knowledge/isolated_note/knowledge.yaml",
+        sensitivity: "public_safe_metadata",
+        owner_approval_observed: "unknown",
+        claim_ceiling: "observed",
+        card_status: "candidate",
+        card_index_readiness_status: "triage_owner_review_required",
+        covered_graph_node_count: 1,
+        covered_graph_node_refs: [nodeRef],
+        blocker_codes: ["owner_source_slice_approval_required"],
+        triage_item_ref: "source_slice_triage:fixture_isolated_note",
+        triage_route: "owner_review_required",
+        review_priority: "needs_owner_review",
+        status: "pending_owner_review",
+        decision: {
+          status: "pending_owner_review",
+          recommended_decision: "private_review_required",
+          applied_decision: "none",
+          owner_approval_granted: false,
+          source_text_retrieval_allowed: false,
+          index_build_allowed: false,
+          allowed_next_actions: ["owner_approve_hold_or_block"],
+          required_evidence_refs: [],
+        },
+        metadata_fingerprint: "fixture_review_hash",
+        card_metadata_fingerprint: "fixture_card_hash",
+      },
+    ],
+    boundary: {
+      metadata_only: true,
+      source_payloads_included: false,
+      notebooklm_answers_included: false,
+      secrets_or_session_included: false,
+      runtime_absolute_paths_included: false,
+      queue_is_not_owner_approval: true,
+      queue_applies_no_decisions: true,
+      source_text_retrieval_allowed: false,
+      index_build_allowed: false,
+    },
+  };
+  const filePath = path.join(repoRoot, relativePath);
+  await mkdir(path.dirname(filePath), { recursive: true });
+  await writeFile(filePath, `${JSON.stringify(queue, null, 2)}\n`, "utf8");
+}
+
+function sourceSliceTriageItem({
+  nodeRef,
+  sourceHandle,
+  sourceSliceRef,
+  triageItemRef,
+  sourceLocatorRef,
+  route,
+  result,
+  registrationScope,
+}) {
+  return {
+    triage_item_ref: triageItemRef,
+    source_slice_ref: sourceSliceRef,
+    source_handle: sourceHandle,
+    source_locator_ref: sourceLocatorRef,
+    source_hash: "fixture_source_hash",
+    source_kind: "repo_metadata_ref",
+    source_class: "metadata_only",
+    warehouse_state: "observed",
+    sensitivity: "public_safe_metadata",
+    owner_approval_observed: "public_canon_or_explicit_metadata",
+    claim_ceiling: "observed",
+    card_status: "candidate",
+    covered_graph_node_count: 1,
+    covered_graph_node_refs: [nodeRef],
+    blocker_codes: ["index_not_built", "owner_source_slice_approval_required", "source_text_not_loaded"],
+    criteria_result: {
+      result,
+      route,
+      registration_scope: registrationScope,
+      claim_ceiling: "observed",
+      criteria_passed: ["source_identity", "storage_locator_safe", "payload_boundary"],
+      criteria_failed: route === "owner_review_required" ? ["owner_review_needed"] : [],
+      evidence_refs: [
+        "docs/architecture/workspace/examples/llm_wiki_bookshelf/canonical_source_intake_checklist.md",
+        "docs/architecture/foundation/AGENT_EXECUTION_CONTRACT_V0.md",
+      ],
+      boundary_contract: {
+        metadata_only: true,
+        allowed_for_rag_metadata_answer: route === "registered_metadata_knowledge",
+        allowed_for_source_text_retrieval: false,
+        allowed_for_index_build: false,
+        allowed_for_notebooklm_packet: false,
+        applied_owner_decision: false,
+        public_canon_promotion_allowed: false,
+      },
+    },
+    metadata_fingerprint: "fixture_triage_hash",
+    card_metadata_fingerprint: "fixture_card_hash",
+  };
+}
 
 async function writeFixtureRepo(repoRoot) {
   await writeYaml(repoRoot, ".registry/knowledge/source_criticism/knowledge.yaml", {

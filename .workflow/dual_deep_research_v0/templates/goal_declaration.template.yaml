@@ -1,0 +1,35 @@
+workflow_id: dual_deep_research_v0
+kind: goal_declaration
+schema_version: v0
+status: draft
+goal_id: "<goal_id>"
+objective: "<bounded_dual_research_objective>"
+created_at: "<iso8601_timestamp>"
+research_question: "<bounded_question>"
+success_conditions:
+  - notebooklm_cli_packet_written_or_blocker_recorded
+  - codex_direct_research_packet_written_independently
+  - comparison_packet_separates_common_one_sided_conflict_and_gap_claims
+  - delta_handoff_routes_only_non_overlap_conflict_or_gap_items
+stop_conditions:
+  - source_upload_requires_owner_approval
+  - notebooklm_cli_unavailable_and_browser_fallback_not_authorized
+  - subagent_runtime_unavailable_for_required_fresh_context_claim
+  - secret_or_raw_payload_would_need_to_be_read
+allowed_inputs:
+  - approved_source_handles
+  - notebooklm_binding_refs
+  - notebooklm_source_ledger_refs
+  - notebooklm_packet_map_refs
+  - codex_source_refs
+forbidden_inputs:
+  - raw_notebooklm_answer_payload
+  - source_payload_copy
+  - secret_or_session_material
+  - host_local_absolute_path
+claim_ceiling_seed: observed
+downstream_handoff_limits:
+  drive_upload_allowed_here: false
+  wiki_registration_allowed_here: false
+  owner_approval_allowed_here: false
+  canon_promotion_allowed_here: false

@@ -1,0 +1,28 @@
+workflow_id: knowledge_wiki_pipeline_v0
+kind: rag_refresh_handoff_decision
+status: draft
+decision_id: "<decision_id>"
+recommended_downstream_workflow_id: rag_metadata_refresh_v0
+decision: "not_needed|prepare_metadata_only_refresh|blocked"
+rationale: null
+changed_metadata_refs: []
+prior_rag_artifact_refs:
+  rag_manifest_ref: null
+  source_slice_card_ref: null
+  triage_register_ref: null
+  review_queue_ref: null
+  decision_packet_ref: null
+  owner_decision_record_ref: null
+  metadata_index_ref: null
+allowed_scope:
+  metadata_only: true
+  source_text_allowed: false
+  bm25_or_vector_source_index_allowed: false
+  notebooklm_upload_or_query_allowed: false
+  drive_mutation_allowed: false
+  public_canon_promotion_allowed: false
+  ontology_acceptance_allowed: false
+expected_output_roots:
+  system_rag_outputs: "_workspaces/system/rag/**"
+  system_rag_evidence: "_workmeta/system/reports/rag/**"
+required_next_action: null

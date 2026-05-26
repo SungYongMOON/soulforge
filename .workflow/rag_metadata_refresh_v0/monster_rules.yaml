@@ -1,0 +1,37 @@
+workflow_id: rag_metadata_refresh_v0
+kind: monster_rules
+status: draft
+rules:
+  - monster_id: raw_source_text_requested_for_refresh
+    response: stop_and_route_to_sourcebound_or_source_sufficiency_workflow
+    summary: This workflow refreshes metadata surfaces only and must not read source text.
+  - monster_id: source_text_index_build_requested
+    response: block_bm25_vector_or_embedding_work_and_record_boundary_note
+    summary: BM25, vector, embedding, or source-text retrieval index construction is out of scope.
+  - monster_id: notebooklm_operation_requested
+    response: block_notebooklm_upload_query_or_answer_use_and_route_to_owner_approved_workflow
+    summary: NotebookLM upload/query and answer payloads are not part of RAG metadata refresh.
+  - monster_id: drive_mutation_requested
+    response: block_drive_mutation_and_record_required_owner_or_connector_route
+    summary: The workflow can point to metadata refs but cannot upload, move, share, or edit Drive files.
+  - monster_id: owner_approval_inferred_from_record_refresh
+    response: preserve_external_decision_ref_and_mark_approval_absent
+    summary: Owner decision records mirror existing authority refs; refresh does not create approval.
+  - monster_id: graph_or_rag_projection_treated_as_truth
+    response: relabel_as_navigation_or_retrieval_metadata_signal
+    summary: Graph lenses and RAG projections are derived metadata views, not source truth.
+  - monster_id: ontology_acceptance_requested
+    response: route_to_owner_review_or_ontology_authority_and_stop_here
+    summary: Ontology acceptance is outside this workflow and requires the proper owner/review surface.
+  - monster_id: default_route_switch_requested
+    response: block_default_route_change_and_require_separate_authority_review
+    summary: The package is not default-route-safe and cannot switch routes.
+  - monster_id: private_payload_or_secret_in_surface
+    response: remove_payload_keep_ref_and_record_boundary_blocker
+    summary: Public-safe refresh packets carry stable refs and metadata, not private payloads or secrets.
+  - monster_id: runtime_absolute_path_in_public_packet
+    response: replace_with_repo_relative_ref_or_stable_id
+    summary: Reusable workflow outputs should use portable repo-relative paths or stable ids.
+  - monster_id: stale_or_missing_surface_silently_ignored
+    response: mark_blocked_or_review_required_with_surface_ref
+    summary: Missing, stale, duplicate, or renamed generated surfaces must be explicit in refresh outputs.

@@ -1,0 +1,26 @@
+workflow_id: rag_metadata_refresh_v0
+kind: retrieval_trace_evaluation_refresh
+schema_version: v0
+status: draft
+packet_id: "<packet_id>"
+source_refs:
+  rag_manifest_refresh_packet_ref: "<rag_manifest_refresh_packet_ref>"
+  metadata_index_refresh_packet_ref: "<metadata_index_refresh_packet_ref>"
+  source_slice_card_refresh_set_ref: "<source_slice_card_refresh_set_ref>"
+trace_updates:
+  - trace_ref: "<retrieval_trace_ref>"
+    retrieval_key: "<retrieval_key>"
+    target_ref: "<source_slice_or_packet_ref>"
+    trace_state: review_required
+    stale_ref_detected: false
+    duplicate_key_detected: false
+    missing_slice_ref_detected: false
+evaluation:
+  metadata_coverage_state: review_required
+  route_consistency_state: review_required
+  blocked_reasons: []
+not_evaluated_here:
+  source_text_relevance: true
+  notebooklm_answer_quality: true
+  vector_similarity_quality: true
+  source_truth: true

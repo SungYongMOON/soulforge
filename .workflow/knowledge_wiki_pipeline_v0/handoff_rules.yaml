@@ -1,0 +1,60 @@
+workflow_id: knowledge_wiki_pipeline_v0
+kind: handoff_rules
+status: active
+rules:
+  - from: pipeline_controller
+    to: request_router
+    condition: candidate_archive_refs_recorded_or_not_requested
+    summary: Router receives request intent, source scope, archive posture, and boundary posture only.
+  - from: request_router
+    to: pipeline_planner
+    condition: routing_decision_written
+    summary: Planner receives route class, optional-gate flags, and reuse-vs-fresh-pipeline decision.
+  - from: pipeline_planner
+    to: source_intake_coordinator
+    condition: stage_chain_manifest_written
+    summary: Source intake stage receives only approved source scope and chain position.
+  - from: source_intake_coordinator
+    to: optional_gate_router
+    condition: source_packet_refs_written
+    summary: Optional sufficiency gate receives source packet refs and authority-sensitivity hints only.
+  - from: optional_gate_router
+    to: projection_coordinator
+    condition: source_sufficiency_written_or_skipped
+    summary: Projection stage receives source packet refs plus any explicit blocked fields or allowed ceilings.
+  - from: projection_coordinator
+    to: optional_gate_router
+    condition: sourcebound_packet_refs_written
+    summary: Optional owner-decision gate receives only claim-route and promotion-sensitive refs.
+  - from: projection_coordinator
+    to: pipeline_planner
+    condition: sourcebound_packet_refs_written_and_owner_decision_not_required
+    summary: Archive stage receives projection refs and claim ceilings for ordinary private runs without owner-decision escalation.
+  - from: optional_gate_router
+    to: pipeline_planner
+    condition: owner_decision_written_or_skipped
+    summary: Archive stage receives projection refs, claim ceilings, and owner-decision labels only; it does not receive authority to upload or promote.
+  - from: pipeline_planner
+    to: pipeline_planner
+    condition: archive_manifest_refs_written_or_not_requested
+    summary: Obsidian export decision receives archive/package labels, requested output posture, and claim boundaries only; it does not receive authority to treat storage or advisory surfaces as canon.
+  - from: pipeline_planner
+    to: metadata_capture_coordinator
+    condition: obsidian_export_refs_written_or_not_requested
+    summary: Metadata capture receives projection refs, archive manifest refs, Obsidian export decision refs, and approved routing labels, never raw projection payload as authority.
+  - from: metadata_capture_coordinator
+    to: metadata_capture_coordinator
+    condition: knowledge_access_refs_written
+    summary: RAG refresh handoff decision receives metadata-only usage/change refs and may prepare a `rag_metadata_refresh_v0` request without running refresh steps inside the wiki pipeline.
+  - from: metadata_capture_coordinator
+    to: rag_metadata_refresh_v0
+    condition: rag_refresh_handoff_refs_written_and_metadata_scope_only
+    summary: Optional downstream refresh receives changed metadata refs, prior RAG artifact refs, allowed output roots, and stronger-permission false flags; it does not receive source text, NotebookLM answers, owner approval, public canon promotion, or index-build authority.
+  - from: metadata_capture_coordinator
+    to: review_coordinator
+    condition: knowledge_access_refs_written
+    summary: Closeout review receives sourcebound refs, metadata-only usage packets, optional RAG refresh handoff refs, and any owner-decision refs.
+  - from: review_coordinator
+    to: boundary_reviewer
+    condition: closeout_review_refs_written
+    summary: Composite boundary review checks only the orchestration package posture and the stage-chain decision trail.

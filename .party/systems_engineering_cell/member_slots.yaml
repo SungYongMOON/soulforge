@@ -14,7 +14,7 @@ slots:
     summary: Builds stage artifact, gap, owner-question, blocker, and downstream-route packets.
   - slot_id: source_knowledge_stage
     title: Source Knowledge Stage
-    workflow_id: se_knowledge_wiki_pipeline_v0
+    workflow_id: knowledge_wiki_pipeline_v0
     execution_contract: subagent_required_for_sourcebound_work
     summary: Routes source-heavy or wiki-heavy support through source intake, sourcebound projection, metadata capture, and closeout.
   - slot_id: readiness_writer

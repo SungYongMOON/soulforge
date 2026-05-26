@@ -1,0 +1,36 @@
+calibration_id: cal_20260524_staged_cli_001
+workflow_id: dual_deep_research_v0
+kind: workflow_profile_calibration
+status: complete_public_safe_synthetic
+created_date: 2026-05-24
+runner_surface: codex_exec_ephemeral_cli_isolated
+quality_baseline:
+  model: gpt-5.5
+  reasoning_effort: xhigh
+  species: human
+  class: auditor
+quality_source: cli_isolated_staged_candidate_matrix
+telemetry_source: same_cli_isolated_candidate_runs
+candidate_matrix:
+  mode: staged_cli_matrix
+  candidates_run: 12
+  full_default_matrix_run: false
+  note: Full 3x4x5x3 matrix was not run; this first calibration used a staged public-safe matrix to select a cheap passing profile and shadow profiles.
+passed_candidate_count: 7
+selected_primary_candidate_id: A_mini_low_dwarf_archivist
+high_assurance_shadow_candidate_id: B_55_low_dwarf_archivist
+archive_boundary:
+  public_safe_synthetic_only: true
+  raw_project_payload_included: false
+  secret_or_session_material_included: false
+  private_workspaces_material_included: false
+  real_notebooklm_or_wiki_payload_included: false
+measurement_limits:
+  model_price_usd_measured: false
+  subagent_token_usage_available: false
+  telemetry_exact_for_subagent: false
+  cost_confidence: relative_not_exact
+notes:
+  - Candidate generation used ephemeral Codex CLI isolated runs with read-only /tmp working root.
+  - CLI telemetry is exact for those candidate runs, not for a separate subagent orchestration runner.
+  - Fresh evaluator reviewed quality criteria before candidate scoring.

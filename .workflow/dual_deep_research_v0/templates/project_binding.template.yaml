@@ -1,0 +1,25 @@
+workflow_id: dual_deep_research_v0
+kind: project_binding_template
+status: template
+project_code: "<project_code_or_system>"
+dual_deep_research_run_id: "<run_id>"
+inputs:
+  dual_research_request_binding:
+    question: "<bounded_question>"
+    scope: []
+    exclusions: []
+    downstream_registration_requested: false
+  source_scope_policy:
+    approved_source_handles: []
+    source_upload_requires_owner_approval: true
+  notebooklm_cli_policy:
+    cli_first: true
+    browser_ui_fallback_default: false
+outputs:
+  dual_deep_research_output_root_repo_path: "_workmeta/<project_code_or_system>/runs/<run_id>/dual_deep_research_v0"
+  goal_declaration_ref: "_workmeta/<project_code_or_system>/runs/<run_id>/dual_deep_research_v0/goal_declaration.yaml"
+  subagent_stage_manifest_ref: "_workmeta/<project_code_or_system>/runs/<run_id>/dual_deep_research_v0/subagent_stage_manifest.yaml"
+public_boundary:
+  commit_project_outputs_to_public_repo: false
+  include_source_payloads_in_workflow_package: false
+  include_notebooklm_answers_in_workflow_package: false

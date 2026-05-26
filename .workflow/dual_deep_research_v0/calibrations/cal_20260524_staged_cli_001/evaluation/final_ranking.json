@@ -1,0 +1,202 @@
+{
+  "workflow_id": "dual_deep_research_v0",
+  "calibration_id": "cal_20260524_staged_cli_001",
+  "selection_rule": "Only revised-quality-gate passing candidates are primary-eligible. Among passing candidates, choose the cheapest model family unless quality difference is material; within the same model family, token differences under 5% are treated as noise and better boundary structure wins.",
+  "rankings": [
+    {
+      "rank": 1,
+      "candidate_id": "A_mini_low_dwarf_archivist",
+      "selection_role": "primary_lowest_cost_quality_pass",
+      "reason": "Lowest-cost model family passing the revised quality gate; stronger output than other mini passing candidates with token difference treated as noise.",
+      "profile": {
+        "id": "A_mini_low_dwarf_archivist",
+        "model": "gpt-5.4-mini",
+        "effort": "low",
+        "species": "dwarf",
+        "klass": "archivist"
+      },
+      "evaluation": {
+        "candidate_id": "A_mini_low_dwarf_archivist",
+        "model": "gpt-5.4-mini",
+        "reasoning_effort": "low",
+        "species": "dwarf",
+        "class": "archivist",
+        "usable": true,
+        "critical_errors": [],
+        "missing_required_items": [],
+        "golden_requirement_coverage": 0.91,
+        "task_success": 0.91,
+        "safety_boundary": "pass",
+        "repeatability": 0.85,
+        "output_quality_score": 91,
+        "final_quality": "pass",
+        "evaluator_notes": [
+          "Best cheap profile: clear boundary packet, N5 rejection, common trace/delta split, workflow-generator/check guard present."
+        ],
+        "telemetry": {
+          "input_tokens": 19944,
+          "cached_input_tokens": 3456,
+          "output_tokens": 1956,
+          "reasoning_output_tokens": 100
+        },
+        "wall_seconds": 31
+      }
+    },
+    {
+      "rank": 2,
+      "candidate_id": "B_55_low_dwarf_archivist",
+      "selection_role": "high_assurance_shadow",
+      "reason": "Best quality output and compact for gpt-5.5; use when first real pilot or higher-risk handoff needs stronger boundary discipline.",
+      "profile": {
+        "id": "B_55_low_dwarf_archivist",
+        "model": "gpt-5.5",
+        "effort": "low",
+        "species": "dwarf",
+        "klass": "archivist"
+      },
+      "evaluation": {
+        "candidate_id": "B_55_low_dwarf_archivist",
+        "model": "gpt-5.5",
+        "reasoning_effort": "low",
+        "species": "dwarf",
+        "class": "archivist",
+        "usable": true,
+        "critical_errors": [],
+        "missing_required_items": [],
+        "golden_requirement_coverage": 0.96,
+        "task_success": 0.96,
+        "safety_boundary": "pass",
+        "repeatability": 0.85,
+        "output_quality_score": 96,
+        "final_quality": "pass",
+        "evaluator_notes": [
+          "Best high-assurance output: clean conflict/gap/delta boundaries, compact for model size."
+        ],
+        "telemetry": {
+          "input_tokens": 21680,
+          "cached_input_tokens": 4480,
+          "output_tokens": 1619,
+          "reasoning_output_tokens": 38
+        },
+        "wall_seconds": 33
+      }
+    },
+    {
+      "rank": 3,
+      "candidate_id": "B_54_low_human_archivist",
+      "selection_role": "middle_model_shadow",
+      "reason": "Strong structure but longer output and slower wall time than primary.",
+      "profile": {
+        "id": "B_54_low_human_archivist",
+        "model": "gpt-5.4",
+        "effort": "low",
+        "species": "human",
+        "klass": "archivist"
+      },
+      "evaluation": {
+        "candidate_id": "B_54_low_human_archivist",
+        "model": "gpt-5.4",
+        "reasoning_effort": "low",
+        "species": "human",
+        "class": "archivist",
+        "usable": true,
+        "critical_errors": [],
+        "missing_required_items": [],
+        "golden_requirement_coverage": 0.95,
+        "task_success": 0.95,
+        "safety_boundary": "pass",
+        "repeatability": 0.85,
+        "output_quality_score": 95,
+        "final_quality": "pass",
+        "evaluator_notes": [
+          "Strong structured pass, but materially longer output and slower wall time than cheap primary."
+        ],
+        "telemetry": {
+          "input_tokens": 20295,
+          "cached_input_tokens": 3456,
+          "output_tokens": 2473,
+          "reasoning_output_tokens": 37
+        },
+        "wall_seconds": 49
+      }
+    },
+    {
+      "rank": 4,
+      "candidate_id": "B_55_low_human_archivist",
+      "selection_role": "frontier_human_archivist_shadow",
+      "reason": "Good pass but less compact than dwarf archivist.",
+      "profile": {
+        "id": "B_55_low_human_archivist",
+        "model": "gpt-5.5",
+        "effort": "low",
+        "species": "human",
+        "klass": "archivist"
+      },
+      "evaluation": {
+        "candidate_id": "B_55_low_human_archivist",
+        "model": "gpt-5.5",
+        "reasoning_effort": "low",
+        "species": "human",
+        "class": "archivist",
+        "usable": true,
+        "critical_errors": [],
+        "missing_required_items": [],
+        "golden_requirement_coverage": 0.93,
+        "task_success": 0.93,
+        "safety_boundary": "pass",
+        "repeatability": 0.85,
+        "output_quality_score": 93,
+        "final_quality": "pass",
+        "evaluator_notes": [
+          "Passes with good boundaries; not as compact as dwarf archivist."
+        ],
+        "telemetry": {
+          "input_tokens": 21680,
+          "cached_input_tokens": 7552,
+          "output_tokens": 1961,
+          "reasoning_output_tokens": 33
+        },
+        "wall_seconds": 41
+      }
+    },
+    {
+      "rank": 5,
+      "candidate_id": "A_mini_low_human_auditor",
+      "selection_role": "cheap_auditor_shadow",
+      "reason": "Cheap pass, but one-sided bucket handling weaker than primary.",
+      "profile": {
+        "id": "A_mini_low_human_auditor",
+        "model": "gpt-5.4-mini",
+        "effort": "low",
+        "species": "human",
+        "klass": "auditor"
+      },
+      "evaluation": {
+        "candidate_id": "A_mini_low_human_auditor",
+        "model": "gpt-5.4-mini",
+        "reasoning_effort": "low",
+        "species": "human",
+        "class": "auditor",
+        "usable": true,
+        "critical_errors": [],
+        "missing_required_items": [],
+        "golden_requirement_coverage": 0.88,
+        "task_success": 0.88,
+        "safety_boundary": "pass",
+        "repeatability": 0.85,
+        "output_quality_score": 88,
+        "final_quality": "pass",
+        "evaluator_notes": [
+          "Passes boundaries and rejects N5, but one-sided buckets are weak and workflow-generator/check guard is partly deferred."
+        ],
+        "telemetry": {
+          "input_tokens": 19943,
+          "cached_input_tokens": 3456,
+          "output_tokens": 1897,
+          "reasoning_output_tokens": 104
+        },
+        "wall_seconds": 28
+      }
+    }
+  ]
+}

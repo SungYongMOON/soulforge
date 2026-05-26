@@ -1,6 +1,129 @@
 ﻿# CHANGELOG
 
+## 2026-05-26
+
+### Revision `working` - RAG and gateway path portability tightened
+
+- Tightened RAG/source-text profile and extraction packet validators so URL-like path fields such as `file://...` cannot bypass local absolute path guards.
+- Required company knowledge intake `source_ref` values to use Soulforge-root-relative `_workspaces/knowledge/**` refs instead of floating Drive IDs or machine-local paths.
+- Switched the gateway mail fetch env example and path docs to Soulforge-root-relative paths, while keeping legacy env-file-relative path resolution for existing local env files.
+
+### Revision `working` - RAG operating standard docs clarified
+
+- Clarified the two RAG boundaries: default manifest/index/trace/evaluation/answer flows are metadata-only, while approved private source-text commands may read only owner-approved `_workspaces/knowledge/**` source text.
+- Added the raw-question storage policy for RAG artifacts: persisted JSON/review outputs use labels, query fingerprints, and token fingerprints, not raw questions.
+- Added a public-safe company knowledge intake packet template surface for parallel PC handoff without raw source text, NotebookLM answers, account IDs, conversation IDs, secrets, or company payloads.
+- Recorded RAG/source-text standardization as a bounded support/follow-on lane under the roadmap, not a replacement for the active playable loop.
+
+## 2026-05-25
+
+### Revision `working` - RAG source-text starter index lane added
+
+- Added the first owner-approved `_workspaces/knowledge` source-text lane with source card validation, source-text indexing, derived text output, and source-text answer proof runs.
+- Added CLI commands `validate-knowledge-source-card`, `source-text-index`, `validate-source-text-index`, `source-text-answer-run`, and `validate-source-text-answer-run`.
+- Kept source-text payloads out of public repo and `_workmeta`: starter source, derived text, index chunks, and source-text answer runs live under `_workspaces/knowledge/**`.
+- Added official-source authority handling so owner-approved public agency sources may create public-safe summaries, ontology seeds, NotebookLM packet manifests, and registry entries while full source text and chunks remain private workspace payloads.
+
+### Revision `working` - RAG answer-engine preflight MVP added
+
+- Added `source_text_extraction_run_report_v0` as the report-only dry-run layer after `source_text_extraction_packet_v0`.
+- Added `rag_answer_engine_run_v0` as the current metadata/preflight answer-engine MVP, connecting the metadata retrieval index with the source-text packet/report readiness chain.
+- Added CLI commands `source-text-extraction-run-report`, `validate-source-text-extraction-run-report`, `answer-engine-run`, and `validate-answer-engine-run`.
+- Kept written answer-engine runs below source-text RAG: they persist query fingerprints, not raw queries, and do not read source bodies, write private payloads, build indexes, use NotebookLM answers, or grant owner approval.
+
+### Revision `working` - RAG source text extraction packet added
+
+- Added `source_text_extraction_packet_v0` under `guild_hall/rag` as the dry-run preflight contract after `source_text_metadata_profile_v0`.
+- Added `source-text-extraction-packet` and `validate-source-text-extraction-packet` CLI commands to bind profile fields, source-slice targets, extraction-log import tasks, adapter routes, and planned metadata outputs before extractor execution.
+- Kept the packet below owner approval and source-text retrieval: it does not execute extractors, read source bodies, write private payloads, build indexes, upload to NotebookLM, or promote public canon.
+
+### Revision `working` - RAG source text metadata profile added
+
+- Added `source_text_metadata_profile_v0` under `guild_hall/rag` as a planning-only bridge before source-text extraction.
+- Added `source-text-metadata-profile` and `validate-source-text-metadata-profile` CLI commands to reuse source-slice metadata, public-safe field scans, and extraction-status CSV column/count metadata without loading source bodies.
+- Kept the profile below source-text retrieval, private extracted text, chunks, BM25/vector indexes, NotebookLM answers, owner approval, and public canon promotion.
+
 ## 2026-05-24
+
+### Revision `working` - Knowledge wiki pipeline renamed for general use
+
+- Renamed the Knowledge Wiki Cell default composite route from the SE-prefixed workflow id to `knowledge_wiki_pipeline_v0` so it is clearly usable for general knowledge, sourcebound wiki, NotebookLM bookshelf, and RAG metadata handoff work.
+- Updated Knowledge Wiki Cell party routing, workflow index entries, downstream workflow references, and launcher skill mappings to use `knowledge_wiki_pipeline_v0`.
+- Kept behavior and authority boundaries unchanged: the rename does not grant source truth, NotebookLM or Drive mutation, RAG answer authority, public canon promotion, ontology acceptance, or any new default-route expansion beyond the existing Knowledge Wiki Cell route.
+
+### Revision `working` - RAG metadata refresh workflow route added
+
+- Added `rag_metadata_refresh_v0` as the registered metadata-only refresh workflow route after wiki/sourcebound metadata changes.
+- Extended `knowledge_wiki_pipeline_v0` and `knowledge_wiki_cell` with an optional RAG refresh handoff while keeping RAG artifact refresh outside the wiki party itself.
+- Updated the Knowledge Wiki Cell launcher contract so it can prepare a metadata-only refresh handoff without granting source-text retrieval, BM25/vector index build, NotebookLM mutation, public canon promotion, or answer authority.
+
+### Revision `working` - RAG metadata retrieval index and indexed answer path added
+
+- Added safe-default `source_slice_owner_decision_record_v0` generation and validation so decision packets can be carried into the next layer without being mistaken for owner approval or stronger source permissions.
+- Added `rag_metadata_index_v0`, retrieval trace, smoke evaluation, and `answer --metadata-index-ref` under `guild_hall/rag`, with token fingerprints instead of raw terms and `_workmeta` trace/evaluation outputs that do not persist raw questions.
+- Tightened RAG and graph guards: `rag_manifest_v0` must keep `indexes: []`, metadata indexes cannot persist source handles/locators, and knowledge graph exports can only write under `_workspaces/system/knowledge_view/**`.
+
+### Revision `working` - RAG source slice decision packet added
+
+- Added metadata-only `source_slice_decision_packet_v0` generation and validation under `guild_hall/rag` as the owner-decision preparation layer before source-text retrieval, index build, NotebookLM packet membership, or public canon promotion.
+- Added explicit `source-slice-decision-packet` and `validate-source-slice-decision-packet` CLI commands with `_workmeta` output-root guards and project-code enforcement for private source slices.
+- Kept decision packets below owner approval: they list pending decisions and default stronger permissions to false, but do not apply decisions, load source text, create chunks, build indexes, use NotebookLM answers, or promote canon.
+
+### Revision `working` - Sonar signal chain knowledge entry registered
+
+- Added `.registry/knowledge/sonar_signal_chain/` as a source-supported reusable knowledge entry for sonar engineering orientation from underwater acoustics and hydrophone sensing through AFE, ADC, digital front-end processing, beamforming, detection, and calibration.
+- Recorded public source-support boundaries for TI AFE receive-chain references, DOSITS detection-threshold context, QARTOD/NPL/IHO calibration and QA context, and MathWorks detection/CFAR seed references.
+- Kept the entry below production design approval and below complete sourcebound packet status: NotebookLM outputs, weak web sources, military operational doctrine, and unsupported component-level design claims remain excluded.
+
+### Revision `working` - RAG triage graph lens visibility added
+
+- Added explicit source-slice triage/register inputs to the knowledge graph export so generated graph views can show metadata registration state alongside the existing RAG manifest lens.
+- Embedded redacted `source_slice_projection` and `node.source_slice` overlays with registered, owner-review, blocked, and stronger-permission-needed counts for 3D filtering.
+- Kept the projection metadata-only: it does not expose source text, source-handle arrays, source locator payloads, indexes, NotebookLM answers, applied owner decisions, or public canon promotion.
+
+### Revision `working` - Dual deep research workflow and launcher added
+
+- Added `.workflow/dual_deep_research_v0` as the workflow-owned procedure for running the repo-defined `nlm` NotebookLM CLI Deep Research path and Codex direct source research as separated advisory lanes before comparison.
+- Encoded the existing CLI-first contract directly in the workflow, including `nlm research start ... --mode deep`, `status`, `import`, and bounded `notebook query`, so future agents do not rediscover the basic NotebookLM command shape every run.
+- Added an explicit first goal-declaration step plus a `subagent_stage_manifest` so material NotebookLM, Codex direct research, and comparison stages run through fresh bounded subagent contexts or record a blocker and lower the claim.
+- Routed the completed research packet to `knowledge_wiki_cell` / `knowledge_wiki_pipeline_v0` as an automatic downstream handoff while keeping registration, Drive placement, NotebookLM packet-map updates, source sufficiency, owner decision, and wiki/canon promotion outside the research workflow.
+- Added `.registry/skills/dual_deep_research` as a thin Codex launcher for the workflow while keeping Google Drive, NotebookLM packet maps, wiki registration, source truth, owner approval, ontology acceptance, and canon promotion outside the skill's authority.
+- Evolved the workflow and launcher contract so downstream or adjacent workflow creation/evolution discovered during research routes through `$soulforge-workflow-generator`, then requires `$soulforge-workflow-check` before any completion, readiness, registration, or promotion claim.
+- Tightened the workflow-check closeout guard so default-route switching/default-route-safety claims are explicitly outside the research lane, and changed the boundary-review template defaults from prefilled pass values to pending/unchecked values.
+- Added a public-safe staged profile calibration archive for `dual_deep_research_v0`, promoted `profile_policy.yaml` from draft to active, selected `gpt-5.4-mini` / `low` / `dwarf` / `archivist` as the cheapest passing synthetic profile, and retained `gpt-5.5` / `low` / `dwarf` / `archivist` as the high-assurance shadow for first real pilots.
+- Promoted the `dual_deep_research` Codex launcher skill to active and taught it to resolve the calibrated workflow `profile_policy.yaml` at execution time, without copying optimizer outputs or moving source truth, NotebookLM runtime, Drive/wiki registration, or owner approval authority into the skill.
+
+### Revision `working` - RAG source slice review queue added
+
+- Added metadata-only `source_slice_review_queue_v0` generation and validation under `guild_hall/rag` as the owner-review preparation layer after `source_slice_card_v0`.
+- Added explicit `source-slice-review-queue` and `validate-source-slice-review-queue` CLI commands with `_workmeta` output-root guards.
+- Kept review queues below owner approval, source-text retrieval, chunks, indexes, source truth, answer evidence, graph mutation, ontology acceptance, and canon promotion.
+
+### Revision `working` - RAG source slice triage register added
+
+- Added metadata-only `source_slice_triage_register_v0` generation and validation under `guild_hall/rag` so existing wiki/source intake criteria can auto-register passing public-safe source cards as `rag_metadata_knowledge_only`.
+- Added explicit `source-slice-triage-register` and `validate-source-slice-triage-register` CLI commands with `_workmeta` output-root guards.
+- Added a standing owner policy block that treats owner-defined criteria as automatic metadata-registration authority while keeping source-text retrieval, index build, NotebookLM packet membership, and public canon promotion false by default.
+- Extended source-slice review queues to consume triage registers and emit only hold/blocked items, so passing metadata knowledge does not accumulate in owner review backlog.
+- Kept triage registration below owner approval, source-text retrieval, NotebookLM packet membership, public canon promotion, source truth, graph mutation, ontology acceptance, and index build permission.
+
+### Revision `working` - RAG source slice cards added
+
+- Added metadata-only `source_slice_card_set_v0` generation and validation under `guild_hall/rag` as the preparation layer after `rag_manifest_v0` and before BM25/vector/source-text retrieval.
+- Added explicit `source-slice-cards` and `validate-source-slice-cards` CLI commands with system/private output-root guards.
+- Kept source slice cards below chunks, indexes, source truth, answer evidence, owner approval, and canon promotion.
+
+### Revision `working` - RAG manifest graph lens projection added
+
+- Added `--rag-manifest-ref` to the knowledge graph export so generated graph views can consume explicit `rag_manifest_v0` files as sanitized metadata-only overlays.
+- Embedded `rag_projection` and `node.rag` readiness metadata for 3D RAG lens filtering, including answer-ready and lens-profile views.
+- Kept the projection below source-text retrieval and answer authority: it does not load source text, NotebookLM answers, vector stores, BM25 indexes, private payloads, secrets, or runtime absolute paths.
+
+### Revision `working` - Metadata-only RAG MVP added
+
+- Added `guild_hall/rag` with `rag_manifest_v0` generation, validation, and a first manifest-backed metadata-only answer command.
+- Added `npm run guild-hall:rag` and `npm run validate:rag` so RAG work can be generated, checked, and answered through the canonical command surface.
+- Kept the MVP below source-text retrieval: it does not load private payloads, NotebookLM answers, vector stores, BM25 indexes, secrets, or runtime absolute paths.
 
 ### Revision `working` - Knowledge graph Codex review command connected
 
@@ -344,16 +467,16 @@
 
 ### Revision `working` - Knowledge wiki Obsidian contract and synthetic pilot smoke
 
-- Added an Obsidian export decision surface to `se_knowledge_wiki_pipeline_v0` so the composite candidate now records when a generated read-only view is requested and blocks export unless the source is canon-backed.
+- Added an Obsidian export decision surface to `knowledge_wiki_pipeline_v0` so the composite candidate now records when a generated read-only view is requested and blocks export unless the source is canon-backed.
 - Fixed the default Obsidian posture to `_workspaces/system/knowledge_view/obsidian_export/` as a local generated runtime surface, not a canon owner root and not a Drive-synced primary vault.
 - Clarified in `knowledge_wiki_cell` party docs that Obsidian consumes canon-backed `.registry/knowledge` entries or approved canon packages only; `_workmeta` payloads, Drive candidate files, and NotebookLM answers remain outside the vault body.
 - Expanded `KNOWLEDGE_WIKI_WORLDVIEW_V0.md` with concrete Obsidian file naming, frontmatter, link, metadata-ref, read-only, and regen/drift rules.
-- Recorded a latest-policy synthetic manifest-only smoke under `_workmeta/system/runs/knowledge_wiki_cell_latest_policy_smoke_20260518/` and kept `se_knowledge_wiki_pipeline_v0` unregistered even after the pilot.
+- Recorded a latest-policy synthetic manifest-only smoke under `_workmeta/system/runs/knowledge_wiki_cell_latest_policy_smoke_20260518/` and kept `knowledge_wiki_pipeline_v0` unregistered even after the pilot.
 
 ### Revision `working` - SE knowledge wiki composite registered and selected
 
-- Registered `se_knowledge_wiki_pipeline_v0` in `.workflow/index.yaml`.
-- Switched `knowledge_wiki_cell` to use `se_knowledge_wiki_pipeline_v0` as the default party entry by owner direction.
+- Registered `knowledge_wiki_pipeline_v0` in `.workflow/index.yaml`.
+- Switched `knowledge_wiki_cell` to use `knowledge_wiki_pipeline_v0` as the default party entry by owner direction.
 - Kept the older four-stage lane as the composite workflow's downstream execution chain rather than removing those registered workflows.
 
 ### Revision `working` - Workflow knowledge preflight added

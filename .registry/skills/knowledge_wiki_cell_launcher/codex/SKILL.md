@@ -14,17 +14,20 @@ The skill is a thin bridge. It does not own the party, workflow chain, profile p
 1. Read `docs/architecture/foundation/AGENT_EXECUTION_CONTRACT_V0.md`.
 2. Read `.party/knowledge_wiki_cell/party.yaml` and `.party/knowledge_wiki_cell/allowed_workflows.yaml`.
 3. Confirm the selected workflow ids exist in `.workflow/index.yaml`.
-4. Read `.workflow/se_knowledge_wiki_pipeline_v0/workflow.yaml` and `profile_policy.yaml` first, then read any downstream workflow `workflow.yaml` and `profile_policy.yaml` needed for the request.
+4. Read `.workflow/knowledge_wiki_pipeline_v0/workflow.yaml` and `profile_policy.yaml` first, then read any downstream workflow `workflow.yaml` and `profile_policy.yaml` needed for the request.
 5. Treat workflow-owned profile policy as execution hints for model, reasoning effort, species, and class. Do not copy those values into a new runtime binding.
 6. Insert `source_packet_sufficiency_review_v0` when source support or claim ceiling is unclear.
 7. Insert `owner_decision_packet_v0` when approval, promotion, archive/retire, source approval, or default-route authority is needed.
-8. Close bounded work through `post_development_review_gate_v0` when the task changes Soulforge files, produces a promotion candidate, or reports a completed development result.
+8. Prepare a metadata-only `rag_metadata_refresh_v0` handoff when wiki/sourcebound metadata changes should refresh RAG manifests, graph lenses, metadata indexes, or retrieval smoke outputs.
+9. Close bounded work through `post_development_review_gate_v0` when the task changes Soulforge files, produces a promotion candidate, or reports a completed development result.
 
 ## Boundary Rules
 
 - Do not create, rename, or default-route a party from this launcher alone.
 - Do not treat Drive storage, NotebookLM notebooks, advisory tool output, Obsidian views, or generated wiki projections as source truth.
+- Do not run RAG refresh steps inside this launcher or the wiki party. The launcher may point to `rag_metadata_refresh_v0`, but that workflow owns refresh execution and validation.
 - Do not copy raw source text, private packets, NotebookLM answers, Drive payloads, secrets, credentials, runtime absolute paths, or project-local run truth into public tracked files.
+- Do not treat a RAG refresh handoff as source-text retrieval approval, BM25/vector index-build approval, NotebookLM packet membership, public canon promotion, ontology acceptance, owner approval, default-route authority, or answer authority.
 - Keep source truth in source packets or owner-held files, private derivative projections in private evidence, and public promotion behind owner decision plus review.
 
 ## Load On Demand

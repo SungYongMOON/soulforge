@@ -1,0 +1,24 @@
+workflow_id: dual_deep_research_v0
+kind: dual_research_comparison_packet
+schema_version: v0
+status: draft
+comparison_id: "<comparison_id>"
+goal_declaration_ref: "<goal_id>"
+subagent_stage:
+  stage_id: compare_and_dedupe
+  fresh_subagent_used: null
+  subagent_blocker: null
+inputs:
+  notebooklm_cli_research_packet_ref: "<packet_id>"
+  codex_direct_research_packet_ref: "<packet_id>"
+claim_buckets:
+  common: []
+  notebooklm_only: []
+  codex_only: []
+  conflicts: []
+  gaps: []
+dedupe_rule:
+  common_claims_kept_for_trace: true
+  common_claims_removed_from_delta_recommendations: true
+agreement_is_truth_by_itself: false
+claim_ceiling: observed

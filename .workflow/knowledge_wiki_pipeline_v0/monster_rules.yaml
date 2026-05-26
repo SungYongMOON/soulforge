@@ -1,0 +1,25 @@
+workflow_id: knowledge_wiki_pipeline_v0
+kind: monster_rules
+status: active
+rules:
+  - monster_id: source_intake_bypassed_without_authority
+    response: restore_source_intake_or_hold_private
+    summary: The pipeline must not jump into projection work without approved source refs or an existing approved source packet.
+  - monster_id: zip_container_as_truth
+    response: require_extracted_contents_and_inventory_only
+    summary: ZIP containers are transfer surfaces, not source truth, for this lane.
+  - monster_id: hwp_page_exact_claim_without_surface
+    response: insert_source_sufficiency_gate_and_lower_claim_ceiling
+    summary: Readable HWP body text does not automatically allow page-stable or layout-sensitive claims.
+  - monster_id: public_promotion_without_authority_register
+    response: insert_owner_decision_gate_and_hold_private
+    summary: Public-safe promotion requests must not bypass authority and review gates.
+  - monster_id: support_doc_promoted_as_primary_doctrine
+    response: downgrade_to_support_only
+    summary: Support references such as the DTAQ handbook must not replace the primary DAPA SW doctrine surface.
+  - monster_id: knowledge_access_promoted_as_authority
+    response: mark_metadata_only_and_recheck_claim_route
+    summary: Knowledge-access packets are navigation signals, not truth or approval surfaces.
+  - monster_id: sourcebound_projection_promoted_as_truth
+    response: downgrade_to_private_derivative_projection
+    summary: The pipeline must preserve the derivative nature of compiled wiki pages.

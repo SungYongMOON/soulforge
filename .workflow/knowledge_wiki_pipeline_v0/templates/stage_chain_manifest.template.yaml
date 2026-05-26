@@ -1,0 +1,41 @@
+workflow_id: knowledge_wiki_pipeline_v0
+kind: stage_chain_manifest
+status: draft
+chain_id: "<chain_id>"
+stage_chain:
+  - order: 1
+    stage_id: archive_candidate_source_stage
+    workflow_id: knowledge_wiki_pipeline_v0
+    state: "required_when_owner_archive_requested"
+    output_ref: archive_manifest_refs
+  - order: 2
+    workflow_id: official_source_packet_collect_v0
+    state: "required|reuse_allowed"
+  - order: 3
+    workflow_id: source_packet_sufficiency_review_v0
+    state: "optional_when_authority_sensitive"
+  - order: 4
+    workflow_id: sourcebound_knowledge_packet_operating_loop_v0
+    state: "required"
+  - order: 5
+    workflow_id: owner_decision_packet_v0
+    state: "optional_when_promotion_sensitive"
+  - order: 6
+    stage_id: archive_working_package_stage
+    workflow_id: knowledge_wiki_pipeline_v0
+    state: "required_when_owner_archive_requested"
+    output_ref: archive_manifest_refs
+  - order: 7
+    stage_id: obsidian_export_decision_stage
+    workflow_id: knowledge_wiki_pipeline_v0
+    state: "required_when_obsidian_read_view_is_requested_or_policy_checked"
+    output_ref: obsidian_export_refs
+  - order: 8
+    workflow_id: knowledge_access_event_capture_v0
+    state: "required_after_projection"
+  - order: 9
+    workflow_id: rag_metadata_refresh_v0
+    state: "optional_metadata_only_after_projection_or_access_delta"
+  - order: 10
+    workflow_id: post_development_review_gate_v0
+    state: "required_closeout"

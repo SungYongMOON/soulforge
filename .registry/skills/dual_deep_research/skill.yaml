@@ -1,0 +1,59 @@
+skill_id: dual_deep_research
+kind: skill
+status: active
+title: Dual Deep Research
+summary: Launch the calibrated `dual_deep_research_v0` workflow that keeps NotebookLM CLI Deep Research and Codex direct source research independent before comparing their findings.
+behavior:
+  intent: >
+    Provide a thin Codex launcher for `.workflow/dual_deep_research_v0` and its
+    calibrated `profile_policy.yaml`. The workflow owns the actual NotebookLM
+    CLI-first Deep Research procedure, Codex independent source research path,
+    comparison buckets, common-claim dedupe rule, and downstream handoff. This
+    skill maps user language to that workflow without moving NotebookLM runtime,
+    Drive, wiki, source truth, or owner approval authority into the skill.
+  use_when:
+    - the user asks for deep research, 딥 리서치, 심층 조사, or 조사 비교 using NotebookLM and Codex
+    - the user says NotebookLM has a connected CLI and Codex must use that CLI instead of treating NotebookLM as only a web concept
+    - a NotebookLM note or notebook should be created or reused before invoking NotebookLM Deep Research
+    - Codex direct research and NotebookLM research results must be compared, deduplicated, and prepared for later registration
+    - the user asks to use the optimized or calibrated dual deep research workflow
+  avoid_when:
+    - the user only wants final wiki, Google Drive, Obsidian, or registry publication rather than the research slice
+    - the task requires approving source truth, owner approval, ontology acceptance, canon promotion, or archive/retire execution
+    - NotebookLM CLI commands, auth, or source uploads would require reading secrets, session files, cookies, or credential payloads
+    - the research question is too broad to bound into explicit claims, source scope, and stop conditions
+  expected_outcome:
+    - Codex reads `.workflow/dual_deep_research_v0/workflow.yaml` and `step_graph.yaml`
+    - Codex reads `.workflow/dual_deep_research_v0/profile_policy.yaml` before selecting the execution profile
+    - Codex uses the workflow-owned calibrated primary profile by default and the workflow-owned high-assurance shadow profile when the policy says to do so
+    - Codex uses the workflow-embedded NotebookLM CLI contract instead of rediscovering the basic CLI shape every run
+    - NotebookLM and Codex direct research stay independent until comparison
+    - comparison and delta handoff follow the workflow-owned output templates
+execution_requirements:
+  required_capabilities:
+    - notebooklm_cli_contract_use
+    - source_research
+    - dual_path_comparison
+    - claim_ceiling_review
+    - boundary_review
+  preferred_capabilities:
+    - web_research
+    - notebook_note_authoring
+    - metadata_only_evidence_capture
+    - knowledge_wiki_handoff
+  preferred_tools:
+    - rg
+    - nlm
+    - notebooklm-mcp
+    - web_search
+    - markdown_editor
+    - yaml_reader
+  notes:
+    - "The NotebookLM CLI-first command contract lives in `.workflow/dual_deep_research_v0/workflow.yaml`; do not re-expand it inside this skill."
+    - "The calibrated profile policy lives in `.workflow/dual_deep_research_v0/profile_policy.yaml`; read it at execution time instead of copying optimizer outputs into the launcher."
+    - "NotebookLM answers and Codex synthesis remain advisory until supported by approved source refs, validators, review evidence, or owner decision."
+    - "Downstream registration belongs to Google Drive, NotebookLM packet maps, knowledge wiki workflows, or owner decision routes, not to this research skill by itself."
+notes:
+  - "`dual_deep_research` is a thin Codex bridge for `.workflow/dual_deep_research_v0`."
+  - "The installed Codex mirror name is normally `soulforge-dual-deep-research` after `npm run skills:sync -- dual_deep_research`."
+  - "Skill activation does not claim real NotebookLM or wiki pilot completion; profile calibration evidence and limits remain workflow-owned."
