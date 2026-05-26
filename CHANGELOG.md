@@ -7,6 +7,7 @@
 - Changed the gateway project mail history writers so `_workmeta/<project_code>/reports/메일_이력/` keeps only metadata-oriented CSV and calendar outputs.
 - Moved generated `메일_이력.xlsx` exports to `_workspaces/<project_code>/reports/메일_이력/` and made the writers remove legacy `_workmeta` Excel exports on the next upsert.
 - Added `validate:workmeta-payload` to catch HWP/HWPX, Office, PDF, archive, and mail raw/archive files under `_workmeta`, including ignored local payloads.
+- Fixed the workmeta payload validator CLI entrypoint so the npm script actually runs on Windows file paths instead of silently stopping after tests.
 - Updated gateway, mail-fetch, dungeon-assignment, validation, and workspace intake docs/tests to keep Excel files out of the private metadata plane.
 
 ### Revision `working` - RAG source sync ready gate added

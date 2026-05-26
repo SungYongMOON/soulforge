@@ -163,6 +163,14 @@ function displayPath(repoRoot, targetPath) {
   return relative.split(path.sep).join(path.posix.sep);
 }
 
+function isDirectCliInvocation() {
+  if (!process.argv[1]) {
+    return false;
+  }
+
+  return fileURLToPath(import.meta.url) === path.resolve(process.argv[1]);
+}
+
 async function pathExists(filePath) {
   try {
     await fs.access(filePath);
@@ -172,7 +180,7 @@ async function pathExists(filePath) {
   }
 }
 
-if (import.meta.url === `file://${process.argv[1]}`) {
+if (isDirectCliInvocation()) {
   main().catch((error) => {
     process.stderr.write(`${error.stack ?? error.message}\n`);
     process.exit(1);

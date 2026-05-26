@@ -1,10 +1,16 @@
 import test from "node:test";
 import assert from "node:assert/strict";
+import { execFile } from "node:child_process";
 import { mkdir, mkdtemp, writeFile } from "node:fs/promises";
 import os from "node:os";
 import path from "node:path";
+import { fileURLToPath } from "node:url";
+import { promisify } from "node:util";
 
 import { validateWorkmetaPayloadPolicy } from "./workmeta_payload_policy.mjs";
+
+const execFileAsync = promisify(execFile);
+const cliPath = fileURLToPath(new URL("./workmeta_payload_policy.mjs", import.meta.url));
 
 test("workmeta payload policy flags blocked payload extensions under _workmeta only", async () => {
   const repoRoot = await mkdtemp(path.join(os.tmpdir(), "soulforge-workmeta-payload-policy-"));
@@ -29,6 +35,17 @@ test("workmeta payload policy passes when _workmeta is absent", async () => {
   assert.equal(report.ok, true);
   assert.equal(report.present, false);
   assert.equal(report.violation_count, 0);
+});
+
+test("workmeta payload policy CLI runs when invoked by file path", async () => {
+  const repoRoot = await mkdtemp(path.join(os.tmpdir(), "soulforge-workmeta-payload-policy-"));
+
+  const { stdout } = await execFileAsync(process.execPath, [cliPath, "--root", repoRoot], {
+    encoding: "utf8",
+  });
+
+  assert.match(stdout, /Soulforge Workmeta Payload Policy/);
+  assert.match(stdout, /present: no/);
 });
 
 async function writeSample(repoRoot, relativePath) {
