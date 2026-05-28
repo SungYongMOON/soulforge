@@ -1,0 +1,25 @@
+workflow_id: rag_source_text_quality_review_v0
+kind: workflow_profile_policy
+status: draft
+last_calibration_id: null
+calibration_mode: none
+measurement_policy:
+  quality_source: not_measured
+  telemetry_source: not_measured
+  subagent_token_usage_available: false
+  telemetry_exact_for_subagent: false
+  telemetry_exact_for_cli: false
+  cost_confidence: unknown
+primary_profile: null
+shadow_top_k: []
+rerun_triggers:
+  - workflow prompt changed
+  - output schema changed
+  - page warning taxonomy changed
+  - source-text index or traceability sidecar schema changed
+  - answer-run trace schema changed
+  - first controlled pilot exposes a boundary or support classification failure
+calibration_archive_ref: null
+notes:
+  - No profile has been calibrated for this draft.
+  - Any pilot-ready, pilot-executed, canon-ready, registered, production-ready, source-truth, answer-authority, or default-route-safe claim requires separate evidence and review.

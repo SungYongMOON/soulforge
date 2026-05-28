@@ -214,6 +214,65 @@ Soulforge 보정:
 - Passing the public canon guards is a canon-level pass: add or upgrade the correct owner-surface canon entry, package, schema, README, and changelog evidence as required by that owner.
 - Holding after a pass requires a concrete reason, such as an explicit owner hold, unclear owner surface, missing write access, blocked validator, or public/private boundary risk. Record that reason as `rejected_or_blocked` or `owner_decision_needed`.
 
+### Owner-delegated auto-canon lane
+
+Soulforge may use a standing owner delegation instead of asking for a new
+owner decision on every source or packet. This lane exists to prevent completed
+source-supported work from staying in candidate state when the owner has already
+defined the promotion criteria.
+
+A bounded task may register or upgrade a canon entry without per-item owner
+confirmation only when the authority gate, the source-support gate, and the six
+public canon guards all pass.
+
+The authority gate passes when an applicable owner-surface policy, owner
+decision packet, or promotion policy ref explicitly grants canon registration
+for the target layer and sets per-item owner confirmation to not required.
+
+The source-support gate passes when source support is sufficient for the
+proposed claim state. The packet must identify source refs, source
+sufficiency/review evidence, and the claim ceiling. Source truth still lives in
+source packets or owner-held sources.
+
+The six public canon guards are:
+
+1. `owner_surface`: the target owner surface is explicit, such as `.registry`,
+   `.workflow`, `.party`, `docs/architecture/**`, a private wiki surface, or
+   another named canon owner.
+2. `public_safe_abstraction`: public canon contains a public-safe abstraction
+   instead of raw or private working material.
+3. `private_raw_secret_exclusion`: no private payload, raw source body, secret,
+   credential, local runtime value, or protected work material is copied into
+   public canon.
+4. `schema_or_readme_contract`: the target owner has the required schema or
+   README contract update.
+5. `changelog_sync_when_applicable`: CHANGELOG evidence is updated when the
+   target owner requires it.
+6. `validation_or_review_route`: the required validation and review route
+   passes. Level 3/full B/V evidence is required for production-ready claims,
+   reference/oracle benchmark claims, authority-changing workflow/runner
+   changes, or public canon promotion unless the owner-surface policy narrows
+   the claim to a lower-risk metadata canon route and states why Level 2 is
+   sufficient.
+
+The closing review packet must record `canon_promotion_allowed: true`, the
+delegated policy ref or owner decision ref, target refs, failed guards as an
+empty list, and the claim ceiling after registration.
+
+If every applicable guard passes, the agent must register or upgrade the correct
+canon surface in the same bounded task and record the evidence. It must not ask
+for another owner approval merely because the item is new.
+
+If any guard fails or is unknown, the agent must stop at `canon_candidate`,
+`validated_private`, or `rejected_or_blocked`, name the exact failed guard, and
+write the next required action. A failed auto-canon guard must not be converted
+into implicit owner approval.
+
+This lane cannot by itself delegate source truth, ontology acceptance, final
+domain doctrine, secret inspection, external upload, default-route mutation, or
+production-ready authority. Those authorities require their own owner-surface
+policy or explicit owner decision plus the required review gate.
+
 ## 완료 기준
 
 이 계약이 작동하면 다음 변화가 보여야 한다.

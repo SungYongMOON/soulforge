@@ -1,0 +1,23 @@
+workflow_id: se_cross_stage_mapping_governance_v0
+calibration_id: cal_20260527_quality_equiv_001
+calibration_mode: subagent_quality_matrix_with_cli_proxy_telemetry
+status: quality_equivalent_calibrated
+baseline_profile: gpt-5.5|xhigh|dwarf|auditor
+recommended_primary:
+  label: gpt-5.4|low|dwarf|auditor
+  model: gpt-5.4
+  reasoning_effort: low
+  species: dwarf
+  class: auditor
+  quality_score: 96
+  quality_class: quality_equivalent_pass
+  baseline_relative_quality: 0.96
+candidate_class_counts:
+  quality_equivalent_pass: 2
+  pass: 1
+  minimum_viable_pass: 1
+  fail: 0
+telemetry_limitations:
+  - Quality comes from fresh subagent candidate outputs.
+  - CLI telemetry is proxy telemetry for shortlisted candidates only.
+  - The selected profile is not an authority upgrade and does not make this workflow source truth, artifact authority, review approval, or readiness approval.

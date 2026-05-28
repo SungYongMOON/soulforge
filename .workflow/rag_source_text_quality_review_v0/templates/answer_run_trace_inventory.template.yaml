@@ -1,0 +1,25 @@
+workflow_id: rag_source_text_quality_review_v0
+kind: answer_run_trace_inventory
+schema_version: v0
+status: draft
+inventory_id: "<inventory_id>"
+quality_review_scope_ref: "<quality_review_scope_ref>"
+answer_run_trace_ref: "<answer_run_trace_ref>"
+answer_trace_records:
+  - answer_claim_ref: "<answer_claim_ref>"
+    citation_refs: []
+    retrieval_event_refs: []
+    source_refs: []
+    page_refs: []
+    trace_hash_refs: []
+    run_timestamp_utc: "<timestamp_utc>"
+    trace_state: "<mapped|ambiguous|missing|blocked>"
+payload_absence:
+  raw_question: false
+  raw_answer: false
+  notebooklm_answer_payload: false
+  prompt_payload: false
+  private_transcript_payload: false
+  copied_source_excerpt: false
+  host_absolute_path: false
+blockers: []

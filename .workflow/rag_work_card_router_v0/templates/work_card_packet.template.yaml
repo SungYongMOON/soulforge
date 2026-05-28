@@ -1,0 +1,51 @@
+workflow_id: rag_work_card_router_v0
+kind: work_card_packet
+schema_version: v0
+status: draft
+work_card_id: "<deterministic_work_card_id>"
+request:
+  label: "<public_safe_label>"
+  fingerprint: "<stable_request_fingerprint>"
+  raw_question_persisted: false
+derivation:
+  router_workflow_id: rag_work_card_router_v0
+  router_schema_version: v0
+  fingerprint_policy_ref: "<fingerprint_policy_ref>"
+  sorted_input_ref_set_hash: "<sorted_input_ref_set_hash>"
+  route_policy_ref: "<route_policy_ref>"
+approved_context:
+  source_card_refs: []
+  index_refs: []
+  sourcebound_packet_refs: []
+  metadata_index_refs: []
+quality_gate:
+  page_quality_review_packet_ref: "<page_quality_review_packet_ref>"
+  source_supported_page_refs: []
+  manual_review_page_refs: []
+  blocked_page_refs: []
+  manual_review_visible: true
+  blocked_refs_excluded_from_supported_context: true
+work_boundary:
+  allowed_actions: []
+  disallowed_actions:
+    - persist_raw_question
+    - persist_raw_source_text
+    - persist_source_excerpt
+    - persist_notebooklm_answer
+    - claim_owner_approval
+    - claim_canon_or_default_route_safety
+  human_readable_text_boundary_ref: "<text_boundary_ref>"
+claim_boundary:
+  owner_approval_claimed: false
+  canon_claimed: false
+  source_truth_claimed: false
+  answer_truth_claimed: false
+  default_route_safe_claimed: false
+payload_absence:
+  raw_question: false
+  raw_source_text: false
+  copied_source_excerpt: false
+  notebooklm_answer_payload: false
+  secret_or_credential_material: false
+  host_absolute_path: false
+downstream_route_hints: []

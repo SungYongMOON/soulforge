@@ -130,4 +130,4 @@ notes:
   - "This workflow is the request-level router for the SE assistant lane."
   - "Registration means the structure is callable through `.party/systems_engineering_cell`; it does not imply pilot execution or production readiness."
   - "`se_foldertree_generate` remains scaffold-only and must not be treated as design, source, or compliance authority."
-  - "`se_cross_stage_mapping_governance_v0` is intentionally excluded until its draft/pilot/registration posture is resolved."
+  - "`se_cross_stage_mapping_governance_v0` is available only as an optional governance route; it is not part of the minimal required route and does not grant source, artifact, or readiness authority."

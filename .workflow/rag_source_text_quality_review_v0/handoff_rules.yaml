@@ -1,0 +1,24 @@
+workflow_id: rag_source_text_quality_review_v0
+kind: handoff_rules
+status: draft
+rules:
+  - from: quality_scope_binder
+    to: source_text_index_inventory_author
+    condition: quality_review_scope_bound
+    summary: Inventory author receives approved index refs, source refs, and policy only; raw source text is not handed off for persistence.
+  - from: source_text_index_inventory_author
+    to: traceability_sidecar_inventory_author
+    condition: source_text_index_inventory_written
+    summary: Sidecar inventory receives page, chunk, hash, and lifecycle refs, not source payloads or index term payloads.
+  - from: traceability_sidecar_inventory_author
+    to: answer_run_trace_inventory_author
+    condition: traceability_sidecar_inventory_written
+    summary: Answer trace inventory receives sidecar mapping refs and warning labels, not copied source text.
+  - from: answer_run_trace_inventory_author
+    to: page_support_reviewer
+    condition: answer_run_trace_inventory_written
+    summary: Reviewer receives claim, citation, retrieval, page, and trace refs, not raw questions, raw answers, or NotebookLM answer payloads.
+  - from: page_support_reviewer
+    to: quality_boundary_router
+    condition: page_quality_review_packet_written
+    summary: Boundary router receives the review packet with statuses and warnings and may only recommend downstream routes.

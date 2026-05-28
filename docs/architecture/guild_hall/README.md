@@ -15,6 +15,7 @@
 | `KNOWLEDGE_WAREHOUSE_BOOKSHELF_RULES_V0.md` | Fixes the Google Drive source warehouse, NotebookLM query bookshelf, source catalog, and ontology-candidate vocabulary and placement rules. |
 | `KNOWLEDGE_GRAPH_VIEW_MODEL_V0.md` | Defines the metadata-only graph view, visual encoding, source trace, layout, and Obsidian/operations export split for knowledge graph views. |
 | `RAG_MANIFEST_MVP_V0.md` | Fixes the metadata-only RAG manifest, source-slice-card, decision-record, metadata-index, trace/evaluation, and answer-command boundary. |
+| `RAG_THREE_STAGE_OPERATING_MODEL_V0.md` | Defines the three plain RAG progress stages: searchable RAG, work-ready RAG, and canon knowledge. |
 | `CODEX_ACCOUNT_BRIDGE_V0.md` | Describes the account-based Codex CLI bridge for advisory analysis without storing an API key. |
 | `KNOWLEDGE_WIKI_WORLDVIEW_V0.md` / `knowledge_wiki_worldview_v0.html` | Teammate-facing overview of the Soulforge knowledge wiki worldview, current status, operating rules, and next steps. |
 | `SOULFORGE_ACTIVITY_LOG_V0.md` | cross-project recent-context 와 carry-forward event surface 를 설명한다. |
@@ -67,6 +68,7 @@
 - [`KNOWLEDGE_WAREHOUSE_BOOKSHELF_RULES_V0.md`](KNOWLEDGE_WAREHOUSE_BOOKSHELF_RULES_V0.md)
 - [`KNOWLEDGE_GRAPH_VIEW_MODEL_V0.md`](KNOWLEDGE_GRAPH_VIEW_MODEL_V0.md)
 - [`RAG_MANIFEST_MVP_V0.md`](RAG_MANIFEST_MVP_V0.md)
+- [`RAG_THREE_STAGE_OPERATING_MODEL_V0.md`](RAG_THREE_STAGE_OPERATING_MODEL_V0.md)
 - [`CODEX_ACCOUNT_BRIDGE_V0.md`](CODEX_ACCOUNT_BRIDGE_V0.md)
 - [`KNOWLEDGE_WIKI_WORLDVIEW_V0.md`](KNOWLEDGE_WIKI_WORLDVIEW_V0.md)
 - [`knowledge_wiki_worldview_v0.html`](knowledge_wiki_worldview_v0.html)

@@ -1,0 +1,209 @@
+workflow_id: rag_work_card_router_v0
+kind: workflow
+status: pilot-executed
+title: RAG Work Card Router v0
+summary: Route a free-form work request label and fingerprint, approved source card and index refs, and a quality review packet into a deterministic work-card packet plus human-readable boundary text without persisting the raw question or claiming owner approval or canon authority.
+entrypoint: run
+execution_mode: local_tool_sequence
+role_slots: role_slots.yaml
+step_graph: step_graph.yaml
+handoff_rules: handoff_rules.yaml
+monster_rules: monster_rules.yaml
+party_compatibility: party_compatibility.yaml
+profile_policy: profile_policy.yaml
+classification_lane:
+  primary: project_management
+  primary_name_ko: 프로젝트 관리
+  secondary:
+    - rag_work_routing
+    - sourcebound_task_scoping
+    - owner_boundary_control
+  secondary_name_ko:
+    - RAG 업무 라우팅
+    - 소스바운드 작업 범위화
+    - 오너 경계 제어
+  purpose: discovery_only
+  authority: none
+execution_binding:
+  party_required: false
+  candidate_party_id: null
+  bound_party_id: null
+  binding_authority: none
+inputs:
+  - work_request_label
+  - work_request_fingerprint
+  - approved_source_card_refs
+  - approved_index_refs
+  - page_quality_review_packet_ref
+  - routing_policy
+optional_inputs:
+  - sourcebound_packet_refs
+  - metadata_index_refs
+  - retrieval_trace_refs
+  - wiki_curation_refs
+  - owner_decision_refs
+  - post_development_review_refs
+outputs:
+  - request_fingerprint_binding
+  - approved_context_inventory
+  - quality_review_intake
+  - work_card_packet
+  - text_boundary
+  - boundary_review_note
+validation_level: pilot_executed_single_controlled_run
+registration_policy: not_registered_index_update_deferred
+output_state: pilot-executed
+readiness_posture:
+  package_state: pilot_executed_unregistered
+  pilot_ready: true
+  pilot_executed: true
+  canon_ready: false
+  registered: false
+  default_route_safe: false
+  default_route_safety_claimed: false
+pilot_execution_evidence:
+  - evidence_id: dapa_test_eval_requirements_verification_work_card_20260527
+    execution_scope: controlled_dapa_fixture
+    generated_at_utc: "2026-05-26T17:11:38.327Z"
+    output_ref: _workspaces/knowledge/rag/source_text_work_cards/dapa_test_eval_requirements_verification_work_card_20260527/source_text_work_card.json
+    output_sha256: B7CEC56E6C841A82CD87FBBF09555BB0A4E8A57A186403126C958C24F5E1F08F
+    upstream_quality_review_ref: _workspaces/knowledge/rag/source_text_quality_reviews/dapa_test_eval_requirements_verification_quality_review_20260527/source_text_quality_review.json
+    validator_refs:
+      - name: validate-work-card
+        command_ref: node guild_hall/rag/cli.mjs validate-work-card --work-card-ref _workspaces/knowledge/rag/source_text_work_cards/dapa_test_eval_requirements_verification_work_card_20260527/source_text_work_card.json
+        status: pass
+      - name: rag.test.mjs
+        command_ref: node --test guild_hall/rag/rag.test.mjs
+        status: pass
+    work_card_status: manual_review
+    citation_status: source_supported_with_manual_review
+    claim_ceiling: source_supported
+    evidence_pages:
+      - 39
+      - 66
+      - 120
+    evidence_status_summary:
+      source_supported_pages:
+        - 66
+        - 120
+      manual_review_pages:
+        - 39
+      blocked_pages: []
+      manual_review_notes:
+        - page 39 has table_present_on_page warning
+    boundary_summary:
+      raw_question_in_package: false
+      copied_source_text_in_package: false
+      copied_chunks_or_excerpts_in_package: false
+      notebooklm_answer_payload_in_package: false
+      runtime_absolute_paths_in_package: false
+      owner_approval_claimed: false
+      public_canon_promotion_allowed: false
+upstream_workflows:
+  - workflow_id: rag_source_text_quality_review_v0
+    expected_outputs:
+      - page_quality_review_packet
+      - boundary_review_note
+    status: preferred_quality_review_context
+  - workflow_id: rag_metadata_refresh_v0
+    expected_outputs:
+      - source_slice_card_refresh_set
+      - metadata_index_refresh_packet
+      - retrieval_trace_evaluation_refresh
+    status: optional_metadata_context
+  - workflow_id: sourcebound_knowledge_packet_operating_loop_v0
+    expected_outputs:
+      - sourcebound_knowledge_packet_manifest
+      - claim_ceiling_and_promotion_route
+      - contradiction_gap_lint_report
+    status: optional_sourcebound_context
+  - workflow_id: wiki_curation_maintenance_v0
+    expected_outputs:
+      - source_ledger_curation_packet
+      - packet_map_update_note
+      - lifecycle_state_delta
+      - residual_gap_register
+    status: optional_curation_context
+downstream_workflows:
+  - workflow_id: rag_metadata_refresh_v0
+    expected_input: deterministic_work_card_metadata_delta
+    status: optional_metadata_refresh_followup
+  - workflow_id: sourcebound_knowledge_packet_operating_loop_v0
+    expected_input: sourcebound_review_candidate_from_work_card
+    status: optional_sourcebound_followup
+  - workflow_id: wiki_curation_maintenance_v0
+    expected_input: work_card_boundary_or_lifecycle_update_ref
+    status: optional_curation_followup
+  - workflow_id: owner_decision_packet_v0
+    expected_input: work_card_requires_owner_decision_or_policy_exception
+    status: optional_owner_decision
+  - workflow_id: post_development_review_gate_v0
+    expected_input: rag_work_card_router_boundary_or_route_change_packet
+    status: required_before_public_or_canon_promotion
+operating_contract:
+  owns:
+    - request_fingerprint_binding_shape
+    - approved_context_inventory_shape
+    - quality_review_intake_shape
+    - deterministic_work_card_packet_shape
+    - human_readable_text_boundary_shape
+    - boundary_review_note_shape
+  does_not_own:
+    - raw_question_storage
+    - source_payload_storage
+    - copied_source_excerpt_storage
+    - notebooklm_answer_storage
+    - owner_approval_authority
+    - canon_promotion
+    - default_route_switching
+    - source_truth
+    - answer_truth
+    - source_card_or_index_construction
+    - project_execution_authority
+  deterministic_card_contract:
+    stable_inputs:
+      - work_request_label
+      - work_request_fingerprint
+      - approved_source_card_refs
+      - approved_index_refs
+      - page_quality_review_packet_ref
+      - routing_policy_ref
+    stable_derivation_fields:
+      - workflow_id
+      - workflow_version
+      - request_fingerprint
+      - sorted_input_ref_set_hash
+      - quality_status_summary
+      - route_policy_id
+    forbidden_derivation_fields:
+      - raw_question_text
+      - raw_source_text
+      - copied_source_excerpt
+      - notebooklm_answer_payload
+      - runtime_absolute_path
+      - owner_private_note_payload
+  boundaries:
+    package_public_safe: true
+    raw_question_persisted: false
+    raw_source_text_persisted: false
+    source_chunks_or_excerpts_persisted: false
+    notebooklm_answers_persisted: false
+    secrets_or_credentials_persisted: false
+    runtime_absolute_paths_persisted: false
+    owner_approval_granted_here: false
+    public_canon_promotion_allowed: false
+    default_route_switch_allowed: false
+    work_card_is_execution_request_not_authority: true
+    text_boundary_is_human_readable_scope_not_source_truth: true
+  required_output_shapes:
+    request_fingerprint_binding: templates/request_fingerprint_binding.template.yaml
+    approved_context_inventory: templates/approved_context_inventory.template.yaml
+    quality_review_intake: templates/quality_review_intake.template.yaml
+    work_card_packet: templates/work_card_packet.template.yaml
+    text_boundary: templates/text_boundary.template.yaml
+    boundary_review_note: templates/boundary_review_note.template.yaml
+notes:
+  - The raw work request may be used only as transient runtime input to produce a public-safe label and fingerprint; it must not be persisted in workflow outputs.
+  - The deterministic work card is a scoped task packet. It does not approve work, promote canon, validate source truth, or grant project execution authority.
+  - Quality review status controls routing: blocked pages cannot be used for source-supported work cards, and manual-review pages must remain visibly marked.
+  - "This package is not registered in .workflow/index.yaml and is not default-route-safe; pilot execution evidence is recorded under history/pilot_execution_20260527.yaml."

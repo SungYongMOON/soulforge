@@ -1,0 +1,26 @@
+workflow_id: rag_source_text_quality_review_v0
+kind: source_text_index_inventory
+schema_version: v0
+status: draft
+inventory_id: "<inventory_id>"
+quality_review_scope_ref: "<quality_review_scope_ref>"
+source_text_index_ref: "<source_text_index_ref>"
+index_records:
+  - record_ref: "<index_record_ref>"
+    source_ref: "<source_ref>"
+    page_ref: "<page_ref>"
+    page_label: "<page_label>"
+    chunk_refs: []
+    text_hash_refs: []
+    extraction_method: "<method_id>"
+    lifecycle_state: "<active|stale|deprecated|blocked>"
+    claim_ceiling: "<observed|source_supported|validated_private|canon_candidate|canon_entry|rejected_or_blocked>"
+    warnings: []
+payload_absence:
+  raw_source_text: false
+  copied_source_excerpt: false
+  source_chunk_payload: false
+  embedding_vector_payload: false
+  bm25_term_payload: false
+  host_absolute_path: false
+blockers: []

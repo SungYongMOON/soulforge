@@ -21,11 +21,13 @@ optional_inputs:
   - owner_approved_local_source_manifest
   - owner_held_archive_policy
   - owner_held_archive_refs
+  - owner_delegated_canon_policy_refs
   - prior_projection_refs
   - source_sufficiency_refs
   - notebooklm_advisory_return_refs
   - ontology_review_policy_refs
   - owner_decision_refs
+  - post_development_review_gate_refs
 outputs:
   - source_intake_manifest
   - sourcebound_knowledge_packet_manifest
@@ -41,7 +43,7 @@ outputs:
   - workflowization_review_packet
   - boundary_review_note
 validation_level: pilot_executed_private_evidence
-registration_policy: owner_requested_registration
+registration_policy: owner_requested_or_delegated_policy_registration
 upstream_workflows:
   - workflow_id: official_source_packet_collect_v0
     expected_outputs:
@@ -81,6 +83,8 @@ operating_contract:
     - notebooklm_handoff_validation_shape
     - ontology_candidate_rule_register_shape
     - workflowization_review_packet_shape
+    - delegated_canon_policy_ref_capture
+    - public_canon_guard_routing_shape
   does_not_own:
     - raw_source_truth
     - source_acquisition_authority
@@ -88,6 +92,8 @@ operating_contract:
     - ontology_canon_acceptance
     - ontology_rule_acceptance
     - workflow_canon_acceptance_without_review
+    - owner_delegation_creation
+    - default_route_mutation_authority
     - NotebookLM_or_other_advisory_tool_verdicts
     - NotebookLM_upload_or_notebook_operation
     - Google_Drive_or_other_archive_upload_operation
@@ -104,6 +110,10 @@ operating_contract:
     notebooklm_handoff_validation_checks_safety_not_truth: true
     ontology_candidate_rules_are_candidates_until_owner_review: true
     workflowization_requires_review_gate_or_owner_decision: true
+    delegated_policy_can_replace_per_item_owner_prompt_only_when_existing_policy_ref_applies: true
+    delegated_policy_does_not_delegate_source_truth_ontology_domain_doctrine_upload_or_default_routes: true
+    canon_candidate_or_entry_requires_owner_decision_or_delegated_policy_plus_review_gate: true
+    failed_or_unknown_public_canon_guard_routes_to_hold_private_or_owner_decision: true
   required_output_shapes:
     project_binding: templates/project_binding.template.yaml
     knowledge_packet_manifest: templates/knowledge_packet_manifest.template.yaml
@@ -130,4 +140,7 @@ notes:
   - Automatic upload/sync must remain inside the declared archive policy and cannot promote canon, approve source truth, or bypass secret/private boundaries.
   - NotebookLM validation confirms bounded handoff metadata and return handling only; it must not evaluate the tool answer as truth.
   - Ontology-facing candidate rules preserve source-backed concepts for later review, but cannot accept ontology canon or mutate public ontology by themselves.
+  - Owner-delegated canon policy refs are optional inputs for applying an existing owner surface policy; this workflow does not create owner approval.
+  - If the authority guard, source-support guard, and six public canon guards pass under an applicable delegated policy or owner decision plus post-development review gate, the route may require same-task canon registration and record the target refs, empty failed guards, and claim ceiling after registration.
+  - If the delegated policy is missing, inapplicable, or any guard is unknown, canon_candidate and canon_entry routes are blocked and the packet stays hold_private or owner_decision.
   - This package is not profile-optimized and does not claim production readiness.

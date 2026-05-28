@@ -520,6 +520,62 @@ test("exportKnowledgeGraph writes metadata-only graph, HTML preview, and Obsidia
       /unsafe source slice triage register ref/,
     );
 
+    const graphRelationReviewQueueRef =
+      "_workmeta/system/reports/rag/graph_relation_review/fixture_queue/graph_relation_review_queue.yaml";
+    await writeFixtureGraphRelationReviewQueue(repoRoot, graphRelationReviewQueueRef);
+    const graphRelationResult = await exportKnowledgeGraph({
+      repoRoot,
+      exportId: "fixture_graph_relation_review_overlay",
+      graphRelationReviewQueueRefs: graphRelationReviewQueueRef,
+      now: "2026-05-22T02:00:00Z",
+    });
+    const graphRelationGraph = JSON.parse(await readFile(path.join(repoRoot, graphRelationResult.graph_ref), "utf8"));
+    assert.equal(graphRelationGraph.boundary.no_graph_relation_private_refs, true);
+    assert.equal(graphRelationGraph.source_refs.graph_relation_review_queue_refs[0], graphRelationReviewQueueRef);
+    assert.equal(graphRelationGraph.graph_scope.source_surfaces.includes("explicit_graph_relation_review_queue_refs"), true);
+    assert.equal(
+      graphRelationGraph.graph_relation_review_projection.schema_version,
+      "soulforge.knowledge_graph_relation_review_projection.v0",
+    );
+    assert.equal(graphRelationGraph.graph_relation_review_projection.boundary.no_private_target_refs_in_graph, true);
+    assert.equal(graphRelationGraph.graph_relation_review_projection.original_target_refs_redacted, true);
+    assert.equal(graphRelationGraph.graph_relation_review_projection.candidate_edge_count, 2);
+    assert.equal(graphRelationGraph.graph_relation_review_projection.matched_edge_count, 2);
+    assert.equal(graphRelationGraph.graph_relation_review_projection.candidate_edges[0].original_target_ref_redacted, true);
+    assert.equal(
+      graphRelationGraph.nodes.some((node) => node.node_ref === "route:fixture_requirements_verification"),
+      true,
+    );
+    const redactedAliasNode = graphRelationGraph.nodes.find((node) =>
+      node.node_ref.startsWith("graph_relation_target:fixture_graph_relation_queue:"),
+    );
+    assert.ok(redactedAliasNode);
+    assert.equal(redactedAliasNode.lifecycle.status, "candidate");
+    const relationReviewEdge = graphRelationGraph.edges.find(
+      (edge) => edge.from_ref === "route:fixture_requirements_verification" && edge.relation_state === "review_required",
+    );
+    assert.ok(relationReviewEdge);
+    assert.equal(relationReviewEdge.source_refs.relation_type, graphRelationReviewQueueRef);
+    const graphRelationGraphText = JSON.stringify(graphRelationGraph);
+    assert.doesNotMatch(graphRelationGraphText, /_workspaces\/knowledge/);
+    assert.doesNotMatch(graphRelationGraphText, /"to_ref":"_workspaces/);
+
+    await writeFixtureGraphRelationReviewQueue(
+      repoRoot,
+      "_workmeta/system/reports/rag/graph_relation_review/bad_truth/graph_relation_review_queue.yaml",
+      { boundary: { graph_truth_claimed: true } },
+    );
+    await assert.rejects(
+      () =>
+        exportKnowledgeGraph({
+          repoRoot,
+          exportId: "fixture_graph_bad_relation_review_truth",
+          graphRelationReviewQueueRefs:
+            "_workmeta/system/reports/rag/graph_relation_review/bad_truth/graph_relation_review_queue.yaml",
+        }),
+      /boundary_graph_truth_must_not_be_claimed/,
+    );
+
     await writeFixtureRagManifest(repoRoot, "_workspaces/system/rag/manifests/bad_boundary/rag_manifest.json", {
       boundary: { chunk_text_included: true },
     });
@@ -978,6 +1034,65 @@ async function writeFixtureSourceSliceReviewQueue(repoRoot, relativePath, triage
       queue_applies_no_decisions: true,
       source_text_retrieval_allowed: false,
       index_build_allowed: false,
+    },
+  };
+  const filePath = path.join(repoRoot, relativePath);
+  await mkdir(path.dirname(filePath), { recursive: true });
+  await writeFile(filePath, `${JSON.stringify(queue, null, 2)}\n`, "utf8");
+}
+
+async function writeFixtureGraphRelationReviewQueue(repoRoot, relativePath, overrides = {}) {
+  const queue = {
+    schema_version: "soulforge.rag_graph_relation_review_queue.v0",
+    kind: "graph_relation_review_queue",
+    queue_id: "fixture_graph_relation_queue",
+    created_at: "2026-05-22T11:10:00+09:00",
+    status: "ready_for_review_not_applied",
+    edge_schema_status: "compatible_with_current_exporter_relation_types",
+    purpose: ["Fixture metadata-only graph relation queue."],
+    input_refs: {
+      graph_preview_ref: "_workspaces/system/knowledge_view/graph_export/fixture_graph/graph_preview.html",
+    },
+    candidate_edges: [
+      {
+        edge_id: "fixture_route_uses_work_card",
+        from_ref: "route:fixture_requirements_verification",
+        relation_type: "uses",
+        semantic_label: "uses_work_card",
+        to_ref: "_workspaces/knowledge/rag/source_text_work_cards/fixture_work_card/source_text_work_card.json",
+        review_status: "review_required",
+        evidence_pages: [39, 66, 120],
+        claim_ceiling: "source_supported_manual_review_current_claim_scope_only",
+      },
+      {
+        edge_id: "fixture_route_has_private_wiki_page",
+        from_ref: "route:fixture_requirements_verification",
+        relation_type: "routes_to",
+        semantic_label: "has_private_wiki_route_page",
+        to_ref: "_workspaces/knowledge/wiki/private/fixture/current_scope/routes/fixture_requirements_verification.md",
+        review_status: "review_required",
+        claim_ceiling: "source_supported_manual_review_current_claim_scope_only",
+      },
+    ],
+    review_decision: {
+      graph_mutation_applied: false,
+      graph_truth_claimed: false,
+      default_route_mutation_applied: false,
+      relation_edges_ready_for_application: false,
+    },
+    boundary: {
+      metadata_only: true,
+      source_text_included: false,
+      chunk_text_included: false,
+      copied_excerpts_included: false,
+      notebooklm_answers_included: false,
+      graph_mutation_applied: false,
+      graph_truth_claimed: false,
+      public_canon_promotion_claimed: false,
+      ontology_acceptance_claimed: false,
+      final_answer_claimed: false,
+      default_route_mutation_claimed: false,
+      ...(overrides.boundary ?? {}),
     },
   };
   const filePath = path.join(repoRoot, relativePath);

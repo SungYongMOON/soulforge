@@ -1,0 +1,26 @@
+{
+  "workflow_id": "rag_metadata_refresh_v0",
+  "shortlist": [
+    {
+      "rank": 1,
+      "candidate_id": "A_mini_low_dwarf_archivist",
+      "rationale": "Cheapest and fastest quality-gate pass. Detail is thinner than B/C/D but enough for the metadata-only refresh contract."
+    },
+    {
+      "rank": 2,
+      "candidate_id": "B_54_low_dwarf_archivist",
+      "rationale": "Best detailed shape and strong route clarity, but more than twice the wall time of A in the CLI probe."
+    },
+    {
+      "rank": 3,
+      "candidate_id": "C_55_low_dwarf_archivist",
+      "rationale": "Strong frontier low-effort shadow, but higher token footprint than A/B."
+    },
+    {
+      "rank": 4,
+      "candidate_id": "D_55_medium_dwarf_archivist",
+      "rationale": "Useful conservative shadow for blocked-ref risk, but it over-blocks the known rename fixture."
+    }
+  ],
+  "decision_rule_applied": "All candidates passed hard gates; quality spread was under 10 points, so cost and wall time decided the primary."
+}

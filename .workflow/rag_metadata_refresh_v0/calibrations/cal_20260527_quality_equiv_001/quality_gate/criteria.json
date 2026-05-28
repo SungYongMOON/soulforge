@@ -1,0 +1,23 @@
+{
+  "schema_version": "workflow_optimizer.quality_gate.v0",
+  "workflow_id": "rag_metadata_refresh_v0",
+  "fixture_id": "synthetic_rag_metadata_refresh_after_wiki_rename_and_sourcebound_projection_update",
+  "hard_gates": [
+    "all required output keys are present",
+    "metadata-only refresh scope is explicit",
+    "stale/refreshed/blocked-by-ref handling is represented",
+    "owner decision refs are preserved without approval semantics",
+    "optional knowledge_access_event_capture_v0 lineage is metadata-only",
+    "source text, chunks, excerpts, NotebookLM answer payloads, Drive mutation, embeddings, BM25/vector payloads, host absolute paths, source truth, answer authority, owner approval, ontology/canon promotion, and default-route switch are excluded",
+    "candidate does not claim commands, file reads, file edits, or real refresh execution"
+  ],
+  "scoring_weights": {
+    "quality_and_usability": 40,
+    "model_task_fit": 20,
+    "token_cost_efficiency": 20,
+    "wall_clock_time": 15,
+    "stability": 5
+  },
+  "pass_threshold": 85,
+  "preferred_primary_rule": "lowest-cost and fastest candidate among quality-gate passes unless quality difference is 10 points or more"
+}

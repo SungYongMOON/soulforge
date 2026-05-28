@@ -1,0 +1,12 @@
+workflow_id: se_cross_stage_mapping_governance_v0
+calibration_id: cal_20260527_quality_equiv_001
+date: 2026-05-27
+mode: subagent_quality_matrix_with_cli_proxy_telemetry
+quality_surface: fresh_subagent_staged_matrix
+telemetry_surface: codex_cli_proxy_probe
+baseline_profile: gpt-5.5|xhigh|dwarf|auditor
+candidate_count: 5
+cli_probe_count: 3
+public_safe: true
+archive_note: No private raw input, secret, _workspaces material, or customer data included.
+selected_primary: gpt-5.4|low|dwarf|auditor

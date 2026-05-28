@@ -59,14 +59,29 @@ import {
   writeSourceTextExtractionRunReport,
 } from "./source_text_extraction_run_report.mjs";
 import {
+  buildSourceTextRuntimePreflight,
+  validateSourceTextRuntimePreflight,
+} from "./source_text_runtime_preflight.mjs";
+import {
   buildSourceTextAnswerRun,
   buildSourceTextIndex,
+  buildSourceTextTraceabilitySidecar,
   validateKnowledgeSourceCard,
   validateSourceTextAnswerRun,
   validateSourceTextIndex,
+  validateSourceTextTraceabilitySidecar,
   writeSourceTextAnswerRun,
   writeSourceTextIndex,
+  writeSourceTextTraceabilitySidecar,
 } from "./source_text_index.mjs";
+import {
+  buildRagWorkCard,
+  buildSourceTextQualityReview,
+  validateRagWorkCard,
+  validateSourceTextQualityReview,
+  writeRagWorkCard,
+  writeSourceTextQualityReview,
+} from "./work_card.mjs";
 import {
   COMPANY_KNOWLEDGE_INTAKE_PACKET_SCHEMA_VERSION,
   loadCompanyKnowledgeIntakePacket,
@@ -76,6 +91,110 @@ import {
   SOURCE_SYNC_READY_MANIFEST_SCHEMA_VERSION,
   validateSourceSyncReadyManifest,
 } from "./source_sync_ready_manifest.mjs";
+import {
+  OPERATIONAL_ROUTE_CLOSEOUT_SCHEMA_VERSION,
+  buildOperationalRouteCandidateRecord,
+  buildOperationalRouteCallPlan,
+  buildOperationalRouteCatalog,
+  buildOperationalRouteCloseout,
+  buildOperationalRouteCommandSheet,
+  buildOperationalRouteDashboard,
+  buildOperationalRouteEvidenceSweep,
+  buildOperationalRouteLatestEvidence,
+  buildOperationalRouteOperatorBrief,
+  buildOperationalRouteOperatorDocDriftCheck,
+  buildOperationalRouteOperatorHealth,
+  buildOperationalRouteOpsCheck,
+  buildOperationalRoutePreflight,
+  buildOperationalRouteReadiness,
+  buildOperationalRouteReviewGate,
+  buildOperationalRouteSuggestionSafety,
+  buildOperationalRouteSession,
+  buildOperationalRouteSessionSweep,
+  buildOperationalRouteStatus,
+  buildOperationalRouteUsageRecord,
+  buildOperationalRouteUsageSummary,
+  loadOperationalRouteCandidateRecord,
+  loadOperationalRouteCallPlan,
+  loadOperationalRouteEvidenceSweep,
+  loadOperationalRouteLatestEvidence,
+  loadOperationalRouteOperatorBrief,
+  loadOperationalRouteOperatorDocDriftCheck,
+  loadOperationalRouteOperatorHealth,
+  loadOperationalRouteOpsCheck,
+  loadOperationalRoutePreflight,
+  loadOperationalRouteReadiness,
+  loadOperationalRouteSuggestionSafety,
+  loadOperationalRouteSession,
+  loadOperationalRouteSessionSweep,
+  loadOperationalRouteStatus,
+  loadOperationalRouteUsageRecord,
+  loadOperationalRouteUsageSummary,
+  renderOperationalRouteSessionDigest,
+  renderOperationalRouteSessionSweepText,
+  renderOperationalRouteUsageRecordText,
+  renderOperationalRouteUsageSummaryText,
+  renderOperationalRouteCallPlanText,
+  renderOperationalRouteCatalogText,
+  renderOperationalRouteCandidateRecordText,
+  renderOperationalRouteCloseoutText,
+  renderOperationalRouteCommandSheetText,
+  renderOperationalRouteDashboardText,
+  renderOperationalRouteEvidenceSweepText,
+  renderOperationalRouteLatestEvidenceText,
+  renderOperationalRouteOperatorRun,
+  renderOperationalRouteOperatorBriefText,
+  renderOperationalRouteOperatorDocDriftText,
+  renderOperationalRouteOperatorHealthText,
+  renderOperationalRouteOpsCheckText,
+  renderOperationalRoutePreflightText,
+  renderOperationalRouteReadinessText,
+  renderOperationalRouteReviewGateText,
+  renderOperationalRouteSuggestionSafetyText,
+  renderOperationalRouteStatusDigest,
+  renderOperationalRouteAnswerShell,
+  renderOperationalRouteResolutionText,
+  resolveOperationalRoute,
+  runOperationalRouteSmokeTests,
+  validateOperationalRouteAnswerCards,
+  validateOperationalRouteCallPlan,
+  validateOperationalRouteCloseout,
+  validateOperationalRouteCommandSheet,
+  validateOperationalRouteEvidenceSweep,
+  validateOperationalRouteLatestEvidence,
+  validateOperationalRouteOperatorBrief,
+  validateOperationalRouteOperatorDocDriftCheck,
+  validateOperationalRouteOperatorHealth,
+  validateOperationalRouteOpsCheck,
+  validateOperationalRoutePreflight,
+  validateOperationalRouteReadiness,
+  validateOperationalRouteSuggestionSafety,
+  validateOperationalRouteRegistry,
+  validateOperationalRouteReviewGate,
+  validateOperationalRouteSession,
+  validateOperationalRouteSessionSweep,
+  validateOperationalRouteCandidateRecord,
+  validateOperationalRouteDashboard,
+  validateOperationalRouteStatus,
+  validateOperationalRouteUsageRecord,
+  validateOperationalRouteUsageSummary,
+  writeOperationalRouteCandidateRecord,
+  writeOperationalRouteCallPlan,
+  writeOperationalRouteEvidenceSweep,
+  writeOperationalRouteLatestEvidence,
+  writeOperationalRouteOperatorBrief,
+  writeOperationalRouteOperatorDocDriftCheck,
+  writeOperationalRouteOperatorHealth,
+  writeOperationalRouteOpsCheck,
+  writeOperationalRoutePreflight,
+  writeOperationalRouteReadiness,
+  writeOperationalRouteSuggestionSafety,
+  writeOperationalRouteSession,
+  writeOperationalRouteSessionSweep,
+  writeOperationalRouteStatus,
+  writeOperationalRouteUsageRecord,
+  writeOperationalRouteUsageSummary,
+} from "./operational_route.mjs";
 
 test("metadata-only RAG manifest validates and answers from graph metadata", async () => {
   const repoRoot = await mkdtemp(path.join(os.tmpdir(), "soulforge-rag-"));
@@ -1863,9 +1982,141 @@ test("source-text index reads owner-approved workspace knowledge source cards", 
     const writtenIndex = JSON.parse(await readFile(path.join(repoRoot, indexWrite.source_text_index_ref), "utf8"));
     assert.equal(validateSourceTextIndex(writtenIndex).status, "pass");
 
+    const doclingJsonRef = "_workspaces/knowledge/common/systems_engineering/starter/fixture_docling.json";
+    await writeFileWithParents(
+      repoRoot,
+      doclingJsonRef,
+      JSON.stringify(
+        {
+          schema_name: "DoclingDocument",
+          version: "1.0.0",
+          name: "fixture_docling",
+          body: {
+            self_ref: "#/body",
+            children: [
+              { $ref: "#/texts/0" },
+              { $ref: "#/texts/1" },
+              { $ref: "#/texts/2" },
+              { $ref: "#/texts/3" },
+              { $ref: "#/tables/0" },
+              { $ref: "#/pictures/0" },
+            ],
+          },
+          groups: [],
+          texts: [
+            { self_ref: "#/texts/0", label: "section_header", text: "Fixture Common Knowledge", prov: [{ page_no: 1 }] },
+            { self_ref: "#/texts/1", label: "text", text: "NotebookLM is a query bookshelf, not an authority surface.", prov: [{ page_no: 1 }] },
+            {
+              self_ref: "#/texts/2",
+              label: "text",
+              text: "Project-specific knowledge stays under the project workspace. Cross-project systems engineering knowledge stays under the common knowledge workspace.",
+              prov: [{ page_no: 2 }],
+            },
+            {
+              self_ref: "#/texts/3",
+              label: "text",
+              text: "RAG derived text and source-text indexes are private workspace payload artifacts, not public canon.",
+              prov: [{ page_no: 2 }],
+            },
+          ],
+          tables: [
+            {
+              self_ref: "#/tables/0",
+              label: "table",
+              prov: [{ page_no: 2 }],
+              data: {
+                table_cells: [{ text: "metadata" }, { text: "page-backed" }],
+              },
+            },
+          ],
+          pictures: [
+            {
+              self_ref: "#/pictures/0",
+              label: "picture",
+              prov: [{ page_no: 2 }],
+            },
+          ],
+          pages: {
+            1: { page_no: 1, size: { width: 100, height: 100 } },
+            2: { page_no: 2, size: { width: 100, height: 100 } },
+          },
+        },
+        null,
+        2,
+      ),
+    );
+    const sidecar = await buildSourceTextTraceabilitySidecar({
+      repoRoot,
+      sourceTextIndexRef: indexWrite.source_text_index_ref,
+      doclingJsonRef,
+      traceabilityId: "fixture_source_text_traceability",
+      now: "2026-05-25T08:01:30Z",
+    });
+    assert.equal(sidecar.schema_version, "soulforge.source_text_traceability_sidecar.v0");
+    assert.equal(sidecar.status, "page_traceability_ready");
+    assert.equal(sidecar.boundary.chunk_text_included, false);
+    assert.equal(sidecar.counts.page_backed_chunk_count, sidecar.counts.chunk_count);
+    assert.ok(sidecar.chunks.every((chunk) => chunk.page_span?.pages.length > 0));
+    assert.ok(sidecar.page_summary.some((page) => page.page_no === 2 && page.table_count === 1 && page.picture_count === 1));
+    assert.equal(validateSourceTextTraceabilitySidecar(sidecar).status, "pass");
+    assert.doesNotMatch(JSON.stringify(sidecar), /"chunk_text"\s*:|"source_text"\s*:|NotebookLM is a query bookshelf|\/Users\/|\/Volumes\//);
+
+    const sidecarWrite = await writeSourceTextTraceabilitySidecar({
+      repoRoot,
+      sourceTextIndexRef: indexWrite.source_text_index_ref,
+      doclingJsonRef,
+      traceabilityId: "fixture_source_text_traceability_written",
+      now: "2026-05-25T08:01:45Z",
+    });
+    assert.equal(sidecarWrite.status, "written");
+    assert.match(sidecarWrite.traceability_sidecar_ref, /^_workspaces\/knowledge\/rag\/traceability_sidecars\//);
+    const writtenSidecar = JSON.parse(await readFile(path.join(repoRoot, sidecarWrite.traceability_sidecar_ref), "utf8"));
+    assert.equal(validateSourceTextTraceabilitySidecar(writtenSidecar).status, "pass");
+
+    const doclingIndex = await buildSourceTextIndex({
+      repoRoot,
+      sourceCardRef,
+      doclingJsonRef,
+      indexId: "fixture_source_text_docling_json_index",
+      maxChars: 120,
+      now: "2026-05-25T08:01:50Z",
+    });
+    assert.equal(doclingIndex.status, "ready");
+    assert.equal(doclingIndex.source_refs.docling_json_ref, doclingJsonRef);
+    assert.equal(doclingIndex.generation_profile.source_order_basis, "docling_element_page_order");
+    assert.ok(doclingIndex.chunks.every((chunk) => chunk.page_span?.pages.length > 0));
+    assert.ok(doclingIndex.chunks.some((chunk) => chunk.layout_labels.includes("table")));
+    assert.equal(validateSourceTextIndex(doclingIndex).status, "pass");
+
+    const doclingIndexSidecar = await buildSourceTextTraceabilitySidecar({
+      repoRoot,
+      sourceTextIndex: doclingIndex,
+      doclingJsonRef,
+      traceabilityId: "fixture_source_text_docling_json_index_traceability",
+      now: "2026-05-25T08:01:55Z",
+    });
+    assert.equal(doclingIndexSidecar.status, "page_traceability_ready");
+    assert.equal(doclingIndexSidecar.counts.weak_mapped_chunk_count, 0);
+    assert.equal(doclingIndexSidecar.counts.unmapped_chunk_count, 0);
+    assert.equal(validateSourceTextTraceabilitySidecar(doclingIndexSidecar).status, "pass");
+
+    const doclingIndexAnswerRun = await buildSourceTextAnswerRun({
+      repoRoot,
+      sourceTextIndex: doclingIndex,
+      question: "metadata page-backed",
+      runId: "fixture_source_text_docling_json_index_answer_run",
+      now: "2026-05-25T08:02:00Z",
+    });
+    assert.equal(doclingIndexAnswerRun.status, "source_text_answer");
+    assert.equal(doclingIndexAnswerRun.boundary.citation_page_traceability_checked, true);
+    assert.ok(doclingIndexAnswerRun.response.citations.every((citation) => citation.page_span?.pages.length > 0));
+    assert.equal(doclingIndexAnswerRun.response.citations[0].traceability_status, "mapped");
+    assert.equal(validateSourceTextAnswerRun(doclingIndexAnswerRun).status, "pass");
+
     const answerRun = await buildSourceTextAnswerRun({
       repoRoot,
       sourceTextIndexRef: indexWrite.source_text_index_ref,
+      traceabilitySidecarRef: sidecarWrite.traceability_sidecar_ref,
       question: "NotebookLM authority",
       runId: "fixture_source_text_answer_run",
       now: "2026-05-25T08:02:00Z",
@@ -1875,12 +2126,37 @@ test("source-text index reads owner-approved workspace knowledge source cards", 
     assert.equal(answerRun.query.raw_query_persisted, false);
     assert.equal(answerRun.response.answer_uses_source_text, true);
     assert.ok(answerRun.response.answer_text.includes("NotebookLM"));
+    assert.equal(answerRun.boundary.citation_page_traceability_checked, true);
+    assert.ok(answerRun.response.citations[0].page_span.pages.includes(1));
+    assert.equal(answerRun.response.citations[0].traceability_status, "mapped");
     assert.equal(validateSourceTextAnswerRun(answerRun).status, "pass");
     assert.doesNotMatch(JSON.stringify(answerRun), /"question"\s*:|NotebookLM authority|\/Users\/|\/Volumes\//);
+
+    const qualityReview = await buildSourceTextQualityReview({
+      repoRoot,
+      sourceTextIndexRef: indexWrite.source_text_index_ref,
+      traceabilitySidecarRef: sidecarWrite.traceability_sidecar_ref,
+      answerRun,
+      pages: ["1-2"],
+      reviewId: "fixture_source_text_quality_review",
+      now: "2026-05-25T08:02:30Z",
+    });
+    assert.equal(qualityReview.schema_version, "soulforge.source_text_quality_review.v0");
+    assert.equal(qualityReview.status, "manual_review");
+    assert.equal(qualityReview.boundary.chunk_text_included, false);
+    assert.equal(qualityReview.boundary.source_text_included, false);
+    assert.equal(qualityReview.reviewed_pages.length, 2);
+    assert.equal(qualityReview.reviewed_pages.find((page) => page.page_no === 1).review_status, "source_supported");
+    assert.equal(qualityReview.reviewed_pages.find((page) => page.page_no === 2).review_status, "source_supported");
+    assert.equal(qualityReview.reviewed_pages.find((page) => page.page_no === 2).manual_review_required, true);
+    assert.ok(qualityReview.warning_codes.includes("picture_present_on_page"));
+    assert.equal(validateSourceTextQualityReview(qualityReview).status, "pass");
+    assert.doesNotMatch(JSON.stringify(qualityReview), /"chunk_text"\s*:|"source_text"\s*:|NotebookLM is a query bookshelf|\/Users\/|\/Volumes\/|file:\/\//);
 
     const answerWrite = await writeSourceTextAnswerRun({
       repoRoot,
       sourceTextIndexRef: indexWrite.source_text_index_ref,
+      traceabilitySidecarRef: sidecarWrite.traceability_sidecar_ref,
       question: "project workspace common knowledge",
       runId: "fixture_source_text_answer_run_written",
       now: "2026-05-25T08:03:00Z",
@@ -1889,6 +2165,51 @@ test("source-text index reads owner-approved workspace knowledge source cards", 
     assert.match(answerWrite.source_text_answer_run_ref, /^_workspaces\/knowledge\/rag\/answer_runs\//);
     const writtenAnswerRun = JSON.parse(await readFile(path.join(repoRoot, answerWrite.source_text_answer_run_ref), "utf8"));
     assert.equal(validateSourceTextAnswerRun(writtenAnswerRun).status, "pass");
+
+    const qualityReviewWrite = await writeSourceTextQualityReview({
+      repoRoot,
+      sourceTextIndexRef: indexWrite.source_text_index_ref,
+      traceabilitySidecarRef: sidecarWrite.traceability_sidecar_ref,
+      answerRunRef: answerWrite.source_text_answer_run_ref,
+      pages: ["1,2"],
+      reviewId: "fixture_source_text_quality_review_written",
+      now: "2026-05-25T08:03:30Z",
+    });
+    assert.equal(qualityReviewWrite.status, "written");
+    assert.match(qualityReviewWrite.source_text_quality_review_ref, /^_workspaces\/knowledge\/rag\/source_text_quality_reviews\//);
+    const writtenQualityReview = JSON.parse(await readFile(path.join(repoRoot, qualityReviewWrite.source_text_quality_review_ref), "utf8"));
+    assert.equal(validateSourceTextQualityReview(writtenQualityReview).status, "pass");
+
+    const workCard = await buildRagWorkCard({
+      repoRoot,
+      answerRunRef: answerWrite.source_text_answer_run_ref,
+      qualityReviewRef: qualityReviewWrite.source_text_quality_review_ref,
+      queryLabel: "fixture_source_text_work_card_query",
+      workCardId: "fixture_source_text_work_card",
+      graphNodeRefs: [".registry/knowledge/graph_rag"],
+      now: "2026-05-25T08:04:00Z",
+    });
+    assert.equal(workCard.schema_version, "soulforge.source_text_work_card.v0");
+    assert.equal(workCard.kind, "source_text_work_card");
+    assert.equal(workCard.status, "manual_review");
+    assert.equal(workCard.claim_ceiling, "source_supported");
+    assert.equal(workCard.query.raw_query_persisted, false);
+    assert.ok(workCard.evidence_pages.length > 0);
+    assert.equal(validateRagWorkCard(workCard).status, "pass");
+    assert.doesNotMatch(JSON.stringify(workCard), /"question"\s*:|project workspace common knowledge|NotebookLM is a query bookshelf|\/Users\/|\/Volumes\/|file:\/\//);
+
+    const workCardWrite = await writeRagWorkCard({
+      repoRoot,
+      answerRunRef: answerWrite.source_text_answer_run_ref,
+      qualityReviewRef: qualityReviewWrite.source_text_quality_review_ref,
+      queryLabel: "fixture_source_text_work_card_query",
+      workCardId: "fixture_source_text_work_card_written",
+      now: "2026-05-25T08:04:30Z",
+    });
+    assert.equal(workCardWrite.status, "written");
+    assert.match(workCardWrite.source_text_work_card_ref, /^_workspaces\/knowledge\/rag\/source_text_work_cards\//);
+    const writtenWorkCard = JSON.parse(await readFile(path.join(repoRoot, workCardWrite.source_text_work_card_ref), "utf8"));
+    assert.equal(validateRagWorkCard(writtenWorkCard).status, "pass");
 
     const blockedCardValidation = validateKnowledgeSourceCard({
       ...sourceCard,
@@ -1919,6 +2240,60 @@ test("source-text index reads owner-approved workspace knowledge source cards", 
         }),
       /source text index output must be under _workspaces\/knowledge\/rag\/indexes_local\/source_text_indexes/,
     );
+  } finally {
+    await rm(repoRoot, { recursive: true, force: true });
+  }
+});
+
+test("source-text runtime preflight resolves tools without exposing local paths", async () => {
+  const repoRoot = await mkdtemp(path.join(os.tmpdir(), "soulforge-rag-runtime-preflight-"));
+  try {
+    const fakeBin = path.join(repoRoot, "tool-bin");
+    await writeFileWithParents(repoRoot, "guild_hall/state/tools/source_extraction_venv/Scripts/python.exe", "");
+    await writeFileWithParents(repoRoot, "guild_hall/state/tools/source_extraction_venv/Scripts/docling.exe", "");
+    await writeFileWithParents(repoRoot, "guild_hall/state/tools/tessdata/eng.traineddata", "eng");
+    await writeFileWithParents(repoRoot, "guild_hall/state/tools/tessdata/kor.traineddata", "kor");
+    await writeFileWithParents(repoRoot, "guild_hall/state/tools/tessdata/kor_vert.traineddata", "kor_vert");
+    await writeFileWithParents(repoRoot, "guild_hall/state/tools/tessdata/osd.traineddata", "osd");
+    await writeFileWithParents(fakeBin, "java.exe", "");
+    await writeFileWithParents(fakeBin, "soffice.com", "");
+    await writeFileWithParents(fakeBin, "tesseract.exe", "");
+
+    const preflight = await buildSourceTextRuntimePreflight({
+      repoRoot,
+      platform: "win32",
+      pathDelimiter: ";",
+      env: {
+        Path: fakeBin,
+      },
+      readWindowsUserEnv: false,
+      collectVersions: false,
+      now: "2026-05-26T10:00:00Z",
+    });
+    assert.equal(preflight.schema_version, "soulforge.source_text_runtime_preflight.v0");
+    assert.equal(preflight.status, "ready");
+    assert.equal(preflight.boundary.runtime_absolute_paths_included, false);
+    assert.equal(preflight.boundary.runtime_paths_redacted, true);
+    assert.equal(preflight.tools.find((tool) => tool.tool_id === "java_runtime").resolution.path_source, "process_environment_path");
+    assert.equal(preflight.tools.find((tool) => tool.tool_id === "hwp_hwpx_converter").status, "not_required");
+    assert.equal(validateSourceTextRuntimePreflight(preflight).status, "pass");
+    assert.equal(JSON.stringify(preflight).includes(fakeBin), false);
+    assert.doesNotMatch(JSON.stringify(preflight), /[A-Za-z]:[\\/]|file:\/\//);
+
+    const hwpRequired = await buildSourceTextRuntimePreflight({
+      repoRoot,
+      platform: "win32",
+      pathDelimiter: ";",
+      env: {
+        Path: fakeBin,
+      },
+      readWindowsUserEnv: false,
+      collectVersions: false,
+      requireHwpConverter: true,
+      now: "2026-05-26T10:01:00Z",
+    });
+    assert.equal(hwpRequired.status, "blocked");
+    assert.ok(hwpRequired.blockers.includes("required_tool_not_resolved:hwp_hwpx_converter"));
   } finally {
     await rm(repoRoot, { recursive: true, force: true });
   }
@@ -2058,6 +2433,1583 @@ test("source sync ready manifest gates OneDrive-style source-text indexing", asy
     assert.equal(blockedIndex.counts.chunk_count, 0);
     assert.ok(blockedIndex.validation.sync_ready_validation.blockers.includes("file_sha256_mismatch:files[1]"));
     assert.equal(validateSourceTextIndex(blockedIndex).status, "pass");
+  } finally {
+    await rm(repoRoot, { recursive: true, force: true });
+  }
+});
+
+test("operational route registry validates and resolves without source payloads", async () => {
+  const repoRoot = await mkdtemp(path.join(os.tmpdir(), "soulforge-rag-operational-route-"));
+  try {
+    const workCardRef = "_workspaces/knowledge/rag/source_text_work_cards/fixture_requirements_card/source_text_work_card.json";
+    const operatorCardRef = "_workspaces/knowledge/rag/operational_routes/fixture/operator_answer_cards/fixture_requirements.md";
+    const wikiPageRef = "_workspaces/knowledge/wiki/private/fixture/current_scope/routes/fixture_requirements.md";
+    const registryRef = "_workspaces/knowledge/rag/operational_routes/fixture/route_registry.yaml";
+    const smokeTestsRef = "_workspaces/knowledge/rag/operational_routes/fixture/smoke_tests.yaml";
+    const workCard = {
+      schema_version: "soulforge.source_text_work_card.v0",
+      kind: "source_text_work_card",
+      work_card_id: "fixture_requirements_card",
+      status: "manual_review",
+      query: {
+        query_label: "development requirements check",
+        raw_query_persisted: false,
+      },
+      source_refs: {
+        source_text_answer_run_ref: "_workspaces/knowledge/rag/answer_runs/fixture/source_text_answer_run.json",
+        source_text_quality_review_ref: "_workspaces/knowledge/rag/source_text_quality_reviews/fixture/source_text_quality_review.json",
+      },
+      boundary: {
+        storage_scope: "_workspaces_private_payload",
+        source_text_included: false,
+        chunk_text_included: false,
+        public_repo_safe: false,
+      },
+      claim_ceiling: "source_supported",
+      evidence_pages: [2, 5],
+      evidence_items: [
+        {
+          chunk_id: "fixture_chunk_001",
+          pages: [2, 5],
+          evidence_status: "manual_review",
+          warning_codes: ["table_present_on_page"],
+        },
+      ],
+    };
+    await writeFileWithParents(repoRoot, workCardRef, JSON.stringify(workCard, null, 2));
+    await writeFileWithParents(
+      repoRoot,
+      operatorCardRef,
+      [
+        "# Fixture operator answer",
+        "",
+        "Route id: `fixture_requirements_route`",
+        "",
+        "Selected work card:",
+        "",
+        "`fixture_requirements_card`",
+        "",
+        "Evidence pages:",
+        "",
+        "`2`, `5`",
+        "",
+        "Manual-review notice:",
+        "",
+        "This answer is a source-supported/manual-review work-card answer. It is not final doctrine or source truth promotion.",
+      ].join("\n"),
+    );
+    await writeFileWithParents(repoRoot, wikiPageRef, "# Fixture wiki route");
+    await writeFileWithParents(
+      repoRoot,
+      registryRef,
+      [
+        "schema_version: soulforge.fixture.operational_route_registry.v0",
+        "kind: private_operational_route_registry",
+        "registry_id: fixture_current_scope_manual_review",
+        "status: active_private_manual_review",
+        "boundary:",
+        "  visibility: private_local_workspace",
+        "  source_text_included: false",
+        "  chunk_text_included: false",
+        "  copied_excerpt_included: false",
+        "  notebooklm_answer_included: false",
+        "  source_truth_claimed: false",
+        "  final_answer_authority_allowed: false",
+        "  public_canon_promotion_allowed: false",
+        "  ontology_acceptance_allowed: false",
+        "  external_upload_allowed: false",
+        "  default_route_mutation_allowed: false",
+        "  graph_truth_mutation_allowed: false",
+        "route_defaults:",
+        "  route_state: active_private_manual_review",
+        "  response_mode: operator_answer_shell_with_manual_review_notice",
+        "  claim_ceiling: source_supported_manual_review_current_claim_scope_only",
+        "  source_payload_loading_allowed: false",
+        "  use_as_public_default_route: false",
+        "routes:",
+        "  - route_id: fixture_requirements_route",
+        "    trigger_labels:",
+        "      - \"development requirements check\"",
+        "      - \"requirements verification summary\"",
+        "    selected_work_card_id: fixture_requirements_card",
+        `    selected_work_card_ref: "${workCardRef}"`,
+        `    operator_answer_card_ref: "${operatorCardRef}"`,
+        `    wiki_page_ref: "${wikiPageRef}"`,
+        "    evidence_pages: [2, 5]",
+        "    review_context_pages: [2]",
+        "    current_known_gap: \"table-sensitive manual review only\"",
+      ].join("\n"),
+    );
+    await writeFileWithParents(
+      repoRoot,
+      smokeTestsRef,
+      [
+        "schema_version: soulforge.fixture.operational_route_smoke_tests.v0",
+        "kind: operational_route_smoke_tests",
+        "test_set_id: fixture_current_scope_manual_review",
+        "tests:",
+        "  - test_id: fixture_route_smoke_001",
+        "    query_label: \"development requirements check\"",
+        "    expected_route_id: fixture_requirements_route",
+        "    expected_work_card_id: fixture_requirements_card",
+        "    expected_evidence_pages: [2, 5]",
+      ].join("\n"),
+    );
+
+    const validation = await validateOperationalRouteRegistry({ repoRoot, registryRef });
+    assert.equal(validation.status, "pass");
+    assert.equal(validation.routes[0].work_card_validation_status, "pass");
+
+    const catalog = await buildOperationalRouteCatalog({
+      repoRoot,
+      registryRef,
+      now: "2026-05-28T00:00:00Z",
+    });
+    assert.equal(catalog.status, "ready_private_manual_review");
+    assert.equal(catalog.counts.route_count, 1);
+    assert.equal(catalog.routes[0].route_id, "fixture_requirements_route");
+    assert.equal(catalog.routes[0].trigger_label_count, 2);
+    assert.equal(catalog.boundary.source_text_loaded, false);
+    const catalogText = renderOperationalRouteCatalogText(catalog);
+    assert.match(catalogText, /Status: ready_private_manual_review/);
+    assert.match(catalogText, /fixture_requirements_route/);
+    assert.match(catalogText, /Trigger labels: 2/);
+    assert.doesNotMatch(catalogText, /development requirements check|Fixture operator answer|source-supported\/manual-review work-card answer|\/Users\/|[A-Za-z]:[\\/]/);
+    assert.doesNotMatch(JSON.stringify(catalog), /development requirements check|Fixture operator answer|source-supported\/manual-review work-card answer|\/Users\/|[A-Za-z]:[\\/]/);
+
+    const resolution = await resolveOperationalRoute({
+      repoRoot,
+      registryRef,
+      queryLabel: "development requirements check",
+      now: "2026-05-28T00:00:00Z",
+    });
+    assert.equal(resolution.status, "matched");
+    assert.equal(resolution.selected_route.route_id, "fixture_requirements_route");
+    assert.equal(resolution.selected_route.selected_work_card_id, "fixture_requirements_card");
+    assert.equal(resolution.selected_route.evidence_pages.join(","), "2,5");
+    assert.equal(resolution.boundary.source_text_loaded, false);
+    assert.doesNotMatch(JSON.stringify(resolution), /"source_text"\s*:|"chunk_text"\s*:|"question"\s*:|\/Users\/|[A-Za-z]:[\\/]/);
+    assert.match(renderOperationalRouteResolutionText(resolution), /private\/manual-review route only/);
+    const answerShell = await renderOperationalRouteAnswerShell({
+      repoRoot,
+      registryRef,
+      queryLabel: "development requirements check",
+      now: "2026-05-28T00:00:00Z",
+    });
+    assert.match(answerShell, /Fixture operator answer/);
+    assert.match(answerShell, /private operator answer card only/);
+
+    const smokeRun = await runOperationalRouteSmokeTests({ repoRoot, registryRef, smokeTestRef: smokeTestsRef });
+    assert.equal(smokeRun.status, "pass");
+    assert.equal(smokeRun.counts.pass_count, 1);
+
+    const answerCardValidation = await validateOperationalRouteAnswerCards({
+      repoRoot,
+      registryRef,
+      validationId: "fixture_answer_card_validation",
+      now: "2026-05-28T00:30:00Z",
+    });
+    assert.equal(answerCardValidation.status, "pass");
+    assert.equal(answerCardValidation.counts.pass_count, 1);
+    assert.equal(answerCardValidation.routes[0].checks.stronger_authority_denial_present, true);
+    assert.doesNotMatch(JSON.stringify(answerCardValidation), /Fixture operator answer|source-supported\/manual-review work-card answer|\/Users\/|[A-Za-z]:[\\/]/);
+
+    const preflight = await buildOperationalRoutePreflight({
+      repoRoot,
+      registryRef,
+      smokeTestRef: smokeTestsRef,
+      preflightId: "fixture_operational_route_preflight",
+      now: "2026-05-28T00:40:00Z",
+    });
+    assert.equal(preflight.status, "pass_private_manual_review_ready");
+    assert.equal(preflight.counts.route_count, 1);
+    assert.equal(preflight.answer_card_validation.status, "pass");
+    assert.equal(preflight.smoke_run.status, "pass");
+    assert.equal(preflight.routes[0].route_id, "fixture_requirements_route");
+    assert.equal(preflight.routes[0].answer_card_status, "pass");
+    assert.equal(preflight.routes[0].smoke_status, "pass");
+    assert.equal(validateOperationalRoutePreflight(preflight).status, "pass");
+    const preflightText = renderOperationalRoutePreflightText(preflight);
+    assert.match(preflightText, /pass_private_manual_review_ready/);
+    assert.match(preflightText, /fixture_requirements_route/);
+    assert.doesNotMatch(preflightText, /development requirements check|Fixture operator answer|source-supported\/manual-review work-card answer|\/Users\/|[A-Za-z]:[\\/]/);
+    assert.doesNotMatch(JSON.stringify(preflight), /Fixture operator answer|source-supported\/manual-review work-card answer|\/Users\/|[A-Za-z]:[\\/]/);
+
+    const dashboard = await buildOperationalRouteDashboard({
+      repoRoot,
+      registryRef,
+      smokeTestRef: smokeTestsRef,
+      now: "2026-05-28T00:40:30Z",
+    });
+    assert.equal(dashboard.status, "ready_private_manual_review");
+    assert.equal(dashboard.summary.route_count, 1);
+    assert.equal(dashboard.summary.preflight_status, "pass_private_manual_review_ready");
+    assert.equal(dashboard.routes[0].route_id, "fixture_requirements_route");
+    assert.equal(dashboard.routes[0].answer_card_status, "pass");
+    assert.equal(dashboard.boundary.source_text_loaded, false);
+    assert.equal(validateOperationalRouteDashboard(dashboard).status, "pass");
+    const dashboardText = renderOperationalRouteDashboardText(dashboard);
+    assert.match(dashboardText, /Status: ready_private_manual_review/);
+    assert.match(dashboardText, /Preflight: pass_private_manual_review_ready/);
+    assert.match(dashboardText, /fixture_requirements_route/);
+    assert.doesNotMatch(dashboardText, /development requirements check|Fixture operator answer|source-supported\/manual-review work-card answer|\/Users\/|[A-Za-z]:[\\/]/);
+    assert.doesNotMatch(JSON.stringify(dashboard), /development requirements check|Fixture operator answer|source-supported\/manual-review work-card answer|\/Users\/|[A-Za-z]:[\\/]/);
+
+    const callPlan = await buildOperationalRouteCallPlan({
+      repoRoot,
+      registryRef,
+      smokeTestRef: smokeTestsRef,
+      queryLabel: "development requirements check",
+      planId: "fixture_operational_route_call_plan",
+      now: "2026-05-28T00:40:45Z",
+    });
+    assert.equal(callPlan.status, "ready_to_answer_manual_review");
+    assert.equal(callPlan.selected_route.route_id, "fixture_requirements_route");
+    assert.equal(callPlan.operator_surface.answer_shell_available, true);
+    assert.equal(callPlan.raw_query_persisted, false);
+    assert.equal(validateOperationalRouteCallPlan(callPlan).status, "pass");
+    const callPlanText = renderOperationalRouteCallPlanText(callPlan);
+    assert.match(callPlanText, /Status: ready_to_answer_manual_review/);
+    assert.match(callPlanText, /Route: fixture_requirements_route/);
+    assert.match(callPlanText, /Raw query persisted: no/);
+    assert.doesNotMatch(callPlanText, /development requirements check|Fixture operator answer|source-supported\/manual-review work-card answer|\/Users\/|[A-Za-z]:[\\/]/);
+    assert.doesNotMatch(JSON.stringify(callPlan), /development requirements check|Fixture operator answer|source-supported\/manual-review work-card answer|\/Users\/|[A-Za-z]:[\\/]/);
+
+    const callPlanWrite = await writeOperationalRouteCallPlan({
+      repoRoot,
+      registryRef,
+      smokeTestRef: smokeTestsRef,
+      queryLabel: "development requirements check",
+      planId: "fixture_operational_route_call_plan_written",
+      now: "2026-05-28T00:40:47Z",
+    });
+    assert.equal(callPlanWrite.status, "written");
+    assert.match(callPlanWrite.operational_route_call_plan_ref, /^_workmeta\/system\/reports\/rag\/operational_route_call_plans\//);
+    assert.equal(callPlanWrite.route_id, "fixture_requirements_route");
+    assert.equal(callPlanWrite.raw_query_persisted, false);
+    assert.equal(callPlanWrite.answer_shell_output_persisted, false);
+    const writtenCallPlan = await loadOperationalRouteCallPlan({
+      repoRoot,
+      callPlanRef: callPlanWrite.operational_route_call_plan_ref,
+    });
+    assert.equal(validateOperationalRouteCallPlan(writtenCallPlan).status, "pass");
+    const writtenCallPlanText = renderOperationalRouteCallPlanText(writtenCallPlan);
+    assert.match(writtenCallPlanText, /Status: ready_to_answer_manual_review/);
+    assert.match(writtenCallPlanText, /Raw query persisted: no/);
+    assert.doesNotMatch(JSON.stringify(writtenCallPlan), /development requirements check|Fixture operator answer|source-supported\/manual-review work-card answer|\/Users\/|[A-Za-z]:[\\/]/);
+
+    const operatorRun = await renderOperationalRouteOperatorRun({
+      repoRoot,
+      registryRef,
+      smokeTestRef: smokeTestsRef,
+      queryLabel: "development requirements check",
+      planId: "fixture_operational_route_operator_run",
+      now: "2026-05-28T00:40:50Z",
+    });
+    assert.match(operatorRun, /Status: ready_to_answer_manual_review/);
+    assert.match(operatorRun, /Operator answer shell \(terminal-only\):/);
+    assert.match(operatorRun, /Fixture operator answer/);
+    assert.match(operatorRun, /private operator answer card only/);
+    assert.doesNotMatch(operatorRun, /development requirements check|usage_record_ref|candidate_record_ref|\/Users\/|[A-Za-z]:[\\/]/);
+
+    const preflightWrite = await writeOperationalRoutePreflight({
+      repoRoot,
+      registryRef,
+      smokeTestRef: smokeTestsRef,
+      preflightId: "fixture_operational_route_preflight_written",
+      now: "2026-05-28T00:41:00Z",
+    });
+    assert.equal(preflightWrite.status, "written");
+    assert.equal(preflightWrite.preflight_status, "pass_private_manual_review_ready");
+    const writtenPreflight = await loadOperationalRoutePreflight({
+      repoRoot,
+      preflightRef: preflightWrite.operational_route_preflight_ref,
+    });
+    assert.equal(validateOperationalRoutePreflight(writtenPreflight).status, "pass");
+    const writtenPreflightText = renderOperationalRoutePreflightText(writtenPreflight);
+    assert.match(writtenPreflightText, /pass_private_manual_review_ready/);
+    assert.match(writtenPreflightText, /fixture_requirements_route/);
+    assert.doesNotMatch(writtenPreflightText, /development requirements check|Fixture operator answer|source-supported\/manual-review work-card answer|\/Users\/|[A-Za-z]:[\\/]/);
+
+    const session = await buildOperationalRouteSession({
+      repoRoot,
+      registryRef,
+      smokeTestRef: smokeTestsRef,
+      queryLabel: "development requirements check",
+      sessionId: "fixture_operational_route_session",
+      now: "2026-05-28T00:42:00Z",
+    });
+    assert.equal(session.status, "ready_matched_route");
+    assert.equal(session.selected_route.route_id, "fixture_requirements_route");
+    assert.equal(session.preflight_summary.status, "pass_private_manual_review_ready");
+    assert.equal(session.raw_query_persisted, false);
+    assert.equal(session.operator_surface.answer_shell_output_persisted, false);
+    assert.equal(validateOperationalRouteSession(session).status, "pass");
+    const sessionDigest = renderOperationalRouteSessionDigest(session);
+    assert.match(sessionDigest, /Status: ready_matched_route/);
+    assert.match(sessionDigest, /Raw query persisted: no/);
+    assert.doesNotMatch(sessionDigest, /development requirements check|Fixture operator answer|source-supported\/manual-review work-card answer|\/Users\/|[A-Za-z]:[\\/]/);
+    assert.doesNotMatch(JSON.stringify(session), /development requirements check|Fixture operator answer|source-supported\/manual-review work-card answer|\/Users\/|[A-Za-z]:[\\/]/);
+
+    const sessionWrite = await writeOperationalRouteSession({
+      repoRoot,
+      registryRef,
+      smokeTestRef: smokeTestsRef,
+      queryLabel: "development requirements check",
+      sessionId: "fixture_operational_route_session_written",
+      now: "2026-05-28T00:43:00Z",
+    });
+    assert.equal(sessionWrite.status, "written");
+    assert.equal(sessionWrite.session_status, "ready_matched_route");
+    assert.equal(sessionWrite.raw_query_persisted, false);
+    const writtenSession = await loadOperationalRouteSession({
+      repoRoot,
+      sessionRef: sessionWrite.operational_route_session_ref,
+    });
+    assert.equal(validateOperationalRouteSession(writtenSession).status, "pass");
+    const writtenSessionDigest = renderOperationalRouteSessionDigest(writtenSession);
+    assert.match(writtenSessionDigest, /Status: ready_matched_route/);
+    assert.match(writtenSessionDigest, /Operator answer card: _workspaces\/knowledge\/rag\/operational_routes\/fixture\/operator_answer_cards\/fixture_requirements.md/);
+    assert.match(writtenSessionDigest, /Raw query persisted: no/);
+    assert.match(writtenSessionDigest, /Answer shell output persisted: no/);
+    assert.doesNotMatch(writtenSessionDigest, /development requirements check|Fixture operator answer|source-supported\/manual-review work-card answer|\/Users\/|[A-Za-z]:[\\/]/);
+
+    const unmatchedSession = await buildOperationalRouteSession({
+      repoRoot,
+      registryRef,
+      smokeTestRef: smokeTestsRef,
+      queryLabel: "aircraft paint supplier audit",
+      sessionId: "fixture_unmatched_operational_route_session",
+      now: "2026-05-28T00:44:00Z",
+    });
+    assert.equal(unmatchedSession.status, "blocked_no_route_candidate_capture_recommended");
+    assert.equal(unmatchedSession.selected_route, null);
+    assert.equal(unmatchedSession.operator_surface.candidate_record_recommended, true);
+    assert.equal(validateOperationalRouteSession(unmatchedSession).status, "pass");
+    assert.doesNotMatch(JSON.stringify(unmatchedSession), /aircraft paint supplier audit|Fixture operator answer|\/Users\/|[A-Za-z]:[\\/]/);
+
+    const sessionSweep = await buildOperationalRouteSessionSweep({
+      repoRoot,
+      registryRef,
+      smokeTestRef: smokeTestsRef,
+      sweepId: "fixture_operational_route_sweep",
+      now: "2026-05-28T00:45:00Z",
+    });
+    assert.equal(sessionSweep.status, "pass_private_manual_review_route_set_ready");
+    assert.equal(sessionSweep.counts.case_count, 1);
+    assert.equal(sessionSweep.counts.pass_count, 1);
+    assert.equal(sessionSweep.counts.unique_route_count, 1);
+    assert.equal(sessionSweep.cases[0].actual_route_id, "fixture_requirements_route");
+    assert.equal(sessionSweep.cases[0].raw_query_persisted, false);
+    assert.equal(sessionSweep.boundary.session_sweep_writes_usage_or_candidate, false);
+    assert.equal(validateOperationalRouteSessionSweep(sessionSweep).status, "pass");
+    const sessionSweepText = renderOperationalRouteSessionSweepText(sessionSweep);
+    assert.match(sessionSweepText, /pass_private_manual_review_route_set_ready/);
+    assert.match(sessionSweepText, /fixture_route_smoke_001/);
+    assert.doesNotMatch(sessionSweepText, /development requirements check|Fixture operator answer|\/Users\/|[A-Za-z]:[\\/]/);
+
+    const sessionSweepWrite = await writeOperationalRouteSessionSweep({
+      repoRoot,
+      registryRef,
+      smokeTestRef: smokeTestsRef,
+      sweepId: "fixture_operational_route_sweep_written",
+      now: "2026-05-28T00:46:00Z",
+    });
+    assert.equal(sessionSweepWrite.status, "written");
+    assert.match(sessionSweepWrite.operational_route_session_sweep_ref, /^_workmeta\/system\/reports\/rag\/operational_route_sweeps\//);
+    const writtenSessionSweep = await loadOperationalRouteSessionSweep({
+      repoRoot,
+      sweepRef: sessionSweepWrite.operational_route_session_sweep_ref,
+    });
+    assert.equal(validateOperationalRouteSessionSweep(writtenSessionSweep).status, "pass");
+    const writtenSessionSweepText = renderOperationalRouteSessionSweepText(writtenSessionSweep);
+    assert.match(writtenSessionSweepText, /pass_private_manual_review_route_set_ready/);
+    assert.match(writtenSessionSweepText, /fixture_route_smoke_001/);
+    assert.doesNotMatch(writtenSessionSweepText, /development requirements check|Fixture operator answer|\/Users\/|[A-Za-z]:[\\/]/);
+    assert.doesNotMatch(JSON.stringify(writtenSessionSweep), /development requirements check|Fixture operator answer|"query_label"\s*:|"question"\s*:|"answer_shell_output"\s*:|"answer_card_body"\s*:|"source_text"\s*:|"chunk_text"\s*:|\/Users\/|[A-Za-z]:[\\/]/);
+
+    const maliciousSessionSweepValidation = validateOperationalRouteSessionSweep({
+      schema_version: "soulforge.operational_route_session_sweep.v0",
+      kind: "operational_route_session_sweep",
+      sweep_id: "fixture_malicious_session_sweep",
+      registry_ref: registryRef,
+      smoke_test_ref: smokeTestsRef,
+      status: "pass_private_manual_review_route_set_ready",
+      answer_shell_output: "SHOULD_BLOCK",
+      cases: [
+        {
+          smoke_test_id: "fixture_route_smoke_001",
+          session_id: "fixture_malicious_session",
+          status: "pass",
+          session_validation_status: "pass",
+          raw_query_persisted: true,
+          answer_shell_output_persisted: true,
+          answer_card_body_persisted: true,
+        },
+      ],
+      authority: {
+        source_truth_claimed: true,
+        final_answer_authority_allowed: true,
+        public_canon_promotion_allowed: true,
+        ontology_acceptance_allowed: true,
+        graph_truth_mutation_allowed: true,
+        default_route_mutation_allowed: true,
+        external_upload_allowed: true,
+        sourcebound_review_launch_allowed_here: true,
+      },
+      boundary: {
+        metadata_only: true,
+        source_text_loaded: false,
+        chunk_text_loaded: false,
+        session_sweep_writes_usage_or_candidate: true,
+        session_sweep_executes_answer_shell: true,
+        session_sweep_persists_raw_query: true,
+        answer_shell_output_persisted: true,
+        answer_card_body_persisted: true,
+        final_answer_authority_allowed: true,
+        public_canon_promotion_allowed: true,
+        ontology_acceptance_allowed: true,
+        default_route_mutation_allowed: true,
+        graph_truth_mutation_allowed: true,
+      },
+    });
+    assert.equal(maliciousSessionSweepValidation.status, "blocked");
+    assert.ok(maliciousSessionSweepValidation.blockers.includes("forbidden_payload_key:operational_route_session_sweep.answer_shell_output"));
+    assert.ok(maliciousSessionSweepValidation.blockers.includes("case_raw_query_must_not_be_persisted"));
+    assert.ok(maliciousSessionSweepValidation.blockers.includes("case_answer_shell_output_must_not_be_persisted"));
+    assert.ok(maliciousSessionSweepValidation.blockers.includes("case_answer_card_body_must_not_be_persisted"));
+    assert.ok(maliciousSessionSweepValidation.blockers.includes("authority_source_truth_claimed_must_be_false"));
+    assert.ok(maliciousSessionSweepValidation.blockers.includes("authority_sourcebound_review_launch_allowed_here_must_be_false"));
+    assert.ok(maliciousSessionSweepValidation.blockers.includes("boundary_session_sweep_writes_usage_or_candidate_must_be_false"));
+    assert.ok(maliciousSessionSweepValidation.blockers.includes("boundary_session_sweep_executes_answer_shell_must_be_false"));
+    assert.ok(maliciousSessionSweepValidation.blockers.includes("boundary_session_sweep_persists_raw_query_must_be_false"));
+
+    const readiness = await buildOperationalRouteReadiness({
+      repoRoot,
+      registryRef,
+      smokeTestRef: smokeTestsRef,
+      readinessId: "fixture_operational_route_readiness",
+      now: "2026-05-28T00:47:00Z",
+    });
+    assert.equal(readiness.status, "ready_private_manual_review_below_repeated_use_threshold");
+    assert.equal(readiness.counts.route_sweep_pass_count, 1);
+    assert.equal(readiness.counts.usage_record_count, 0);
+    assert.equal(readiness.surfaces.ops_check.validation_status, "pass");
+    assert.equal(readiness.surfaces.route_sweep.validation_status, "pass");
+    assert.equal(readiness.boundary.readiness_writes_usage_or_candidate, false);
+    assert.equal(readiness.authority.sourcebound_review_launch_allowed_here, false);
+    assert.equal(validateOperationalRouteReadiness(readiness).status, "pass");
+    const readinessText = renderOperationalRouteReadinessText(readiness);
+    assert.match(readinessText, /ready_private_manual_review_below_repeated_use_threshold/);
+    assert.match(readinessText, /route_sweep/);
+    assert.doesNotMatch(readinessText, /development requirements check|Fixture operator answer|\/Users\/|[A-Za-z]:[\\/]/);
+
+    const readinessWrite = await writeOperationalRouteReadiness({
+      repoRoot,
+      registryRef,
+      smokeTestRef: smokeTestsRef,
+      readinessId: "fixture_operational_route_readiness_written",
+      now: "2026-05-28T00:48:00Z",
+    });
+    assert.equal(readinessWrite.status, "written");
+    assert.match(readinessWrite.operational_route_readiness_ref, /^_workmeta\/system\/reports\/rag\/operational_route_readiness\//);
+    const writtenReadiness = await loadOperationalRouteReadiness({
+      repoRoot,
+      readinessRef: readinessWrite.operational_route_readiness_ref,
+    });
+    assert.equal(validateOperationalRouteReadiness(writtenReadiness).status, "pass");
+    assert.equal(writtenReadiness.boundary.readiness_launches_sourcebound_review, false);
+    assert.doesNotMatch(JSON.stringify(writtenReadiness), /development requirements check|Fixture operator answer|"query_label"\s*:|"question"\s*:|"answer_shell_output"\s*:|"answer_card_body"\s*:|"source_text"\s*:|"chunk_text"\s*:|\/Users\/|[A-Za-z]:[\\/]/);
+
+    const maliciousReadinessValidation = validateOperationalRouteReadiness({
+      schema_version: "soulforge.operational_route_readiness.v0",
+      kind: "operational_route_readiness",
+      readiness_id: "fixture_malicious_readiness",
+      registry_ref: registryRef,
+      smoke_test_ref: smokeTestsRef,
+      status: "ready_private_manual_review_below_repeated_use_threshold",
+      answer_card_body: "SHOULD_BLOCK",
+      surfaces: {
+        ops_check: { status: "pass_private_manual_review_ready", validation_status: "pass" },
+        route_sweep: { status: "pass_private_manual_review_route_set_ready", validation_status: "pass" },
+      },
+      authority: {
+        operator_use_allowed: true,
+        sourcebound_review_launch_allowed_here: true,
+        source_truth_claimed_here: true,
+        final_answer_authority_allowed_here: true,
+        public_canon_promotion_allowed_here: true,
+        ontology_acceptance_allowed_here: true,
+        graph_truth_mutation_allowed_here: true,
+        default_route_mutation_allowed_here: true,
+        external_upload_allowed_here: true,
+      },
+      boundary: {
+        metadata_only: true,
+        source_text_loaded: false,
+        chunk_text_loaded: false,
+        source_payloads_included: false,
+        copied_excerpts_included: false,
+        notebooklm_answers_included: false,
+        secrets_or_session_included: false,
+        runtime_absolute_paths_included: false,
+        final_answer_authority_allowed: true,
+        public_canon_promotion_allowed: true,
+        ontology_acceptance_allowed: true,
+        default_route_mutation_allowed: true,
+        graph_truth_mutation_allowed: true,
+        readiness_writes_usage_or_candidate: true,
+        readiness_executes_answer_shell: true,
+        readiness_launches_sourcebound_review: true,
+        raw_query_persisted: true,
+        answer_shell_output_persisted: true,
+        answer_card_body_persisted: true,
+      },
+    });
+    assert.equal(maliciousReadinessValidation.status, "blocked");
+    assert.ok(maliciousReadinessValidation.blockers.includes("forbidden_payload_key:operational_route_readiness.answer_card_body"));
+    assert.ok(maliciousReadinessValidation.blockers.includes("authority_sourcebound_review_launch_allowed_here_must_be_false"));
+    assert.ok(maliciousReadinessValidation.blockers.includes("authority_source_truth_claimed_here_must_be_false"));
+    assert.ok(maliciousReadinessValidation.blockers.includes("boundary_readiness_writes_usage_or_candidate_must_be_false"));
+    assert.ok(maliciousReadinessValidation.blockers.includes("boundary_readiness_launches_sourcebound_review_must_be_false"));
+    assert.ok(maliciousReadinessValidation.blockers.includes("boundary_answer_card_body_persisted_must_be_false"));
+
+    const usageRecord = await buildOperationalRouteUsageRecord({
+      repoRoot,
+      registryRef,
+      queryLabel: "development requirements check",
+      usageId: "fixture_requirements_usage_001",
+      now: "2026-05-28T01:00:00Z",
+    });
+    assert.equal(usageRecord.status, "recorded_matched_route");
+    assert.equal(usageRecord.route_id, "fixture_requirements_route");
+    assert.equal(usageRecord.raw_query_persisted, false);
+    assert.equal(usageRecord.selected_route.selected_work_card_id, "fixture_requirements_card");
+    assert.equal(validateOperationalRouteUsageRecord(usageRecord).status, "pass");
+    assert.doesNotMatch(JSON.stringify(usageRecord), /"query_label"\s*:|"question"\s*:|\/Users\/|[A-Za-z]:[\\/]/);
+    const usageRecordText = renderOperationalRouteUsageRecordText(usageRecord);
+    assert.match(usageRecordText, /recorded_matched_route/);
+    assert.match(usageRecordText, /Raw query persisted: no/);
+    assert.match(usageRecordText, /usage=1\/3|Usage count increment: 1/);
+    assert.doesNotMatch(
+      usageRecordText,
+      /development requirements check|"query_label"\s*:|"question"\s*:|answer_card_body|"source_text"\s*:|"chunk_text"\s*:|\/Users\/|[A-Za-z]:[\\/]/,
+    );
+
+    const usageWrite = await writeOperationalRouteUsageRecord({
+      repoRoot,
+      registryRef,
+      queryLabel: "development requirements check",
+      usageId: "fixture_requirements_usage_002",
+      now: "2026-05-28T01:01:00Z",
+    });
+    assert.equal(usageWrite.status, "written");
+    assert.equal(usageWrite.raw_query_persisted, false);
+    const writtenUsage = await loadOperationalRouteUsageRecord({ repoRoot, recordRef: usageWrite.usage_record_ref });
+    assert.equal(validateOperationalRouteUsageRecord(writtenUsage).status, "pass");
+    const writtenUsageText = renderOperationalRouteUsageRecordText(writtenUsage);
+    assert.match(writtenUsageText, /fixture_requirements_usage_002/);
+    assert.match(writtenUsageText, /Raw query persisted: no/);
+    assert.doesNotMatch(
+      writtenUsageText,
+      /development requirements check|"query_label"\s*:|"question"\s*:|answer_card_body|"source_text"\s*:|"chunk_text"\s*:|\/Users\/|[A-Za-z]:[\\/]/,
+    );
+
+    const usageSummary = await buildOperationalRouteUsageSummary({
+      repoRoot,
+      registryRef,
+      summaryId: "fixture_requirements_usage_summary",
+      now: "2026-05-28T01:02:00Z",
+    });
+    assert.equal(usageSummary.status, "below_repeated_use_threshold");
+    assert.equal(usageSummary.counts.usage_record_count, 1);
+    assert.equal(usageSummary.routes.find((route) => route.route_id === "fixture_requirements_route").usage_count, 1);
+    assert.equal(validateOperationalRouteUsageSummary(usageSummary).status, "pass");
+    assert.doesNotMatch(JSON.stringify(usageSummary), /"query_label"\s*:|"question"\s*:|\/Users\/|[A-Za-z]:[\\/]/);
+    const usageSummaryText = renderOperationalRouteUsageSummaryText(usageSummary);
+    assert.match(usageSummaryText, /below_repeated_use_threshold/);
+    assert.match(usageSummaryText, /usage=1\/3/);
+    assert.doesNotMatch(
+      usageSummaryText,
+      /development requirements check|"query_label"\s*:|"question"\s*:|answer_card_body|"source_text"\s*:|"chunk_text"\s*:|\/Users\/|[A-Za-z]:[\\/]/,
+    );
+
+    const usageSummaryWrite = await writeOperationalRouteUsageSummary({
+      repoRoot,
+      registryRef,
+      summaryId: "fixture_requirements_usage_summary_written",
+      now: "2026-05-28T01:03:00Z",
+    });
+    assert.equal(usageSummaryWrite.status, "written");
+    assert.equal(usageSummaryWrite.usage_record_count, 1);
+    const writtenSummary = await loadOperationalRouteUsageSummary({ repoRoot, summaryRef: usageSummaryWrite.usage_summary_ref });
+    assert.equal(validateOperationalRouteUsageSummary(writtenSummary).status, "pass");
+    const writtenSummaryText = renderOperationalRouteUsageSummaryText(writtenSummary);
+    assert.match(writtenSummaryText, /usage=1\/3/);
+    assert.doesNotMatch(
+      writtenSummaryText,
+      /development requirements check|"query_label"\s*:|"question"\s*:|answer_card_body|"source_text"\s*:|"chunk_text"\s*:|\/Users\/|[A-Za-z]:[\\/]/,
+    );
+
+    const candidateRecord = await buildOperationalRouteCandidateRecord({
+      repoRoot,
+      registryRef,
+      queryLabel: "aircraft paint supplier audit",
+      candidateId: "fixture_unmatched_candidate_001",
+      now: "2026-05-28T01:04:00Z",
+    });
+    assert.equal(candidateRecord.status, "recorded_unmatched_route_candidate");
+    assert.equal(candidateRecord.resolution_status, "blocked_no_route");
+    assert.equal(candidateRecord.raw_query_persisted, false);
+    assert.equal(candidateRecord.candidate_signal.candidate_count_increment, 1);
+    assert.equal(candidateRecord.candidate_signal.route_registry_update_allowed_here, false);
+    assert.equal(validateOperationalRouteCandidateRecord(candidateRecord).status, "pass");
+    assert.doesNotMatch(JSON.stringify(candidateRecord), /aircraft paint supplier audit|"query_label"\s*:|"question"\s*:|\/Users\/|[A-Za-z]:[\\/]/);
+    const candidateRecordText = renderOperationalRouteCandidateRecordText(candidateRecord);
+    assert.match(candidateRecordText, /recorded_unmatched_route_candidate/);
+    assert.match(candidateRecordText, /Preview only: no/);
+    assert.match(candidateRecordText, /Owner review required: yes/);
+    assert.doesNotMatch(candidateRecordText, /aircraft paint supplier audit|"query_label"\s*:|"question"\s*:|\/Users\/|[A-Za-z]:[\\/]/);
+    const candidateRecordPreviewText = renderOperationalRouteCandidateRecordText(candidateRecord, { previewOnly: true });
+    assert.match(candidateRecordPreviewText, /preview_unmatched_route_candidate_no_write/);
+    assert.match(candidateRecordPreviewText, /Preview only: yes/);
+    assert.doesNotMatch(candidateRecordPreviewText, /aircraft paint supplier audit|"query_label"\s*:|"question"\s*:|\/Users\/|[A-Za-z]:[\\/]/);
+
+    const matchedCandidateRecord = await buildOperationalRouteCandidateRecord({
+      repoRoot,
+      registryRef,
+      queryLabel: "development requirements check",
+      candidateId: "fixture_matched_candidate_noop",
+      now: "2026-05-28T01:05:00Z",
+    });
+    assert.equal(matchedCandidateRecord.status, "not_recorded_existing_route_or_invalid_registry");
+    assert.equal(matchedCandidateRecord.matched_route_id, "fixture_requirements_route");
+    assert.equal(matchedCandidateRecord.candidate_signal.candidate_count_increment, 0);
+    assert.equal(validateOperationalRouteCandidateRecord(matchedCandidateRecord).status, "pass");
+
+    const candidateWrite = await writeOperationalRouteCandidateRecord({
+      repoRoot,
+      registryRef,
+      queryLabel: "aircraft paint supplier audit",
+      candidateId: "fixture_unmatched_candidate_002",
+      now: "2026-05-28T01:06:00Z",
+    });
+    assert.equal(candidateWrite.status, "written");
+    assert.equal(candidateWrite.raw_query_persisted, false);
+    const writtenCandidate = await loadOperationalRouteCandidateRecord({
+      repoRoot,
+      recordRef: candidateWrite.candidate_record_ref,
+    });
+    assert.equal(validateOperationalRouteCandidateRecord(writtenCandidate).status, "pass");
+    const writtenCandidateText = renderOperationalRouteCandidateRecordText(writtenCandidate);
+    assert.match(writtenCandidateText, /recorded_unmatched_route_candidate/);
+    assert.doesNotMatch(JSON.stringify(writtenCandidate), /aircraft paint supplier audit|"query_label"\s*:|"question"\s*:|\/Users\/|[A-Za-z]:[\\/]/);
+    assert.doesNotMatch(writtenCandidateText, /aircraft paint supplier audit|"query_label"\s*:|"question"\s*:|\/Users\/|[A-Za-z]:[\\/]/);
+
+    const operationalStatus = await buildOperationalRouteStatus({
+      repoRoot,
+      registryRef,
+      statusId: "fixture_operational_route_status",
+      now: "2026-05-28T01:07:00Z",
+    });
+    assert.equal(operationalStatus.status, "candidate_review_required");
+    assert.equal(operationalStatus.counts.route_count, 1);
+    assert.equal(operationalStatus.counts.usage_record_count, 1);
+    assert.equal(operationalStatus.counts.unmatched_candidate_count, 1);
+    assert.equal(operationalStatus.authority.route_registry_update_allowed_here, false);
+    assert.equal(operationalStatus.boundary.source_text_loaded, false);
+    assert.equal(validateOperationalRouteStatus(operationalStatus).status, "pass");
+    assert.match(renderOperationalRouteStatusDigest(operationalStatus), /candidate_review_required/);
+    assert.doesNotMatch(JSON.stringify(operationalStatus), /aircraft paint supplier audit|"query_label"\s*:|"question"\s*:|\/Users\/|[A-Za-z]:[\\/]/);
+
+    const operationalStatusWrite = await writeOperationalRouteStatus({
+      repoRoot,
+      registryRef,
+      statusId: "fixture_operational_route_status_written",
+      now: "2026-05-28T01:08:00Z",
+    });
+    assert.equal(operationalStatusWrite.status, "written");
+    assert.equal(operationalStatusWrite.route_status, "candidate_review_required");
+    assert.equal(operationalStatusWrite.unmatched_candidate_count, 1);
+    const writtenOperationalStatus = await loadOperationalRouteStatus({
+      repoRoot,
+      statusRef: operationalStatusWrite.operational_route_status_ref,
+    });
+    assert.equal(validateOperationalRouteStatus(writtenOperationalStatus).status, "pass");
+    const writtenOperationalStatusText = renderOperationalRouteStatusDigest(writtenOperationalStatus);
+    assert.match(writtenOperationalStatusText, /candidate_review_required/);
+    assert.match(writtenOperationalStatusText, /Routes: 1/);
+    assert.doesNotMatch(
+      writtenOperationalStatusText,
+      /aircraft paint supplier audit|"query_label"\s*:|"question"\s*:|"source_text"\s*:|"chunk_text"\s*:|\/Users\/|[A-Za-z]:[\\/]/,
+    );
+
+    const operatorRunRecorded = await renderOperationalRouteOperatorRun({
+      repoRoot,
+      registryRef,
+      smokeTestRef: smokeTestsRef,
+      queryLabel: "development requirements check",
+      planId: "fixture_operational_route_operator_run_recorded",
+      recordUsage: true,
+      usageId: "fixture_operator_run_usage_001",
+      now: "2026-05-28T01:09:00Z",
+    });
+    assert.match(operatorRunRecorded, /Health status: not_checked/);
+    assert.match(operatorRunRecorded, /Operator answer shell: skipped/);
+    assert.match(operatorRunRecorded, /--record-usage requires a passing operator health ref/);
+    assert.match(operatorRunRecorded, /Usage record written: no/);
+    assert.doesNotMatch(operatorRunRecorded, /development requirements check|candidate_record_ref|\/Users\/|[A-Za-z]:[\\/]/);
+    await assert.rejects(
+      readFile(path.join(repoRoot, "_workmeta", "system", "reports", "rag", "operational_route_usage", "fixture_operator_run_usage_001", "usage_record.json"), "utf8"),
+    );
+
+    const operatorRunCustomUsageRoot = await renderOperationalRouteOperatorRun({
+      repoRoot,
+      registryRef,
+      smokeTestRef: smokeTestsRef,
+      queryLabel: "development requirements check",
+      planId: "fixture_operational_route_operator_run_custom_usage_root",
+      recordUsage: true,
+      usageId: "fixture_operator_run_custom_usage_001",
+      usageOutputRef: "_workmeta/fixture_project/reports/rag/operational_route_usage/fixture_operator_run_custom_usage_001/usage_record.json",
+      now: "2026-05-28T01:10:00Z",
+    });
+    assert.match(operatorRunCustomUsageRoot, /Operator answer shell: skipped/);
+    assert.match(operatorRunCustomUsageRoot, /Usage record written: no/);
+    assert.doesNotMatch(operatorRunCustomUsageRoot, /development requirements check|candidate_record_ref|\/Users\/|[A-Za-z]:[\\/]/);
+    await assert.rejects(
+      readFile(path.join(repoRoot, "_workmeta", "fixture_project", "reports", "rag", "operational_route_usage", "fixture_operator_run_custom_usage_001", "usage_record.json"), "utf8"),
+    );
+
+    const closeout = await buildOperationalRouteCloseout({
+      repoRoot,
+      registryRef,
+      queryLabel: "development requirements check",
+      closeoutId: "fixture_operational_route_closeout",
+      now: "2026-05-28T01:11:00Z",
+    });
+    assert.equal(closeout.status, "closed_private_manual_review_below_repeated_use_threshold");
+    assert.equal(closeout.selected_route.route_id, "fixture_requirements_route");
+    assert.equal(closeout.route_usage.usage_count, 1);
+    assert.equal(closeout.route_usage.repeated_use_review_threshold, 3);
+    assert.equal(closeout.boundary.usage_record_written_here, false);
+    assert.equal(closeout.boundary.answer_card_body_persisted, false);
+    assert.equal(validateOperationalRouteCloseout(closeout).status, "pass");
+    const closeoutText = renderOperationalRouteCloseoutText(closeout);
+    assert.match(closeoutText, /closed_private_manual_review_below_repeated_use_threshold/);
+    assert.match(closeoutText, /Route usage count: 1/);
+    assert.doesNotMatch(closeoutText, /development requirements check|Fixture operator answer|candidate_record_ref|\/Users\/|[A-Za-z]:[\\/]/);
+
+    const unmatchedCloseout = await buildOperationalRouteCloseout({
+      repoRoot,
+      registryRef,
+      queryLabel: "aircraft paint supplier audit",
+      closeoutId: "fixture_operational_route_unmatched_closeout",
+      now: "2026-05-28T01:12:00Z",
+    });
+    assert.equal(unmatchedCloseout.status, "unmatched_candidate_capture_available");
+    assert.equal(unmatchedCloseout.boundary.candidate_record_written_here, false);
+    assert.equal(validateOperationalRouteCloseout(unmatchedCloseout).status, "pass");
+    assert.doesNotMatch(JSON.stringify(unmatchedCloseout), /aircraft paint supplier audit|"query_label"\s*:|"question"\s*:|Fixture operator answer|\/Users\/|[A-Za-z]:[\\/]/);
+
+    const maliciousCloseoutValidation = validateOperationalRouteCloseout({
+      schema_version: OPERATIONAL_ROUTE_CLOSEOUT_SCHEMA_VERSION,
+      kind: "operational_route_closeout",
+      closeout_id: "fixture_malicious_closeout_payload",
+      registry_ref: registryRef,
+      status: "registry_closeout_status_only",
+      selected_route: null,
+      route_usage: null,
+      status_snapshot: {},
+      next_actions: [],
+      answer_shell_output: "SHOULD_BLOCK",
+      answer_card_body: "SHOULD_BLOCK",
+      boundary: {
+        metadata_only: true,
+        raw_query_persisted: false,
+        answer_card_body_persisted: false,
+        usage_record_written_here: false,
+        candidate_record_written_here: false,
+        answer_shell_output_persisted: true,
+        source_text_loaded: true,
+        source_truth_claimed: true,
+        public_canon_promotion_allowed: true,
+        default_route_mutation_allowed: true,
+        graph_truth_mutation_allowed: true,
+      },
+    });
+    assert.equal(maliciousCloseoutValidation.status, "blocked");
+    assert.ok(maliciousCloseoutValidation.blockers.includes("forbidden_payload_key:closeout.answer_shell_output"));
+    assert.ok(maliciousCloseoutValidation.blockers.includes("forbidden_payload_key:closeout.answer_card_body"));
+    assert.ok(maliciousCloseoutValidation.blockers.includes("boundary_answer_shell_output_persisted_must_be_false"));
+    assert.ok(maliciousCloseoutValidation.blockers.includes("boundary_source_text_loaded_must_be_false"));
+    assert.ok(maliciousCloseoutValidation.blockers.includes("boundary_source_truth_claimed_must_be_false"));
+    assert.ok(maliciousCloseoutValidation.blockers.includes("boundary_public_canon_promotion_allowed_must_be_false"));
+    assert.ok(maliciousCloseoutValidation.blockers.includes("boundary_default_route_mutation_allowed_must_be_false"));
+    assert.ok(maliciousCloseoutValidation.blockers.includes("boundary_graph_truth_mutation_allowed_must_be_false"));
+
+    const reviewGate = await buildOperationalRouteReviewGate({
+      repoRoot,
+      registryRef,
+      gateId: "fixture_operational_route_review_gate",
+      now: "2026-05-28T01:13:00Z",
+    });
+    assert.equal(reviewGate.status, "hold_unmatched_candidate_review_required");
+    assert.equal(reviewGate.counts.usage_record_count, 1);
+    assert.equal(reviewGate.counts.repeated_use_review_ready_route_count, 0);
+    assert.equal(reviewGate.counts.unmatched_candidate_count, 1);
+    assert.equal(reviewGate.authority.sourcebound_review_launch_allowed_here, false);
+    assert.equal(reviewGate.boundary.review_gate_launches_sourcebound_review, false);
+    assert.equal(validateOperationalRouteReviewGate(reviewGate).status, "pass");
+    const reviewGateText = renderOperationalRouteReviewGateText(reviewGate);
+    assert.match(reviewGateText, /hold_unmatched_candidate_review_required/);
+    assert.match(reviewGateText, /usage=1\/3/);
+    assert.doesNotMatch(reviewGateText, /development requirements check|aircraft paint supplier audit|Fixture operator answer|\/Users\/|[A-Za-z]:[\\/]/);
+
+    const maliciousReviewGateValidation = validateOperationalRouteReviewGate({
+      schema_version: "soulforge.operational_route_review_gate.v0",
+      kind: "operational_route_review_gate",
+      gate_id: "fixture_malicious_review_gate",
+      generated_at_utc: "2026-05-28T01:14:00.000Z",
+      registry_ref: registryRef,
+      status: "ready_for_sourcebound_review_queue",
+      blockers: [],
+      counts: {},
+      routes: [],
+      ready_routes: [],
+      answer_card_body: "SHOULD_BLOCK",
+      authority: {
+        sourcebound_review_launch_allowed_here: true,
+        route_registry_update_allowed_here: true,
+        source_text_loading_allowed_here: true,
+      },
+      next_actions: [],
+      boundary: {
+        metadata_only: true,
+        source_text_loaded: true,
+        review_gate_launches_sourcebound_review: true,
+        public_canon_promotion_allowed: true,
+      },
+    });
+    assert.equal(maliciousReviewGateValidation.status, "blocked");
+    assert.ok(maliciousReviewGateValidation.blockers.includes("forbidden_payload_key:operational_route_review_gate.answer_card_body"));
+    assert.ok(maliciousReviewGateValidation.blockers.includes("authority_sourcebound_review_launch_allowed_here_must_be_false"));
+    assert.ok(maliciousReviewGateValidation.blockers.includes("authority_route_registry_update_allowed_here_must_be_false"));
+    assert.ok(maliciousReviewGateValidation.blockers.includes("authority_source_text_loading_allowed_here_must_be_false"));
+    assert.ok(maliciousReviewGateValidation.blockers.includes("boundary_source_text_loaded_must_be_false"));
+    assert.ok(maliciousReviewGateValidation.blockers.includes("boundary_review_gate_launches_sourcebound_review_must_be_false"));
+    assert.ok(maliciousReviewGateValidation.blockers.includes("boundary_public_canon_promotion_allowed_must_be_false"));
+
+    const commandSheet = await buildOperationalRouteCommandSheet({
+      repoRoot,
+      registryRef,
+      smokeTestRef: smokeTestsRef,
+      sheetId: "fixture_operational_route_command_sheet",
+      now: "2026-05-28T01:15:00Z",
+    });
+    assert.equal(commandSheet.counts.command_count, 21);
+    assert.equal(commandSheet.boundary.command_sheet_executes_commands, false);
+    assert.equal(validateOperationalRouteCommandSheet(commandSheet).status, "pass");
+    const commandSheetText = renderOperationalRouteCommandSheetText(commandSheet);
+    assert.match(commandSheetText, /operational-route-dashboard/);
+    assert.match(commandSheetText, /operational-route-operator-run/);
+    assert.match(commandSheetText, /operational-route-call-plan --write/);
+    assert.match(commandSheetText, /operational-route-call-plan-view/);
+    assert.match(commandSheetText, /operational-route-review-gate/);
+    assert.match(commandSheetText, /operational-route-preflight-view/);
+    assert.match(commandSheetText, /operational-route-usage-summary-view/);
+    assert.match(commandSheetText, /operational-route-evidence-sweep-view/);
+    assert.match(commandSheetText, /operational-route-latest-evidence/);
+    assert.match(commandSheetText, /operational-route-operator-brief/);
+    assert.match(commandSheetText, /operational-route-operator-health/);
+    assert.match(commandSheetText, /--record-usage --usage-id <safe_usage_id>/);
+    assert.doesNotMatch(commandSheetText, /development requirements check|aircraft paint supplier audit|Fixture operator answer|\/Users\/|[A-Za-z]:[\\/]/);
+
+    const maliciousCommandSheetValidation = validateOperationalRouteCommandSheet({
+      schema_version: "soulforge.operational_route_command_sheet.v0",
+      kind: "operational_route_command_sheet",
+      sheet_id: "fixture_malicious_command_sheet",
+      registry_ref: registryRef,
+      commands: [{ phase: "bad_phase", command_line: "node guild_hall/rag/cli.mjs operational-route-command-sheet" }],
+      answer_card_body: "SHOULD_BLOCK",
+      boundary: {
+        metadata_only: true,
+        command_sheet_executes_commands: true,
+        raw_query_persisted: true,
+        answer_card_body_persisted: true,
+        public_canon_promotion_allowed: true,
+      },
+    });
+    assert.equal(maliciousCommandSheetValidation.status, "blocked");
+    assert.ok(maliciousCommandSheetValidation.blockers.includes("forbidden_payload_key:operational_route_command_sheet.answer_card_body"));
+    assert.ok(maliciousCommandSheetValidation.blockers.includes("boundary_command_sheet_executes_commands_must_be_false"));
+    assert.ok(maliciousCommandSheetValidation.blockers.includes("boundary_raw_query_persisted_must_be_false"));
+    assert.ok(maliciousCommandSheetValidation.blockers.includes("boundary_answer_card_body_persisted_must_be_false"));
+    assert.ok(maliciousCommandSheetValidation.blockers.includes("boundary_public_canon_promotion_allowed_must_be_false"));
+
+    const suggestionSafety = await buildOperationalRouteSuggestionSafety({
+      repoRoot,
+      registryRef,
+      smokeTestRef: smokeTestsRef,
+      safetyId: "fixture_operational_route_suggestion_safety",
+      now: "2026-05-28T01:15:30Z",
+    });
+    assert.equal(suggestionSafety.status, "pass_operator_suggestion_safety");
+    assert.equal(suggestionSafety.counts.direct_usage_record_write_suggestion_count, 0);
+    assert.equal(suggestionSafety.counts.direct_candidate_record_write_suggestion_count, 0);
+    assert.equal(suggestionSafety.counts.direct_call_plan_write_suggestion_count, 1);
+    assert.equal(suggestionSafety.counts.unsafe_candidate_record_write_suggestion_count, 0);
+    assert.equal(suggestionSafety.counts.unsafe_call_plan_write_suggestion_count, 0);
+    assert.equal(suggestionSafety.counts.direct_answer_shell_suggestion_count, 0);
+    assert.equal(suggestionSafety.counts.record_usage_without_health_ref_count, 0);
+    assert.equal(suggestionSafety.counts.record_usage_outside_operator_run_count, 0);
+    assert.equal(suggestionSafety.boundary.suggestion_safety_executes_commands, false);
+    assert.equal(suggestionSafety.boundary.suggestion_safety_writes_usage_or_candidate, false);
+    assert.equal(suggestionSafety.boundary.suggestion_safety_writes_call_plan, false);
+    assert.equal(validateOperationalRouteSuggestionSafety(suggestionSafety).status, "pass");
+    const suggestionSafetyText = renderOperationalRouteSuggestionSafetyText(suggestionSafety);
+    assert.match(suggestionSafetyText, /pass_operator_suggestion_safety/);
+    assert.match(suggestionSafetyText, /Direct usage-write suggestions: 0/);
+    assert.match(suggestionSafetyText, /Direct call-plan-write suggestions: 1/);
+    assert.match(suggestionSafetyText, /Unsafe candidate-write suggestions: 0/);
+    assert.match(suggestionSafetyText, /Unsafe call-plan-write suggestions: 0/);
+    assert.match(suggestionSafetyText, /Record-usage without health ref: 0/);
+    assert.doesNotMatch(suggestionSafetyText, /development requirements check|aircraft paint supplier audit|Fixture operator answer|"query_label"\s*:|"question"\s*:|"source_text"\s*:|"chunk_text"\s*:|\/Users\/|[A-Za-z]:[\\/]/);
+    assert.doesNotMatch(JSON.stringify(suggestionSafety), /development requirements check|aircraft paint supplier audit|Fixture operator answer|"query_label"\s*:|"question"\s*:|"answer_shell_output"\s*:|"answer_card_body"\s*:|"source_text"\s*:|"chunk_text"\s*:|\/Users\/|[A-Za-z]:[\\/]/);
+
+    const unmatchedSmokeTestsRef = "_workspaces/knowledge/rag/operational_routes/fixture/smoke_tests_unmatched.yaml";
+    await writeFileWithParents(
+      repoRoot,
+      unmatchedSmokeTestsRef,
+      [
+        "schema_version: soulforge.fixture.operational_route_smoke_tests.v0",
+        "kind: operational_route_smoke_tests",
+        "test_set_id: fixture_unmatched_probe",
+        "tests:",
+        "  - test_id: fixture_route_unmatched_001",
+        "    query_label: \"aircraft paint supplier audit\"",
+      ].join("\n"),
+    );
+    const unmatchedSuggestionSafety = await buildOperationalRouteSuggestionSafety({
+      repoRoot,
+      registryRef,
+      smokeTestRef: unmatchedSmokeTestsRef,
+      safetyId: "fixture_operational_route_suggestion_safety_unmatched",
+      now: "2026-05-28T01:15:35Z",
+    });
+    assert.equal(unmatchedSuggestionSafety.status, "pass_operator_suggestion_safety");
+    assert.equal(unmatchedSuggestionSafety.counts.direct_candidate_record_write_suggestion_count, 0);
+    assert.equal(unmatchedSuggestionSafety.counts.unsafe_candidate_record_write_suggestion_count, 0);
+    assert.equal(validateOperationalRouteSuggestionSafety(unmatchedSuggestionSafety).status, "pass");
+    assert.doesNotMatch(JSON.stringify(unmatchedSuggestionSafety), /aircraft paint supplier audit|"query_label"\s*:|"question"\s*:|\/Users\/|[A-Za-z]:[\\/]/);
+
+    const suggestionSafetyWrite = await writeOperationalRouteSuggestionSafety({
+      repoRoot,
+      registryRef,
+      smokeTestRef: smokeTestsRef,
+      safetyId: "fixture_operational_route_suggestion_safety_written",
+      now: "2026-05-28T01:15:45Z",
+    });
+    assert.equal(suggestionSafetyWrite.status, "written");
+    assert.match(suggestionSafetyWrite.operational_route_suggestion_safety_ref, /^_workmeta\/system\/reports\/rag\/operational_route_suggestion_safety\//);
+    const writtenSuggestionSafety = await loadOperationalRouteSuggestionSafety({
+      repoRoot,
+      suggestionSafetyRef: suggestionSafetyWrite.operational_route_suggestion_safety_ref,
+    });
+    assert.equal(validateOperationalRouteSuggestionSafety(writtenSuggestionSafety).status, "pass");
+
+    const maliciousSuggestionSafetyValidation = validateOperationalRouteSuggestionSafety({
+      ...suggestionSafety,
+      safety_id: "fixture_malicious_suggestion_safety",
+      counts: {
+        ...suggestionSafety.counts,
+        direct_usage_record_write_suggestion_count: 1,
+        direct_answer_shell_suggestion_count: 1,
+        record_usage_without_health_ref_count: 1,
+        unsafe_candidate_record_write_suggestion_count: 1,
+        unsafe_call_plan_write_suggestion_count: 1,
+        record_usage_outside_operator_run_count: 1,
+      },
+      boundary: {
+        ...suggestionSafety.boundary,
+        suggestion_safety_executes_commands: true,
+        suggestion_safety_writes_usage_or_candidate: true,
+        suggestion_safety_writes_call_plan: true,
+        public_canon_promotion_allowed: true,
+      },
+    });
+    assert.equal(maliciousSuggestionSafetyValidation.status, "blocked");
+    assert.ok(maliciousSuggestionSafetyValidation.blockers.includes("direct_usage_record_write_suggestion_count_must_be_zero"));
+    assert.ok(maliciousSuggestionSafetyValidation.blockers.includes("unsafe_candidate_record_write_suggestion_count_must_be_zero"));
+    assert.ok(maliciousSuggestionSafetyValidation.blockers.includes("unsafe_call_plan_write_suggestion_count_must_be_zero"));
+    assert.ok(maliciousSuggestionSafetyValidation.blockers.includes("direct_answer_shell_suggestion_count_must_be_zero"));
+    assert.ok(maliciousSuggestionSafetyValidation.blockers.includes("record_usage_without_health_ref_count_must_be_zero"));
+    assert.ok(maliciousSuggestionSafetyValidation.blockers.includes("record_usage_outside_operator_run_count_must_be_zero"));
+    assert.ok(maliciousSuggestionSafetyValidation.blockers.includes("boundary_suggestion_safety_executes_commands_must_be_false"));
+    assert.ok(maliciousSuggestionSafetyValidation.blockers.includes("boundary_suggestion_safety_writes_usage_or_candidate_must_be_false"));
+    assert.ok(maliciousSuggestionSafetyValidation.blockers.includes("boundary_suggestion_safety_writes_call_plan_must_be_false"));
+    assert.ok(maliciousSuggestionSafetyValidation.blockers.includes("boundary_public_canon_promotion_allowed_must_be_false"));
+
+    const opsCheck = await buildOperationalRouteOpsCheck({
+      repoRoot,
+      registryRef,
+      smokeTestRef: smokeTestsRef,
+      opsCheckId: "fixture_operational_route_ops_check",
+      now: "2026-05-28T01:16:00Z",
+    });
+    assert.equal(opsCheck.status, "pass_private_manual_review_ready");
+    assert.equal(opsCheck.counts.command_count, 21);
+    assert.equal(opsCheck.counts.suggestion_command_count, suggestionSafety.counts.command_count);
+    assert.equal(opsCheck.counts.direct_usage_record_write_suggestion_count, 0);
+    assert.equal(opsCheck.counts.direct_candidate_record_write_suggestion_count, 0);
+    assert.equal(opsCheck.counts.direct_call_plan_write_suggestion_count, 1);
+    assert.equal(opsCheck.counts.unsafe_candidate_record_write_suggestion_count, 0);
+    assert.equal(opsCheck.counts.unsafe_call_plan_write_suggestion_count, 0);
+    assert.equal(opsCheck.counts.direct_answer_shell_suggestion_count, 0);
+    assert.equal(opsCheck.counts.record_usage_without_health_ref_count, 0);
+    assert.equal(opsCheck.counts.record_usage_outside_operator_run_count, 0);
+    assert.equal(opsCheck.surfaces.preflight.validation_status, "pass");
+    assert.equal(opsCheck.surfaces.command_sheet.status, "pass");
+    assert.equal(opsCheck.surfaces.suggestion_safety.status, "pass_operator_suggestion_safety");
+    assert.equal(opsCheck.surfaces.suggestion_safety.validation_status, "pass");
+    assert.equal(opsCheck.surfaces.review_gate.status, "hold_unmatched_candidate_review_required");
+    assert.equal(opsCheck.authority.sourcebound_review_launch_allowed_here, false);
+    assert.equal(opsCheck.boundary.ops_check_executes_commands, false);
+    assert.equal(validateOperationalRouteOpsCheck(opsCheck).status, "pass");
+    const opsCheckText = renderOperationalRouteOpsCheckText(opsCheck);
+    assert.match(opsCheckText, /pass_private_manual_review_ready/);
+    assert.match(opsCheckText, /command_sheet/);
+    assert.match(opsCheckText, /suggestion_safety/);
+    assert.match(opsCheckText, /Direct usage-write suggestions: 0/);
+    assert.match(opsCheckText, /Unsafe candidate-write suggestions: 0/);
+    assert.match(opsCheckText, /Unsafe call-plan-write suggestions: 0/);
+    assert.match(opsCheckText, /review_gate/);
+    assert.doesNotMatch(opsCheckText, /development requirements check|aircraft paint supplier audit|Fixture operator answer|\/Users\/|[A-Za-z]:[\\/]/);
+
+    const opsCheckWrite = await writeOperationalRouteOpsCheck({
+      repoRoot,
+      registryRef,
+      smokeTestRef: smokeTestsRef,
+      opsCheckId: "fixture_operational_route_ops_check_written",
+      now: "2026-05-28T01:16:30Z",
+    });
+    assert.equal(opsCheckWrite.status, "written");
+    assert.match(opsCheckWrite.operational_route_ops_check_ref, /^_workmeta\/system\/reports\/rag\/operational_route_ops_check\//);
+    const writtenOpsCheck = await loadOperationalRouteOpsCheck({
+      repoRoot,
+      opsCheckRef: opsCheckWrite.operational_route_ops_check_ref,
+    });
+    assert.equal(validateOperationalRouteOpsCheck(writtenOpsCheck).status, "pass");
+    const writtenOpsCheckText = renderOperationalRouteOpsCheckText(writtenOpsCheck);
+    assert.match(writtenOpsCheckText, /pass_private_manual_review_ready/);
+    assert.match(writtenOpsCheckText, /preflight/);
+    assert.doesNotMatch(writtenOpsCheckText, /development requirements check|aircraft paint supplier audit|Fixture operator answer|\/Users\/|[A-Za-z]:[\\/]/);
+    assert.equal(writtenOpsCheck.boundary.ops_check_writes_usage_or_candidate, false);
+    assert.doesNotMatch(JSON.stringify(writtenOpsCheck), /development requirements check|aircraft paint supplier audit|Fixture operator answer|"query_label"\s*:|"question"\s*:|"answer_shell_output"\s*:|"answer_card_body"\s*:|"source_text"\s*:|"chunk_text"\s*:|\/Users\/|[A-Za-z]:[\\/]/);
+
+    const evidenceSweep = await buildOperationalRouteEvidenceSweep({
+      repoRoot,
+      preflightRef: preflightWrite.operational_route_preflight_ref,
+      opsCheckRef: opsCheckWrite.operational_route_ops_check_ref,
+      sessionSweepRef: sessionSweepWrite.operational_route_session_sweep_ref,
+      statusRef: operationalStatusWrite.operational_route_status_ref,
+      usageSummaryRef: usageSummaryWrite.usage_summary_ref,
+      usageRecordRefs: [usageWrite.usage_record_ref],
+      candidateRecordRefs: [candidateWrite.candidate_record_ref],
+      evidenceSweepId: "fixture_operational_route_evidence_sweep",
+      now: "2026-05-28T01:17:00Z",
+    });
+    assert.equal(evidenceSweep.status, "pass_metadata_only_evidence_sweep");
+    assert.equal(evidenceSweep.counts.evidence_count, 7);
+    assert.equal(evidenceSweep.counts.blocked_count, 0);
+    assert.equal(validateOperationalRouteEvidenceSweep(evidenceSweep).status, "pass");
+    const evidenceSweepText = renderOperationalRouteEvidenceSweepText(evidenceSweep);
+    assert.match(evidenceSweepText, /Evidence: 7\/7 pass/);
+    assert.match(evidenceSweepText, /ops_check/);
+    assert.doesNotMatch(evidenceSweepText, /development requirements check|aircraft paint supplier audit|Fixture operator answer|"query_label"\s*:|"question"\s*:|"source_text"\s*:|"chunk_text"\s*:|\/Users\/|[A-Za-z]:[\\/]/);
+
+    const evidenceSweepWrite = await writeOperationalRouteEvidenceSweep({
+      repoRoot,
+      preflightRef: preflightWrite.operational_route_preflight_ref,
+      opsCheckRef: opsCheckWrite.operational_route_ops_check_ref,
+      sessionSweepRef: sessionSweepWrite.operational_route_session_sweep_ref,
+      statusRef: operationalStatusWrite.operational_route_status_ref,
+      usageSummaryRef: usageSummaryWrite.usage_summary_ref,
+      usageRecordRefs: [usageWrite.usage_record_ref],
+      candidateRecordRefs: [candidateWrite.candidate_record_ref],
+      evidenceSweepId: "fixture_operational_route_evidence_sweep_written",
+      now: "2026-05-28T01:17:30Z",
+    });
+    assert.equal(evidenceSweepWrite.status, "written");
+    assert.match(evidenceSweepWrite.operational_route_evidence_sweep_ref, /^_workmeta\/system\/reports\/rag\/operational_route_evidence_sweeps\//);
+    const writtenEvidenceSweep = await loadOperationalRouteEvidenceSweep({
+      repoRoot,
+      evidenceSweepRef: evidenceSweepWrite.operational_route_evidence_sweep_ref,
+    });
+    assert.equal(validateOperationalRouteEvidenceSweep(writtenEvidenceSweep).status, "pass");
+    assert.doesNotMatch(JSON.stringify(writtenEvidenceSweep), /development requirements check|aircraft paint supplier audit|Fixture operator answer|"query_label"\s*:|"question"\s*:|"answer_shell_output"\s*:|"answer_card_body"\s*:|"source_text"\s*:|"chunk_text"\s*:|\/Users\/|[A-Za-z]:[\\/]/);
+
+    const latestEvidence = await buildOperationalRouteLatestEvidence({
+      repoRoot,
+      registryRef,
+      latestEvidenceId: "fixture_operational_route_latest_evidence",
+      now: "2026-05-28T01:18:00Z",
+    });
+    assert.equal(latestEvidence.status, "ready_private_manual_review_below_repeated_use_threshold");
+    assert.equal(latestEvidence.counts.latest_artifact_count, 8);
+    assert.equal(latestEvidence.counts.missing_artifact_count, 0);
+    assert.equal(latestEvidence.counts.blocked_artifact_count, 0);
+    assert.equal(latestEvidence.counts.route_sweep_pass_count, 1);
+    assert.equal(latestEvidence.counts.suggestion_command_count, suggestionSafety.counts.command_count);
+    assert.equal(latestEvidence.counts.direct_usage_record_write_suggestion_count, 0);
+    assert.equal(latestEvidence.counts.direct_candidate_record_write_suggestion_count, 0);
+    assert.equal(latestEvidence.counts.direct_call_plan_write_suggestion_count, 1);
+    assert.equal(latestEvidence.counts.unsafe_candidate_record_write_suggestion_count, 0);
+    assert.equal(latestEvidence.counts.unsafe_call_plan_write_suggestion_count, 0);
+    assert.equal(latestEvidence.counts.record_usage_outside_operator_run_count, 0);
+    assert.equal(validateOperationalRouteLatestEvidence(latestEvidence).status, "pass");
+    const latestEvidenceText = renderOperationalRouteLatestEvidenceText(latestEvidence);
+    assert.match(latestEvidenceText, /Latest refs:/);
+    assert.match(latestEvidenceText, /suggestion_safety/);
+    assert.match(latestEvidenceText, /Direct usage-write suggestions: 0/);
+    assert.match(latestEvidenceText, /Unsafe candidate-write suggestions: 0/);
+    assert.match(latestEvidenceText, /Unsafe call-plan-write suggestions: 0/);
+    assert.match(latestEvidenceText, /evidence_sweep/);
+    assert.match(latestEvidenceText, /Missing evidence types:\n- none/);
+    assert.doesNotMatch(latestEvidenceText, /development requirements check|aircraft paint supplier audit|Fixture operator answer|"query_label"\s*:|"question"\s*:|"source_text"\s*:|"chunk_text"\s*:|\/Users\/|[A-Za-z]:[\\/]/);
+
+    const latestEvidenceWrite = await writeOperationalRouteLatestEvidence({
+      repoRoot,
+      registryRef,
+      latestEvidenceId: "fixture_operational_route_latest_evidence_written",
+      now: "2026-05-28T01:18:30Z",
+    });
+    assert.equal(latestEvidenceWrite.status, "written");
+    assert.match(latestEvidenceWrite.operational_route_latest_evidence_ref, /^_workmeta\/system\/reports\/rag\/operational_route_latest_evidence\//);
+    const writtenLatestEvidence = await loadOperationalRouteLatestEvidence({
+      repoRoot,
+      latestEvidenceRef: latestEvidenceWrite.operational_route_latest_evidence_ref,
+    });
+    assert.equal(validateOperationalRouteLatestEvidence(writtenLatestEvidence).status, "pass");
+    assert.doesNotMatch(JSON.stringify(writtenLatestEvidence), /development requirements check|aircraft paint supplier audit|Fixture operator answer|"query_label"\s*:|"question"\s*:|"answer_shell_output"\s*:|"answer_card_body"\s*:|"source_text"\s*:|"chunk_text"\s*:|\/Users\/|[A-Za-z]:[\\/]/);
+
+    const operatorBrief = await buildOperationalRouteOperatorBrief({
+      repoRoot,
+      registryRef,
+      latestEvidenceRef: latestEvidenceWrite.operational_route_latest_evidence_ref,
+      operatorBriefId: "fixture_operational_route_operator_brief",
+      now: "2026-05-28T01:19:00Z",
+    });
+    assert.equal(operatorBrief.status, "ready_private_manual_review_below_repeated_use_threshold");
+    assert.equal(operatorBrief.counts.route_count, 1);
+    assert.equal(operatorBrief.counts.usage_record_count, 1);
+    assert.equal(operatorBrief.counts.command_count, 12);
+    assert.equal(operatorBrief.counts.direct_candidate_record_write_suggestion_count, 0);
+    assert.equal(operatorBrief.counts.direct_call_plan_write_suggestion_count, 1);
+    assert.equal(operatorBrief.counts.unsafe_candidate_record_write_suggestion_count, 0);
+    assert.equal(operatorBrief.counts.unsafe_call_plan_write_suggestion_count, 0);
+    assert.equal(operatorBrief.counts.direct_answer_shell_suggestion_count, 0);
+    assert.equal(operatorBrief.counts.record_usage_without_health_ref_count, 0);
+    assert.equal(operatorBrief.counts.record_usage_outside_operator_run_count, 0);
+    assert.equal(operatorBrief.boundary.operator_brief_executes_commands, false);
+    assert.equal(validateOperationalRouteOperatorBrief(operatorBrief).status, "pass");
+    const operatorBriefText = renderOperationalRouteOperatorBriefText(operatorBrief);
+    assert.match(operatorBriefText, /Operator brief/);
+    assert.match(operatorBriefText, /fixture_requirements_route/);
+    assert.match(operatorBriefText, /suggestion_safety_ref/);
+    assert.match(operatorBriefText, /operational-route-call-plan --write/);
+    assert.match(operatorBriefText, /operational-route-call-plan-view/);
+    assert.match(operatorBriefText, /operational-route-operator-health/);
+    assert.match(operatorBriefText, /operational-route-operator-run/);
+    assert.match(operatorBriefText, /--skip-answer-shell/);
+    assert.match(operatorBriefText, /--record-usage --usage-id <safe_usage_id>/);
+    assert.doesNotMatch(operatorBriefText, /development requirements check|aircraft paint supplier audit|Fixture operator answer|"query_label"\s*:|"question"\s*:|"source_text"\s*:|"chunk_text"\s*:|\/Users\/|[A-Za-z]:[\\/]/);
+
+    const maliciousOperatorBriefValidation = validateOperationalRouteOperatorBrief({
+      ...operatorBrief,
+      brief_id: "fixture_malicious_operator_brief",
+      commands: [
+        {
+          phase: "unsafe_call_plan",
+          command_line: `node guild_hall/rag/cli.mjs operational-route-call-plan --write --route-registry-ref ${registryRef} --query-label "<ephemeral label>" --plan-id <safe_call_plan_id>`,
+        },
+        {
+          phase: "unsafe_answer_shell",
+          command_line: `node guild_hall/rag/cli.mjs operational-route-answer-shell --route-registry-ref ${registryRef} --query-label "<ephemeral label>"`,
+        },
+      ],
+    });
+    assert.equal(maliciousOperatorBriefValidation.status, "blocked");
+    assert.ok(maliciousOperatorBriefValidation.blockers.includes("operator_brief_suggests_unsafe_call_plan_write"));
+    assert.ok(maliciousOperatorBriefValidation.blockers.includes("operator_brief_suggests_direct_answer_shell"));
+
+    const operatorBriefWrite = await writeOperationalRouteOperatorBrief({
+      repoRoot,
+      registryRef,
+      latestEvidenceRef: latestEvidenceWrite.operational_route_latest_evidence_ref,
+      operatorBriefId: "fixture_operational_route_operator_brief_written",
+      now: "2026-05-28T01:19:30Z",
+    });
+    assert.equal(operatorBriefWrite.status, "written");
+    assert.match(operatorBriefWrite.operational_route_operator_brief_ref, /^_workmeta\/system\/reports\/rag\/operational_route_operator_briefs\//);
+    const writtenOperatorBrief = await loadOperationalRouteOperatorBrief({
+      repoRoot,
+      operatorBriefRef: operatorBriefWrite.operational_route_operator_brief_ref,
+    });
+    assert.equal(validateOperationalRouteOperatorBrief(writtenOperatorBrief).status, "pass");
+    assert.doesNotMatch(JSON.stringify(writtenOperatorBrief), /development requirements check|aircraft paint supplier audit|Fixture operator answer|"query_label"\s*:|"question"\s*:|"answer_shell_output"\s*:|"answer_card_body"\s*:|"source_text"\s*:|"chunk_text"\s*:|\/Users\/|[A-Za-z]:[\\/]/);
+
+    const runbookRef = "_workspaces/knowledge/rag/operational_routes/fixture/operator_runbook.md";
+    const statusDigestRef = "_workspaces/knowledge/rag/operational_routes/fixture/operator_status_digest.md";
+    const closeoutMapRef = "_workspaces/knowledge/rag/operational_routes/fixture/operator_closeout_map.md";
+    const fixtureOperatorDocText = [
+      registryRef,
+      preflightWrite.operational_route_preflight_ref,
+      opsCheckWrite.operational_route_ops_check_ref,
+      suggestionSafetyWrite.operational_route_suggestion_safety_ref,
+      sessionSweepWrite.operational_route_session_sweep_ref,
+      readinessWrite.operational_route_readiness_ref,
+      operationalStatusWrite.operational_route_status_ref,
+      usageSummaryWrite.usage_summary_ref,
+      evidenceSweepWrite.operational_route_evidence_sweep_ref,
+      latestEvidenceWrite.operational_route_latest_evidence_ref,
+      operatorBriefWrite.operational_route_operator_brief_ref,
+      "command count `21`",
+      "12 safe commands",
+    ].join("\n");
+    await writeFileWithParents(repoRoot, runbookRef, fixtureOperatorDocText);
+    await writeFileWithParents(repoRoot, statusDigestRef, fixtureOperatorDocText);
+    await writeFileWithParents(repoRoot, closeoutMapRef, fixtureOperatorDocText);
+    const docDrift = await buildOperationalRouteOperatorDocDriftCheck({
+      repoRoot,
+      registryRef,
+      latestEvidenceRef: latestEvidenceWrite.operational_route_latest_evidence_ref,
+      operatorBriefRef: operatorBriefWrite.operational_route_operator_brief_ref,
+      driftCheckId: "fixture_operational_route_doc_drift",
+      now: "2026-05-28T01:20:00Z",
+    });
+    assert.equal(docDrift.status, "pass_operator_docs_current");
+    assert.equal(docDrift.counts.stale_ref_count, 0);
+    assert.equal(docDrift.counts.missing_required_ref_count, 0);
+    assert.equal(validateOperationalRouteOperatorDocDriftCheck(docDrift).status, "pass");
+    const docDriftText = renderOperationalRouteOperatorDocDriftText(docDrift);
+    assert.match(docDriftText, /pass_operator_docs_current/);
+    assert.doesNotMatch(docDriftText, /development requirements check|Fixture operator answer|"query_label"\s*:|"question"\s*:|"source_text"\s*:|"chunk_text"\s*:|\/Users\/|[A-Za-z]:[\\/]/);
+
+    const docDriftWrite = await writeOperationalRouteOperatorDocDriftCheck({
+      repoRoot,
+      registryRef,
+      latestEvidenceRef: latestEvidenceWrite.operational_route_latest_evidence_ref,
+      operatorBriefRef: operatorBriefWrite.operational_route_operator_brief_ref,
+      driftCheckId: "fixture_operational_route_doc_drift_written",
+      now: "2026-05-28T01:20:30Z",
+    });
+    assert.equal(docDriftWrite.status, "written");
+    assert.match(docDriftWrite.operational_route_operator_doc_drift_ref, /^_workmeta\/system\/reports\/rag\/operational_route_doc_drift\//);
+    const writtenDocDrift = await loadOperationalRouteOperatorDocDriftCheck({
+      repoRoot,
+      docDriftRef: docDriftWrite.operational_route_operator_doc_drift_ref,
+    });
+    assert.equal(validateOperationalRouteOperatorDocDriftCheck(writtenDocDrift).status, "pass");
+    assert.doesNotMatch(JSON.stringify(writtenDocDrift), /development requirements check|Fixture operator answer|"query_label"\s*:|"question"\s*:|"answer_shell_output"\s*:|"answer_card_body"\s*:|"source_text"\s*:|"chunk_text"\s*:|\/Users\/|[A-Za-z]:[\\/]/);
+
+    const operatorHealth = await buildOperationalRouteOperatorHealth({
+      repoRoot,
+      registryRef,
+      latestEvidenceRef: latestEvidenceWrite.operational_route_latest_evidence_ref,
+      operatorBriefRef: operatorBriefWrite.operational_route_operator_brief_ref,
+      docDriftRef: docDriftWrite.operational_route_operator_doc_drift_ref,
+      operatorHealthId: "fixture_operational_route_operator_health",
+      now: "2026-05-28T01:21:00Z",
+    });
+    assert.equal(operatorHealth.status, "pass_private_manual_review_operator_health");
+    assert.equal(operatorHealth.counts.route_count, 1);
+    assert.equal(operatorHealth.counts.command_count, 21);
+    assert.equal(operatorHealth.counts.operator_brief_command_count, 12);
+    assert.equal(operatorHealth.counts.stale_ref_count, 0);
+    assert.equal(operatorHealth.boundary.operator_health_executes_commands, false);
+    assert.equal(validateOperationalRouteOperatorHealth(operatorHealth).status, "pass");
+    const operatorHealthText = renderOperationalRouteOperatorHealthText(operatorHealth);
+    assert.match(operatorHealthText, /pass_private_manual_review_operator_health/);
+    assert.match(operatorHealthText, /operator_doc_drift/);
+    assert.match(operatorHealthText, /Blockers:\n- none/);
+    assert.doesNotMatch(operatorHealthText, /development requirements check|Fixture operator answer|"query_label"\s*:|"question"\s*:|"source_text"\s*:|"chunk_text"\s*:|\/Users\/|[A-Za-z]:[\\/]/);
+
+    const operatorHealthWrite = await writeOperationalRouteOperatorHealth({
+      repoRoot,
+      registryRef,
+      latestEvidenceRef: latestEvidenceWrite.operational_route_latest_evidence_ref,
+      operatorBriefRef: operatorBriefWrite.operational_route_operator_brief_ref,
+      docDriftRef: docDriftWrite.operational_route_operator_doc_drift_ref,
+      operatorHealthId: "fixture_operational_route_operator_health_written",
+      now: "2026-05-28T01:21:30Z",
+    });
+    assert.equal(operatorHealthWrite.status, "written");
+    assert.match(operatorHealthWrite.operational_route_operator_health_ref, /^_workmeta\/system\/reports\/rag\/operational_route_operator_health\//);
+    const writtenOperatorHealth = await loadOperationalRouteOperatorHealth({
+      repoRoot,
+      healthRef: operatorHealthWrite.operational_route_operator_health_ref,
+    });
+    assert.equal(validateOperationalRouteOperatorHealth(writtenOperatorHealth).status, "pass");
+    assert.doesNotMatch(JSON.stringify(writtenOperatorHealth), /development requirements check|Fixture operator answer|"query_label"\s*:|"question"\s*:|"answer_shell_output"\s*:|"answer_card_body"\s*:|"source_text"\s*:|"chunk_text"\s*:|\/Users\/|[A-Za-z]:[\\/]/);
+
+    const healthGatedOperatorRun = await renderOperationalRouteOperatorRun({
+      repoRoot,
+      registryRef,
+      smokeTestRef: smokeTestsRef,
+      operatorHealthRef: operatorHealthWrite.operational_route_operator_health_ref,
+      queryLabel: "development requirements check",
+      planId: "fixture_operational_route_health_gated_operator_run",
+      now: "2026-05-28T01:21:45Z",
+    });
+    assert.match(healthGatedOperatorRun, /Operator health gate:/);
+    assert.match(healthGatedOperatorRun, /Health status: pass_private_manual_review_operator_health/);
+    assert.match(healthGatedOperatorRun, /Health validation: pass/);
+    assert.match(healthGatedOperatorRun, /Health registry match: yes/);
+    assert.match(healthGatedOperatorRun, /Fixture operator answer/);
+    assert.doesNotMatch(healthGatedOperatorRun, /development requirements check|candidate_record_ref|\/Users\/|[A-Za-z]:[\\/]/);
+
+    const healthGatedNoAnswerProbe = await renderOperationalRouteOperatorRun({
+      repoRoot,
+      registryRef,
+      smokeTestRef: smokeTestsRef,
+      operatorHealthRef: operatorHealthWrite.operational_route_operator_health_ref,
+      queryLabel: "development requirements check",
+      planId: "fixture_operational_route_health_gated_operator_run_no_answer_probe",
+      skipAnswerShell: true,
+      now: "2026-05-28T01:21:46Z",
+    });
+    assert.match(healthGatedNoAnswerProbe, /Health status: pass_private_manual_review_operator_health/);
+    assert.match(healthGatedNoAnswerProbe, /Operator answer shell: skipped/);
+    assert.match(healthGatedNoAnswerProbe, /health-gated no-answer probe/);
+    assert.match(healthGatedNoAnswerProbe, /Usage record written: no/);
+    assert.doesNotMatch(healthGatedNoAnswerProbe, /Fixture operator answer|development requirements check|candidate_record_ref|\/Users\/|[A-Za-z]:[\\/]/);
+
+    const skippedRecordedRun = await renderOperationalRouteOperatorRun({
+      repoRoot,
+      registryRef,
+      smokeTestRef: smokeTestsRef,
+      operatorHealthRef: operatorHealthWrite.operational_route_operator_health_ref,
+      queryLabel: "development requirements check",
+      planId: "fixture_operational_route_health_gated_operator_run_skipped_record",
+      recordUsage: true,
+      skipAnswerShell: true,
+      usageId: "fixture_health_gated_skipped_usage_001",
+      now: "2026-05-28T01:21:46Z",
+    });
+    assert.match(skippedRecordedRun, /cannot be combined with --record-usage/);
+    assert.match(skippedRecordedRun, /Usage record written: no/);
+    assert.doesNotMatch(skippedRecordedRun, /Fixture operator answer|Usage record written: yes|development requirements check|candidate_record_ref|\/Users\/|[A-Za-z]:[\\/]/);
+    await assert.rejects(
+      readFile(path.join(repoRoot, "_workmeta", "system", "reports", "rag", "operational_route_usage", "fixture_health_gated_skipped_usage_001", "usage_record.json"), "utf8"),
+    );
+
+    const healthGatedRecordedRun = await renderOperationalRouteOperatorRun({
+      repoRoot,
+      registryRef,
+      smokeTestRef: smokeTestsRef,
+      operatorHealthRef: operatorHealthWrite.operational_route_operator_health_ref,
+      queryLabel: "development requirements check",
+      planId: "fixture_operational_route_health_gated_operator_run_recorded",
+      recordUsage: true,
+      usageId: "fixture_health_gated_operator_run_usage_001",
+      now: "2026-05-28T01:21:47Z",
+    });
+    assert.match(healthGatedRecordedRun, /Health status: pass_private_manual_review_operator_health/);
+    assert.match(healthGatedRecordedRun, /Usage record written: yes/);
+    assert.match(healthGatedRecordedRun, /Usage raw query persisted: no/);
+    assert.match(healthGatedRecordedRun, /Usage record validation: pass/);
+    assert.match(healthGatedRecordedRun, /Route usage count after write: 2/);
+    assert.match(healthGatedRecordedRun, /Repeated-use review threshold: 3/);
+    assert.match(healthGatedRecordedRun, /Repeated-use review ready: no/);
+    assert.match(healthGatedRecordedRun, /Fixture operator answer/);
+    assert.doesNotMatch(healthGatedRecordedRun, /development requirements check|candidate_record_ref|\/Users\/|[A-Za-z]:[\\/]/);
+    const healthGatedUsageRef = healthGatedRecordedRun.match(/Usage record ref: ([^\n]+)/)?.[1];
+    assert.ok(healthGatedUsageRef);
+    const healthGatedUsage = await loadOperationalRouteUsageRecord({ repoRoot, recordRef: healthGatedUsageRef });
+    assert.equal(validateOperationalRouteUsageRecord(healthGatedUsage).status, "pass");
+    assert.equal(healthGatedUsage.raw_query_persisted, false);
+    assert.match(healthGatedUsage.query_label_fingerprint, /^[a-f0-9]{64}$/);
+    assert.equal(Object.hasOwn(healthGatedUsage, "query_label"), false);
+    assert.equal(Object.hasOwn(healthGatedUsage, "question"), false);
+    assert.doesNotMatch(
+      JSON.stringify(healthGatedUsage),
+      /development requirements check|Fixture operator answer|"query_label"\s*:|"question"\s*:|"answer_shell_output"\s*:|"answer_card_body"\s*:|"source_text"\s*:|"chunk_text"\s*:|"excerpt"\s*:|\/Users\/|[A-Za-z]:[\\/]/,
+    );
+
+    const healthGatedCustomUsageRoot = await renderOperationalRouteOperatorRun({
+      repoRoot,
+      registryRef,
+      smokeTestRef: smokeTestsRef,
+      operatorHealthRef: operatorHealthWrite.operational_route_operator_health_ref,
+      queryLabel: "development requirements check",
+      planId: "fixture_operational_route_health_gated_operator_run_custom_usage_root",
+      recordUsage: true,
+      usageId: "fixture_health_gated_custom_usage_001",
+      usageOutputRef: "_workmeta/fixture_project/reports/rag/operational_route_usage/fixture_health_gated_custom_usage_001/usage_record.json",
+      now: "2026-05-28T01:21:48Z",
+    });
+    assert.match(healthGatedCustomUsageRoot, /Usage record validation: pass/);
+    assert.match(healthGatedCustomUsageRoot, /Route usage count after write: 1/);
+    assert.match(healthGatedCustomUsageRoot, /Repeated-use review threshold: 3/);
+    assert.match(healthGatedCustomUsageRoot, /Repeated-use review ready: no/);
+    assert.doesNotMatch(healthGatedCustomUsageRoot, /development requirements check|candidate_record_ref|\/Users\/|[A-Za-z]:[\\/]/);
+
+    const blockedHealthRef = "_workmeta/system/reports/rag/operational_route_operator_health/fixture_blocked_operator_health/operator_health.json";
+    await writeFileWithParents(
+      repoRoot,
+      blockedHealthRef,
+      JSON.stringify({
+        ...writtenOperatorHealth,
+        health_id: "fixture_blocked_operator_health",
+        status: "blocked_operator_health",
+        blockers: ["forced_fixture_blocker"],
+      }, null, 2),
+    );
+    const blockedHealthGatedRun = await renderOperationalRouteOperatorRun({
+      repoRoot,
+      registryRef,
+      smokeTestRef: smokeTestsRef,
+      operatorHealthRef: blockedHealthRef,
+      queryLabel: "development requirements check",
+      planId: "fixture_operational_route_blocked_health_gated_operator_run",
+      now: "2026-05-28T01:21:50Z",
+    });
+    assert.match(blockedHealthGatedRun, /Health status: blocked_operator_health/);
+    assert.match(blockedHealthGatedRun, /Operator answer shell: skipped/);
+    assert.match(blockedHealthGatedRun, /operator health gate did not pass/);
+    assert.doesNotMatch(blockedHealthGatedRun, /Fixture operator answer|development requirements check|\/Users\/|[A-Za-z]:[\\/]/);
+
+    const usageWithoutHealthRun = await renderOperationalRouteOperatorRun({
+      repoRoot,
+      registryRef,
+      smokeTestRef: smokeTestsRef,
+      queryLabel: "development requirements check",
+      planId: "fixture_operational_route_record_usage_without_health",
+      recordUsage: true,
+      usageId: "fixture_usage_without_health",
+      now: "2026-05-28T01:21:55Z",
+    });
+    assert.match(usageWithoutHealthRun, /Health status: not_checked/);
+    assert.match(usageWithoutHealthRun, /Operator answer shell: skipped/);
+    assert.match(usageWithoutHealthRun, /--record-usage requires a passing operator health ref/);
+    assert.match(usageWithoutHealthRun, /Usage record written: no/);
+    assert.doesNotMatch(usageWithoutHealthRun, /Fixture operator answer|development requirements check|\/Users\/|[A-Za-z]:[\\/]/);
+    await assert.rejects(
+      readFile(path.join(repoRoot, "_workmeta", "system", "reports", "rag", "operational_route_usage", "fixture_usage_without_health", "usage_record.json"), "utf8"),
+    );
+
+    const maliciousOperatorHealthValidation = validateOperationalRouteOperatorHealth({
+      schema_version: "soulforge.operational_route_operator_health.v0",
+      kind: "operational_route_operator_health",
+      health_id: "fixture_malicious_operator_health",
+      registry_ref: registryRef,
+      status: "pass_private_manual_review_operator_health",
+      answer_shell_output: "SHOULD_BLOCK",
+      latest_refs: {},
+      surface_statuses: {},
+      validations: {},
+      blockers: [],
+      boundary: {
+        metadata_only: true,
+        operator_health_scans_stored_metadata_only: true,
+        operator_health_reads_operator_docs_only_for_doc_drift: true,
+        source_text_loaded: false,
+        chunk_text_loaded: false,
+        source_payloads_included: false,
+        copied_excerpts_included: false,
+        notebooklm_answers_included: false,
+        secrets_or_session_included: false,
+        runtime_absolute_paths_included: false,
+        operator_health_executes_commands: true,
+        operator_health_writes_usage_or_candidate: true,
+        operator_health_writes_call_plan: true,
+        operator_health_launches_sourcebound_review: true,
+        raw_query_persisted: true,
+        answer_shell_output_persisted: true,
+        answer_card_body_persisted: true,
+        source_truth_claimed: true,
+        final_answer_authority_allowed: true,
+        public_canon_promotion_allowed: true,
+        ontology_acceptance_allowed: true,
+        graph_truth_mutation_allowed: true,
+        default_route_mutation_allowed: true,
+        external_upload_allowed: true,
+      },
+    });
+    assert.equal(maliciousOperatorHealthValidation.status, "blocked");
+    assert.ok(maliciousOperatorHealthValidation.blockers.includes("forbidden_payload_key:operational_route_operator_health.answer_shell_output"));
+    assert.ok(maliciousOperatorHealthValidation.blockers.includes("boundary_operator_health_executes_commands_must_be_false"));
+    assert.ok(maliciousOperatorHealthValidation.blockers.includes("boundary_operator_health_writes_usage_or_candidate_must_be_false"));
+    assert.ok(maliciousOperatorHealthValidation.blockers.includes("boundary_operator_health_writes_call_plan_must_be_false"));
+    assert.ok(maliciousOperatorHealthValidation.blockers.includes("boundary_operator_health_launches_sourcebound_review_must_be_false"));
+    assert.ok(maliciousOperatorHealthValidation.blockers.includes("boundary_raw_query_persisted_must_be_false"));
+    assert.ok(maliciousOperatorHealthValidation.blockers.includes("boundary_source_truth_claimed_must_be_false"));
+
+    const maliciousOpsCheckValidation = validateOperationalRouteOpsCheck({
+      schema_version: "soulforge.operational_route_ops_check.v0",
+      kind: "operational_route_ops_check",
+      ops_check_id: "fixture_malicious_ops_check",
+      registry_ref: registryRef,
+      status: "pass_private_manual_review_ready",
+      surfaces: {},
+      counts: {},
+      answer_shell_output: "SHOULD_BLOCK",
+      authority: {
+        operator_use_allowed: true,
+        sourcebound_review_launch_allowed_here: true,
+      },
+      boundary: {
+        metadata_only: true,
+        ops_check_executes_commands: true,
+        ops_check_writes_usage_or_candidate: true,
+        ops_check_launches_sourcebound_review: true,
+        answer_card_body_persisted: true,
+        public_canon_promotion_allowed: true,
+      },
+    });
+    assert.equal(maliciousOpsCheckValidation.status, "blocked");
+    assert.ok(maliciousOpsCheckValidation.blockers.includes("forbidden_payload_key:operational_route_ops_check.answer_shell_output"));
+    assert.ok(maliciousOpsCheckValidation.blockers.includes("authority_sourcebound_review_launch_allowed_here_must_be_false"));
+    assert.ok(maliciousOpsCheckValidation.blockers.includes("boundary_ops_check_executes_commands_must_be_false"));
+    assert.ok(maliciousOpsCheckValidation.blockers.includes("boundary_ops_check_writes_usage_or_candidate_must_be_false"));
+    assert.ok(maliciousOpsCheckValidation.blockers.includes("boundary_ops_check_launches_sourcebound_review_must_be_false"));
+    assert.ok(maliciousOpsCheckValidation.blockers.includes("boundary_answer_card_body_persisted_must_be_false"));
+    assert.ok(maliciousOpsCheckValidation.blockers.includes("boundary_public_canon_promotion_allowed_must_be_false"));
+
+    const blockedValidation = await validateOperationalRouteRegistry({
+      repoRoot,
+      registry: {
+        ...{
+          schema_version: "soulforge.fixture.operational_route_registry.v0",
+          kind: "private_operational_route_registry",
+          registry_id: "fixture_blocked",
+          route_defaults: {
+            claim_ceiling: "source_supported_manual_review_current_claim_scope_only",
+            source_payload_loading_allowed: false,
+            use_as_public_default_route: false,
+          },
+          routes: [],
+        },
+        boundary: {
+          source_text_included: true,
+          chunk_text_included: false,
+          copied_excerpt_included: false,
+          notebooklm_answer_included: false,
+          source_truth_claimed: false,
+          final_answer_authority_allowed: false,
+          public_canon_promotion_allowed: false,
+          ontology_acceptance_allowed: false,
+          external_upload_allowed: false,
+          default_route_mutation_allowed: false,
+          graph_truth_mutation_allowed: false,
+        },
+      },
+      checkFiles: false,
+      checkWorkCards: false,
+    });
+    assert.equal(blockedValidation.status, "blocked");
+    assert.ok(blockedValidation.blockers.includes("boundary_source_text_included_must_be_false"));
   } finally {
     await rm(repoRoot, { recursive: true, force: true });
   }

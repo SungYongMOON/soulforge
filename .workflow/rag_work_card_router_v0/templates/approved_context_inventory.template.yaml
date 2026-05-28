@@ -1,0 +1,27 @@
+workflow_id: rag_work_card_router_v0
+kind: approved_context_inventory
+schema_version: v0
+status: draft
+inventory_id: "<inventory_id>"
+request_fingerprint_binding_ref: "<request_fingerprint_binding_ref>"
+approved_source_card_refs: []
+approved_index_refs: []
+context_records:
+  - context_ref: "<context_ref>"
+    source_card_ref: "<source_card_ref>"
+    index_ref: "<index_ref>"
+    source_ref: "<source_ref>"
+    page_refs: []
+    packet_refs: []
+    claim_ceiling: "<observed|source_supported|validated_private|canon_candidate|canon_entry|rejected_or_blocked>"
+    lifecycle_state: "<active|manual_review|blocked|stale>"
+    route_hint: "<route_hint>"
+    owner_decision_ref: null
+payload_absence:
+  raw_question: false
+  raw_source_text: false
+  copied_source_excerpt: false
+  source_chunk_payload: false
+  notebooklm_answer_payload: false
+  host_absolute_path: false
+blockers: []

@@ -1,0 +1,7 @@
+{
+  "label": "gpt-5.5|medium|dwarf|auditor",
+  "summary": "Produced all required output families with good schema labels and boundary handling. It is a high-assurance shadow, but not selected primary because the 5.4 low profile supplied comparable route quality at lower expected cost.",
+  "quality_class": "quality_equivalent_pass",
+  "critical_errors": [],
+  "non_claims_preserved": true
+}

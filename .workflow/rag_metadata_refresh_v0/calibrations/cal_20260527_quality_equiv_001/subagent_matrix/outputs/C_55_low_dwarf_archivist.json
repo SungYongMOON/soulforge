@@ -1,0 +1,28 @@
+{
+  "candidate_id": "C_55_low_dwarf_archivist",
+  "profile": {
+    "model": "gpt-5.5",
+    "reasoning_effort": "low",
+    "species": "dwarf",
+    "class": "archivist"
+  },
+  "output_summary": {
+    "refresh_scope_binding": "Metadata pointer refresh only after rename and projection update.",
+    "metadata_delta_inventory": "Workflow-id rename, sourcebound projection update, and existing generated RAG surfaces.",
+    "rag_surface_inventory": "Synthetic refs for all required generated surfaces.",
+    "rag_manifest_refresh_packet": "Workflow ref and projection ref refreshed; owner decision refs preserved; forbidden payloads excluded.",
+    "source_slice_card_refresh_set": "Old workflow refs stale, projection refs refreshed, source text/chunks blocked.",
+    "source_slice_triage_refresh_packet": "Metadata pointer status refresh with no owner decision impact.",
+    "source_slice_review_refresh_packet": "Queue metadata refs only, approval false.",
+    "source_slice_decision_packet_refresh": "Decision metadata refs only, no decision authority.",
+    "owner_decision_record_refresh_candidate": "Candidate pointer refresh only, not authoritative.",
+    "metadata_index_refresh_packet": "Index entries refreshed with stale/refreshed/blocked statuses.",
+    "retrieval_trace_evaluation_refresh": "Metadata lineage refresh only with no answer or retrieval authority.",
+    "graph_lens_export_candidate": "Metadata ref update only, no promotion or default-route switch.",
+    "boundary_review_note": "Public-safe, metadata-only, excluded payload and authority classes named.",
+    "provenance": "User-provided synthetic fixture; no commands, private payloads, or file modifications.",
+    "gaps": "Concrete ref ids and source-slice item ids not supplied.",
+    "downstream_handoff": "Ready as candidate packet after authorized concrete-ref verification.",
+    "no_claims": "No command, file, private payload, source truth, answer authority, owner approval, ontology/canon, or default-route claims."
+  }
+}

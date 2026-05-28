@@ -1,0 +1,8 @@
+{
+  "label": "gpt-5.4|low|dwarf|auditor",
+  "summary": "Produced all required output families with strong identity fields, lifecycle scope, explicit boundary checks, owner/source/review route rows, and no forbidden authority claims.",
+  "quality_class": "quality_equivalent_pass",
+  "critical_errors": [],
+  "non_claims_preserved": true,
+  "selected_primary_reason": "Best route precision among lower-cost candidates."
+}

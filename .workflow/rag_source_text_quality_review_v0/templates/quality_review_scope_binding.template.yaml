@@ -1,0 +1,39 @@
+workflow_id: rag_source_text_quality_review_v0
+kind: quality_review_scope_binding
+schema_version: v0
+status: draft
+review_id: "<review_id>"
+quality_review_scope_ref: "<quality_review_scope_ref>"
+approved_input_refs:
+  source_text_index_ref: "<source_text_index_ref>"
+  traceability_sidecar_ref: "<traceability_sidecar_ref>"
+  answer_run_trace_ref: "<answer_run_trace_ref>"
+  review_policy_ref: "<review_policy_ref>"
+optional_context_refs:
+  source_card_refs: []
+  sourcebound_packet_refs: []
+  metadata_index_refs: []
+  retrieval_trace_refs: []
+  owner_decision_refs: []
+payload_policy:
+  persist_raw_source_text: false
+  persist_source_chunks_or_excerpts: false
+  persist_raw_question: false
+  persist_raw_answer: false
+  persist_notebooklm_answer: false
+  persist_secret_or_credential_material: false
+  persist_runtime_absolute_path: false
+allowed_output_content:
+  - stable_ref
+  - repo_relative_path
+  - source_ref
+  - page_ref
+  - chunk_ref
+  - claim_ref
+  - citation_ref
+  - trace_event_ref
+  - hash_ref
+  - status_value
+  - warning_label
+  - blocker_label
+boundary_state: scoped

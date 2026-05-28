@@ -1,0 +1,62 @@
+{
+  "fixture_id": "synthetic_rag_metadata_refresh_after_wiki_rename_and_sourcebound_projection_update",
+  "workflow_id": "rag_metadata_refresh_v0",
+  "workflow_readiness_label": "pilot-executed",
+  "scenario": "A metadata-only wiki/sourcebound delta was produced after knowledge_wiki_pipeline_v0 rename and a sourcebound projection update.",
+  "existing_rag_surface_refs": [
+    "rag_manifest:20260525",
+    "source_slice_cards:20260525",
+    "source_slice_triage:20260525",
+    "source_slice_review_queue:20260525",
+    "source_slice_decision_packet:20260525",
+    "owner_decision_record:20260525",
+    "metadata_index:20260525",
+    "retrieval_trace:20260525",
+    "retrieval_evaluation:20260525",
+    "graph_lens_export:20260525"
+  ],
+  "required_actions": [
+    "inventory metadata deltas",
+    "refresh metadata pointers only",
+    "preserve owner-decision refs without approving them",
+    "mark stale source-slice or old workflow-id refs as stale/refreshed/blocked by ref",
+    "prepare optional knowledge_access_event_capture_v0 lineage event",
+    "produce a boundary review note"
+  ],
+  "required_outputs": [
+    "refresh_scope_binding",
+    "metadata_delta_inventory",
+    "rag_surface_inventory",
+    "rag_manifest_refresh_packet",
+    "source_slice_card_refresh_set",
+    "source_slice_triage_refresh_packet",
+    "source_slice_review_refresh_packet",
+    "source_slice_decision_packet_refresh",
+    "owner_decision_record_refresh_candidate",
+    "metadata_index_refresh_packet",
+    "retrieval_trace_evaluation_refresh",
+    "graph_lens_export_candidate",
+    "boundary_review_note",
+    "provenance",
+    "gaps",
+    "downstream_handoff",
+    "no_claims"
+  ],
+  "forbidden": [
+    "source text",
+    "chunks",
+    "excerpts",
+    "NotebookLM answer payloads",
+    "Drive mutation",
+    "embeddings",
+    "BM25 payloads",
+    "vector payloads",
+    "host absolute paths",
+    "source-truth claims",
+    "answer-authority claims",
+    "owner approval",
+    "ontology promotion",
+    "canon promotion",
+    "default route switch"
+  ]
+}

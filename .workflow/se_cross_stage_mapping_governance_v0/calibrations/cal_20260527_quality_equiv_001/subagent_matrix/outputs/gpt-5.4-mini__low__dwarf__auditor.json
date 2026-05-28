@@ -1,0 +1,7 @@
+{
+  "label": "gpt-5.4-mini|low|dwarf|auditor",
+  "summary": "Produced all required output families and preserved row ids, with correct boundary non-claims. Route precision was minimum viable because one owner-decision follow-up row leaned toward source-gap handling instead of a cleaner owner-decision route.",
+  "quality_class": "minimum_viable_pass",
+  "critical_errors": [],
+  "non_claims_preserved": true
+}

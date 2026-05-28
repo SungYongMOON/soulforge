@@ -1,0 +1,12 @@
+{
+  "schema_version": "workflow_optimizer.evaluator_review.v0",
+  "workflow_id": "rag_metadata_refresh_v0",
+  "criteria_sufficient": true,
+  "overfit_to_golden_wording": false,
+  "critical_conditions_missing": [],
+  "boundary_review": "pass",
+  "notes": [
+    "The criteria emphasize required packet shapes, metadata-only boundaries, owner authority preservation, and stale/blocked ref handling.",
+    "Candidates may use different wording if they preserve the output shape and no-claim boundaries."
+  ]
+}

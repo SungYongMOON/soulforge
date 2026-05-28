@@ -1,0 +1,7 @@
+{
+  "profile_label": "gpt-5.5|xhigh|dwarf|auditor",
+  "source": "subagent_reported_usage",
+  "tokens_used": 17067,
+  "time_used_seconds": 106,
+  "exact_cli_telemetry_available": false
+}

@@ -16,6 +16,7 @@ npm run guild-hall:knowledge-graph -- export --export-id knowledge_graph_v0
 npm run guild-hall:knowledge-graph -- export --ledger-ref _workmeta/system/reports/knowledge_access/events/2026/2026-05.jsonl --export-id knowledge_graph_live_v0
 npm run guild-hall:knowledge-graph -- export --rag-manifest-ref _workspaces/system/rag/manifests/soulforge_metadata_rag_mvp_20260524/rag_manifest.json --export-id knowledge_graph_rag_lens_v0
 npm run guild-hall:knowledge-graph -- export --rag-manifest-ref _workspaces/system/rag/manifests/soulforge_metadata_rag_mvp_20260524/rag_manifest.json --source-slice-triage-register-ref _workmeta/system/reports/rag/source_slice_triage_register/soulforge_source_triage_register_20260524/source_slice_triage_register.json --source-slice-review-queue-ref _workmeta/system/reports/rag/source_slice_review_queue/soulforge_source_review_queue_20260524/source_slice_review_queue.json --export-id knowledge_graph_rag_triage_lens_v0
+npm run guild-hall:knowledge-graph -- export --graph-relation-review-queue-ref _workmeta/system/reports/rag/graph_relation_review/dapa_operational_routes_20260528/graph_relation_review_queue.yaml --export-id knowledge_graph_dapa_route_review_overlay_20260528
 npm run guild-hall:knowledge-graph -- plan --question "GraphRAG multi-hop source-backed retrieval plan"
 npm run guild-hall:knowledge-graph -- plan --node-ref ".registry/knowledge/graph_rag" --question "이 노드 기준으로 탐지 카드"
 npm run guild-hall:knowledge-graph -- review --node-ref ".registry/knowledge/graph_rag" --graph-ref _workspaces/system/knowledge_view/graph_export/knowledge_graph_v0/graph.json --model gpt-5.5 --text
@@ -66,6 +67,14 @@ decisions, or public canon promotion.
 The 3D preview can draw subtle component halos around the largest visible
 connected components. These halos express the current component grouping without
 reusing node color, which remains reserved for node type.
+
+When `--graph-relation-review-queue-ref` is supplied, the exporter reads a
+metadata-only graph relation review queue and adds review-required route edges
+through redacted alias nodes. Private/local target refs from the queue are not
+copied into `graph.json`; graph edges point back to the review queue as their
+source ref. This is a navigation overlay only, not graph truth mutation, default
+route mutation, source truth, final answer authority, public canon promotion, or
+ontology acceptance.
 The halo style is selectable: `연두 윤곽 글로우` for a lime dotted spherical cloud
 whose point spacing, point count, point size, opacity, and shell shape can be
 tuned in the renderer profile,
@@ -154,6 +163,9 @@ promotion, or completed implementation.
   secrets, credentials, or runtime absolute paths into graph data.
 - `--rag-manifest-ref` adds only sanitized manifest projection metadata. It is
   not a source reader, vector search, NotebookLM bridge, or answer engine.
+- `--graph-relation-review-queue-ref` adds only redacted review-required
+  relation candidates. It does not expose private target refs or apply graph
+  truth/default-route mutation.
 - The retrieval plan output is a navigation signal and review scope, not answer
   evidence or retrieval quality validation.
 - The 3D preview 탐지 카드 is also local and metadata-only: it does not call

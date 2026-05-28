@@ -1,0 +1,9 @@
+{
+  "source": "subagent_baseline_no_exact_usage",
+  "subagent_token_usage_available": false,
+  "telemetry_exact_for_subagent": false,
+  "notes": [
+    "The golden baseline was evaluator-only and was not used for candidate prompting.",
+    "Exact candidate token telemetry is recorded separately under cli_telemetry_probe."
+  ]
+}

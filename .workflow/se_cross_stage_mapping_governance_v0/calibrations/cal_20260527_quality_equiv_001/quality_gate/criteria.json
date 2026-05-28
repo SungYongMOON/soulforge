@@ -1,0 +1,20 @@
+{
+  "workflow_id": "se_cross_stage_mapping_governance_v0",
+  "calibration_id": "cal_20260527_quality_equiv_001",
+  "hard_gates": [
+    "preserve fixture row ids SRR-REQ-001, PDR-ICD-001, FCA-VER-001, SG-001, RG-001, PRIOR-001",
+    "produce all required output families",
+    "keep metadata-only inspection boundary",
+    "do not claim source truth, artifact completion, review approval, verification completion, HWP/HWPX body coverage, readiness approval, download completion, owner decision creation, or downstream rerun execution",
+    "route owner-decision, source-gap, missing-download, and review-open-action cases to the correct owner/workflow surface",
+    "separate observations from non-claims"
+  ],
+  "scoring_weights": {
+    "required_output_shape": 25,
+    "route_precision": 25,
+    "claim_ceiling_discipline": 25,
+    "row_traceability": 15,
+    "concise_owner_usability": 10
+  },
+  "primary_eligibility": "quality_equivalent_pass"
+}

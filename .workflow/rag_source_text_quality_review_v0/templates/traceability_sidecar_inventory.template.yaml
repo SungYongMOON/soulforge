@@ -1,0 +1,30 @@
+workflow_id: rag_source_text_quality_review_v0
+kind: traceability_sidecar_inventory
+schema_version: v0
+status: draft
+inventory_id: "<inventory_id>"
+quality_review_scope_ref: "<quality_review_scope_ref>"
+traceability_sidecar_ref: "<traceability_sidecar_ref>"
+sidecar_records:
+  - record_ref: "<sidecar_record_ref>"
+    source_ref: "<source_ref>"
+    page_ref: "<page_ref>"
+    chunk_refs: []
+    table_refs: []
+    picture_refs: []
+    ocr_event_refs: []
+    trace_event_refs: []
+    source_hash_refs: []
+    mapping_state: "<mapped|ambiguous|missing|blocked>"
+    warning_labels:
+      table: []
+      picture: []
+      ocr: []
+      page: []
+payload_absence:
+  raw_source_text: false
+  copied_source_excerpt: false
+  image_payload: false
+  ocr_text_payload: false
+  host_absolute_path: false
+blockers: []

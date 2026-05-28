@@ -1,0 +1,24 @@
+workflow_id: rag_work_card_router_v0
+kind: handoff_rules
+status: draft
+rules:
+  - from: request_fingerprint_binder
+    to: approved_context_inventory_author
+    condition: request_fingerprint_binding_written
+    summary: Context inventory receives only the public-safe label, fingerprint, routing policy ref, and approved context refs.
+  - from: approved_context_inventory_author
+    to: quality_review_intake_author
+    condition: approved_context_inventory_written
+    summary: Quality intake receives approved refs and claim ceilings, not source text, excerpts, or raw request text.
+  - from: quality_review_intake_author
+    to: deterministic_work_card_author
+    condition: quality_review_intake_written
+    summary: Work-card author receives status counts, warning labels, blocked refs, and manual-review refs by id.
+  - from: deterministic_work_card_author
+    to: text_boundary_author
+    condition: work_card_packet_written
+    summary: Boundary author receives the deterministic card packet and writes human-readable scope text using the label, not the raw question.
+  - from: text_boundary_author
+    to: router_boundary_reviewer
+    condition: text_boundary_written
+    summary: Boundary reviewer receives the work-card packet and text boundary to verify non-persistence and non-authority claims.

@@ -37,8 +37,11 @@ metadata refs and evidence event ids.
 
 ## Current Maturity
 
-`output_state: pilot-ready`
+`output_state: pilot-executed`
 
-The package is registered in `.workflow/index.yaml` and ready for a controlled
-pilot. It has not been pilot-executed, promoted to canon, profile-calibrated, or
-declared default-route-safe.
+The package is registered in `.workflow/index.yaml`, has controlled private
+metadata-only pilot evidence, and has a public-safe synthetic optimizer
+calibration under `calibrations/cal_20260527_quality_equiv_001/`.
+
+The workflow is not promoted to canon, does not create source-text RAG or answer
+authority, and is not declared default-route-safe.

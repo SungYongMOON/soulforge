@@ -1,0 +1,198 @@
+workflow_id: rag_source_text_quality_review_v0
+kind: step_graph
+status: draft
+steps:
+  - step_id: bind_quality_review_scope
+    title: Bind Quality Review Scope
+    actor_slot: quality_scope_binder
+    action:
+      kind: rag_source_text_quality_review_scope_binding
+      requires:
+        - quality_review_scope
+        - source_text_index_ref
+        - traceability_sidecar_ref
+        - answer_run_trace_ref
+        - review_policy
+      validates:
+        - scope_declares_approved_source_refs
+        - source_text_index_ref_is_repo_relative_or_stable_id
+        - traceability_sidecar_ref_is_repo_relative_or_stable_id
+        - answer_run_ref_is_payload_free_or_private_runtime_only
+        - raw_source_text_not_requested_for_persistence
+        - raw_answer_or_notebooklm_answer_not_requested_for_persistence
+        - runtime_absolute_paths_not_allowed_in_outputs
+      artifact_out: quality_review_scope_binding
+    summary: Bind the review scope and explicit public-safe exclusions before any index, sidecar, or answer-run trace is inspected.
+    next:
+      on_success: inventory_source_text_index
+      on_fail: stop
+  - step_id: inventory_source_text_index
+    title: Inventory Source Text Index
+    actor_slot: source_text_index_inventory_author
+    action:
+      kind: source_text_index_metadata_inventory
+      artifacts_in:
+        - quality_review_scope_binding
+        - source_text_index_ref
+        - metadata_index_refs
+        - source_card_refs
+      artifact_out: source_text_index_inventory
+      allowed_content:
+        - index_ref
+        - source_ref
+        - page_ref
+        - page_label
+        - chunk_ref
+        - text_hash_ref
+        - byte_or_token_count
+        - extraction_method
+        - claim_ceiling
+        - lifecycle_state
+      forbidden_content:
+        - raw_source_text
+        - copied_source_excerpt
+        - source_chunk_payload
+        - embedding_vector_payload
+        - bm25_term_payload
+        - credential_or_session_material
+        - host_absolute_path
+    summary: Inventory the index by refs, page ids, hashes, counts, and lifecycle metadata, never by copied source text.
+    next:
+      on_success: inventory_traceability_sidecar
+      on_fail: stop
+  - step_id: inventory_traceability_sidecar
+    title: Inventory Traceability Sidecar
+    actor_slot: traceability_sidecar_inventory_author
+    action:
+      kind: traceability_sidecar_metadata_inventory
+      artifacts_in:
+        - quality_review_scope_binding
+        - traceability_sidecar_ref
+        - source_text_index_inventory
+      artifact_out: traceability_sidecar_inventory
+      sidecar_fields:
+        - sidecar_ref
+        - source_ref
+        - page_ref
+        - chunk_ref
+        - table_ref
+        - picture_ref
+        - ocr_event_ref
+        - trace_event_ref
+        - source_hash_ref
+        - extraction_warning_ref
+      sidecar_rules:
+        missing_page_mapping_is_blocker: true
+        ambiguous_table_or_picture_mapping_routes_to_manual_review: true
+        ocr_warning_kept_as_warning_label: true
+        payload_copy_forbidden: true
+    summary: Inventory sidecar mappings for pages, chunks, tables, pictures, OCR events, and trace events using refs only.
+    next:
+      on_success: inventory_answer_run_trace
+      on_fail: stop
+  - step_id: inventory_answer_run_trace
+    title: Inventory Answer Run Trace
+    actor_slot: answer_run_trace_inventory_author
+    action:
+      kind: answer_run_trace_metadata_inventory
+      artifacts_in:
+        - quality_review_scope_binding
+        - answer_run_trace_ref
+        - retrieval_trace_refs
+      artifact_out: answer_run_trace_inventory
+      allowed_content:
+        - answer_run_ref
+        - answer_claim_ref
+        - citation_ref
+        - retrieval_event_ref
+        - page_ref
+        - source_ref
+        - trace_hash_ref
+        - run_timestamp_utc
+      forbidden_content:
+        - raw_question
+        - raw_answer
+        - notebooklm_answer_payload
+        - copied_source_excerpt
+        - prompt_payload
+        - private_transcript_payload
+        - host_absolute_path
+    summary: Inventory the answer run through claim, citation, retrieval, and trace refs without persisting raw questions or answers.
+    next:
+      on_success: evaluate_page_support
+      on_fail: stop
+  - step_id: evaluate_page_support
+    title: Evaluate Page Support
+    actor_slot: page_support_reviewer
+    action:
+      kind: page_level_source_support_review
+      artifacts_in:
+        - source_text_index_inventory
+        - traceability_sidecar_inventory
+        - answer_run_trace_inventory
+        - sourcebound_packet_refs
+        - owner_decision_refs
+      artifact_out: page_quality_review_packet
+      support_rules:
+        source_supported_requires_matching_page_index_and_sidecar_refs: true
+        source_supported_requires_claim_ceiling_not_blocked: true
+        table_picture_or_ocr_uncertainty_routes_to_manual_review: true
+        missing_index_sidecar_or_page_identity_routes_to_blocked: true
+        output_status_values:
+          - source_supported
+          - manual_review
+          - blocked
+      warning_categories:
+        - table
+        - picture
+        - ocr
+        - page
+    summary: Classify each page-linked answer trace as source-supported, manual-review, or blocked and attach warning labels by page.
+    next:
+      on_success: boundary_review_and_route
+      on_fail: stop
+  - step_id: boundary_review_and_route
+    title: Boundary Review And Route
+    actor_slot: quality_boundary_router
+    action:
+      kind: quality_review_boundary_review_and_downstream_route
+      artifacts_in:
+        - quality_review_scope_binding
+        - source_text_index_inventory
+        - traceability_sidecar_inventory
+        - answer_run_trace_inventory
+        - page_quality_review_packet
+      artifact_out: boundary_review_note
+      checks:
+        - no_raw_source_text
+        - no_source_chunks_or_excerpts
+        - no_raw_answer_or_notebooklm_answer
+        - no_raw_question_persistence
+        - no_secret_or_credential_material
+        - no_runtime_absolute_paths
+        - no_owner_approval_inference
+        - no_public_canon_promotion
+        - no_default_route_switch
+      routes:
+        - rag_work_card_router_v0
+        - rag_metadata_refresh_v0
+        - sourcebound_knowledge_packet_operating_loop_v0
+        - owner_decision_packet_v0
+        - post_development_review_gate_v0
+    summary: Close the review with boundary checks and downstream route hints, not authority upgrades.
+    next:
+      on_success: complete
+      on_fail: stop
+stop_conditions:
+  - source_text_index_ref_missing_or_unapproved
+  - traceability_sidecar_ref_missing_or_unapproved
+  - answer_run_trace_ref_missing_or_unapproved
+  - raw_source_text_or_excerpt_persistence_requested
+  - raw_answer_or_notebooklm_answer_persistence_requested
+  - required_page_identity_missing
+  - claim_ceiling_blocks_support_review
+  - source_truth_or_answer_truth_claim_requested
+  - owner_approval_required_but_absent
+  - public_canon_promotion_requested
+  - default_route_switch_requested
+  - runtime_absolute_path_or_secret_detected

@@ -1,0 +1,4 @@
+{"label":"gpt-5.4-mini|low|dwarf|auditor","required_output_shape":"pass","row_traceability":"pass","claim_boundary":"pass","route_precision":"minimum_viable","final_quality":"minimum_viable_pass"}
+{"label":"gpt-5.4|low|dwarf|auditor","required_output_shape":"pass","row_traceability":"pass","claim_boundary":"pass","route_precision":"pass","final_quality":"quality_equivalent_pass"}
+{"label":"gpt-5.5|low|dwarf|auditor","required_output_shape":"pass","row_traceability":"pass","claim_boundary":"pass","route_precision":"pass_with_minor_compression","final_quality":"pass"}
+{"label":"gpt-5.5|medium|dwarf|auditor","required_output_shape":"pass","row_traceability":"pass","claim_boundary":"pass","route_precision":"pass","final_quality":"quality_equivalent_pass"}

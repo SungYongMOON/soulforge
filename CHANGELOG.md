@@ -1,6 +1,261 @@
 ﻿# CHANGELOG
 
+## 2026-05-28
+
+### Revision `working` - RAG three-stage operating model added
+
+- Added `RAG_THREE_STAGE_OPERATING_MODEL_V0.md` to separate searchable RAG,
+  work-ready RAG, and canon knowledge so whole-document progress is not
+  confused with sample route pilots.
+- Linked the three-stage model from the RAG manifest contract, guild_hall RAG
+  README, and architecture guild_hall README.
+
+### Revision `working` - RAG operational route resolver added
+
+- Added metadata-only operational route validation, resolution, and smoke-run
+  commands so private/manual-review RAG route registries can select a stable
+  work card, operator answer card, wiki page, evidence pages, and claim ceiling
+  without loading raw source text or chunks.
+- Added a terminal-only operational route answer-shell renderer that prints the
+  selected private operator answer card without writing answer bodies to public
+  files or `_workmeta/**`.
+- Added operational route answer-card validation so private operator cards can
+  be checked for route id, work-card id, evidence pages, manual-review notice,
+  and stronger-authority denial markers without returning card bodies.
+- Added operational route preflight artifacts that combine registry validation,
+  smoke tests, answer-card validation, and current status into one
+  metadata-only private/manual-review readiness check.
+- Added an operational route catalog command so operators can list available
+  private/manual-review routes, refs, evidence pages, review gaps, and claim
+  ceilings before entering a question or recording usage.
+- Added an operational route dashboard command that combines catalog,
+  preflight, usage counts, candidate counts, answer-card status, and smoke-test
+  state into one metadata-only terminal surface for operator readiness checks.
+- Added an operational route call-plan command that combines dashboard and
+  route-session checks for one transient query label without persisting raw
+  queries, answer bodies, usage records, or candidate records.
+- Added operational route call-plan write, validate, and view commands so a
+  real operator question can preserve its fingerprint-only routing decision
+  under `_workmeta` without storing the raw query, answer body, source text,
+  chunks, usage records, candidates, or stronger authority.
+- Added an operational route operator-run command that prints the selected
+  private/manual-review answer shell after call-plan checks while keeping the
+  output terminal-only and avoiding usage/candidate side effects.
+- Added an optional operator-health gate to operational route operator-run so
+  answer-shell output and usage recording are skipped unless the supplied
+  stored health artifact passes for the same route registry.
+- Added `--skip-answer-shell` to operational route operator-run so automation
+  or probe runs can verify the health-gated call plan without printing the
+  private answer card body or writing usage.
+- Added an explicit operator-run usage-record option so real delivered answers
+  can write metadata-only usage records only when `--record-usage` and a safe
+  `--usage-id` are provided.
+- Added post-write operator-run usage evidence so explicit usage recording
+  validates the written record and reports the route usage count against the
+  repeated-use review threshold.
+- Fixed post-write operator-run usage counting to derive the summary root from
+  the written usage record, including custom `_workmeta/<project>/...` usage
+  output refs.
+- Added an operational route closeout command so operators can confirm the
+  post-answer gate, route usage count, repeated-use threshold, and unmatched
+  candidate state without persisting answer bodies, raw queries, usage records,
+  or candidates.
+- Hardened operational route closeout validation so injected answer-shell
+  output, answer-card body fields, source/chunk loading flags, source truth,
+  public canon, graph truth, and default-route mutation claims are blocked.
+- Added an operational route review-gate command so operators can check the
+  whole route set for repeated-use readiness or unmatched candidate blockers
+  without launching sourcebound review, writing usage/candidate records, loading
+  source text/chunks, or granting stronger authority.
+- Added an operational route command-sheet command so operators can print the
+  safe command sequence for a private/manual-review route set without executing
+  commands, recording usage/candidates, or persisting answer bodies/raw queries.
+- Added an operational route suggestion-safety command so generated command
+  suggestions can be checked for direct usage-record writes, direct answer-shell
+  calls, and healthless `--record-usage` paths before private/manual-review
+  operator use.
+- Hardened operational route suggestion-safety to count direct candidate and
+  call-plan write suggestions separately, block unsafe candidate/call-plan write
+  suggestions, and keep unmatched probe suggestions on candidate preview unless
+  a real unmatched operator question explicitly requests a write.
+- Added an operational route ops-check command that combines preflight,
+  dashboard, command-sheet, suggestion-safety, and review-gate validation into
+  one metadata-only private/manual-review readiness verdict without executing
+  commands, recording usage/candidates, launching sourcebound review, or
+  granting stronger authority.
+- Added an operational route readiness command that combines ops-check and
+  route-set session sweep evidence into one metadata-only go/no-go operator
+  surface without persisting raw queries, executing answer shells, recording
+  usage/candidates, launching sourcebound review, or granting stronger
+  authority.
+- Added an operational route readiness-view command so stored readiness
+  artifacts can be reopened as operator-readable go/no-go digests without
+  regenerating checks or reading raw queries, answer-card bodies, source text,
+  or chunks.
+- Added stored preflight, ops-check, and session-sweep view commands so
+  pre-use readiness evidence can be reopened as operator-readable digests
+  without rerunning checks or loading source/answer payloads.
+- Expanded the operational route command sheet with read-only stored evidence
+  view commands for preflight, ops-check, route sweeps, readiness, status,
+  usage, and candidate records.
+- Added an operational route suggestion-safety artifact so command-sheet,
+  call-plan, and session suggested commands can be validated and reopened as
+  metadata-only evidence without executing commands or writing
+  usage/candidate/call-plan records.
+- Added an operational route evidence-sweep command that validates and
+  summarizes supplied stored evidence refs into one metadata-only closure check
+  without reading source/answer payloads or granting stronger authority.
+- Added an operational route latest-evidence command that finds the latest
+  stored `_workmeta` evidence refs for a route registry so operators do not need
+  to manually track the newest preflight, ops-check, readiness, status, usage
+  summary, or evidence-sweep paths.
+- Expanded latest-evidence to include the latest suggestion-safety artifact and
+  report dangerous suggestion counts alongside the stored ops-check evidence.
+- Added an operational route operator-brief command that turns the latest
+  evidence refs into a one-page private/manual-review run surface with the
+  route list and safe next commands.
+- Added an operational route operator-doc drift check so local runbooks,
+  status digests, and closeout maps can be checked against the latest stored
+  evidence and operator brief refs without reading source payloads or raw
+  queries.
+- Added an operational route operator-health command that combines latest
+  evidence, operator brief, and operator doc-drift validation into one
+  metadata-only go/no-go surface without executing commands, writing
+  usage/candidate/call-plan records, reading source payloads, or granting
+  stronger authority.
+- Added operational route session artifacts that combine preflight and route
+  resolution for one transient query while persisting only query fingerprints,
+  selected refs, evidence pages, claim ceilings, and next operator steps.
+- Added a text digest for operational route sessions so operators can read the
+  selected route and next steps without opening JSON, raw queries, or answer
+  bodies.
+- Added an operational route session-sweep command so smoke-test route labels
+  can prove the full private/manual-review route set opens to the expected work
+  cards and evidence pages without persisting raw query labels, answer bodies,
+  usage/candidate records, source text, chunks, or stronger authority.
+- Added an operational route-run view command so stored metadata-only route
+  decisions can be reopened as the same safe operator digest without loading
+  raw queries, answer-card bodies, source text, or chunks.
+- Connected route registry validation to existing source-text work-card
+  validation, keeping source truth, final-answer authority, public canon,
+  ontology acceptance, graph truth mutation, external upload, and default-route
+  switching outside the resolver.
+- Added metadata-only operational route usage records under `_workmeta/**` so
+  repeated private route use can be counted with query fingerprints instead of
+  persisted raw questions.
+- Clarified no-write candidate previews so `operational-route-candidate-record
+  --text` renders a preview status instead of looking like a persisted candidate
+  record.
+- Added operational route usage summaries so repeated-use review readiness can
+  be reported per route without granting stronger knowledge, canon, or answer
+  authority.
+- Added operational route usage record/summary text and view renderers so
+  stored usage evidence can be reopened as operator-readable digests without
+  loading raw queries, answer-card bodies, source text, or chunks.
+- Added operational route candidate records for unmatched public-safe labels,
+  storing only query fingerprints and route-resolution metadata without
+  changing route registries, default routes, source text permissions, or claim
+  ceilings.
+- Added operational route candidate text/view rendering so unmatched-route
+  candidates can be reviewed as metadata-only operator digests before or after
+  a real candidate record is written.
+- Added an operational route status command that combines registry validation,
+  repeated-use summaries, and unmatched candidate counts into a single
+  metadata-only operator dashboard for private/manual-review RAG routes.
+- Added an operational route status-view command so stored dashboard snapshots
+  can be reopened as terminal digests without rerunning checks or loading
+  source/answer payloads.
+- Added a knowledge-graph graph-relation review queue overlay so DAPA
+  route/work-card/wiki candidate links can render as review-required graph edges
+  through redacted alias nodes, without exposing private `_workspaces/knowledge`
+  refs or mutating graph truth/default routes.
+
+## 2026-05-27
+
+### Revision `working` - RAG source-family promotion policy added
+
+- Added a source-family promotion policy that separates official source canon
+  from derived knowledge canon and fixes default promotion ceilings for
+  official public sources, private project sources, owner notes, parser/OCR
+  outputs, advisory LLM/NotebookLM output, protected payloads, and public
+  web/community sources.
+- Linked the policy from the RAG manifest and RAG README so source-text,
+  work-card, private wiki, and public canon promotion decisions have a shared
+  family-specific rule set.
+
+### Revision `working` - Owner-delegated auto-canon lane clarified
+
+- Added a standing auto-canon lane to the agent execution contract so an
+  applicable owner policy can allow same-task canon registration without
+  per-item owner confirmation when all public/private, source, schema,
+  changelog, and review guards pass.
+- Kept source truth, ontology acceptance, external upload, default-route
+  mutation, final domain doctrine, secret inspection, and production-ready
+  authority outside the delegated lane unless separately granted by an owner
+  surface and required review gate.
+
+### Revision `working` - SE review workflow optimizer closeout
+
+- Added a public-safe optimizer calibration archive and active profile policy
+  for `se_cross_stage_mapping_governance_v0`, selecting
+  `gpt-5.4|low|dwarf|auditor` as the quality-equivalent governance profile
+  while keeping `gpt-5.4-mini|low|dwarf|auditor` as a minimum-viable shadow.
+- Corrected the SE assistant operating loop note so
+  `se_cross_stage_mapping_governance_v0` is treated as an optional governance
+  route rather than an excluded unresolved workflow.
+- Reconciled `se_stage_artifact_gap_scan_v0` calibration telemetry and
+  calibration README wording with the existing active calibration archive.
+
+### Revision `working` - RAG metadata refresh workflow calibrated
+
+- Updated `rag_metadata_refresh_v0` from registered pilot-ready to
+  pilot-executed based on the existing controlled metadata-only pilot evidence.
+- Added a public-safe synthetic optimizer calibration archive and active profile
+  policy for `rag_metadata_refresh_v0`, selecting
+  `gpt-5.4-mini|low|dwarf|archivist` as the cheapest quality-gate-passing
+  profile.
+- Kept source-text RAG, NotebookLM mutation, owner approval, public canon,
+  ontology promotion, answer authority, and default-route safety out of scope.
+- Added the source-text quality review and source-text work-card command surface
+  so approved private source-text answer runs can be turned into page-audited
+  work cards without persisting raw questions, source text, or chunk text in the
+  card/review payload.
+
 ## 2026-05-26
+
+### Revision `working` - RAG Docling JSON page-order index added
+
+- Added `source-text-index --docling-json-ref` so approved private source-text
+  indexes can be built from Docling JSON element/page order while preserving
+  the existing Markdown/text index path.
+- Added native chunk page spans, layout labels, and warning codes for Docling
+  JSON indexes, allowing `source-text-answer-run` citations to carry page-level
+  traceability even without a separate sidecar.
+- Updated the traceability sidecar to recognize native chunk page spans, so
+  Docling JSON indexes can be checked without falling back to weak token
+  overlap mapping.
+
+### Revision `working` - RAG page traceability sidecar added
+
+- Added `source-text-traceability-sidecar` and validation so private Docling
+  JSON exports can map source-text chunk ids to page spans, layout labels, and
+  warning codes without copying source text into public files or `_workmeta`.
+- Allowed `source-text-answer-run` to attach optional sidecar-derived page
+  spans to citations, making page-backed citation review possible while keeping
+  raw questions ephemeral.
+- Documented the sidecar as a sourcebound audit aid, not extraction-quality
+  approval, owner approval, NotebookLM authority, or canon promotion.
+
+### Revision `working` - RAG runtime preflight resolver added
+
+- Added `source-text-runtime-preflight` to the RAG CLI so local extraction
+  readiness can be checked from repo-local venv refs, PATH, Windows user
+  environment, and tool env vars without hard-coding executable paths.
+- Added validation coverage that blocks runtime absolute paths from the
+  preflight JSON while still reporting required tool, OCR language, and optional
+  HWP/HWPX converter readiness.
+- Documented the preflight as the preferred public-safe smoke surface before
+  real source extraction or source-text indexing work.
 
 ### Revision `working` - RAG source extraction runtime install guidance added
 

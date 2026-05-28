@@ -13,10 +13,13 @@ export const KNOWLEDGE_GRAPH_GENERATOR_ID = "guild_hall.knowledge_graph.exporter
 export const KNOWLEDGE_GRAPH_RAG_PROJECTION_SCHEMA_VERSION = "soulforge.knowledge_graph_rag_projection.v0";
 export const KNOWLEDGE_GRAPH_SOURCE_SLICE_PROJECTION_SCHEMA_VERSION =
   "soulforge.knowledge_graph_source_slice_projection.v0";
+export const KNOWLEDGE_GRAPH_RELATION_REVIEW_PROJECTION_SCHEMA_VERSION =
+  "soulforge.knowledge_graph_relation_review_projection.v0";
 
 const RAG_MANIFEST_SCHEMA_VERSION = "soulforge.rag_manifest.v0";
 const SOURCE_SLICE_TRIAGE_REGISTER_SCHEMA_VERSION = "soulforge.source_slice_triage_register.v0";
 const SOURCE_SLICE_REVIEW_QUEUE_SCHEMA_VERSION = "soulforge.source_slice_review_queue.v0";
+const GRAPH_RELATION_REVIEW_QUEUE_SCHEMA_VERSION = "soulforge.rag_graph_relation_review_queue.v0";
 
 export const NODE_TYPES = [
   "knowledge",
@@ -198,6 +201,9 @@ export async function exportKnowledgeGraph(options = {}) {
       options.sourceSliceTriageRegisterRefs ?? options.sourceSliceTriageRegisterRef,
     ),
     sourceSliceReviewQueueRefs: normalizeInputList(options.sourceSliceReviewQueueRefs ?? options.sourceSliceReviewQueueRef),
+    graphRelationReviewQueueRefs: normalizeInputList(
+      options.graphRelationReviewQueueRefs ?? options.graphRelationReviewQueueRef,
+    ),
   });
 
   await fs.mkdir(graphDir, { recursive: true });
@@ -236,6 +242,7 @@ export async function buildKnowledgeGraph({
   ragManifestRefs = [],
   sourceSliceTriageRegisterRefs = [],
   sourceSliceReviewQueueRefs = [],
+  graphRelationReviewQueueRefs = [],
 } = {}) {
   const root = path.resolve(repoRoot ?? process.cwd());
   const nodes = new Map();
@@ -246,6 +253,10 @@ export async function buildKnowledgeGraph({
     repoRoot: root,
     sourceSliceTriageRegisterRefs,
     sourceSliceReviewQueueRefs,
+  });
+  const graphRelationReviewProjection = await loadGraphRelationReviewProjection({
+    repoRoot: root,
+    graphRelationReviewQueueRefs,
   });
 
   await addKnowledgeNodes({ repoRoot: root, nodes });
@@ -258,6 +269,7 @@ export async function buildKnowledgeGraph({
   addUsageNodesAndEdges({ nodes, edges, usage });
   applyRagProjectionToNodes(nodes, ragProjection);
   applySourceSliceProjectionToNodes(nodes, sourceSliceProjection);
+  applyGraphRelationReviewProjectionToGraph(nodes, edges, graphRelationReviewProjection);
 
   const nodeList = [...nodes.values()]
     .map((node) => applyNodeMetricsAndVisuals(node, usage.byTarget.get(node.node_ref), now))
@@ -287,6 +299,8 @@ export async function buildKnowledgeGraph({
         sourceSliceProjection?.triage_register_refs.map((item) => item.triage_register_ref) ?? [],
       source_slice_review_queue_refs:
         sourceSliceProjection?.review_queue_refs.map((item) => item.review_queue_ref) ?? [],
+      graph_relation_review_queue_refs:
+        graphRelationReviewProjection?.queue_refs.map((item) => item.queue_ref) ?? [],
     },
     graph_scope: {
       time_window: usage.timeWindow,
@@ -296,6 +310,7 @@ export async function buildKnowledgeGraph({
         ...(ragProjection ? ["explicit_rag_manifest_refs"] : []),
         ...(sourceSliceProjection?.triage_register_refs.length ? ["explicit_source_slice_triage_register_refs"] : []),
         ...(sourceSliceProjection?.review_queue_refs.length ? ["explicit_source_slice_review_queue_refs"] : []),
+        ...(graphRelationReviewProjection ? ["explicit_graph_relation_review_queue_refs"] : []),
       ],
       included_node_types: NODE_TYPES,
       included_relation_types: sortedUnique(edgeList.map((edge) => edge.relation_type)),
@@ -306,7 +321,9 @@ export async function buildKnowledgeGraph({
         sourceSliceProjection?.triage_register_refs.map((item) => item.triage_register_ref) ?? [],
       source_slice_review_queue_refs:
         sourceSliceProjection?.review_queue_refs.map((item) => item.review_queue_ref) ?? [],
-      canon_only: usage.ledgerRefs.length === 0 && !ragProjection && !sourceSliceProjection,
+      graph_relation_review_queue_refs:
+        graphRelationReviewProjection?.queue_refs.map((item) => item.queue_ref) ?? [],
+      canon_only: usage.ledgerRefs.length === 0 && !ragProjection && !sourceSliceProjection && !graphRelationReviewProjection,
       metadata_only: true,
     },
     visual_encoding: DEFAULT_ENCODING,
@@ -342,6 +359,7 @@ export async function buildKnowledgeGraph({
     },
     rag_projection: ragProjection,
     source_slice_projection: sourceSliceProjection,
+    graph_relation_review_projection: graphRelationReviewProjection,
     nodes: nodeList,
     edges: edgeList,
     boundary: {
@@ -349,6 +367,7 @@ export async function buildKnowledgeGraph({
       no_raw_payloads: true,
       no_rag_source_payloads: true,
       no_source_slice_payloads: true,
+      no_graph_relation_private_refs: true,
       no_notebooklm_answers: true,
       no_private_payloads: true,
       no_secret_or_session: true,
@@ -1412,6 +1431,214 @@ function finalizeSourceSliceProjectionForGraph(sourceSliceProjection) {
   sourceSliceProjection.registration_status_counts = counts;
 }
 
+async function loadGraphRelationReviewProjection({ repoRoot, graphRelationReviewQueueRefs }) {
+  if (graphRelationReviewQueueRefs.length === 0) {
+    return null;
+  }
+  const loadedQueues = [];
+  for (const rawRef of graphRelationReviewQueueRefs) {
+    const queueRef = safeGraphRelationReviewQueueRef(rawRef);
+    const queuePath = path.join(repoRoot, queueRef);
+    if (!(await pathExists(queuePath))) {
+      throw new Error(`explicit --graph-relation-review-queue-ref was not found: ${queueRef}`);
+    }
+    const queue = await readYaml(queuePath);
+    const validation = validateGraphRelationReviewQueueForProjection(queue);
+    if (validation.status !== "pass") {
+      throw new Error(`graph_relation_review_queue_invalid:${queueRef}:${validation.blockers.join(",")}`);
+    }
+    loadedQueues.push({ queue_ref: queueRef, queue, validation });
+  }
+  return buildGraphRelationReviewProjection(loadedQueues);
+}
+
+function validateGraphRelationReviewQueueForProjection(queue) {
+  const blockers = [];
+  if (queue?.schema_version !== GRAPH_RELATION_REVIEW_QUEUE_SCHEMA_VERSION) blockers.push("schema_version_mismatch");
+  if (queue?.kind !== "graph_relation_review_queue") blockers.push("kind_must_be_graph_relation_review_queue");
+  if (!isSafeProjectionId(queue?.queue_id)) blockers.push("queue_id_unsafe");
+  if (queue?.edge_schema_status !== "compatible_with_current_exporter_relation_types") {
+    blockers.push("edge_schema_must_match_exporter_relation_types");
+  }
+  const reviewDecision = queue?.review_decision ?? {};
+  if (reviewDecision.graph_mutation_applied !== false) blockers.push("graph_mutation_must_not_be_applied");
+  if (reviewDecision.graph_truth_claimed !== false) blockers.push("graph_truth_must_not_be_claimed");
+  if (reviewDecision.default_route_mutation_applied !== false) blockers.push("default_route_mutation_must_not_be_applied");
+  const boundary = queue?.boundary ?? {};
+  if (boundary.metadata_only !== true) blockers.push("boundary_metadata_only_must_be_true");
+  if (boundary.source_text_included !== false) blockers.push("source_text_must_not_be_included");
+  if (boundary.chunk_text_included !== false) blockers.push("chunk_text_must_not_be_included");
+  if (boundary.copied_excerpts_included !== false) blockers.push("copied_excerpts_must_not_be_included");
+  if (boundary.notebooklm_answers_included !== false) blockers.push("notebooklm_answers_must_not_be_included");
+  if (boundary.graph_mutation_applied !== false) blockers.push("boundary_graph_mutation_must_not_be_applied");
+  if (boundary.graph_truth_claimed !== false) blockers.push("boundary_graph_truth_must_not_be_claimed");
+  if (boundary.public_canon_promotion_claimed !== false) blockers.push("public_canon_must_not_be_claimed");
+  if (boundary.ontology_acceptance_claimed !== false) blockers.push("ontology_acceptance_must_not_be_claimed");
+  if (boundary.final_answer_claimed !== false) blockers.push("final_answer_must_not_be_claimed");
+  if (boundary.default_route_mutation_claimed !== false) blockers.push("default_route_mutation_must_not_be_claimed");
+
+  const candidateEdges = projectionArrayField(queue, "candidate_edges", blockers);
+  for (const edge of candidateEdges) {
+    validateGraphRelationReviewEdgeForProjection(edge, blockers);
+  }
+  return {
+    status: blockers.length === 0 ? "pass" : "blocked",
+    blockers: [...new Set(blockers)].sort(),
+  };
+}
+
+function validateGraphRelationReviewEdgeForProjection(edge, blockers) {
+  if (!edge || typeof edge !== "object" || Array.isArray(edge)) {
+    blockers.push("candidate_edge_must_be_object");
+    return;
+  }
+  if (!isSafeProjectionId(edge.edge_id)) blockers.push("candidate_edge_id_unsafe");
+  if (!isSafeGraphRelationQueueRef(edge.from_ref)) blockers.push("candidate_edge_from_ref_unsafe");
+  if (!RELATION_TYPES.includes(edge.relation_type)) blockers.push("candidate_edge_unknown_relation_type");
+  if (!isSafeProjectionId(edge.semantic_label)) blockers.push("candidate_edge_semantic_label_unsafe");
+  if (edge.review_status !== "review_required") blockers.push("candidate_edge_review_status_must_be_review_required");
+  if (!isSafeGraphRelationQueueTargetRef(edge.to_ref)) blockers.push("candidate_edge_target_ref_unsafe");
+  if (!Object.hasOwn(CLAIM_STRENGTH, normalizeGraphRelationClaimCeiling(edge.claim_ceiling))) {
+    blockers.push("candidate_edge_claim_ceiling_unknown");
+  }
+  for (const page of edge.evidence_pages ?? []) {
+    if (!Number.isInteger(page) || page < 1 || page > 2000) {
+      blockers.push("candidate_edge_evidence_page_unsafe");
+    }
+  }
+}
+
+function buildGraphRelationReviewProjection(loadedQueues) {
+  const queueRefs = [];
+  const candidateEdges = [];
+  let originalTargetRefCount = 0;
+
+  for (const { queue_ref: queueRef, queue } of loadedQueues) {
+    const edges = queue.candidate_edges ?? [];
+    queueRefs.push({
+      queue_ref: queueRef,
+      queue_id: queue.queue_id,
+      status: queue.status ?? "unknown",
+      candidate_edge_count: edges.length,
+      edge_schema_status: queue.edge_schema_status ?? "unknown",
+    });
+    for (const edge of edges) {
+      originalTargetRefCount += edge.to_ref ? 1 : 0;
+      candidateEdges.push({
+        edge_id: edge.edge_id,
+        queue_id: queue.queue_id,
+        source_queue_ref: queueRef,
+        from_ref: edge.from_ref,
+        to_alias_ref: graphRelationReviewTargetAliasRef(queue.queue_id, edge),
+        relation_type: edge.relation_type,
+        semantic_label: edge.semantic_label,
+        review_status: edge.review_status,
+        evidence_page_count: (edge.evidence_pages ?? []).length,
+        claim_ceiling: edge.claim_ceiling ?? "observed",
+        original_target_ref_redacted: true,
+      });
+    }
+  }
+
+  return {
+    schema_version: KNOWLEDGE_GRAPH_RELATION_REVIEW_PROJECTION_SCHEMA_VERSION,
+    kind: "knowledge_graph_relation_review_projection",
+    status: "metadata_only_review_required",
+    queue_refs: queueRefs.sort((left, right) => left.queue_ref.localeCompare(right.queue_ref)),
+    candidate_edges: candidateEdges.sort((left, right) => left.edge_id.localeCompare(right.edge_id)),
+    candidate_edge_count: candidateEdges.length,
+    original_target_ref_count: originalTargetRefCount,
+    original_target_refs_redacted: true,
+    matched_edge_count: 0,
+    boundary: {
+      metadata_only: true,
+      no_private_target_refs_in_graph: true,
+      no_source_text_loaded: true,
+      no_chunk_text_loaded: true,
+      no_notebooklm_answers: true,
+      no_graph_truth_mutation: true,
+      no_default_route_mutation: true,
+      no_source_truth_claim: true,
+      no_public_canon_promotion: true,
+      projection_is_not_answer: true,
+    },
+  };
+}
+
+function applyGraphRelationReviewProjectionToGraph(nodes, edges, projection) {
+  if (!projection) return;
+  let matchedEdgeCount = 0;
+  for (const candidate of projection.candidate_edges) {
+    addNode(nodes, {
+      node_ref: candidate.from_ref,
+      node_type: "artifact",
+      label: labelForGraphRelationRoute(candidate.from_ref),
+      summary: "Operational RAG route alias from a metadata-only graph relation review queue.",
+      owner_surface: "_workmeta",
+      source_refs: {
+        node_type: candidate.source_queue_ref,
+        label: candidate.source_queue_ref,
+        trust: candidate.source_queue_ref,
+        lifecycle: candidate.source_queue_ref,
+      },
+      trust: { claim_ceiling: normalizeGraphRelationClaimCeiling(candidate.claim_ceiling) },
+      lifecycle: { status: "candidate" },
+    });
+    addNode(nodes, {
+      node_ref: candidate.to_alias_ref,
+      node_type: "artifact",
+      label: labelForGraphRelationTarget(candidate),
+      summary: "Redacted private/local target alias. Original target ref is kept out of graph data.",
+      owner_surface: "_workmeta",
+      source_refs: {
+        node_type: candidate.source_queue_ref,
+        label: candidate.source_queue_ref,
+        trust: candidate.source_queue_ref,
+        lifecycle: candidate.source_queue_ref,
+      },
+      trust: { claim_ceiling: normalizeGraphRelationClaimCeiling(candidate.claim_ceiling) },
+      lifecycle: { status: "candidate" },
+    });
+    addEdge(edges, {
+      from_ref: candidate.from_ref,
+      to_ref: candidate.to_alias_ref,
+      relation_type: candidate.relation_type,
+      relation_state: "review_required",
+      evidence_event_count: Math.max(1, candidate.evidence_page_count),
+      source_refs: {
+        relation_type: candidate.source_queue_ref,
+        strength: candidate.source_queue_ref,
+        state: candidate.source_queue_ref,
+      },
+    });
+    matchedEdgeCount += 1;
+  }
+  projection.matched_edge_count = matchedEdgeCount;
+}
+
+function normalizeGraphRelationClaimCeiling(value) {
+  if (Object.hasOwn(CLAIM_STRENGTH, value ?? "unknown")) {
+    return value;
+  }
+  if (String(value ?? "").includes("source_supported")) {
+    return "source_supported";
+  }
+  return "observed";
+}
+
+function graphRelationReviewTargetAliasRef(queueId, edge) {
+  return `graph_relation_target:${queueId}:${edge.edge_id}`;
+}
+
+function labelForGraphRelationRoute(ref) {
+  const value = String(ref);
+  return value.startsWith("route:") ? value.slice("route:".length).replaceAll("_", " ") : labelFromRef(value);
+}
+
+function labelForGraphRelationTarget(candidate) {
+  return `${candidate.semantic_label.replaceAll("_", " ")} (${candidate.edge_id.replaceAll("_", " ")})`;
+}
+
 function isRagUnitAnswerEligible(unit) {
   if (unit?.claim_ceiling === "rejected_or_blocked") return false;
   const retrieval = unit?.retrieval ?? {};
@@ -1542,6 +1769,14 @@ function safeSourceSliceReviewQueueRef(value) {
   return ref;
 }
 
+function safeGraphRelationReviewQueueRef(value) {
+  const ref = safeRepoRelativeMetadataRef(value);
+  if (!/^_workmeta\/[A-Za-z0-9][A-Za-z0-9_.-]{0,80}\/reports\/rag\/graph_relation_review\//.test(ref)) {
+    throw new Error(`unsafe graph relation review queue ref: ${ref}`);
+  }
+  return ref;
+}
+
 function isSafeProjectionId(value) {
   return typeof value === "string" && SAFE_RAG_ID_PATTERN.test(value) && !hasUnsafeProjectionString(value);
 }
@@ -1562,6 +1797,32 @@ function isSafeProjectionRef(value) {
   }
   if (
     ref.startsWith("_workspaces/") &&
+    !ref.startsWith("_workspaces/system/knowledge_view/") &&
+    !ref.startsWith("_workspaces/system/rag/")
+  ) {
+    return false;
+  }
+  return true;
+}
+
+function isSafeGraphRelationQueueRef(value) {
+  const ref = String(value ?? "");
+  if (ref.startsWith("route:")) {
+    return isSafeProjectionId(ref.slice("route:".length));
+  }
+  return isSafeProjectionRef(ref);
+}
+
+function isSafeGraphRelationQueueTargetRef(value) {
+  const ref = String(value ?? "");
+  if (!ref || path.isAbsolute(ref) || ref.includes("..") || /[A-Za-z]:[\\/]/.test(ref)) return false;
+  if (/\/Users\/|\/Volumes\/|\/var\/folders\//.test(ref)) return false;
+  if (/(^|[/_.-])(secret|token|cookie|credential|session|password|passwd|private_key)([/_.-]|$)/i.test(ref)) {
+    return false;
+  }
+  if (
+    ref.startsWith("_workspaces/") &&
+    !ref.startsWith("_workspaces/knowledge/") &&
     !ref.startsWith("_workspaces/system/knowledge_view/") &&
     !ref.startsWith("_workspaces/system/rag/")
   ) {

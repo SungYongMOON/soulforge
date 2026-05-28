@@ -1,0 +1,31 @@
+workflow_id: rag_work_card_router_v0
+kind: monster_rules
+status: draft
+rules:
+  - monster_id: raw_question_in_work_card_output
+    response: remove_raw_question_keep_label_and_fingerprint_then_mark_boundary_blocker
+    summary: Work-card outputs must persist only the label and fingerprint, not the free-form request text.
+  - monster_id: raw_source_text_or_excerpt_in_context
+    response: remove_payload_keep_approved_ref_and_mark_boundary_blocker
+    summary: Approved context is represented by source card and index refs only.
+  - monster_id: blocked_quality_ref_used_as_supported_source
+    response: reject_card_or_route_to_manual_review
+    summary: Blocked quality refs cannot be treated as source-supported work context.
+  - monster_id: manual_review_ref_hidden
+    response: surface_manual_review_warning_in_card_and_text_boundary
+    summary: Manual-review quality refs must remain visible in the card and boundary text.
+  - monster_id: owner_approval_inferred_from_card
+    response: remove_approval_claim_and_route_to_owner_decision_packet
+    summary: A work card can request work but cannot approve it.
+  - monster_id: canon_or_default_route_claim_in_card
+    response: block_claim_and_route_to_post_development_review_gate
+    summary: Canon readiness, registration, and default-route safety require separate review.
+  - monster_id: nondeterministic_card_derivation
+    response: require_sorted_ref_set_and_fingerprint_policy_before_output
+    summary: Work-card ids and packet fields must be deterministic from declared stable inputs.
+  - monster_id: runtime_absolute_path_in_public_packet
+    response: replace_with_repo_relative_ref_or_stable_id
+    summary: Public workflow outputs must use portable refs and stable ids.
+  - monster_id: secret_or_credential_material_detected
+    response: remove_secret_record_boundary_blocker_and_stop
+    summary: Secret values must never enter work-card packets or public package files.

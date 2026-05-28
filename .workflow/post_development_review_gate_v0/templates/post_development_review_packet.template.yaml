@@ -79,6 +79,61 @@ bv_gate:
   result: "pass | fail | blocked | not_applicable"
   missing_evidence: []
 
+owner_delegated_canon_policy:
+  applicable: false
+  policy_refs: []
+  owner_decision_refs: []
+  promotion_policy_refs: []
+  per_item_owner_confirmation_required: true
+  policy_grants_target_layer_registration: false
+  authority_guard:
+    result: "pass | fail | blocked | unknown | not_applicable"
+    accepted_authority: "none | owner_decision | owner_delegated_policy"
+    refs: []
+  gate_creates_owner_approval: false
+  does_not_delegate:
+    source_truth: true
+    ontology_acceptance: true
+    external_upload: true
+    final_domain_doctrine: true
+    default_route_mutation: true
+source_support_guard:
+  result: "pass | fail | blocked | unknown | not_applicable"
+  allowed_claim_ceiling: "observed | source_supported | validated_private | canon_candidate | canon_entry | rejected_or_blocked"
+  refs: []
+public_canon_guards:
+  owner_surface:
+    result: "pass | fail | blocked | unknown | not_applicable"
+    refs: []
+  public_safe_abstraction:
+    result: "pass | fail | blocked | unknown | not_applicable"
+    refs: []
+  private_raw_secret_exclusion:
+    result: "pass | fail | blocked | unknown | not_applicable"
+    refs: []
+  schema_or_readme_contract:
+    result: "pass | fail | blocked | unknown | not_applicable"
+    refs: []
+  changelog_sync_when_applicable:
+    result: "pass | fail | blocked | unknown | not_applicable"
+    refs: []
+  validation_or_review_route:
+    result: "pass | fail | blocked | unknown | not_applicable"
+    refs: []
+canon_registration:
+  canon_registration_required_this_task: false
+  canon_registration_completed: false
+  target_refs:
+    owner_surface: null
+    canon_package_refs: []
+    canon_entry_refs: []
+    schema_refs: []
+    readme_refs: []
+    changelog_refs: []
+    validation_refs: []
+  failed_public_canon_guards: []
+  claim_ceiling_after_registration: "not_applicable | observed | source_supported | validated_private | canon_candidate | canon_entry | rejected_or_blocked"
+
 supervisor_decision:
   final_status: "accepted | needs_revision | blocked | owner_decision_required"
   next_action: ""

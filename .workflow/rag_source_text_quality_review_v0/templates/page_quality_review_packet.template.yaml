@@ -1,0 +1,54 @@
+workflow_id: rag_source_text_quality_review_v0
+kind: page_quality_review_packet
+schema_version: v0
+status: draft
+review_packet_id: "<review_packet_id>"
+quality_review_scope_ref: "<quality_review_scope_ref>"
+source_text_index_inventory_ref: "<source_text_index_inventory_ref>"
+traceability_sidecar_inventory_ref: "<traceability_sidecar_inventory_ref>"
+answer_run_trace_inventory_ref: "<answer_run_trace_inventory_ref>"
+status_values:
+  - source_supported
+  - manual_review
+  - blocked
+page_reviews:
+  - page_review_ref: "<page_review_ref>"
+    source_ref: "<source_ref>"
+    page_ref: "<page_ref>"
+    answer_claim_refs: []
+    citation_refs: []
+    index_record_refs: []
+    sidecar_record_refs: []
+    trace_event_refs: []
+    status: manual_review
+    support_basis_refs:
+      source_hash_refs: []
+      retrieval_event_refs: []
+      owner_decision_refs: []
+      sourcebound_packet_refs: []
+    warnings:
+      table: []
+      picture: []
+      ocr: []
+      page: []
+    manual_review_reason: null
+    blocked_reason: null
+summary_counts:
+  source_supported: 0
+  manual_review: 0
+  blocked: 0
+payload_absence:
+  raw_source_text: false
+  copied_source_excerpt: false
+  source_chunk_payload: false
+  raw_question: false
+  raw_answer: false
+  notebooklm_answer_payload: false
+  secret_or_credential_material: false
+  host_absolute_path: false
+claim_boundary:
+  source_supported_is_trace_support_not_source_truth: true
+  owner_approval_claimed: false
+  canon_claimed: false
+  default_route_safe_claimed: false
+downstream_route_hints: []

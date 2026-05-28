@@ -1,0 +1,4 @@
+{"candidate_id":"A_mini_low_dwarf_archivist","model":"gpt-5.4-mini","reasoning_effort":"low","quality_score":91,"quality_class":"quality_gate_pass"}
+{"candidate_id":"B_54_low_dwarf_archivist","model":"gpt-5.4","reasoning_effort":"low","quality_score":96,"quality_class":"quality_gate_pass"}
+{"candidate_id":"C_55_low_dwarf_archivist","model":"gpt-5.5","reasoning_effort":"low","quality_score":95,"quality_class":"quality_gate_pass"}
+{"candidate_id":"D_55_medium_dwarf_archivist","model":"gpt-5.5","reasoning_effort":"medium","quality_score":94,"quality_class":"quality_gate_pass"}

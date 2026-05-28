@@ -1,0 +1,37 @@
+workflow_id: rag_work_card_router_v0
+kind: boundary_review_note
+schema_version: v0
+status: draft
+review_id: "<review_id>"
+review_scope_ref: "<work_card_or_route_scope_ref>"
+checks:
+  no_raw_question_persistence:
+    pass: null
+    notes: null
+  no_raw_source_text_or_excerpt:
+    pass: null
+    notes: null
+  no_notebooklm_answer_payload:
+    pass: null
+    notes: null
+  no_secret_or_credential_material:
+    pass: null
+    notes: null
+  no_runtime_absolute_paths:
+    pass: null
+    notes: null
+  no_owner_approval_inference:
+    pass: null
+    notes: null
+  no_public_canon_promotion:
+    pass: null
+    notes: null
+  no_default_route_switch:
+    pass: null
+    notes: null
+  deterministic_card_derivation_declared:
+    pass: null
+    notes: null
+boundary_decision: review_required
+blockers: []
+downstream_routes: []

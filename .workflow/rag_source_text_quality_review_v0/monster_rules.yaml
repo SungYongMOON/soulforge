@@ -1,0 +1,31 @@
+workflow_id: rag_source_text_quality_review_v0
+kind: monster_rules
+status: draft
+rules:
+  - monster_id: raw_source_text_or_excerpt_in_review_packet
+    response: remove_payload_keep_ref_hash_and_mark_boundary_blocker
+    summary: Review outputs must carry refs, hashes, counts, labels, statuses, and warnings only.
+  - monster_id: raw_answer_or_notebooklm_answer_in_review_packet
+    response: remove_payload_keep_answer_run_ref_and_mark_boundary_blocker
+    summary: Answer-run payloads and NotebookLM answers are runtime/private inputs, not public workflow outputs.
+  - monster_id: source_text_index_missing_or_stale
+    response: mark_blocked_or_route_to_rag_metadata_refresh
+    summary: Missing or stale index refs prevent source-supported classification.
+  - monster_id: traceability_sidecar_missing_page_mapping
+    response: mark_blocked_for_affected_pages
+    summary: Page support requires sidecar mappings for the relevant page or page-linked trace.
+  - monster_id: table_picture_or_ocr_trace_uncertain
+    response: mark_manual_review_with_warning_category
+    summary: Table, picture, OCR, and layout uncertainty should become explicit warning labels.
+  - monster_id: source_truth_or_answer_truth_claim_requested
+    response: downgrade_to_source_support_trace_or_route_to_owner_review
+    summary: The workflow reviews support traces; it does not prove source truth or answer correctness.
+  - monster_id: owner_approval_or_canon_claim_requested
+    response: block_claim_and_route_to_owner_decision_or_review_gate
+    summary: Owner approval and canon promotion require separate authority.
+  - monster_id: runtime_absolute_path_in_public_packet
+    response: replace_with_repo_relative_ref_or_stable_id
+    summary: Reusable workflow outputs should use portable refs and stable ids.
+  - monster_id: secret_or_credential_material_detected
+    response: remove_secret_record_boundary_blocker_and_stop
+    summary: Secret values must never enter review packets or public package files.

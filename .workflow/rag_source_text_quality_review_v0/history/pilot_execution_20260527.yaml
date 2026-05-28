@@ -1,0 +1,83 @@
+history_entry_id: pilot_execution_20260527
+workflow_id: rag_source_text_quality_review_v0
+entry_type: pilot_execution_evidence
+controller_mode: workflow_evolution
+completion_target: pilot_execute
+output_state_before: draft
+output_state_after: pilot-executed
+decision: sufficient_for_pilot_executed
+decision_basis:
+  - A controlled DAPA quality-review command produced a payload-free review artifact.
+  - The review validator passed with zero blockers.
+  - The RAG test suite passed after CLI/test implementation.
+  - Remaining warnings are recorded as manual-review conditions, not stronger readiness.
+registration_policy: not_registered_index_update_deferred
+registration_claimed: false
+default_route_safe: false
+default_route_safety_claimed: false
+canon_ready_claimed: false
+owner_approval_claimed: false
+index_update_performed: false
+evidence_refs:
+  - ref: _workspaces/knowledge/rag/source_text_quality_reviews/dapa_test_eval_requirements_verification_quality_review_20260527/source_text_quality_review.json
+    kind: source_text_quality_review
+    sha256: 1B6A51775362FCF62E18F52FFF6F01237904BE97F5B259B37838B9FD9F06C3CF
+    generated_at_utc: "2026-05-26T17:11:09.342Z"
+validator_results:
+  - validator_name: validate-source-text-quality-review
+    command_ref: node guild_hall/rag/cli.mjs validate-source-text-quality-review --review-ref _workspaces/knowledge/rag/source_text_quality_reviews/dapa_test_eval_requirements_verification_quality_review_20260527/source_text_quality_review.json
+    status: pass
+    blocker_count: 0
+  - validator_name: rag.test.mjs
+    command_ref: node --test guild_hall/rag/rag.test.mjs
+    status: pass
+    test_count: 7
+public_safe_summary:
+  review_status: manual_review
+  reviewed_pages:
+    - 18
+    - 19
+    - 39
+    - 120
+    - 121
+  source_supported_pages:
+    - 39
+    - 120
+  manual_review_pages:
+    - 18
+    - 19
+    - 121
+  page_warning_summary:
+    - page: 39
+      status: source_supported
+      warning: table_present_on_page
+    - pages:
+        - 18
+        - 19
+        - 121
+      status: manual_review
+      warning: picture_present_on_page
+  count_summary:
+    reviewed_page_count: 5
+    citation_review_count: 3
+    source_supported_page_count: 2
+    manual_review_page_count: 3
+    blocked_page_count: 0
+    mapped_chunk_count: 443
+    weak_mapped_chunk_count: 0
+    unmapped_chunk_count: 0
+boundary_summary:
+  raw_source_text_copied_here: false
+  source_chunks_or_excerpts_copied_here: false
+  raw_question_copied_here: false
+  notebooklm_answers_copied_here: false
+  secrets_or_credentials_copied_here: false
+  runtime_absolute_paths_copied_here: false
+  public_package_contains_only_refs_counts_statuses_and_summary: true
+residual_gaps:
+  - The pilot result remains manual_review because picture and table warnings require human or downstream review.
+  - This is not a final cold gate and does not support canon-ready or registered claims.
+  - The workflow is not registered in .workflow/index.yaml and is not default-route-safe.
+next_action_type: request_human_decision
+human_decision_required: true
+human_decision_reason: Owner/controller decision is required before registration, default-route use, or stronger canon readiness.

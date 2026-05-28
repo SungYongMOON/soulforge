@@ -21,11 +21,11 @@ primary_profile:
   quality_score: 97
   quality_class: quality_equivalent_pass
   baseline_relative_quality: 1
-  input_tokens: 26173
-  cached_input_tokens: 20864
-  output_tokens: 1457
+  input_tokens: 26171
+  cached_input_tokens: 16768
+  output_tokens: 951
   total_tokens: 43890
-  reasoning_output_tokens: 516
+  reasoning_output_tokens: 39
   wall_s: 22.47
 shadow_top_k:
   - rank: 2

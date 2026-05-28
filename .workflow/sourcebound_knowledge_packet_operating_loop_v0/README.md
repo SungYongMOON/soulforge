@@ -45,6 +45,31 @@ NotebookLM handoff validation checks only that the handoff is bounded,
 payload-safe, and advisory-only. Ontology-facing entries remain candidate rules
 for review; they do not create or accept ontology canon.
 
+## Owner-Delegated Canon Lane
+
+The loop may apply an existing owner-delegated canon policy, owner decision
+packet, or promotion policy ref when the policy explicitly covers the target
+owner surface and says per-item owner confirmation is not required. The workflow
+does not create that approval.
+
+Same-task canon registration is allowed only after an authority guard and a
+source-support guard pass, then the post-development review gate passes the six
+public canon guards from the agent execution contract: owner surface,
+public-safe abstraction, private/raw/secret exclusion, schema or README
+contract, changelog sync when applicable, and validation/review route. The route
+packet must record `canon_registration_required_this_task`,
+`canon_registration_completed`, target refs, failed guards, and the claim ceiling
+after registration.
+
+`canon_candidate` and `canon_entry` are valid route targets only through an
+applicable delegated policy or explicit owner decision plus the review gate. If
+the policy is absent, inapplicable, or any guard is failed or unknown, the route
+stays `hold_private` or `owner_decision`.
+
+Delegated canon policy does not grant source truth, ontology acceptance, final
+domain doctrine, external upload, or default route mutation unless another
+owner-surface policy explicitly grants that separate authority.
+
 ## Current Maturity
 
 `validation_level: pilot_executed_private_evidence`

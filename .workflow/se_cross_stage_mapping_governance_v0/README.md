@@ -106,5 +106,7 @@ Repeated per-folder inspection keeps compatibility by linking folder observation
 - Systems Engineering Cell may use it as an optional governance route
 - private pilot evidence exists for primary artifact-family governance shape,
   but private run truth stays outside public canon
+- public-safe optimizer calibration `cal_20260527_quality_equiv_001` selects
+  `gpt-5.4|low|dwarf|auditor` for metadata-only governance runs
 - repeated per-artifact-folder inspection mode remains metadata-only and does
   not create artifact/source/readiness authority

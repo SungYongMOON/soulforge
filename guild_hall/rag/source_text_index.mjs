@@ -7,15 +7,19 @@ import { validateSourceSyncReadyRef } from "./source_sync_ready_manifest.mjs";
 export const KNOWLEDGE_SOURCE_CARD_SCHEMA_VERSION = "soulforge.knowledge_source_card.v0";
 export const SOURCE_TEXT_INDEX_SCHEMA_VERSION = "soulforge.source_text_index.v0";
 export const SOURCE_TEXT_ANSWER_RUN_SCHEMA_VERSION = "soulforge.source_text_answer_run.v0";
+export const SOURCE_TEXT_TRACEABILITY_SIDECAR_SCHEMA_VERSION = "soulforge.source_text_traceability_sidecar.v0";
 export const KNOWLEDGE_SOURCE_CARD_VALIDATION_SCHEMA_VERSION = "soulforge.knowledge_source_card_validation.v0";
 export const SOURCE_TEXT_INDEX_VALIDATION_SCHEMA_VERSION = "soulforge.source_text_index_validation.v0";
 export const SOURCE_TEXT_ANSWER_RUN_VALIDATION_SCHEMA_VERSION = "soulforge.source_text_answer_run_validation.v0";
+export const SOURCE_TEXT_TRACEABILITY_SIDECAR_VALIDATION_SCHEMA_VERSION = "soulforge.source_text_traceability_sidecar_validation.v0";
 export const SOURCE_TEXT_INDEX_GENERATOR_ID = "guild_hall.rag.source_text_index_generator.v0";
 export const SOURCE_TEXT_ANSWER_RUN_GENERATOR_ID = "guild_hall.rag.source_text_answer_run_generator.v0";
+export const SOURCE_TEXT_TRACEABILITY_SIDECAR_GENERATOR_ID = "guild_hall.rag.source_text_traceability_sidecar_generator.v0";
 
 const DEFAULT_INDEX_ROOT = "_workspaces/knowledge/rag/indexes_local/source_text_indexes";
 const DEFAULT_DERIVED_TEXT_ROOT = "_workspaces/knowledge/rag/derived_text";
 const DEFAULT_ANSWER_RUN_ROOT = "_workspaces/knowledge/rag/answer_runs";
+const DEFAULT_TRACEABILITY_SIDECAR_ROOT = "_workspaces/knowledge/rag/traceability_sidecars";
 const SAFE_ID_PATTERN = /^[A-Za-z0-9][A-Za-z0-9_.:-]{0,180}$/;
 const SUPPORTED_SOURCE_EXTENSIONS = new Set([".md", ".markdown", ".txt"]);
 const STOPWORD_TOKENS = new Set([
@@ -146,6 +150,13 @@ export async function buildSourceTextIndex(options = {}) {
     "index_id",
   );
   const generatedAtUtc = formatTimestampUtc(options.now);
+  const doclingJsonRef = options.doclingJsonRef ?? null;
+  const safeDoclingJsonRef = doclingJsonRef
+    ? safeWorkspaceKnowledgeJsonRef(doclingJsonRef)
+      ? safeRepoRelativePath(doclingJsonRef)
+      : null
+    : null;
+  if (doclingJsonRef && !safeDoclingJsonRef) throw new Error("docling json ref must be under _workspaces/knowledge and json");
 
   if (cardValidation.status !== "pass") {
     return {
@@ -160,6 +171,7 @@ export async function buildSourceTextIndex(options = {}) {
         source_id: sourceCard?.source_id ?? null,
         source_ref: sourceRef,
         source_sync_ready_ref: readyManifestRef ?? null,
+        docling_json_ref: safeDoclingJsonRef,
       },
       boundary: sourceTextIndexBoundary({ sourceTextLoaded: false }),
       permissions: blockedSourceTextIndexPermissions(),
@@ -188,6 +200,7 @@ export async function buildSourceTextIndex(options = {}) {
         source_id: sourceCard?.source_id ?? null,
         source_ref: sourceRef,
         source_sync_ready_ref: readyManifestRef,
+        docling_json_ref: safeDoclingJsonRef,
       },
       boundary: sourceTextIndexBoundary({ sourceTextLoaded: false }),
       permissions: blockedSourceTextIndexPermissions(),
@@ -204,14 +217,38 @@ export async function buildSourceTextIndex(options = {}) {
     };
   }
 
-  const sourcePath = path.join(repoRoot, safeRepoRelativePath(sourceRef));
-  const rawText = await fs.readFile(sourcePath, "utf8");
-  const normalizedText = normalizeSourceText(rawText, sourceCard.source_kind);
-  const chunks = chunkText(normalizedText, {
-    sourceId: sourceCard.source_id,
-    sourceRef,
-    maxChars: numericOption(options.maxChars, 900),
-  });
+  let normalizedText;
+  let chunks;
+  let doclingSummary = null;
+  let sourceOrderBasis = "source_text_paragraph_order";
+  if (safeDoclingJsonRef) {
+    const doclingJson = await readJson(path.join(repoRoot, safeDoclingJsonRef));
+    const doclingProfile = buildDoclingTraceabilityProfile(doclingJson);
+    normalizedText = doclingTextForIndex(doclingProfile);
+    chunks = chunkDoclingElementOrderText(doclingProfile, {
+      sourceId: sourceCard.source_id,
+      sourceRef,
+      maxChars: numericOption(options.maxChars, 900),
+    });
+    sourceOrderBasis = "docling_element_page_order";
+    doclingSummary = {
+      schema_name: typeof doclingJson?.schema_name === "string" ? doclingJson.schema_name : null,
+      version: typeof doclingJson?.version === "string" ? doclingJson.version : null,
+      page_count: doclingProfile.pageCount,
+      text_element_count: doclingProfile.textElementCount,
+      table_count: doclingProfile.tableCount,
+      picture_count: doclingProfile.pictureCount,
+    };
+  } else {
+    const sourcePath = path.join(repoRoot, safeRepoRelativePath(sourceRef));
+    const rawText = await fs.readFile(sourcePath, "utf8");
+    normalizedText = normalizeSourceText(rawText, sourceCard.source_kind);
+    chunks = chunkText(normalizedText, {
+      sourceId: sourceCard.source_id,
+      sourceRef,
+      maxChars: numericOption(options.maxChars, 900),
+    });
+  }
   const derivedTextRef = normalizeRepoPath(path.join(DEFAULT_DERIVED_TEXT_ROOT, indexId, `${sourceCard.source_id}.txt`));
 
   return {
@@ -227,6 +264,7 @@ export async function buildSourceTextIndex(options = {}) {
       source_ref: sourceRef,
       source_sync_ready_ref: readyManifestRef ?? null,
       derived_text_ref: derivedTextRef,
+      docling_json_ref: safeDoclingJsonRef,
     },
     source_card_summary: {
       title: sourceCard.title,
@@ -247,7 +285,19 @@ export async function buildSourceTextIndex(options = {}) {
       indexed_source_count: 1,
       chunk_count: chunks.length,
       source_char_count: normalizedText.length,
+      ...(doclingSummary ? {
+        docling_page_count: doclingSummary.page_count,
+        docling_text_element_count: doclingSummary.text_element_count,
+        docling_table_count: doclingSummary.table_count,
+        docling_picture_count: doclingSummary.picture_count,
+      } : {}),
     },
+    generation_profile: {
+      source_order_basis: sourceOrderBasis,
+      chunk_max_chars: numericOption(options.maxChars, 900),
+      native_page_traceability: Boolean(safeDoclingJsonRef),
+    },
+    ...(doclingSummary ? { docling_summary: doclingSummary } : {}),
     chunks,
     validation: {
       status: "unchecked",
@@ -264,8 +314,13 @@ export async function writeSourceTextIndex(options = {}) {
   const safeOutputRef = safeSourceTextIndexOutputPath(outputRef);
   if (index.status === "ready") {
     const derivedPath = path.join(repoRoot, safeRepoRelativePath(index.source_refs.derived_text_ref));
-    const sourcePath = path.join(repoRoot, safeRepoRelativePath(index.source_refs.source_ref));
-    const normalizedText = normalizeSourceText(await fs.readFile(sourcePath, "utf8"));
+    let normalizedText;
+    if (index.source_refs.docling_json_ref) {
+      normalizedText = (index.chunks ?? []).map((chunk) => String(chunk.chunk_text ?? "").trim()).filter(Boolean).join("\n\n");
+    } else {
+      const sourcePath = path.join(repoRoot, safeRepoRelativePath(index.source_refs.source_ref));
+      normalizedText = normalizeSourceText(await fs.readFile(sourcePath, "utf8"));
+    }
     await fs.mkdir(path.dirname(derivedPath), { recursive: true });
     await fs.writeFile(derivedPath, `${normalizedText.trim()}\n`, "utf8");
   }
@@ -302,6 +357,9 @@ export function validateSourceTextIndex(index) {
   if (index?.status !== "ready" && index?.source_refs?.derived_text_ref !== undefined && !safeWorkspaceKnowledgeRef(index.source_refs.derived_text_ref)) {
     blockers.push("derived_text_ref_must_be_under_workspaces_knowledge");
   }
+  if (index?.source_refs?.docling_json_ref !== null && index?.source_refs?.docling_json_ref !== undefined && !safeWorkspaceKnowledgeJsonRef(index.source_refs.docling_json_ref)) {
+    blockers.push("docling_json_ref_must_be_under_workspaces_knowledge_json");
+  }
   if (index?.boundary?.storage_scope !== "_workspaces_private_payload") blockers.push("storage_scope_must_be_workspaces_private_payload");
   if (index?.boundary?.source_text_loaded !== true && index?.status === "ready") blockers.push("ready_index_must_mark_source_text_loaded");
   if (index?.boundary?.public_repo_safe !== false) blockers.push("source_text_index_must_not_be_public_repo_safe");
@@ -312,6 +370,16 @@ export function validateSourceTextIndex(index) {
     if (!isSafeId(chunk?.chunk_id)) blockers.push("chunk_id_unsafe");
     if (typeof chunk?.chunk_text !== "string" || chunk.chunk_text.trim().length === 0) blockers.push("chunk_text_required");
     if (!safeWorkspaceKnowledgeRef(chunk?.source_ref)) blockers.push("chunk_source_ref_must_be_under_workspaces_knowledge");
+    if (chunk?.page_span !== null && chunk?.page_span !== undefined) {
+      if (!Number.isInteger(chunk.page_span.start_page) || chunk.page_span.start_page < 1) blockers.push("chunk_page_span_start_page_invalid");
+      if (!Number.isInteger(chunk.page_span.end_page) || chunk.page_span.end_page < chunk.page_span.start_page) blockers.push("chunk_page_span_end_page_invalid");
+      if (!Array.isArray(chunk.page_span.pages)) blockers.push("chunk_page_span_pages_must_be_array");
+    }
+    if (chunk?.traceability_status !== undefined && !["mapped", "weak_mapped", "unmapped", "not_checked"].includes(chunk.traceability_status)) {
+      blockers.push("chunk_traceability_status_unknown");
+    }
+    if (chunk?.layout_labels !== undefined && !Array.isArray(chunk.layout_labels)) blockers.push("chunk_layout_labels_must_be_array");
+    if (chunk?.warning_codes !== undefined && !Array.isArray(chunk.warning_codes)) blockers.push("chunk_warning_codes_must_be_array");
   }
   blockers.push(...findLocalAbsolutePathStrings(index));
   return {
@@ -331,6 +399,175 @@ export function validateSourceTextIndex(index) {
   };
 }
 
+export async function buildSourceTextTraceabilitySidecar(options = {}) {
+  const repoRoot = path.resolve(options.repoRoot ?? process.cwd());
+  const index = options.sourceTextIndex ?? await loadSourceTextIndex({
+    repoRoot,
+    sourceTextIndexRef: options.sourceTextIndexRef,
+  });
+  const indexValidation = validateSourceTextIndex(index);
+  const doclingJsonRef = options.doclingJsonRef;
+  if (!doclingJsonRef) throw new Error("docling_json_ref_required");
+  const safeDoclingJsonRef = safeWorkspaceKnowledgeJsonRef(doclingJsonRef)
+    ? safeRepoRelativePath(doclingJsonRef)
+    : null;
+  if (!safeDoclingJsonRef) throw new Error("docling json ref must be under _workspaces/knowledge and json");
+  const traceabilityId = normalizeSimpleId(
+    options.traceabilityId ?? `${index?.index_id ?? "unknown"}_traceability_${stableHash(safeDoclingJsonRef).slice(0, 8)}`,
+    "traceability_id",
+  );
+  const generatedAtUtc = formatTimestampUtc(options.now);
+
+  const base = {
+    schema_version: SOURCE_TEXT_TRACEABILITY_SIDECAR_SCHEMA_VERSION,
+    kind: "source_text_traceability_sidecar",
+    traceability_id: traceabilityId,
+    generator_id: SOURCE_TEXT_TRACEABILITY_SIDECAR_GENERATOR_ID,
+    generated_at_utc: generatedAtUtc,
+    status: "blocked_invalid_source_text_index",
+    source_refs: {
+      source_text_index_ref: options.sourceTextIndexRef ?? null,
+      index_id: index?.index_id ?? null,
+      source_card_ref: index?.source_refs?.source_card_ref ?? null,
+      source_id: index?.source_refs?.source_id ?? null,
+      source_ref: index?.source_refs?.source_ref ?? null,
+      derived_text_ref: index?.source_refs?.derived_text_ref ?? null,
+      docling_json_ref: safeDoclingJsonRef,
+    },
+    boundary: sourceTextTraceabilitySidecarBoundary(),
+    counts: {
+      chunk_count: Array.isArray(index?.chunks) ? index.chunks.length : 0,
+      mapped_chunk_count: 0,
+      weak_mapped_chunk_count: 0,
+      unmapped_chunk_count: Array.isArray(index?.chunks) ? index.chunks.length : 0,
+    },
+    chunks: [],
+    page_summary: [],
+    validation: {
+      status: "blocked",
+      upstream_validation: indexValidation,
+    },
+  };
+
+  if (indexValidation.status !== "pass") return base;
+
+  const doclingJson = await readJson(path.join(repoRoot, safeDoclingJsonRef));
+  const doclingProfile = buildDoclingTraceabilityProfile(doclingJson);
+  const chunkMappings = (index.chunks ?? []).map((chunk) => mapChunkToDoclingTrace(chunk, doclingProfile));
+  const mappedChunkCount = chunkMappings.filter((chunk) => chunk.traceability_status === "mapped").length;
+  const weakMappedChunkCount = chunkMappings.filter((chunk) => chunk.traceability_status === "weak_mapped").length;
+  const unmappedChunkCount = chunkMappings.filter((chunk) => chunk.traceability_status === "unmapped").length;
+  const pageBackedChunkCount = mappedChunkCount + weakMappedChunkCount;
+  const chunkCount = chunkMappings.length;
+  return {
+    ...base,
+    status: pageBackedChunkCount === 0 ? "blocked_no_page_traceability" : unmappedChunkCount > 0 || weakMappedChunkCount > 0 ? "partial_page_traceability" : "page_traceability_ready",
+    docling_summary: {
+      schema_name: typeof doclingJson?.schema_name === "string" ? doclingJson.schema_name : null,
+      version: typeof doclingJson?.version === "string" ? doclingJson.version : null,
+      page_count: doclingProfile.pageCount,
+      text_element_count: doclingProfile.textElementCount,
+      table_count: doclingProfile.tableCount,
+      picture_count: doclingProfile.pictureCount,
+    },
+    counts: {
+      chunk_count: chunkCount,
+      mapped_chunk_count: mappedChunkCount,
+      weak_mapped_chunk_count: weakMappedChunkCount,
+      unmapped_chunk_count: unmappedChunkCount,
+      page_backed_chunk_count: pageBackedChunkCount,
+      page_count: doclingProfile.pageCount,
+      text_element_count: doclingProfile.textElementCount,
+      table_count: doclingProfile.tableCount,
+      picture_count: doclingProfile.pictureCount,
+    },
+    quality_gates: {
+      chunk_page_traceability: pageBackedChunkCount === chunkCount && weakMappedChunkCount === 0 ? "pass" : pageBackedChunkCount > 0 ? "partial" : "blocked",
+      table_traceability: doclingProfile.tableCount > 0 ? "metadata_only_labels_present" : "not_detected",
+      figure_traceability: doclingProfile.pictureCount > 0 ? "page_presence_only" : "not_detected",
+      citation_page_audit_ready: pageBackedChunkCount > 0,
+      canon_promotion_allowed: false,
+    },
+    chunks: chunkMappings,
+    page_summary: doclingProfile.pageSummary,
+    validation: {
+      status: "unchecked",
+      upstream_validation: indexValidation.status,
+    },
+  };
+}
+
+export async function writeSourceTextTraceabilitySidecar(options = {}) {
+  const repoRoot = path.resolve(options.repoRoot ?? process.cwd());
+  const sidecar = await buildSourceTextTraceabilitySidecar(options);
+  const outputRef = options.outputRef ?? defaultTraceabilitySidecarOutputRef(sidecar);
+  const outputPath = path.join(repoRoot, safeSourceTextTraceabilitySidecarOutputPath(outputRef));
+  await writeJson(outputPath, sidecar);
+  return {
+    status: "written",
+    traceability_sidecar_ref: normalizeRepoPath(path.relative(repoRoot, outputPath)),
+    traceability_id: sidecar.traceability_id,
+    sidecar_status: sidecar.status,
+    chunk_count: sidecar.counts.chunk_count,
+    page_backed_chunk_count: sidecar.counts.page_backed_chunk_count ?? 0,
+  };
+}
+
+export async function loadSourceTextTraceabilitySidecar({ repoRoot = process.cwd(), traceabilitySidecarRef } = {}) {
+  if (!traceabilitySidecarRef) throw new Error("traceability_sidecar_ref_required");
+  const root = path.resolve(repoRoot);
+  return readJson(path.join(root, safeRepoRelativePath(traceabilitySidecarRef)));
+}
+
+export function validateSourceTextTraceabilitySidecar(sidecar) {
+  const blockers = [];
+  if (sidecar?.schema_version !== SOURCE_TEXT_TRACEABILITY_SIDECAR_SCHEMA_VERSION) blockers.push("schema_version_mismatch");
+  if (sidecar?.kind !== "source_text_traceability_sidecar") blockers.push("kind_must_be_source_text_traceability_sidecar");
+  if (!isSafeId(sidecar?.traceability_id)) blockers.push("traceability_id_unsafe");
+  if (!["page_traceability_ready", "partial_page_traceability", "blocked_no_page_traceability", "blocked_invalid_source_text_index"].includes(sidecar?.status)) {
+    blockers.push("traceability_sidecar_status_unknown");
+  }
+  if (sidecar?.boundary?.storage_scope !== "_workspaces_private_payload") blockers.push("storage_scope_must_be_workspaces_private_payload");
+  if (sidecar?.boundary?.chunk_text_included !== false) blockers.push("chunk_text_must_not_be_included");
+  if (sidecar?.boundary?.source_text_included !== false) blockers.push("source_text_must_not_be_included");
+  if (sidecar?.boundary?.public_repo_safe !== false) blockers.push("traceability_sidecar_must_not_be_public_repo_safe");
+  if (!safeWorkspaceKnowledgeRef(sidecar?.source_refs?.source_ref)) blockers.push("source_ref_must_be_under_workspaces_knowledge");
+  if (!safeWorkspaceKnowledgeJsonRef(sidecar?.source_refs?.docling_json_ref)) blockers.push("docling_json_ref_must_be_under_workspaces_knowledge_json");
+  if (!Array.isArray(sidecar?.chunks)) blockers.push("chunks_must_be_array");
+  for (const chunk of sidecar?.chunks ?? []) {
+    if (!isSafeId(chunk?.chunk_id)) blockers.push("chunk_id_unsafe");
+    if (!["mapped", "weak_mapped", "unmapped"].includes(chunk?.traceability_status)) blockers.push("chunk_traceability_status_unknown");
+    if (!Array.isArray(chunk?.layout_labels)) blockers.push("chunk_layout_labels_must_be_array");
+    if (Object.hasOwn(chunk, "chunk_text")) blockers.push("chunk_text_must_not_be_included");
+    if (Object.hasOwn(chunk, "source_text")) blockers.push("source_text_must_not_be_included");
+    if (chunk?.page_span !== null && chunk?.page_span !== undefined) {
+      if (!Number.isInteger(chunk.page_span.start_page) || chunk.page_span.start_page < 1) blockers.push("page_span_start_page_invalid");
+      if (!Number.isInteger(chunk.page_span.end_page) || chunk.page_span.end_page < chunk.page_span.start_page) blockers.push("page_span_end_page_invalid");
+      if (!Array.isArray(chunk.page_span.pages)) blockers.push("page_span_pages_must_be_array");
+    }
+  }
+  blockers.push(...findLocalAbsolutePathStrings(sidecar));
+  return {
+    schema_version: SOURCE_TEXT_TRACEABILITY_SIDECAR_VALIDATION_SCHEMA_VERSION,
+    kind: "source_text_traceability_sidecar_validation",
+    status: blockers.length === 0 ? "pass" : "blocked",
+    traceability_id: sidecar?.traceability_id ?? null,
+    blocker_count: blockers.length,
+    blockers: [...new Set(blockers)].sort(),
+    counts: {
+      chunk_count: sidecar?.counts?.chunk_count ?? null,
+      page_backed_chunk_count: sidecar?.counts?.page_backed_chunk_count ?? null,
+      unmapped_chunk_count: sidecar?.counts?.unmapped_chunk_count ?? null,
+    },
+    boundary: {
+      storage_scope: sidecar?.boundary?.storage_scope ?? null,
+      chunk_text_included: sidecar?.boundary?.chunk_text_included === true,
+      source_text_included: sidecar?.boundary?.source_text_included === true,
+      public_repo_safe: sidecar?.boundary?.public_repo_safe === true,
+    },
+  };
+}
+
 export async function buildSourceTextAnswerRun(options = {}) {
   const repoRoot = path.resolve(options.repoRoot ?? process.cwd());
   const question = String(options.question ?? "").trim();
@@ -340,6 +577,13 @@ export async function buildSourceTextAnswerRun(options = {}) {
     sourceTextIndexRef: options.sourceTextIndexRef,
   });
   const indexValidation = validateSourceTextIndex(index);
+  const traceabilitySidecar = options.traceabilitySidecar ?? (options.traceabilitySidecarRef
+    ? await loadSourceTextTraceabilitySidecar({ repoRoot, traceabilitySidecarRef: options.traceabilitySidecarRef })
+    : null);
+  const traceabilityByChunkId = traceabilitySidecar
+    ? new Map((traceabilitySidecar.chunks ?? []).map((chunk) => [chunk.chunk_id, chunk]))
+    : new Map();
+  const nativePageTraceabilityAvailable = indexChunksHaveNativePageTraceability(index);
   const runId = normalizeSimpleId(
     options.runId ?? `source_text_answer_run_${stableHash(`${index?.index_id ?? "unknown"}:${question}`).slice(0, 12)}`,
     "run_id",
@@ -357,8 +601,9 @@ export async function buildSourceTextAnswerRun(options = {}) {
       source_card_ref: index?.source_refs?.source_card_ref ?? null,
       source_id: index?.source_refs?.source_id ?? null,
       source_ref: index?.source_refs?.source_ref ?? null,
+      traceability_sidecar_ref: options.traceabilitySidecarRef ?? null,
     },
-    boundary: sourceTextAnswerRunBoundary(),
+    boundary: sourceTextAnswerRunBoundary({ citationPageTraceabilityChecked: Boolean(traceabilitySidecar) || nativePageTraceabilityAvailable }),
     query: {
       raw_query_persisted: false,
       query_fingerprint: stableHash(`source_text_answer_query:${question}`),
@@ -388,11 +633,7 @@ export async function buildSourceTextAnswerRun(options = {}) {
       answer_uses_source_text: retrievedChunks.length > 0,
       retrieved_chunk_count: retrievedChunks.length,
       answer_text: renderExtractiveAnswerText({ index, retrievedChunks }),
-      citations: retrievedChunks.map((chunk) => ({
-        chunk_id: chunk.chunk_id,
-        source_ref: chunk.source_ref,
-        score: chunk.score,
-      })),
+      citations: retrievedChunks.map((chunk) => sourceTextCitationForChunk(chunk, traceabilityByChunkId.get(chunk.chunk_id))),
     },
     validation: {
       status: "unchecked",
@@ -438,6 +679,14 @@ export function validateSourceTextAnswerRun(run) {
   for (const citation of run?.response?.citations ?? []) {
     if (!isSafeId(citation?.chunk_id)) blockers.push("citation_chunk_id_unsafe");
     if (!safeWorkspaceKnowledgeRef(citation?.source_ref)) blockers.push("citation_source_ref_must_be_under_workspaces_knowledge");
+    if (citation?.page_span !== undefined && citation.page_span !== null) {
+      if (!Number.isInteger(citation.page_span.start_page) || citation.page_span.start_page < 1) blockers.push("citation_page_span_start_page_invalid");
+      if (!Number.isInteger(citation.page_span.end_page) || citation.page_span.end_page < citation.page_span.start_page) blockers.push("citation_page_span_end_page_invalid");
+      if (!Array.isArray(citation.page_span.pages)) blockers.push("citation_page_span_pages_must_be_array");
+    }
+    if (citation?.traceability_status !== undefined && !["mapped", "weak_mapped", "unmapped", "not_checked"].includes(citation.traceability_status)) {
+      blockers.push("citation_traceability_status_unknown");
+    }
   }
   blockers.push(...findLocalAbsolutePathStrings(run));
   return {
@@ -466,7 +715,8 @@ export function renderSourceTextAnswerRunText(run) {
     "근거 chunks:",
   ];
   for (const citation of run.response?.citations ?? []) {
-    lines.push(`- ${citation.chunk_id} (${citation.source_ref}, score=${citation.score})`);
+    const pageText = citation.page_span ? `, pages=${citation.page_span.pages.join(",")}` : "";
+    lines.push(`- ${citation.chunk_id} (${citation.source_ref}, score=${citation.score}${pageText})`);
   }
   if ((run.response?.citations ?? []).length === 0) lines.push("- 없음");
   lines.push("");
@@ -488,11 +738,27 @@ function sourceTextIndexBoundary({ sourceTextLoaded }) {
   };
 }
 
-function sourceTextAnswerRunBoundary() {
+function sourceTextTraceabilitySidecarBoundary() {
+  return {
+    storage_scope: "_workspaces_private_payload",
+    source_text_loaded: true,
+    source_text_included: false,
+    chunk_text_included: false,
+    public_repo_safe: false,
+    notebooklm_answers_included: false,
+    runtime_absolute_paths_included: false,
+    secrets_or_session_included: false,
+    owner_approval_claimed: false,
+    public_canon_promotion_allowed: false,
+  };
+}
+
+function sourceTextAnswerRunBoundary({ citationPageTraceabilityChecked = false } = {}) {
   return {
     storage_scope: "_workspaces_private_payload",
     source_text_loaded: true,
     answer_uses_source_text: true,
+    citation_page_traceability_checked: citationPageTraceabilityChecked,
     public_repo_safe: false,
     notebooklm_answers_included: false,
     runtime_absolute_paths_included: false,
@@ -519,6 +785,320 @@ function normalizeSourceText(rawText, sourceKind = "text") {
     return normalized.replace(/^---\n[\s\S]*?\n---\n/u, "").trim();
   }
   return normalized.trim();
+}
+
+function sourceTextCitationForChunk(chunk, traceability) {
+  const citation = {
+    chunk_id: chunk.chunk_id,
+    source_ref: chunk.source_ref,
+    score: chunk.score,
+  };
+  if (!traceability) {
+    const nativePageSpan = normalizeChunkPageSpan(chunk?.page_span);
+    if (nativePageSpan) {
+      return {
+        ...citation,
+        page_span: nativePageSpan,
+        traceability_status: ["mapped", "weak_mapped", "unmapped"].includes(chunk?.traceability_status) ? chunk.traceability_status : "mapped",
+        layout_labels: Array.isArray(chunk?.layout_labels) ? chunk.layout_labels : [],
+        warning_codes: Array.isArray(chunk?.warning_codes) ? chunk.warning_codes : [],
+      };
+    }
+    return {
+      ...citation,
+      traceability_status: "not_checked",
+    };
+  }
+  return {
+    ...citation,
+    page_span: traceability.page_span ?? null,
+    traceability_status: traceability.traceability_status,
+    layout_labels: traceability.layout_labels ?? [],
+    warning_codes: traceability.warning_codes ?? [],
+  };
+}
+
+function buildDoclingTraceabilityProfile(doclingJson) {
+  const refMap = new Map();
+  for (const collectionName of ["texts", "tables", "pictures", "groups"]) {
+    for (const item of doclingJson?.[collectionName] ?? []) {
+      if (typeof item?.self_ref === "string") refMap.set(item.self_ref, { ...item, collectionName });
+    }
+  }
+  const ordered = [];
+  const visitedRefs = new Set();
+  for (const child of doclingJson?.body?.children ?? []) {
+    collectDoclingOrderedElements(child?.$ref, refMap, ordered, visitedRefs);
+  }
+  const remaining = [];
+  for (const collectionName of ["texts", "tables", "pictures"]) {
+    for (const item of doclingJson?.[collectionName] ?? []) {
+      if (!visitedRefs.has(item?.self_ref)) {
+        remaining.push(doclingTraceabilityElement({ ...item, collectionName }));
+      }
+    }
+  }
+  ordered.push(...remaining.sort(compareDoclingElementsByPage));
+  const pageMap = new Map();
+  for (const [key, page] of Object.entries(doclingJson?.pages ?? {})) {
+    const pageNo = Number(page?.page_no ?? key);
+    if (Number.isInteger(pageNo) && pageNo > 0) {
+      pageMap.set(pageNo, {
+        page_no: pageNo,
+        text_element_count: 0,
+        table_count: 0,
+        picture_count: 0,
+      });
+    }
+  }
+  const textElements = ordered.filter((element) => element.element_kind === "text" || element.element_kind === "table");
+  let cursor = 0;
+  for (const element of textElements) {
+    element.normalized_start = cursor;
+    element.normalized_end = cursor + element.normalized_text.length;
+    cursor = element.normalized_end;
+  }
+  for (const element of ordered) {
+    for (const pageNo of element.pages) {
+      const summary = pageMap.get(pageNo) ?? {
+        page_no: pageNo,
+        text_element_count: 0,
+        table_count: 0,
+        picture_count: 0,
+      };
+      if (element.element_kind === "text") summary.text_element_count += 1;
+      if (element.element_kind === "table") summary.table_count += 1;
+      if (element.element_kind === "picture") summary.picture_count += 1;
+      pageMap.set(pageNo, summary);
+    }
+  }
+  return {
+    elements: ordered,
+    textElements,
+    normalizedDocumentText: textElements.map((element) => element.normalized_text).join(""),
+    pageSummary: [...pageMap.values()]
+      .sort((a, b) => a.page_no - b.page_no)
+      .map((page) => ({
+        ...page,
+        warning_codes: [
+          ...(page.text_element_count === 0 ? ["no_docling_text_elements"] : []),
+          ...(page.picture_count > 0 ? ["picture_present"] : []),
+          ...(page.table_count > 0 ? ["table_present"] : []),
+        ],
+      })),
+    pageCount: Object.keys(doclingJson?.pages ?? {}).length,
+    textElementCount: Array.isArray(doclingJson?.texts) ? doclingJson.texts.length : 0,
+    tableCount: Array.isArray(doclingJson?.tables) ? doclingJson.tables.length : 0,
+    pictureCount: Array.isArray(doclingJson?.pictures) ? doclingJson.pictures.length : 0,
+  };
+}
+
+function collectDoclingOrderedElements(ref, refMap, ordered, visitedRefs) {
+  if (!ref || visitedRefs.has(ref)) return;
+  const item = refMap.get(ref);
+  if (!item) return;
+  visitedRefs.add(ref);
+  if (item.collectionName === "groups") {
+    for (const child of item.children ?? []) collectDoclingOrderedElements(child?.$ref, refMap, ordered, visitedRefs);
+    return;
+  }
+  ordered.push(doclingTraceabilityElement(item));
+}
+
+function doclingTraceabilityElement(item) {
+  const elementKind = item.collectionName === "tables" ? "table" : item.collectionName === "pictures" ? "picture" : "text";
+  const text = elementKind === "table" ? doclingTableText(item) : String(item?.text ?? item?.orig ?? "");
+  const pages = doclingPagesForElement(item);
+  return {
+    self_ref: item.self_ref,
+    element_kind: elementKind,
+    label: safeDoclingLabel(item.label ?? elementKind),
+    pages,
+    text,
+    normalized_text: normalizeTraceText(text),
+    token_set: tokenize(text),
+  };
+}
+
+function compareDoclingElementsByPage(a, b) {
+  return doclingElementPrimaryPage(a) - doclingElementPrimaryPage(b) || String(a.self_ref ?? "").localeCompare(String(b.self_ref ?? ""));
+}
+
+function doclingElementPrimaryPage(element) {
+  return Array.isArray(element?.pages) && element.pages.length > 0 ? element.pages[0] : Number.MAX_SAFE_INTEGER;
+}
+
+function doclingTableText(table) {
+  const cells = table?.data?.table_cells ?? [];
+  return cells.map((cell) => String(cell?.text ?? "")).filter(Boolean).join(" ");
+}
+
+function doclingPagesForElement(item) {
+  const pages = new Set();
+  for (const prov of item?.prov ?? []) {
+    const pageNo = Number(prov?.page_no);
+    if (Number.isInteger(pageNo) && pageNo > 0) pages.add(pageNo);
+  }
+  return [...pages].sort((a, b) => a - b);
+}
+
+function mapChunkToDoclingTrace(chunk, doclingProfile) {
+  const nativeTrace = nativeChunkTraceResult(chunk, doclingProfile);
+  if (nativeTrace) return nativeTrace;
+  const chunkTextValue = String(chunk?.chunk_text ?? "");
+  const normalizedChunk = normalizeTraceText(chunkTextValue);
+  const exactRange = locateNormalizedChunkRange(normalizedChunk, doclingProfile.normalizedDocumentText);
+  if (exactRange) {
+    return chunkTraceResult(chunk, doclingProfile, elementsOverlappingRange(doclingProfile.textElements, exactRange), "normalized_text_anchor", "mapped");
+  }
+  const tokenMatchElements = bestTokenMatchElements(chunkTextValue, doclingProfile.textElements);
+  if (tokenMatchElements.length > 0) {
+    return chunkTraceResult(chunk, doclingProfile, tokenMatchElements, "token_overlap", "weak_mapped");
+  }
+  return {
+    chunk_id: chunk.chunk_id,
+    chunk_index: chunk.chunk_index,
+    source_ref: chunk.source_ref,
+    traceability_status: "unmapped",
+    match_method: "none",
+    page_span: null,
+    layout_labels: [],
+    element_ref_count: 0,
+    warning_codes: ["chunk_page_span_unmapped"],
+  };
+}
+
+function nativeChunkTraceResult(chunk, doclingProfile) {
+  const pageSpan = normalizeChunkPageSpan(chunk?.page_span);
+  if (!pageSpan) return null;
+  const pageSummaries = doclingPageSummariesForPages(doclingProfile, pageSpan.pages);
+  const traceabilityStatus = ["mapped", "weak_mapped", "unmapped"].includes(chunk?.traceability_status)
+    ? chunk.traceability_status
+    : "mapped";
+  const warningCodes = [
+    ...(Array.isArray(chunk?.warning_codes) ? chunk.warning_codes : []),
+    ...doclingWarningCodes({ pages: pageSpan.pages, pageSummaries, traceabilityStatus }),
+  ];
+  return {
+    chunk_id: chunk.chunk_id,
+    chunk_index: chunk.chunk_index,
+    source_ref: chunk.source_ref,
+    traceability_status: traceabilityStatus,
+    match_method: chunk?.match_method ?? "chunk_native_page_span",
+    page_span: pageSpan,
+    layout_labels: Array.isArray(chunk?.layout_labels) ? chunk.layout_labels : [],
+    element_ref_count: Number.isInteger(chunk?.element_ref_count) ? chunk.element_ref_count : 0,
+    warning_codes: [...new Set(warningCodes)].sort(),
+  };
+}
+
+function locateNormalizedChunkRange(normalizedChunk, normalizedDocumentText) {
+  if (!normalizedChunk || normalizedChunk.length < 12) return null;
+  const fullIndex = normalizedDocumentText.indexOf(normalizedChunk);
+  if (fullIndex >= 0) return { start: fullIndex, end: fullIndex + normalizedChunk.length };
+  const anchorLength = Math.min(120, Math.max(40, Math.floor(normalizedChunk.length / 4)));
+  const startAnchor = normalizedChunk.slice(0, anchorLength);
+  const endAnchor = normalizedChunk.slice(-anchorLength);
+  const startIndex = normalizedDocumentText.indexOf(startAnchor);
+  const endIndex = normalizedDocumentText.lastIndexOf(endAnchor);
+  if (startIndex >= 0 && endIndex >= startIndex) return { start: startIndex, end: endIndex + endAnchor.length };
+  return null;
+}
+
+function elementsOverlappingRange(elements, range) {
+  return elements.filter((element) => element.normalized_end > range.start && element.normalized_start < range.end);
+}
+
+function bestTokenMatchElements(chunkTextValue, elements) {
+  const chunkTokens = tokenize(chunkTextValue);
+  if (chunkTokens.size === 0) return [];
+  const matches = elements
+    .map((element) => {
+      const matched = [...chunkTokens].filter((token) => element.token_set.has(token));
+      const denominator = Math.max(1, Math.min(chunkTokens.size, element.token_set.size));
+      return {
+        element,
+        matched_count: matched.length,
+        score: matched.length / denominator,
+      };
+    })
+    .filter((match) => match.matched_count >= 2 && match.score >= 0.35)
+    .sort((a, b) => b.score - a.score || b.matched_count - a.matched_count)
+    .slice(0, 5);
+  const bestScore = matches[0]?.score ?? 0;
+  return matches.filter((match) => match.score >= bestScore * 0.8).map((match) => match.element);
+}
+
+function chunkTraceResult(chunk, doclingProfile, elements, matchMethod, traceabilityStatus) {
+  const pages = [...new Set(elements.flatMap((element) => element.pages))].sort((a, b) => a - b);
+  const layoutLabels = [...new Set(elements.map((element) => element.label).filter(Boolean))].sort();
+  const pageSummaries = doclingPageSummariesForPages(doclingProfile, pages);
+  const warningCodes = doclingWarningCodes({ pages, pageSummaries, traceabilityStatus });
+  return {
+    chunk_id: chunk.chunk_id,
+    chunk_index: chunk.chunk_index,
+    source_ref: chunk.source_ref,
+    traceability_status: pages.length > 0 ? traceabilityStatus : "unmapped",
+    match_method: matchMethod,
+    page_span: pages.length > 0 ? {
+      start_page: pages[0],
+      end_page: pages[pages.length - 1],
+      pages,
+    } : null,
+    layout_labels: layoutLabels,
+    element_ref_count: elements.length,
+    warning_codes: [...new Set(warningCodes)].sort(),
+  };
+}
+
+function doclingPageSummariesForPages(doclingProfile, pages) {
+  return pages.map((pageNo) => doclingProfile.pageSummary.find((page) => page.page_no === pageNo)).filter(Boolean);
+}
+
+function doclingWarningCodes({ pages, pageSummaries, traceabilityStatus }) {
+  return [
+    ...(traceabilityStatus === "weak_mapped" ? ["weak_token_overlap_page_span"] : []),
+    ...(pages.length === 0 ? ["chunk_page_span_unmapped"] : []),
+    ...(pages.length > 1 ? ["multi_page_chunk"] : []),
+    ...(pageSummaries.some((page) => page.picture_count > 0) ? ["picture_present_on_page"] : []),
+    ...(pageSummaries.some((page) => page.table_count > 0) ? ["table_present_on_page"] : []),
+  ];
+}
+
+function normalizeChunkPageSpan(pageSpan) {
+  if (!pageSpan || typeof pageSpan !== "object") return null;
+  const pages = Array.isArray(pageSpan.pages)
+    ? [...new Set(pageSpan.pages.map(Number).filter((pageNo) => Number.isInteger(pageNo) && pageNo > 0))].sort((a, b) => a - b)
+    : [];
+  const startPage = Number(pageSpan.start_page ?? pages[0]);
+  const endPage = Number(pageSpan.end_page ?? pages[pages.length - 1]);
+  if (!Number.isInteger(startPage) || startPage < 1) return null;
+  if (!Number.isInteger(endPage) || endPage < startPage) return null;
+  const normalizedPages = pages.length > 0 ? pages : [startPage];
+  return {
+    start_page: startPage,
+    end_page: endPage,
+    pages: normalizedPages,
+  };
+}
+
+function indexChunksHaveNativePageTraceability(index) {
+  return Array.isArray(index?.chunks) && index.chunks.some((chunk) => normalizeChunkPageSpan(chunk?.page_span));
+}
+
+function safeDoclingLabel(value) {
+  return String(value ?? "unknown")
+    .replace(/[^A-Za-z0-9_.:-]+/g, "_")
+    .replace(/^_+|_+$/g, "")
+    .slice(0, 80) || "unknown";
+}
+
+function normalizeTraceText(value) {
+  return String(value ?? "")
+    .normalize("NFKC")
+    .toLowerCase()
+    .replace(/\s+/gu, "")
+    .replace(/[|#*_`~>()[\]{}"'“”‘’.,;:!?\\/\\-]+/gu, "");
 }
 
 function sourceCardSourceRef(card) {
@@ -576,6 +1156,99 @@ function chunkText(text, { sourceId, sourceRef, maxChars }) {
       char_count: chunkTextValue.length,
     };
   });
+}
+
+function doclingTextForIndex(doclingProfile) {
+  return (doclingProfile.textElements ?? [])
+    .map((element) => String(element.text ?? "").trim())
+    .filter(Boolean)
+    .join("\n\n")
+    .trim();
+}
+
+function chunkDoclingElementOrderText(doclingProfile, { sourceId, sourceRef, maxChars }) {
+  const chunks = [];
+  let currentParts = [];
+  let currentElements = [];
+  const flush = () => {
+    if (currentParts.length === 0) return;
+    chunks.push(doclingChunkFromParts({
+      sourceId,
+      sourceRef,
+      chunkIndex: chunks.length,
+      parts: currentParts,
+      elements: currentElements,
+      doclingProfile,
+    }));
+    currentParts = [];
+    currentElements = [];
+  };
+
+  for (const element of doclingProfile.textElements ?? []) {
+    const text = String(element.text ?? "").trim();
+    if (!text) continue;
+    for (const piece of splitDoclingTextPiece(text, maxChars)) {
+      if (currentParts.length > 0 && shouldFlushDoclingPageChunk(currentElements, element)) flush();
+      const candidateLength = currentParts.length === 0
+        ? piece.length
+        : currentParts.join("\n\n").length + 2 + piece.length;
+      if (currentParts.length > 0 && candidateLength > maxChars) flush();
+      currentParts.push(piece);
+      currentElements.push(element);
+    }
+  }
+  flush();
+  return chunks;
+}
+
+function shouldFlushDoclingPageChunk(currentElements, nextElement) {
+  const currentPages = [...new Set(currentElements.flatMap((element) => element.pages))].sort((a, b) => a - b);
+  const nextPage = doclingElementPrimaryPage(nextElement);
+  if (currentPages.length === 0 || !Number.isInteger(nextPage)) return false;
+  return !currentPages.includes(nextPage);
+}
+
+function splitDoclingTextPiece(text, maxChars) {
+  if (text.length <= maxChars) return [text];
+  const pieces = [];
+  for (let start = 0; start < text.length; start += maxChars) {
+    const piece = text.slice(start, start + maxChars).trim();
+    if (piece) pieces.push(piece);
+  }
+  return pieces;
+}
+
+function doclingChunkFromParts({ sourceId, sourceRef, chunkIndex, parts, elements, doclingProfile }) {
+  const chunkTextValue = parts.join("\n\n");
+  const tokenSet = tokenize(chunkTextValue);
+  const pages = [...new Set(elements.flatMap((element) => element.pages))].sort((a, b) => a - b);
+  const pageSpan = pages.length > 0
+    ? {
+      start_page: pages[0],
+      end_page: pages[pages.length - 1],
+      pages,
+    }
+    : null;
+  const layoutLabels = [...new Set(elements.map((element) => element.label).filter(Boolean))].sort();
+  const warningCodes = doclingWarningCodes({
+    pages,
+    pageSummaries: doclingPageSummariesForPages(doclingProfile, pages),
+    traceabilityStatus: pages.length > 0 ? "mapped" : "unmapped",
+  });
+  return {
+    chunk_id: `${sourceId}_chunk_${String(chunkIndex + 1).padStart(3, "0")}`,
+    source_ref: sourceRef,
+    chunk_index: chunkIndex,
+    chunk_text: chunkTextValue,
+    token_fingerprints: [...tokenSet].map(stableHash).sort(),
+    char_count: chunkTextValue.length,
+    page_span: pageSpan,
+    traceability_status: pages.length > 0 ? "mapped" : "unmapped",
+    match_method: pages.length > 0 ? "docling_element_order" : "docling_element_order_unpaged",
+    layout_labels: layoutLabels,
+    element_ref_count: elements.length,
+    warning_codes: warningCodes,
+  };
 }
 
 function retrieveChunks(index, question, maxChunks) {
@@ -644,6 +1317,10 @@ function defaultAnswerRunOutputRef(run) {
   return normalizeRepoPath(path.join(DEFAULT_ANSWER_RUN_ROOT, run.run_id, "source_text_answer_run.json"));
 }
 
+function defaultTraceabilitySidecarOutputRef(sidecar) {
+  return normalizeRepoPath(path.join(DEFAULT_TRACEABILITY_SIDECAR_ROOT, sidecar.traceability_id, "source_text_traceability_sidecar.json"));
+}
+
 function safeSourceTextIndexOutputPath(outputRef) {
   const normalized = safeRepoRelativePath(outputRef);
   if (!normalized.startsWith(`${DEFAULT_INDEX_ROOT}/`)) {
@@ -659,6 +1336,15 @@ function safeSourceTextAnswerRunOutputPath(outputRef) {
     throw new Error(`source text answer run output must be under ${DEFAULT_ANSWER_RUN_ROOT}`);
   }
   if (!normalized.endsWith(".json")) throw new Error("source text answer run output must be json");
+  return normalized;
+}
+
+function safeSourceTextTraceabilitySidecarOutputPath(outputRef) {
+  const normalized = safeRepoRelativePath(outputRef);
+  if (!normalized.startsWith(`${DEFAULT_TRACEABILITY_SIDECAR_ROOT}/`)) {
+    throw new Error(`source text traceability sidecar output must be under ${DEFAULT_TRACEABILITY_SIDECAR_ROOT}`);
+  }
+  if (!normalized.endsWith(".json")) throw new Error("source text traceability sidecar output must be json");
   return normalized;
 }
 

@@ -1,0 +1,58 @@
+{
+  "workflow_id": "rag_metadata_refresh_v0",
+  "calibration_id": "cal_20260527_quality_equiv_001",
+  "ranking": [
+    {
+      "rank": 1,
+      "candidate_id": "A_mini_low_dwarf_archivist",
+      "model": "gpt-5.4-mini",
+      "reasoning_effort": "low",
+      "species": "dwarf",
+      "class": "archivist",
+      "quality_score": 91,
+      "total_tokens": 14828,
+      "reasoning_output_tokens": 53,
+      "wall_s": 9.81,
+      "selection": "primary"
+    },
+    {
+      "rank": 2,
+      "candidate_id": "B_54_low_dwarf_archivist",
+      "model": "gpt-5.4",
+      "reasoning_effort": "low",
+      "species": "dwarf",
+      "class": "archivist",
+      "quality_score": 96,
+      "total_tokens": 15762,
+      "reasoning_output_tokens": 13,
+      "wall_s": 22.85,
+      "selection": "shadow"
+    },
+    {
+      "rank": 3,
+      "candidate_id": "C_55_low_dwarf_archivist",
+      "model": "gpt-5.5",
+      "reasoning_effort": "low",
+      "species": "dwarf",
+      "class": "archivist",
+      "quality_score": 95,
+      "total_tokens": 16975,
+      "reasoning_output_tokens": 16,
+      "wall_s": 20.06,
+      "selection": "shadow"
+    },
+    {
+      "rank": 4,
+      "candidate_id": "D_55_medium_dwarf_archivist",
+      "model": "gpt-5.5",
+      "reasoning_effort": "medium",
+      "species": "dwarf",
+      "class": "archivist",
+      "quality_score": 94,
+      "total_tokens": 16846,
+      "reasoning_output_tokens": 22,
+      "wall_s": 20.75,
+      "selection": "shadow"
+    }
+  ]
+}

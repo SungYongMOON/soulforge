@@ -1,0 +1,28 @@
+{
+  "candidate_id": "B_54_low_dwarf_archivist",
+  "profile": {
+    "model": "gpt-5.4",
+    "reasoning_effort": "low",
+    "species": "dwarf",
+    "class": "archivist"
+  },
+  "output_summary": {
+    "refresh_scope_binding": "Run mode candidate, metadata pointers and status refs only.",
+    "metadata_delta_inventory": "Driver events and required actions for stale-ref inventory, pointer refresh, owner-decision preservation, blocked/refreshed/stale labels, lineage candidate, and boundary note.",
+    "rag_surface_inventory": "Each listed surface receives expected refresh or preserve-ref-only handling.",
+    "rag_manifest_refresh_packet": "Replace old workflow-id refs where resolvable, update projection metadata ref, add stale/refreshed/blocked markers, retain owner decision refs without approval.",
+    "source_slice_card_refresh_set": "Per-card old workflow-id, superseded projection, and unresolved mapping handling.",
+    "source_slice_triage_refresh_packet": "Ref health buckets: refreshed, stale, blocked_by_ref.",
+    "source_slice_review_refresh_packet": "Review queue metadata refresh without changing approval state.",
+    "source_slice_decision_packet_refresh": "Decision packet pointer refresh without candidate-to-approval conversion.",
+    "owner_decision_record_refresh_candidate": "Owner authority remains owner-retained.",
+    "metadata_index_refresh_packet": "Artifact, status, and lineage indexes refreshed as metadata.",
+    "retrieval_trace_evaluation_refresh": "Evaluation metadata envelope only.",
+    "graph_lens_export_candidate": "Metadata graph nodes and edges are navigation-only candidates.",
+    "boundary_review_note": "Conservative; unresolved mappings remain blocked_by_ref.",
+    "provenance": "Synthetic fixture only; no execution claim.",
+    "gaps": "Needs concrete new workflow ref, projection version, surface ref tables, and lineage policy before real application.",
+    "downstream_handoff": "Resolve refs, apply annotations, optionally emit metadata lineage event, and submit owner-decision candidates without approval implication.",
+    "no_claims": "No source truth, answer authority, owner approval, ontology/canon promotion, default-route switch, or command execution claim."
+  }
+}

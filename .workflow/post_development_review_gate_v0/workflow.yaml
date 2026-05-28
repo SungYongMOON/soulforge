@@ -25,6 +25,7 @@ optional_inputs:
   - knowledge_access_event_refs
   - adoption_decision_refs
   - promotion_candidate_refs
+  - owner_delegated_canon_policy_refs
   - inspector_review_refs
   - judge_review_refs
   - verifier_review_refs
@@ -43,6 +44,7 @@ workflow_modes:
   - close_bounded_development
   - review_workflow_or_skill_change
   - review_adoption_or_router_decision
+  - apply_owner_delegated_auto_canon_guard
   - escalate_full_b_v_gate
 review_level_values:
   - self_check
@@ -66,6 +68,9 @@ post_development_review_contract:
     - independent_reviewer_usage_or_gap
     - value_and_alternative_judgment_for_level_2
     - full_b_v_handoff_for_level_3
+    - existing_delegated_owner_policy_application
+    - public_canon_guard_evaluation
+    - canon_promotion_allowed_record
     - final_supervisor_decision
     - private_evidence_packet_shape
   does_not_own:
@@ -74,6 +79,12 @@ post_development_review_contract:
     - raw_project_payload_storage
     - secret_material_inspection
     - owner_approval_authority
+    - owner_delegation_creation
+    - source_truth_promotion_authority
+    - ontology_acceptance_authority
+    - final_domain_doctrine_authority
+    - external_upload_authority
+    - default_route_mutation_authority
     - production_ready_claim_without_required_b_v_evidence
     - mutation_of_upstream_workflow_outputs
   required_output_shapes:
@@ -109,3 +120,6 @@ notes:
   - Public workflow canon stores only portable routing rules and packet templates. Applied packets belong in `_workmeta/<project_code>/` or `_workmeta/system/`.
   - Level 3 means escalation to a full B/V gate when the claim requires fresh executor and separate verifier evidence; this package can record the handoff but does not make missing B/V evidence true.
   - Every bounded close should record `knowledge_trigger_check` as `no_trigger`, `metadata_only_record`, `sourcebound_review_candidate`, or `owner_decision_needed`; this is a candidate signal only, not source truth or canon authority.
+  - This gate does not create owner approval. It can only apply an existing delegated owner policy, owner decision, or promotion policy ref supplied as input.
+  - When the authority guard, source-support guard, and six public canon guards pass, the supervisor decision may record `canon_promotion_allowed: true`, require same-task canon registration, and record target refs, empty failed guards, and claim ceiling after registration.
+  - Delegated policy application cannot authorize source truth, ontology acceptance, final domain doctrine, external upload, default route mutation, or production-ready claims unless a separate owner-surface policy explicitly grants that authority and the required review route passes.

@@ -1,11 +1,80 @@
 schema_version: soulforge_profile_policy_v0
 workflow_id: se_cross_stage_mapping_governance_v0
+kind: workflow_profile_policy
+status: active
+last_calibration_id: cal_20260527_quality_equiv_001
+calibration_mode: subagent_quality_matrix_with_cli_proxy_telemetry
+matrix_mode: staged_public_synthetic_quality_equivalence
 default_profile:
   posture: conservative_governance
   claim_style: weakest_supported_ceiling
   public_private_boundary: public_safe_structure_only
   inspection_mode: metadata_only
   hwp_hwpx_handling: filename_title_pdf_html_intake_notes_only
+measurement_policy:
+  quality_source: fresh_subagent_staged_matrix
+  telemetry_source: cli_proxy_probe_for_shortlisted_candidates
+  subagent_token_usage_available: partial_baseline_only
+  telemetry_exact_for_subagent: false
+  telemetry_exact_for_cli: true
+  cost_confidence: relative_proxy
+  quality_gate: governance_route_precision_required
+primary_profile:
+  model: gpt-5.4
+  reasoning_effort: low
+  species: dwarf
+  class: auditor
+  label: gpt-5.4|low|dwarf|auditor
+  quality_score: 96
+  quality_class: quality_equivalent_pass
+  baseline_relative_quality: 0.96
+  input_tokens: 57008
+  cached_input_tokens: 21248
+  output_tokens: 1704
+  total_tokens: 58712
+  reasoning_output_tokens: 88
+  wall_s: 40.62
+shadow_top_k:
+  - rank: 2
+    label: gpt-5.5|medium|dwarf|auditor
+    model: gpt-5.5
+    reasoning_effort: medium
+    species: dwarf
+    class: auditor
+    quality_score: 94
+    quality_class: quality_equivalent_pass
+    baseline_relative_quality: 0.94
+    telemetry_status: not_cli_probed
+  - rank: 3
+    label: gpt-5.5|low|dwarf|auditor
+    model: gpt-5.5
+    reasoning_effort: low
+    species: dwarf
+    class: auditor
+    quality_score: 90
+    quality_class: pass
+    baseline_relative_quality: 0.90
+    input_tokens: 48843
+    cached_input_tokens: 26880
+    output_tokens: 1516
+    total_tokens: 50359
+    reasoning_output_tokens: 90
+    wall_s: 37.37
+  - rank: 4
+    label: gpt-5.4-mini|low|dwarf|auditor
+    model: gpt-5.4-mini
+    reasoning_effort: low
+    species: dwarf
+    class: auditor
+    quality_score: 88
+    quality_class: minimum_viable_pass
+    baseline_relative_quality: 0.88
+    input_tokens: 17602
+    cached_input_tokens: 3456
+    output_tokens: 1403
+    total_tokens: 19005
+    reasoning_output_tokens: 55
+    wall_s: 16.54
 forbidden_profiles:
   - evidence_authority
   - final_readiness_authority
@@ -14,3 +83,16 @@ forbidden_profiles:
   - hwp_body_extraction
   - source_download_executor
   - downstream_rerun_executor
+rerun_triggers:
+  - workflow step graph changes
+  - output templates change
+  - allowed workflow route policy changes
+  - governance claim-ceiling policy changes
+  - source/HWP boundary policy changes
+  - primary profile fails quality gate
+  - new public-safe fixture family added
+calibration_archive_ref: calibrations/cal_20260527_quality_equiv_001/
+notes:
+  - Optimization used public-safe synthetic metadata rows only.
+  - Primary selection prefers route and claim-ceiling precision over the cheaper minimum-viable mini candidate.
+  - Optimization does not upgrade this workflow beyond registered governance-only status.

@@ -1,0 +1,12 @@
+{
+  "workflow_id": "se_cross_stage_mapping_governance_v0",
+  "calibration_id": "cal_20260527_quality_equiv_001",
+  "shortlist": [
+    "gpt-5.4|low|dwarf|auditor",
+    "gpt-5.5|medium|dwarf|auditor",
+    "gpt-5.5|low|dwarf|auditor",
+    "gpt-5.4-mini|low|dwarf|auditor"
+  ],
+  "decision": "select_gpt_5_4_low_dwarf_auditor",
+  "rationale": "The mini candidate was cheaper and fast but only minimum viable on route precision. The 5.4 low candidate preserved governance routes and non-claims with quality-equivalent output. 5.5 candidates remain useful shadows but did not justify stronger cost or runtime."
+}

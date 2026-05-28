@@ -1,0 +1,45 @@
+{
+  "workflow_id": "se_cross_stage_mapping_governance_v0",
+  "calibration_id": "cal_20260527_quality_equiv_001",
+  "baseline_profile": "gpt-5.5|xhigh|dwarf|auditor",
+  "primary": {
+    "label": "gpt-5.4|low|dwarf|auditor",
+    "model": "gpt-5.4",
+    "reasoning_effort": "low",
+    "species": "dwarf",
+    "class": "auditor",
+    "quality_score": 96,
+    "quality_class": "quality_equivalent_pass",
+    "total_tokens": 58712,
+    "reasoning_output_tokens": 88,
+    "wall_s": 40.62,
+    "baseline_relative_quality": 0.96
+  },
+  "shadow_top_k": [
+    {
+      "rank": 2,
+      "label": "gpt-5.5|medium|dwarf|auditor",
+      "quality_score": 94,
+      "quality_class": "quality_equivalent_pass",
+      "telemetry_status": "not_cli_probed"
+    },
+    {
+      "rank": 3,
+      "label": "gpt-5.5|low|dwarf|auditor",
+      "quality_score": 90,
+      "quality_class": "pass",
+      "total_tokens": 50359,
+      "reasoning_output_tokens": 90,
+      "wall_s": 37.37
+    },
+    {
+      "rank": 4,
+      "label": "gpt-5.4-mini|low|dwarf|auditor",
+      "quality_score": 88,
+      "quality_class": "minimum_viable_pass",
+      "total_tokens": 19005,
+      "reasoning_output_tokens": 55,
+      "wall_s": 16.54
+    }
+  ]
+}

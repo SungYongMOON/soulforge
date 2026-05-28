@@ -1,0 +1,4 @@
+{"candidate_id":"A_mini_low_dwarf_archivist","model":"gpt-5.4-mini","reasoning_effort":"low","input_tokens":14357,"cached_input_tokens":4480,"output_tokens":471,"reasoning_output_tokens":53,"total_tokens":14828,"wall_s":9.81,"output_chars":2102}
+{"candidate_id":"B_54_low_dwarf_archivist","model":"gpt-5.4","reasoning_effort":"low","input_tokens":14709,"cached_input_tokens":3456,"output_tokens":1053,"reasoning_output_tokens":13,"total_tokens":15762,"wall_s":22.85,"output_chars":5431}
+{"candidate_id":"C_55_low_dwarf_archivist","model":"gpt-5.5","reasoning_effort":"low","input_tokens":16094,"cached_input_tokens":7552,"output_tokens":881,"reasoning_output_tokens":16,"total_tokens":16975,"wall_s":20.06,"output_chars":4329}
+{"candidate_id":"D_55_medium_dwarf_archivist","model":"gpt-5.5","reasoning_effort":"medium","input_tokens":16094,"cached_input_tokens":4480,"output_tokens":752,"reasoning_output_tokens":22,"total_tokens":16846,"wall_s":20.75,"output_chars":3633}

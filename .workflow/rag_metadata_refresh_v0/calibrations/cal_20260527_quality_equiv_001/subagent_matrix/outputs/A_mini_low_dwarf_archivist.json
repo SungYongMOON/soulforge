@@ -1,0 +1,28 @@
+{
+  "candidate_id": "A_mini_low_dwarf_archivist",
+  "profile": {
+    "model": "gpt-5.4-mini",
+    "reasoning_effort": "low",
+    "species": "dwarf",
+    "class": "archivist"
+  },
+  "output_summary": {
+    "refresh_scope_binding": "Public-safe synthetic fixture only with explicit exclusions.",
+    "metadata_delta_inventory": "Workflow rename, projection update, surface ref assessment, owner-decision preservation, and optional lineage event candidate.",
+    "rag_surface_inventory": "Manifest, cards, triage, review, decision, owner decision, metadata index, retrieval trace/evaluation, and graph lens surfaces are refresh candidates.",
+    "rag_manifest_refresh_packet": "Refresh metadata pointers only and mark stale/blocked refs by reference.",
+    "source_slice_card_refresh_set": "Refresh source-slice cards by pointer state only.",
+    "source_slice_triage_refresh_packet": "Inventory delta refs, flag stale refs, preserve owner-decision linkage, no source payload access.",
+    "source_slice_review_refresh_packet": "Refresh queue pointers and keep approval state unchanged.",
+    "source_slice_decision_packet_refresh": "Retain non-approved owner-decision references without converting to approval.",
+    "owner_decision_record_refresh_candidate": "Carry owner-decision refs forward as references only.",
+    "metadata_index_refresh_packet": "Sync delta pointers and preserve provenance linkage.",
+    "retrieval_trace_evaluation_refresh": "Refresh trace pointers and exclude embedding/vector/BM25 payloads.",
+    "graph_lens_export_candidate": "Refresh graph export pointers only; no ontology or canon promotion.",
+    "boundary_review_note": "Metadata refresh only; no source text, answer payload, Drive mutation, vector artifact, approval, or authority claim.",
+    "provenance": "User-provided synthetic fixture only.",
+    "gaps": "Concrete stale ref identifiers and real execution are not present in the fixture.",
+    "downstream_handoff": "Apply pointer-only updates only after authorized concrete refs are available; optional metadata-only lineage event.",
+    "no_claims": "No source truth, answer authority, owner approval, ontology/canon promotion, default route switch, repo/private payload access, or command execution claim."
+  }
+}

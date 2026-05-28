@@ -1,0 +1,25 @@
+workflow_id: rag_work_card_router_v0
+kind: quality_review_intake
+schema_version: v0
+status: draft
+intake_id: "<intake_id>"
+page_quality_review_packet_ref: "<page_quality_review_packet_ref>"
+approved_context_inventory_ref: "<approved_context_inventory_ref>"
+quality_status_summary:
+  source_supported_page_refs: []
+  manual_review_page_refs: []
+  blocked_page_refs: []
+warning_summary:
+  table: []
+  picture: []
+  ocr: []
+  page: []
+intake_decision: "<accepted|manual_review_required|blocked>"
+blocked_reason: null
+payload_absence:
+  raw_question: false
+  raw_source_text: false
+  copied_source_excerpt: false
+  raw_answer: false
+  notebooklm_answer_payload: false
+  host_absolute_path: false

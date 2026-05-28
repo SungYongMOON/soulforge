@@ -1,0 +1,28 @@
+{
+  "candidate_id": "D_55_medium_dwarf_archivist",
+  "profile": {
+    "model": "gpt-5.5",
+    "reasoning_effort": "medium",
+    "species": "dwarf",
+    "class": "archivist"
+  },
+  "output_summary": {
+    "refresh_scope_binding": "Allowed actions are inventory, pointer refresh, stale/refreshed/blocked marking, owner-decision preservation, optional lineage, and boundary note.",
+    "metadata_delta_inventory": "Blocks concrete replacement until an approved ref is supplied; projection update is refresh candidate; surfaces inventoried.",
+    "rag_surface_inventory": "Decision and owner-decision surfaces preserve without approval; other surfaces refresh as metadata candidates.",
+    "rag_manifest_refresh_packet": "Adds candidate id, flags stale old workflow refs, links projection update, preserves owner decision refs.",
+    "source_slice_card_refresh_set": "Marks old workflow refs stale, projection-aligned cards refreshed, unresolved mappings blocked_by_ref.",
+    "source_slice_triage_refresh_packet": "Routes unresolved workflow rename refs to follow-up without altering conclusions as approvals.",
+    "source_slice_review_refresh_packet": "Retains prior review refs as historical metadata and separates review-needed from approved.",
+    "source_slice_decision_packet_refresh": "Preserves decisions and annotates dependency on rename ref without approve/reject/promote.",
+    "owner_decision_record_refresh_candidate": "Preserves owner-decision refs exactly as metadata references.",
+    "metadata_index_refresh_packet": "Indexes candidate id, stale markers, projection update pointer, and blocked_by_ref gaps.",
+    "retrieval_trace_evaluation_refresh": "Refreshes trace metadata pointers only and does not mutate payloads or answer authority.",
+    "graph_lens_export_candidate": "Candidate-only graph lens with canonical graph changes blocked pending approved ref.",
+    "boundary_review_note": "No repo/private payload read, no file edits, and all forbidden authority classes excluded.",
+    "provenance": "User-supplied synthetic fixture only.",
+    "gaps": "Approved new workflow id, concrete surface ids, and owner decision status are not supplied.",
+    "downstream_handoff": "Metadata ref maintainer provides approved refs, applies metadata-only packets, optionally records lineage, and reviews blocked_by_ref list.",
+    "no_claims": "No source truth, answer authority, owner approval, ontology/canon promotion, default-route switch, commands, or file edits."
+  }
+}

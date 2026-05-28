@@ -1,0 +1,71 @@
+history_entry_id: pilot_execution_20260527
+workflow_id: rag_work_card_router_v0
+entry_type: pilot_execution_evidence
+controller_mode: workflow_evolution
+completion_target: pilot_execute
+output_state_before: draft
+output_state_after: pilot-executed
+decision: sufficient_for_pilot_executed
+decision_basis:
+  - A controlled DAPA work-card command produced a payload-free work-card artifact.
+  - The work-card validator passed with zero blockers.
+  - The RAG test suite passed after CLI/test implementation.
+  - Manual-review citation conditions remain visible in the work-card status.
+registration_policy: not_registered_index_update_deferred
+registration_claimed: false
+default_route_safe: false
+default_route_safety_claimed: false
+canon_ready_claimed: false
+owner_approval_claimed: false
+index_update_performed: false
+evidence_refs:
+  - ref: _workspaces/knowledge/rag/source_text_work_cards/dapa_test_eval_requirements_verification_work_card_20260527/source_text_work_card.json
+    kind: source_text_work_card
+    sha256: B7CEC56E6C841A82CD87FBBF09555BB0A4E8A57A186403126C958C24F5E1F08F
+    generated_at_utc: "2026-05-26T17:11:38.327Z"
+  - ref: _workspaces/knowledge/rag/source_text_quality_reviews/dapa_test_eval_requirements_verification_quality_review_20260527/source_text_quality_review.json
+    kind: upstream_source_text_quality_review
+    sha256: 1B6A51775362FCF62E18F52FFF6F01237904BE97F5B259B37838B9FD9F06C3CF
+validator_results:
+  - validator_name: validate-work-card
+    command_ref: node guild_hall/rag/cli.mjs validate-work-card --work-card-ref _workspaces/knowledge/rag/source_text_work_cards/dapa_test_eval_requirements_verification_work_card_20260527/source_text_work_card.json
+    status: pass
+    blocker_count: 0
+  - validator_name: rag.test.mjs
+    command_ref: node --test guild_hall/rag/rag.test.mjs
+    status: pass
+    test_count: 7
+public_safe_summary:
+  work_card_status: manual_review
+  citation_status: source_supported_with_manual_review
+  claim_ceiling: source_supported
+  evidence_pages:
+    - 39
+    - 66
+    - 120
+  evidence_status_summary:
+    source_supported_pages:
+      - 66
+      - 120
+    manual_review_pages:
+      - 39
+    blocked_pages: []
+  warning_summary:
+    - page: 39
+      warning: table_present_on_page
+boundary_summary:
+  raw_question_copied_here: false
+  raw_source_text_copied_here: false
+  source_chunks_or_excerpts_copied_here: false
+  notebooklm_answer_payload_copied_here: false
+  secrets_or_credentials_copied_here: false
+  runtime_absolute_paths_copied_here: false
+  public_package_contains_only_refs_counts_statuses_and_summary: true
+residual_gaps:
+  - The pilot result remains manual_review because the upstream quality review has a table warning on page 39.
+  - The work card is a scoped request packet, not owner approval, source truth, answer truth, project execution authority, or canon promotion.
+  - This is not a final cold gate and does not support canon-ready or registered claims.
+  - The workflow is not registered in .workflow/index.yaml and is not default-route-safe.
+next_action_type: request_human_decision
+human_decision_required: true
+human_decision_reason: Owner/controller decision is required before registration, default-route use, or stronger canon readiness.

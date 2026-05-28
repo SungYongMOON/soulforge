@@ -1,0 +1,25 @@
+{
+  "profile_label": "gpt-5.5|xhigh|dwarf|auditor",
+  "quality_role": "baseline_golden_evaluator_only",
+  "summary": "Baseline preserved all fixture row ids, separated observations from non-claims, kept metadata-only scope, routed owner/source/review gaps without claiming downstream execution, and recorded open boundary issues for SRR input basis, PDR owner decision, FCA missing download, and RG open review action.",
+  "key_outputs_present": [
+    "mapping_governance_packet",
+    "cross_stage_artifact_matrix",
+    "artifact_to_input_map",
+    "claim_ceiling_register",
+    "missing_download_register",
+    "stage_gap_scan_index",
+    "boundary_review_note",
+    "owner_source_followup_rows",
+    "downstream_rerun_routes",
+    "quality_self_check"
+  ],
+  "claim_boundary": {
+    "source_truth": false,
+    "artifact_completion": false,
+    "review_approval": false,
+    "verification_completion": false,
+    "hwp_hwpx_body_coverage": false,
+    "downstream_rerun_execution": false
+  }
+}

@@ -1,0 +1,51 @@
+workflow_id: rag_metadata_refresh_v0
+calibration_id: cal_20260527_quality_equiv_001
+status: accepted
+recommended_profile:
+  candidate_id: A_mini_low_dwarf_archivist
+  model: gpt-5.4-mini
+  reasoning_effort: low
+  species: dwarf
+  class: archivist
+  quality_score: 91
+  quality_class: quality_gate_pass
+  total_tokens: 14828
+  reasoning_output_tokens: 53
+  wall_s: 9.81
+shadow_top_k:
+  - candidate_id: B_54_low_dwarf_archivist
+    model: gpt-5.4
+    reasoning_effort: low
+    species: dwarf
+    class: archivist
+    quality_score: 96
+    total_tokens: 15762
+    wall_s: 22.85
+  - candidate_id: C_55_low_dwarf_archivist
+    model: gpt-5.5
+    reasoning_effort: low
+    species: dwarf
+    class: archivist
+    quality_score: 95
+    total_tokens: 16975
+    wall_s: 20.06
+  - candidate_id: D_55_medium_dwarf_archivist
+    model: gpt-5.5
+    reasoning_effort: medium
+    species: dwarf
+    class: archivist
+    quality_score: 94
+    total_tokens: 16846
+    wall_s: 20.75
+decision_reason: >
+  All candidates passed the frozen quality gate. The selected profile was the
+  cheapest and fastest passing candidate, and the quality gap to higher-detail
+  shadows stayed below the 10-point threshold that would override cost.
+authority_boundary:
+  workflow_status_label: pilot-executed
+  source_truth_claimed: false
+  answer_authority_claimed: false
+  owner_approval_claimed: false
+  public_canon_promotion_claimed: false
+  ontology_acceptance_claimed: false
+  default_route_safe: false

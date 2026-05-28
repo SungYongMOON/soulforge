@@ -1,0 +1,7 @@
+{
+  "label": "gpt-5.5|low|dwarf|auditor",
+  "summary": "Produced all required output families, preserved row ids, and kept forbidden claims out. It combined some follow-up rows more aggressively than the primary candidate, reducing governance route precision.",
+  "quality_class": "pass",
+  "critical_errors": [],
+  "non_claims_preserved": true
+}

@@ -1,21 +1,78 @@
 workflow_id: rag_metadata_refresh_v0
 kind: workflow_profile_policy
-status: draft
-calibration_mode: not_calibrated
+status: active
+last_calibration_id: cal_20260527_quality_equiv_001
+calibration_mode: public_safe_synthetic_staged_quality_first
 measurement_policy:
-  quality_source: none_yet
-  telemetry_source: none_yet
+  quality_source: isolated_subagent_staged_candidate_matrix
+  telemetry_source: cli_passed_candidates_only
   subagent_token_usage_available: false
   telemetry_exact_for_subagent: false
-  telemetry_exact_for_cli: false
-  cost_confidence: unknown
+  telemetry_exact_for_cli: true
+  model_price_usd_measured: false
+  cost_confidence: relative_not_exact
 primary_profile:
-  model: null
-  reasoning_effort: null
-  species: null
-  class: null
-  label: unbound_until_project_or_mission_binding
-shadow_top_k: []
+  candidate_id: A_mini_low_dwarf_archivist
+  model: gpt-5.4-mini
+  reasoning_effort: low
+  species: dwarf
+  class: archivist
+  label: calibrated-cheapest-quality-pass
+  quality_score: 91
+  quality_class: quality_gate_pass
+  input_tokens: 14357
+  cached_input_tokens: 4480
+  output_tokens: 471
+  reasoning_output_tokens: 53
+  total_tokens: 14828
+  wall_seconds: 9.81
+  telemetry_source: cli_passed_candidate_probe
+shadow_top_k:
+  - rank: 2
+    candidate_id: B_54_low_dwarf_archivist
+    model: gpt-5.4
+    reasoning_effort: low
+    species: dwarf
+    class: archivist
+    label: higher-detail-shadow
+    quality_score: 96
+    quality_class: quality_gate_pass
+    input_tokens: 14709
+    cached_input_tokens: 3456
+    output_tokens: 1053
+    reasoning_output_tokens: 13
+    total_tokens: 15762
+    wall_seconds: 22.85
+  - rank: 3
+    candidate_id: C_55_low_dwarf_archivist
+    model: gpt-5.5
+    reasoning_effort: low
+    species: dwarf
+    class: archivist
+    label: frontier-low-shadow
+    quality_score: 95
+    quality_class: quality_gate_pass
+    input_tokens: 16094
+    cached_input_tokens: 7552
+    output_tokens: 881
+    reasoning_output_tokens: 16
+    total_tokens: 16975
+    wall_seconds: 20.06
+  - rank: 4
+    candidate_id: D_55_medium_dwarf_archivist
+    model: gpt-5.5
+    reasoning_effort: medium
+    species: dwarf
+    class: archivist
+    label: conservative-blocker-shadow
+    quality_score: 94
+    quality_class: quality_gate_pass
+    input_tokens: 16094
+    cached_input_tokens: 4480
+    output_tokens: 752
+    reasoning_output_tokens: 22
+    total_tokens: 16846
+    wall_seconds: 20.75
 rerun_triggers:
   - workflow prompt changed
   - output schema changed
@@ -24,7 +81,9 @@ rerun_triggers:
   - graph lens export policy changed
   - first controlled pilot exposes a new failure mode
   - owner-decision record authority policy changed
+calibration_archive_ref: calibrations/cal_20260527_quality_equiv_001/
 notes:
-  - This workflow is not profile-optimized and has no calibrated runtime profile.
-  - Runtime model, reasoning, species, class, party, and project choices are intentionally unbound.
-  - Any production-ready, canon-ready, or default-route-safe claim requires separate controlled execution and review evidence.
+  - This policy was updated from a public-safe synthetic calibration after controlled metadata-only pilot evidence existed.
+  - Workflow readiness label remains pilot-executed; optimization does not promote a stronger workflow authority state by itself.
+  - Primary selection prefers the cheapest and fastest quality-gate-passing candidate in this staged matrix.
+  - Any production-ready, canon-ready, source-truth, answer-authority, or default-route-safe claim requires separate owner decision and review evidence.

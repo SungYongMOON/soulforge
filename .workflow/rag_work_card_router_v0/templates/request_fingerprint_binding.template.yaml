@@ -1,0 +1,20 @@
+workflow_id: rag_work_card_router_v0
+kind: request_fingerprint_binding
+schema_version: v0
+status: draft
+binding_id: "<binding_id>"
+work_request_label: "<public_safe_label>"
+work_request_fingerprint: "<stable_request_fingerprint>"
+fingerprint_policy_ref: "<fingerprint_policy_ref>"
+fingerprint_inputs_persisted:
+  work_request_label: true
+  raw_question: false
+  normalized_question_text: false
+  prompt_payload: false
+payload_policy:
+  persist_raw_question: false
+  persist_source_payloads: false
+  persist_notebooklm_answers: false
+  persist_secret_or_credential_material: false
+  persist_runtime_absolute_path: false
+boundary_state: scoped

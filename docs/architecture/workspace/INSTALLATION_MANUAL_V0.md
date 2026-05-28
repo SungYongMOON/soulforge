@@ -102,6 +102,7 @@ under `_workmeta/system/reports/procedure_capture/source_extraction_runtime/`.
 Minimum smoke checks:
 
 ```powershell
+npm.cmd run guild-hall:rag -- source-text-runtime-preflight
 & "guild_hall/state/tools/source_extraction_venv/Scripts/docling.exe" --version
 & "guild_hall/state/tools/source_extraction_venv/Scripts/python.exe" -c "import docling, fitz, pypdf, pytesseract, tika, docx, pptx, openpyxl, lxml, bs4, olefile; print('imports_ok')"
 tesseract --list-langs
@@ -114,6 +115,12 @@ If a command is not on PATH immediately after installation, verify it by exact
 local path, then record that path in `_workmeta/system` only. Future public
 automation should consume a preflight result, not hard-coded local install
 paths.
+
+The preferred public-safe automation surface is
+`npm.cmd run guild-hall:rag -- source-text-runtime-preflight`. It merges the
+running process environment with the Windows user environment where possible,
+checks the repo-local extraction venv and OCR language data, and redacts actual
+machine-local executable paths from its JSON output.
 
 ## Chapter 2. 저장소 준비
 

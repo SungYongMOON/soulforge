@@ -1,0 +1,40 @@
+calibration_id: cal_20260527_quality_equiv_001
+workflow_id: rag_metadata_refresh_v0
+created_at: "2026-05-27T00:00:00+09:00"
+kind: workflow_optimizer_calibration
+mode: public_safe_synthetic_staged_quality_first
+controller_skill: workflow-optimizer
+review_skill: soulforge-workflow-check
+input_fixture_ref: input_fixture.public.json
+quality_gate_ref: quality_gate/criteria.json
+candidate_matrix:
+  mode: staged
+  candidate_count: 4
+  candidates:
+    - A_mini_low_dwarf_archivist
+    - B_54_low_dwarf_archivist
+    - C_55_low_dwarf_archivist
+    - D_55_medium_dwarf_archivist
+selected_primary: A_mini_low_dwarf_archivist
+boundary:
+  public_safe_synthetic_only: true
+  private_payloads_used: false
+  raw_source_text_used: false
+  notebooklm_answers_used: false
+  drive_mutation_used: false
+  host_absolute_paths_in_archive: false
+  source_truth_claimed: false
+  answer_authority_claimed: false
+  owner_approval_claimed: false
+  ontology_or_canon_promotion_claimed: false
+  default_route_switch_claimed: false
+telemetry:
+  source: cli_passed_candidates_only
+  exact_for_cli: true
+  exact_for_subagent: false
+  price_measured: false
+  confidence: relative_not_exact
+notes:
+  - Candidate quality came from isolated public-safe subagent runs.
+  - Token and wall-clock telemetry came from separate ephemeral read-only Codex CLI probes.
+  - Calibration does not strengthen workflow authority beyond pilot-executed.

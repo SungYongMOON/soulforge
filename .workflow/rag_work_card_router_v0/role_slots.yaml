@@ -1,0 +1,22 @@
+workflow_id: rag_work_card_router_v0
+kind: role_slots
+status: draft
+slots:
+  - slot_id: request_fingerprint_binder
+    title: Request Fingerprint Binder
+    summary: Binds a public-safe request label and stable fingerprint while excluding raw question persistence.
+  - slot_id: approved_context_inventory_author
+    title: Approved Context Inventory Author
+    summary: Inventories approved source card refs, index refs, sourcebound refs, and claim ceilings without source payloads.
+  - slot_id: quality_review_intake_author
+    title: Quality Review Intake Author
+    summary: Intakes page quality status and warning summaries from a review packet by ref.
+  - slot_id: deterministic_work_card_author
+    title: Deterministic Work Card Author
+    summary: Assembles the work-card packet from stable inputs, sorted refs, quality status, and route policy.
+  - slot_id: text_boundary_author
+    title: Text Boundary Author
+    summary: Writes the human-readable boundary using the label, allowed refs, warning posture, and explicit non-claims.
+  - slot_id: router_boundary_reviewer
+    title: Router Boundary Reviewer
+    summary: Confirms no raw question, source payload, authority, canon, or default-route claim enters the work-card output.

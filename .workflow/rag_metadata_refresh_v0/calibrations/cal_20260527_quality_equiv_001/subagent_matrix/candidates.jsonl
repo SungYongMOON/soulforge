@@ -1,0 +1,4 @@
+{"candidate_id":"A_mini_low_dwarf_archivist","model":"gpt-5.4-mini","reasoning_effort":"low","species":"dwarf","class":"archivist","status":"completed","output_ref":"subagent_matrix/outputs/A_mini_low_dwarf_archivist.json"}
+{"candidate_id":"B_54_low_dwarf_archivist","model":"gpt-5.4","reasoning_effort":"low","species":"dwarf","class":"archivist","status":"completed","output_ref":"subagent_matrix/outputs/B_54_low_dwarf_archivist.json"}
+{"candidate_id":"C_55_low_dwarf_archivist","model":"gpt-5.5","reasoning_effort":"low","species":"dwarf","class":"archivist","status":"completed","output_ref":"subagent_matrix/outputs/C_55_low_dwarf_archivist.json"}
+{"candidate_id":"D_55_medium_dwarf_archivist","model":"gpt-5.5","reasoning_effort":"medium","species":"dwarf","class":"archivist","status":"completed","output_ref":"subagent_matrix/outputs/D_55_medium_dwarf_archivist.json"}

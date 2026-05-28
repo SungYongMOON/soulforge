@@ -1,0 +1,28 @@
+workflow_id: rag_work_card_router_v0
+kind: text_boundary
+schema_version: v0
+status: draft
+text_boundary_id: "<text_boundary_id>"
+work_card_ref: "<work_card_ref>"
+request_label: "<public_safe_label>"
+request_fingerprint: "<stable_request_fingerprint>"
+boundary_text:
+  summary: "<human_readable_scope_summary_using_label_only>"
+  allowed_context_refs: []
+  manual_review_refs: []
+  blocked_refs: []
+  non_claims:
+    - no_raw_question_persisted
+    - no_source_payload_persisted
+    - no_owner_approval_claim
+    - no_canon_claim
+    - no_source_truth_claim
+    - no_answer_truth_claim
+    - no_default_route_safety_claim
+payload_absence:
+  raw_question: false
+  raw_source_text: false
+  copied_source_excerpt: false
+  notebooklm_answer_payload: false
+  secret_or_credential_material: false
+  host_absolute_path: false

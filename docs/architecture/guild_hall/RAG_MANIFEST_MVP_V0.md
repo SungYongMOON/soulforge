@@ -13,6 +13,18 @@ knowledge graph, future sourcebound retrieval, and later answer generation.
 Approved private source-text commands are a separate lane and may read only
 owner-approved `_workspaces/knowledge/**` source text.
 
+Source-family promotion rules live in
+`docs/architecture/guild_hall/RAG_SOURCE_FAMILY_PROMOTION_POLICY_V0.md`. That
+policy separates source canon from derived knowledge canon and fixes the
+default promotion ceiling for official public sources, private project sources,
+owner notes, parser outputs, advisory LLM/NotebookLM output, protected payloads,
+and public web/community sources.
+
+RAG progress is reported through the three-stage operating model in
+`docs/architecture/guild_hall/RAG_THREE_STAGE_OPERATING_MODEL_V0.md`:
+searchable RAG, work-ready RAG, and canon knowledge. Do not collapse these
+stages into one "RAG complete" claim.
+
 ## Owner Split
 
 | Surface | Role |
@@ -87,9 +99,17 @@ npm run guild-hall:rag -- validate-knowledge-source-card --source-card-ref _work
 npm run guild-hall:rag -- validate-source-sync-ready --ready-ref _workspaces/knowledge/common/<source_id>/source_sync_ready_manifest.json --source-card-ref _workspaces/knowledge/source_cards/<source_id>.source_card.json --source-text-ref _workspaces/knowledge/common/<source_id>/derived_text/<source_id>.md --stable-ms 2000
 npm run guild-hall:rag -- source-text-index --write --source-card-ref _workspaces/knowledge/source_cards/soulforge_common_knowledge_starter.source_card.json --index-id soulforge_common_knowledge_starter_20260525
 npm run guild-hall:rag -- source-text-index --write --source-card-ref _workspaces/knowledge/source_cards/<source_id>.source_card.json --ready-ref _workspaces/knowledge/common/<source_id>/source_sync_ready_manifest.json --stable-ms 2000 --index-id <source_id>_source_text_index
+npm run guild-hall:rag -- source-text-index --write --source-card-ref _workspaces/knowledge/source_cards/<source_id>.source_card.json --ready-ref _workspaces/knowledge/common/<source_id>/source_sync_ready_manifest.json --docling-json-ref _workspaces/knowledge/common/<source_id>/derived_text/<docling_json_export>.json --index-id <source_id>_docling_json_index
 npm run guild-hall:rag -- validate-source-text-index --source-text-index-ref _workspaces/knowledge/rag/indexes_local/source_text_indexes/soulforge_common_knowledge_starter_20260525/source_text_index.json
-npm run guild-hall:rag -- source-text-answer-run --write --source-text-index-ref _workspaces/knowledge/rag/indexes_local/source_text_indexes/soulforge_common_knowledge_starter_20260525/source_text_index.json --question "NotebookLM authority" --run-id soulforge_common_knowledge_answer_20260525
+npm run guild-hall:rag -- source-text-traceability-sidecar --write --source-text-index-ref _workspaces/knowledge/rag/indexes_local/source_text_indexes/<source_id>_source_text_index/source_text_index.json --docling-json-ref _workspaces/knowledge/common/<source_id>/derived_text/<docling_json_export>.json --traceability-id <source_id>_traceability
+npm run guild-hall:rag -- validate-source-text-traceability-sidecar --traceability-sidecar-ref _workspaces/knowledge/rag/traceability_sidecars/<source_id>_traceability/source_text_traceability_sidecar.json
+npm run guild-hall:rag -- source-text-answer-run --write --source-text-index-ref _workspaces/knowledge/rag/indexes_local/source_text_indexes/soulforge_common_knowledge_starter_20260525/source_text_index.json --traceability-sidecar-ref _workspaces/knowledge/rag/traceability_sidecars/<source_id>_traceability/source_text_traceability_sidecar.json --question "NotebookLM authority" --run-id soulforge_common_knowledge_answer_20260525
 npm run guild-hall:rag -- validate-source-text-answer-run --run-ref _workspaces/knowledge/rag/answer_runs/soulforge_common_knowledge_answer_20260525/source_text_answer_run.json
+npm run guild-hall:rag -- source-text-quality-review --write --source-text-index-ref _workspaces/knowledge/rag/indexes_local/source_text_indexes/<source_id>_docling_json_index/source_text_index.json --traceability-sidecar-ref _workspaces/knowledge/rag/traceability_sidecars/<source_id>_traceability/source_text_traceability_sidecar.json --answer-run-ref _workspaces/knowledge/rag/answer_runs/<answer_run_id>/source_text_answer_run.json --page 18-19 --page 39 --page 120-121 --review-id <source_id>_quality_review
+npm run guild-hall:rag -- validate-source-text-quality-review --review-ref _workspaces/knowledge/rag/source_text_quality_reviews/<source_id>_quality_review/source_text_quality_review.json
+npm run guild-hall:rag -- work-card --write --answer-run-ref _workspaces/knowledge/rag/answer_runs/<answer_run_id>/source_text_answer_run.json --quality-review-ref _workspaces/knowledge/rag/source_text_quality_reviews/<source_id>_quality_review/source_text_quality_review.json --query-label "<public-safe query label>" --work-card-id <source_id>_work_card
+npm run guild-hall:rag -- work-card --write --source-text-index-ref _workspaces/knowledge/rag/indexes_local/source_text_indexes/<source_id>_docling_json_index/source_text_index.json --traceability-sidecar-ref _workspaces/knowledge/rag/traceability_sidecars/<source_id>_traceability/source_text_traceability_sidecar.json --question "<transient raw question>" --query-label "<public-safe query label>" --page 18-19 --page 39 --page 120-121 --work-card-id <source_id>_single_command_work_card
+npm run guild-hall:rag -- validate-work-card --work-card-ref _workspaces/knowledge/rag/source_text_work_cards/<source_id>_work_card/source_text_work_card.json
 npm run guild-hall:rag -- metadata-index --write --manifest-ref _workspaces/system/rag/manifests/soulforge_metadata_rag_mvp_20260524/rag_manifest.json --decision-packet-ref _workmeta/system/reports/rag/source_slice_decision_packets/soulforge_source_decision_packet_20260524/source_slice_decision_packet.json --owner-decision-record-ref _workmeta/system/reports/rag/source_slice_owner_decisions/soulforge_source_owner_decision_record_20260524/source_slice_owner_decision_record.json --index-id soulforge_metadata_index_20260524
 npm run guild-hall:rag -- validate-metadata-index --metadata-index-ref _workspaces/system/rag/metadata_retrieval_indexes/soulforge_metadata_index_20260524/metadata_index.json
 npm run guild-hall:rag -- answer-engine-run --write --metadata-index-ref _workspaces/system/rag/metadata_retrieval_indexes/soulforge_metadata_index_20260524/metadata_index.json --extraction-packet-ref _workmeta/system/reports/rag/source_text_extraction_packets/soulforge_source_text_extraction_packet_20260524/source_text_extraction_packet.json --extraction-run-report-ref _workmeta/system/reports/rag/source_text_extraction_runs/soulforge_source_text_extraction_packet_20260524/source_text_extraction_run_report.json --question "GraphRAG RAG manifest source support" --run-id soulforge_answer_engine_run_20260524
@@ -153,7 +173,11 @@ The standard flow is:
 6. point the source card at the derived Markdown/text using a Soulforge-root
    relative path;
 7. run `source-text-index` only after the source card grants retrieval and
-   index-build permission.
+   index-build permission;
+8. if a structured Docling JSON export exists, prefer
+   `source-text-index --docling-json-ref ...` so chunking follows Docling
+   element/page order and native page spans are attached at build time, then run
+   `source-text-traceability-sidecar` as a no-source-text page audit sidecar.
 
 Default company-PC tool order:
 
@@ -183,6 +207,11 @@ Local runtime requirement:
   required tool families and package ids, but actual executable paths and
   version evidence belong under
   `_workmeta/system/reports/procedure_capture/source_extraction_runtime/`.
+- The portable readiness command is
+  `npm.cmd run guild-hall:rag -- source-text-runtime-preflight`. It may resolve
+  tools from the repo-local venv, current `PATH`, Windows user environment, and
+  local-only tool environment variables, but its public JSON output must redact
+  machine-local executable paths.
 - No source-text index may treat a missing extraction runtime, missing Korean
   OCR data, or missing HWPX converter as silently acceptable. It must be a
   blocker or a recorded fallback route before indexing.
@@ -292,12 +321,22 @@ is allowed when the source card records official source authority, for example
 an owner-approved DAPA/Korea.kr source. That stronger permission does not make
 the source-text index public-repo safe: full source text, extracted text, chunk
 payloads, and answer-run payloads still stay under `_workspaces/knowledge/**`.
+Use `RAG_SOURCE_FAMILY_PROMOTION_POLICY_V0.md` to decide whether a source family
+may move only to source canon, current-scope work-card use, private wiki
+candidate, or public canon candidate.
 
 The first supported source payloads are text and markdown starter sources.
 `source-text-index` remains downstream of parser-first extraction: it consumes
 approved derived Markdown/text, not arbitrary raw office files. HWP remains a
 preprocessing target and must be converted to HWPX before any future body
 extraction route can read it.
+
+When an approved Docling JSON export is available beside the approved
+Markdown/text, `source-text-index --docling-json-ref ...` may build a private
+index in Docling element/page order. This does not change the source-card gate:
+the source card still points at approved derived Markdown/text, while the JSON
+ref adds page-native chunk metadata for citation audit and later sidecar
+comparison.
 
 For cross-PC OneDrive intake, source cards should reference a
 `source_sync_ready_manifest_v0` through `source_sync_ready_ref`, or the operator
@@ -310,7 +349,10 @@ card explicitly allow them:
 
 - derived text under `_workspaces/knowledge/rag/derived_text/**`;
 - chunk indexes under `_workspaces/knowledge/rag/indexes_local/source_text_indexes/**`;
-- source-text answer proof runs under `_workspaces/knowledge/rag/answer_runs/**`.
+- traceability sidecars under `_workspaces/knowledge/rag/traceability_sidecars/**`;
+- source-text answer proof runs under `_workspaces/knowledge/rag/answer_runs/**`;
+- no-source-text quality reviews under `_workspaces/knowledge/rag/source_text_quality_reviews/**`;
+- source-text work cards under `_workspaces/knowledge/rag/source_text_work_cards/**`.
 
 It must not write source text, chunks, excerpts, or source-text answer payloads
 to public tracked files or `_workmeta`. `_workmeta` remains for ledgers, review
@@ -322,6 +364,35 @@ NotebookLM answer authority, ontology acceptance by itself, or permission to
 copy chunks into public tracked files. For official public sources, separate
 public-safe summaries and ontology seeds may be registered from the source with
 source refs.
+
+`source_text_traceability_sidecar_v0` is the page/layout audit companion for a
+private source-text index. It reads a structured Docling JSON export under
+`_workspaces/knowledge/**` and writes no raw source text or chunk text of its
+own. Its purpose is to attach `chunk_id -> page span`, layout labels, and
+warning codes so a sourcebound answer review can check whether citations point
+back to auditable PDF pages. For Docling JSON indexes, the sidecar should
+confirm the native page spans rather than relying on post-hoc token overlap. A
+sidecar can make citation review possible, but it does not approve OCR quality,
+figure semantics, owner approval, or canon promotion.
+
+`source_text_quality_review_v0` is the page/citation quality gate between a
+source-text answer run and reusable project work. It consumes refs to the
+source-text index, traceability sidecar, optional answer run, and explicit pages,
+then writes only page ids, chunk ids, citation ids, warning codes, status, and
+blocker labels. It classifies each reviewed page or citation as
+`source_supported`, `manual_review`, or `blocked`. Table/picture/OCR/page
+warnings are operator attention signals, not owner approval or public canon
+promotion.
+
+`source_text_work_card_v0` is the first source-text-backed work-card artifact. It
+consumes a validated answer run and quality review, persists labels and
+fingerprints rather than raw questions, and carries evidence pages, citation
+status, claim ceiling, manual-review state, and next actions. It is a private
+workspace task packet and does not grant NotebookLM authority, owner approval,
+ontology acceptance, default-route safety, or public canon promotion.
+When the command is invoked with a transient `--question`, it may write the
+intermediate source-text answer run and quality review first, but a stored
+`--query-label` is required so the raw question is not persisted.
 
 ## Graph Projection
 

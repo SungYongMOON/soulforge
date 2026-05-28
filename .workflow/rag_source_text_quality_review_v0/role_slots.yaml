@@ -1,0 +1,22 @@
+workflow_id: rag_source_text_quality_review_v0
+kind: role_slots
+status: draft
+slots:
+  - slot_id: quality_scope_binder
+    title: Quality Scope Binder
+    summary: Binds the page-level RAG quality review scope, approved refs, policies, and payload exclusions.
+  - slot_id: source_text_index_inventory_author
+    title: Source Text Index Inventory Author
+    summary: Inventories the source-text index by source, page, chunk, hash, count, and lifecycle refs without copying text.
+  - slot_id: traceability_sidecar_inventory_author
+    title: Traceability Sidecar Inventory Author
+    summary: Inventories sidecar mappings for page, table, picture, OCR, and trace events using refs and warning labels.
+  - slot_id: answer_run_trace_inventory_author
+    title: Answer Run Trace Inventory Author
+    summary: Inventories answer-run claims, citations, and retrieval events without persisting raw questions or answers.
+  - slot_id: page_support_reviewer
+    title: Page Support Reviewer
+    summary: Classifies page-level support as source_supported, manual_review, or blocked and attaches warning categories.
+  - slot_id: quality_boundary_router
+    title: Quality Boundary Router
+    summary: Confirms payload-free boundaries and routes follow-up to router, metadata refresh, sourcebound, owner decision, or review gate workflows.
