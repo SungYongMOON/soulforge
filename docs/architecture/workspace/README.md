@@ -34,6 +34,7 @@
 | `../bootstrap/WORKFLOW_EVOLUTION_HARNESS_INSTALL_V0.md` | owner PC 에 `/goal` 과 promptfoo 같은 workflow evolution harness 후보를 설치하는 runbook 이다. |
 | `MULTI_PC_DEVELOPMENT_V0.md` | 여러 PC clone, local node role, push/pull, primary writer 충돌 방지 규칙이다. |
 | `MAIL_TO_MISSION_HANDOFF_V0.md` | mail/intake monster 를 first mission draft 로 넘기는 handoff 기준이다. |
+| `DEADLINE_WATCH_V0.md` | 프로젝트별 deadline_watch 장부와 P00 unresolved deadline inbox 계약이다. |
 | `MONSTER_FAMILY_LINEUP_V0.md` | monster family/name/type 의 starter lineup 과 표시 기준이다. |
 | `MONSTER_CANDIDATE_CONTRACT_V0.md` | monster candidate 판정 필드와 source provenance 계약이다. |
 | `BATTLE_LOG_STORAGE_PLAN.md` | battle log 저장 위치, event stream, chain sample 기준이다. |
@@ -79,6 +80,7 @@
 - [`../bootstrap/WORKFLOW_EVOLUTION_HARNESS_INSTALL_V0.md`](../bootstrap/WORKFLOW_EVOLUTION_HARNESS_INSTALL_V0.md)
 - [`MULTI_PC_DEVELOPMENT_V0.md`](MULTI_PC_DEVELOPMENT_V0.md)
 - [`MAIL_TO_MISSION_HANDOFF_V0.md`](MAIL_TO_MISSION_HANDOFF_V0.md)
+- [`DEADLINE_WATCH_V0.md`](DEADLINE_WATCH_V0.md)
 - [`MONSTER_FAMILY_LINEUP_V0.md`](MONSTER_FAMILY_LINEUP_V0.md)
 - [`MONSTER_CANDIDATE_CONTRACT_V0.md`](MONSTER_CANDIDATE_CONTRACT_V0.md)
 - [`BATTLE_LOG_STORAGE_PLAN.md`](BATTLE_LOG_STORAGE_PLAN.md)

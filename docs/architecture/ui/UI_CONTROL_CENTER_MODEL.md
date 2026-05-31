@@ -7,8 +7,8 @@
 
 ## 핵심 원칙
 
-1. UI는 정본 파일의 편집 surface 다.
-2. derived preview 는 보조 surface 다.
+1. UI는 정본 파일의 편집 surface 와 local read-only 운영 surface 를 분리한다.
+2. Assistant Home, Dungeon Map, derived preview 는 보조/운영 surface 다.
 3. owner 경계는 `.registry`, `.unit`, `.workflow`, `.party`, `.mission`, `guild_hall`, `_workspaces` 기준을 따른다.
 4. 저장은 파일 단위 명시 액션으로만 수행한다.
 5. local-only `_workspaces/<project_code>` 는 opt-in surface 로만 다룬다.
@@ -20,6 +20,7 @@
 flowchart LR
   NAV["Owner Navigation"] --> FILES["File List"]
   FILES --> EDITOR["Editor / Notifications Pane"]
+  DASH["Assistant Home"] --> STATE["Local read-only dashboard"]
   EDITOR --> ACTIONS["Refresh / Reset / Save / Validate"]
   ACTIONS --> SRC["Canonical files"]
   SRC --> DERIVE["Resolve / Validate / Derive"]
@@ -98,4 +99,4 @@ control center 는 아래 다섯 묶음으로 owner 파일을 탐색한다.
 
 - hidden auto-mutation
 - local-only run truth 를 public UI fixture 에 노출
-
+- Assistant Home 에서 project-local ledger, Calendar, Telegram, project assignment 를 직접 변경

@@ -25,6 +25,10 @@ import {
   refreshMailWorkPriority,
   refreshMailWorkStatus,
 } from "./mail_work_status.mjs";
+import {
+  importDueObservationsFromMailPriority,
+  validateDeadlineWatchLedgers,
+} from "./deadline_watch_import.mjs";
 import { renderMonsterCreatedMessage, sanitizeId } from "./message_rendering.mjs";
 import {
   buildProjectMailHistoryEntry,
@@ -104,6 +108,16 @@ async function main() {
     return;
   }
 
+  if (command === "import-deadline-watch") {
+    await runImportDeadlineWatch(args);
+    return;
+  }
+
+  if (command === "validate-deadline-watch") {
+    await runValidateDeadlineWatch(args);
+    return;
+  }
+
   if (command === "triage-mail-candidate") {
     await runTriageMailCandidate(args);
     return;
@@ -169,6 +183,8 @@ function printUsageAndExit() {
       "  node guild_hall/gateway/cli.mjs list-mail-work-priority [--latest-file <path>] [--work-status <status|all>] [--operating-state <ko>] [--route-candidate <code>] [--route-confidence <exact|review|none>] [--thread-group <label>] [--priority-flag <ko>] [--week-start <YYYY-MM-DD>] [--week-end <YYYY-MM-DD>] [--week-window-only]",
       "  node guild_hall/gateway/cli.mjs refresh-mail-work-priority [--latest-file <path>] [--queue-root <path>] [--intake-inbox-root <path>] [--workmeta-root <path>] [--week-start <YYYY-MM-DD>] [--week-end <YYYY-MM-DD>]",
       "  node guild_hall/gateway/cli.mjs refresh-mail-weekly-visibility --week-start <YYYY-MM-DD> --week-end <YYYY-MM-DD> [--output-file <path>] [--mailbox-root <path>]",
+      "  node guild_hall/gateway/cli.mjs import-deadline-watch [--latest-file <path>] [--workmeta-root <path>] [--project-code <code>] [--apply]",
+      "  node guild_hall/gateway/cli.mjs validate-deadline-watch",
       "  node guild_hall/gateway/cli.mjs triage-mail-candidate (--candidate-file <path> | --all-pending) [--queue-root <path>] [--binding-file <path>] [--private-deep] [--force]",
       "  node guild_hall/gateway/cli.mjs notify-gateway --event <event> (--on | --off)",
       "  node guild_hall/gateway/cli.mjs notify-mission --mission-id <id> --event <event> (--on | --off)",
@@ -284,6 +300,25 @@ async function runRefreshMailWeeklyVisibilityRegister(args) {
     weekEnd: args["week-end"] ? String(args["week-end"]) : "",
   });
   printJson(result);
+}
+
+async function runImportDeadlineWatch(args) {
+  const result = await importDueObservationsFromMailPriority({
+    repoRoot,
+    latestFile: args["latest-file"] ? path.resolve(String(args["latest-file"])) : undefined,
+    workmetaRoot: args["workmeta-root"] ? path.resolve(String(args["workmeta-root"])) : undefined,
+    projectCode: args["project-code"] ? String(args["project-code"]) : "",
+    apply: Boolean(args.apply),
+  });
+  printJson(result);
+}
+
+async function runValidateDeadlineWatch() {
+  const result = await validateDeadlineWatchLedgers({ repoRoot });
+  printJson(result);
+  if (result.status !== "pass") {
+    process.exitCode = 1;
+  }
 }
 
 async function runTriageMailCandidate(args) {

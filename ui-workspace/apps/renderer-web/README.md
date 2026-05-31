@@ -12,10 +12,12 @@
 - renderer-react surface mount
 - theme registry / swap wiring
 - Adventurer's Desk Phase UI-1 theme wiring
+- Assistant Home pane backed by `guild_hall/state/assistant_dashboard/latest.json`
 - read-only Dungeon Map pane backed by `guild_hall/state/snapshot/soulforge_snapshot.json`
 - Operation Board display from the snapshot `operation_board` projection
 - metadata-only Knowledge Lane display from `operation_board.sections.knowledge_lane`
 - fresh-only Knowledge Lane rendering with sanitized state, claim, helper/bridge/workflow/fixture presence, and private/local evidence count keys
+- gateway notification toggles aligned to the v0 `monster_created` and `mail_received` event set
 
 ## 제외 대상
 
@@ -24,6 +26,8 @@
 - write-back editor
 - selection persistence
 - raw `_workspaces`, `_workmeta`, `private-state`, gateway mail body/html/source quote/raw/attachment source display in Dungeon Map
+- Assistant Home write-back, automatic completion, automatic project assignment, Calendar mutation, or Telegram send
+- unsupported gateway notification event expansion without the gateway/town_crier contract changing first
 - knowledge validation, ontology acceptance, owner decision approval, or canon promotion authority
 
 ## 관련 경로

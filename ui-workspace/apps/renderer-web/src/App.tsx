@@ -8,10 +8,11 @@ import { applyThemeSelection, selectTheme } from "./themes";
 import appPackage from "../package.json";
 
 type ControlCenterOwnerId = "body" | "class" | "guild_hall" | "operations" | "docs";
-type ControlCenterPaneId = "editor" | "notifications" | "map" | "preview" | "diagnostics";
+type ControlCenterPaneId = "assistant" | "editor" | "notifications" | "map" | "preview" | "diagnostics";
 type ControlCenterCategory = "canonical" | "generated" | "doc" | "archive";
 type HeaderThemeMode = "system" | "dark" | "white";
 type SnapshotStatus = "fresh" | "stale" | "missing" | "unavailable";
+type AssistantDashboardStatus = "ok" | "degraded" | "missing" | "unavailable";
 type KnowledgeLaneOwnerGatedState = "blocked_missing_surface" | "awaiting_metadata_evidence" | "owner_review_required";
 type KnowledgeLaneClaimCeiling = "observed";
 type KnowledgeLaneNumericEvidenceCountKey =
@@ -260,11 +261,102 @@ interface DungeonMapState {
   updatedAt: string | null;
 }
 
+interface AssistantDashboardSummary {
+  project_count: number;
+  active_deadline_count: number;
+  overdue_deadline_count: number;
+  due_today_deadline_count: number;
+  active_open_action_count: number;
+  high_open_action_count: number;
+  waiting_item_count: number;
+  recent_done_count: number;
+  p00_unresolved_deadline_count: number;
+  stale_warning_count: number;
+}
+
+interface AssistantDashboardItem {
+  kind: string;
+  project_code: string;
+  id: string;
+  title: string;
+  status: string;
+  priority: string | null;
+  due_at: string | null;
+  due_date_kst: string | null;
+  action_type: string | null;
+  owner_or_contact: string | null;
+  next_action: string | null;
+  source_ref: string | null;
+  claim_ceiling: string | null;
+}
+
+interface AssistantDashboardProject {
+  project_code: string;
+  active_deadline_count: number;
+  active_open_action_count: number;
+  recent_done_count: number;
+  deadline_counts: Record<string, number>;
+  open_action_counts: Record<string, number>;
+  work_status_counts: Record<string, number>;
+  top_open_actions: AssistantDashboardItem[];
+}
+
+interface AssistantDashboardWaitingGroup {
+  owner_or_contact: string;
+  count: number;
+  items: AssistantDashboardItem[];
+}
+
+interface AssistantDashboardHealth {
+  id: string;
+  source_ref: string;
+  status: string;
+  generated_at: string | null;
+  age_hours: number | null;
+  max_age_hours: number | null;
+}
+
+interface AssistantDashboardValidationBlock {
+  status: string;
+  error_count: number;
+  errors: { ref: string; field: string; reason: string }[];
+}
+
+interface AssistantDashboard {
+  status: AssistantDashboardStatus;
+  dashboard_path: string;
+  error?: string;
+  schema_version: string | null;
+  generated_at: string | null;
+  today_kst: string | null;
+  summary: AssistantDashboardSummary;
+  sections: {
+    today_risk: AssistantDashboardItem[];
+    p00_unresolved_deadlines: AssistantDashboardItem[];
+    projects: AssistantDashboardProject[];
+    waiting_on_people: AssistantDashboardWaitingGroup[];
+    done_recent: AssistantDashboardItem[];
+    ai_data_health: AssistantDashboardHealth[];
+  };
+  validation: {
+    deadline_watch: AssistantDashboardValidationBlock;
+    project_ledgers: AssistantDashboardValidationBlock;
+  };
+  validation_errors: string[];
+}
+
+interface AssistantHomeState {
+  loading: boolean;
+  dashboard: AssistantDashboard | null;
+  error: string | null;
+  updatedAt: string | null;
+}
+
 const API_PREFIX = "/__control_center_api";
 const OWNER_IDS: ControlCenterOwnerId[] = ["body", "class", "guild_hall", "operations", "docs"];
 const VISIBLE_OWNER_IDS: ControlCenterOwnerId[] = ["body", "class", "guild_hall", "operations", "docs"];
-const PANE_IDS: ControlCenterPaneId[] = ["editor", "notifications", "map", "preview", "diagnostics"];
-const GATEWAY_NOTIFY_EVENTS = ["monster_created", "intake_failed", "mail_fetch_failed"] as const;
+const PANE_IDS: ControlCenterPaneId[] = ["assistant", "editor", "notifications", "map", "preview", "diagnostics"];
+const GATEWAY_NOTIFY_EVENTS = ["monster_created", "mail_received"] as const;
 const MISSION_NOTIFY_EVENTS = ["mission_blocked", "mission_ready", "mission_closed", "mission_failed"] as const;
 const CATEGORY_LABELS: Record<ControlCenterCategory, string> = {
   canonical: "Canonical",
@@ -392,7 +484,7 @@ function routeFromSearch(search: string): ControlCenterRouteState {
   return {
     ownerId: ownerId ?? "body",
     filePath,
-    activePane: activePane ?? "editor",
+    activePane: activePane ?? "assistant",
     themeId: themeId ?? "system"
   };
 }
@@ -461,6 +553,10 @@ async function requestPreview() {
 
 async function requestDungeonMap() {
   return requestJson<DungeonMapSnapshot>(`${API_PREFIX}/snapshot`);
+}
+
+async function requestAssistantDashboard() {
+  return requestJson<AssistantDashboard>(`${API_PREFIX}/assistant-dashboard`);
 }
 
 function findOwner(tree: ControlCenterTree | null, ownerId: ControlCenterOwnerId) {
@@ -756,8 +852,44 @@ function snapshotTone(status: SnapshotStatus) {
   return "error";
 }
 
+function assistantStatusTone(status: AssistantDashboardStatus | string) {
+  if (status === "ok") {
+    return "ready";
+  }
+
+  if (status === "degraded") {
+    return "warning";
+  }
+
+  return "error";
+}
+
 function pendingMonsterTitle(monster: DungeonMapPendingMonster) {
   return monster.objective_summary || monster.monster_name || monster.monster_id;
+}
+
+function assistantItemMeta(item: AssistantDashboardItem) {
+  const parts = [item.project_code, item.status];
+  if (item.priority) {
+    parts.push(item.priority);
+  }
+  if (item.due_date_kst) {
+    parts.push(`due ${item.due_date_kst}`);
+  }
+  if (item.owner_or_contact) {
+    parts.push(item.owner_or_contact);
+  }
+  return parts.filter(Boolean).join(" / ");
+}
+
+function assistantHealthTone(status: string) {
+  if (status === "fresh") {
+    return "ready";
+  }
+  if (status === "stale" || status === "missing") {
+    return "warning";
+  }
+  return "error";
 }
 
 function formatMetadataValue(value: unknown) {
@@ -885,6 +1017,12 @@ function App() {
     error: null,
     updatedAt: null
   });
+  const [assistantHome, setAssistantHome] = useState<AssistantHomeState>({
+    loading: false,
+    dashboard: null,
+    error: null,
+    updatedAt: null
+  });
   const [isOwnerRailCollapsed, setIsOwnerRailCollapsed] = useState(false);
   const [collapsedOwners, setCollapsedOwners] = useState<Record<ControlCenterOwnerId, boolean>>({
     body: false,
@@ -1000,6 +1138,12 @@ function App() {
       cancelled = true;
     };
   }, [route.filePath]);
+
+  useEffect(() => {
+    if (route.activePane === "assistant" && !assistantHome.loading && !assistantHome.dashboard && !assistantHome.error) {
+      void handleAssistantHomeRefresh();
+    }
+  }, [route.activePane]);
 
   useEffect(() => {
     if (route.activePane === "preview" && !preview.loading && !preview.uiState && !preview.error) {
@@ -1345,6 +1489,47 @@ function App() {
     }
   }
 
+  async function handleAssistantHomeRefresh() {
+    setAssistantHome((current) => ({
+      ...current,
+      loading: true,
+      error: null
+    }));
+    setNotice({
+      tone: "info",
+      message: "Loading Assistant Home."
+    });
+
+    try {
+      const dashboard = await requestAssistantDashboard();
+      setAssistantHome({
+        loading: false,
+        dashboard,
+        error: null,
+        updatedAt: new Date().toISOString()
+      });
+      setRoute((current) => ({
+        ...current,
+        activePane: "assistant"
+      }));
+      setNotice({
+        tone: dashboard.status === "ok" ? "success" : "info",
+        message: `Assistant Home status: ${dashboard.status}.`
+      });
+    } catch (error) {
+      setAssistantHome({
+        loading: false,
+        dashboard: null,
+        error: error instanceof Error ? error.message : "Assistant Home refresh failed.",
+        updatedAt: null
+      });
+      setNotice({
+        tone: "error",
+        message: error instanceof Error ? error.message : "Assistant Home refresh failed."
+      });
+    }
+  }
+
   const pendingMonsterGroups = dungeonMap.snapshot
     ? dungeonMap.snapshot.operation_board?.sections.monster_gate.groups.length
       ? dungeonMap.snapshot.operation_board.sections.monster_gate.groups
@@ -1485,6 +1670,9 @@ function App() {
         <section className="cc-global-toolbar">
           <div className="cc-global-toolbar__meta">
             <span className="cc-chip">Tree {tree ? formatTimestamp(tree.generatedAt) : "Loading"}</span>
+            <button className="cc-button" type="button" onClick={() => void handleAssistantHomeRefresh()} disabled={assistantHome.loading}>
+              {assistantHome.loading ? "Loading..." : "Assistant"}
+            </button>
             <button className="cc-button" type="button" onClick={() => void handleValidate(true)} disabled={validation.loading}>
               {validation.loading ? "Validating..." : "Validate"}
             </button>
@@ -1545,7 +1733,7 @@ function App() {
         </section>
 
         <main className="cc-detail">
-          {route.activePane !== "map" ? (
+          {route.activePane !== "map" && route.activePane !== "assistant" ? (
             <>
               <div className="cc-view-switcher" aria-label="Control center view controls">
                 <div className="cc-view-switcher__copy">
@@ -1568,13 +1756,15 @@ function App() {
                     >
                       {paneId === "editor"
                         ? "Editor"
-                        : paneId === "notifications"
-                          ? "Notifications"
-                          : paneId === "map"
-                            ? "Dungeon Map"
-                            : paneId === "preview"
-                              ? "Preview"
-                              : "Diagnostics"}
+                        : paneId === "assistant"
+                          ? "Assistant"
+                          : paneId === "notifications"
+                            ? "Notifications"
+                            : paneId === "map"
+                              ? "Dungeon Map"
+                              : paneId === "preview"
+                                ? "Preview"
+                                : "Diagnostics"}
                     </button>
                   ))}
                 </div>
@@ -1613,6 +1803,185 @@ function App() {
                 </div>
               </div>
             </>
+          ) : null}
+
+          {route.activePane === "assistant" ? (
+            <section className="cc-pane cc-assistant-pane">
+              <div className="cc-assistant-header">
+                <div>
+                  <p className="cc-eyebrow">Assistant Home</p>
+                  <h2>Today Board</h2>
+                  <div className="cc-chip-row">
+                    {assistantHome.dashboard ? (
+                      <span className={`cc-chip cc-chip--${assistantStatusTone(assistantHome.dashboard.status)}`}>{assistantHome.dashboard.status}</span>
+                    ) : null}
+                    {assistantHome.dashboard ? <span className="cc-chip">Today {assistantHome.dashboard.today_kst ?? "not supplied"}</span> : null}
+                    {assistantHome.dashboard?.generated_at ? <span className="cc-chip">Generated {formatTimestamp(assistantHome.dashboard.generated_at)}</span> : null}
+                    {assistantHome.updatedAt ? <span className="cc-chip">Loaded {formatTimestamp(assistantHome.updatedAt)}</span> : null}
+                    {assistantHome.loading ? <span className="cc-chip cc-chip--active">Refreshing</span> : null}
+                  </div>
+                </div>
+                <button className="cc-button" type="button" onClick={() => void handleAssistantHomeRefresh()} disabled={assistantHome.loading}>
+                  {assistantHome.loading ? "Refreshing..." : "Refresh Assistant"}
+                </button>
+              </div>
+
+              {assistantHome.error ? <p className="cc-error-text">{assistantHome.error}</p> : null}
+
+              {assistantHome.dashboard ? (
+                <div className="cc-assistant-stack">
+                  {assistantHome.dashboard.error ? <p className="cc-readonly-note">{assistantHome.dashboard.error}</p> : null}
+
+                  <section className="cc-assistant-metric-grid">
+                    <article className="cc-assistant-metric-card">
+                      <span>Deadlines</span>
+                      <strong>{assistantHome.dashboard.summary.active_deadline_count}</strong>
+                      <small>
+                        {assistantHome.dashboard.summary.overdue_deadline_count} overdue / {assistantHome.dashboard.summary.due_today_deadline_count} today
+                      </small>
+                    </article>
+                    <article className="cc-assistant-metric-card">
+                      <span>Open Actions</span>
+                      <strong>{assistantHome.dashboard.summary.active_open_action_count}</strong>
+                      <small>{assistantHome.dashboard.summary.high_open_action_count} high priority</small>
+                    </article>
+                    <article className="cc-assistant-metric-card">
+                      <span>Waiting</span>
+                      <strong>{assistantHome.dashboard.summary.waiting_item_count}</strong>
+                      <small>{assistantHome.dashboard.sections.waiting_on_people.length} owner buckets</small>
+                    </article>
+                    <article className="cc-assistant-metric-card">
+                      <span>Data Health</span>
+                      <strong>{assistantHome.dashboard.summary.stale_warning_count}</strong>
+                      <small>{assistantHome.dashboard.validation.project_ledgers.status}</small>
+                    </article>
+                  </section>
+
+                  {assistantHome.dashboard.status !== "ok" ? (
+                    <section className="cc-readonly-note">
+                      <strong>Current blockers</strong>
+                      <span>
+                        P00 active deadlines {assistantHome.dashboard.summary.p00_unresolved_deadline_count}; source warnings {assistantHome.dashboard.summary.stale_warning_count};
+                        ledger guard {assistantHome.dashboard.validation.project_ledgers.error_count}.
+                      </span>
+                    </section>
+                  ) : null}
+
+                  <section className="cc-assistant-section">
+                    <div className="cc-assistant-section__header">
+                      <h3>Today Risk</h3>
+                      <span>{assistantHome.dashboard.sections.today_risk.length}</span>
+                    </div>
+                    {assistantHome.dashboard.sections.today_risk.length > 0 ? (
+                      <ul className="cc-assistant-list">
+                        {assistantHome.dashboard.sections.today_risk.map((item) => (
+                          <li key={`${item.kind}:${item.project_code}:${item.id}:${item.title}`}>
+                            <strong>{item.title}</strong>
+                            <span>{assistantItemMeta(item)}</span>
+                            {item.next_action ? <span>{item.next_action}</span> : null}
+                          </li>
+                        ))}
+                      </ul>
+                    ) : (
+                      <p className="cc-section-note">No active deadline rows are applied.</p>
+                    )}
+                  </section>
+
+                  <section className="cc-assistant-section">
+                    <div className="cc-assistant-section__header">
+                      <h3>Projects</h3>
+                      <span>{assistantHome.dashboard.summary.project_count}</span>
+                    </div>
+                    <div className="cc-assistant-project-grid">
+                      {assistantHome.dashboard.sections.projects.map((project) => (
+                        <article className="cc-assistant-project-card" key={project.project_code}>
+                          <strong>{project.project_code}</strong>
+                          <span>deadlines {project.active_deadline_count}</span>
+                          <span>actions {project.active_open_action_count}</span>
+                          <span>done {project.recent_done_count}</span>
+                          {project.top_open_actions.length > 0 ? (
+                            <ul>
+                              {project.top_open_actions.slice(0, 3).map((item) => (
+                                <li key={`${project.project_code}:${item.id}:${item.title}`}>{item.title}</li>
+                              ))}
+                            </ul>
+                          ) : null}
+                        </article>
+                      ))}
+                    </div>
+                  </section>
+
+                  <section className="cc-assistant-section">
+                    <div className="cc-assistant-section__header">
+                      <h3>Waiting</h3>
+                      <span>{assistantHome.dashboard.sections.waiting_on_people.length}</span>
+                    </div>
+                    <div className="cc-assistant-two-column">
+                      <ul className="cc-assistant-list">
+                        {assistantHome.dashboard.sections.waiting_on_people.slice(0, 8).map((group) => (
+                          <li key={`${group.owner_or_contact}:${group.count}`}>
+                            <strong>{group.owner_or_contact}</strong>
+                            <span>{group.count} items</span>
+                            {group.items[0] ? <span>{group.items[0].title}</span> : null}
+                          </li>
+                        ))}
+                      </ul>
+                      <ul className="cc-assistant-list">
+                        {assistantHome.dashboard.sections.done_recent.slice(0, 8).map((item) => (
+                          <li key={`${item.project_code}:${item.id}:${item.title}`}>
+                            <strong>{item.title}</strong>
+                            <span>{assistantItemMeta(item)}</span>
+                          </li>
+                        ))}
+                      </ul>
+                    </div>
+                  </section>
+
+                  <section className="cc-assistant-section">
+                    <div className="cc-assistant-section__header">
+                      <h3>AI Data Health</h3>
+                      <span>{assistantHome.dashboard.sections.ai_data_health.length}</span>
+                    </div>
+                    <div className="cc-assistant-health-grid">
+                      {assistantHome.dashboard.sections.ai_data_health.map((item) => (
+                        <article className="cc-assistant-health-card" key={item.id}>
+                          <div>
+                            <strong>{item.id}</strong>
+                            <span>{item.source_ref}</span>
+                          </div>
+                          <span className={`cc-chip cc-chip--${assistantHealthTone(item.status)}`}>{item.status}</span>
+                          <small>
+                            {item.age_hours === null ? "age unknown" : `${item.age_hours}h`} / max {item.max_age_hours ?? "unknown"}h
+                          </small>
+                        </article>
+                      ))}
+                    </div>
+                  </section>
+
+                  {assistantHome.dashboard.validation.project_ledgers.errors.length > 0 ? (
+                    <section className="cc-assistant-section">
+                      <div className="cc-assistant-section__header">
+                        <h3>Ledger Guard</h3>
+                        <span>{assistantHome.dashboard.validation.project_ledgers.error_count}</span>
+                      </div>
+                      <ul className="cc-assistant-list">
+                        {assistantHome.dashboard.validation.project_ledgers.errors.slice(0, 8).map((error) => (
+                          <li key={`${error.ref}:${error.field}:${error.reason}`}>
+                            <strong>{error.reason}</strong>
+                            <span>{error.ref}</span>
+                            <span>{error.field}</span>
+                          </li>
+                        ))}
+                      </ul>
+                    </section>
+                  ) : null}
+                </div>
+              ) : (
+                <div className="cc-empty-state">
+                  <p>Refresh Assistant to load the local dashboard.</p>
+                </div>
+              )}
+            </section>
           ) : null}
 
           {route.activePane === "editor" ? (

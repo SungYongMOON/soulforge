@@ -9,6 +9,7 @@ const TEXT_EXTENSIONS = new Set([".md", ".yaml", ".yml", ".json"]);
 const repoRoot = path.resolve(fileURLToPath(new URL(".", import.meta.url)), "../../..");
 const integratedFixtureRepoPath = "ui-workspace/fixtures/ui-state/integrated.sample.json";
 const snapshotRepoPath = "guild_hall/state/snapshot/soulforge_snapshot.json";
+const assistantDashboardRepoPath = "guild_hall/state/assistant_dashboard/latest.json";
 const KNOWLEDGE_LANE_OWNER_GATED_STATES = new Set<KnowledgeLaneOwnerGatedState>([
   "blocked_missing_surface",
   "awaiting_metadata_evidence",
@@ -57,6 +58,7 @@ interface ControlCenterOwner {
 }
 
 type SnapshotStatus = "fresh" | "stale" | "missing" | "unavailable";
+type AssistantDashboardStatus = "ok" | "degraded" | "missing" | "unavailable";
 type KnowledgeLaneOwnerGatedState = "blocked_missing_surface" | "awaiting_metadata_evidence" | "owner_review_required";
 type KnowledgeLaneClaimCeiling = "observed";
 type KnowledgeLaneNumericEvidenceCountKey =
@@ -194,6 +196,15 @@ interface SnapshotFreshnessResult {
 interface SnapshotProducerModule {
   buildSnapshot(options?: { repoRoot?: string; generatedAt?: string }): Promise<Record<string, unknown>>;
   compareSnapshotFreshness(storedSnapshot: Record<string, unknown>, currentSnapshot: Record<string, unknown>): SnapshotFreshnessResult;
+}
+
+interface AssistantDashboardValidationResult {
+  ok: boolean;
+  errors: string[];
+}
+
+interface AssistantDashboardModule {
+  validateAssistantDashboard(dashboard: unknown): AssistantDashboardValidationResult;
 }
 
 function normalizeRepoPath(value: string) {
@@ -670,6 +681,17 @@ function countField(value: unknown, fallback = 0) {
   return typeof value === "number" && Number.isInteger(value) && value >= 0 ? value : fallback;
 }
 
+function numberRecordField(value: unknown): Record<string, number> {
+  const record = isRecord(value) ? value : {};
+  const result: Record<string, number> = {};
+
+  for (const [key, count] of Object.entries(record)) {
+    result[key] = countField(count);
+  }
+
+  return result;
+}
+
 function nullableNumberField(value: unknown) {
   return typeof value === "number" && Number.isFinite(value) ? value : null;
 }
@@ -928,6 +950,216 @@ function mapSnapshotResponse(
   };
 }
 
+function assistantDashboardStatusField(value: unknown, fallback: AssistantDashboardStatus = "degraded"): AssistantDashboardStatus {
+  if (value === "ok" || value === "degraded" || value === "missing" || value === "unavailable") {
+    return value;
+  }
+  return fallback;
+}
+
+function mapAssistantDashboardSummary(value: unknown) {
+  const summary = isRecord(value) ? value : {};
+  return {
+    project_count: countField(summary.project_count),
+    active_deadline_count: countField(summary.active_deadline_count),
+    overdue_deadline_count: countField(summary.overdue_deadline_count),
+    due_today_deadline_count: countField(summary.due_today_deadline_count),
+    active_open_action_count: countField(summary.active_open_action_count),
+    high_open_action_count: countField(summary.high_open_action_count),
+    waiting_item_count: countField(summary.waiting_item_count),
+    recent_done_count: countField(summary.recent_done_count),
+    p00_unresolved_deadline_count: countField(summary.p00_unresolved_deadline_count),
+    stale_warning_count: countField(summary.stale_warning_count)
+  };
+}
+
+function mapAssistantDashboardItem(item: unknown) {
+  const row = isRecord(item) ? item : {};
+  const title =
+    nullableStringField(row.title) ??
+    nullableStringField(row.subject_hint) ??
+    nullableStringField(row.item) ??
+    nullableStringField(row.next_action) ??
+    nullableStringField(row.deadline_id) ??
+    nullableStringField(row.action_id) ??
+    nullableStringField(row.work_id) ??
+    "untitled";
+
+  return {
+    kind: stringField(row.kind),
+    project_code: stringField(row.project_code),
+    id:
+      nullableStringField(row.deadline_id) ??
+      nullableStringField(row.action_id) ??
+      nullableStringField(row.work_id) ??
+      nullableStringField(row.id) ??
+      "",
+    title,
+    status: stringField(row.status),
+    priority: nullableStringField(row.priority),
+    due_at: nullableStringField(row.due_at),
+    due_date_kst: nullableStringField(row.due_date_kst),
+    action_type: nullableStringField(row.action_type),
+    owner_or_contact: nullableStringField(row.owner_or_contact),
+    next_action: nullableStringField(row.next_action),
+    source_ref: nullableStringField(row.source_ref),
+    claim_ceiling: nullableStringField(row.claim_ceiling)
+  };
+}
+
+function mapAssistantDashboardProject(item: unknown) {
+  const project = isRecord(item) ? item : {};
+  return {
+    project_code: stringField(project.project_code),
+    active_deadline_count: countField(project.active_deadline_count),
+    active_open_action_count: countField(project.active_open_action_count),
+    recent_done_count: countField(project.recent_done_count),
+    deadline_counts: numberRecordField(project.deadline_counts),
+    open_action_counts: numberRecordField(project.open_action_counts),
+    work_status_counts: numberRecordField(project.work_status_counts),
+    top_open_actions: arrayField(project.top_open_actions).map(mapAssistantDashboardItem)
+  };
+}
+
+function mapAssistantDashboardWaitingGroup(item: unknown) {
+  const group = isRecord(item) ? item : {};
+  return {
+    owner_or_contact: stringField(group.owner_or_contact, "unassigned"),
+    count: countField(group.count),
+    items: arrayField(group.items).map(mapAssistantDashboardItem)
+  };
+}
+
+function mapAssistantDashboardHealth(item: unknown) {
+  const health = isRecord(item) ? item : {};
+  return {
+    id: stringField(health.id),
+    source_ref: stringField(health.source_ref),
+    status: stringField(health.status),
+    generated_at: nullableStringField(health.generated_at),
+    age_hours: nullableNumberField(health.age_hours),
+    max_age_hours: nullableNumberField(health.max_age_hours)
+  };
+}
+
+function mapAssistantDashboardValidationBlock(item: unknown) {
+  const block = isRecord(item) ? item : {};
+  return {
+    status: stringField(block.status),
+    error_count: countField(block.error_count),
+    errors: arrayField(block.errors).map((entry) => {
+      const error = isRecord(entry) ? entry : {};
+      return {
+        ref: stringField(error.ref, ""),
+        field: stringField(error.field, ""),
+        reason: stringField(error.reason, "")
+      };
+    })
+  };
+}
+
+function emptyAssistantDashboardResponse(status: AssistantDashboardStatus, error?: string) {
+  return {
+    status,
+    dashboard_path: assistantDashboardRepoPath,
+    error,
+    schema_version: null,
+    generated_at: null,
+    today_kst: null,
+    summary: mapAssistantDashboardSummary({}),
+    sections: {
+      today_risk: [],
+      p00_unresolved_deadlines: [],
+      projects: [],
+      waiting_on_people: [],
+      done_recent: [],
+      ai_data_health: []
+    },
+    validation: {
+      deadline_watch: mapAssistantDashboardValidationBlock({ status: "missing" }),
+      project_ledgers: mapAssistantDashboardValidationBlock({ status: "missing" })
+    },
+    boundary: {
+      read_only_rollup: true,
+      project_ledgers_are_truth: true,
+      raw_payload_copied: false,
+      raw_mail_body_read: false,
+      raw_html_read: false,
+      attachment_payload_read: false,
+      telegram_sent: false,
+      calendar_mutated: false,
+      project_assignment_confirmed: false
+    },
+    validation_errors: []
+  };
+}
+
+function mapAssistantDashboardResponse(
+  dashboard: Record<string, unknown>,
+  status: AssistantDashboardStatus,
+  validationErrors: string[] = []
+) {
+  const sections = isRecord(dashboard.sections) ? dashboard.sections : {};
+  const validation = isRecord(dashboard.validation) ? dashboard.validation : {};
+
+  return {
+    status,
+    dashboard_path: assistantDashboardRepoPath,
+    error: validationErrors.length ? "assistant dashboard validation failed" : undefined,
+    schema_version: nullableStringField(dashboard.schema_version),
+    generated_at: nullableStringField(dashboard.generated_at),
+    today_kst: nullableStringField(dashboard.today_kst),
+    summary: mapAssistantDashboardSummary(dashboard.summary),
+    sections: {
+      today_risk: arrayField(sections.today_risk).map(mapAssistantDashboardItem),
+      p00_unresolved_deadlines: arrayField(sections.p00_unresolved_deadlines).map(mapAssistantDashboardItem),
+      projects: arrayField(sections.projects).map(mapAssistantDashboardProject),
+      waiting_on_people: arrayField(sections.waiting_on_people).map(mapAssistantDashboardWaitingGroup),
+      done_recent: arrayField(sections.done_recent).map(mapAssistantDashboardItem),
+      ai_data_health: arrayField(sections.ai_data_health).map(mapAssistantDashboardHealth)
+    },
+    validation: {
+      deadline_watch: mapAssistantDashboardValidationBlock(validation.deadline_watch),
+      project_ledgers: mapAssistantDashboardValidationBlock(validation.project_ledgers)
+    },
+    boundary: isRecord(dashboard.boundary) ? dashboard.boundary : emptyAssistantDashboardResponse("missing").boundary,
+    validation_errors: validationErrors
+  };
+}
+
+async function loadAssistantDashboardModule() {
+  return (await import(pathToFileURL(resolveRepoPath("guild_hall/assistant_dashboard/dashboard.mjs")).href)) as AssistantDashboardModule;
+}
+
+async function handleAssistantDashboardRequest(response: ServerResponse) {
+  const dashboardPath = resolveRepoPath(assistantDashboardRepoPath);
+
+  if (!existsSync(dashboardPath)) {
+    sendJson(response, 200, emptyAssistantDashboardResponse("missing"));
+    return;
+  }
+
+  try {
+    const content = await fs.readFile(dashboardPath, "utf8");
+    const dashboard = JSON.parse(content) as unknown;
+
+    if (!isRecord(dashboard)) {
+      throw new Error("Assistant dashboard root must be an object.");
+    }
+
+    const dashboardModule = await loadAssistantDashboardModule();
+    const validation = dashboardModule.validateAssistantDashboard(dashboard);
+    const status = validation.ok ? assistantDashboardStatusField(dashboard.status) : "unavailable";
+    sendJson(response, 200, mapAssistantDashboardResponse(dashboard, status, validation.errors));
+  } catch (error) {
+    sendJson(
+      response,
+      200,
+      emptyAssistantDashboardResponse("unavailable", error instanceof Error ? error.message : "Failed to read assistant dashboard.")
+    );
+  }
+}
+
 async function loadSnapshotProducer() {
   return (await import(pathToFileURL(resolveRepoPath("guild_hall/snapshot/producer.mjs")).href)) as SnapshotProducerModule;
 }
@@ -1082,6 +1314,11 @@ async function handleControlCenterRequest(request: IncomingMessage, response: Se
 
   if (routePath === "/snapshot" && request.method === "GET") {
     await handleSnapshotRequest(response);
+    return;
+  }
+
+  if (routePath === "/assistant-dashboard" && request.method === "GET") {
+    await handleAssistantDashboardRequest(response);
     return;
   }
 

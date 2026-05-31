@@ -1,5 +1,28 @@
 ﻿# CHANGELOG
 
+## 2026-05-31
+
+### Revision `working` - Deadline watch contract scaffold added
+
+- Added `DEADLINE_WATCH_V0.md` to define project-local deadline ledgers,
+  P00 unresolved deadline inbox behavior, reminder metadata events, completion
+  rules, and raw-payload exclusion.
+- Seeded metadata-only `deadline_watch` skeletons for P00 and P26-014 in
+  `_workmeta` so the assistant v0 pilot has a concrete source-of-truth surface
+  before dashboard, UI, or reminder automation work.
+- Aligned the renderer-web gateway notification toggle list to the supported
+  v0 gateway events, `monster_created` and `mail_received`.
+- Added a dry-run-first gateway deadline-watch importer for deterministic
+  `mail_work_priority` due observations.
+- Added a deadline-watch validator command for project-local deadline register
+  and reminder event-log hygiene.
+- Added a local-only read-only assistant dashboard composer that rolls up
+  project deadline, open-action, work-ledger, and data-health metadata into
+  `guild_hall/state/assistant_dashboard/latest.json`.
+- Added an Assistant Home pane in renderer-web that reads the local dashboard
+  through a read-only control-center API and surfaces degraded data-health and
+  ledger-guard states without write-back.
+
 ## 2026-05-28
 
 ### Revision `working` - RAG three-stage operating model added

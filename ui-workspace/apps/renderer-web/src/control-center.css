@@ -67,6 +67,8 @@
 .cc-diagnostic-block,
 .cc-map-stack,
 .cc-map-section,
+.cc-assistant-stack,
+.cc-assistant-section,
 .cc-chip-row,
 .cc-action-row,
 .cc-theme-switcher,
@@ -755,6 +757,152 @@
   border-bottom: 1px solid var(--sf-border-regular);
 }
 
+.cc-assistant-header {
+  display: flex;
+  gap: 16px;
+  align-items: flex-start;
+  justify-content: space-between;
+  padding-bottom: 12px;
+  border-bottom: 1px solid var(--sf-border-regular);
+}
+
+.cc-assistant-header h2 {
+  margin: 0;
+  font-family: var(--sf-font-display);
+}
+
+.cc-assistant-stack {
+  align-content: start;
+}
+
+.cc-assistant-metric-grid,
+.cc-assistant-project-grid,
+.cc-assistant-health-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(160px, 1fr));
+  gap: 12px;
+}
+
+.cc-assistant-metric-card,
+.cc-assistant-project-card,
+.cc-assistant-health-card {
+  min-width: 0;
+  padding: 12px;
+  border: 1px solid var(--sf-border-regular);
+  border-radius: calc(var(--sf-radius-card) - 4px);
+  background: var(--sf-surface-card);
+}
+
+.cc-assistant-metric-card {
+  display: grid;
+  gap: 4px;
+}
+
+.cc-assistant-metric-card strong {
+  font-size: 1.8rem;
+  line-height: 1;
+}
+
+.cc-assistant-metric-card span,
+.cc-assistant-metric-card small,
+.cc-assistant-project-card span,
+.cc-assistant-project-card li,
+.cc-assistant-health-card span,
+.cc-assistant-health-card small {
+  color: var(--sf-text-muted);
+}
+
+.cc-assistant-section {
+  padding: 12px;
+  border: 1px solid var(--sf-border-regular);
+  border-radius: var(--sf-radius-card);
+  background: var(--sf-surface-panel);
+}
+
+.cc-assistant-section__header {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: 12px;
+}
+
+.cc-assistant-section__header h3 {
+  margin: 0;
+  font-family: var(--sf-font-display);
+}
+
+.cc-assistant-section__header span {
+  color: var(--sf-text-muted);
+}
+
+.cc-assistant-list {
+  margin: 0;
+  padding-left: 18px;
+  display: grid;
+  gap: 10px;
+}
+
+.cc-assistant-list li {
+  min-width: 0;
+  display: grid;
+  gap: 4px;
+}
+
+.cc-assistant-list strong,
+.cc-assistant-list span,
+.cc-assistant-project-card strong,
+.cc-assistant-project-card span,
+.cc-assistant-project-card li,
+.cc-assistant-health-card strong,
+.cc-assistant-health-card span,
+.cc-assistant-health-card small {
+  min-width: 0;
+  overflow-wrap: anywhere;
+}
+
+.cc-assistant-list span {
+  color: var(--sf-text-muted);
+}
+
+.cc-assistant-project-card {
+  display: grid;
+  gap: 6px;
+}
+
+.cc-assistant-project-card ul {
+  margin: 4px 0 0;
+  padding-left: 18px;
+  display: grid;
+  gap: 4px;
+}
+
+.cc-assistant-two-column {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(240px, 1fr));
+  gap: 16px;
+}
+
+.cc-assistant-health-card {
+  display: grid;
+  gap: 8px;
+}
+
+.cc-assistant-health-card .cc-chip {
+  max-width: 100%;
+  justify-content: center;
+}
+
+.cc-assistant-health-card div {
+  min-width: 0;
+  display: grid;
+  gap: 4px;
+}
+
+.cc-readonly-note {
+  display: grid;
+  gap: 4px;
+}
+
 .cc-map-section h3 {
   margin: 0;
   font-family: var(--sf-font-display);
@@ -929,10 +1077,19 @@
     grid-column: 1;
   }
 
+  .cc-shell[data-active-pane="assistant"] .cc-layout {
+    grid-template-areas:
+      "toolbar"
+      "detail"
+      "sidebar"
+      "files";
+  }
+
   .cc-topbar,
   .cc-column-header,
   .cc-detail-header,
   .cc-pane-toolbar,
+  .cc-assistant-header,
   .cc-map-header,
   .cc-view-switcher {
     flex-direction: column;

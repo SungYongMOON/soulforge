@@ -15,6 +15,11 @@ import {
   refreshMailWorkPriority,
   refreshMailWorkStatus,
 } from "./mail_work_status.mjs";
+import {
+  defaultDeadlineRegisterFile,
+  importDueObservationsFromMailPriority,
+  validateDeadlineWatchLedgers,
+} from "./deadline_watch_import.mjs";
 
 test("refreshMailWorkStatus joins candidate, gateway, project, mission, and battle surfaces", async () => {
   const repoRoot = await createRepoRoot();
@@ -581,6 +586,214 @@ test("listMailWorkPriority filters from latest priority projection", async () =>
   );
 });
 
+test("deadline watch import dry-runs deterministic due observations only", async () => {
+  const repoRoot = await createRepoRoot();
+  const latestFile = defaultMailWorkPriorityLatestFile(repoRoot);
+
+  await writePriorityProjection(latestFile, [
+    samplePriorityRow({
+      candidate_id: "mail_candidate_p26_due",
+      subject: "[KVDS] 회신 요청(~5/27)",
+      due_date: "2026-05-27",
+      due_text: "~5/27",
+      route_candidate: "P26-014",
+      route_confidence: "exact",
+    }),
+    samplePriorityRow({
+      candidate_id: "mail_candidate_review_due",
+      subject: "[AUV] 자료 확인 요청(~6/3)",
+      due_date: "2026-06-03",
+      due_text: "~6/3",
+      route_candidate: "P00-000_INBOX",
+      route_confidence: "review",
+    }),
+    samplePriorityRow({
+      candidate_id: "mail_candidate_urgent_text",
+      subject: "긴급 확인 요청",
+      due_date: null,
+      due_text: "긴급",
+      due_source: "subject_text",
+      deadline_confidence: "text_only",
+      route_candidate: "P00-000_INBOX",
+      route_confidence: "review",
+    }),
+    samplePriorityRow({
+      candidate_id: "mail_candidate_promo_due",
+      subject: "Synthetic subscription expires by 6/3",
+      due_date: "2026-06-03",
+      route_candidate: "none/promo",
+      route_confidence: "none",
+    }),
+    samplePriorityRow({
+      candidate_id: "mail_candidate_body_due",
+      subject: "Synthetic body-derived due should stay blocked",
+      due_date: "2026-06-03",
+      due_source: "body",
+      deadline_confidence: "body_derived_needs_review",
+      route_candidate: "P26-014",
+      route_confidence: "exact",
+    }),
+    samplePriorityRow({
+      candidate_id: "mail_candidate_done_due",
+      subject: "[KVDS] completed item(~5/27)",
+      due_date: "2026-05-27",
+      route_candidate: "P26-014",
+      route_confidence: "exact",
+      work_status: "completed",
+    }),
+  ]);
+
+  const result = await importDueObservationsFromMailPriority({
+    repoRoot,
+    latestFile,
+    now: "2026-05-31T01:00:00.000Z",
+  });
+
+  assert.equal(result.status, "dry_run");
+  assert.equal(result.source_count, 6);
+  assert.equal(result.importable_count, 2);
+  assert.equal(result.project_counts["P26-014"], 1);
+  assert.equal(result.project_counts["P00-000_INBOX"], 1);
+  assert.ok(result.skipped.some((row) => row.reason === "no_deterministic_due_date"));
+  assert.ok(result.skipped.some((row) => row.reason === "non_project_route:none/promo"));
+  assert.ok(result.skipped.some((row) => row.reason === "unsupported_due_source:body"));
+  assert.ok(result.skipped.some((row) => row.reason === "terminal_work_status"));
+  assert.equal(result.boundary.raw_payload_copied, false);
+  assert.equal(result.boundary.raw_mail_body_read, false);
+  assert.equal(await fileExists(defaultDeadlineRegisterFile(repoRoot, "P26-014")), false);
+});
+
+test("deadline watch import rejects invalid projections and non-canonical apply roots", async () => {
+  const repoRoot = await createRepoRoot();
+  const latestFile = defaultMailWorkPriorityLatestFile(repoRoot);
+
+  await writePriorityProjection(latestFile, [], {
+    schema_version: "not-mail-work-priority",
+  });
+
+  await assert.rejects(
+    importDueObservationsFromMailPriority({
+      repoRoot,
+      latestFile,
+    }),
+    /schema_version mismatch/,
+  );
+
+  await writePriorityProjection(latestFile, [
+    samplePriorityRow({
+      candidate_id: "mail_candidate_p26_due",
+      subject: "[KVDS] 회신 요청(~5/27)",
+    }),
+  ]);
+
+  await assert.rejects(
+    importDueObservationsFromMailPriority({
+      repoRoot,
+      latestFile,
+      workmetaRoot: path.join(os.tmpdir(), "not-soulforge-workmeta"),
+      apply: true,
+    }),
+    /canonical repo _workmeta root/,
+  );
+});
+
+test("deadline watch import applies rows idempotently under project-local ledgers", async () => {
+  const repoRoot = await createRepoRoot();
+  const latestFile = defaultMailWorkPriorityLatestFile(repoRoot);
+
+  await writePriorityProjection(latestFile, [
+    samplePriorityRow({
+      candidate_id: "mail_candidate_p26_due",
+      subject: "[기뢰탐색음탐기] 검토 요청(~5/27)",
+      due_date: "2026-05-27",
+      due_text: "~5/27",
+      route_candidate: "P26-014",
+      route_confidence: "exact",
+    }),
+    samplePriorityRow({
+      candidate_id: "mail_candidate_review_due",
+      subject: "[AXV] 자료 확인 요청(~6/3)",
+      due_date: "2026-06-03",
+      due_text: "~6/3",
+      route_candidate: "P00-000_INBOX",
+      route_confidence: "review",
+    }),
+  ]);
+
+  const first = await importDueObservationsFromMailPriority({
+    repoRoot,
+    latestFile,
+    apply: true,
+    now: "2026-05-31T01:00:00.000Z",
+  });
+  const second = await importDueObservationsFromMailPriority({
+    repoRoot,
+    latestFile,
+    apply: true,
+    now: "2026-05-31T01:30:00.000Z",
+  });
+
+  const p26Csv = await readFile(defaultDeadlineRegisterFile(repoRoot, "P26-014"), "utf8");
+  const p00Csv = await readFile(defaultDeadlineRegisterFile(repoRoot, "P00-000_INBOX"), "utf8");
+  const validation = await validateDeadlineWatchLedgers({ repoRoot });
+
+  assert.equal(first.status, "applied");
+  assert.equal(first.written_count, 2);
+  assert.equal(first.duplicate_count, 0);
+  assert.equal(second.written_count, 0);
+  assert.equal(second.duplicate_count, 2);
+  assert.match(p26Csv.split(/\r?\n/u)[0], /deadline_id,project_code,source_kind/);
+  assert.match(p26Csv, /P26-014/);
+  assert.match(p26Csv, /review_due/);
+  assert.match(p00Csv, /P00-000_INBOX/);
+  assert.equal(validation.status, "pass");
+  assert.equal(validation.checked_register_count, 2);
+  assert.equal(validation.checked_row_count, 2);
+  assert.doesNotMatch(`${p26Csv}\n${p00Csv}`, /body_text|body_html|provider_payload|local_path|provider_attachment_id|token|password|cookie/);
+});
+
+test("deadline watch validator flags project mismatch and raw markers", async () => {
+  const repoRoot = await createRepoRoot();
+  const registerFile = defaultDeadlineRegisterFile(repoRoot, "P26-014");
+  await writeText(
+    registerFile,
+    [
+      "deadline_id,project_code,source_kind,source_ref,subject_hint,action_type,due_at,due_text,confidence,status,owner_or_contact,completion_ref,next_nudge_at,last_nudged_at,nudge_count,snooze_until,claim_ceiling,raw_payload_copied,created_at,updated_at",
+      "DWL-bad,P00-000_INBOX,mail,body_text,secret token marker,reply_due,2026-05-27,~5/27,subject_date,open,,,,,0,,observed,true,2026-05-31T01:00:00.000Z,2026-05-31T01:00:00.000Z",
+      "",
+    ].join("\n"),
+  );
+
+  const result = await validateDeadlineWatchLedgers({ repoRoot });
+
+  assert.equal(result.status, "fail");
+  assert.ok(result.errors.some((error) => error.reason === "project_code_must_match_folder"));
+  assert.ok(result.errors.some((error) => error.reason === "must_be_false"));
+  assert.ok(result.errors.some((error) => error.reason === "banned_payload_or_secret_marker"));
+});
+
+test("deadline watch validator enforces terminal and snooze completion evidence", async () => {
+  const repoRoot = await createRepoRoot();
+  const registerFile = defaultDeadlineRegisterFile(repoRoot, "P26-014");
+  await writeText(
+    registerFile,
+    [
+      "deadline_id,project_code,source_kind,source_ref,subject_hint,action_type,due_at,due_text,confidence,status,owner_or_contact,completion_ref,next_nudge_at,last_nudged_at,nudge_count,snooze_until,claim_ceiling,raw_payload_copied,created_at,updated_at",
+      "DWL-done,P26-014,mail,mail_candidate:done,Done row,reply_due,2026-05-27,~5/27,subject_date,done,,,,,0,,observed,false,2026-05-31T01:00:00.000Z,2026-05-31T01:00:00.000Z",
+      "DWL-snooze,P26-014,mail,mail_candidate:snooze,Snoozed row,reply_due,2026-05-27,~5/27,subject_date,snoozed,,,,,0,,observed,false,2026-05-31T01:00:00.000Z,2026-05-31T01:00:00.000Z",
+      "DWL-invalid-date,P26-014,mail,mail_candidate:invalid,Invalid date row,reply_due,not-a-date,~5/27,subject_date,open,,,,,0,,observed,false,2026-05-31T01:00:00.000Z,2026-05-31T01:00:00.000Z",
+      "",
+    ].join("\n"),
+  );
+
+  const result = await validateDeadlineWatchLedgers({ repoRoot });
+
+  assert.equal(result.status, "fail");
+  assert.ok(result.errors.some((error) => error.reason === "terminal_status_requires_completion_ref"));
+  assert.ok(result.errors.some((error) => error.reason === "snoozed_status_requires_snooze_until"));
+  assert.ok(result.errors.some((error) => error.reason === "invalid_due_at"));
+});
+
 async function createRepoRoot() {
   return mkdtemp(path.join(os.tmpdir(), "soulforge-mail-work-status-"));
 }
@@ -671,6 +884,71 @@ function sampleCandidate({
 async function writeJson(filePath, value) {
   await mkdir(path.dirname(filePath), { recursive: true });
   await writeFile(filePath, `${JSON.stringify(value, null, 2)}\n`, "utf8");
+}
+
+async function writeText(filePath, value) {
+  await mkdir(path.dirname(filePath), { recursive: true });
+  await writeFile(filePath, value, "utf8");
+}
+
+async function writePriorityProjection(filePath, entries, overrides = {}) {
+  await writeJson(filePath, {
+    schema_version: "soulforge.gateway.mail_work_priority.v1",
+    kind: "mail_work_priority_projection",
+    generated_at: "2026-05-31T01:00:00.000Z",
+    source_schema_version: "soulforge.gateway.mail_work_status.v1",
+    count: entries.length,
+    counts: {},
+    route_counts: {},
+    entries,
+    boundary: {
+      raw_payload_copied: false,
+    },
+    ...overrides,
+  });
+}
+
+function samplePriorityRow(overrides = {}) {
+  const candidateId = overrides.candidate_id ?? "mail_candidate_due";
+  return {
+    candidate_id: candidateId,
+    mail_source_ref: candidateId.replace(/^mail_candidate_/u, "mail_evt_"),
+    subject: "Synthetic due request(~5/27)",
+    received_at: "2026-05-20T01:00:00.000Z",
+    operating_state_ko: "새 일",
+    route_candidate: "P26-014",
+    route_confidence: "exact",
+    thread_group: "synthetic",
+    due_date: "2026-05-27",
+    due_text: "~5/27",
+    due_source: "subject",
+    deadline_confidence: "subject_month_day",
+    week_window_match: null,
+    route_hint_candidates: [],
+    attachment_count: 0,
+    attachment_types: [],
+    classification_bucket: "mail",
+    priority_flags_ko: ["오늘 처리"],
+    next_action_ko: "검토한다.",
+    owner_question_ko: null,
+    work_status: "candidate_pending",
+    refs: {
+      candidate_ref: `guild_hall/state/gateway/mail_candidate/queue/pending/${candidateId}.json`,
+    },
+    boundary: {
+      raw_payload_copied: false,
+    },
+    ...overrides,
+  };
+}
+
+async function fileExists(filePath) {
+  try {
+    await readFile(filePath, "utf8");
+    return true;
+  } catch {
+    return false;
+  }
 }
 
 async function writeJsonl(filePath, value) {

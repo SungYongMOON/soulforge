@@ -227,6 +227,8 @@ npm run guild-hall:gateway:mail-work:list
 npm run guild-hall:gateway:mail-work:priority:refresh
 npm run guild-hall:gateway:mail-work:priority:list
 npm run guild-hall:gateway:mail-work:weekly-visibility -- --week-start 2026-05-25 --week-end 2026-05-31
+node guild_hall/gateway/cli.mjs import-deadline-watch
+npm run guild-hall:gateway:deadline-watch:validate
 ```
 
 priority list 는 `--work-status`, `--operating-state`, `--route-candidate`, `--route-confidence`, `--thread-group`, `--priority-flag` 로 latest priority projection 을 필터링할 수 있다.
@@ -234,6 +236,16 @@ priority list 는 `--work-status`, `--operating-state`, `--route-candidate`, `--
 `--week-window-only` 를 함께 주면 deterministic `due_date` 가 해당 주간 창 안에 들어온 row 만 출력한다.
 
 weekly visibility register 는 같은 week window 를 필수로 받으며, priority row 와 mailbox event-only fallback row 를 합쳐 `_workmeta/P00-000_INBOX/reports/triage/unresolved_weekly_visibility_register.md` 를 갱신한다.
+
+deadline-watch import 는 기본 dry-run 이며, deterministic subject/date metadata
+또는 gateway `d_day` 에서 나온 `due_date` 만 project-local
+`deadline_watch/deadline_register.csv` row 후보로 만든다. 실제 쓰기는
+`--apply` 를 명시해야 하며, review/ambiguous route 는 P00 unresolved inbox 로
+간다.
+
+deadline-watch validator 는 project-local deadline register 와 reminder event
+log 의 header, enum, project folder consistency, `raw_payload_copied=false`,
+raw/secret marker 부재를 검사한다.
 
 ## sample
 
