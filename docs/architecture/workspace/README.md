@@ -48,6 +48,7 @@
 | `WORKFLOW_EXECUTION_BINDING_MODEL.md` | workflow step 의 skill/profile ref 를 local runtime binding 으로 해석하는 기준이다. |
 | `WORKMETA_MINIMUM_SCHEMA.md` | `_workmeta/<project_code>/` 최소 contract/binding/report shape 다. |
 | `WORKMETA_RESOLVE_CONTRACT.md` | `_workmeta` 가 `.unit`, `.workflow`, `.party`, `.mission` 을 resolve 하는 기준이다. |
+| `SOULFORGE_REPORT_FORMAT_V0.md` | owner-facing 보고서를 Markdown 정본과 standalone HTML companion 쌍으로 만드는 기본 양식이다. |
 | `schema/` | workspace contract, binding, local-only event stream schema 설명 묶음이다. |
 | `examples/` | public-safe workspace/gateway/private-state sample 묶음이다. |
 | `WORKMETA_SCHEMA_FIELD_MATRIX.md` | `_workmeta` schema field 를 사람이 읽는 표로 요약한다. |
@@ -94,6 +95,7 @@
 - [`WORKFLOW_EXECUTION_BINDING_MODEL.md`](WORKFLOW_EXECUTION_BINDING_MODEL.md)
 - [`WORKMETA_MINIMUM_SCHEMA.md`](WORKMETA_MINIMUM_SCHEMA.md)
 - [`WORKMETA_RESOLVE_CONTRACT.md`](WORKMETA_RESOLVE_CONTRACT.md)
+- [`SOULFORGE_REPORT_FORMAT_V0.md`](SOULFORGE_REPORT_FORMAT_V0.md)
 - [`schema/README.md`](schema/README.md)
 - [`examples/README.md`](examples/README.md)
 - [`WORKMETA_SCHEMA_FIELD_MATRIX.md`](WORKMETA_SCHEMA_FIELD_MATRIX.md)

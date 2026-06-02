@@ -12,7 +12,8 @@
 - renderer-react surface mount
 - theme registry / swap wiring
 - Adventurer's Desk Phase UI-1 theme wiring
-- Assistant Home pane backed by `guild_hall/state/assistant_dashboard/latest.json`
+- Team Operations Console draft backed by `guild_hall/state/assistant_dashboard/latest.json`
+- Smartsheet-pending read-only operating board posture that still works from local Soulforge rollups
 - read-only Dungeon Map pane backed by `guild_hall/state/snapshot/soulforge_snapshot.json`
 - Operation Board display from the snapshot `operation_board` projection
 - metadata-only Knowledge Lane display from `operation_board.sections.knowledge_lane`
@@ -26,7 +27,7 @@
 - write-back editor
 - selection persistence
 - raw `_workspaces`, `_workmeta`, `private-state`, gateway mail body/html/source quote/raw/attachment source display in Dungeon Map
-- Assistant Home write-back, automatic completion, automatic project assignment, Calendar mutation, or Telegram send
+- Team Operations Console write-back, Smartsheet mutation, automatic completion, automatic project assignment, Calendar mutation, or Telegram send
 - unsupported gateway notification event expansion without the gateway/town_crier contract changing first
 - knowledge validation, ontology acceptance, owner decision approval, or canon promotion authority
 

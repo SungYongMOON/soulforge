@@ -1,5 +1,38 @@
 ﻿# CHANGELOG
 
+## 2026-06-02
+
+### Revision `working` - Team Ops Board mockup candidate added
+
+- Added a roadmap candidate for a standalone Team Ops Board v0 clickable
+  mockup that ignores the existing renderer-web baseline and treats Smartsheet
+  as an optional future input source.
+- Recorded the private dev-worker candidate packet for the mockup handoff so a
+  later session or worker PC can pick up the task without reading private
+  project payloads or connector secrets.
+
+### Revision `working` - Soulforge report format pair added
+
+- Added `SOULFORGE_REPORT_FORMAT_V0.md` to make owner-facing report material
+  default to a Markdown or structured-text source-of-truth plus a standalone
+  HTML companion for human review.
+- Added a public-safe owner-facing technical report tone rule so experimental
+  and test reports default to `시험 목적`, `시험 조건`, `요청/검토 항목`,
+  `검토 결과`, `고려사항`, and `후속 조치` rather than advisory prose.
+- Extended the AI output format policy so HTML report companions stay derived
+  artifacts and preserve public/private/raw/secret boundaries.
+- Added public-safe Markdown and HTML report templates under workspace
+  examples, and generated a private HTML companion for the P24-049 LIG SAS
+  group-delay report.
+
+### Revision `working` - Team Operations Console draft added
+
+- Reworked the renderer-web Assistant pane into a read-only Team Operations
+  Console draft that foregrounds open actions, waiting items, schedule adapter
+  readiness, project status, source-review posture, and data-health gates.
+- Added an explicit Smartsheet-pending state so the operations board remains
+  usable from local Soulforge rollups before any Smartsheet API integration.
+
 ## 2026-05-31
 
 ### Revision `working` - Deadline watch contract scaffold added

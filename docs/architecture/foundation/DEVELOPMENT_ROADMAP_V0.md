@@ -337,6 +337,46 @@ Step 2/3/4 implementation status:
 
 ## Active Slice 001
 
+## Development candidate - Team Ops Board v0 clickable mockup
+
+Status: candidate, owner decision pending.
+
+Goal:
+
+- Create a standalone clickable mockup for a small-team operations board.
+- Do not use the existing Soulforge `renderer-web` screen or old HTML as the
+  product baseline.
+- Treat Smartsheet as a possible future input source, not as a required first
+  dependency.
+
+MVP shape:
+
+- First screen is the daily operations board itself.
+- Show Today, Blocked, Due soon, Waiting, Done, and No owner counts.
+- Include Board, Projects, Schedule, People, and Settings placeholder views.
+- Use sample data only: about 3 projects, 6 people, and 20 work items.
+- Allow local-only mock interactions: add item, select item, change status,
+  change owner, add comment, and require a note for Blocked or Waiting.
+
+Non-goals:
+
+- Smartsheet API connection or write-back.
+- Real private project data import.
+- Mail body, attachment, secret, or credential handling.
+- Existing renderer reuse.
+- AI automatic priority, owner, or status decisions.
+- Full ERP scope.
+
+Development packet:
+
+- `_workmeta/system/dev_worker_candidate_queue/team_ops_board_clickable_mockup_v0.yaml`
+- `_workmeta/system/reports/procedure_capture/team_ops_board_fresh_design_20260602.md`
+
+Start condition:
+
+- Owner chooses clickable mockup versus working local app and confirms whether
+  teammates may update items directly in the first pilot.
+
 ### 이름
 
 `snapshot_to_operation_board_v0`

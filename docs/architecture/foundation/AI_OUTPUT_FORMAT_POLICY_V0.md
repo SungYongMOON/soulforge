@@ -23,6 +23,27 @@ source-of-truth files from human-review artifact outputs.
   must still be exportable back to Markdown, YAML, JSON, or another structured
   text form.
 
+## Report Pair Default
+
+Owner-facing report material should be produced as a pair by default:
+
+- a canonical Markdown, YAML, JSON, or structured-text record that remains the
+  source-of-truth;
+- a self-contained HTML companion that renders the same bounded conclusions in
+  a report layout for human review.
+
+This applies to project research reports, engineering analysis summaries,
+meeting or mail-history synthesis, review packets intended for a human owner,
+and final handoff reports. The HTML companion is derived output. It does not
+replace the Markdown or structured record and must point back to the canonical
+record when possible.
+
+The pair can be skipped only when the user explicitly asks for text only, the
+task is a tiny command/output check rather than report material, HTML creation
+is blocked by missing source or unsafe payload boundaries, or the owner path
+for the report is not yet known. When skipped, record the reason in the final
+answer or the review packet.
+
 ## When To Use Markdown Or Structured Text
 
 Use Markdown, YAML, JSON, or equivalent structured text when the output is:
@@ -121,6 +142,10 @@ If a human-review HTML artifact would help, produce it as a derived companion.
 - For project-local or cross-project protected evidence, keep the durable
   record in the correct private surface and expose only redacted/public-safe
   HTML companions when explicitly approved.
+- For Soulforge owner-facing reports, follow
+  [`SOULFORGE_REPORT_FORMAT_V0.md`](../workspace/SOULFORGE_REPORT_FORMAT_V0.md):
+  keep the source-of-truth text record and place the HTML companion beside it
+  or under the same owner-approved report surface.
 - If a format choice affects owner boundaries, update the relevant README and
   validation surface in the same change.
 

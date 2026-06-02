@@ -10,7 +10,7 @@
 
 - 여기의 sample 은 사람이 읽는 계약 예시다.
 - raw truth, runs, analytics, reports, artifacts 는 여기에 materialize 하지 않는다.
-- owner-facing report example 이 필요하면 standalone markdown sample 로만 둔다. 실제 `reports/` 디렉터리를 tracked example 아래에 materialize 하지는 않는다.
+- owner-facing report example 이 필요하면 public-safe Markdown/HTML template pair 로만 둔다. 실제 `reports/` 디렉터리를 tracked example 아래에 materialize 하지는 않는다.
 - installed skill name, model id, MCP/tool hint 는 example binding 으로 둘 수 있지만 host-local path 는 넣지 않는다.
 - `autohunt/` sample 은 policy, routing, mailbox rule 같은 public-safe 운영 예시만 둔다.
 - `runner/` sample 은 dispatch request 와 resolved run packet 같은 public-safe execution packet 예시만 둔다.
@@ -19,5 +19,6 @@
 - gateway/town_crier chain sample 은 같은 monster 가 `notify -> battle_log -> morning_report` 에서 같은 의미로 읽히는 예시를 함께 둔다.
 - gateway outbound sample 은 `mail_send.env` 와 별개로 `outbound/**` snapshot 과 `log/mail_send/**` append-only send log shape 를 보여준다.
 - LLM wiki bookshelf sample 은 `llm_wiki_bookshelf/` 아래에 Google Drive source warehouse 와 NotebookLM query bookshelf planning 을 위한 offline/manual metadata-only checklist 와 template 만 둔다.
+- Soulforge report format sample 은 `soulforge_report_format/` 아래에 Markdown 정본 template 과 standalone HTML companion template 만 둔다.
 - separate private state repo 템플릿이 필요하면 `private_state_repo/` 예시와 `PRIVATE_STATE_REPO_V0.md` 를 함께 본다.
 - 다른 PC 세팅 순서는 [`../MULTI_PC_DEVELOPMENT_V0.md`](../../../../docs/architecture/workspace/MULTI_PC_DEVELOPMENT_V0.md) 를 먼저 본다.

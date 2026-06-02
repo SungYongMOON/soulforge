@@ -1,0 +1,200 @@
+<!doctype html>
+<html lang="ko">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>{{report_title}}</title>
+  <style>
+    :root {
+      color-scheme: light;
+      --bg: #f6f7f9;
+      --paper: #ffffff;
+      --ink: #1f2933;
+      --muted: #5d6978;
+      --line: #d8dde5;
+      --accent: #1f6f8b;
+      --ok: #1f7a4d;
+      --warn: #a15c12;
+      --risk: #a33737;
+    }
+    * { box-sizing: border-box; }
+    body {
+      margin: 0;
+      background: var(--bg);
+      color: var(--ink);
+      font: 14px/1.58 "Segoe UI", Arial, sans-serif;
+    }
+    main {
+      max-width: 1100px;
+      margin: 28px auto;
+      padding: 0 20px 40px;
+    }
+    .report {
+      background: var(--paper);
+      border: 1px solid var(--line);
+      border-radius: 8px;
+      overflow: hidden;
+      box-shadow: 0 8px 22px rgba(31, 41, 51, 0.08);
+    }
+    header {
+      padding: 30px 34px 24px;
+      border-bottom: 1px solid var(--line);
+    }
+    .eyebrow {
+      color: var(--accent);
+      font-size: 12px;
+      font-weight: 700;
+      text-transform: uppercase;
+      letter-spacing: 0.04em;
+    }
+    h1 {
+      margin: 8px 0 12px;
+      font-size: 30px;
+      line-height: 1.2;
+      letter-spacing: 0;
+    }
+    .meta {
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(210px, 1fr));
+      gap: 8px 18px;
+      color: var(--muted);
+    }
+    section { padding: 24px 34px; border-bottom: 1px solid var(--line); }
+    section:last-child { border-bottom: 0; }
+    h2 { margin: 0 0 14px; font-size: 18px; letter-spacing: 0; }
+    .cards {
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
+      gap: 12px;
+    }
+    .card {
+      border: 1px solid var(--line);
+      border-left: 5px solid var(--accent);
+      border-radius: 8px;
+      padding: 14px 16px;
+      background: #fbfcfd;
+    }
+    .card.ok { border-left-color: var(--ok); }
+    .card.warn { border-left-color: var(--warn); }
+    .card.risk { border-left-color: var(--risk); }
+    .label { color: var(--muted); font-size: 12px; font-weight: 700; }
+    table {
+      width: 100%;
+      border-collapse: collapse;
+      margin: 8px 0 0;
+    }
+    th, td {
+      border: 1px solid var(--line);
+      padding: 9px 10px;
+      text-align: left;
+      vertical-align: top;
+    }
+    th { background: #eef2f5; }
+    code, pre {
+      font-family: Consolas, "Liberation Mono", monospace;
+      background: #f1f4f7;
+      border-radius: 5px;
+    }
+    code { padding: 1px 4px; }
+    pre { padding: 12px; overflow: auto; }
+    .note {
+      border: 1px solid var(--line);
+      border-radius: 8px;
+      padding: 12px 14px;
+      background: #fbfcfd;
+      color: var(--muted);
+    }
+    @media print {
+      body { background: #fff; }
+      main { margin: 0; max-width: none; padding: 0; }
+      .report { border: 0; box-shadow: none; border-radius: 0; }
+      section, header { break-inside: avoid; }
+    }
+  </style>
+</head>
+<body>
+  <main>
+    <article class="report">
+      <header>
+        <div class="eyebrow">Soulforge Report HTML Companion</div>
+        <h1>{{report_title}}</h1>
+        <div class="meta">
+          <div><strong>Report ID</strong><br>{{report_id}}</div>
+          <div><strong>Project</strong><br>{{project_code}}</div>
+          <div><strong>Date</strong><br>{{report_date}}</div>
+          <div><strong>Claim ceiling</strong><br>{{claim_ceiling}}</div>
+          <div><strong>Canonical record</strong><br>{{canonical_record_ref}}</div>
+          <div><strong>HTML status</strong><br>derived_human_review_artifact</div>
+        </div>
+      </header>
+
+      <section>
+        <h2>Executive Summary</h2>
+        <div class="cards">
+          <div class="card ok"><div class="label">Usable</div>{{usable_scope}}</div>
+          <div class="card warn"><div class="label">Limited</div>{{limited_scope}}</div>
+          <div class="card risk"><div class="label">Do Not Claim</div>{{unsafe_scope}}</div>
+        </div>
+      </section>
+
+      <section>
+        <h2>Decision / Conclusion</h2>
+        <p>{{bounded_conclusion}}</p>
+      </section>
+
+      <section>
+        <h2>Evidence Map</h2>
+        <table>
+          <thead><tr><th>Evidence</th><th>Ref</th><th>Use</th><th>Boundary</th></tr></thead>
+          <tbody>
+            <tr><td>{{evidence_label}}</td><td>{{evidence_ref}}</td><td>{{evidence_use}}</td><td>{{evidence_boundary}}</td></tr>
+          </tbody>
+        </table>
+      </section>
+
+      <section>
+        <h2>Method</h2>
+        <pre>{{method_equations_or_steps}}</pre>
+      </section>
+
+      <section>
+        <h2>Findings</h2>
+        <table>
+          <thead><tr><th>Finding</th><th>Value</th><th>Interpretation</th></tr></thead>
+          <tbody>
+            <tr><td>{{finding_label}}</td><td>{{finding_value}}</td><td>{{finding_interpretation}}</td></tr>
+          </tbody>
+        </table>
+      </section>
+
+      <section>
+        <h2>Risks / Gaps</h2>
+        <ul>
+          <li>{{risk_or_gap_1}}</li>
+          <li>{{risk_or_gap_2}}</li>
+        </ul>
+      </section>
+
+      <section>
+        <h2>Next Actions</h2>
+        <table>
+          <thead><tr><th>Priority</th><th>Action</th><th>Owner / route</th></tr></thead>
+          <tbody>
+            <tr><td>P1</td><td>{{next_action}}</td><td>{{owner_or_route}}</td></tr>
+          </tbody>
+        </table>
+      </section>
+
+      <section>
+        <h2>Boundary Note</h2>
+        <div class="note">
+          Canonical source-of-truth remains the Markdown or structured-text
+          record. This HTML page is a review surface only. It must not include
+          secrets, private raw payloads, host-local paths in public examples,
+          or stronger acceptance claims than the canonical record.
+        </div>
+      </section>
+    </article>
+  </main>
+</body>
+</html>

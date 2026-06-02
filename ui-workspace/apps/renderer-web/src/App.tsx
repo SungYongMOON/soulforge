@@ -1448,16 +1448,18 @@ function App() {
     }
   }
 
-  async function handleDungeonMapRefresh() {
+  async function loadDungeonMapSnapshot(options: { navigate: boolean; showNotice: boolean }) {
     setDungeonMap((current) => ({
       ...current,
       loading: true,
       error: null
     }));
-    setNotice({
-      tone: "info",
-      message: "Loading read-only Dungeon Map snapshot."
-    });
+    if (options.showNotice) {
+      setNotice({
+        tone: "info",
+        message: "Loading read-only Dungeon Map snapshot."
+      });
+    }
 
     try {
       const snapshot = await requestDungeonMap();
@@ -1467,14 +1469,19 @@ function App() {
         error: null,
         updatedAt: new Date().toISOString()
       });
-      setRoute((current) => ({
-        ...current,
-        activePane: "map"
-      }));
-      setNotice({
-        tone: snapshot.status === "fresh" ? "success" : "info",
-        message: `Dungeon Map snapshot status: ${snapshot.status}.`
-      });
+      if (options.navigate) {
+        setRoute((current) => ({
+          ...current,
+          activePane: "map"
+        }));
+      }
+      if (options.showNotice) {
+        setNotice({
+          tone: snapshot.status === "fresh" ? "success" : "info",
+          message: `Dungeon Map snapshot status: ${snapshot.status}.`
+        });
+      }
+      return snapshot;
     } catch (error) {
       setDungeonMap({
         loading: false,
@@ -1482,11 +1489,18 @@ function App() {
         error: error instanceof Error ? error.message : "Dungeon Map refresh failed.",
         updatedAt: null
       });
-      setNotice({
-        tone: "error",
-        message: error instanceof Error ? error.message : "Dungeon Map refresh failed."
-      });
+      if (options.showNotice) {
+        setNotice({
+          tone: "error",
+          message: error instanceof Error ? error.message : "Dungeon Map refresh failed."
+        });
+      }
+      return null;
     }
+  }
+
+  async function handleDungeonMapRefresh() {
+    await loadDungeonMapSnapshot({ navigate: true, showNotice: true });
   }
 
   async function handleAssistantHomeRefresh() {
@@ -1501,7 +1515,10 @@ function App() {
     });
 
     try {
-      const dashboard = await requestAssistantDashboard();
+      const [dashboard, snapshot] = await Promise.all([
+        requestAssistantDashboard(),
+        loadDungeonMapSnapshot({ navigate: false, showNotice: false })
+      ]);
       setAssistantHome({
         loading: false,
         dashboard,
@@ -1513,8 +1530,8 @@ function App() {
         activePane: "assistant"
       }));
       setNotice({
-        tone: dashboard.status === "ok" ? "success" : "info",
-        message: `Assistant Home status: ${dashboard.status}.`
+        tone: dashboard.status === "ok" && snapshot?.status === "fresh" ? "success" : "info",
+        message: `Team Operations Console loaded: dashboard ${dashboard.status}; snapshot ${snapshot?.status ?? "unavailable"}.`
       });
     } catch (error) {
       setAssistantHome({
@@ -1809,12 +1826,22 @@ function App() {
             <section className="cc-pane cc-assistant-pane">
               <div className="cc-assistant-header">
                 <div>
-                  <p className="cc-eyebrow">Assistant Home</p>
-                  <h2>Today Board</h2>
+                  <p className="cc-eyebrow">Team Operations Console</p>
+                  <h2>Today Command Board</h2>
+                  <p className="cc-assistant-lede">
+                    Read-only operating view from local Soulforge rollups. Smartsheet can plug in later as an external source, but this board still runs without it.
+                  </p>
                   <div className="cc-chip-row">
                     {assistantHome.dashboard ? (
                       <span className={`cc-chip cc-chip--${assistantStatusTone(assistantHome.dashboard.status)}`}>{assistantHome.dashboard.status}</span>
                     ) : null}
+                    <span className="cc-chip cc-chip--warning">Smartsheet pending</span>
+                    <span className="cc-chip cc-chip--ready">Read-only</span>
+                    {dungeonMap.snapshot ? (
+                      <span className={`cc-chip cc-chip--${snapshotTone(dungeonMap.snapshot.status)}`}>Snapshot {dungeonMap.snapshot.status}</span>
+                    ) : (
+                      <span className="cc-chip cc-chip--warning">Snapshot not loaded</span>
+                    )}
                     {assistantHome.dashboard ? <span className="cc-chip">Today {assistantHome.dashboard.today_kst ?? "not supplied"}</span> : null}
                     {assistantHome.dashboard?.generated_at ? <span className="cc-chip">Generated {formatTimestamp(assistantHome.dashboard.generated_at)}</span> : null}
                     {assistantHome.updatedAt ? <span className="cc-chip">Loaded {formatTimestamp(assistantHome.updatedAt)}</span> : null}
@@ -1833,24 +1860,29 @@ function App() {
                   {assistantHome.dashboard.error ? <p className="cc-readonly-note">{assistantHome.dashboard.error}</p> : null}
 
                   <section className="cc-assistant-metric-grid">
-                    <article className="cc-assistant-metric-card">
-                      <span>Deadlines</span>
+                    <article className="cc-assistant-metric-card cc-assistant-metric-card--quiet">
+                      <span>Deadline Watch</span>
                       <strong>{assistantHome.dashboard.summary.active_deadline_count}</strong>
                       <small>
                         {assistantHome.dashboard.summary.overdue_deadline_count} overdue / {assistantHome.dashboard.summary.due_today_deadline_count} today
                       </small>
                     </article>
-                    <article className="cc-assistant-metric-card">
+                    <article className="cc-assistant-metric-card cc-assistant-metric-card--hot">
                       <span>Open Actions</span>
                       <strong>{assistantHome.dashboard.summary.active_open_action_count}</strong>
                       <small>{assistantHome.dashboard.summary.high_open_action_count} high priority</small>
                     </article>
-                    <article className="cc-assistant-metric-card">
+                    <article className="cc-assistant-metric-card cc-assistant-metric-card--watch">
                       <span>Waiting</span>
                       <strong>{assistantHome.dashboard.summary.waiting_item_count}</strong>
                       <small>{assistantHome.dashboard.sections.waiting_on_people.length} owner buckets</small>
                     </article>
-                    <article className="cc-assistant-metric-card">
+                    <article className="cc-assistant-metric-card cc-assistant-metric-card--quiet">
+                      <span>Recent Done</span>
+                      <strong>{assistantHome.dashboard.summary.recent_done_count}</strong>
+                      <small>latest completed work</small>
+                    </article>
+                    <article className="cc-assistant-metric-card cc-assistant-metric-card--health">
                       <span>Data Health</span>
                       <strong>{assistantHome.dashboard.summary.stale_warning_count}</strong>
                       <small>{assistantHome.dashboard.validation.project_ledgers.status}</small>
@@ -1858,8 +1890,8 @@ function App() {
                   </section>
 
                   {assistantHome.dashboard.status !== "ok" ? (
-                    <section className="cc-readonly-note">
-                      <strong>Current blockers</strong>
+                    <section className="cc-readonly-note cc-ops-gate-note">
+                      <strong>Data gates</strong>
                       <span>
                         P00 active deadlines {assistantHome.dashboard.summary.p00_unresolved_deadline_count}; source warnings {assistantHome.dashboard.summary.stale_warning_count};
                         ledger guard {assistantHome.dashboard.validation.project_ledgers.error_count}.
@@ -1869,9 +1901,10 @@ function App() {
 
                   <section className="cc-assistant-section">
                     <div className="cc-assistant-section__header">
-                      <h3>Today Risk</h3>
+                      <h3>Action Board</h3>
                       <span>{assistantHome.dashboard.sections.today_risk.length}</span>
                     </div>
+                    <p className="cc-section-note">Highest-risk open actions and waiting items surfaced from local metadata. Use Smartsheet for team edits until write-back is explicitly added.</p>
                     {assistantHome.dashboard.sections.today_risk.length > 0 ? (
                       <ul className="cc-assistant-list">
                         {assistantHome.dashboard.sections.today_risk.map((item) => (
@@ -1882,9 +1915,39 @@ function App() {
                           </li>
                         ))}
                       </ul>
+                    ) : actionQueueItems.length > 0 ? (
+                      <ul className="cc-assistant-list">
+                        {actionQueueItems.map((item) => (
+                          <li key={`${item.id}:${item.status}:${item.summary}`}>
+                            <strong>{item.summary}</strong>
+                            <span>{item.status}</span>
+                          </li>
+                        ))}
+                      </ul>
                     ) : (
-                      <p className="cc-section-note">No active deadline rows are applied.</p>
+                      <p className="cc-section-note">No action rows are available. Refresh the assistant dashboard or snapshot.</p>
                     )}
+                  </section>
+
+                  <section className="cc-assistant-section cc-ops-schedule-section">
+                    <div className="cc-assistant-section__header">
+                      <h3>Schedule</h3>
+                      <span>adapter pending</span>
+                    </div>
+                    <div className="cc-ops-schedule-grid">
+                      <article>
+                        <strong>Current source</strong>
+                        <span>Deadline watch and project ledgers are available through Soulforge metadata.</span>
+                      </article>
+                      <article>
+                        <strong>Smartsheet</strong>
+                        <span>Connect later as a read-only sheet/report adapter for team schedule and assignment rows.</span>
+                      </article>
+                      <article>
+                        <strong>Next gate</strong>
+                        <span>Normalize date, owner/contact, status, and project columns before showing a trusted calendar.</span>
+                      </article>
+                    </div>
                   </section>
 
                   <section className="cc-assistant-section">
@@ -1892,23 +1955,38 @@ function App() {
                       <h3>Projects</h3>
                       <span>{assistantHome.dashboard.summary.project_count}</span>
                     </div>
-                    <div className="cc-assistant-project-grid">
-                      {assistantHome.dashboard.sections.projects.map((project) => (
-                        <article className="cc-assistant-project-card" key={project.project_code}>
-                          <strong>{project.project_code}</strong>
-                          <span>deadlines {project.active_deadline_count}</span>
-                          <span>actions {project.active_open_action_count}</span>
-                          <span>done {project.recent_done_count}</span>
-                          {project.top_open_actions.length > 0 ? (
-                            <ul>
-                              {project.top_open_actions.slice(0, 3).map((item) => (
-                                <li key={`${project.project_code}:${item.id}:${item.title}`}>{item.title}</li>
-                              ))}
-                            </ul>
-                          ) : null}
-                        </article>
-                      ))}
-                    </div>
+                    {assistantHome.dashboard.sections.projects.length > 0 ? (
+                      <div className="cc-assistant-project-grid">
+                        {assistantHome.dashboard.sections.projects.map((project) => (
+                          <article className="cc-assistant-project-card" key={project.project_code}>
+                            <strong>{project.project_code}</strong>
+                            <span>deadlines {project.active_deadline_count}</span>
+                            <span>actions {project.active_open_action_count}</span>
+                            <span>done {project.recent_done_count}</span>
+                            {project.top_open_actions.length > 0 ? (
+                              <ul>
+                                {project.top_open_actions.slice(0, 3).map((item) => (
+                                  <li key={`${project.project_code}:${item.id}:${item.title}`}>{item.title}</li>
+                                ))}
+                              </ul>
+                            ) : null}
+                          </article>
+                        ))}
+                      </div>
+                    ) : dungeonMapProjects.length > 0 ? (
+                      <div className="cc-assistant-project-grid">
+                        {dungeonMapProjects.map((project) => (
+                          <article className="cc-assistant-project-card" key={project.project_code}>
+                            <strong>{project.project_code}</strong>
+                            <span>workspace {project.workspace_present ? "present" : "missing"}</span>
+                            <span>workmeta {project.workmeta_present ? "present" : "missing"}</span>
+                            {project.surface_status ? <span>{project.surface_status}</span> : null}
+                          </article>
+                        ))}
+                      </div>
+                    ) : (
+                      <p className="cc-section-note">No project rows are available.</p>
+                    )}
                   </section>
 
                   <section className="cc-assistant-section">
@@ -1917,24 +1995,40 @@ function App() {
                       <span>{assistantHome.dashboard.sections.waiting_on_people.length}</span>
                     </div>
                     <div className="cc-assistant-two-column">
-                      <ul className="cc-assistant-list">
-                        {assistantHome.dashboard.sections.waiting_on_people.slice(0, 8).map((group) => (
-                          <li key={`${group.owner_or_contact}:${group.count}`}>
-                            <strong>{group.owner_or_contact}</strong>
-                            <span>{group.count} items</span>
-                            {group.items[0] ? <span>{group.items[0].title}</span> : null}
-                          </li>
-                        ))}
-                      </ul>
-                      <ul className="cc-assistant-list">
-                        {assistantHome.dashboard.sections.done_recent.slice(0, 8).map((item) => (
-                          <li key={`${item.project_code}:${item.id}:${item.title}`}>
-                            <strong>{item.title}</strong>
-                            <span>{assistantItemMeta(item)}</span>
-                          </li>
-                        ))}
-                      </ul>
+                      <div className="cc-assistant-column">
+                        <strong className="cc-assistant-column-title">Waiting on people</strong>
+                        <ul className="cc-assistant-list">
+                          {assistantHome.dashboard.sections.waiting_on_people.slice(0, 8).map((group) => (
+                            <li key={`${group.owner_or_contact}:${group.count}`}>
+                              <strong>{group.owner_or_contact}</strong>
+                              <span>{group.count} items</span>
+                              {group.items[0] ? <span>{group.items[0].title}</span> : null}
+                            </li>
+                          ))}
+                        </ul>
+                      </div>
+                      <div className="cc-assistant-column">
+                        <strong className="cc-assistant-column-title">Recently done</strong>
+                        <ul className="cc-assistant-list">
+                          {assistantHome.dashboard.sections.done_recent.slice(0, 8).map((item) => (
+                            <li key={`${item.project_code}:${item.id}:${item.title}`}>
+                              <strong>{item.title}</strong>
+                              <span>{assistantItemMeta(item)}</span>
+                            </li>
+                          ))}
+                        </ul>
+                      </div>
                     </div>
+                  </section>
+
+                  <section className="cc-assistant-section">
+                    <div className="cc-assistant-section__header">
+                      <h3>Sources / Knowledge Review</h3>
+                      <span>advisory</span>
+                    </div>
+                    <p className="cc-section-note">
+                      NotebookLM, source research, and knowledge candidates remain review-only here. This console does not approve owner decisions, validate knowledge, or promote canon.
+                    </p>
                   </section>
 
                   <section className="cc-assistant-section">
