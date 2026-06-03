@@ -13,6 +13,7 @@
 | `WORKSPACE_PROJECT_MODEL.md` | `_workspaces`, `_workmeta`, `.mission`, gateway handoff 의 owner 경계를 고정한다. |
 | `PROJECT_ONBOARDING_V0.md` | 실제 프로젝트를 `_workspaces/<project_code>/` 로 처음 붙이는 절차를 둔다. |
 | `PROJECT_LEDGER_UPDATE_V0.md` | 주기적으로 전달되는 회사 PJT 관리 대장을 private source 로 받아 project registration 을 갱신하는 public-safe 절차다. |
+| `SE_WORKSPACE_FOLDER_NAMING_CONVENTION_V0.md` | 사람이 보는 SE 프로젝트 워크스페이스 폴더명을 한글 중심, 짧은 의미 중심으로 정하고 provenance 를 metadata 로 분리하는 규칙이다. |
 | `HWP_NORMALIZATION_V0.md` | HWP 원문을 직접 읽지 않고 먼저 HWPX 로 정규화한 뒤 HWPX 파생본만 분석하는 전사 처리 순서다. |
 | `PROJECT_START_WORKFLOW_V0.md` | 첫 project task 를 열 때 기록 위치와 bounded 시작 순서를 둔다. |
 | `MISSION_MODEL.md` | monster, mission, artifact, readiness, raw run truth 의 관계를 고정한다. |
@@ -60,6 +61,7 @@
 - [`WORKSPACE_PROJECT_MODEL.md`](WORKSPACE_PROJECT_MODEL.md)
 - [`PROJECT_ONBOARDING_V0.md`](PROJECT_ONBOARDING_V0.md)
 - [`PROJECT_LEDGER_UPDATE_V0.md`](PROJECT_LEDGER_UPDATE_V0.md)
+- [`SE_WORKSPACE_FOLDER_NAMING_CONVENTION_V0.md`](SE_WORKSPACE_FOLDER_NAMING_CONVENTION_V0.md)
 - [`HWP_NORMALIZATION_V0.md`](HWP_NORMALIZATION_V0.md)
 - [`PROJECT_START_WORKFLOW_V0.md`](PROJECT_START_WORKFLOW_V0.md)
 - [`MISSION_MODEL.md`](MISSION_MODEL.md)
@@ -113,6 +115,7 @@
 - `INSTALLATION_MANUAL_V0.md` 는 다른 PC 에서 clone 후 무엇을 어떤 순서로 설치해야 하는지 한 장짜리 상위 bootstrap 문서다.
 - `PROJECT_ONBOARDING_V0.md` 는 첫 실제 프로젝트를 `_workspaces/<project_code>/` 에 붙일 때 short `project_code`, full `display_name`, read-only first, local-only link materialization 규칙을 잠근다.
 - `PROJECT_LEDGER_UPDATE_V0.md` 는 owner 가 주기적으로 전달하는 회사 PJT 관리 대장을 private source 로 보관하고 current/open project metadata 를 갱신하는 절차를 잠근다.
+- `SE_WORKSPACE_FOLDER_NAMING_CONVENTION_V0.md` 는 사람에게 보이는 SE workspace 폴더명은 짧은 한글 의미명으로 두고, 날짜/source/mail/hash/import provenance 는 `_workmeta` metadata 또는 manifest 로 분리하는 기준을 잠근다.
 - shared project payload 는 owner-approved shared worksite 에 두고 `_workspaces/<project_code>/` 는 junction/symlink view 로 materialize 하는 것을 current-default 로 둔다.
 - `PROJECT_START_WORKFLOW_V0.md` 는 첫 과제 시작 시 사람과 Codex 가 어디에 기록하고 어떤 순서로 bounded task 를 열지 잠근다.
 - `BOOTSTRAP_PROFILES_V0.md` 는 `public-only`, `operator`, `owner-with-state` bootstrap 기본 프로필을 잠근다.

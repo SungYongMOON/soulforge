@@ -1,5 +1,17 @@
 ﻿# CHANGELOG
 
+## 2026-06-03
+
+### Revision `working` - SE workspace folder naming convention added
+
+- Added `SE_WORKSPACE_FOLDER_NAMING_CONVENTION_V0.md` as the public-safe
+  convention for human-facing SE project workspace folder names.
+- Added a short `AGENTS.md` routing rule so folder create, cleanup, rename, and
+  dry-run work reads the detailed workspace naming convention first.
+- Linked the convention from the workspace architecture README and kept actual
+  workspace rename behind dry-run mapping, pointer migration planning, and
+  owner approval.
+
 ## 2026-06-02
 
 ### Revision `working` - Team Ops Board mockup candidate added
