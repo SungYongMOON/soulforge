@@ -1,0 +1,11 @@
+workflow_id: experiment_report_authoring_v0
+kind: profile_policy
+status: draft
+optimizer_status: not_requested
+primary_profile: null
+shadow_profiles: []
+calibration_status: none
+notes:
+  - No optimizer work was requested for this draft.
+  - Registration and profile calibration require a later manager decision.
+  - Until pilot evidence exists, use the repo-default execution profile selected by the local runner or project binding.

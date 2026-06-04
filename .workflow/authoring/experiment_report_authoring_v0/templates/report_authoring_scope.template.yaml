@@ -1,0 +1,33 @@
+report_authoring_scope:
+  report_id: "<yyyymmdd_slug>"
+  report_title: "<report_title>"
+  report_date: "<yyyy-mm-dd>"
+  intended_reader:
+    - "<team_or_owner_or_customer>"
+  report_type: "experiment_report"
+  purpose:
+    - "<why_the_test_was_performed>"
+  judgement_scope:
+    can_state:
+      - "<supported_observation_or_limited_conclusion>"
+    cannot_state:
+      - "<contract_acceptance_or_unverified_claim_not_allowed>"
+  source_record_status: "draft"
+  claim_scope_label: "수조시험 데이터 기반 기술 검토"
+  core_summary_style:
+    lead_sentence_required: true
+    preferred_shape: "검토 항목 / 결과 요약 table"
+    include:
+      - "report-level judgment"
+      - "bounded core numbers"
+      - "interpretation limits"
+    avoid:
+      - "file-by-file calculation log"
+      - "raw channel/procedure bullet list"
+      - "unqualified distance conversion"
+      - "student-like observation narration"
+  required_outline_ref: "templates/experiment_report_outline.reference.md"
+  output_pair:
+    markdown_record_required: true
+    html_review_default: true
+    html_review_same_claim_scope_as_markdown: true

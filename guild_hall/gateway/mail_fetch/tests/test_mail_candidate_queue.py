@@ -66,6 +66,8 @@ def test_mail_candidate_queue_writes_body_safe_pending_item(tmp_path: Path) -> N
     payload = json.loads((tmp_path / result.queue_files[0]).read_text(encoding="utf-8"))
     rendered = json.dumps(payload, ensure_ascii=False)
     history_root = tmp_path / "_workmeta" / "P00-000_INBOX" / "reports" / "메일_이력"
+    history_csv_bytes = (history_root / "메일_이력.csv").read_bytes()
+    history_ics_bytes = (history_root / "메일_일정이벤트.ics").read_bytes()
     history_rows = list(csv.DictReader((history_root / "메일_이력.csv").open("r", encoding="utf-8-sig")))
     history_rendered = "\n".join(
         [
@@ -86,6 +88,8 @@ def test_mail_candidate_queue_writes_body_safe_pending_item(tmp_path: Path) -> N
     assert payload["mail_summary"]["attachment_types"] == ["reference_attachment"]
     assert payload["business_review"]["next_action"] == "review_for_mail_intake_request"
     assert len(history_rows) == 1
+    assert b"\r\n" not in history_csv_bytes
+    assert b"\r\n" not in history_ics_bytes
     assert history_rows[0]["프로젝트코드"] == "P00-000_INBOX"
     assert history_rows[0]["단계"] == "mail_candidate_queue"
     assert history_rows[0]["후보ID"] == payload["candidate_id"]

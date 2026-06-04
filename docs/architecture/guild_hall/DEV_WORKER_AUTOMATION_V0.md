@@ -164,6 +164,24 @@ _workmeta/<project_code>/dev_worker_queue/<task_id>.yaml
 
 and marks the candidate as `status: promoted`.
 
+Candidate audit view:
+
+```bash
+npm run guild-hall:dev-worker:candidates -- --details
+```
+
+The details view is a read-only audit surface. It prints total candidate count,
+promotable count, auto-approvable count, active candidate count, closed
+candidate count, status counts, each packet ref, project code, promotion
+blocker, and auto-approval blocker. It must not read raw project payloads,
+mail bodies, attachments, `_workspaces/**` material, or secrets.
+
+For the audit summary, `completed`, `promoted`, `rejected`, `dropped`, and
+`cancelled` are closed candidate states. Closed candidates are not executable
+backlog. `proposed`, `open`, and owner-approved candidates are active from an
+audit standpoint, but they are still not worker-executable until the promotion
+helper writes a ready packet into `dev_worker_queue`.
+
 ## Auto-Approval Policy
 
 The auto-approval lane exists so the worker PC can continue on low-risk maintenance work without making the owner manually approve every candidate.

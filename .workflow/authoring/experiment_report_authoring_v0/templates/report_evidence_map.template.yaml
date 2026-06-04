@@ -1,0 +1,23 @@
+evidence_map:
+  report_id: "<yyyymmdd_slug>"
+  evidence:
+    - evidence_id: "S1"
+      label: "<source_or_data_label>"
+      kind: "<raw_data_ref|analysis_output_ref|request_ref|calibration_ref|prior_report_ref>"
+      portable_ref: "<repo_relative_or_owner_approved_pointer>"
+      use_in_report:
+        - "<how_this_ref_supports_the_report>"
+      boundary: "<private_pointer_only|public_safe_summary|derived_analysis>"
+      status: "<available|missing|needs_owner_confirmation|excluded>"
+  computed_artifacts:
+    - artifact_id: "D1"
+      label: "<derived_result_label>"
+      portable_ref: "<repo_relative_or_owner_approved_pointer>"
+      use_in_report:
+        - "<table_graph_or_metric_usage>"
+      raw_payload_included: false
+  gaps:
+    - gap_id: "G1"
+      item: "<missing_source_or_uncertain_condition>"
+      effect_on_report: "<what_cannot_be_concluded_until_resolved>"
+      proposed_action: "<request_data_retest_or_owner_decision>"

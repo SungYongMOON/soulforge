@@ -1,0 +1,46 @@
+workflow_id: experiment_report_authoring_v0
+kind: handoff_rules
+status: draft
+rules:
+  - rule_id: from_soulforge_report_format
+    from_doc_ref: docs/architecture/workspace/SOULFORGE_REPORT_FORMAT_V0.md
+    consume:
+      - required_report_sections
+      - owner_facing_report_spine
+      - default_markdown_html_pair_policy
+      - storage_rules
+    requirement: Use the report format contract as the formatting and boundary source; this workflow adds the authoring procedure.
+  - rule_id: from_project_workspace
+    from_surface: _workspaces/<project_code>/
+    consume:
+      - raw_source_payload_refs
+      - generated_analysis_asset_refs
+      - generated_chart_or_table_refs
+    requirement: Consume pointer refs only; do not copy original payloads into public workflow files or metadata reports.
+  - rule_id: from_project_workmeta
+    from_surface: _workmeta/<project_code>/reports/**
+    consume:
+      - prior_report_refs
+      - mail_history_refs
+      - open_action_refs
+      - procedure_capture_refs
+      - post_development_review_refs
+    requirement: Treat project-local metadata as private/protected unless explicitly public-safe.
+  - rule_id: to_report_record
+    to_surface: _workmeta/<project_code>/reports/<lane>/<yyyymmdd>_<slug>.md
+    provide:
+      - markdown_report_draft
+      - evidence_map
+      - gap_and_next_action_summary
+    requirement: The Markdown or structured-text report remains the reference report for the task.
+  - rule_id: to_html_review_copy
+    to_surface: _workmeta/<project_code>/reports/<lane>/<yyyymmdd>_<slug>.html
+    provide:
+      - html_review_plan
+      - human_review_copy_notice
+    requirement: The HTML copy is for human review; if it lists the Markdown reference, place that in document management rather than in a hero or disclaimer banner.
+  - rule_id: to_followup_register
+    to_surface: _workmeta/<project_code>/reports/open_actions/
+    provide:
+      - open_gap_and_next_action_register
+    requirement: Follow-up work should become visible action rows instead of staying only in narrative prose.

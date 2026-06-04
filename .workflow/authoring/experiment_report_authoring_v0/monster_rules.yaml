@@ -1,0 +1,17 @@
+workflow_id: experiment_report_authoring_v0
+kind: monster_rules
+status: draft
+triggers:
+  - a project experiment, test, analysis, or technical review report needs a common team structure
+  - raw data and analysis results exist but the report purpose, evidence map, and next actions are not yet organized
+  - a mobile or human-readable HTML review copy is needed alongside a Markdown report record
+  - a repeated report outline should be reused without copying project-specific raw payloads into public workflow material
+non_triggers:
+  - contract acceptance, final judgment, or approval decision
+  - pure source research without an experiment or test report output
+  - raw data analysis where no report material is requested
+  - document styling only, with report content and structure already accepted
+classification_rules:
+  - if the user asks for the common experiment report outline, use templates/experiment_report_outline.reference.md as the starting spine.
+  - if contract acceptance or final judgment is requested, route the result evidence through an owner-decision workflow instead of this draft.
+  - if raw files must be parsed or analyzed first, run the analysis task under project-local storage and return only refs and summarized findings to this workflow.

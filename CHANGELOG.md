@@ -1,6 +1,57 @@
 ﻿# CHANGELOG
 
+## 2026-06-04
+
+### Revision `working` - Mail history line endings normalized
+
+- Updated the gateway mail-fetch project mail history writer so derived
+  `_workmeta/**/reports/메일_이력/` CSV and calendar metadata use LF line
+  endings.
+- Added regression coverage so future P00 mail-history updates do not create
+  CRLF trailing-whitespace failures under `git diff --check`.
+
 ## 2026-06-03
+
+### Revision `working` - Dev-worker candidate audit details added
+
+- Added a `--details` text view for `guild-hall:dev-worker:candidates` so
+  stalled development candidates show their promotion and auto-approval
+  blockers without changing candidate promotion behavior.
+- Added status, active-candidate, and closed-candidate counts so completed
+  candidate packets are easier to distinguish from still-proposed work.
+- Added focused test coverage, README guidance, and architecture contract
+  wording for the candidate audit view.
+
+### Revision `working` - Development idea capture lane clarified
+
+- Clarified `DEVELOPMENT_ROADMAP_V0.md` so future development ideas move
+  through a fixed ladder: roadmap line, system/project candidate queue,
+  executable dev-worker request, or metadata-only knowledge/RAG capture.
+- Added minimum fields and approval guards for candidate-to-execution
+  promotion so owner-decision-pending tasks are not silently treated as ready.
+- Reframed the WorldBible `Idea Backlog` as product-sense notes only, with
+  actual development storage owned by the roadmap and `_workmeta` queues.
+
+### Revision `working` - Experiment report authoring draft added
+
+- Added `.workflow/authoring/experiment_report_authoring_v0/` as a
+  public-safe draft workflow for team experiment report authoring.
+- Included a reusable Korean experiment report outline reference template so
+  report authors can copy a stable section spine into project-local reports.
+- Clarified `.workflow/authoring/README.md` so new workflow drafts are authored
+  through `soulforge-workflow-generator` and closed through
+  `soulforge-workflow-check`, with missing generator evidence kept as a draft
+  status gap.
+- Kept the draft limited to report authoring, evidence mapping, HTML review-copy
+  planning, gaps, next actions, and boundary review without claiming contract
+  acceptance, final pass/fail judgment, or customer approval.
+- Added report-tone guidance so judgment limits are written as `자료 성격`,
+  `검토 범위`, and `별도 확인 대상` instead of AI-style disclaimer banners.
+- Added an HTML table-of-contents rule that suppresses automatic list numbering
+  when Markdown headings already carry section numbers.
+- Added core-summary guidance so experiment reports use a `검토 항목 / 결과 요약`
+  table with report-level judgment, bounded numbers, and interpretation limits
+  instead of file-by-file calculation-log bullets.
 
 ### Revision `working` - SE workspace folder naming convention added
 

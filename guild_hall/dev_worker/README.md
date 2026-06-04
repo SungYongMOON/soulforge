@@ -29,6 +29,7 @@ The lane is intentionally narrower than a general autonomous developer. It selec
 npm run guild-hall:dev-worker:preflight -- --local-root <Soulforge root>
 npm run guild-hall:dev-worker:claim -- --local-root <Soulforge root> --json
 npm run guild-hall:dev-worker:candidates -- --local-root <Soulforge root> --workmeta-root <_workmeta root> --json
+npm run guild-hall:dev-worker:candidates -- --local-root <Soulforge root> --workmeta-root <_workmeta root> --details
 npm run guild-hall:dev-worker:candidates -- --local-root <Soulforge root> --workmeta-root <_workmeta root> --auto-approve --json
 npm run guild-hall:dev-worker:candidates -- --local-root <Soulforge root> --workmeta-root <_workmeta root> --auto-promote --json
 npm run guild-hall:dev-worker:candidates -- --local-root <Soulforge root> --workmeta-root <_workmeta root> --promote-approved --json
@@ -46,3 +47,4 @@ Agent-generated ready packets also require `owner_approval.approved: true`.
 
 Candidate packets are for agent-discovered work. They become executable only after the owner marks them approved and the promotion helper writes a ready packet into `dev_worker_queue`.
 Low-risk candidates may request `auto_approval.requested: true`; the candidate helper approves only those that pass the tracked safe-path, safe-check, and risk-level policy before promotion.
+Use `--details` when auditing stalled development work; it prints status counts, active/closed candidate counts, each candidate's packet ref, project, promotion blocker, and auto-approval blocker without reading raw project payloads.

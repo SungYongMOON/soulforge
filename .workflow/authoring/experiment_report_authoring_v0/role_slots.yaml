@@ -1,0 +1,55 @@
+workflow_id: experiment_report_authoring_v0
+kind: role_slots
+status: draft
+role_slots:
+  - slot_id: report_controller
+    title: Report Controller
+    responsibilities:
+      - define report purpose, reader, claim scope, and storage boundary
+      - prevent contract acceptance or customer approval claims from entering a technical review report
+    suggested_classes:
+      - administrator
+  - slot_id: evidence_curator
+    title: Evidence Curator
+    responsibilities:
+      - build pointer-only inventories for source data, analysis results, and request refs
+      - keep raw payloads and secrets outside reusable workflow material
+    suggested_classes:
+      - archivist
+  - slot_id: question_normalizer
+    title: Question Normalizer
+    responsibilities:
+      - convert owner, customer, or team questions into report review items
+      - separate supported findings from unsupported questions and owner decisions
+    suggested_classes:
+      - analyst
+  - slot_id: report_drafter
+    title: Report Drafter
+    responsibilities:
+      - apply the common experiment report outline
+      - write the core summary as a review-item/result-summary table, not as raw file or calculation-log bullets
+      - keep results, interpretation, limitations, and next actions in separate sections
+    suggested_classes:
+      - writer
+  - slot_id: human_review_packager
+    title: Human Review Packager
+    responsibilities:
+      - prepare the HTML review copy plan
+      - keep the Markdown or structured-text report as the reference report
+    suggested_classes:
+      - archivist
+  - slot_id: action_closer
+    title: Action Closer
+    responsibilities:
+      - convert gaps and limitations into follow-up actions or owner questions
+      - keep later work visible outside prose
+    suggested_classes:
+      - administrator
+  - slot_id: boundary_reviewer
+    title: Boundary Reviewer
+    responsibilities:
+      - check public/private/raw/secret boundaries
+      - check that the core summary uses report-level judgment wording rather than student-like calculation narration
+      - verify claim scope, source refs, and HTML review-copy status are handled in document management rather than banner prose
+    suggested_classes:
+      - auditor

@@ -105,7 +105,7 @@ boundaries:
 notes:
   - The package was extracted from a successful private sourcebound wiki run and an existing `knowledge_wiki_cell` smoke chain.
   - The workflow is now registered in `.workflow/index.yaml`.
-  - `knowledge_wiki_cell` may use this workflow as its default entry while the registered four-stage lane remains the downstream execution chain owned by this composite package.
+  - "`knowledge_wiki_cell` may use this workflow as its default entry while the registered four-stage lane remains the downstream execution chain owned by this composite package."
   - "`query_only_with_existing_projection` may bypass fresh intake and fresh projection when a bounded existing private projection ref is already available."
   - Owner-held archive refs may be inserted before intake for Drive inbox/candidate storage and after projection/review for working or canon package backup, but storage status does not promote canon.
   - Obsidian export is a generated read-only local view over canon-backed knowledge only. It is not a canon owner surface and must not expose `_workmeta` payloads, raw source files, or NotebookLM answers.

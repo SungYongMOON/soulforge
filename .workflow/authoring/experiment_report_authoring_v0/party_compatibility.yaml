@@ -1,0 +1,20 @@
+workflow_id: experiment_report_authoring_v0
+kind: party_compatibility
+status: draft
+compatible_party_patterns:
+  - pattern_id: single_writer_with_boundary_review
+    notes:
+      - One operator may draft the report when source refs and analysis results are already available.
+      - Boundary review remains required because report prose can easily overstate findings.
+  - pattern_id: analyst_writer_auditor
+    notes:
+      - Prefer separate analyst and auditor slots when the report will be reused for customer, team, or management review.
+incompatible_party_patterns:
+  - pattern_id: raw_payload_embedder
+    reason: Original experiment payloads and protected project materials must remain in project-local or owner-approved storage.
+  - pattern_id: acceptance_same_actor_without_authority
+    reason: The report author cannot create formal acceptance, customer approval, or stage pass claims.
+owner_boundaries:
+  owner_acceptance_required_for_acceptance_claims: true
+  manager_registration_required_before_canon_entry: true
+  workflow_can_run_as_draft_for_private_pilot: true

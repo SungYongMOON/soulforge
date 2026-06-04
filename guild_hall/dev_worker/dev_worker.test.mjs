@@ -4,7 +4,7 @@ import path from "node:path";
 import test from "node:test";
 import assert from "node:assert/strict";
 import { normalizeTaskPacket, selectTask } from "./claim_task.mjs";
-import { autoApproveCandidates, listCandidatePackets, promoteApprovedCandidates } from "./candidate_queue.mjs";
+import { autoApproveCandidates, formatCandidateQueueText, listCandidatePackets, promoteApprovedCandidates } from "./candidate_queue.mjs";
 import { DEFAULT_DOCTOR_COMMAND } from "./preflight_repo_sync.mjs";
 
 test("preflight default doctor stays lane-local and public-safe", () => {
@@ -219,6 +219,21 @@ test("candidate queue promotes only approved candidates into ready queue", async
     const listed = await listCandidatePackets({ localRoot: root, workmetaRoot });
     assert.equal(listed.scanned_count, 2);
     assert.equal(listed.promotable_count, 1);
+    assert.equal(listed.active_candidate_count, 2);
+    assert.equal(listed.closed_candidate_count, 0);
+    assert.deepEqual(listed.status_counts, {
+      approved: 1,
+      proposed: 1,
+    });
+
+    const textSummary = formatCandidateQueueText(listed, { details: true });
+    assert.match(textSummary, /active-candidates: 2/u);
+    assert.match(textSummary, /closed-candidates: 0/u);
+    assert.match(textSummary, /status:\n- approved: 1\n- proposed: 1/u);
+    assert.match(textSummary, /draft_task \[proposed\]/u);
+    assert.match(textSummary, /promotable: no \(status_not_approved:proposed\)/u);
+    assert.match(textSummary, /approved-task \[approved\]/u);
+    assert.match(textSummary, /promotable: yes/u);
 
     const promoted = await promoteApprovedCandidates({ localRoot: root, workmetaRoot });
     assert.equal(promoted.promoted_count, 1);
@@ -235,6 +250,44 @@ test("candidate queue promotes only approved candidates into ready queue", async
     });
     assert.equal(selected.eligible_count, 1);
     assert.equal(selected.selected.suggested_branch, "codex/high-perf-tool-01-approved-task");
+  } finally {
+    await rm(root, { recursive: true, force: true });
+  }
+});
+
+test("candidate queue summary separates closed candidates from active candidates", async () => {
+  const root = await mkdtemp(path.join(os.tmpdir(), "soulforge-dev-worker-closed-candidate-"));
+  const workmetaRoot = path.join(root, "_workmeta");
+  try {
+    await mkdir(path.join(workmetaRoot, "system", "dev_worker_candidate_queue"), { recursive: true });
+    await writeFile(
+      path.join(workmetaRoot, "system", "dev_worker_candidate_queue", "completed.yaml"),
+      [
+        "schema_version: soulforge.dev_worker_request.v0",
+        "task_id: completed_task",
+        "status: completed",
+        "project_code: system",
+        "summary: Already completed candidate.",
+        "allowed_write_paths:",
+        "  - guild_hall/dev_worker/**",
+        "acceptance_checks:",
+        "  - npm run validate:dev-worker",
+        "owner_approval:",
+        "  required: true",
+        "  approved: false",
+        "",
+      ].join("\n"),
+      "utf8",
+    );
+
+    const listed = await listCandidatePackets({ localRoot: root, workmetaRoot });
+    assert.equal(listed.active_candidate_count, 0);
+    assert.equal(listed.closed_candidate_count, 1);
+    assert.deepEqual(listed.status_counts, { completed: 1 });
+
+    const textSummary = formatCandidateQueueText(listed, { details: true });
+    assert.match(textSummary, /closed-candidates: 1/u);
+    assert.match(textSummary, /promotable: no \(status_closed:completed\)/u);
   } finally {
     await rm(root, { recursive: true, force: true });
   }

@@ -1,0 +1,104 @@
+workflow_id: experiment_report_authoring_v0
+kind: workflow
+status: draft
+title: Experiment Report Authoring v0
+display_name_ko: 작성/보고서/실험결과/기술검토
+global_name_ko: 작성_실험보고서_v0
+summary: Draft workflow for authoring project experiment and test reports from source refs, analysis refs, and a reusable team report outline while keeping contract acceptance and customer approval outside the report scope.
+entrypoint: run
+execution_mode: local_tool_sequence
+role_slots: role_slots.yaml
+step_graph: step_graph.yaml
+handoff_rules: handoff_rules.yaml
+monster_rules: monster_rules.yaml
+party_compatibility: party_compatibility.yaml
+profile_policy: profile_policy.yaml
+history: history/
+calibrations: calibrations/
+classification_lane:
+  primary: report_authoring
+  primary_name_ko: 보고서 작성
+  secondary:
+    - experiment_management
+    - project_knowledge_capture
+  secondary_name_ko:
+    - 실험 관리
+    - 프로젝트 지식 기록
+  purpose: discovery_only
+  authority: none
+execution_binding:
+  party_required: false
+  candidate_party_id: null
+  bound_party_id: null
+  binding_authority: none
+inputs:
+  - report_authoring_scope
+  - project_binding
+  - source_and_data_refs
+  - analysis_result_refs
+  - review_question_list
+optional_inputs:
+  - external_request_refs
+  - mail_or_meeting_refs
+  - existing_report_refs
+  - calibration_or_instrument_refs
+  - followup_action_register_refs
+  - owner_decision_refs
+outputs:
+  - report_scope_packet
+  - evidence_map
+  - markdown_report_draft
+  - html_review_plan
+  - open_gap_and_next_action_register
+  - boundary_review_note
+validation_level: draft_context_only
+registration_policy: not_registered_owner_review_required
+workflow_modes:
+  - draft_report
+  - revise_existing_report
+  - outline_only
+  - blocked_gap_register
+required_reference_templates:
+  experiment_report_outline: templates/experiment_report_outline.reference.md
+  report_authoring_scope: templates/report_authoring_scope.template.yaml
+  report_evidence_map: templates/report_evidence_map.template.yaml
+  boundary_review_note: templates/boundary_review_note.template.md
+report_authoring_contract:
+  owns:
+    - report_scope_and_purpose
+    - owner_facing_experiment_report_outline
+    - core_summary_shape_and_report_tone
+    - source_and_data_ref_inventory
+    - method_and_assumption_summary
+    - finding_tables_and_interpretation
+    - risk_gap_and_next_action_sections
+    - markdown_and_html_review_handoff
+    - boundary_review_for_report_material
+  does_not_own:
+    - formal_test_acceptance
+    - customer_or_owner_approval
+    - raw_payload_storage
+    - calibration_truth_not_in_sources
+    - measurement_reexecution
+    - source_truth_promotion
+    - workflow_canon_registration
+  authority_boundary:
+    report_is_not_acceptance_record: true
+    observed_result_is_not_formal_pass: true
+    missing_calibration_or_source_must_remain_gap: true
+    distance_conversion_requires_context_not_absolute_distance_claim: true
+    same_acquisition_replica_comparison_is_not_independent_validation: true
+    raw_payloads_stay_in_workspaces_or_owner_approved_storage: true
+    report_contains_pointer_refs_not_original_payloads: true
+    public_package_contains_no_runtime_absolute_paths: true
+  required_input_shapes:
+    report_authoring_scope: templates/report_authoring_scope.template.yaml
+    project_binding: templates/project_binding.template.yaml
+  required_output_shapes:
+    evidence_map: templates/report_evidence_map.template.yaml
+    boundary_review_note: templates/boundary_review_note.template.md
+notes:
+  - This package is a draft in .workflow/authoring and is not a workflow canon entry.
+  - It complements docs/architecture/workspace/SOULFORGE_REPORT_FORMAT_V0.md by adding the execution procedure for writing reports.
+  - The team experiment report outline is intentionally stored as a reference template so report authors can copy it into project-local reports.
+  - Public workflow files must not contain raw experiment data, waveform data, vendor payloads, mail bodies, credentials, sessions, or runtime absolute paths.

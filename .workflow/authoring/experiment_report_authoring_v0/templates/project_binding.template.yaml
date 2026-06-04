@@ -1,0 +1,13 @@
+project_binding:
+  project_code: "<project_code>"
+  project_display_name: "<project_display_name>"
+  report_lane: "<reports_lane>"
+  markdown_report_ref: "_workmeta/<project_code>/reports/<lane>/<yyyymmdd>_<slug>.md"
+  html_review_ref: "_workmeta/<project_code>/reports/<lane>/<yyyymmdd>_<slug>.html"
+  source_payload_root_ref: "_workspaces/<project_code>/<source_or_analysis_root>"
+  boundary:
+    raw_payloads_copied_into_report: false
+    secrets_or_credentials_included: false
+    public_safe: false
+    notes:
+      - "Set public_safe only after owner approval and raw/private review."

@@ -1,0 +1,173 @@
+workflow_id: experiment_report_authoring_v0
+kind: step_graph
+status: draft
+steps:
+  - step_id: bind_report_scope
+    title: Bind Report Scope
+    actor_slot: report_controller
+    action:
+      kind: report_authoring_scope_setup
+      validates:
+        - project_code_or_project_context_is_named
+        - report_purpose_is_explicit
+        - intended_reader_is_named
+        - claim_or_judgement_scope_is_bounded
+        - source_boundary_is_declared
+      creates:
+        - report_scope_packet
+    summary: Decide what the report is allowed to say before reading data or drafting prose.
+    next:
+      on_success: inventory_sources_and_outputs
+      on_fail: stop
+  - step_id: inventory_sources_and_outputs
+    title: Inventory Sources And Outputs
+    actor_slot: evidence_curator
+    action:
+      kind: pointer_only_source_inventory
+      artifacts_in:
+        - source_and_data_refs
+        - analysis_result_refs
+        - external_request_refs
+        - mail_or_meeting_refs
+        - calibration_or_instrument_refs
+      artifact_out: evidence_map
+      records:
+        - evidence_id
+        - evidence_kind
+        - portable_ref
+        - owner_or_source
+        - use_in_report
+        - boundary
+        - status
+      forbidden_basis:
+        - unapproved_raw_payload_copy
+        - secret_or_session_state
+        - hidden_reference_oracle
+        - unverifiable_memory_only_claim
+    summary: Build a pointer-only evidence map that says what each file or result is used for.
+    next:
+      on_success: normalize_review_questions
+      on_fail: stop
+  - step_id: normalize_review_questions
+    title: Normalize Review Questions
+    actor_slot: question_normalizer
+    action:
+      kind: report_question_and_judgement_item_mapping
+      artifacts_in:
+        - report_scope_packet
+        - evidence_map
+        - review_question_list
+      artifacts_out:
+        - report_question_table
+        - unsupported_or_owner_question_items
+      rules:
+        - each_question_maps_to_evidence_or_gap
+        - unsupported_questions_remain_gap_not_claim
+        - formal_acceptance_questions_are_labeled_out_of_scope_unless_authorized
+    summary: Convert requests and concerns into reportable review items, with gaps separated from supported findings.
+    next:
+      on_success: apply_experiment_report_outline
+      on_fail: stop
+  - step_id: apply_experiment_report_outline
+    title: Apply Experiment Report Outline
+    actor_slot: report_drafter
+    action:
+      kind: report_outline_application
+      artifacts_in:
+        - templates/experiment_report_outline.reference.md
+        - report_scope_packet
+        - evidence_map
+        - report_question_table
+      artifacts_out:
+        - markdown_report_draft
+        - section_fill_map
+      section_spine:
+        - 문서 개요
+        - 시험 목적
+        - 시험 대상 및 조건
+        - 취득 데이터
+        - 요청 및 검토 항목
+        - 분석 방법
+        - 시험 결과
+        - 결과 해석
+        - 고려사항 및 한계
+        - 종합 판단
+        - 후속 조치
+        - 문서 관리
+      rules:
+        - keep_owner_facing_headings_korean
+        - write_core_summary_as_review_item_result_summary_not_calculation_log
+        - put_distance_conversions_in_setup_review_context_unless_distance_is_confirmed
+        - avoid_repeating_file_names_channel_names_and_raw_calculation_steps_in_core_summary
+        - use_same_acquisition_or_repeated_acquisition_wording_instead_of_shot_jargon_for_owner_reports
+        - keep_result_observations_separate_from_interpretation
+        - state_what_can_be_used_now_and_what_cannot
+        - cite_pointer_refs_not_raw_payloads
+        - mark_empty_sections_as_gap_or_not_applicable
+    summary: Use the team common outline as the report structure and fill each section from scope, evidence, and questions.
+    next:
+      on_success: align_markdown_and_html_review_copy
+      on_fail: stop
+  - step_id: align_markdown_and_html_review_copy
+    title: Align Markdown And HTML Review Copy
+    actor_slot: human_review_packager
+    action:
+      kind: report_pair_handoff
+      artifacts_in:
+        - markdown_report_draft
+        - evidence_map
+      artifacts_out:
+        - html_review_plan
+      rules:
+        - markdown_or_structured_text_is_reference_report
+        - html_review_copy_is_for_human_review
+        - html_may_list_markdown_ref_in_document_management_not_hero_or_banner
+        - html_must_not_claim_stronger_authority
+        - local_assets_are_pointer_only_or_generated_summaries
+    summary: Prepare the human-review HTML copy without making it stronger than the Markdown report.
+    next:
+      on_success: close_gaps_and_next_actions
+      on_fail: stop
+  - step_id: close_gaps_and_next_actions
+    title: Close Gaps And Next Actions
+    actor_slot: action_closer
+    action:
+      kind: gap_and_action_register_mapping
+      artifacts_in:
+        - markdown_report_draft
+        - unsupported_or_owner_question_items
+        - evidence_map
+      artifacts_out:
+        - open_gap_and_next_action_register
+      rules:
+        - every_major_gap_gets_owner_question_or_followup_action
+        - action_items_have_requested_data_or_decision_route
+        - later_work_is_not_hidden_in_prose
+    summary: Turn gaps, limits, and unsupported questions into visible next actions.
+    next:
+      on_success: write_boundary_review
+      on_fail: stop
+  - step_id: write_boundary_review
+    title: Write Boundary Review
+    actor_slot: boundary_reviewer
+    action:
+      kind: report_material_boundary_review
+      artifacts_in:
+        - markdown_report_draft
+        - html_review_plan
+        - evidence_map
+        - open_gap_and_next_action_register
+      artifact_out: boundary_review_note
+      checks:
+        - no_raw_payloads_in_report_artifacts
+        - no_secrets_or_credentials
+        - no_runtime_absolute_paths_in_public_workflow_package
+        - core_summary_is_not_a_calculation_log_or_file_list
+        - claim_scope_visible
+        - source_refs_visible
+        - unsupported_items_labeled_as_gaps
+        - html_review_copy_labeled_for_review
+    summary: Confirm that report materials preserve source boundaries and do not overstate conclusions.
+    next:
+      on_success: complete
+      on_fail: stop

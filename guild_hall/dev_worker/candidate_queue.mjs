@@ -13,6 +13,7 @@ const CANDIDATE_QUEUE_DIR = "dev_worker_candidate_queue";
 const READY_QUEUE_DIR = "dev_worker_queue";
 const AUTO_APPROVAL_POLICY_ID = "dev_worker_auto_approval_policy_v0";
 const AUTO_APPROVAL_RISK_LEVELS = new Set(["low", "routine"]);
+const CLOSED_CANDIDATE_STATUSES = new Set(["completed", "promoted", "rejected", "dropped", "cancelled"]);
 const AUTO_APPROVAL_SAFE_PATH_PREFIXES = [
   "docs/architecture/guild_hall/",
   "guild_hall/dev_worker/",
@@ -87,7 +88,51 @@ export async function listCandidatePackets(options = {}) {
     scanned_count: packets.length,
     promotable_count: candidates.filter((candidate) => candidate.promotable).length,
     auto_approvable_count: candidates.filter((candidate) => candidate.auto_approval.eligible).length,
+    active_candidate_count: candidates.filter((candidate) => !isClosedCandidateStatus(candidate.status)).length,
+    closed_candidate_count: candidates.filter((candidate) => isClosedCandidateStatus(candidate.status)).length,
+    status_counts: countCandidateStatuses(candidates),
   };
+}
+
+export function formatCandidateQueueText(result, options = {}) {
+  const lines = [
+    `candidates: ${result.candidates.length}`,
+    `promotable: ${result.promotable_count}`,
+    `auto-approvable: ${result.auto_approvable_count}`,
+    `active-candidates: ${result.active_candidate_count}`,
+    `closed-candidates: ${result.closed_candidate_count}`,
+  ];
+
+  if (result.status_counts && Object.keys(result.status_counts).length > 0) {
+    lines.push("status:");
+    for (const [status, count] of Object.entries(result.status_counts)) {
+      lines.push(`- ${status}: ${count}`);
+    }
+  }
+
+  const showDetails = options.details === true;
+  if (showDetails && result.candidates.length > 0) {
+    lines.push("details:");
+    for (const candidate of result.candidates) {
+      const promotableState = candidate.promotable ? "yes" : `no (${candidate.ineligible_reason})`;
+      const autoApprovalState = candidate.auto_approval.eligible
+        ? "eligible"
+        : `no (${candidate.auto_approval.reason})`;
+      lines.push(`- ${candidate.task_id} [${candidate.status || "missing"}] ${candidate.packet_ref}`);
+      lines.push(`  project: ${candidate.project_code}`);
+      lines.push(`  promotable: ${promotableState}`);
+      lines.push(`  auto-approval: ${autoApprovalState}`);
+    }
+  }
+
+  if (showDetails && result.skipped.length > 0) {
+    lines.push("skipped:");
+    for (const skipped of result.skipped) {
+      lines.push(`- ${skipped.packet_ref}: ${skipped.reason}`);
+    }
+  }
+
+  return `${lines.join("\n")}\n`;
 }
 
 export async function autoApproveCandidates(options = {}) {
@@ -248,7 +293,9 @@ function normalizeCandidate(raw, source) {
     ? null
     : missing.length > 0
       ? `missing_required_fields:${missing.join(",")}`
-      : status !== "approved"
+      : isClosedCandidateStatus(status)
+        ? `status_closed:${status}`
+        : status !== "approved"
         ? `status_not_approved:${status || "missing"}`
         : "owner_approval_not_approved";
 
@@ -258,6 +305,19 @@ function normalizeCandidate(raw, source) {
     ineligible_reason: ineligibleReason,
     auto_approval: autoApproval,
   };
+}
+
+function countCandidateStatuses(candidates) {
+  const counts = {};
+  for (const candidate of candidates) {
+    const status = candidate.status || "missing";
+    counts[status] = (counts[status] ?? 0) + 1;
+  }
+  return Object.fromEntries(Object.entries(counts).sort(([left], [right]) => left.localeCompare(right)));
+}
+
+function isClosedCandidateStatus(status) {
+  return CLOSED_CANDIDATE_STATUSES.has(String(status ?? "").trim().toLowerCase());
 }
 
 function buildReadyPacket(raw, candidate) {
@@ -471,7 +531,9 @@ async function main() {
     return;
   }
 
-  process.stdout.write(`candidates: ${result.candidates.length}\npromotable: ${result.promotable_count}\nauto-approvable: ${result.auto_approvable_count}\n`);
+  process.stdout.write(formatCandidateQueueText(result, {
+    details: args.details === true || args.details === "true",
+  }));
 }
 
 if (process.argv[1] && path.resolve(process.argv[1]) === __filename) {

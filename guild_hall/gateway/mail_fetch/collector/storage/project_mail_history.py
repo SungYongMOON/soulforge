@@ -18,6 +18,7 @@ HISTORY_DIR = Path("reports") / "메일_이력"
 CSV_FILE_NAME = "메일_이력.csv"
 XLSX_FILE_NAME = "메일_이력.xlsx"
 SCHEDULE_FILE_NAME = "메일_일정이벤트.ics"
+TEXT_LINE_ENDING = "\n"
 CSV_HEADERS = [
     "이력키",
     "스키마버전",
@@ -177,7 +178,7 @@ def _read_csv_rows(path: Path) -> List[Dict[str, str]]:
 
 def _write_csv(path: Path, rows: List[Dict[str, str]]) -> None:
     with path.open("w", encoding="utf-8-sig", newline="") as fp:
-        writer = csv.DictWriter(fp, fieldnames=CSV_HEADERS)
+        writer = csv.DictWriter(fp, fieldnames=CSV_HEADERS, lineterminator=TEXT_LINE_ENDING)
         writer.writeheader()
         for row in rows:
             writer.writerow(_normalize_row(row))
@@ -238,7 +239,7 @@ def _write_ics(path: Path, rows: List[Dict[str, str]]) -> None:
             ]
         )
     lines.append("END:VCALENDAR")
-    path.write_text("\r\n".join(lines) + "\r\n", encoding="utf-8")
+    path.write_text(TEXT_LINE_ENDING.join(lines) + TEXT_LINE_ENDING, encoding="utf-8")
 
 
 def _worksheet_xml(rows: List[Dict[str, str]]) -> str:
