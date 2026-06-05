@@ -531,7 +531,7 @@ function normalizeDeadlineDate(value) {
   return parsed.toISOString();
 }
 
-async function readDeadlineRegisterRows(registerFile) {
+export async function readDeadlineRegisterRows(registerFile) {
   if (!(await pathExists(registerFile))) {
     return [];
   }

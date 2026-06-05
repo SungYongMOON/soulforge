@@ -8,7 +8,7 @@
 ## 포함 대상
 
 - `producer.mjs`
-  - owner root, mission, project mount, gateway 상태, pending monster summary, knowledge lane metadata status 를 read-only 로 요약하고 source observation fingerprint 를 만든다.
+  - owner root, mission, project mount, gateway 상태, pending monster summary, knowledge lane metadata status, battle log aggregate 를 read-only 로 요약하고 source observation fingerprint 를 만든다.
 - `cli.mjs`
   - snapshot 생성, JSON 출력, local state write, shape check, freshness check entrypoint
 - `snapshot.test.mjs`
@@ -20,6 +20,7 @@
 - 이 경로는 local-only state 이며 public Git 으로 추적하지 않는다.
 - `source_observations` 는 snapshot 이 본 원본 surface 의 metadata-only fingerprint 를 담는다.
 - `knowledge_lane` 은 knowledge/NotebookLM/ontology lane 의 helper/workflow/fixture presence, private/local evidence count, owner-gated state, and `observed` claim ceiling 만 담는다.
+- `battle_log` 는 `_workmeta/*/log/events/**/battle_events.jsonl` 의 event/result/bottleneck/mode/automation/project/intervention count 와 latest timestamp 만 담는다.
 
 ## 경계
 
@@ -32,6 +33,8 @@
 - public helper/docs/workflows/fixtures 는 `knowledge_lane.evidence` count 에 더하지 않는다. private/local metadata evidence 가 없으면 state 는 `awaiting_metadata_evidence` 이고 evidence count 는 `0` 이다.
 - knowledge access entry count 는 auth/session-shaped file names such as auth, session, token, cookie, credential, and secret files 를 제외한다.
 - NotebookLM auth/session data, query/answer/source payloads, private report prose, private evidence filenames, ontology candidate statements, owner decisions, graph mutation payloads, registry promotion claims 는 복제하지 않는다.
+- battle log event row 의 `event_id`, `mission_id`, `stage`, row-level `source_ref`, `party_id`, `unit_id`, `loop_id`, `next_action_note`, rendered latest/daily markdown prose 는 복제하지 않는다.
+- `battle_log` 와 `battle_log.projects[*]` 는 허용된 aggregate key 외의 추가 field 를 validation 에서 거부한다.
 - freshness check 는 저장된 snapshot 의 `source_observations.fingerprint` 와 현재 원본 metadata fingerprint 를 비교하고, 저장된 `knowledge_lane` 의 owner-gated state/blockers/evidence support 가 현재 파생 support 와 다르거나 `observed` 보다 강한 claim ceiling 을 담으면 실패한다.
 
 ## 실행

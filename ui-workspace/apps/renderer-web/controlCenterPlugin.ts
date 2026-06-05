@@ -912,7 +912,7 @@ function mapOperationBoard(snapshot: Record<string, unknown>): DungeonMapOperati
   };
 }
 
-function mapSnapshotResponse(
+export function mapSnapshotResponse(
   snapshot: Record<string, unknown> | null,
   status: SnapshotStatus,
   details: {

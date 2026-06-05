@@ -1,6 +1,7 @@
 #!/usr/bin/env node
 
 import { spawnSync } from "node:child_process";
+import { createHash } from "node:crypto";
 import { promises as fs } from "node:fs";
 import path from "node:path";
 import process from "node:process";
@@ -13,6 +14,8 @@ const schemaVersion = "soulforge.local_absolute_path_policy.v0";
 const WINDOWS_PATH_RE = /(^|[^A-Za-z0-9_:/.-])([A-Za-z]:(?:[\\/]|\\\\)[^\s"'<>),\]}]*)/g;
 const POSIX_PATH_RE = /(^|[^A-Za-z0-9_:/.-])(\/(?:Users|Volumes|home|tmp|var\/folders|private\/var|mnt)\/[^\s"'<>),\]}]*)/g;
 const FILE_URI_RE = /(file:\/\/\/[^\s"'<>),\]}]*)/g;
+const redactedViolationValue = "<redacted>";
+const fileUriPrefix = `${"file:"}${"///"}`;
 
 const binaryExtensions = new Set([
   ".7z",
@@ -150,6 +153,19 @@ async function scanGitRepo(repo, { scope }) {
     }
 
     const absolutePath = path.join(repo.root, relativePath);
+    let entryStats;
+    try {
+      entryStats = await fs.lstat(absolutePath);
+    } catch (error) {
+      skipped.push({ path: relativePath, reason: `read_failed:${error.code ?? "unknown"}` });
+      continue;
+    }
+
+    if (entryStats.isSymbolicLink()) {
+      skipped.push({ path: relativePath, reason: "symlink_file" });
+      continue;
+    }
+
     let raw;
     try {
       raw = await fs.readFile(absolutePath);
@@ -259,13 +275,47 @@ function collectMatches({ regex, line, lineNumber, file, pattern, violations }) 
     const column = match.index + match[0].indexOf(value) + 1;
     violations.push({
       id: pattern,
+      reason: reasonForPattern(pattern),
       file,
       line: lineNumber,
       column,
-      value,
+      ...redactViolationValue(value),
       detail: "Use a repo-relative path, placeholder token, or machine-local runtime input instead of a concrete local absolute path.",
     });
   }
+}
+
+function redactViolationValue(value) {
+  return {
+    value: redactedViolationValue,
+    value_length: value.length,
+    value_fingerprint: fingerprintValue(value),
+  };
+}
+
+function redactPathField(fieldName, value) {
+  return {
+    [fieldName]: redactedViolationValue,
+    [`${fieldName}_length`]: value.length,
+    [`${fieldName}_fingerprint`]: fingerprintValue(value),
+  };
+}
+
+function fingerprintValue(value) {
+  return `sha256:${createHash("sha256").update(value).digest("hex").slice(0, 16)}`;
+}
+
+function reasonForPattern(pattern) {
+  if (pattern === "windows_local_absolute_path") {
+    return "concrete_windows_local_absolute_path";
+  }
+  if (pattern === "posix_local_absolute_path") {
+    return "concrete_posix_local_absolute_path";
+  }
+  if (pattern === "file_uri_absolute_path") {
+    return "concrete_file_uri_absolute_path";
+  }
+  return "concrete_local_absolute_path";
 }
 
 function buildReport({ scope, repoTargets }) {
@@ -278,7 +328,7 @@ function buildReport({ scope, repoTargets }) {
   const skipped = repoTargets.flatMap((repo) =>
     repo.skipped.map((item) => ({
       repo: repo.id,
-      ...item,
+      ...redactSkippedPath(item),
     })),
   );
   return {
@@ -295,7 +345,7 @@ function buildReport({ scope, repoTargets }) {
     },
     repos: repoTargets.map((repo) => ({
       id: repo.id,
-      root: repo.root,
+      ...redactPathField("root", repo.root),
       present: repo.present,
       ok: repo.ok,
       files_considered: repo.files_considered ?? 0,
@@ -306,6 +356,20 @@ function buildReport({ scope, repoTargets }) {
     violations,
     skipped,
   };
+}
+
+function redactSkippedPath(item) {
+  if (!item.path || !isUnsafeReportPath(item.path)) {
+    return item;
+  }
+  return {
+    ...item,
+    ...redactPathField("path", item.path),
+  };
+}
+
+function isUnsafeReportPath(value) {
+  return value.startsWith(fileUriPrefix) || path.isAbsolute(value) || /^[A-Za-z]:(?:[\\/]|\\\\)/.test(value);
 }
 
 function printHuman(report) {
@@ -324,7 +388,9 @@ function printHuman(report) {
     lines.push("Violations:");
     for (const violation of report.violations.slice(0, 100)) {
       lines.push(`- ${violation.repo}:${violation.file}:${violation.line}:${violation.column}`);
-      lines.push(`  ${violation.id}: ${violation.value}`);
+      lines.push(
+        `  ${violation.id}: ${violation.value} length=${violation.value_length} fingerprint=${violation.value_fingerprint}`,
+      );
     }
     if (report.violations.length > 100) {
       lines.push(`- ... ${report.violations.length - 100} more`);

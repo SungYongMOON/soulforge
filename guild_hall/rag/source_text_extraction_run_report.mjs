@@ -20,22 +20,155 @@ const REPORT_STATUSES = new Set(["dry_run_report_only", "blocked_invalid_packet"
 const FORBIDDEN_KEYS = new Set([
   "body",
   "body_html",
+  "body_ref",
   "body_text",
   "chunk",
+  "chunk_payload_ref",
+  "chunk_ref",
   "chunk_text",
   "content",
+  "content_ref",
   "excerpt",
   "html",
   "notebooklm_answer",
+  "notebooklm_answer_ref",
   "payload",
+  "payload_ref",
   "private_payload",
+  "private_payload_ref",
   "raw",
   "raw_payload",
+  "raw_payload_ref",
   "secret",
   "source_body",
+  "source_body_ref",
   "source_locator_ref",
+  "source_payload_ref",
   "source_text",
+  "source_text_ref",
   "text",
+  "text_ref",
+]);
+const RUN_REPORT_KEYS = new Set([
+  "schema_version",
+  "kind",
+  "report_id",
+  "generator_id",
+  "generated_at_utc",
+  "source_refs",
+  "boundary",
+  "status",
+  "run_policy",
+  "counts",
+  "adapter_summary",
+  "blocker_summary",
+  "target_reports",
+  "answer_engine_handoff",
+  "validation",
+]);
+const SOURCE_REFS_KEYS = new Set([
+  "extraction_packet_ref",
+  "extraction_packet_id",
+  "profile_ref",
+  "profile_id",
+  "metadata_index_ref",
+]);
+const BOUNDARY_KEYS = new Set([
+  "metadata_only",
+  "dry_run_only",
+  "packet_read_only",
+  "extractor_executed",
+  "source_files_opened",
+  "source_text_read",
+  "source_payloads_included",
+  "chunk_payloads_included",
+  "private_payloads_written",
+  "embeddings_included",
+  "bm25_or_vector_index_included",
+  "notebooklm_answers_included",
+  "secrets_or_session_included",
+  "runtime_absolute_paths_included",
+  "index_build_executed",
+  "owner_approval_granted",
+  "public_canon_promotion_allowed",
+]);
+const RUN_POLICY_KEYS = new Set([
+  "purpose",
+  "runner_action",
+  "reads_packet_only",
+  "opens_source_locator_refs",
+  "imports_extractor_libraries",
+  "writes_private_payloads",
+  "builds_index",
+  "mutates_notebooklm_or_drive",
+  "allowed_next_actions",
+]);
+const COUNTS_KEYS = new Set([
+  "target_count",
+  "metadata_field_count",
+  "log_import_task_count",
+  "adapter_route_count",
+  "source_text_read_grant_count",
+  "private_payload_write_grant_count",
+  "index_build_grant_count",
+  "target_status_counts",
+  "adapter_counts",
+  "blocker_counts",
+]);
+const ADAPTER_SUMMARY_KEYS = new Set([
+  "adapter_id",
+  "target_count",
+  "planned_actions",
+  "source_text_read",
+  "private_payload_write",
+  "index_build",
+]);
+const BLOCKER_SUMMARY_KEYS = new Set(["blocker_code", "count"]);
+const TARGET_REPORT_KEYS = new Set([
+  "target_ref",
+  "source_slice_ref",
+  "adapter_id",
+  "planned_action",
+  "target_status",
+  "metadata_preflight",
+  "source_text_read",
+  "private_payload_write",
+  "index_build",
+  "hwp_preprocess_required",
+  "blocker_codes",
+  "next_owner_action",
+]);
+const ANSWER_ENGINE_HANDOFF_KEYS = new Set([
+  "handoff_mode",
+  "allowed_answer_engine_mode",
+  "report_is_not_citation_evidence",
+  "report_may_explain_sourcebound_readiness",
+  "source_text_answer_allowed",
+  "sourcebound_target_count",
+  "metadata_field_count",
+  "next_action",
+]);
+const VALIDATION_KEYS = new Set(["status", "blockers", "upstream_packet_validation"]);
+const UPSTREAM_PACKET_VALIDATION_KEYS = new Set([
+  "schema_version",
+  "kind",
+  "status",
+  "packet_id",
+  "blocker_count",
+  "blockers",
+  "boundary",
+]);
+const UPSTREAM_PACKET_VALIDATION_BOUNDARY_KEYS = new Set([
+  "metadata_only",
+  "not_owner_approval",
+  "no_extractor_execution",
+  "no_source_text_read",
+  "no_source_payloads",
+  "no_chunk_payloads",
+  "no_index_build",
+  "no_notebooklm_answers",
+  "no_secrets_or_session",
+  "no_runtime_absolute_paths",
 ]);
 
 export async function buildSourceTextExtractionRunReport(options = {}) {
@@ -147,6 +280,7 @@ export async function loadSourceTextExtractionRunReport({ repoRoot = process.cwd
 
 export function validateSourceTextExtractionRunReport(report) {
   const blockers = [];
+  validateRunReportAllowedKeys(report, blockers);
   if (report?.schema_version !== SOURCE_TEXT_EXTRACTION_RUN_REPORT_SCHEMA_VERSION) blockers.push("schema_version_mismatch");
   if (report?.kind !== "source_text_extraction_run_report") blockers.push("kind_must_be_source_text_extraction_run_report");
   if (!isSafeId(report?.report_id)) blockers.push("report_id_unsafe");
@@ -155,14 +289,26 @@ export function validateSourceTextExtractionRunReport(report) {
   validateSourceRefs(report?.source_refs ?? {}, blockers);
   validateCounts(report?.counts ?? {}, blockers);
   validateRunPolicy(report?.run_policy ?? {}, blockers);
-  for (const summary of arrayField(report, "adapter_summary", blockers, { required: false })) {
+  for (const [index, summary] of arrayField(report, "adapter_summary", blockers, { required: false }).entries()) {
     if (!isSafeId(summary?.adapter_id)) blockers.push("adapter_summary_id_unsafe");
     if (!Number.isInteger(summary?.target_count) || summary.target_count < 0) blockers.push("adapter_summary_target_count_invalid");
+    validateStringArrayField(
+      summary,
+      "planned_actions",
+      blockers,
+      "adapter_summary_planned_action_unsafe",
+      `report.adapter_summary[${index}].planned_actions`,
+    );
+  }
+  for (const summary of arrayField(report, "blocker_summary", blockers, { required: false })) {
+    if (!isSafeId(summary?.blocker_code)) blockers.push("blocker_summary_code_unsafe");
+    if (!Number.isInteger(summary?.count) || summary.count < 0) blockers.push("blocker_summary_count_invalid");
   }
   for (const target of arrayField(report, "target_reports", blockers, { required: false })) {
     validateTargetReport(target, blockers);
   }
   validateAnswerEngineHandoff(report?.answer_engine_handoff ?? {}, blockers);
+  validateValidation(report?.validation ?? {}, blockers);
   blockers.push(...findUnsafeReportStrings(report));
   return {
     schema_version: SOURCE_TEXT_EXTRACTION_RUN_REPORT_VALIDATION_SCHEMA_VERSION,
@@ -182,6 +328,83 @@ export function validateSourceTextExtractionRunReport(report) {
       no_runtime_absolute_paths: report?.boundary?.runtime_absolute_paths_included === false,
     },
   };
+}
+
+function validateRunReportAllowedKeys(report, blockers) {
+  validateAllowedKeys(report, RUN_REPORT_KEYS, blockers, "report");
+  validateAllowedKeys(report?.source_refs, SOURCE_REFS_KEYS, blockers, "report.source_refs");
+  validateAllowedKeys(report?.boundary, BOUNDARY_KEYS, blockers, "report.boundary");
+  validateAllowedKeys(report?.run_policy, RUN_POLICY_KEYS, blockers, "report.run_policy");
+  validateAllowedKeys(report?.counts, COUNTS_KEYS, blockers, "report.counts");
+
+  if (Array.isArray(report?.adapter_summary)) report.adapter_summary.forEach((summary, index) => {
+    validateAllowedKeys(summary, ADAPTER_SUMMARY_KEYS, blockers, `report.adapter_summary[${index}]`);
+  });
+  if (Array.isArray(report?.blocker_summary)) report.blocker_summary.forEach((summary, index) => {
+    validateAllowedKeys(summary, BLOCKER_SUMMARY_KEYS, blockers, `report.blocker_summary[${index}]`);
+  });
+  if (Array.isArray(report?.target_reports)) report.target_reports.forEach((target, index) => {
+    validateAllowedKeys(target, TARGET_REPORT_KEYS, blockers, `report.target_reports[${index}]`);
+  });
+
+  validateAllowedKeys(report?.answer_engine_handoff, ANSWER_ENGINE_HANDOFF_KEYS, blockers, "report.answer_engine_handoff");
+  validateAllowedKeys(report?.validation, VALIDATION_KEYS, blockers, "report.validation");
+  const upstreamValidation = report?.validation?.upstream_packet_validation;
+  if (upstreamValidation && typeof upstreamValidation === "object" && !Array.isArray(upstreamValidation)) {
+    validateAllowedKeys(
+      upstreamValidation,
+      UPSTREAM_PACKET_VALIDATION_KEYS,
+      blockers,
+      "report.validation.upstream_packet_validation",
+    );
+    validateAllowedKeys(
+      upstreamValidation.boundary,
+      UPSTREAM_PACKET_VALIDATION_BOUNDARY_KEYS,
+      blockers,
+      "report.validation.upstream_packet_validation.boundary",
+    );
+    validateStringArrayField(
+      upstreamValidation,
+      "blockers",
+      blockers,
+      "upstream_packet_validation_blocker_unsafe",
+      "report.validation.upstream_packet_validation.blockers",
+    );
+  }
+}
+
+function validateAllowedKeys(value, allowedKeys, blockers, trail) {
+  if (!value || typeof value !== "object" || Array.isArray(value)) return;
+  for (const key of Object.keys(value)) {
+    if (!allowedKeys.has(key)) blockers.push(`run_report_unknown_key:${trail}.${key}`);
+  }
+}
+
+function validateStringArrayField(value, key, blockers, blockerPrefix, trail) {
+  for (const [index, item] of arrayField(value, key, blockers, { required: false }).entries()) {
+    if (typeof item !== "string" || !isSafeReportLabel(item)) {
+      blockers.push(`${blockerPrefix}:${trail}[${index}]`);
+    }
+  }
+}
+
+function validateCountMap(value, label, blockers) {
+  if (!value || typeof value !== "object" || Array.isArray(value)) {
+    blockers.push(`counts_${label}_must_be_object_map`);
+    return;
+  }
+  for (const [key, count] of Object.entries(value)) {
+    if (!isSafeCountMapKey(key)) blockers.push(`counts_${label}_key_unsafe:${key}`);
+    if (!Number.isInteger(count) || count < 0) blockers.push(`counts_${label}_value_invalid:${key}`);
+  }
+}
+
+function isSafeCountMapKey(key) {
+  return isSafeId(key) && !FORBIDDEN_KEYS.has(key.toLowerCase());
+}
+
+function isSafeReportLabel(value) {
+  return typeof value === "string" && /^[A-Za-z0-9][A-Za-z0-9_.:[\]-]{0,240}$/.test(value);
 }
 
 function sourceTextExtractionRunReportBoundary() {
@@ -347,6 +570,9 @@ function validateCounts(counts, blockers) {
   if (counts.source_text_read_grant_count !== 0) blockers.push("source_text_read_grant_count_must_be_zero");
   if (counts.private_payload_write_grant_count !== 0) blockers.push("private_payload_write_grant_count_must_be_zero");
   if (counts.index_build_grant_count !== 0) blockers.push("index_build_grant_count_must_be_zero");
+  validateCountMap(counts.target_status_counts, "target_status_counts", blockers);
+  validateCountMap(counts.adapter_counts, "adapter_counts", blockers);
+  validateCountMap(counts.blocker_counts, "blocker_counts", blockers);
 }
 
 function validateRunPolicy(policy, blockers) {
@@ -356,6 +582,13 @@ function validateRunPolicy(policy, blockers) {
   if (policy.writes_private_payloads !== false) blockers.push("policy_must_not_write_private_payloads");
   if (policy.builds_index !== false) blockers.push("policy_must_not_build_index");
   if (policy.mutates_notebooklm_or_drive !== false) blockers.push("policy_must_not_mutate_notebooklm_or_drive");
+  validateStringArrayField(
+    policy,
+    "allowed_next_actions",
+    blockers,
+    "run_policy_allowed_next_action_unsafe",
+    "report.run_policy.allowed_next_actions",
+  );
 }
 
 function validateTargetReport(target, blockers) {
@@ -380,6 +613,16 @@ function validateAnswerEngineHandoff(handoff, blockers) {
   if (handoff.allowed_answer_engine_mode !== "metadata_index_answer") blockers.push("handoff_answer_mode_must_be_metadata_index_answer");
   if (handoff.report_is_not_citation_evidence !== true) blockers.push("handoff_report_must_not_be_citation_evidence");
   if (handoff.source_text_answer_allowed !== false) blockers.push("handoff_source_text_answer_must_not_be_allowed");
+}
+
+function validateValidation(validation, blockers) {
+  validateStringArrayField(
+    validation,
+    "blockers",
+    blockers,
+    "validation_blocker_unsafe",
+    "report.validation.blockers",
+  );
 }
 
 function safeSourceTextExtractionRunReportOutputPath(value) {
@@ -436,6 +679,7 @@ function findUnsafeReportStrings(value, trail = "report") {
     return blockers;
   }
   if (typeof value !== "string") return blockers;
+  if (isSafeBlockerLabelTrail(trail) && isSafeReportLabel(value)) return blockers;
   if (/[A-Za-z]:[\\/]/.test(value) || /\/Users\/|\/Volumes\/|\/private\/|\/var\/folders\//.test(value)) {
     blockers.push(`unsafe_local_path_string:${trail}`);
   }
@@ -443,6 +687,14 @@ function findUnsafeReportStrings(value, trail = "report") {
     blockers.push(`unsafe_secret_string:${trail}`);
   }
   return blockers;
+}
+
+function isSafeBlockerLabelTrail(trail) {
+  return (
+    /^report\.blocker_summary\[\d+\]\.blocker_code$/.test(trail) ||
+    /^report\.validation\.blockers\[\d+\]$/.test(trail) ||
+    /^report\.validation\.upstream_packet_validation\.blockers\[\d+\]$/.test(trail)
+  );
 }
 
 function arrayField(value, key, blockers, options = {}) {

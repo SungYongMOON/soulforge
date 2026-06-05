@@ -14,13 +14,14 @@
 | --- | --- | --- | --- |
 | `ai.soulforge.gateway.mail-fetch` | 5분 | no | `mail_fetch/cli.py --once` 로 메일 수집 |
 | `ai.soulforge.gateway.mail-healthcheck` | 5분 | no | mail fetch stale/fail/partial 상태 판정 |
+| `ai.soulforge.private-state-sync` | 10분 | no | 허용된 `guild_hall/state/**` continuity subset 을 `private-state` 로 mirror 후 private GitHub 에 push |
 | `ai.soulforge.town-crier` | 1분 | no | `town_crier` queue 를 Telegram 으로 전송 |
 | Codex `Soulforge 운영 감시` heartbeat | 4시간 | yes | clean `main` fast-forward pull, 운영 상태 확인, activity sync 결과를 Codex thread 에 짧게 보고 |
 | Codex `always-on activity sync` | 09:00, 18:00 | yes | low-reasoning dedicated fallback 으로 local activity ledger / `private-state` mirror 동기화 |
 
 운영 원칙:
 
-- mail fetch, mail healthcheck, town_crier 는 LLM 을 호출하지 않는다.
+- mail fetch, mail healthcheck, private-state sync, town_crier 는 LLM 을 호출하지 않는다.
 - Codex heartbeat 는 비용이 있으므로 짧은 주기 감시에 쓰지 않는다. 2026-05-15 기준 기본 운영 주기는 60분에서 4시간으로 낮췄다.
 - Codex heartbeat 는 운영 점검 전에 public repo 가 clean `main` 이면 `git pull --ff-only origin main` 을 먼저 시도한다. GitHub/DNS/network 실패처럼 일시 장애일 수 있는 실패는 최대 3회까지 재시도하되, 60초 후 1회와 180초 후 1회만 추가 시도한다. 모두 실패하면 local-only 복구 대상이 아니므로 stale/blocker 로 보고하고, private/mail runtime 원문은 읽지 않는다.
 - 24시간 PC 가 `owner-with-state` 조건을 갖추면 `_workmeta/main` 도 주기적으로 pull 해서 shared metadata plane 최신 상태를 유지하고, 이 PC 에서 생긴 metadata 변경은 clean/main 조건에서 commit/push 할 수 있다.
@@ -206,6 +207,7 @@ npm run guild-hall:healer:run -- --notify-on-failure --json
 
 - 다른 PC 로 넘기는 것은 메일 원문이 아니라 `mail_candidate` 의 body-safe activity summary 다.
 - `guild-hall:activity:sync` 는 sync 전에 pending candidate 를 `mail_candidate_summary` activity event 로 투영한다.
+- healer light/full check 는 pending `mail_candidate` 의 개수, 24시간 이상 대기 여부, 직전 리포트 대비 증가 추세를 metadata-only 로 점검할 수 있다.
 - 시간당 heartbeat 의 activity sync 또는 09:00/18:00 dedicated activity sync 가 성공하면 다른 PC 는 private-state pull 로 새 후보 존재를 알 수 있다.
 - activity sync 실행 자체가 GitHub/DNS/network 계열 문제로 실패하면 같은 재시도 정책을 적용한다. 재시도 후에도 실패하면 다음 정기 실행까지 기다리고, owner 에게는 `stale_sync_blocked` 와 마지막 안전 상태만 보고한다.
 - 실제 메일 원문, HTML body, attachment, mailbox cursor 는 24시간 PC 의 local `guild_hall/state/gateway/**` 에 남긴다.
@@ -227,9 +229,10 @@ npm run guild-hall:healer:run -- --notify-on-failure --json
 
 - 기능 코드, public-safe template, 운영 문서는 public `Soulforge` repo 에 둔다.
 - LaunchAgent 실제 설치 파일은 `~/Library/LaunchAgents/` 아래 local 설정이다.
+- LaunchAgent stdout/stderr 로그는 기본적으로 `~/Library/Logs/Soulforge/` 아래 local 로그로 쓴다.
 - Telegram token, chat id, mail credential 은 `guild_hall/state/**` local env 에만 둔다.
 - healer/doctor 결과 report 는 local-only `guild_hall/state/operations/soulforge_activity/**` 에 둔다.
-- cross-PC continuity mirror 는 nested private repo `private-state/` 의 허용된 activity surface 만 사용한다.
+- cross-PC continuity mirror 는 nested private repo `private-state/` 의 허용된 continuity subset 만 사용한다.
 - public repo 에 raw mail, attachment, secret, `_workspaces/<project_code>/` 실자료를 올리지 않는다.
 
 ## 완료 기준

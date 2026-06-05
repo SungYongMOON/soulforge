@@ -44,6 +44,8 @@
 | `gateway/mail_fetch/policies/**` | mail fetch 정책과 안전 기준 묶음이다. |
 | `gateway/mail_fetch/spec/**` | mail fetch 구현 spec 묶음이다. |
 | `../workspace/GATEWAY_MAIL_FETCH_V0.md` | workspace 문서군에 둔 mail fetch public contract 다. |
+| `../workspace/MAIL_WORK_STATUS_V0.md` | workspace 문서군에 둔 mail-derived work status, priority, backlog contract 다. |
+| `../workspace/DEADLINE_WATCH_V0.md` | workspace 문서군에 둔 deadline watch ledger, import, validate, reminder preview contract 다. |
 | `../workspace/MAIL_SEND_V0.md` | workspace 문서군에 둔 outbound mail public contract 다. |
 | `../workspace/GATEWAY_NOTIFY_V0.md` | workspace 문서군에 둔 notify command contract 다. |
 | `../workspace/NOTIFY_MODEL_V0.md` | workspace 문서군에 둔 notification owner model 이다. |
@@ -81,6 +83,8 @@
 - [`DEV_WORKER_AUTOMATION_V0.md`](DEV_WORKER_AUTOMATION_V0.md)
 - [`ASSISTANT_DASHBOARD_V0.md`](ASSISTANT_DASHBOARD_V0.md)
 - [`../workspace/GATEWAY_MAIL_FETCH_V0.md`](../workspace/GATEWAY_MAIL_FETCH_V0.md)
+- [`../workspace/MAIL_WORK_STATUS_V0.md`](../workspace/MAIL_WORK_STATUS_V0.md)
+- [`../workspace/DEADLINE_WATCH_V0.md`](../workspace/DEADLINE_WATCH_V0.md)
 - [`../workspace/MAIL_SEND_V0.md`](../workspace/MAIL_SEND_V0.md)
 - [`../workspace/GATEWAY_NOTIFY_V0.md`](../workspace/GATEWAY_NOTIFY_V0.md)
 - [`../workspace/NOTIFY_MODEL_V0.md`](../workspace/NOTIFY_MODEL_V0.md)

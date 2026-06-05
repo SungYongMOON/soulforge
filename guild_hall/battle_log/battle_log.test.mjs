@@ -4,11 +4,61 @@ import { mkdtemp, readFile, rm, writeFile } from "node:fs/promises";
 import os from "node:os";
 import path from "node:path";
 import test from "node:test";
+import { parse as parseYaml } from "yaml";
 import {
   appendBattleEvent,
   buildSyntheticBattleEvent,
+  getBattleEventContract,
+  normalizeBattleEvent,
   renderBattleLog,
 } from "./battle_log.mjs";
+
+const BATTLE_EVENT_SCHEMA_URL = new URL(
+  "../../docs/architecture/workspace/schema/battle_event.schema.yaml",
+  import.meta.url,
+);
+
+async function readBattleEventSchema() {
+  return parseYaml(await readFile(BATTLE_EVENT_SCHEMA_URL, "utf8"));
+}
+
+function fieldNames(schema, section) {
+  return schema[section].map((field) => field.name);
+}
+
+function schemaEnumFields(schema) {
+  return Object.fromEntries(
+    [...schema.required_fields, ...(schema.optional_fields ?? [])]
+      .filter((field) => field.type === "enum")
+      .map((field) => [field.name, field.allowed]),
+  );
+}
+
+test("battle event writer contract matches the canonical schema fields and enums", async () => {
+  const schema = await readBattleEventSchema();
+  const contract = getBattleEventContract();
+  const requiredFields = fieldNames(schema, "required_fields");
+  const optionalFields = fieldNames(schema, "optional_fields");
+
+  assert.equal(contract.schema_id, schema.schema_id);
+  assert.deepEqual(contract.required_fields, requiredFields);
+  assert.deepEqual(contract.optional_fields, optionalFields);
+  assert.deepEqual(contract.field_order, [...requiredFields, ...optionalFields]);
+  assert.deepEqual(contract.enums, schemaEnumFields(schema));
+});
+
+test("buildSyntheticBattleEvent covers every schema-required field", async () => {
+  const schema = await readBattleEventSchema();
+  const event = buildSyntheticBattleEvent({
+    event_id: "battle-2026-03-19-0001",
+  });
+
+  for (const field of fieldNames(schema, "required_fields")) {
+    assert.notEqual(event[field], undefined, `missing synthetic required field: ${field}`);
+    assert.notEqual(event[field], "", `blank synthetic required field: ${field}`);
+  }
+  assert.deepEqual(normalizeBattleEvent(event), event);
+});
 
 test("appendBattleEvent writes project-local JSONL, daily markdown, and latest markdown", async () => {
   const repoRoot = await mkdtemp(path.join(os.tmpdir(), "soulforge-battle-log-"));

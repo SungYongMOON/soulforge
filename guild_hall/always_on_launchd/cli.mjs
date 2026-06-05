@@ -20,6 +20,7 @@ async function main() {
       repoRoot,
       outputDir: args["output-dir"] ?? defaultRenderedDir(repoRoot),
       shellPath: args["shell-path"],
+      logRoot: args["log-root"],
     }));
   }
 
@@ -29,6 +30,7 @@ async function main() {
       outputDir: args["output-dir"] ?? defaultRenderedDir(repoRoot),
       installDir: args["install-dir"] ?? defaultLaunchAgentsDir(),
       shellPath: args["shell-path"],
+      logRoot: args["log-root"],
     }));
   }
 
@@ -37,6 +39,7 @@ async function main() {
       repoRoot,
       installDir: args["install-dir"] ?? defaultLaunchAgentsDir(),
       shellPath: args["shell-path"],
+      logRoot: args["log-root"],
       checkLaunchctl: args["check-launchctl"] === true,
     }));
   }

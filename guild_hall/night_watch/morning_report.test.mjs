@@ -287,6 +287,101 @@ test("morning report rejects unsafe project paths and raw battle-log payloads", 
   }
 });
 
+test("morning report rejects malformed or unsafe battle-log source cells without echoing values", async () => {
+  const repoRoot = await mkdtemp(path.join(os.tmpdir(), "soulforge-morning-report-source-ref-"));
+  const workmetaRoot = path.join(repoRoot, "_workmeta");
+  const unsafeSources = [
+    "synthetic-note-001",
+    ":synthetic-note-001",
+    "manual:",
+    "manual:synthetic:note-001",
+    "unknown:synthetic-note-001",
+    "other:synthetic-note-001",
+    "manual:https://example.test/raw?id=1",
+    "manual:file:" + "/" + "/" + "/" + "synthetic-note-001",
+    "manual:synthetic-note-001?token=fake-token-001",
+    "manual:session-token-001",
+    "manual:" + "/" + "synthetic-root/synthetic-note-001",
+    "manual:C:/Users/synthetic-note-001",
+    "manual:../synthetic-note-001",
+    "manual:folder/../synthetic-note-001",
+    "manual:private-raw-source-payload-001",
+    "manual:source_text_chunk_001",
+  ];
+
+  try {
+    await writeMissionSurfaces(repoRoot);
+
+    for (const source of unsafeSources) {
+      await writeBattleLog({
+        workmetaRoot,
+        projectCode: "demo_project",
+        date: "2026-05-17",
+        body: battleLogBodyWithSource(source),
+      });
+
+      await assert.rejects(
+        buildMorningReport({
+          repoRoot,
+          workmetaRoot,
+          projectCode: "demo_project",
+          date: "2026-05-17",
+        }),
+        (error) => {
+          const message = String(error?.message ?? "");
+          const output = String(error?.stack ?? message);
+          assert.match(message, /unsafe_morning_report_text|unsafe_morning_report_source_ref/u);
+          assert.doesNotMatch(output, new RegExp(escapeRegExp(source), "u"));
+          return true;
+        },
+      );
+    }
+  } finally {
+    await rm(repoRoot, { recursive: true, force: true });
+  }
+});
+
+test("cli rejects unsafe battle-log source refs without writing the source value to stdout", async () => {
+  const repoRoot = await mkdtemp(path.join(os.tmpdir(), "soulforge-morning-report-cli-source-ref-"));
+  const workmetaRoot = path.join(repoRoot, "_workmeta");
+  const unsafeSource = "manual:../synthetic-note-001";
+
+  try {
+    await writeMissionSurfaces(repoRoot);
+    await writeBattleLog({
+      workmetaRoot,
+      projectCode: "demo_project",
+      date: "2026-05-17",
+      body: battleLogBodyWithSource(unsafeSource),
+    });
+
+    const cliPath = new URL("./morning_report.mjs", import.meta.url).pathname;
+    const run = spawnSync(
+      process.execPath,
+      [
+        cliPath,
+        "--repo-root",
+        repoRoot,
+        "--workmeta-root",
+        workmetaRoot,
+        "--project-code",
+        "demo_project",
+        "--date",
+        "2026-05-17",
+        "--json",
+      ],
+      { encoding: "utf8" },
+    );
+
+    assert.notEqual(run.status, 0);
+    assert.equal(run.stdout, "");
+    assert.match(run.stderr, /unsafe_morning_report_source_ref/u);
+    assert.doesNotMatch(run.stderr, new RegExp(escapeRegExp(unsafeSource), "u"));
+  } finally {
+    await rm(repoRoot, { recursive: true, force: true });
+  }
+});
+
 test("renderMorningReportMarkdown includes required contract sections", () => {
   const markdown = renderMorningReportMarkdown({
     schema_version: "soulforge.morning_project_report.v0",
@@ -478,4 +573,19 @@ async function writePrivateMissionSurface({ workmetaRoot, projectCode, missionId
 
 function escapeRegExp(value) {
   return String(value).replace(/[.*+?^${}()|[\]\\]/gu, "\\$&");
+}
+
+function battleLogBodyWithSource(source) {
+  return [
+    "# Battle Log Daily - demo_project - 2026-05-17",
+    "",
+    "- Event count: 1",
+    "- Results: blocked=1",
+    "- Bottlenecks: human_confirmation_required=1",
+    "",
+    "| Time | Mission | Stage | Party / Unit | Mode | Result | Interventions | Source | Next action |",
+    "| --- | --- | --- | --- | --- | --- | ---: | --- | --- |",
+    `| 2026-05-17 08:40 | mission_blocked | source ref validation | guild_master_cell / guild_master | manual | blocked | 1 | ${source} | Owner confirms workflow. |`,
+    "",
+  ].join("\n");
 }

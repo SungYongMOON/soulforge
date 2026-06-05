@@ -17,6 +17,11 @@ import {
   triagePendingMailCandidates,
 } from "./mail_candidate.mjs";
 import {
+  defaultMailCandidateBacklogLatestFile,
+  defaultMailCandidateQueueRoot as defaultBacklogMailCandidateQueueRoot,
+  refreshMailCandidateBacklogReport,
+} from "./mail_candidate_backlog.mjs";
+import {
   defaultMailWorkPriorityLatestFile,
   defaultMailWorkStatusLatestFile,
   listMailWorkPriority,
@@ -29,6 +34,10 @@ import {
   importDueObservationsFromMailPriority,
   validateDeadlineWatchLedgers,
 } from "./deadline_watch_import.mjs";
+import {
+  defaultDeadlineWatchdogPreviewLatestFile,
+  refreshDeadlineWatchdogReminderPreview,
+} from "./deadline_watchdog_reminder.mjs";
 import { renderMonsterCreatedMessage, sanitizeId } from "./message_rendering.mjs";
 import {
   buildProjectMailHistoryEntry,
@@ -58,6 +67,7 @@ const gatewayRoot = defaultContext.gatewayRoot;
 const intakeInboxRoot = defaultContext.intakeInboxRoot;
 const globalEventRoot = defaultContext.globalEventRoot;
 const mailCandidateRoot = defaultContext.mailCandidateRoot;
+const DEFAULT_MAIL_CANDIDATE_BACKLOG_DISPLAY_LIMIT = 10;
 
 async function main() {
   const [command, ...rest] = process.argv.slice(2);
@@ -75,6 +85,11 @@ async function main() {
 
   if (command === "list-mail-candidates") {
     await runListMailCandidates(args);
+    return;
+  }
+
+  if (command === "mail-candidate-backlog") {
+    await runMailCandidateBacklog(args);
     return;
   }
 
@@ -115,6 +130,11 @@ async function main() {
 
   if (command === "validate-deadline-watch") {
     await runValidateDeadlineWatch(args);
+    return;
+  }
+
+  if (command === "deadline-watchdog-reminders") {
+    await runDeadlineWatchdogReminders(args);
     return;
   }
 
@@ -177,6 +197,7 @@ function printUsageAndExit() {
       "  node guild_hall/gateway/cli.mjs intake --payload-file <path> [--local-root <path>]",
       "  node guild_hall/gateway/cli.mjs update-monster --inbox-id <id> --monster-id <id> --patch-file <path>",
       "  node guild_hall/gateway/cli.mjs list-mail-candidates [--queue-root <path>] [--status <status|all>]",
+      "  node guild_hall/gateway/cli.mjs mail-candidate-backlog [--queue-root <path>] [--previous-file <path>] [--output-file <path>] [--warn-age-hours <hours>] [--limit <n>] [--summary-only] [--full]",
       "  node guild_hall/gateway/cli.mjs promote-mail-candidate --candidate-file <path> [--output-file <path>] [--allow-output-outside-state] [--no-status-update] [--force]",
       "  node guild_hall/gateway/cli.mjs list-mail-work-status [--latest-file <path>] [--work-status <status|all>] [--project-code <code>]",
       "  node guild_hall/gateway/cli.mjs refresh-mail-work-status [--latest-file <path>] [--queue-root <path>] [--intake-inbox-root <path>] [--workmeta-root <path>]",
@@ -185,6 +206,7 @@ function printUsageAndExit() {
       "  node guild_hall/gateway/cli.mjs refresh-mail-weekly-visibility --week-start <YYYY-MM-DD> --week-end <YYYY-MM-DD> [--output-file <path>] [--mailbox-root <path>]",
       "  node guild_hall/gateway/cli.mjs import-deadline-watch [--latest-file <path>] [--workmeta-root <path>] [--project-code <code>] [--apply]",
       "  node guild_hall/gateway/cli.mjs validate-deadline-watch",
+      "  node guild_hall/gateway/cli.mjs deadline-watchdog-reminders [--workmeta-root <path>] [--due-window-hours <hours>] [--cooldown-hours <hours>] [--max-nudge-count <count>] [--output-file <path>] [--write-preview]",
       "  node guild_hall/gateway/cli.mjs triage-mail-candidate (--candidate-file <path> | --all-pending) [--queue-root <path>] [--binding-file <path>] [--private-deep] [--force]",
       "  node guild_hall/gateway/cli.mjs notify-gateway --event <event> (--on | --off)",
       "  node guild_hall/gateway/cli.mjs notify-mission --mission-id <id> --event <event> (--on | --off)",
@@ -207,6 +229,84 @@ async function runListMailCandidates(args) {
     count: candidates.length,
     candidates,
   });
+}
+
+async function runMailCandidateBacklog(args) {
+  const queueRoot = args["queue-root"]
+    ? path.resolve(String(args["queue-root"]))
+    : defaultBacklogMailCandidateQueueRoot(repoRoot);
+  const outputFile = args["output-file"]
+    ? path.resolve(String(args["output-file"]))
+    : args.write
+      ? defaultMailCandidateBacklogLatestFile(repoRoot)
+      : null;
+  const result = await refreshMailCandidateBacklogReport({
+    repoRoot,
+    queueRoot,
+    outputFile,
+    previousFile: args["previous-file"] ? path.resolve(String(args["previous-file"])) : undefined,
+    warnAgeHours: args["warn-age-hours"] ? Number(args["warn-age-hours"]) : undefined,
+  });
+  printJson({
+    request_id: "mail_candidate_backlog",
+    ...buildMailCandidateBacklogDisplay(result, args),
+  });
+}
+
+function buildMailCandidateBacklogDisplay(report, args) {
+  const pendingCandidates = normalizeArray(report.pending_candidates);
+  const invalidCandidates = normalizeArray(report.invalid_candidates);
+
+  if (args.full) {
+    return {
+      ...report,
+      display_mode: "full",
+      display_limit: null,
+      pending_candidates: pendingCandidates,
+      invalid_candidates: invalidCandidates,
+      pending_candidates_omitted_count: 0,
+      invalid_candidates_omitted_count: 0,
+    };
+  }
+
+  if (args["summary-only"]) {
+    return {
+      ...report,
+      display_mode: "summary_only",
+      display_limit: 0,
+      pending_candidates: [],
+      invalid_candidates: [],
+      pending_candidates_omitted_count: pendingCandidates.length,
+      invalid_candidates_omitted_count: invalidCandidates.length,
+    };
+  }
+
+  const displayLimit = parseMailCandidateBacklogDisplayLimit(args.limit);
+  return {
+    ...report,
+    display_mode: "bounded",
+    display_limit: displayLimit,
+    pending_candidates: pendingCandidates.slice(0, displayLimit),
+    invalid_candidates: invalidCandidates.slice(0, displayLimit),
+    pending_candidates_omitted_count: Math.max(0, pendingCandidates.length - displayLimit),
+    invalid_candidates_omitted_count: Math.max(0, invalidCandidates.length - displayLimit),
+  };
+}
+
+function parseMailCandidateBacklogDisplayLimit(value) {
+  if (value === undefined) {
+    return DEFAULT_MAIL_CANDIDATE_BACKLOG_DISPLAY_LIMIT;
+  }
+
+  if (value === true) {
+    throw new Error("missing required flag: --limit");
+  }
+
+  const limit = Number(value);
+  if (!Number.isInteger(limit) || limit < 0) {
+    throw new Error("--limit must be a non-negative integer");
+  }
+  return limit;
 }
 
 async function runPromoteMailCandidate(args) {
@@ -319,6 +419,26 @@ async function runValidateDeadlineWatch() {
   if (result.status !== "pass") {
     process.exitCode = 1;
   }
+}
+
+async function runDeadlineWatchdogReminders(args) {
+  const outputFile = args["output-file"]
+    ? path.resolve(String(args["output-file"]))
+    : args["write-preview"]
+      ? defaultDeadlineWatchdogPreviewLatestFile(repoRoot)
+      : null;
+  const result = await refreshDeadlineWatchdogReminderPreview({
+    repoRoot,
+    workmetaRoot: args["workmeta-root"] ? path.resolve(String(args["workmeta-root"])) : undefined,
+    outputFile,
+    dueWindowHours: args["due-window-hours"] ? Number(args["due-window-hours"]) : undefined,
+    cooldownHours: args["cooldown-hours"] ? Number(args["cooldown-hours"]) : undefined,
+    maxNudgeCount: args["max-nudge-count"] ? Number(args["max-nudge-count"]) : undefined,
+  });
+  printJson({
+    request_id: "deadline_watchdog_reminders",
+    ...result,
+  });
 }
 
 async function runTriageMailCandidate(args) {

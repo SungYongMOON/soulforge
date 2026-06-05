@@ -10,6 +10,32 @@ const __dirname = path.dirname(fileURLToPath(import.meta.url));
 const defaultRepoRoot = path.resolve(__dirname, "../..");
 let repoRoot = defaultRepoRoot;
 const schemaVersion = "soulforge.canon.validate.v0";
+const publicMissionDraftSchemaVersion = "soulforge.dungeon_assignment.public_mission_draft.v1";
+const publicMissionDraftAllowedMarkerKeys = new Set(["raw_payload_copied", "raw_payload_markers_absent"]);
+const publicMissionDraftSafeTrueFieldIssues = new Map([
+  ["private_refs_removed", "public_mission_draft_unredacted_private_ref"],
+  ["source_refs_redacted", "public_mission_draft_unredacted_private_ref"],
+  ["raw_payload_markers_absent", "public_mission_draft_forbidden_marker"],
+  ["local_file_refs_absent", "public_mission_draft_local_file_ref"],
+  ["secret_like_values_absent", "public_mission_draft_secret_like_value"],
+]);
+const publicMissionDraftRequiredRedactionFields = new Map([
+  ["raw_payload_copied", false],
+  ["private_refs_removed", true],
+  ["source_refs_redacted", true],
+  ["raw_payload_markers_absent", true],
+  ["local_file_refs_absent", true],
+  ["secret_like_values_absent", true],
+]);
+const publicMissionDraftForbiddenMarkerPattern =
+  /\b(?:body_text|body_html|provider_payload|provider_attachment_id|raw_mail|mail_body|source_text|chunk_text|notebooklm_answer|source_payload|raw_payload_body|attachment_url|download_url|local_path)\b/iu;
+const publicMissionDraftPrivateRefPattern =
+  /(?:^|[\s"'`()\[\]{}<>./\\])(?:_workmeta\/|_workspaces\/|private-state\/|guild_hall\/state\/|source:\/\/|mailbox:\/\/|mail_candidate:|provider_message_id\s*[:=]|thread_id\s*[:=]|attachment_url\s*[:=]|download_url\s*[:=]|local_path\s*[:=])/iu;
+const publicMissionDraftLocalFileRefPattern = /\bfile:\/\/[^\s"'<>]+/iu;
+const publicMissionDraftSecretKeyPattern =
+  /^(?:password|passwd|secret|api[_-]?key|access[_-]?token|refresh[_-]?token|token|cookie|session|credential|client[_-]?secret|authorization)$/iu;
+const publicMissionDraftSecretValuePattern =
+  /\b(?:password|passwd|secret|api[_-]?key|access[_-]?token|refresh[_-]?token|session[_-]?cookie|client[_-]?secret|authorization)\s*[:=]\s*["']?(?:Bearer\s+)?[^"'\s]{8,}/iu;
 
 async function main() {
   const args = parseArgs(process.argv.slice(2));
@@ -495,6 +521,145 @@ function validateMissionCatalog(missionDocuments, workflowIds, partyIds, context
         ),
       );
     }
+
+    if (stringValue(mission.document?.schema_version) === publicMissionDraftSchemaVersion) {
+      validatePublicMissionDraft(mission.document, { errors: context.errors, missionRepoPath });
+    }
+  }
+}
+
+function validatePublicMissionDraft(document, context) {
+  validatePublicMissionDraftRequiredRedactionFields(document, context);
+
+  for (const item of walkYamlValue(document)) {
+    if (item.kind === "field") {
+      validatePublicMissionDraftField(item, context);
+      continue;
+    }
+
+    validatePublicMissionDraftString(item, context);
+  }
+}
+
+function validatePublicMissionDraftRequiredRedactionFields(document, context) {
+  const boundary = document?.boundary && typeof document.boundary === "object" && !Array.isArray(document.boundary) ? document.boundary : {};
+
+  for (const [field, expectedValue] of publicMissionDraftRequiredRedactionFields) {
+    if (!Object.hasOwn(boundary, field)) {
+      context.errors.push(
+        buildIssue(
+          "public_mission_draft_required_redaction_field_missing",
+          context.missionRepoPath,
+          `boundary.${field} must be present for public mission drafts`,
+        ),
+      );
+      continue;
+    }
+
+    if (boundary[field] !== expectedValue) {
+      context.errors.push(
+        buildIssue(
+          issueIdForPublicMissionDraftRedactionField(field),
+          context.missionRepoPath,
+          `boundary.${field} must be ${expectedValue} for public mission drafts`,
+        ),
+      );
+    }
+  }
+}
+
+function issueIdForPublicMissionDraftRedactionField(field) {
+  if (field === "raw_payload_copied") {
+    return "public_mission_draft_raw_payload_copied";
+  }
+  return publicMissionDraftSafeTrueFieldIssues.get(field) ?? "public_mission_draft_required_redaction_field_invalid";
+}
+
+function validatePublicMissionDraftField(item, context) {
+  const fieldPath = formatTrail(item.trail);
+
+  if (item.key === "raw_payload_copied" && item.value !== false) {
+    context.errors.push(
+      buildIssue(
+        "public_mission_draft_raw_payload_copied",
+        context.missionRepoPath,
+        `${fieldPath} must be false for public mission drafts`,
+      ),
+    );
+  }
+
+  const safeTrueIssueId = publicMissionDraftSafeTrueFieldIssues.get(item.key);
+  if (safeTrueIssueId && item.value !== true) {
+    context.errors.push(
+      buildIssue(
+        safeTrueIssueId,
+        context.missionRepoPath,
+        `${fieldPath} must be true for public mission drafts`,
+      ),
+    );
+  }
+
+  if (publicMissionDraftSecretKeyPattern.test(item.key) && scalarHasContent(item.value)) {
+    context.errors.push(
+      buildIssue(
+        "public_mission_draft_secret_like_value",
+        context.missionRepoPath,
+        `${fieldPath} contains a secret-like key or value`,
+      ),
+    );
+  }
+
+  if (!publicMissionDraftAllowedMarkerKeys.has(item.key) && publicMissionDraftForbiddenMarkerPattern.test(item.key)) {
+    context.errors.push(
+      buildIssue(
+        "public_mission_draft_forbidden_marker",
+        context.missionRepoPath,
+        `${fieldPath} uses a forbidden raw/private/source payload marker`,
+      ),
+    );
+  }
+}
+
+function validatePublicMissionDraftString(item, context) {
+  const fieldPath = formatTrail(item.trail);
+  if (publicMissionDraftPrivateRefPattern.test(item.value)) {
+    context.errors.push(
+      buildIssue(
+        "public_mission_draft_unredacted_private_ref",
+        context.missionRepoPath,
+        `${fieldPath} contains an unredacted private/source reference marker`,
+      ),
+    );
+  }
+
+  if (publicMissionDraftForbiddenMarkerPattern.test(item.value)) {
+    context.errors.push(
+      buildIssue(
+        "public_mission_draft_forbidden_marker",
+        context.missionRepoPath,
+        `${fieldPath} contains a forbidden raw/private/source payload marker`,
+      ),
+    );
+  }
+
+  if (publicMissionDraftLocalFileRefPattern.test(item.value)) {
+    context.errors.push(
+      buildIssue(
+        "public_mission_draft_local_file_ref",
+        context.missionRepoPath,
+        `${fieldPath} contains a URL-style local file reference`,
+      ),
+    );
+  }
+
+  if (publicMissionDraftSecretValuePattern.test(item.value)) {
+    context.errors.push(
+      buildIssue(
+        "public_mission_draft_secret_like_value",
+        context.missionRepoPath,
+        `${fieldPath} contains a secret-like assignment`,
+      ),
+    );
   }
 }
 
@@ -627,6 +792,46 @@ function stringValue(value) {
 
 function arrayValue(value) {
   return Array.isArray(value) ? value : [];
+}
+
+function* walkYamlValue(value, trail = []) {
+  if (typeof value === "string") {
+    yield { kind: "string", trail, value };
+    return;
+  }
+
+  if (Array.isArray(value)) {
+    for (const [index, item] of value.entries()) {
+      yield* walkYamlValue(item, [...trail, `[${index}]`]);
+    }
+    return;
+  }
+
+  if (!value || typeof value !== "object") {
+    return;
+  }
+
+  for (const [key, item] of Object.entries(value)) {
+    const fieldTrail = [...trail, key];
+    yield { kind: "field", trail: fieldTrail, key, value: item };
+    yield* walkYamlValue(item, fieldTrail);
+  }
+}
+
+function scalarHasContent(value) {
+  if (typeof value === "string") {
+    return value.trim().length > 0;
+  }
+  return value === true || typeof value === "number";
+}
+
+function formatTrail(trail) {
+  return trail.reduce((text, part) => {
+    if (part.startsWith("[")) {
+      return `${text}${part}`;
+    }
+    return text ? `${text}.${part}` : part;
+  }, "");
 }
 
 function prepareYamlText(text) {

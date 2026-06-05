@@ -12,7 +12,7 @@
   },
   "scripts": {
     "dev": "npm run dev --workspace @soulforge/renderer-web --",
-    "build": "npm run build --workspace @soulforge/renderer-web && npm run build --workspace @soulforge/skin-lab-storybook",
+    "build": "npm run build --workspace @soulforge/renderer-web && npm run build --workspace @soulforge/skin-lab-storybook && npm run build --workspace @soulforge/team-ops-board-mockup",
     "preview": "npm run preview --workspace @soulforge/renderer-web --",
     "validate": "npm run validate:fixtures --workspace @soulforge/renderer-core",
     "docs:check-links": "node ./tools/scripts/check-doc-links.mjs",
@@ -21,6 +21,7 @@
     "lint:read-only": "npm run lint:boundary:readonly --workspace @soulforge/ui-lint",
     "lint:packages": "npm run lint:boundary:packages --workspace @soulforge/ui-lint",
     "lint:fixtures": "npm run lint:fixtures --workspace @soulforge/ui-lint",
+    "lint:operation-board-fixture": "npm run lint:operation-board-fixture --workspace @soulforge/ui-lint",
     "lint:theme": "npm run lint:theme --workspace @soulforge/ui-lint",
     "lint:workspaces": "npm run lint:workspaces --workspace @soulforge/ui-lint",
     "lint:all": "npm run lint:all --workspace @soulforge/ui-lint",
@@ -28,6 +29,9 @@
     "done:check": "node ./tools/scripts/run-ui-workspace-acceptance.mjs",
     "skin-lab:dev": "npm run dev --workspace @soulforge/skin-lab-storybook --",
     "skin-lab:build": "npm run build --workspace @soulforge/skin-lab-storybook",
+    "team-ops:dev": "npm run dev --workspace @soulforge/team-ops-board-mockup --",
+    "team-ops:build": "npm run build --workspace @soulforge/team-ops-board-mockup",
+    "team-ops:preview": "npm run preview --workspace @soulforge/team-ops-board-mockup --",
     "storybook:dev": "npm run skin-lab:dev",
     "storybook:build": "npm run skin-lab:build"
   }

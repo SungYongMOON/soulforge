@@ -20,6 +20,9 @@ const __filename = fileURLToPath(import.meta.url);
 export const DAILY_WORK_PACKET_VERSION = "soulforge.daily_work_packet.v0";
 
 const ACTIVE_MISSION_STATUSES = new Set(["active", "held", "started", "in_progress"]);
+const ATTENTION_CANDIDATE_STATUSES = new Set(["proposed", "open", "approved", "approval-only"]);
+const CLOSED_CANDIDATE_STATUSES = new Set(["completed", "promoted", "rejected", "dropped", "cancelled", "closed"]);
+const OWNER_APPROVAL_APPROVED_ONLY_STATES = new Set(["approved-only", "approval-only"]);
 
 export async function buildDailyWorkPacket(options = {}) {
   const repoRoot = path.resolve(options.repoRoot ?? process.cwd());
@@ -30,6 +33,7 @@ export async function buildDailyWorkPacket(options = {}) {
   const latestContext = options.latestContext ?? (await readLatestContext(activityRoot));
   const devWorkerClaim = options.devWorkerClaim ?? (await selectTask({ localRoot: repoRoot, workmetaRoot }));
   const devWorkerCandidates = options.devWorkerCandidates ?? (await listCandidatePackets({ localRoot: repoRoot, workmetaRoot }));
+  const devWorkerCandidateItems = Array.isArray(devWorkerCandidates?.candidates) ? devWorkerCandidates.candidates : [];
   const missionItems = Array.isArray(snapshot?.operation_board?.sections?.mission_board?.items)
     ? snapshot.operation_board.sections.mission_board.items
     : [];
@@ -64,7 +68,7 @@ export async function buildDailyWorkPacket(options = {}) {
       pending_monster_count: snapshot?.gateway?.pending_monsters?.count ?? 0,
       carry_forward_thread_count: carryForwardThreads.length,
       dev_worker_status: devWorkerClaim?.selected ? "task_available" : "no_task",
-      dev_worker_candidate_count: Array.isArray(devWorkerCandidates?.candidates) ? devWorkerCandidates.candidates.length : 0,
+      dev_worker_candidate_count: devWorkerCandidateItems.length,
       dev_worker_promotable_candidate_count: devWorkerCandidates?.promotable_count ?? 0,
       dev_worker_auto_approvable_candidate_count: devWorkerCandidates?.auto_approvable_count ?? 0,
       diagnostics_status: snapshot?.diagnostics?.summary?.highest_severity ?? "unknown",
@@ -76,8 +80,8 @@ export async function buildDailyWorkPacket(options = {}) {
       selected: devWorkerClaim?.selected ?? null,
       eligible_count: devWorkerClaim?.eligible_count ?? 0,
       scanned_count: devWorkerClaim?.scanned_count ?? 0,
-      candidates: Array.isArray(devWorkerCandidates?.candidates) ? devWorkerCandidates.candidates.slice(0, 8) : [],
-      candidate_count: Array.isArray(devWorkerCandidates?.candidates) ? devWorkerCandidates.candidates.length : 0,
+      candidates: selectVisibleDevWorkerCandidates(devWorkerCandidateItems, 8),
+      candidate_count: devWorkerCandidateItems.length,
       promotable_candidate_count: devWorkerCandidates?.promotable_count ?? 0,
       auto_approvable_candidate_count: devWorkerCandidates?.auto_approvable_count ?? 0,
     },
@@ -177,7 +181,10 @@ export function renderDailyWorkPacketMarkdown(packet) {
         : candidate.auto_approval?.eligible
           ? "auto-approvable"
           : candidate.ineligible_reason;
-      lines.push(`- \`${candidate.status}\` / \`${state}\` ${candidate.task_id}: ${candidate.summary}`);
+      const ownerApprovalState = candidate.owner_approval_state || formatOwnerApprovalState(candidate);
+      lines.push(
+        `- \`${candidate.status}\` / \`${state}\` / owner_approval_state \`${ownerApprovalState}\` ${candidate.task_id}: ${candidate.summary}`,
+      );
     }
   }
 
@@ -268,6 +275,95 @@ function normalizeMissionWorkItem(mission) {
       ? `Which single workflow or owner lane should own the next bounded step for mission "${mission.title}"?`
       : `What is the smallest owner decision needed to unblock mission "${mission.title}"?`,
   };
+}
+
+function selectVisibleDevWorkerCandidates(candidates, limit) {
+  return candidates
+    .map((candidate, index) => ({ candidate, index }))
+    .sort((left, right) => {
+      const priorityDelta = getCandidateVisibilityPriority(left.candidate) - getCandidateVisibilityPriority(right.candidate);
+      return priorityDelta === 0 ? left.index - right.index : priorityDelta;
+    })
+    .slice(0, limit)
+    .map((entry) => withCandidateDisplayFields(entry.candidate));
+}
+
+function getCandidateVisibilityPriority(candidate) {
+  if (candidate?.promotable === true) {
+    return 0;
+  }
+
+  if (candidate?.auto_approval?.eligible === true) {
+    return 1;
+  }
+
+  const status = String(candidate?.status ?? "").trim().toLowerCase();
+  if (ATTENTION_CANDIDATE_STATUSES.has(status)) {
+    return 2;
+  }
+
+  if (!CLOSED_CANDIDATE_STATUSES.has(status)) {
+    return 3;
+  }
+
+  return 4;
+}
+
+function withCandidateDisplayFields(candidate) {
+  return {
+    ...candidate,
+    owner_approval_state: formatOwnerApprovalState(candidate),
+  };
+}
+
+function formatOwnerApprovalState(candidate) {
+  const status = String(candidate?.status ?? "").trim().toLowerCase() || "missing";
+  const approval = candidate?.owner_approval && typeof candidate.owner_approval === "object" ? candidate.owner_approval : {};
+  const explicitState = String(approval.state ?? approval.status ?? "").trim().toLowerCase();
+  const existingDisplay = String(candidate?.owner_approval_state ?? candidate?.approval_display ?? "").trim();
+  const existingDisplayState = existingDisplay.toLowerCase();
+
+  if (existingDisplay && !OWNER_APPROVAL_APPROVED_ONLY_STATES.has(existingDisplayState)) {
+    return existingDisplay;
+  }
+
+  const approved = parseDisplayBoolean(approval.approved, false)
+    || OWNER_APPROVAL_APPROVED_ONLY_STATES.has(explicitState)
+    || OWNER_APPROVAL_APPROVED_ONLY_STATES.has(existingDisplayState);
+  const required = parseDisplayBoolean(approval.required, true);
+
+  if (approved) {
+    if (candidate?.promotable === true) {
+      return "approved (promotable)";
+    }
+    if (CLOSED_CANDIDATE_STATUSES.has(status)) {
+      return `approved (closed ${status}; not promotable)`;
+    }
+    if (status !== "approved") {
+      return `approved-only (status ${status}; not promotable)`;
+    }
+    return "approved (not promotable)";
+  }
+
+  return required ? "not-approved (needs owner approval; not promotable)" : "not-approved (not required; not promotable)";
+}
+
+function parseDisplayBoolean(value, fallback) {
+  if (value === true || value === false) {
+    return value;
+  }
+  if (value === undefined || value === null || value === "") {
+    return fallback;
+  }
+
+  const normalized = String(value).trim().toLowerCase();
+  if (["1", "true", "yes", "y", "on"].includes(normalized)) {
+    return true;
+  }
+  if (["0", "false", "no", "n", "off"].includes(normalized)) {
+    return false;
+  }
+  return fallback;
 }
 
 function parseArgs(argv) {

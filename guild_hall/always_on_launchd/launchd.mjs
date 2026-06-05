@@ -21,6 +21,13 @@ const JOB_SPECS = [
     command: "npm run guild-hall:gateway:fetch:healthcheck -- --json",
   },
   {
+    id: "private-state.sync",
+    label: "ai.soulforge.private-state-sync",
+    kind: "interval",
+    intervalSec: 600,
+    command: "npm run guild-hall:private-state:sync -- --json",
+  },
+  {
     id: "town-crier",
     label: "ai.soulforge.town-crier",
     kind: "interval",
@@ -52,10 +59,14 @@ export function defaultRenderedDir(repoRoot) {
   return path.join(repoRoot, "guild_hall", "state", "always_on_launchd");
 }
 
+export function defaultLogRoot() {
+  return path.join(os.homedir(), "Library", "Logs", "Soulforge");
+}
+
 export function buildLaunchdDefinitions(options = {}) {
   const repoRoot = path.resolve(options.repoRoot ?? process.cwd());
   const shellPath = options.shellPath ?? "/bin/zsh";
-  const logRoot = path.join(repoRoot, "guild_hall", "state", "always_on_launchd", "logs");
+  const logRoot = path.resolve(options.logRoot ?? defaultLogRoot());
 
   return JOB_SPECS.map((spec) => {
     const stdoutPath = path.join(logRoot, `${spec.label}.out.log`);
@@ -100,7 +111,6 @@ export function renderPlist(definition) {
 
   lines.push(xmlKey("StandardOutPath", xmlString(definition.stdoutPath)));
   lines.push(xmlKey("StandardErrorPath", xmlString(definition.stderrPath)));
-  lines.push(xmlKey("WorkingDirectory", xmlString(definition.repoRoot)));
   lines.push(xmlKey("ProcessType", xmlString("Background")));
   lines.push("</dict>");
   lines.push("</plist>");
@@ -110,9 +120,9 @@ export function renderPlist(definition) {
 export function renderLaunchdFiles(options = {}) {
   const repoRoot = path.resolve(options.repoRoot ?? process.cwd());
   const outputDir = path.resolve(options.outputDir ?? defaultRenderedDir(repoRoot));
-  const definitions = buildLaunchdDefinitions({ repoRoot, shellPath: options.shellPath });
+  const definitions = buildLaunchdDefinitions({ repoRoot, shellPath: options.shellPath, logRoot: options.logRoot });
   mkdirSync(outputDir, { recursive: true });
-  mkdirSync(path.join(repoRoot, "guild_hall", "state", "always_on_launchd", "logs"), { recursive: true });
+  mkdirSync(definitions[0]?.logRoot ?? defaultLogRoot(), { recursive: true });
 
   const files = definitions.map((definition) => {
     const filePath = path.join(outputDir, definition.plistName);
@@ -136,7 +146,7 @@ export function installLaunchdFiles(options = {}) {
   const repoRoot = path.resolve(options.repoRoot ?? process.cwd());
   const outputDir = path.resolve(options.outputDir ?? defaultRenderedDir(repoRoot));
   const installDir = path.resolve(options.installDir ?? defaultLaunchAgentsDir());
-  const rendered = renderLaunchdFiles({ repoRoot, outputDir, shellPath: options.shellPath });
+  const rendered = renderLaunchdFiles({ repoRoot, outputDir, shellPath: options.shellPath, logRoot: options.logRoot });
 
   mkdirSync(installDir, { recursive: true });
   for (const file of rendered.files) {
@@ -154,7 +164,7 @@ export function installLaunchdFiles(options = {}) {
 export function verifyLaunchdInstall(options = {}) {
   const repoRoot = path.resolve(options.repoRoot ?? process.cwd());
   const installDir = path.resolve(options.installDir ?? defaultLaunchAgentsDir());
-  const definitions = buildLaunchdDefinitions({ repoRoot, shellPath: options.shellPath });
+  const definitions = buildLaunchdDefinitions({ repoRoot, shellPath: options.shellPath, logRoot: options.logRoot });
   const launchctlCheck = options.checkLaunchctl === true ? readLaunchctlState() : null;
 
   const files = definitions.map((definition) => {

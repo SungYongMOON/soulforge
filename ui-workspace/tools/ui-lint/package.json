@@ -9,6 +9,7 @@
     "lint:boundary:readonly": "tsx src/cli/lint-readonly-boundary.ts",
     "lint:boundary:packages": "tsx src/cli/lint-package-boundary.ts",
     "lint:fixtures": "tsx src/cli/lint-fixture-coverage.ts",
+    "lint:operation-board-fixture": "tsx src/cli/lint-operation-board-fixture.ts",
     "lint:theme": "tsx src/cli/lint-theme-isolation.ts",
     "lint:workspaces": "tsx src/cli/lint-workspace-tracking.ts",
     "lint:all": "tsx src/cli/lint-all.ts"

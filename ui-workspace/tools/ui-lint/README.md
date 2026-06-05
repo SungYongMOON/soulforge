@@ -12,6 +12,7 @@
 - read-only boundary lint
 - package boundary lint
 - fixture coverage lint
+- operation board fixture lint
 - theme isolation lint
 
 ## 실행
@@ -22,6 +23,7 @@ workspace local:
 - `npm run lint:read-only`
 - `npm run lint:packages`
 - `npm run lint:fixtures`
+- `npm run lint:operation-board-fixture`
 - `npm run lint:theme`
 - `npm run lint:workspaces`
 - `npm run lint:all`
@@ -34,6 +36,7 @@ root proxy:
 - `npm run ui:lint:read-only`
 - `npm run ui:lint:packages`
 - `npm run ui:lint:fixtures`
+- `npm run ui:lint:operation-board-fixture`
 - `npm run ui:lint:theme`
 - `npm run ui:lint:workspaces`
 - `npm run ui:lint:all`
@@ -49,3 +52,4 @@ root canonical tree 와 함께 stricter catalog overlay 검사를 하려면:
 - [docs/UI_STATE_CONTRACT.md](../../docs/UI_STATE_CONTRACT.md)
 - [schemas/ui-state.schema.json](../../schemas/ui-state.schema.json)
 - [fixtures/ui-state/README.md](../../fixtures/ui-state/README.md)
+- [fixtures/operation-board/README.md](../../fixtures/operation-board/README.md)

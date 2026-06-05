@@ -1,10 +1,30 @@
 import assert from "node:assert/strict";
+import { execFile as execFileCallback } from "node:child_process";
 import crypto from "node:crypto";
 import { mkdir, mkdtemp, readFile, rm, writeFile } from "node:fs/promises";
 import os from "node:os";
 import path from "node:path";
+import process from "node:process";
 import test from "node:test";
 import { exportKnowledgeGraph } from "../knowledge_graph/graph_export.mjs";
+
+const RUNTIME_PREFLIGHT_FAKE_SECRET_ENV_KEY = [
+  "SOULFORGE",
+  "RAG",
+  "PREFLIGHT",
+  "FAKE",
+  "SECRET",
+  "POISON",
+].join("_");
+const RUNTIME_PREFLIGHT_FAKE_SECRET_ENV_VALUE = [
+  "fake",
+  "fixture",
+  "secret",
+  "poison",
+  "value",
+  "20260605",
+].join("_");
+
 import {
   answerFromRagManifest,
   buildRagMetadataIndex,
@@ -1883,6 +1903,153 @@ test("source text metadata profile reuses extraction status metadata without loa
   }
 });
 
+test("source text extraction run report blocks unknown keys across report shape", async () => {
+  const packet = {
+    schema_version: "soulforge.source_text_extraction_packet.v0",
+    kind: "source_text_extraction_packet",
+    status: "draft_preflight_not_executed",
+    packet_id: "fixture_run_report_guard_packet",
+    generator_id: "fixture_run_report_guard_generator",
+    generated_at_utc: "2026-05-25T02:00:00Z",
+    source_refs: {
+      profile_ref: null,
+      profile_id: "fixture_run_report_guard_profile",
+      profile_fingerprint: "fixture_run_report_guard_fingerprint",
+      source_slice_ref: null,
+      slice_set_id: null,
+      extraction_log_refs: [],
+    },
+    boundary: {
+      metadata_only: true,
+      packet_is_not_owner_approval: true,
+      packet_does_not_execute_extractor: true,
+      source_text_read_allowed: false,
+      source_payloads_included: false,
+      chunk_payloads_included: false,
+      embeddings_included: false,
+      bm25_or_vector_index_included: false,
+      notebooklm_answers_included: false,
+      secrets_or_session_included: false,
+      runtime_absolute_paths_included: false,
+      private_payload_write_allowed: false,
+      index_build_allowed: false,
+      public_canon_promotion_allowed: false,
+    },
+    execution_policy: {
+      purpose: "fixture_metadata_preflight",
+      execution_mode: "dry_run_preflight",
+      packet_is_not_owner_approval: true,
+      packet_does_not_execute_extractor: true,
+      runner_action_allowed_now: "validate_and_report_only",
+      source_text_read_allowed: false,
+      private_payload_write_allowed: false,
+      index_build_allowed: false,
+      notebooklm_packet_membership_allowed: false,
+      public_canon_promotion_allowed: false,
+    },
+    metadata_field_policy: {
+      required_output_field_ids: [],
+      payload_field_policy: {
+        reject_as_extractable: [],
+        payload_values_copied: false,
+        excerpts_allowed: false,
+      },
+    },
+    adapter_plan: {
+      adapter_candidates: [],
+      routes: [],
+    },
+    planned_outputs: {
+      metadata_run_report_ref: "reports/rag/run_report_guard/source_text_extraction_run_report.json",
+      target_result_ref_root: "reports/rag/run_report_guard/targets",
+      private_payload_ref: null,
+    },
+    counts: {
+      metadata_field_count: 0,
+    },
+    log_import_tasks: [],
+    target_items: [
+      {
+        target_ref: "source_text_target:run_report_guard",
+        source_slice_ref: "source_slice:run_report_guard",
+        source_handle: "source_handle_run_report_guard",
+        source_locator_ref: "fixtures/source.md",
+        target_status: "planned_metadata_preflight_only",
+        adapter_route: {
+          adapter_id: "metadata_file_preflight",
+          planned_action: "metadata_shape_preflight_only",
+        },
+        execution_grants: {
+          metadata_preflight: true,
+          source_text_read: false,
+          private_payload_write: false,
+          index_build: false,
+        },
+        blocker_codes: ["source_text_retrieval_not_approved"],
+      },
+    ],
+    validation: {
+      status: "unchecked",
+      blockers: [],
+    },
+  };
+  const report = await buildSourceTextExtractionRunReport({
+    packet,
+    reportId: "fixture_run_report_guard",
+    now: "2026-05-25T02:05:00Z",
+  });
+  assert.equal(validateSourceTextExtractionRunReport(report).status, "pass");
+
+  const maliciousReport = JSON.parse(JSON.stringify(report));
+  maliciousReport.private_payload_ref = "payload_pointer";
+  maliciousReport.source_refs.source_locator_ref = "locator_pointer";
+  maliciousReport.boundary.harmless_extra_flag = false;
+  maliciousReport.run_policy.display_note = "metadata note";
+  maliciousReport.counts.extra_count = 0;
+  maliciousReport.counts.blocker_counts.private_payload_ref = 1;
+  maliciousReport.adapter_summary[0].source_locator_ref = "locator_pointer";
+  maliciousReport.adapter_summary[0].planned_actions = [{ private_payload_ref: "payload_pointer" }];
+  maliciousReport.blocker_summary[0].display_label = "blocker label";
+  maliciousReport.target_reports[0].private_payload_ref = "payload_pointer";
+  maliciousReport.run_policy.allowed_next_actions = [{ private_payload_ref: "payload_pointer" }];
+  maliciousReport.answer_engine_handoff.extra_note = "metadata note";
+  maliciousReport.validation.harmless_extra = "metadata note";
+  maliciousReport.validation.blockers = [{ private_payload_ref: "payload_pointer" }];
+
+  const validation = validateSourceTextExtractionRunReport(maliciousReport);
+  assert.equal(validation.status, "blocked");
+  assert.ok(validation.blockers.includes("run_report_unknown_key:report.private_payload_ref"));
+  assert.ok(validation.blockers.includes("run_report_unknown_key:report.source_refs.source_locator_ref"));
+  assert.ok(validation.blockers.includes("run_report_unknown_key:report.boundary.harmless_extra_flag"));
+  assert.ok(validation.blockers.includes("run_report_unknown_key:report.run_policy.display_note"));
+  assert.ok(validation.blockers.includes("run_report_unknown_key:report.counts.extra_count"));
+  assert.ok(validation.blockers.includes("counts_blocker_counts_key_unsafe:private_payload_ref"));
+  assert.ok(validation.blockers.includes("run_report_unknown_key:report.adapter_summary[0].source_locator_ref"));
+  assert.ok(validation.blockers.includes("adapter_summary_planned_action_unsafe:report.adapter_summary[0].planned_actions[0]"));
+  assert.ok(validation.blockers.includes("run_report_unknown_key:report.blocker_summary[0].display_label"));
+  assert.ok(validation.blockers.includes("run_report_unknown_key:report.target_reports[0].private_payload_ref"));
+  assert.ok(validation.blockers.includes("run_policy_allowed_next_action_unsafe:report.run_policy.allowed_next_actions[0]"));
+  assert.ok(validation.blockers.includes("run_report_unknown_key:report.answer_engine_handoff.extra_note"));
+  assert.ok(validation.blockers.includes("run_report_unknown_key:report.validation.harmless_extra"));
+  assert.ok(validation.blockers.includes("validation_blocker_unsafe:report.validation.blockers[0]"));
+  assert.ok(validation.blockers.includes("forbidden_key:report.counts.blocker_counts.private_payload_ref"));
+});
+
+test("source text extraction run report accepts generated invalid-packet report shape", async () => {
+  const report = await buildSourceTextExtractionRunReport({
+    packet: {
+      packet_id: "fixture_invalid_packet",
+    },
+    reportId: "fixture_invalid_packet_report",
+    now: "2026-05-25T02:10:00Z",
+  });
+
+  assert.equal(report.status, "blocked_invalid_packet");
+  assert.ok(report.blocker_summary.some((item) => item.blocker_code === "secrets_or_session_must_not_be_included"));
+  assert.ok(report.validation.upstream_packet_validation.blockers.includes("secrets_or_session_must_not_be_included"));
+  assert.equal(validateSourceTextExtractionRunReport(report).status, "pass");
+});
+
 test("source-text index reads owner-approved workspace knowledge source cards", async () => {
   const repoRoot = await mkdtemp(path.join(os.tmpdir(), "soulforge-rag-source-index-"));
   try {
@@ -2058,6 +2225,13 @@ test("source-text index reads owner-approved workspace knowledge source cards", 
     assert.equal(sidecar.counts.page_backed_chunk_count, sidecar.counts.chunk_count);
     assert.ok(sidecar.chunks.every((chunk) => chunk.page_span?.pages.length > 0));
     assert.ok(sidecar.page_summary.some((page) => page.page_no === 2 && page.table_count === 1 && page.picture_count === 1));
+    assert.equal(sidecar.counts.mapped_chunk_count, sidecar.chunks.length);
+    assert.equal(sidecar.counts.weak_mapped_chunk_count, 0);
+    assert.equal(sidecar.counts.unmapped_chunk_count, 0);
+    assert.equal(sidecar.counts.page_count, sidecar.page_summary.length);
+    assert.equal(sidecar.counts.table_count, sidecar.page_summary.reduce((sum, page) => sum + page.table_count, 0));
+    assert.equal(sidecar.counts.picture_count, sidecar.page_summary.reduce((sum, page) => sum + page.picture_count, 0));
+    assert.ok(sidecar.page_summary.every((page) => Array.isArray(page.warning_codes)));
     assert.equal(validateSourceTextTraceabilitySidecar(sidecar).status, "pass");
     assert.doesNotMatch(JSON.stringify(sidecar), /"chunk_text"\s*:|"source_text"\s*:|NotebookLM is a query bookshelf|\/Users\/|\/Volumes\//);
 
@@ -2245,6 +2419,485 @@ test("source-text index reads owner-approved workspace knowledge source cards", 
   }
 });
 
+test("source-text artifact validators block hidden raw query path and secret contamination", () => {
+  const sourceRef = "_workspaces/knowledge/common/systems_engineering/starter/fixture_source.md";
+  const syntheticVolumePath = ["", "Volumes", "fixture", "source.txt"].join("/");
+  const syntheticUserPath = ["", "Users", "fixture", "answer.txt"].join("/");
+  const syntheticWindowsSourcePath = ["C:", "fixture", "source.txt"].join("\\");
+  const syntheticWindowsPagePath = ["D:", "fixture", "page.txt"].join("\\");
+  const validIndex = {
+    schema_version: "soulforge.source_text_index.v0",
+    kind: "source_text_index",
+    index_id: "fixture_source_text_contamination_guard_index",
+    status: "ready",
+    source_refs: {
+      source_card_ref: "_workspaces/knowledge/source_cards/fixture_source_card.json",
+      source_id: "fixture_source_text_contamination_guard",
+      source_ref: sourceRef,
+      derived_text_ref: "_workspaces/knowledge/rag/derived_text/fixture_source_text_contamination_guard/source.txt",
+      docling_json_ref: null,
+    },
+    boundary: {
+      storage_scope: "_workspaces_private_payload",
+      source_text_loaded: true,
+      public_repo_safe: false,
+    },
+    permissions: {
+      public_canon_promotion_allowed: false,
+      notebooklm_packet_allowed: false,
+    },
+    chunks: [
+      {
+        chunk_id: "fixture_chunk_001",
+        source_ref: sourceRef,
+        chunk_text: "Legal source payload can mention question and token terms without persisting query metadata.",
+      },
+    ],
+  };
+  assert.equal(validateSourceTextIndex(validIndex).status, "pass");
+  const objectChunkTextIndex = JSON.parse(JSON.stringify(validIndex));
+  objectChunkTextIndex.chunks[0].chunk_text = {
+    question: "nested transient question",
+    credentials: {
+      token: "access_token=fake_chunk_fixture_token_value_1234567890",
+    },
+  };
+  const objectChunkTextValidation = validateSourceTextIndex(objectChunkTextIndex);
+  assert.equal(objectChunkTextValidation.status, "blocked");
+  assert.ok(objectChunkTextValidation.blockers.includes("chunk_text_required"));
+  assert.ok(objectChunkTextValidation.blockers.includes("forbidden_key:source_text_index.chunks[0].chunk_text.question"));
+  assert.ok(objectChunkTextValidation.blockers.includes("forbidden_key:source_text_index.chunks[0].chunk_text.credentials"));
+  assert.ok(objectChunkTextValidation.blockers.includes("forbidden_key:source_text_index.chunks[0].chunk_text.credentials.token"));
+  assert.ok(objectChunkTextValidation.blockers.includes("secret_like_value:source_text_index.chunks[0].chunk_text.credentials.token"));
+
+  const contaminatedIndex = JSON.parse(JSON.stringify(validIndex));
+  contaminatedIndex.audit = {
+    raw_query: "transient raw query",
+    question: "transient question",
+    notebooklm_answer: "NotebookLM answer payload",
+    credentials: {
+      token: "access_token=fake_fixture_token_value_1234567890",
+    },
+    file_ref: "file://fixture/source.txt",
+    local_path: syntheticVolumePath,
+    windows_path: syntheticWindowsSourcePath,
+  };
+  const indexValidation = validateSourceTextIndex(contaminatedIndex);
+  assert.equal(indexValidation.status, "blocked");
+  assert.ok(indexValidation.blockers.includes("forbidden_key:source_text_index.audit.raw_query"));
+  assert.ok(indexValidation.blockers.includes("forbidden_key:source_text_index.audit.question"));
+  assert.ok(indexValidation.blockers.includes("forbidden_key:source_text_index.audit.notebooklm_answer"));
+  assert.ok(indexValidation.blockers.includes("forbidden_key:source_text_index.audit.credentials"));
+  assert.ok(indexValidation.blockers.includes("forbidden_key:source_text_index.audit.credentials.token"));
+  assert.ok(indexValidation.blockers.includes("file_url_string:source_text_index.audit.file_ref"));
+  assert.ok(indexValidation.blockers.includes("local_absolute_path:source_text_index.audit.local_path"));
+  assert.ok(indexValidation.blockers.includes("local_absolute_path:source_text_index.audit.windows_path"));
+  assert.ok(indexValidation.blockers.includes("secret_like_value:source_text_index.audit.credentials.token"));
+
+  const validAnswerRun = {
+    schema_version: "soulforge.source_text_answer_run.v0",
+    kind: "source_text_answer_run",
+    run_id: "fixture_source_text_answer_contamination_guard",
+    status: "source_text_answer",
+    source_refs: {
+      source_text_index_ref: "_workspaces/knowledge/rag/indexes_local/source_text_indexes/fixture/source_text_index.json",
+      source_ref: sourceRef,
+    },
+    boundary: {
+      storage_scope: "_workspaces_private_payload",
+      public_repo_safe: false,
+    },
+    query: {
+      raw_query_persisted: false,
+      query_token_fingerprints: [],
+    },
+    response: {
+      answer_uses_source_text: true,
+      retrieved_chunk_count: 0,
+      answer_text: "Legal answer_text can mention question and token terms as private source-text payload.",
+      citations: [],
+    },
+  };
+  assert.equal(validateSourceTextAnswerRun(validAnswerRun).status, "pass");
+  const objectAnswerTextRun = JSON.parse(JSON.stringify(validAnswerRun));
+  objectAnswerTextRun.response.answer_text = {
+    raw_query: "nested transient raw query",
+    credentials: {
+      token: "access_token=fake_nested_fixture_token_value_1234567890",
+    },
+  };
+  const objectAnswerTextValidation = validateSourceTextAnswerRun(objectAnswerTextRun);
+  assert.equal(objectAnswerTextValidation.status, "blocked");
+  assert.ok(objectAnswerTextValidation.blockers.includes("answer_text_required"));
+  assert.ok(objectAnswerTextValidation.blockers.includes("forbidden_key:source_text_answer_run.response.answer_text.raw_query"));
+  assert.ok(objectAnswerTextValidation.blockers.includes("forbidden_key:source_text_answer_run.response.answer_text.credentials"));
+  assert.ok(objectAnswerTextValidation.blockers.includes("forbidden_key:source_text_answer_run.response.answer_text.credentials.token"));
+  assert.ok(objectAnswerTextValidation.blockers.includes("secret_like_value:source_text_answer_run.response.answer_text.credentials.token"));
+
+  const contaminatedAnswerRun = JSON.parse(JSON.stringify(validAnswerRun));
+  contaminatedAnswerRun.query.question = "transient question";
+  contaminatedAnswerRun.query.raw_query = "transient raw query";
+  contaminatedAnswerRun.response.notebooklm_answer = "NotebookLM answer payload";
+  contaminatedAnswerRun.credentials = {
+    token: "bearer fake_fixture_token_value_1234567890",
+  };
+  contaminatedAnswerRun.file_ref = "file://fixture/answer.txt";
+  contaminatedAnswerRun.local_path = syntheticUserPath;
+  const answerRunValidation = validateSourceTextAnswerRun(contaminatedAnswerRun);
+  assert.equal(answerRunValidation.status, "blocked");
+  assert.ok(answerRunValidation.blockers.includes("forbidden_key:source_text_answer_run.query.question"));
+  assert.ok(answerRunValidation.blockers.includes("forbidden_key:source_text_answer_run.query.raw_query"));
+  assert.ok(answerRunValidation.blockers.includes("forbidden_key:source_text_answer_run.response.notebooklm_answer"));
+  assert.ok(answerRunValidation.blockers.includes("forbidden_key:source_text_answer_run.credentials"));
+  assert.ok(answerRunValidation.blockers.includes("forbidden_key:source_text_answer_run.credentials.token"));
+  assert.ok(answerRunValidation.blockers.includes("file_url_string:source_text_answer_run.file_ref"));
+  assert.ok(answerRunValidation.blockers.includes("local_absolute_path:source_text_answer_run.local_path"));
+  assert.ok(answerRunValidation.blockers.includes("secret_like_value:source_text_answer_run.credentials.token"));
+
+  const validSidecar = {
+    schema_version: "soulforge.source_text_traceability_sidecar.v0",
+    kind: "source_text_traceability_sidecar",
+    traceability_id: "fixture_source_text_traceability_contamination_guard",
+    status: "page_traceability_ready",
+    source_refs: {
+      source_text_index_ref: "_workspaces/knowledge/rag/indexes_local/source_text_indexes/fixture/source_text_index.json",
+      source_ref: sourceRef,
+      docling_json_ref: "_workspaces/knowledge/common/systems_engineering/starter/fixture_docling.json",
+    },
+    boundary: {
+      storage_scope: "_workspaces_private_payload",
+      chunk_text_included: false,
+      source_text_included: false,
+      public_repo_safe: false,
+    },
+    chunks: [
+      {
+        chunk_id: "fixture_chunk_001",
+        traceability_status: "mapped",
+        layout_labels: [],
+        page_span: {
+          start_page: 1,
+          end_page: 1,
+          pages: [1],
+        },
+      },
+    ],
+    counts: {
+      chunk_count: 1,
+      mapped_chunk_count: 1,
+      weak_mapped_chunk_count: 0,
+      page_backed_chunk_count: 1,
+      unmapped_chunk_count: 0,
+    },
+    page_summary: [],
+  };
+  assert.equal(validateSourceTextTraceabilitySidecar(validSidecar).status, "pass");
+  const contaminatedSidecar = JSON.parse(JSON.stringify(validSidecar));
+  contaminatedSidecar.source_text = "sidecar must not carry source text";
+  contaminatedSidecar.chunks[0].chunk_text = "sidecar must not carry chunk text";
+  contaminatedSidecar.chunks[0].source_text = "sidecar must not carry source text";
+  contaminatedSidecar.response = {
+    notebooklm_answer: "NotebookLM answer payload",
+  };
+  contaminatedSidecar.credentials = {
+    session: "session_cookie=fake_fixture_session_value_1234567890",
+  };
+  contaminatedSidecar.page_summary = [
+    {
+      page_no: 1,
+      file_ref: "file://fixture/page.txt",
+      windows_path: syntheticWindowsPagePath,
+    },
+  ];
+  const sidecarValidation = validateSourceTextTraceabilitySidecar(contaminatedSidecar);
+  assert.equal(sidecarValidation.status, "blocked");
+  assert.ok(sidecarValidation.blockers.includes("chunk_text_must_not_be_included"));
+  assert.ok(sidecarValidation.blockers.includes("source_text_must_not_be_included"));
+  assert.ok(sidecarValidation.blockers.includes("forbidden_key:source_text_traceability_sidecar.source_text"));
+  assert.ok(sidecarValidation.blockers.includes("forbidden_key:source_text_traceability_sidecar.response.notebooklm_answer"));
+  assert.ok(sidecarValidation.blockers.includes("forbidden_key:source_text_traceability_sidecar.credentials"));
+  assert.ok(sidecarValidation.blockers.includes("forbidden_key:source_text_traceability_sidecar.credentials.session"));
+  assert.ok(sidecarValidation.blockers.includes("file_url_string:source_text_traceability_sidecar.page_summary[0].file_ref"));
+  assert.ok(sidecarValidation.blockers.includes("local_absolute_path:source_text_traceability_sidecar.page_summary[0].windows_path"));
+  assert.ok(sidecarValidation.blockers.includes("secret_like_value:source_text_traceability_sidecar.credentials.session"));
+});
+
+test("source text traceability sidecar validator blocks synthetic risk inventory inconsistencies", () => {
+  const sourceRef = "_workspaces/knowledge/common/systems_engineering/starter/fixture_source.md";
+  const validSidecar = {
+    schema_version: "soulforge.source_text_traceability_sidecar.v0",
+    kind: "source_text_traceability_sidecar",
+    traceability_id: "fixture_source_text_traceability_risk_inventory",
+    status: "partial_page_traceability",
+    source_refs: {
+      source_text_index_ref: "_workspaces/knowledge/rag/indexes_local/source_text_indexes/fixture/source_text_index.json",
+      source_ref: sourceRef,
+      docling_json_ref: "_workspaces/knowledge/common/systems_engineering/starter/fixture_docling.json",
+    },
+    boundary: {
+      storage_scope: "_workspaces_private_payload",
+      chunk_text_included: false,
+      source_text_included: false,
+      public_repo_safe: false,
+    },
+    chunks: [
+      {
+        chunk_id: "fixture_chunk_001",
+        traceability_status: "mapped",
+        layout_labels: [],
+        page_span: {
+          start_page: 1,
+          end_page: 1,
+          pages: [1],
+        },
+        warning_codes: [],
+      },
+      {
+        chunk_id: "fixture_chunk_002",
+        traceability_status: "weak_mapped",
+        layout_labels: [],
+        page_span: {
+          start_page: 2,
+          end_page: 2,
+          pages: [2],
+        },
+        warning_codes: ["weak_token_overlap_page_span"],
+      },
+      {
+        chunk_id: "fixture_chunk_003",
+        traceability_status: "unmapped",
+        layout_labels: [],
+        page_span: null,
+        warning_codes: ["chunk_page_span_unmapped"],
+      },
+    ],
+    counts: {
+      chunk_count: 3,
+      mapped_chunk_count: 1,
+      weak_mapped_chunk_count: 1,
+      unmapped_chunk_count: 1,
+      page_backed_chunk_count: 2,
+      page_count: 2,
+      table_count: 1,
+      picture_count: 1,
+    },
+    page_summary: [
+      {
+        page_no: 1,
+        text_element_count: 1,
+        table_count: 0,
+        picture_count: 0,
+        warning_codes: [],
+      },
+      {
+        page_no: 2,
+        text_element_count: 0,
+        table_count: 1,
+        picture_count: 1,
+        warning_codes: ["no_docling_text_elements", "picture_present", "table_present"],
+      },
+    ],
+  };
+  assert.equal(validateSourceTextTraceabilitySidecar(validSidecar).status, "pass");
+
+  const inconsistentSidecar = JSON.parse(JSON.stringify(validSidecar));
+  inconsistentSidecar.counts = {
+    chunk_count: 4,
+    mapped_chunk_count: 0,
+    weak_mapped_chunk_count: 0,
+    unmapped_chunk_count: 0,
+    page_backed_chunk_count: 1,
+    page_count: 3,
+    table_count: 0,
+    picture_count: 0,
+  };
+  inconsistentSidecar.chunks[1].warning_codes = [];
+  inconsistentSidecar.chunks[2].warning_codes = [];
+  inconsistentSidecar.page_summary[0].warning_codes = "not_array";
+  inconsistentSidecar.page_summary[1].warning_codes = [];
+  inconsistentSidecar.page_summary[1].source_text = "synthetic forbidden payload marker";
+  inconsistentSidecar.quality_gates = {
+    canon_promotion_allowed: true,
+    public_canon_entry: "fixture_public_canon_entry",
+  };
+  inconsistentSidecar.authority = {
+    owner_approval_granted: true,
+    source_truth_claimed: true,
+  };
+
+  const validation = validateSourceTextTraceabilitySidecar(inconsistentSidecar);
+  assert.equal(validation.status, "blocked");
+  assert.ok(validation.blockers.includes("chunk_count_mismatch"));
+  assert.ok(validation.blockers.includes("mapped_chunk_count_mismatch"));
+  assert.ok(validation.blockers.includes("weak_mapped_chunk_count_mismatch"));
+  assert.ok(validation.blockers.includes("unmapped_chunk_count_mismatch"));
+  assert.ok(validation.blockers.includes("page_backed_chunk_count_mismatch"));
+  assert.ok(validation.blockers.includes("page_count_mismatch"));
+  assert.ok(validation.blockers.includes("page_summary_table_count_mismatch"));
+  assert.ok(validation.blockers.includes("page_summary_picture_count_mismatch"));
+  assert.ok(validation.blockers.includes("page_summary_warning_codes_must_be_array"));
+  assert.ok(validation.blockers.includes("page_summary_warning_code_mismatch"));
+  assert.ok(validation.blockers.includes("weak_mapped_chunk_missing_warning"));
+  assert.ok(validation.blockers.includes("unmapped_chunk_missing_warning"));
+  assert.ok(validation.blockers.includes("source_text_must_not_be_included"));
+  assert.ok(validation.blockers.includes("forbidden_key:source_text_traceability_sidecar.page_summary[1].source_text"));
+  assert.ok(validation.blockers.includes("forbidden_key:source_text_traceability_sidecar.quality_gates.canon_promotion_allowed"));
+  assert.ok(validation.blockers.includes("forbidden_key:source_text_traceability_sidecar.quality_gates.public_canon_entry"));
+  assert.ok(validation.blockers.includes("forbidden_key:source_text_traceability_sidecar.authority.owner_approval_granted"));
+  assert.ok(validation.blockers.includes("forbidden_key:source_text_traceability_sidecar.authority.source_truth_claimed"));
+  assert.doesNotMatch(JSON.stringify(validation), /synthetic forbidden payload marker/);
+});
+
+test("quality review and work card validators block synthetic payload boundary contamination", () => {
+  const fixtureSecretValue = "api_key=fake_rag_work_card_fixture_secret_value_1234567890";
+  const fixtureSourceText = "fake-sentinel-source-text-body";
+  const fixtureChunkText = "fake-sentinel-chunk-text-body";
+  const fixtureRawQuery = "fake-sentinel-raw-query-body";
+  const fixtureQuestion = "fake-sentinel-question-body";
+  const fixtureFileUrl = "file://fixture/source.txt";
+  const fixtureVolumePath = ["", "Volumes", "fixture", "source.txt"].join("/");
+  const fixtureWindowsPath = ["C:", "fixture", "source.txt"].join("\\");
+  const validQualityReview = {
+    schema_version: "soulforge.source_text_quality_review.v0",
+    kind: "source_text_quality_review",
+    review_id: "fixture_quality_review_payload_boundary",
+    status: "source_supported",
+    source_refs: {
+      source_text_index_ref: "_workspaces/knowledge/rag/indexes_local/source_text_indexes/fixture/source_text_index.json",
+      traceability_sidecar_ref: "_workspaces/knowledge/rag/traceability_sidecars/fixture/traceability_sidecar.json",
+      answer_run_ref: "_workspaces/knowledge/rag/answer_runs/fixture/source_text_answer_run.json",
+    },
+    boundary: {
+      storage_scope: "_workspaces_private_payload",
+      source_text_included: false,
+      chunk_text_included: false,
+      raw_query_persisted: false,
+      public_repo_safe: false,
+    },
+    reviewed_pages: [
+      {
+        page_no: 1,
+        review_status: "source_supported",
+        chunk_ids: ["fixture_chunk_001"],
+        citation_chunk_ids: ["fixture_chunk_001"],
+        warning_codes: [],
+        blocker_codes: [],
+      },
+    ],
+    citation_reviews: [
+      {
+        chunk_id: "fixture_chunk_001",
+        pages: [1],
+        review_status: "source_supported",
+        warning_codes: [],
+        blocker_codes: [],
+      },
+    ],
+  };
+  assert.equal(validateSourceTextQualityReview(validQualityReview).status, "pass");
+
+  const contaminatedQualityReview = JSON.parse(JSON.stringify(validQualityReview));
+  contaminatedQualityReview.source_text = fixtureSourceText;
+  contaminatedQualityReview.audit = {
+    chunk_text: fixtureChunkText,
+    raw_query: fixtureRawQuery,
+    question: fixtureQuestion,
+    file_ref: fixtureFileUrl,
+    local_path: fixtureVolumePath,
+    credentials: {
+      api_key: fixtureSecretValue,
+    },
+  };
+  const qualityReviewValidation = validateSourceTextQualityReview(contaminatedQualityReview);
+  assert.equal(qualityReviewValidation.status, "blocked");
+  assert.ok(qualityReviewValidation.blockers.includes("forbidden_payload_key:source_text_quality_review.source_text"));
+  assert.ok(qualityReviewValidation.blockers.includes("forbidden_payload_key:source_text_quality_review.audit.chunk_text"));
+  assert.ok(qualityReviewValidation.blockers.includes("forbidden_payload_key:source_text_quality_review.audit.raw_query"));
+  assert.ok(qualityReviewValidation.blockers.includes("forbidden_payload_key:source_text_quality_review.audit.question"));
+  assert.ok(qualityReviewValidation.blockers.includes("file_url_string:source_text_quality_review.audit.file_ref"));
+  assert.ok(qualityReviewValidation.blockers.includes("local_absolute_path:source_text_quality_review.audit.local_path"));
+  assert.ok(qualityReviewValidation.blockers.includes("secret_like_key:source_text_quality_review.audit.credentials"));
+  assert.ok(qualityReviewValidation.blockers.includes("secret_like_key:source_text_quality_review.audit.credentials.api_key"));
+  assert.ok(qualityReviewValidation.blockers.includes("secret_like_value:source_text_quality_review.audit.credentials.api_key"));
+  assert.doesNotMatch(
+    JSON.stringify(qualityReviewValidation),
+    new RegExp([
+      fixtureSourceText,
+      fixtureChunkText,
+      fixtureRawQuery,
+      fixtureQuestion,
+      fixtureSecretValue,
+      "fixture/source.txt",
+    ].join("|")),
+  );
+
+  const validWorkCard = {
+    schema_version: "soulforge.source_text_work_card.v0",
+    kind: "source_text_work_card",
+    work_card_id: "fixture_work_card_payload_boundary",
+    status: "ready",
+    query: {
+      query_label: "fixture_work_card_query_label",
+      raw_query_persisted: false,
+      query_fingerprint: "0".repeat(64),
+    },
+    source_refs: {
+      source_text_answer_run_ref: "_workspaces/knowledge/rag/answer_runs/fixture/source_text_answer_run.json",
+      source_text_quality_review_ref: "_workspaces/knowledge/rag/source_text_quality_reviews/fixture/source_text_quality_review.json",
+    },
+    boundary: {
+      storage_scope: "_workspaces_private_payload",
+      source_text_included: false,
+      chunk_text_included: false,
+      public_repo_safe: false,
+    },
+    citation_status: "source_supported",
+    claim_ceiling: "source_supported",
+    evidence_pages: [1],
+    evidence_items: [
+      {
+        chunk_id: "fixture_chunk_001",
+        pages: [1],
+        evidence_status: "source_supported",
+        warning_codes: [],
+      },
+    ],
+  };
+  assert.equal(validateRagWorkCard(validWorkCard).status, "pass");
+
+  const contaminatedWorkCard = JSON.parse(JSON.stringify(validWorkCard));
+  contaminatedWorkCard.query.raw_query = fixtureRawQuery;
+  contaminatedWorkCard.query.question = fixtureQuestion;
+  contaminatedWorkCard.evidence_items[0].source_text = fixtureSourceText;
+  contaminatedWorkCard.evidence_items[0].chunk_text = fixtureChunkText;
+  contaminatedWorkCard.evidence_items[0].file_ref = fixtureFileUrl;
+  contaminatedWorkCard.diagnostics = {
+    local_path: fixtureWindowsPath,
+    secret: fixtureSecretValue,
+  };
+  const workCardValidation = validateRagWorkCard(contaminatedWorkCard);
+  assert.equal(workCardValidation.status, "blocked");
+  assert.ok(workCardValidation.blockers.includes("forbidden_payload_key:source_text_work_card.query.raw_query"));
+  assert.ok(workCardValidation.blockers.includes("forbidden_payload_key:source_text_work_card.query.question"));
+  assert.ok(workCardValidation.blockers.includes("forbidden_payload_key:source_text_work_card.evidence_items[0].source_text"));
+  assert.ok(workCardValidation.blockers.includes("forbidden_payload_key:source_text_work_card.evidence_items[0].chunk_text"));
+  assert.ok(workCardValidation.blockers.includes("file_url_string:source_text_work_card.evidence_items[0].file_ref"));
+  assert.ok(workCardValidation.blockers.includes("local_absolute_path:source_text_work_card.diagnostics.local_path"));
+  assert.ok(workCardValidation.blockers.includes("secret_like_key:source_text_work_card.diagnostics.secret"));
+  assert.ok(workCardValidation.blockers.includes("secret_like_value:source_text_work_card.diagnostics.secret"));
+  assert.doesNotMatch(
+    JSON.stringify(workCardValidation),
+    new RegExp([
+      fixtureSourceText,
+      fixtureChunkText,
+      fixtureRawQuery,
+      fixtureQuestion,
+      fixtureSecretValue,
+      "fixture/source.txt",
+    ].join("|")),
+  );
+});
+
 test("source-text runtime preflight resolves tools without exposing local paths", async () => {
   const repoRoot = await mkdtemp(path.join(os.tmpdir(), "soulforge-rag-runtime-preflight-"));
   try {
@@ -2294,6 +2947,95 @@ test("source-text runtime preflight resolves tools without exposing local paths"
     });
     assert.equal(hwpRequired.status, "blocked");
     assert.ok(hwpRequired.blockers.includes("required_tool_not_resolved:hwp_hwpx_converter"));
+  } finally {
+    await rm(repoRoot, { recursive: true, force: true });
+  }
+});
+
+test("source-text runtime preflight CLI smoke resolves fake runtime without exposing local paths", async () => {
+  const repoRoot = await mkdtemp(path.join(os.tmpdir(), "soulforge-rag-runtime-cli-"));
+  try {
+    const fakeBin = path.join(repoRoot, "tool-bin");
+    await writeSourceTextRuntimePreflightCliFixture(repoRoot, fakeBin);
+
+    const result = await runRagCli([
+      "source-text-runtime-preflight",
+      "--repo-root",
+      repoRoot,
+      "--no-version",
+      "--now",
+      "2026-06-05T01:00:00Z",
+    ], {
+      env: sourceTextRuntimePreflightCliEnv(fakeBin),
+    });
+
+    assert.equal(result.exitCode, 0);
+    assert.equal(result.stderr, "");
+    assertNoUnsafeRuntimePreflightCliOutput(result.stdout, repoRoot);
+    assertNoUnsafeRuntimePreflightCliOutput(result.stdout, fakeBin);
+    assertNoUnsafeRuntimePreflightCliOutput(result.stdout, RUNTIME_PREFLIGHT_FAKE_SECRET_ENV_KEY);
+    assertNoUnsafeRuntimePreflightCliOutput(result.stdout, RUNTIME_PREFLIGHT_FAKE_SECRET_ENV_VALUE);
+
+    const preflight = JSON.parse(result.stdout);
+    assert.equal(preflight.status, "ready");
+    assert.equal(preflight.validation.status, "pass");
+    assert.equal(preflight.boundary.metadata_only, true);
+    assert.equal(preflight.boundary.preflight_only, true);
+    assert.equal(preflight.boundary.source_files_opened, false);
+    assert.equal(preflight.boundary.source_text_read, false);
+    assert.equal(preflight.boundary.source_payloads_included, false);
+    assert.equal(preflight.boundary.private_payloads_written, false);
+    assert.equal(preflight.boundary.index_build_executed, false);
+    assert.equal(preflight.boundary.runtime_absolute_paths_included, false);
+    assert.equal(preflight.boundary.runtime_paths_redacted, true);
+    assert.equal(preflight.validation.boundary.no_source_files_opened, true);
+    assert.equal(preflight.validation.boundary.no_source_text_read, true);
+    assert.equal(preflight.validation.boundary.no_source_payloads, true);
+    assert.equal(preflight.validation.boundary.no_runtime_absolute_paths, true);
+    assert.equal(preflight.tools.find((tool) => tool.tool_id === "hwp_hwpx_converter").status, "not_required");
+  } finally {
+    await rm(repoRoot, { recursive: true, force: true });
+  }
+});
+
+test("source-text runtime preflight CLI blocks missing required hwp converter without exposing local paths", async () => {
+  const repoRoot = await mkdtemp(path.join(os.tmpdir(), "soulforge-rag-runtime-cli-hwp-"));
+  try {
+    const fakeBin = path.join(repoRoot, "tool-bin");
+    await writeSourceTextRuntimePreflightCliFixture(repoRoot, fakeBin);
+
+    const result = await runRagCli([
+      "source-text-runtime-preflight",
+      "--repo-root",
+      repoRoot,
+      "--no-version",
+      "--require-hwp-converter",
+      "--now",
+      "2026-06-05T01:05:00Z",
+    ], {
+      env: sourceTextRuntimePreflightCliEnv(fakeBin),
+    });
+
+    assert.equal(result.exitCode, 1);
+    assert.equal(result.stderr, "");
+    assertNoUnsafeRuntimePreflightCliOutput(result.stdout, repoRoot);
+    assertNoUnsafeRuntimePreflightCliOutput(result.stdout, fakeBin);
+    assertNoUnsafeRuntimePreflightCliOutput(result.stdout, RUNTIME_PREFLIGHT_FAKE_SECRET_ENV_KEY);
+    assertNoUnsafeRuntimePreflightCliOutput(result.stdout, RUNTIME_PREFLIGHT_FAKE_SECRET_ENV_VALUE);
+
+    const preflight = JSON.parse(result.stdout);
+    assert.equal(preflight.status, "blocked");
+    assert.equal(preflight.validation.status, "blocked");
+    assert.ok(preflight.blockers.includes("required_tool_not_resolved:hwp_hwpx_converter"));
+    assert.ok(preflight.validation.blockers.includes("required_tool_missing:hwp_hwpx_converter"));
+    assertNoUnsafeRuntimePreflightBlockers(preflight.blockers);
+    assertNoUnsafeRuntimePreflightBlockers(preflight.validation.blockers);
+    assert.equal(preflight.boundary.source_files_opened, false);
+    assert.equal(preflight.boundary.source_text_read, false);
+    assert.equal(preflight.boundary.source_payloads_included, false);
+    assert.equal(preflight.boundary.private_payloads_written, false);
+    assert.equal(preflight.boundary.runtime_absolute_paths_included, false);
+    assert.equal(preflight.validation.boundary.no_runtime_absolute_paths, true);
   } finally {
     await rm(repoRoot, { recursive: true, force: true });
   }
@@ -2435,6 +3177,104 @@ test("source sync ready manifest gates OneDrive-style source-text indexing", asy
     assert.equal(validateSourceTextIndex(blockedIndex).status, "pass");
   } finally {
     await rm(repoRoot, { recursive: true, force: true });
+  }
+});
+
+test("source sync ready manifest blocks unsafe raw path url and secret markers without file checks", async () => {
+  const sourceRef = "_workspaces/knowledge/common/systems_engineering/starter/sync_ready_negative_fixture.md";
+  const sourceCardRef = "_workspaces/knowledge/source_cards/sync_ready_negative_fixture.source_card.json";
+  const fakeWindowsPath = ["C:", "fixture", "source.txt"].join("\\");
+  const unsafeReadyManifest = {
+    schema_version: SOURCE_SYNC_READY_MANIFEST_SCHEMA_VERSION,
+    kind: "source_sync_ready_manifest",
+    manifest_id: "sync_ready_negative_fixture_ready",
+    source_id: "sync_ready_negative_fixture",
+    source_card_ref: sourceCardRef,
+    status: "ready_for_index",
+    created_at_utc: "2026-05-26T09:30:00Z",
+    raw_payload: "fixture_raw_marker",
+    alias_contamination: {
+      drive_file_id: "fixture_drive_file_id",
+      drive_id: "fixture_drive_id",
+      google_drive_file_id: "fixture_google_drive_file_id",
+      notebooklm_notebook_id: "fixture_notebooklm_notebook_id",
+      notebooklm_source_id: "fixture_notebooklm_source_id",
+      oauth_state: "fixture_oauth_state",
+      live_account_state: "fixture_live_account_state",
+      owner_approval_granted: true,
+      public_canon_entry: "fixture_public_canon_entry",
+    },
+    producer: {
+      origin_label: "company_pc_fixture",
+      tool_label: "file://fixture/source.txt",
+      prepared_by_role: "api_key=fake_fixture_token_value_1234567890",
+    },
+    boundary: {
+      metadata_only: true,
+      ready_file_is_not_owner_approval: true,
+      ready_file_is_not_source_truth: true,
+      raw_payloads_included: false,
+      source_payloads_included: false,
+      source_text_included: false,
+      chunk_payloads_included: false,
+      notebooklm_answers_included: false,
+      secrets_or_session_included: false,
+      runtime_absolute_paths_included: false,
+    },
+    indexing_gate: {
+      source_text_ref: sourceRef,
+      min_stable_ms: 0,
+      requires_source_card_validation: true,
+      requires_hash_match: true,
+    },
+    files: [
+      {
+        role: "source_card",
+        repo_relative_path: sourceCardRef,
+        size_bytes: 128,
+        sha256: `sha256:${"a".repeat(64)}`,
+        required: true,
+        media_type_label: "application_json",
+      },
+      {
+        role: "derived_text",
+        repo_relative_path: sourceRef,
+        size_bytes: 256,
+        sha256: `sha256:${"b".repeat(64)}`,
+        required: true,
+        media_type_label: fakeWindowsPath,
+      },
+    ],
+  };
+
+  const validation = await validateSourceSyncReadyManifest(unsafeReadyManifest, {
+    checkFiles: false,
+  });
+
+  assert.equal(validation.status, "blocked");
+  assert.equal(validation.ready_for_index, false);
+  assert.ok(
+    validation.blockers.some((item) => item.startsWith("source_sync_ready_forbidden_raw_or_payload_key")),
+  );
+  assert.ok(validation.blockers.some((item) => item.startsWith("source_sync_ready_url_string")));
+  assert.ok(validation.blockers.some((item) => item.startsWith("source_sync_ready_local_absolute_path")));
+  assert.ok(validation.blockers.some((item) => item.startsWith("source_sync_ready_secret_like_value")));
+  for (const key of [
+    "drive_file_id",
+    "drive_id",
+    "google_drive_file_id",
+    "notebooklm_notebook_id",
+    "notebooklm_source_id",
+    "oauth_state",
+    "live_account_state",
+    "owner_approval_granted",
+    "public_canon_entry",
+  ]) {
+    assert.ok(
+      validation.blockers.includes(
+        `source_sync_ready_forbidden_raw_or_payload_key:source_sync_ready_manifest.alias_contamination.${key}`,
+      ),
+    );
   }
 });
 
@@ -3593,6 +4433,99 @@ test("operational route registry validates and resolves without source payloads"
     assert.equal(validateOperationalRouteLatestEvidence(writtenLatestEvidence).status, "pass");
     assert.doesNotMatch(JSON.stringify(writtenLatestEvidence), /development requirements check|aircraft paint supplier audit|Fixture operator answer|"query_label"\s*:|"question"\s*:|"answer_shell_output"\s*:|"answer_card_body"\s*:|"source_text"\s*:|"chunk_text"\s*:|\/Users\/|[A-Za-z]:[\\/]/);
 
+    const fixtureLocalPath = ["", "Users", "fixture", "rag-secret.txt"].join("/");
+    const fixtureWindowsPath = ["C:", "fixture", "rag-secret.txt"].join("\\");
+    const fixtureSecretValue = "api_key=fake_rag_fixture_secret_value_1234567890";
+    const maliciousEvidenceSweepValidation = validateOperationalRouteEvidenceSweep({
+      ...evidenceSweep,
+      evidence_sweep_id: "fixture_malicious_evidence_sweep_no_payload",
+      answer_shell_output: "fake-sentinel-answer-shell",
+      diagnostics: {
+        raw_query: "fake-sentinel-raw-query",
+        local_path: fixtureLocalPath,
+        api_key: fixtureSecretValue,
+      },
+      evidence: [
+        {
+          ...evidenceSweep.evidence[0],
+          answer_card_body: "fake-sentinel-answer-card",
+          source_text: "fake-sentinel-source-text",
+          chunk_text: "fake-sentinel-chunk-text",
+          credential: {
+            token: fixtureSecretValue,
+          },
+        },
+      ],
+      boundary: {
+        ...evidenceSweep.boundary,
+        raw_query_persisted: true,
+        answer_shell_output_persisted: true,
+        answer_card_body_persisted: true,
+      },
+    });
+    assert.equal(maliciousEvidenceSweepValidation.status, "blocked");
+    assert.ok(maliciousEvidenceSweepValidation.blockers.includes("forbidden_payload_key:operational_route_evidence_sweep.answer_shell_output"));
+    assert.ok(maliciousEvidenceSweepValidation.blockers.includes("forbidden_payload_key:operational_route_evidence_sweep.diagnostics.raw_query"));
+    assert.ok(maliciousEvidenceSweepValidation.blockers.includes("forbidden_payload_key:operational_route_evidence_sweep.evidence[0].answer_card_body"));
+    assert.ok(maliciousEvidenceSweepValidation.blockers.includes("forbidden_payload_key:operational_route_evidence_sweep.evidence[0].source_text"));
+    assert.ok(maliciousEvidenceSweepValidation.blockers.includes("forbidden_payload_key:operational_route_evidence_sweep.evidence[0].chunk_text"));
+    assert.ok(maliciousEvidenceSweepValidation.blockers.includes("local_absolute_path:operational_route_evidence_sweep.diagnostics.local_path"));
+    assert.ok(maliciousEvidenceSweepValidation.blockers.includes("secret_like_key:operational_route_evidence_sweep.diagnostics.api_key"));
+    assert.ok(maliciousEvidenceSweepValidation.blockers.includes("secret_like_key:operational_route_evidence_sweep.evidence[0].credential"));
+    assert.ok(maliciousEvidenceSweepValidation.blockers.includes("secret_like_key:operational_route_evidence_sweep.evidence[0].credential.token"));
+    assert.ok(maliciousEvidenceSweepValidation.blockers.includes("secret_like_value:operational_route_evidence_sweep.diagnostics.api_key"));
+    assert.ok(maliciousEvidenceSweepValidation.blockers.includes("secret_like_value:operational_route_evidence_sweep.evidence[0].credential.token"));
+    assert.ok(maliciousEvidenceSweepValidation.blockers.includes("boundary_raw_query_persisted_must_be_false"));
+    assert.ok(maliciousEvidenceSweepValidation.blockers.includes("boundary_answer_shell_output_persisted_must_be_false"));
+    assert.ok(maliciousEvidenceSweepValidation.blockers.includes("boundary_answer_card_body_persisted_must_be_false"));
+
+    const maliciousLatestEvidenceValidation = validateOperationalRouteLatestEvidence({
+      ...latestEvidence,
+      latest_evidence_id: "fixture_malicious_latest_evidence_no_payload",
+      answer_card_body: "fake-sentinel-answer-card",
+      source_text: "fake-sentinel-source-text",
+      chunk_text: "fake-sentinel-chunk-text",
+      diagnostics: {
+        raw_query: "fake-sentinel-raw-query",
+        local_path: fixtureWindowsPath,
+        secret: fixtureSecretValue,
+      },
+      latest_evidence: [
+        {
+          ...latestEvidence.latest_evidence[0],
+          answer_shell_output: "fake-sentinel-answer-shell",
+          source_text: "fake-sentinel-source-text",
+          chunk_text: "fake-sentinel-chunk-text",
+          credentials: {
+            session: fixtureSecretValue,
+          },
+        },
+      ],
+      boundary: {
+        ...latestEvidence.boundary,
+        raw_query_persisted: true,
+        answer_shell_output_persisted: true,
+        answer_card_body_persisted: true,
+      },
+    });
+    assert.equal(maliciousLatestEvidenceValidation.status, "blocked");
+    assert.ok(maliciousLatestEvidenceValidation.blockers.includes("forbidden_payload_key:operational_route_latest_evidence.answer_card_body"));
+    assert.ok(maliciousLatestEvidenceValidation.blockers.includes("forbidden_payload_key:operational_route_latest_evidence.source_text"));
+    assert.ok(maliciousLatestEvidenceValidation.blockers.includes("forbidden_payload_key:operational_route_latest_evidence.chunk_text"));
+    assert.ok(maliciousLatestEvidenceValidation.blockers.includes("forbidden_payload_key:operational_route_latest_evidence.diagnostics.raw_query"));
+    assert.ok(maliciousLatestEvidenceValidation.blockers.includes("forbidden_payload_key:operational_route_latest_evidence.latest_evidence[0].answer_shell_output"));
+    assert.ok(maliciousLatestEvidenceValidation.blockers.includes("forbidden_payload_key:operational_route_latest_evidence.latest_evidence[0].source_text"));
+    assert.ok(maliciousLatestEvidenceValidation.blockers.includes("forbidden_payload_key:operational_route_latest_evidence.latest_evidence[0].chunk_text"));
+    assert.ok(maliciousLatestEvidenceValidation.blockers.includes("local_absolute_path:operational_route_latest_evidence.diagnostics.local_path"));
+    assert.ok(maliciousLatestEvidenceValidation.blockers.includes("secret_like_key:operational_route_latest_evidence.diagnostics.secret"));
+    assert.ok(maliciousLatestEvidenceValidation.blockers.includes("secret_like_key:operational_route_latest_evidence.latest_evidence[0].credentials"));
+    assert.ok(maliciousLatestEvidenceValidation.blockers.includes("secret_like_key:operational_route_latest_evidence.latest_evidence[0].credentials.session"));
+    assert.ok(maliciousLatestEvidenceValidation.blockers.includes("secret_like_value:operational_route_latest_evidence.diagnostics.secret"));
+    assert.ok(maliciousLatestEvidenceValidation.blockers.includes("secret_like_value:operational_route_latest_evidence.latest_evidence[0].credentials.session"));
+    assert.ok(maliciousLatestEvidenceValidation.blockers.includes("boundary_raw_query_persisted_must_be_false"));
+    assert.ok(maliciousLatestEvidenceValidation.blockers.includes("boundary_answer_shell_output_persisted_must_be_false"));
+    assert.ok(maliciousLatestEvidenceValidation.blockers.includes("boundary_answer_card_body_persisted_must_be_false"));
+
     const operatorBrief = await buildOperationalRouteOperatorBrief({
       repoRoot,
       registryRef,
@@ -4217,6 +5150,79 @@ async function writeFileWithParents(repoRoot, relativePath, value) {
   const filePath = path.join(repoRoot, relativePath);
   await mkdir(path.dirname(filePath), { recursive: true });
   await writeFile(filePath, `${value}\n`, "utf8");
+}
+
+async function writeSourceTextRuntimePreflightCliFixture(repoRoot, fakeBin) {
+  await writeFileWithParents(repoRoot, "guild_hall/state/tools/source_extraction_venv/bin/python", "");
+  await writeFileWithParents(repoRoot, "guild_hall/state/tools/source_extraction_venv/bin/docling", "");
+  await writeFileWithParents(repoRoot, "guild_hall/state/tools/source_extraction_venv/Scripts/python.exe", "");
+  await writeFileWithParents(repoRoot, "guild_hall/state/tools/source_extraction_venv/Scripts/docling.exe", "");
+  await writeFileWithParents(repoRoot, "guild_hall/state/tools/tessdata/eng.traineddata", "eng");
+  await writeFileWithParents(repoRoot, "guild_hall/state/tools/tessdata/kor.traineddata", "kor");
+  await writeFileWithParents(repoRoot, "guild_hall/state/tools/tessdata/kor_vert.traineddata", "kor_vert");
+  await writeFileWithParents(repoRoot, "guild_hall/state/tools/tessdata/osd.traineddata", "osd");
+  await writeFileWithParents(fakeBin, "java", "");
+  await writeFileWithParents(fakeBin, "java.exe", "");
+  await writeFileWithParents(fakeBin, "soffice", "");
+  await writeFileWithParents(fakeBin, "soffice.com", "");
+  await writeFileWithParents(fakeBin, "soffice.exe", "");
+  await writeFileWithParents(fakeBin, "tesseract", "");
+  await writeFileWithParents(fakeBin, "tesseract.exe", "");
+}
+
+function sourceTextRuntimePreflightCliEnv(fakeBin) {
+  const env = {
+    PATH: fakeBin,
+    Path: fakeBin,
+    JAVA_HOME: "",
+    LIBREOFFICE_HOME: "",
+    TESSERACT_HOME: "",
+    TESSDATA_PREFIX: "",
+    HWPX_CONVERTER_CMD: "",
+    HANCOM_HOME: "",
+    [RUNTIME_PREFLIGHT_FAKE_SECRET_ENV_KEY]: RUNTIME_PREFLIGHT_FAKE_SECRET_ENV_VALUE,
+  };
+  for (const key of ["HOME", "USERPROFILE", "SystemRoot", "WINDIR", "TEMP", "TMP"]) {
+    if (process.env[key] !== undefined) env[key] = process.env[key];
+  }
+  return env;
+}
+
+async function runRagCli(args, options = {}) {
+  return new Promise((resolve, reject) => {
+    execFileCallback(process.execPath, ["guild_hall/rag/cli.mjs", ...args], {
+      cwd: path.resolve("."),
+      env: options.env,
+      maxBuffer: 1024 * 1024,
+      timeout: 30000,
+      windowsHide: true,
+    }, (error, stdout, stderr) => {
+      if (error?.signal) {
+        reject(error);
+        return;
+      }
+      resolve({
+        exitCode: error ? Number(error.code ?? 1) : 0,
+        stdout: String(stdout),
+        stderr: String(stderr),
+      });
+    });
+  });
+}
+
+function assertNoUnsafeRuntimePreflightCliOutput(stdout, localPath) {
+  assert.equal(stdout.includes(localPath), false);
+  const localRootNames = ["Volumes", "Users", "tmp", "private", "var", "home", "opt"].join("|");
+  const slash = String.raw`[\\/]`;
+  assert.doesNotMatch(stdout, new RegExp(`${slash}(?:${localRootNames})${slash}[^\\s"'{}\\[\\],<>]+`));
+  assert.doesNotMatch(stdout, /[A-Za-z]:[\\/][^\s"'{}\[\],<>]+/);
+  assert.doesNotMatch(stdout, new RegExp(["file", "://"].join(""), "i"));
+  assert.doesNotMatch(stdout, /\b(secret|token|session|credential|cookie|api[_-]?key)\b/i);
+}
+
+function assertNoUnsafeRuntimePreflightBlockers(blockers) {
+  assert.ok(Array.isArray(blockers));
+  assert.equal(blockers.some((item) => String(item).startsWith("unsafe_runtime_")), false);
 }
 
 async function writeYaml(repoRoot, relativePath, value) {

@@ -83,6 +83,16 @@ export function defaultWorkmetaRoot(repoRoot) {
   return path.join(path.resolve(repoRoot ?? process.cwd()), "_workmeta");
 }
 
+export function getBattleEventContract() {
+  return {
+    schema_id: BATTLE_EVENT_SCHEMA_ID,
+    required_fields: [...REQUIRED_FIELDS],
+    optional_fields: [...OPTIONAL_FIELDS],
+    field_order: [...FIELD_ORDER],
+    enums: Object.fromEntries(Object.entries(ENUMS).map(([field, allowed]) => [field, [...allowed]])),
+  };
+}
+
 export function projectLogRoot(workmetaRoot, projectCode) {
   const safeProjectCode = validateProjectCode(projectCode);
   return path.join(path.resolve(workmetaRoot), safeProjectCode, "log");

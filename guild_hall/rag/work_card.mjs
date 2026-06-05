@@ -28,6 +28,34 @@ const SOURCE_TEXT_TRACEABILITY_STATUSES = new Set(["mapped", "weak_mapped", "unm
 const QUALITY_REVIEW_STATUSES = new Set(["source_supported", "manual_review", "blocked"]);
 const WORK_CARD_STATUSES = new Set(["ready", "manual_review", "blocked"]);
 const CLAIM_CEILINGS = new Set(["observed", "source_supported", "validated_private", "canon_candidate", "canon_entry", "rejected_or_blocked"]);
+const WORK_CARD_FORBIDDEN_PAYLOAD_KEYS = new Set([
+  "chunk_text",
+  "excerpt",
+  "notebooklm_answer",
+  "notebooklm_question",
+  "notebooklm_response",
+  "question",
+  "raw_query",
+  "source_text",
+]);
+const WORK_CARD_SECRET_LIKE_KEYS = new Set([
+  "access_token",
+  "api_key",
+  "authorization",
+  "bearer_token",
+  "client_secret",
+  "cookie",
+  "credential",
+  "credentials",
+  "id_token",
+  "password",
+  "passwd",
+  "private_key",
+  "refresh_token",
+  "secret",
+  "session",
+  "token",
+]);
 
 export async function buildSourceTextQualityReview(options = {}) {
   const repoRoot = path.resolve(options.repoRoot ?? process.cwd());
@@ -184,7 +212,7 @@ export function validateSourceTextQualityReview(review) {
   if (!Array.isArray(review?.citation_reviews)) blockers.push("citation_reviews_must_be_array");
   for (const page of review?.reviewed_pages ?? []) validateReviewedPage(page, blockers, "page");
   for (const citation of review?.citation_reviews ?? []) validateReviewedCitation(citation, blockers);
-  blockers.push(...payloadBoundaryBlockers(review));
+  blockers.push(...payloadBoundaryBlockers(review, "source_text_quality_review"));
   return {
     schema_version: SOURCE_TEXT_QUALITY_REVIEW_VALIDATION_SCHEMA_VERSION,
     kind: "source_text_quality_review_validation",
@@ -337,7 +365,7 @@ export function validateRagWorkCard(workCard) {
     if (!QUALITY_REVIEW_STATUSES.has(item?.evidence_status)) blockers.push("evidence_status_unknown");
     if (!Array.isArray(item?.warning_codes)) blockers.push("evidence_warning_codes_must_be_array");
   }
-  blockers.push(...payloadBoundaryBlockers(workCard));
+  blockers.push(...payloadBoundaryBlockers(workCard, "source_text_work_card"));
   return {
     schema_version: RAG_WORK_CARD_VALIDATION_SCHEMA_VERSION,
     kind: "source_text_work_card_validation",
@@ -666,16 +694,71 @@ function stableHash(value) {
   return crypto.createHash("sha256").update(String(value)).digest("hex");
 }
 
-function payloadBoundaryBlockers(value) {
-  const raw = JSON.stringify(value ?? {});
+function payloadBoundaryBlockers(value, trail) {
   const blockers = [];
-  if (/"chunk_text"\s*:/u.test(raw)) blockers.push("chunk_text_must_not_be_included");
-  if (/"source_text"\s*:/u.test(raw)) blockers.push("source_text_must_not_be_included");
-  if (/"excerpt"\s*:/u.test(raw)) blockers.push("excerpt_must_not_be_included");
-  if (/"question"\s*:/u.test(raw)) blockers.push("raw_question_must_not_be_included");
-  if (/\/Users\//u.test(raw)) blockers.push("runtime_absolute_user_path_included");
-  if (/\/Volumes\//u.test(raw)) blockers.push("runtime_absolute_volume_path_included");
-  if (/[A-Za-z]:[\\/]/u.test(raw)) blockers.push("runtime_absolute_windows_path_included");
-  if (/file:\/\//u.test(raw)) blockers.push("file_url_must_not_be_included");
+  collectPayloadBoundaryBlockers(value, trail, blockers);
   return blockers;
+}
+
+function collectPayloadBoundaryBlockers(value, trail, blockers) {
+  if (Array.isArray(value)) {
+    value.forEach((item, index) => collectPayloadBoundaryBlockers(item, `${trail}[${index}]`, blockers));
+    return;
+  }
+  if (value && typeof value === "object") {
+    for (const [key, child] of Object.entries(value)) {
+      const childTrail = `${trail}.${key}`;
+      const normalizedKey = key.toLowerCase();
+      if (WORK_CARD_FORBIDDEN_PAYLOAD_KEYS.has(normalizedKey)) {
+        blockers.push(`forbidden_payload_key:${childTrail}`);
+        addGenericPayloadKeyBlocker(normalizedKey, blockers);
+      }
+      if (WORK_CARD_SECRET_LIKE_KEYS.has(normalizedKey)) {
+        blockers.push(`secret_like_key:${childTrail}`);
+      }
+      collectPayloadBoundaryBlockers(child, childTrail, blockers);
+    }
+    return;
+  }
+  if (typeof value !== "string") return;
+  if (hasFileUrlString(value)) {
+    blockers.push(`file_url_string:${trail}`);
+    blockers.push("file_url_must_not_be_included");
+  }
+  if (/\/Users\//u.test(value)) blockers.push("runtime_absolute_user_path_included");
+  if (/\/Volumes\//u.test(value)) blockers.push("runtime_absolute_volume_path_included");
+  if (/[A-Za-z]:[\\/]/u.test(value)) blockers.push("runtime_absolute_windows_path_included");
+  if (hasLocalAbsolutePathString(value)) blockers.push(`local_absolute_path:${trail}`);
+  if (hasSecretLikeValueString(value)) blockers.push(`secret_like_value:${trail}`);
+}
+
+function addGenericPayloadKeyBlocker(normalizedKey, blockers) {
+  if (normalizedKey === "chunk_text") blockers.push("chunk_text_must_not_be_included");
+  if (normalizedKey === "source_text") blockers.push("source_text_must_not_be_included");
+  if (normalizedKey === "excerpt") blockers.push("excerpt_must_not_be_included");
+  if (normalizedKey === "question") blockers.push("raw_question_must_not_be_included");
+  if (normalizedKey === "raw_query") blockers.push("raw_query_must_not_be_persisted");
+}
+
+function hasFileUrlString(value) {
+  return /\bfile:\/\//iu.test(String(value ?? ""));
+}
+
+function hasLocalAbsolutePathString(value) {
+  const text = String(value ?? "");
+  return /(^|[\s"'(])\/(?:Users|Volumes|private|var\/folders|tmp|home)\//u.test(text) || /[A-Za-z]:[\\/]/u.test(text);
+}
+
+function hasSecretLikeValueString(value) {
+  const text = String(value ?? "").trim();
+  if (!text) return false;
+  if (/-----BEGIN [A-Z ]*PRIVATE KEY-----/u.test(text)) return true;
+  if (/\b(?:sk-[A-Za-z0-9_-]{20,}|ghp_[A-Za-z0-9_]{20,}|xox[baprs]-[A-Za-z0-9-]{20,}|AKIA[0-9A-Z]{16})\b/u.test(text)) {
+    return true;
+  }
+  if (/\b(?:password|passwd|secret|api[_-]?key|access[_-]?token|refresh[_-]?token|session[_-]?cookie)\s*[:=]\s*["']?[^"'\s]{8,}/iu.test(text)) {
+    return true;
+  }
+  if (/\bbearer\s+[A-Za-z0-9._~+/-]{20,}/iu.test(text)) return true;
+  return false;
 }

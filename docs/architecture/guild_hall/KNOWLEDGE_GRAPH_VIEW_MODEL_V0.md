@@ -420,6 +420,7 @@ Minimum fields:
 - `relation_counts`
 - `by_node_type`
 - `dangling_edge_refs`
+- `source_edge_gap_scout`
 - `current_extraction_scope`
 - `possible_missing_relation_surfaces`
 
@@ -427,6 +428,12 @@ Connectivity analysis is an observed diagnostic. A high isolated count does not
 prove the ontology is wrong by itself. It means the owner should decide whether
 those nodes are expected scope exclusions or whether more relation extractors
 are needed.
+
+`source_edge_gap_scout` is metadata-only. It may report `source_supported`
+knowledge nodes that have source-support metadata but no current `source`
+endpoint through `supports` or `derived_from` edges. It must not copy source
+refs, load source text, create source nodes, create edges, or promote source
+truth, owner approval, ontology acceptance, or canon status.
 
 ## Validation Expectations
 

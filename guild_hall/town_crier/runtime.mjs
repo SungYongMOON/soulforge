@@ -244,7 +244,7 @@ export async function processTownCrierOnce(repoRoot, options = {}) {
   }
 
   const sent = results.filter((entry) => entry.status === "sent").length;
-  const failed = results.filter((entry) => entry.status === "send_failed").length;
+  const failed = results.filter((entry) => entry.status === "send_failed" || entry.status === "runner_error").length;
   return {
     ok: failed === 0,
     processed: results.length,
@@ -334,6 +334,7 @@ async function processTownCrierFile(repoRoot, pendingFile) {
 
   try {
     const request = await readJson(processingFile);
+    validatePendingTownCrierRequest(request);
     request.attempt_count = Math.max(Number(request.attempt_count ?? 0), 0) + 1;
     request.last_attempt_at = now;
     await writeJson(processingFile, request, { trailingNewline: false });
@@ -397,6 +398,45 @@ async function processTownCrierFile(repoRoot, pendingFile) {
   }
 }
 
+function validatePendingTownCrierRequest(request) {
+  if (!request || typeof request !== "object" || Array.isArray(request)) {
+    throwInvalidPendingRequest("not_object");
+  }
+
+  if (!isNonEmptyString(request.request_id)) {
+    throwInvalidPendingRequest("missing_request_id");
+  }
+
+  if (request.owner_scope !== "gateway" && request.owner_scope !== "mission") {
+    throwInvalidPendingRequest("unsupported_owner_scope");
+  }
+
+  if (request.channel !== "telegram") {
+    throwInvalidPendingRequest("unsupported_channel");
+  }
+
+  if (!isNonEmptyString(request.event)) {
+    throwInvalidPendingRequest("missing_event");
+  }
+
+  const allowedEvents = request.owner_scope === "gateway" ? GATEWAY_NOTIFY_EVENTS : MISSION_NOTIFY_EVENTS;
+  if (!allowedEvents.includes(request.event)) {
+    throwInvalidPendingRequest("unsupported_event");
+  }
+
+  if (!isNonEmptyString(request.text)) {
+    throwInvalidPendingRequest("missing_text");
+  }
+}
+
+function isNonEmptyString(value) {
+  return typeof value === "string" && value.trim().length > 0;
+}
+
+function throwInvalidPendingRequest(reasonCode) {
+  throw new Error(`invalid_pending_request:${reasonCode}`);
+}
+
 async function appendTownCrierLog(repoRoot, entry) {
   const stamp = new Date(entry.at ?? Date.now());
   const year = String(stamp.getUTCFullYear());
@@ -411,11 +451,24 @@ async function writeTownCrierState(repoRoot, value) {
 }
 
 async function resolveTownCrierEnvPath(repoRoot, envFile = null) {
-  if (envFile) {
-    return path.isAbsolute(envFile) ? envFile : path.join(repoRoot, envFile);
+  if (envFile === null || envFile === undefined || envFile === "") {
+    return townCrierTelegramEnvPath(repoRoot);
   }
 
-  return townCrierTelegramEnvPath(repoRoot);
+  if (typeof envFile !== "string") {
+    throw new Error("town_crier_env_file_must_stay_under_state_root");
+  }
+
+  const stateRoot = path.resolve(townCrierRoot(repoRoot));
+  const candidatePath = path.isAbsolute(envFile.trim()) ? envFile.trim() : path.join(repoRoot, envFile.trim());
+  const resolvedPath = path.resolve(candidatePath);
+  const relativePath = path.relative(stateRoot, resolvedPath);
+
+  if (!relativePath || relativePath.startsWith("..") || path.isAbsolute(relativePath)) {
+    throw new Error("town_crier_env_file_must_stay_under_state_root");
+  }
+
+  return resolvedPath;
 }
 
 function townCrierRoot(repoRoot) {

@@ -165,6 +165,13 @@ test("buildSnapshot summarizes private project surfaces without reading private 
     assert.equal(snapshot.operation_board.sections.knowledge_lane.notebooklm_bridge_present, true);
     assert.equal(snapshot.operation_board.sections.knowledge_lane.evidence_present, true);
     assert.equal(snapshot.operation_board.sections.action_queue.items.length, snapshot.next_actions.length);
+    assert.deepEqual(snapshot.operation_board.sections.action_queue.items[0], {
+      id: snapshot.next_actions[0].id,
+      status: snapshot.next_actions[0].status,
+      summary: snapshot.next_actions[0].summary,
+      rank: 1,
+    });
+    assert.equal(snapshot.operation_board.sections.action_queue.items[0].status, "started");
     assert.equal(snapshot.knowledge_lane.schema_version, "soulforge.knowledge_lane_status.v0");
     assert.equal(snapshot.knowledge_lane.owner_gated.state, "owner_review_required");
     assert.equal(snapshot.knowledge_lane.claim_ceiling, "observed");
@@ -194,6 +201,773 @@ test("buildSnapshot summarizes private project surfaces without reading private 
     assert.equal(serialized.includes("DO_NOT_LEAK_GRAPH_MUTATION"), false);
     assert.equal(serialized.includes("notebooklm_session.json"), false);
     assert.equal(serialized.includes("notebooklm_auth.json"), false);
+  } finally {
+    await rm(repoRoot, { recursive: true, force: true });
+  }
+});
+
+test("validateSnapshot rejects invalid next action statuses and action queue mirror drift", async () => {
+  const repoRoot = await mkdtemp(path.join(os.tmpdir(), "soulforge-snapshot-action-queue-"));
+
+  try {
+    await writeKnowledgeLanePublicSurface(repoRoot);
+    const snapshot = await buildSnapshot({ repoRoot, generatedAt: "2026-05-04T00:00:00.000Z" });
+    assert.equal(validateSnapshot(snapshot).ok, true);
+
+    const invalidStatus = JSON.parse(JSON.stringify(snapshot));
+    invalidStatus.next_actions[0].status = "done";
+    invalidStatus.operation_board.sections.action_queue.items[0].status = "done";
+    const invalidStatusValidation = validateSnapshot(invalidStatus);
+    assert.equal(invalidStatusValidation.ok, false);
+    assert.equal(invalidStatusValidation.errors.includes("next_actions[0].status must be one of started, next"), true);
+    assert.equal(
+      invalidStatusValidation.errors.includes("operation_board.sections.action_queue.items[0].status must be one of started, next"),
+      true,
+    );
+
+    const nextActionExtraField = JSON.parse(JSON.stringify(snapshot));
+    nextActionExtraField.next_actions[0].raw_payload_ref = "synthetic_raw_payload_ref";
+    const nextActionExtraFieldValidation = validateSnapshot(nextActionExtraField);
+    assert.equal(nextActionExtraFieldValidation.ok, false);
+    assert.equal(nextActionExtraFieldValidation.errors.includes("next_actions[0].raw_payload_ref is not an allowed field"), true);
+
+    const actionQueueExtraField = JSON.parse(JSON.stringify(snapshot));
+    actionQueueExtraField.operation_board.sections.action_queue.items[0].source_ref = "synthetic_source_ref";
+    const actionQueueExtraFieldValidation = validateSnapshot(actionQueueExtraField);
+    assert.equal(actionQueueExtraFieldValidation.ok, false);
+    assert.equal(
+      actionQueueExtraFieldValidation.errors.includes("operation_board.sections.action_queue.items[0].source_ref is not an allowed field"),
+      true,
+    );
+
+    const mismatchedQueue = JSON.parse(JSON.stringify(snapshot));
+    mismatchedQueue.operation_board.sections.action_queue.items[0] = {
+      ...mismatchedQueue.operation_board.sections.action_queue.items[0],
+      id: "mismatched_action",
+      status: "next",
+      summary: "Mismatched summary",
+      rank: 2,
+    };
+    const mismatchValidation = validateSnapshot(mismatchedQueue);
+    assert.equal(mismatchValidation.ok, false);
+    assert.equal(
+      mismatchValidation.errors.includes("operation_board.sections.action_queue.items[0].id must mirror next_actions[0].id"),
+      true,
+    );
+    assert.equal(
+      mismatchValidation.errors.includes("operation_board.sections.action_queue.items[0].status must mirror next_actions[0].status"),
+      true,
+    );
+    assert.equal(
+      mismatchValidation.errors.includes("operation_board.sections.action_queue.items[0].summary must mirror next_actions[0].summary"),
+      true,
+    );
+    assert.equal(mismatchValidation.errors.includes("operation_board.sections.action_queue.items[0].rank must be 1"), true);
+  } finally {
+    await rm(repoRoot, { recursive: true, force: true });
+  }
+});
+
+test("buildSnapshot exposes battle log aggregate only and mirrors it to operation board", async () => {
+  const repoRoot = await mkdtemp(path.join(os.tmpdir(), "soulforge-snapshot-battle-log-"));
+
+  try {
+    await mkdir(path.join(repoRoot, ".mission"), { recursive: true });
+    await mkdir(path.join(repoRoot, "_workmeta", "PX-BATTLE", "log", "events", "2026", "06"), { recursive: true });
+    await mkdir(path.join(repoRoot, "_workmeta", "PX-SECOND", "log", "events", "2026", "06"), { recursive: true });
+    await writeFile(path.join(repoRoot, ".mission", "index.yaml"), ["version: v1", "entries: []"].join("\n"), "utf8");
+    await writeFile(
+      path.join(repoRoot, "_workmeta", "PX-BATTLE", "log", "events", "2026", "06", "battle_events.jsonl"),
+      [
+        JSON.stringify(
+          battleEvent({
+            event_id: "DO_NOT_SERIALIZE_EVENT_ID",
+            occurred_at: "2026-06-01T09:00:00+09:00",
+            mission_id: "DO_NOT_SERIALIZE_MISSION_ID",
+            project_code: "PX-BATTLE",
+            stage: "DO_NOT_SERIALIZE_STAGE",
+            source_ref: "DO_NOT_SERIALIZE_SOURCE_REF",
+            party_id: "DO_NOT_SERIALIZE_PARTY_ID",
+            unit_id: "DO_NOT_SERIALIZE_UNIT_ID",
+            automation_possibility: "manual_assist_needed",
+            battle_mode: "manual_assist",
+            result: "blocked",
+            intervention_count: 2,
+            bottleneck_reason: "quality_review_needed",
+            loop_id: "DO_NOT_SERIALIZE_LOOP_ID",
+            next_action_note: "DO_NOT_SERIALIZE_NEXT_ACTION_NOTE",
+          }),
+        ),
+        "not-json",
+      ].join("\n"),
+      "utf8",
+    );
+    await writeFile(
+      path.join(repoRoot, "_workmeta", "PX-SECOND", "log", "events", "2026", "06", "battle_events.jsonl"),
+      `${JSON.stringify(
+        battleEvent({
+          event_id: "battle-2026-06-02-0001",
+          occurred_at: "2026-06-02T10:00:00+09:00",
+          mission_id: "mission_second",
+          project_code: "PX-SECOND",
+          stage: "review",
+          source_ref: "manual_log",
+          party_id: "party_second",
+          unit_id: "unit_second",
+          automation_possibility: "low_intervention_candidate",
+          battle_mode: "limited_auto",
+          result: "completed",
+          intervention_count: 0,
+          bottleneck_reason: "none",
+        }),
+      )}\n`,
+      "utf8",
+    );
+
+    const snapshot = await buildSnapshot({ repoRoot, generatedAt: "2026-06-02T00:00:00.000Z" });
+    const serialized = JSON.stringify(snapshot);
+
+    assert.equal(validateSnapshot(snapshot).ok, true);
+    assert.deepEqual(snapshot.battle_log, {
+      source_ref: "_workmeta/*/log/events/**/battle_events.jsonl",
+      event_count: 2,
+      project_count_with_events: 2,
+      by_result: { blocked: 1, completed: 1 },
+      by_bottleneck_reason: { quality_review_needed: 1, none: 1 },
+      by_battle_mode: { manual_assist: 1, limited_auto: 1 },
+      by_automation_possibility: { manual_assist_needed: 1, low_intervention_candidate: 1 },
+      total_intervention_count: 2,
+      latest_occurred_at: "2026-06-02T10:00:00+09:00",
+      projects: [
+        {
+          project_code: "PX-BATTLE",
+          event_count: 1,
+          latest_occurred_at: "2026-06-01T09:00:00+09:00",
+          latest_result: "blocked",
+          latest_bottleneck_reason: "quality_review_needed",
+          intervention_total: 2,
+        },
+        {
+          project_code: "PX-SECOND",
+          event_count: 1,
+          latest_occurred_at: "2026-06-02T10:00:00+09:00",
+          latest_result: "completed",
+          latest_bottleneck_reason: "none",
+          intervention_total: 0,
+        },
+      ],
+      skipped_row_count: 1,
+      skipped_file_count: 0,
+    });
+    assert.deepEqual(snapshot.operation_board.sections.battle_log, snapshot.battle_log);
+    assert.equal(snapshot.operation_board.summary.battle_log_event_count, 2);
+    assert.equal(snapshot.operation_board.summary.battle_log_project_count_with_events, 2);
+    assert.equal(snapshot.source_observations.items.some((item) => item.id === "battle_log_events"), true);
+    for (const forbidden of [
+      "DO_NOT_SERIALIZE_EVENT_ID",
+      "DO_NOT_SERIALIZE_MISSION_ID",
+      "DO_NOT_SERIALIZE_SOURCE_REF",
+      "DO_NOT_SERIALIZE_NEXT_ACTION_NOTE",
+      "DO_NOT_SERIALIZE_PARTY_ID",
+      "DO_NOT_SERIALIZE_UNIT_ID",
+      "DO_NOT_SERIALIZE_LOOP_ID",
+      "DO_NOT_SERIALIZE_STAGE",
+    ]) {
+      assert.equal(serialized.includes(forbidden), false, forbidden);
+    }
+
+    const drifted = JSON.parse(JSON.stringify(snapshot));
+    drifted.operation_board.sections.battle_log.event_count = 99;
+    drifted.operation_board.summary.battle_log_event_count = 99;
+    const driftValidation = validateSnapshot(drifted);
+    assert.equal(driftValidation.ok, false);
+    assert.equal(driftValidation.errors.includes("operation_board.sections.battle_log must mirror battle_log"), true);
+    assert.equal(
+      driftValidation.errors.includes("operation_board.summary.battle_log_event_count must equal battle_log.event_count (2)"),
+      true,
+    );
+
+    const forbiddenFieldDrift = JSON.parse(JSON.stringify(snapshot));
+    forbiddenFieldDrift.battle_log.event_id = "DO_NOT_SERIALIZE_EVENT_ID";
+    forbiddenFieldDrift.battle_log.projects[0].source_ref = "DO_NOT_SERIALIZE_SOURCE_REF";
+    const forbiddenFieldValidation = validateSnapshot(forbiddenFieldDrift);
+    assert.equal(forbiddenFieldValidation.ok, false);
+    assert.equal(forbiddenFieldValidation.errors.includes("battle_log.event_id is not an allowed field"), true);
+    assert.equal(forbiddenFieldValidation.errors.includes("battle_log.projects[0].source_ref is not an allowed field"), true);
+  } finally {
+    await rm(repoRoot, { recursive: true, force: true });
+  }
+});
+
+test("validateSnapshot rejects operation board projection count drift", async () => {
+  const repoRoot = await mkdtemp(path.join(os.tmpdir(), "soulforge-snapshot-operation-board-counts-"));
+
+  try {
+    await writeKnowledgeLanePublicSurface(repoRoot);
+    await mkdir(path.join(repoRoot, ".mission"), { recursive: true });
+    await mkdir(path.join(repoRoot, "_workspaces", "PX-SYNTHETIC"), { recursive: true });
+    await mkdir(path.join(repoRoot, "_workmeta", "PX-SYNTHETIC"), { recursive: true });
+    await mkdir(path.join(repoRoot, "guild_hall", "state", "gateway", "intake_inbox", "synthetic_inbox"), { recursive: true });
+    await writeFile(
+      path.join(repoRoot, ".mission", "index.yaml"),
+      [
+        "version: v1",
+        "entries:",
+        "  - mission_id: mission_blocked_synthetic",
+        "    title: Blocked synthetic mission",
+        "    status: blocked",
+        "    readiness_status: blocked",
+        "    project_code: PX-SYNTHETIC",
+        "  - mission_id: mission_ready_synthetic",
+        "    title: Ready synthetic mission",
+        "    status: held",
+        "    readiness_status: ready",
+        "    project_code: PX-SYNTHETIC",
+      ].join("\n"),
+      "utf8",
+    );
+    await writeFile(
+      path.join(repoRoot, "guild_hall", "state", "gateway", "intake_inbox", "synthetic_inbox", "monsters.json"),
+      JSON.stringify(
+        {
+          monsters: [
+            {
+              monster_id: "monster_blocked_synthetic",
+              monster_family: "dragon",
+              objective: "Synthetic blocked monster",
+              due_state: "no_due",
+              known_status: "known",
+              assignment_status: "blocked",
+            },
+            {
+              monster_id: "monster_due_synthetic",
+              monster_family: "dragon",
+              objective: "Synthetic due-watch monster",
+              due_state: "scheduled",
+              known_status: "known",
+              assignment_status: "pending_dungeon_assignment",
+            },
+          ],
+        },
+        null,
+        2,
+      ),
+      "utf8",
+    );
+
+    const snapshot = await buildSnapshot({ repoRoot, generatedAt: "2026-05-05T00:00:00.000Z" });
+    assert.equal(validateSnapshot(snapshot).ok, true);
+
+    const drifted = JSON.parse(JSON.stringify(snapshot));
+    drifted.operation_board.summary.project_count = 99;
+    drifted.operation_board.summary.workspace_project_count = 99;
+    drifted.operation_board.summary.workmeta_project_count = 99;
+    drifted.operation_board.summary.mission_count = 99;
+    drifted.operation_board.summary.blocked_mission_count = 99;
+    drifted.operation_board.summary.ready_mission_count = 99;
+    drifted.operation_board.summary.pending_monster_count = 99;
+    drifted.operation_board.summary.blocked_monster_count = 99;
+    drifted.operation_board.summary.due_watch_monster_count = 99;
+    drifted.operation_board.summary.next_action_count = 99;
+    drifted.operation_board.sections.mission_board.counts_by_display_group.blocked = 99;
+    drifted.operation_board.sections.monster_gate.count = 99;
+    drifted.operation_board.sections.monster_gate.groups[0].total = 99;
+
+    const validation = validateSnapshot(drifted);
+    assert.equal(validation.ok, false);
+    assert.equal(validation.errors.includes("operation_board.summary.project_count must equal projects.length (1)"), true);
+    assert.equal(
+      validation.errors.includes("operation_board.summary.workspace_project_count must equal projects with workspace.present count (1)"),
+      true,
+    );
+    assert.equal(
+      validation.errors.includes("operation_board.summary.workmeta_project_count must equal projects with workmeta.present count (1)"),
+      true,
+    );
+    assert.equal(validation.errors.includes("operation_board.summary.mission_count must equal missions.items.length (2)"), true);
+    assert.equal(
+      validation.errors.includes(
+        "operation_board.summary.blocked_mission_count must equal mission_board.items blocked display_group count (1)",
+      ),
+      true,
+    );
+    assert.equal(
+      validation.errors.includes(
+        "operation_board.summary.ready_mission_count must equal mission_board.items ready display_group count (1)",
+      ),
+      true,
+    );
+    assert.equal(
+      validation.errors.includes("operation_board.summary.pending_monster_count must equal gateway.pending_monsters.count (2)"),
+      true,
+    );
+    assert.equal(
+      validation.errors.includes(
+        "operation_board.summary.blocked_monster_count must equal gateway.pending_monsters.by_display_group.blocked (1)",
+      ),
+      true,
+    );
+    assert.equal(
+      validation.errors.includes(
+        "operation_board.summary.due_watch_monster_count must equal gateway.pending_monsters.by_display_group.due_watch (1)",
+      ),
+      true,
+    );
+    assert.equal(validation.errors.includes("operation_board.summary.next_action_count must equal next_actions.length (4)"), true);
+    assert.equal(
+      validation.errors.includes(
+        "operation_board.sections.mission_board.counts_by_display_group.blocked must equal mission_board.items display_group count (1)",
+      ),
+      true,
+    );
+    assert.equal(
+      validation.errors.includes("operation_board.sections.monster_gate.count must equal gateway.pending_monsters.count (2)"),
+      true,
+    );
+    assert.equal(
+      validation.errors.includes(
+        "operation_board.sections.monster_gate.groups[0].total must equal gateway.pending_monsters.by_display_group.blocked (1)",
+      ),
+      true,
+    );
+    assert.equal(
+      validation.errors.includes(
+        "operation_board.sections.monster_gate.groups[0].total must equal operation_board.sections.monster_gate.groups[0].items.length (1)",
+      ),
+      true,
+    );
+  } finally {
+    await rm(repoRoot, { recursive: true, force: true });
+  }
+});
+
+test("validateSnapshot rejects dungeon map row projection drift", async () => {
+  const repoRoot = await mkdtemp(path.join(os.tmpdir(), "soulforge-snapshot-dungeon-map-row-"));
+
+  try {
+    await writeKnowledgeLanePublicSurface(repoRoot);
+    await mkdir(path.join(repoRoot, ".mission"), { recursive: true });
+    await mkdir(path.join(repoRoot, "_workspaces", "PX-ALPHA"), { recursive: true });
+    await mkdir(path.join(repoRoot, "_workspaces", "PX-BETA"), { recursive: true });
+    await mkdir(path.join(repoRoot, "_workmeta", "PX-ALPHA", "bindings"), { recursive: true });
+    await mkdir(path.join(repoRoot, "_workmeta", "PX-ALPHA", "reports", "onboarding"), { recursive: true });
+    await mkdir(path.join(repoRoot, "_workmeta", "PX-ALPHA", "reports", "procedure_capture"), { recursive: true });
+    await mkdir(path.join(repoRoot, "_workmeta", "PX-BETA"), { recursive: true });
+    await mkdir(path.join(repoRoot, "guild_hall", "state", "gateway", "intake_inbox", "dungeon_map_inbox"), { recursive: true });
+    await writeFile(
+      path.join(repoRoot, ".mission", "index.yaml"),
+      [
+        "version: v1",
+        "entries:",
+        "  - mission_id: mission_alpha_blocked",
+        "    title: Alpha blocked mission",
+        "    status: blocked",
+        "    readiness_status: blocked",
+        "    project_code: PX-ALPHA",
+        "  - mission_id: mission_alpha_ready",
+        "    title: Alpha ready mission",
+        "    status: held",
+        "    readiness_status: ready",
+        "    project_code: PX-ALPHA",
+        "  - mission_id: mission_beta_blocked",
+        "    title: Beta blocked mission",
+        "    status: blocked",
+        "    readiness_status: blocked",
+        "    project_code: PX-BETA",
+      ].join("\n"),
+      "utf8",
+    );
+    await writeFile(path.join(repoRoot, "_workmeta", "PX-ALPHA", "contract.yaml"), "project_code: PX-ALPHA\n", "utf8");
+    await writeFile(path.join(repoRoot, "_workmeta", "PX-ALPHA", "bindings", "mailbox.yaml"), "kind: synthetic\n", "utf8");
+    await writeFile(path.join(repoRoot, "_workmeta", "PX-ALPHA", "bindings", "calendar.yaml"), "kind: synthetic\n", "utf8");
+    await writeFile(
+      path.join(repoRoot, "guild_hall", "state", "gateway", "intake_inbox", "dungeon_map_inbox", "monsters.json"),
+      JSON.stringify(
+        {
+          monsters: [
+            {
+              monster_id: "monster_alpha_blocked",
+              monster_family: "dragon",
+              objective: "Alpha blocked synthetic monster",
+              due_state: "no_due",
+              known_status: "known",
+              assignment_status: "blocked",
+              assigned_project_code: "PX-ALPHA",
+            },
+            {
+              monster_id: "monster_alpha_pending",
+              monster_family: "dragon",
+              objective: "Alpha assigned synthetic monster",
+              due_state: "no_due",
+              known_status: "known",
+              assignment_status: "pending_dungeon_assignment",
+              assigned_project_code: "PX-ALPHA",
+            },
+            {
+              monster_id: "monster_beta_pending",
+              monster_family: "dragon",
+              objective: "Beta assigned synthetic monster",
+              due_state: "no_due",
+              known_status: "known",
+              assignment_status: "pending_dungeon_assignment",
+              assigned_project_code: "PX-BETA",
+            },
+          ],
+        },
+        null,
+        2,
+      ),
+      "utf8",
+    );
+
+    const snapshot = await buildSnapshot({ repoRoot, generatedAt: "2026-05-06T00:00:00.000Z" });
+    assert.equal(validateSnapshot(snapshot).ok, true);
+    assert.deepEqual(
+      snapshot.operation_board.sections.dungeon_map.items.map((item) => item.project_code),
+      ["PX-ALPHA", "PX-BETA"],
+    );
+    assert.deepEqual(snapshot.operation_board.sections.dungeon_map.items[0], {
+      project_code: "PX-ALPHA",
+      workspace_present: true,
+      workmeta_present: true,
+      contract_present: true,
+      bindings_count: 2,
+      report_surface_count: 2,
+      mission_count: 2,
+      blocked_mission_count: 1,
+      pending_monster_count: 2,
+      surface_status: "ready",
+    });
+
+    const extraFieldDrift = JSON.parse(JSON.stringify(snapshot));
+    extraFieldDrift.operation_board.sections.dungeon_map.items[0].raw_payload_ref = "synthetic_raw_payload_ref";
+    const extraFieldValidation = validateSnapshot(extraFieldDrift);
+    assert.equal(extraFieldValidation.ok, false);
+    assert.equal(
+      extraFieldValidation.errors.includes("operation_board.sections.dungeon_map.items[0].raw_payload_ref is not an allowed field"),
+      true,
+    );
+
+    const lengthDrift = JSON.parse(JSON.stringify(snapshot));
+    lengthDrift.operation_board.sections.dungeon_map.items.pop();
+    const lengthValidation = validateSnapshot(lengthDrift);
+    assert.equal(lengthValidation.ok, false);
+    assert.equal(
+      lengthValidation.errors.includes("operation_board.sections.dungeon_map.items length must equal projects.length (2)"),
+      true,
+    );
+
+    const rowDrift = JSON.parse(JSON.stringify(snapshot));
+    rowDrift.operation_board.sections.dungeon_map.items[0] = {
+      project_code: "PX-DRIFT",
+      workspace_present: false,
+      workmeta_present: false,
+      contract_present: false,
+      bindings_count: 99,
+      report_surface_count: 99,
+      mission_count: 99,
+      blocked_mission_count: 99,
+      pending_monster_count: 99,
+      surface_status: "missing",
+    };
+    const rowValidation = validateSnapshot(rowDrift);
+    assert.equal(rowValidation.ok, false);
+    assert.equal(
+      rowValidation.errors.includes("operation_board.sections.dungeon_map.items project_code set must match projects project_code set"),
+      true,
+    );
+    assert.equal(
+      rowValidation.errors.includes("operation_board.sections.dungeon_map.items[0].project_code must mirror projects[0].project_code (PX-ALPHA)"),
+      true,
+    );
+    assert.equal(
+      rowValidation.errors.includes(
+        "operation_board.sections.dungeon_map.items[0].workspace_present must mirror Boolean(projects[0].workspace.present) (true)",
+      ),
+      true,
+    );
+    assert.equal(
+      rowValidation.errors.includes(
+        "operation_board.sections.dungeon_map.items[0].workmeta_present must mirror Boolean(projects[0].workmeta.present) (true)",
+      ),
+      true,
+    );
+    assert.equal(
+      rowValidation.errors.includes(
+        "operation_board.sections.dungeon_map.items[0].contract_present must mirror Boolean(projects[0].workmeta.contract_present) (true)",
+      ),
+      true,
+    );
+    assert.equal(
+      rowValidation.errors.includes("operation_board.sections.dungeon_map.items[0].bindings_count must mirror projects[0].workmeta.bindings_count (2)"),
+      true,
+    );
+    assert.equal(
+      rowValidation.errors.includes(
+        "operation_board.sections.dungeon_map.items[0].report_surface_count must mirror projects[0].workmeta.report_surfaces length (2)",
+      ),
+      true,
+    );
+    assert.equal(
+      rowValidation.errors.includes("operation_board.sections.dungeon_map.items[0].mission_count must mirror missions.items project_code count (2)"),
+      true,
+    );
+    assert.equal(
+      rowValidation.errors.includes(
+        "operation_board.sections.dungeon_map.items[0].blocked_mission_count must mirror missions.items project_code blocked display_group count (1)",
+      ),
+      true,
+    );
+    assert.equal(
+      rowValidation.errors.includes(
+        "operation_board.sections.dungeon_map.items[0].pending_monster_count must mirror gateway.pending_monsters.items assigned_project_code count (2)",
+      ),
+      true,
+    );
+    assert.equal(
+      rowValidation.errors.includes(
+        "operation_board.sections.dungeon_map.items[0].surface_status must mirror classifyProjectSurfaceStatus(projects[0]) (ready)",
+      ),
+      true,
+    );
+  } finally {
+    await rm(repoRoot, { recursive: true, force: true });
+  }
+});
+
+test("validateSnapshot rejects mission board row projection drift", async () => {
+  const repoRoot = await mkdtemp(path.join(os.tmpdir(), "soulforge-snapshot-mission-board-row-"));
+
+  try {
+    await writeKnowledgeLanePublicSurface(repoRoot);
+    await mkdir(path.join(repoRoot, ".mission"), { recursive: true });
+    await mkdir(path.join(repoRoot, ".mission", "mission_blocked_beta"), { recursive: true });
+    await writeFile(
+      path.join(repoRoot, ".mission", "index.yaml"),
+      [
+        "version: v1",
+        "entries:",
+        "  - mission_id: mission_ready_alpha",
+        "    title: Ready alpha mission",
+        "    status: held",
+        "    readiness_status: ready",
+        "    project_code: PX-ALPHA",
+        "    workflow_id: workflow_ready_alpha",
+        "    party_id: party_ready_alpha",
+        "  - mission_id: mission_active_beta",
+        "    title: Active beta mission",
+        "    status: started",
+        "    readiness_status: held",
+        "    project_code: PX-BETA",
+        "    party_id: party_active_beta",
+        "  - mission_id: mission_blocked_beta",
+        "    title: Blocked beta mission",
+        "    status: blocked",
+        "    readiness_status: blocked",
+        "    project_code: PX-BETA",
+        "    workflow_id: workflow_blocked_beta",
+        "    party_id: party_blocked_beta",
+        "  - mission_id: mission_completed_alpha",
+        "    title: Completed alpha mission",
+        "    status: completed",
+        "    readiness_status: completed",
+        "    project_code: PX-ALPHA",
+        "  - mission_id: mission_other_gamma",
+        "    title: Other gamma mission",
+        "    status: candidate",
+        "    readiness_status: waiting",
+        "    project_code: PX-GAMMA",
+      ].join("\n"),
+      "utf8",
+    );
+    await writeFile(
+      path.join(repoRoot, ".mission", "mission_blocked_beta", "readiness.yaml"),
+      [
+        "status: blocked",
+        "terminal_provenance:",
+        "  closed_via: mission_close",
+        "  closed_at: 2026-05-07T09:00:00+09:00",
+        "  terminal_result: blocked",
+        "  run_id: DO_NOT_SERIALIZE_RUN_ID_001",
+        "  battle_event_id: DO_NOT_SERIALIZE_BATTLE_EVENT_ID_001",
+      ].join("\n"),
+      "utf8",
+    );
+
+    const snapshot = await buildSnapshot({ repoRoot, generatedAt: "2026-05-07T00:00:00.000Z" });
+    const serialized = JSON.stringify(snapshot);
+    assert.equal(validateSnapshot(snapshot).ok, true);
+    assert.equal(serialized.includes("DO_NOT_SERIALIZE_RUN_ID_001"), false);
+    assert.equal(serialized.includes("DO_NOT_SERIALIZE_BATTLE_EVENT_ID_001"), false);
+    assert.equal(snapshot.missions.items[1].mission_id, "mission_blocked_beta");
+    assert.equal(snapshot.missions.items[1].terminal_provenance_present, true);
+    assert.equal(snapshot.missions.items[1].terminal_provenance_complete, true);
+    assert.equal(snapshot.missions.items[1].terminal_provenance_closed_via_mission_close, true);
+    assert.equal(snapshot.missions.items[1].terminal_result_matches_readiness, true);
+    assert.equal(snapshot.missions.items[1].run_pointer_present, true);
+    assert.equal(snapshot.missions.items[1].battle_event_pointer_present, true);
+    assert.deepEqual(
+      snapshot.operation_board.sections.mission_board.items.map((item) => item.mission_id),
+      [
+        "mission_blocked_beta",
+        "mission_ready_alpha",
+        "mission_active_beta",
+        "mission_completed_alpha",
+        "mission_other_gamma",
+      ],
+    );
+    assert.deepEqual(snapshot.operation_board.sections.mission_board.items[0], {
+      mission_id: "mission_blocked_beta",
+      title: "Blocked beta mission",
+      project_code: "PX-BETA",
+      status: "blocked",
+      readiness_status: "blocked",
+      workflow_id_present: true,
+      party_id: "party_blocked_beta",
+      terminal_provenance_present: true,
+      terminal_provenance_complete: true,
+      terminal_provenance_closed_via_mission_close: true,
+      terminal_result_matches_readiness: true,
+      run_pointer_present: true,
+      battle_event_pointer_present: true,
+      display_group: "blocked",
+      display_group_label: "Blocked",
+      display_group_rank: 10,
+    });
+    assert.equal(
+      snapshot.operation_board.sections.mission_board.items[0].terminal_provenance_present,
+      snapshot.missions.items[1].terminal_provenance_present,
+    );
+    assert.equal(
+      snapshot.operation_board.sections.mission_board.items[0].run_pointer_present,
+      snapshot.missions.items[1].run_pointer_present,
+    );
+
+    const extraFieldDrift = JSON.parse(JSON.stringify(snapshot));
+    extraFieldDrift.operation_board.sections.mission_board.items[0].source_ref = "synthetic_source_ref";
+    const extraFieldValidation = validateSnapshot(extraFieldDrift);
+    assert.equal(extraFieldValidation.ok, false);
+    assert.equal(
+      extraFieldValidation.errors.includes("operation_board.sections.mission_board.items[0].source_ref is not an allowed field"),
+      true,
+    );
+
+    const lengthDrift = JSON.parse(JSON.stringify(snapshot));
+    lengthDrift.operation_board.sections.mission_board.items.pop();
+    const lengthValidation = validateSnapshot(lengthDrift);
+    assert.equal(lengthValidation.ok, false);
+    assert.equal(
+      lengthValidation.errors.includes("operation_board.sections.mission_board.items length must equal missions.items.length (5)"),
+      true,
+    );
+
+    const idSetDrift = JSON.parse(JSON.stringify(snapshot));
+    idSetDrift.operation_board.sections.mission_board.items[0].mission_id = "mission_drift";
+    const idSetValidation = validateSnapshot(idSetDrift);
+    assert.equal(idSetValidation.ok, false);
+    assert.equal(
+      idSetValidation.errors.includes("operation_board.sections.mission_board.items mission_id set must match missions.items mission_id set"),
+      true,
+    );
+
+    const rowDrift = JSON.parse(JSON.stringify(snapshot));
+    rowDrift.operation_board.sections.mission_board.items[0] = {
+      ...rowDrift.operation_board.sections.mission_board.items[0],
+      title: "Drifted title",
+      project_code: "PX-DRIFT",
+      status: "held",
+      readiness_status: "ready",
+      workflow_id_present: false,
+      party_id: "party_drift",
+      terminal_provenance_present: false,
+      terminal_provenance_complete: false,
+      terminal_provenance_closed_via_mission_close: false,
+      terminal_result_matches_readiness: false,
+      run_pointer_present: false,
+      battle_event_pointer_present: false,
+      display_group: "ready",
+      display_group_label: "Ready",
+      display_group_rank: 20,
+    };
+    const rowValidation = validateSnapshot(rowDrift);
+    assert.equal(rowValidation.ok, false);
+    assert.equal(
+      rowValidation.errors.includes(
+        "operation_board.sections.mission_board.items[0].title must mirror missions.items Mission Board projection[0].title (Blocked beta mission)",
+      ),
+      true,
+    );
+    assert.equal(
+      rowValidation.errors.includes(
+        "operation_board.sections.mission_board.items[0].project_code must mirror missions.items Mission Board projection[0].project_code (PX-BETA)",
+      ),
+      true,
+    );
+    assert.equal(
+      rowValidation.errors.includes(
+        "operation_board.sections.mission_board.items[0].status must mirror missions.items Mission Board projection[0].status (blocked)",
+      ),
+      true,
+    );
+    assert.equal(
+      rowValidation.errors.includes(
+        "operation_board.sections.mission_board.items[0].readiness_status must mirror missions.items Mission Board projection[0].readiness_status (blocked)",
+      ),
+      true,
+    );
+    assert.equal(
+      rowValidation.errors.includes(
+        "operation_board.sections.mission_board.items[0].workflow_id_present must mirror missions.items Mission Board projection[0].workflow_id_present (true)",
+      ),
+      true,
+    );
+    assert.equal(
+      rowValidation.errors.includes(
+        "operation_board.sections.mission_board.items[0].party_id must mirror missions.items Mission Board projection[0].party_id (party_blocked_beta)",
+      ),
+      true,
+    );
+    assert.equal(
+      rowValidation.errors.includes(
+        "operation_board.sections.mission_board.items[0].terminal_provenance_present must mirror missions.items Mission Board projection[0].terminal_provenance_present (true)",
+      ),
+      true,
+    );
+    assert.equal(
+      rowValidation.errors.includes(
+        "operation_board.sections.mission_board.items[0].run_pointer_present must mirror missions.items Mission Board projection[0].run_pointer_present (true)",
+      ),
+      true,
+    );
+    assert.equal(
+      rowValidation.errors.includes(
+        "operation_board.sections.mission_board.items[0].display_group must mirror missions.items Mission Board projection[0].display_group (blocked)",
+      ),
+      true,
+    );
+    assert.equal(
+      rowValidation.errors.includes(
+        "operation_board.sections.mission_board.items[0].display_group_label must mirror missions.items Mission Board projection[0].display_group_label (Blocked)",
+      ),
+      true,
+    );
+    assert.equal(
+      rowValidation.errors.includes(
+        "operation_board.sections.mission_board.items[0].display_group_rank must mirror missions.items Mission Board projection[0].display_group_rank (10)",
+      ),
+      true,
+    );
+
+    const statusCountDrift = JSON.parse(JSON.stringify(snapshot));
+    statusCountDrift.operation_board.sections.mission_board.counts_by_status.blocked = 99;
+    const statusCountValidation = validateSnapshot(statusCountDrift);
+    assert.equal(statusCountValidation.ok, false);
+    assert.equal(
+      statusCountValidation.errors.includes(
+        "operation_board.sections.mission_board.counts_by_status.blocked must equal missions.counts status count (1)",
+      ),
+      true,
+    );
   } finally {
     await rm(repoRoot, { recursive: true, force: true });
   }
@@ -398,12 +1172,226 @@ test("buildSnapshot classifies pending monsters for operation board display", as
   }
 });
 
+test("validateSnapshot rejects monster gate row projection drift", async () => {
+  const repoRoot = await mkdtemp(path.join(os.tmpdir(), "soulforge-snapshot-monster-gate-row-"));
+  const mirrorFields = [
+    "monster_id",
+    "inbox_id",
+    "monster_family",
+    "monster_name",
+    "work_pattern",
+    "objective_summary",
+    "due_state",
+    "d_day",
+    "known_status",
+    "assignment_status",
+    "assigned_project_code",
+    "assigned_stage",
+    "project_hint_count",
+    "stage_hint_count",
+    "mail_touch_count",
+    "last_mail_role",
+    "mission_ref_present",
+    "display_group",
+    "display_group_label",
+    "display_group_rank",
+  ];
+
+  try {
+    await writeKnowledgeLanePublicSurface(repoRoot);
+    await mkdir(path.join(repoRoot, ".mission"), { recursive: true });
+    await mkdir(path.join(repoRoot, "guild_hall", "state", "gateway", "intake_inbox", "monster_gate_inbox"), { recursive: true });
+    await writeFile(path.join(repoRoot, ".mission", "index.yaml"), ["version: v1", "entries: []"].join("\n"), "utf8");
+    await writeFile(
+      path.join(repoRoot, "guild_hall", "state", "gateway", "intake_inbox", "monster_gate_inbox", "monsters.json"),
+      JSON.stringify(
+        {
+          monsters: [
+            {
+              monster_id: "monster_blocked_gate_001",
+              monster_family: "dragon",
+              monster_name: "red_dragon",
+              work_pattern: "mail_candidate_review",
+              objective: "Blocked monster gate fixture one",
+              due_state: "no_due",
+              d_day: "D-2",
+              known_status: "known",
+              assignment_status: "blocked",
+              assigned_project_code: "PX-ALPHA",
+              assigned_stage: "intake",
+              project_hints: ["PX-ALPHA", "PX-BETA"],
+              stage_hints: ["intake"],
+              mail_touch_count: 3,
+              last_mail_role: "reply_needed",
+              mission_ref: "mission_alpha",
+            },
+            {
+              monster_id: "monster_blocked_gate_002",
+              monster_family: "dragon",
+              monster_name: "blue_dragon",
+              work_pattern: "mail_candidate_review",
+              objective: "Blocked monster gate fixture two",
+              due_state: "no_due",
+              d_day: "D-1",
+              known_status: "known",
+              assignment_status: "blocked",
+              assigned_project_code: "PX-BETA",
+              assigned_stage: "routing",
+              project_hints: ["PX-BETA"],
+              stage_hints: ["routing", "review"],
+              mail_touch_count: 2,
+              last_mail_role: "new_request",
+              mission_ref: "mission_beta",
+            },
+            {
+              monster_id: "monster_due_gate_001",
+              monster_family: "dragon",
+              monster_name: "yellow_dragon",
+              work_pattern: "deadline_watch",
+              objective: "Due watch monster gate fixture",
+              due_state: "scheduled",
+              d_day: "D-0",
+              known_status: "known",
+              assignment_status: "pending_dungeon_assignment",
+              project_hints: ["PX-GAMMA"],
+              stage_hints: ["deadline"],
+              mail_touch_count: 1,
+              last_mail_role: "follow_up",
+              mission_ref: "mission_gamma",
+            },
+          ],
+        },
+        null,
+        2,
+      ),
+      "utf8",
+    );
+
+    const snapshot = await buildSnapshot({ repoRoot, generatedAt: "2026-05-09T00:00:00.000Z" });
+    assert.equal(validateSnapshot(snapshot).ok, true);
+    assert.deepEqual(
+      snapshot.operation_board.sections.monster_gate.groups.map((group) => [group.id, group.label, group.rank]),
+      [
+        ["blocked", "Blocked", 10],
+        ["due_watch", "Due watch", 20],
+        ["assigned_route", "Assigned route", 30],
+        ["routing_hints", "Routing hints", 40],
+        ["needs_identification", "Needs identification", 50],
+        ["open_intake", "Open intake", 60],
+      ],
+    );
+    assert.deepEqual(
+      snapshot.operation_board.sections.monster_gate.groups[0].items.map((item) => item.monster_id),
+      ["monster_blocked_gate_001", "monster_blocked_gate_002"],
+    );
+
+    const groupExtraFieldDrift = JSON.parse(JSON.stringify(snapshot));
+    groupExtraFieldDrift.operation_board.sections.monster_gate.groups[0].raw_payload_ref = "synthetic_raw_payload_ref";
+    const groupExtraFieldValidation = validateSnapshot(groupExtraFieldDrift);
+    assert.equal(groupExtraFieldValidation.ok, false);
+    assert.equal(
+      groupExtraFieldValidation.errors.includes("operation_board.sections.monster_gate.groups[0].raw_payload_ref is not an allowed field"),
+      true,
+    );
+
+    const itemExtraFieldDrift = JSON.parse(JSON.stringify(snapshot));
+    itemExtraFieldDrift.operation_board.sections.monster_gate.groups[0].items[0].attachment_ref = "synthetic_attachment_ref";
+    const itemExtraFieldValidation = validateSnapshot(itemExtraFieldDrift);
+    assert.equal(itemExtraFieldValidation.ok, false);
+    assert.equal(
+      itemExtraFieldValidation.errors.includes(
+        "operation_board.sections.monster_gate.groups[0].items[0].attachment_ref is not an allowed field",
+      ),
+      true,
+    );
+
+    const groupLengthDrift = JSON.parse(JSON.stringify(snapshot));
+    groupLengthDrift.operation_board.sections.monster_gate.groups.pop();
+    const groupLengthValidation = validateSnapshot(groupLengthDrift);
+    assert.equal(groupLengthValidation.ok, false);
+    assert.equal(
+      groupLengthValidation.errors.includes(
+        "operation_board.sections.monster_gate.groups length must equal PENDING_MONSTER_DISPLAY_GROUPS.length (6)",
+      ),
+      true,
+    );
+
+    const groupShapeDrift = JSON.parse(JSON.stringify(snapshot));
+    groupShapeDrift.operation_board.sections.monster_gate.groups[0] = {
+      ...groupShapeDrift.operation_board.sections.monster_gate.groups[0],
+      id: "due_watch",
+      label: "Due watch",
+      rank: 20,
+    };
+    const groupShapeValidation = validateSnapshot(groupShapeDrift);
+    assert.equal(groupShapeValidation.ok, false);
+    assert.equal(
+      groupShapeValidation.errors.includes(
+        "operation_board.sections.monster_gate.groups[0].id must mirror PENDING_MONSTER_DISPLAY_GROUPS[0].id (blocked)",
+      ),
+      true,
+    );
+    assert.equal(
+      groupShapeValidation.errors.includes(
+        "operation_board.sections.monster_gate.groups[0].label must mirror PENDING_MONSTER_DISPLAY_GROUPS[0].label (Blocked)",
+      ),
+      true,
+    );
+    assert.equal(
+      groupShapeValidation.errors.includes(
+        "operation_board.sections.monster_gate.groups[0].rank must mirror PENDING_MONSTER_DISPLAY_GROUPS[0].rank (10)",
+      ),
+      true,
+    );
+
+    const itemOrderDrift = JSON.parse(JSON.stringify(snapshot));
+    itemOrderDrift.operation_board.sections.monster_gate.groups[0].items.reverse();
+    const itemOrderValidation = validateSnapshot(itemOrderDrift);
+    assert.equal(itemOrderValidation.ok, false);
+    assert.equal(
+      itemOrderValidation.errors.includes(
+        "operation_board.sections.monster_gate.groups[0].items[0].monster_id must mirror gateway.pending_monsters.items filtered by display_group blocked[0].monster_id (monster_blocked_gate_001)",
+      ),
+      true,
+    );
+
+    const itemFieldDrift = JSON.parse(JSON.stringify(snapshot));
+    const driftedItem = itemFieldDrift.operation_board.sections.monster_gate.groups[0].items[0];
+    for (const field of mirrorFields) {
+      if (["project_hint_count", "stage_hint_count", "mail_touch_count", "display_group_rank"].includes(field)) {
+        driftedItem[field] = 99;
+      } else if (field === "mission_ref_present") {
+        driftedItem[field] = false;
+      } else {
+        driftedItem[field] = `drift_${field}`;
+      }
+    }
+    const itemFieldValidation = validateSnapshot(itemFieldDrift);
+    assert.equal(itemFieldValidation.ok, false);
+    for (const field of mirrorFields) {
+      assert.equal(
+        itemFieldValidation.errors.some((error) =>
+          error.startsWith(
+            `operation_board.sections.monster_gate.groups[0].items[0].${field} must mirror gateway.pending_monsters.items filtered by display_group blocked[0].${field}`,
+          ),
+        ),
+        true,
+        field,
+      );
+    }
+  } finally {
+    await rm(repoRoot, { recursive: true, force: true });
+  }
+});
+
 test("compareSnapshotFreshness detects source observation changes", async () => {
   const repoRoot = await mkdtemp(path.join(os.tmpdir(), "soulforge-snapshot-freshness-"));
   const missionIndexPath = path.join(repoRoot, ".mission", "index.yaml");
+  const readinessPath = path.join(repoRoot, ".mission", "mission_001", "readiness.yaml");
 
   try {
     await mkdir(path.join(repoRoot, ".mission"), { recursive: true });
+    await mkdir(path.join(repoRoot, ".mission", "mission_001"), { recursive: true });
     await writeFile(
       missionIndexPath,
       [
@@ -413,6 +1401,19 @@ test("compareSnapshotFreshness detects source observation changes", async () => 
         "    title: Mission One",
         "    status: held",
         "    readiness_status: ready",
+      ].join("\n"),
+      "utf8",
+    );
+    await writeFile(
+      readinessPath,
+      [
+        "status: ready",
+        "terminal_provenance:",
+        "  closed_via: mission_close",
+        "  closed_at: 2026-05-02T09:00:00+09:00",
+        "  terminal_result: ready",
+        "  run_id: freshness_run_initial",
+        "  battle_event_id: freshness_battle_initial",
       ].join("\n"),
       "utf8",
     );
@@ -426,6 +1427,24 @@ test("compareSnapshotFreshness detects source observation changes", async () => 
     const legacyFreshness = compareSnapshotFreshness(legacyStored, sameSources);
     assert.equal(legacyFreshness.ok, false);
     assert.equal(legacyFreshness.errors.includes("stored snapshot operation_board projection is missing or stale; regenerate it"), true);
+
+    await writeFile(
+      readinessPath,
+      [
+        "status: ready",
+        "terminal_provenance:",
+        "  closed_via: mission_close",
+        "  closed_at: 2026-05-02T10:00:00+09:00",
+        "  terminal_result: blocked",
+        "  run_id: freshness_run_changed_with_longer_size",
+        "  battle_event_id: freshness_battle_changed_with_longer_size",
+      ].join("\n"),
+      "utf8",
+    );
+    const changedReadinessSources = await buildSnapshot({ repoRoot, generatedAt: "2026-05-02T00:01:30.000Z" });
+    const readinessFreshness = compareSnapshotFreshness(stored, changedReadinessSources);
+    assert.equal(readinessFreshness.ok, false);
+    assert.equal(readinessFreshness.changed_sources.some((source) => source.id === "mission_readiness"), true);
 
     await writeFile(
       missionIndexPath,
@@ -449,6 +1468,125 @@ test("compareSnapshotFreshness detects source observation changes", async () => 
   }
 });
 
+test("compareSnapshotFreshness marks gateway_state stale when synthetic monsters change", async () => {
+  const repoRoot = await mkdtemp(path.join(os.tmpdir(), "soulforge-snapshot-gateway-freshness-"));
+  const missionIndexPath = path.join(repoRoot, ".mission", "index.yaml");
+  const monstersPath = path.join(repoRoot, "guild_hall", "state", "gateway", "intake_inbox", "synthetic_inbox", "monsters.json");
+
+  try {
+    await mkdir(path.dirname(missionIndexPath), { recursive: true });
+    await mkdir(path.dirname(monstersPath), { recursive: true });
+    await writeFile(missionIndexPath, ["version: v1", "entries: []"].join("\n"), "utf8");
+    await writeFile(
+      monstersPath,
+      JSON.stringify(
+        {
+          monsters: [
+            {
+              monster_id: "monster_gateway_freshness_001",
+              monster_family: "dragon",
+              objective: "Gateway freshness fixture",
+              due_state: "no_due",
+              known_status: "known",
+              assignment_status: "pending_dungeon_assignment",
+            },
+          ],
+        },
+        null,
+        2,
+      ),
+      "utf8",
+    );
+
+    const stored = await buildSnapshot({ repoRoot, generatedAt: "2026-06-03T00:00:00.000Z" });
+    const sameSources = await buildSnapshot({ repoRoot, generatedAt: "2026-06-03T00:01:00.000Z" });
+    assert.equal(compareSnapshotFreshness(stored, sameSources).ok, true);
+
+    await writeFile(
+      monstersPath,
+      JSON.stringify(
+        {
+          monsters: [
+            {
+              monster_id: "monster_gateway_freshness_001",
+              monster_family: "dragon",
+              objective: "Gateway freshness fixture changed",
+              due_state: "scheduled",
+              known_status: "known",
+              assignment_status: "pending_dungeon_assignment",
+            },
+          ],
+        },
+        null,
+        2,
+      ),
+      "utf8",
+    );
+
+    const changedSources = await buildSnapshot({ repoRoot, generatedAt: "2026-06-03T00:02:00.000Z" });
+    const freshness = compareSnapshotFreshness(stored, changedSources);
+    assert.equal(freshness.ok, false);
+    assert.equal(freshness.changed_sources.some((source) => source.id === "gateway_state"), true);
+  } finally {
+    await rm(repoRoot, { recursive: true, force: true });
+  }
+});
+
+test("compareSnapshotFreshness detects battle log event file metadata changes", async () => {
+  const repoRoot = await mkdtemp(path.join(os.tmpdir(), "soulforge-snapshot-battle-freshness-"));
+  const eventsPath = path.join(repoRoot, "_workmeta", "PX-BATTLE", "log", "events", "2026", "06", "battle_events.jsonl");
+
+  try {
+    await mkdir(path.join(repoRoot, ".mission"), { recursive: true });
+    await mkdir(path.dirname(eventsPath), { recursive: true });
+    await writeFile(path.join(repoRoot, ".mission", "index.yaml"), ["version: v1", "entries: []"].join("\n"), "utf8");
+    await writeFile(
+      eventsPath,
+      `${JSON.stringify(
+        battleEvent({
+          event_id: "battle-2026-06-01-0001",
+          occurred_at: "2026-06-01T09:00:00+09:00",
+          project_code: "PX-BATTLE",
+        }),
+      )}\n`,
+      "utf8",
+    );
+
+    const stored = await buildSnapshot({ repoRoot, generatedAt: "2026-06-01T00:00:00.000Z" });
+    const sameSources = await buildSnapshot({ repoRoot, generatedAt: "2026-06-01T00:01:00.000Z" });
+    assert.equal(compareSnapshotFreshness(stored, sameSources).ok, true);
+
+    await writeFile(
+      eventsPath,
+      [
+        JSON.stringify(
+          battleEvent({
+            event_id: "battle-2026-06-01-0001",
+            occurred_at: "2026-06-01T09:00:00+09:00",
+            project_code: "PX-BATTLE",
+          }),
+        ),
+        JSON.stringify(
+          battleEvent({
+            event_id: "battle-2026-06-02-0001",
+            occurred_at: "2026-06-02T09:00:00+09:00",
+            project_code: "PX-BATTLE",
+            result: "completed_with_follow_up",
+          }),
+        ),
+      ].join("\n"),
+      "utf8",
+    );
+
+    const changedSources = await buildSnapshot({ repoRoot, generatedAt: "2026-06-01T00:02:00.000Z" });
+    const freshness = compareSnapshotFreshness(stored, changedSources);
+    assert.equal(freshness.ok, false);
+    assert.equal(freshness.changed_sources.some((source) => source.id === "battle_log_events"), true);
+  } finally {
+    await rm(repoRoot, { recursive: true, force: true });
+  }
+});
+
 async function writeKnowledgeLanePublicSurface(repoRoot) {
   await mkdir(path.join(repoRoot, "guild_hall", "knowledge_access"), { recursive: true });
   await mkdir(path.join(repoRoot, ".workflow", "knowledge_access_event_capture_v0"), { recursive: true });
@@ -466,4 +1604,24 @@ async function writeKnowledgeLanePublicSurface(repoRoot) {
     "id: sourcebound_knowledge_packet_operating_loop_v0\n",
     "utf8",
   );
+}
+
+function battleEvent(overrides = {}) {
+  return {
+    event_id: "battle-2026-06-01-0001",
+    occurred_at: "2026-06-01T09:00:00+09:00",
+    mission_id: "mission_battle",
+    project_code: "PX-BATTLE",
+    stage: "implementation",
+    source_kind: "manual",
+    source_ref: "manual_battle_log",
+    party_id: "party_battle",
+    unit_id: "unit_battle",
+    automation_possibility: "manual_assist_needed",
+    battle_mode: "manual_assist",
+    result: "blocked",
+    intervention_count: 1,
+    bottleneck_reason: "quality_review_needed",
+    ...overrides,
+  };
 }

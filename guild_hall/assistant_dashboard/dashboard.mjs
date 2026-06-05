@@ -11,6 +11,7 @@ import {
   DEADLINE_REGISTER_HEADERS,
   validateDeadlineWatchLedgers,
 } from "../gateway/deadline_watch_import.mjs";
+import { validateSnapshot } from "../snapshot/producer.mjs";
 
 export const ASSISTANT_DASHBOARD_SCHEMA_VERSION = "soulforge.assistant_dashboard.v0";
 
@@ -18,7 +19,18 @@ const ASSISTANT_DASHBOARD_OUTPUT_REF = "guild_hall/state/assistant_dashboard/lat
 const ACTIVE_DEADLINE_STATUSES = new Set(["open", "waiting", "blocked", "snoozed"]);
 const ACTIVE_WORK_STATUSES = new Set(["open", "waiting", "todo", "in_progress", "blocked"]);
 const DONE_WORK_STATUSES = new Set(["done", "completed", "closed"]);
-const BANNED_PAYLOAD_MARKER = /body_text|body_html|provider_payload|local_path|provider_attachment_id|password|cookie|secret|token|attachment_url|download_url/iu;
+const BANNED_PAYLOAD_MARKER = /body_text|body_html|provider_payload|local_path|provider_attachment_id|password|cookie|secret|token|credential|credentials|api_key|authorization|bearer|session_id|session_cookie|session_token|session_secret|attachment_url|download_url/iu;
+const AI_DATA_HEALTH_STATUSES = new Set(["fresh", "stale", "missing", "invalid"]);
+const AI_DATA_HEALTH_ROW_KEYS = new Set([
+  "id",
+  "source_ref",
+  "status",
+  "generated_at",
+  "age_hours",
+  "max_age_hours",
+  "error_count",
+  "reason",
+]);
 
 export function defaultAssistantDashboardPath(repoRoot) {
   return path.join(repoRoot, ASSISTANT_DASHBOARD_OUTPUT_REF);
@@ -95,7 +107,8 @@ export async function buildAssistantDashboard({
   ];
   const doneRecent = workRows.filter(isDoneWork).sort(compareRecentWork).slice(0, 10);
   const sourceHealth = await buildSourceHealth(repoRoot, now);
-  const staleWarnings = sourceHealth.filter((item) => item.status === "stale" || item.status === "missing");
+  const sourceHealthWarnings = sourceHealth.filter((item) => item.status === "stale" || item.status === "missing" || item.status === "invalid");
+  const sourceHealthInvalid = sourceHealth.some((item) => item.status === "invalid");
   const validationFailed = deadlineValidation.status !== "pass" || projectLedgerErrors.length > 0;
 
   const dashboard = {
@@ -103,7 +116,7 @@ export async function buildAssistantDashboard({
     kind: "assistant_dashboard_readonly_rollup",
     generated_at: now,
     today_kst: today,
-    status: validationFailed ? "degraded" : "ok",
+    status: validationFailed || sourceHealthInvalid ? "degraded" : "ok",
     source_refs: {
       workmeta_root: relativeToRepo(repoRoot, workmetaRoot),
       output_ref: ASSISTANT_DASHBOARD_OUTPUT_REF,
@@ -118,7 +131,7 @@ export async function buildAssistantDashboard({
       waiting_item_count: waitingRows.length,
       recent_done_count: doneRecent.length,
       p00_unresolved_deadline_count: activeDeadlines.filter((row) => row.project_code === "P00-000_INBOX").length,
-      stale_warning_count: staleWarnings.length,
+      stale_warning_count: sourceHealthWarnings.length,
     },
     sections: {
       today_risk: [...overdueDeadlines, ...dueTodayDeadlines, ...highOpenActions].slice(0, 20),
@@ -187,6 +200,17 @@ export function validateAssistantDashboard(dashboard) {
   }
   if (dashboard?.source_refs?.output_ref !== ASSISTANT_DASHBOARD_OUTPUT_REF) {
     errors.push("output_ref_must_be_local_assistant_dashboard_state");
+  }
+  if (dashboard?.status !== "ok" && dashboard?.status !== "degraded") {
+    errors.push("status_must_be_ok_or_degraded");
+  }
+  validateAiDataHealthRows(errors, dashboard);
+  if (
+    Array.isArray(dashboard?.sections?.ai_data_health) &&
+    dashboard.sections.ai_data_health.some((row) => row?.status === "invalid") &&
+    dashboard?.status !== "degraded"
+  ) {
+    errors.push("invalid_ai_data_health_requires_degraded_dashboard");
   }
   for (const key of ["raw_payload_copied", "raw_mail_body_read", "raw_html_read", "attachment_payload_read", "telegram_sent", "calendar_mutated", "project_assignment_confirmed"]) {
     if (dashboard?.boundary?.[key] !== false) {
@@ -345,6 +369,22 @@ async function buildSourceHealth(repoRoot, now) {
     const json = await readJson(filePath);
     const generatedAt = json.generated_at ?? null;
     const ageHours = generatedAt ? ageHoursBetween(generatedAt, now) : null;
+    if (source.id === "snapshot") {
+      const validation = validateSnapshot(json);
+      if (!validation.ok) {
+        rows.push({
+          id: source.id,
+          source_ref: source.ref,
+          status: "invalid",
+          generated_at: generatedAt,
+          age_hours: ageHours === null ? null : Number(ageHours.toFixed(2)),
+          max_age_hours: source.max_age_hours,
+          error_count: validation.errors.length,
+          reason: "snapshot_contract_invalid",
+        });
+        continue;
+      }
+    }
     rows.push({
       id: source.id,
       source_ref: source.ref,
@@ -355,6 +395,58 @@ async function buildSourceHealth(repoRoot, now) {
     });
   }
   return rows;
+}
+
+function validateAiDataHealthRows(errors, dashboard) {
+  const rows = dashboard?.sections?.ai_data_health;
+  if (!Array.isArray(rows)) {
+    errors.push("ai_data_health_must_be_array");
+    return;
+  }
+  for (const [index, row] of rows.entries()) {
+    const rowPath = `ai_data_health[${index}]`;
+    if (!row || typeof row !== "object" || Array.isArray(row)) {
+      errors.push(`${rowPath}_must_be_object`);
+      continue;
+    }
+    for (const key of Object.keys(row)) {
+      if (!AI_DATA_HEALTH_ROW_KEYS.has(key)) {
+        errors.push(`${rowPath}_unknown_key_${key}`);
+      }
+    }
+    if (typeof row.id !== "string" || !row.id) {
+      errors.push(`${rowPath}_id_must_be_string`);
+    }
+    if (typeof row.source_ref !== "string" || !row.source_ref) {
+      errors.push(`${rowPath}_source_ref_must_be_string`);
+    }
+    if (!AI_DATA_HEALTH_STATUSES.has(row.status)) {
+      errors.push(`${rowPath}_status_must_be_known`);
+    }
+    if (row.generated_at !== null && row.generated_at !== undefined && typeof row.generated_at !== "string") {
+      errors.push(`${rowPath}_generated_at_must_be_string_or_null`);
+    }
+    if (row.age_hours !== null && row.age_hours !== undefined && typeof row.age_hours !== "number") {
+      errors.push(`${rowPath}_age_hours_must_be_number_or_null`);
+    }
+    if (typeof row.max_age_hours !== "number") {
+      errors.push(`${rowPath}_max_age_hours_must_be_number`);
+    }
+    if (row.error_count !== undefined && (!Number.isInteger(row.error_count) || row.error_count < 0)) {
+      errors.push(`${rowPath}_error_count_must_be_nonnegative_integer`);
+    }
+    if (row.reason !== undefined && !/^[a-z0-9_]{1,80}$/u.test(row.reason)) {
+      errors.push(`${rowPath}_reason_must_be_short_code`);
+    }
+    if (row.status === "invalid") {
+      if (!Number.isInteger(row.error_count) || row.error_count < 1) {
+        errors.push(`${rowPath}_invalid_requires_error_count`);
+      }
+      if (typeof row.reason !== "string") {
+        errors.push(`${rowPath}_invalid_requires_reason`);
+      }
+    }
+  }
 }
 
 function sourceRefsForProject(repoRoot, projectRoot) {

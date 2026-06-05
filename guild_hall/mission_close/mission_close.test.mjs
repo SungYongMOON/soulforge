@@ -153,6 +153,52 @@ test("closeMissionFromBattleEvent refuses to close without battle evidence", asy
   }
 });
 
+test("mission_close_missing_run_evidence_regression_v0", async () => {
+  const repoRoot = await mkdtemp(path.join(os.tmpdir(), "soulforge-mission-close-missing-run-"));
+  const workmetaRoot = path.join(repoRoot, "_workmeta");
+  const missionId = "mission_close_fixture_missing_run_001";
+  const runId = "mission_close_run_missing_001";
+  const battleEventId = "battle-2026-03-19-missing-run-0001";
+  const readinessPath = path.join(repoRoot, ".mission", missionId, "readiness.yaml");
+  const missionPath = path.join(repoRoot, ".mission", missionId, "mission.yaml");
+  const indexPath = path.join(repoRoot, ".mission", "index.yaml");
+
+  try {
+    await writeMissionFixture(repoRoot, { missionId, status: "running" });
+    await appendBattleEvent({
+      repoRoot,
+      workmetaRoot,
+      input: buildSyntheticBattleEvent({
+        event_id: battleEventId,
+        mission_id: missionId,
+        project_code: "demo_project",
+        result: "completed",
+      }),
+    });
+    const beforeReadiness = await readFile(readinessPath, "utf8");
+    const beforeMission = await readFile(missionPath, "utf8");
+    const beforeIndex = await readFile(indexPath, "utf8");
+
+    await assert.rejects(
+      closeMissionFromBattleEvent({
+        repoRoot,
+        workmetaRoot,
+        missionId,
+        runId,
+        battleEventId,
+        closedAt: "2026-03-19T09:12:00+09:00",
+      }),
+      /missing_mission_close_run_evidence/u,
+    );
+
+    assert.equal(await readFile(readinessPath, "utf8"), beforeReadiness);
+    assert.equal(await readFile(missionPath, "utf8"), beforeMission);
+    assert.equal(await readFile(indexPath, "utf8"), beforeIndex);
+  } finally {
+    await rm(repoRoot, { recursive: true, force: true });
+  }
+});
+
 test("closeMissionFromBattleEvent targets private mission surface under workmeta", async () => {
   const repoRoot = await mkdtemp(path.join(os.tmpdir(), "soulforge-mission-close-private-"));
   const workmetaRoot = path.join(repoRoot, "_workmeta");

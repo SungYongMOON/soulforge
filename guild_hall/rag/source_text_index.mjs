@@ -22,6 +22,33 @@ const DEFAULT_ANSWER_RUN_ROOT = "_workspaces/knowledge/rag/answer_runs";
 const DEFAULT_TRACEABILITY_SIDECAR_ROOT = "_workspaces/knowledge/rag/traceability_sidecars";
 const SAFE_ID_PATTERN = /^[A-Za-z0-9][A-Za-z0-9_.:-]{0,180}$/;
 const SUPPORTED_SOURCE_EXTENSIONS = new Set([".md", ".markdown", ".txt"]);
+const SOURCE_TEXT_ARTIFACT_FORBIDDEN_KEYS = new Set([
+  "answer_text",
+  "canon_entry",
+  "chunk_text",
+  "credential",
+  "credentials",
+  "notebooklm_answer",
+  "public_canon_entry",
+  "question",
+  "raw_query",
+  "secret",
+  "session",
+  "source_text",
+  "token",
+]);
+const SOURCE_TEXT_ARTIFACT_FORBIDDEN_AUTHORITY_CLAIM_KEYS = new Set([
+  "canon_promotion_allowed",
+  "canon_promotion_granted",
+  "owner_approval_granted",
+  "public_canon_promotion",
+  "public_canon_promotion_allowed",
+  "source_truth",
+  "source_truth_claimed",
+]);
+const SOURCE_TEXT_INDEX_PAYLOAD_TRAILS = [/^source_text_index\.chunks\[\d+\]\.chunk_text$/u];
+const SOURCE_TEXT_ANSWER_RUN_PAYLOAD_TRAILS = [/^source_text_answer_run\.response\.answer_text$/u];
+const SOURCE_TEXT_ARTIFACT_ALLOWED_METADATA_VALUES = new Set(["weak_token_overlap_page_span"]);
 const STOPWORD_TOKENS = new Set([
   "a",
   "an",
@@ -381,7 +408,9 @@ export function validateSourceTextIndex(index) {
     if (chunk?.layout_labels !== undefined && !Array.isArray(chunk.layout_labels)) blockers.push("chunk_layout_labels_must_be_array");
     if (chunk?.warning_codes !== undefined && !Array.isArray(chunk.warning_codes)) blockers.push("chunk_warning_codes_must_be_array");
   }
-  blockers.push(...findLocalAbsolutePathStrings(index));
+  blockers.push(...findSourceTextArtifactContamination(index, "source_text_index", {
+    allowedPayloadTrails: SOURCE_TEXT_INDEX_PAYLOAD_TRAILS,
+  }));
   return {
     schema_version: SOURCE_TEXT_INDEX_VALIDATION_SCHEMA_VERSION,
     kind: "source_text_index_validation",
@@ -440,6 +469,7 @@ export async function buildSourceTextTraceabilitySidecar(options = {}) {
       mapped_chunk_count: 0,
       weak_mapped_chunk_count: 0,
       unmapped_chunk_count: Array.isArray(index?.chunks) ? index.chunks.length : 0,
+      page_backed_chunk_count: 0,
     },
     chunks: [],
     page_summary: [],
@@ -521,6 +551,21 @@ export async function loadSourceTextTraceabilitySidecar({ repoRoot = process.cwd
 
 export function validateSourceTextTraceabilitySidecar(sidecar) {
   const blockers = [];
+  const chunks = Array.isArray(sidecar?.chunks) ? sidecar.chunks : [];
+  const pageSummary = Array.isArray(sidecar?.page_summary) ? sidecar.page_summary : [];
+  const counts = sidecar?.counts ?? {};
+  const countValue = (key) => counts?.[key];
+  const hasOptionalCount = (key) => counts && typeof counts === "object" && counts[key] !== undefined && counts[key] !== null;
+  const hasPageSpanPages = (chunk) => Array.isArray(chunk?.page_span?.pages) && chunk.page_span.pages.length > 0;
+  const mappedChunkCount = chunks.filter((chunk) => chunk?.traceability_status === "mapped").length;
+  const weakMappedChunkCount = chunks.filter((chunk) => chunk?.traceability_status === "weak_mapped").length;
+  const unmappedChunkCount = chunks.filter((chunk) => chunk?.traceability_status === "unmapped").length;
+  const pageBackedChunkCount = chunks.filter((chunk) =>
+    ["mapped", "weak_mapped"].includes(chunk?.traceability_status) && hasPageSpanPages(chunk)
+  ).length;
+  const pageSummaryTableCount = pageSummary.reduce((sum, page) => sum + (Number.isInteger(page?.table_count) ? page.table_count : 0), 0);
+  const pageSummaryPictureCount = pageSummary.reduce((sum, page) => sum + (Number.isInteger(page?.picture_count) ? page.picture_count : 0), 0);
+
   if (sidecar?.schema_version !== SOURCE_TEXT_TRACEABILITY_SIDECAR_SCHEMA_VERSION) blockers.push("schema_version_mismatch");
   if (sidecar?.kind !== "source_text_traceability_sidecar") blockers.push("kind_must_be_source_text_traceability_sidecar");
   if (!isSafeId(sidecar?.traceability_id)) blockers.push("traceability_id_unsafe");
@@ -534,19 +579,41 @@ export function validateSourceTextTraceabilitySidecar(sidecar) {
   if (!safeWorkspaceKnowledgeRef(sidecar?.source_refs?.source_ref)) blockers.push("source_ref_must_be_under_workspaces_knowledge");
   if (!safeWorkspaceKnowledgeJsonRef(sidecar?.source_refs?.docling_json_ref)) blockers.push("docling_json_ref_must_be_under_workspaces_knowledge_json");
   if (!Array.isArray(sidecar?.chunks)) blockers.push("chunks_must_be_array");
-  for (const chunk of sidecar?.chunks ?? []) {
+  if (!Array.isArray(sidecar?.page_summary)) blockers.push("page_summary_must_be_array");
+  if (countValue("chunk_count") !== chunks.length) blockers.push("chunk_count_mismatch");
+  if (countValue("page_backed_chunk_count") !== pageBackedChunkCount) blockers.push("page_backed_chunk_count_mismatch");
+  if (countValue("mapped_chunk_count") !== mappedChunkCount) blockers.push("mapped_chunk_count_mismatch");
+  if (countValue("weak_mapped_chunk_count") !== weakMappedChunkCount) blockers.push("weak_mapped_chunk_count_mismatch");
+  if (countValue("unmapped_chunk_count") !== unmappedChunkCount) blockers.push("unmapped_chunk_count_mismatch");
+  if (hasOptionalCount("page_count") && countValue("page_count") !== pageSummary.length) blockers.push("page_count_mismatch");
+  if (hasOptionalCount("table_count") && countValue("table_count") !== pageSummaryTableCount) blockers.push("page_summary_table_count_mismatch");
+  if (hasOptionalCount("picture_count") && countValue("picture_count") !== pageSummaryPictureCount) blockers.push("page_summary_picture_count_mismatch");
+  for (const chunk of chunks) {
     if (!isSafeId(chunk?.chunk_id)) blockers.push("chunk_id_unsafe");
     if (!["mapped", "weak_mapped", "unmapped"].includes(chunk?.traceability_status)) blockers.push("chunk_traceability_status_unknown");
     if (!Array.isArray(chunk?.layout_labels)) blockers.push("chunk_layout_labels_must_be_array");
-    if (Object.hasOwn(chunk, "chunk_text")) blockers.push("chunk_text_must_not_be_included");
-    if (Object.hasOwn(chunk, "source_text")) blockers.push("source_text_must_not_be_included");
+    if (chunk?.warning_codes !== undefined && !Array.isArray(chunk.warning_codes)) blockers.push("chunk_warning_codes_must_be_array");
+    const warningCodes = Array.isArray(chunk?.warning_codes) ? chunk.warning_codes : [];
+    if (chunk?.traceability_status === "weak_mapped" && !warningCodes.includes("weak_token_overlap_page_span")) blockers.push("weak_mapped_chunk_missing_warning");
+    if (chunk?.traceability_status === "unmapped" && !warningCodes.includes("chunk_page_span_unmapped")) blockers.push("unmapped_chunk_missing_warning");
+    if (chunk && typeof chunk === "object" && Object.hasOwn(chunk, "chunk_text")) blockers.push("chunk_text_must_not_be_included");
+    if (chunk && typeof chunk === "object" && Object.hasOwn(chunk, "source_text")) blockers.push("source_text_must_not_be_included");
     if (chunk?.page_span !== null && chunk?.page_span !== undefined) {
       if (!Number.isInteger(chunk.page_span.start_page) || chunk.page_span.start_page < 1) blockers.push("page_span_start_page_invalid");
       if (!Number.isInteger(chunk.page_span.end_page) || chunk.page_span.end_page < chunk.page_span.start_page) blockers.push("page_span_end_page_invalid");
       if (!Array.isArray(chunk.page_span.pages)) blockers.push("page_span_pages_must_be_array");
     }
   }
-  blockers.push(...findLocalAbsolutePathStrings(sidecar));
+  for (const page of pageSummary) {
+    if (!Array.isArray(page?.warning_codes)) blockers.push("page_summary_warning_codes_must_be_array");
+    const warningCodes = Array.isArray(page?.warning_codes) ? page.warning_codes : [];
+    if (Number.isInteger(page?.table_count) && page.table_count > 0 && !warningCodes.includes("table_present")) blockers.push("page_summary_warning_code_mismatch");
+    if (Number.isInteger(page?.picture_count) && page.picture_count > 0 && !warningCodes.includes("picture_present")) blockers.push("page_summary_warning_code_mismatch");
+    if (page?.text_element_count === 0 && !warningCodes.includes("no_docling_text_elements")) blockers.push("page_summary_warning_code_mismatch");
+    if (page && typeof page === "object" && Object.hasOwn(page, "chunk_text")) blockers.push("chunk_text_must_not_be_included");
+    if (page && typeof page === "object" && Object.hasOwn(page, "source_text")) blockers.push("source_text_must_not_be_included");
+  }
+  blockers.push(...findSourceTextArtifactContamination(sidecar, "source_text_traceability_sidecar"));
   return {
     schema_version: SOURCE_TEXT_TRACEABILITY_SIDECAR_VALIDATION_SCHEMA_VERSION,
     kind: "source_text_traceability_sidecar_validation",
@@ -675,6 +742,8 @@ export function validateSourceTextAnswerRun(run) {
   if (!Array.isArray(run?.query?.query_token_fingerprints)) blockers.push("query_token_fingerprints_required");
   if (run?.boundary?.storage_scope !== "_workspaces_private_payload") blockers.push("storage_scope_must_be_workspaces_private_payload");
   if (run?.boundary?.public_repo_safe !== false) blockers.push("source_text_answer_run_must_not_be_public_repo_safe");
+  const answerText = run?.response?.answer_text;
+  if (typeof answerText !== "string" || answerText.trim().length === 0) blockers.push("answer_text_required");
   if (!Array.isArray(run?.response?.citations)) blockers.push("citations_must_be_array");
   for (const citation of run?.response?.citations ?? []) {
     if (!isSafeId(citation?.chunk_id)) blockers.push("citation_chunk_id_unsafe");
@@ -688,7 +757,9 @@ export function validateSourceTextAnswerRun(run) {
       blockers.push("citation_traceability_status_unknown");
     }
   }
-  blockers.push(...findLocalAbsolutePathStrings(run));
+  blockers.push(...findSourceTextArtifactContamination(run, "source_text_answer_run", {
+    allowedPayloadTrails: SOURCE_TEXT_ANSWER_RUN_PAYLOAD_TRAILS,
+  }));
   return {
     schema_version: SOURCE_TEXT_ANSWER_RUN_VALIDATION_SCHEMA_VERSION,
     kind: "source_text_answer_run_validation",
@@ -1530,4 +1601,80 @@ function findLocalAbsolutePathStrings(value) {
   if (/\/Users\//u.test(raw)) blockers.push("runtime_absolute_user_path_included");
   if (/\/Volumes\//u.test(raw)) blockers.push("runtime_absolute_volume_path_included");
   return blockers;
+}
+
+function findSourceTextArtifactContamination(value, trail, options = {}) {
+  const allowedPayloadTrails = options.allowedPayloadTrails ?? [];
+  if (typeof value === "string" && matchesAllowedPayloadTrail(trail, allowedPayloadTrails)) return [];
+
+  const blockers = [];
+  if (Array.isArray(value)) {
+    value.forEach((item, index) => {
+      blockers.push(...findSourceTextArtifactContamination(item, `${trail}[${index}]`, options));
+    });
+    return blockers;
+  }
+  if (value && typeof value === "object") {
+    for (const [key, child] of Object.entries(value)) {
+      const childTrail = `${trail}.${key}`;
+      const normalizedKey = key.toLowerCase();
+      if (
+        !matchesAllowedPayloadTrail(childTrail, allowedPayloadTrails) &&
+        SOURCE_TEXT_ARTIFACT_FORBIDDEN_KEYS.has(normalizedKey)
+      ) {
+        blockers.push(`forbidden_key:${childTrail}`);
+      }
+      if (
+        !matchesAllowedPayloadTrail(childTrail, allowedPayloadTrails) &&
+        SOURCE_TEXT_ARTIFACT_FORBIDDEN_AUTHORITY_CLAIM_KEYS.has(normalizedKey) &&
+        child !== false
+      ) {
+        blockers.push(`forbidden_key:${childTrail}`);
+      }
+      blockers.push(...findSourceTextArtifactContamination(child, childTrail, options));
+    }
+    return blockers;
+  }
+  if (typeof value !== "string") return blockers;
+  if (hasFileUrlString(value)) blockers.push(`file_url_string:${trail}`);
+  if (/\/Users\//u.test(value)) blockers.push("runtime_absolute_user_path_included");
+  if (/\/Volumes\//u.test(value)) blockers.push("runtime_absolute_volume_path_included");
+  if (hasLocalAbsolutePathString(value)) blockers.push(`local_absolute_path:${trail}`);
+  if (hasForbiddenSourceTextArtifactValue(value)) blockers.push(`forbidden_value:${trail}`);
+  if (hasSecretLikeValueString(value)) blockers.push(`secret_like_value:${trail}`);
+  return blockers;
+}
+
+function matchesAllowedPayloadTrail(trail, allowedPayloadTrails) {
+  return allowedPayloadTrails.some((pattern) => pattern.test(trail));
+}
+
+function hasFileUrlString(value) {
+  return /\bfile:\/\//iu.test(String(value ?? ""));
+}
+
+function hasLocalAbsolutePathString(value) {
+  const text = String(value ?? "");
+  return /(^|[\s"'(])\/(?:Users|Volumes|private|var\/folders|tmp|home)\//u.test(text) || /[A-Za-z]:[\\/]/u.test(text);
+}
+
+function hasForbiddenSourceTextArtifactValue(value) {
+  if (SOURCE_TEXT_ARTIFACT_ALLOWED_METADATA_VALUES.has(String(value ?? ""))) return false;
+  return /(^|[\s"'`=:/_.-])(?:raw_query|question|notebooklm_answer|credentials?|session|token|secret)(?=$|[\s"'`=:/_.-])/iu.test(
+    String(value ?? ""),
+  );
+}
+
+function hasSecretLikeValueString(value) {
+  const text = String(value ?? "").trim();
+  if (!text) return false;
+  if (/-----BEGIN [A-Z ]*PRIVATE KEY-----/u.test(text)) return true;
+  if (/\b(?:sk-[A-Za-z0-9_-]{20,}|ghp_[A-Za-z0-9_]{20,}|xox[baprs]-[A-Za-z0-9-]{20,}|AKIA[0-9A-Z]{16})\b/u.test(text)) {
+    return true;
+  }
+  if (/\b(?:password|passwd|secret|api[_-]?key|access[_-]?token|refresh[_-]?token|session[_-]?cookie)\s*[:=]\s*["']?[^"'\s]{8,}/iu.test(text)) {
+    return true;
+  }
+  if (/\bbearer\s+[A-Za-z0-9._~+/-]{20,}/iu.test(text)) return true;
+  return false;
 }

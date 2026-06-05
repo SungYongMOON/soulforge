@@ -89,7 +89,15 @@ async function scanWorkmetaTree({ repoRoot, workmetaRoot }) {
       if (relativeParts[0] === ".git") {
         continue;
       }
+      const extension = path.extname(entry.name).toLowerCase();
       if (entry.isSymbolicLink()) {
+        if (blockedWorkmetaPayloadExtensions.has(extension)) {
+          violations.push({
+            id: "blocked_payload_extension_in_workmeta",
+            path: displayPath(repoRoot, absolutePath),
+            extension,
+          });
+        }
         continue;
       }
       if (entry.isDirectory()) {
@@ -101,7 +109,6 @@ async function scanWorkmetaTree({ repoRoot, workmetaRoot }) {
       }
 
       filesScanned += 1;
-      const extension = path.extname(entry.name).toLowerCase();
       if (blockedWorkmetaPayloadExtensions.has(extension)) {
         violations.push({
           id: "blocked_payload_extension_in_workmeta",

@@ -3,6 +3,7 @@ import { findLineMatches, themePackages, walkFiles, type LintResult } from "./sh
 const CODE_FILES = [
   ...walkFiles("apps/renderer-web", (repoPath) => /\.(ts|tsx)$/.test(repoPath)),
   ...walkFiles("apps/skin-lab-storybook", (repoPath) => /\.(ts|tsx)$/.test(repoPath)),
+  ...walkFiles("apps/team-ops-board-mockup", (repoPath) => /\.(ts|tsx)$/.test(repoPath)),
   ...walkFiles("packages/renderer-core", (repoPath) => /\.(ts|tsx)$/.test(repoPath)),
   ...walkFiles("packages/renderer-react", (repoPath) => /\.(ts|tsx)$/.test(repoPath)),
   ...walkFiles("packages/theme-contract", (repoPath) => /\.(ts|tsx)$/.test(repoPath)),

@@ -29,6 +29,8 @@ const AUTO_APPROVAL_ACCEPTANCE_PREFIXES = [
   "node --test guild_hall/dev_worker/",
   "node --test guild_hall/night_watch/",
 ];
+const CONTROL_CHARACTER_PATTERN = /[\u0000-\u001F\u007F]/u;
+const CONTROL_CHARACTER_ESCAPE_PATTERN = /[\u0000-\u001F\u007F]/gu;
 
 export async function discoverCandidatePackets(options = {}) {
   const localRoot = path.resolve(options.localRoot ?? process.cwd());
@@ -121,6 +123,7 @@ export function formatCandidateQueueText(result, options = {}) {
       lines.push(`- ${candidate.task_id} [${candidate.status || "missing"}] ${candidate.packet_ref}`);
       lines.push(`  project: ${candidate.project_code}`);
       lines.push(`  promotable: ${promotableState}`);
+      lines.push(`  owner-approval: ${formatOwnerApprovalState(candidate)}`);
       lines.push(`  auto-approval: ${autoApprovalState}`);
     }
   }
@@ -307,6 +310,27 @@ function normalizeCandidate(raw, source) {
   };
 }
 
+function formatOwnerApprovalState(candidate) {
+  const status = candidate.status || "missing";
+  const approval = candidate.owner_approval ?? {};
+  const requirementState = approval.required ? "required" : "not required";
+
+  if (approval.approved) {
+    if (candidate.promotable) {
+      return "approved (promotable)";
+    }
+    if (isClosedCandidateStatus(status)) {
+      return `approved (closed ${status}; not promotable)`;
+    }
+    if (status !== "approved") {
+      return `approved-only (status ${status}; not promotable)`;
+    }
+    return "approved (not promotable)";
+  }
+
+  return `not-approved (${requirementState}; not promotable)`;
+}
+
 function countCandidateStatuses(candidates) {
   const counts = {};
   for (const candidate of candidates) {
@@ -376,12 +400,12 @@ function evaluateAutoApproval(raw, candidate, missing) {
     return autoApprovalResult(false, `risk_level_not_allowed:${riskLevel || "missing"}`, riskLevel);
   }
 
-  const unsafePath = candidate.allowed_write_paths.find((allowedPath) => !isAutoApprovalSafePath(allowedPath));
+  const unsafePath = findUnsafeAutoApprovalPath(raw?.allowed_write_paths, candidate.allowed_write_paths);
   if (unsafePath) {
     return autoApprovalResult(false, `write_path_not_allowed:${unsafePath}`, riskLevel);
   }
 
-  const unsafeCheck = candidate.acceptance_checks.find((check) => !isAutoApprovalSafeCheck(check));
+  const unsafeCheck = findUnsafeAutoApprovalCheck(raw?.acceptance_checks, candidate.acceptance_checks);
   if (unsafeCheck) {
     return autoApprovalResult(false, `acceptance_check_not_allowed:${unsafeCheck}`, riskLevel);
   }
@@ -393,29 +417,109 @@ function autoApprovalResult(eligible, reason, riskLevel) {
   return {
     requested: reason !== "auto_approval_not_requested" || eligible,
     eligible,
-    reason,
+    reason: escapeControlCharacters(reason),
     risk_level: riskLevel,
     policy_id: AUTO_APPROVAL_POLICY_ID,
   };
 }
 
 function isAutoApprovalSafePath(value) {
-  const normalized = normalizeCandidatePath(value);
-  if (!normalized || normalized.startsWith("/") || normalized.startsWith("..") || normalized.includes("/../")) {
+  const raw = String(value ?? "");
+  if (CONTROL_CHARACTER_PATTERN.test(raw)) {
+    return false;
+  }
+  const normalized = normalizeCandidatePath(raw);
+  if (!normalized || normalized.startsWith("/") || hasParentPathSegment(normalized)) {
     return false;
   }
   const basePath = normalized.replace(/\/?\*\*$/u, "");
-  if (AUTO_APPROVAL_SAFE_FILE_PATHS.has(normalized) || AUTO_APPROVAL_SAFE_FILE_PATHS.has(basePath)) {
+  const normalizedBasePath = path.posix.normalize(basePath);
+  if (
+    !normalizedBasePath
+    || normalizedBasePath === "."
+    || normalizedBasePath.startsWith("/")
+    || hasParentPathSegment(normalizedBasePath)
+  ) {
+    return false;
+  }
+  if (AUTO_APPROVAL_SAFE_FILE_PATHS.has(normalized) || AUTO_APPROVAL_SAFE_FILE_PATHS.has(normalizedBasePath)) {
     return true;
   }
   return AUTO_APPROVAL_SAFE_PATH_PREFIXES.some((prefix) => {
     const safeBase = prefix.replace(/\/+$/u, "");
-    return basePath === safeBase || basePath.startsWith(prefix);
+    return normalizedBasePath === safeBase || normalizedBasePath.startsWith(`${safeBase}/`);
   });
 }
 
+function hasParentPathSegment(value) {
+  return String(value).split("/").includes("..");
+}
+
+function findFirstControlCharacterItem(rawItems) {
+  if (!Array.isArray(rawItems)) {
+    return null;
+  }
+  for (const item of rawItems) {
+    const rawItem = String(item ?? "");
+    if (CONTROL_CHARACTER_PATTERN.test(rawItem)) {
+      return rawItem;
+    }
+  }
+  return null;
+}
+
+function findUnsafeAutoApprovalPath(rawAllowedWritePaths, normalizedAllowedWritePaths) {
+  const controlPath = findFirstControlCharacterItem(rawAllowedWritePaths);
+  if (controlPath !== null) {
+    return controlPath;
+  }
+
+  const sourcePaths = Array.isArray(rawAllowedWritePaths)
+    ? rawAllowedWritePaths
+        .map((item) => String(item ?? ""))
+        .filter((item) => item.trim())
+        .slice(0, 40)
+    : normalizedAllowedWritePaths;
+
+  for (const allowedPath of sourcePaths) {
+    const rawPath = String(allowedPath ?? "");
+    if (!isAutoApprovalSafePath(rawPath)) {
+      return CONTROL_CHARACTER_PATTERN.test(rawPath) ? rawPath : rawPath.trim();
+    }
+  }
+
+  return null;
+}
+
+function findUnsafeAutoApprovalCheck(rawAcceptanceChecks, normalizedAcceptanceChecks) {
+  const controlCheck = findFirstControlCharacterItem(rawAcceptanceChecks);
+  if (controlCheck !== null) {
+    return controlCheck;
+  }
+
+  const sourceChecks = Array.isArray(rawAcceptanceChecks)
+    ? rawAcceptanceChecks
+        .map((item) => String(item ?? ""))
+        .filter((item) => item.trim())
+        .slice(0, 40)
+    : normalizedAcceptanceChecks;
+
+  for (const check of sourceChecks) {
+    const rawCheck = String(check ?? "");
+    if (!isAutoApprovalSafeCheck(rawCheck)) {
+      return CONTROL_CHARACTER_PATTERN.test(rawCheck) ? rawCheck : rawCheck.trim();
+    }
+  }
+
+  return null;
+}
+
 function isAutoApprovalSafeCheck(value) {
-  const normalized = String(value ?? "").trim();
+  const raw = String(value ?? "");
+  if (CONTROL_CHARACTER_PATTERN.test(raw)) {
+    return false;
+  }
+  const normalized = raw.trim();
   if (!normalized || /[;&|`$<>]/u.test(normalized)) {
     return false;
   }
@@ -424,6 +528,21 @@ function isAutoApprovalSafeCheck(value) {
       return normalized.startsWith(prefix);
     }
     return normalized === prefix || normalized.startsWith(`${prefix} `) || normalized.startsWith(`${prefix}:`);
+  });
+}
+
+function escapeControlCharacters(value) {
+  return String(value ?? "").replace(CONTROL_CHARACTER_ESCAPE_PATTERN, (character) => {
+    switch (character) {
+      case "\n":
+        return "\\n";
+      case "\r":
+        return "\\r";
+      case "\t":
+        return "\\t";
+      default:
+        return `\\u${character.codePointAt(0).toString(16).padStart(4, "0").toUpperCase()}`;
+    }
   });
 }
 

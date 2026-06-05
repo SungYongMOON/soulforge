@@ -61,6 +61,17 @@ The UI may display the dashboard status, summary counts, project rows,
 waiting buckets, recent done rows, data-health rows, and validation refs. It
 must not write project ledgers or treat the dashboard as source truth.
 
+## AI/Data Health
+
+`sections.ai_data_health` is a metadata-only health surface. Rows may carry
+short fields such as `status`, `source_ref`, `generated_at`, `age_hours`,
+`max_age_hours`, `error_count`, and a short `reason` code.
+
+The `snapshot` row checks both the stored snapshot timestamp and the snapshot
+contract. If `guild_hall/state/snapshot/soulforge_snapshot.json` is fresh by
+timestamp but fails the snapshot schema/operation-board contract, the row must
+be `status: "invalid"` and the dashboard `status` must be `degraded`.
+
 ## Boundaries
 
 The dashboard must not read or copy raw mail bodies, raw HTML, attachment

@@ -16,8 +16,14 @@
   - intake inbox dedupe manifest cache helper
 - `mail_candidate.mjs`
   - mail candidate listing and promotion helper
+- `mail_candidate_backlog.mjs`
+  - pending mail candidate backlog age/stale metadata check helper
 - `mail_work_status.mjs`
   - mail-derived work item 상태를 candidate -> monster -> mission -> battle 기준으로 projection 하고, 주간 계획 누락 방지용 P00 visibility register 를 갱신하는 local-only helper
+- `deadline_watch_import.mjs`
+  - deterministic mail priority due metadata 를 project-local deadline_watch row 후보로 import/validate 하는 helper
+- `deadline_watchdog_reminder.mjs`
+  - project-local deadline_watch metadata 로 dry-run/manual-confirm reminder preview 를 만드는 helper
 - `project_mail_history_writer.mjs`
   - assigned project 가 있는 mail-derived monster 생성/갱신 이벤트를 `_workmeta/<project_code>/reports/메일_이력/` 아래 metadata CSV/일정 이벤트로 갱신하고, Excel 보기용 export 는 `_workspaces/<project_code>/reports/메일_이력/` 아래에 쓰는 private writer
 - `mail_fetch/collector/storage/mail_candidate_queue.py`
@@ -33,6 +39,8 @@
 
 - `guild-hall:gateway:mail-candidate:list`
   - `guild_hall/state/gateway/mail_candidate/queue/pending/**` 의 pending 후보 summary 를 본다.
+- `guild-hall:gateway:mail-candidate:backlog`
+  - pending 후보 개수, age/stale 여부, pending count 추세를 metadata-only backlog report 로 본다.
 - `guild-hall:gateway:mail-candidate:promote`
   - 후보 1건을 local-only `mail_intake_request` payload 로 바꾸고 candidate status 를 갱신한다.
 - `guild-hall:gateway:mail-work:refresh`
@@ -45,6 +53,19 @@
   - priority projection 을 필터링해서 사람이 먼저 볼 대기열을 본다. `--week-start`, `--week-end`, `--week-window-only` 로 주간 기한 후보만 좁힐 수 있다.
 - `guild-hall:gateway:mail-work:weekly-visibility`
   - `_workmeta/P00-000_INBOX/reports/triage/unresolved_weekly_visibility_register.md` 를 갱신한다. candidate 로 못 올라온 mailbox event-only/quarantine row 는 metadata-only 로만 표시하고 자동 승격하지 않는다.
+
+## deadline-watch command
+
+- `node guild_hall/gateway/cli.mjs import-deadline-watch`
+  - `mail_work_priority` 의 deterministic due metadata 를 project-local `deadline_watch` row 후보로 만든다. 기본은 dry-run 이며 실제 쓰기는 `--apply` 가 필요하다.
+- `guild-hall:gateway:deadline-watch:validate`
+  - project-local deadline register 와 reminder event log 의 metadata-only boundary 를 검사한다.
+- `guild-hall:gateway:deadline-watch:reminders`
+  - active deadline row 에서 Telegram-ready reminder 후보를 preview 한다. 자동 발송이나 `town_crier` queue write 는 하지 않는다.
+
+## package caveat
+
+- workspace 계약에는 backlog/watchdog helper 파일이 CLI consumer 와 함께 tracked package 에 포함되어야 한다는 caveat 가 남아 있다. 이 README 는 package-clean 상태를 주장하지 않는다.
 
 ## project mail history private writer
 

@@ -12,11 +12,12 @@
   - `--json` 출력 지원
 - `run_root_acceptance.mjs`
   - root `validate` / `done:check` 단계 실행기
-  - path-policy, role-boundary, canon, snapshot, activity, knowledge-access, UI, gateway harness 를 한 entrypoint 로 묶음
+  - path-policy, role-boundary, canon, snapshot, activity, knowledge-access, town_crier, UI, gateway harness 를 한 entrypoint 로 묶음
 - `local_absolute_path_policy.mjs`
   - concrete local absolute paths such as Windows drive-root paths, POSIX user-volume paths, and local file URI paths 를 차단
   - 기본 `changed` scope 는 현재 변경분만 검사해서 새 upload 후보에 절대경로가 섞이는 것을 막음
   - `--scope tracked` 는 과거 tracked debt 전체를 점검하는 audit 모드
+  - symlink file entry 는 `lstat` 으로 식별한 뒤 target 을 resolve/read 하지 않고 skip 함
 - `workmeta_payload_policy.mjs`
   - `_workmeta` 안에 HWP/HWPX, Office, PDF, 압축파일, mail raw/archive 확장자 파일이 생기면 차단
   - 파일 내용은 읽지 않고 경로와 확장자만 검사해서 ignored local payload 재생성을 잡음
@@ -43,6 +44,7 @@
   - `npm run validate:role-boundary`
   - `npm run validate:activity`
   - `npm run validate:knowledge-access`
+  - `npm run validate:town-crier`
   - `npm run validate:gateway`
 
 Windows PowerShell 에서는 `npm.ps1` execution policy 차이를 피하기 위해 같은 script 를 `npm.cmd run validate`, `npm.cmd run done:check` 처럼 실행한다.

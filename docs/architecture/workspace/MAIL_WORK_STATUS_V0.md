@@ -33,6 +33,11 @@ mail rumor -> candidate note -> gateway monster -> project monster
 ## source surface
 
 - `guild_hall/state/gateway/mail_candidate/queue/pending/*.json`
+- `mail_candidate_backlog` 는 pending candidate 의 개수, candidate ref, status, received_at/updated_at 기반 age, stale 여부, 직전 리포트 대비 pending count 추세만 다루는 metadata-only 점검 surface 다.
+  - CLI stdout 기본값은 full report 가 아니라 bounded display 이며 기본 `display_limit` 은 10 이다.
+  - `--limit <n>` 은 stdout display 에만 적용되고, `--output-file` 로 쓰는 latest report 는 full `pending_candidates` / `invalid_candidates` 배열을 유지한다.
+  - `--summary-only` 는 stdout 의 candidate row 배열을 비우고 omitted count 를 표시하며, `--full` 은 stdout 에도 full 배열을 출력한다.
+  - package-clean 주장은 `guild_hall/gateway/mail_candidate_backlog.mjs` 가 `guild_hall/gateway/cli.mjs` 및 healer consumer 와 함께 tracked package 에 포함될 때만 가능하다.
 - `guild_hall/state/gateway/intake_inbox/*/inbox.json`
 - `guild_hall/state/gateway/intake_inbox/*/monsters.json`
 - `_workmeta/<project_code>/monsters/*.yaml`
@@ -205,25 +210,27 @@ mail rumor -> candidate note -> gateway monster -> project monster
 5. projection 은 metadata-only summary 이다. `refs` 는 pointer surface 만 들고 raw payload 는 복사하지 않는다.
 6. stale `latest.json` 을 읽을 수 있으므로 refresh surface 를 별도로 둔다.
 7. priority projection 은 raw mail 본문, HTML, attachment payload, provider payload, secret 을 읽지 않고 candidate metadata 와 status projection 결과만 사용한다.
-8. exact `P26-014` route 는 subject 에 `기0탐`, `기ㅇ탐` 같은 `기X탐` 마스킹 패턴, `기뢰탐색음탐기`, `KVDS` 중 하나가 있을 때만 `route_confidence: exact` 로 둔다.
-9. 업무처럼 보이지만 project code 가 확정되지 않은 후보는 `P00-000_INBOX` + `route_confidence: review` 로 둔다.
-10. personal/security/finance/billing/subscription/promo/terms 류는 project monster 로 만들지 않고 `개인/관리 보류` 또는 `일 아님` 으로 둔다.
-11. priority `thread_group` 은 subject metadata 의 deterministic matching 으로만 만든다. current-default group 은 `센서 일정/status`, `P978 시운전절차서`, `Q4 진행 독려`, `환경시험절차서`, `P23-043 접근권한`, `해경/시험 협조`, `내부 자산/admin` 이다.
-12. priority projection 은 자동 발송, 자동 mission 생성, 자동 completion, 전체 후보 자동 filing 을 하지 않는다.
-13. terminal `work_status` 인 `completed`, `completed_with_follow_up`, `blocked`, `failed` 는 완료 truth 를 우선한다. priority view 에서는 새 행동 플래그를 붙이지 않고 뒤쪽에 둔다.
-14. priority due-date parsing 은 deterministic subject/date metadata 와 gateway `d_day` 만 사용한다. mail body, HTML, attachment payload, provider payload 는 읽지 않는다.
-15. `route_hint_candidates` 는 weekly planning visibility signal 이며 project assignment truth 가 아니다. exact route 가 안전하지 않으면 `route_candidate: P00-000_INBOX` 로 남긴다.
-16. weekly visibility register 는 다음 주 확정 업무표가 아니라 미분류/미승격 mail-derived work 를 주간 계획에서 빠뜨리지 않기 위한 private 장부다.
-17. event-only/quarantine row 는 `candidate_id: null`, `promotion_allowed: false`, `claim_ceiling: observed` 로 둔다. owner 가 source mailbox/event pointer 를 직접 확인하기 전까지 project monster 로 승격하지 않는다.
-18. weekly visibility register 는 subject/date/attachment count/type/source pointer 같은 whitelist field 만 기록한다. mail body, HTML, raw provider payload, attachment filename, attachment URL, local path, provider attachment id, secret 값은 쓰지 않는다.
-19. weekly visibility register 의 attachment type 은 allowlist label 로 sanitize 한다. unknown upstream type/mime 값은 `attachment_metadata` 또는 coarse `mime_*` label 로 낮춘다.
-20. weekly visibility register output path 는 `_workmeta/P00-000_INBOX/reports/triage/**` 아래에만 쓸 수 있다.
+8. backlog age check 는 raw mail 본문, HTML, attachment payload, provider payload, subject/from 값, secret 을 출력하지 않고 candidate id/ref/status/time metadata 만 사용한다. 기본 CLI stdout 은 bounded display metadata(`display_mode`, `display_limit`, omitted counts)를 포함하며 full internal/latest report 와 `--full` 출력만 전체 row 배열을 유지한다.
+9. exact `P26-014` route 는 subject 에 `기0탐`, `기ㅇ탐` 같은 `기X탐` 마스킹 패턴, `기뢰탐색음탐기`, `KVDS` 중 하나가 있을 때만 `route_confidence: exact` 로 둔다.
+10. 업무처럼 보이지만 project code 가 확정되지 않은 후보는 `P00-000_INBOX` + `route_confidence: review` 로 둔다.
+11. personal/security/finance/billing/subscription/promo/terms 류는 project monster 로 만들지 않고 `개인/관리 보류` 또는 `일 아님` 으로 둔다.
+12. priority `thread_group` 은 subject metadata 의 deterministic matching 으로만 만든다. current-default group 은 `센서 일정/status`, `P978 시운전절차서`, `Q4 진행 독려`, `환경시험절차서`, `P23-043 접근권한`, `해경/시험 협조`, `내부 자산/admin` 이다.
+13. priority projection 은 자동 발송, 자동 mission 생성, 자동 completion, 전체 후보 자동 filing 을 하지 않는다.
+14. terminal `work_status` 인 `completed`, `completed_with_follow_up`, `blocked`, `failed` 는 완료 truth 를 우선한다. priority view 에서는 새 행동 플래그를 붙이지 않고 뒤쪽에 둔다.
+15. priority due-date parsing 은 deterministic subject/date metadata 와 gateway `d_day` 만 사용한다. mail body, HTML, attachment payload, provider payload 는 읽지 않는다.
+16. `route_hint_candidates` 는 weekly planning visibility signal 이며 project assignment truth 가 아니다. exact route 가 안전하지 않으면 `route_candidate: P00-000_INBOX` 로 남긴다.
+17. weekly visibility register 는 다음 주 확정 업무표가 아니라 미분류/미승격 mail-derived work 를 주간 계획에서 빠뜨리지 않기 위한 private 장부다.
+18. event-only/quarantine row 는 `candidate_id: null`, `promotion_allowed: false`, `claim_ceiling: observed` 로 둔다. owner 가 source mailbox/event pointer 를 직접 확인하기 전까지 project monster 로 승격하지 않는다.
+19. weekly visibility register 는 subject/date/attachment count/type/source pointer 같은 whitelist field 만 기록한다. mail body, HTML, raw provider payload, attachment filename, attachment URL, local path, provider attachment id, secret 값은 쓰지 않는다.
+20. weekly visibility register 의 attachment type 은 allowlist label 로 sanitize 한다. unknown upstream type/mime 값은 `attachment_metadata` 또는 coarse `mime_*` label 로 낮춘다.
+21. weekly visibility register output path 는 `_workmeta/P00-000_INBOX/reports/triage/**` 아래에만 쓸 수 있다.
 
 ## commands
 
 ```bash
 npm run guild-hall:gateway:mail-work:refresh
 npm run guild-hall:gateway:mail-work:list
+npm run guild-hall:gateway:mail-candidate:backlog
 npm run guild-hall:gateway:mail-work:priority:refresh
 npm run guild-hall:gateway:mail-work:priority:list
 npm run guild-hall:gateway:mail-work:weekly-visibility -- --week-start 2026-05-25 --week-end 2026-05-31

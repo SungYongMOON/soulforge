@@ -746,6 +746,12 @@ reports may be written under
 The report can explain readiness in an answer-engine run, but it is not source
 truth and must not be cited as content evidence.
 
+The validator treats the report shape as closed for the known metadata-only
+sections. Unknown top-level keys, unknown section keys, unsafe dynamic count-map
+keys, and object values inside label arrays are blockers so source locator refs,
+private payload refs, raw payload markers, or harmless-looking payload carriers
+cannot be smuggled through a dry-run report.
+
 ## Answer Engine Run
 
 `rag_answer_engine_run_v0` is the current practical answer engine MVP. It reads

@@ -9,6 +9,7 @@
 
 - `renderer-web/`
 - `skin-lab-storybook/`
+- `team-ops-board-mockup/`
 
 ## 제외 대상
 
@@ -19,6 +20,7 @@
 
 - `renderer-web` 는 fixture host shell 이다.
 - `skin-lab-storybook` 는 isolated story/theme preview app 이다.
+- `team-ops-board-mockup` 은 샘플 데이터 기반의 독립 클릭형 운영 보드 목업이다.
 
 ## 관련 경로
 

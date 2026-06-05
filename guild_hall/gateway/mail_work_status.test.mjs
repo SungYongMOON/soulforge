@@ -1,8 +1,11 @@
 import test from "node:test";
 import assert from "node:assert/strict";
+import { execFile as execFileCallback } from "node:child_process";
 import os from "node:os";
 import path from "node:path";
 import { mkdir, mkdtemp, readFile, writeFile } from "node:fs/promises";
+import { promisify } from "node:util";
+import { fileURLToPath } from "node:url";
 import YAML from "yaml";
 
 import {
@@ -20,6 +23,12 @@ import {
   importDueObservationsFromMailPriority,
   validateDeadlineWatchLedgers,
 } from "./deadline_watch_import.mjs";
+import {
+  buildDeadlineWatchdogReminderPreview,
+} from "./deadline_watchdog_reminder.mjs";
+
+const cliPath = fileURLToPath(new URL("./cli.mjs", import.meta.url));
+const execFile = promisify(execFileCallback);
 
 test("refreshMailWorkStatus joins candidate, gateway, project, mission, and battle surfaces", async () => {
   const repoRoot = await createRepoRoot();
@@ -792,6 +801,78 @@ test("deadline watch validator enforces terminal and snooze completion evidence"
   assert.ok(result.errors.some((error) => error.reason === "terminal_status_requires_completion_ref"));
   assert.ok(result.errors.some((error) => error.reason === "snoozed_status_requires_snooze_until"));
   assert.ok(result.errors.some((error) => error.reason === "invalid_due_at"));
+});
+
+test("deadline watchdog reminder preview creates manual-confirm candidates without leaking secret markers", async () => {
+  const repoRoot = await createRepoRoot();
+  const registerFile = defaultDeadlineRegisterFile(repoRoot, "P26-014");
+  await writeText(
+    registerFile,
+    [
+      "deadline_id,project_code,source_kind,source_ref,subject_hint,action_type,due_at,due_text,confidence,status,owner_or_contact,completion_ref,next_nudge_at,last_nudged_at,nudge_count,snooze_until,claim_ceiling,raw_payload_copied,created_at,updated_at",
+      "DWL-open,P26-014,mail,mail_candidate:open,secret token marker,reply_due,2026-06-04T12:00:00.000Z,오늘 12시,subject_date,open,,,,,0,,observed,false,2026-06-04T00:00:00.000Z,2026-06-04T00:00:00.000Z",
+      "DWL-future,P26-014,mail,mail_candidate:future,Future row,reply_due,2026-06-10T12:00:00.000Z,6/10,subject_date,open,,,,,0,,observed,false,2026-06-04T00:00:00.000Z,2026-06-04T00:00:00.000Z",
+      "DWL-cooldown,P26-014,mail,mail_candidate:cooldown,Cooldown row,reply_due,2026-06-04T12:00:00.000Z,오늘 12시,subject_date,open,,,,2026-06-04T08:30:00.000Z,1,,observed,false,2026-06-04T00:00:00.000Z,2026-06-04T08:30:00.000Z",
+      "DWL-max,P26-014,mail,mail_candidate:max,Max row,reply_due,2026-06-04T12:00:00.000Z,오늘 12시,subject_date,open,,,,,3,,observed,false,2026-06-04T00:00:00.000Z,2026-06-04T00:00:00.000Z",
+      "DWL-snooze,P26-014,mail,mail_candidate:snooze,Snoozed row,reply_due,2026-06-04T12:00:00.000Z,오늘 12시,subject_date,snoozed,,,,,1,2026-06-05T00:00:00.000Z,observed,false,2026-06-04T00:00:00.000Z,2026-06-04T00:00:00.000Z",
+      "DWL-done,P26-014,mail,mail_candidate:done,Done row,reply_due,2026-06-04T12:00:00.000Z,오늘 12시,subject_date,done,,battle:event:done,,,1,,observed,false,2026-06-04T00:00:00.000Z,2026-06-04T00:00:00.000Z",
+      "DWL-raw,P26-014,mail,mail_candidate:raw,Raw row,reply_due,2026-06-04T12:00:00.000Z,오늘 12시,subject_date,open,,,,,0,,observed,true,2026-06-04T00:00:00.000Z,2026-06-04T00:00:00.000Z",
+      "",
+    ].join("\n"),
+  );
+
+  const result = await buildDeadlineWatchdogReminderPreview({
+    repoRoot,
+    now: new Date("2026-06-04T09:00:00.000Z"),
+    dueWindowHours: 72,
+    cooldownHours: 24,
+    maxNudgeCount: 3,
+  });
+  const rendered = JSON.stringify(result);
+
+  assert.equal(result.status, "dry_run");
+  assert.equal(result.reminder_candidate_count, 1);
+  assert.equal(result.suppressed_reason_counts.outside_due_window, 1);
+  assert.equal(result.suppressed_reason_counts.cooldown_active, 1);
+  assert.equal(result.suppressed_reason_counts.max_nudge_count_reached, 1);
+  assert.equal(result.suppressed_reason_counts.snoozed_until_future, 1);
+  assert.equal(result.suppressed_reason_counts["inactive_status:done"], 1);
+  assert.equal(result.suppressed_reason_counts.raw_payload_boundary_failed, 1);
+  assert.equal(result.reminder_candidates[0].manual_confirm_required, true);
+  assert.equal(result.reminder_candidates[0].auto_send_allowed, false);
+  assert.match(result.reminder_candidates[0].text, /마감 확인이 필요합니다/);
+  assert.equal(rendered.includes("secret token"), false);
+  assert.equal(result.boundary.town_crier_queue_written, false);
+  assert.equal(result.boundary.telegram_sent, false);
+});
+
+test("deadline-watchdog-reminders CLI prints dry-run manual-confirm preview", async () => {
+  const repoRoot = await createRepoRoot();
+  const registerFile = defaultDeadlineRegisterFile(repoRoot, "P00-000_INBOX");
+  await writeText(
+    registerFile,
+    [
+      "deadline_id,project_code,source_kind,source_ref,subject_hint,action_type,due_at,due_text,confidence,status,owner_or_contact,completion_ref,next_nudge_at,last_nudged_at,nudge_count,snooze_until,claim_ceiling,raw_payload_copied,created_at,updated_at",
+      "DWL-p00,P00-000_INBOX,mail,mail_candidate:p00,Owner review row,review_due,2026-06-04T12:00:00.000Z,오늘 12시,subject_date,waiting,,,,,0,,observed,false,2026-06-04T00:00:00.000Z,2026-06-04T00:00:00.000Z",
+      "",
+    ].join("\n"),
+  );
+
+  const { stdout } = await execFile(process.execPath, [
+    cliPath,
+    "deadline-watchdog-reminders",
+    "--workmeta-root",
+    path.join(repoRoot, "_workmeta"),
+    "--due-window-hours",
+    "72",
+  ]);
+  const result = JSON.parse(stdout);
+
+  assert.equal(result.request_id, "deadline_watchdog_reminders");
+  assert.equal(result.status, "dry_run");
+  assert.equal(result.reminder_candidate_count, 1);
+  assert.equal(result.reminder_candidates[0].project_code, "P00-000_INBOX");
+  assert.equal(result.boundary.telegram_sent, false);
 });
 
 async function createRepoRoot() {

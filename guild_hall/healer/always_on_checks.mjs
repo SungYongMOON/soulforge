@@ -1,6 +1,10 @@
 import { spawnSync } from "node:child_process";
 import { promises as nodeFs } from "node:fs";
 import path from "node:path";
+import {
+  buildMailCandidateBacklogReport,
+  defaultMailCandidateQueueRoot,
+} from "../gateway/mail_candidate_backlog.mjs";
 
 const HOUR_MS = 60 * 60 * 1000;
 const DAY_MS = 24 * HOUR_MS;
@@ -50,10 +54,54 @@ export async function runAlwaysOnChecks(options = {}) {
   checks.push(await checkAutomationLiveness(context));
   checks.push(await checkStrayDevelopmentFilePlacement(context));
   checks.push(await checkReportFreshness(context));
+  checks.push(await checkMailCandidateBacklogAge(context));
   checks.push(await checkRepoSync(context));
   checks.push(await checkSecretRawLeakGuard(context));
   checks.push(await checkRestoreReadiness(context));
   return checks;
+}
+
+async function checkMailCandidateBacklogAge(context) {
+  const { repoRoot, fs, clock } = context;
+  const startedAt = clock();
+  const queueRoot = path.resolve(
+    repoRoot,
+    context.mailCandidateQueueRoot ?? defaultMailCandidateQueueRoot(repoRoot),
+  );
+  const report = await buildMailCandidateBacklogReport({
+    repoRoot,
+    queueRoot,
+    fs,
+    now: clock(),
+    previousReport: context.previousMailCandidateBacklogReport,
+    warnAgeHours: context.mailCandidateBacklogWarnAgeHours,
+  });
+  const endedAt = clock();
+  const staleRefs = report.pending_candidates
+    .filter((candidate) => candidate.stale)
+    .slice(0, 10)
+    .map((candidate) => `${candidate.candidate_ref} age_hours=${candidate.age_hours}`);
+
+  return buildMetadataCheck({
+    id: "mail_candidate_backlog_age",
+    source: report.queue_root,
+    status: report.status,
+    summary:
+      report.status === "passed"
+        ? `mail candidate backlog ok: ${report.summary.pending_count} pending`
+        : `mail candidate backlog warning: ${report.summary.pending_count} pending, ${report.summary.stale_pending_count} stale, trend=${report.summary.trend}`,
+    output_tail: [
+      `candidate_count: ${report.summary.candidate_count}`,
+      `pending_count: ${report.summary.pending_count}`,
+      `stale_pending_count: ${report.summary.stale_pending_count}`,
+      `pending_count_delta: ${report.summary.pending_count_delta ?? "unknown"}`,
+      `trend: ${report.summary.trend}`,
+      ...staleRefs,
+    ].join("\n"),
+    startedAt,
+    endedAt,
+    repoRoot,
+  });
 }
 
 async function checkLatestSnapshotMapFreshness(context) {

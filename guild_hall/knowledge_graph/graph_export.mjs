@@ -259,7 +259,7 @@ export async function buildKnowledgeGraph({
     graphRelationReviewQueueRefs,
   });
 
-  await addKnowledgeNodes({ repoRoot: root, nodes });
+  const sourceSupportMetadataByNodeRef = await addKnowledgeNodes({ repoRoot: root, nodes });
   await addClassNodesAndEdges({ repoRoot: root, nodes, edges });
   await addSpeciesNodes({ repoRoot: root, nodes });
   await addUnitNodesAndEdges({ repoRoot: root, nodes, edges });
@@ -279,7 +279,7 @@ export async function buildKnowledgeGraph({
     .sort((left, right) => left.edge_ref.localeCompare(right.edge_ref));
   finalizeRagProjectionForGraph(ragProjection, nodeList, edgeList);
   finalizeSourceSliceProjectionForGraph(sourceSliceProjection);
-  const connectivityAnalysis = analyzeGraphConnectivity(nodeList, edgeList);
+  const connectivityAnalysis = analyzeGraphConnectivity(nodeList, edgeList, { sourceSupportMetadataByNodeRef });
 
   return {
     schema_version: KNOWLEDGE_GRAPH_SCHEMA_VERSION,
@@ -390,14 +390,23 @@ export async function buildKnowledgeGraph({
 
 async function addKnowledgeNodes({ repoRoot, nodes }) {
   const root = path.join(repoRoot, ".registry", "knowledge");
+  const sourceSupportMetadataByNodeRef = new Map();
   for (const entry of await listChildDirs(root)) {
     const file = path.join(root, entry, "knowledge.yaml");
     const data = await readYaml(file);
     if (!data?.knowledge_id) {
       continue;
     }
+    const nodeRef = `.registry/knowledge/${data.knowledge_id}`;
+    const sourceSupportRefCount = countSourceSupportRefs(data.source_support, { rootArrayIsRefs: true });
+    if (sourceSupportRefCount > 0) {
+      sourceSupportMetadataByNodeRef.set(nodeRef, {
+        node_ref: nodeRef,
+        source_ref_count: sourceSupportRefCount,
+      });
+    }
     addNode(nodes, {
-      node_ref: `.registry/knowledge/${data.knowledge_id}`,
+      node_ref: nodeRef,
       node_type: "knowledge",
       label: data.title ?? data.knowledge_id,
       summary: data.summary ?? null,
@@ -412,6 +421,7 @@ async function addKnowledgeNodes({ repoRoot, nodes }) {
       lifecycle: { status: data.status ?? "unknown" },
     });
   }
+  return sourceSupportMetadataByNodeRef;
 }
 
 async function addClassNodesAndEdges({ repoRoot, nodes, edges }) {
@@ -1671,6 +1681,26 @@ function weakestClaimCeiling(values) {
   return candidates.sort((left, right) => (CLAIM_STRENGTH[left] ?? 0) - (CLAIM_STRENGTH[right] ?? 0))[0] ?? "observed";
 }
 
+function countSourceSupportRefs(value, options = {}) {
+  if (!value || typeof value !== "object") return 0;
+  if (Array.isArray(value)) {
+    return options.rootArrayIsRefs ? value.filter((item) => item !== null && item !== undefined).length : 0;
+  }
+  let count = 0;
+  for (const [key, child] of Object.entries(value)) {
+    if (Array.isArray(child) && isSourceSupportRefKey(key)) {
+      count += child.filter((item) => item !== null && item !== undefined).length;
+      continue;
+    }
+    count += countSourceSupportRefs(child);
+  }
+  return count;
+}
+
+function isSourceSupportRefKey(key) {
+  return /(^|_)refs?$/u.test(String(key ?? ""));
+}
+
 function projectionArrayField(value, key, blockers, options = {}) {
   const required = options.required !== false;
   const child = value?.[key];
@@ -1886,7 +1916,7 @@ function applyEdgeVisuals(edge, now) {
   };
 }
 
-function analyzeGraphConnectivity(nodes, edges) {
+function analyzeGraphConnectivity(nodes, edges, options = {}) {
   const byRef = new Map(nodes.map((node) => [node.node_ref, node]));
   const degreeByRef = new Map(
     nodes.map((node) => [
@@ -1981,6 +2011,15 @@ function analyzeGraphConnectivity(nodes, edges) {
   if (!byNodeType.project && !byNodeType.agent_run && !byNodeType.model_profile) {
     possibleMissingRelationSurfaces.push("_workmeta project, validation, agent/model attribution metadata");
   }
+  const sourceEdgeGapScout = analyzeMetadataOnlySourceEdgeGaps({
+    nodes,
+    edges,
+    byRef,
+    sourceSupportMetadataByNodeRef: options.sourceSupportMetadataByNodeRef,
+  });
+  if (sourceEdgeGapScout.gap_count > 0) {
+    possibleMissingRelationSurfaces.push(".registry/knowledge/*/source_support source nodes and supports/derived_from edges");
+  }
 
   return {
     status: isolatedNodes.length > 0 ? "low_connectivity_observed" : "connected_observed",
@@ -1997,6 +2036,7 @@ function analyzeGraphConnectivity(nodes, edges) {
     isolated_node_refs: isolatedNodes.map((degree) => degree.node_ref),
     low_degree_node_refs: lowDegreeNodes.map((degree) => degree.node_ref),
     dangling_edge_refs: danglingEdges,
+    source_edge_gap_scout: sourceEdgeGapScout,
     current_extraction_scope: [
       ".registry/classes/*/knowledge_refs.yaml",
       ".unit/*/unit.yaml species/class fields",
@@ -2010,6 +2050,75 @@ function analyzeGraphConnectivity(nodes, edges) {
         ? "The rendered separation matches the generated graph data; verify whether isolated nodes are expected scope exclusions or missing extractor coverage."
         : "The generated graph has no isolated nodes under the current extraction scope.",
   };
+}
+
+export function analyzeMetadataOnlySourceEdgeGaps({ nodes, edges, byRef, sourceSupportMetadataByNodeRef }) {
+  const supportMetadata = sourceSupportMetadataByNodeRef ?? new Map();
+  const gapNodes = [];
+  let checkedNodeCount = 0;
+  for (const node of nodes) {
+    if (node.node_type !== "knowledge" || node.trust?.claim_ceiling !== "source_supported") {
+      continue;
+    }
+    const metadata = supportMetadata.get(node.node_ref);
+    const sourceRefCount = metadata?.source_ref_count ?? 0;
+    if (sourceRefCount <= 0) {
+      continue;
+    }
+    checkedNodeCount += 1;
+    const missingEdgeType = missingSourceSupportEdgeType({ nodeRef: node.node_ref, edges, byRef });
+    if (!missingEdgeType) {
+      continue;
+    }
+    gapNodes.push({
+      node_ref: node.node_ref,
+      node_id: node.node_ref.replace(/^\.registry\/knowledge\//u, ""),
+      claim_ceiling: node.trust.claim_ceiling,
+      source_ref_count: sourceRefCount,
+      missing_edge_type: missingEdgeType,
+    });
+  }
+  gapNodes.sort((left, right) => left.node_ref.localeCompare(right.node_ref));
+  return {
+    status: gapNodes.length > 0 ? "metadata_gap_observed" : "not_observed",
+    claim_ceiling: "observed",
+    target_claim_ceiling: "source_supported",
+    checked_node_count: checkedNodeCount,
+    gap_count: gapNodes.length,
+    gap_nodes: gapNodes,
+    boundary: {
+      metadata_only: true,
+      no_source_text_loaded: true,
+      no_source_payload_copied: true,
+      no_source_nodes_created: true,
+      no_source_edges_created: true,
+      no_source_truth_claim: true,
+      no_owner_approval_claim: true,
+      no_canon_or_ontology_mutation: true,
+    },
+  };
+}
+
+function missingSourceSupportEdgeType({ nodeRef, edges, byRef }) {
+  const supportEdges = edges.filter((edge) => isSourceSupportEdgeForKnowledgeNode(edge, nodeRef));
+  if (supportEdges.length === 0) {
+    return "supports_or_derived_from";
+  }
+  const sourceEndpointPresent = supportEdges.some((edge) => {
+    const sourceEndpointRef = edge.relation_type === "supports" ? edge.from_ref : edge.to_ref;
+    return byRef.get(sourceEndpointRef)?.node_type === "source";
+  });
+  return sourceEndpointPresent ? null : "source_node_endpoint";
+}
+
+function isSourceSupportEdgeForKnowledgeNode(edge, nodeRef) {
+  if (edge.relation_type === "supports") {
+    return edge.to_ref === nodeRef;
+  }
+  if (edge.relation_type === "derived_from") {
+    return edge.from_ref === nodeRef;
+  }
+  return false;
 }
 
 function addNode(nodes, node) {
@@ -4296,10 +4405,10 @@ function missingEvidenceItemsFor({ selectedNodeRef, candidateNodes, relationPath
       [selectedNodeRef],
     );
   }
-  if (!nodeTypes.has("source") || !relationTypes.has("supports")) {
+  if (!hasSourceSupportPath({ nodeTypes, relationTypes })) {
     addMissing(
       "no_source_support_edges",
-      "No source nodes or supports edges are present, so the card can point to metadata refs but not evidence-source support paths.",
+      "No source nodes or supports/derived_from source-support edges are present, so the card can point to metadata refs but not evidence-source support paths.",
     );
   }
   addMissing(
@@ -4313,6 +4422,10 @@ function missingEvidenceItemsFor({ selectedNodeRef, candidateNodes, relationPath
     addMissing("no_validation_benchmark", "No validation or benchmark node is present for corpus-specific retrieval quality claims.");
   }
   return dedupeDetectionItemsByCode(missing);
+}
+
+function hasSourceSupportPath({ nodeTypes, relationTypes }) {
+  return nodeTypes.has("source") && (relationTypes.has("supports") || relationTypes.has("derived_from"));
 }
 
 function nextActionItemsFor({ missingEvidenceItems, candidateNodes, selectedNodeRef }) {
@@ -4329,7 +4442,7 @@ function nextActionItemsFor({ missingEvidenceItems, candidateNodes, selectedNode
     );
   }
   if (codes.has("no_source_support_edges")) {
-    addAction("add_source_support_edges", "Add public-safe source nodes plus supports or derived_from edges for reviewed source refs.");
+    addAction("add_source_support_edges", "Add public-safe source nodes plus supports or derived_from source-support edges for reviewed source refs.");
   }
   if (codes.has("no_knowledge_access_ledger_refs")) {
     addAction("regenerate_with_ledger_refs", "Regenerate the graph with explicit knowledge-access ledger refs when usage or recency matters.");

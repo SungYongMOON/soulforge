@@ -13,6 +13,9 @@ import {
   promoteMailCandidate,
   triageMailCandidate,
 } from "./mail_candidate.mjs";
+import {
+  buildMailCandidateBacklogReport,
+} from "./mail_candidate_backlog.mjs";
 
 const cliPath = fileURLToPath(new URL("./cli.mjs", import.meta.url));
 const execFile = promisify(execFileCallback);
@@ -710,6 +713,244 @@ test("triage-mail-candidate CLI can triage all pending candidates", async () => 
   assert.equal(secondCandidate.business_review.next_action, "ask_owner");
 });
 
+test("buildMailCandidateBacklogReport warns on stale pending candidates without leaking mail payload", async () => {
+  const repoRoot = await createRepoRoot();
+  const queueRoot = path.join(repoRoot, "guild_hall", "state", "gateway", "mail_candidate");
+  const oldCandidateFile = path.join(queueRoot, "queue", "pending", "old.json");
+  const freshCandidateFile = path.join(queueRoot, "queue", "pending", "fresh.json");
+
+  await writeJson(oldCandidateFile, {
+    ...sampleCandidate({
+      event_id: "hiworks_evt_old",
+      received_at: "2026-06-03T00:00:00.000Z",
+    }),
+    candidate_id: "mail_candidate_hiworks_evt_old",
+    status: "pending_review",
+    created_at: "2026-06-03T00:05:00.000Z",
+    updated_at: "2026-06-03T00:05:00.000Z",
+    raw_body: "private body must not leak",
+    provider_payload: {
+      token: "provider token must not leak",
+      raw_payload: "provider payload must not leak",
+    },
+    secret_value: "secret value must not leak",
+    mail_summary: {
+      subject: "Private customer subject must not leak",
+      from: [{ name: "Secret Sender", address: "secret@example.test" }],
+      attachment_count: 1,
+      attachments: [
+        {
+          filename: "private_attachment_name_must_not_leak.pdf",
+          url: "https://example.invalid/private-attachment-url",
+          local_path: "LOCAL_PRIVATE_ATTACHMENT_PATH_MUST_NOT_LEAK",
+        },
+      ],
+    },
+  });
+  await writeJson(freshCandidateFile, {
+    ...sampleCandidate({
+      event_id: "hiworks_evt_fresh",
+      received_at: "2026-06-04T03:00:00.000Z",
+    }),
+    candidate_id: "mail_candidate_hiworks_evt_fresh",
+    status: "pending_review",
+    created_at: "2026-06-04T03:05:00.000Z",
+    updated_at: "2026-06-04T03:05:00.000Z",
+  });
+
+  const report = await buildMailCandidateBacklogReport({
+    repoRoot,
+    queueRoot,
+    now: new Date("2026-06-04T06:00:00.000Z"),
+    previousReport: {
+      summary: {
+        pending_count: 1,
+      },
+    },
+  });
+  const rendered = JSON.stringify(report);
+
+  assert.equal(report.status, "warn");
+  assert.equal(report.summary.pending_count, 2);
+  assert.equal(report.summary.stale_pending_count, 1);
+  assert.equal(report.summary.pending_count_delta, 1);
+  assert.equal(report.summary.trend, "increased");
+  assert.equal(report.pending_candidates[0].candidate_id, "mail_candidate_hiworks_evt_old");
+  assert.equal(rendered.includes("private body"), false);
+  assert.equal(rendered.includes("Private customer subject"), false);
+  assert.equal(rendered.includes("Secret Sender"), false);
+  assert.equal(rendered.includes("secret@example.test"), false);
+  assert.equal(rendered.includes("provider token"), false);
+  assert.equal(rendered.includes("provider payload"), false);
+  assert.equal(rendered.includes("secret value"), false);
+  assert.equal(rendered.includes("private_attachment_name"), false);
+  assert.equal(rendered.includes("private-attachment-url"), false);
+  assert.equal(rendered.includes("LOCAL_PRIVATE_ATTACHMENT_PATH"), false);
+});
+
+test("mail-candidate-backlog CLI defaults to bounded display while output file stays full", async () => {
+  const repoRoot = await createRepoRoot();
+  const queueRoot = path.join(repoRoot, "guild_hall", "state", "gateway", "mail_candidate");
+  const outputFile = path.join(repoRoot, "guild_hall", "state", "gateway", "mail_candidate", "backlog_age", "latest.json");
+
+  for (let index = 1; index <= 12; index += 1) {
+    await writeBacklogCandidate(queueRoot, index);
+    await writeInvalidBacklogCandidate(queueRoot, index);
+  }
+
+  const { stdout } = await execFile(process.execPath, [
+    cliPath,
+    "mail-candidate-backlog",
+    "--queue-root",
+    queueRoot,
+    "--output-file",
+    outputFile,
+  ]);
+  const result = JSON.parse(stdout);
+  const latestReport = JSON.parse(await readFile(outputFile, "utf8"));
+
+  assert.equal(result.request_id, "mail_candidate_backlog");
+  assert.equal(result.display_mode, "bounded");
+  assert.equal(result.display_limit, 10);
+  assert.equal(result.summary.pending_count, 12);
+  assert.equal(result.summary.invalid_candidate_count, 12);
+  assert.equal(result.pending_candidates.length, 10);
+  assert.equal(result.pending_candidates_omitted_count, 2);
+  assert.equal(result.invalid_candidates.length, 10);
+  assert.equal(result.invalid_candidates_omitted_count, 2);
+  assert.equal(latestReport.pending_candidates.length, 12);
+  assert.equal(latestReport.invalid_candidates.length, 12);
+  assert.equal(latestReport.display_mode, undefined);
+
+  const { stdout: limitedStdout } = await execFile(process.execPath, [
+    cliPath,
+    "mail-candidate-backlog",
+    "--queue-root",
+    queueRoot,
+    "--limit",
+    "5",
+  ]);
+  const limited = JSON.parse(limitedStdout);
+
+  assert.equal(limited.display_mode, "bounded");
+  assert.equal(limited.display_limit, 5);
+  assert.equal(limited.pending_candidates.length, 5);
+  assert.equal(limited.pending_candidates_omitted_count, 7);
+  assert.equal(limited.invalid_candidates.length, 5);
+  assert.equal(limited.invalid_candidates_omitted_count, 7);
+});
+
+test("mail-candidate-backlog CLI supports summary-only and full display modes", async () => {
+  const repoRoot = await createRepoRoot();
+  const queueRoot = path.join(repoRoot, "guild_hall", "state", "gateway", "mail_candidate");
+
+  for (let index = 1; index <= 3; index += 1) {
+    await writeBacklogCandidate(queueRoot, index);
+  }
+  for (let index = 1; index <= 2; index += 1) {
+    await writeInvalidBacklogCandidate(queueRoot, index);
+  }
+
+  const { stdout: summaryStdout } = await execFile(process.execPath, [
+    cliPath,
+    "mail-candidate-backlog",
+    "--queue-root",
+    queueRoot,
+    "--summary-only",
+    "--limit",
+    "1",
+  ]);
+  const summaryOnly = JSON.parse(summaryStdout);
+
+  assert.equal(summaryOnly.display_mode, "summary_only");
+  assert.equal(summaryOnly.display_limit, 0);
+  assert.equal(summaryOnly.summary.pending_count, 3);
+  assert.equal(summaryOnly.summary.invalid_candidate_count, 2);
+  assert.deepEqual(summaryOnly.pending_candidates, []);
+  assert.deepEqual(summaryOnly.invalid_candidates, []);
+  assert.equal(summaryOnly.pending_candidates_omitted_count, 3);
+  assert.equal(summaryOnly.invalid_candidates_omitted_count, 2);
+
+  const { stdout: fullStdout } = await execFile(process.execPath, [
+    cliPath,
+    "mail-candidate-backlog",
+    "--queue-root",
+    queueRoot,
+    "--full",
+    "--limit",
+    "1",
+  ]);
+  const full = JSON.parse(fullStdout);
+
+  assert.equal(full.display_mode, "full");
+  assert.equal(full.display_limit, null);
+  assert.equal(full.pending_candidates.length, 3);
+  assert.equal(full.invalid_candidates.length, 2);
+  assert.equal(full.pending_candidates_omitted_count, 0);
+  assert.equal(full.invalid_candidates_omitted_count, 0);
+});
+
+test("mail-candidate-backlog CLI prints metadata-only report", async () => {
+  const repoRoot = await createRepoRoot();
+  const queueRoot = path.join(repoRoot, "guild_hall", "state", "gateway", "mail_candidate");
+  const candidateFile = path.join(queueRoot, "queue", "pending", "candidate.json");
+
+  await writeJson(candidateFile, {
+    ...sampleCandidate({
+      event_id: "hiworks_evt_cli",
+      received_at: "2026-06-03T00:00:00.000Z",
+    }),
+    candidate_id: "mail_candidate_hiworks_evt_cli",
+    status: "pending_review",
+    updated_at: "2026-06-03T00:00:00.000Z",
+    raw_body: "private body must not leak",
+    provider_payload: {
+      token: "provider token must not leak",
+      raw_payload: "provider payload must not leak",
+    },
+    secret_value: "secret value must not leak",
+    mail_summary: {
+      subject: "Private customer subject must not leak",
+      from: [{ name: "Secret Sender", address: "secret@example.test" }],
+      attachment_count: 1,
+      attachments: [
+        {
+          filename: "private_attachment_name_must_not_leak.pdf",
+          url: "https://example.invalid/private-attachment-url",
+          local_path: "LOCAL_PRIVATE_ATTACHMENT_PATH_MUST_NOT_LEAK",
+        },
+      ],
+    },
+  });
+
+  const { stdout } = await execFile(process.execPath, [
+    cliPath,
+    "mail-candidate-backlog",
+    "--queue-root",
+    queueRoot,
+    "--warn-age-hours",
+    "1",
+  ]);
+  const result = JSON.parse(stdout);
+  const rendered = JSON.stringify(result);
+
+  assert.equal(result.request_id, "mail_candidate_backlog");
+  assert.equal(result.display_mode, "bounded");
+  assert.equal(result.status, "warn");
+  assert.equal(result.summary.pending_count, 1);
+  assert.equal(result.pending_candidates_omitted_count, 0);
+  assert.equal(JSON.stringify(result).includes("private body"), false);
+  assert.equal(rendered.includes("Private customer subject"), false);
+  assert.equal(rendered.includes("Secret Sender"), false);
+  assert.equal(rendered.includes("secret@example.test"), false);
+  assert.equal(rendered.includes("provider token"), false);
+  assert.equal(rendered.includes("provider payload"), false);
+  assert.equal(rendered.includes("secret value"), false);
+  assert.equal(rendered.includes("private_attachment_name"), false);
+  assert.equal(rendered.includes("private-attachment-url"), false);
+  assert.equal(rendered.includes("LOCAL_PRIVATE_ATTACHMENT_PATH"), false);
+});
+
 test("promoteMailCandidate keeps source event under mailbox state", async () => {
   const repoRoot = await createRepoRoot();
   const candidateFile = path.join(repoRoot, "candidate.json");
@@ -824,6 +1065,27 @@ function privateDeepBindingText() {
     "        - application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
     "",
   ].join("\n");
+}
+
+async function writeBacklogCandidate(queueRoot, index, overrides = {}) {
+  const suffix = String(index).padStart(3, "0");
+  const minute = String(index).padStart(2, "0");
+  await writeJson(path.join(queueRoot, "queue", "pending", `candidate-${suffix}.json`), {
+    ...sampleCandidate({
+      event_id: `hiworks_evt_backlog_${suffix}`,
+      received_at: `2026-06-03T00:${minute}:00.000Z`,
+    }),
+    candidate_id: `mail_candidate_hiworks_evt_backlog_${suffix}`,
+    status: "pending_review",
+    created_at: `2026-06-03T00:${minute}:01.000Z`,
+    updated_at: `2026-06-03T00:${minute}:01.000Z`,
+    ...overrides,
+  });
+}
+
+async function writeInvalidBacklogCandidate(queueRoot, index) {
+  const suffix = String(index).padStart(3, "0");
+  await writeText(path.join(queueRoot, "queue", "pending", `invalid-${suffix}.json`), "{");
 }
 
 async function createRepoRoot() {

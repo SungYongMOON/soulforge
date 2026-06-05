@@ -173,14 +173,18 @@ npm run guild-hall:dev-worker:candidates -- --details
 The details view is a read-only audit surface. It prints total candidate count,
 promotable count, auto-approvable count, active candidate count, closed
 candidate count, status counts, each packet ref, project code, promotion
-blocker, and auto-approval blocker. It must not read raw project payloads,
-mail bodies, attachments, `_workspaces/**` material, or secrets.
+blocker, owner-approval state, and auto-approval blocker. It must not read raw
+project payloads, mail bodies, attachments, `_workspaces/**` material, or
+secrets.
 
 For the audit summary, `completed`, `promoted`, `rejected`, `dropped`, and
 `cancelled` are closed candidate states. Closed candidates are not executable
 backlog. `proposed`, `open`, and owner-approved candidates are active from an
 audit standpoint, but they are still not worker-executable until the promotion
 helper writes a ready packet into `dev_worker_queue`.
+When owner approval is recorded but `status` remains `proposed`, the details
+view reports `owner-approval: approved-only` so the state is not confused with
+promotable or worker-executable work.
 
 ## Auto-Approval Policy
 
@@ -199,12 +203,18 @@ To be auto-approved, a candidate must:
    - `guild_hall/dev_worker/**`
    - `guild_hall/night_watch/**`
    - `CHANGELOG.md`
+   Safe-path checks reject raw path strings containing control characters
+   (`U+0000` through `U+001F` or `U+007F`), reject parent directory segments
+   (`..`), and compare normalized paths against the allowed boundary as whole
+   path units.
 7. limit `acceptance_checks` to the current safe command set:
    - `git diff --check`
    - `npm run validate*`
    - `npm run done:check`
    - `node --test guild_hall/dev_worker/**`
    - `node --test guild_hall/night_watch/**`
+   Acceptance check strings containing control characters (`U+0000` through
+   `U+001F` or `U+007F`) are not safe-check eligible.
 
 The helper command:
 
@@ -266,6 +276,22 @@ npm run guild-hall:dev-worker:render -- --install --local-root "$PWD" --workmeta
 ```
 
 The rendered automation defaults to `PAUSED`. Keep it paused until the owner explicitly activates the worker lane on that PC.
+
+To check whether an existing local automation has drifted from the tracked
+handoff prompt/root settings without reinstalling it, use the read-only check
+mode against a provided automation TOML:
+
+```bash
+npm run guild-hall:dev-worker:render -- --check --automation-file <automation.toml> --local-root "$PWD" --workmeta-root "$PWD/_workmeta" --private-state-root "$PWD/private-state" --json
+```
+
+This check is a stale handoff guard, not local schedule truth. It compares only
+`id`, rendered `prompt`, `cwds`, and `execution_environment` against the current
+tracked spec/template render, and it reports only short current/stale metadata
+plus prompt hashes when needed. It must not print the prompt body, TOML body,
+local absolute paths, private payloads, or secret-like values. `status`,
+`rrule`, `created_at`, and `updated_at` are ignored because they are PC-local
+owner settings or timestamps.
 
 Recurring worker behavior after activation:
 

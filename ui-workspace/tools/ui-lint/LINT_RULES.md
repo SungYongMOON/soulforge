@@ -7,7 +7,7 @@
 
 ## read-only boundary lint
 
-- `packages/renderer-core/`, `packages/renderer-react/`, `packages/theme-*`, `apps/renderer-web/`, `apps/skin-lab-storybook/` 안에서는 `.registry`, `.unit`, `.workflow`, `.party`, `_workspaces` 정본을 직접 읽거나 import 하지 못하게 한다.
+- `packages/renderer-core/`, `packages/renderer-react/`, `packages/theme-*`, `apps/renderer-web/`, `apps/skin-lab-storybook/`, `apps/team-ops-board-mockup/` 안에서는 `.registry`, `.unit`, `.workflow`, `.party`, `_workspaces` 정본을 직접 읽거나 import 하지 못하게 한다.
 - canonical 경로 문자열이 있어도 producer bridge 상황이 아니면 FAIL 처리하여 read-only boundary 를 유지한다.
 
 ## package boundary lint
@@ -41,6 +41,18 @@
 - public fixture 가 `workspaces.local_scan_enabled = false`, `projects = []` 를 유지하는지 검사한다.
 - `.agent/`, `.agent_class/`, `company/personal`, `_workmeta/<project_code>/runs` 같은 stale/private 흔적이 fixture payload 에 남지 않았는지 검사한다.
 - synthetic workspace policy 경고가 diagnostics 에 드러나는지 검사한다.
+
+## operation board fixture lint
+
+- `fixtures/operation-board/*.sample.json` synthetic fixture 가 존재하는지 검사한다.
+- fixture 는 live `guild_hall/state/snapshot/soulforge_snapshot.json` 복사본이나 source truth 가 아니라 public-safe UI regression sample 이어야 한다.
+- top-level `schema_version = soulforge.snapshot.v0`, `operation_board.schema_version = soulforge.operation_board_projection.v0`, `operation_board.privacy.mode = public_safe_snapshot_projection` 을 검사한다.
+- Operation Board summary count 가 Dungeon Map item, Mission Board item/display group, Monster Gate group total, Battle Log aggregate, Action Queue, Knowledge Lane, Diagnostics section count/status 와 맞는지 검사하고, Diagnostics warning/error counts 는 top-level `diagnostics.summary` 및 `diagnostics.warnings/errors` 배열 길이와 맞는지 검사한다.
+- `sections.dungeon_map.items[*]`, `sections.mission_board.items[*]`, `sections.monster_gate.groups[*]`, `sections.monster_gate.groups[*].items[*]`, `sections.knowledge_lane.blockers[*]`, `sections.battle_log.projects[*]`, `sections.action_queue.items[*]`, `sections.diagnostics.items[*]`, top-level `diagnostics.warnings/errors[*]` 는 문서화된 allowed field 만 허용한다.
+- `sections.action_queue.items[*]` 는 top-level `next_actions[*]` 의 `id`, `status`, `summary` 를 rank 순서로 mirror 해야 한다.
+- fixture payload 에 raw/private/source/attachment/provider/secret/mail body/html/source quote/local absolute path/file URL/NotebookLM payload-like marker 가 있으면 실패한다.
+- 예외는 `operation_board.sections.battle_log.source_ref = _workmeta/*/log/events/**/battle_events.jsonl` aggregate wildcard 뿐이며, Battle Log 개별 event row/ref field 는 금지한다.
+- `operation_board` 전체 future field 는 닫지 않고 section row/group/item object 만 closed shape 로 검사한다.
 
 ## theme isolation lint
 

@@ -105,6 +105,30 @@ Allowed v0 event types:
 Reminder events may point to a `deadline_id`, but they must not copy the raw
 mail body, HTML, attachment payload, or secret-bearing values.
 
+## Watchdog Reminder Preview
+
+`deadline-watchdog-reminders` is a dry-run/manual-confirm surface. It reads
+project-local `deadline_register.csv` files and creates Telegram-ready reminder
+brief candidates for rows that are active, due soon or overdue, outside
+cooldown, and under the max nudge count.
+
+It does not write to the `town_crier` pending queue and does not send Telegram.
+The default output is stdout. `--write-preview` writes only a metadata preview
+under `_workmeta/system/reports/assistant_operating_roadmap/`.
+
+package-clean 주장은 `guild_hall/gateway/deadline_watchdog_reminder.mjs` 가
+`guild_hall/gateway/cli.mjs` 와 함께 tracked package 에 포함될 때만 가능하다.
+
+Suppression rules:
+
+1. `done`, `cancelled`, `superseded`, and `blocked` rows are not reminder candidates.
+2. `snoozed` rows are suppressed while `snooze_until` is in the future.
+3. `next_nudge_at` in the future suppresses the row.
+4. `last_nudged_at` inside the cooldown window suppresses the row.
+5. `nudge_count` at or above max count suppresses the row.
+6. Rows outside the due window are suppressed.
+7. Rows whose `raw_payload_copied` is not `false` are suppressed.
+
 ## Import Rules
 
 V0 import is conservative:
@@ -138,12 +162,17 @@ Minimum checks:
 git diff --check
 npm run validate:workmeta-payload
 npm run guild-hall:gateway:deadline-watch:validate
+npm run guild-hall:gateway:deadline-watch:reminders
 ```
 
 The dedicated validator checks CSV header shape, project folder consistency,
 allowed enums, terminal completion evidence, snooze evidence,
 `raw_payload_copied=false`, event-log JSONL shape, and banned raw/secret
 markers.
+
+The reminder preview command reads only deadline-watch metadata fields and
+prints owner-facing Korean brief candidates. It does not send Telegram or write
+`town_crier` queue entries.
 
 ## V0 Due Observation Import
 

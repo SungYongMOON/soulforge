@@ -1,0 +1,318 @@
+{
+  "schema_version": "soulforge.snapshot.v0",
+  "generated_at": "2026-01-15T09:00:00.000Z",
+  "operation_board": {
+    "schema_version": "soulforge.operation_board_projection.v0",
+    "privacy": {
+      "mode": "public_safe_snapshot_projection"
+    },
+    "summary": {
+      "project_count": 2,
+      "workspace_project_count": 1,
+      "workmeta_project_count": 2,
+      "mission_count": 2,
+      "blocked_mission_count": 1,
+      "ready_mission_count": 1,
+      "pending_monster_count": 2,
+      "blocked_monster_count": 1,
+      "due_watch_monster_count": 1,
+      "battle_log_event_count": 3,
+      "battle_log_project_count_with_events": 2,
+      "knowledge_lane_state": "owner_review_required",
+      "knowledge_evidence_surface_count": 0,
+      "next_action_count": 2,
+      "diagnostics_status": "warning"
+    },
+    "sections": {
+      "dungeon_map": {
+        "label": "Dungeon Map",
+        "items": [
+          {
+            "project_code": "SYN-OPS",
+            "workspace_present": true,
+            "workmeta_present": true,
+            "contract_present": true,
+            "bindings_count": 2,
+            "report_surface_count": 1,
+            "mission_count": 1,
+            "blocked_mission_count": 1,
+            "pending_monster_count": 1,
+            "surface_status": "ready"
+          },
+          {
+            "project_code": "SYN-LAB",
+            "workspace_present": false,
+            "workmeta_present": true,
+            "contract_present": true,
+            "bindings_count": 1,
+            "report_surface_count": 0,
+            "mission_count": 1,
+            "blocked_mission_count": 0,
+            "pending_monster_count": 1,
+            "surface_status": "workspace_missing"
+          }
+        ]
+      },
+      "mission_board": {
+        "label": "Mission Board",
+        "counts_by_status": {
+          "blocked": 1,
+          "held": 1
+        },
+        "counts_by_display_group": {
+          "blocked": 1,
+          "ready": 1
+        },
+        "items": [
+          {
+            "mission_id": "mission_fixture_blocked",
+            "title": "Resolve fixture boundary warning",
+            "project_code": "SYN-OPS",
+            "status": "blocked",
+            "readiness_status": "blocked",
+            "workflow_id_present": true,
+            "party_id": "party_fixture",
+            "terminal_provenance_present": false,
+            "terminal_provenance_complete": false,
+            "terminal_provenance_closed_via_mission_close": false,
+            "terminal_result_matches_readiness": false,
+            "run_pointer_present": false,
+            "battle_event_pointer_present": false,
+            "display_group": "blocked",
+            "display_group_label": "Blocked",
+            "display_group_rank": 10
+          },
+          {
+            "mission_id": "mission_fixture_ready",
+            "title": "Review board sample alignment",
+            "project_code": "SYN-LAB",
+            "status": "held",
+            "readiness_status": "ready",
+            "workflow_id_present": true,
+            "party_id": null,
+            "terminal_provenance_present": false,
+            "terminal_provenance_complete": false,
+            "terminal_provenance_closed_via_mission_close": false,
+            "terminal_result_matches_readiness": false,
+            "run_pointer_present": false,
+            "battle_event_pointer_present": false,
+            "display_group": "ready",
+            "display_group_label": "Ready",
+            "display_group_rank": 20
+          }
+        ]
+      },
+      "monster_gate": {
+        "label": "Monster Gate",
+        "count": 2,
+        "display_limit": 24,
+        "truncated": false,
+        "groups": [
+          {
+            "id": "blocked",
+            "label": "Blocked",
+            "rank": 10,
+            "total": 1,
+            "items": [
+              {
+                "monster_id": "monster_fixture_blocked",
+                "inbox_id": "inbox_fixture_blocked",
+                "monster_family": "fixture_boundary",
+                "monster_name": "Fixture Boundary",
+                "work_pattern": "lint_followup",
+                "objective_summary": "Remove unsupported fields from board rows.",
+                "due_state": "blocked",
+                "d_day": null,
+                "known_status": "blocked",
+                "assignment_status": "pending_dungeon_assignment",
+                "assigned_project_code": "SYN-OPS",
+                "assigned_stage": "review",
+                "project_hint_count": 1,
+                "stage_hint_count": 1,
+                "mail_touch_count": 0,
+                "last_mail_role": null,
+                "mission_ref_present": true,
+                "display_group": "blocked",
+                "display_group_label": "Blocked",
+                "display_group_rank": 10
+              }
+            ]
+          },
+          {
+            "id": "due_watch",
+            "label": "Due watch",
+            "rank": 20,
+            "total": 1,
+            "items": [
+              {
+                "monster_id": "monster_fixture_due_watch",
+                "inbox_id": "inbox_fixture_due_watch",
+                "monster_family": "deadline_watch",
+                "monster_name": "Synthetic Due Watch",
+                "work_pattern": "triage",
+                "objective_summary": "Confirm the sample keeps due-watch counts aligned.",
+                "due_state": "due_soon",
+                "d_day": 2,
+                "known_status": "open",
+                "assignment_status": "pending_dungeon_assignment",
+                "assigned_project_code": "SYN-LAB",
+                "assigned_stage": "planning",
+                "project_hint_count": 1,
+                "stage_hint_count": 1,
+                "mail_touch_count": 0,
+                "last_mail_role": null,
+                "mission_ref_present": false,
+                "display_group": "due_watch",
+                "display_group_label": "Due watch",
+                "display_group_rank": 20
+              }
+            ]
+          },
+          {
+            "id": "assigned_route",
+            "label": "Assigned route",
+            "rank": 30,
+            "total": 0,
+            "items": []
+          },
+          {
+            "id": "routing_hints",
+            "label": "Routing hints",
+            "rank": 40,
+            "total": 0,
+            "items": []
+          },
+          {
+            "id": "needs_identification",
+            "label": "Needs identification",
+            "rank": 50,
+            "total": 0,
+            "items": []
+          },
+          {
+            "id": "open_intake",
+            "label": "Open intake",
+            "rank": 60,
+            "total": 0,
+            "items": []
+          }
+        ]
+      },
+      "knowledge_lane": {
+        "label": "Knowledge Lane",
+        "owner_gated_state": "owner_review_required",
+        "claim_ceiling": "observed",
+        "helper_present": true,
+        "notebooklm_bridge_present": false,
+        "workflow_present_count": 2,
+        "fixture_present": true,
+        "evidence_present": false,
+        "evidence_surface_count": 0,
+        "evidence_counts": {},
+        "blockers": [
+          {
+            "id": "review_required_for_claim_upgrade",
+            "severity": "gate",
+            "summary": "Review is required before stronger claims."
+          }
+        ],
+        "next_owner_review_action": "Keep this sample at observed in UI checks."
+      },
+      "battle_log": {
+        "source_ref": "_workmeta/*/log/events/**/battle_events.jsonl",
+        "event_count": 3,
+        "project_count_with_events": 2,
+        "latest_occurred_at": "2026-01-15T09:00:00.000Z",
+        "result_counts": {
+          "passed": 2,
+          "blocked": 1
+        },
+        "bottleneck_counts": {
+          "none": 2,
+          "review_wait": 1
+        },
+        "mode_counts": {
+          "manual": 1,
+          "automated": 2
+        },
+        "automation_counts": {
+          "manual": 1,
+          "scheduled": 2
+        },
+        "intervention_counts": {
+          "none": 2,
+          "review": 1
+        },
+        "projects": [
+          {
+            "project_code": "SYN-OPS",
+            "event_count": 2,
+            "latest_occurred_at": "2026-01-15T09:00:00.000Z"
+          },
+          {
+            "project_code": "SYN-LAB",
+            "event_count": 1,
+            "latest_occurred_at": "2026-01-14T09:00:00.000Z"
+          }
+        ]
+      },
+      "action_queue": {
+        "label": "Next Actions",
+        "items": [
+          {
+            "id": "action_fixture_started",
+            "status": "started",
+            "summary": "Verify the public board fixture lint.",
+            "rank": 1
+          },
+          {
+            "id": "action_fixture_next",
+            "status": "next",
+            "summary": "Keep UI sample counts aligned with sections.",
+            "rank": 2
+          }
+        ]
+      },
+      "diagnostics": {
+        "label": "Diagnostics",
+        "status": "warning",
+        "warnings": 1,
+        "errors": 0,
+        "items": [
+          {
+            "id": "synthetic_fixture_only",
+            "severity": "warning",
+            "summary": "Synthetic sample only; not live operations data."
+          }
+        ]
+      }
+    }
+  },
+  "next_actions": [
+    {
+      "id": "action_fixture_started",
+      "status": "started",
+      "summary": "Verify the public board fixture lint."
+    },
+    {
+      "id": "action_fixture_next",
+      "status": "next",
+      "summary": "Keep UI sample counts aligned with sections."
+    }
+  ],
+  "diagnostics": {
+    "summary": {
+      "highest_severity": "warning",
+      "warnings": 1,
+      "errors": 0
+    },
+    "warnings": [
+      {
+        "id": "synthetic_fixture_only",
+        "severity": "warning",
+        "summary": "Synthetic sample only; not live operations data."
+      }
+    ],
+    "errors": []
+  }
+}

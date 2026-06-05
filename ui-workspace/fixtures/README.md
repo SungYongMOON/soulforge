@@ -8,14 +8,18 @@
 ## 포함 대상
 
 - `ui-state/` fixture 세트
+- `operation-board/` synthetic public-safe Operation Board snapshot fixture 세트
 
 ## 제외 대상
 
 - canonical YAML sample
 - host-local scratch data
+- live `guild_hall/state/snapshot/soulforge_snapshot.json` 복사본
+- source truth, raw mail body/html, attachment, source text, NotebookLM answer/question payload
 
 ## 관련 경로
 
 - [ui-workspace README](../README.md)
 - [schemas/ui-state.schema.json](../schemas/ui-state.schema.json)
+- [fixtures/operation-board/README.md](./operation-board/README.md)
 - [docs/UI_IMPLEMENTATION_PLAN.md](../docs/UI_IMPLEMENTATION_PLAN.md)

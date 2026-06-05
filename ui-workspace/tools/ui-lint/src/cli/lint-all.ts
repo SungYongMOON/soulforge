@@ -1,6 +1,7 @@
 import { printResult } from "../shared";
 import { runCatalogLint } from "../lint-catalog";
 import { runFixtureCoverageLint } from "../lint-fixture-coverage";
+import { runOperationBoardFixtureLint } from "../lint-operation-board-fixture";
 import { runPackageBoundaryLint } from "../lint-package-boundary";
 import { runReadOnlyBoundaryLint } from "../lint-readonly-boundary";
 import { runThemeIsolationLint } from "../lint-theme-isolation";
@@ -13,6 +14,7 @@ const results = [
   runReadOnlyBoundaryLint(),
   runPackageBoundaryLint(),
   runFixtureCoverageLint(),
+  runOperationBoardFixtureLint(),
   runThemeIsolationLint(),
   runWorkspaceTrackingLint()
 ];

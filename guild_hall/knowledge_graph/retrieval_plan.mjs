@@ -1,3 +1,4 @@
+import { createHash } from "node:crypto";
 import path from "node:path";
 import { buildKnowledgeGraph, KNOWLEDGE_GRAPH_SCHEMA_VERSION } from "./graph_export.mjs";
 import { normalizeRepoPath, pathExists, readJson } from "../shared/io.mjs";
@@ -8,6 +9,33 @@ const DEFAULT_EXPORT_ID = "knowledge_graph_view_v0";
 const DEFAULT_GRAPH_ROOT = "_workspaces/system/knowledge_view/graph_export";
 const STRONG_MATCH_THRESHOLD = 6;
 const SELECTED_NODE_SCORE = 100;
+const GRAPH_REF_FORBIDDEN_PAYLOAD_KEYS = new Set([
+  "answer_text",
+  "chunk_text",
+  "notebooklm_answer",
+  "notebooklm_answer_text",
+  "notebooklm_question",
+  "private_payload",
+  "question_text",
+  "raw_payload",
+  "raw_query",
+  "raw_question",
+  "source_body",
+  "source_text",
+  "source_text_body",
+  "source_text_excerpt",
+]);
+const GRAPH_REF_SECRET_LIKE_KEY_PATTERN =
+  /(^|_)(authorization|bearer|client_secret|cookie|credential|credentials|password|passwd|private_key|refresh_token|secret|session|token|api_key|access_token)($|_)/u;
+const GRAPH_REF_ALLOWED_SECRET_METADATA_KEYS = new Set([
+  "no_secret_or_session",
+  "query_token_fingerprints",
+  "secret_present",
+  "secrets_or_session_included",
+  "token_count",
+  "token_count_or_null",
+  "token_fingerprint_count",
+]);
 
 export async function buildRetrievalPlan(options = {}) {
   const repoRoot = path.resolve(options.repoRoot ?? process.cwd());
@@ -27,6 +55,7 @@ export async function buildRetrievalPlan(options = {}) {
     throw new Error(`selected --node-ref was not found in graph: ${selectedNodeRef}`);
   }
   const query = analyzeQuestion(question || selectedNode?.label || selectedNodeRef);
+  const questionMetadata = buildQuestionMetadata({ question, query });
   const maxNodes = clampInteger(options.maxNodes ?? 8, 1, 50);
   const maxPaths = clampInteger(options.maxPaths ?? 12, 0, 100);
   const maxSourceRefs = clampInteger(options.maxSourceRefs ?? 20, 0, 200);
@@ -59,11 +88,7 @@ export async function buildRetrievalPlan(options = {}) {
     generated_at_utc: new Date().toISOString(),
     graph_ref: graphLoad.graphRef,
     graph_loaded_from: graphLoad.loadedFrom,
-    question: {
-      text: question,
-      tokens: [...query.tokens],
-      detected_modes: query.detectedModes,
-    },
+    question: questionMetadata,
     display: {
       mode: selectedNodeRef ? "selected_node" : "question",
       title: detectionCard.title,
@@ -72,7 +97,7 @@ export async function buildRetrievalPlan(options = {}) {
     selected_node_ref: selectedNodeRef,
     selected_node: selectedCandidate,
     input: {
-      question_text: question,
+      question_present: questionMetadata.question_present,
       selected_node_ref: selectedNodeRef,
       max_nodes: maxNodes,
       max_paths: maxPaths,
@@ -85,6 +110,8 @@ export async function buildRetrievalPlan(options = {}) {
       no_vector_search: true,
       no_notebooklm_answers: true,
       no_private_payloads: true,
+      raw_query_persisted: false,
+      no_query_tokens_persisted: true,
       no_canon_or_ontology_mutation: true,
       plan_is_navigation_signal_not_truth: true,
     },
@@ -134,6 +161,140 @@ function validateGraphBoundary(graph) {
   if (graph?.boundary?.metadata_only !== true || graph?.graph_scope?.metadata_only !== true) {
     throw new Error("retrieval plan only accepts metadata-only knowledge graph exports");
   }
+  const payloadBlockers = findGraphPayloadBoundaryBlockers(graph);
+  if (payloadBlockers.length > 0) {
+    throw new Error(formatGraphPayloadBoundaryError(payloadBlockers));
+  }
+}
+
+function findGraphPayloadBoundaryBlockers(graph) {
+  const blockers = [];
+  collectGraphPayloadBoundaryBlockers(graph, "graph", blockers);
+  return [...new Set(blockers)];
+}
+
+function collectGraphPayloadBoundaryBlockers(value, trail, blockers) {
+  if (Array.isArray(value)) {
+    value.forEach((item, index) => collectGraphPayloadBoundaryBlockers(item, `${trail}[${index}]`, blockers));
+    return;
+  }
+  if (value && typeof value === "object") {
+    for (const [key, child] of Object.entries(value)) {
+      const normalizedKey = normalizeGraphBoundaryKey(key);
+      const childTrail = `${trail}.${safeGraphBoundaryTrailKey(key, normalizedKey)}`;
+      if (isForbiddenGraphPayloadKey(normalizedKey)) {
+        blockers.push(`${graphPayloadKeyBlockerCode(normalizedKey)}@${childTrail}`);
+      }
+      if (isSecretLikeGraphBoundaryKey(normalizedKey)) {
+        blockers.push(`secret_like_key_must_not_be_included@${childTrail}`);
+      }
+      collectGraphPayloadBoundaryBlockers(child, childTrail, blockers);
+    }
+    return;
+  }
+  if (typeof value !== "string") return;
+  if (hasFileUrlString(value)) {
+    blockers.push(`file_url_must_not_be_included@${trail}`);
+  }
+  if (hasLocalAbsolutePathString(value)) {
+    blockers.push(`local_absolute_path_must_not_be_included@${trail}`);
+  }
+  if (hasSecretLikeValueString(value)) {
+    blockers.push(`secret_like_value_must_not_be_included@${trail}`);
+  }
+}
+
+function formatGraphPayloadBoundaryError(blockers) {
+  const visibleBlockers = blockers.slice(0, 16).join(", ");
+  const omittedCount = blockers.length > 16 ? `, omitted=${blockers.length - 16}` : "";
+  return `explicit_graph_ref_payload_boundary_violation: blockers=${blockers.length}${omittedCount}; ${visibleBlockers}`;
+}
+
+function normalizeGraphBoundaryKey(key) {
+  return String(key ?? "")
+    .normalize("NFKC")
+    .replace(/([A-Z]+)([A-Z][a-z])/g, "$1_$2")
+    .replace(/([a-z0-9])([A-Z])/g, "$1_$2")
+    .toLowerCase()
+    .replace(/[-\s]+/gu, "_")
+    .replace(/_{2,}/gu, "_")
+    .replace(/^_|_$/gu, "");
+}
+
+function safeGraphBoundaryTrailKey(key, normalizedKey) {
+  if (isForbiddenGraphPayloadKey(normalizedKey)) return "<payload_key>";
+  if (isSecretLikeGraphBoundaryKey(normalizedKey)) return "<secret_like_key>";
+  const rawKey = String(key ?? "");
+  if (/^[A-Za-z0-9_.:-]{1,80}$/u.test(rawKey) && !hasFileUrlString(rawKey) && !hasLocalAbsolutePathString(rawKey)) {
+    return rawKey;
+  }
+  return "<field>";
+}
+
+function isForbiddenGraphPayloadKey(normalizedKey) {
+  if (GRAPH_REF_FORBIDDEN_PAYLOAD_KEYS.has(normalizedKey)) return true;
+  if (isMetadataBoundaryFlagKey(normalizedKey)) return false;
+  return isNotebookLmAnswerKey(normalizedKey) || isNotebookLmQuestionKey(normalizedKey);
+}
+
+function graphPayloadKeyBlockerCode(normalizedKey) {
+  if (normalizedKey === "source_text" || normalizedKey.startsWith("source_text_") || normalizedKey === "source_body") {
+    return "source_text_must_not_be_included";
+  }
+  if (normalizedKey === "chunk_text") return "chunk_text_must_not_be_included";
+  if (isNotebookLmAnswerKey(normalizedKey)) {
+    return "notebooklm_answer_must_not_be_included";
+  }
+  if (isNotebookLmQuestionKey(normalizedKey)) return "notebooklm_question_must_not_be_included";
+  if (["question_text", "raw_query", "raw_question"].includes(normalizedKey)) return "raw_query_must_not_be_persisted";
+  return "forbidden_payload_key_must_not_be_included";
+}
+
+function isNotebookLmAnswerKey(normalizedKey) {
+  return /^notebook_?lm_.*answer/u.test(normalizedKey);
+}
+
+function isNotebookLmQuestionKey(normalizedKey) {
+  return /^notebook_?lm_.*question/u.test(normalizedKey);
+}
+
+function isSecretLikeGraphBoundaryKey(normalizedKey) {
+  if (GRAPH_REF_ALLOWED_SECRET_METADATA_KEYS.has(normalizedKey)) return false;
+  if (isMetadataBoundaryFlagKey(normalizedKey)) return false;
+  return GRAPH_REF_SECRET_LIKE_KEY_PATTERN.test(normalizedKey);
+}
+
+function isMetadataBoundaryFlagKey(normalizedKey) {
+  return (
+    normalizedKey.startsWith("no_") ||
+    normalizedKey.endsWith("_allowed") ||
+    normalizedKey.endsWith("_included") ||
+    normalizedKey.endsWith("_present") ||
+    normalizedKey.endsWith("_persisted")
+  );
+}
+
+function hasFileUrlString(value) {
+  return /\bfile:\/\//iu.test(String(value ?? ""));
+}
+
+function hasLocalAbsolutePathString(value) {
+  const text = String(value ?? "");
+  return /(^|[\s"'(])\/(?:Users|Volumes|private|var\/folders|tmp|home)\//u.test(text) || /[A-Za-z]:[\\/]/u.test(text);
+}
+
+function hasSecretLikeValueString(value) {
+  const text = String(value ?? "").trim();
+  if (!text) return false;
+  if (/-----BEGIN [A-Z ]*PRIVATE KEY-----/u.test(text)) return true;
+  if (/\b(?:sk-[A-Za-z0-9_-]{20,}|ghp_[A-Za-z0-9_]{20,}|xox[baprs]-[A-Za-z0-9-]{20,}|AKIA[0-9A-Z]{16})\b/u.test(text)) {
+    return true;
+  }
+  if (/\b(?:password|passwd|secret|api[_-]?key|access[_-]?token|refresh[_-]?token|session[_-]?cookie)\s*[:=]\s*["']?[^"'\s]{8,}/iu.test(text)) {
+    return true;
+  }
+  if (/\bbearer\s+[A-Za-z0-9._~+/-]{20,}/iu.test(text)) return true;
+  return false;
 }
 
 function analyzeQuestion(question) {
@@ -160,6 +321,26 @@ function analyzeQuestion(question) {
   return { tokens, detectedModes };
 }
 
+function buildQuestionMetadata({ question, query }) {
+  const questionPresent = question.length > 0;
+  const rawQuestionTokens = questionPresent ? tokenize(question) : new Set();
+  const queryTokenFingerprints = [...rawQuestionTokens].sort().map((token) => fingerprintValue("query-token", token));
+  return {
+    question_present: questionPresent,
+    raw_query_persisted: false,
+    query_fingerprint: questionPresent ? fingerprintValue("query", normalizeSearchText(question)) : null,
+    token_count: rawQuestionTokens.size,
+    token_fingerprint_count: queryTokenFingerprints.length,
+    query_token_fingerprints: queryTokenFingerprints,
+    detected_modes: query.detectedModes,
+  };
+}
+
+function fingerprintValue(namespace, value) {
+  const hash = createHash("sha256").update(`${namespace}\0${value}`, "utf8").digest("hex");
+  return `sha256:${hash}`;
+}
+
 function scoreNodes(nodes, query, selectedNodeRef) {
   return nodes
     .map((node) => {
@@ -177,23 +358,23 @@ function scoreNodes(nodes, query, selectedNodeRef) {
       for (const token of query.tokens) {
         if (labelTokens.has(token)) {
           score += 6;
-          reasons.push(`label:${token}`);
+          reasons.push("label_match");
         }
         if (refTokens.has(token)) {
           score += 4;
-          reasons.push(`ref:${token}`);
+          reasons.push("ref_match");
         }
         if (summaryTokens.has(token)) {
           score += 3;
-          reasons.push(`summary:${token}`);
+          reasons.push("summary_match");
         }
         if (sourceRefTokens.has(token)) {
           score += 2;
-          reasons.push(`source_ref:${token}`);
+          reasons.push("source_ref_match");
         }
         if (typeTokens.has(token)) {
           score += 1;
-          reasons.push(`type:${token}`);
+          reasons.push("type_match");
         }
       }
       if (query.detectedModes.includes("graph_vector_comparison") && refTokens.has("graph") && refTokens.has("rag")) {
@@ -330,10 +511,10 @@ function buildMissingEvidenceItems({ graph, query, candidates, relationPaths, se
       "No explicit knowledge-access ledger refs are included, so usage and recency are navigation defaults only.",
     );
   }
-  if (!nodeTypes.has("source") || !relationTypes.has("supports")) {
+  if (!hasSourceSupportPath({ nodeTypes, relationTypes })) {
     addMissing(
       "no_source_support_edges",
-      "No source nodes or `supports` edges are present, so the plan can point to metadata refs but not evidence-source support paths.",
+      "No source nodes or `supports`/`derived_from` source-support edges are present, so the plan can point to metadata refs but not evidence-source support paths.",
     );
   }
   if (query.detectedModes.includes("graph_vector_comparison")) {
@@ -355,6 +536,10 @@ function buildMissingEvidenceItems({ graph, query, candidates, relationPaths, se
     addMissing("no_validation_benchmark", "No validation or benchmark node is present for corpus-specific retrieval quality claims.");
   }
   return dedupeByCode(missing);
+}
+
+function hasSourceSupportPath({ nodeTypes, relationTypes }) {
+  return nodeTypes.has("source") && (relationTypes.has("supports") || relationTypes.has("derived_from"));
 }
 
 function dedupeByCode(items) {
@@ -381,7 +566,7 @@ function buildNextActionItems({ missingEvidenceItems, candidates, selectedNodeRe
     );
   }
   if (codes.has("no_source_support_edges")) {
-    addAction("add_source_support_edges", "Add public-safe `source` nodes plus `supports` or `derived_from` edges for reviewed source refs.");
+    addAction("add_source_support_edges", "Add public-safe `source` nodes plus `supports` or `derived_from` source-support edges for reviewed source refs.");
   }
   if (codes.has("no_knowledge_access_ledger_refs")) {
     addAction("regenerate_with_ledger_refs", "Regenerate the graph with explicit knowledge-access ledger refs when usage or recency matters.");

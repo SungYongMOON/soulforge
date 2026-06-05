@@ -1,14 +1,19 @@
 import assert from "node:assert/strict";
+import { spawn } from "node:child_process";
 import { mkdir, mkdtemp, readFile, rm, writeFile } from "node:fs/promises";
 import os from "node:os";
 import path from "node:path";
 import test from "node:test";
-import { exportKnowledgeGraph } from "./graph_export.mjs";
+import { fileURLToPath } from "node:url";
+import { analyzeMetadataOnlySourceEdgeGaps, exportKnowledgeGraph } from "./graph_export.mjs";
 import {
   DEFAULT_KNOWLEDGE_GRAPH_REVIEW_MODEL,
   buildKnowledgeGraphReviewRequest,
 } from "./llm_review.mjs";
 import { buildRetrievalPlan } from "./retrieval_plan.mjs";
+
+const SAFE_SHA256_FINGERPRINT = /^sha256:[a-f0-9]{64}$/;
+const RAW_TOKEN_REASON_PATTERN = /^(label|ref|summary|source_ref|type):/;
 
 test("exportKnowledgeGraph writes metadata-only graph, HTML preview, and Obsidian notes", async () => {
   const repoRoot = await mkdtemp(path.join(os.tmpdir(), "soulforge-knowledge-graph-"));
@@ -114,6 +119,29 @@ test("exportKnowledgeGraph writes metadata-only graph, HTML preview, and Obsidia
     const candidateKnowledgeNode = graph.nodes.find((node) => node.node_ref === ".registry/knowledge/graph_rag");
     assert.ok(candidateKnowledgeNode);
     assert.equal(candidateKnowledgeNode.trust.claim_ceiling, "source_supported");
+    assert.equal(graph.connectivity_analysis.source_edge_gap_scout.status, "metadata_gap_observed");
+    assert.equal(graph.connectivity_analysis.source_edge_gap_scout.claim_ceiling, "observed");
+    assert.equal(graph.connectivity_analysis.source_edge_gap_scout.target_claim_ceiling, "source_supported");
+    assert.equal(graph.connectivity_analysis.source_edge_gap_scout.checked_node_count, 1);
+    assert.equal(graph.connectivity_analysis.source_edge_gap_scout.gap_count, 1);
+    assert.deepEqual(graph.connectivity_analysis.source_edge_gap_scout.gap_nodes, [
+      {
+        node_ref: ".registry/knowledge/graph_rag",
+        node_id: "graph_rag",
+        claim_ceiling: "source_supported",
+        source_ref_count: 2,
+        missing_edge_type: "supports_or_derived_from",
+      },
+    ]);
+    assert.equal(graph.connectivity_analysis.source_edge_gap_scout.boundary.no_source_nodes_created, true);
+    assert.equal(graph.connectivity_analysis.source_edge_gap_scout.boundary.no_source_edges_created, true);
+    assert.doesNotMatch(JSON.stringify(graph.connectivity_analysis.source_edge_gap_scout), /example\.invalid/);
+    assert.equal(
+      graph.connectivity_analysis.possible_missing_relation_surfaces.includes(
+        ".registry/knowledge/*/source_support source nodes and supports/derived_from edges",
+      ),
+      true,
+    );
 
     const usageEdge = graph.edges.find(
       (edge) =>
@@ -258,6 +286,9 @@ test("exportKnowledgeGraph writes metadata-only graph, HTML preview, and Obsidia
     assert.match(bundle, /no_notebooklm_answers/);
     assert.match(bundle, /no_vector_search/);
     assert.match(bundle, /no_codex_bridge_auto_call/);
+    assert.match(bundle, /hasSourceSupportPath/);
+    assert.match(bundle, /relationTypes\.has\("derived_from"\)/);
+    assert.match(bundle, /supports\/derived_from source-support edges/);
     assert.match(bundle, /selected_node_no_relation_paths/);
     assert.match(bundle, /add_selected_node_relation_edges/);
     assert.match(bundle, /componentHaloCount/);
@@ -639,18 +670,31 @@ test("exportKnowledgeGraph writes metadata-only graph, HTML preview, and Obsidia
     assert.equal(plan.status, "metadata_only");
     assert.equal(plan.boundary.no_answer_generated, true);
     assert.equal(plan.boundary.no_source_text_loaded, true);
+    assert.equal(plan.boundary.raw_query_persisted, false);
+    assert.equal(plan.boundary.no_query_tokens_persisted, true);
+    assert.equal(plan.question.question_present, true);
+    assert.equal(plan.question.raw_query_persisted, false);
+    assert.match(plan.question.query_fingerprint, SAFE_SHA256_FINGERPRINT);
+    assert.equal(plan.question.token_count, plan.question.query_token_fingerprints.length);
+    assert.equal(plan.question.token_fingerprint_count, plan.question.query_token_fingerprints.length);
+    assert.equal(plan.question.query_token_fingerprints.every((fingerprint) => SAFE_SHA256_FINGERPRINT.test(fingerprint)), true);
+    assert.equal(Object.hasOwn(plan.question, "text"), false);
+    assert.equal(Object.hasOwn(plan.question, "tokens"), false);
     assert.equal(plan.question.detected_modes.includes("multi_hop"), true);
     assert.equal(plan.question.detected_modes.includes("graph_vector_comparison"), true);
     assert.equal(plan.selected_node_ref, null);
     assert.equal(plan.selected_node, null);
     assert.equal(plan.display.mode, "question");
     assert.equal(plan.display.title, plan.detection_card.title);
-    assert.equal(plan.input.question_text, "GraphRAG multi-hop source-backed retrieval plan");
+    assert.equal(plan.input.question_present, true);
+    assert.equal(Object.hasOwn(plan.input, "question_text"), false);
     assert.equal(plan.input.max_source_refs, 20);
     assert.deepEqual(plan.candidate_nodes, plan.candidates);
     assert.equal(plan.candidates[0].node_ref, ".registry/knowledge/graph_rag");
     assert.equal(plan.candidates[0].is_selected, false);
     assert.equal(plan.candidates[0].claim_ceiling, "source_supported");
+    assert.equal(plan.candidates[0].match_reasons.includes("label_match"), true);
+    assert.equal(plan.candidates[0].match_reasons.some((reason) => RAW_TOKEN_REASON_PATTERN.test(reason)), false);
     assert.ok(plan.relation_paths.find((item) => item.to.node_ref === ".registry/knowledge/graph_rag"));
     const graphRagSourceRef = plan.source_refs.find((item) => item.ref === ".registry/knowledge/graph_rag/knowledge.yaml");
     assert.ok(graphRagSourceRef);
@@ -680,10 +724,13 @@ test("exportKnowledgeGraph writes metadata-only graph, HTML preview, and Obsidia
     assert.equal(selectedPlan.selected_node.node_ref, ".registry/knowledge/graph_rag");
     assert.equal(selectedPlan.selected_node.is_selected, true);
     assert.equal(selectedPlan.selected_node.match_reasons.includes("selected:node_ref"), true);
+    assert.equal(selectedPlan.selected_node.match_reasons.some((reason) => RAW_TOKEN_REASON_PATTERN.test(reason)), false);
     assert.equal(selectedPlan.display.mode, "selected_node");
     assert.equal(selectedPlan.candidate_nodes[0].node_ref, ".registry/knowledge/graph_rag");
     assert.equal(selectedPlan.candidate_nodes[0].is_selected, true);
     assert.equal(selectedPlan.candidate_nodes[0].match_reasons.includes("selected:node_ref"), true);
+    assert.equal(selectedPlan.candidate_nodes[0].match_reasons.some((reason) => RAW_TOKEN_REASON_PATTERN.test(reason)), false);
+    assert.doesNotMatch(JSON.stringify(selectedPlan), /이 노드 기준으로 탐지 카드/);
     assert.equal(selectedPlan.detection_card.title, "탐지 카드: GraphRAG");
     assert.equal(selectedPlan.detection_card.focus_node_ref, ".registry/knowledge/graph_rag");
     assert.equal(selectedPlan.detection_card.claim_ceiling, "source_supported");
@@ -709,7 +756,15 @@ test("exportKnowledgeGraph writes metadata-only graph, HTML preview, and Obsidia
       maxNodes: 3,
       maxPaths: 6,
     });
-    assert.equal(isolatedPlan.question.text, "");
+    assert.equal(isolatedPlan.question.question_present, false);
+    assert.equal(isolatedPlan.question.raw_query_persisted, false);
+    assert.equal(isolatedPlan.question.query_fingerprint, null);
+    assert.equal(isolatedPlan.question.token_count, 0);
+    assert.equal(isolatedPlan.question.token_fingerprint_count, 0);
+    assert.deepEqual(isolatedPlan.question.query_token_fingerprints, []);
+    assert.equal(Object.hasOwn(isolatedPlan.question, "text"), false);
+    assert.equal(Object.hasOwn(isolatedPlan.question, "tokens"), false);
+    assert.equal(Object.hasOwn(isolatedPlan.input, "question_text"), false);
     assert.equal(isolatedPlan.selected_node_ref, ".registry/knowledge/isolated_note");
     assert.equal(isolatedPlan.candidate_nodes[0].node_ref, ".registry/knowledge/isolated_note");
     assert.equal(isolatedPlan.relation_paths.length, 0);
@@ -731,6 +786,479 @@ test("exportKnowledgeGraph writes metadata-only graph, HTML preview, and Obsidia
     await rm(repoRoot, { recursive: true, force: true });
   }
 });
+
+test("source_edge_gap_scout requires a real source endpoint on supports or derived_from edges", () => {
+  const sourceSupportedNodes = [
+    {
+      node_ref: ".registry/knowledge/connected_by_supports",
+      node_type: "knowledge",
+      trust: { claim_ceiling: "source_supported" },
+    },
+    {
+      node_ref: ".registry/knowledge/connected_by_derived_from",
+      node_type: "knowledge",
+      trust: { claim_ceiling: "source_supported" },
+    },
+    {
+      node_ref: ".registry/knowledge/non_source_endpoint_only",
+      node_type: "knowledge",
+      trust: { claim_ceiling: "source_supported" },
+    },
+    {
+      node_ref: "fixture_source:supports_endpoint",
+      node_type: "source",
+      trust: { claim_ceiling: "observed" },
+    },
+    {
+      node_ref: "fixture_source:derived_from_endpoint",
+      node_type: "source",
+      trust: { claim_ceiling: "observed" },
+    },
+    {
+      node_ref: ".registry/classes/archivist",
+      node_type: "class",
+      trust: { claim_ceiling: "canon_entry" },
+    },
+  ];
+  const sourceSupportMetadataByNodeRef = new Map([
+    [".registry/knowledge/connected_by_supports", { source_ref_count: 1 }],
+    [".registry/knowledge/connected_by_derived_from", { source_ref_count: 1 }],
+    [".registry/knowledge/non_source_endpoint_only", { source_ref_count: 1 }],
+  ]);
+  const scout = analyzeMetadataOnlySourceEdgeGaps({
+    nodes: sourceSupportedNodes,
+    edges: [
+      {
+        from_ref: "fixture_source:supports_endpoint",
+        to_ref: ".registry/knowledge/connected_by_supports",
+        relation_type: "supports",
+      },
+      {
+        from_ref: ".registry/knowledge/connected_by_derived_from",
+        to_ref: "fixture_source:derived_from_endpoint",
+        relation_type: "derived_from",
+      },
+      {
+        from_ref: ".registry/classes/archivist",
+        to_ref: ".registry/knowledge/non_source_endpoint_only",
+        relation_type: "supports",
+      },
+    ],
+    byRef: new Map(sourceSupportedNodes.map((node) => [node.node_ref, node])),
+    sourceSupportMetadataByNodeRef,
+  });
+
+  assert.equal(scout.checked_node_count, 3);
+  assert.equal(scout.gap_count, 1);
+  assert.deepEqual(scout.gap_nodes, [
+    {
+      node_ref: ".registry/knowledge/non_source_endpoint_only",
+      node_id: "non_source_endpoint_only",
+      claim_ceiling: "source_supported",
+      source_ref_count: 1,
+      missing_edge_type: "source_node_endpoint",
+    },
+  ]);
+  assert.equal(scout.boundary.no_source_text_loaded, true);
+  assert.equal(scout.boundary.no_source_truth_claim, true);
+});
+
+test("retrieval plan treats derived_from source-support edges as source support paths", async () => {
+  const repoRoot = await mkdtemp(path.join(os.tmpdir(), "soulforge-knowledge-graph-derived-from-"));
+  try {
+    const graphRef = "_workspaces/system/knowledge_view/graph_export/derived_from_only/graph.json";
+    const graphPath = path.join(repoRoot, graphRef);
+    await mkdir(path.dirname(graphPath), { recursive: true });
+    await writeFile(
+      graphPath,
+      `${JSON.stringify(
+        {
+          schema_version: "soulforge.knowledge_graph_view.v0",
+          kind: "knowledge_graph_view",
+          export_id: "derived_from_only",
+          graph_scope: {
+            ledger_refs: [],
+            canon_only: true,
+            metadata_only: true,
+          },
+          boundary: {
+            metadata_only: true,
+          },
+          nodes: [
+            {
+              node_ref: ".registry/knowledge/graph_rag",
+              node_type: "knowledge",
+              label: "GraphRAG",
+              summary: "Metadata-only derived_from source-support fixture.",
+              source_refs: {
+                node_type: ".registry/knowledge/graph_rag/knowledge.yaml",
+                label: ".registry/knowledge/graph_rag/knowledge.yaml",
+                trust: ".registry/knowledge/graph_rag/knowledge.yaml",
+                lifecycle: ".registry/knowledge/graph_rag/knowledge.yaml",
+              },
+              trust: { claim_ceiling: "source_supported" },
+              lifecycle: { status: "active" },
+            },
+            {
+              node_ref: "fixture_source:derived_from_endpoint",
+              node_type: "source",
+              label: "Derived From Endpoint",
+              summary: "Synthetic metadata-only source node.",
+              source_refs: {
+                node_type: "fixture:source_metadata",
+                label: "fixture:source_metadata",
+                trust: "fixture:source_metadata",
+                lifecycle: "fixture:source_metadata",
+              },
+              trust: { claim_ceiling: "observed" },
+              lifecycle: { status: "active" },
+            },
+          ],
+          edges: [
+            {
+              edge_ref: "edge:derived_from_only",
+              from_ref: ".registry/knowledge/graph_rag",
+              to_ref: "fixture_source:derived_from_endpoint",
+              relation_type: "derived_from",
+              relation_state: "confirmed",
+              directed: true,
+              source_refs: {
+                relation_type: "fixture:source_support_metadata",
+                strength: "fixture:source_support_metadata",
+                state: "fixture:source_support_metadata",
+              },
+              metrics: {
+                evidence_event_count: 1,
+              },
+            },
+          ],
+        },
+        null,
+        2,
+      )}\n`,
+      "utf8",
+    );
+
+    const plan = await buildRetrievalPlan({
+      repoRoot,
+      graphRef,
+      question: "GraphRAG derived_from source support",
+      nodeRef: ".registry/knowledge/graph_rag",
+      maxNodes: 3,
+      maxPaths: 4,
+    });
+
+    assert.equal(plan.relation_paths[0].relation_type, "derived_from");
+    assert.equal(plan.missing_evidence_items.some((item) => item.code === "no_source_support_edges"), false);
+    assert.equal(plan.next_action_items.some((item) => item.code === "add_source_support_edges"), false);
+    assert.doesNotMatch(plan.missing_evidence.join("\n"), /No source nodes/);
+    assert.equal(plan.boundary.no_source_text_loaded, true);
+    assert.equal(plan.boundary.no_canon_or_ontology_mutation, true);
+  } finally {
+    await rm(repoRoot, { recursive: true, force: true });
+  }
+});
+
+test("knowledge_graph_plan_cli_metadata_boundary_smoke_v0", async () => {
+  const repoRoot = await mkdtemp(path.join(os.tmpdir(), "soulforge-knowledge-graph-cli-plan-"));
+  try {
+    const graphRef = "_workspaces/system/knowledge_view/graph_export/cli_metadata_boundary/graph.json";
+    const graphPath = path.join(repoRoot, graphRef);
+    await mkdir(path.dirname(graphPath), { recursive: true });
+    await writeFile(
+      graphPath,
+      `${JSON.stringify(
+        {
+          schema_version: "soulforge.knowledge_graph_view.v0",
+          kind: "knowledge_graph_view",
+          export_id: "cli_metadata_boundary",
+          graph_scope: {
+            ledger_refs: [],
+            canon_only: true,
+            metadata_only: true,
+          },
+          boundary: {
+            metadata_only: true,
+            no_raw_payloads: true,
+            no_source_text_loaded: true,
+            no_notebooklm_answers: true,
+            no_private_payloads: true,
+            no_secret_or_session: true,
+            no_runtime_absolute_paths: true,
+            no_canon_or_ontology_mutation: true,
+          },
+          nodes: [
+            {
+              node_ref: ".registry/knowledge/graph_rag",
+              node_type: "knowledge",
+              label: "GraphRAG",
+              summary: "Synthetic metadata-only CLI plan fixture.",
+              source_refs: {
+                node_type: ".registry/knowledge/graph_rag/knowledge.yaml",
+                label: ".registry/knowledge/graph_rag/knowledge.yaml",
+                trust: ".registry/knowledge/graph_rag/knowledge.yaml",
+                lifecycle: ".registry/knowledge/graph_rag/knowledge.yaml",
+              },
+              trust: { claim_ceiling: "source_supported" },
+              lifecycle: { status: "active" },
+            },
+            {
+              node_ref: "fixture_source:metadata_endpoint",
+              node_type: "source",
+              label: "Metadata Endpoint",
+              summary: "Synthetic source metadata endpoint.",
+              source_refs: {
+                node_type: "fixture:source_metadata",
+                label: "fixture:source_metadata",
+                trust: "fixture:source_metadata",
+                lifecycle: "fixture:source_metadata",
+              },
+              trust: { claim_ceiling: "observed" },
+              lifecycle: { status: "active" },
+            },
+          ],
+          edges: [
+            {
+              edge_ref: "edge:cli_metadata_boundary_support",
+              from_ref: "fixture_source:metadata_endpoint",
+              to_ref: ".registry/knowledge/graph_rag",
+              relation_type: "supports",
+              relation_state: "confirmed",
+              directed: true,
+              source_refs: {
+                relation_type: "fixture:source_support_metadata",
+                strength: "fixture:source_support_metadata",
+                state: "fixture:source_support_metadata",
+              },
+              metrics: {
+                evidence_event_count: 1,
+              },
+            },
+          ],
+        },
+        null,
+        2,
+      )}\n`,
+      "utf8",
+    );
+
+    const rawQuerySentinel = "RAW_QUERY_SHOULD_NOT_APPEAR leaksentinelalpha leaktokenbeta";
+    const cliPath = fileURLToPath(new URL("./cli.mjs", import.meta.url));
+    const result = await runProcess(process.execPath, [
+      cliPath,
+      "plan",
+      "--repo-root",
+      repoRoot,
+      "--graph-ref",
+      graphRef,
+      "--question",
+      rawQuerySentinel,
+      "--node-ref",
+      ".registry/knowledge/graph_rag",
+      "--max-nodes",
+      "3",
+      "--max-paths",
+      "4",
+    ]);
+
+    assert.equal(result.code, 0, result.stderr);
+    let plan;
+    assert.doesNotThrow(() => {
+      plan = JSON.parse(result.stdout);
+    });
+    assert.equal(plan.boundary.no_source_text_loaded, true);
+    assert.equal(plan.boundary.no_canon_or_ontology_mutation, true);
+    assert.equal(plan.boundary.no_notebooklm_answers, true);
+    assert.equal(plan.boundary.raw_query_persisted, false);
+    assert.equal(plan.boundary.no_query_tokens_persisted, true);
+    assert.equal(plan.question.question_present, true);
+    assert.equal(plan.question.raw_query_persisted, false);
+    assert.match(plan.question.query_fingerprint, SAFE_SHA256_FINGERPRINT);
+    assert.equal(plan.question.query_token_fingerprints.every((fingerprint) => SAFE_SHA256_FINGERPRINT.test(fingerprint)), true);
+    assert.equal(plan.question.token_fingerprint_count, plan.question.query_token_fingerprints.length);
+    assert.equal(Object.hasOwn(plan.question, "text"), false);
+    assert.equal(Object.hasOwn(plan.question, "tokens"), false);
+    assert.equal(Object.hasOwn(plan.input, "question_text"), false);
+    assert.equal(plan.candidate_nodes.some((candidate) => candidate.match_reasons.some((reason) => RAW_TOKEN_REASON_PATTERN.test(reason))), false);
+
+    const forbiddenStdoutSnippets = [
+      rawQuerySentinel,
+      "RAW_QUERY_SHOULD_NOT_APPEAR",
+      "leaksentinelalpha",
+      "leaktokenbeta",
+      "SOURCE_TEXT_SHOULD_NOT_APPEAR",
+      "CHUNK_BODY_SHOULD_NOT_APPEAR",
+      "NOTEBOOKLM_ANSWER_SHOULD_NOT_APPEAR",
+      "NOTEBOOKLM_QUESTION_SHOULD_NOT_APPEAR",
+      "FAKE_SECRET_MARKER_SHOULD_NOT_APPEAR",
+      repoRoot,
+      "file://",
+    ];
+    for (const snippet of forbiddenStdoutSnippets) {
+      assert.doesNotMatch(result.stdout, new RegExp(escapeRegExp(snippet)));
+    }
+    assert.doesNotMatch(result.stdout, /"question_text"\s*:/);
+    assert.doesNotMatch(result.stdout, /"text"\s*:/);
+    assert.doesNotMatch(result.stdout, /"tokens"\s*:/);
+  } finally {
+    await rm(repoRoot, { recursive: true, force: true });
+  }
+});
+
+test("knowledge_graph_explicit_graph_ref_payload_boundary_negative_fixture_v0", async () => {
+  const repoRoot = await mkdtemp(path.join(os.tmpdir(), "soulforge-knowledge-graph-plan-boundary-"));
+  try {
+    const graphRef = "_workspaces/system/knowledge_view/graph_export/plan_payload_boundary/graph.json";
+    const graphPath = path.join(repoRoot, graphRef);
+    const forbiddenSentinels = {
+      sourceText: "SOURCE_TEXT_SHOULD_NOT_APPEAR fixture source prose",
+      chunkText: "CHUNK_TEXT_SHOULD_NOT_APPEAR fixture chunk prose",
+      notebookAnswer: "NOTEBOOKLM_ANSWER_SHOULD_NOT_APPEAR fixture answer prose",
+      notebookQuestion: "NOTEBOOKLM_QUESTION_SHOULD_NOT_APPEAR fixture question prose",
+      notebookQuestionText: "NOTEBOOKLM_QUESTION_TEXT_SHOULD_NOT_APPEAR fixture question text prose",
+      notebookQuestionBody: "NOTEBOOKLM_QUESTION_BODY_SHOULD_NOT_APPEAR fixture question body prose",
+      rawQuery: "RAW_QUERY_SHOULD_NOT_APPEAR fixture raw query",
+      secretValue: "password=FAKE_SECRET_VALUE_SHOULD_NOT_APPEAR",
+      camelSecretValue: "api_key=FAKE_CAMEL_SECRET_VALUE_SHOULD_NOT_APPEAR",
+      fileUrl: ["file:", "///", "Volumes", "fixture", "SHOULD_NOT_APPEAR", "source.txt"].join("/"),
+      localPath: ["", "Users", "fixture", "SHOULD_NOT_APPEAR", "source.txt"].join("/"),
+    };
+    await mkdir(path.dirname(graphPath), { recursive: true });
+    await writeFile(
+      graphPath,
+      `${JSON.stringify(
+        {
+          schema_version: "soulforge.knowledge_graph_view.v0",
+          kind: "knowledge_graph_view",
+          export_id: "plan_payload_boundary",
+          graph_scope: {
+            ledger_refs: [],
+            canon_only: true,
+            metadata_only: true,
+          },
+          boundary: {
+            metadata_only: true,
+            no_source_text_loaded: true,
+            no_notebooklm_answers: true,
+            no_private_payloads: true,
+            no_secret_or_session: true,
+          },
+          nodes: [
+            {
+              node_ref: ".registry/knowledge/graph_rag",
+              node_type: "knowledge",
+              label: "GraphRAG",
+              summary: "Synthetic metadata-only graph with blocked payload probes.",
+              source_refs: {
+                node_type: ".registry/knowledge/graph_rag/knowledge.yaml",
+                file_locator: forbiddenSentinels.fileUrl,
+                local_locator: forbiddenSentinels.localPath,
+              },
+              trust: { claim_ceiling: "source_supported" },
+              lifecycle: { status: "active" },
+              source_text: forbiddenSentinels.sourceText,
+              raw_query: forbiddenSentinels.rawQuery,
+              api_token: forbiddenSentinels.secretValue,
+              apiToken: forbiddenSentinels.camelSecretValue,
+              payload_probe: {
+                chunk_text: forbiddenSentinels.chunkText,
+                notebooklm_answer_text: forbiddenSentinels.notebookAnswer,
+                notebooklm_question: forbiddenSentinels.notebookQuestion,
+                notebooklmQuestionText: forbiddenSentinels.notebookQuestionText,
+                notebooklm_question_body: forbiddenSentinels.notebookQuestionBody,
+              },
+            },
+          ],
+          edges: [],
+        },
+        null,
+        2,
+      )}\n`,
+      "utf8",
+    );
+
+    let directError;
+    try {
+      await buildRetrievalPlan({
+        repoRoot,
+        graphRef,
+        question: "GraphRAG",
+      });
+    } catch (error) {
+      directError = error;
+    }
+    assert.ok(directError);
+    assertSanitizedGraphBoundaryBlocker(directError.message);
+
+    const cliPath = fileURLToPath(new URL("./cli.mjs", import.meta.url));
+    const result = await runProcess(process.execPath, [
+      cliPath,
+      "plan",
+      "--repo-root",
+      repoRoot,
+      "--graph-ref",
+      graphRef,
+      "--question",
+      "GraphRAG",
+    ]);
+    assert.equal(result.code, 1);
+    assert.equal(result.stdout, "");
+    assertSanitizedGraphBoundaryBlocker(result.stderr);
+    assertNoForbiddenPayloadEcho(`${result.stdout}\n${result.stderr}`, forbiddenSentinels);
+  } finally {
+    await rm(repoRoot, { recursive: true, force: true });
+  }
+});
+
+function assertSanitizedGraphBoundaryBlocker(text) {
+  assert.match(text, /explicit_graph_ref_payload_boundary_violation/);
+  assert.match(text, /source_text_must_not_be_included/);
+  assert.match(text, /chunk_text_must_not_be_included/);
+  assert.match(text, /notebooklm_answer_must_not_be_included/);
+  assert.match(text, /notebooklm_question_must_not_be_included/);
+  assert.match(text, /raw_query_must_not_be_persisted/);
+  assert.match(text, /secret_like_key_must_not_be_included/);
+  assert.match(text, /secret_like_value_must_not_be_included/);
+  assert.match(text, /file_url_must_not_be_included/);
+  assert.match(text, /local_absolute_path_must_not_be_included/);
+  assert.doesNotMatch(text, /SHOULD_NOT_APPEAR/);
+  assert.doesNotMatch(text, /file:\/\//);
+  assert.doesNotMatch(text, /\/Users\/fixture/);
+  assert.doesNotMatch(text, /\/Volumes\/fixture/);
+  assert.doesNotMatch(text, /api_token/);
+  assert.doesNotMatch(text, /apiToken/);
+  assert.doesNotMatch(text, /notebooklmQuestionText/);
+  assert.doesNotMatch(text, /notebooklm_question_body/);
+}
+
+function assertNoForbiddenPayloadEcho(text, forbiddenSentinels) {
+  for (const snippet of Object.values(forbiddenSentinels)) {
+    assert.doesNotMatch(text, new RegExp(escapeRegExp(snippet)));
+  }
+}
+
+function runProcess(command, args) {
+  return new Promise((resolve) => {
+    const child = spawn(command, args, { windowsHide: true });
+    let stdout = "";
+    let stderr = "";
+    child.stdout.setEncoding("utf8");
+    child.stderr.setEncoding("utf8");
+    child.stdout.on("data", (chunk) => {
+      stdout += chunk;
+    });
+    child.stderr.on("data", (chunk) => {
+      stderr += chunk;
+    });
+    child.on("close", (code) => {
+      resolve({ code, stdout, stderr });
+    });
+  });
+}
+
+function escapeRegExp(value) {
+  return String(value).replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
+}
 
 async function writeFixtureRagManifest(repoRoot, relativePath, overrides = {}) {
   const manifest = {
@@ -1165,6 +1693,9 @@ async function writeFixtureRepo(repoRoot) {
     status: "active",
     title: "GraphRAG",
     claim_ceiling: "source_supported",
+    source_support: {
+      public_source_refs: ["https://example.invalid/graphrag-overview", "https://example.invalid/graphrag-paper"],
+    },
   });
   await writeYaml(repoRoot, ".registry/knowledge/isolated_note/knowledge.yaml", {
     knowledge_id: "isolated_note",

@@ -156,6 +156,18 @@ export async function syncWorkmetaRepo(options = {}) {
   let pushed = false;
   let commitOid = null;
 
+  if (dirtyAfterPull && options.skipCommit === true) {
+    return buildResult({
+      status: "blocked",
+      reason: "workmeta_dirty_after_pull_skip_commit",
+      repoRoot,
+      workmetaRoot,
+      now,
+      steps,
+      divergenceBefore: { ahead: aheadBefore, behind: behindBefore },
+    });
+  }
+
   if (dirtyAfterPull && options.skipCommit !== true) {
     const add = await runGit(workmetaRoot, ["add", "-A"], runCommand);
     steps.push(toStep("workmeta_add", add));

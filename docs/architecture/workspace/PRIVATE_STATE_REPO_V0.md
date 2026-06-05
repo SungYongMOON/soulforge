@@ -140,6 +140,19 @@ Copy-Item "private-state/guild_hall/state/operations/soulforge_activity/*" "guil
 
 현재 PC 의 active runtime 중 허용 subset 만 nested `private-state/` 로 복사한 뒤, private GitHub 에 commit/push 한다.
 
+항상 켜진 PC 에서는 deterministic 동기화 명령을 기본으로 쓴다.
+이 명령은 아래 allowlist 경로만 mirror 하고, `.env`, token, cookie,
+session, key 이름의 파일은 복사하지 않는다. `private-state` 가 `main`
+이 아니거나 허용 경로 밖에 dirty 변경이 있으면 자동 commit/push 하지
+않고 blocked 로 끝난다.
+
+```bash
+npm run guild-hall:private-state:sync -- --json
+```
+
+macOS always-on node 는 LaunchAgent `ai.soulforge.private-state-sync` 로 이
+명령을 주기 실행할 수 있다.
+
 ```bash
 cd /path/to/Soulforge
 rsync -a guild_hall/state/gateway/intake_inbox/ private-state/guild_hall/state/gateway/intake_inbox/

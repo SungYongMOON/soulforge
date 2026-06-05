@@ -12,7 +12,7 @@
 - `fixtures/`: fixture-first 개발용 sample state
 - `tools/`: UI lint 와 workspace-local helper tools
 - `packages/`: contract, core, react, theme package 들
-- `apps/`: renderer web shell, skin lab preview app
+- `apps/`: renderer web shell, skin lab preview app, Team Ops Board mockup
 
 ## 원칙
 
@@ -27,6 +27,8 @@
 - `npm run build`
 - `npm run skin-lab:dev`
 - `npm run skin-lab:build`
+- `npm run team-ops:dev`
+- `npm run team-ops:build`
 - `npm run validate`
 - `npm run lint:all`
 - `npm run docs:check-links`
@@ -52,3 +54,4 @@
 - [packages/renderer-core/README.md](./packages/renderer-core/README.md)
 - [packages/renderer-react/README.md](./packages/renderer-react/README.md)
 - [apps/renderer-web/README.md](./apps/renderer-web/README.md)
+- [apps/team-ops-board-mockup/README.md](./apps/team-ops-board-mockup/README.md)

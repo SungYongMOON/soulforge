@@ -30,10 +30,29 @@ const SECRET_TEXT_PATTERNS = [
   /\b(token|password|passwd|secret|cookie|session|authorization)\s*[:=]\s*["']?[^"',\s)]+/iu,
   /<!doctype html|<html[\s>]|<body[\s>]|<\/body>|<\/html>/iu,
 ];
+const SAFE_BATTLE_LOG_SOURCE_KINDS = new Set([
+  "manual",
+  "mail",
+  "dispatch",
+  "gateway",
+  "battle_event",
+  "mission",
+  "run",
+  "report",
+  "log",
+  "mail_event",
+  "synthetic",
+]);
+const SAFE_SOURCE_REF_PATTERN = /^[A-Za-z0-9][A-Za-z0-9_.@/-]*$/u;
+const SOURCE_REF_MAX_LENGTH = 220;
 const UNSAFE_SOURCE_REF_PATTERNS = [
   /^https?:\/\//iu,
   /^file:\/\//iu,
+  /^(?:\/|~\/|[A-Za-z]:[\\/]|\\\\)/u,
+  /(?:^|[\\/])\.\.(?:[\\/]|$)/u,
   /[?&](token|signature|expires|X-Amz-Signature)=/iu,
+  /(?:^|[._/@-])(?:raw|body|html|headers?|attachments?|payload|content|private|secret|credentials?|token|cookies?|sessions?|authorization|source_text|chunk_text|notebooklm|question|answer)(?:$|[._/@-])/iu,
+  /(?:^|[\\/])(?:_workspaces|_workmeta|private-state|private_state|guild_hall\/state)(?:[\\/]|$)/iu,
 ];
 
 export async function buildMorningReport(options = {}) {
@@ -360,10 +379,7 @@ function parseBattleLogEvents(markdown) {
     if (cells.length < 9) {
       continue;
     }
-    const sourceRef = cells[7].split(":").slice(1).join(":");
-    if (UNSAFE_SOURCE_REF_PATTERNS.some((pattern) => pattern.test(sourceRef))) {
-      throw new Error("unsafe_morning_report_source_ref");
-    }
+    validateBattleLogSourceCell(cells[7]);
     rows.push({
       time: cells[0],
       mission_id: cells[1],
@@ -374,6 +390,26 @@ function parseBattleLogEvents(markdown) {
     });
   }
   return rows;
+}
+
+function validateBattleLogSourceCell(value) {
+  const text = String(value ?? "").trim();
+  const separatorIndex = text.indexOf(":");
+  if (separatorIndex <= 0 || separatorIndex !== text.lastIndexOf(":")) {
+    throw new Error("unsafe_morning_report_source_ref");
+  }
+
+  const sourceKind = text.slice(0, separatorIndex);
+  const sourceRef = text.slice(separatorIndex + 1);
+  if (!SAFE_BATTLE_LOG_SOURCE_KINDS.has(sourceKind) || !sourceRef) {
+    throw new Error("unsafe_morning_report_source_ref");
+  }
+  if (sourceRef.length > SOURCE_REF_MAX_LENGTH || !SAFE_SOURCE_REF_PATTERN.test(sourceRef)) {
+    throw new Error("unsafe_morning_report_source_ref");
+  }
+  if (UNSAFE_SOURCE_REF_PATTERNS.some((pattern) => pattern.test(sourceRef))) {
+    throw new Error("unsafe_morning_report_source_ref");
+  }
 }
 
 function buildDefaultChecks(battleLedger) {

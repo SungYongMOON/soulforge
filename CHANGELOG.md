@@ -1,6 +1,415 @@
 ﻿# CHANGELOG
 
+## 2026-06-05
+
+### Revision `working` - Private-state continuous sync added
+
+- Added a deterministic `guild-hall:private-state:sync` command that mirrors
+  only the private-state allowlist from local `guild_hall/state/**`, blocks
+  denied secret-like filenames, and commits/pushes only the nested
+  `private-state` repo.
+- Added LaunchAgent coverage for `ai.soulforge.private-state-sync` so the
+  always-on node can keep protected mailbox continuity updated without using
+  the public repo.
+- Moved generated LaunchAgent stdout/stderr paths to
+  `~/Library/Logs/Soulforge/` so launchd jobs do not depend on writing log
+  files under the external workspace root.
+- Removed the redundant LaunchAgent `WorkingDirectory` key; each command still
+  changes into the repo explicitly, avoiding launchd getcwd noise on external
+  workspaces.
+
+### Revision `working` - Source text traceability sidecar risk inventory guard added
+
+- Hardened source-text traceability sidecar validation with metadata-only
+  risk inventory consistency checks for chunk counts, page-backed chunk counts,
+  page summary totals, and required warning codes.
+- Blocked synthetic source-truth, owner-approval, and canon-promotion authority
+  aliases from source-text metadata artifacts.
+- Added synthetic sidecar coverage without reading live `_workspaces`,
+  `_workmeta`, guild_hall state, private-state, source payload, or NotebookLM
+  payload content.
+
+### Revision `working` - Renderer Operation Board fixture smoke added
+
+- Added renderer-web smoke coverage for the public-safe Operation Board
+  fixture snapshot mapping without reading live state or private payloads.
+
+### Revision `working` - Team Ops Board mockup read-only lint coverage
+
+- Extended UI read-only boundary lint coverage to include Team Ops Board mockup
+  TS/TSX code without reading protected paths or live payloads.
+
+### Revision `working` - Assistant Dashboard secret alias marker hardening
+
+- Hardened Assistant Dashboard read-only metadata rollup marker checks for
+  broader secret and credential alias labels.
+- Added coverage with a synthetic ledger fixture only, without reading real
+  private ledger payloads or secret files.
+
+### Revision `working` - Town crier env state-root guard added
+
+- Hardened town_crier runtime env file resolution so explicit Telegram env file
+  paths must stay under `guild_hall/state/town_crier/**`.
+- Added synthetic temp-root rollback coverage for absolute and traversal env
+  paths outside the town_crier state root, without reading real env files,
+  live state payloads, or sending Telegram notifications.
+
+### Revision `working` - Source sync ready live-id authority alias guard added
+
+- Hardened source sync ready manifest validation so live Drive/NotebookLM ID
+  aliases and approval/canon authority aliases are rejected as metadata-only
+  boundary contamination.
+- Added synthetic negative coverage for those aliases with file checks disabled,
+  keeping the guard free of live Drive, NotebookLM, source payload, or
+  `_workspaces` file reads.
+
+### Revision `working` - Dev-worker gateway broad-scope rejection fixture added
+
+- Added synthetic auto-approval coverage confirming direct
+  `guild_hall/gateway/**` write scope stays rejected.
+
+### Revision `working` - Local absolute path symlink no-follow guard added
+
+- Hardened local absolute path policy scanning so git-listed symlink file
+  entries are skipped before any content read, without resolving or reporting
+  their targets.
+- Added synthetic temp-repo coverage proving an outside symlink target carrying
+  a sentinel local path does not create violations or leak target details in
+  human or JSON output.
+
+### Revision `working` - Daily work packet owner-approval display guard added
+
+- Added display-only `owner_approval_state` labels to daily work packet
+  dev-worker candidate rows so owner-approved proposed candidates are distinct
+  from unapproved proposed candidates.
+- Added synthetic regression coverage confirming approval-only display does not
+  change candidate counts, promotable counts, candidate status, input candidate
+  objects, or promotion claims.
+
+### Revision `working` - Morning report source ref scheme guard added
+
+- Hardened morning report battle-log source cell parsing so rows must use a
+  known safe `source_kind:source_ref` scheme with a non-empty safe ref.
+- Added synthetic rejection coverage for malformed source cells, URL/file refs,
+  token-bearing refs, local absolute paths, traversal, unknown kinds, and
+  private/raw/source-payload labels without echoing unsafe source values.
+
+### Revision `working` - Workspace junction non-link redaction fixture added
+
+- Added synthetic coverage for declared workspace aliases that are real
+  directories or regular files instead of symlink/junction pointers, confirming
+  they report owner-decision-required non-link gaps without local absolute path
+  leakage in object or human CLI output.
+
+### Revision `working` - Workmeta payload symlink extension guard added
+
+- Flagged blocked `_workmeta/**` symlink names such as `.xlsx`, `.pdf`, and
+  `.zip` by entry path without following targets, while keeping `.git` and
+  `_workspaces` out of scope.
+
+### Revision `working` - Local absolute path report redaction added
+
+- Redacted local absolute path policy violation and repo-root values in object,
+  JSON, and human report output while keeping category, location, length, and
+  fingerprint metadata for debugging.
+
+### Revision `working` - Knowledge graph explicit graph-ref payload guard added
+
+- Blocked explicit retrieval-plan `--graph-ref` graphs when synthetic
+  source/chunk text, NotebookLM answer/question, raw query, secret-like values,
+  file URLs, or local absolute paths appear inside graph JSON without echoing
+  payload values in blocker output.
+
+### Revision `working` - Workmeta sync skip-commit dirty guard added
+
+- Blocked workmeta sync when metadata remains dirty after pull while
+  `skipCommit` is enabled, so the run cannot report completed or already
+  current with uncommitted metadata still present.
+- Added synthetic runCommand coverage for the post-pull dirty skip-commit path
+  without touching a real `_workmeta` repo or git remote.
+
+### Revision `working` - RAG work-card payload boundary fixture added
+
+- Added synthetic negative coverage for source-text quality review and RAG
+  work-card validators so source text, chunk text, raw query, question, file
+  URL, local absolute path, and fake secret-like markers are blocked without
+  echoing fixture body values in validation output.
+- Hardened work-card boundary scanning with path-scoped blocker codes for
+  forbidden payload keys, secret-like keys/values, file URLs, and local
+  absolute paths while keeping generated validation output metadata-only.
+
+### Revision `working` - Daily work packet candidate visibility guard added
+
+- Prioritized daily work packet display candidates so promotable,
+  auto-approvable, and active attention candidates stay visible ahead of
+  completed or closed dev-worker candidates.
+- Kept dev-worker candidate counts and summary counts based on the full
+  candidate queue, without changing candidate approval, promotion, or status
+  records.
+
+### Revision `working` - Dev-worker stale automation handoff guard added
+
+- Added read-only dev-worker automation check mode for synthetic or provided
+  TOML files, comparing only `id`, rendered `prompt`, `cwds`, and
+  `execution_environment` against the tracked local render settings.
+- Kept `status`, `rrule`, and timestamps as PC-local owner settings, and limited
+  check output to short status metadata plus prompt hashes without printing
+  prompt bodies, TOML bodies, local paths, or private payloads.
+
+### Revision `working` - Operation Board fixture lint added
+
+- Added a synthetic public-safe Operation Board snapshot fixture under
+  `ui-workspace/fixtures/operation-board/` without copying live
+  `guild_hall/state/**` payloads.
+- Added a dedicated UI lint that checks Operation Board fixture schema versions,
+  public-safe privacy mode, section count mirrors, row/group/item allowed
+  fields, action queue mirrors, and raw/private/source contamination markers.
+- Extended the fixture lint so Knowledge Lane blockers, Battle Log project
+  aggregates, Diagnostics items, and top-level Diagnostics warning/error rows
+  reject unknown fields while keeping the whole `operation_board` projection
+  open to future fields.
+- Added Diagnostics mirror checks between Operation Board diagnostics counts,
+  section items, and top-level Diagnostics summary/warnings/errors arrays.
+- Wired the fixture lint into UI lint scripts and documented that the fixture is
+  not source truth.
+
+### Revision `working` - Operation Board section field guard added
+
+- Hardened snapshot validation so Operation Board Dungeon Map, Mission Board,
+  and Monster Gate row/group/item projection objects reject unknown fields.
+- Kept the guard scoped to documented section row/group/item shapes instead of
+  closing the whole `operation_board` projection against future fields.
+- Added synthetic negative coverage for raw/source/attachment ref-like fields
+  without reading live state or private payloads.
+
+### Revision `working` - Snapshot next action field guard added
+
+- Hardened snapshot validation so `next_actions[*]` rejects unknown fields
+  beyond the public action summary shape.
+- Hardened Operation Board action queue validation so
+  `operation_board.sections.action_queue.items[*]` rejects unknown fields
+  beyond the mirrored action summary and rank.
+- Added synthetic negative coverage for raw payload/source ref-like fields
+  without regenerating live snapshot state.
+
+### Revision `working` - Assistant dashboard snapshot contract health guard added
+
+- Hardened assistant dashboard `ai_data_health` so the snapshot row reports
+  `invalid` when the stored snapshot contract fails even if its timestamp is
+  fresh.
+- Degraded the dashboard status for invalid snapshot health while keeping
+  valid snapshot freshness as `fresh`, `stale`, or `missing`.
+- Added synthetic metadata-only coverage without reading real
+  `guild_hall/state/**` payloads.
+
+### Revision `working` - Town crier local status guard added
+
+- Added `status --local-root <path>` for synthetic town_crier status checks
+  without reading the live operation state or Telegram env.
+- Rejected missing `--local-root` values and filesystem root targets.
+- Added synthetic disabled-notification coverage so gateway no-op policy paths
+  do not create a pending town_crier queue.
+
+### Revision `working` - RAG source-text artifact contamination guard added
+
+- Hardened source-text index, answer-run, and traceability-sidecar validation
+  against hidden raw query, NotebookLM answer, credential/session/token/secret,
+  file URL, and local absolute path contamination.
+- Kept `chunks[].chunk_text` and `response.answer_text` as private payload
+  exception paths while blocking the same keys and values elsewhere.
+- Tightened those exception paths so only string payloads bypass recursive
+  contamination scanning.
+- Added synthetic negative coverage without reading real workspace payloads,
+  raw mail, NotebookLM answers, private state, or secrets.
+
+### Revision `working` - RAG run report shape guard added
+
+- Hardened `source_text_extraction_run_report_v0` validation so generated
+  report objects reject unknown top-level and nested keys before they can carry
+  source locator, private payload, raw payload, or harmless-looking extra
+  fields.
+- Added synthetic coverage for unknown keys in run report sections, dynamic
+  count maps, array fields, and generated invalid-packet report shapes without
+  reading source text or private payloads.
+
+### Revision `working` - Public mission draft redaction validator added
+
+- Added canon validation for public mail-derived mission drafts using
+  `soulforge.dungeon_assignment.public_mission_draft.v1`.
+- Required public draft redaction flags to prove raw payloads, private/source
+  refs, local file refs, and secret-like values were removed before a draft can
+  pass canon validation.
+- Added synthetic mission fixture coverage for blocked null-workflow drafts,
+  missing redaction fields, private/source markers, local file URL markers, and
+  secret-like authorization values.
+
+### Revision `working` - Snapshot battle log aggregate projection added
+
+- Added a top-level `battle_log` aggregate to the read-only snapshot from
+  schema-valid battle event JSONL rows, limited to counts, latest timestamps,
+  result/bottleneck/mode/automation buckets, and per-project aggregate rows.
+- Mirrored the aggregate into `operation_board.sections.battle_log` and added a
+  drift guard so the Operation Board section must exactly match the top-level
+  summary.
+- Added metadata-only freshness observation for battle event file surfaces and
+  synthetic regression coverage to keep event ids, mission ids, stages, source
+  refs, party/unit/loop ids, next action notes, and rendered prose out of the
+  snapshot.
+
+### Revision `working` - Snapshot mission terminal provenance markers added
+
+- Added public-safe mission terminal provenance markers to `missions.items[*]`
+  and mirrored them into Operation Board Mission Board rows without serializing
+  `run_id` or `battle_event_id` pointer values.
+- Added metadata-only freshness observation for `.mission/*/readiness.yaml`
+  surfaces so terminal marker changes make stored snapshots stale.
+- Extended synthetic snapshot coverage so terminal provenance pointer values do
+  not leak and Mission Board marker drift is rejected by validation.
+
+### Revision `working` - Snapshot monster gate row mirror guard added
+
+- Hardened snapshot validation so Operation Board Monster Gate groups must
+  mirror the pending monster display group contract and each group's display
+  sample rows.
+- Added synthetic regression coverage for Monster Gate group/order/row field
+  drift without reading real `_workmeta/**`, `_workspaces/**`, raw mail,
+  NotebookLM payloads, or secrets.
+
+### Revision `working` - Snapshot mission board row mirror guard added
+
+- Hardened snapshot validation so Operation Board Mission Board rows must
+  mirror mission projection order, mission id set, display grouping fields, and
+  row-level mission summary fields.
+- Added synthetic regression coverage for Mission Board projection drift without
+  reading real `_workmeta/**`, `_workspaces/**`, raw mail, NotebookLM payloads,
+  or secrets.
+
+### Revision `working` - Snapshot dungeon map row mirror guard added
+
+- Hardened snapshot validation so Operation Board Dungeon Map rows must mirror
+  project order, project surface fields, per-project mission counts, assigned
+  pending monster counts, and surface status.
+- Added synthetic regression coverage for row-level Dungeon Map projection drift
+  without reading real `_workmeta/**`, `_workspaces/**`, or raw gateway payloads.
+
+### Revision `working` - Snapshot operation board count mirror guard added
+
+- Hardened snapshot validation so Operation Board project, mission, and monster
+  count projections must mirror their source arrays and display groups.
+- Added synthetic regression coverage for projection count drift without
+  reading real `_workmeta/**`, `_workspaces/**`, or gateway private payloads.
+
+### Revision `working` - Gateway command surface README index synced
+
+- Synced gateway owner README/index entries for the metadata-only mail backlog
+  and deadline-watch command surfaces.
+- Added missing workspace contract links for mail work status, deadline watch,
+  and gateway notify context without changing command implementations or
+  package state.
+
+### Revision `working` - Dev-worker auto-approval control-character guard expanded
+
+- Rejected control characters in raw dev-worker auto-approval
+  `allowed_write_paths` before safe-path matching.
+- Rejected control characters in dev-worker auto-approval acceptance checks
+  before command allowlist matching.
+- Escaped control characters in auto-approval rejection reasons so details and
+  skipped-output surfaces do not emit raw newline, tab, NUL, or DEL characters.
+
+### Revision `working` - Dev-worker approval-only audit state surfaced
+
+- Added owner-approval state to the dev-worker candidate `--details` view so
+  approval-only candidates are distinct from promotable work.
+- Added regression coverage for unapproved, approval-only, and promotable
+  candidate detail output without changing candidate promotion behavior.
+
+### Revision `working` - Gateway helper packaging caveat guard recorded
+
+- Added a gateway CLI packaging diagnostic that records untracked helper
+  caveats without failing local validation while the helper files remain
+  untracked.
+- Documented that package-clean claims require the backlog and deadline
+  watchdog helper modules to be tracked with their CLI consumers.
+
+### Revision `working` - Mail candidate backlog display bounded
+
+- Added bounded stdout display controls for `mail-candidate-backlog` so latest
+  reports stay full while normal CLI output shows limit/omitted metadata.
+- Aligned the documented canonical backlog command to omit the redundant
+  `--json` flag because stdout is JSON by default.
+
+### Revision `working` - Snapshot action queue mirror guard added
+
+- Hardened snapshot validation so `next_actions` statuses stay within `started`/`next` and action queue items mirror id/status/summary/rank.
+
+### Revision `working` - Battle event schema contract guard added
+
+- Added regression coverage that compares the battle log writer contract against
+  the canonical `battle_event` schema fields and enums.
+- Kept the guard synthetic and metadata-only, without reading or writing real
+  project battle logs under `_workmeta/**`.
+
+### Revision `working` - Dev-worker auto-approval path guard documented
+
+- Documented that dev-worker auto-approval safe-path checks reject parent
+  directory segments and compare normalized path boundaries before approving
+  low-risk candidates.
+
+### Revision `working` - Knowledge graph source-support path wording aligned
+
+- Aligned retrieval-plan and browser detection-card missing-evidence checks so
+  `no_source_support_edges` is reported only when the graph lacks a `source`
+  node or lacks both `supports` and `derived_from` source-support relations.
+- Added derived-from-only regression coverage without changing real knowledge
+  canon entries or source payload boundaries.
+
 ## 2026-06-04
+
+### Revision `working` - Knowledge graph source-edge gap scout added
+
+- Added a metadata-only connectivity diagnostic for `source_supported`
+  knowledge nodes that have `source_support` metadata but no linked `source`
+  node through `supports` or `derived_from` edges in the current graph.
+- Kept the scout diagnostic limited to node id/ref, claim ceiling, source ref
+  count, and missing edge type without creating source nodes, source edges, or
+  source-truth/canon-promotion claims.
+- Added regression coverage for resolved `supports`/`derived_from` source
+  endpoints and for non-source endpoints that must remain
+  `source_node_endpoint` gaps.
+- Updated the graph view model contract to keep the new scout explicitly
+  metadata-only and non-authoritative.
+
+### Revision `working` - Deadline watchdog reminder preview added
+
+- Added a dry-run/manual-confirm deadline watchdog reminder preview command
+  that reads project-local `deadline_register.csv` ledgers and produces
+  Telegram-ready brief candidates without sending notifications or writing
+  `town_crier` queue entries.
+- Added cooldown, snooze, terminal-status, max-nudge, due-window, and
+  raw-payload boundary suppression checks for reminder candidates.
+- Documented the preview-only reminder surface in `DEADLINE_WATCH_V0.md`.
+
+### Revision `working` - Mail candidate backlog age check added
+
+- Added a metadata-only `mail-candidate-backlog` gateway command for pending
+  mail candidates, including candidate counts, age/stale state, and pending
+  count trend without exposing subjects, senders, bodies, attachments, or
+  secrets.
+- Added the backlog age check to the always-on healer checks so stale pending
+  mail candidates can warn before the queue silently piles up.
+- Documented the backlog surface in the mail work status contract and the
+  always-on healer rollout plan.
+
+### Revision `working` - Team Ops Board clickable mockup added
+
+- Promoted the owner-approved Team Ops Board v0 candidate into a standalone
+  React/Vite mockup under `ui-workspace/apps/team-ops-board-mockup/`.
+- Added sample-data Board, Projects, Schedule, People, and Settings surfaces
+  with item creation, detail editing, owner/status changes, comment capture,
+  Blocked/Waiting note gating, range filters, and weekly summary export.
+- Wired the mockup into UI workspace build scripts while keeping it separate
+  from `renderer-web`, Smartsheet APIs, private work data, and write-back
+  behavior.
 
 ### Revision `working` - Mail history line endings normalized
 

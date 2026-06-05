@@ -14,6 +14,8 @@ Current inputs:
 - `reports/open_actions/open_action_register.md`
 - `reports/작업_장부/작업_장부.csv`
 - local status timestamps under `guild_hall/state/**`
+- `guild_hall/state/snapshot/soulforge_snapshot.json` timestamp and snapshot
+  contract health
 
 Boundaries:
 
@@ -22,3 +24,7 @@ Boundaries:
 - no Calendar mutation;
 - no project assignment confirmation;
 - project-local ledgers remain the truth source.
+
+`ai_data_health` rows are metadata-only. The snapshot row may report
+`invalid` when the stored snapshot contract fails even if its timestamp is
+fresh; that invalid row degrades the dashboard status.

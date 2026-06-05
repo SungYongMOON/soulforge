@@ -148,6 +148,7 @@ const FORBIDDEN_PAYLOAD_KEYS = new Set([
   "private_payload",
   "raw",
   "raw_payload",
+  "raw_query",
   "raw_source_text",
   "source_body",
   "source_chunk",

@@ -44,6 +44,7 @@
     {
       "source_id": "company_private_reference_001",
       "source_label": "company_private_reference_001",
+      "version_label": "version_label_placeholder_v0",
       "source_ref": "_workspaces/knowledge/source_cards/company_private_reference_001.source_card.json",
       "source_sync_ready_ref": "_workspaces/knowledge/common/company_private_reference_001/source_sync_ready_manifest.json",
       "source_hash": "sha256:aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",

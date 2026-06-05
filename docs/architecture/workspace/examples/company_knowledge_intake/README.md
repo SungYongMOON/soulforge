@@ -16,6 +16,8 @@ canon entries.
   host paths here.
 - Use labels, placeholders, hash/version fingerprints, source-card refs, and
   approval-status labels.
+- `version_label` is owner-facing version or revision metadata only; it is not
+  source truth, owner approval, a latest claim, or canon promotion.
 - Every machine-readable path ref must be relative to the Soulforge project
   root, such as `_workspaces/knowledge/...`; never store machine-local mount
   paths, home-directory paths, or `file://` URLs.

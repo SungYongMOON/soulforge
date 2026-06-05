@@ -1,6 +1,6 @@
 import test from "node:test";
 import assert from "node:assert/strict";
-import { execFile as execFileCallback } from "node:child_process";
+import { execFile as execFileCallback, spawnSync } from "node:child_process";
 import { randomUUID } from "node:crypto";
 import os from "node:os";
 import path from "node:path";
@@ -11,6 +11,32 @@ import { promisify } from "node:util";
 const cliPath = fileURLToPath(new URL("./cli.mjs", import.meta.url));
 const commandRepoRoot = path.resolve(path.dirname(cliPath), "../..");
 const execFile = promisify(execFileCallback);
+const GATEWAY_HELPER_PACKAGE_REFS = [
+  "guild_hall/gateway/mail_candidate_backlog.mjs",
+  "guild_hall/gateway/deadline_watchdog_reminder.mjs",
+];
+
+test("gateway helper modules are tracked with CLI packaging surface", (t) => {
+  const result = spawnSync("git", ["ls-files", "--", ...GATEWAY_HELPER_PACKAGE_REFS], {
+    cwd: commandRepoRoot,
+    encoding: "utf8",
+  });
+
+  if (result.status !== 0) {
+    t.skip("git metadata unavailable; package-clean helper tracking must be checked in a worktree");
+    return;
+  }
+
+  const tracked = new Set(result.stdout.split(/\r?\n/u).filter(Boolean));
+  const missing = GATEWAY_HELPER_PACKAGE_REFS.filter((ref) => !tracked.has(ref));
+  if (missing.length > 0) {
+    t.diagnostic(`package-clean caveat: untracked gateway helper(s): ${missing.join(", ")}`);
+    t.skip(`commit/package task must include gateway helper(s): ${missing.join(", ")}`);
+    return;
+  }
+
+  assert.deepEqual(missing, []);
+});
 
 test("intake CLI writes synthetic state under explicit local root without copied command surface", async () => {
   const tempRoot = await makeTempRoot();

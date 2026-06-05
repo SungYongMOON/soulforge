@@ -83,6 +83,65 @@ test("readKnowledgeRefAndRecord returns target content and appends one metadata-
   }
 });
 
+test("CLI read --json returns content while ledger stays payload-free", async () => {
+  const repoRoot = await mkdtemp(path.join(os.tmpdir(), "soulforge-knowledge-cli-read-"));
+  const knowledgeRef = "docs/knowledge/cli-read.md";
+  const ledgerFile = path.join(repoRoot, "_workmeta", "TEST", "reports", "knowledge_access", "cli_read.jsonl");
+  const body = "CLI_READ_BODY_SHOULD_NOT_ENTER_LEDGER";
+
+  try {
+    await writeFixture(repoRoot, knowledgeRef, body);
+
+    const { stdout } = await execFileAsync(process.execPath, [
+      cliPath,
+      "read",
+      "--repo-root",
+      repoRoot,
+      "--ref",
+      knowledgeRef,
+      "--ledger-file",
+      ledgerFile,
+      "--actor-type",
+      "tool",
+      "--actor-id",
+      "knowledge_access_cli_test",
+      "--reason-used",
+      "CLI read fixture smoke",
+      "--output-ref",
+      "_workmeta/TEST/reports/knowledge_access/cli_read_result.md",
+      "--task-ref",
+      "task:knowledge_access_cli_read_no_payload_smoke",
+      "--json",
+    ]);
+    const result = JSON.parse(stdout);
+
+    assert.equal(result.status, "recorded");
+    assert.equal(result.mode, "read");
+    assert.equal(result.content, body);
+    assert.equal(validateKnowledgeAccessEvent(result.event).ok, true);
+    assert.equal(result.event.target.knowledge_ref, knowledgeRef);
+    assert.equal(result.event.access_type, "read");
+    assert.equal(result.event.actor.type, "tool");
+    assert.equal(result.event.actor.id, "knowledge_access_cli_test");
+    assert.equal(result.event.reason_used, "CLI read fixture smoke");
+    assert.equal(result.event.work_context.task_ref, "task:knowledge_access_cli_read_no_payload_smoke");
+
+    const rawLedger = await readFile(ledgerFile, "utf8");
+    const rows = await readRows(ledgerFile);
+    assert.equal(rows.length, 1);
+    assert.equal(validateKnowledgeAccessEvent(rows[0]).ok, true);
+    assert.equal(rows[0].target.knowledge_ref, knowledgeRef);
+    assert.equal(rows[0].access_type, "read");
+    assert.equal(rows[0].work_context.task_ref, "task:knowledge_access_cli_read_no_payload_smoke");
+    assert.equal(rawLedger.includes(body), false);
+    assert.equal(rawLedger.includes(repoRoot), false);
+    assert.equal(JSON.stringify(result.event).includes(body), false);
+    assert.equal(JSON.stringify(result.event).includes(repoRoot), false);
+  } finally {
+    await rm(repoRoot, { recursive: true, force: true });
+  }
+});
+
 test("recordKnowledgeAccess appends a use event without reading a target payload", async () => {
   const repoRoot = await mkdtemp(path.join(os.tmpdir(), "soulforge-knowledge-record-"));
   const ledgerFile = path.join(repoRoot, "_workmeta", "TEST", "reports", "knowledge_access", "manual.jsonl");

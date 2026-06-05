@@ -1,7 +1,7 @@
 import test from "node:test";
 import assert from "node:assert/strict";
 import { execFile } from "node:child_process";
-import { mkdir, mkdtemp, writeFile } from "node:fs/promises";
+import { mkdir, mkdtemp, symlink, writeFile } from "node:fs/promises";
 import os from "node:os";
 import path from "node:path";
 import { fileURLToPath } from "node:url";
@@ -25,6 +25,26 @@ test("workmeta payload policy flags blocked payload extensions under _workmeta o
   assert.equal(report.present, true);
   assert.deepEqual(report.violations.map((violation) => violation.path), [
     "_workmeta/P00-000_INBOX/reports/메일_이력/메일_이력.xlsx",
+  ]);
+});
+
+test("workmeta payload policy flags blocked symlink names without following targets", async () => {
+  const repoRoot = await mkdtemp(path.join(os.tmpdir(), "soulforge-workmeta-payload-policy-"));
+  await writeSample(repoRoot, "safe-target.txt");
+  await writeSample(repoRoot, "safe-target-dir/inside.xlsx");
+  await linkSample(repoRoot, "safe-target.txt", "_workmeta/P00-000_INBOX/reports/linked.xlsx");
+  await linkSample(repoRoot, "safe-target.txt", "_workmeta/P00-000_INBOX/reports/linked.pdf");
+  await linkSample(repoRoot, "safe-target.txt", "_workmeta/P00-000_INBOX/reports/linked.txt");
+  await linkSample(repoRoot, "safe-target.txt", "_workmeta/.git/objects/ignored.xlsx");
+  await linkSample(repoRoot, "safe-target.txt", "_workspaces/P00-000_INBOX/reports/linked.xlsx");
+  await linkSample(repoRoot, "safe-target-dir", "_workmeta/P00-000_INBOX/reports/linked_dir");
+
+  const report = await validateWorkmetaPayloadPolicy({ repoRoot });
+
+  assert.equal(report.ok, false);
+  assert.deepEqual(report.violations.map((violation) => violation.path), [
+    "_workmeta/P00-000_INBOX/reports/linked.pdf",
+    "_workmeta/P00-000_INBOX/reports/linked.xlsx",
   ]);
 });
 
@@ -52,4 +72,10 @@ async function writeSample(repoRoot, relativePath) {
   const filePath = path.join(repoRoot, relativePath);
   await mkdir(path.dirname(filePath), { recursive: true });
   await writeFile(filePath, "sample", "utf8");
+}
+
+async function linkSample(repoRoot, targetRelativePath, linkRelativePath) {
+  const linkPath = path.join(repoRoot, linkRelativePath);
+  await mkdir(path.dirname(linkPath), { recursive: true });
+  await symlink(path.join(repoRoot, targetRelativePath), linkPath);
 }

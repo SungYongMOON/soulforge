@@ -10,12 +10,13 @@ const EXPECTED_CHECK_IDS = [
   "automation_liveness",
   "stray_development_file_placement",
   "report_freshness",
+  "mail_candidate_backlog_age",
   "repo_sync",
   "secret_raw_leak_guard",
   "restore_readiness",
 ];
 
-test("runAlwaysOnChecks returns seven healer-compatible checks with injected commands", async () => {
+test("runAlwaysOnChecks returns eight healer-compatible checks with injected commands", async () => {
   const repoRoot = await mkdtemp(path.join(os.tmpdir(), "soulforge-always-on-ok-"));
   const now = new Date("2026-05-21T12:00:00.000Z");
   const calls = [];
@@ -124,6 +125,56 @@ test("runAlwaysOnChecks reports stale report metadata and stray development file
     const reportFreshness = checks.find((check) => check.id === "report_freshness");
     assert.equal(reportFreshness.status, "warn");
     assert.match(reportFreshness.summary, /stale/);
+  } finally {
+    await rm(repoRoot, { recursive: true, force: true });
+  }
+});
+
+test("runAlwaysOnChecks warns on stale mail candidate backlog without exposing payload", async () => {
+  const repoRoot = await mkdtemp(path.join(os.tmpdir(), "soulforge-always-on-mail-candidate-"));
+  const now = new Date("2026-06-04T06:00:00.000Z");
+  const candidateFile = path.join(
+    repoRoot,
+    "guild_hall/state/gateway/mail_candidate/queue/pending/mail_candidate_old.json",
+  );
+
+  try {
+    await createFreshMetadata(repoRoot, now);
+    await mkdir(path.dirname(candidateFile), { recursive: true });
+    await writeFile(
+      candidateFile,
+      `${JSON.stringify(
+        {
+          schema_version: "mail_candidate.queue_item.v1",
+          candidate_id: "mail_candidate_old",
+          status: "pending_review",
+          created_at: "2026-06-03T00:00:00.000Z",
+          source_event: {
+            received_at: "2026-06-03T00:00:00.000Z",
+          },
+          mail_summary: {
+            subject: "Private subject must not leak",
+          },
+          raw_body: "private body must not leak",
+        },
+        null,
+        2,
+      )}\n`,
+      "utf8",
+    );
+
+    const checks = await runAlwaysOnChecks({
+      repoRoot,
+      now,
+      runCommand: async ({ command, args }) => commandResultForOkRun(command, args),
+    });
+
+    const backlog = checks.find((check) => check.id === "mail_candidate_backlog_age");
+    assert.equal(backlog.status, "warn");
+    assert.match(backlog.summary, /1 pending, 1 stale/);
+    assert.equal(backlog.output_tail.includes("Private subject"), false);
+    assert.equal(backlog.output_tail.includes("private body"), false);
+    assert.match(backlog.output_tail, /mail_candidate_old/);
   } finally {
     await rm(repoRoot, { recursive: true, force: true });
   }

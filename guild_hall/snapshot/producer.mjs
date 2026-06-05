@@ -4,6 +4,7 @@ import { promises as fs } from "node:fs";
 import path from "node:path";
 import { fileURLToPath } from "node:url";
 import YAML from "yaml";
+import { normalizeBattleEvent } from "../battle_log/battle_log.mjs";
 import { pathExists, readJson, writeJson } from "../shared/io.mjs";
 
 export const SNAPSHOT_VERSION = "soulforge.snapshot.v0";
@@ -39,7 +40,67 @@ const PENDING_MONSTER_DISPLAY_GROUPS = [
   { id: "open_intake", label: "Open intake", rank: 60 },
 ];
 const PENDING_MONSTER_DISPLAY_GROUP_BY_ID = new Map(PENDING_MONSTER_DISPLAY_GROUPS.map((group) => [group.id, group]));
+const PENDING_MONSTER_SUMMARY_MIRROR_FIELDS = [
+  "monster_id",
+  "inbox_id",
+  "monster_family",
+  "monster_name",
+  "work_pattern",
+  "objective_summary",
+  "due_state",
+  "d_day",
+  "known_status",
+  "assignment_status",
+  "assigned_project_code",
+  "assigned_stage",
+  "project_hint_count",
+  "stage_hint_count",
+  "mail_touch_count",
+  "last_mail_role",
+  "mission_ref_present",
+  "display_group",
+  "display_group_label",
+  "display_group_rank",
+];
+const MISSION_TERMINAL_PROVENANCE_MARKER_FIELDS = [
+  "terminal_provenance_present",
+  "terminal_provenance_complete",
+  "terminal_provenance_closed_via_mission_close",
+  "terminal_result_matches_readiness",
+  "run_pointer_present",
+  "battle_event_pointer_present",
+];
 const OPERATION_BOARD_VERSION = "soulforge.operation_board_projection.v0";
+export const NEXT_ACTION_STATUS_VALUES = Object.freeze(["started", "next"]);
+const NEXT_ACTION_ALLOWED_STATUSES = new Set(NEXT_ACTION_STATUS_VALUES);
+const NEXT_ACTION_ALLOWED_FIELDS = ["id", "status", "summary"];
+const ACTION_QUEUE_ITEM_ALLOWED_FIELDS = ["id", "status", "summary", "rank"];
+const OPERATION_BOARD_DUNGEON_MAP_ITEM_FIELDS = [
+  "project_code",
+  "workspace_present",
+  "workmeta_present",
+  "contract_present",
+  "bindings_count",
+  "report_surface_count",
+  "mission_count",
+  "blocked_mission_count",
+  "pending_monster_count",
+  "surface_status",
+];
+const OPERATION_BOARD_MISSION_BOARD_ITEM_FIELDS = [
+  "mission_id",
+  "title",
+  "project_code",
+  "status",
+  "readiness_status",
+  "workflow_id_present",
+  "party_id",
+  ...MISSION_TERMINAL_PROVENANCE_MARKER_FIELDS,
+  "display_group",
+  "display_group_label",
+  "display_group_rank",
+];
+const OPERATION_BOARD_MONSTER_GATE_GROUP_FIELDS = ["id", "label", "rank", "total", "items"];
 const KNOWLEDGE_LANE_VERSION = "soulforge.knowledge_lane_status.v0";
 const KNOWLEDGE_LANE_CLAIM_CEILING = "observed";
 const KNOWLEDGE_LANE_OWNER_GATED_STATES = new Set([
@@ -66,6 +127,29 @@ const MISSION_BOARD_DISPLAY_GROUPS = [
   { id: "other", label: "Other", rank: 90 },
 ];
 const MISSION_BOARD_DISPLAY_GROUP_BY_ID = new Map(MISSION_BOARD_DISPLAY_GROUPS.map((group) => [group.id, group]));
+const BATTLE_LOG_SOURCE_REF = "_workmeta/*/log/events/**/battle_events.jsonl";
+const BATTLE_LOG_SUMMARY_FIELDS = [
+  "source_ref",
+  "event_count",
+  "project_count_with_events",
+  "by_result",
+  "by_bottleneck_reason",
+  "by_battle_mode",
+  "by_automation_possibility",
+  "total_intervention_count",
+  "latest_occurred_at",
+  "projects",
+  "skipped_row_count",
+  "skipped_file_count",
+];
+const BATTLE_LOG_PROJECT_SUMMARY_FIELDS = [
+  "project_code",
+  "event_count",
+  "latest_occurred_at",
+  "latest_result",
+  "latest_bottleneck_reason",
+  "intervention_total",
+];
 
 const SNAPSHOT_OWNER_NOTES = [
   "Snapshot is a read-only projection for UI and external hosts.",
@@ -88,6 +172,7 @@ export async function buildSnapshot(options = {}) {
   const gateway = await summarizeGateway(repoRoot);
   const privateState = await summarizePrivateState(repoRoot);
   const knowledgeLane = await summarizeKnowledgeLane(repoRoot);
+  const battleLog = await summarizeBattleLog(repoRoot);
   const repo = summarizeRepo(repoRoot);
   const sourceObservations = await collectSourceObservations(repoRoot, generatedAt);
   const nextActions = [
@@ -135,7 +220,16 @@ export async function buildSnapshot(options = {}) {
     gateway,
     private_state: privateState,
     knowledge_lane: knowledgeLane,
-    operation_board: buildOperationBoardProjection({ projects, missions, gateway, knowledgeLane, nextActions, diagnostics: finalizedDiagnostics }),
+    battle_log: battleLog,
+    operation_board: buildOperationBoardProjection({
+      projects,
+      missions,
+      gateway,
+      knowledgeLane,
+      battleLog,
+      nextActions,
+      diagnostics: finalizedDiagnostics,
+    }),
     source_observations: sourceObservations,
     next_actions: nextActions,
     diagnostics: finalizedDiagnostics,
@@ -176,6 +270,8 @@ export function compareSnapshotFreshness(storedSnapshot, currentSnapshot) {
   }
   validateKnowledgeLaneSnapshotContract(storedSnapshot, errors, { label: "stored snapshot " });
   validateKnowledgeLaneSnapshotContract(currentSnapshot, errors, { label: "current snapshot " });
+  validateBattleLogSnapshotContract(storedSnapshot, errors, { label: "stored snapshot " });
+  validateBattleLogSnapshotContract(currentSnapshot, errors, { label: "current snapshot " });
   compareKnowledgeLaneFreshnessSupport(storedSnapshot, currentSnapshot, errors);
   if (!storedObservations || storedObservations.schema_version !== SNAPSHOT_OBSERVATIONS_VERSION) {
     errors.push("stored snapshot has no current source_observations; regenerate it");
@@ -224,8 +320,10 @@ export function validateSnapshot(snapshot) {
     "missions",
     "gateway",
     "knowledge_lane",
+    "battle_log",
     "operation_board",
     "source_observations",
+    "next_actions",
     "diagnostics",
   ]) {
     if (!(key in snapshot)) {
@@ -248,6 +346,8 @@ export function validateSnapshot(snapshot) {
     errors.push("gateway.pending_monsters.items must be an array");
   }
   validateKnowledgeLaneSnapshotContract(snapshot, errors);
+  validateBattleLogSnapshotContract(snapshot, errors);
+  validateNextActionsSnapshotContract(snapshot, errors);
   if (snapshot.operation_board?.schema_version !== OPERATION_BOARD_VERSION) {
     errors.push(`operation_board.schema_version must be ${OPERATION_BOARD_VERSION}`);
   }
@@ -260,11 +360,11 @@ export function validateSnapshot(snapshot) {
   if (!Array.isArray(snapshot.operation_board?.sections?.monster_gate?.groups)) {
     errors.push("operation_board.sections.monster_gate.groups must be an array");
   }
-  if (!Array.isArray(snapshot.operation_board?.sections?.action_queue?.items)) {
-    errors.push("operation_board.sections.action_queue.items must be an array");
-  }
   if (!Array.isArray(snapshot.operation_board?.sections?.knowledge_lane?.blockers)) {
     errors.push("operation_board.sections.knowledge_lane.blockers must be an array");
+  }
+  if (!snapshot.operation_board?.sections?.battle_log || typeof snapshot.operation_board.sections.battle_log !== "object") {
+    errors.push("operation_board.sections.battle_log must be an object");
   }
   if (!Array.isArray(snapshot.source_observations?.items)) {
     errors.push("source_observations.items must be an array");
@@ -272,6 +372,11 @@ export function validateSnapshot(snapshot) {
   if (!snapshot.source_observations?.fingerprint) {
     errors.push("source_observations.fingerprint must be present");
   }
+  validateOperationBoardDungeonMapProjection(snapshot, errors);
+  validateOperationBoardMissionBoardProjection(snapshot, errors);
+  validateOperationBoardMonsterGateProjection(snapshot, errors);
+  validateOperationBoardBattleLogProjection(snapshot, errors);
+  validateOperationBoardProjectionCounts(snapshot, errors);
 
   const forbiddenPaths = [
     "guild_hall/state/gateway/mailbox/company/mail/raw",
@@ -290,6 +395,14 @@ export function validateSnapshot(snapshot) {
     "DO_NOT_LEAK_ONTOLOGY_CANDIDATE",
     "DO_NOT_LEAK_OWNER_DECISION",
     "DO_NOT_LEAK_GRAPH_MUTATION",
+    "DO_NOT_SERIALIZE_EVENT_ID",
+    "DO_NOT_SERIALIZE_MISSION_ID",
+    "DO_NOT_SERIALIZE_SOURCE_REF",
+    "DO_NOT_SERIALIZE_NEXT_ACTION_NOTE",
+    "DO_NOT_SERIALIZE_PARTY_ID",
+    "DO_NOT_SERIALIZE_UNIT_ID",
+    "DO_NOT_SERIALIZE_LOOP_ID",
+    "DO_NOT_SERIALIZE_STAGE",
   ];
   const payload = JSON.stringify(snapshot);
   for (const forbiddenPath of forbiddenPaths) {
@@ -299,6 +412,660 @@ export function validateSnapshot(snapshot) {
   }
 
   return buildValidationResult(errors);
+}
+
+function validateNextActionsSnapshotContract(snapshot, errors, options = {}) {
+  const label = options.label ?? "";
+  const nextActions = snapshot?.next_actions;
+  const actionQueueItems = snapshot?.operation_board?.sections?.action_queue?.items;
+
+  if (!Array.isArray(nextActions)) {
+    errors.push(`${label}next_actions must be an array`);
+  } else {
+    validateNextActionItems(nextActions, `${label}next_actions`, NEXT_ACTION_ALLOWED_FIELDS, errors);
+  }
+
+  if (!Array.isArray(actionQueueItems)) {
+    errors.push(`${label}operation_board.sections.action_queue.items must be an array`);
+  } else {
+    validateNextActionItems(
+      actionQueueItems,
+      `${label}operation_board.sections.action_queue.items`,
+      ACTION_QUEUE_ITEM_ALLOWED_FIELDS,
+      errors,
+    );
+  }
+
+  if (!Array.isArray(nextActions) || !Array.isArray(actionQueueItems)) {
+    return;
+  }
+
+  if (actionQueueItems.length !== nextActions.length) {
+    errors.push(`${label}operation_board.sections.action_queue.items length must match next_actions length`);
+  }
+
+  const compareLength = Math.min(nextActions.length, actionQueueItems.length);
+  for (let index = 0; index < compareLength; index += 1) {
+    const nextAction = nextActions[index];
+    const actionQueueItem = actionQueueItems[index];
+    const expectedRank = index + 1;
+
+    if (actionQueueItem?.rank !== expectedRank) {
+      errors.push(`${label}operation_board.sections.action_queue.items[${index}].rank must be ${expectedRank}`);
+    }
+    for (const field of ["id", "status", "summary"]) {
+      if (actionQueueItem?.[field] !== nextAction?.[field]) {
+        errors.push(`${label}operation_board.sections.action_queue.items[${index}].${field} must mirror next_actions[${index}].${field}`);
+      }
+    }
+  }
+}
+
+function validateNextActionItems(items, pathLabel, allowedFields, errors) {
+  for (const [index, item] of items.entries()) {
+    if (!item || typeof item !== "object" || Array.isArray(item)) {
+      errors.push(`${pathLabel}[${index}] must be an object`);
+      continue;
+    }
+    validateAllowedObjectKeys(`${pathLabel}[${index}]`, item, allowedFields, errors);
+    for (const field of ["id", "status", "summary"]) {
+      if (typeof item[field] !== "string") {
+        errors.push(`${pathLabel}[${index}].${field} must be a string`);
+      }
+    }
+    if (typeof item.status === "string" && !NEXT_ACTION_ALLOWED_STATUSES.has(item.status)) {
+      errors.push(`${pathLabel}[${index}].status must be one of ${NEXT_ACTION_STATUS_VALUES.join(", ")}`);
+    }
+  }
+}
+
+function validateBattleLogSnapshotContract(snapshot, errors, options = {}) {
+  const label = options.label ?? "";
+  const battleLog = snapshot?.battle_log;
+
+  if (!battleLog || typeof battleLog !== "object" || Array.isArray(battleLog)) {
+    errors.push(`${label}battle_log must be an object`);
+    return;
+  }
+
+  validateAllowedObjectKeys(`${label}battle_log`, battleLog, BATTLE_LOG_SUMMARY_FIELDS, errors);
+
+  if (battleLog.source_ref !== BATTLE_LOG_SOURCE_REF) {
+    errors.push(`${label}battle_log.source_ref must be ${BATTLE_LOG_SOURCE_REF}`);
+  }
+
+  for (const field of [
+    "event_count",
+    "project_count_with_events",
+    "total_intervention_count",
+    "skipped_row_count",
+    "skipped_file_count",
+  ]) {
+    if (numberValue(battleLog[field]) === null) {
+      errors.push(`${label}battle_log.${field} must be a number`);
+    }
+  }
+
+  for (const field of ["by_result", "by_bottleneck_reason", "by_battle_mode", "by_automation_possibility"]) {
+    if (!battleLog[field] || typeof battleLog[field] !== "object" || Array.isArray(battleLog[field])) {
+      errors.push(`${label}battle_log.${field} must be an object`);
+    }
+  }
+
+  if (battleLog.latest_occurred_at !== null && typeof battleLog.latest_occurred_at !== "string") {
+    errors.push(`${label}battle_log.latest_occurred_at must be a string or null`);
+  }
+
+  if (!Array.isArray(battleLog.projects)) {
+    errors.push(`${label}battle_log.projects must be an array`);
+    return;
+  }
+
+  for (const [index, project] of battleLog.projects.entries()) {
+    const projectPath = `${label}battle_log.projects[${index}]`;
+    if (!project || typeof project !== "object" || Array.isArray(project)) {
+      errors.push(`${projectPath} must be an object`);
+      continue;
+    }
+    validateAllowedObjectKeys(projectPath, project, BATTLE_LOG_PROJECT_SUMMARY_FIELDS, errors);
+    for (const field of ["project_code", "latest_result", "latest_bottleneck_reason"]) {
+      if (project[field] !== null && typeof project[field] !== "string") {
+        errors.push(`${projectPath}.${field} must be a string or null`);
+      }
+    }
+    if (project.latest_occurred_at !== null && typeof project.latest_occurred_at !== "string") {
+      errors.push(`${projectPath}.latest_occurred_at must be a string or null`);
+    }
+    for (const field of ["event_count", "intervention_total"]) {
+      if (numberValue(project[field]) === null) {
+        errors.push(`${projectPath}.${field} must be a number`);
+      }
+    }
+  }
+}
+
+function validateOperationBoardDungeonMapProjection(snapshot, errors, options = {}) {
+  const label = options.label ?? "";
+  const projects = Array.isArray(snapshot?.projects) ? snapshot.projects : null;
+  const missionItems = Array.isArray(snapshot?.missions?.items) ? snapshot.missions.items : null;
+  const pendingMonsterItems = Array.isArray(snapshot?.gateway?.pending_monsters?.items)
+    ? snapshot.gateway.pending_monsters.items
+    : null;
+  const dungeonMapItems = Array.isArray(snapshot?.operation_board?.sections?.dungeon_map?.items)
+    ? snapshot.operation_board.sections.dungeon_map.items
+    : null;
+
+  if (!projects || !dungeonMapItems) {
+    return;
+  }
+
+  validateCountMirror(
+    `${label}operation_board.sections.dungeon_map.items length`,
+    dungeonMapItems.length,
+    projects.length,
+    "projects.length",
+    errors,
+  );
+
+  const projectCodes = projects.map((project) => project?.project_code);
+  const dungeonMapProjectCodes = dungeonMapItems.map((item) => item?.project_code);
+  if (stableStringify(Array.from(new Set(dungeonMapProjectCodes)).sort()) !== stableStringify(Array.from(new Set(projectCodes)).sort())) {
+    errors.push(`${label}operation_board.sections.dungeon_map.items project_code set must match projects project_code set`);
+  }
+
+  const compareLength = Math.min(projects.length, dungeonMapItems.length);
+  for (let index = 0; index < compareLength; index += 1) {
+    const project = projects[index];
+    const item = dungeonMapItems[index];
+    const itemPath = `${label}operation_board.sections.dungeon_map.items[${index}]`;
+
+    if (!item || typeof item !== "object" || Array.isArray(item)) {
+      errors.push(`${itemPath} must be an object`);
+      continue;
+    }
+    validateAllowedObjectKeys(itemPath, item, OPERATION_BOARD_DUNGEON_MAP_ITEM_FIELDS, errors);
+
+    const projectCode = project?.project_code;
+    validateValueMirror(`${itemPath}.project_code`, item.project_code, projectCode, `projects[${index}].project_code`, errors);
+    validateValueMirror(
+      `${itemPath}.workspace_present`,
+      item.workspace_present,
+      Boolean(project?.workspace?.present),
+      `Boolean(projects[${index}].workspace.present)`,
+      errors,
+    );
+    validateValueMirror(
+      `${itemPath}.workmeta_present`,
+      item.workmeta_present,
+      Boolean(project?.workmeta?.present),
+      `Boolean(projects[${index}].workmeta.present)`,
+      errors,
+    );
+    validateValueMirror(
+      `${itemPath}.contract_present`,
+      item.contract_present,
+      Boolean(project?.workmeta?.contract_present),
+      `Boolean(projects[${index}].workmeta.contract_present)`,
+      errors,
+    );
+    validateValueMirror(
+      `${itemPath}.bindings_count`,
+      item.bindings_count,
+      numberValue(project?.workmeta?.bindings_count) ?? 0,
+      `projects[${index}].workmeta.bindings_count`,
+      errors,
+    );
+    validateValueMirror(
+      `${itemPath}.report_surface_count`,
+      item.report_surface_count,
+      Array.isArray(project?.workmeta?.report_surfaces) ? project.workmeta.report_surfaces.length : 0,
+      `projects[${index}].workmeta.report_surfaces length`,
+      errors,
+    );
+    if (missionItems) {
+      const projectMissions = missionItems.filter((mission) => mission?.project_code === projectCode);
+      validateValueMirror(`${itemPath}.mission_count`, item.mission_count, projectMissions.length, "missions.items project_code count", errors);
+      validateValueMirror(
+        `${itemPath}.blocked_mission_count`,
+        item.blocked_mission_count,
+        countMissionsByGroup(projectMissions, "blocked"),
+        "missions.items project_code blocked display_group count",
+        errors,
+      );
+    }
+    if (pendingMonsterItems) {
+      validateValueMirror(
+        `${itemPath}.pending_monster_count`,
+        item.pending_monster_count,
+        pendingMonsterItems.filter((monster) => monster?.assigned_project_code === projectCode).length,
+        "gateway.pending_monsters.items assigned_project_code count",
+        errors,
+      );
+    }
+    validateValueMirror(
+      `${itemPath}.surface_status`,
+      item.surface_status,
+      classifyProjectSurfaceStatus(project),
+      `classifyProjectSurfaceStatus(projects[${index}])`,
+      errors,
+    );
+  }
+}
+
+function validateOperationBoardMissionBoardProjection(snapshot, errors, options = {}) {
+  const label = options.label ?? "";
+  const missionItems = Array.isArray(snapshot?.missions?.items) ? snapshot.missions.items : null;
+  const missionCounts =
+    snapshot?.missions?.counts && typeof snapshot.missions.counts === "object" && !Array.isArray(snapshot.missions.counts)
+      ? snapshot.missions.counts
+      : null;
+  const missionBoard = snapshot?.operation_board?.sections?.mission_board;
+  const missionBoardItems = Array.isArray(missionBoard?.items) ? missionBoard.items : null;
+
+  if (!missionItems || !missionBoardItems) {
+    return;
+  }
+
+  validateCountMirror(
+    `${label}operation_board.sections.mission_board.items length`,
+    missionBoardItems.length,
+    missionItems.length,
+    "missions.items.length",
+    errors,
+  );
+
+  const missionIds = missionItems.map((mission) => mission?.mission_id);
+  const missionBoardMissionIds = missionBoardItems.map((item) => item?.mission_id);
+  if (stableStringify(Array.from(new Set(missionBoardMissionIds)).sort()) !== stableStringify(Array.from(new Set(missionIds)).sort())) {
+    errors.push(`${label}operation_board.sections.mission_board.items mission_id set must match missions.items mission_id set`);
+  }
+
+  const expectedMissionBoard = buildOperationBoardMissionBoard({ missionItems, missionCounts: missionCounts ?? {} });
+  const compareLength = Math.min(expectedMissionBoard.items.length, missionBoardItems.length);
+  for (let index = 0; index < compareLength; index += 1) {
+    const item = missionBoardItems[index];
+    const expectedItem = expectedMissionBoard.items[index];
+    const itemPath = `${label}operation_board.sections.mission_board.items[${index}]`;
+
+    if (!item || typeof item !== "object" || Array.isArray(item)) {
+      errors.push(`${itemPath} must be an object`);
+      continue;
+    }
+    validateAllowedObjectKeys(itemPath, item, OPERATION_BOARD_MISSION_BOARD_ITEM_FIELDS, errors);
+
+    for (const field of OPERATION_BOARD_MISSION_BOARD_ITEM_FIELDS) {
+      validateValueMirror(
+        `${itemPath}.${field}`,
+        item[field],
+        expectedItem?.[field],
+        `missions.items Mission Board projection[${index}].${field}`,
+        errors,
+      );
+    }
+  }
+
+  if (missionCounts) {
+    validateCountObjectMirror(
+      `${label}operation_board.sections.mission_board.counts_by_status`,
+      missionBoard?.counts_by_status,
+      missionCounts,
+      "missions.counts status count",
+      errors,
+    );
+  }
+}
+
+function validateOperationBoardMonsterGateProjection(snapshot, errors, options = {}) {
+  const label = options.label ?? "";
+  const pendingMonsterItems = Array.isArray(snapshot?.gateway?.pending_monsters?.items)
+    ? snapshot.gateway.pending_monsters.items
+    : null;
+  const monsterGateGroups = Array.isArray(snapshot?.operation_board?.sections?.monster_gate?.groups)
+    ? snapshot.operation_board.sections.monster_gate.groups
+    : null;
+
+  if (!monsterGateGroups) {
+    return;
+  }
+
+  validateCountMirror(
+    `${label}operation_board.sections.monster_gate.groups length`,
+    monsterGateGroups.length,
+    PENDING_MONSTER_DISPLAY_GROUPS.length,
+    "PENDING_MONSTER_DISPLAY_GROUPS.length",
+    errors,
+  );
+
+  const compareGroupLength = Math.min(monsterGateGroups.length, PENDING_MONSTER_DISPLAY_GROUPS.length);
+  for (let groupIndex = 0; groupIndex < compareGroupLength; groupIndex += 1) {
+    const group = monsterGateGroups[groupIndex];
+    const expectedGroup = PENDING_MONSTER_DISPLAY_GROUPS[groupIndex];
+    const groupPath = `${label}operation_board.sections.monster_gate.groups[${groupIndex}]`;
+
+    if (!group || typeof group !== "object" || Array.isArray(group)) {
+      errors.push(`${groupPath} must be an object`);
+      continue;
+    }
+    validateAllowedObjectKeys(groupPath, group, OPERATION_BOARD_MONSTER_GATE_GROUP_FIELDS, errors);
+
+    for (const field of ["id", "label", "rank"]) {
+      validateValueMirror(
+        `${groupPath}.${field}`,
+        group[field],
+        expectedGroup[field],
+        `PENDING_MONSTER_DISPLAY_GROUPS[${groupIndex}].${field}`,
+        errors,
+      );
+    }
+
+    if (!Array.isArray(group.items)) {
+      errors.push(`${groupPath}.items must be an array`);
+      continue;
+    }
+
+    for (const [itemIndex, item] of group.items.entries()) {
+      const itemPath = `${groupPath}.items[${itemIndex}]`;
+      if (!item || typeof item !== "object" || Array.isArray(item)) {
+        errors.push(`${itemPath} must be an object`);
+        continue;
+      }
+      validateAllowedObjectKeys(itemPath, item, PENDING_MONSTER_SUMMARY_MIRROR_FIELDS, errors);
+    }
+
+    if (!pendingMonsterItems) {
+      continue;
+    }
+
+    const expectedItems = pendingMonsterItems.filter((monster) => monster?.display_group === group.id);
+    validateCountMirror(
+      `${groupPath}.items length`,
+      group.items.length,
+      expectedItems.length,
+      `gateway.pending_monsters.items filtered by display_group ${group.id} length`,
+      errors,
+    );
+
+    const compareItemLength = Math.min(group.items.length, expectedItems.length);
+    for (let itemIndex = 0; itemIndex < compareItemLength; itemIndex += 1) {
+      const item = group.items[itemIndex];
+      const expectedItem = expectedItems[itemIndex];
+      const itemPath = `${groupPath}.items[${itemIndex}]`;
+
+      if (!item || typeof item !== "object" || Array.isArray(item)) {
+        continue;
+      }
+
+      for (const field of PENDING_MONSTER_SUMMARY_MIRROR_FIELDS) {
+        validateValueMirror(
+          `${itemPath}.${field}`,
+          item[field],
+          expectedItem?.[field],
+          `gateway.pending_monsters.items filtered by display_group ${group.id}[${itemIndex}].${field}`,
+          errors,
+        );
+      }
+    }
+  }
+}
+
+function validateOperationBoardBattleLogProjection(snapshot, errors, options = {}) {
+  const label = options.label ?? "";
+  const battleLog = snapshot?.battle_log;
+  const boardBattleLog = snapshot?.operation_board?.sections?.battle_log;
+
+  if (!battleLog || typeof battleLog !== "object" || Array.isArray(battleLog)) {
+    errors.push(`${label}battle_log must be an object`);
+    return;
+  }
+  if (!boardBattleLog || typeof boardBattleLog !== "object" || Array.isArray(boardBattleLog)) {
+    errors.push(`${label}operation_board.sections.battle_log must be an object`);
+    return;
+  }
+
+  if (stableStringify(boardBattleLog) !== stableStringify(battleLog)) {
+    errors.push(`${label}operation_board.sections.battle_log must mirror battle_log`);
+  }
+}
+
+function validateOperationBoardProjectionCounts(snapshot, errors, options = {}) {
+  const label = options.label ?? "";
+  const projects = Array.isArray(snapshot?.projects) ? snapshot.projects : null;
+  const missionItems = Array.isArray(snapshot?.missions?.items) ? snapshot.missions.items : null;
+  const nextActions = Array.isArray(snapshot?.next_actions) ? snapshot.next_actions : null;
+  const battleLog = snapshot?.battle_log && typeof snapshot.battle_log === "object" && !Array.isArray(snapshot.battle_log) ? snapshot.battle_log : null;
+  const pendingMonsters = snapshot?.gateway?.pending_monsters;
+  const summary = snapshot?.operation_board?.summary;
+  const missionBoard = snapshot?.operation_board?.sections?.mission_board;
+  const missionBoardItems = Array.isArray(missionBoard?.items) ? missionBoard.items : null;
+  const monsterGate = snapshot?.operation_board?.sections?.monster_gate;
+  const monsterGateGroups = Array.isArray(monsterGate?.groups) ? monsterGate.groups : null;
+
+  if (!summary || typeof summary !== "object" || Array.isArray(summary)) {
+    errors.push(`${label}operation_board.summary must be an object`);
+    return;
+  }
+
+  if (nextActions) {
+    validateCountMirror(
+      `${label}operation_board.summary.next_action_count`,
+      summary.next_action_count,
+      nextActions.length,
+      "next_actions.length",
+      errors,
+    );
+  }
+
+  if (battleLog) {
+    validateCountMirror(
+      `${label}operation_board.summary.battle_log_event_count`,
+      summary.battle_log_event_count,
+      numberValue(battleLog.event_count) ?? 0,
+      "battle_log.event_count",
+      errors,
+    );
+    validateCountMirror(
+      `${label}operation_board.summary.battle_log_project_count_with_events`,
+      summary.battle_log_project_count_with_events,
+      numberValue(battleLog.project_count_with_events) ?? 0,
+      "battle_log.project_count_with_events",
+      errors,
+    );
+  }
+
+  if (projects) {
+    validateCountMirror(`${label}operation_board.summary.project_count`, summary.project_count, projects.length, "projects.length", errors);
+    validateCountMirror(
+      `${label}operation_board.summary.workspace_project_count`,
+      summary.workspace_project_count,
+      projects.filter((project) => project?.workspace?.present).length,
+      "projects with workspace.present count",
+      errors,
+    );
+    validateCountMirror(
+      `${label}operation_board.summary.workmeta_project_count`,
+      summary.workmeta_project_count,
+      projects.filter((project) => project?.workmeta?.present).length,
+      "projects with workmeta.present count",
+      errors,
+    );
+  }
+
+  if (missionItems) {
+    validateCountMirror(`${label}operation_board.summary.mission_count`, summary.mission_count, missionItems.length, "missions.items.length", errors);
+  }
+
+  if (missionBoardItems) {
+    const missionDisplayGroupCounts = countBy(missionBoardItems, (item) => item?.display_group ?? "unknown");
+    validateCountMirror(
+      `${label}operation_board.summary.blocked_mission_count`,
+      summary.blocked_mission_count,
+      missionDisplayGroupCounts.blocked ?? 0,
+      "mission_board.items blocked display_group count",
+      errors,
+    );
+    validateCountMirror(
+      `${label}operation_board.summary.ready_mission_count`,
+      summary.ready_mission_count,
+      missionDisplayGroupCounts.ready ?? 0,
+      "mission_board.items ready display_group count",
+      errors,
+    );
+    validateCountObjectMirror(
+      `${label}operation_board.sections.mission_board.counts_by_display_group`,
+      missionBoard?.counts_by_display_group,
+      missionDisplayGroupCounts,
+      "mission_board.items display_group count",
+      errors,
+    );
+  }
+
+  if (!pendingMonsters || typeof pendingMonsters !== "object" || Array.isArray(pendingMonsters)) {
+    return;
+  }
+
+  const pendingMonsterCount = numberValue(pendingMonsters.count);
+  if (pendingMonsterCount !== null) {
+    validateCountMirror(
+      `${label}operation_board.summary.pending_monster_count`,
+      summary.pending_monster_count,
+      pendingMonsterCount,
+      "gateway.pending_monsters.count",
+      errors,
+    );
+    validateCountMirror(
+      `${label}operation_board.sections.monster_gate.count`,
+      monsterGate?.count,
+      pendingMonsterCount,
+      "gateway.pending_monsters.count",
+      errors,
+    );
+  }
+
+  const gatewayDisplayGroupCounts = pendingMonsters.by_display_group;
+  if (!gatewayDisplayGroupCounts || typeof gatewayDisplayGroupCounts !== "object" || Array.isArray(gatewayDisplayGroupCounts)) {
+    errors.push(`${label}gateway.pending_monsters.by_display_group must be an object`);
+    return;
+  }
+
+  const blockedMonsterCount = countObjectValue(gatewayDisplayGroupCounts, "blocked", `${label}gateway.pending_monsters.by_display_group`, errors);
+  const dueWatchMonsterCount = countObjectValue(gatewayDisplayGroupCounts, "due_watch", `${label}gateway.pending_monsters.by_display_group`, errors);
+  if (blockedMonsterCount !== null) {
+    validateCountMirror(
+      `${label}operation_board.summary.blocked_monster_count`,
+      summary.blocked_monster_count,
+      blockedMonsterCount,
+      "gateway.pending_monsters.by_display_group.blocked",
+      errors,
+    );
+  }
+  if (dueWatchMonsterCount !== null) {
+    validateCountMirror(
+      `${label}operation_board.summary.due_watch_monster_count`,
+      summary.due_watch_monster_count,
+      dueWatchMonsterCount,
+      "gateway.pending_monsters.by_display_group.due_watch",
+      errors,
+    );
+  }
+
+  if (!monsterGateGroups) {
+    return;
+  }
+
+  const monsterGateTruncated = Boolean(monsterGate?.truncated);
+  for (const [index, group] of monsterGateGroups.entries()) {
+    const groupPath = `${label}operation_board.sections.monster_gate.groups[${index}]`;
+    if (!group || typeof group !== "object" || Array.isArray(group)) {
+      errors.push(`${groupPath} must be an object`);
+      continue;
+    }
+    if (typeof group.id !== "string") {
+      errors.push(`${groupPath}.id must be a string`);
+      continue;
+    }
+
+    const gatewayGroupTotal = countObjectValue(gatewayDisplayGroupCounts, group.id, `${label}gateway.pending_monsters.by_display_group`, errors);
+    if (gatewayGroupTotal !== null) {
+      validateCountMirror(
+        `${groupPath}.total`,
+        group.total,
+        gatewayGroupTotal,
+        `gateway.pending_monsters.by_display_group.${group.id}`,
+        errors,
+      );
+    }
+
+    if (!Array.isArray(group.items)) {
+      errors.push(`${groupPath}.items must be an array`);
+      continue;
+    }
+
+    if (monsterGateTruncated) {
+      const groupTotal = numberValue(group.total);
+      if (groupTotal !== null && group.items.length > groupTotal) {
+        errors.push(`${groupPath}.items length must not exceed total`);
+      }
+    } else {
+      validateCountMirror(`${groupPath}.total`, group.total, group.items.length, `${groupPath}.items.length`, errors);
+    }
+  }
+}
+
+function validateValueMirror(pathLabel, actualValue, expectedValue, expectedLabel, errors) {
+  if (actualValue !== expectedValue) {
+    errors.push(`${pathLabel} must mirror ${expectedLabel} (${expectedValue})`);
+  }
+}
+
+function validateAllowedObjectKeys(pathLabel, value, allowedFields, errors) {
+  const allowed = new Set(allowedFields);
+  for (const key of Object.keys(value)) {
+    if (!allowed.has(key)) {
+      errors.push(`${pathLabel}.${key} is not an allowed field`);
+    }
+  }
+}
+
+function validateCountObjectMirror(pathLabel, actualCounts, expectedCounts, expectedLabel, errors) {
+  if (!actualCounts || typeof actualCounts !== "object" || Array.isArray(actualCounts)) {
+    errors.push(`${pathLabel} must be an object`);
+    return;
+  }
+
+  const keys = Array.from(new Set([...Object.keys(actualCounts), ...Object.keys(expectedCounts)])).sort();
+  for (const key of keys) {
+    const actual = countObjectValue(actualCounts, key, pathLabel, errors);
+    const expected = numberValue(expectedCounts[key]) ?? 0;
+    if (actual === null) {
+      continue;
+    }
+    if (actual !== expected) {
+      errors.push(`${pathLabel}.${key} must equal ${expectedLabel} (${expected})`);
+    }
+  }
+}
+
+function countObjectValue(counts, key, pathLabel, errors) {
+  if (!Object.hasOwn(counts, key)) {
+    return 0;
+  }
+  const count = numberValue(counts[key]);
+  if (count === null) {
+    errors.push(`${pathLabel}.${key} must be a number`);
+    return null;
+  }
+  return count;
+}
+
+function validateCountMirror(pathLabel, actualValue, expectedValue, expectedLabel, errors) {
+  const actual = numberValue(actualValue);
+  if (actual === null) {
+    errors.push(`${pathLabel} must be a number`);
+    return;
+  }
+  if (actual !== expectedValue) {
+    errors.push(`${pathLabel} must equal ${expectedLabel} (${expectedValue})`);
+  }
 }
 
 function validateKnowledgeLaneSnapshotContract(snapshot, errors, options = {}) {
@@ -463,6 +1230,7 @@ async function collectSourceObservations(repoRoot, observedAt) {
       owner: ".mission",
       readMode: "public_summary_file_metadata",
     }),
+    observeMissionReadinessSource(repoRoot),
     observeDirectorySource(repoRoot, {
       id: "workspace_projects",
       sourceRef: "_workspaces",
@@ -471,6 +1239,7 @@ async function collectSourceObservations(repoRoot, observedAt) {
       exclude: new Set([".git"]),
     }),
     observeWorkmetaSource(repoRoot),
+    observeBattleLogSource(repoRoot),
     observeGatewaySource(repoRoot),
     observeKnowledgeLaneSource(repoRoot),
     observePrivateStateSource(repoRoot),
@@ -546,6 +1315,35 @@ async function observeDirectorySource(repoRoot, { id, sourceRef, owner, readMode
   };
 }
 
+async function observeMissionReadinessSource(repoRoot) {
+  const missionRoot = path.join(repoRoot, ".mission");
+  const stat = await statPath(missionRoot);
+  const missionIds = stat.present ? await listDirectoryNames(missionRoot) : [];
+  const readinessStats = await Promise.all(missionIds.map((missionId) => statPath(path.join(missionRoot, missionId, "readiness.yaml"))));
+  const presentReadinessStats = readinessStats.filter((readinessStat) => readinessStat.present && readinessStat.entry_type === "file");
+
+  return {
+    id: "mission_readiness",
+    source_ref: ".mission/*/readiness.yaml",
+    owner: ".mission",
+    read_mode: "mission_readiness_file_metadata_only",
+    present: stat.present,
+    signal: {
+      kind: "mission_readiness_surface",
+      mission_directory_count: missionIds.length,
+      readiness_file_count: presentReadinessStats.length,
+      latest_readiness_mtime_ms: presentReadinessStats.reduce(
+        (latest, readinessStat) => Math.max(latest, numberValue(readinessStat.mtime_ms) ?? 0),
+        0,
+      ),
+      readiness_total_size_bytes: presentReadinessStats.reduce(
+        (total, readinessStat) => total + (numberValue(readinessStat.size_bytes) ?? 0),
+        0,
+      ),
+    },
+  };
+}
+
 async function observeWorkmetaSource(repoRoot) {
   const root = path.join(repoRoot, "_workmeta");
   const stat = await statPath(root);
@@ -577,6 +1375,26 @@ async function observeWorkmetaSource(repoRoot) {
       root_mtime_ms: stat.mtime_ms,
       project_count: projectCodes.length,
       latest_surface_mtime_ms: await latestMtimeMs(surfacePaths),
+    },
+  };
+}
+
+async function observeBattleLogSource(repoRoot) {
+  const projectFiles = await collectBattleEventFileSurfaces(repoRoot);
+  const fileStats = projectFiles.map((entry) => entry.stat);
+
+  return {
+    id: "battle_log_events",
+    source_ref: BATTLE_LOG_SOURCE_REF,
+    owner: "guild_hall/battle_log",
+    read_mode: "battle_event_file_metadata_only",
+    present: projectFiles.length > 0,
+    signal: {
+      kind: "battle_log_event_files",
+      file_count: projectFiles.length,
+      latest_mtime_ms: fileStats.reduce((latest, stat) => Math.max(latest, numberValue(stat.mtime_ms) ?? 0), 0),
+      total_size_bytes: fileStats.reduce((total, stat) => total + (numberValue(stat.size_bytes) ?? 0), 0),
+      project_count: new Set(projectFiles.map((entry) => entry.project_code)).size,
     },
   };
 }
@@ -748,6 +1566,88 @@ async function summarizeWorkmetaProject(repoRoot, projectCode) {
   };
 }
 
+async function summarizeBattleLog(repoRoot) {
+  const files = await collectBattleEventFileSurfaces(repoRoot);
+  const byResult = {};
+  const byBottleneckReason = {};
+  const byBattleMode = {};
+  const byAutomationPossibility = {};
+  const projectSummaries = new Map();
+  let eventCount = 0;
+  let totalInterventionCount = 0;
+  let skippedRowCount = 0;
+  let skippedFileCount = 0;
+  let latestEvent = null;
+
+  for (const file of files) {
+    let text;
+    try {
+      text = await fs.readFile(file.file_path, "utf8");
+    } catch {
+      skippedFileCount += 1;
+      continue;
+    }
+
+    for (const line of text.split(/\r?\n/u).filter(Boolean)) {
+      let event;
+      try {
+        event = normalizeBattleEvent(JSON.parse(line), { expectedProjectCode: file.project_code });
+      } catch {
+        skippedRowCount += 1;
+        continue;
+      }
+
+      eventCount += 1;
+      totalInterventionCount += event.intervention_count;
+      incrementCount(byResult, event.result);
+      incrementCount(byBottleneckReason, event.bottleneck_reason);
+      incrementCount(byBattleMode, event.battle_mode);
+      incrementCount(byAutomationPossibility, event.automation_possibility);
+
+      if (!latestEvent || compareBattleEvents(event, latestEvent) > 0) {
+        latestEvent = event;
+      }
+
+      const projectSummary = projectSummaries.get(event.project_code) ?? {
+        project_code: event.project_code,
+        event_count: 0,
+        latest_event: null,
+        intervention_total: 0,
+      };
+      projectSummary.event_count += 1;
+      projectSummary.intervention_total += event.intervention_count;
+      if (!projectSummary.latest_event || compareBattleEvents(event, projectSummary.latest_event) > 0) {
+        projectSummary.latest_event = event;
+      }
+      projectSummaries.set(event.project_code, projectSummary);
+    }
+  }
+
+  return {
+    source_ref: BATTLE_LOG_SOURCE_REF,
+    event_count: eventCount,
+    project_count_with_events: projectSummaries.size,
+    by_result: byResult,
+    by_bottleneck_reason: byBottleneckReason,
+    by_battle_mode: byBattleMode,
+    by_automation_possibility: byAutomationPossibility,
+    total_intervention_count: totalInterventionCount,
+    latest_occurred_at: latestEvent?.occurred_at ?? null,
+    projects: Array.from(projectSummaries.values())
+      .map((project) => ({
+        project_code: project.project_code,
+        event_count: project.event_count,
+        latest_occurred_at: project.latest_event?.occurred_at ?? null,
+        latest_result: project.latest_event?.result ?? null,
+        latest_bottleneck_reason: project.latest_event?.bottleneck_reason ?? null,
+        intervention_total: project.intervention_total,
+      }))
+      .sort((left, right) => left.project_code.localeCompare(right.project_code)),
+    skipped_row_count: skippedRowCount,
+    skipped_file_count: skippedFileCount,
+  };
+}
+
 async function summarizeMissions(repoRoot, diagnostics) {
   const indexPath = path.join(repoRoot, ".mission", "index.yaml");
   const exists = await pathExists(indexPath);
@@ -763,23 +1663,69 @@ async function summarizeMissions(repoRoot, diagnostics) {
 
   const document = await readYaml(indexPath, diagnostics);
   const entries = Array.isArray(document?.entries) ? document.entries : [];
-  const items = entries
-    .map((entry) => ({
-      mission_id: stringValue(entry?.mission_id),
-      title: stringValue(entry?.title),
-      project_code: stringValue(entry?.project_code),
-      status: stringValue(entry?.status),
-      readiness_status: stringValue(entry?.readiness_status),
-      workflow_id_present: Boolean(stringValue(entry?.workflow_id)),
-      party_id: stringValue(entry?.party_id),
-    }))
-    .filter((entry) => entry.mission_id)
+  const items = (await Promise.all(
+    entries.map(async (entry) => {
+      const missionId = stringValue(entry?.mission_id);
+      const readinessStatus = stringValue(entry?.readiness_status);
+      if (!missionId) {
+        return null;
+      }
+      return {
+        mission_id: missionId,
+        title: stringValue(entry?.title),
+        project_code: stringValue(entry?.project_code),
+        status: stringValue(entry?.status),
+        readiness_status: readinessStatus,
+        workflow_id_present: Boolean(stringValue(entry?.workflow_id)),
+        party_id: stringValue(entry?.party_id),
+        ...(await summarizeMissionTerminalProvenance(repoRoot, missionId, readinessStatus, diagnostics)),
+      };
+    }),
+  ))
+    .filter((entry) => entry?.mission_id)
     .sort((left, right) => left.mission_id.localeCompare(right.mission_id));
 
   return {
     source_ref: ".mission/index.yaml",
     items,
     counts: countBy(items, (item) => item.status ?? "unknown"),
+  };
+}
+
+async function summarizeMissionTerminalProvenance(repoRoot, missionId, readinessStatus, diagnostics) {
+  const defaultMarkers = {
+    terminal_provenance_present: false,
+    terminal_provenance_complete: false,
+    terminal_provenance_closed_via_mission_close: false,
+    terminal_result_matches_readiness: false,
+    run_pointer_present: false,
+    battle_event_pointer_present: false,
+  };
+  const missionRoot = path.resolve(repoRoot, ".mission");
+  const readinessPath = path.resolve(missionRoot, missionId, "readiness.yaml");
+  if (!readinessPath.startsWith(`${missionRoot}${path.sep}`) || !(await pathExists(readinessPath))) {
+    return defaultMarkers;
+  }
+
+  const document = await readYaml(readinessPath, diagnostics);
+  const terminalProvenance = document?.terminal_provenance;
+  if (!terminalProvenance || typeof terminalProvenance !== "object" || Array.isArray(terminalProvenance)) {
+    return defaultMarkers;
+  }
+
+  const closedVia = stringValue(terminalProvenance.closed_via);
+  const closedAt = stringValue(terminalProvenance.closed_at);
+  const terminalResult = stringValue(terminalProvenance.terminal_result);
+  const runId = stringValue(terminalProvenance.run_id);
+  const battleEventId = stringValue(terminalProvenance.battle_event_id);
+
+  return {
+    terminal_provenance_present: true,
+    terminal_provenance_complete: Boolean(closedVia && closedAt && terminalResult && runId && battleEventId),
+    terminal_provenance_closed_via_mission_close: closedVia === "mission_close",
+    terminal_result_matches_readiness: Boolean(terminalResult && readinessStatus && terminalResult === readinessStatus),
+    run_pointer_present: Boolean(runId),
+    battle_event_pointer_present: Boolean(battleEventId),
   };
 }
 
@@ -1223,7 +2169,7 @@ function buildKnowledgeLaneNextOwnerReviewAction(surface) {
   return "Review only the metadata counts and blockers, then keep the lane at observed unless source support and an owner/review route justify a stronger claim.";
 }
 
-function buildOperationBoardProjection({ projects, missions, gateway, knowledgeLane, nextActions, diagnostics }) {
+function buildOperationBoardProjection({ projects, missions, gateway, knowledgeLane, battleLog, nextActions, diagnostics }) {
   const missionItems = Array.isArray(missions.items) ? missions.items : [];
   const pendingMonsters = gateway.pending_monsters ?? {};
   const pendingMonsterItems = Array.isArray(pendingMonsters.items) ? pendingMonsters.items : [];
@@ -1234,7 +2180,7 @@ function buildOperationBoardProjection({ projects, missions, gateway, knowledgeL
     source_ref: "soulforge_snapshot.json",
     privacy: {
       mode: "public_safe_snapshot_projection",
-      source_fields: ["projects", "missions", "gateway.pending_monsters", "knowledge_lane", "next_actions", "diagnostics"],
+      source_fields: ["projects", "missions", "gateway.pending_monsters", "knowledge_lane", "battle_log", "next_actions", "diagnostics"],
       excluded_fields: [
         "mail body/html",
         "source quote",
@@ -1246,6 +2192,13 @@ function buildOperationBoardProjection({ projects, missions, gateway, knowledgeL
         "private report prose",
         "ontology candidate statements",
         "owner decisions",
+        "battle log event ids",
+        "battle log mission ids",
+        "battle log stage text",
+        "battle log source refs",
+        "battle log party/unit/loop ids",
+        "battle log next action notes",
+        "battle log rendered markdown prose",
       ],
     },
     summary: {
@@ -1258,6 +2211,8 @@ function buildOperationBoardProjection({ projects, missions, gateway, knowledgeL
       pending_monster_count: numberValue(pendingMonsters.count) ?? 0,
       blocked_monster_count: numberValue(pendingByDisplayGroup.blocked) ?? 0,
       due_watch_monster_count: numberValue(pendingByDisplayGroup.due_watch) ?? 0,
+      battle_log_event_count: numberValue(battleLog.event_count) ?? 0,
+      battle_log_project_count_with_events: numberValue(battleLog.project_count_with_events) ?? 0,
       knowledge_lane_state: knowledgeLane.owner_gated?.state ?? "unknown",
       knowledge_evidence_surface_count: numberValue(knowledgeLane.evidence?.total_surface_count) ?? 0,
       next_action_count: nextActions.length,
@@ -1268,6 +2223,7 @@ function buildOperationBoardProjection({ projects, missions, gateway, knowledgeL
       mission_board: buildOperationBoardMissionBoard({ missionItems, missionCounts: missions.counts ?? {} }),
       monster_gate: buildOperationBoardMonsterGate({ pendingMonsters, pendingMonsterItems }),
       knowledge_lane: buildOperationBoardKnowledgeLane(knowledgeLane),
+      battle_log: cloneJson(battleLog),
       action_queue: buildOperationBoardActionQueue(nextActions),
     },
   };
@@ -1308,6 +2264,12 @@ function buildOperationBoardMissionBoard({ missionItems, missionCounts }) {
         readiness_status: mission.readiness_status,
         workflow_id_present: mission.workflow_id_present,
         party_id: mission.party_id,
+        terminal_provenance_present: mission.terminal_provenance_present,
+        terminal_provenance_complete: mission.terminal_provenance_complete,
+        terminal_provenance_closed_via_mission_close: mission.terminal_provenance_closed_via_mission_close,
+        terminal_result_matches_readiness: mission.terminal_result_matches_readiness,
+        run_pointer_present: mission.run_pointer_present,
+        battle_event_pointer_present: mission.battle_event_pointer_present,
         display_group: displayGroup.id,
         display_group_label: displayGroup.label,
         display_group_rank: displayGroup.rank,
@@ -1415,6 +2377,14 @@ function compareBoardItems(left, right) {
   );
 }
 
+function compareBattleEvents(left, right) {
+  const timeDiff = Date.parse(left.occurred_at) - Date.parse(right.occurred_at);
+  if (timeDiff !== 0) {
+    return timeDiff;
+  }
+  return stringSortValue(left.event_id).localeCompare(stringSortValue(right.event_id));
+}
+
 function summarizeRepo(repoRoot) {
   return {
     root: ".",
@@ -1480,6 +2450,44 @@ async function listProjectCodes(root, options = {}) {
     }
   }
   return result;
+}
+
+async function collectBattleEventFileSurfaces(repoRoot) {
+  const workmetaRoot = path.join(repoRoot, "_workmeta");
+  const projectCodes = await listDirectoryNames(workmetaRoot, { exclude: WORKMETA_NON_PROJECT_ROOTS });
+  const files = [];
+
+  for (const projectCode of projectCodes) {
+    const eventsRoot = path.join(workmetaRoot, projectCode, "log", "events");
+    const projectFiles = await collectBattleEventFiles(eventsRoot);
+    for (const filePath of projectFiles) {
+      files.push({
+        project_code: projectCode,
+        file_path: filePath,
+        stat: await statPath(filePath),
+      });
+    }
+  }
+
+  return files.sort((left, right) => left.file_path.localeCompare(right.file_path));
+}
+
+async function collectBattleEventFiles(root) {
+  try {
+    const entries = await fs.readdir(root, { withFileTypes: true });
+    const files = [];
+    for (const entry of entries) {
+      const entryPath = path.join(root, entry.name);
+      if (entry.isDirectory()) {
+        files.push(...(await collectBattleEventFiles(entryPath)));
+      } else if (entry.isFile() && entry.name === "battle_events.jsonl") {
+        files.push(entryPath);
+      }
+    }
+    return files.sort();
+  } catch {
+    return [];
+  }
 }
 
 async function listDirectoryNames(root, options = {}) {
@@ -1654,6 +2662,10 @@ function buildValidationResult(errors) {
     ok: errors.length === 0,
     errors,
   };
+}
+
+function cloneJson(value) {
+  return JSON.parse(JSON.stringify(value));
 }
 
 function withObservationSignature(item) {

@@ -23,7 +23,7 @@ async function main() {
   }
 
   if (command === "status") {
-    printJson(await townCrierStatus(repoRoot));
+    printJson(await townCrierStatus(resolveStatusRepoRoot(args)));
     return;
   }
 
@@ -49,7 +49,14 @@ function parseArgs(argv) {
       continue;
     }
 
-    const key = token.slice(2);
+    const rawKey = token.slice(2);
+    const separatorIndex = rawKey.indexOf("=");
+    if (separatorIndex >= 0) {
+      flags[rawKey.slice(0, separatorIndex)] = rawKey.slice(separatorIndex + 1);
+      continue;
+    }
+
+    const key = rawKey;
     const next = argv[index + 1];
     if (next === undefined || next.startsWith("--")) {
       flags[key] = true;
@@ -63,12 +70,30 @@ function parseArgs(argv) {
   return flags;
 }
 
+function resolveStatusRepoRoot(args) {
+  if (!Object.hasOwn(args, "local-root")) {
+    return repoRoot;
+  }
+
+  const value = args["local-root"];
+  if (typeof value !== "string" || !value.trim()) {
+    throw new Error("missing required flag: --local-root");
+  }
+
+  const resolved = path.resolve(value);
+  if (resolved === path.parse(resolved).root) {
+    throw new Error("--local-root must not be the filesystem root");
+  }
+
+  return resolved;
+}
+
 function printUsageAndExit() {
   console.error(
     [
       "Usage:",
       "  node guild_hall/town_crier/cli.mjs run [--once] [--loop] [--interval-sec <sec>] [--limit <n>]",
-      "  node guild_hall/town_crier/cli.mjs status",
+      "  node guild_hall/town_crier/cli.mjs status [--local-root <path>]",
       "  node guild_hall/town_crier/cli.mjs send --text <message>",
     ].join("\n"),
   );
