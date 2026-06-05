@@ -1,0 +1,26 @@
+workflow_id: long_thread_handoff_v0
+kind: party_compatibility
+status: active
+execution_binding:
+  party_required: false
+  candidate_party_id: guild_master_cell
+  bound_party_id: null
+  binding_authority: none
+compatible_party_templates:
+  - guild_master_cell
+  - owner_plus_executor
+  - sourcebound_extraction_review
+  - review_gate_preparation
+required_capabilities:
+  - goal_scope_binding
+  - context_hygiene_management
+  - durable_checkpoint_curation
+  - fresh_subagent_delegation
+  - actual_file_state_integration
+  - deterministic_validation_routing
+  - compact_clear_decision
+  - conservative_closeout
+notes:
+  - "Template compatibility is advisory only."
+  - "This workflow does not bind a default party or switch any default route."
+  - "Real execution binding belongs in mission or project-local run evidence."

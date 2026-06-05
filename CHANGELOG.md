@@ -2,6 +2,17 @@
 
 ## 2026-06-05
 
+### Revision `working` - Long thread handoff workflow registered
+
+- Added registered structure-only workflow `long_thread_handoff_v0` for
+  long-running, overnight, or cross-session Soulforge work.
+- Captured durable `NIGHT_WORK_HANDOFF`, fresh-subagent delegation,
+  autonomous compact/clear timing, validation, and conservative closeout as a
+  public-safe workflow package without raw transcript, private payload, secret,
+  pilot-execution, default-route, or production-ready claims.
+- Registered the workflow in `.workflow/index.yaml` and documented it in
+  `.workflow/README.md`.
+
 ### Revision `working` - Private-state continuous sync added
 
 - Added a deterministic `guild-hall:private-state:sync` command that mirrors

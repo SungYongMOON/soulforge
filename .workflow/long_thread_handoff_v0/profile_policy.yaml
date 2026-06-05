@@ -1,0 +1,28 @@
+workflow_id: long_thread_handoff_v0
+kind: workflow_profile_policy
+status: active
+validation_level: structure_only_public_safe
+calibration_status: none
+profile_binding_policy:
+  model: runtime_binding
+  reasoning_effort: runtime_binding
+  species: runtime_binding
+  class: runtime_binding
+  party: runtime_binding_or_unbound
+selection_rules:
+  - Do not hard-code model, species, class, or local runtime paths into this reusable workflow package.
+  - Use the strongest available fresh subagents when the active runtime and owner authorization support them.
+  - Use lower-authority local operation only for manager bookkeeping, deterministic validation, and closeout reporting.
+  - Require separate B/V evidence before claiming pilot execution, usability, or production readiness.
+rerun_triggers:
+  - checkpoint shape changes
+  - compact or clear policy changes
+  - subagent delegation policy changes
+  - closeout or knowledge trigger policy changes
+  - local runtime skill bridge changes
+non_claims:
+  - no_profile_optimization_claim
+  - no_cost_or_quality_calibration_claim
+  - no_pilot_execution_claim
+  - no_production_ready_claim
+  - no_default_route_claim

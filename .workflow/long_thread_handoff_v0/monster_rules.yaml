@@ -1,0 +1,22 @@
+workflow_id: long_thread_handoff_v0
+kind: monster_rules
+status: active
+rules:
+  - monster_id: raw_transcript_handoff
+    response: replace_with_structured_checkpoint
+    summary: Do not carry raw chat transcripts, source dumps, or private payloads into the handoff; preserve only structured state and refs.
+  - monster_id: automatic_compaction_without_checkpoint
+    response: refresh_handoff_before_compact
+    summary: Compact only after the durable handoff names the goal, decisions, constraints, validation, blockers, and next actions that must survive.
+  - monster_id: stale_manager_memory
+    response: inspect_actual_status_and_files
+    summary: After subagents or other agents edit files, read status/diff/file state before deciding.
+  - monster_id: phase_boundary_context_pollution
+    response: clear_or_fresh_session_from_handoff
+    summary: At phase boundaries, prefer a fresh context from the checkpoint when prior context is more likely to distract than help.
+  - monster_id: failed_attempt_preserved_as_guidance
+    response: record_rejected_approach_only
+    summary: Keep failed attempts only as rejected approaches needed to avoid retrying them.
+  - monster_id: production_ready_overclaim
+    response: block_claim_without_b_v_evidence
+    summary: Do not claim production readiness, pilot execution, default-route safety, or external notification success without the required evidence.

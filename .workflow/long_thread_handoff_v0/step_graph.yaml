@@ -1,0 +1,164 @@
+workflow_id: long_thread_handoff_v0
+kind: step_graph
+status: active
+steps:
+  - step_id: intake_and_goal_bind
+    title: Intake And Goal Bind
+    actor_slot: handoff_manager
+    action:
+      kind: long_thread_goal_scope_binding
+    inputs:
+      - long_thread_goal
+      - active_workspace_scope
+      - boundary_policy_ref
+    optional_inputs:
+      - prior_night_work_handoff_ref
+      - active_goal_ref
+    outputs:
+      - declared_goal
+      - success_criteria
+      - stop_conditions
+      - boundary_constraints
+    next:
+      - checkpoint_refresh
+  - step_id: checkpoint_refresh
+    title: Checkpoint Refresh
+    actor_slot: checkpoint_curator
+    action:
+      kind: night_work_handoff_update
+    inputs:
+      - declared_goal
+      - boundary_constraints
+    optional_inputs:
+      - prior_night_work_handoff_ref
+      - target_file_refs
+      - validation_command_refs
+      - owner_decision_refs
+    outputs:
+      - night_work_handoff
+    rules:
+      required_before_delegation: true
+      required_before_compact: true
+      required_before_clear: true
+      raw_transcript_forbidden: true
+      secrets_forbidden: true
+      private_payload_forbidden: true
+    next:
+      - delegation_plan
+  - step_id: delegation_plan
+    title: Delegation Plan
+    actor_slot: delegation_router
+    action:
+      kind: subagent_delegation_packet_preparation
+    inputs:
+      - night_work_handoff
+      - boundary_constraints
+    optional_inputs:
+      - target_file_refs
+      - validation_command_refs
+    outputs:
+      - delegation_packet_set
+      - local_manager_tasks
+    rules:
+      prefer_fresh_subagents: true
+      fork_context_preferred: false
+      pass_only_bounded_context: true
+      worker_write_ownership_required: true
+      no_raw_source_dump: true
+    next:
+      - work_execution_or_integration
+  - step_id: work_execution_or_integration
+    title: Work Execution Or Integration
+    actor_slot: integration_controller
+    action:
+      kind: delegated_work_integration_and_state_refresh
+    inputs:
+      - night_work_handoff
+      - delegation_packet_set
+    optional_inputs:
+      - subagent_result_refs
+      - target_file_refs
+    outputs:
+      - integrated_state_summary
+      - changed_or_inspected_file_refs
+      - stale_memory_check_note
+    rules:
+      inspect_actual_status_before_decision: true
+      do_not_revert_unowned_changes: true
+      failed_attempts_recorded_only_when_needed_to_avoid_retry: true
+    next:
+      - validation_and_boundary_check
+  - step_id: validation_and_boundary_check
+    title: Validation And Boundary Check
+    actor_slot: validation_controller
+    action:
+      kind: deterministic_validation_and_boundary_review
+    inputs:
+      - integrated_state_summary
+      - boundary_constraints
+    optional_inputs:
+      - validation_command_refs
+      - owner_decision_refs
+    outputs:
+      - integration_validation_log
+      - boundary_review_note
+      - claim_ceiling
+    rules:
+      validators_before_narrative_claim: true
+      partial_validation_lowers_claim_ceiling: true
+      source_truth_not_created: true
+    next:
+      - context_reset_decision
+  - step_id: context_reset_decision
+    title: Context Reset Decision
+    actor_slot: context_reset_controller
+    action:
+      kind: autonomous_compact_clear_decision
+    inputs:
+      - night_work_handoff
+      - integrated_state_summary
+      - integration_validation_log
+      - claim_ceiling
+    optional_inputs:
+      - context_pressure_signal
+    outputs:
+      - context_reset_decision
+      - refreshed_night_work_handoff
+    rules:
+      refresh_handoff_frequently: true
+      compact_only_same_larger_goal_with_pressure_or_unit_boundary: true
+      clear_or_fresh_session_at_phase_boundary: true
+      resume_after_clear_from_handoff_only: true
+    next:
+      - closeout_or_continue
+  - step_id: closeout_or_continue
+    title: Closeout Or Continue
+    actor_slot: closeout_controller
+    action:
+      kind: conservative_closeout_and_next_action_routing
+    inputs:
+      - refreshed_night_work_handoff
+      - context_reset_decision
+      - claim_ceiling
+    optional_inputs:
+      - telegram_authorization_ref
+      - owner_decision_refs
+    outputs:
+      - closeout_report
+      - next_action
+      - knowledge_trigger_check
+    rules:
+      telegram_requires_safe_authorized_mechanism: true
+      blocked_when_owner_or_secret_needed: true
+      knowledge_trigger_check_required: true
+      no_production_ready_claim_without_b_v: true
+    next: []
+stop_conditions:
+  - conflicting_active_goal
+  - unsafe_public_private_boundary
+  - secret_or_credential_required
+  - owner_decision_required
+  - external_side_effect_not_authorized
+  - validator_failure_unfixable_in_scope
+  - required_fresh_subagent_unavailable_for_claim
+  - exhausted_user_specified_budget

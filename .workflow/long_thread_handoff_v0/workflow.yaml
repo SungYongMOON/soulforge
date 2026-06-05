@@ -1,0 +1,122 @@
+workflow_id: long_thread_handoff_v0
+kind: workflow
+status: active
+title: Long Thread Handoff v0
+summary: Public-safe orchestration workflow for long-running, overnight, or cross-session Soulforge work where the manager keeps context clean through durable handoff checkpoints, fresh subagent delegation, autonomous compact/clear timing, validation, and conservative closeout.
+entrypoint: run
+execution_mode: local_tool_sequence
+role_slots: role_slots.yaml
+step_graph: step_graph.yaml
+handoff_rules: handoff_rules.yaml
+monster_rules: monster_rules.yaml
+party_compatibility: party_compatibility.yaml
+profile_policy: profile_policy.yaml
+inputs:
+  - long_thread_goal
+  - active_workspace_scope
+  - boundary_policy_ref
+optional_inputs:
+  - prior_night_work_handoff_ref
+  - active_goal_ref
+  - target_file_refs
+  - validation_command_refs
+  - subagent_result_refs
+  - context_pressure_signal
+  - telegram_authorization_ref
+  - owner_decision_refs
+outputs:
+  - night_work_handoff
+  - delegation_packet_set
+  - context_reset_decision
+  - integration_validation_log
+  - boundary_review_note
+  - closeout_report
+validation_level: structure_only_public_safe
+registration_policy: owner_requested_registration
+output_state: registered
+classification_lane:
+  primary: operations
+  primary_name_ko: 운영
+  secondary:
+    - project_management
+    - review
+    - knowledge_work
+  secondary_name_ko:
+    - 프로젝트관리
+    - 리뷰
+    - 지식작업
+  purpose: discovery_only
+  authority: none
+execution_binding:
+  party_required: false
+  candidate_party_id: guild_master_cell
+  bound_party_id: null
+  binding_authority: none
+constituent_workflows:
+  required:
+    - post_development_review_gate_v0
+  optional:
+    - workflow_knowledge_preflight_v0
+    - knowledge_access_event_capture_v0
+    - owner_decision_packet_v0
+    - github_upload_publish_v0
+skill_routes:
+  - skill_id: soulforge-long-thread-handoff
+    route_kind: local_runtime_bridge
+    authority: installed_codex_skill_only
+request_modes:
+  - overnight_continuation
+  - long_thread_handoff
+  - cross_pc_continuity
+  - phase_boundary_context_reset
+  - compact_before_context_limit
+  - subagent_manager_mode
+  - closeout_checkpoint
+long_thread_handoff_contract:
+  owns:
+    - goal_and_scope_declaration
+    - night_work_handoff_shape
+    - manager_context_hygiene_policy
+    - subagent_delegation_packet_shape
+    - autonomous_compact_clear_decision
+    - integration_validation_route
+    - conservative_claim_closeout
+  does_not_own:
+    - source_truth
+    - private_payload_storage
+    - secret_inspection
+    - owner_decision_creation
+    - external_notification_authorization
+    - default_route_switching
+    - production_ready_claim_without_b_v_evidence
+    - upstream_workflow_output_mutation
+    - public_canon_promotion_beyond_this_package
+  checkpoint_required_fields:
+    - final_goal
+    - current_state
+    - changed_or_inspected_files
+    - decisions_made
+    - rejected_approaches
+    - validation_results
+    - remaining_risks_or_blockers
+    - next_actions
+    - durable_user_instructions
+    - unknowns
+  autonomous_context_policy:
+    refresh_handoff_frequently: true
+    compact_sparingly: true
+    clear_at_phase_boundaries: true
+    compact_requires_fresh_handoff: true
+    clear_requires_fresh_handoff: true
+    resume_after_clear_from_handoff_only: true
+  boundary_rules:
+    raw_transcript_excluded: true
+    private_payload_excluded: true
+    secrets_excluded: true
+    local_runtime_paths_in_public_package: false
+    handoff_is_context_not_authority: true
+    subagent_reports_are_evidence_not_source_truth: true
+notes:
+  - "Registration means the public-safe orchestration structure is available in .workflow/index.yaml."
+  - "This package does not claim pilot execution, production readiness, default-route safety, or external notification authority."
+  - "The installed Codex skill may act as a local runtime bridge, but local skill files are not public canon authority."

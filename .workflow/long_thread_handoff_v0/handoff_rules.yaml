@@ -1,0 +1,28 @@
+workflow_id: long_thread_handoff_v0
+kind: handoff_rules
+status: active
+rules:
+  - from: handoff_manager
+    to: checkpoint_curator
+    condition: goal_and_boundary_declared
+    summary: Pass the bounded goal, success criteria, stop conditions, workspace scope, and boundary constraints; do not pass raw thread transcript.
+  - from: checkpoint_curator
+    to: delegation_router
+    condition: night_work_handoff_refreshed
+    summary: Pass only the durable checkpoint, target refs, constraints, and acceptance criteria needed for delegation.
+  - from: delegation_router
+    to: integration_controller
+    condition: delegation_packets_prepared_or_local_task_selected
+    summary: Worker packets carry explicit write ownership and bounded context; the manager keeps intermediate source dumps out of its context.
+  - from: integration_controller
+    to: validation_controller
+    condition: actual_file_state_refreshed
+    summary: Pass integrated state, changed/inspected refs, and stale-memory checks before validation.
+  - from: validation_controller
+    to: context_reset_controller
+    condition: validators_run_or_gap_recorded
+    summary: Pass validation results, claim ceiling, blockers, and current phase state so reset timing is evidence-based.
+  - from: context_reset_controller
+    to: closeout_controller
+    condition: handoff_refreshed_and_reset_decision_recorded
+    summary: Pass the refreshed handoff and reset decision; closeout must not claim more than validation and review support.

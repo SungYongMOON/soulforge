@@ -1,0 +1,25 @@
+workflow_id: long_thread_handoff_v0
+kind: role_slots
+status: active
+slots:
+  - slot_id: handoff_manager
+    title: Handoff Manager
+    summary: Declares the goal, success criteria, stop conditions, workspace scope, and boundary constraints for the long-running task.
+  - slot_id: checkpoint_curator
+    title: Checkpoint Curator
+    summary: Maintains the durable NIGHT_WORK_HANDOFF state without copying raw transcripts, private payloads, or secrets.
+  - slot_id: delegation_router
+    title: Delegation Router
+    summary: Builds bounded packets for fresh subagents and separates manager-owned integration from worker-owned execution.
+  - slot_id: integration_controller
+    title: Integration Controller
+    summary: Integrates returned work by reading actual status, diffs, and files before relying on manager memory.
+  - slot_id: validation_controller
+    title: Validation Controller
+    summary: Runs deterministic validators and boundary checks before any claim about completion or readiness.
+  - slot_id: context_reset_controller
+    title: Context Reset Controller
+    summary: Chooses handoff refresh, compact, clear, or fresh-session behavior from phase state and context pressure.
+  - slot_id: closeout_controller
+    title: Closeout Controller
+    summary: Produces conservative final reports, next actions, Telegram-ready notes when authorized, and knowledge trigger checks.
