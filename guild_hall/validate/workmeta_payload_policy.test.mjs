@@ -28,16 +28,16 @@ test("workmeta payload policy flags blocked payload extensions under _workmeta o
   ]);
 });
 
-test("workmeta payload policy flags blocked symlink names without following targets", async () => {
+test("workmeta payload policy flags blocked symlink names without following targets", async (t) => {
   const repoRoot = await mkdtemp(path.join(os.tmpdir(), "soulforge-workmeta-payload-policy-"));
   await writeSample(repoRoot, "safe-target.txt");
   await writeSample(repoRoot, "safe-target-dir/inside.xlsx");
-  await linkSample(repoRoot, "safe-target.txt", "_workmeta/P00-000_INBOX/reports/linked.xlsx");
-  await linkSample(repoRoot, "safe-target.txt", "_workmeta/P00-000_INBOX/reports/linked.pdf");
-  await linkSample(repoRoot, "safe-target.txt", "_workmeta/P00-000_INBOX/reports/linked.txt");
-  await linkSample(repoRoot, "safe-target.txt", "_workmeta/.git/objects/ignored.xlsx");
-  await linkSample(repoRoot, "safe-target.txt", "_workspaces/P00-000_INBOX/reports/linked.xlsx");
-  await linkSample(repoRoot, "safe-target-dir", "_workmeta/P00-000_INBOX/reports/linked_dir");
+  if (!(await linkSample(t, repoRoot, "safe-target.txt", "_workmeta/P00-000_INBOX/reports/linked.xlsx"))) return;
+  if (!(await linkSample(t, repoRoot, "safe-target.txt", "_workmeta/P00-000_INBOX/reports/linked.pdf"))) return;
+  if (!(await linkSample(t, repoRoot, "safe-target.txt", "_workmeta/P00-000_INBOX/reports/linked.txt"))) return;
+  if (!(await linkSample(t, repoRoot, "safe-target.txt", "_workmeta/.git/objects/ignored.xlsx"))) return;
+  if (!(await linkSample(t, repoRoot, "safe-target.txt", "_workspaces/P00-000_INBOX/reports/linked.xlsx"))) return;
+  if (!(await linkSample(t, repoRoot, "safe-target-dir", "_workmeta/P00-000_INBOX/reports/linked_dir"))) return;
 
   const report = await validateWorkmetaPayloadPolicy({ repoRoot });
 
@@ -74,8 +74,17 @@ async function writeSample(repoRoot, relativePath) {
   await writeFile(filePath, "sample", "utf8");
 }
 
-async function linkSample(repoRoot, targetRelativePath, linkRelativePath) {
+async function linkSample(t, repoRoot, targetRelativePath, linkRelativePath) {
   const linkPath = path.join(repoRoot, linkRelativePath);
   await mkdir(path.dirname(linkPath), { recursive: true });
-  await symlink(path.join(repoRoot, targetRelativePath), linkPath);
+  try {
+    await symlink(path.join(repoRoot, targetRelativePath), linkPath);
+  } catch (error) {
+    if (process.platform === "win32" && ["EPERM", "EINVAL"].includes(error.code)) {
+      t.skip(`symlink creation unavailable on this Windows environment: ${error.code}`);
+      return false;
+    }
+    throw error;
+  }
+  return true;
 }

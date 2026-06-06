@@ -239,7 +239,7 @@ def _write_ics(path: Path, rows: List[Dict[str, str]]) -> None:
             ]
         )
     lines.append("END:VCALENDAR")
-    path.write_text(TEXT_LINE_ENDING.join(lines) + TEXT_LINE_ENDING, encoding="utf-8")
+    path.write_text(TEXT_LINE_ENDING.join(lines) + TEXT_LINE_ENDING, encoding="utf-8", newline="")
 
 
 def _worksheet_xml(rows: List[Dict[str, str]]) -> str:

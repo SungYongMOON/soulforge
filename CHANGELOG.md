@@ -2,6 +2,22 @@
 
 ## 2026-06-06
 
+### Revision `working` - Mail fetch project history ICS LF writer fixed
+
+- Wrote Python mail-fetch project-history ICS files with explicit newline
+  handling so Windows hosts do not convert the repository metadata export to
+  CRLF.
+- Kept CSV and ICS metadata exports aligned with the existing line-ending
+  hygiene expectations and gateway mail-fetch fixture assertions.
+
+### Revision `working` - Workmeta payload symlink fixture Windows skip added
+
+- Skipped the synthetic workmeta payload symlink fixture when Windows denies
+  symlink creation with `EPERM` or `EINVAL`, matching the existing local path
+  policy symlink test behavior.
+- Kept the actual workmeta payload policy unchanged; the change only prevents a
+  validator fixture from failing on Windows hosts without symlink privileges.
+
 ### Revision `working` - Daily work ledger automation candidate added
 
 - Added a roadmap candidate for metadata-only daily work ledgers that separate
