@@ -6,6 +6,12 @@
 
 It uses local sample data only. It does not read private project files, Smartsheet data, mail payloads, `_workspaces`, `_workmeta`, or canonical Soulforge source trees.
 
+## Package Tracking
+
+This app is tracked as a `ui-workspace` app package and participates in the workspace build through `npm run team-ops:build`, `npm run build`, and the root `npm run ui:build` wrapper.
+
+Keep the app source, app package files, and `ui-workspace/package-lock.json` aligned when changing package coverage.
+
 ## Surfaces
 
 - Board: daily lanes, counts, Today/This week filters, project filter, item detail panel

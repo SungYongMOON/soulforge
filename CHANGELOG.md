@@ -2,6 +2,31 @@
 
 ## 2026-06-06
 
+### Revision `working` - Mail projection private-state rebuild policy documented
+
+- Documented that `mail_candidate` queue/status projections and
+  `mail_work_status` / `mail_work_priority` latest JSON outputs are not
+  mirrored into `private-state`.
+- Clarified that owner-with-state PCs restore only the existing private-state
+  continuity allowlist and rebuild body-safe activity summaries, mail work
+  projections, and Assistant Dashboard health locally.
+- Added dashboard guidance to show missing/stale/degraded mail projection state
+  instead of treating private-state copies as source truth.
+- Kept raw mail bodies, HTML, attachment payloads, attachment names/URLs/paths,
+  secrets, `_workspaces` payloads, and private-state allowlist expansion out of
+  scope.
+
+### Revision `working` - Team Ops Board package-clean caveat resolved
+
+- Verified the standalone Team Ops Board mockup app files are tracked under
+  `ui-workspace/apps/team-ops-board-mockup/`.
+- Documented that the mockup is a tracked `ui-workspace` app package included
+  in the Team Ops, UI workspace, and root UI build paths.
+- Kept this to sample-data package tracking only: no Smartsheet integration,
+  private project data, raw mail or attachments, `_workspaces` payload,
+  renderer-web integration, write-back behavior, or source-of-truth behavior was
+  added.
+
 ### Revision `working` - Gateway helper package-clean caveat resolved
 
 - Verified `guild_hall/gateway/mail_candidate_backlog.mjs` and

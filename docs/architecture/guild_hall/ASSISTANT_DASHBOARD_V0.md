@@ -67,6 +67,26 @@ must not write project ledgers or treat the dashboard as source truth.
 short fields such as `status`, `source_ref`, `generated_at`, `age_hours`,
 `max_age_hours`, `error_count`, and a short `reason` code.
 
+The `mail_work_status` and `mail_work_priority` rows check only the local
+projection files:
+
+```text
+guild_hall/state/gateway/mail_work_status/latest.json
+guild_hall/state/gateway/mail_work_status/priority_latest.json
+```
+
+If these local projections are missing or stale, the dashboard and UI must show
+a missing/stale/degraded data-health state. They must not silently read
+`private-state/` copies, and they must not treat any manually copied
+private-state projection as source truth. The operator should refresh local
+projections instead:
+
+```bash
+npm run guild-hall:gateway:mail-work:refresh
+npm run guild-hall:gateway:mail-work:priority:refresh
+npm run guild-hall:assistant-dashboard:write
+```
+
 The `snapshot` row checks both the stored snapshot timestamp and the snapshot
 contract. If `guild_hall/state/snapshot/soulforge_snapshot.json` is fresh by
 timestamp but fails the snapshot schema/operation-board contract, the row must
@@ -76,6 +96,11 @@ be `status: "invalid"` and the dashboard `status` must be `degraded`.
 
 The dashboard must not read or copy raw mail bodies, raw HTML, attachment
 payloads, provider payloads, secrets, tokens, cookies, or credential values.
+
+The dashboard must not use `private-state/guild_hall/state/gateway/mail_candidate/**`
+or `private-state/guild_hall/state/gateway/mail_work_status/**` as fallback
+inputs. Mail candidate and mail work projections are local derived views that
+must be rebuilt or marked missing/stale on each owner-with-state PC.
 
 The dashboard must not send Telegram messages, mutate Google Calendar, confirm
 project assignment, or write project truth. It is a local-only read-only rollup.

@@ -30,6 +30,36 @@ mail rumor -> candidate note -> gateway monster -> project monster
   - `_workmeta/P00-000_INBOX/reports/triage/**` for private unresolved planning visibility
 - tracked public repo 대상이 아니다.
 
+## cross-PC rebuild policy
+
+- `mail_work_status/latest.json` 과 `priority_latest.json` 은 local-only
+  derived projection 이며 `private-state/` mirror 대상이 아니다.
+- `mail_candidate` queue/status projection 도 `private-state/` mirror 대상이
+  아니다. 다른 PC 로 넘어가는 것은 `guild-hall:activity:project-mail-candidates`
+  또는 `guild-hall:activity:sync` 가 만든 body-safe activity summary 뿐이다.
+- source truth 는 project-local `_workmeta` ledgers, gateway intake/monster
+  state, mailbox continuity subset, mission/battle metadata 에 남는다.
+  `mail_work_status` 는 이 surface 들을 조인해 만든 현재 보기일 뿐이다.
+- 다른 owner-with-state PC 는 `private-state/` 의 기존 allowlist subset 을
+  복원한 뒤 로컬에서 projection 을 다시 만든다. private-state 안에 같은
+  이름의 projection copy 가 있더라도 source truth 로 취급하지 않는다.
+
+권장 refresh 순서:
+
+```bash
+npm run guild-hall:activity:project-mail-candidates -- --json
+npm run guild-hall:activity:refresh -- --json
+npm run guild-hall:gateway:mail-work:refresh
+npm run guild-hall:gateway:mail-work:priority:refresh
+npm run guild-hall:assistant-dashboard:write
+```
+
+주간 계획 누락 방지 register 가 필요할 때만 week window 를 명시한다.
+
+```bash
+npm run guild-hall:gateway:mail-work:weekly-visibility -- --week-start YYYY-MM-DD --week-end YYYY-MM-DD
+```
+
 ## source surface
 
 - `guild_hall/state/gateway/mail_candidate/queue/pending/*.json`

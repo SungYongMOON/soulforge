@@ -51,10 +51,86 @@
 ## v0 제외 대상
 
 - `guild_hall/state/gateway/mailbox/state/**`
+- `guild_hall/state/gateway/mail_candidate/**`
+- `guild_hall/state/gateway/mail_work_status/**`
 - `guild_hall/state/town_crier/telegram_notify.env`
 - `guild_hall/state/town_crier/queue/**`
 - `guild_hall/state/town_crier/state/**`
 - 모든 `.env`, `*token*`, `*cookie*`, `*.session`, `*.key`
+
+## mail candidate/status cross-PC policy
+
+정책 결정:
+
+- `guild_hall/state/gateway/mail_candidate/**` queue/status projection 은
+  `private-state/` 로 mirror 하지 않는다.
+- `guild_hall/state/gateway/mail_work_status/latest.json` 과
+  `guild_hall/state/gateway/mail_work_status/priority_latest.json` 은
+  `private-state/` 로 mirror 하지 않는다.
+- `private-state/` 에 복원되는 것은 기존 allowlist 된 continuity subset 과
+  `operations/soulforge_activity/**` 안의 body-safe activity summary 뿐이다.
+- 다른 owner-with-state PC 는 복원된 continuity subset 과 local `_workmeta`
+  metadata 를 기준으로 mail candidate activity summary, mail work status,
+  priority projection, assistant dashboard 를 로컬에서 다시 만든다.
+
+이유:
+
+- `mail_candidate` 는 업무화 검토 staging surface 이며 monster/project/work
+  완료 truth 가 아니다.
+- `mail_work_status` 와 `mail_work_priority` 는 `mail_candidate`,
+  `intake_inbox`, project-local `_workmeta`, battle/mission metadata 를 조인한
+  derived local projection 이다.
+- derived projection 을 private-state copy 로 이어받으면 다른 PC 의 오래된
+  `latest.json` 을 source truth 처럼 오해할 수 있다.
+- private-state allowlist authority 는 `guild_hall/private_state_sync/sync.mjs`
+  의 `PRIVATE_STATE_ALLOWLIST_REFS` 와 이 문서의 포함/제외 대상이 함께 잠근다.
+  이 정책은 allowlist 확장이 아니다.
+
+복원되는 것:
+
+- `guild_hall/state/gateway/intake_inbox/**`
+- `guild_hall/state/gateway/mailbox/company/**`
+- `guild_hall/state/gateway/mailbox/personal/**`
+- `guild_hall/state/gateway/mailbox/outbound/**`
+- `guild_hall/state/gateway/log/mail_fetch/**`
+- `guild_hall/state/gateway/log/mail_send/**`
+- `guild_hall/state/gateway/log/monster_events/**`
+- `guild_hall/state/operations/soulforge_activity/**`
+
+로컬에서 다시 만드는 것:
+
+- pending mail candidate 의 activity summary
+- `mail_work_status/latest.json`
+- `mail_work_status/priority_latest.json`
+- assistant dashboard data-health view
+- 필요할 때만 주간 unresolved visibility register
+
+복원 뒤 refresh 명령:
+
+```bash
+npm run guild-hall:activity:project-mail-candidates -- --json
+npm run guild-hall:activity:refresh -- --json
+npm run guild-hall:gateway:mail-work:refresh
+npm run guild-hall:gateway:mail-work:priority:refresh
+npm run guild-hall:assistant-dashboard:write
+```
+
+주간 계획 visibility 를 갱신해야 할 때만 week window 를 명시해 실행한다.
+
+```bash
+npm run guild-hall:gateway:mail-work:weekly-visibility -- --week-start YYYY-MM-DD --week-end YYYY-MM-DD
+```
+
+운영 주의:
+
+- 수동으로 `private-state/guild_hall/state/gateway/mail_candidate/**` 또는
+  `private-state/guild_hall/state/gateway/mail_work_status/**` 가 생겨도
+  restore source 로 쓰지 않는다.
+- 그런 copy 가 필요해 보이면 allowlist 확장 owner decision 이 필요하므로
+  sync/restore 를 멈추고 정책 결정을 요청한다.
+- raw mail body, HTML, attachment payload, attachment filename/URL/local path,
+  provider payload, secret/env/token/cookie/session 값은 이 정책으로도
+  mirror 하지 않는다.
 
 ## 권장 private repo 트리
 
