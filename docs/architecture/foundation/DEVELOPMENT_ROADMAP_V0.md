@@ -204,6 +204,64 @@ Follow-on fit:
 4. daily worklog analyst 는 private `_workmeta/<project_code>/reports/**` evidence 를 대상으로 owner-only digest 로 시작한다.
 5. external signal scout 는 GitHub/YouTube 등 public source ref 와 adoption candidate register 만 만들고, 실제 채택은 `workflow evolution harness` 또는 post-development review gate 로 보낸다.
 
+### Daily work ledger automation candidate
+
+This candidate adds a metadata-only daily work ledger lane so weekly and daily
+worklog drafting does not rediscover work from scattered project reports, mail
+metadata, git history, and system logs each time.
+
+Owner split:
+
+- Project ledger agents: write one daily metadata ledger per project under the
+  project-local `_workmeta/<project_code>/daily_ledger/**` surface.
+- System ledger agent: writes one daily metadata ledger under
+  `_workmeta/system/daily_ledger/**`.
+- Worklog writer: reads only the daily ledger surfaces, sorts company projects
+  before system work, applies the owner worklog style profile, and produces the
+  final daily or weekly worklog.
+- Always-on local host: runs scheduled ledger collection on an owner-approved
+  machine, but does not become source truth or store raw payloads in
+  `_workmeta`.
+
+Initial development target:
+
+1. Define the daily ledger YAML schema for project and system ledgers.
+2. Add a validator for metadata-only ledger entries, source refs, project
+   ordering, and raw-payload exclusion.
+3. Add a scheduled ledger collector dry-run that reads existing metadata
+   surfaces and writes draft ledgers only under `_workmeta`.
+4. Add a worklog writer that reads only project/system ledgers and never scans
+   mail bodies, attachments, raw source files, or ad hoc git history directly.
+5. Add a review packet and receipt path so the always-on host can record what
+   it collected, what it skipped, and which entries need owner review.
+
+Non-goals:
+
+- Do not copy mail bodies, attachments, Office/PDF/HWP payloads, waveform data,
+  account data, secrets, or raw source text into `_workmeta`.
+- Do not let the worklog writer infer work from source payloads. It must use
+  ledger entries only.
+- Do not make scheduled automation a truth authority. It records observed
+  metadata and owner-review gaps.
+- Do not push company project payloads or owner-only ledgers into the public
+  repo.
+
+Start condition:
+
+- Owner confirms the first schema fields, project ordering policy, and schedule
+  window for the always-on local host.
+
+Acceptance criteria:
+
+- A representative project ledger and system ledger can be generated from
+  metadata-only fixtures.
+- The validator rejects raw-payload extensions, absolute runtime payload paths,
+  secrets, and unclassified project codes.
+- The worklog writer can create a date/project/topic/task draft using only
+  ledger entries.
+- Company project entries are ordered before system and operations entries for
+  each day.
+
 ### Google Drive LLM wiki bookshelf candidate
 
 This candidate adds Google Drive as the cross-PC canonical source bookshelf for

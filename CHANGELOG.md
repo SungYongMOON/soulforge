@@ -1,5 +1,18 @@
 ﻿# CHANGELOG
 
+## 2026-06-06
+
+### Revision `working` - Daily work ledger automation candidate added
+
+- Added a roadmap candidate for metadata-only daily work ledgers that separate
+  project ledger collection, system ledger collection, and final worklog
+  writing.
+- Defined the intended source split so worklog writing reads only daily ledger
+  surfaces, orders company project work before system work, and avoids scanning
+  mail bodies, attachments, raw source files, or ad hoc git history directly.
+- Kept raw payloads, owner-only ledgers, and scheduled host runtime details out
+  of public canon; detailed operating evidence stays under `_workmeta`.
+
 ## 2026-06-05
 
 ### Revision `working` - Long thread handoff workflow registered
@@ -429,7 +442,6 @@
   endings.
 - Added regression coverage so future P00 mail-history updates do not create
   CRLF trailing-whitespace failures under `git diff --check`.
-
 ## 2026-06-03
 
 ### Revision `working` - Dev-worker candidate audit details added
