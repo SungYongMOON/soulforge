@@ -2,6 +2,20 @@
 
 ## 2026-06-06
 
+### Revision `working` - Daily work ledger validator and renderer added
+
+- Added `guild_hall/daily_ledger/` with an explicit-file/ref validator, CLI,
+  and ledger-only Markdown draft renderer for project, `P00-000_INBOX`, and
+  Soulforge sub-ledger daily ledgers.
+- Added `validate:daily-ledger` and root acceptance wiring, with fixture tests
+  for project/inbox/Soulforge ordering, missing/incomplete gaps, raw payload
+  refs/fields, runtime paths, secret-like refs, invalid project codes, unknown
+  sub-ledgers, and non-ledger renderer inputs.
+- Documented the automation boundary while keeping live `_workmeta` scans,
+  raw mail/attachment/Office/PDF/HWP/waveform payloads, `_workspaces` payloads,
+  git/system-log rediscovery, project-code truth, and production rollout out of
+  scope.
+
 ### Revision `working` - Mail task register always-on lane added
 
 - Added `guild_hall/gateway/mail_task_register.mjs` and the

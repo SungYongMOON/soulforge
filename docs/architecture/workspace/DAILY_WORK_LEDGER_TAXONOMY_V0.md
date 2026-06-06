@@ -84,6 +84,14 @@ Daily and weekly worklog renderers should use this order:
    `domain_cell`.
 4. Explicit gaps and review-needed entries.
 
+## Implementation Support
+
+`guild_hall/daily_ledger/` provides the first validator and ledger-only
+Markdown draft renderer for this taxonomy. The command reads explicit ledger
+files or refs only, validates the metadata boundary, and reports missing or
+incomplete ledgers as gaps instead of scanning mail, git history, system logs,
+raw source refs, or `_workspaces` payloads at report time.
+
 ## Boundary
 
 Ledger rows are metadata-only observations. They may point to metadata refs,

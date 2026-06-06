@@ -12,6 +12,7 @@
 - `doctor/`: clone 된 PC bootstrap readiness 점검과 local doctor status
 - `activity/`: Soulforge 전체 recent-context 장부 append/refresh 구현
 - `knowledge_access/`: metadata-only knowledge ref read/use ledger append helper
+- `daily_ledger/`: metadata-only daily work ledger validator and ledger-only worklog draft renderer
 - `knowledge_graph/`: metadata-only knowledge graph JSON, HTML preview, and generated Obsidian view helper
 - `rag/`: metadata-only RAG manifest, source-slice cards, decision records, metadata retrieval index, trace/evaluation, and indexed answer helper
 - `healer/`: 24시간 PC self-check 와 activity report writer
@@ -34,6 +35,7 @@
 - Soulforge 전체 활동 최근 맥락 같은 cross-project 총괄 context 는 project `_workmeta/` 가 아니라 `guild_hall/state/operations/**` 가 소유한다.
 - cross-project 운영 명령 표면은 `guild-hall:*` 만 canonical 로 사용한다.
 - `knowledge_access/` 는 명시된 ledger root/file 에만 쓰며 source payload 를 ledger row 에 저장하지 않는다.
+- `daily_ledger/` 는 명시된 daily ledger file/ref 만 읽고 report time 에 mail, git history, system log, raw source ref, live `_workspaces` payload 를 스캔하지 않는다.
 - `knowledge_graph/` 는 generated local view 만 만들며 graph weight, usage count, Obsidian link 를 truth/approval 로 취급하지 않는다.
 - `rag/` 의 기본 manifest/index/trace/evaluation/answer path 는 metadata-only 이며 source text, private payload, NotebookLM answer, chunk, source-text vector/BM25 store 를 읽지 않는다.
 - `rag/` 의 승인된 private source-text command 는 별도 lane 이며 owner-approved `_workspaces/knowledge/**` source text 만 읽을 수 있다. 이 lane 의 저장 출력도 기본은 metadata-only 이고, 명시 승인된 command/source card 가 허용한 경우에만 `_workspaces/knowledge/**` 아래 private proof payload 를 남긴다.
