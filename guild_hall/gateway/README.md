@@ -43,6 +43,11 @@
   - pending 후보 개수, age/stale 여부, pending count 추세를 metadata-only backlog report 로 본다.
 - `guild-hall:gateway:mail-candidate:promote`
   - 후보 1건을 local-only `mail_intake_request` payload 로 바꾸고 candidate status 를 갱신한다.
+- `node guild_hall/gateway/cli.mjs triage-mail-candidate --private-deep`
+  - 후보 1건 또는 pending 후보 전체를 프로젝트 라우팅 후보로 주석 처리한다.
+  - 회신/전달 인용부에서만 강한 프로젝트 식별자가 잡히면 `route_source: quoted_chain_private_deep` 로 표시한다.
+  - 현재 본문/안전 메타데이터와 인용부 근거가 함께 잡히면 `route_source: mixed_private_deep` 로 표시한다.
+  - 본문/HTML/첨부명 원문은 routing suggestion, activity, project ledger 로 복사하지 않는다.
 - `guild-hall:gateway:mail-work:refresh`
   - `mail_candidate`, `intake_inbox`, `_workmeta` mission/battle metadata 를 합쳐 `mail_work_status/latest.json` 을 갱신한다.
 - `guild-hall:gateway:mail-work:list`

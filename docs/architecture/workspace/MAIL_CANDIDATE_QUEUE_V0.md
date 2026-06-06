@@ -81,6 +81,13 @@ guild_hall/state/gateway/mail_candidate/
 - 사람이 후보를 검토한 뒤 `guild-hall:gateway:mail-candidate:promote` 로 `mail_intake_request` 를 만들 수 있다.
 - `mail_candidate` item 은 monster current state 가 아니다.
 - monster 로 materialize 된 뒤의 current state 는 기존 `guild_hall/state/gateway/intake_inbox/**` 계약을 따른다.
+- private-deep project triage 는 mailbox event 의 본문/HTML을 로컬에서 읽을 수 있지만,
+  결과에는 raw 본문을 복사하지 않는다.
+- 회신/전달 인용부에서만 프로젝트 식별자가 잡히면 routing suggestion 의
+  `route_source` 를 `quoted_chain_private_deep` 로 기록하고, `matched_on` 은
+  `quoted_body` 또는 `quoted_html` 같은 안전한 표면명만 남긴다.
+- 현재 본문/안전 메타데이터와 인용부 근거가 함께 잡히면 `route_source` 를
+  `mixed_private_deep` 로 기록한다.
 
 ## cross-PC activity projection
 

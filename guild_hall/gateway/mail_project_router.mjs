@@ -48,6 +48,7 @@ export function buildMailProjectRoutingSuggestion(candidate, { binding, bindingR
       route_id: match.route.route_id,
       routing_rule_ref: match.route.routing_rule_ref,
       confidence: match.route.confidence,
+      route_source: routeSourceForMatch(match.matchedOn),
       matched_on: match.matchedOn,
       reason_codes: match.reasonCodes,
       binding_ref: bindingRef,
@@ -66,6 +67,7 @@ export function buildMailProjectRoutingSuggestion(candidate, { binding, bindingR
       route_id: "default",
       routing_rule_ref: null,
       confidence: null,
+      route_source: "default",
       matched_on: [],
       reason_codes: ["default_project_code"],
       binding_ref: bindingRef,
@@ -83,6 +85,7 @@ export function buildMailProjectRoutingSuggestion(candidate, { binding, bindingR
     route_id: null,
     routing_rule_ref: null,
     confidence: null,
+    route_source: "unmatched",
     matched_on: [],
     reason_codes: ["no_route_matched"],
     binding_ref: bindingRef,
@@ -225,27 +228,67 @@ function matchRoute(route, context) {
   }
 
   if (match.private_body_includes.length > 0) {
-    predicates.push(match.private_body_includes.every((needle) => context.privateBodyText.includes(needle.toLowerCase())));
+    predicates.push(
+      addTextMatchEvidence({
+        matchedOn,
+        text: context.privateBodyText,
+        currentText: context.privateCurrentBodyText,
+        quotedText: context.privateQuotedBodyText,
+        needles: match.private_body_includes,
+        mode: "all",
+        surface: "body",
+        quotedSurface: "quoted_body",
+      }),
+    );
     reasonCodes.push("private_body_includes");
-    matchedOn.add("body");
   }
 
   if (match.private_body_any.length > 0) {
-    predicates.push(match.private_body_any.some((needle) => context.privateBodyText.includes(needle.toLowerCase())));
+    predicates.push(
+      addTextMatchEvidence({
+        matchedOn,
+        text: context.privateBodyText,
+        currentText: context.privateCurrentBodyText,
+        quotedText: context.privateQuotedBodyText,
+        needles: match.private_body_any,
+        mode: "any",
+        surface: "body",
+        quotedSurface: "quoted_body",
+      }),
+    );
     reasonCodes.push("private_body_any");
-    matchedOn.add("body");
   }
 
   if (match.private_html_includes.length > 0) {
-    predicates.push(match.private_html_includes.every((needle) => context.privateBodyHtml.includes(needle.toLowerCase())));
+    predicates.push(
+      addTextMatchEvidence({
+        matchedOn,
+        text: context.privateBodyHtml,
+        currentText: context.privateCurrentBodyHtml,
+        quotedText: context.privateQuotedBodyHtml,
+        needles: match.private_html_includes,
+        mode: "all",
+        surface: "html",
+        quotedSurface: "quoted_html",
+      }),
+    );
     reasonCodes.push("private_html_includes");
-    matchedOn.add("html");
   }
 
   if (match.private_html_any.length > 0) {
-    predicates.push(match.private_html_any.some((needle) => context.privateBodyHtml.includes(needle.toLowerCase())));
+    predicates.push(
+      addTextMatchEvidence({
+        matchedOn,
+        text: context.privateBodyHtml,
+        currentText: context.privateCurrentBodyHtml,
+        quotedText: context.privateQuotedBodyHtml,
+        needles: match.private_html_any,
+        mode: "any",
+        surface: "html",
+        quotedSurface: "quoted_html",
+      }),
+    );
     reasonCodes.push("private_html_any");
-    matchedOn.add("html");
   }
 
   if (match.private_attachment_name_includes.length > 0) {
@@ -333,6 +376,8 @@ function buildCandidateRoutingContext(candidate, { privateDeep = false, eventRec
   const event = privateDeep && eventRecord && typeof eventRecord === "object" && !Array.isArray(eventRecord)
     ? eventRecord
     : {};
+  const bodyParts = splitCurrentAndQuotedText(event.body_text);
+  const htmlParts = splitHtmlCurrentAndQuotedText(event.body_html);
   const privateAttachments = Array.isArray(event.attachments) ? event.attachments : [];
   const privateAttachmentMimes = new Set();
   const privateAttachmentNameParts = [];
@@ -361,12 +406,66 @@ function buildCandidateRoutingContext(candidate, { privateDeep = false, eventRec
     attachmentTypes: new Set(stringArray(mailSummary.attachment_types).map((value) => value.toLowerCase())),
     privateBodyText: String(event.body_text ?? "").toLowerCase(),
     privateBodyHtml: String(event.body_html ?? "").toLowerCase(),
+    privateCurrentBodyText: bodyParts.current.toLowerCase(),
+    privateQuotedBodyText: bodyParts.quoted.toLowerCase(),
+    privateCurrentBodyHtml: htmlParts.current.toLowerCase(),
+    privateQuotedBodyHtml: htmlParts.quoted.toLowerCase(),
     privateAttachmentNames: privateAttachmentNameParts.join(" "),
-    normalizedPrivateBodyText: normalizeIdentifierText(event.body_text),
-    normalizedPrivateBodyHtml: normalizeIdentifierText(event.body_html),
+    normalizedPrivateCurrentBodyText: normalizeIdentifierText(bodyParts.current),
+    normalizedPrivateQuotedBodyText: normalizeIdentifierText(bodyParts.quoted),
+    normalizedPrivateCurrentBodyHtml: normalizeIdentifierText(htmlParts.current),
+    normalizedPrivateQuotedBodyHtml: normalizeIdentifierText(htmlParts.quoted),
     normalizedPrivateAttachmentNames: normalizeIdentifierText(privateAttachmentNameParts.join(" ")),
     privateAttachmentMimes,
   };
+}
+
+function routeSourceForMatch(matchedOn) {
+  const hasQuotedPrivate = matchedOn.some((surface) => String(surface).startsWith("quoted_"));
+  const hasCurrentPrivate = matchedOn.some((surface) =>
+    ["body", "html", "attachment_names", "attachment_mimes"].includes(surface),
+  );
+  const hasSafeMetadata = matchedOn.some((surface) =>
+    ["subject", "from", "source", "workspace", "classification_bucket", "attachment_types"].includes(surface),
+  );
+  if (hasQuotedPrivate && !hasCurrentPrivate && !hasSafeMetadata) {
+    return "quoted_chain_private_deep";
+  }
+  if (hasQuotedPrivate) {
+    return "mixed_private_deep";
+  }
+  if (hasCurrentPrivate) {
+    return "private_deep";
+  }
+  return "safe_metadata";
+}
+
+function addTextMatchEvidence({ matchedOn, text, currentText, quotedText, needles, mode, surface, quotedSurface }) {
+  const normalizedNeedles = needles.map((needle) => String(needle ?? "").toLowerCase()).filter(Boolean);
+  const currentSource = currentText === undefined || currentText === null ? text : currentText;
+  const currentMatched = textMatches(String(currentSource ?? ""), normalizedNeedles, mode);
+  const quotedMatched = textMatches(String(quotedText ?? ""), normalizedNeedles, mode);
+  if (currentMatched) {
+    matchedOn.add(surface);
+  }
+  if (quotedMatched) {
+    matchedOn.add(quotedSurface);
+  }
+  return currentMatched || quotedMatched;
+}
+
+function textMatches(text, needles, mode) {
+  if (needles.length === 0) {
+    return false;
+  }
+  const haystack = String(text ?? "").toLowerCase();
+  if (!haystack) {
+    return false;
+  }
+  if (mode === "all") {
+    return needles.every((needle) => haystack.includes(needle));
+  }
+  return needles.some((needle) => haystack.includes(needle));
 }
 
 function matchPrivateNormalizedIdentifiers(context, identifiers) {
@@ -386,8 +485,10 @@ function matchPrivateNormalizedIdentifiers(context, identifiers) {
   }
 
   const privateFields = [
-    ["body", context.normalizedPrivateBodyText],
-    ["html", context.normalizedPrivateBodyHtml],
+    ["body", context.normalizedPrivateCurrentBodyText],
+    ["quoted_body", context.normalizedPrivateQuotedBodyText],
+    ["html", context.normalizedPrivateCurrentBodyHtml],
+    ["quoted_html", context.normalizedPrivateQuotedBodyHtml],
     ["attachment_names", context.normalizedPrivateAttachmentNames],
   ];
   const matchedOn = new Set();
@@ -424,6 +525,93 @@ function normalizeIdentifierText(value) {
     .replace(/[^\p{Letter}\p{Number}]+/gu, " ")
     .trim()
     .replace(/\s+/g, " ");
+}
+
+function splitCurrentAndQuotedText(value) {
+  const text = String(value ?? "");
+  if (!text.trim()) {
+    return { current: "", quoted: "" };
+  }
+  const lines = text.split(/\r?\n/u);
+  const quotedIndex = findQuotedChainStartIndex(lines);
+  if (quotedIndex < 0) {
+    return { current: text, quoted: "" };
+  }
+  return {
+    current: lines.slice(0, quotedIndex).join("\n"),
+    quoted: lines.slice(quotedIndex).join("\n"),
+  };
+}
+
+function splitHtmlCurrentAndQuotedText(value) {
+  const html = String(value ?? "");
+  if (!html.trim()) {
+    return { current: "", quoted: "" };
+  }
+  const blockquote = /<blockquote\b[^>]*>/iu.exec(html);
+  if (blockquote && blockquote.index >= 0) {
+    return {
+      current: htmlToSearchableText(html.slice(0, blockquote.index)),
+      quoted: htmlToSearchableText(html.slice(blockquote.index)),
+    };
+  }
+  return splitCurrentAndQuotedText(htmlToSearchableText(html));
+}
+
+function findQuotedChainStartIndex(lines) {
+  for (let index = 0; index < lines.length; index += 1) {
+    if (isStrongQuotedChainStartLine(lines[index]) || isQuotedHeaderBlockStart(lines, index)) {
+      return index;
+    }
+  }
+  return -1;
+}
+
+function isStrongQuotedChainStartLine(line) {
+  const value = String(line ?? "").trim();
+  if (!value) {
+    return false;
+  }
+  return (
+    /^[-_]{2,}\s*(original message|forwarded message|전달된 메시지|원본 메시지)\s*[-_]{2,}$/iu.test(value) ||
+    /^on .+wrote:\s*$/iu.test(value) ||
+    /^.+님이 작성:\s*$/u.test(value)
+  );
+}
+
+function isQuotedHeaderBlockStart(lines, index) {
+  const first = String(lines[index] ?? "").trim();
+  if (!/^(from|보낸 사람)\s*:/iu.test(first)) {
+    return false;
+  }
+  const headerKinds = new Set();
+  const headerWindow = lines.slice(index, Math.min(lines.length, index + 8));
+  for (const line of headerWindow) {
+    const value = String(line ?? "").trim();
+    if (/^(from|보낸 사람)\s*:/iu.test(value)) {
+      headerKinds.add("from");
+    } else if (/^(sent|date|보낸 날짜)\s*:/iu.test(value)) {
+      headerKinds.add("date");
+    } else if (/^(to|받는 사람)\s*:/iu.test(value)) {
+      headerKinds.add("to");
+    } else if (/^(cc|참조)\s*:/iu.test(value)) {
+      headerKinds.add("cc");
+    } else if (/^(subject|제목)\s*:/iu.test(value)) {
+      headerKinds.add("subject");
+    }
+  }
+  return headerKinds.has("from") && (headerKinds.has("date") || headerKinds.has("to") || headerKinds.has("subject"));
+}
+
+function htmlToSearchableText(value) {
+  return String(value ?? "")
+    .replace(/<br\s*\/?>/giu, "\n")
+    .replace(/<\/(p|div|tr|li|blockquote)>/giu, "\n")
+    .replace(/<[^>]+>/gu, " ")
+    .replace(/&nbsp;/giu, " ")
+    .replace(/&lt;/giu, "<")
+    .replace(/&gt;/giu, ">")
+    .replace(/&amp;/giu, "&");
 }
 
 function stringArray(value) {

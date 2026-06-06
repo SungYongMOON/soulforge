@@ -471,6 +471,391 @@ test("triageMailCandidate private-deep routes on body html and attachment names 
   }
 });
 
+test("triageMailCandidate private-deep marks quoted-chain project evidence without leaking raw content", async () => {
+  const repoRoot = await createRepoRoot();
+  const candidateFile = path.join(
+    repoRoot,
+    "guild_hall",
+    "state",
+    "gateway",
+    "mail_candidate",
+    "queue",
+    "pending",
+    "mail_candidate_hiworks_evt_candidate_001.json",
+  );
+  const eventFile = path.join(
+    repoRoot,
+    "guild_hall",
+    "state",
+    "gateway",
+    "mailbox",
+    "company",
+    "mail",
+    "events",
+    "hiworks",
+    "2026",
+    "2026-03.jsonl",
+  );
+  const bindingFile = path.join(repoRoot, "_workmeta", "system", "bindings", "mail_project_router.yaml");
+
+  await writeJson(candidateFile, {
+    ...sampleCandidate(),
+    mail_summary: {
+      ...sampleCandidate().mail_summary,
+      subject: "RE: 확인했습니다",
+      from: [{ name: "Internal Reviewer", address: "reviewer@example.test" }],
+      attachment_count: 0,
+      attachment_types: [],
+    },
+  });
+  await writeJsonl(eventFile, [
+    {
+      event_id: "hiworks_evt_candidate_001",
+      source: "hiworks",
+      provider_message_id: "provider-message-001",
+      received_at: "2026-03-19T00:15:00+00:00",
+      body_text: [
+        "확인했습니다. 아래 요청 기준으로 처리했습니다.",
+        "",
+        "-----Original Message-----",
+        "From: Project Owner <owner@example.test>",
+        "Subject: [SYNTHETIC-ROUTE] Routed quoted request",
+        "SYNTHETIC_ROUTE_TOKEN appears only in the quoted chain.",
+      ].join("\n"),
+    },
+  ]);
+  await writeText(
+    bindingFile,
+    [
+      "version: mail_project_router.v1",
+      "routes:",
+      "  - route_id: synthetic_subject_exact",
+      "    project_code: P-SYN-001",
+      "    match:",
+      "      subject_any: [SYNTHETIC_ROUTE_TOKEN]",
+      "  - route_id: synthetic_quoted_body_exact",
+      "    project_code: P-SYN-001",
+      "    stage: project_inbox_original_collection",
+      "    next_action: promote_for_private_filing",
+      "    match:",
+      "      private_body_any: [SYNTHETIC_ROUTE_TOKEN]",
+      "",
+    ].join("\n"),
+  );
+
+  const result = await triageMailCandidate({
+    repoRoot,
+    candidateFile,
+    bindingFile,
+    now: new Date("2026-03-19T00:25:00+00:00"),
+    privateDeep: true,
+  });
+  const updatedCandidate = JSON.parse(await readFile(candidateFile, "utf8"));
+  const suggestion = updatedCandidate.business_review.project_routing_suggestion;
+
+  assert.equal(result.status, "triaged");
+  assert.equal(suggestion.status, "suggested");
+  assert.equal(suggestion.project_code, "P-SYN-001");
+  assert.equal(suggestion.route_id, "synthetic_quoted_body_exact");
+  assert.equal(suggestion.route_source, "quoted_chain_private_deep");
+  assert.deepEqual(suggestion.matched_on, ["quoted_body"]);
+  assert.deepEqual(suggestion.reason_codes, ["private_body_any"]);
+  assert.equal(suggestion.body_safe, true);
+
+  for (const rendered of [JSON.stringify(result), JSON.stringify(updatedCandidate)]) {
+    assert(!rendered.includes("SYNTHETIC_ROUTE_TOKEN appears"));
+    assert(!rendered.includes("Routed quoted request"));
+    assert(!rendered.includes("Project Owner"));
+  }
+});
+
+test("triageMailCandidate private-deep does not match required body terms split across current and quoted text", async () => {
+  const repoRoot = await createRepoRoot();
+  const candidateFile = path.join(
+    repoRoot,
+    "guild_hall",
+    "state",
+    "gateway",
+    "mail_candidate",
+    "queue",
+    "pending",
+    "mail_candidate_hiworks_evt_candidate_001.json",
+  );
+  const eventFile = path.join(
+    repoRoot,
+    "guild_hall",
+    "state",
+    "gateway",
+    "mailbox",
+    "company",
+    "mail",
+    "events",
+    "hiworks",
+    "2026",
+    "2026-03.jsonl",
+  );
+  const bindingFile = path.join(repoRoot, "_workmeta", "system", "bindings", "mail_project_router.yaml");
+
+  await writeJson(candidateFile, sampleCandidate());
+  await writeJsonl(eventFile, [
+    {
+      event_id: "hiworks_evt_candidate_001",
+      source: "hiworks",
+      provider_message_id: "provider-message-001",
+      received_at: "2026-03-19T00:15:00+00:00",
+      body_text: [
+        "Current section has ALPHA only.",
+        "",
+        "-----Original Message-----",
+        "From: Project Owner <owner@example.test>",
+        "Subject: Prior message",
+        "Quoted section has BETA only.",
+      ].join("\n"),
+    },
+  ]);
+  await writeText(
+    bindingFile,
+    [
+      "version: mail_project_router.v1",
+      "routes:",
+      "  - route_id: split_required_terms",
+      "    project_code: SPLIT",
+      "    match:",
+      "      private_body_includes: [ALPHA, BETA]",
+      "",
+    ].join("\n"),
+  );
+
+  const result = await triageMailCandidate({
+    repoRoot,
+    candidateFile,
+    bindingFile,
+    now: new Date("2026-03-19T00:25:00+00:00"),
+    privateDeep: true,
+  });
+  const updatedCandidate = JSON.parse(await readFile(candidateFile, "utf8"));
+
+  assert.equal(result.routing_suggestion.status, "unmatched");
+  assert.equal(updatedCandidate.business_review.project_routing_suggestion.status, "unmatched");
+  assert.deepEqual(result.routing_suggestion.matched_on, []);
+
+  for (const rendered of [JSON.stringify(result), JSON.stringify(updatedCandidate)]) {
+    assert(!rendered.includes("Current section"));
+    assert(!rendered.includes("Quoted section"));
+    assert(!rendered.includes("Project Owner"));
+  }
+});
+
+test("triageMailCandidate private-deep treats a current body Subject line as current body evidence", async () => {
+  const repoRoot = await createRepoRoot();
+  const candidateFile = path.join(
+    repoRoot,
+    "guild_hall",
+    "state",
+    "gateway",
+    "mail_candidate",
+    "queue",
+    "pending",
+    "mail_candidate_hiworks_evt_candidate_001.json",
+  );
+  const eventFile = path.join(
+    repoRoot,
+    "guild_hall",
+    "state",
+    "gateway",
+    "mailbox",
+    "company",
+    "mail",
+    "events",
+    "hiworks",
+    "2026",
+    "2026-03.jsonl",
+  );
+  const bindingFile = path.join(repoRoot, "_workmeta", "system", "bindings", "mail_project_router.yaml");
+
+  await writeJson(candidateFile, sampleCandidate());
+  await writeJsonl(eventFile, [
+    {
+      event_id: "hiworks_evt_candidate_001",
+      source: "hiworks",
+      provider_message_id: "provider-message-001",
+      received_at: "2026-03-19T00:15:00+00:00",
+      body_text: "Subject: SYNTHETIC_ROUTE_TOKEN current checklist\nPlease handle this current note.",
+    },
+  ]);
+  await writeText(
+    bindingFile,
+    [
+      "version: mail_project_router.v1",
+      "routes:",
+      "  - route_id: current_subject_line",
+      "    project_code: P-SYN-001",
+      "    match:",
+      "      private_body_any: [SYNTHETIC_ROUTE_TOKEN]",
+      "",
+    ].join("\n"),
+  );
+
+  const result = await triageMailCandidate({
+    repoRoot,
+    candidateFile,
+    bindingFile,
+    now: new Date("2026-03-19T00:25:00+00:00"),
+    privateDeep: true,
+  });
+  const suggestion = result.routing_suggestion;
+
+  assert.equal(suggestion.status, "suggested");
+  assert.equal(suggestion.route_id, "current_subject_line");
+  assert.equal(suggestion.route_source, "private_deep");
+  assert.deepEqual(suggestion.matched_on, ["body"]);
+});
+
+test("triageMailCandidate private-deep marks mixed current and quoted body evidence", async () => {
+  const repoRoot = await createRepoRoot();
+  const candidateFile = path.join(
+    repoRoot,
+    "guild_hall",
+    "state",
+    "gateway",
+    "mail_candidate",
+    "queue",
+    "pending",
+    "mail_candidate_hiworks_evt_candidate_001.json",
+  );
+  const eventFile = path.join(
+    repoRoot,
+    "guild_hall",
+    "state",
+    "gateway",
+    "mailbox",
+    "company",
+    "mail",
+    "events",
+    "hiworks",
+    "2026",
+    "2026-03.jsonl",
+  );
+  const bindingFile = path.join(repoRoot, "_workmeta", "system", "bindings", "mail_project_router.yaml");
+
+  await writeJson(candidateFile, sampleCandidate());
+  await writeJsonl(eventFile, [
+    {
+      event_id: "hiworks_evt_candidate_001",
+      source: "hiworks",
+      provider_message_id: "provider-message-001",
+      received_at: "2026-03-19T00:15:00+00:00",
+      body_text: [
+        "SYNTHETIC_ROUTE_TOKEN appears in the current reply.",
+        "",
+        "-----Original Message-----",
+        "From: Project Owner <owner@example.test>",
+        "Subject: Prior message",
+        "SYNTHETIC_ROUTE_TOKEN also appears in the quoted chain.",
+      ].join("\n"),
+    },
+  ]);
+  await writeText(
+    bindingFile,
+    [
+      "version: mail_project_router.v1",
+      "routes:",
+      "  - route_id: mixed_body",
+      "    project_code: P-SYN-001",
+      "    match:",
+      "      private_body_any: [SYNTHETIC_ROUTE_TOKEN]",
+      "",
+    ].join("\n"),
+  );
+
+  const result = await triageMailCandidate({
+    repoRoot,
+    candidateFile,
+    bindingFile,
+    now: new Date("2026-03-19T00:25:00+00:00"),
+    privateDeep: true,
+  });
+  const suggestion = result.routing_suggestion;
+
+  assert.equal(suggestion.status, "suggested");
+  assert.equal(suggestion.route_id, "mixed_body");
+  assert.equal(suggestion.route_source, "mixed_private_deep");
+  assert.deepEqual(suggestion.matched_on, ["body", "quoted_body"]);
+});
+
+test("triageMailCandidate private-deep marks quoted html blockquote evidence", async () => {
+  const repoRoot = await createRepoRoot();
+  const candidateFile = path.join(
+    repoRoot,
+    "guild_hall",
+    "state",
+    "gateway",
+    "mail_candidate",
+    "queue",
+    "pending",
+    "mail_candidate_hiworks_evt_candidate_001.json",
+  );
+  const eventFile = path.join(
+    repoRoot,
+    "guild_hall",
+    "state",
+    "gateway",
+    "mailbox",
+    "company",
+    "mail",
+    "events",
+    "hiworks",
+    "2026",
+    "2026-03.jsonl",
+  );
+  const bindingFile = path.join(repoRoot, "_workmeta", "system", "bindings", "mail_project_router.yaml");
+
+  await writeJson(candidateFile, sampleCandidate());
+  await writeJsonl(eventFile, [
+    {
+      event_id: "hiworks_evt_candidate_001",
+      source: "hiworks",
+      provider_message_id: "provider-message-001",
+      received_at: "2026-03-19T00:15:00+00:00",
+      body_html: "<p>Acknowledged.</p><blockquote><p>SYNTHETIC_ROUTE_TOKEN quoted request.</p></blockquote>",
+    },
+  ]);
+  await writeText(
+    bindingFile,
+    [
+      "version: mail_project_router.v1",
+      "routes:",
+      "  - route_id: quoted_html_blockquote",
+      "    project_code: P-SYN-001",
+      "    match:",
+      "      private_html_any: [SYNTHETIC_ROUTE_TOKEN]",
+      "",
+    ].join("\n"),
+  );
+
+  const result = await triageMailCandidate({
+    repoRoot,
+    candidateFile,
+    bindingFile,
+    now: new Date("2026-03-19T00:25:00+00:00"),
+    privateDeep: true,
+  });
+  const updatedCandidate = JSON.parse(await readFile(candidateFile, "utf8"));
+  const suggestion = updatedCandidate.business_review.project_routing_suggestion;
+
+  assert.equal(result.status, "triaged");
+  assert.equal(suggestion.status, "suggested");
+  assert.equal(suggestion.route_id, "quoted_html_blockquote");
+  assert.equal(suggestion.route_source, "quoted_chain_private_deep");
+  assert.deepEqual(suggestion.matched_on, ["quoted_html"]);
+  assert.equal(suggestion.body_safe, true);
+
+  for (const rendered of [JSON.stringify(result), JSON.stringify(updatedCandidate)]) {
+    assert(!rendered.includes("SYNTHETIC_ROUTE_TOKEN quoted request"));
+    assert(!rendered.includes("Acknowledged"));
+  }
+});
+
 test("triageMailCandidate private-deep matches normalized exact keywords without leaking raw content", async () => {
   const repoRoot = await createRepoRoot();
   const candidateFile = path.join(

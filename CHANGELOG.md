@@ -2,6 +2,19 @@
 
 ## 2026-06-06
 
+### Revision `working` - Mail quoted-chain project routing evidence added
+
+- Extended mail project routing suggestions so private-deep body/html matches
+  can distinguish current-message evidence from quoted reply/forward-chain
+  evidence.
+- Added `route_source: quoted_chain_private_deep`, `route_source:
+  mixed_private_deep`, and `quoted_body` / `quoted_html` matched surfaces for
+  reply/forward cases while keeping raw body, raw HTML, attachment filenames,
+  URLs, and provider payloads out of routing outputs.
+- Added gateway mail-candidate regression tests for quoted-only, mixed
+  current/quoted, HTML blockquote, current `Subject:` line, and split required
+  term routing cases.
+
 ### Revision `working` - Outlook project mail reconcile workflow draft added
 
 - Added an authoring draft workflow for metadata-only Outlook sent-mail
