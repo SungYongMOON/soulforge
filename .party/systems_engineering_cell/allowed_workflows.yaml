@@ -29,4 +29,6 @@ notes:
   - "`se_cross_stage_mapping_governance_v0` may be used for cross-stage artifact-family governance, claim ceilings, source gaps, and downstream rerun route aggregation; it is not source truth, readiness approval, or artifact authority."
   - "When source/evidence support is unclear, first check party-declared reference lookup route candidates as route hints; if authority remains missing, use source-gap, sufficiency-review, or owner-decision workflows."
   - "When a request asks for official/current status, review approval, action closure, or accepted verification, route to source acquisition, sufficiency review, review/action closure, or accepted-result workflows before making stronger claims."
+  - "Document artifact/library requests are routed by `se_assistant_operating_loop_v0`; this allowed list does not grant library authority, project-file relocation, or artifact-rule promotion."
+  - "Workflow files contain executable steps only; route folder layout, source path, copy history, hash, version, provenance, and classification details to manifests/catalogs instead of workflow body."
   - "`se_foldertree_generate` is a skill, not a workflow, and is invoked through the operating-loop workflow rather than listed here."

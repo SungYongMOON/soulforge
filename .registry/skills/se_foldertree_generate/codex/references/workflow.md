@@ -66,6 +66,26 @@ python scripts/preview_variants.py \
 
 이 preview가 통과해도 실제 프로젝트 폴더 생성 권한을 의미하지 않는다. 실제 생성은 여전히 `generate_tree.py --dry-run`과 지원 조합 확인을 거쳐야 한다.
 
+## Document artifact temp folders
+
+For document-producing artifacts, create or preserve these project-local folders when the spec or task requires them:
+
+```text
+<project-root>/<stage>/<artifact>/00_Temp/template_snapshot/
+<project-root>/<stage>/<artifact>/00_Temp/workflow_candidate/
+```
+
+- `_workspaces/SE_TEMPLATE_LIBRARY/` is the canonical actual-file library/store for reusable SE artifact materials. It is not pointer-only and not a project execution baseline; `_workspaces/system/` remains the local lab and fixture workspace.
+- Under each library artifact's `00_Temp`, keep actual reusable files: owner-approved templates/forms/materials, derived HWPX when applicable, executable workflow procedures, artifact-specific authoring rules, sample output files, and manifests/catalogs.
+- Do not move project-local latest authoring files into the library. Library samples are copied or materialized as sample files.
+- Keep library `workflow/` for executable workflow procedure only; folder/source/hash/copy/provenance belongs in manifests/catalogs.
+- Separate common document rules from artifact-specific authoring rules.
+- At task start, copy or materialize the chosen library file or owner-approved canonical artifact material into project-local `00_Temp/template_snapshot/`; document generation uses that frozen snapshot only.
+- `00_Temp/workflow_candidate/` is for project-local workflow/rule candidates extracted from a concrete run. It is not `.workflow` canon.
+- Snapshot manifests should record source library/material pointer, project snapshot pointer, hash, snapshot time, and status.
+- Keep `form_revision`, `template_snapshot_id/version`, `input_bundle_version`, `artifact_version`, and `workflow_version` separate.
+- If a final manual edit changes the artifact, invalidate the previous artifact hash and validation status, then refresh metadata before closeout.
+
 ## 기존 프로젝트 루트에 바로 생성하는 예시
 
 ```bash
@@ -213,3 +233,6 @@ python -m pip install -r "$SKILL_DIR/requirements.txt"
 - [ ] `--dry-run`으로 산출물을 확인했다.
 - [ ] 실제 생성 명령을 실행했다.
 - [ ] manifest, progress, CSV, 인덱스 파일을 확인했다.
+- [ ] For document-producing artifacts, `00_Temp/template_snapshot/` and `00_Temp/workflow_candidate/` are created, preserved, or marked not applicable.
+- [ ] Project snapshot manifest metadata is initialized or refreshed before document generation.
+- [ ] Final manual edits have refreshed artifact hash and validation status before closeout.

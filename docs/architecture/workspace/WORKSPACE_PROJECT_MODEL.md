@@ -50,10 +50,23 @@ _workspaces/
 
 ```text
 _workspaces/
+├── SE_TEMPLATE_LIBRARY/
+│   ├── common_document_rules/
+│   ├── <stage>/<artifact>/00_Temp/
+│   │   ├── templates_or_forms/
+│   │   ├── workflow/
+│   │   ├── authoring_rules/
+│   │   ├── sample_outputs/
+│   │   └── manifests/
+│   ├── 020_MGMT/ ... 240_LL/
+│   └── library_catalog.yaml
 ├── system/
 │   └── <run_family_or_pilot_id>/
-│       └── ... reusable workflow lab outputs ...
+│       └── ... reusable workflow lab and fixture outputs ...
 └── <project_code>/
+    ├── <stage>/<artifact>/00_Temp/
+    │   ├── template_snapshot/
+    │   └── workflow_candidate/
     └── ... actual project files ...
 
 _workmeta/
@@ -83,11 +96,19 @@ _workmeta/
 ## 정본 규칙
 
 - `_workspaces/<project_code>/` 가 실제 과제 현장 materialization root 다.
+- `_workspaces/SE_TEMPLATE_LIBRARY/` 는 reusable SE artifact materials 의 canonical actual-file library/store 다. pointer-only reference folder 도 아니고 project execution baseline 도 아니다.
 - `_workspaces/system/` 은 특정 delivery project 가 아닌 reusable workflow lab pilot output 과 fixture materialization 을 두는 reserved local-only root 다.
+- library 의 canonical reusable files 는 owner-approved templates/forms, executable artifact workflows, artifact-specific authoring rules, sample output files 를 포함할 수 있다. provenance, hash, version, classification 은 `manifests/` 또는 catalog docs 에 기록한다.
+- library 의 `workflow/` 는 executable workflow procedure 만 담는다. folder layout, source path, copy history, hash, catalog/provenance 는 workflow 본문이 아니라 `manifests/` 또는 catalog docs 에 둔다.
+- common document rules 는 artifact-specific `authoring_rules/` 와 섞지 않고 `common_document_rules/` 같은 별도 common-rule surface 에 둔다.
+- HWP Rev 양식은 자동으로 official form 으로 간주하지 않는다. owner-approved canonical HWP/HWPX form material 만 `templates_or_forms/` 에 둘 수 있고, 원천/버전/분류는 manifest 로 기록한다.
+- project-local latest authoring files 는 project folder 에 남긴다. library 로 이동하지 않고, 필요할 때만 sample output 또는 reusable material 로 copy/materialize 한다.
+- document-producing artifact 는 task 시작 시 선택된 library file 또는 owner-approved artifact material 을 `_workspaces/<project_code>/<stage>/<artifact>/00_Temp/template_snapshot/` 로 복사하거나 materialize 한 뒤, generation 은 project-local snapshot 만 사용한다.
+- `_workspaces/<project_code>/<stage>/<artifact>/00_Temp/workflow_candidate/` 는 concrete run 에서 추출한 project-local workflow/rule candidate 를 두는 곳이며 `.workflow` canon 이 아니다.
 - 실제 프로젝트가 다른 경로에 이미 있으면 `_workspaces/<project_code>/` direct child 로 보이도록 local-only directory link 를 둘 수 있다.
 - 다른 owner PC 에서도 같은 실자료를 읽어야 하는 프로젝트는 실제 파일을 owner-approved shared worksite 에 두고, `_workspaces/<project_code>/` 는 그 위치를 가리키는 link view 로 둔다.
 - owner-approved shared worksite 의 상위 cloud/company root 는 link target 을 해석하기 위한 외부 루트일 수는 있지만 `_workspaces/company` 같은 direct child 로 materialize 하지 않는다.
-- `_workspaces` direct child 는 `<project_code>/`, reserved `system/`, 또는 owner-approved non-project alias 로 제한한다.
+- `_workspaces` direct child 는 `<project_code>/`, reserved `SE_TEMPLATE_LIBRARY/`, reserved `system/`, 또는 owner-approved non-project alias 로 제한한다.
 - `_workmeta/<project_code>/` 는 Soulforge root 아래 nested private metadata repo 다.
 - `_workmeta/system/` 은 project-agnostic reusable workflow evolution run evidence 와 procedure capture 를 두는 reserved lab metadata root 다.
 - `guild_hall/state/gateway/` 가 mail fetch 와 project assignment 전 intake staging 을 함께 담는 cross-project ingress root 다.
@@ -96,7 +117,7 @@ _workmeta/
 - project 가 없는 reusable workflow 실험은 reserved `system/` owner 아래에서 관리할 수 있다.
 - `project_code` 는 경로와 식별에 쓰는 짧고 안정적인 id 로 두고, 사람용 full title 은 `contract.yaml` 의 `display_name` 에 둔다.
 - `_workmeta/<project_code>/` 는 분리된 registry 가 아니라 companion private root 안의 shared metadata plane 이며 contract, binding, 실행 기록 메타데이터, owner-handoff metadata 보관 위치다.
-- `_workmeta` 의 실행 기록은 원문 파일 보관을 뜻하지 않는다. HWP/HWPX, Word, Excel, PowerPoint, PDF, 압축파일, 메일 원문/첨부 같은 실제 원문 파일은 `_workspaces/<project_code>/...`, `_workspaces/system/...`, 또는 owner-approved shared worksite 에 둔다.
+- `_workmeta` 의 실행 기록은 원문 파일 보관을 뜻하지 않는다. HWP/HWPX, Word, Excel, PowerPoint, PDF, 압축파일, 메일 원문/첨부 같은 실제 payload 파일은 `_workmeta` 에 저장하지 않고 `_workspaces/<project_code>/...`, `_workspaces/SE_TEMPLATE_LIBRARY/...`, `_workspaces/system/...`, 또는 owner-approved shared worksite 에 둔다.
 - `_workmeta` 에는 실제 원문 파일 대신 workspace/shared worksite 경로, 크기, 해시, 출처, 사용 상태, 차단 사유 같은 포인터 메타데이터만 남긴다.
 - HWP 는 원문 자체를 본문 분석 대상으로 삼지 않는다. 모든 HWP 는 [`HWP_NORMALIZATION_V0.md`](HWP_NORMALIZATION_V0.md) 에 따라 workspace/shared worksite 작업본에서 HWPX 로 저장/export 한 뒤, HWPX 파생본만 읽는다.
 - `_workmeta/<project_code>/monsters/` 는 project-side monster current state owner 다.
@@ -113,12 +134,22 @@ _workmeta/
 - `dungeons/`, `analytics/`, `nightly_healing/`, `reports/`, `log/`, `artifacts/` 는 모두 owner-only private metadata 영역이며, current-default 에서는 `_workmeta` shared plane 을 통해 다른 owner PC 와 공유할 수 있다.
 - tracked contract example 은 `docs/architecture/workspace/examples/<project_code>/_workmeta/` 아래에만 둔다.
 
+## document workflow version boundary
+
+- `form_revision` 은 owner-approved reusable form/material 의 revision 또는 label 이다.
+- `template_snapshot_id` 또는 `template_snapshot_version` 은 project-local frozen baseline snapshot 을 가리킨다.
+- `input_bundle_version` 은 source/input 묶음의 버전이다.
+- `artifact_version` 은 생성되거나 수동 편집 중인 산출 문서 버전이다.
+- `workflow_version` 은 산출 절차나 authoring rule 의 버전이다.
+- project snapshot manifest 는 source library material 또는 owner-approved artifact material pointer, project snapshot pointer, hash, snapshot time, status 를 generic field 로 기록한다.
+- final manual edit 이 들어간 artifact 는 이전 `artifact_version` 의 hash 와 validation status 를 무효화한다. closeout 전 metadata, artifact hash, validation status 를 새로 고쳐야 한다.
+
 ## owner 경계
 
 - 프로젝트 실자료와 산출물은 `_workspaces/<project_code>/` view 안에서 접근 가능해야 한다.
 - 여러 PC 공유가 필요한 실자료는 `_workspaces` 내부 사본이 아니라 owner-approved shared worksite 원본에 두고, `_workspaces/<project_code>/` 는 local-only link 로 연결한다.
 - shared worksite root 전체를 `_workspaces` 아래에 정션으로 걸지 않는다. 필요한 project 또는 승인된 non-project alias 만 direct child 로 둔다.
-- 특정 프로젝트 owner 가 없는 reusable workflow pilot 출력은 `_workspaces/system/` 안에 남긴다.
+- reusable SE artifact materials 는 SE foldertree-shaped `_workspaces/SE_TEMPLATE_LIBRARY/` 안에 남기고, 특정 프로젝트 owner 가 없는 reusable workflow pilot 출력은 `_workspaces/system/` 안에 남긴다.
 - `gateway` inbox / mailbox / monster event staging 은 `guild_hall/state/gateway/` 안에 남긴다.
 - held mission metadata 와 readiness 는 `.mission/<mission_id>/` 아래에 남긴다.
 - `.registry`, `.unit`, `.workflow`, `.party`, `guild_hall` 은 project binding 대상 또는 운영 owner 일 뿐, per-project 실자료 owner 가 아니다.

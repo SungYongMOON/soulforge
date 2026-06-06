@@ -14,6 +14,7 @@ owner decision capture, or review closeout support.
 - Chain-level routing hints and member-slot display.
 - Public-safe awareness that a registered private lookup candidate may be used
   as a route hint for official-source and reference-example checks.
+- Public-safe routing awareness for document artifact/library work.
 
 ## What It Does Not Own
 
@@ -24,12 +25,29 @@ owner decision capture, or review closeout support.
 - Public/private promotion.
 - Workflow-local optimized model, reasoning, species, class, or unit choices.
 - Project-local run truth or raw project payloads.
+- Library authority, project-file relocation, or artifact-rule promotion.
+- Design/source/review/verification authority for document artifacts.
 
 ## Current Boundary
 
 The party is a registered loadout, not unattended automation. It may route a
 bounded request into the SE assistant operating loop, but each downstream
 workflow keeps its own claim ceiling and evidence requirements.
+
+Document artifact and library requests may be routed through the operating
+loop, but `_workspaces/SE_TEMPLATE_LIBRARY/` is the actual-file library for
+reusable SE artifact materials, not a project execution baseline. Project-local
+latest authoring files stay in the project folder. Copy or materialize library
+sample files only when the owner-approved scope permits it.
+
+Workflow files contain executable workflow steps only. Folder layout, source
+path, copy history, hash, version, provenance, and classification belong in
+manifests/catalogs. If a request asks to put those details into workflow body,
+stop and route to the manifest or catalog surface.
+
+`_workmeta` stores metadata pointers, hashes, and evidence only. Actual
+HWP/HWPX/PDF/Office/raw payloads stay in `_workspaces/` or another
+owner-approved shared worksite.
 
 ## Reference Lookup Route Candidate
 

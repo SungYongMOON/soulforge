@@ -207,7 +207,7 @@ test("healer failure pending request is accepted by town crier", async () => {
     assert.equal(result.results[0].request_id, "healer-one");
     assert.equal(result.results[0].status, "sent");
     assert.equal(await pathExists(pendingFile), false);
-    assert.equal(await readFile(markerFile, "utf8"), "executed\n");
+    assert.equal((await readFile(markerFile, "utf8")).replace(/\r\n/g, "\n"), "executed\n");
   } finally {
     await rm(repoRoot, { recursive: true, force: true });
   }

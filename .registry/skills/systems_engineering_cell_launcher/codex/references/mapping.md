@@ -10,7 +10,9 @@
 - Source owner for party chain: `.party/systems_engineering_cell/party.yaml`
 - Source owner for allowed workflow set: `.party/systems_engineering_cell/allowed_workflows.yaml`
 - Source owner for workflow procedures and optimized execution profiles: `.workflow/<workflow_id>/`
-- Source owner for local runtime bindings, project evidence, and private run truth: `_workmeta/<project_code>/`
+- Source owner for reusable SE artifact actual files: `_workspaces/SE_TEMPLATE_LIBRARY/`
+- Source owner for project-local latest authoring files: `_workspaces/<project_code>/`
+- Source owner for local runtime bindings, metadata pointers, hashes, evidence, and private run truth: `_workmeta/<project_code>/`
 - Source owner for reference lookup route hints: `.party/systems_engineering_cell/party.yaml`
 
 ## Intended User Shape
@@ -32,6 +34,7 @@ The expected answer should prefer:
 - current SE request or stage interpretation
 - visible blockers and missing bindings
 - source gaps or owner questions
+- document artifact/library route boundaries
 - AI-draftable items versus owner-held decisions
 - recommended next workflow route
 - claim ceiling and boundary notes
@@ -94,6 +97,7 @@ review approval, or verification acceptance.
 
 - `project_start_scaffold`: use `se_assistant_operating_loop_v0`; call `se_foldertree_generate` only when scaffold generation is requested and runtime inputs are known.
 - `single_stage_gap_scan`: use `se_stage_artifact_gap_scan_v0` when the target stage or stage scan binding is available.
+- `document_artifact_library_route`: use `se_assistant_operating_loop_v0` when a request asks about reusable SE artifact materials, library samples, or project-local snapshot steps; keep latest project authoring files project-local and route provenance/catalog/hash details to manifests/catalogs.
 - `source_gap_or_wiki_support`: first check party-declared reference lookup route candidates as route hints; then use `knowledge_wiki_pipeline_v0`, `source_gap_followup_packet_v0`, or `source_packet_sufficiency_review_v0`.
 - `requirements_traceability_governance`: use `page_module_trace_matrix_v0` for missing evidence rows, review-only field-shape rows, and review/verification seed rows after source-intake state is known; do not use it as final RTM authority.
 - `cross_stage_governance_aggregation`: use `se_cross_stage_mapping_governance_v0` to aggregate artifact-family coverage, source gaps, owner-decision needs, claim ceilings, and downstream rerun routes; do not use it as source truth, readiness approval, or artifact authority.
@@ -144,8 +148,11 @@ The launcher does not claim:
 - A readiness digest approves review readiness or verification completion.
 - Source gap, source intake, Drive placement, NotebookLM answers, Obsidian views, or advisory model output are source truth.
 - Registered private route candidates are public canon, production-ready rules, official artifact authority, or permission to quote private evidence.
+- `_workspaces/SE_TEMPLATE_LIBRARY/` is a project execution baseline or pointer-only store.
+- Project-local latest authoring files should be moved into the library.
+- Workflow bodies should contain folder layout, source path, copy history, hash, version, provenance, or classification details.
 - Owner decisions, review approvals, stage clearance, configuration baselines, or verification acceptance are created by this launcher.
-- Project-local payloads, private evidence, raw source files, credentials, or runtime absolute paths are safe to store in public tracked skill files.
+- Project-local payloads, private evidence, raw source files, HWP/HWPX/PDF/Office/raw payloads, credentials, or runtime absolute paths are safe to store in public tracked skill files.
 
 ## Output Shape
 
@@ -166,5 +173,7 @@ Report:
 - `SKILL.md` frontmatter has only `name` and `description`.
 - `agents/openai.yaml` keeps UI metadata only and the default prompt mentions `$soulforge-systems-engineering-cell-launcher`.
 - Public tracked files contain no raw project payloads, source text, secrets, private evidence, host-local absolute paths, or NotebookLM answers.
+- `_workmeta` stores metadata pointers, hashes, and evidence only; actual HWP/HWPX/PDF/Office/raw payloads stay outside `_workmeta`.
 - The launcher keeps party, workflow, profile policy, runtime binding, owner decision, design authority, review approval, and verification acceptance boundaries separate.
+- The launcher keeps library authority, project-file relocation, artifact-rule promotion, common document rules, artifact-specific authoring rules, workflow bodies, and manifests/catalogs separate.
 - `npm.cmd run skills:sync -- systems_engineering_cell_launcher` materializes the installed mirror before claiming it can be invoked by Codex.

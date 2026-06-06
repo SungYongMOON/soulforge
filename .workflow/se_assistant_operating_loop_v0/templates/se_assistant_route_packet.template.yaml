@@ -14,6 +14,14 @@ selected_routes:
     route: se_stage_artifact_gap_scan_v0
     status: pending
     target_stage_codes: []
+  document_artifact_library:
+    route: document_artifact_library_boundary_route
+    status: optional
+    se_template_library_ref: _workspaces/SE_TEMPLATE_LIBRARY/
+    project_latest_files_policy: stay_project_local
+    materialization_policy: copy_or_materialize_when_owner_authorized
+    manifest_catalog_refs: []
+    workflow_body_policy: executable_steps_only
   source_or_knowledge:
     route: knowledge_wiki_pipeline_v0
     status: optional
@@ -33,6 +41,9 @@ non_claims:
   design_authority: not_claimed
   source_truth: not_claimed
   artifact_completion: not_claimed
+  library_authority: not_claimed
+  project_file_relocation: not_claimed
+  artifact_rule_promotion: not_claimed
   review_approval: not_claimed
   verification_completion: not_claimed
   public_promotion: not_claimed

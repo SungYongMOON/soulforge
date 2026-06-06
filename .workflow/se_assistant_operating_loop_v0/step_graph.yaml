@@ -43,6 +43,32 @@ steps:
       - foldertree_manifest_refs
       - foldertree_route_blockers
     next:
+      - document_artifact_library_route
+  - step_id: document_artifact_library_route
+    title: Document Artifact Library Route
+    actor_slot: document_library_router
+    condition: Only when the request asks about reusable document artifact materials, SE template library samples, or project-local authoring snapshots.
+    action:
+      kind: document_artifact_library_boundary_route
+      rules:
+        se_template_library_actual_file_store: true
+        project_latest_authoring_files_stay_project_local: true
+        common_document_rules_separate_from_artifact_authoring_rules: true
+        workflow_files_executable_steps_only: true
+        manifest_catalogs_hold_layout_provenance_hash_version_classification: true
+        workmeta_metadata_pointers_only_no_actual_payloads: true
+    inputs:
+      - normalized_request_scope
+      - route_constraints
+    optional_inputs:
+      - document_artifact_request_refs
+      - se_template_library_catalog_refs
+      - project_authoring_file_refs
+      - manifest_or_catalog_refs
+    outputs:
+      - document_artifact_library_route_bundle
+      - document_library_blockers
+    next:
       - stage_gap_scan_route
   - step_id: stage_gap_scan_route
     title: Stage Gap Scan Route
@@ -55,6 +81,7 @@ steps:
       - normalized_request_scope
       - route_constraints
     optional_inputs:
+      - document_artifact_library_route_bundle
       - foldertree_manifest_refs
       - existing_foldertree_manifest_refs
       - stage_gap_scan_binding_refs
@@ -122,6 +149,7 @@ steps:
       - blocker_register_refs
       - source_or_knowledge_intake_refs
       - governance_route_refs
+      - document_artifact_library_route_bundle
       - readiness_digest_scope_refs
     outputs:
       - readiness_digest_refs
@@ -142,6 +170,7 @@ steps:
       - blocker_register_refs
       - source_or_knowledge_intake_refs
       - governance_route_refs
+      - document_artifact_library_route_bundle
       - readiness_digest_refs
       - next_action_recommendations
     outputs:
@@ -170,3 +199,8 @@ stop_conditions:
   - governance_workflow_required_but_unavailable
   - review_or_verification_approval_requested_from_this_workflow
   - public_private_promotion_requested_without_owner_authority
+  - library_authority_requested_from_this_workflow
+  - project_file_relocation_requested_without_owner_authority
+  - artifact_rule_promotion_requested_without_owner_authority
+  - actual_payload_storage_requested_under_workmeta
+  - workflow_body_catalog_or_provenance_details_requested

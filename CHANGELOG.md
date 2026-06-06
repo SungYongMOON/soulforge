@@ -18,6 +18,8 @@
 - Allowed `town_crier` to process `healer_failed` pending notifications so a
   healer failure queue item no longer loops as
   `invalid_pending_request:unsupported_owner_scope`.
+- Normalized the synthetic marker assertion so the healer failure notification
+  test passes on Windows text-mode newline output.
 - Localized healer run summaries, next actions, and failure notification text
   into Korean for owner-facing reports and Telegram messages.
 - Kept mail fetch, mailbox storage, and public/private payload boundaries
@@ -83,6 +85,39 @@
   owner-facing readable exports.
 - Kept raw mail bodies, attachments, Outlook rule state, secrets, and workbook
   source-of-truth changes out of scope.
+
+### Revision `working` - SE template library rules clarified
+
+- Defined `_workspaces/SE_TEMPLATE_LIBRARY/` as the canonical actual-file
+  reusable SE artifact library/store, not a pointer-only surface and not a
+  project execution baseline.
+- Clarified that project-local latest authoring files stay project-local;
+  library samples are copied or materialized as sample outputs/files, not moved.
+- Kept library workflow files limited to executable procedure, with paths,
+  hashes, copy history, version/classification, and provenance recorded in
+  manifests or catalogs.
+- Kept common document rules separate from artifact-specific authoring rules,
+  and reaffirmed that `_workmeta` stores metadata, pointers, hashes, and
+  evidence only, not actual payload files.
+
+### Revision `working` - SE template library workspace alias seeded
+
+- Added `_workspaces/SE_TEMPLATE_LIBRARY/` as the local-only SE foldertree-shaped
+  artifact library root and kept `_workspaces/system/` scoped to reusable lab
+  and fixture outputs.
+- Corrected document-producing snapshot rules so project work materializes a
+  chosen official form or owner-approved artifact material into `00_Temp/template_snapshot/` before
+  generation.
+
+### Revision `working` - Project document template snapshot rules added
+
+- Clarified that `_workspaces/SE_TEMPLATE_LIBRARY/` is the local-only SE
+  foldertree-shaped artifact library root, while document-producing project work uses a project-local
+  `00_Temp/template_snapshot/` baseline and optional
+  `00_Temp/workflow_candidate/` candidates.
+- Documented separate official form, snapshot, input bundle, artifact, and workflow
+  version axes, plus snapshot manifest metadata and post-edit validation
+  refresh requirements.
 
 ### Revision `working` - Mail fetch project history ICS LF writer fixed
 

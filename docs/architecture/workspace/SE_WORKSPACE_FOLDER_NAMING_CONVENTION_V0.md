@@ -77,7 +77,7 @@ OneDrive Export Final Final v3
    - Put the item in a review/hold state until the owner decides.
 
 7. Treat SE stage roots as high-impact.
-   - Stage roots and numbered template folders may be referenced by reports, manifests, scripts, and user bookmarks.
+   - Stage roots and numbered artifact folders may be referenced by reports, manifests, scripts, and user bookmarks.
    - Any change to those names requires a dry-run rename map and pointer migration plan.
 
 ## Standard Role Terms
@@ -92,6 +92,40 @@ OneDrive Export Final Final v3
 | review queue | `검토` |
 | follow-up actions | `조치` |
 | temporary or unclear item | `분류대기` or `보류` |
+
+## Reserved Document-Artifact Temp Folders
+
+For document-producing artifacts, SE folder tree generation may create or permit these reserved project-local folders:
+
+```text
+_workspaces/<project_code>/<stage>/<artifact>/00_Temp/template_snapshot/
+_workspaces/<project_code>/<stage>/<artifact>/00_Temp/workflow_candidate/
+```
+
+- `template_snapshot/` contains the frozen project-local baseline copied or materialized from a chosen library file or owner-approved artifact material at task start.
+- `workflow_candidate/` contains workflow or rule candidates extracted from the concrete project run. It is not `.workflow` canon.
+- Project-local latest authoring files stay in the project folder. Do not move them into the library; copy/materialize a sample output or reusable material only when useful.
+- Do not put dates, hashes, source IDs, customer names, or original file names into these reserved folder names. Record them in manifests or metadata.
+
+The reusable actual-file library uses this shape:
+
+```text
+_workspaces/SE_TEMPLATE_LIBRARY/
+├── common_document_rules/
+└── <stage>/<artifact>/00_Temp/
+    ├── templates_or_forms/
+    ├── workflow/
+    ├── authoring_rules/
+    ├── sample_outputs/
+    └── manifests/
+```
+
+- `_workspaces/SE_TEMPLATE_LIBRARY/` is the canonical actual-file library/store for reusable SE artifact materials. It is not a pointer-only reference folder and not a project execution baseline.
+- Library files can include owner-approved templates/forms, executable artifact workflows, artifact-specific authoring rules, and sample output files.
+- `workflow/` contains only the executable workflow procedure. Folder layout, source path, copy history, hash, catalog/provenance, version, and classification belong in `manifests/` or catalog docs.
+- Common document rules stay separate from artifact-specific `authoring_rules/`; keep them under `common_document_rules/` or another owner-approved common-rule surface.
+- Rev-specific HWP forms are not automatically official form originals. Owner-approved canonical HWP/HWPX form materials can live under `templates_or_forms/` with manifest metadata.
+- `_workspaces/system/` remains the local lab and fixture workspace.
 
 ## Metadata To Record Outside The Folder Name
 
@@ -112,6 +146,20 @@ Minimum metadata fields for a rename candidate:
 | `hash_or_size_ref` | checksum or size pointer when needed |
 | `path_history` | previous/current path records after accepted rename |
 | `owner_decision` | approve, revise, hold, reject |
+
+For project snapshot and document-artifact records, also keep these version axes separate when applicable:
+
+| Field | Meaning |
+| --- | --- |
+| `form_revision` | owner-approved reusable form/material revision or label |
+| `template_snapshot_id` | project-local frozen snapshot identifier |
+| `template_snapshot_version` | project-local snapshot version when separate from the id |
+| `input_bundle_version` | source/input bundle version |
+| `artifact_version` | generated or manually edited artifact version |
+| `workflow_version` | authoring procedure or rule version |
+| `validation_status` | current validation state after latest artifact edit |
+
+Project snapshot manifests should record the source library material or owner-approved artifact material pointer, project snapshot pointer, hash, snapshot time, and status without exposing raw project content.
 
 ## Rename Workflow
 
