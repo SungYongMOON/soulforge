@@ -262,6 +262,59 @@ Acceptance criteria:
 - Company project entries are ordered before system and operations entries for
   each day.
 
+### Project mail history XLSX readability candidate
+
+This candidate improves the `_workspaces/<project_code>/reports/메일_이력/`
+XLSX export generated from project mail-history metadata so it is useful as a
+human-facing ledger, not just a machine-shaped CSV mirror.
+
+Owner split:
+
+- `_workmeta/<project_code>/reports/메일_이력/**` remains the metadata ledger
+  and schedule sidecar surface.
+- `_workspaces/<project_code>/reports/메일_이력/메일_이력.xlsx` is the
+  owner-facing spreadsheet export for reading, review, filtering, and manual
+  project follow-up.
+- The gateway mail-history writer owns export generation and must not read or
+  copy mail bodies, HTML, raw `.msg` payloads, attachments, secrets, or
+  recipient lists beyond the existing metadata contract.
+
+Initial development target:
+
+1. Define a human-readable workbook layout for project mail ledgers.
+2. Keep technical identifiers available but visually secondary, hidden, or moved
+   behind review columns where appropriate.
+3. Add readable column widths, wrapped subject/status text, frozen header row,
+   filter-ready headers, sensible row height, and date/time formatting.
+4. Add separate views or sheets for received mail, sent mail, and open review
+   items if that stays simpler than a single dense sheet.
+5. Add fixture or smoke coverage so future exports do not regress to unreadable
+   clipped cells or unformatted technical dumps.
+
+Non-goals:
+
+- Do not move the canonical metadata ledger out of `_workmeta`.
+- Do not put raw mail bodies, attachments, Office/PDF/HWP payloads, account
+  data, secrets, or Outlook rule state into the workbook.
+- Do not make the spreadsheet a source of truth that diverges from the CSV
+  metadata ledger.
+- Do not require Excel automation; prefer deterministic file generation.
+
+Start condition:
+
+- Owner confirms the first preferred human-facing columns and whether technical
+  columns should be hidden, moved to a separate sheet, or kept visible.
+
+Acceptance criteria:
+
+- A generated project mail-history XLSX can be opened by a person and read
+  without clipped key text, unreadable narrow columns, or noisy technical fields
+  dominating the first view.
+- Received and sent mail rows are easy to distinguish.
+- Date, subject, sender/direction, event type, attachment count, status, and
+  source reference remain available without exposing raw payloads.
+- Existing metadata CSV/ICS behavior and workmeta payload validation still pass.
+
 ### Google Drive LLM wiki bookshelf candidate
 
 This candidate adds Google Drive as the cross-PC canonical source bookshelf for
@@ -506,6 +559,7 @@ Start condition:
 | 6 | nightly sweep advisory | mission/battle log 상태가 안정됨 | `.mission`, `guild_hall/night_watch` |
 | 7 | engineering co-pilot expansion | SE assistant lane, knowledge ledger, private worklog evidence 흐름이 안정됨 | `.workflow`, `.mission`, `_workmeta`, `guild_hall/night_watch`, `.registry` |
 | 8 | knowledge graph 탐지 카드 integration | retrieval-plan command contract 와 graph export 가 안정됨 | `guild_hall/knowledge_graph`, `docs/architecture/guild_hall`, `ui-workspace`, `_workmeta/system` |
+| 9 | project mail history XLSX readability | project mail-history writer and metadata ledger are stable | `guild_hall/gateway`, `_workspaces`, `_workmeta/system` |
 
 ## 구체화 규칙
 

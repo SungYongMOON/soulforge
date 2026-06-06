@@ -2,6 +2,17 @@
 
 ## 2026-06-06
 
+### Revision `working` - Project mail history XLSX readability candidate added
+
+- Added a roadmap candidate to improve project mail-history XLSX exports under
+  `_workspaces` so the spreadsheet is usable for human review instead of
+  looking like an unformatted CSV mirror.
+- Added a proposed dev-worker candidate packet that keeps `_workmeta` as the
+  metadata-ledger surface while treating `_workspaces` XLSX files as
+  owner-facing readable exports.
+- Kept raw mail bodies, attachments, Outlook rule state, secrets, and workbook
+  source-of-truth changes out of scope.
+
 ### Revision `working` - Mail fetch project history ICS LF writer fixed
 
 - Wrote Python mail-fetch project-history ICS files with explicit newline
