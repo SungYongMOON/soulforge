@@ -268,6 +268,7 @@ npm run guild-hall:gateway:mail-work:priority:refresh
 npm run guild-hall:gateway:mail-work:priority:list
 npm run guild-hall:gateway:mail-work:weekly-visibility -- --week-start 2026-05-25 --week-end 2026-05-31
 node guild_hall/gateway/cli.mjs import-deadline-watch
+node guild_hall/gateway/cli.mjs register-mail-tasks
 npm run guild-hall:gateway:deadline-watch:validate
 ```
 
@@ -286,6 +287,16 @@ deadline-watch import 는 기본 dry-run 이며, deterministic subject/date meta
 deadline-watch validator 는 project-local deadline register 와 reminder event
 log 의 header, enum, project folder consistency, `raw_payload_copied=false`,
 raw/secret marker 부재를 검사한다.
+
+mail task register 는 같은 `mail_work_priority` latest JSON 을 읽어
+metadata-safe, non-terminal, exact project route 만 project-local
+`reports/open_actions/open_action_register.md` row 후보로 만든다. 기본은
+dry-run 이며, 실제 쓰기는 `--apply` 가 필요하다. `P00-000_INBOX`,
+`route_confidence: review`, `none/personal`, `none/promo`, terminal work, and
+raw-boundary rows remain owner-review or skipped and must not write project
+truth. `--notify` only calls the existing town_crier gateway `mail_received`
+policy after `--apply` writes new rows; no live Telegram send, env read, raw
+mail read, private metadata commit, or push is performed by this command.
 
 ## sample
 

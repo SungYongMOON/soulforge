@@ -22,6 +22,10 @@
   - mail-derived work item 상태를 candidate -> monster -> mission -> battle 기준으로 projection 하고, 주간 계획 누락 방지용 P00 visibility register 를 갱신하는 local-only helper
 - `deadline_watch_import.mjs`
   - deterministic mail priority due metadata 를 project-local deadline_watch row 후보로 import/validate 하는 helper
+- `mail_task_register.mjs`
+  - exact-route, metadata-safe mail priority rows into project-local
+    `reports/open_actions/open_action_register.md` rows; defaults to dry-run
+    and never reads mailbox raw/events or attachment payloads
 - `deadline_watchdog_reminder.mjs`
   - project-local deadline_watch metadata 로 dry-run/manual-confirm reminder preview 를 만드는 helper
 - `project_mail_history_writer.mjs`
@@ -67,6 +71,21 @@
   - project-local deadline register 와 reminder event log 의 metadata-only boundary 를 검사한다.
 - `guild-hall:gateway:deadline-watch:reminders`
   - active deadline row 에서 Telegram-ready reminder 후보를 preview 한다. 자동 발송이나 `town_crier` queue write 는 하지 않는다.
+
+## mail task register command
+
+- `node guild_hall/gateway/cli.mjs register-mail-tasks`
+  - reads `guild_hall/state/gateway/mail_work_status/priority_latest.json`
+    by default and returns a compact dry-run summary.
+  - `--apply` writes only idempotent exact-route project rows under
+    `_workmeta/<project_code>/reports/open_actions/open_action_register.md`.
+  - P00/review routes, personal/promo routes, terminal work, and raw-boundary
+    rows do not write project truth.
+  - `--notify` only queues through existing town_crier gateway
+    `mail_received` policy when `--apply` actually writes rows.
+  - private metadata sync is reported as manual `guild-hall:workmeta:sync`
+    preparation; this command does not commit, push, read env values, or send
+    live Telegram.
 
 ## package caveat
 

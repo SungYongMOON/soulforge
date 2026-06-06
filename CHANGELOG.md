@@ -2,6 +2,19 @@
 
 ## 2026-06-06
 
+### Revision `working` - Mail task register always-on lane added
+
+- Added `guild_hall/gateway/mail_task_register.mjs` and the
+  `register-mail-tasks` gateway CLI command to convert safe exact-route
+  `mail_work_priority` rows into project-local open-action Markdown rows.
+- Kept the command dry-run by default; `--apply` is required for
+  `_workmeta/<project_code>/reports/open_actions/open_action_register.md`
+  writes, and non-exact/P00/personal/promo/terminal/raw-boundary rows stay
+  owner-review or skipped.
+- Added optional `--notify` queueing through existing town_crier
+  `mail_received` gateway policy and reported private metadata sync as manual
+  commit/push preparation, not an automatic raw data copy.
+
 ### Revision `working` - Mail projection private-state rebuild policy documented
 
 - Documented that `mail_candidate` queue/status projections and

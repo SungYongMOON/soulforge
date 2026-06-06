@@ -87,6 +87,23 @@ activity sync 를 실행한다.
 npm run guild-hall:activity:sync -- --json
 ```
 
+메일 priority projection 이 이미 refresh 되어 있고 owner가 이 always-on lane 을
+허용한 경우에만, mail-derived open-action 등록을 별도 follow-on 으로 실행할 수
+있다. 먼저 dry-run 을 보고, exact-route row 만 쓰는 것이 확인된 뒤 `--apply` 를
+붙인다. Telegram queueing 이 필요하면 `--notify` 를 함께 쓰되, queue 생성은
+town_crier gateway `mail_received` policy 에서 켜진 경우에만 허용된다.
+
+```bash
+node guild_hall/gateway/cli.mjs register-mail-tasks
+node guild_hall/gateway/cli.mjs register-mail-tasks --apply --notify
+npm run guild-hall:workmeta:sync -- --json
+```
+
+이 follow-on 은 mailbox raw/events, mail body/HTML, attachment payload,
+provider payload, env/secret/token/cookie/session 파일, `_workspaces/**`
+payload 를 읽지 않는다. private metadata sync 는 별도 command 의 준비/의도
+보고로 남기며, `register-mail-tasks` 자체가 commit/push 하지 않는다.
+
 `guild-hall:activity:sync` 가 `private-state` pull/push 또는 GitHub/DNS/network 계열 문제로 실패하면 같은 3회 재시도 정책을 적용한다.
 재시도 후에도 실패하면 raw mail/body/html/attachment/secret 을 읽지 않고 blocked 로 보고한다.
 

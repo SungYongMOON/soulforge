@@ -159,6 +159,65 @@ test("intake CLI updates project-local Korean mail history files for assigned mo
   assert(!csv.includes("private.xlsx"));
 });
 
+test("register-mail-tasks CLI applies exact-route rows under explicit local root", async () => {
+  const tempRoot = await makeTempRoot();
+  const localRoot = path.join(tempRoot, "synthetic-root");
+  const latestFile = path.join(localRoot, "guild_hall", "state", "gateway", "mail_work_status", "priority_latest.json");
+
+  await writeJson(latestFile, {
+    schema_version: "soulforge.gateway.mail_work_priority.v1",
+    kind: "mail_work_priority_projection",
+    generated_at: "2026-06-06T00:00:00.000Z",
+    source_schema_version: "soulforge.gateway.mail_work_status.v1",
+    count: 1,
+    counts: {},
+    route_counts: {
+      "P26-014": 1,
+    },
+    entries: [
+      {
+        candidate_id: "mail_candidate_cli_action",
+        mail_source_ref: "mail_evt_cli_action",
+        subject: "Synthetic CLI mail task",
+        received_at: "2026-06-06T00:00:00.000Z",
+        route_candidate: "P26-014",
+        route_confidence: "exact",
+        priority_flags_ko: [],
+        attachment_count: 0,
+        work_status: "candidate_pending",
+        refs: {
+          candidate_ref: "guild_hall/state/gateway/mail_candidate/queue/pending/mail_candidate_cli_action.json",
+        },
+        boundary: {
+          raw_payload_copied: false,
+        },
+      },
+    ],
+    boundary: {
+      raw_payload_copied: false,
+    },
+  });
+
+  const { stdout } = await execFile(process.execPath, [
+    cliPath,
+    "register-mail-tasks",
+    "--local-root",
+    localRoot,
+    "--latest-file",
+    "guild_hall/state/gateway/mail_work_status/priority_latest.json",
+    "--apply",
+  ]);
+
+  const result = JSON.parse(stdout);
+  const registerFile = path.join(localRoot, "_workmeta", "P26-014", "reports", "open_actions", "open_action_register.md");
+  const register = await readFile(registerFile, "utf8");
+
+  assert.equal(result.request_id, "mail_task_register");
+  assert.equal(result.status, "applied");
+  assert.equal(result.written_count, 1);
+  assert.match(register, /Synthetic CLI mail task/);
+});
+
 async function makeTempRoot() {
   return mkdtemp(path.join(os.tmpdir(), "soulforge-gateway-cli-"));
 }

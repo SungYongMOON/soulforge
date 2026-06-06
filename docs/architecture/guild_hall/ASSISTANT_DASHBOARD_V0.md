@@ -92,6 +92,21 @@ contract. If `guild_hall/state/snapshot/soulforge_snapshot.json` is fresh by
 timestamp but fails the snapshot schema/operation-board contract, the row must
 be `status: "invalid"` and the dashboard `status` must be `degraded`.
 
+## Mail Task Register Input
+
+`register-mail-tasks` may create project-local open-action rows from safe
+exact-route `mail_work_priority` metadata. The dashboard consumes those rows
+only through the existing project-local open-action register reader:
+
+```text
+_workmeta/<project_code>/reports/open_actions/open_action_register.md
+```
+
+The dashboard must not run the register command, send notifications, infer
+project assignment, or inspect mailbox raw/events. Ambiguous mail-derived work
+remains a P00/owner-review input and should appear only after an owner-approved
+project-local row exists.
+
 ## Boundaries
 
 The dashboard must not read or copy raw mail bodies, raw HTML, attachment

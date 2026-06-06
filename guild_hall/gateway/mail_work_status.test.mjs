@@ -3,7 +3,7 @@ import assert from "node:assert/strict";
 import { execFile as execFileCallback } from "node:child_process";
 import os from "node:os";
 import path from "node:path";
-import { mkdir, mkdtemp, readFile, writeFile } from "node:fs/promises";
+import { mkdir, mkdtemp, readFile, symlink, writeFile } from "node:fs/promises";
 import { promisify } from "node:util";
 import { fileURLToPath } from "node:url";
 import YAML from "yaml";
@@ -23,6 +23,10 @@ import {
   importDueObservationsFromMailPriority,
   validateDeadlineWatchLedgers,
 } from "./deadline_watch_import.mjs";
+import {
+  defaultOpenActionRegisterFile,
+  registerMailTasksFromPriorityProjection,
+} from "./mail_task_register.mjs";
 import {
   buildDeadlineWatchdogReminderPreview,
 } from "./deadline_watchdog_reminder.mjs";
@@ -761,6 +765,205 @@ test("deadline watch import applies rows idempotently under project-local ledger
   assert.doesNotMatch(`${p26Csv}\n${p00Csv}`, /body_text|body_html|provider_payload|local_path|provider_attachment_id|token|password|cookie/);
 });
 
+test("mail task register writes exact-route open actions idempotently and holds review routes", async () => {
+  const repoRoot = await createRepoRoot();
+  const latestFile = defaultMailWorkPriorityLatestFile(repoRoot);
+
+  await writePriorityProjection(latestFile, [
+    samplePriorityRow({
+      candidate_id: "mail_candidate_actionable",
+      subject: "[KVDS] Synthetic source packet request",
+      route_candidate: "P26-014",
+      route_confidence: "exact",
+      due_date: null,
+      priority_flags_ko: [],
+    }),
+    samplePriorityRow({
+      candidate_id: "mail_candidate_review",
+      subject: "Synthetic ambiguous project request",
+      route_candidate: "P00-000_INBOX",
+      route_confidence: "review",
+    }),
+    samplePriorityRow({
+      candidate_id: "mail_candidate_personal",
+      subject: "Synthetic personal notice",
+      route_candidate: "none/personal",
+      route_confidence: "none",
+    }),
+    samplePriorityRow({
+      candidate_id: "mail_candidate_terminal",
+      subject: "Synthetic completed notice",
+      route_candidate: "P26-014",
+      route_confidence: "exact",
+      work_status: "completed",
+    }),
+    samplePriorityRow({
+      candidate_id: "mail_candidate_raw_boundary",
+      subject: "Synthetic unsafe boundary",
+      route_candidate: "P26-014",
+      route_confidence: "exact",
+      boundary: {
+        raw_payload_copied: true,
+      },
+    }),
+  ]);
+
+  const first = await registerMailTasksFromPriorityProjection({
+    repoRoot,
+    latestFile,
+    apply: true,
+    now: "2026-06-06T00:00:00.000Z",
+  });
+  const second = await registerMailTasksFromPriorityProjection({
+    repoRoot,
+    latestFile,
+    apply: true,
+    now: "2026-06-06T00:30:00.000Z",
+  });
+
+  const register = await readFile(defaultOpenActionRegisterFile(repoRoot, "P26-014"), "utf8");
+  const privateSyncText = JSON.stringify(first.private_metadata_sync);
+
+  assert.equal(first.status, "applied");
+  assert.equal(first.source_count, 5);
+  assert.equal(first.writable_count, 1);
+  assert.equal(first.written_count, 1);
+  assert.equal(first.duplicate_count, 0);
+  assert.equal(first.owner_review_count, 1);
+  assert.equal(first.skipped_count, 3);
+  assert.equal(second.written_count, 0);
+  assert.equal(second.duplicate_count, 1);
+  assert.match(register, /\| OA-P26-014-MAIL-[0-9a-f]{16} \| 2026-05-20 \| Medium \| Mail follow-up: \[KVDS\] Synthetic source packet request \| open \|/);
+  assert.match(register, /guild_hall\/state\/gateway\/mail_candidate\/queue\/pending\/mail_candidate_actionable[.]json/);
+  assert.equal(register.split(/\r?\n/u).filter((line) => line.startsWith("| OA-P26-014-MAIL-")).length, 1);
+  assert.equal(await fileExists(defaultOpenActionRegisterFile(repoRoot, "P00-000_INBOX")), false);
+  assert.equal(first.private_metadata_sync.status, "manual_sync_required");
+  assert.equal(first.private_metadata_sync.commit_intent, "prepare_private_metadata_commit");
+  assert.equal(first.private_metadata_sync.push_intent, "prepare_private_metadata_push");
+  assert.equal(first.private_metadata_sync.recommended_command, "npm run guild-hall:workmeta:sync -- --json");
+  assert.doesNotMatch(`${register}\n${privateSyncText}`, /body_text|body_html|provider_payload|attachment_filename|attachment_url|download_url|local_path|provider_attachment_id|token|password|cookie|secret/);
+  assert.equal(first.boundary.raw_payload_copied, false);
+  assert.equal(first.boundary.telegram_sent, false);
+});
+
+test("mail task register queues notification only when gateway mail_received policy is enabled", async () => {
+  const enabledRoot = await createRepoRoot();
+  const enabledLatestFile = defaultMailWorkPriorityLatestFile(enabledRoot);
+  await writePriorityProjection(enabledLatestFile, [
+    samplePriorityRow({
+      candidate_id: "mail_candidate_notify_enabled",
+      subject: "Synthetic notify enabled request",
+      route_candidate: "P26-014",
+      route_confidence: "exact",
+    }),
+  ]);
+  await writeGatewayNotifyPolicy(enabledRoot, { mailReceivedTelegram: true });
+
+  const enabled = await registerMailTasksFromPriorityProjection({
+    repoRoot: enabledRoot,
+    latestFile: enabledLatestFile,
+    apply: true,
+    notify: true,
+    now: "2026-06-06T01:00:00.000Z",
+  });
+  const queued = JSON.parse(await readFile(path.join(enabledRoot, enabled.notification.queue_refs[0]), "utf8"));
+
+  assert.equal(enabled.notification.status, "queued");
+  assert.equal(enabled.notification.attempted_count, 1);
+  assert.equal(enabled.notification.queued_count, 1);
+  assert.equal(queued.owner_scope, "gateway");
+  assert.equal(queued.event, "mail_received");
+  assert.match(queued.source_ref, /_workmeta\/P26-014\/reports\/open_actions\/open_action_register[.]md#action=/);
+  assert.doesNotMatch(JSON.stringify(queued), /body_text|body_html|provider_payload|attachment_filename|attachment_url|download_url|local_path|provider_attachment_id|token|password|cookie|secret/);
+
+  const disabledRoot = await createRepoRoot();
+  const disabledLatestFile = defaultMailWorkPriorityLatestFile(disabledRoot);
+  await writePriorityProjection(disabledLatestFile, [
+    samplePriorityRow({
+      candidate_id: "mail_candidate_notify_disabled",
+      subject: "Synthetic notify disabled request",
+      route_candidate: "P26-014",
+      route_confidence: "exact",
+    }),
+  ]);
+  await writeGatewayNotifyPolicy(disabledRoot, { mailReceivedTelegram: false });
+
+  const disabled = await registerMailTasksFromPriorityProjection({
+    repoRoot: disabledRoot,
+    latestFile: disabledLatestFile,
+    apply: true,
+    notify: true,
+    now: "2026-06-06T01:30:00.000Z",
+  });
+
+  assert.equal(disabled.notification.status, "disabled");
+  assert.equal(disabled.notification.queued_count, 0);
+  assert.equal(disabled.notification.disabled_count, 1);
+  assert.equal(await fileExists(path.join(disabledRoot, "guild_hall", "state", "town_crier", "queue", "pending", "missing.json")), false);
+  assert.equal(await fileExists(path.join(disabledRoot, "guild_hall", "state", "town_crier", "queue", "pending")), false);
+});
+
+test("mail task register rejects latest-file paths outside the projection boundary", async () => {
+  const repoRoot = await createRepoRoot();
+
+  await assert.rejects(
+    registerMailTasksFromPriorityProjection({
+      repoRoot,
+      latestFile: path.join(os.tmpdir(), "mail_work_priority.json"),
+    }),
+    /latest-file must stay under the active repo root/,
+  );
+
+  await assert.rejects(
+    registerMailTasksFromPriorityProjection({
+      repoRoot,
+      latestFile: path.join(repoRoot, "private-state", "guild_hall", "state", "gateway", "mail_work_status", "priority_latest.json"),
+    }),
+    /must not read private-state projection copies/,
+  );
+
+  await assert.rejects(
+    registerMailTasksFromPriorityProjection({
+      repoRoot,
+      latestFile: path.join(repoRoot, "guild_hall", "state", "gateway", "mailbox", "company", "mail", "events", "priority_latest.json"),
+    }),
+    /must not read gateway mailbox raw\/event roots/,
+  );
+
+  await assert.rejects(
+    registerMailTasksFromPriorityProjection({
+      repoRoot,
+      latestFile: path.join(repoRoot, "_workspaces", "P26-014", "priority_latest.json"),
+    }),
+    /must not read _workspaces payload roots/,
+  );
+});
+
+test("mail task register rejects symlinked latest-file paths into denied roots", async (t) => {
+  const repoRoot = await createRepoRoot();
+
+  const privateStateProjection = path.join(repoRoot, "private-state", "priority_latest.json");
+  const allowedLookingLink = path.join(repoRoot, "guild_hall", "state", "gateway", "mail_work_status", "linked_priority_latest.json");
+  await writePriorityProjection(privateStateProjection, []);
+  await mkdir(path.dirname(allowedLookingLink), { recursive: true });
+  try {
+    await symlink(privateStateProjection, allowedLookingLink);
+  } catch (error) {
+    if (["EPERM", "EACCES", "ENOSYS"].includes(error?.code)) {
+      t.skip(`symlink creation unavailable on this platform: ${error.code}`);
+      return;
+    }
+    throw error;
+  }
+  await assert.rejects(
+    registerMailTasksFromPriorityProjection({
+      repoRoot,
+      latestFile: allowedLookingLink,
+    }),
+    /must not read private-state projection copies/,
+  );
+});
+
 test("deadline watch validator flags project mismatch and raw markers", async () => {
   const repoRoot = await createRepoRoot();
   const registerFile = defaultDeadlineRegisterFile(repoRoot, "P26-014");
@@ -1021,6 +1224,27 @@ function samplePriorityRow(overrides = {}) {
     },
     ...overrides,
   };
+}
+
+async function writeGatewayNotifyPolicy(repoRoot, { mailReceivedTelegram }) {
+  await writeText(
+    path.join(repoRoot, "guild_hall", "state", "gateway", "bindings", "notify_policy.yaml"),
+    [
+      "kind: gateway_notify_policy",
+      "scope: gateway",
+      "channels:",
+      "  telegram:",
+      "    enabled: true",
+      "    env_file: guild_hall/state/town_crier/telegram_notify.env",
+      "events:",
+      "  monster_created:",
+      "    telegram: false",
+      "  mail_received:",
+      `    telegram: ${mailReceivedTelegram ? "true" : "false"}`,
+      "updated_at: '2026-06-06T00:00:00.000Z'",
+      "",
+    ].join("\n"),
+  );
 }
 
 async function fileExists(filePath) {

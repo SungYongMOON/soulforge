@@ -35,6 +35,9 @@ import {
   validateDeadlineWatchLedgers,
 } from "./deadline_watch_import.mjs";
 import {
+  registerMailTasksFromPriorityProjection,
+} from "./mail_task_register.mjs";
+import {
   defaultDeadlineWatchdogPreviewLatestFile,
   refreshDeadlineWatchdogReminderPreview,
 } from "./deadline_watchdog_reminder.mjs";
@@ -128,6 +131,11 @@ async function main() {
     return;
   }
 
+  if (command === "register-mail-tasks") {
+    await runRegisterMailTasks(args);
+    return;
+  }
+
   if (command === "validate-deadline-watch") {
     await runValidateDeadlineWatch(args);
     return;
@@ -205,6 +213,7 @@ function printUsageAndExit() {
       "  node guild_hall/gateway/cli.mjs refresh-mail-work-priority [--latest-file <path>] [--queue-root <path>] [--intake-inbox-root <path>] [--workmeta-root <path>] [--week-start <YYYY-MM-DD>] [--week-end <YYYY-MM-DD>]",
       "  node guild_hall/gateway/cli.mjs refresh-mail-weekly-visibility --week-start <YYYY-MM-DD> --week-end <YYYY-MM-DD> [--output-file <path>] [--mailbox-root <path>]",
       "  node guild_hall/gateway/cli.mjs import-deadline-watch [--latest-file <path>] [--workmeta-root <path>] [--project-code <code>] [--apply]",
+      "  node guild_hall/gateway/cli.mjs register-mail-tasks [--latest-file <path>] [--workmeta-root <path>] [--apply] [--notify] [--local-root <path>]",
       "  node guild_hall/gateway/cli.mjs validate-deadline-watch",
       "  node guild_hall/gateway/cli.mjs deadline-watchdog-reminders [--workmeta-root <path>] [--due-window-hours <hours>] [--cooldown-hours <hours>] [--max-nudge-count <count>] [--output-file <path>] [--write-preview]",
       "  node guild_hall/gateway/cli.mjs triage-mail-candidate (--candidate-file <path> | --all-pending) [--queue-root <path>] [--binding-file <path>] [--private-deep] [--force]",
@@ -411,6 +420,21 @@ async function runImportDeadlineWatch(args) {
     apply: Boolean(args.apply),
   });
   printJson(result);
+}
+
+async function runRegisterMailTasks(args) {
+  const activeRepoRoot = resolveIntakeLocalRoot(args);
+  const result = await registerMailTasksFromPriorityProjection({
+    repoRoot: activeRepoRoot,
+    latestFile: args["latest-file"] ? path.resolve(activeRepoRoot, String(args["latest-file"])) : undefined,
+    workmetaRoot: args["workmeta-root"] ? path.resolve(activeRepoRoot, String(args["workmeta-root"])) : undefined,
+    apply: Boolean(args.apply),
+    notify: Boolean(args.notify),
+  });
+  printJson({
+    request_id: "mail_task_register",
+    ...result,
+  });
 }
 
 async function runValidateDeadlineWatch() {

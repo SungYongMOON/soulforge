@@ -82,6 +82,21 @@ npm run guild-hall:gateway:fetch:healthcheck -- --json
 - 업무화 검토가 끝난 candidate 는 `guild-hall:gateway:mail-candidate:promote` 로 local-only `mail_intake_request` payload 로 승격할 수 있다.
 - 상세 계약은 [`MAIL_CANDIDATE_QUEUE_V0.md`](MAIL_CANDIDATE_QUEUE_V0.md) 를 따른다.
 
+## Mail task register follow-on
+
+`register-mail-tasks` is a follow-on consumer of the derived
+`mail_work_priority` latest JSON, not a mailbox fetch stage. It must not read
+`guild_hall/state/gateway/mailbox/**`, raw mail bodies, HTML, attachment
+payloads, provider payloads, env files, tokens, cookies, or `_workspaces/**`
+payloads.
+
+The command is dry-run by default. With `--apply`, it may write only
+metadata-safe, non-terminal, exact project routes such as `P26-014` into
+`_workmeta/<project_code>/reports/open_actions/open_action_register.md`.
+Ambiguous `P00-000_INBOX` review routes and personal/promo routes stay out of
+project truth. With `--notify`, it queues through the existing town_crier
+gateway `mail_received` Telegram policy only after rows are written.
+
 ## Hiworks POP3 long line
 
 - Hiworks POP3 메시지는 Python `poplib` 기본 라인 제한보다 긴 body/HTML/encoded attachment 라인을 반환할 수 있다.
