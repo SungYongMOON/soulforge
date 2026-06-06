@@ -26,11 +26,21 @@ slots:
     local_automation_id: always-on-activity-sync
     execution_contract: local_codex_app_active_on_always_on_node
     summary: Merges safe activity metadata after the workday so the ledger can be updated.
+  - slot_id: snapshot_refresh_stage
+    title: Snapshot Refresh Stage
+    deterministic_command_ref: npm run guild-hall:snapshot
+    execution_contract: local_deterministic_metadata_projection
+    summary: Refreshes the sanitized local snapshot after daily metadata changes.
+  - slot_id: workmeta_payload_boundary_check_stage
+    title: Workmeta Payload Boundary Check Stage
+    deterministic_command_ref: npm run validate:workmeta-payload
+    execution_contract: local_deterministic_boundary_validator
+    summary: Records whether the metadata-only `_workmeta` boundary validator passed before downstream reports run.
   - slot_id: night_watch_stage
     title: Night Watch Stage
     local_automation_id: soulforge-night-watch-pipeline
     execution_contract: local_codex_app_active_on_always_on_node
-    summary: Runs the existing daily exception-check pipeline after ledger context exists.
+    summary: Runs the existing daily exception-check pipeline after snapshot and payload-boundary checks.
 notes:
   - Slots mirror the registered local chain for display and review only.
   - Model, reasoning effort, species, class, and unit choices remain workflow-owned or local scheduler-owned.

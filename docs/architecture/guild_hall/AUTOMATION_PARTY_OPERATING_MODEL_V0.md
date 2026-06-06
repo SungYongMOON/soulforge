@@ -162,12 +162,23 @@ The current local registered chain is:
 3. `soulforge-daily-work-report-email`
 4. `always-on-activity-sync`
 5. `daily_work_ledger_capture_v0` update/backfill pass
-6. `soulforge-night-watch-pipeline`
-7. `soulforge-night-watch-report-email`
+6. `npm run guild-hall:snapshot`
+7. `npm run validate:workmeta-payload`
+8. `soulforge-night-watch-pipeline`
+9. `soulforge-night-watch-report-email`
 
 This split is required because report time is not collection time. Reports
 should bring already-prepared evidence to the owner, not search for the work
 while writing the report.
+
+The snapshot refresh and workmeta-payload validation stages are deterministic
+local jobs, not new workflow canon entries. They run after daily metadata has
+been collected and before night-watch/report stages use that state. The
+snapshot stage refreshes local read-only state for healer and operation-board
+freshness checks. If the payload validator finds Office/PDF/HWP, compressed
+files, mail payloads, or other forbidden raw files under `_workmeta`, the
+downstream report surfaces an exception instead of opening or copying those
+files.
 
 Current registered workflow package:
 `.workflow/daily_work_ledger_capture_v0/`. It is registered in

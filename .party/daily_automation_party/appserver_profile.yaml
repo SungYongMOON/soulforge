@@ -3,7 +3,7 @@ kind: appserver_profile
 status: active
 profile:
   mode: local_scheduler_chain_advisory
-  summary: Treat daily automation as an ordered chain where activity sync receipts feed ledger capture before reports render.
+  summary: Treat daily automation as an ordered chain where activity sync receipts feed ledger capture before reports render, then snapshot refresh and metadata-boundary validation run before night watch.
   public_payload_policy: metadata_and_orchestration_only
   private_output_policy: metadata_ledgers_receipts_and_runtime_reports_only
   scheduler_authority: local_codex_app_or_launchd_only
@@ -17,8 +17,14 @@ profile:
       after_local_automation_id: always-on-activity-sync
       next_stage: daily_work_ledger_capture_v0
       next_local_automation_id: soulforge-daily-work-ledger-collector-evening
+      then_deterministic_jobs:
+        - guild-hall:snapshot
+        - validate:workmeta-payload
+      downstream_stage: soulforge-night-watch-pipeline
   blocked_upstream_policy: record_gap_do_not_scan_raw_sources
+  payload_boundary_failure_policy: record_exception_do_not_scan_raw_sources
 notes:
   - This profile is not an appserver implementation.
   - Local scheduler binding exists on this always-on node, but cross-PC rollout still requires owner review.
   - Runtime prompts may need PC-local absolute roots, but reusable party files must remain portable and payload-free.
+  - Deterministic job ids are chain handoffs only; they do not store local clock, ACTIVE/PAUSED state, or PC-local paths.

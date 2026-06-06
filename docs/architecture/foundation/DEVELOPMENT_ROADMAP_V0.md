@@ -219,7 +219,8 @@ Current registered surface:
 - `.workflow/daily_work_ledger_capture_v0/` defines the registered collection
   workflow shape.
 - `.party/daily_automation_party/` defines the registered local daily
-  automation chain where activity sync runs before ledger capture and reports.
+  automation chain where activity sync runs before ledger capture, followed by
+  snapshot refresh, metadata-boundary validation, and reports/checks.
 - Local Codex app automations own the actual clock and ACTIVE/PAUSED state.
 
 Confirmed owner intent:

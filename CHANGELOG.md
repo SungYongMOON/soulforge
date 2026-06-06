@@ -2,6 +2,17 @@
 
 ## 2026-06-06
 
+### Revision `working` - Daily automation post-ledger checks recorded
+
+- Extended `.party/daily_automation_party/` so the evening activity-sync to
+  daily-ledger flow now hands off to `npm run guild-hall:snapshot` and then
+  `npm run validate:workmeta-payload` before night watch runs.
+- Documented the snapshot refresh as a local state regeneration step for
+  healer and operation-board freshness, and the workmeta-payload validation as
+  a metadata-boundary receipt.
+- Kept the additions as command-backed handoffs, not new workflow
+  registrations, scheduler ACTIVE/PAUSED state, or raw/private payload writes.
+
 ### Revision `working` - Healer failure notification route fixed
 
 - Allowed `town_crier` to process `healer_failed` pending notifications so a

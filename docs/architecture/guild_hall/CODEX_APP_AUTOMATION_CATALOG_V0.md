@@ -120,6 +120,8 @@ later.
 | --- | --- | --- | --- |
 | `soulforge-daily-work-ledger-collector-morning` | Background job | After the morning activity sync job finishes, collect safe metadata about the day's work into project, `P00-000_INBOX`, and Soulforge sub-ledger daily ledger files. | It does not send the owner-facing report. |
 | `soulforge-daily-work-ledger-collector-evening` | Background job | After the evening activity sync job finishes, update or backfill the same metadata-only daily ledgers. | It does not send the owner-facing report. |
+| `npm run guild-hall:snapshot` | Background command | After the evening ledger update, regenerate the local read-only Soulforge snapshot so healer and operation-board consumers do not fail on stale snapshot state. | It writes only the local snapshot state surface. |
+| `npm run validate:workmeta-payload` | Background validation command | After snapshot refresh, run and record the metadata-boundary validator result before night-watch consumes the updated context. | It is a boundary receipt, not permission to copy raw payloads. |
 | `Soulforge Daily Work Report Email` | Primary report | Format the already-written daily ledger into a readable report. | It reads the daily ledger only; missing ledger data is reported as a gap. |
 | `Soulforge Friday Weekly Timesheet Draft` | Primary report | Format the week of daily ledger entries into a copy-friendly weekly work log. | It reads daily ledgers only; it does not rediscover work from raw sources. |
 
@@ -128,9 +130,10 @@ worker from becoming a late-stage search and inference job.
 
 The registered party chain for this split is
 `.party/daily_automation_party/`. The local always-on node runs ledger
-collector automations after the morning and evening activity sync jobs. The
-Codex app automation files remain PC-local scheduler state and are not public
-canon.
+collector automations after the morning and evening activity sync jobs, then
+uses command-backed handoffs for snapshot refresh and workmeta-payload boundary
+validation before night watch. The Codex app automation files remain PC-local
+scheduler state and are not public canon.
 
 `P00-000_INBOX` is the reserved ledger code for real company work that has no
 confirmed project code. It is not the Soulforge system ledger, and it is not a

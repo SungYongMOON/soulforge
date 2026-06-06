@@ -30,7 +30,7 @@
 - 새 recurring automation 을 shared default 로 올릴 때는 먼저 workflow 단위인지, 기존 cadence party 의 stage 인지, 새 party 가 필요한지 분리한다.
 - cadence party 의 상위 운영 모델은 [`docs/architecture/guild_hall/AUTOMATION_PARTY_OPERATING_MODEL_V0.md`](../docs/architecture/guild_hall/AUTOMATION_PARTY_OPERATING_MODEL_V0.md) 가 소유한다.
 - Draft cadence parties may live under [`authoring/`](authoring/) before `.party/index.yaml` registration.
-- [`daily_automation_party/`](daily_automation_party/) records the registered local daily chain where activity sync completes before daily work ledger capture runs.
+- [`daily_automation_party/`](daily_automation_party/) records the registered local daily chain where activity sync completes before daily work ledger capture runs, then snapshot refresh and metadata-boundary validation happen before night-watch reporting.
 
 ## 관계도
 
@@ -102,4 +102,4 @@ sequenceDiagram
 - [`knowledge_wiki_cell/party.yaml`](knowledge_wiki_cell/party.yaml): Karpathy-style sourcebound wikiization workflow chain.
 - [`systems_engineering_cell/party.yaml`](systems_engineering_cell/party.yaml): systems-engineering assistant workflow chain for scaffold, stage-gap, source, readiness, owner-decision, and closeout routing.
 - [`pcb_revision_library_cell/party.yaml`](pcb_revision_library_cell/party.yaml): Cadence Allegro PCB DB Doctor uprev followed by dlib board-library export and organization.
-- [`daily_automation_party/party.yaml`](daily_automation_party/party.yaml): local daily automation chain that runs activity sync before daily work ledger capture and downstream reports.
+- [`daily_automation_party/party.yaml`](daily_automation_party/party.yaml): local daily automation chain that runs activity sync before daily work ledger capture, snapshot refresh, metadata-boundary validation, and downstream reports.
