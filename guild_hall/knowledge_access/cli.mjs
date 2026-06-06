@@ -3,6 +3,11 @@
 import path from "node:path";
 import process from "node:process";
 import { analyzeKnowledgeAccessLedgers, readKnowledgeRefAndRecord, recordKnowledgeAccess } from "./ledger.mjs";
+import {
+  appendKnowledgeRagCandidate,
+  triageKnowledgeRagCandidates,
+  validateKnowledgeRagCandidateLedgers,
+} from "./knowledge_rag_candidate_ledger.mjs";
 import { importNotebookLmBridgeMetadata } from "./notebooklm_bridge.mjs";
 
 async function main() {
@@ -98,6 +103,58 @@ async function main() {
     return;
   }
 
+  if (command === "candidate-ledger-append") {
+    const result = await appendKnowledgeRagCandidate({
+      repoRoot,
+      ledgerFile: args["ledger-file"],
+      ledgerRef: args["ledger-ref"],
+      candidateId: args["candidate-id"],
+      createdAt: args["created-at"] ?? args.now,
+      projectCode: args["project-code"],
+      sourceContextRef: args["source-context-ref"],
+      candidateKind: args["candidate-kind"],
+      shortReason: args["short-reason"],
+      suggestedRoute: args["suggested-route"],
+      claimCeiling: args["claim-ceiling"],
+      missingInputs: args["missing-input"],
+      ownerQuestion: args["owner-question"],
+      status: args.status,
+      repeatedUseSignal: buildRepeatedUseSignalFromArgs(args),
+    });
+    printResult(args, {
+      status: "recorded",
+      mode: "candidate-ledger-append",
+      candidate_id: result.candidate.candidate_id,
+      candidate: result.candidate,
+      ledger_ref: result.ledger_ref,
+    });
+    return;
+  }
+
+  if (command === "candidate-ledger-validate") {
+    const result = await validateKnowledgeRagCandidateLedgers({
+      repoRoot,
+      ledgerFiles: args["ledger-file"],
+      ledgerRefs: args["ledger-ref"],
+    });
+    printJson(result);
+    if (result.status !== "pass") {
+      process.exitCode = 1;
+    }
+    return;
+  }
+
+  if (command === "candidate-ledger-triage") {
+    const result = await triageKnowledgeRagCandidates({
+      repoRoot,
+      ledgerFiles: args["ledger-file"],
+      ledgerRefs: args["ledger-ref"],
+      now: args.now,
+    });
+    printJson(result);
+    return;
+  }
+
   printUsageAndExit();
 }
 
@@ -162,9 +219,35 @@ function buildAccumulationDeltaHintFromArgs(args) {
   return hint;
 }
 
+function buildRepeatedUseSignalFromArgs(args) {
+  const signal = {
+    count: args["repeated-count"],
+    sourceEventCount: args["repeated-source-event-count"],
+    lastSeenAt: args["repeated-last-seen-at"],
+    signalRef: args["repeated-signal-ref"],
+  };
+
+  if (Object.values(signal).every((value) => value === undefined)) {
+    return undefined;
+  }
+
+  return signal;
+}
+
 function printResult(args, payload) {
   if (args.json) {
     printJson(payload);
+    return;
+  }
+  if (payload.mode === "candidate-ledger-append") {
+    process.stdout.write(
+      [
+        `knowledge RAG candidate ${payload.status}`,
+        `mode: ${payload.mode}`,
+        `candidate_id: ${payload.candidate_id}`,
+        `ledger: ${payload.ledger_ref}`,
+      ].join("\n") + "\n",
+    );
     return;
   }
   process.stdout.write(
@@ -190,12 +273,16 @@ function printUsageAndExit() {
       "  node guild_hall/knowledge_access/cli.mjs record --ref <repo-relative-ref> --capture-mode automatic_end_of_task_trigger_check --trigger-result <result> --claim-ceiling <ceiling> (--ledger-root <path> | --ledger-file <path.jsonl>) [--suggested-route <route>] [--trigger-reason <text>] [--json]",
       "  node guild_hall/knowledge_access/cli.mjs analyze (--ledger-file <path.jsonl> | --ledger-ref <repo-relative-jsonl>)... [--json]",
       "  node guild_hall/knowledge_access/cli.mjs notebooklm-bridge --binding-ref <repo-relative-yaml> (--ledger-root <path> | --ledger-file <path.jsonl>) [--source-ledger-ref <ref>] [--query-log-ref <ref>]",
+      "  node guild_hall/knowledge_access/cli.mjs candidate-ledger-append (--ledger-file <path.jsonl> | --ledger-ref _workmeta/<project>/knowledge_rag_candidate_ledger/<file.jsonl>) --project-code <system|Pxx-xxx> --source-context-ref <metadata-ref> --candidate-kind <kind> --short-reason <metadata-only reason> --suggested-route <route> [--missing-input <label> ...] [--owner-question <metadata-only question>] [--json]",
+      "  node guild_hall/knowledge_access/cli.mjs candidate-ledger-validate (--ledger-file <path.jsonl> | --ledger-ref _workmeta/<project>/knowledge_rag_candidate_ledger/<file.jsonl>)...",
+      "  node guild_hall/knowledge_access/cli.mjs candidate-ledger-triage (--ledger-file <path.jsonl> | --ledger-ref _workmeta/<project>/knowledge_rag_candidate_ledger/<file.jsonl>)... [--now <timestamp>]",
       "",
       "Notes:",
       "  The ledger row is metadata-only. read mode returns file content to stdout/JSON but never stores it in the JSONL ledger.",
       "  analyze/rollup mode reads only explicit JSONL ledger files/refs, emits metadata-only usage rollup and boundary note JSON, and performs no canon/ontology mutation.",
       "  notebooklm-bridge mode reads explicit metadata files only, never calls nlm, never reads auth/session files, and blocks empty query logs instead of fabricating events.",
       "  End-of-task trigger flags append only accumulation_delta_hint metadata; they do not validate source truth, approve owner decisions, mutate graphs, archive/retire refs, or promote canon.",
+      "  Candidate ledger commands read/write only explicit candidate JSONL metadata rows; triage performs no sourcebound review, RAG ingestion, ontology/canon promotion, graph mutation, archive, or retire action.",
       "  Targets must be repo-relative public knowledge refs; secret-like, private, runtime, absolute, and traversal paths are blocked.",
     ].join("\n"),
   );

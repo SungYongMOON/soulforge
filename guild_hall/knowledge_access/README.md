@@ -6,6 +6,7 @@
 - It supports `read` for repo-relative public knowledge files and `record` for use/citation events where the target payload is not read.
 - It supports `analyze`/`rollup` for explicit JSONL ledger files or repo-relative ledger refs, producing metadata-only usage rollup and boundary review note JSON.
 - It supports `notebooklm-bridge` for importing explicit NotebookLM-like metadata binding/source-ledger/query-log files into `imported_log_entry` rows plus a metadata-only summary.
+- It supports `candidate-ledger-append`, `candidate-ledger-validate`, and `candidate-ledger-triage` for deferred knowledge/RAG candidates under the workspace contract at `docs/architecture/workspace/KNOWLEDGE_RAG_CANDIDATE_LEDGER_V0.md`.
 - The synthetic NotebookLM bridge fixture at `docs/architecture/workspace/examples/notebooklm_bridge/` covers positive advisory imports and blocked no-query/no-fabrication behavior without real source payloads.
 - The ledger target is always explicit: pass either `--ledger-root` or `--ledger-file`. Use `_workmeta/**`, `guild_hall/state/**`, `private-state/**`, or a temp path outside the repo for actual runtime rows.
 - The combined operating model is documented at `docs/architecture/guild_hall/KNOWLEDGE_OPERATING_MODEL_V0.md`.
@@ -18,7 +19,11 @@ npm run guild-hall:knowledge-access -- record --ref docs/architecture/guild_hall
 npm run guild-hall:knowledge-access -- record --ref docs/architecture/guild_hall/KNOWLEDGE_OPERATING_MODEL_V0.md --ledger-root _workmeta/system/reports/knowledge_access --capture-mode automatic_end_of_task_trigger_check --access-type route --trigger-result metadata_only_record --suggested-route knowledge_access_ledger --claim-ceiling observed --reason-used "end-of-task trigger check used this ref"
 npm run guild-hall:knowledge-access -- analyze --ledger-ref _workmeta/system/reports/knowledge_access/events/2026/2026-05.jsonl
 npm run guild-hall:knowledge-access -- notebooklm-bridge --binding-ref docs/architecture/workspace/examples/notebooklm_bridge/synthetic_notebooklm_binding.yaml --ledger-file _workmeta/system/reports/knowledge_access/notebooklm_bridge.jsonl
+npm run guild-hall:knowledge-access -- candidate-ledger-append --ledger-ref _workmeta/system/knowledge_rag_candidate_ledger/events/2026-06.jsonl --project-code system --source-context-ref _workmeta/system/reports/procedure_capture/example.md --candidate-kind manual_candidate --short-reason "metadata-only deferred candidate" --suggested-route owner_decision_needed --missing-input owner_decision_ref --owner-question "Should this stay metadata-only?"
+npm run guild-hall:knowledge-access -- candidate-ledger-validate --ledger-ref _workmeta/system/knowledge_rag_candidate_ledger/events/2026-06.jsonl
+npm run guild-hall:knowledge-access -- candidate-ledger-triage --ledger-ref _workmeta/system/knowledge_rag_candidate_ledger/events/2026-06.jsonl
 npm run validate:knowledge-access
+npm run validate:knowledge-rag-candidate-ledger
 ```
 
 ## Optional Stop Hook Guard
@@ -56,6 +61,8 @@ Keep this in user/project Codex hook config, not in public runtime ledger data. 
 - `notebooklm-bridge` rejects malformed `timestamp_utc` values, unsafe `entry_ref` auth/session/runtime paths, and invalid event enum cells without echoing rejected cell payloads.
 - Rollup output includes counts, recency, actor/access/context count metadata, issue summaries, and boundary note checks only. Invalid rows are reported by safe source ref and line number without echoing row payloads.
 - NotebookLM-like imported rows remain advisory signals only; analyzer output is not canon validation, owner approval, or graph mutation.
+- Candidate ledger rows are metadata-only deferred signals; validation rejects raw payload-like fields, raw payload refs/extensions, absolute runtime paths, traversal, secret-like values, invalid project codes, and routes/claim ceilings that imply automatic source truth, graph mutation, canon promotion, or RAG ingestion.
+- Candidate ledger triage reads only explicit candidate JSONL rows and emits dry-run grouping, owner questions, and recommended next actions; it performs no sourcebound review, RAG ingestion, ontology/canon promotion, graph mutation, archive, or retire action.
 - Secret-like filenames, private/runtime roots, absolute paths, and path traversal refs are blocked before any read or append.
 - Public tracked canon is not a runtime ledger owner. If the ledger target is inside the repo, it must be under `_workmeta/**`, `guild_hall/state/**`, or `private-state/**`.
 - Analysis outputs report source ledgers as repo-relative refs or `ledger_file:<basename>` for external temp paths; runtime absolute source paths are not emitted.

@@ -2,6 +2,21 @@
 
 ## 2026-06-06
 
+### Revision `working` - Knowledge RAG candidate ledger added
+
+- Added `guild_hall/knowledge_access/knowledge_rag_candidate_ledger.mjs`
+  with metadata-only candidate row building, validation, append-only JSONL
+  capture, and batch dry-run triage for deferred knowledge/RAG candidates.
+- Added `candidate-ledger-append`, `candidate-ledger-validate`, and
+  `candidate-ledger-triage` to the knowledge access CLI, plus
+  `validate:knowledge-rag-candidate-ledger` and coverage in
+  `validate:knowledge-access`.
+- Documented `_workmeta/<system|Pxx-xxx>/knowledge_rag_candidate_ledger/**`
+  as the runtime storage surface while keeping raw payloads, Office/PDF/HWP
+  refs, NotebookLM answers, private prompts/questions, source-text chunks,
+  sourcebound review, RAG ingestion, ontology/canon promotion, graph mutation,
+  archive, and retire actions out of scope.
+
 ### Revision `working` - Daily work ledger validator and renderer added
 
 - Added `guild_hall/daily_ledger/` with an explicit-file/ref validator, CLI,
