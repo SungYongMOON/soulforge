@@ -1,0 +1,43 @@
+workflow_id: outlook_mail_reconcile_v0
+kind: reconcile_scope_template
+status: template
+project_code: "<project_code>"
+run_id: "<run_id>"
+target_scope:
+  mode: codex_managed_projects
+  allowed_modes:
+    - codex_managed_projects
+    - single_project
+    - explicit_project_code_list
+  default_when_project_unspecified: codex_managed_projects
+  project_codes: []
+  exclude_project_codes:
+    - P00-000_INBOX
+  unresolved_or_mapping_wait_bucket: P00-000_INBOX
+date_window:
+  start: "<yyyy-mm-dd or null>"
+  end: "<yyyy-mm-dd or null>"
+  all_history: false
+outlook_source_scope:
+  account_alias: "<owner_defined_alias>"
+  sent_folder_alias: "sent_items"
+  received_folder_aliases:
+    - "inbox"
+  access_mode: read_only_metadata
+write_mode: dry_run
+allowed_write_modes:
+  - dry_run
+  - apply_metadata_ledger_delta
+  - cross_validate_only
+workspace_xlsx_export:
+  enabled: false
+  source_truth: false
+matching_policy:
+  require_project_binding_or_codex_managed_scope: true
+  allow_subject_fingerprint_match: true
+  allow_conversation_fingerprint_match: true
+  allow_alias_ref_match: true
+  ambiguous_match_action: owner_review
+outlook_mutation_allowed: false
+outlook_folder_tree_mutation_allowed: false
+raw_payload_read_allowed: false

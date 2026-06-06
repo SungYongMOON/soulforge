@@ -1,0 +1,34 @@
+workflow_id: outlook_mail_reconcile_v0
+kind: project_binding_template
+status: template
+project_code: "<project_code>"
+outlook_reconcile_run_id: "<run_id>"
+scope_mode: "codex_managed_projects | single_project | explicit_project_code_list"
+codex_managed_project_scope_inventory:
+  default_scope_applied: true
+  selected_project_codes:
+    - "<project_code>"
+  excluded_project_codes:
+    - P00-000_INBOX
+  unresolved_or_mapping_wait_bucket: P00-000_INBOX
+project_alias_refs:
+  - packet_repo_path: "_workmeta/<project_code>/bindings/<project_alias_packet>.yaml"
+    read_only: true
+existing_project_mail_history_refs:
+  - packet_repo_path: "_workmeta/<project_code>/reports/메일_이력/메일_이력.csv"
+    read_only: false_when_apply_mode
+workspace_export_refs:
+  - packet_repo_path: "_workspaces/<project_code>/reports/메일_이력/메일_이력.xlsx"
+    source_truth: false
+    write_only_when_export_enabled: true
+outputs:
+  run_output_root_repo_path: "_workmeta/<project_code>/runs/<run_id>/outlook_mail_reconcile_v0"
+  system_summary_root_repo_path: "_workmeta/system/runs/<run_id>/outlook_mail_reconcile_v0"
+public_boundary:
+  commit_project_mail_rows_to_public_repo: false
+  include_raw_mail_body_or_html: false
+  include_msg_files_or_attachments: false
+  include_secrets_cookies_sessions_or_tokens: false
+  use_runtime_absolute_paths_in_public_package: false
+  mutate_outlook_folder_tree: false
+  mutate_outlook_rules: false

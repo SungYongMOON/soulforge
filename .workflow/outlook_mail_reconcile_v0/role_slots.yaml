@@ -1,0 +1,67 @@
+workflow_id: outlook_mail_reconcile_v0
+kind: role_slots
+status: active
+role_slots:
+  - slot_id: scope_binder
+    title: Scope Binder
+    responsibilities:
+      - bind project code, Outlook source alias, date window, and write mode
+      - stop the run when Outlook access or private output roots are not owner-approved
+    suggested_classes:
+      - administrator
+  - slot_id: ledger_context_curator
+    title: Ledger Context Curator
+    responsibilities:
+      - inventory existing project mail history metadata
+      - keep received history read-only unless a later owner decision authorizes a separate edit
+    suggested_classes:
+      - archivist
+  - slot_id: outlook_metadata_reader
+    title: Outlook Metadata Reader
+    responsibilities:
+      - collect only whitelisted Outlook folder metadata
+      - avoid Outlook mutation, body reads, `.msg` export, and attachment export
+    suggested_classes:
+      - administrator
+  - slot_id: metadata_normalizer
+    title: Metadata Normalizer
+    responsibilities:
+      - normalize subject and timestamp metadata into deterministic match keys
+      - hash or bucket identity fields when plaintext is not required
+    suggested_classes:
+      - archivist
+  - slot_id: project_matcher
+    title: Project Matcher
+    responsibilities:
+      - match Outlook metadata to project ledgers using explicit bindings and metadata fingerprints
+      - route uncertain project matches to owner review instead of automatic upsert
+    suggested_classes:
+      - analyst
+  - slot_id: sent_history_curator
+    title: Sent History Curator
+    responsibilities:
+      - build sent-mail ledger delta rows
+      - prevent duplicates and keep source truth in private project metadata
+    suggested_classes:
+      - archivist
+  - slot_id: inbox_cross_validator
+    title: Inbox Cross Validator
+    responsibilities:
+      - compare received-folder metadata against existing received history
+      - report missing, duplicate, mismatched, and ambiguous rows without deleting history
+    suggested_classes:
+      - auditor
+  - slot_id: output_writer
+    title: Output Writer
+    responsibilities:
+      - write private metadata receipts and optional owner-facing XLSX export receipts
+      - keep public repo changes limited to workflow definitions and validation notes
+    suggested_classes:
+      - administrator
+  - slot_id: boundary_reviewer
+    title: Boundary Reviewer
+    responsibilities:
+      - confirm Outlook, payload, secret, path, and registration boundaries
+      - record the final claim ceiling
+    suggested_classes:
+      - auditor

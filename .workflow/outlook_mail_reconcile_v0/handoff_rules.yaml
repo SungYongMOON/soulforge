@@ -1,0 +1,47 @@
+workflow_id: outlook_mail_reconcile_v0
+kind: handoff_rules
+status: active
+rules:
+  - rule_id: from_project_mail_history
+    from_surface: "_workmeta/<project_code>/reports/메일_이력/메일_이력.csv"
+    consume:
+      - existing_project_mail_history_refs
+      - received_history_context
+      - existing_sent_history_context
+    requirement: Project mail history is read as metadata source truth; raw mail files and attachments are not copied into the workflow.
+  - rule_id: from_outlook_sent_metadata
+    from_surface: owner_approved_outlook_sent_folder_metadata
+    consume:
+      - sent_at
+      - normalized_subject_fingerprint
+      - conversation_fingerprint
+      - source_entry_fingerprint
+      - recipient_counts_or_fingerprints
+    requirement: Sent-folder access is read-only metadata access and cannot mutate Outlook state.
+  - rule_id: from_outlook_received_metadata
+    from_surface: owner_approved_outlook_inbox_or_received_folder_metadata
+    consume:
+      - received_at
+      - normalized_subject_fingerprint
+      - conversation_fingerprint
+      - source_entry_fingerprint
+      - sender_counts_or_fingerprints
+    requirement: Received-folder access supports cross-validation only; it does not rewrite received history by itself.
+  - rule_id: to_project_sent_history_delta
+    provide:
+      - project_sent_history_delta
+      - duplicate_prevention_fingerprints
+      - owner_review_required_rows
+    requirement: Only confident sent metadata matches may be upserted when apply mode is explicitly selected.
+  - rule_id: to_inbox_cross_validation_report
+    provide:
+      - inbox_cross_validation_report
+      - missing_in_project_ledger_rows
+      - extra_in_project_ledger_rows
+      - ambiguous_owner_review_rows
+    requirement: Received history discrepancies are reported, not deleted or silently rewritten.
+  - rule_id: to_workspace_xlsx_export
+    to_surface: "_workspaces/<project_code>/reports/메일_이력/메일_이력.xlsx"
+    provide:
+      - readable_export_receipt
+    requirement: XLSX is an owner-facing readable export only; the private metadata ledger remains source truth.

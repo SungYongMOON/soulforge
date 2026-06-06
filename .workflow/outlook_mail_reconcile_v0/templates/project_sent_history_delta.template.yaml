@@ -1,0 +1,36 @@
+workflow_id: outlook_mail_reconcile_v0
+kind: project_sent_history_delta_template
+status: template
+project_code: "<project_code>"
+run_id: "<run_id>"
+source_ledger_ref: "_workmeta/<project_code>/reports/메일_이력/메일_이력.csv"
+write_mode: dry_run
+delta_summary:
+  candidate_rows: 0
+  upsert_rows: 0
+  duplicate_rows: 0
+  ambiguous_rows: 0
+  skipped_rows: 0
+rows:
+  - delta_id: "<stable_delta_id>"
+    action: "<upsert|skip_duplicate|owner_review>"
+    direction: sent
+    source_kind: outlook_sent_metadata
+    sent_at: "<iso8601>"
+    subject_fingerprint: "<sha256_or_equivalent>"
+    conversation_fingerprint: "<sha256_or_equivalent_or_null>"
+    source_entry_fingerprint: "<sha256_or_equivalent>"
+    duplicate_key: "<stable_duplicate_key>"
+    match_basis:
+      - "<explicit_project_binding|subject_fingerprint|conversation_fingerprint|alias_ref>"
+    ledger_row_preview:
+      project_code: "<project_code>"
+      direction: sent
+      source_kind: outlook_sent_metadata
+      event_at: "<iso8601>"
+      subject_normalized: "<normalized_subject_or_redacted_summary>"
+      metadata_ref: "_workmeta/<project_code>/runs/<run_id>/outlook_mail_reconcile_v0/<metadata_packet>.yaml"
+boundary:
+  raw_payload_included: false
+  public_repo_write: false
+  outlook_mutated: false

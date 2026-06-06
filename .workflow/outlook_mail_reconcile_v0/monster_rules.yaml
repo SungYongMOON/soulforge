@@ -1,0 +1,22 @@
+workflow_id: outlook_mail_reconcile_v0
+kind: monster_rules
+status: active
+triggers:
+  - a project mail ledger is missing sent-mail rows and Outlook sent-folder metadata is available for read-only reconciliation
+  - the owner asks to sync all Codex-managed project mail ledgers from Outlook metadata
+  - an existing project received-mail ledger needs comparison against Outlook inbox or received-folder metadata
+  - project mail history needs a metadata-only owner review queue for ambiguous Outlook matches
+  - an owner-facing mail-history XLSX export needs to be refreshed from the private metadata ledger
+non_triggers:
+  - Outlook folder tree reorganization
+  - Outlook rule creation, editing, or deletion
+  - mail body summarization or raw `.msg` export
+  - attachment collection, attachment extraction, or attachment filename classification
+  - public publication of project mail rows
+  - workspace XLSX formatting redesign without mail reconciliation
+classification_rules:
+  - if the request asks to move mail or edit Outlook rules, this workflow is not sufficient and must route to a separate owner-approved Outlook operations workflow.
+  - if no project is named, default to all Codex-managed project mail ledgers and exclude unresolved inbox holding ledgers such as P00-000_INBOX from automatic project sync.
+  - if the request asks to read message bodies or attachments, stop and require a separate payload handling contract.
+  - if the request asks to update sent-mail project history from Outlook metadata, this workflow may run in dry_run first and apply mode only after scope binding.
+  - if the request asks to check received history, report cross-validation differences without deleting ledger rows.

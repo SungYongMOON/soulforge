@@ -1,0 +1,24 @@
+workflow_id: outlook_mail_reconcile_v0
+kind: party_compatibility
+status: active
+compatible_party_patterns:
+  - pattern_id: single_operator_dry_run_with_boundary_review
+    notes:
+      - One operator may run a dry-run reconciliation when all Outlook access is read-only metadata access.
+      - A boundary review is still required before reporting results.
+  - pattern_id: operator_plus_auditor_apply_mode
+    notes:
+      - Prefer a separate auditor when apply_metadata_ledger_delta updates private project mail history.
+      - The auditor checks duplicate prevention, owner-review queue, and no-payload boundaries.
+incompatible_party_patterns:
+  - pattern_id: outlook_mutation_in_reconcile_run
+    reason: Folder moves, rules, categories, read state, sends, and deletes are outside this workflow.
+  - pattern_id: raw_payload_mail_processing
+    reason: Body text, HTML, `.msg` files, attachments, and attachment filenames require a separate payload contract.
+  - pattern_id: public_project_mail_publication
+    reason: Project mail rows are private metadata and must not be committed to the public repo.
+owner_boundaries:
+  owner_approval_required_for_outlook_metadata_access: true
+  owner_approval_required_for_apply_mode: true
+  manager_registration_required_before_canon_entry: true
+  workflow_can_run_as_registered_structure_for_private_pilot: true

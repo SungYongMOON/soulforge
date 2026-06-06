@@ -1,0 +1,11 @@
+workflow_id: outlook_mail_reconcile_v0
+kind: profile_policy
+status: active
+optimizer_status: not_requested
+primary_profile: null
+shadow_profiles: []
+calibration_status: none
+notes:
+  - No optimizer work was requested for this registered structure-only workflow.
+  - Use repo-default execution choices until a private pilot and verifier review are recorded.
+  - Profile calibration requires a later owner or manager decision.

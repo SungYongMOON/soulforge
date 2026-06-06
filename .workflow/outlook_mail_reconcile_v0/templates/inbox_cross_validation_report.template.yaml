@@ -1,0 +1,31 @@
+workflow_id: outlook_mail_reconcile_v0
+kind: inbox_cross_validation_report_template
+status: template
+project_code: "<project_code>"
+run_id: "<run_id>"
+source_ledger_ref: "_workmeta/<project_code>/reports/메일_이력/메일_이력.csv"
+report_summary:
+  outlook_received_metadata_rows: 0
+  received_ledger_rows: 0
+  matched_rows: 0
+  missing_in_project_ledger: 0
+  extra_in_project_ledger: 0
+  duplicate_candidates: 0
+  project_mismatch_candidates: 0
+  ambiguous_owner_review_required: 0
+rows:
+  - finding_id: "<stable_finding_id>"
+    classification: "<matched|missing_in_project_ledger|extra_in_project_ledger|duplicate_candidate|project_mismatch_candidate|ambiguous_owner_review_required>"
+    direction: received
+    event_at: "<iso8601>"
+    subject_fingerprint: "<sha256_or_equivalent>"
+    conversation_fingerprint: "<sha256_or_equivalent_or_null>"
+    source_entry_fingerprint: "<sha256_or_equivalent_or_null>"
+    ledger_row_ref: "<ledger_row_id_or_null>"
+    outlook_metadata_row_ref: "<metadata_row_id_or_null>"
+    recommended_action: "<none|owner_review|future_ledger_delta>"
+mutation_policy:
+  delete_received_ledger_rows: false
+  rewrite_received_ledger_rows: false
+  move_outlook_mail: false
+  edit_outlook_rules: false

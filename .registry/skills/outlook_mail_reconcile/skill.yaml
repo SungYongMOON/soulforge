@@ -1,0 +1,63 @@
+skill_id: outlook_mail_reconcile
+kind: skill
+status: active
+title: Outlook Mail Reconcile
+summary: Launch the registered `outlook_mail_reconcile_v0` workflow for metadata-only Outlook sent-mail ledger updates and received-mail cross-validation.
+behavior:
+  intent: >
+    Provide a thin Codex launcher for `.workflow/outlook_mail_reconcile_v0`.
+    The workflow owns the actual Outlook metadata read contract, sent-mail
+    project ledger delta, received-mail cross-validation, output templates,
+    and boundary review. This skill maps `/outlook-reconcile` and related
+    user language to that workflow. If the user does not name a project, the
+    default scope is all Codex-managed project mail ledgers, excluding unresolved
+    inbox holding ledgers. The launcher does this without moving Outlook access, project
+    ledgers, raw mail payloads, attachments, folder/rule mutation authority,
+    or runtime bindings into the skill.
+  use_when:
+    - the user asks for `/outlook-reconcile`
+    - the user asks to reconcile Outlook sent mail with project mail history
+    - the user asks to sync all currently Codex-managed projects from Outlook metadata
+    - the user asks to update project sent-mail ledger rows from Outlook metadata
+    - the user asks to cross-check received-mail history against Outlook inbox metadata
+    - a Codex-managed Soulforge project mail ledger needs bounded Outlook metadata comparison
+  avoid_when:
+    - the task requires `.msg` export, raw mail body reads, HTML body reads, or attachment export
+    - the task requires Outlook folder moves, folder creation, rule edits, send-mail actions, delete actions, or mark-read changes
+    - the task is generic inbox triage rather than project mail-history reconciliation
+    - the project scope, date window, Outlook source alias, or output mode cannot be bounded
+  expected_outcome:
+    - Codex resolves `/outlook-reconcile` to `outlook_mail_reconcile_v0`
+    - Codex reads the workflow package and its `profile_policy.yaml` at execution time
+    - when no project is named, Codex builds the Codex-managed project scope from project mail ledgers and excludes `P00-000_INBOX`
+    - Outlook access stays read-only and metadata-only
+    - sent-mail rows are proposed or applied only through private project metadata ledger rules
+    - received-mail history is cross-validated and reported without deletion or rewrite
+    - ambiguous matches are routed to owner follow-up instead of automatic upsert
+execution_requirements:
+  required_capabilities:
+    - workflow_launcher_routing
+    - outlook_metadata_boundary_review
+    - project_mail_history_ledger_context
+    - metadata_delta_review
+    - received_history_cross_validation
+  preferred_capabilities:
+    - outlook_desktop_metadata_read
+    - yaml_review
+    - csv_metadata_review
+    - xlsx_export_receipt_review
+    - boundary_review
+  preferred_tools:
+    - rg
+    - yaml_reader
+    - powershell
+    - outlook_desktop_com
+    - npm_validate
+  notes:
+    - "The workflow package owns the procedure; this launcher must not copy step graphs or output templates into `codex/SKILL.md` as binding authority."
+    - "The workflow `profile_policy.yaml` remains the profile owner; resolve it at execution time instead of copying optimizer outputs into this skill."
+    - "Raw mail payloads, attachments, Outlook rule state, and folder mutations stay outside this launcher."
+    - "Outlook folder-tree cleanup, including a Codex-managed Outlook area, is a separate owner-approved Outlook operations task."
+notes:
+  - "`outlook_mail_reconcile` is a thin Codex bridge for `.workflow/outlook_mail_reconcile_v0`."
+  - "Skill activation does not claim Outlook pilot execution, production readiness, folder/rule mutation authority, or default-route authority."

@@ -1,0 +1,149 @@
+workflow_id: outlook_mail_reconcile_v0
+kind: workflow
+status: active
+title: Outlook Mail Reconcile v0
+summary: Metadata-only registered workflow for updating Codex-managed project sent-mail history from Outlook sent-folder metadata and cross-validating received-mail history against inbox metadata.
+entrypoint: run
+execution_mode: local_tool_sequence
+role_slots: role_slots.yaml
+step_graph: step_graph.yaml
+handoff_rules: handoff_rules.yaml
+monster_rules: monster_rules.yaml
+party_compatibility: party_compatibility.yaml
+profile_policy: profile_policy.yaml
+history: history/
+calibrations: calibrations/
+global_invocation:
+  primary_alias: outlook_reconcile
+  slash_alias: /outlook-reconcile
+  resolves_to_workflow_id: outlook_mail_reconcile_v0
+  status: owner_requested_registration_alias
+  notes:
+    - Slash alias is a human invocation label; execution still resolves to the canonical workflow_id.
+    - The alias does not grant Outlook mutation or default-route authority.
+classification_lane:
+  primary: operations
+  primary_name_ko: 운영
+  secondary:
+    - mail_management
+    - project_management
+    - metadata_governance
+  secondary_name_ko:
+    - 메일 관리
+    - 프로젝트 관리
+    - 메타데이터 거버넌스
+  authority: none
+execution_binding:
+  party_required: false
+  bound_party_id: null
+  owner_registration_required: true
+inputs:
+  - reconcile_scope
+  - project_binding
+  - codex_managed_project_scope_policy
+  - approved_outlook_metadata_read_policy
+  - existing_project_mail_history_refs
+optional_inputs:
+  - project_alias_refs
+  - prior_reconciliation_run_refs
+  - owner_decision_refs
+  - workspace_xlsx_export_policy
+outputs:
+  - outlook_sent_metadata_packet
+  - outlook_received_metadata_packet
+  - project_sent_history_delta
+  - inbox_cross_validation_report
+  - owner_followup_needed
+  - boundary_review_note
+validation_level: structure_only_public_safe
+registration_policy: owner_requested_registration
+output_state: registered
+workflow_modes:
+  - dry_run
+  - apply_metadata_ledger_delta
+  - cross_validate_only
+  - codex_managed_projects_default
+default_scope_contract:
+  default_when_project_unspecified: codex_managed_projects
+  project_discovery_rule: "Use project folders under _workmeta that have a project mail history CSV matching the ledger contract."
+  include_project_codes:
+    - "Project-specific Codex-managed ledgers"
+  exclude_project_codes:
+    - P00-000_INBOX
+  unresolved_or_mapping_wait_bucket: P00-000_INBOX
+  default_write_mode: dry_run
+  apply_mode_requires_explicit_user_request: true
+  ambiguous_project_matches_are_owner_review_only: true
+mail_direction_scope:
+  sent:
+    source: outlook_sent_folder_metadata
+    allowed_action: propose_or_apply_metadata_ledger_rows
+  received:
+    source: outlook_inbox_or_received_folder_metadata
+    allowed_action: cross_validate_existing_metadata_ledger
+ledger_contract:
+  primary_project_ledger: "_workmeta/<project_code>/reports/메일_이력/메일_이력.csv"
+  readable_workspace_export: "_workspaces/<project_code>/reports/메일_이력/메일_이력.xlsx"
+  readable_export_is_source_truth: false
+  raw_mail_payload_allowed: false
+  public_commit_allowed: false
+outlook_boundary:
+  read_only_metadata_access: true
+  mutate_outlook_folders: false
+  mutate_outlook_rules: false
+  send_mail: false
+  mark_read_or_unread: false
+  move_or_delete_mail: false
+  copy_msg_files: false
+  copy_attachments: false
+  read_body_text_or_html: false
+outlook_folder_tree_contract:
+  planned_codex_managed_root_alias: codex_managed_area
+  planning_allowed: true
+  create_or_rename_folders_in_this_workflow: false
+  move_mail_in_this_workflow: false
+  edit_rules_in_this_workflow: false
+  separate_owner_approved_outlook_operations_required: true
+reconcile_contract:
+  owns:
+    - codex_managed_project_scope_inventory
+    - sent_metadata_inventory
+    - project_sent_history_delta
+    - received_history_cross_validation
+    - owner_review_queue_for_ambiguous_rows
+    - metadata_boundary_review
+  does_not_own:
+    - outlook_folder_tree_design
+    - outlook_rule_authoring_or_mutation
+    - raw_mail_export
+    - attachment_export
+    - project_alias_canon
+    - workspace_xlsx_formatting_design
+    - public_publication_of_project_mail_data
+  authority_boundary:
+    existing_received_ledger_is_read_only_context: true
+    sent_rows_require_metadata_match_or_owner_review: true
+    uncertain_project_matches_are_not_auto_upserted: true
+    inbox_cross_validation_does_not_delete_received_rows: true
+    xlsx_export_is_not_source_truth: true
+    public_package_contains_no_runtime_absolute_paths: true
+    public_package_contains_no_raw_mail_payloads: true
+    registered_by_owner_request: true
+    default_route_authority_granted: false
+    codex_managed_projects_default_scope: true
+    outlook_folder_tree_plan_is_not_execution: true
+  required_input_shapes:
+    project_binding: templates/project_binding.template.yaml
+    reconcile_scope: templates/reconcile_scope.template.yaml
+  required_output_shapes:
+    outlook_sent_metadata_packet: templates/outlook_sent_metadata_row.template.yaml
+    project_sent_history_delta: templates/project_sent_history_delta.template.yaml
+    inbox_cross_validation_report: templates/inbox_cross_validation_report.template.yaml
+    owner_followup_needed: templates/owner_followup_needed.template.yaml
+    boundary_review_note: templates/boundary_review_note.template.md
+notes:
+  - This package is registered in .workflow/index.yaml as a workflow canon entry.
+  - Use /outlook-reconcile as the short human invocation alias; resolve it to workflow_id outlook_mail_reconcile_v0 before execution.
+  - Outlook metadata access must be owner-approved and read-only before any local pilot run.
+  - The workflow may update project mail history metadata only when run in apply_metadata_ledger_delta mode.
+  - Received-mail reconciliation reports discrepancies; it must not erase or rewrite received history without a separate owner decision.

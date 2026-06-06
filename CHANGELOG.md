@@ -2,6 +2,47 @@
 
 ## 2026-06-06
 
+### Revision `working` - Outlook project mail reconcile workflow draft added
+
+- Added an authoring draft workflow for metadata-only Outlook sent-mail
+  reconciliation and received-mail cross-validation.
+- Kept the workflow unregistered, with Outlook mutation, raw body reads,
+  `.msg` export, attachment export, secrets, and public project mail rows out of
+  scope.
+- Preserved `_workmeta` project mail history as the source-truth ledger and
+  treated `_workspaces` XLSX files only as readable owner-facing exports.
+
+### Revision `working` - Outlook mail reconcile workflow registered
+
+- Promoted the Outlook project mail reconciliation draft into registered
+  workflow `outlook_mail_reconcile_v0`.
+- Added short human invocation alias `/outlook-reconcile` while keeping canonical
+  execution resolution on `outlook_mail_reconcile_v0`.
+- Kept the workflow structure-only and metadata-only: no Outlook mutation, no
+  raw body reads, no `.msg` or attachment export, no default-route authority,
+  and no pilot-execution claim.
+
+### Revision `working` - Outlook mail reconcile launcher skill added
+
+- Added `.registry/skills/outlook_mail_reconcile/` as the tracked Codex launcher
+  for invoking `/outlook-reconcile` through registered workflow
+  `outlook_mail_reconcile_v0`.
+- Kept the launcher thin: it resolves workflow-owned contracts at execution
+  time and does not copy Outlook runtime state, mail payloads, profile policy,
+  project ledger rows, or mutation authority into the skill.
+- Documented that legacy Outlook `.msg` intake and expansion routes are not
+  canonical dependencies of the metadata-only reconciliation launcher.
+
+### Revision `working` - Outlook reconcile default project scope corrected
+
+- Updated `outlook_mail_reconcile_v0` so `/outlook-reconcile` defaults to all
+  Codex-managed project mail ledgers when the user does not name a project.
+- Excluded unresolved inbox holding ledgers such as `P00-000_INBOX` from
+  automatic project sync while keeping them available as review/mapping buckets.
+- Clarified that the planned Codex-managed Outlook folder area is a separate
+  owner-approved Outlook operations task; the reconcile workflow still does not
+  create folders, move mail, or edit Outlook rules.
+
 ### Revision `working` - Project mail history XLSX readability candidate added
 
 - Added a roadmap candidate to improve project mail-history XLSX exports under

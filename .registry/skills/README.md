@@ -4,6 +4,7 @@
 - `github_up/` is the tracked Codex wrapper for routing GitHub upload/publish requests to `.workflow/github_upload_publish_v0/`.
 - `grill_me/` is the tracked Codex candidate skill for `/grill-me` style plan pressure-testing and design-decision interview.
 - `dual_deep_research/` is the tracked Codex candidate launcher for `.workflow/dual_deep_research_v0`, which compares NotebookLM CLI Deep Research with Codex direct source research before downstream registration.
+- `outlook_mail_reconcile/` is the tracked Codex launcher for `/outlook-reconcile`, resolving to `.workflow/outlook_mail_reconcile_v0` for metadata-only Outlook sent-mail ledger updates and received-mail cross-validation.
 - `long_thread_handoff/` is the tracked Codex wrapper for explicit long-thread contamination-free handoff requests.
 - `party_launcher_skill_author/` is the tracked Codex authoring aid for turning an existing `.party/<party_id>` loadout into a thin launcher skill without moving party, workflow, or profile policy into the skill.
 - `knowledge_wiki_cell_launcher/` is the tracked Codex launcher for invoking the existing `.party/knowledge_wiki_cell` loadout while resolving workflow-owned profile policy at execution time.
@@ -33,6 +34,7 @@
 - `post_development_review_gate/` 는 등록된 `.workflow/post_development_review_gate_v0/` 를 Codex 작업 종료 시 호출하게 하는 bridge skill package 다.
 - `workflow_check/` is the tracked Codex bridge for reviewing workflow, party, router, registration, and default-route posture before closeout.
 - `party_launcher_skill_author/` is the tracked Codex bridge for generating party launcher skills that resolve workflow-owned profile policy at execution time.
+- `outlook_mail_reconcile/` is the tracked Codex bridge for routing `/outlook-reconcile` requests through `outlook_mail_reconcile_v0` without copying Outlook runtime state or mail payloads into the skill.
 - `knowledge_wiki_cell_launcher/` is the tracked Codex bridge for routing knowledge wiki and sourcebound wiki requests through `knowledge_wiki_cell`.
 - `systems_engineering_cell_launcher/` is the tracked Codex bridge for routing project-start, stage-gap, source-gap, readiness, owner-decision, review, and closeout requests through `systems_engineering_cell`.
 - `pcb_revision_library_cell_launcher/` is the tracked Codex bridge for routing PCB DB Doctor uprev and dlib export/organization requests through `pcb_revision_library_cell`.

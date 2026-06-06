@@ -1,0 +1,19 @@
+workflow_id: outlook_mail_reconcile_v0
+kind: owner_followup_needed_template
+status: template
+project_code: "<project_code>"
+run_id: "<run_id>"
+followups:
+  - followup_id: "<stable_followup_id>"
+    reason: "<ambiguous_project_match|missing_project_alias|duplicate_candidate|received_history_discrepancy|apply_mode_confirmation_needed>"
+    row_refs:
+      - "<metadata_or_delta_row_ref>"
+    owner_question: "<short_owner_question>"
+    allowed_owner_decisions:
+      - accept_project_match
+      - reject_project_match
+      - add_project_alias_ref
+      - keep_unmatched
+      - apply_delta
+      - dry_run_only
+    raw_payload_required: false

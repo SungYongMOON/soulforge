@@ -1,0 +1,28 @@
+workflow_id: outlook_mail_reconcile_v0
+kind: outlook_sent_metadata_row_template
+status: template
+rows:
+  - row_id: "<stable_row_id>"
+    direction: sent
+    project_code_candidate: "<project_code or null>"
+    sent_at: "<iso8601>"
+    subject_normalized: "<normalized_subject_or_redacted_summary>"
+    subject_fingerprint: "<sha256_or_equivalent>"
+    conversation_fingerprint: "<sha256_or_equivalent_or_null>"
+    source_entry_fingerprint: "<sha256_or_equivalent>"
+    source_folder_alias: "sent_items"
+    sender_account_alias: "<owner_defined_alias>"
+    recipient_count: 0
+    recipient_domain_fingerprints: []
+    cc_count: 0
+    bcc_count: 0
+    attachment_count: 0
+    message_size_bucket: "<small|medium|large|unknown>"
+    duplicate_key: "<stable_duplicate_key>"
+    match_status: "<unmatched|matched|ambiguous|duplicate>"
+    boundary:
+      body_text_read: false
+      html_read: false
+      msg_file_copied: false
+      attachment_copied: false
+      outlook_mutated: false
