@@ -14,7 +14,7 @@
 - `assets/SE_FolderTree_ExploratoryDev_Basic.md`: exploratory-development basic bundled spec
 - `assets/SE_FolderTree_OperationalRnD_Basic.md`: operational-R&D basic bundled spec
 - `assets/variants/*.yaml`: variant metadata for common base, contractor overlay, blocked candidates, and production-bound basic variants
-- `assets/templates/`: public-safe structure-only artifact template stubs and registry for `00_Temp` seeding
+- `assets/templates/`: public-safe structure-only artifact template stubs and registry for project-local `00_Temp` seeding
 - `scripts/generate_tree.py`: main scaffold generator for folders, manifest, progress, CSV outputs, and index files
 - `scripts/seed_template_stubs.py`: copies structure-only team draft stubs into generated task folders after generation
 - `scripts/convert_gate_numbers.py`: helper that rewrites gate/task numbering in a copied spec file
@@ -63,6 +63,20 @@
    - use `--layout-mode new-root`
    - treat `--out` as the parent folder that will receive the new project root
 
+## Document artifact temp support
+
+- Generated SE trees should create or at least permit `00_Temp/template_snapshot/` and `00_Temp/workflow_candidate/` for document-producing artifacts.
+- `_workspaces/SE_TEMPLATE_LIBRARY/` is the canonical actual-file library/store for reusable SE artifact materials. It is not pointer-only and not a project execution baseline; `_workspaces/system/` remains the local lab and fixture workspace.
+- Under each library artifact's `00_Temp`, keep actual reusable files: owner-approved templates/forms/materials, derived HWPX when applicable, executable workflow procedures, artifact-specific authoring rules, sample output files, and manifests/catalogs.
+- Do not move project-local latest authoring files into the library. Library samples are copied or materialized as sample files.
+- Keep library `workflow/` for executable workflow procedure only; folder/source/hash/copy/provenance belongs in manifests/catalogs.
+- Separate common document rules from artifact-specific authoring rules.
+- The task start step must copy or materialize the chosen library file or owner-approved canonical artifact material into the project-local `00_Temp/template_snapshot/`; document generation uses that frozen snapshot.
+- `00_Temp/workflow_candidate/` stores project-local workflow/rule candidates extracted from a concrete run. It is not `.workflow` canon.
+- Project snapshot manifests should record source library/material pointer, project snapshot pointer, hash, snapshot time, and status.
+- Track `form_revision`, `template_snapshot_id/version`, `input_bundle_version`, `artifact_version`, and `workflow_version` as separate fields.
+- Final manual edits invalidate the previous artifact hash and validation status; refresh both before closeout.
+
 ## Output expectations
 
 - State which spec file was used.
@@ -70,6 +84,8 @@
 - State which layout mode was used.
 - State whether a dry-run preview was performed.
 - State whether structure-only template stubs were seeded.
+- State whether `00_Temp/template_snapshot/` and `00_Temp/workflow_candidate/` were created, preserved, or intentionally not applicable.
+- For document-producing artifacts, state whether a project-local snapshot manifest was initialized or updated.
 - Confirm the chosen profile and output root.
 - Confirm whether `plan_manifest.json`, `plan_progress.json`, CSV outputs, index text, and `PROJECT_ID.txt` were generated.
 
@@ -77,3 +93,4 @@
 
 - Keep project-local values in runtime inputs or copied specs, not in the tracked skill package.
 - Actual installed skill selection, local install path, model, and MCP/tool choice remain runtime binding concerns.
+- Do not write project-specific snapshots, workflow candidates, raw inputs, or generated artifacts into the tracked skill package.

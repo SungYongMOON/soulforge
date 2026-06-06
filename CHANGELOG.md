@@ -43,6 +43,79 @@
   owner-approved Outlook operations task; the reconcile workflow still does not
   create folders, move mail, or edit Outlook rules.
 
+### Revision `working` - Daily automation post-ledger checks recorded
+
+- Extended `.party/daily_automation_party/` so the evening activity-sync to
+  daily-ledger flow now hands off to `npm run guild-hall:snapshot` and then
+  `npm run validate:workmeta-payload` before night watch runs.
+- Documented the snapshot refresh as a local state regeneration step for
+  healer and operation-board freshness, and the workmeta-payload validation as
+  a metadata-boundary receipt.
+- Kept the additions as command-backed handoffs, not new workflow
+  registrations, scheduler ACTIVE/PAUSED state, or raw/private payload writes.
+
+### Revision `working` - Healer failure notification route fixed
+
+- Allowed `town_crier` to process `healer_failed` pending notifications so a
+  healer failure queue item no longer loops as
+  `invalid_pending_request:unsupported_owner_scope`.
+- Normalized the synthetic marker assertion so the healer failure notification
+  test passes on Windows text-mode newline output.
+- Localized healer run summaries, next actions, and failure notification text
+  into Korean for owner-facing reports and Telegram messages.
+- Kept mail fetch, mailbox storage, and public/private payload boundaries
+  unchanged.
+
+### Revision `working` - Daily automation party registered and locally bound
+
+- Promoted `daily_work_ledger_capture_v0` from workflow authoring into
+  `.workflow/daily_work_ledger_capture_v0/` and registered it in
+  `.workflow/index.yaml`.
+- Promoted `daily_automation_party` into `.party/daily_automation_party/` and
+  registered it in `.party/index.yaml`.
+- Bound the local daily automation concept so morning and evening activity sync
+  are followed by daily work ledger capture before report rendering.
+- Kept scheduler clock and ACTIVE/PAUSED state in the local Codex app
+  automation layer, not public canon.
+
+### Revision `working` - Daily automation party draft added
+
+- Added `.party/authoring/daily_automation_party/` as a draft cadence party
+  where the existing morning and evening activity sync automations hand off to
+  daily work ledger capture before owner-facing reports consume ledgers.
+- Kept the party unregistered in `.party/index.yaml` and made no Codex app
+  automation, launchd, scheduler, or default-route state change.
+- Updated the automation party model and Codex app automation catalog so the
+  future `Soulforge Daily Work Ledger Collector` runs after activity sync
+  receipts instead of acting as a report-time search job.
+
+### Revision `working` - Daily work ledger taxonomy and capture workflow draft added
+
+- Added `.workflow/authoring/daily_work_ledger_capture_v0/` as a
+  workflow-generator-authored draft for writing company project,
+  `P00-000_INBOX`, and Soulforge sub-ledger daily work ledgers from approved
+  metadata surfaces before reports run.
+- Kept the draft unregistered in `.workflow/index.yaml`, unbound from
+  `daily_automation_party`, and separate from Codex app local schedule state.
+- Added metadata-only ledger, skipped-source, review-needed, receipt, handoff,
+  and boundary-review templates so later report renderers can read ledgers only.
+- Clarified that `P00-000_INBOX` is the reserved company general/unresolved
+  work ledger for real company work without a confirmed project code, separate
+  from the Soulforge system ledger and personal/promotional buckets.
+- Added `docs/architecture/workspace/DAILY_WORK_LEDGER_TAXONOMY_V0.md` to fix
+  the owner-facing split between confirmed company projects, company
+  general/unassigned work, and Soulforge sub-ledgers.
+
+### Revision `working` - Automation party operating model added
+
+- Added a project-wide automation party operating model that separates
+  workflow, party, cadence party, local scheduler, ledger, and report
+  authority.
+- Strengthened the rule that recurring jobs must enter the daily, weekly, or
+  monthly party worldview before becoming shared Codex app automation defaults.
+- Documented the daily work ledger collector as a daily automation party stage,
+  keeping collection separate from report rendering.
+
 ### Revision `working` - Project mail history XLSX readability candidate added
 
 - Added a roadmap candidate to improve project mail-history XLSX exports under
@@ -53,6 +126,39 @@
   owner-facing readable exports.
 - Kept raw mail bodies, attachments, Outlook rule state, secrets, and workbook
   source-of-truth changes out of scope.
+
+### Revision `working` - SE template library rules clarified
+
+- Defined `_workspaces/SE_TEMPLATE_LIBRARY/` as the canonical actual-file
+  reusable SE artifact library/store, not a pointer-only surface and not a
+  project execution baseline.
+- Clarified that project-local latest authoring files stay project-local;
+  library samples are copied or materialized as sample outputs/files, not moved.
+- Kept library workflow files limited to executable procedure, with paths,
+  hashes, copy history, version/classification, and provenance recorded in
+  manifests or catalogs.
+- Kept common document rules separate from artifact-specific authoring rules,
+  and reaffirmed that `_workmeta` stores metadata, pointers, hashes, and
+  evidence only, not actual payload files.
+
+### Revision `working` - SE template library workspace alias seeded
+
+- Added `_workspaces/SE_TEMPLATE_LIBRARY/` as the local-only SE foldertree-shaped
+  artifact library root and kept `_workspaces/system/` scoped to reusable lab
+  and fixture outputs.
+- Corrected document-producing snapshot rules so project work materializes a
+  chosen official form or owner-approved artifact material into `00_Temp/template_snapshot/` before
+  generation.
+
+### Revision `working` - Project document template snapshot rules added
+
+- Clarified that `_workspaces/SE_TEMPLATE_LIBRARY/` is the local-only SE
+  foldertree-shaped artifact library root, while document-producing project work uses a project-local
+  `00_Temp/template_snapshot/` baseline and optional
+  `00_Temp/workflow_candidate/` candidates.
+- Documented separate official form, snapshot, input bundle, artifact, and workflow
+  version axes, plus snapshot manifest metadata and post-edit validation
+  refresh requirements.
 
 ### Revision `working` - Mail fetch project history ICS LF writer fixed
 
@@ -81,6 +187,17 @@
 - Kept raw payloads, owner-only ledgers, and scheduled host runtime details out
   of public canon; detailed operating evidence stays under `_workmeta`.
 
+### Revision `working` - Long thread handoff Codex bridge refreshed
+
+- Refreshed the `soulforge-long-thread-handoff` Codex bridge with the latest
+  checkpoint refresh, compact/clear, fresh-session, and context hygiene
+  guidance from the installed skill mirror.
+- Added the public-safe context-management notes reference under the tracked
+  skill bridge without storing raw transcript, private payload, or credential
+  material.
+- Aligned the tracked Soulforge skill entry with the new autonomous context
+  reset decision capability.
+
 ## 2026-06-05
 
 ### Revision `working` - Codex app automation catalog added
@@ -90,6 +207,8 @@
 - Documented the current default automation purposes, reader tiers, paused
   companion checks, and the small set of reports meant for routine human
   reading.
+- Captured the planned daily work ledger split where a background collector
+  writes daily ledgers first and report automations only format those ledgers.
 - Linked the catalog from the guild_hall architecture README.
 
 ### Revision `working` - Long thread handoff workflow registered

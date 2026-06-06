@@ -9,7 +9,7 @@ Use this skill to launch the existing `.party/systems_engineering_cell` route.
 
 The most natural use is: find where an SE project or artifact flow is blocked, then recommend the safest next workflow route.
 
-The skill is a thin bridge. It does not own the party, workflow chain, profile policy, project payloads, source truth, design authority, review approval, verification acceptance, owner decisions, or local runtime bindings.
+The skill is a thin bridge. It does not own the party, workflow chain, profile policy, document library, project payloads, source truth, design authority, review approval, verification acceptance, owner decisions, library authority, project-file relocation, artifact-rule promotion, or local runtime bindings.
 
 ## Operating Steps
 
@@ -19,14 +19,16 @@ The skill is a thin bridge. It does not own the party, workflow chain, profile p
 4. Confirm the selected workflow ids exist in `.workflow/index.yaml`.
 5. Read `.workflow/se_assistant_operating_loop_v0/workflow.yaml` and `profile_policy.yaml` first, then read downstream workflow `workflow.yaml` and `profile_policy.yaml` files as needed for the request.
 6. Reconstruct the user's request as a bounded SE assistant request: project start, stage gap scan, source gap, readiness digest, owner decision, review evidence, closeout, or blocked boundary case.
-7. Report missing project binding, target stage, source scope, review scope, or owner authority as a blocker instead of filling the gap by inference.
-8. Treat workflow-owned profile policy as execution hints for model, reasoning effort, species, and class. Do not copy those values into a new runtime binding.
-9. Close bounded Soulforge changes through `post_development_review_gate_v0` when files, workflow state, skill state, or claim ceilings change.
+7. For document artifact/library requests, treat `_workspaces/SE_TEMPLATE_LIBRARY/` as the reusable actual-file library, keep project-local latest authoring files in the project folder, and route manifest/catalog details away from workflow bodies.
+8. Report missing project binding, target stage, source scope, review scope, or owner authority as a blocker instead of filling the gap by inference.
+9. Treat workflow-owned profile policy as execution hints for model, reasoning effort, species, and class. Do not copy those values into a new runtime binding.
+10. Close bounded Soulforge changes through `post_development_review_gate_v0` when files, workflow state, skill state, or claim ceilings change.
 
 ## Route Guide
 
 - Use `se_foldertree_generate` only when the request is scaffold generation and required runtime inputs are known.
 - Use `se_stage_artifact_gap_scan_v0` when the user asks what a stage or artifact set is missing.
+- Use `se_assistant_operating_loop_v0` for document artifact/library routing; it may route reusable SE artifact materials and project-local snapshot steps, but it does not own library authority, relocation, or artifact-rule promotion.
 - Use party-declared reference lookup route candidates first when source/evidence support is unclear; they can point Codex toward official source packs and registered private lookup evidence, but they do not become source truth.
 - Use `knowledge_wiki_pipeline_v0`, `source_gap_followup_packet_v0`, or `source_packet_sufficiency_review_v0` when source/evidence support remains unclear.
 - Use `page_module_trace_matrix_v0` when a requirements/verification question needs trace-governance rows, missing evidence rows, or review/verification seed rows; do not treat it as final requirements truth.
@@ -43,6 +45,10 @@ The skill is a thin bridge. It does not own the party, workflow chain, profile p
 - Do not treat folder scaffolds, readiness digests, source-gap rows, advisory model output, Drive placement, NotebookLM answers, or Obsidian views as source truth.
 - Do not copy raw source text, private packets, project-local payloads, secrets, credentials, runtime absolute paths, or private run truth into public tracked files.
 - Do not copy private candidate paths, private evidence payloads, source excerpts, or reference-example raw content into this launcher.
+- Do not move project-local latest authoring files into the library; copy or materialize library samples only when owner-approved scope permits it.
+- Do not store actual HWP/HWPX/PDF/Office/raw payloads under `_workmeta`; store metadata pointers, hashes, and evidence only.
+- Do not put folder layout, source path, copy history, hash, version, provenance, or classification detail into workflow bodies. Route those details to manifests/catalogs.
+- Keep common document rules separate from artifact-specific authoring rules.
 - Keep missing truth visible as owner question, source gap, blocker, or downstream workflow route.
 
 ## Load On Demand

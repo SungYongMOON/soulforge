@@ -15,6 +15,7 @@
 | Class Package Catalog | `.registry/classes/<class_id>/**` | reusable class / package canon |
 | Workflow Canon | `.workflow/<workflow_id>/` | reusable workflow canon |
 | Party Template | `.party/<party_id>/` | reusable workflow-chain / loadout template |
+| Automation Party | `.party/<party_id>/` plus local scheduler binding | cadence-based workflow-chain invoked by Codex app automation or launchd |
 | Mission Plan | `.mission/<mission_id>/` | 내가 현재 보유한 실행 계획 |
 | Project Worksite | `_workspaces/<project_code>/` | 실제 프로젝트 파일과 local worksite artifact 를 담는 현장 |
 | Project Workmeta | `_workmeta/<project_code>/`, `_workmeta/system/` | companion metadata, raw run truth, reusable workflow lab evidence |
@@ -31,6 +32,8 @@
 - 실제 조합은 unit 이 결정하므로 `orc 기사`, `human 기록관`, `elf 총관` 같은 조합을 canon 상 허용한다.
 - workflow 는 reusable 공략서 / 처리 규칙이다.
 - party 는 reusable workflow-chain/loadout 이다.
+- automation party 는 daily/weekly/monthly 같은 반복 cadence 로 party 를 읽는 운영 패턴이다.
+- automation party 는 chain 을 설명하고, local scheduler 는 시간표와 ACTIVE/PAUSED 상태만 맡는다.
 - mission 은 workflow/party-chain/runtime assignment 를 실제 실행 계획으로 묶은 owner surface 다.
 - Soulforge 는 위 개념들을 ontology-style 로 읽되, 정의는 foundation 문서에, project-local instance 는 `_workmeta/<project_code>/ontology/` 에 둔다.
 - ontology candidate 는 project-local capture 로 끝내지 않고, `guild_master` / `night_watch` lane 이 cross-project carry-forward 대상으로 다시 상기할 수 있어야 한다.

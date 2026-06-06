@@ -11,6 +11,8 @@ entries:
     path: systems_engineering_cell/party.yaml
   - party_id: pcb_revision_library_cell
     path: pcb_revision_library_cell/party.yaml
+  - party_id: daily_automation_party
+    path: daily_automation_party/party.yaml
 notes:
   - Party catalog lists reusable workflow-chain loadouts.
   - Workflow optimizer results for model, reasoning, species, class, and unit choices belong under each .workflow entry, not in party canon.

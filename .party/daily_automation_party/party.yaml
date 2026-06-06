@@ -1,0 +1,145 @@
+party_id: daily_automation_party
+kind: party_template
+status: active
+title: Daily Automation Party
+display_name_ko: 일일 자동화 파티
+global_name_ko: 일일자동화파티
+summary: "Registered cadence party for the local daily Soulforge automation chain: activity sync first, daily work ledger capture next, then report rendering, snapshot refresh, metadata-boundary validation, and later night-watch checks."
+registration_policy: owner_requested_registration
+default_route_safe: true
+codex_app_automation_mutation: local_collector_automations_added
+local_scheduler_mutation: local_codex_app_state_changed
+service_lane:
+  primary: operations
+  primary_name_ko: 운영
+  secondary:
+    - automation
+    - project_management
+    - review_governance
+  secondary_name_ko:
+    - 자동화
+    - 프로젝트 관리
+    - 리뷰/거버넌스
+  purpose: execution_fit
+  authority: routing_hint_only
+default_workflow_id: daily_work_ledger_capture_v0
+default_workflow_ref: .workflow/daily_work_ledger_capture_v0/
+default_workflow_registration_status: registered
+workflow_chain:
+  - order: 1
+    stage_id: morning_activity_sync
+    stage_type: local_codex_app_automation
+    local_automation_id: always-on-activity-sync-morning
+    local_automation_name: always-on activity sync morning
+    role: pull_and_merge_other_pc_activity_before_morning_reports
+    expected_receipt: activity_sync_summary_or_explicit_gap
+    handoff_to: morning_daily_work_ledger_capture
+  - order: 2
+    stage_id: morning_daily_work_ledger_capture
+    stage_type: registered_workflow
+    workflow_id: daily_work_ledger_capture_v0
+    workflow_ref: .workflow/daily_work_ledger_capture_v0/
+    local_automation_id: soulforge-daily-work-ledger-collector-morning
+    local_automation_name: Soulforge Daily Work Ledger Collector Morning
+    role: write_project_p00_and_soulforge_daily_ledgers_after_morning_activity_sync
+    trigger_after:
+      - morning_activity_sync
+    reads:
+      - guild_hall/state/operations/soulforge_activity/**
+      - _workmeta/<project_code>/reports/**
+      - _workmeta/system/reports/**
+      - _workmeta/P00-000_INBOX/reports/**
+    writes:
+      - _workmeta/<project_code>/daily_ledger/**
+      - _workmeta/P00-000_INBOX/daily_ledger/**
+      - _workmeta/system/daily_ledger/<subledger_id>/**
+    handoff_to: daily_work_report_renderer
+  - order: 3
+    stage_id: daily_work_report_renderer
+    stage_type: local_codex_app_automation
+    local_automation_id: soulforge-daily-work-report-email
+    local_automation_name: Soulforge Daily Work Report Email
+    role: render_owner_facing_daily_report_from_prepared_ledgers
+    trigger_after:
+      - morning_daily_work_ledger_capture
+    report_time_rule: read_ledgers_only_missing_ledger_becomes_gap
+  - order: 4
+    stage_id: evening_activity_sync
+    stage_type: local_codex_app_automation
+    local_automation_id: always-on-activity-sync
+    local_automation_name: always-on activity sync
+    role: pull_and_merge_other_pc_activity_after_workday
+    expected_receipt: activity_sync_summary_or_explicit_gap
+    handoff_to: evening_daily_work_ledger_capture
+  - order: 5
+    stage_id: evening_daily_work_ledger_capture
+    stage_type: registered_workflow
+    workflow_id: daily_work_ledger_capture_v0
+    workflow_ref: .workflow/daily_work_ledger_capture_v0/
+    local_automation_id: soulforge-daily-work-ledger-collector-evening
+    local_automation_name: Soulforge Daily Work Ledger Collector Evening
+    role: update_or_backfill_daily_ledgers_after_evening_activity_sync
+    trigger_after:
+      - evening_activity_sync
+    writes:
+      - _workmeta/<project_code>/daily_ledger/**
+      - _workmeta/P00-000_INBOX/daily_ledger/**
+      - _workmeta/system/daily_ledger/<subledger_id>/**
+    handoff_to: snapshot_state_refresh
+  - order: 6
+    stage_id: snapshot_state_refresh
+    stage_type: deterministic_local_job
+    command_ref: npm run guild-hall:snapshot
+    role: refresh_sanitized_snapshot_projection_after_daily_metadata_changes
+    trigger_after:
+      - evening_daily_work_ledger_capture
+    source_contract_ref: docs/architecture/guild_hall/SOULFORGE_SNAPSHOT_V0.md
+    privacy_mode: public_safe_snapshot_projection
+    local_state_write_ref: guild_hall/state/snapshot/soulforge_snapshot.json
+    expected_receipt: snapshot_write_summary_or_explicit_gap
+    handoff_to: workmeta_payload_boundary_check
+  - order: 7
+    stage_id: workmeta_payload_boundary_check
+    stage_type: deterministic_local_validator
+    command_ref: npm run validate:workmeta-payload
+    role: verify_metadata_only_workmeta_boundary_before_night_watch
+    trigger_after:
+      - snapshot_state_refresh
+    boundary_policy_ref: docs/architecture/workspace/WORKMETA_MINIMUM_SCHEMA.md
+    expected_receipt: workmeta_payload_validation_pass_fail_summary_or_explicit_gap
+    failure_policy: block_downstream_report_and_record_exception
+    handoff_to: night_watch_pipeline
+  - order: 8
+    stage_id: night_watch_pipeline
+    stage_type: local_codex_app_automation
+    local_automation_id: soulforge-night-watch-pipeline
+    local_automation_name: Soulforge Night Watch Pipeline
+    role: run_daily_boundary_portability_context_drift_and_fix_draft_checks
+    trigger_after:
+      - workmeta_payload_boundary_check
+    handoff_to: night_watch_report_renderer
+  - order: 9
+    stage_id: night_watch_report_renderer
+    stage_type: local_codex_app_automation
+    local_automation_id: soulforge-night-watch-report-email
+    local_automation_name: Soulforge Night Watch Report Email
+    role: render_exception_report_from_night_watch_result
+preferred_monster_types:
+  - daily_automation_chain_request
+  - daily_work_ledger_collection_request
+  - activity_sync_then_ledger_capture_request
+  - daily_report_input_gap_request
+member_slots: member_slots.yaml
+allowed_species: allowed_species.yaml
+allowed_classes: allowed_classes.yaml
+allowed_workflows: allowed_workflows.yaml
+appserver_profile: appserver_profile.yaml
+notes:
+  - "This is an active party catalog entry by owner request."
+  - "The activity sync stages are local Codex app automations, not workflow canon entries."
+  - "daily_work_ledger_capture_v0 is registered in .workflow/index.yaml as this party's ledger capture workflow."
+  - "snapshot_state_refresh and workmeta_payload_boundary_check are deterministic local jobs in the chain, not new workflow canon entries or scheduler state."
+  - "The party records intended chain order only; the local scheduler remains the only owner of clock time and ACTIVE/PAUSED state."
+  - "If activity sync is blocked, ledger capture should record an explicit upstream gap instead of reading raw payloads as fallback."
+  - "If snapshot refresh or workmeta payload validation fails, downstream night-watch/report stages should treat it as an exception instead of scanning raw payloads or treating stale snapshot state as fresh."
+  - "Daily and weekly reports must read prepared daily ledgers only."

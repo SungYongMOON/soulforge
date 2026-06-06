@@ -41,6 +41,8 @@ The missing structural conditions were:
   evidence-backed engineering support.
 - A clear rule for missing engineering truth: record owner input, source gap,
   blocker, or downstream route; do not infer the missing fact.
+- A document/library route that separates reusable artifact materials,
+  project-local authoring files, workflow steps, and manifests/catalogs.
 
 ## Assistant Authority Boundary
 
@@ -54,6 +56,10 @@ The SE assistant may:
   wiki pipeline workflows;
 - prepare owner questions, source-gap rows, blocker registers, draftable
   artifact queues, diagram needs, and readiness digests;
+- prepare project-local form snapshot steps and manifest fields for
+  document-producing artifacts when a scoped mission permits artifact work;
+- route reusable document artifact and library work when an owner-approved
+  scope exists;
 - prepare review evidence packets and post-development review packets;
 - record metadata-only usage and procedure-capture evidence.
 
@@ -65,10 +71,54 @@ The SE assistant must not:
   project-local source documents into public canon;
 - mutate `_workspaces/<project_code>/` or upstream project artifacts unless a
   mission binding or owner instruction grants that scoped action;
+- move project-local latest authoring files into a library, relocate project
+  files, assert library authority, or promote artifact rules by itself;
+- put folder layout, source path, copy history, hash, version, provenance, or
+  classification detail into executable workflow bodies;
 - treat Google Drive, NotebookLM, Obsidian, `_workmeta`, or advisory model
   output as source truth or canon authority by itself;
 - claim SRR, SFR, PDR, CDR, TRR, FCA/OT, PCA, or LL readiness unless an owning
   review/evidence workflow and owner decision support that claim.
+
+## Document Artifact Workflow Boundary
+
+- `_workspaces/SE_TEMPLATE_LIBRARY/` is the canonical local actual-file
+  library/store for reusable SE artifact materials. It is not pointer-only and
+  not a project execution baseline. `_workspaces/system/` remains the local lab
+  and fixture workspace.
+- Reusable forms, derived HWPX samples, common document rule packets, and
+  artifact-specific authoring-rule candidates live under the relevant artifact
+  area of `_workspaces/SE_TEMPLATE_LIBRARY/`.
+- Common document rules stay separate from artifact-specific authoring rules.
+- Rev HWP/HWPX form materials are not automatically official. Only
+  owner-approved canonical library materials belong under the library
+  templates/forms area with manifest metadata.
+- Project-local latest authoring files stay in the project folder. Do not move
+  them into the library; copy or materialize library sample files only when the
+  owner-approved task scope permits it.
+- A document-producing task must copy or materialize the chosen official form
+  or owner-approved artifact material into a project-local
+  `00_Temp/template_snapshot/` at task start. Generation uses the project-local
+  snapshot and project-local latest files.
+- `_workspaces/<project_code>/<stage>/<artifact>/00_Temp/workflow_candidate/`
+  holds project-local workflow or rule candidates extracted from a concrete run.
+  It is not `.workflow` canon.
+- Library workflow files contain executable workflow steps only. Folder layout,
+  source path, copy history, hash, version, provenance, and classification
+  belong in manifests/catalogs, not workflow body.
+- Keep `form_revision`, `template_snapshot_id/version`,
+  `input_bundle_version`, `artifact_version`, and `workflow_version` as
+  separate metadata axes.
+- Project snapshot manifests should record source library/material pointer,
+  project snapshot pointer, hash, snapshot time, and status in public-safe
+  terms.
+- Final manual edits invalidate the previous artifact hash and validation
+  status. Refresh artifact metadata and validation state before closeout.
+- `_workmeta` stores metadata pointers, hashes, and evidence only. Actual
+  HWP/HWPX/PDF/Office/raw payloads stay under `_workspaces/` or an
+  owner-approved shared worksite.
+- If a request tries to put provenance/catalog details into a workflow file,
+  stop and route the detail to the proper manifest or catalog surface.
 
 ## Request Flow
 
@@ -103,12 +153,17 @@ For a real project, start in this order:
    private mission surface, depending on the public/private boundary.
 4. Run stage gap scans for the active stage only. Do not scan the whole
    lifecycle unless a digest or governance task needs a cross-stage view.
-5. For each gap, choose one route: owner input, source packet, source-gap
+5. For document-producing work, materialize the chosen official form or
+   owner-approved artifact material into a project-local
+   `00_Temp/template_snapshot/` before artifact generation; do not move the
+   project-local latest authoring file.
+6. For each gap, choose one route: owner input, source packet, source-gap
    follow-up, draftable artifact queue, review evidence packet, or blocker.
-6. Produce a readiness digest for the owner. The digest is a status view, not
+7. Produce a readiness digest for the owner. The digest is a status view, not
    source truth.
-7. Promote only repeated, source-safe patterns into `.workflow`, `.registry`, or
-   `.party` after review.
+8. Promote only repeated, source-safe patterns into `.workflow`, `.registry`, or
+   `.party` after review, and keep manifests/catalogs separate from executable
+   workflow steps.
 
 ## Completion Criteria For v0
 
@@ -118,8 +173,9 @@ The v0 structure is complete enough when:
 - scaffold generation stays separate from design-support reasoning;
 - missing truth has explicit owner/source/blocker routes;
 - stage readiness and review approval remain outside the assistant's authority;
-- public canon contains only portable procedure and sanitized templates;
-- private run truth and project evidence remain under `_workmeta/<project_code>/`.
+- public canon contains only portable procedure and sanitized public-safe stubs;
+- `_workmeta/<project_code>/` contains metadata pointers, hashes, and evidence
+  only, while actual document payloads remain outside `_workmeta`.
 
 ## Non-Goals
 
@@ -128,3 +184,5 @@ The v0 structure is complete enough when:
 - No universal SE standard claim from one project.
 - No automatic public canon promotion from private evidence.
 - No source, design, or review authority transfer from the owner to the agent.
+- No library authority, project-file relocation, or artifact-rule promotion by
+  the assistant route.

@@ -1,0 +1,35 @@
+schema_version: daily_work_ledger_capture_v0.capture_scope
+capture_window:
+  date_local: "<YYYY-MM-DD>"
+  timezone: "<IANA timezone>"
+  started_at_local: "<YYYY-MM-DDTHH:MM:SS+09:00>"
+  ended_at_local: "<YYYY-MM-DDTHH:MM:SS+09:00>"
+mode: "daily_capture | backfill_preview | rerun_update"
+ledger_category_policy_ref: "templates/ledger_category_policy.template.yaml"
+enabled_ledger_categories:
+  company_project_codes:
+    - "<Pxx-xxx>"
+  include_company_general_inbox: true
+  soulforge_subledgers:
+    - system
+    - knowledge
+    - workflow
+    - automation
+    - ingress
+    - skill
+    - ui
+    - domain_cell
+allowed_metadata_source_refs:
+  - ref: "<repo_relative_or_metadata_ref>"
+    kind: "activity | workmeta_report | mission_status | battle_log_summary | mail_work_status | deadline_watch | owner_manual_note"
+write_policy:
+  write_project_ledgers: true
+  write_company_general_inbox_ledger: true
+  write_soulforge_subledger_ledgers: true
+  preserve_manual_review_marks: true
+  missing_input_becomes_gap: true
+forbidden:
+  read_raw_mail_bodies: true
+  copy_attachments: true
+  read_project_payloads: true
+  persist_secrets_or_sessions: true

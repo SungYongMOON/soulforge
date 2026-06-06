@@ -14,3 +14,9 @@
 - one-off reconstruction 을 반복 가능한 workflow/skill 후보로 추출하거나, golden workflow 를 낮은 토큰/낮은 모델 tier 로 줄이는 실험은 [`WORKFLOW_EVOLUTION_PLAN_V0.md`](WORKFLOW_EVOLUTION_PLAN_V0.md) 를 따른다.
 - 새 workflow scaffold 에 필요한 profile policy 초안은 [`profile_policy.template.yaml`](profile_policy.template.yaml), calibration placeholder 안내는 [`calibrations.README.template.md`](calibrations.README.template.md) 를 사용한다.
 - 향후 skill authoring aid 가 필요해져도, 그것은 `.workflow/authoring/` 에 섞지 않고 별도 skill lane 또는 `guild master` unit owner surface 에 두는 것을 기본안으로 본다.
+
+## Recently Promoted
+
+- `daily_work_ledger_capture_v0` was promoted to
+  [`../daily_work_ledger_capture_v0/`](../daily_work_ledger_capture_v0/) by
+  owner request.

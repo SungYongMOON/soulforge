@@ -1,0 +1,25 @@
+schema_version: daily_work_ledger_capture_v0.project_binding
+capture_date_local: "<YYYY-MM-DD>"
+timezone: "<IANA timezone>"
+project_scope:
+  project_codes:
+    - "<Pxx-xxx>"
+  reserved_company_general_code: "P00-000_INBOX"
+  include_soulforge_subledgers:
+    - system
+    - knowledge
+    - workflow
+    - automation
+    - ingress
+    - skill
+    - ui
+    - domain_cell
+  project_ordering_policy_ref: "<metadata_ref>"
+output_roots:
+  project_daily_ledger_root: "_workmeta/<project_code>/daily_ledger/"
+  company_general_daily_ledger_root: "_workmeta/P00-000_INBOX/daily_ledger/"
+  soulforge_subledger_daily_ledger_root: "_workmeta/system/daily_ledger/<subledger_id>/"
+authority:
+  owner_scope_confirmed: false
+  raw_payload_reading_allowed: false
+  report_time_rediscovery_allowed: false

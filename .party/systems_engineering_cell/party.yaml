@@ -2,7 +2,7 @@ party_id: systems_engineering_cell
 kind: party_template
 status: active
 title: Systems Engineering Cell
-summary: Reusable workflow-chain party for routing systems-engineering assistant requests across scaffold, stage-gap, source, readiness, owner-decision, and closeout workflows without granting design authority.
+summary: Reusable workflow-chain party for routing systems-engineering assistant requests across scaffold, stage-gap, document/library, source, readiness, owner-decision, and closeout workflows without granting design, source, review, verification, library, relocation, or artifact-rule authority.
 service_lane:
   primary: systems_engineering
   primary_name_ko: systems_engineering
@@ -43,6 +43,7 @@ preferred_monster_types:
   - systems_engineering_project_start
   - se_stage_gap_scan_request
   - se_source_gap_request
+  - se_document_artifact_library_request
   - se_review_readiness_request
   - se_owner_decision_request
 reference_lookup_route_candidates:
@@ -87,3 +88,6 @@ notes:
   - Design authority, source truth, review approval, verification acceptance, and public/private promotion stay with the owning workflow, mission, source packet, review gate, or owner decision.
   - The default workflow is an assistant operating loop, not unattended automation and not a default route switch for every project.
   - Reference lookup candidates are party-level route hints only; private evidence, raw source payloads, and project-local run truth stay outside party canon.
+  - Document artifact/library requests may route through the operating loop, but `_workspaces/SE_TEMPLATE_LIBRARY/` is only the reusable actual-file library and not a project execution baseline.
+  - Project-local latest authoring files stay in the project folder; library samples are copied or materialized only under owner-approved scope.
+  - Workflow files contain executable steps only; manifests/catalogs hold layout, source path, copy history, hash, version, provenance, and classification details.

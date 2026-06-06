@@ -1,0 +1,18 @@
+workflow_id: daily_work_ledger_capture_v0
+kind: role_slots
+status: active
+slots:
+  - slot_id: scope_binder
+    summary: resolves capture date, company project/P00/Soulforge sub-ledger scope, allowed metadata refs, and output roots
+  - slot_id: metadata_source_curator
+    summary: inventories approved metadata surfaces and records skipped sources without opening raw payloads
+  - slot_id: entry_classifier
+    summary: classifies candidate rows as company project work, P00 company general/unassigned work, Soulforge sub-ledger work, skipped, review-needed, or blocked
+  - slot_id: ledger_entry_normalizer
+    summary: normalizes metadata-only work entries with stable ids, source refs, confidence, and review state
+  - slot_id: ledger_writer
+    summary: writes company project, P00, and Soulforge sub-ledger daily ledgers under metadata-only workmeta surfaces
+  - slot_id: boundary_reviewer
+    summary: checks raw/secret/path exclusion, missing-input visibility, and report-time non-rediscovery
+  - slot_id: downstream_handoff_router
+    summary: emits capture receipt and ledger-only report handoff refs

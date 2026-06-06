@@ -1,0 +1,24 @@
+schema_version: daily_work_ledger_capture_v0.project_daily_ledger
+ledger_id: "<project_code>_<YYYY-MM-DD>"
+ledger_date_local: "<YYYY-MM-DD>"
+ledger_family: "company_project | company_inbox"
+ledger_code: "<Pxx-xxx | P00-000_INBOX>"
+project_code: "<Pxx-xxx | P00-000_INBOX>"
+project_display_name: "<optional, use company general work for P00-000_INBOX>"
+entries:
+  - daily_work_ledger_entry_ref: "<entry_id>"
+    entry: {}
+coverage:
+  accepted_source_count: 0
+  skipped_source_count: 0
+  review_needed_count: 0
+  blocked_count: 0
+gaps:
+  - gap_id: "<gap_id>"
+    reason: ""
+    needed_action: "owner_review | source_metadata_fix | rerun_collector"
+boundary:
+  metadata_only: true
+  raw_payloads_excluded: true
+  report_time_rediscovery_allowed: false
+  p00_reserved_for_company_general_or_unresolved_company_work: true

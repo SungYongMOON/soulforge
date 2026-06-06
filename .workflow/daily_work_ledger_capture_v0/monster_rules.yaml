@@ -1,0 +1,33 @@
+workflow_id: daily_work_ledger_capture_v0
+kind: monster_rules
+status: active
+applies_when:
+  - owner_wants_daily_project_work_ledger_capture
+  - owner_wants_company_p00_and_soulforge_subledger_visibility
+  - daily_or_weekly_report_should_read_prepared_ledgers
+  - recurring_collector_needs_metadata_only_boundary
+  - missing_work_coverage_must_be_visible_as_gap
+does_not_apply_when:
+  - owner_requests_final_report_or_timesheet_text_only
+  - source_payloads_must_be_parsed_to_understand_work
+  - project_code_or_write_surface_is_unknown_and_cannot_be_bound
+  - secret_or_session_material_would_be_needed
+stop_conditions:
+  - unapproved_raw_payload_required
+  - output_root_outside_workmeta_daily_ledger_surface
+  - local_absolute_payload_path_would_be_persisted
+  - project_code_unclassified_without_review_route
+  - soulforge_subledger_unclassified_without_review_route
+  - p00_used_for_soulforge_or_personal_work
+  - report_renderer_attempts_report_time_source_discovery
+success_conditions:
+  - company_project_p00_and_soulforge_subledger_ledgers_written_or_explicitly_gap_marked
+  - skipped_and_review_needed_sources_recorded
+  - capture_receipt_points_to_ledger_refs
+  - boundary_review_confirms_metadata_only_outputs
+non_claims:
+  - not_source_truth
+  - not_owner_acceptance
+  - not_final_work_report
+  - not_automation_schedule
+  - not_cross_pc_default_party_route

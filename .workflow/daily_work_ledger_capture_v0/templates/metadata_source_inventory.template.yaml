@@ -1,0 +1,18 @@
+schema_version: daily_work_ledger_capture_v0.metadata_source_inventory
+capture_date_local: "<YYYY-MM-DD>"
+sources:
+  - source_ref: "<metadata_ref>"
+    source_kind: "activity | workmeta_report | mission_status | battle_log_summary | mail_work_status | deadline_watch | owner_manual_note"
+    ledger_family_hint: "company_project | company_inbox | soulforge | unknown"
+    ledger_code_hint: "<Pxx-xxx | P00-000_INBOX | soulforge/<subledger_id> | unknown>"
+    project_code: "<Pxx-xxx | P00-000_INBOX | system | unknown>"
+    soulforge_subledger_hint: "system | knowledge | workflow | automation | ingress | skill | ui | domain_cell | unknown | null"
+    observed_at: "<iso8601>"
+    read_status: "accepted | skipped | review_needed | blocked"
+    reason: ""
+    payload_read: false
+    source_payload_copied: false
+skipped_summary:
+  skipped_count: 0
+  review_needed_count: 0
+  blocked_count: 0

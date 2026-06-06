@@ -1,0 +1,23 @@
+schema_version: daily_work_ledger_capture_v0.entry
+entry_id: "<deterministic_entry_id>"
+ledger_date_local: "<YYYY-MM-DD>"
+ledger_family: "company_project | company_inbox | soulforge"
+ledger_code: "<Pxx-xxx | P00-000_INBOX | soulforge/<subledger_id>>"
+project_code: "<Pxx-xxx | P00-000_INBOX | system>"
+soulforge_subledger: "system | knowledge | workflow | automation | ingress | skill | ui | domain_cell | null"
+entry_kind: "company_project_work | company_general_unassigned_work | soulforge_work"
+summary_label: "<short metadata-derived label>"
+work_item_ref: "<mission_or_packet_or_activity_ref | null>"
+source_refs:
+  - "<metadata_ref>"
+confidence: "observed | partial | review_needed"
+owner_review_state: "not_reviewed | review_needed | owner_confirmed | blocked"
+report_visibility: "include | include_as_gap | exclude_noise | blocked"
+time_hint:
+  started_at: null
+  ended_at: null
+  duration_minutes: null
+boundary:
+  metadata_only: true
+  source_payload_copied: false
+  secret_or_session_present: false

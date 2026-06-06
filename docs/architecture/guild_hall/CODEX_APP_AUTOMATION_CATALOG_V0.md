@@ -9,11 +9,17 @@ It records why each automation exists, what it may do, what a person is
 expected to read, and which owner surface controls the durable prompt or
 contract. It does not record the live on/off state of a specific PC.
 
+The project-wide concept of recurring automation parties is owned by
+`docs/architecture/guild_hall/AUTOMATION_PARTY_OPERATING_MODEL_V0.md`. This
+catalog lists Codex app automation concepts that may invoke or support those
+parties on one local machine.
+
 ## Source of truth split
 
 | Layer | Stored where | Meaning |
 | --- | --- | --- |
 | Automation catalog | `docs/architecture/guild_hall/CODEX_APP_AUTOMATION_CATALOG_V0.md` | Human-readable list of expected Codex app automations and their purpose. |
+| Automation party model | `docs/architecture/guild_hall/AUTOMATION_PARTY_OPERATING_MODEL_V0.md` | Project-wide rule for how recurring jobs become workflow, party, cadence party, scheduler, ledger, and report layers. |
 | Prompt/spec source | `guild_hall/**/automations/*.spec.json`, `*.prompt.txt`, and owner docs | Version-controlled prompt intent and output contract where a renderer exists. |
 | Local Codex app state | `$CODEX_HOME/automations/<automation_id>/automation.toml` | Actual ACTIVE/PAUSED state, local schedule, local cwd, local prompt rendering, and model on one PC. |
 | Runtime reports | `guild_hall/state/operations/soulforge_activity/**` and private mirrors where allowed | Execution summaries, recent context, and safe carry-forward state. |
@@ -28,11 +34,12 @@ automation files for "what is currently turned on here."
 
 When adding or changing a Codex app automation:
 
-1. Add or update one row in this catalog.
-2. Link the owner document or prompt/spec source.
-3. State whether it is a human report or a background job.
-4. State the expected reader action.
-5. Keep actual `ACTIVE` / `PAUSED`, local path, and local schedule as PC-local
+1. Classify the job through `AUTOMATION_PARTY_OPERATING_MODEL_V0.md`.
+2. Add or update one row in this catalog.
+3. Link the owner document or prompt/spec source.
+4. State whether it is a human report or a background job.
+5. State the expected reader action.
+6. Keep actual `ACTIVE` / `PAUSED`, local path, and local schedule as PC-local
    settings unless the owner explicitly promotes them to a default.
 
 ## Reader tiers
@@ -99,6 +106,42 @@ Before copying those report email automations to another PC or treating them as
 stable shared defaults, split their prompt text into tracked prompt templates
 under the appropriate `guild_hall/**/automations/` owner surface and update
 this catalog row to point at the new source.
+
+## Registered split: daily ledger before reports
+
+The daily automation chain splits daily work collection from daily or weekly
+reporting.
+
+In the project-wide model, this is a `daily_automation_party` stage. The
+collector writes ledgers first; the report renderers consume those ledgers
+later.
+
+| Local automation or package | Tier | Purpose | Report-time rule |
+| --- | --- | --- | --- |
+| `soulforge-daily-work-ledger-collector-morning` | Background job | After the morning activity sync job finishes, collect safe metadata about the day's work into project, `P00-000_INBOX`, and Soulforge sub-ledger daily ledger files. | It does not send the owner-facing report. |
+| `soulforge-daily-work-ledger-collector-evening` | Background job | After the evening activity sync job finishes, update or backfill the same metadata-only daily ledgers. | It does not send the owner-facing report. |
+| `npm run guild-hall:snapshot` | Background command | After the evening ledger update, regenerate the local read-only Soulforge snapshot so healer and operation-board consumers do not fail on stale snapshot state. | It writes only the local snapshot state surface. |
+| `npm run validate:workmeta-payload` | Background validation command | After snapshot refresh, run and record the metadata-boundary validator result before night-watch consumes the updated context. | It is a boundary receipt, not permission to copy raw payloads. |
+| `Soulforge Daily Work Report Email` | Primary report | Format the already-written daily ledger into a readable report. | It reads the daily ledger only; missing ledger data is reported as a gap. |
+| `Soulforge Friday Weekly Timesheet Draft` | Primary report | Format the week of daily ledger entries into a copy-friendly weekly work log. | It reads daily ledgers only; it does not rediscover work from raw sources. |
+
+This keeps the collecting worker small and routine, and keeps the reporting
+worker from becoming a late-stage search and inference job.
+
+The registered party chain for this split is
+`.party/daily_automation_party/`. The local always-on node runs ledger
+collector automations after the morning and evening activity sync jobs, then
+uses command-backed handoffs for snapshot refresh and workmeta-payload boundary
+validation before night watch. The Codex app automation files remain PC-local
+scheduler state and are not public canon.
+
+`P00-000_INBOX` is the reserved ledger code for real company work that has no
+confirmed project code. It is not the Soulforge system ledger, and it is not a
+personal or promotional mail bucket.
+
+Soulforge work uses the owner-facing sub-ledger ids in
+`docs/architecture/workspace/DAILY_WORK_LEDGER_TAXONOMY_V0.md`; it should not
+be reported as one undifferentiated system bucket.
 
 ## Local audit command
 

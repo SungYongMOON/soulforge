@@ -1,0 +1,14 @@
+schema_version: daily_work_ledger_capture_v0.review_needed_register
+capture_date_local: "<YYYY-MM-DD>"
+items:
+  - item_id: "<review_item_id>"
+    ledger_family: "company_project | company_inbox | soulforge | unknown"
+    ledger_code: "<Pxx-xxx | P00-000_INBOX | soulforge/<subledger_id> | unknown>"
+    project_code: "<Pxx-xxx | P00-000_INBOX | system | unknown>"
+    soulforge_subledger: "system | knowledge | workflow | automation | ingress | skill | ui | domain_cell | unknown | null"
+    source_refs:
+      - "<metadata_ref>"
+    reason: "ambiguous_project | ambiguous_company_vs_soulforge | unknown_soulforge_subledger | incomplete_metadata | conflicting_refs | possible_duplicate | owner_decision_needed"
+    owner_question: ""
+    safe_default: "leave_as_gap"
+    report_visibility: "include_as_gap | hold"

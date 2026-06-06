@@ -8,5 +8,7 @@ profile:
   private_output_policy: project_local_run_truth_and_owner_evidence
 notes:
   - Public party files must remain portable and payload-free.
-  - Runtime paths, copied source documents, private project data, and run outputs belong under `_workmeta/<project_code>/` or another approved private surface.
+  - Runtime path values, private project data, and run outputs belong under `_workmeta/<project_code>/` only as metadata pointers, hashes, and evidence.
+  - Actual HWP/HWPX/PDF/Office/raw payloads and copied source documents stay under `_workspaces/`, `_workspaces/SE_TEMPLATE_LIBRARY/`, or another owner-approved shared worksite.
+  - Project-local latest authoring files stay project-local; library samples are copied or materialized only when authorized.
   - Subagent separation is preferred for sourcebound, review, verification, and closeout stages.

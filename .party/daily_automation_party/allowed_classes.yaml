@@ -1,0 +1,8 @@
+party_id: daily_automation_party
+kind: allowed_classes
+status: active
+class_ids: []
+selection_policy: workflow_profile_or_local_scheduler_owned
+notes:
+  - Class selection is not party authority for this chain.
+  - Use the workflow profile or local automation settings for execution choices.

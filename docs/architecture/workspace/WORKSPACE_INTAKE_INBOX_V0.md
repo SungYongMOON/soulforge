@@ -11,6 +11,16 @@
 - mail 1건은 inbox container 1개가 되고, 그 안에 `monsters[]` 가 들어간다.
 - v0 의 실제 위치는 `guild_hall/state/gateway/intake_inbox/` 로 고정한다.
 
+## P00-000_INBOX 와의 구분
+
+- `workspace intake inbox` 는 mail/event 를 처음 받는 staging surface 다.
+- `_workmeta/P00-000_INBOX` 는 실제 회사 업무지만 project code 가 없거나 아직
+  확정되지 않은 일을 담는 private metadata ledger surface 다.
+- `P00-000_INBOX` 는 Soulforge system 작업 장부가 아니고, 개인/광고/프로모션
+  메일 보관함도 아니다.
+- 후보가 실제 회사 업무인지 애매하면 `P00-000_INBOX` 에 review 상태로 남기고,
+  project ownership 이 확인되면 해당 project 로 이동한다.
+
 ## 경계
 
 - 이 inbox 는 최종 project inbox 가 아니다.

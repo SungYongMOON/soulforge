@@ -83,10 +83,10 @@ export async function runHealerOnce(options = {}) {
   const summary = buildSummary(result, checks);
   const nextAction =
     result !== "completed"
-      ? `Inspect failed checks: ${failedChecks.map((check) => check.id).join(", ")}.`
+      ? `실패한 점검을 확인하세요: ${failedChecks.map((check) => check.id).join(", ")}.`
       : warningChecks.length > 0
-        ? `Review warning checks: ${warningChecks.map((check) => check.id).join(", ")}.`
-        : "Continue scheduled gateway/night_watch work; use latest_context.json as the handoff surface.";
+        ? `경고 상태 점검을 확인하세요: ${warningChecks.map((check) => check.id).join(", ")}.`
+        : "예약된 gateway/night_watch 작업을 계속 진행하고 latest_context.json을 인계 표면으로 사용하세요.";
   const carryForward = result !== "completed" || warningChecks.length > 0;
   const report = await writeHealerReport({
     repoRoot,
@@ -267,19 +267,19 @@ function buildSummary(result, checks) {
   const skippedCount = checks.filter((check) => check.status === "skipped").length;
 
   if (result === "completed") {
-    return `healer run completed: ${passedCount} checks passed, ${warningCount} warnings, ${skippedCount} checks skipped.`;
+    return `healer 실행 완료: 통과 ${passedCount}건, 경고 ${warningCount}건, 건너뜀 ${skippedCount}건.`;
   }
 
   const failed = checks.filter((check) => check.status === "failed").map((check) => check.id).join(", ");
-  return `healer run failed: ${failed}; ${warningCount} warning(s), ${skippedCount} skipped.`;
+  return `healer 실행 실패: 실패 점검 ${failed}; 경고 ${warningCount}건, 건너뜀 ${skippedCount}건.`;
 }
 
 async function enqueueHealerFailureNotification({ repoRoot, failedChecks, summary, reportRef }) {
   const failedIds = failedChecks.map((check) => check.id).join(", ");
   const text = [
-    `healer failure: ${failedIds}`,
+    `healer 실패: ${failedIds}`,
     summary,
-    `report: ${reportRef}`,
+    `보고서: ${reportRef}`,
   ].join("\n");
 
   try {
@@ -326,7 +326,7 @@ function assessGatewayHealthcheck(result, output) {
   if (!payload) {
     return {
       status: "failed",
-      summary: "gateway healthcheck output was not valid JSON",
+      summary: "gateway healthcheck 출력이 올바른 JSON이 아닙니다",
     };
   }
 
@@ -335,20 +335,20 @@ function assessGatewayHealthcheck(result, output) {
   if (healthStatus === "WARN" || healthStatus === "CRITICAL") {
     return {
       status: "failed",
-      summary: `gateway healthcheck ${healthStatus}${reason ? `: ${reason}` : ""}`,
+      summary: `gateway healthcheck 상태 ${healthStatus}${reason ? `: ${reason}` : ""}`,
     };
   }
 
   if (healthStatus === "NORMAL") {
     return {
       status: "passed",
-      summary: `gateway healthcheck NORMAL${reason ? `: ${reason}` : ""}`,
+      summary: `gateway healthcheck 정상${reason ? `: ${reason}` : ""}`,
     };
   }
 
   return {
     status: "failed",
-    summary: "gateway healthcheck JSON did not include a recognized status",
+    summary: "gateway healthcheck JSON에 인식 가능한 상태가 없습니다",
   };
 }
 

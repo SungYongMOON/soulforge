@@ -14,6 +14,7 @@ import {
 
 export const GATEWAY_NOTIFY_EVENTS = ["monster_created", "mail_received"];
 export const MISSION_NOTIFY_EVENTS = ["mission_blocked", "mission_ready", "mission_closed", "mission_failed"];
+export const HEALER_NOTIFY_EVENTS = ["healer_failed"];
 
 export function gatewayNotifyPolicyPath(repoRoot) {
   return path.join(repoRoot, "guild_hall", "state", "gateway", "bindings", "notify_policy.yaml");
@@ -407,7 +408,7 @@ function validatePendingTownCrierRequest(request) {
     throwInvalidPendingRequest("missing_request_id");
   }
 
-  if (request.owner_scope !== "gateway" && request.owner_scope !== "mission") {
+  if (request.owner_scope !== "gateway" && request.owner_scope !== "mission" && request.owner_scope !== "healer") {
     throwInvalidPendingRequest("unsupported_owner_scope");
   }
 
@@ -419,7 +420,11 @@ function validatePendingTownCrierRequest(request) {
     throwInvalidPendingRequest("missing_event");
   }
 
-  const allowedEvents = request.owner_scope === "gateway" ? GATEWAY_NOTIFY_EVENTS : MISSION_NOTIFY_EVENTS;
+  const allowedEvents = {
+    gateway: GATEWAY_NOTIFY_EVENTS,
+    mission: MISSION_NOTIFY_EVENTS,
+    healer: HEALER_NOTIFY_EVENTS,
+  }[request.owner_scope];
   if (!allowedEvents.includes(request.event)) {
     throwInvalidPendingRequest("unsupported_event");
   }

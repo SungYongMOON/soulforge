@@ -1,0 +1,30 @@
+workflow_id: daily_work_ledger_capture_v0
+kind: party_compatibility
+status: active
+execution_binding:
+  party_required: true
+  candidate_party_id: daily_automation_party
+  bound_party_id: daily_automation_party
+  binding_authority: owner_requested_local_daily_automation_party
+compatible_party_patterns:
+  - daily_automation_party
+  - owner_plus_executor
+  - solo_operator
+required_capabilities:
+  - metadata_source_inventory
+  - owner_facing_ledger_category_classification
+  - workmeta_daily_ledger_write
+  - project_code_review_routing
+  - soulforge_subledger_review_routing
+  - raw_payload_exclusion
+  - skipped_source_registering
+  - ledger_only_report_handoff
+incompatible_party_patterns:
+  - report_only_renderer_without_collector_boundary
+  - raw_payload_ingestion_party
+  - unattended_public_canon_mutation_party
+notes:
+  - daily_automation_party is the registered local cadence party for this workflow.
+  - The owner-requested binding is default-route-safe for this local always-on node only.
+  - Local Codex app automation state remains PC-local and outside this workflow package.
+  - Cross-PC rollout and production readiness require a separate review.

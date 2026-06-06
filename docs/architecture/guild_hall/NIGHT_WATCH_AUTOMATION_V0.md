@@ -74,6 +74,43 @@
   - DNS 해석 실패, temporary name resolution failure, timeout, connection reset, TLS handshake timeout, network unreachable, transient 5xx gateway 오류 같은 network-class 실패만 bounded retry 허용
   - merge / rebase / reset / stash / commit / push 금지
 
+### 0.5. Snapshot Refresh
+
+- 목적:
+  - activity sync 와 daily ledger capture 뒤에 바뀐 metadata 를
+    sanitized local snapshot 에 반영한다.
+  - `healer.full` 의 snapshot freshness 실패가 반복되지 않도록
+    night-watch 앞에서 snapshot projection 을 갱신한다.
+- 주 입력:
+  - metadata-only owner surfaces
+  - `npm run guild-hall:snapshot`
+- 권장 결과:
+  - `guild_hall/state/snapshot/soulforge_snapshot.json` 갱신
+  - `HHMM-snapshot-workmeta-payload-check.md` receipt 에 pass/fail 기록
+  - 실패 시 downstream stage 중단 및 blocked summary
+- 기본 모드:
+  - local ignored state write only
+  - raw project payload, mail body, attachments, secrets read 금지
+
+### 0.6. Workmeta Payload Boundary Check
+
+- 목적:
+  - `_workmeta` 안에 HWP/HWPX, Office, PDF, 압축파일, 메일 원문/첨부
+    같은 금지 payload 가 들어오지 않았는지 매일 확인한다.
+- 주 입력:
+  - `_workmeta/**` filesystem metadata
+  - `npm run validate:workmeta-payload`
+- 권장 결과:
+  - pass/fail summary
+  - `HHMM-snapshot-workmeta-payload-check.md` receipt 와 activity event
+  - 실패 시 파일 본문을 열지 않고, `_workspaces` 또는 owner-approved
+    worksite 로 옮기고 `_workmeta` 에 metadata pointer 를 남기라는
+    exception 을 기록한다.
+- 기본 모드:
+  - validator output only
+  - forbidden file content inspect 금지
+  - downstream night-watch/report stage 는 blocked/exception 으로 처리
+
 ### 1. Boundary Check
 
 - 목적:
@@ -251,8 +288,14 @@ tracked canon 문서에서는 계속 repo-relative 경로를 쓴다.
   - `npm run guild-hall:night-watch:render -- --install --local-root <LOCAL_SOULFORGE_ROOT> --workmeta-root <LOCAL_WORKMETA_ROOT> --private-state-root <LOCAL_PRIVATE_STATE_ROOT>`
 - stage 0 script:
   - `npm run guild-hall:night-watch:preflight -- --local-root <LOCAL_SOULFORGE_ROOT> --workmeta-root <LOCAL_WORKMETA_ROOT> --private-state-root <LOCAL_PRIVATE_STATE_ROOT>`
-- 실행 프롬프트:
-  - `Treat <LOCAL_SOULFORGE_ROOT> as the active Soulforge root on this PC and <LOCAL_ACTIVITY_ROOT> as the only valid runtime write target for this automation. If Codex is running inside a temporary worktree, do not read or write runtime state under the worktree copy. Run the following stages in order and do not start the next stage until the previous stage report has been written under <LOCAL_ACTIVITY_ROOT>/log/YYYY/YYYY-MM-DD/. Stage 0: Preflight Repo Sync. Do not manually perform git sync, retry policy, or doctor retry logic inside the model. Instead, before reading latest_context or inspecting docs, run npm run guild-hall:night-watch:preflight -- --local-root <LOCAL_SOULFORGE_ROOT> --workmeta-root <LOCAL_WORKMETA_ROOT> --private-state-root <LOCAL_PRIVATE_STATE_ROOT> from <LOCAL_SOULFORGE_ROOT>. Treat the command exit code, the generated markdown report, the appended event, and the refreshed <LOCAL_ACTIVITY_ROOT>/latest_context.json as the only Stage 0 source of truth. If the command exits non-zero, stop the run after returning a short blocked summary that cites the Stage 0 report path. Do not re-implement fetch/pull, branch checks, dirty checks, or doctor retry logic in natural language. Only if Stage 0 succeeds, read <LOCAL_ACTIVITY_ROOT>/latest_context.json if it exists, then inspect <LOCAL_SOULFORGE_ROOT>/AGENTS.md, <LOCAL_SOULFORGE_ROOT>/README.md, key architecture docs under <LOCAL_SOULFORGE_ROOT>/docs/architecture, and the companions at <LOCAL_WORKMETA_ROOT> and <LOCAL_PRIVATE_STATE_ROOT>. Stage 1: Boundary Check for owner-boundary violations, public/private mixing, misplaced project-local rules, and layer confusion across _workspaces, _workmeta, private-state, guild_hall, and .mission. Save one markdown report as HHMM-soulforge-boundary-check.md and append one summary event to <LOCAL_ACTIVITY_ROOT>/events/YYYY/YYYY-MM.jsonl. Stage 2: Portability Check for absolute paths, machine-specific usernames, OS-specific assumptions, and host-local values inside tracked skill packages. Save one markdown report as HHMM-soulforge-portability-check.md and append one summary event. Stage 3: Context Drift Check for global rules leaking into project-local rule files, project-local rules leaking into global docs, top-level instruction bloat, missing nearby owner guidance, or repeated cross-project concept and relation patterns that should become ontology review candidates. If such a candidate exists, include at most one ontology review candidate in the Context Drift report and mark it as carry-forward. Save one markdown report as HHMM-soulforge-context-drift-check.md and append one summary event. Stage 4: inspect the three fresh reports from this run; if any real issue exists, write at most one narrow fix draft as HHMM-soulforge-fix-draft.md with affected paths, risk level, owner location, and the safest next action, then append one summary event. If there is no real issue, skip the fix draft file and its event. After all completed stages, refresh <LOCAL_ACTIVITY_ROOT>/latest_context.json once with a small recent window that includes the new events from this run. Return a short end summary listing which stages ran, which files were written, whether Stage 0 synced all repos cleanly, whether retries were used, whether an ontology review candidate was carry-forwarded, and whether a fix draft was created. Do not edit tracked docs or code outside <LOCAL_ACTIVITY_ROOT>, do not commit, and do not push.`
+- 실행 프롬프트 source:
+  - `guild_hall/night_watch/automations/soulforge-night-watch-pipeline.prompt.txt`
+  - 이 prompt 는 Stage 0 이후 `npm run guild-hall:snapshot` 과
+    `npm run validate:workmeta-payload` 를 실행하고, 둘 중 하나라도
+    실패하면 Stage 1 이후 점검으로 진행하지 않는다.
+  - Stage 0.5/0.6 은 통과 또는 실패 상태를
+    `HHMM-snapshot-workmeta-payload-check.md` receipt 와 activity event 로
+    남긴 뒤 계속 진행하거나 중단한다.
 
 ### 1. Boundary Check
 

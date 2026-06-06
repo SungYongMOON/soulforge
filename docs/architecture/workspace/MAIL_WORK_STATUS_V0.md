@@ -212,8 +212,8 @@ mail rumor -> candidate note -> gateway monster -> project monster
 7. priority projection 은 raw mail 본문, HTML, attachment payload, provider payload, secret 을 읽지 않고 candidate metadata 와 status projection 결과만 사용한다.
 8. backlog age check 는 raw mail 본문, HTML, attachment payload, provider payload, subject/from 값, secret 을 출력하지 않고 candidate id/ref/status/time metadata 만 사용한다. 기본 CLI stdout 은 bounded display metadata(`display_mode`, `display_limit`, omitted counts)를 포함하며 full internal/latest report 와 `--full` 출력만 전체 row 배열을 유지한다.
 9. exact `P26-014` route 는 subject 에 `기0탐`, `기ㅇ탐` 같은 `기X탐` 마스킹 패턴, `기뢰탐색음탐기`, `KVDS` 중 하나가 있을 때만 `route_confidence: exact` 로 둔다.
-10. 업무처럼 보이지만 project code 가 확정되지 않은 후보는 `P00-000_INBOX` + `route_confidence: review` 로 둔다.
-11. personal/security/finance/billing/subscription/promo/terms 류는 project monster 로 만들지 않고 `개인/관리 보류` 또는 `일 아님` 으로 둔다.
+10. 실제 회사 업무처럼 보이지만 project code 가 확정되지 않았거나 project-less 회사 일반업무로 봐야 하는 후보는 `P00-000_INBOX` + `route_confidence: review` 로 둔다.
+11. personal/security/finance/billing/subscription/promo/terms 류는 project monster 나 `P00-000_INBOX` 회사 일반업무로 만들지 않고 `개인/관리 보류` 또는 `일 아님` 으로 둔다. owner 가 회사 admin 업무로 명시한 경우만 `P00-000_INBOX` 로 보낼 수 있다.
 12. priority `thread_group` 은 subject metadata 의 deterministic matching 으로만 만든다. current-default group 은 `센서 일정/status`, `P978 시운전절차서`, `Q4 진행 독려`, `환경시험절차서`, `P23-043 접근권한`, `해경/시험 협조`, `내부 자산/admin` 이다.
 13. priority projection 은 자동 발송, 자동 mission 생성, 자동 completion, 전체 후보 자동 filing 을 하지 않는다.
 14. terminal `work_status` 인 `completed`, `completed_with_follow_up`, `blocked`, `failed` 는 완료 truth 를 우선한다. priority view 에서는 새 행동 플래그를 붙이지 않고 뒤쪽에 둔다.

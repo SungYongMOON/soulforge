@@ -2,7 +2,7 @@ workflow_id: se_assistant_operating_loop_v0
 kind: workflow
 status: active
 title: SE Assistant Operating Loop v0
-summary: Request-level systems-engineering assistant workflow that routes scaffold, stage-gap, source/wiki, readiness, owner-decision, review, and closeout work without becoming design, source, review, or verification authority.
+summary: Request-level systems-engineering assistant workflow that routes scaffold, stage-gap, document/library, source/wiki, readiness, owner-decision, review, and closeout work without becoming design, source, review, verification, library, relocation, or artifact-rule authority.
 entrypoint: run
 execution_mode: party_sequence
 role_slots: role_slots.yaml
@@ -21,6 +21,9 @@ optional_inputs:
   - stage_status_refs
   - source_packet_refs
   - source_gap_refs
+  - document_artifact_request_refs
+  - se_template_library_catalog_refs
+  - project_authoring_file_refs
   - review_gate_packet_refs
   - owner_decision_refs
   - readiness_digest_refs
@@ -30,6 +33,7 @@ outputs:
   - boundary_classification_note
   - scaffold_route_decision
   - stage_scan_request_bundle
+  - document_artifact_library_route_bundle
   - source_or_knowledge_route_bundle
   - owner_input_and_decision_queue
   - readiness_digest_request
@@ -83,6 +87,7 @@ request_modes:
   - project_start_scaffold
   - single_stage_gap_scan
   - source_gap_or_wiki_support
+  - document_artifact_library_route
   - review_readiness_preparation
   - owner_decision_preparation
   - cross_stage_status_digest
@@ -93,6 +98,7 @@ operating_contract:
     - route_packet_shape
     - scaffold_route_decision
     - stage_scan_request_bundle
+    - document_artifact_library_route_bundle
     - source_or_knowledge_route_bundle
     - owner_input_and_decision_queue
     - readiness_digest_request
@@ -102,7 +108,10 @@ operating_contract:
     - source_truth
     - engineering_fact_invention
     - design_authority
+    - library_authority
     - artifact_body_authoring_by_default
+    - artifact_rule_promotion
+    - project_file_relocation
     - owner_decision_creation
     - review_gate_approval
     - verification_acceptance
@@ -110,9 +119,17 @@ operating_contract:
     - foldertree_spec_authority
     - public_canon_promotion
     - project_local_payload_storage
+    - actual_payload_storage_under_workmeta
+    - workflow_body_catalog_or_provenance_storage
   boundaries:
     public_safe_orchestration_only: true
     missing_truth_routes_to_gap_or_owner_queue: true
+    se_template_library_is_actual_file_library_not_project_baseline: true
+    project_latest_authoring_files_stay_project_local: true
+    common_document_rules_separate_from_artifact_authoring_rules: true
+    workflow_bodies_contain_executable_steps_only: true
+    catalog_manifest_provenance_hash_copy_history_stay_out_of_workflow_body: true
+    workmeta_metadata_pointers_only_no_actual_payloads: true
     sourcebound_work_requires_source_workflow: true
     review_claims_require_review_workflow: true
     verification_claims_require_accepted_result_or_verification_workflow: true
@@ -131,3 +148,5 @@ notes:
   - "Registration means the structure is callable through `.party/systems_engineering_cell`; it does not imply pilot execution or production readiness."
   - "`se_foldertree_generate` remains scaffold-only and must not be treated as design, source, or compliance authority."
   - "`se_cross_stage_mapping_governance_v0` is available only as an optional governance route; it is not part of the minimal required route and does not grant source, artifact, or readiness authority."
+  - "`_workspaces/SE_TEMPLATE_LIBRARY/` is the actual-file library for reusable SE artifact materials; project-local latest authoring files remain in the project folder."
+  - "Workflow files carry executable steps only; manifests and catalogs carry folder layout, source path, copy history, hash, version, provenance, and classification details."
