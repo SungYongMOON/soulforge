@@ -146,6 +146,17 @@
 - Kept raw payloads, owner-only ledgers, and scheduled host runtime details out
   of public canon; detailed operating evidence stays under `_workmeta`.
 
+### Revision `working` - Long thread handoff Codex bridge refreshed
+
+- Refreshed the `soulforge-long-thread-handoff` Codex bridge with the latest
+  checkpoint refresh, compact/clear, fresh-session, and context hygiene
+  guidance from the installed skill mirror.
+- Added the public-safe context-management notes reference under the tracked
+  skill bridge without storing raw transcript, private payload, or credential
+  material.
+- Aligned the tracked Soulforge skill entry with the new autonomous context
+  reset decision capability.
+
 ## 2026-06-05
 
 ### Revision `working` - Codex app automation catalog added

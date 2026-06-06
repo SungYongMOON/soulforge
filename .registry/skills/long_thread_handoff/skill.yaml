@@ -20,6 +20,7 @@ behavior:
     - Telegram delivery would require reading or exposing credentials, tokens, sessions, or secret files
   expected_outcome:
     - the current thread is summarized into a compact `NIGHT_WORK_HANDOFF`-style checkpoint
+    - checkpoint refresh, compact, and fresh-session decisions preserve only durable state needed for the next phase
     - fresh subagents receive only the checkpoint, target files, boundaries, and acceptance criteria
     - workflow creation or material evolution is routed through `soulforge-workflow-generator`
     - workflow review is routed through `soulforge-workflow-check`
@@ -28,6 +29,7 @@ execution_requirements:
   required_capabilities:
     - goal_declaration
     - compact_handoff_authoring
+    - autonomous_context_reset_decision
     - subagent_orchestration
     - boundary_review
   preferred_capabilities:
