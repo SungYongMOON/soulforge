@@ -17,6 +17,7 @@
 | `RAG_MANIFEST_MVP_V0.md` | Fixes the metadata-only RAG manifest, source-slice-card, decision-record, metadata-index, trace/evaluation, and answer-command boundary. |
 | `RAG_THREE_STAGE_OPERATING_MODEL_V0.md` | Defines the three plain RAG progress stages: searchable RAG, work-ready RAG, and canon knowledge. |
 | `CODEX_ACCOUNT_BRIDGE_V0.md` | Describes the account-based Codex CLI bridge for advisory analysis without storing an API key. |
+| `CODEX_APP_AUTOMATION_CATALOG_V0.md` | Tracks the human-readable Codex app automation catalog, source-of-truth split, reader tiers, and current default automation concepts. |
 | `KNOWLEDGE_WIKI_WORLDVIEW_V0.md` / `knowledge_wiki_worldview_v0.html` | Teammate-facing overview of the Soulforge knowledge wiki worldview, current status, operating rules, and next steps. |
 | `SOULFORGE_ACTIVITY_LOG_V0.md` | cross-project recent-context 와 carry-forward event surface 를 설명한다. |
 | `SOULFORGE_SNAPSHOT_V0.md` | UI/external host 가 읽을 sanitized read-only snapshot 계약이다. |
@@ -74,6 +75,7 @@
 - [`RAG_MANIFEST_MVP_V0.md`](RAG_MANIFEST_MVP_V0.md)
 - [`RAG_THREE_STAGE_OPERATING_MODEL_V0.md`](RAG_THREE_STAGE_OPERATING_MODEL_V0.md)
 - [`CODEX_ACCOUNT_BRIDGE_V0.md`](CODEX_ACCOUNT_BRIDGE_V0.md)
+- [`CODEX_APP_AUTOMATION_CATALOG_V0.md`](CODEX_APP_AUTOMATION_CATALOG_V0.md)
 - [`KNOWLEDGE_WIKI_WORLDVIEW_V0.md`](KNOWLEDGE_WIKI_WORLDVIEW_V0.md)
 - [`knowledge_wiki_worldview_v0.html`](knowledge_wiki_worldview_v0.html)
 - [`SOULFORGE_ACTIVITY_LOG_V0.md`](SOULFORGE_ACTIVITY_LOG_V0.md)

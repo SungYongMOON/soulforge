@@ -31,6 +31,15 @@
 
 ## 2026-06-05
 
+### Revision `working` - Codex app automation catalog added
+
+- Added a tracked Codex app automation catalog that separates versioned
+  automation concepts from PC-local Codex app `automation.toml` state.
+- Documented the current default automation purposes, reader tiers, paused
+  companion checks, and the small set of reports meant for routine human
+  reading.
+- Linked the catalog from the guild_hall architecture README.
+
 ### Revision `working` - Long thread handoff workflow registered
 
 - Added registered structure-only workflow `long_thread_handoff_v0` for
