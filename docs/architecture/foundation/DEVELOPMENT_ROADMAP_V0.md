@@ -204,36 +204,76 @@ Follow-on fit:
 4. daily worklog analyst 는 private `_workmeta/<project_code>/reports/**` evidence 를 대상으로 owner-only digest 로 시작한다.
 5. external signal scout 는 GitHub/YouTube 등 public source ref 와 adoption candidate register 만 만들고, 실제 채택은 `workflow evolution harness` 또는 post-development review gate 로 보낸다.
 
-### Daily work ledger automation candidate
+### Daily work ledger automation lane
 
-This candidate adds a metadata-only daily work ledger lane so weekly and daily
+This lane adds a metadata-only daily work ledger surface so weekly and daily
 worklog drafting does not rediscover work from scattered project reports, mail
 metadata, git history, and system logs each time.
+
+In the project-wide automation model, this is a
+`daily_automation_party` stage: the collector writes ledgers first, and report
+renderers consume those ledgers later.
+
+Current registered surface:
+
+- `.workflow/daily_work_ledger_capture_v0/` defines the registered collection
+  workflow shape.
+- `.party/daily_automation_party/` defines the registered local daily
+  automation chain where activity sync runs before ledger capture and reports.
+- Local Codex app automations own the actual clock and ACTIVE/PAUSED state.
+
+Confirmed owner intent:
+
+- Split collection from reporting.
+- A daily collector writes the work ledger every day as its own job.
+- A daily or weekly reporter reads the already-written ledger and formats it
+  for the owner.
+- The reporter must not search mail, git history, system logs, attachments, or
+  project files at report time to reconstruct the day.
+- If the ledger is missing or incomplete, the report says the ledger is missing
+  or incomplete instead of silently re-collecting from raw sources.
+- General company work means real company work that does not yet have a
+  project code. The default ledger code for that work is `P00-000_INBOX`, not a
+  separate `general_work` bucket.
 
 Owner split:
 
 - Project ledger agents: write one daily metadata ledger per project under the
   project-local `_workmeta/<project_code>/daily_ledger/**` surface.
-- System ledger agent: writes one daily metadata ledger under
-  `_workmeta/system/daily_ledger/**`.
-- Worklog writer: reads only the daily ledger surfaces, sorts company projects
-  before system work, applies the owner worklog style profile, and produces the
-  final daily or weekly worklog.
+- Company general/unresolved ledger agent: writes one daily metadata ledger
+  under `_workmeta/P00-000_INBOX/daily_ledger/**` for real company work that is
+  not assigned to a project yet or is intentionally project-less.
+- Soulforge ledger agent: writes daily metadata ledgers under
+  `_workmeta/system/daily_ledger/<subledger_id>/**` using
+  `docs/architecture/workspace/DAILY_WORK_LEDGER_TAXONOMY_V0.md`. Soulforge
+  work must not collapse into one owner-facing `system` bucket.
+- Daily ledger collector: runs on the always-on host, reads only approved
+  metadata surfaces, and writes draft ledger entries plus skipped/review-needed
+  notes.
+- Worklog writer: reads only the daily ledger surfaces, sorts company projects,
+  `P00-000_INBOX`, and then Soulforge sub-ledgers, applies the owner worklog
+  style profile, and produces the final daily or weekly worklog.
 - Always-on local host: runs scheduled ledger collection on an owner-approved
   machine, but does not become source truth or store raw payloads in
   `_workmeta`.
 
-Initial development target:
+Next development target:
 
-1. Define the daily ledger YAML schema for project and system ledgers.
-2. Add a validator for metadata-only ledger entries, source refs, project
-   ordering, and raw-payload exclusion.
-3. Add a scheduled ledger collector dry-run that reads existing metadata
-   surfaces and writes draft ledgers only under `_workmeta`.
-4. Add a worklog writer that reads only project/system ledgers and never scans
-   mail bodies, attachments, raw source files, or ad hoc git history directly.
-5. Add a review packet and receipt path so the always-on host can record what
+1. Inspect the first scheduled collector receipts and review-needed registers
+   from the local always-on node.
+2. Strengthen the daily ledger YAML schema for project, `P00-000_INBOX`, and
+   Soulforge sub-ledgers.
+3. Add a validator for metadata-only ledger entries, source refs, project
+   ordering, reserved `P00-000_INBOX` routing, and raw-payload exclusion.
+4. Keep the scheduled ledger collectors metadata-only and treat missing
+   upstream sync receipts as gaps.
+5. Add a worklog writer that reads only project, `P00-000_INBOX`, and system
+   ledgers and never scans mail bodies, attachments, raw source files, or ad
+   hoc git history directly.
+6. Add a review packet and receipt path so the always-on host can record what
    it collected, what it skipped, and which entries need owner review.
+7. Finish migrating weekly report automations so their normal input is the
+   daily ledger only.
 
 Non-goals:
 
@@ -241,26 +281,32 @@ Non-goals:
   account data, secrets, or raw source text into `_workmeta`.
 - Do not let the worklog writer infer work from source payloads. It must use
   ledger entries only.
+- Do not let the report automation become a fallback collector. Missing ledger
+  data is a reported gap, not permission to scan raw sources at report time.
 - Do not make scheduled automation a truth authority. It records observed
   metadata and owner-review gaps.
 - Do not push company project payloads or owner-only ledgers into the public
   repo.
 
-Start condition:
+Current gate:
 
-- Owner confirms the first schema fields, project ordering policy, and schedule
-  window for the always-on local host.
+- Local party and workflow registration are in place for the always-on host.
+- The first scheduled collector receipts still need review before copying the
+  route to another PC or calling it production-ready.
 
 Acceptance criteria:
 
-- A representative project ledger and system ledger can be generated from
-  metadata-only fixtures.
+- Representative project, `P00-000_INBOX`, and Soulforge sub-ledgers can be
+  generated from metadata-only fixtures.
 - The validator rejects raw-payload extensions, absolute runtime payload paths,
-  secrets, and unclassified project codes.
+  secrets, and unclassified project codes while accepting `P00-000_INBOX` as
+  the reserved company general/unresolved work code.
 - The worklog writer can create a date/project/topic/task draft using only
   ledger entries.
-- Company project entries are ordered before system and operations entries for
-  each day.
+- Company project entries and `P00-000_INBOX` entries are ordered before
+  Soulforge sub-ledger entries for each day.
+- A missing or incomplete ledger produces an explicit gap section instead of
+  triggering ad hoc collection during reporting.
 
 ### Project mail history XLSX readability candidate
 

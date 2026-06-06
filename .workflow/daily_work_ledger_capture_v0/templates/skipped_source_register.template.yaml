@@ -1,0 +1,12 @@
+schema_version: daily_work_ledger_capture_v0.skipped_source_register
+capture_date_local: "<YYYY-MM-DD>"
+skipped_sources:
+  - source_ref: "<metadata_ref>"
+    source_kind: "<kind>"
+    ledger_family_hint: "company_project | company_inbox | soulforge | unknown"
+    ledger_code_hint: "<Pxx-xxx | P00-000_INBOX | soulforge/<subledger_id> | unknown>"
+    project_code: "<Pxx-xxx | P00-000_INBOX | system | unknown>"
+    soulforge_subledger_hint: "system | knowledge | workflow | automation | ingress | skill | ui | domain_cell | unknown | null"
+    skipped_reason: "outside_scope | raw_payload_required | duplicate | invalid_shape | missing_project_code | unknown_soulforge_subledger | secret_risk | blocked"
+    downstream_action: "none | owner_review | metadata_fix | source_workflow_rerun"
+    payload_read: false

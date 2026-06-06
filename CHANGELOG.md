@@ -2,6 +2,56 @@
 
 ## 2026-06-06
 
+### Revision `working` - Daily automation party registered and locally bound
+
+- Promoted `daily_work_ledger_capture_v0` from workflow authoring into
+  `.workflow/daily_work_ledger_capture_v0/` and registered it in
+  `.workflow/index.yaml`.
+- Promoted `daily_automation_party` into `.party/daily_automation_party/` and
+  registered it in `.party/index.yaml`.
+- Bound the local daily automation concept so morning and evening activity sync
+  are followed by daily work ledger capture before report rendering.
+- Kept scheduler clock and ACTIVE/PAUSED state in the local Codex app
+  automation layer, not public canon.
+
+### Revision `working` - Daily automation party draft added
+
+- Added `.party/authoring/daily_automation_party/` as a draft cadence party
+  where the existing morning and evening activity sync automations hand off to
+  daily work ledger capture before owner-facing reports consume ledgers.
+- Kept the party unregistered in `.party/index.yaml` and made no Codex app
+  automation, launchd, scheduler, or default-route state change.
+- Updated the automation party model and Codex app automation catalog so the
+  future `Soulforge Daily Work Ledger Collector` runs after activity sync
+  receipts instead of acting as a report-time search job.
+
+### Revision `working` - Daily work ledger taxonomy and capture workflow draft added
+
+- Added `.workflow/authoring/daily_work_ledger_capture_v0/` as a
+  workflow-generator-authored draft for writing company project,
+  `P00-000_INBOX`, and Soulforge sub-ledger daily work ledgers from approved
+  metadata surfaces before reports run.
+- Kept the draft unregistered in `.workflow/index.yaml`, unbound from
+  `daily_automation_party`, and separate from Codex app local schedule state.
+- Added metadata-only ledger, skipped-source, review-needed, receipt, handoff,
+  and boundary-review templates so later report renderers can read ledgers only.
+- Clarified that `P00-000_INBOX` is the reserved company general/unresolved
+  work ledger for real company work without a confirmed project code, separate
+  from the Soulforge system ledger and personal/promotional buckets.
+- Added `docs/architecture/workspace/DAILY_WORK_LEDGER_TAXONOMY_V0.md` to fix
+  the owner-facing split between confirmed company projects, company
+  general/unassigned work, and Soulforge sub-ledgers.
+
+### Revision `working` - Automation party operating model added
+
+- Added a project-wide automation party operating model that separates
+  workflow, party, cadence party, local scheduler, ledger, and report
+  authority.
+- Strengthened the rule that recurring jobs must enter the daily, weekly, or
+  monthly party worldview before becoming shared Codex app automation defaults.
+- Documented the daily work ledger collector as a daily automation party stage,
+  keeping collection separate from report rendering.
+
 ### Revision `working` - Project mail history XLSX readability candidate added
 
 - Added a roadmap candidate to improve project mail-history XLSX exports under
@@ -49,6 +99,8 @@
 - Documented the current default automation purposes, reader tiers, paused
   companion checks, and the small set of reports meant for routine human
   reading.
+- Captured the planned daily work ledger split where a background collector
+  writes daily ledgers first and report automations only format those ledgers.
 - Linked the catalog from the guild_hall architecture README.
 
 ### Revision `working` - Long thread handoff workflow registered

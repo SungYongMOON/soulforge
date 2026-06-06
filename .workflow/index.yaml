@@ -113,6 +113,8 @@ entries:
     path: ouroboros_strategic_review_harness_v0/workflow.yaml
   - workflow_id: long_thread_handoff_v0
     path: long_thread_handoff_v0/workflow.yaml
+  - workflow_id: daily_work_ledger_capture_v0
+    path: daily_work_ledger_capture_v0/workflow.yaml
 notes:
   - Workflow catalog only. Raw run ids and execution dumps do not belong here.
   - Authoring templates live under `authoring/` and are not workflow canon entries.

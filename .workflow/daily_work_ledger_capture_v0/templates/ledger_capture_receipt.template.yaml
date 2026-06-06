@@ -1,0 +1,36 @@
+schema_version: daily_work_ledger_capture_v0.capture_receipt
+capture_run_id: "<run_id>"
+capture_date_local: "<YYYY-MM-DD>"
+workflow_id: daily_work_ledger_capture_v0
+output_refs:
+  project_daily_ledgers:
+    - "_workmeta/<project_code>/daily_ledger/<YYYY>/<YYYY-MM-DD>.yaml"
+    - "_workmeta/P00-000_INBOX/daily_ledger/<YYYY>/<YYYY-MM-DD>.yaml"
+  soulforge_subledger_daily_ledgers:
+    - subledger_id: "system | knowledge | workflow | automation | ingress | skill | ui | domain_cell"
+      ref: "_workmeta/system/daily_ledger/<subledger_id>/<YYYY>/<YYYY-MM-DD>.yaml"
+  skipped_source_register: "<metadata_ref>"
+  review_needed_register: "<metadata_ref>"
+  boundary_review_note: "<metadata_ref>"
+result: "written | written_with_gaps | blocked"
+counts:
+  project_ledger_count: 0
+  p00_entry_count: 0
+  soulforge_entry_count: 0
+  soulforge_subledger_counts:
+    system: 0
+    knowledge: 0
+    workflow: 0
+    automation: 0
+    ingress: 0
+    skill: 0
+    ui: 0
+    domain_cell: 0
+  accepted_entry_count: 0
+  review_needed_count: 0
+  skipped_count: 0
+  blocked_count: 0
+next_handoff:
+  daily_report_renderer_input_ready: false
+  weekly_worklog_renderer_input_ready: false
+  missing_ledger_gaps_visible: true

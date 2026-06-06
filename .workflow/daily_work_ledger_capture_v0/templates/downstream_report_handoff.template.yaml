@@ -1,0 +1,24 @@
+schema_version: daily_work_ledger_capture_v0.downstream_report_handoff
+capture_date_local: "<YYYY-MM-DD>"
+allowed_consumers:
+  - daily_work_report_renderer
+  - weekly_worklog_renderer
+input_contract:
+  report_must_read_ledgers_only: true
+  report_must_not_scan_mail_git_logs_attachments_or_project_files: true
+  missing_or_incomplete_ledger_must_be_reported_as_gap: true
+ledger_refs:
+  project_daily_ledgers: []
+  p00_company_general_daily_ledger: null
+  soulforge_subledger_daily_ledgers:
+    system: null
+    knowledge: null
+    workflow: null
+    automation: null
+    ingress: null
+    skill: null
+    ui: null
+    domain_cell: null
+gap_refs:
+  skipped_source_register: null
+  review_needed_register: null

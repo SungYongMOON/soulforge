@@ -1,0 +1,29 @@
+workflow_id: daily_work_ledger_capture_v0
+kind: workflow_profile_policy
+status: active
+validation_level: registered_structure_with_local_automation_binding
+calibration_status: none
+profile_binding_policy:
+  model: runtime_binding
+  reasoning_effort: runtime_binding
+  species: runtime_binding
+  class: runtime_binding
+  party: daily_automation_party
+selection_rules:
+  - Do not hard-code model, species, class, or local runtime paths into this reusable workflow package.
+  - Use deterministic validators before claiming a stronger state than registered local binding.
+  - Use fresh executor and verifier evidence before claiming pilot-executed, production-ready, or cross-PC default-route status.
+  - Local schedule, ACTIVE/PAUSED state, and prompt rendering remain local automation concerns.
+rerun_triggers:
+  - daily ledger schema changes
+  - owner-facing ledger category policy changes
+  - approved metadata source surface changes
+  - project ordering policy changes
+  - report renderer handoff contract changes
+  - daily automation party registration or local automation binding changes
+non_claims:
+  - no_profile_optimization_claim
+  - no_pilot_execution_claim
+  - no_production_ready_claim
+  - no_cross_pc_default_route_claim
+  - no_source_truth_claim

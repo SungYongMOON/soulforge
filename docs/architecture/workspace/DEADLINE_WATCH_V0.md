@@ -43,11 +43,14 @@ ledgers, but they must not become the source of truth.
 
 ## P00 Rule
 
-`P00-000_INBOX` is an unresolved inbox.
+`P00-000_INBOX` is the reserved company general/unresolved work code.
 
-Rows stay in P00 when the project is unknown, route confidence is not strong
-enough, the row is personal/admin, or an owner decision is required. P00 rows
-move to a project only after project ownership is confirmed.
+Rows stay in P00 when the item is real company work but the project is unknown,
+route confidence is not strong enough, the work is intentionally project-less
+company general work, or an owner decision is required. P00 rows move to a
+project only after project ownership is confirmed. Personal, promotional, and
+non-work rows must not be treated as P00 company work unless the owner
+explicitly marks them as company-admin work.
 
 ## Register Fields
 
@@ -135,8 +138,10 @@ V0 import is conservative:
 
 1. Deterministic subject or `d_day` hints may create `observed` rows.
 2. Exact project routes may write to that project ledger.
-3. Ambiguous, review, personal, or promotional rows go to P00 or a review
-   queue.
+3. Real company work without a confirmed project route goes to
+   `P00-000_INBOX`; ambiguous, personal, promotional, or non-work rows go to a
+   review or skipped queue unless the owner explicitly marks them as company
+   admin work.
 4. Body-derived dates require separate owner-approved local-only policy.
 5. Existing open actions without a deterministic due date remain open actions,
    not fake deadlines.

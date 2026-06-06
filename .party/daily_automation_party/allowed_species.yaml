@@ -1,0 +1,8 @@
+party_id: daily_automation_party
+kind: allowed_species
+status: active
+species_ids: []
+selection_policy: workflow_profile_or_local_scheduler_owned
+notes:
+  - Species selection is not party authority for this chain.
+  - Local Codex app automations own their configured model/runtime on each PC.

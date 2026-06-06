@@ -1,0 +1,36 @@
+party_id: daily_automation_party
+kind: member_slots
+status: active
+slots:
+  - slot_id: morning_activity_sync_stage
+    title: Morning Activity Sync Stage
+    local_automation_id: always-on-activity-sync-morning
+    execution_contract: local_codex_app_active_on_always_on_node
+    summary: Merges safe activity metadata from other PCs before morning reporting.
+  - slot_id: ledger_capture_stage
+    title: Daily Work Ledger Capture Stage
+    workflow_id: daily_work_ledger_capture_v0
+    workflow_ref: .workflow/daily_work_ledger_capture_v0/
+    local_automation_ids:
+      - soulforge-daily-work-ledger-collector-morning
+      - soulforge-daily-work-ledger-collector-evening
+    execution_contract: local_codex_app_collector_after_activity_sync
+    summary: Writes project, P00, and Soulforge sub-ledger entries after activity sync.
+  - slot_id: daily_report_stage
+    title: Daily Work Report Stage
+    local_automation_id: soulforge-daily-work-report-email
+    execution_contract: read_prepared_ledgers_only
+    summary: Renders the daily owner report from prepared ledgers and explicit gaps.
+  - slot_id: evening_activity_sync_stage
+    title: Evening Activity Sync Stage
+    local_automation_id: always-on-activity-sync
+    execution_contract: local_codex_app_active_on_always_on_node
+    summary: Merges safe activity metadata after the workday so the ledger can be updated.
+  - slot_id: night_watch_stage
+    title: Night Watch Stage
+    local_automation_id: soulforge-night-watch-pipeline
+    execution_contract: local_codex_app_active_on_always_on_node
+    summary: Runs the existing daily exception-check pipeline after ledger context exists.
+notes:
+  - Slots mirror the registered local chain for display and review only.
+  - Model, reasoning effort, species, class, and unit choices remain workflow-owned or local scheduler-owned.

@@ -1,0 +1,171 @@
+workflow_id: daily_work_ledger_capture_v0
+kind: workflow
+status: active
+title: Daily Work Ledger Capture v0
+summary: Capture daily company project, company general/unassigned P00, and Soulforge sub-ledger work entries from approved metadata surfaces so later reports can read prepared ledgers instead of rediscovering work at report time.
+entrypoint: run
+execution_mode: local_tool_sequence
+role_slots: role_slots.yaml
+step_graph: step_graph.yaml
+handoff_rules: handoff_rules.yaml
+monster_rules: monster_rules.yaml
+party_compatibility: party_compatibility.yaml
+profile_policy: profile_policy.yaml
+history: history/
+calibrations: calibrations/
+inputs:
+  - daily_work_ledger_capture_scope
+  - ledger_category_policy
+  - approved_metadata_source_refs
+  - ledger_write_policy
+  - project_ordering_policy
+optional_inputs:
+  - prior_daily_ledger_refs
+  - guild_hall_activity_refs
+  - project_workmeta_report_refs
+  - mission_status_refs
+  - battle_log_summary_refs
+  - mail_work_status_refs
+  - deadline_watch_refs
+  - owner_manual_work_note_refs
+  - owner_decision_refs
+outputs:
+  - project_daily_work_ledger
+  - soulforge_subledger_daily_work_ledgers
+  - skipped_source_register
+  - review_needed_register
+  - ledger_capture_receipt
+  - downstream_report_handoff
+  - boundary_review_note
+validation_level: registered_structure_with_local_automation_binding
+registration_policy: owner_requested_registration
+output_state: registered
+classification_lane:
+  primary: project_management
+  primary_name_ko: 프로젝트 관리
+  secondary:
+    - mail_management
+    - review_governance
+  secondary_name_ko:
+    - 메일 관리
+    - 리뷰/거버넌스
+  purpose: discovery_only
+  authority: none
+execution_binding:
+  party_required: true
+  candidate_party_id: daily_automation_party
+  bound_party_id: daily_automation_party
+  binding_authority: owner_requested_local_daily_automation_party
+workflow_modes:
+  - daily_capture
+  - backfill_preview
+  - rerun_update
+upstream_workflows:
+  - workflow_id: knowledge_access_event_capture_v0
+    expected_outputs:
+      - normalized_access_event_log
+      - usage_rollup
+    status: optional_metadata_context
+  - workflow_id: project_readiness_digest_v0
+    expected_outputs:
+      - status_rollup
+      - owner_input_queue
+    status: optional_project_status_context
+  - workflow_id: owner_decision_packet_v0
+    expected_outputs:
+      - scoped_owner_decision
+    status: optional_policy_context
+downstream_workflows:
+  - workflow_id: daily_work_report_render_v0
+    expected_input: company_project_p00_and_soulforge_subledger_daily_ledgers
+    status: future_candidate_only
+  - workflow_id: weekly_worklog_render_v0
+    expected_input: week_of_company_project_p00_and_soulforge_subledger_daily_ledgers
+    status: future_candidate_only
+  - workflow_id: project_readiness_digest_v0
+    expected_input: ledger_capture_receipt_and_review_needed_register
+    status: optional_summary_context
+  - workflow_id: post_development_review_gate_v0
+    expected_input: workflow_or_schema_change_packet
+    status: required_before_public_or_canon_policy_change
+daily_work_ledger_capture_contract:
+  owns:
+    - capture_scope_binding
+    - owner_facing_ledger_category_policy
+    - approved_metadata_source_inventory
+    - metadata_only_work_entry_normalization
+    - company_project_ledger_routing
+    - project_daily_ledger_output_shape
+    - p00_company_general_daily_ledger_routing
+    - soulforge_subledger_daily_ledger_routing
+    - soulforge_subledger_daily_ledger_output_shape
+    - skipped_source_register_shape
+    - review_needed_register_shape
+    - ledger_capture_receipt_shape
+    - downstream_report_handoff_shape
+    - boundary_review_note_shape
+  does_not_own:
+    - report_authoring
+    - timesheet_finalization
+    - source_truth
+    - owner_acceptance
+    - mail_body_or_attachment_parsing
+    - office_pdf_hwp_payload_parsing
+    - project_payload_reading
+    - secret_inspection
+    - codex_app_schedule_clock
+    - codex_app_schedule_state
+    - public_canon_promotion
+    - project_code_assignment_truth
+    - soulforge_subledger_owner_acceptance
+  approved_metadata_surface_examples:
+    - guild_hall/state/operations/soulforge_activity/**
+    - _workmeta/<project_code>/reports/**
+    - _workmeta/<project_code>/runs/<run_id>/metadata/**
+    - _workmeta/system/reports/**
+    - _workmeta/P00-000_INBOX/reports/**
+    - _workmeta/P00-000_INBOX/daily_ledger/**
+    - _workmeta/system/daily_ledger/**
+    - _workmeta/system/daily_ledger/<soulforge_subledger>/**
+    - _workmeta/<project_code>/daily_ledger/**
+  forbidden_payloads:
+    - raw_mail_body
+    - mail_attachment_payload
+    - office_pdf_hwp_payload
+    - project_source_file_body
+    - copied_chat_transcript
+    - credential_or_session_or_token
+    - local_absolute_payload_path
+  required_input_shapes:
+    daily_work_ledger_capture_scope: templates/daily_work_ledger_capture_scope.template.yaml
+    ledger_category_policy: templates/ledger_category_policy.template.yaml
+    metadata_source_inventory: templates/metadata_source_inventory.template.yaml
+    project_binding: templates/project_binding.template.yaml
+  required_output_shapes:
+    daily_work_ledger_entry: templates/daily_work_ledger_entry.template.yaml
+    project_daily_work_ledger: templates/project_daily_work_ledger.template.yaml
+    soulforge_subledger_daily_work_ledger: templates/soulforge_subledger_daily_work_ledger.template.yaml
+    skipped_source_register: templates/skipped_source_register.template.yaml
+    review_needed_register: templates/review_needed_register.template.yaml
+    ledger_capture_receipt: templates/ledger_capture_receipt.template.yaml
+    downstream_report_handoff: templates/downstream_report_handoff.template.yaml
+    boundary_review_note: templates/boundary_review_note.template.md
+  authority_boundary:
+    ledger_entry_is_observed_metadata_not_source_truth: true
+    missing_input_becomes_gap_not_report_time_collection: true
+    report_renderer_reads_ledgers_only: true
+    source_payloads_remain_in_worksite_or_owner_approved_source_surface: true
+    scheduled_host_is_not_truth_authority: true
+    local_automation_state_is_not_public_canon: true
+    p00_reserved_for_company_general_or_unresolved_company_work: true
+    company_project_codes_use_pxx_xxx_owner_facing_pattern: true
+    soulforge_subledger_ids_are_owner_facing_categories_not_execution_authority: true
+    unknown_soulforge_subledger_becomes_review_needed_not_system_by_default: true
+notes:
+  - This package is listed in `.workflow/index.yaml` by owner request.
+  - The daily automation party binds this workflow as the ledger capture stage after activity sync.
+  - Local Codex app automations are the scheduler binding; schedule time and ACTIVE/PAUSED state remain PC-local.
+  - Downstream reports must show missing or incomplete ledger sections as explicit gaps.
+  - P00-000_INBOX is the reserved ledger code for real company work without a confirmed project code; it is not the Soulforge system ledger or a personal/promotional bucket.
+  - Soulforge ledger categories are sub-ledgers under the system workmeta lane: system, knowledge, workflow, automation, ingress, skill, ui, and domain_cell.
+  - Owner-facing daily ledger taxonomy is documented in `docs/architecture/workspace/DAILY_WORK_LEDGER_TAXONOMY_V0.md`.

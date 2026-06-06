@@ -1,0 +1,32 @@
+workflow_id: daily_work_ledger_capture_v0
+kind: handoff_rules
+status: active
+rules:
+  - from: scope_binder
+    to: metadata_source_curator
+    condition: capture_scope_bound
+    summary: Curator receives approved metadata refs, date window, company project/P00/Soulforge sub-ledger scope, and forbidden payload policy.
+  - from: metadata_source_curator
+    to: entry_classifier
+    condition: metadata_source_inventory_written
+    summary: Classifier receives metadata rows plus skipped-source reasons, not source payloads.
+  - from: entry_classifier
+    to: ledger_entry_normalizer
+    condition: work_entry_candidate_batch_ready
+    summary: Normalizer receives company project/P00/Soulforge sub-ledger/review-needed classifications with source refs and confidence hints.
+  - from: ledger_entry_normalizer
+    to: ledger_writer
+    condition: normalized_entries_ready
+    summary: Writer receives normalized entries and writes only to declared workmeta daily ledger surfaces.
+  - from: ledger_writer
+    to: boundary_reviewer
+    condition: ledger_bundle_written
+    summary: Boundary reviewer checks the complete ledger bundle, skipped register, and review-needed register.
+  - from: boundary_reviewer
+    to: downstream_handoff_router
+    condition: boundary_review_passed
+    summary: Handoff router emits capture receipt and ledger-only report refs after boundary review.
+  - from: downstream_handoff_router
+    to: report_renderer
+    condition: future_report_workflow_invoked
+    summary: Future report renderers may read owner-facing ledger refs only and must not rediscover work from raw sources.

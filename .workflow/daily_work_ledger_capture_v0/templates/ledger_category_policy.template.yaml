@@ -1,0 +1,69 @@
+schema_version: daily_work_ledger_capture_v0.ledger_category_policy
+policy_id: owner_facing_daily_work_ledger_categories_v0
+taxonomy_ref: "docs/architecture/workspace/DAILY_WORK_LEDGER_TAXONOMY_V0.md"
+purpose: "Route metadata-only daily work entries into owner-facing ledger categories before report rendering."
+ledger_families:
+  - family_id: company_project
+    display_name: "Company project"
+    ledger_code_pattern: "Pxx-xxx"
+    output_root: "_workmeta/<project_code>/daily_ledger/"
+    rules:
+      requires_confirmed_project_code_or_owner_project_binding: true
+      uses_actual_project_code_as_ledger_code: true
+      actual_project_list_is_private_metadata: true
+      unknown_or_conflicting_project_code_routes_to_review_needed: true
+  - family_id: company_inbox
+    display_name: "Company general/unassigned"
+    ledger_code: "P00-000_INBOX"
+    output_root: "_workmeta/P00-000_INBOX/daily_ledger/"
+    rules:
+      only_real_company_work_without_confirmed_project_code: true
+      not_for_soulforge_system_work: true
+      not_for_personal_promo_or_noise: true
+      owner_review_required_for_ambiguous_company_work: true
+  - family_id: soulforge
+    display_name: "Soulforge"
+    ledger_code_pattern: "soulforge/<subledger_id>"
+    output_root: "_workmeta/system/daily_ledger/<subledger_id>/"
+    rules:
+      uses_system_workmeta_support_lane: true
+      subledger_id_is_report_category_not_execution_authority: true
+      unknown_subledger_routes_to_review_needed: true
+soulforge_subledgers:
+  - subledger_id: system
+    display_name: "System"
+    route_when: "General Soulforge maintenance, repo hygiene, validation, or support work with no narrower subledger supported by metadata."
+  - subledger_id: knowledge
+    display_name: "Knowledge"
+    route_when: "Knowledge access, sourcebound packet, wiki, ontology, or reusable knowledge curation work."
+  - subledger_id: workflow
+    display_name: "Workflow"
+    route_when: "Workflow authoring, evolution, verification, registration preparation, or post-development review workflow work."
+  - subledger_id: automation
+    display_name: "Automation"
+    route_when: "Scheduler, automation catalog, app automation, monitor, reminder, or runner handoff work."
+  - subledger_id: ingress
+    display_name: "Ingress"
+    route_when: "Gateway, mailbox/event intake, notify, command ingress, or cross-project intake routing work."
+  - subledger_id: skill
+    display_name: "Skill"
+    route_when: "Codex skill, canonical skill candidate, skill bridge, or skill verification work."
+  - subledger_id: ui
+    display_name: "UI"
+    route_when: "ui-workspace, dashboard, visualization, or interface consumer work."
+  - subledger_id: domain_cell
+    display_name: "Domain cell"
+    route_when: "Reusable domain cell, party launcher, specialist cell, or domain-specific operating cell work."
+routing_precedence:
+  - company_project
+  - company_inbox
+  - soulforge_subledger
+fallback_rules:
+  company_work_with_missing_project_code: "route_to_P00-000_INBOX_with_review_state"
+  soulforge_work_with_missing_subledger: "route_to_review_needed"
+  non_work_or_personal_promo: "skip_or_hold_outside_P00"
+boundary:
+  metadata_only: true
+  raw_payload_reading_allowed: false
+  category_is_observation_not_truth_or_acceptance: true
+  category_does_not_bind_party_or_default_route: true

@@ -23,6 +23,15 @@
 - 같은 lane 이름이 workflow 와 party 에 동시에 나타나도, workflow 는 절차이고 party 는 투입 조합이라는 경계가 우선한다.
 - lane id 와 한글 표시 이름의 초안 표는 [`.workflow/docs/WORKFLOW_LANE_TAXONOMY_V0.md`](../.workflow/docs/WORKFLOW_LANE_TAXONOMY_V0.md) 에 둔다.
 
+## cadence automation party 해석
+
+- `daily_automation_party`, `weekly_automation_party`, `monthly_automation_party` 같은 cadence party 는 반복 운영 workflow chain 을 사람이 한 번에 이해하고 조정하기 위한 party 패턴이다.
+- cadence party 는 workflow chain 과 handoff 를 소유하지만, 실제 실행 시간표, ACTIVE/PAUSED 상태, local prompt, local path 는 Codex app automation 이나 launchd 같은 local scheduler 가 소유한다.
+- 새 recurring automation 을 shared default 로 올릴 때는 먼저 workflow 단위인지, 기존 cadence party 의 stage 인지, 새 party 가 필요한지 분리한다.
+- cadence party 의 상위 운영 모델은 [`docs/architecture/guild_hall/AUTOMATION_PARTY_OPERATING_MODEL_V0.md`](../docs/architecture/guild_hall/AUTOMATION_PARTY_OPERATING_MODEL_V0.md) 가 소유한다.
+- Draft cadence parties may live under [`authoring/`](authoring/) before `.party/index.yaml` registration.
+- [`daily_automation_party/`](daily_automation_party/) records the registered local daily chain where activity sync completes before daily work ledger capture runs.
+
 ## 관계도
 
 ```mermaid
@@ -59,6 +68,7 @@ sequenceDiagram
 - `docs/PARTY_NAMING_CONTRACT_V0.md`
 - `docs/PARTY_NAME_MAPPING_TABLE_V0.md`
 - `docs/PARTY_NAMING_DRAFT_V0.html`
+- `authoring/`
 - `<party_id>/party.yaml`
 - `<party_id>/allowed_workflows.yaml`
 - `<party_id>/member_slots.yaml`
@@ -92,3 +102,4 @@ sequenceDiagram
 - [`knowledge_wiki_cell/party.yaml`](knowledge_wiki_cell/party.yaml): Karpathy-style sourcebound wikiization workflow chain.
 - [`systems_engineering_cell/party.yaml`](systems_engineering_cell/party.yaml): systems-engineering assistant workflow chain for scaffold, stage-gap, source, readiness, owner-decision, and closeout routing.
 - [`pcb_revision_library_cell/party.yaml`](pcb_revision_library_cell/party.yaml): Cadence Allegro PCB DB Doctor uprev followed by dlib board-library export and organization.
+- [`daily_automation_party/party.yaml`](daily_automation_party/party.yaml): local daily automation chain that runs activity sync before daily work ledger capture and downstream reports.

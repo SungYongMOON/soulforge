@@ -1,0 +1,20 @@
+schema_version: daily_work_ledger_capture_v0.soulforge_subledger_daily_ledger
+ledger_id: "soulforge_<subledger_id>_<YYYY-MM-DD>"
+ledger_date_local: "<YYYY-MM-DD>"
+ledger_family: "soulforge"
+ledger_code: "soulforge/<subledger_id>"
+soulforge_subledger: "system | knowledge | workflow | automation | ingress | skill | ui | domain_cell"
+entries:
+  - daily_work_ledger_entry_ref: "<entry_id>"
+    entry: {}
+coverage:
+  accepted_source_count: 0
+  skipped_source_count: 0
+  review_needed_count: 0
+  blocked_count: 0
+gaps: []
+boundary:
+  metadata_only: true
+  raw_payloads_excluded: true
+  report_time_rediscovery_allowed: false
+  subledger_is_report_category_not_execution_authority: true

@@ -1,0 +1,17 @@
+party_id: daily_automation_party
+kind: allowed_workflows
+status: active
+registered_workflow_ids:
+  - daily_work_ledger_capture_v0
+  - post_development_review_gate_v0
+local_automation_ids:
+  - soulforge-daily-work-ledger-collector-morning
+  - soulforge-daily-work-ledger-collector-evening
+  - always-on-activity-sync-morning
+  - soulforge-daily-work-report-email
+  - always-on-activity-sync
+  - soulforge-night-watch-pipeline
+  - soulforge-night-watch-report-email
+notes:
+  - Registered workflow ids are safe to resolve through `.workflow/index.yaml`.
+  - Local automation ids are PC-local scheduler bindings and must not be treated as canon workflow ids.
