@@ -2,6 +2,16 @@
 
 ## 2026-06-06
 
+### Revision `working` - Healer failure notification route fixed
+
+- Allowed `town_crier` to process `healer_failed` pending notifications so a
+  healer failure queue item no longer loops as
+  `invalid_pending_request:unsupported_owner_scope`.
+- Localized healer run summaries, next actions, and failure notification text
+  into Korean for owner-facing reports and Telegram messages.
+- Kept mail fetch, mailbox storage, and public/private payload boundaries
+  unchanged.
+
 ### Revision `working` - Daily automation party registered and locally bound
 
 - Promoted `daily_work_ledger_capture_v0` from workflow authoring into

@@ -165,6 +165,54 @@ test("invalid pending request rolls back without executing telegram sender", asy
   }
 });
 
+test("healer failure pending request is accepted by town crier", async () => {
+  const repoRoot = await makeTempRoot("healer");
+  const markerFile = path.join(repoRoot, "telegram-marker.txt");
+  const pendingFile = path.join(
+    repoRoot,
+    "guild_hall",
+    "state",
+    "town_crier",
+    "queue",
+    "pending",
+    "healer-one.json",
+  );
+
+  try {
+    await writeText(
+      path.join(repoRoot, "guild_hall", "town_crier", "telegram_send.py"),
+      [
+        "from pathlib import Path",
+        `Path(${JSON.stringify(markerFile)}).write_text("executed\\n", encoding="utf-8")`,
+        "print('{\"ok\": true}')",
+        "",
+      ].join("\n"),
+    );
+    await writeJson(pendingFile, {
+      request_id: "healer-one",
+      owner_scope: "healer",
+      channel: "telegram",
+      event: "healer_failed",
+      text: "healer 실패: root_validate",
+      source_ref: "guild_hall/state/operations/soulforge_activity/log/2026/2026-06/report.md",
+      env_file: "guild_hall/state/town_crier/synthetic.env",
+    });
+
+    const result = await processTownCrierOnce(repoRoot, { limit: 1 });
+
+    assert.equal(result.ok, true);
+    assert.equal(result.processed, 1);
+    assert.equal(result.sent, 1);
+    assert.equal(result.failed, 0);
+    assert.equal(result.results[0].request_id, "healer-one");
+    assert.equal(result.results[0].status, "sent");
+    assert.equal(await pathExists(pendingFile), false);
+    assert.equal(await readFile(markerFile, "utf8"), "executed\n");
+  } finally {
+    await rm(repoRoot, { recursive: true, force: true });
+  }
+});
+
 test("pending request with env file outside town crier state rolls back without executing telegram sender", async () => {
   const cases = [
     {

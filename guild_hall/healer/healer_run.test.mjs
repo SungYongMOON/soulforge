@@ -105,7 +105,7 @@ test("runHealerOnce fails when gateway healthcheck reports critical JSON", async
     assert.equal(result.result, "failed");
     const gatewayCheck = result.checks.find((check) => check.id === "gateway_fetch_healthcheck");
     assert.equal(gatewayCheck.status, "failed");
-    assert.equal(gatewayCheck.summary, "gateway healthcheck CRITICAL: stale");
+    assert.equal(gatewayCheck.summary, "gateway healthcheck 상태 CRITICAL: stale");
 
     const latest = JSON.parse(await readFile(result.files.latest_context_path, "utf8"));
     assert.equal(latest.open_threads[0].result, "failed");
@@ -150,6 +150,8 @@ test("runHealerOnce queues a healer failure notification when enabled", async ()
     const queued = JSON.parse(await readFile(queueFile, "utf8"));
     assert.equal(queued.owner_scope, "healer");
     assert.equal(queued.event, "healer_failed");
+    assert.equal(queued.text.includes("healer 실패"), true);
+    assert.equal(queued.text.includes("보고서:"), true);
     assert.equal(queued.text.includes(result.files.report_ref), true);
   } finally {
     await rm(repoRoot, { recursive: true, force: true });
@@ -191,7 +193,7 @@ test("runHealerOnce carries warning always-on checks forward without failing the
     assert.equal(result.checks.some((check) => check.status === "warn"), true);
 
     const reportRaw = await readFile(result.files.report_path, "utf8");
-    assert.equal(reportRaw.includes("1 warnings"), true);
+    assert.equal(reportRaw.includes("경고 1건"), true);
     assert.equal(reportRaw.includes("carry_forward: true"), true);
 
     const latest = JSON.parse(await readFile(result.files.latest_context_path, "utf8"));
