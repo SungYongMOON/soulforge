@@ -86,6 +86,15 @@
 - Added coverage with a synthetic ledger fixture only, without reading real
   private ledger payloads or secret files.
 
+### Revision `working` - Dev-worker owner-approved trigger policy updated
+
+- Changed dev-worker candidate promotion so owner-approved active candidates are
+  promotable when the local dev-worker automation trigger is ACTIVE, without a
+  second per-task start phrase.
+- Updated the dev-worker automation prompt, docs, audit display tests, and
+  current approved candidate metadata so the owner controls automatic
+  development by toggling the local automation on or off.
+
 ### Revision `working` - Town crier env state-root guard added
 
 - Hardened town_crier runtime env file resolution so explicit Telegram env file

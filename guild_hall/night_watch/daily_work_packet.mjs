@@ -22,7 +22,7 @@ export const DAILY_WORK_PACKET_VERSION = "soulforge.daily_work_packet.v0";
 const ACTIVE_MISSION_STATUSES = new Set(["active", "held", "started", "in_progress"]);
 const ATTENTION_CANDIDATE_STATUSES = new Set(["proposed", "open", "approved", "approval-only"]);
 const CLOSED_CANDIDATE_STATUSES = new Set(["completed", "promoted", "rejected", "dropped", "cancelled", "closed"]);
-const OWNER_APPROVAL_APPROVED_ONLY_STATES = new Set(["approved-only", "approval-only"]);
+const OWNER_APPROVAL_APPROVED_STATES = new Set(["approved", "approved-only", "approval-only"]);
 
 export async function buildDailyWorkPacket(options = {}) {
   const repoRoot = path.resolve(options.repoRoot ?? process.cwd());
@@ -323,13 +323,13 @@ function formatOwnerApprovalState(candidate) {
   const existingDisplay = String(candidate?.owner_approval_state ?? candidate?.approval_display ?? "").trim();
   const existingDisplayState = existingDisplay.toLowerCase();
 
-  if (existingDisplay && !OWNER_APPROVAL_APPROVED_ONLY_STATES.has(existingDisplayState)) {
+  if (existingDisplay && !OWNER_APPROVAL_APPROVED_STATES.has(existingDisplayState)) {
     return existingDisplay;
   }
 
   const approved = parseDisplayBoolean(approval.approved, false)
-    || OWNER_APPROVAL_APPROVED_ONLY_STATES.has(explicitState)
-    || OWNER_APPROVAL_APPROVED_ONLY_STATES.has(existingDisplayState);
+    || OWNER_APPROVAL_APPROVED_STATES.has(explicitState)
+    || OWNER_APPROVAL_APPROVED_STATES.has(existingDisplayState);
   const required = parseDisplayBoolean(approval.required, true);
 
   if (approved) {
@@ -339,10 +339,7 @@ function formatOwnerApprovalState(candidate) {
     if (CLOSED_CANDIDATE_STATUSES.has(status)) {
       return `approved (closed ${status}; not promotable)`;
     }
-    if (status !== "approved") {
-      return `approved-only (status ${status}; not promotable)`;
-    }
-    return "approved (not promotable)";
+    return `approved (status ${status}; not promotable)`;
   }
 
   return required ? "not-approved (needs owner approval; not promotable)" : "not-approved (not required; not promotable)";

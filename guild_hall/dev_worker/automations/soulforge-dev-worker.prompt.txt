@@ -3,7 +3,7 @@ Treat {{LOCAL_SOULFORGE_ROOT}} as the active Soulforge root on this PC and {{LOC
 Run exactly one bounded dev-worker cycle:
 
 1. From {{LOCAL_SOULFORGE_ROOT}}, run `npm run guild-hall:dev-worker:preflight -- --local-root "{{LOCAL_SOULFORGE_ROOT}}" --workmeta-root "{{LOCAL_WORKMETA_ROOT}}" --private-state-root "{{LOCAL_PRIVATE_STATE_ROOT}}" --json`. If it fails, stop and report the generated activity/log path.
-2. Run `npm run guild-hall:dev-worker:candidates -- --local-root "{{LOCAL_SOULFORGE_ROOT}}" --workmeta-root "{{LOCAL_WORKMETA_ROOT}}" --auto-promote --json`. This may approve and promote only low-risk candidates that pass the tracked auto-approval policy.
+2. Run `npm run guild-hall:dev-worker:candidates -- --local-root "{{LOCAL_SOULFORGE_ROOT}}" --workmeta-root "{{LOCAL_WORKMETA_ROOT}}" --auto-promote --json`. This may promote owner-approved active candidates, and may also approve low-risk candidates that pass the tracked auto-approval policy before promotion. Treat the local automation ACTIVE/PAUSED state as the owner's automatic development trigger.
 3. Run `npm run guild-hall:dev-worker:claim -- --local-root "{{LOCAL_SOULFORGE_ROOT}}" --workmeta-root "{{LOCAL_WORKMETA_ROOT}}" --record --json`. If no eligible task exists, stop after a short no-task summary.
 4. Read only the selected task packet and the context needed to perform it. Respect `allowed_write_paths`, `acceptance_checks`, and `stop_conditions`.
 5. Create a branch from `origin/main` using the suggested branch name. Do not edit `main` directly.

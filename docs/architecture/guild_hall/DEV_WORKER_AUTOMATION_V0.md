@@ -49,9 +49,10 @@ The task packet is the handoff surface. The worker's local automation setting is
 8. If validation fails, the worker pushes nothing unless the task packet explicitly permits a draft branch; it records the blocker in activity.
 9. Protected public contract edits still require explicit owner approval and must be reported when `SOULFORGE_ALLOW_PUBLIC_CONTRACT_EDIT=1` is used.
 10. Account tokens are local-only per PC. The task packet can say which lane should run, but must not include token values or account credentials.
-11. Agent-generated work starts in `dev_worker_candidate_queue` with `status: proposed` unless the owner has explicitly approved it.
+11. Agent-generated work starts in `dev_worker_candidate_queue` with `status: proposed` until owner approval or the tracked low-risk auto-approval policy applies.
 12. A ready task packet with `origin.kind: agent_generated` is not claimable unless `owner_approval.approved: true`.
-13. Low-risk agent-generated candidates may be auto-approved only when they explicitly request `auto_approval`, pass the tracked auto-approval policy, and are promoted by the candidate helper.
+13. When the local dev-worker automation trigger is `ACTIVE`, owner-approved active candidates are allowed to be promoted and executed; the owner's normal control surface is the local automation ACTIVE/PAUSED toggle.
+14. Low-risk agent-generated candidates may be auto-approved only when they explicitly request `auto_approval`, pass the tracked auto-approval policy, and are promoted by the candidate helper.
 
 ## Task Packet Shape
 
@@ -130,7 +131,7 @@ owner_approval:
 auto_approval:
   requested: false
 notes:
-  - Candidate only. Do not run on a worker until approved and promoted.
+  - Candidate only until owner approval and the dev-worker automation trigger promote it.
 ```
 
 Candidate packets live under:
@@ -139,7 +140,12 @@ Candidate packets live under:
 _workmeta/<project_code>/dev_worker_candidate_queue/*.yaml
 ```
 
-When the owner approves a candidate, set:
+When the owner approves a candidate, set `owner_approval.approved: true`. The
+candidate may remain `status: proposed` or be changed to `status: approved`; in
+both cases the promotion helper treats it as executable once the local
+dev-worker automation trigger is `ACTIVE`.
+
+Common explicit approved state:
 
 ```yaml
 status: approved
@@ -179,12 +185,11 @@ secrets.
 
 For the audit summary, `completed`, `promoted`, `rejected`, `dropped`, and
 `cancelled` are closed candidate states. Closed candidates are not executable
-backlog. `proposed`, `open`, and owner-approved candidates are active from an
-audit standpoint, but they are still not worker-executable until the promotion
-helper writes a ready packet into `dev_worker_queue`.
-When owner approval is recorded but `status` remains `proposed`, the details
-view reports `owner-approval: approved-only` so the state is not confused with
-promotable or worker-executable work.
+backlog. `proposed`, `open`, and `approved` candidates are active. If an active
+candidate has `owner_approval.approved: true`, the details view reports it as
+`owner-approval: approved (promotable)`. Listing candidates remains read-only;
+only `--promote-approved` or `--auto-promote` writes ready packets into
+`dev_worker_queue`.
 
 ## Auto-Approval Policy
 
@@ -223,7 +228,8 @@ npm run guild-hall:dev-worker:candidates -- --auto-approve --json
 ```
 
 updates only eligible candidate packets to `status: approved`.
-To approve and immediately promote eligible candidates into the executable ready queue:
+To approve eligible low-risk candidates and promote all owner-approved active
+candidates into the executable ready queue:
 
 ```bash
 npm run guild-hall:dev-worker:candidates -- --auto-promote --json

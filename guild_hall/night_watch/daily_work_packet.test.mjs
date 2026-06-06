@@ -155,7 +155,7 @@ test("buildDailyWorkPacket prioritizes active dev worker candidates for display"
   );
 });
 
-test("buildDailyWorkPacket displays approval-only proposed candidates without promoting them", async () => {
+test("buildDailyWorkPacket displays owner-approved proposed candidates as promotable without promoting them", async () => {
   const sharedGlossaryCandidate = {
     task_id: "shared_glossary_v0",
     status: "proposed",
@@ -171,8 +171,8 @@ test("buildDailyWorkPacket displays approval-only proposed candidates without pr
   const approvalOnlyCandidate = {
     task_id: "owner_approved_still_proposed",
     status: "proposed",
-    summary: "Owner approval exists, but proposed status must stay not promotable.",
-    promotable: false,
+    summary: "Owner approval exists, so the next automation trigger may promote it.",
+    promotable: true,
     auto_approval: { eligible: false },
     owner_approval: {
       required: true,
@@ -180,19 +180,19 @@ test("buildDailyWorkPacket displays approval-only proposed candidates without pr
       approved_by: "owner",
       approved_at: "2026-06-05T00:00:00.000Z",
     },
-    ineligible_reason: "status_not_approved:proposed",
+    ineligible_reason: null,
   };
   const statusOnlyApprovalCandidate = {
     task_id: "owner_approval_status_only",
     status: "proposed",
-    summary: "Equivalent approval-only display state from detail-style data.",
-    promotable: false,
+    summary: "Equivalent approved display state from detail-style data.",
+    promotable: true,
     auto_approval: { eligible: false },
     owner_approval: {
       required: true,
       status: "approved-only",
     },
-    ineligible_reason: "status_not_approved:proposed",
+    ineligible_reason: null,
   };
   const promotableCandidate = {
     task_id: "promotable_owner_approved",
@@ -237,7 +237,7 @@ test("buildDailyWorkPacket displays approval-only proposed candidates without pr
     },
     devWorkerCandidates: {
       candidates,
-      promotable_count: 1,
+      promotable_count: 3,
       auto_approvable_count: 0,
     },
   });
@@ -245,10 +245,10 @@ test("buildDailyWorkPacket displays approval-only proposed candidates without pr
   const byTaskId = new Map(packet.dev_worker.candidates.map((candidate) => [candidate.task_id, candidate]));
 
   assert.equal(packet.summary.dev_worker_candidate_count, 4);
-  assert.equal(packet.summary.dev_worker_promotable_candidate_count, 1);
+  assert.equal(packet.summary.dev_worker_promotable_candidate_count, 3);
   assert.equal(packet.summary.dev_worker_auto_approvable_candidate_count, 0);
   assert.equal(packet.dev_worker.candidate_count, 4);
-  assert.equal(packet.dev_worker.promotable_candidate_count, 1);
+  assert.equal(packet.dev_worker.promotable_candidate_count, 3);
   assert.equal(packet.dev_worker.auto_approvable_candidate_count, 0);
   assert.equal(
     byTaskId.get("shared_glossary_v0").owner_approval_state,
@@ -256,14 +256,14 @@ test("buildDailyWorkPacket displays approval-only proposed candidates without pr
   );
   assert.equal(
     byTaskId.get("owner_approved_still_proposed").owner_approval_state,
-    "approved-only (status proposed; not promotable)",
+    "approved (promotable)",
   );
   assert.equal(
     byTaskId.get("owner_approval_status_only").owner_approval_state,
-    "approved-only (status proposed; not promotable)",
+    "approved (promotable)",
   );
   assert.equal(byTaskId.get("promotable_owner_approved").owner_approval_state, "approved (promotable)");
-  assert.equal(byTaskId.get("owner_approved_still_proposed").promotable, false);
+  assert.equal(byTaskId.get("owner_approved_still_proposed").promotable, true);
   assert.equal(byTaskId.get("owner_approved_still_proposed").status, "proposed");
   assert.equal("promoted_to" in byTaskId.get("owner_approved_still_proposed"), false);
   assert.equal(Object.prototype.hasOwnProperty.call(approvalOnlyCandidate, "owner_approval_state"), false);
@@ -275,7 +275,7 @@ test("buildDailyWorkPacket displays approval-only proposed candidates without pr
   );
   assert.match(
     markdown,
-    /owner_approval_state `approved-only \(status proposed; not promotable\)` owner_approved_still_proposed/u,
+    /owner_approval_state `approved \(promotable\)` owner_approved_still_proposed/u,
   );
   assert.doesNotMatch(markdown, /promoted_to/u);
 });

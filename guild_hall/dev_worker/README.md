@@ -46,10 +46,10 @@ npm run guild-hall:dev-worker:render -- --check --automation-file <automation.to
 The helper only selects packets with `status: ready`, `status: queued`, or `status: open`.
 Agent-generated ready packets also require `owner_approval.approved: true`.
 
-Candidate packets are for agent-discovered work. They become executable only after the owner marks them approved and the promotion helper writes a ready packet into `dev_worker_queue`.
+Candidate packets are for agent-discovered work. Once `owner_approval.approved: true` is recorded on an active candidate, the next ACTIVE dev-worker automation trigger may promote it into `dev_worker_queue` and execute it. The owner controls that automatic execution by turning the local Codex automation on or off.
 Low-risk candidates may request `auto_approval.requested: true`; the candidate helper approves only those that pass the tracked safe-path, safe-check, and risk-level policy before promotion.
 The safe-path check rejects control characters and parent directory segments (`..`) before comparing normalized path boundaries for approval.
 The safe-check gate rejects acceptance check strings that contain control characters before matching the command allowlist.
-Use `--details` when auditing stalled development work; it prints status counts, active/closed candidate counts, each candidate's packet ref, project, promotion blocker, owner-approval state, and auto-approval blocker without reading raw project payloads. Approval-only candidates remain non-executable until their status is changed and they are promoted into `dev_worker_queue`.
+Use `--details` when auditing stalled development work; it prints status counts, active/closed candidate counts, each candidate's packet ref, project, promotion blocker, owner-approval state, and auto-approval blocker without reading raw project payloads. Listing candidates is still read-only; `--promote-approved` or `--auto-promote` is what writes ready packets into `dev_worker_queue`.
 
 The render helper's `--check` mode is read-only. It compares a provided automation TOML against the tracked dev-worker spec and prompt render for `id`, `prompt`, `cwds`, and `execution_environment` only, then reports a short current/stale result. It does not install or update local Codex automation files, and it does not treat local `status`, `rrule`, `created_at`, or `updated_at` values as stale because those remain PC-local owner settings.

@@ -14,6 +14,7 @@ const READY_QUEUE_DIR = "dev_worker_queue";
 const AUTO_APPROVAL_POLICY_ID = "dev_worker_auto_approval_policy_v0";
 const AUTO_APPROVAL_RISK_LEVELS = new Set(["low", "routine"]);
 const CLOSED_CANDIDATE_STATUSES = new Set(["completed", "promoted", "rejected", "dropped", "cancelled"]);
+const PROMOTABLE_CANDIDATE_STATUSES = new Set(["approved", "proposed", "open", "approval-only"]);
 const AUTO_APPROVAL_SAFE_PATH_PREFIXES = [
   "docs/architecture/guild_hall/",
   "guild_hall/dev_worker/",
@@ -291,15 +292,15 @@ function normalizeCandidate(raw, source) {
     },
   };
   const autoApproval = evaluateAutoApproval(raw, candidateBase, missing);
-  const promotable = missing.length === 0 && status === "approved" && approvalRequired && approvalApproved;
+  const promotable = missing.length === 0 && PROMOTABLE_CANDIDATE_STATUSES.has(status) && approvalApproved;
   const ineligibleReason = promotable
     ? null
     : missing.length > 0
       ? `missing_required_fields:${missing.join(",")}`
       : isClosedCandidateStatus(status)
         ? `status_closed:${status}`
-        : status !== "approved"
-        ? `status_not_approved:${status || "missing"}`
+        : !PROMOTABLE_CANDIDATE_STATUSES.has(status)
+        ? `status_not_promotable:${status || "missing"}`
         : "owner_approval_not_approved";
 
   return {
@@ -322,10 +323,7 @@ function formatOwnerApprovalState(candidate) {
     if (isClosedCandidateStatus(status)) {
       return `approved (closed ${status}; not promotable)`;
     }
-    if (status !== "approved") {
-      return `approved-only (status ${status}; not promotable)`;
-    }
-    return "approved (not promotable)";
+    return `approved (status ${status}; not promotable)`;
   }
 
   return `not-approved (${requirementState}; not promotable)`;

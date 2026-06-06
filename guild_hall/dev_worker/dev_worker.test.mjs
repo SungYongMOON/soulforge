@@ -424,7 +424,7 @@ test("dev_worker_cli_readonly_audit_smoke_v0 claim_task --json reports no_task w
   }
 });
 
-test("dev_worker_cli_readonly_audit_smoke_v0 candidate_queue --details keeps approval-only proposed candidates readonly", async () => {
+test("dev_worker_cli_readonly_audit_smoke_v0 candidate_queue --details shows owner-approved proposed candidates as promotable without writing", async () => {
   const root = await mkdtemp(path.join(os.tmpdir(), "soulforge-dev-worker-cli-candidate-"));
   const workmetaRoot = path.join(root, "_workmeta");
   const candidatePath = path.join(
@@ -442,7 +442,7 @@ test("dev_worker_cli_readonly_audit_smoke_v0 candidate_queue --details keeps app
         "task_id: approval_only_cli_smoke",
         "status: proposed",
         "project_code: system",
-        "summary: Owner approval is present, but proposed status must remain not promotable.",
+        "summary: Owner approval is present, so the next automation trigger may promote it.",
         "allowed_write_paths:",
         "  - guild_hall/dev_worker/**",
         "acceptance_checks:",
@@ -474,11 +474,11 @@ test("dev_worker_cli_readonly_audit_smoke_v0 candidate_queue --details keeps app
 
     assert.equal(stderr, "");
     assert.match(stdout, /^candidates: 1$/mu);
-    assert.match(stdout, /^promotable: 0$/mu);
+    assert.match(stdout, /^promotable: 1$/mu);
     assert.match(stdout, /^auto-approvable: 0$/mu);
     assert.match(stdout, /^- approval_only_cli_smoke \[proposed\]/mu);
-    assert.match(stdout, /^  promotable: no \(status_not_approved:proposed\)$/mu);
-    assert.match(stdout, /^  owner-approval: approved-only \(status proposed; not promotable\)$/mu);
+    assert.match(stdout, /^  promotable: yes$/mu);
+    assert.match(stdout, /^  owner-approval: approved \(promotable\)$/mu);
     assert.match(stdout, /^  auto-approval: no \(auto_approval_not_requested\)$/mu);
     assert.equal(await pathIsPresent(path.join(workmetaRoot, "system", "dev_worker_queue")), false);
     assert.equal(await pathIsPresent(path.join(root, "guild_hall", "state")), false);
@@ -491,7 +491,7 @@ test("dev_worker_cli_readonly_audit_smoke_v0 candidate_queue --details keeps app
   }
 });
 
-test("candidate queue promotes only approved candidates into ready queue", async () => {
+test("candidate queue promotes owner-approved active candidates into ready queue", async () => {
   const root = await mkdtemp(path.join(os.tmpdir(), "soulforge-dev-worker-candidate-"));
   const workmetaRoot = path.join(root, "_workmeta");
   try {
@@ -522,7 +522,7 @@ test("candidate queue promotes only approved candidates into ready queue", async
         "schema_version: soulforge.dev_worker_request.v0",
         "task_id: approval_only_task",
         "status: proposed",
-        "summary: Owner approved this candidate but did not mark it approved for promotion.",
+        "summary: Owner approved this candidate, so it should promote on the next automation trigger.",
         "allowed_write_paths:",
         "  - guild_hall/dev_worker/**",
         "acceptance_checks:",
@@ -565,7 +565,7 @@ test("candidate queue promotes only approved candidates into ready queue", async
 
     const listed = await listCandidatePackets({ localRoot: root, workmetaRoot });
     assert.equal(listed.scanned_count, 3);
-    assert.equal(listed.promotable_count, 1);
+    assert.equal(listed.promotable_count, 2);
     assert.equal(listed.active_candidate_count, 3);
     assert.equal(listed.closed_candidate_count, 0);
     assert.deepEqual(listed.status_counts, {
@@ -578,29 +578,38 @@ test("candidate queue promotes only approved candidates into ready queue", async
     assert.match(textSummary, /closed-candidates: 0/u);
     assert.match(textSummary, /status:\n- approved: 1\n- proposed: 2/u);
     assert.match(textSummary, /draft_task \[proposed\]/u);
-    assert.match(textSummary, /promotable: no \(status_not_approved:proposed\)/u);
+    assert.match(textSummary, /promotable: no \(owner_approval_not_approved\)/u);
     assert.match(textSummary, /owner-approval: not-approved \(required; not promotable\)/u);
     assert.match(textSummary, /approval_only_task \[proposed\]/u);
-    assert.match(textSummary, /owner-approval: approved-only \(status proposed; not promotable\)/u);
+    assert.match(textSummary, /owner-approval: approved \(promotable\)/u);
     assert.match(textSummary, /approved-task \[approved\]/u);
     assert.match(textSummary, /promotable: yes/u);
     assert.match(textSummary, /owner-approval: approved \(promotable\)/u);
 
     const promoted = await promoteApprovedCandidates({ localRoot: root, workmetaRoot });
-    assert.equal(promoted.promoted_count, 1);
-    assert.equal(promoted.promoted[0].to, "_workmeta/system/dev_worker_queue/approved-task.yaml");
+    assert.equal(promoted.promoted_count, 2);
+    assert.deepEqual(promoted.promoted.map((item) => item.to).sort(), [
+      "_workmeta/system/dev_worker_queue/approval_only_task.yaml",
+      "_workmeta/system/dev_worker_queue/approved-task.yaml",
+    ]);
 
     const readyPacket = await readFile(path.join(workmetaRoot, "system", "dev_worker_queue", "approved-task.yaml"), "utf8");
     assert.match(readyPacket, /status: ready/u);
     assert.match(readyPacket, /approved: true/u);
+    const proposedReadyPacket = await readFile(
+      path.join(workmetaRoot, "system", "dev_worker_queue", "approval_only_task.yaml"),
+      "utf8",
+    );
+    assert.match(proposedReadyPacket, /status: ready/u);
+    assert.match(proposedReadyPacket, /approved: true/u);
 
     const selected = await selectTask({
       localRoot: root,
       workmetaRoot,
       identity: { node_id: "high perf tool 01" },
     });
-    assert.equal(selected.eligible_count, 1);
-    assert.equal(selected.selected.suggested_branch, "codex/high-perf-tool-01-approved-task");
+    assert.equal(selected.eligible_count, 2);
+    assert.equal(selected.selected.suggested_branch, "codex/high-perf-tool-01-approval_only_task");
   } finally {
     await rm(root, { recursive: true, force: true });
   }
