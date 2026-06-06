@@ -362,6 +362,13 @@ Acceptance criteria:
   source reference remain available without exposing raw payloads.
 - Existing metadata CSV/ICS behavior and workmeta payload validation still pass.
 
+Implementation status:
+
+- 2026-06-06 dev-worker slice added readable JavaScript XLSX export sheets,
+  wrapped key text, filter/freeze metadata, a hidden technical sheet, and
+  synthetic XLSX smoke coverage. CSV/ICS metadata ledger behavior remains the
+  source contract.
+
 ### Google Drive LLM wiki bookshelf candidate
 
 This candidate adds Google Drive as the cross-PC canonical source bookshelf for

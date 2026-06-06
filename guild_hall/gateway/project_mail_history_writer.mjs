@@ -33,6 +33,37 @@ const CSV_HEADERS = [
   "미션참조",
   "원문복사여부",
 ];
+const XLSX_STYLE_IDS = Object.freeze({
+  default: 0,
+  header: 1,
+  wrap: 2,
+  dateTime: 3,
+  integer: 4,
+  mutedWrap: 5,
+});
+const HUMAN_XLSX_COLUMNS = [
+  { key: "event_at", header: "날짜", width: 19, style: XLSX_STYLE_IDS.dateTime, type: "date" },
+  { key: "direction", header: "방향", width: 10, style: XLSX_STYLE_IDS.default },
+  { key: "subject", header: "제목", width: 48, style: XLSX_STYLE_IDS.wrap },
+  { key: "counterpart", header: "상대방", width: 28, style: XLSX_STYLE_IDS.wrap },
+  { key: "event_type", header: "이벤트유형", width: 18, style: XLSX_STYLE_IDS.default },
+  { key: "attachment_count", header: "첨부수", width: 9, style: XLSX_STYLE_IDS.integer, type: "integer" },
+  { key: "status", header: "상태", width: 16, style: XLSX_STYLE_IDS.wrap },
+  { key: "source_ref", header: "메일소스ID", width: 28, style: XLSX_STYLE_IDS.wrap },
+  { key: "project_code", header: "프로젝트", width: 14, style: XLSX_STYLE_IDS.default },
+  { key: "stage", header: "단계", width: 14, style: XLSX_STYLE_IDS.default },
+  { key: "candidate_id", header: "후보ID", width: 20, style: XLSX_STYLE_IDS.mutedWrap },
+  { key: "monster_id", header: "몬스터ID", width: 24, style: XLSX_STYLE_IDS.mutedWrap },
+  { key: "thread_ref", header: "스레드", width: 20, style: XLSX_STYLE_IDS.mutedWrap },
+  { key: "mailbox", header: "메일함", width: 18, style: XLSX_STYLE_IDS.mutedWrap },
+  { key: "raw_copied", header: "원문복사여부", width: 14, style: XLSX_STYLE_IDS.default },
+];
+const TECHNICAL_XLSX_COLUMNS = CSV_HEADERS.map((header) => ({
+  key: header,
+  header,
+  width: technicalColumnWidth(header),
+  style: XLSX_STYLE_IDS.mutedWrap,
+}));
 const FORBIDDEN_PAYLOAD_KEYS = new Set([
   "body",
   "body_html",
@@ -299,19 +330,11 @@ function csvEscape(value) {
 }
 
 function buildXlsxBuffer(rows) {
+  const sheets = buildXlsxSheets(rows);
   const files = [
     {
       name: "[Content_Types].xml",
-      content: [
-        '<?xml version="1.0" encoding="UTF-8" standalone="yes"?>',
-        '<Types xmlns="http://schemas.openxmlformats.org/package/2006/content-types">',
-        '<Default Extension="rels" ContentType="application/vnd.openxmlformats-package.relationships+xml"/>',
-        '<Default Extension="xml" ContentType="application/xml"/>',
-        '<Override PartName="/xl/workbook.xml" ContentType="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet.main+xml"/>',
-        '<Override PartName="/xl/worksheets/sheet1.xml" ContentType="application/vnd.openxmlformats-officedocument.spreadsheetml.worksheet+xml"/>',
-        '<Override PartName="/xl/styles.xml" ContentType="application/vnd.openxmlformats-officedocument.spreadsheetml.styles+xml"/>',
-        "</Types>",
-      ].join(""),
+      content: renderContentTypesXml(sheets),
     },
     {
       name: "_rels/.rels",
@@ -324,72 +347,290 @@ function buildXlsxBuffer(rows) {
     },
     {
       name: "xl/workbook.xml",
-      content: [
-        '<?xml version="1.0" encoding="UTF-8" standalone="yes"?>',
-        '<workbook xmlns="http://schemas.openxmlformats.org/spreadsheetml/2006/main" xmlns:r="http://schemas.openxmlformats.org/officeDocument/2006/relationships">',
-        "<sheets>",
-        '<sheet name="메일_이력" sheetId="1" r:id="rId1"/>',
-        "</sheets>",
-        "</workbook>",
-      ].join(""),
+      content: renderWorkbookXml(sheets),
     },
     {
       name: "xl/_rels/workbook.xml.rels",
-      content: [
-        '<?xml version="1.0" encoding="UTF-8" standalone="yes"?>',
-        '<Relationships xmlns="http://schemas.openxmlformats.org/package/2006/relationships">',
-        '<Relationship Id="rId1" Type="http://schemas.openxmlformats.org/officeDocument/2006/relationships/worksheet" Target="worksheets/sheet1.xml"/>',
-        '<Relationship Id="rId2" Type="http://schemas.openxmlformats.org/officeDocument/2006/relationships/styles" Target="styles.xml"/>',
-        "</Relationships>",
-      ].join(""),
+      content: renderWorkbookRelsXml(sheets),
     },
     {
       name: "xl/styles.xml",
-      content: [
-        '<?xml version="1.0" encoding="UTF-8" standalone="yes"?>',
-        '<styleSheet xmlns="http://schemas.openxmlformats.org/spreadsheetml/2006/main">',
-        "<fonts count=\"1\"><font><sz val=\"11\"/><name val=\"Calibri\"/></font></fonts>",
-        "<fills count=\"1\"><fill><patternFill patternType=\"none\"/></fill></fills>",
-        "<borders count=\"1\"><border/></borders>",
-        "<cellStyleXfs count=\"1\"><xf numFmtId=\"0\" fontId=\"0\" fillId=\"0\" borderId=\"0\"/></cellStyleXfs>",
-        "<cellXfs count=\"1\"><xf numFmtId=\"0\" fontId=\"0\" fillId=\"0\" borderId=\"0\" xfId=\"0\"/></cellXfs>",
-        "</styleSheet>",
-      ].join(""),
+      content: renderStylesXml(),
     },
-    {
-      name: "xl/worksheets/sheet1.xml",
-      content: renderWorksheetXml(rows),
-    },
+    ...sheets.map((sheet, index) => ({
+      name: `xl/worksheets/sheet${index + 1}.xml`,
+      content: renderWorksheetXml(sheet, index),
+    })),
   ];
 
   return buildZip(files);
 }
 
-function renderWorksheetXml(rows) {
-  const allRows = [
-    Object.fromEntries(CSV_HEADERS.map((header) => [header, header])),
-    ...rows,
+function buildXlsxSheets(rows) {
+  const normalizedRows = rows.map(normalizeCsvRow);
+  const humanRows = normalizedRows.map(buildHumanXlsxRow);
+  return [
+    { name: "메일_이력", columns: HUMAN_XLSX_COLUMNS, rows: humanRows },
+    {
+      name: "수신",
+      columns: HUMAN_XLSX_COLUMNS,
+      rows: humanRows.filter((row) => row.direction === "수신"),
+    },
+    {
+      name: "발신",
+      columns: HUMAN_XLSX_COLUMNS,
+      rows: humanRows.filter((row) => row.direction === "발신"),
+    },
+    {
+      name: "검토필요",
+      columns: HUMAN_XLSX_COLUMNS,
+      rows: humanRows.filter((row) => row.needs_review),
+    },
+    {
+      name: "기술정보",
+      columns: TECHNICAL_XLSX_COLUMNS,
+      rows: normalizedRows,
+      hidden: true,
+    },
   ];
+}
+
+function buildHumanXlsxRow(row) {
+  const direction = deriveMailDirection(row);
+  const rawStatus = row["작업상태"];
+  const eventType = row["이벤트유형"];
+  const needsReview = rowNeedsReview({ eventType, status: rawStatus, direction });
+  return {
+    event_at: toExcelDateSerial(row["메일수신시각"] || row["발생시각"]),
+    direction,
+    subject: row["제목"],
+    counterpart: row["발신자"],
+    event_type: eventType,
+    attachment_count: row["첨부수"],
+    status: rawStatus || (needsReview ? "검토필요" : ""),
+    source_ref: row["메일소스ID"],
+    project_code: row["프로젝트코드"],
+    stage: row["단계"],
+    candidate_id: row["후보ID"],
+    monster_id: row["몬스터ID"],
+    thread_ref: row["스레드"],
+    mailbox: row["메일함"],
+    raw_copied: row["원문복사여부"],
+    needs_review: needsReview,
+  };
+}
+
+function deriveMailDirection(row) {
+  const eventType = row["이벤트유형"].toLowerCase();
+  if (/(sent|send|outbound|smtp|발신|송신)/u.test(eventType)) {
+    return "발신";
+  }
+  if (/(received|inbound|incoming|intake|filing|monster|candidate|수신)/u.test(eventType)) {
+    return "수신";
+  }
+  return "미분류";
+}
+
+function rowNeedsReview({ eventType, status, direction }) {
+  const normalizedStatus = nullableString(status).toLowerCase();
+  const normalizedEventType = nullableString(eventType).toLowerCase();
+  if (!normalizedStatus) {
+    return true;
+  }
+  if (/(review|pending|candidate|needs|stale|blocked|hold|unassigned|unknown|검토|대기|보류|막힘|미분류)/u.test(normalizedStatus)) {
+    return true;
+  }
+  if (
+    direction === "수신"
+    && normalizedEventType === "mail_received"
+    && !/(assigned|filed|done|completed|closed|transferred|resolved|배정|완료|종료)/u.test(normalizedStatus)
+  ) {
+    return true;
+  }
+  return false;
+}
+
+function renderContentTypesXml(sheets) {
+  return [
+    '<?xml version="1.0" encoding="UTF-8" standalone="yes"?>',
+    '<Types xmlns="http://schemas.openxmlformats.org/package/2006/content-types">',
+    '<Default Extension="rels" ContentType="application/vnd.openxmlformats-package.relationships+xml"/>',
+    '<Default Extension="xml" ContentType="application/xml"/>',
+    '<Override PartName="/xl/workbook.xml" ContentType="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet.main+xml"/>',
+    ...sheets.map((_, index) => (
+      `<Override PartName="/xl/worksheets/sheet${index + 1}.xml" ContentType="application/vnd.openxmlformats-officedocument.spreadsheetml.worksheet+xml"/>`
+    )),
+    '<Override PartName="/xl/styles.xml" ContentType="application/vnd.openxmlformats-officedocument.spreadsheetml.styles+xml"/>',
+    "</Types>",
+  ].join("");
+}
+
+function renderWorkbookXml(sheets) {
+  const sheetEntries = sheets
+    .map((sheet, index) => {
+      const hidden = sheet.hidden ? ' state="hidden"' : "";
+      return `<sheet name="${xmlEscape(sheet.name)}" sheetId="${index + 1}"${hidden} r:id="rId${index + 1}"/>`;
+    })
+    .join("");
+  return [
+    '<?xml version="1.0" encoding="UTF-8" standalone="yes"?>',
+    '<workbook xmlns="http://schemas.openxmlformats.org/spreadsheetml/2006/main" xmlns:r="http://schemas.openxmlformats.org/officeDocument/2006/relationships">',
+    '<bookViews><workbookView activeTab="0"/></bookViews>',
+    "<sheets>",
+    sheetEntries,
+    "</sheets>",
+    "</workbook>",
+  ].join("");
+}
+
+function renderWorkbookRelsXml(sheets) {
+  const sheetRels = sheets
+    .map((_, index) => (
+      `<Relationship Id="rId${index + 1}" Type="http://schemas.openxmlformats.org/officeDocument/2006/relationships/worksheet" Target="worksheets/sheet${index + 1}.xml"/>`
+    ))
+    .join("");
+  return [
+    '<?xml version="1.0" encoding="UTF-8" standalone="yes"?>',
+    '<Relationships xmlns="http://schemas.openxmlformats.org/package/2006/relationships">',
+    sheetRels,
+    `<Relationship Id="rId${sheets.length + 1}" Type="http://schemas.openxmlformats.org/officeDocument/2006/relationships/styles" Target="styles.xml"/>`,
+    "</Relationships>",
+  ].join("");
+}
+
+function renderStylesXml() {
+  return [
+    '<?xml version="1.0" encoding="UTF-8" standalone="yes"?>',
+    '<styleSheet xmlns="http://schemas.openxmlformats.org/spreadsheetml/2006/main">',
+    '<numFmts count="1"><numFmt numFmtId="164" formatCode="yyyy-mm-dd hh:mm"/></numFmts>',
+    '<fonts count="3">',
+    '<font><sz val="11"/><name val="Calibri"/></font>',
+    '<font><b/><sz val="11"/><color rgb="FFFFFFFF"/><name val="Calibri"/></font>',
+    '<font><sz val="10"/><color rgb="FF666666"/><name val="Calibri"/></font>',
+    '</fonts>',
+    '<fills count="3">',
+    '<fill><patternFill patternType="none"/></fill>',
+    '<fill><patternFill patternType="gray125"/></fill>',
+    '<fill><patternFill patternType="solid"><fgColor rgb="FF1F4E79"/><bgColor indexed="64"/></patternFill></fill>',
+    '</fills>',
+    '<borders count="2">',
+    '<border/>',
+    '<border><left style="thin"><color rgb="FFD9E2EC"/></left><right style="thin"><color rgb="FFD9E2EC"/></right><top style="thin"><color rgb="FFD9E2EC"/></top><bottom style="thin"><color rgb="FFD9E2EC"/></bottom></border>',
+    '</borders>',
+    '<cellStyleXfs count="1"><xf numFmtId="0" fontId="0" fillId="0" borderId="0"/></cellStyleXfs>',
+    '<cellXfs count="6">',
+    '<xf numFmtId="0" fontId="0" fillId="0" borderId="0" xfId="0"/>',
+    '<xf numFmtId="0" fontId="1" fillId="2" borderId="1" xfId="0" applyFont="1" applyFill="1" applyBorder="1" applyAlignment="1"><alignment horizontal="center" vertical="center" wrapText="1"/></xf>',
+    '<xf numFmtId="0" fontId="0" fillId="0" borderId="1" xfId="0" applyBorder="1" applyAlignment="1"><alignment vertical="top" wrapText="1"/></xf>',
+    '<xf numFmtId="164" fontId="0" fillId="0" borderId="1" xfId="0" applyNumberFormat="1" applyBorder="1" applyAlignment="1"><alignment vertical="top"/></xf>',
+    '<xf numFmtId="1" fontId="0" fillId="0" borderId="1" xfId="0" applyNumberFormat="1" applyBorder="1" applyAlignment="1"><alignment horizontal="center" vertical="top"/></xf>',
+    '<xf numFmtId="0" fontId="2" fillId="0" borderId="1" xfId="0" applyFont="1" applyBorder="1" applyAlignment="1"><alignment vertical="top" wrapText="1"/></xf>',
+    '</cellXfs>',
+    '<cellStyles count="1"><cellStyle name="Normal" xfId="0" builtinId="0"/></cellStyles>',
+    "</styleSheet>",
+  ].join("");
+}
+
+function renderWorksheetXml(sheet, sheetIndex) {
+  const columns = sheet.columns;
+  const allRows = [
+    Object.fromEntries(columns.map((column) => [column.key, column.header])),
+    ...sheet.rows,
+  ];
+  const lastColumn = columnName(columns.length);
+  const lastRow = Math.max(1, allRows.length);
   const sheetRows = allRows
     .map((row, rowIndex) => {
       const rowNumber = rowIndex + 1;
-      const cells = CSV_HEADERS.map((header, columnIndex) => {
+      const height = rowIndex === 0 ? 24 : 38;
+      const cells = columns.map((column, columnIndex) => {
         const cellRef = `${columnName(columnIndex + 1)}${rowNumber}`;
-        const value = xmlEscape(row[header]);
-        return `<c r="${cellRef}" t="inlineStr"><is><t>${value}</t></is></c>`;
+        if (rowIndex === 0) {
+          return renderInlineStringCell(cellRef, column.header, XLSX_STYLE_IDS.header);
+        }
+        return renderWorksheetCell(cellRef, row[column.key], column);
       }).join("");
-      return `<row r="${rowNumber}">${cells}</row>`;
+      return `<row r="${rowNumber}" ht="${height}" customHeight="1">${cells}</row>`;
     })
     .join("");
+  const columnXml = columns
+    .map((column, index) => {
+      const columnNumber = index + 1;
+      return `<col min="${columnNumber}" max="${columnNumber}" width="${column.width}" customWidth="1"/>`;
+    })
+    .join("");
+  const selected = sheetIndex === 0 ? ' tabSelected="1"' : "";
+  const filterRef = `A1:${lastColumn}${lastRow}`;
 
   return [
     '<?xml version="1.0" encoding="UTF-8" standalone="yes"?>',
     '<worksheet xmlns="http://schemas.openxmlformats.org/spreadsheetml/2006/main">',
+    `<dimension ref="${filterRef}"/>`,
+    `<sheetViews><sheetView workbookViewId="0"${selected}><pane ySplit="1" topLeftCell="A2" activePane="bottomLeft" state="frozen"/><selection pane="bottomLeft" activeCell="A2" sqref="A2"/></sheetView></sheetViews>`,
+    '<sheetFormatPr defaultRowHeight="18"/>',
+    `<cols>${columnXml}</cols>`,
     "<sheetData>",
     sheetRows,
     "</sheetData>",
+    `<autoFilter ref="${filterRef}"/>`,
     "</worksheet>",
   ].join("");
+}
+
+function renderWorksheetCell(cellRef, value, column) {
+  if (column.type === "date") {
+    return renderNumberCell(cellRef, value, XLSX_STYLE_IDS.dateTime);
+  }
+  if (column.type === "integer") {
+    return renderNumberCell(cellRef, Number(value), XLSX_STYLE_IDS.integer);
+  }
+  return renderInlineStringCell(cellRef, value, column.style ?? XLSX_STYLE_IDS.default);
+}
+
+function renderNumberCell(cellRef, value, styleId) {
+  if (value === null || value === undefined || value === "" || !Number.isFinite(Number(value))) {
+    return `<c r="${cellRef}" s="${styleId}"/>`;
+  }
+  return `<c r="${cellRef}" s="${styleId}"><v>${Number(value)}</v></c>`;
+}
+
+function renderInlineStringCell(cellRef, value, styleId) {
+  const style = styleId ? ` s="${styleId}"` : "";
+  const text = nullableString(value);
+  if (!text) {
+    return `<c r="${cellRef}"${style}/>`;
+  }
+  const preserve = /^\s|\s$/u.test(text) ? ' xml:space="preserve"' : "";
+  return `<c r="${cellRef}"${style} t="inlineStr"><is><t${preserve}>${xmlEscape(text)}</t></is></c>`;
+}
+
+function toExcelDateSerial(value) {
+  const raw = nullableString(value).trim();
+  if (!raw) {
+    return null;
+  }
+  const date = new Date(raw);
+  if (Number.isNaN(date.getTime())) {
+    return null;
+  }
+  const excelEpoch = Date.UTC(1899, 11, 30);
+  return Number(((date.getTime() - excelEpoch) / 86_400_000).toFixed(10));
+}
+
+function technicalColumnWidth(header) {
+  if (header.includes("참조")) {
+    return 42;
+  }
+  if (header.includes("제목")) {
+    return 48;
+  }
+  if (header.includes("시각")) {
+    return 22;
+  }
+  if (header.includes("ID") || header.includes("키") || header.includes("버전")) {
+    return 28;
+  }
+  return Math.max(10, Math.min(24, Array.from(header).length * 2 + 4));
 }
 
 function buildZip(files) {

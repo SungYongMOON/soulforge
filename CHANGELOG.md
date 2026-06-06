@@ -2,6 +2,17 @@
 
 ## 2026-06-06
 
+### Revision `working` - Project mail history XLSX readability implemented
+
+- Reformatted the JavaScript project mail-history XLSX export into
+  human-readable ledger sheets for all mail, received mail, sent mail, and
+  review-needed rows.
+- Added frozen/filterable headers, readable widths, wrapped subject/status/source
+  text, date and attachment-count formatting, and a hidden technical metadata
+  sheet while keeping CSV and ICS behavior unchanged.
+- Added XLSX smoke coverage proving the export avoids raw mail bodies,
+  attachments, raw paths, and secrets.
+
 ### Revision `working` - Shared glossary added
 
 - Added a public-safe Korean-facing shared glossary for Soulforge development
