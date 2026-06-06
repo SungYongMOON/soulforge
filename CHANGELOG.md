@@ -2,6 +2,17 @@
 
 ## 2026-06-06
 
+### Revision `working` - Shared glossary added
+
+- Added a public-safe Korean-facing shared glossary for Soulforge development
+  terms including candidate, approval, execution queue, RAG, canon,
+  sourcebound review, claim ceiling, workflow, party, mission, and dev-worker
+  queue.
+- Linked the glossary from the foundation index and root README as a vocabulary
+  bridge, not a new backlog owner or source-truth surface.
+- Kept private project payloads, raw source content, mail bodies, attachments,
+  and secrets out of the glossary.
+
 ### Revision `working` - Mail quoted-chain project routing evidence added
 
 - Extended mail project routing suggestions so private-deep body/html matches

@@ -47,6 +47,7 @@ flowchart TD
 - [`docs/architecture/foundation/TARGET_TREE.md`](docs/architecture/foundation/TARGET_TREE.md): 새 canonical target tree
 - [`docs/architecture/foundation/DOCUMENT_OWNERSHIP.md`](docs/architecture/foundation/DOCUMENT_OWNERSHIP.md): 새 owner 기준 문서 소유 원칙
 - [`docs/architecture/foundation/AGENT_EXECUTION_CONTRACT_V0.md`](docs/architecture/foundation/AGENT_EXECUTION_CONTRACT_V0.md): AI agent 의 가정 노출, 최소 변경, scoped edit, 검증 기준, post-development review gate 계약
+- [`docs/architecture/foundation/SHARED_GLOSSARY_V0.md`](docs/architecture/foundation/SHARED_GLOSSARY_V0.md): owner 와 agent 가 공유하는 개발, 검증, 정본, RAG 용어집
 - [`docs/architecture/foundation/POST_DEVELOPMENT_REVIEW_PACKET_TEMPLATE_V0.yaml`](docs/architecture/foundation/POST_DEVELOPMENT_REVIEW_PACKET_TEMPLATE_V0.yaml): post-development review gate 결과 packet shape
 - [`docs/architecture/foundation/ONTOLOGY_MODEL_V0.md`](docs/architecture/foundation/ONTOLOGY_MODEL_V0.md): Soulforge 개체/관계 모델과 ontology-style 저장 위치 규칙
 - [`docs/architecture/foundation/ONTOLOGY_REVIEW_MANUAL_V0.md`](docs/architecture/foundation/ONTOLOGY_REVIEW_MANUAL_V0.md): ontology review 트리거, carry-forward, guild_master 상기 규칙
