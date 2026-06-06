@@ -2,6 +2,17 @@
 
 ## 2026-06-06
 
+### Revision `working` - Gateway helper package-clean caveat resolved
+
+- Verified `guild_hall/gateway/mail_candidate_backlog.mjs` and
+  `guild_hall/gateway/deadline_watchdog_reminder.mjs` are tracked package refs.
+- Changed gateway CLI package coverage from the previous skip diagnostic to a
+  hard tracking assertion, so gateway index validation no longer carries the
+  package-clean caveat skip.
+- Updated the mail work status and deadline watch contracts to mark the helper
+  tracking gate closed while keeping raw mail, attachment payload, `_workspaces`
+  payload, and secret reads out of scope.
+
 ### Revision `working` - Project mail history XLSX readability implemented
 
 - Reformatted the JavaScript project mail-history XLSX export into
@@ -587,11 +598,10 @@
 - Added regression coverage for unapproved, approval-only, and promotable
   candidate detail output without changing candidate promotion behavior.
 
-### Revision `working` - Gateway helper packaging caveat guard recorded
+### Revision `working` - Gateway helper packaging tracking guard recorded
 
-- Added a gateway CLI packaging diagnostic that records untracked helper
-  caveats without failing local validation while the helper files remain
-  untracked.
+- Added the initial gateway CLI packaging diagnostic for backlog and deadline
+  watchdog helper package tracking before package inclusion was closed.
 - Documented that package-clean claims require the backlog and deadline
   watchdog helper modules to be tracked with their CLI consumers.
 

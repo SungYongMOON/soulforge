@@ -119,8 +119,10 @@ It does not write to the `town_crier` pending queue and does not send Telegram.
 The default output is stdout. `--write-preview` writes only a metadata preview
 under `_workmeta/system/reports/assistant_operating_roadmap/`.
 
-package-clean 주장은 `guild_hall/gateway/deadline_watchdog_reminder.mjs` 가
-`guild_hall/gateway/cli.mjs` 와 함께 tracked package 에 포함될 때만 가능하다.
+Package-clean tracking gate is closed for this helper:
+`guild_hall/gateway/deadline_watchdog_reminder.mjs` is tracked with
+`guild_hall/gateway/cli.mjs`, and future package-clean claims must keep those
+refs tracked.
 
 Suppression rules:
 

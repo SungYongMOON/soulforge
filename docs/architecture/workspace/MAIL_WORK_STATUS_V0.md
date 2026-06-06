@@ -37,7 +37,10 @@ mail rumor -> candidate note -> gateway monster -> project monster
   - CLI stdout 기본값은 full report 가 아니라 bounded display 이며 기본 `display_limit` 은 10 이다.
   - `--limit <n>` 은 stdout display 에만 적용되고, `--output-file` 로 쓰는 latest report 는 full `pending_candidates` / `invalid_candidates` 배열을 유지한다.
   - `--summary-only` 는 stdout 의 candidate row 배열을 비우고 omitted count 를 표시하며, `--full` 은 stdout 에도 full 배열을 출력한다.
-  - package-clean 주장은 `guild_hall/gateway/mail_candidate_backlog.mjs` 가 `guild_hall/gateway/cli.mjs` 및 healer consumer 와 함께 tracked package 에 포함될 때만 가능하다.
+  - package-clean tracking gate is closed for this helper:
+    `guild_hall/gateway/mail_candidate_backlog.mjs` is tracked with
+    `guild_hall/gateway/cli.mjs` and healer consumers, and future
+    package-clean claims must keep those refs tracked.
 - `guild_hall/state/gateway/intake_inbox/*/inbox.json`
 - `guild_hall/state/gateway/intake_inbox/*/monsters.json`
 - `_workmeta/<project_code>/monsters/*.yaml`

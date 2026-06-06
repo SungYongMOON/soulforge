@@ -16,26 +16,21 @@ const GATEWAY_HELPER_PACKAGE_REFS = [
   "guild_hall/gateway/deadline_watchdog_reminder.mjs",
 ];
 
-test("gateway helper modules are tracked with CLI packaging surface", (t) => {
-  const result = spawnSync("git", ["ls-files", "--", ...GATEWAY_HELPER_PACKAGE_REFS], {
+test("gateway helper modules are tracked with CLI packaging surface", () => {
+  const result = spawnSync("git", ["ls-files", "--error-unmatch", "--", ...GATEWAY_HELPER_PACKAGE_REFS], {
     cwd: commandRepoRoot,
     encoding: "utf8",
   });
 
-  if (result.status !== 0) {
-    t.skip("git metadata unavailable; package-clean helper tracking must be checked in a worktree");
-    return;
-  }
+  assert.equal(
+    result.status,
+    0,
+    `gateway helper package refs must be tracked: ${[result.stdout, result.stderr].join("").trim()}`,
+  );
 
   const tracked = new Set(result.stdout.split(/\r?\n/u).filter(Boolean));
   const missing = GATEWAY_HELPER_PACKAGE_REFS.filter((ref) => !tracked.has(ref));
-  if (missing.length > 0) {
-    t.diagnostic(`package-clean caveat: untracked gateway helper(s): ${missing.join(", ")}`);
-    t.skip(`commit/package task must include gateway helper(s): ${missing.join(", ")}`);
-    return;
-  }
-
-  assert.deepEqual(missing, []);
+  assert.deepEqual(missing, [], `gateway helper package refs must stay tracked: ${missing.join(", ")}`);
 });
 
 test("intake CLI writes synthetic state under explicit local root without copied command surface", async () => {
