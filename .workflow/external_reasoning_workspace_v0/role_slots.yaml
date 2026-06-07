@@ -1,0 +1,25 @@
+workflow_id: external_reasoning_workspace_v0
+kind: role_slots
+status: draft
+slots:
+  - slot_id: advisory_controller
+    title: Advisory Controller
+    summary: Binds the task goal, side-effect authorization, boundary policy, success criteria, stop conditions, and claim ceiling.
+  - slot_id: browser_operator
+    title: Browser Operator
+    summary: Uses visible Chrome and ChatGPT UI state only, submits sanitized prompts, selects visible authorized mode labels, and stops on unapproved side effects.
+  - slot_id: session_curator
+    title: Session Curator
+    summary: Reuses authorized same-goal conversations or creates fresh bounded chats while keeping conversation handles as private pointer refs.
+  - slot_id: prompt_packet_author
+    title: Prompt Packet Author
+    summary: Builds sanitized bounded prompt packets with marker or nonce, allowed refs, side-effect limits, and explicit forbidden content.
+  - slot_id: dom_readback_reviewer
+    title: DOM Readback Reviewer
+    summary: Reads assistant output through DOM message-role evidence and verifies marker, role, completion, and expected answer shape.
+  - slot_id: continuation_controller
+    title: Continuation Controller
+    summary: Decides whether to continue the same conversation, restart, stop, or hand off based on goal match, safety, and turn limit.
+  - slot_id: advisory_archivist
+    title: Advisory Archivist
+    summary: Packages advisory output, unresolved gaps, claim limits, and metadata pointer refs for the caller workflow without copying raw transcripts.

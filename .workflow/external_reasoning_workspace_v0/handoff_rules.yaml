@@ -1,0 +1,52 @@
+workflow_id: external_reasoning_workspace_v0
+kind: handoff_rules
+status: draft
+rules:
+  - from: advisory_controller
+    to: browser_operator
+    condition: goal_authorization_and_boundary_bound
+    summary: Pass only the bounded goal, allowed side effects, stop conditions, and boundary policy needed for visible Chrome and ChatGPT preflight.
+  - from: browser_operator
+    to: session_curator
+    condition: chatgpt_preflight_passed_without_secret_inspection
+    summary: Pass visible preflight status and any authorized private pointer ref; do not pass cookies, tokens, local storage, credential values, or account ids.
+  - from: session_curator
+    to: browser_operator
+    condition: session_resolved
+    summary: Pass a session state and private pointer ref shape, not a raw public conversation URL or account-bound id.
+  - from: browser_operator
+    to: prompt_packet_author
+    condition: visible_authorized_mode_label_selected
+    summary: Pass the observed visible label as runtime metadata only; do not hard-code it as a stable model name or workflow capability claim.
+  - from: prompt_packet_author
+    to: browser_operator
+    condition: bounded_prompt_packet_ready
+    summary: Pass only sanitized context, approved refs, side-effect limits, output shape, and marker or nonce for submission.
+  - from: browser_operator
+    to: dom_readback_reviewer
+    condition: prompt_submitted_and_response_visible
+    summary: Pass prompt submission metadata and response location evidence; primary readback must use DOM message-role evidence, not generic UI text.
+  - from: dom_readback_reviewer
+    to: continuation_controller
+    condition: assistant_response_readback_checked
+    summary: Pass advisory response, marker verification, completion state, shape gaps, and safety findings for continuation decision.
+  - from: continuation_controller
+    to: prompt_packet_author
+    condition: safe_same_goal_followup_needed_and_turn_limit_open
+    summary: Build the next sanitized follow-up packet from the current advisory gap without copying raw transcript text into public canon.
+  - from: continuation_controller
+    to: advisory_archivist
+    condition: acceptance_met_or_turn_limit_or_gap_handoff
+    summary: Prepare caller handoff with advisory conclusions, gaps, claim ceiling, and metadata/private pointer refs only.
+  - from: advisory_archivist
+    to: caller_workflow
+    condition: advisory_handoff_packet_ready
+    summary: Return advisory output as context for the caller workflow; the caller must not treat it as source truth, verifier evidence, owner approval, or default-route authority.
+  - from: advisory_archivist
+    to: knowledge_access_event_capture_v0
+    condition: metadata_only_advisory_use_event_should_be_recorded
+    summary: Optional downstream recording may capture metadata-only usage of the advisory lane without copying ChatGPT answer text or private session handles into public canon.
+  - from: advisory_archivist
+    to: owner_decision_packet_v0
+    condition: share_upload_project_permission_payment_destructive_or_authority_decision_needed
+    summary: Escalate action-time approval needs to owner-decision handling instead of performing the side effect inside this workflow.

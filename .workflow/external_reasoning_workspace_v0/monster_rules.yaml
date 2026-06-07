@@ -1,0 +1,40 @@
+workflow_id: external_reasoning_workspace_v0
+kind: monster_rules
+status: draft
+rules:
+  - monster_id: hardcoded_chatgpt_model_name
+    response: use_visible_user_authorized_runtime_label_or_stop
+    summary: ChatGPT product and model labels can change; this workflow may only select visible labels authorized by the user in the current UI.
+  - monster_id: secret_or_session_inspection_attempt
+    response: stop_and_record_secret_boundary_blocker
+    summary: Never read cookies, local storage, password stores, session files, tokens, `.env`, or credential JSON to make the browser session work.
+  - monster_id: raw_private_payload_in_prompt_or_public_package
+    response: sanitize_or_stop
+    summary: External prompts may receive only approved refs or sanitized summaries, and public workflow files must not store raw private payloads or raw transcripts.
+  - monster_id: generic_ui_text_readback
+    response: redo_readback_with_dom_message_role
+    summary: Assistant response evidence must come from DOM message-role readback; generic page text is insufficient as primary evidence.
+  - monster_id: missing_marker_or_nonce
+    response: request_bounded_followup_or_stop
+    summary: A response that lacks the required marker or nonce cannot support advisory handoff without a safe follow-up or explicit gap record.
+  - monster_id: chatgpt_answer_treated_as_verdict
+    response: demote_to_advisory_and_require_source_or_verifier_route
+    summary: External ChatGPT output is advisory context only, not source truth, validation verdict, owner approval, or canon authority.
+  - monster_id: account_bound_url_published
+    response: replace_with_private_pointer_ref
+    summary: Raw conversation URLs, project URLs, account ids, and conversation ids belong only in owner-approved private metadata surfaces.
+  - monster_id: unapproved_share_upload_project_or_permission_change
+    response: stop_and_route_owner_decision
+    summary: Share links, uploads, project creation, invites, permissions, payment, account settings, and destructive cleanup require explicit action-time approval.
+  - monster_id: stale_or_cross_goal_session_reuse
+    response: create_fresh_bounded_conversation_or_stop
+    summary: Reuse an existing ChatGPT conversation only when the task goal still matches and contamination risk is low.
+  - monster_id: concurrent_tab_control
+    response: stop_until_single_controller_claims_tab
+    summary: Multiple agents must not control the same Chrome ChatGPT tab at the same time.
+  - monster_id: login_recovery_or_captcha
+    response: stop_for_owner_intervention
+    summary: Login recovery, CAPTCHA, or credential prompts are owner-handled blockers, not agent tasks.
+  - monster_id: default_route_safety_overclaim
+    response: keep_output_state_draft_without_registration_or_default_route_claim
+    summary: This draft package does not register a route, switch defaults, or prove default-route safety.

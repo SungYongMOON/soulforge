@@ -1,0 +1,253 @@
+workflow_id: external_reasoning_workspace_v0
+kind: step_graph
+status: draft
+steps:
+  - step_id: bind_goal_and_authorization
+    title: Bind Goal And Authorization
+    actor_slot: advisory_controller
+    action:
+      kind: external_advisory_goal_scope_binding
+      requires:
+        - external_reasoning_request
+        - soulforge_task_goal
+        - side_effect_authorization
+        - public_private_boundary_policy
+      validates:
+        - task_goal_is_bounded
+        - success_condition_named
+        - stop_conditions_named
+        - allowed_side_effects_named
+        - public_private_boundary_named
+      artifact_out: goal_and_authorization_binding
+    summary: Bind the Soulforge task goal, advisory question, allowed inputs, side-effect authorization, stop conditions, and claim ceiling before browser interaction begins.
+    next:
+      on_success: run_chrome_chatgpt_preflight
+      on_fail: stop
+  - step_id: run_chrome_chatgpt_preflight
+    title: Run Chrome ChatGPT Preflight
+    actor_slot: browser_operator
+    action:
+      kind: chrome_chatgpt_preflight_no_secret_inspection
+      artifacts_in:
+        - goal_and_authorization_binding
+      artifact_out: chatgpt_preflight_report
+      visible_checks_only:
+        - browser_available
+        - chatgpt_page_available_or_openable
+        - logged_in_state_observable_without_secret_read
+        - no_login_recovery_or_captcha
+        - no_payment_security_or_permission_prompt
+      forbidden_checks:
+        - cookie_read
+        - local_storage_read
+        - password_store_read
+        - token_read
+        - credential_file_read
+        - session_file_read
+      blocked_if:
+        - login_recovery_required
+        - captcha_present
+        - secret_or_credential_needed
+        - browser_tab_already_controlled_by_another_agent
+    summary: Observe only visible browser state to confirm the ChatGPT session can be used; do not inspect secrets, browser storage, credentials, or account internals.
+    next:
+      on_success: resolve_external_session
+      on_fail: stop
+  - step_id: resolve_external_session
+    title: Resolve External Session
+    actor_slot: session_curator
+    action:
+      kind: same_goal_chatgpt_session_resolution
+      artifacts_in:
+        - goal_and_authorization_binding
+        - chatgpt_preflight_report
+      optional_artifacts_in:
+        - prior_external_session_pointer_ref
+        - owner_decision_refs
+      artifact_out: external_session_pointer_metadata
+      reuse_rules:
+        same_goal_required: true
+        authorized_pointer_required: true
+        contamination_risk_must_be_low: true
+      create_new_rules:
+        allowed_only_when_scoped_by_user: true
+        fresh_bounded_packet_required: true
+        project_creation_requires_explicit_action_time_approval: true
+      public_recording:
+        raw_url_forbidden: true
+        pointer_ref_only: true
+    summary: Reuse an authorized same-goal ChatGPT conversation when safe, or create a fresh bounded conversation without storing raw account-bound handles in public canon.
+    next:
+      on_success: select_visible_mode_label
+      on_fail: stop
+  - step_id: select_visible_mode_label
+    title: Select Visible Mode Label
+    actor_slot: browser_operator
+    action:
+      kind: visible_user_authorized_mode_selection
+      artifacts_in:
+        - goal_and_authorization_binding
+        - external_session_pointer_metadata
+      artifact_out: mode_selection_note
+      rules:
+        select_only_visible_label: true
+        pro_or_thinking_like_label_allowed_when_visible_and_user_authorized: true
+        hard_coded_model_name_forbidden: true
+        hidden_endpoint_probe_forbidden: true
+      blocked_if:
+        - required_visible_label_unavailable
+        - selection_would_change_subscription_payment_or_account_setting
+        - label_requires_unapproved_permission_change
+    summary: Select only a visible user-authorized Pro / Thinking-like mode label; never hard-code unstable model names or probe hidden runtime internals.
+    next:
+      on_success: assemble_bounded_prompt_packet
+      on_fail: stop
+  - step_id: assemble_bounded_prompt_packet
+    title: Assemble Bounded Prompt Packet
+    actor_slot: prompt_packet_author
+    action:
+      kind: sanitized_external_advisory_prompt_packet
+      artifacts_in:
+        - goal_and_authorization_binding
+        - mode_selection_note
+      optional_artifacts_in:
+        - approved_public_context_refs
+        - sanitized_private_context_summary
+      artifact_out: bounded_prompt_packet
+      required_fields:
+        - task_goal
+        - advisory_question
+        - allowed_context_refs
+        - sanitized_context_summary
+        - side_effect_limits
+        - forbidden_content
+        - expected_answer_shape
+        - marker_or_nonce
+        - claim_ceiling
+      forbidden_content:
+        - raw_private_payload
+        - raw_transcript
+        - secret_value
+        - cookie_or_session_material
+        - credential_body
+        - host_local_absolute_path
+    summary: Build a prompt packet that gives the external workspace only bounded public-safe refs or sanitized summaries, plus an explicit marker or nonce for readback verification.
+    next:
+      on_success: send_prompt_and_wait
+      on_fail: stop
+  - step_id: send_prompt_and_wait
+    title: Send Prompt And Wait
+    actor_slot: browser_operator
+    action:
+      kind: chatgpt_prompt_submission
+      artifacts_in:
+        - external_session_pointer_metadata
+        - bounded_prompt_packet
+      artifact_out: prompt_submission_note
+      allowed_actions:
+        - paste_or_type_sanitized_prompt
+        - submit_prompt
+        - wait_for_visible_response_completion
+      forbidden_actions:
+        - file_upload
+        - share_link_creation
+        - permission_change
+        - payment_or_subscription_change
+        - destructive_cleanup
+    summary: Submit only the sanitized bounded prompt and wait for the visible assistant response to complete, stopping on any unapproved side effect.
+    next:
+      on_success: readback_assistant_response
+      on_fail: stop
+  - step_id: readback_assistant_response
+    title: Read Back Assistant Response
+    actor_slot: dom_readback_reviewer
+    action:
+      kind: dom_message_role_assistant_readback
+      artifacts_in:
+        - bounded_prompt_packet
+        - prompt_submission_note
+      artifacts_out:
+        - dom_readback_packet
+        - advisory_response_packet
+      readback_method: dom_message_role
+      required_checks:
+        - assistant_role_detected
+        - marker_or_nonce_present
+        - response_completion_observed
+        - expected_answer_shape_present_or_gap_recorded
+        - no_secret_or_raw_private_payload_requested
+      generic_ui_text_allowed_as_primary_evidence: false
+    summary: Read the assistant response through DOM message-role evidence and verify the marker, role, completion, and answer shape before any advisory output is trusted.
+    next:
+      on_success: decide_continue_or_handoff
+      on_fail: stop
+  - step_id: decide_continue_or_handoff
+    title: Decide Continue Or Handoff
+    actor_slot: continuation_controller
+    action:
+      kind: bounded_multi_turn_advisory_loop_decision
+      artifacts_in:
+        - goal_and_authorization_binding
+        - advisory_response_packet
+        - dom_readback_packet
+      optional_artifacts_in:
+        - max_turn_override
+      artifact_out: continuation_decision
+      default_max_turns: 3
+      continue_when:
+        - marker_verified
+        - same_goal_context_continuity_matters
+        - missing_piece_is_bounded_and_safe
+        - turn_limit_not_reached
+      handoff_when:
+        - acceptance_condition_met
+        - turn_limit_reached
+        - advisory_gap_should_be_reported
+      restart_or_stop_when:
+        - goal_changed
+        - contamination_risk_high
+        - session_inaccessible
+        - unapproved_side_effect_needed
+        - secret_or_raw_private_payload_needed
+    summary: Continue in the same conversation only while the same bounded goal remains active and the default turn limit has not been reached; otherwise prepare the advisory handoff or stop.
+    next:
+      on_continue: assemble_bounded_prompt_packet
+      on_handoff: assemble_advisory_handoff
+      on_fail: stop
+  - step_id: assemble_advisory_handoff
+    title: Assemble Advisory Handoff
+    actor_slot: advisory_archivist
+    action:
+      kind: external_advisory_handoff_packet
+      artifacts_in:
+        - goal_and_authorization_binding
+        - advisory_response_packet
+        - continuation_decision
+      artifacts_out:
+        - caller_handoff_packet
+        - boundary_review_note
+      output_rules:
+        advisory_only: true
+        cite_external_response_as_advisory_not_source_truth: true
+        preserve_unresolved_gaps: true
+        record_private_pointer_refs_only: true
+        public_raw_url_forbidden: true
+        raw_transcript_forbidden: true
+        secret_forbidden: true
+    summary: Convert the external answer into an advisory packet for the caller workflow, retaining gaps and claim limits while recording only metadata/private pointer refs.
+    next:
+      on_success: complete
+      on_fail: stop
+stop_conditions:
+  - conflicting_or_unbounded_goal
+  - missing_side_effect_authorization
+  - login_recovery_or_captcha_required
+  - secret_or_credential_inspection_needed
+  - raw_private_payload_required
+  - required_visible_mode_label_unavailable
+  - share_upload_project_permission_payment_or_destructive_action_without_explicit_approval
+  - concurrent_multi_agent_control_of_same_tab
+  - marker_or_nonce_missing_from_readback
+  - assistant_response_not_read_by_dom_message_role
+  - chatgpt_output_needed_as_validation_verdict_or_source_truth
+  - default_turn_limit_reached_without_acceptance

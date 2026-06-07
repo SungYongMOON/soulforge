@@ -2,6 +2,23 @@
 
 ## 2026-06-07
 
+### Revision `working` - External reasoning workspace workflow draft added
+
+- Added `.workflow/external_reasoning_workspace_v0/` as a public-safe draft
+  workflow package for a session-aware external ChatGPT advisory browser loop.
+- Captured bounded goal and side-effect authorization, Chrome/ChatGPT preflight
+  without secret inspection, same-goal conversation reuse, visible
+  user-authorized Pro / Thinking-like mode label selection, marker/nonce prompt
+  packets, DOM message-role readback, default turn limits, and advisory handoff
+  rules.
+- Kept the package unregistered: no `.workflow/index.yaml` change, no raw
+  private payloads or transcripts, no account-bound URLs or ids, no source-truth
+  or verifier-authority claim, and no default-route-safety claim.
+- Recorded bounded private pilot evidence with marker-verified assistant-role
+  DOM readback. This upgrades the package claim only to private pilot execution
+  evidence; it remains unregistered and makes no production-ready or
+  default-route-safety claim.
+
 ### Revision `working` - External reasoning workspace handoff captured
 
 - Added a public-safe external reasoning workspace candidate note for using a

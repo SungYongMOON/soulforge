@@ -1,0 +1,32 @@
+workflow_id: external_reasoning_workspace_v0
+kind: party_compatibility
+status: draft
+execution_binding:
+  party_required: false
+  candidate_party_id: null
+  bound_party_id: null
+  binding_authority: none
+compatible_party_templates:
+  - owner_plus_executor
+  - review_gate_preparation
+  - sourcebound_extraction_review
+fit_tags:
+  - external_browser_advisory
+  - session_aware_chatgpt
+  - bounded_prompt_packet
+  - dom_message_role_readback
+  - metadata_pointer_only
+  - advisory_not_authority
+required_capabilities:
+  - goal_and_side_effect_binding
+  - visible_browser_preflight
+  - secret_boundary_enforcement
+  - sanitized_prompt_authoring
+  - dom_role_readback
+  - bounded_multi_turn_control
+  - advisory_handoff_packaging
+notes:
+  - Compatibility is advisory only and does not bind a party.
+  - The workflow remains runnable only when the current controller route and user authorization support browser interaction.
+  - Real execution binding belongs in mission binding, party allowed-workflow relation, or private run evidence, not in this draft package.
+  - This package does not register a default route or claim default-route safety.
