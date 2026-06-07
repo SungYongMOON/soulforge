@@ -19,6 +19,7 @@
 | `CODEX_ACCOUNT_BRIDGE_V0.md` | Describes the account-based Codex CLI bridge for advisory analysis without storing an API key. |
 | `AUTOMATION_PARTY_OPERATING_MODEL_V0.md` | Defines the project-wide recurring automation worldview: workflow, party, cadence party, local scheduler, ledger, and report boundaries. |
 | `CODEX_APP_AUTOMATION_CATALOG_V0.md` | Tracks the human-readable Codex app automation catalog, source-of-truth split, reader tiers, and current default automation concepts. |
+| `EXTERNAL_REASONING_WORKSPACE_V0.md` | Captures the public-safe candidate operating model for using ChatGPT Pro / Thinking through Chrome as a session-aware external advisory workspace. |
 | `KNOWLEDGE_WIKI_WORLDVIEW_V0.md` / `knowledge_wiki_worldview_v0.html` | Teammate-facing overview of the Soulforge knowledge wiki worldview, current status, operating rules, and next steps. |
 | `SOULFORGE_ACTIVITY_LOG_V0.md` | cross-project recent-context 와 carry-forward event surface 를 설명한다. |
 | `SOULFORGE_SNAPSHOT_V0.md` | UI/external host 가 읽을 sanitized read-only snapshot 계약이다. |
@@ -78,6 +79,7 @@
 - [`CODEX_ACCOUNT_BRIDGE_V0.md`](CODEX_ACCOUNT_BRIDGE_V0.md)
 - [`AUTOMATION_PARTY_OPERATING_MODEL_V0.md`](AUTOMATION_PARTY_OPERATING_MODEL_V0.md)
 - [`CODEX_APP_AUTOMATION_CATALOG_V0.md`](CODEX_APP_AUTOMATION_CATALOG_V0.md)
+- [`EXTERNAL_REASONING_WORKSPACE_V0.md`](EXTERNAL_REASONING_WORKSPACE_V0.md)
 - [`KNOWLEDGE_WIKI_WORLDVIEW_V0.md`](KNOWLEDGE_WIKI_WORLDVIEW_V0.md)
 - [`knowledge_wiki_worldview_v0.html`](knowledge_wiki_worldview_v0.html)
 - [`SOULFORGE_ACTIVITY_LOG_V0.md`](SOULFORGE_ACTIVITY_LOG_V0.md)

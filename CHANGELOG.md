@@ -1,5 +1,19 @@
 ﻿# CHANGELOG
 
+## 2026-06-07
+
+### Revision `working` - External reasoning workspace handoff captured
+
+- Added a public-safe external reasoning workspace candidate note for using a
+  session-aware ChatGPT Pro / Thinking browser loop as an advisory support lane.
+- Documented that `long_thread_handoff_v0` remains the manager/checkpoint owner
+  while any future `external_reasoning_workspace_v0` workflow should own Chrome
+  session preflight, bounded prompt packets, multi-turn DOM readback, private
+  URL pointers, and side-effect boundaries.
+- Kept raw transcripts, account-bound conversation/project identifiers, secrets,
+  cookies, local storage, credentials, and external validation claims out of the
+  public repo.
+
 ## 2026-06-06
 
 ### Revision `working` - Knowledge RAG candidate ledger added
