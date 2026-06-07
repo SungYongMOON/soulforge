@@ -2,6 +2,19 @@
 
 ## 2026-06-07
 
+### Revision `working` - Healer snapshot refresh added
+
+- Updated healer runs to refresh the local sanitized snapshot before always-on
+  freshness checks, so gateway metadata changes do not repeatedly trigger
+  `latest_snapshot_map_freshness` failure notifications.
+- Ignored accidental literal `$CODEX_HOME/` runtime mirrors at the repo root so
+  local automation memory files are not treated as public changed-scope source.
+- Corrected the mail task register latest-file boundary to resolve relative
+  projection paths against the active repo root while still checking realpaths
+  for denied private-state, mailbox, and `_workspaces` targets.
+- Kept the behavior local-state only: no automatic commit, push, merge, reset,
+  stash, raw mail payload read, or secret/env inspection was added.
+
 ### Revision `working` - External reasoning workspace workflow draft added
 
 - Added `.workflow/external_reasoning_workspace_v0/` as a public-safe draft

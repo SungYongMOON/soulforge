@@ -203,3 +203,48 @@ test("runHealerOnce carries warning always-on checks forward without failing the
     await rm(repoRoot, { recursive: true, force: true });
   }
 });
+
+test("runHealerOnce refreshes snapshot before always-on freshness checks", async () => {
+  const repoRoot = await mkdtemp(path.join(os.tmpdir(), "soulforge-healer-snapshot-refresh-"));
+  const activityRoot = path.join(repoRoot, "guild_hall", "state", "operations", "soulforge_activity");
+  const calls = [];
+
+  try {
+    const result = await runHealerOnce({
+      repoRoot,
+      activityRoot,
+      now: new Date("2026-05-08T09:05:06.000Z"),
+      skipValidate: true,
+      alwaysOnCheckRunner: async () => [
+        {
+          id: "latest_snapshot_map_freshness",
+          command: "npm run guild-hall:snapshot:check-fresh",
+          status: "passed",
+          exit_code: 0,
+          started_at: "2026-05-08T09:05:06.000Z",
+          ended_at: "2026-05-08T09:05:06.000Z",
+          duration_ms: 0,
+          summary: "snapshot command passed and metadata surfaces are fresh",
+          output_tail: "PASS snapshot freshness: soulforge.snapshot.v0",
+        },
+      ],
+      runCommand: async ({ command, args }) => {
+        calls.push([command, ...args].join(" "));
+        if (args.includes("guild-hall:gateway:fetch:healthcheck")) {
+          return { status: 0, stdout: JSON.stringify({ status: "NORMAL", reason: "ok" }), stderr: "" };
+        }
+        return { status: 0, stdout: "ok\n", stderr: "" };
+      },
+    });
+
+    assert.equal(result.result, "completed");
+    assert.deepEqual(calls, [
+      "git status --short --branch",
+      "npm run guild-hall:gateway:fetch:healthcheck -- --json",
+      "npm run guild-hall:snapshot",
+    ]);
+    assert.equal(result.checks.some((check) => check.id === "snapshot_refresh"), true);
+  } finally {
+    await rm(repoRoot, { recursive: true, force: true });
+  }
+});

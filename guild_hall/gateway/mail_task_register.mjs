@@ -414,19 +414,24 @@ function validateMailWorkPriorityProjection(projection) {
 }
 
 async function assertLatestFileBoundary({ repoRoot, latestFile }) {
-  const resolved = path.resolve(latestFile);
-  const inspectedPaths = [resolved, await realPathIfExists(resolved)];
-  for (const inspectedPath of inspectedPaths.filter(Boolean)) {
-    if (!isPathInside(repoRoot, inspectedPath)) {
+  const resolvedRepoRoot = path.resolve(repoRoot);
+  const resolved = path.resolve(resolvedRepoRoot, latestFile);
+  const realRepoRoot = (await realPathIfExists(resolvedRepoRoot)) ?? resolvedRepoRoot;
+  const inspectedPaths = [
+    { root: resolvedRepoRoot, file: resolved },
+    { root: realRepoRoot, file: await realPathIfExists(resolved) },
+  ];
+  for (const inspectedPath of inspectedPaths.filter((item) => Boolean(item.file))) {
+    if (!isPathInside(inspectedPath.root, inspectedPath.file)) {
       throw new Error("mail task register latest-file must stay under the active repo root");
     }
-    if (isPathInside(path.join(repoRoot, "guild_hall", "state", "gateway", "mailbox"), inspectedPath)) {
+    if (isPathInside(path.join(inspectedPath.root, "guild_hall", "state", "gateway", "mailbox"), inspectedPath.file)) {
       throw new Error("mail task register must not read gateway mailbox raw/event roots");
     }
-    if (isPathInside(path.join(repoRoot, "private-state"), inspectedPath)) {
+    if (isPathInside(path.join(inspectedPath.root, "private-state"), inspectedPath.file)) {
       throw new Error("mail task register must not read private-state projection copies");
     }
-    if (isPathInside(path.join(repoRoot, "_workspaces"), inspectedPath)) {
+    if (isPathInside(path.join(inspectedPath.root, "_workspaces"), inspectedPath.file)) {
       throw new Error("mail task register must not read _workspaces payload roots");
     }
   }

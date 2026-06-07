@@ -65,6 +65,15 @@ export async function runHealerOnce(options = {}) {
   if (options.skipAlwaysOnChecks) {
     checks.push(skippedCheck("always_on_checks", "skipped by --skip-always-on-checks"));
   } else {
+    checks.push(
+      await runCheck({
+        id: "snapshot_refresh",
+        command: "npm",
+        args: ["run", "guild-hall:snapshot"],
+        cwd: repoRoot,
+        runCommand,
+      }),
+    );
     const alwaysOnChecks = await alwaysOnCheckRunner({
       repoRoot,
       activityRoot,

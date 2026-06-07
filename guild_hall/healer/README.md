@@ -44,6 +44,8 @@ npm run guild-hall:healer:run -- --skip-validate --notify-on-failure --json
 - `npm run validate`
 - `npm run guild-hall:gateway:fetch:healthcheck -- --json`
   - JSON `status` 가 `WARN` 또는 `CRITICAL` 이면 command exit code 가 0 이어도 healer 점검은 실패로 기록한다.
+- `npm run guild-hall:snapshot`
+  - gateway healthcheck 뒤에 local snapshot 을 갱신해서 자주 바뀌는 gateway metadata 때문에 freshness 알림이 반복되지 않게 한다.
 - 7개 24시간 PC 점검:
   - 최신 지도 점검: local snapshot 과 `latest_context.json` 이 낡지 않았는지 본다.
   - 자동작업 생존 점검: launchd plist 와 `launchctl` 로 always-on job 이 설치/로드됐는지 본다.
