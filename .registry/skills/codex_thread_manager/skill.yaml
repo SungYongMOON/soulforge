@@ -1,0 +1,62 @@
+skill_id: codex_thread_manager
+kind: skill
+status: active
+title: Codex Thread Manager
+summary: Launch the registered `codex_thread_manager_v0` workflow so Codex can coordinate actual manager, worker, and worktree threads while preserving Soulforge handoff and boundary rules.
+behavior:
+  intent: >
+    Provide a Codex-facing bridge for `.workflow/codex_thread_manager_v0`.
+    The workflow owns goal binding, NIGHT_WORK_HANDOFF refresh, continuation
+    surface selection, manager lifecycle and rollover policy, worker packet
+    shape, thread id/title recording, worktree worker boundary routing,
+    integration validation, workflow-check closeout, and conservative claim
+    reporting. This skill maps explicit user language to that workflow without
+    turning local thread tools, raw transcripts, private payloads, or default
+    route authority into skill canon.
+  use_when:
+    - the user explicitly asks for Soulforge Codex thread management
+    - the user writes "Codex 스레드 매니저", "스레드파일럿", or equivalent wording
+    - the user wants manager, worker, or worktree thread orchestration instead of only subagents
+    - the user asks for durable worker threads, manager rollover, or thread id/title operating rules
+    - the user invokes `$soulforge-codex-thread-manager`
+  avoid_when:
+    - the task is a normal short request that does not need durable thread orchestration
+    - the user wants the older contamination-free subagent handoff pattern owned by `long_thread_handoff_v0`
+    - the request would require raw transcript storage, private payload copying, secret inspection, or external side effects without authorization
+    - the request would require `.party` binding, default-route switching, or production-ready claims without a separate owner-approved route
+  expected_outcome:
+    - Codex reads `.workflow/codex_thread_manager_v0/workflow.yaml`, `step_graph.yaml`, `handoff_rules.yaml`, and `profile_policy.yaml`
+    - Codex binds the goal, workspace scope, success criteria, stop conditions, public/private boundary, and claim ceiling before creating or continuing threads
+    - Codex refreshes `NIGHT_WORK_HANDOFF` before thread creation, manager rollover, compact, clear, or substantial closeout
+    - Codex creates or continues manager, worker, or worktree worker threads only when thread tools and scope boundaries support that action
+    - Codex records thread titles/ids when available, integrates worker summaries after checking actual state, and closes with validators plus workflow-check posture
+execution_requirements:
+  required_capabilities:
+    - workflow_contract_reading
+    - goal_scope_binding
+    - durable_checkpoint_curation
+    - codex_thread_creation_or_continuation
+    - worker_thread_packet_authoring
+    - manager_rollover_acceptance
+    - actual_file_state_integration
+    - deterministic_validation_routing
+  preferred_capabilities:
+    - worktree_worker_thread_isolation
+    - bounded_subagent_fanout
+    - workflow_check_bridge
+    - post_development_review_gate
+  preferred_tools:
+    - create_thread
+    - send_message_to_thread
+    - handoff_thread
+    - set_thread_title
+    - rg
+    - git_status
+    - yaml_validator
+  notes:
+    - "The workflow remains `.workflow/codex_thread_manager_v0/`; read it at execution time."
+    - "The installed Codex mirror name after sync is normally `soulforge-codex-thread-manager`."
+    - "This skill does not create party binding, default-route safety, source truth, owner approval, or production-ready claims."
+notes:
+  - "`codex_thread_manager` is a thin Codex bridge for `.workflow/codex_thread_manager_v0`."
+  - "Runtime thread ids, raw transcripts, account state, private payloads, secrets, and absolute local paths stay outside the tracked skill package."

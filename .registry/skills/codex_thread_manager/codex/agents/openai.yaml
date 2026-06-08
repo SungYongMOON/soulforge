@@ -1,0 +1,7 @@
+interface:
+  display_name: "Soulforge Codex Thread Manager"
+  short_description: "Manage actual Codex manager, worker, and worktree threads"
+  default_prompt: "Use $soulforge-codex-thread-manager to coordinate Soulforge work through actual Codex manager, worker, and worktree threads while preserving NIGHT_WORK_HANDOFF."
+
+policy:
+  allow_implicit_invocation: true

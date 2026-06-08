@@ -1,0 +1,196 @@
+workflow_id: codex_thread_manager_v0
+kind: step_graph
+status: active
+steps:
+  - step_id: intake_and_goal_bind
+    title: Intake And Goal Bind
+    actor_slot: thread_manager
+    action:
+      kind: codex_thread_goal_scope_binding
+    inputs:
+      - soulforge_task_goal
+      - active_workspace_scope
+      - boundary_policy_ref
+      - thread_orchestration_request
+    optional_inputs:
+      - active_goal_ref
+      - owner_decision_refs
+    outputs:
+      - declared_thread_goal
+      - success_criteria
+      - stop_conditions
+      - boundary_constraints
+    next:
+      - checkpoint_refresh
+  - step_id: checkpoint_refresh
+    title: Checkpoint Refresh
+    actor_slot: checkpoint_curator
+    action:
+      kind: night_work_handoff_update
+    inputs:
+      - declared_thread_goal
+      - boundary_constraints
+    optional_inputs:
+      - prior_night_work_handoff_ref
+      - active_worker_thread_refs
+      - target_file_refs
+      - validation_command_refs
+    outputs:
+      - night_work_handoff
+    rules:
+      required_before_thread_creation: true
+      required_before_manager_rollover: true
+      required_before_compact_or_clear: true
+      raw_transcript_forbidden: true
+      private_payload_forbidden: true
+      secrets_forbidden: true
+    next:
+      - continuation_surface_decision
+  - step_id: continuation_surface_decision
+    title: Continuation Surface Decision
+    actor_slot: surface_router
+    action:
+      kind: same_thread_manager_worker_worktree_or_subagent_selection
+    inputs:
+      - night_work_handoff
+      - boundary_constraints
+    optional_inputs:
+      - manager_thread_ref
+      - active_worker_thread_refs
+      - context_pressure_signal
+      - target_file_refs
+    outputs:
+      - continuation_surface_decision
+      - manager_lifecycle_action
+      - worker_lane_plan
+    rules:
+      worker_phase_change_does_not_clear_manager: true
+      manager_rollover_before_24h_or_cross_pc: true
+      worktree_required_for_overlapping_file_mutation: true
+      subagent_not_durable_lane: true
+    next:
+      - manager_rollover_or_worker_packet
+  - step_id: manager_rollover_or_worker_packet
+    title: Manager Rollover Or Worker Packet
+    actor_slot: worker_packet_author
+    action:
+      kind: manager_acceptance_or_worker_thread_packet_preparation
+    inputs:
+      - continuation_surface_decision
+      - night_work_handoff
+      - worker_lane_plan
+    optional_inputs:
+      - active_worker_thread_refs
+      - target_file_refs
+      - validation_command_refs
+    outputs:
+      - manager_rollover_packet
+      - worker_thread_packet_set
+    rules:
+      fresh_manager_prompt_self_contained: true
+      worker_prompt_names_title_and_scope: true
+      worker_subagents_forbidden_unless_explicitly_allowed: true
+      recursive_fanout_forbidden: true
+      worker_id_title_recording_required: true
+    next:
+      - worker_execution_or_rollover_acceptance
+  - step_id: worker_execution_or_rollover_acceptance
+    title: Worker Execution Or Rollover Acceptance
+    actor_slot: manager_rollover_controller
+    action:
+      kind: thread_creation_observation_and_acceptance_gate
+    inputs:
+      - manager_rollover_packet
+      - worker_thread_packet_set
+    optional_inputs:
+      - manager_thread_ref
+      - active_worker_thread_refs
+    outputs:
+      - thread_creation_log
+      - manager_acceptance_report
+      - worker_result_summary_set
+    rules:
+      old_manager_checks_new_manager_acceptance: true
+      new_manager_must_reinvoke_runtime_skill_or_read_bridge: true
+      worker_thread_id_title_recorded_by_manager: true
+      files_not_modified_in_read_only_pilot: true
+    next:
+      - integration_and_validation
+  - step_id: integration_and_validation
+    title: Integration And Validation
+    actor_slot: integration_controller
+    action:
+      kind: worker_result_integration_and_state_validation
+    inputs:
+      - thread_creation_log
+      - worker_result_summary_set
+      - boundary_constraints
+    optional_inputs:
+      - target_file_refs
+      - validation_command_refs
+    outputs:
+      - integration_validation_log
+      - boundary_review_note
+      - claim_ceiling
+    rules:
+      inspect_actual_status_before_decision: true
+      do_not_revert_unowned_changes: true
+      validators_before_stronger_claims: true
+      partial_pilot_lowers_claim_ceiling: true
+    next:
+      - validation_and_review
+  - step_id: validation_and_review
+    title: Validation And Review
+    actor_slot: validation_controller
+    action:
+      kind: workflow_check_and_deterministic_validation
+    inputs:
+      - integration_validation_log
+      - boundary_review_note
+      - claim_ceiling
+    optional_inputs:
+      - validation_command_refs
+      - owner_decision_refs
+    outputs:
+      - workflow_check_review_packet
+      - strongest_supported_workflow_status
+      - default_route_safe
+    rules:
+      workflow_check_required: true
+      workflow_generator_provenance_checked: true
+      registration_surface_checked_when_claimed: true
+      default_route_safety_named: true
+      stronger_claims_require_evidence: true
+    next:
+      - closeout_or_registration_decision
+  - step_id: closeout_or_registration_decision
+    title: Closeout Or Registration Decision
+    actor_slot: closeout_controller
+    action:
+      kind: conservative_thread_workflow_closeout
+    inputs:
+      - workflow_check_review_packet
+      - strongest_supported_workflow_status
+      - default_route_safe
+    optional_inputs:
+      - owner_decision_refs
+    outputs:
+      - closeout_report
+      - next_action
+      - knowledge_trigger_check
+    rules:
+      workflow_check_required_for_status_claim: true
+      registration_requires_explicit_owner_request: true
+      party_creation_only_for_multi_workflow_chain: true
+      default_route_safety_not_claimed_without_owner_intent: true
+    next: []
+stop_conditions:
+  - conflicting_active_goal
+  - unsafe_public_private_boundary
+  - secret_or_credential_required
+  - owner_decision_required_for_registration_or_default_route
+  - unavailable_thread_tool
+  - worker_write_scope_overlap_without_worktree
+  - recursive_subagent_fanout_requested_or_observed
+  - validator_failure_unfixable_in_scope
+  - exhausted_user_specified_budget

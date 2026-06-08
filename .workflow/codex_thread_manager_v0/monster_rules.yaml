@@ -1,0 +1,25 @@
+workflow_id: codex_thread_manager_v0
+kind: monster_rules
+status: active
+rules:
+  - monster_id: manager_cleared_on_every_phase_change
+    response: create_new_worker_keep_manager
+    summary: Research, implementation, debugging, review, and documentation lane changes normally replace workers, not the manager.
+  - monster_id: manager_never_rolls_over
+    response: scheduled_manager_rollover
+    summary: Before overnight, cross-PC handoff, 24-hour span, major phase cluster, or context drift, refresh handoff and create a fresh manager.
+  - monster_id: worker_reused_by_clear
+    response: close_or_leave_worker_and_create_new_lane
+    summary: Do not clear worker threads for reuse; completed workers remain evidence and the next lane gets a new worker.
+  - monster_id: missing_thread_id_record
+    response: manager_records_thread_ids_titles
+    summary: Every manager-created worker needs an id/title record in handoff or private run evidence.
+  - monster_id: recursive_fanout
+    response: block_nested_subagent_or_thread_creation
+    summary: Subagents and workers do not create further subagents, worker threads, automations, or canon entries unless explicitly allowed by the manager.
+  - monster_id: local_skill_treated_as_canon
+    response: keep_runtime_bridge_boundary
+    summary: Installed local skills can launch the runtime behavior but do not by themselves create workflow registration, party binding, or default-route authority.
+  - monster_id: production_ready_overclaim
+    response: block_claim_without_b_v_and_workflow_check
+    summary: Do not claim production readiness, default-route safety, or full rollover support without the required evidence and workflow-check closeout.

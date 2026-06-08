@@ -1,0 +1,29 @@
+workflow_id: codex_thread_manager_v0
+kind: workflow_profile_policy
+status: active
+validation_level: private_one_worker_pilot_observed
+calibration_status: none
+profile_binding_policy:
+  model: runtime_binding
+  reasoning_effort: runtime_binding
+  species: runtime_binding
+  class: runtime_binding
+  party: runtime_binding_or_unbound
+selection_rules:
+  - Do not hard-code model, species, class, local runtime paths, or thread tool availability into this reusable workflow package.
+  - Use the active Codex app thread tools only when they are actually available in the current runtime.
+  - Prefer worktree workers for file mutation lanes that must not disturb the foreground checkout.
+  - Require separate workflow-check and post-development review evidence before claiming stronger readiness.
+rerun_triggers:
+  - thread tool availability changes
+  - manager rollover policy changes
+  - worktree worker policy changes
+  - recursive fan-out policy changes
+  - local runtime skill bridge changes
+non_claims:
+  - no_profile_optimization_claim
+  - no_cost_or_quality_calibration_claim
+  - no_full_rollover_execution_claim
+  - no_worktree_worker_execution_claim
+  - no_production_ready_claim
+  - no_default_route_claim

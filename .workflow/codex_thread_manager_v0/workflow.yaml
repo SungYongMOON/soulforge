@@ -1,0 +1,126 @@
+workflow_id: codex_thread_manager_v0
+kind: workflow
+status: active
+title: Codex Thread Manager v0
+summary: Public-safe workflow for coordinating actual Codex manager, worker, and worktree worker threads while preserving NIGHT_WORK_HANDOFF continuity, explicit thread titles, bounded worker scopes, and conservative claim boundaries.
+entrypoint: run
+execution_mode: codex_app_thread_orchestration_sequence
+role_slots: role_slots.yaml
+step_graph: step_graph.yaml
+handoff_rules: handoff_rules.yaml
+monster_rules: monster_rules.yaml
+party_compatibility: party_compatibility.yaml
+profile_policy: profile_policy.yaml
+inputs:
+  - soulforge_task_goal
+  - active_workspace_scope
+  - boundary_policy_ref
+  - thread_orchestration_request
+optional_inputs:
+  - prior_night_work_handoff_ref
+  - active_goal_ref
+  - manager_thread_ref
+  - active_worker_thread_refs
+  - target_file_refs
+  - validation_command_refs
+  - owner_decision_refs
+  - context_pressure_signal
+outputs:
+  - declared_thread_goal
+  - night_work_handoff
+  - continuation_surface_decision
+  - manager_rollover_packet
+  - worker_thread_packet_set
+  - worker_result_summary_set
+  - integration_validation_log
+  - boundary_review_note
+  - workflow_check_review_packet
+  - closeout_report
+validation_level: private_one_worker_pilot_observed
+registration_policy: owner_requested_registration
+output_state: registered
+classification_lane:
+  primary: operations
+  primary_name_ko: 운영
+  secondary:
+    - project_management
+    - workflow_authoring
+    - review_governance
+  secondary_name_ko:
+    - 프로젝트 관리
+    - 워크플로우 작성
+    - 리뷰/거버넌스
+  purpose: discovery_only
+  authority: none
+execution_binding:
+  party_required: false
+  candidate_party_id: guild_master_cell
+  bound_party_id: null
+  binding_authority: none
+  notes:
+    - Party binding is advisory only.
+    - Create a party only when this workflow must chain with multiple other workflows under a reusable service surface.
+skill_routes:
+  - skill_id: soulforge-codex-thread-manager
+    route_kind: local_runtime_bridge
+    authority: installed_codex_skill_only
+registry_skill_ref: .registry/skills/codex_thread_manager/skill.yaml
+request_modes:
+  - codex_thread_management
+  - manager_worker_thread_orchestration
+  - manager_rollover
+  - worktree_worker_isolation
+  - read_only_worker_pilot
+  - bounded_thread_fanout
+codex_thread_manager_contract:
+  owns:
+    - thread_goal_and_scope_binding
+    - night_work_handoff_refresh_before_thread_creation
+    - continuation_surface_selection
+    - manager_lifecycle_and_rollover_policy
+    - worker_thread_packet_shape
+    - worktree_worker_boundary_policy
+    - worker_result_integration_policy
+    - thread_id_title_recording_policy
+    - workflow_check_review_policy
+    - conservative_thread_closeout
+  does_not_own:
+    - source_truth
+    - owner_approval
+    - private_payload_storage
+    - raw_transcript_storage
+    - secret_inspection
+    - codex_product_capability_guarantee
+    - default_route_switching
+    - public_canon_promotion_beyond_this_package
+    - production_ready_claim_without_b_v_evidence
+  surface_selection:
+    same_thread: short_sequential_work_with_clean_manager_context
+    fresh_manager_thread: rollover_due_or_mission_boundary_changed
+    worker_thread: durable_lane_needs_title_followup_or_independent_history
+    worktree_worker_thread: file_mutation_requires_checkout_isolation
+    subagent: bounded_read_heavy_or_noisy_check_inside_parent_thread
+  manager_lifecycle:
+    keep_manager_across_worker_phase_changes: true
+    rollover_before_overnight_cross_pc_or_24h_span: true
+    clear_requires_checkpoint_and_accepted_handoff: true
+    worker_threads_are_not_cleared_for_reuse: true
+  worker_policy:
+    one_lane_per_worker: true
+    worker_thread_id_and_title_must_be_recorded: true
+    subagent_use_requires_manager_permission: true
+    recursive_fanout_blocked_by_default: true
+    overlapping_write_scope_requires_worktree_or_stop: true
+  observed_private_pilot_refs:
+    - _workmeta/system/reports/post_development_review/20260608_thread_orchestrator_live_pilot_one_worker.yaml
+non_claims:
+  - no_registration_claim
+  - no_default_route_safety_claim
+  - no_production_ready_claim
+  - no_full_rollover_execution_claim
+  - no_worktree_worker_execution_claim
+  - no_party_binding_claim
+notes:
+  - "Registration means the public-safe orchestration structure is available in `.workflow/index.yaml`."
+  - "The local Codex skill may act as a runtime bridge, but local skill files are not public canon authority."
+  - "This package does not claim production readiness, default-route safety, full manager rollover execution, or worktree worker execution."

@@ -1,0 +1,29 @@
+workflow_id: codex_thread_manager_v0
+kind: party_compatibility
+status: active
+execution_binding:
+  party_required: false
+  candidate_party_id: guild_master_cell
+  bound_party_id: null
+  binding_authority: none
+compatible_party_templates:
+  - guild_master_cell
+  - owner_plus_executor
+  - review_gate_preparation
+required_capabilities:
+  - goal_scope_binding
+  - durable_checkpoint_curation
+  - codex_thread_creation
+  - worker_thread_packet_authoring
+  - worktree_boundary_routing
+  - manager_rollover_acceptance
+  - deterministic_validation_routing
+  - conservative_closeout
+party_creation_policy:
+  create_party_only_when_multi_workflow_chain_required: true
+  workflow_lane_does_not_create_party_authority: true
+  default_route_switch_requires_owner_request: true
+notes:
+  - "Template compatibility is advisory only."
+  - "This workflow does not bind a default party or switch any default route."
+  - "A future party may chain this with long_thread_handoff_v0, post_development_review_gate_v0, or github_upload_publish_v0, but that chain is not created here."

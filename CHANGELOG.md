@@ -1,5 +1,32 @@
 ﻿# CHANGELOG
 
+## 2026-06-08
+
+### Revision `working` - Codex thread manager workflow draft added
+
+- Added `.workflow/codex_thread_manager_v0/` as a public-safe pilot-ready
+  workflow package for actual Codex manager, worker, and worktree thread
+  orchestration.
+- Captured manager lifecycle, `NIGHT_WORK_HANDOFF` refresh, worker packet
+  shape, thread id/title recording, manager rollover acceptance, worktree
+  boundary routing, recursive fan-out blocking, and conservative closeout rules.
+- Kept the package unregistered: no `.workflow/index.yaml` registration, no
+  `.party` chain, no registry skill bridge, no default-route-safety claim, no
+  production-ready claim, and no full manager rollover/worktree-worker execution
+  claim.
+
+### Revision `working` - Codex thread manager registered bridge completed
+
+- Added `.registry/skills/codex_thread_manager/` as the tracked Codex launcher
+  for invoking the `codex_thread_manager_v0` workflow through installed skill
+  `$soulforge-codex-thread-manager`.
+- Registered `.workflow/codex_thread_manager_v0/` in `.workflow/index.yaml` and
+  raised the package from pilot-ready draft to registered public-safe workflow
+  bridge.
+- Kept the same non-party structure as `long_thread_handoff_v0`: no `.party`
+  chain, no default-route switch, no production-ready claim, and no full manager
+  rollover/worktree-worker execution claim.
+
 ## 2026-06-07
 
 ### Revision `working` - External GPT launcher skill added

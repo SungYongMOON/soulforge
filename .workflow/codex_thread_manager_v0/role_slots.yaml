@@ -1,0 +1,28 @@
+workflow_id: codex_thread_manager_v0
+kind: role_slots
+status: active
+slots:
+  - slot_id: thread_manager
+    title: Thread Manager
+    summary: Declares the bounded goal, success criteria, stop conditions, workspace scope, and thread orchestration boundary.
+  - slot_id: checkpoint_curator
+    title: Checkpoint Curator
+    summary: Maintains NIGHT_WORK_HANDOFF before thread creation, manager rollover, compact, clear, or substantial phase closeout.
+  - slot_id: surface_router
+    title: Continuation Surface Router
+    summary: Chooses same thread, fresh manager thread, worker thread, worktree worker thread, or subagent from risk and persistence needs.
+  - slot_id: worker_packet_author
+    title: Worker Packet Author
+    summary: Builds bounded worker prompts with title, objective, allowed paths, stop conditions, report shape, subagent permission, and claim ceiling.
+  - slot_id: manager_rollover_controller
+    title: Manager Rollover Controller
+    summary: Transfers continuity from an old manager to a fresh manager through a checkpoint and acceptance gate.
+  - slot_id: integration_controller
+    title: Integration Controller
+    summary: Integrates worker results only after checking actual file, status, and thread state.
+  - slot_id: validation_controller
+    title: Validation Controller
+    summary: Runs deterministic validators, boundary checks, and workflow-check closeout before stronger claims.
+  - slot_id: closeout_controller
+    title: Closeout Controller
+    summary: Reports thread ids/titles, lifecycle actions, validation status, remaining gaps, and knowledge trigger result.
