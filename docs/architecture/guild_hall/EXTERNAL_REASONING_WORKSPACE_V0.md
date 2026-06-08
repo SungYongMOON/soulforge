@@ -6,8 +6,8 @@ This note captures the public-safe operating direction for using an external
 ChatGPT Pro / Thinking browser session as an advisory reasoning workspace for
 Soulforge work.
 
-It is a continuation handoff and workflow-candidate note, not a registered
-workflow package.
+It began as a continuation handoff and workflow-candidate note. The reusable
+workflow package is now registered at `.workflow/external_reasoning_workspace_v0/`.
 
 ## Current Decision
 
@@ -17,7 +17,7 @@ Use the external reasoning workspace as a separate support lane.
 long_thread_handoff_v0
   = manager, NIGHT_WORK_HANDOFF, delegation, validation, closeout
 
-external_reasoning_workspace_v0 candidate
+external_reasoning_workspace_v0
   = ChatGPT Pro / Thinking session, bounded prompt packet, multi-turn advisory loop,
     DOM readback, private URL pointer, side-effect boundary
 
@@ -153,9 +153,9 @@ Question: <bounded question>
 Required final marker: <nonce>
 ```
 
-## Candidate Workflow Shape
+## Registered Workflow Shape
 
-If promoted later through workflow authoring, the likely package is:
+The registered package is:
 
 ```text
 .workflow/external_reasoning_workspace_v0/
@@ -172,6 +172,7 @@ Minimum steps:
 7. hand off advisory output to the caller workflow;
 8. record boundary, retention, cleanup, and claim ceiling.
 
-Creation or registration must go through `$soulforge-workflow-generator` and
-then `$soulforge-workflow-check`. Until then this note is only a public-safe
-candidate operating model.
+Creation and registration went through `$soulforge-workflow-generator` and
+`$soulforge-workflow-check` on 2026-06-07. Registration does not grant source
+truth, validation authority, production readiness, default-route safety, or
+downstream browser side-effect approval.

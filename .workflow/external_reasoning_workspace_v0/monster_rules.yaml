@@ -1,6 +1,6 @@
 workflow_id: external_reasoning_workspace_v0
 kind: monster_rules
-status: draft
+status: active
 rules:
   - monster_id: hardcoded_chatgpt_model_name
     response: use_visible_user_authorized_runtime_label_or_stop
@@ -36,5 +36,5 @@ rules:
     response: stop_for_owner_intervention
     summary: Login recovery, CAPTCHA, or credential prompts are owner-handled blockers, not agent tasks.
   - monster_id: default_route_safety_overclaim
-    response: keep_output_state_draft_without_registration_or_default_route_claim
-    summary: This draft package does not register a route, switch defaults, or prove default-route safety.
+    response: keep_registered_advisory_workflow_without_default_route_claim
+    summary: This registered workflow does not switch defaults or prove default-route safety.

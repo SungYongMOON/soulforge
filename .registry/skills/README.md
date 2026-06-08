@@ -4,6 +4,7 @@
 - `github_up/` is the tracked Codex wrapper for routing GitHub upload/publish requests to `.workflow/github_upload_publish_v0/`.
 - `grill_me/` is the tracked Codex candidate skill for `/grill-me` style plan pressure-testing and design-decision interview.
 - `dual_deep_research/` is the tracked Codex candidate launcher for `.workflow/dual_deep_research_v0`, which compares NotebookLM CLI Deep Research with Codex direct source research before downstream registration.
+- `external_gpt/` is the tracked Codex launcher for `.workflow/external_reasoning_workspace_v0`, calling bounded external ChatGPT browser sessions as advisory-only reasoning support with DOM readback and strict side-effect boundaries.
 - `outlook_mail_reconcile/` is the tracked Codex launcher for `/outlook-reconcile`, resolving to `.workflow/outlook_mail_reconcile_v0` for metadata-only Outlook sent-mail ledger updates and received-mail cross-validation.
 - `long_thread_handoff/` is the tracked Codex wrapper for explicit long-thread contamination-free handoff requests.
 - `party_launcher_skill_author/` is the tracked Codex authoring aid for turning an existing `.party/<party_id>` loadout into a thin launcher skill without moving party, workflow, or profile policy into the skill.
@@ -25,6 +26,7 @@
 - baseline 절차는 [`.registry/docs/operations/SKILL_INSTALL_SYNC.md`](../docs/operations/SKILL_INSTALL_SYNC.md) 를 따른다.
 - `grill_me/` 는 `/grill-me` 스타일의 대화형 설계 의사결정 인터뷰를 Codex bridge 로 제공하는 candidate skill package 다.
 - `dual_deep_research/` 는 `.workflow/dual_deep_research_v0` 를 호출하는 candidate launcher 이며, 실제 NotebookLM CLI 기반 딥 리서치와 Codex 직접 조사 비교 절차는 workflow 가 소유한다.
+- `external_gpt/` 는 `.workflow/external_reasoning_workspace_v0` 를 호출하는 launcher 이며, 실제 외부 GPT 호출 절차와 session/readback/side-effect 경계는 workflow 가 소유한다.
 - `skill_check/` 는 tracked skill package 가 canon, optional executor bridge, local runtime binding owner 를 섞지 않는지 검토하는 active authoring-aid sample 이다.
 - `mission_check/` 는 `.mission/<mission_id>/readiness.yaml` 과 related mission plan surface 를 boundary-safe 하게 검토하는 mission readiness review sample 이다.
 - `hwpx_document/` 는 lean bridge 문서만이 아니라 bundled `scripts/`, `templates/`, `references/` 도 함께 sync 하는 resource-heavy skill package sample 이다.

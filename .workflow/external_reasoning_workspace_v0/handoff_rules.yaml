@@ -1,6 +1,6 @@
 workflow_id: external_reasoning_workspace_v0
 kind: handoff_rules
-status: draft
+status: active
 rules:
   - from: advisory_controller
     to: browser_operator

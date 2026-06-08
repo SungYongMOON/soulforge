@@ -1,0 +1,7 @@
+interface:
+  display_name: "Soulforge External GPT"
+  short_description: "Use bounded ChatGPT browser advisory sessions."
+  default_prompt: "Use $soulforge-external-gpt to run the registered external GPT workflow with sanitized prompts, DOM readback, private pointer refs, and advisory-only output."
+
+policy:
+  allow_implicit_invocation: true

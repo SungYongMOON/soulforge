@@ -1,0 +1,55 @@
+skill_id: external_gpt
+kind: skill
+status: active
+title: External GPT
+summary: Launch the registered `external_reasoning_workspace_v0` workflow so Codex can call a bounded external ChatGPT browser conversation as advisory reasoning support without requiring the user to remember the workflow id.
+behavior:
+  intent: >
+    Provide a thin Codex-facing bridge for `.workflow/external_reasoning_workspace_v0`.
+    The workflow owns goal binding, browser preflight, same-goal session reuse,
+    sanitized prompt packets, DOM message-role readback, advisory handoff, and
+    public/private boundary rules. This skill maps user language to that
+    workflow without moving browser account state, conversation pointers,
+    source truth, validation authority, or side-effect approval into the skill.
+  use_when:
+    - the user asks Codex to use ChatGPT Pro, Thinking, GPT app/browser, or an external ChatGPT session as an advisory reasoning workspace
+    - the user wants Codex to ask another ChatGPT conversation and bring back advisory findings
+    - the user wants a same-thread external reasoning session to continue while a bounded Soulforge task is still active
+    - the user invokes `$soulforge-external-gpt`
+    - the user refers to the registered external GPT or external reasoning workflow but may not remember its workflow id
+  avoid_when:
+    - the task requires source truth, verifier authority, owner approval, production readiness, or default-route switching
+    - the browser flow would require reading cookies, local storage, tokens, passwords, `.env`, credential JSON, or session files
+    - the request requires share links, file upload, project creation, permission changes, payment/account settings, deletion, archive, or destructive cleanup without explicit action-time approval
+    - NotebookLM CLI-first Deep Research or source-backed research is the actual requested route
+  expected_outcome:
+    - Codex reads `.workflow/external_reasoning_workspace_v0/workflow.yaml`, `step_graph.yaml`, and `profile_policy.yaml`
+    - Codex binds a bounded advisory question, side-effect authorization, success criteria, stop conditions, and public/private boundary before browser use
+    - Codex reuses a matching same-goal private session pointer when authorized and safe, or creates a fresh bounded ChatGPT conversation when authorized
+    - Codex submits only sanitized prompt packets and verifies assistant output with DOM message-role readback and marker/nonce checks
+    - Codex returns advisory findings with claim ceilings and routes source truth or validation needs to the appropriate workflow
+execution_requirements:
+  required_capabilities:
+    - workflow_contract_reading
+    - browser_visible_state_preflight
+    - sanitized_prompt_authoring
+    - dom_message_role_readback
+    - public_private_boundary_review
+  preferred_capabilities:
+    - chrome_control
+    - external_session_pointer_metadata
+    - same_goal_continuation
+    - post_development_review_gate
+  preferred_tools:
+    - rg
+    - chrome
+    - browser
+    - yaml_reader
+    - git_status
+  notes:
+    - "The workflow remains `.workflow/external_reasoning_workspace_v0/`; read it at execution time."
+    - "The installed Codex mirror name after sync is normally `soulforge-external-gpt`."
+    - "This skill does not create party binding, default-route safety, source truth, validation verdicts, or downstream browser side-effect approval."
+notes:
+  - "`external_gpt` is a thin Codex bridge for `.workflow/external_reasoning_workspace_v0`."
+  - "Runtime account state, raw transcripts, conversation URLs, cookies, credentials, private payloads, and absolute local paths stay outside the tracked skill package."

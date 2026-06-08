@@ -1,6 +1,6 @@
 workflow_id: external_reasoning_workspace_v0
 kind: step_graph
-status: draft
+status: active
 steps:
   - step_id: bind_goal_and_authorization
     title: Bind Goal And Authorization

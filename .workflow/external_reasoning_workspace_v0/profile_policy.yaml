@@ -1,6 +1,6 @@
 workflow_id: external_reasoning_workspace_v0
 kind: workflow_profile_policy
-status: draft
+status: active
 validation_level: private_pilot_executed_browser_advisory
 calibration_status: none
 last_calibration_id: null
@@ -41,11 +41,9 @@ non_claims:
   - no_profile_optimization_claim
   - no_external_chatgpt_model_stability_claim
   - no_production_ready_claim
-  - no_canon_ready_claim
-  - no_registration_claim
   - no_default_route_claim
   - no_default_route_safety_claim
 notes:
   - Runtime browser state, account state, conversation pointers, and mode labels are not public canon.
-  - Profile optimization requires public-safe synthetic or private approved evidence and a separate review before this file can move beyond draft.
+  - Profile optimization requires public-safe synthetic or private approved evidence and a separate review before this file can claim calibrated runtime profile selection.
   - The 2026-06-07 private pilot supports only marker-verified advisory execution, not production readiness or default-route safety.

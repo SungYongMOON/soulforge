@@ -2,6 +2,31 @@
 
 ## 2026-06-07
 
+### Revision `working` - External GPT launcher skill added
+
+- Added `.registry/skills/external_gpt/` as the tracked Codex
+  launcher for invoking the registered `.workflow/external_reasoning_workspace_v0`
+  workflow by skill name, with installed invocation
+  `$soulforge-external-gpt`.
+- Kept the launcher thin: the workflow still owns browser preflight,
+  same-goal session reuse, sanitized prompt packets, DOM message-role readback,
+  advisory handoff, profile policy, and public/private side-effect boundaries.
+- Preserved non-claims: no party binding, no default-route switch, no source
+  truth, no validation authority, no production-ready claim, and no
+  default-route-safety claim.
+
+### Revision `working` - External reasoning workspace registered
+
+- Registered `.workflow/external_reasoning_workspace_v0/` in
+  `.workflow/index.yaml` after the owner requested making the workflow official.
+- Updated the package state from draft/unregistered to registered while keeping
+  the existing private pilot evidence boundary: advisory-only output, no source
+  truth, no validation authority, no production-ready claim, and no
+  default-route-safety claim.
+- Kept party binding and runtime profile selection unbound; browser session
+  pointers, raw transcripts, account-bound ids, cookies, credentials, and
+  private payloads remain outside public canon.
+
 ### Revision `working` - Healer snapshot refresh added
 
 - Updated healer runs to refresh the local sanitized snapshot before always-on

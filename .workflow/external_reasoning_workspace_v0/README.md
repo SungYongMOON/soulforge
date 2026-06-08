@@ -1,15 +1,16 @@
 # External Reasoning Workspace v0
 
-`external_reasoning_workspace_v0` is a public-safe draft workflow for using an
+`external_reasoning_workspace_v0` is a public-safe registered workflow for using an
 external ChatGPT browser session as an advisory reasoning workspace.
 
 ## Current State
 
-- `output_state: pilot-executed`
+- `output_state: registered`
 - `validation_level: private_pilot_executed_browser_advisory`
-- not registered in `.workflow/index.yaml`
-- no canon-ready, production-ready, default-route-safe, or owner-approval claim
-  is made
+- registered in `.workflow/index.yaml`
+- no production-ready, default-route-safe, source-truth, validation-authority,
+  or downstream side-effect owner-approval claim is made
+- registration was owner-requested on 2026-06-07 after private pilot evidence
 - private pilot evidence:
   `_workmeta/system/runs/external_reasoning_workspace_pilot_retry_20260607_172733KST/run_evidence/CHATGPT_PILOT_EXECUTION_PACKET.yaml`
 
@@ -91,4 +92,5 @@ The pilot did not store a raw transcript, raw conversation URL, account-bound
 identifier, secret, credential, cookie, browser storage, file upload, share
 link, permission change, payment/account setting change, or destructive action.
 The result is execution evidence only; it is not source truth, validation
-authority, owner approval, registration, or default-route safety.
+authority, production readiness, downstream side-effect owner approval, or
+default-route safety.

@@ -97,6 +97,8 @@ entries:
     path: workflow_knowledge_preflight_v0/workflow.yaml
   - workflow_id: dual_deep_research_v0
     path: dual_deep_research_v0/workflow.yaml
+  - workflow_id: external_reasoning_workspace_v0
+    path: external_reasoning_workspace_v0/workflow.yaml
   - workflow_id: latest_update_sync_and_followup_v0
     path: latest_update_sync_and_followup_v0/workflow.yaml
   - workflow_id: outlook_mail_reconcile_v0

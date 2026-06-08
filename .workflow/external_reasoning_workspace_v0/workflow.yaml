@@ -1,12 +1,12 @@
 workflow_id: external_reasoning_workspace_v0
 kind: workflow
-status: draft
+status: active
 title: External Reasoning Workspace v0
 summary: Use a session-aware external ChatGPT browser conversation as a bounded advisory reasoning workspace, with sanitized prompt packets, DOM message-role readback, private pointer refs, and strict side-effect boundaries.
 global_name_ko: 운영_외부추론자문_v0
-global_name_ko_scope: draft_invocation_alias_candidate
+global_name_ko_scope: registered_invocation_alias
 display_name_ko: 운영/자문/외부추론세션
-display_name_ko_scope: draft_authoring_aid
+display_name_ko_scope: registered_authoring_aid
 naming_contract_ref: .workflow/docs/WORKFLOW_NAMING_CONTRACT_V0.md
 entrypoint: run
 execution_mode: local_browser_advisory_sequence
@@ -38,8 +38,8 @@ outputs:
   - boundary_review_note
   - caller_handoff_packet
 validation_level: private_pilot_executed_browser_advisory
-registration_policy: unregistered_draft_no_index_entry
-output_state: pilot-executed
+registration_policy: owner_requested_registration
+output_state: registered
 classification_lane:
   primary: review_governance
   primary_name_ko: 리뷰/거버넌스
@@ -59,7 +59,7 @@ execution_binding:
   bound_party_id: null
   binding_authority: none
   notes:
-    - Party binding is intentionally unbound for this draft.
+    - Party binding is intentionally unbound for this registered workflow.
     - A matching party lane or browser capability does not create execution authority.
 upstream_workflows:
   - workflow_id: long_thread_handoff_v0
@@ -202,8 +202,8 @@ external_reasoning_workspace_contract:
     not_canon_promotion: true
     not_default_route_safe: true
 notes:
-  - "This package is a draft extracted from `docs/architecture/guild_hall/EXTERNAL_REASONING_WORKSPACE_V0.md`."
-  - "A bounded private pilot executed on 2026-06-07 and observed marker-verified assistant-role DOM readback; this is private execution evidence only, not source truth, production readiness, registration, or default-route safety."
+  - "This package was extracted from `docs/architecture/guild_hall/EXTERNAL_REASONING_WORKSPACE_V0.md` and registered after owner request on 2026-06-07."
+  - "A bounded private pilot executed on 2026-06-07 and observed marker-verified assistant-role DOM readback; this is private execution evidence only, not source truth, production readiness, or default-route safety."
   - "ChatGPT model names and product labels can change; operators must use only visible labels authorized by the user in the current UI."
   - "Conversation and project URLs are private pointer refs and must not be copied into public workflow files."
 pilot_evidence:
@@ -211,5 +211,5 @@ pilot_evidence:
   evidence_ref: _workmeta/system/runs/external_reasoning_workspace_pilot_retry_20260607_172733KST/run_evidence/CHATGPT_PILOT_EXECUTION_PACKET.yaml
   verifier_summary: marker_present_in_assistant_role_message_and_dom_role_readback_used
   claim_ceiling: observed
-  registration_result: unregistered
+  registration_result: registered
   default_route_safe: no
