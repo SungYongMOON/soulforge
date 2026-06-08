@@ -14,6 +14,15 @@ rules:
   - monster_id: codex_research_contaminated_by_notebooklm
     response: rerun_codex_direct_path_from_frozen_brief
     summary: Codex direct research must be independent until the comparison stage.
+  - monster_id: external_deep_research_contaminated_by_prior_findings
+    response: rerun_external_lane_from_frozen_brief_or_mark_blocked
+    summary: Gemini and GPT Deep Research lanes must not receive NotebookLM or Codex findings before their advisory packet is complete.
+  - monster_id: external_deep_research_answer_treated_as_verdict
+    response: demote_to_advisory_and_require_source_or_owner_review
+    summary: Gemini or GPT Deep Research output cannot validate source truth, owner approval, ontology acceptance, or canon promotion.
+  - monster_id: raw_external_browser_transcript_copied
+    response: replace_with_sanitized_claim_packet_and_boundary_note
+    summary: Raw external web transcripts, account-bound URLs, cookies, local storage, and session material must not be copied into public workflow packets.
   - monster_id: common_claims_reported_as_delta
     response: move_common_claims_to_trace_and_keep_delta_non_overlap_only
     summary: Common findings stay visible for trace but should not clutter owner-facing delta recommendations.

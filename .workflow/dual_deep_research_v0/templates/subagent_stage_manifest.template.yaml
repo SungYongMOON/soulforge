@@ -37,6 +37,25 @@ stages:
       - raw_notebooklm_answer_payload
       - secret_or_session_material
     expected_output: codex_direct_research_packet
+  - stage_id: optional_external_deep_research
+    actor_slot: external_deep_research_operator
+    fresh_subagent_required: true
+    optional: true
+    visible_inputs:
+      - goal_declaration
+      - frozen_research_brief
+      - external_deep_research_policy
+    optional_visible_inputs:
+      - gemini_deep_research_refs
+      - gpt_deep_research_refs
+    hidden_or_forbidden_inputs:
+      - notebooklm_cli_research_packet
+      - codex_direct_research_packet
+      - raw_notebooklm_answer_payload
+      - raw_external_chat_transcript
+      - secret_or_session_material
+      - account_bound_conversation_urls
+    expected_output: external_deep_research_packet
   - stage_id: compare_and_dedupe
     actor_slot: comparison_archivist
     fresh_subagent_required: true
@@ -45,7 +64,9 @@ stages:
       - frozen_research_brief
       - notebooklm_cli_research_packet
       - codex_direct_research_packet
+      - external_deep_research_packet
     hidden_or_forbidden_inputs:
       - raw_source_payload
+      - raw_external_chat_transcript
       - secret_or_session_material
     expected_output: dual_research_comparison_packet

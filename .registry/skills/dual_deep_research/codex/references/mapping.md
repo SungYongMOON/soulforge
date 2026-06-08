@@ -27,6 +27,15 @@ nlm notebook query <notebook_id> "<question>" --source-ids "<source_id_1>,<sourc
 
 If `nlm` or `notebooklm-mcp` is missing, logged out, or blocked, record the runtime blocker and use `docs/architecture/workspace/NOTEBOOKLM_MCP_SETUP_V0.md`. Browser/UI operation is an exception, not the default.
 
+## Optional External Deep Research Lanes
+
+The workflow may optionally add external web Deep Research advisory packets after the Codex direct research packet is complete and before comparison:
+
+- `gemini_web_deep_research`
+- `gpt_web_deep_research`
+
+These lanes receive only the goal declaration, frozen brief, and external lane policy. Do not show them NotebookLM or Codex findings before their advisory packets are complete. Raw external transcripts, account-bound URLs, cookies, local storage, session material, and secret payloads must not be copied into public packets.
+
 ## Calibrated Execution Profile
 
 Read `.workflow/dual_deep_research_v0/profile_policy.yaml` before choosing the execution profile.
@@ -44,9 +53,10 @@ The workflow output sequence is:
 3. `subagent_stage_manifest`
 4. `notebooklm_cli_research_packet`
 5. `codex_direct_research_packet`
-6. `dual_research_comparison_packet`
-7. `research_delta_handoff`
-8. `boundary_review_note`
+6. `external_deep_research_packet` when requested, skipped, or blocked
+7. `dual_research_comparison_packet`
+8. `research_delta_handoff`
+9. `boundary_review_note`
 
 Use the templates under `.workflow/dual_deep_research_v0/templates/`.
 
@@ -76,10 +86,11 @@ Any workflow created or evolved from that route must be reviewed through `$soulf
 - Fresh subagent stages were used for NotebookLM, Codex direct research, and comparison, or a blocker was recorded and the claim was lowered.
 - NotebookLM CLI-first command contract was followed or a blocker was recorded.
 - Codex direct research did not read NotebookLM findings before its packet was complete.
+- Optional Gemini/GPT Deep Research lanes did not read NotebookLM or Codex findings before their packet was complete.
 - Common claims remain trace metadata and are not repeated as delta recommendations.
 - `research_delta_handoff` was prepared for `knowledge_wiki_cell` / `knowledge_wiki_pipeline_v0`.
 - Downstream registration or promotion was left to the downstream workflow instead of performed by this skill.
 - Downstream or adjacent workflow creation/evolution needs were routed through `$soulforge-workflow-generator`, not handled inside this launcher.
 - If any workflow was created/evolved, it was reviewed through `$soulforge-workflow-check` before completion or readiness claims.
-- Public files contain no raw NotebookLM answer text, source payload, secret, credential, session, Drive payload, or runtime absolute path.
+- Public files contain no raw NotebookLM answer text, raw external chat transcript, source payload, secret, credential, session, Drive payload, account-bound URL, or runtime absolute path.
 - Synthetic profile calibration was not overclaimed as a real pilot.

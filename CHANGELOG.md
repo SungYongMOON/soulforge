@@ -27,6 +27,19 @@
   chain, no default-route switch, no production-ready claim, and no full manager
   rollover/worktree-worker execution claim.
 
+### Revision `working` - Dual deep research external lanes added
+
+- Extended `.workflow/dual_deep_research_v0/` to keep its NotebookLM CLI +
+  Codex direct research core while allowing optional Gemini and GPT web Deep
+  Research advisory packets before comparison.
+- Added external Deep Research packet, comparison, handoff, boundary, role, and
+  monster-rule coverage so Gemini/GPT reports remain independent, advisory, and
+  public-safe.
+- Updated the canonical `dual_deep_research` Codex launcher metadata to trigger
+  for Gemini/GPT Deep Research comparison requests without moving account auth,
+  Drive upload, source truth, owner approval, or canon promotion authority into
+  the skill.
+
 ## 2026-06-07
 
 ### Revision `working` - External GPT launcher skill added

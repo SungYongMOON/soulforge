@@ -9,8 +9,12 @@ checks:
   fresh_subagent_stages_used_or_blocker_recorded: unchecked
   notebooklm_cli_first_used_or_blocker_recorded: unchecked
   codex_path_independent_until_comparison: unchecked
+  external_deep_research_lanes_independent_until_comparison: unchecked
+  external_deep_research_skipped_or_blocker_recorded_when_unavailable: unchecked
   common_claims_removed_from_delta: unchecked
   no_raw_notebooklm_answer_payload: unchecked
+  no_raw_external_chat_transcript: unchecked
+  no_account_bound_external_refs: unchecked
   no_source_payload_copy: unchecked
   no_secret_or_session_material: unchecked
   no_owner_approval_inference: unchecked
@@ -27,5 +31,6 @@ non_claims:
   - no_owner_approval_claim
   - no_ontology_acceptance_claim
   - no_canon_promotion_claim
+  - no_external_deep_research_authority_claim
   - no_workflow_creation_or_evolution_claim
   - no_workflow_completion_or_registration_claim

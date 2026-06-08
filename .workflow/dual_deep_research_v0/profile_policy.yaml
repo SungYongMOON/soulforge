@@ -81,12 +81,13 @@ rerun_triggers:
   - workflow prompt changed
   - output schema changed
   - NotebookLM CLI command contract changed
+  - external Gemini or GPT Deep Research lane contract changed
   - source authority or upload policy changed
   - first private pilot exposes a new failure mode
   - first real NotebookLM or Codex research pilot fails boundary review
   - downstream knowledge_wiki_cell handoff contract changes
 calibration_archive_ref: calibrations/cal_20260524_staged_cli_001/
 notes:
-  - Public-safe synthetic calibration selected the cheapest passing profile; it does not prove real NotebookLM, web, Drive, wiki, source, account, or owner-decision behavior.
+  - Public-safe synthetic calibration selected the cheapest passing profile; it does not prove real NotebookLM, Gemini, GPT, web, Drive, wiki, source, account, or owner-decision behavior.
   - Use the high-assurance shadow profile for the first real pilot or when a handoff has elevated boundary risk.
   - CLI operations and source selection are runtime-owned; this file does not bind account sessions, MCP endpoints, or host-local paths.

@@ -54,15 +54,17 @@ steps:
       stages:
         - notebooklm_operator
         - codex_researcher
+        - external_deep_research_operator
         - comparison_archivist
       required_separation:
         notebooklm_operator_receives_codex_findings: false
         codex_researcher_receives_notebooklm_findings: false
-        comparison_archivist_receives_both_after_packets_complete: true
+        external_deep_research_operator_receives_notebooklm_or_codex_findings: false
+        comparison_archivist_receives_all_completed_packets_after_packets_complete: true
       blocked_if:
         - subagent_runtime_unavailable_and_fresh_context_required_for_claim
         - visible_inputs_include_raw_payload_or_secret
-    summary: Prepare fresh subagent prompts, visible inputs, expected outputs, and isolation rules before material research execution.
+    summary: Prepare fresh subagent prompts, visible inputs, expected outputs, optional external Deep Research lane policy, and isolation rules before material research execution.
     next:
       on_success: run_notebooklm_cli_deep_research
       on_fail: stop
@@ -130,8 +132,41 @@ steps:
       execution_contract: fresh_subagent_required_when_available
     summary: In a fresh Codex-researcher subagent, research the same frozen question independently from NotebookLM so the comparison is not contaminated by NotebookLM's answer.
     next:
-      on_success: normalize_and_compare_claims
+      on_success: run_optional_external_deep_research
       on_fail: stop
+  - step_id: run_optional_external_deep_research
+    title: Run Optional External Deep Research
+    actor_slot: external_deep_research_operator
+    action:
+      kind: optional_external_web_deep_research
+      artifacts_in:
+        - subagent_stage_manifest
+        - frozen_research_brief
+      optional_inputs:
+        - external_deep_research_policy
+        - gemini_deep_research_refs
+        - gpt_deep_research_refs
+      artifact_out: external_deep_research_packet
+      lanes:
+        - lane_id: gemini_web_deep_research
+          surface: Gemini web app Deep Research
+          default_when: external_deep_research_policy.requests_google_web_research
+        - lane_id: gpt_web_deep_research
+          surface: ChatGPT web Deep Research
+          default_when: external_deep_research_policy.requests_gpt_deep_research_or_full_mode
+      skip_allowed_when:
+        - external_deep_research_policy_not_requested
+        - auth_or_quota_unavailable
+        - browser_or_tool_state_blocked
+      blocked_if:
+        - visible_inputs_include_notebooklm_or_codex_findings_before_external_packet_completion
+        - secret_cookie_token_or_local_storage_access_required
+        - raw_external_transcript_would_be_copied_to_public_package
+      execution_contract: fresh_subagent_required_when_available
+    summary: Optionally run Gemini and/or GPT web Deep Research from the same frozen brief, keeping those outputs advisory and independent until comparison; write a skip or blocker record when the lane is unavailable.
+    next:
+      on_success: normalize_and_compare_claims
+      on_fail: normalize_and_compare_claims
   - step_id: normalize_and_compare_claims
     title: Normalize And Compare Claims
     actor_slot: comparison_archivist
@@ -141,16 +176,21 @@ steps:
         - subagent_stage_manifest
         - notebooklm_cli_research_packet
         - codex_direct_research_packet
+      optional_artifacts_in:
+        - external_deep_research_packet
       artifact_out: dual_research_comparison_packet
       claim_buckets:
         - common
         - notebooklm_only
         - codex_only
+        - gemini_only
+        - gpt_only
+        - external_only
         - conflict
         - gap
       dedupe_rule: common_claims_remain_trace_metadata_but_are_excluded_from_delta_recommendations
       execution_contract: fresh_subagent_required_when_available
-    summary: In a fresh comparison-archivist subagent, convert both outputs into atomic claims, identify common overlap, isolate one-sided claims, conflicts, and gaps, and avoid treating agreement as validation.
+    summary: In a fresh comparison-archivist subagent, convert NotebookLM, Codex, and any optional Gemini/GPT Deep Research outputs into atomic claims, identify common overlap, isolate one-sided claims, conflicts, and gaps, and avoid treating agreement as validation.
     next:
       on_success: assemble_delta_handoff
       on_fail: stop
@@ -162,6 +202,7 @@ steps:
       artifacts_in:
         - frozen_research_brief
         - dual_research_comparison_packet
+        - external_deep_research_packet
         - owner_decision_refs
       artifacts_out:
         - research_delta_handoff

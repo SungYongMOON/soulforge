@@ -8,7 +8,9 @@ slots:
     summary: runs the repo-defined NotebookLM CLI-first Deep Research path and records blockers without reading secrets or copying raw answers
   - slot_id: codex_researcher
     summary: performs independent direct source research from the frozen brief before seeing NotebookLM findings
+  - slot_id: external_deep_research_operator
+    summary: optionally runs Gemini or GPT web Deep Research from the frozen brief without seeing NotebookLM or Codex findings, and records advisory packets or blockers
   - slot_id: comparison_archivist
-    summary: normalizes both outputs into atomic claims and separates common, one-sided, conflict, and gap buckets
+    summary: normalizes NotebookLM, Codex, and optional external Deep Research outputs into atomic claims and separates common, one-sided, conflict, and gap buckets
   - slot_id: handoff_router
     summary: prepares the delta-focused downstream route while preserving claim ceilings and authority boundaries

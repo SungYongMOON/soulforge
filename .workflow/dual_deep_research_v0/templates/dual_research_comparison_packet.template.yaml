@@ -11,14 +11,19 @@ subagent_stage:
 inputs:
   notebooklm_cli_research_packet_ref: "<packet_id>"
   codex_direct_research_packet_ref: "<packet_id>"
+  external_deep_research_packet_ref: "<packet_id_or_skipped>"
 claim_buckets:
   common: []
   notebooklm_only: []
   codex_only: []
+  gemini_only: []
+  gpt_only: []
+  external_only: []
   conflicts: []
   gaps: []
 dedupe_rule:
   common_claims_kept_for_trace: true
   common_claims_removed_from_delta_recommendations: true
-agreement_is_truth_by_itself: false
-claim_ceiling: observed
+  agreement_is_truth_by_itself: false
+  external_deep_research_agreement_is_truth_by_itself: false
+  claim_ceiling: observed

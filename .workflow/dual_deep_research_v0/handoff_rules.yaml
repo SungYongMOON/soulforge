@@ -23,6 +23,14 @@ rules:
     condition: notebooklm_packet_or_blocker_written
     summary: Fresh comparison subagent receives only advisory findings, source handles, gaps, and blocker metadata, not raw NotebookLM answer payloads.
   - from: codex_researcher
+    to: external_deep_research_operator
+    condition: codex_direct_packet_written
+    summary: Optional Gemini/GPT Deep Research lanes receive only the frozen brief and external lane policy, not NotebookLM or Codex findings, so advisory paths remain separated until comparison.
+  - from: external_deep_research_operator
+    to: comparison_archivist
+    condition: external_deep_research_packet_written_or_skipped
+    summary: Comparison receives external Deep Research advisory packets, skip records, or blockers only after the external lane has completed or been explicitly skipped.
+  - from: codex_researcher
     to: comparison_archivist
     condition: codex_direct_packet_written
     summary: Comparison receives Codex direct claims and source refs after the direct research path is complete.

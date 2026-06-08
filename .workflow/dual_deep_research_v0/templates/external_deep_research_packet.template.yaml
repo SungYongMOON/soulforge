@@ -1,0 +1,35 @@
+workflow_id: dual_deep_research_v0
+kind: external_deep_research_packet
+schema_version: v0
+status: draft
+packet_id: "<packet_id>"
+goal_declaration_ref: "<goal_id>"
+subagent_stage:
+  stage_id: optional_external_deep_research
+  fresh_subagent_used: null
+  subagent_blocker: null
+requested_lanes:
+  - lane_id: gemini_web_deep_research
+    requested: false
+    status: skipped|completed|blocked
+    blocker: null
+  - lane_id: gpt_web_deep_research
+    requested: false
+    status: skipped|completed|blocked
+    blocker: null
+runtime:
+  surfaces:
+    - Gemini web app Deep Research
+    - ChatGPT web Deep Research
+  visible_browser_or_web_app_only: true
+  secret_or_session_material_read: false
+  raw_external_transcript_copied: false
+advisory_findings:
+  - claim_id: "<claim_id>"
+    lane_id: gemini_web_deep_research|gpt_web_deep_research
+    summary: ""
+    cited_source_refs: []
+    caveat: null
+gaps: []
+account_bound_refs_redacted: true
+claim_ceiling: observed

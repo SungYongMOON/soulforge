@@ -5,13 +5,19 @@ status: draft
 handoff_id: "<handoff_id>"
 delta_items:
   - item_id: "<item_id>"
-    source_bucket: notebooklm_only | codex_only | conflict | gap
+    source_bucket: notebooklm_only | codex_only | gemini_only | gpt_only | external_only | conflict | gap
+    contributing_lanes:
+      - notebooklm_cli_deep_research
+      - codex_direct_research
+      - gemini_web_deep_research
+      - gpt_web_deep_research
     recommended_handoff: knowledge_wiki_cell_pipeline
     summary: ""
     recommended_route: sourcebound_review | knowledge_candidate_triage | wiki_curation_maintenance | knowledge_access_event_capture | owner_decision | none
     route_hint_is_advisory: true
     reason: ""
 common_trace_ref: "<comparison_common_bucket_ref>"
+external_deep_research_ref: "<external_deep_research_packet_ref_or_skipped>"
 downstream_handoff:
   party_id: knowledge_wiki_cell
   workflow_id: knowledge_wiki_pipeline_v0

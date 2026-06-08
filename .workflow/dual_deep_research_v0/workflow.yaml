@@ -2,7 +2,7 @@ workflow_id: dual_deep_research_v0
 kind: workflow
 status: active
 title: Dual Deep Research v0
-summary: Run NotebookLM CLI Deep Research and Codex direct source research as separate advisory paths, then compare, deduplicate common claims from the delta view, and hand off the research packet to the Knowledge Wiki Cell for downstream registration judgment.
+summary: Run NotebookLM CLI Deep Research and Codex direct source research as the core independent advisory paths, optionally add Gemini or GPT web Deep Research packets as separate advisory lanes, then compare, deduplicate common claims from the delta view, and hand off the research packet to the Knowledge Wiki Cell for downstream registration judgment.
 entrypoint: run
 execution_mode: local_tool_sequence
 role_slots: role_slots.yaml
@@ -17,10 +17,12 @@ classification_lane:
   secondary:
     - source_research
     - notebooklm_operations
+    - external_deep_research
     - wiki_preparation
   secondary_name_ko:
     - 소스 조사
     - NotebookLM 운영
+    - 외부 심층 조사
     - 위키 준비
   purpose: discovery_only
   authority: none
@@ -38,6 +40,9 @@ optional_inputs:
   - notebooklm_binding_refs
   - notebooklm_source_ledger_refs
   - notebooklm_packet_map_refs
+  - external_deep_research_policy
+  - gemini_deep_research_refs
+  - gpt_deep_research_refs
   - codex_source_refs
   - owner_decision_refs
 outputs:
@@ -46,6 +51,7 @@ outputs:
   - subagent_stage_manifest
   - notebooklm_cli_research_packet
   - codex_direct_research_packet
+  - external_deep_research_packet
   - dual_research_comparison_packet
   - research_delta_handoff
   - boundary_review_note
@@ -88,6 +94,7 @@ operating_contract:
     - fresh_subagent_execution_policy
     - notebooklm_cli_first_deep_research_sequence
     - codex_independent_research_sequence
+    - optional_external_deep_research_advisory_sequence
     - dual_path_claim_comparison_shape
     - common_claim_dedupe_rule
     - delta_handoff_shape
@@ -97,6 +104,11 @@ operating_contract:
     - notebooklm_account_auth
     - notebooklm_answer_authority
     - notebooklm_packet_map_mutation
+    - gemini_account_auth
+    - gemini_answer_authority
+    - gpt_account_auth
+    - gpt_answer_authority
+    - external_deep_research_tool_availability
     - source_upload_approval
     - google_drive_registration
     - google_drive_placement
@@ -129,6 +141,7 @@ operating_contract:
       owner_approval_claimed_here: false
       drive_placement_claimed_here: false
       notebooklm_packet_map_mutation_claimed_here: false
+      external_deep_research_auth_or_account_claimed_here: false
       wiki_or_canon_promotion_claimed_here: false
       default_route_switch_or_safety_claimed_here: false
   notebooklm_cli_contract:
@@ -153,13 +166,38 @@ operating_contract:
       - login_recovery
       - visual_confirmation
       - explicit_owner_request
+  external_deep_research_contract:
+    status: optional
+    default_lanes:
+      - lane_id: gemini_web_deep_research
+        surface: Gemini web app Deep Research
+        default_use: standard_or_full_when_owner_requests_google_web_research
+      - lane_id: gpt_web_deep_research
+        surface: ChatGPT web Deep Research
+        default_use: full_or_high_assurance_when_owner_requests_gpt_deep_research
+    required_controls:
+      - goal_and_brief_only_visible_to_external_lane
+      - no_notebooklm_or_codex_findings_visible_before_external_packet_completion
+      - visible_browser_or_web_app_only
+      - no_cookie_local_storage_token_or_secret_inspection
+      - marker_or_nonce_when_browser_dom_readback_is_used
+      - record_blocker_or_skip_when_auth_tool_or_quota_is_unavailable
+      - external_reports_are_advisory_until_source_supported_or_owner_reviewed
+    forbidden_content:
+      - raw_external_chat_transcript_in_public_package
+      - account_bound_conversation_ids_or_urls_in_public_package
+      - private_source_payload_or_secret_material
   boundaries:
     notebooklm_cli_first: true
     browser_ui_is_exception: true
+    external_deep_research_web_lanes_are_optional: true
     notebooklm_output_is_advisory: true
+    gemini_output_is_advisory: true
+    gpt_output_is_advisory: true
     codex_output_is_advisory: true
     agreement_is_not_truth_by_itself: true
     codex_direct_path_independent_until_comparison: true
+    external_deep_research_paths_independent_until_comparison: true
     common_findings_removed_from_delta_but_kept_as_trace: true
     no_payload_copy_into_public_package: true
     goal_declared_before_material_research: true
@@ -181,13 +219,15 @@ operating_contract:
     subagent_stage_manifest: templates/subagent_stage_manifest.template.yaml
     notebooklm_cli_research_packet: templates/notebooklm_cli_research_packet.template.yaml
     codex_direct_research_packet: templates/codex_direct_research_packet.template.yaml
+    external_deep_research_packet: templates/external_deep_research_packet.template.yaml
     dual_research_comparison_packet: templates/dual_research_comparison_packet.template.yaml
     research_delta_handoff: templates/research_delta_handoff.template.yaml
     boundary_review_note: templates/boundary_review_note.template.yaml
 notes:
   - "The NotebookLM CLI command contract is recorded here from existing Soulforge NotebookLM operating docs; future agents should not rediscover it from scratch before every run."
+  - "Gemini and GPT Deep Research are optional external advisory lanes added to the core dual workflow; they do not replace NotebookLM CLI or Codex direct research, and they may be skipped when auth, quota, UI state, or owner scope blocks them."
   - "Declare the goal before any NotebookLM, Codex, comparison, sourcebound, or registration stage. The goal declaration must include success conditions, stop conditions, allowed inputs, and downstream handoff limits."
-  - "Material stages should run through fresh subagents when the runtime permits it: one NotebookLM operator, one Codex direct researcher, and one comparison verifier/archivist. If subagents are unavailable, record the blocker and do not claim fresh-context validation."
+  - "Material stages should run through fresh subagents when the runtime permits it: one NotebookLM operator, one Codex direct researcher, optional external Deep Research operators, and one comparison verifier/archivist. If subagents are unavailable, record the blocker and do not claim fresh-context validation."
   - "If `nlm` or `notebooklm-mcp` is missing, record a runtime blocker and use `docs/architecture/workspace/NOTEBOOKLM_MCP_SETUP_V0.md`; do not treat the browser UI as the default path."
   - "After the research packet is assembled, automatically hand it to `knowledge_wiki_cell` through `knowledge_wiki_pipeline_v0`; that downstream party/workflow judges registration, source sufficiency, owner-decision needs, and storage/wiki actions."
   - "This workflow stops at the research comparison and handoff slice. Drive upload, NotebookLM packet-map updates, wiki registration, and canon promotion are downstream owner/workflow actions."
