@@ -10,19 +10,19 @@ slots:
     summary: Maintains NIGHT_WORK_HANDOFF before worker creation, manager rollover, compact, clear, cross-PC/overnight continuation, or substantial phase closeout.
   - slot_id: surface_router
     title: Continuation Surface Router
-    summary: Chooses subagent for non-durable side work, role worker threads for durable lanes, worktree worker for isolated file mutation, or fresh manager for rollover.
+    summary: Chooses subagent for non-durable side work, role worker threads for durable lanes, fresh verifier/judge lanes for independent review, worktree worker for isolated file mutation, or fresh manager for rollover.
   - slot_id: worker_packet_author
     title: Worker Packet Author
-    summary: Builds bounded worker prompts with title, role lane, objective, allowed paths, handoff context, stop conditions, compact report shape, default bounded subagent authority, any count limit or denial, and claim ceiling.
+    summary: Builds bounded worker prompts with title, role lane, objective, allowed paths, handoff context, stop conditions, compact report shape, subagent-first bounded subagent authority, no-subagent exceptions, verifier independence guards, any count limit or denial, and claim ceiling.
   - slot_id: manager_rollover_controller
     title: Manager Rollover Controller
     summary: Transfers continuity from an old manager to a fresh manager through a checkpoint and acceptance gate.
   - slot_id: integration_controller
     title: Integration Controller
-    summary: Integrates worker results only after checking actual file, status, and thread state.
+    summary: Integrates worker results only after checking actual file, status, thread state, and worker subagent-use or no-subagent-exception notes.
   - slot_id: validation_controller
     title: Validation Controller
-    summary: Runs deterministic validators, boundary checks, and workflow-check closeout before stronger claims.
+    summary: Runs deterministic validators, verifies fresh-context reviewer independence when required, boundary checks, and workflow-check closeout before stronger claims.
   - slot_id: closeout_controller
     title: Closeout Controller
     summary: Reports thread ids/titles, lifecycle actions, validation status, remaining gaps, and knowledge trigger result.

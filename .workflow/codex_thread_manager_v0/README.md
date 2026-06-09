@@ -2,8 +2,8 @@
 
 `codex_thread_manager_v0` is a public-safe pilot-ready workflow package for
 making the declared Codex thread the main team lead that manages context
-lifecycle and coordinates actual Codex role worker, worktree worker, and
-rollover manager threads.
+lifecycle and coordinates subagent-first Codex role worker, worktree worker, and
+rollover manager threads while keeping verifier and judge lanes fresh-context.
 
 It formalizes the `$soulforge-codex-thread-manager` launcher behavior as a
 registered workflow bridge without claiming production readiness, default-route
@@ -32,7 +32,9 @@ safety, or party binding.
   thread, worktree worker thread, and subagent.
 - Manager lifecycle and rollover policy.
 - Role worker topology, worker prompt packet shape, worker subagent bounds
-  policy, and thread id/title recording.
+  policy, no-subagent exception policy, and thread id/title recording.
+- Fresh-context verifier/judge/reviewer routing for independent acceptance,
+  workflow-check, and readiness claims.
 - Cross-worker result routing, integration, and validation closeout.
 
 ## Context Lifecycle
@@ -51,8 +53,8 @@ safety, or party binding.
 ## Routing Rules
 
 - Use subagents for non-durable side work that can be integrated immediately:
-  focused investigation, noisy search, independent review, small verification,
-  or parallel analysis.
+  focused investigation, noisy search, small non-acceptance verification, or
+  parallel analysis.
 - Use Codex worker threads for durable lanes that need a title/id, follow-up,
   overnight or cross-PC continuity, a separate phase, long-running execution, or
   manager integration after independent work.
@@ -60,12 +62,27 @@ safety, or party binding.
   verification, coding, and documentation.
 - Use worktree worker threads for file mutation when checkout isolation or
   disjoint write scope is needed.
-- Worker threads may create bounded subagents inside their assigned lane by
-  default. The count is scope-driven, not fixed. Worker prompts state the
-  subagent scope, reporting shape, any count limit or denial, and side-effect
-  limits.
+- Use fresh-context verifier or judge threads, or fresh bounded subagents when a
+  durable thread is unnecessary, for independent review, acceptance judgment,
+  workflow-check, readiness claims, or adversarial review. Do not fork or
+  continue the implementer for that judgment.
+- Treat fork, rollover, and continuation as same-role continuity surfaces, not
+  independence evidence. An implementer self-check can find bugs, but it does
+  not satisfy independent verification.
+- Worker threads are subagent-first lane controllers. For substantive research,
+  implementation, analysis, debugging, or review work, workers create fresh
+  bounded subagents by default and integrate result packets rather than doing
+  the whole lane in their own accumulating context.
+- Worker direct execution is allowed only for named no-subagent exceptions:
+  lane planning and packet authoring, small deterministic local checks, result
+  integration, validator/status commands, manager-authorized narrow mechanical
+  edits, unavailable or blocked subagent tools, or cases where a safe minimal
+  packet cannot be created without boundary risk. Workers record the exception.
+- The worker subagent count is scope-driven, not fixed. Worker prompts state
+  the subagent-first posture, scope, reporting shape, any count limit or
+  denial, side-effect limits, and no-subagent exceptions.
 - Manager may route bounded result packets between worker threads or ask one
-  worker to review another worker's result.
+  fresh, non-implementer worker to review another worker's result.
 - Fresh manager threads are for rollover, continuity transfer, mission boundary
   changes, context drift, 24-hour span, or explicit user request.
 
@@ -88,13 +105,17 @@ safety, or party binding.
 4. Plan the thread team topology and context lifecycle.
 5. Choose the continuation surface using the subagent-vs-thread routing rules.
 6. Prepare role worker, worktree worker, or fresh manager packets with bounded
-   scope, handoff context, compact report shape, default bounded subagent
-   authority, any count limit or denial, and side-effect limits.
-7. Observe thread ids/titles and acceptance results.
-8. Route bounded result packets between workers when useful.
-9. Integrate worker summaries after checking actual state.
-10. Run validators and `$soulforge-workflow-check`.
-11. Close out with the claim ceiling, blockers, next action, and knowledge
+   scope, handoff context, compact report shape, subagent-first bounded
+   subagent authority, any count limit or denial, no-subagent exceptions, and
+   side-effect limits.
+7. Prepare verifier or judge packets from minimal evidence: objective, changed
+   refs, acceptance criteria, validators, claims, and risk areas; exclude raw
+   transcript and avoid leaking the intended fix except where necessary.
+8. Observe thread ids/titles and acceptance results.
+9. Route bounded result packets between workers when useful.
+10. Integrate worker summaries after checking actual state.
+11. Run validators and `$soulforge-workflow-check`.
+12. Close out with the claim ceiling, blockers, next action, and knowledge
    trigger result.
 
 ## Party Policy

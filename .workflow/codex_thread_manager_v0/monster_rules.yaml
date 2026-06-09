@@ -10,13 +10,19 @@ rules:
     summary: Research, implementation, debugging, review, and documentation lane changes normally replace workers, not the manager.
   - monster_id: context_lifecycle_treated_as_side_detail
     response: manager_owns_checkpoint_compact_clear_and_reanchor
-    summary: The manager thread owns long-context hygiene: refresh handoff, compact, clear, rollover, and re-anchor timing from phase state and context pressure.
+    summary: "The manager thread owns long-context hygiene: refresh handoff, compact, clear, rollover, and re-anchor timing from phase state and context pressure."
   - monster_id: thread_manager_reduced_to_single_worker_launcher
     response: build_role_thread_team_topology
     summary: Substantial work should create role worker threads such as research, synthesis, verification, coding, or documentation rather than a single generic worker.
+  - monster_id: worker_does_substantive_work_without_subagent
+    response: require_fresh_bounded_subagent_or_record_no_subagent_exception
+    summary: Worker threads are lane controllers by default; substantive lane work should go to fresh bounded subagents unless a named no-subagent exception applies and is reported.
   - monster_id: manager_never_rolls_over
     response: scheduled_manager_rollover
     summary: Before overnight, cross-PC handoff, 24-hour span, major phase cluster, or context drift, refresh handoff and create a fresh manager.
+  - monster_id: implementer_fork_used_as_independent_verifier
+    response: create_fresh_verifier_or_lower_claim
+    summary: Forks, rollovers, and continuations preserve context for same-role continuity; they do not satisfy independent verification, judge, workflow-check, or readiness review.
   - monster_id: worker_reused_by_clear
     response: close_or_leave_worker_and_create_new_lane
     summary: Do not clear worker threads for reuse; completed workers remain evidence and the next lane gets a new worker.
@@ -25,7 +31,7 @@ rules:
     summary: Every manager-created worker needs an id/title record in handoff or private run evidence.
   - monster_id: recursive_fanout
     response: require_bounds_reporting_and_manager_permission_for_side_effects
-    summary: Worker threads may create bounded subagents by default with scope-driven count; nested worker threads, automations, and canon entries require manager permission.
+    summary: Worker threads create bounded subagents by default for substantive lane work with scope-driven count; nested worker threads, automations, and canon entries require manager permission.
   - monster_id: local_skill_treated_as_canon
     response: keep_runtime_bridge_boundary
     summary: Installed local skills can launch the runtime behavior but do not by themselves create workflow registration, party binding, or default-route authority.

@@ -18,6 +18,8 @@ rerun_triggers:
   - thread tool availability changes
   - manager rollover policy changes
   - worktree worker policy changes
+  - worker subagent-first or no-subagent exception policy changes
+  - verifier or judge independence policy changes
   - recursive fan-out policy changes
   - local runtime skill bridge changes
 non_claims:
@@ -25,5 +27,7 @@ non_claims:
   - no_cost_or_quality_calibration_claim
   - no_full_rollover_execution_claim
   - no_worktree_worker_execution_claim
+  - no_worker_subagent_first_execution_claim
+  - no_forked_implementer_independent_review_claim
   - no_production_ready_claim
   - no_default_route_claim

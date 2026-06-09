@@ -1,7 +1,7 @@
 interface:
   display_name: "Soulforge Codex Thread Manager"
   short_description: "Run Codex thread manager and worker lanes"
-  default_prompt: "Use $soulforge-codex-thread-manager to make this thread the main team lead, manage NIGHT_WORK_HANDOFF/compact/reset, and create role Codex worker threads when useful."
+  default_prompt: "Use $soulforge-codex-thread-manager to make this thread the main team lead, manage NIGHT_WORK_HANDOFF/compact/reset, create subagent-first role Codex worker threads when useful, and keep verifier/judge lanes fresh-context and non-forked."
 
 policy:
   allow_implicit_invocation: true
