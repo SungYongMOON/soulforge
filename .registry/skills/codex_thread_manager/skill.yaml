@@ -2,7 +2,7 @@ skill_id: codex_thread_manager
 kind: skill
 status: active
 title: Codex Thread Manager
-summary: Launch the registered `codex_thread_manager_v0` workflow so the declared Codex thread acts as main team lead, manages context lifecycle, and coordinates actual role worker threads while preserving Soulforge handoff and boundary rules.
+summary: Launch the registered `codex_thread_manager_v0` workflow so the declared Codex thread acts as main team lead, manages context lifecycle, coordinates subagent-first role worker threads, and keeps verifier/judge lanes fresh-context while preserving Soulforge handoff and boundary rules.
 behavior:
   intent: >
     Provide a Codex-facing bridge for `.workflow/codex_thread_manager_v0`.
@@ -14,8 +14,16 @@ behavior:
     thread-orchestration request: the declared/current Codex thread becomes the
     main team lead, manages handoff/compact/reset lifecycle, and may create
     role worker Codex threads when runtime tools and boundaries support that
-    action. Worker threads can use bounded subagents inside their assigned lane
-    by default. This skill maps explicit user language to that workflow without
+    action. Worker threads are subagent-first lane controllers: substantive
+    lane work is delegated to fresh bounded subagents by default, and direct
+    worker execution is allowed only for explicit no-subagent exceptions such
+    as packet authoring, small deterministic checks, integration, validators,
+    manager-authorized narrow mechanical edits, unavailable subagent tools, or
+    an unsafe minimal packet. Fork, rollover, and continuation are same-role
+    continuity surfaces, not independent verification surfaces; verifier,
+    judge, review, workflow-check, or acceptance lanes that affect readiness
+    use fresh-context threads or fresh bounded subagents from minimal evidence
+    packets. This skill maps explicit user language to that workflow without
     turning local thread tools, raw transcripts, private payloads, or default
     route authority into skill canon.
   use_when:
@@ -36,6 +44,8 @@ behavior:
     - Codex treats explicit skill invocation with an actionable goal as authorization for the declared thread to act as main team lead and create role worker threads by default when thread tools and scope boundaries support that action
     - Codex refreshes structured handoff before worker creation, compact, clear, rollover, cross-PC/overnight continuation, and substantial phase closeout
     - Codex routes non-durable side work to subagents and durable lanes to Codex worker threads
+    - Codex uses fresh-context verifier/judge/reviewer lanes for independent acceptance and does not fork or continue the implementer for that judgment
+    - Codex requires worker threads to be subagent-first for substantive lane work and to record any no-subagent exception
     - Codex allows worker threads to create bounded subagents inside their assigned lane by default, with the count determined by lane scope unless the packet sets a specific limit
     - Codex can pass bounded result packets between worker threads or route all results through the manager
     - Codex records thread titles/ids when available, integrates worker summaries after checking actual state, and closes with validators plus workflow-check posture
@@ -46,9 +56,11 @@ execution_requirements:
     - context_lifecycle_management
     - durable_checkpoint_curation
     - delegation_surface_routing
+    - verifier_judge_independence_routing
     - codex_thread_creation_or_continuation
     - worker_thread_packet_authoring
     - worker_subagent_delegation_policy
+    - worker_no_subagent_exception_policy
     - inter_thread_result_routing
     - manager_rollover_acceptance
     - actual_file_state_integration
@@ -69,7 +81,9 @@ execution_requirements:
   notes:
     - "The workflow remains `.workflow/codex_thread_manager_v0/`; read it at execution time."
     - "The installed Codex mirror name after sync is normally `soulforge-codex-thread-manager`."
-    - "The normal launcher behavior is the declared/current thread as main team lead plus role worker Codex threads for substantial actionable invocations; worker/subagent counts are scope-driven unless a manager packet sets a limit."
+    - "The normal launcher behavior is the declared/current thread as main team lead plus subagent-first role worker Codex threads for substantial actionable invocations; worker/subagent counts are scope-driven unless a manager packet sets a limit."
+    - "Worker threads should not skip fresh bounded subagents for substantive lane work unless a named no-subagent exception applies and is reported."
+    - "Fork, rollover, and continuation are not independence evidence; verifier, judge, review, workflow-check, and acceptance lanes use fresh context unless the claim is explicitly lowered."
     - "This skill does not create party binding, default-route safety, source truth, owner approval, or production-ready claims."
 notes:
   - "`codex_thread_manager` is a thin Codex bridge for `.workflow/codex_thread_manager_v0`."

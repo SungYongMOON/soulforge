@@ -78,6 +78,8 @@ steps:
       manager_rollover_before_24h_or_cross_pc: true
       manager_routes_result_packets_between_workers_when_useful: true
       worktree_required_for_overlapping_file_mutation: true
+      fork_rollover_and_continuation_are_same_role_continuity_not_independence: true
+      fresh_verifier_or_judge_for_acceptance_and_readiness_claims: true
       subagent_not_durable_lane: true
     next:
       - manager_rollover_or_worker_packet
@@ -100,10 +102,15 @@ steps:
     rules:
       fresh_manager_prompt_self_contained: true
       worker_prompt_names_title_and_scope: true
+      worker_prompt_subagent_first_for_substantive_lane_work: true
       worker_subagents_allowed_when_bounded_unless_packet_denies: true
       worker_thread_may_spawn_subagents_inside_assigned_lane: true
       worker_subagent_count_is_scope_driven_unless_manager_sets_limit: true
-      worker_subagent_bounds_or_denial_must_be_written_in_packet: true
+      worker_subagent_first_bounds_or_denial_must_be_written_in_packet: true
+      no_subagent_exception_must_be_named_when_worker_does_substantive_work_directly: true
+      verifier_packet_must_be_fresh_context_minimal_evidence: true
+      verifier_or_judge_must_not_be_fork_or_continuation_of_implementer: true
+      implementer_self_check_not_independent_verification: true
       worker_prompt_includes_handoff_context_and_compact_report_shape: true
       recursive_subagent_fanout_requires_bounds_and_reporting: true
       nested_worker_thread_automation_or_canon_creation_requires_manager_permission: true
@@ -125,11 +132,14 @@ steps:
       - thread_creation_log
       - manager_acceptance_report
       - worker_result_summary_set
+      - verifier_independence_note
     rules:
       create_worker_thread_after_actionable_skill_invocation_when_available: true
       old_manager_checks_new_manager_acceptance: true
       new_manager_must_reinvoke_runtime_skill_or_read_bridge: true
       worker_thread_id_title_recorded_by_manager: true
+      worker_direct_substantive_execution_requires_recorded_no_subagent_exception: true
+      acceptance_verifier_created_fresh_or_claim_lowered: true
       files_not_modified_in_read_only_pilot: true
     next:
       - integration_and_validation
@@ -153,6 +163,7 @@ steps:
       inspect_actual_status_before_decision: true
       do_not_revert_unowned_changes: true
       validators_before_stronger_claims: true
+      independent_review_not_satisfied_by_implementer_fork: true
       partial_pilot_lowers_claim_ceiling: true
     next:
       - validation_and_review
@@ -208,6 +219,8 @@ stop_conditions:
   - owner_decision_required_for_registration_or_default_route
   - unavailable_thread_tool
   - worker_write_scope_overlap_without_worktree
+  - independent_verifier_unavailable_for_required_claim
+  - worker_direct_substantive_execution_without_no_subagent_exception
   - unbounded_recursive_subagent_fanout_requested_or_observed
   - validator_failure_unfixable_in_scope
   - exhausted_user_specified_budget

@@ -45,12 +45,29 @@ tool behavior.
 - Do not create a fresh manager thread by default. Use a fresh manager only for
   rollover, cross-PC/overnight continuity, 24-hour span, mission boundary
   change, context drift, or explicit user request.
-- Allow a worker thread to create bounded subagents by default when useful.
-  The worker packet must state the allowed purpose, scope, reporting shape, and
-  any denial or limit.
+- Use fork, rollover, or continuation only for same-role continuity. Do not use
+  an implementer, implementer fork, or manager rollover as the independent
+  verifier, judge, or acceptance reviewer for that implementer's work.
+- For verification, review, judge, workflow-check, or acceptance lanes that can
+  affect readiness or approval, create a fresh-context verifier thread or fresh
+  bounded subagent from a minimal evidence packet. If that is unavailable, lower
+  the claim ceiling or report blocked.
+- Treat worker threads as subagent-first lane controllers. For substantive
+  research, implementation, analysis, debugging, or review work, the worker
+  should create fresh bounded subagents by default and integrate their result
+  packets rather than doing the whole lane in its own accumulating context.
+- Allow direct worker execution only for explicit no-subagent exceptions:
+  lane planning and packet authoring, small deterministic local checks, result
+  integration, validator/status commands, a narrow mechanical edit explicitly
+  authorized by the manager packet, or when subagent tools are unavailable or a
+  safe minimal packet cannot be made. Record the exception reason.
+- The worker packet must state subagent-first posture, allowed purpose, scope,
+  reporting shape, side-effect limits, and any no-subagent exception or count
+  limit.
 - Treat each worker thread as the controller for its own bounded lane. A worker
-  thread may use subagents to explore, implement, verify, or review inside that
-  lane and must report the subagents it used.
+  thread should use subagents to explore, implement, debug, or self-check
+  inside that lane and must report the subagents it used or why it did not
+  create one. Its self-check is not independent verification of its own output.
 - Worker subagent count is scope-driven, not fixed. The worker may use as many
   bounded subagents as the lane reasonably needs unless the manager packet sets
   a specific limit.
@@ -77,27 +94,34 @@ tool behavior.
 ## Routing Rules
 
 - Use a subagent for bounded non-durable work inside the current lane: focused
-  investigation, noisy code search, independent review, small verification, or
+  investigation, noisy code search, small non-acceptance verification, or
   parallel analysis that can be integrated immediately.
 - Use a Codex worker thread when the work needs durable history, a title/id,
   follow-up, overnight or cross-PC continuity, a separate phase lane, a
   long-running task, or manager integration after independent execution.
 - Split durable work into role threads when useful: research, synthesis,
   verification, coding, documentation, or project-specific lanes.
+- Use a fresh verifier or judge thread when a lane must independently check,
+  reject, approve, or acceptance-review prior work. The verifier packet should
+  include objective, changed refs, acceptance criteria, validators, claims, and
+  suspected risk areas; avoid raw transcript and avoid revealing the intended
+  fix except where it is necessary evidence.
 - Use a worktree worker thread when the worker will mutate files and write
   scope overlaps the foreground checkout or another worker.
 - Use a fresh manager thread only for rollover, continuity transfer, mission
   boundary changes, context drift, 24-hour span, or explicit user request.
-- When creating a worker thread, include whether subagents are allowed by
-  default, the subagent scope, reporting shape, and side-effect limits. The
-  normal setting is bounded subagents allowed with no hardcoded count.
+- When creating a worker thread, include that substantive lane work is
+  subagent-first by default, plus the subagent scope, reporting shape,
+  side-effect limits, and no-subagent exceptions. The normal setting is bounded
+  subagents allowed with no hardcoded count.
 - A worker thread may create subagents within its packet scope without asking
   again. It must not create further Codex worker threads, automations, `.party`
   chains, default-route changes, or canon entries unless the manager granted
   that specific authority.
 - Manager may pass bounded result packets between worker threads or ask one
-  worker to review another worker's result. Prefer summaries, changed refs,
-  validator outputs, and explicit questions over raw logs.
+  fresh, non-implementer worker to review another worker's result. Prefer
+  summaries, changed refs, validator outputs, and explicit questions over raw
+  logs.
 
 ## Operating Steps
 
@@ -116,17 +140,23 @@ tool behavior.
    durable worker/worktree needs authorize an actual thread lane and the
    runtime tools are available.
 7. For worker threads, provide title, objective, allowed paths, stop conditions,
-   claim ceiling, report shape, and subagent bounds or denial.
-8. For worktree workers, require disjoint write scope or worktree isolation and
+   claim ceiling, report shape, subagent-first default, and no-subagent
+   exception rules.
+8. For verifier, judge, review, workflow-check, or acceptance lanes, use a
+   fresh-context thread or fresh bounded subagent with a minimal evidence
+   packet. Do not fork or continue the implementer for independent judgment.
+9. For worktree workers, require disjoint write scope or worktree isolation and
    tell workers not to revert others' changes.
-9. Govern recursive fan-out by bounded rules. Workers and subagents may create
+10. Govern recursive fan-out by bounded rules. Workers and subagents may create
    bounded subagents within the packet scope, but creating further worker
-   threads, automations, or canon entries requires manager permission.
-10. Integrate worker/subagent results only after checking actual file, status,
+   threads, automations, or canon entries requires manager permission. If a
+   worker skips subagent creation for substantive work, it must report the
+   applicable no-subagent exception.
+11. Integrate worker/subagent results only after checking actual file, status,
     and thread state.
-11. Run deterministic validators and `$soulforge-workflow-check` before
+12. Run deterministic validators and `$soulforge-workflow-check` before
     readiness, registration, default-route, or production claims.
-12. Close with thread titles/ids when available, manager lifecycle action,
+13. Close with thread titles/ids when available, manager lifecycle action,
     validation status, remaining blockers, next action, and
     `지식 트리거 확인: ...`.
 
@@ -170,4 +200,5 @@ Stop and report blocked when the next step requires a secret, external side
 effect authorization, owner decision, unavailable thread/subagent tool,
 unavailable model/profile, unsafe public/private boundary, overlapping worker
 write scope, recursive fan-out, failed validator that cannot be fixed in scope,
+unavailable independent verifier when a stronger claim requires one,
 conflicting active goal, or exhausted user-specified budget.

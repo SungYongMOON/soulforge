@@ -13,19 +13,19 @@ rules:
   - from: surface_router
     to: worker_packet_author
     condition: continuation_surface_selected
-    summary: Pass whether the next action is subagent, manager plus role worker threads, same-thread, fresh manager, or worktree worker, with the routing reason and claim ceiling.
+    summary: Pass whether the next action is subagent, manager plus role worker threads, same-thread, fresh manager, worktree worker, or fresh verifier/judge, with the routing reason, independence requirement, and claim ceiling.
   - from: worker_packet_author
     to: manager_rollover_controller
     condition: manager_or_worker_packet_prepared
-    summary: Pass self-contained prompts containing title, role lane, objective, allowed paths, handoff context, stop conditions, compact report shape, default bounded worker-subagent authority, any count limit or denial, and side-effect limits.
+    summary: Pass self-contained prompts containing title, role lane, objective, allowed paths, handoff context, stop conditions, compact report shape, subagent-first worker-subagent authority, any count limit or denial, no-subagent exceptions, side-effect limits, and for verifier/judge lanes the minimal evidence packet plus non-fork independence guard.
   - from: manager_rollover_controller
     to: integration_controller
     condition: acceptance_or_worker_result_available
-    summary: Pass observed thread ids/titles, worker roles, worker status, acceptance result, cross-worker packets, and residual gaps; do not pass hidden reasoning or raw worker logs.
+    summary: Pass observed thread ids/titles, worker roles, worker status, subagent-use or no-subagent-exception notes, acceptance result, cross-worker packets, and residual gaps; do not pass hidden reasoning or raw worker logs.
   - from: integration_controller
     to: validation_controller
     condition: actual_state_checked
-    summary: Pass integrated state, changed/inspected refs, validator results, and boundary notes before any readiness claim.
+    summary: Pass integrated state, changed/inspected refs, validator results, verifier independence note, and boundary notes before any readiness claim.
   - from: validation_controller
     to: closeout_controller
     condition: validators_run_or_gap_recorded

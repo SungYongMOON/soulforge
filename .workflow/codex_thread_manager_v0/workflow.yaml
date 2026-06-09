@@ -2,7 +2,7 @@ workflow_id: codex_thread_manager_v0
 kind: workflow
 status: active
 title: Codex Thread Manager v0
-summary: Public-safe workflow for making the declared Codex thread the main team lead that manages context lifecycle and coordinates actual role worker, worktree worker, and rollover manager threads while preserving NIGHT_WORK_HANDOFF continuity, explicit thread titles, bounded worker scopes, and conservative claim boundaries.
+summary: Public-safe workflow for making the declared Codex thread the main team lead that manages context lifecycle and coordinates subagent-first role worker, worktree worker, and rollover manager threads while preserving NIGHT_WORK_HANDOFF continuity, explicit thread titles, bounded worker scopes, fresh-context verifier/judge independence, and conservative claim boundaries.
 entrypoint: run
 execution_mode: codex_app_thread_orchestration_sequence
 role_slots: role_slots.yaml
@@ -37,6 +37,7 @@ outputs:
   - integration_validation_log
   - boundary_review_note
   - workflow_check_review_packet
+  - verifier_independence_note
   - closeout_report
 validation_level: private_one_worker_pilot_observed
 registration_policy: owner_requested_registration
@@ -88,6 +89,8 @@ codex_thread_manager_contract:
     - role_worker_thread_topology
     - worker_thread_packet_shape
     - worker_subagent_permission_policy
+    - worker_no_subagent_exception_policy
+    - fresh_verifier_judge_independence_policy
     - inter_thread_result_routing_policy
     - worktree_worker_boundary_policy
     - worker_result_integration_policy
@@ -112,13 +115,13 @@ codex_thread_manager_contract:
     fresh_manager_thread: rollover_due_or_mission_boundary_changed
     worker_thread: durable_lane_needs_title_followup_or_independent_history
     worktree_worker_thread: file_mutation_requires_checkout_isolation
+    fresh_verifier_or_judge: independent_acceptance_or_readiness_review_needed
     subagent: non_durable_bounded_side_work_integrated_immediately
   routing_policy:
     use_subagent_for:
       - focused_investigation
       - noisy_search
-      - independent_review
-      - small_verification
+      - small_non_acceptance_verification
       - parallel_analysis_integrated_immediately
     use_worker_thread_for:
       - durable_history_or_thread_id_needed
@@ -127,6 +130,12 @@ codex_thread_manager_contract:
       - long_running_task
       - manager_integration_after_independent_execution
       - role_lane_research_synthesis_verification_coding_or_documentation
+    use_fresh_verifier_or_judge_for:
+      - independent_review
+      - acceptance_judgment
+      - workflow_check_review
+      - readiness_or_approval_claim
+      - adversarial_or_regression_review
     use_worktree_worker_thread_for:
       - file_mutation_with_overlapping_write_scope
       - checkout_isolation_needed
@@ -142,6 +151,7 @@ codex_thread_manager_contract:
     manager_owns_context_lifecycle: true
     explicit_invocation_creates_worker_by_default_when_actionable: true
     fresh_manager_is_not_default_launcher_behavior: true
+    fork_rollover_and_continuation_are_same_role_continuity_not_independence: true
     keep_manager_across_worker_phase_changes: true
     rollover_before_overnight_cross_pc_or_24h_span: true
     clear_requires_checkpoint_and_accepted_handoff: true
@@ -162,18 +172,37 @@ codex_thread_manager_contract:
       - documentation_thread
     manager_records_ids_titles_and_scope: true
     manager_may_route_result_packets_between_workers: true
-    peer_review_between_workers_allowed_when_manager_routes_packet: true
+    peer_review_between_workers_allowed_only_with_fresh_non_implementer_reviewer: true
   worker_policy:
     one_lane_per_worker: true
     worker_thread_id_and_title_must_be_recorded: true
+    worker_is_lane_controller_not_primary_doer_by_default: true
+    substantive_lane_work_is_subagent_first: true
     subagent_use_allowed_by_default_when_bounded: true
     worker_thread_may_spawn_subagents_within_packet_scope: true
     subagent_count_is_scope_driven_not_fixed: true
     manager_packet_may_set_subagent_limit: true
-    worker_packet_must_state_subagent_bounds_or_denial: true
+    worker_packet_must_state_subagent_first_posture_bounds_or_denial: true
+    no_subagent_exception_must_be_recorded: true
+    no_subagent_exceptions:
+      - lane_planning_and_worker_packet_authoring
+      - small_deterministic_local_check
+      - result_integration_or_summary
+      - validator_status_or_git_command
+      - manager_authorized_narrow_mechanical_edit
+      - subagent_tool_unavailable_or_blocked
+      - safe_minimal_packet_cannot_be_created_without_boundary_risk
     recursive_subagent_fanout_allowed_when_bounded_and_reported: true
     worker_thread_automation_or_canon_creation_requires_manager_permission: true
     overlapping_write_scope_requires_worktree_or_stop: true
+  verifier_judge_policy:
+    implementer_self_check_is_not_independent_verification: true
+    independent_verifier_must_be_fresh_context: true
+    verifier_or_judge_must_not_be_fork_of_implementer: true
+    verifier_or_judge_must_not_be_manager_rollover_from_implementation_context: true
+    verifier_packet_uses_minimal_evidence_not_raw_transcript: true
+    verifier_packet_includes_objective_changed_refs_acceptance_criteria_validators_claims_and_risks: true
+    unavailable_fresh_verifier_lowers_claim_ceiling_or_blocks_stronger_claim: true
   observed_private_pilot_refs:
     - _workmeta/system/reports/post_development_review/20260608_thread_orchestrator_live_pilot_one_worker.yaml
 non_claims:

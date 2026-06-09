@@ -2,6 +2,32 @@
 
 ## 2026-06-09
 
+### Revision `working` - Codex worker subagent-first policy tightened
+
+- Updated `$soulforge-codex-thread-manager` and
+  `.workflow/codex_thread_manager_v0/` so role worker threads are
+  subagent-first lane controllers for substantive research, implementation,
+  analysis, debugging, or review work.
+- Added named no-subagent exceptions for lane planning, packet authoring, small
+  deterministic local checks, integration, validators/status commands,
+  manager-authorized narrow mechanical edits, unavailable subagent tools, and
+  unsafe minimal packet boundaries.
+- Required workers to record subagent use or a no-subagent exception, so direct
+  worker execution becomes the exception rather than the default.
+
+### Revision `working` - Codex thread manager verifier independence tightened
+
+- Updated `$soulforge-codex-thread-manager` and
+  `.workflow/codex_thread_manager_v0/` so fork, rollover, and continuation are
+  same-role continuity surfaces, not independent verification evidence.
+- Required fresh-context verifier, judge, reviewer, workflow-check, or
+  acceptance lanes for claims that depend on independent judgment.
+- Defined minimal verifier packets around objective, changed refs, acceptance
+  criteria, validators, claims, and risk areas while excluding raw transcript
+  leakage.
+- Added stop/claim-lowering behavior when a fresh independent verifier is
+  unavailable for a stronger readiness or approval claim.
+
 ### Revision `working` - Codex thread manager launcher semantics tightened
 
 - Updated `$soulforge-codex-thread-manager` so explicit invocation with an
