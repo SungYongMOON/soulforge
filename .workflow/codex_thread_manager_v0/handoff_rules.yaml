@@ -5,23 +5,23 @@ rules:
   - from: thread_manager
     to: checkpoint_curator
     condition: goal_and_boundary_declared
-    summary: Pass bounded goal, success criteria, stop conditions, workspace scope, and public/private constraints; do not pass raw transcript.
+    summary: Pass bounded goal, success criteria, stop conditions, workspace scope, intended team topology, context lifecycle plan, and public/private constraints; do not pass raw transcript.
   - from: checkpoint_curator
     to: surface_router
     condition: night_work_handoff_refreshed
-    summary: Pass the durable checkpoint plus active worker refs, target refs, and known risks needed to choose a continuation surface.
+    summary: Pass the durable checkpoint plus active worker refs, target refs, compact/clear/rollover posture, and known risks needed to choose a continuation surface.
   - from: surface_router
     to: worker_packet_author
     condition: continuation_surface_selected
-    summary: Pass whether the next action is same-thread, fresh manager, worker thread, worktree worker, or subagent, with the reason and claim ceiling.
+    summary: Pass whether the next action is subagent, manager plus role worker threads, same-thread, fresh manager, or worktree worker, with the routing reason and claim ceiling.
   - from: worker_packet_author
     to: manager_rollover_controller
     condition: manager_or_worker_packet_prepared
-    summary: Pass self-contained prompts containing title, objective, allowed paths, stop conditions, report shape, subagent limits, and recursion ban.
+    summary: Pass self-contained prompts containing title, role lane, objective, allowed paths, handoff context, stop conditions, compact report shape, default bounded worker-subagent authority, any count limit or denial, and side-effect limits.
   - from: manager_rollover_controller
     to: integration_controller
     condition: acceptance_or_worker_result_available
-    summary: Pass observed thread ids/titles, worker status, acceptance result, and residual gaps; do not pass hidden reasoning or raw worker logs.
+    summary: Pass observed thread ids/titles, worker roles, worker status, acceptance result, cross-worker packets, and residual gaps; do not pass hidden reasoning or raw worker logs.
   - from: integration_controller
     to: validation_controller
     condition: actual_state_checked

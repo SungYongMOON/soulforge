@@ -2,7 +2,7 @@ workflow_id: codex_thread_manager_v0
 kind: workflow
 status: active
 title: Codex Thread Manager v0
-summary: Public-safe workflow for coordinating actual Codex manager, worker, and worktree worker threads while preserving NIGHT_WORK_HANDOFF continuity, explicit thread titles, bounded worker scopes, and conservative claim boundaries.
+summary: Public-safe workflow for making the declared Codex thread the main team lead that manages context lifecycle and coordinates actual role worker, worktree worker, and rollover manager threads while preserving NIGHT_WORK_HANDOFF continuity, explicit thread titles, bounded worker scopes, and conservative claim boundaries.
 entrypoint: run
 execution_mode: codex_app_thread_orchestration_sequence
 role_slots: role_slots.yaml
@@ -28,6 +28,8 @@ optional_inputs:
 outputs:
   - declared_thread_goal
   - night_work_handoff
+  - thread_team_topology
+  - delegation_routing_decision
   - continuation_surface_decision
   - manager_rollover_packet
   - worker_thread_packet_set
@@ -67,6 +69,7 @@ skill_routes:
 registry_skill_ref: .registry/skills/codex_thread_manager/skill.yaml
 request_modes:
   - codex_thread_management
+  - explicit_skill_invocation_manager_worker
   - manager_worker_thread_orchestration
   - manager_rollover
   - worktree_worker_isolation
@@ -74,11 +77,18 @@ request_modes:
   - bounded_thread_fanout
 codex_thread_manager_contract:
   owns:
+    - explicit_skill_invocation_as_thread_orchestration_request
+    - declared_thread_main_team_lead_activation
     - thread_goal_and_scope_binding
+    - long_thread_context_lifecycle_policy
     - night_work_handoff_refresh_before_thread_creation
+    - subagent_vs_thread_routing_policy
     - continuation_surface_selection
     - manager_lifecycle_and_rollover_policy
+    - role_worker_thread_topology
     - worker_thread_packet_shape
+    - worker_subagent_permission_policy
+    - inter_thread_result_routing_policy
     - worktree_worker_boundary_policy
     - worker_result_integration_policy
     - thread_id_title_recording_policy
@@ -91,30 +101,82 @@ codex_thread_manager_contract:
     - raw_transcript_storage
     - secret_inspection
     - codex_product_capability_guarantee
+    - unbounded_or_unreported_recursive_fanout
     - default_route_switching
     - public_canon_promotion_beyond_this_package
     - production_ready_claim_without_b_v_evidence
   surface_selection:
-    same_thread: short_sequential_work_with_clean_manager_context
+    manager_thread_plus_role_workers: default_for_substantial_actionable_skill_invocation_when_thread_tools_are_available
+    current_thread_manager_plus_worker: minimum_thread_topology_for_actionable_skill_invocation
+    same_thread: trivial_preflight_unclear_goal_or_thread_tool_blocked
     fresh_manager_thread: rollover_due_or_mission_boundary_changed
     worker_thread: durable_lane_needs_title_followup_or_independent_history
     worktree_worker_thread: file_mutation_requires_checkout_isolation
-    subagent: bounded_read_heavy_or_noisy_check_inside_parent_thread
+    subagent: non_durable_bounded_side_work_integrated_immediately
+  routing_policy:
+    use_subagent_for:
+      - focused_investigation
+      - noisy_search
+      - independent_review
+      - small_verification
+      - parallel_analysis_integrated_immediately
+    use_worker_thread_for:
+      - durable_history_or_thread_id_needed
+      - followup_or_overnight_continuity_needed
+      - separate_phase_lane
+      - long_running_task
+      - manager_integration_after_independent_execution
+      - role_lane_research_synthesis_verification_coding_or_documentation
+    use_worktree_worker_thread_for:
+      - file_mutation_with_overlapping_write_scope
+      - checkout_isolation_needed
+    use_fresh_manager_thread_for:
+      - rollover
+      - cross_pc_or_overnight_continuity_transfer
+      - mission_boundary_change
+      - context_drift
+      - twenty_four_hour_span
+      - explicit_user_request
   manager_lifecycle:
+    declared_thread_is_main_team_lead: true
+    manager_owns_context_lifecycle: true
+    explicit_invocation_creates_worker_by_default_when_actionable: true
+    fresh_manager_is_not_default_launcher_behavior: true
     keep_manager_across_worker_phase_changes: true
     rollover_before_overnight_cross_pc_or_24h_span: true
     clear_requires_checkpoint_and_accepted_handoff: true
     worker_threads_are_not_cleared_for_reuse: true
+  context_lifecycle:
+    night_work_handoff_is_team_continuity_object: true
+    refresh_before_worker_creation_compact_clear_rollover_or_phase_closeout: true
+    compact_same_goal_when_context_pressure_drift_or_unit_boundary_justifies: true
+    clear_or_fresh_session_at_phase_boundary_when_old_context_distracts: true
+    re_anchor_long_phases_with_goal_state_blockers_workers_and_next_action: true
+    raw_transcripts_private_payloads_source_dumps_and_secrets_forbidden: true
+  role_worker_threads:
+    examples:
+      - research_thread
+      - synthesis_thread
+      - verification_thread
+      - coding_thread
+      - documentation_thread
+    manager_records_ids_titles_and_scope: true
+    manager_may_route_result_packets_between_workers: true
+    peer_review_between_workers_allowed_when_manager_routes_packet: true
   worker_policy:
     one_lane_per_worker: true
     worker_thread_id_and_title_must_be_recorded: true
-    subagent_use_requires_manager_permission: true
-    recursive_fanout_blocked_by_default: true
+    subagent_use_allowed_by_default_when_bounded: true
+    worker_thread_may_spawn_subagents_within_packet_scope: true
+    subagent_count_is_scope_driven_not_fixed: true
+    manager_packet_may_set_subagent_limit: true
+    worker_packet_must_state_subagent_bounds_or_denial: true
+    recursive_subagent_fanout_allowed_when_bounded_and_reported: true
+    worker_thread_automation_or_canon_creation_requires_manager_permission: true
     overlapping_write_scope_requires_worktree_or_stop: true
   observed_private_pilot_refs:
     - _workmeta/system/reports/post_development_review/20260608_thread_orchestrator_live_pilot_one_worker.yaml
 non_claims:
-  - no_registration_claim
   - no_default_route_safety_claim
   - no_production_ready_claim
   - no_full_rollover_execution_claim

@@ -2,9 +2,18 @@ workflow_id: codex_thread_manager_v0
 kind: monster_rules
 status: active
 rules:
+  - monster_id: skill_invocation_treated_as_non_authorization
+    response: activate_current_manager_and_create_bounded_worker
+    summary: Explicit `$soulforge-codex-thread-manager` invocation with an actionable goal is a thread-orchestration request; bind scope, refresh handoff, then create a bounded worker when tools are available.
   - monster_id: manager_cleared_on_every_phase_change
     response: create_new_worker_keep_manager
     summary: Research, implementation, debugging, review, and documentation lane changes normally replace workers, not the manager.
+  - monster_id: context_lifecycle_treated_as_side_detail
+    response: manager_owns_checkpoint_compact_clear_and_reanchor
+    summary: The manager thread owns long-context hygiene: refresh handoff, compact, clear, rollover, and re-anchor timing from phase state and context pressure.
+  - monster_id: thread_manager_reduced_to_single_worker_launcher
+    response: build_role_thread_team_topology
+    summary: Substantial work should create role worker threads such as research, synthesis, verification, coding, or documentation rather than a single generic worker.
   - monster_id: manager_never_rolls_over
     response: scheduled_manager_rollover
     summary: Before overnight, cross-PC handoff, 24-hour span, major phase cluster, or context drift, refresh handoff and create a fresh manager.
@@ -15,8 +24,8 @@ rules:
     response: manager_records_thread_ids_titles
     summary: Every manager-created worker needs an id/title record in handoff or private run evidence.
   - monster_id: recursive_fanout
-    response: block_nested_subagent_or_thread_creation
-    summary: Subagents and workers do not create further subagents, worker threads, automations, or canon entries unless explicitly allowed by the manager.
+    response: require_bounds_reporting_and_manager_permission_for_side_effects
+    summary: Worker threads may create bounded subagents by default with scope-driven count; nested worker threads, automations, and canon entries require manager permission.
   - monster_id: local_skill_treated_as_canon
     response: keep_runtime_bridge_boundary
     summary: Installed local skills can launch the runtime behavior but do not by themselves create workflow registration, party binding, or default-route authority.

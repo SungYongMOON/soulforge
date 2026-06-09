@@ -2,6 +2,49 @@
 
 ## 2026-06-09
 
+### Revision `working` - Codex thread manager launcher semantics tightened
+
+- Updated `$soulforge-codex-thread-manager` so explicit invocation with an
+  actionable goal is treated as authorization for the current Codex thread to
+  act as manager and create a bounded worker Codex thread when runtime tools are
+  available.
+- Kept fresh manager creation for rollover, cross-PC/overnight continuity,
+  mission-boundary changes, context drift, or explicit request rather than the
+  default launcher behavior.
+- Added worker subagent rules: bounded worker subagents are allowed by default
+  when useful, worker packets must state subagent bounds or denial, and larger
+  side effects require manager permission.
+- Added routing rules separating non-durable subagent work from durable Codex
+  worker threads, and clarified that worker threads may create bounded
+  subagents inside their assigned lane.
+- Re-centered the workflow on the declared thread as main team lead for long
+  context management: handoff refresh, compact, clear/reset, rollover,
+  re-anchoring, role worker threads, cross-worker result routing, and worker
+  subagent fan-out.
+- Removed the fixed worker-subagent count. Worker subagent fan-out is now
+  scope-driven unless the manager packet sets a specific limit.
+
+### Revision `working` - Mail send style policy added
+
+- Added `MAIL_SEND_STYLE_POLICY_V0.md` to lock draft, approval, Outlook manual
+  sending, subject, body style, and metadata-only sent-mail recording rules.
+- Corrected the subject convention so outgoing mail uses real mail keywords
+  such as `[기뢰전]`, not internal company/Soulforge project numbers.
+- Kept actual mail bodies, raw Outlook items, attachments, private paths,
+  secrets, and recipient payloads out of the public contract.
+- Linked the policy from the existing mail send/workspace docs while leaving
+  the SMTP runner and Outlook reconcile workflows under their existing owners.
+
+### Revision `working` - O-ring calculator tool canon registered
+
+- Added `.registry/tools/oring_selection_calculator/` as a limited-authority
+  canonical tool entry for first-pass O-ring squeeze, installed-stretch, and
+  gland-fill screening.
+- Kept the actual workbook outside public canon as a workspace artifact with
+  private metadata pointers, and recorded that the tool does not replace
+  manufacturer catalogs, official size tables, tolerance analysis, extrusion
+  review, or owner engineering judgment.
+
 ### Revision `working` - Charge breaker and evidence sift bridges added
 
 - Added tracked Codex bridges for `charge_breaker` and `evidence_sift` so the

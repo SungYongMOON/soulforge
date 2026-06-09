@@ -4,16 +4,16 @@ status: active
 slots:
   - slot_id: thread_manager
     title: Thread Manager
-    summary: Declares the bounded goal, success criteria, stop conditions, workspace scope, and thread orchestration boundary.
+    summary: Activates the declared Codex thread as main team lead, declares the bounded goal, success criteria, stop conditions, workspace scope, team topology, context lifecycle, and thread orchestration boundary.
   - slot_id: checkpoint_curator
     title: Checkpoint Curator
-    summary: Maintains NIGHT_WORK_HANDOFF before thread creation, manager rollover, compact, clear, or substantial phase closeout.
+    summary: Maintains NIGHT_WORK_HANDOFF before worker creation, manager rollover, compact, clear, cross-PC/overnight continuation, or substantial phase closeout.
   - slot_id: surface_router
     title: Continuation Surface Router
-    summary: Chooses same thread, fresh manager thread, worker thread, worktree worker thread, or subagent from risk and persistence needs.
+    summary: Chooses subagent for non-durable side work, role worker threads for durable lanes, worktree worker for isolated file mutation, or fresh manager for rollover.
   - slot_id: worker_packet_author
     title: Worker Packet Author
-    summary: Builds bounded worker prompts with title, objective, allowed paths, stop conditions, report shape, subagent permission, and claim ceiling.
+    summary: Builds bounded worker prompts with title, role lane, objective, allowed paths, handoff context, stop conditions, compact report shape, default bounded subagent authority, any count limit or denial, and claim ceiling.
   - slot_id: manager_rollover_controller
     title: Manager Rollover Controller
     summary: Transfers continuity from an old manager to a fresh manager through a checkpoint and acceptance gate.

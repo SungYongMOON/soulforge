@@ -2,7 +2,7 @@ skill_id: codex_thread_manager
 kind: skill
 status: active
 title: Codex Thread Manager
-summary: Launch the registered `codex_thread_manager_v0` workflow so Codex can coordinate actual manager, worker, and worktree threads while preserving Soulforge handoff and boundary rules.
+summary: Launch the registered `codex_thread_manager_v0` workflow so the declared Codex thread acts as main team lead, manages context lifecycle, and coordinates actual role worker threads while preserving Soulforge handoff and boundary rules.
 behavior:
   intent: >
     Provide a Codex-facing bridge for `.workflow/codex_thread_manager_v0`.
@@ -10,7 +10,12 @@ behavior:
     surface selection, manager lifecycle and rollover policy, worker packet
     shape, thread id/title recording, worktree worker boundary routing,
     integration validation, workflow-check closeout, and conservative claim
-    reporting. This skill maps explicit user language to that workflow without
+    reporting. Explicit invocation with an actionable goal is treated as a
+    thread-orchestration request: the declared/current Codex thread becomes the
+    main team lead, manages handoff/compact/reset lifecycle, and may create
+    role worker Codex threads when runtime tools and boundaries support that
+    action. Worker threads can use bounded subagents inside their assigned lane
+    by default. This skill maps explicit user language to that workflow without
     turning local thread tools, raw transcripts, private payloads, or default
     route authority into skill canon.
   use_when:
@@ -28,15 +33,23 @@ behavior:
     - Codex reads `.workflow/codex_thread_manager_v0/workflow.yaml`, `step_graph.yaml`, `handoff_rules.yaml`, and `profile_policy.yaml`
     - Codex binds the goal, workspace scope, success criteria, stop conditions, public/private boundary, and claim ceiling before creating or continuing threads
     - Codex refreshes `NIGHT_WORK_HANDOFF` before thread creation, manager rollover, compact, clear, or substantial closeout
-    - Codex creates or continues manager, worker, or worktree worker threads only when thread tools and scope boundaries support that action
+    - Codex treats explicit skill invocation with an actionable goal as authorization for the declared thread to act as main team lead and create role worker threads by default when thread tools and scope boundaries support that action
+    - Codex refreshes structured handoff before worker creation, compact, clear, rollover, cross-PC/overnight continuation, and substantial phase closeout
+    - Codex routes non-durable side work to subagents and durable lanes to Codex worker threads
+    - Codex allows worker threads to create bounded subagents inside their assigned lane by default, with the count determined by lane scope unless the packet sets a specific limit
+    - Codex can pass bounded result packets between worker threads or route all results through the manager
     - Codex records thread titles/ids when available, integrates worker summaries after checking actual state, and closes with validators plus workflow-check posture
 execution_requirements:
   required_capabilities:
     - workflow_contract_reading
     - goal_scope_binding
+    - context_lifecycle_management
     - durable_checkpoint_curation
+    - delegation_surface_routing
     - codex_thread_creation_or_continuation
     - worker_thread_packet_authoring
+    - worker_subagent_delegation_policy
+    - inter_thread_result_routing
     - manager_rollover_acceptance
     - actual_file_state_integration
     - deterministic_validation_routing
@@ -56,6 +69,7 @@ execution_requirements:
   notes:
     - "The workflow remains `.workflow/codex_thread_manager_v0/`; read it at execution time."
     - "The installed Codex mirror name after sync is normally `soulforge-codex-thread-manager`."
+    - "The normal launcher behavior is the declared/current thread as main team lead plus role worker Codex threads for substantial actionable invocations; worker/subagent counts are scope-driven unless a manager packet sets a limit."
     - "This skill does not create party binding, default-route safety, source truth, owner approval, or production-ready claims."
 notes:
   - "`codex_thread_manager` is a thin Codex bridge for `.workflow/codex_thread_manager_v0`."

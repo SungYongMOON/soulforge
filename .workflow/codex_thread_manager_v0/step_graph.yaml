@@ -20,6 +20,8 @@ steps:
       - success_criteria
       - stop_conditions
       - boundary_constraints
+      - manager_activation_decision
+      - context_lifecycle_plan
     next:
       - checkpoint_refresh
   - step_id: checkpoint_refresh
@@ -37,6 +39,7 @@ steps:
       - validation_command_refs
     outputs:
       - night_work_handoff
+      - compact_clear_or_rollover_checkpoint
     rules:
       required_before_thread_creation: true
       required_before_manager_rollover: true
@@ -60,12 +63,20 @@ steps:
       - context_pressure_signal
       - target_file_refs
     outputs:
+      - thread_team_topology
       - continuation_surface_decision
+      - delegation_routing_decision
       - manager_lifecycle_action
       - worker_lane_plan
     rules:
+      subagent_for_non_durable_side_work: true
+      worker_thread_for_durable_lane: true
+      explicit_skill_invocation_defaults_to_manager_thread_plus_role_workers: true
+      fresh_manager_not_default_for_launcher_invocation: true
+      same_thread_only_for_trivial_preflight_unclear_goal_or_blocked_tools: true
       worker_phase_change_does_not_clear_manager: true
       manager_rollover_before_24h_or_cross_pc: true
+      manager_routes_result_packets_between_workers_when_useful: true
       worktree_required_for_overlapping_file_mutation: true
       subagent_not_durable_lane: true
     next:
@@ -89,8 +100,13 @@ steps:
     rules:
       fresh_manager_prompt_self_contained: true
       worker_prompt_names_title_and_scope: true
-      worker_subagents_forbidden_unless_explicitly_allowed: true
-      recursive_fanout_forbidden: true
+      worker_subagents_allowed_when_bounded_unless_packet_denies: true
+      worker_thread_may_spawn_subagents_inside_assigned_lane: true
+      worker_subagent_count_is_scope_driven_unless_manager_sets_limit: true
+      worker_subagent_bounds_or_denial_must_be_written_in_packet: true
+      worker_prompt_includes_handoff_context_and_compact_report_shape: true
+      recursive_subagent_fanout_requires_bounds_and_reporting: true
+      nested_worker_thread_automation_or_canon_creation_requires_manager_permission: true
       worker_id_title_recording_required: true
     next:
       - worker_execution_or_rollover_acceptance
@@ -110,6 +126,7 @@ steps:
       - manager_acceptance_report
       - worker_result_summary_set
     rules:
+      create_worker_thread_after_actionable_skill_invocation_when_available: true
       old_manager_checks_new_manager_acceptance: true
       new_manager_must_reinvoke_runtime_skill_or_read_bridge: true
       worker_thread_id_title_recorded_by_manager: true
@@ -191,6 +208,6 @@ stop_conditions:
   - owner_decision_required_for_registration_or_default_route
   - unavailable_thread_tool
   - worker_write_scope_overlap_without_worktree
-  - recursive_subagent_fanout_requested_or_observed
+  - unbounded_recursive_subagent_fanout_requested_or_observed
   - validator_failure_unfixable_in_scope
   - exhausted_user_specified_budget
