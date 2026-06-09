@@ -1,0 +1,7 @@
+interface:
+  display_name: "Evidence Sift"
+  short_description: "Separate facts from weak claims"
+  default_prompt: "Use $soulforge-evidence-sift to separate confirmed facts from weak claims before drafting."
+
+policy:
+  allow_implicit_invocation: true

@@ -1,0 +1,7 @@
+interface:
+  display_name: "Charge Breaker"
+  short_description: "Move through a localized blocker"
+  default_prompt: "Use $soulforge-charge-breaker to remove the localized blocker with the smallest direct action."
+
+policy:
+  allow_implicit_invocation: true

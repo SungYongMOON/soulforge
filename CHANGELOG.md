@@ -2,6 +2,17 @@
 
 ## 2026-06-09
 
+### Revision `working` - Charge breaker and evidence sift bridges added
+
+- Added tracked Codex bridges for `charge_breaker` and `evidence_sift` so the
+  existing canon skills sync into global installed skills as
+  `$soulforge-charge-breaker` and `$soulforge-evidence-sift`.
+- Kept both bridges lean: `charge_breaker` owns only localized blocker forward
+  pressure, and `evidence_sift` owns only claim-confidence separation before
+  drafting or deciding.
+- Updated the skill registry README without moving workflow, owner approval,
+  source truth, or validation authority into either skill.
+
 ### Revision `working` - Browser recovery standing approval documented
 
 - Recorded the owner's standing approval for Soulforge agents to recover
