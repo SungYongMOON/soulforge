@@ -1,0 +1,63 @@
+skill_id: outbound_mail_authoring
+kind: skill
+status: active
+title: Outbound Mail Authoring
+summary: Launch the registered `outbound_mail_authoring_v0` workflow for owner-style outbound mail drafting, project keyword subject resolution, mandatory signature/security footer checks, and owner-approved send handoff.
+behavior:
+  intent: >
+    Provide a thin Codex launcher for `.workflow/outbound_mail_authoring_v0`.
+    The workflow owns the actual authoring procedure, mail style policy linkage,
+    project keyword resolution rules, footer checks, approval gate, handoff
+    templates, and boundary review. This skill maps `$soulforge-outbound-mail-authoring`,
+    `/outbound-mail`, and related user language to that workflow without moving
+    workflow bodies, project keyword truth, footer payloads, Outlook state,
+    send authority, or runtime bindings into the skill.
+  use_when:
+    - the user asks to draft, write, revise, or prepare an outbound email
+    - the user asks to send mail but approval facts still need authoring and pre-send review
+    - the user asks for `/outbound-mail`
+    - the user asks to write mail in the owner's style
+    - a project mail subject needs a real project mail keyword rather than an internal project code
+    - a final draft needs signature and company security footer checking before Outlook/manual or send-mail handoff
+  avoid_when:
+    - the task is Outlook sent/received ledger reconciliation; use `outlook_mail_reconcile` instead
+    - the task requires Outlook folder creation, rule editing, mail movement, deletion, category edits, or mark-read changes
+    - the task requires raw mail body extraction, raw HTML body extraction, `.msg`/`.eml` export, or attachment archiving
+    - the task requires legal, purchasing, contract, or official company-form approval outside the workflow scope
+    - the user asks for unattended automatic mail sending without a separate approved automation scope
+  expected_outcome:
+    - Codex resolves the invocation to `outbound_mail_authoring_v0`
+    - Codex reads the workflow package and `profile_policy.yaml` at execution time
+    - the draft follows the owner mail style policy
+    - new project subjects use confirmed project mail keywords only
+    - replies and forwards preserve existing thread subjects
+    - final send handoff requires signature and company security footer exactly once
+    - external send remains blocked unless current owner approval is explicit
+execution_requirements:
+  required_capabilities:
+    - workflow_launcher_routing
+    - mail_authoring_scope_binding
+    - project_keyword_boundary_review
+    - owner_style_drafting
+    - footer_presence_review
+    - send_authority_gate_review
+  preferred_capabilities:
+    - yaml_review
+    - markdown_drafting
+    - Outlook_manual_handoff_review
+    - send_mail_handoff_review
+    - boundary_review
+  preferred_tools:
+    - rg
+    - yaml_reader
+    - markdown_editor
+    - powershell
+    - npm_validate
+  notes:
+    - "The workflow package owns the procedure; this launcher must not copy step graphs or output templates into `codex/SKILL.md` as binding authority."
+    - "The workflow `profile_policy.yaml` remains the profile owner; resolve it at execution time instead of copying optimizer outputs into this skill."
+    - "Project keyword values, exact footer contact values, and full security disclaimer text remain private/project-local or Outlook/local-template authority."
+    - "Skill activation does not grant external send authority, Outlook mutation authority, default-route authority, or production-readiness claims."
+notes:
+  - "`outbound_mail_authoring` is a thin Codex bridge for `.workflow/outbound_mail_authoring_v0`."
+  - "The installed Codex mirror name is expected to be `soulforge-outbound-mail-authoring` after skill sync."

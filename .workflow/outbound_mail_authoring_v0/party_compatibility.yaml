@@ -1,0 +1,18 @@
+workflow_id: outbound_mail_authoring_v0
+kind: party_compatibility
+status: active
+party_required: false
+candidate_parties:
+  - party_id: mail_operations_party
+    fit: future_candidate_only
+    reason: Mail authoring can later sit in a mail operations chain, but no party package or allowed-workflow binding is registered for this workflow yet.
+  - party_id: daily_automation_party
+    fit: not_default_fit
+    reason: This workflow requires owner approval for outbound mail and is not a default scheduled automation stage.
+compatibility_rules:
+  - The workflow is runnable directly by a Codex controller or launcher skill.
+  - A future party may call this workflow before send-mail or post-send reconciliation, but that binding must be explicit.
+  - Party binding cannot grant external send authority, Outlook mutation, footer template authority, or project keyword truth.
+  - Default route safety is `no` until an owner-approved route and pilot evidence exist.
+default_route_safe: no
+default_route_reason: External mail drafting and sending require per-request owner facts and approval.

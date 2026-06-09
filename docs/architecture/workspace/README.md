@@ -30,6 +30,7 @@
 | `../bootstrap/BOOTSTRAP_PROFILES_V0.md` | workspace 설치 흐름에서 참조하는 bootstrap profile 정의다. |
 | `GATEWAY_MAIL_FETCH_V0.md` | mail fetch capsule, local mailbox state, secret 경계를 설명한다. |
 | `MAIL_SEND_V0.md` | outbound mail local env, snapshot, append-only send log 경계를 설명한다. |
+| `MAIL_SEND_STYLE_POLICY_V0.md` | 사람이 보낼 메일의 초안, 승인, Outlook 수동 발송, owner 문체 규칙을 설명한다. |
 | `GATEWAY_NOTIFY_V0.md` | gateway event 를 notification 으로 emit 하는 command 계약이다. |
 | `NOTIFY_MODEL_V0.md` | gateway local policy 와 mission notification toggle 의 owner 경계다. |
 | `NOTIFY_BRIEF_FORMAT_V0.md` | Telegram/user-facing notify brief 의 표시 순서와 provenance 기준이다. |
@@ -81,6 +82,7 @@
 - [`../bootstrap/BOOTSTRAP_PROFILES_V0.md`](../bootstrap/BOOTSTRAP_PROFILES_V0.md)
 - [`GATEWAY_MAIL_FETCH_V0.md`](GATEWAY_MAIL_FETCH_V0.md)
 - [`MAIL_SEND_V0.md`](MAIL_SEND_V0.md)
+- [`MAIL_SEND_STYLE_POLICY_V0.md`](MAIL_SEND_STYLE_POLICY_V0.md)
 - [`GATEWAY_NOTIFY_V0.md`](GATEWAY_NOTIFY_V0.md)
 - [`NOTIFY_MODEL_V0.md`](NOTIFY_MODEL_V0.md)
 - [`NOTIFY_BRIEF_FORMAT_V0.md`](NOTIFY_BRIEF_FORMAT_V0.md)
@@ -115,7 +117,7 @@
 - current-default v0 workspace contract draft 는 `MAIL_INTAKE_REQUEST_V0.md`, `MAIL_CANDIDATE_QUEUE_V0.md`, `WORKSPACE_INTAKE_INBOX_V0.md`, `DUNGEON_ASSIGNMENT_REQUEST_V0.md`, `MAIL_WORK_STATUS_V0.md`, `MAIL_TO_MISSION_HANDOFF_V0.md`, `MONSTER_FAMILY_LINEUP_V0.md`, `MONSTER_CANDIDATE_CONTRACT_V0.md`, `BATTLE_LOG_STORAGE_PLAN.md`, `MISSION_CLOSE_PROVENANCE_V0.md`, `SE_DUNGEON_STAGE_MODEL_V0.md`, `MAILBOX_CONCRETE_CONTRACT_V0.md` 에서 추가로 잠근다.
 - `WORKSPACE_INTAKE_INBOX_V0.md` 는 `gateway` intake logging 의 source-of-truth shape 를 `JSON` current state + monthly `JSONL` event stream 기준으로 잠그고, `CSV` 는 파생 export 로만 다룬다.
 - `BATTLE_LOG_STORAGE_PLAN.md` 와 `schema/battle_event.schema.yaml` 는 mission-level terminal battle outcome 을 monthly `JSONL` event stream 으로 남기는 최소 event schema 를 잠근다.
-- `GATEWAY_MAIL_FETCH_V0.md`, `MAIL_CANDIDATE_QUEUE_V0.md`, `MAIL_SEND_V0.md`, `GATEWAY_NOTIFY_V0.md`, `NOTIFY_MODEL_V0.md`, `NOTIFY_BRIEF_FORMAT_V0.md` 는 `guild_hall` owner 의 runtime 계약이지만, `_workspaces/<project_code>/` handoff 와 clone/bootstrap 흐름 때문에 workspace 문서군에서도 함께 참조한다.
+- `GATEWAY_MAIL_FETCH_V0.md`, `MAIL_CANDIDATE_QUEUE_V0.md`, `MAIL_SEND_V0.md`, `MAIL_SEND_STYLE_POLICY_V0.md`, `GATEWAY_NOTIFY_V0.md`, `NOTIFY_MODEL_V0.md`, `NOTIFY_BRIEF_FORMAT_V0.md` 는 `guild_hall` owner 의 runtime 계약이지만, `_workspaces/<project_code>/` handoff 와 clone/bootstrap 흐름 때문에 workspace 문서군에서도 함께 참조한다.
 - `NOTEBOOKLM_MCP_SETUP_V0.md` 는 NotebookLM MCP 를 대상 PC 에서 재설치하는 절차만 Soulforge 쪽 runbook 으로 들고 간다.
 - `WORKFLOW_EVOLUTION_HARNESS_INSTALL_V0.md` 는 owner PC 에서 Codex `/goal` 과 promptfoo 같은 harness 후보를 설치하고, workflow evolution 실험을 운영 clone 과 분리하는 절차를 둔다.
 - `INSTALLATION_MANUAL_V0.md` 는 다른 PC 에서 clone 후 무엇을 어떤 순서로 설치해야 하는지 한 장짜리 상위 bootstrap 문서다.
@@ -129,6 +131,7 @@
 - tracked workspace sample 은 `examples/` 아래에서만 유지한다.
 - `examples/guild_hall/state/gateway/` 는 다른 PC 나 다른 LLM 이 `mail fetch -> mail_intake_request -> intake_inbox -> linked_existing_only` 흐름을 그대로 따라볼 수 있는 public-safe mirror sample 이다.
 - `MAIL_SEND_V0.md` 는 outbound mail local env, outbound snapshot, append-only send log 위치를 같이 잠근다.
+- `MAIL_SEND_STYLE_POLICY_V0.md` 는 owner 가 직접 보내는 것처럼 보이는 업무 메일 초안, 승인 단계, 제목/본문 스타일, 발송 후 metadata-only 기록 기준을 잠근다.
 - `MULTI_PC_DEVELOPMENT_V0.md` 는 다른 PC 에서 `clone -> local runtime materialize -> push` 하는 최소 운영 절차와 `work_pc` / `tool_pc` / `portable_dev_pc` / `always_on_node` 역할 모델을 잠근다.
 - split binding 파일은 `bindings/*.yaml` 상대 경로 포인터 규칙을 사용한다.
 - workflow step 의 `execution_profile_ref` 와 `action.skill_id` 는 local runtime binding 을 통해 model, skill package, MCP/tool preset 으로 resolve 할 수 있다.

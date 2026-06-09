@@ -1,0 +1,22 @@
+schema_version: outbound_mail_draft_packet_v0
+request_id: "<stable_request_id>"
+workflow_id: outbound_mail_authoring_v0
+authority_state: "draft_only | owner_review_ready | owner_approved_send_handoff | blocked"
+assumptions: []
+subject_candidate: "<subject_or_null>"
+body_draft: |
+  <mail body draft>
+footer_application_state:
+  expected_source: "Outlook_default_signature_서명+보안 | owner_approved_local_private_template | unknown"
+  preferred_outlook_signature_logical_name: "서명+보안"
+  signature_block_present: false
+  security_notice_block_present: false
+  exact_once_check: "pass | gap | not_applicable"
+  public_payload_copied: false
+pre_send_checklist_ref: "<pre_send_checklist_ref>"
+send_surface_handoff:
+  surface: "draft_only | outlook_manual | soulforge_send_mail"
+  allowed: false
+  reason: "<why_allowed_or_blocked>"
+metadata_record_plan_ref: "<metadata_record_plan_ref_or_null>"
+boundary_review_note_ref: "<boundary_review_note_ref>"

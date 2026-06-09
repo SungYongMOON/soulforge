@@ -1,0 +1,33 @@
+schema_version: outbound_mail_pre_send_checklist_v0
+request_id: "<stable_request_id>"
+workflow_id: outbound_mail_authoring_v0
+checks:
+  recipient_to_cc_bcc_bound:
+    status: "pass | gap | blocked"
+    note: ""
+  subject_matches_thread_or_project_keyword_rule:
+    status: "pass | gap | blocked"
+    note: ""
+  internal_project_code_absent_from_subject:
+    status: "pass | gap | blocked"
+    note: ""
+  body_purpose_visible:
+    status: "pass | gap | blocked"
+    note: ""
+  requested_action_attachment_deadline_visible:
+    status: "pass | gap | blocked"
+    note: ""
+  attachment_scope_confirmed:
+    status: "pass | gap | blocked"
+    note: ""
+  footer_signature_and_security_notice_present_once:
+    status: "pass | gap | blocked"
+    note: ""
+  no_private_paths_raw_source_secrets_or_internal_run_ids:
+    status: "pass | gap | blocked"
+    note: ""
+  owner_approval_state_named:
+    status: "pass | gap | blocked"
+    note: ""
+authority_result: "draft_only | owner_review_ready | owner_approved_send_handoff | blocked"
+remaining_owner_questions: []

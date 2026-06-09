@@ -1,0 +1,51 @@
+skill_id: workflow_launcher_skill_author
+kind: skill
+status: active
+title: Workflow Launcher Skill Author
+summary: Create a thin Codex-callable launcher skill for an existing Soulforge workflow without moving workflow, profile policy, or runtime binding authority into the skill.
+behavior:
+  intent: >
+    Provide the Codex-facing authoring aid for turning an existing
+    `.workflow/<workflow_id>` package into a thin launcher skill. The generated
+    launcher should route to the workflow and resolve workflow-owned profile
+    policy at execution time instead of copying workflow bodies, step graphs,
+    optimized profiles, project payloads, or runtime bindings into the skill.
+  use_when:
+    - the user asks to make an existing Soulforge workflow callable as a Codex skill
+    - the user asks to make a workflow callable like `/...` or `$soulforge-...`
+    - the user says Korean phrases such as "워크플로우를 스킬로 만들어줘", "워크플로우를 /스킬처럼 호출하게 해줘", or "workflow launcher skill author"
+    - a registered workflow needs a thin launcher bridge for repeated invocation
+    - a workflow procedure should keep model, reasoning, species, class, unit, and profile resolution under workflow-owned profile policy
+  avoid_when:
+    - the target workflow does not exist yet and the user has not asked to create it first
+    - the request is to author or evolve the workflow itself rather than a launcher bridge
+    - the request requires copying project raw payloads, local absolute paths, secrets, runtime truth, or private evidence into tracked skill canon
+    - the user wants to switch a default route, grant unattended automation authority, or mutate project files without a separate owner decision
+  expected_outcome:
+    - an existing workflow is wrapped by a minimal `.registry/skills/<launcher_skill_id>/` package
+    - the generated Codex bridge reads the workflow package and workflow-owned profile policy before routing execution
+    - Codex app skill structure is preserved with lean `codex/SKILL.md`, optional `references/`, and `agents/openai.yaml`
+    - workflow/profile ownership remains separate from local runtime bindings and installed skill mirrors
+execution_requirements:
+  required_capabilities:
+    - workflow_package_review
+    - skill_package_authoring
+    - codex_skill_bridge_authoring
+    - boundary_review
+  preferred_capabilities:
+    - yaml_review
+    - deterministic_validation_review
+    - installed_skill_sync
+  preferred_tools:
+    - rg
+    - yaml_reader
+    - markdown_editor
+    - npm_skills_sync
+    - skill_validator
+  notes:
+    - "The source workflow must already exist under `.workflow/<workflow_id>/` unless a separate workflow-authoring task is explicitly in scope."
+    - "Generated launcher skills should read workflow files and profile policy at execution time; do not copy optimizer outputs into the launcher body."
+    - "Actual model execution, attached skill set, MCP/tools, install path, and host-local runtime values remain local runtime binding concerns."
+notes:
+  - "`workflow_launcher_skill_author` is the canonical Soulforge skill package for creating thin Codex launcher skills from existing workflow packages."
+  - "The installed Codex mirror name is normally `soulforge-workflow-launcher-skill-author` after `npm run skills:sync -- workflow_launcher_skill_author`."

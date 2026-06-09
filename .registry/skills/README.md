@@ -11,6 +11,8 @@
 - `outlook_mail_reconcile/` is the tracked Codex launcher for `/outlook-reconcile`, resolving to `.workflow/outlook_mail_reconcile_v0` for metadata-only Outlook sent-mail ledger updates and received-mail cross-validation.
 - `long_thread_handoff/` is the tracked Codex wrapper for explicit long-thread contamination-free handoff requests.
 - `party_launcher_skill_author/` is the tracked Codex authoring aid for turning an existing `.party/<party_id>` loadout into a thin launcher skill without moving party, workflow, or profile policy into the skill.
+- `workflow_launcher_skill_author/` is the tracked Codex authoring aid for turning an existing `.workflow/<workflow_id>` package into a thin launcher skill without moving workflow, profile policy, or runtime bindings into the skill.
+- `outbound_mail_authoring/` is the tracked Codex launcher for `/outbound-mail`, resolving to `.workflow/outbound_mail_authoring_v0` for owner-style outbound mail drafting, project keyword subject resolution, mandatory signature/security footer checks, and owner-approved send handoff.
 - `knowledge_wiki_cell_launcher/` is the tracked Codex launcher for invoking the existing `.party/knowledge_wiki_cell` loadout while resolving workflow-owned profile policy at execution time.
 - `systems_engineering_cell_launcher/` is the tracked Codex launcher for routing SE assistant requests through the existing `.party/systems_engineering_cell` loadout while preserving design, review, verification, and owner-decision boundaries.
 - `pcb_revision_library_cell_launcher/` is the tracked Codex launcher for routing Cadence Allegro PCB revision/library requests through the existing `.party/pcb_revision_library_cell` loadout while preserving workflow-owned profile policy, runtime, mutation, and engineering-approval boundaries.
@@ -42,6 +44,8 @@
 - `post_development_review_gate/` 는 등록된 `.workflow/post_development_review_gate_v0/` 를 Codex 작업 종료 시 호출하게 하는 bridge skill package 다.
 - `workflow_check/` is the tracked Codex bridge for reviewing workflow, party, router, registration, and default-route posture before closeout.
 - `party_launcher_skill_author/` is the tracked Codex bridge for generating party launcher skills that resolve workflow-owned profile policy at execution time.
+- `workflow_launcher_skill_author/` is the tracked Codex bridge for generating workflow launcher skills that resolve workflow-owned profile policy at execution time.
+- `outbound_mail_authoring/` is the tracked Codex bridge for routing outbound mail drafting and send-readiness requests through `outbound_mail_authoring_v0` without copying project keyword truth, footer payloads, Outlook state, or send authority into the skill.
 - `outlook_mail_reconcile/` is the tracked Codex bridge for routing `/outlook-reconcile` requests through `outlook_mail_reconcile_v0` without copying Outlook runtime state or mail payloads into the skill.
 - `knowledge_wiki_cell_launcher/` is the tracked Codex bridge for routing knowledge wiki and sourcebound wiki requests through `knowledge_wiki_cell`.
 - `systems_engineering_cell_launcher/` is the tracked Codex bridge for routing project-start, stage-gap, source-gap, readiness, owner-decision, review, and closeout requests through `systems_engineering_cell`.

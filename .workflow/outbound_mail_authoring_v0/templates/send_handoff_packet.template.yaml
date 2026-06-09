@@ -1,0 +1,30 @@
+schema_version: outbound_mail_send_handoff_packet_v0
+request_id: "<stable_request_id>"
+workflow_id: outbound_mail_authoring_v0
+authority_state: "owner_review_ready | owner_approved_send_handoff"
+send_surface: "outlook_manual | soulforge_send_mail"
+recipients:
+  to: []
+  cc: []
+  bcc: []
+subject: "<approved_subject>"
+body_ref: "<draft_packet_ref_or_owner_approved_body_ref>"
+attachments:
+  refs: []
+  external_share_confirmed: false
+footer:
+  signature_block_present: true
+  security_notice_block_present: true
+  exact_once_check: "pass"
+owner_approval:
+  approved_by: "<owner_or_approved_automation_ref>"
+  approved_at: "<iso8601_or_null>"
+  same_request_approval: true
+runner_policy_ref: docs/architecture/workspace/MAIL_SEND_V0.md
+forbidden:
+  - add_recipients_after_approval
+  - change_subject_after_approval
+  - change_body_after_approval
+  - change_attachments_after_approval
+  - read_or_emit_smtp_secret_values
+metadata_record_plan_ref: "<metadata_record_plan_ref>"

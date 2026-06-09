@@ -137,11 +137,14 @@ guild_hall/state/gateway/log/mail_send/YYYY/YYYY-MM.jsonl
 - 재시도는 새 `send_id` 를 만들고 `retry_of` 로 연결한다.
 - runner 는 secret 값을 출력하지 않는다.
 - HTML 본문은 사용자 보고서처럼 외부 발송이 승인된 내용에만 사용한다.
+- 메일 초안, owner 승인 단계, Outlook 수동 발송, owner 문체 규칙은
+  `MAIL_SEND_STYLE_POLICY_V0.md` 를 따른다.
 
 ## 관련 경로
 
 - [`../../../guild_hall/gateway/mail_send/README.md`](../../../guild_hall/gateway/mail_send/README.md)
 - [`../../../guild_hall/gateway/mail_send/mail_send.env.example`](../../../guild_hall/gateway/mail_send/mail_send.env.example)
+- [`MAIL_SEND_STYLE_POLICY_V0.md`](MAIL_SEND_STYLE_POLICY_V0.md)
 - [`examples/guild_hall/state/gateway/outbound/README.md`](examples/guild_hall/state/gateway/outbound/README.md)
 - [`examples/guild_hall/state/gateway/log/mail_send/README.md`](examples/guild_hall/state/gateway/log/mail_send/README.md)
 - [`GATEWAY_MAIL_FETCH_V0.md`](GATEWAY_MAIL_FETCH_V0.md)

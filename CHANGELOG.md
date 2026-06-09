@@ -2,6 +2,36 @@
 
 ## 2026-06-09
 
+### Revision `working` - Outbound mail authoring workflow added
+
+- Added `.workflow/outbound_mail_authoring_v0/` as a registered structure-only
+  workflow for owner-style outbound mail drafting, project keyword subject
+  resolution, mandatory signature/security footer checks, and owner-approved
+  send handoff preparation.
+- Set the workflow footer preference to the Outlook default signature logical
+  name `서명+보안`, while keeping the account-specific suffix and exact footer
+  payload out of public canon.
+- Registered `/outbound-mail` as the human-facing alias while keeping default
+  external send authority disabled.
+- Added `.registry/skills/outbound_mail_authoring/` as the thin Codex launcher
+  skill that resolves to the workflow and reads workflow-owned profile policy
+  at execution time.
+- Kept exact project keyword tables, raw mail bodies, attachment payloads,
+  secrets, exact footer contact values, and full company security disclaimer
+  text out of public workflow canon.
+
+### Revision `working` - Workflow launcher skill author added
+
+- Added `.registry/skills/workflow_launcher_skill_author/` as the tracked
+  Codex authoring aid for turning existing `.workflow/<workflow_id>/` packages
+  into thin launcher skills.
+- Mirrored the existing party launcher author pattern while keeping workflow
+  bodies, step graphs, profile policies, optimizer outputs, project payloads,
+  and runtime bindings outside the generated launcher skill.
+- Added guidance for default launcher ids by stripping trailing workflow
+  version suffixes, for example `outbound_mail_authoring_v0` to
+  `outbound_mail_authoring`.
+
 ### Revision `working` - Codex thread manager launcher semantics tightened
 
 - Updated `$soulforge-codex-thread-manager` so explicit invocation with an
@@ -30,6 +60,8 @@
   sending, subject, body style, and metadata-only sent-mail recording rules.
 - Corrected the subject convention so outgoing mail uses real mail keywords
   such as `[기뢰전]`, not internal company/Soulforge project numbers.
+- Required final sent mail to retain the owner Outlook footer block: signature
+  plus company security notice, exactly once.
 - Kept actual mail bodies, raw Outlook items, attachments, private paths,
   secrets, and recipient payloads out of the public contract.
 - Linked the policy from the existing mail send/workspace docs while leaving

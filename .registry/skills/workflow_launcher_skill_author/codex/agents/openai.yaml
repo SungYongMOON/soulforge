@@ -1,0 +1,7 @@
+interface:
+  display_name: "Workflow Launcher Skill Author"
+  short_description: "Create Codex launchers for Soulforge workflows"
+  default_prompt: "Use $soulforge-workflow-launcher-skill-author to turn an existing Soulforge workflow into a thin Codex launcher skill."
+
+policy:
+  allow_implicit_invocation: true

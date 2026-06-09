@@ -1,0 +1,60 @@
+workflow_id: outbound_mail_authoring_v0
+kind: handoff_rules
+status: active
+rules:
+  - rule_id: from_mail_send_style_policy
+    from_surface: docs/architecture/workspace/MAIL_SEND_STYLE_POLICY_V0.md
+    consume:
+      - subject_rules
+      - owner_mail_style
+      - footer_policy
+      - send_authority_levels
+      - pre_send_checklist_rules
+    requirement: The public style policy supplies rules only; exact project keywords and footer payloads are resolved at runtime from approved owner surfaces.
+  - rule_id: from_project_keyword_surfaces
+    from_surface: project_local_or_system_private_keyword_index
+    consume:
+      - confirmed_project_mail_keyword
+      - keyword_status
+      - source_thread_or_owner_decision_ref
+    requirement: Project keywords are private/project-local authority or owner decision, not hardcoded public workflow data.
+  - rule_id: from_existing_thread
+    from_surface: existing_mail_thread_subject
+    consume:
+      - existing_subject
+      - existing_bracket_keyword_if_present
+    requirement: Reply and forward drafts preserve the existing subject unless the owner explicitly requests a correction.
+  - rule_id: from_footer_surface
+    from_surface: Outlook_default_signature_or_owner_approved_local_private_footer_template
+    consume:
+      - signature_block_presence
+      - company_security_notice_presence
+      - exact_once_check
+    requirement: The workflow may check footer presence but must not copy actual contact values or full security disclaimer text into public canon.
+  - rule_id: to_owner_review
+    provide:
+      - subject_candidate
+      - owner_style_body_draft
+      - assumptions
+      - pre_send_checklist
+      - footer_application_state
+    requirement: Drafts with missing facts, missing footer template, or missing approval remain draft-only.
+  - rule_id: to_outlook_manual
+    to_surface: Outlook_manual_draft_surface
+    provide:
+      - copy_ready_subject
+      - copy_ready_body_when_footer_is_confirmed
+      - attachment_checklist
+    requirement: The handoff does not click Send or mutate Outlook state without owner instruction in the current request.
+  - rule_id: to_soulforge_send_mail
+    to_surface: guild_hall/gateway/mail_send/
+    provide:
+      - send_mail_handoff_packet
+    requirement: SMTP handoff requires `MAIL_SEND_V0.md` approval fields and does not carry secrets in the workflow output.
+  - rule_id: to_metadata_record
+    to_surface: _workmeta/<project_code>/reports/mail_history/
+    provide:
+      - metadata_record_plan
+      - body_gist
+      - attachment_pointer_metadata
+    requirement: Store metadata and pointers only; do not store full body, raw HTML, `.msg`/`.eml`, or attachment payloads.

@@ -1,0 +1,14 @@
+schema_version: outbound_mail_project_keyword_ref_v0
+project_code: "<internal_metadata_only>"
+project_mail_keyword:
+  value: "<confirmed_keyword>"
+  status: "confirmed | candidate | missing"
+  source: "existing_thread | project_local_rule | active_keyword_index | owner_decision"
+  evidence_ref: "<metadata_only_ref>"
+aliases: []
+outgoing_subject_allowed: false
+rules:
+  internal_project_code_in_subject: forbidden
+  reply_forward_preserve_existing_subject: true
+  new_mail_requires_confirmed_keyword: true
+owner_review_needed: []

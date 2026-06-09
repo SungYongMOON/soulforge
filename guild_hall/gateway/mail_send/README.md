@@ -14,6 +14,8 @@
   - `text/html` alternative body 를 지원한다.
   - secret 값은 출력하지 않고 local env 에서만 읽는다.
 - send record 계약 정본은 `docs/architecture/workspace/MAIL_SEND_V0.md` 를 본다.
+- owner 문체, 초안 승인, Outlook 수동 발송 규칙은
+  `docs/architecture/workspace/MAIL_SEND_STYLE_POLICY_V0.md` 를 본다.
 
 ## local state
 
@@ -34,3 +36,5 @@ npm run guild-hall:gateway:send-mail -- \
 ```
 
 HTML 본문을 넣으면 runner 는 `multipart/alternative` 메일로 보내며, 텍스트 본문은 복사용 fallback 으로 함께 포함한다.
+
+외부 업무 메일은 기본적으로 `draft_only` 에서 시작한다. 실제 발송은 현재 요청에서 owner 가 수신자, 제목, 본문, 첨부, 발송 방식을 명시 승인한 경우에만 진행한다.

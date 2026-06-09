@@ -1,0 +1,67 @@
+workflow_id: outbound_mail_authoring_v0
+kind: role_slots
+status: active
+role_slots:
+  - slot_id: scope_binder
+    title: Scope Binder
+    responsibilities:
+      - bind mail kind, thread mode, send surface, recipients, attachment metadata, and project metadata
+      - stop early when required owner facts are missing
+    suggested_classes:
+      - administrator
+  - slot_id: keyword_resolver
+    title: Project Keyword Resolver
+    responsibilities:
+      - resolve the subject bracket keyword from existing thread, project-local rule, active index, or owner request
+      - prevent internal project numbers from entering outgoing subjects
+    suggested_classes:
+      - archivist
+  - slot_id: subject_author
+    title: Subject Author
+    responsibilities:
+      - preserve reply and forward thread subjects
+      - build new subject candidates from project keyword, mail kind, and detail only
+    suggested_classes:
+      - writer
+  - slot_id: body_author
+    title: Body Author
+    responsibilities:
+      - draft concise Korean business mail in the owner's style
+      - use only provided or approved facts and expose assumptions when facts are missing
+    suggested_classes:
+      - writer
+  - slot_id: footer_checker
+    title: Footer Checker
+    responsibilities:
+      - ensure final sent mail includes signature and company security notice exactly once
+      - keep exact footer payload in Outlook or private local template, not public workflow canon
+    suggested_classes:
+      - auditor
+  - slot_id: send_gate_reviewer
+    title: Send Gate Reviewer
+    responsibilities:
+      - build the pre-send checklist
+      - classify the output as draft-only, owner-review-ready, owner-approved-send-handoff, or blocked
+    suggested_classes:
+      - auditor
+  - slot_id: send_handoff_preparer
+    title: Send Handoff Preparer
+    responsibilities:
+      - prepare Outlook manual draft handoff or Soulforge send-mail handoff only when approved
+      - avoid send button clicks, recipient changes, and attachment changes without owner instruction
+    suggested_classes:
+      - administrator
+  - slot_id: metadata_record_planner
+    title: Metadata Record Planner
+    responsibilities:
+      - plan post-send metadata-only recording
+      - keep raw bodies, raw HTML, `.msg`/`.eml`, and attachment payloads out of `_workmeta`
+    suggested_classes:
+      - archivist
+  - slot_id: boundary_reviewer
+    title: Boundary Reviewer
+    responsibilities:
+      - check send authority, Outlook mutation, raw payload, footer payload, and public/private boundaries
+      - name the final claim ceiling
+    suggested_classes:
+      - auditor

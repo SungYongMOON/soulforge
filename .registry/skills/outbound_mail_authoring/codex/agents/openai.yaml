@@ -1,0 +1,7 @@
+interface:
+  display_name: "Soulforge Outbound Mail Authoring"
+  short_description: "Draft owner-style outbound mail safely."
+  default_prompt: "Use $soulforge-outbound-mail-authoring to run /outbound-mail against the registered outbound mail authoring workflow."
+
+policy:
+  allow_implicit_invocation: true

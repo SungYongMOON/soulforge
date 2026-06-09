@@ -1,0 +1,203 @@
+workflow_id: outbound_mail_authoring_v0
+kind: workflow
+status: active
+title: Outbound Mail Authoring v0
+summary: Public-safe registered workflow for drafting owner-style outbound business mail, binding project mail keywords, applying the mail style policy, checking mandatory signature and security footer, and preparing owner-approved send handoff without granting external send authority by default.
+entrypoint: run
+execution_mode: local_tool_sequence
+role_slots: role_slots.yaml
+step_graph: step_graph.yaml
+handoff_rules: handoff_rules.yaml
+monster_rules: monster_rules.yaml
+party_compatibility: party_compatibility.yaml
+profile_policy: profile_policy.yaml
+history: history/
+calibrations: calibrations/
+global_invocation:
+  primary_alias: outbound_mail
+  slash_alias: /outbound-mail
+  resolves_to_workflow_id: outbound_mail_authoring_v0
+  status: owner_requested_registration_alias
+  notes:
+    - The alias is a human invocation label. It does not grant unattended sending, Outlook mutation, or default-route authority.
+inputs:
+  - mail_authoring_request
+  - mail_send_style_policy_ref
+  - project_mail_keyword_policy_ref
+  - owner_footer_policy_ref
+optional_inputs:
+  - existing_thread_subject
+  - project_local_mail_subject_rule_ref
+  - active_project_keyword_index_ref
+  - attachment_metadata_refs
+  - owner_provided_subject
+  - owner_provided_body_facts
+  - owner_decision_refs
+  - post_send_metadata_record_ref
+outputs:
+  - mail_authoring_scope
+  - project_keyword_resolution
+  - subject_candidate
+  - owner_style_body_draft
+  - footer_application_state
+  - pre_send_checklist
+  - owner_approval_gate_result
+  - send_surface_handoff
+  - metadata_record_plan
+  - boundary_review_note
+validation_level: registered_structure_only_public_safe
+registration_policy: owner_requested_registration
+output_state: registered
+classification_lane:
+  primary: operations
+  primary_name_ko: 운영
+  secondary:
+    - mail_management
+    - project_management
+    - metadata_governance
+  secondary_name_ko:
+    - 메일 관리
+    - 프로젝트 관리
+    - 메타데이터 거버넌스
+  purpose: discovery_only
+  authority: none
+execution_binding:
+  party_required: false
+  candidate_party_id: null
+  bound_party_id: null
+  binding_authority: none
+workflow_modes:
+  - draft_only
+  - owner_review_ready
+  - owner_approved_send_handoff
+  - reply_draft
+  - forward_draft
+  - new_mail_draft
+upstream_workflows:
+  - workflow_id: outlook_mail_reconcile_v0
+    expected_outputs:
+      - project_mail_history_metadata_context
+      - sent_mail_metadata_context
+    status: optional_metadata_context
+  - workflow_id: owner_decision_packet_v0
+    expected_outputs:
+      - scoped_owner_decision
+    status: optional_approval_context
+downstream_workflows:
+  - workflow_id: outlook_mail_reconcile_v0
+    expected_input: sent_mail_metadata_after_owner_send
+    status: optional_post_send_reconciliation
+  - workflow_id: post_development_review_gate_v0
+    expected_input: workflow_or_policy_change_packet
+    status: required_before_public_or_canon_policy_change
+outbound_mail_authoring_contract:
+  owns:
+    - mail_authoring_scope_binding
+    - project_keyword_resolution
+    - subject_candidate_generation
+    - owner_style_body_draft_generation
+    - mandatory_footer_check
+    - pre_send_checklist
+    - owner_approval_gate
+    - send_surface_handoff_packet
+    - metadata_record_plan
+    - boundary_review_note
+  does_not_own:
+    - external_send_without_current_owner_approval
+    - Outlook_folder_or_rule_mutation
+    - Outlook_send_button_click_without_owner_instruction
+    - raw_mail_body_archive
+    - raw_html_body_archive
+    - msg_or_eml_export
+    - attachment_payload_storage
+    - secret_or_credential_inspection
+    - project_keyword_canon_truth
+    - footer_template_source_truth
+    - public_project_mail_data_publication
+    - default_route_switching
+  style_policy_refs:
+    mail_send_style_policy: docs/architecture/workspace/MAIL_SEND_STYLE_POLICY_V0.md
+    mail_send_runner_policy: docs/architecture/workspace/MAIL_SEND_V0.md
+    mail_send_capsule: guild_hall/gateway/mail_send/
+  project_keyword_policy:
+    subject_bracket_owner: project_mail_keyword
+    internal_project_code_in_subject: forbidden
+    internal_project_code_in_body: forbidden_unless_owner_explicitly_requests_external_visible_code
+    project_code_usage: internal_metadata_only
+    new_subject_format: "[<project_mail_keyword>] <mail_kind> - <detail>"
+    reply_or_forward_subject_rule: preserve_existing_thread_subject
+    keyword_resolution_order:
+      - existing_thread_bracket_keyword
+      - project_local_mail_subject_rule
+      - active_project_keyword_index
+      - owner_current_request_keyword
+      - stop_for_owner_confirmation
+  footer_policy:
+    required_for_final_send: true
+    required_blocks:
+      - signature_block
+      - company_security_notice_block
+    exact_count_each: 1
+    public_workflow_stores_footer_body: false
+    preferred_outlook_signature:
+      logical_name: "서명+보안"
+      runtime_resolution: match_Outlook_signature_name_by_logical_prefix
+      exact_account_suffix_public_storage: forbidden
+      required_for_outlook_manual_send: true
+    source_of_truth:
+      - Outlook_default_signature
+      - owner_approved_local_private_footer_template
+    missing_template_policy: draft_only_with_footer_confirmation_gap
+  authority_levels:
+    draft_only:
+      allowed:
+        - subject_and_body_draft
+        - assumptions
+        - pre_send_checklist
+      forbidden:
+        - external_send
+        - final_recipient_assertion_without_owner_input
+    owner_review_ready:
+      allowed:
+        - copy_ready_body_when_recipients_subject_body_attachment_and_footer_are_bound
+      forbidden:
+        - send_without_owner_approval
+    owner_approved_send_handoff:
+      allowed:
+        - prepare_outlook_manual_send_handoff
+        - prepare_soulforge_send_mail_handoff
+      requirements:
+        - owner_approved_recipients
+        - owner_approved_subject
+        - owner_approved_body
+        - owner_approved_attachments_or_no_attachments
+        - owner_approved_send_surface
+        - footer_blocks_present_once
+      forbidden:
+        - adding_recipients
+        - changing_attachments
+        - extending_body_with_unapproved_claims
+  required_input_shapes:
+    mail_authoring_request: templates/mail_authoring_request.template.yaml
+    project_mail_keyword_ref: templates/project_mail_keyword_ref.template.yaml
+  required_output_shapes:
+    mail_draft_packet: templates/mail_draft_packet.template.yaml
+    pre_send_checklist: templates/pre_send_checklist.template.yaml
+    send_handoff_packet: templates/send_handoff_packet.template.yaml
+    boundary_review_note: templates/boundary_review_note.template.md
+  authority_boundary:
+    default_send_authority: draft_only
+    owner_approval_required_for_external_send: true
+    project_keyword_authority_remains_project_local_or_owner_decision: true
+    footer_template_truth_remains_outlook_or_private_local: true
+    public_package_contains_no_footer_contact_payload: true
+    public_package_contains_no_security_disclaimer_payload: true
+    public_package_contains_no_raw_mail_payloads: true
+    public_package_contains_no_runtime_absolute_paths: true
+    metadata_record_is_not_mail_source_truth: true
+notes:
+  - This package is registered in `.workflow/index.yaml` by owner request.
+  - It covers authoring, review, and handoff, not unattended mail sending.
+  - Actual SMTP sending still belongs to `guild_hall/gateway/mail_send/` and requires the approval rules in `MAIL_SEND_V0.md`.
+  - Project-specific keywords and exceptions should be read from private/project-local metadata or an approved active keyword index at runtime.
+  - The footer body is intentionally not copied into public workflow files.

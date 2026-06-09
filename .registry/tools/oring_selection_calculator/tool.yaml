@@ -1,0 +1,32 @@
+tool_id: oring_selection_calculator
+kind: tool
+status: active
+title: O-ring Selection Calculator
+summary: First-pass calculator for narrowing O-ring candidates by squeeze, installed stretch, and gland fill.
+use_case:
+  primary_role: engineering first-pass calculation
+  preferred_context:
+    - O-ring candidate screening
+    - gland geometry sanity check
+    - material and pressure review preparation
+authority:
+  claim_ceiling: source_supported_limited
+  allowed_claims:
+    - Computes first-pass squeeze, installed stretch, and gland fill from user-provided dimensions.
+    - Helps screen candidate O-ring sizes before manufacturer or standard-table verification.
+  forbidden_claims:
+    - Does not approve final seal design.
+    - Does not replace manufacturer catalogs, AS568/ISO 3601 tables, tolerance analysis, extrusion-gap review, compound-specific media compatibility, or owner engineering judgment.
+artifact_policy:
+  public_registry_payload: metadata_only
+  workbook_storage: workspace_artifact_with_private_metadata_pointer
+source_basis:
+  - title: Parker O-Ring Handbook ORD 5700
+    url: https://www.parker.com/content/dam/Parker-com/Literature/O-Ring-Division-Literature/ORD-5700.pdf
+    supported_scope: Gland fill, installed stretch, and general O-ring gland-design guidance.
+  - title: Trelleborg O-Rings Online
+    url: https://www.trelleborg.com/en/inthegroove/products-and-solutions/o-rings-online
+    supported_scope: Public example of calculator scope covering compression, stretch, housing fill, layouts, and part-number support.
+notes:
+  - The current workbook implementation is a reusable working artifact, not a certified standard table.
+  - Candidate size generation must be replaced or cross-checked with official size tables before any final design claim.

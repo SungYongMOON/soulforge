@@ -1,0 +1,37 @@
+schema_version: outbound_mail_authoring_request_v0
+request_id: "<stable_request_id>"
+thread_mode: "new | reply | forward"
+mail_kind: "자료송부 | 검토요청 | 수정요청 | 확인요청 | 회신요청 | 재송부 | 첨부누락정정 | 기타"
+send_surface: "draft_only | outlook_manual | soulforge_send_mail"
+project_code: "<internal_metadata_only_or_null>"
+project_mail_keyword:
+  value: "<confirmed_keyword_or_null>"
+  source: "existing_thread | project_local_rule | active_keyword_index | owner_request | unknown"
+  status: "confirmed | candidate | missing"
+recipients:
+  to: []
+  cc: []
+  bcc: []
+subject:
+  source: "owner_given | existing_thread | generated | missing"
+  existing_thread_subject: null
+  owner_given_subject: null
+body_facts:
+  requested_action: "<what_the_mail_should_do>"
+  attachment_summary: []
+  deadline_or_reply_need: null
+  source_basis: []
+attachments:
+  refs: []
+  external_share_confirmed: false
+footer:
+  expected_source: "Outlook_default_signature_서명+보안 | owner_approved_local_private_template | unknown"
+  preferred_outlook_signature_logical_name: "서명+보안"
+  signature_block_present: false
+  security_notice_block_present: false
+owner_approval:
+  recipients: false
+  subject: false
+  body: false
+  attachments: false
+  send_surface: false
