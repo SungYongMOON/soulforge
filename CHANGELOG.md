@@ -1,5 +1,18 @@
 ﻿# CHANGELOG
 
+## 2026-06-09
+
+### Revision `working` - Browser recovery standing approval documented
+
+- Recorded the owner's standing approval for Soulforge agents to recover
+  Chrome/Codex browser connections across threads without repeated prompts.
+- Scoped the approval to opening the selected Chrome profile window, retrying
+  Codex Chrome connection, and running non-secret local setup checks for an
+  already requested browser-backed task.
+- Kept external transmission, uploads, permission changes, purchases, CAPTCHA,
+  secret handling, and extension/software install or repair under the existing
+  action-time confirmation and secret-boundary rules.
+
 ## 2026-06-08
 
 ### Revision `working` - Codex thread manager workflow draft added

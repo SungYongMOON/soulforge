@@ -192,6 +192,25 @@ Soulforge 보정:
 - canon 훼손, secret 노출, public/private 혼입 방지는 speculative error handling 이 아니라 필수 방어로 본다.
 - 검증 실패가 unrelated dirty worktree 때문이라면 되돌리지 말고, 실패 범위와 관련성을 분리해 보고한다.
 
+### Local browser connection standing approval
+
+사용자는 2026-06-09 KST 기준으로 Soulforge 작업 중 Chrome/Codex 브라우저 연결 복구에 대한 스레드 간 사전 승인을 부여했다.
+따라서 agent 는 사용자 요청을 수행하기 위한 같은 목적의 브라우저 연결 복구라면 다음 행동을 반복 확인 없이 진행한다.
+
+- Chrome 창 열기 또는 선택된 Chrome 프로필 창 띄우기
+- Codex Chrome 연결 재시도
+- Chrome 실행 여부, Codex Chrome 확장 설치/활성 여부, native host manifest 상태처럼 secret 값을 읽지 않는 로컬 상태 점검
+- GPT/Gemini/ChatGPT 같은 외부 자문 lane 을 열기 위한 빈 탭 또는 대상 서비스 탭 생성
+
+이 사전 승인은 아래 행동에는 적용하지 않는다.
+해당 행동은 사용자 최신 요청이 특정 대상, 데이터, 목적을 이미 명확히 허용한 경우가 아니라면 action-time 확인을 유지한다.
+
+- 외부 사이트에 메시지, 댓글, 폼, 파일, 개인정보, 업무 원문, private payload 를 전송
+- 공유 권한, 계정 설정, 결제, 구매, 다운로드 권한, 저장된 결제수단 또는 비밀번호를 변경
+- CAPTCHA 처리, 보안/연령 확인 우회, browser permission prompt 수락
+- secret, cookie, local storage, password, credential JSON, token 값을 읽거나 입력하거나 노출
+- 확장 프로그램, native host, 소프트웨어 설치 또는 수리
+
 ### Knowledge and canon claim ceiling
 
 사용자에게 설명할 때는 내부 enum 만 쓰지 말고 아래 한글 이름과 의미를 같이 쓴다.
