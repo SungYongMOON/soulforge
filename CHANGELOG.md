@@ -1,5 +1,14 @@
 ﻿# CHANGELOG
 
+## 2026-06-12
+
+### Revision `working` - Claude Code 용 CLAUDE.md 임포트 추가
+
+- 루트에 `CLAUDE.md` 를 추가해 `@AGENTS.md` 한 줄로 저장소 헌장을 임포트하게 했다.
+  Claude Code CLI 가 Codex 와 동일한 `AGENTS.md` 지침을 자동 로드한다.
+- 이 변경은 `claude/add-claude-md` branch 에서 `claude_fable-5` 가 작성했고,
+  merge 전 검증은 owner/Codex 몫으로 남겼다.
+
 ## 2026-06-11
 
 ### Revision `working` - AI 작업자 표기와 비-Codex 작업 branch 규칙 추가
