@@ -2,6 +2,22 @@
 
 ## 2026-06-12
 
+### Revision `working` - DB/검색 슬라이스: SQLite projection 스키마 계약과 Team Day-1 가이드
+
+- `docs/architecture/guild_hall/SQLITE_PROJECTION_V0.md` 를 추가해 daily
+  ledger, mission index, battle log 일 단위 aggregate, activity event 를
+  local read-only SQLite projection 으로 모으는 스키마(DDL v0), loader 계약,
+  FTS5 PoC 경계, rebuild-from-files 원칙을 고정했다. DB 파일은
+  `guild_hall/state/projection/` local-only 로 두고 어떤 repo 에도 commit
+  하지 않는다. loader/FTS5 구현은 Codex 몫으로 남긴다.
+- `docs/architecture/foundation/TEAM_DAY_1_GUIDE_V0.md` 를 추가해 팀
+  합류자/새 PC 운영자의 첫날 읽기 순서, 정본 7축 요약, 첫 명령, 경계
+  5가지, 첫 기여 체크리스트를 한 장으로 고정했다.
+- `docs/architecture/foundation/README.md` 와
+  `docs/architecture/guild_hall/README.md` 색인에 두 문서 행을 추가했다.
+- 근거: 20260611 보안 슬라이스 패킷의 DB/검색 슬라이스(6/18-20) Fable 5
+  산출물 선행 작성. 작업자: `claude_fable-5`, merge 전 Codex 검증 대상.
+
 ### Revision `working` - 루프 슬라이스: triage board 계약, loop e2e 테스트 초안, 게임-업무 용어 대조표
 
 - `docs/architecture/guild_hall/TRIAGE_BOARD_V0.md` 를 추가해
