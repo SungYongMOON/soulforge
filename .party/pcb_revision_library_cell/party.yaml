@@ -5,7 +5,7 @@ title: PCB Revision Library Cell
 summary: Reusable workflow-chain party for Cadence Allegro legacy PCB database uprev followed by board-local dlib library export and organization.
 service_lane:
   primary: design_asset
-  primary_name_ko: design_asset
+  primary_name_ko: 설계자산
   secondary:
     - workspace_management
     - review_governance

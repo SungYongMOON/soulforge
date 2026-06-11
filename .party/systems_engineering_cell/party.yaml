@@ -5,7 +5,7 @@ title: Systems Engineering Cell
 summary: Reusable workflow-chain party for routing systems-engineering assistant requests across scaffold, stage-gap, document/library, source, readiness, owner-decision, and closeout workflows without granting design, source, review, verification, library, relocation, or artifact-rule authority.
 service_lane:
   primary: systems_engineering
-  primary_name_ko: systems_engineering
+  primary_name_ko: 체계공학
   secondary:
     - project_management
     - knowledge_work

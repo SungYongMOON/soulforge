@@ -1,5 +1,71 @@
 ﻿# CHANGELOG
 
+## 2026-06-12
+
+### Revision `working` - DB/검색 슬라이스: SQLite projection 스키마 계약과 Team Day-1 가이드
+
+- `docs/architecture/guild_hall/SQLITE_PROJECTION_V0.md` 를 추가해 daily
+  ledger, mission index, battle log 일 단위 aggregate, activity event 를
+  local read-only SQLite projection 으로 모으는 스키마(DDL v0), loader 계약,
+  FTS5 PoC 경계, rebuild-from-files 원칙을 고정했다. DB 파일은
+  `guild_hall/state/projection/` local-only 로 두고 어떤 repo 에도 commit
+  하지 않는다. loader/FTS5 구현은 Codex 몫으로 남긴다.
+- `docs/architecture/foundation/TEAM_DAY_1_GUIDE_V0.md` 를 추가해 팀
+  합류자/새 PC 운영자의 첫날 읽기 순서, 정본 7축 요약, 첫 명령, 경계
+  5가지, 첫 기여 체크리스트를 한 장으로 고정했다.
+- `docs/architecture/foundation/README.md` 와
+  `docs/architecture/guild_hall/README.md` 색인에 두 문서 행을 추가했다.
+- 근거: 20260611 보안 슬라이스 패킷의 DB/검색 슬라이스(6/18-20) Fable 5
+  산출물 선행 작성. 작업자: `claude_fable-5`, merge 전 Codex 검증 대상.
+
+### Revision `working` - 루프 슬라이스: triage board 계약, loop e2e 테스트 초안, 게임-업무 용어 대조표
+
+- `docs/architecture/guild_hall/TRIAGE_BOARD_V0.md` 를 추가해
+  `operation_board.sections.triage_board` projection 의 field 계약,
+  metadata-only 입력 경계(INBOX triage register 의 count/date 신호만),
+  validation 규칙, 구현 순서를 고정했다. 구현은 Codex 몫으로 남긴다.
+- `guild_hall/snapshot/loop_e2e.test.mjs` 를 추가했다.
+  `monster -> mission -> battle log` 가 synthetic fixture 에서 operation
+  board 까지 보이는지 한 테스트로 고정하고, triage board 와 promotion
+  projection 은 `test.todo` 로 남겼다. validate 스크립트 연결은 구현과 함께
+  Codex 가 수행한다 (단독 실행: `node --test`, 현재 1 pass / 2 todo).
+- `docs/architecture/foundation/SHARED_GLOSSARY_V0.md` 에 게임 용어 ↔ 업무
+  용어 대조표 섹션을 추가해 팀 합류자가 게임식 표시 이름을 업무 용어로 읽을
+  수 있게 했다.
+- `docs/architecture/guild_hall/README.md` 색인에 triage board 계약 행을
+  추가했다.
+- 근거: 20260611 보안 슬라이스 패킷의 루프 슬라이스(6/15-17) Fable 5 산출물
+  선행 작성. 작업자: `claude_fable-5`, merge 전 Codex 검증 대상.
+
+### Revision `working` - index drift 정리: 정본 7축 표기와 party 한글 표면 보정
+
+- `docs/architecture/foundation/REPOSITORY_PURPOSE.md` 의 `정본 6축` 을
+  `AGENTS.md` 정본 구조와 일치하는 `정본 7축` 으로 갱신하고, 구조 개요도에
+  `guild_hall` cross-project operations root 노드를 추가했다.
+- `.party/pcb_revision_library_cell/party.yaml` 과
+  `.party/systems_engineering_cell/party.yaml` 의 `primary_name_ko` 영문값
+  2건을 한글(`설계자산`, `체계공학`)로 보정했다.
+- `.workflow/authoring/` 의 승격 전 사본 2건(se_stage_artifact_gap_scan_v0,
+  test_evaluation_execution_result_ingest_v0)은 승격본과 동일하지 않고
+  authoring 전용 `task_note.md` 를 포함해 기계적 제거 조건을 충족하지 않았다.
+  orphan workflow 2건(rag_source_text_quality_review_v0, rag_work_card_router_v0)
+  과 함께 owner 결정 항목으로 `_workmeta/system` 기록에 남긴다.
+- 근거: 20260611 보안 슬라이스 패킷 Task D (감사 취약점 #13, #14).
+  작업자: `claude_fable-5`, merge 전 Codex 검증 대상.
+
+### Revision `working` - control center file PUT 쓰기 토큰 가드 추가
+
+- `ui-workspace/apps/renderer-web/controlCenterPlugin.ts` 의 control center
+  file PUT API 에 `SOULFORGE_CONTROL_CENTER_WRITE_TOKEN` 기반 쓰기 가드를
+  추가했다. 토큰 미설정 시 모든 PUT 은 403 으로 차단되고(fail-closed),
+  GET/tree/snapshot 읽기 경로는 기존대로 동작한다.
+- `docs/architecture/ui/UI_CONTROL_CENTER_MODEL.md` 핵심 원칙에 쓰기 가드
+  한 줄을 동기화했다.
+- 근거: 2026-06-11 Claude Fable 5 read-only 감사 취약점 #2 (무인증 write API),
+  `_workmeta/system/reports/procedure_capture/20260611_claude_fable5_security_slice_packet.md`
+  Task A. 작업자: `claude_fable-5`, branch `claude/fable5-slices-20260612`,
+  merge 전 Codex 검증 대상.
+
 ## 2026-06-11
 
 ### Revision `working` - Workflow generator provenance gaps closed by retrofit verdicts
