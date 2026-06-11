@@ -5,13 +5,14 @@
 - Soulforge를 canonical root 와 project-local worksite 경계를 고정하는 설계 저장소로 유지한다.
 - 구현보다 owner 경계, 구조, derive/validate 계약, public/private tracking 원칙을 먼저 닫는다.
 
-## 정본 6축
+## 정본 7축
 
 - `.registry` = outer canon/store
 - `.unit` = active agent unit owner
 - `.workflow` = independent orchestration canon
 - `.party` = independent workflow-chain orchestration template
 - `.mission` = held mission plan owner
+- `guild_hall` = cross-project operations root
 - `_workspaces` = project-local materialization site
 
 ## 구조 개요도
@@ -26,6 +27,7 @@ flowchart TD
   S --> W[".workflow<br/>independent orchestration canon"]
   S --> PT[".party<br/>independent workflow-chain orchestration template"]
   S --> MI[".mission<br/>held mission plan"]
+  S --> GH["guild_hall<br/>cross-project operations root"]
   S --> M["_workspaces<br/>project-local materialization site"]
   MI --> MP["mission.yaml / readiness.yaml<br/>resolved plan owner"]
   M --> PR["&lt;project_code&gt;<br/>actual project files"]

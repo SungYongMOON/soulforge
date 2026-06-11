@@ -2,6 +2,22 @@
 
 ## 2026-06-12
 
+### Revision `working` - index drift 정리: 정본 7축 표기와 party 한글 표면 보정
+
+- `docs/architecture/foundation/REPOSITORY_PURPOSE.md` 의 `정본 6축` 을
+  `AGENTS.md` 정본 구조와 일치하는 `정본 7축` 으로 갱신하고, 구조 개요도에
+  `guild_hall` cross-project operations root 노드를 추가했다.
+- `.party/pcb_revision_library_cell/party.yaml` 과
+  `.party/systems_engineering_cell/party.yaml` 의 `primary_name_ko` 영문값
+  2건을 한글(`설계자산`, `체계공학`)로 보정했다.
+- `.workflow/authoring/` 의 승격 전 사본 2건(se_stage_artifact_gap_scan_v0,
+  test_evaluation_execution_result_ingest_v0)은 승격본과 동일하지 않고
+  authoring 전용 `task_note.md` 를 포함해 기계적 제거 조건을 충족하지 않았다.
+  orphan workflow 2건(rag_source_text_quality_review_v0, rag_work_card_router_v0)
+  과 함께 owner 결정 항목으로 `_workmeta/system` 기록에 남긴다.
+- 근거: 20260611 보안 슬라이스 패킷 Task D (감사 취약점 #13, #14).
+  작업자: `claude_fable-5`, merge 전 Codex 검증 대상.
+
 ### Revision `working` - control center file PUT 쓰기 토큰 가드 추가
 
 - `ui-workspace/apps/renderer-web/controlCenterPlugin.ts` 의 control center
