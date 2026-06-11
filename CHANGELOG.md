@@ -2,6 +2,26 @@
 
 ## 2026-06-12
 
+### Revision `working` - Fable5 심층 검증: 장기 사용성 후보 12건 기록
+
+- Fable 5 심층 검증(비전-실태 격차, 규칙 질량 대비 1인 운영 부담, 정본
+  경계 drift, 문서 신선도)을 수행하고 결과를 backlog 기록으로만 남겼다.
+  이번 변경에 동작/구조 수정은 없다.
+- `docs/architecture/foundation/DEVELOPMENT_ROADMAP_V0.md` 다음 후보 표에
+  10~21행을 추가했다: mission 경량 등록 경로, workflow/skill 사용 ledger,
+  AI 세션 boot digest, foundation 문서 staleness 정리, CHANGELOG rotation,
+  `.workflow` lifecycle/calibrations 위치 재결정, candidate queue archive
+  규칙, doctor 플랫폼 binary 점검, 종료 절차 경량화 검토, V0 버전 기준,
+  knowledge/RAG 통합 색인, Python 테스트 확장.
+- 후보 10~17 의 상세 패킷 8건은 `_workmeta/system/dev_worker_candidate_queue/`
+  에 `status: proposed`, `owner_approval.approved: false` 로 남겼다. 승인
+  전에는 실행 큐로 승격하지 않는다.
+- 검증 과정에서 양호로 판정한 항목(공개 문서 깨진 링크 0/164, done:check
+  가 validate 단계를 포함하는 구조, node_modules gitignore 상태, 후보 큐
+  처리율 17/20)은 후보에서 제외했다.
+- 근거: 2026-06-12 Fable5 심층 검증 (owner 요청). 작업자: `claude_fable-5`,
+  branch `claude/fable5-deep-verification`, merge 전 owner/Codex 검증 대상.
+
 ### Revision `working` - DB/검색 슬라이스: SQLite projection 스키마 계약과 Team Day-1 가이드
 
 - `docs/architecture/guild_hall/SQLITE_PROJECTION_V0.md` 를 추가해 daily
