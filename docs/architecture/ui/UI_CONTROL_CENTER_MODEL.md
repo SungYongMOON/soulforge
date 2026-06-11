@@ -13,6 +13,7 @@
 4. 저장은 파일 단위 명시 액션으로만 수행한다.
 5. local-only `_workspaces/<project_code>` 는 opt-in surface 로만 다룬다.
 6. toggle 같은 구조화 편집이 필요할 때도 UI 는 file buffer 를 직접 바꾸고 Save 전까지는 디스크에 쓰지 않는다.
+7. file PUT 저장은 `SOULFORGE_CONTROL_CENTER_WRITE_TOKEN` 환경변수가 설정되고 요청의 `x-soulforge-write-token` 헤더가 일치할 때만 허용한다. 기본값은 쓰기 비활성(fail-closed)이며, GET/tree/snapshot 읽기 경로는 토큰 없이 동작한다.
 
 ## 구조 개요도
 

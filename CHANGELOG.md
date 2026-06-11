@@ -1,5 +1,20 @@
 ﻿# CHANGELOG
 
+## 2026-06-12
+
+### Revision `working` - control center file PUT 쓰기 토큰 가드 추가
+
+- `ui-workspace/apps/renderer-web/controlCenterPlugin.ts` 의 control center
+  file PUT API 에 `SOULFORGE_CONTROL_CENTER_WRITE_TOKEN` 기반 쓰기 가드를
+  추가했다. 토큰 미설정 시 모든 PUT 은 403 으로 차단되고(fail-closed),
+  GET/tree/snapshot 읽기 경로는 기존대로 동작한다.
+- `docs/architecture/ui/UI_CONTROL_CENTER_MODEL.md` 핵심 원칙에 쓰기 가드
+  한 줄을 동기화했다.
+- 근거: 2026-06-11 Claude Fable 5 read-only 감사 취약점 #2 (무인증 write API),
+  `_workmeta/system/reports/procedure_capture/20260611_claude_fable5_security_slice_packet.md`
+  Task A. 작업자: `claude_fable-5`, branch `claude/fable5-slices-20260612`,
+  merge 전 Codex 검증 대상.
+
 ## 2026-06-11
 
 ### Revision `working` - AI 작업자 표기와 비-Codex 작업 branch 규칙 추가

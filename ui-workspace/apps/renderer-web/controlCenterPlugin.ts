@@ -1230,6 +1230,23 @@ async function handleFileRequest(request: IncomingMessage, response: ServerRespo
   }
 
   if (request.method === "PUT") {
+    const writeToken = process.env.SOULFORGE_CONTROL_CENTER_WRITE_TOKEN ?? "";
+    const headerValue = request.headers["x-soulforge-write-token"];
+    const requestToken = Array.isArray(headerValue) ? headerValue[0] : headerValue;
+
+    if (!writeToken) {
+      sendJson(response, 403, {
+        error:
+          "Control center writes are disabled. Set SOULFORGE_CONTROL_CENTER_WRITE_TOKEN and send x-soulforge-write-token to enable file edits."
+      });
+      return;
+    }
+
+    if (requestToken !== writeToken) {
+      sendJson(response, 403, { error: "Invalid or missing x-soulforge-write-token header." });
+      return;
+    }
+
     if (!fileRecord.editable) {
       sendJson(response, 403, { error: `${repoPath} is read-only in the control center.` });
       return;
