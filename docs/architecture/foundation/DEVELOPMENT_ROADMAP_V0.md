@@ -522,7 +522,11 @@ Step 2/3/4 implementation status:
 
 ## Development candidate - Team Ops Board v0 clickable mockup
 
-Status: candidate, owner decision pending.
+Status: MVP 0 clickable mockup delivered 2026-06-04. Owner decisions closed
+2026-06-12: truth posture hybrid (Smartsheet stays the official project
+ledger), teammates edit directly with a full audit trail, UI Korean-first.
+MVP 1 local working app slice started at `ui-workspace/apps/team-ops-board`
+(verification pending on owner PC before merge).
 
 Goal:
 
@@ -559,6 +563,9 @@ Start condition:
 
 - Owner chooses clickable mockup versus working local app and confirms whether
   teammates may update items directly in the first pilot.
+- Fulfilled 2026-06-12: working local app (MVP 1), direct teammate edits with
+  audit logging. Decision record:
+  `_workmeta/system/reports/procedure_capture/team_ops_board_mvp1_owner_decision_20260612.md`.
 
 ### 이름
 

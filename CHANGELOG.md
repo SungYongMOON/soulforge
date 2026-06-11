@@ -2,6 +2,30 @@
 
 ## 2026-06-12
 
+### Revision `working` - Team Ops Board MVP 1: 로컬 실동작 앱 1차 구현
+
+- owner 결정(2026-06-12): 진실 저장소는 하이브리드(Option C, Smartsheet 가
+  공식 프로젝트 장부로 유지), 팀원 직접 수정 + 전 변경 감사 로그, UI 한국어
+  우선. 2026-06-02 fresh design 의 MVP 1 을 시작 조건 충족으로 착수.
+- `ui-workspace/apps/team-ops-board` 추가 (MVP 0 목업은 동결 유지):
+  localStorage 영속 저장, CSV 내보내기/가져오기(UTF-8 BOM, 행 단위 오류
+  보고), 담당/프로젝트/상태/기간/검색 필터, 전 변경 감사 추적(누가/언제/
+  이전→이후), 일일 기준선 고정과 기준선 대비 변경 표시, JSON 백업/복원,
+  차단 사유·대기 대상 입력 강제. 코어 로직은 의존성 없는 `src/core/*.mjs`
+  모듈로 분리.
+- 명령 표면: root `ui:team-ops-app:dev/build/preview/test`,
+  `validate:team-ops-app`, ui-workspace `team-ops-app:*` 추가, 새 앱을
+  `ui:build` 체인에 포함.
+- 검증: 코어 node:test 9/9 통과, `tsc --noEmit` 통과, ui
+  `docs:check-links` 통과 (Linux sandbox). vite 빌드와 `ui:done:check` 는
+  sandbox esbuild 플랫폼 제약으로 owner PC 에서 재실행 필요
+  (`npm run ui:workspace:install` 후 `npm run ui:build`).
+- 근거: `_workmeta/system/reports/procedure_capture/team_ops_board_fresh_design_20260602.md`
+  의 MVP 1 범위. owner 결정 기록은
+  `_workmeta/system/reports/procedure_capture/team_ops_board_mvp1_owner_decision_20260612.md`.
+  작업자: `claude_fable-5`, branch `claude/fable5-deep-verification`,
+  merge 전 owner/Codex 검증 대상.
+
 ### Revision `working` - Fable5 심층 검증: 장기 사용성 후보 12건 기록
 
 - Fable 5 심층 검증(비전-실태 격차, 규칙 질량 대비 1인 운영 부담, 정본

@@ -12,7 +12,7 @@
   },
   "scripts": {
     "dev": "npm run dev --workspace @soulforge/renderer-web --",
-    "build": "npm run build --workspace @soulforge/renderer-web && npm run build --workspace @soulforge/skin-lab-storybook && npm run build --workspace @soulforge/team-ops-board-mockup",
+    "build": "npm run build --workspace @soulforge/renderer-web && npm run build --workspace @soulforge/skin-lab-storybook && npm run build --workspace @soulforge/team-ops-board-mockup && npm run build --workspace @soulforge/team-ops-board",
     "preview": "npm run preview --workspace @soulforge/renderer-web --",
     "validate": "npm run validate:fixtures --workspace @soulforge/renderer-core",
     "docs:check-links": "node ./tools/scripts/check-doc-links.mjs",
@@ -32,6 +32,10 @@
     "team-ops:dev": "npm run dev --workspace @soulforge/team-ops-board-mockup --",
     "team-ops:build": "npm run build --workspace @soulforge/team-ops-board-mockup",
     "team-ops:preview": "npm run preview --workspace @soulforge/team-ops-board-mockup --",
+    "team-ops-app:dev": "npm run dev --workspace @soulforge/team-ops-board --",
+    "team-ops-app:build": "npm run build --workspace @soulforge/team-ops-board",
+    "team-ops-app:preview": "npm run preview --workspace @soulforge/team-ops-board --",
+    "team-ops-app:test": "npm run test --workspace @soulforge/team-ops-board",
     "storybook:dev": "npm run skin-lab:dev",
     "storybook:build": "npm run skin-lab:build"
   }
