@@ -1,15 +1,15 @@
 workflow_id: external_reasoning_workspace_v0
 kind: workflow_profile_policy
 status: active
-validation_level: private_pilot_executed_browser_advisory
-calibration_status: none
-last_calibration_id: null
-calibration_mode: none
+validation_level: public_safe_synthetic_profile_calibration_with_prior_private_pilot_observed
+calibration_status: quality_gate_calibrated
+last_calibration_id: cal_20260611_external_reasoning_quality_equiv_001
+calibration_mode: cli_quality_equivalence
 profile_binding_policy:
-  controller_model: runtime_binding
-  controller_reasoning_effort: runtime_binding
-  controller_species: runtime_binding
-  controller_class: runtime_binding
+  controller_model: calibrated_primary_profile
+  controller_reasoning_effort: calibrated_primary_profile
+  controller_species: calibrated_primary_profile
+  controller_class: calibrated_primary_profile
   party: runtime_binding_or_unbound
   external_chatgpt_mode_label: visible_user_authorized_runtime_selection
 selection_rules:
@@ -23,12 +23,100 @@ default_turn_policy:
   extended_turns_allowed_when_user_authorized: true
   continue_existing_session_first: true
 measurement_policy:
-  quality_source: none
-  telemetry_source: none
+  quality_source: cli_quality_equivalence_shortlist
+  telemetry_source: codex_exec_json_cli_proxy
   browser_runtime_token_usage_available: false
-  cost_confidence: not_measured
-primary_profile: null
-shadow_top_k: []
+  subagent_token_usage_available: false
+  telemetry_exact_for_subagent: false
+  cost_confidence: relative_not_exact
+  full_default_matrix_executed: false
+  full_default_matrix_reason: >
+    Repo-local precedent uses a public-safe quality-equivalence shortlist for
+    workflow profile calibration. The full default matrix would require 180
+    candidates and was not necessary to establish a lowest-cost hard-gate pass
+    on the synthetic external advisory controller fixture.
+primary_profile:
+  candidate_id: A_mini_low_dwarf_auditor
+  model: gpt-5.4-mini
+  reasoning_effort: low
+  species: dwarf
+  class: auditor
+  label: gpt-5.4-mini|low|dwarf|auditor
+  quality_score: 98
+  quality_class: quality_gate_pass
+  input_tokens: 19835
+  cached_input_tokens: 3456
+  output_tokens: 1201
+  total_tokens: 21036
+  reasoning_output_tokens: 37
+  wall_s: 25.452
+  telemetry_source: codex_exec_json_cli_proxy
+  selection_reason: >
+    Lowest-token quality-passing candidate. It preserved the visible-label
+    policy, sanitized prompt packet, metadata-only pointer boundary, synthetic
+    DOM readback checks, advisory-only claim ceiling, and no-real-browser
+    synthetic boundary.
+shadow_top_k:
+  - candidate_id: D_gpt55_medium_dwarf_auditor
+    model: gpt-5.5
+    reasoning_effort: medium
+    species: dwarf
+    class: auditor
+    label: gpt-5.5|medium|dwarf|auditor
+    quality_score: 100
+    quality_class: quality_gate_pass
+    input_tokens: 21572
+    cached_input_tokens: 2432
+    output_tokens: 1288
+    total_tokens: 22860
+    reasoning_output_tokens: 65
+    wall_s: 29.393
+    selection_note: Highest non-primary weighted score with very explicit boundary language.
+  - candidate_id: C_gpt55_low_dwarf_auditor
+    model: gpt-5.5
+    reasoning_effort: low
+    species: dwarf
+    class: auditor
+    label: gpt-5.5|low|dwarf|auditor
+    quality_score: 100
+    quality_class: quality_gate_pass
+    input_tokens: 21572
+    cached_input_tokens: 2432
+    output_tokens: 1131
+    total_tokens: 22703
+    reasoning_output_tokens: 24
+    wall_s: 30.265
+    selection_note: Full hard-gate pass with lower output tokens than other gpt-5.5 profiles.
+  - candidate_id: E_gpt55_xhigh_dwarf_auditor
+    model: gpt-5.5
+    reasoning_effort: xhigh
+    species: dwarf
+    class: auditor
+    label: gpt-5.5|xhigh|dwarf|auditor
+    quality_score: 100
+    quality_class: quality_gate_pass
+    input_tokens: 21574
+    cached_input_tokens: 2432
+    output_tokens: 1626
+    total_tokens: 23200
+    reasoning_output_tokens: 516
+    wall_s: 30.809
+    selection_note: Strong baseline profile for future adversarial fixture revisions.
+  - candidate_id: B_gpt54_low_dwarf_auditor
+    model: gpt-5.4
+    reasoning_effort: low
+    species: dwarf
+    class: auditor
+    label: gpt-5.4|low|dwarf|auditor
+    quality_score: 99
+    quality_class: quality_gate_pass
+    input_tokens: 20187
+    cached_input_tokens: 2432
+    output_tokens: 1598
+    total_tokens: 21785
+    reasoning_output_tokens: 14
+    wall_s: 35.877
+    selection_note: Quality pass with strong narrative, but slower and higher-token than primary.
 rerun_triggers:
   - prompt packet shape changes
   - DOM readback method changes
@@ -36,14 +124,23 @@ rerun_triggers:
   - side-effect authorization policy changes
   - first private pilot exposes a new boundary failure
   - caller handoff packet shape changes
-calibration_archive_ref: null
+  - adversarial fixture adds ambiguous source-truth phrasing
+  - adversarial fixture adds partial DOM readback completion or missing output shape
+  - adversarial fixture adds sanitized pointer metadata mixed with raw account identifiers
+  - mini profile drops explicit advisory-only or no-real-browser boundaries in a future fixture
+calibration_archive_ref: .workflow/external_reasoning_workspace_v0/calibrations/cal_20260611_external_reasoning_quality_equiv_001
 non_claims:
-  - no_profile_optimization_claim
   - no_external_chatgpt_model_stability_claim
+  - no_real_browser_action_executed
+  - no_real_chatgpt_prompt_submitted
+  - no_cookie_token_password_session_or_storage_inspection
+  - no_file_upload_share_link_permission_payment_or_destructive_action
+  - no_raw_url_account_id_conversation_id_or_transcript_stored
   - no_production_ready_claim
   - no_default_route_claim
   - no_default_route_safety_claim
 notes:
   - Runtime browser state, account state, conversation pointers, and mode labels are not public canon.
-  - Profile optimization requires public-safe synthetic or private approved evidence and a separate review before this file can claim calibrated runtime profile selection.
+  - The calibrated profile applies to the model-facing controller packet, boundary review, and handoff planning part of the workflow only.
+  - The external ChatGPT mode label remains a visible user-authorized runtime selection and is not hard-coded by this policy.
   - The 2026-06-07 private pilot supports only marker-verified advisory execution, not production readiness or default-route safety.

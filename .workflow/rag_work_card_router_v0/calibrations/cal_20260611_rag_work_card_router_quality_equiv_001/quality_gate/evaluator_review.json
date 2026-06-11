@@ -1,0 +1,15 @@
+{
+  "schema_version": "soulforge.workflow_optimizer.evaluator_review.v0",
+  "workflow_id": "rag_work_card_router_v0",
+  "calibration_id": "cal_20260611_rag_work_card_router_quality_equiv_001",
+  "reviewer_context": "same_context_manual_checklist",
+  "criteria_sufficient_for_goal": true,
+  "overfit_to_golden_wording": false,
+  "public_private_boundary_review": "pass",
+  "missing_critical_conditions": [],
+  "notes": [
+    "The gate is based on workflow.yaml, step_graph.yaml, templates, and the synthetic fixture rather than golden wording.",
+    "Optional context refs were treated as required for this fixture because they were supplied and the workflow accepts them as stable metadata-only inputs.",
+    "The review does not claim full default-matrix execution, source truth, owner approval, registration, or default-route safety."
+  ]
+}

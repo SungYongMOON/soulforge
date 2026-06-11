@@ -1,0 +1,19 @@
+{
+    "candidate_id":  "A_mini_low_dwarf_auditor",
+    "model":  "gpt-5.4-mini",
+    "reasoning_effort":  "low",
+    "species":  "dwarf",
+    "class":  "auditor",
+    "telemetry_source":  "codex_exec_json_cli_proxy",
+    "usage":  {
+                  "input_tokens":  16049,
+                  "cached_input_tokens":  7552,
+                  "output_tokens":  1088,
+                  "reasoning_output_tokens":  14
+              },
+    "wall_seconds":  19.793,
+    "prompt_ref":  ".workflow/outbound_mail_authoring_v0/calibrations/cal_20260611_outbound_mail_quality_equiv_001/prompts/A_mini_low_dwarf_auditor.prompt.md",
+    "output_ref":  ".workflow/outbound_mail_authoring_v0/calibrations/cal_20260611_outbound_mail_quality_equiv_001/subagent_matrix/outputs/A_mini_low_dwarf_auditor.output.md",
+    "events_ref":  ".workflow/outbound_mail_authoring_v0/calibrations/cal_20260611_outbound_mail_quality_equiv_001/subagent_matrix/outputs/A_mini_low_dwarf_auditor.events.jsonl",
+    "encoding_note":  "PowerShell stdin/stdout forced to UTF-8."
+}

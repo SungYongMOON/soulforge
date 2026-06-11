@@ -1,0 +1,15 @@
+{
+  "candidate_id": "E_gpt55_xhigh_dwarf_auditor",
+  "model": "gpt-5.5",
+  "reasoning_effort": "xhigh",
+  "species": "dwarf",
+  "class": "auditor",
+  "command_exit_code": 0,
+  "timed_out": false,
+  "timeout_s": 240,
+  "wall_s": 32.186,
+  "service_tier": "fast",
+  "telemetry_source": "codex_exec_json_cli_proxy",
+  "output_ref": ".workflow\\daily_work_ledger_capture_v0\\calibrations\\cal_20260611_daily_work_ledger_quality_equiv_001\\subagent_matrix\\outputs\\E_gpt55_xhigh_dwarf_auditor.output.md",
+  "events_ref": ".workflow\\daily_work_ledger_capture_v0\\calibrations\\cal_20260611_daily_work_ledger_quality_equiv_001\\subagent_matrix\\outputs\\E_gpt55_xhigh_dwarf_auditor.events.jsonl"
+}

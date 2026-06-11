@@ -1,0 +1,44 @@
+workflow_id: rag_source_text_quality_review_v0
+calibration_id: cal_20260611_rag_source_text_quality_review_quality_equiv_001
+calibration_mode: cli_quality_equivalence
+status: quality_gate_calibrated
+baseline_profile: gpt-5.5|xhigh|dwarf|auditor
+recommended_primary:
+  candidate_id: A_mini_low_dwarf_auditor
+  label: gpt-5.4-mini|low|dwarf|auditor
+  model: gpt-5.4-mini
+  reasoning_effort: low
+  species: dwarf
+  class: auditor
+  quality_score: 94
+  quality_class: quality_gate_pass
+  total_tokens: 22279
+  reasoning_output_tokens: 23
+  wall_s: 24.925
+selection_reason: >
+  Selected as the lowest-token and fastest exact-shape quality-passing
+  candidate. It preserved the six required output shapes, all five page and
+  claim refs, status-based source_supported/manual_review/blocked routing, and
+  the payload-free/non-authority boundary.
+weighted_score_leader:
+  candidate_id: A_mini_low_dwarf_auditor
+  label: gpt-5.4-mini|low|dwarf|auditor
+  weighted_score: 93.3
+candidate_class_counts:
+  quality_gate_pass: 4
+  fail: 1
+telemetry_limitations:
+  - Quality and telemetry both come from isolated Codex CLI candidate runs.
+  - This calibration uses the repo-local quality-equivalence shortlist pattern, not the full 180-candidate default matrix.
+  - Cost confidence is relative, not exact billing cost.
+  - CLI stderr emitted local plugin warning paths and was intentionally not archived.
+non_claims:
+  - no_source_text_payload_used
+  - no_raw_question_or_answer_used
+  - no_notebooklm_answer_or_conversation_id_used
+  - no_project_private_payload_used
+  - no_workspaces_content_used
+  - no_secret_or_credential_used
+  - no_registration_change
+  - no_default_route_claim
+  - no_production_ready_claim

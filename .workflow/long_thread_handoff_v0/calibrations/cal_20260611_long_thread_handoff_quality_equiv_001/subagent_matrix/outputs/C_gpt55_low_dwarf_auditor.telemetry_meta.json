@@ -1,0 +1,22 @@
+{
+  "candidate_id": "C_gpt55_low_dwarf_auditor",
+  "model": "gpt-5.5",
+  "reasoning_effort": "low",
+  "species": "dwarf",
+  "class": "auditor",
+  "service_tier": "fast",
+  "command_exit_code": 0,
+  "wall_s": 24.531,
+  "output_ref": ".workflow/long_thread_handoff_v0/calibrations/cal_20260611_long_thread_handoff_quality_equiv_001/subagent_matrix/outputs/C_gpt55_low_dwarf_auditor.output.md",
+  "events_ref": ".workflow/long_thread_handoff_v0/calibrations/cal_20260611_long_thread_handoff_quality_equiv_001/subagent_matrix/outputs/C_gpt55_low_dwarf_auditor.events.jsonl",
+  "usage": {
+    "input_tokens": 17927,
+    "cached_input_tokens": 2432,
+    "output_tokens": 1606,
+    "reasoning_output_tokens": 13
+  },
+  "total_tokens": 19533,
+  "quality_class": "quality_gate_pass",
+  "final_quality": "pass",
+  "output_quality_score": 96
+}

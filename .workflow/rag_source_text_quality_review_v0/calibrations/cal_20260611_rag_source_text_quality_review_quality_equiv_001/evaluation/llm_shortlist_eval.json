@@ -1,0 +1,21 @@
+{
+    "workflow_id":  "rag_source_text_quality_review_v0",
+    "calibration_id":  "cal_20260611_rag_source_text_quality_review_quality_equiv_001",
+    "quality_source":  "cli_quality_equivalence_shortlist",
+    "selection_policy":  "quality_first_lowest_cost_exact_shape_pass",
+    "summary":  "Four of five shortlist candidates passed the frozen hard gate on a public-safe synthetic RAG source-text quality-review fixture. A was the lowest-token and fastest exact-shape pass. B preserved the safety boundary but failed the exact page status field shape by using a classification alias.",
+    "blocked_or_limited_measurements":  [
+                                            "No separate subagent runner usage telemetry was available; Codex CLI JSON telemetry is used as a proxy for quality and cost.",
+                                            "This calibration uses the repo-local five-profile quality-equivalence shortlist, not the full default matrix.",
+                                            "CLI stderr emitted local plugin warning paths and was intentionally not archived."
+                                        ],
+    "recommendation":  {
+                           "primary_candidate_id":  "A_mini_low_dwarf_auditor",
+                           "primary_label":  "gpt-5.4-mini|low|dwarf|auditor",
+                           "shadow_order":  [
+                                                "C_gpt55_low_dwarf_auditor",
+                                                "E_gpt55_xhigh_dwarf_auditor",
+                                                "D_gpt55_medium_dwarf_auditor"
+                                            ]
+                       }
+}

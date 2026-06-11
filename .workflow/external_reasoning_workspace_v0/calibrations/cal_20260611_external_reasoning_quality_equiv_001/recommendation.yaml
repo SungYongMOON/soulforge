@@ -1,0 +1,40 @@
+workflow_id: external_reasoning_workspace_v0
+calibration_id: cal_20260611_external_reasoning_quality_equiv_001
+calibration_mode: cli_quality_equivalence
+status: quality_gate_calibrated
+baseline_profile: gpt-5.5|xhigh|dwarf|auditor
+recommended_primary:
+  candidate_id: A_mini_low_dwarf_auditor
+  label: gpt-5.4-mini|low|dwarf|auditor
+  model: gpt-5.4-mini
+  reasoning_effort: low
+  species: dwarf
+  class: auditor
+  quality_score: 98
+  quality_class: quality_gate_pass
+  total_tokens: 21036
+  reasoning_output_tokens: 37
+  wall_s: 25.452
+selection_reason: >
+  Selected as the lowest-token quality-passing candidate. It preserved the
+  visible-label policy, sanitized prompt packet, metadata-only pointer boundary,
+  synthetic DOM readback checks, advisory-only claim ceiling, and no-real-browser
+  synthetic boundary.
+weighted_score_leader:
+  candidate_id: A_mini_low_dwarf_auditor
+  label: gpt-5.4-mini|low|dwarf|auditor
+  weighted_score: 98.2
+candidate_class_counts:
+  quality_gate_pass: 5
+  fail: 0
+telemetry_limitations:
+  - Quality and telemetry both come from isolated Codex CLI candidate runs.
+  - This calibration uses the repo-local quality-equivalence shortlist pattern, not the full 180-candidate default matrix.
+  - Cost confidence is relative, not exact billing cost.
+non_claims:
+  - no_real_browser_action_executed
+  - no_real_chatgpt_prompt_submitted
+  - no_cookie_token_password_session_or_storage_inspection
+  - no_file_upload_share_link_permission_payment_or_destructive_action
+  - no_raw_url_account_id_conversation_id_or_transcript_stored
+  - no_production_ready_or_default_route_claim

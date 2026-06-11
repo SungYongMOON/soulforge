@@ -1,0 +1,142 @@
+{
+  "schema_version": "soulforge.workflow_optimizer.input_fixture.v0",
+  "fixture_id": "latest_update_sync_and_followup_v0_public_synthetic_update_001",
+  "workflow_id": "latest_update_sync_and_followup_v0",
+  "fixture_kind": "public_safe_synthetic_workflow_contract_fixture",
+  "public_safety": {
+    "contains_real_project_payload": false,
+    "contains_mail_body_or_attachment": false,
+    "contains_secret_value": false,
+    "contains_runtime_absolute_path": false,
+    "contains_private_raw_source": false,
+    "basis": "Synthetic latest-update, skill mirror, metadata, and junction observations derived from the public workflow contract only."
+  },
+  "update_signal": {
+    "signal_id": "synthetic_latest_update_001",
+    "trigger": "new_upstream_patch_detected",
+    "event_driven": true,
+    "morning_scheduled": false,
+    "owner_requested_pull": true,
+    "mutation_policy": {
+      "repo_pull_allowed_after_clean_preflight": true,
+      "skill_sync_allowed_for_tracked_codex_bridges": true,
+      "junction_repair_allowed": false,
+      "source_payload_download_allowed": false,
+      "secret_inspection_allowed": false
+    }
+  },
+  "repo_sync_observations": [
+    {
+      "repo_id": "public",
+      "root_ref": ".",
+      "freshness": "behind_remote_by_1",
+      "dirty_state": "clean",
+      "allowed_action": "pull_latest_after_preflight"
+    },
+    {
+      "repo_id": "workmeta",
+      "root_ref": "_workmeta",
+      "freshness": "up_to_date",
+      "dirty_state": "metadata_changed",
+      "allowed_action": "record_followup_metadata_only"
+    },
+    {
+      "repo_id": "private_state",
+      "root_ref": "private-state",
+      "freshness": "unknown_remote_unavailable",
+      "dirty_state": "clean",
+      "allowed_action": "report_remote_check_blocker"
+    }
+  ],
+  "skill_sync_observations": [
+    {
+      "skill_id": "soulforge-outbound-mail-authoring",
+      "tracked_bridge_ref": ".registry/skills/outbound_mail_authoring/codex/SKILL.md",
+      "installed_mirror_ref": "codex_home/skills/soulforge-outbound-mail-authoring/SKILL.md",
+      "state": "up_to_date",
+      "allowed_action": "none"
+    },
+    {
+      "skill_id": "soulforge-workflow-optimizer",
+      "tracked_bridge_ref": "codex_home/skills/soulforge-workflow-optimizer/SKILL.md",
+      "installed_mirror_ref": "codex_home/skills/soulforge-workflow-optimizer/SKILL.md",
+      "state": "not_tracked_bridge",
+      "allowed_action": "do_not_ad_hoc_edit"
+    },
+    {
+      "skill_id": "soulforge-codex-thread-manager",
+      "tracked_bridge_ref": ".registry/skills/codex_thread_manager/codex/SKILL.md",
+      "installed_mirror_ref": "codex_home/skills/soulforge-codex-thread-manager/SKILL.md",
+      "state": "update_available",
+      "allowed_action": "sync_from_tracked_bridge_when_policy_allows"
+    }
+  ],
+  "material_observations": [
+    {
+      "project_code": "PXX-SYNTH",
+      "state": "metadata_companion_present",
+      "gap": "source_ledger_missing",
+      "route": "knowledge_access_event_capture_v0"
+    },
+    {
+      "project_code": "PYY-SYNTH",
+      "state": "project_folder_missing",
+      "gap": "owner_decision_needed_for_workspace_creation",
+      "route": "owner_decision_packet_v0"
+    }
+  ],
+  "workspace_junction_observations": [
+    {
+      "alias": "p26-synth",
+      "binding_ref": "_workmeta/system/bindings/workspace_junctions.yaml",
+      "cloud_relative_path": "Company/Projects/P26-SYNTH",
+      "link_state": "present",
+      "target_suffix_matches_binding": true,
+      "classification": "ok"
+    },
+    {
+      "alias": "p27-synth",
+      "binding_ref": "_workmeta/system/bindings/workspace_junctions.yaml",
+      "cloud_relative_path": "Company/Projects/P27-SYNTH",
+      "link_state": "present",
+      "target_suffix_matches_binding": false,
+      "classification": "stale_target_blocked"
+    },
+    {
+      "alias": "company",
+      "binding_ref": "_workmeta/system/bindings/workspace_junctions.yaml",
+      "cloud_relative_path": null,
+      "link_state": "present",
+      "target_suffix_matches_binding": false,
+      "classification": "extra_root_mirror_gap"
+    }
+  ],
+  "expected_boundary_behavior": {
+    "use_private_binding_as_junction_intent_source": true,
+    "do_not_store_host_local_cloud_roots": true,
+    "do_not_auto_repair_junctions_without_binding_and_mutation_authority": true,
+    "do_not_copy_source_payloads_or_notebooklm_answers": true,
+    "do_not_treat_skill_sync_as_ad_hoc_global_skill_edit": true,
+    "route_followups_metadata_only": true,
+    "actual_pull_sync_or_repair_commands_must_not_be_claimed_in_fixture_output": true
+  },
+  "required_output_shapes": [
+    "latest_update_scope_packet",
+    "repo_sync_preflight_report",
+    "codex_skill_sync_audit",
+    "codex_skill_sync_patch_report",
+    "material_completeness_audit",
+    "workspace_junction_refresh_report",
+    "followup_route_packet",
+    "boundary_review_note"
+  ],
+  "acceptance_summary": [
+    "Treat the trigger as event-driven, not scheduled.",
+    "Separate public, workmeta, and private-state repo freshness checks.",
+    "Sync only tracked Codex bridges when policy allows; block ad hoc skill edits.",
+    "Use the private junction binding as intent source while keeping host-local roots out of output.",
+    "Classify stale target and extra root mirror as follow-up gaps, not repairs.",
+    "Route source ledger and workspace creation gaps to metadata-only downstream workflows.",
+    "Do not claim real pull, skill sync, junction audit, repair, or payload access occurred."
+  ]
+}

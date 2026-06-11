@@ -1,29 +1,143 @@
 workflow_id: daily_work_ledger_capture_v0
 kind: workflow_profile_policy
 status: active
-validation_level: registered_structure_with_local_automation_binding
-calibration_status: none
+optimizer_status: completed_public_safe_synthetic_quality_equivalence
+calibration_status: quality_gate_calibrated
+last_calibration_id: cal_20260611_daily_work_ledger_quality_equiv_001
+calibration_mode: cli_quality_equivalence
+validation_level: public_safe_synthetic_quality_gate
+measurement_policy:
+  quality_source: cli_quality_equivalence_shortlist
+  telemetry_source: codex_exec_json_cli_proxy
+  subagent_token_usage_available: false
+  telemetry_exact_for_subagent: false
+  cost_confidence: relative_not_exact
+  service_tier: fast
+  full_default_matrix_executed: false
+  full_default_matrix_reason: >
+    Repo-local precedent uses a public-safe quality-equivalence shortlist for
+    workflow profile calibration. The full default matrix would require a much
+    larger candidate run and was not necessary to establish a lowest-cost
+    hard-gate pass on the synthetic daily-ledger capture fixture.
 profile_binding_policy:
-  model: runtime_binding
-  reasoning_effort: runtime_binding
-  species: runtime_binding
-  class: runtime_binding
+  model: calibrated_default_runtime_binding
+  reasoning_effort: calibrated_default_runtime_binding
+  species: calibrated_default_runtime_binding
+  class: calibrated_default_runtime_binding
   party: daily_automation_party
-selection_rules:
-  - Do not hard-code model, species, class, or local runtime paths into this reusable workflow package.
-  - Use deterministic validators before claiming a stronger state than registered local binding.
-  - Use fresh executor and verifier evidence before claiming pilot-executed, production-ready, or cross-PC default-route status.
-  - Local schedule, ACTIVE/PAUSED state, and prompt rendering remain local automation concerns.
+primary_profile:
+  candidate_id: B_gpt54_low_dwarf_auditor
+  model: gpt-5.4
+  reasoning_effort: low
+  species: dwarf
+  class: auditor
+  label: gpt-5.4|low|dwarf|auditor
+  quality_score: 95
+  quality_class: quality_gate_pass
+  input_tokens: 19914
+  cached_input_tokens: 14720
+  output_tokens: 1310
+  total_tokens: 21224
+  reasoning_output_tokens: 18
+  wall_s: 22.704
+  telemetry_source: codex_exec_json_cli_proxy
+  service_tier: fast
+  selection_reason: >
+    Lowest measured total-token quality pass in the five-profile
+    quality-equivalence shortlist. It preserved project/P00/Soulforge routing,
+    skipped raw payload handling, unknown project and subledger review gates,
+    duplicate review handling, synthetic no-write receipt, and the
+    observed-metadata claim ceiling.
+shadow_top_k:
+  - candidate_id: D_gpt55_medium_dwarf_auditor
+    model: gpt-5.5
+    reasoning_effort: medium
+    species: dwarf
+    class: auditor
+    label: gpt-5.5|medium|dwarf|auditor
+    quality_score: 93
+    quality_class: quality_gate_pass
+    input_tokens: 21299
+    cached_input_tokens: 16256
+    output_tokens: 1209
+    total_tokens: 22508
+    reasoning_output_tokens: 46
+    wall_s: 21.813
+    selection_note: Fastest measured wall time, but higher total tokens than the primary.
+  - candidate_id: A_mini_low_dwarf_auditor
+    model: gpt-5.4-mini
+    reasoning_effort: low
+    species: dwarf
+    class: auditor
+    label: gpt-5.4-mini|low|dwarf|auditor
+    quality_score: 91
+    quality_class: quality_gate_pass
+    input_tokens: 19562
+    cached_input_tokens: 3456
+    output_tokens: 2040
+    total_tokens: 21602
+    reasoning_output_tokens: 145
+    wall_s: 26.401
+    selection_note: Quality pass, but more verbose and slightly more total tokens than the primary.
+  - candidate_id: E_gpt55_xhigh_dwarf_auditor
+    model: gpt-5.5
+    reasoning_effort: xhigh
+    species: dwarf
+    class: auditor
+    label: gpt-5.5|xhigh|dwarf|auditor
+    quality_score: 96
+    quality_class: quality_gate_pass
+    input_tokens: 21301
+    cached_input_tokens: 2432
+    output_tokens: 1916
+    total_tokens: 23217
+    reasoning_output_tokens: 516
+    wall_s: 32.186
+    selection_note: Highest quality baseline and fallback for boundary-sensitive changes.
+  - candidate_id: C_gpt55_low_dwarf_auditor
+    model: gpt-5.5
+    reasoning_effort: low
+    species: dwarf
+    class: auditor
+    label: gpt-5.5|low|dwarf|auditor
+    quality_score: 94
+    quality_class: quality_gate_pass
+    input_tokens: 21299
+    cached_input_tokens: 2432
+    output_tokens: 2051
+    total_tokens: 23350
+    reasoning_output_tokens: 103
+    wall_s: 33.002
+    selection_note: Quality pass after guarded rerun; not cheaper or faster than primary.
 rerun_triggers:
   - daily ledger schema changes
   - owner-facing ledger category policy changes
   - approved metadata source surface changes
   - project ordering policy changes
+  - P00 company general or unresolved work routing changes
+  - Soulforge subledger taxonomy changes
+  - duplicate candidate key handling changes
+  - skipped or review-needed register shape changes
   - report renderer handoff contract changes
   - daily automation party registration or local automation binding changes
+  - a live daily-ledger pilot exposes routing or boundary ambiguity
+calibration_archive_ref: .workflow/daily_work_ledger_capture_v0/calibrations/cal_20260611_daily_work_ledger_quality_equiv_001
+runtime_notes:
+  - Candidate C first direct shell run exceeded 180 seconds with only thread.started and turn.started in its event file; the detached child was stopped and a guarded rerun completed successfully.
+selection_rules:
+  - Treat this file as a calibrated default policy; local runtime may still bind a different model when owner-approved automation settings require it.
+  - Use deterministic validators before claiming a stronger state than registered local binding.
+  - Use fresh executor and verifier evidence before claiming pilot-executed, production-ready, or cross-PC default-route status.
+  - Local schedule, ACTIVE/PAUSED state, and prompt rendering remain local automation concerns.
 non_claims:
-  - no_profile_optimization_claim
+  - no_real_ledger_capture_executed
+  - no_real_metadata_source_coverage_claim
+  - no_raw_payload_read
+  - no_private_worklog_or_mail_payload_used
   - no_pilot_execution_claim
   - no_production_ready_claim
   - no_cross_pc_default_route_claim
   - no_source_truth_claim
+notes:
+  - The recommendation optimizes the model-facing routing and boundary review part of the workflow on a public-safe synthetic fixture.
+  - Real daily ledger execution still requires approved metadata sources and write-policy checks in the runtime owner surface.

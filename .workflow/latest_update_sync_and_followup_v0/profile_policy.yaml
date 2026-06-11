@@ -1,14 +1,119 @@
 workflow_id: latest_update_sync_and_followup_v0
-kind: profile_policy
-status: draft
-default_profile:
-  model: unspecified
-  reasoning_effort: unspecified
+kind: workflow_profile_policy
+status: active
+last_calibration_id: cal_20260611_latest_update_quality_equiv_001
+calibration_mode: cli_quality_equivalence
+validation_level: public_safe_synthetic_quality_gate
+measurement_policy:
+  quality_source: cli_quality_equivalence_shortlist
+  telemetry_source: codex_exec_json_cli_proxy
+  subagent_token_usage_available: false
+  telemetry_exact_for_subagent: false
+  cost_confidence: relative_not_exact
+  full_default_matrix_executed: false
+  full_default_matrix_reason: >
+    Repo-local precedent uses a public-safe quality-equivalence shortlist for
+    workflow profile calibration. The full default matrix would require 180
+    candidates and was not necessary to establish a lowest-cost hard-gate pass
+    on the synthetic latest-update follow-up fixture.
+primary_profile:
+  candidate_id: A_mini_low_dwarf_auditor
+  model: gpt-5.4-mini
+  reasoning_effort: low
+  species: dwarf
   class: auditor
-  rationale: Use an audit-oriented posture because the workflow checks freshness, boundaries, and junction consistency before follow-up.
-readiness:
-  current_label: draft_private_evidence
-  production_ready: false
-  reason: No controlled project pilot or fresh evaluator verification has run yet.
+  label: gpt-5.4-mini|low|dwarf|auditor
+  quality_score: 94
+  quality_class: quality_gate_pass
+  input_tokens: 15895
+  cached_input_tokens: 14720
+  output_tokens: 1184
+  total_tokens: 17079
+  reasoning_output_tokens: 40
+  wall_s: 20.506
+  telemetry_source: codex_exec_json_cli_proxy
+  selection_reason: >
+    Lowest-token quality-passing candidate. It preserved the event-driven
+    trigger, public/workmeta/private-state separation, tracked skill bridge
+    policy, metadata-only junction suffix review, follow-up routing, and
+    no-real-command synthetic boundary.
+shadow_top_k:
+  - candidate_id: B_gpt54_low_dwarf_auditor
+    model: gpt-5.4
+    reasoning_effort: low
+    species: dwarf
+    class: auditor
+    label: gpt-5.4|low|dwarf|auditor
+    quality_score: 97
+    quality_class: quality_gate_pass
+    input_tokens: 16247
+    cached_input_tokens: 2432
+    output_tokens: 1039
+    total_tokens: 17286
+    reasoning_output_tokens: 14
+    wall_s: 30.181
+    selection_note: Higher-quality boundary narration; use if mini loses clarity in real latest-update pilots.
+  - candidate_id: C_gpt55_low_dwarf_auditor
+    model: gpt-5.5
+    reasoning_effort: low
+    species: dwarf
+    class: auditor
+    label: gpt-5.5|low|dwarf|auditor
+    quality_score: 95
+    quality_class: quality_gate_pass
+    input_tokens: 17632
+    cached_input_tokens: 2432
+    output_tokens: 861
+    total_tokens: 18493
+    reasoning_output_tokens: 13
+    wall_s: 19.971
+    selection_note: Fastest measured wall time but higher token count.
+  - candidate_id: E_gpt55_xhigh_dwarf_auditor
+    model: gpt-5.5
+    reasoning_effort: xhigh
+    species: dwarf
+    class: auditor
+    label: gpt-5.5|xhigh|dwarf|auditor
+    quality_score: 96
+    quality_class: quality_gate_pass
+    input_tokens: 17638
+    cached_input_tokens: 7552
+    output_tokens: 1175
+    total_tokens: 18813
+    reasoning_output_tokens: 516
+    wall_s: 33.829
+    selection_note: Strong baseline profile for future gate revisions.
+  - candidate_id: D_gpt55_medium_dwarf_auditor
+    model: gpt-5.5
+    reasoning_effort: medium
+    species: dwarf
+    class: auditor
+    label: gpt-5.5|medium|dwarf|auditor
+    quality_score: 93
+    quality_class: quality_gate_pass
+    input_tokens: 17632
+    cached_input_tokens: 7552
+    output_tokens: 714
+    total_tokens: 18346
+    reasoning_output_tokens: 18
+    wall_s: 24.116
+    selection_note: Quality pass but not cheaper or clearer than primary and first shadow.
+rerun_triggers:
+  - latest-update workflow output templates change
+  - repo sync or companion metadata preflight policy changes
+  - tracked Codex skill bridge sync policy changes
+  - workspace junction binding or audit contract changes
+  - downstream follow-up routing workflow ids change
+  - a live latest-update pilot exposes boundary ambiguity
+  - mini profile drops unknown-remote, tracked-bridge, or junction-boundary handling in a future fixture
+calibration_archive_ref: .workflow/latest_update_sync_and_followup_v0/calibrations/cal_20260611_latest_update_quality_equiv_001
+non_claims:
+  - no_real_pull_executed
+  - no_real_skill_sync_executed
+  - no_real_junction_audit_or_repair_executed
+  - no_source_payload_or_secret_access
+  - no_production_ready_claim
+  - no_default_route_claim
 notes:
-  - Do not hard-code model, species, class, or unit choices into the workflow package beyond broad role posture.
+  - This policy optimizes the model-facing planning, audit, and follow-up routing part of the workflow on a public-safe synthetic fixture.
+  - Real latest-update execution still depends on current repo state, owner-approved mutation policy, local skill mirror availability, and private junction binding evidence.

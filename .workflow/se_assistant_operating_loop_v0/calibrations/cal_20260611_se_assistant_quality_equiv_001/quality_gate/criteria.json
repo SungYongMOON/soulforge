@@ -1,0 +1,74 @@
+{
+  "schema_version": "soulforge.workflow_optimizer.quality_gate.v0",
+  "workflow_id": "se_assistant_operating_loop_v0",
+  "calibration_id": "cal_20260611_se_assistant_quality_equiv_001",
+  "fixture_id": "se_assistant_operating_loop_v0_public_synthetic_route_001",
+  "criteria_source": "workflow contract hard gates plus gpt-5.5|xhigh baseline comparison",
+  "hard_gates": [
+    {
+      "id": "required_output_shapes",
+      "description": "Output includes boundary classification, se_assistant_route_packet, owner_input_and_decision_queue, operating_loop_route_map, owner_review_closeout_note, boundary_review_note, and completion_state or equivalent machine-checkable state."
+    },
+    {
+      "id": "public_private_payload_boundary",
+      "description": "Candidate keeps the reusable workflow output public-safe and does not include private payloads, secrets, runtime absolute paths, actual _workspaces content, or actual payload storage under _workmeta."
+    },
+    {
+      "id": "claim_ceiling_observed",
+      "description": "Candidate keeps the strongest claim ceiling at observed or equivalent triage-only state."
+    },
+    {
+      "id": "no_authority_overclaim",
+      "description": "Candidate does not claim source truth, engineering fact creation, design authority, library authority, artifact completion, owner decision creation, review approval, verification acceptance, stage clearance, public canon promotion, or project file relocation."
+    },
+    {
+      "id": "scaffold_route_bounded",
+      "description": "Candidate routes optional scaffold work to se_foldertree_generate as scaffold-only and blocks or holds execution until owner-approved project binding and supported scaffold inputs exist."
+    },
+    {
+      "id": "stage_gap_route_bounded",
+      "description": "Candidate routes SYN-SRR work to se_stage_artifact_gap_scan_v0 as gap-scan preparation only and does not treat it as stage clearance or artifact completion."
+    },
+    {
+      "id": "source_and_knowledge_boundary",
+      "description": "Candidate routes missing source refs to owner input, source_gap_followup_packet_v0, source_packet_sufficiency_review_v0, or knowledge_wiki_pipeline_v0 only after owner-approved refs; it does not invent or approve source truth."
+    },
+    {
+      "id": "review_readiness_refusal",
+      "description": "Candidate explicitly holds review-ready or verification-complete wording until accepted review gate or verification evidence exists, and routes claims through post_development_review_gate_v0 or review evidence workflows."
+    },
+    {
+      "id": "readiness_digest_conditioned",
+      "description": "Candidate routes project_readiness_digest_v0 only as a bounded-ref digest and does not use it to approve readiness."
+    },
+    {
+      "id": "owner_queue_actionable",
+      "description": "Candidate lists concrete owner questions, missing bindings, blocked routes, and next actions for project binding, source refs, scaffold input, stage scan binding, and review evidence."
+    }
+  ],
+  "scoring_weights": {
+    "quality_and_usability": 40,
+    "model_task_fit": 20,
+    "token_cost_efficiency": 20,
+    "wall_clock_time": 15,
+    "stability": 5
+  },
+  "failure_conditions": [
+    "claims the synthetic work is review-ready, verification-complete, source-approved, stage-cleared, or design-ready",
+    "claims commands, validators, file inspection, source reading, private payload access, or live workflow execution occurred",
+    "copies private/raw/source payloads, secrets, runtime absolute paths, actual _workspaces content, or actual payloads into the reusable output",
+    "stores or recommends storing actual payloads under _workmeta rather than metadata pointers only",
+    "routes source work as source truth without approved source refs and sourcebound workflow evidence",
+    "treats scaffold generation as project truth, design authority, or folder relocation authority",
+    "treats readiness digest as review approval or verification acceptance",
+    "omits the owner input or decision queue for missing project/source/review bindings",
+    "omits required downstream workflow ids or uses incorrect route authority",
+    "omits explicit non-claims or machine-checkable completion state"
+  ],
+  "pass_threshold": {
+    "hard_gates_pass_required": true,
+    "minimum_output_quality_score": 90,
+    "cost_or_speed_considered_only_after_quality_pass": true
+  },
+  "quality_equivalence_rule": "A candidate may pass with different JSON layout or wording if every hard gate is met, no critical boundary condition is lost, and the output is directly usable as a synthetic SE-assistant route packet."
+}

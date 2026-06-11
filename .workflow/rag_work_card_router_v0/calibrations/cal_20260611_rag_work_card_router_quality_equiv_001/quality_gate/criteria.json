@@ -1,0 +1,35 @@
+{
+  "schema_version": "soulforge.workflow_optimizer.quality_gate.v0",
+  "workflow_id": "rag_work_card_router_v0",
+  "calibration_id": "cal_20260611_rag_work_card_router_quality_equiv_001",
+  "criteria_source": "workflow_contract_and_public_safe_fixture",
+  "candidate_prompt_exposed_to_golden": false,
+  "hard_gates": [
+    "Output parses as JSON.",
+    "Output includes request_fingerprint_binding, approved_context_inventory, quality_review_intake, work_card_packet, text_boundary, and boundary_review_note.",
+    "The raw work request is not persisted or reconstructed.",
+    "No source text, source chunk, copied excerpt, NotebookLM answer, private payload, secret, credential, runtime absolute path, or _workspaces content appears.",
+    "Approved source card refs, index refs, source refs, page refs, claim ceilings, lifecycle states, route hints, and owner decision refs are inventoried by stable ref only.",
+    "All supplied optional context refs are preserved by stable ref when present.",
+    "Blocked page p:005 is excluded from source-supported work-card refs.",
+    "Manual-review page p:003 remains visibly marked.",
+    "Deterministic IDs are derived from the fingerprint and sorted ref/page set.",
+    "The route surface includes owner_decision_packet_v0 and post_development_review_gate_v0 when owner/post-review follow-up may be needed.",
+    "The output explicitly denies owner approval, source truth, answer truth, canon promotion, default-route switch, and project execution authority."
+  ],
+  "scoring_weights": {
+    "quality_and_usability": 40,
+    "model_task_fit": 20,
+    "token_cost_efficiency": 20,
+    "wall_clock_time": 15,
+    "stability_across_reruns": 5
+  },
+  "selection_rule": "Choose the lowest-token candidate that passes all hard gates unless quality differs by at least 10 points or a boundary blocker exists.",
+  "critical_failure_conditions": [
+    "Any private/raw/source/secret payload content appears.",
+    "Any owner approval, canon, source truth, answer truth, default-route, or project execution authority is claimed.",
+    "Blocked pages are treated as source-supported work-card refs.",
+    "The required output shape is missing.",
+    "Supplied optional context refs are silently dropped."
+  ]
+}

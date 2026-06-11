@@ -1,0 +1,18 @@
+workflow_id: long_thread_handoff_v0
+calibration_id: cal_20260611_long_thread_handoff_quality_equiv_001
+date: 2026-06-11
+mode: cli_quality_equivalence
+baseline_profile: gpt-5.5|xhigh|dwarf|auditor
+candidate_count: 5
+candidate_profiles:
+  - gpt-5.4-mini|low|dwarf|auditor
+  - gpt-5.4|low|dwarf|auditor
+  - gpt-5.5|low|dwarf|auditor
+  - gpt-5.5|medium|dwarf|auditor
+  - gpt-5.5|xhigh|dwarf|auditor
+quality_gate_ref: .workflow/long_thread_handoff_v0/calibrations/cal_20260611_long_thread_handoff_quality_equiv_001/quality_gate/criteria.json
+evaluator_review_ref: .workflow/long_thread_handoff_v0/calibrations/cal_20260611_long_thread_handoff_quality_equiv_001/quality_gate/evaluator_review.json
+input_fixture_ref: .workflow/long_thread_handoff_v0/calibrations/cal_20260611_long_thread_handoff_quality_equiv_001/input_fixture.public.json
+public_safe: true
+archive_note: No raw transcript, private payload, secret, mail, attachment payload, real handoff mutation, external notification, route switch, owner approval, or live pilot evidence is included.
+claim_ceiling: observed_synthetic_quality_equivalence

@@ -1,0 +1,44 @@
+workflow_id: se_assistant_operating_loop_v0
+calibration_id: cal_20260611_se_assistant_quality_equiv_001
+calibration_mode: cli_quality_equivalence
+status: quality_gate_calibrated
+baseline_profile: gpt-5.5|xhigh|dwarf|auditor
+recommended_primary:
+  candidate_id: A_mini_low_dwarf_auditor
+  label: gpt-5.4-mini|low|dwarf|auditor
+  model: gpt-5.4-mini
+  reasoning_effort: low
+  species: dwarf
+  class: auditor
+  quality_score: 92
+  quality_class: quality_gate_pass
+  total_tokens: 18796
+  reasoning_output_tokens: 34
+  wall_s: 16.512
+selection_reason: >
+  Selected as the lowest-token and fastest quality-passing candidate. It kept
+  the request in public-safe orchestration posture, preserved observed-only
+  claim ceiling, routed SYN-SRR only to gap-scan preparation, held source and
+  review claims pending downstream evidence, and excluded private payload,
+  _workspaces content, runtime absolute paths, and actual _workmeta payload
+  storage.
+weighted_score_leader:
+  candidate_id: A_mini_low_dwarf_auditor
+  label: gpt-5.4-mini|low|dwarf|auditor
+  weighted_score: 92.3
+candidate_class_counts:
+  quality_gate_pass: 5
+  fail: 0
+telemetry_limitations:
+  - Quality and telemetry both come from isolated Codex CLI candidate runs.
+  - This calibration uses the repo-local quality-equivalence shortlist pattern, not the full 180-candidate default matrix.
+  - Cost confidence is relative, not exact billing cost.
+non_claims:
+  - no_live_project_execution
+  - no_source_truth_claim
+  - no_design_authority_claim
+  - no_review_ready_or_verification_complete_claim
+  - no_project_file_relocation
+  - no_private_payload_or_secret_used
+  - no_actual_workspaces_content_used
+  - no_actual_workmeta_payload_storage

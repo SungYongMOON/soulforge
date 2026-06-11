@@ -1,17 +1,102 @@
 workflow_id: rag_work_card_router_v0
 kind: workflow_profile_policy
-status: draft
-last_calibration_id: null
-calibration_mode: none
+status: active
+optimizer_status: completed_public_safe_synthetic_quality_equivalence
+calibration_status: quality_gate_calibrated
+workflow_registration_status: draft_unregistered
+last_calibration_id: cal_20260611_rag_work_card_router_quality_equiv_001
+calibration_mode: cli_quality_equivalence
+validation_level: public_safe_synthetic_quality_gate
 measurement_policy:
-  quality_source: not_measured
-  telemetry_source: not_measured
+  quality_source: cli_quality_equivalence_shortlist
+  telemetry_source: codex_exec_json_cli_proxy
   subagent_token_usage_available: false
   telemetry_exact_for_subagent: false
-  telemetry_exact_for_cli: false
-  cost_confidence: unknown
-primary_profile: null
-shadow_top_k: []
+  cost_confidence: relative_not_exact
+  service_tier: fast
+  full_default_matrix_executed: false
+  full_default_matrix_reason: >
+    Repo-local optimizer sweep precedent uses the public-safe five-profile
+    quality-equivalence shortlist A-E for workflow profile calibration. The
+    full default matrix would require a larger runner surface than this
+    bounded sweep slice and was not necessary to identify the lowest-token
+    hard-gate pass for the synthetic RAG work-card router fixture.
+profile_binding_policy:
+  model: calibrated_default_runtime_binding
+  reasoning_effort: calibrated_default_runtime_binding
+  species: calibrated_default_runtime_binding
+  class: calibrated_default_runtime_binding
+  party: none
+primary_profile:
+  candidate_id: B_gpt54_low_dwarf_auditor
+  model: gpt-5.4
+  reasoning_effort: low
+  species: dwarf
+  class: auditor
+  label: gpt-5.4|low|dwarf|auditor
+  quality_score: 96
+  quality_class: quality_gate_pass
+  input_tokens: 15989
+  cached_input_tokens: 14720
+  output_tokens: 1350
+  total_tokens: 17339
+  reasoning_output_tokens: 57
+  wall_s: 25.316
+  telemetry_source: codex_exec_json_cli_proxy
+  service_tier: fast
+  selection_reason: >
+    Lowest measured total-token quality pass after A failed the frozen gate by
+    dropping supplied optional context refs and omitting the owner-decision and
+    post-review route surface. B preserved the required six artifacts,
+    source-supported refs, visible manual-review refs, blocked-page exclusion,
+    supplied optional refs, downstream route hints, and explicit non-authority
+    claims.
+shadow_top_k:
+  - candidate_id: D_gpt55_medium_dwarf_auditor
+    model: gpt-5.5
+    reasoning_effort: medium
+    species: dwarf
+    class: auditor
+    label: gpt-5.5|medium|dwarf|auditor
+    quality_score: 94
+    quality_class: quality_gate_pass
+    input_tokens: 17374
+    cached_input_tokens: 2432
+    output_tokens: 1150
+    total_tokens: 18524
+    reasoning_output_tokens: 93
+    wall_s: 22.558
+    selection_note: Fastest passing wall time, but higher total tokens and less explicit source-supported/manual/excluded ref separation than primary.
+  - candidate_id: C_gpt55_low_dwarf_auditor
+    model: gpt-5.5
+    reasoning_effort: low
+    species: dwarf
+    class: auditor
+    label: gpt-5.5|low|dwarf|auditor
+    quality_score: 95
+    quality_class: quality_gate_pass
+    input_tokens: 17374
+    cached_input_tokens: 16256
+    output_tokens: 1301
+    total_tokens: 18675
+    reasoning_output_tokens: 75
+    wall_s: 24.499
+    selection_note: Clean quality pass, but more total tokens than primary and minor claim-ceiling wording drift on the manual-review ref.
+  - candidate_id: E_gpt55_xhigh_dwarf_auditor
+    model: gpt-5.5
+    reasoning_effort: xhigh
+    species: dwarf
+    class: auditor
+    label: gpt-5.5|xhigh|dwarf|auditor
+    quality_score: 98
+    quality_class: quality_gate_pass
+    input_tokens: 58603
+    cached_input_tokens: 33408
+    output_tokens: 7881
+    total_tokens: 66484
+    reasoning_output_tokens: 5106
+    wall_s: 105.297
+    selection_note: Strongest quality baseline and fallback for boundary-sensitive schema changes, but far more expensive and slower than the primary.
 rerun_triggers:
   - workflow prompt changed
   - output schema changed
@@ -20,7 +105,27 @@ rerun_triggers:
   - quality review packet schema changed
   - source card or index ref schema changed
   - first controlled pilot exposes a boundary or routing failure
-calibration_archive_ref: null
+  - supplied optional context refs become mandatory routing inputs
+  - downstream route hint set changes
+calibration_archive_ref: .workflow/rag_work_card_router_v0/calibrations/cal_20260611_rag_work_card_router_quality_equiv_001
+runtime_notes:
+  - Candidate A was the lowest-token run but failed the frozen quality gate because it omitted supplied optional context refs and did not expose the owner-decision/post-review route surface.
+  - Candidate E is archived as the strongest-profile baseline output; candidate prompts did not receive golden output or golden wording.
+selection_rules:
+  - Treat this file as a calibrated draft workflow-profile policy only.
+  - Do not infer registration, default-route safety, owner approval, source truth, answer truth, or project execution authority from this calibration.
+  - Use deterministic validators and workflow-check review before claiming any stronger workflow state.
+non_claims:
+  - no_real_work_card_payload_used
+  - no_source_text_chunks_or_excerpts_used
+  - no_private_project_payload_used
+  - no_secret_or_credential_material_used
+  - no_workspaces_content_used
+  - no_owner_approval_claim
+  - no_canon_ready_claim
+  - no_registration_claim
+  - no_default_route_safe_claim
 notes:
-  - No profile has been calibrated for this draft.
-  - Any pilot-ready, pilot-executed, canon-ready, registered, production-ready, owner-approved, canon, or default-route-safe claim requires separate evidence and review.
+  - The recommendation optimizes the model-facing routing and boundary review behavior on a public-safe synthetic fixture.
+  - The workflow remains intentionally absent from .workflow/index.yaml and not default-route-safe.
+  - Any canon-ready, registered, production-ready, owner-approved, canon, or default-route-safe claim requires separate evidence and review.

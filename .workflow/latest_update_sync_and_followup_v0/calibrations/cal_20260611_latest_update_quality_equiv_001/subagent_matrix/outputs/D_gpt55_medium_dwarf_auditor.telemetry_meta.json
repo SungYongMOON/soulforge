@@ -1,0 +1,19 @@
+﻿{
+    "candidate_id":  "D_gpt55_medium_dwarf_auditor",
+    "model":  "gpt-5.5",
+    "reasoning_effort":  "medium",
+    "species":  "dwarf",
+    "class":  "auditor",
+    "telemetry_source":  "codex_exec_json_cli_proxy",
+    "usage":  {
+                  "input_tokens":  17632,
+                  "cached_input_tokens":  7552,
+                  "output_tokens":  714,
+                  "reasoning_output_tokens":  18
+              },
+    "wall_seconds":  24.116,
+    "prompt_ref":  ".workflow/latest_update_sync_and_followup_v0/calibrations/cal_20260611_latest_update_quality_equiv_001/prompts/D_gpt55_medium_dwarf_auditor.prompt.md",
+    "output_ref":  ".workflow/latest_update_sync_and_followup_v0/calibrations/cal_20260611_latest_update_quality_equiv_001/subagent_matrix/outputs/D_gpt55_medium_dwarf_auditor.output.md",
+    "events_ref":  ".workflow/latest_update_sync_and_followup_v0/calibrations/cal_20260611_latest_update_quality_equiv_001/subagent_matrix/outputs/D_gpt55_medium_dwarf_auditor.events.jsonl",
+    "encoding_note":  "PowerShell stdin/stdout forced to UTF-8."
+}

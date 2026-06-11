@@ -1,0 +1,22 @@
+{
+    "calibration_id":  "cal_20260611_se_assistant_quality_equiv_001",
+    "workflow_id":  "se_assistant_operating_loop_v0",
+    "candidate_id":  "D_gpt55_medium_dwarf_auditor",
+    "model":  "gpt-5.5",
+    "reasoning_effort":  "medium",
+    "species":  "dwarf",
+    "class":  "auditor",
+    "exit_code":  0,
+    "wall_time_seconds":  23.178,
+    "usage":  {
+                  "input_tokens":  19799,
+                  "cached_input_tokens":  2432,
+                  "output_tokens":  1118,
+                  "reasoning_output_tokens":  23
+              },
+    "prompt_sha256":  "7583af14eb7f91b4345611b8847d0e7ee51c655e2f119b147740913d0a3e2b29",
+    "output_path":  "subagent_matrix/outputs/D_gpt55_medium_dwarf_auditor.output.md",
+    "events_path":  "subagent_matrix/outputs/D_gpt55_medium_dwarf_auditor.events.jsonl",
+    "telemetry_source":  "codex_exec_json_cli_proxy",
+    "service_tier":  "fast"
+}

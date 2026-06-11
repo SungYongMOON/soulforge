@@ -1,0 +1,17 @@
+{
+  "workflow_id": "se_assistant_operating_loop_v0",
+  "calibration_id": "cal_20260611_se_assistant_quality_equiv_001",
+  "evaluation_mode": "manual_hard_gate_review_against_frozen_criteria",
+  "quality_source": "cli_quality_equivalence_shortlist",
+  "decision": "pass",
+  "candidate_count": 5,
+  "quality_gate_pass_count": 5,
+  "failed_candidates": [],
+  "quality_notes": [
+    "All candidates returned parseable JSON with the required top-level output shapes.",
+    "All candidates held review-ready and verification-complete claims pending downstream evidence.",
+    "All candidates excluded private payloads, secrets, runtime absolute paths, actual _workspaces content, and actual _workmeta payload storage.",
+    "A is compact but sufficient; B and C are more complete but slower and token-heavier."
+  ],
+  "selection_note": "Because every candidate passed the hard gate and quality deltas were below the 10-point override threshold, the lowest-token and fastest passing candidate is selected."
+}

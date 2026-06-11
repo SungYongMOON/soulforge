@@ -1,25 +1,129 @@
 workflow_id: se_assistant_operating_loop_v0
 kind: workflow_profile_policy
 status: active
-validation_level: structure_only_public_safe
-calibration_status: none
-profile_binding_policy:
-  model: runtime_binding
-  reasoning_effort: runtime_binding
-  species: runtime_binding
-  class: runtime_binding
-  party: runtime_binding_or_unbound
-selection_rules:
-  - Do not hard-code model, species, or class choices into this reusable workflow package.
-  - Use the lowest authority profile that can classify boundaries and route to existing workflows.
-  - Require project-local binding before any pilot execution.
-  - Require separate review evidence before claiming usable or production-ready status.
+optimizer_status: completed_public_safe_synthetic_quality_equivalence
+calibration_status: quality_gate_calibrated
+validation_level: public_safe_synthetic_quality_gate
+last_calibration_id: cal_20260611_se_assistant_quality_equiv_001
+calibration_mode: cli_quality_equivalence
+measurement_policy:
+  quality_source: cli_quality_equivalence_shortlist
+  telemetry_source: codex_exec_json_cli_proxy
+  subagent_token_usage_available: false
+  telemetry_exact_for_subagent: false
+  cost_confidence: relative_not_exact
+  full_default_matrix_executed: false
+  full_default_matrix_reason: >
+    Repo-local precedent uses a public-safe quality-equivalence shortlist for
+    workflow profile calibration. The full default matrix would require 180
+    candidates and was not necessary to establish a lowest-cost hard-gate pass
+    on the synthetic SE-assistant route fixture.
+primary_profile:
+  candidate_id: A_mini_low_dwarf_auditor
+  model: gpt-5.4-mini
+  reasoning_effort: low
+  species: dwarf
+  class: auditor
+  label: gpt-5.4-mini|low|dwarf|auditor
+  quality_score: 92
+  quality_class: quality_gate_pass
+  input_tokens: 18062
+  cached_input_tokens: 16768
+  output_tokens: 734
+  total_tokens: 18796
+  reasoning_output_tokens: 34
+  wall_s: 16.512
+  telemetry_source: codex_exec_json_cli_proxy
+  selection_reason: >
+    Lowest-token and fastest quality-passing candidate. It preserved
+    public-safe orchestration posture, observed-only claim ceiling, source and
+    review non-claims, owner input routing, scaffold-only authority, and no
+    actual payload storage under _workmeta.
+shadow_top_k:
+  - candidate_id: B_gpt54_low_dwarf_auditor
+    model: gpt-5.4
+    reasoning_effort: low
+    species: dwarf
+    class: auditor
+    label: gpt-5.4|low|dwarf|auditor
+    quality_score: 96
+    quality_class: quality_gate_pass
+    input_tokens: 18414
+    cached_input_tokens: 14720
+    output_tokens: 1287
+    total_tokens: 19701
+    reasoning_output_tokens: 16
+    wall_s: 22.973
+    selection_note: More complete low-effort route packet, but not cheaper or faster than the primary.
+  - candidate_id: D_gpt55_medium_dwarf_auditor
+    model: gpt-5.5
+    reasoning_effort: medium
+    species: dwarf
+    class: auditor
+    label: gpt-5.5|medium|dwarf|auditor
+    quality_score: 95
+    quality_class: quality_gate_pass
+    input_tokens: 19799
+    cached_input_tokens: 2432
+    output_tokens: 1118
+    total_tokens: 20917
+    reasoning_output_tokens: 23
+    wall_s: 23.178
+    selection_note: Balanced stronger-model shadow for future route complexity increases.
+  - candidate_id: E_gpt55_xhigh_dwarf_auditor
+    model: gpt-5.5
+    reasoning_effort: xhigh
+    species: dwarf
+    class: auditor
+    label: gpt-5.5|xhigh|dwarf|auditor
+    quality_score: 96
+    quality_class: quality_gate_pass
+    input_tokens: 19801
+    cached_input_tokens: 2432
+    output_tokens: 1604
+    total_tokens: 21405
+    reasoning_output_tokens: 516
+    wall_s: 25.273
+    selection_note: Golden baseline profile for future high-risk source/review boundary changes.
+  - candidate_id: C_gpt55_low_dwarf_auditor
+    model: gpt-5.5
+    reasoning_effort: low
+    species: dwarf
+    class: auditor
+    label: gpt-5.5|low|dwarf|auditor
+    quality_score: 97
+    quality_class: quality_gate_pass
+    input_tokens: 19799
+    cached_input_tokens: 2432
+    output_tokens: 1669
+    total_tokens: 21468
+    reasoning_output_tokens: 14
+    wall_s: 25.712
+    selection_note: Highest quality score but slower and token-heavier than the primary.
 rerun_triggers:
   - workflow step graph changes
   - output templates change
   - a project-local pilot run is authorized
   - downstream workflow ids or contracts change
+  - review or verification route authority changes
+  - sourcebound workflow contract changes
+  - SE template library route policy changes
+  - foldertree scaffold input profile changes
+  - mini profile drops observed-only, source/review non-claim, owner queue, or metadata-only _workmeta handling in a future fixture
+calibration_archive_ref: .workflow/se_assistant_operating_loop_v0/calibrations/cal_20260611_se_assistant_quality_equiv_001
+failed_candidate_notes: []
 non_claims:
-  - no_profile_optimization_claim
-  - no_cost_or_quality_calibration_claim
+  - no_live_project_execution
+  - no_source_truth_claim
+  - no_design_authority_claim
+  - no_review_ready_or_verification_complete_claim
+  - no_project_file_relocation
+  - no_private_payload_or_secret_used
+  - no_actual_workspaces_content_used
+  - no_actual_workmeta_payload_storage
   - no_production_ready_claim
+  - no_default_route_claim
+notes:
+  - The launcher skill must read this file at runtime and must not copy optimizer values into the skill body.
+  - This policy optimizes the model-facing boundary classification, route packet, owner queue, and closeout planning part of the workflow on a public-safe synthetic fixture.
+  - Real SE assistant execution still requires owner-approved project binding, project-local run evidence, approved source refs when sourcebound work is requested, and separate review evidence before stronger runtime readiness claims.

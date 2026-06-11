@@ -1,0 +1,27 @@
+workflow_id: daily_work_ledger_capture_v0
+calibration_id: cal_20260611_daily_work_ledger_quality_equiv_001
+date: 2026-06-11
+mode: cli_quality_equivalence
+baseline_profile: gpt-5.5|xhigh|dwarf|auditor
+candidate_count: 5
+candidate_profiles:
+  - gpt-5.4-mini|low|dwarf|auditor
+  - gpt-5.4|low|dwarf|auditor
+  - gpt-5.5|low|dwarf|auditor
+  - gpt-5.5|medium|dwarf|auditor
+  - gpt-5.5|xhigh|dwarf|auditor
+quality_gate_ref: .workflow/daily_work_ledger_capture_v0/calibrations/cal_20260611_daily_work_ledger_quality_equiv_001/quality_gate/criteria.json
+evaluator_review_ref: .workflow/daily_work_ledger_capture_v0/calibrations/cal_20260611_daily_work_ledger_quality_equiv_001/quality_gate/evaluator_review.json
+input_fixture_ref: .workflow/daily_work_ledger_capture_v0/calibrations/cal_20260611_daily_work_ledger_quality_equiv_001/input_fixture.public.json
+public_safe: true
+archive_note: No real work log, mail body, attachment payload, Office/PDF/HWP payload, project source body, secret, runtime absolute path, or raw _workspaces material is included.
+measurement_policy:
+  quality_source: cli_quality_equivalence_shortlist
+  telemetry_source: codex_exec_json_cli_proxy
+  subagent_token_usage_available: false
+  telemetry_exact_for_subagent: false
+  cost_confidence: relative_not_exact
+  service_tier: fast
+runtime_notes:
+  - Candidate C first direct shell run exceeded 180 seconds with only thread.started and turn.started in its event file; the detached child was stopped and a guarded rerun completed successfully.
+claim_ceiling: observed_synthetic_quality_equivalence

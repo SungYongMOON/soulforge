@@ -1,0 +1,17 @@
+workflow_id: codex_thread_manager_v0
+calibration_id: cal_20260611_quality_equiv_001
+date: 2026-06-11
+mode: cli_quality_equivalence
+baseline_profile: gpt-5.5|xhigh|dwarf|auditor
+candidate_count: 5
+candidate_profiles:
+  - gpt-5.4-mini|low|dwarf|auditor
+  - gpt-5.4|low|dwarf|auditor
+  - gpt-5.5|low|dwarf|auditor
+  - gpt-5.5|medium|dwarf|auditor
+  - gpt-5.5|xhigh|dwarf|auditor
+quality_gate_ref: .workflow/codex_thread_manager_v0/calibrations/cal_20260611_quality_equiv_001/quality_gate/criteria.json
+input_fixture_ref: .workflow/codex_thread_manager_v0/calibrations/cal_20260611_quality_equiv_001/input_fixture.public.json
+public_safe: true
+archive_note: No real Codex thread creation, fork, continuation, worktree creation, file mutation, NIGHT_WORK_HANDOFF edit, validator execution, external action, private payload, raw transcript, or secret inspection is included.
+claim_ceiling: observed_synthetic_quality_equivalence

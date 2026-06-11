@@ -1,0 +1,144 @@
+{
+  "schema_version": "soulforge.workflow_optimizer.input_fixture.v0",
+  "fixture_id": "se_assistant_operating_loop_v0_public_synthetic_route_001",
+  "workflow_id": "se_assistant_operating_loop_v0",
+  "fixture_kind": "public_safe_synthetic_workflow_contract_fixture",
+  "public_safety": {
+    "contains_real_project_payload": false,
+    "contains_private_source_body": false,
+    "contains_mail_or_attachment_payload": false,
+    "contains_secret_value": false,
+    "contains_runtime_absolute_path": false,
+    "contains_workspaces_content": false,
+    "basis": "Synthetic SE-assistant route request derived from the public workflow contract only."
+  },
+  "se_assistant_request_packet": {
+    "packet_id": "se_assistant_request_packet_synthetic_route_001",
+    "packet_kind": "se_assistant_request_packet",
+    "request_summary": "Owner asks the SE assistant to triage a new synthetic project start, identify the safe workflow route, and prepare owner questions before any source, review, or readiness claim.",
+    "owner_intent": "Route the work; do not create engineering facts, approve readiness, or move files.",
+    "requested_mode": "request_triage",
+    "project_binding": {
+      "project_code": null,
+      "mission_id": null,
+      "project_local_run_ref": null
+    },
+    "boundary_policy": {
+      "public_safe_package_only": true,
+      "private_payload_allowed_in_reusable_package": false,
+      "secret_payload_allowed": false,
+      "host_absolute_paths_allowed_in_reusable_package": false
+    },
+    "classification": {
+      "requested_foldertree_scaffold": true,
+      "requested_stage_gap_scan": true,
+      "requested_source_or_knowledge_intake": true,
+      "requested_cross_stage_governance": true,
+      "requested_readiness_digest": true,
+      "requested_owner_closeout": true
+    },
+    "stage_scope": {
+      "target_stage_codes": ["SYN-SRR"],
+      "stage_scope_status": "owner_named_stage_without_run_binding"
+    },
+    "source_scope": {
+      "approved_source_scope_refs": [],
+      "source_scope_status": "missing_owner_approved_source_refs"
+    },
+    "document_artifact_library_scope": {
+      "asks_about_reusable_template_materials": true,
+      "se_template_library_ref_allowed_as_placeholder": true,
+      "project_latest_files_policy": "stay_project_local",
+      "workflow_body_catalog_policy": "executable_steps_only"
+    },
+    "review_or_readiness_claim_request": {
+      "owner_asks_can_we_call_this_review_ready": true,
+      "accepted_review_gate_packet_refs": [],
+      "accepted_verification_result_refs": []
+    },
+    "expected_outputs": [
+      "boundary_classification_note",
+      "se_assistant_route_packet",
+      "owner_input_and_decision_queue",
+      "operating_loop_route_map",
+      "owner_review_closeout_note",
+      "boundary_review_note"
+    ],
+    "claim_ceiling": "observed",
+    "open_questions": [
+      "Which project code and mission binding should own the project-local run?",
+      "Is foldertree scaffold generation approved and which profile/spec applies?",
+      "Which source refs are owner-approved for sourcebound intake?",
+      "Is there a stage-gap scan binding for SYN-SRR?",
+      "Should review-ready wording be held until post_development_review_gate_v0 evidence exists?"
+    ],
+    "blocked_reasons": []
+  },
+  "workflow_contract_excerpt": {
+    "owns": [
+      "request_boundary_classification",
+      "route_packet_shape",
+      "scaffold_route_decision",
+      "stage_scan_request_bundle",
+      "document_artifact_library_route_bundle",
+      "source_or_knowledge_route_bundle",
+      "owner_input_and_decision_queue",
+      "readiness_digest_request",
+      "closeout_review_request",
+      "boundary_review_note_shape"
+    ],
+    "does_not_own": [
+      "source_truth",
+      "engineering_fact_invention",
+      "design_authority",
+      "library_authority",
+      "artifact_body_authoring_by_default",
+      "project_file_relocation",
+      "owner_decision_creation",
+      "review_gate_approval",
+      "verification_acceptance",
+      "stage_clearance_approval",
+      "public_canon_promotion",
+      "project_local_payload_storage",
+      "actual_payload_storage_under_workmeta"
+    ],
+    "required_downstream_workflows": [
+      "se_stage_artifact_gap_scan_v0",
+      "project_readiness_digest_v0",
+      "owner_decision_packet_v0",
+      "post_development_review_gate_v0"
+    ],
+    "optional_downstream_workflows": [
+      "knowledge_wiki_pipeline_v0",
+      "source_gap_followup_packet_v0",
+      "source_packet_sufficiency_review_v0",
+      "review_gate_evidence_pack_v0"
+    ],
+    "skill_routes": [
+      {
+        "skill_id": "se_foldertree_generate",
+        "route_kind": "optional_scaffold_generation",
+        "authority": "scaffold_only"
+      }
+    ],
+    "boundary_rules": {
+      "public_safe_orchestration_only": true,
+      "missing_truth_routes_to_gap_or_owner_queue": true,
+      "project_latest_authoring_files_stay_project_local": true,
+      "workmeta_metadata_pointers_only_no_actual_payloads": true,
+      "sourcebound_work_requires_source_workflow": true,
+      "review_claims_require_review_workflow": true,
+      "verification_claims_require_accepted_result_or_verification_workflow": true,
+      "no_runtime_absolute_paths_in_public_package": true,
+      "no_private_payload_copy_into_public_package": true
+    }
+  },
+  "acceptance_summary": [
+    "Classify the request as public-safe orchestration with project-local/private/source inputs missing.",
+    "Route scaffold support to se_foldertree_generate only as optional scaffold-only work and keep missing project binding as a blocker or owner question.",
+    "Route SYN-SRR stage work to se_stage_artifact_gap_scan_v0 as a gap-scan request, not artifact completion.",
+    "Route source-heavy work to source/knowledge intake or source-gap follow-up because approved source refs are missing.",
+    "Reject or hold review-ready and verification-complete wording until accepted review or verification evidence exists.",
+    "Produce owner questions, blockers, and next actions without inventing project facts, source truth, owner decisions, design authority, readiness approval, or file relocation."
+  ]
+}

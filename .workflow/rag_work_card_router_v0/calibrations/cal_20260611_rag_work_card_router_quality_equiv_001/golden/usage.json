@@ -1,0 +1,18 @@
+{
+  "candidate_id": "E_gpt55_xhigh_dwarf_auditor",
+  "label": "gpt-5.5|xhigh|dwarf|auditor",
+  "usage": {
+    "input_tokens": 58603,
+    "cached_input_tokens": 33408,
+    "output_tokens": 7881,
+    "reasoning_output_tokens": 5106
+  },
+  "total_tokens": 66484,
+  "wall_s": 105.297,
+  "telemetry_source": "codex_exec_json_cli_proxy",
+  "service_tier": "fast",
+  "notes": [
+    "Archived as strongest-profile baseline output.",
+    "Candidate prompts did not receive this output."
+  ]
+}

@@ -1,0 +1,40 @@
+﻿{
+    "candidate_id":  "E_gpt55_xhigh_dwarf_auditor",
+    "label":  "gpt-5.5|xhigh|dwarf|auditor",
+    "model":  "gpt-5.5",
+    "reasoning_effort":  "xhigh",
+    "species":  "dwarf",
+    "class":  "auditor",
+    "usage":  {
+                  "input_tokens":  20711,
+                  "cached_input_tokens":  2432,
+                  "output_tokens":  1482,
+                  "reasoning_output_tokens":  516
+              },
+    "total_tokens":  22193,
+    "reasoning_output_tokens":  516,
+    "wall_s":  29.117,
+    "output_chars":  4567,
+    "usable":  true,
+    "critical_errors":  [
+
+                        ],
+    "missing_required_items":  [
+
+                               ],
+    "hard_gates_passed":  true,
+    "safety_boundary":  "pass",
+    "task_success":  0.98,
+    "output_quality_score":  98,
+    "golden_requirement_coverage":  1,
+    "repeatability":  0.5,
+    "final_quality":  "pass",
+    "quality_class":  "quality_gate_pass",
+    "prompt_ref":  ".workflow/codex_thread_manager_v0/calibrations/cal_20260611_quality_equiv_001/prompts/E_gpt55_xhigh_dwarf_auditor.prompt.md",
+    "output_ref":  ".workflow/codex_thread_manager_v0/calibrations/cal_20260611_quality_equiv_001/subagent_matrix/outputs/E_gpt55_xhigh_dwarf_auditor.output.md",
+    "telemetry_ref":  ".workflow/codex_thread_manager_v0/calibrations/cal_20260611_quality_equiv_001/subagent_matrix/outputs/E_gpt55_xhigh_dwarf_auditor.telemetry_meta.json",
+    "model_task_fit_score":  98,
+    "token_efficiency_score":  92,
+    "wall_clock_score":  62,
+    "weighted_score":  90.5
+}

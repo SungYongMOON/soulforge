@@ -1,0 +1,34 @@
+workflow_id: github_upload_publish_v0
+calibration_id: cal_20260611_github_upload_quality_equiv_001
+calibration_mode: cli_quality_equivalence
+status: quality_gate_calibrated
+baseline_profile: gpt-5.5|xhigh|dwarf|auditor
+recommended_primary:
+  candidate_id: A_mini_low_dwarf_auditor
+  label: gpt-5.4-mini|low|dwarf|auditor
+  model: gpt-5.4-mini
+  reasoning_effort: low
+  species: dwarf
+  class: auditor
+  quality_score: 93
+  quality_class: quality_gate_pass
+  total_tokens: 16534
+  reasoning_output_tokens: 31
+  wall_s: 17.95
+selection_reason: >
+  Selected as the lowest-token and fastest quality-passing candidate. The
+  stronger gpt-5.4 low candidate was more explicit, but the token difference
+  was small and the mini candidate still passed all hard boundary gates for
+  this synthetic upload planning fixture.
+candidate_class_counts:
+  quality_gate_pass: 5
+  fail: 0
+telemetry_limitations:
+  - Quality and telemetry both come from isolated Codex CLI candidate runs.
+  - This calibration uses the repo-local quality-equivalence shortlist pattern, not the full 180-candidate default matrix.
+  - Cost confidence is relative, not exact billing cost.
+non_claims:
+  - no_real_git_command_executed
+  - no_real_commit_created
+  - no_real_push_performed
+  - no_production_ready_or_default_route_claim

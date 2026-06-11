@@ -1,0 +1,63 @@
+{
+  "schema_version": "soulforge.workflow_optimizer.quality_gate.v0",
+  "workflow_id": "long_thread_handoff_v0",
+  "calibration_id": "cal_20260611_long_thread_handoff_quality_equiv_001",
+  "fixture_id": "long_thread_handoff_v0_public_synthetic_handoff_001",
+  "criteria_source": "workflow contract hard gates plus evaluator-only gpt-5.5|xhigh baseline comparison",
+  "hard_gates": [
+    {
+      "id": "required_output_shapes",
+      "description": "Output includes profile metadata, goal binding, night_work_handoff, delegation packets, validation plan, context reset decision, boundary review, closeout, and completion state."
+    },
+    {
+      "id": "required_handoff_fields_inside_handoff",
+      "description": "night_work_handoff contains final_goal, current_state, changed_or_inspected_files, decisions_made, rejected_approaches, validation_results, remaining_risks_or_blockers, next_actions, durable_user_instructions, and unknowns."
+    },
+    {
+      "id": "refresh_and_continue_decision",
+      "description": "Candidate preserves refresh_handoff_now and continue_without_clear_or_compact for the fixture."
+    },
+    {
+      "id": "worker_report_not_source_truth",
+      "description": "Worker reports are treated as evidence inputs, with real status/file checks required before stronger integration claims."
+    },
+    {
+      "id": "validation_claim_separation",
+      "description": "Observed fixture validation is separated from not-run validate:canon; missing validation lowers claim ceiling."
+    },
+    {
+      "id": "public_private_secret_boundary",
+      "description": "No raw transcript, private payload, secret, mail, attachment, or private workspace payload content is included."
+    },
+    {
+      "id": "no_external_or_authority_claim",
+      "description": "Candidate states no real commands, handoff mutation, thread creation, external notification, route switch, owner approval, pilot execution, production-ready claim, or public canon promotion occurred."
+    },
+    {
+      "id": "machine_checkable_completion_state",
+      "description": "completion_state preserves observed_synthetic, profile_calibration_candidate, no_default_route_claim, and no_production_ready_claim semantics."
+    }
+  ],
+  "scoring_weights": {
+    "quality_and_usability": 40,
+    "model_task_fit": 20,
+    "token_cost_efficiency": 20,
+    "wall_clock_time": 15,
+    "stability": 5
+  },
+  "failure_conditions": [
+    "omits any required night_work_handoff field from night_work_handoff",
+    "claims real commands, file reads, validation, handoff mutation, route switch, external notification, owner approval, pilot execution, production readiness, or canon promotion",
+    "uses raw transcript, private payload, secrets, mail, attachments, or private workspace payload content",
+    "marks default_route_safe as yes",
+    "treats worker reports as source truth",
+    "fails to separate observed validation from not-run validation",
+    "chooses compact or clear for this fixture instead of continue_without_clear_or_compact"
+  ],
+  "pass_threshold": {
+    "hard_gates_pass_required": true,
+    "minimum_output_quality_score": 90,
+    "cost_or_speed_considered_only_after_quality_pass": true
+  },
+  "quality_equivalence_rule": "A candidate may pass with different JSON layout or wording if every hard gate is met, no boundary condition is lost, the handoff remains directly usable, and completion state stays conservative."
+}

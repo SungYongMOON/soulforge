@@ -1,0 +1,60 @@
+{
+  "fixture_id": "synthetic_rag_work_card_router_fixture_20260611_001",
+  "public_safe": true,
+  "contains_raw_question": false,
+  "contains_source_payload": false,
+  "contains_source_text_chunks": false,
+  "contains_project_private_payload": false,
+  "contains_secret_or_credential": false,
+  "contains_workspaces_content": false,
+  "work_request_label": "Synthetic evidence routing sanity check",
+  "work_request_fingerprint": "sha256:synthetic-rag-router-20260611-001",
+  "approved_source_card_refs": [
+    {
+      "ref_id": "card:SYN-SRC-ALPHA",
+      "source_ref": "source:SYN-MANUAL-001",
+      "page_refs": ["p:002", "p:003"],
+      "claim_ceiling": "source_supported",
+      "lifecycle_state": "approved_metadata_only"
+    },
+    {
+      "ref_id": "card:SYN-SRC-BETA",
+      "source_ref": "source:SYN-MANUAL-002",
+      "page_refs": ["p:004", "p:005"],
+      "claim_ceiling": "source_supported",
+      "lifecycle_state": "approved_metadata_only"
+    }
+  ],
+  "approved_index_refs": ["index:SYN-RAG-001", "index:SYN-META-001"],
+  "page_quality_review_packet_ref": "quality:SYN-PACKET-001",
+  "quality_status_summary": {
+    "source_supported_pages": ["p:002", "p:004"],
+    "manual_review_pages": [
+      {
+        "page_ref": "p:003",
+        "warning": "table_or_picture_present"
+      }
+    ],
+    "blocked_pages": [
+      {
+        "page_ref": "p:005",
+        "reason": "ocr_low_confidence"
+      }
+    ]
+  },
+  "routing_policy": {
+    "policy_id": "synthetic_rag_work_card_router_policy_v0",
+    "blocked_pages_excluded_from_source_supported_work": true,
+    "manual_review_pages_marked_visible": true,
+    "owner_approval_claimed": false,
+    "canon_or_default_route_claim_allowed": false
+  },
+  "optional_context_refs": {
+    "sourcebound_packet_refs": ["packet:SYN-SOURCEBOUND-001"],
+    "metadata_index_refs": ["metadata:SYN-REFMAP-001"],
+    "retrieval_trace_refs": ["trace:SYN-RETRIEVAL-001"],
+    "wiki_curation_refs": ["curation:SYN-WIKI-001"],
+    "owner_decision_refs": [],
+    "post_development_review_refs": []
+  }
+}

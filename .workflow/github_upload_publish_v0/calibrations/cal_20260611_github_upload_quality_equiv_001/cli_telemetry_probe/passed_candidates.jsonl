@@ -1,0 +1,5 @@
+{"candidate_id":"A_mini_low_dwarf_auditor","label":"gpt-5.4-mini|low|dwarf|auditor","output_quality_score":93,"quality_class":"quality_gate_pass"}
+{"candidate_id":"B_gpt54_low_dwarf_auditor","label":"gpt-5.4|low|dwarf|auditor","output_quality_score":97,"quality_class":"quality_gate_pass"}
+{"candidate_id":"C_gpt55_low_dwarf_auditor","label":"gpt-5.5|low|dwarf|auditor","output_quality_score":94,"quality_class":"quality_gate_pass"}
+{"candidate_id":"D_gpt55_medium_dwarf_auditor","label":"gpt-5.5|medium|dwarf|auditor","output_quality_score":92,"quality_class":"quality_gate_pass"}
+{"candidate_id":"E_gpt55_xhigh_dwarf_auditor","label":"gpt-5.5|xhigh|dwarf|auditor","output_quality_score":95,"quality_class":"quality_gate_pass"}

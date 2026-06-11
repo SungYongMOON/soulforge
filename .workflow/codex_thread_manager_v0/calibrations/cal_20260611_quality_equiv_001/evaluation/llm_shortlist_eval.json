@@ -1,0 +1,28 @@
+﻿{
+    "workflow_id":  "codex_thread_manager_v0",
+    "calibration_id":  "cal_20260611_quality_equiv_001",
+    "evaluator_mode":  "current_thread_rule_evaluator_with_cli_candidate_outputs",
+    "llm_evaluator_run":  false,
+    "decision":  "select_B_gpt54_low_dwarf_auditor",
+    "primary_reason":  "lowest-token explicit hard-gate pass with complete workflow-check/default-route closeout labeling",
+    "pass_candidates":  [
+                            "B_gpt54_low_dwarf_auditor",
+                            "C_gpt55_low_dwarf_auditor",
+                            "E_gpt55_xhigh_dwarf_auditor"
+                        ],
+    "failed_candidates":  [
+                              {
+                                  "candidate_id":  "A_mini_low_dwarf_auditor",
+                                  "reason":  "missing explicit workflow-check default_route_safe:no field"
+                              },
+                              {
+                                  "candidate_id":  "D_gpt55_medium_dwarf_auditor",
+                                  "reason":  "missing explicit workflow-check default_route_safe:no field"
+                              }
+                          ],
+    "claim_ceiling":  "observed_synthetic_quality_equivalence",
+    "notes":  [
+                  "No separate fresh subagent evaluator was available in this runtime; deterministic JSON/rule evaluation and CLI telemetry were archived instead.",
+                  "This does not prove production readiness, live thread creation, worktree worker execution, full manager rollover, or default-route safety."
+              ]
+}

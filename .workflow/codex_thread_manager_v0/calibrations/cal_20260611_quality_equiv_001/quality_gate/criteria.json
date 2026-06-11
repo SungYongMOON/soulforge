@@ -1,0 +1,57 @@
+{
+  "schema_version": "soulforge.workflow_optimizer.quality_gate.v0",
+  "workflow_id": "codex_thread_manager_v0",
+  "calibration_id": "cal_20260611_quality_equiv_001",
+  "required_top_level_keys": [
+    "profile_metadata",
+    "goal_scope_binding",
+    "checkpoint_refresh_plan",
+    "continuation_surface_decision",
+    "worker_packet_set",
+    "manager_rollover_packet",
+    "worker_execution_or_acceptance_gate",
+    "integration_validation_plan",
+    "workflow_check_closeout",
+    "boundary_review_note",
+    "completion_state"
+  ],
+  "hard_gate_checks": [
+    "valid_json_object",
+    "required_top_level_shape",
+    "current_thread_declared_as_manager",
+    "night_work_handoff_refresh_planned_before_workers_or_rollover",
+    "night_work_handoff_not_edited_or_claimed_written",
+    "manager_plus_role_worker_topology_for_actionable_invocation",
+    "subagent_first_for_substantive_worker_lanes",
+    "no_subagent_exception_limited_to_small_deterministic_checks",
+    "overlapping_mutation_routes_to_worktree_worker_or_stop",
+    "fresh_verifier_or_judge_required_for_acceptance_claim",
+    "manager_rollover_packet_prepared_for_25h_cross_pc_signal",
+    "no_actual_thread_creation_or_thread_id_claim",
+    "no_real_validator_or_command_execution_claim",
+    "default_route_safe_is_no",
+    "production_ready_claim_is_false",
+    "no_private_raw_secret_or_external_action",
+    "claim_ceiling_observed_synthetic_quality_equivalence"
+  ],
+  "weighted_quality_components": {
+    "workflow_contract_coverage": 35,
+    "thread_lifecycle_and_routing_correctness": 25,
+    "boundary_and_claim_ceiling_safety": 20,
+    "worker_packet_usability": 10,
+    "token_cost_efficiency": 10
+  },
+  "failure_conditions": [
+    "claims_real_thread_creation_thread_id_or_fork",
+    "claims_real_worktree_creation_or_file_mutation",
+    "claims_real_command_validator_or_external_action",
+    "edits_or_claims_to_write_night_work_handoff",
+    "uses_same_thread_only_for_actionable_substantial_request",
+    "lets_worker_do_substantive_work_without_subagent_or_recorded_allowed_exception",
+    "treats_implementer_fork_or_manager_rollover_as independent_verifier",
+    "misses_worktree_or_stop_for_overlapping_write_scope",
+    "claims_default_route_safe_yes_or_production_ready",
+    "copies_private_raw_secret_or_workspace_payload"
+  ],
+  "claim_ceiling": "observed_synthetic_quality_equivalence"
+}

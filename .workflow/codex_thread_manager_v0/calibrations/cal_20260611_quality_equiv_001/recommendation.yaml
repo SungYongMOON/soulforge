@@ -1,0 +1,46 @@
+workflow_id: codex_thread_manager_v0
+calibration_id: cal_20260611_quality_equiv_001
+recommended_primary:
+  candidate_id: B_gpt54_low_dwarf_auditor
+  model: gpt-5.4
+  reasoning_effort: low
+  species: dwarf
+  class: auditor
+  quality_score: 99
+  total_tokens: 20755
+  reasoning_output_tokens: 15
+  wall_s: 31.93
+  telemetry_source: codex_exec_json_cli_proxy
+selection_reason: >
+  Lowest-token explicit hard-gate pass. It preserved manager-plus-role-worker
+  routing, checkpoint-before-worker/rollover planning, worktree-or-stop handling
+  for overlapping mutation, fresh verifier independence, no real execution
+  claims, and explicit default_route_safe:false workflow-check closeout labeling.
+shadow_profiles:
+  - candidate_id: C_gpt55_low_dwarf_auditor
+    label: gpt-5.5|low|dwarf|auditor
+    reason: Faster passing shadow, with higher token cost than the primary.
+  - candidate_id: E_gpt55_xhigh_dwarf_auditor
+    label: gpt-5.5|xhigh|dwarf|auditor
+    reason: Strongest-profile baseline shadow for future adversarial fixtures.
+failed_profiles:
+  - candidate_id: A_mini_low_dwarf_auditor
+    label: gpt-5.4-mini|low|dwarf|auditor
+    reason: Missing explicit workflow-check default_route_safe:no closeout field.
+  - candidate_id: D_gpt55_medium_dwarf_auditor
+    label: gpt-5.5|medium|dwarf|auditor
+    reason: Missing explicit workflow-check default_route_safe:no closeout field.
+measurement_policy:
+  quality_source: cli_quality_equivalence_shortlist
+  telemetry_source: codex_exec_json_cli_proxy
+  subagent_token_usage_available: false
+  telemetry_exact_for_subagent: false
+  cost_confidence: relative_not_exact
+  full_default_matrix_executed: false
+boundary_assumptions:
+  public_safe_synthetic_fixture: true
+  no_real_thread_creation: true
+  no_real_worktree_creation: true
+  no_file_mutation_or_validator_execution_claimed: true
+  no_secret_or_private_payload: true
+claim_ceiling: observed_synthetic_quality_equivalence

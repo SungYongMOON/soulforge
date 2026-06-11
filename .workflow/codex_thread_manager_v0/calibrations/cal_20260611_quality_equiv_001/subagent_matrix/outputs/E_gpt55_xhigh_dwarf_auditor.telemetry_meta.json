@@ -1,0 +1,19 @@
+﻿{
+    "candidate_id":  "E_gpt55_xhigh_dwarf_auditor",
+    "label":  "gpt-5.5|xhigh|dwarf|auditor",
+    "model":  "gpt-5.5",
+    "reasoning_effort":  "xhigh",
+    "species":  "dwarf",
+    "class":  "auditor",
+    "usage":  {
+                  "input_tokens":  20711,
+                  "cached_input_tokens":  2432,
+                  "output_tokens":  1482,
+                  "reasoning_output_tokens":  516
+              },
+    "wall_s":  29.117,
+    "output_chars":  4567,
+    "exit_code":  0,
+    "telemetry_source":  "codex_exec_json_cli_proxy",
+    "service_tier":  "fast"
+}

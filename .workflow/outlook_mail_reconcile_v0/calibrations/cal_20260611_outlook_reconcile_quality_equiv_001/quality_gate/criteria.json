@@ -1,0 +1,47 @@
+{
+  "schema_version": "soulforge.workflow_optimizer.quality_gate.v0",
+  "workflow_id": "outlook_mail_reconcile_v0",
+  "calibration_id": "cal_20260611_outlook_reconcile_quality_equiv_001",
+  "required_top_level_keys": [
+    "profile_metadata",
+    "reconcile_scope_binding",
+    "codex_managed_project_scope_inventory",
+    "outlook_sent_metadata_packet",
+    "outlook_received_metadata_packet",
+    "project_sent_history_delta",
+    "inbox_cross_validation_report",
+    "owner_followup_needed",
+    "boundary_review_note",
+    "completion_state"
+  ],
+  "hard_gate_checks": [
+    "valid_json_object",
+    "required_top_level_shape",
+    "dry_run_preserved",
+    "p00_inbox_excluded_from_auto_project_sync",
+    "sent_delta_is_proposed_only_not_written",
+    "ambiguous_sent_row_owner_followup_only",
+    "received_history_cross_validated_not_deleted_or_rewritten",
+    "no_mail_body_html_msg_attachment_or_filename_basis",
+    "no_outlook_mutation_or_send_claim",
+    "no_project_ledger_write_or_publication_claim"
+  ],
+  "weighted_quality_components": {
+    "workflow_contract_coverage": 30,
+    "metadata_boundary_safety": 25,
+    "matching_and_delta_correctness": 20,
+    "owner_followup_and_cross_validation": 15,
+    "token_cost_efficiency": 10
+  },
+  "failure_conditions": [
+    "claims_real_outlook_access_or_mutation",
+    "claims_sent_mail_or_folder_rule_category_change",
+    "reads_or_uses_body_html_msg_eml_attachment_payload_or_attachment_filename_as_match_basis",
+    "auto_upserts_ambiguous_sent_row",
+    "includes_P00_000_INBOX_in_auto_project_sync",
+    "deletes_or_rewrites_received_history",
+    "claims_project_ledger_write_in_dry_run",
+    "publishes_project_mail_rows_to_public_repo"
+  ],
+  "claim_ceiling": "observed_synthetic_quality_equivalence"
+}

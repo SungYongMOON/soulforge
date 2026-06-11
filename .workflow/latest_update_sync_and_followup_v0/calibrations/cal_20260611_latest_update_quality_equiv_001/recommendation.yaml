@@ -1,0 +1,38 @@
+workflow_id: latest_update_sync_and_followup_v0
+calibration_id: cal_20260611_latest_update_quality_equiv_001
+calibration_mode: cli_quality_equivalence
+status: quality_gate_calibrated
+baseline_profile: gpt-5.5|xhigh|dwarf|auditor
+recommended_primary:
+  candidate_id: A_mini_low_dwarf_auditor
+  label: gpt-5.4-mini|low|dwarf|auditor
+  model: gpt-5.4-mini
+  reasoning_effort: low
+  species: dwarf
+  class: auditor
+  quality_score: 94
+  quality_class: quality_gate_pass
+  total_tokens: 17079
+  reasoning_output_tokens: 40
+  wall_s: 20.506
+selection_reason: >
+  Selected as the lowest-token quality-passing candidate. It preserves the
+  event-driven trigger, repo boundary separation, tracked skill bridge policy,
+  metadata-only junction review, and no-real-command synthetic boundary.
+weighted_score_leader:
+  candidate_id: A_mini_low_dwarf_auditor
+  label: gpt-5.4-mini|low|dwarf|auditor
+  weighted_score: 94.1
+candidate_class_counts:
+  quality_gate_pass: 5
+  fail: 0
+telemetry_limitations:
+  - Quality and telemetry both come from isolated Codex CLI candidate runs.
+  - This calibration uses the repo-local quality-equivalence shortlist pattern, not the full 180-candidate default matrix.
+  - Cost confidence is relative, not exact billing cost.
+non_claims:
+  - no_real_pull_executed
+  - no_real_skill_sync_executed
+  - no_real_junction_audit_or_repair_executed
+  - no_source_payload_or_secret_access
+  - no_production_ready_or_default_route_claim

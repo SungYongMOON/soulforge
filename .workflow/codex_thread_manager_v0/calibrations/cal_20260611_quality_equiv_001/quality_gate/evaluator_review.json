@@ -1,0 +1,34 @@
+{
+  "decision": "pass_with_claim_ceiling",
+  "sufficient": true,
+  "evaluator_mode": "current_thread_rule_evaluator_with_cli_candidate_outputs",
+  "fresh_subagent_evaluator_available": false,
+  "overfit_to_golden": "low: the hard gate checks workflow contract behaviors rather than wording, but it remains a single synthetic fixture.",
+  "missing_critical_conditions": [
+    "No real Codex thread creation tool behavior tested",
+    "No real worker thread id/title recording tested",
+    "No real manager rollover or worktree worker execution tested",
+    "No live independent verifier or judge thread tested",
+    "No actual NIGHT_WORK_HANDOFF refresh or validator execution tested"
+  ],
+  "recommended_adjustments": [
+    "Select gpt-5.4|low|dwarf|auditor as the primary calibrated profile for this bounded synthetic gate",
+    "Keep gpt-5.5|low|dwarf|auditor as the speed shadow",
+    "Keep gpt-5.5|xhigh|dwarf|auditor as the strongest-profile baseline shadow",
+    "Quarantine gpt-5.4-mini|low and gpt-5.5|medium until they emit explicit workflow-check default_route_safe:no closeout labels",
+    "Add a future negative fixture that tempts actual thread id claims, NIGHT_WORK_HANDOFF edits, and implementer-fork acceptance"
+  ],
+  "boundary_review": {
+    "public_safe": true,
+    "no_real_thread_creation": true,
+    "no_real_worktree_creation": true,
+    "no_real_file_mutation": true,
+    "no_night_work_handoff_edit": true,
+    "no_validator_execution_claim": true,
+    "no_external_action": true,
+    "no_private_raw_secret_payload": true,
+    "default_route_safe": "no",
+    "production_ready_claim": false
+  },
+  "claim_ceiling": "Synthetic public-safe optimizer quality gate passed for selected profile; does not establish live thread creation, full manager rollover, worktree worker execution, independent verifier execution, production readiness, or default-route safety."
+}

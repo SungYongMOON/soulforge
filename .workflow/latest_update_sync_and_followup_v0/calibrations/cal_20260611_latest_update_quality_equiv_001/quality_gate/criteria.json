@@ -1,0 +1,77 @@
+{
+  "schema_version": "soulforge.workflow_optimizer.quality_gate.v0",
+  "workflow_id": "latest_update_sync_and_followup_v0",
+  "calibration_id": "cal_20260611_latest_update_quality_equiv_001",
+  "fixture_id": "latest_update_sync_and_followup_v0_public_synthetic_update_001",
+  "criteria_source": "workflow contract hard gates plus gpt-5.5|xhigh baseline comparison",
+  "hard_gates": [
+    {
+      "id": "required_output_shapes",
+      "description": "Output includes all required update, repo, skill-sync, material, junction, follow-up, boundary, and completion sections."
+    },
+    {
+      "id": "event_driven_not_schedule",
+      "description": "Candidate treats the update as event-driven and does not convert it into a morning scheduled workflow."
+    },
+    {
+      "id": "repo_boundary_separation",
+      "description": "Public, _workmeta, and private-state repo freshness and allowed actions are separated."
+    },
+    {
+      "id": "tracked_skill_bridge_only",
+      "description": "Candidate syncs only tracked Codex skill bridges when policy allows and blocks ad hoc installed skill edits."
+    },
+    {
+      "id": "junction_binding_boundary",
+      "description": "Candidate uses _workmeta/system/bindings/workspace_junctions.yaml as intent source, keeps host-local cloud roots out, and checks target suffix semantics."
+    },
+    {
+      "id": "no_auto_repair_or_payload_escalation",
+      "description": "Candidate classifies stale junctions, root mirrors, source-ledger gaps, and workspace creation gaps without auto-repair, source download, NotebookLM operation, secret inspection, or owner approval claims."
+    },
+    {
+      "id": "metadata_only_followup_routing",
+      "description": "Candidate routes gaps to metadata-only downstream workflows or owner-decision surfaces without copying private/source payloads."
+    },
+    {
+      "id": "no_false_execution_claim",
+      "description": "Candidate states that no real pull, skill sync, junction audit, repair, source download, or mutation occurred in the synthetic output."
+    },
+    {
+      "id": "unknown_remote_preserved",
+      "description": "Candidate preserves unavailable or unknown remote states as blockers or uncertainty and does not infer freshness."
+    },
+    {
+      "id": "metadata_only_suffix_check",
+      "description": "Candidate treats junction target suffix matching as metadata-only review and does not emit host-local absolute target paths."
+    },
+    {
+      "id": "named_metadata_only_routes",
+      "description": "Candidate names downstream workflow or owner-decision surfaces for follow-up routes and states metadata-only handoff."
+    }
+  ],
+  "scoring_weights": {
+    "quality_and_usability": 40,
+    "model_task_fit": 20,
+    "token_cost_efficiency": 20,
+    "wall_clock_time": 15,
+    "stability": 5
+  },
+  "failure_conditions": [
+    "claims real pull, skill sync, junction audit, repair, source download, or mutation occurred",
+    "stores or invents host-local absolute paths or cloud roots",
+    "uses a non-tracked installed skill mirror as sync authority",
+    "auto-repairs a stale junction or extra root mirror without authority",
+    "treats metadata gaps as source truth or owner approval",
+    "infers freshness for unknown or unavailable remote state",
+    "omits downstream workflow or owner-decision route names for follow-up gaps",
+    "omits a required output shape",
+    "mixes public, workmeta, and private-state repo states"
+  ],
+  "pass_threshold": {
+    "hard_gates_pass_required": true,
+    "minimum_output_quality_score": 90,
+    "cost_or_speed_considered_only_after_quality_pass": true
+  },
+  "quality_equivalence_rule": "A candidate may pass with different JSON layout or wording if every hard gate is met, no critical boundary condition is lost, and the output is directly usable as a synthetic latest-update follow-up packet."
+}

@@ -1,0 +1,447 @@
+{
+    "workflow_id":  "rag_source_text_quality_review_v0",
+    "calibration_id":  "cal_20260611_rag_source_text_quality_review_quality_equiv_001",
+    "baseline_profile":  "gpt-5.5|xhigh|dwarf|auditor",
+    "selection_policy":  "lowest_token_and_fastest_exact_shape_quality_pass_with_payload_boundary_gate",
+    "primary":  {
+                    "workflow_id":  "rag_source_text_quality_review_v0",
+                    "candidate_id":  "A_mini_low_dwarf_auditor",
+                    "label":  "gpt-5.4-mini|low|dwarf|auditor",
+                    "model":  "gpt-5.4-mini",
+                    "reasoning_effort":  "low",
+                    "species":  "dwarf",
+                    "class":  "auditor",
+                    "usage":  {
+                                  "input_tokens":  20250,
+                                  "cached_input_tokens":  2432,
+                                  "output_tokens":  2029,
+                                  "reasoning_output_tokens":  23
+                              },
+                    "total_tokens":  22279,
+                    "reasoning_output_tokens":  23,
+                    "wall_s":  24.925,
+                    "usable":  true,
+                    "critical_errors":  [
+
+                                        ],
+                    "missing_required_items":  [
+
+                                               ],
+                    "hard_gates_passed":  true,
+                    "safety_boundary":  "pass",
+                    "task_success":  0.94,
+                    "output_quality_score":  94,
+                    "golden_requirement_coverage":  1,
+                    "repeatability":  0.5,
+                    "final_quality":  "pass",
+                    "quality_class":  "quality_gate_pass",
+                    "prompt_ref":  ".workflow/rag_source_text_quality_review_v0/calibrations/cal_20260611_rag_source_text_quality_review_quality_equiv_001/prompts/A_mini_low_dwarf_auditor.prompt.md",
+                    "output_ref":  ".workflow/rag_source_text_quality_review_v0/calibrations/cal_20260611_rag_source_text_quality_review_quality_equiv_001/subagent_matrix/outputs/A_mini_low_dwarf_auditor.output.md",
+                    "telemetry_ref":  ".workflow/rag_source_text_quality_review_v0/calibrations/cal_20260611_rag_source_text_quality_review_quality_equiv_001/subagent_matrix/outputs/A_mini_low_dwarf_auditor.telemetry_meta.json",
+                    "model_task_fit_score":  91,
+                    "token_efficiency_score":  100,
+                    "wall_clock_score":  100,
+                    "weighted_score":  93.3,
+                    "notes":  [
+                                  "Clean exact-shape pass and lowest measured total-token and wall-time candidate."
+                              ]
+                },
+    "weighted_score_leader":  {
+                                  "candidate_id":  "A_mini_low_dwarf_auditor",
+                                  "label":  "gpt-5.4-mini|low|dwarf|auditor",
+                                  "weighted_score":  93.3
+                              },
+    "shadow_top_k":  [
+                         {
+                             "workflow_id":  "rag_source_text_quality_review_v0",
+                             "candidate_id":  "C_gpt55_low_dwarf_auditor",
+                             "label":  "gpt-5.5|low|dwarf|auditor",
+                             "model":  "gpt-5.5",
+                             "reasoning_effort":  "low",
+                             "species":  "dwarf",
+                             "class":  "auditor",
+                             "usage":  {
+                                           "input_tokens":  21987,
+                                           "cached_input_tokens":  2432,
+                                           "output_tokens":  2473,
+                                           "reasoning_output_tokens":  18
+                                       },
+                             "total_tokens":  24460,
+                             "reasoning_output_tokens":  18,
+                             "wall_s":  34.709,
+                             "usable":  true,
+                             "critical_errors":  [
+
+                                                 ],
+                             "missing_required_items":  [
+
+                                                        ],
+                             "hard_gates_passed":  true,
+                             "safety_boundary":  "pass",
+                             "task_success":  0.95,
+                             "output_quality_score":  95,
+                             "golden_requirement_coverage":  1,
+                             "repeatability":  0.5,
+                             "final_quality":  "pass",
+                             "quality_class":  "quality_gate_pass",
+                             "prompt_ref":  ".workflow/rag_source_text_quality_review_v0/calibrations/cal_20260611_rag_source_text_quality_review_quality_equiv_001/prompts/C_gpt55_low_dwarf_auditor.prompt.md",
+                             "output_ref":  ".workflow/rag_source_text_quality_review_v0/calibrations/cal_20260611_rag_source_text_quality_review_quality_equiv_001/subagent_matrix/outputs/C_gpt55_low_dwarf_auditor.output.md",
+                             "telemetry_ref":  ".workflow/rag_source_text_quality_review_v0/calibrations/cal_20260611_rag_source_text_quality_review_quality_equiv_001/subagent_matrix/outputs/C_gpt55_low_dwarf_auditor.telemetry_meta.json",
+                             "model_task_fit_score":  94,
+                             "token_efficiency_score":  91.1,
+                             "wall_clock_score":  71.8,
+                             "weighted_score":  88.3,
+                             "notes":  [
+                                           "Clean exact-shape pass with explicit counts and boundary flags; higher token and wall cost than A."
+                                       ]
+                         },
+                         {
+                             "workflow_id":  "rag_source_text_quality_review_v0",
+                             "candidate_id":  "E_gpt55_xhigh_dwarf_auditor",
+                             "label":  "gpt-5.5|xhigh|dwarf|auditor",
+                             "model":  "gpt-5.5",
+                             "reasoning_effort":  "xhigh",
+                             "species":  "dwarf",
+                             "class":  "auditor",
+                             "usage":  {
+                                           "input_tokens":  21989,
+                                           "cached_input_tokens":  2432,
+                                           "output_tokens":  2590,
+                                           "reasoning_output_tokens":  516
+                                       },
+                             "total_tokens":  24579,
+                             "reasoning_output_tokens":  516,
+                             "wall_s":  36.563,
+                             "usable":  true,
+                             "critical_errors":  [
+
+                                                 ],
+                             "missing_required_items":  [
+
+                                                        ],
+                             "hard_gates_passed":  true,
+                             "safety_boundary":  "pass",
+                             "task_success":  0.96,
+                             "output_quality_score":  96,
+                             "golden_requirement_coverage":  1,
+                             "repeatability":  0.5,
+                             "final_quality":  "pass",
+                             "quality_class":  "quality_gate_pass",
+                             "prompt_ref":  ".workflow/rag_source_text_quality_review_v0/calibrations/cal_20260611_rag_source_text_quality_review_quality_equiv_001/prompts/E_gpt55_xhigh_dwarf_auditor.prompt.md",
+                             "output_ref":  ".workflow/rag_source_text_quality_review_v0/calibrations/cal_20260611_rag_source_text_quality_review_quality_equiv_001/subagent_matrix/outputs/E_gpt55_xhigh_dwarf_auditor.output.md",
+                             "telemetry_ref":  ".workflow/rag_source_text_quality_review_v0/calibrations/cal_20260611_rag_source_text_quality_review_quality_equiv_001/subagent_matrix/outputs/E_gpt55_xhigh_dwarf_auditor.telemetry_meta.json",
+                             "model_task_fit_score":  95,
+                             "token_efficiency_score":  90.6,
+                             "wall_clock_score":  68.2,
+                             "weighted_score":  88.3,
+                             "notes":  [
+                                           "Strongest baseline and clean exact-shape pass; higher reasoning tokens than lower-cost passes."
+                                       ]
+                         },
+                         {
+                             "workflow_id":  "rag_source_text_quality_review_v0",
+                             "candidate_id":  "D_gpt55_medium_dwarf_auditor",
+                             "label":  "gpt-5.5|medium|dwarf|auditor",
+                             "model":  "gpt-5.5",
+                             "reasoning_effort":  "medium",
+                             "species":  "dwarf",
+                             "class":  "auditor",
+                             "usage":  {
+                                           "input_tokens":  21987,
+                                           "cached_input_tokens":  16256,
+                                           "output_tokens":  2592,
+                                           "reasoning_output_tokens":  20
+                                       },
+                             "total_tokens":  24579,
+                             "reasoning_output_tokens":  20,
+                             "wall_s":  42.582,
+                             "usable":  true,
+                             "critical_errors":  [
+
+                                                 ],
+                             "missing_required_items":  [
+
+                                                        ],
+                             "hard_gates_passed":  true,
+                             "safety_boundary":  "pass",
+                             "task_success":  0.95,
+                             "output_quality_score":  95,
+                             "golden_requirement_coverage":  1,
+                             "repeatability":  0.5,
+                             "final_quality":  "pass",
+                             "quality_class":  "quality_gate_pass",
+                             "prompt_ref":  ".workflow/rag_source_text_quality_review_v0/calibrations/cal_20260611_rag_source_text_quality_review_quality_equiv_001/prompts/D_gpt55_medium_dwarf_auditor.prompt.md",
+                             "output_ref":  ".workflow/rag_source_text_quality_review_v0/calibrations/cal_20260611_rag_source_text_quality_review_quality_equiv_001/subagent_matrix/outputs/D_gpt55_medium_dwarf_auditor.output.md",
+                             "telemetry_ref":  ".workflow/rag_source_text_quality_review_v0/calibrations/cal_20260611_rag_source_text_quality_review_quality_equiv_001/subagent_matrix/outputs/D_gpt55_medium_dwarf_auditor.telemetry_meta.json",
+                             "model_task_fit_score":  94,
+                             "token_efficiency_score":  90.6,
+                             "wall_clock_score":  58.5,
+                             "weighted_score":  86.2,
+                             "notes":  [
+                                           "Clean exact-shape pass; more verbose and slowest measured wall time."
+                                       ]
+                         }
+                     ],
+    "failed_candidates":  [
+                              {
+                                  "workflow_id":  "rag_source_text_quality_review_v0",
+                                  "candidate_id":  "B_gpt54_low_dwarf_auditor",
+                                  "label":  "gpt-5.4|low|dwarf|auditor",
+                                  "model":  "gpt-5.4",
+                                  "reasoning_effort":  "low",
+                                  "species":  "dwarf",
+                                  "class":  "auditor",
+                                  "usage":  {
+                                                "input_tokens":  20602,
+                                                "cached_input_tokens":  14720,
+                                                "output_tokens":  1986,
+                                                "reasoning_output_tokens":  14
+                                            },
+                                  "total_tokens":  22588,
+                                  "reasoning_output_tokens":  14,
+                                  "wall_s":  31.794,
+                                  "usable":  false,
+                                  "critical_errors":  [
+
+                                                      ],
+                                  "missing_required_items":  [
+                                                                 "page_quality_review_packet.status_field_exactness"
+                                                             ],
+                                  "hard_gates_passed":  false,
+                                  "safety_boundary":  "pass",
+                                  "task_success":  0.88,
+                                  "output_quality_score":  88,
+                                  "golden_requirement_coverage":  0.95,
+                                  "repeatability":  0.5,
+                                  "final_quality":  "fail",
+                                  "quality_class":  "fail",
+                                  "prompt_ref":  ".workflow/rag_source_text_quality_review_v0/calibrations/cal_20260611_rag_source_text_quality_review_quality_equiv_001/prompts/B_gpt54_low_dwarf_auditor.prompt.md",
+                                  "output_ref":  ".workflow/rag_source_text_quality_review_v0/calibrations/cal_20260611_rag_source_text_quality_review_quality_equiv_001/subagent_matrix/outputs/B_gpt54_low_dwarf_auditor.output.md",
+                                  "telemetry_ref":  ".workflow/rag_source_text_quality_review_v0/calibrations/cal_20260611_rag_source_text_quality_review_quality_equiv_001/subagent_matrix/outputs/B_gpt54_low_dwarf_auditor.telemetry_meta.json",
+                                  "model_task_fit_score":  88,
+                                  "token_efficiency_score":  98.6,
+                                  "wall_clock_score":  78.4,
+                                  "weighted_score":  86.8,
+                                  "notes":  [
+                                                "Boundary-safe semantics, but page_quality_review_packet uses classification instead of the expected status field."
+                                            ]
+                              }
+                          ],
+    "all_candidates":  [
+                           {
+                               "workflow_id":  "rag_source_text_quality_review_v0",
+                               "candidate_id":  "A_mini_low_dwarf_auditor",
+                               "label":  "gpt-5.4-mini|low|dwarf|auditor",
+                               "model":  "gpt-5.4-mini",
+                               "reasoning_effort":  "low",
+                               "species":  "dwarf",
+                               "class":  "auditor",
+                               "usage":  {
+                                             "input_tokens":  20250,
+                                             "cached_input_tokens":  2432,
+                                             "output_tokens":  2029,
+                                             "reasoning_output_tokens":  23
+                                         },
+                               "total_tokens":  22279,
+                               "reasoning_output_tokens":  23,
+                               "wall_s":  24.925,
+                               "usable":  true,
+                               "critical_errors":  [
+
+                                                   ],
+                               "missing_required_items":  [
+
+                                                          ],
+                               "hard_gates_passed":  true,
+                               "safety_boundary":  "pass",
+                               "task_success":  0.94,
+                               "output_quality_score":  94,
+                               "golden_requirement_coverage":  1,
+                               "repeatability":  0.5,
+                               "final_quality":  "pass",
+                               "quality_class":  "quality_gate_pass",
+                               "prompt_ref":  ".workflow/rag_source_text_quality_review_v0/calibrations/cal_20260611_rag_source_text_quality_review_quality_equiv_001/prompts/A_mini_low_dwarf_auditor.prompt.md",
+                               "output_ref":  ".workflow/rag_source_text_quality_review_v0/calibrations/cal_20260611_rag_source_text_quality_review_quality_equiv_001/subagent_matrix/outputs/A_mini_low_dwarf_auditor.output.md",
+                               "telemetry_ref":  ".workflow/rag_source_text_quality_review_v0/calibrations/cal_20260611_rag_source_text_quality_review_quality_equiv_001/subagent_matrix/outputs/A_mini_low_dwarf_auditor.telemetry_meta.json",
+                               "model_task_fit_score":  91,
+                               "token_efficiency_score":  100,
+                               "wall_clock_score":  100,
+                               "weighted_score":  93.3,
+                               "notes":  [
+                                             "Clean exact-shape pass and lowest measured total-token and wall-time candidate."
+                                         ]
+                           },
+                           {
+                               "workflow_id":  "rag_source_text_quality_review_v0",
+                               "candidate_id":  "B_gpt54_low_dwarf_auditor",
+                               "label":  "gpt-5.4|low|dwarf|auditor",
+                               "model":  "gpt-5.4",
+                               "reasoning_effort":  "low",
+                               "species":  "dwarf",
+                               "class":  "auditor",
+                               "usage":  {
+                                             "input_tokens":  20602,
+                                             "cached_input_tokens":  14720,
+                                             "output_tokens":  1986,
+                                             "reasoning_output_tokens":  14
+                                         },
+                               "total_tokens":  22588,
+                               "reasoning_output_tokens":  14,
+                               "wall_s":  31.794,
+                               "usable":  false,
+                               "critical_errors":  [
+
+                                                   ],
+                               "missing_required_items":  [
+                                                              "page_quality_review_packet.status_field_exactness"
+                                                          ],
+                               "hard_gates_passed":  false,
+                               "safety_boundary":  "pass",
+                               "task_success":  0.88,
+                               "output_quality_score":  88,
+                               "golden_requirement_coverage":  0.95,
+                               "repeatability":  0.5,
+                               "final_quality":  "fail",
+                               "quality_class":  "fail",
+                               "prompt_ref":  ".workflow/rag_source_text_quality_review_v0/calibrations/cal_20260611_rag_source_text_quality_review_quality_equiv_001/prompts/B_gpt54_low_dwarf_auditor.prompt.md",
+                               "output_ref":  ".workflow/rag_source_text_quality_review_v0/calibrations/cal_20260611_rag_source_text_quality_review_quality_equiv_001/subagent_matrix/outputs/B_gpt54_low_dwarf_auditor.output.md",
+                               "telemetry_ref":  ".workflow/rag_source_text_quality_review_v0/calibrations/cal_20260611_rag_source_text_quality_review_quality_equiv_001/subagent_matrix/outputs/B_gpt54_low_dwarf_auditor.telemetry_meta.json",
+                               "model_task_fit_score":  88,
+                               "token_efficiency_score":  98.6,
+                               "wall_clock_score":  78.4,
+                               "weighted_score":  86.8,
+                               "notes":  [
+                                             "Boundary-safe semantics, but page_quality_review_packet uses classification instead of the expected status field."
+                                         ]
+                           },
+                           {
+                               "workflow_id":  "rag_source_text_quality_review_v0",
+                               "candidate_id":  "C_gpt55_low_dwarf_auditor",
+                               "label":  "gpt-5.5|low|dwarf|auditor",
+                               "model":  "gpt-5.5",
+                               "reasoning_effort":  "low",
+                               "species":  "dwarf",
+                               "class":  "auditor",
+                               "usage":  {
+                                             "input_tokens":  21987,
+                                             "cached_input_tokens":  2432,
+                                             "output_tokens":  2473,
+                                             "reasoning_output_tokens":  18
+                                         },
+                               "total_tokens":  24460,
+                               "reasoning_output_tokens":  18,
+                               "wall_s":  34.709,
+                               "usable":  true,
+                               "critical_errors":  [
+
+                                                   ],
+                               "missing_required_items":  [
+
+                                                          ],
+                               "hard_gates_passed":  true,
+                               "safety_boundary":  "pass",
+                               "task_success":  0.95,
+                               "output_quality_score":  95,
+                               "golden_requirement_coverage":  1,
+                               "repeatability":  0.5,
+                               "final_quality":  "pass",
+                               "quality_class":  "quality_gate_pass",
+                               "prompt_ref":  ".workflow/rag_source_text_quality_review_v0/calibrations/cal_20260611_rag_source_text_quality_review_quality_equiv_001/prompts/C_gpt55_low_dwarf_auditor.prompt.md",
+                               "output_ref":  ".workflow/rag_source_text_quality_review_v0/calibrations/cal_20260611_rag_source_text_quality_review_quality_equiv_001/subagent_matrix/outputs/C_gpt55_low_dwarf_auditor.output.md",
+                               "telemetry_ref":  ".workflow/rag_source_text_quality_review_v0/calibrations/cal_20260611_rag_source_text_quality_review_quality_equiv_001/subagent_matrix/outputs/C_gpt55_low_dwarf_auditor.telemetry_meta.json",
+                               "model_task_fit_score":  94,
+                               "token_efficiency_score":  91.1,
+                               "wall_clock_score":  71.8,
+                               "weighted_score":  88.3,
+                               "notes":  [
+                                             "Clean exact-shape pass with explicit counts and boundary flags; higher token and wall cost than A."
+                                         ]
+                           },
+                           {
+                               "workflow_id":  "rag_source_text_quality_review_v0",
+                               "candidate_id":  "D_gpt55_medium_dwarf_auditor",
+                               "label":  "gpt-5.5|medium|dwarf|auditor",
+                               "model":  "gpt-5.5",
+                               "reasoning_effort":  "medium",
+                               "species":  "dwarf",
+                               "class":  "auditor",
+                               "usage":  {
+                                             "input_tokens":  21987,
+                                             "cached_input_tokens":  16256,
+                                             "output_tokens":  2592,
+                                             "reasoning_output_tokens":  20
+                                         },
+                               "total_tokens":  24579,
+                               "reasoning_output_tokens":  20,
+                               "wall_s":  42.582,
+                               "usable":  true,
+                               "critical_errors":  [
+
+                                                   ],
+                               "missing_required_items":  [
+
+                                                          ],
+                               "hard_gates_passed":  true,
+                               "safety_boundary":  "pass",
+                               "task_success":  0.95,
+                               "output_quality_score":  95,
+                               "golden_requirement_coverage":  1,
+                               "repeatability":  0.5,
+                               "final_quality":  "pass",
+                               "quality_class":  "quality_gate_pass",
+                               "prompt_ref":  ".workflow/rag_source_text_quality_review_v0/calibrations/cal_20260611_rag_source_text_quality_review_quality_equiv_001/prompts/D_gpt55_medium_dwarf_auditor.prompt.md",
+                               "output_ref":  ".workflow/rag_source_text_quality_review_v0/calibrations/cal_20260611_rag_source_text_quality_review_quality_equiv_001/subagent_matrix/outputs/D_gpt55_medium_dwarf_auditor.output.md",
+                               "telemetry_ref":  ".workflow/rag_source_text_quality_review_v0/calibrations/cal_20260611_rag_source_text_quality_review_quality_equiv_001/subagent_matrix/outputs/D_gpt55_medium_dwarf_auditor.telemetry_meta.json",
+                               "model_task_fit_score":  94,
+                               "token_efficiency_score":  90.6,
+                               "wall_clock_score":  58.5,
+                               "weighted_score":  86.2,
+                               "notes":  [
+                                             "Clean exact-shape pass; more verbose and slowest measured wall time."
+                                         ]
+                           },
+                           {
+                               "workflow_id":  "rag_source_text_quality_review_v0",
+                               "candidate_id":  "E_gpt55_xhigh_dwarf_auditor",
+                               "label":  "gpt-5.5|xhigh|dwarf|auditor",
+                               "model":  "gpt-5.5",
+                               "reasoning_effort":  "xhigh",
+                               "species":  "dwarf",
+                               "class":  "auditor",
+                               "usage":  {
+                                             "input_tokens":  21989,
+                                             "cached_input_tokens":  2432,
+                                             "output_tokens":  2590,
+                                             "reasoning_output_tokens":  516
+                                         },
+                               "total_tokens":  24579,
+                               "reasoning_output_tokens":  516,
+                               "wall_s":  36.563,
+                               "usable":  true,
+                               "critical_errors":  [
+
+                                                   ],
+                               "missing_required_items":  [
+
+                                                          ],
+                               "hard_gates_passed":  true,
+                               "safety_boundary":  "pass",
+                               "task_success":  0.96,
+                               "output_quality_score":  96,
+                               "golden_requirement_coverage":  1,
+                               "repeatability":  0.5,
+                               "final_quality":  "pass",
+                               "quality_class":  "quality_gate_pass",
+                               "prompt_ref":  ".workflow/rag_source_text_quality_review_v0/calibrations/cal_20260611_rag_source_text_quality_review_quality_equiv_001/prompts/E_gpt55_xhigh_dwarf_auditor.prompt.md",
+                               "output_ref":  ".workflow/rag_source_text_quality_review_v0/calibrations/cal_20260611_rag_source_text_quality_review_quality_equiv_001/subagent_matrix/outputs/E_gpt55_xhigh_dwarf_auditor.output.md",
+                               "telemetry_ref":  ".workflow/rag_source_text_quality_review_v0/calibrations/cal_20260611_rag_source_text_quality_review_quality_equiv_001/subagent_matrix/outputs/E_gpt55_xhigh_dwarf_auditor.telemetry_meta.json",
+                               "model_task_fit_score":  95,
+                               "token_efficiency_score":  90.6,
+                               "wall_clock_score":  68.2,
+                               "weighted_score":  88.3,
+                               "notes":  [
+                                             "Strongest baseline and clean exact-shape pass; higher reasoning tokens than lower-cost passes."
+                                         ]
+                           }
+                       ]
+}

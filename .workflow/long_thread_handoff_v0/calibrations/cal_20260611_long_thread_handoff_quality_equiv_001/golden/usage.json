@@ -1,0 +1,13 @@
+{
+  "baseline_profile": "gpt-5.5|xhigh|dwarf|auditor",
+  "candidate_id": "E_gpt55_xhigh_dwarf_auditor",
+  "usage": {
+    "input_tokens": 17929,
+    "cached_input_tokens": 2432,
+    "output_tokens": 1840,
+    "reasoning_output_tokens": 516
+  },
+  "total_tokens": 19769,
+  "wall_s": 32.599,
+  "telemetry_source": "codex_exec_json_cli_proxy"
+}

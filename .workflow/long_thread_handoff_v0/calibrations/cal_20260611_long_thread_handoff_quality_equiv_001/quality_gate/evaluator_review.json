@@ -1,0 +1,21 @@
+{
+  "schema_version": "soulforge.workflow_optimizer.evaluator_review.v0",
+  "workflow_id": "long_thread_handoff_v0",
+  "calibration_id": "cal_20260611_long_thread_handoff_quality_equiv_001",
+  "reviewer": "codex_current_thread_rule_evaluator",
+  "reviewed_refs": [
+    ".workflow/long_thread_handoff_v0/calibrations/cal_20260611_long_thread_handoff_quality_equiv_001/workflow.yaml",
+    ".workflow/long_thread_handoff_v0/calibrations/cal_20260611_long_thread_handoff_quality_equiv_001/step_graph.yaml",
+    ".workflow/long_thread_handoff_v0/calibrations/cal_20260611_long_thread_handoff_quality_equiv_001/input_fixture.public.json",
+    ".workflow/long_thread_handoff_v0/calibrations/cal_20260611_long_thread_handoff_quality_equiv_001/golden/output.md",
+    ".workflow/long_thread_handoff_v0/calibrations/cal_20260611_long_thread_handoff_quality_equiv_001/quality_gate/criteria.json"
+  ],
+  "verdict": "criteria_sufficient_for_public_safe_quality_equivalence",
+  "overfit_check": "pass",
+  "missing_critical_conditions": [],
+  "notes": [
+    "The gate is based on workflow contract invariants rather than golden wording.",
+    "A candidate can pass with a different JSON layout if required handoff fields, boundary posture, and conservative completion state survive.",
+    "Cost and wall time are considered only after hard gates pass."
+  ]
+}

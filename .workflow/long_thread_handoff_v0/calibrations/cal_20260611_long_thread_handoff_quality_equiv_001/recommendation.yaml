@@ -1,0 +1,41 @@
+workflow_id: long_thread_handoff_v0
+calibration_id: cal_20260611_long_thread_handoff_quality_equiv_001
+calibration_mode: cli_quality_equivalence
+status: quality_gate_calibrated
+baseline_profile: gpt-5.5|xhigh|dwarf|auditor
+recommended_primary:
+  candidate_id: B_gpt54_low_dwarf_auditor
+  label: gpt-5.4|low|dwarf|auditor
+  model: gpt-5.4
+  reasoning_effort: low
+  species: dwarf
+  class: auditor
+  quality_score: 98
+  quality_class: quality_gate_pass
+  total_tokens: 18293
+  reasoning_output_tokens: 18
+  wall_s: 30.053
+selection_reason: >
+  Selected as the lowest-token quality-passing candidate. Candidate A was lower
+  token but failed the required handoff field gate by omitting final_goal from
+  night_work_handoff. Candidate B preserved the durable handoff shape,
+  worker-report-as-evidence posture, validation gap handling, context reset
+  decision, no-default-route claim, and synthetic-only boundary.
+weighted_score_leader:
+  candidate_id: C_gpt55_low_dwarf_auditor
+  label: gpt-5.5|low|dwarf|auditor
+  weighted_score: 93.6
+candidate_class_counts:
+  quality_gate_pass: 4
+  fail: 1
+telemetry_limitations:
+  - Quality and telemetry both come from isolated Codex CLI candidate runs.
+  - This calibration uses the repo-local quality-equivalence shortlist pattern, not the full 180-candidate default matrix.
+  - Cost confidence is relative, not exact billing cost or subagent runner cost.
+non_claims:
+  - no_raw_transcript_or_private_payload_used
+  - no_secret_mail_attachment_or_workspace_payload_used
+  - no_real_night_work_handoff_mutation
+  - no_external_notification_or_route_switch
+  - no_pilot_execution_claim
+  - no_production_ready_or_default_route_claim

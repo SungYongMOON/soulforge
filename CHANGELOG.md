@@ -1,6 +1,112 @@
 ﻿# CHANGELOG
 
+## 2026-06-11
+
+### Revision `working` - Workflow generator provenance gaps closed by retrofit verdicts
+
+- Added workflow-generator retrofit verdict evidence for the remaining
+  generator-provenance gap queue under `_workmeta/system`, closing the
+  registered workflow generator gap status without broad package logic rewrites.
+- Preserved existing workflow logic and calibration evidence where packages
+  were already valid, including simulation, RAG metadata/wiki, SE governance,
+  and legacy active workflow packages.
+- Kept default routes, party bindings, registrations, production-ready claims,
+  private payloads, source payloads, and secrets unchanged.
+
+### Revision `working` - Supplemental RAG workflow draft calibrations added
+
+- Added public-safe synthetic quality-equivalence calibrations for the two
+  unregistered RAG workflow packages that were outside the initial registered
+  workflow precheck:
+  `.workflow/rag_source_text_quality_review_v0/` and
+  `.workflow/rag_work_card_router_v0/`.
+- Recorded supplemental all-workflow profile-policy scan evidence under
+  `_workmeta/system` showing 62 workflow packages and no remaining optimizer
+  profile-policy gaps.
+- Kept both RAG workflows unregistered and not default-route-safe; no index
+  update, owner approval, source-truth claim, private payload, source text,
+  NotebookLM answer/conversation payload, or production-ready claim was added.
+
+### Revision `working` - Remaining workflow optimizer gap queue completed
+
+- Added public-safe synthetic quality-equivalence calibrations for the final
+  optimizer gap queue:
+  `.workflow/se_assistant_operating_loop_v0/`,
+  `.workflow/long_thread_handoff_v0/`,
+  `.workflow/codex_thread_manager_v0/`, and
+  `.workflow/daily_work_ledger_capture_v0/`.
+- Updated each workflow profile policy to an active calibrated policy and
+  recorded optimizer/workflow-check evidence under `_workmeta/system`.
+- Closed the active optimizer sweep status with no remaining
+  missing/placeholder optimizer entries, while keeping live pilots,
+  default-route changes, production-ready claims, private payloads, and secrets
+  out of scope.
+
+### Revision `working` - Outlook mail reconcile calibration added
+
+- Added a public-safe synthetic quality-equivalence calibration for
+  `.workflow/outlook_mail_reconcile_v0/` and updated its profile policy from
+  placeholder to an active measured policy.
+- Recorded optimizer run and workflow-check evidence under `_workmeta/system`.
+- Kept real Outlook access, Outlook mutation, mail body/HTML/msg/eml payloads,
+  attachment payloads, attachment filename basis, project ledger writes,
+  project mail-row publication, secrets, default-route changes, and
+  production-ready claims out of scope.
+
+### Revision `working` - External reasoning workspace calibration added
+
+- Added a public-safe synthetic quality-equivalence calibration for
+  `.workflow/external_reasoning_workspace_v0/` and updated its profile policy
+  from uncalibrated runtime binding to an active measured controller-profile
+  policy.
+- Kept the external ChatGPT mode label as a visible user-authorized runtime
+  selection rather than a hard-coded model or account claim.
+- Recorded optimizer run and workflow-check evidence under `_workmeta/system`.
+- Kept real browser actions, real ChatGPT prompt submission, cookies, tokens,
+  passwords, session/storage inspection, raw URLs, account ids, conversation
+  ids, transcripts, uploads, share links, account/permission/payment changes,
+  default-route changes, and production-ready claims out of scope.
+
+### Revision `working` - Outbound mail workflow calibration added
+
+- Added a public-safe synthetic quality-equivalence calibration for
+  `.workflow/outbound_mail_authoring_v0/` and updated its profile policy from
+  not-requested placeholder to an active measured policy.
+- Recorded optimizer run and workflow-check evidence under `_workmeta/system`.
+- Kept real mail sends, Outlook mutation, SMTP action, real recipient payloads,
+  attachment payloads, footer payloads, secrets, default-route changes, and
+  production-ready claims out of scope.
+
 ## 2026-06-09
+
+### Revision `working` - Latest update workflow calibration added
+
+- Added a public-safe synthetic quality-equivalence calibration for
+  `.workflow/latest_update_sync_and_followup_v0/` and updated its profile policy
+  from draft/default to an active measured policy.
+- Recorded optimizer run and workflow-check evidence under `_workmeta/system`.
+- Kept real pulls, skill syncs, junction audits/repairs, host-local cloud roots,
+  default-route changes, and production-ready claims out of scope.
+
+### Revision `working` - GitHub upload workflow calibration added
+
+- Added a public-safe synthetic quality-equivalence calibration for
+  `.workflow/github_upload_publish_v0/` and updated its profile policy from
+  draft/default to an active measured policy.
+- Recorded per-workflow generator retrofit, optimizer run, and workflow-check
+  evidence under `_workmeta/system`.
+- Kept real git commands, commits, pushes, default-route changes, and
+  production-ready claims out of scope.
+
+### Revision `working` - Workflow canon sweep evidence added
+
+- Added the missing `.workflow/meeting_followup/README.md` package surface so
+  the registered workflow matches the `.workflow` package-shape contract.
+- Recorded a metadata-only workflow-generator provenance sweep and optimizer
+  preflight under `_workmeta/system`, separating package defects from missing
+  provenance and blocked optimizer prerequisites.
+- Kept default routes, party bindings, registration state, and production-ready
+  claims unchanged.
 
 ### Revision `working` - Codex worker subagent-first policy tightened
 

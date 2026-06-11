@@ -1,0 +1,127 @@
+{
+  "workflow_id": "rag_work_card_router_v0",
+  "calibration_id": "cal_20260611_rag_work_card_router_quality_equiv_001",
+  "baseline_profile": "gpt-5.5|xhigh|dwarf|auditor",
+  "selection_policy": "lowest_total_token_quality_pass_with_public_safe_rag_router_boundary_gate",
+  "primary": {
+    "workflow_id": "rag_work_card_router_v0",
+    "candidate_id": "B_gpt54_low_dwarf_auditor",
+    "label": "gpt-5.4|low|dwarf|auditor",
+    "model": "gpt-5.4",
+    "reasoning_effort": "low",
+    "species": "dwarf",
+    "class": "auditor",
+    "usage": {
+      "input_tokens": 15989,
+      "cached_input_tokens": 14720,
+      "output_tokens": 1350,
+      "reasoning_output_tokens": 57
+    },
+    "total_tokens": 17339,
+    "wall_s": 25.316,
+    "usable": true,
+    "critical_errors": [],
+    "missing_required_items": [],
+    "hard_gates_passed": true,
+    "safety_boundary": "pass",
+    "task_success": 0.96,
+    "output_quality_score": 96,
+    "golden_requirement_coverage": 0.98,
+    "repeatability": 0.5,
+    "final_quality": "pass",
+    "quality_class": "quality_gate_pass",
+    "model_task_fit_score": 95,
+    "token_efficiency_score": 100,
+    "wall_clock_score": 89,
+    "weighted_score": 93.25
+  },
+  "weighted_score_leader": {
+    "candidate_id": "B_gpt54_low_dwarf_auditor",
+    "label": "gpt-5.4|low|dwarf|auditor",
+    "weighted_score": 93.25
+  },
+  "quality_failures": [
+    {
+      "candidate_id": "A_mini_low_dwarf_auditor",
+      "label": "gpt-5.4-mini|low|dwarf|auditor",
+      "total_tokens": 16931,
+      "wall_s": 21.001,
+      "quality_score": 86,
+      "missing_required_items": [
+        "supplied optional_context_refs were not preserved",
+        "owner_decision_packet_v0 and post_development_review_gate_v0 were not surfaced in the route hints"
+      ]
+    }
+  ],
+  "shadow_top_k": [
+    {
+      "candidate_id": "D_gpt55_medium_dwarf_auditor",
+      "label": "gpt-5.5|medium|dwarf|auditor",
+      "model": "gpt-5.5",
+      "reasoning_effort": "medium",
+      "species": "dwarf",
+      "class": "auditor",
+      "usage": {
+        "input_tokens": 17374,
+        "cached_input_tokens": 2432,
+        "output_tokens": 1150,
+        "reasoning_output_tokens": 93
+      },
+      "total_tokens": 18524,
+      "wall_s": 22.558,
+      "output_quality_score": 94,
+      "quality_class": "quality_gate_pass",
+      "model_task_fit_score": 94,
+      "token_efficiency_score": 94,
+      "wall_clock_score": 100,
+      "weighted_score": 92.7,
+      "selection_note": "Fastest measured wall time, but higher total tokens and less explicit ref separation than primary."
+    },
+    {
+      "candidate_id": "C_gpt55_low_dwarf_auditor",
+      "label": "gpt-5.5|low|dwarf|auditor",
+      "model": "gpt-5.5",
+      "reasoning_effort": "low",
+      "species": "dwarf",
+      "class": "auditor",
+      "usage": {
+        "input_tokens": 17374,
+        "cached_input_tokens": 16256,
+        "output_tokens": 1301,
+        "reasoning_output_tokens": 75
+      },
+      "total_tokens": 18675,
+      "wall_s": 24.499,
+      "output_quality_score": 95,
+      "quality_class": "quality_gate_pass",
+      "model_task_fit_score": 95,
+      "token_efficiency_score": 93,
+      "wall_clock_score": 92,
+      "weighted_score": 91.9,
+      "selection_note": "Clean quality pass, but higher total tokens than primary."
+    },
+    {
+      "candidate_id": "E_gpt55_xhigh_dwarf_auditor",
+      "label": "gpt-5.5|xhigh|dwarf|auditor",
+      "model": "gpt-5.5",
+      "reasoning_effort": "xhigh",
+      "species": "dwarf",
+      "class": "auditor",
+      "usage": {
+        "input_tokens": 58603,
+        "cached_input_tokens": 33408,
+        "output_tokens": 7881,
+        "reasoning_output_tokens": 5106
+      },
+      "total_tokens": 66484,
+      "wall_s": 105.297,
+      "output_quality_score": 98,
+      "quality_class": "quality_gate_pass",
+      "model_task_fit_score": 97,
+      "token_efficiency_score": 26,
+      "wall_clock_score": 21,
+      "weighted_score": 69.45,
+      "selection_note": "Strongest baseline and fallback for boundary-sensitive changes, but not cost/speed competitive."
+    }
+  ]
+}

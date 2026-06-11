@@ -1,0 +1,38 @@
+workflow_id: outbound_mail_authoring_v0
+calibration_id: cal_20260611_outbound_mail_quality_equiv_001
+calibration_mode: cli_quality_equivalence
+status: quality_gate_calibrated
+baseline_profile: gpt-5.5|xhigh|dwarf|auditor
+recommended_primary:
+  candidate_id: A_mini_low_dwarf_auditor
+  label: gpt-5.4-mini|low|dwarf|auditor
+  model: gpt-5.4-mini
+  reasoning_effort: low
+  species: dwarf
+  class: auditor
+  quality_score: 94
+  quality_class: quality_gate_pass
+  total_tokens: 17137
+  reasoning_output_tokens: 14
+  wall_s: 19.793
+selection_reason: >
+  Selected as the lowest-token quality-passing candidate. It preserved the
+  project keyword subject policy, draft-only authority ceiling, footer payload
+  boundary, metadata-only record plan, and no-real-send synthetic boundary.
+weighted_score_leader:
+  candidate_id: C_gpt55_low_dwarf_auditor
+  label: gpt-5.5|low|dwarf|auditor
+  weighted_score: 92.8
+candidate_class_counts:
+  quality_gate_pass: 4
+  fail: 1
+telemetry_limitations:
+  - Quality and telemetry both come from isolated Codex CLI candidate runs.
+  - This calibration uses the repo-local quality-equivalence shortlist pattern, not the full 180-candidate default matrix.
+  - Cost confidence is relative, not exact billing cost.
+non_claims:
+  - no_real_mail_sent
+  - no_outlook_mutation_executed
+  - no_smtp_send_executed
+  - no_footer_payload_or_real_recipient_payload_used
+  - no_production_ready_or_default_route_claim

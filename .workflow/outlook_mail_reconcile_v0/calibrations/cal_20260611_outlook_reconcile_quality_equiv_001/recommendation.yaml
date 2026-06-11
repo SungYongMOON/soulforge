@@ -1,0 +1,39 @@
+workflow_id: outlook_mail_reconcile_v0
+calibration_id: cal_20260611_outlook_reconcile_quality_equiv_001
+calibration_mode: cli_quality_equivalence
+status: quality_gate_calibrated
+baseline_profile: gpt-5.5|xhigh|dwarf|auditor
+recommended_primary:
+  candidate_id: A_mini_low_dwarf_auditor
+  label: gpt-5.4-mini|low|dwarf|auditor
+  model: gpt-5.4-mini
+  reasoning_effort: low
+  species: dwarf
+  class: auditor
+  quality_score: 98
+  quality_class: quality_gate_pass
+  total_tokens: 22083
+  reasoning_output_tokens: 29
+  wall_s: 27.728
+selection_reason: >
+  Selected as the lowest-token quality-passing candidate. It preserved dry-run
+  mode, Codex-managed project scope, P00 inbox exclusion, metadata-only Outlook
+  reads, owner follow-up for ambiguous rows, received-history cross-validation,
+  and no-Outlook-mutation synthetic boundary.
+weighted_score_leader:
+  candidate_id: A_mini_low_dwarf_auditor
+  label: gpt-5.4-mini|low|dwarf|auditor
+  weighted_score: 98.2
+candidate_class_counts:
+  quality_gate_pass: 4
+  fail: 1
+telemetry_limitations:
+  - Quality and telemetry both come from isolated Codex CLI candidate runs.
+  - This calibration uses the repo-local quality-equivalence shortlist pattern, not the full 180-candidate default matrix.
+  - Cost confidence is relative, not exact billing cost.
+non_claims:
+  - no_real_outlook_access_or_mutation
+  - no_mail_body_html_msg_or_attachment_payload_read
+  - no_project_ledger_write_executed
+  - no_public_repo_project_mail_publication
+  - no_production_ready_or_default_route_claim

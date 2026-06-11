@@ -1,0 +1,42 @@
+{
+  "workflow_id": "long_thread_handoff_v0",
+  "calibration_id": "cal_20260611_long_thread_handoff_quality_equiv_001",
+  "evaluation_mode": "cli_quality_equivalence_shortlist",
+  "baseline_profile": "gpt-5.5|xhigh|dwarf|auditor",
+  "shortlist_profiles": [
+    "gpt-5.4-mini|low|dwarf|auditor",
+    "gpt-5.4|low|dwarf|auditor",
+    "gpt-5.5|low|dwarf|auditor",
+    "gpt-5.5|medium|dwarf|auditor",
+    "gpt-5.5|xhigh|dwarf|auditor"
+  ],
+  "quality_gate_result": {
+    "passed": [
+      "B_gpt54_low_dwarf_auditor",
+      "C_gpt55_low_dwarf_auditor",
+      "D_gpt55_medium_dwarf_auditor",
+      "E_gpt55_xhigh_dwarf_auditor"
+    ],
+    "failed": [
+      {
+        "candidate_id": "A_mini_low_dwarf_auditor",
+        "reason": "fail_required_handoff_field",
+        "missing_required_items": [
+          "night_work_handoff.final_goal"
+        ]
+      }
+    ]
+  },
+  "selection_policy": "lowest_token_quality_pass_with_handoff_shape_hard_gate",
+  "recommendation": {
+    "primary_candidate_id": "B_gpt54_low_dwarf_auditor",
+    "primary_label": "gpt-5.4|low|dwarf|auditor",
+    "reason": "Lowest-token quality-passing candidate after A failed the required handoff field gate."
+  },
+  "limitations": [
+    "This run used the repo-local five-profile quality-equivalence shortlist, not the full 180-candidate default matrix.",
+    "Quality and telemetry both came from isolated Codex CLI candidate runs.",
+    "CLI telemetry is exact for the CLI runs but is only a proxy for any future subagent runner.",
+    "No private/raw payload, old transcript, secret, real handoff mutation, external notification, route switch, or live pilot was used."
+  ]
+}

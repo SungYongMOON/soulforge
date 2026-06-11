@@ -1,0 +1,22 @@
+{
+    "candidate_id":  "A_mini_low_dwarf_auditor",
+    "model":  "gpt-5.4-mini",
+    "reasoning_effort":  "low",
+    "species":  "dwarf",
+    "class":  "auditor",
+    "service_tier":  "fast",
+    "exit_code":  0,
+    "wall_s":  24.925,
+    "usage":  {
+                  "input_tokens":  20250,
+                  "cached_input_tokens":  2432,
+                  "output_tokens":  2029,
+                  "reasoning_output_tokens":  23,
+                  "total_tokens":  22279
+              },
+    "telemetry_source":  "codex_exec_json_cli_proxy",
+    "stdout_events_ref":  ".workflow/rag_source_text_quality_review_v0/calibrations/cal_20260611_rag_source_text_quality_review_quality_equiv_001/subagent_matrix/outputs/A_mini_low_dwarf_auditor.events.jsonl",
+    "output_ref":  ".workflow/rag_source_text_quality_review_v0/calibrations/cal_20260611_rag_source_text_quality_review_quality_equiv_001/subagent_matrix/outputs/A_mini_low_dwarf_auditor.output.md",
+    "stderr_archived":  false,
+    "stderr_note":  "CLI emitted local plugin warnings to stderr; stderr was intentionally not archived because it includes local user/plugin paths unrelated to candidate output."
+}

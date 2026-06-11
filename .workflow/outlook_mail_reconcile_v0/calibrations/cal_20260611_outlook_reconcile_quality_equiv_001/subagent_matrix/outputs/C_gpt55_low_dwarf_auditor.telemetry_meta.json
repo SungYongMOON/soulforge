@@ -1,0 +1,7 @@
+{
+    "candidate_id":  "C_gpt55_low_dwarf_auditor",
+    "model":  "gpt-5.5",
+    "reasoning_effort":  "low",
+    "exit_code":  0,
+    "wall_s":  32.531
+}

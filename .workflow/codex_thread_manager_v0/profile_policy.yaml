@@ -2,13 +2,88 @@ workflow_id: codex_thread_manager_v0
 kind: workflow_profile_policy
 status: active
 validation_level: private_one_worker_pilot_observed
-calibration_status: none
+optimizer_status: completed_public_safe_synthetic_quality_equivalence
+calibration_status: quality_gate_calibrated
+last_calibration_id: cal_20260611_quality_equiv_001
+calibration_mode: cli_quality_equivalence
 profile_binding_policy:
-  model: runtime_binding
-  reasoning_effort: runtime_binding
-  species: runtime_binding
-  class: runtime_binding
+  model: calibrated_primary_profile
+  reasoning_effort: calibrated_primary_profile
+  species: calibrated_primary_profile
+  class: calibrated_primary_profile
   party: runtime_binding_or_unbound
+measurement_policy:
+  quality_source: cli_quality_equivalence_shortlist
+  telemetry_source: codex_exec_json_cli_proxy
+  subagent_token_usage_available: false
+  telemetry_exact_for_subagent: false
+  cost_confidence: relative_not_exact
+  full_default_matrix_executed: false
+  full_default_matrix_reason: >
+    Repo-local precedent uses a public-safe quality-equivalence shortlist for
+    workflow profile calibration. The full default matrix would require 180
+    candidates and was not necessary to establish a lowest-cost explicit
+    hard-gate pass on the synthetic thread orchestration fixture.
+primary_profile:
+  candidate_id: B_gpt54_low_dwarf_auditor
+  model: gpt-5.4
+  reasoning_effort: low
+  species: dwarf
+  class: auditor
+  label: gpt-5.4|low|dwarf|auditor
+  quality_score: 99
+  quality_class: quality_gate_pass
+  input_tokens: 19324
+  cached_input_tokens: 2432
+  output_tokens: 1431
+  total_tokens: 20755
+  reasoning_output_tokens: 15
+  wall_s: 31.93
+  telemetry_source: codex_exec_json_cli_proxy
+  selection_reason: >
+    Lowest-token explicit hard-gate pass. It preserved manager-plus-role-worker
+    routing, checkpoint-before-worker/rollover planning, worktree-or-stop
+    handling for overlapping mutation, fresh verifier independence, no real
+    thread/worktree/validator claims, and explicit default_route_safe:false
+    workflow-check closeout labeling.
+shadow_top_k:
+  - candidate_id: C_gpt55_low_dwarf_auditor
+    model: gpt-5.5
+    reasoning_effort: low
+    species: dwarf
+    class: auditor
+    label: gpt-5.5|low|dwarf|auditor
+    quality_score: 97
+    quality_class: quality_gate_pass
+    input_tokens: 20709
+    cached_input_tokens: 2432
+    output_tokens: 1136
+    total_tokens: 21845
+    reasoning_output_tokens: 87
+    wall_s: 22.377
+    selection_note: Faster passing shadow; use if the primary becomes too slow while preserving explicit workflow-check labels.
+  - candidate_id: E_gpt55_xhigh_dwarf_auditor
+    model: gpt-5.5
+    reasoning_effort: xhigh
+    species: dwarf
+    class: auditor
+    label: gpt-5.5|xhigh|dwarf|auditor
+    quality_score: 98
+    quality_class: quality_gate_pass
+    input_tokens: 20711
+    cached_input_tokens: 2432
+    output_tokens: 1482
+    total_tokens: 22193
+    reasoning_output_tokens: 516
+    wall_s: 29.117
+    selection_note: Strongest-profile baseline shadow for future adversarial fixture revisions.
+failed_candidate_notes:
+  - candidate_id: A_mini_low_dwarf_auditor
+    label: gpt-5.4-mini|low|dwarf|auditor
+    reason: missing explicit workflow-check default_route_safe:no closeout field
+  - candidate_id: D_gpt55_medium_dwarf_auditor
+    label: gpt-5.5|medium|dwarf|auditor
+    reason: missing explicit workflow-check default_route_safe:no closeout field
 selection_rules:
   - Do not hard-code model, species, class, local runtime paths, or thread tool availability into this reusable workflow package.
   - Use the active Codex app thread tools only when they are actually available in the current runtime.
@@ -22,12 +97,25 @@ rerun_triggers:
   - verifier or judge independence policy changes
   - recursive fan-out policy changes
   - local runtime skill bridge changes
+  - workflow-check closeout output shape or default-route safety labeling changes
+  - live manager-worker pilot exposes boundary ambiguity
+  - mini profile gains explicit default_route_safe:no closeout labeling in a future fixture
+calibration_archive_ref: .workflow/codex_thread_manager_v0/calibrations/cal_20260611_quality_equiv_001
 non_claims:
-  - no_profile_optimization_claim
-  - no_cost_or_quality_calibration_claim
+  - no_full_default_matrix_claim
+  - no_real_thread_created
+  - no_real_thread_id_observed
+  - no_real_worktree_created
+  - no_real_file_mutation_executed
+  - no_real_validator_execution_claim
+  - no_real_night_work_handoff_edit
   - no_full_rollover_execution_claim
   - no_worktree_worker_execution_claim
   - no_worker_subagent_first_execution_claim
   - no_forked_implementer_independent_review_claim
   - no_production_ready_claim
   - no_default_route_claim
+  - no_default_route_safety_claim
+notes:
+  - This policy optimizes the model-facing orchestration planning, packet shaping, and conservative closeout portion of the workflow on a public-safe synthetic fixture.
+  - Real Codex thread creation, worktree worker execution, manager rollover, and independent verifier behavior still depend on current app tool availability and owner-approved runtime action.

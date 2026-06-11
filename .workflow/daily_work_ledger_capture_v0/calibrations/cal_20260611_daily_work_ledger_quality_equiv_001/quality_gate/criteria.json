@@ -1,0 +1,42 @@
+{
+  "schema_version": "soulforge.workflow_optimizer.quality_gate.v0",
+  "workflow_id": "daily_work_ledger_capture_v0",
+  "calibration_id": "cal_20260611_daily_work_ledger_quality_equiv_001",
+  "fixture_id": "daily_work_ledger_capture_v0_public_synthetic_metadata_001",
+  "criteria_source": "workflow contract hard gates plus gpt-5.5|xhigh baseline comparison",
+  "hard_gates": [
+    {"id":"required_output_shapes","description":"Output includes capture scope, inventory, normalized entries, project/P00 ledgers, Soulforge subledger ledgers, skipped register, review-needed register, receipt, handoff, boundary note, and completion state."},
+    {"id":"project_route_m1","description":"M1 routes to the declared P01-SYNTH project ledger."},
+    {"id":"p00_route_m2","description":"M2 routes to P00-000_INBOX as company general or unresolved company work, not Soulforge system or personal work."},
+    {"id":"soulforge_routes_m3_m4","description":"M3 routes to workflow and M4 routes to automation under _workmeta/system/daily_ledger/<subledger>."},
+    {"id":"unknowns_review_needed","description":"M5 and M7 go to review_needed without inferring unapproved project codes or subledger ids."},
+    {"id":"raw_payload_skipped","description":"M6 goes to skipped_source_register because raw mail body placeholders are not approved metadata sources."},
+    {"id":"duplicate_flagged","description":"M8 is flagged as duplicate review-needed rather than silently merged into M1."},
+    {"id":"metadata_only_boundary","description":"Candidate uses metadata refs and summary labels only, with no copied body text, raw payloads, local absolute paths, secrets, attachments, Office/PDF/HWP payloads, or real work logs."},
+    {"id":"synthetic_no_write_claim","description":"Candidate states this is a synthetic preview with no real ledger writes or real run."},
+    {"id":"claim_ceiling","description":"Candidate keeps the claim ceiling at observed metadata, not source truth, owner acceptance, pilot execution, or production readiness."}
+  ],
+  "scoring_weights": {
+    "quality_and_usability": 40,
+    "model_task_fit": 20,
+    "token_cost_efficiency": 20,
+    "wall_clock_time": 15,
+    "stability": 5
+  },
+  "failure_conditions": [
+    "routes M2 to Soulforge or personal/system work instead of P00",
+    "routes unknown project code or unknown subledger without review_needed",
+    "normalizes raw payload source M6 into a ledger entry",
+    "silently merges duplicate M8 into M1 without review-needed evidence",
+    "copies source body text, mail body, attachment payload, Office/PDF/HWP payload, secret, local absolute path, or real work log content",
+    "claims real ledger files were written or a real capture run occurred",
+    "omits a required output shape",
+    "claims source truth, owner acceptance, pilot execution, production readiness, or default-route change"
+  ],
+  "pass_threshold": {
+    "hard_gates_pass_required": true,
+    "minimum_output_quality_score": 90,
+    "cost_or_speed_considered_only_after_quality_pass": true
+  },
+  "quality_equivalence_rule": "A candidate may pass with different JSON layout or wording if every hard gate is met, no critical boundary condition is lost, and the output is directly usable as a synthetic daily ledger capture preview packet."
+}

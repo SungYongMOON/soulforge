@@ -1,0 +1,21 @@
+{
+  "workflow_id": "daily_work_ledger_capture_v0",
+  "calibration_id": "cal_20260611_daily_work_ledger_quality_equiv_001",
+  "quality_source": "cli_quality_equivalence_shortlist",
+  "selection_policy": "lowest_token_quality_pass_with_boundary_safety_gate",
+  "summary": "All five shortlist candidates passed the frozen hard gate on the public-safe synthetic daily-ledger fixture. B_gpt54_low_dwarf_auditor had the lowest measured total token count and a clean compact output; D was fastest by wall time, and E was the highest-quality baseline but used more reasoning and wall time.",
+  "blocked_or_limited_measurements": [
+    "No isolated subagent usage telemetry was available; CLI JSON telemetry is used as a proxy.",
+    "Candidate C had one abandoned direct-shell attempt that timed out before content; a guarded rerun completed and is the archived candidate output."
+  ],
+  "recommendation": {
+    "primary_candidate_id": "B_gpt54_low_dwarf_auditor",
+    "primary_label": "gpt-5.4|low|dwarf|auditor",
+    "shadow_order": [
+      "D_gpt55_medium_dwarf_auditor",
+      "A_mini_low_dwarf_auditor",
+      "E_gpt55_xhigh_dwarf_auditor",
+      "C_gpt55_low_dwarf_auditor"
+    ]
+  }
+}

@@ -1,0 +1,19 @@
+{
+  "workflow_id": "external_reasoning_workspace_v0",
+  "calibration_id": "cal_20260611_external_reasoning_quality_equiv_001",
+  "review_ref": ".workflow/external_reasoning_workspace_v0/calibrations/cal_20260611_external_reasoning_quality_equiv_001/quality_gate/evaluator_review.json",
+  "decision": "pass_with_minor_adjustments",
+  "sufficient_for": "public_safe_synthetic_profile_comparison",
+  "not_sufficient_for": [
+    "production_readiness",
+    "default_route_safety",
+    "real_browser_execution_readiness",
+    "external_chatgpt_model_stability"
+  ],
+  "adjustments_recorded_in_quality_gate": [
+    "source_like_advisory_language_does_not_become_source_truth",
+    "partial_dom_readback_is_not_treated_as_complete",
+    "metadata_pointer_does_not_mix_sanitized_ref_with_raw_account_identifier"
+  ],
+  "claim_ceiling": "observed_synthetic_quality_equivalence"
+}

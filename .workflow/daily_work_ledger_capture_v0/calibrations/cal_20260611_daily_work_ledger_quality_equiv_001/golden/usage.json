@@ -1,0 +1,15 @@
+{
+  "candidate_id": "E_gpt55_xhigh_dwarf_auditor",
+  "label": "gpt-5.5|xhigh|dwarf|auditor",
+  "usage": {
+    "input_tokens": 21301,
+    "cached_input_tokens": 2432,
+    "output_tokens": 1916,
+    "reasoning_output_tokens": 516
+  },
+  "total_tokens": 23217,
+  "wall_s": 32.186,
+  "telemetry_source": "codex_exec_json_cli_proxy",
+  "service_tier": "fast",
+  "note": "Golden baseline is the strongest configured shortlist profile output on the public-safe synthetic fixture. It is evaluator evidence only, not literal truth."
+}

@@ -1,0 +1,19 @@
+﻿{
+    "candidate_id":  "C_gpt55_low_dwarf_auditor",
+    "label":  "gpt-5.5|low|dwarf|auditor",
+    "model":  "gpt-5.5",
+    "reasoning_effort":  "low",
+    "species":  "dwarf",
+    "class":  "auditor",
+    "usage":  {
+                  "input_tokens":  20709,
+                  "cached_input_tokens":  2432,
+                  "output_tokens":  1136,
+                  "reasoning_output_tokens":  87
+              },
+    "wall_s":  22.377,
+    "output_chars":  5005,
+    "exit_code":  0,
+    "telemetry_source":  "codex_exec_json_cli_proxy",
+    "service_tier":  "fast"
+}

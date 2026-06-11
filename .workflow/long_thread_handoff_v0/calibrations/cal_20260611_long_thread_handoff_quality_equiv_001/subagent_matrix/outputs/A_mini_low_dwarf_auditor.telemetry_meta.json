@@ -1,0 +1,22 @@
+{
+  "candidate_id": "A_mini_low_dwarf_auditor",
+  "model": "gpt-5.4-mini",
+  "reasoning_effort": "low",
+  "species": "dwarf",
+  "class": "auditor",
+  "service_tier": "fast",
+  "command_exit_code": 0,
+  "wall_s": 22.541,
+  "output_ref": ".workflow/long_thread_handoff_v0/calibrations/cal_20260611_long_thread_handoff_quality_equiv_001/subagent_matrix/outputs/A_mini_low_dwarf_auditor.output.md",
+  "events_ref": ".workflow/long_thread_handoff_v0/calibrations/cal_20260611_long_thread_handoff_quality_equiv_001/subagent_matrix/outputs/A_mini_low_dwarf_auditor.events.jsonl",
+  "usage": {
+    "input_tokens": 16190,
+    "cached_input_tokens": 4480,
+    "output_tokens": 1553,
+    "reasoning_output_tokens": 36
+  },
+  "total_tokens": 17743,
+  "quality_class": "fail_required_handoff_field",
+  "final_quality": "fail",
+  "output_quality_score": 88
+}

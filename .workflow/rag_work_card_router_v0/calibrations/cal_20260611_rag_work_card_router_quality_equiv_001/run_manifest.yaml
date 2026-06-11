@@ -1,0 +1,47 @@
+schema_version: soulforge.workflow_optimizer.calibration_manifest.v0
+workflow_id: rag_work_card_router_v0
+calibration_id: cal_20260611_rag_work_card_router_quality_equiv_001
+created_at: "2026-06-11T15:08:02+09:00"
+calibration_mode: cli_quality_equivalence
+optimizer_skill: workflow-optimizer
+target_workflow_refs:
+  workflow: .workflow/rag_work_card_router_v0/workflow.yaml
+  step_graph: .workflow/rag_work_card_router_v0/step_graph.yaml
+  profile_policy: .workflow/rag_work_card_router_v0/profile_policy.yaml
+  history_note: .workflow/rag_work_card_router_v0/history/2026-06-11_quality_equiv_calibration.md
+registration_posture:
+  index_ref: .workflow/index.yaml
+  index_updated: false
+  workflow_registered: false
+  default_route_safe_claimed: false
+boundary:
+  public_safe_synthetic_fixture: true
+  source_payloads_used: false
+  source_text_chunks_used: false
+  project_private_payloads_used: false
+  secrets_used: false
+  workspaces_content_used: false
+  owner_approval_claimed: false
+candidate_profiles:
+  - candidate_id: A_mini_low_dwarf_auditor
+    label: gpt-5.4-mini|low|dwarf|auditor
+  - candidate_id: B_gpt54_low_dwarf_auditor
+    label: gpt-5.4|low|dwarf|auditor
+  - candidate_id: C_gpt55_low_dwarf_auditor
+    label: gpt-5.5|low|dwarf|auditor
+  - candidate_id: D_gpt55_medium_dwarf_auditor
+    label: gpt-5.5|medium|dwarf|auditor
+  - candidate_id: E_gpt55_xhigh_dwarf_auditor
+    label: gpt-5.5|xhigh|dwarf|auditor
+runner:
+  command_shape: codex exec --json --ephemeral --ignore-user-config --ignore-rules --skip-git-repo-check --sandbox read-only -C <temp> -m <model> -c model_reasoning_effort=<effort> -c service_tier="fast" -o <candidate_output> -
+  service_tier: fast
+  quality_source: cli_quality_equivalence_shortlist
+  telemetry_source: codex_exec_json_cli_proxy
+  subagent_token_usage_available: false
+  telemetry_exact_for_subagent: false
+  cost_confidence: relative_not_exact
+notes:
+  - The environment did not expose a separate subagent/candidate-runner surface; this run follows the repo-local optimizer sweep shortlist pattern named by the user.
+  - Candidate prompts used only the workflow contract, synthetic fixture, and assigned profile. They did not receive golden output or evaluator criteria.
+  - E is archived as the strongest-profile baseline output for comparison, not as source truth.

@@ -1,0 +1,7 @@
+{
+    "candidate_id":  "A_mini_low_dwarf_auditor",
+    "model":  "gpt-5.4-mini",
+    "reasoning_effort":  "low",
+    "exit_code":  0,
+    "wall_s":  27.728
+}

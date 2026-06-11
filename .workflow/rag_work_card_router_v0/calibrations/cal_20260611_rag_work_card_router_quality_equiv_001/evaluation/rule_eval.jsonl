@@ -1,0 +1,8 @@
+{"rule_id":"json_parse_and_required_keys","result":"pass","notes":"All five candidate outputs parsed as JSON and included the six required top-level artifacts."}
+{"rule_id":"private_raw_secret_boundary","result":"pass","notes":"Candidate outputs used synthetic refs and status fields only; no source text, chunks, raw question, private payload, secret, credential, runtime absolute path, or _workspaces content was detected in output inspection."}
+{"rule_id":"blocked_page_exclusion","result":"pass","notes":"All candidates kept p:005 blocked/excluded rather than source-supported."}
+{"rule_id":"manual_review_visibility","result":"pass","notes":"All candidates kept p:003 visible as manual review."}
+{"rule_id":"optional_context_refs","result":"fail_for_A_pass_for_B_C_D_E","notes":"A dropped supplied optional context refs; B, C, D, and E preserved them by stable ref."}
+{"rule_id":"downstream_route_surface","result":"fail_for_A_pass_for_B_C_D_E","notes":"A omitted owner_decision_packet_v0 and post_development_review_gate_v0 route surface; B, C, D, and E included the needed downstream route hints."}
+{"rule_id":"authority_non_claims","result":"pass","notes":"No candidate claimed owner approval, source truth, answer truth, canon promotion, default-route switch, or project execution authority."}
+{"rule_id":"selection","result":"B_selected","notes":"B was the lowest measured total-token candidate among quality passes; D was faster but higher-token, C was higher-token, and E was strongest but far more expensive."}

@@ -1,0 +1,19 @@
+﻿{
+    "candidate_id":  "B_gpt54_low_dwarf_auditor",
+    "label":  "gpt-5.4|low|dwarf|auditor",
+    "model":  "gpt-5.4",
+    "reasoning_effort":  "low",
+    "species":  "dwarf",
+    "class":  "auditor",
+    "usage":  {
+                  "input_tokens":  19324,
+                  "cached_input_tokens":  2432,
+                  "output_tokens":  1431,
+                  "reasoning_output_tokens":  15
+              },
+    "wall_s":  31.93,
+    "output_chars":  6730,
+    "exit_code":  0,
+    "telemetry_source":  "codex_exec_json_cli_proxy",
+    "service_tier":  "fast"
+}

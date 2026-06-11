@@ -1,0 +1,19 @@
+{
+  "schema_version": "soulforge.workflow_optimizer.evaluator_review.v0",
+  "workflow_id": "daily_work_ledger_capture_v0",
+  "calibration_id": "cal_20260611_daily_work_ledger_quality_equiv_001",
+  "review_method": "manual_workflow_optimizer_review_against_frozen_quality_gate",
+  "criteria_sufficient_for_user_goal": true,
+  "overfit_to_golden_wording": false,
+  "suspicious_or_unsafe_golden_assumptions": [],
+  "critical_conditions_added_after_baseline": [
+    "duplicate_candidate_keys_are_flagged_not_silently_merged",
+    "synthetic_preview_no_files_written_must_be_machine_visible",
+    "P00 is company general/unresolved company work only and not a Soulforge fallback"
+  ],
+  "claim_ceiling": "observed_synthetic_quality_equivalence",
+  "notes": [
+    "All criteria are derived from the workflow contract and synthetic fixture behavior, not from private payloads or real ledgers.",
+    "Golden output is used only to sanity-check evaluator completeness; candidates did not receive golden output."
+  ]
+}

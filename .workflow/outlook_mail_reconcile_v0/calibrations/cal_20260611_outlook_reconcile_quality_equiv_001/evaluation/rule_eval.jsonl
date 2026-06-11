@@ -1,0 +1,5 @@
+{"candidate_id":"A_mini_low_dwarf_auditor","hard_gates_passed":true,"critical_errors":[],"output_quality_score":98}
+{"candidate_id":"B_gpt54_low_dwarf_auditor","hard_gates_passed":true,"critical_errors":[],"output_quality_score":99}
+{"candidate_id":"C_gpt55_low_dwarf_auditor","hard_gates_passed":false,"critical_errors":["mutation_or_apply_claim"],"output_quality_score":85}
+{"candidate_id":"D_gpt55_medium_dwarf_auditor","hard_gates_passed":true,"critical_errors":[],"output_quality_score":100}
+{"candidate_id":"E_gpt55_xhigh_dwarf_auditor","hard_gates_passed":true,"critical_errors":[],"output_quality_score":100}
