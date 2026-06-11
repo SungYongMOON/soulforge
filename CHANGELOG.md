@@ -2,6 +2,25 @@
 
 ## 2026-06-12
 
+### Revision `working` - 루프 슬라이스: triage board 계약, loop e2e 테스트 초안, 게임-업무 용어 대조표
+
+- `docs/architecture/guild_hall/TRIAGE_BOARD_V0.md` 를 추가해
+  `operation_board.sections.triage_board` projection 의 field 계약,
+  metadata-only 입력 경계(INBOX triage register 의 count/date 신호만),
+  validation 규칙, 구현 순서를 고정했다. 구현은 Codex 몫으로 남긴다.
+- `guild_hall/snapshot/loop_e2e.test.mjs` 를 추가했다.
+  `monster -> mission -> battle log` 가 synthetic fixture 에서 operation
+  board 까지 보이는지 한 테스트로 고정하고, triage board 와 promotion
+  projection 은 `test.todo` 로 남겼다. validate 스크립트 연결은 구현과 함께
+  Codex 가 수행한다 (단독 실행: `node --test`, 현재 1 pass / 2 todo).
+- `docs/architecture/foundation/SHARED_GLOSSARY_V0.md` 에 게임 용어 ↔ 업무
+  용어 대조표 섹션을 추가해 팀 합류자가 게임식 표시 이름을 업무 용어로 읽을
+  수 있게 했다.
+- `docs/architecture/guild_hall/README.md` 색인에 triage board 계약 행을
+  추가했다.
+- 근거: 20260611 보안 슬라이스 패킷의 루프 슬라이스(6/15-17) Fable 5 산출물
+  선행 작성. 작업자: `claude_fable-5`, merge 전 Codex 검증 대상.
+
 ### Revision `working` - index drift 정리: 정본 7축 표기와 party 한글 표면 보정
 
 - `docs/architecture/foundation/REPOSITORY_PURPOSE.md` 의 `정본 6축` 을

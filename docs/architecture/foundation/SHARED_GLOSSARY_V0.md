@@ -42,6 +42,33 @@
 | promotion | 승격 | 반복 성공, source support, review evidence 를 바탕으로 후보를 skill/workflow/party/knowledge/canon 쪽으로 올리는 일 | 승격은 해당 owner surface, README/schema, changelog, 검증 경로를 함께 맞춰야 한다. |
 | public-safe | 공개 안전 | private payload, raw source body, secret, local runtime 값 없이 공개 repo 에 둘 수 있게 추상화된 상태 | 공개 가능 여부가 애매하면 public 이 아니라 private 으로 해석한다. |
 
+## 게임 용어 ↔ 업무 용어 대조표
+
+Soulforge 화면과 문서에 나오는 게임식 이름을 일반 업무 용어로 읽기 위한
+대조표다. 팀 합류자가 게임 용어를 외우지 않아도 시스템을 읽을 수 있게 한다.
+이 표는 표시 이름 해설일 뿐, 각 surface 의 owner 계약을 바꾸지 않는다.
+
+| 게임 용어 | 업무 용어 | 실제 위치/표면 | 한 줄 설명 |
+| --- | --- | --- | --- |
+| monster (몬스터) | 처리 대기 업무 항목 | `guild_hall/gateway` intake | 메일 등에서 파생된, 아직 처리되지 않은 업무 요청 한 건 |
+| dungeon (던전) | 프로젝트 | `_workspaces/<project_code>`, `_workmeta/<project_code>` | project code 하나가 던전 하나다 |
+| Dungeon Map | 프로젝트 현황판 | snapshot `operation_board.sections.dungeon_map` | 프로젝트별 작업장/메타데이터 표면 상태 요약 |
+| mission (미션) | 실행 계획 단위 | `.mission/<mission_id>/` | 승인된 작업 계획 1건과 그 준비 상태 |
+| Mission Board | 실행 계획판 | snapshot `operation_board.sections.mission_board` | 미션들의 상태/막힘 여부 목록 |
+| monster gate | 대기 업무 게이트 | snapshot `operation_board.sections.monster_gate` | 아직 프로젝트로 배정되지 않은 대기 업무 그룹 |
+| triage (분류) | 미배정 업무 행선지 결정 | `_workmeta/P00-000_INBOX/reports/triage/` | INBOX 항목을 프로젝트/보류/일정으로 보내는 결정 |
+| battle log (전투 기록) | 작업 실행 기록 | `_workmeta/<project_code>/log/events/**` | 실제 작업 1건이 어떻게 끝났는지의 이벤트 행 |
+| party (파티) | 워크플로 체인 템플릿 | `.party/<party_id>/` | 여러 절차를 묶어 재사용하는 실행 조합 |
+| guild_hall (길드홀) | 공용 운영 루트 | `guild_hall/` | 메일 수집, 알림, 점검처럼 프로젝트를 가로지르는 운영 기능 |
+| Guild Master 작전판 | 운영 현황판 (operation board) | snapshot `operation_board` | 위 보드들을 묶은 read-only 종합 화면 |
+| gateway (게이트웨이) | 입력 수집기 | `guild_hall/gateway/` | 메일 등 외부 입력을 안전 경계 안에서 수집/정리 |
+| night_watch (야간 경비) | 야간 자동 점검 | `guild_hall/night_watch/` | 밤 사이 상태를 요약하는 advisory 자동화 |
+| healer (힐러) | 자가 점검/복구 | `guild_hall/healer/` | 항상 켜 둔 PC 의 상태 self-check 와 보고 |
+| town_crier (전령) | 알림 전달 | `guild_hall/town_crier/` | 사용자에게 가는 알림/메시지 전달 표면 |
+| dev_worker | 경계 안 개발 작업자 | `guild_hall/dev_worker/` | task packet 을 받아 검토용 branch 를 만드는 bounded 작업자 |
+| species / class / hero | 실행 프로필 분류 | `.registry/species`, `.registry/classes` | 모델/역할 조합을 게임식 이름으로 분류한 것 |
+| promotion (승격) | 정식 절차 등록 | `.registry`, `.workflow` | 반복 검증된 작업 방식을 재사용 가능한 정본으로 올리는 일 |
+
 ## 짧은 상태 구분
 
 ```text
