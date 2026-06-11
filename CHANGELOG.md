@@ -77,6 +77,15 @@
   attachment payloads, footer payloads, secrets, default-route changes, and
   production-ready claims out of scope.
 
+### Revision `working` - AI 작업자 표기와 비-Codex 작업 branch 규칙 추가
+
+- `AGENTS.md` 업무 기록 규칙에 AI 작업자의 도구+모델 표기 규칙을 추가했다.
+  예: `codex_gpt-5.3`, `claude_fable-5`.
+- Codex 외 AI 도구의 직접 수정을 전용 작업 branch 로 제한하고 merge 전
+  owner/Codex 검증을 요구하는 규칙을 추가했다.
+- 이 변경은 `claude/fable5-actor-logging-rule` branch 에서 `claude_fable-5` 가
+  작성했고, 호스트 검증(`npm run validate`)은 merge 전 Codex 몫으로 남겼다.
+
 ## 2026-06-09
 
 ### Revision `working` - Latest update workflow calibration added
