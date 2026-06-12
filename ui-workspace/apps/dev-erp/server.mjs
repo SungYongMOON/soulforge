@@ -77,7 +77,27 @@ const server = createServer(async (req, res) => {
       return send(res, 200, { today, week_end: weekEnd, freshness: lastIngestAt(), projects: store.summary(today, weekEnd) });
     }
     if (path === "/api/items") return send(res, 200, store.items({ project: qp.project, status: qp.status, q: qp.q, due_before: qp.due === "soon" ? todayKey() : undefined }));
-    if (path === "/api/mail") return send(res, 200, store.mail({ project: qp.project, days: qp.days ? Number(qp.days) : 90 }));
+    if (path === "/api/mail") return send(res, 200, store.mail({
+      project: qp.project, days: qp.days !== undefined ? Number(qp.days) : 90,
+      q: qp.q, direction: qp.direction, label_id: qp.label_id
+    }));
+    if (path === "/api/labels" && req.method === "GET") return send(res, 200, store.labels());
+    if (path === "/api/labels" && req.method === "POST") {
+      let body = ""; for await (const chunk of req) body += chunk;
+      const { name, color } = JSON.parse(body || "{}");
+      const result = store.createLabel(name, color);
+      if (result.error) return send(res, 400, result);
+      store.appendEvent({ actor_ref: "owner", actor_kind: "human", kind: "label_create", to: result.label.name, used_refs: ["mail_label"], data_label: "real" });
+      return send(res, 200, result);
+    }
+    if (path === "/api/mail/label" && req.method === "POST") {
+      let body = ""; for await (const chunk of req) body += chunk;
+      const { mail_id, label_id, on } = JSON.parse(body || "{}");
+      const result = store.setMailLabel(mail_id, label_id, on !== false);
+      if (result.error) return send(res, 400, result);
+      store.appendEvent({ actor_ref: "owner", actor_kind: "human", kind: on !== false ? "label_add" : "label_remove", item_ref: mail_id, to: String(label_id), used_refs: ["mail_label_map"], data_label: "real" });
+      return send(res, 200, result);
+    }
     if (path === "/api/artifacts") return send(res, 200, store.artifacts({ project: qp.project, kind: qp.kind }));
     if (path === "/api/people") return send(res, 200, store.people());
     if (path === "/api/search") return send(res, 200, crossSearch(store, qp.q));

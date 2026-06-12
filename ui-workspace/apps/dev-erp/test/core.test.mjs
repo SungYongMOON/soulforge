@@ -125,3 +125,29 @@ test("P1b: purgeSynthetic 은 synthetic 만 지우고 real 은 보존 + meta 마
   store.setMeta("real_ingest_mtime", "67890");
   assert.equal(store.getMeta("real_ingest_mtime"), "67890");
 });
+
+test("run11: 수동 라벨 CRUD + 메일 라벨 필터 (Gmail식)", () => {
+  const store = freshStore();
+  loadFixture(store);
+  const dup = store.createLabel("  ", "#fff");
+  assert.equal(dup.error, "label_name_required");
+  const a = store.createLabel("긴급", "#b3372f");
+  assert.ok(a.label.id);
+  assert.equal(store.createLabel("긴급", "#000").error, "label_exists");
+
+  const [m1, m2] = store.mail({ days: 0 }).slice(0, 2);
+  assert.deepEqual(m1.label_ids, []);
+  assert.equal(store.setMailLabel(m1.id, a.label.id, true).ok, true);
+  assert.equal(store.setMailLabel("no-such", a.label.id, true).error, "mail_not_found");
+
+  const filtered = store.mail({ days: 0, label_id: a.label.id });
+  assert.equal(filtered.length, 1);
+  assert.equal(filtered[0].id, m1.id);
+  assert.deepEqual(filtered[0].label_ids, [a.label.id]);
+
+  store.setMailLabel(m1.id, a.label.id, false);
+  assert.equal(store.mail({ days: 0, label_id: a.label.id }).length, 0);
+
+  const q = store.mail({ days: 0, q: m2.subject.slice(0, 6) });
+  assert.ok(q.some((m) => m.id === m2.id));
+});

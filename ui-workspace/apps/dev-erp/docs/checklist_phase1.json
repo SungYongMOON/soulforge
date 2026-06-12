@@ -140,6 +140,20 @@
       "priority": "P0",
       "status": "done",
       "acceptance": "메타만(제목/일시/포인터, 원문복사여부=false 행만), data/ gitignore, 합성 표본 자동 제거, 재실행 시 mtime 마커로 중복 방지"
+    },
+    {
+      "id": "UX-004",
+      "title": "대시보드 '남은 일' 행 테이블 + KPI + 4분류 (run10, 페르소나 합의)",
+      "priority": "P0",
+      "status": "done",
+      "acceptance": "KPI 4종, 진행과제 위험순 행, 미연결 '—', 미분류 스트립, 내부 접힘, due 3버킷, XSS esc, 업무모드 게임요소 제거"
+    },
+    {
+      "id": "UX-005",
+      "title": "Gmail식 메일: 자동 프로젝트 칩 + 수동 라벨 CRUD + 기간/방향/검색 + 날짜 섹션 + 상세 패널 (run11)",
+      "priority": "P0",
+      "status": "done",
+      "acceptance": "라벨 생성·부착·필터 동작(실검증), 원문 포인터 복사, 미분류 시스템 칩. 원문 미적재 유지"
     }
   ],
   "owner_questions": [
@@ -159,6 +173,7 @@
     "2026-06-12 run3: owner 피드백(뼈대 전체 노출) 반영 — 12개 모듈 칸 추가, 양 모드 라벨, --watch 자동 반영 확인.",
     "2026-06-12 run5: ERP UX 벤치마크(Fiori/이카운트/Odoo) → owner 채택 N1+N5 구현, 브라우저 실검증. N2(홈 타일)·N3(Cmd+K)·N4(저장 탭)는 후속 후보.",
     "2026-06-12 run6-7 (자율 블록): Cmd+K 팔레트 + 홈 위젯 타일 구현·실검증. P1b(실데이터)는 owner 승인 대기로 미실행. 콘솔 에러 0, node:test 8/8 유지.",
-    "2026-06-12 run8 (P1b, owner 승인): build_real_meta.mjs + 부팅 자동 ingest. 13프로젝트/675메일 적재, 합성 제거, \\\\uXXXX 제목 디코드. 브라우저 실검증·콘솔 0. 원문/외부 전송 0건."
+    "2026-06-12 run8 (P1b, owner 승인): build_real_meta.mjs + 부팅 자동 ingest. 13프로젝트/675메일 적재, 합성 제거, \\\\uXXXX 제목 디코드. 브라우저 실검증·콘솔 0. 원문/외부 전송 0건.",
+    "2026-06-12 run9-11: 3페르소나 평가(PERSONA_REVIEW) → 대시보드 개편 + Gmail식 메일+라벨. 보류: URL 라우팅/정렬/스레드 그룹핑/검색 연산자(후속 후보), N4(owner 보류)."
   ]
 }

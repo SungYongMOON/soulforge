@@ -302,21 +302,120 @@ async function renderItems() {
   $("#fStatus").addEventListener("change", (e) => { state.statusFilter = e.target.value; render(); });
 }
 
+// 결정적 프로젝트 라벨 색 (저채도 12팔레트 — 파워유저 페르소나 제안)
+const LABEL_PALETTE = ["#3b6ea5", "#7c5db0", "#2c7a4b", "#9a6a00", "#b3552f", "#0e7490", "#a04668", "#5b7a2f", "#705a9e", "#207a6c", "#8a6d3b", "#54708a"];
+function projColor(id) {
+  let h = 0;
+  for (const ch of String(id)) h = (h * 31 + ch.charCodeAt(0)) >>> 0;
+  return LABEL_PALETTE[h % LABEL_PALETTE.length];
+}
+function projChip(projectId, cls) {
+  if (!projectId || cls === "inbox") return `<span class="label-chip gray">${state.lex.unlabeled}</span>`;
+  return `<span class="label-chip" style="--lc:${projColor(projectId)}" data-lp="${esc(projectId)}">${esc(projectId)}</span>`;
+}
+
 async function renderMail() {
-  const q = new URLSearchParams({ days: "90" });
-  if (state.projectFilter) q.set("project", state.projectFilter);
-  const mail = await api(`/api/mail?${q}`);
   const L = state.lex;
-  const rows = mail.map((m) => `<tr>
-      <td>${localTime(m.at)}</td>
-      <td>${m.direction === "in" ? L.mail_in : L.mail_out}</td>
-      <td>${m.subject}</td>
-      <td>${m.counterpart ?? "-"}</td>
-      <td>${m.project_id ?? "-"}</td>
-    </tr>`).join("");
-  $("#view").innerHTML = rows
-    ? `<table><thead><tr><th>${L.th_time}</th><th>${L.th_direction}</th><th>${L.th_subject}</th><th>${L.th_counterpart}</th><th>${L.project}</th></tr></thead><tbody>${rows}</tbody></table>`
-    : `<div class="empty">${L.empty_mail}</div>`;
+  const f = state.mailFilters ?? (state.mailFilters = { days: 90, direction: "", q: "", label: null });
+  const params = new URLSearchParams({ days: String(f.days) });
+  if (state.projectFilter) params.set("project", state.projectFilter);
+  if (f.q) params.set("q", f.q);
+  if (f.direction) params.set("direction", f.direction);
+  if (f.label) params.set("label_id", String(f.label));
+  const [mail, labels, summary] = await Promise.all([
+    api(`/api/mail?${params}`), api("/api/labels"), state._projCache ? Promise.resolve({ projects: state._projCache }) : api("/api/summary")
+  ]);
+  state._projCache = summary.projects;
+  const clsById = new Map(summary.projects.map((p) => [p.id, p.class]));
+  const labelById = new Map(labels.map((l) => [l.id, l]));
+
+  const labelBar = `<div class="label-bar">
+    ${labels.map((l) => `<span class="label-chip manual ${f.label === l.id ? "on" : ""}" style="--lc:${esc(l.color)}" data-l="${l.id}">${esc(l.name)}</span>`).join("")}
+    <input id="newLabelName" placeholder="${L.label_new_ph}" size="10" />
+    <button id="newLabelBtn" class="fav-chip">${L.label_add}</button>
+  </div>`;
+
+  const filterChips = state.projectFilter
+    ? `<div class="filter-chips"><span class="fav-chip active">${esc(state.projectFilter)} <b data-clear="p">×</b></span></div>` : "";
+
+  const toolbar = `<div class="filters">
+    <select id="mDays">
+      <option value="90" ${f.days === 90 ? "selected" : ""}>${L.period_90}</option>
+      <option value="365" ${f.days === 365 ? "selected" : ""}>${L.period_365}</option>
+      <option value="0" ${f.days === 0 ? "selected" : ""}>${L.period_all}</option>
+    </select>
+    <select id="mDir">
+      <option value="">${L.dir_all}</option>
+      <option value="in" ${f.direction === "in" ? "selected" : ""}>${L.mail_in}</option>
+      <option value="out" ${f.direction === "out" ? "selected" : ""}>${L.mail_out}</option>
+    </select>
+    <input id="mSearch" type="search" placeholder="${L.search_placeholder}" value="${esc(f.q)}" />
+  </div>`;
+
+  const todayKey = new Date().toISOString().slice(0, 10);
+  const weekStart = new Date(Date.now() - 6 * 86400000).toISOString().slice(0, 10);
+  const section = (m) => {
+    const d = m.at.slice(0, 10);
+    return d === todayKey ? "sec_today" : d >= weekStart ? "sec_week" : "sec_older";
+  };
+  let lastSec = null;
+  const rows = mail.map((m) => {
+    const sec = section(m);
+    const head = sec !== lastSec ? `<tr class="date-sep"><td colspan="4">${L[sec]}</td></tr>` : "";
+    lastSec = sec;
+    const manual = m.label_ids.map((id) => labelById.get(id)).filter(Boolean)
+      .map((l) => `<span class="label-chip manual mini" style="--lc:${esc(l.color)}">${esc(l.name)}</span>`).join("");
+    return `${head}<tr class="mail-row ${state.mailSel === m.id ? "sel" : ""}" data-m="${esc(m.id)}">
+      <td class="mail-meta">${projChip(m.project_id, clsById.get(m.project_id))}${manual}</td>
+      <td class="mail-from">${m.direction === "out" ? `<i>→</i> ` : ""}${esc(m.counterpart ?? "-")}</td>
+      <td class="mail-subj">${esc(m.subject)}</td>
+      <td class="mail-time">${localTime(m.at)}</td>
+    </tr>`;
+  }).join("");
+
+  const sel = mail.find((m) => m.id === state.mailSel);
+  const detail = sel ? `<aside class="mail-detail">
+      <h3>${esc(sel.subject)}</h3>
+      <dl><div><dt>${L.th_counterpart}</dt><dd>${esc(sel.counterpart ?? "-")}</dd></div>
+        <div><dt>${L.th_time}</dt><dd>${localTime(sel.at)} · ${sel.direction === "in" ? L.mail_in : L.mail_out}</dd></div>
+        <div><dt>${L.project}</dt><dd>${esc(sel.project_id ?? "-")}</dd></div>
+        <div><dt>${L.detail_pointer}</dt><dd class="pointer">${esc(sel.pointer_ref ?? "-")} <button class="copy-btn" data-c="${esc(sel.pointer_ref ?? "")}">${L.copy}</button></dd></div></dl>
+      <h4>${L.detail_labels}</h4>
+      <div class="label-bar">${labels.map((l) => `<span class="label-chip manual ${sel.label_ids.includes(l.id) ? "on" : ""}" style="--lc:${esc(l.color)}" data-toggle="${l.id}">${esc(l.name)}</span>`).join("") || `<span class="dim">-</span>`}</div>
+    </aside>` : "";
+
+  $("#view").innerHTML = `${labelBar}${filterChips}${toolbar}
+    <div class="mail-split">${rows ? `<table class="mail-table"><tbody>${rows}</tbody></table>` : `<div class="empty">${L.empty_mail}</div>`}${detail}</div>`;
+
+  $("#mDays").addEventListener("change", (e) => { f.days = Number(e.target.value); render(); });
+  $("#mDir").addEventListener("change", (e) => { f.direction = e.target.value; render(); });
+  $("#mSearch").addEventListener("keydown", (e) => { if (e.key === "Enter") { f.q = e.target.value; render(); } });
+  $("#view").querySelector("[data-clear]")?.addEventListener("click", () => { state.projectFilter = ""; render(); });
+  $("#newLabelBtn").addEventListener("click", async () => {
+    const name = $("#newLabelName").value.trim();
+    if (!name) return;
+    const r = await post("/api/labels", { name, color: LABEL_PALETTE[labels.length % LABEL_PALETTE.length] });
+    if (r.ok) render();
+  });
+  $("#view").querySelectorAll(".label-bar [data-l]").forEach((c) =>
+    c.addEventListener("click", () => { f.label = f.label === Number(c.dataset.l) ? null : Number(c.dataset.l); render(); })
+  );
+  $("#view").querySelectorAll(".mail-row").forEach((r) =>
+    r.addEventListener("click", () => { state.mailSel = r.dataset.m; render(); })
+  );
+  $("#view").querySelectorAll("[data-lp]").forEach((c) =>
+    c.addEventListener("click", (e) => { e.stopPropagation(); state.projectFilter = c.dataset.lp; render(); })
+  );
+  $("#view").querySelectorAll("[data-toggle]").forEach((c) =>
+    c.addEventListener("click", async () => {
+      const on = !c.classList.contains("on");
+      await post("/api/mail/label", { mail_id: state.mailSel, label_id: Number(c.dataset.toggle), on });
+      render();
+    })
+  );
+  $("#view").querySelectorAll(".copy-btn").forEach((b) =>
+    b.addEventListener("click", () => navigator.clipboard?.writeText(b.dataset.c))
+  );
 }
 
 async function renderArtifacts() {

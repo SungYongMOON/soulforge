@@ -100,6 +100,31 @@ nav button:hover .pin-btn { opacity: 1; }
 .internal-fold { margin-top: 8px; font-size: 12.5px; color: var(--muted); }
 .internal-fold summary { cursor: pointer; }
 @media (max-width: 800px) { .kpi-row { grid-template-columns: repeat(2, 1fr); } }
+.label-chip { --lc: #3b6ea5; display: inline-flex; align-items: center; padding: 2px 9px; border-radius: 999px; font-size: 11.5px; font-weight: 600; color: var(--lc); background: color-mix(in srgb, var(--lc) 14%, var(--panel)); border: 1px solid color-mix(in srgb, var(--lc) 35%, var(--panel)); cursor: pointer; white-space: nowrap; }
+.label-chip.gray { --lc: #67707d; }
+.label-chip.manual.on { background: var(--lc); color: #fff; }
+.label-chip.mini { font-size: 10.5px; padding: 1px 7px; }
+.label-bar { display: flex; flex-wrap: wrap; gap: 6px; align-items: center; }
+.label-bar input { border: 1px solid var(--line); border-radius: 8px; padding: 5px 8px; font-size: 12px; background: var(--panel); color: var(--text); }
+.filter-chips { display: flex; gap: 6px; }
+.filter-chips b { cursor: pointer; margin-left: 4px; }
+.mail-split { display: grid; grid-template-columns: 1fr; gap: 12px; }
+.mail-split:has(.mail-detail) { grid-template-columns: 1.6fr 1fr; }
+.mail-table td { padding: 8px 10px; }
+.mail-row { cursor: pointer; }
+.mail-row:hover td, .mail-row.sel td { background: var(--chip); }
+.mail-meta { display: flex; gap: 4px; flex-wrap: wrap; max-width: 180px; }
+.mail-from { font-weight: 600; max-width: 180px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.mail-from i { font-style: normal; color: var(--muted); }
+.mail-subj { max-width: 420px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.mail-time { color: var(--muted); font-size: 12px; white-space: nowrap; text-align: right; }
+.date-sep td { background: var(--bg); color: var(--muted); font-size: 11.5px; font-weight: 700; letter-spacing: .04em; padding: 6px 10px; }
+.mail-detail { background: var(--panel); border: 1px solid var(--line); border-radius: 12px; padding: 14px 16px; align-self: start; position: sticky; top: 12px; }
+.mail-detail h3 { margin: 0 0 10px; font-size: 14.5px; }
+.mail-detail h4 { margin: 12px 0 6px; font-size: 12.5px; color: var(--muted); }
+.mail-detail dl { margin: 0; display: flex; flex-direction: column; gap: 6px; }
+.mail-detail dt { font-size: 11px; color: var(--muted); }
+.mail-detail dd { margin: 0; font-size: 13px; }
 .nav-group-label { font-size: 11px; font-weight: 700; color: var(--muted); letter-spacing: .04em; padding: 4px 10px 2px; text-transform: uppercase; }
 nav button { display: flex; align-items: center; justify-content: space-between; gap: 6px; width: 100%; }
 .phase-tag { font-style: normal; font-size: 10px; color: var(--muted); background: var(--chip); border-radius: 999px; padding: 1px 6px; white-space: nowrap; }

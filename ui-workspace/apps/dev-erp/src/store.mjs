@@ -87,6 +87,16 @@ CREATE TABLE IF NOT EXISTS event_log (   -- append-only. battle_event 호환
   data_label TEXT NOT NULL DEFAULT 'synthetic',
   note TEXT
 );
+CREATE TABLE IF NOT EXISTS mail_label (   -- Gmail식 수동 라벨 (메타데이터, 첫 쓰기 도메인)
+  id INTEGER PRIMARY KEY AUTOINCREMENT,
+  name TEXT NOT NULL UNIQUE,
+  color TEXT NOT NULL DEFAULT '#195a8e'
+);
+CREATE TABLE IF NOT EXISTS mail_label_map (
+  mail_id TEXT NOT NULL,
+  label_id INTEGER NOT NULL REFERENCES mail_label(id),
+  PRIMARY KEY (mail_id, label_id)
+);
 CREATE TABLE IF NOT EXISTS game_profile ( -- 게임 전용 확장 (core 는 모름)
   item_ref TEXT PRIMARY KEY REFERENCES core_item(id),
   sprite TEXT,
@@ -284,16 +294,53 @@ export class Store {
       .all(...args);
   }
 
-  mail({ project, days } = {}) {
+  // Gmail식 확장: 기간(0=전체)/검색(제목·상대)/방향/수동라벨 필터 + 라벨 동봉
+  mail({ project, days, q, direction, label_id } = {}) {
     const cond = [];
     const args = [];
-    if (project) { cond.push("project_id=?"); args.push(project); }
+    if (project) { cond.push("m.project_id=?"); args.push(project); }
     if (days) {
       const cutoff = new Date(Date.now() - days * 86400000).toISOString();
-      cond.push("at>=?"); args.push(cutoff);
+      cond.push("m.at>=?"); args.push(cutoff);
     }
+    if (q) { cond.push("(m.subject LIKE ? OR m.counterpart LIKE ?)"); args.push(`%${q}%`, `%${q}%`); }
+    if (direction) { cond.push("m.direction=?"); args.push(direction); }
+    if (label_id) { cond.push("EXISTS (SELECT 1 FROM mail_label_map x WHERE x.mail_id=m.id AND x.label_id=?)"); args.push(Number(label_id)); }
     const where = cond.length ? `WHERE ${cond.join(" AND ")}` : "";
-    return this.db.prepare(`SELECT * FROM core_mail ${where} ORDER BY at DESC LIMIT 500`).all(...args);
+    const rows = this.db
+      .prepare(
+        `SELECT m.*, (SELECT GROUP_CONCAT(label_id) FROM mail_label_map mm WHERE mm.mail_id=m.id) AS label_ids
+         FROM core_mail m ${where} ORDER BY m.at DESC LIMIT 500`
+      )
+      .all(...args);
+    return rows.map((r) => ({ ...r, label_ids: r.label_ids ? String(r.label_ids).split(",").map(Number) : [] }));
+  }
+
+  // --- 수동 라벨 (첫 쓰기 도메인: 메타데이터만, event_log 기록은 호출측) ---
+  labels() {
+    return this.db.prepare("SELECT * FROM mail_label ORDER BY name").all();
+  }
+
+  createLabel(name, color) {
+    const trimmed = String(name ?? "").trim();
+    if (!trimmed) return { error: "label_name_required" };
+    try {
+      this.db.prepare("INSERT INTO mail_label(name,color) VALUES(?,?)").run(trimmed, color || "#195a8e");
+    } catch {
+      return { error: "label_exists" };
+    }
+    return { label: this.db.prepare("SELECT * FROM mail_label WHERE name=?").get(trimmed) };
+  }
+
+  setMailLabel(mailId, labelId, on) {
+    if (!this.db.prepare("SELECT 1 FROM core_mail WHERE id=?").get(mailId)) return { error: "mail_not_found" };
+    if (!this.db.prepare("SELECT 1 FROM mail_label WHERE id=?").get(labelId)) return { error: "label_not_found" };
+    if (on) {
+      this.db.prepare("INSERT OR IGNORE INTO mail_label_map(mail_id,label_id) VALUES(?,?)").run(mailId, Number(labelId));
+    } else {
+      this.db.prepare("DELETE FROM mail_label_map WHERE mail_id=? AND label_id=?").run(mailId, Number(labelId));
+    }
+    return { ok: true };
   }
 
   artifacts({ project, kind } = {}) {
