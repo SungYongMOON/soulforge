@@ -20,8 +20,12 @@ function logView(view) {
 }
 
 async function loadLexicon() {
-  const data = await api(`/api/lexicon?mode=${state.mode}`);
+  const [data, mods] = await Promise.all([
+    api(`/api/lexicon?mode=${state.mode}`),
+    api(`/api/modules?mode=${state.mode}`)
+  ]);
   state.lex = data.labels;
+  state.modules = mods;
   document.body.dataset.mode = state.mode;
   $("#appTitle").textContent = state.lex.app_title;
   $("#modeLabel").textContent = state.lex.mode_label;
@@ -40,12 +44,33 @@ const VIEWS = ["home", "items", "mail", "artifacts", "search"];
 const navKey = { home: "nav_home", items: "nav_items", mail: "nav_mail", artifacts: "nav_artifacts", search: "nav_search" };
 
 function renderNav() {
-  $("#nav").innerHTML = VIEWS.map(
+  const core = VIEWS.map(
     (v) => `<button data-v="${v}" class="${state.view === v ? "active" : ""}">${state.lex[navKey[v]]}</button>`
   ).join("");
+  const mods = (state.modules ?? []).map(
+    (m) => `<button data-v="mod:${m.id}" class="${state.view === `mod:${m.id}` ? "active" : ""}">
+      <span>${m.nav}</span><em class="phase-tag">${m.phase}</em></button>`
+  ).join("");
+  $("#nav").innerHTML = core + `<div class="nav-divider"></div>` + mods;
   $("#nav").querySelectorAll("button").forEach((b) =>
     b.addEventListener("click", () => { state.view = b.dataset.v; render(); })
   );
+}
+
+function renderModulePlaceholder(modId) {
+  const m = (state.modules ?? []).find((x) => x.id === modId);
+  if (!m) { $("#view").innerHTML = `<div class="empty">?</div>`; return; }
+  const ths = m.columns.map((c) => `<th>${c}</th>`).join("");
+  const dash = m.columns.map(() => `<td class="dim">—</td>`).join("");
+  const incoming = m.incoming.map((i) => `<li>${i}</li>`).join("");
+  $("#view").innerHTML = `
+    <div class="module-head">
+      <span class="phase-tag big">${m.phase} 가동 예정</span>
+      <p>${m.desc}</p>
+    </div>
+    <table><thead><tr>${ths}</tr></thead>
+      <tbody><tr>${dash}</tr><tr>${dash}</tr><tr>${dash}</tr></tbody></table>
+    <div class="module-incoming"><h2>이 칸에 들어올 것</h2><ul>${incoming}</ul></div>`;
 }
 
 function statusBadge(s) {
@@ -165,6 +190,12 @@ async function renderSearch(term) {
 async function render() {
   renderNav();
   const titles = { home: "nav_home", items: "nav_items", mail: "nav_mail", artifacts: "nav_artifacts", search: "nav_search" };
+  if (state.view.startsWith("mod:")) {
+    const m = (state.modules ?? []).find((x) => `mod:${x.id}` === state.view);
+    $("#viewTitle").textContent = m?.nav ?? "";
+    logView(state.view);
+    return renderModulePlaceholder(state.view.slice(4));
+  }
   $("#viewTitle").textContent = state.lex[titles[state.view]] ?? "";
   logView(state.view);
   if (state.view === "home") return renderHome();

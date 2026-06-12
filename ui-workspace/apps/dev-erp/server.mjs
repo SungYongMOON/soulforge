@@ -11,6 +11,7 @@ import { openStore } from "./src/store.mjs";
 import { loadFixture } from "./src/fixture.mjs";
 import { ingestFromFile } from "./src/adapter.mjs";
 import { getLexicon, LEXICON } from "./src/lexicon.mjs";
+import { modulesFor } from "./src/modules.mjs";
 import { crossSearch } from "./src/search.mjs";
 
 const HERE = dirname(fileURLToPath(import.meta.url));
@@ -66,6 +67,7 @@ const server = createServer(async (req, res) => {
     if (path === "/api/people") return send(res, 200, store.people());
     if (path === "/api/search") return send(res, 200, crossSearch(store, qp.q));
     if (path === "/api/lexicon") return send(res, 200, { mode: qp.mode ?? "business", modes: Object.keys(LEXICON), labels: getLexicon(qp.mode) });
+    if (path === "/api/modules") return send(res, 200, modulesFor(qp.mode));
     if (path === "/api/events/recent") return send(res, 200, store.recentEvents(30));
     if (path === "/api/events" && req.method === "POST") {
       let body = "";
