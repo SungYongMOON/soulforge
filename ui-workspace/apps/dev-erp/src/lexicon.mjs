@@ -42,7 +42,12 @@ export const LEXICON = {
     mail_out: "발신",
     copy: "복사",
     mode_label: "표시 모드",
-    search_placeholder: "검색"
+    search_placeholder: "검색",
+    group_work: "운영",
+    group_records: "기록·이력",
+    group_supply: "자재·구매",
+    group_knowledge: "지식·도구",
+    group_team: "팀"
   },
   fantasy: {
     app_title: "길드 작전판",
@@ -85,7 +90,12 @@ export const LEXICON = {
     mail_out: "발신",
     copy: "복사",
     mode_label: "표시 모드",
-    search_placeholder: "정찰"
+    search_placeholder: "정찰",
+    group_work: "전장",
+    group_records: "기록 보관소",
+    group_supply: "병참",
+    group_knowledge: "도서관·공방",
+    group_team: "길드"
   }
 };
 

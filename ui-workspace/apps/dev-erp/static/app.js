@@ -43,15 +43,31 @@ function localTime(iso) {
 const VIEWS = ["home", "items", "mail", "artifacts", "search"];
 const navKey = { home: "nav_home", items: "nav_items", mail: "nav_mail", artifacts: "nav_artifacts", search: "nav_search" };
 
+// IA 그룹: 운영 / 기록·이력 / 자재·구매 / 지식·도구 / 팀 (DESIGN 3절)
+const NAV_LAYOUT = [
+  { g: "group_work", items: ["home", "items", "mod:gates", "search"] },
+  { g: "group_records", items: ["mail", "mod:meetings", "mod:reports", "artifacts"] },
+  { g: "group_supply", items: ["mod:purchase", "mod:inventory", "mod:boards", "mod:stockwatch"] },
+  { g: "group_knowledge", items: ["mod:knowledge", "mod:calculators", "mod:contacts"] },
+  { g: "group_team", items: ["mod:requests", "mod:analytics"] }
+];
+
+function navButton(v) {
+  if (v.startsWith("mod:")) {
+    const m = (state.modules ?? []).find((x) => `mod:${x.id}` === v);
+    if (!m) return "";
+    return `<button data-v="${v}" class="${state.view === v ? "active" : ""}">
+      <span>${m.nav}</span><em class="phase-tag">${m.phase}</em></button>`;
+  }
+  return `<button data-v="${v}" class="${state.view === v ? "active" : ""}"><span>${state.lex[navKey[v]]}</span></button>`;
+}
+
 function renderNav() {
-  const core = VIEWS.map(
-    (v) => `<button data-v="${v}" class="${state.view === v ? "active" : ""}">${state.lex[navKey[v]]}</button>`
+  $("#nav").innerHTML = NAV_LAYOUT.map(
+    (group) => `<div class="nav-group">
+      <div class="nav-group-label">${state.lex[group.g]}</div>
+      ${group.items.map(navButton).join("")}</div>`
   ).join("");
-  const mods = (state.modules ?? []).map(
-    (m) => `<button data-v="mod:${m.id}" class="${state.view === `mod:${m.id}` ? "active" : ""}">
-      <span>${m.nav}</span><em class="phase-tag">${m.phase}</em></button>`
-  ).join("");
-  $("#nav").innerHTML = core + `<div class="nav-divider"></div>` + mods;
   $("#nav").querySelectorAll("button").forEach((b) =>
     b.addEventListener("click", () => { state.view = b.dataset.v; render(); })
   );
