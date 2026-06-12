@@ -4,8 +4,23 @@ const state = {
   mode: localStorage.getItem("dev_erp_mode") || "business",
   view: "home",
   lex: {},
-  projectFilter: ""
+  projectFilter: "",
+  pins: JSON.parse(localStorage.getItem("dev_erp_pins") || "[]")
 };
+
+function togglePin(v) {
+  const i = state.pins.indexOf(v);
+  if (i >= 0) state.pins.splice(i, 1); else state.pins.push(v);
+  localStorage.setItem("dev_erp_pins", JSON.stringify(state.pins));
+  render();
+}
+
+function labelFor(v) {
+  if (v.startsWith("mod:")) {
+    return (state.modules ?? []).find((x) => `mod:${x.id}` === v)?.nav ?? v;
+  }
+  return state.lex[navKey[v]] ?? v;
+}
 
 const $ = (sel) => document.querySelector(sel);
 const api = async (path) => (await fetch(path)).json();
@@ -53,23 +68,37 @@ const NAV_LAYOUT = [
 ];
 
 function navButton(v) {
+  const pinned = state.pins.includes(v);
+  const star = `<i class="pin-btn ${pinned ? "on" : ""}" data-pin="${v}" title="${state.lex.pin_toggle}">${pinned ? "★" : "☆"}</i>`;
   if (v.startsWith("mod:")) {
     const m = (state.modules ?? []).find((x) => `mod:${x.id}` === v);
     if (!m) return "";
     return `<button data-v="${v}" class="${state.view === v ? "active" : ""}">
-      <span>${m.nav}</span><em class="phase-tag">${m.phase}</em></button>`;
+      <span>${m.nav}</span><span class="nav-side"><em class="phase-tag">${m.phase}</em>${star}</span></button>`;
   }
-  return `<button data-v="${v}" class="${state.view === v ? "active" : ""}"><span>${state.lex[navKey[v]]}</span></button>`;
+  return `<button data-v="${v}" class="${state.view === v ? "active" : ""}"><span>${state.lex[navKey[v]]}</span><span class="nav-side">${star}</span></button>`;
 }
 
 function renderNav() {
-  $("#nav").innerHTML = NAV_LAYOUT.map(
+  const pinnedGroup = state.pins.length
+    ? `<div class="nav-group"><div class="nav-group-label">${state.lex.group_pinned}</div>${state.pins.map(navButton).join("")}</div>`
+    : "";
+  $("#nav").innerHTML = pinnedGroup + NAV_LAYOUT.map(
     (group) => `<div class="nav-group">
       <div class="nav-group-label">${state.lex[group.g]}</div>
       ${group.items.map(navButton).join("")}</div>`
   ).join("");
   $("#nav").querySelectorAll("button").forEach((b) =>
     b.addEventListener("click", () => { state.view = b.dataset.v; render(); })
+  );
+  $("#nav").querySelectorAll(".pin-btn").forEach((p) =>
+    p.addEventListener("click", (e) => { e.stopPropagation(); togglePin(p.dataset.pin); })
+  );
+  $("#favBar").innerHTML = state.pins.map(
+    (v) => `<button class="fav-chip ${state.view === v ? "active" : ""}" data-v="${v}">${labelFor(v)}</button>`
+  ).join("");
+  $("#favBar").querySelectorAll(".fav-chip").forEach((c) =>
+    c.addEventListener("click", () => { state.view = c.dataset.v; render(); })
   );
 }
 

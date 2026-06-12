@@ -62,6 +62,13 @@ td.num { text-align: right; font-variant-numeric: tabular-nums; }
 
 .nav-divider { border-top: 1px solid var(--line); margin: 8px 4px; }
 .nav-group { margin-bottom: 10px; }
+.nav-side { display: inline-flex; align-items: center; gap: 5px; }
+.pin-btn { font-style: normal; cursor: pointer; color: var(--muted); opacity: 0; transition: opacity .15s; }
+nav button:hover .pin-btn { opacity: 1; }
+.pin-btn.on { opacity: 1; color: var(--accent); }
+.fav-bar { display: flex; gap: 6px; flex: 1; justify-content: flex-end; overflow-x: auto; }
+.fav-chip { border: 1px solid var(--line); background: var(--chip); color: var(--text); border-radius: 999px; padding: 5px 12px; font-size: 12.5px; cursor: pointer; white-space: nowrap; }
+.fav-chip.active { color: var(--accent); border-color: var(--accent); }
 .nav-group-label { font-size: 11px; font-weight: 700; color: var(--muted); letter-spacing: .04em; padding: 4px 10px 2px; text-transform: uppercase; }
 nav button { display: flex; align-items: center; justify-content: space-between; gap: 6px; width: 100%; }
 .phase-tag { font-style: normal; font-size: 10px; color: var(--muted); background: var(--chip); border-radius: 999px; padding: 1px 6px; white-space: nowrap; }
