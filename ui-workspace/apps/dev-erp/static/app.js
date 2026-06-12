@@ -24,7 +24,16 @@ async function loadLexicon() {
   state.lex = data.labels;
   document.body.dataset.mode = state.mode;
   $("#appTitle").textContent = state.lex.app_title;
+  $("#modeLabel").textContent = state.lex.mode_label;
+  $("#globalSearch").placeholder = state.lex.search_placeholder;
   renderNav();
+}
+
+function localTime(iso) {
+  const d = new Date(iso);
+  return Number.isNaN(d.getTime())
+    ? iso
+    : d.toLocaleString("ko-KR", { month: "numeric", day: "numeric", hour: "2-digit", minute: "2-digit" });
 }
 
 const VIEWS = ["home", "items", "mail", "artifacts", "search"];
@@ -52,7 +61,7 @@ function dueCell(due, todayKey) {
 
 async function renderHome() {
   const data = await api("/api/summary");
-  $("#freshness").textContent = data.freshness ? `${state.lex.freshness}: ${data.freshness.slice(0, 16).replace("T", " ")}` : "";
+  $("#freshness").textContent = data.freshness ? `${state.lex.freshness}: ${localTime(data.freshness)}` : "";
   const cards = data.projects.map((p) => {
     const mobs = Array.from({ length: Math.min(p.open, 20) }, () => '<span class="mob"></span>').join("");
     const boss = p.boss_open > 0 ? '<span class="mob boss" title="boss"></span>' : "";
@@ -85,6 +94,7 @@ async function renderItems() {
   const opts = projects.map((p) => `<option value="${p.id}" ${state.projectFilter === p.id ? "selected" : ""}>${p.title}</option>`).join("");
   const statuses = ["open", "doing", "waiting", "blocked", "done"];
   const sopts = statuses.map((s) => `<option value="${s}" ${state.statusFilter === s ? "selected" : ""}>${state.lex[`status_${s}`]}</option>`).join("");
+  const L = state.lex;
   const rows = items.map((i) => `<tr>
       <td>${i.title}${i.encounter_role === "boss" ? " 👑" : ""}</td>
       <td>${i.project_id}</td>
@@ -95,10 +105,10 @@ async function renderItems() {
     </tr>`).join("");
   $("#view").innerHTML = `
     <div class="filters">
-      <select id="fProject"><option value="">${state.lex.project}: 전체</option>${opts}</select>
-      <select id="fStatus"><option value="">상태: 전체</option>${sopts}</select>
+      <select id="fProject"><option value="">${L.project}: ${L.all_label}</option>${opts}</select>
+      <select id="fStatus"><option value="">${L.th_status}: ${L.all_label}</option>${sopts}</select>
     </div>
-    ${rows ? `<table><thead><tr><th>${state.lex.item}</th><th>${state.lex.project}</th><th>상태</th><th>마감</th><th>담당</th><th>자동화</th></tr></thead><tbody>${rows}</tbody></table>` : `<div class="empty">${state.lex.empty_items}</div>`}`;
+    ${rows ? `<table><thead><tr><th>${L.item}</th><th>${L.project}</th><th>${L.th_status}</th><th>${L.th_due}</th><th>${L.th_assignee}</th><th>${L.th_automation}</th></tr></thead><tbody>${rows}</tbody></table>` : `<div class="empty">${L.empty_items}</div>`}`;
   $("#fProject").addEventListener("change", (e) => { state.projectFilter = e.target.value; render(); });
   $("#fStatus").addEventListener("change", (e) => { state.statusFilter = e.target.value; render(); });
 }
@@ -107,30 +117,32 @@ async function renderMail() {
   const q = new URLSearchParams({ days: "90" });
   if (state.projectFilter) q.set("project", state.projectFilter);
   const mail = await api(`/api/mail?${q}`);
+  const L = state.lex;
   const rows = mail.map((m) => `<tr>
-      <td>${m.at.slice(0, 16).replace("T", " ")}</td>
-      <td>${m.direction === "in" ? "수신" : "발신"}</td>
+      <td>${localTime(m.at)}</td>
+      <td>${m.direction === "in" ? L.mail_in : L.mail_out}</td>
       <td>${m.subject}</td>
       <td>${m.counterpart ?? "-"}</td>
       <td>${m.project_id ?? "-"}</td>
     </tr>`).join("");
   $("#view").innerHTML = rows
-    ? `<table><thead><tr><th>시각</th><th>방향</th><th>제목</th><th>상대</th><th>${state.lex.project}</th></tr></thead><tbody>${rows}</tbody></table>`
-    : `<div class="empty">${state.lex.empty_mail}</div>`;
+    ? `<table><thead><tr><th>${L.th_time}</th><th>${L.th_direction}</th><th>${L.th_subject}</th><th>${L.th_counterpart}</th><th>${L.project}</th></tr></thead><tbody>${rows}</tbody></table>`
+    : `<div class="empty">${L.empty_mail}</div>`;
 }
 
 async function renderArtifacts() {
   const q = new URLSearchParams();
   if (state.projectFilter) q.set("project", state.projectFilter);
   const arts = await api(`/api/artifacts?${q}`);
+  const L = state.lex;
   const rows = arts.map((a) => `<tr>
       <td>${a.title}</td><td>${a.kind}</td><td>${a.project_id}</td>
       <td>${a.updated_at ?? "-"}</td>
-      <td class="pointer">${a.pointer} <button class="copy-btn" data-c="${a.pointer}">복사</button></td>
+      <td class="pointer">${a.pointer} <button class="copy-btn" data-c="${a.pointer}">${L.copy}</button></td>
     </tr>`).join("");
   $("#view").innerHTML = rows
-    ? `<table><thead><tr><th>제목</th><th>종류</th><th>${state.lex.project}</th><th>갱신</th><th>위치(포인터)</th></tr></thead><tbody>${rows}</tbody></table>`
-    : `<div class="empty">${state.lex.empty_artifacts}</div>`;
+    ? `<table><thead><tr><th>${L.th_subject}</th><th>${L.th_kind}</th><th>${L.project}</th><th>${L.th_updated}</th><th>${L.th_pointer}</th></tr></thead><tbody>${rows}</tbody></table>`
+    : `<div class="empty">${L.empty_artifacts}</div>`;
   $("#view").querySelectorAll(".copy-btn").forEach((b) =>
     b.addEventListener("click", () => navigator.clipboard?.writeText(b.dataset.c))
   );

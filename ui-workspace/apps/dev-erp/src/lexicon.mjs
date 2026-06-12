@@ -25,7 +25,24 @@ export const LEXICON = {
     empty_items: "표시할 할 일이 없습니다",
     empty_mail: "메일 이력이 없습니다",
     empty_artifacts: "산출물 포인터가 없습니다",
-    search_hint: "프로젝트명·업체명·제목으로 검색"
+    search_hint: "프로젝트명·업체명·제목으로 검색",
+    th_status: "상태",
+    th_due: "마감",
+    th_assignee: "담당",
+    th_automation: "자동화",
+    th_time: "시각",
+    th_direction: "방향",
+    th_subject: "제목",
+    th_counterpart: "상대",
+    th_kind: "종류",
+    th_updated: "갱신",
+    th_pointer: "위치(포인터)",
+    all_label: "전체",
+    mail_in: "수신",
+    mail_out: "발신",
+    copy: "복사",
+    mode_label: "표시 모드",
+    search_placeholder: "검색"
   },
   fantasy: {
     app_title: "길드 작전판",
@@ -51,7 +68,24 @@ export const LEXICON = {
     empty_items: "출몰한 몬스터가 없습니다",
     empty_mail: "전령 기록이 없습니다",
     empty_artifacts: "전리품이 없습니다",
-    search_hint: "던전·상대·몬스터 이름으로 정찰"
+    search_hint: "던전·상대·몬스터 이름으로 정찰",
+    th_status: "상태",
+    th_due: "둠클락",
+    th_assignee: "담당 유닛",
+    th_automation: "자동사냥",
+    th_time: "시각",
+    th_direction: "방향",
+    th_subject: "전갈 제목",
+    th_counterpart: "상대",
+    th_kind: "종류",
+    th_updated: "갱신",
+    th_pointer: "보관 위치",
+    all_label: "전체",
+    mail_in: "도착",
+    mail_out: "발신",
+    copy: "복사",
+    mode_label: "표시 모드",
+    search_placeholder: "정찰"
   }
 };
 
