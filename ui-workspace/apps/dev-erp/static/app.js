@@ -400,20 +400,33 @@ async function renderMail() {
     const d = m.at.slice(0, 10);
     return d === todayKey ? "sec_today" : d >= weekStart ? "sec_week" : "sec_older";
   };
+  const checked = (state.mailChecked ??= new Set());
   let lastSec = null;
   const rows = mail.map((m) => {
     const sec = section(m);
-    const head = sec !== lastSec ? `<tr class="date-sep"><td colspan="4">${L[sec]}</td></tr>` : "";
+    const head = sec !== lastSec ? `<tr class="date-sep"><td colspan="5">${L[sec]}</td></tr>` : "";
     lastSec = sec;
     const manual = m.label_ids.map((id) => labelById.get(id)).filter(Boolean)
       .map((l) => `<span class="label-chip manual mini" style="--lc:${esc(l.color)}">${esc(l.name)}</span>`).join("");
     return `${head}<tr class="mail-row ${state.mailSel === m.id ? "sel" : ""}" data-m="${esc(m.id)}">
+      <td class="mail-check"><input type="checkbox" data-chk="${esc(m.id)}" ${checked.has(m.id) ? "checked" : ""} /></td>
       <td class="mail-meta">${projChip(m.project_id, clsById.get(m.project_id))}${manual}</td>
       <td class="mail-from">${m.direction === "out" ? `<i>→</i> ` : ""}${esc(m.counterpart ?? "-")}</td>
       <td class="mail-subj">${esc(m.subject)}</td>
       <td class="mail-time">${localTime(m.at)}</td>
     </tr>`;
   }).join("");
+
+  // run17: 분류(재배정) 대상 과제 — inbox 류 제외, 진행 과제 우선
+  const assignables = summary.projects.filter((p) => p.class !== "inbox");
+  const assignOpts = assignables.map((p) =>
+    `<option value="${esc(p.id)}">${esc(p.title === p.id ? p.id : `${p.id} · ${p.title}`)}</option>`).join("");
+  const bulkBar = checked.size ? `<div class="assign-bar">
+      <strong>${checked.size}${L.assign_unit}</strong>
+      <select id="assignTarget">${assignOpts}</select>
+      <label class="assign-mk"><input type="checkbox" id="assignMk" checked /> ${L.assign_make_items}</label>
+      <button id="assignGo" class="fav-chip active">${L.assign_btn}</button>
+    </div>` : "";
 
   const sel = mail.find((m) => m.id === state.mailSel);
   const detail = sel ? `<aside class="mail-detail">
@@ -427,9 +440,14 @@ async function renderMail() {
       <div class="detail-actions">${state._promotedMails?.has(sel.id)
         ? `<span class="badge green">✓ ${L.item}</span>`
         : `<button id="promoteBtn" class="fav-chip">${L.promote_item}</button>`}</div>
+      <h4>${L.assign_to}</h4>
+      <div class="assign-bar inline">
+        <select id="assignOne">${assignOpts}</select>
+        <button id="assignOneGo" class="fav-chip">${L.assign_btn}</button>
+      </div>
     </aside>` : "";
 
-  $("#view").innerHTML = `${labelBar}${filterChips}${toolbar}
+  $("#view").innerHTML = `${labelBar}${filterChips}${toolbar}${bulkBar}
     <div class="mail-split">${rows ? `<table class="mail-table"><tbody>${rows}</tbody></table>` : `<div class="empty">${L.empty_mail}</div>`}${detail}</div>`;
 
   $("#mDays").addEventListener("change", (e) => { f.days = Number(e.target.value); render(); });
@@ -466,6 +484,30 @@ async function renderMail() {
     (state._promotedMails ??= new Set()).add(state.mailSel);
     render();
   });
+  // run17: 분류(재배정) — 체크박스/묶음 바/상세 단건
+  $("#view").querySelectorAll("[data-chk]").forEach((cb) =>
+    cb.addEventListener("click", (e) => {
+      e.stopPropagation();
+      cb.checked ? checked.add(cb.dataset.chk) : checked.delete(cb.dataset.chk);
+      render();
+    })
+  );
+  const doAssign = async (mailIds, target, makeItems) => {
+    const r = await post("/api/mail/assign", { mail_ids: mailIds, project_id: target, make_items: makeItems });
+    if (!r.ok) return;
+    const data = await r.json();
+    checked.clear();
+    // 출몰 연출 대상: 이번 분류로 생긴/이동한 할일들
+    state.spawnItems = new Set(data.results.flatMap((x) => [x.item_created, x.item_moved].filter(Boolean)));
+    state.hubProject = target;
+    state.hubTab = state.mode === "fantasy" ? "overview" : "mail";
+    state.view = "project";
+    render();
+  };
+  $("#assignGo")?.addEventListener("click", () =>
+    doAssign([...checked], $("#assignTarget").value, $("#assignMk").checked));
+  $("#assignOneGo")?.addEventListener("click", () =>
+    doAssign([state.mailSel], $("#assignOne").value, true));
 }
 
 async function renderArtifacts() {
@@ -644,7 +686,8 @@ async function hubOverview(mount, p) {
     api(`/api/mail?project=${encodeURIComponent(p.id)}&days=90`)
   ]);
   const openCnt = items.filter((i) => i.status !== "done").length;
-  const rows = items.map((i) => `<tr>
+  const spawn = state.spawnItems ?? new Set();
+  const rows = items.map((i) => `<tr class="${spawn.has(i.id) ? "spawned" : ""}">
       <td>${esc(i.title)}</td>
       <td>${statusBadge(i.status)}</td>
       ${dueCell(i.due, todayKey)}
@@ -652,6 +695,7 @@ async function hubOverview(mount, p) {
       <td>${itemLinkCell(i)}</td>
       <td class="acts">${itemActionsHtml(i)}</td>
     </tr>`).join("");
+  state.spawnItems = null; // 일회성 연출
   const mailRows = mail.slice(0, 5).map((m) => `<tr>
       <td class="mail-time">${localTime(m.at)}</td>
       <td class="mail-from">${m.direction === "out" ? "<i>→</i> " : ""}${esc(m.counterpart ?? "-")}</td>

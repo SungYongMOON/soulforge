@@ -148,6 +148,31 @@ const server = createServer(async (req, res) => {
       store.appendEvent({ actor_ref: "owner", actor_kind: "human", kind: on !== false ? "guide_step_done" : "guide_step_undo", item_ref: `guide:${artifact_id}`, to: step_key, project_ref: result.project_id, used_refs: ["guide"], data_label: "real" });
       return send(res, 200, result);
     }
+    if (path === "/api/mail/assign" && req.method === "POST") {
+      let body = ""; for await (const chunk of req) body += chunk;
+      const { mail_ids, project_id, make_items } = JSON.parse(body || "{}");
+      const result = store.assignMails(mail_ids, project_id, { make_items: make_items === true, created_by: "owner" });
+      if (result.error) return send(res, 400, result);
+      for (const r of result.results) {
+        if (r.error || r.unchanged) continue;
+        store.appendEvent({
+          actor_ref: "owner", actor_kind: "human", kind: "mail_assign",
+          item_ref: r.mail_id, from: r.from, to: project_id, project_ref: project_id,
+          used_refs: ["mail"], data_label: "real"
+        });
+        if (r.item_moved) store.appendEvent({
+          actor_ref: "owner", actor_kind: "human", kind: "item_move",
+          item_ref: r.item_moved, from: r.from, to: project_id, project_ref: project_id,
+          used_refs: ["items", "mail"], data_label: "real"
+        });
+        if (r.item_created) store.appendEvent({
+          actor_ref: "owner", actor_kind: "human", kind: "item_promote",
+          item_ref: r.item_created, from: r.mail_id, project_ref: project_id,
+          used_refs: ["items", "mail"], data_label: "real", note: "assign_spawn"
+        });
+      }
+      return send(res, 200, result);
+    }
     if (path === "/api/labels" && req.method === "GET") return send(res, 200, store.labels());
     if (path === "/api/labels" && req.method === "POST") {
       let body = ""; for await (const chunk of req) body += chunk;

@@ -374,6 +374,38 @@ export class Store {
     return { ok: true, from: prev.assignee_ref, project_id: prev.project_id };
   }
 
+  // run17: 메일 과제 분류(재배정). 연결된 할일(origin_mail_id)도 함께 이동
+  // (단일 진실: 몬스터=core_item 행 — 메일이 던전을 옮기면 그 몬스터도 동행).
+  setMailProject(mail_id, project_id) {
+    const mail = this.db.prepare("SELECT project_id FROM core_mail WHERE id=?").get(mail_id);
+    if (!mail) return { error: "mail_not_found" };
+    if (!this.db.prepare("SELECT 1 FROM core_project WHERE id=?").get(project_id)) return { error: "project_not_found" };
+    if (mail.project_id === project_id) return { ok: true, from: mail.project_id, unchanged: true, item_moved: null };
+    this.db.prepare("UPDATE core_mail SET project_id=? WHERE id=?").run(project_id, mail_id);
+    const linked = this.db.prepare("SELECT id FROM core_item WHERE origin_mail_id=?").get(mail_id);
+    if (linked) this.db.prepare("UPDATE core_item SET project_id=? WHERE id=?").run(project_id, linked.id);
+    return { ok: true, from: mail.project_id, item_moved: linked?.id ?? null };
+  }
+
+  // run17: 묶음 분류 (+선택: 할일 생성 = 판타지 '몬스터 출몰').
+  // 이미 승격된 메일은 중복 생성 없이 이동만. 결과는 메일별로 반환(이벤트는 호출자가 기록).
+  assignMails(mail_ids, project_id, { make_items = false, created_by = null } = {}) {
+    if (!Array.isArray(mail_ids) || mail_ids.length === 0) return { error: "mail_ids_required" };
+    if (!this.db.prepare("SELECT 1 FROM core_project WHERE id=?").get(project_id)) return { error: "project_not_found" };
+    const results = [];
+    for (const mail_id of mail_ids) {
+      const moved = this.setMailProject(mail_id, project_id);
+      if (moved.error) { results.push({ mail_id, error: moved.error }); continue; }
+      const entry = { mail_id, from: moved.from, unchanged: moved.unchanged ?? false, item_moved: moved.item_moved, item_created: null };
+      if (make_items && !moved.item_moved) {
+        const promoted = this.promoteMail(mail_id, created_by);
+        if (promoted.ok) entry.item_created = promoted.item.id;
+      }
+      results.push(entry);
+    }
+    return { ok: true, project_id, results };
+  }
+
   // 메일→할일 승격: 메일 메타(제목/과제)만 복사. 본문 없음(애초에 미적재).
   promoteMail(mail_id, created_by) {
     const mail = this.db.prepare("SELECT * FROM core_mail WHERE id=?").get(mail_id);

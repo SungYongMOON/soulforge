@@ -262,3 +262,44 @@ test("run16: 메일→할일 승격 (메타만, 중복 거부)", () => {
   assert.ok(cols.includes("origin_mail_id") && cols.includes("created_by"));
   assert.ok(!cols.includes("body"));
 });
+
+test("run17: 메일 과제 분류(재배정) — 단건/묶음/할일 동행 이동/출몰 생성", () => {
+  const store = freshStore();
+  loadFixture(store);
+  const projects = store.summary("2026-06-12", "2026-06-18");
+  const [pa, pb] = [projects[0].id, projects[1].id];
+  const mails = store.mail({ days: 0 }).slice(0, 3);
+
+  // 단건 검증
+  assert.equal(store.setMailProject("no-such", pa).error, "mail_not_found");
+  assert.equal(store.setMailProject(mails[0].id, "no-such").error, "project_not_found");
+  const mv = store.setMailProject(mails[0].id, pb === mails[0].project_id ? pa : pb);
+  assert.equal(mv.ok, true);
+  assert.equal(mv.from, mails[0].project_id);
+
+  // 승격된 메일 재배정 → 연결 할일 동행 이동 (단일 진실)
+  const pr = store.promoteMail(mails[1].id, "owner");
+  assert.equal(pr.ok, true);
+  const target = mails[1].project_id === pa ? pb : pa;
+  const mv2 = store.setMailProject(mails[1].id, target);
+  assert.equal(mv2.item_moved, pr.item.id);
+  assert.equal(store.db.prepare("SELECT project_id FROM core_item WHERE id=?").get(pr.item.id).project_id, target);
+
+  // 묶음 + make_items: 미승격분만 생성, 승격분은 이동만 (중복 0)
+  // 대상은 두 메일의 현재 과제와 다른 곳으로 (unchanged 회피)
+  const cur1 = target;
+  const cur2 = store.db.prepare("SELECT project_id FROM core_mail WHERE id=?").get(mails[2].id).project_id;
+  const batchTarget = projects.map((x) => x.id).find((id) => id !== cur1 && id !== cur2);
+  const batch = store.assignMails([mails[1].id, mails[2].id], batchTarget, { make_items: true, created_by: "owner" });
+  assert.equal(batch.ok, true);
+  const r1 = batch.results.find((x) => x.mail_id === mails[1].id);
+  const r2 = batch.results.find((x) => x.mail_id === mails[2].id);
+  assert.equal(r1.item_moved, pr.item.id);      // 기존 할일 이동
+  assert.equal(r1.item_created, null);           // 중복 생성 없음
+  assert.ok(r2.item_created);                    // 새 출몰
+  const created = store.db.prepare("SELECT * FROM core_item WHERE id=?").get(r2.item_created);
+  assert.deepEqual([created.project_id, created.origin, created.status], [batchTarget, "mail", "open"]);
+
+  assert.equal(store.assignMails([], pa).error, "mail_ids_required");
+  assert.equal(store.assignMails([mails[0].id], "no-such").error, "project_not_found");
+});

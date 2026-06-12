@@ -187,3 +187,29 @@ td.acts { white-space: nowrap; }
 .proj-link:hover { text-decoration: underline; }
 .fav-chip.mini { padding: 3px 9px; font-size: 11.5px; }
 .detail-actions { margin-top: 12px; }
+
+/* run17: 메일 과제 분류(재배정) + 몬스터 출몰 연출 */
+.mail-check { width: 28px; text-align: center; }
+.mail-check input { cursor: pointer; }
+.assign-bar { display: flex; align-items: center; gap: 10px; padding: 9px 12px; margin-bottom: 10px;
+  background: color-mix(in srgb, var(--accent) 8%, var(--panel)); border: 1px solid var(--accent); border-radius: 10px; }
+.assign-bar.inline { background: var(--panel); border-color: var(--line); margin: 6px 0 0; }
+.assign-bar select { padding: 6px 8px; border-radius: 8px; border: 1px solid var(--line); background: var(--panel); color: var(--text); font-size: 13px; max-width: 220px; }
+.assign-mk { font-size: 12.5px; color: var(--muted); display: flex; align-items: center; gap: 5px; }
+.fav-chip.active { color: var(--accent); border-color: var(--accent); }
+
+/* 업무 모드: 새로 분류된 할일 — 점잖은 하이라이트 */
+tr.spawned { animation: rowGlow 1.6s ease-out 1; }
+@keyframes rowGlow {
+  0% { background: color-mix(in srgb, var(--accent) 22%, transparent); }
+  100% { background: transparent; }
+}
+/* 판타지 모드: 몬스터 출몰 — 등장 연출 */
+body[data-mode="fantasy"] tr.spawned { animation: mobSpawn 1.2s cubic-bezier(.2,1.4,.4,1) 1; }
+body[data-mode="fantasy"] tr.spawned td:first-child::before { content: "✦ "; color: var(--warn); animation: spawnFlash 1.6s ease-out 1; }
+@keyframes mobSpawn {
+  0% { transform: translateX(-14px); opacity: 0; background: color-mix(in srgb, var(--warn) 28%, transparent); }
+  60% { transform: translateX(3px); opacity: 1; }
+  100% { transform: translateX(0); background: transparent; }
+}
+@keyframes spawnFlash { 0%,40% { opacity: 1; } 100% { opacity: .65; } }
