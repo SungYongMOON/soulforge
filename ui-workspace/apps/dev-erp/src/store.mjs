@@ -279,6 +279,27 @@ export class Store {
     return this.db.prepare("SELECT * FROM core_person ORDER BY id").all();
   }
 
+  getMeta(key) {
+    return this.db.prepare("SELECT value FROM meta WHERE key=?").get(key)?.value ?? null;
+  }
+
+  setMeta(key, value) {
+    this.db.prepare("INSERT INTO meta(key,value) VALUES(?,?) ON CONFLICT(key) DO UPDATE SET value=excluded.value").run(key, String(value));
+  }
+
+  // 실데이터 도착 시 합성 표본 제거 (fixture 는 언제든 재생성 가능)
+  purgeSynthetic() {
+    let removed = 0;
+    // stage 는 data_label 이 없으므로 synthetic 프로젝트 소속분을 먼저 제거
+    removed += this.db.prepare(
+      "DELETE FROM core_stage WHERE project_id IN (SELECT id FROM core_project WHERE data_label='synthetic')"
+    ).run().changes ?? 0;
+    for (const t of ["core_item", "core_mail", "core_artifact", "core_person", "core_project", "event_log"]) {
+      removed += this.db.prepare(`DELETE FROM ${t} WHERE data_label='synthetic'`).run().changes ?? 0;
+    }
+    return removed;
+  }
+
   counts() {
     const one = (sql) => this.db.prepare(sql).get().c;
     return {

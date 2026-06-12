@@ -104,3 +104,24 @@ test("mail: 기본 90일 범위와 원문 미저장 (UI-003)", () => {
     assert.equal(m.body, undefined, "본문 컬럼 자체가 없어야 함");
   }
 });
+
+test("P1b: purgeSynthetic 은 synthetic 만 지우고 real 은 보존 + meta 마커", () => {
+  const store = freshStore();
+  loadFixture(store);
+  ingestNormalized(store, {
+    projects: [{ id: "P99-REAL", title: "실프로젝트" }],
+    mail: [{ id: "RM1", at: "2026-06-12T00:00:00+09:00", subject: "실메일 제목" }]
+  }, { label: "real", source: "p1b_test" });
+
+  const removed = store.purgeSynthetic();
+  assert.ok(removed > 100, "합성 행들이 제거되어야 함");
+  const counts = store.counts();
+  assert.equal(counts.projects, 1);
+  assert.equal(counts.mail, 1);
+  assert.equal(store.db.prepare("SELECT COUNT(*) c FROM core_project WHERE data_label='real'").get().c, 1);
+
+  store.setMeta("real_ingest_mtime", "12345");
+  assert.equal(store.getMeta("real_ingest_mtime"), "12345");
+  store.setMeta("real_ingest_mtime", "67890");
+  assert.equal(store.getMeta("real_ingest_mtime"), "67890");
+});

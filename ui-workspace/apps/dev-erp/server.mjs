@@ -3,7 +3,7 @@
 // 사용: node server.mjs [--port 4300] [--db data/dev-erp.db] [--ingest <json>]
 // 기본: DB 가 비어 있으면 synthetic fixture 를 자동 적재 (data_label=synthetic).
 import { createServer } from "node:http";
-import { readFileSync, existsSync, mkdirSync } from "node:fs";
+import { readFileSync, existsSync, mkdirSync, statSync } from "node:fs";
 import { dirname, join, extname, resolve } from "node:path";
 import { fileURLToPath } from "node:url";
 
@@ -29,7 +29,18 @@ const DB_PATH = flag("db", join(HERE, "data", "dev-erp.db"));
 if (DB_PATH !== ":memory:") mkdirSync(dirname(DB_PATH), { recursive: true });
 
 const store = openStore(DB_PATH);
-if (store.counts().projects === 0) {
+// P1b: data/real_meta.json 이 있으면 (갱신 시각 기준) 자동 ingest.
+// 최초 실데이터 도착 시 합성 표본은 제거한다 (가짜/실제 혼합 방지).
+const realMetaPath = join(HERE, "data", "real_meta.json");
+if (existsSync(realMetaPath)) {
+  const mtime = String(statSync(realMetaPath).mtimeMs);
+  if (store.getMeta("real_ingest_mtime") !== mtime) {
+    const purged = store.purgeSynthetic();
+    const report = ingestFromFile(store, realMetaPath, { label: "real" });
+    store.setMeta("real_ingest_mtime", mtime);
+    console.log("[dev-erp] real meta ingested:", JSON.stringify({ purged_synthetic: purged, ...report }));
+  }
+} else if (store.counts().projects === 0) {
   const ingestPath = flag("ingest", null);
   if (ingestPath) {
     const report = ingestFromFile(store, resolve(ingestPath));
