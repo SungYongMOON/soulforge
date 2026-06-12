@@ -250,6 +250,83 @@ async function render() {
   if (state.view === "search") return renderSearch(state.searchTerm);
 }
 
+// --- Cmd/Ctrl+K 빠른 이동 팔레트 (벤치마크 N3) ---
+let paletteEl = null;
+let paletteIdx = 0;
+
+async function paletteEntries(q) {
+  const term = q.trim().toLowerCase();
+  const views = [...VIEWS, ...(state.modules ?? []).map((m) => `mod:${m.id}`)]
+    .map((v) => ({ kind: "view", label: labelFor(v), run: () => { state.view = v; render(); } }));
+  const projects = (state._projCache ?? []).map((p) => ({
+    kind: "project", label: `${p.title} (${p.id})`,
+    run: () => { state.projectFilter = p.id; state.view = "items"; render(); }
+  }));
+  const actions = [{
+    kind: "action", label: state.lex.palette_mode_switch,
+    run: async () => {
+      state.mode = state.mode === "business" ? "fantasy" : "business";
+      localStorage.setItem("dev_erp_mode", state.mode);
+      $("#modeSelect").value = state.mode;
+      await loadLexicon(); render();
+    }
+  }];
+  const all = [...views, ...projects, ...actions];
+  return term ? all.filter((e) => e.label.toLowerCase().includes(term)) : all;
+}
+
+function closePalette() {
+  paletteEl?.remove();
+  paletteEl = null;
+}
+
+async function openPalette() {
+  closePalette();
+  if (!state._projCache) {
+    try { state._projCache = (await api("/api/summary")).projects; } catch { state._projCache = []; }
+  }
+  paletteIdx = 0;
+  paletteEl = document.createElement("div");
+  paletteEl.className = "palette-backdrop";
+  paletteEl.innerHTML = `<div class="palette">
+    <input id="paletteInput" placeholder="${state.lex.palette_placeholder}" autocomplete="off" />
+    <div id="paletteList"></div></div>`;
+  document.body.appendChild(paletteEl);
+  const input = paletteEl.querySelector("#paletteInput");
+  const list = paletteEl.querySelector("#paletteList");
+
+  async function refresh() {
+    const entries = await paletteEntries(input.value);
+    paletteIdx = Math.min(paletteIdx, Math.max(0, entries.length - 1));
+    list.innerHTML = entries.length
+      ? entries.slice(0, 12).map((e, i) =>
+          `<div class="palette-item ${i === paletteIdx ? "sel" : ""}" data-i="${i}">
+            <span class="palette-kind">${state.lex[`palette_kind_${e.kind}`]}</span>${e.label}</div>`).join("")
+      : `<div class="palette-item dim">${state.lex.palette_empty}</div>`;
+    list.querySelectorAll(".palette-item[data-i]").forEach((el) =>
+      el.addEventListener("click", async () => { (await paletteEntries(input.value))[Number(el.dataset.i)]?.run(); closePalette(); })
+    );
+    return entries;
+  }
+
+  input.addEventListener("keydown", async (e) => {
+    const entries = await paletteEntries(input.value);
+    if (e.key === "Escape") closePalette();
+    else if (e.key === "ArrowDown") { paletteIdx = Math.min(paletteIdx + 1, entries.length - 1); refresh(); }
+    else if (e.key === "ArrowUp") { paletteIdx = Math.max(paletteIdx - 1, 0); refresh(); }
+    else if (e.key === "Enter") { entries[paletteIdx]?.run(); closePalette(); }
+  });
+  input.addEventListener("input", () => { paletteIdx = 0; refresh(); });
+  paletteEl.addEventListener("click", (e) => { if (e.target === paletteEl) closePalette(); });
+  input.focus();
+  refresh();
+}
+
+document.addEventListener("keydown", (e) => {
+  if ((e.metaKey || e.ctrlKey) && e.key.toLowerCase() === "k") { e.preventDefault(); openPalette(); }
+});
+$("#paletteBtn").addEventListener("click", openPalette);
+
 $("#modeSelect").value = state.mode;
 $("#modeSelect").addEventListener("change", async (e) => {
   state.mode = e.target.value;
