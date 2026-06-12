@@ -129,10 +129,70 @@ function dueCell(due, todayKey) {
   return `<td class="${over ? "due-over" : ""}">${due}</td>`;
 }
 
+const TILE_IDS = ["projects", "today", "blocked", "mail", "events"];
+
+function activeTiles() {
+  const saved = JSON.parse(localStorage.getItem("dev_erp_tiles") || "null");
+  return Array.isArray(saved) ? saved : [...TILE_IDS]; // 기본: 전부 표시 (owner 질문: 기본 조합)
+}
+
+function miniRow(cells) {
+  return `<tr>${cells.map((c) => `<td>${c}</td>`).join("")}</tr>`;
+}
+
 async function renderHome() {
+  const tiles = activeTiles();
+  const todayKey = new Date().toISOString().slice(0, 10);
   const data = await api("/api/summary");
+  state._projCache = data.projects;
   $("#freshness").textContent = data.freshness ? `${state.lex.freshness}: ${localTime(data.freshness)}` : "";
-  const cards = data.projects.map((p) => {
+
+  const sections = [];
+  if (tiles.includes("projects")) {
+    sections.push(`<section class="tile wide"><h4>${state.lex.tile_projects}</h4><div class="cards">${projectCards(data)}</div></section>`);
+  }
+  if (tiles.includes("today")) {
+    const due = (await api("/api/items?due=soon")).slice(0, 8);
+    sections.push(`<section class="tile"><h4>${state.lex.tile_today}</h4>${
+      due.length ? `<table><tbody>${due.map((i) => miniRow([i.title, i.project_id, i.due ?? "-"])).join("")}</tbody></table>` : `<div class="empty">${state.lex.empty_items}</div>`}</section>`);
+  }
+  if (tiles.includes("blocked")) {
+    const blocked = (await api("/api/items?status=blocked")).slice(0, 6);
+    sections.push(`<section class="tile"><h4>${state.lex.tile_blocked}</h4>${
+      blocked.length ? `<table><tbody>${blocked.map((i) => miniRow([i.title, i.project_id, statusBadge(i.status)])).join("")}</tbody></table>` : `<div class="empty">${state.lex.empty_items}</div>`}</section>`);
+  }
+  if (tiles.includes("mail")) {
+    const mail = (await api("/api/mail?days=90")).slice(0, 6);
+    sections.push(`<section class="tile"><h4>${state.lex.tile_mail}</h4>${
+      mail.length ? `<table><tbody>${mail.map((m) => miniRow([localTime(m.at), m.subject])).join("")}</tbody></table>` : `<div class="empty">${state.lex.empty_mail}</div>`}</section>`);
+  }
+  if (tiles.includes("events")) {
+    const events = await api("/api/events/recent");
+    sections.push(`<section class="tile"><h4>${state.lex.tile_events}</h4>${
+      events.length ? `<table><tbody>${events.slice(0, 6).map((e) => miniRow([localTime(e.at), e.actor_ref, e.kind])).join("")}</tbody></table>` : `<div class="empty">-</div>`}</section>`);
+  }
+
+  $("#view").innerHTML = `
+    <div class="tile-toolbar"><button id="tileConfigBtn" class="fav-chip">${state.lex.tile_config}</button>
+      <div id="tileConfig" class="tile-config hidden">${TILE_IDS.map((t) =>
+        `<label><input type="checkbox" data-t="${t}" ${tiles.includes(t) ? "checked" : ""}/> ${state.lex[`tile_${t}`]}</label>`).join("")}</div></div>
+    <div class="tile-grid">${sections.join("")}</div>`;
+
+  $("#tileConfigBtn").addEventListener("click", () => $("#tileConfig").classList.toggle("hidden"));
+  $("#view").querySelectorAll("#tileConfig input").forEach((cb) =>
+    cb.addEventListener("change", () => {
+      const next = [...$("#view").querySelectorAll("#tileConfig input:checked")].map((x) => x.dataset.t);
+      localStorage.setItem("dev_erp_tiles", JSON.stringify(next));
+      render();
+    })
+  );
+  $("#view").querySelectorAll(".card").forEach((c) =>
+    c.addEventListener("click", () => { state.projectFilter = c.dataset.p; state.view = "items"; render(); })
+  );
+}
+
+function projectCards(data) {
+  return data.projects.map((p) => {
     const mobs = Array.from({ length: Math.min(p.open, 20) }, () => '<span class="mob"></span>').join("");
     const boss = p.boss_open > 0 ? '<span class="mob boss" title="boss"></span>' : "";
     return `<div class="card" data-p="${p.id}">
@@ -146,11 +206,7 @@ async function renderHome() {
       </div>
       <div class="mobmeter">${mobs}${boss}<span class="label">${state.lex.backlog_meter} ${p.open}</span></div>
     </div>`;
-  }).join("");
-  $("#view").innerHTML = `<div class="cards">${cards || `<div class="empty">${state.lex.empty_items}</div>`}</div>`;
-  $("#view").querySelectorAll(".card").forEach((c) =>
-    c.addEventListener("click", () => { state.projectFilter = c.dataset.p; state.view = "items"; render(); })
-  );
+  }).join("") || `<div class="empty">${state.lex.empty_items}</div>`;
 }
 
 async function renderItems() {

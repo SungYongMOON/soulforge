@@ -76,6 +76,16 @@ nav button:hover .pin-btn { opacity: 1; }
 .palette-item.sel { background: var(--chip); color: var(--accent); }
 .palette-item.dim { color: var(--muted); cursor: default; }
 .palette-kind { font-size: 10.5px; color: var(--muted); background: var(--chip); border-radius: 999px; padding: 1px 7px; }
+.tile-toolbar { display: flex; justify-content: flex-end; position: relative; }
+.tile-config { position: absolute; top: 34px; right: 0; background: var(--panel); border: 1px solid var(--line); border-radius: 10px; padding: 10px 14px; display: flex; flex-direction: column; gap: 7px; z-index: 10; box-shadow: 0 8px 24px rgba(0,0,0,.18); }
+.tile-config.hidden { display: none; }
+.tile-config label { font-size: 13px; display: flex; gap: 7px; align-items: center; }
+.tile-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(340px, 1fr)); gap: 14px; }
+.tile { background: var(--panel); border: 1px solid var(--line); border-radius: 12px; padding: 12px 14px; }
+.tile.wide { grid-column: 1 / -1; background: transparent; border: 0; padding: 0; }
+.tile h4 { margin: 0 0 8px; font-size: 13px; color: var(--muted); }
+.tile table { border: 0; }
+.tile td { padding: 6px 8px; font-size: 12.5px; }
 .nav-group-label { font-size: 11px; font-weight: 700; color: var(--muted); letter-spacing: .04em; padding: 4px 10px 2px; text-transform: uppercase; }
 nav button { display: flex; align-items: center; justify-content: space-between; gap: 6px; width: 100%; }
 .phase-tag { font-style: normal; font-size: 10px; color: var(--muted); background: var(--chip); border-radius: 999px; padding: 1px 6px; white-space: nowrap; }
