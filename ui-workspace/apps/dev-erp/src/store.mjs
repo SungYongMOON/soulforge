@@ -50,6 +50,10 @@ CREATE TABLE IF NOT EXISTS core_item (   -- 몬스터 = 할일 (동일 행)
   due TEXT,                                   -- YYYY-MM-DD
   result TEXT,
   log_ref TEXT,
+  guide_artifact_id INTEGER,                  -- P2a: 가이드 산출물 연결 (선택)
+  guide_step_key TEXT,                        -- P2a: 가이드 스텝 연결 (선택)
+  origin_mail_id TEXT,                        -- P2a: 메일→할일 승격 출처 (메일 메타 id)
+  created_by TEXT,                            -- P2a: RBAC 설계 자리 (강제는 P2b)
   data_label TEXT NOT NULL DEFAULT 'synthetic'
 );
 CREATE TABLE IF NOT EXISTS core_mail (   -- 메일 이력 metadata-only
@@ -85,7 +89,8 @@ CREATE TABLE IF NOT EXISTS event_log (   -- append-only. battle_event 호환
   bottleneck_reason TEXT,
   used_refs TEXT,                        -- JSON 배열: 사용한 skill/knowledge/tool ref
   data_label TEXT NOT NULL DEFAULT 'synthetic',
-  note TEXT
+  note TEXT,
+  project_ref TEXT                       -- P2a: 과제 차원 (허브 이력 필터)
 );
 CREATE TABLE IF NOT EXISTS guide_artifact ( -- 가이드: 과제×단계의 산출물 등록 (메타)
   id INTEGER PRIMARY KEY AUTOINCREMENT,
@@ -129,6 +134,15 @@ export function openStore(path = ":memory:") {
   db.exec(DDL);
   // 경량 마이그레이션: 기존 DB 에 새 컬럼 추가 (있으면 무시)
   try { db.exec("ALTER TABLE core_project ADD COLUMN class TEXT NOT NULL DEFAULT 'active'"); } catch { /* exists */ }
+  for (const ddl of [
+    "ALTER TABLE core_item ADD COLUMN guide_artifact_id INTEGER",
+    "ALTER TABLE core_item ADD COLUMN guide_step_key TEXT",
+    "ALTER TABLE core_item ADD COLUMN origin_mail_id TEXT",
+    "ALTER TABLE core_item ADD COLUMN created_by TEXT",
+    "ALTER TABLE event_log ADD COLUMN project_ref TEXT"
+  ]) {
+    try { db.exec(ddl); } catch { /* exists */ }
+  }
   const cur = db.prepare("SELECT value FROM meta WHERE key='schema_version'").get();
   if (!cur) {
     db.prepare("INSERT INTO meta(key,value) VALUES('schema_version',?)").run(SCHEMA_VERSION);
@@ -147,8 +161,8 @@ export class Store {
     this.db
       .prepare(
         `INSERT INTO event_log(at,actor_ref,actor_kind,item_ref,kind,from_val,to_val,
-          intervention_count,bottleneck_reason,used_refs,data_label,note)
-         VALUES (?,?,?,?,?,?,?,?,?,?,?,?)`
+          intervention_count,bottleneck_reason,used_refs,data_label,note,project_ref)
+         VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?)`
       )
       .run(
         at,
@@ -162,14 +176,17 @@ export class Store {
         event.bottleneck_reason ?? null,
         JSON.stringify(event.used_refs ?? []),
         event.data_label ?? "synthetic",
-        event.note ?? null
+        event.note ?? null,
+        event.project_ref ?? null
       );
   }
 
-  recentEvents(limit = 20) {
+  recentEvents(limit = 20, project = null) {
+    const where = project ? "WHERE project_ref=?" : "";
+    const args = project ? [project, limit] : [limit];
     return this.db
-      .prepare("SELECT * FROM event_log ORDER BY id DESC LIMIT ?")
-      .all(limit)
+      .prepare(`SELECT * FROM event_log ${where} ORDER BY id DESC LIMIT ?`)
+      .all(...args)
       .map((row) => ({ ...row, used_refs: JSON.parse(row.used_refs ?? "[]") }));
   }
 
@@ -298,14 +315,78 @@ export class Store {
   items({ project, status, q, due_before } = {}) {
     const cond = [];
     const args = [];
-    if (project) { cond.push("project_id=?"); args.push(project); }
-    if (status) { cond.push("status=?"); args.push(status); }
-    if (due_before) { cond.push("due IS NOT NULL AND due<=? AND status NOT IN ('done')"); args.push(due_before); }
-    if (q) { cond.push("title LIKE ?"); args.push(`%${q}%`); }
+    if (project) { cond.push("i.project_id=?"); args.push(project); }
+    if (status) { cond.push("i.status=?"); args.push(status); }
+    if (due_before) { cond.push("i.due IS NOT NULL AND i.due<=? AND i.status NOT IN ('done')"); args.push(due_before); }
+    if (q) { cond.push("i.title LIKE ?"); args.push(`%${q}%`); }
     const where = cond.length ? `WHERE ${cond.join(" AND ")}` : "";
     return this.db
-      .prepare(`SELECT * FROM core_item ${where} ORDER BY (due IS NULL), due, id LIMIT 500`)
+      .prepare(
+        `SELECT i.*, ga.name AS guide_artifact_name, ga.stage_code AS guide_stage_code
+         FROM core_item i LEFT JOIN guide_artifact ga ON ga.id = i.guide_artifact_id
+         ${where} ORDER BY (i.due IS NULL), i.due, i.id LIMIT 500`
+      )
       .all(...args);
+  }
+
+  // --- P2a 할일 쓰기 (run16): 생성/상태/담당/메일 승격 — 모든 변경은 server 가 event_log 에 기록 ---
+  static ITEM_STATUSES = ["open", "doing", "waiting", "blocked", "done"];
+
+  createItem({ project_id, title, assignee_ref, due, urgency, guide_artifact_id, guide_step_key, origin_mail_id, origin, created_by }) {
+    const trimmed = String(title ?? "").trim();
+    if (!trimmed) return { error: "title_required" };
+    if (!this.db.prepare("SELECT 1 FROM core_project WHERE id=?").get(project_id)) return { error: "project_not_found" };
+    if (due && !/^\d{4}-\d{2}-\d{2}$/.test(due)) return { error: "due_format" };
+    let artifact = null;
+    if (guide_artifact_id) {
+      artifact = this.db.prepare("SELECT * FROM guide_artifact WHERE id=?").get(Number(guide_artifact_id));
+      if (!artifact) return { error: "guide_artifact_not_found" };
+      if (artifact.project_id !== project_id) return { error: "guide_artifact_project_mismatch" };
+    }
+    const id = `itm_${Date.now().toString(36)}${Math.random().toString(36).slice(2, 6)}`;
+    this.db
+      .prepare(
+        `INSERT INTO core_item(id,project_id,title,origin,urgency,assignee_ref,status,due,
+           guide_artifact_id,guide_step_key,origin_mail_id,created_by,data_label)
+         VALUES (?,?,?,?,?,?,'open',?,?,?,?,?,'real')`
+      )
+      .run(
+        id, project_id, trimmed, origin ?? "manual", urgency ?? "normal",
+        assignee_ref ?? null, due ?? null,
+        guide_artifact_id ? Number(guide_artifact_id) : null, guide_step_key ?? null,
+        origin_mail_id ?? null, created_by ?? null
+      );
+    return { ok: true, item: this.db.prepare("SELECT * FROM core_item WHERE id=?").get(id) };
+  }
+
+  setItemStatus(id, status) {
+    if (!Store.ITEM_STATUSES.includes(status)) return { error: "bad_status" };
+    const prev = this.db.prepare("SELECT status, project_id FROM core_item WHERE id=?").get(id);
+    if (!prev) return { error: "item_not_found" };
+    this.db.prepare("UPDATE core_item SET status=? WHERE id=?").run(status, id);
+    return { ok: true, from: prev.status, project_id: prev.project_id };
+  }
+
+  setItemAssignee(id, assignee_ref) {
+    const prev = this.db.prepare("SELECT assignee_ref, project_id FROM core_item WHERE id=?").get(id);
+    if (!prev) return { error: "item_not_found" };
+    this.db.prepare("UPDATE core_item SET assignee_ref=? WHERE id=?").run(assignee_ref || null, id);
+    return { ok: true, from: prev.assignee_ref, project_id: prev.project_id };
+  }
+
+  // 메일→할일 승격: 메일 메타(제목/과제)만 복사. 본문 없음(애초에 미적재).
+  promoteMail(mail_id, created_by) {
+    const mail = this.db.prepare("SELECT * FROM core_mail WHERE id=?").get(mail_id);
+    if (!mail) return { error: "mail_not_found" };
+    const dup = this.db.prepare("SELECT id FROM core_item WHERE origin_mail_id=?").get(mail_id);
+    if (dup) return { error: "already_promoted", item_id: dup.id };
+    if (!mail.project_id || !this.db.prepare("SELECT 1 FROM core_project WHERE id=?").get(mail.project_id)) {
+      return { error: "mail_project_missing" };
+    }
+    return this.createItem({
+      project_id: mail.project_id, title: mail.subject,
+      origin: "mail", origin_mail_id: mail_id, created_by
+    });
   }
 
   // Gmail식 확장: 기간(0=전체)/검색(제목·상대)/방향/수동라벨 필터 + 라벨 동봉
@@ -344,7 +425,8 @@ export class Store {
   }
 
   setGuideStep(artifactId, stepKey, on, actor = "owner") {
-    if (!this.db.prepare("SELECT 1 FROM guide_artifact WHERE id=?").get(artifactId)) return { error: "artifact_not_found" };
+    const art = this.db.prepare("SELECT project_id FROM guide_artifact WHERE id=?").get(artifactId);
+    if (!art) return { error: "artifact_not_found" };
     if (on) {
       this.db.prepare(
         `INSERT INTO guide_step(artifact_id,step_key,done_at,actor) VALUES(?,?,?,?)
@@ -353,7 +435,7 @@ export class Store {
     } else {
       this.db.prepare("DELETE FROM guide_step WHERE artifact_id=? AND step_key=?").run(Number(artifactId), stepKey);
     }
-    return { ok: true };
+    return { ok: true, project_id: art.project_id };
   }
 
   guideState(projectId) {

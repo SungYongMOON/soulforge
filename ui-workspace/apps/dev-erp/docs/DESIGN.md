@@ -160,6 +160,12 @@ event_log 는 그 라벨의 수집기 역할을 겸한다.
   UX 원칙 "위에서 아래로 따라 하면 되는" + run12 툴 정체성 리서치 결론
   '폴더트리가 곧 위저드'. 저장소 SE 폴더 규칙의 단계·역할 순서를 화면이
   그대로 따름. 구조 변경 위임 규칙에 따라 기록).
+- 2026-06-12 (run16): P2a 할일 쓰기 + 과제 허브 (사유: owner "진행해" 승인,
+  P2 순서 제안 approved — 할일 쓰기를 구매보다 먼저). core_item 에
+  guide_artifact_id/guide_step_key/origin_mail_id/created_by 추가,
+  event_log 에 project_ref 차원 추가(과제별 이력 — NetSuite 다차원 원칙).
+  RBAC 는 created_by/assignee_ref/actor_ref 필드 설계만 — 로그인·권한
+  강제와 팀 공개는 P2b. actor 는 solo 파일럿 전제로 "owner" 고정.
 
 ## 9. owner 방향 (기록만 — 구현 금지 상태)
 
@@ -168,8 +174,10 @@ event_log 는 그 라벨의 수집기 역할을 겸한다.
   프로젝트 하위에 묶이는 구조를 원함. 현재 데이터는 이미 프로젝트 종속
   (guide_artifact.project_id, artifact.project_id)이나 IA 가 가이드/산출물
   별도 메뉴로 분리되어 있음 — 격차는 화면 구조(IA) 쪽.
-  상태: 방향 기록만. owner 의 명시 지시("아직 수정하지 말고")로 구현 보류.
-  선행 작업: ERP 분류체계 비교 리서치 (_workspaces ERP_분류체계_비교 문서).
+  ~~상태: 방향 기록만~~ → **2026-06-12 owner "진행해"로 승인, run16 에서
+  과제 허브(개요/산출물/메일/이력 탭)로 구현 완료.** 데이터 이동 0
+  (리서치 하이브리드 권고 채택: 저장=관계형 유지, 표시=컨테이너).
+  선행 리서치: _workspaces ERP_분류체계_비교 문서.
 - 2026-06-12 owner: **회계(accounting) = 보류(later).** 지금은 비목표 유지,
   "나중에 채우자"로 명시. 6절 비목표와 일관 — 차원(태그) 원칙만 event_log
   로 선반영되어 있고, 회계 모듈 자체는 owner 가 다시 열기 전까지 안 만든다.

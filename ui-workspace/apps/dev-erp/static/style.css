@@ -169,3 +169,21 @@ td.dim { color: var(--line); }
 .step-meta { color: var(--muted); font-size: 11.5px; white-space: nowrap; }
 .art-add { display: flex; gap: 8px; margin-top: 10px; }
 .art-add input { flex: 1; padding: 7px 9px; border-radius: 8px; border: 1px solid var(--line); background: var(--bg); color: var(--text); font-size: 13px; }
+
+/* 과제 허브 + P2a 할일 쓰기 (run16) */
+.hub-tabs { display: flex; align-items: center; gap: 6px; margin-bottom: 14px; flex-wrap: wrap; }
+.hub-tab { border: 1px solid var(--line); background: var(--panel); color: var(--text); padding: 7px 16px; border-radius: 8px; font-size: 13px; cursor: pointer; }
+.hub-tab.on { color: var(--accent); border-color: var(--accent); background: color-mix(in srgb, var(--accent) 8%, transparent); font-weight: 600; }
+.hub-h4 { margin: 18px 0 8px; font-size: 13.5px; color: var(--muted); }
+.item-form { display: flex; gap: 8px; margin: 12px 0; flex-wrap: wrap; }
+.item-form input { padding: 7px 9px; border-radius: 8px; border: 1px solid var(--line); background: var(--panel); color: var(--text); font-size: 13px; }
+.item-form #niTitle { flex: 1; min-width: 180px; }
+.act-btn { border: 1px solid var(--line); background: var(--chip); color: var(--text); border-radius: 6px; padding: 3px 9px; font-size: 12px; cursor: pointer; margin-right: 4px; white-space: nowrap; }
+.act-btn.done { color: var(--ok); } .act-btn.blocked { color: var(--danger); }
+.act-btn.doing, .act-btn.open { color: var(--accent); }
+.act-btn:hover { border-color: currentColor; }
+td.acts { white-space: nowrap; }
+.proj-link { cursor: pointer; color: var(--accent); }
+.proj-link:hover { text-decoration: underline; }
+.fav-chip.mini { padding: 3px 9px; font-size: 11.5px; }
+.detail-actions { margin-top: 12px; }

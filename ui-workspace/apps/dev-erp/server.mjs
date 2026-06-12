@@ -77,6 +77,54 @@ const server = createServer(async (req, res) => {
       const weekEnd = new Date(Date.now() + 6 * 86400000).toISOString().slice(0, 10);
       return send(res, 200, { today, week_end: weekEnd, freshness: lastIngestAt(), projects: store.summary(today, weekEnd) });
     }
+    if (path === "/api/items" && req.method === "POST") {
+      let body = ""; for await (const chunk of req) body += chunk;
+      const input = JSON.parse(body || "{}");
+      const result = store.createItem({ ...input, created_by: "owner" });
+      if (result.error) return send(res, 400, result);
+      store.appendEvent({
+        actor_ref: "owner", actor_kind: "human", kind: "item_create",
+        item_ref: result.item.id, to: result.item.title, project_ref: result.item.project_id,
+        used_refs: result.item.guide_artifact_id ? ["items", "guide"] : ["items"], data_label: "real"
+      });
+      return send(res, 200, result);
+    }
+    if (path === "/api/items/status" && req.method === "POST") {
+      let body = ""; for await (const chunk of req) body += chunk;
+      const { id, status, bottleneck_reason } = JSON.parse(body || "{}");
+      const result = store.setItemStatus(id, status);
+      if (result.error) return send(res, 400, result);
+      store.appendEvent({
+        actor_ref: "owner", actor_kind: "human", kind: "item_status",
+        item_ref: id, from: result.from, to: status, project_ref: result.project_id,
+        bottleneck_reason: bottleneck_reason ?? null, used_refs: ["items"], data_label: "real"
+      });
+      return send(res, 200, result);
+    }
+    if (path === "/api/items/assign" && req.method === "POST") {
+      let body = ""; for await (const chunk of req) body += chunk;
+      const { id, assignee_ref } = JSON.parse(body || "{}");
+      const result = store.setItemAssignee(id, assignee_ref);
+      if (result.error) return send(res, 400, result);
+      store.appendEvent({
+        actor_ref: "owner", actor_kind: "human", kind: "item_assign",
+        item_ref: id, from: result.from, to: assignee_ref || null, project_ref: result.project_id,
+        used_refs: ["items"], data_label: "real"
+      });
+      return send(res, 200, result);
+    }
+    if (path === "/api/items/promote" && req.method === "POST") {
+      let body = ""; for await (const chunk of req) body += chunk;
+      const { mail_id } = JSON.parse(body || "{}");
+      const result = store.promoteMail(mail_id, "owner");
+      if (result.error) return send(res, 400, result);
+      store.appendEvent({
+        actor_ref: "owner", actor_kind: "human", kind: "item_promote",
+        item_ref: result.item.id, from: mail_id, to: result.item.title,
+        project_ref: result.item.project_id, used_refs: ["items", "mail"], data_label: "real"
+      });
+      return send(res, 200, result);
+    }
     if (path === "/api/items") return send(res, 200, store.items({ project: qp.project, status: qp.status, q: qp.q, due_before: qp.due === "soon" ? todayKey() : undefined }));
     if (path === "/api/mail") return send(res, 200, store.mail({
       project: qp.project, days: qp.days !== undefined ? Number(qp.days) : 90,
@@ -89,7 +137,7 @@ const server = createServer(async (req, res) => {
       const { project_id, stage_code, name } = JSON.parse(body || "{}");
       const result = store.addGuideArtifact(project_id, stage_code, name);
       if (result.error) return send(res, 400, result);
-      store.appendEvent({ actor_ref: "owner", actor_kind: "human", kind: "guide_artifact_add", item_ref: `${project_id}:${stage_code}`, to: name, used_refs: ["guide", ".registry/skills/se_foldertree_generate"], data_label: "real" });
+      store.appendEvent({ actor_ref: "owner", actor_kind: "human", kind: "guide_artifact_add", item_ref: `${project_id}:${stage_code}`, to: name, project_ref: project_id, used_refs: ["guide", ".registry/skills/se_foldertree_generate"], data_label: "real" });
       return send(res, 200, result);
     }
     if (path === "/api/guide/step" && req.method === "POST") {
@@ -97,7 +145,7 @@ const server = createServer(async (req, res) => {
       const { artifact_id, step_key, on } = JSON.parse(body || "{}");
       const result = store.setGuideStep(artifact_id, step_key, on !== false);
       if (result.error) return send(res, 400, result);
-      store.appendEvent({ actor_ref: "owner", actor_kind: "human", kind: on !== false ? "guide_step_done" : "guide_step_undo", item_ref: `guide:${artifact_id}`, to: step_key, used_refs: ["guide"], data_label: "real" });
+      store.appendEvent({ actor_ref: "owner", actor_kind: "human", kind: on !== false ? "guide_step_done" : "guide_step_undo", item_ref: `guide:${artifact_id}`, to: step_key, project_ref: result.project_id, used_refs: ["guide"], data_label: "real" });
       return send(res, 200, result);
     }
     if (path === "/api/labels" && req.method === "GET") return send(res, 200, store.labels());
@@ -122,7 +170,7 @@ const server = createServer(async (req, res) => {
     if (path === "/api/search") return send(res, 200, crossSearch(store, qp.q));
     if (path === "/api/lexicon") return send(res, 200, { mode: qp.mode ?? "business", modes: Object.keys(LEXICON), labels: getLexicon(qp.mode) });
     if (path === "/api/modules") return send(res, 200, modulesFor(qp.mode));
-    if (path === "/api/events/recent") return send(res, 200, store.recentEvents(30));
+    if (path === "/api/events/recent") return send(res, 200, store.recentEvents(qp.limit ? Number(qp.limit) : 30, qp.project ?? null));
     if (path === "/api/events" && req.method === "POST") {
       let body = "";
       for await (const chunk of req) body += chunk;

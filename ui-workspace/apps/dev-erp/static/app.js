@@ -247,7 +247,7 @@ async function renderHome() {
     })
   );
   $("#view").querySelectorAll(".proj-row").forEach((r) =>
-    r.addEventListener("click", () => { state.projectFilter = r.dataset.p; state.view = "items"; render(); })
+    r.addEventListener("click", () => { state.hubProject = r.dataset.p; state.hubTab = "overview"; state.view = "project"; render(); })
   );
   $("#view").querySelectorAll("[data-jump-mail]").forEach((b) =>
     b.addEventListener("click", (e) => { e.stopPropagation(); state.projectFilter = b.dataset.jumpMail; state.view = "mail"; render(); })
@@ -272,10 +272,47 @@ function projectCards(data) {
   }).join("") || `<div class="empty">${state.lex.empty_items}</div>`;
 }
 
+// P2a (run16): 할일 상태 전이 빠른 동작 — 모든 변경은 서버가 event_log 에 기록
+const ITEM_ACTS = {
+  open: [["doing", "act_start"], ["done", "act_done"]],
+  doing: [["done", "act_done"], ["blocked", "act_block"]],
+  waiting: [["doing", "act_resume"], ["done", "act_done"]],
+  blocked: [["doing", "act_resume"]],
+  done: [["open", "act_reopen"]]
+};
+
+function itemActionsHtml(i) {
+  return (ITEM_ACTS[i.status] ?? []).map(([to, key]) =>
+    `<button class="act-btn ${to}" data-act="${to}" data-i="${esc(i.id)}">${state.lex[key]}</button>`).join("");
+}
+
+function wireItemActions(scope) {
+  scope.querySelectorAll(".act-btn").forEach((b) =>
+    b.addEventListener("click", async (e) => {
+      e.stopPropagation();
+      const body = { id: b.dataset.i, status: b.dataset.act };
+      if (b.dataset.act === "blocked") {
+        const reason = window.prompt(state.lex.block_reason_ph, "");
+        if (reason === null) return;
+        if (reason.trim()) body.bottleneck_reason = reason.trim();
+      }
+      await post("/api/items/status", body);
+      render();
+    })
+  );
+}
+
+function itemLinkCell(i) {
+  if (i.guide_artifact_name) return `<span class="badge">${esc(i.guide_stage_code)} ${esc(i.guide_artifact_name)}</span>`;
+  if (i.origin === "mail") return `<span class="badge blue">${state.lex.origin_mail_badge}</span>`;
+  return '<span class="dim">-</span>';
+}
+
 async function renderItems() {
   const todayKey = new Date().toISOString().slice(0, 10);
   const summary = await api("/api/summary");
   const projects = summary.projects;
+  state._projCache = projects;
   const q = new URLSearchParams();
   if (state.projectFilter) q.set("project", state.projectFilter);
   if (state.statusFilter) q.set("status", state.statusFilter);
@@ -285,21 +322,26 @@ async function renderItems() {
   const sopts = statuses.map((s) => `<option value="${s}" ${state.statusFilter === s ? "selected" : ""}>${state.lex[`status_${s}`]}</option>`).join("");
   const L = state.lex;
   const rows = items.map((i) => `<tr>
-      <td>${i.title}${i.encounter_role === "boss" ? " 👑" : ""}</td>
-      <td>${i.project_id}</td>
+      <td>${esc(i.title)}${i.encounter_role === "boss" ? " 👑" : ""}</td>
+      <td><span class="proj-link" data-hub="${esc(i.project_id)}">${esc(i.project_id)}</span></td>
       <td>${statusBadge(i.status)}</td>
       ${dueCell(i.due, todayKey)}
-      <td>${i.assignee_ref ?? "-"}</td>
-      <td>${i.automation_level}</td>
+      <td>${esc(i.assignee_ref ?? "-")}</td>
+      <td>${itemLinkCell(i)}</td>
+      <td class="acts">${itemActionsHtml(i)}</td>
     </tr>`).join("");
   $("#view").innerHTML = `
     <div class="filters">
       <select id="fProject"><option value="">${L.project}: ${L.all_label}</option>${opts}</select>
       <select id="fStatus"><option value="">${L.th_status}: ${L.all_label}</option>${sopts}</select>
     </div>
-    ${rows ? `<table><thead><tr><th>${L.item}</th><th>${L.project}</th><th>${L.th_status}</th><th>${L.th_due}</th><th>${L.th_assignee}</th><th>${L.th_automation}</th></tr></thead><tbody>${rows}</tbody></table>` : `<div class="empty">${L.empty_items}</div>`}`;
+    ${rows ? `<table><thead><tr><th>${L.item}</th><th>${L.project}</th><th>${L.th_status}</th><th>${L.th_due}</th><th>${L.th_assignee}</th><th>${L.tab_guide}</th><th>${L.th_actions}</th></tr></thead><tbody>${rows}</tbody></table>` : `<div class="empty">${L.empty_items}</div>`}`;
   $("#fProject").addEventListener("change", (e) => { state.projectFilter = e.target.value; render(); });
   $("#fStatus").addEventListener("change", (e) => { state.statusFilter = e.target.value; render(); });
+  $("#view").querySelectorAll("[data-hub]").forEach((c) =>
+    c.addEventListener("click", () => { state.hubProject = c.dataset.hub; state.hubTab = "overview"; state.view = "project"; render(); })
+  );
+  wireItemActions($("#view"));
 }
 
 // 결정적 프로젝트 라벨 색 (저채도 12팔레트 — 파워유저 페르소나 제안)
@@ -382,6 +424,9 @@ async function renderMail() {
         <div><dt>${L.detail_pointer}</dt><dd class="pointer">${esc(sel.pointer_ref ?? "-")} <button class="copy-btn" data-c="${esc(sel.pointer_ref ?? "")}">${L.copy}</button></dd></div></dl>
       <h4>${L.detail_labels}</h4>
       <div class="label-bar">${labels.map((l) => `<span class="label-chip manual ${sel.label_ids.includes(l.id) ? "on" : ""}" style="--lc:${esc(l.color)}" data-toggle="${l.id}">${esc(l.name)}</span>`).join("") || `<span class="dim">-</span>`}</div>
+      <div class="detail-actions">${state._promotedMails?.has(sel.id)
+        ? `<span class="badge green">✓ ${L.item}</span>`
+        : `<button id="promoteBtn" class="fav-chip">${L.promote_item}</button>`}</div>
     </aside>` : "";
 
   $("#view").innerHTML = `${labelBar}${filterChips}${toolbar}
@@ -416,6 +461,11 @@ async function renderMail() {
   $("#view").querySelectorAll(".copy-btn").forEach((b) =>
     b.addEventListener("click", () => navigator.clipboard?.writeText(b.dataset.c))
   );
+  $("#promoteBtn")?.addEventListener("click", async () => {
+    await post("/api/items/promote", { mail_id: state.mailSel });
+    (state._promotedMails ??= new Set()).add(state.mailSel);
+    render();
+  });
 }
 
 async function renderArtifacts() {
@@ -450,16 +500,13 @@ async function renderSearch(term) {
     sec(state.lex.nav_artifacts, arts && `<table><tbody>${arts}</tbody></table>`, state.lex.empty_artifacts);
 }
 
-// 가이드형 워크플로우 (run13): "폴더 순서 = 업무 순서" 를 화면으로
-async function renderGuide() {
+// 가이드형 워크플로우 (run13, run16 재사용화): "폴더 순서 = 업무 순서" 를 화면으로.
+// 전역 가이드 화면과 과제 허브 산출물 탭이 같은 섹션 빌더를 공유한다.
+async function buildGuideSection(projectId) {
   const L = state.lex;
-  const summary = state._projCache ? { projects: state._projCache } : await api("/api/summary");
-  state._projCache = summary.projects;
-  const actives = summary.projects.filter((p) => p.class === "active");
-  if (!state.guideProject && actives[0]) state.guideProject = actives[0].id;
   const [tpl, arts] = await Promise.all([
     api(`/api/guide/templates?mode=${state.mode}`),
-    state.guideProject ? api(`/api/guide?project=${encodeURIComponent(state.guideProject)}`) : Promise.resolve([])
+    projectId ? api(`/api/guide?project=${encodeURIComponent(projectId)}`) : Promise.resolve([])
   ]);
   const flowKeys = tpl.flow.map((s) => s.key);
   const doneCount = (a) => flowKeys.filter((k) => a.steps[k]).length;
@@ -473,6 +520,7 @@ async function renderGuide() {
     const artCards = stageArts.map((a) => {
       const dc = doneCount(a);
       const currentKey = flowKeys.find((k) => !a.steps[k]);
+      const currentName = currentKey ? tpl.flow.find((f) => f.key === currentKey).name : "";
       const open = state.guideOpen === a.id;
       const stepRows = tpl.flow.map((s) => {
         const st = a.steps[s.key];
@@ -488,7 +536,10 @@ async function renderGuide() {
           <strong>${esc(a.name)}</strong>
           <span class="progress"><i style="width:${(dc / flowKeys.length) * 100}%"></i></span>
           <span class="art-count">${dc}/${flowKeys.length}</span>
-          ${currentKey ? `<span class="badge amber">${L.guide_next}: ${esc(tpl.flow.find((f) => f.key === currentKey).name)}</span>` : `<span class="badge green">${L.status_done}</span>`}
+          ${currentKey
+            ? `<span class="badge amber">${L.guide_next}: ${esc(currentName)}</span>
+               <button class="fav-chip mini" data-mkitem="${a.id}" data-step="${esc(currentKey)}" data-title="${esc(a.name)}: ${esc(currentName)}">${L.guide_make_item}</button>`
+            : `<span class="badge green">${L.status_done}</span>`}
         </div>
         ${open ? `<div class="art-steps">${stepRows}</div>` : ""}</div>`;
     }).join("");
@@ -501,34 +552,190 @@ async function renderGuide() {
     </section>`;
   };
 
-  $("#view").innerHTML = `
-    <div class="filters">
-      <select id="gProject">${actives.map((p) => `<option value="${esc(p.id)}" ${state.guideProject === p.id ? "selected" : ""}>${esc(p.title)}</option>`).join("")}</select>
-      <span class="dim guide-principle">${L.guide_principle}</span>
-      ${totalSteps ? `<span class="badge">${L.guide_progress} ${totalDone}/${totalSteps}</span>` : ""}
-    </div>
-    ${tpl.stages.map(stageBlock).join("")}`;
+  return { html: tpl.stages.map(stageBlock).join(""), totalSteps, totalDone };
+}
 
-  $("#gProject").addEventListener("change", (e) => { state.guideProject = e.target.value; render(); });
-  $("#view").querySelectorAll("[data-open]").forEach((h) =>
+function wireGuideSection(scope, projectId) {
+  scope.querySelectorAll("[data-open]").forEach((h) =>
     h.addEventListener("click", () => { state.guideOpen = state.guideOpen === Number(h.dataset.open) ? null : Number(h.dataset.open); render(); })
   );
-  $("#view").querySelectorAll(".step-row").forEach((r) =>
+  scope.querySelectorAll(".step-row").forEach((r) =>
     r.addEventListener("click", async () => {
       const on = !r.classList.contains("done");
       await post("/api/guide/step", { artifact_id: Number(r.dataset.a), step_key: r.dataset.s, on });
       render();
     })
   );
-  $("#view").querySelectorAll("[data-add]").forEach((b) =>
+  scope.querySelectorAll("[data-add]").forEach((b) =>
     b.addEventListener("click", async () => {
-      const input = $("#view").querySelector(`input[data-stage="${b.dataset.add}"]`);
+      const input = scope.querySelector(`input[data-stage="${b.dataset.add}"]`);
       const name = input.value.trim();
       if (!name) return;
-      const r = await post("/api/guide/artifact", { project_id: state.guideProject, stage_code: b.dataset.add, name });
+      const r = await post("/api/guide/artifact", { project_id: projectId, stage_code: b.dataset.add, name });
       if (r.ok) render();
     })
   );
+  // P2a: 현재 스텝을 할 일로 — 가이드 산출물·스텝 연결된 item 생성
+  scope.querySelectorAll("[data-mkitem]").forEach((b) =>
+    b.addEventListener("click", async (e) => {
+      e.stopPropagation();
+      await post("/api/items", {
+        project_id: projectId, title: b.dataset.title,
+        guide_artifact_id: Number(b.dataset.mkitem), guide_step_key: b.dataset.step
+      });
+      render();
+    })
+  );
+}
+
+async function renderGuide() {
+  const L = state.lex;
+  const summary = state._projCache ? { projects: state._projCache } : await api("/api/summary");
+  state._projCache = summary.projects;
+  const actives = summary.projects.filter((p) => p.class === "active");
+  if (!state.guideProject && actives[0]) state.guideProject = actives[0].id;
+  const g = await buildGuideSection(state.guideProject);
+
+  $("#view").innerHTML = `
+    <div class="filters">
+      <select id="gProject">${actives.map((p) => `<option value="${esc(p.id)}" ${state.guideProject === p.id ? "selected" : ""}>${esc(p.title)}</option>`).join("")}</select>
+      <span class="dim guide-principle">${L.guide_principle}</span>
+      ${g.totalSteps ? `<span class="badge">${L.guide_progress} ${g.totalDone}/${g.totalSteps}</span>` : ""}
+    </div>
+    ${g.html}`;
+
+  $("#gProject").addEventListener("change", (e) => { state.guideProject = e.target.value; render(); });
+  wireGuideSection($("#view"), state.guideProject);
+}
+
+// --- 과제 허브 (run16): "프로젝트 안에 산출물" — 과제가 컨테이너, 탭으로 내용물 ---
+async function renderProjectHub() {
+  const L = state.lex;
+  const pid = state.hubProject;
+  const summary = await api("/api/summary");
+  state._projCache = summary.projects;
+  const p = summary.projects.find((x) => x.id === pid);
+  if (!p) { state.view = "home"; return render(); }
+  const tab = state.hubTab ?? "overview";
+  const tabs = ["overview", "guide", "mail", "history"];
+  $("#view").innerHTML = `
+    <div class="hub-tabs">
+      <button id="hubBack" class="fav-chip">${L.back_home}</button>
+      ${tabs.map((t) => `<button class="hub-tab ${tab === t ? "on" : ""}" data-tab="${t}">${L[`tab_${t}`]}</button>`).join("")}
+      <span class="badge">${L[`class_${p.class}`] ?? esc(p.class)}</span>
+    </div>
+    <div id="hubBody"></div>`;
+  $("#hubBack").addEventListener("click", () => { state.view = "home"; render(); });
+  $("#view").querySelectorAll(".hub-tab").forEach((b) =>
+    b.addEventListener("click", () => { state.hubTab = b.dataset.tab; render(); })
+  );
+  const mount = $("#hubBody");
+  if (tab === "guide") return hubGuide(mount, p);
+  if (tab === "mail") return hubMail(mount, p);
+  if (tab === "history") return hubHistory(mount, p);
+  return hubOverview(mount, p);
+}
+
+async function hubOverview(mount, p) {
+  const L = state.lex;
+  const todayKey = new Date().toISOString().slice(0, 10);
+  const [items, mail] = await Promise.all([
+    api(`/api/items?project=${encodeURIComponent(p.id)}`),
+    api(`/api/mail?project=${encodeURIComponent(p.id)}&days=90`)
+  ]);
+  const openCnt = items.filter((i) => i.status !== "done").length;
+  const rows = items.map((i) => `<tr>
+      <td>${esc(i.title)}</td>
+      <td>${statusBadge(i.status)}</td>
+      ${dueCell(i.due, todayKey)}
+      <td>${esc(i.assignee_ref ?? "-")}</td>
+      <td>${itemLinkCell(i)}</td>
+      <td class="acts">${itemActionsHtml(i)}</td>
+    </tr>`).join("");
+  const mailRows = mail.slice(0, 5).map((m) => `<tr>
+      <td class="mail-time">${localTime(m.at)}</td>
+      <td class="mail-from">${m.direction === "out" ? "<i>→</i> " : ""}${esc(m.counterpart ?? "-")}</td>
+      <td class="mail-subj">${esc(m.subject)}</td></tr>`).join("");
+  mount.innerHTML = `
+    <div class="kpi-row">
+      <div class="kpi"><span>${L.col_remaining}</span><strong>${openCnt}</strong></div>
+      <div class="kpi red"><span>${L.kpi_blocked}</span><strong>${p.blocked}</strong></div>
+      <div class="kpi red"><span>${L.kpi_overdue}</span><strong>${p.overdue}</strong></div>
+      <div class="kpi amber"><span>${L.kpi_today}</span><strong>${p.due_today}</strong></div>
+    </div>
+    <div class="item-form">
+      <input id="niTitle" placeholder="${L.item_new_ph}" />
+      <input id="niAssignee" placeholder="${L.assignee_ph}" size="9" />
+      <input id="niDue" type="date" />
+      <button id="niAdd" class="fav-chip">${L.item_add}</button>
+    </div>
+    ${rows ? `<table><thead><tr><th>${L.item}</th><th>${L.th_status}</th><th>${L.th_due}</th><th>${L.th_assignee}</th><th>${L.tab_guide}</th><th>${L.th_actions}</th></tr></thead><tbody>${rows}</tbody></table>` : `<div class="empty">${L.empty_items}</div>`}
+    <h4 class="hub-h4">${L.tile_mail}</h4>
+    ${mailRows ? `<table class="mail-table"><tbody>${mailRows}</tbody></table>` : `<div class="empty small">${L.empty_mail}</div>`}`;
+  $("#niAdd").addEventListener("click", async () => {
+    const title = $("#niTitle").value.trim();
+    if (!title) return;
+    const body = { project_id: p.id, title };
+    const a = $("#niAssignee").value.trim();
+    if (a) body.assignee_ref = a;
+    if ($("#niDue").value) body.due = $("#niDue").value;
+    const r = await post("/api/items", body);
+    if (r.ok) render();
+  });
+  $("#niTitle").addEventListener("keydown", (e) => { if (e.key === "Enter") $("#niAdd").click(); });
+  wireItemActions(mount);
+}
+
+async function hubGuide(mount, p) {
+  const L = state.lex;
+  const g = await buildGuideSection(p.id);
+  mount.innerHTML = `
+    <div class="filters"><span class="dim guide-principle">${L.guide_principle}</span>
+      ${g.totalSteps ? `<span class="badge">${L.guide_progress} ${g.totalDone}/${g.totalSteps}</span>` : ""}</div>
+    ${g.html}`;
+  wireGuideSection(mount, p.id);
+}
+
+async function hubMail(mount, p) {
+  const L = state.lex;
+  const [mail, items] = await Promise.all([
+    api(`/api/mail?project=${encodeURIComponent(p.id)}&days=365`),
+    api(`/api/items?project=${encodeURIComponent(p.id)}`)
+  ]);
+  const promoted = new Set(items.map((i) => i.origin_mail_id).filter(Boolean));
+  const rows = mail.map((m) => `<tr class="mail-row">
+      <td class="mail-time">${localTime(m.at)}</td>
+      <td class="mail-from">${m.direction === "out" ? "<i>→</i> " : ""}${esc(m.counterpart ?? "-")}</td>
+      <td class="mail-subj">${esc(m.subject)}</td>
+      <td class="acts">${promoted.has(m.id)
+        ? `<span class="badge green">✓ ${L.item}</span>`
+        : `<button class="fav-chip mini" data-promote="${esc(m.id)}">${L.promote_item}</button>`}
+        ${m.pointer_ref ? `<button class="copy-btn" data-c="${esc(m.pointer_ref)}">${L.copy}</button>` : ""}</td>
+    </tr>`).join("");
+  mount.innerHTML = rows
+    ? `<table class="mail-table"><tbody>${rows}</tbody></table>`
+    : `<div class="empty">${L.empty_mail}</div>`;
+  mount.querySelectorAll("[data-promote]").forEach((b) =>
+    b.addEventListener("click", async () => {
+      await post("/api/items/promote", { mail_id: b.dataset.promote });
+      render();
+    })
+  );
+  mount.querySelectorAll(".copy-btn").forEach((b) =>
+    b.addEventListener("click", () => navigator.clipboard?.writeText(b.dataset.c))
+  );
+}
+
+async function hubHistory(mount, p) {
+  const L = state.lex;
+  const events = await api(`/api/events/recent?project=${encodeURIComponent(p.id)}&limit=50`);
+  mount.innerHTML = events.length
+    ? `<table><tbody>${events.map((e) => `<tr>
+        <td class="mail-time">${localTime(e.at)}</td>
+        <td><span class="badge">${esc(e.kind)}</span></td>
+        <td>${esc(e.from_val ? `${e.from_val} → ` : "")}${esc(e.to_val ?? "")}${e.bottleneck_reason ? ` · ${esc(e.bottleneck_reason)}` : ""}</td>
+        <td class="dim">${esc(e.actor_ref)}</td></tr>`).join("")}</tbody></table>`
+    : `<div class="empty small">-</div>`;
 }
 
 async function render() {
@@ -539,6 +746,12 @@ async function render() {
     $("#viewTitle").textContent = m?.nav ?? "";
     logView(state.view);
     return renderModulePlaceholder(state.view.slice(4));
+  }
+  if (state.view === "project") {
+    const p = (state._projCache ?? []).find((x) => x.id === state.hubProject);
+    $("#viewTitle").textContent = p ? (p.title === p.id ? p.id : `${p.id} · ${p.title}`) : (state.hubProject ?? "");
+    logView(`project:${state.hubProject}`);
+    return renderProjectHub();
   }
   $("#viewTitle").textContent = state.lex[titles[state.view]] ?? "";
   logView(state.view);
@@ -560,7 +773,7 @@ async function paletteEntries(q) {
     .map((v) => ({ kind: "view", label: labelFor(v), run: () => { state.view = v; render(); } }));
   const projects = (state._projCache ?? []).map((p) => ({
     kind: "project", label: `${p.title} (${p.id})`,
-    run: () => { state.projectFilter = p.id; state.view = "items"; render(); }
+    run: () => { state.hubProject = p.id; state.hubTab = "overview"; state.view = "project"; render(); }
   }));
   const actions = [{
     kind: "action", label: state.lex.palette_mode_switch,

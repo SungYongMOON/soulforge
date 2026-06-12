@@ -189,3 +189,76 @@ test("run13: 가이드 산출물 CRUD + 스텝 진행 상태", async () => {
   [art] = store.guideState(proj);
   assert.equal(art.steps.snapshot, undefined);
 });
+
+test("run16: P2a 할일 쓰기 — 생성/검증/가이드 연결", () => {
+  const store = freshStore();
+  loadFixture(store);
+  const proj = store.summary("2026-06-12", "2026-06-18")[0].id;
+
+  assert.equal(store.createItem({ project_id: proj, title: " " }).error, "title_required");
+  assert.equal(store.createItem({ project_id: "no-such", title: "x" }).error, "project_not_found");
+  assert.equal(store.createItem({ project_id: proj, title: "x", due: "6/13" }).error, "due_format");
+  assert.equal(store.createItem({ project_id: proj, title: "x", guide_artifact_id: 999 }).error, "guide_artifact_not_found");
+
+  const r = store.createItem({ project_id: proj, title: "방열판 견적 요청", assignee_ref: "u1", due: "2026-06-20", created_by: "owner" });
+  assert.equal(r.ok, true);
+  assert.equal(r.item.status, "open");
+  assert.equal(r.item.data_label, "real");
+  assert.equal(r.item.created_by, "owner");
+
+  // 가이드 산출물 연결 (+ 타 과제 산출물 거부)
+  store.addGuideArtifact(proj, "030", "SSRS");
+  const [art] = store.guideState(proj);
+  const linked = store.createItem({ project_id: proj, title: "SSRS 초안", guide_artifact_id: art.id, guide_step_key: "draft" });
+  assert.equal(linked.ok, true);
+  const rows = store.items({ project: proj, q: "SSRS 초안" });
+  assert.equal(rows[0].guide_artifact_name, "SSRS");
+  assert.equal(rows[0].guide_stage_code, "030");
+  const other = store.summary("2026-06-12", "2026-06-18")[1].id;
+  assert.equal(store.createItem({ project_id: other, title: "y", guide_artifact_id: art.id }).error, "guide_artifact_project_mismatch");
+});
+
+test("run16: P2a 상태 전이 + 담당 지정 + project_ref 이벤트 필터", () => {
+  const store = freshStore();
+  loadFixture(store);
+  const proj = store.summary("2026-06-12", "2026-06-18")[0].id;
+  const { item } = store.createItem({ project_id: proj, title: "테스트 할일" });
+
+  assert.equal(store.setItemStatus(item.id, "weird").error, "bad_status");
+  assert.equal(store.setItemStatus("no-such", "doing").error, "item_not_found");
+  const s1 = store.setItemStatus(item.id, "doing");
+  assert.deepEqual([s1.ok, s1.from, s1.project_id], [true, "open", proj]);
+  const s2 = store.setItemStatus(item.id, "done");
+  assert.equal(s2.from, "doing");
+
+  const a1 = store.setItemAssignee(item.id, "u2");
+  assert.equal(a1.ok, true);
+  assert.equal(store.setItemAssignee("no-such", "u2").error, "item_not_found");
+
+  // project_ref 차원: 과제별 이력 필터
+  store.appendEvent({ kind: "item_status", item_ref: item.id, from: "open", to: "doing", project_ref: proj, data_label: "real" });
+  store.appendEvent({ kind: "item_status", item_ref: "zzz", from: "open", to: "doing", project_ref: "OTHER", data_label: "real" });
+  const filtered = store.recentEvents(50, proj);
+  assert.ok(filtered.length >= 1);
+  assert.ok(filtered.every((e) => e.project_ref === proj));
+});
+
+test("run16: 메일→할일 승격 (메타만, 중복 거부)", () => {
+  const store = freshStore();
+  loadFixture(store);
+  const [m] = store.mail({ days: 0 });
+  const r = store.promoteMail(m.id, "owner");
+  assert.equal(r.ok, true);
+  assert.equal(r.item.title, m.subject);          // 제목 메타만 복사
+  assert.equal(r.item.origin, "mail");
+  assert.equal(r.item.origin_mail_id, m.id);
+  assert.equal(r.item.project_id, m.project_id);
+  const dup = store.promoteMail(m.id, "owner");
+  assert.equal(dup.error, "already_promoted");
+  assert.equal(dup.item_id, r.item.id);
+  assert.equal(store.promoteMail("no-such", "owner").error, "mail_not_found");
+  // 본문 필드 자체가 스키마에 없음 — 승격 항목 컬럼 확인
+  const cols = store.db.prepare("PRAGMA table_info(core_item)").all().map((c) => c.name);
+  assert.ok(cols.includes("origin_mail_id") && cols.includes("created_by"));
+  assert.ok(!cols.includes("body"));
+});

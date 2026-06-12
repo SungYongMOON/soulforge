@@ -161,6 +161,20 @@
       "priority": "P0",
       "status": "done",
       "acceptance": "출처=.registry/skills/se_foldertree_generate(폴더 순서=업무 순서). 산출물 추가/스텝 체크·해제/진행률/다음 할 일 강조, 양 모드 파리티, event_log(used_refs+data_label) 기록. node --test 11/11 + 브라우저 실검증(콘솔 에러 0)"
+    },
+    {
+      "id": "UX-007",
+      "title": "과제 허브: 과제 클릭 → 개요/산출물(가이드)/메일/이력 탭 (run16)",
+      "priority": "P0",
+      "status": "done",
+      "acceptance": "리서치 하이브리드 권고(저장=관계형, 표시=컨테이너) 구현. 데이터 이동 0. 홈/팔레트/할일에서 진입. 브라우저 실검증 + 콘솔 0"
+    },
+    {
+      "id": "W-001",
+      "title": "P2a 할일 쓰기: 생성/상태 전이/담당/가이드 스텝 연결/메일→할일 승격 (run16)",
+      "priority": "P0",
+      "status": "done",
+      "acceptance": "POST 4종 전부 event_log 기록(project_ref 차원 포함), 중복 승격 거부, 메타만 복사(본문 컬럼 없음 확인), node:test 14/14 + 실검증. RBAC 필드 설계만(P2b 강제)"
     }
   ],
   "owner_questions": [
@@ -182,6 +196,7 @@
     "2026-06-12 run6-7 (자율 블록): Cmd+K 팔레트 + 홈 위젯 타일 구현·실검증. P1b(실데이터)는 owner 승인 대기로 미실행. 콘솔 에러 0, node:test 8/8 유지.",
     "2026-06-12 run8 (P1b, owner 승인): build_real_meta.mjs + 부팅 자동 ingest. 13프로젝트/675메일 적재, 합성 제거, \\\\uXXXX 제목 디코드. 브라우저 실검증·콘솔 0. 원문/외부 전송 0건.",
     "2026-06-12 run9-11: 3페르소나 평가(PERSONA_REVIEW) → 대시보드 개편 + Gmail식 메일+라벨. 보류: URL 라우팅/정렬/스레드 그룹핑/검색 연산자(후속 후보), N4(owner 보류).",
-    "2026-06-12 run13: TOOL_IDENTITY_REVIEW(run12) 콘셉트 '폴더트리가 곧 위저드' 구현. guide.mjs(SE_STAGES 030~240 + ARTIFACT_FLOW snapshot→…→final(Out)→quality) + guide_artifact/guide_step 테이블 + API 4종 + 가이드 화면(과제 선택→단계 위→아래→산출물 카드→7스텝, 첫 미완=다음 할 일). N4(저장된 검색)는 owner 보류 유지 — 가이드가 일부 수요 대체 가능성만 기록. QA 산출물 1건(P21-062/030 SSRS, 0/7)은 시연용으로 남김."
+    "2026-06-12 run13: TOOL_IDENTITY_REVIEW(run12) 콘셉트 '폴더트리가 곧 위저드' 구현. guide.mjs(SE_STAGES 030~240 + ARTIFACT_FLOW snapshot→…→final(Out)→quality) + guide_artifact/guide_step 테이블 + API 4종 + 가이드 화면(과제 선택→단계 위→아래→산출물 카드→7스텝, 첫 미완=다음 할 일). N4(저장된 검색)는 owner 보류 유지 — 가이드가 일부 수요 대체 가능성만 기록. QA 산출물 1건(P21-062/030 SSRS, 0/7)은 시연용으로 남김.",
+    "2026-06-12 run16: owner 승인('진행해')으로 과제 허브+P2a 구현. P2 순서 패킷 approved. core_item 4컬럼+event_log project_ref 마이그레이션(try/catch ALTER). 가이드 섹션 빌더 공용화(전역 가이드/허브 공유). QA 쓰기 잔존: P21-062 할일 3건(1 doing)+승격 배지 1+SSRS 산출물 — 초기화 원하면 data/dev-erp.db 삭제 후 재기동(전체 리셋: 라벨/가이드/할일 소실). 흡수 결정: 할일 표의 자동화 컬럼→산출물 연결 컬럼 교체."
   ]
 }
