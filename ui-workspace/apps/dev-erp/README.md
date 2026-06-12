@@ -9,10 +9,17 @@
 ## 실행 (의존성 설치 불필요)
 
 ```bash
-node server.mjs            # http://127.0.0.1:4300, DB: data/dev-erp.db
+node --watch server.mjs    # 권장: 파일 변경 시 자동 재시작 (AI 수정 즉시 반영)
+node server.mjs            # 일반 실행. http://127.0.0.1:4300, DB: data/dev-erp.db
 node server.mjs --db :memory:   # 일회성 실행
 node server.mjs --ingest path/to/normalized.json   # 실데이터 메타 적재
+node server.mjs --host 0.0.0.0  # 같은 Wi-Fi 공유 (합성 데이터 파일럿 한정)
 ```
+
+운영 메모: AI(Claude)가 코드를 수정하면 `--watch` 실행 중인 서버가 스스로
+재시작한다 — 수동 재시작 불필요. 상시 운영(tool_pc 이전 시)은 Soulforge
+always-on(launchd) 패턴으로 등록해 부팅 자동 시작 + 비정상 종료 자동 복구를
+붙인다 (P2 항목).
 
 - 요구: Node.js 22.5+ (내장 `node:sqlite` 사용. 외부 패키지 0개)
 - DB 가 비어 있으면 합성 fixture(synthetic 라벨) 자동 적재 — 실데이터 0
