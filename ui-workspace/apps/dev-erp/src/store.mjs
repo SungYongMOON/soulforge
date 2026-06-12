@@ -87,6 +87,20 @@ CREATE TABLE IF NOT EXISTS event_log (   -- append-only. battle_event 호환
   data_label TEXT NOT NULL DEFAULT 'synthetic',
   note TEXT
 );
+CREATE TABLE IF NOT EXISTS guide_artifact ( -- 가이드: 과제×단계의 산출물 등록 (메타)
+  id INTEGER PRIMARY KEY AUTOINCREMENT,
+  project_id TEXT NOT NULL,
+  stage_code TEXT NOT NULL,
+  name TEXT NOT NULL,
+  UNIQUE(project_id, stage_code, name)
+);
+CREATE TABLE IF NOT EXISTS guide_step (     -- 가이드: 산출물 절차 스텝 체크 상태
+  artifact_id INTEGER NOT NULL REFERENCES guide_artifact(id),
+  step_key TEXT NOT NULL,
+  done_at TEXT,
+  actor TEXT,
+  PRIMARY KEY (artifact_id, step_key)
+);
 CREATE TABLE IF NOT EXISTS mail_label (   -- Gmail식 수동 라벨 (메타데이터, 첫 쓰기 도메인)
   id INTEGER PRIMARY KEY AUTOINCREMENT,
   name TEXT NOT NULL UNIQUE,
@@ -314,6 +328,49 @@ export class Store {
       )
       .all(...args);
     return rows.map((r) => ({ ...r, label_ids: r.label_ids ? String(r.label_ids).split(",").map(Number) : [] }));
+  }
+
+  // --- 가이드형 워크플로우 (run13): 산출물 등록 + 스텝 체크 (메타만) ---
+  addGuideArtifact(projectId, stageCode, name) {
+    const trimmed = String(name ?? "").trim();
+    if (!trimmed) return { error: "artifact_name_required" };
+    if (!this.db.prepare("SELECT 1 FROM core_project WHERE id=?").get(projectId)) return { error: "project_not_found" };
+    try {
+      this.db.prepare("INSERT INTO guide_artifact(project_id,stage_code,name) VALUES(?,?,?)").run(projectId, stageCode, trimmed);
+    } catch {
+      return { error: "artifact_exists" };
+    }
+    return { ok: true };
+  }
+
+  setGuideStep(artifactId, stepKey, on, actor = "owner") {
+    if (!this.db.prepare("SELECT 1 FROM guide_artifact WHERE id=?").get(artifactId)) return { error: "artifact_not_found" };
+    if (on) {
+      this.db.prepare(
+        `INSERT INTO guide_step(artifact_id,step_key,done_at,actor) VALUES(?,?,?,?)
+         ON CONFLICT(artifact_id,step_key) DO UPDATE SET done_at=excluded.done_at, actor=excluded.actor`
+      ).run(Number(artifactId), stepKey, new Date().toISOString(), actor);
+    } else {
+      this.db.prepare("DELETE FROM guide_step WHERE artifact_id=? AND step_key=?").run(Number(artifactId), stepKey);
+    }
+    return { ok: true };
+  }
+
+  guideState(projectId) {
+    const artifacts = this.db
+      .prepare("SELECT * FROM guide_artifact WHERE project_id=? ORDER BY stage_code, id")
+      .all(projectId);
+    const steps = this.db
+      .prepare(
+        `SELECT s.* FROM guide_step s JOIN guide_artifact a ON a.id=s.artifact_id WHERE a.project_id=?`
+      )
+      .all(projectId);
+    const byArtifact = new Map();
+    for (const s of steps) {
+      if (!byArtifact.has(s.artifact_id)) byArtifact.set(s.artifact_id, {});
+      byArtifact.get(s.artifact_id)[s.step_key] = { done_at: s.done_at, actor: s.actor };
+    }
+    return artifacts.map((a) => ({ ...a, steps: byArtifact.get(a.id) ?? {} }));
   }
 
   // --- 수동 라벨 (첫 쓰기 도메인: 메타데이터만, event_log 기록은 호출측) ---

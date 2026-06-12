@@ -151,3 +151,41 @@ test("run11: 수동 라벨 CRUD + 메일 라벨 필터 (Gmail식)", () => {
   const q = store.mail({ days: 0, q: m2.subject.slice(0, 6) });
   assert.ok(q.some((m) => m.id === m2.id));
 });
+
+test("run13: 가이드 산출물 CRUD + 스텝 진행 상태", async () => {
+  const { guideTemplates, SE_STAGES, ARTIFACT_FLOW } = await import("../src/guide.mjs");
+  const store = freshStore();
+  loadFixture(store);
+  const proj = store.summary("2026-06-12", "2026-06-18")[0].id;
+
+  // 템플릿: 양 모드 모두 8단계 + 7스텝, 파리티
+  for (const mode of ["business", "fantasy"]) {
+    const t = guideTemplates(mode);
+    assert.equal(t.stages.length, SE_STAGES.length);
+    assert.equal(t.flow.length, ARTIFACT_FLOW.length);
+    assert.ok(t.stages.every((s) => s.name && s.code));
+    assert.ok(t.flow.every((s) => s.name && s.hint));
+  }
+  // Out(final) 이 quality 앞, snapshot 이 첫 스텝 — "폴더 순서 = 업무 순서"
+  const keys = ARTIFACT_FLOW.map((s) => s.key);
+  assert.equal(keys[0], "snapshot");
+  assert.ok(keys.indexOf("final") === keys.length - 2 && keys.at(-1) === "quality");
+
+  // 산출물 추가: 검증 + 중복 거부
+  assert.equal(store.addGuideArtifact(proj, "030", "  ").error, "artifact_name_required");
+  assert.equal(store.addGuideArtifact("no-such", "030", "SSRS").error, "project_not_found");
+  assert.equal(store.addGuideArtifact(proj, "030", "체계요구사항명세서(SSRS)").ok, true);
+  assert.equal(store.addGuideArtifact(proj, "030", "체계요구사항명세서(SSRS)").error, "artifact_exists");
+
+  // 스텝 체크/해제 + 상태 맵
+  let [art] = store.guideState(proj);
+  assert.equal(art.stage_code, "030");
+  assert.deepEqual(art.steps, {});
+  assert.equal(store.setGuideStep(art.id, "snapshot", true).ok, true);
+  assert.equal(store.setGuideStep(999999, "snapshot", true).error, "artifact_not_found");
+  [art] = store.guideState(proj);
+  assert.ok(art.steps.snapshot.done_at);
+  store.setGuideStep(art.id, "snapshot", false);
+  [art] = store.guideState(proj);
+  assert.equal(art.steps.snapshot, undefined);
+});

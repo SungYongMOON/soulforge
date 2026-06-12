@@ -11,6 +11,7 @@ import { openStore } from "./src/store.mjs";
 import { loadFixture } from "./src/fixture.mjs";
 import { ingestFromFile } from "./src/adapter.mjs";
 import { getLexicon, LEXICON } from "./src/lexicon.mjs";
+import { guideTemplates } from "./src/guide.mjs";
 import { modulesFor } from "./src/modules.mjs";
 import { crossSearch } from "./src/search.mjs";
 
@@ -81,6 +82,24 @@ const server = createServer(async (req, res) => {
       project: qp.project, days: qp.days !== undefined ? Number(qp.days) : 90,
       q: qp.q, direction: qp.direction, label_id: qp.label_id
     }));
+    if (path === "/api/guide/templates") return send(res, 200, guideTemplates(qp.mode));
+    if (path === "/api/guide") return send(res, 200, store.guideState(qp.project ?? ""));
+    if (path === "/api/guide/artifact" && req.method === "POST") {
+      let body = ""; for await (const chunk of req) body += chunk;
+      const { project_id, stage_code, name } = JSON.parse(body || "{}");
+      const result = store.addGuideArtifact(project_id, stage_code, name);
+      if (result.error) return send(res, 400, result);
+      store.appendEvent({ actor_ref: "owner", actor_kind: "human", kind: "guide_artifact_add", item_ref: `${project_id}:${stage_code}`, to: name, used_refs: ["guide", ".registry/skills/se_foldertree_generate"], data_label: "real" });
+      return send(res, 200, result);
+    }
+    if (path === "/api/guide/step" && req.method === "POST") {
+      let body = ""; for await (const chunk of req) body += chunk;
+      const { artifact_id, step_key, on } = JSON.parse(body || "{}");
+      const result = store.setGuideStep(artifact_id, step_key, on !== false);
+      if (result.error) return send(res, 400, result);
+      store.appendEvent({ actor_ref: "owner", actor_kind: "human", kind: on !== false ? "guide_step_done" : "guide_step_undo", item_ref: `guide:${artifact_id}`, to: step_key, used_refs: ["guide"], data_label: "real" });
+      return send(res, 200, result);
+    }
     if (path === "/api/labels" && req.method === "GET") return send(res, 200, store.labels());
     if (path === "/api/labels" && req.method === "POST") {
       let body = ""; for await (const chunk of req) body += chunk;

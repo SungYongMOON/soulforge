@@ -143,3 +143,29 @@ td.dim { color: var(--line); }
   nav { flex-direction: row; }
   .side-bottom { margin: 0 0 0 auto; }
 }
+
+/* 가이드형 워크플로우 (run13): 위→아래 스테퍼 */
+.guide-principle { align-self: center; }
+.guide-stage { background: var(--panel); border: 1px solid var(--line); border-radius: 12px; padding: 12px 14px; margin-top: 12px; }
+.guide-stage > header { display: flex; align-items: center; gap: 10px; margin-bottom: 8px; }
+.guide-stage h3 { margin: 0; font-size: 14px; }
+.stage-code { font-family: ui-monospace, monospace; font-size: 12px; color: var(--accent); border: 1px solid var(--line); border-radius: 6px; padding: 2px 6px; background: var(--chip); }
+.empty.small { padding: 10px; font-size: 12.5px; }
+.art-card { border: 1px solid var(--line); border-radius: 10px; margin-top: 8px; overflow: hidden; }
+.art-card.open { border-color: var(--accent); }
+.art-head { display: flex; align-items: center; gap: 10px; padding: 9px 12px; cursor: pointer; flex-wrap: wrap; }
+.art-head:hover { background: var(--chip); }
+.art-count { font-size: 12px; color: var(--muted); }
+.progress { width: 90px; height: 6px; border-radius: 999px; background: var(--chip); overflow: hidden; }
+.progress i { display: block; height: 100%; background: var(--ok); border-radius: 999px; }
+.art-steps { border-top: 1px solid var(--line); padding: 6px 0; }
+.step-row { display: grid; grid-template-columns: 24px minmax(140px, auto) 1fr auto; gap: 8px; align-items: baseline; padding: 7px 12px; cursor: pointer; font-size: 13px; }
+.step-row:hover { background: var(--chip); }
+.step-row.done .step-name { color: var(--muted); text-decoration: line-through; }
+.step-row.done .step-check { color: var(--ok); }
+.step-row.current { background: color-mix(in srgb, var(--accent) 9%, transparent); border-left: 3px solid var(--accent); padding-left: 9px; }
+.step-row.current .step-name { font-weight: 600; }
+.step-hint { color: var(--muted); font-size: 12px; }
+.step-meta { color: var(--muted); font-size: 11.5px; white-space: nowrap; }
+.art-add { display: flex; gap: 8px; margin-top: 10px; }
+.art-add input { flex: 1; padding: 7px 9px; border-radius: 8px; border: 1px solid var(--line); background: var(--bg); color: var(--text); font-size: 13px; }

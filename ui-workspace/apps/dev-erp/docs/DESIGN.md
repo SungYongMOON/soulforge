@@ -101,6 +101,15 @@ battle_event 최소 필드, intervention_count/bottleneck_reason 지표).
     "사용한 도구/지식 소스" 필드의 구현),
   data_label (synthetic/real, draft/confirmed 등 — 학습/보존 분류용)
 
+[guide_* — 가이드형 워크플로우 (run13, SE 절차의 화면화)]
+  guide_artifact(project_id, stage_code, name): 단계별 산출물 등록
+  guide_step(artifact_id, step_key, done_at, actor): 7스텝 체크 상태
+  출처 = .registry/skills/se_foldertree_generate SE_FolderTree_Guide v0.7.
+  단계 코드(030 SRR~240 LL)와 스텝 순서(snapshot→원자료→Work→Review→
+  Action→Out(완료판정)→Quality)는 src/guide.mjs 한 곳에만 정의 —
+  "폴더 순서 = 업무 순서" 원칙을 UI가 그대로 따른다(폴더트리가 곧 위저드).
+  체크/해제는 event_log 에 used_refs+data_label 로 기록.
+
 [game_* — 게임 전용 확장 (core 는 game 을 참조하지 않음)]
   game_profile(item_ref 1:1 nullable): 외형/스프라이트/설명/등급 오버라이드
     → "몬스터 정보 설정/편집" 화면은 이 테이블의 CRUD
@@ -147,6 +156,10 @@ event_log 는 그 라벨의 수집기 역할을 겸한다.
 - 2026-06-12: event_log 에 used_refs/data_label 추가, 라벨링 우선 원칙 신설
   (사유: owner 의 메타데이터/학습 데이터 관리 비전 — 쓰레기 누적 방지와
   사용 분석 가능 구조. World Bible battle log 필드의 구현이기도 함).
+- 2026-06-12: guide_* 구역 신설 — 가이드형 워크플로우 v1 (사유: owner 1순위
+  UX 원칙 "위에서 아래로 따라 하면 되는" + run12 툴 정체성 리서치 결론
+  '폴더트리가 곧 위저드'. 저장소 SE 폴더 규칙의 단계·역할 순서를 화면이
+  그대로 따름. 구조 변경 위임 규칙에 따라 기록).
 
 ## 8. 빌드/검증 방식
 

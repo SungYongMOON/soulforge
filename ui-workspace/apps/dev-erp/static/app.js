@@ -62,12 +62,12 @@ function localTime(iso) {
     : d.toLocaleString("ko-KR", { month: "numeric", day: "numeric", hour: "2-digit", minute: "2-digit" });
 }
 
-const VIEWS = ["home", "items", "mail", "artifacts", "search"];
-const navKey = { home: "nav_home", items: "nav_items", mail: "nav_mail", artifacts: "nav_artifacts", search: "nav_search" };
+const VIEWS = ["home", "items", "guide", "mail", "artifacts", "search"];
+const navKey = { home: "nav_home", items: "nav_items", guide: "nav_guide", mail: "nav_mail", artifacts: "nav_artifacts", search: "nav_search" };
 
 // IA 그룹: 운영 / 기록·이력 / 자재·구매 / 지식·도구 / 팀 (DESIGN 3절)
 const NAV_LAYOUT = [
-  { g: "group_work", items: ["home", "items", "mod:gates", "search"] },
+  { g: "group_work", items: ["home", "guide", "items", "mod:gates", "search"] },
   { g: "group_records", items: ["mail", "mod:meetings", "mod:reports", "artifacts"] },
   { g: "group_supply", items: ["mod:purchase", "mod:inventory", "mod:boards", "mod:stockwatch"] },
   { g: "group_knowledge", items: ["mod:knowledge", "mod:calculators", "mod:contacts"] },
@@ -450,9 +450,90 @@ async function renderSearch(term) {
     sec(state.lex.nav_artifacts, arts && `<table><tbody>${arts}</tbody></table>`, state.lex.empty_artifacts);
 }
 
+// 가이드형 워크플로우 (run13): "폴더 순서 = 업무 순서" 를 화면으로
+async function renderGuide() {
+  const L = state.lex;
+  const summary = state._projCache ? { projects: state._projCache } : await api("/api/summary");
+  state._projCache = summary.projects;
+  const actives = summary.projects.filter((p) => p.class === "active");
+  if (!state.guideProject && actives[0]) state.guideProject = actives[0].id;
+  const [tpl, arts] = await Promise.all([
+    api(`/api/guide/templates?mode=${state.mode}`),
+    state.guideProject ? api(`/api/guide?project=${encodeURIComponent(state.guideProject)}`) : Promise.resolve([])
+  ]);
+  const flowKeys = tpl.flow.map((s) => s.key);
+  const doneCount = (a) => flowKeys.filter((k) => a.steps[k]).length;
+  const totalSteps = arts.length * flowKeys.length;
+  const totalDone = arts.reduce((s, a) => s + doneCount(a), 0);
+
+  const stageBlock = (stage) => {
+    const stageArts = arts.filter((a) => a.stage_code === stage.code);
+    const sDone = stageArts.reduce((s, a) => s + doneCount(a), 0);
+    const sTotal = stageArts.length * flowKeys.length;
+    const artCards = stageArts.map((a) => {
+      const dc = doneCount(a);
+      const currentKey = flowKeys.find((k) => !a.steps[k]);
+      const open = state.guideOpen === a.id;
+      const stepRows = tpl.flow.map((s) => {
+        const st = a.steps[s.key];
+        const cls = st ? "done" : s.key === currentKey ? "current" : "";
+        return `<div class="step-row ${cls}" data-a="${a.id}" data-s="${s.key}">
+          <span class="step-check">${st ? "✓" : "○"}</span>
+          <span class="step-name">${esc(s.name)}</span>
+          <span class="step-hint">${esc(s.hint)}</span>
+          ${st ? `<span class="step-meta">${localTime(st.done_at)}</span>` : ""}</div>`;
+      }).join("");
+      return `<div class="art-card ${open ? "open" : ""}">
+        <div class="art-head" data-open="${a.id}">
+          <strong>${esc(a.name)}</strong>
+          <span class="progress"><i style="width:${(dc / flowKeys.length) * 100}%"></i></span>
+          <span class="art-count">${dc}/${flowKeys.length}</span>
+          ${currentKey ? `<span class="badge amber">${L.guide_next}: ${esc(tpl.flow.find((f) => f.key === currentKey).name)}</span>` : `<span class="badge green">${L.status_done}</span>`}
+        </div>
+        ${open ? `<div class="art-steps">${stepRows}</div>` : ""}</div>`;
+    }).join("");
+    return `<section class="guide-stage">
+      <header><span class="stage-code">${stage.code}</span><h3>${esc(stage.name)}</h3>
+        ${sTotal ? `<span class="dim">${sDone}/${sTotal}</span>` : ""}</header>
+      ${artCards || `<div class="empty small">${L.guide_empty}</div>`}
+      <div class="art-add"><input data-stage="${stage.code}" placeholder="${L.guide_add_ph}" />
+        <button class="fav-chip" data-add="${stage.code}">${L.guide_add}</button></div>
+    </section>`;
+  };
+
+  $("#view").innerHTML = `
+    <div class="filters">
+      <select id="gProject">${actives.map((p) => `<option value="${esc(p.id)}" ${state.guideProject === p.id ? "selected" : ""}>${esc(p.title)}</option>`).join("")}</select>
+      <span class="dim guide-principle">${L.guide_principle}</span>
+      ${totalSteps ? `<span class="badge">${L.guide_progress} ${totalDone}/${totalSteps}</span>` : ""}
+    </div>
+    ${tpl.stages.map(stageBlock).join("")}`;
+
+  $("#gProject").addEventListener("change", (e) => { state.guideProject = e.target.value; render(); });
+  $("#view").querySelectorAll("[data-open]").forEach((h) =>
+    h.addEventListener("click", () => { state.guideOpen = state.guideOpen === Number(h.dataset.open) ? null : Number(h.dataset.open); render(); })
+  );
+  $("#view").querySelectorAll(".step-row").forEach((r) =>
+    r.addEventListener("click", async () => {
+      const on = !r.classList.contains("done");
+      await post("/api/guide/step", { artifact_id: Number(r.dataset.a), step_key: r.dataset.s, on });
+      render();
+    })
+  );
+  $("#view").querySelectorAll("[data-add]").forEach((b) =>
+    b.addEventListener("click", async () => {
+      const input = $("#view").querySelector(`input[data-stage="${b.dataset.add}"]`);
+      const name = input.value.trim();
+      if (!name) return;
+      const r = await post("/api/guide/artifact", { project_id: state.guideProject, stage_code: b.dataset.add, name });
+      if (r.ok) render();
+    })
+  );
+}
+
 async function render() {
   renderNav();
-  const titles = { home: "nav_home", items: "nav_items", mail: "nav_mail", artifacts: "nav_artifacts", search: "nav_search" };
+  const titles = { home: "nav_home", items: "nav_items", guide: "nav_guide", mail: "nav_mail", artifacts: "nav_artifacts", search: "nav_search" };
   if (state.view.startsWith("mod:")) {
     const m = (state.modules ?? []).find((x) => `mod:${x.id}` === state.view);
     $("#viewTitle").textContent = m?.nav ?? "";
@@ -462,6 +543,7 @@ async function render() {
   $("#viewTitle").textContent = state.lex[titles[state.view]] ?? "";
   logView(state.view);
   if (state.view === "home") return renderHome();
+  if (state.view === "guide") return renderGuide();
   if (state.view === "items") return renderItems();
   if (state.view === "mail") return renderMail();
   if (state.view === "artifacts") return renderArtifacts();
