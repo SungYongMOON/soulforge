@@ -21,6 +21,9 @@ const flag = (name, fallback) => {
 };
 
 const PORT = Number(flag("port", 4300));
+// 기본은 localhost 전용(안전). 같은 네트워크 공유가 필요할 때만 --host 0.0.0.0
+// (합성 데이터 파일럿 한정 권장 — 실데이터+팀 공개는 P2 RBAC 이후)
+const HOST = flag("host", "127.0.0.1");
 const DB_PATH = flag("db", join(HERE, "data", "dev-erp.db"));
 if (DB_PATH !== ":memory:") mkdirSync(dirname(DB_PATH), { recursive: true });
 
@@ -84,6 +87,9 @@ const server = createServer(async (req, res) => {
   }
 });
 
-server.listen(PORT, "127.0.0.1", () => {
-  console.log(`[dev-erp] http://127.0.0.1:${PORT} (db: ${DB_PATH})`);
+server.listen(PORT, HOST, () => {
+  console.log(`[dev-erp] http://${HOST}:${PORT} (db: ${DB_PATH})`);
+  if (HOST !== "127.0.0.1") {
+    console.log("[dev-erp] 주의: 같은 네트워크에 열려 있음 - 합성 데이터 파일럿 용도로만");
+  }
 });
