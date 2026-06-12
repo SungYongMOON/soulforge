@@ -14,6 +14,7 @@ CREATE TABLE IF NOT EXISTS core_project (
   id TEXT PRIMARY KEY,            -- 예: P00-TEST (stable id = 주소)
   title TEXT NOT NULL,
   health TEXT NOT NULL DEFAULT 'ok',   -- ok|watch|risk|stopped
+  class TEXT NOT NULL DEFAULT 'active', -- active|inbox|internal|archive (페르소나 합의 분류)
   stage_current TEXT,
   source_ref TEXT,                -- soulforge ref (있다면)
   data_label TEXT NOT NULL DEFAULT 'synthetic'
@@ -102,6 +103,8 @@ export function openStore(path = ":memory:") {
   const db = new DatabaseSync(path);
   db.exec("PRAGMA journal_mode=WAL;");
   db.exec(DDL);
+  // 경량 마이그레이션: 기존 DB 에 새 컬럼 추가 (있으면 무시)
+  try { db.exec("ALTER TABLE core_project ADD COLUMN class TEXT NOT NULL DEFAULT 'active'"); } catch { /* exists */ }
   const cur = db.prepare("SELECT value FROM meta WHERE key='schema_version'").get();
   if (!cur) {
     db.prepare("INSERT INTO meta(key,value) VALUES('schema_version',?)").run(SCHEMA_VERSION);
@@ -150,12 +153,12 @@ export class Store {
   upsertProject(p) {
     this.db
       .prepare(
-        `INSERT INTO core_project(id,title,health,stage_current,source_ref,data_label)
-         VALUES (?,?,?,?,?,?)
+        `INSERT INTO core_project(id,title,health,class,stage_current,source_ref,data_label)
+         VALUES (?,?,?,?,?,?,?)
          ON CONFLICT(id) DO UPDATE SET title=excluded.title, health=excluded.health,
-           stage_current=excluded.stage_current, source_ref=excluded.source_ref`
+           class=excluded.class, stage_current=excluded.stage_current, source_ref=excluded.source_ref`
       )
-      .run(p.id, p.title, p.health ?? "ok", p.stage_current ?? null, p.source_ref ?? null, p.data_label ?? "synthetic");
+      .run(p.id, p.title, p.health ?? "ok", p.class ?? "active", p.stage_current ?? null, p.source_ref ?? null, p.data_label ?? "synthetic");
   }
 
   upsertStage(s) {
@@ -219,26 +222,53 @@ export class Store {
   }
 
   // --- 조회 (읽기 콕핏) ---
-  summary(todayKey) {
+  // 페르소나 합의: due 3버킷 분리(연체/오늘/주내), 마지막 움직임, 미연결(—) 구분
+  summary(todayKey, weekEndKey = todayKey) {
     const projects = this.db.prepare("SELECT * FROM core_project ORDER BY id").all();
     const counts = this.db
       .prepare(
         `SELECT project_id,
+           COUNT(*) AS total_cnt,
            SUM(CASE WHEN status NOT IN ('done') THEN 1 ELSE 0 END) AS open_cnt,
            SUM(CASE WHEN status='blocked' THEN 1 ELSE 0 END) AS blocked_cnt,
-           SUM(CASE WHEN status NOT IN ('done') AND due IS NOT NULL AND due <= ? THEN 1 ELSE 0 END) AS due_cnt,
+           SUM(CASE WHEN status NOT IN ('done') AND due IS NOT NULL AND due < ? THEN 1 ELSE 0 END) AS overdue_cnt,
+           SUM(CASE WHEN status NOT IN ('done') AND due = ? THEN 1 ELSE 0 END) AS today_cnt,
+           SUM(CASE WHEN status NOT IN ('done') AND due > ? AND due <= ? THEN 1 ELSE 0 END) AS week_cnt,
            SUM(CASE WHEN encounter_role='boss' AND status NOT IN ('done') THEN 1 ELSE 0 END) AS boss_cnt
          FROM core_item GROUP BY project_id`
       )
-      .all(todayKey);
+      .all(todayKey, todayKey, todayKey, weekEndKey);
+    const lastMail = this.db
+      .prepare("SELECT project_id, MAX(at) AS last_at, COUNT(*) AS mail_cnt FROM core_mail GROUP BY project_id")
+      .all();
+    const lastSubject = new Map(
+      this.db
+        .prepare(
+          `SELECT m1.project_id, m1.subject FROM core_mail m1
+           JOIN (SELECT project_id, MAX(at) AS last_at FROM core_mail GROUP BY project_id) m2
+             ON m1.project_id = m2.project_id AND m1.at = m2.last_at`
+        )
+        .all()
+        .map((r) => [r.project_id, r.subject])
+    );
     const byId = new Map(counts.map((c) => [c.project_id, c]));
-    return projects.map((p) => ({
-      ...p,
-      open: byId.get(p.id)?.open_cnt ?? 0,
-      blocked: byId.get(p.id)?.blocked_cnt ?? 0,
-      due_soon: byId.get(p.id)?.due_cnt ?? 0,
-      boss_open: byId.get(p.id)?.boss_cnt ?? 0
-    }));
+    const mailById = new Map(lastMail.map((m) => [m.project_id, m]));
+    return projects.map((p) => {
+      const c = byId.get(p.id);
+      return {
+        ...p,
+        has_items: (c?.total_cnt ?? 0) > 0,
+        open: c?.open_cnt ?? 0,
+        blocked: c?.blocked_cnt ?? 0,
+        overdue: c?.overdue_cnt ?? 0,
+        due_today: c?.today_cnt ?? 0,
+        due_week: c?.week_cnt ?? 0,
+        boss_open: c?.boss_cnt ?? 0,
+        mail_cnt: mailById.get(p.id)?.mail_cnt ?? 0,
+        last_activity_at: mailById.get(p.id)?.last_at ?? null,
+        last_mail_subject: lastSubject.get(p.id) ?? null
+      };
+    });
   }
 
   items({ project, status, q, due_before } = {}) {

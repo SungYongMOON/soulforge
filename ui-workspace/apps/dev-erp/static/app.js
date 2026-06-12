@@ -24,6 +24,13 @@ function labelFor(v) {
 
 const $ = (sel) => document.querySelector(sel);
 const api = async (path) => (await fetch(path)).json();
+// XSS 방지: 외부 유래 문자열(메일 제목/상대/할일 제목 등)은 전부 esc() 경유
+const esc = (s) => String(s ?? "").replace(/[&<>"']/g, (c) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" }[c]));
+const daysAgo = (iso, lex) => {
+  if (!iso) return "-";
+  const d = Math.floor((Date.now() - new Date(iso).getTime()) / 86400000);
+  return d <= 0 ? lex.today_word : `${d}${lex.days_ago}`;
+};
 const post = (path, body) =>
   fetch(path, { method: "POST", headers: { "content-type": "application/json" }, body: JSON.stringify(body) });
 
@@ -147,9 +154,61 @@ async function renderHome() {
   state._projCache = data.projects;
   $("#freshness").textContent = data.freshness ? `${state.lex.freshness}: ${localTime(data.freshness)}` : "";
 
+  const L = state.lex;
+  const projects = data.projects;
+  const actives = projects.filter((p) => p.class === "active");
+  const inbox = projects.filter((p) => p.class === "inbox");
+  const internals = projects.filter((p) => p.class === "internal");
+  const risk = (p) => p.blocked * 100 + p.overdue * 10 + p.due_today * 5 + p.due_week;
+  actives.sort((a, b) => risk(b) - risk(a) || (b.last_activity_at ?? "").localeCompare(a.last_activity_at ?? ""));
+
+  const kpi = `<div class="kpi-row">
+    <div class="kpi red"><span>${L.kpi_blocked}</span><strong>${actives.reduce((s, p) => s + p.blocked, 0)}</strong></div>
+    <div class="kpi red"><span>${L.kpi_overdue}</span><strong>${actives.reduce((s, p) => s + p.overdue, 0)}</strong></div>
+    <div class="kpi amber"><span>${L.kpi_today}</span><strong>${actives.reduce((s, p) => s + p.due_today, 0)}</strong></div>
+    <div class="kpi blue" data-jump="inbox-mail"><span>${L.kpi_inbox}</span><strong>${inbox.reduce((s, p) => s + p.mail_cnt, 0)}</strong></div>
+  </div>`;
+
+  const remainCell = (p) => {
+    if (!p.has_items) return `<td class="dim" title="${L.not_connected}">—</td>`;
+    const mobs = state.mode === "fantasy"
+      ? Array.from({ length: Math.min(p.open, 12) }, () => '<span class="mob"></span>').join("")
+      : "";
+    return `<td class="num">${p.open} ${mobs}</td>`;
+  };
+  const dueCellBuckets = (p) => `<td>
+      ${p.overdue ? `<span class="badge red">${L.overdue} ${p.overdue}</span>` : ""}
+      ${p.due_today ? `<span class="badge amber">${L.today_due} ${p.due_today}</span>` : ""}
+      ${p.due_week ? `<span class="badge">${L.week_due} ${p.due_week}</span>` : ""}
+      ${!p.overdue && !p.due_today && !p.due_week ? '<span class="dim">-</span>' : ""}</td>`;
+  const activeRows = actives.map((p) => `<tr class="proj-row" data-p="${esc(p.id)}">
+      <td><strong>${esc(p.title)}</strong></td>
+      <td>${esc(p.stage_current ?? "-")}</td>
+      ${remainCell(p)}
+      ${dueCellBuckets(p)}
+      <td class="num">${p.blocked || '<span class="dim">0</span>'}</td>
+      <td>${daysAgo(p.last_activity_at, L)}</td>
+      <td class="mail-snip" title="${esc(p.last_mail_subject ?? "")}">${esc((p.last_mail_subject ?? "-").slice(0, 38))}</td>
+    </tr>`).join("");
+
+  const inboxStrip = inbox.map((p) => `<div class="inbox-strip" data-p="${esc(p.id)}">
+      <span class="badge blue">${L.class_inbox}</span>
+      <strong>${esc(p.id)}</strong> · ${L.kpi_inbox} ${p.mail_cnt}
+      <button class="fav-chip" data-jump-mail="${esc(p.id)}">${L.view_mail}</button></div>`).join("");
+
+  const internalBlock = internals.length
+    ? `<details class="internal-fold"><summary>${L.class_internal} (${internals.length})</summary>
+        ${internals.map((p) => `<span class="badge">${esc(p.id)}</span>`).join(" ")}</details>`
+    : "";
+
   const sections = [];
   if (tiles.includes("projects")) {
-    sections.push(`<section class="tile wide"><h4>${state.lex.tile_projects}</h4><div class="cards">${projectCards(data)}</div></section>`);
+    sections.push(`<section class="tile wide"><h4>${L.class_active} (${actives.length})</h4>
+      <table class="proj-table"><thead><tr>
+        <th>${L.project}</th><th>${L.stage}</th><th>${L.col_remaining}</th>
+        <th>${L.col_due}</th><th>${L.blocked}</th><th>${L.col_last_activity}</th><th>${L.col_last_mail}</th>
+      </tr></thead><tbody>${activeRows}</tbody></table>
+      ${inboxStrip}${internalBlock}</section>`);
   }
   if (tiles.includes("today")) {
     const due = (await api("/api/items?due=soon")).slice(0, 8);
@@ -173,6 +232,7 @@ async function renderHome() {
   }
 
   $("#view").innerHTML = `
+    ${kpi}
     <div class="tile-toolbar"><button id="tileConfigBtn" class="fav-chip">${state.lex.tile_config}</button>
       <div id="tileConfig" class="tile-config hidden">${TILE_IDS.map((t) =>
         `<label><input type="checkbox" data-t="${t}" ${tiles.includes(t) ? "checked" : ""}/> ${state.lex[`tile_${t}`]}</label>`).join("")}</div></div>
@@ -186,8 +246,11 @@ async function renderHome() {
       render();
     })
   );
-  $("#view").querySelectorAll(".card").forEach((c) =>
-    c.addEventListener("click", () => { state.projectFilter = c.dataset.p; state.view = "items"; render(); })
+  $("#view").querySelectorAll(".proj-row").forEach((r) =>
+    r.addEventListener("click", () => { state.projectFilter = r.dataset.p; state.view = "items"; render(); })
+  );
+  $("#view").querySelectorAll("[data-jump-mail]").forEach((b) =>
+    b.addEventListener("click", (e) => { e.stopPropagation(); state.projectFilter = b.dataset.jumpMail; state.view = "mail"; render(); })
   );
 }
 

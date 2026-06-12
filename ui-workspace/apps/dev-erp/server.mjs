@@ -71,7 +71,11 @@ const server = createServer(async (req, res) => {
   const qp = Object.fromEntries(url.searchParams.entries());
   try {
     if (path === "/api/health") return send(res, 200, { ok: true, schema: "dev_erp.v1", counts: store.counts() });
-    if (path === "/api/summary") return send(res, 200, { today: todayKey(), freshness: lastIngestAt(), projects: store.summary(todayKey()) });
+    if (path === "/api/summary") {
+      const today = todayKey();
+      const weekEnd = new Date(Date.now() + 6 * 86400000).toISOString().slice(0, 10);
+      return send(res, 200, { today, week_end: weekEnd, freshness: lastIngestAt(), projects: store.summary(today, weekEnd) });
+    }
     if (path === "/api/items") return send(res, 200, store.items({ project: qp.project, status: qp.status, q: qp.q, due_before: qp.due === "soon" ? todayKey() : undefined }));
     if (path === "/api/mail") return send(res, 200, store.mail({ project: qp.project, days: qp.days ? Number(qp.days) : 90 }));
     if (path === "/api/artifacts") return send(res, 200, store.artifacts({ project: qp.project, kind: qp.kind }));

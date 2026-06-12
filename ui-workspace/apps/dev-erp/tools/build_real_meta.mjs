@@ -37,6 +37,13 @@ function parseCsv(text) {
 const report = { projects: 0, missions_as_items: 0, mail_files: 0, mail_rows: 0, skipped: [] };
 const out = { projects: [], items: [], mail: [] };
 
+// 페르소나 합의 분류: active(실과제 P2x) / inbox(미분류함) / internal(내부·데모) / archive(후속)
+function classifyProject(code) {
+  if (code === "P00-000_INBOX") return "inbox";
+  if (/^P\d{2}-\d{3}/.test(code)) return "active";
+  return "internal"; // demo_project, system, general_work 등
+}
+
 // 1) snapshot: 프로젝트 코드 + 미션
 const snapPath = join(REPO, "guild_hall", "state", "snapshot", "soulforge_snapshot.json");
 if (existsSync(snapPath)) {
@@ -47,6 +54,7 @@ if (existsSync(snapPath)) {
       id: p.project_code,
       title: p.project_code, // 사람용 이름은 보호 영역일 수 있어 코드 유지 (owner 가 P2 에서 별칭 부여)
       health: "ok",
+      class: classifyProject(p.project_code),
       source_ref: "guild_hall/state/snapshot/soulforge_snapshot.json"
     });
     report.projects += 1;
@@ -72,7 +80,7 @@ if (existsSync(snapPath)) {
 const known = new Set(out.projects.map((p) => p.id));
 for (const item of out.items) {
   if (!known.has(item.project_id)) {
-    out.projects.push({ id: item.project_id, title: item.project_id, health: "ok", source_ref: "mission" });
+    out.projects.push({ id: item.project_id, title: item.project_id, health: "ok", class: classifyProject(item.project_id), source_ref: "mission" });
     known.add(item.project_id);
     report.projects += 1;
   }
@@ -111,7 +119,7 @@ for (const code of existsSync(wmRoot) ? readdirSync(wmRoot) : []) {
     });
     report.mail_rows += 1;
     if (!known.has(get("proj") || code)) {
-      out.projects.push({ id: code, title: code, health: "ok", source_ref: "mail_ledger" });
+      out.projects.push({ id: code, title: code, health: "ok", class: classifyProject(code), source_ref: "mail_ledger" });
       known.add(code); report.projects += 1;
     }
   }
