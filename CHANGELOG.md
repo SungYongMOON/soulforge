@@ -2,6 +2,20 @@
 
 ## 2026-06-12
 
+### Revision `working` - Towed-body sensor stability knowledge entry added
+
+- Added `.registry/knowledge/towed_body_sensor_stability/` as a public-safe
+  source-supported reusable knowledge entry for towfish stability, tow point
+  and CG/CB separation, internal liquid damping mechanisms, vibration
+  isolation, cable strumming, appendage case planning, and pointing error
+  budgeting.
+- Registered only public source references and bounded mechanism claims,
+  including NASA/NTRS, NREL, ITTC, OSTI, NAVSEA/Navy public records, NOAA,
+  NIST, USGS, and supporting open technical literature.
+- Kept SONAR2093 design intent, P26-014 acceptance, private reports, raw
+  payloads, NotebookLM answers, vendor source truth, and numerical reverse
+  engineering values out of the public registry entry.
+
 ### Revision `working` - Team Ops Board MVP 1: 로컬 실동작 앱 1차 구현
 
 - owner 결정(2026-06-12): 진실 저장소는 하이브리드(Option C, Smartsheet 가
