@@ -47,35 +47,35 @@
       "id": "UI-001",
       "title": "프로젝트 홈: 프로젝트(던전) 목록 + 상태 요약 카드",
       "priority": "P0",
-      "status": "in_progress",
+      "status": "done",
       "acceptance": "프로젝트별 미완료/마감임박/차단 수가 한 화면에 보인다"
     },
     {
       "id": "UI-002",
       "title": "할일/마감 리스트 (read): 프로젝트·담당·상태 필터",
       "priority": "P0",
-      "status": "in_progress",
+      "status": "done",
       "acceptance": "오늘/이번 주/지남 구분이 보이고 필터가 동작한다"
     },
     {
       "id": "UI-003",
       "title": "메일 이력 리스트 (metadata read): 시간순/프로젝트별, 원문 미저장",
       "priority": "P1",
-      "status": "in_progress",
+      "status": "done",
       "acceptance": "제목·시각·방향·프로젝트만 표시, 원문 본문은 포인터 안내로 대체"
     },
     {
       "id": "UI-004",
       "title": "산출물/파일 포인터 리스트: 종류별(BOM/회로도/보고서) + 해시/위치 표시",
       "priority": "P1",
-      "status": "in_progress",
+      "status": "done",
       "acceptance": "파일 본문 없이 포인터·해시·갱신일이 보이고, 경로 복사 버튼이 있다"
     },
     {
       "id": "UI-005",
       "title": "현장 검색 뷰어 셸: 프로젝트/업체명 검색 → 관련 할일·메일·산출물 묶어 보기",
       "priority": "P1",
-      "status": "in_progress",
+      "status": "done",
       "acceptance": "검색 1회로 세 종류 결과가 한 화면에 묶인다 (외근 시나리오, 모바일 폭 확인)"
     },
     {
@@ -96,7 +96,7 @@
       "id": "TEST-003",
       "title": "스킨 전환 검증: business/fantasy 양 모드 주요 화면 확인",
       "priority": "P2",
-      "status": "todo",
+      "status": "done",
       "acceptance": "양 모드에서 깨지는 라벨/레이아웃 없음"
     },
     {
@@ -114,9 +114,10 @@
   ],
   "blocked": [],
   "run_notes": [
-    "2026-06-12 P1 run1 (claude_fable-5): 코어/서버/클라이언트 구현. node:test 8/8,",
-    "API 스모크 통과 (sandbox). UI-001~005 는 코드 완성 + API 검증 상태이며",
-    "브라우저 화면 확인은 owner PC 몫이라 in_progress 로 둠. TEST-003(양 모드",
-    "화면 확인) 동일 사유로 todo 유지. blocked 0건."
+    "2026-06-12 P1 run1 (claude_fable-5): 코어/서버/클라이언트 구현. node:test 8/8, API 스모크 통과.",
+    "2026-06-12 P1 run2 (claude_fable-5, Chrome 확장 실검증): 5뷰 화면 순회·판타지 모드 전환·검색 묶기",
+    "실확인, 콘솔 에러 0. 결함 2건 발견·수정: freshness UTC→현지시각, 잔존 라벨 사전 이관.",
+    "모바일 폭은 핸드폰 실기기 확인 권장(--host 모드, macOS 창 최소폭 제약으로 데스크톱 리사이즈 불가).",
+    "서버는 node --watch 운영으로 전환 (AI 수정 즉시 반영). blocked 0건. P1 체크리스트 13/13 done."
   ]
 }
