@@ -1,0 +1,93 @@
+// TEST-001: 합성 fixture (실데이터 0). data_label='synthetic' 고정.
+function dateKey(offsetDays) {
+  const d = new Date(Date.now() + offsetDays * 86400000);
+  return d.toISOString().slice(0, 10);
+}
+
+export function loadFixture(store) {
+  const projects = [
+    { id: "PRJ-A", title: "수신부 보드 개량", health: "watch", stage_current: "상세설계" },
+    { id: "PRJ-B", title: "신호처리 모듈", health: "ok", stage_current: "시험" },
+    { id: "PRJ-C", title: "사내 도구 정비", health: "risk", stage_current: "기획" }
+  ];
+  const people = [
+    { id: "p-kim", name: "김가람", role: "회로" },
+    { id: "p-lee", name: "이도윤", role: "펌웨어" },
+    { id: "p-park", name: "박서연", role: "검증" },
+    { id: "p-choi", name: "최하늘", role: "구매/업체" },
+    { id: "p-jung", name: "정유진", role: "체계" },
+    { id: "p-ai", name: "AI 유닛(오크 감사관)", role: "ai" }
+  ];
+  projects.forEach((p) => store.upsertProject(p));
+  people.forEach((p) => store.upsertPerson(p));
+
+  projects.forEach((p, pi) => {
+    store.upsertStage({ id: `${p.id}-S1`, project_id: p.id, title: "준비", seq: 1, status: "cleared" });
+    store.upsertStage({
+      id: `${p.id}-S2`, project_id: p.id, title: p.stage_current, seq: 2,
+      gate_rule: "필수 산출물 제출 + 검토 승인", status: "open"
+    });
+  });
+
+  const titles = [
+    "BOM 1차 정리", "전원부 검토 회신", "커넥터 선정", "노이즈 측정 계획",
+    "업체 견적 비교", "시험 절차서 초안", "케이블 라벨 규칙 적용", "회의록 액션 정리",
+    "라이브러리 풋프린트 확인", "발주 수량 확정"
+  ];
+  let n = 0;
+  for (const p of projects) {
+    for (let k = 0; k < 10; k += 1) {
+      n += 1;
+      const status = ["open", "doing", "waiting", "blocked", "done"][n % 5];
+      store.upsertItem({
+        id: `IT-${String(n).padStart(3, "0")}`,
+        project_id: p.id,
+        stage_id: `${p.id}-S2`,
+        title: `${titles[k]} (${p.id})`,
+        origin: ["mail", "schedule", "manual"][n % 3],
+        spawn_kind: ["spawned", "fixed", "respawn"][n % 3],
+        encounter_role: k === 9 ? "boss" : k % 4 === 3 ? "elite" : "normal",
+        difficulty: (n % 5) + 1,
+        urgency: n % 4 === 0 ? "high" : "normal",
+        automation_level: ["manual", "assisted", "semi"][n % 3],
+        assignee_ref: people[n % 5].id,
+        status,
+        due: status === "done" ? null : dateKey((n % 9) - 2),
+        data_label: "synthetic"
+      });
+    }
+  }
+
+  for (let m = 1; m <= 50; m += 1) {
+    const p = projects[m % 3];
+    store.upsertMail({
+      id: `MAIL-${String(m).padStart(3, "0")}`,
+      project_id: p.id,
+      at: new Date(Date.now() - m * 5400000).toISOString(),
+      direction: m % 3 === 0 ? "out" : "in",
+      subject: `[${p.id}] ${["견적 회신", "도면 검토 요청", "납기 일정 안내", "회의 일정 조율", "시험 결과 공유"][m % 5]} #${m}`,
+      counterpart: ["A상사", "B테크", "C전자", "사내-체계팀"][m % 4],
+      pointer_ref: `mailbox://synthetic/${m}`
+    });
+  }
+
+  const kinds = ["bom", "schematic", "gerber", "report", "note"];
+  for (let a = 1; a <= 30; a += 1) {
+    const p = projects[a % 3];
+    store.upsertArtifact({
+      id: `ART-${String(a).padStart(3, "0")}`,
+      project_id: p.id,
+      kind: kinds[a % 5],
+      title: `${p.id} ${kinds[a % 5].toUpperCase()} v${(a % 4) + 1}`,
+      pointer: `_workspaces/${p.id}/outputs/sample_${a}`,
+      sha256: `synthetic${String(a).padStart(4, "0")}`,
+      updated_at: dateKey(-(a % 14))
+    });
+  }
+
+  store.appendEvent({
+    actor_ref: "fixture", actor_kind: "system", kind: "ingest",
+    note: "synthetic fixture loaded", used_refs: ["src/fixture.mjs"], data_label: "synthetic"
+  });
+  return store.counts();
+}

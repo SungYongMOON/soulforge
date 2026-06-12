@@ -1,0 +1,60 @@
+// 이중 사전 (INFRA-004): 화면 라벨은 하드코딩하지 않고 이 사전을 거친다.
+// fantasy 용어는 SHARED_GLOSSARY 의 게임↔업무 대조표를 따른다.
+export const LEXICON = {
+  business: {
+    app_title: "개발팀 운영 콕핏",
+    nav_home: "프로젝트 홈",
+    nav_items: "할 일",
+    nav_mail: "메일 이력",
+    nav_artifacts: "산출물",
+    nav_search: "현장 검색",
+    project: "프로젝트",
+    stage: "단계",
+    item: "할 일",
+    boss: "단계 종료(게이트)",
+    open: "미완료",
+    blocked: "차단",
+    due_soon: "마감 임박",
+    status_open: "대기",
+    status_doing: "진행 중",
+    status_waiting: "대기(외부)",
+    status_blocked: "차단",
+    status_done: "완료",
+    backlog_meter: "미처리 업무",
+    freshness: "데이터 수집 시각",
+    empty_items: "표시할 할 일이 없습니다",
+    empty_mail: "메일 이력이 없습니다",
+    empty_artifacts: "산출물 포인터가 없습니다",
+    search_hint: "프로젝트명·업체명·제목으로 검색"
+  },
+  fantasy: {
+    app_title: "길드 작전판",
+    nav_home: "던전 지도",
+    nav_items: "몬스터",
+    nav_mail: "전령 기록",
+    nav_artifacts: "전리품 창고",
+    nav_search: "정찰",
+    project: "던전",
+    stage: "스테이지",
+    item: "몬스터",
+    boss: "보스전",
+    open: "출몰 중",
+    blocked: "봉인됨",
+    due_soon: "둠클락 임박",
+    status_open: "출몰",
+    status_doing: "교전 중",
+    status_waiting: "대치 중",
+    status_blocked: "봉인",
+    status_done: "처치",
+    backlog_meter: "몹 무리",
+    freshness: "정찰 시각",
+    empty_items: "출몰한 몬스터가 없습니다",
+    empty_mail: "전령 기록이 없습니다",
+    empty_artifacts: "전리품이 없습니다",
+    search_hint: "던전·상대·몬스터 이름으로 정찰"
+  }
+};
+
+export function getLexicon(mode = "business") {
+  return LEXICON[mode] ?? LEXICON.business;
+}
