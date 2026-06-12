@@ -11,7 +11,7 @@ CREATE TABLE IF NOT EXISTS meta (
   key TEXT PRIMARY KEY, value TEXT NOT NULL
 );
 CREATE TABLE IF NOT EXISTS core_project (
-  id TEXT PRIMARY KEY,            -- 예: P26-014 (stable id = 주소)
+  id TEXT PRIMARY KEY,            -- 예: P00-TEST (stable id = 주소)
   title TEXT NOT NULL,
   health TEXT NOT NULL DEFAULT 'ok',   -- ok|watch|risk|stopped
   stage_current TEXT,

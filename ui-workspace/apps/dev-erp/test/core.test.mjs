@@ -66,8 +66,8 @@ test("adapter: soulforge snapshot 보수적 매핑 (INFRA-002)", () => {
   const mapped = mapSoulforgeSnapshot({
     operation_board: {
       sections: {
-        dungeon_map: { rows: [{ project_code: "P26-014", title: "샘플 던전", health: "watch" }] },
-        mission_board: { rows: [{ mission_id: "m1", project_code: "P26-014", title: "샘플 미션", readiness_status: "blocked" }] }
+        dungeon_map: { rows: [{ project_code: "P00-TEST", title: "샘플 던전", health: "watch" }] },
+        mission_board: { rows: [{ mission_id: "m1", project_code: "P00-TEST", title: "샘플 미션", readiness_status: "blocked" }] }
       }
     }
   });
