@@ -329,26 +329,26 @@ body[data-mode="fantasy"] tr.spawned td:first-child::before { content: "✦ "; c
 .widget-drawer.open { left: 0; opacity: 1; pointer-events: auto; }
 .widget-drawer-head { font-size: 12.5px; color: var(--muted); margin-bottom: 10px; display: flex; flex-direction: column; gap: 3px; }
 .widget-drawer-head .dim { font-size: 11px; }
-.widget-drawer-list { display: flex; flex-direction: column; gap: 12px; }
-.drawer-cat { display: flex; flex-direction: column; gap: 6px; }
-.drawer-cat-head { font-size: 11.5px; font-weight: 700; color: var(--accent); letter-spacing: .02em;
-  padding-bottom: 3px; border-bottom: 1px solid var(--line); }
-.drawer-empty { font-size: 11.5px; padding: 4px 2px; }
+.widget-drawer-list { display: flex; flex-direction: column; gap: 14px; }
+.drawer-cat { display: flex; flex-direction: column; gap: 1px; }
+.drawer-cat-head { font-size: 14px; font-weight: 800; color: var(--text); letter-spacing: -.01em;
+  padding-bottom: 5px; margin-bottom: 3px; border-bottom: 1px solid var(--line); }
+.drawer-empty { font-size: 11.5px; padding: 3px 8px; }
 .kpi-row.mini { display: grid; grid-template-columns: 1fr 1fr; gap: 6px; }
 .kpi-row.mini .kpi { padding: 6px 8px; }
 .kpi-row.mini .kpi strong { font-size: 16px; }
-.drawer-widget { display: flex; align-items: center; gap: 8px; padding: 9px 11px; border: 1px solid var(--line);
-  border-radius: 9px; background: var(--bg); font-size: 13px; cursor: grab; user-select: none; }
-.drawer-widget:not(.placed):hover { border-color: var(--accent); color: var(--accent); }
+/* 소분류(위젯 항목) = 작고 촘촘한 메뉴 행 (ECount 좌측 트리식) */
+.drawer-widget { display: flex; align-items: center; gap: 6px; padding: 3px 6px 3px 4px;
+  border-radius: 5px; font-size: 12px; line-height: 1.5; cursor: grab; user-select: none; color: var(--text); }
+.drawer-widget:not(.placed):not(.soon):hover { background: var(--chip); color: var(--accent); }
 .drawer-widget:active { cursor: grabbing; }
 .drawer-widget.dragging { opacity: .5; }
 .drawer-widget.placed { cursor: default; color: var(--muted); }
-.drawer-widget.soon { cursor: default; color: var(--muted); opacity: .72; border-style: dashed; }
-.drawer-widget.soon .grip { opacity: .3; }
-.soon-tag { margin-left: auto; font-size: 10.5px; border: 1px solid var(--line); border-radius: 5px; padding: 0 5px; }
-.drawer-widget .grip { color: var(--muted); font-size: 13px; }
-.drawer-widget.placed .grip { opacity: .4; }
-.dw-dot { width: 9px; height: 9px; border-radius: 50%; border: 1.5px solid var(--line); flex: 0 0 auto; box-sizing: border-box; }
+.drawer-widget.soon { cursor: default; color: var(--muted); opacity: .8; }
+.soon-tag { margin-left: auto; font-size: 9.5px; color: var(--muted); border: 1px solid var(--line); border-radius: 4px; padding: 0 4px; }
+.drawer-widget .grip { color: var(--muted); font-size: 10px; opacity: .55; }
+.drawer-widget.soon .grip, .drawer-widget.placed .grip { opacity: .25; }
+.dw-dot { width: 7px; height: 7px; border-radius: 50%; border: 1.5px solid var(--line); flex: 0 0 auto; box-sizing: border-box; }
 .dw-dot.on { background: var(--accent); border-color: var(--accent); box-shadow: 0 0 0 2px color-mix(in srgb, var(--accent) 22%, transparent); }
 .dashboard.drop-active { outline: 2px dashed var(--accent); outline-offset: 4px; border-radius: 10px; }
 .widget-toolbar { display: flex; align-items: center; gap: 10px; margin-bottom: 12px; flex-wrap: wrap; }
