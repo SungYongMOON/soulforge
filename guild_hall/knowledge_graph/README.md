@@ -46,6 +46,13 @@ The 3D sidebar recalculates connectivity from the currently visible node and
 relation filters. The generated `graph.json` connectivity block remains the
 full-export diagnostic.
 
+Knowledge nodes that carry public source refs (`public_source_refs`, and
+`public_institutional_refs` for institution-registered canon) are emitted as
+`source` nodes linked by candidate `supports` edges, so the source-edge gap
+scout no longer reports those nodes as missing source endpoints. Only the public
+source URLs and short labels are used; raw source text, chunk text, NotebookLM
+answers, and private payloads are not copied into the graph.
+
 When `--rag-manifest-ref` is supplied, the exporter embeds a metadata-only
 `rag_projection` block into `graph.json` and annotates matching graph nodes with
 RAG readiness, lens profile ids, source-handle counts, blockers, and weakest
