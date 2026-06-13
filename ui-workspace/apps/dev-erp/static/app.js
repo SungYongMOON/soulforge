@@ -5,6 +5,7 @@ const state = {
   view: "home",
   lex: {},
   projectFilter: "",
+  navGroup: localStorage.getItem("dev_erp_navgroup") || "group_work", // IA 2.5단: 상단 선택 그룹
   pins: JSON.parse(localStorage.getItem("dev_erp_pins") || "[]")
 };
 
@@ -89,15 +90,44 @@ function navButton(v) {
   return `<button data-v="${v}" class="${state.view === v ? "active" : ""}"><span>${state.lex[navKey[v]]}</span><span class="nav-side">${star}</span></button>`;
 }
 
+// IA 2.5단 (ECount 관찰 반영): 현재 view 가 속한 그룹을 찾아 상단 탭 동기화
+function groupOfView(v) {
+  const g = NAV_LAYOUT.find((grp) => grp.items.includes(v));
+  return g ? g.g : null;
+}
+
+function renderGroupBar() {
+  // 상단 대분류 탭(ECount 1단). 클릭 시 좌측 하위만 교체.
+  $("#groupBar").innerHTML = NAV_LAYOUT.map((group) =>
+    `<button class="group-tab ${state.navGroup === group.g ? "on" : ""}" data-g="${group.g}">${state.lex[group.g]}</button>`
+  ).join("");
+  $("#groupBar").querySelectorAll(".group-tab").forEach((b) =>
+    b.addEventListener("click", () => {
+      state.navGroup = b.dataset.g;
+      localStorage.setItem("dev_erp_navgroup", state.navGroup);
+      // 그룹 전환 시 그 그룹의 첫 화면으로 이동(ECount: 모듈 클릭→기본 화면 랜딩)
+      const grp = NAV_LAYOUT.find((x) => x.g === state.navGroup);
+      const first = grp?.items.find((v) => !v.startsWith("mod:")) ?? grp?.items[0];
+      if (first) state.view = first;
+      render();
+    })
+  );
+}
+
 function renderNav() {
+  // 현재 view 가 속한 그룹으로 상단 탭 자동 동기화(팔레트/허브 점프 대응)
+  const vg = groupOfView(state.view);
+  if (vg && vg !== state.navGroup) state.navGroup = vg;
+  renderGroupBar();
+
   const pinnedGroup = state.pins.length
     ? `<div class="nav-group"><div class="nav-group-label">${state.lex.group_pinned}</div>${state.pins.map(navButton).join("")}</div>`
     : "";
-  $("#nav").innerHTML = pinnedGroup + NAV_LAYOUT.map(
-    (group) => `<div class="nav-group">
-      <div class="nav-group-label">${state.lex[group.g]}</div>
-      ${group.items.map(navButton).join("")}</div>`
-  ).join("");
+  // 좌측 = 선택된 상단 그룹의 하위 항목만(ECount 좌측 트리)
+  const active = NAV_LAYOUT.find((grp) => grp.g === state.navGroup) ?? NAV_LAYOUT[0];
+  $("#nav").innerHTML = pinnedGroup + `<div class="nav-group">
+      <div class="nav-group-label">${state.lex[active.g]}</div>
+      ${active.items.map(navButton).join("")}</div>`;
   $("#nav").querySelectorAll("button").forEach((b) =>
     b.addEventListener("click", () => { state.view = b.dataset.v; render(); })
   );
@@ -320,10 +350,20 @@ async function renderItems() {
   if (state.projectFilter) q.set("project", state.projectFilter);
   if (state.statusFilter) q.set("status", state.statusFilter);
   const items = await api(`/api/items?${q}`);
+  // 칩 count 는 상태 무관 전체(과제 필터만)에서 계산 — 필터 걸려도 정확
+  const baseQ = new URLSearchParams();
+  if (state.projectFilter) baseQ.set("project", state.projectFilter);
+  const allItems = state.statusFilter ? await api(`/api/items?${baseQ}`) : items;
   const opts = projects.map((p) => `<option value="${p.id}" ${state.projectFilter === p.id ? "selected" : ""}>${p.title}</option>`).join("");
-  const statuses = ["open", "doing", "waiting", "blocked", "done"];
-  const sopts = statuses.map((s) => `<option value="${s}" ${state.statusFilter === s ? "selected" : ""}>${state.lex[`status_${s}`]}</option>`).join("");
   const L = state.lex;
+  // ECount식 상태 필터칩 (전체 + 각 상태). count 표시.
+  const statuses = ["open", "doing", "waiting", "blocked", "done"];
+  const statusCount = (s) => allItems.filter((i) => i.status === s).length;
+  const chip = (val, label, n) =>
+    `<button class="status-chip ${state.statusFilter === val ? "on" : ""}" data-st="${val}">${label}${n != null ? ` <em>${n}</em>` : ""}</button>`;
+  const chipsHtml = [chip("", L.all_label, allItems.length)]
+    .concat(statuses.map((s) => chip(s, L[`status_${s}`], statusCount(s))))
+    .join("");
   const rows = items.map((i) => `<tr>
       <td>${esc(i.title)}${i.encounter_role === "boss" ? " 👑" : ""}</td>
       <td><span class="proj-link" data-hub="${esc(i.project_id)}">${esc(i.project_id)}</span></td>
@@ -336,11 +376,13 @@ async function renderItems() {
   $("#view").innerHTML = `
     <div class="filters">
       <select id="fProject"><option value="">${L.project}: ${L.all_label}</option>${opts}</select>
-      <select id="fStatus"><option value="">${L.th_status}: ${L.all_label}</option>${sopts}</select>
     </div>
+    <div class="status-chips">${chipsHtml}</div>
     ${rows ? `<table><thead><tr><th>${L.item}</th><th>${L.project}</th><th>${L.th_status}</th><th>${L.th_due}</th><th>${L.th_assignee}</th><th>${L.tab_guide}</th><th>${L.th_actions}</th></tr></thead><tbody>${rows}</tbody></table>` : `<div class="empty">${L.empty_items}</div>`}`;
   $("#fProject").addEventListener("change", (e) => { state.projectFilter = e.target.value; render(); });
-  $("#fStatus").addEventListener("change", (e) => { state.statusFilter = e.target.value; render(); });
+  $("#view").querySelectorAll(".status-chip").forEach((c) =>
+    c.addEventListener("click", () => { state.statusFilter = c.dataset.st || ""; render(); })
+  );
   $("#view").querySelectorAll("[data-hub]").forEach((c) =>
     c.addEventListener("click", () => { state.hubProject = c.dataset.hub; state.hubTab = "overview"; state.view = "project"; render(); })
   );
