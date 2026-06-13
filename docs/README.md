@@ -8,6 +8,7 @@
 ## 포함 대상
 
 - 저장소 전체 관점의 설명 문서
+- `ws.md` 같은 짧은 PC 간 작업 호출용 프롬프트
 - `architecture/` 아래의 구조 원칙, 목표 트리, 소유 규칙
 - `ui/` 아래의 relocation 문서
 - UI source map, UI sync contract, UI derived state contract, control center model 같은 저장소 공용 UI 규칙

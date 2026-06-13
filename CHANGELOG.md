@@ -2,6 +2,14 @@
 
 ## 2026-06-13
 
+### Revision `working` - workspace system check prompt shortcut
+
+- Added `docs/ws.md` as a short hand-typed prompt entry for checking
+  `_workspaces/system` or `Systems` sharing/junction drift on another PC.
+- The prompt requires repo-relative reporting only, forbids local absolute path
+  recording and secret/raw payload inspection, and limits the run to diagnosis
+  plus dry-run repair planning unless the owner separately approves mutation.
+
 ### Revision `working` - 하네스 강화 B1·B2 (verify_gate + doctor 확장)
 
 - B1: dev-erp `tools/verify_gate.mjs` — 페이즈 종료 기계 체크 9종 +
