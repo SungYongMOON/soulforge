@@ -411,3 +411,4 @@ nav button[disabled]:hover { background: transparent; }
 .party-ledger table { margin-top: 8px; }
 .ledger-row { cursor: pointer; }
 .ledger-row:hover td { background: var(--chip); }
+.gen-presets { display: inline-flex; gap: 4px; }

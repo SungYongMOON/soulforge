@@ -652,3 +652,17 @@ test("연락처: 생성 + 거래처/과제 링크 + 필터", () => {
   assert.ok(r.ok);
   assert.equal(store.linkContactProject(r.id, "no-proj").error, "project_not_found");
 });
+
+// ---------- 생성기 다듬기: 업무일지 과제별 섹션 ----------
+test("업무일지: 과제별 완료/신규 섹션 + by_project", () => {
+  const store = freshStore();
+  loadFixture(store);
+  const it = store.createItem({ project_id: "PRJ-A", title: "과제별 테스트", created_by: "owner" });
+  store.appendEvent({ actor_ref: "owner", actor_kind: "human", kind: "item_create", item_ref: it.item.id, to: it.item.title, project_ref: "PRJ-A", used_refs: ["items"], data_label: "real" });
+  store.appendEvent({ actor_ref: "owner", actor_kind: "human", kind: "item_status", item_ref: it.item.id, to: "done", project_ref: "PRJ-A", used_refs: ["items"], data_label: "real" });
+  const w = store.worklogDraft({ days: 7 });
+  assert.ok(w.by_project["PRJ-A"], "PRJ-A 과제별 집계");
+  assert.equal(w.by_project["PRJ-A"].created, 1);
+  assert.equal(w.by_project["PRJ-A"].done, 1);
+  assert.ok(w.text.includes("## 과제별") && w.text.includes("PRJ-A: 완료 1, 신규 1"));
+});

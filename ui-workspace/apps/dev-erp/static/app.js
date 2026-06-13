@@ -495,6 +495,7 @@ async function renderReports() {
       </select>
       <select id="genProject"><option value="">${L.project}: ${L.all_label}</option>${opts}</select>
       <input id="genDays" type="number" min="1" value="7" title="${L.gen_days}" style="width:80px" />
+      <span id="genPresets" class="gen-presets"><button class="fav-chip mini" data-days="7">7</button><button class="fav-chip mini" data-days="14">14</button><button class="fav-chip mini" data-days="30">30</button></span>
       <button id="genRun" class="fav-chip">${L.gen_run}</button>
       <button id="genCopy" class="copy-btn" style="display:none">${L.copy}</button>
     </div>
@@ -513,8 +514,10 @@ async function renderReports() {
   };
   $("#genRun").addEventListener("click", run);
   $("#genDays").style.display = "none";
-  $("#genType").addEventListener("change", (e) => { $("#genDays").style.display = e.target.value === "worklog" ? "" : "none"; });
-  $("#genDays").style.display = "";
+  const togglePeriod = (v) => { const d = v === "worklog" ? "" : "none"; $("#genDays").style.display = d; const ps = $("#genPresets"); if (ps) ps.style.display = d === "" ? "" : "none"; };
+  $("#genType").addEventListener("change", (e) => togglePeriod(e.target.value));
+  $("#genPresets")?.querySelectorAll("[data-days]").forEach((b) => b.addEventListener("click", () => { $("#genDays").value = b.dataset.days; run(); }));
+  togglePeriod($("#genType").value);
 }
 
 // A7 ERP 챗봇 패널(메타 컨텍스트, 원문 미전송). 외부전송은 어댑터의 codex_cli만(tool_pc).

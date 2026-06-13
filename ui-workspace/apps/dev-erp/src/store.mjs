@@ -662,6 +662,14 @@ export class Store {
     const created = evs.filter((e) => e.kind === "item_create").map((e) => e.to_val).filter(Boolean);
     const done = evs.filter((e) => e.kind === "item_status" && e.to_val === "done").map((e) => this._itemTitle(e.item_ref));
     const blocked = evs.filter((e) => e.kind === "item_status" && e.to_val === "blocked").map((e) => this._itemTitle(e.item_ref));
+    // 과제별 집계(완료/신규) — project_ref 기준
+    const byProject = {};
+    for (const e of evs) {
+      const pr = e.project_ref;
+      if (!pr) continue;
+      if (e.kind === "item_create") (byProject[pr] ??= { created: 0, done: 0 }).created += 1;
+      if (e.kind === "item_status" && e.to_val === "done") (byProject[pr] ??= { created: 0, done: 0 }).done += 1;
+    }
     const gates = evs.filter((e) => e.kind === "gate_clear").map((e) => e.to_val);
     const meetings = evs.filter((e) => e.kind === "meeting_create").length;
     const mail = this.mail({ project, days });
@@ -678,6 +686,12 @@ export class Store {
     lines.push(created.length ? created.map((t) => `- ${t}`).join("\n") : "- (없음)");
     if (blocked.length) { lines.push(""); lines.push(`## 차단 발생 (${blocked.length})`); lines.push(blocked.map((t) => `- ${t}`).join("\n")); }
     if (gates.length) { lines.push(""); lines.push(`## 게이트 통과 (${gates.length})`); lines.push(gates.map((g) => `- ${g}`).join("\n")); }
+    const projEntries = Object.entries(byProject).sort((a, b) => (b[1].done + b[1].created) - (a[1].done + a[1].created));
+    if (projEntries.length) {
+      lines.push("");
+      lines.push(`## 과제별`);
+      lines.push(projEntries.map(([pr, v]) => `- ${pr}: 완료 ${v.done}, 신규 ${v.created}`).join("\n"));
+    }
     lines.push("");
     lines.push(`## 소통: 메일 수신 ${mailIn} · 발신 ${mailOut} · 회의 ${meetings}`);
     lines.push("");
@@ -685,6 +699,7 @@ export class Store {
     return {
       period: { from: cutoff, to: new Date().toISOString(), days }, project,
       counts: { done: done.length, created: created.length, blocked: blocked.length, gates: gates.length, mail_in: mailIn, mail_out: mailOut, meetings },
+      by_project: byProject,
       text: lines.join("\n")
     };
   }
