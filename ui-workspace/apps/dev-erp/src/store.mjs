@@ -189,6 +189,33 @@ CREATE TABLE IF NOT EXISTS meeting_action_map (
   item_id TEXT NOT NULL REFERENCES core_item(id),
   PRIMARY KEY (meeting_id, item_id)
 );
+-- 구매/발주 (P4 다음 1순위). 거래처=공유 마스터, 발주=문서체인(요청→견적→발주→입고→검수→완료),
+-- 발주 1건이 여러 과제를 묶음(N:N). 메타 전용(금액·납기·포인터만, 원문/첨부 미저장).
+CREATE TABLE IF NOT EXISTS core_party (   -- 거래처/업체 공유 마스터
+  id TEXT PRIMARY KEY,
+  name TEXT NOT NULL,
+  kind TEXT NOT NULL DEFAULT 'vendor',    -- vendor|customer|internal
+  contact TEXT,
+  data_label TEXT NOT NULL DEFAULT 'synthetic'
+);
+CREATE TABLE IF NOT EXISTS core_purchase ( -- 발주 문서(체인)
+  id TEXT PRIMARY KEY,
+  party_id TEXT REFERENCES core_party(id),
+  title TEXT NOT NULL,
+  stage TEXT NOT NULL DEFAULT 'request',  -- request|quote|order|receive|inspect|closed
+  amount REAL,
+  currency TEXT DEFAULT 'KRW',
+  due TEXT,
+  pointer TEXT,                           -- 견적서/발주서 위치(원문 미저장)
+  created_by TEXT,
+  data_label TEXT NOT NULL DEFAULT 'synthetic',
+  created_at TEXT
+);
+CREATE TABLE IF NOT EXISTS purchase_project_map ( -- 발주↔과제 N:N
+  purchase_id TEXT NOT NULL REFERENCES core_purchase(id),
+  project_id TEXT NOT NULL REFERENCES core_project(id),
+  PRIMARY KEY (purchase_id, project_id)
+);
 CREATE INDEX IF NOT EXISTS idx_item_proj ON core_item(project_id, status);
 CREATE INDEX IF NOT EXISTS idx_item_due ON core_item(due);
 CREATE INDEX IF NOT EXISTS idx_mail_at ON core_mail(at);
@@ -655,6 +682,63 @@ export class Store {
     return { kind, project, artifacts: arts.length, text: lines.join("\n") };
   }
 
+  // ---------- 구매/발주 ----------
+  PURCHASE_STAGES = ["request", "quote", "order", "receive", "inspect", "closed"];
+  parties({ kind } = {}) {
+    const where = kind ? "WHERE kind=?" : "";
+    return this.db.prepare(`SELECT * FROM core_party ${where} ORDER BY name`).all(...(kind ? [kind] : []));
+  }
+  upsertParty({ id, name, kind = "vendor", contact = null, data_label = "real" }) {
+    const t = String(name ?? "").trim();
+    if (!t) return { error: "name_required" };
+    const pid = id || `party_${randomBytes(4).toString("hex")}`;
+    this.db.prepare(
+      `INSERT INTO core_party(id,name,kind,contact,data_label) VALUES(?,?,?,?,?)
+       ON CONFLICT(id) DO UPDATE SET name=excluded.name, kind=excluded.kind, contact=excluded.contact`
+    ).run(pid, t, kind, contact, data_label);
+    return { ok: true, id: pid };
+  }
+  createPurchase({ id, party_id = null, title, stage = "request", amount = null, currency = "KRW", due = null, pointer = null, created_by = "owner", projects = [], data_label = "real" }) {
+    const t = String(title ?? "").trim();
+    if (!t) return { error: "title_required" };
+    if (!this.PURCHASE_STAGES.includes(stage)) return { error: "bad_stage" };
+    const pid = id || `po_${randomBytes(5).toString("hex")}`;
+    this.db.prepare(
+      `INSERT INTO core_purchase(id,party_id,title,stage,amount,currency,due,pointer,created_by,data_label,created_at)
+       VALUES(?,?,?,?,?,?,?,?,?,?,?)`
+    ).run(pid, party_id, t, stage, amount, currency, due, pointer, created_by, data_label, new Date().toISOString());
+    for (const proj of projects) this.linkPurchaseProject(pid, proj);
+    return { ok: true, id: pid };
+  }
+  setPurchaseStage(id, stage) {
+    if (!this.PURCHASE_STAGES.includes(stage)) return { error: "bad_stage" };
+    const cur = this.db.prepare("SELECT stage FROM core_purchase WHERE id=?").get(id);
+    if (!cur) return { error: "purchase_not_found" };
+    this.db.prepare("UPDATE core_purchase SET stage=? WHERE id=?").run(stage, id);
+    return { ok: true, from: cur.stage, to: stage };
+  }
+  linkPurchaseProject(purchase_id, project_id) {
+    if (!this.db.prepare("SELECT 1 FROM core_purchase WHERE id=?").get(purchase_id)) return { error: "purchase_not_found" };
+    if (!this.db.prepare("SELECT 1 FROM core_project WHERE id=?").get(project_id)) return { error: "project_not_found" };
+    this.db.prepare("INSERT OR IGNORE INTO purchase_project_map(purchase_id,project_id) VALUES(?,?)").run(purchase_id, project_id);
+    return { ok: true };
+  }
+  purchaseProjects(purchase_id) {
+    return this.db.prepare("SELECT project_id FROM purchase_project_map WHERE purchase_id=?").all(purchase_id).map((r) => r.project_id);
+  }
+  purchases({ project = null, party = null, stage = null } = {}) {
+    let sql = "SELECT p.* FROM core_purchase p";
+    const cond = [], args = [];
+    if (project) { sql += " JOIN purchase_project_map m ON m.purchase_id=p.id"; cond.push("m.project_id=?"); args.push(project); }
+    if (party) { cond.push("p.party_id=?"); args.push(party); }
+    if (stage) { cond.push("p.stage=?"); args.push(stage); }
+    if (cond.length) sql += " WHERE " + cond.join(" AND ");
+    sql += " ORDER BY p.created_at DESC, p.id LIMIT 300";
+    const rows = this.db.prepare(sql).all(...args);
+    const pn = new Map(this.parties().map((x) => [x.id, x.name]));
+    return rows.map((r) => ({ ...r, party_name: r.party_id ? (pn.get(r.party_id) ?? r.party_id) : null, projects: this.purchaseProjects(r.id) }));
+  }
+
   guideState(projectId) {
     const artifacts = this.db
       .prepare("SELECT * FROM guide_artifact WHERE project_id=? ORDER BY stage_code, id")
@@ -723,12 +807,19 @@ export class Store {
   // 실데이터 도착 시 합성 표본 제거 (fixture 는 언제든 재생성 가능)
   purgeSynthetic() {
     let removed = 0;
-    // stage 는 data_label 이 없으므로 synthetic 프로젝트 소속분을 먼저 제거
-    removed += this.db.prepare(
-      "DELETE FROM core_stage WHERE project_id IN (SELECT id FROM core_project WHERE data_label='synthetic')"
-    ).run().changes ?? 0;
+    const del = (sql) => { removed += this.db.prepare(sql).run().changes ?? 0; };
+    // FK 안전 순서: 매핑/자식 → 부모. (구매·회의 맵이 synthetic 프로젝트/항목을 참조)
+    del("DELETE FROM purchase_project_map WHERE purchase_id IN (SELECT id FROM core_purchase WHERE data_label='synthetic') OR project_id IN (SELECT id FROM core_project WHERE data_label='synthetic')");
+    del("DELETE FROM core_purchase WHERE data_label='synthetic'");
+    del("DELETE FROM core_party WHERE data_label='synthetic'");
+    del("DELETE FROM meeting_action_map WHERE meeting_id IN (SELECT id FROM core_meeting WHERE data_label='synthetic') OR item_id IN (SELECT id FROM core_item WHERE data_label='synthetic')");
+    del("DELETE FROM core_meeting WHERE data_label='synthetic'");
+    // guide: data_label 없음 → synthetic 프로젝트 소속분 제거(step 먼저)
+    del("DELETE FROM guide_step WHERE artifact_id IN (SELECT a.id FROM guide_artifact a JOIN core_project p ON p.id=a.project_id WHERE p.data_label='synthetic')");
+    del("DELETE FROM guide_artifact WHERE project_id IN (SELECT id FROM core_project WHERE data_label='synthetic')");
+    del("DELETE FROM core_stage WHERE project_id IN (SELECT id FROM core_project WHERE data_label='synthetic')");
     for (const t of ["core_item", "core_mail", "core_artifact", "core_person", "core_project", "event_log"]) {
-      removed += this.db.prepare(`DELETE FROM ${t} WHERE data_label='synthetic'`).run().changes ?? 0;
+      del(`DELETE FROM ${t} WHERE data_label='synthetic'`);
     }
     return removed;
   }

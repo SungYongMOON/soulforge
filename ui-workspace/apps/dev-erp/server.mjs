@@ -172,6 +172,37 @@ const server = createServer(async (req, res) => {
       store.appendEvent({ actor_ref: "owner", actor_kind: "human", kind: "gate_mode_set", to: r.mode, used_refs: ["gates", "settings"], data_label: "real" });
       return send(res, 200, r);
     }
+    // 구매/발주
+    if (path === "/api/parties" && req.method === "GET") return send(res, 200, store.parties({ kind: qp.kind }));
+    if (path === "/api/parties" && req.method === "POST") {
+      let body = ""; for await (const chunk of req) body += chunk;
+      const r = store.upsertParty({ ...JSON.parse(body || "{}"), data_label: "real" });
+      if (r.error) return send(res, 400, r);
+      return send(res, 200, r);
+    }
+    if (path === "/api/purchases" && req.method === "GET") return send(res, 200, store.purchases({ project: qp.project, party: qp.party, stage: qp.stage }));
+    if (path === "/api/purchases" && req.method === "POST") {
+      let body = ""; for await (const chunk of req) body += chunk;
+      const r = store.createPurchase({ ...JSON.parse(body || "{}"), created_by: "owner", data_label: "real" });
+      if (r.error) return send(res, 400, r);
+      store.appendEvent({ actor_ref: "owner", actor_kind: "human", kind: "purchase_create", to: r.id, used_refs: ["purchase"], data_label: "real" });
+      return send(res, 200, r);
+    }
+    if (path === "/api/purchases/stage" && req.method === "POST") {
+      let body = ""; for await (const chunk of req) body += chunk;
+      const { id, stage } = JSON.parse(body || "{}");
+      const r = store.setPurchaseStage(id, stage);
+      if (r.error) return send(res, r.error === "purchase_not_found" ? 404 : 400, r);
+      store.appendEvent({ actor_ref: "owner", actor_kind: "human", kind: "purchase_stage", item_ref: id, from: r.from, to: r.to, used_refs: ["purchase"], data_label: "real" });
+      return send(res, 200, r);
+    }
+    if (path === "/api/purchases/link" && req.method === "POST") {
+      let body = ""; for await (const chunk of req) body += chunk;
+      const { purchase_id, project_id } = JSON.parse(body || "{}");
+      const r = store.linkPurchaseProject(purchase_id, project_id);
+      if (r.error) return send(res, 400, r);
+      return send(res, 200, r);
+    }
     if (path === "/api/worklog/draft") return send(res, 200, store.worklogDraft({ project: qp.project ?? null, days: qp.days ? Number(qp.days) : 7 }));
     if (path === "/api/report/draft") return send(res, 200, store.reportDraft({ project: qp.project ?? null, kind: qp.kind === "note" ? "note" : "report" }));
     if (path === "/api/guide/summary") return send(res, 200, store.guideSummary());

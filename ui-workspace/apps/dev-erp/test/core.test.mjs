@@ -571,3 +571,34 @@ test("보고서/연구노트 초안: 과제 메타 + 산출물 포인터(원문 
   const n = store.reportDraft({ kind: "note" });
   assert.ok(n.text.includes("연구노트 초안"));
 });
+
+// ---------- 구매/발주 ----------
+test("구매: 거래처 마스터 + 발주 체인 + 과제 N:N + 필터", () => {
+  const store = freshStore();
+  loadFixture(store);
+  const vendors = store.parties({ kind: "vendor" });
+  assert.ok(vendors.length >= 3, "거래처 마스터 시드");
+  const all = store.purchases({});
+  assert.ok(all.length >= 4, "발주 시드");
+  // 과제 N:N: po-002는 PRJ-A·PRJ-B 둘 다
+  const po2 = all.find((p) => p.id === "po-002");
+  assert.deepEqual(po2.projects.sort(), ["PRJ-A", "PRJ-B"]);
+  assert.ok(po2.party_name, "거래처명 조인");
+  // 과제 필터: PRJ-A 발주 = po-001,002,003
+  const aPos = store.purchases({ project: "PRJ-A" }).map((p) => p.id).sort();
+  assert.deepEqual(aPos, ["po-001", "po-002", "po-003"]);
+  // 체인 진행
+  assert.equal(store.setPurchaseStage("po-001", "receive").to, "receive");
+  assert.equal(store.setPurchaseStage("po-001", "bad").error, "bad_stage");
+  assert.equal(store.setPurchaseStage("nope", "order").error, "purchase_not_found");
+});
+
+test("구매: 생성 + 과제 링크 가드", () => {
+  const store = freshStore();
+  loadFixture(store);
+  assert.equal(store.createPurchase({ title: "" }).error, "title_required");
+  const r = store.createPurchase({ title: "신규 발주", party_id: "vendor-a", projects: ["PRJ-C"] });
+  assert.ok(r.ok);
+  assert.deepEqual(store.purchaseProjects(r.id), ["PRJ-C"]);
+  assert.equal(store.linkPurchaseProject(r.id, "no-proj").error, "project_not_found");
+});

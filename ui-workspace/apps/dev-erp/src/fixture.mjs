@@ -101,6 +101,21 @@ export function loadFixture(store) {
     if (art) for (let i = 0; i < g.done; i += 1) store.setGuideStep(art.id, FLOW[i], true, "fixture");
   }
 
+  // 구매/발주 합성 시드 — 거래처 마스터 + 발주 체인(과제 N:N)
+  const parties = [
+    { id: "vendor-a", name: "A상사", kind: "vendor", contact: "a@ex.com" },
+    { id: "vendor-b", name: "B테크", kind: "vendor", contact: "b@ex.com" },
+    { id: "vendor-c", name: "C전자", kind: "vendor", contact: "c@ex.com" }
+  ];
+  parties.forEach((p) => store.upsertParty({ ...p, data_label: "synthetic" }));
+  const purchaseSeed = [
+    { id: "po-001", party_id: "vendor-a", title: "수신부 커넥터 발주", stage: "order", amount: 1250000, due: dateKey(7), projects: ["PRJ-A"] },
+    { id: "po-002", party_id: "vendor-b", title: "신호처리 보드 견적", stage: "quote", amount: 3400000, due: dateKey(14), projects: ["PRJ-B", "PRJ-A"] },
+    { id: "po-003", party_id: "vendor-c", title: "케이블 자재 입고", stage: "receive", amount: 480000, due: dateKey(-2), projects: ["PRJ-A"] },
+    { id: "po-004", party_id: "vendor-a", title: "측정 장비 검수", stage: "inspect", amount: 9100000, due: dateKey(-5), projects: ["PRJ-B"] }
+  ];
+  for (const po of purchaseSeed) store.createPurchase({ ...po, created_by: "fixture", data_label: "synthetic" });
+
   store.appendEvent({
     actor_ref: "fixture", actor_kind: "system", kind: "ingest",
     note: "synthetic fixture loaded", used_refs: ["src/fixture.mjs"], data_label: "synthetic"
