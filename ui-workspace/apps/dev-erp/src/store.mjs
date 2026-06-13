@@ -3,6 +3,22 @@
 // 원칙: 몬스터=업무 레코드 동일 행, 게임 전용은 확장 테이블, 점수는 계산,
 //       연결은 stable id + ref 문자열.
 import { DatabaseSync } from "node:sqlite";
+import { scryptSync, randomBytes, timingSafeEqual } from "node:crypto";
+
+// P2b 비밀번호 해시: scrypt. 형식 "scrypt$<saltHex>$<hashHex>". 평문 저장 금지.
+export function hashPassword(plain) {
+  const salt = randomBytes(16);
+  const hash = scryptSync(String(plain), salt, 32);
+  return `scrypt$${salt.toString("hex")}$${hash.toString("hex")}`;
+}
+export function verifyPassword(plain, stored) {
+  const parts = String(stored || "").split("$");
+  if (parts.length !== 3 || parts[0] !== "scrypt") return false;
+  const salt = Buffer.from(parts[1], "hex");
+  const expected = Buffer.from(parts[2], "hex");
+  const actual = scryptSync(String(plain), salt, expected.length);
+  return expected.length === actual.length && timingSafeEqual(expected, actual);
+}
 
 export const SCHEMA_VERSION = "dev_erp.v1";
 
@@ -121,6 +137,57 @@ CREATE TABLE IF NOT EXISTS game_profile ( -- 게임 전용 확장 (core 는 모�
   sprite TEXT,
   grade_override TEXT,                   -- 슬라임|오크|트롤|보스 표시 오버라이드
   lore TEXT
+);
+-- P2b: 계정·세션·권한(RBAC visible-but-locked)·계정별 대시보드 레이아웃.
+-- 익명(계정 0개/미로그인)이면 앱은 현행대로 동작(하위호환). 계정은 추가 기능.
+CREATE TABLE IF NOT EXISTS core_account (
+  id TEXT PRIMARY KEY,
+  person_id TEXT REFERENCES core_person(id),
+  username TEXT NOT NULL UNIQUE,
+  pw_hash TEXT NOT NULL,
+  status TEXT NOT NULL DEFAULT 'active',
+  created_at TEXT NOT NULL
+);
+CREATE TABLE IF NOT EXISTS auth_session (
+  token TEXT PRIMARY KEY,
+  account_id TEXT NOT NULL REFERENCES core_account(id),
+  created_at TEXT NOT NULL,
+  expires_at TEXT NOT NULL
+);
+CREATE TABLE IF NOT EXISTS rbac_role ( id TEXT PRIMARY KEY, name TEXT NOT NULL );
+CREATE TABLE IF NOT EXISTS rbac_account_role (
+  account_id TEXT NOT NULL REFERENCES core_account(id),
+  role_id TEXT NOT NULL REFERENCES rbac_role(id),
+  PRIMARY KEY (account_id, role_id)
+);
+CREATE TABLE IF NOT EXISTS rbac_permission (
+  role_id TEXT NOT NULL REFERENCES rbac_role(id),
+  resource TEXT NOT NULL,
+  visible INTEGER NOT NULL DEFAULT 1,
+  access  INTEGER NOT NULL DEFAULT 1,
+  PRIMARY KEY (role_id, resource)
+);
+CREATE TABLE IF NOT EXISTS user_dashboard_layout (
+  account_id TEXT PRIMARY KEY REFERENCES core_account(id),
+  layout_json TEXT NOT NULL,
+  updated_at TEXT NOT NULL
+);
+-- 회의록(메타 전용·고아 want 재수용). 원문/첨부 미저장: summary_pointer 는 위치 문자열만.
+-- 액션아이템 자동추출(LLM·원문)은 갈림길⑨ 미결로 보류 — 여기선 기존 할일(core_item)을 수동 링크만.
+CREATE TABLE IF NOT EXISTS core_meeting (
+  id TEXT PRIMARY KEY,
+  project_id TEXT,
+  title TEXT NOT NULL,
+  at TEXT,
+  attendees TEXT,
+  summary_pointer TEXT,
+  data_label TEXT NOT NULL DEFAULT 'synthetic',
+  created_at TEXT NOT NULL
+);
+CREATE TABLE IF NOT EXISTS meeting_action_map (
+  meeting_id TEXT NOT NULL REFERENCES core_meeting(id),
+  item_id TEXT NOT NULL REFERENCES core_item(id),
+  PRIMARY KEY (meeting_id, item_id)
 );
 CREATE INDEX IF NOT EXISTS idx_item_proj ON core_item(project_id, status);
 CREATE INDEX IF NOT EXISTS idx_item_due ON core_item(due);
@@ -557,5 +624,118 @@ export class Store {
       artifacts: one("SELECT COUNT(*) c FROM core_artifact"),
       events: one("SELECT COUNT(*) c FROM event_log")
     };
+  }
+
+  // ---------- P2b: 계정·세션·권한·레이아웃 ----------
+  accountCount() {
+    return this.db.prepare("SELECT COUNT(*) c FROM core_account").get().c;
+  }
+  createAccount({ id, username, password, person_id = null, roles = [] }) {
+    const aid = id || `acc_${randomBytes(5).toString("hex")}`;
+    if (!username || !password) return { error: "username_password_required" };
+    if (this.db.prepare("SELECT 1 FROM core_account WHERE username=?").get(username)) return { error: "username_taken" };
+    this.db.prepare(
+      "INSERT INTO core_account(id,person_id,username,pw_hash,status,created_at) VALUES (?,?,?,?, 'active', ?)"
+    ).run(aid, person_id, username, hashPassword(password), new Date().toISOString());
+    for (const r of roles) this.assignRole(aid, r);
+    return { ok: true, id: aid };
+  }
+  verifyLogin(username, password) {
+    const a = this.db.prepare("SELECT * FROM core_account WHERE username=? AND status='active'").get(username);
+    if (!a || !verifyPassword(password, a.pw_hash)) return null;
+    return { id: a.id, username: a.username, person_id: a.person_id };
+  }
+  createSession(account_id, ttlHours = 12) {
+    const token = randomBytes(24).toString("hex");
+    const now = new Date();
+    const exp = new Date(now.getTime() + ttlHours * 3600000);
+    this.db.prepare("INSERT INTO auth_session(token,account_id,created_at,expires_at) VALUES (?,?,?,?)")
+      .run(token, account_id, now.toISOString(), exp.toISOString());
+    return token;
+  }
+  sessionAccount(token) {
+    if (!token) return null;
+    const s = this.db.prepare("SELECT * FROM auth_session WHERE token=?").get(token);
+    if (!s) return null;
+    if (new Date(s.expires_at).getTime() < Date.now()) { this.deleteSession(token); return null; }
+    const a = this.db.prepare("SELECT id,username,person_id,status FROM core_account WHERE id=?").get(s.account_id);
+    if (!a || a.status !== "active") return null;
+    return { id: a.id, username: a.username, person_id: a.person_id };
+  }
+  deleteSession(token) {
+    this.db.prepare("DELETE FROM auth_session WHERE token=?").run(token);
+    return { ok: true };
+  }
+  upsertRole(id, name) {
+    this.db.prepare("INSERT INTO rbac_role(id,name) VALUES(?,?) ON CONFLICT(id) DO UPDATE SET name=excluded.name").run(id, name ?? id);
+    return { ok: true };
+  }
+  assignRole(account_id, role_id) {
+    this.db.prepare("INSERT OR IGNORE INTO rbac_account_role(account_id,role_id) VALUES(?,?)").run(account_id, role_id);
+    return { ok: true };
+  }
+  setPermission(role_id, resource, visible, access) {
+    this.db.prepare(
+      `INSERT INTO rbac_permission(role_id,resource,visible,access) VALUES(?,?,?,?)
+       ON CONFLICT(role_id,resource) DO UPDATE SET visible=excluded.visible, access=excluded.access`
+    ).run(role_id, resource, visible ? 1 : 0, access ? 1 : 0);
+    return { ok: true };
+  }
+  rolesFor(account_id) {
+    return this.db.prepare("SELECT role_id FROM rbac_account_role WHERE account_id=?").all(account_id).map((r) => r.role_id);
+  }
+  // 권한 합집합: 여러 역할 중 하나라도 visible/access 면 true. 권한 정의 없으면 빈 배열(클라 기본정책 적용).
+  permsFor(account_id) {
+    const rows = this.db.prepare(
+      `SELECT resource, MAX(visible) AS visible, MAX(access) AS access
+       FROM rbac_permission WHERE role_id IN (SELECT role_id FROM rbac_account_role WHERE account_id=?)
+       GROUP BY resource`
+    ).all(account_id);
+    return rows.map((r) => ({ resource: r.resource, visible: !!r.visible, access: !!r.access }));
+  }
+  getLayout(account_id) {
+    const r = this.db.prepare("SELECT layout_json FROM user_dashboard_layout WHERE account_id=?").get(account_id);
+    if (!r) return null;
+    try { return JSON.parse(r.layout_json); } catch { return null; }
+  }
+  setLayout(account_id, layout) {
+    const safe = Array.isArray(layout) ? layout : []; // 방어: 비배열은 빈 배열로
+    this.db.prepare(
+      `INSERT INTO user_dashboard_layout(account_id,layout_json,updated_at) VALUES(?,?,?)
+       ON CONFLICT(account_id) DO UPDATE SET layout_json=excluded.layout_json, updated_at=excluded.updated_at`
+    ).run(account_id, JSON.stringify(safe), new Date().toISOString());
+    return { ok: true };
+  }
+  purgeExpiredSessions() {
+    const r = this.db.prepare("DELETE FROM auth_session WHERE expires_at < ?").run(new Date().toISOString());
+    return { removed: r.changes ?? 0 };
+  }
+
+  // ---------- 회의록(메타 전용). 원문/첨부 미저장 — summary_pointer 는 위치만 ----------
+  createMeeting({ id, project_id = null, title, at = null, attendees = null, summary_pointer = null, data_label = "real" }) {
+    const t = String(title ?? "").trim();
+    if (!t) return { error: "title_required" };
+    const mid = id || `mtg_${randomBytes(5).toString("hex")}`;
+    this.db.prepare(
+      "INSERT INTO core_meeting(id,project_id,title,at,attendees,summary_pointer,data_label,created_at) VALUES (?,?,?,?,?,?,?,?)"
+    ).run(mid, project_id, t, at, attendees, summary_pointer, data_label, new Date().toISOString());
+    return { ok: true, id: mid };
+  }
+  meetings({ project } = {}) {
+    const where = project ? "WHERE project_id=?" : "";
+    const args = project ? [project] : [];
+    return this.db.prepare(`SELECT * FROM core_meeting ${where} ORDER BY COALESCE(at, created_at) DESC, id LIMIT 200`).all(...args);
+  }
+  // 기존 할일을 회의 액션아이템으로 '수동' 링크(자동추출 아님)
+  linkActionItem(meeting_id, item_id) {
+    if (!this.db.prepare("SELECT 1 FROM core_meeting WHERE id=?").get(meeting_id)) return { error: "meeting_not_found" };
+    if (!this.db.prepare("SELECT 1 FROM core_item WHERE id=?").get(item_id)) return { error: "item_not_found" };
+    this.db.prepare("INSERT OR IGNORE INTO meeting_action_map(meeting_id,item_id) VALUES(?,?)").run(meeting_id, item_id);
+    return { ok: true };
+  }
+  meetingActions(meeting_id) {
+    return this.db.prepare(
+      `SELECT i.* FROM core_item i JOIN meeting_action_map m ON m.item_id=i.id WHERE m.meeting_id=? ORDER BY i.id`
+    ).all(meeting_id);
   }
 }

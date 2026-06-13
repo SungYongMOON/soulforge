@@ -182,6 +182,34 @@
       "priority": "P0",
       "status": "done",
       "acceptance": "INBOX 트리아지 + 자동분류 재배정. 승격된 메일은 연결 할일 동행 이동(중복 생성 0). mail_assign/item_move/item_promote 이벤트(project_ref). 분류 후 업무=허브 메일 탭, 판타지=전황 탭+출몰 연출. node:test 15/15 + 실검증(미분류 248→245), 콘솔 0"
+    },
+    {
+      "id": "UX-008",
+      "title": "IA 2.5단 개편: 상단 그룹 탭 + 좌측 선택그룹 하위 (ECount 관찰 반영, A1)",
+      "priority": "P0",
+      "status": "done",
+      "acceptance": "5그룹 상단 가로 탭, 좌측엔 선택 그룹 하위만, 그룹 클릭→첫 화면 랜딩, 화면 점프 시 탭 자동 동기화, navGroup localStorage. 양 모드 파리티+콘솔0 실검증"
+    },
+    {
+      "id": "UX-009",
+      "title": "할일 목록 상태 필터칩 (ECount식, A2)",
+      "priority": "P0",
+      "status": "done",
+      "acceptance": "전체+5상태 칩, count 상태무관 정확, 클릭 필터+강조, 양 모드 사전 경유. 실검증(차단 2건 필터)"
+    },
+    {
+      "id": "UX-010",
+      "title": "상단 글로벌 영역: 검색+⌘K+바로가기바+현재화면 바로가기 등록(☆) (A 보강)",
+      "priority": "P0",
+      "status": "done",
+      "acceptance": "최상단으로 검색/⌘K/favBar 이동 + 현재 화면 핀 토글 ☆버튼(동적/검색 제외). 그룹탭은 콘텐츠 폭만 왼쪽 모음(항목 확장 대비). 양 모드 사전 경유. 실검증(등록/검색/콘솔0)"
+    },
+    {
+      "id": "UX-011",
+      "title": "홈 위젯 대시보드 v1: 그리드 스냅(폭+높이) + 드래그 reorder + 리사이즈 + 접기 + ⋮메뉴 + 내부 스크롤 (ECount 위젯보드, B)",
+      "priority": "P0",
+      "status": "done",
+      "acceptance": "위젯 헤더 드래그 reorder, 우하단 핸들 폭(colSpan)+높이(rowSpan) 리사이즈, ▾접기/⋮메뉴(접기·삭제), 본문 overflow 내부스크롤, 카탈로그 추가, localStorage{id,w,h,c} 저장. 계정별 서버저장=P2b. 실검증(접기/메뉴/높이축소→스크롤/추가삭제/콘솔0) 양 모드 파리티"
     }
   ],
   "owner_questions": [
@@ -209,6 +237,11 @@
     "2026-06-12 run9-11: 3페르소나 평가(PERSONA_REVIEW) → 대시보드 개편 + Gmail식 메일+라벨. 보류: URL 라우팅/정렬/스레드 그룹핑/검색 연산자(후속 후보), N4(owner 보류).",
     "2026-06-12 run13: TOOL_IDENTITY_REVIEW(run12) 콘셉트 '폴더트리가 곧 위저드' 구현. guide.mjs(SE_STAGES 030~240 + ARTIFACT_FLOW snapshot→…→final(Out)→quality) + guide_artifact/guide_step 테이블 + API 4종 + 가이드 화면(과제 선택→단계 위→아래→산출물 카드→7스텝, 첫 미완=다음 할 일). N4(저장된 검색)는 owner 보류 유지 — 가이드가 일부 수요 대체 가능성만 기록. QA 산출물 1건(P21-062/030 SSRS, 0/7)은 시연용으로 남김.",
     "2026-06-12 run16: owner 승인('진행해')으로 과제 허브+P2a 구현. P2 순서 패킷 approved. core_item 4컬럼+event_log project_ref 마이그레이션(try/catch ALTER). 가이드 섹션 빌더 공용화(전역 가이드/허브 공유). QA 쓰기 잔존: P21-062 할일 3건(1 doing)+승격 배지 1+SSRS 산출물 — 초기화 원하면 data/dev-erp.db 삭제 후 재기동(전체 리셋: 라벨/가이드/할일 소실). 흡수 결정: 할일 표의 자동화 컬럼→산출물 연결 컬럼 교체.",
-    "2026-06-12 run17: 메일 분류(재배정) + 판타지 출몰. 경계 결정 기록(DESIGN 변경 이력): 몬스터=core_item 유지, 분류≠자동출몰, 체크 옵션(기본 ON)이 출몰. QA로 실분류 3건 수행([Soulforge] 내부 보고 메일 → general_work, 합리적 분류라 원복 안 함) + 몬스터 1건 출몰(general_work). 미분류 248→245."
+    "2026-06-12 run17: 메일 분류(재배정) + 판타지 출몰. 경계 결정 기록(DESIGN 변경 이력): 몬스터=core_item 유지, 분류≠자동출몰, 체크 옵션(기본 ON)이 출몰. QA로 실분류 3건 수행([Soulforge] 내부 보고 메일 → general_work, 합리적 분류라 원복 안 함) + 몬스터 1건 출몰(general_work). 미분류 248→245.",
+    "2026-06-13 A(ECount 반영 1차): IA 2.5단(상단 그룹탭+좌측 하위, ECount 1단 모듈탭→3단 좌측트리 구조의 2.5단 절충) + 할일 상태칩. owner 'A부터 전부 /loop' 자율. 서버 1회 다운(owner 재기동)으로 브라우저 검증 지연→복구 후 전 화면·그룹전환·칩필터·판타지 파리티·콘솔0 확인. 개인화(위젯 대시보드)·RBAC는 P2b 잔여.",
+    "2026-06-13 B(위젯 대시보드 v1): owner '위젯 기능 없는데?' → 홈 고정타일을 ECount식 위젯보드로 승격. 그리드 스냅(colSpan)+드래그 reorder(HTML5)+마우스 리사이즈 핸들+추가/삭제, localStorage. ECount 관찰모델(그리드스냅·자유리사이즈·추가삭제) 정합. 계정별 서버저장·빈칸 자유배치는 P2b/후속.",
+    "2026-06-13 B 보강(owner 피드백 '위젯 느낌 안남'): 타일→진짜 위젯. 높이 리사이즈(rowSpan, grid-auto-rows 26px)+본문 내부 스크롤(overflow-y)+▾접기/펼치기+⋮메뉴(접기·삭제)+box-shadow transition. 모델 {id,w,h,c}. 부드러운 단계(촘촘 row). 자유 px 드래그·계정저장은 후속/P2b.",
+    "2026-06-13 자율루프(/goal /loop, owner 외출): 객체축 6대분류 IA 반영 + 위젯 전체골격 31슬롯(준비중 표시) + 미분류 메일함 위젯 실동작 + 좌측 슬라이드 위젯서랍/엣지손잡이/정중앙 확인모달. P2b 토대 구현(하위호환): core_account/auth_session/rbac_*/user_dashboard_layout + scrypt 해시·세션·권한합집합·레이아웃 store + /api/me·auth/login·logout·dashboard/layout + 클라 로그인UI·서버레이아웃동기화·권한게이팅(visible/access). node:test 22→26, verify_gate L1 PASS(packet), P2b API curl 종단검증. 익명=현행 동작 유지. 브라우저 상호작용 검증·실동작화는 다른 PC. 게이트/산출물진행률 위젯은 fixture guide 데이터 0이라 보류.",
+    "2026-06-13 자율루프2(owner 외출): Run1 P2b 하드닝(엣지 테스트+방어 가드, setLayout 비배열→[]·purgeExpiredSessions, node:test 26→30). Run2 회의록 이력 메타 재수용(고아 want): core_meeting+meeting_action_map, store(createMeeting/meetings/linkActionItem/meetingActions), /api/meetings·actions·action, mod:meetings 실 읽기+생성 뷰, meetings_w 위젯 승격, lexicon meeting_* parity. node:test 31/31, API curl 종단(생성·400·목록·액션링크). 자동추출·원문첨부=결정⑨ 보류. UI 상호작용=owner 브라우저 확인. verify_gate L1 PASS."
   ]
 }

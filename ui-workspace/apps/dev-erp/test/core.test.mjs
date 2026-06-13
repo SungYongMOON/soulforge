@@ -330,3 +330,120 @@ test("B5: 라벨 감사기 — 커버리지 집계 + 결손 주입 검출", asyn
   // 빈 입력 안전
   assert.equal(audit([]).coverage.used_refs, 1);
 });
+
+// ---------- P2b: 계정·세션·권한·레이아웃 (TEST-P2b) ----------
+import { hashPassword, verifyPassword } from "../src/store.mjs";
+
+test("P2b: 비밀번호 해시 roundtrip (평문 미저장)", () => {
+  const h = hashPassword("s3cret!");
+  assert.ok(h.startsWith("scrypt$"), "scrypt 형식");
+  assert.ok(!h.includes("s3cret"), "평문이 들어가면 안 됨");
+  assert.equal(verifyPassword("s3cret!", h), true);
+  assert.equal(verifyPassword("wrong", h), false);
+});
+
+test("P2b: 계정 생성·로그인·세션 검증/만료/삭제", () => {
+  const store = freshStore();
+  assert.equal(store.accountCount(), 0, "기본 익명(계정 0)");
+  const r = store.createAccount({ username: "owner", password: "pw123", roles: [] });
+  assert.ok(r.ok && r.id);
+  assert.equal(store.createAccount({ username: "owner", password: "x" }).error, "username_taken");
+  assert.equal(store.verifyLogin("owner", "pw123").username, "owner");
+  assert.equal(store.verifyLogin("owner", "bad"), null);
+  const tok = store.createSession(r.id);
+  assert.equal(store.sessionAccount(tok).id, r.id);
+  // 만료 세션
+  const expTok = store.createSession(r.id, -1);
+  assert.equal(store.sessionAccount(expTok), null, "만료 세션은 무효");
+  store.deleteSession(tok);
+  assert.equal(store.sessionAccount(tok), null, "삭제 후 무효(logout)");
+});
+
+test("P2b: RBAC visible-but-locked 권한 합집합", () => {
+  const store = freshStore();
+  const a = store.createAccount({ username: "u", password: "p" }).id;
+  store.upsertRole("member", "팀원");
+  store.assignRole(a, "member");
+  store.setPermission("member", "mod:gates", true, false);  // 보이되 잠김
+  store.setPermission("member", "view:items", true, true);
+  const perms = Object.fromEntries(store.permsFor(a).map((x) => [x.resource, x]));
+  assert.equal(perms["mod:gates"].visible, true);
+  assert.equal(perms["mod:gates"].access, false, "잠김");
+  assert.equal(perms["view:items"].access, true);
+});
+
+test("P2b: 계정별 레이아웃 저장/로드 roundtrip", () => {
+  const store = freshStore();
+  const a = store.createAccount({ username: "u2", password: "p" }).id;
+  assert.equal(store.getLayout(a), null, "초기 없음 → 기본 사용");
+  const layout = [{ id: "projects", x: 0, y: 0, w: 12, h: 12 }, { id: "kpi", x: 0, y: 12, w: 3, h: 7 }];
+  store.setLayout(a, layout);
+  assert.deepEqual(store.getLayout(a), layout, "저장→로드 동일(logout 내성)");
+});
+
+// ---------- P2b 엣지케이스 하드닝 (Run1 자율) ----------
+test("P2b 엣지: 세션 토큰 빈값/오염/만료정리", () => {
+  const store = freshStore();
+  assert.equal(store.sessionAccount(null), null);
+  assert.equal(store.sessionAccount(""), null);
+  assert.equal(store.sessionAccount("nonexistent-token"), null);
+  const a = store.createAccount({ username: "e1", password: "p" }).id;
+  store.createSession(a, -1);           // 이미 만료
+  const live = store.createSession(a);  // 유효
+  const purged = store.purgeExpiredSessions();
+  assert.ok(purged.removed >= 1, "만료 세션 정리");
+  assert.equal(store.sessionAccount(live).id, a, "유효 세션은 보존");
+});
+
+test("P2b 엣지: 로그인 빈 입력·없는 사용자 안전", () => {
+  const store = freshStore();
+  assert.equal(store.verifyLogin("", ""), null);
+  assert.equal(store.verifyLogin("ghost", "x"), null);
+  assert.equal(store.createAccount({ username: "", password: "p" }).error, "username_password_required");
+  assert.equal(store.createAccount({ username: "u", password: "" }).error, "username_password_required");
+});
+
+test("P2b 엣지: 레이아웃 비배열/오염 방어", () => {
+  const store = freshStore();
+  const a = store.createAccount({ username: "e2", password: "p" }).id;
+  store.setLayout(a, { not: "array" });          // 비배열 → []
+  assert.deepEqual(store.getLayout(a), []);
+  store.setLayout(a, null);                       // null → []
+  assert.deepEqual(store.getLayout(a), []);
+  // 오염 JSON 직접 주입 → getLayout null
+  store.db.prepare("UPDATE user_dashboard_layout SET layout_json='{bad' WHERE account_id=?").run(a);
+  assert.equal(store.getLayout(a), null);
+});
+
+test("P2b 엣지: 권한 다중역할 union(하나라도 access면 허용)", () => {
+  const store = freshStore();
+  const a = store.createAccount({ username: "e3", password: "p" }).id;
+  store.upsertRole("r_deny"); store.upsertRole("r_allow");
+  store.assignRole(a, "r_deny"); store.assignRole(a, "r_allow");
+  store.setPermission("r_deny", "mod:gates", true, false);
+  store.setPermission("r_allow", "mod:gates", true, true);
+  const p = store.permsFor(a).find((x) => x.resource === "mod:gates");
+  assert.equal(p.access, true, "한 역할이라도 access면 union=허용");
+  assert.equal(store.permsFor("no-such-account").length, 0, "역할 없으면 빈 권한");
+});
+
+// ---------- 회의록 메타 구조 (Run2 자율) ----------
+test("회의록: 생성·목록·수동 액션아이템 링크 (원문/자동추출 없음)", () => {
+  const store = freshStore();
+  loadFixture(store);
+  const projId = store.summary("2026-06-13", "2026-06-20")[0].id;
+  assert.equal(store.createMeeting({ title: "" }).error, "title_required");
+  const m = store.createMeeting({ title: "주간 회의", project_id: projId, at: "2026-06-13", attendees: "owner,팀원", summary_pointer: "_workmeta/.../notes.md" });
+  assert.ok(m.ok && m.id);
+  const list = store.meetings({});
+  assert.ok(list.find((x) => x.id === m.id), "목록에 포함");
+  assert.equal(store.meetings({ project: projId }).length >= 1, true);
+  // 액션아이템: 기존 할일 수동 링크
+  const item = store.createItem({ project_id: projId, title: "회의 후속 작업", created_by: "owner" });
+  assert.equal(store.linkActionItem("no-mtg", item.item.id).error, "meeting_not_found");
+  assert.equal(store.linkActionItem(m.id, "no-item").error, "item_not_found");
+  assert.ok(store.linkActionItem(m.id, item.item.id).ok);
+  const acts = store.meetingActions(m.id);
+  assert.equal(acts.length, 1);
+  assert.equal(acts[0].title, "회의 후속 작업");
+});

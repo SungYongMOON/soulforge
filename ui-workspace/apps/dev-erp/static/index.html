@@ -8,13 +8,14 @@
   </head>
   <body>
     <div id="app">
-      <aside class="side">
-        <div class="brand">
-          <strong id="appTitle">…</strong>
-          <span id="freshness" class="freshness"></span>
-        </div>
-        <nav id="nav"></nav>
-        <div class="side-bottom">
+      <div class="brand-bar">
+        <strong id="appTitle">…</strong>
+        <nav id="groupBar" class="group-bar"></nav>
+        <div class="global-actions">
+          <div id="favBar" class="fav-bar"></div>
+          <button id="pinCurrentBtn" class="fav-chip pin-cur" title="이 화면 바로가기 등록">☆</button>
+          <button id="paletteBtn" class="fav-chip" title="빠른 이동 (Cmd/Ctrl+K)">⌘K</button>
+          <input id="globalSearch" type="search" placeholder="검색" />
           <label class="mode-toggle">
             <span id="modeLabel">표시 모드</span>
             <select id="modeSelect">
@@ -22,14 +23,16 @@
               <option value="fantasy">판타지</option>
             </select>
           </label>
+          <span id="authBox" class="auth-box"></span>
         </div>
+        <span id="freshness" class="freshness"></span>
+      </div>
+      <aside class="side">
+        <nav id="nav"></nav>
       </aside>
       <main class="main">
         <header class="topbar">
           <h1 id="viewTitle">…</h1>
-          <div id="favBar" class="fav-bar"></div>
-          <button id="paletteBtn" class="fav-chip" title="빠른 이동 (Cmd/Ctrl+K)">⌘K</button>
-          <input id="globalSearch" type="search" placeholder="검색" />
         </header>
         <section id="view" class="view"></section>
       </main>

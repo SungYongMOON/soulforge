@@ -5,8 +5,79 @@ const state = {
   view: "home",
   lex: {},
   projectFilter: "",
-  pins: JSON.parse(localStorage.getItem("dev_erp_pins") || "[]")
+  navGroup: localStorage.getItem("dev_erp_navgroup") || "group_project", // 대분류(객체축) 선택 그룹
+  pins: JSON.parse(localStorage.getItem("dev_erp_pins") || "[]"),
+  // P2b: 계정/권한. 익명(account=null)이면 앱은 현행대로(전체 접근·localStorage).
+  account: null, perms: [], accountCount: 0
 };
+
+// P2b 권한: 정의 없거나 익명이면 기본 허용(visible·access). 정의 있으면 그 값.
+function permOf(resource) {
+  if (!state.account) return { visible: true, access: true };
+  const p = state.perms.find((x) => x.resource === resource);
+  return p ? { visible: !!p.visible, access: !!p.access } : { visible: true, access: true };
+}
+
+async function loadMe() {
+  try {
+    const me = await api("/api/me");
+    state.account = me.anonymous ? null : (me.account ?? null);
+    state.perms = me.perms ?? [];
+    state.accountCount = me.account_count ?? (me.anonymous ? me.account_count : state.accountCount) ?? 0;
+  } catch { state.account = null; state.perms = []; }
+}
+// 로그인 시 서버 레이아웃을 localStorage 로 동기화(이후 dashLayout()이 그대로 사용 → sync 코드 무변경)
+async function pullServerLayout() {
+  if (!state.account) return;
+  try {
+    const { layout } = await api("/api/dashboard/layout");
+    if (Array.isArray(layout) && layout.length) localStorage.setItem("dev_erp_widgets", JSON.stringify(layout));
+  } catch { /* 무시: localStorage 폴백 */ }
+}
+
+// 상단 인증 UI. 계정 0(익명 파일럿)=숨김 / 로그인=사용자+로그아웃 / 계정 있고 미로그인=로그인 버튼.
+function renderAuth() {
+  const box = $("#authBox"); if (!box) return;
+  const L = state.lex;
+  if (state.account) {
+    box.innerHTML = `<span class="auth-user">${esc(state.account.username)}</span><button id="logoutBtn" class="fav-chip">${L.logout}</button>`;
+    $("#logoutBtn").addEventListener("click", async () => { await fetch("/api/auth/logout", { method: "POST" }).catch(() => {}); location.reload(); });
+  } else if (state.accountCount > 0) {
+    box.innerHTML = `<button id="loginBtn" class="fav-chip">${L.login}</button>`;
+    $("#loginBtn").addEventListener("click", openLogin);
+  } else {
+    box.innerHTML = ""; // 계정 0 = 익명 파일럿
+  }
+}
+
+// 로그인 모달(화면 정중앙). 비밀번호는 사용자가 직접 입력(에이전트 자동입력 아님).
+function openLogin() {
+  const L = state.lex;
+  document.querySelector(".ui-confirm-overlay")?.remove();
+  const ov = document.createElement("div");
+  ov.className = "ui-confirm-overlay";
+  ov.innerHTML = `<div class="ui-confirm" role="dialog" aria-label="${L.login}">
+    <p class="ui-confirm-msg">${L.login}</p>
+    <input id="loginUser" class="login-input" placeholder="${L.login_user}" autocomplete="username" />
+    <input id="loginPw" class="login-input" type="password" placeholder="${L.login_pw}" autocomplete="current-password" />
+    <div class="login-err danger-text"></div>
+    <div class="ui-confirm-btns"><button class="ui-confirm-cancel">${L.btn_cancel}</button><button class="ui-confirm-ok">${L.btn_confirm}</button></div>
+  </div>`;
+  document.body.appendChild(ov);
+  const close = () => ov.remove();
+  ov.addEventListener("click", (e) => { if (e.target === ov) close(); });
+  ov.querySelector(".ui-confirm-cancel").addEventListener("click", close);
+  const submit = async () => {
+    const username = ov.querySelector("#loginUser").value.trim();
+    const password = ov.querySelector("#loginPw").value;
+    const r = await fetch("/api/auth/login", { method: "POST", headers: { "content-type": "application/json" }, body: JSON.stringify({ username, password }) }).catch(() => null);
+    if (r && r.ok) { close(); location.reload(); }
+    else ov.querySelector(".login-err").textContent = L.login_fail;
+  };
+  ov.querySelector(".ui-confirm-ok").addEventListener("click", submit);
+  ov.querySelector("#loginPw").addEventListener("keydown", (e) => { if (e.key === "Enter") submit(); });
+  ov.querySelector("#loginUser").focus();
+}
 
 function togglePin(v) {
   const i = state.pins.indexOf(v);
@@ -53,6 +124,10 @@ async function loadLexicon() {
   state.modules = mods;
   document.body.dataset.mode = state.mode;
   $("#appTitle").textContent = state.lex.app_title;
+  // 좌상단 로고 = 홈(위젯 대시보드)로 복귀 (ECount 로고 동작). onclick 으로 중복바인딩 방지.
+  $("#appTitle").classList.add("brand-home");
+  $("#appTitle").title = state.lex.nav_home;
+  $("#appTitle").onclick = () => { state.view = "home"; render(); };
   $("#modeLabel").textContent = state.lex.mode_label;
   $("#globalSearch").placeholder = state.lex.search_placeholder;
   renderNav();
@@ -68,36 +143,72 @@ function localTime(iso) {
 const VIEWS = ["home", "items", "guide", "mail", "artifacts", "search"];
 const navKey = { home: "nav_home", items: "nav_items", guide: "nav_guide", mail: "nav_mail", artifacts: "nav_artifacts", search: "nav_search" };
 
-// IA 그룹: 운영 / 기록·이력 / 자재·구매 / 지식·도구 / 팀 (DESIGN 3절)
+// 대분류 = 다루는 '대상(객체)'축 (owner 결정 2026-06-13): 프로젝트/할일/산출물·문서/메일·소통/자재·거래처/사람·팀
 const NAV_LAYOUT = [
-  { g: "group_work", items: ["home", "guide", "items", "mod:gates", "search"] },
-  { g: "group_records", items: ["mail", "mod:meetings", "mod:reports", "artifacts"] },
-  { g: "group_supply", items: ["mod:purchase", "mod:inventory", "mod:boards", "mod:stockwatch"] },
-  { g: "group_knowledge", items: ["mod:knowledge", "mod:calculators", "mod:contacts"] },
-  { g: "group_team", items: ["mod:requests", "mod:analytics"] }
+  { g: "group_project", items: ["home", "guide", "mod:gates", "search"] },
+  { g: "group_task", items: ["items"] },
+  { g: "group_doc", items: ["artifacts", "mod:reports", "mod:knowledge", "mod:calculators"] },
+  { g: "group_comm", items: ["mail", "mod:meetings"] },
+  { g: "group_material", items: ["mod:purchase", "mod:inventory", "mod:boards", "mod:stockwatch"] },
+  { g: "group_team", items: ["mod:contacts", "mod:requests", "mod:analytics"] }
 ];
 
 function navButton(v) {
+  const perm = permOf(v.startsWith("mod:") ? v : `view:${v}`);
+  if (!perm.visible) return "";                       // RBAC: 숨김
+  const locked = !perm.access;                        // RBAC: 보이되 잠김
+  const lock = locked ? ` <i class="lock" title="${state.lex.perm_locked ?? "권한 없음"}">🔒</i>` : "";
+  const dis = locked ? " disabled" : "";
   const pinned = state.pins.includes(v);
   const star = `<i class="pin-btn ${pinned ? "on" : ""}" data-pin="${v}" title="${state.lex.pin_toggle}">${pinned ? "★" : "☆"}</i>`;
   if (v.startsWith("mod:")) {
     const m = (state.modules ?? []).find((x) => `mod:${x.id}` === v);
     if (!m) return "";
-    return `<button data-v="${v}" class="${state.view === v ? "active" : ""}">
-      <span>${m.nav}</span><span class="nav-side"><em class="phase-tag">${m.phase}</em>${star}</span></button>`;
+    return `<button data-v="${v}" class="${state.view === v ? "active" : ""}"${dis}>
+      <span>${m.nav}${lock}</span><span class="nav-side"><em class="phase-tag">${m.phase}</em>${star}</span></button>`;
   }
-  return `<button data-v="${v}" class="${state.view === v ? "active" : ""}"><span>${state.lex[navKey[v]]}</span><span class="nav-side">${star}</span></button>`;
+  return `<button data-v="${v}" class="${state.view === v ? "active" : ""}"${dis}><span>${state.lex[navKey[v]]}${lock}</span><span class="nav-side">${star}</span></button>`;
+}
+
+// IA 2.5단 (ECount 관찰 반영): 현재 view 가 속한 그룹을 찾아 상단 탭 동기화
+function groupOfView(v) {
+  const g = NAV_LAYOUT.find((grp) => grp.items.includes(v));
+  return g ? g.g : null;
+}
+
+function renderGroupBar() {
+  // 상단 대분류 탭(ECount 1단). 클릭 시 좌측 하위만 교체.
+  if (!NAV_LAYOUT.some((g) => g.g === state.navGroup)) state.navGroup = NAV_LAYOUT[0].g; // stale 값 가드
+  $("#groupBar").innerHTML = NAV_LAYOUT.map((group) =>
+    `<button class="group-tab ${state.navGroup === group.g ? "on" : ""}" data-g="${group.g}">${state.lex[group.g]}</button>`
+  ).join("");
+  $("#groupBar").querySelectorAll(".group-tab").forEach((b) =>
+    b.addEventListener("click", () => {
+      state.navGroup = b.dataset.g;
+      localStorage.setItem("dev_erp_navgroup", state.navGroup);
+      // 그룹 전환 시 그 그룹의 첫 화면으로 이동(ECount: 모듈 클릭→기본 화면 랜딩)
+      const grp = NAV_LAYOUT.find((x) => x.g === state.navGroup);
+      const first = grp?.items.find((v) => !v.startsWith("mod:")) ?? grp?.items[0];
+      if (first) state.view = first;
+      render();
+    })
+  );
 }
 
 function renderNav() {
+  // 현재 view 가 속한 그룹으로 상단 탭 자동 동기화(팔레트/허브 점프 대응)
+  const vg = groupOfView(state.view);
+  if (vg && vg !== state.navGroup) state.navGroup = vg;
+  renderGroupBar();
+
   const pinnedGroup = state.pins.length
     ? `<div class="nav-group"><div class="nav-group-label">${state.lex.group_pinned}</div>${state.pins.map(navButton).join("")}</div>`
     : "";
-  $("#nav").innerHTML = pinnedGroup + NAV_LAYOUT.map(
-    (group) => `<div class="nav-group">
-      <div class="nav-group-label">${state.lex[group.g]}</div>
-      ${group.items.map(navButton).join("")}</div>`
-  ).join("");
+  // 좌측 = 선택된 상단 그룹의 하위 항목만(ECount 좌측 트리)
+  const active = NAV_LAYOUT.find((grp) => grp.g === state.navGroup) ?? NAV_LAYOUT[0];
+  $("#nav").innerHTML = pinnedGroup + `<div class="nav-group">
+      <div class="nav-group-label">${state.lex[active.g]}</div>
+      ${active.items.map(navButton).join("")}</div>`;
   $("#nav").querySelectorAll("button").forEach((b) =>
     b.addEventListener("click", () => { state.view = b.dataset.v; render(); })
   );
@@ -110,6 +221,18 @@ function renderNav() {
   $("#favBar").querySelectorAll(".fav-chip").forEach((c) =>
     c.addEventListener("click", () => { state.view = c.dataset.v; render(); })
   );
+  // 현재 화면 바로가기 등록 버튼(ECount: 최상단 ☆로 현재 화면 담기)
+  const cur = state.view;
+  const pinnable = !cur.startsWith("project") && cur !== "search"; // 동적/검색 제외
+  const btn = $("#pinCurrentBtn");
+  if (btn) {
+    const on = state.pins.includes(cur);
+    btn.textContent = on ? "★" : "☆";
+    btn.classList.toggle("on", on);
+    btn.disabled = !pinnable;
+    btn.title = pinnable ? (on ? state.lex.pin_remove : state.lex.pin_add) : "";
+    btn.onclick = () => { if (pinnable) togglePin(cur); };
+  }
 }
 
 function renderModulePlaceholder(modId) {
@@ -139,19 +262,135 @@ function dueCell(due, todayKey) {
   return `<td class="${over ? "due-over" : ""}">${due}</td>`;
 }
 
-const TILE_IDS = ["projects", "today", "blocked", "mail", "events"];
+// 위젯 대시보드 (ECount 위젯 보드 관찰 반영): 그리드 스냅 colSpan + 드래그
+// reorder + 리사이즈 + 추가/삭제. localStorage 저장(계정별 서버 저장은 P2b).
+// 자유 배치 위젯 보드 (ECount식): 절대좌표 격자 — 가로 12칼럼, 세로 행 단위.
+// 드래그하면 위젯이 마우스를 따라 자유 이동, 놓으면 격자에 스냅(빈칸 허용).
+// 위젯 전체 계획(대분류=객체축). ready:true 만 실제 동작(드래그 추가), 나머지는 '준비 중' 슬롯으로 노출.
+// ECount 관찰 위젯 포함: 시작하기(onboarding)·ToDo(mine)·일정관리(deadline_cal)·전자결재(approval)·쪽지(notices)·업그레이드내역(announce)·집체교육(training).
+const WIDGET_PLAN = [
+  { id: "projects", cat: "group_project", ready: true },
+  { id: "kpi", cat: "group_project", ready: true },
+  { id: "events", cat: "group_project", ready: true },
+  { id: "gatewait", cat: "group_project" },
+  { id: "artifact_progress", cat: "group_project" },
+  { id: "today", cat: "group_task", ready: true },
+  { id: "blocked", cat: "group_task", ready: true },
+  { id: "mine", cat: "group_task" },
+  { id: "deadline_cal", cat: "group_task" },
+  { id: "artifacts", cat: "group_doc", ready: true },
+  { id: "reports_w", cat: "group_doc" },
+  { id: "meetings_w", cat: "group_doc", ready: true },
+  { id: "onboarding", cat: "group_doc" },
+  { id: "training", cat: "group_doc" },
+  { id: "stddocs", cat: "group_doc" },
+  { id: "mail", cat: "group_comm", ready: true },
+  { id: "inbox", cat: "group_comm", ready: true },
+  { id: "approval", cat: "group_comm" },
+  { id: "notices", cat: "group_comm" },
+  { id: "announce", cat: "group_comm" },
+  { id: "purchase_w", cat: "group_material" },
+  { id: "stocklow", cat: "group_material" },
+  { id: "bomchg", cat: "group_material" },
+  { id: "vendors", cat: "group_material" },
+  { id: "buyapprove", cat: "group_material" },
+  { id: "unassigned", cat: "group_team", ready: true },
+  { id: "contacts", cat: "group_team", ready: true },
+  { id: "teamload", cat: "group_team" },
+  { id: "throughput", cat: "group_team" },
+  { id: "requests_w", cat: "group_team" },
+  { id: "analytics_w", cat: "group_team" }
+];
+const WIDGET_CATALOG = WIDGET_PLAN.filter((w) => w.ready).map((w) => w.id); // 실제 보드에 올릴 수 있는 위젯
+const CREATE_WIDGETS = new Set(["today", "blocked", "unassigned"]); // 작성(✎) → 할일 생성 화면으로
+const CAT_ORDER = ["group_project", "group_task", "group_doc", "group_comm", "group_material", "group_team"];
+const DASH_GCOLS = 12;     // 가로 12칼럼 (fine snap)
+const DASH_ROW = 22;       // 세로 행 px
+const DASH_WMIN = 2, DASH_HMIN = 3;
+const DEFAULT_DASH = [
+  { id: "projects", x: 0, y: 0, w: 12, h: 12 },
+  { id: "today", x: 0, y: 12, w: 3, h: 8 }, { id: "blocked", x: 3, y: 12, w: 3, h: 8 },
+  { id: "mail", x: 6, y: 12, w: 3, h: 8 }, { id: "events", x: 9, y: 12, w: 3, h: 8 }
+];
 
-function activeTiles() {
-  const saved = JSON.parse(localStorage.getItem("dev_erp_tiles") || "null");
-  return Array.isArray(saved) ? saved : [...TILE_IDS]; // 기본: 전부 표시 (owner 질문: 기본 조합)
+function dashLayout() {
+  const saved = JSON.parse(localStorage.getItem("dev_erp_widgets") || "null");
+  if (Array.isArray(saved) && saved.length && saved.every((x) => x && WIDGET_CATALOG.includes(x.id) && "x" in x)) {
+    return saved.map((x) => ({
+      id: x.id,
+      x: Math.max(0, Math.min(DASH_GCOLS - DASH_WMIN, Number(x.x) || 0)),
+      y: Math.max(0, Number(x.y) || 0),
+      w: Math.max(DASH_WMIN, Math.min(DASH_GCOLS, Number(x.w) || 3)),
+      h: Math.max(DASH_HMIN, Number(x.h) || 6),
+      c: !!x.c
+    }));
+  }
+  return DEFAULT_DASH.map((x) => ({ ...x }));
+}
+function saveDashLayout(arr) {
+  localStorage.setItem("dev_erp_widgets", JSON.stringify(arr));
+  // 로그인 상태면 계정별 서버 저장(logout 내성). 미로그인=localStorage 만.
+  if (state.account) fetch("/api/dashboard/layout", { method: "PUT", headers: { "content-type": "application/json" }, body: JSON.stringify({ layout: arr }) }).catch(() => {});
+}
+// 충돌 해소: anchor(방금 옮기거나 키운 위젯)는 고정, 겹치는 나머지는 아래로 밀어냄(겹침 금지).
+function dashEffH(w) { return w.c ? 2 : w.h; }
+function dashOverlap(a, b) {
+  return a.x < b.x + b.w && a.x + a.w > b.x && a.y < b.y + dashEffH(b) && a.y + dashEffH(a) > b.y;
+}
+function resolveDashCollisions(layout, anchorId) {
+  const anchor = layout.find((w) => w.id === anchorId);
+  const placed = anchor ? [anchor] : [];
+  const rest = layout.filter((w) => w.id !== anchorId).sort((a, b) => a.y - b.y || a.x - b.x);
+  for (const w of rest) {
+    let guard = 0;
+    while (placed.some((p) => dashOverlap(w, p)) && guard++ < 500) w.y += 1;
+    placed.push(w);
+  }
+  return layout;
+}
+// 정렬(컴팩트): 각 위젯을 현재 x에서 최상단 빈자리로 — 빈 간격 제거 + 겹침 해소.
+function compactDash(layout) {
+  const placed = [];
+  for (const w of [...layout].sort((a, b) => a.y - b.y || a.x - b.x)) {
+    w.y = 0;
+    let guard = 0;
+    while (placed.some((p) => dashOverlap(w, p)) && guard++ < 500) w.y += 1;
+    placed.push(w);
+  }
+  return layout;
 }
 
 function miniRow(cells) {
   return `<tr>${cells.map((c) => `<td>${c}</td>`).join("")}</tr>`;
 }
 
+// 화면 정중앙 확인 모달 (native confirm 은 위치 제어 불가 → 커스텀). Promise<boolean> 반환.
+function uiConfirm(message) {
+  return new Promise((resolve) => {
+    const L = state.lex;
+    document.querySelector(".ui-confirm-overlay")?.remove();
+    const ov = document.createElement("div");
+    ov.className = "ui-confirm-overlay";
+    ov.innerHTML = `<div class="ui-confirm" role="alertdialog" aria-modal="true">
+      <p class="ui-confirm-msg"></p>
+      <div class="ui-confirm-btns">
+        <button class="ui-confirm-cancel">${L.btn_cancel}</button>
+        <button class="ui-confirm-ok">${L.btn_confirm}</button>
+      </div></div>`;
+    ov.querySelector(".ui-confirm-msg").textContent = message;
+    document.body.appendChild(ov);
+    const done = (v) => { ov.remove(); document.removeEventListener("keydown", onKey); resolve(v); };
+    const onKey = (e) => { if (e.key === "Escape") done(false); if (e.key === "Enter") done(true); };
+    ov.querySelector(".ui-confirm-ok").addEventListener("click", () => done(true));
+    ov.querySelector(".ui-confirm-cancel").addEventListener("click", () => done(false));
+    ov.addEventListener("click", (e) => { if (e.target === ov) done(false); });
+    document.addEventListener("keydown", onKey);
+    ov.querySelector(".ui-confirm-ok").focus();
+  });
+}
+
 async function renderHome() {
-  const tiles = activeTiles();
+  const layout = dashLayout();
   const todayKey = new Date().toISOString().slice(0, 10);
   const data = await api("/api/summary");
   state._projCache = data.projects;
@@ -204,57 +443,308 @@ async function renderHome() {
         ${internals.map((p) => `<span class="badge">${esc(p.id)}</span>`).join(" ")}</details>`
     : "";
 
-  const sections = [];
-  if (tiles.includes("projects")) {
-    sections.push(`<section class="tile wide"><h4>${L.class_active} (${actives.length})</h4>
-      <table class="proj-table"><thead><tr>
+  // 위젯 본문 빌더 (id → {title, html})
+  async function widgetBody(id) {
+    if (id === "projects") return { title: `${L.class_active} (${actives.length})`, html:
+      `<table class="proj-table"><thead><tr>
         <th>${L.project}</th><th>${L.stage}</th><th>${L.col_remaining}</th>
         <th>${L.col_due}</th><th>${L.blocked}</th><th>${L.col_last_activity}</th><th>${L.col_last_mail}</th>
-      </tr></thead><tbody>${activeRows}</tbody></table>
-      ${inboxStrip}${internalBlock}</section>`);
-  }
-  if (tiles.includes("today")) {
-    const due = (await api("/api/items?due=soon")).slice(0, 8);
-    sections.push(`<section class="tile"><h4>${state.lex.tile_today}</h4>${
-      due.length ? `<table><tbody>${due.map((i) => miniRow([i.title, i.project_id, i.due ?? "-"])).join("")}</tbody></table>` : `<div class="empty">${state.lex.empty_items}</div>`}</section>`);
-  }
-  if (tiles.includes("blocked")) {
-    const blocked = (await api("/api/items?status=blocked")).slice(0, 6);
-    sections.push(`<section class="tile"><h4>${state.lex.tile_blocked}</h4>${
-      blocked.length ? `<table><tbody>${blocked.map((i) => miniRow([i.title, i.project_id, statusBadge(i.status)])).join("")}</tbody></table>` : `<div class="empty">${state.lex.empty_items}</div>`}</section>`);
-  }
-  if (tiles.includes("mail")) {
-    const mail = (await api("/api/mail?days=90")).slice(0, 6);
-    sections.push(`<section class="tile"><h4>${state.lex.tile_mail}</h4>${
-      mail.length ? `<table><tbody>${mail.map((m) => miniRow([localTime(m.at), m.subject])).join("")}</tbody></table>` : `<div class="empty">${state.lex.empty_mail}</div>`}</section>`);
-  }
-  if (tiles.includes("events")) {
+      </tr></thead><tbody>${activeRows}</tbody></table>${inboxStrip}${internalBlock}` };
+    if (id === "today") {
+      const due = (await api("/api/items?due=soon")).slice(0, 8);
+      return { title: L.tile_today, html: due.length ? `<table><tbody>${due.map((i) => miniRow([esc(i.title), esc(i.project_id), i.due ?? "-"])).join("")}</tbody></table>` : `<div class="empty">${L.empty_items}</div>` };
+    }
+    if (id === "blocked") {
+      const blocked = (await api("/api/items?status=blocked")).slice(0, 6);
+      return { title: L.tile_blocked, html: blocked.length ? `<table><tbody>${blocked.map((i) => miniRow([esc(i.title), esc(i.project_id), statusBadge(i.status)])).join("")}</tbody></table>` : `<div class="empty">${L.empty_items}</div>` };
+    }
+    if (id === "mail") {
+      const mail = (await api("/api/mail?days=90")).slice(0, 6);
+      return { title: L.tile_mail, html: mail.length ? `<table><tbody>${mail.map((m) => miniRow([localTime(m.at), esc(m.subject)])).join("")}</tbody></table>` : `<div class="empty">${L.empty_mail}</div>` };
+    }
+    if (id === "kpi") {
+      return { title: L.tile_kpi, html: `<div class="kpi-row mini">
+        <div class="kpi red"><span>${L.kpi_blocked}</span><strong>${actives.reduce((s, p) => s + p.blocked, 0)}</strong></div>
+        <div class="kpi red"><span>${L.kpi_overdue}</span><strong>${actives.reduce((s, p) => s + p.overdue, 0)}</strong></div>
+        <div class="kpi amber"><span>${L.kpi_today}</span><strong>${actives.reduce((s, p) => s + p.due_today, 0)}</strong></div>
+        <div class="kpi blue"><span>${L.kpi_inbox}</span><strong>${inbox.reduce((s, p) => s + p.mail_cnt, 0)}</strong></div>
+      </div>` };
+    }
+    if (id === "unassigned") {
+      const open = await api("/api/items?status=open");
+      const un = open.filter((i) => !i.assignee_ref).slice(0, 8);
+      return { title: L.tile_unassigned, html: un.length ? `<table><tbody>${un.map((i) => miniRow([esc(i.title), esc(i.project_id), i.due ?? "-"])).join("")}</tbody></table>` : `<div class="empty">${L.empty_items}</div>` };
+    }
+    if (id === "artifacts") {
+      const arts = (await api("/api/artifacts")).slice(0, 6);
+      return { title: L.tile_artifacts, html: arts.length ? `<table><tbody>${arts.map((a) => miniRow([esc(a.title), esc(a.kind), esc(a.project_id)])).join("")}</tbody></table>` : `<div class="empty">${L.empty_artifacts}</div>` };
+    }
+    if (id === "contacts") {
+      const people = (await api("/api/people")).slice(0, 8);
+      return { title: L.tile_contacts, html: people.length ? `<table><tbody>${people.map((p) => miniRow([esc(p.name), esc(p.role ?? "-")])).join("")}</tbody></table>` : `<div class="empty">-</div>` };
+    }
+    if (id === "meetings_w") {
+      const ms = (await api("/api/meetings")).slice(0, 6);
+      return { title: L.tile_meetings_w, html: ms.length
+        ? `<table><tbody>${ms.map((m) => miniRow([m.at ? localTime(m.at) : "-", esc(m.title)])).join("")}</tbody></table>`
+        : `<div class="empty">${L.empty_meetings}</div>` };
+    }
+    if (id === "inbox") {
+      const ids = new Set(inbox.map((p) => p.id));
+      const mails = (await api("/api/mail?days=3650")).filter((m) => ids.has(m.project_id)).slice(0, 8);
+      return { title: L.tile_inbox, html: mails.length
+        ? `<table><tbody>${mails.map((m) => miniRow([localTime(m.at), esc(m.subject)])).join("")}</tbody></table>`
+        : `<div class="empty">${L.empty_mail}</div>` };
+    }
     const events = await api("/api/events/recent");
-    sections.push(`<section class="tile"><h4>${state.lex.tile_events}</h4>${
-      events.length ? `<table><tbody>${events.slice(0, 6).map((e) => miniRow([localTime(e.at), e.actor_ref, e.kind])).join("")}</tbody></table>` : `<div class="empty">-</div>`}</section>`);
+    return { title: L.tile_events, html: events.length ? `<table><tbody>${events.slice(0, 6).map((e) => miniRow([localTime(e.at), esc(e.actor_ref), esc(e.kind)])).join("")}</tbody></table>` : `<div class="empty">-</div>` };
   }
 
-  $("#view").innerHTML = `
-    ${kpi}
-    <div class="tile-toolbar"><button id="tileConfigBtn" class="fav-chip">${state.lex.tile_config}</button>
-      <div id="tileConfig" class="tile-config hidden">${TILE_IDS.map((t) =>
-        `<label><input type="checkbox" data-t="${t}" ${tiles.includes(t) ? "checked" : ""}/> ${state.lex[`tile_${t}`]}</label>`).join("")}</div></div>
-    <div class="tile-grid">${sections.join("")}</div>`;
+  // 위젯 카드 — 절대좌표(% 가로 + px 세로). 본문 고정 높이 → 내부 스크롤.
+  const cardStyle = (w) => `left:${(w.x / DASH_GCOLS) * 100}%; width:${(w.w / DASH_GCOLS) * 100}%;`
+    + `top:${w.y * DASH_ROW}px; height:${(w.c ? 2 : w.h) * DASH_ROW}px;`;
+  const cards = [];
+  for (const w of layout) {
+    const { title, html } = await widgetBody(w.id);
+    const canCreate = CREATE_WIDGETS.has(w.id);
+    cards.push(`<section class="widget ${w.c ? "collapsed" : ""}" data-wid="${w.id}" style="${cardStyle(w)}">
+      <div class="widget-head" data-grip="${w.id}">
+        <i class="wfold" data-fold="${w.id}" title="${w.c ? L.widget_expand : L.widget_collapse}">${w.c ? "▸" : "▾"}</i>
+        <h4>${title}</h4>
+        <span class="widget-ctrls">
+          <i class="wpop" data-pop="${w.id}" title="${L.widget_popout}">⤢</i>
+          <i class="wrefresh" data-refresh="${w.id}" title="${L.widget_refresh}">⟳</i>
+          ${canCreate ? `<i class="wcreate" data-create="${w.id}" title="${L.widget_create}">✎</i>` : ""}
+          <span class="widget-menu-wrap">
+            <i class="wdots" data-menu="${w.id}" title="${L.widget_menu}">⋮</i>
+            <div class="widget-menu hidden" data-menufor="${w.id}">
+              <button data-mfold="${w.id}">${w.c ? L.widget_expand : L.widget_collapse}</button>
+              <button data-mdel="${w.id}">${L.widget_remove}</button>
+            </div>
+          </span>
+        </span>
+      </div>
+      <div class="widget-body" data-body="${w.id}">${html}</div>
+      <i class="widget-resize" data-rid="${w.id}" title="${L.widget_resize}"></i>
+    </section>`);
+  }
+  const maxBottom = Math.max(0, ...layout.map((w) => (w.y + (w.c ? 2 : w.h)))) * DASH_ROW + 20;
+  // 서랍 = 전체 위젯을 대분류(객체축)별로 묶어 항상 표시(ECount식). 보드에 올라간 건 ● 동그라미.
+  const widgetChip = (w) => {
+    if (!w.ready) // 준비 중 슬롯: 비활성, 드래그 불가
+      return `<div class="drawer-widget soon"><span class="dw-dot"></span><span class="grip">⠿</span> ${L[`tile_${w.id}`]}<span class="soon-tag dim">${L.widget_soon}</span></div>`;
+    const placed = layout.some((x) => x.id === w.id);
+    return `<div class="drawer-widget ${placed ? "placed" : ""}" ${placed ? "" : 'draggable="true"'} data-add="${w.id}">
+      <span class="dw-dot ${placed ? "on" : ""}" title="${placed ? L.widget_placed : ""}"></span>
+      <span class="grip">⠿</span> ${L[`tile_${w.id}`]}</div>`;
+  };
+  const drawerItems = CAT_ORDER.map((cat) => {
+    const ws = WIDGET_PLAN.filter((w) => w.cat === cat);
+    const body = ws.length ? ws.map(widgetChip).join("") : `<div class="drawer-empty dim">${L.widget_soon}</div>`;
+    return `<div class="drawer-cat"><div class="drawer-cat-head">${L[cat]}</div>${body}</div>`;
+  }).join("");
 
-  $("#tileConfigBtn").addEventListener("click", () => $("#tileConfig").classList.toggle("hidden"));
-  $("#view").querySelectorAll("#tileConfig input").forEach((cb) =>
-    cb.addEventListener("change", () => {
-      const next = [...$("#view").querySelectorAll("#tileConfig input:checked")].map((x) => x.dataset.t);
-      localStorage.setItem("dev_erp_tiles", JSON.stringify(next));
-      render();
-    })
-  );
-  $("#view").querySelectorAll(".proj-row").forEach((r) =>
-    r.addEventListener("click", () => { state.hubProject = r.dataset.p; state.hubTab = "overview"; state.view = "project"; render(); })
-  );
-  $("#view").querySelectorAll("[data-jump-mail]").forEach((b) =>
-    b.addEventListener("click", (e) => { e.stopPropagation(); state.projectFilter = b.dataset.jumpMail; state.view = "mail"; render(); })
-  );
+  $("#view").innerHTML = `${kpi}
+    <button id="widgetEdge" class="widget-edge" title="${L.widget_add}" aria-label="${L.widget_add}">❙❙</button>
+    <aside id="widgetDrawer" class="widget-drawer">
+      <div class="widget-drawer-head">${L.widget_add}<span class="dim">${L.widget_drag_hint}</span></div>
+      <div class="widget-drawer-list">${drawerItems}</div>
+      <div class="widget-drawer-foot">
+        <button id="widgetArrangeBtn" class="fav-chip" title="${L.widget_arrange}">⊟ ${L.widget_arrange}</button>
+        <button id="widgetResetBtn" class="fav-chip" title="${L.widget_reset}">↺ ${L.widget_reset}</button>
+      </div>
+    </aside>
+    <div class="dashboard" style="height:${maxBottom}px;">${cards.join("")}</div>`;
+
+  const grid = $("#view").querySelector(".dashboard");
+  const colW = () => grid.getBoundingClientRect().width / DASH_GCOLS;
+  // 드래그/리사이즈 도중 실시간으로 다른 위젯을 격자 위치로 재배치(겹치면 밀려나고, 줄이면 되돌아옴)
+  const applyLiveLayout = (resolved, anchorId) => {
+    for (const w of resolved) {
+      if (w.id === anchorId) continue;
+      const c = grid.querySelector(`.widget[data-wid="${w.id}"]`);
+      if (!c) continue;
+      c.style.left = `${(w.x / DASH_GCOLS) * 100}%`;
+      c.style.width = `${(w.w / DASH_GCOLS) * 100}%`;
+      c.style.top = `${w.y * DASH_ROW}px`;
+      c.style.height = `${(w.c ? 2 : w.h) * DASH_ROW}px`;
+    }
+    const maxB = Math.max(0, ...resolved.map((w) => w.y + (w.c ? 2 : w.h))) * DASH_ROW + 20;
+    grid.style.height = `${maxB}px`;
+  };
+  // 매 이동마다 커밋된 base 에서 새로 계산 → 줄이면 원위치 복귀(누적 안 함)
+  const liveResolve = (base, anchorId, patch) => {
+    const layout = base.map((b) => b.id === anchorId ? { ...b, ...patch } : { ...b });
+    resolveDashCollisions(layout, anchorId);
+    applyLiveLayout(layout, anchorId);
+  };
+  // 이동/리사이즈/접기 후 anchor 고정 + 겹친 위젯 아래로 밀어냄(겹침 금지)
+  const updateWidget = (id, patch) => {
+    const next = dashLayout().map((x) => x.id === id ? { ...x, ...patch } : x);
+    saveDashLayout(resolveDashCollisions(next, id)); render();
+  };
+
+  // 위젯 추가: ❙❙ 서랍을 펴서 목록 표시 → 드래그&드롭(또는 클릭)으로 보드에 추가
+  const addWidgetAt = (id, x, y) => {
+    if (!WIDGET_CATALOG.includes(id)) return;
+    const l = dashLayout();
+    if (l.some((w) => w.id === id)) return; // 이미 배치됨
+    l.push({ id, x: Math.max(0, Math.min(DASH_GCOLS - 3, x | 0)), y: Math.max(0, y | 0), w: 3, h: 7 });
+    saveDashLayout(resolveDashCollisions(l, id)); render();
+  };
+  $("#widgetEdge").addEventListener("click", () => {
+    const open = $("#widgetDrawer").classList.toggle("open");
+    $("#widgetEdge").classList.toggle("on", open);
+  });
+  $("#widgetArrangeBtn").addEventListener("click", () => { saveDashLayout(compactDash(dashLayout())); render(); });
+  $("#widgetResetBtn").addEventListener("click", async () => { if (!(await uiConfirm(L.confirm_reset))) return; localStorage.removeItem("dev_erp_widgets"); render(); });
+  // 서랍 항목: 드래그 시작 + 클릭(맨 아래 추가) 폴백
+  $("#view").querySelectorAll(".drawer-widget:not(.placed):not(.soon)").forEach((d) => {
+    d.addEventListener("dragstart", (e) => { e.dataTransfer.setData("text/plain", d.dataset.add); e.dataTransfer.effectAllowed = "copy"; d.classList.add("dragging"); });
+    d.addEventListener("dragend", () => d.classList.remove("dragging"));
+    d.addEventListener("click", () => {
+      const y = Math.max(0, ...dashLayout().map((w) => w.y + (w.c ? 2 : w.h)));
+      addWidgetAt(d.dataset.add, 0, y);
+    });
+  });
+  // 보드에 드롭 → 놓은 위치에 추가
+  grid.addEventListener("dragover", (e) => { e.preventDefault(); e.dataTransfer.dropEffect = "copy"; grid.classList.add("drop-active"); });
+  grid.addEventListener("dragleave", (e) => { if (e.target === grid) grid.classList.remove("drop-active"); });
+  grid.addEventListener("drop", (e) => {
+    e.preventDefault(); grid.classList.remove("drop-active");
+    const id = e.dataTransfer.getData("text/plain");
+    if (!id) return;
+    const r = grid.getBoundingClientRect();
+    addWidgetAt(id, Math.round((e.clientX - r.left) / colW()), Math.round((e.clientY - r.top) / DASH_ROW));
+  });
+  // 접기/펼치기
+  const toggleFold = (id) => { const cur = dashLayout().find((x) => x.id === id); updateWidget(id, { c: !cur?.c }); };
+  $("#view").querySelectorAll("[data-fold]").forEach((f) =>
+    f.addEventListener("mousedown", (e) => e.stopPropagation()));
+  $("#view").querySelectorAll("[data-fold]").forEach((f) =>
+    f.addEventListener("click", (e) => { e.stopPropagation(); toggleFold(f.dataset.fold); }));
+  $("#view").querySelectorAll("[data-mfold]").forEach((b) =>
+    b.addEventListener("click", (e) => { e.stopPropagation(); toggleFold(b.dataset.mfold); }));
+  // 새로고침 (위젯 본문만 다시 렌더)
+  $("#view").querySelectorAll("[data-refresh]").forEach((r) => {
+    r.addEventListener("mousedown", (e) => e.stopPropagation());
+    r.addEventListener("click", async (e) => {
+      e.stopPropagation();
+      r.classList.add("spinning");
+      const { html } = await widgetBody(r.dataset.refresh);
+      const body = $("#view").querySelector(`[data-body="${r.dataset.refresh}"]`);
+      if (body) body.innerHTML = html;
+      bindWidgetInner();
+      setTimeout(() => r.classList.remove("spinning"), 400);
+    });
+  });
+  // ⋮ 메뉴
+  $("#view").querySelectorAll(".wdots").forEach((d) => {
+    d.addEventListener("mousedown", (e) => e.stopPropagation());
+    d.addEventListener("click", (e) => {
+      e.stopPropagation();
+      const menu = $("#view").querySelector(`.widget-menu[data-menufor="${d.dataset.menu}"]`);
+      $("#view").querySelectorAll(".widget-menu").forEach((m) => { if (m !== menu) m.classList.add("hidden"); });
+      menu.classList.toggle("hidden");
+    });
+  });
+  document.addEventListener("click", () => $("#view")?.querySelectorAll(".widget-menu").forEach((m) => m.classList.add("hidden")), { once: true });
+  $("#view").querySelectorAll("[data-mdel]").forEach((x) =>
+    x.addEventListener("click", async (e) => { e.stopPropagation(); if (!(await uiConfirm(L.confirm_remove))) return; saveDashLayout(dashLayout().filter((w) => w.id !== x.dataset.mdel)); render(); }));
+  // 팝아웃(크게 보기) — 위젯 본문을 큰 오버레이로
+  $("#view").querySelectorAll(".wpop").forEach((p) => {
+    p.addEventListener("mousedown", (e) => e.stopPropagation());
+    p.addEventListener("click", async (e) => { e.stopPropagation(); await openPopout(p.dataset.pop); });
+  });
+  // 작성(✎) — 해당 도메인 작성 화면으로 (할일 생성)
+  $("#view").querySelectorAll(".wcreate").forEach((c) => {
+    c.addEventListener("mousedown", (e) => e.stopPropagation());
+    c.addEventListener("click", (e) => { e.stopPropagation(); state.view = "items"; state.focusNewItem = true; render(); });
+  });
+
+  // 헤더: 끌면 자유 이동(마우스 추종→격자 스냅), 그냥 클릭하면 제자리 접기/펼치기
+  $("#view").querySelectorAll("[data-grip]").forEach((head) => {
+    head.addEventListener("mousedown", (e) => {
+      if (e.target.closest(".wfold,.wrefresh,.wdots,.wpop,.wcreate,.widget-menu")) return;
+      e.preventDefault();
+      const card = head.closest(".widget"); const id = card.dataset.wid;
+      const gridRect = grid.getBoundingClientRect();
+      const cardRect = card.getBoundingClientRect();
+      const offX = e.clientX - cardRect.left, offY = e.clientY - cardRect.top;
+      const startX = e.clientX, startY = e.clientY;
+      const base = dashLayout();
+      let moved = false;
+      const onMove = (ev) => {
+        if (!moved && Math.abs(ev.clientX - startX) < 4 && Math.abs(ev.clientY - startY) < 4) return;
+        if (!moved) { moved = true; card.classList.add("dragging"); }
+        const px = ev.clientX - gridRect.left - offX;
+        const py = ev.clientY - gridRect.top - offY;
+        card.style.left = `${Math.max(0, px)}px`;
+        card.style.top = `${Math.max(0, py)}px`;
+        card.dataset.x = Math.max(0, Math.min(DASH_GCOLS - DASH_WMIN, Math.round(px / colW())));
+        card.dataset.y = Math.max(0, Math.round(py / DASH_ROW));
+        liveResolve(base, id, { x: Number(card.dataset.x), y: Number(card.dataset.y) }); // 실시간 밀어내기
+      };
+      const onUp = () => {
+        document.removeEventListener("mousemove", onMove); document.removeEventListener("mouseup", onUp);
+        if (!moved) { toggleFold(id); return; }   // 클릭 = 제자리 접기 (위치 유지)
+        card.classList.remove("dragging");
+        updateWidget(id, { x: Number(card.dataset.x) || 0, y: Number(card.dataset.y) || 0 });
+      };
+      document.addEventListener("mousemove", onMove); document.addEventListener("mouseup", onUp);
+    });
+  });
+  // 자유 리사이즈 (우하단 핸들 — 마우스 따라 실시간, 놓으면 격자 스냅)
+  $("#view").querySelectorAll(".widget-resize").forEach((h) => {
+    h.addEventListener("mousedown", (e) => {
+      e.preventDefault(); e.stopPropagation();
+      const card = h.closest(".widget"); const id = h.dataset.rid;
+      const cardRect = card.getBoundingClientRect();
+      const base = dashLayout();
+      card.classList.add("resizing");
+      const onMove = (ev) => {
+        const wpx = Math.max(colW() * DASH_WMIN, ev.clientX - cardRect.left);
+        const hpx = Math.max(DASH_ROW * DASH_HMIN, ev.clientY - cardRect.top);
+        card.style.width = `${wpx}px`; card.style.height = `${hpx}px`;
+        card.dataset.w = Math.max(DASH_WMIN, Math.min(DASH_GCOLS, Math.round(wpx / colW())));
+        card.dataset.h = Math.max(DASH_HMIN, Math.round(hpx / DASH_ROW));
+        liveResolve(base, id, { w: Number(card.dataset.w), h: Number(card.dataset.h) }); // 실시간 밀어내기/복귀
+      };
+      const onUp = () => {
+        document.removeEventListener("mousemove", onMove); document.removeEventListener("mouseup", onUp);
+        card.classList.remove("resizing");
+        updateWidget(id, { w: Number(card.dataset.w) || 3, h: Number(card.dataset.h) || 6 });
+      };
+      document.addEventListener("mousemove", onMove); document.addEventListener("mouseup", onUp);
+    });
+  });
+
+  async function openPopout(id) {
+    const { title, html } = await widgetBody(id);
+    document.querySelector(".widget-pop-overlay")?.remove();
+    const ov = document.createElement("div");
+    ov.className = "widget-pop-overlay";
+    ov.innerHTML = `<div class="widget-pop" role="dialog" aria-label="${title}">
+      <div class="widget-pop-head"><h3>${title}</h3><button class="widget-pop-x" title="${L.filter_clear}">✕</button></div>
+      <div class="widget-pop-body">${html}</div></div>`;
+    document.body.appendChild(ov);
+    const close = () => ov.remove();
+    ov.addEventListener("click", (e) => { if (e.target === ov) close(); });
+    ov.querySelector(".widget-pop-x").addEventListener("click", close);
+    document.addEventListener("keydown", function esc(e) { if (e.key === "Escape") { close(); document.removeEventListener("keydown", esc); } });
+    ov.querySelectorAll(".proj-row").forEach((r) =>
+      r.addEventListener("click", () => { state.hubProject = r.dataset.p; state.hubTab = "overview"; state.view = "project"; close(); render(); }));
+    ov.querySelectorAll("[data-jump-mail]").forEach((b) =>
+      b.addEventListener("click", (e) => { e.stopPropagation(); state.projectFilter = b.dataset.jumpMail; state.view = "mail"; close(); render(); }));
+  }
+
+  function bindWidgetInner() {
+    $("#view").querySelectorAll(".proj-row").forEach((r) =>
+      r.addEventListener("click", () => { state.hubProject = r.dataset.p; state.hubTab = "overview"; state.view = "project"; render(); }));
+    $("#view").querySelectorAll("[data-jump-mail]").forEach((b) =>
+      b.addEventListener("click", (e) => { e.stopPropagation(); state.projectFilter = b.dataset.jumpMail; state.view = "mail"; render(); }));
+  }
+  bindWidgetInner();
 }
 
 function projectCards(data) {
@@ -320,10 +810,20 @@ async function renderItems() {
   if (state.projectFilter) q.set("project", state.projectFilter);
   if (state.statusFilter) q.set("status", state.statusFilter);
   const items = await api(`/api/items?${q}`);
+  // 칩 count 는 상태 무관 전체(과제 필터만)에서 계산 — 필터 걸려도 정확
+  const baseQ = new URLSearchParams();
+  if (state.projectFilter) baseQ.set("project", state.projectFilter);
+  const allItems = state.statusFilter ? await api(`/api/items?${baseQ}`) : items;
   const opts = projects.map((p) => `<option value="${p.id}" ${state.projectFilter === p.id ? "selected" : ""}>${p.title}</option>`).join("");
-  const statuses = ["open", "doing", "waiting", "blocked", "done"];
-  const sopts = statuses.map((s) => `<option value="${s}" ${state.statusFilter === s ? "selected" : ""}>${state.lex[`status_${s}`]}</option>`).join("");
   const L = state.lex;
+  // ECount식 상태 필터칩 (전체 + 각 상태). count 표시.
+  const statuses = ["open", "doing", "waiting", "blocked", "done"];
+  const statusCount = (s) => allItems.filter((i) => i.status === s).length;
+  const chip = (val, label, n) =>
+    `<button class="status-chip ${state.statusFilter === val ? "on" : ""}" data-st="${val}">${label}${n != null ? ` <em>${n}</em>` : ""}</button>`;
+  const chipsHtml = [chip("", L.all_label, allItems.length)]
+    .concat(statuses.map((s) => chip(s, L[`status_${s}`], statusCount(s))))
+    .join("");
   const rows = items.map((i) => `<tr>
       <td>${esc(i.title)}${i.encounter_role === "boss" ? " 👑" : ""}</td>
       <td><span class="proj-link" data-hub="${esc(i.project_id)}">${esc(i.project_id)}</span></td>
@@ -336,11 +836,33 @@ async function renderItems() {
   $("#view").innerHTML = `
     <div class="filters">
       <select id="fProject"><option value="">${L.project}: ${L.all_label}</option>${opts}</select>
-      <select id="fStatus"><option value="">${L.th_status}: ${L.all_label}</option>${sopts}</select>
+    </div>
+    <div class="status-chips">${chipsHtml}</div>
+    <div class="item-form">
+      <select id="niProject">${opts || `<option value="">${L.project}</option>`}</select>
+      <input id="niTitle" placeholder="${L.item_new_ph}" />
+      <input id="niAssignee" placeholder="${L.assignee_ph}" size="9" />
+      <input id="niDue" type="date" />
+      <button id="niAdd" class="fav-chip">${L.item_add}</button>
     </div>
     ${rows ? `<table><thead><tr><th>${L.item}</th><th>${L.project}</th><th>${L.th_status}</th><th>${L.th_due}</th><th>${L.th_assignee}</th><th>${L.tab_guide}</th><th>${L.th_actions}</th></tr></thead><tbody>${rows}</tbody></table>` : `<div class="empty">${L.empty_items}</div>`}`;
   $("#fProject").addEventListener("change", (e) => { state.projectFilter = e.target.value; render(); });
-  $("#fStatus").addEventListener("change", (e) => { state.statusFilter = e.target.value; render(); });
+  $("#niAdd").addEventListener("click", async () => {
+    const title = $("#niTitle").value.trim();
+    const pid = $("#niProject").value;
+    if (!title || !pid) return;
+    const body = { project_id: pid, title };
+    const a = $("#niAssignee").value.trim();
+    if (a) body.assignee_ref = a;
+    if ($("#niDue").value) body.due = $("#niDue").value;
+    const r = await post("/api/items", body);
+    if (r.ok) render();
+  });
+  $("#niTitle").addEventListener("keydown", (e) => { if (e.key === "Enter") $("#niAdd").click(); });
+  if (state.focusNewItem) { state.focusNewItem = false; $("#niTitle").focus(); }
+  $("#view").querySelectorAll(".status-chip").forEach((c) =>
+    c.addEventListener("click", () => { state.statusFilter = c.dataset.st || ""; render(); })
+  );
   $("#view").querySelectorAll("[data-hub]").forEach((c) =>
     c.addEventListener("click", () => { state.hubProject = c.dataset.hub; state.hubTab = "overview"; state.view = "project"; render(); })
   );
@@ -785,8 +1307,52 @@ async function hubHistory(mount, p) {
     : `<div class="empty small">-</div>`;
 }
 
+// 회의록(메타 전용 읽기+생성). 자동추출·원문첨부 없음 — 액션아이템은 기존 할일 수동 링크.
+async function renderMeetings() {
+  const L = state.lex;
+  const [summary, meetings] = await Promise.all([api("/api/summary"), api("/api/meetings")]);
+  const opts = summary.projects.map((p) => `<option value="${esc(p.id)}">${esc(p.title)}</option>`).join("");
+  const rows = await Promise.all(meetings.map(async (m) => {
+    const acts = await api(`/api/meetings/actions?meeting=${encodeURIComponent(m.id)}`);
+    const actHtml = acts.length ? acts.map((i) => `<span class="badge">${esc(i.title)}</span>`).join(" ") : `<span class="dim">-</span>`;
+    return `<tr><td>${m.at ? localTime(m.at) : "-"}</td><td><strong>${esc(m.title)}</strong></td><td>${esc(m.project_id ?? "-")}</td><td>${esc(m.attendees ?? "-")}</td><td>${actHtml}</td><td class="pointer">${esc(m.summary_pointer ?? "-")}</td></tr>`;
+  }));
+  $("#view").innerHTML = `
+    <div class="item-form">
+      <input id="mtgTitle" placeholder="${L.meeting_title}" />
+      <input id="mtgDate" type="date" />
+      <select id="mtgProject"><option value="">${L.project}</option>${opts}</select>
+      <input id="mtgAttend" placeholder="${L.meeting_attendees}" size="10" />
+      <input id="mtgPtr" placeholder="${L.meeting_summary}" />
+      <button id="mtgAdd" class="fav-chip">${L.meeting_add}</button>
+    </div>
+    ${meetings.length
+      ? `<table><thead><tr><th>${L.meeting_date}</th><th>${L.meeting_title}</th><th>${L.project}</th><th>${L.meeting_attendees}</th><th>${L.meeting_actions}</th><th>${L.detail_pointer}</th></tr></thead><tbody>${rows.join("")}</tbody></table>`
+      : `<div class="empty">${L.empty_meetings}</div>`}`;
+  $("#mtgAdd").addEventListener("click", async () => {
+    const title = $("#mtgTitle").value.trim();
+    if (!title) return;
+    const body = { title };
+    if ($("#mtgDate").value) body.at = $("#mtgDate").value;
+    if ($("#mtgProject").value) body.project_id = $("#mtgProject").value;
+    if ($("#mtgAttend").value.trim()) body.attendees = $("#mtgAttend").value.trim();
+    if ($("#mtgPtr").value.trim()) body.summary_pointer = $("#mtgPtr").value.trim();
+    const r = await post("/api/meetings", body);
+    if (r.ok) render();
+  });
+  $("#mtgTitle").addEventListener("keydown", (e) => { if (e.key === "Enter") $("#mtgAdd").click(); });
+}
+
 async function render() {
+  document.getElementById("app").dataset.view = state.view; // 홈(위젯)에선 좌측 열 숨김용
+  renderAuth();
   renderNav();
+  if (state.view === "mod:meetings") {
+    const m = (state.modules ?? []).find((x) => x.id === "meetings");
+    $("#viewTitle").textContent = m?.nav ?? state.lex.tab_mail;
+    logView(state.view);
+    return renderMeetings();
+  }
   const titles = { home: "nav_home", items: "nav_items", guide: "nav_guide", mail: "nav_mail", artifacts: "nav_artifacts", search: "nav_search" };
   if (state.view.startsWith("mod:")) {
     const m = (state.modules ?? []).find((x) => `mod:${x.id}` === state.view);
@@ -894,9 +1460,53 @@ $("#modeSelect").addEventListener("change", async (e) => {
   await loadLexicon();
   render();
 });
+// 상단 검색 인라인 드롭다운 (ECount 메뉴검색식: 타이핑 → 매칭 리스트가 아래 붙음)
+function searchDropdownEl() {
+  let el = document.getElementById("searchDropdown");
+  if (!el) {
+    el = document.createElement("div");
+    el.id = "searchDropdown";
+    el.className = "search-dropdown hidden";
+    $("#globalSearch").parentElement.appendChild(el);
+  }
+  return el;
+}
+function clearSearchDropdown() {
+  const el = searchDropdownEl();
+  el.classList.add("hidden");
+  el.innerHTML = "";
+}
+async function renderSearchDropdown(q) {
+  const el = searchDropdownEl();
+  if (!q.trim()) { clearSearchDropdown(); return; }
+  if (!state._projCache) { try { state._projCache = (await api("/api/summary")).projects; } catch { state._projCache = []; } }
+  const entries = (await paletteEntries(q)).slice(0, 10);
+  const fullRow = `<div class="palette-item dim" data-full="1">🔎 ${esc(state.lex.nav_search)}: "${esc(q)}"</div>`;
+  el.innerHTML = (entries.length
+    ? entries.map((e, i) => `<div class="palette-item" data-i="${i}"><span class="palette-kind">${state.lex[`palette_kind_${e.kind}`]}</span>${esc(e.label)}</div>`).join("")
+    : "") + fullRow;
+  el.classList.remove("hidden");
+  el.querySelectorAll(".palette-item[data-i]").forEach((item) =>
+    item.addEventListener("mousedown", async (ev) => {
+      ev.preventDefault();
+      (await paletteEntries(q))[Number(item.dataset.i)]?.run();
+      $("#globalSearch").value = ""; clearSearchDropdown();
+    })
+  );
+  el.querySelector("[data-full]")?.addEventListener("mousedown", (ev) => {
+    ev.preventDefault();
+    state.searchTerm = q; state.view = "search"; render();
+    $("#globalSearch").value = ""; clearSearchDropdown();
+  });
+}
+$("#globalSearch").addEventListener("input", (e) => renderSearchDropdown(e.target.value));
 $("#globalSearch").addEventListener("keydown", (e) => {
-  if (e.key === "Enter") { state.searchTerm = e.target.value; state.view = "search"; render(); }
+  if (e.key === "Enter") { state.searchTerm = e.target.value; state.view = "search"; render(); clearSearchDropdown(); }
+  else if (e.key === "Escape") { e.target.value = ""; clearSearchDropdown(); }
 });
+$("#globalSearch").addEventListener("blur", () => setTimeout(clearSearchDropdown, 150));
 
+await loadMe();
+await pullServerLayout();
 await loadLexicon();
 render();
