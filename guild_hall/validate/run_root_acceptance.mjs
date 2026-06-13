@@ -8,10 +8,11 @@ const mode = args.mode ?? "validate";
 
 const STEPS_BY_MODE = {
   validate: [
-    ["path-policy", "npm run validate:path-policy"],
+    ["path-policy", "node --test guild_hall/validate/local_absolute_path_policy.test.mjs && npm run validate:path-policy:all"],
     ["workmeta-payload", "npm run validate:workmeta-payload"],
     ["role-boundary", "npm run validate:role-boundary"],
     ["canon", "npm run validate:canon"],
+    ["core-loop", "npm run validate:core-loop"],
     ["ai-output-format", "npm run validate:ai-output-format"],
     ["snapshot", "npm run validate:snapshot"],
     ["activity", "npm run validate:activity"],
@@ -28,10 +29,11 @@ const STEPS_BY_MODE = {
     ["gateway", "npm run validate:gateway"],
   ],
   "done-check": [
-    ["path-policy", "npm run validate:path-policy"],
+    ["path-policy", "node --test guild_hall/validate/local_absolute_path_policy.test.mjs && npm run validate:path-policy:all"],
     ["workmeta-payload", "npm run validate:workmeta-payload"],
     ["role-boundary", "npm run validate:role-boundary"],
     ["canon", "npm run validate:canon"],
+    ["core-loop", "npm run validate:core-loop"],
     ["ai-output-format", "npm run validate:ai-output-format"],
     ["snapshot", "npm run validate:snapshot"],
     ["activity", "npm run validate:activity"],
