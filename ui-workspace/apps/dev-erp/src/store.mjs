@@ -324,10 +324,13 @@ export function openStore(path = ":memory:") {
     "ALTER TABLE core_item ADD COLUMN guide_step_key TEXT",
     "ALTER TABLE core_item ADD COLUMN origin_mail_id TEXT",
     "ALTER TABLE core_item ADD COLUMN created_by TEXT",
-    "ALTER TABLE event_log ADD COLUMN project_ref TEXT"
+    "ALTER TABLE event_log ADD COLUMN project_ref TEXT",
+    "ALTER TABLE core_stage ADD COLUMN stage_code TEXT"
   ]) {
     try { db.exec(ddl); } catch { /* exists */ }
   }
+  // P-0: 단계 식별을 title 에서 분리한 stage_code 정본 컬럼. 기존 행 backfill=title.
+  try { db.exec("UPDATE core_stage SET stage_code=title WHERE stage_code IS NULL OR stage_code=''"); } catch { /* noop */ }
   const cur = db.prepare("SELECT value FROM meta WHERE key='schema_version'").get();
   if (!cur) {
     db.prepare("INSERT INTO meta(key,value) VALUES('schema_version',?)").run(SCHEMA_VERSION);
@@ -390,11 +393,11 @@ export class Store {
   upsertStage(s) {
     this.db
       .prepare(
-        `INSERT INTO core_stage(id,project_id,title,seq,gate_rule,status) VALUES (?,?,?,?,?,?)
-         ON CONFLICT(id) DO UPDATE SET title=excluded.title, seq=excluded.seq,
+        `INSERT INTO core_stage(id,project_id,title,stage_code,seq,gate_rule,status) VALUES (?,?,?,?,?,?,?)
+         ON CONFLICT(id) DO UPDATE SET title=excluded.title, stage_code=excluded.stage_code, seq=excluded.seq,
            gate_rule=excluded.gate_rule, status=excluded.status`
       )
-      .run(s.id, s.project_id, s.title, s.seq ?? 0, s.gate_rule ?? null, s.status ?? "open");
+      .run(s.id, s.project_id, s.title, s.stage_code ?? s.title, s.seq ?? 0, s.gate_rule ?? null, s.status ?? "open");
   }
 
   upsertPerson(p) {
@@ -671,8 +674,9 @@ export class Store {
   }
 
   // ---------- A1/A2: 게이트 판정·강제 ----------
-  // 스테이지별 게이트 준비도: 미완/차단 할일 + 산출물 진행(stage_code≈title 매칭). passable + reasons.
+  // 스테이지별 게이트 준비도: 미완/차단 할일 + 산출물 진행(stage_code 정본 매칭, P-0). passable + reasons.
   gateEval(stage) {
+    const stageCode = stage.stage_code || stage.title;
     const items = this.db.prepare("SELECT status FROM core_item WHERE stage_id=?").all(stage.id);
     const open = items.filter((i) => i.status !== "done").length;
     const blocked = items.filter((i) => i.status === "blocked").length;
@@ -680,7 +684,7 @@ export class Store {
       `SELECT COUNT(DISTINCT a.id) AS arts, COUNT(st.step_key) AS done
        FROM guide_artifact a LEFT JOIN guide_step st ON st.artifact_id=a.id
        WHERE a.project_id=? AND a.stage_code=?`
-    ).get(stage.project_id, stage.title);
+    ).get(stage.project_id, stageCode);
     const arts = ga.arts || 0, stepsDone = ga.done || 0, stepsTotal = arts * 7;
     const reasons = [];
     if (open > 0) reasons.push({ code: "open_items", n: open });
@@ -690,7 +694,7 @@ export class Store {
     // A6 보스 연출용 잔여(보스 HP) = 미완+차단+미완 절차. 0이면 처치 가능. (게임상태 미저장=계산)
     const remaining = open + blocked + Math.max(0, stepsTotal - stepsDone);
     return {
-      id: stage.id, project_id: stage.project_id, title: stage.title, seq: stage.seq,
+      id: stage.id, project_id: stage.project_id, title: stage.title, stage_code: stageCode, seq: stage.seq,
       status: stage.status, gate_rule: stage.gate_rule,
       open_items: open, blocked_items: blocked, artifacts: arts, steps_done: stepsDone, steps_total: stepsTotal,
       remaining, passable, reasons

@@ -190,6 +190,23 @@ test("run13: 가이드 산출물 CRUD + 스텝 진행 상태", async () => {
   assert.equal(art.steps.snapshot, undefined);
 });
 
+test("P-0: gateEval 가 title 이 아니라 stage_code 로 산출물 매칭 (결합 분리)", () => {
+  const store = freshStore();
+  loadFixture(store);
+  const proj = store.summary("2026-06-12", "2026-06-18")[0].id;
+  // 단계의 title 과 stage_code 를 일부러 다르게 둔다.
+  store.upsertStage({ id: "st-p0", project_id: proj, title: "상세설계", stage_code: "120", seq: 1 });
+  store.addGuideArtifact(proj, "120", "CDR 패키지");
+  let stage = store.gates({ project: proj }).find((s) => s.id === "st-p0");
+  assert.equal(stage.stage_code, "120");
+  assert.equal(stage.artifacts, 1, "stage_code 로 산출물 1건이 매칭돼야 한다");
+  // title 을 바꿔도 stage_code 매칭은 유지 — title 결합이 끊겼음을 증명.
+  store.upsertStage({ id: "st-p0", project_id: proj, title: "상세설계 v2", stage_code: "120", seq: 1 });
+  stage = store.gates({ project: proj }).find((s) => s.id === "st-p0");
+  assert.equal(stage.title, "상세설계 v2");
+  assert.equal(stage.artifacts, 1, "title 변경 후에도 stage_code 매칭이 유지돼야 한다");
+});
+
 test("run16: P2a 할일 쓰기 — 생성/검증/가이드 연결", () => {
   const store = freshStore();
   loadFixture(store);
