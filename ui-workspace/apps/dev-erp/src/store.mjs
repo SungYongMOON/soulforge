@@ -682,10 +682,15 @@ export class Store {
     try { return JSON.parse(r.layout_json); } catch { return null; }
   }
   setLayout(account_id, layout) {
+    const safe = Array.isArray(layout) ? layout : []; // 방어: 비배열은 빈 배열로
     this.db.prepare(
       `INSERT INTO user_dashboard_layout(account_id,layout_json,updated_at) VALUES(?,?,?)
        ON CONFLICT(account_id) DO UPDATE SET layout_json=excluded.layout_json, updated_at=excluded.updated_at`
-    ).run(account_id, JSON.stringify(layout ?? []), new Date().toISOString());
+    ).run(account_id, JSON.stringify(safe), new Date().toISOString());
     return { ok: true };
+  }
+  purgeExpiredSessions() {
+    const r = this.db.prepare("DELETE FROM auth_session WHERE expires_at < ?").run(new Date().toISOString());
+    return { removed: r.changes ?? 0 };
   }
 }

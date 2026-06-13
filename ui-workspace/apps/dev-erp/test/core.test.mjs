@@ -380,3 +380,49 @@ test("P2b: 계정별 레이아웃 저장/로드 roundtrip", () => {
   store.setLayout(a, layout);
   assert.deepEqual(store.getLayout(a), layout, "저장→로드 동일(logout 내성)");
 });
+
+// ---------- P2b 엣지케이스 하드닝 (Run1 자율) ----------
+test("P2b 엣지: 세션 토큰 빈값/오염/만료정리", () => {
+  const store = freshStore();
+  assert.equal(store.sessionAccount(null), null);
+  assert.equal(store.sessionAccount(""), null);
+  assert.equal(store.sessionAccount("nonexistent-token"), null);
+  const a = store.createAccount({ username: "e1", password: "p" }).id;
+  store.createSession(a, -1);           // 이미 만료
+  const live = store.createSession(a);  // 유효
+  const purged = store.purgeExpiredSessions();
+  assert.ok(purged.removed >= 1, "만료 세션 정리");
+  assert.equal(store.sessionAccount(live).id, a, "유효 세션은 보존");
+});
+
+test("P2b 엣지: 로그인 빈 입력·없는 사용자 안전", () => {
+  const store = freshStore();
+  assert.equal(store.verifyLogin("", ""), null);
+  assert.equal(store.verifyLogin("ghost", "x"), null);
+  assert.equal(store.createAccount({ username: "", password: "p" }).error, "username_password_required");
+  assert.equal(store.createAccount({ username: "u", password: "" }).error, "username_password_required");
+});
+
+test("P2b 엣지: 레이아웃 비배열/오염 방어", () => {
+  const store = freshStore();
+  const a = store.createAccount({ username: "e2", password: "p" }).id;
+  store.setLayout(a, { not: "array" });          // 비배열 → []
+  assert.deepEqual(store.getLayout(a), []);
+  store.setLayout(a, null);                       // null → []
+  assert.deepEqual(store.getLayout(a), []);
+  // 오염 JSON 직접 주입 → getLayout null
+  store.db.prepare("UPDATE user_dashboard_layout SET layout_json='{bad' WHERE account_id=?").run(a);
+  assert.equal(store.getLayout(a), null);
+});
+
+test("P2b 엣지: 권한 다중역할 union(하나라도 access면 허용)", () => {
+  const store = freshStore();
+  const a = store.createAccount({ username: "e3", password: "p" }).id;
+  store.upsertRole("r_deny"); store.upsertRole("r_allow");
+  store.assignRole(a, "r_deny"); store.assignRole(a, "r_allow");
+  store.setPermission("r_deny", "mod:gates", true, false);
+  store.setPermission("r_allow", "mod:gates", true, true);
+  const p = store.permsFor(a).find((x) => x.resource === "mod:gates");
+  assert.equal(p.access, true, "한 역할이라도 access면 union=허용");
+  assert.equal(store.permsFor("no-such-account").length, 0, "역할 없으면 빈 권한");
+});
