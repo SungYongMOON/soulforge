@@ -367,6 +367,26 @@ async function renderHome() {
 
   const grid = $("#view").querySelector(".dashboard");
   const colW = () => grid.getBoundingClientRect().width / DASH_GCOLS;
+  // 드래그/리사이즈 도중 실시간으로 다른 위젯을 격자 위치로 재배치(겹치면 밀려나고, 줄이면 되돌아옴)
+  const applyLiveLayout = (resolved, anchorId) => {
+    for (const w of resolved) {
+      if (w.id === anchorId) continue;
+      const c = grid.querySelector(`.widget[data-wid="${w.id}"]`);
+      if (!c) continue;
+      c.style.left = `${(w.x / DASH_GCOLS) * 100}%`;
+      c.style.width = `${(w.w / DASH_GCOLS) * 100}%`;
+      c.style.top = `${w.y * DASH_ROW}px`;
+      c.style.height = `${(w.c ? 2 : w.h) * DASH_ROW}px`;
+    }
+    const maxB = Math.max(0, ...resolved.map((w) => w.y + (w.c ? 2 : w.h))) * DASH_ROW + 20;
+    grid.style.height = `${maxB}px`;
+  };
+  // 매 이동마다 커밋된 base 에서 새로 계산 → 줄이면 원위치 복귀(누적 안 함)
+  const liveResolve = (base, anchorId, patch) => {
+    const layout = base.map((b) => b.id === anchorId ? { ...b, ...patch } : { ...b });
+    resolveDashCollisions(layout, anchorId);
+    applyLiveLayout(layout, anchorId);
+  };
   // 이동/리사이즈/접기 후 anchor 고정 + 겹친 위젯 아래로 밀어냄(겹침 금지)
   const updateWidget = (id, patch) => {
     const next = dashLayout().map((x) => x.id === id ? { ...x, ...patch } : x);
@@ -375,7 +395,7 @@ async function renderHome() {
 
   $("#widgetAddBtn").addEventListener("click", () => $("#widgetAddMenu").classList.toggle("hidden"));
   $("#widgetArrangeBtn").addEventListener("click", () => { saveDashLayout(compactDash(dashLayout())); render(); });
-  $("#widgetResetBtn").addEventListener("click", () => { localStorage.removeItem("dev_erp_widgets"); render(); });
+  $("#widgetResetBtn").addEventListener("click", () => { if (!confirm(L.confirm_reset)) return; localStorage.removeItem("dev_erp_widgets"); render(); });
   $("#view").querySelectorAll(".add-widget-item").forEach((b) =>
     b.addEventListener("click", () => {
       const l = dashLayout();
@@ -415,7 +435,7 @@ async function renderHome() {
   });
   document.addEventListener("click", () => $("#view")?.querySelectorAll(".widget-menu").forEach((m) => m.classList.add("hidden")), { once: true });
   $("#view").querySelectorAll("[data-mdel]").forEach((x) =>
-    x.addEventListener("click", (e) => { e.stopPropagation(); saveDashLayout(dashLayout().filter((w) => w.id !== x.dataset.mdel)); render(); }));
+    x.addEventListener("click", (e) => { e.stopPropagation(); if (!confirm(L.confirm_remove)) return; saveDashLayout(dashLayout().filter((w) => w.id !== x.dataset.mdel)); render(); }));
   // 팝아웃(크게 보기) — 위젯 본문을 큰 오버레이로
   $("#view").querySelectorAll(".wpop").forEach((p) => {
     p.addEventListener("mousedown", (e) => e.stopPropagation());
@@ -437,6 +457,7 @@ async function renderHome() {
       const cardRect = card.getBoundingClientRect();
       const offX = e.clientX - cardRect.left, offY = e.clientY - cardRect.top;
       const startX = e.clientX, startY = e.clientY;
+      const base = dashLayout();
       let moved = false;
       const onMove = (ev) => {
         if (!moved && Math.abs(ev.clientX - startX) < 4 && Math.abs(ev.clientY - startY) < 4) return;
@@ -447,6 +468,7 @@ async function renderHome() {
         card.style.top = `${Math.max(0, py)}px`;
         card.dataset.x = Math.max(0, Math.min(DASH_GCOLS - DASH_WMIN, Math.round(px / colW())));
         card.dataset.y = Math.max(0, Math.round(py / DASH_ROW));
+        liveResolve(base, id, { x: Number(card.dataset.x), y: Number(card.dataset.y) }); // 실시간 밀어내기
       };
       const onUp = () => {
         document.removeEventListener("mousemove", onMove); document.removeEventListener("mouseup", onUp);
@@ -463,6 +485,7 @@ async function renderHome() {
       e.preventDefault(); e.stopPropagation();
       const card = h.closest(".widget"); const id = h.dataset.rid;
       const cardRect = card.getBoundingClientRect();
+      const base = dashLayout();
       card.classList.add("resizing");
       const onMove = (ev) => {
         const wpx = Math.max(colW() * DASH_WMIN, ev.clientX - cardRect.left);
@@ -470,6 +493,7 @@ async function renderHome() {
         card.style.width = `${wpx}px`; card.style.height = `${hpx}px`;
         card.dataset.w = Math.max(DASH_WMIN, Math.min(DASH_GCOLS, Math.round(wpx / colW())));
         card.dataset.h = Math.max(DASH_HMIN, Math.round(hpx / DASH_ROW));
+        liveResolve(base, id, { w: Number(card.dataset.w), h: Number(card.dataset.h) }); // 실시간 밀어내기/복귀
       };
       const onUp = () => {
         document.removeEventListener("mousemove", onMove); document.removeEventListener("mouseup", onUp);
