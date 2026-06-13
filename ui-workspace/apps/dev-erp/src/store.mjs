@@ -216,6 +216,20 @@ CREATE TABLE IF NOT EXISTS purchase_project_map ( -- 발주↔과제 N:N
   project_id TEXT NOT NULL REFERENCES core_project(id),
   PRIMARY KEY (purchase_id, project_id)
 );
+-- 파일 첨부(메타 포인터 전용·원문 미저장, 하위호환). 어느 엔터티(item/project/purchase/meeting)든 위치만 연결.
+CREATE TABLE IF NOT EXISTS core_attachment (
+  id TEXT PRIMARY KEY,
+  entity_type TEXT NOT NULL,   -- item|project|purchase|meeting
+  entity_id TEXT NOT NULL,
+  name TEXT NOT NULL,
+  pointer TEXT NOT NULL,       -- 경로/URL (원문 미저장)
+  kind TEXT,                   -- doc|sheet|image|drawing|etc (확장자 추정)
+  category TEXT,               -- 배치 제안 결과(⑧, 적용 아님)
+  created_by TEXT,
+  data_label TEXT NOT NULL DEFAULT 'synthetic',
+  created_at TEXT
+);
+CREATE INDEX IF NOT EXISTS idx_attach_entity ON core_attachment(entity_type, entity_id);
 CREATE INDEX IF NOT EXISTS idx_item_proj ON core_item(project_id, status);
 CREATE INDEX IF NOT EXISTS idx_item_due ON core_item(due);
 CREATE INDEX IF NOT EXISTS idx_mail_at ON core_mail(at);
@@ -739,6 +753,37 @@ export class Store {
     return rows.map((r) => ({ ...r, party_name: r.party_id ? (pn.get(r.party_id) ?? r.party_id) : null, projects: this.purchaseProjects(r.id) }));
   }
 
+  // ---------- 파일 첨부(메타 포인터) + 배치 제안(⑧, reversible) ----------
+  // 확장자/이름 기반 분류 제안. 자동 적용 아님 — owner 가 정책 승인 전까지 제안만.
+  suggestPlacement(name) {
+    const ext = String(name ?? "").toLowerCase().match(/\.([a-z0-9]+)$/)?.[1] ?? "";
+    const map = {
+      doc: ["pdf", "doc", "docx", "hwp", "hwpx", "txt", "md"],
+      sheet: ["xls", "xlsx", "csv", "tsv"],
+      image: ["png", "jpg", "jpeg", "gif", "bmp", "svg"],
+      drawing: ["dwg", "dxf", "step", "stp", "iges", "igs", "brd", "sch"],
+      archive: ["zip", "7z", "tar", "gz"]
+    };
+    for (const [cat, exts] of Object.entries(map)) if (exts.includes(ext)) return { category: cat, kind: cat, rule: `ext:${ext}`, proposed: true };
+    return { category: "etc", kind: "etc", rule: ext ? `ext:${ext}` : "no_ext", proposed: true };
+  }
+  addAttachment({ id, entity_type, entity_id, name, pointer, kind = null, created_by = "owner", data_label = "real" }) {
+    const t = String(name ?? "").trim(), ptr = String(pointer ?? "").trim();
+    if (!t || !ptr) return { error: "name_pointer_required" };
+    if (!["item", "project", "purchase", "meeting"].includes(entity_type)) return { error: "bad_entity_type" };
+    const sug = this.suggestPlacement(t);
+    const aid = id || `att_${randomBytes(5).toString("hex")}`;
+    this.db.prepare(
+      `INSERT INTO core_attachment(id,entity_type,entity_id,name,pointer,kind,category,created_by,data_label,created_at)
+       VALUES(?,?,?,?,?,?,?,?,?,?)`
+    ).run(aid, entity_type, entity_id, t, ptr, kind ?? sug.kind, sug.category, created_by, data_label, new Date().toISOString());
+    return { ok: true, id: aid, suggested: sug };
+  }
+  attachments({ entity_type, entity_id } = {}) {
+    if (entity_type && entity_id) return this.db.prepare("SELECT * FROM core_attachment WHERE entity_type=? AND entity_id=? ORDER BY created_at DESC, id").all(entity_type, entity_id);
+    return this.db.prepare("SELECT * FROM core_attachment ORDER BY created_at DESC, id LIMIT 300").all();
+  }
+
   guideState(projectId) {
     const artifacts = this.db
       .prepare("SELECT * FROM guide_artifact WHERE project_id=? ORDER BY stage_code, id")
@@ -818,7 +863,7 @@ export class Store {
     del("DELETE FROM guide_step WHERE artifact_id IN (SELECT a.id FROM guide_artifact a JOIN core_project p ON p.id=a.project_id WHERE p.data_label='synthetic')");
     del("DELETE FROM guide_artifact WHERE project_id IN (SELECT id FROM core_project WHERE data_label='synthetic')");
     del("DELETE FROM core_stage WHERE project_id IN (SELECT id FROM core_project WHERE data_label='synthetic')");
-    for (const t of ["core_item", "core_mail", "core_artifact", "core_person", "core_project", "event_log"]) {
+    for (const t of ["core_attachment", "core_item", "core_mail", "core_artifact", "core_person", "core_project", "event_log"]) {
       del(`DELETE FROM ${t} WHERE data_label='synthetic'`);
     }
     return removed;

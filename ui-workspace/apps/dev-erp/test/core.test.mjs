@@ -602,3 +602,23 @@ test("구매: 생성 + 과제 링크 가드", () => {
   assert.deepEqual(store.purchaseProjects(r.id), ["PRJ-C"]);
   assert.equal(store.linkPurchaseProject(r.id, "no-proj").error, "project_not_found");
 });
+
+// ---------- 파일 첨부(메타 포인터) + 배치 제안 ----------
+test("첨부: 포인터 등록(원문 미저장) + 배치 제안(자동적용 아님)", () => {
+  const store = freshStore();
+  loadFixture(store);
+  assert.equal(store.addAttachment({ entity_type: "project", entity_id: "PRJ-A", name: "", pointer: "x" }).error, "name_pointer_required");
+  assert.equal(store.addAttachment({ entity_type: "bad", entity_id: "x", name: "a.pdf", pointer: "p" }).error, "bad_entity_type");
+  const r = store.addAttachment({ entity_type: "project", entity_id: "PRJ-A", name: "요구사항.pdf", pointer: "_ws/PRJ-A/req.pdf" });
+  assert.ok(r.ok);
+  assert.equal(r.suggested.category, "doc", "pdf→문서 제안");
+  assert.equal(r.suggested.proposed, true, "제안일 뿐(자동적용 아님)");
+  const list = store.attachments({ entity_type: "project", entity_id: "PRJ-A" });
+  assert.equal(list.length, 1);
+  assert.equal(list[0].pointer, "_ws/PRJ-A/req.pdf");
+  assert.ok(!("content" in list[0]) && !("blob" in list[0]), "원문 미저장");
+  // 배치 제안 분류
+  assert.equal(store.suggestPlacement("board.step").category, "drawing");
+  assert.equal(store.suggestPlacement("data.xlsx").category, "sheet");
+  assert.equal(store.suggestPlacement("noext").category, "etc");
+});
