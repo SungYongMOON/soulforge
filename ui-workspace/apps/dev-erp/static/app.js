@@ -1214,6 +1214,7 @@ async function hubHistory(mount, p) {
 }
 
 async function render() {
+  document.getElementById("app").dataset.view = state.view; // 홈(위젯)에선 좌측 열 숨김용
   renderNav();
   const titles = { home: "nav_home", items: "nav_items", guide: "nav_guide", mail: "nav_mail", artifacts: "nav_artifacts", search: "nav_search" };
   if (state.view.startsWith("mod:")) {

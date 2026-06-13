@@ -14,6 +14,9 @@ body { margin: 0; font-family: "Pretendard", "Apple SD Gothic Neo", system-ui, s
 /* IA 2.5단: 상단 전폭 brand+그룹탭 / 좌측 선택그룹 하위 / 본문 (ECount 관찰 반영) */
 #app { display: grid; grid-template-columns: 200px 1fr; grid-template-rows: auto 1fr;
   grid-template-areas: "brand brand" "side main"; min-height: 100vh; }
+/* 홈(위젯) 화면 = 좌측 하위메뉴 열 숨김, 위젯 보드가 전폭 (ECount MyPage식). 그룹탭(상단)으로만 이동. */
+#app[data-view="home"] { grid-template-columns: 1fr; grid-template-areas: "brand" "main"; }
+#app[data-view="home"] .side { display: none; }
 
 .brand-bar { grid-area: brand; display: flex; align-items: center; gap: 16px;
   padding: 8px 16px; background: var(--panel); border-bottom: 1px solid var(--line); }
@@ -50,8 +53,10 @@ nav { display: flex; flex-direction: column; gap: 4px; }
 nav button { text-align: left; padding: 9px 10px; border: 0; background: transparent; color: var(--text); border-radius: 8px; font-size: 14px; cursor: pointer; }
 nav button.active { background: var(--chip); font-weight: 600; color: var(--accent); }
 .side-bottom { margin-top: auto; }
-.mode-toggle { display: flex; flex-direction: column; gap: 6px; font-size: 12px; color: var(--muted); }
-.mode-toggle select { padding: 7px 8px; border-radius: 8px; border: 1px solid var(--line); background: var(--panel); color: var(--text); }
+/* 상단바에 인라인 배치(좌측 열 제거에 따라 이동) */
+.mode-toggle { display: flex; flex-direction: row; align-items: center; gap: 5px; font-size: 12px; color: var(--muted); flex: 0 0 auto; }
+.mode-toggle #modeLabel { display: none; }
+.mode-toggle select { padding: 5px 7px; border-radius: 8px; border: 1px solid var(--line); background: var(--panel); color: var(--text); font-size: 12px; }
 
 .main { display: flex; flex-direction: column; }
 .topbar { display: flex; align-items: center; justify-content: space-between; gap: 12px; padding: 14px 20px; border-bottom: 1px solid var(--line); background: var(--panel); }
