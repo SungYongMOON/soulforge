@@ -343,6 +343,9 @@ body[data-mode="fantasy"] tr.spawned td:first-child::before { content: "✦ "; c
 .drawer-widget:active { cursor: grabbing; }
 .drawer-widget.dragging { opacity: .5; }
 .drawer-widget.placed { cursor: default; color: var(--muted); }
+.drawer-widget.soon { cursor: default; color: var(--muted); opacity: .72; border-style: dashed; }
+.drawer-widget.soon .grip { opacity: .3; }
+.soon-tag { margin-left: auto; font-size: 10.5px; border: 1px solid var(--line); border-radius: 5px; padding: 0 5px; }
 .drawer-widget .grip { color: var(--muted); font-size: 13px; }
 .drawer-widget.placed .grip { opacity: .4; }
 .dw-dot { width: 9px; height: 9px; border-radius: 50%; border: 1.5px solid var(--line); flex: 0 0 auto; box-sizing: border-box; }

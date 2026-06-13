@@ -191,16 +191,43 @@ function dueCell(due, todayKey) {
 // reorder + 리사이즈 + 추가/삭제. localStorage 저장(계정별 서버 저장은 P2b).
 // 자유 배치 위젯 보드 (ECount식): 절대좌표 격자 — 가로 12칼럼, 세로 행 단위.
 // 드래그하면 위젯이 마우스를 따라 자유 이동, 놓으면 격자에 스냅(빈칸 허용).
-const WIDGET_CATALOG = ["projects", "kpi", "events", "today", "blocked", "unassigned", "artifacts", "mail", "contacts"];
+// 위젯 전체 계획(대분류=객체축). ready:true 만 실제 동작(드래그 추가), 나머지는 '준비 중' 슬롯으로 노출.
+// ECount 관찰 위젯 포함: 시작하기(onboarding)·ToDo(mine)·일정관리(deadline_cal)·전자결재(approval)·쪽지(notices)·업그레이드내역(announce)·집체교육(training).
+const WIDGET_PLAN = [
+  { id: "projects", cat: "group_project", ready: true },
+  { id: "kpi", cat: "group_project", ready: true },
+  { id: "events", cat: "group_project", ready: true },
+  { id: "gatewait", cat: "group_project" },
+  { id: "artifact_progress", cat: "group_project" },
+  { id: "today", cat: "group_task", ready: true },
+  { id: "blocked", cat: "group_task", ready: true },
+  { id: "mine", cat: "group_task" },
+  { id: "deadline_cal", cat: "group_task" },
+  { id: "artifacts", cat: "group_doc", ready: true },
+  { id: "reports_w", cat: "group_doc" },
+  { id: "meetings_w", cat: "group_doc" },
+  { id: "onboarding", cat: "group_doc" },
+  { id: "training", cat: "group_doc" },
+  { id: "stddocs", cat: "group_doc" },
+  { id: "mail", cat: "group_comm", ready: true },
+  { id: "inbox", cat: "group_comm" },
+  { id: "approval", cat: "group_comm" },
+  { id: "notices", cat: "group_comm" },
+  { id: "announce", cat: "group_comm" },
+  { id: "purchase_w", cat: "group_material" },
+  { id: "stocklow", cat: "group_material" },
+  { id: "bomchg", cat: "group_material" },
+  { id: "vendors", cat: "group_material" },
+  { id: "buyapprove", cat: "group_material" },
+  { id: "unassigned", cat: "group_team", ready: true },
+  { id: "contacts", cat: "group_team", ready: true },
+  { id: "teamload", cat: "group_team" },
+  { id: "throughput", cat: "group_team" },
+  { id: "requests_w", cat: "group_team" },
+  { id: "analytics_w", cat: "group_team" }
+];
+const WIDGET_CATALOG = WIDGET_PLAN.filter((w) => w.ready).map((w) => w.id); // 실제 보드에 올릴 수 있는 위젯
 const CREATE_WIDGETS = new Set(["today", "blocked", "unassigned"]); // 작성(✎) → 할일 생성 화면으로
-// 위젯 → 대분류(객체축). 서랍을 대분류별로 묶어 보여줌.
-const WIDGET_CAT = {
-  projects: "group_project", kpi: "group_project", events: "group_project",
-  today: "group_task", blocked: "group_task",
-  artifacts: "group_doc",
-  mail: "group_comm",
-  unassigned: "group_team", contacts: "group_team"
-};
 const CAT_ORDER = ["group_project", "group_task", "group_doc", "group_comm", "group_material", "group_team"];
 const DASH_GCOLS = 12;     // 가로 12칼럼 (fine snap)
 const DASH_ROW = 22;       // 세로 행 px
@@ -411,15 +438,17 @@ async function renderHome() {
   }
   const maxBottom = Math.max(0, ...layout.map((w) => (w.y + (w.c ? 2 : w.h)))) * DASH_ROW + 20;
   // 서랍 = 전체 위젯을 대분류(객체축)별로 묶어 항상 표시(ECount식). 보드에 올라간 건 ● 동그라미.
-  const widgetChip = (id) => {
-    const placed = layout.some((w) => w.id === id);
-    return `<div class="drawer-widget ${placed ? "placed" : ""}" ${placed ? "" : 'draggable="true"'} data-add="${id}">
+  const widgetChip = (w) => {
+    if (!w.ready) // 준비 중 슬롯: 비활성, 드래그 불가
+      return `<div class="drawer-widget soon"><span class="dw-dot"></span><span class="grip">⠿</span> ${L[`tile_${w.id}`]}<span class="soon-tag dim">${L.widget_soon}</span></div>`;
+    const placed = layout.some((x) => x.id === w.id);
+    return `<div class="drawer-widget ${placed ? "placed" : ""}" ${placed ? "" : 'draggable="true"'} data-add="${w.id}">
       <span class="dw-dot ${placed ? "on" : ""}" title="${placed ? L.widget_placed : ""}"></span>
-      <span class="grip">⠿</span> ${L[`tile_${id}`]}</div>`;
+      <span class="grip">⠿</span> ${L[`tile_${w.id}`]}</div>`;
   };
   const drawerItems = CAT_ORDER.map((cat) => {
-    const ids = WIDGET_CATALOG.filter((id) => WIDGET_CAT[id] === cat);
-    const body = ids.length ? ids.map(widgetChip).join("") : `<div class="drawer-empty dim">준비 중</div>`;
+    const ws = WIDGET_PLAN.filter((w) => w.cat === cat);
+    const body = ws.length ? ws.map(widgetChip).join("") : `<div class="drawer-empty dim">${L.widget_soon}</div>`;
     return `<div class="drawer-cat"><div class="drawer-cat-head">${L[cat]}</div>${body}</div>`;
   }).join("");
 
@@ -476,7 +505,7 @@ async function renderHome() {
   $("#widgetArrangeBtn").addEventListener("click", () => { saveDashLayout(compactDash(dashLayout())); render(); });
   $("#widgetResetBtn").addEventListener("click", async () => { if (!(await uiConfirm(L.confirm_reset))) return; localStorage.removeItem("dev_erp_widgets"); render(); });
   // 서랍 항목: 드래그 시작 + 클릭(맨 아래 추가) 폴백
-  $("#view").querySelectorAll(".drawer-widget:not(.placed)").forEach((d) => {
+  $("#view").querySelectorAll(".drawer-widget:not(.placed):not(.soon)").forEach((d) => {
     d.addEventListener("dragstart", (e) => { e.dataTransfer.setData("text/plain", d.dataset.add); e.dataTransfer.effectAllowed = "copy"; d.classList.add("dragging"); });
     d.addEventListener("dragend", () => d.classList.remove("dragging"));
     d.addEventListener("click", () => {
