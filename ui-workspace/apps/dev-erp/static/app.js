@@ -378,10 +378,13 @@ async function renderHome() {
     </section>`);
   }
   const maxBottom = Math.max(0, ...layout.map((w) => (w.y + (w.c ? 2 : w.h)))) * DASH_ROW + 20;
-  const hidden = WIDGET_CATALOG.filter((id) => !layout.some((w) => w.id === id));
-  const drawerItems = hidden.length
-    ? hidden.map((id) => `<div class="drawer-widget" draggable="true" data-add="${id}"><span class="grip">⠿</span> ${L[`tile_${id}`]}</div>`).join("")
-    : `<span class="dim">${L.widget_all_shown}</span>`;
+  // 서랍은 전체 위젯을 항상 표시(ECount식). 보드에 올라간 건 ● 동그라미로 표시(드래그 비활성).
+  const drawerItems = WIDGET_CATALOG.map((id) => {
+    const placed = layout.some((w) => w.id === id);
+    return `<div class="drawer-widget ${placed ? "placed" : ""}" ${placed ? "" : 'draggable="true"'} data-add="${id}">
+      <span class="dw-dot ${placed ? "on" : ""}" title="${placed ? L.widget_placed : ""}"></span>
+      <span class="grip">⠿</span> ${L[`tile_${id}`]}</div>`;
+  }).join("");
 
   $("#view").innerHTML = `${kpi}
     <div class="tile-toolbar">
@@ -389,11 +392,11 @@ async function renderHome() {
       <button id="widgetArrangeBtn" class="fav-chip" title="${L.widget_arrange}">⊟ ${L.widget_arrange}</button>
       <button id="widgetResetBtn" class="fav-chip" title="${L.widget_reset}">↺ ${L.widget_reset}</button></div>
     <div class="dashboard-wrap">
-      <div class="dashboard" style="height:${maxBottom}px;">${cards.join("")}</div>
-      <aside id="widgetDrawer" class="widget-drawer hidden">
+      <aside id="widgetDrawer" class="widget-drawer">
         <div class="widget-drawer-head">${L.widget_add}<span class="dim">${L.widget_drag_hint}</span></div>
         <div class="widget-drawer-list">${drawerItems}</div>
       </aside>
+      <div class="dashboard" style="height:${maxBottom}px;">${cards.join("")}</div>
     </div>`;
 
   const grid = $("#view").querySelector(".dashboard");
@@ -432,11 +435,11 @@ async function renderHome() {
     l.push({ id, x: Math.max(0, Math.min(DASH_GCOLS - 3, x | 0)), y: Math.max(0, y | 0), w: 3, h: 7 });
     saveDashLayout(resolveDashCollisions(l, id)); render();
   };
-  $("#widgetDrawerBtn").addEventListener("click", () => $("#widgetDrawer").classList.toggle("hidden"));
+  $("#widgetDrawerBtn").addEventListener("click", () => $("#widgetDrawer").classList.toggle("open"));
   $("#widgetArrangeBtn").addEventListener("click", () => { saveDashLayout(compactDash(dashLayout())); render(); });
   $("#widgetResetBtn").addEventListener("click", async () => { if (!(await uiConfirm(L.confirm_reset))) return; localStorage.removeItem("dev_erp_widgets"); render(); });
   // 서랍 항목: 드래그 시작 + 클릭(맨 아래 추가) 폴백
-  $("#view").querySelectorAll(".drawer-widget").forEach((d) => {
+  $("#view").querySelectorAll(".drawer-widget:not(.placed)").forEach((d) => {
     d.addEventListener("dragstart", (e) => { e.dataTransfer.setData("text/plain", d.dataset.add); e.dataTransfer.effectAllowed = "copy"; d.classList.add("dragging"); });
     d.addEventListener("dragend", () => d.classList.remove("dragging"));
     d.addEventListener("click", () => {
