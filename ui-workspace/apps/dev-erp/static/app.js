@@ -6,8 +6,78 @@ const state = {
   lex: {},
   projectFilter: "",
   navGroup: localStorage.getItem("dev_erp_navgroup") || "group_project", // 대분류(객체축) 선택 그룹
-  pins: JSON.parse(localStorage.getItem("dev_erp_pins") || "[]")
+  pins: JSON.parse(localStorage.getItem("dev_erp_pins") || "[]"),
+  // P2b: 계정/권한. 익명(account=null)이면 앱은 현행대로(전체 접근·localStorage).
+  account: null, perms: [], accountCount: 0
 };
+
+// P2b 권한: 정의 없거나 익명이면 기본 허용(visible·access). 정의 있으면 그 값.
+function permOf(resource) {
+  if (!state.account) return { visible: true, access: true };
+  const p = state.perms.find((x) => x.resource === resource);
+  return p ? { visible: !!p.visible, access: !!p.access } : { visible: true, access: true };
+}
+
+async function loadMe() {
+  try {
+    const me = await api("/api/me");
+    state.account = me.anonymous ? null : (me.account ?? null);
+    state.perms = me.perms ?? [];
+    state.accountCount = me.account_count ?? (me.anonymous ? me.account_count : state.accountCount) ?? 0;
+  } catch { state.account = null; state.perms = []; }
+}
+// 로그인 시 서버 레이아웃을 localStorage 로 동기화(이후 dashLayout()이 그대로 사용 → sync 코드 무변경)
+async function pullServerLayout() {
+  if (!state.account) return;
+  try {
+    const { layout } = await api("/api/dashboard/layout");
+    if (Array.isArray(layout) && layout.length) localStorage.setItem("dev_erp_widgets", JSON.stringify(layout));
+  } catch { /* 무시: localStorage 폴백 */ }
+}
+
+// 상단 인증 UI. 계정 0(익명 파일럿)=숨김 / 로그인=사용자+로그아웃 / 계정 있고 미로그인=로그인 버튼.
+function renderAuth() {
+  const box = $("#authBox"); if (!box) return;
+  const L = state.lex;
+  if (state.account) {
+    box.innerHTML = `<span class="auth-user">${esc(state.account.username)}</span><button id="logoutBtn" class="fav-chip">${L.logout}</button>`;
+    $("#logoutBtn").addEventListener("click", async () => { await fetch("/api/auth/logout", { method: "POST" }).catch(() => {}); location.reload(); });
+  } else if (state.accountCount > 0) {
+    box.innerHTML = `<button id="loginBtn" class="fav-chip">${L.login}</button>`;
+    $("#loginBtn").addEventListener("click", openLogin);
+  } else {
+    box.innerHTML = ""; // 계정 0 = 익명 파일럿
+  }
+}
+
+// 로그인 모달(화면 정중앙). 비밀번호는 사용자가 직접 입력(에이전트 자동입력 아님).
+function openLogin() {
+  const L = state.lex;
+  document.querySelector(".ui-confirm-overlay")?.remove();
+  const ov = document.createElement("div");
+  ov.className = "ui-confirm-overlay";
+  ov.innerHTML = `<div class="ui-confirm" role="dialog" aria-label="${L.login}">
+    <p class="ui-confirm-msg">${L.login}</p>
+    <input id="loginUser" class="login-input" placeholder="${L.login_user}" autocomplete="username" />
+    <input id="loginPw" class="login-input" type="password" placeholder="${L.login_pw}" autocomplete="current-password" />
+    <div class="login-err danger-text"></div>
+    <div class="ui-confirm-btns"><button class="ui-confirm-cancel">${L.btn_cancel}</button><button class="ui-confirm-ok">${L.btn_confirm}</button></div>
+  </div>`;
+  document.body.appendChild(ov);
+  const close = () => ov.remove();
+  ov.addEventListener("click", (e) => { if (e.target === ov) close(); });
+  ov.querySelector(".ui-confirm-cancel").addEventListener("click", close);
+  const submit = async () => {
+    const username = ov.querySelector("#loginUser").value.trim();
+    const password = ov.querySelector("#loginPw").value;
+    const r = await fetch("/api/auth/login", { method: "POST", headers: { "content-type": "application/json" }, body: JSON.stringify({ username, password }) }).catch(() => null);
+    if (r && r.ok) { close(); location.reload(); }
+    else ov.querySelector(".login-err").textContent = L.login_fail;
+  };
+  ov.querySelector(".ui-confirm-ok").addEventListener("click", submit);
+  ov.querySelector("#loginPw").addEventListener("keydown", (e) => { if (e.key === "Enter") submit(); });
+  ov.querySelector("#loginUser").focus();
+}
 
 function togglePin(v) {
   const i = state.pins.indexOf(v);
@@ -84,15 +154,20 @@ const NAV_LAYOUT = [
 ];
 
 function navButton(v) {
+  const perm = permOf(v.startsWith("mod:") ? v : `view:${v}`);
+  if (!perm.visible) return "";                       // RBAC: 숨김
+  const locked = !perm.access;                        // RBAC: 보이되 잠김
+  const lock = locked ? ` <i class="lock" title="${state.lex.perm_locked ?? "권한 없음"}">🔒</i>` : "";
+  const dis = locked ? " disabled" : "";
   const pinned = state.pins.includes(v);
   const star = `<i class="pin-btn ${pinned ? "on" : ""}" data-pin="${v}" title="${state.lex.pin_toggle}">${pinned ? "★" : "☆"}</i>`;
   if (v.startsWith("mod:")) {
     const m = (state.modules ?? []).find((x) => `mod:${x.id}` === v);
     if (!m) return "";
-    return `<button data-v="${v}" class="${state.view === v ? "active" : ""}">
-      <span>${m.nav}</span><span class="nav-side"><em class="phase-tag">${m.phase}</em>${star}</span></button>`;
+    return `<button data-v="${v}" class="${state.view === v ? "active" : ""}"${dis}>
+      <span>${m.nav}${lock}</span><span class="nav-side"><em class="phase-tag">${m.phase}</em>${star}</span></button>`;
   }
-  return `<button data-v="${v}" class="${state.view === v ? "active" : ""}"><span>${state.lex[navKey[v]]}</span><span class="nav-side">${star}</span></button>`;
+  return `<button data-v="${v}" class="${state.view === v ? "active" : ""}"${dis}><span>${state.lex[navKey[v]]}${lock}</span><span class="nav-side">${star}</span></button>`;
 }
 
 // IA 2.5단 (ECount 관찰 반영): 현재 view 가 속한 그룹을 찾아 상단 탭 동기화
@@ -252,7 +327,11 @@ function dashLayout() {
   }
   return DEFAULT_DASH.map((x) => ({ ...x }));
 }
-function saveDashLayout(arr) { localStorage.setItem("dev_erp_widgets", JSON.stringify(arr)); }
+function saveDashLayout(arr) {
+  localStorage.setItem("dev_erp_widgets", JSON.stringify(arr));
+  // 로그인 상태면 계정별 서버 저장(logout 내성). 미로그인=localStorage 만.
+  if (state.account) fetch("/api/dashboard/layout", { method: "PUT", headers: { "content-type": "application/json" }, body: JSON.stringify({ layout: arr }) }).catch(() => {});
+}
 // 충돌 해소: anchor(방금 옮기거나 키운 위젯)는 고정, 겹치는 나머지는 아래로 밀어냄(겹침 금지).
 function dashEffH(w) { return w.c ? 2 : w.h; }
 function dashOverlap(a, b) {
@@ -1224,6 +1303,7 @@ async function hubHistory(mount, p) {
 
 async function render() {
   document.getElementById("app").dataset.view = state.view; // 홈(위젯)에선 좌측 열 숨김용
+  renderAuth();
   renderNav();
   const titles = { home: "nav_home", items: "nav_items", guide: "nav_guide", mail: "nav_mail", artifacts: "nav_artifacts", search: "nav_search" };
   if (state.view.startsWith("mod:")) {
@@ -1378,5 +1458,7 @@ $("#globalSearch").addEventListener("keydown", (e) => {
 });
 $("#globalSearch").addEventListener("blur", () => setTimeout(clearSearchDropdown, 150));
 
+await loadMe();
+await pullServerLayout();
 await loadLexicon();
 render();

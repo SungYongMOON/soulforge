@@ -312,6 +312,15 @@ body[data-mode="fantasy"] tr.spawned td:first-child::before { content: "✦ "; c
 .widget:hover .widget-resize { border-color: var(--accent); }
 .brand-home { cursor: pointer; }
 .brand-home:hover { color: var(--accent); }
+/* P2b 인증 UI */
+.auth-box { display: flex; align-items: center; gap: 6px; flex: 0 0 auto; }
+.auth-user { font-size: 12px; color: var(--muted); }
+.login-input { width: 100%; margin: 6px 0; padding: 9px 11px; border: 1px solid var(--line); border-radius: 8px; background: var(--bg); color: var(--text); }
+.login-err { font-size: 12px; min-height: 16px; }
+.danger-text { color: var(--danger); }
+nav button[disabled] { opacity: .55; cursor: not-allowed; }
+nav button[disabled]:hover { background: transparent; }
+.lock { font-style: normal; font-size: 11px; }
 /* 정중앙 확인 모달 */
 .ui-confirm-overlay { position: fixed; inset: 0; background: rgba(0,0,0,.38); z-index: 300;
   display: flex; align-items: center; justify-content: center; }
