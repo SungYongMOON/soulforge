@@ -12,7 +12,8 @@ const state = {
   chatLog: [],
   poProject: "",
   poParty: "",
-  ctProject: ""
+  ctProject: "",
+  bomBoard: ""
 };
 
 // P2b 권한: 정의 없거나 익명이면 기본 허용(visible·access). 정의 있으면 그 값.
@@ -369,6 +370,90 @@ function miniRow(cells) {
 }
 
 // 연락처 마스터 화면(mod:contacts). 거래처/과제 링크·필터. 메타 전용.
+// P3 재고/부품 화면(mod:inventory). 부품 마스터(공유)+가용재고+부족 강조+재고 조정. 외부전송 0.
+async function renderInventory() {
+  const L = state.lex;
+  const [summary, parts, locations] = await Promise.all([api("/api/summary"), api("/api/parts"), api("/api/locations")]);
+  const projOpts = summary.projects.map((p) => `<option value="${esc(p.id)}">${esc(p.title)}</option>`).join("");
+  const partOpts = parts.map((p) => `<option value="${esc(p.id)}">${esc(p.name)}</option>`).join("");
+  const locOpts = locations.map((l) => `<option value="${esc(l.id)}">${esc(l.name)}${l.is_virtual ? "(가상)" : ""}</option>`).join("");
+  const rows = parts.map((p) => {
+    const low = p.min_qty > 0 && p.on_hand < p.min_qty;
+    return `<tr>
+      <td><strong>${esc(p.name)}</strong></td><td>${esc(p.part_no ?? "-")}</td><td>${esc(p.type ?? "-")}</td>
+      <td class="num ${low ? "due-over" : ""}">${p.on_hand}${low ? ` <span class="badge red">${L.inv_low}</span>` : ""}</td>
+      <td class="num">${p.min_qty || "-"}</td>
+      <td>${p.projects.map((x) => `<span class="badge">${esc(x)}</span>`).join(" ") || '<span class="dim">-</span>'}</td>
+    </tr>`;
+  }).join("");
+  $("#view").innerHTML = `
+    <div class="item-form">
+      <input id="ptName" placeholder="${L.ct_name}" /><input id="ptNo" placeholder="${L.part_no}" size="8" />
+      <input id="ptType" placeholder="${L.part_type}" size="8" /><input id="ptGrp" placeholder="${L.part_grp}" size="7" />
+      <input id="ptUom" placeholder="${L.part_uom}" size="4" value="ea" /><input id="ptMin" type="number" placeholder="${L.part_min}" style="width:80px" />
+      <button id="ptAdd" class="fav-chip">${L.inv_new}</button>
+    </div>
+    <div class="item-form">
+      <span class="dim">${L.stock_adjust}:</span>
+      <select id="stPart"><option value="">${L.item}</option>${partOpts}</select>
+      <select id="stLoc"><option value="">${L.loc_label}</option>${locOpts}</select>
+      <input id="stQty" type="number" placeholder="0" style="width:80px" /><button id="stSet" class="fav-chip">${L.stock_adjust}</button>
+    </div>
+    ${parts.length ? `<table><thead><tr><th>${L.item}</th><th>${L.part_no}</th><th>${L.part_type}</th><th>${L.on_hand}</th><th>${L.part_min}</th><th>${L.project}</th></tr></thead><tbody>${rows}</tbody></table>` : `<div class="empty">${L.empty_parts}</div>`}`;
+  $("#ptAdd").addEventListener("click", async () => {
+    const name = $("#ptName").value.trim(); if (!name) return;
+    const body = { name, part_no: $("#ptNo").value.trim() || null, type: $("#ptType").value.trim() || null, grp: $("#ptGrp").value.trim() || null, uom: $("#ptUom").value.trim() || "ea", min_qty: Number($("#ptMin").value) || 0 };
+    const r = await post("/api/parts", body).then((x) => x.json()).catch(() => ({}));
+    if (r.ok) render();
+  });
+  $("#stSet").addEventListener("click", async () => {
+    const part_id = $("#stPart").value, location_id = $("#stLoc").value;
+    if (!part_id || !location_id) return;
+    await post("/api/stock", { part_id, location_id, qty: Number($("#stQty").value) || 0 });
+    render();
+  });
+}
+
+// P3 BOM 화면(mod:boards). board 선택→BOM 구성 표+추가.
+async function renderBoards() {
+  const L = state.lex;
+  const parts = await api("/api/parts");
+  const boards = parts.filter((p) => p.type === "board");
+  const sel = state.bomBoard || (boards[0] && boards[0].id) || "";
+  const bom = sel ? await api(`/api/bom?parent=${encodeURIComponent(sel)}`) : [];
+  const boardOpts = boards.map((b) => `<option value="${esc(b.id)}" ${sel === b.id ? "selected" : ""}>${esc(b.name)}</option>`).join("");
+  const childOpts = parts.filter((p) => p.id !== sel).map((p) => `<option value="${esc(p.id)}">${esc(p.name)}</option>`).join("");
+  const rows = bom.map((b) => `<tr><td>${esc(b.ref_des ?? "-")}</td><td><strong>${esc(b.name)}</strong></td><td>${esc(b.part_no ?? "-")}</td><td class="num">${b.qty}</td></tr>`).join("");
+  $("#view").innerHTML = `
+    <div class="filters">
+      <span class="dim">${L.bom_parent}:</span>
+      <select id="bomBoardSel">${boardOpts || `<option value="">-</option>`}</select>
+    </div>
+    ${sel ? `<div class="item-form">
+      <select id="bomChild"><option value="">${L.item}</option>${childOpts}</select>
+      <input id="bomQty" type="number" placeholder="${L.bom_qty}" value="1" style="width:80px" />
+      <input id="bomRef" placeholder="${L.bom_ref}" size="8" />
+      <button id="bomAdd" class="fav-chip">${L.bom_add}</button>
+    </div>` : ""}
+    ${bom.length ? `<table><thead><tr><th>${L.bom_ref}</th><th>${L.item}</th><th>${L.part_no}</th><th>${L.bom_qty}</th></tr></thead><tbody>${rows}</tbody></table>` : `<div class="empty">${L.empty_bom}</div>`}`;
+  $("#bomBoardSel").addEventListener("change", (e) => { state.bomBoard = e.target.value; render(); });
+  if ($("#bomAdd")) $("#bomAdd").addEventListener("click", async () => {
+    const child = $("#bomChild").value; if (!child) return;
+    await post("/api/bom", { parent_part_id: sel, child_part_id: child, qty: Number($("#bomQty").value) || 1, ref_des: $("#bomRef").value.trim() || null });
+    render();
+  });
+}
+
+// P3 부품 감시 화면(mod:stockwatch). 내부 재고 부족만(외부 공급사 조회 보류).
+async function renderStockwatch() {
+  const L = state.lex;
+  const low = await api("/api/stock/low");
+  const rows = low.map((p) => `<tr><td><strong>${esc(p.name)}</strong></td><td>${esc(p.part_no ?? "-")}</td><td class="num due-over">${p.on_hand}</td><td class="num">${p.min_qty}</td><td class="num">${p.min_qty - p.on_hand}</td></tr>`).join("");
+  $("#view").innerHTML = `
+    <div class="module-head"><p class="dim">${L.sw_note}</p></div>
+    ${low.length ? `<table><thead><tr><th>${L.item}</th><th>${L.part_no}</th><th>${L.on_hand}</th><th>${L.part_min}</th><th>${L.inv_low}</th></tr></thead><tbody>${rows}</tbody></table>` : `<div class="empty">${L.empty_stocklow}</div>`}`;
+}
+
 async function renderContacts() {
   const L = state.lex;
   const [summary, parties, contacts] = await Promise.all([
@@ -1619,6 +1704,9 @@ async function render() {
     logView(state.view);
     return renderReports();
   }
+  if (state.view === "mod:inventory") { const m=(state.modules??[]).find(x=>x.id==="inventory"); $("#viewTitle").textContent=m?.nav??"재고"; logView(state.view); return renderInventory(); }
+  if (state.view === "mod:boards") { const m=(state.modules??[]).find(x=>x.id==="boards"); $("#viewTitle").textContent=m?.nav??"보드/BOM"; logView(state.view); return renderBoards(); }
+  if (state.view === "mod:stockwatch") { const m=(state.modules??[]).find(x=>x.id==="stockwatch"); $("#viewTitle").textContent=m?.nav??"부품감시"; logView(state.view); return renderStockwatch(); }
   if (state.view === "mod:contacts") {
     const m = (state.modules ?? []).find((x) => x.id === "contacts");
     $("#viewTitle").textContent = m?.nav ?? "연락처";
