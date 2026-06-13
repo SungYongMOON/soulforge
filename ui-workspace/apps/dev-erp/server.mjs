@@ -172,6 +172,22 @@ const server = createServer(async (req, res) => {
       store.appendEvent({ actor_ref: "owner", actor_kind: "human", kind: "gate_mode_set", to: r.mode, used_refs: ["gates", "settings"], data_label: "real" });
       return send(res, 200, r);
     }
+    // 연락처 마스터
+    if (path === "/api/contacts" && req.method === "GET") return send(res, 200, store.contacts({ project: qp.project, party: qp.party }));
+    if (path === "/api/contacts" && req.method === "POST") {
+      let body = ""; for await (const chunk of req) body += chunk;
+      const r = store.createContact({ ...JSON.parse(body || "{}"), data_label: "real" });
+      if (r.error) return send(res, 400, r);
+      store.appendEvent({ actor_ref: "owner", actor_kind: "human", kind: "contact_create", to: r.id, used_refs: ["contacts"], data_label: "real" });
+      return send(res, 200, r);
+    }
+    if (path === "/api/contacts/link" && req.method === "POST") {
+      let body = ""; for await (const chunk of req) body += chunk;
+      const { contact_id, project_id } = JSON.parse(body || "{}");
+      const r = store.linkContactProject(contact_id, project_id);
+      if (r.error) return send(res, 400, r);
+      return send(res, 200, r);
+    }
     // 파일 첨부(메타 포인터) + 배치 제안(⑧ reversible, 적용 아님)
     if (path === "/api/attachments" && req.method === "GET") return send(res, 200, store.attachments({ entity_type: qp.entity_type, entity_id: qp.entity_id }));
     if (path === "/api/attachments/suggest") return send(res, 200, store.suggestPlacement(qp.name ?? ""));

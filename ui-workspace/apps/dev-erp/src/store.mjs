@@ -229,6 +229,22 @@ CREATE TABLE IF NOT EXISTS core_attachment (
   data_label TEXT NOT NULL DEFAULT 'synthetic',
   created_at TEXT
 );
+-- 연락처 마스터(메타 전용). 사내/사외 연락 정보. 거래처(party) 링크 + 과제 N:N. (잊힌 want)
+CREATE TABLE IF NOT EXISTS core_contact (
+  id TEXT PRIMARY KEY,
+  name TEXT NOT NULL,
+  org TEXT,                                 -- 소속(회사/팀)
+  role TEXT,                                -- 직책/역할
+  email TEXT,
+  phone TEXT,
+  party_id TEXT REFERENCES core_party(id),  -- 거래처 링크(선택)
+  data_label TEXT NOT NULL DEFAULT 'synthetic'
+);
+CREATE TABLE IF NOT EXISTS contact_project_map ( -- 연락처↔과제 N:N
+  contact_id TEXT NOT NULL REFERENCES core_contact(id),
+  project_id TEXT NOT NULL REFERENCES core_project(id),
+  PRIMARY KEY (contact_id, project_id)
+);
 CREATE INDEX IF NOT EXISTS idx_attach_entity ON core_attachment(entity_type, entity_id);
 CREATE INDEX IF NOT EXISTS idx_item_proj ON core_item(project_id, status);
 CREATE INDEX IF NOT EXISTS idx_item_due ON core_item(due);
@@ -766,6 +782,38 @@ export class Store {
     return rows.map((r) => ({ ...r, party_name: r.party_id ? (pn.get(r.party_id) ?? r.party_id) : null, projects: this.purchaseProjects(r.id) }));
   }
 
+  // ---------- 연락처 마스터(메타) ----------
+  createContact({ id, name, org = null, role = null, email = null, phone = null, party_id = null, projects = [], data_label = "real" }) {
+    const t = String(name ?? "").trim();
+    if (!t) return { error: "name_required" };
+    const cid = id || `ct_${randomBytes(4).toString("hex")}`;
+    this.db.prepare(
+      "INSERT INTO core_contact(id,name,org,role,email,phone,party_id,data_label) VALUES(?,?,?,?,?,?,?,?)"
+    ).run(cid, t, org, role, email, phone, party_id, data_label);
+    for (const proj of projects) this.linkContactProject(cid, proj);
+    return { ok: true, id: cid };
+  }
+  linkContactProject(contact_id, project_id) {
+    if (!this.db.prepare("SELECT 1 FROM core_contact WHERE id=?").get(contact_id)) return { error: "contact_not_found" };
+    if (!this.db.prepare("SELECT 1 FROM core_project WHERE id=?").get(project_id)) return { error: "project_not_found" };
+    this.db.prepare("INSERT OR IGNORE INTO contact_project_map(contact_id,project_id) VALUES(?,?)").run(contact_id, project_id);
+    return { ok: true };
+  }
+  contactProjects(contact_id) {
+    return this.db.prepare("SELECT project_id FROM contact_project_map WHERE contact_id=?").all(contact_id).map((r) => r.project_id);
+  }
+  contacts({ project = null, party = null } = {}) {
+    let sql = "SELECT c.* FROM core_contact c";
+    const cond = [], args = [];
+    if (project) { sql += " JOIN contact_project_map m ON m.contact_id=c.id"; cond.push("m.project_id=?"); args.push(project); }
+    if (party) { cond.push("c.party_id=?"); args.push(party); }
+    if (cond.length) sql += " WHERE " + cond.join(" AND ");
+    sql += " ORDER BY c.name LIMIT 300";
+    const rows = this.db.prepare(sql).all(...args);
+    const pn = new Map(this.parties().map((x) => [x.id, x.name]));
+    return rows.map((r) => ({ ...r, party_name: r.party_id ? (pn.get(r.party_id) ?? r.party_id) : null, projects: this.contactProjects(r.id) }));
+  }
+
   // ---------- 파일 첨부(메타 포인터) + 배치 제안(⑧, reversible) ----------
   // 확장자/이름 기반 분류 제안. 자동 적용 아님 — owner 가 정책 승인 전까지 제안만.
   suggestPlacement(name) {
@@ -867,6 +915,8 @@ export class Store {
     let removed = 0;
     const del = (sql) => { removed += this.db.prepare(sql).run().changes ?? 0; };
     // FK 안전 순서: 매핑/자식 → 부모. (구매·회의 맵이 synthetic 프로젝트/항목을 참조)
+    del("DELETE FROM contact_project_map WHERE contact_id IN (SELECT id FROM core_contact WHERE data_label='synthetic') OR project_id IN (SELECT id FROM core_project WHERE data_label='synthetic')");
+    del("DELETE FROM core_contact WHERE data_label='synthetic'");
     del("DELETE FROM purchase_project_map WHERE purchase_id IN (SELECT id FROM core_purchase WHERE data_label='synthetic') OR project_id IN (SELECT id FROM core_project WHERE data_label='synthetic')");
     del("DELETE FROM core_purchase WHERE data_label='synthetic'");
     del("DELETE FROM core_party WHERE data_label='synthetic'");

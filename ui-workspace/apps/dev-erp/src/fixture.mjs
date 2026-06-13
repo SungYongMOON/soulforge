@@ -116,6 +116,14 @@ export function loadFixture(store) {
   ];
   for (const po of purchaseSeed) store.createPurchase({ ...po, created_by: "fixture", data_label: "synthetic" });
 
+  // 연락처 마스터 합성 시드 (거래처/과제 링크)
+  const contactSeed = [
+    { id: "ct-001", name: "김상무", org: "A상사", role: "영업", email: "kim@a.com", phone: "010-0000-0001", party_id: "vendor-a", projects: ["PRJ-A"] },
+    { id: "ct-002", name: "이과장", org: "B테크", role: "기술지원", email: "lee@b.com", party_id: "vendor-b", projects: ["PRJ-B", "PRJ-A"] },
+    { id: "ct-003", name: "박책임", org: "사내-체계팀", role: "체계", email: "park@in.co", projects: ["PRJ-A"] }
+  ];
+  for (const c of contactSeed) store.createContact({ ...c, data_label: "synthetic" });
+
   store.appendEvent({
     actor_ref: "fixture", actor_kind: "system", kind: "ingest",
     note: "synthetic fixture loaded", used_refs: ["src/fixture.mjs"], data_label: "synthetic"

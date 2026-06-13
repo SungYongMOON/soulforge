@@ -635,3 +635,20 @@ test("거래처 거래이력: 발주 건수·총액·진행/완료 집계", () =
   // 총액 내림차순 정렬
   assert.ok(led[0].total_amount >= led[led.length - 1].total_amount);
 });
+
+// ---------- 연락처 마스터 ----------
+test("연락처: 생성 + 거래처/과제 링크 + 필터", () => {
+  const store = freshStore();
+  loadFixture(store);
+  const all = store.contacts({});
+  assert.ok(all.length >= 3, "연락처 시드");
+  const c2 = all.find((c) => c.id === "ct-002");
+  assert.equal(c2.party_name, "B테크", "거래처 조인");
+  assert.deepEqual(c2.projects.sort(), ["PRJ-A", "PRJ-B"], "과제 N:N");
+  assert.deepEqual(store.contacts({ project: "PRJ-A" }).map((c) => c.id).sort(), ["ct-001", "ct-002", "ct-003"]);
+  assert.deepEqual(store.contacts({ party: "vendor-a" }).map((c) => c.id), ["ct-001"]);
+  assert.equal(store.createContact({ name: "" }).error, "name_required");
+  const r = store.createContact({ name: "새연락처", projects: ["PRJ-C"] });
+  assert.ok(r.ok);
+  assert.equal(store.linkContactProject(r.id, "no-proj").error, "project_not_found");
+});
