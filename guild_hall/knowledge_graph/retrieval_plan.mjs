@@ -279,7 +279,7 @@ function hasFileUrlString(value) {
 }
 
 function hasLocalAbsolutePathString(value) {
-  const text = String(value ?? "");
+  const text = String(value ?? "").replace(/\b[a-z][a-z0-9+.-]*:\/\/[^\s"'<>)]*/giu, "");
   return /(^|[\s"'(])\/(?:Users|Volumes|private|var\/folders|tmp|home)\//u.test(text) || /[A-Za-z]:[\\/]/u.test(text);
 }
 

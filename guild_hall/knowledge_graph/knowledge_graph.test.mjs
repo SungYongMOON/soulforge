@@ -119,27 +119,35 @@ test("exportKnowledgeGraph writes metadata-only graph, HTML preview, and Obsidia
     const candidateKnowledgeNode = graph.nodes.find((node) => node.node_ref === ".registry/knowledge/graph_rag");
     assert.ok(candidateKnowledgeNode);
     assert.equal(candidateKnowledgeNode.trust.claim_ceiling, "source_supported");
-    assert.equal(graph.connectivity_analysis.source_edge_gap_scout.status, "metadata_gap_observed");
+    // R9: public_source_refs now create `source` nodes + `supports` edges, so the
+    // graph_rag gap is closed and the scout observes no remaining metadata gap.
+    assert.equal(graph.connectivity_analysis.source_edge_gap_scout.status, "not_observed");
     assert.equal(graph.connectivity_analysis.source_edge_gap_scout.claim_ceiling, "observed");
     assert.equal(graph.connectivity_analysis.source_edge_gap_scout.target_claim_ceiling, "source_supported");
     assert.equal(graph.connectivity_analysis.source_edge_gap_scout.checked_node_count, 1);
-    assert.equal(graph.connectivity_analysis.source_edge_gap_scout.gap_count, 1);
-    assert.deepEqual(graph.connectivity_analysis.source_edge_gap_scout.gap_nodes, [
-      {
-        node_ref: ".registry/knowledge/graph_rag",
-        node_id: "graph_rag",
-        claim_ceiling: "source_supported",
-        source_ref_count: 2,
-        missing_edge_type: "supports_or_derived_from",
-      },
-    ]);
-    assert.equal(graph.connectivity_analysis.source_edge_gap_scout.boundary.no_source_nodes_created, true);
-    assert.equal(graph.connectivity_analysis.source_edge_gap_scout.boundary.no_source_edges_created, true);
+    assert.equal(graph.connectivity_analysis.source_edge_gap_scout.gap_count, 0);
+    assert.deepEqual(graph.connectivity_analysis.source_edge_gap_scout.gap_nodes, []);
+    assert.equal(graph.connectivity_analysis.source_edge_gap_scout.boundary.no_source_nodes_created, false);
+    assert.equal(graph.connectivity_analysis.source_edge_gap_scout.boundary.no_source_edges_created, false);
+    assert.equal(graph.connectivity_analysis.source_edge_gap_scout.boundary.no_source_truth_claim, true);
     assert.doesNotMatch(JSON.stringify(graph.connectivity_analysis.source_edge_gap_scout), /example\.invalid/);
     assert.equal(
       graph.connectivity_analysis.possible_missing_relation_surfaces.includes(
         ".registry/knowledge/*/source_support source nodes and supports/derived_from edges",
       ),
+      false,
+    );
+    // R9: the two graph_rag public_source_refs are now source nodes with supports edges.
+    const graphRagSourceNodes = graph.nodes.filter((node) => node.node_type === "source");
+    assert.equal(graphRagSourceNodes.length, 2);
+    assert.equal(
+      graphRagSourceNodes.every((node) => Array.isArray(node.public_source_refs) && node.public_source_refs.length === 1),
+      true,
+    );
+    const supportsEdges = graph.edges.filter((edge) => edge.relation_type === "supports");
+    assert.equal(supportsEdges.length, 2);
+    assert.equal(
+      supportsEdges.every((edge) => edge.to_ref === ".registry/knowledge/graph_rag" && edge.from_ref.startsWith("source:https://")),
       true,
     );
 
@@ -695,15 +703,20 @@ test("exportKnowledgeGraph writes metadata-only graph, HTML preview, and Obsidia
     assert.equal(plan.candidates[0].claim_ceiling, "source_supported");
     assert.equal(plan.candidates[0].match_reasons.includes("label_match"), true);
     assert.equal(plan.candidates[0].match_reasons.some((reason) => RAW_TOKEN_REASON_PATTERN.test(reason)), false);
-    assert.ok(plan.relation_paths.find((item) => item.to.node_ref === ".registry/knowledge/graph_rag"));
+    assert.ok(
+      plan.relation_paths.find(
+        (item) => item.relation_type === "supports" && item.to.node_ref === ".registry/knowledge/graph_rag",
+      ),
+    );
     const graphRagSourceRef = plan.source_refs.find((item) => item.ref === ".registry/knowledge/graph_rag/knowledge.yaml");
     assert.ok(graphRagSourceRef);
     assert.equal(Array.isArray(graphRagSourceRef.roles), true);
     assert.ok(graphRagSourceRef.referenced_by.includes(".registry/knowledge/graph_rag"));
     assert.ok(plan.missing_evidence.some((item) => item.includes("No vector/BM25 baseline")));
     assert.ok(plan.missing_evidence_items.some((item) => item.code === "no_vector_or_hybrid_retriever"));
-    assert.ok(plan.missing_evidence.some((item) => item.includes("No source nodes")));
-    assert.ok(plan.next_action_items.some((item) => item.code === "add_source_support_edges"));
+    assert.equal(plan.missing_evidence.some((item) => item.includes("No source nodes")), false);
+    assert.equal(plan.next_action_items.some((item) => item.code === "add_source_support_edges"), false);
+    assert.ok(plan.next_action_items.some((item) => item.code === "use_candidates_for_sourcebound_review"));
     assert.equal(plan.detection_card.render_contract.candidates_from, "candidate_nodes");
     assert.equal(plan.detection_card.render_contract.relation_paths_from, "relation_paths");
     assert.equal(plan.detection_card.render_contract.missing_evidence_items_from, "missing_evidence_items");

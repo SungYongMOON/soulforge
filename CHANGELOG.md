@@ -2,6 +2,19 @@
 
 ## 2026-06-13
 
+### Revision `working` - knowledge graph 공개 출처 노드와 fallback 검증 보강
+
+- `guild_hall/knowledge_graph` export가 public source URL metadata를 source 노드와
+  candidate `supports` edge로 표시하고, 탐지 카드에서 공개 출처 클릭 링크를
+  노출하도록 보강했다. raw source text, chunk, NotebookLM answer, private payload
+  는 계속 포함하지 않는다.
+- esbuild platform binary 문제로 3D bundle 생성이 실패해도 graph.json,
+  2D preview, 3D HTML shell, Obsidian export를 생성하고 2D fallback 배너를
+  보여주도록 했다.
+- retrieval planner boundary validator가 `https://` URL scheme을 Windows drive
+  path로 오탐하지 않도록 조정하고, KG fixture 테스트를 source-node 동작에 맞게
+  갱신했다.
+
 ### Revision `working` - Claude 지식 그래프 quick wins와 운영 후보 기록
 
 - `guild_hall/knowledge_graph` export CLI에 생성된 HTML preview 경로 안내를

@@ -214,9 +214,14 @@ export async function exportKnowledgeGraph(options = {}) {
   const bundlePath = path.join(graphDir, "graph_preview_3d.bundle.js");
 
   await writeJson(graphPath, graph);
-  await writeGraph3dBundle(bundlePath);
+  let bundleBuild = { ok: true, skipped_reason: null };
+  try {
+    await writeGraph3dBundle(bundlePath);
+  } catch (error) {
+    bundleBuild = { ok: false, skipped_reason: bundleSkipReason(error) };
+  }
   await fs.writeFile(html2dPath, renderGraphHtml2d(graph), "utf8");
-  await fs.writeFile(htmlPath, renderGraphHtml3d(graph), "utf8");
+  await fs.writeFile(htmlPath, renderGraphHtml3d(graph, { bundleBuild }), "utf8");
   await writeObsidianExport({ graph, outputDir: obsidianDir });
 
   return {
@@ -226,6 +231,7 @@ export async function exportKnowledgeGraph(options = {}) {
     html_ref: normalizeRepoPath(path.relative(repoRoot, htmlPath)),
     html_2d_ref: normalizeRepoPath(path.relative(repoRoot, html2dPath)),
     bundle_ref: normalizeRepoPath(path.relative(repoRoot, bundlePath)),
+    bundle_build: bundleBuild,
     obsidian_vault_ref: normalizeRepoPath(path.relative(repoRoot, obsidianDir)),
     node_count: graph.nodes.length,
     edge_count: graph.edges.length,
@@ -260,6 +266,7 @@ export async function buildKnowledgeGraph({
   });
 
   const sourceSupportMetadataByNodeRef = await addKnowledgeNodes({ repoRoot: root, nodes });
+  addPublicSourceNodesAndEdges({ nodes, edges });
   await addClassNodesAndEdges({ repoRoot: root, nodes, edges });
   await addSpeciesNodes({ repoRoot: root, nodes });
   await addUnitNodesAndEdges({ repoRoot: root, nodes, edges });
@@ -399,6 +406,7 @@ async function addKnowledgeNodes({ repoRoot, nodes }) {
     }
     const nodeRef = `.registry/knowledge/${data.knowledge_id}`;
     const sourceSupportRefCount = countSourceSupportRefs(data.source_support, { rootArrayIsRefs: true });
+    const publicSourceRefs = collectPublicSourceRefs(data.source_support);
     if (sourceSupportRefCount > 0) {
       sourceSupportMetadataByNodeRef.set(nodeRef, {
         node_ref: nodeRef,
@@ -417,11 +425,61 @@ async function addKnowledgeNodes({ repoRoot, nodes }) {
         trust: `.registry/knowledge/${data.knowledge_id}/knowledge.yaml`,
         lifecycle: `.registry/knowledge/${data.knowledge_id}/knowledge.yaml`,
       },
+      public_source_refs: publicSourceRefs,
       trust: { claim_ceiling: data.claim_ceiling ?? "canon_entry" },
       lifecycle: { status: data.status ?? "unknown" },
     });
   }
   return sourceSupportMetadataByNodeRef;
+}
+
+function shortLabelForSourceUrl(url) {
+  try {
+    const parsed = new URL(url);
+    const host = parsed.hostname.replace(/^www\./u, "");
+    const segments = parsed.pathname.split("/").filter(Boolean);
+    const tail = segments.length ? segments[segments.length - 1] : "";
+    let suffix = tail ? `/${tail}` : "";
+    if (suffix.length > 28) {
+      suffix = `${suffix.slice(0, 27)}…`;
+    }
+    return host + suffix;
+  } catch {
+    return String(url).slice(0, 40);
+  }
+}
+
+function addPublicSourceNodesAndEdges({ nodes, edges }) {
+  for (const node of [...nodes.values()]) {
+    if (node.node_type !== "knowledge") {
+      continue;
+    }
+    const urls = Array.isArray(node.public_source_refs) ? node.public_source_refs : [];
+    for (const url of urls) {
+      if (typeof url !== "string" || !/^https?:\/\//iu.test(url)) {
+        continue;
+      }
+      const sourceRef = `source:${url}`;
+      addNode(nodes, {
+        node_ref: sourceRef,
+        node_type: "source",
+        label: shortLabelForSourceUrl(url),
+        summary: null,
+        owner_surface: ".registry/knowledge",
+        source_refs: {},
+        public_source_refs: [url],
+        trust: { claim_ceiling: "source_supported" },
+        lifecycle: { status: "public_source" },
+      });
+      addEdge(edges, {
+        from_ref: sourceRef,
+        to_ref: node.node_ref,
+        relation_type: "supports",
+        relation_state: "candidate",
+        source_refs: { relation_type: `${node.node_ref}/knowledge.yaml` },
+      });
+    }
+  }
 }
 
 async function addClassNodesAndEdges({ repoRoot, nodes, edges }) {
@@ -1701,6 +1759,35 @@ function isSourceSupportRefKey(key) {
   return /(^|_)refs?$/u.test(String(key ?? ""));
 }
 
+function collectPublicSourceRefs(value) {
+  const refs = [];
+  const seen = new Set();
+  const walk = (node) => {
+    if (!node || typeof node !== "object") return;
+    if (Array.isArray(node)) {
+      node.forEach(walk);
+      return;
+    }
+    for (const [key, child] of Object.entries(node)) {
+      if ((key === "public_source_refs" || key === "public_institutional_refs") && Array.isArray(child)) {
+        for (const item of child) {
+          if (typeof item === "string" && /^https?:\/\//i.test(item.trim())) {
+            const url = item.trim();
+            if (!seen.has(url)) {
+              seen.add(url);
+              refs.push(url);
+            }
+          }
+        }
+      } else {
+        walk(child);
+      }
+    }
+  };
+  walk(value);
+  return refs;
+}
+
 function projectionArrayField(value, key, blockers, options = {}) {
   const required = options.required !== false;
   const child = value?.[key];
@@ -2090,8 +2177,10 @@ export function analyzeMetadataOnlySourceEdgeGaps({ nodes, edges, byRef, sourceS
       metadata_only: true,
       no_source_text_loaded: true,
       no_source_payload_copied: true,
-      no_source_nodes_created: true,
-      no_source_edges_created: true,
+      no_source_nodes_created: !nodes.some((node) => node.node_type === "source"),
+      no_source_edges_created: !edges.some(
+        (edge) => edge.relation_type === "supports" || edge.relation_type === "derived_from",
+      ),
       no_source_truth_claim: true,
       no_owner_approval_claim: true,
       no_canon_or_ontology_mutation: true,
@@ -2140,6 +2229,7 @@ function addNode(nodes, node) {
       trust: node.source_refs?.trust ?? null,
       lifecycle: node.source_refs?.lifecycle ?? null,
     },
+    public_source_refs: Array.isArray(node.public_source_refs) ? node.public_source_refs : [],
     trust: {
       claim_ceiling: node.trust?.claim_ceiling ?? "unknown",
     },
@@ -2209,7 +2299,21 @@ async function writeGraph3dBundle(bundlePath) {
   }
 }
 
-function renderGraphHtml3d(graph) {
+function bundleSkipReason(error) {
+  const message = String(error && error.message ? error.message : error);
+  if (/esbuild/i.test(message) && /(platform|binary|@esbuild|install)/i.test(message)) {
+    return "esbuild_platform_binary_unavailable";
+  }
+  return "bundle_build_failed";
+}
+
+function renderGraphHtml3d(graph, options = {}) {
+  const bundleBuild = options.bundleBuild ?? { ok: true, skipped_reason: null };
+  const bundleMissingBanner = bundleBuild.ok
+    ? ""
+    : '<div class="bundle-missing-banner">3D 번들을 만들지 못했습니다 (' +
+      escapeHtml(bundleBuild.skipped_reason || "bundle_build_failed") +
+      '). 아래 2D 보기를 사용하세요. <a href="./graph_preview_2d.html">2D 보기 열기</a></div>';
   return `<!doctype html>
 <html lang="en">
 <head>
@@ -2268,6 +2372,8 @@ function renderGraphHtml3d(graph) {
     #graph3d { width: 100%; height: 100%; display: block; background: #05070b; }
     .hud { position: absolute; left: 18px; bottom: 16px; color: #cbd5e1; font-size: 12px; background: rgba(15, 23, 42, .72); border: 1px solid rgba(148, 163, 184, .22); border-radius: 8px; padding: 9px 11px; backdrop-filter: blur(10px); }
     .hud-hint { position: absolute; right: 16px; bottom: 16px; color: #94a3b8; font-size: 11px; background: rgba(15, 23, 42, .72); border: 1px solid rgba(148, 163, 184, .22); border-radius: 8px; padding: 7px 10px; backdrop-filter: blur(10px); pointer-events: none; }
+    .bundle-missing-banner { position: absolute; left: 50%; top: 16px; transform: translateX(-50%); z-index: 20; color: #fde68a; font-size: 12px; background: rgba(120, 53, 15, .82); border: 1px solid rgba(217, 119, 6, .5); border-radius: 8px; padding: 8px 12px; backdrop-filter: blur(10px); }
+    .bundle-missing-banner a { color: #fde68a; }
     .legend-panel { position: absolute; top: 16px; right: 18px; width: max-content; min-width: 170px; max-width: min(250px, calc(100% - 36px)); max-height: calc(100vh - 32px); overflow: auto; color: #e0f2fe; background: rgba(15, 23, 42, .84); border: 1px solid rgba(148, 163, 184, .26); border-radius: 8px; padding: 12px 14px; font-size: 13px; font-weight: 650; backdrop-filter: blur(10px); }
     .legend-title { font-size: 14px; font-weight: 750; color: #f8fafc; margin-bottom: 10px; }
     .legend-section { margin-top: 10px; color: #a5b4fc; font-size: 12px; font-weight: 750; text-transform: uppercase; letter-spacing: .04em; }
@@ -2436,6 +2542,7 @@ function renderGraphHtml3d(graph) {
       <canvas id="graph3d" aria-label="Soulforge generated 3D knowledge graph"></canvas>
       <div class="hud" id="hud">3D graph initializing</div>
       <div class="hud-hint" id="hudHint">더블클릭: 포커스 · 우클릭: 탐지 카드</div>
+      ${bundleMissingBanner}
       <div class="legend-panel" id="legendPanel"></div>
       <div class="tooltip" id="tooltip"></div>
       <div class="context-menu" id="nodeContextMenu" role="menu" aria-hidden="true">
@@ -2967,7 +3074,7 @@ const COMPONENT_HALO_COLORS = [
 
 const state = {
   layout: "force_3d",
-  nodeTypes: Object.fromEntries([...new Set(graph.nodes.map((node) => node.node_type))].sort().map((type) => [type, true])),
+  nodeTypes: Object.fromEntries([...new Set(graph.nodes.map((node) => node.node_type))].sort().map((type) => [type, type !== "source"])),
   edgeTypes: Object.fromEntries([...new Set(graph.edges.map((edge) => edge.relation_type))].sort().map((type) => [type, true])),
   nodeColors: { ...graph.palettes.node_type },
   relationColors: { ...graph.palettes.relation_type },
@@ -4240,6 +4347,7 @@ function buildDetectionCardPayload(nodeRef) {
     candidates: candidateNodes,
     relation_paths: relationPaths,
     source_refs: sourceRefs,
+    public_source_refs: Array.isArray(selectedNode.public_source_refs) ? selectedNode.public_source_refs : [],
     missing_evidence: missingEvidence,
     missing_evidence_items: missingEvidenceItems,
     next_actions: nextActions,
@@ -4526,6 +4634,7 @@ function renderDetectionCard(payload) {
   appendDetectionSection(root, "후보 노드", payload.candidate_nodes, renderDetectionCandidateItem, "후보 노드가 없습니다.");
   appendDetectionSection(root, "근거 경로", payload.relation_paths, renderDetectionRelationItem, "현재 필터 기준 관계 경로가 없습니다.");
   appendDetectionSection(root, "출처 ref", payload.source_refs, renderDetectionSourceItem, "출처 ref가 없습니다.");
+  appendDetectionSection(root, "공개 출처 (클릭)", payload.public_source_refs, renderDetectionPublicSourceItem, "공개 출처 URL이 없습니다.");
   appendDetectionSection(root, "부족한 증거", payload.missing_evidence_items, renderDetectionCodedItem, "부족한 증거 코드가 없습니다.");
   appendDetectionSection(root, "다음 행동", payload.next_action_items, renderDetectionCodedItem, "다음 행동 코드가 없습니다.");
   root.append(
@@ -4641,6 +4750,21 @@ function renderDetectionSourceItem(sourceRef) {
     createDetectionElement("span", "detection-card-item-title", sourceRef.ref),
     createDetectionElement("span", "meta", sourceRef.ref_type + " / roles: " + sourceRef.roles.join(", ")),
   );
+  return item;
+}
+
+function renderDetectionPublicSourceItem(url) {
+  const item = createDetectionElement("li", "");
+  if (/^https?:\/\//i.test(String(url))) {
+    const link = document.createElement("a");
+    link.href = url;
+    link.textContent = url;
+    link.target = "_blank";
+    link.rel = "noopener noreferrer";
+    item.append(link);
+  } else {
+    item.append(createDetectionElement("span", "meta", String(url)));
+  }
   return item;
 }
 
@@ -5102,6 +5226,7 @@ async function writeObsidianExport({ graph, outputDir }) {
   await fs.writeFile(path.join(outputDir, "README.md"), renderObsidianReadme(graph), "utf8");
   await fs.writeFile(path.join(outputDir, "Graph Index.md"), renderGraphIndexNote(graph), "utf8");
   for (const node of graph.nodes) {
+    if (node.node_type === "source") continue;
     await fs.writeFile(path.join(outputDir, "Nodes", `${slugForNote(node.node_ref)}.md`), renderNodeNote(node, graph), "utf8");
   }
 }
@@ -5171,6 +5296,10 @@ function renderNodeNote(node, graph) {
     .filter((edge) => edge.to_ref === node.node_ref)
     .map((edge) => `- [[${slugForNote(edge.from_ref)}|${escapeMarkdown(labelForNodeRef(graph, edge.from_ref))}]] -> ${edge.relation_type}`)
     .join("\n");
+  const publicSourceRefs = Array.isArray(node.public_source_refs) ? node.public_source_refs : [];
+  const sourceRefsSection = publicSourceRefs.length
+    ? `## Source Refs\n\n${publicSourceRefs.map((url) => `- <${url}>`).join("\n")}\n\n`
+    : "";
   return `---
 schema_version: ${KNOWLEDGE_GRAPH_SCHEMA_VERSION}
 generated: true
@@ -5196,7 +5325,7 @@ Ref: \`${node.node_ref}\`
 
 ${node.summary ? `${escapeMarkdown(node.summary)}\n` : ""}
 
-## Outbound
+${sourceRefsSection}## Outbound
 
 ${outbound || "- none"}
 
