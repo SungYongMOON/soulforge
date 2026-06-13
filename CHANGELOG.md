@@ -17,6 +17,10 @@
   압축 (정본 아님, AGENTS 라우팅 불변 — owner 결정 대기). 드리프트 가드
   `guild_hall/validate/boot_digest_guard.mjs` (원본 해시 manifest, 변경 시
   실패→재검토 후 --update 재서명, 100줄 상한 강제).
+- B4: 후보큐 archive 자동화 — `candidate_queue.mjs --archive-closed [--apply]`
+  (candidate_queue_archive_policy_v0 흡수). 닫힌 후보를
+  `archive/<year>/` 로 이동만(내용 불변, ARCHIVE_INDEX.md 기록), 발견
+  로직은 하위 디렉토리 무시라 자연 차폐. 로드맵 저장 규칙에 1줄 등재.
 
 ## 2026-06-12
 

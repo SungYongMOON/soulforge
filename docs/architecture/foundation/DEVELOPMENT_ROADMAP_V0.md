@@ -40,6 +40,8 @@
 | 실행 준비 완료 | owner, 입력, 출력, 경계, 완료 기준, validator 가 닫힘 | public-safe 는 `.mission/<mission_id>/dev_worker_request.yaml`, private 는 `_workmeta/<project_code>/dev_worker_queue/*.yaml` | owner 선택이 필요한 항목을 실행 큐로 밀어 넣기 |
 | 지식/RAG 후보 | 개발할 코드보다 source 사용, 반복 질문, 지식 접근, RAG metadata 정리가 핵심임 | `_workmeta/<project_code>/reports/procedure_capture/**`, `_workmeta/<project_code>/reports/knowledge_access/**`, 또는 system/reusable 은 `_workmeta/system/**` | source text/chunk/body 를 public repo 또는 `_workmeta` 에 저장 |
 
+닫힌 후보(`completed`/`promoted`/`rejected`/`dropped`/`cancelled`)는 큐 가시성을 위해 `dev_worker_candidate_queue/archive/<year>/` 로 이동만 한다(내용 불변, `archive/ARCHIVE_INDEX.md` 에 이동 기록). 실행: `node guild_hall/dev_worker/candidate_queue.mjs --archive-closed [--apply]`.
+
 실행 준비 완료로 올릴 때 최소 필드는 `task_id`, `status`, `project_code`, `summary`, `allowed_write_paths`, `acceptance_checks`, `stop_conditions`, `origin.evidence_refs` 다.
 `owner_approval.required: true` 이고 `approved: false` 인 후보는 사용자의 새 명시 승인이나 같은 파일의 start condition 충족 증거가 없으면 실행 큐로 승격하지 않는다.
 대신 작은 public-safe 선행 작업, 규칙 정리, validator 보강, synthetic fixture 작성처럼 승인 대상을 침범하지 않는 하위 slice 만 수행한다.

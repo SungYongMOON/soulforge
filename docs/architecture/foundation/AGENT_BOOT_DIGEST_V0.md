@@ -58,6 +58,7 @@ project 후보 → `_workmeta/<project>/dev_worker_candidate_queue/` /
 status, project_code, summary, allowed_write_paths, acceptance_checks,
 stop_conditions, origin.evidence_refs. `owner_approval.required && !approved`
 면 새 명시 승인 없이 실행 큐 승격 금지(무해한 하위 slice 만).
+닫힌 후보는 `archive/<year>/` 로 이동만 (`candidate_queue.mjs --archive-closed`).
 금지: 임시 TODO·임의 plan.md·backlog 중복 복제·transcript/raw 저장.
 
 ## 7. 처음 잡을 때 읽는 순서 (원본)
