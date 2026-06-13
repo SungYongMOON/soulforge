@@ -3,20 +3,87 @@
   "checklist_version": "bootstrap.checklist.v0",
   "profile_defaults": {
     "default": "public-only",
-    "supported": ["public-only", "operator", "owner-with-state"]
+    "supported": [
+      "public-only",
+      "operator",
+      "owner-with-state"
+    ]
   },
   "required_tools": [
-    { "id": "git", "label": "Git", "command": ["git", "--version"] },
-    { "id": "gh", "label": "GitHub CLI", "command": ["gh", "--version"] },
-    { "id": "node", "label": "Node.js", "command": ["node", "--version"] },
-    { "id": "npm", "label": "npm", "command": ["npm", "--version"] },
-    { "id": "python3", "label": "Python 3", "command": ["python3", "--version"] },
-    { "id": "uv", "label": "uv", "command": ["uv", "--version"] }
+    {
+      "id": "git",
+      "label": "Git",
+      "command": [
+        "git",
+        "--version"
+      ]
+    },
+    {
+      "id": "gh",
+      "label": "GitHub CLI",
+      "command": [
+        "gh",
+        "--version"
+      ]
+    },
+    {
+      "id": "node",
+      "label": "Node.js",
+      "command": [
+        "node",
+        "--version"
+      ]
+    },
+    {
+      "id": "npm",
+      "label": "npm",
+      "command": [
+        "npm",
+        "--version"
+      ]
+    },
+    {
+      "id": "python3",
+      "label": "Python 3",
+      "command": [
+        "python3",
+        "--version"
+      ]
+    },
+    {
+      "id": "uv",
+      "label": "uv",
+      "command": [
+        "uv",
+        "--version"
+      ]
+    }
   ],
   "optional_tools": [
-    { "id": "nlm", "label": "NotebookLM CLI", "command": ["nlm", "--version"] },
-    { "id": "codex_cli", "label": "Codex CLI", "command": ["codex", "--version"] },
-    { "id": "promptfoo", "label": "promptfoo CLI", "command": ["promptfoo", "--version"] }
+    {
+      "id": "nlm",
+      "label": "NotebookLM CLI",
+      "command": [
+        "nlm",
+        "--version"
+      ]
+    },
+    {
+      "id": "codex_cli",
+      "label": "Codex CLI",
+      "command": [
+        "codex",
+        "--version"
+      ]
+    },
+    {
+      "id": "promptfoo",
+      "label": "promptfoo CLI",
+      "command": [
+        "promptfoo",
+        "--version"
+      ]
+    }
   ],
   "required_skill_policy": "all_syncable_codex_bridges",
   "required_local_files": [
@@ -25,21 +92,30 @@
       "label": "gateway mail fetch env",
       "path": "guild_hall/state/gateway/mailbox/state/email_fetch.env",
       "template": "guild_hall/gateway/mail_fetch/email_fetch.env.example",
-      "profiles": ["operator", "owner-with-state"]
+      "profiles": [
+        "operator",
+        "owner-with-state"
+      ]
     },
     {
       "id": "telegram_notify_env",
       "label": "town_crier telegram env",
       "path": "guild_hall/state/town_crier/telegram_notify.env",
       "template": "guild_hall/town_crier/telegram_notify.env.example",
-      "profiles": ["operator", "owner-with-state"]
+      "profiles": [
+        "operator",
+        "owner-with-state"
+      ]
     },
     {
       "id": "gateway_notify_policy",
       "label": "gateway notify policy",
       "path": "guild_hall/state/gateway/bindings/notify_policy.yaml",
       "template": "docs/architecture/workspace/examples/guild_hall/state/gateway/bindings/notify_policy.yaml",
-      "profiles": ["operator", "owner-with-state"]
+      "profiles": [
+        "operator",
+        "owner-with-state"
+      ]
     }
   ],
   "optional_local_files": [
@@ -49,7 +125,10 @@
       "path": "guild_hall/state/gateway/mailbox/state/mail_send.env",
       "template": "guild_hall/gateway/mail_send/mail_send.env.example",
       "note": "outbound mail slot-only until sender runner exists",
-      "profiles": ["operator", "owner-with-state"]
+      "profiles": [
+        "operator",
+        "owner-with-state"
+      ]
     }
   ],
   "optional_local_paths": [
@@ -58,7 +137,9 @@
       "label": "private state repo",
       "path": "private-state/.git",
       "note": "optional nested private state repo",
-      "profiles": ["owner-with-state"]
+      "profiles": [
+        "owner-with-state"
+      ]
     },
     {
       "id": "workflow_evolution_venv",
@@ -72,7 +153,9 @@
       "id": "private_state_repo_required",
       "label": "private state repo",
       "path": "private-state/.git",
-      "profiles": ["owner-with-state"],
+      "profiles": [
+        "owner-with-state"
+      ],
       "required": true,
       "note": "owner profile requires nested private state repo"
     },
@@ -80,7 +163,9 @@
       "id": "private_state_gateway_intake_inbox",
       "label": "private state intake inbox",
       "path": "private-state/guild_hall/state/gateway/intake_inbox",
-      "profiles": ["owner-with-state"],
+      "profiles": [
+        "owner-with-state"
+      ],
       "required": false,
       "note": "optional continuity data"
     },
@@ -88,7 +173,9 @@
       "id": "private_state_gateway_monster_events",
       "label": "private state monster events",
       "path": "private-state/guild_hall/state/gateway/log/monster_events",
-      "profiles": ["owner-with-state"],
+      "profiles": [
+        "owner-with-state"
+      ],
       "required": false,
       "note": "optional continuity data"
     },
@@ -96,7 +183,9 @@
       "id": "private_state_gateway_outbound",
       "label": "private state outbound mail",
       "path": "private-state/guild_hall/state/gateway/mailbox/outbound",
-      "profiles": ["owner-with-state"],
+      "profiles": [
+        "owner-with-state"
+      ],
       "required": false,
       "note": "optional continuity data"
     }
@@ -105,14 +194,29 @@
     {
       "id": "gateway_cli_syntax",
       "label": "gateway CLI syntax check",
-      "command": ["node", "--check", "guild_hall/gateway/cli.mjs"],
-      "profiles": ["public-only", "operator", "owner-with-state"]
+      "command": [
+        "node",
+        "--check",
+        "guild_hall/gateway/cli.mjs"
+      ],
+      "profiles": [
+        "public-only",
+        "operator",
+        "owner-with-state"
+      ]
     },
     {
       "id": "town_crier_status",
       "label": "town_crier status check",
-      "command": ["node", "guild_hall/town_crier/cli.mjs", "status"],
-      "profiles": ["operator", "owner-with-state"]
+      "command": [
+        "node",
+        "guild_hall/town_crier/cli.mjs",
+        "status"
+      ],
+      "profiles": [
+        "operator",
+        "owner-with-state"
+      ]
     },
     {
       "id": "mail_fetch_py_compile",
@@ -125,7 +229,35 @@
         "guild_hall/gateway/mail_fetch/healthcheck.py",
         "guild_hall/town_crier/telegram_send.py"
       ],
-      "profiles": ["operator", "owner-with-state"]
+      "profiles": [
+        "operator",
+        "owner-with-state"
+      ]
+    },
+    {
+      "id": "platform_binary_native_match",
+      "label": "node_modules native binaries match this host (else: npm ci)",
+      "command": [
+        "node",
+        "guild_hall/doctor/platform_binary_check.mjs"
+      ],
+      "profiles": [
+        "public-only",
+        "operator",
+        "owner-with-state"
+      ]
+    },
+    {
+      "id": "dev_erp_doctor",
+      "label": "dev-erp app doctor (env/db/gitignore)",
+      "command": [
+        "node",
+        "ui-workspace/apps/dev-erp/tools/doctor.mjs"
+      ],
+      "profiles": [
+        "operator",
+        "owner-with-state"
+      ]
     }
   ],
   "live_smokes": [
@@ -133,19 +265,27 @@
       "id": "hiworks_pop3_live",
       "label": "Hiworks POP3 live auth",
       "command": "python3 guild_hall/doctor/live_checks.py",
-      "profiles": ["operator", "owner-with-state"]
+      "profiles": [
+        "operator",
+        "owner-with-state"
+      ]
     },
     {
       "id": "hiworks_smtp_live",
       "label": "Hiworks SMTP live auth",
       "command": "python3 guild_hall/doctor/live_checks.py",
-      "profiles": ["owner-with-state"]
+      "profiles": [
+        "owner-with-state"
+      ]
     },
     {
       "id": "telegram_live",
       "label": "Telegram live auth",
       "command": "python3 guild_hall/doctor/live_checks.py",
-      "profiles": ["operator", "owner-with-state"]
+      "profiles": [
+        "operator",
+        "owner-with-state"
+      ]
     }
   ],
   "remote_checks": [
@@ -153,14 +293,22 @@
       "id": "gh_auth_status",
       "label": "GitHub CLI auth",
       "type": "gh_auth",
-      "profiles": ["public-only", "operator", "owner-with-state"]
+      "profiles": [
+        "public-only",
+        "operator",
+        "owner-with-state"
+      ]
     },
     {
       "id": "git_public_origin",
       "label": "public repo origin remote",
       "type": "git_origin",
       "target": "public",
-      "profiles": ["public-only", "operator", "owner-with-state"]
+      "profiles": [
+        "public-only",
+        "operator",
+        "owner-with-state"
+      ]
     },
     {
       "id": "git_public_sync",
@@ -168,14 +316,20 @@
       "type": "git_sync",
       "target": "public",
       "branch": "main",
-      "profiles": ["public-only", "operator", "owner-with-state"]
+      "profiles": [
+        "public-only",
+        "operator",
+        "owner-with-state"
+      ]
     },
     {
       "id": "git_private_origin",
       "label": "private state repo origin remote",
       "type": "git_origin",
       "target": "private",
-      "profiles": ["owner-with-state"]
+      "profiles": [
+        "owner-with-state"
+      ]
     },
     {
       "id": "git_private_sync",
@@ -183,24 +337,35 @@
       "type": "git_sync",
       "target": "private",
       "branch": "main",
-      "profiles": ["owner-with-state"]
+      "profiles": [
+        "owner-with-state"
+      ]
     }
   ],
   "live_followups": [
     {
       "id": "gateway_fetch_once",
       "command": "npm run guild-hall:gateway:fetch -- --once --json",
-      "profiles": ["operator", "owner-with-state"]
+      "profiles": [
+        "operator",
+        "owner-with-state"
+      ]
     },
     {
       "id": "town_crier_status",
       "command": "npm run guild-hall:town-crier:status",
-      "profiles": ["operator", "owner-with-state"]
+      "profiles": [
+        "operator",
+        "owner-with-state"
+      ]
     },
     {
       "id": "town_crier_send",
       "command": "npm run guild-hall:town-crier:send -- --text \"doctor ready\"",
-      "profiles": ["operator", "owner-with-state"]
+      "profiles": [
+        "operator",
+        "owner-with-state"
+      ]
     }
   ]
 }

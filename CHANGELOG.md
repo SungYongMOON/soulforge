@@ -1,4 +1,17 @@
-﻿# CHANGELOG
+# CHANGELOG
+
+## 2026-06-13
+
+### Revision `working` - 하네스 강화 B1·B2 (verify_gate + doctor 확장)
+
+- B1: dev-erp `tools/verify_gate.mjs` — 페이즈 종료 기계 체크 9종 +
+  AGENT_EXECUTION_CONTRACT_V0 Level 0~3 매핑, 자기검증 테스트, 브라우저
+  검증은 도구 비종속 절차 문서(BROWSER_QA_PROCEDURE.md)로 분리.
+- B2: doctor safe_smokes 2종 추가 — `platform_binary_native_match`
+  (guild_hall/doctor/platform_binary_check.mjs, 외장 볼륨 호스트 이동 시
+  네이티브 바이너리 불일치를 npm ci 안내로 검출, doctor_platform_binary_check_v0
+  흡수) + `dev_erp_doctor` (dev-erp tools/doctor.mjs: node/syntax/DB 스키마·
+  실메타 신선도/gitignore, --live 선택). 전부 표준 Node — Codex 동일 실행.
 
 ## 2026-06-12
 
