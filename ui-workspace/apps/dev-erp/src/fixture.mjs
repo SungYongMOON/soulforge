@@ -124,6 +124,38 @@ export function loadFixture(store) {
   ];
   for (const c of contactSeed) store.createContact({ ...c, data_label: "synthetic" });
 
+  // P3 재고/BOM/부품 합성 시드 (공유 마스터)
+  const partsSeed = [
+    { id: "pt-board", name: "수신부 보드", part_no: "BRD-001", type: "board", grp: "board", min_qty: 2 },
+    { id: "pt-r1", name: "저항 10k", part_no: "R-10K", type: "resistor", grp: "passive", uom: "ea", min_qty: 100 },
+    { id: "pt-c1", name: "캐패시터 100nF", part_no: "C-100N", type: "capacitor", grp: "passive", uom: "ea", min_qty: 100 },
+    { id: "pt-ic1", name: "ADC IC", part_no: "IC-ADC", type: "ic", grp: "active", uom: "ea", min_qty: 10 },
+    { id: "pt-conn", name: "커넥터 8핀", part_no: "CN-8", type: "connector", grp: "mech", uom: "ea", min_qty: 20 }
+  ];
+  partsSeed.forEach((p) => store.upsertPart({ ...p, data_label: "synthetic" }));
+  const locs = [
+    { id: "loc-wh", name: "본사 창고", kind: "warehouse" },
+    { id: "loc-rack1", name: "랙 A", kind: "rack", parent_id: "loc-wh" },
+    { id: "loc-bin1", name: "A-1-1", kind: "bin", parent_id: "loc-rack1" },
+    { id: "loc-repair", name: "수리중", kind: "virtual", is_virtual: 1 }
+  ];
+  locs.forEach((l) => store.upsertLocation({ ...l, data_label: "synthetic" }));
+  // 재고: 일부는 안전재고 미달(부족) 유도
+  store.setStock("pt-board", "loc-bin1", 1);   // min 2 → 부족
+  store.setStock("pt-r1", "loc-bin1", 350);    // min 100 → 충분
+  store.setStock("pt-c1", "loc-bin1", 40);     // min 100 → 부족
+  store.setStock("pt-ic1", "loc-bin1", 12);    // min 10 → 충분
+  store.setStock("pt-ic1", "loc-repair", 5);   // 가상(수리중)=가용서 제외
+  store.setStock("pt-conn", "loc-bin1", 8);    // min 20 → 부족
+  // BOM: 보드 = R1×4, C1×6, IC1×1, CONN×1
+  store.addBomEdge("pt-board", "pt-r1", 4, "R1-R4");
+  store.addBomEdge("pt-board", "pt-c1", 6, "C1-C6");
+  store.addBomEdge("pt-board", "pt-ic1", 1, "U1");
+  store.addBomEdge("pt-board", "pt-conn", 1, "J1");
+  // 과제 사용 링크
+  store.linkPartProject("pt-board", "PRJ-A");
+  store.linkPartProject("pt-ic1", "PRJ-A");
+
   store.appendEvent({
     actor_ref: "fixture", actor_kind: "system", kind: "ingest",
     note: "synthetic fixture loaded", used_refs: ["src/fixture.mjs"], data_label: "synthetic"

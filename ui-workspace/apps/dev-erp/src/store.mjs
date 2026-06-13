@@ -245,7 +245,48 @@ CREATE TABLE IF NOT EXISTS contact_project_map ( -- 연락처↔과제 N:N
   project_id TEXT NOT NULL REFERENCES core_project(id),
   PRIMARY KEY (contact_id, project_id)
 );
+-- P3 재고/BOM/부품 (전사 공유 마스터; 과제는 '사용'만 태깅). 메타 전용·외부전송 0(공급사 실시간 조회 보류).
+CREATE TABLE IF NOT EXISTS core_part (   -- 부품/품목 마스터 (프로젝트 하위 아님)
+  id TEXT PRIMARY KEY,
+  name TEXT NOT NULL,
+  part_no TEXT,                          -- 품번
+  type TEXT,                             -- resistor|capacitor|ic|connector|board|material|etc
+  grp TEXT,                              -- 분류 그룹
+  spec TEXT,                             -- 특성(텍스트)
+  uom TEXT NOT NULL DEFAULT 'ea',        -- 단위
+  maker TEXT,
+  min_qty REAL NOT NULL DEFAULT 0,       -- 안전재고(내부 판정 기준)
+  data_label TEXT NOT NULL DEFAULT 'synthetic'
+);
+CREATE TABLE IF NOT EXISTS bom_edge (    -- BOM 부모-자식 구성 (board가 부모면 그 BOM 묶음)
+  parent_part_id TEXT NOT NULL REFERENCES core_part(id),
+  child_part_id TEXT NOT NULL REFERENCES core_part(id),
+  qty REAL NOT NULL DEFAULT 1,
+  ref_des TEXT,                          -- 참조지정자(R1,C3 등)
+  PRIMARY KEY (parent_part_id, child_part_id)
+);
+CREATE TABLE IF NOT EXISTS core_location ( -- 위치 트리(창고>랙>선반>칸) + 가상위치(수리중/분실 등)
+  id TEXT PRIMARY KEY,
+  name TEXT NOT NULL,
+  kind TEXT NOT NULL DEFAULT 'bin',      -- warehouse|rack|shelf|bin|virtual
+  parent_id TEXT REFERENCES core_location(id),
+  is_virtual INTEGER NOT NULL DEFAULT 0, -- 1=가상(수리중/분실/공급사 등; 재고부족 판정서 제외)
+  data_label TEXT NOT NULL DEFAULT 'synthetic'
+);
+CREATE TABLE IF NOT EXISTS core_stock (  -- 재고 = 품목 × 위치 교차
+  part_id TEXT NOT NULL REFERENCES core_part(id),
+  location_id TEXT NOT NULL REFERENCES core_location(id),
+  qty REAL NOT NULL DEFAULT 0,
+  PRIMARY KEY (part_id, location_id)
+);
+CREATE TABLE IF NOT EXISTS part_project_map ( -- 부품↔과제 '사용' 링크 N:N
+  part_id TEXT NOT NULL REFERENCES core_part(id),
+  project_id TEXT NOT NULL REFERENCES core_project(id),
+  PRIMARY KEY (part_id, project_id)
+);
 CREATE INDEX IF NOT EXISTS idx_attach_entity ON core_attachment(entity_type, entity_id);
+CREATE INDEX IF NOT EXISTS idx_stock_part ON core_stock(part_id);
+CREATE INDEX IF NOT EXISTS idx_bom_parent ON bom_edge(parent_part_id);
 CREATE INDEX IF NOT EXISTS idx_item_proj ON core_item(project_id, status);
 CREATE INDEX IF NOT EXISTS idx_item_due ON core_item(due);
 CREATE INDEX IF NOT EXISTS idx_mail_at ON core_mail(at);
@@ -797,6 +838,106 @@ export class Store {
     return rows.map((r) => ({ ...r, party_name: r.party_id ? (pn.get(r.party_id) ?? r.party_id) : null, projects: this.purchaseProjects(r.id) }));
   }
 
+  // ---------- P3 부품/BOM/위치/재고 (공유 마스터·내부 판정만) ----------
+  upsertPart({ id, name, part_no = null, type = null, grp = null, spec = null, uom = "ea", maker = null, min_qty = 0, data_label = "real" }) {
+    const t = String(name ?? "").trim();
+    if (!t) return { error: "name_required" };
+    const pid = id || `part_${randomBytes(5).toString("hex")}`;
+    this.db.prepare(
+      `INSERT INTO core_part(id,name,part_no,type,grp,spec,uom,maker,min_qty,data_label) VALUES(?,?,?,?,?,?,?,?,?,?)
+       ON CONFLICT(id) DO UPDATE SET name=excluded.name, part_no=excluded.part_no, type=excluded.type, grp=excluded.grp,
+         spec=excluded.spec, uom=excluded.uom, maker=excluded.maker, min_qty=excluded.min_qty`
+    ).run(pid, t, part_no, type, grp, spec, uom, maker, Number(min_qty) || 0, data_label);
+    return { ok: true, id: pid };
+  }
+  parts({ type = null, grp = null, project = null, q = null } = {}) {
+    let sql = "SELECT p.* FROM core_part p";
+    const cond = [], args = [];
+    if (project) { sql += " JOIN part_project_map m ON m.part_id=p.id"; cond.push("m.project_id=?"); args.push(project); }
+    if (type) { cond.push("p.type=?"); args.push(type); }
+    if (grp) { cond.push("p.grp=?"); args.push(grp); }
+    if (q) { cond.push("(p.name LIKE ? OR p.part_no LIKE ?)"); args.push(`%${q}%`, `%${q}%`); }
+    if (cond.length) sql += " WHERE " + cond.join(" AND ");
+    sql += " ORDER BY p.name LIMIT 500";
+    const rows = this.db.prepare(sql).all(...args);
+    return rows.map((p) => ({ ...p, on_hand: this.stockOnHand(p.id), projects: this.partProjects(p.id) }));
+  }
+  linkPartProject(part_id, project_id) {
+    if (!this.db.prepare("SELECT 1 FROM core_part WHERE id=?").get(part_id)) return { error: "part_not_found" };
+    if (!this.db.prepare("SELECT 1 FROM core_project WHERE id=?").get(project_id)) return { error: "project_not_found" };
+    this.db.prepare("INSERT OR IGNORE INTO part_project_map(part_id,project_id) VALUES(?,?)").run(part_id, project_id);
+    return { ok: true };
+  }
+  partProjects(part_id) {
+    return this.db.prepare("SELECT project_id FROM part_project_map WHERE part_id=?").all(part_id).map((r) => r.project_id);
+  }
+  // BOM
+  addBomEdge(parent_part_id, child_part_id, qty = 1, ref_des = null) {
+    if (parent_part_id === child_part_id) return { error: "self_reference" };
+    if (!this.db.prepare("SELECT 1 FROM core_part WHERE id=?").get(parent_part_id)) return { error: "parent_not_found" };
+    if (!this.db.prepare("SELECT 1 FROM core_part WHERE id=?").get(child_part_id)) return { error: "child_not_found" };
+    this.db.prepare(
+      `INSERT INTO bom_edge(parent_part_id,child_part_id,qty,ref_des) VALUES(?,?,?,?)
+       ON CONFLICT(parent_part_id,child_part_id) DO UPDATE SET qty=excluded.qty, ref_des=excluded.ref_des`
+    ).run(parent_part_id, child_part_id, Number(qty) || 1, ref_des);
+    this.appendEvent({ actor_ref: "owner", actor_kind: "human", kind: "bom_change", item_ref: parent_part_id, to: child_part_id, used_refs: ["bom"], data_label: "real", note: "add/update" });
+    return { ok: true };
+  }
+  bom(parent_part_id) {
+    return this.db.prepare(
+      `SELECT b.child_part_id, b.qty, b.ref_des, c.name, c.part_no, c.type
+       FROM bom_edge b JOIN core_part c ON c.id=b.child_part_id WHERE b.parent_part_id=? ORDER BY b.ref_des, c.name`
+    ).all(parent_part_id);
+  }
+  bomChanges(limit = 20) {
+    return this.recentEvents(500, null).filter((e) => e.kind === "bom_change").slice(0, limit);
+  }
+  // 위치 트리
+  upsertLocation({ id, name, kind = "bin", parent_id = null, is_virtual = 0, data_label = "real" }) {
+    const t = String(name ?? "").trim();
+    if (!t) return { error: "name_required" };
+    const lid = id || `loc_${randomBytes(4).toString("hex")}`;
+    this.db.prepare(
+      `INSERT INTO core_location(id,name,kind,parent_id,is_virtual,data_label) VALUES(?,?,?,?,?,?)
+       ON CONFLICT(id) DO UPDATE SET name=excluded.name, kind=excluded.kind, parent_id=excluded.parent_id, is_virtual=excluded.is_virtual`
+    ).run(lid, t, kind, parent_id, is_virtual ? 1 : 0, data_label);
+    return { ok: true, id: lid };
+  }
+  locations() { return this.db.prepare("SELECT * FROM core_location ORDER BY is_virtual, kind, name").all(); }
+  // 재고
+  setStock(part_id, location_id, qty) {
+    if (!this.db.prepare("SELECT 1 FROM core_part WHERE id=?").get(part_id)) return { error: "part_not_found" };
+    if (!this.db.prepare("SELECT 1 FROM core_location WHERE id=?").get(location_id)) return { error: "location_not_found" };
+    this.db.prepare(
+      `INSERT INTO core_stock(part_id,location_id,qty) VALUES(?,?,?)
+       ON CONFLICT(part_id,location_id) DO UPDATE SET qty=excluded.qty`
+    ).run(part_id, location_id, Number(qty) || 0);
+    return { ok: true };
+  }
+  // 가용 재고 = 비가상 위치 합계(수리중/분실/공급사 등 가상 제외)
+  stockOnHand(part_id) {
+    return this.db.prepare(
+      `SELECT COALESCE(SUM(s.qty),0) AS q FROM core_stock s JOIN core_location l ON l.id=s.location_id
+       WHERE s.part_id=? AND l.is_virtual=0`
+    ).get(part_id).q;
+  }
+  stock({ part = null, location = null } = {}) {
+    const cond = [], args = [];
+    if (part) { cond.push("s.part_id=?"); args.push(part); }
+    if (location) { cond.push("s.location_id=?"); args.push(location); }
+    const where = cond.length ? "WHERE " + cond.join(" AND ") : "";
+    return this.db.prepare(
+      `SELECT s.*, p.name AS part_name, l.name AS location_name, l.is_virtual FROM core_stock s
+       JOIN core_part p ON p.id=s.part_id JOIN core_location l ON l.id=s.location_id ${where} ORDER BY p.name`
+    ).all(...args);
+  }
+  // 재고 부족(내부 판정만; 외부 공급사 조회 없음): min_qty>0 이고 가용<min_qty
+  stockLow() {
+    return this.db.prepare("SELECT * FROM core_part WHERE min_qty > 0 ORDER BY name").all()
+      .map((p) => ({ id: p.id, name: p.name, part_no: p.part_no, min_qty: p.min_qty, on_hand: this.stockOnHand(p.id) }))
+      .filter((p) => p.on_hand < p.min_qty);
+  }
+
   // ---------- 연락처 마스터(메타) ----------
   createContact({ id, name, org = null, role = null, email = null, phone = null, party_id = null, projects = [], data_label = "real" }) {
     const t = String(name ?? "").trim();
@@ -930,6 +1071,12 @@ export class Store {
     let removed = 0;
     const del = (sql) => { removed += this.db.prepare(sql).run().changes ?? 0; };
     // FK 안전 순서: 매핑/자식 → 부모. (구매·회의 맵이 synthetic 프로젝트/항목을 참조)
+    // P3 재고/BOM/부품 (자식 맵 → 부모)
+    del("DELETE FROM core_stock WHERE part_id IN (SELECT id FROM core_part WHERE data_label='synthetic') OR location_id IN (SELECT id FROM core_location WHERE data_label='synthetic')");
+    del("DELETE FROM bom_edge WHERE parent_part_id IN (SELECT id FROM core_part WHERE data_label='synthetic') OR child_part_id IN (SELECT id FROM core_part WHERE data_label='synthetic')");
+    del("DELETE FROM part_project_map WHERE part_id IN (SELECT id FROM core_part WHERE data_label='synthetic') OR project_id IN (SELECT id FROM core_project WHERE data_label='synthetic')");
+    del("DELETE FROM core_part WHERE data_label='synthetic'");
+    del("DELETE FROM core_location WHERE data_label='synthetic'");
     del("DELETE FROM contact_project_map WHERE contact_id IN (SELECT id FROM core_contact WHERE data_label='synthetic') OR project_id IN (SELECT id FROM core_project WHERE data_label='synthetic')");
     del("DELETE FROM core_contact WHERE data_label='synthetic'");
     del("DELETE FROM purchase_project_map WHERE purchase_id IN (SELECT id FROM core_purchase WHERE data_label='synthetic') OR project_id IN (SELECT id FROM core_project WHERE data_label='synthetic')");

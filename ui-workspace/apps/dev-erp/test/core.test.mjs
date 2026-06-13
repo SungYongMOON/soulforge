@@ -666,3 +666,40 @@ test("업무일지: 과제별 완료/신규 섹션 + by_project", () => {
   assert.equal(w.by_project["PRJ-A"].done, 1);
   assert.ok(w.text.includes("## 과제별") && w.text.includes("PRJ-A: 완료 1, 신규 1"));
 });
+
+// ---------- P3 재고/BOM/부품 ----------
+test("P3: 부품 마스터·BOM·재고·부족 판정(내부)·과제 사용 링크", () => {
+  const store = freshStore();
+  loadFixture(store);
+  // 부품 마스터(공유)
+  const parts = store.parts({});
+  assert.ok(parts.length >= 5, "부품 시드");
+  const board = parts.find((p) => p.id === "pt-board");
+  assert.equal(board.type, "board");
+  assert.equal(board.on_hand, 1, "보드 가용 1(비가상)");
+  assert.deepEqual(board.projects, ["PRJ-A"], "과제 사용 링크");
+  // BOM
+  const bom = store.bom("pt-board");
+  assert.equal(bom.length, 4, "보드 BOM 4행");
+  assert.equal(bom.find((b) => b.child_part_id === "pt-r1").qty, 4);
+  // 가상위치 제외 가용: ic = bin1 12 (repair 5 제외)
+  assert.equal(store.stockOnHand("pt-ic1"), 12, "수리중(가상) 5 제외");
+  // 재고 부족(내부 판정): board(1<2), c1(40<100), conn(8<20) = 3건; r1·ic1 충분
+  const low = store.stockLow().map((p) => p.id).sort();
+  assert.deepEqual(low, ["pt-board", "pt-c1", "pt-conn"]);
+  // BOM 변경 이벤트
+  assert.ok(store.bomChanges(50).length >= 4, "bom_change 이벤트 기록");
+  // 가드
+  assert.equal(store.addBomEdge("pt-board", "pt-board").error, "self_reference");
+  assert.equal(store.upsertPart({ name: "" }).error, "name_required");
+  assert.equal(store.setStock("nope", "loc-bin1", 5).error, "part_not_found");
+});
+
+test("P3: purgeSynthetic 가 재고/BOM/부품 synthetic 정리(FK 안전)", () => {
+  const store = freshStore();
+  loadFixture(store);
+  const removed = store.purgeSynthetic();
+  assert.ok(removed > 0);
+  assert.equal(store.parts({}).length, 0, "synthetic 부품 제거");
+  assert.equal(store.locations().length, 0);
+});
