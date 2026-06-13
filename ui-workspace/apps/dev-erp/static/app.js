@@ -211,6 +211,33 @@ function dashLayout() {
   return DEFAULT_DASH.map((x) => ({ ...x }));
 }
 function saveDashLayout(arr) { localStorage.setItem("dev_erp_widgets", JSON.stringify(arr)); }
+// 충돌 해소: anchor(방금 옮기거나 키운 위젯)는 고정, 겹치는 나머지는 아래로 밀어냄(겹침 금지).
+function dashEffH(w) { return w.c ? 2 : w.h; }
+function dashOverlap(a, b) {
+  return a.x < b.x + b.w && a.x + a.w > b.x && a.y < b.y + dashEffH(b) && a.y + dashEffH(a) > b.y;
+}
+function resolveDashCollisions(layout, anchorId) {
+  const anchor = layout.find((w) => w.id === anchorId);
+  const placed = anchor ? [anchor] : [];
+  const rest = layout.filter((w) => w.id !== anchorId).sort((a, b) => a.y - b.y || a.x - b.x);
+  for (const w of rest) {
+    let guard = 0;
+    while (placed.some((p) => dashOverlap(w, p)) && guard++ < 500) w.y += 1;
+    placed.push(w);
+  }
+  return layout;
+}
+// 정렬(컴팩트): 각 위젯을 현재 x에서 최상단 빈자리로 — 빈 간격 제거 + 겹침 해소.
+function compactDash(layout) {
+  const placed = [];
+  for (const w of [...layout].sort((a, b) => a.y - b.y || a.x - b.x)) {
+    w.y = 0;
+    let guard = 0;
+    while (placed.some((p) => dashOverlap(w, p)) && guard++ < 500) w.y += 1;
+    placed.push(w);
+  }
+  return layout;
+}
 
 function miniRow(cells) {
   return `<tr>${cells.map((c) => `<td>${c}</td>`).join("")}</tr>`;
@@ -329,19 +356,27 @@ async function renderHome() {
       `<button class="add-widget-item" data-add="${id}">${L[`tile_${id}`]}</button>`).join("") || `<span class="dim">${L.widget_all_shown}</span>`}</div></div>`;
 
   $("#view").innerHTML = `${kpi}
-    <div class="tile-toolbar">${addBox}</div>
+    <div class="tile-toolbar">${addBox}
+      <button id="widgetArrangeBtn" class="fav-chip" title="${L.widget_arrange}">⊟ ${L.widget_arrange}</button>
+      <button id="widgetResetBtn" class="fav-chip" title="${L.widget_reset}">↺ ${L.widget_reset}</button></div>
     <div class="dashboard" style="height:${maxBottom}px;">${cards.join("")}</div>`;
 
   const grid = $("#view").querySelector(".dashboard");
   const colW = () => grid.getBoundingClientRect().width / DASH_GCOLS;
-  const updateWidget = (id, patch) => { saveDashLayout(dashLayout().map((x) => x.id === id ? { ...x, ...patch } : x)); render(); };
+  // 이동/리사이즈/접기 후 anchor 고정 + 겹친 위젯 아래로 밀어냄(겹침 금지)
+  const updateWidget = (id, patch) => {
+    const next = dashLayout().map((x) => x.id === id ? { ...x, ...patch } : x);
+    saveDashLayout(resolveDashCollisions(next, id)); render();
+  };
 
   $("#widgetAddBtn").addEventListener("click", () => $("#widgetAddMenu").classList.toggle("hidden"));
+  $("#widgetArrangeBtn").addEventListener("click", () => { saveDashLayout(compactDash(dashLayout())); render(); });
+  $("#widgetResetBtn").addEventListener("click", () => { localStorage.removeItem("dev_erp_widgets"); render(); });
   $("#view").querySelectorAll(".add-widget-item").forEach((b) =>
     b.addEventListener("click", () => {
       const l = dashLayout();
-      const y = Math.max(0, ...l.map((w) => w.y + w.h));
-      l.push({ id: b.dataset.add, x: 0, y, w: 3, h: 7 }); saveDashLayout(l); render();
+      const y = Math.max(0, ...l.map((w) => w.y + (w.c ? 2 : w.h)));
+      l.push({ id: b.dataset.add, x: 0, y, w: 3, h: 7 }); saveDashLayout(resolveDashCollisions(l, b.dataset.add)); render();
     }));
   // 접기/펼치기
   const toggleFold = (id) => { const cur = dashLayout().find((x) => x.id === id); updateWidget(id, { c: !cur?.c }); };
