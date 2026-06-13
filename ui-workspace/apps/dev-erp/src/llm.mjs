@@ -82,7 +82,7 @@ export async function answerFromManual({ store, question, thread_id = null, prov
 // 모델은 ERP_CHAT_MODEL(예: gemma2:2b / gemma2:9b / gemma3:4b 등), 호스트는 OLLAMA_HOST.
 async function callOllama(prompt) {
   const host = process.env.OLLAMA_HOST || "http://127.0.0.1:11434";
-  const model = process.env.ERP_CHAT_MODEL || "gemma2:2b";
+  const model = process.env.ERP_CHAT_MODEL || "gemma3:4b"; // 공통 기본값(맥미니 M4·회사 NVIDIA 둘 다 적합)
   const ms = Number(process.env.ERP_CHAT_TIMEOUT_MS || 20000);
   const numPredict = Number(process.env.ERP_CHAT_MAX_TOKENS || 320); // 출력 상한 — 짧을수록 빠름
   const ctl = new AbortController();

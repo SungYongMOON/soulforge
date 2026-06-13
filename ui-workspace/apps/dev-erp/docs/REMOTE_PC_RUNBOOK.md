@@ -49,16 +49,17 @@ node server.mjs --port 4300
 
 ### 1-3. Ollama + Gemma 연결 (LLM 표현 켜기)
 
-```bash
-# 데몬 + 모델 (속도 우선이면 작은 것부터)
-ollama serve &
-ollama pull gemma2:2b          # 빠름(체감용). 품질 원하면 gemma3:4b / gemma2:9b
+이 PC = **Windows + NVIDIA 16GB**. OllamaSetup.exe 설치(서비스 자동 기동, CUDA 자동) 후:
 
-# 서버를 LLM 모드로 재기동
-ERP_CHAT_PROVIDER=ollama ERP_CHAT_MODEL=gemma2:2b node server.mjs --port 4300
+```powershell
+ollama pull gemma3:4b          # 공통 기본값(맥미니와 동일 태그). 품질 원하면 gemma2:9b
+
+# 서버를 LLM 모드로 재기동 (PowerShell)
+$env:ERP_CHAT_PROVIDER="ollama"; $env:ERP_CHAT_MODEL="gemma3:4b"; node server.mjs --port 4300
 ```
 
-상세 옵션(타임아웃·출력토큰 상한·원격 GPU PC 지정 등)은 **`docs/CHATBOT_LLM_SETUP.md`** 참고.
+> 맥미니(개발기)는 같은 태그를 `brew` + bash 문법으로 실행. 설치/문법 차이만 있고 ERP 코드·동작은 동일.
+> 상세 옵션(타임아웃·출력토큰 상한·원격 GPU PC 지정 등)은 **`docs/CHATBOT_LLM_SETUP.md`** 참고.
 - ERP 서버와 GPU PC가 다르면: GPU PC에서 `OLLAMA_HOST=0.0.0.0 ollama serve`, ERP 쪽 `OLLAMA_HOST=http://<GPU_PC_IP>:11434`.
 - 모델 미기동/타임아웃이면 자동으로 검색 폴백 → 멈추지 않음.
 

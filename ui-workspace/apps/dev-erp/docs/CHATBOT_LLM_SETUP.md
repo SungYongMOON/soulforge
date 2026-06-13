@@ -2,27 +2,48 @@
 
 챗봇은 **RAG** 방식이다: 매뉴얼(FAQ)을 검색해 근거를 찾고, LLM은 **그 근거 안에서만** 답을 표현한다(매뉴얼 밖 사실은 지어내지 않음). LLM이 없으면 검색 결과를 그대로 사람형 문장으로 보여주는 폴백으로 동작한다(절대 끊기지 않음).
 
-## 1. Ollama 설치 + 모델 받기
+## 1. Ollama 설치 + 모델 받기 (PC별)
+
+ERP 코드는 두 PC가 동일하다. **다른 건 설치 방법(OS)과 모델 크기(하드웨어)뿐.**
+두 PC에서 **같은 모델 태그**를 쓰면 맥미니에서 고치고 회사 PC에서 같은 결과로 검증할 수 있다.
+**공통 권장 기본값: `gemma3:4b`** (M4 32GB·회사 NVIDIA 16GB 둘 다 빠름). 회사 PC에서 품질을 더 원하면 `gemma2:9b`/`gemma3:12b`.
+
+### 맥미니 (Mac mini 4 / M4, 32GB · 24h 개발·테스트기)
 
 ```bash
-# 설치 (macOS)
-brew install ollama
-ollama serve            # 백그라운드 데몬
-
-# 모델 받기 — VRAM 예산에 맞춰 하나 선택
-ollama pull gemma2:2b   # ~1.6GB, 가장 빠름(맥미니 테스트용)
-ollama pull gemma3:4b   # ~3GB, 8GB VRAM에 여유 있게 fit
-ollama pull gemma2:9b   # ~5.5GB, 16GB GPU 권장(품질↑)
+brew install ollama          # 또는 ollama.com/download 의 .dmg
+ollama serve &               # 백그라운드 데몬 (Metal GPU 자동)
+ollama pull gemma3:4b        # 메모리는 넉넉(9b/12b도 가능). 단 M4 기본칩은 메모리 대역폭이 느린 편 → 빠른 반복엔 4b 권장
 ```
 
-VRAM 가이드(Q4_K_M 기준, 권장은 KV캐시 헤드룸 포함): 4B≈최소4GB, 12B≈최소8GB(권장12GB), 27B≈16GB+.
+### 회사 고성능 PC (Windows, NVIDIA 16GB · 배포 대상)
 
-## 2. 서버를 LLM 모드로 실행
+1. `https://ollama.com/download/windows`에서 **OllamaSetup.exe** 설치 → 백그라운드 서비스로 `127.0.0.1:11434` 자동 기동.
+2. 최신 GeForce 드라이버면 **CUDA 자동 사용**(별도 설정 불필요). `ollama ps`로 GPU 점유 확인.
+3. 모델 받기 (PowerShell 또는 CMD):
 
+```powershell
+ollama pull gemma3:4b        # 공통 기본값
+# 품질 원하면: ollama pull gemma2:9b   (~5.5GB, 16GB VRAM 여유)
+```
+
+VRAM 가이드(Q4_K_M, 권장은 KV캐시 헤드룸 포함): 4B≈최소4GB, 12B≈최소8GB(권장12GB), 27B≈16GB+.
+
+## 2. 서버를 LLM 모드로 실행 (환경변수 문법이 OS별로 다름)
+
+**macOS / Linux:**
 ```bash
-ERP_CHAT_PROVIDER=ollama \
-ERP_CHAT_MODEL=gemma2:2b \
-node server.mjs
+ERP_CHAT_PROVIDER=ollama ERP_CHAT_MODEL=gemma3:4b node server.mjs
+```
+
+**Windows PowerShell:**
+```powershell
+$env:ERP_CHAT_PROVIDER="ollama"; $env:ERP_CHAT_MODEL="gemma3:4b"; node server.mjs
+```
+
+**Windows CMD:**
+```cmd
+set ERP_CHAT_PROVIDER=ollama && set ERP_CHAT_MODEL=gemma3:4b && node server.mjs
 ```
 
 | 환경변수 | 기본값 | 설명 |
