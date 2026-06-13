@@ -447,3 +447,18 @@ test("회의록: 생성·목록·수동 액션아이템 링크 (원문/자동추
   assert.equal(acts.length, 1);
   assert.equal(acts[0].title, "회의 후속 작업");
 });
+
+// ---------- 산출물 진행률 집계 (자율 main slice) ----------
+test("guideSummary: 합성 가이드 시드 → 진행률 다양", () => {
+  const store = freshStore();
+  loadFixture(store);
+  const sum = store.guideSummary();
+  assert.ok(sum.length >= 3, "프로젝트별 가이드 집계");
+  const a = sum.find((x) => x.project_id === "PRJ-A");
+  assert.ok(a && a.artifacts === 2, "PRJ-A 산출물 2");
+  assert.equal(a.steps_total, 14, "2 산출물 × 7 스텝");
+  assert.equal(a.steps_done, 10, "7+3 done");
+  assert.equal(a.pct, Math.round(10 / 14 * 100));
+  const c = sum.find((x) => x.project_id === "PRJ-C");
+  assert.equal(c.pct, 0, "PRJ-C 0%");
+});

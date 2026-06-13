@@ -273,7 +273,7 @@ const WIDGET_PLAN = [
   { id: "kpi", cat: "group_project", ready: true },
   { id: "events", cat: "group_project", ready: true },
   { id: "gatewait", cat: "group_project" },
-  { id: "artifact_progress", cat: "group_project" },
+  { id: "artifact_progress", cat: "group_project", ready: true },
   { id: "today", cat: "group_task", ready: true },
   { id: "blocked", cat: "group_task", ready: true },
   { id: "mine", cat: "group_task" },
@@ -482,6 +482,12 @@ async function renderHome() {
     if (id === "contacts") {
       const people = (await api("/api/people")).slice(0, 8);
       return { title: L.tile_contacts, html: people.length ? `<table><tbody>${people.map((p) => miniRow([esc(p.name), esc(p.role ?? "-")])).join("")}</tbody></table>` : `<div class="empty">-</div>` };
+    }
+    if (id === "artifact_progress") {
+      const sum = await api("/api/guide/summary");
+      return { title: L.tile_artifact_progress, html: sum.length
+        ? `<table><tbody>${sum.map((g) => miniRow([esc(g.project_id), `${g.steps_done}/${g.steps_total}`, `${g.pct}%`])).join("")}</tbody></table>`
+        : `<div class="empty">-</div>` };
     }
     if (id === "meetings_w") {
       const ms = (await api("/api/meetings")).slice(0, 6);

@@ -537,6 +537,21 @@ export class Store {
     return { ok: true, project_id: art.project_id };
   }
 
+  // 산출물 진행률 집계(읽기 전용·정책 무관). 분모 = 산출물수 × 표준 절차 스텝수(7, ARTIFACT_FLOW).
+  guideSummary() {
+    const STEPS_PER = 7;
+    const rows = this.db.prepare(
+      `SELECT a.project_id AS project_id, COUNT(DISTINCT a.id) AS artifacts, COUNT(s.step_key) AS steps_done
+       FROM guide_artifact a LEFT JOIN guide_step s ON s.artifact_id = a.id
+       GROUP BY a.project_id ORDER BY a.project_id`
+    ).all();
+    return rows.map((r) => ({
+      project_id: r.project_id, artifacts: r.artifacts, steps_done: r.steps_done,
+      steps_total: r.artifacts * STEPS_PER,
+      pct: r.artifacts ? Math.round((r.steps_done / (r.artifacts * STEPS_PER)) * 100) : 0
+    }));
+  }
+
   guideState(projectId) {
     const artifacts = this.db
       .prepare("SELECT * FROM guide_artifact WHERE project_id=? ORDER BY stage_code, id")

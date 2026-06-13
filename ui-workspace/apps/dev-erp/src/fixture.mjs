@@ -85,6 +85,22 @@ export function loadFixture(store) {
     });
   }
 
+  // 가이드(산출물 절차) 합성 시드 — 산출물 진행률 위젯/화면용. 진행률 다양화.
+  const FLOW = ["snapshot", "sources", "draft", "review", "action", "final", "quality"];
+  const guideSeed = [
+    { project_id: "PRJ-A", stage_code: "상세설계", name: "체계요구사항명세서(SSRS)", done: 7 },
+    { project_id: "PRJ-A", stage_code: "상세설계", name: "인터페이스 정의서(ICD)", done: 3 },
+    { project_id: "PRJ-B", stage_code: "시험", name: "시험절차서(STP)", done: 5 },
+    { project_id: "PRJ-B", stage_code: "시험", name: "시험결과보고서(STR)", done: 1 },
+    { project_id: "PRJ-C", stage_code: "기획", name: "사업수행계획서(PMP)", done: 0 }
+  ];
+  for (const g of guideSeed) {
+    store.addGuideArtifact(g.project_id, g.stage_code, g.name);
+    const art = store.db.prepare("SELECT id FROM guide_artifact WHERE project_id=? AND stage_code=? AND name=?")
+      .get(g.project_id, g.stage_code, g.name);
+    if (art) for (let i = 0; i < g.done; i += 1) store.setGuideStep(art.id, FLOW[i], true, "fixture");
+  }
+
   store.appendEvent({
     actor_ref: "fixture", actor_kind: "system", kind: "ingest",
     note: "synthetic fixture loaded", used_refs: ["src/fixture.mjs"], data_label: "synthetic"

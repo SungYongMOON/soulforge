@@ -145,6 +145,7 @@ const server = createServer(async (req, res) => {
       q: qp.q, direction: qp.direction, label_id: qp.label_id
     }));
     if (path === "/api/guide/templates") return send(res, 200, guideTemplates(qp.mode));
+    if (path === "/api/guide/summary") return send(res, 200, store.guideSummary());
     if (path === "/api/guide") return send(res, 200, store.guideState(qp.project ?? ""));
     if (path === "/api/guide/artifact" && req.method === "POST") {
       let body = ""; for await (const chunk of req) body += chunk;
