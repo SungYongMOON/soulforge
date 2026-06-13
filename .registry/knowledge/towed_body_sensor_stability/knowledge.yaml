@@ -1,0 +1,91 @@
+knowledge_id: towed_body_sensor_stability
+kind: knowledge
+status: active
+title: Towed Body Sensor Stability
+summary: Source-supported reusable orientation for towed-body stability and internally isolated sensor-axis quieting, including towfish dynamics, tow-point and CG/CB effects, internal liquid damping, vibration isolation, cable strumming, appendage effects, and pointing error budgeting.
+claim_ceiling: source_supported
+canon_registration:
+  state: canon_entry
+  registration_basis: owner_requested_public_institutional_source_auto_registration_20260612
+  registered_surfaces:
+    - public_safe_summary
+    - source_ref_index
+    - registry_entry
+focus:
+  primary_domain: towed body stability and sensor-axis quieting
+  applied_to:
+    - towed body attitude stability sourcebound reviews
+    - tow point, CG, CB, and hydrodynamic-force source packet planning
+    - internal pendulous or isolated sensor assembly quieting reviews
+    - internal liquid, slosh, baffle, cap, gap, and damping mechanism reviews
+    - appendage and cable-coupled roll, pitch, yaw case planning
+    - pointing, boresight, latency, and timebase error budget planning
+source_support:
+  source_status: public_official_and_public_literature_refs
+  public_institutional_refs:
+    - https://ntrs.nasa.gov/archive/nasa/casi.ntrs.nasa.gov/19670006555.pdf
+    - https://ntrs.nasa.gov/citations/19990017908
+    - https://www.nas.nasa.gov/SC15/demos/demo12.html
+    - https://ntrs.nasa.gov/citations/19730003558
+    - https://ntrs.nasa.gov/citations/19690026464
+    - https://ntrs.nasa.gov/citations/19720053387
+    - https://ntrs.nasa.gov/api/citations/19700031885/downloads/19700031885.pdf
+    - https://ntrs.nasa.gov/citations/19730016141
+    - https://ntrs.nasa.gov/citations/20120003161
+    - https://ntrs.nasa.gov/citations/20210026104
+    - https://ntrs.nasa.gov/api/citations/20080012730/downloads/20080012730.pdf?attachment=true
+    - https://www1.grc.nasa.gov/beginners-guide-to-aeronautics/center-of-pressure/
+    - https://docs.nrel.gov/docs/fy24osti/87275.pdf
+    - https://www.ittc.info/media/11942/75-02-07-045.pdf
+    - https://www.ittc.info/media/11876/75-02-06-07.pdf
+    - https://ittc.info/media/11870/75-02-06-04.pdf
+    - https://www.osti.gov/biblio/5610272
+    - https://www.osti.gov/biblio/10173548
+    - https://www.osti.gov/servlets/purl/1240323
+    - https://www.navsea.navy.mil/Media/News/Article-View/Article/995648/navy-tests-variable-depth-sonars-hydrodynamic-behavior-in-tow/
+    - https://doi.org/10.21236/AD0653861
+    - https://ntrl.ntis.gov/NTRL/dashboard/searchResults/titleDetail/ADA071804.xhtml
+    - https://ntrl.ntis.gov/NTRL/dashboard/searchResults/titleDetail/ADA227715.xhtml
+    - https://www.fisheries.noaa.gov/new-england-mid-atlantic/science-data/passive-acoustic-technologies
+    - https://www.nist.gov/system/files/documents/2017/05/09/Wang_TIM_Oct2009-2.pdf
+    - https://tsapps.nist.gov/publication/get_pdf.cfm?pub_id=920627
+    - https://www.usgs.gov/landsat-missions/landsat-7-instrument-attitude-control-system-alignment-update
+  supporting_public_refs:
+    - https://www.fossen.biz/html/marineCraftModel.html
+    - https://www.mdpi.com/2077-1312/9/6/641
+    - https://www.mdpi.com/2077-1312/13/5/834
+    - https://www.sciencedirect.com/science/article/pii/S2092678216300899
+    - https://www.sciencedirect.com/science/article/pii/S0141118718303699
+    - https://doi.org/10.1016/S0005-1098(96)00176-8
+    - https://underactuated.mit.edu/pend.html
+    - https://www.purdue.edu/freeform/me274/wp-content/uploads/sites/15/2022/08/Lecture_06_Filled.pdf
+    - https://www.purdue.edu/freeform/me274/center-of-percussion/
+    - https://ocw.mit.edu/courses/16-07-dynamics-fall-2009/c0c881f96f4ff4e21f082c88e8b015d6_MIT16_07F09_Lec24.pdf
+    - https://www2.swri.org/www2/fluid-slosh/dodge-sp-106-update.pdf
+    - https://www.mdpi.com/2073-4441/10/11/1565
+    - https://open.metu.edu.tr/handle/11511/23448
+    - https://www.purdue.edu/freeform/ervibrations/chapter-v-animations/vibration-isolation/
+    - https://patents.justia.com/patent/4383831
+    - https://patents.justia.com/patent/20250033747
+    - https://patents.justia.com/patent/4709358
+    - https://patents.justia.com/patent/4754442
+claim_scope:
+  supported:
+    - Towed-body stability should be separated into external body dynamics and sensor or payload quieting when the sensor reference frame has its own mechanical support or isolation path.
+    - Tow point, CG, CB, tow speed, hydrodynamic force, added mass, damping, and hydrostatic restoring terms are separate source-packet fields rather than one interchangeable stability number.
+    - A sensor point's acceleration depends on its offset from the apparent rotation or quiet point; measured motion is still required to locate that point in a real body.
+    - Internal liquid, annular or ring baffles, compartmentation, restricted passages, slots, squeeze films, and perforations can alter liquid natural frequency, damping, pressure loss, or added inertia, with geometry, fill state, and frequency dependence.
+    - Cable strumming and towed-array vibration are recognized noise and load mechanisms, so sensor isolation and quieting can be mission-relevant.
+    - Underwater-vehicle and towfish force/moment results should be requested with reference point, coordinate convention, coefficient basis, uncertainty, and time or phase information.
+    - Pointing, boresight, timebase, latency, and calibration errors should be budgeted explicitly when mechanical attitude error affects sensor performance.
+  excluded:
+    - SONAR2093 design intent or source-truth confirmation
+    - P26-014 requirement, CDR acceptance, customer approval, or design approval
+    - numerical validity of any private stiffness, damping, inertia, CG, CB, pivot, roll, pitch, or pointing value
+    - claiming mushroom, jellyfish, cap, or gap geometry is beneficial without actual geometry, fill state, damping, and response evidence
+    - vendor or solver capability proof from tool names alone
+    - NotebookLM answer authority, raw source text copying, private project payloads, or vendor-origin source truth
+notes:
+  - This entry is a public-safe reusable map of mechanism families and source boundaries.
+  - Project-specific calculations, validator fixtures, SONAR2093-derived values, and P26-014 decision logic remain private derivative projections under `_workmeta/P26-014` or owner-held source packets.
+  - The public source refs are registered as reference knowledge; generated summaries, RAG surfaces, and answer runs still need their own traceability and review evidence.

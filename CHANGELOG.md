@@ -29,7 +29,36 @@
   verify_gate Level>=2 연동. 통합 inspector 패스(fresh) 1회 수행 — B1~B5
   전부 accept, 발견 반영(reject/hold/revise verdict 는 게이트 FAIL 처리).
 
+## 2026-06-13
+
+### Revision `working` - system workspace drift migration runbook added
+
+- Added `docs/architecture/workspace/SYSTEM_WORKSPACE_SYNC_MIGRATION_V0.md`
+  as a public-safe coordination runbook for resolving drift in
+  `_workspaces/system/` across multiple PCs before deciding whether the
+  folder should remain local-only or become an owner-approved shared junction.
+- The runbook defines a freeze, metadata-only manifest inventory, hash-based
+  comparison classes, conflict handling, shared-root decision points, and
+  public/private boundaries without exposing actual workspace files, PC names,
+  local absolute paths, cloud account details, raw payloads, or secrets.
+- Linked the runbook from `docs/architecture/workspace/README.md` so the team
+  can find the migration status and procedure from GitHub.
+
 ## 2026-06-12
+
+### Revision `working` - Towed-body sensor stability knowledge entry added
+
+- Added `.registry/knowledge/towed_body_sensor_stability/` as a public-safe
+  source-supported reusable knowledge entry for towfish stability, tow point
+  and CG/CB separation, internal liquid damping mechanisms, vibration
+  isolation, cable strumming, appendage case planning, and pointing error
+  budgeting.
+- Registered only public source references and bounded mechanism claims,
+  including NASA/NTRS, NREL, ITTC, OSTI, NAVSEA/Navy public records, NOAA,
+  NIST, USGS, and supporting open technical literature.
+- Kept SONAR2093 design intent, P26-014 acceptance, private reports, raw
+  payloads, NotebookLM answers, vendor source truth, and numerical reverse
+  engineering values out of the public registry entry.
 
 ### Revision `working` - Team Ops Board MVP 1: 로컬 실동작 앱 1차 구현
 
