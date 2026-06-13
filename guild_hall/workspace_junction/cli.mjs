@@ -3,10 +3,11 @@
 import path from "node:path";
 import process from "node:process";
 import { auditWorkspaceJunctions } from "./audit.mjs";
+import { inventoryWorkspaceSystem } from "./system_inventory.mjs";
 
 async function main() {
   const [command = "audit", ...rest] = process.argv.slice(2);
-  if (command !== "audit") {
+  if (!["audit", "inventory-system"].includes(command)) {
     process.stderr.write(`unknown command: ${command}\n`);
     process.exitCode = 2;
     return;
@@ -14,6 +15,25 @@ async function main() {
 
   const args = parseArgs(rest);
   const repoRoot = path.resolve(args["repo-root"] ?? process.cwd());
+  if (command === "inventory-system") {
+    const result = inventoryWorkspaceSystem({
+      repoRoot,
+      bindingRef: args.binding ?? "_workmeta/system/bindings/workspace_junctions.yaml",
+      sourceRootRef: args["source-root"] ?? "_workspaces/system",
+    });
+
+    if (args.json) {
+      process.stdout.write(`${JSON.stringify(result, null, 2)}\n`);
+    } else {
+      process.stdout.write(formatInventoryText(result));
+    }
+
+    if (args.strict && result.status !== "passed") {
+      process.exitCode = 1;
+    }
+    return;
+  }
+
   const result = auditWorkspaceJunctions({
     repoRoot,
     bindingRef: args.binding ?? "_workmeta/system/bindings/workspace_junctions.yaml",
@@ -46,6 +66,27 @@ function formatText(result) {
   for (const row of result.problems) {
     lines.push(
       `- ${row.workspace_alias}: ${row.observed_local_state}; action=${row.action}; expected=${row.expected_target_suffix ?? ""}; actual_tail=${row.actual_target_tail ?? ""}`,
+    );
+  }
+
+  return `${lines.join("\n")}\n`;
+}
+
+function formatInventoryText(result) {
+  const lines = [
+    `workspace_system_inventory: ${result.status}`,
+    `reason: ${result.reason}`,
+    `source_root: ${result.source_root_ref}`,
+    `binding_state: ${result.binding_state}`,
+    `observed_local_state: ${result.observed_local_state}`,
+    `migration_status: ${result.migration_status}`,
+    `top_level_entries: ${result.counts.top_level_entry_count}`,
+    `blockers: ${result.counts.blocker_count}`,
+  ];
+
+  for (const row of result.rows) {
+    lines.push(
+      `- ${row.relative_path}: class=${row.class}; action=${row.proposed_action}; owner_check=${row.needs_owner_check}`,
     );
   }
 

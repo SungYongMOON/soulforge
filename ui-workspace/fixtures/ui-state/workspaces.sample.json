@@ -8,7 +8,7 @@
     "fixture_name": "workspaces",
     "notes": [
       "Workspace-first synthetic fixture for the current six-axis consumer contract derived from five canonical roots.",
-      "Only the reserved local-only mount is represented; no actual project directories are scanned."
+      "Only the reserved workspace boundary mount is represented; no actual project directories are scanned."
     ]
   },
   "species": {
@@ -154,7 +154,7 @@
     "projects": [],
     "notes": [
       "Public fixtures never materialize _workspaces/<project_code>/.",
-      "Synthetic workspaces payloads describe the reserved local-only mount only."
+      "Synthetic workspaces payloads describe the reserved workspace boundary mount only."
     ]
   },
   "overview": {
@@ -200,7 +200,7 @@
     "warnings": 1,
     "errors": 0,
     "overall_status": "warning",
-    "status_note": "Public fixtures project only the reserved local-only workspace mount."
+    "status_note": "Public fixtures project only the reserved workspace boundary mount."
   },
   "body": {
     "meta": {
@@ -433,7 +433,7 @@
     "warnings": [
       {
         "code": "synthetic-local-workspaces",
-        "message": "Public fixtures expose only the reserved local-only workspace mount and never scan project directories.",
+        "message": "Public fixtures expose only the reserved workspace boundary mount and never scan project directories.",
         "severity": "warning",
         "location_hint": "_workspaces/README.md"
       }

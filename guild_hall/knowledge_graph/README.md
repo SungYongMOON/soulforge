@@ -29,6 +29,16 @@ Default output root:
 _workspaces/system/knowledge_view/
 ```
 
+This default is the path-identity controlled system view. For PC-local graph or
+Obsidian experiments, pass `--output-root
+_workspaces/_local/<node_id>/system/knowledge_view`; do not create a new direct
+child under `_workspaces`.
+
+During `_workspaces/system` migration, default system writes are blocked until
+the `system` binding is active and the local path is a link view. Run
+`npm.cmd run guild-hall:workspace-system:inventory -- --json` first if this PC
+may still have a normal `_workspaces/system` folder.
+
 Generated outputs:
 
 - `graph_export/<export_id>/graph.json`

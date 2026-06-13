@@ -92,6 +92,16 @@ test("exportKnowledgeGraph writes metadata-only graph, HTML preview, and Obsidia
         }),
       /knowledge graph output root must be under _workspaces\/system\/knowledge_view/,
     );
+    const localResult = await exportKnowledgeGraph({
+      repoRoot,
+      exportId: "fixture_graph_local",
+      outputRoot: "_workspaces/_local/pc-fixture/system/knowledge_view",
+      now: "2026-05-22T01:00:00Z",
+    });
+    assert.equal(
+      localResult.graph_ref,
+      "_workspaces/_local/pc-fixture/system/knowledge_view/graph_export/fixture_graph_local/graph.json",
+    );
 
     const graph = JSON.parse(await readFile(path.join(repoRoot, result.graph_ref), "utf8"));
     assert.equal(graph.schema_version, "soulforge.knowledge_graph_view.v0");
@@ -781,6 +791,38 @@ test("exportKnowledgeGraph writes metadata-only graph, HTML preview, and Obsidia
           question: "GraphRAG",
         }),
       /explicit --graph-ref was not found/,
+    );
+  } finally {
+    await rm(repoRoot, { recursive: true, force: true });
+  }
+});
+
+test("blocks default system graph output while system binding is planned and local", async () => {
+  const repoRoot = await mkdtemp(path.join(os.tmpdir(), "soulforge-knowledge-graph-guard-"));
+  try {
+    await writeFixtureRepo(repoRoot);
+    await writeWorkspaceSystemBinding(repoRoot, "planned");
+    await mkdir(path.join(repoRoot, "_workspaces", "system"), { recursive: true });
+
+    await assert.rejects(
+      () =>
+        exportKnowledgeGraph({
+          repoRoot,
+          exportId: "blocked_default_system_graph",
+          now: "2026-05-22T02:00:00Z",
+        }),
+      /workspace_system_migration_required/,
+    );
+
+    const localResult = await exportKnowledgeGraph({
+      repoRoot,
+      exportId: "allowed_local_system_graph",
+      outputRoot: "_workspaces/_local/pc-fixture/system/knowledge_view",
+      now: "2026-05-22T02:00:00Z",
+    });
+    assert.equal(
+      localResult.graph_ref,
+      "_workspaces/_local/pc-fixture/system/knowledge_view/graph_export/allowed_local_system_graph/graph.json",
     );
   } finally {
     await rm(repoRoot, { recursive: true, force: true });
@@ -1763,6 +1805,27 @@ async function writeFixtureRepo(repoRoot) {
     default_workflow_id: "knowledge_access_event_capture_v0",
     workflow_chain: [{ workflow_id: "knowledge_access_event_capture_v0" }],
   });
+}
+
+async function writeWorkspaceSystemBinding(repoRoot, state) {
+  await writeFileWithParents(
+    repoRoot,
+    "_workmeta/system/bindings/workspace_junctions.yaml",
+    `schema_version: soulforge.workspace_junction_binding.v1
+junctions:
+  - workspace_alias: system
+    project_code: null
+    cloud_relative_path: system
+    link_relative_path: _workspaces/system
+    state: ${state}
+`,
+  );
+}
+
+async function writeFileWithParents(repoRoot, relativePath, value) {
+  const filePath = path.join(repoRoot, relativePath);
+  await mkdir(path.dirname(filePath), { recursive: true });
+  await writeFile(filePath, `${value}\n`, "utf8");
 }
 
 async function writeYaml(repoRoot, relativePath, value) {

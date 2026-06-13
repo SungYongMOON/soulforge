@@ -491,7 +491,7 @@ async function buildOperationsOwner(): Promise<ControlCenterOwner> {
   return {
     id: "operations",
     label: "Operations",
-    description: "Mission plans and local-only workspace files.",
+    description: "Mission plans and workspace boundary files.",
     sections: sections.filter((section) => section.files.length > 0)
   };
 }

@@ -6,6 +6,7 @@ import { build as buildBundle } from "esbuild";
 import { parse as parseYaml } from "yaml";
 import { analyzeKnowledgeAccessLedgers } from "../knowledge_access/ledger.mjs";
 import { normalizeRepoPath, pathExists, readJson, writeJson } from "../shared/io.mjs";
+import { assertWorkspaceSystemWriteAllowed } from "../workspace_junction/system_inventory.mjs";
 
 export const KNOWLEDGE_GRAPH_SCHEMA_VERSION = "soulforge.knowledge_graph_view.v0";
 export const KNOWLEDGE_GRAPH_VISUAL_MAPPING_VERSION = "soulforge.knowledge_graph_visual_mapping.v0";
@@ -178,6 +179,13 @@ const RUNTIME_CONTROLS = {
 const LAYOUT_PRESETS = ["force_auto", "semantic_regions", "hybrid_regions_force", "radial_focus"];
 const SYMMETRIC_RELATIONS = new Set(["co_used_with", "conflicts_with"]);
 const PACKAGE_ROOT = path.resolve(path.dirname(fileURLToPath(import.meta.url)), "../..");
+const LOCAL_WORKSPACE_NODE_SEGMENT = "[A-Za-z0-9][A-Za-z0-9_.-]{0,80}";
+const LOCAL_SYSTEM_KNOWLEDGE_VIEW_PATTERN = new RegExp(
+  `^_workspaces/_local/${LOCAL_WORKSPACE_NODE_SEGMENT}/system/knowledge_view(?:/|$)`,
+);
+const LOCAL_SYSTEM_RUNTIME_PATTERN = new RegExp(
+  `^_workspaces/_local/${LOCAL_WORKSPACE_NODE_SEGMENT}/system/(knowledge_view|rag)(?:/|$)`,
+);
 
 export async function exportKnowledgeGraph(options = {}) {
   const repoRoot = path.resolve(options.repoRoot ?? process.cwd());
@@ -185,6 +193,7 @@ export async function exportKnowledgeGraph(options = {}) {
   const now = normalizeNow(options.now);
   const generatedAtUtc = formatTimestampUtc(now);
   const outputRootRef = safeKnowledgeGraphOutputRoot(options.outputRoot ?? "_workspaces/system/knowledge_view");
+  assertWorkspaceSystemWriteAllowed({ repoRoot, outputRef: outputRootRef });
   const outputRoot = path.join(repoRoot, outputRootRef);
   const graphDir = path.join(outputRoot, "graph_export", exportId);
   const obsidianDir = path.join(outputRoot, "obsidian_export", exportId);
@@ -1776,11 +1785,21 @@ function safeKnowledgeGraphOutputRoot(value) {
     path.isAbsolute(ref) ||
     ref.includes("..") ||
     ref.includes("\\") ||
-    (ref !== "_workspaces/system/knowledge_view" && !ref.startsWith("_workspaces/system/knowledge_view/"))
+    !isAllowedSystemKnowledgeViewRef(ref)
   ) {
-    throw new Error("knowledge graph output root must be under _workspaces/system/knowledge_view/");
+    throw new Error(
+      "knowledge graph output root must be under _workspaces/system/knowledge_view/ or _workspaces/_local/<node_id>/system/knowledge_view/",
+    );
   }
   return ref;
+}
+
+function isAllowedSystemKnowledgeViewRef(ref) {
+  return (
+    ref === "_workspaces/system/knowledge_view" ||
+    ref.startsWith("_workspaces/system/knowledge_view/") ||
+    LOCAL_SYSTEM_KNOWLEDGE_VIEW_PATTERN.test(ref)
+  );
 }
 
 function safeSourceSliceTriageRegisterRef(value) {
@@ -1827,12 +1846,19 @@ function isSafeProjectionRef(value) {
   }
   if (
     ref.startsWith("_workspaces/") &&
-    !ref.startsWith("_workspaces/system/knowledge_view/") &&
-    !ref.startsWith("_workspaces/system/rag/")
+    !isAllowedSystemRuntimeRef(ref)
   ) {
     return false;
   }
   return true;
+}
+
+function isAllowedSystemRuntimeRef(ref) {
+  return (
+    ref.startsWith("_workspaces/system/knowledge_view/") ||
+    ref.startsWith("_workspaces/system/rag/") ||
+    LOCAL_SYSTEM_RUNTIME_PATTERN.test(ref)
+  );
 }
 
 function isSafeGraphRelationQueueRef(value) {
@@ -1853,8 +1879,7 @@ function isSafeGraphRelationQueueTargetRef(value) {
   if (
     ref.startsWith("_workspaces/") &&
     !ref.startsWith("_workspaces/knowledge/") &&
-    !ref.startsWith("_workspaces/system/knowledge_view/") &&
-    !ref.startsWith("_workspaces/system/rag/")
+    !isAllowedSystemRuntimeRef(ref)
   ) {
     return false;
   }

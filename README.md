@@ -3,7 +3,7 @@
 Soulforge는 일곱 개의 canonical root 와 project-local materialization 정책을 고정하는 설계 저장소다.
 루트는 owner 경계, public/private tracking 원칙, 파생 UI 계약을 관리한다.
 현재 보유한 mission plan 은 `.mission/` 이 들고, cross-project 운영 ingress/state 는 `guild_hall/` 이 들고, 실제 프로젝트 현장 데이터는 `_workspaces/<project_code>/` 에, private runtime truth 와 project metadata 는 Soulforge root 아래 nested private repo `_workmeta/<project_code>/` 에 둔다.
-특정 프로젝트에 속하지 않는 reusable workflow 실험은 reserved `_workspaces/system/` 과 `_workmeta/system/` lab lane 에 둔다.
+특정 프로젝트에 속하지 않는 reusable workflow 실험은 reserved `_workspaces/system/` 과 `_workmeta/system/` lab lane 에 둔다. 여러 PC 가 같은 `_workspaces/<name>` 을 쓸 때는 같은 shared view 를 보게 하고, PC-local scratch/cache 는 `_workspaces/_local/<node_id>/` 로 분리한다.
 
 ## 정본 7축
 
@@ -66,6 +66,7 @@ flowchart TD
 - [`SECURITY.md`](SECURITY.md): 공개 저장소 보안 경계와 비공개 제보 원칙
 - [`_workspaces/README.md`](_workspaces/README.md): `_workspaces` local-only mount point 정책
 - [`docs/architecture/workspace/WORKSPACE_PROJECT_MODEL.md`](docs/architecture/workspace/WORKSPACE_PROJECT_MODEL.md): `_workspaces/<project_code>/` 구조와 보안 경계
+- [`docs/architecture/workspace/WORKSPACE_PATH_IDENTITY_POLICY_V0.md`](docs/architecture/workspace/WORKSPACE_PATH_IDENTITY_POLICY_V0.md): `_workspaces/<name>` shared view 와 PC-local namespace 경계
 - [`docs/architecture/workspace/INSTALLATION_MANUAL_V0.md`](docs/architecture/workspace/INSTALLATION_MANUAL_V0.md): 다른 PC 첫 설치와 gateway bootstrap 순서
 - [`docs/architecture/workspace/MULTI_PC_DEVELOPMENT_V0.md`](docs/architecture/workspace/MULTI_PC_DEVELOPMENT_V0.md): 다른 PC clone, local state materialization, node role, Git push/pull 운영 절차
 - [`docs/architecture/workspace/PRIVATE_STATE_REPO_V0.md`](docs/architecture/workspace/PRIVATE_STATE_REPO_V0.md): 선택된 운영 기록만 별도 private Git 으로 mirror 하는 기준

@@ -1,6 +1,6 @@
 import assert from "node:assert/strict";
 import { spawnSync } from "node:child_process";
-import { mkdtempSync, mkdirSync, symlinkSync, writeFileSync } from "node:fs";
+import { mkdtempSync, mkdirSync, readFileSync, symlinkSync, writeFileSync } from "node:fs";
 import path from "node:path";
 import os from "node:os";
 import test from "node:test";
@@ -35,6 +35,29 @@ test("ignores local workspace navigation index files", () => {
 
   assert.equal(result.status, "passed");
   assert.equal(result.extras.some((row) => row.workspace_alias === "00_project_index.html"), false);
+});
+
+test("ignores reserved PC-local namespaces and non-active system binding rows", () => {
+  const repoRoot = makeFixture({ localNamespaces: true, seTemplateLibrary: true });
+  const bindingPath = path.join(repoRoot, "_workmeta", "system", "bindings", "workspace_junctions.yaml");
+  writeFileSync(
+    bindingPath,
+    `${readFileSync(bindingPath, "utf8")}  - workspace_alias: system
+    project_code: null
+    cloud_relative_path: system
+    link_relative_path: _workspaces/system
+    state: planned
+`,
+    "utf8",
+  );
+  const result = auditWorkspaceJunctions({ repoRoot });
+
+  assert.equal(result.status, "passed");
+  assert.equal(result.declared_active_count, 2);
+  assert.equal(result.extras.some((row) => row.workspace_alias === "_local"), false);
+  assert.equal(result.extras.some((row) => row.workspace_alias === "_local_hold"), false);
+  assert.equal(result.extras.some((row) => row.workspace_alias === "SE_TEMPLATE_LIBRARY"), false);
+  assert.equal(result.rows.some((row) => row.workspace_alias === "system"), false);
 });
 
 test("reports declared directories and files as non-link gaps without local path leakage", () => {
@@ -105,6 +128,13 @@ function makeFixture(options = {}) {
   }
   if (options.navigationIndex) {
     writeFileSync(path.join(workspaceRoot, "00_project_index.html"), "<!doctype html>\n", "utf8");
+  }
+  if (options.localNamespaces) {
+    mkdirSync(path.join(workspaceRoot, "_local", "pc-fixture"), { recursive: true });
+    mkdirSync(path.join(workspaceRoot, "_local_hold", "system"), { recursive: true });
+  }
+  if (options.seTemplateLibrary) {
+    mkdirSync(path.join(workspaceRoot, "SE_TEMPLATE_LIBRARY"), { recursive: true });
   }
 
   writeFileSync(

@@ -255,6 +255,18 @@ test("metadata-only RAG manifest validates and answers from graph metadata", asy
     assert.equal(writeResult.status, "written");
     assert.equal(writeResult.retrieval_unit_count, manifest.retrieval_units.length);
 
+    const localWriteResult = await writeRagManifest({
+      repoRoot,
+      graphRef: graphResult.graph_ref,
+      manifestId: "fixture_manifest_local",
+      outputRef: "_workspaces/_local/pc-fixture/system/rag/manifests/fixture_manifest_local/rag_manifest.json",
+      now: "2026-05-24T02:00:00Z",
+    });
+    assert.equal(
+      localWriteResult.manifest_ref,
+      "_workspaces/_local/pc-fixture/system/rag/manifests/fixture_manifest_local/rag_manifest.json",
+    );
+
     const sourceSliceCards = await buildSourceSliceCards({
       repoRoot,
       manifest,
@@ -296,6 +308,18 @@ test("metadata-only RAG manifest validates and answers from graph metadata", asy
     assert.equal(sourceSliceWriteResult.card_count, sourceSliceCards.cards.length);
     const writtenSourceSliceCards = JSON.parse(await readFile(path.join(repoRoot, sourceSliceWriteResult.source_slice_ref), "utf8"));
     assert.equal(validateSourceSliceCards(writtenSourceSliceCards).status, "pass");
+
+    const localSourceSliceWriteResult = await writeSourceSliceCards({
+      repoRoot,
+      manifest,
+      sliceSetId: "fixture_source_slices_local",
+      outputRef: "_workspaces/_local/pc-fixture/system/rag/source_slice_cards/fixture_source_slices_local/source_slice_cards.json",
+      now: "2026-05-24T02:30:00Z",
+    });
+    assert.equal(
+      localSourceSliceWriteResult.source_slice_ref,
+      "_workspaces/_local/pc-fixture/system/rag/source_slice_cards/fixture_source_slices_local/source_slice_cards.json",
+    );
 
     const triageRegister = await buildSourceSliceTriageRegister({
       repoRoot,
@@ -509,6 +533,24 @@ test("metadata-only RAG manifest validates and answers from graph metadata", asy
     );
     const writtenMetadataIndex = JSON.parse(await readFile(path.join(repoRoot, metadataIndexWriteResult.metadata_index_ref), "utf8"));
     assert.equal(validateRagMetadataIndex(writtenMetadataIndex).status, "pass");
+
+    const localMetadataIndexWriteResult = await writeRagMetadataIndex({
+      repoRoot,
+      manifest,
+      decisionPacket,
+      ownerDecisionRecord,
+      manifestRef: "_workspaces/system/rag/manifests/fixture_manifest_written/rag_manifest.json",
+      decisionPacketRef: decisionPacketWriteResult.decision_packet_ref,
+      ownerDecisionRecordRef: ownerDecisionWriteResult.owner_decision_record_ref,
+      outputRef:
+        "_workspaces/_local/pc-fixture/system/rag/metadata_retrieval_indexes/fixture_metadata_index_local/metadata_index.json",
+      indexId: "fixture_metadata_index_local",
+      now: "2026-05-24T02:49:00Z",
+    });
+    assert.equal(
+      localMetadataIndexWriteResult.metadata_index_ref,
+      "_workspaces/_local/pc-fixture/system/rag/metadata_retrieval_indexes/fixture_metadata_index_local/metadata_index.json",
+    );
 
     const retrievalTrace = await buildRagRetrievalTrace({
       repoRoot,
@@ -1400,6 +1442,80 @@ test("metadata-only RAG manifest validates and answers from graph metadata", asy
           outputRef: "docs/rag_manifest.json",
         }),
       /rag manifest output must be under _workspaces\/system\/rag/,
+    );
+  } finally {
+    await rm(repoRoot, { recursive: true, force: true });
+  }
+});
+
+test("blocks default RAG system outputs while system binding is planned and local", async () => {
+  const repoRoot = await mkdtemp(path.join(os.tmpdir(), "soulforge-rag-system-guard-"));
+  try {
+    await writeFixtureRepo(repoRoot);
+    await writeWorkspaceSystemBinding(repoRoot, "planned");
+    await mkdir(path.join(repoRoot, "_workspaces", "system"), { recursive: true });
+    const graphResult = await exportKnowledgeGraph({
+      repoRoot,
+      exportId: "fixture_graph_local_for_guard",
+      outputRoot: "_workspaces/_local/pc-fixture/system/knowledge_view",
+      now: "2026-05-24T01:00:00Z",
+    });
+
+    await assert.rejects(
+      () =>
+        writeRagManifest({
+          repoRoot,
+          graphRef: graphResult.graph_ref,
+          manifestId: "blocked_default_manifest",
+          now: "2026-05-24T02:00:00Z",
+        }),
+      /workspace_system_migration_required/,
+    );
+
+    const localManifestWrite = await writeRagManifest({
+      repoRoot,
+      graphRef: graphResult.graph_ref,
+      manifestId: "allowed_local_manifest",
+      outputRef: "_workspaces/_local/pc-fixture/system/rag/manifests/allowed_local_manifest/rag_manifest.json",
+      now: "2026-05-24T02:00:00Z",
+    });
+    assert.equal(
+      localManifestWrite.manifest_ref,
+      "_workspaces/_local/pc-fixture/system/rag/manifests/allowed_local_manifest/rag_manifest.json",
+    );
+
+    await assert.rejects(
+      () =>
+        writeSourceSliceCards({
+          repoRoot,
+          manifestRef: localManifestWrite.manifest_ref,
+          sliceSetId: "blocked_default_source_slices",
+          now: "2026-05-24T02:30:00Z",
+        }),
+      /workspace_system_migration_required/,
+    );
+
+    const localSourceSliceWrite = await writeSourceSliceCards({
+      repoRoot,
+      manifestRef: localManifestWrite.manifest_ref,
+      sliceSetId: "allowed_local_source_slices",
+      outputRef: "_workspaces/_local/pc-fixture/system/rag/source_slice_cards/allowed_local_source_slices/source_slice_cards.json",
+      now: "2026-05-24T02:30:00Z",
+    });
+    assert.equal(
+      localSourceSliceWrite.source_slice_ref,
+      "_workspaces/_local/pc-fixture/system/rag/source_slice_cards/allowed_local_source_slices/source_slice_cards.json",
+    );
+
+    await assert.rejects(
+      () =>
+        writeRagMetadataIndex({
+          repoRoot,
+          manifestRef: localManifestWrite.manifest_ref,
+          indexId: "blocked_default_metadata_index",
+          now: "2026-05-24T03:00:00Z",
+        }),
+      /workspace_system_migration_required/,
     );
   } finally {
     await rm(repoRoot, { recursive: true, force: true });
@@ -5144,6 +5260,21 @@ async function writeFixtureRepo(repoRoot) {
     default_workflow_id: "knowledge_access_event_capture_v0",
     workflow_chain: [{ workflow_id: "knowledge_access_event_capture_v0" }],
   });
+}
+
+async function writeWorkspaceSystemBinding(repoRoot, state) {
+  await writeFileWithParents(
+    repoRoot,
+    "_workmeta/system/bindings/workspace_junctions.yaml",
+    `schema_version: soulforge.workspace_junction_binding.v1
+junctions:
+  - workspace_alias: system
+    project_code: null
+    cloud_relative_path: system
+    link_relative_path: _workspaces/system
+    state: ${state}
+`,
+  );
 }
 
 async function writeFileWithParents(repoRoot, relativePath, value) {

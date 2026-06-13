@@ -88,16 +88,16 @@ control center 는 아래 다섯 묶음으로 owner 파일을 탐색한다.
 - archive 문서
 - fixture
 - derived payload
-- local-only reserved dirs
+- reserved workspace boundary dirs
 
 ## validate / preview 연결
 
 - owner root 변경 후 `validate`
 - 필요 시 `derive-ui-state --json`
-- local-only workspace 확인이 필요할 때만 `--local-workspaces`
+- workspace runtime 확인이 필요할 때만 `--local-workspaces`
 
 ## non-goals
 
 - hidden auto-mutation
-- local-only run truth 를 public UI fixture 에 노출
+- local run truth 를 public UI fixture 에 노출
 - Assistant Home 에서 project-local ledger, Calendar, Telegram, project assignment 를 직접 변경

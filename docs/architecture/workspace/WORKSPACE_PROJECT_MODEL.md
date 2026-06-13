@@ -97,7 +97,7 @@ _workmeta/
 
 - `_workspaces/<project_code>/` 가 실제 과제 현장 materialization root 다.
 - `_workspaces/SE_TEMPLATE_LIBRARY/` 는 reusable SE artifact materials 의 canonical actual-file library/store 다. pointer-only reference folder 도 아니고 project execution baseline 도 아니다.
-- `_workspaces/system/` 은 특정 delivery project 가 아닌 reusable workflow lab pilot output 과 fixture materialization 을 두는 reserved local-only root 다.
+- `_workspaces/system/` 은 특정 delivery project 가 아닌 reusable workflow lab pilot output 과 fixture materialization 을 두는 reserved root 다. 여러 PC 에서 같은 이름을 사용할 때는 [`WORKSPACE_PATH_IDENTITY_POLICY_V0.md`](WORKSPACE_PATH_IDENTITY_POLICY_V0.md) 에 따라 같은 owner-approved shared worksite 를 가리키는 shared view 로 materialize 한다.
 - library 의 canonical reusable files 는 owner-approved templates/forms, executable artifact workflows, artifact-specific authoring rules, sample output files 를 포함할 수 있다. provenance, hash, version, classification 은 `manifests/` 또는 catalog docs 에 기록한다.
 - library 의 `workflow/` 는 executable workflow procedure 만 담는다. folder layout, source path, copy history, hash, catalog/provenance 는 workflow 본문이 아니라 `manifests/` 또는 catalog docs 에 둔다.
 - common document rules 는 artifact-specific `authoring_rules/` 와 섞지 않고 `common_document_rules/` 같은 별도 common-rule surface 에 둔다.
@@ -108,7 +108,8 @@ _workmeta/
 - 실제 프로젝트가 다른 경로에 이미 있으면 `_workspaces/<project_code>/` direct child 로 보이도록 local-only directory link 를 둘 수 있다.
 - 다른 owner PC 에서도 같은 실자료를 읽어야 하는 프로젝트는 실제 파일을 owner-approved shared worksite 에 두고, `_workspaces/<project_code>/` 는 그 위치를 가리키는 link view 로 둔다.
 - owner-approved shared worksite 의 상위 cloud/company root 는 link target 을 해석하기 위한 외부 루트일 수는 있지만 `_workspaces/company` 같은 direct child 로 materialize 하지 않는다.
-- `_workspaces` direct child 는 `<project_code>/`, reserved `SE_TEMPLATE_LIBRARY/`, reserved `system/`, 또는 owner-approved non-project alias 로 제한한다.
+- `_workspaces` direct child 는 `<project_code>/`, reserved `SE_TEMPLATE_LIBRARY/`, reserved `system/`, reserved `_local/`, reserved `_local_hold/`, 또는 owner-approved non-project alias 로 제한한다.
+- 같은 `_workspaces/<name>` 경로가 PC마다 다른 실제 폴더를 뜻하면 안 된다. PC별 scratch, cache, local tool install, temporary output 은 `_workspaces/_local/<node_id>/` 아래에 두고, migration 보존본은 `_workspaces/_local_hold/<workspace_alias>/` 아래에 둔다.
 - `_workmeta/<project_code>/` 는 Soulforge root 아래 nested private metadata repo 다.
 - `_workmeta/system/` 은 project-agnostic reusable workflow evolution run evidence 와 procedure capture 를 두는 reserved lab metadata root 다.
 - `guild_hall/state/gateway/` 가 mail fetch 와 project assignment 전 intake staging 을 함께 담는 cross-project ingress root 다.
@@ -149,7 +150,7 @@ _workmeta/
 - 프로젝트 실자료와 산출물은 `_workspaces/<project_code>/` view 안에서 접근 가능해야 한다.
 - 여러 PC 공유가 필요한 실자료는 `_workspaces` 내부 사본이 아니라 owner-approved shared worksite 원본에 두고, `_workspaces/<project_code>/` 는 local-only link 로 연결한다.
 - shared worksite root 전체를 `_workspaces` 아래에 정션으로 걸지 않는다. 필요한 project 또는 승인된 non-project alias 만 direct child 로 둔다.
-- reusable SE artifact materials 는 SE foldertree-shaped `_workspaces/SE_TEMPLATE_LIBRARY/` 안에 남기고, 특정 프로젝트 owner 가 없는 reusable workflow pilot 출력은 `_workspaces/system/` 안에 남긴다.
+- reusable SE artifact materials 는 SE foldertree-shaped `_workspaces/SE_TEMPLATE_LIBRARY/` 안에 남기고, 특정 프로젝트 owner 가 없는 reusable workflow pilot 출력은 shared-view `_workspaces/system/` 안에 남긴다. PC-local 실험이나 cache 는 `_workspaces/_local/<node_id>/` 로 분리한다.
 - `gateway` inbox / mailbox / monster event staging 은 `guild_hall/state/gateway/` 안에 남긴다.
 - held mission metadata 와 readiness 는 `.mission/<mission_id>/` 아래에 남긴다.
 - `.registry`, `.unit`, `.workflow`, `.party`, `guild_hall` 은 project binding 대상 또는 운영 owner 일 뿐, per-project 실자료 owner 가 아니다.

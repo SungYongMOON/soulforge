@@ -84,8 +84,10 @@ The SE assistant must not:
 
 - `_workspaces/SE_TEMPLATE_LIBRARY/` is the canonical local actual-file
   library/store for reusable SE artifact materials. It is not pointer-only and
-  not a project execution baseline. `_workspaces/system/` remains the local lab
-  and fixture workspace.
+  not a project execution baseline. `_workspaces/system/` remains the lab and
+  fixture workspace, but participating PCs must treat that path as the same
+  shared view. PC-local experiments and cache belong under
+  `_workspaces/_local/<node_id>/`.
 - Reusable forms, derived HWPX samples, common document rule packets, and
   artifact-specific authoring-rule candidates live under the relevant artifact
   area of `_workspaces/SE_TEMPLATE_LIBRARY/`.

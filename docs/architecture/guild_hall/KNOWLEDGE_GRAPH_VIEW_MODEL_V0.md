@@ -17,7 +17,7 @@ promotion.
 | `.registry/**`, `.workflow/**`, `.party/**`, `.unit/**`, `.mission/**` | Own reusable canon entries. |
 | `guild_hall/knowledge_access/**` | Owns metadata-only access ledger and usage rollup helpers. |
 | `guild_hall/knowledge_graph/**` | Owns generated graph view export helpers. |
-| `_workspaces/system/knowledge_view/**` | Local-only generated graph, HTML preview, and Obsidian export output. |
+| `_workspaces/system/knowledge_view/**` | Generated graph, HTML preview, and Obsidian export output under the path-identity controlled system view. PC-local experiments must use `_workspaces/_local/<node_id>/system/knowledge_view/**`. |
 | `_workmeta/**` | Private evidence, ledgers, and project-local graph candidates. |
 
 Do not create a new top-level graph or ontology root.

@@ -31,7 +31,7 @@ stages into one "RAG complete" claim.
 | --- | --- |
 | `guild_hall/rag/**` | Manifest generator, validator, and metadata-only answer command. |
 | `guild_hall/knowledge_graph/**` | Metadata graph export, 3D/2D views, retrieval plan, and detection cards. |
-| `_workspaces/system/rag/**` | Local generated manifest output. |
+| `_workspaces/system/rag/**` | Generated metadata-only RAG output under the path-identity controlled system view. PC-local experiments must use `_workspaces/_local/<node_id>/system/rag/**`. |
 | `_workspaces/knowledge/**` | Owner-approved private source-text lane for source cards, approved source text, derived text, source-text indexes, and source-text answer proof runs. |
 | `_workmeta/**` | Private evidence, source ledgers, review packets, and future sourcebound manifest fragments. |
 | `docs/architecture/guild_hall/**` | Public operating contracts and boundaries. |
@@ -455,7 +455,9 @@ It must not contain:
 - auth/session state,
 - runtime absolute paths.
 
-System-level cards are generated under `_workspaces/system/rag/source_slice_cards/**`.
+System-level cards are generated under the path-identity controlled
+`_workspaces/system/rag/source_slice_cards/**` view. PC-local experiments use
+`_workspaces/_local/<node_id>/system/rag/source_slice_cards/**`.
 Private/project-sensitive cards must be written under
 `_workmeta/<project_code>/reports/rag/source_slice_cards/**` and require an
 explicit project code. The actual source files remain in `_workspaces`,
@@ -808,8 +810,10 @@ It must not contain:
 - NotebookLM answers;
 - secrets, auth/session state, runtime absolute paths, or private payloads.
 
-Public-safe system indexes are written under
-`_workspaces/system/rag/metadata_retrieval_indexes/**`. If the manifest includes
+Public-safe system indexes are written under the path-identity controlled
+`_workspaces/system/rag/metadata_retrieval_indexes/**` view. PC-local
+experiments use
+`_workspaces/_local/<node_id>/system/rag/metadata_retrieval_indexes/**`. If the manifest includes
 private/project-sensitive source metadata, the index must be written under
 `_workmeta/<project_code>/reports/rag/metadata_retrieval_indexes/**` and require
 an explicit project code.

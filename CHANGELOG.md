@@ -2,6 +2,34 @@
 
 ## 2026-06-13
 
+### Revision `working` - workspace system inventory gate added
+
+- Added a read-only `_workspaces/system` inventory/classification gate through
+  `guild-hall:workspace-system:inventory` and `validate:workspace-system`.
+- Added deterministic classes for shared generated views, fixture candidates,
+  project moves, knowledge moves, PC-local runtime/tools, cache/temp files,
+  repo promotion review, conflicts, and unknown review rows.
+- Blocked default RAG and knowledge graph writes to `_workspaces/system/**`
+  while the `system` binding is still planned or the local path is not a link;
+  PC-local temporary outputs must use `_workspaces/_local/<node_id>/system/**`.
+- Updated `docs/ws.md` so other PCs start from the inventory gate and produce a
+  dry-run cleanup plan without file mutation or host-local path leakage.
+
+### Revision `working` - workspace path identity policy fixed
+
+- Added a public workspace path identity policy so the same `_workspaces/<name>`
+  path cannot mean different physical folders on different PCs unless it is
+  explicitly under `_workspaces/_local/<node_id>/`.
+- Reclassified `_workspaces/system` as a path-identity controlled shared system
+  view, with pre-migration local copies preserved under
+  `_workspaces/_local_hold/system/<timestamp>_<node_id>/`.
+- Updated workspace, installation, knowledge graph, RAG, Obsidian export, and
+  short PC handoff docs so default system outputs use the shared view and
+  PC-local experiments use `_workspaces/_local/<node_id>/system/...`.
+- Updated workspace junction audit and RAG/knowledge graph path guards to
+  recognize `SE_TEMPLATE_LIBRARY`, `_local`, and `_local_hold` boundaries
+  without allowing arbitrary `_workspaces` aliases.
+
 ### Revision `working` - workspace system check prompt shortcut
 
 - Added `docs/ws.md` as a short hand-typed prompt entry for checking

@@ -4,7 +4,14 @@ import YAML from "yaml";
 
 const DEFAULT_BINDING_REF = "_workmeta/system/bindings/workspace_junctions.yaml";
 const DEFAULT_WORKSPACE_ROOT = "_workspaces";
-const DEFAULT_RESERVED_NAMES = new Set(["README.md", "system", "00_project_index.html"]);
+const DEFAULT_RESERVED_NAMES = new Set([
+  "README.md",
+  "SE_TEMPLATE_LIBRARY",
+  "system",
+  "_local",
+  "_local_hold",
+  "00_project_index.html",
+]);
 
 export function auditWorkspaceJunctions(options = {}) {
   const repoRoot = path.resolve(options.repoRoot ?? process.cwd());

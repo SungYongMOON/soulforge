@@ -9,6 +9,11 @@ The goal is to let the team see the migration plan on GitHub without exposing
 actual workspace files, raw payloads, PC names, cloud absolute paths, secrets,
 or company/private source material.
 
+This runbook follows the path identity rule in
+[`WORKSPACE_PATH_IDENTITY_POLICY_V0.md`](WORKSPACE_PATH_IDENTITY_POLICY_V0.md):
+the same `_workspaces/<name>` path must not mean different physical folders on
+different PCs unless it is under an explicit PC-local namespace.
+
 ## Current Finding
 
 `_workspaces/system/` can contain reusable workflow lab outputs, fixture
@@ -65,6 +70,22 @@ The manifest may include:
 The manifest must not include file contents, excerpts, document titles, raw
 source text, private payload values, or secrets.
 
+Run this read-only gate first on every PC:
+
+```text
+npm.cmd run guild-hall:workspace-system:inventory -- --json
+```
+
+The command is allowed to inspect only metadata: repo-relative names, item
+types, file sizes, modified timestamps, extension counts, and aggregate counts.
+It must not read file contents, print host-local absolute paths, create or
+repair junctions, move files, delete files, upload files, or change permissions.
+
+The inventory command must return `review_required` while a PC still has a
+normal local `_workspaces/system` directory. This is expected during migration;
+it is not a failure of the runbook. It means the PC still needs preservation,
+classification, and link repair.
+
 Suggested private metadata location:
 
 ```text
@@ -98,6 +119,33 @@ After manifests are collected, classify entries by relative path and hash.
 | Exists on one PC only | Unique local item | Preserve as a candidate until owner classifies it. |
 | Generated or cache-like output | Rebuildable runtime material | Prefer regeneration over migration unless explicitly needed. |
 | Source or reusable fixture material | Possibly shared input | Preserve and require owner classification. |
+
+## Deterministic Local Classes
+
+Each PC must also classify top-level entries with the shared enum below before
+any migration action:
+
+| Class | Meaning | Activation blocker |
+| --- | --- | --- |
+| `shared_generated_view` | Generated RAG or knowledge-view output that can be shared or regenerated. | No, unless the owner wants exact output preservation. |
+| `shared_fixture_candidate` | Reusable fixture/reference/materialization candidate. | Yes, until owner-classified. |
+| `project_move` | Project-owned material found under `system`. | Yes, until mapped to `_workspaces/<project_code>/...`. |
+| `knowledge_move` | Cross-project knowledge payload candidate. | Yes, until mapped to `_workspaces/knowledge/...`. |
+| `pc_local_runtime_tool` | Local installs, venvs, tool drops, executable runtime, or machine-only tooling. | Yes, must move local or to `guild_hall/state/tools/**`. |
+| `pc_local_cache_temp` | Logs, pid files, locks, caches, scratch, temp output. | Yes, keep local or discard only after review. |
+| `repo_promote_review` | Portable scripts or reusable helpers found under `system`. | Yes, until promoted to a repo owner surface or moved local. |
+| `conflict_review` | Same-path/different-hash or conflict-like material. | Yes, never auto-merge. |
+| `unknown_review` | Not deterministically classifiable. | Yes, owner review required. |
+
+`_workspaces/system` may move to `state: active` only when:
+
+- `_workspaces/system` is a link view on that PC.
+- the read-only inventory has no activation blockers.
+- all PC-local tools, caches, logs, pid files, and temp outputs are outside
+  `_workspaces/system`.
+- project-specific payloads are mapped to their owning project workspaces.
+- unknown and conflict rows have an owner decision recorded in private
+  metadata.
 
 ## Candidate Shared Root
 
@@ -134,22 +182,32 @@ Store actual target paths only in owner-only local binding or private metadata.
 No step should delete original local material until backup and manifest checks
 are complete.
 
-## Decision Points
+## Fixed Policy
+
+The path identity decision is fixed before content cleanup:
+
+- `_workspaces/system/` should converge to a shared view on participating PCs.
+- `state: planned` records that decision but does not mean the migration is
+  complete.
+- Existing per-PC `_workspaces/system/` directories are preserved first under
+  `_workspaces/_local_hold/system/<timestamp>_<node>/`.
+- PC-specific scratch, caches, local tool installs, temporary views, and
+  machine-only state must move to `_workspaces/_local/<node>/...` or remain in
+  the local hold until classified.
+
+## Remaining Decision Points
 
 Owner decisions still needed:
 
-- Whether `_workspaces/system/` remains local-only by canon and only selected
-  subtrees move to a shared worksite.
-- Whether the whole `_workspaces/system/` view becomes a shared junction on
-  owner PCs.
 - Which subtrees are source or reusable fixture material versus generated
   runtime output.
 - How long local pre-migration backups are retained.
 - Whether the existing `WORKSPACE_PROJECT_MODEL.md` local-only wording should
   be revised after the migration decision.
 
-Until these decisions are made, this document is a migration runbook and
-coordination note, not a canon replacement for the current workspace model.
+Until these content decisions are made, this document is a migration runbook and
+coordination note. It fixes the path identity policy, but it does not promote
+every file under `system` into a shared canonical store.
 
 ## Safe Implementation Notes
 

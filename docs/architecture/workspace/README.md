@@ -11,6 +11,7 @@
 | 문서 | 역할 |
 | --- | --- |
 | `WORKSPACE_PROJECT_MODEL.md` | `_workspaces`, `_workmeta`, `.mission`, gateway handoff 의 owner 경계를 고정한다. |
+| `WORKSPACE_PATH_IDENTITY_POLICY_V0.md` | `_workspaces/<name>` 이 PC마다 다른 실체를 가리키지 않도록 shared view 와 PC-local namespace 경계를 고정한다. |
 | `PROJECT_ONBOARDING_V0.md` | 실제 프로젝트를 `_workspaces/<project_code>/` 로 처음 붙이는 절차를 둔다. |
 | `PROJECT_LEDGER_UPDATE_V0.md` | 주기적으로 전달되는 회사 PJT 관리 대장을 private source 로 받아 project registration 을 갱신하는 public-safe 절차다. |
 | `DAILY_WORK_LEDGER_TAXONOMY_V0.md` | 일일 업무장부의 회사 프로젝트, P00 회사 일반업무, Soulforge 하위 장부 분류 기준이다. |
@@ -64,6 +65,7 @@
 - [`../README.md`](../README.md)
 - [`../guild_hall/README.md`](../guild_hall/README.md)
 - [`WORKSPACE_PROJECT_MODEL.md`](WORKSPACE_PROJECT_MODEL.md)
+- [`WORKSPACE_PATH_IDENTITY_POLICY_V0.md`](WORKSPACE_PATH_IDENTITY_POLICY_V0.md)
 - [`PROJECT_ONBOARDING_V0.md`](PROJECT_ONBOARDING_V0.md)
 - [`PROJECT_LEDGER_UPDATE_V0.md`](PROJECT_LEDGER_UPDATE_V0.md)
 - [`DAILY_WORK_LEDGER_TAXONOMY_V0.md`](DAILY_WORK_LEDGER_TAXONOMY_V0.md)
@@ -135,7 +137,8 @@
 - `MAIL_SEND_V0.md` 는 outbound mail local env, outbound snapshot, append-only send log 위치를 같이 잠근다.
 - `MAIL_SEND_STYLE_POLICY_V0.md` 는 owner 가 직접 보내는 것처럼 보이는 업무 메일 초안, 승인 단계, 제목/본문 스타일, 발송 후 metadata-only 기록 기준을 잠근다.
 - `MULTI_PC_DEVELOPMENT_V0.md` 는 다른 PC 에서 `clone -> local runtime materialize -> push` 하는 최소 운영 절차와 `work_pc` / `tool_pc` / `portable_dev_pc` / `always_on_node` 역할 모델을 잠근다.
-- `SYSTEM_WORKSPACE_SYNC_MIGRATION_V0.md` 는 여러 PC 의 `_workspaces/system/` drift 를 실제 payload 없이 manifest 기반으로 비교하고 공유 전환 여부를 결정하는 공개 회람용 runbook 이다.
+- `WORKSPACE_PATH_IDENTITY_POLICY_V0.md` 는 같은 `_workspaces/<name>` 경로가 PC마다 다른 폴더를 뜻하지 않도록 shared view 와 `_workspaces/_local/<node_id>/` / `_workspaces/_local_hold/...` 경계를 잠근다.
+- `SYSTEM_WORKSPACE_SYNC_MIGRATION_V0.md` 는 여러 PC 의 `_workspaces/system/` drift 를 실제 payload 없이 manifest 기반으로 비교하고 공유 view 전환 이후 content disposition 을 결정하는 공개 회람용 runbook 이다.
 - split binding 파일은 `bindings/*.yaml` 상대 경로 포인터 규칙을 사용한다.
 - workflow step 의 `execution_profile_ref` 와 `action.skill_id` 는 local runtime binding 을 통해 model, skill package, MCP/tool preset 으로 resolve 할 수 있다.
 - `autohunt/` 는 mailbox routing, party workflow-chain 또는 단일 workflow selection, retry-escalation policy, future node capability/claim 확장선을 설명하는 local operating layer 다.

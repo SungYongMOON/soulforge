@@ -2,6 +2,7 @@ import crypto from "node:crypto";
 import path from "node:path";
 import { buildKnowledgeGraph, KNOWLEDGE_GRAPH_SCHEMA_VERSION } from "../knowledge_graph/graph_export.mjs";
 import { normalizeRepoPath, pathExists, readJson, writeJson } from "../shared/io.mjs";
+import { assertWorkspaceSystemWriteAllowed } from "../workspace_junction/system_inventory.mjs";
 
 export const RAG_MANIFEST_SCHEMA_VERSION = "soulforge.rag_manifest.v0";
 export const RAG_ANSWER_SCHEMA_VERSION = "soulforge.rag_answer.v0";
@@ -38,6 +39,10 @@ const DEFAULT_SOURCE_SLICE_OWNER_DECISION_ROOT = "_workmeta/system/reports/rag/s
 const DEFAULT_METADATA_INDEX_ROOT = "_workspaces/system/rag/metadata_retrieval_indexes";
 const DEFAULT_RETRIEVAL_TRACE_ROOT = "_workmeta/system/reports/rag/retrieval_traces";
 const DEFAULT_RETRIEVAL_EVALUATION_ROOT = "_workmeta/system/reports/rag/retrieval_evaluations";
+const LOCAL_WORKSPACE_NODE_SEGMENT = "[A-Za-z0-9][A-Za-z0-9_.-]{0,80}";
+const LOCAL_SYSTEM_RUNTIME_PATTERN = new RegExp(
+  `^_workspaces/_local/${LOCAL_WORKSPACE_NODE_SEGMENT}/system/(knowledge_view|rag)(?:/|$)`,
+);
 const MIN_ANSWER_SCORE = 4;
 const MIN_ANSWER_MATCH_REASONS = 1;
 const SAFE_ID_PATTERN = /^[A-Za-z0-9][A-Za-z0-9_.:-]{0,159}$/;
@@ -763,7 +768,9 @@ export async function writeRagManifest(options = {}) {
   const outputRef =
     options.outputRef ??
     normalizeRepoPath(path.join(DEFAULT_MANIFEST_ROOT, manifest.manifest_id, "rag_manifest.json"));
-  const outputPath = path.join(repoRoot, safeRagOutputPath(outputRef));
+  const safeOutputRef = safeRagOutputPath(outputRef);
+  assertWorkspaceSystemWriteAllowed({ repoRoot, outputRef: safeOutputRef });
+  const outputPath = path.join(repoRoot, safeOutputRef);
   await writeJson(outputPath, manifest);
   return {
     status: "written",
@@ -849,7 +856,9 @@ export async function writeSourceSliceCards(options = {}) {
   if (sourceSliceCardSetRequiresPrivateOutput(cardSet) && outputRef.startsWith(`${DEFAULT_SOURCE_SLICE_ROOT}/`)) {
     throw new Error("private source slice cards require _workmeta/<project_code>/reports/rag/source_slice_cards/ output");
   }
-  const outputPath = path.join(repoRoot, safeSourceSliceOutputPath(outputRef));
+  const safeOutputRef = safeSourceSliceOutputPath(outputRef);
+  assertWorkspaceSystemWriteAllowed({ repoRoot, outputRef: safeOutputRef });
+  const outputPath = path.join(repoRoot, safeOutputRef);
   await writeJson(outputPath, cardSet);
   return {
     status: "written",
@@ -1543,7 +1552,9 @@ export async function writeRagMetadataIndex(options = {}) {
   ) {
     throw new Error("private rag metadata index requires _workmeta/<project_code>/reports/rag/metadata_retrieval_indexes/ output");
   }
-  const outputPath = path.join(repoRoot, safeRagMetadataIndexOutputPath(outputRef));
+  const safeOutputRef = safeRagMetadataIndexOutputPath(outputRef);
+  assertWorkspaceSystemWriteAllowed({ repoRoot, outputRef: safeOutputRef });
+  const outputPath = path.join(repoRoot, safeOutputRef);
   await writeJson(outputPath, index);
   return {
     status: "written",
@@ -3770,18 +3781,33 @@ function isSafeMetadataRef(value) {
   }
   if (
     ref.startsWith("_workspaces/") &&
-    !ref.startsWith("_workspaces/system/knowledge_view/") &&
-    !ref.startsWith("_workspaces/system/rag/")
+    !isSystemRuntimeMetadataRef(ref)
   ) {
     return false;
   }
   return true;
 }
 
+function isSystemRuntimeMetadataRef(ref) {
+  return (
+    ref.startsWith("_workspaces/system/knowledge_view/") ||
+    ref.startsWith("_workspaces/system/rag/") ||
+    LOCAL_SYSTEM_RUNTIME_PATTERN.test(ref)
+  );
+}
+
+function isSystemRagOutputPath(ref, folder) {
+  if (ref.startsWith(`_workspaces/system/rag/${folder}/`)) return true;
+  const pattern = new RegExp(`^_workspaces/_local/${LOCAL_WORKSPACE_NODE_SEGMENT}/system/rag/${folder}/`);
+  return pattern.test(ref);
+}
+
 function safeRagOutputPath(value) {
   const ref = safeRepoRelativePath(value);
-  if (!ref.startsWith(`${DEFAULT_MANIFEST_ROOT}/`)) {
-    throw new Error("rag manifest output must be under _workspaces/system/rag/manifests/");
+  if (!isSystemRagOutputPath(ref, "manifests")) {
+    throw new Error(
+      "rag manifest output must be under _workspaces/system/rag/manifests/ or _workspaces/_local/<node_id>/system/rag/manifests/",
+    );
   }
   return ref;
 }
@@ -3789,10 +3815,12 @@ function safeRagOutputPath(value) {
 function safeSourceSliceOutputPath(value) {
   const ref = safeRepoRelativePath(value);
   if (
-    !ref.startsWith(`${DEFAULT_SOURCE_SLICE_ROOT}/`) &&
+    !isSystemRagOutputPath(ref, "source_slice_cards") &&
     !/^_workmeta\/[A-Za-z0-9][A-Za-z0-9_.-]{0,80}\/reports\/rag\/source_slice_cards\//.test(ref)
   ) {
-    throw new Error("source slice card output must be under _workspaces/system/rag/source_slice_cards/ or _workmeta/<project_code>/reports/rag/source_slice_cards/");
+    throw new Error(
+      "source slice card output must be under _workspaces/system/rag/source_slice_cards/, _workspaces/_local/<node_id>/system/rag/source_slice_cards/, or _workmeta/<project_code>/reports/rag/source_slice_cards/",
+    );
   }
   return ref;
 }
@@ -3844,10 +3872,12 @@ function safeSourceSliceOwnerDecisionRecordOutputPath(value) {
 function safeRagMetadataIndexOutputPath(value) {
   const ref = safeRepoRelativePath(value);
   if (
-    !ref.startsWith(`${DEFAULT_METADATA_INDEX_ROOT}/`) &&
+    !isSystemRagOutputPath(ref, "metadata_retrieval_indexes") &&
     !/^_workmeta\/[A-Za-z0-9][A-Za-z0-9_.-]{0,80}\/reports\/rag\/metadata_retrieval_indexes\//.test(ref)
   ) {
-    throw new Error("rag metadata index output must be under _workspaces/system/rag/metadata_retrieval_indexes/ or _workmeta/<project_code>/reports/rag/metadata_retrieval_indexes/");
+    throw new Error(
+      "rag metadata index output must be under _workspaces/system/rag/metadata_retrieval_indexes/, _workspaces/_local/<node_id>/system/rag/metadata_retrieval_indexes/, or _workmeta/<project_code>/reports/rag/metadata_retrieval_indexes/",
+    );
   }
   return ref;
 }

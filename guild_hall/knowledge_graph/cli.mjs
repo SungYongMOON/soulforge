@@ -155,7 +155,7 @@ function printUsageAndExit() {
       "  node guild_hall/knowledge_graph/cli.mjs review --node-ref <node-ref> [--question <question>] [--graph-ref <repo-relative-graph-json>] [--model gpt-5.5] [--output-ref <repo-relative-md>] [--text]",
       "",
       "Notes:",
-      "  Generates metadata-only graph.json, a default Three.js graph_preview.html, graph_preview_2d.html, and an Obsidian-readable generated vault under _workspaces/system/knowledge_view by default.",
+      "  Generates metadata-only graph.json, a default Three.js graph_preview.html, graph_preview_2d.html, and an Obsidian-readable generated vault under the path-identity controlled _workspaces/system/knowledge_view view by default.",
       "  Explicit ledger refs/files may add usage and recency signals. Usage counts are navigation signals, not truth or acceptance.",
       "  Explicit RAG manifest refs may add metadata-only RAG lens overlays. They do not load source text, vector stores, NotebookLM answers, or private payloads.",
       "  Explicit source-slice triage/register refs may add metadata-only RAG registration overlays. They do not approve source text, indexes, NotebookLM packets, or public canon promotion.",

@@ -122,7 +122,9 @@ flowchart LR
 
 OneDrive 같은 cloud path 를 `_workspaces` 로 쓰려면 실제 파일은 cloud/shared project worksite 에 두고 `_workspaces/<project_code>/` 는 link 로 둔다. project 별 binding 에만 target 을 기록하고, public tracked tree 에 machine-local 절대경로를 넣지 않는다. symlink/junction 생성은 사용자가 `project_code` 와 대상 path 를 명시했을 때만 수행한다.
 
-cloud/shared worksite 의 상위 root 전체를 `_workspaces/company` 같은 direct child 로 materialize 하지 않는다. 다른 PC 에서 pull 한 뒤 이전 작업 흔적으로 `_workspaces/company` 또는 `_workspaces/personal` 정션이 남아 있으면, target 이 shared worksite root 인지 확인한 뒤 junction pointer 만 제거하고 원본 shared worksite 는 보존한다. 이후 `_workspaces` 아래에는 registered project code, reserved `system`, owner-approved non-project alias 만 다시 materialize 한다.
+cloud/shared worksite 의 상위 root 전체를 `_workspaces/company` 같은 direct child 로 materialize 하지 않는다. 다른 PC 에서 pull 한 뒤 이전 작업 흔적으로 `_workspaces/company` 또는 `_workspaces/personal` 정션이 남아 있으면, target 이 shared worksite root 인지 확인한 뒤 junction pointer 만 제거하고 원본 shared worksite 는 보존한다. 이후 `_workspaces` 아래에는 registered project code, reserved `system`, reserved `_local`, reserved `_local_hold`, owner-approved non-project alias 만 다시 materialize 한다.
+
+같은 `_workspaces/<name>` 경로는 PC마다 다른 실제 폴더를 뜻하면 안 된다. 공유 대상이면 junction/symlink view 로 맞추고, PC별 scratch/cache/local tool state 는 `_workspaces/_local/<node_id>/` 아래에 둔다. 기존 local 폴더를 shared view 로 바꾸는 중간 보존본은 `_workspaces/_local_hold/<workspace_alias>/` 아래에 둔다.
 
 Git push/pull 로 전파되는 것은 public-safe 규칙과 owner-only `_workmeta` binding intent 뿐이다. 각 PC 의 실제 junction, symlink, local absolute path, cloud sync 상태는 Git 이 자동으로 고치지 않으므로 해당 PC 에서 bootstrap/repair 단계를 한 번 수행해야 한다.
 
@@ -487,4 +489,4 @@ npm run guild-hall:gateway:fetch:healthcheck -- --json
 
 ## ASSUMPTIONS
 
-- canonical tracked tree 는 계속 GitHub 로 sync 하고, `guild_hall/state/**` 와 `_workspaces/**` 는 local-only runtime 원칙을 유지한다고 본다.
+- canonical tracked tree 는 계속 GitHub 로 sync 하고, `guild_hall/state/**` 와 `_workspaces/**` 는 public Git 에 올리지 않는 runtime 원칙을 유지한다고 본다. 다만 `_workspaces/<name>` 의 path identity 는 [`WORKSPACE_PATH_IDENTITY_POLICY_V0.md`](WORKSPACE_PATH_IDENTITY_POLICY_V0.md) 에 따라 shared view 와 PC-local namespace 를 명확히 나눈다.

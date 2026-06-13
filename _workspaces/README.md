@@ -6,11 +6,12 @@
 - public GitHub 에서는 `_workspaces/README.md` 만 추적한다.
 - 실제 `_workspaces/<project_code>/` 는 로컬 환경에서만 materialize 되는 private project worksite view 다.
 - 여러 owner PC 에서 같은 실자료를 읽어야 하는 프로젝트는 실제 파일을 owner-approved shared worksite 에 두고, `_workspaces/<project_code>/` 는 그 위치를 가리키는 local-only directory link 로 둔다.
-- reserved `_workspaces/system/` 은 특정 프로젝트에 속하지 않는 reusable workflow lab pilot output, fixture materialization, downloaded reference file 을 두는 local-only workspace 다.
+- reserved `_workspaces/system/` 은 특정 프로젝트에 속하지 않는 reusable workflow lab pilot output, fixture materialization, downloaded reference file 을 두는 path-identity controlled workspace 다. 여러 PC 에서 같은 이름을 사용할 때는 같은 owner-approved shared worksite 를 가리키는 local-only link view 여야 한다.
 - cross-project ingress/runtime 은 `_workspaces/` 가 아니라 `guild_hall/state/**` 가 맡는다.
 - `company/`, `personal` 분기는 새 정본에 포함하지 않는다.
 - cloud/company root 는 project worksite 의 link target 을 해석하기 위한 외부 루트일 수는 있지만, `_workspaces/company` 같은 direct child junction 으로 materialize 하지 않는다.
-- `_workspaces` direct child 는 `<project_code>/`, reserved `SE_TEMPLATE_LIBRARY/`, reserved `system/`, 또는 owner 가 명시적으로 승인하고 binding 에 등록한 non-project alias 로 제한한다.
+- `_workspaces` direct child 는 `<project_code>/`, reserved `SE_TEMPLATE_LIBRARY/`, reserved `system/`, reserved `_local/`, reserved `_local_hold/`, 또는 owner 가 명시적으로 승인하고 binding 에 등록한 non-project alias 로 제한한다.
+- PC별 scratch, cache, local tool install, temporary output 은 `_workspaces/_local/<node_id>/` 아래에 둔다. 공유 전환 전 기존 local 폴더 보존본은 `_workspaces/_local_hold/<workspace_alias>/<timestamp>_<node_id>/` 아래에 둔다.
 - tracked sample 이 필요하면 `_workspaces/` 아래가 아니라 `docs/architecture/workspace/examples/` 아래에 둔다.
 - 다른 PC 나 다른 LLM 이 runtime shape 를 따라야 하면 `docs/architecture/workspace/examples/guild_hall/state/gateway/` 와 `docs/architecture/workspace/examples/` 의 public-safe mirror sample 을 먼저 읽는다.
 - 다른 PC 에서 repo 를 clone 해도 실제 `_workspaces/**` 실자료는 따라오지 않으며, local runtime 은 각 PC 에서 다시 materialize 해야 한다.
@@ -27,6 +28,13 @@ _workspaces/
 
 ```text
 _workspaces/
+├── _local/
+│   └── <node_id>/
+│       └── ... PC-local scratch, cache, local tools, temporary output ...
+├── _local_hold/
+│   └── <workspace_alias>/
+│       └── <timestamp>_<node_id>/
+│           └── ... preserved pre-migration local copy ...
 ├── SE_TEMPLATE_LIBRARY/
 │   ├── common_document_rules/
 │   ├── <stage>/<artifact>/00_Temp/
@@ -51,7 +59,7 @@ _workspaces/
 
 - `_workspaces/<project_code>/` 는 실제 프로젝트 파일, 산출물, 로컬 운영 상태를 보여주는 materialization site 다.
 - `_workspaces/SE_TEMPLATE_LIBRARY/` 는 reusable SE artifact materials 의 canonical actual-file library/store 다. pointer-only reference folder 도 아니고 project execution baseline 도 아니다.
-- `_workspaces/system/` 은 특정 프로젝트 owner 가 없는 reusable workflow 실험, fixture 출력, pilot 산출물을 담는 reserved lab workspace 다.
+- `_workspaces/system/` 은 특정 프로젝트 owner 가 없는 reusable workflow 실험, fixture 출력, pilot 산출물을 담는 reserved lab workspace 다. 참여 PC 에서는 같은 shared target 을 보는 link view 로 맞추고, PC-local 실험이나 cache 는 `_workspaces/_local/<node_id>/` 로 분리한다.
 - library 의 canonical reusable files 는 owner-approved templates/forms, executable artifact workflows, artifact-specific authoring rules, sample output files 를 포함할 수 있다. provenance, hash, version, classification 은 `manifests/` 또는 catalog docs 에 기록한다.
 - library 의 `workflow/` 는 executable workflow procedure 만 담는다. folder layout, source path, copy history, hash, catalog/provenance 는 workflow 본문이 아니라 `manifests/` 또는 catalog docs 에 둔다.
 - common document rules 는 artifact-specific `authoring_rules/` 와 섞지 않고 `common_document_rules/` 같은 별도 common-rule surface 에 둔다.
@@ -78,6 +86,7 @@ _workspaces/
 
 - 실제 project code 와 실제 프로젝트 디렉터리를 public repo 에 추가하지 않는다.
 - `_workspaces/SE_TEMPLATE_LIBRARY/**` 와 `_workspaces/system/**` 도 local-only runtime 이며 public GitHub 에 올리지 않는다.
+- `_workspaces/_local/**` 와 `_workspaces/_local_hold/**` 도 public GitHub 에 올리지 않는다.
 - tracked 문서와 public-safe example 에는 실제 project code, 실제 과제명, 실제 display name 을 적지 않고 generic example 만 쓴다.
 - `_workmeta/<project_code>/` 계약 파일도 public tracking 대상이 아니다.
 - `_workmeta` 에 실제 원문 파일을 저장하지 않는다. 대표적으로 `.hwp`, `.hwpx`, `.docx`, `.xlsx`, `.xlsm`, `.xls`, `.pptx`, `.ppt`, `.pdf`, `.zip`, `.7z`, `.rar`, `.egg`, `.msg`, `.eml`, `.pst`, `.ost`, `.mbox` 파일은 workspace/shared worksite 쪽에 두고 `_workmeta` 에는 포인터 메타데이터만 남긴다.

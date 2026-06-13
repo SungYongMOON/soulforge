@@ -48,12 +48,12 @@ flowchart LR
 
 - `sync-body-state` = 상태 보고용 no-op
 - `resolve-loadout` = class/workflow/party summary
-- `resolve-workspaces` = local-only mount inspector
+- `resolve-workspaces` = workspace runtime/boundary mount inspector
 - `validate` = 7축 owner root 최소 검증
 - `derive-ui-state` = 7축 payload + renderer surface
 - renderer = `derive-ui-state --json` 소비자
 
-## local-only workspace 규칙
+## workspace runtime scan 규칙
 
 - public repo 기본 모드는 `_workspaces/README.md` 만 기대한다.
 - 실제 `_workspaces/<project_code>/` scan 은 `--local-workspaces` 가 있을 때만 수행한다.

@@ -23,7 +23,7 @@
 9. worklog 에서 반복 가능한 절차로 확인된 내용은 workflow 문서 초안 또는 정본 manual 로 승격할 수 있게 구조화해 남긴다.
 10. project assignment 와 자료 분류에 쓰는 힌트는 실제 비밀 project code 나 내부 관리번호보다 비밀성이 낮은 대표 업무명 또는 공개 가능한 주제어를 우선 사용한다.
 11. 여러 과제에 걸쳐 재사용되는 약어, 제품군명, 일반 사업유형은 단독 판정 키로 쓰지 않고 보조 힌트로만 취급한다.
-12. `_workspaces/SE_TEMPLATE_LIBRARY/` 는 reusable SE artifact materials 의 canonical actual-file library/store 다. pointer-only reference folder 도 아니고 project execution baseline 도 아니다. `_workspaces/system/` 은 lab/fixture workspace 로 남긴다.
+12. `_workspaces/SE_TEMPLATE_LIBRARY/` 는 reusable SE artifact materials 의 canonical actual-file library/store 다. pointer-only reference folder 도 아니고 project execution baseline 도 아니다. `_workspaces/system/` 은 path-identity controlled shared-view lab/fixture workspace 로 남기고, PC-local scratch/cache 는 `_workspaces/_local/<node_id>/` 로 분리한다.
 13. library 의 canonical reusable files 는 owner-approved templates/forms, executable artifact workflows, artifact-specific authoring rules, sample output files 를 포함할 수 있다. provenance, hash, version, classification 은 `manifests/` 또는 catalog docs 에 기록한다.
 14. library 의 `workflow/` 는 executable workflow procedure 만 담는다. folder layout, source path, copy history, hash, catalog/provenance 는 workflow 본문이 아니라 `manifests/` 또는 catalog docs 에 둔다.
 15. common document rules 는 artifact-specific `authoring_rules/` 와 섞지 않고 별도 common-rule surface 에 둔다.

@@ -125,7 +125,10 @@ _workspaces/SE_TEMPLATE_LIBRARY/
 - `workflow/` contains only the executable workflow procedure. Folder layout, source path, copy history, hash, catalog/provenance, version, and classification belong in `manifests/` or catalog docs.
 - Common document rules stay separate from artifact-specific `authoring_rules/`; keep them under `common_document_rules/` or another owner-approved common-rule surface.
 - Rev-specific HWP forms are not automatically official form originals. Owner-approved canonical HWP/HWPX form materials can live under `templates_or_forms/` with manifest metadata.
-- `_workspaces/system/` remains the local lab and fixture workspace.
+- `_workspaces/system/` remains the lab and fixture workspace, but on
+  participating PCs it follows the workspace path identity policy and should
+  resolve to the same shared view. PC-local experiments and cache belong under
+  `_workspaces/_local/<node_id>/`.
 
 ## Metadata To Record Outside The Folder Name
 

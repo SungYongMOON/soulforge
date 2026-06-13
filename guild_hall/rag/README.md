@@ -13,6 +13,17 @@ The default manifest/index path is still metadata-only. A separate
 `_workspaces/knowledge` and writes its payload artifacts back under that private
 workspace alias.
 
+Default metadata manifests, source-slice cards, and metadata indexes are written
+under the path-identity controlled `_workspaces/system/rag/**` view. PC-local
+RAG experiments must pass an explicit `--output-ref` under
+`_workspaces/_local/<node_id>/system/rag/**`; do not create another direct child
+under `_workspaces` for the same purpose.
+
+During `_workspaces/system` migration, default system writes are blocked until
+the `system` binding is active and the local path is a link view. Run
+`npm.cmd run guild-hall:workspace-system:inventory -- --json` first if the
+local PC may still have a normal `_workspaces/system` folder.
+
 Source-family promotion rules are defined in
 `docs/architecture/guild_hall/RAG_SOURCE_FAMILY_PROMOTION_POLICY_V0.md`. Use
 that policy to separate source canon from derived knowledge canon and to decide

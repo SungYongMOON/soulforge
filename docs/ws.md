@@ -1,63 +1,64 @@
 # Workspace System Junction Prompt
 
-Use this file when another PC cannot copy and paste a long prompt.
+다른 PC에서 긴 프롬프트를 복사할 수 없을 때 이 파일만 열어 실행한다.
 
-Short command to type in Codex:
+짧게 입력:
 
 ```text
 docs/ws.md 실행
 ```
 
-Prompt:
+## 실행 지시
+
+현재 열린 Soulforge 저장소 root 기준으로 `_workspaces/system`을 공유
+정션으로 정리할 준비 상태만 점검하고, 승인 전에는 아무것도 변경하지
+마세요.
+
+먼저 아래 명령을 실행하세요.
 
 ```text
-현재 열린 Soulforge 저장소 루트 기준으로 workspace system 상태를 정리해서 `_workspaces/system`이 공유본 junction이 되도록 진행해줘.
-
-규칙:
-- 보고/기록은 repo-relative path만 사용
-- 로컬 절대경로, 드라이브명, 사용자명 기록 금지
-- secret, .env, token, cookie, session, 업무 원문 내용 열람 금지
-- 1차 실행에서는 삭제, 이동, 수정, 업로드, 권한 변경, junction 생성 실행 금지
-- 먼저 dry-run plan을 제시하고 owner가 "적용 승인"이라고 말한 뒤에만 로컬 정리와 junction 생성을 진행
-- 적용 승인 후에도 삭제하지 말고 기존 로컬 폴더는 repo-relative hold 위치로 보존 이동
-- 공유 target은 local runtime 값으로만 다루고 보고서/기록에는 쓰지 말 것
-
-기준:
-- 최종 목표 경로는 `_workspaces/system`이다.
-- 정리 완료 후 `_workspaces/system`은 일반 폴더가 아니라 junction이어야 한다.
-- `Systems`는 legacy/alias 후보로만 보고, 별도 승인 없이는 만들지 않는다.
-
-1단계 점검:
-1. public, _workmeta, private-state git status
-2. _workmeta/system/bindings/workspace_junctions.yaml 존재 여부
-3. _workspaces/system 또는 Systems가 실제 폴더인지, 정션인지, 공유 경로인지
-4. 파일 내용은 보지 말고 repo-relative path, count, mtime, size, extension 수준만 비교
-
-2단계 분류:
-- keep_local: 이 PC에서만 의미 있는 임시/캐시/로그 후보
-- merge_candidate: 다른 PC 또는 공유본과 합칠 가능성이 있는 자료 후보
-- duplicate_candidate: 이름/크기/mtime 기준 중복 의심
-- stale_candidate: 오래되고 최근 사용 흔적이 약한 후보
-- unknown_review: 판단 근거가 부족해 사람이 봐야 하는 후보
-
-3단계 dry-run 정리안:
-- `_workspaces/system`을 바로 지우거나 덮어쓰지 않는다.
-- repo-relative 기준으로 보존 위치, 병합 후보 위치, junction 전환 전 백업 위치를 제안한다.
-- 각 항목마다 reason, risk, proposed_action, needs_owner_check를 붙인다.
-- 마지막에 “승인 후 실행 순서”를 제시한다.
-
-4단계 적용 승인 후 실행:
-- 기존 `_workspaces/system`이 일반 폴더면 `_workspaces/_local_hold/system/<timestamp>/` 아래로 보존 이동한다.
-- owner가 지정한 공유 target으로 `_workspaces/system` junction을 만든다.
-- 이동한 local hold와 새 junction의 메타데이터를 비교해 merge_candidate를 다시 표시한다.
-- 바인딩 파일 변경이 필요하면 먼저 제안만 하고, 별도 승인 없이는 수정하지 않는다.
-- 실패 시에는 만든 junction을 임의로 삭제하지 말고 상태와 rollback plan만 보고한다.
-
-산출물:
-1. 현재 상태 요약
-2. 분류표
-3. 이 PC 전용 dry-run cleanup plan
-4. owner 승인 후 `_workspaces/system`을 junction으로 만드는 실행 순서
-5. 적용 후에는 junction 여부, 보존 위치, merge_candidate 목록, 남은 owner 확인사항
-6. 승인받기 전에는 아무것도 변경하지 않았다는 boundary check
+npm.cmd run guild-hall:workspace-system:inventory -- --json
 ```
+
+없으면 metadata-only 수동 점검으로 대체하되, 파일 본문은 열지 마세요.
+
+## 경계
+
+- 보고와 기록에는 repo-relative path만 사용합니다.
+- 로컬 절대경로, 드라이브명, 사용자명, PC 이름, 클라우드 계정명은 기록하지 않습니다.
+- secret, `.env`, token, cookie, session, credential 파일은 열지 않습니다.
+- `_workspaces/system` 안의 파일 본문, 원문, 첨부, 문서 제목, 메일 본문은 읽지 않습니다.
+- 승인 전에는 삭제, 이동, 수정, 업로드, 권한 변경, 정션 생성/수리를 하지 않습니다.
+- 공유 target은 local runtime 값으로만 취급하고, 보고서나 public 문서에 쓰지 않습니다.
+
+## 분류 규칙
+
+- `shared_generated_view`: `_workspaces/system/rag/**`, `_workspaces/system/knowledge_view/**`
+- `shared_fixture_candidate`: 공통 fixture, reference, XML/materials 후보
+- `project_move`: 프로젝트 코드나 프로젝트 전용 자료로 보이는 항목
+- `knowledge_move`: 공통 knowledge worksite로 가야 할 후보
+- `pc_local_runtime_tool`: local LLM, venv, tools, 실행 파일, machine-only runtime
+- `pc_local_cache_temp`: log, pid, lock, cache, tmp, scratch
+- `repo_promote_review`: portable script/helper 후보
+- `conflict_review`: 같은 경로 충돌 또는 conflict 후보
+- `unknown_review`: 근거 부족으로 owner review가 필요한 항목
+
+## 통과 기준
+
+`_workspaces/system`은 최종적으로 일반 폴더가 아니라 공유 target을 향한
+link view여야 합니다. 단, 현재 PC의 기존 일반 폴더는 먼저
+`_workspaces/_local_hold/system/<timestamp>_<node_id>/` 아래로 보존하는
+dry-run plan을 제시한 뒤 owner가 명시 승인할 때만 실제 이동합니다.
+
+`state: planned`는 정리 완료가 아니라 아직 migration 중이라는 뜻입니다.
+`state: active`로 바꾸려면 inventory blocker가 0이고, PC-local runtime과
+project-specific 자료가 `_workspaces/system` 밖으로 분리되어 있어야 합니다.
+
+## 산출물
+
+1. 현재 상태 요약
+2. inventory 명령 결과 요약
+3. 분류표와 blocker
+4. 이 PC 전용 dry-run cleanup plan
+5. owner 승인 후에만 수행할 junction 전환 순서
+6. 승인 전에는 변경하지 않았다는 boundary check
