@@ -635,10 +635,14 @@ Start condition:
 | 19 | V0 문서 버전 승격/유지 기준 정의 | 없음 - 기준 한 장이면 충분 | `docs/architecture/foundation` |
 | 20 | knowledge/RAG 문서 통합 색인 | 분산 문서 8+건 목록 확정 | `docs/architecture/foundation`, `docs/architecture/workspace` |
 | 21 | Python 테스트 커버리지 확장 (town_crier, mail_send 등) | 없음 - synthetic fixture 로 가능 | `guild_hall` |
+| 22 | program delivery 레인 + 산출물↔정본 연결 (도편수: 길마와 dev_worker 사이 상위 조율층, 릴리스 준비 게이트 G1~G9, 첫 사례 dev-erp 팀 인도) | owner 가 새 class 신설 여부·ERP project_code·파일럿 호스트를 정함 (갈림길 ①②③) | `docs/architecture/foundation`, `.party`, `.unit`, `.registry`, `_workmeta`, `ui-workspace`, `guild_hall/dev_worker` |
 
 후보 10~21 의 출처는 2026-06-12 Fable5 심층 검증이다. 10~17 의 상세 후보
 패킷은 `_workmeta/system/dev_worker_candidate_queue/` 에 `status: proposed`
 로 있으며, owner 승인 전에는 실행 큐로 승격하지 않는다.
+후보 22 의 상세 방향은 `docs/architecture/foundation/PROGRAM_DELIVERY_AGENT_AND_PRODUCT_BRIDGE_PLAN_V0.md`,
+상세 후보 패킷은 `_workmeta/system/dev_worker_candidate_queue/program_delivery_agent_and_product_bridge_v0.yaml`
+(`status: proposed`) 에 있다. 출처는 2026-06-13 Fable5 program delivery 기획이다.
 
 ## 구체화 규칙
 

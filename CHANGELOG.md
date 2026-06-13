@@ -2,6 +2,21 @@
 
 ## 2026-06-13
 
+### Revision `working` - program delivery 레인 + 산출물↔정본 연결 기획안 추가
+
+- `docs/architecture/foundation/PROGRAM_DELIVERY_AGENT_AND_PRODUCT_BRIDGE_PLAN_V0.md`
+  를 `proposed` 방향 문서로 추가했다. 길마와 dev_worker 사이의 상위 조율층
+  (program delivery / 도편수)을 정본(party/unit)+실행(Claude subagent +
+  Codex skill)으로 정의하고, 산출물=파생 소비자 불변식 위에서 Soulforge↔ERP
+  연결 계약과 릴리스 준비 게이트 G1~G9 를 ERP 실사용 준비와 묶었다.
+- `DEVELOPMENT_ROADMAP_V0.md` 다음 후보 표에 후보 22(program delivery 레인)
+  한 줄과 방향/후보 패킷 포인터를 추가했다.
+- 상세 실행 후보는 private `_workmeta/system/dev_worker_candidate_queue/`
+  에 `status: proposed` 로 두었다(owner 승인 ①②③ 전 실행 큐 승격 금지).
+- 정본 파일(class/unit/party/subagent/skill) 생성은 owner 승인 후로 보류.
+  이 변경은 `claude/program-delivery-plan` branch 에서 `claude_fable-5` 가
+  작성했고, merge 전 검증은 owner/Codex 몫으로 남겼다.
+
 ### Revision `working` - workspace system check prompt shortcut
 
 - Added `docs/ws.md` as a short hand-typed prompt entry for checking
