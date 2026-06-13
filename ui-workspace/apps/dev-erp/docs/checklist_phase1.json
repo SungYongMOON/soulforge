@@ -240,6 +240,7 @@
     "2026-06-12 run17: 메일 분류(재배정) + 판타지 출몰. 경계 결정 기록(DESIGN 변경 이력): 몬스터=core_item 유지, 분류≠자동출몰, 체크 옵션(기본 ON)이 출몰. QA로 실분류 3건 수행([Soulforge] 내부 보고 메일 → general_work, 합리적 분류라 원복 안 함) + 몬스터 1건 출몰(general_work). 미분류 248→245.",
     "2026-06-13 A(ECount 반영 1차): IA 2.5단(상단 그룹탭+좌측 하위, ECount 1단 모듈탭→3단 좌측트리 구조의 2.5단 절충) + 할일 상태칩. owner 'A부터 전부 /loop' 자율. 서버 1회 다운(owner 재기동)으로 브라우저 검증 지연→복구 후 전 화면·그룹전환·칩필터·판타지 파리티·콘솔0 확인. 개인화(위젯 대시보드)·RBAC는 P2b 잔여.",
     "2026-06-13 B(위젯 대시보드 v1): owner '위젯 기능 없는데?' → 홈 고정타일을 ECount식 위젯보드로 승격. 그리드 스냅(colSpan)+드래그 reorder(HTML5)+마우스 리사이즈 핸들+추가/삭제, localStorage. ECount 관찰모델(그리드스냅·자유리사이즈·추가삭제) 정합. 계정별 서버저장·빈칸 자유배치는 P2b/후속.",
-    "2026-06-13 B 보강(owner 피드백 '위젯 느낌 안남'): 타일→진짜 위젯. 높이 리사이즈(rowSpan, grid-auto-rows 26px)+본문 내부 스크롤(overflow-y)+▾접기/펼치기+⋮메뉴(접기·삭제)+box-shadow transition. 모델 {id,w,h,c}. 부드러운 단계(촘촘 row). 자유 px 드래그·계정저장은 후속/P2b."
+    "2026-06-13 B 보강(owner 피드백 '위젯 느낌 안남'): 타일→진짜 위젯. 높이 리사이즈(rowSpan, grid-auto-rows 26px)+본문 내부 스크롤(overflow-y)+▾접기/펼치기+⋮메뉴(접기·삭제)+box-shadow transition. 모델 {id,w,h,c}. 부드러운 단계(촘촘 row). 자유 px 드래그·계정저장은 후속/P2b.",
+    "2026-06-13 자율루프(/goal /loop, owner 외출): 객체축 6대분류 IA 반영 + 위젯 전체골격 31슬롯(준비중 표시) + 미분류 메일함 위젯 실동작 + 좌측 슬라이드 위젯서랍/엣지손잡이/정중앙 확인모달. P2b 토대 구현(하위호환): core_account/auth_session/rbac_*/user_dashboard_layout + scrypt 해시·세션·권한합집합·레이아웃 store + /api/me·auth/login·logout·dashboard/layout + 클라 로그인UI·서버레이아웃동기화·권한게이팅(visible/access). node:test 22→26, verify_gate L1 PASS(packet), P2b API curl 종단검증. 익명=현행 동작 유지. 브라우저 상호작용 검증·실동작화는 다른 PC. 게이트/산출물진행률 위젯은 fixture guide 데이터 0이라 보류."
   ]
 }
