@@ -8,9 +8,12 @@
 
 ## 상태와 판정 기준
 
-- 상태: 관찰 기반 구조 지도 v0
-- 작성일: 2026-06-13
-- 작성자 표기: codex_gpt-5
+- 상태: 관찰 기반 구조 지도 v0.1
+- 작성일: 2026-06-13 (v0 codex_gpt-5) / 갱신 2026-06-13 v0.1 (claude_fable-5)
+- 작성자 표기: codex_gpt-5 (v0), claude_fable-5 (v0.1 dev-erp 반영)
+- v0.1 갱신 범위: dev-erp 앱 계층만 — 구매/발주(core_party·core_purchase·purchase_project_map)·
+  첨부(core_attachment)·승격 위젯·테이블수(25)·테스트(44) 반영. canon/RAG 층은 미변경(Codex 영역).
+  성격은 동일하게 **관찰 지도(처방 아님)**.
 - 보존 위치: `docs/architecture/foundation/`
 - claim ceiling: public-safe observed hierarchy; private 업무 원문이나 secret 값은 포함하지 않음
 - 정본 판정: `index.yaml`, `*.yaml`, `README.md`, validator 통과 항목을 우선한다.
@@ -360,7 +363,7 @@ workflow로 단정하지 않는다.
 
 ### SQLite table BOM
 
-`src/store.mjs` 기준 persistent table은 21개다.
+`src/store.mjs` 기준 persistent table은 **25개**다 (v0.1: 구매/첨부 4종 추가).
 
 | table | 의미 |
 | --- | --- |
@@ -385,6 +388,10 @@ workflow로 단정하지 않는다.
 | `user_dashboard_layout` | 계정별 dashboard layout |
 | `core_meeting` | 회의 metadata |
 | `meeting_action_map` | 회의 action item mapping |
+| `core_party` | 거래처/업체 공유 마스터 (v0.1) |
+| `core_purchase` | 발주 문서 체인 request→…→closed (v0.1) |
+| `purchase_project_map` | 발주↔과제 N:N (v0.1) |
+| `core_attachment` | 파일 첨부 메타 포인터; 원문 미저장 (v0.1) |
 
 현재 index:
 
@@ -437,6 +444,9 @@ workflow로 단정하지 않는다.
 - `POST /api/meetings`
 - `GET /api/meetings/actions`
 - `POST /api/meetings/action`
+- `GET /api/parties` · `POST /api/parties` · `GET /api/parties/ledger` (v0.1)
+- `GET /api/purchases` · `POST /api/purchases` · `POST /api/purchases/stage` · `POST /api/purchases/link` (v0.1)
+- `GET /api/attachments` · `POST /api/attachments` · `GET /api/attachments/suggest` (v0.1)
 - `/api/*` fallback: 404 JSON
 
 ### Widget BOM
@@ -446,18 +456,18 @@ workflow로 단정하지 않는다.
 
 | group | ready | soon |
 | --- | --- | --- |
-| `group_project` | `projects`, `kpi`, `events`, `artifact_progress` | `gatewait` |
+| `group_project` | `projects`, `kpi`, `events`, `artifact_progress`, `gatewait` | — |
 | `group_task` | `today`, `blocked` | `mine`, `deadline_cal` |
 | `group_doc` | `artifacts`, `meetings_w` | `reports_w`, `onboarding`, `training`, `stddocs` |
 | `group_comm` | `mail`, `inbox` | `approval`, `notices`, `announce` |
-| `group_material` | none | `purchase_w`, `stocklow`, `bomchg`, `vendors`, `buyapprove` |
+| `group_material` | `purchase_w`, `vendors` | `stocklow`, `bomchg`, `buyapprove` |
 | `group_team` | `unassigned`, `contacts` | `teamload`, `throughput`, `requests_w`, `analytics_w` |
 
-요약:
+요약 (v0.1):
 
 - total: 31
-- ready: 12
-- soon: 19
+- ready: 15 (v0.1에서 gatewait·purchase_w·vendors 승격)
+- soon: 16 (그중 `stocklow`·`bomchg`는 재고/BOM=Codex 영역)
 
 ### LLM/AI layer in dev-erp
 
@@ -629,8 +639,9 @@ repo에 넣지 않는 continuity data plane을 맡는다.
 | 메일 이력 | `dev-erp.core_mail` metadata-only | `_workmeta` metadata, 원문 미복제 |
 | 산출물 | `dev-erp.core_artifact` pointer | `_workspaces` actual file, `_workmeta` hash/path |
 | 회의록 | `dev-erp.core_meeting`, `meeting_action_map` | `_workmeta` reports when private |
-| 구매/발주 | `mod:purchase` planned module | future purchase tables needed |
-| 재고/자산 | `mod:inventory` planned module | future inventory tables needed |
+| 구매/발주 | `mod:purchase` + `core_party`·`core_purchase`·`purchase_project_map` (v0.1 구현됨) | 거래처 마스터·발주 체인·과제 N:N |
+| 파일 첨부 | `core_attachment` 메타 포인터 (v0.1) | 원문 미저장; 배치 제안만(⑧ reversible) |
+| 재고/자산 | `mod:inventory` planned module | future inventory tables needed (Codex BOM 스펙 후) |
 | 보드/BOM | `mod:boards` planned module | Allegro workflows, PCB party |
 | 부품 감시 | `mod:stockwatch` planned module | source/supplier metadata |
 | 지식/RAG | `.registry/knowledge`, `guild_hall/rag`, `mod:knowledge` | sourcebound workflows |
@@ -645,13 +656,13 @@ repo에 넣지 않는 continuity data plane을 맡는다.
 - `.party/index.yaml`: 5 canon party entries
 - `.registry`: species 5, classes 10, skills 27, tools 5, knowledge 9
 - `ui-workspace/apps/dev-erp/src/modules.mjs`: 12 ERP module slots
-- `ui-workspace/apps/dev-erp/src/store.mjs`: 21 tables, 4 indexes
-- `ui-workspace/apps/dev-erp/server.mjs`: `/api/chat` 포함 API route 관찰
-- `ui-workspace/apps/dev-erp/static/app.js`: 31 widget slots, 12 ready, 19 soon
-- local validation before document write:
-  - `npm run validate:canon`: pass, checked 119, errors 0, warnings 0
-  - `node --test ui-workspace/apps/dev-erp/test/core.test.mjs`: pass, 31 tests
-  - `npm run validate:knowledge-rag-candidate-ledger`: pass, 6 checks
+- `ui-workspace/apps/dev-erp/src/store.mjs`: **25 tables** (v0.1; v0는 21), 6 indexes
+- `ui-workspace/apps/dev-erp/server.mjs`: 구매/첨부 포함 API route 관찰
+- `ui-workspace/apps/dev-erp/static/app.js`: 31 widget slots, **15 ready, 16 soon** (v0.1; v0는 12/19)
+- local validation:
+  - (v0) `npm run validate:canon`: pass, checked 119, errors 0, warnings 0
+  - `node --test ui-workspace/apps/dev-erp/test/core.test.mjs`: pass, **44 tests** (v0.1; v0는 31)
+  - (v0) `npm run validate:knowledge-rag-candidate-ledger`: pass, 6 checks
 
 ## 남은 구조 구멍
 
