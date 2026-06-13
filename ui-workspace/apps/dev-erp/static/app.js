@@ -453,17 +453,16 @@ async function renderHome() {
   }).join("");
 
   $("#view").innerHTML = `${kpi}
-    <div class="tile-toolbar">
-      <button id="widgetDrawerBtn" class="fav-chip" title="${L.widget_add}">❙❙ ${L.widget_add}</button>
-      <button id="widgetArrangeBtn" class="fav-chip" title="${L.widget_arrange}">⊟ ${L.widget_arrange}</button>
-      <button id="widgetResetBtn" class="fav-chip" title="${L.widget_reset}">↺ ${L.widget_reset}</button></div>
-    <div class="dashboard-wrap">
-      <aside id="widgetDrawer" class="widget-drawer">
-        <div class="widget-drawer-head">${L.widget_add}<span class="dim">${L.widget_drag_hint}</span></div>
-        <div class="widget-drawer-list">${drawerItems}</div>
-      </aside>
-      <div class="dashboard" style="height:${maxBottom}px;">${cards.join("")}</div>
-    </div>`;
+    <button id="widgetEdge" class="widget-edge" title="${L.widget_add}" aria-label="${L.widget_add}">❙❙</button>
+    <aside id="widgetDrawer" class="widget-drawer">
+      <div class="widget-drawer-head">${L.widget_add}<span class="dim">${L.widget_drag_hint}</span></div>
+      <div class="widget-drawer-list">${drawerItems}</div>
+      <div class="widget-drawer-foot">
+        <button id="widgetArrangeBtn" class="fav-chip" title="${L.widget_arrange}">⊟ ${L.widget_arrange}</button>
+        <button id="widgetResetBtn" class="fav-chip" title="${L.widget_reset}">↺ ${L.widget_reset}</button>
+      </div>
+    </aside>
+    <div class="dashboard" style="height:${maxBottom}px;">${cards.join("")}</div>`;
 
   const grid = $("#view").querySelector(".dashboard");
   const colW = () => grid.getBoundingClientRect().width / DASH_GCOLS;
@@ -501,7 +500,10 @@ async function renderHome() {
     l.push({ id, x: Math.max(0, Math.min(DASH_GCOLS - 3, x | 0)), y: Math.max(0, y | 0), w: 3, h: 7 });
     saveDashLayout(resolveDashCollisions(l, id)); render();
   };
-  $("#widgetDrawerBtn").addEventListener("click", () => $("#widgetDrawer").classList.toggle("open"));
+  $("#widgetEdge").addEventListener("click", () => {
+    const open = $("#widgetDrawer").classList.toggle("open");
+    $("#widgetEdge").classList.toggle("on", open);
+  });
   $("#widgetArrangeBtn").addEventListener("click", () => { saveDashLayout(compactDash(dashLayout())); render(); });
   $("#widgetResetBtn").addEventListener("click", async () => { if (!(await uiConfirm(L.confirm_reset))) return; localStorage.removeItem("dev_erp_widgets"); render(); });
   // 서랍 항목: 드래그 시작 + 클릭(맨 아래 추가) 폴백
