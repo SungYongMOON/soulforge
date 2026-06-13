@@ -56,7 +56,7 @@
 
 ## 현재 큰 방향
 
-Soulforge는 현실 업무를 게임식 운영 루프로 바꾸는 시스템이다. 지금 개발의 중심은 세계관 확장이 아니라, 실제 하루 업무를 끝까지 굴릴 수 있는 작은 playable loop 를 만드는 것이다.
+Soulforge는 현실 업무를 게임식 운영 루프로 바꾸는 시스템이다. 이 운영 루프가 장기 북극성이고, 지금 이를 실제 개발팀 업무에서 구현하는 현재 active build 는 dev-erp 앱(아래 '현재 phase')이다.
 
 현재 큰 방향은 아래 하나다.
 
@@ -72,16 +72,17 @@ read-only snapshot
 
 ## 현재 phase
 
-- 단계: playable vertical slice 이전
-- 상태 해석: 구조와 세계관은 충분하지만, 한 화면에서 `monster -> mission -> battle log -> promotion` 을 돌리는 루프가 아직 얇다.
-- 판단: gateway 확대, 세계관 detail, 자동화 승급, OpenClaw bridge 보다 read-only snapshot 과 작전판 v0 가 먼저다.
+- active slice: **dev-erp (사내 개발팀 운영 콕핏)** — owner 1순위. 정본: `ui-workspace/apps/dev-erp/docs/DESIGN.md`, `ui-workspace/apps/dev-erp/docs/MASTER_PLAN_20260613.md`, 작업 큐: `ui-workspace/apps/dev-erp/docs/checklist_phase1.json`.
+- 상태 해석: 2026-06 실제 개발의 대부분이 dev-erp(읽기 콕핏 P1 → 할일쓰기 P2 → 재고/BOM/부품 P3 → 챗봇 RAG/Ollama → 매뉴얼/FAQ, run1~17)에 집중됐고 owner 1순위가 이쪽으로 이동했다.
+- 판단(2026-06-14 갱신): snapshot→작전판 게임루프는 장기 북극성으로 유지하되, 지금 손이 가는 active slice 는 dev-erp 다. 과거 active slice `snapshot_to_operation_board_v0` 는 '다음 후보'로 내린다(스펙은 아래 'Active Slice 001' 절에 보존, 재개 시 참조).
 
 ## SE assistant program direction
 
 Current structural target:
 
-- Keep `snapshot_to_operation_board_v0` as the active slice and make the SE
-  assistant a bounded follow-on operating lane.
+- Keep dev-erp as the current active slice and `snapshot_to_operation_board_v0`
+  as the demoted structural north-star; make the SE assistant a bounded
+  follow-on operating lane.
 - Use `systems_engineering_cell` as the party/loadout for SE assistant requests.
 - Use `se_assistant_operating_loop_v0` as the request-level router before
   calling stage gap scan, source/wiki, readiness, owner-decision, review, or
@@ -93,7 +94,7 @@ Current structural target:
 - Keep stage readiness, review approval, verification acceptance, and public
   canon promotion outside the assistant's authority.
 
-이 program lane 은 `snapshot_to_operation_board_v0` 를 대체하지 않는다. 현재 active slice 는 read-only snapshot 과 작전판 v0 로 유지하고, SE assistant 는 그 snapshot 이 안정된 뒤 project work 를 더 잘 굴리기 위한 후속 방향으로 둔다.
+이 program lane 은 dev-erp active slice 나 장기 snapshot 북극성을 대체하지 않는다. SE assistant 는 dev-erp 가 안정되고 snapshot 표면이 굳은 뒤 project work 를 더 잘 굴리기 위한 후속 방향으로 둔다.
 
 핵심 owner 분리:
 
@@ -554,7 +555,7 @@ Non-goals:
 - Mail body, attachment, secret, or credential handling.
 - Existing renderer reuse.
 - AI automatic priority, owner, or status decisions.
-- Full ERP scope.
+- Full ERP scope (ERP 범위는 별도 active slice 인 dev-erp 앱이 소유한다).
 
 Development packet:
 
@@ -572,6 +573,8 @@ Start condition:
 ### 이름
 
 `snapshot_to_operation_board_v0`
+
+> (2026-06-14 갱신) 이 슬라이스는 active 에서 '다음 후보'로 내려갔다. 현재 active slice 는 dev-erp. 아래 스펙은 재개 시 참조용으로 보존한다.
 
 ### 목표
 
@@ -639,6 +642,12 @@ Start condition:
 후보 10~21 의 출처는 2026-06-12 Fable5 심층 검증이다. 10~17 의 상세 후보
 패킷은 `_workmeta/system/dev_worker_candidate_queue/` 에 `status: proposed`
 로 있으며, owner 승인 전에는 실행 큐로 승격하지 않는다.
+
+추가(2026-06-14, Opus 2차 검증 + owner 결정): `snapshot_to_operation_board_v0`
+는 과거 active slice 였으나 active 가 dev-erp 로 바뀌며 다음 후보로 내려갔다.
+시작 조건: dev-erp 가 안정되고 owner 가 snapshot 재개를 정함. 내려갈 owner:
+`guild_hall/snapshot`, `docs/architecture/guild_hall`, `ui-workspace`. 스펙은
+위 'Active Slice 001' 절에 보존.
 
 ## 구체화 규칙
 
