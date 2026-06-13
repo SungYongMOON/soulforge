@@ -172,6 +172,45 @@ const server = createServer(async (req, res) => {
       store.appendEvent({ actor_ref: "owner", actor_kind: "human", kind: "gate_mode_set", to: r.mode, used_refs: ["gates", "settings"], data_label: "real" });
       return send(res, 200, r);
     }
+    // P3 재고/BOM/부품 (내부 판정만·외부전송 0)
+    if (path === "/api/parts" && req.method === "GET") return send(res, 200, store.parts({ type: qp.type, grp: qp.grp, project: qp.project, q: qp.q }));
+    if (path === "/api/parts" && req.method === "POST") {
+      let body = ""; for await (const chunk of req) body += chunk;
+      const r = store.upsertPart({ ...JSON.parse(body || "{}"), data_label: "real" });
+      if (r.error) return send(res, 400, r);
+      store.appendEvent({ actor_ref: "owner", actor_kind: "human", kind: "part_upsert", to: r.id, used_refs: ["parts"], data_label: "real" });
+      return send(res, 200, r);
+    }
+    if (path === "/api/parts/link" && req.method === "POST") {
+      let body = ""; for await (const chunk of req) body += chunk;
+      const { part_id, project_id } = JSON.parse(body || "{}");
+      const r = store.linkPartProject(part_id, project_id);
+      return send(res, r.error ? 400 : 200, r);
+    }
+    if (path === "/api/bom" && req.method === "GET") return send(res, 200, store.bom(qp.parent ?? ""));
+    if (path === "/api/bom" && req.method === "POST") {
+      let body = ""; for await (const chunk of req) body += chunk;
+      const { parent_part_id, child_part_id, qty, ref_des } = JSON.parse(body || "{}");
+      const r = store.addBomEdge(parent_part_id, child_part_id, qty, ref_des);
+      return send(res, r.error ? 400 : 200, r);
+    }
+    if (path === "/api/locations" && req.method === "GET") return send(res, 200, store.locations());
+    if (path === "/api/locations" && req.method === "POST") {
+      let body = ""; for await (const chunk of req) body += chunk;
+      const r = store.upsertLocation({ ...JSON.parse(body || "{}"), data_label: "real" });
+      return send(res, r.error ? 400 : 200, r);
+    }
+    if (path === "/api/stock" && req.method === "GET") return send(res, 200, store.stock({ part: qp.part, location: qp.location }));
+    if (path === "/api/stock" && req.method === "POST") {
+      let body = ""; for await (const chunk of req) body += chunk;
+      const { part_id, location_id, qty } = JSON.parse(body || "{}");
+      const r = store.setStock(part_id, location_id, qty);
+      if (r.error) return send(res, 400, r);
+      store.appendEvent({ actor_ref: "owner", actor_kind: "human", kind: "stock_set", item_ref: part_id, to: String(qty), used_refs: ["stock"], data_label: "real" });
+      return send(res, 200, r);
+    }
+    if (path === "/api/stock/low") return send(res, 200, store.stockLow());
+    if (path === "/api/bom/changes") return send(res, 200, store.bomChanges(qp.limit ? Number(qp.limit) : 20));
     // 연락처 마스터
     if (path === "/api/contacts" && req.method === "GET") return send(res, 200, store.contacts({ project: qp.project, party: qp.party }));
     if (path === "/api/contacts" && req.method === "POST") {
