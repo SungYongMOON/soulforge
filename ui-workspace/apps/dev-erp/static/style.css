@@ -412,3 +412,6 @@ nav button[disabled]:hover { background: transparent; }
 .ledger-row { cursor: pointer; }
 .ledger-row:hover td { background: var(--chip); }
 .gen-presets { display: inline-flex; gap: 4px; }
+.chat-new { border: 1px solid var(--line); background: transparent; color: var(--muted); font-size: 11px; border-radius: 6px; padding: 2px 7px; cursor: pointer; margin-left: auto; }
+.chat-new:hover { color: var(--accent); }
+.chat-src { font-size: 10.5px; color: var(--muted); margin-top: 4px; }
