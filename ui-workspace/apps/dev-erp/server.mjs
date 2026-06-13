@@ -14,7 +14,7 @@ import { getLexicon, LEXICON } from "./src/lexicon.mjs";
 import { guideTemplates } from "./src/guide.mjs";
 import { modulesFor } from "./src/modules.mjs";
 import { crossSearch } from "./src/search.mjs";
-import { buildMetaContext, runLlm } from "./src/llm.mjs";
+import { buildMetaContext, runLlm, answerFromManual } from "./src/llm.mjs";
 
 const HERE = dirname(fileURLToPath(import.meta.url));
 const args = process.argv.slice(2);
@@ -146,16 +146,17 @@ const server = createServer(async (req, res) => {
       q: qp.q, direction: qp.direction, label_id: qp.label_id
     }));
     if (path === "/api/guide/templates") return send(res, 200, guideTemplates(qp.mode));
-    // ERP 챗봇 — 로컬 작은 모델의 '매뉴얼 검색·읽기'용(추론 아님). 질문은 로그에 저장.
-    // 매칭 FAQ가 있으면 그 매뉴얼 답을 반환(로컬 모델은 표현만 할 자리), 없으면 미응답 기록.
-    // 야간 매뉴얼 갱신은 고급 구독 LLM(tool_pc)이 unanswered 로그로 수행 — 여기서 추론/외부전송 0.
+    // ERP 챗봇 — RAG: 매뉴얼 검색 → (provider 연결 시) 로컬 작은 모델이 '그 근거 안에서만' 표현.
+    // 매뉴얼 밖 추론 금지. provider 없으면 검색 기반 사람형 폴백(끊기지 않음). 질문은 로그에 저장.
+    // provider는 ERP_CHAT_PROVIDER 환경변수로 주입(기본 stub=외부0). 야간 매뉴얼 갱신은 별도 고급 LLM.
     if (path === "/api/chat" && req.method === "POST") {
       let body = ""; for await (const chunk of req) body += chunk;
       const { message, thread_id } = JSON.parse(body || "{}");
-      const r = store.chatAnswer({ question: message, thread_id });
+      const provider = process.env.ERP_CHAT_PROVIDER || "stub";
+      const r = await answerFromManual({ store, question: message, thread_id, provider });
       if (r.error) return send(res, 400, r);
       store.appendEvent({ actor_ref: "owner", actor_kind: "human", kind: "chat_query", to: r.matched ? "matched" : "unanswered", used_refs: ["chat", "faq"], data_label: "meta", note: thread_id ? `thread=${thread_id}` : null });
-      return send(res, 200, { text: r.text, matched: r.matched, source: r.source, mode: "retrieval", external: false });
+      return send(res, 200, { text: r.text, matched: r.matched, source: r.source, candidates: r.candidates || [], mode: r.mode, external: r.external, llm: r.llm });
     }
     if (path === "/api/faq" && req.method === "GET") return send(res, 200, store.faqs({ topic: qp.topic }));
     if (path === "/api/faq" && req.method === "POST") {

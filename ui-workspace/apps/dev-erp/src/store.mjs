@@ -874,18 +874,32 @@ export class Store {
     return this.db.prepare(`SELECT * FROM core_faq ${where} ORDER BY topic, question`).all(...(topic ? [topic] : []));
   }
   // 로컬 키워드 검색(추론 X): 질문 토큰이 FAQ의 question/keywords/answer와 겹치는 정도로 최고 1건.
-  retrieveFaq(question) {
-    const qn = String(question ?? "").toLowerCase();
-    const toks = qn.split(/[\s,./()\[\]]+/).filter((w) => w.length >= 2);
-    if (!toks.length) return null;
-    let best = null, bestScore = 0;
+  // 검색 토큰화: 2글자+ 단어. 한국어는 조사/어미가 붙으므로 양방향 부분일치를 본다.
+  _tokenize(s) {
+    return String(s ?? "").toLowerCase().split(/[\s,./()\[\]?!~"'·]+/).filter((w) => w.length >= 2);
+  }
+  // 상위 N개 후보를 정규화 점수(0~1)와 함께 반환. 단어가 글자그대로 같지 않아도
+  // 한쪽이 다른쪽의 부분문자열이면(예: "재고"⊂"재고부족") 부분점수를 준다.
+  retrieveFaqMany(question, n = 3) {
+    const toks = this._tokenize(question);
+    if (!toks.length) return [];
+    const scored = [];
     for (const f of this.faqs()) {
-      const hay = `${f.question} ${f.keywords ?? ""} ${f.topic ?? ""} ${f.answer}`.toLowerCase();
-      let score = 0;
-      for (const t of toks) if (hay.includes(t)) score += 1;
-      if (score > bestScore) { bestScore = score; best = f; }
+      const hayToks = this._tokenize(`${f.question} ${f.keywords ?? ""} ${f.topic ?? ""} ${f.answer}`);
+      let raw = 0;
+      for (const t of toks) {
+        if (hayToks.includes(t)) { raw += 1; continue; }              // 완전일치
+        if (hayToks.some((h) => h.includes(t) || t.includes(h))) raw += 0.6; // 부분일치(조사/어미 흡수)
+      }
+      if (raw > 0) scored.push({ faq: f, score: raw, norm: raw / toks.length });
     }
-    return bestScore > 0 ? { faq: best, score: bestScore } : null;
+    scored.sort((a, b) => b.score - a.score);
+    return scored.slice(0, n);
+  }
+  // 하위호환: 단일 최고매칭(기존 호출부·테스트용).
+  retrieveFaq(question) {
+    const top = this.retrieveFaqMany(question, 1);
+    return top.length ? top[0] : null;
   }
   logChatQuery({ thread_id = null, question, matched_faq_id = null }) {
     this.db.prepare("INSERT INTO chat_query_log(at,thread_id,question,matched_faq_id,data_label) VALUES(?,?,?,?,?)")
@@ -899,18 +913,35 @@ export class Store {
        WHERE matched_faq_id IS NULL GROUP BY question ORDER BY n DESC, last_at DESC LIMIT ?`
     ).all(limit);
   }
-  // 검색지향 답변: FAQ 매칭이면 그 매뉴얼 답변(추론 아님), 아니면 미응답 기록 + 안내.
+  // 검색지향 답변(추론 아님). 멈추지 않는 사람형 응답이 목표:
+  //  - 강한 매칭 → 그 매뉴얼 답을 근거로 반환(LLM은 표현만 다듬는 자리).
+  //  - 약한 매칭 → 가까운 항목들을 제시하며 되묻기(끊지 않음).
+  //  - 매칭 0   → 알려진 주제를 안내하며 구체화 요청 + 미응답 기록(야간 갱신 입력).
+  // 강한 매칭 기준: norm≥0.5 또는 score≥2. 매칭 FAQ 없으면 unanswered 로그.
   chatAnswer({ question, thread_id = null } = {}) {
     const q = String(question ?? "").trim();
     if (!q) return { error: "question_required" };
-    const hit = this.retrieveFaq(q);
-    this.logChatQuery({ thread_id, question: q, matched_faq_id: hit ? hit.faq.id : null });
-    if (hit) {
-      const f = hit.faq;
+    const hits = this.retrieveFaqMany(q, 3);
+    const top = hits[0] || null;
+    const strong = top && (top.norm >= 0.5 || top.score >= 2);
+    const matchedId = strong ? top.faq.id : null;
+    this.logChatQuery({ thread_id, question: q, matched_faq_id: matchedId });
+    const candidates = hits.map((h) => ({ id: h.faq.id, topic: h.faq.topic, question: h.faq.question }));
+
+    if (strong) {
+      const f = top.faq;
       const text = `${f.answer}${f.pointer ? `\n\n📎 참고: ${f.pointer}` : ""}`;
-      return { matched: true, source: { id: f.id, topic: f.topic, question: f.question }, text };
+      return { matched: true, grounded: true, source: { id: f.id, topic: f.topic, question: f.question }, candidates, text };
     }
-    return { matched: false, source: null, text: "아직 매뉴얼에 정리되지 않은 질문입니다. 질문은 기록되어 야간 매뉴얼 갱신에 반영됩니다." };
+    if (hits.length) {
+      const lines = hits.map((h) => `· ${h.faq.question}${h.faq.topic ? ` (${h.faq.topic})` : ""}`).join("\n");
+      const text = `딱 맞는 매뉴얼 항목을 못 찾았지만, 이런 게 관련 있어 보여요:\n${lines}\n\n이 중 가까운 게 있을까요? 아니면 조금 더 구체적으로 말씀해 주시면 찾아볼게요.`;
+      return { matched: false, grounded: false, source: null, candidates, text };
+    }
+    const topics = [...new Set(this.faqs().map((f) => f.topic).filter(Boolean))];
+    const hint = topics.length ? ` 참고로 지금 정리된 주제는 ${topics.join(", ")} 쪽이에요.` : "";
+    const text = `아직 매뉴얼에 정리되지 않은 내용이라 정확히 답드리긴 어렵네요. 질문은 저장해 두었고, 야간에 매뉴얼이 보강됩니다.${hint} 혹시 관련된 주제로 다시 여쭤봐 주실래요?`;
+    return { matched: false, grounded: false, source: null, candidates: [], text };
   }
 
   // ---------- P3 부품/BOM/위치/재고 (공유 마스터·내부 판정만) ----------

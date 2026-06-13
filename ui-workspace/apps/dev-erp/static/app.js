@@ -657,7 +657,14 @@ function openChat() {
   const logEl = ov.querySelector(".chat-log");
   const paint = () => {
     logEl.innerHTML = state.chatLog.length
-      ? state.chatLog.map((m) => `<div class="chat-msg ${m.role}"><span>${esc(m.text)}</span>${m.source ? `<div class="chat-src">📖 ${esc(m.source.topic ?? "")} · ${esc(m.source.question ?? "")}</div>` : (m.role === "ai" && m.matched === false ? `<div class="chat-src dim">${L.chat_unmatched}</div>` : "")}</div>`).join("")
+      ? state.chatLog.map((m) => {
+          const src = m.source ? `<div class="chat-src">📖 ${esc(m.source.topic ?? "")} · ${esc(m.source.question ?? "")}</div>`
+            : (m.role === "ai" && m.matched === false ? `<div class="chat-src dim">${L.chat_unmatched}</div>` : "");
+          // 약매칭/미매칭 후보 → 눌러서 바로 그 매뉴얼 질문으로 다시 묻기(끊기지 않게).
+          const cand = (m.role === "ai" && !m.matched && Array.isArray(m.candidates) && m.candidates.length)
+            ? `<div class="chat-cands">${m.candidates.map((c) => `<button class="fav-chip chat-cand" data-q="${esc(c.question)}">${esc(c.question)}</button>`).join("")}</div>` : "";
+          return `<div class="chat-msg ${m.role}"><span>${esc(m.text)}</span>${src}${cand}</div>`;
+        }).join("")
       : `<div class="empty small">${L.chat_empty}</div>`;
     logEl.scrollTop = logEl.scrollHeight;
   };
@@ -676,10 +683,15 @@ function openChat() {
     if (msg === "/new") { state.chatLog = []; state.chatThread = `th_${Date.now().toString(36)}`; inp.value = ""; paint(); return; }
     state.chatLog.push({ role: "user", text: msg }); inp.value = ""; paint();
     const r = await post("/api/chat", { message: msg, thread_id: state.chatThread }).then((x) => x.json()).catch(() => ({ text: "(오류)" }));
-    state.chatLog.push({ role: "ai", text: r.text || "(응답 없음)", source: r.source, matched: r.matched }); paint();
+    state.chatLog.push({ role: "ai", text: r.text || "(응답 없음)", source: r.source, matched: r.matched, candidates: r.candidates }); paint();
   };
   ov.querySelector("#chatSend").addEventListener("click", send);
   ov.querySelector("#chatMsg").addEventListener("keydown", (e) => { if (e.key === "Enter") send(); });
+  // 후보 칩 클릭 → 그 질문으로 즉시 재질의(끊기지 않는 흐름).
+  logEl.addEventListener("click", (e) => {
+    const b = e.target.closest(".chat-cand"); if (!b) return;
+    const inp = ov.querySelector("#chatMsg"); inp.value = b.dataset.q || ""; send();
+  });
   ov.querySelector("#chatMsg").focus();
 }
 

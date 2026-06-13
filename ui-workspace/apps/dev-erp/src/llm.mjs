@@ -40,6 +40,44 @@ function stubAnswer(user, ctx) {
   return `${head}\n\n${body}\n\n※ 이 응답은 로컬 stub(외부전송 0)입니다. 실제 LLM 답변은 tool_pc Codex CLI 연결 후 제공됩니다.`;
 }
 
+// ── RAG 챗봇: 검색(매뉴얼) → LLM이 '그 근거 안에서만' 표현 ──────────────
+// owner 의도: LLM은 기본 동작하되 '메뉴얼을 보고' 답한다(추론으로 새 사실 X).
+// 로컬 작은 모델이 붙으면 grounded 프롬프트로 사람처럼 표현, 없으면 검색 폴백.
+
+// 검색된 매뉴얼 조각만 담는 grounded 프롬프트. 모델에 "이 안에서만, 없으면 모른다고" 지시.
+export function buildManualPrompt(question, hits) {
+  const snippets = hits.map((h, i) =>
+    `[자료 ${i + 1}] (${h.faq.topic ?? "일반"}) Q:${h.faq.question}\nA:${h.faq.answer}`).join("\n\n");
+  return [
+    "너는 사내 ERP 매뉴얼 안내원이다. 아래 [자료]에 적힌 내용만 근거로 답해라.",
+    "자료에 없는 ERP 사실은 지어내지 마라. 다만 말투는 사람처럼 자연스럽게, 친절하게.",
+    "자료로 부분만 답되면 그 부분만 답하고, 더 필요한 정보를 한 가지 되물어라.",
+    "자료가 질문과 무관하면 모른다고 말하고 관련 주제를 제안하라.",
+    "",
+    snippets || "(관련 자료 없음)",
+    "",
+    `질문: ${question}`
+  ].join("\n");
+}
+
+// 챗봇 진입점. provider!="stub"이고 외부 호출이 실제 성공하면 LLM 표현,
+// 그 외에는 store.chatAnswer 의 검색 기반 사람형 폴백을 그대로 쓴다(절대 끊기지 않음).
+export async function answerFromManual({ store, question, thread_id = null, provider = "stub" } = {}) {
+  const base = store.chatAnswer({ question, thread_id }); // 검색 + 로깅 + 폴백 텍스트
+  if (base.error) return base;
+  const hits = store.retrieveFaqMany(question, 3);
+  const wantLlm = provider && provider !== "stub";
+  if (wantLlm && hits.length) {
+    const prompt = buildManualPrompt(question, hits);
+    const r = await runLlm({ provider, user: prompt, context: null }, { store });
+    if (r.delivered) {
+      return { ...base, text: r.text, mode: "rag", external: r.external, provider, llm: true };
+    }
+    // 외부 호출 미수행/실패 → 검색 폴백 유지(끊기지 않음).
+  }
+  return { ...base, mode: hits.length ? "retrieval" : "retrieval_empty", external: false, provider, llm: false };
+}
+
 // 어댑터. provider: "stub"(기본, 외부0) | "codex_cli"(tool_pc 전용).
 export async function runLlm({ provider = "stub", user = "", context = null } = {}, { store = null } = {}) {
   const external = provider === "codex_cli";

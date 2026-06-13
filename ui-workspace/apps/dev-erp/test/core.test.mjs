@@ -713,14 +713,37 @@ test("챗봇: FAQ 검색 매칭 답변 + 미응답 로그/큐", () => {
   assert.equal(r1.matched, true);
   assert.equal(r1.source.id, "faq-gate");
   assert.ok(r1.text.includes("통과 가능"));
-  // 미매칭 → 안내 + 미응답 큐 적재
-  const r2 = store.chatAnswer({ question: "점심 메뉴 추천해줘 우주여행", thread_id: "t1" });
+  // 미매칭 → 끊기지 않는 사람형 안내 + 미응답 큐 적재
+  const r2 = store.chatAnswer({ question: "점심 우주여행 추천", thread_id: "t1" });
   assert.equal(r2.matched, false);
-  assert.ok(r2.text.includes("야간 매뉴얼 갱신"));
+  assert.ok(r2.text.includes("매뉴얼"), "사람형 안내 텍스트");
   const un = store.unansweredQueries(10);
   assert.ok(un.some((u) => u.question.includes("우주여행")), "미응답이 큐에 집계");
   assert.equal(store.chatAnswer({ question: "" }).error, "question_required");
   // 질문 로그 저장됨(매칭 1 + 미매칭 1)
   const cnt = store.db.prepare("SELECT COUNT(*) c FROM chat_query_log").get().c;
   assert.ok(cnt >= 2, "질문 로그 누적");
+});
+
+// 퍼지 검색: 단어가 글자그대로 같지 않아도(조사/부분일치) 후보를 찾는다.
+test("챗봇: 퍼지 부분일치 + 후보 제시(끊기지 않음)", () => {
+  const store = freshStore();
+  loadFixture(store);
+  // "재고부족"은 FAQ엔 "부족"/"재고"로 쪼개져 있음 — 부분일치로 잡혀야 함
+  const many = store.retrieveFaqMany("재고부족 판정 기준", 3);
+  assert.ok(many.length > 0, "부분일치로 후보 검색");
+  // 약매칭이라도 matched=false면 candidates 가 채워져 되묻기 가능
+  const r = store.chatAnswer({ question: "보드 관련 자료" });
+  assert.ok(Array.isArray(r.candidates), "후보 배열 반환");
+});
+
+// RAG 진입점: provider=stub 이면 외부전송 0, 검색 폴백 유지(llm=false).
+test("챗봇: answerFromManual stub=외부0 폴백", async () => {
+  const { answerFromManual } = await import("../src/llm.mjs");
+  const store = freshStore();
+  loadFixture(store);
+  const r = await answerFromManual({ store, question: "게이트 통과 어떻게 해?", provider: "stub" });
+  assert.equal(r.external, false, "외부전송 0");
+  assert.equal(r.llm, false, "stub=LLM 표현 미사용");
+  assert.equal(r.matched, true, "검색 매칭은 유지");
 });
