@@ -1,5 +1,30 @@
 # CHANGELOG
 
+## 2026-06-14
+
+### Revision `working` - Opus 2차 독립검증 후속 실행 (안전 batch + active slice 전환)
+
+- 검증 게이트 위신호 차단: `run_root_acceptance`(=`validate`/`done:check`)가
+  하드코딩 STEP 리스트라 핵심 게임루프 테스트 8건(canon_validate 검증기 자체·
+  mission_close·dungeon_assignment·loop_e2e·night_watch 2종·
+  candidate_queue_archive·boot_digest_guard)이 CI 에서 skip 됐음 →
+  `validate:core-loop` 신설·양 모드 편입. path-policy 게이트도 `--scope changed`
+  라 깨끗한 트리/CI 에서 0파일 no-op → runner step 을 test + `--scope tracked`
+  전수로 교체(로컬 빠른 `validate:path-policy` 는 유지).
+- active slice 전환: `DEVELOPMENT_ROADMAP_V0` 의 active slice 를
+  `snapshot_to_operation_board_v0` → dev-erp(사내 개발팀 운영 콕핏)로 갱신
+  (최근 7일 커밋의 78%가 dev-erp 인데 로드맵이 이를 non-goal 로 잠가둔 모순 해소).
+  snapshot 슬라이스는 다음 후보로 강등(스펙 보존), Team Ops Board 의 'Full ERP
+  scope' non-goal 은 dev-erp 소유로 개정.
+- owner 경계 정합: `DOCUMENT_OWNERSHIP`·`AGENT_WORLD_MODEL` 을 guild_hall 포함
+  7축으로 동기화, `guild_hall/README` 에 누락 5모듈 보강.
+- 온보딩 정합: `AGENT_BOOT_DIGEST`·`TEAM_DAY_1_GUIDE` 의 폐지된 'main push
+  금지/전용 branch' 규칙을 `AGENTS.md` 현행(main 직접 작업 허용)으로 동기화,
+  boot_digest manifest 재서명.
+- 노출 가드: 루트 `.gitignore` 에 secret/credential deny 패턴 추가.
+- gateway README 의 stale package caveat 정리(helper 2종 tracked).
+- 근거: `_workmeta/system/reports/procedure_capture/20260614_claude_opus48_independent_revalidation.md`.
+
 ## 2026-06-13
 
 ### Revision `working` - ERP/BOM 계층 구조 지도 추가
