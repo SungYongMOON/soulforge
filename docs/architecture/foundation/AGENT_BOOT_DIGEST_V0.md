@@ -30,8 +30,10 @@
 
 ## 4. AI 작업 규약
 
-- Codex 외 도구(Claude 등)는 `claude/<task-slug>` 등 전용 브랜치만,
-  main 직접 push 금지, merge 전 owner/Codex 검증.
+- (2026-06-13 갱신) AI 도구도 main 직접 작업 허용. 매 슬라이스 후
+  commit(작업자·모델 표기)+push, self-verify(node:test 전건+verify_gate ≥1)
+  와 handoff. 작업 전 트리 안정성(HEAD 고정·index.lock 부재·외부 worktree
+  분리) 확인, 동시편집 징후 시 중단·보고. sandbox push 막힌 프로필은 commit 까지만.
 - 작업자 표기: 도구+모델 (예 `codex_gpt-5.3`, `claude_fable-5`) — commit,
   worklog, packet 공통. 커밋: status/diff 점검, 한글 우선 메시지.
 - 구조/기능/운영 변경 시 CHANGELOG.md, 폴더 책임 변경 시 해당 README 동기.

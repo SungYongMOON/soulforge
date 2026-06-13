@@ -66,8 +66,9 @@ npm run done:check        # 마감 전 넓은 검증
    `_workmeta` 에 넣지 않는다. 실파일은 `_workspaces` 쪽이다.
 3. 저장 위치가 애매하면 public 이 아니라 private 으로 해석한다.
 4. AI 작업자는 도구+모델 표기(`codex_gpt-5.3`, `claude_fable-5`)를 기록에
-   남기고, Codex 외 도구는 `claude/<task-slug>` 같은 전용 branch 에서만
-   작업한다 (main 직접 push 금지).
+   남긴다. (2026-06-13 갱신) AI 도구도 main 직접 작업 허용 — 매 슬라이스
+   commit+push, 작업 전 트리 안정성 확인, sandbox push 막힌 프로필은
+   commit 까지만.
 5. 완료 보고에는 무엇을 검증했는지(또는 못 했는지)를 함께 적는다.
 
 ## 6. 일은 어디서 시작하나
