@@ -2267,6 +2267,7 @@ function renderGraphHtml3d(graph) {
     .detection-card-boundary { border-top: 1px solid rgba(148, 163, 184, .18); padding-top: 8px; }
     #graph3d { width: 100%; height: 100%; display: block; background: #05070b; }
     .hud { position: absolute; left: 18px; bottom: 16px; color: #cbd5e1; font-size: 12px; background: rgba(15, 23, 42, .72); border: 1px solid rgba(148, 163, 184, .22); border-radius: 8px; padding: 9px 11px; backdrop-filter: blur(10px); }
+    .hud-hint { position: absolute; right: 16px; bottom: 16px; color: #94a3b8; font-size: 11px; background: rgba(15, 23, 42, .72); border: 1px solid rgba(148, 163, 184, .22); border-radius: 8px; padding: 7px 10px; backdrop-filter: blur(10px); pointer-events: none; }
     .legend-panel { position: absolute; top: 16px; right: 18px; width: max-content; min-width: 170px; max-width: min(250px, calc(100% - 36px)); max-height: calc(100vh - 32px); overflow: auto; color: #e0f2fe; background: rgba(15, 23, 42, .84); border: 1px solid rgba(148, 163, 184, .26); border-radius: 8px; padding: 12px 14px; font-size: 13px; font-weight: 650; backdrop-filter: blur(10px); }
     .legend-title { font-size: 14px; font-weight: 750; color: #f8fafc; margin-bottom: 10px; }
     .legend-section { margin-top: 10px; color: #a5b4fc; font-size: 12px; font-weight: 750; text-transform: uppercase; letter-spacing: .04em; }
@@ -2416,6 +2417,8 @@ function renderGraphHtml3d(graph) {
       <details class="rule-panel" id="filterControls" open>
         <summary>필터</summary>
         <div class="section-body">
+          <label class="meta" for="nodeSearch">노드 검색</label>
+          <input id="nodeSearch" type="search" autocomplete="off" placeholder="노드명 또는 ref 검색">
           <h2>노드 종류</h2>
           <div id="nodeFilters"></div>
           <h2>관계 종류</h2>
@@ -2432,6 +2435,7 @@ function renderGraphHtml3d(graph) {
     <main>
       <canvas id="graph3d" aria-label="Soulforge generated 3D knowledge graph"></canvas>
       <div class="hud" id="hud">3D graph initializing</div>
+      <div class="hud-hint" id="hudHint">더블클릭: 포커스 · 우클릭: 탐지 카드</div>
       <div class="legend-panel" id="legendPanel"></div>
       <div class="tooltip" id="tooltip"></div>
       <div class="context-menu" id="nodeContextMenu" role="menu" aria-hidden="true">
@@ -2986,6 +2990,7 @@ const state = {
   ragAnswerReadyOnly: false,
   sourceSliceMode: "all",
   focusRef: null,
+  nodeSearch: "",
 };
 
 const renderer = new THREE.WebGLRenderer({ canvas, antialias: true, preserveDrawingBuffer: true });
@@ -3080,6 +3085,14 @@ function initControls() {
   bindRange("staleDays", "staleDaysValue", "staleDays");
   renderFilter("nodeFilters", state.nodeTypes, rebuild);
   renderFilter("edgeFilters", state.edgeTypes, rebuild);
+  const nodeSearch = document.getElementById("nodeSearch");
+  if (nodeSearch) {
+    nodeSearch.value = state.nodeSearch;
+    nodeSearch.addEventListener("input", () => {
+      state.nodeSearch = nodeSearch.value;
+      rebuild();
+    });
+  }
   renderPalette();
   bindRange("nodeGlobalScale", "nodeGlobalScaleValue", "nodeGlobalScale");
   bindRange("nodeRelativeScale", "nodeRelativeScaleValue", "nodeRelativeScale");
@@ -3328,8 +3341,15 @@ function rebuild() {
   edgeVisuals = [];
   componentVisuals = [];
 
+  const nodeSearchQuery = (state.nodeSearch || "").trim().toLowerCase();
   const nodes = graph.nodes.filter(
-    (node) => state.nodeTypes[node.node_type] && ragNodePassesLens(node) && sourceSliceNodePassesVisibility(node),
+    (node) =>
+      state.nodeTypes[node.node_type] &&
+      ragNodePassesLens(node) &&
+      sourceSliceNodePassesVisibility(node) &&
+      (nodeSearchQuery === "" ||
+        (node.node_ref || "").toLowerCase().includes(nodeSearchQuery) ||
+        (node.label || "").toLowerCase().includes(nodeSearchQuery)),
   );
   const nodeRefs = new Set(nodes.map((node) => node.node_ref));
   const edges = graph.edges.filter(

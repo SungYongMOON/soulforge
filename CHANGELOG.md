@@ -2,6 +2,19 @@
 
 ## 2026-06-13
 
+### Revision `working` - Claude 지식 그래프 quick wins와 운영 후보 기록
+
+- `guild_hall/knowledge_graph` export CLI에 생성된 HTML preview 경로 안내를
+  추가하고, 3D preview에 노드 ref/label 검색 입력과 우하단 조작 힌트를 더했다.
+- 지식/RAG 파이프라인 병목 burndown 후보를 roadmap row 23으로 추가하고,
+  owner-review-pending 기획 문서와 운영 카탈로그/승인 tier/액션 TODO 문서를
+  public-safe 초안으로 기록했다.
+- `dev-erp` 지식 모듈 클릭 프로토타입 기획안을 public docs에 추가했다.
+  상세 실행 후보와 검수/절차 capture는 private `_workmeta/system/` 에
+  `status: proposed` 메타데이터로 분리했다.
+- 작업자 표기는 Claude 산출물 기준 `claude_fable-5`이며, Codex는 commit 전
+  public/private 경계와 validator를 재확인했다.
+
 ### Revision `working` - program delivery 레인 + 산출물↔정본 연결 기획안 추가
 
 - `docs/architecture/foundation/PROGRAM_DELIVERY_AGENT_AND_PRODUCT_BRIDGE_PLAN_V0.md`

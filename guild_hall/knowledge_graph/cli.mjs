@@ -30,6 +30,9 @@ async function main() {
       now: args.now,
     });
     printJson(result);
+    if (result && typeof result.html_ref === "string" && result.html_ref) {
+      process.stderr.write(`\n[knowledge-graph] 브라우저에서 열기: ${result.html_ref}\n`);
+    }
     return;
   }
 
