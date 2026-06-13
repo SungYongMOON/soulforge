@@ -330,3 +330,53 @@ test("B5: 라벨 감사기 — 커버리지 집계 + 결손 주입 검출", asyn
   // 빈 입력 안전
   assert.equal(audit([]).coverage.used_refs, 1);
 });
+
+// ---------- P2b: 계정·세션·권한·레이아웃 (TEST-P2b) ----------
+import { hashPassword, verifyPassword } from "../src/store.mjs";
+
+test("P2b: 비밀번호 해시 roundtrip (평문 미저장)", () => {
+  const h = hashPassword("s3cret!");
+  assert.ok(h.startsWith("scrypt$"), "scrypt 형식");
+  assert.ok(!h.includes("s3cret"), "평문이 들어가면 안 됨");
+  assert.equal(verifyPassword("s3cret!", h), true);
+  assert.equal(verifyPassword("wrong", h), false);
+});
+
+test("P2b: 계정 생성·로그인·세션 검증/만료/삭제", () => {
+  const store = freshStore();
+  assert.equal(store.accountCount(), 0, "기본 익명(계정 0)");
+  const r = store.createAccount({ username: "owner", password: "pw123", roles: [] });
+  assert.ok(r.ok && r.id);
+  assert.equal(store.createAccount({ username: "owner", password: "x" }).error, "username_taken");
+  assert.equal(store.verifyLogin("owner", "pw123").username, "owner");
+  assert.equal(store.verifyLogin("owner", "bad"), null);
+  const tok = store.createSession(r.id);
+  assert.equal(store.sessionAccount(tok).id, r.id);
+  // 만료 세션
+  const expTok = store.createSession(r.id, -1);
+  assert.equal(store.sessionAccount(expTok), null, "만료 세션은 무효");
+  store.deleteSession(tok);
+  assert.equal(store.sessionAccount(tok), null, "삭제 후 무효(logout)");
+});
+
+test("P2b: RBAC visible-but-locked 권한 합집합", () => {
+  const store = freshStore();
+  const a = store.createAccount({ username: "u", password: "p" }).id;
+  store.upsertRole("member", "팀원");
+  store.assignRole(a, "member");
+  store.setPermission("member", "mod:gates", true, false);  // 보이되 잠김
+  store.setPermission("member", "view:items", true, true);
+  const perms = Object.fromEntries(store.permsFor(a).map((x) => [x.resource, x]));
+  assert.equal(perms["mod:gates"].visible, true);
+  assert.equal(perms["mod:gates"].access, false, "잠김");
+  assert.equal(perms["view:items"].access, true);
+});
+
+test("P2b: 계정별 레이아웃 저장/로드 roundtrip", () => {
+  const store = freshStore();
+  const a = store.createAccount({ username: "u2", password: "p" }).id;
+  assert.equal(store.getLayout(a), null, "초기 없음 → 기본 사용");
+  const layout = [{ id: "projects", x: 0, y: 0, w: 12, h: 12 }, { id: "kpi", x: 0, y: 12, w: 3, h: 7 }];
+  store.setLayout(a, layout);
+  assert.deepEqual(store.getLayout(a), layout, "저장→로드 동일(logout 내성)");
+});
