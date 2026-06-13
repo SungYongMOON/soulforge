@@ -11,6 +11,7 @@
 | --- | --- |
 | `REPOSITORY_PURPOSE.md` | Soulforge 저장소의 존재 이유와 public/private 범위를 고정한다. |
 | `PROJECT_MAP_V0.md` | 처음 다시 열었을 때 읽는 한 장짜리 owner/root 지도다. |
+| `SOULFORGE_ERP_BOM_HIERARCHY_V0.md` | 저장소 전체를 ERP/BOM 계층으로 읽기 위한 public-safe 구조 지도다. |
 | `DEVELOPMENT_ROADMAP_V0.md` | 큰 개발 방향, active slice, 우선순위 판단의 단일 정본이다. |
 | `VISION_AND_GOALS.md` | 수동 업무를 mission/run truth/canon/autohunt 로 승격하는 장기 비전을 고정한다. |
 | `TARGET_TREE.md` | 목표 루트 트리와 canonical path shape 를 설명한다. |
@@ -34,6 +35,7 @@
 - [`.registry/README.md`](../../../.registry/README.md)
 - [`REPOSITORY_PURPOSE.md`](REPOSITORY_PURPOSE.md)
 - [`PROJECT_MAP_V0.md`](PROJECT_MAP_V0.md)
+- [`SOULFORGE_ERP_BOM_HIERARCHY_V0.md`](SOULFORGE_ERP_BOM_HIERARCHY_V0.md)
 - [`DEVELOPMENT_ROADMAP_V0.md`](DEVELOPMENT_ROADMAP_V0.md)
 - [`VISION_AND_GOALS.md`](VISION_AND_GOALS.md)
 - [`TARGET_TREE.md`](TARGET_TREE.md)
@@ -57,6 +59,7 @@
 - active owner-local canon 은 `.registry/`, `.unit/`, `.workflow/`, `.party/`, `.mission/`, `_workspaces/` 에서 읽는다.
 - active semantics 는 `AGENT_WORLD_MODEL.md`, `ONTOLOGY_MODEL_V0.md`, `ONTOLOGY_REVIEW_MANUAL_V0.md` 에서 통합한다.
 - 저장소를 다시 잡기 위한 한 장짜리 탐색 지도는 `PROJECT_MAP_V0.md` 에서 읽는다.
+- ERP/BOM처럼 실제 계층을 펼쳐 보는 구조 지도는 `SOULFORGE_ERP_BOM_HIERARCHY_V0.md` 에서 읽는다.
 - 큰 개발 방향과 현재 우선순위의 단일 정본은 `DEVELOPMENT_ROADMAP_V0.md` 에서 읽는다.
 - validator 와 harness 가 바로 참조할 ontology binding 요약은 `ONTOLOGY_RELATION_MATRIX_V1.md` 에서 읽는다.
 - 저장소 개선의 현재 단계별 계획은 `REPOSITORY_IMPROVEMENT_PLAN_V0.md` 에서 읽는다.

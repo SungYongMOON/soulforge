@@ -2,6 +2,19 @@
 
 ## 2026-06-13
 
+### Revision `working` - ERP/BOM 계층 구조 지도 추가
+
+- Added `docs/architecture/foundation/SOULFORGE_ERP_BOM_HIERARCHY_V0.md`
+  as a public-safe hierarchy map that reads Soulforge like an ERP/BOM:
+  canon roots, registry entries, workflow/party catalogs, dev-erp runtime
+  modules, widget/API/table layers, knowledge/RAG layers, and private/worksite
+  boundaries.
+- Linked the map from `docs/architecture/foundation/README.md` so structure
+  review starts from the foundation document index.
+- Kept private payloads, mail bodies, attachments, local database contents,
+  and secret values out of the public document; protected surfaces are described
+  by role and repo-relative path only.
+
 ### Revision `working` - workspace system inventory gate added
 
 - Added a read-only `_workspaces/system` inventory/classification gate through
