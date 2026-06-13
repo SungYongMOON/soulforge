@@ -5,7 +5,7 @@ const state = {
   view: "home",
   lex: {},
   projectFilter: "",
-  navGroup: localStorage.getItem("dev_erp_navgroup") || "group_work", // IA 2.5단: 상단 선택 그룹
+  navGroup: localStorage.getItem("dev_erp_navgroup") || "group_project", // 대분류(객체축) 선택 그룹
   pins: JSON.parse(localStorage.getItem("dev_erp_pins") || "[]")
 };
 
@@ -73,13 +73,14 @@ function localTime(iso) {
 const VIEWS = ["home", "items", "guide", "mail", "artifacts", "search"];
 const navKey = { home: "nav_home", items: "nav_items", guide: "nav_guide", mail: "nav_mail", artifacts: "nav_artifacts", search: "nav_search" };
 
-// IA 그룹: 운영 / 기록·이력 / 자재·구매 / 지식·도구 / 팀 (DESIGN 3절)
+// 대분류 = 다루는 '대상(객체)'축 (owner 결정 2026-06-13): 프로젝트/할일/산출물·문서/메일·소통/자재·거래처/사람·팀
 const NAV_LAYOUT = [
-  { g: "group_work", items: ["home", "guide", "items", "mod:gates", "search"] },
-  { g: "group_records", items: ["mail", "mod:meetings", "mod:reports", "artifacts"] },
-  { g: "group_supply", items: ["mod:purchase", "mod:inventory", "mod:boards", "mod:stockwatch"] },
-  { g: "group_knowledge", items: ["mod:knowledge", "mod:calculators", "mod:contacts"] },
-  { g: "group_team", items: ["mod:requests", "mod:analytics"] }
+  { g: "group_project", items: ["home", "guide", "mod:gates", "search"] },
+  { g: "group_task", items: ["items"] },
+  { g: "group_doc", items: ["artifacts", "mod:reports", "mod:knowledge", "mod:calculators"] },
+  { g: "group_comm", items: ["mail", "mod:meetings"] },
+  { g: "group_material", items: ["mod:purchase", "mod:inventory", "mod:boards", "mod:stockwatch"] },
+  { g: "group_team", items: ["mod:contacts", "mod:requests", "mod:analytics"] }
 ];
 
 function navButton(v) {
@@ -102,6 +103,7 @@ function groupOfView(v) {
 
 function renderGroupBar() {
   // 상단 대분류 탭(ECount 1단). 클릭 시 좌측 하위만 교체.
+  if (!NAV_LAYOUT.some((g) => g.g === state.navGroup)) state.navGroup = NAV_LAYOUT[0].g; // stale 값 가드
   $("#groupBar").innerHTML = NAV_LAYOUT.map((group) =>
     `<button class="group-tab ${state.navGroup === group.g ? "on" : ""}" data-g="${group.g}">${state.lex[group.g]}</button>`
   ).join("");
@@ -189,8 +191,17 @@ function dueCell(due, todayKey) {
 // reorder + 리사이즈 + 추가/삭제. localStorage 저장(계정별 서버 저장은 P2b).
 // 자유 배치 위젯 보드 (ECount식): 절대좌표 격자 — 가로 12칼럼, 세로 행 단위.
 // 드래그하면 위젯이 마우스를 따라 자유 이동, 놓으면 격자에 스냅(빈칸 허용).
-const WIDGET_CATALOG = ["projects", "today", "blocked", "mail", "events"];
-const CREATE_WIDGETS = new Set(["today", "blocked"]); // 작성(✎) → 할일 생성 화면으로
+const WIDGET_CATALOG = ["projects", "kpi", "events", "today", "blocked", "unassigned", "artifacts", "mail", "contacts"];
+const CREATE_WIDGETS = new Set(["today", "blocked", "unassigned"]); // 작성(✎) → 할일 생성 화면으로
+// 위젯 → 대분류(객체축). 서랍을 대분류별로 묶어 보여줌.
+const WIDGET_CAT = {
+  projects: "group_project", kpi: "group_project", events: "group_project",
+  today: "group_task", blocked: "group_task",
+  artifacts: "group_doc",
+  mail: "group_comm",
+  unassigned: "group_team", contacts: "group_team"
+};
+const CAT_ORDER = ["group_project", "group_task", "group_doc", "group_comm", "group_material", "group_team"];
 const DASH_GCOLS = 12;     // 가로 12칼럼 (fine snap)
 const DASH_ROW = 22;       // 세로 행 px
 const DASH_WMIN = 2, DASH_HMIN = 3;
@@ -345,6 +356,27 @@ async function renderHome() {
       const mail = (await api("/api/mail?days=90")).slice(0, 6);
       return { title: L.tile_mail, html: mail.length ? `<table><tbody>${mail.map((m) => miniRow([localTime(m.at), esc(m.subject)])).join("")}</tbody></table>` : `<div class="empty">${L.empty_mail}</div>` };
     }
+    if (id === "kpi") {
+      return { title: L.tile_kpi, html: `<div class="kpi-row mini">
+        <div class="kpi red"><span>${L.kpi_blocked}</span><strong>${actives.reduce((s, p) => s + p.blocked, 0)}</strong></div>
+        <div class="kpi red"><span>${L.kpi_overdue}</span><strong>${actives.reduce((s, p) => s + p.overdue, 0)}</strong></div>
+        <div class="kpi amber"><span>${L.kpi_today}</span><strong>${actives.reduce((s, p) => s + p.due_today, 0)}</strong></div>
+        <div class="kpi blue"><span>${L.kpi_inbox}</span><strong>${inbox.reduce((s, p) => s + p.mail_cnt, 0)}</strong></div>
+      </div>` };
+    }
+    if (id === "unassigned") {
+      const open = await api("/api/items?status=open");
+      const un = open.filter((i) => !i.assignee_ref).slice(0, 8);
+      return { title: L.tile_unassigned, html: un.length ? `<table><tbody>${un.map((i) => miniRow([esc(i.title), esc(i.project_id), i.due ?? "-"])).join("")}</tbody></table>` : `<div class="empty">${L.empty_items}</div>` };
+    }
+    if (id === "artifacts") {
+      const arts = (await api("/api/artifacts")).slice(0, 6);
+      return { title: L.tile_artifacts, html: arts.length ? `<table><tbody>${arts.map((a) => miniRow([esc(a.title), esc(a.kind), esc(a.project_id)])).join("")}</tbody></table>` : `<div class="empty">${L.empty_artifacts}</div>` };
+    }
+    if (id === "contacts") {
+      const people = (await api("/api/people")).slice(0, 8);
+      return { title: L.tile_contacts, html: people.length ? `<table><tbody>${people.map((p) => miniRow([esc(p.name), esc(p.role ?? "-")])).join("")}</tbody></table>` : `<div class="empty">-</div>` };
+    }
     const events = await api("/api/events/recent");
     return { title: L.tile_events, html: events.length ? `<table><tbody>${events.slice(0, 6).map((e) => miniRow([localTime(e.at), esc(e.actor_ref), esc(e.kind)])).join("")}</tbody></table>` : `<div class="empty">-</div>` };
   }
@@ -378,12 +410,17 @@ async function renderHome() {
     </section>`);
   }
   const maxBottom = Math.max(0, ...layout.map((w) => (w.y + (w.c ? 2 : w.h)))) * DASH_ROW + 20;
-  // 서랍은 전체 위젯을 항상 표시(ECount식). 보드에 올라간 건 ● 동그라미로 표시(드래그 비활성).
-  const drawerItems = WIDGET_CATALOG.map((id) => {
+  // 서랍 = 전체 위젯을 대분류(객체축)별로 묶어 항상 표시(ECount식). 보드에 올라간 건 ● 동그라미.
+  const widgetChip = (id) => {
     const placed = layout.some((w) => w.id === id);
     return `<div class="drawer-widget ${placed ? "placed" : ""}" ${placed ? "" : 'draggable="true"'} data-add="${id}">
       <span class="dw-dot ${placed ? "on" : ""}" title="${placed ? L.widget_placed : ""}"></span>
       <span class="grip">⠿</span> ${L[`tile_${id}`]}</div>`;
+  };
+  const drawerItems = CAT_ORDER.map((cat) => {
+    const ids = WIDGET_CATALOG.filter((id) => WIDGET_CAT[id] === cat);
+    const body = ids.length ? ids.map(widgetChip).join("") : `<div class="drawer-empty dim">준비 중</div>`;
+    return `<div class="drawer-cat"><div class="drawer-cat-head">${L[cat]}</div>${body}</div>`;
   }).join("");
 
   $("#view").innerHTML = `${kpi}

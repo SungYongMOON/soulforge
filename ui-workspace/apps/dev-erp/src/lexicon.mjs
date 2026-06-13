@@ -58,6 +58,10 @@ export const LEXICON = {
     tile_blocked: "차단 목록",
     tile_mail: "최근 메일",
     tile_events: "최근 변경",
+    tile_kpi: "핵심 지표",
+    tile_unassigned: "미배정 작업",
+    tile_artifacts: "최근 산출물",
+    tile_contacts: "연락처",
     tile_config: "타일 설정",
     widget_add: "위젯 추가",
     widget_remove: "위젯 삭제",
@@ -144,7 +148,12 @@ export const LEXICON = {
     group_records: "기록·이력",
     group_supply: "자재·구매",
     group_knowledge: "지식·도구",
-    group_team: "팀"
+    group_team: "사람·팀",
+    group_project: "프로젝트",
+    group_task: "할 일",
+    group_doc: "산출물·문서",
+    group_comm: "메일·소통",
+    group_material: "자재·거래처"
   },
   fantasy: {
     app_title: "길드 작전판",
@@ -203,6 +212,10 @@ export const LEXICON = {
     tile_blocked: "봉인 목록",
     tile_mail: "최근 전령",
     tile_events: "최근 전황",
+    tile_kpi: "전황 지표",
+    tile_unassigned: "미편성 몬스터",
+    tile_artifacts: "최근 전리품",
+    tile_contacts: "인명록",
     tile_config: "타일 설정",
     widget_add: "위젯 편성",
     widget_remove: "위젯 해제",
@@ -289,7 +302,12 @@ export const LEXICON = {
     group_records: "기록 보관소",
     group_supply: "병참",
     group_knowledge: "도서관·공방",
-    group_team: "길드"
+    group_team: "길드",
+    group_project: "던전",
+    group_task: "몬스터",
+    group_doc: "전리품·기록",
+    group_comm: "전령",
+    group_material: "병참"
   }
 };
 
