@@ -292,10 +292,10 @@ const WIDGET_PLAN = [
   { id: "approval", cat: "group_comm" },
   { id: "notices", cat: "group_comm" },
   { id: "announce", cat: "group_comm" },
-  { id: "purchase_w", cat: "group_material" },
+  { id: "purchase_w", cat: "group_material", ready: true },
   { id: "stocklow", cat: "group_material" },
   { id: "bomchg", cat: "group_material" },
-  { id: "vendors", cat: "group_material" },
+  { id: "vendors", cat: "group_material", ready: true },
   { id: "buyapprove", cat: "group_material" },
   { id: "unassigned", cat: "group_team", ready: true },
   { id: "contacts", cat: "group_team", ready: true },
@@ -630,6 +630,18 @@ async function renderHome() {
       const sum = await api("/api/guide/summary");
       return { title: L.tile_artifact_progress, html: sum.length
         ? `<table><tbody>${sum.map((g) => miniRow([esc(g.project_id), `${g.steps_done}/${g.steps_total}`, `${g.pct}%`])).join("")}</tbody></table>`
+        : `<div class="empty">-</div>` };
+    }
+    if (id === "purchase_w") {
+      const pos = (await api("/api/purchases")).slice(0, 6);
+      return { title: L.tile_purchase_w, html: pos.length
+        ? `<table><tbody>${pos.map((p) => miniRow([esc(p.title), esc(p.party_name ?? "-"), L[`pstage_${p.stage}`] ?? p.stage])).join("")}</tbody></table>`
+        : `<div class="empty">-</div>` };
+    }
+    if (id === "vendors") {
+      const led = (await api("/api/parties/ledger")).slice(0, 6);
+      return { title: L.tile_vendors, html: led.length
+        ? `<table><tbody>${led.map((g) => miniRow([esc(g.party_name), `${g.count}`, Number(g.total_amount).toLocaleString()])).join("")}</tbody></table>`
         : `<div class="empty">-</div>` };
     }
     if (id === "meetings_w") {
