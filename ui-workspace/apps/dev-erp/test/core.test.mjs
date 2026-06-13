@@ -703,3 +703,24 @@ test("P3: purgeSynthetic 가 재고/BOM/부품 synthetic 정리(FK 안전)", () 
   assert.equal(store.parts({}).length, 0, "synthetic 부품 제거");
   assert.equal(store.locations().length, 0);
 });
+
+// ---------- 챗봇 검색지향(추론 X) + 질문 로그 ----------
+test("챗봇: FAQ 검색 매칭 답변 + 미응답 로그/큐", () => {
+  const store = freshStore();
+  loadFixture(store);
+  // 매칭
+  const r1 = store.chatAnswer({ question: "게이트 통과 어떻게 해?", thread_id: "t1" });
+  assert.equal(r1.matched, true);
+  assert.equal(r1.source.id, "faq-gate");
+  assert.ok(r1.text.includes("통과 가능"));
+  // 미매칭 → 안내 + 미응답 큐 적재
+  const r2 = store.chatAnswer({ question: "점심 메뉴 추천해줘 우주여행", thread_id: "t1" });
+  assert.equal(r2.matched, false);
+  assert.ok(r2.text.includes("야간 매뉴얼 갱신"));
+  const un = store.unansweredQueries(10);
+  assert.ok(un.some((u) => u.question.includes("우주여행")), "미응답이 큐에 집계");
+  assert.equal(store.chatAnswer({ question: "" }).error, "question_required");
+  // 질문 로그 저장됨(매칭 1 + 미매칭 1)
+  const cnt = store.db.prepare("SELECT COUNT(*) c FROM chat_query_log").get().c;
+  assert.ok(cnt >= 2, "질문 로그 누적");
+});

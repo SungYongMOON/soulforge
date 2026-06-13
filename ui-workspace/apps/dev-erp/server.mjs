@@ -146,15 +146,24 @@ const server = createServer(async (req, res) => {
       q: qp.q, direction: qp.direction, label_id: qp.label_id
     }));
     if (path === "/api/guide/templates") return send(res, 200, guideTemplates(qp.mode));
-    // A7: ERP 챗봇 — 메타/요약 컨텍스트만 어댑터로. 원문 미전송. 기본 stub(외부0).
+    // ERP 챗봇 — 로컬 작은 모델의 '매뉴얼 검색·읽기'용(추론 아님). 질문은 로그에 저장.
+    // 매칭 FAQ가 있으면 그 매뉴얼 답을 반환(로컬 모델은 표현만 할 자리), 없으면 미응답 기록.
+    // 야간 매뉴얼 갱신은 고급 구독 LLM(tool_pc)이 unanswered 로그로 수행 — 여기서 추론/외부전송 0.
     if (path === "/api/chat" && req.method === "POST") {
       let body = ""; for await (const chunk of req) body += chunk;
-      const { message, project, provider } = JSON.parse(body || "{}");
-      if (!message || !String(message).trim()) return send(res, 400, { error: "message_required" });
-      const context = buildMetaContext(store, { project: project ?? null, days: 90 });
-      const r = await runLlm({ provider: provider === "codex_cli" ? "codex_cli" : "stub", user: message, context }, { store });
-      return send(res, 200, { text: r.text, provider: r.provider, external: r.external, delivered: r.delivered });
+      const { message, thread_id } = JSON.parse(body || "{}");
+      const r = store.chatAnswer({ question: message, thread_id });
+      if (r.error) return send(res, 400, r);
+      store.appendEvent({ actor_ref: "owner", actor_kind: "human", kind: "chat_query", to: r.matched ? "matched" : "unanswered", used_refs: ["chat", "faq"], data_label: "meta", note: thread_id ? `thread=${thread_id}` : null });
+      return send(res, 200, { text: r.text, matched: r.matched, source: r.source, mode: "retrieval", external: false });
     }
+    if (path === "/api/faq" && req.method === "GET") return send(res, 200, store.faqs({ topic: qp.topic }));
+    if (path === "/api/faq" && req.method === "POST") {
+      let body = ""; for await (const chunk of req) body += chunk;
+      const r = store.upsertFaq({ ...JSON.parse(body || "{}"), data_label: "real" });
+      return send(res, r.error ? 400 : 200, r);
+    }
+    if (path === "/api/chat/unanswered") return send(res, 200, store.unansweredQueries(qp.limit ? Number(qp.limit) : 50));
     if (path === "/api/gates") return send(res, 200, { mode: store.gateMode(), stages: store.gates({ project: qp.project }) });
     if (path === "/api/gates/clear" && req.method === "POST") {
       let body = ""; for await (const chunk of req) body += chunk;

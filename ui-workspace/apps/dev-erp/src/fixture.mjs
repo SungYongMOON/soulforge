@@ -156,6 +156,15 @@ export function loadFixture(store) {
   store.linkPartProject("pt-board", "PRJ-A");
   store.linkPartProject("pt-ic1", "PRJ-A");
 
+  // 챗봇 매뉴얼/FAQ 합성 시드 (로컬 검색용)
+  const faqSeed = [
+    { id: "faq-gate", topic: "게이트", question: "게이트는 어떻게 통과하나요", answer: "단계의 미완·차단 할 일이 0이고 산출물 절차가 끝나면 통과 가능합니다. 엄격(hard) 모드에서는 미충족 시 통과가 차단되며, 설정에서 경고(soft)로 바꿀 수 있습니다.", pointer: "mod:gates", keywords: "게이트,통과,단계,gate,hard,soft" },
+    { id: "faq-widget", topic: "위젯", question: "홈 위젯은 어떻게 추가/정렬하나요", answer: "홈 좌측 ❙❙ 손잡이를 눌러 위젯 서랍을 열고 보드로 끌어다 놓습니다. 헤더를 끌어 이동, 우하단으로 크기 조절, 정렬·초기화 버튼으로 정돈합니다.", pointer: "home", keywords: "위젯,추가,정렬,초기화,드래그" },
+    { id: "faq-purchase", topic: "구매", question: "발주는 어떤 단계로 진행되나요", answer: "요청→견적→발주→입고→검수→완료 순서입니다. 발주는 여러 과제에 연결할 수 있고 거래처별 거래이력으로 집계됩니다.", pointer: "mod:purchase", keywords: "발주,구매,견적,입고,검수,거래처" },
+    { id: "faq-stock", topic: "재고", question: "재고 부족은 어떻게 판정하나요", answer: "부품의 안전재고(min)보다 가용 재고(가상 위치 제외 합계)가 적으면 부족으로 표시합니다. 외부 공급사 실시간 조회는 사용하지 않습니다.", pointer: "mod:stockwatch", keywords: "재고,부족,안전재고,부품,stock" }
+  ];
+  faqSeed.forEach((f) => store.upsertFaq({ ...f, data_label: "synthetic" }));
+
   store.appendEvent({
     actor_ref: "fixture", actor_kind: "system", kind: "ingest",
     note: "synthetic fixture loaded", used_refs: ["src/fixture.mjs"], data_label: "synthetic"

@@ -284,7 +284,27 @@ CREATE TABLE IF NOT EXISTS part_project_map ( -- 부품↔과제 '사용' 링크
   project_id TEXT NOT NULL REFERENCES core_project(id),
   PRIMARY KEY (part_id, project_id)
 );
+-- 챗봇 매뉴얼/FAQ (로컬 작은 모델의 '검색·읽기'용; 추론 아님). 야간 고급 LLM(tool_pc)이 질문로그로 갱신.
+CREATE TABLE IF NOT EXISTS core_faq (
+  id TEXT PRIMARY KEY,
+  topic TEXT,                            -- 분류
+  question TEXT NOT NULL,                -- 대표 질문/제목
+  answer TEXT NOT NULL,                  -- 매뉴얼 답변(정리된 텍스트)
+  pointer TEXT,                          -- 원문/매뉴얼 위치(선택)
+  keywords TEXT,                         -- 매칭 키워드(쉼표)
+  data_label TEXT NOT NULL DEFAULT 'synthetic'
+);
+-- 챗 질문 로그(소프트웨어적 저장) — 야간 매뉴얼 갱신 입력. 미응답(matched_faq_id NULL)=갱신 큐.
+CREATE TABLE IF NOT EXISTS chat_query_log (
+  id INTEGER PRIMARY KEY AUTOINCREMENT,
+  at TEXT NOT NULL,
+  thread_id TEXT,
+  question TEXT NOT NULL,
+  matched_faq_id TEXT,
+  data_label TEXT NOT NULL DEFAULT 'real'
+);
 CREATE INDEX IF NOT EXISTS idx_attach_entity ON core_attachment(entity_type, entity_id);
+CREATE INDEX IF NOT EXISTS idx_chatlog_at ON chat_query_log(at);
 CREATE INDEX IF NOT EXISTS idx_stock_part ON core_stock(part_id);
 CREATE INDEX IF NOT EXISTS idx_bom_parent ON bom_edge(parent_part_id);
 CREATE INDEX IF NOT EXISTS idx_item_proj ON core_item(project_id, status);
@@ -838,6 +858,61 @@ export class Store {
     return rows.map((r) => ({ ...r, party_name: r.party_id ? (pn.get(r.party_id) ?? r.party_id) : null, projects: this.purchaseProjects(r.id) }));
   }
 
+  // ---------- 챗봇 매뉴얼/FAQ (검색·읽기 전용; 추론 아님) ----------
+  upsertFaq({ id, topic = null, question, answer, pointer = null, keywords = null, data_label = "real" }) {
+    const q = String(question ?? "").trim(), a = String(answer ?? "").trim();
+    if (!q || !a) return { error: "question_answer_required" };
+    const fid = id || `faq_${randomBytes(4).toString("hex")}`;
+    this.db.prepare(
+      `INSERT INTO core_faq(id,topic,question,answer,pointer,keywords,data_label) VALUES(?,?,?,?,?,?,?)
+       ON CONFLICT(id) DO UPDATE SET topic=excluded.topic, question=excluded.question, answer=excluded.answer, pointer=excluded.pointer, keywords=excluded.keywords`
+    ).run(fid, topic, q, a, pointer, keywords, data_label);
+    return { ok: true, id: fid };
+  }
+  faqs({ topic = null } = {}) {
+    const where = topic ? "WHERE topic=?" : "";
+    return this.db.prepare(`SELECT * FROM core_faq ${where} ORDER BY topic, question`).all(...(topic ? [topic] : []));
+  }
+  // 로컬 키워드 검색(추론 X): 질문 토큰이 FAQ의 question/keywords/answer와 겹치는 정도로 최고 1건.
+  retrieveFaq(question) {
+    const qn = String(question ?? "").toLowerCase();
+    const toks = qn.split(/[\s,./()\[\]]+/).filter((w) => w.length >= 2);
+    if (!toks.length) return null;
+    let best = null, bestScore = 0;
+    for (const f of this.faqs()) {
+      const hay = `${f.question} ${f.keywords ?? ""} ${f.topic ?? ""} ${f.answer}`.toLowerCase();
+      let score = 0;
+      for (const t of toks) if (hay.includes(t)) score += 1;
+      if (score > bestScore) { bestScore = score; best = f; }
+    }
+    return bestScore > 0 ? { faq: best, score: bestScore } : null;
+  }
+  logChatQuery({ thread_id = null, question, matched_faq_id = null }) {
+    this.db.prepare("INSERT INTO chat_query_log(at,thread_id,question,matched_faq_id,data_label) VALUES(?,?,?,?,?)")
+      .run(new Date().toISOString(), thread_id, String(question ?? ""), matched_faq_id, "real");
+    return { ok: true };
+  }
+  // 야간 매뉴얼 갱신 입력: 미응답(매칭 FAQ 없음) 질문 + 빈도.
+  unansweredQueries(limit = 50) {
+    return this.db.prepare(
+      `SELECT question, COUNT(*) AS n, MAX(at) AS last_at FROM chat_query_log
+       WHERE matched_faq_id IS NULL GROUP BY question ORDER BY n DESC, last_at DESC LIMIT ?`
+    ).all(limit);
+  }
+  // 검색지향 답변: FAQ 매칭이면 그 매뉴얼 답변(추론 아님), 아니면 미응답 기록 + 안내.
+  chatAnswer({ question, thread_id = null } = {}) {
+    const q = String(question ?? "").trim();
+    if (!q) return { error: "question_required" };
+    const hit = this.retrieveFaq(q);
+    this.logChatQuery({ thread_id, question: q, matched_faq_id: hit ? hit.faq.id : null });
+    if (hit) {
+      const f = hit.faq;
+      const text = `${f.answer}${f.pointer ? `\n\n📎 참고: ${f.pointer}` : ""}`;
+      return { matched: true, source: { id: f.id, topic: f.topic, question: f.question }, text };
+    }
+    return { matched: false, source: null, text: "아직 매뉴얼에 정리되지 않은 질문입니다. 질문은 기록되어 야간 매뉴얼 갱신에 반영됩니다." };
+  }
+
   // ---------- P3 부품/BOM/위치/재고 (공유 마스터·내부 판정만) ----------
   upsertPart({ id, name, part_no = null, type = null, grp = null, spec = null, uom = "ea", maker = null, min_qty = 0, data_label = "real" }) {
     const t = String(name ?? "").trim();
@@ -1088,7 +1163,7 @@ export class Store {
     del("DELETE FROM guide_step WHERE artifact_id IN (SELECT a.id FROM guide_artifact a JOIN core_project p ON p.id=a.project_id WHERE p.data_label='synthetic')");
     del("DELETE FROM guide_artifact WHERE project_id IN (SELECT id FROM core_project WHERE data_label='synthetic')");
     del("DELETE FROM core_stage WHERE project_id IN (SELECT id FROM core_project WHERE data_label='synthetic')");
-    for (const t of ["core_attachment", "core_item", "core_mail", "core_artifact", "core_person", "core_project", "event_log"]) {
+    for (const t of ["core_faq", "chat_query_log", "core_attachment", "core_item", "core_mail", "core_artifact", "core_person", "core_project", "event_log"]) {
       del(`DELETE FROM ${t} WHERE data_label='synthetic'`);
     }
     return removed;
