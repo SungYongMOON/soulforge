@@ -307,6 +307,35 @@ body[data-mode="fantasy"] tr.spawned td:first-child::before { content: "✦ "; c
 .widget:hover .widget-resize { border-color: var(--accent); }
 .brand-home { cursor: pointer; }
 .brand-home:hover { color: var(--accent); }
+/* 정중앙 확인 모달 */
+.ui-confirm-overlay { position: fixed; inset: 0; background: rgba(0,0,0,.38); z-index: 300;
+  display: flex; align-items: center; justify-content: center; }
+.ui-confirm { background: var(--panel); border: 1px solid var(--line); border-radius: 14px;
+  padding: 22px 24px 16px; width: min(380px, 88vw); box-shadow: 0 24px 70px rgba(0,0,0,.35); }
+.ui-confirm-msg { margin: 0 0 18px; font-size: 14.5px; line-height: 1.55; color: var(--text); }
+.ui-confirm-btns { display: flex; justify-content: flex-end; gap: 8px; }
+.ui-confirm-btns button { padding: 8px 16px; border-radius: 8px; font-size: 13.5px; cursor: pointer; border: 1px solid var(--line); }
+.ui-confirm-cancel { background: transparent; color: var(--muted); }
+.ui-confirm-cancel:hover { background: var(--chip); }
+.ui-confirm-ok { background: var(--accent); color: #fff; border-color: var(--accent); }
+.ui-confirm-ok:hover { filter: brightness(1.06); }
+/* 위젯 추가 서랍 (❙❙ 펴기 → 목록 드래그&드롭) */
+.dashboard-wrap { position: relative; display: flex; align-items: flex-start; gap: 0; }
+.dashboard-wrap .dashboard { flex: 1 1 auto; }
+.widget-drawer { flex: 0 0 220px; align-self: stretch; margin-left: 14px; background: var(--panel);
+  border: 1px solid var(--line); border-radius: 12px; padding: 12px; max-height: 70vh; overflow: auto;
+  transition: opacity .15s; }
+.widget-drawer.hidden { display: none; }
+.widget-drawer-head { font-size: 12.5px; color: var(--muted); margin-bottom: 10px; display: flex; flex-direction: column; gap: 3px; }
+.widget-drawer-head .dim { font-size: 11px; }
+.widget-drawer-list { display: flex; flex-direction: column; gap: 7px; }
+.drawer-widget { display: flex; align-items: center; gap: 7px; padding: 9px 11px; border: 1px solid var(--line);
+  border-radius: 9px; background: var(--bg); font-size: 13px; cursor: grab; user-select: none; }
+.drawer-widget:hover { border-color: var(--accent); color: var(--accent); }
+.drawer-widget:active { cursor: grabbing; }
+.drawer-widget.dragging { opacity: .5; }
+.drawer-widget .grip { color: var(--muted); font-size: 13px; }
+.dashboard.drop-active { outline: 2px dashed var(--accent); outline-offset: 4px; border-radius: 10px; }
 .widget-toolbar { display: flex; align-items: center; gap: 10px; margin-bottom: 12px; flex-wrap: wrap; }
 .widget-add-box { position: relative; }
 .widget-add-box .add-widget-item { display: block; width: 100%; text-align: left; border: 0; background: transparent;

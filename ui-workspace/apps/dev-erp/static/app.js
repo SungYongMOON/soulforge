@@ -247,6 +247,31 @@ function miniRow(cells) {
   return `<tr>${cells.map((c) => `<td>${c}</td>`).join("")}</tr>`;
 }
 
+// 화면 정중앙 확인 모달 (native confirm 은 위치 제어 불가 → 커스텀). Promise<boolean> 반환.
+function uiConfirm(message) {
+  return new Promise((resolve) => {
+    const L = state.lex;
+    document.querySelector(".ui-confirm-overlay")?.remove();
+    const ov = document.createElement("div");
+    ov.className = "ui-confirm-overlay";
+    ov.innerHTML = `<div class="ui-confirm" role="alertdialog" aria-modal="true">
+      <p class="ui-confirm-msg"></p>
+      <div class="ui-confirm-btns">
+        <button class="ui-confirm-cancel">${L.btn_cancel}</button>
+        <button class="ui-confirm-ok">${L.btn_confirm}</button>
+      </div></div>`;
+    ov.querySelector(".ui-confirm-msg").textContent = message;
+    document.body.appendChild(ov);
+    const done = (v) => { ov.remove(); document.removeEventListener("keydown", onKey); resolve(v); };
+    const onKey = (e) => { if (e.key === "Escape") done(false); if (e.key === "Enter") done(true); };
+    ov.querySelector(".ui-confirm-ok").addEventListener("click", () => done(true));
+    ov.querySelector(".ui-confirm-cancel").addEventListener("click", () => done(false));
+    ov.addEventListener("click", (e) => { if (e.target === ov) done(false); });
+    document.addEventListener("keydown", onKey);
+    ov.querySelector(".ui-confirm-ok").focus();
+  });
+}
+
 async function renderHome() {
   const layout = dashLayout();
   const todayKey = new Date().toISOString().slice(0, 10);
@@ -354,16 +379,22 @@ async function renderHome() {
   }
   const maxBottom = Math.max(0, ...layout.map((w) => (w.y + (w.c ? 2 : w.h)))) * DASH_ROW + 20;
   const hidden = WIDGET_CATALOG.filter((id) => !layout.some((w) => w.id === id));
-  const addBox = `<div class="widget-add-box">
-    <button id="widgetAddBtn" class="fav-chip" ${hidden.length ? "" : "disabled"}>＋ ${L.widget_add}</button>
-    <div id="widgetAddMenu" class="tile-config hidden">${hidden.map((id) =>
-      `<button class="add-widget-item" data-add="${id}">${L[`tile_${id}`]}</button>`).join("") || `<span class="dim">${L.widget_all_shown}</span>`}</div></div>`;
+  const drawerItems = hidden.length
+    ? hidden.map((id) => `<div class="drawer-widget" draggable="true" data-add="${id}"><span class="grip">⠿</span> ${L[`tile_${id}`]}</div>`).join("")
+    : `<span class="dim">${L.widget_all_shown}</span>`;
 
   $("#view").innerHTML = `${kpi}
-    <div class="tile-toolbar">${addBox}
+    <div class="tile-toolbar">
+      <button id="widgetDrawerBtn" class="fav-chip" title="${L.widget_add}">❙❙ ${L.widget_add}</button>
       <button id="widgetArrangeBtn" class="fav-chip" title="${L.widget_arrange}">⊟ ${L.widget_arrange}</button>
       <button id="widgetResetBtn" class="fav-chip" title="${L.widget_reset}">↺ ${L.widget_reset}</button></div>
-    <div class="dashboard" style="height:${maxBottom}px;">${cards.join("")}</div>`;
+    <div class="dashboard-wrap">
+      <div class="dashboard" style="height:${maxBottom}px;">${cards.join("")}</div>
+      <aside id="widgetDrawer" class="widget-drawer hidden">
+        <div class="widget-drawer-head">${L.widget_add}<span class="dim">${L.widget_drag_hint}</span></div>
+        <div class="widget-drawer-list">${drawerItems}</div>
+      </aside>
+    </div>`;
 
   const grid = $("#view").querySelector(".dashboard");
   const colW = () => grid.getBoundingClientRect().width / DASH_GCOLS;
@@ -393,15 +424,36 @@ async function renderHome() {
     saveDashLayout(resolveDashCollisions(next, id)); render();
   };
 
-  $("#widgetAddBtn").addEventListener("click", () => $("#widgetAddMenu").classList.toggle("hidden"));
+  // 위젯 추가: ❙❙ 서랍을 펴서 목록 표시 → 드래그&드롭(또는 클릭)으로 보드에 추가
+  const addWidgetAt = (id, x, y) => {
+    if (!WIDGET_CATALOG.includes(id)) return;
+    const l = dashLayout();
+    if (l.some((w) => w.id === id)) return; // 이미 배치됨
+    l.push({ id, x: Math.max(0, Math.min(DASH_GCOLS - 3, x | 0)), y: Math.max(0, y | 0), w: 3, h: 7 });
+    saveDashLayout(resolveDashCollisions(l, id)); render();
+  };
+  $("#widgetDrawerBtn").addEventListener("click", () => $("#widgetDrawer").classList.toggle("hidden"));
   $("#widgetArrangeBtn").addEventListener("click", () => { saveDashLayout(compactDash(dashLayout())); render(); });
-  $("#widgetResetBtn").addEventListener("click", () => { if (!confirm(L.confirm_reset)) return; localStorage.removeItem("dev_erp_widgets"); render(); });
-  $("#view").querySelectorAll(".add-widget-item").forEach((b) =>
-    b.addEventListener("click", () => {
-      const l = dashLayout();
-      const y = Math.max(0, ...l.map((w) => w.y + (w.c ? 2 : w.h)));
-      l.push({ id: b.dataset.add, x: 0, y, w: 3, h: 7 }); saveDashLayout(resolveDashCollisions(l, b.dataset.add)); render();
-    }));
+  $("#widgetResetBtn").addEventListener("click", async () => { if (!(await uiConfirm(L.confirm_reset))) return; localStorage.removeItem("dev_erp_widgets"); render(); });
+  // 서랍 항목: 드래그 시작 + 클릭(맨 아래 추가) 폴백
+  $("#view").querySelectorAll(".drawer-widget").forEach((d) => {
+    d.addEventListener("dragstart", (e) => { e.dataTransfer.setData("text/plain", d.dataset.add); e.dataTransfer.effectAllowed = "copy"; d.classList.add("dragging"); });
+    d.addEventListener("dragend", () => d.classList.remove("dragging"));
+    d.addEventListener("click", () => {
+      const y = Math.max(0, ...dashLayout().map((w) => w.y + (w.c ? 2 : w.h)));
+      addWidgetAt(d.dataset.add, 0, y);
+    });
+  });
+  // 보드에 드롭 → 놓은 위치에 추가
+  grid.addEventListener("dragover", (e) => { e.preventDefault(); e.dataTransfer.dropEffect = "copy"; grid.classList.add("drop-active"); });
+  grid.addEventListener("dragleave", (e) => { if (e.target === grid) grid.classList.remove("drop-active"); });
+  grid.addEventListener("drop", (e) => {
+    e.preventDefault(); grid.classList.remove("drop-active");
+    const id = e.dataTransfer.getData("text/plain");
+    if (!id) return;
+    const r = grid.getBoundingClientRect();
+    addWidgetAt(id, Math.round((e.clientX - r.left) / colW()), Math.round((e.clientY - r.top) / DASH_ROW));
+  });
   // 접기/펼치기
   const toggleFold = (id) => { const cur = dashLayout().find((x) => x.id === id); updateWidget(id, { c: !cur?.c }); };
   $("#view").querySelectorAll("[data-fold]").forEach((f) =>
@@ -435,7 +487,7 @@ async function renderHome() {
   });
   document.addEventListener("click", () => $("#view")?.querySelectorAll(".widget-menu").forEach((m) => m.classList.add("hidden")), { once: true });
   $("#view").querySelectorAll("[data-mdel]").forEach((x) =>
-    x.addEventListener("click", (e) => { e.stopPropagation(); if (!confirm(L.confirm_remove)) return; saveDashLayout(dashLayout().filter((w) => w.id !== x.dataset.mdel)); render(); }));
+    x.addEventListener("click", async (e) => { e.stopPropagation(); if (!(await uiConfirm(L.confirm_remove))) return; saveDashLayout(dashLayout().filter((w) => w.id !== x.dataset.mdel)); render(); }));
   // 팝아웃(크게 보기) — 위젯 본문을 큰 오버레이로
   $("#view").querySelectorAll(".wpop").forEach((p) => {
     p.addEventListener("mousedown", (e) => e.stopPropagation());
