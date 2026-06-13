@@ -303,3 +303,30 @@ test("run17: 메일 과제 분류(재배정) — 단건/묶음/할일 동행 이
   assert.equal(store.assignMails([], pa).error, "mail_ids_required");
   assert.equal(store.assignMails([mails[0].id], "no-such").error, "project_not_found");
 });
+
+test("B5: 라벨 감사기 — 커버리지 집계 + 결손 주입 검출", async () => {
+  const { audit, auditSince } = await import("../tools/label_audit.mjs");
+  const good = (id, kind) => ({ id, kind, actor_ref: "owner", used_refs: '["items"]', data_label: "real", project_ref: "P1" });
+  // 전부 정상
+  const clean = audit([good(1, "item_create"), good(2, "mail_assign")]);
+  assert.equal(clean.coverage.used_refs, 1);
+  assert.equal(clean.coverage.project_ref, 1);
+  assert.equal(clean.coverage.data_label, 1);
+  // 결손 주입: refs 빈 배열 / project_ref null / data_label null / 깨진 JSON
+  const dirty = audit([
+    good(1, "a"),
+    { id: 2, kind: "b", actor_ref: "x", used_refs: "[]", data_label: "real", project_ref: null },
+    { id: 3, kind: "c", actor_ref: null, used_refs: "not-json", data_label: null, project_ref: "P1" }
+  ]);
+  assert.equal(dirty.used_refs_present, 1);
+  assert.equal(dirty.offenders.no_used_refs.length, 2);
+  assert.deepEqual(dirty.offenders.no_project_ref, [2]);
+  assert.deepEqual(dirty.offenders.no_data_label, [3]);
+  assert.ok(dirty.coverage.used_refs < 0.4);
+  // 도입 시점 이후만 따로 (id > 2)
+  const recent = auditSince([good(1, "a"), good(3, "b"), { id: 4, kind: "c", used_refs: "[]", data_label: "real", project_ref: null }], 2);
+  assert.equal(recent.total, 2);
+  assert.equal(recent.offenders.no_used_refs.length, 1);
+  // 빈 입력 안전
+  assert.equal(audit([]).coverage.used_refs, 1);
+});

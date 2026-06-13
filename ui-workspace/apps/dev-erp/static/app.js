@@ -35,9 +35,12 @@ const post = (path, body) =>
   fetch(path, { method: "POST", headers: { "content-type": "application/json" }, body: JSON.stringify(body) });
 
 function logView(view) {
+  // B5 라벨 감사 발견 반영: 과제 화면 조회에는 project_ref 차원을 단다
+  const projectRef = state.view === "project" ? state.hubProject : (state.projectFilter || null);
   post("/api/events", {
     actor_ref: "owner", actor_kind: "human", kind: "view",
-    to: view, used_refs: [`view:${view}`], data_label: "real", note: `mode=${state.mode}`
+    to: view, used_refs: [`view:${view}`], data_label: "real", note: `mode=${state.mode}`,
+    project_ref: projectRef
   }).catch(() => {});
 }
 

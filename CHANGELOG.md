@@ -21,6 +21,10 @@
   (candidate_queue_archive_policy_v0 흡수). 닫힌 후보를
   `archive/<year>/` 로 이동만(내용 불변, ARCHIVE_INDEX.md 기록), 발견
   로직은 하위 디렉토리 무시라 자연 차폐. 로드맵 저장 규칙에 1줄 등재.
+- B5: dev-erp `tools/label_audit.mjs` — event_log 라벨링 우선 원칙
+  (used_refs/data_label/project_ref/actor) 커버리지 감사, 읽기 전용,
+  --min 게이트 옵션. 첫 감사로 view 이벤트의 project_ref 결손을 발견해
+  logView 에 차원 추가.
 
 ## 2026-06-12
 
