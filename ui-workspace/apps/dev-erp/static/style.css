@@ -256,3 +256,28 @@ body[data-mode="fantasy"] tr.spawned td:first-child::before { content: "✦ "; c
   background: color-mix(in srgb, var(--accent) 8%, transparent); font-weight: 600; }
 .status-chip em { font-style: normal; color: var(--muted); font-size: 11.5px; margin-left: 2px; }
 .status-chip.on em { color: var(--accent); }
+
+/* B: 위젯 대시보드 (ECount 위젯 보드 — 그리드 스냅 + 드래그 + 리사이즈) */
+.dashboard { display: grid; grid-template-columns: repeat(4, 1fr); gap: 14px; align-items: start; grid-auto-flow: row dense; }
+.widget { position: relative; background: var(--panel); border: 1px solid var(--line); border-radius: 12px;
+  padding: 12px 14px 16px; min-width: 0; overflow: hidden; }
+.widget.dragging { opacity: .5; }
+.widget.drop-target { outline: 2px dashed var(--accent); outline-offset: -2px; }
+.widget-head { display: flex; align-items: center; justify-content: space-between; cursor: grab; margin-bottom: 8px; }
+.widget-head:active { cursor: grabbing; }
+.widget-head h4 { margin: 0; font-size: 13px; color: var(--muted); }
+.widget-ctrl { display: flex; gap: 6px; opacity: 0; transition: opacity .15s; }
+.widget:hover .widget-ctrl { opacity: 1; }
+.widget-ctrl .wx { cursor: pointer; color: var(--muted); font-size: 12px; padding: 0 3px; }
+.widget-ctrl .wx:hover { color: var(--danger); }
+.widget-body table { border: 0; }
+.widget-body td { padding: 6px 8px; font-size: 12.5px; }
+.widget-resize { position: absolute; right: 3px; bottom: 3px; width: 14px; height: 14px; cursor: nwse-resize;
+  border-right: 2px solid var(--line); border-bottom: 2px solid var(--line); border-bottom-right-radius: 4px; }
+.widget:hover .widget-resize { border-color: var(--accent); }
+.widget-add-box { position: relative; }
+.widget-add-box .add-widget-item { display: block; width: 100%; text-align: left; border: 0; background: transparent;
+  color: var(--text); padding: 7px 10px; border-radius: 7px; font-size: 13px; cursor: pointer; }
+.widget-add-box .add-widget-item:hover { background: var(--chip); color: var(--accent); }
+.widget-hint { font-size: 11.5px; margin-left: 10px; }
+@media (max-width: 800px) { .dashboard { grid-template-columns: 1fr; } .widget { grid-column: span 1 !important; } }

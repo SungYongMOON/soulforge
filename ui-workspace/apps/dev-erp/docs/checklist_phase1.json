@@ -203,6 +203,13 @@
       "priority": "P0",
       "status": "done",
       "acceptance": "최상단으로 검색/⌘K/favBar 이동 + 현재 화면 핀 토글 ☆버튼(동적/검색 제외). 그룹탭은 콘텐츠 폭만 왼쪽 모음(항목 확장 대비). 양 모드 사전 경유. 실검증(등록/검색/콘솔0)"
+    },
+    {
+      "id": "UX-011",
+      "title": "홈 위젯 대시보드 v1: 그리드 스냅 colSpan + 드래그 reorder + 리사이즈 + 추가/삭제 (ECount 위젯보드, B)",
+      "priority": "P0",
+      "status": "done",
+      "acceptance": "위젯 헤더 드래그 reorder, 우하단 핸들 리사이즈(colSpan 1~4 그리드 스냅), ✕삭제+카탈로그 추가, localStorage 저장(계정별 서버저장=P2b). 4칸 그리드+빈칸 dense. 실검증(삭제/추가/저장 직렬화/콘솔0) 양 모드 사전 파리티"
     }
   ],
   "owner_questions": [
@@ -231,6 +238,7 @@
     "2026-06-12 run13: TOOL_IDENTITY_REVIEW(run12) 콘셉트 '폴더트리가 곧 위저드' 구현. guide.mjs(SE_STAGES 030~240 + ARTIFACT_FLOW snapshot→…→final(Out)→quality) + guide_artifact/guide_step 테이블 + API 4종 + 가이드 화면(과제 선택→단계 위→아래→산출물 카드→7스텝, 첫 미완=다음 할 일). N4(저장된 검색)는 owner 보류 유지 — 가이드가 일부 수요 대체 가능성만 기록. QA 산출물 1건(P21-062/030 SSRS, 0/7)은 시연용으로 남김.",
     "2026-06-12 run16: owner 승인('진행해')으로 과제 허브+P2a 구현. P2 순서 패킷 approved. core_item 4컬럼+event_log project_ref 마이그레이션(try/catch ALTER). 가이드 섹션 빌더 공용화(전역 가이드/허브 공유). QA 쓰기 잔존: P21-062 할일 3건(1 doing)+승격 배지 1+SSRS 산출물 — 초기화 원하면 data/dev-erp.db 삭제 후 재기동(전체 리셋: 라벨/가이드/할일 소실). 흡수 결정: 할일 표의 자동화 컬럼→산출물 연결 컬럼 교체.",
     "2026-06-12 run17: 메일 분류(재배정) + 판타지 출몰. 경계 결정 기록(DESIGN 변경 이력): 몬스터=core_item 유지, 분류≠자동출몰, 체크 옵션(기본 ON)이 출몰. QA로 실분류 3건 수행([Soulforge] 내부 보고 메일 → general_work, 합리적 분류라 원복 안 함) + 몬스터 1건 출몰(general_work). 미분류 248→245.",
-    "2026-06-13 A(ECount 반영 1차): IA 2.5단(상단 그룹탭+좌측 하위, ECount 1단 모듈탭→3단 좌측트리 구조의 2.5단 절충) + 할일 상태칩. owner 'A부터 전부 /loop' 자율. 서버 1회 다운(owner 재기동)으로 브라우저 검증 지연→복구 후 전 화면·그룹전환·칩필터·판타지 파리티·콘솔0 확인. 개인화(위젯 대시보드)·RBAC는 P2b 잔여."
+    "2026-06-13 A(ECount 반영 1차): IA 2.5단(상단 그룹탭+좌측 하위, ECount 1단 모듈탭→3단 좌측트리 구조의 2.5단 절충) + 할일 상태칩. owner 'A부터 전부 /loop' 자율. 서버 1회 다운(owner 재기동)으로 브라우저 검증 지연→복구 후 전 화면·그룹전환·칩필터·판타지 파리티·콘솔0 확인. 개인화(위젯 대시보드)·RBAC는 P2b 잔여.",
+    "2026-06-13 B(위젯 대시보드 v1): owner '위젯 기능 없는데?' → 홈 고정타일을 ECount식 위젯보드로 승격. 그리드 스냅(colSpan)+드래그 reorder(HTML5)+마우스 리사이즈 핸들+추가/삭제, localStorage. ECount 관찰모델(그리드스냅·자유리사이즈·추가삭제) 정합. 계정별 서버저장·빈칸 자유배치는 P2b/후속."
   ]
 }

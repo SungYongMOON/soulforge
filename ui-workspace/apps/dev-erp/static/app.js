@@ -181,19 +181,30 @@ function dueCell(due, todayKey) {
   return `<td class="${over ? "due-over" : ""}">${due}</td>`;
 }
 
-const TILE_IDS = ["projects", "today", "blocked", "mail", "events"];
+// 위젯 대시보드 (ECount 위젯 보드 관찰 반영): 그리드 스냅 colSpan + 드래그
+// reorder + 리사이즈 + 추가/삭제. localStorage 저장(계정별 서버 저장은 P2b).
+const WIDGET_CATALOG = ["projects", "today", "blocked", "mail", "events"];
+const DASH_COLS = 4; // 4칸 그리드(ECount 4열 관찰)
+const DEFAULT_DASH = [
+  { id: "projects", w: 4 }, { id: "today", w: 1 }, { id: "blocked", w: 1 },
+  { id: "mail", w: 1 }, { id: "events", w: 1 }
+];
 
-function activeTiles() {
-  const saved = JSON.parse(localStorage.getItem("dev_erp_tiles") || "null");
-  return Array.isArray(saved) ? saved : [...TILE_IDS]; // 기본: 전부 표시 (owner 질문: 기본 조합)
+function dashLayout() {
+  const saved = JSON.parse(localStorage.getItem("dev_erp_widgets") || "null");
+  if (Array.isArray(saved) && saved.length && saved.every((x) => x && WIDGET_CATALOG.includes(x.id))) {
+    return saved.map((x) => ({ id: x.id, w: Math.min(DASH_COLS, Math.max(1, Number(x.w) || 1)) }));
+  }
+  return DEFAULT_DASH.map((x) => ({ ...x }));
 }
+function saveDashLayout(arr) { localStorage.setItem("dev_erp_widgets", JSON.stringify(arr)); }
 
 function miniRow(cells) {
   return `<tr>${cells.map((c) => `<td>${c}</td>`).join("")}</tr>`;
 }
 
 async function renderHome() {
-  const tiles = activeTiles();
+  const layout = dashLayout();
   const todayKey = new Date().toISOString().slice(0, 10);
   const data = await api("/api/summary");
   state._projCache = data.projects;
@@ -246,51 +257,97 @@ async function renderHome() {
         ${internals.map((p) => `<span class="badge">${esc(p.id)}</span>`).join(" ")}</details>`
     : "";
 
-  const sections = [];
-  if (tiles.includes("projects")) {
-    sections.push(`<section class="tile wide"><h4>${L.class_active} (${actives.length})</h4>
-      <table class="proj-table"><thead><tr>
+  // 위젯 본문 빌더 (id → {title, html})
+  async function widgetBody(id) {
+    if (id === "projects") return { title: `${L.class_active} (${actives.length})`, html:
+      `<table class="proj-table"><thead><tr>
         <th>${L.project}</th><th>${L.stage}</th><th>${L.col_remaining}</th>
         <th>${L.col_due}</th><th>${L.blocked}</th><th>${L.col_last_activity}</th><th>${L.col_last_mail}</th>
-      </tr></thead><tbody>${activeRows}</tbody></table>
-      ${inboxStrip}${internalBlock}</section>`);
-  }
-  if (tiles.includes("today")) {
-    const due = (await api("/api/items?due=soon")).slice(0, 8);
-    sections.push(`<section class="tile"><h4>${state.lex.tile_today}</h4>${
-      due.length ? `<table><tbody>${due.map((i) => miniRow([i.title, i.project_id, i.due ?? "-"])).join("")}</tbody></table>` : `<div class="empty">${state.lex.empty_items}</div>`}</section>`);
-  }
-  if (tiles.includes("blocked")) {
-    const blocked = (await api("/api/items?status=blocked")).slice(0, 6);
-    sections.push(`<section class="tile"><h4>${state.lex.tile_blocked}</h4>${
-      blocked.length ? `<table><tbody>${blocked.map((i) => miniRow([i.title, i.project_id, statusBadge(i.status)])).join("")}</tbody></table>` : `<div class="empty">${state.lex.empty_items}</div>`}</section>`);
-  }
-  if (tiles.includes("mail")) {
-    const mail = (await api("/api/mail?days=90")).slice(0, 6);
-    sections.push(`<section class="tile"><h4>${state.lex.tile_mail}</h4>${
-      mail.length ? `<table><tbody>${mail.map((m) => miniRow([localTime(m.at), m.subject])).join("")}</tbody></table>` : `<div class="empty">${state.lex.empty_mail}</div>`}</section>`);
-  }
-  if (tiles.includes("events")) {
+      </tr></thead><tbody>${activeRows}</tbody></table>${inboxStrip}${internalBlock}` };
+    if (id === "today") {
+      const due = (await api("/api/items?due=soon")).slice(0, 8);
+      return { title: L.tile_today, html: due.length ? `<table><tbody>${due.map((i) => miniRow([esc(i.title), esc(i.project_id), i.due ?? "-"])).join("")}</tbody></table>` : `<div class="empty">${L.empty_items}</div>` };
+    }
+    if (id === "blocked") {
+      const blocked = (await api("/api/items?status=blocked")).slice(0, 6);
+      return { title: L.tile_blocked, html: blocked.length ? `<table><tbody>${blocked.map((i) => miniRow([esc(i.title), esc(i.project_id), statusBadge(i.status)])).join("")}</tbody></table>` : `<div class="empty">${L.empty_items}</div>` };
+    }
+    if (id === "mail") {
+      const mail = (await api("/api/mail?days=90")).slice(0, 6);
+      return { title: L.tile_mail, html: mail.length ? `<table><tbody>${mail.map((m) => miniRow([localTime(m.at), esc(m.subject)])).join("")}</tbody></table>` : `<div class="empty">${L.empty_mail}</div>` };
+    }
     const events = await api("/api/events/recent");
-    sections.push(`<section class="tile"><h4>${state.lex.tile_events}</h4>${
-      events.length ? `<table><tbody>${events.slice(0, 6).map((e) => miniRow([localTime(e.at), e.actor_ref, e.kind])).join("")}</tbody></table>` : `<div class="empty">-</div>`}</section>`);
+    return { title: L.tile_events, html: events.length ? `<table><tbody>${events.slice(0, 6).map((e) => miniRow([localTime(e.at), esc(e.actor_ref), esc(e.kind)])).join("")}</tbody></table>` : `<div class="empty">-</div>` };
   }
 
-  $("#view").innerHTML = `
-    ${kpi}
-    <div class="tile-toolbar"><button id="tileConfigBtn" class="fav-chip">${state.lex.tile_config}</button>
-      <div id="tileConfig" class="tile-config hidden">${TILE_IDS.map((t) =>
-        `<label><input type="checkbox" data-t="${t}" ${tiles.includes(t) ? "checked" : ""}/> ${state.lex[`tile_${t}`]}</label>`).join("")}</div></div>
-    <div class="tile-grid">${sections.join("")}</div>`;
+  const cards = [];
+  for (const w of layout) {
+    const { title, html } = await widgetBody(w.id);
+    cards.push(`<section class="widget" draggable="true" data-wid="${w.id}" style="grid-column: span ${w.w};">
+      <div class="widget-head" data-grip><h4>${title}</h4>
+        <span class="widget-ctrl"><i class="wx" data-del="${w.id}" title="${L.widget_remove}">✕</i></span></div>
+      <div class="widget-body">${html}</div>
+      <i class="widget-resize" data-rid="${w.id}" title="${L.widget_resize}"></i>
+    </section>`);
+  }
+  const hidden = WIDGET_CATALOG.filter((id) => !layout.some((w) => w.id === id));
+  const addBox = `<div class="widget-add-box">
+    <button id="widgetAddBtn" class="fav-chip" ${hidden.length ? "" : "disabled"}>＋ ${L.widget_add}</button>
+    <div id="widgetAddMenu" class="tile-config hidden">${hidden.map((id) =>
+      `<button class="add-widget-item" data-add="${id}">${L[`tile_${id}`]}</button>`).join("") || `<span class="dim">${L.widget_all_shown}</span>`}</div></div>`;
 
-  $("#tileConfigBtn").addEventListener("click", () => $("#tileConfig").classList.toggle("hidden"));
-  $("#view").querySelectorAll("#tileConfig input").forEach((cb) =>
-    cb.addEventListener("change", () => {
-      const next = [...$("#view").querySelectorAll("#tileConfig input:checked")].map((x) => x.dataset.t);
-      localStorage.setItem("dev_erp_tiles", JSON.stringify(next));
-      render();
-    })
+  $("#view").innerHTML = `${kpi}
+    <div class="tile-toolbar">${addBox}<span class="dim widget-hint">${L.widget_hint}</span></div>
+    <div class="dashboard">${cards.join("")}</div>`;
+
+  // 추가 메뉴
+  $("#widgetAddBtn").addEventListener("click", () => $("#widgetAddMenu").classList.toggle("hidden"));
+  $("#view").querySelectorAll(".add-widget-item").forEach((b) =>
+    b.addEventListener("click", () => { const l = dashLayout(); l.push({ id: b.dataset.add, w: 1 }); saveDashLayout(l); render(); })
   );
+  // 삭제
+  $("#view").querySelectorAll("[data-del]").forEach((x) =>
+    x.addEventListener("click", (e) => { e.stopPropagation(); saveDashLayout(dashLayout().filter((w) => w.id !== x.dataset.del)); render(); })
+  );
+  // 드래그 reorder (헤더 잡고)
+  let dragId = null;
+  $("#view").querySelectorAll(".widget").forEach((el) => {
+    el.addEventListener("dragstart", (e) => { dragId = el.dataset.wid; el.classList.add("dragging"); e.dataTransfer.effectAllowed = "move"; });
+    el.addEventListener("dragend", () => { dragId = null; el.classList.remove("dragging"); });
+    el.addEventListener("dragover", (e) => { e.preventDefault(); el.classList.add("drop-target"); });
+    el.addEventListener("dragleave", () => el.classList.remove("drop-target"));
+    el.addEventListener("drop", (e) => {
+      e.preventDefault(); el.classList.remove("drop-target");
+      const targetId = el.dataset.wid;
+      if (!dragId || dragId === targetId) return;
+      const l = dashLayout();
+      const from = l.findIndex((w) => w.id === dragId), to = l.findIndex((w) => w.id === targetId);
+      const [moved] = l.splice(from, 1); l.splice(to, 0, moved);
+      saveDashLayout(l); render();
+    });
+  });
+  // 리사이즈 (우하단 핸들 → colSpan 그리드 스냅)
+  $("#view").querySelectorAll(".widget-resize").forEach((h) => {
+    h.addEventListener("mousedown", (e) => {
+      e.preventDefault(); e.stopPropagation();
+      const card = h.closest(".widget"); const id = h.dataset.rid;
+      const grid = $("#view").querySelector(".dashboard");
+      const cellW = grid.getBoundingClientRect().width / DASH_COLS;
+      const left = card.getBoundingClientRect().left;
+      const onMove = (ev) => {
+        const w = Math.min(DASH_COLS, Math.max(1, Math.round((ev.clientX - left) / cellW)));
+        card.style.gridColumn = `span ${w}`; card.dataset.w = w;
+      };
+      const onUp = () => {
+        document.removeEventListener("mousemove", onMove); document.removeEventListener("mouseup", onUp);
+        const w = Number(card.dataset.w) || 1;
+        const l = dashLayout().map((x) => x.id === id ? { ...x, w } : x);
+        saveDashLayout(l);
+      };
+      document.addEventListener("mousemove", onMove); document.addEventListener("mouseup", onUp);
+    });
+  });
+  // 위젯 내부 점프(프로젝트 행/inbox)
   $("#view").querySelectorAll(".proj-row").forEach((r) =>
     r.addEventListener("click", () => { state.hubProject = r.dataset.p; state.hubTab = "overview"; state.view = "project"; render(); })
   );
