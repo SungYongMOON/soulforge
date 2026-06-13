@@ -552,6 +552,49 @@ export class Store {
     }));
   }
 
+  // ---------- A1/A2: 게이트 판정·강제 ----------
+  // 스테이지별 게이트 준비도: 미완/차단 할일 + 산출물 진행(stage_code≈title 매칭). passable + reasons.
+  gateEval(stage) {
+    const items = this.db.prepare("SELECT status FROM core_item WHERE stage_id=?").all(stage.id);
+    const open = items.filter((i) => i.status !== "done").length;
+    const blocked = items.filter((i) => i.status === "blocked").length;
+    const ga = this.db.prepare(
+      `SELECT COUNT(DISTINCT a.id) AS arts, COUNT(st.step_key) AS done
+       FROM guide_artifact a LEFT JOIN guide_step st ON st.artifact_id=a.id
+       WHERE a.project_id=? AND a.stage_code=?`
+    ).get(stage.project_id, stage.title);
+    const arts = ga.arts || 0, stepsDone = ga.done || 0, stepsTotal = arts * 7;
+    const reasons = [];
+    if (open > 0) reasons.push({ code: "open_items", n: open });
+    if (blocked > 0) reasons.push({ code: "blocked_items", n: blocked });
+    if (arts > 0 && stepsDone < stepsTotal) reasons.push({ code: "artifacts_incomplete", n: stepsTotal - stepsDone });
+    const passable = stage.status === "cleared" ? true : reasons.length === 0;
+    return {
+      id: stage.id, project_id: stage.project_id, title: stage.title, seq: stage.seq,
+      status: stage.status, gate_rule: stage.gate_rule,
+      open_items: open, blocked_items: blocked, artifacts: arts, steps_done: stepsDone, steps_total: stepsTotal,
+      passable, reasons
+    };
+  }
+  gates({ project } = {}) {
+    const rows = project
+      ? this.db.prepare("SELECT * FROM core_stage WHERE project_id=? ORDER BY seq").all(project)
+      : this.db.prepare("SELECT * FROM core_stage ORDER BY project_id, seq").all();
+    return rows.map((s) => this.gateEval(s));
+  }
+  gateMode() { return this.getMeta("gate_mode") || "hard"; } // 결정②: 기본 hard (owner wants)
+  setGateMode(mode) { this.setMeta("gate_mode", mode === "soft" ? "soft" : "hard"); return { ok: true, mode: this.gateMode() }; }
+  clearStage(stageId, { force = false } = {}) {
+    const s = this.db.prepare("SELECT * FROM core_stage WHERE id=?").get(stageId);
+    if (!s) return { error: "stage_not_found" };
+    if (s.status === "cleared") return { ok: true, already: true, project_id: s.project_id };
+    const ev = this.gateEval(s);
+    const mode = this.gateMode();
+    if (!ev.passable && mode === "hard" && !force) return { error: "gate_blocked", reasons: ev.reasons, mode };
+    this.db.prepare("UPDATE core_stage SET status='cleared' WHERE id=?").run(stageId);
+    return { ok: true, forced: !ev.passable, mode, project_id: s.project_id };
+  }
+
   guideState(projectId) {
     const artifacts = this.db
       .prepare("SELECT * FROM guide_artifact WHERE project_id=? ORDER BY stage_code, id")

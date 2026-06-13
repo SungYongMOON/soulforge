@@ -462,3 +462,37 @@ test("guideSummary: 합성 가이드 시드 → 진행률 다양", () => {
   const c = sum.find((x) => x.project_id === "PRJ-C");
   assert.equal(c.pct, 0, "PRJ-C 0%");
 });
+
+// ---------- A1/A2: 게이트 판정·강제 ----------
+test("게이트: 판정(passable/reasons) + 기본 hard 강제", () => {
+  const store = freshStore();
+  loadFixture(store);
+  const gates = store.gates({ project: "PRJ-A" });
+  const s1 = gates.find((g) => g.id === "PRJ-A-S1");
+  const s2 = gates.find((g) => g.id === "PRJ-A-S2");
+  assert.equal(s1.status, "cleared");
+  assert.equal(s1.passable, true, "cleared 스테이지는 통과 가능");
+  assert.ok(s2.open_items > 0, "S2에 미완 할일 존재");
+  assert.equal(s2.passable, false, "미완/차단 있으면 통과 불가");
+  assert.ok(s2.reasons.some((r) => r.code === "open_items"), "사유에 open_items");
+  // 기본 모드 = hard
+  assert.equal(store.gateMode(), "hard");
+  const blocked = store.clearStage("PRJ-A-S2");
+  assert.equal(blocked.error, "gate_blocked", "hard 모드 미충족 통과 차단");
+  // force 통과
+  const forced = store.clearStage("PRJ-A-S2", { force: true });
+  assert.equal(forced.ok, true);
+  assert.equal(forced.forced, true);
+});
+
+test("게이트: soft 모드 전환 시 경고 후 통과 허용 + 이미 통과 처리", () => {
+  const store = freshStore();
+  loadFixture(store);
+  assert.equal(store.setGateMode("soft").mode, "soft");
+  const r = store.clearStage("PRJ-B-S2"); // 미충족이지만 soft → 통과
+  assert.equal(r.ok, true);
+  assert.equal(r.forced, true, "soft 통과는 forced 플래그");
+  assert.equal(store.clearStage("PRJ-B-S1").already, true, "이미 cleared");
+  assert.equal(store.clearStage("no-such").error, "stage_not_found");
+  assert.equal(store.setGateMode("hard").mode, "hard", "되돌리기 가능");
+});

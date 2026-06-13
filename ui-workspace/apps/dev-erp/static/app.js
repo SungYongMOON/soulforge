@@ -1314,6 +1314,46 @@ async function hubHistory(mount, p) {
 }
 
 // 회의록(메타 전용 읽기+생성). 자동추출·원문첨부 없음 — 액션아이템은 기존 할일 수동 링크.
+// A1/A2 게이트 판정·강제 화면. hard 기본(미충족 차단), soft 전환 가능. 게임코드 0.
+async function renderGates() {
+  const L = state.lex;
+  const data = await api("/api/gates");
+  const stages = data.stages || [];
+  const byProj = {};
+  for (const s of stages) (byProj[s.project_id] ||= []).push(s);
+  const modeBtns = `<div class="gate-mode">
+    <span class="dim">${L.gate_mode_label}:</span>
+    <button class="fav-chip ${data.mode === "hard" ? "active" : ""}" data-mode="hard">${L.gate_hard}</button>
+    <button class="fav-chip ${data.mode === "soft" ? "active" : ""}" data-mode="soft">${L.gate_soft}</button>
+  </div>`;
+  const reason = (r) => `${L[`gate_reason_${r.code}`] ?? r.code} ${r.n}`;
+  const sec = Object.entries(byProj).map(([pid, ss]) => `<section class="gate-proj"><h3>${esc(pid)}</h3>
+    <table><thead><tr><th>${L.stage}</th><th>${L.th_status}</th><th>${L.col_remaining}</th><th>${L.blocked}</th><th>${L.tab_guide}</th><th></th></tr></thead><tbody>
+    ${ss.map((s) => `<tr>
+      <td><strong>${esc(s.title)}</strong>${s.gate_rule ? `<div class="dim">${esc(s.gate_rule)}</div>` : ""}</td>
+      <td>${s.status === "cleared" ? `<span class="badge green">${L.gate_cleared}</span>` : (s.passable ? `<span class="badge">${L.gate_passable}</span>` : `<span class="badge red">${L.gate_held}</span>`)}</td>
+      <td class="num">${s.open_items}</td>
+      <td class="num">${s.blocked_items || '<span class="dim">0</span>'}</td>
+      <td>${s.artifacts ? `${s.steps_done}/${s.steps_total}` : '<span class="dim">-</span>'}</td>
+      <td>${s.status === "cleared" ? "" : `<button class="fav-chip gate-pass-btn" data-stage="${esc(s.id)}" data-passable="${s.passable}">${L.gate_pass}</button>${s.reasons.length ? `<div class="dim gate-reasons">${s.reasons.map(reason).join(", ")}</div>` : ""}`}</td>
+    </tr>`).join("")}
+    </tbody></table></section>`).join("");
+  $("#view").innerHTML = `${modeBtns}${stages.length ? sec : `<div class="empty">${L.empty_gates}</div>`}`;
+  $("#view").querySelectorAll("[data-mode]").forEach((b) => b.addEventListener("click", async () => {
+    await post("/api/settings/gate_mode", { mode: b.dataset.mode }); render();
+  }));
+  $("#view").querySelectorAll(".gate-pass-btn").forEach((b) => b.addEventListener("click", async () => {
+    const r = await post("/api/gates/clear", { stage_id: b.dataset.stage });
+    let res; try { res = await r.json(); } catch { res = {}; }
+    if (res.error === "gate_blocked") {
+      if (await uiConfirm(L.gate_force_confirm)) {
+        await post("/api/gates/clear", { stage_id: b.dataset.stage, force: true });
+        render();
+      }
+    } else { render(); }
+  }));
+}
+
 async function renderMeetings() {
   const L = state.lex;
   const [summary, meetings] = await Promise.all([api("/api/summary"), api("/api/meetings")]);
@@ -1353,6 +1393,12 @@ async function render() {
   document.getElementById("app").dataset.view = state.view; // 홈(위젯)에선 좌측 열 숨김용
   renderAuth();
   renderNav();
+  if (state.view === "mod:gates") {
+    const m = (state.modules ?? []).find((x) => x.id === "gates");
+    $("#viewTitle").textContent = m?.nav ?? "게이트";
+    logView(state.view);
+    return renderGates();
+  }
   if (state.view === "mod:meetings") {
     const m = (state.modules ?? []).find((x) => x.id === "meetings");
     $("#viewTitle").textContent = m?.nav ?? state.lex.tab_mail;

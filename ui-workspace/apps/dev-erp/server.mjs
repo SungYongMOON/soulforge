@@ -145,6 +145,23 @@ const server = createServer(async (req, res) => {
       q: qp.q, direction: qp.direction, label_id: qp.label_id
     }));
     if (path === "/api/guide/templates") return send(res, 200, guideTemplates(qp.mode));
+    if (path === "/api/gates") return send(res, 200, { mode: store.gateMode(), stages: store.gates({ project: qp.project }) });
+    if (path === "/api/gates/clear" && req.method === "POST") {
+      let body = ""; for await (const chunk of req) body += chunk;
+      const { stage_id, force } = JSON.parse(body || "{}");
+      const result = store.clearStage(stage_id, { force: !!force });
+      if (result.error) return send(res, result.error === "stage_not_found" ? 404 : 409, result);
+      store.appendEvent({ actor_ref: "owner", actor_kind: "human", kind: "gate_clear", to: stage_id, project_ref: result.project_id, used_refs: ["gates"], data_label: "real", note: result.forced ? `forced(${result.mode})` : result.mode });
+      return send(res, 200, result);
+    }
+    if (path === "/api/settings/gate_mode" && req.method === "GET") return send(res, 200, { mode: store.gateMode() });
+    if (path === "/api/settings/gate_mode" && req.method === "POST") {
+      let body = ""; for await (const chunk of req) body += chunk;
+      const { mode } = JSON.parse(body || "{}");
+      const r = store.setGateMode(mode);
+      store.appendEvent({ actor_ref: "owner", actor_kind: "human", kind: "gate_mode_set", to: r.mode, used_refs: ["gates", "settings"], data_label: "real" });
+      return send(res, 200, r);
+    }
     if (path === "/api/guide/summary") return send(res, 200, store.guideSummary());
     if (path === "/api/guide") return send(res, 200, store.guideState(qp.project ?? ""));
     if (path === "/api/guide/artifact" && req.method === "POST") {
