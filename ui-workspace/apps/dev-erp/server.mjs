@@ -183,6 +183,7 @@ const server = createServer(async (req, res) => {
       return send(res, 200, r);
     }
     // 구매/발주
+    if (path === "/api/parties/ledger") return send(res, 200, store.partyLedger());
     if (path === "/api/parties" && req.method === "GET") return send(res, 200, store.parties({ kind: qp.kind }));
     if (path === "/api/parties" && req.method === "POST") {
       let body = ""; for await (const chunk of req) body += chunk;

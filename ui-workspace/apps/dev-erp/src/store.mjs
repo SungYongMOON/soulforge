@@ -740,6 +740,19 @@ export class Store {
   purchaseProjects(purchase_id) {
     return this.db.prepare("SELECT project_id FROM purchase_project_map WHERE purchase_id=?").all(purchase_id).map((r) => r.project_id);
   }
+  // 거래처별 거래이력 집계(발주 건수·총액·진행/완료). 메타 전용.
+  partyLedger() {
+    const rows = this.db.prepare(
+      `SELECT party_id, COUNT(*) AS cnt, COALESCE(SUM(amount),0) AS total,
+              SUM(CASE WHEN stage='closed' THEN 1 ELSE 0 END) AS closed
+       FROM core_purchase WHERE party_id IS NOT NULL GROUP BY party_id`
+    ).all();
+    const pn = new Map(this.parties().map((x) => [x.id, x.name]));
+    return rows.map((r) => ({
+      party_id: r.party_id, party_name: pn.get(r.party_id) ?? r.party_id,
+      count: r.cnt, total_amount: r.total, closed: r.closed, open: r.cnt - r.closed
+    })).sort((a, b) => b.total_amount - a.total_amount);
+  }
   purchases({ project = null, party = null, stage = null } = {}) {
     let sql = "SELECT p.* FROM core_purchase p";
     const cond = [], args = [];

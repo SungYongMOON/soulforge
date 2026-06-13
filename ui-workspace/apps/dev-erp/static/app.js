@@ -10,7 +10,8 @@ const state = {
   // P2b: 계정/권한. 익명(account=null)이면 앱은 현행대로(전체 접근·localStorage).
   account: null, perms: [], accountCount: 0,
   chatLog: [],
-  poProject: ""
+  poProject: "",
+  poParty: ""
 };
 
 // P2b 권한: 정의 없거나 익명이면 기본 허용(visible·access). 정의 있으면 그 값.
@@ -370,9 +371,13 @@ function miniRow(cells) {
 const PURCHASE_STAGES = ["request", "quote", "order", "receive", "inspect", "closed"];
 async function renderPurchase() {
   const L = state.lex;
-  const [summary, parties, purchases] = await Promise.all([
+  const pq = new URLSearchParams();
+  if (state.poProject) pq.set("project", state.poProject);
+  if (state.poParty) pq.set("party", state.poParty);
+  const [summary, parties, purchases, ledger] = await Promise.all([
     api("/api/summary"), api("/api/parties"),
-    api(`/api/purchases${state.poProject ? `?project=${encodeURIComponent(state.poProject)}` : ""}`)
+    api(`/api/purchases${pq.toString() ? `?${pq}` : ""}`),
+    api("/api/parties/ledger")
   ]);
   const projOpts = summary.projects.map((p) => `<option value="${esc(p.id)}" ${state.poProject === p.id ? "selected" : ""}>${esc(p.title)}</option>`).join("");
   const partyOpts = parties.map((p) => `<option value="${esc(p.id)}">${esc(p.name)}</option>`).join("");
@@ -392,8 +397,13 @@ async function renderPurchase() {
   $("#view").innerHTML = `
     <div class="filters">
       <select id="poProjFilter"><option value="">${L.project}: ${L.all_label}</option>${projOpts}</select>
+      <select id="poPartyFilter"><option value="">${L.all_parties}</option>${parties.map((p) => `<option value="${esc(p.id)}" ${state.poParty === p.id ? "selected" : ""}>${esc(p.name)}</option>`).join("")}</select>
       <span class="party-add"><input id="partyName" placeholder="${L.party_name}" size="10" /><button id="partyAddBtn" class="fav-chip">${L.party_add}</button></span>
     </div>
+    <details class="party-ledger" ${state.poParty ? "open" : ""}><summary>${L.party_ledger}</summary>
+      <table><thead><tr><th>${L.po_party}</th><th>${L.po_count}</th><th>${L.po_open}</th><th>${L.po_total}</th></tr></thead><tbody>
+      ${ledger.length ? ledger.map((g) => `<tr class="ledger-row" data-party="${esc(g.party_id)}"><td>${esc(g.party_name)}</td><td class="num">${g.count}</td><td class="num">${g.open}</td><td class="num">${Number(g.total_amount).toLocaleString()}</td></tr>`).join("") : `<tr><td colspan="4" class="dim">-</td></tr>`}
+      </tbody></table></details>
     <div class="item-form">
       <input id="poTitle" placeholder="${L.po_title}" />
       <select id="poParty"><option value="">${L.po_party}</option>${partyOpts}</select>
@@ -404,6 +414,8 @@ async function renderPurchase() {
     </div>
     ${purchases.length ? `<table><thead><tr><th>${L.po_title}</th><th>${L.po_party}</th><th>${L.stage}</th><th>${L.po_amount}</th><th>${L.po_due}</th><th>${L.project}</th></tr></thead><tbody>${rows}</tbody></table>` : `<div class="empty">${L.empty_purchases}</div>`}`;
   $("#poProjFilter").addEventListener("change", (e) => { state.poProject = e.target.value; render(); });
+  $("#poPartyFilter").addEventListener("change", (e) => { state.poParty = e.target.value; render(); });
+  $("#view").querySelectorAll(".ledger-row").forEach((r) => r.addEventListener("click", () => { state.poParty = r.dataset.party; render(); }));
   $("#partyAddBtn").addEventListener("click", async () => {
     const name = $("#partyName").value.trim(); if (!name) return;
     await post("/api/parties", { name }); render();

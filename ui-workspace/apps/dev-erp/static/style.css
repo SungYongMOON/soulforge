@@ -405,3 +405,9 @@ nav button[disabled]:hover { background: transparent; }
 /* 구매/발주 */
 .party-add { display: inline-flex; gap: 6px; align-items: center; }
 .fav-chip.mini { padding: 2px 8px; font-size: 11px; }
+/* 거래처별 거래이력 */
+.party-ledger { background: var(--panel); border: 1px solid var(--line); border-radius: 10px; padding: 8px 12px; }
+.party-ledger summary { cursor: pointer; font-size: 13px; color: var(--muted); }
+.party-ledger table { margin-top: 8px; }
+.ledger-row { cursor: pointer; }
+.ledger-row:hover td { background: var(--chip); }
