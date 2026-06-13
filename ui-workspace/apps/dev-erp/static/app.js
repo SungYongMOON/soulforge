@@ -183,23 +183,28 @@ function dueCell(due, todayKey) {
 
 // 위젯 대시보드 (ECount 위젯 보드 관찰 반영): 그리드 스냅 colSpan + 드래그
 // reorder + 리사이즈 + 추가/삭제. localStorage 저장(계정별 서버 저장은 P2b).
+// 자유 배치 위젯 보드 (ECount식): 절대좌표 격자 — 가로 12칼럼, 세로 행 단위.
+// 드래그하면 위젯이 마우스를 따라 자유 이동, 놓으면 격자에 스냅(빈칸 허용).
 const WIDGET_CATALOG = ["projects", "today", "blocked", "mail", "events"];
-const DASH_COLS = 4;       // 4칸 그리드(ECount 4열 관찰)
-const DASH_ROW = 26;       // 행 단위 px (촘촘 → 부드러운 높이 스냅)
-const DASH_GAP = 14;       // 그리드 gap px (리사이즈 역산용)
-const DASH_HMIN = 4, DASH_HMAX = 24;
+const DASH_GCOLS = 12;     // 가로 12칼럼 (fine snap)
+const DASH_ROW = 22;       // 세로 행 px
+const DASH_WMIN = 2, DASH_HMIN = 3;
 const DEFAULT_DASH = [
-  { id: "projects", w: 4, h: 13 }, { id: "today", w: 1, h: 8 }, { id: "blocked", w: 1, h: 8 },
-  { id: "mail", w: 1, h: 8 }, { id: "events", w: 1, h: 8 }
+  { id: "projects", x: 0, y: 0, w: 12, h: 12 },
+  { id: "today", x: 0, y: 12, w: 3, h: 8 }, { id: "blocked", x: 3, y: 12, w: 3, h: 8 },
+  { id: "mail", x: 6, y: 12, w: 3, h: 8 }, { id: "events", x: 9, y: 12, w: 3, h: 8 }
 ];
 
 function dashLayout() {
   const saved = JSON.parse(localStorage.getItem("dev_erp_widgets") || "null");
-  if (Array.isArray(saved) && saved.length && saved.every((x) => x && WIDGET_CATALOG.includes(x.id))) {
+  if (Array.isArray(saved) && saved.length && saved.every((x) => x && WIDGET_CATALOG.includes(x.id) && "x" in x)) {
     return saved.map((x) => ({
       id: x.id,
-      w: Math.min(DASH_COLS, Math.max(1, Number(x.w) || 1)),
-      h: Math.min(DASH_HMAX, Math.max(DASH_HMIN, Number(x.h) || 8))
+      x: Math.max(0, Math.min(DASH_GCOLS - DASH_WMIN, Number(x.x) || 0)),
+      y: Math.max(0, Number(x.y) || 0),
+      w: Math.max(DASH_WMIN, Math.min(DASH_GCOLS, Number(x.w) || 3)),
+      h: Math.max(DASH_HMIN, Number(x.h) || 6),
+      c: !!x.c
     }));
   }
   return DEFAULT_DASH.map((x) => ({ ...x }));
@@ -287,27 +292,32 @@ async function renderHome() {
     return { title: L.tile_events, html: events.length ? `<table><tbody>${events.slice(0, 6).map((e) => miniRow([localTime(e.at), esc(e.actor_ref), esc(e.kind)])).join("")}</tbody></table>` : `<div class="empty">-</div>` };
   }
 
+  // 위젯 카드 — 절대좌표(% 가로 + px 세로). 본문 고정 높이 → 내부 스크롤.
+  const cardStyle = (w) => `left:${(w.x / DASH_GCOLS) * 100}%; width:${(w.w / DASH_GCOLS) * 100}%;`
+    + `top:${w.y * DASH_ROW}px; height:${(w.c ? 2 : w.h) * DASH_ROW}px;`;
   const cards = [];
   for (const w of layout) {
     const { title, html } = await widgetBody(w.id);
-    const rowSpan = w.c ? 2 : w.h;
-    cards.push(`<section class="widget ${w.c ? "collapsed" : ""}" draggable="true" data-wid="${w.id}"
-      style="grid-column: span ${w.w}; grid-row: span ${rowSpan};">
-      <div class="widget-head" data-grip>
+    cards.push(`<section class="widget ${w.c ? "collapsed" : ""}" data-wid="${w.id}" style="${cardStyle(w)}">
+      <div class="widget-head" data-grip="${w.id}">
         <i class="wfold" data-fold="${w.id}" title="${w.c ? L.widget_expand : L.widget_collapse}">${w.c ? "▸" : "▾"}</i>
         <h4>${title}</h4>
-        <span class="widget-menu-wrap">
-          <i class="wdots" data-menu="${w.id}" title="${L.widget_menu}">⋮</i>
-          <div class="widget-menu hidden" data-menufor="${w.id}">
-            <button data-mfold="${w.id}">${w.c ? L.widget_expand : L.widget_collapse}</button>
-            <button data-mdel="${w.id}">${L.widget_remove}</button>
-          </div>
+        <span class="widget-ctrls">
+          <i class="wrefresh" data-refresh="${w.id}" title="${L.widget_refresh}">⟳</i>
+          <span class="widget-menu-wrap">
+            <i class="wdots" data-menu="${w.id}" title="${L.widget_menu}">⋮</i>
+            <div class="widget-menu hidden" data-menufor="${w.id}">
+              <button data-mfold="${w.id}">${w.c ? L.widget_expand : L.widget_collapse}</button>
+              <button data-mdel="${w.id}">${L.widget_remove}</button>
+            </div>
+          </span>
         </span>
       </div>
-      <div class="widget-body">${html}</div>
+      <div class="widget-body" data-body="${w.id}">${html}</div>
       <i class="widget-resize" data-rid="${w.id}" title="${L.widget_resize}"></i>
     </section>`);
   }
+  const maxBottom = Math.max(0, ...layout.map((w) => (w.y + (w.c ? 2 : w.h)))) * DASH_ROW + 20;
   const hidden = WIDGET_CATALOG.filter((id) => !layout.some((w) => w.id === id));
   const addBox = `<div class="widget-add-box">
     <button id="widgetAddBtn" class="fav-chip" ${hidden.length ? "" : "disabled"}>＋ ${L.widget_add}</button>
@@ -316,79 +326,110 @@ async function renderHome() {
 
   $("#view").innerHTML = `${kpi}
     <div class="tile-toolbar">${addBox}<span class="dim widget-hint">${L.widget_hint}</span></div>
-    <div class="dashboard" style="grid-auto-rows:${DASH_ROW}px;">${cards.join("")}</div>`;
+    <div class="dashboard" style="height:${maxBottom}px;">${cards.join("")}</div>`;
 
+  const grid = $("#view").querySelector(".dashboard");
+  const colW = () => grid.getBoundingClientRect().width / DASH_GCOLS;
   const updateWidget = (id, patch) => { saveDashLayout(dashLayout().map((x) => x.id === id ? { ...x, ...patch } : x)); render(); };
 
   $("#widgetAddBtn").addEventListener("click", () => $("#widgetAddMenu").classList.toggle("hidden"));
   $("#view").querySelectorAll(".add-widget-item").forEach((b) =>
-    b.addEventListener("click", () => { const l = dashLayout(); l.push({ id: b.dataset.add, w: 1, h: 8 }); saveDashLayout(l); render(); })
-  );
-  // 접기/펼치기 (▾ 아이콘 + ⋮ 메뉴)
+    b.addEventListener("click", () => {
+      const l = dashLayout();
+      const y = Math.max(0, ...l.map((w) => w.y + w.h));
+      l.push({ id: b.dataset.add, x: 0, y, w: 3, h: 7 }); saveDashLayout(l); render();
+    }));
+  // 접기/펼치기
   const toggleFold = (id) => { const cur = dashLayout().find((x) => x.id === id); updateWidget(id, { c: !cur?.c }); };
+  $("#view").querySelectorAll("[data-fold]").forEach((f) =>
+    f.addEventListener("mousedown", (e) => e.stopPropagation()));
   $("#view").querySelectorAll("[data-fold]").forEach((f) =>
     f.addEventListener("click", (e) => { e.stopPropagation(); toggleFold(f.dataset.fold); }));
   $("#view").querySelectorAll("[data-mfold]").forEach((b) =>
     b.addEventListener("click", (e) => { e.stopPropagation(); toggleFold(b.dataset.mfold); }));
-  // ⋮ 메뉴 토글
-  $("#view").querySelectorAll(".wdots").forEach((d) =>
+  // 새로고침 (위젯 본문만 다시 렌더)
+  $("#view").querySelectorAll("[data-refresh]").forEach((r) => {
+    r.addEventListener("mousedown", (e) => e.stopPropagation());
+    r.addEventListener("click", async (e) => {
+      e.stopPropagation();
+      r.classList.add("spinning");
+      const { html } = await widgetBody(r.dataset.refresh);
+      const body = $("#view").querySelector(`[data-body="${r.dataset.refresh}"]`);
+      if (body) body.innerHTML = html;
+      bindWidgetInner();
+      setTimeout(() => r.classList.remove("spinning"), 400);
+    });
+  });
+  // ⋮ 메뉴
+  $("#view").querySelectorAll(".wdots").forEach((d) => {
+    d.addEventListener("mousedown", (e) => e.stopPropagation());
     d.addEventListener("click", (e) => {
       e.stopPropagation();
       const menu = $("#view").querySelector(`.widget-menu[data-menufor="${d.dataset.menu}"]`);
       $("#view").querySelectorAll(".widget-menu").forEach((m) => { if (m !== menu) m.classList.add("hidden"); });
       menu.classList.toggle("hidden");
-    }));
-  document.addEventListener("click", () => $("#view")?.querySelectorAll(".widget-menu").forEach((m) => m.classList.add("hidden")), { once: true });
-  // 삭제
-  $("#view").querySelectorAll("[data-mdel]").forEach((x) =>
-    x.addEventListener("click", (e) => { e.stopPropagation(); saveDashLayout(dashLayout().filter((w) => w.id !== x.dataset.mdel)); render(); }));
-  // 드래그 reorder
-  let dragId = null;
-  $("#view").querySelectorAll(".widget").forEach((el) => {
-    el.addEventListener("dragstart", (e) => { dragId = el.dataset.wid; el.classList.add("dragging"); e.dataTransfer.effectAllowed = "move"; });
-    el.addEventListener("dragend", () => { dragId = null; el.classList.remove("dragging"); });
-    el.addEventListener("dragover", (e) => { e.preventDefault(); el.classList.add("drop-target"); });
-    el.addEventListener("dragleave", () => el.classList.remove("drop-target"));
-    el.addEventListener("drop", (e) => {
-      e.preventDefault(); el.classList.remove("drop-target");
-      const targetId = el.dataset.wid;
-      if (!dragId || dragId === targetId) return;
-      const l = dashLayout();
-      const from = l.findIndex((w) => w.id === dragId), to = l.findIndex((w) => w.id === targetId);
-      const [moved] = l.splice(from, 1); l.splice(to, 0, moved);
-      saveDashLayout(l); render();
     });
   });
-  // 리사이즈 (우하단 핸들 → 폭 colSpan + 높이 rowSpan 동시, 그리드 스냅)
-  $("#view").querySelectorAll(".widget-resize").forEach((h) => {
-    h.addEventListener("mousedown", (e) => {
-      e.preventDefault(); e.stopPropagation();
-      const card = h.closest(".widget"); const id = h.dataset.rid;
-      const grid = $("#view").querySelector(".dashboard");
-      const cellW = grid.getBoundingClientRect().width / DASH_COLS;
-      const rect = card.getBoundingClientRect();
-      card.classList.add("resizing");
+  document.addEventListener("click", () => $("#view")?.querySelectorAll(".widget-menu").forEach((m) => m.classList.add("hidden")), { once: true });
+  $("#view").querySelectorAll("[data-mdel]").forEach((x) =>
+    x.addEventListener("click", (e) => { e.stopPropagation(); saveDashLayout(dashLayout().filter((w) => w.id !== x.dataset.mdel)); render(); }));
+
+  // 자유 드래그 이동 (헤더 잡고 — 마우스 따라 실시간, 놓으면 격자 스냅)
+  $("#view").querySelectorAll("[data-grip]").forEach((head) => {
+    head.addEventListener("mousedown", (e) => {
+      if (e.target.closest(".wfold,.wrefresh,.wdots,.widget-menu")) return;
+      e.preventDefault();
+      const card = head.closest(".widget"); const id = card.dataset.wid;
+      const gridRect = grid.getBoundingClientRect();
+      const cardRect = card.getBoundingClientRect();
+      const offX = e.clientX - cardRect.left, offY = e.clientY - cardRect.top;
+      card.classList.add("dragging");
       const onMove = (ev) => {
-        const w = Math.min(DASH_COLS, Math.max(1, Math.round((ev.clientX - rect.left) / cellW)));
-        const hh = Math.min(DASH_HMAX, Math.max(DASH_HMIN, Math.round((ev.clientY - rect.top + DASH_GAP) / (DASH_ROW + DASH_GAP))));
-        card.style.gridColumn = `span ${w}`; card.style.gridRow = `span ${hh}`;
-        card.dataset.w = w; card.dataset.h = hh;
+        const px = ev.clientX - gridRect.left - offX;
+        const py = ev.clientY - gridRect.top - offY;
+        card.style.left = `${Math.max(0, px)}px`;
+        card.style.top = `${Math.max(0, py)}px`;
+        card.dataset.x = Math.max(0, Math.min(DASH_GCOLS - DASH_WMIN, Math.round(px / colW())));
+        card.dataset.y = Math.max(0, Math.round(py / DASH_ROW));
       };
       const onUp = () => {
         document.removeEventListener("mousemove", onMove); document.removeEventListener("mouseup", onUp);
-        card.classList.remove("resizing");
-        updateWidget(id, { w: Number(card.dataset.w) || 1, h: Number(card.dataset.h) || 8 });
+        card.classList.remove("dragging");
+        updateWidget(id, { x: Number(card.dataset.x) || 0, y: Number(card.dataset.y) || 0 });
       };
       document.addEventListener("mousemove", onMove); document.addEventListener("mouseup", onUp);
     });
   });
-  // 위젯 내부 점프(프로젝트 행/inbox)
-  $("#view").querySelectorAll(".proj-row").forEach((r) =>
-    r.addEventListener("click", () => { state.hubProject = r.dataset.p; state.hubTab = "overview"; state.view = "project"; render(); })
-  );
-  $("#view").querySelectorAll("[data-jump-mail]").forEach((b) =>
-    b.addEventListener("click", (e) => { e.stopPropagation(); state.projectFilter = b.dataset.jumpMail; state.view = "mail"; render(); })
-  );
+  // 자유 리사이즈 (우하단 핸들 — 마우스 따라 실시간, 놓으면 격자 스냅)
+  $("#view").querySelectorAll(".widget-resize").forEach((h) => {
+    h.addEventListener("mousedown", (e) => {
+      e.preventDefault(); e.stopPropagation();
+      const card = h.closest(".widget"); const id = h.dataset.rid;
+      const cardRect = card.getBoundingClientRect();
+      card.classList.add("resizing");
+      const onMove = (ev) => {
+        const wpx = Math.max(colW() * DASH_WMIN, ev.clientX - cardRect.left);
+        const hpx = Math.max(DASH_ROW * DASH_HMIN, ev.clientY - cardRect.top);
+        card.style.width = `${wpx}px`; card.style.height = `${hpx}px`;
+        card.dataset.w = Math.max(DASH_WMIN, Math.min(DASH_GCOLS, Math.round(wpx / colW())));
+        card.dataset.h = Math.max(DASH_HMIN, Math.round(hpx / DASH_ROW));
+      };
+      const onUp = () => {
+        document.removeEventListener("mousemove", onMove); document.removeEventListener("mouseup", onUp);
+        card.classList.remove("resizing");
+        updateWidget(id, { w: Number(card.dataset.w) || 3, h: Number(card.dataset.h) || 6 });
+      };
+      document.addEventListener("mousemove", onMove); document.addEventListener("mouseup", onUp);
+    });
+  });
+
+  function bindWidgetInner() {
+    $("#view").querySelectorAll(".proj-row").forEach((r) =>
+      r.addEventListener("click", () => { state.hubProject = r.dataset.p; state.hubTab = "overview"; state.view = "project"; render(); }));
+    $("#view").querySelectorAll("[data-jump-mail]").forEach((b) =>
+      b.addEventListener("click", (e) => { e.stopPropagation(); state.projectFilter = b.dataset.jumpMail; state.view = "mail"; render(); }));
+  }
+  bindWidgetInner();
 }
 
 function projectCards(data) {
