@@ -172,6 +172,8 @@ const server = createServer(async (req, res) => {
       store.appendEvent({ actor_ref: "owner", actor_kind: "human", kind: "gate_mode_set", to: r.mode, used_refs: ["gates", "settings"], data_label: "real" });
       return send(res, 200, r);
     }
+    if (path === "/api/worklog/draft") return send(res, 200, store.worklogDraft({ project: qp.project ?? null, days: qp.days ? Number(qp.days) : 7 }));
+    if (path === "/api/report/draft") return send(res, 200, store.reportDraft({ project: qp.project ?? null, kind: qp.kind === "note" ? "note" : "report" }));
     if (path === "/api/guide/summary") return send(res, 200, store.guideSummary());
     if (path === "/api/guide") return send(res, 200, store.guideState(qp.project ?? ""));
     if (path === "/api/guide/artifact" && req.method === "POST") {

@@ -548,3 +548,26 @@ test("챗봇: 메타 컨텍스트로 stub 응답 + 빈 메시지 거부", async 
   assert.ok(r.text.includes("차단된 일 있어?"));
   assert.equal(r.external, false);
 });
+
+// ---------- A4/A5: 업무일지·보고서 생성기 (메타 기반) ----------
+test("업무일지 초안: 메타 이벤트 집계 + 원문 미사용 문구", () => {
+  const store = freshStore();
+  loadFixture(store);
+  // 활동 몇 건 생성
+  const it = store.createItem({ project_id: "PRJ-A", title: "자동화 테스트 작업", created_by: "owner" });
+  store.appendEvent({ actor_ref: "owner", actor_kind: "human", kind: "item_create", item_ref: it.item.id, to: it.item.title, project_ref: "PRJ-A", used_refs: ["items"], data_label: "real" });
+  store.appendEvent({ actor_ref: "owner", actor_kind: "human", kind: "item_status", item_ref: it.item.id, to: "done", project_ref: "PRJ-A", used_refs: ["items"], data_label: "real" });
+  const w = store.worklogDraft({ days: 7 });
+  assert.ok(w.counts.created >= 1 && w.counts.done >= 1);
+  assert.ok(w.text.includes("업무일지 초안") && w.text.includes("원문 미사용"));
+});
+
+test("보고서/연구노트 초안: 과제 메타 + 산출물 포인터(원문 미포함)", () => {
+  const store = freshStore();
+  loadFixture(store);
+  const r = store.reportDraft({ project: "PRJ-A", kind: "report" });
+  assert.ok(r.text.includes("보고서 초안") && r.text.includes("PRJ-A"));
+  assert.ok(r.text.includes("원문/첨부 미포함"));
+  const n = store.reportDraft({ kind: "note" });
+  assert.ok(n.text.includes("연구노트 초안"));
+});

@@ -365,6 +365,42 @@ function miniRow(cells) {
   return `<tr>${cells.map((c) => `<td>${c}</td>`).join("")}</tr>`;
 }
 
+// A4/A5 생성기(업무일지·보고서·연구노트). 메타 기반 템플릿 초안(원문 미사용). 미리보기+복사.
+async function renderReports() {
+  const L = state.lex;
+  const summary = await api("/api/summary");
+  const opts = summary.projects.map((p) => `<option value="${esc(p.id)}">${esc(p.title)}</option>`).join("");
+  $("#view").innerHTML = `
+    <div class="filters">
+      <select id="genType">
+        <option value="worklog">${L.gen_worklog}</option>
+        <option value="report">${L.gen_report}</option>
+        <option value="note">${L.gen_note}</option>
+      </select>
+      <select id="genProject"><option value="">${L.project}: ${L.all_label}</option>${opts}</select>
+      <input id="genDays" type="number" min="1" value="7" title="${L.gen_days}" style="width:80px" />
+      <button id="genRun" class="fav-chip">${L.gen_run}</button>
+      <button id="genCopy" class="copy-btn" style="display:none">${L.copy}</button>
+    </div>
+    <pre class="gen-preview empty">${L.gen_run} →</pre>`;
+  const run = async () => {
+    const type = $("#genType").value;
+    const proj = $("#genProject").value;
+    const q = new URLSearchParams(); if (proj) q.set("project", proj);
+    let data;
+    if (type === "worklog") { q.set("days", $("#genDays").value || "7"); data = await api(`/api/worklog/draft?${q}`); }
+    else { q.set("kind", type === "note" ? "note" : "report"); data = await api(`/api/report/draft?${q}`); }
+    const pre = $("#view").querySelector(".gen-preview");
+    pre.classList.remove("empty"); pre.textContent = data.text;
+    const cp = $("#genCopy"); cp.style.display = "";
+    cp.onclick = () => navigator.clipboard?.writeText(data.text);
+  };
+  $("#genRun").addEventListener("click", run);
+  $("#genDays").style.display = "none";
+  $("#genType").addEventListener("change", (e) => { $("#genDays").style.display = e.target.value === "worklog" ? "" : "none"; });
+  $("#genDays").style.display = "";
+}
+
 // A7 ERP 챗봇 패널(메타 컨텍스트, 원문 미전송). 외부전송은 어댑터의 codex_cli만(tool_pc).
 function openChat() {
   const L = state.lex;
@@ -1435,6 +1471,12 @@ async function render() {
     $("#viewTitle").textContent = m?.nav ?? "게이트";
     logView(state.view);
     return renderGates();
+  }
+  if (state.view === "mod:reports") {
+    const m = (state.modules ?? []).find((x) => x.id === "reports");
+    $("#viewTitle").textContent = m?.nav ?? "보고서";
+    logView(state.view);
+    return renderReports();
   }
   if (state.view === "mod:meetings") {
     const m = (state.modules ?? []).find((x) => x.id === "meetings");

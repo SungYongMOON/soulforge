@@ -597,6 +597,64 @@ export class Store {
     return { ok: true, forced: !ev.passable, mode, project_id: s.project_id };
   }
 
+  // ---------- A4/A5: 업무일지·보고서 생성기 (메타 기반·템플릿, 원문 미사용) ----------
+  _itemTitle(id) { return this.db.prepare("SELECT title FROM core_item WHERE id=?").get(id)?.title ?? id; }
+  worklogDraft({ project = null, days = 7 } = {}) {
+    const cutoff = new Date(Date.now() - days * 86400000).toISOString();
+    const evs = this.recentEvents(1000, project).filter((e) => (e.at ?? "") >= cutoff);
+    const created = evs.filter((e) => e.kind === "item_create").map((e) => e.to_val).filter(Boolean);
+    const done = evs.filter((e) => e.kind === "item_status" && e.to_val === "done").map((e) => this._itemTitle(e.item_ref));
+    const blocked = evs.filter((e) => e.kind === "item_status" && e.to_val === "blocked").map((e) => this._itemTitle(e.item_ref));
+    const gates = evs.filter((e) => e.kind === "gate_clear").map((e) => e.to_val);
+    const meetings = evs.filter((e) => e.kind === "meeting_create").length;
+    const mail = this.mail({ project, days });
+    const mailIn = mail.filter((m) => m.direction === "in").length;
+    const mailOut = mail.filter((m) => m.direction === "out").length;
+    const lines = [];
+    lines.push(`# 업무일지 초안 (최근 ${days}일${project ? ` · ${project}` : ""})`);
+    lines.push(`기간: ${cutoff.slice(0, 10)} ~ ${new Date().toISOString().slice(0, 10)}`);
+    lines.push("");
+    lines.push(`## 완료 (${done.length})`);
+    lines.push(done.length ? done.map((t) => `- ${t}`).join("\n") : "- (없음)");
+    lines.push("");
+    lines.push(`## 신규 등록 (${created.length})`);
+    lines.push(created.length ? created.map((t) => `- ${t}`).join("\n") : "- (없음)");
+    if (blocked.length) { lines.push(""); lines.push(`## 차단 발생 (${blocked.length})`); lines.push(blocked.map((t) => `- ${t}`).join("\n")); }
+    if (gates.length) { lines.push(""); lines.push(`## 게이트 통과 (${gates.length})`); lines.push(gates.map((g) => `- ${g}`).join("\n")); }
+    lines.push("");
+    lines.push(`## 소통: 메일 수신 ${mailIn} · 발신 ${mailOut} · 회의 ${meetings}`);
+    lines.push("");
+    lines.push(`※ 메타데이터 기반 자동 초안(원문 미사용). 검토·보완 후 사용하세요.`);
+    return {
+      period: { from: cutoff, to: new Date().toISOString(), days }, project,
+      counts: { done: done.length, created: created.length, blocked: blocked.length, gates: gates.length, mail_in: mailIn, mail_out: mailOut, meetings },
+      text: lines.join("\n")
+    };
+  }
+  // 보고서/연구노트 초안(미리보기 한정): 과제 메타 + 산출물 포인터(원문 미포함).
+  reportDraft({ project = null, kind = "report" } = {}) {
+    const today = new Date().toISOString().slice(0, 10);
+    const weekEnd = new Date(Date.now() + 6 * 86400000).toISOString().slice(0, 10);
+    const projs = this.summary(today, weekEnd).filter((p) => !project || p.id === project);
+    const arts = this.artifacts({ project }).slice(0, 30);
+    const gsum = this.guideSummary().filter((g) => !project || g.project_id === project);
+    const title = kind === "note" ? "연구노트 초안" : "보고서 초안";
+    const lines = [];
+    lines.push(`# ${title}${project ? ` — ${project}` : ""}`);
+    lines.push(`작성 기준일: ${today}`);
+    lines.push("");
+    lines.push("## 과제 현황");
+    lines.push(projs.length ? projs.map((p) => `- ${p.id} ${p.title}: 미완 ${p.open}, 차단 ${p.blocked}, 연체 ${p.overdue}`).join("\n") : "- (없음)");
+    if (gsum.length) {
+      lines.push(""); lines.push("## 산출물 진행률");
+      lines.push(gsum.map((g) => `- ${g.project_id}: ${g.steps_done}/${g.steps_total} (${g.pct}%)`).join("\n"));
+    }
+    lines.push(""); lines.push(`## 산출물 목록(포인터, ${arts.length})`);
+    lines.push(arts.length ? arts.map((a) => `- [${a.kind}] ${a.title} → ${a.pointer}`).join("\n") : "- (없음)");
+    lines.push(""); lines.push("※ 메타·포인터 기반 미리보기 초안(원문/첨부 미포함). 본문 작성은 검토 후.");
+    return { kind, project, artifacts: arts.length, text: lines.join("\n") };
+  }
+
   guideState(projectId) {
     const artifacts = this.db
       .prepare("SELECT * FROM guide_artifact WHERE project_id=? ORDER BY stage_code, id")

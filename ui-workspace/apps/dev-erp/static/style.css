@@ -399,3 +399,6 @@ nav button[disabled]:hover { background: transparent; }
 .chat-msg.ai { align-self: flex-start; background: var(--chip); color: var(--text); }
 .chat-input { display: flex; gap: 8px; padding: 10px 12px; border-top: 1px solid var(--line); }
 .chat-input input { flex: 1; padding: 9px 11px; border: 1px solid var(--line); border-radius: 8px; background: var(--bg); color: var(--text); }
+/* A4/A5 생성기 미리보기 */
+.gen-preview { background: var(--panel); border: 1px solid var(--line); border-radius: 12px; padding: 16px; white-space: pre-wrap; font-size: 13px; line-height: 1.6; max-height: 70vh; overflow: auto; font-family: inherit; }
+.gen-preview.empty { color: var(--muted); }
