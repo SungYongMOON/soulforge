@@ -280,7 +280,7 @@ const WIDGET_PLAN = [
   { id: "deadline_cal", cat: "group_task" },
   { id: "artifacts", cat: "group_doc", ready: true },
   { id: "reports_w", cat: "group_doc" },
-  { id: "meetings_w", cat: "group_doc" },
+  { id: "meetings_w", cat: "group_doc", ready: true },
   { id: "onboarding", cat: "group_doc" },
   { id: "training", cat: "group_doc" },
   { id: "stddocs", cat: "group_doc" },
@@ -482,6 +482,12 @@ async function renderHome() {
     if (id === "contacts") {
       const people = (await api("/api/people")).slice(0, 8);
       return { title: L.tile_contacts, html: people.length ? `<table><tbody>${people.map((p) => miniRow([esc(p.name), esc(p.role ?? "-")])).join("")}</tbody></table>` : `<div class="empty">-</div>` };
+    }
+    if (id === "meetings_w") {
+      const ms = (await api("/api/meetings")).slice(0, 6);
+      return { title: L.tile_meetings_w, html: ms.length
+        ? `<table><tbody>${ms.map((m) => miniRow([m.at ? localTime(m.at) : "-", esc(m.title)])).join("")}</tbody></table>`
+        : `<div class="empty">${L.empty_meetings}</div>` };
     }
     if (id === "inbox") {
       const ids = new Set(inbox.map((p) => p.id));
