@@ -402,3 +402,6 @@ nav button[disabled]:hover { background: transparent; }
 /* A4/A5 생성기 미리보기 */
 .gen-preview { background: var(--panel); border: 1px solid var(--line); border-radius: 12px; padding: 16px; white-space: pre-wrap; font-size: 13px; line-height: 1.6; max-height: 70vh; overflow: auto; font-family: inherit; }
 .gen-preview.empty { color: var(--muted); }
+/* 구매/발주 */
+.party-add { display: inline-flex; gap: 6px; align-items: center; }
+.fav-chip.mini { padding: 2px 8px; font-size: 11px; }

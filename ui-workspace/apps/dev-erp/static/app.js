@@ -9,7 +9,8 @@ const state = {
   pins: JSON.parse(localStorage.getItem("dev_erp_pins") || "[]"),
   // P2b: 계정/권한. 익명(account=null)이면 앱은 현행대로(전체 접근·localStorage).
   account: null, perms: [], accountCount: 0,
-  chatLog: []
+  chatLog: [],
+  poProject: ""
 };
 
 // P2b 권한: 정의 없거나 익명이면 기본 허용(visible·access). 정의 있으면 그 값.
@@ -363,6 +364,63 @@ function compactDash(layout) {
 
 function miniRow(cells) {
   return `<tr>${cells.map((c) => `<td>${c}</td>`).join("")}</tr>`;
+}
+
+// 구매/발주 화면(mod:purchase). 거래처 마스터·발주 체인·과제 N:N·과제 필터. created_by 기록.
+const PURCHASE_STAGES = ["request", "quote", "order", "receive", "inspect", "closed"];
+async function renderPurchase() {
+  const L = state.lex;
+  const [summary, parties, purchases] = await Promise.all([
+    api("/api/summary"), api("/api/parties"),
+    api(`/api/purchases${state.poProject ? `?project=${encodeURIComponent(state.poProject)}` : ""}`)
+  ]);
+  const projOpts = summary.projects.map((p) => `<option value="${esc(p.id)}" ${state.poProject === p.id ? "selected" : ""}>${esc(p.title)}</option>`).join("");
+  const partyOpts = parties.map((p) => `<option value="${esc(p.id)}">${esc(p.name)}</option>`).join("");
+  const stageChip = (st) => `<span class="status ${st === "closed" ? "done" : st === "inspect" ? "doing" : ""}">${L[`pstage_${st}`] ?? st}</span>`;
+  const rows = purchases.map((po) => {
+    const idx = PURCHASE_STAGES.indexOf(po.stage);
+    const next = idx >= 0 && idx < PURCHASE_STAGES.length - 1 ? PURCHASE_STAGES[idx + 1] : null;
+    return `<tr>
+      <td><strong>${esc(po.title)}</strong></td>
+      <td>${esc(po.party_name ?? "-")}</td>
+      <td>${stageChip(po.stage)}${next ? ` <button class="fav-chip mini po-next" data-id="${esc(po.id)}" data-next="${next}">→ ${L[`pstage_${next}`]}</button>` : ""}</td>
+      <td class="num">${po.amount != null ? Number(po.amount).toLocaleString() : "-"}</td>
+      <td>${po.due ?? "-"}</td>
+      <td>${po.projects.map((x) => `<span class="badge">${esc(x)}</span>`).join(" ") || '<span class="dim">-</span>'}</td>
+    </tr>`;
+  }).join("");
+  $("#view").innerHTML = `
+    <div class="filters">
+      <select id="poProjFilter"><option value="">${L.project}: ${L.all_label}</option>${projOpts}</select>
+      <span class="party-add"><input id="partyName" placeholder="${L.party_name}" size="10" /><button id="partyAddBtn" class="fav-chip">${L.party_add}</button></span>
+    </div>
+    <div class="item-form">
+      <input id="poTitle" placeholder="${L.po_title}" />
+      <select id="poParty"><option value="">${L.po_party}</option>${partyOpts}</select>
+      <input id="poAmount" type="number" placeholder="${L.po_amount}" style="width:110px" />
+      <input id="poDue" type="date" />
+      <select id="poProjLink"><option value="">${L.project}</option>${projOpts}</select>
+      <button id="poAddBtn" class="fav-chip">${L.po_new}</button>
+    </div>
+    ${purchases.length ? `<table><thead><tr><th>${L.po_title}</th><th>${L.po_party}</th><th>${L.stage}</th><th>${L.po_amount}</th><th>${L.po_due}</th><th>${L.project}</th></tr></thead><tbody>${rows}</tbody></table>` : `<div class="empty">${L.empty_purchases}</div>`}`;
+  $("#poProjFilter").addEventListener("change", (e) => { state.poProject = e.target.value; render(); });
+  $("#partyAddBtn").addEventListener("click", async () => {
+    const name = $("#partyName").value.trim(); if (!name) return;
+    await post("/api/parties", { name }); render();
+  });
+  $("#poAddBtn").addEventListener("click", async () => {
+    const title = $("#poTitle").value.trim(); if (!title) return;
+    const body = { title };
+    if ($("#poParty").value) body.party_id = $("#poParty").value;
+    if ($("#poAmount").value) body.amount = Number($("#poAmount").value);
+    if ($("#poDue").value) body.due = $("#poDue").value;
+    if ($("#poProjLink").value) body.projects = [$("#poProjLink").value];
+    const r = await post("/api/purchases", body).then((x) => x.json()).catch(() => ({}));
+    if (r.ok) render();
+  });
+  $("#view").querySelectorAll(".po-next").forEach((b) => b.addEventListener("click", async () => {
+    await post("/api/purchases/stage", { id: b.dataset.id, stage: b.dataset.next }); render();
+  }));
 }
 
 // A4/A5 생성기(업무일지·보고서·연구노트). 메타 기반 템플릿 초안(원문 미사용). 미리보기+복사.
@@ -1477,6 +1535,12 @@ async function render() {
     $("#viewTitle").textContent = m?.nav ?? "보고서";
     logView(state.view);
     return renderReports();
+  }
+  if (state.view === "mod:purchase") {
+    const m = (state.modules ?? []).find((x) => x.id === "purchase");
+    $("#viewTitle").textContent = m?.nav ?? "구매/발주";
+    logView(state.view);
+    return renderPurchase();
   }
   if (state.view === "mod:meetings") {
     const m = (state.modules ?? []).find((x) => x.id === "meetings");
