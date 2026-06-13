@@ -371,6 +371,40 @@ function miniRow(cells) {
 }
 
 // 연락처 마스터 화면(mod:contacts). 거래처/과제 링크·필터. 메타 전용.
+// 매뉴얼/FAQ 관리(mod:knowledge). 챗봇 검색 소스 + 미응답 질문 큐(야간 갱신 대상). 메타 전용.
+async function renderKnowledge() {
+  const L = state.lex;
+  const [faqs, unanswered] = await Promise.all([api("/api/faq"), api("/api/chat/unanswered?limit=30")]);
+  const rows = faqs.map((f) => `<tr>
+    <td>${esc(f.topic ?? "-")}</td><td><strong>${esc(f.question)}</strong></td>
+    <td>${esc((f.answer ?? "").slice(0, 60))}${(f.answer ?? "").length > 60 ? "…" : ""}</td>
+    <td class="dim">${esc(f.keywords ?? "")}</td><td class="pointer">${esc(f.pointer ?? "-")}</td>
+  </tr>`).join("");
+  const unRows = unanswered.map((u) => `<tr><td>${esc(u.question)}</td><td class="num">${u.n}</td><td class="dim">${u.last_at ? localTime(u.last_at) : "-"}</td>
+    <td><button class="fav-chip mini faq-from" data-q="${esc(u.question)}">+ ${L.faq_new}</button></td></tr>`).join("");
+  $("#view").innerHTML = `
+    <div class="item-form">
+      <input id="fqTopic" placeholder="${L.faq_topic}" size="8" />
+      <input id="fqQ" placeholder="${L.faq_q}" />
+      <input id="fqA" placeholder="${L.faq_a}" />
+      <input id="fqKw" placeholder="${L.faq_kw}" size="12" />
+      <input id="fqPtr" placeholder="${L.faq_ptr}" size="10" />
+      <button id="fqAdd" class="fav-chip">${L.faq_new}</button>
+    </div>
+    ${faqs.length ? `<table><thead><tr><th>${L.faq_topic}</th><th>${L.faq_q}</th><th>${L.faq_a}</th><th>${L.faq_kw}</th><th>${L.faq_ptr}</th></tr></thead><tbody>${rows}</tbody></table>` : `<div class="empty">${L.empty_faq}</div>`}
+    <h4 class="hub-h4">${L.faq_unanswered}</h4>
+    ${unanswered.length ? `<table><thead><tr><th>${L.faq_q}</th><th>${L.faq_freq}</th><th>${L.th_time}</th><th></th></tr></thead><tbody>${unRows}</tbody></table>` : `<div class="empty small">-</div>`}`;
+  const add = async (preset) => {
+    const q = preset ?? $("#fqQ").value.trim(); const a = $("#fqA").value.trim();
+    if (!q || (!preset && !a)) return;
+    const body = { question: q, answer: a || "(작성 필요)", topic: $("#fqTopic").value.trim() || null, keywords: $("#fqKw").value.trim() || null, pointer: $("#fqPtr").value.trim() || null };
+    const r = await post("/api/faq", body).then((x) => x.json()).catch(() => ({}));
+    if (r.ok) render();
+  };
+  $("#fqAdd").addEventListener("click", () => add());
+  $("#view").querySelectorAll(".faq-from").forEach((b) => b.addEventListener("click", () => { $("#fqQ").value = b.dataset.q; $("#fqA").focus(); }));
+}
+
 // P3 재고/부품 화면(mod:inventory). 부품 마스터(공유)+가용재고+부족 강조+재고 조정. 외부전송 0.
 async function renderInventory() {
   const L = state.lex;
@@ -1724,6 +1758,7 @@ async function render() {
     logView(state.view);
     return renderReports();
   }
+  if (state.view === "mod:knowledge") { const m=(state.modules??[]).find(x=>x.id==="knowledge"); $("#viewTitle").textContent=m?.nav??"지식"; logView(state.view); return renderKnowledge(); }
   if (state.view === "mod:inventory") { const m=(state.modules??[]).find(x=>x.id==="inventory"); $("#viewTitle").textContent=m?.nav??"재고"; logView(state.view); return renderInventory(); }
   if (state.view === "mod:boards") { const m=(state.modules??[]).find(x=>x.id==="boards"); $("#viewTitle").textContent=m?.nav??"보드/BOM"; logView(state.view); return renderBoards(); }
   if (state.view === "mod:stockwatch") { const m=(state.modules??[]).find(x=>x.id==="stockwatch"); $("#viewTitle").textContent=m?.nav??"부품감시"; logView(state.view); return renderStockwatch(); }
