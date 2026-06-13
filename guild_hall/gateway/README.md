@@ -89,7 +89,7 @@
 
 ## package caveat
 
-- workspace 계약에는 backlog/watchdog helper 파일이 CLI consumer 와 함께 tracked package 에 포함되어야 한다는 caveat 가 남아 있다. 이 README 는 package-clean 상태를 주장하지 않는다.
+- backlog/watchdog helper 파일(`deadline_watchdog_reminder.mjs`, `mail_candidate_backlog.mjs`)은 CLI consumer 와 함께 tracked package 에 포함되어 있다(helper package tracking gate 충족, 2026-06-06 review). 이 README 는 더 이상 package-clean 미보장을 caveat 로 남기지 않는다.
 
 ## project mail history private writer
 
