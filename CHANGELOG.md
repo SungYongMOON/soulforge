@@ -12,6 +12,11 @@
   네이티브 바이너리 불일치를 npm ci 안내로 검출, doctor_platform_binary_check_v0
   흡수) + `dev_erp_doctor` (dev-erp tools/doctor.mjs: node/syntax/DB 스키마·
   실메타 신선도/gitignore, --live 선택). 전부 표준 Node — Codex 동일 실행.
+- B3: `docs/architecture/foundation/AGENT_BOOT_DIGEST_V0.md` — 필독 체인
+  (AGENTS+계약+로드맵+PROJECT_MAP ~1,270줄)을 81줄 companion 다이제스트로
+  압축 (정본 아님, AGENTS 라우팅 불변 — owner 결정 대기). 드리프트 가드
+  `guild_hall/validate/boot_digest_guard.mjs` (원본 해시 manifest, 변경 시
+  실패→재검토 후 --update 재서명, 100줄 상한 강제).
 
 ## 2026-06-12
 
