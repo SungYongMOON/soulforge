@@ -672,6 +672,9 @@ async function renderHome() {
       return { title: L.tile_artifacts, html: arts.length ? `<table><tbody>${arts.map((a) => miniRow([esc(a.title), esc(a.kind), esc(a.project_id)])).join("")}</tbody></table>` : `<div class="empty">${L.empty_artifacts}</div>` };
     }
     if (id === "contacts") {
+      // 연락처 마스터(core_contact). 비어 있으면 사내 인원(core_person)으로 폴백.
+      const cs = (await api("/api/contacts")).slice(0, 8);
+      if (cs.length) return { title: L.tile_contacts, html: `<table><tbody>${cs.map((c) => miniRow([esc(c.name), esc(c.org ?? c.role ?? "-")])).join("")}</tbody></table>` };
       const people = (await api("/api/people")).slice(0, 8);
       return { title: L.tile_contacts, html: people.length ? `<table><tbody>${people.map((p) => miniRow([esc(p.name), esc(p.role ?? "-")])).join("")}</tbody></table>` : `<div class="empty">-</div>` };
     }
