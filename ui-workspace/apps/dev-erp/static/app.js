@@ -210,7 +210,7 @@ const WIDGET_PLAN = [
   { id: "training", cat: "group_doc" },
   { id: "stddocs", cat: "group_doc" },
   { id: "mail", cat: "group_comm", ready: true },
-  { id: "inbox", cat: "group_comm" },
+  { id: "inbox", cat: "group_comm", ready: true },
   { id: "approval", cat: "group_comm" },
   { id: "notices", cat: "group_comm" },
   { id: "announce", cat: "group_comm" },
@@ -403,6 +403,13 @@ async function renderHome() {
     if (id === "contacts") {
       const people = (await api("/api/people")).slice(0, 8);
       return { title: L.tile_contacts, html: people.length ? `<table><tbody>${people.map((p) => miniRow([esc(p.name), esc(p.role ?? "-")])).join("")}</tbody></table>` : `<div class="empty">-</div>` };
+    }
+    if (id === "inbox") {
+      const ids = new Set(inbox.map((p) => p.id));
+      const mails = (await api("/api/mail?days=3650")).filter((m) => ids.has(m.project_id)).slice(0, 8);
+      return { title: L.tile_inbox, html: mails.length
+        ? `<table><tbody>${mails.map((m) => miniRow([localTime(m.at), esc(m.subject)])).join("")}</tbody></table>`
+        : `<div class="empty">${L.empty_mail}</div>` };
     }
     const events = await api("/api/events/recent");
     return { title: L.tile_events, html: events.length ? `<table><tbody>${events.slice(0, 6).map((e) => miniRow([localTime(e.at), esc(e.actor_ref), esc(e.kind)])).join("")}</tbody></table>` : `<div class="empty">-</div>` };
