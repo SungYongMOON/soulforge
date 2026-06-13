@@ -305,6 +305,8 @@ body[data-mode="fantasy"] tr.spawned td:first-child::before { content: "✦ "; c
 .widget-resize { position: absolute; right: 3px; bottom: 3px; width: 16px; height: 16px; cursor: nwse-resize;
   border-right: 2px solid var(--line); border-bottom: 2px solid var(--line); border-bottom-right-radius: 5px; }
 .widget:hover .widget-resize { border-color: var(--accent); }
+.brand-home { cursor: pointer; }
+.brand-home:hover { color: var(--accent); }
 .widget-toolbar { display: flex; align-items: center; gap: 10px; margin-bottom: 12px; flex-wrap: wrap; }
 .widget-add-box { position: relative; }
 .widget-add-box .add-widget-item { display: block; width: 100%; text-align: left; border: 0; background: transparent;

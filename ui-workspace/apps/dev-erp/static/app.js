@@ -54,6 +54,10 @@ async function loadLexicon() {
   state.modules = mods;
   document.body.dataset.mode = state.mode;
   $("#appTitle").textContent = state.lex.app_title;
+  // 좌상단 로고 = 홈(위젯 대시보드)로 복귀 (ECount 로고 동작). onclick 으로 중복바인딩 방지.
+  $("#appTitle").classList.add("brand-home");
+  $("#appTitle").title = state.lex.nav_home;
+  $("#appTitle").onclick = () => { state.view = "home"; render(); };
   $("#modeLabel").textContent = state.lex.mode_label;
   $("#globalSearch").placeholder = state.lex.search_placeholder;
   renderNav();
