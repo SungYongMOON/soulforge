@@ -197,6 +197,13 @@ event_log 는 그 라벨의 수집기 역할을 겸한다.
   하나뿐. 모든 호출은 event_log(kind=llm_call) 기록. P4 에 **ERP 챗봇
   v1(읽기 전용)** 슬라이스 추가 — 상세는 docs/PLAN_P4_HARNESS_20260613.md.
   상태: 계획만 — 빌드/실연결은 별도 지시 대기.
+- 2026-06-13 owner: **연속성 제약 (영구).** 주 개발 환경은 Codex — 이
+  모델(강한 모델, 한정 윈도우)의 모든 산출물은 윈도우 종료 후 Codex 가
+  그대로 이어받아 유지보수 가능해야 한다. 적용: ① 지침 정본=AGENTS.md
+  (CLAUDE.md 는 포인터) ② 하네스 도구 비종속(표준 Node/CLI — dev-erp 의
+  zero-dependency 설계와 정합) ③ 페이즈 끝·윈도우 종료 시
+  NIGHT_WORK_HANDOFF 체크포인트 ④ 결정·맥락은 PLAN/DESIGN/packet 문서화
+  ⑤ 챗봇 백엔드=Codex CLI 도 이 제약과 정합. AGENTS.md 상단 메모 동기.
 
 ## 8. 빌드/검증 방식
 
