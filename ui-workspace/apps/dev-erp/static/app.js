@@ -295,8 +295,8 @@ const WIDGET_PLAN = [
   { id: "notices", cat: "group_comm" },
   { id: "announce", cat: "group_comm" },
   { id: "purchase_w", cat: "group_material", ready: true },
-  { id: "stocklow", cat: "group_material" },
-  { id: "bomchg", cat: "group_material" },
+  { id: "stocklow", cat: "group_material", ready: true },
+  { id: "bomchg", cat: "group_material", ready: true },
   { id: "vendors", cat: "group_material", ready: true },
   { id: "buyapprove", cat: "group_material" },
   { id: "unassigned", cat: "group_team", ready: true },
@@ -775,6 +775,18 @@ async function renderHome() {
       return { title: L.tile_gatewait, html: wait.length
         ? `<table><tbody>${wait.map((s) => miniRow([esc(s.project_id), esc(s.title), `${L.gate_held} ${s.remaining}`])).join("")}</tbody></table>`
         : `<div class="empty">${L.gate_passable}</div>` };
+    }
+    if (id === "stocklow") {
+      const low = (await api("/api/stock/low")).slice(0, 8);
+      return { title: L.tile_stocklow, html: low.length
+        ? `<table><tbody>${low.map((p) => miniRow([esc(p.name), `${p.on_hand}/${p.min_qty}`])).join("")}</tbody></table>`
+        : `<div class="empty">${L.empty_stocklow}</div>` };
+    }
+    if (id === "bomchg") {
+      const ch = await api("/api/bom/changes?limit=8");
+      return { title: L.tile_bomchg, html: ch.length
+        ? `<table><tbody>${ch.map((e) => miniRow([localTime(e.at), esc(e.item_ref) + " ← " + esc(e.to_val)])).join("")}</tbody></table>`
+        : `<div class="empty">-</div>` };
     }
     if (id === "purchase_w") {
       const pos = (await api("/api/purchases")).slice(0, 6);
