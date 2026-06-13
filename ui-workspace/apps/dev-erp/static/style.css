@@ -27,7 +27,14 @@ body { margin: 0; font-family: "Pretendard", "Apple SD Gothic Neo", system-ui, s
 .group-tab:hover { color: var(--text); background: var(--chip); }
 .group-tab.on { color: var(--accent); font-weight: 600; border-bottom-color: var(--accent); }
 /* 우측 글로벌: 바로가기바 + 등록☆ + ⌘K + 검색 (ECount 최상단 영역) */
-.global-actions { display: flex; align-items: center; gap: 6px; margin-left: auto; min-width: 0; }
+.global-actions { display: flex; align-items: center; gap: 6px; margin-left: auto; min-width: 0; position: relative; }
+.search-dropdown { position: absolute; top: calc(100% + 4px); right: 0; width: 320px; max-width: 60vw;
+  background: var(--panel); border: 1px solid var(--line); border-radius: 10px; overflow: hidden;
+  box-shadow: 0 10px 30px rgba(0,0,0,.18); z-index: 60; }
+.search-dropdown.hidden { display: none; }
+.search-dropdown .palette-item { padding: 9px 14px; font-size: 13px; cursor: pointer; display: flex; gap: 9px; align-items: center; }
+.search-dropdown .palette-item:hover { background: var(--chip); color: var(--accent); }
+.search-dropdown .palette-item.dim { color: var(--muted); border-top: 1px solid var(--line); }
 .global-actions #globalSearch { width: 200px; max-width: 24vw; padding: 6px 10px;
   border-radius: 8px; border: 1px solid var(--line); background: var(--bg); color: var(--text); font-size: 13px; }
 .fav-chip.pin-cur { font-size: 14px; line-height: 1; padding: 5px 9px; }

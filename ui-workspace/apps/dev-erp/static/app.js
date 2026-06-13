@@ -948,9 +948,51 @@ $("#modeSelect").addEventListener("change", async (e) => {
   await loadLexicon();
   render();
 });
+// 상단 검색 인라인 드롭다운 (ECount 메뉴검색식: 타이핑 → 매칭 리스트가 아래 붙음)
+function searchDropdownEl() {
+  let el = document.getElementById("searchDropdown");
+  if (!el) {
+    el = document.createElement("div");
+    el.id = "searchDropdown";
+    el.className = "search-dropdown hidden";
+    $("#globalSearch").parentElement.appendChild(el);
+  }
+  return el;
+}
+function clearSearchDropdown() {
+  const el = searchDropdownEl();
+  el.classList.add("hidden");
+  el.innerHTML = "";
+}
+async function renderSearchDropdown(q) {
+  const el = searchDropdownEl();
+  if (!q.trim()) { clearSearchDropdown(); return; }
+  if (!state._projCache) { try { state._projCache = (await api("/api/summary")).projects; } catch { state._projCache = []; } }
+  const entries = (await paletteEntries(q)).slice(0, 10);
+  const fullRow = `<div class="palette-item dim" data-full="1">🔎 ${esc(state.lex.nav_search)}: "${esc(q)}"</div>`;
+  el.innerHTML = (entries.length
+    ? entries.map((e, i) => `<div class="palette-item" data-i="${i}"><span class="palette-kind">${state.lex[`palette_kind_${e.kind}`]}</span>${esc(e.label)}</div>`).join("")
+    : "") + fullRow;
+  el.classList.remove("hidden");
+  el.querySelectorAll(".palette-item[data-i]").forEach((item) =>
+    item.addEventListener("mousedown", async (ev) => {
+      ev.preventDefault();
+      (await paletteEntries(q))[Number(item.dataset.i)]?.run();
+      $("#globalSearch").value = ""; clearSearchDropdown();
+    })
+  );
+  el.querySelector("[data-full]")?.addEventListener("mousedown", (ev) => {
+    ev.preventDefault();
+    state.searchTerm = q; state.view = "search"; render();
+    $("#globalSearch").value = ""; clearSearchDropdown();
+  });
+}
+$("#globalSearch").addEventListener("input", (e) => renderSearchDropdown(e.target.value));
 $("#globalSearch").addEventListener("keydown", (e) => {
-  if (e.key === "Enter") { state.searchTerm = e.target.value; state.view = "search"; render(); }
+  if (e.key === "Enter") { state.searchTerm = e.target.value; state.view = "search"; render(); clearSearchDropdown(); }
+  else if (e.key === "Escape") { e.target.value = ""; clearSearchDropdown(); }
 });
+$("#globalSearch").addEventListener("blur", () => setTimeout(clearSearchDropdown, 150));
 
 await loadLexicon();
 render();
