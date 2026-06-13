@@ -1,5 +1,20 @@
 ﻿# CHANGELOG
 
+## 2026-06-13
+
+### Revision `working` - system workspace drift migration runbook added
+
+- Added `docs/architecture/workspace/SYSTEM_WORKSPACE_SYNC_MIGRATION_V0.md`
+  as a public-safe coordination runbook for resolving drift in
+  `_workspaces/system/` across multiple PCs before deciding whether the
+  folder should remain local-only or become an owner-approved shared junction.
+- The runbook defines a freeze, metadata-only manifest inventory, hash-based
+  comparison classes, conflict handling, shared-root decision points, and
+  public/private boundaries without exposing actual workspace files, PC names,
+  local absolute paths, cloud account details, raw payloads, or secrets.
+- Linked the runbook from `docs/architecture/workspace/README.md` so the team
+  can find the migration status and procedure from GitHub.
+
 ## 2026-06-12
 
 ### Revision `working` - Towed-body sensor stability knowledge entry added
