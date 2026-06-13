@@ -140,6 +140,18 @@ function renderNav() {
   $("#favBar").querySelectorAll(".fav-chip").forEach((c) =>
     c.addEventListener("click", () => { state.view = c.dataset.v; render(); })
   );
+  // 현재 화면 바로가기 등록 버튼(ECount: 최상단 ☆로 현재 화면 담기)
+  const cur = state.view;
+  const pinnable = !cur.startsWith("project") && cur !== "search"; // 동적/검색 제외
+  const btn = $("#pinCurrentBtn");
+  if (btn) {
+    const on = state.pins.includes(cur);
+    btn.textContent = on ? "★" : "☆";
+    btn.classList.toggle("on", on);
+    btn.disabled = !pinnable;
+    btn.title = pinnable ? (on ? state.lex.pin_remove : state.lex.pin_add) : "";
+    btn.onclick = () => { if (pinnable) togglePin(cur); };
+  }
 }
 
 function renderModulePlaceholder(modId) {

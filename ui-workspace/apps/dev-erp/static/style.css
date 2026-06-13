@@ -18,12 +18,22 @@ body { margin: 0; font-family: "Pretendard", "Apple SD Gothic Neo", system-ui, s
 .brand-bar { grid-area: brand; display: flex; align-items: center; gap: 16px;
   padding: 8px 16px; background: var(--panel); border-bottom: 1px solid var(--line); }
 .brand-bar > #appTitle { font-size: 15px; font-weight: 700; white-space: nowrap; }
-.group-bar { display: flex; flex-direction: row; gap: 4px; flex: 1; overflow-x: auto; }
-.group-tab { border: 0; background: transparent; color: var(--muted); padding: 8px 14px;
+/* 그룹탭: 콘텐츠 폭만(늘리지 않음), 왼쪽 모음 — 항목 늘면 가로 확장/스크롤 */
+.group-bar { display: flex; flex-direction: row; gap: 2px; flex: 0 1 auto;
+  overflow-x: auto; min-width: 0; }
+.group-tab { border: 0; background: transparent; color: var(--muted); padding: 7px 12px;
   border-radius: 8px 8px 0 0; font-size: 13.5px; cursor: pointer; white-space: nowrap;
   border-bottom: 2px solid transparent; }
 .group-tab:hover { color: var(--text); background: var(--chip); }
 .group-tab.on { color: var(--accent); font-weight: 600; border-bottom-color: var(--accent); }
+/* 우측 글로벌: 바로가기바 + 등록☆ + ⌘K + 검색 (ECount 최상단 영역) */
+.global-actions { display: flex; align-items: center; gap: 6px; margin-left: auto; min-width: 0; }
+.global-actions #globalSearch { width: 200px; max-width: 24vw; padding: 6px 10px;
+  border-radius: 8px; border: 1px solid var(--line); background: var(--bg); color: var(--text); font-size: 13px; }
+.fav-chip.pin-cur { font-size: 14px; line-height: 1; padding: 5px 9px; }
+.fav-chip.pin-cur.on { color: var(--accent); border-color: var(--accent); }
+.fav-chip.pin-cur:disabled { opacity: .35; cursor: default; }
+.brand-bar .fav-bar { flex: 0 1 auto; max-width: 40vw; }
 
 .side { grid-area: side; background: var(--panel); border-right: 1px solid var(--line);
   padding: 14px 12px; display: flex; flex-direction: column; gap: 14px; }
