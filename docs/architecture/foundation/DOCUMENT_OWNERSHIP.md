@@ -2,7 +2,7 @@
 
 ## 목적
 
-- 새 정본 6축 기준으로 어떤 문서가 어떤 owner 경계를 설명하는지 고정한다.
+- 새 정본 7축 기준으로 어떤 문서가 어떤 owner 경계를 설명하는지 고정한다.
 - 루트 문서와 owner-local 문서의 책임 범위를 분리한다.
 
 ## 기본 원칙
@@ -22,6 +22,7 @@
 | `.workflow/` | workflow canon + curated learning history | `docs/architecture/foundation/TARGET_TREE.md`, `docs/architecture/foundation/DOCUMENT_OWNERSHIP.md` | `.workflow/README.md`, `.workflow/docs/` |
 | `.party/` | reusable workflow-chain party template + template-level stats | `docs/architecture/foundation/TARGET_TREE.md`, `docs/architecture/foundation/DOCUMENT_OWNERSHIP.md` | `.party/README.md`, `.party/docs/` |
 | `.mission/` | held mission plan owner | `docs/architecture/foundation/TARGET_TREE.md`, `docs/architecture/workspace/MISSION_MODEL.md` | `.mission/README.md` |
+| `guild_hall/` | cross-project operations root (ingress, notify, assignment, night watch) | `guild_hall/README.md`, `docs/architecture/guild_hall/*.md` | `guild_hall/state/**` (local-only, untracked) |
 | `_workspaces/` | local-only project materialization mount point | `_workspaces/README.md`, `docs/architecture/workspace/WORKSPACE_PROJECT_MODEL.md` | `_workmeta/<project_code>/` 와 project-local 문서 |
 | `docs/architecture/foundation/` | 저장소 차원의 구조 canon | `docs/architecture/foundation/README.md`, `docs/architecture/foundation/*.md` | 해당 없음 |
 | `docs/architecture/workspace/` | `_workspaces` 구조와 보안 정책 canon | `docs/architecture/workspace/README.md`, `docs/architecture/workspace/WORKSPACE_PROJECT_MODEL.md` | 해당 없음 |
@@ -36,12 +37,13 @@
 | `.workflow` | workflow 정의, workflow-level profile policy, public-safe calibration archive, curated learning history | project-local raw run log, private/raw transcript, project-local battle log |
 | `.party` | reusable workflow-chain/loadout template 와 chain-level stats | workflow 내부 step/profile, raw feedback dump, project operational metrics |
 | `.mission` | mission plan, readiness, resolved assignment 구조 | raw run log, project-local worksite truth |
+| `guild_hall` | cross-project ingress/notify/assignment/night-watch 기능과 owner 문서, `guild-hall:*` 명령 표면 | `guild_hall/state/**` local state, mailbox dump, Telegram env, queue/log truth, project-local worksite truth |
 | `_workspaces` | local-only project materialization mount 정책, `_workspaces/<project_code>/` 구조 | helper directory 를 project root 로 문서화, per-project 실자료 public 추적, mission assignment owner 서술 |
 
 ## 적용 규칙
 
 1. foundation 문서는 owner-local 세부 운영을 복제하지 않고 owner 경계만 고정한다.
-2. owner 의미는 `.registry`, `.unit`, `.workflow`, `.party`, `.mission`, `_workspaces` 와 관련 contract 문서에서 직접 읽는다.
+2. owner 의미는 `.registry`, `.unit`, `.workflow`, `.party`, `.mission`, `guild_hall`, `_workspaces` 와 관련 contract 문서에서 직접 읽는다.
 3. `.workflow/history` 는 curated/sanitized learning summary 만 public repo 에 남긴다.
 4. `.workflow/<workflow_id>/calibrations/` 는 public-safe synthetic/redacted fixture 로 수행한 workflow-level profile calibration archive 만 남긴다. 실제 프로젝트 원문, private transcript, secret, project-local raw run truth 는 넣지 않는다.
 5. `.party/stats` 는 chain-level fit/observation summary 만 public repo 에 남긴다.

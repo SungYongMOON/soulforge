@@ -26,6 +26,11 @@
 - `dungeon_assignment/`: gateway 몬스터를 project/stage 로 배치하는 owner
 - `battle_log/`: project-local battle event stream 과 daily/latest battle log renderer
 - `mission_close/`: project-local battle evidence 를 mission terminal pointer 로 닫는 bridge
+- `always_on_launchd/`: 24시간 PC 에 필요한 deterministic launchd job 배포 표면
+- `codex_bridge/`: 로그인된 Codex/ChatGPT 계정에 bounded 분석을 요청하는 bridge (secret 미접촉)
+- `private_state_sync/`: nested private repo `private-state/` 의 sync helper
+- `workmeta_sync/`: nested private repo `_workmeta/` 의 sync helper
+- `workspace_junction/`: `_workspaces` mount/junction 점검과 system inventory helper
 - `state/`: local-only 운영 상태와 queue/log/env 위치, 전체 활동 recent-context surface
 
 ## owner 경계

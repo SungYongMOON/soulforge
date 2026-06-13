@@ -17,6 +17,7 @@
 | Party Template | `.party/<party_id>/` | reusable workflow-chain / loadout template |
 | Automation Party | `.party/<party_id>/` plus local scheduler binding | cadence-based workflow-chain invoked by Codex app automation or launchd |
 | Mission Plan | `.mission/<mission_id>/` | 내가 현재 보유한 실행 계획 |
+| Cross-Project Operations Root | `guild_hall/**` | cross-project ingress, notify, assignment, night watch 운영 (state 는 `guild_hall/state/**` local-only) |
 | Project Worksite | `_workspaces/<project_code>/` | 실제 프로젝트 파일과 local worksite artifact 를 담는 현장 |
 | Project Workmeta | `_workmeta/<project_code>/`, `_workmeta/system/` | companion metadata, raw run truth, reusable workflow lab evidence |
 
@@ -60,12 +61,13 @@
 
 ## 현재 고정 결정
 
-- Soulforge의 canonical root 는 `.registry`, `.unit`, `.workflow`, `.party`, `.mission`, `_workspaces` 다.
+- Soulforge의 canonical root 는 `.registry`, `.unit`, `.workflow`, `.party`, `.mission`, `guild_hall`, `_workspaces` 다.
 - `.registry` 는 outer canon/store owner 다.
 - `.unit` 는 active owner surface 다.
 - `.workflow` 는 workflow canon owner 다.
 - `.party` 는 reusable workflow-chain party template owner 다.
 - `.mission` 은 held mission plan owner 다.
+- `guild_hall` 은 cross-project operations root 다.
 - `_workspaces` 는 local-only project worksite 다.
 - assigned execution plan owner 는 `_workspaces` 가 아니라 `.mission` 이 소유한다.
 
@@ -84,3 +86,4 @@
 - `.unit/**` 가 active binding 과 owner surface 를 가진다.
 - `.workflow/**` 와 `.party/**` 는 `.registry/**` 하위가 아니라 독립 root 다.
 - `.mission/**` 는 held mission metadata 와 readiness 를 소유한다.
+- `guild_hall/**` 는 cross-project ingress/notify/assignment/night-watch 운영을 소유하고, 실제 state 는 `guild_hall/state/**` local-only 다.
