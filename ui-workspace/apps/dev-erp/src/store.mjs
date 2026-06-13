@@ -172,6 +172,23 @@ CREATE TABLE IF NOT EXISTS user_dashboard_layout (
   layout_json TEXT NOT NULL,
   updated_at TEXT NOT NULL
 );
+-- 회의록(메타 전용·고아 want 재수용). 원문/첨부 미저장: summary_pointer 는 위치 문자열만.
+-- 액션아이템 자동추출(LLM·원문)은 갈림길⑨ 미결로 보류 — 여기선 기존 할일(core_item)을 수동 링크만.
+CREATE TABLE IF NOT EXISTS core_meeting (
+  id TEXT PRIMARY KEY,
+  project_id TEXT,
+  title TEXT NOT NULL,
+  at TEXT,
+  attendees TEXT,
+  summary_pointer TEXT,
+  data_label TEXT NOT NULL DEFAULT 'synthetic',
+  created_at TEXT NOT NULL
+);
+CREATE TABLE IF NOT EXISTS meeting_action_map (
+  meeting_id TEXT NOT NULL REFERENCES core_meeting(id),
+  item_id TEXT NOT NULL REFERENCES core_item(id),
+  PRIMARY KEY (meeting_id, item_id)
+);
 CREATE INDEX IF NOT EXISTS idx_item_proj ON core_item(project_id, status);
 CREATE INDEX IF NOT EXISTS idx_item_due ON core_item(due);
 CREATE INDEX IF NOT EXISTS idx_mail_at ON core_mail(at);
@@ -692,5 +709,33 @@ export class Store {
   purgeExpiredSessions() {
     const r = this.db.prepare("DELETE FROM auth_session WHERE expires_at < ?").run(new Date().toISOString());
     return { removed: r.changes ?? 0 };
+  }
+
+  // ---------- 회의록(메타 전용). 원문/첨부 미저장 — summary_pointer 는 위치만 ----------
+  createMeeting({ id, project_id = null, title, at = null, attendees = null, summary_pointer = null, data_label = "real" }) {
+    const t = String(title ?? "").trim();
+    if (!t) return { error: "title_required" };
+    const mid = id || `mtg_${randomBytes(5).toString("hex")}`;
+    this.db.prepare(
+      "INSERT INTO core_meeting(id,project_id,title,at,attendees,summary_pointer,data_label,created_at) VALUES (?,?,?,?,?,?,?,?)"
+    ).run(mid, project_id, t, at, attendees, summary_pointer, data_label, new Date().toISOString());
+    return { ok: true, id: mid };
+  }
+  meetings({ project } = {}) {
+    const where = project ? "WHERE project_id=?" : "";
+    const args = project ? [project] : [];
+    return this.db.prepare(`SELECT * FROM core_meeting ${where} ORDER BY COALESCE(at, created_at) DESC, id LIMIT 200`).all(...args);
+  }
+  // 기존 할일을 회의 액션아이템으로 '수동' 링크(자동추출 아님)
+  linkActionItem(meeting_id, item_id) {
+    if (!this.db.prepare("SELECT 1 FROM core_meeting WHERE id=?").get(meeting_id)) return { error: "meeting_not_found" };
+    if (!this.db.prepare("SELECT 1 FROM core_item WHERE id=?").get(item_id)) return { error: "item_not_found" };
+    this.db.prepare("INSERT OR IGNORE INTO meeting_action_map(meeting_id,item_id) VALUES(?,?)").run(meeting_id, item_id);
+    return { ok: true };
+  }
+  meetingActions(meeting_id) {
+    return this.db.prepare(
+      `SELECT i.* FROM core_item i JOIN meeting_action_map m ON m.item_id=i.id WHERE m.meeting_id=? ORDER BY i.id`
+    ).all(meeting_id);
   }
 }

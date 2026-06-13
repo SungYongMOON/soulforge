@@ -253,6 +253,25 @@ const server = createServer(async (req, res) => {
       return send(res, 200, { ok: true });
     }
 
+    // ---------- 회의록(메타 전용) ----------
+    if (path === "/api/meetings" && req.method === "GET") return send(res, 200, store.meetings({ project: qp.project }));
+    if (path === "/api/meetings" && req.method === "POST") {
+      let body = ""; for await (const chunk of req) body += chunk;
+      const input = JSON.parse(body || "{}");
+      const result = store.createMeeting({ ...input, data_label: "real" });
+      if (result.error) return send(res, 400, result);
+      store.appendEvent({ actor_ref: "owner", actor_kind: "human", kind: "meeting_create", to: result.id, project_ref: input.project_id ?? null, used_refs: ["meetings"], data_label: "real" });
+      return send(res, 200, result);
+    }
+    if (path === "/api/meetings/actions" && req.method === "GET") return send(res, 200, store.meetingActions(qp.meeting ?? ""));
+    if (path === "/api/meetings/action" && req.method === "POST") {
+      let body = ""; for await (const chunk of req) body += chunk;
+      const { meeting_id, item_id } = JSON.parse(body || "{}");
+      const result = store.linkActionItem(meeting_id, item_id);
+      if (result.error) return send(res, 400, result);
+      return send(res, 200, result);
+    }
+
     if (path.startsWith("/api/")) return send(res, 404, { error: "not_found" });
 
     // 정적 파일 (no-build 클라이언트)

@@ -1301,10 +1301,52 @@ async function hubHistory(mount, p) {
     : `<div class="empty small">-</div>`;
 }
 
+// 회의록(메타 전용 읽기+생성). 자동추출·원문첨부 없음 — 액션아이템은 기존 할일 수동 링크.
+async function renderMeetings() {
+  const L = state.lex;
+  const [summary, meetings] = await Promise.all([api("/api/summary"), api("/api/meetings")]);
+  const opts = summary.projects.map((p) => `<option value="${esc(p.id)}">${esc(p.title)}</option>`).join("");
+  const rows = await Promise.all(meetings.map(async (m) => {
+    const acts = await api(`/api/meetings/actions?meeting=${encodeURIComponent(m.id)}`);
+    const actHtml = acts.length ? acts.map((i) => `<span class="badge">${esc(i.title)}</span>`).join(" ") : `<span class="dim">-</span>`;
+    return `<tr><td>${m.at ? localTime(m.at) : "-"}</td><td><strong>${esc(m.title)}</strong></td><td>${esc(m.project_id ?? "-")}</td><td>${esc(m.attendees ?? "-")}</td><td>${actHtml}</td><td class="pointer">${esc(m.summary_pointer ?? "-")}</td></tr>`;
+  }));
+  $("#view").innerHTML = `
+    <div class="item-form">
+      <input id="mtgTitle" placeholder="${L.meeting_title}" />
+      <input id="mtgDate" type="date" />
+      <select id="mtgProject"><option value="">${L.project}</option>${opts}</select>
+      <input id="mtgAttend" placeholder="${L.meeting_attendees}" size="10" />
+      <input id="mtgPtr" placeholder="${L.meeting_summary}" />
+      <button id="mtgAdd" class="fav-chip">${L.meeting_add}</button>
+    </div>
+    ${meetings.length
+      ? `<table><thead><tr><th>${L.meeting_date}</th><th>${L.meeting_title}</th><th>${L.project}</th><th>${L.meeting_attendees}</th><th>${L.meeting_actions}</th><th>${L.detail_pointer}</th></tr></thead><tbody>${rows.join("")}</tbody></table>`
+      : `<div class="empty">${L.empty_meetings}</div>`}`;
+  $("#mtgAdd").addEventListener("click", async () => {
+    const title = $("#mtgTitle").value.trim();
+    if (!title) return;
+    const body = { title };
+    if ($("#mtgDate").value) body.at = $("#mtgDate").value;
+    if ($("#mtgProject").value) body.project_id = $("#mtgProject").value;
+    if ($("#mtgAttend").value.trim()) body.attendees = $("#mtgAttend").value.trim();
+    if ($("#mtgPtr").value.trim()) body.summary_pointer = $("#mtgPtr").value.trim();
+    const r = await post("/api/meetings", body);
+    if (r.ok) render();
+  });
+  $("#mtgTitle").addEventListener("keydown", (e) => { if (e.key === "Enter") $("#mtgAdd").click(); });
+}
+
 async function render() {
   document.getElementById("app").dataset.view = state.view; // 홈(위젯)에선 좌측 열 숨김용
   renderAuth();
   renderNav();
+  if (state.view === "mod:meetings") {
+    const m = (state.modules ?? []).find((x) => x.id === "meetings");
+    $("#viewTitle").textContent = m?.nav ?? state.lex.tab_mail;
+    logView(state.view);
+    return renderMeetings();
+  }
   const titles = { home: "nav_home", items: "nav_items", guide: "nav_guide", mail: "nav_mail", artifacts: "nav_artifacts", search: "nav_search" };
   if (state.view.startsWith("mod:")) {
     const m = (state.modules ?? []).find((x) => `mod:${x.id}` === state.view);

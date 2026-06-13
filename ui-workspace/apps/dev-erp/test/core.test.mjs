@@ -426,3 +426,24 @@ test("P2b 엣지: 권한 다중역할 union(하나라도 access면 허용)", () 
   assert.equal(p.access, true, "한 역할이라도 access면 union=허용");
   assert.equal(store.permsFor("no-such-account").length, 0, "역할 없으면 빈 권한");
 });
+
+// ---------- 회의록 메타 구조 (Run2 자율) ----------
+test("회의록: 생성·목록·수동 액션아이템 링크 (원문/자동추출 없음)", () => {
+  const store = freshStore();
+  loadFixture(store);
+  const projId = store.summary("2026-06-13", "2026-06-20")[0].id;
+  assert.equal(store.createMeeting({ title: "" }).error, "title_required");
+  const m = store.createMeeting({ title: "주간 회의", project_id: projId, at: "2026-06-13", attendees: "owner,팀원", summary_pointer: "_workmeta/.../notes.md" });
+  assert.ok(m.ok && m.id);
+  const list = store.meetings({});
+  assert.ok(list.find((x) => x.id === m.id), "목록에 포함");
+  assert.equal(store.meetings({ project: projId }).length >= 1, true);
+  // 액션아이템: 기존 할일 수동 링크
+  const item = store.createItem({ project_id: projId, title: "회의 후속 작업", created_by: "owner" });
+  assert.equal(store.linkActionItem("no-mtg", item.item.id).error, "meeting_not_found");
+  assert.equal(store.linkActionItem(m.id, "no-item").error, "item_not_found");
+  assert.ok(store.linkActionItem(m.id, item.item.id).ok);
+  const acts = store.meetingActions(m.id);
+  assert.equal(acts.length, 1);
+  assert.equal(acts[0].title, "회의 후속 작업");
+});
