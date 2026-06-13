@@ -270,12 +270,25 @@ body[data-mode="fantasy"] tr.spawned td:first-child::before { content: "✦ "; c
   border-bottom: 1px solid var(--line); flex: 0 0 auto; }
 .widget-head:active { cursor: grabbing; }
 .widget-head h4 { margin: 0; font-size: 13px; color: var(--muted); flex: 1; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
-.widget-ctrls { display: flex; align-items: center; gap: 2px; flex: 0 0 auto; }
-.wfold, .wdots, .wrefresh { cursor: pointer; color: var(--muted); font-size: 12px; padding: 1px 4px; border-radius: 5px;
-  background: transparent; border: 0; line-height: 1.4; }
-.wfold:hover, .wdots:hover, .wrefresh:hover { color: var(--accent); background: var(--chip); }
+.widget-ctrls { display: flex; align-items: center; gap: 4px; flex: 0 0 auto; }
+.wfold, .wdots, .wrefresh, .wpop, .wcreate { cursor: pointer; color: var(--muted); font-size: 16px; font-style: normal;
+  padding: 3px 6px; border-radius: 6px; background: transparent; border: 0; line-height: 1; }
+.wfold:hover, .wdots:hover, .wrefresh:hover, .wpop:hover, .wcreate:hover { color: var(--accent); background: var(--chip); }
+.wfold { font-size: 14px; }
 .wrefresh.spinning { animation: wspin .6s linear infinite; pointer-events: none; }
 @keyframes wspin { to { transform: rotate(360deg); } }
+/* 팝아웃(크게 보기) 오버레이 */
+.widget-pop-overlay { position: fixed; inset: 0; background: rgba(0,0,0,.42); z-index: 200;
+  display: flex; align-items: center; justify-content: center; padding: 4vh 4vw; }
+.widget-pop { background: var(--panel); border: 1px solid var(--line); border-radius: 14px;
+  width: min(960px, 92vw); max-height: 90vh; display: flex; flex-direction: column; overflow: hidden;
+  box-shadow: 0 24px 70px rgba(0,0,0,.35); }
+.widget-pop-head { display: flex; align-items: center; gap: 10px; padding: 12px 18px; border-bottom: 1px solid var(--line); }
+.widget-pop-head h3 { margin: 0; font-size: 16px; flex: 1; }
+.widget-pop-x { cursor: pointer; border: 0; background: transparent; color: var(--muted); font-size: 18px; padding: 2px 8px; border-radius: 6px; }
+.widget-pop-x:hover { color: var(--accent); background: var(--chip); }
+.widget-pop-body { padding: 14px 18px; overflow: auto; }
+.widget-pop-body td { padding: 7px 9px; }
 .widget-menu-wrap { position: relative; }
 .widget-menu { position: absolute; top: 100%; right: 0; margin-top: 4px; background: var(--panel);
   border: 1px solid var(--line); border-radius: 9px; box-shadow: 0 8px 24px rgba(0,0,0,.18); z-index: 40; min-width: 110px; padding: 4px; }

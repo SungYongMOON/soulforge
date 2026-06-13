@@ -186,6 +186,7 @@ function dueCell(due, todayKey) {
 // 자유 배치 위젯 보드 (ECount식): 절대좌표 격자 — 가로 12칼럼, 세로 행 단위.
 // 드래그하면 위젯이 마우스를 따라 자유 이동, 놓으면 격자에 스냅(빈칸 허용).
 const WIDGET_CATALOG = ["projects", "today", "blocked", "mail", "events"];
+const CREATE_WIDGETS = new Set(["today", "blocked"]); // 작성(✎) → 할일 생성 화면으로
 const DASH_GCOLS = 12;     // 가로 12칼럼 (fine snap)
 const DASH_ROW = 22;       // 세로 행 px
 const DASH_WMIN = 2, DASH_HMIN = 3;
@@ -298,12 +299,15 @@ async function renderHome() {
   const cards = [];
   for (const w of layout) {
     const { title, html } = await widgetBody(w.id);
+    const canCreate = CREATE_WIDGETS.has(w.id);
     cards.push(`<section class="widget ${w.c ? "collapsed" : ""}" data-wid="${w.id}" style="${cardStyle(w)}">
       <div class="widget-head" data-grip="${w.id}">
         <i class="wfold" data-fold="${w.id}" title="${w.c ? L.widget_expand : L.widget_collapse}">${w.c ? "▸" : "▾"}</i>
         <h4>${title}</h4>
         <span class="widget-ctrls">
+          <i class="wpop" data-pop="${w.id}" title="${L.widget_popout}">⤢</i>
           <i class="wrefresh" data-refresh="${w.id}" title="${L.widget_refresh}">⟳</i>
+          ${canCreate ? `<i class="wcreate" data-create="${w.id}" title="${L.widget_create}">✎</i>` : ""}
           <span class="widget-menu-wrap">
             <i class="wdots" data-menu="${w.id}" title="${L.widget_menu}">⋮</i>
             <div class="widget-menu hidden" data-menufor="${w.id}">
@@ -325,7 +329,7 @@ async function renderHome() {
       `<button class="add-widget-item" data-add="${id}">${L[`tile_${id}`]}</button>`).join("") || `<span class="dim">${L.widget_all_shown}</span>`}</div></div>`;
 
   $("#view").innerHTML = `${kpi}
-    <div class="tile-toolbar">${addBox}<span class="dim widget-hint">${L.widget_hint}</span></div>
+    <div class="tile-toolbar">${addBox}</div>
     <div class="dashboard" style="height:${maxBottom}px;">${cards.join("")}</div>`;
 
   const grid = $("#view").querySelector(".dashboard");
@@ -373,18 +377,31 @@ async function renderHome() {
   document.addEventListener("click", () => $("#view")?.querySelectorAll(".widget-menu").forEach((m) => m.classList.add("hidden")), { once: true });
   $("#view").querySelectorAll("[data-mdel]").forEach((x) =>
     x.addEventListener("click", (e) => { e.stopPropagation(); saveDashLayout(dashLayout().filter((w) => w.id !== x.dataset.mdel)); render(); }));
+  // 팝아웃(크게 보기) — 위젯 본문을 큰 오버레이로
+  $("#view").querySelectorAll(".wpop").forEach((p) => {
+    p.addEventListener("mousedown", (e) => e.stopPropagation());
+    p.addEventListener("click", async (e) => { e.stopPropagation(); await openPopout(p.dataset.pop); });
+  });
+  // 작성(✎) — 해당 도메인 작성 화면으로 (할일 생성)
+  $("#view").querySelectorAll(".wcreate").forEach((c) => {
+    c.addEventListener("mousedown", (e) => e.stopPropagation());
+    c.addEventListener("click", (e) => { e.stopPropagation(); state.view = "items"; state.focusNewItem = true; render(); });
+  });
 
-  // 자유 드래그 이동 (헤더 잡고 — 마우스 따라 실시간, 놓으면 격자 스냅)
+  // 헤더: 끌면 자유 이동(마우스 추종→격자 스냅), 그냥 클릭하면 제자리 접기/펼치기
   $("#view").querySelectorAll("[data-grip]").forEach((head) => {
     head.addEventListener("mousedown", (e) => {
-      if (e.target.closest(".wfold,.wrefresh,.wdots,.widget-menu")) return;
+      if (e.target.closest(".wfold,.wrefresh,.wdots,.wpop,.wcreate,.widget-menu")) return;
       e.preventDefault();
       const card = head.closest(".widget"); const id = card.dataset.wid;
       const gridRect = grid.getBoundingClientRect();
       const cardRect = card.getBoundingClientRect();
       const offX = e.clientX - cardRect.left, offY = e.clientY - cardRect.top;
-      card.classList.add("dragging");
+      const startX = e.clientX, startY = e.clientY;
+      let moved = false;
       const onMove = (ev) => {
+        if (!moved && Math.abs(ev.clientX - startX) < 4 && Math.abs(ev.clientY - startY) < 4) return;
+        if (!moved) { moved = true; card.classList.add("dragging"); }
         const px = ev.clientX - gridRect.left - offX;
         const py = ev.clientY - gridRect.top - offY;
         card.style.left = `${Math.max(0, px)}px`;
@@ -394,6 +411,7 @@ async function renderHome() {
       };
       const onUp = () => {
         document.removeEventListener("mousemove", onMove); document.removeEventListener("mouseup", onUp);
+        if (!moved) { toggleFold(id); return; }   // 클릭 = 제자리 접기 (위치 유지)
         card.classList.remove("dragging");
         updateWidget(id, { x: Number(card.dataset.x) || 0, y: Number(card.dataset.y) || 0 });
       };
@@ -422,6 +440,25 @@ async function renderHome() {
       document.addEventListener("mousemove", onMove); document.addEventListener("mouseup", onUp);
     });
   });
+
+  async function openPopout(id) {
+    const { title, html } = await widgetBody(id);
+    document.querySelector(".widget-pop-overlay")?.remove();
+    const ov = document.createElement("div");
+    ov.className = "widget-pop-overlay";
+    ov.innerHTML = `<div class="widget-pop" role="dialog" aria-label="${title}">
+      <div class="widget-pop-head"><h3>${title}</h3><button class="widget-pop-x" title="${L.filter_clear}">✕</button></div>
+      <div class="widget-pop-body">${html}</div></div>`;
+    document.body.appendChild(ov);
+    const close = () => ov.remove();
+    ov.addEventListener("click", (e) => { if (e.target === ov) close(); });
+    ov.querySelector(".widget-pop-x").addEventListener("click", close);
+    document.addEventListener("keydown", function esc(e) { if (e.key === "Escape") { close(); document.removeEventListener("keydown", esc); } });
+    ov.querySelectorAll(".proj-row").forEach((r) =>
+      r.addEventListener("click", () => { state.hubProject = r.dataset.p; state.hubTab = "overview"; state.view = "project"; close(); render(); }));
+    ov.querySelectorAll("[data-jump-mail]").forEach((b) =>
+      b.addEventListener("click", (e) => { e.stopPropagation(); state.projectFilter = b.dataset.jumpMail; state.view = "mail"; close(); render(); }));
+  }
 
   function bindWidgetInner() {
     $("#view").querySelectorAll(".proj-row").forEach((r) =>
@@ -523,8 +560,28 @@ async function renderItems() {
       <select id="fProject"><option value="">${L.project}: ${L.all_label}</option>${opts}</select>
     </div>
     <div class="status-chips">${chipsHtml}</div>
+    <div class="item-form">
+      <select id="niProject">${opts || `<option value="">${L.project}</option>`}</select>
+      <input id="niTitle" placeholder="${L.item_new_ph}" />
+      <input id="niAssignee" placeholder="${L.assignee_ph}" size="9" />
+      <input id="niDue" type="date" />
+      <button id="niAdd" class="fav-chip">${L.item_add}</button>
+    </div>
     ${rows ? `<table><thead><tr><th>${L.item}</th><th>${L.project}</th><th>${L.th_status}</th><th>${L.th_due}</th><th>${L.th_assignee}</th><th>${L.tab_guide}</th><th>${L.th_actions}</th></tr></thead><tbody>${rows}</tbody></table>` : `<div class="empty">${L.empty_items}</div>`}`;
   $("#fProject").addEventListener("change", (e) => { state.projectFilter = e.target.value; render(); });
+  $("#niAdd").addEventListener("click", async () => {
+    const title = $("#niTitle").value.trim();
+    const pid = $("#niProject").value;
+    if (!title || !pid) return;
+    const body = { project_id: pid, title };
+    const a = $("#niAssignee").value.trim();
+    if (a) body.assignee_ref = a;
+    if ($("#niDue").value) body.due = $("#niDue").value;
+    const r = await post("/api/items", body);
+    if (r.ok) render();
+  });
+  $("#niTitle").addEventListener("keydown", (e) => { if (e.key === "Enter") $("#niAdd").click(); });
+  if (state.focusNewItem) { state.focusNewItem = false; $("#niTitle").focus(); }
   $("#view").querySelectorAll(".status-chip").forEach((c) =>
     c.addEventListener("click", () => { state.statusFilter = c.dataset.st || ""; render(); })
   );
