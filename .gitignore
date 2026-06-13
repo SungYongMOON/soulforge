@@ -18,3 +18,14 @@ guild_hall/state/**
 !guild_hall/state/README.md
 
 private-state/
+
+# secret / credential deny — public repo guard (AGENTS.md "Secret 취급 규칙")
+.env
+.env.*
+*.env
+*token*
+*cookie*
+*.session
+*.key
+*.pem
+*credential*
