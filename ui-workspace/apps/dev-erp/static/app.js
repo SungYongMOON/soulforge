@@ -11,7 +11,8 @@ const state = {
   account: null, perms: [], accountCount: 0,
   chatLog: [],
   poProject: "",
-  poParty: ""
+  poParty: "",
+  ctProject: ""
 };
 
 // P2b 권한: 정의 없거나 익명이면 기본 허용(visible·access). 정의 있으면 그 값.
@@ -365,6 +366,51 @@ function compactDash(layout) {
 
 function miniRow(cells) {
   return `<tr>${cells.map((c) => `<td>${c}</td>`).join("")}</tr>`;
+}
+
+// 연락처 마스터 화면(mod:contacts). 거래처/과제 링크·필터. 메타 전용.
+async function renderContacts() {
+  const L = state.lex;
+  const [summary, parties, contacts] = await Promise.all([
+    api("/api/summary"), api("/api/parties"),
+    api(`/api/contacts${state.ctProject ? `?project=${encodeURIComponent(state.ctProject)}` : ""}`)
+  ]);
+  const projOpts = summary.projects.map((p) => `<option value="${esc(p.id)}" ${state.ctProject === p.id ? "selected" : ""}>${esc(p.title)}</option>`).join("");
+  const partyOpts = parties.map((p) => `<option value="${esc(p.id)}">${esc(p.name)}</option>`).join("");
+  const rows = contacts.map((c) => `<tr>
+    <td><strong>${esc(c.name)}</strong></td>
+    <td>${esc(c.org ?? "-")}</td>
+    <td>${esc(c.role ?? "-")}</td>
+    <td>${esc(c.email ?? "-")}${c.phone ? ` · ${esc(c.phone)}` : ""}</td>
+    <td>${esc(c.party_name ?? "-")}</td>
+    <td>${c.projects.map((x) => `<span class="badge">${esc(x)}</span>`).join(" ") || '<span class="dim">-</span>'}</td>
+  </tr>`).join("");
+  $("#view").innerHTML = `
+    <div class="filters">
+      <select id="ctProjFilter"><option value="">${L.project}: ${L.all_label}</option>${projOpts}</select>
+    </div>
+    <div class="item-form">
+      <input id="ctName" placeholder="${L.ct_name}" />
+      <input id="ctOrg" placeholder="${L.ct_org}" size="10" />
+      <input id="ctRole" placeholder="${L.ct_role_label}" size="8" />
+      <input id="ctEmail" placeholder="${L.ct_email}" />
+      <select id="ctParty"><option value="">${L.po_party}</option>${partyOpts}</select>
+      <select id="ctProjLink"><option value="">${L.project}</option>${projOpts}</select>
+      <button id="ctAddBtn" class="fav-chip">${L.ct_new}</button>
+    </div>
+    ${contacts.length ? `<table><thead><tr><th>${L.ct_name}</th><th>${L.ct_org}</th><th>${L.ct_role_label}</th><th>${L.ct_email}</th><th>${L.po_party}</th><th>${L.project}</th></tr></thead><tbody>${rows}</tbody></table>` : `<div class="empty">${L.empty_contacts}</div>`}`;
+  $("#ctProjFilter").addEventListener("change", (e) => { state.ctProject = e.target.value; render(); });
+  $("#ctAddBtn").addEventListener("click", async () => {
+    const name = $("#ctName").value.trim(); if (!name) return;
+    const body = { name };
+    if ($("#ctOrg").value.trim()) body.org = $("#ctOrg").value.trim();
+    if ($("#ctRole").value.trim()) body.role = $("#ctRole").value.trim();
+    if ($("#ctEmail").value.trim()) body.email = $("#ctEmail").value.trim();
+    if ($("#ctParty").value) body.party_id = $("#ctParty").value;
+    if ($("#ctProjLink").value) body.projects = [$("#ctProjLink").value];
+    const r = await post("/api/contacts", body).then((x) => x.json()).catch(() => ({}));
+    if (r.ok) render();
+  });
 }
 
 // 구매/발주 화면(mod:purchase). 거래처 마스터·발주 체인·과제 N:N·과제 필터. created_by 기록.
@@ -1566,6 +1612,12 @@ async function render() {
     $("#viewTitle").textContent = m?.nav ?? "보고서";
     logView(state.view);
     return renderReports();
+  }
+  if (state.view === "mod:contacts") {
+    const m = (state.modules ?? []).find((x) => x.id === "contacts");
+    $("#viewTitle").textContent = m?.nav ?? "연락처";
+    logView(state.view);
+    return renderContacts();
   }
   if (state.view === "mod:purchase") {
     const m = (state.modules ?? []).find((x) => x.id === "purchase");
