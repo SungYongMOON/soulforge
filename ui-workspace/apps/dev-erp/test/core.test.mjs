@@ -496,3 +496,14 @@ test("게이트: soft 모드 전환 시 경고 후 통과 허용 + 이미 통과
   assert.equal(store.clearStage("no-such").error, "stage_not_found");
   assert.equal(store.setGateMode("hard").mode, "hard", "되돌리기 가능");
 });
+
+// ---------- A6: 보스 HP(잔여) 계산 ----------
+test("게이트 보스 HP: 잔여 = 미완+차단+미완절차, cleared면 통과", () => {
+  const store = freshStore();
+  loadFixture(store);
+  const s2 = store.gates({ project: "PRJ-A" }).find((g) => g.id === "PRJ-A-S2");
+  assert.equal(s2.remaining, s2.open_items + s2.blocked_items + (s2.steps_total - s2.steps_done));
+  assert.ok(s2.remaining > 0, "미충족이면 보스 HP > 0");
+  const s1 = store.gates({ project: "PRJ-A" }).find((g) => g.id === "PRJ-A-S1");
+  assert.equal(s1.passable, true);
+});

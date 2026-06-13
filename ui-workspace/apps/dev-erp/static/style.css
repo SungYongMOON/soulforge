@@ -380,3 +380,10 @@ nav button[disabled]:hover { background: transparent; }
   color: var(--text); padding: 7px 10px; border-radius: 7px; font-size: 13px; cursor: pointer; }
 .widget-add-box .add-widget-item:hover { background: var(--chip); color: var(--accent); }
 .widget-hint { font-size: 11.5px; color: var(--muted); }
+/* A6 보스 연출 (판타지 게이트=보스전, 게임코드 격리) */
+.boss-hp { height: 6px; border-radius: 4px; background: var(--chip); overflow: hidden; margin-top: 5px; }
+.boss-hp i { display: block; height: 100%; background: var(--danger); transition: width .3s; }
+.boss-hp-n { font-size: 10.5px; }
+.gate-proj { margin-bottom: 16px; }
+.gate-mode { display: flex; align-items: center; gap: 6px; margin-bottom: 12px; }
+.gate-reasons { font-size: 11px; margin-top: 3px; }

@@ -569,11 +569,13 @@ export class Store {
     if (blocked > 0) reasons.push({ code: "blocked_items", n: blocked });
     if (arts > 0 && stepsDone < stepsTotal) reasons.push({ code: "artifacts_incomplete", n: stepsTotal - stepsDone });
     const passable = stage.status === "cleared" ? true : reasons.length === 0;
+    // A6 보스 연출용 잔여(보스 HP) = 미완+차단+미완 절차. 0이면 처치 가능. (게임상태 미저장=계산)
+    const remaining = open + blocked + Math.max(0, stepsTotal - stepsDone);
     return {
       id: stage.id, project_id: stage.project_id, title: stage.title, seq: stage.seq,
       status: stage.status, gate_rule: stage.gate_rule,
       open_items: open, blocked_items: blocked, artifacts: arts, steps_done: stepsDone, steps_total: stepsTotal,
-      passable, reasons
+      remaining, passable, reasons
     };
   }
   gates({ project } = {}) {

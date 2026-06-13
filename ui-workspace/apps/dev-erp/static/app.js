@@ -1331,7 +1331,7 @@ async function renderGates() {
     <table><thead><tr><th>${L.stage}</th><th>${L.th_status}</th><th>${L.col_remaining}</th><th>${L.blocked}</th><th>${L.tab_guide}</th><th></th></tr></thead><tbody>
     ${ss.map((s) => `<tr>
       <td><strong>${esc(s.title)}</strong>${s.gate_rule ? `<div class="dim">${esc(s.gate_rule)}</div>` : ""}</td>
-      <td>${s.status === "cleared" ? `<span class="badge green">${L.gate_cleared}</span>` : (s.passable ? `<span class="badge">${L.gate_passable}</span>` : `<span class="badge red">${L.gate_held}</span>`)}</td>
+      <td>${s.status === "cleared" ? `<span class="badge green">${L.gate_cleared}</span>` : (s.passable ? `<span class="badge">${L.gate_passable}</span>` : `<span class="badge red">${L.gate_held}</span>`)}${state.mode === "fantasy" ? `<div class="boss-hp" title="${L.gate_boss_hp}"><i style="width:${s.status === "cleared" ? 0 : Math.min(100, s.remaining * 8)}%"></i></div><span class="dim boss-hp-n">${s.status === "cleared" ? L.gate_boss_slain : `HP ${s.remaining}`}</span>` : ""}</td>
       <td class="num">${s.open_items}</td>
       <td class="num">${s.blocked_items || '<span class="dim">0</span>'}</td>
       <td>${s.artifacts ? `${s.steps_done}/${s.steps_total}` : '<span class="dim">-</span>'}</td>
