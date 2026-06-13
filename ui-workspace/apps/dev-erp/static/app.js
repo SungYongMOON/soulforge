@@ -275,7 +275,7 @@ const WIDGET_PLAN = [
   { id: "projects", cat: "group_project", ready: true },
   { id: "kpi", cat: "group_project", ready: true },
   { id: "events", cat: "group_project", ready: true },
-  { id: "gatewait", cat: "group_project" },
+  { id: "gatewait", cat: "group_project", ready: true },
   { id: "artifact_progress", cat: "group_project", ready: true },
   { id: "today", cat: "group_task", ready: true },
   { id: "blocked", cat: "group_task", ready: true },
@@ -631,6 +631,13 @@ async function renderHome() {
       return { title: L.tile_artifact_progress, html: sum.length
         ? `<table><tbody>${sum.map((g) => miniRow([esc(g.project_id), `${g.steps_done}/${g.steps_total}`, `${g.pct}%`])).join("")}</tbody></table>`
         : `<div class="empty">-</div>` };
+    }
+    if (id === "gatewait") {
+      const g = await api("/api/gates");
+      const wait = (g.stages || []).filter((s) => s.status !== "cleared" && !s.passable).slice(0, 8);
+      return { title: L.tile_gatewait, html: wait.length
+        ? `<table><tbody>${wait.map((s) => miniRow([esc(s.project_id), esc(s.title), `${L.gate_held} ${s.remaining}`])).join("")}</tbody></table>`
+        : `<div class="empty">${L.gate_passable}</div>` };
     }
     if (id === "purchase_w") {
       const pos = (await api("/api/purchases")).slice(0, 6);
