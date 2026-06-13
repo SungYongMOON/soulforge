@@ -144,16 +144,24 @@ export function runGate({ level = 1, packet = null, skipTests = false, root = AP
   return { checks, ok: checks.every((c) => c.ok), confirms: LEVEL_CONFIRMS[level] ?? [] };
 }
 
-// B6 (run21): inspector 증거 — packet 안 inspector verdict 또는 동반 보고 파일
+// B6 (run21): inspector 증거 — packet 안 inspector verdict 또는 동반 보고 파일.
+// inspector 발견 반영: verdict 가 reject/hold 면 증거가 있어도 FAIL
+// (게이트 PASS 만 믿고 거부된 슬라이스를 닫는 사고 방지).
 export function checkInspectorEvidence(packetPath, readOrNull) {
   if (!packetPath) return { id: "inspector_evidence", ok: false, note: "Level>=2: packet 경로 필요" };
   const t = readOrNull(packetPath);
   if (!t) return { id: "inspector_evidence", ok: false, note: "packet 미존재" };
-  const inline = /inspector_verdict:\s*(accept|revise|hold|reject)/.test(t);
+  const m = /inspector_verdict:\s*(accept|revise|hold|reject)/.exec(t);
   const reportRef = /inspector_report:\s*\S+/.test(t);
+  if (m && (m[1] === "reject" || m[1] === "hold")) {
+    return { id: "inspector_evidence", ok: false, note: `inspector_verdict=${m[1]} — 조치/owner 결정 전 닫기 금지` };
+  }
+  if (m && m[1] === "revise") {
+    return { id: "inspector_evidence", ok: false, note: "inspector_verdict=revise — 조치 후 재패스 필요" };
+  }
   return {
-    id: "inspector_evidence", ok: inline || reportRef,
-    note: inline ? "packet 내 inspector_verdict" : reportRef ? "inspector_report 참조" : "독립 inspector 증거 없음 (INSPECTOR_PROTOCOL.md 참조)"
+    id: "inspector_evidence", ok: Boolean(m) || reportRef,
+    note: m ? "inspector_verdict=accept" : reportRef ? "inspector_report 참조" : "독립 inspector 증거 없음 (INSPECTOR_PROTOCOL.md 참조)"
   };
 }
 

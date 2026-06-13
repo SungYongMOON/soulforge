@@ -56,11 +56,14 @@ test("B1: 게이트 개별 체크 — 통과/고의 실패 양쪽", () => {
   assert.equal(checkPacket("p.yaml", () => false, () => "").ok, false);
   assert.equal(checkPacket("p.yaml", () => true, () => "task_id: x\nstatus: done\nowner_approval:\n approved: true").ok, true);
 
-  // inspector 증거 (B6 연동 자리)
+  // inspector 증거 (B6 연동) — accept 만 통과, revise/hold/reject 는 차단
   assert.equal(checkInspectorEvidence("p.yaml", () => "inspector_verdict: accept").ok, true);
   assert.equal(checkInspectorEvidence("p.yaml", () => "inspector_report: _workmeta/x.md").ok, true);
   assert.equal(checkInspectorEvidence("p.yaml", () => "task_id: x").ok, false);
   assert.equal(checkInspectorEvidence(null, () => null).ok, false);
+  assert.equal(checkInspectorEvidence("p.yaml", () => "inspector_verdict: reject").ok, false);
+  assert.equal(checkInspectorEvidence("p.yaml", () => "inspector_verdict: hold").ok, false);
+  assert.equal(checkInspectorEvidence("p.yaml", () => "inspector_verdict: revise").ok, false);
 });
 
 test("B1: 통합 — 실제 저장소에서 Level 0 게이트 PASS (테스트 재귀 없이)", () => {

@@ -25,6 +25,9 @@
   (used_refs/data_label/project_ref/actor) 커버리지 감사, 읽기 전용,
   --min 게이트 옵션. 첫 감사로 view 이벤트의 project_ref 결손을 발견해
   logView 에 차원 추가.
+- B6: INSPECTOR_PROTOCOL.md (도구 비종속 — 계약 Level 2 를 실행 절차로) +
+  verify_gate Level>=2 연동. 통합 inspector 패스(fresh) 1회 수행 — B1~B5
+  전부 accept, 발견 반영(reject/hold/revise verdict 는 게이트 FAIL 처리).
 
 ## 2026-06-12
 
