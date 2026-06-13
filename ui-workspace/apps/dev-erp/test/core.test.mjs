@@ -1,0 +1,332 @@
+import assert from "node:assert/strict";
+import test from "node:test";
+
+import { openStore } from "../src/store.mjs";
+import { loadFixture } from "../src/fixture.mjs";
+import { ingestNormalized, mapSoulforgeSnapshot } from "../src/adapter.mjs";
+import { getLexicon, LEXICON } from "../src/lexicon.mjs";
+import { crossSearch } from "../src/search.mjs";
+
+function freshStore() {
+  return openStore(":memory:");
+}
+
+test("store: 스키마 3구역 생성과 fixture 적재 (TEST-001)", () => {
+  const store = freshStore();
+  const counts = loadFixture(store);
+  assert.equal(counts.projects, 3);
+  assert.equal(counts.items, 30);
+  assert.equal(counts.mail, 50);
+  assert.equal(counts.artifacts, 30);
+  assert.ok(counts.events >= 1, "ingest 이벤트가 남아야 함");
+});
+
+test("store: summary 가 프로젝트별 카운트를 만든다 (UI-001)", () => {
+  const store = freshStore();
+  loadFixture(store);
+  const today = new Date().toISOString().slice(0, 10);
+  const summary = store.summary(today);
+  assert.equal(summary.length, 3);
+  const prjA = summary.find((p) => p.id === "PRJ-A");
+  assert.ok(prjA.open > 0);
+  assert.ok(prjA.boss_open >= 1, "보스(단계 종료) 항목이 카운트되어야 함");
+});
+
+test("event_log: 라벨링 우선 원칙 — used_refs/data_label/actor_kind (INFRA-003)", () => {
+  const store = freshStore();
+  store.appendEvent({
+    actor_ref: "p-kim", actor_kind: "human", item_ref: "IT-001", kind: "status",
+    from: "open", to: "done", intervention_count: 0,
+    used_refs: [".registry/skills/evidence_sift", "knowledge:cable_label_rule"],
+    data_label: "real", note: "test"
+  });
+  const [event] = store.recentEvents(1);
+  assert.equal(event.actor_kind, "human");
+  assert.deepEqual(event.used_refs, [".registry/skills/evidence_sift", "knowledge:cable_label_rule"]);
+  assert.equal(event.data_label, "real");
+});
+
+test("adapter: 정규화 ingest 와 불량 행 보고 (INFRA-002)", () => {
+  const store = freshStore();
+  const report = ingestNormalized(store, {
+    projects: [{ id: "P1", title: "테스트" }, { title: "id 없음" }],
+    items: [{ id: "I1", project_id: "P1", title: "할 일" }, { id: "I2" }],
+    mail: [{ id: "M1", at: "2026-06-12T00:00:00Z", subject: "제목" }]
+  }, { label: "real", source: "unit_test" });
+  assert.equal(report.projects, 1);
+  assert.equal(report.items, 1);
+  assert.equal(report.mail, 1);
+  assert.equal(report.skipped.length, 2);
+  const [event] = store.recentEvents(1);
+  assert.equal(event.kind, "ingest");
+  assert.equal(event.data_label, "real");
+});
+
+test("adapter: soulforge snapshot 보수적 매핑 (INFRA-002)", () => {
+  const mapped = mapSoulforgeSnapshot({
+    operation_board: {
+      sections: {
+        dungeon_map: { rows: [{ project_code: "P00-TEST", title: "샘플 던전", health: "watch" }] },
+        mission_board: { rows: [{ mission_id: "m1", project_code: "P00-TEST", title: "샘플 미션", readiness_status: "blocked" }] }
+      }
+    }
+  });
+  assert.equal(mapped.projects.length, 1);
+  assert.equal(mapped.items.length, 1);
+  assert.equal(mapped.items[0].status, "blocked");
+});
+
+test("lexicon: business/fantasy 키 완전 일치 (INFRA-004, TEST-003)", () => {
+  const bKeys = Object.keys(LEXICON.business).sort();
+  const fKeys = Object.keys(LEXICON.fantasy).sort();
+  assert.deepEqual(bKeys, fKeys, "두 모드의 라벨 키가 1:1 이어야 화면이 안 깨진다");
+  assert.equal(getLexicon("unknown_mode").app_title, LEXICON.business.app_title);
+});
+
+test("search: 검색 1회로 3종 묶기 (UI-005)", () => {
+  const store = freshStore();
+  loadFixture(store);
+  const result = crossSearch(store, "PRJ-A");
+  assert.ok(result.items.length > 0);
+  assert.ok(result.mail.length > 0);
+  assert.ok(result.artifacts.length > 0);
+  const empty = crossSearch(store, "");
+  assert.equal(empty.items.length, 0);
+});
+
+test("mail: 기본 90일 범위와 원문 미저장 (UI-003)", () => {
+  const store = freshStore();
+  loadFixture(store);
+  const mail = store.mail({ days: 90 });
+  assert.ok(mail.length > 0);
+  for (const m of mail.slice(0, 5)) {
+    assert.ok(m.subject && m.pointer_ref, "제목/포인터만 있고");
+    assert.equal(m.body, undefined, "본문 컬럼 자체가 없어야 함");
+  }
+});
+
+test("P1b: purgeSynthetic 은 synthetic 만 지우고 real 은 보존 + meta 마커", () => {
+  const store = freshStore();
+  loadFixture(store);
+  ingestNormalized(store, {
+    projects: [{ id: "P99-REAL", title: "실프로젝트" }],
+    mail: [{ id: "RM1", at: "2026-06-12T00:00:00+09:00", subject: "실메일 제목" }]
+  }, { label: "real", source: "p1b_test" });
+
+  const removed = store.purgeSynthetic();
+  assert.ok(removed > 100, "합성 행들이 제거되어야 함");
+  const counts = store.counts();
+  assert.equal(counts.projects, 1);
+  assert.equal(counts.mail, 1);
+  assert.equal(store.db.prepare("SELECT COUNT(*) c FROM core_project WHERE data_label='real'").get().c, 1);
+
+  store.setMeta("real_ingest_mtime", "12345");
+  assert.equal(store.getMeta("real_ingest_mtime"), "12345");
+  store.setMeta("real_ingest_mtime", "67890");
+  assert.equal(store.getMeta("real_ingest_mtime"), "67890");
+});
+
+test("run11: 수동 라벨 CRUD + 메일 라벨 필터 (Gmail식)", () => {
+  const store = freshStore();
+  loadFixture(store);
+  const dup = store.createLabel("  ", "#fff");
+  assert.equal(dup.error, "label_name_required");
+  const a = store.createLabel("긴급", "#b3372f");
+  assert.ok(a.label.id);
+  assert.equal(store.createLabel("긴급", "#000").error, "label_exists");
+
+  const [m1, m2] = store.mail({ days: 0 }).slice(0, 2);
+  assert.deepEqual(m1.label_ids, []);
+  assert.equal(store.setMailLabel(m1.id, a.label.id, true).ok, true);
+  assert.equal(store.setMailLabel("no-such", a.label.id, true).error, "mail_not_found");
+
+  const filtered = store.mail({ days: 0, label_id: a.label.id });
+  assert.equal(filtered.length, 1);
+  assert.equal(filtered[0].id, m1.id);
+  assert.deepEqual(filtered[0].label_ids, [a.label.id]);
+
+  store.setMailLabel(m1.id, a.label.id, false);
+  assert.equal(store.mail({ days: 0, label_id: a.label.id }).length, 0);
+
+  const q = store.mail({ days: 0, q: m2.subject.slice(0, 6) });
+  assert.ok(q.some((m) => m.id === m2.id));
+});
+
+test("run13: 가이드 산출물 CRUD + 스텝 진행 상태", async () => {
+  const { guideTemplates, SE_STAGES, ARTIFACT_FLOW } = await import("../src/guide.mjs");
+  const store = freshStore();
+  loadFixture(store);
+  const proj = store.summary("2026-06-12", "2026-06-18")[0].id;
+
+  // 템플릿: 양 모드 모두 8단계 + 7스텝, 파리티
+  for (const mode of ["business", "fantasy"]) {
+    const t = guideTemplates(mode);
+    assert.equal(t.stages.length, SE_STAGES.length);
+    assert.equal(t.flow.length, ARTIFACT_FLOW.length);
+    assert.ok(t.stages.every((s) => s.name && s.code));
+    assert.ok(t.flow.every((s) => s.name && s.hint));
+  }
+  // Out(final) 이 quality 앞, snapshot 이 첫 스텝 — "폴더 순서 = 업무 순서"
+  const keys = ARTIFACT_FLOW.map((s) => s.key);
+  assert.equal(keys[0], "snapshot");
+  assert.ok(keys.indexOf("final") === keys.length - 2 && keys.at(-1) === "quality");
+
+  // 산출물 추가: 검증 + 중복 거부
+  assert.equal(store.addGuideArtifact(proj, "030", "  ").error, "artifact_name_required");
+  assert.equal(store.addGuideArtifact("no-such", "030", "SSRS").error, "project_not_found");
+  assert.equal(store.addGuideArtifact(proj, "030", "체계요구사항명세서(SSRS)").ok, true);
+  assert.equal(store.addGuideArtifact(proj, "030", "체계요구사항명세서(SSRS)").error, "artifact_exists");
+
+  // 스텝 체크/해제 + 상태 맵
+  let [art] = store.guideState(proj);
+  assert.equal(art.stage_code, "030");
+  assert.deepEqual(art.steps, {});
+  assert.equal(store.setGuideStep(art.id, "snapshot", true).ok, true);
+  assert.equal(store.setGuideStep(999999, "snapshot", true).error, "artifact_not_found");
+  [art] = store.guideState(proj);
+  assert.ok(art.steps.snapshot.done_at);
+  store.setGuideStep(art.id, "snapshot", false);
+  [art] = store.guideState(proj);
+  assert.equal(art.steps.snapshot, undefined);
+});
+
+test("run16: P2a 할일 쓰기 — 생성/검증/가이드 연결", () => {
+  const store = freshStore();
+  loadFixture(store);
+  const proj = store.summary("2026-06-12", "2026-06-18")[0].id;
+
+  assert.equal(store.createItem({ project_id: proj, title: " " }).error, "title_required");
+  assert.equal(store.createItem({ project_id: "no-such", title: "x" }).error, "project_not_found");
+  assert.equal(store.createItem({ project_id: proj, title: "x", due: "6/13" }).error, "due_format");
+  assert.equal(store.createItem({ project_id: proj, title: "x", guide_artifact_id: 999 }).error, "guide_artifact_not_found");
+
+  const r = store.createItem({ project_id: proj, title: "방열판 견적 요청", assignee_ref: "u1", due: "2026-06-20", created_by: "owner" });
+  assert.equal(r.ok, true);
+  assert.equal(r.item.status, "open");
+  assert.equal(r.item.data_label, "real");
+  assert.equal(r.item.created_by, "owner");
+
+  // 가이드 산출물 연결 (+ 타 과제 산출물 거부)
+  store.addGuideArtifact(proj, "030", "SSRS");
+  const [art] = store.guideState(proj);
+  const linked = store.createItem({ project_id: proj, title: "SSRS 초안", guide_artifact_id: art.id, guide_step_key: "draft" });
+  assert.equal(linked.ok, true);
+  const rows = store.items({ project: proj, q: "SSRS 초안" });
+  assert.equal(rows[0].guide_artifact_name, "SSRS");
+  assert.equal(rows[0].guide_stage_code, "030");
+  const other = store.summary("2026-06-12", "2026-06-18")[1].id;
+  assert.equal(store.createItem({ project_id: other, title: "y", guide_artifact_id: art.id }).error, "guide_artifact_project_mismatch");
+});
+
+test("run16: P2a 상태 전이 + 담당 지정 + project_ref 이벤트 필터", () => {
+  const store = freshStore();
+  loadFixture(store);
+  const proj = store.summary("2026-06-12", "2026-06-18")[0].id;
+  const { item } = store.createItem({ project_id: proj, title: "테스트 할일" });
+
+  assert.equal(store.setItemStatus(item.id, "weird").error, "bad_status");
+  assert.equal(store.setItemStatus("no-such", "doing").error, "item_not_found");
+  const s1 = store.setItemStatus(item.id, "doing");
+  assert.deepEqual([s1.ok, s1.from, s1.project_id], [true, "open", proj]);
+  const s2 = store.setItemStatus(item.id, "done");
+  assert.equal(s2.from, "doing");
+
+  const a1 = store.setItemAssignee(item.id, "u2");
+  assert.equal(a1.ok, true);
+  assert.equal(store.setItemAssignee("no-such", "u2").error, "item_not_found");
+
+  // project_ref 차원: 과제별 이력 필터
+  store.appendEvent({ kind: "item_status", item_ref: item.id, from: "open", to: "doing", project_ref: proj, data_label: "real" });
+  store.appendEvent({ kind: "item_status", item_ref: "zzz", from: "open", to: "doing", project_ref: "OTHER", data_label: "real" });
+  const filtered = store.recentEvents(50, proj);
+  assert.ok(filtered.length >= 1);
+  assert.ok(filtered.every((e) => e.project_ref === proj));
+});
+
+test("run16: 메일→할일 승격 (메타만, 중복 거부)", () => {
+  const store = freshStore();
+  loadFixture(store);
+  const [m] = store.mail({ days: 0 });
+  const r = store.promoteMail(m.id, "owner");
+  assert.equal(r.ok, true);
+  assert.equal(r.item.title, m.subject);          // 제목 메타만 복사
+  assert.equal(r.item.origin, "mail");
+  assert.equal(r.item.origin_mail_id, m.id);
+  assert.equal(r.item.project_id, m.project_id);
+  const dup = store.promoteMail(m.id, "owner");
+  assert.equal(dup.error, "already_promoted");
+  assert.equal(dup.item_id, r.item.id);
+  assert.equal(store.promoteMail("no-such", "owner").error, "mail_not_found");
+  // 본문 필드 자체가 스키마에 없음 — 승격 항목 컬럼 확인
+  const cols = store.db.prepare("PRAGMA table_info(core_item)").all().map((c) => c.name);
+  assert.ok(cols.includes("origin_mail_id") && cols.includes("created_by"));
+  assert.ok(!cols.includes("body"));
+});
+
+test("run17: 메일 과제 분류(재배정) — 단건/묶음/할일 동행 이동/출몰 생성", () => {
+  const store = freshStore();
+  loadFixture(store);
+  const projects = store.summary("2026-06-12", "2026-06-18");
+  const [pa, pb] = [projects[0].id, projects[1].id];
+  const mails = store.mail({ days: 0 }).slice(0, 3);
+
+  // 단건 검증
+  assert.equal(store.setMailProject("no-such", pa).error, "mail_not_found");
+  assert.equal(store.setMailProject(mails[0].id, "no-such").error, "project_not_found");
+  const mv = store.setMailProject(mails[0].id, pb === mails[0].project_id ? pa : pb);
+  assert.equal(mv.ok, true);
+  assert.equal(mv.from, mails[0].project_id);
+
+  // 승격된 메일 재배정 → 연결 할일 동행 이동 (단일 진실)
+  const pr = store.promoteMail(mails[1].id, "owner");
+  assert.equal(pr.ok, true);
+  const target = mails[1].project_id === pa ? pb : pa;
+  const mv2 = store.setMailProject(mails[1].id, target);
+  assert.equal(mv2.item_moved, pr.item.id);
+  assert.equal(store.db.prepare("SELECT project_id FROM core_item WHERE id=?").get(pr.item.id).project_id, target);
+
+  // 묶음 + make_items: 미승격분만 생성, 승격분은 이동만 (중복 0)
+  // 대상은 두 메일의 현재 과제와 다른 곳으로 (unchanged 회피)
+  const cur1 = target;
+  const cur2 = store.db.prepare("SELECT project_id FROM core_mail WHERE id=?").get(mails[2].id).project_id;
+  const batchTarget = projects.map((x) => x.id).find((id) => id !== cur1 && id !== cur2);
+  const batch = store.assignMails([mails[1].id, mails[2].id], batchTarget, { make_items: true, created_by: "owner" });
+  assert.equal(batch.ok, true);
+  const r1 = batch.results.find((x) => x.mail_id === mails[1].id);
+  const r2 = batch.results.find((x) => x.mail_id === mails[2].id);
+  assert.equal(r1.item_moved, pr.item.id);      // 기존 할일 이동
+  assert.equal(r1.item_created, null);           // 중복 생성 없음
+  assert.ok(r2.item_created);                    // 새 출몰
+  const created = store.db.prepare("SELECT * FROM core_item WHERE id=?").get(r2.item_created);
+  assert.deepEqual([created.project_id, created.origin, created.status], [batchTarget, "mail", "open"]);
+
+  assert.equal(store.assignMails([], pa).error, "mail_ids_required");
+  assert.equal(store.assignMails([mails[0].id], "no-such").error, "project_not_found");
+});
+
+test("B5: 라벨 감사기 — 커버리지 집계 + 결손 주입 검출", async () => {
+  const { audit, auditSince } = await import("../tools/label_audit.mjs");
+  const good = (id, kind) => ({ id, kind, actor_ref: "owner", used_refs: '["items"]', data_label: "real", project_ref: "P1" });
+  // 전부 정상
+  const clean = audit([good(1, "item_create"), good(2, "mail_assign")]);
+  assert.equal(clean.coverage.used_refs, 1);
+  assert.equal(clean.coverage.project_ref, 1);
+  assert.equal(clean.coverage.data_label, 1);
+  // 결손 주입: refs 빈 배열 / project_ref null / data_label null / 깨진 JSON
+  const dirty = audit([
+    good(1, "a"),
+    { id: 2, kind: "b", actor_ref: "x", used_refs: "[]", data_label: "real", project_ref: null },
+    { id: 3, kind: "c", actor_ref: null, used_refs: "not-json", data_label: null, project_ref: "P1" }
+  ]);
+  assert.equal(dirty.used_refs_present, 1);
+  assert.equal(dirty.offenders.no_used_refs.length, 2);
+  assert.deepEqual(dirty.offenders.no_project_ref, [2]);
+  assert.deepEqual(dirty.offenders.no_data_label, [3]);
+  assert.ok(dirty.coverage.used_refs < 0.4);
+  // 도입 시점 이후만 따로 (id > 2)
+  const recent = auditSince([good(1, "a"), good(3, "b"), { id: 4, kind: "c", used_refs: "[]", data_label: "real", project_ref: null }], 2);
+  assert.equal(recent.total, 2);
+  assert.equal(recent.offenders.no_used_refs.length, 1);
+  // 빈 입력 안전
+  assert.equal(audit([]).coverage.used_refs, 1);
+});

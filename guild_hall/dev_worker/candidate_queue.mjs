@@ -247,6 +247,67 @@ export async function promoteApprovedCandidates(options = {}) {
   };
 }
 
+// 하네스 B4 (candidate_queue_archive_policy_v0 흡수): 닫힌 후보를
+// dev_worker_candidate_queue/archive/<year>/ 로 이동(이동만, 내용 불변)해
+// 큐 디렉토리에 actionable 항목만 남긴다. discoverCandidatePackets 는
+// 파일만 읽고 하위 디렉토리를 무시하므로 archive 는 자연히 차폐된다.
+// 기본 dry-run, apply: true 일 때만 실제 이동 + ARCHIVE_INDEX.md 에 기록.
+export async function archiveClosedCandidates(options = {}) {
+  const localRoot = path.resolve(options.localRoot ?? process.cwd());
+  const workmetaRoot = options.workmetaRoot ? path.resolve(options.workmetaRoot) : path.join(localRoot, "_workmeta");
+  const apply = options.apply === true;
+  const sources = await discoverCandidatePackets({ localRoot, workmetaRoot });
+  const moves = [];
+  const skipped = [];
+
+  for (const source of sources) {
+    let raw;
+    try {
+      raw = parseYaml(await fs.readFile(source.packet_path, "utf8"));
+    } catch (error) {
+      skipped.push({ packet_ref: source.packet_ref, reason: `parse_error:${error.message}` });
+      continue;
+    }
+    const status = String(raw?.status ?? "").trim().toLowerCase();
+    if (!isClosedCandidateStatus(status)) {
+      continue;
+    }
+    const queueRoot = path.dirname(source.packet_path);
+    const dateField = raw?.promoted_at ?? raw?.owner_approval?.approved_at ?? raw?.completed_at ?? "";
+    const yearMatch = /^(\d{4})/.exec(String(dateField));
+    const year = yearMatch ? yearMatch[1] : String(new Date().getFullYear());
+    const targetRoot = path.join(queueRoot, "archive", year);
+    const targetPath = path.join(targetRoot, path.basename(source.packet_path));
+    if (await pathExists(targetPath)) {
+      skipped.push({ packet_ref: source.packet_ref, reason: "target_exists" });
+      continue;
+    }
+    moves.push({
+      task_id: sanitizeSlug(raw?.task_id ?? path.basename(source.packet_path, ".yaml")),
+      status,
+      from: normalizePacketRef(localRoot, source.packet_path),
+      to: normalizePacketRef(localRoot, targetPath),
+    });
+    if (apply) {
+      await fs.mkdir(targetRoot, { recursive: true });
+      await fs.rename(source.packet_path, targetPath); // 이동만 — 내용 불변
+      const indexPath = path.join(queueRoot, "archive", "ARCHIVE_INDEX.md");
+      const line = `- ${new Date().toISOString().slice(0, 10)} \`${moves[moves.length - 1].from}\` → \`${moves[moves.length - 1].to}\` (status: ${status})\n`;
+      const head = (await pathExists(indexPath)) ? "" : "# Candidate Queue Archive Index\n\n경로 이동 기록 (inbound 참조 추적용 — 내용은 이동만, 재작성 없음)\n\n";
+      await fs.appendFile(indexPath, head + line, "utf8");
+    }
+  }
+
+  return {
+    mode: apply ? "apply" : "dry-run",
+    moves,
+    skipped,
+    moved_count: apply ? moves.length : 0,
+    planned_count: moves.length,
+    scanned_count: sources.length,
+  };
+}
+
 function normalizeCandidate(raw, source) {
   const taskId = sanitizeSlug(raw?.task_id ?? raw?.id ?? path.basename(source.packet_path, path.extname(source.packet_path)));
   const status = String(raw?.status ?? "").trim().toLowerCase();
@@ -629,6 +690,8 @@ async function main() {
     }
   } else if (args["promote-approved"] === true || args["promote-approved"] === "true") {
     result = await promoteApprovedCandidates({ localRoot, workmetaRoot });
+  } else if (args["archive-closed"] === true || args["archive-closed"] === "true") {
+    result = await archiveClosedCandidates({ localRoot, workmetaRoot, apply: args.apply === true || args.apply === "true" });
   } else {
     result = await listCandidatePackets({ localRoot, workmetaRoot });
   }
@@ -645,6 +708,17 @@ async function main() {
 
   if ("promoted_count" in result) {
     process.stdout.write(`promoted: ${result.promoted_count}\nscanned: ${result.scanned_count}\n`);
+    return;
+  }
+
+  if ("planned_count" in result) {
+    process.stdout.write(`archive (${result.mode}): planned ${result.planned_count}, moved ${result.moved_count}\n`);
+    for (const m of result.moves) {
+      process.stdout.write(`  ${m.status}: ${m.from} -> ${m.to}\n`);
+    }
+    for (const s of result.skipped) {
+      process.stdout.write(`  skip: ${s.packet_ref} (${s.reason})\n`);
+    }
     return;
   }
 

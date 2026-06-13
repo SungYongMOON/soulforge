@@ -1,0 +1,214 @@
+{
+  "schema": "dev_erp.checklist.v1",
+  "phase": "P1",
+  "title": "읽기 콕핏 (read-only cockpit)",
+  "design_ref": "DESIGN.md",
+  "statuses": [
+    "todo",
+    "in_progress",
+    "done",
+    "blocked"
+  ],
+  "rules": {
+    "status_update": "각 항목 구현 직후 status 갱신. blocked 는 reason 필수.",
+    "scope": "이 파일에 없는 기능은 만들지 않는다. 새 항목 추가는 owner 확인 후.",
+    "verification": "페이즈 종료 시 synthetic fixture 화면 검증 + 코어 node:test + inspector."
+  },
+  "items": [
+    {
+      "id": "INFRA-001",
+      "title": "앱 뼈대: Node 서버 + SQLite + 웹 클라이언트, localhost 단독 실행",
+      "priority": "P0",
+      "status": "done",
+      "acceptance": "npm run dev 한 번으로 서버+화면이 뜨고, 빈 상태 화면이 깨지지 않는다"
+    },
+    {
+      "id": "INFRA-002",
+      "title": "읽기존 어댑터: Soulforge projection/메타(할일·메일 이력·파일 포인터)를 콕핏 모델로 변환",
+      "priority": "P0",
+      "status": "done",
+      "acceptance": "원본 폴더를 직접 훑지 않고 승인된 메타 표면만 읽는다. 신선도(수집 시각) 표시"
+    },
+    {
+      "id": "INFRA-003",
+      "title": "이벤트 로그 기반: 모든 상태 변화를 append-only 이벤트로 기록 (게임 뷰의 연료)",
+      "priority": "P0",
+      "status": "done",
+      "acceptance": "P1 read-only 단계에서도 데이터 수집/조회 이벤트가 로그로 남고, 스키마에 actor/at/kind/대상 + used_refs[]/data_label 라벨 자리가 있다. 점수 계산과 사용 빈도 분석은 이 로그만으로 가능해야 함 (P-G/학습 데이터 전제)"
+    },
+    {
+      "id": "INFRA-004",
+      "title": "lexicon 사전 구조 (라벨 하드코딩 금지): business 기본, fantasy 용어 토글은 P2 우선순위",
+      "priority": "P2",
+      "status": "done",
+      "acceptance": "라벨이 사전을 거친다. fantasy 용어는 SHARED_GLOSSARY 대조표 참조. 전장 뷰 자체는 P-G 별도 페이즈로 이 체크리스트 범위 밖"
+    },
+    {
+      "id": "UI-001",
+      "title": "프로젝트 홈: 프로젝트(던전) 목록 + 상태 요약 카드",
+      "priority": "P0",
+      "status": "done",
+      "acceptance": "프로젝트별 미완료/마감임박/차단 수가 한 화면에 보인다"
+    },
+    {
+      "id": "UI-002",
+      "title": "할일/마감 리스트 (read): 프로젝트·담당·상태 필터",
+      "priority": "P0",
+      "status": "done",
+      "acceptance": "오늘/이번 주/지남 구분이 보이고 필터가 동작한다"
+    },
+    {
+      "id": "UI-003",
+      "title": "메일 이력 리스트 (metadata read): 시간순/프로젝트별, 원문 미저장",
+      "priority": "P1",
+      "status": "done",
+      "acceptance": "제목·시각·방향·프로젝트만 표시, 원문 본문은 포인터 안내로 대체"
+    },
+    {
+      "id": "UI-004",
+      "title": "산출물/파일 포인터 리스트: 종류별(BOM/회로도/보고서) + 해시/위치 표시",
+      "priority": "P1",
+      "status": "done",
+      "acceptance": "파일 본문 없이 포인터·해시·갱신일이 보이고, 경로 복사 버튼이 있다"
+    },
+    {
+      "id": "UI-005",
+      "title": "현장 검색 뷰어 셸: 프로젝트/업체명 검색 → 관련 할일·메일·산출물 묶어 보기",
+      "priority": "P1",
+      "status": "done",
+      "acceptance": "검색 1회로 세 종류 결과가 한 화면에 묶인다 (외근 시나리오, 모바일 폭 확인)"
+    },
+    {
+      "id": "TEST-001",
+      "title": "합성 fixture: 프로젝트 3, 할일 30, 메일 메타 50, 파일 포인터 30 생성기",
+      "priority": "P0",
+      "status": "done",
+      "acceptance": "fixture 만으로 모든 화면이 채워져 검증 가능 (실데이터 0)"
+    },
+    {
+      "id": "TEST-002",
+      "title": "코어 node:test: 어댑터 변환·lexicon 전환·검색 묶기 로직",
+      "priority": "P0",
+      "status": "done",
+      "acceptance": "node --test 통과, 브라우저 없이 코어 검증 가능"
+    },
+    {
+      "id": "TEST-003",
+      "title": "스킨 전환 검증: business/fantasy 양 모드 주요 화면 확인",
+      "priority": "P2",
+      "status": "done",
+      "acceptance": "양 모드에서 깨지는 라벨/레이아웃 없음"
+    },
+    {
+      "id": "DOC-001",
+      "title": "README: 실행법, 데이터 출처, 한계(read-only, localhost 전용) 명시",
+      "priority": "P1",
+      "status": "done",
+      "acceptance": "owner 가 README 만 보고 파일럿을 시작할 수 있다"
+    },
+    {
+      "id": "SCAFFOLD-001",
+      "title": "전체 IA 칸 선행 노출: wants.md 12개 모듈을 메뉴+placeholder(컬럼/페이즈/들어올 것)로",
+      "priority": "P0",
+      "status": "done",
+      "acceptance": "메뉴에서 모든 미래 모듈이 보이고, 각 화면에 실제 컬럼 구조와 가동 페이즈가 표시된다 (owner 지시 2026-06-12)"
+    },
+    {
+      "id": "UX-001",
+      "title": "네비 3겹화: 즐겨찾기 핀(☆→내 메뉴+상단 바 칩) — 벤치마크 N1+N5",
+      "priority": "P1",
+      "status": "done",
+      "acceptance": "메뉴 ☆ 클릭 시 내 메뉴 그룹과 상단 바에 고정, 사용자별(localStorage) 저장. 벤치마크: ERP_UX_BENCHMARK_20260612.md"
+    },
+    {
+      "id": "UX-002",
+      "title": "홈 위젯 타일 (벤치마크 N2): 켜고 끄는 타일 5종 + 타일 설정",
+      "priority": "P1",
+      "status": "done",
+      "acceptance": "프로젝트/오늘·지난 마감/차단/최근 메일/최근 변경 타일, localStorage 저장, 기본 전부 표시"
+    },
+    {
+      "id": "UX-003",
+      "title": "Cmd+K 빠른 이동 (벤치마크 N3): 화면·프로젝트·모드 전환 팔레트 + ⌘K 버튼",
+      "priority": "P1",
+      "status": "done",
+      "acceptance": "타이핑 필터→Enter 점프 동작 (브라우저 실검증). 키 조합은 실기기 확인 1회 필요"
+    },
+    {
+      "id": "P1B-001",
+      "title": "실데이터 메타 ingest: snapshot(프로젝트13/미션3) + 메일 이력 CSV 8종 675행",
+      "priority": "P0",
+      "status": "done",
+      "acceptance": "메타만(제목/일시/포인터, 원문복사여부=false 행만), data/ gitignore, 합성 표본 자동 제거, 재실행 시 mtime 마커로 중복 방지"
+    },
+    {
+      "id": "UX-004",
+      "title": "대시보드 '남은 일' 행 테이블 + KPI + 4분류 (run10, 페르소나 합의)",
+      "priority": "P0",
+      "status": "done",
+      "acceptance": "KPI 4종, 진행과제 위험순 행, 미연결 '—', 미분류 스트립, 내부 접힘, due 3버킷, XSS esc, 업무모드 게임요소 제거"
+    },
+    {
+      "id": "UX-005",
+      "title": "Gmail식 메일: 자동 프로젝트 칩 + 수동 라벨 CRUD + 기간/방향/검색 + 날짜 섹션 + 상세 패널 (run11)",
+      "priority": "P0",
+      "status": "done",
+      "acceptance": "라벨 생성·부착·필터 동작(실검증), 원문 포인터 복사, 미분류 시스템 칩. 원문 미적재 유지"
+    },
+    {
+      "id": "UX-006",
+      "title": "가이드형 워크플로우 v1: SE 8단계 스테퍼 + 산출물 7스텝 체크리스트 (run13)",
+      "priority": "P0",
+      "status": "done",
+      "acceptance": "출처=.registry/skills/se_foldertree_generate(폴더 순서=업무 순서). 산출물 추가/스텝 체크·해제/진행률/다음 할 일 강조, 양 모드 파리티, event_log(used_refs+data_label) 기록. node --test 11/11 + 브라우저 실검증(콘솔 에러 0)"
+    },
+    {
+      "id": "UX-007",
+      "title": "과제 허브: 과제 클릭 → 개요/산출물(가이드)/메일/이력 탭 (run16)",
+      "priority": "P0",
+      "status": "done",
+      "acceptance": "리서치 하이브리드 권고(저장=관계형, 표시=컨테이너) 구현. 데이터 이동 0. 홈/팔레트/할일에서 진입. 브라우저 실검증 + 콘솔 0"
+    },
+    {
+      "id": "W-001",
+      "title": "P2a 할일 쓰기: 생성/상태 전이/담당/가이드 스텝 연결/메일→할일 승격 (run16)",
+      "priority": "P0",
+      "status": "done",
+      "acceptance": "POST 4종 전부 event_log 기록(project_ref 차원 포함), 중복 승격 거부, 메타만 복사(본문 컬럼 없음 확인), node:test 14/14 + 실검증. RBAC 필드 설계만(P2b 강제)"
+    },
+    {
+      "id": "W-002",
+      "title": "메일 과제 분류(재배정): 단건+묶음, 할일 생성 옵션 = 몬스터 출몰 (run17)",
+      "priority": "P0",
+      "status": "done",
+      "acceptance": "INBOX 트리아지 + 자동분류 재배정. 승격된 메일은 연결 할일 동행 이동(중복 생성 0). mail_assign/item_move/item_promote 이벤트(project_ref). 분류 후 업무=허브 메일 탭, 판타지=전황 탭+출몰 연출. node:test 15/15 + 실검증(미분류 248→245), 콘솔 0"
+    }
+  ],
+  "owner_questions": [
+    "P1 콕핏의 첫 화면: 프로젝트 홈 vs 현장 검색 중 무엇을 기본으로?",
+    "메일 이력의 표시 범위: 최근 90일? 전체?",
+    "전장 뷰(P-G) 점수 규칙 초안: 처치 수 기반? 난이도 가중치? 파티 단위 합산 방식? (P-G 착수 전 결정)",
+    "홈 기본 타일 조합/순서: 전부 표시 유지? 프로젝트+오늘만 기본?",
+    "N4(저장된 검색 탭)는 P2와 함께 갈지 먼저 갈지",
+    {
+      "id": "Q-run17-spawn",
+      "q": "분류 시 '할일도 생성(몬스터 출몰)' 기본값을 ON으로 했습니다 (몬스터=core_item 원칙 유지: 분류=메일 이동, 체크=출몰). 기본 ON이 맞나요, 아니면 기본 OFF(분류만)로 할까요? 상세 패널의 단건 분류는 항상 생성입니다 — 동일 체크로 통일할까요?"
+    }
+  ],
+  "blocked": [],
+  "run_notes": [
+    "2026-06-12 P1 run1 (claude_fable-5): 코어/서버/클라이언트 구현. node:test 8/8, API 스모크 통과.",
+    "2026-06-12 P1 run2 (claude_fable-5, Chrome 확장 실검증): 5뷰 화면 순회·판타지 모드 전환·검색 묶기",
+    "실확인, 콘솔 에러 0. 결함 2건 발견·수정: freshness UTC→현지시각, 잔존 라벨 사전 이관.",
+    "모바일 폭은 핸드폰 실기기 확인 권장(--host 모드, macOS 창 최소폭 제약으로 데스크톱 리사이즈 불가).",
+    "서버는 node --watch 운영으로 전환 (AI 수정 즉시 반영). blocked 0건. P1 체크리스트 13/13 done.",
+    "2026-06-12 run3: owner 피드백(뼈대 전체 노출) 반영 — 12개 모듈 칸 추가, 양 모드 라벨, --watch 자동 반영 확인.",
+    "2026-06-12 run5: ERP UX 벤치마크(Fiori/이카운트/Odoo) → owner 채택 N1+N5 구현, 브라우저 실검증. N2(홈 타일)·N3(Cmd+K)·N4(저장 탭)는 후속 후보.",
+    "2026-06-12 run6-7 (자율 블록): Cmd+K 팔레트 + 홈 위젯 타일 구현·실검증. P1b(실데이터)는 owner 승인 대기로 미실행. 콘솔 에러 0, node:test 8/8 유지.",
+    "2026-06-12 run8 (P1b, owner 승인): build_real_meta.mjs + 부팅 자동 ingest. 13프로젝트/675메일 적재, 합성 제거, \\\\uXXXX 제목 디코드. 브라우저 실검증·콘솔 0. 원문/외부 전송 0건.",
+    "2026-06-12 run9-11: 3페르소나 평가(PERSONA_REVIEW) → 대시보드 개편 + Gmail식 메일+라벨. 보류: URL 라우팅/정렬/스레드 그룹핑/검색 연산자(후속 후보), N4(owner 보류).",
+    "2026-06-12 run13: TOOL_IDENTITY_REVIEW(run12) 콘셉트 '폴더트리가 곧 위저드' 구현. guide.mjs(SE_STAGES 030~240 + ARTIFACT_FLOW snapshot→…→final(Out)→quality) + guide_artifact/guide_step 테이블 + API 4종 + 가이드 화면(과제 선택→단계 위→아래→산출물 카드→7스텝, 첫 미완=다음 할 일). N4(저장된 검색)는 owner 보류 유지 — 가이드가 일부 수요 대체 가능성만 기록. QA 산출물 1건(P21-062/030 SSRS, 0/7)은 시연용으로 남김.",
+    "2026-06-12 run16: owner 승인('진행해')으로 과제 허브+P2a 구현. P2 순서 패킷 approved. core_item 4컬럼+event_log project_ref 마이그레이션(try/catch ALTER). 가이드 섹션 빌더 공용화(전역 가이드/허브 공유). QA 쓰기 잔존: P21-062 할일 3건(1 doing)+승격 배지 1+SSRS 산출물 — 초기화 원하면 data/dev-erp.db 삭제 후 재기동(전체 리셋: 라벨/가이드/할일 소실). 흡수 결정: 할일 표의 자동화 컬럼→산출물 연결 컬럼 교체.",
+    "2026-06-12 run17: 메일 분류(재배정) + 판타지 출몰. 경계 결정 기록(DESIGN 변경 이력): 몬스터=core_item 유지, 분류≠자동출몰, 체크 옵션(기본 ON)이 출몰. QA로 실분류 3건 수행([Soulforge] 내부 보고 메일 → general_work, 합리적 분류라 원복 안 함) + 몬스터 1건 출몰(general_work). 미분류 248→245."
+  ]
+}

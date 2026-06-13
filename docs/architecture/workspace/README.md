@@ -37,6 +37,7 @@
 | `NOTEBOOKLM_MCP_SETUP_V0.md` | NotebookLM MCP 를 대상 PC 에 재설치하는 runbook 이다. |
 | `../bootstrap/WORKFLOW_EVOLUTION_HARNESS_INSTALL_V0.md` | owner PC 에 `/goal` 과 promptfoo 같은 workflow evolution harness 후보를 설치하는 runbook 이다. |
 | `MULTI_PC_DEVELOPMENT_V0.md` | 여러 PC clone, local node role, push/pull, primary writer 충돌 방지 규칙이다. |
+| `SYSTEM_WORKSPACE_SYNC_MIGRATION_V0.md` | 여러 PC 에서 갈라진 `_workspaces/system/` 을 공개 안전하게 조사, 비교, 공유 전환하는 migration runbook 이다. |
 | `MAIL_TO_MISSION_HANDOFF_V0.md` | mail/intake monster 를 first mission draft 로 넘기는 handoff 기준이다. |
 | `DEADLINE_WATCH_V0.md` | 프로젝트별 deadline_watch 장부와 P00 unresolved deadline inbox 계약이다. |
 | `MONSTER_FAMILY_LINEUP_V0.md` | monster family/name/type 의 starter lineup 과 표시 기준이다. |
@@ -89,6 +90,7 @@
 - [`NOTEBOOKLM_MCP_SETUP_V0.md`](NOTEBOOKLM_MCP_SETUP_V0.md)
 - [`../bootstrap/WORKFLOW_EVOLUTION_HARNESS_INSTALL_V0.md`](../bootstrap/WORKFLOW_EVOLUTION_HARNESS_INSTALL_V0.md)
 - [`MULTI_PC_DEVELOPMENT_V0.md`](MULTI_PC_DEVELOPMENT_V0.md)
+- [`SYSTEM_WORKSPACE_SYNC_MIGRATION_V0.md`](SYSTEM_WORKSPACE_SYNC_MIGRATION_V0.md)
 - [`MAIL_TO_MISSION_HANDOFF_V0.md`](MAIL_TO_MISSION_HANDOFF_V0.md)
 - [`DEADLINE_WATCH_V0.md`](DEADLINE_WATCH_V0.md)
 - [`MONSTER_FAMILY_LINEUP_V0.md`](MONSTER_FAMILY_LINEUP_V0.md)
@@ -133,6 +135,7 @@
 - `MAIL_SEND_V0.md` 는 outbound mail local env, outbound snapshot, append-only send log 위치를 같이 잠근다.
 - `MAIL_SEND_STYLE_POLICY_V0.md` 는 owner 가 직접 보내는 것처럼 보이는 업무 메일 초안, 승인 단계, 제목/본문 스타일, 발송 후 metadata-only 기록 기준을 잠근다.
 - `MULTI_PC_DEVELOPMENT_V0.md` 는 다른 PC 에서 `clone -> local runtime materialize -> push` 하는 최소 운영 절차와 `work_pc` / `tool_pc` / `portable_dev_pc` / `always_on_node` 역할 모델을 잠근다.
+- `SYSTEM_WORKSPACE_SYNC_MIGRATION_V0.md` 는 여러 PC 의 `_workspaces/system/` drift 를 실제 payload 없이 manifest 기반으로 비교하고 공유 전환 여부를 결정하는 공개 회람용 runbook 이다.
 - split binding 파일은 `bindings/*.yaml` 상대 경로 포인터 규칙을 사용한다.
 - workflow step 의 `execution_profile_ref` 와 `action.skill_id` 는 local runtime binding 을 통해 model, skill package, MCP/tool preset 으로 resolve 할 수 있다.
 - `autohunt/` 는 mailbox routing, party workflow-chain 또는 단일 workflow selection, retry-escalation policy, future node capability/claim 확장선을 설명하는 local operating layer 다.

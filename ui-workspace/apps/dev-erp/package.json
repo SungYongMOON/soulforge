@@ -1,0 +1,15 @@
+{
+  "name": "@soulforge/dev-erp",
+  "version": "0.1.0",
+  "private": true,
+  "type": "module",
+  "description": "개발팀 운영 콕핏 (P1 read-only) - 무의존 Node 서버 + SQLite",
+  "engines": {
+    "node": ">=22.5"
+  },
+  "scripts": {
+    "start": "node server.mjs",
+    "dev": "node --watch server.mjs",
+    "test": "node --test test/core.test.mjs"
+  }
+}

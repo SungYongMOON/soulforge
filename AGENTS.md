@@ -1,5 +1,14 @@
 ﻿# Soulforge — 저장소 작업 헌장
 
+> **연속성 제약 (2026-06-13 owner)**: 이 저장소의 주 개발 환경은 Codex 다.
+> 다른 모델/도구(예: 한정 윈도우의 강한 모델)가 개발하더라도, 산출물은
+> **Codex 가 그대로 이어받아 유지보수 가능**해야 한다 — ① 에이전트 지침
+> 정본은 이 AGENTS.md 하나(CLAUDE.md 는 @AGENTS.md 포인터만, 특정 모델
+> 전용 지침을 밖에 흩뿌리지 말 것) ② 하네스/스크립트는 도구 비종속
+> (표준 Node/CLI, 특정 에이전트 환경 전용 기능 의존 금지) ③ 페이즈 끝과
+> 윈도우 종료 시 NIGHT_WORK_HANDOFF 체크포인트 필수 ④ 결정·계획·맥락은
+> PLAN/DESIGN/packet 에 문서화.
+
 ## 목적
 
 Soulforge는 canonical 구조와 public/private 경계를 고정한 설계 저장소다.

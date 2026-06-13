@@ -1,6 +1,108 @@
-﻿# CHANGELOG
+# CHANGELOG
+
+## 2026-06-13
+
+### Revision `working` - 하네스 강화 B1·B2 (verify_gate + doctor 확장)
+
+- B1: dev-erp `tools/verify_gate.mjs` — 페이즈 종료 기계 체크 9종 +
+  AGENT_EXECUTION_CONTRACT_V0 Level 0~3 매핑, 자기검증 테스트, 브라우저
+  검증은 도구 비종속 절차 문서(BROWSER_QA_PROCEDURE.md)로 분리.
+- B2: doctor safe_smokes 2종 추가 — `platform_binary_native_match`
+  (guild_hall/doctor/platform_binary_check.mjs, 외장 볼륨 호스트 이동 시
+  네이티브 바이너리 불일치를 npm ci 안내로 검출, doctor_platform_binary_check_v0
+  흡수) + `dev_erp_doctor` (dev-erp tools/doctor.mjs: node/syntax/DB 스키마·
+  실메타 신선도/gitignore, --live 선택). 전부 표준 Node — Codex 동일 실행.
+- B3: `docs/architecture/foundation/AGENT_BOOT_DIGEST_V0.md` — 필독 체인
+  (AGENTS+계약+로드맵+PROJECT_MAP ~1,270줄)을 81줄 companion 다이제스트로
+  압축 (정본 아님, AGENTS 라우팅 불변 — owner 결정 대기). 드리프트 가드
+  `guild_hall/validate/boot_digest_guard.mjs` (원본 해시 manifest, 변경 시
+  실패→재검토 후 --update 재서명, 100줄 상한 강제).
+- B4: 후보큐 archive 자동화 — `candidate_queue.mjs --archive-closed [--apply]`
+  (candidate_queue_archive_policy_v0 흡수). 닫힌 후보를
+  `archive/<year>/` 로 이동만(내용 불변, ARCHIVE_INDEX.md 기록), 발견
+  로직은 하위 디렉토리 무시라 자연 차폐. 로드맵 저장 규칙에 1줄 등재.
+- B5: dev-erp `tools/label_audit.mjs` — event_log 라벨링 우선 원칙
+  (used_refs/data_label/project_ref/actor) 커버리지 감사, 읽기 전용,
+  --min 게이트 옵션. 첫 감사로 view 이벤트의 project_ref 결손을 발견해
+  logView 에 차원 추가.
+- B6: INSPECTOR_PROTOCOL.md (도구 비종속 — 계약 Level 2 를 실행 절차로) +
+  verify_gate Level>=2 연동. 통합 inspector 패스(fresh) 1회 수행 — B1~B5
+  전부 accept, 발견 반영(reject/hold/revise verdict 는 게이트 FAIL 처리).
+
+## 2026-06-13
+
+### Revision `working` - system workspace drift migration runbook added
+
+- Added `docs/architecture/workspace/SYSTEM_WORKSPACE_SYNC_MIGRATION_V0.md`
+  as a public-safe coordination runbook for resolving drift in
+  `_workspaces/system/` across multiple PCs before deciding whether the
+  folder should remain local-only or become an owner-approved shared junction.
+- The runbook defines a freeze, metadata-only manifest inventory, hash-based
+  comparison classes, conflict handling, shared-root decision points, and
+  public/private boundaries without exposing actual workspace files, PC names,
+  local absolute paths, cloud account details, raw payloads, or secrets.
+- Linked the runbook from `docs/architecture/workspace/README.md` so the team
+  can find the migration status and procedure from GitHub.
 
 ## 2026-06-12
+
+### Revision `working` - Towed-body sensor stability knowledge entry added
+
+- Added `.registry/knowledge/towed_body_sensor_stability/` as a public-safe
+  source-supported reusable knowledge entry for towfish stability, tow point
+  and CG/CB separation, internal liquid damping mechanisms, vibration
+  isolation, cable strumming, appendage case planning, and pointing error
+  budgeting.
+- Registered only public source references and bounded mechanism claims,
+  including NASA/NTRS, NREL, ITTC, OSTI, NAVSEA/Navy public records, NOAA,
+  NIST, USGS, and supporting open technical literature.
+- Kept SONAR2093 design intent, P26-014 acceptance, private reports, raw
+  payloads, NotebookLM answers, vendor source truth, and numerical reverse
+  engineering values out of the public registry entry.
+
+### Revision `working` - Team Ops Board MVP 1: 로컬 실동작 앱 1차 구현
+
+- owner 결정(2026-06-12): 진실 저장소는 하이브리드(Option C, Smartsheet 가
+  공식 프로젝트 장부로 유지), 팀원 직접 수정 + 전 변경 감사 로그, UI 한국어
+  우선. 2026-06-02 fresh design 의 MVP 1 을 시작 조건 충족으로 착수.
+- `ui-workspace/apps/team-ops-board` 추가 (MVP 0 목업은 동결 유지):
+  localStorage 영속 저장, CSV 내보내기/가져오기(UTF-8 BOM, 행 단위 오류
+  보고), 담당/프로젝트/상태/기간/검색 필터, 전 변경 감사 추적(누가/언제/
+  이전→이후), 일일 기준선 고정과 기준선 대비 변경 표시, JSON 백업/복원,
+  차단 사유·대기 대상 입력 강제. 코어 로직은 의존성 없는 `src/core/*.mjs`
+  모듈로 분리.
+- 명령 표면: root `ui:team-ops-app:dev/build/preview/test`,
+  `validate:team-ops-app`, ui-workspace `team-ops-app:*` 추가, 새 앱을
+  `ui:build` 체인에 포함.
+- 검증: 코어 node:test 9/9 통과, `tsc --noEmit` 통과, ui
+  `docs:check-links` 통과 (Linux sandbox). vite 빌드와 `ui:done:check` 는
+  sandbox esbuild 플랫폼 제약으로 owner PC 에서 재실행 필요
+  (`npm run ui:workspace:install` 후 `npm run ui:build`).
+- 근거: `_workmeta/system/reports/procedure_capture/team_ops_board_fresh_design_20260602.md`
+  의 MVP 1 범위. owner 결정 기록은
+  `_workmeta/system/reports/procedure_capture/team_ops_board_mvp1_owner_decision_20260612.md`.
+  작업자: `claude_fable-5`, branch `claude/fable5-deep-verification`,
+  merge 전 owner/Codex 검증 대상.
+
+### Revision `working` - Fable5 심층 검증: 장기 사용성 후보 12건 기록
+
+- Fable 5 심층 검증(비전-실태 격차, 규칙 질량 대비 1인 운영 부담, 정본
+  경계 drift, 문서 신선도)을 수행하고 결과를 backlog 기록으로만 남겼다.
+  이번 변경에 동작/구조 수정은 없다.
+- `docs/architecture/foundation/DEVELOPMENT_ROADMAP_V0.md` 다음 후보 표에
+  10~21행을 추가했다: mission 경량 등록 경로, workflow/skill 사용 ledger,
+  AI 세션 boot digest, foundation 문서 staleness 정리, CHANGELOG rotation,
+  `.workflow` lifecycle/calibrations 위치 재결정, candidate queue archive
+  규칙, doctor 플랫폼 binary 점검, 종료 절차 경량화 검토, V0 버전 기준,
+  knowledge/RAG 통합 색인, Python 테스트 확장.
+- 후보 10~17 의 상세 패킷 8건은 `_workmeta/system/dev_worker_candidate_queue/`
+  에 `status: proposed`, `owner_approval.approved: false` 로 남겼다. 승인
+  전에는 실행 큐로 승격하지 않는다.
+- 검증 과정에서 양호로 판정한 항목(공개 문서 깨진 링크 0/164, done:check
+  가 validate 단계를 포함하는 구조, node_modules gitignore 상태, 후보 큐
+  처리율 17/20)은 후보에서 제외했다.
+- 근거: 2026-06-12 Fable5 심층 검증 (owner 요청). 작업자: `claude_fable-5`,
+  branch `claude/fable5-deep-verification`, merge 전 owner/Codex 검증 대상.
 
 ### Revision `working` - DB/검색 슬라이스: SQLite projection 스키마 계약과 Team Day-1 가이드
 

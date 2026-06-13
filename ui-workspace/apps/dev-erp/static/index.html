@@ -1,0 +1,39 @@
+<!doctype html>
+<html lang="ko">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>dev-erp</title>
+    <link rel="stylesheet" href="/style.css" />
+  </head>
+  <body>
+    <div id="app">
+      <aside class="side">
+        <div class="brand">
+          <strong id="appTitle">…</strong>
+          <span id="freshness" class="freshness"></span>
+        </div>
+        <nav id="nav"></nav>
+        <div class="side-bottom">
+          <label class="mode-toggle">
+            <span id="modeLabel">표시 모드</span>
+            <select id="modeSelect">
+              <option value="business">업무</option>
+              <option value="fantasy">판타지</option>
+            </select>
+          </label>
+        </div>
+      </aside>
+      <main class="main">
+        <header class="topbar">
+          <h1 id="viewTitle">…</h1>
+          <div id="favBar" class="fav-bar"></div>
+          <button id="paletteBtn" class="fav-chip" title="빠른 이동 (Cmd/Ctrl+K)">⌘K</button>
+          <input id="globalSearch" type="search" placeholder="검색" />
+        </header>
+        <section id="view" class="view"></section>
+      </main>
+    </div>
+    <script type="module" src="/app.js"></script>
+  </body>
+</html>
