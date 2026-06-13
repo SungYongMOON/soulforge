@@ -9,6 +9,13 @@
 - The prompt requires repo-relative reporting only, forbids local absolute path
   recording and secret/raw payload inspection, and limits the run to diagnosis
   plus dry-run repair planning unless the owner separately approves mutation.
+- Expanded the prompt from diagnosis-only to a per-PC cleanup planning flow:
+  classify local workspace-system entries, produce a dry-run cleanup plan, and
+  keep all mutation behind explicit owner approval.
+- Reframed the prompt goal so each PC drives toward `_workspaces/system` as the
+  final junction path: preserve any existing local folder under a repo-relative
+  hold location, create the junction only after explicit owner approval, and
+  keep shared target paths out of reports.
 
 ### Revision `working` - 하네스 강화 B1·B2 (verify_gate + doctor 확장)
 
