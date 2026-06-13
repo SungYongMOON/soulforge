@@ -78,23 +78,51 @@ export async function answerFromManual({ store, question, thread_id = null, prov
   return { ...base, mode: hits.length ? "retrieval" : "retrieval_empty", external: false, provider, llm: false };
 }
 
-// 어댑터. provider: "stub"(기본, 외부0) | "codex_cli"(tool_pc 전용).
+// 로컬 Ollama 호출(owner PC의 localhost — 인터넷 외부전송 아님). 타임아웃+실패 시 폴백.
+// 모델은 ERP_CHAT_MODEL(예: gemma2:2b / gemma2:9b / gemma3:4b 등), 호스트는 OLLAMA_HOST.
+async function callOllama(prompt) {
+  const host = process.env.OLLAMA_HOST || "http://127.0.0.1:11434";
+  const model = process.env.ERP_CHAT_MODEL || "gemma2:2b";
+  const ms = Number(process.env.ERP_CHAT_TIMEOUT_MS || 20000);
+  const numPredict = Number(process.env.ERP_CHAT_MAX_TOKENS || 320); // 출력 상한 — 짧을수록 빠름
+  const ctl = new AbortController();
+  const timer = setTimeout(() => ctl.abort(), ms);
+  try {
+    const resp = await fetch(`${host}/api/generate`, {
+      method: "POST", headers: { "content-type": "application/json" }, signal: ctl.signal,
+      // num_predict로 응답 길이를 제한해 지연을 줄인다. keep_alive로 모델 상주(콜드스타트 회피).
+      body: JSON.stringify({ model, prompt, stream: false, keep_alive: "30m", options: { temperature: 0.2, num_predict: numPredict } })
+    });
+    const j = await resp.json();
+    const text = String(j.response ?? "").trim();
+    return text ? { text, ok: true } : { text: "", ok: false };
+  } catch {
+    return { text: "", ok: false };          // 미기동/타임아웃 → 폴백(끊기지 않음)
+  } finally { clearTimeout(timer); }
+}
+
+// 어댑터. provider: "stub"(기본, 외부0) | "ollama"(owner PC 로컬) | "codex_cli"(tool_pc 전용).
 export async function runLlm({ provider = "stub", user = "", context = null } = {}, { store = null } = {}) {
-  const external = provider === "codex_cli";
-  let text, ok = true;
-  if (external) {
+  const internet = provider === "codex_cli"; // 인터넷 외부전송 가능 경로(tool_pc 승인분)
+  let text, ok = true, delivered = false;
+  if (provider === "ollama") {
+    const r = await callOllama(user);          // 로컬 호출 — 인터넷 egress 아님
+    text = r.ok ? r.text : stubAnswer(user, context);
+    ok = r.ok; delivered = r.ok;
+  } else if (internet) {
     // tool_pc 로컬 백엔드에서 Codex CLI 호출 지점. sandbox/localhost 파일럿은 미가용 → stub 폴백.
     text = stubAnswer(user, context);
-    ok = false; // 실제 외부 호출 미수행 표식
+    ok = false; delivered = false;
   } else {
-    text = stubAnswer(user, context);
+    text = stubAnswer(user, context);          // stub: 외부 0
+    delivered = false;
   }
   if (store && typeof store.appendEvent === "function") {
     store.appendEvent({
       actor_ref: "erp", actor_kind: "ai", kind: "llm_call",
       to: provider, used_refs: ["llm", context ? `ctx:${context.kind}` : "llm"],
-      data_label: "meta", note: `external=${external} delivered=${ok && external}`
+      data_label: "meta", note: `provider=${provider} internet=${internet} delivered=${delivered}`
     });
   }
-  return { text, provider, external, delivered: external && ok };
+  return { text, provider, external: internet, delivered };
 }
