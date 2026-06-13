@@ -35,5 +35,25 @@
       </main>
     </div>
     <script type="module" src="/app.js"></script>
+    <script>
+      // 계정 표시 + 로그아웃 (G1). app.js 와 독립.
+      (async () => {
+        try {
+          const r = await fetch("/api/me");
+          if (r.status !== 200) { location.href = "/login.html"; return; }
+          const { account } = await r.json();
+          const bar = document.createElement("div");
+          bar.style.cssText = "position:fixed;right:12px;bottom:10px;z-index:9999;display:flex;gap:8px;align-items:center;font:12px system-ui,sans-serif;color:#9fb0bf;background:rgba(23,33,43,.92);border:1px solid #2a3744;border-radius:8px;padding:6px 10px;";
+          const who = document.createElement("span");
+          who.textContent = `${account.name || account.id} · ${account.role === "admin" ? "관리자" : "팀원"}`;
+          const out = document.createElement("button");
+          out.textContent = "로그아웃";
+          out.style.cssText = "border:0;border-radius:6px;background:#23303d;color:#e6edf3;padding:4px 9px;cursor:pointer;font:12px system-ui;";
+          out.addEventListener("click", async () => { await fetch("/api/logout", { method: "POST" }); location.href = "/login.html"; });
+          bar.append(who, out);
+          document.body.appendChild(bar);
+        } catch { /* 네트워크 오류 시 조용히 무시 */ }
+      })();
+    </script>
   </body>
 </html>

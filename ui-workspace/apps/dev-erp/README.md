@@ -16,6 +16,32 @@ node server.mjs --ingest path/to/normalized.json   # 실데이터 메타 적재
 node server.mjs --host 0.0.0.0  # 같은 Wi-Fi 공유 (합성 데이터 파일럿 한정)
 ```
 
+## 인증 (G1: 로그인·계정)
+
+모든 화면과 `/api/*` 는 로그인 필요(공개 경로: `/healthz`, `/api/login`, 로그인 페이지).
+역할은 `admin`(관리자) / `member`(팀원, 담당자 구분용) 2단계. 비밀번호는
+`node:crypto` scrypt 해시 + per-user salt 로만 저장(원문 저장 안 함). 계정 DB 는
+`data/`(gitignore) 안에만 있다.
+
+```bash
+# 최초 실행 시 계정이 없으면 초기 admin 을 자동 생성하고 임시비번을 1회 출력
+node server.mjs
+
+# 팀원 계정 추가 (임시비번 1회 출력 → 사용자에게 전달, 첫 로그인 시 변경 강제)
+node server.mjs --add-user kim --role member --name 김팀원
+node server.mjs --add-user park --role admin            # 관리자 추가
+node server.mjs --reset-pw kim                           # 비번 초기화(새 임시비번)
+node server.mjs --list-users                             # 계정 목록
+node server.mjs --disable-user kim                       # 비활성화(세션 무효)
+
+# 네트워크로 열 때(사내망)는 TLS 뒤에 두고 --secure 로 쿠키 Secure 부여
+node server.mjs --host 0.0.0.0 --secure
+```
+
+세션은 HttpOnly 쿠키(`deid`, 12시간). 임시비번은 발급 시 콘솔에 1회만 표시되며
+저장되지 않는다. **평문 HTTP 로 네트워크에 직접 노출하지 말 것** — 사내망 공유는
+리버스 프록시 TLS(G2) 뒤에서만. 역할별 read/write 강제(G3)는 후속 항목이다.
+
 운영 메모: AI(Claude)가 코드를 수정하면 `--watch` 실행 중인 서버가 스스로
 재시작한다 — 수동 재시작 불필요. 상시 운영(tool_pc 이전 시)은 Soulforge
 always-on(launchd) 패턴으로 등록해 부팅 자동 시작 + 비정상 종료 자동 복구를

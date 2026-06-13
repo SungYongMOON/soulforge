@@ -1,0 +1,107 @@
+<!doctype html>
+<html lang="ko">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<title>dev-erp 로그인</title>
+<style>
+  :root { --bg:#0f1720; --card:#17212b; --line:#2a3744; --ink:#e6edf3; --muted:#9fb0bf; --accent:#1f6feb; --err:#f06a5a; }
+  * { box-sizing:border-box; }
+  body { margin:0; min-height:100vh; display:flex; align-items:center; justify-content:center;
+         background:var(--bg); color:var(--ink); font:15px/1.5 system-ui,-apple-system,"Segoe UI",sans-serif; }
+  .card { width:340px; max-width:92vw; background:var(--card); border:1px solid var(--line);
+          border-radius:12px; padding:28px 24px; box-shadow:0 8px 30px rgba(0,0,0,.35); }
+  h1 { margin:0 0 4px; font-size:18px; }
+  p.sub { margin:0 0 20px; color:var(--muted); font-size:13px; }
+  label { display:block; font-size:12px; color:var(--muted); margin:14px 0 5px; }
+  input { width:100%; padding:10px 11px; border:1px solid var(--line); border-radius:8px;
+          background:#0e1620; color:var(--ink); font-size:14px; }
+  input:focus { outline:none; border-color:var(--accent); }
+  button { width:100%; margin-top:20px; padding:11px; border:0; border-radius:8px;
+           background:var(--accent); color:#fff; font-size:15px; font-weight:600; cursor:pointer; }
+  button:disabled { opacity:.6; cursor:default; }
+  .msg { margin-top:14px; font-size:13px; min-height:18px; }
+  .msg.err { color:var(--err); }
+  .msg.ok { color:#5ad19a; }
+  .hint { margin-top:16px; font-size:12px; color:var(--muted); }
+  .hidden { display:none; }
+</style>
+</head>
+<body>
+  <div class="card">
+    <h1>dev-erp</h1>
+    <p class="sub" id="sub">사내 사용자 로그인</p>
+
+    <form id="loginForm">
+      <label for="id">아이디</label>
+      <input id="id" name="id" autocomplete="username" autofocus />
+      <label for="pw">비밀번호</label>
+      <input id="pw" name="pw" type="password" autocomplete="current-password" />
+      <button type="submit" id="loginBtn">로그인</button>
+      <div class="msg" id="loginMsg"></div>
+    </form>
+
+    <form id="changeForm" class="hidden">
+      <label for="newpw">새 비밀번호 (8자 이상, 영문+숫자 포함)</label>
+      <input id="newpw" type="password" autocomplete="new-password" />
+      <label for="newpw2">새 비밀번호 확인</label>
+      <input id="newpw2" type="password" autocomplete="new-password" />
+      <button type="submit" id="changeBtn">비밀번호 변경하고 시작</button>
+      <div class="msg" id="changeMsg"></div>
+    </form>
+
+    <div class="hint">최초 로그인 시 임시 비밀번호를 바꿔야 합니다.</div>
+  </div>
+
+<script>
+const $ = (s) => document.querySelector(s);
+let pendingPw = null; // 비번 변경 시 현재(임시) 비번 보관 (메모리만)
+
+async function postJSON(url, data) {
+  const r = await fetch(url, { method:"POST", headers:{ "content-type":"application/json" }, body: JSON.stringify(data) });
+  let body = {}; try { body = await r.json(); } catch {}
+  return { status: r.status, body };
+}
+
+$("#loginForm").addEventListener("submit", async (e) => {
+  e.preventDefault();
+  const id = $("#id").value.trim(), pw = $("#pw").value;
+  const msg = $("#loginMsg"); msg.className = "msg"; msg.textContent = "";
+  if (!id || !pw) { msg.className = "msg err"; msg.textContent = "아이디와 비밀번호를 입력하세요."; return; }
+  $("#loginBtn").disabled = true;
+  const { status, body } = await postJSON("/api/login", { id, password: pw });
+  $("#loginBtn").disabled = false;
+  if (status !== 200) { msg.className = "msg err"; msg.textContent = "아이디 또는 비밀번호가 올바르지 않습니다."; return; }
+  if (body.account && body.account.must_change_pw) {
+    pendingPw = pw;
+    $("#loginForm").classList.add("hidden");
+    $("#changeForm").classList.remove("hidden");
+    $("#sub").textContent = "임시 비밀번호를 새 비밀번호로 변경하세요.";
+    $("#newpw").focus();
+    return;
+  }
+  location.href = "/";
+});
+
+$("#changeForm").addEventListener("submit", async (e) => {
+  e.preventDefault();
+  const n1 = $("#newpw").value, n2 = $("#newpw2").value;
+  const msg = $("#changeMsg"); msg.className = "msg"; msg.textContent = "";
+  if (n1 !== n2) { msg.className = "msg err"; msg.textContent = "두 비밀번호가 다릅니다."; return; }
+  if (n1.length < 8 || !/[a-zA-Z]/.test(n1) || !/[0-9]/.test(n1)) {
+    msg.className = "msg err"; msg.textContent = "8자 이상, 영문과 숫자를 포함해야 합니다."; return;
+  }
+  $("#changeBtn").disabled = true;
+  const { status, body } = await postJSON("/api/password", { old_password: pendingPw, new_password: n1 });
+  $("#changeBtn").disabled = false;
+  if (status !== 200) {
+    msg.className = "msg err";
+    msg.textContent = body.error === "password_unchanged" ? "임시 비밀번호와 다른 비밀번호를 쓰세요." : "변경에 실패했습니다. 다시 시도하세요.";
+    return;
+  }
+  msg.className = "msg ok"; msg.textContent = "변경되었습니다. 시작합니다…";
+  setTimeout(() => location.href = "/", 600);
+});
+</script>
+</body>
+</html>

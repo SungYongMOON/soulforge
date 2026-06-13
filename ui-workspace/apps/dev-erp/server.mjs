@@ -14,6 +14,7 @@ import { getLexicon, LEXICON } from "./src/lexicon.mjs";
 import { guideTemplates } from "./src/guide.mjs";
 import { modulesFor } from "./src/modules.mjs";
 import { crossSearch } from "./src/search.mjs";
+import { Auth, parseCookies } from "./src/auth.mjs";
 
 const HERE = dirname(fileURLToPath(import.meta.url));
 const args = process.argv.slice(2);
@@ -55,9 +56,58 @@ if (existsSync(realMetaPath)) {
 const MIME = { ".html": "text/html", ".js": "text/javascript", ".css": "text/css", ".json": "application/json", ".svg": "image/svg+xml" };
 const todayKey = () => new Date().toISOString().slice(0, 10);
 
+// --- 인증 (G1) ---
+const auth = new Auth(store.db);
+const COOKIE = "deid";                         // dev-erp 세션 쿠키
+const COOKIE_SECURE = args.includes("--secure"); // TLS 뒤에 둘 때만 Secure (네트워크 노출 시 권장)
+
+// 관리자 CLI: 서버를 열지 않고 계정 작업 후 종료
+if (args.includes("--add-user")) {
+  const r = auth.createAccount({ id: flag("add-user"), role: flag("role") ?? "member", name: flag("name") ?? "", password: flag("password") ?? null });
+  if (r.error) { console.error("[dev-erp] 계정 생성 실패:", r.error); process.exit(1); }
+  console.log(`[dev-erp] 계정 생성됨: id=${r.id} role=${r.role}`);
+  console.log(`[dev-erp] 임시 비밀번호(1회만 표시, 저장 안 됨): ${r.tempPassword}`);
+  console.log("[dev-erp] 사용자에게 전달하고 첫 로그인 시 변경하게 하세요.");
+  process.exit(0);
+}
+if (args.includes("--reset-pw")) {
+  const r = auth.resetPassword(flag("reset-pw"), flag("password") ?? null);
+  if (r.error) { console.error("[dev-erp] 비번 초기화 실패:", r.error); process.exit(1); }
+  console.log(`[dev-erp] 비번 초기화됨: id=${r.id}`);
+  console.log(`[dev-erp] 새 임시 비밀번호(1회만 표시): ${r.tempPassword}`);
+  process.exit(0);
+}
+if (args.includes("--list-users")) {
+  for (const a of auth.listAccounts()) {
+    console.log(`${String(a.role).padEnd(6)} ${a.id}\t${a.status}\tmust_change=${a.must_change_pw}\tlast=${a.last_login_at ?? "-"}`);
+  }
+  process.exit(0);
+}
+if (args.includes("--disable-user") || args.includes("--enable-user")) {
+  const enable = args.includes("--enable-user");
+  const r = auth.setStatus(flag(enable ? "enable-user" : "disable-user"), enable ? "active" : "disabled");
+  if (r.error) { console.error("[dev-erp] 상태 변경 실패:", r.error); process.exit(1); }
+  console.log(`[dev-erp] ${r.id} -> ${r.status}`);
+  process.exit(0);
+}
+
+// 부트스트랩: 계정이 하나도 없으면 초기 admin 발급 (임시비번 1회 출력)
+if (!auth.hasAnyAccount()) {
+  const r = auth.createAccount({ id: flag("admin-id") ?? "admin", role: "admin", name: "관리자" });
+  console.log(`[dev-erp] 초기 관리자 계정 생성: id=${r.id}`);
+  console.log(`[dev-erp] 초기 임시 비밀번호(1회만 표시, 저장 안 됨): ${r.tempPassword}`);
+  console.log("[dev-erp] 첫 로그인 후 즉시 변경하세요.");
+}
+
 function send(res, code, body, type = "application/json") {
   const payload = type === "application/json" ? JSON.stringify(body) : body;
   res.writeHead(code, { "content-type": `${type}; charset=utf-8`, "cache-control": "no-store" });
+  res.end(payload);
+}
+
+function sendCookie(res, code, body, cookie, type = "application/json") {
+  const payload = type === "application/json" ? JSON.stringify(body) : body;
+  res.writeHead(code, { "content-type": `${type}; charset=utf-8`, "cache-control": "no-store", "set-cookie": cookie });
   res.end(payload);
 }
 
@@ -71,6 +121,50 @@ const server = createServer(async (req, res) => {
   const path = url.pathname;
   const qp = Object.fromEntries(url.searchParams.entries());
   try {
+    // --- 인증 게이트 (G1) ---
+    const cookies = parseCookies(req.headers.cookie);
+    const sessionToken = cookies[COOKIE];
+    const account = auth.sessionAccount(sessionToken);
+
+    if (path === "/healthz") return send(res, 200, { ok: true }); // 공개 라이브니스
+
+    if (path === "/api/login" && req.method === "POST") {
+      let body = ""; for await (const chunk of req) body += chunk;
+      const { id, password } = JSON.parse(body || "{}");
+      const result = auth.login(id, password);
+      if (result.error) return send(res, 401, result);
+      store.appendEvent({ actor_ref: result.account.id, actor_kind: "human", kind: "login", used_refs: ["auth"], data_label: "real" });
+      return sendCookie(res, 200, { ok: true, account: result.account },
+        `${COOKIE}=${result.token}; HttpOnly; SameSite=Lax; Path=/; Max-Age=43200${COOKIE_SECURE ? "; Secure" : ""}`);
+    }
+    if (path === "/api/logout" && req.method === "POST") {
+      auth.logout(sessionToken);
+      return sendCookie(res, 200, { ok: true }, `${COOKIE}=; HttpOnly; SameSite=Lax; Path=/; Max-Age=0`);
+    }
+    if (path === "/api/me") {
+      if (!account) return send(res, 401, { error: "unauthenticated" });
+      return send(res, 200, { account });
+    }
+    if (path === "/api/password" && req.method === "POST") {
+      if (!account) return send(res, 401, { error: "unauthenticated" });
+      let body = ""; for await (const chunk of req) body += chunk;
+      const { old_password, new_password } = JSON.parse(body || "{}");
+      const result = auth.changePassword(account.id, old_password, new_password);
+      if (result.error) return send(res, 400, result);
+      store.appendEvent({ actor_ref: account.id, actor_kind: "human", kind: "password_change", used_refs: ["auth"], data_label: "real" });
+      return send(res, 200, { ok: true });
+    }
+
+    // 로그인 외 모든 /api 는 세션 필요. 첫 로그인 비번변경 전에는 변경 경로만 허용.
+    if (path.startsWith("/api/")) {
+      if (!account) return send(res, 401, { error: "unauthenticated" });
+      if (account.must_change_pw) return send(res, 403, { error: "password_change_required" });
+    }
+    // 미인증 정적 요청은 로그인 페이지로
+    if (!path.startsWith("/api/") && !account) {
+      return send(res, 200, readFileSync(join(HERE, "static", "login.html"), "utf-8"), "text/html");
+    }
+
     if (path === "/api/health") return send(res, 200, { ok: true, schema: "dev_erp.v1", counts: store.counts() });
     if (path === "/api/summary") {
       const today = todayKey();
