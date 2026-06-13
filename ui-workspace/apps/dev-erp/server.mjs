@@ -14,6 +14,7 @@ import { getLexicon, LEXICON } from "./src/lexicon.mjs";
 import { guideTemplates } from "./src/guide.mjs";
 import { modulesFor } from "./src/modules.mjs";
 import { crossSearch } from "./src/search.mjs";
+import { buildMetaContext, runLlm } from "./src/llm.mjs";
 
 const HERE = dirname(fileURLToPath(import.meta.url));
 const args = process.argv.slice(2);
@@ -145,6 +146,15 @@ const server = createServer(async (req, res) => {
       q: qp.q, direction: qp.direction, label_id: qp.label_id
     }));
     if (path === "/api/guide/templates") return send(res, 200, guideTemplates(qp.mode));
+    // A7: ERP 챗봇 — 메타/요약 컨텍스트만 어댑터로. 원문 미전송. 기본 stub(외부0).
+    if (path === "/api/chat" && req.method === "POST") {
+      let body = ""; for await (const chunk of req) body += chunk;
+      const { message, project, provider } = JSON.parse(body || "{}");
+      if (!message || !String(message).trim()) return send(res, 400, { error: "message_required" });
+      const context = buildMetaContext(store, { project: project ?? null, days: 90 });
+      const r = await runLlm({ provider: provider === "codex_cli" ? "codex_cli" : "stub", user: message, context }, { store });
+      return send(res, 200, { text: r.text, provider: r.provider, external: r.external, delivered: r.delivered });
+    }
     if (path === "/api/gates") return send(res, 200, { mode: store.gateMode(), stages: store.gates({ project: qp.project }) });
     if (path === "/api/gates/clear" && req.method === "POST") {
       let body = ""; for await (const chunk of req) body += chunk;

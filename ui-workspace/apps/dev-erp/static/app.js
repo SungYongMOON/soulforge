@@ -8,7 +8,8 @@ const state = {
   navGroup: localStorage.getItem("dev_erp_navgroup") || "group_project", // 대분류(객체축) 선택 그룹
   pins: JSON.parse(localStorage.getItem("dev_erp_pins") || "[]"),
   // P2b: 계정/권한. 익명(account=null)이면 앱은 현행대로(전체 접근·localStorage).
-  account: null, perms: [], accountCount: 0
+  account: null, perms: [], accountCount: 0,
+  chatLog: []
 };
 
 // P2b 권한: 정의 없거나 익명이면 기본 허용(visible·access). 정의 있으면 그 값.
@@ -362,6 +363,42 @@ function compactDash(layout) {
 
 function miniRow(cells) {
   return `<tr>${cells.map((c) => `<td>${c}</td>`).join("")}</tr>`;
+}
+
+// A7 ERP 챗봇 패널(메타 컨텍스트, 원문 미전송). 외부전송은 어댑터의 codex_cli만(tool_pc).
+function openChat() {
+  const L = state.lex;
+  document.querySelector(".chat-overlay")?.remove();
+  const ov = document.createElement("div");
+  ov.className = "chat-overlay";
+  ov.innerHTML = `<div class="chat-panel" role="dialog" aria-label="${L.chat_title}">
+    <div class="chat-head"><strong>${L.chat_title}</strong><span class="dim">${L.chat_note}</span><button class="chat-x">✕</button></div>
+    <div class="chat-log"></div>
+    <div class="chat-input"><input id="chatMsg" placeholder="${L.chat_placeholder}" /><button id="chatSend" class="fav-chip">${L.chat_send}</button></div>
+  </div>`;
+  document.body.appendChild(ov);
+  const logEl = ov.querySelector(".chat-log");
+  const paint = () => {
+    logEl.innerHTML = state.chatLog.length
+      ? state.chatLog.map((m) => `<div class="chat-msg ${m.role}"><span>${esc(m.text)}</span></div>`).join("")
+      : `<div class="empty small">${L.chat_empty}</div>`;
+    logEl.scrollTop = logEl.scrollHeight;
+  };
+  paint();
+  const close = () => ov.remove();
+  ov.addEventListener("click", (e) => { if (e.target === ov) close(); });
+  ov.querySelector(".chat-x").addEventListener("click", close);
+  const send = async () => {
+    const inp = ov.querySelector("#chatMsg");
+    const msg = inp.value.trim(); if (!msg) return;
+    state.chatLog.push({ role: "user", text: msg }); inp.value = ""; paint();
+    const proj = state.view === "project" ? state.hubProject : (state.projectFilter || null);
+    const r = await post("/api/chat", { message: msg, project: proj }).then((x) => x.json()).catch(() => ({ text: "(오류)" }));
+    state.chatLog.push({ role: "ai", text: r.text || "(응답 없음)" }); paint();
+  };
+  ov.querySelector("#chatSend").addEventListener("click", send);
+  ov.querySelector("#chatMsg").addEventListener("keydown", (e) => { if (e.key === "Enter") send(); });
+  ov.querySelector("#chatMsg").focus();
 }
 
 // 화면 정중앙 확인 모달 (native confirm 은 위치 제어 불가 → 커스텀). Promise<boolean> 반환.
@@ -1558,6 +1595,7 @@ $("#globalSearch").addEventListener("keydown", (e) => {
 });
 $("#globalSearch").addEventListener("blur", () => setTimeout(clearSearchDropdown, 150));
 
+$("#chatBtn")?.addEventListener("click", openChat);
 await loadMe();
 await pullServerLayout();
 await loadLexicon();
