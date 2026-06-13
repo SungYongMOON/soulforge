@@ -55,10 +55,24 @@ if (existsSync(realMetaPath)) {
 const MIME = { ".html": "text/html", ".js": "text/javascript", ".css": "text/css", ".json": "application/json", ".svg": "image/svg+xml" };
 const todayKey = () => new Date().toISOString().slice(0, 10);
 
-function send(res, code, body, type = "application/json") {
+function send(res, code, body, type = "application/json", extraHeaders = {}) {
   const payload = type === "application/json" ? JSON.stringify(body) : body;
-  res.writeHead(code, { "content-type": `${type}; charset=utf-8`, "cache-control": "no-store" });
+  res.writeHead(code, { "content-type": `${type}; charset=utf-8`, "cache-control": "no-store", ...extraHeaders });
   res.end(payload);
+}
+
+const SID = "dev_erp_sid";
+function readCookie(req, name) {
+  const raw = req.headers.cookie || "";
+  for (const part of raw.split(";")) {
+    const [k, ...v] = part.trim().split("=");
+    if (k === name) return decodeURIComponent(v.join("="));
+  }
+  return null;
+}
+// 현재 로그인 계정(없으면 null=익명). 익명이면 앱은 현행대로 동작.
+function currentAccount(req) {
+  return store.sessionAccount(readCookie(req, SID));
 }
 
 function lastIngestAt() {
@@ -204,6 +218,41 @@ const server = createServer(async (req, res) => {
       store.appendEvent({ ...event, actor_kind: event.actor_kind ?? "human", data_label: event.data_label ?? "real" });
       return send(res, 200, { ok: true });
     }
+    // ---------- P2b: 계정·권한·계정별 레이아웃 ----------
+    if (path === "/api/me") {
+      const a = currentAccount(req);
+      if (!a) return send(res, 200, { anonymous: true, account_count: store.accountCount() });
+      return send(res, 200, { account: { id: a.id, username: a.username }, person_id: a.person_id, roles: store.rolesFor(a.id), perms: store.permsFor(a.id) });
+    }
+    if (path === "/api/auth/login" && req.method === "POST") {
+      let body = ""; for await (const chunk of req) body += chunk;
+      const { username, password } = JSON.parse(body || "{}");
+      const a = store.verifyLogin(username, password);
+      if (!a) return send(res, 401, { error: "invalid_credentials" });
+      const token = store.createSession(a.id);
+      store.appendEvent({ actor_ref: a.username, actor_kind: "human", kind: "login", used_refs: ["auth"], data_label: "real" });
+      const cookie = `${SID}=${token}; HttpOnly; SameSite=Lax; Path=/; Max-Age=43200`;
+      return send(res, 200, { ok: true, account: { id: a.id, username: a.username }, roles: store.rolesFor(a.id), perms: store.permsFor(a.id) }, "application/json", { "set-cookie": cookie });
+    }
+    if (path === "/api/auth/logout" && req.method === "POST") {
+      const tok = readCookie(req, SID);
+      if (tok) store.deleteSession(tok);
+      return send(res, 200, { ok: true }, "application/json", { "set-cookie": `${SID}=; HttpOnly; SameSite=Lax; Path=/; Max-Age=0` });
+    }
+    if (path === "/api/dashboard/layout" && req.method === "GET") {
+      const a = currentAccount(req);
+      return send(res, 200, { layout: a ? store.getLayout(a.id) : null });
+    }
+    if (path === "/api/dashboard/layout" && req.method === "PUT") {
+      const a = currentAccount(req);
+      if (!a) return send(res, 401, { error: "login_required" });
+      let body = ""; for await (const chunk of req) body += chunk;
+      const { layout } = JSON.parse(body || "{}");
+      if (!Array.isArray(layout)) return send(res, 400, { error: "layout_array_required" });
+      store.setLayout(a.id, layout);
+      return send(res, 200, { ok: true });
+    }
+
     if (path.startsWith("/api/")) return send(res, 404, { error: "not_found" });
 
     // 정적 파일 (no-build 클라이언트)
