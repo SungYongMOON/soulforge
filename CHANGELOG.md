@@ -2,6 +2,20 @@
 
 ## 2026-06-14
 
+### Revision `working` - knowledge master inventory runner added
+
+- Added `guild_hall/rag` `master-inventory-refresh` as the deterministic
+  metadata-only aggregate runner for the private master knowledge control
+  surface under `_workmeta/system/reports/knowledge_wiki/`.
+- The runner emits inventory JSON/CSV, summary, reconcile report, RAG refresh
+  handoff, candidate priority triage, first sourcebound-review selection, and
+  validation log without reading source bodies, NotebookLM answers, embeddings,
+  BM25/vector payloads, private payloads, secrets, or runtime absolute paths.
+- Documented the master inventory as the recurring control surface in the
+  knowledge operating model and `rag_metadata_refresh_v0` README.
+- Added explicit `claim_ceiling: observed` to the 5 active public knowledge
+  entries that previously lacked an explicit claim ceiling.
+
 ### Revision `working` - knowledge wiki/RAG route registration consolidated
 
 - Registered `rag_source_text_quality_review_v0` and

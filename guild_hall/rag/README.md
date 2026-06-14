@@ -37,6 +37,8 @@ work answers, and Stage 3 canon promotion are separate claims.
 ## Commands
 
 ```bash
+npm run guild-hall:rag -- master-inventory-refresh --write --date 2026-06-14
+npm run guild-hall:rag -- validate-master-inventory-refresh --inventory-ref _workmeta/system/reports/knowledge_wiki/master_knowledge_inventory_reconcile_20260614/master_knowledge_inventory.json
 npm run guild-hall:rag -- manifest --write --export-id knowledge_graph_view_v0
 npm run guild-hall:rag -- validate --manifest-ref _workspaces/system/rag/manifests/rag_manifest_knowledge_graph_view_v0/rag_manifest.json
 npm run guild-hall:rag -- source-slice-cards --write --manifest-ref _workspaces/system/rag/manifests/rag_manifest_knowledge_graph_view_v0/rag_manifest.json
@@ -155,6 +157,21 @@ npm run guild-hall:knowledge-graph -- export --rag-manifest-ref _workspaces/syst
 npm run guild-hall:rag -- answer --metadata-index-ref _workspaces/system/rag/metadata_retrieval_indexes/metadata_index_rag_manifest_knowledge_graph_view_v0/metadata_index.json --question "GraphRAG source support" --text
 npm run validate:rag
 ```
+
+## Master Inventory Refresh
+
+`master-inventory-refresh` is the aggregate runner for the recurring private
+knowledge control surface. It writes the master inventory, CSV, summary,
+reconcile report, RAG refresh handoff, candidate priority triage, first
+sourcebound-review selection, and validation log under
+`_workmeta/system/reports/knowledge_wiki/master_knowledge_inventory_reconcile_<date>/`.
+
+The runner is metadata-only. It reads public registry/workflow/helper metadata,
+private `_workmeta` metadata ledgers, file stats for approved knowledge/RAG
+surfaces, and an existing NotebookLM metadata mirror when one is present. It
+does not call NotebookLM live, read NotebookLM answers, read source bodies,
+build source-text indexes, create embeddings, mutate Drive, approve owner
+decisions, promote public canon, accept ontology, or switch default routes.
 
 ## Raw Question Policy
 

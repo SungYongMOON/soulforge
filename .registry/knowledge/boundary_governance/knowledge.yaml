@@ -3,6 +3,7 @@ kind: knowledge
 status: active
 title: Boundary Governance
 summary: Knowledge for keeping canon, optional executor bridge, and local runtime binding ownership separated.
+claim_ceiling: observed
 focus:
   primary_domain: owner-boundary review
   applied_to:

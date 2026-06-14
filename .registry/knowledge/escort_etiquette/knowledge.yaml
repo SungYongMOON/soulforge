@@ -3,6 +3,7 @@ kind: knowledge
 status: active
 title: Escort Etiquette
 summary: Protection posture rules for guarding a ward, convoy, or noncombatant line.
+claim_ceiling: observed
 focus:
   primary_domain: escort conduct
   applied_to:

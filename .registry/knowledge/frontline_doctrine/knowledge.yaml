@@ -3,6 +3,7 @@ kind: knowledge
 status: active
 title: Frontline Doctrine
 summary: Shared doctrine for first-contact order, spacing, and controlled advance.
+claim_ceiling: observed
 focus:
   primary_domain: first contact discipline
   applied_to:

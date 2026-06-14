@@ -3,6 +3,7 @@ kind: knowledge
 status: active
 title: Lineage Method
 summary: Method for building family and relationship maps from partial source evidence.
+claim_ceiling: observed
 focus:
   primary_domain: lineage construction
   applied_to:

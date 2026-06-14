@@ -210,11 +210,58 @@ import {
   writeSourceSliceReviewQueue,
   writeSourceSliceTriageRegister,
 } from "./rag.mjs";
+import {
+  buildMasterKnowledgeInventoryRefresh,
+  loadMasterKnowledgeInventoryRefresh,
+  validateMasterKnowledgeInventoryRefresh,
+  writeMasterKnowledgeInventoryRefresh,
+} from "./master_inventory_refresh.mjs";
 
 async function main() {
   const [command, ...rest] = process.argv.slice(2);
   const args = parseArgs(rest);
   const repoRoot = path.resolve(args["repo-root"] ?? process.cwd());
+
+  if (command === "master-inventory-refresh" || command === "refresh-master-inventory") {
+    const options = {
+      repoRoot,
+      outputRootRef: optionalStringArg(args, "output-root-ref"),
+      inventoryId: optionalStringArg(args, "inventory-id"),
+      notebooklmMetadataRef: optionalStringArg(args, "notebooklm-metadata-ref"),
+      now: optionalStringArg(args, "now"),
+      date: optionalStringArg(args, "date"),
+    };
+    if (args.write) {
+      printJson(await writeMasterKnowledgeInventoryRefresh(options));
+      return;
+    }
+    const refresh = await buildMasterKnowledgeInventoryRefresh(options);
+    if (args.full) {
+      printJson(refresh);
+      return;
+    }
+    printJson({
+      status: refresh.status,
+      output_dir_ref: refresh.output_dir_ref,
+      artifacts: refresh.artifacts,
+      total_rows: refresh.summary.summary.total_rows,
+      candidate_rows: refresh.summary.summary.candidate_ledger_rows,
+      notebooklm_notebooks: refresh.summary.summary.notebooklm_notebooks,
+      notebooklm_sources: refresh.summary.summary.notebooklm_sources,
+      selected_sourcebound_candidate_id: refresh.sourcebound_review_selection.selected_candidate?.candidate_id ?? null,
+      validation: refresh.validation,
+    });
+    return;
+  }
+
+  if (command === "validate-master-inventory-refresh") {
+    const inventory = await loadMasterKnowledgeInventoryRefresh({
+      repoRoot,
+      inventoryRef: optionalStringArg(args, "inventory-ref"),
+    });
+    printJson(validateMasterKnowledgeInventoryRefresh(inventory));
+    return;
+  }
 
   if (command === "manifest") {
     if (args.write) {
@@ -2107,6 +2154,8 @@ function printUsageAndExit() {
   process.stderr.write(
     [
       "Usage:",
+      "  node guild_hall/rag/cli.mjs master-inventory-refresh [--write] [--date YYYY-MM-DD | --now <iso>] [--inventory-id <id>] [--output-root-ref <repo-relative-dir>] [--notebooklm-metadata-ref <repo-relative-json>] [--full]",
+      "  node guild_hall/rag/cli.mjs validate-master-inventory-refresh --inventory-ref <repo-relative-json>",
       "  node guild_hall/rag/cli.mjs manifest [--write] [--graph-ref <repo-relative-graph-json>] [--export-id <id>] [--output-ref <repo-relative-json>]",
       "  node guild_hall/rag/cli.mjs validate --manifest-ref <repo-relative-json>",
       "  node guild_hall/rag/cli.mjs source-slice-cards [--write] --manifest-ref <repo-relative-rag-manifest-json> [--slice-set-id <id>] [--project-code <code>] [--output-ref <repo-relative-json>]",
@@ -2210,6 +2259,7 @@ function printUsageAndExit() {
       "  node guild_hall/rag/cli.mjs answer --question <question> [--manifest-ref <repo-relative-json> | --metadata-index-ref <repo-relative-json>] [--graph-ref <repo-relative-graph-json>] [--export-id <id>] [--text]",
       "",
       "Notes:",
+      "  master-inventory-refresh regenerates the private metadata-only knowledge control surface under _workmeta/system/reports/knowledge_wiki; it uses NotebookLM metadata mirrors only and does not query NotebookLM live.",
       "  The manifest/metadata commands stay metadata-only. The source-text commands read only owner-approved _workspaces/knowledge source cards and write private workspace payload artifacts.",
       "  Operational route candidate records persist only query fingerprints for unmatched labels; they do not update route registries or create default routes.",
       "  Operational route status combines registry validation, usage summaries, and candidate counts into one metadata-only operator dashboard.",

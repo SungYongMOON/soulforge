@@ -8,6 +8,24 @@ cards, triage/review/decision packets, owner decision record refs, metadata
 index, retrieval trace/evaluation metadata, and optional graph lens export
 candidates.
 
+## Aggregate Runner
+
+The current deterministic aggregate runner is:
+
+```bash
+npm run guild-hall:rag -- master-inventory-refresh --write --date YYYY-MM-DD
+```
+
+It regenerates the private master knowledge control surface under
+`_workmeta/system/reports/knowledge_wiki/master_knowledge_inventory_reconcile_<date>/`.
+The runner emits the inventory, CSV, summary, reconcile report, RAG refresh
+handoff, candidate priority triage, first sourcebound-review selection, and
+validation log.
+It is a metadata-only execution surface for this workflow; it does not create
+source truth, source-text indexes, owner approvals, ontology acceptance,
+NotebookLM live queries, Drive mutations, public canon promotion, or
+default-route safety.
+
 ## Outputs
 
 - `refresh_scope_binding`

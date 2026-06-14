@@ -3,6 +3,7 @@ kind: knowledge
 status: active
 title: Source Criticism
 summary: Knowledge for separating corroborated facts from weakly supported assertions.
+claim_ceiling: observed
 focus:
   primary_domain: evidence evaluation
   applied_to:
