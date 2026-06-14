@@ -125,6 +125,17 @@ td.num { text-align: right; font-variant-numeric: tabular-nums; }
 .status-chip.triage { background: #fdf0d6; color: #9a6a12; border: 1px solid #e8c98a; }
 .status-chip.triage.on { background: #9a6a12; color: #fff; }
 .triage-note { font-size: 12.5px; color: #9a6a12; background: #fdf0d6; border: 1px solid #e8c98a; border-radius: 8px; padding: 8px 12px; margin: 8px 0; }
+/* 분류 폼(미분류→정식 등록) */
+.classify-list { display: flex; flex-direction: column; gap: 8px; }
+.classify-card { background: var(--panel); border: 1px solid var(--line); border-radius: 10px; padding: 10px 12px; }
+.classify-card .cc-head { display: flex; align-items: center; gap: 8px; margin-bottom: 7px; }
+.classify-card .cc-title { font-size: 13.5px; font-weight: 500; }
+.classify-card .cc-form { display: flex; flex-wrap: wrap; gap: 6px; align-items: center; }
+.classify-card .cc-form select, .classify-card .cc-form input { font-size: 12.5px; padding: 5px 8px; border: 1px solid var(--line); border-radius: 7px; background: var(--bg); color: var(--text); }
+.classify-card .cc-ref { width: 150px; } .classify-card .cc-cc { flex: 1; min-width: 180px; }
+.classify-card .cc-msg { color: var(--danger); font-size: 11.5px; }
+.badge.teal { background: #d7efe9; color: #1d6f5e; }
+body[data-theme="dark"] .badge.teal { background: #173d35; color: #8fd4c2; }
 body[data-theme="dark"] .status.unclassified, body[data-theme="dark"] .status-chip.triage, body[data-theme="dark"] .triage-note { background: #4d3a13; color: #f0cd8a; border-color: #6b5320; }
 .due-over { color: var(--danger); font-weight: 600; }
 .pointer { font-family: ui-monospace, monospace; font-size: 12px; color: var(--muted); }

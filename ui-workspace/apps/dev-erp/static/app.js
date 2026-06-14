@@ -1585,7 +1585,14 @@ function wireItemActions(scope) {
   );
 }
 
+// SE 업무유형·연결대상 라벨(분류 폼 + 배지)
+const WORK_TYPE_LABELS = { answer: "답변", review: "검토", author: "작성", revise: "수정", purchase: "구매", verify: "확인", decide: "결정", schedule: "일정등록" };
+const LINK_KIND_LABELS = { requirement: "요구사항", artifact: "산출물", meeting: "회의록", bom: "BOM", part: "부품", vendor: "업체", risk: "리스크" };
 function itemLinkCell(i) {
+  const se = [];
+  if (i.work_type) se.push(`<span class="badge">${WORK_TYPE_LABELS[i.work_type] ?? i.work_type}</span>`);
+  if (i.link_kind) se.push(`<span class="badge teal">${LINK_KIND_LABELS[i.link_kind] ?? i.link_kind}${i.link_ref ? `: ${esc(i.link_ref)}` : ""}</span>`);
+  if (se.length) return se.join(" ");
   if (i.guide_artifact_name) return `<span class="badge">${esc(i.guide_stage_code)} ${esc(i.guide_artifact_name)}</span>`;
   if (i.origin === "mail") return `<span class="badge blue">${state.lex.origin_mail_badge}</span>`;
   return '<span class="dim">-</span>';
@@ -1631,22 +1638,36 @@ async function renderItems() {
       <td>${itemLinkCell(i)}</td>
       <td class="acts">${itemActionsHtml(i)}</td>
     </tr>`).join("");
+  const isTriage = state.statusFilter === "unclassified";
+  const wtOpts = Object.entries(WORK_TYPE_LABELS).map(([k, v]) => `<option value="${k}">${v}</option>`).join("");
+  const lkOpts = Object.entries(LINK_KIND_LABELS).map(([k, v]) => `<option value="${k}">${v}</option>`).join("");
+  const triageBody = !isTriage ? "" : (items.length
+    ? `<div class="classify-list">${items.map((i) => `<div class="classify-card" data-id="${esc(i.id)}">
+        <div class="cc-head"><span class="cc-title">${esc(i.title)}</span><span class="proj-link label-chip" data-hub="${esc(i.project_id)}">${esc(i.project_id)}</span></div>
+        <div class="cc-form">
+          <select class="cc-wt"><option value="">${L.cls_work_type ?? "업무유형"}…</option>${wtOpts}</select>
+          <select class="cc-lk"><option value="">${L.cls_link_kind ?? "연결대상"}…</option>${lkOpts}</select>
+          <input class="cc-ref" placeholder="${L.cls_link_ref ?? "연결 대상(산출물/BOM/업체…)"}" />
+          <input class="cc-cc" placeholder="${L.cls_completion ?? "완료기준(무엇을 하면 닫히나)"}" />
+          <button class="fav-chip cc-go">${L.cls_confirm ?? "정식 등록"}</button><span class="cc-msg dim"></span>
+        </div></div>`).join("")}</div>`
+    : `<div class="empty">${L.cls_none ?? "분류할 항목 없음"}</div>`);
   $("#view").innerHTML = `
     <div class="filters">
       <select id="fProject"><option value="">${L.project}: ${L.all_label}</option>${opts}</select>
     </div>
     <div class="status-chips">${chipsHtml}</div>
     ${triageNote}
-    <div class="item-form">
+    ${isTriage ? "" : `<div class="item-form">
       <select id="niProject">${opts || `<option value="">${L.project}</option>`}</select>
       <input id="niTitle" placeholder="${L.item_new_ph}" />
       <input id="niAssignee" placeholder="${L.assignee_ph}" size="9" />
       <input id="niDue" type="date" />
       <button id="niAdd" class="fav-chip">${L.item_add}</button>
-    </div>
-    ${rows ? `<table><thead><tr><th>${L.item}</th><th>${L.project}</th><th>${L.th_status}</th><th>${L.th_due}</th><th>${L.th_assignee}</th><th>${L.tab_guide}</th><th>${L.th_actions}</th></tr></thead><tbody>${rows}</tbody></table>` : `<div class="empty">${L.empty_items}</div>`}`;
+    </div>`}
+    ${isTriage ? triageBody : (rows ? `<table><thead><tr><th>${L.item}</th><th>${L.project}</th><th>${L.th_status}</th><th>${L.th_due}</th><th>${L.th_assignee}</th><th>${L.tab_guide}</th><th>${L.th_actions}</th></tr></thead><tbody>${rows}</tbody></table>` : `<div class="empty">${L.empty_items}</div>`)}`;
   $("#fProject").addEventListener("change", (e) => { state.projectFilter = e.target.value; render(); });
-  $("#niAdd").addEventListener("click", async () => {
+  $("#niAdd")?.addEventListener("click", async () => {
     const title = $("#niTitle").value.trim();
     const pid = $("#niProject").value;
     if (!title || !pid) return;
@@ -1657,8 +1678,24 @@ async function renderItems() {
     const r = await post("/api/items", body);
     if (r.ok) render();
   });
-  $("#niTitle").addEventListener("keydown", (e) => { if (e.key === "Enter") $("#niAdd").click(); });
-  if (state.focusNewItem) { state.focusNewItem = false; $("#niTitle").focus(); }
+  $("#niTitle")?.addEventListener("keydown", (e) => { if (e.key === "Enter") $("#niAdd").click(); });
+  if (state.focusNewItem && $("#niTitle")) { state.focusNewItem = false; $("#niTitle").focus(); }
+  // 분류 폼: 미분류 → confirmItem(정식 등록)
+  $("#view").querySelectorAll(".classify-card").forEach((card) => {
+    card.querySelector(".cc-go").addEventListener("click", async () => {
+      const v = (sel) => card.querySelector(sel).value.trim();
+      const body = { id: card.dataset.id };
+      if (v(".cc-wt")) body.work_type = v(".cc-wt");
+      if (v(".cc-lk")) body.link_kind = v(".cc-lk");
+      if (v(".cc-ref")) body.link_ref = v(".cc-ref");
+      if (v(".cc-cc")) body.completion_criteria = v(".cc-cc");
+      const res = await post("/api/items/confirm", body);
+      if (res.ok) { render(); return; }
+      const err = await res.json().catch(() => ({}));
+      card.querySelector(".cc-msg").textContent = err.error === "needs_se_anchor"
+        ? (L.cls_need ?? "업무유형 + 연결대상(또는 단계)이 있어야 정식 등록됩니다") : (err.error ?? "등록 실패");
+    });
+  });
   $("#view").querySelectorAll(".status-chip").forEach((c) =>
     c.addEventListener("click", () => { state.statusFilter = c.dataset.st || ""; render(); })
   );

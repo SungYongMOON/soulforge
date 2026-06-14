@@ -128,6 +128,18 @@ const server = createServer(async (req, res) => {
       });
       return send(res, 200, result);
     }
+    if (path === "/api/items/confirm" && req.method === "POST") {
+      let body = ""; for await (const chunk of req) body += chunk;
+      const input = JSON.parse(body || "{}");
+      const result = store.confirmItem(input.id, input);
+      if (result.error) return send(res, 400, result);
+      store.appendEvent({
+        actor_ref: "owner", actor_kind: "human", kind: "item_confirm",
+        item_ref: result.item.id, to: result.item.work_type ?? "", project_ref: result.item.project_id,
+        used_refs: ["items"], data_label: "real"
+      });
+      return send(res, 200, result);
+    }
     if (path === "/api/items/promote" && req.method === "POST") {
       let body = ""; for await (const chunk of req) body += chunk;
       const { mail_id } = JSON.parse(body || "{}");

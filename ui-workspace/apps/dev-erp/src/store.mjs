@@ -887,6 +887,27 @@ export class Store {
     return { ok: true, from: prev.assignee_ref, project_id: prev.project_id };
   }
 
+  // SE 기준점 확정(slice2): 미분류 할 일에 단계/연결대상 + 업무유형을 붙여 정식(open) 승격.
+  // SE 기준점(단계 또는 연결대상 또는 산출물) + 업무유형 둘 다 충족해야 통과(needs_se_anchor 게이트).
+  confirmItem(id, { work_type, link_kind, link_ref, completion_criteria, stage_id, anchor_stage_code } = {}) {
+    const item = this.db.prepare("SELECT * FROM core_item WHERE id=?").get(id);
+    if (!item) return { error: "item_not_found" };
+    if (item.status !== "unclassified") return { error: "not_unclassified", status: item.status };
+    if (work_type && !Store.WORK_TYPES.includes(work_type)) return { error: "work_type_invalid" };
+    if (link_kind && !Store.LINK_KINDS.includes(link_kind)) return { error: "link_kind_invalid" };
+    const wt = work_type ?? item.work_type;
+    const lk = link_kind ?? item.link_kind;
+    const sid = stage_id ?? item.stage_id;
+    const asc = anchor_stage_code ?? item.anchor_stage_code;
+    const hasAnchor = !!(sid || asc || lk || item.guide_artifact_id);
+    if (!wt || !hasAnchor) return { error: "needs_se_anchor", need: { work_type: !wt, se_anchor: !hasAnchor } };
+    if (stage_id && !this.db.prepare("SELECT 1 FROM core_stage WHERE id=? AND project_id=?").get(stage_id, item.project_id)) return { error: "stage_not_found" };
+    this.db.prepare(
+      `UPDATE core_item SET status='open', work_type=?, link_kind=?, link_ref=?, completion_criteria=?, stage_id=?, anchor_stage_code=? WHERE id=?`
+    ).run(wt, lk ?? null, link_ref ?? item.link_ref ?? null, completion_criteria ?? item.completion_criteria ?? null, sid ?? null, asc ?? null, id);
+    return { ok: true, item: this.db.prepare("SELECT * FROM core_item WHERE id=?").get(id) };
+  }
+
   // run17: 메일 과제 분류(재배정). 연결된 할일(origin_mail_id)도 함께 이동
   // (단일 진실: 몬스터=core_item 행 — 메일이 던전을 옮기면 그 몬스터도 동행).
   setMailProject(mail_id, project_id) {
