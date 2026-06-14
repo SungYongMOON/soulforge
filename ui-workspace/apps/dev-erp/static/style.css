@@ -12,10 +12,10 @@ body[data-mode="fantasy"] {
 * { box-sizing: border-box; }
 body { margin: 0; font-family: "Pretendard", "Apple SD Gothic Neo", system-ui, sans-serif; background: var(--bg); color: var(--text); }
 /* IA 2.5단: 상단 전폭 brand+그룹탭 / 좌측 선택그룹 하위 / 본문 (ECount 관찰 반영) */
-#app { display: grid; grid-template-columns: 200px 1fr; grid-template-rows: auto 1fr;
-  grid-template-areas: "brand brand" "side main"; min-height: 100vh; }
-/* 홈(위젯) 화면 = 좌측 하위메뉴 열 숨김, 위젯 보드가 전폭 (ECount MyPage식). 그룹탭(상단)으로만 이동. */
-#app[data-view="home"] { grid-template-columns: 1fr; grid-template-areas: "brand" "main"; }
+#app { display: grid; grid-template-columns: 200px 1fr; grid-template-rows: auto auto 1fr;
+  grid-template-areas: "brand brand" "subbar subbar" "side main"; min-height: 100vh; }
+/* 홈(위젯) 화면 = 좌측 하위메뉴 열 숨김, 위젯 보드가 전폭 (ECount MyPage식). 상단 탭으로만 이동. */
+#app[data-view="home"] { grid-template-columns: 1fr; grid-template-areas: "brand" "subbar" "main"; }
 #app[data-view="home"] .side { display: none; }
 
 .brand-bar { grid-area: brand; display: flex; align-items: center; gap: 16px;
@@ -24,11 +24,22 @@ body { margin: 0; font-family: "Pretendard", "Apple SD Gothic Neo", system-ui, s
 /* 그룹탭: 콘텐츠 폭만(늘리지 않음), 왼쪽 모음 — 항목 늘면 가로 확장/스크롤 */
 .group-bar { display: flex; flex-direction: row; gap: 2px; flex: 0 1 auto;
   overflow-x: auto; min-width: 0; }
-.group-tab { border: 0; background: transparent; color: var(--muted); padding: 7px 12px;
-  border-radius: 8px 8px 0 0; font-size: 13.5px; cursor: pointer; white-space: nowrap;
+/* L1 대분류 — 가장 큼 */
+.group-tab { border: 0; background: transparent; color: var(--muted); padding: 7px 14px;
+  border-radius: 8px 8px 0 0; font-size: 15px; cursor: pointer; white-space: nowrap;
   border-bottom: 2px solid transparent; }
 .group-tab:hover { color: var(--text); background: var(--chip); }
 .group-tab.on { color: var(--accent); font-weight: 600; border-bottom-color: var(--accent); }
+/* L2 중분류 — 전폭 가로바, L1 보다 작게 (ECount '그 다음 레벨') */
+.sub-bar { grid-area: subbar; display: flex; flex-direction: row; gap: 2px; align-items: stretch;
+  padding: 4px 16px 0; background: var(--panel); border-bottom: 1px solid var(--line); overflow-x: auto; }
+.sub-tab { border: 0; background: transparent; color: var(--muted); padding: 6px 11px;
+  font-size: 12.5px; cursor: pointer; white-space: nowrap; border-bottom: 2px solid transparent; }
+.sub-tab:hover { color: var(--text); }
+.sub-tab.on { color: var(--accent); font-weight: 600; border-bottom-color: var(--accent); }
+/* L3 분류 헤더 — 좌측열 그룹 라벨 (대분류명 중복 제거, 항목보다 작고 흐리게) */
+.nav-sub-head { font-size: 11px; font-weight: 700; color: var(--muted); letter-spacing: .03em;
+  padding: 6px 10px 3px; }
 /* 우측 글로벌: 바로가기바 + 등록☆ + ⌘K + 검색 (ECount 최상단 영역) */
 .global-actions { display: flex; align-items: center; gap: 6px; margin-left: auto; min-width: 0; position: relative; }
 .search-dropdown { position: absolute; top: calc(100% + 4px); right: 0; width: 320px; max-width: 60vw;

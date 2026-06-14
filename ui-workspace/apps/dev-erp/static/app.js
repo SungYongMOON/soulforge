@@ -5,7 +5,8 @@ const state = {
   view: "home",
   lex: {},
   projectFilter: "",
-  navGroup: localStorage.getItem("dev_erp_navgroup") || "group_project", // 대분류(객체축) 선택 그룹
+  navTop: localStorage.getItem("dev_erp_navtop") || "ops",       // L1 대분류(상단 가로)
+  navGroup: localStorage.getItem("dev_erp_navgroup") || "group_project", // L2 중분류(상단 가로, 섹터)
   pins: JSON.parse(localStorage.getItem("dev_erp_pins") || "[]"),
   // P2b: 계정/권한. 익명(account=null)이면 앱은 현행대로(전체 접근·localStorage).
   account: null, perms: [], accountCount: 0,
@@ -150,14 +151,49 @@ const VIEWS = ["home", "items", "guide", "mail", "artifacts", "search"];
 const navKey = { home: "nav_home", items: "nav_items", guide: "nav_guide", mail: "nav_mail", artifacts: "nav_artifacts", search: "nav_search" };
 
 // 대분류 = 다루는 '대상(객체)'축 (owner 결정 2026-06-13): 프로젝트/할일/산출물·문서/메일·소통/자재·거래처/사람·팀
-const NAV_LAYOUT = [
-  { g: "group_project", items: ["home", "guide", "mod:gates", "search"] },
-  { g: "group_task", items: ["items"] },
-  { g: "group_doc", items: ["artifacts", "mod:reports", "mod:knowledge", "mod:calculators"] },
-  { g: "group_comm", items: ["mail", "mod:meetings"] },
-  { g: "group_material", items: ["mod:purchase", "mod:inventory", "mod:boards", "mod:stockwatch"] },
-  { g: "group_team", items: ["mod:contacts", "mod:requests", "mod:analytics"] }
+// IA 4단(ECount식): ① 대분류(상단 가로, 큰글씨) → ② 중분류(상단 가로, 작은글씨) →
+// ③ 분류(좌측 헤더) → ④ 항목(좌측 하위). ⚠️ 항목 taxonomy 는 임시 시작값 —
+// owner 가 항목을 더 세분화해 재정리 예정(이 NAV_TREE 가 단일 편집 지점). 라벨은 {b 업무 / f 판타지}.
+const NAV_TREE = [
+  { id: "ops", b: "개발 운영", f: "원정 본부", sectors: [
+    { g: "group_project", subs: [
+      { b: "현황", f: "전황", items: ["home", "mod:gates"] },
+      { b: "작업 도구", f: "도구", items: ["guide", "search"] },
+    ] },
+    { g: "group_task", subs: [
+      { b: "할 일", f: "몬스터", items: ["items"] },
+    ] },
+  ] },
+  { id: "output", b: "산출·소통", f: "전리·전령", sectors: [
+    { g: "group_doc", subs: [
+      { b: "산출물", f: "전리품", items: ["artifacts"] },
+      { b: "문서·지식", f: "기록·지식", items: ["mod:reports", "mod:knowledge"] },
+      { b: "계산 도구", f: "계산 마법", items: ["mod:calculators"] },
+    ] },
+    { g: "group_comm", subs: [
+      { b: "소통", f: "전령", items: ["mail", "mod:meetings"] },
+    ] },
+  ] },
+  { id: "resource", b: "자원·조직", f: "병참·길드", sectors: [
+    { g: "group_material", subs: [
+      { b: "조달", f: "보급", items: ["mod:purchase"] },
+      { b: "재고·부품", f: "병참 창고", items: ["mod:inventory", "mod:boards", "mod:stockwatch"] },
+    ] },
+    { g: "group_team", subs: [
+      { b: "팀·요청", f: "길드", items: ["mod:contacts", "mod:requests", "mod:analytics"] },
+    ] },
+  ] },
 ];
+const navTL = (o) => (state.mode === "fantasy" ? o.f : o.b); // 모드별 라벨
+function navTopOf(id) { return NAV_TREE.find((t) => t.id === id) ?? NAV_TREE[0]; }
+function navSectorOf(topId, g) { const t = navTopOf(topId); return t.sectors.find((s) => s.g === g) ?? t.sectors[0]; }
+function navFirstView(sec) { for (const sub of sec.subs) for (const it of sub.items) return it; return "home"; }
+// view → (대분류, 중분류) 위치 검색(팔레트/허브 점프 시 상단 탭 동기화)
+function navLocate(v) {
+  for (const top of NAV_TREE) for (const sec of top.sectors)
+    for (const sub of sec.subs) if (sub.items.includes(v)) return { top: top.id, g: sec.g };
+  return null;
+}
 
 function navButton(v) {
   const perm = permOf(v.startsWith("mod:") ? v : `view:${v}`);
@@ -176,45 +212,60 @@ function navButton(v) {
   return `<button data-v="${v}" class="${state.view === v ? "active" : ""}"${dis}><span>${state.lex[navKey[v]]}${lock}</span><span class="nav-side">${star}</span></button>`;
 }
 
-// IA 2.5단 (ECount 관찰 반영): 현재 view 가 속한 그룹을 찾아 상단 탭 동기화
-function groupOfView(v) {
-  const g = NAV_LAYOUT.find((grp) => grp.items.includes(v));
-  return g ? g.g : null;
-}
-
-function renderGroupBar() {
-  // 상단 대분류 탭(ECount 1단). 클릭 시 좌측 하위만 교체.
-  if (!NAV_LAYOUT.some((g) => g.g === state.navGroup)) state.navGroup = NAV_LAYOUT[0].g; // stale 값 가드
-  $("#groupBar").innerHTML = NAV_LAYOUT.map((group) =>
-    `<button class="group-tab ${state.navGroup === group.g ? "on" : ""}" data-g="${group.g}">${state.lex[group.g]}</button>`
+// L1 대분류(상단 가로, 큰 글씨). 클릭 → 첫 중분류·첫 화면 랜딩.
+function renderTopBar() {
+  if (!NAV_TREE.some((t) => t.id === state.navTop)) state.navTop = NAV_TREE[0].id;
+  $("#groupBar").innerHTML = NAV_TREE.map((t) =>
+    `<button class="group-tab ${state.navTop === t.id ? "on" : ""}" data-top="${t.id}">${navTL(t)}</button>`
   ).join("");
   $("#groupBar").querySelectorAll(".group-tab").forEach((b) =>
     b.addEventListener("click", () => {
+      state.navTop = b.dataset.top;
+      localStorage.setItem("dev_erp_navtop", state.navTop);
+      const sec = navTopOf(state.navTop).sectors[0];
+      state.navGroup = sec.g;
+      localStorage.setItem("dev_erp_navgroup", state.navGroup);
+      state.view = navFirstView(sec);
+      render();
+    })
+  );
+}
+
+// L2 중분류(상단 가로, 작은 글씨). 선택 대분류의 섹터들. 클릭 → 첫 화면 랜딩.
+function renderSubBar() {
+  const top = navTopOf(state.navTop);
+  if (!top.sectors.some((s) => s.g === state.navGroup)) state.navGroup = top.sectors[0].g;
+  $("#subBar").innerHTML = top.sectors.map((s) =>
+    `<button class="sub-tab ${state.navGroup === s.g ? "on" : ""}" data-g="${s.g}">${state.lex[s.g]}</button>`
+  ).join("");
+  $("#subBar").querySelectorAll(".sub-tab").forEach((b) =>
+    b.addEventListener("click", () => {
       state.navGroup = b.dataset.g;
       localStorage.setItem("dev_erp_navgroup", state.navGroup);
-      // 그룹 전환 시 그 그룹의 첫 화면으로 이동(ECount: 모듈 클릭→기본 화면 랜딩)
-      const grp = NAV_LAYOUT.find((x) => x.g === state.navGroup);
-      const first = grp?.items.find((v) => !v.startsWith("mod:")) ?? grp?.items[0];
-      if (first) state.view = first;
+      state.view = navFirstView(navSectorOf(state.navTop, state.navGroup));
       render();
     })
   );
 }
 
 function renderNav() {
-  // 현재 view 가 속한 그룹으로 상단 탭 자동 동기화(팔레트/허브 점프 대응)
-  const vg = groupOfView(state.view);
-  if (vg && vg !== state.navGroup) state.navGroup = vg;
-  renderGroupBar();
+  // 현재 view → 대분류/중분류 자동 동기화(팔레트/허브 점프 대응)
+  const loc = navLocate(state.view);
+  if (loc) { state.navTop = loc.top; state.navGroup = loc.g; }
+  renderTopBar();
+  renderSubBar();
 
   const pinnedGroup = state.pins.length
-    ? `<div class="nav-group"><div class="nav-group-label">${state.lex.group_pinned}</div>${state.pins.map(navButton).join("")}</div>`
+    ? `<div class="nav-group"><div class="nav-sub-head">${state.lex.group_pinned}</div>${state.pins.map(navButton).join("")}</div>`
     : "";
-  // 좌측 = 선택된 상단 그룹의 하위 항목만(ECount 좌측 트리)
-  const active = NAV_LAYOUT.find((grp) => grp.g === state.navGroup) ?? NAV_LAYOUT[0];
-  $("#nav").innerHTML = pinnedGroup + `<div class="nav-group">
-      <div class="nav-group-label">${state.lex[active.g]}</div>
-      ${active.items.map(navButton).join("")}</div>`;
+  // 좌측 = 선택 중분류(섹터)의 L3 분류 헤더 + L4 항목 (대분류명 중복 표기 제거)
+  const sec = navSectorOf(state.navTop, state.navGroup);
+  const tree = sec.subs.map((sub) => {
+    const btns = sub.items.map(navButton).join("");
+    if (!btns.trim()) return ""; // RBAC 로 항목이 전부 숨으면 헤더도 생략
+    return `<div class="nav-group"><div class="nav-sub-head">${navTL(sub)}</div>${btns}</div>`;
+  }).join("");
+  $("#nav").innerHTML = pinnedGroup + tree;
   $("#nav").querySelectorAll("button").forEach((b) =>
     b.addEventListener("click", () => { state.view = b.dataset.v; render(); })
   );
