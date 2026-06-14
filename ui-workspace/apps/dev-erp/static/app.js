@@ -5,8 +5,8 @@ const state = {
   view: "home",
   lex: {},
   projectFilter: "",
-  navTop: localStorage.getItem("dev_erp_navtop") || "ops",       // L1 대분류(상단 가로)
-  navGroup: localStorage.getItem("dev_erp_navgroup") || "group_project", // L2 중분류(상단 가로, 섹터)
+  navTop: localStorage.getItem("dev_erp_navtop") || "task",      // L1 대분류(상단 가로)
+  navGroup: localStorage.getItem("dev_erp_navgroup") || "sec_work", // L2 중분류(상단 가로, 섹터)
   navFold: new Set(JSON.parse(localStorage.getItem("dev_erp_navfold") || "[]")), // 좌측 L3 접힘 키
   pins: JSON.parse(localStorage.getItem("dev_erp_pins") || "[]"),
   // P2b: 계정/권한. 익명(account=null)이면 앱은 현행대로(전체 접근·localStorage).
@@ -131,8 +131,8 @@ async function loadLexicon() {
   state.lex = data.labels;
   state.modules = mods;
   document.body.dataset.mode = state.mode;
-  $("#appTitle").textContent = state.lex.app_title;
-  // 좌상단 로고 = 홈(위젯 대시보드)로 복귀 (ECount 로고 동작). onclick 으로 중복바인딩 방지.
+  // 맨 왼쪽 콕핏 버튼 = 위젯 대시보드 진입(ECount 로고/MyPage 식). 아이콘+라벨, 홈일 때 활성.
+  $("#appTitle").innerHTML = `<span class="cockpit-ico" aria-hidden="true">▦</span><span>${esc(state.lex.app_title)}</span>`;
   $("#appTitle").classList.add("brand-home");
   $("#appTitle").title = state.lex.nav_home;
   $("#appTitle").onclick = () => { state.view = "home"; render(); };
@@ -151,37 +151,53 @@ function localTime(iso) {
 const VIEWS = ["home", "items", "guide", "mail", "artifacts", "search"];
 const navKey = { home: "nav_home", items: "nav_items", guide: "nav_guide", mail: "nav_mail", artifacts: "nav_artifacts", search: "nav_search" };
 
-// 대분류 = 다루는 '대상(객체)'축 (owner 결정 2026-06-13): 프로젝트/할일/산출물·문서/메일·소통/자재·거래처/사람·팀
-// IA 4단(ECount식): ① 대분류(상단 가로, 큰글씨) → ② 중분류(상단 가로, 작은글씨) →
-// ③ 분류(좌측 헤더) → ④ 항목(좌측 하위). ⚠️ 항목 taxonomy 는 임시 시작값 —
-// owner 가 항목을 더 세분화해 재정리 예정(이 NAV_TREE 가 단일 편집 지점). 라벨은 {b 업무 / f 판타지}.
+// 대분류 = 다루는 '대상(객체)'축 (owner 결정 2026-06-13). IA 4단(ECount식):
+// ① 대분류(상단 가로, 큰글씨) → ② 중분류(상단 가로, 작은글씨) → ③ 분류(좌측 헤더) → ④ 항목(좌측 하위).
+// 분류 초안 = 3안(흐름/빈도/도메인) 병렬설계+심사 종합(2026-06-14): 도메인 골격 위에 SE 강제엔진
+// (게이트·제안·일정)을 '단계 운영'으로 좌상단 집중, 메일·요청은 '받은 일'(인입)로 분리.
+// 라벨은 {b 업무 / f 판타지}. 이 NAV_TREE 가 단일 편집 지점.
 const NAV_TREE = [
-  { id: "ops", b: "개발 운영", f: "원정 본부", sectors: [
-    { g: "group_project", subs: [
-      { b: "현황", f: "전황", items: ["home", "mod:gates"] },
-      { b: "작업 도구", f: "도구", items: ["guide", "search"] },
+  { id: "task", b: "과제 운영", f: "원정 본부", sectors: [
+    { g: "sec_work", b: "내 작업", f: "내 작업", subs: [
+      { b: "할 일", f: "할 일", items: ["items"] },
+      { b: "가이드·검색", f: "도구·탐색", items: ["guide", "search"] },
     ] },
-    { g: "group_task", subs: [
-      { b: "할 일", f: "몬스터", items: ["items"] },
+    { g: "sec_stage", b: "단계 운영", f: "관문 운영", subs: [
+      { b: "게이트·제안", f: "관문·제안", items: ["mod:gates", "mod:proposals"] },
+      { b: "일정", f: "운명표", items: ["mod:schedule"] },
     ] },
-  ] },
-  { id: "output", b: "산출·소통", f: "전리·전령", sectors: [
-    { g: "group_doc", subs: [
-      { b: "산출물", f: "전리품", items: ["artifacts"] },
-      { b: "문서·지식", f: "기록·지식", items: ["mod:reports", "mod:knowledge"] },
-      { b: "계산 도구", f: "계산 마법", items: ["mod:calculators"] },
-    ] },
-    { g: "group_comm", subs: [
-      { b: "소통", f: "전령", items: ["mail", "mod:meetings"] },
+    { g: "sec_inbox", b: "받은 일", f: "받은 일", subs: [
+      { b: "메일·요청", f: "전령·의뢰", items: ["mail", "mod:requests"] },
     ] },
   ] },
-  { id: "resource", b: "자원·조직", f: "병참·길드", sectors: [
-    { g: "group_material", subs: [
-      { b: "조달", f: "보급", items: ["mod:purchase"] },
-      { b: "재고·부품", f: "병참 창고", items: ["mod:inventory", "mod:boards", "mod:stockwatch"] },
+  { id: "doc", b: "산출·문서", f: "전리·기록", sectors: [
+    { g: "sec_artifact", b: "산출물", f: "전리품", subs: [
+      { b: "산출물 목록", f: "전리 목록", items: ["artifacts"] },
+      { b: "작성 지원", f: "제작 지원", items: ["mod:recipe", "mod:calculators"] },
     ] },
-    { g: "group_team", subs: [
-      { b: "팀·요청", f: "길드", items: ["mod:contacts", "mod:requests", "mod:analytics"] },
+    { g: "sec_record", b: "기록·보고", f: "기록·연대기", subs: [
+      { b: "보고·노트", f: "연대기", items: ["mod:reports"] },
+      { b: "회의", f: "원탁", items: ["mod:meetings"] },
+    ] },
+  ] },
+  { id: "material", b: "자재·조달", f: "병참·조달", sectors: [
+    { g: "sec_procure", b: "구매·재고", f: "보급·창고", subs: [
+      { b: "구매·발주", f: "보급", items: ["mod:purchase"] },
+      { b: "재고·자산", f: "병참 창고", items: ["mod:inventory"] },
+    ] },
+    { g: "sec_board", b: "보드·부품", f: "설계·부품", subs: [
+      { b: "보드·BOM", f: "설계도", items: ["mod:boards"] },
+      { b: "부품 감시", f: "보급 정찰", items: ["mod:stockwatch"] },
+    ] },
+  ] },
+  { id: "people", b: "사람·지식", f: "길드·지식", sectors: [
+    { g: "sec_knowledge", b: "지식 기반", f: "대도서관", subs: [
+      { b: "지식·RAG", f: "전승 검색", items: ["mod:knowledge"] },
+      { b: "외부 자료", f: "외부 점술판", items: ["mod:embeds"] },
+    ] },
+    { g: "sec_team", b: "사람·현황", f: "길드·현황", subs: [
+      { b: "연락처", f: "인명록", items: ["mod:contacts"] },
+      { b: "투입 분석", f: "전훈 분석", items: ["mod:analytics"] },
     ] },
   ] },
 ];
@@ -196,6 +212,13 @@ function navLocate(v) {
   return null;
 }
 
+// 가상 뷰(MODULES 에 없는 화면) — nav 항목 라벨. render() 에 dispatch 가 있어야 동작.
+const VIRTUAL_NAV = {
+  "mod:schedule": { b: "SE 일정", f: "운명 직조" },
+  "mod:recipe": { b: "작성법 위저드", f: "제작 비법서" },
+  "mod:embeds": { b: "외부 시트", f: "외부 점술판" },
+  "mod:proposals": { b: "제안 큐", f: "제안 두루마리" },
+};
 function navButton(v) {
   const perm = permOf(v.startsWith("mod:") ? v : `view:${v}`);
   if (!perm.visible) return "";                       // RBAC: 숨김
@@ -206,9 +229,12 @@ function navButton(v) {
   const star = `<i class="pin-btn ${pinned ? "on" : ""}" data-pin="${v}" title="${state.lex.pin_toggle}">${pinned ? "★" : "☆"}</i>`;
   if (v.startsWith("mod:")) {
     const m = (state.modules ?? []).find((x) => `mod:${x.id}` === v);
-    if (!m) return "";
-    return `<button data-v="${v}" class="${state.view === v ? "active" : ""}"${dis}>
+    if (m) return `<button data-v="${v}" class="${state.view === v ? "active" : ""}"${dis}>
       <span>${m.nav}${lock}</span><span class="nav-side"><em class="phase-tag">${m.phase}</em>${star}</span></button>`;
+    const vn = VIRTUAL_NAV[v]; // 가상 뷰
+    if (vn) return `<button data-v="${v}" class="${state.view === v ? "active" : ""}"${dis}>
+      <span>${navTL(vn)}${lock}</span><span class="nav-side">${star}</span></button>`;
+    return "";
   }
   return `<button data-v="${v}" class="${state.view === v ? "active" : ""}"${dis}><span>${state.lex[navKey[v]]}${lock}</span><span class="nav-side">${star}</span></button>`;
 }
@@ -216,8 +242,11 @@ function navButton(v) {
 // L1 대분류(상단 가로, 큰 글씨). 클릭 → 첫 중분류·첫 화면 랜딩.
 function renderTopBar() {
   if (!NAV_TREE.some((t) => t.id === state.navTop)) state.navTop = NAV_TREE[0].id;
+  // 홈(위젯)일 때는 대분류 미강조 — 좌상단 콕핏 버튼이 활성(ECount: MyPage 는 대분류 밖).
+  const onHome = state.view === "home";
+  $("#appTitle")?.classList.toggle("on", onHome);
   $("#groupBar").innerHTML = NAV_TREE.map((t) =>
-    `<button class="group-tab ${state.navTop === t.id ? "on" : ""}" data-top="${t.id}">${navTL(t)}</button>`
+    `<button class="group-tab ${!onHome && state.navTop === t.id ? "on" : ""}" data-top="${t.id}">${navTL(t)}</button>`
   ).join("");
   $("#groupBar").querySelectorAll(".group-tab").forEach((b) =>
     b.addEventListener("click", () => {
@@ -237,7 +266,7 @@ function renderSubBar() {
   const top = navTopOf(state.navTop);
   if (!top.sectors.some((s) => s.g === state.navGroup)) state.navGroup = top.sectors[0].g;
   $("#subBar").innerHTML = top.sectors.map((s) =>
-    `<button class="sub-tab ${state.navGroup === s.g ? "on" : ""}" data-g="${s.g}">${state.lex[s.g]}</button>`
+    `<button class="sub-tab ${state.navGroup === s.g ? "on" : ""}" data-g="${s.g}">${navTL(s)}</button>`
   ).join("");
   $("#subBar").querySelectorAll(".sub-tab").forEach((b) =>
     b.addEventListener("click", () => {
@@ -538,6 +567,31 @@ async function renderRecipe() {
     <h3>${L.recipe_steps}</h3>
     <ol class="recipe-steps">${steps || `<li class="dim">-</li>`}</ol>`;
   $("#recipeSel").addEventListener("change", (e) => { state.recipeKey = e.target.value; render(); });
+}
+
+// P-19/P-4 키스톤: 제안 큐 독립 화면 — 추천 스캔 + 승인/반려(게이트 화면 섹션과 동일 라우트).
+async function renderProposals() {
+  const L = state.lex;
+  const props = await api("/api/proposals");
+  const rows = props.length
+    ? `<table><tbody>${props.map((p) => `<tr data-prop="${esc(p.id)}">
+        <td><span class="badge">${esc(p.kind)}</span></td>
+        <td>${esc(p.summary ?? p.payload?.title ?? p.id)}</td>
+        <td class="dim">${esc(p.source)}</td>
+        <td><button class="fav-chip prop-approve">${L.prop_approve}</button> <button class="fav-chip prop-reject">${L.prop_reject}</button> <span class="prop-msg dim"></span></td>
+      </tr>`).join("")}</tbody></table>`
+    : `<div class="empty">${L.prop_empty}</div>`;
+  $("#view").innerHTML = `<div class="filters"><button id="runRec2" class="fav-chip">${L.rec_run}</button>
+    <span class="dim">${L.prop_queue_title} (${props.length})</span></div>${rows}`;
+  $("#runRec2").addEventListener("click", async () => { await post("/api/recommenders/run", { scope: "all" }); render(); });
+  $("#view").querySelectorAll("[data-prop]").forEach((tr) => {
+    const id = tr.dataset.prop;
+    tr.querySelector(".prop-approve").addEventListener("click", async () => {
+      const res = await (await post("/api/proposals/approve", { id })).json();
+      if (res.ok) render(); else tr.querySelector(".prop-msg").textContent = `✗ ${res.error ?? ""}`;
+    });
+    tr.querySelector(".prop-reject").addEventListener("click", async () => { await post("/api/proposals/reject", { id, reason: "" }); render(); });
+  });
 }
 
 // P-18 외부 시트 임베드(Smartsheet) read-only — 게시 URL 등록 + iframe 표시. 양방향/토큰 없음.
@@ -2165,6 +2219,7 @@ async function render() {
   if (state.view === "mod:calculators") { const m=(state.modules??[]).find(x=>x.id==="calculators"); $("#viewTitle").textContent=m?.nav??"계산기"; logView(state.view); return renderCalculators(); }
   if (state.view === "mod:recipe") { $("#viewTitle").textContent = state.lex.recipe_title; logView(state.view); return renderRecipe(); }
   if (state.view === "mod:embeds") { $("#viewTitle").textContent = state.lex.embed_title; logView(state.view); return renderEmbeds(); }
+  if (state.view === "mod:proposals") { $("#viewTitle").textContent = state.lex.prop_queue_title; logView(state.view); return renderProposals(); }
   if (state.view === "mod:inventory") { const m=(state.modules??[]).find(x=>x.id==="inventory"); $("#viewTitle").textContent=m?.nav??"재고"; logView(state.view); return renderInventory(); }
   if (state.view === "mod:boards") { const m=(state.modules??[]).find(x=>x.id==="boards"); $("#viewTitle").textContent=m?.nav??"보드/BOM"; logView(state.view); return renderBoards(); }
   if (state.view === "mod:stockwatch") { const m=(state.modules??[]).find(x=>x.id==="stockwatch"); $("#viewTitle").textContent=m?.nav??"부품감시"; logView(state.view); return renderStockwatch(); }
@@ -2340,7 +2395,114 @@ $("#globalSearch").addEventListener("keydown", (e) => {
 $("#globalSearch").addEventListener("blur", () => setTimeout(clearSearchDropdown, 150));
 
 $("#chatBtn")?.addEventListener("click", openChat);
+
+// ──────── 상단 툴바 기능(ECount 참고): 알림 · 타임라인 · 개인 메모 · 다크/라이트 ────────
+// 공용 드롭다운(알림·타임라인) — 버튼 아래 우측 정렬, 바깥 클릭 시 닫힘.
+function closeTopDropdowns() { document.querySelectorAll(".top-dropdown").forEach((d) => d.remove()); }
+function showTopDropdown(anchorId, html) {
+  const open = document.querySelector(`.top-dropdown[data-for="${anchorId}"]`);
+  closeTopDropdowns();
+  if (open) return; // 토글: 열려있으면 닫기만
+  const a = $(`#${anchorId}`); if (!a) return;
+  const dd = document.createElement("div");
+  dd.className = "top-dropdown"; dd.dataset.for = anchorId; dd.innerHTML = html;
+  document.body.appendChild(dd);
+  const r = a.getBoundingClientRect();
+  dd.style.top = `${Math.round(r.bottom + 4)}px`;
+  dd.style.right = `${Math.round(window.innerWidth - r.right)}px`;
+  setTimeout(() => document.addEventListener("click", function h(e) {
+    if (!dd.contains(e.target) && e.target !== a && !a.contains(e.target)) { dd.remove(); document.removeEventListener("click", h); }
+  }), 0);
+  return dd;
+}
+
+// 🌙 다크/라이트 — 업무/판타지 mode 와 독립(색만 전환, 라벨 그대로). body[data-theme].
+const ICON_MOON = `<svg viewBox="0 0 24 24" width="17" height="17" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M20 13a8 8 0 1 1-9-9 6.5 6.5 0 0 0 9 9z"/></svg>`;
+const ICON_SUN = `<svg viewBox="0 0 24 24" width="17" height="17" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="4.5"/><path d="M12 2v2M12 20v2M4 12H2M22 12h-2M5 5l1.4 1.4M17.6 17.6L19 19M19 5l-1.4 1.4M6.4 17.6L5 19"/></svg>`;
+function applyTheme(t) {
+  document.body.dataset.theme = t;
+  localStorage.setItem("dev_erp_theme", t);
+  const b = $("#themeBtn"); if (b) { b.innerHTML = t === "dark" ? ICON_SUN : ICON_MOON; b.title = t === "dark" ? "라이트로 전환" : "다크로 전환"; }
+}
+applyTheme(localStorage.getItem("dev_erp_theme") || "light");
+$("#themeBtn")?.addEventListener("click", () => applyTheme(document.body.dataset.theme === "dark" ? "light" : "dark"));
+
+// 📝 개인 메모(E Note) — 어느 화면에서나 여는 개인 메모. 이 기기(localStorage)에만 저장.
+function openNote() {
+  document.querySelector(".note-overlay")?.remove();
+  const ov = document.createElement("div");
+  ov.className = "note-overlay";
+  ov.innerHTML = `<div class="note-panel" role="dialog" aria-label="내 메모">
+    <div class="note-head"><strong>📝 내 메모</strong><span class="dim">이 기기에만 저장</span><button class="note-x" title="닫기">✕</button></div>
+    <textarea id="noteText" placeholder="개인 메모·할 일을 자유롭게 적으세요 (이 기기에만 저장됩니다)"></textarea></div>`;
+  document.body.appendChild(ov);
+  const ta = ov.querySelector("#noteText");
+  ta.value = localStorage.getItem("dev_erp_note") || "";
+  ta.addEventListener("input", () => localStorage.setItem("dev_erp_note", ta.value));
+  ov.querySelector(".note-x").addEventListener("click", () => ov.remove());
+  ov.addEventListener("click", (e) => { if (e.target === ov) ov.remove(); });
+  ta.focus();
+}
+$("#noteBtn")?.addEventListener("click", openNote);
+
+// 🕘 타임라인 — 최근 활동(event_log) 드롭다운.
+async function openTimeline() {
+  const dd = showTopDropdown("timelineBtn", `<div class="dd-head">타임라인 · 최근 활동</div><div class="dd-loading dim">불러오는 중…</div>`);
+  if (!dd) return;
+  let evs = []; try { evs = await api("/api/events/recent?limit=30"); } catch {}
+  if (!document.body.contains(dd)) return;
+  const rows = evs.length
+    ? evs.map((e) => `<div class="tl-row"><span class="tl-time dim">${localTime(e.at)}</span>
+        <span class="badge">${esc(e.kind)}</span>
+        <span class="tl-body">${esc(e.actor_ref ?? "")}${e.to_val ? ` · ${esc(String(e.to_val)).slice(0, 40)}` : ""}</span></div>`).join("")
+    : `<div class="empty small">최근 활동 없음</div>`;
+  dd.innerHTML = `<div class="dd-head">타임라인 · 최근 활동</div>${rows}`;
+}
+$("#timelineBtn")?.addEventListener("click", openTimeline);
+
+// 🔔 알림 — 봐야 할 것 집계(대기 제안·차단/연체 할일·막힌 게이트·품절 부품). 전부 기존 API.
+async function loadNotifications() {
+  const today = new Date().toISOString().slice(0, 10);
+  const [props, blocked, allItems, gates, low] = await Promise.all([
+    api("/api/proposals").catch(() => []),
+    api("/api/items?status=blocked").catch(() => []),
+    api("/api/items").catch(() => []),
+    api("/api/gates").catch(() => ({ stages: [] })),
+    api("/api/stock/low").catch(() => []),
+  ]);
+  const overdue = (allItems || []).filter((i) => i.due && i.due < today && i.status !== "done");
+  const heldGates = (gates.stages || []).filter((s) => s.status !== "cleared" && !s.passable);
+  const groups = [
+    { label: "승인 대기 제안", n: props.length, view: "mod:proposals" },
+    { label: "차단된 할 일", n: blocked.length, view: "items" },
+    { label: "연체 할 일", n: overdue.length, view: "items" },
+    { label: "막힌 단계 게이트", n: heldGates.length, view: "mod:gates" },
+    { label: "품절 임박 부품", n: low.length, view: "mod:stockwatch" },
+  ].filter((g) => g.n > 0);
+  return { groups, total: groups.reduce((s, g) => s + g.n, 0) };
+}
+function refreshNotifBadge() {
+  loadNotifications().then(({ total }) => {
+    const b = $("#notifBadge"); if (!b) return;
+    b.textContent = total > 99 ? "99+" : String(total);
+    b.classList.toggle("hidden", total === 0);
+  }).catch(() => {});
+}
+async function openNotifications() {
+  const dd = showTopDropdown("notifBtn", `<div class="dd-head">알림</div><div class="dd-loading dim">불러오는 중…</div>`);
+  if (!dd) return;
+  const { groups, total } = await loadNotifications();
+  if (!document.body.contains(dd)) return;
+  const body = total
+    ? groups.map((g) => `<div class="nt-group" data-go="${g.view}"><span class="nt-cnt">${g.n}</span><span class="nt-label">${g.label}</span><span class="dim">→</span></div>`).join("")
+    : `<div class="empty small">새 알림 없음</div>`;
+  dd.innerHTML = `<div class="dd-head">알림 (${total})</div>${body}`;
+  dd.querySelectorAll(".nt-group").forEach((g) => g.addEventListener("click", () => { closeTopDropdowns(); state.view = g.dataset.go; render(); }));
+}
+$("#notifBtn")?.addEventListener("click", openNotifications);
+
 await loadMe();
 await pullServerLayout();
 await loadLexicon();
 render();
+refreshNotifBadge(); // 🔔 알림 배지 초기 집계
