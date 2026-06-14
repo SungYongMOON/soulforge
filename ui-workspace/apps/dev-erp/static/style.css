@@ -228,6 +228,40 @@ nav button:hover .pin-btn { opacity: 1; }
 /* 준비 중(모듈 0) 슬롯 — 비활성 dim, 클릭 불가 */
 #nav .nav-items button.soon { opacity: .5; cursor: default; font-style: italic; }
 #nav .nav-items button.soon:hover { background: none; }
+/* 프로젝트 관리 좌측 트리(과제시작년도→과제) */
+.proj-tree-cap { font-size: 10.5px; color: var(--muted); padding: 2px 4px 6px; letter-spacing: .02em; }
+.nav-loading { font-size: 12px; color: var(--muted); padding: 8px 6px; }
+#nav .nav-items.proj-tree button.proj-nav { font-size: 12.5px; padding: 5px 8px; justify-content: flex-start; gap: 5px; }
+.proj-nav .pn-id { font-weight: 600; color: var(--text); }
+.proj-nav .pn-title { color: var(--muted); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.proj-nav.active .pn-title { color: var(--accent); }
+.health-dot { width: 7px; height: 7px; border-radius: 50%; flex: 0 0 auto; background: var(--muted); }
+.health-dot.h-ok { background: #2e9e5b; } .health-dot.h-watch { background: #d99a1c; }
+.health-dot.h-risk { background: #d9462b; } .health-dot.h-stopped { background: #8a8f98; }
+/* 프로젝트 관리 메인 카드 */
+.proj-list-head { font-size: 12px; color: var(--muted); margin-bottom: 12px; }
+.proj-year-block { margin-bottom: 18px; }
+.proj-year-h { font-size: 14px; font-weight: 700; margin: 0 0 9px; padding-bottom: 5px; border-bottom: 1px solid var(--line); }
+.proj-year-h .dim { color: var(--muted); font-weight: 400; font-size: 12px; margin-left: 4px; }
+.proj-cards { display: grid; grid-template-columns: repeat(auto-fill, minmax(230px, 1fr)); gap: 10px; }
+.proj-card { background: var(--panel); border: 1px solid var(--line); border-radius: 10px; padding: 12px 13px; cursor: pointer; transition: border-color .12s, box-shadow .12s; }
+.proj-card:hover { border-color: var(--accent); box-shadow: 0 4px 14px rgba(0,0,0,.08); }
+.pc-head { display: flex; align-items: center; justify-content: space-between; gap: 8px; }
+.pc-id { font-weight: 700; font-size: 13px; }
+.pc-title { font-size: 13.5px; margin: 5px 0 7px; }
+.pc-meta { font-size: 11.5px; color: var(--muted); }
+.pc-wl { display: flex; flex-wrap: wrap; gap: 5px; margin-top: 8px; }
+.pc-wl .wl { font-style: normal; font-size: 10.5px; border-radius: 999px; padding: 1px 7px; background: var(--chip); color: var(--muted); }
+.pc-wl .wl.over { background: #fbe4df; color: #b53a22; }
+.pc-wl .wl.due { background: #fdf0d6; color: #9a6a12; }
+.status-chip { font-size: 10.5px; border-radius: 999px; padding: 1px 8px; white-space: nowrap; }
+.status-chip.s-ok { background: #e2f3e9; color: #1f7a44; }
+.status-chip.s-watch { background: #fdf0d6; color: #9a6a12; }
+.status-chip.s-risk { background: #fbe4df; color: #b53a22; }
+.status-chip.s-stopped { background: var(--chip); color: var(--muted); }
+body[data-theme="dark"] .pc-wl .wl.over, body[data-theme="dark"] .status-chip.s-risk { background: #5a241c; color: #f2b3a4; }
+body[data-theme="dark"] .pc-wl .wl.due, body[data-theme="dark"] .status-chip.s-watch { background: #4d3a13; color: #f0cd8a; }
+body[data-theme="dark"] .status-chip.s-ok { background: #1d3d2a; color: #8ed6a8; }
 .phase-tag { font-style: normal; font-size: 10px; color: var(--muted); background: var(--chip); border-radius: 999px; padding: 1px 6px; white-space: nowrap; }
 .phase-tag.big { font-size: 12px; padding: 4px 10px; color: var(--accent); }
 .module-head { background: var(--panel); border: 1px solid var(--line); border-radius: 12px; padding: 14px 16px; }

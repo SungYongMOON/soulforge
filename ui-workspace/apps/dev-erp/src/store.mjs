@@ -8,6 +8,12 @@ import { readFileSync, existsSync } from "node:fs";
 import { dirname, join } from "node:path";
 import { fileURLToPath } from "node:url";
 
+// 과제시작년도 도출: 과제번호 접두 P{YY}- 에서(P26-014→2026, P00-TEST→2000). 형식 안 맞으면 null.
+export function deriveStartYear(id) {
+  const m = String(id ?? "").match(/^P(\d{2})-/i);
+  return m ? 2000 + Number(m[1]) : null;
+}
+
 // P2b 비밀번호 해시: scrypt. 형식 "scrypt$<saltHex>$<hashHex>". 평문 저장 금지.
 export function hashPassword(plain) {
   const salt = randomBytes(16);
@@ -35,6 +41,7 @@ CREATE TABLE IF NOT EXISTS core_project (
   health TEXT NOT NULL DEFAULT 'ok',   -- ok|watch|risk|stopped
   class TEXT NOT NULL DEFAULT 'active', -- active|inbox|internal|archive (페르소나 합의 분류)
   stage_current TEXT,
+  start_year INTEGER,             -- 과제시작년도(착수). 기본=ID 접두 P{YY} 도출, 명시 override 가능
   source_ref TEXT,                -- soulforge ref (있다면)
   data_label TEXT NOT NULL DEFAULT 'synthetic'
 );
@@ -540,6 +547,9 @@ export function openStore(path = ":memory:") {
   db.exec(DDL);
   // 경량 마이그레이션: 기존 DB 에 새 컬럼 추가 (있으면 무시)
   try { db.exec("ALTER TABLE core_project ADD COLUMN class TEXT NOT NULL DEFAULT 'active'"); } catch { /* exists */ }
+  try { db.exec("ALTER TABLE core_project ADD COLUMN start_year INTEGER"); } catch { /* exists */ }
+  // 기존 행 backfill: 과제번호 P{YY}- 접두 → 과제시작년도(idempotent, 명시값 보존)
+  try { db.exec("UPDATE core_project SET start_year = 2000 + CAST(SUBSTR(id,2,2) AS INTEGER) WHERE start_year IS NULL AND id GLOB 'P[0-9][0-9]-*'"); } catch { /* no-op */ }
   for (const ddl of [
     "ALTER TABLE core_item ADD COLUMN guide_artifact_id INTEGER",
     "ALTER TABLE core_item ADD COLUMN guide_step_key TEXT",
@@ -613,14 +623,17 @@ export class Store {
 
   // --- upserts (adapter/fixture 용) ---
   upsertProject(p) {
+    // 과제시작년도: 명시값 우선, 없으면 과제번호 접두 P{YY}-에서 도출(P26-→2026), 그래도 없으면 null.
+    const startYear = p.start_year ?? deriveStartYear(p.id);
     this.db
       .prepare(
-        `INSERT INTO core_project(id,title,health,class,stage_current,source_ref,data_label)
-         VALUES (?,?,?,?,?,?,?)
+        `INSERT INTO core_project(id,title,health,class,stage_current,start_year,source_ref,data_label)
+         VALUES (?,?,?,?,?,?,?,?)
          ON CONFLICT(id) DO UPDATE SET title=excluded.title, health=excluded.health,
-           class=excluded.class, stage_current=excluded.stage_current, source_ref=excluded.source_ref`
+           class=excluded.class, stage_current=excluded.stage_current,
+           start_year=COALESCE(excluded.start_year, core_project.start_year), source_ref=excluded.source_ref`
       )
-      .run(p.id, p.title, p.health ?? "ok", p.class ?? "active", p.stage_current ?? null, p.source_ref ?? null, p.data_label ?? "synthetic");
+      .run(p.id, p.title, p.health ?? "ok", p.class ?? "active", p.stage_current ?? null, startYear, p.source_ref ?? null, p.data_label ?? "synthetic");
   }
 
   upsertStage(s) {

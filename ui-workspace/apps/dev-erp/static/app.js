@@ -5,8 +5,8 @@ const state = {
   view: "home",
   lex: {},
   projectFilter: "",
-  navTop: localStorage.getItem("dev_erp_navtop") || "task",      // L1 대분류(상단 가로)
-  navGroup: localStorage.getItem("dev_erp_navgroup") || "sec_work", // L2 중분류(상단 가로, 섹터)
+  navTop: localStorage.getItem("dev_erp_navtop") || "work",       // L1 대분류(상단 가로)
+  navGroup: localStorage.getItem("dev_erp_navgroup") || "work_mine", // L2 중분류(상단 가로, 섹터)
   navFold: new Set(JSON.parse(localStorage.getItem("dev_erp_navfold") || "[]")), // 좌측 L3 접힘 키
   pins: JSON.parse(localStorage.getItem("dev_erp_pins") || "[]"),
   // P2b: 계정/권한. 익명(account=null)이면 앱은 현행대로(전체 접근·localStorage).
@@ -148,68 +148,61 @@ function localTime(iso) {
     : d.toLocaleString("ko-KR", { month: "numeric", day: "numeric", hour: "2-digit", minute: "2-digit" });
 }
 
-const VIEWS = ["home", "items", "guide", "mail", "artifacts", "search"];
-const navKey = { home: "nav_home", items: "nav_items", guide: "nav_guide", mail: "nav_mail", artifacts: "nav_artifacts", search: "nav_search" };
+const VIEWS = ["home", "projects", "items", "guide", "mail", "artifacts", "search"];
+const navKey = { home: "nav_home", projects: "nav_projects", items: "nav_items", guide: "nav_guide", mail: "nav_mail", artifacts: "nav_artifacts", search: "nav_search" };
 
 // 대분류 = 다루는 '대상(객체)'축 (owner 결정 2026-06-13). IA 4단(ECount식):
 // ① 대분류(상단 가로, 큰글씨) → ② 중분류(상단 가로, 작은글씨) → ③ 분류(좌측 헤더) → ④ 항목(좌측 하위).
 // 분류 초안 = 3안(흐름/빈도/도메인) 병렬설계+심사 종합(2026-06-14): 도메인 골격 위에 SE 강제엔진
 // (게이트·제안·일정)을 '단계 운영'으로 좌상단 집중, 메일·요청은 '받은 일'(인입)로 분리.
 // 라벨은 {b 업무 / f 판타지}. 이 NAV_TREE 가 단일 편집 지점.
-// 일 흐름 순서(받은 일→과제·단계→공유마스터·조달→기록물·지식→운영·관리). owner 6섹터 비전 착지.
+// 4대분류(owner 2026-06-14 지시): 프로젝트 관리(과제시작년도 계층) / 업무 관리 / 자원 관리 / 지식·지원.
 // 콕핏(home)은 대분류 밖 좌상단 버튼 표면(ECount MyPage식). 단일 편집점.
+// 프로젝트 관리는 정적 항목이 아니라 동적 트리: 과제시작년도 → 과제번호(과제명) → 허브. sector.tree="projects".
 const NAV_TREE = [
-  { id: "inbox", b: "받은 일", f: "전령함", sectors: [
-    { g: "in_mail", b: "메일·요청", f: "전령·의뢰", subs: [
-      { b: "받은 메일", f: "받은 전령", items: ["mail"] },
-      { b: "개발 요청", f: "의뢰 게시판", items: ["mod:requests"] },
-    ] },
+  { id: "proj", b: "프로젝트 관리", f: "원정 관리", sectors: [
+    { g: "proj_active", b: "진행 과제", f: "진행 원정", tree: "projects", filter: "active" },
+    { g: "proj_archive", b: "완료·보류", f: "봉인·보류", tree: "projects", filter: "archive" },
+    { g: "proj_all", b: "전체", f: "전체", tree: "projects", filter: "all" },
   ] },
-  { id: "task", b: "과제·단계", f: "원정 본부", sectors: [
-    { g: "sec_work", b: "내 작업", f: "내 작업", subs: [
-      { b: "할 일", f: "할 일", items: ["items"] },
-      { b: "도구·탐색", f: "도구·탐색", items: ["guide", "search"] },
+  { id: "work", b: "업무 관리", f: "원정 본부", sectors: [
+    { g: "work_mine", b: "내 일", f: "내 일", subs: [
+      { b: "오늘 할 일", f: "오늘 할 일", items: ["items"] },
+      { b: "받은 일·메일", f: "전령함", items: ["mail", "mod:requests"] },
     ] },
-    { g: "sec_stage", b: "단계·게이트", f: "관문 운영", subs: [
-      { b: "게이트·제안", f: "관문·제안", items: ["mod:gates", "mod:proposals"] },
-      { b: "일정", f: "운명표", items: ["mod:schedule"] },
-    ] },
-    { g: "sec_artifact", b: "산출물", f: "전리품", subs: [
-      { b: "산출물 목록", f: "전리 목록", items: ["artifacts"] },
-    ] },
-  ] },
-  { id: "material", b: "공유 마스터·조달", f: "병참·서고", sectors: [
-    { g: "sec_board", b: "보드·라이브러리", f: "설계 서고", subs: [
-      { b: "보드·BOM", f: "설계도", items: ["mod:boards"] },
-    ] },
-    { g: "sec_procure", b: "구매·재고", f: "보급·창고", subs: [
-      { b: "구매·발주", f: "보급", items: ["mod:purchase"] },
-      { b: "재고·자산", f: "병참 창고", items: ["mod:inventory"] },
-      { b: "부품 감시", f: "보급 정찰", items: ["mod:stockwatch"] },
-    ] },
-    { g: "sec_vendor", b: "거래처·매뉴얼", f: "상단·율법", subs: [
-      { b: "거래처", f: "상단", items: ["mod:contacts"] },
-    ] },
-  ] },
-  { id: "doc", b: "기록물·지식", f: "대도서관", sectors: [
-    { g: "sec_record", b: "보고·회의", f: "연대기·원탁", subs: [
-      { b: "보고·노트", f: "연대기", items: ["mod:reports"] },
-      { b: "회의", f: "원탁", items: ["mod:meetings"] },
-    ] },
-    { g: "sec_knowledge", b: "작성·지식", f: "비전·전승", subs: [
-      { b: "작성 지원", f: "제작 지원", items: ["mod:recipe", "mod:calculators"] },
-      { b: "지식·자료", f: "전승 검색", items: ["mod:knowledge", "mod:embeds"] },
-    ] },
-  ] },
-  { id: "ops", b: "운영·관리", f: "길드 관제", sectors: [
-    { g: "sec_analytics", b: "분석", f: "전훈 분석", subs: [
+    { g: "work_flow", b: "승인·현황", f: "재가·전황", subs: [
+      { b: "승인 대기", f: "재가 대기", items: ["mod:proposals"] },
+      { b: "단계·게이트", f: "관문", items: ["mod:gates", "mod:schedule"] },
       { b: "투입 분석", f: "전훈 분석", items: ["mod:analytics"] },
     ] },
-    { g: "sec_ai", b: "AI·승인", f: "신탁·승인", subs: [
-      { b: "AI 제안·승인", f: "신탁·승인", items: ["soon:ai"] },
+    { g: "work_record", b: "보고·회의", f: "연대기·원탁", subs: [
+      { b: "보고·일지", f: "연대기", items: ["mod:reports"] },
+      { b: "회의·결정", f: "원탁", items: ["mod:meetings"] },
+      { b: "산출물", f: "전리품", items: ["artifacts"] },
     ] },
-    { g: "sec_admin", b: "권한·설정", f: "길드 율법", subs: [
-      { b: "권한·설정", f: "길드 율법", items: ["soon:perm"] },
+  ] },
+  { id: "res", b: "자원 관리", f: "병참·서고", sectors: [
+    { g: "res_procure", b: "구매·재고", f: "보급·창고", subs: [
+      { b: "구매·발주", f: "보급", items: ["mod:purchase"] },
+      { b: "재고·자산", f: "병참 창고", items: ["mod:inventory"] },
+    ] },
+    { g: "res_part", b: "부품·보드", f: "설계·부품", subs: [
+      { b: "보드·BOM", f: "설계도", items: ["mod:boards"] },
+      { b: "부품 감시", f: "보급 정찰", items: ["mod:stockwatch"] },
+    ] },
+    { g: "res_vendor", b: "거래처", f: "상단", subs: [
+      { b: "거래처·연락처", f: "상단·인명록", items: ["mod:contacts"] },
+    ] },
+  ] },
+  { id: "kb", b: "지식·지원", f: "대도서관", sectors: [
+    { g: "kb_know", b: "지식·표준", f: "전승·율법", subs: [
+      { b: "지식·RAG·표준", f: "전승 검색", items: ["mod:knowledge"] },
+      { b: "SE 가이드·검색", f: "원정 지침", items: ["guide", "search"] },
+    ] },
+    { g: "kb_tool", b: "도구·템플릿", f: "제작 도구", subs: [
+      { b: "계산기", f: "계산 마법구", items: ["mod:calculators"] },
+      { b: "템플릿·작성법", f: "제작 비법서", items: ["mod:recipe"] },
+      { b: "외부 시트", f: "외부 점술판", items: ["mod:embeds"] },
     ] },
   ] },
 ];
@@ -221,11 +214,16 @@ const SOON_NAV = {
 const navTL = (o) => (state.mode === "fantasy" ? o.f : o.b); // 모드별 라벨
 function navTopOf(id) { return NAV_TREE.find((t) => t.id === id) ?? NAV_TREE[0]; }
 function navSectorOf(topId, g) { const t = navTopOf(topId); return t.sectors.find((s) => s.g === g) ?? t.sectors[0]; }
-function navFirstView(sec) { for (const sub of sec.subs) for (const it of sub.items) return it; return "home"; }
+function navFirstView(sec) { if (sec.tree === "projects") return "projects"; for (const sub of sec.subs ?? []) for (const it of sub.items) return it; return "home"; }
 // view → (대분류, 중분류) 위치 검색(팔레트/허브 점프 시 상단 탭 동기화)
 function navLocate(v) {
+  // 프로젝트 허브/목록은 '프로젝트 관리' 대분류로 동기화(현재 sector 가 proj 면 유지, 아니면 진행 과제)
+  if (v === "project" || v === "projects") {
+    const inProj = navTopOf("proj").sectors.some((s) => s.g === state.navGroup);
+    return { top: "proj", g: inProj ? state.navGroup : "proj_active" };
+  }
   for (const top of NAV_TREE) for (const sec of top.sectors)
-    for (const sub of sec.subs) if (sub.items.includes(v)) return { top: top.id, g: sec.g };
+    for (const sub of sec.subs ?? []) if (sub.items.includes(v)) return { top: top.id, g: sec.g };
   return null;
 }
 
@@ -309,7 +307,8 @@ function renderNav() {
   // 핀(내 메뉴)은 좌측 상단에 중복 표시하지 않음 — 우측 상단 바로가기 바(#favBar)가 담당(ECount식).
   // 좌측 = 선택 중분류(섹터)의 L3 분류 헤더(접기 가능) + L4 항목 (대분류명 중복 표기 제거)
   const sec = navSectorOf(state.navTop, state.navGroup);
-  const tree = sec.subs.map((sub, i) => {
+  // 프로젝트 관리 = 동적 트리(과제시작년도→과제), 그 외 = 정적 L3 분류/L4 항목
+  const tree = sec.tree === "projects" ? renderProjectTreeHtml(sec) : (sec.subs ?? []).map((sub, i) => {
     const btns = sub.items.map(navButton).join("");
     if (!btns.trim()) return ""; // RBAC 로 항목이 전부 숨으면 헤더도 생략
     const key = `${sec.g}:${i}`;
@@ -319,7 +318,7 @@ function renderNav() {
       <div class="nav-items">${btns}</div></div>`;
   }).join("");
   $("#nav").innerHTML = tree;
-  // L3 헤더 클릭 → 접기/펼치기(상태 영속)
+  // L3/년도 헤더 클릭 → 접기/펼치기(상태 영속)
   $("#nav").querySelectorAll(".nav-sub-group > .nav-sub-head").forEach((h) =>
     h.addEventListener("click", () => {
       const grp = h.closest(".nav-sub-group"); const k = grp.dataset.fold;
@@ -328,8 +327,13 @@ function renderNav() {
       grp.classList.toggle("collapsed");
     })
   );
-  $("#nav").querySelectorAll("button").forEach((b) =>
+  // 정적 항목 버튼(data-v) → view 전환
+  $("#nav").querySelectorAll("button[data-v]").forEach((b) =>
     b.addEventListener("click", () => { state.view = b.dataset.v; render(); })
+  );
+  // 프로젝트 트리 버튼(data-hub) → 과제 허브 열기
+  $("#nav").querySelectorAll("button[data-hub]").forEach((b) =>
+    b.addEventListener("click", () => { state.hubProject = b.dataset.hub; state.hubTab = "overview"; state.view = "project"; render(); })
   );
   $("#nav").querySelectorAll(".pin-btn").forEach((p) =>
     p.addEventListener("click", (e) => { e.stopPropagation(); togglePin(p.dataset.pin); })
@@ -352,6 +356,74 @@ function renderNav() {
     btn.title = pinnable ? (on ? state.lex.pin_remove : state.lex.pin_add) : "";
     btn.onclick = () => { if (pinnable) togglePin(cur); };
   }
+}
+
+// --- 프로젝트 관리: 과제시작년도 계층 트리 + 카드(필터 진행/완료보류/전체) ---
+// 진행=활성, 완료·보류=class archive 또는 health stopped.
+function projFilterMatch(p, filter) {
+  const archived = p.class === "archive" || p.health === "stopped";
+  if (filter === "archive") return archived;
+  if (filter === "active") return !archived;
+  return true; // all
+}
+const HEALTH_LABEL = { ok: ["진행중", "진행중"], watch: ["주의", "주의"], risk: ["위험", "위험"], stopped: ["보류", "봉인"] };
+function projHealthLabel(h) { const m = HEALTH_LABEL[h] ?? HEALTH_LABEL.ok; return state.mode === "fantasy" ? m[1] : m[0]; }
+// 시작년도별 그룹화(내림차순, null→0=미지정 맨 뒤)
+function projByYear(list) {
+  const m = new Map();
+  for (const p of list) { const y = p.start_year ?? 0; (m.get(y) ?? m.set(y, []).get(y)).push(p); }
+  return [...m.entries()].sort((a, b) => (b[0] || -1) - (a[0] || -1))
+    .map(([y, ps]) => [y, ps.sort((a, b) => String(a.id).localeCompare(String(b.id)))]);
+}
+function projTreeButton(p) {
+  const active = state.view === "project" && state.hubProject === p.id ? " active" : "";
+  const title = p.title && p.title !== p.id ? ` <span class="pn-title">${esc(p.title)}</span>` : "";
+  return `<button data-hub="${esc(p.id)}" class="proj-nav${active}" title="${esc(p.title ?? p.id)}">
+    <span class="health-dot h-${p.health ?? "ok"}"></span><span class="pn-id">${esc(p.id)}</span>${title}</button>`;
+}
+// 좌측열 동적 트리 HTML — 과제시작년도(접기) → 과제번호(과제명)
+function renderProjectTreeHtml(sec) {
+  if (!state._projCache) return `<div class="nav-loading">${state.lex.proj_tree_loading ?? "불러오는 중…"}</div>`;
+  const list = (state._projCache ?? []).filter((p) => projFilterMatch(p, sec.filter));
+  if (!list.length) return `<div class="nav-loading">${state.lex.proj_tree_empty ?? "해당 없음"}</div>`;
+  const cap = `<div class="proj-tree-cap">${state.lex.proj_year_label ?? "과제시작년도"}</div>`;
+  return cap + projByYear(list).map(([y, ps]) => {
+    const ylabel = y ? `${y}${state.lex.proj_year_suffix ?? "년 시작"}` : (state.lex.proj_year_none ?? "시작년도 미지정");
+    const key = `proj:${sec.filter}:${y}`;
+    const collapsed = state.navFold.has(key) ? " collapsed" : "";
+    return `<div class="nav-group nav-sub-group${collapsed}" data-fold="${key}">
+      <div class="nav-sub-head"><i class="fold-ico">▾</i><span>${ylabel} <em class="phase-tag">${ps.length}</em></span></div>
+      <div class="nav-items proj-tree">${ps.map(projTreeButton).join("")}</div></div>`;
+  }).join("");
+}
+// 메인 패널: 프로젝트 관리 랜딩 — 시작년도별 과제 카드(상태/단계/워크로드). 클릭→허브.
+async function renderProjectsList() {
+  if (!state._projCache) { try { state._projCache = (await api("/api/summary")).projects; } catch { state._projCache = []; } }
+  const sec = navSectorOf(state.navTop, state.navGroup);
+  const filter = sec.tree === "projects" ? sec.filter : "all";
+  const list = (state._projCache ?? []).filter((p) => projFilterMatch(p, filter));
+  const groups = projByYear(list);
+  const body = !list.length
+    ? `<div class="empty">${state.lex.proj_tree_empty ?? "해당 없음"}</div>`
+    : groups.map(([y, ps]) => {
+      const ylabel = y ? `${y}${state.lex.proj_year_suffix ?? "년 시작"}` : (state.lex.proj_year_none ?? "시작년도 미지정");
+      const cards = ps.map((p) => {
+        const wl = [];
+        if (p.overdue) wl.push(`<em class="wl over">${state.lex.proj_wl_overdue ?? "연체"} ${p.overdue}</em>`);
+        if (p.due_today) wl.push(`<em class="wl due">${state.lex.proj_wl_today ?? "오늘"} ${p.due_today}</em>`);
+        if (p.open) wl.push(`<em class="wl open">${state.lex.proj_wl_open ?? "열림"} ${p.open}</em>`);
+        const ptitle = p.title && p.title !== p.id ? esc(p.title) : "";
+        return `<div class="proj-card" data-hub="${esc(p.id)}">
+          <div class="pc-head"><span class="pc-id">${esc(p.id)}</span><span class="status-chip s-${p.health ?? "ok"}">${projHealthLabel(p.health)}</span></div>
+          ${ptitle ? `<div class="pc-title">${ptitle}</div>` : `<div class="pc-title dim-title">—</div>`}
+          <div class="pc-meta">${state.lex.proj_start ?? "시작"} ${p.start_year ?? "—"} · ${state.lex.proj_stage ?? "현재"} ${esc(p.stage_current ?? "—")}</div>
+          <div class="pc-wl">${wl.join("") || `<em class="wl none">${state.lex.proj_wl_none ?? "열린 일 없음"}</em>`}</div></div>`;
+      }).join("");
+      return `<section class="proj-year-block"><h2 class="proj-year-h">${ylabel} <span class="dim">${ps.length}</span></h2><div class="proj-cards">${cards}</div></section>`;
+    }).join("");
+  $("#view").innerHTML = `<div class="proj-list-head">${state.lex.proj_year_label ?? "과제시작년도"} ${state.lex.proj_path_hint ?? "> 과제번호(과제명) — 클릭하면 과제 허브"}</div>${body}`;
+  $("#view").querySelectorAll(".proj-card").forEach((c) =>
+    c.addEventListener("click", () => { state.hubProject = c.dataset.hub; state.hubTab = "overview"; state.view = "project"; render(); }));
 }
 
 // 준비 중 슬롯 화면 — 모듈 0인 운영·관리 칸(AI·승인/권한·설정)의 구조 선점 안내.
@@ -2276,6 +2348,11 @@ async function render() {
     $("#viewTitle").textContent = m?.nav ?? state.lex.tab_mail;
     logView(state.view);
     return renderMeetings();
+  }
+  if (state.view === "projects") {                      // 프로젝트 관리 랜딩(시작년도별 카드)
+    $("#viewTitle").textContent = state.lex.nav_projects ?? "프로젝트 관리";
+    logView(state.view);
+    return renderProjectsList();
   }
   if (state.view.startsWith("soon:")) {                 // 준비 중 슬롯 진입(중분류 탭 클릭 등)
     const sn = SOON_NAV[state.view];

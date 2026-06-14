@@ -1,7 +1,7 @@
 import assert from "node:assert/strict";
 import test from "node:test";
 
-import { openStore } from "../src/store.mjs";
+import { openStore, deriveStartYear } from "../src/store.mjs";
 import { loadFixture } from "../src/fixture.mjs";
 import { ingestNormalized, mapSoulforgeSnapshot } from "../src/adapter.mjs";
 import { getLexicon, LEXICON } from "../src/lexicon.mjs";
@@ -14,7 +14,7 @@ function freshStore() {
 test("store: 스키마 3구역 생성과 fixture 적재 (TEST-001)", () => {
   const store = freshStore();
   const counts = loadFixture(store);
-  assert.equal(counts.projects, 3);
+  assert.equal(counts.projects, 7); // 업무 시드 3 + 데모 P26/P25 4
   assert.equal(counts.items, 30);
   assert.equal(counts.mail, 50);
   assert.equal(counts.artifacts, 30);
@@ -26,10 +26,21 @@ test("store: summary 가 프로젝트별 카운트를 만든다 (UI-001)", () =>
   loadFixture(store);
   const today = new Date().toISOString().slice(0, 10);
   const summary = store.summary(today);
-  assert.equal(summary.length, 3);
+  assert.equal(summary.length, 7); // PRJ-A/B/C(업무 시드) + 데모 P26/P25 4건
   const prjA = summary.find((p) => p.id === "PRJ-A");
   assert.ok(prjA.open > 0);
   assert.ok(prjA.boss_open >= 1, "보스(단계 종료) 항목이 카운트되어야 함");
+  assert.equal(prjA.start_year, 2025, "과제시작년도 명시값");
+  assert.equal(summary.find((p) => p.id === "P26-014").start_year, 2026, "과제시작년도 ID 접두 도출");
+});
+
+test("store: deriveStartYear — 과제번호 P{YY}- 접두에서 과제시작년도 도출 (PROJ-YEAR)", () => {
+  assert.equal(deriveStartYear("P26-014"), 2026);
+  assert.equal(deriveStartYear("P00-TEST"), 2000);
+  assert.equal(deriveStartYear("P21-062"), 2021);
+  assert.equal(deriveStartYear("PRJ-A"), null, "P{2자리}- 아니면 null(명시값 사용)");
+  assert.equal(deriveStartYear("general_work"), null);
+  assert.equal(deriveStartYear(null), null);
 });
 
 test("event_log: 라벨링 우선 원칙 — used_refs/data_label/actor_kind (INFRA-003)", () => {

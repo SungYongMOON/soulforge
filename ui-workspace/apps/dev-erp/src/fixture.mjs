@@ -6,9 +6,16 @@ function dateKey(offsetDays) {
 
 export function loadFixture(store) {
   const projects = [
-    { id: "PRJ-A", title: "수신부 보드 개량", health: "watch", stage_current: "상세설계" },
-    { id: "PRJ-B", title: "신호처리 모듈", health: "ok", stage_current: "시험" },
-    { id: "PRJ-C", title: "사내 도구 정비", health: "risk", stage_current: "기획" }
+    { id: "PRJ-A", title: "수신부 보드 개량", health: "watch", stage_current: "상세설계", start_year: 2025 },
+    { id: "PRJ-B", title: "신호처리 모듈", health: "ok", stage_current: "시험", start_year: 2026 },
+    { id: "PRJ-C", title: "사내 도구 정비", health: "risk", stage_current: "기획", start_year: 2024 }
+  ];
+  // 데모 전용 과제(P{YY}- 형식, 과제시작년도 트리 시연). bare 등록 — 스테이지/아이템 루프에 안 들어가 집계 불변.
+  const demoProjects = [
+    { id: "P26-014", title: "KVDS 수신부 개량", health: "watch", stage_current: "상세설계" },
+    { id: "P26-030", title: "신호처리 보드 v2", health: "ok", stage_current: "기본설계" },
+    { id: "P25-054", title: "전원 모듈 개량", health: "ok", stage_current: "시험준비" },
+    { id: "P25-057", title: "체계 통합 시험", health: "risk", stage_current: "체계요구사항검토" }
   ];
   const people = [
     { id: "p-kim", name: "김가람", role: "회로" },
@@ -19,6 +26,7 @@ export function loadFixture(store) {
     { id: "p-ai", name: "AI 유닛(오크 감사관)", role: "ai" }
   ];
   projects.forEach((p) => store.upsertProject(p));
+  demoProjects.forEach((p) => store.upsertProject(p));
   people.forEach((p) => store.upsertPerson(p));
 
   projects.forEach((p, pi) => {
