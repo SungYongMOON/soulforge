@@ -438,6 +438,18 @@ test("UI-sched: 산출물 offset 편집/추가(upsertDeliverable)", () => {
   assert.equal(store.upsertDeliverable("nope", "120", "x").error, "template_not_found");
 });
 
+test("U-1b: part 첨부 → 완결성 미충족 단조 감소", () => {
+  const store = freshStore();
+  loadFixture(store);
+  assert.equal(store.boardCompleteness("pt-board").missing.length, 6);
+  for (const t of ["bom", "gerber", "digikey", "schematic", "pcb", "block_diagram"]) {
+    const before = store.boardCompleteness("pt-board").missing.length;
+    store.addAttachment({ entity_type: "part", entity_id: "pt-board", name: t + ".f", pointer: "/" + t, artifact_type: t });
+    assert.ok(store.boardCompleteness("pt-board").missing.length < before);
+  }
+  assert.equal(store.boardCompleteness("pt-board").missing.length, 0);
+});
+
 test("run16: P2a 할일 쓰기 — 생성/검증/가이드 연결", () => {
   const store = freshStore();
   loadFixture(store);

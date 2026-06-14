@@ -456,6 +456,9 @@ async function renderBoards() {
   const boards = parts.filter((p) => p.type === "board");
   const sel = state.bomBoard || (boards[0] && boards[0].id) || "";
   const bom = sel ? await api(`/api/bom?parent=${encodeURIComponent(sel)}`) : [];
+  const comp = sel ? await api(`/api/parts/completeness?part=${encodeURIComponent(sel)}`) : null;
+  const atts = sel ? await api(`/api/attachments?entity_type=part&entity_id=${encodeURIComponent(sel)}`) : [];
+  const ATYPES = ["bom", "gerber", "digikey", "schematic", "pcb", "block_diagram"];
   const boardOpts = boards.map((b) => `<option value="${esc(b.id)}" ${sel === b.id ? "selected" : ""}>${esc(b.name)}</option>`).join("");
   const childOpts = parts.filter((p) => p.id !== sel).map((p) => `<option value="${esc(p.id)}">${esc(p.name)}</option>`).join("");
   const rows = bom.map((b) => `<tr><td>${esc(b.ref_des ?? "-")}</td><td><strong>${esc(b.name)}</strong></td><td>${esc(b.part_no ?? "-")}</td><td class="num">${b.qty}</td></tr>`).join("");
@@ -470,11 +473,22 @@ async function renderBoards() {
       <input id="bomRef" placeholder="${L.bom_ref}" size="8" />
       <button id="bomAdd" class="fav-chip">${L.bom_add}</button>
     </div>` : ""}
-    ${bom.length ? `<table><thead><tr><th>${L.bom_ref}</th><th>${L.item}</th><th>${L.part_no}</th><th>${L.bom_qty}</th></tr></thead><tbody>${rows}</tbody></table>` : `<div class="empty">${L.empty_bom}</div>`}`;
+    ${bom.length ? `<table><thead><tr><th>${L.bom_ref}</th><th>${L.item}</th><th>${L.part_no}</th><th>${L.bom_qty}</th></tr></thead><tbody>${rows}</tbody></table>` : `<div class="empty">${L.empty_bom}</div>`}
+    ${sel && comp && comp.required ? `<div class="attach-section"><h3>${L.att_required}</h3>
+      <div class="attach-comp">${comp.required.map((t) => `<span class="badge ${comp.missing.find((m) => m.artifact_type === t) ? "red" : "green"}">${L["at_" + t] ?? t}</span>`).join(" ")}</div>
+      <div class="item-form"><input id="attName" placeholder="${L.att_name}" /><input id="attPtr" placeholder="${L.att_pointer}" size="14" /><select id="attType">${ATYPES.map((t) => `<option value="${t}">${L["at_" + t] ?? t}</option>`).join("")}</select><button id="attAdd" class="fav-chip">${L.att_add}</button></div>
+      ${(atts || []).length ? `<table><thead><tr><th>${L.att_name}</th><th>${L.att_type}</th><th>${L.att_pointer}</th></tr></thead><tbody>${(atts || []).map((a) => `<tr><td>${esc(a.name)}</td><td class="dim">${L["at_" + (a.artifact_type || "")] ?? esc(a.artifact_type || "-")}</td><td class="dim">${esc(a.pointer)}</td></tr>`).join("")}</tbody></table>` : ""}
+    </div>` : ""}`;
   $("#bomBoardSel").addEventListener("change", (e) => { state.bomBoard = e.target.value; render(); });
   if ($("#bomAdd")) $("#bomAdd").addEventListener("click", async () => {
     const child = $("#bomChild").value; if (!child) return;
     await post("/api/bom", { parent_part_id: sel, child_part_id: child, qty: Number($("#bomQty").value) || 1, ref_des: $("#bomRef").value.trim() || null });
+    render();
+  });
+  if ($("#attAdd")) $("#attAdd").addEventListener("click", async () => {
+    const name = $("#attName").value.trim(), pointer = $("#attPtr").value.trim();
+    if (!name || !pointer) return;
+    await post("/api/attachments", { entity_type: "part", entity_id: sel, name, pointer, artifact_type: $("#attType").value });
     render();
   });
 }
