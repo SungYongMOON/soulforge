@@ -73,4 +73,8 @@ owner cross-cutting 원칙 대조:
 
 ## 7. 야간 자율 진행 로그 (이 루프가 빌드한 것)
 
-- (2026-06-15 야간 시작) 중간 점검 보고서 작성. 이어서 빌드 가능한 슬라이스 진행 — 아래 갱신.
+- (2026-06-15 야간 시작) 중간 점검 보고서 작성(commit 0f76b73).
+- **SE 할일모델 slice2 — confirmItem + 분류 UI** (commit 9c99aa0): 미분류 할 일을 업무유형+연결대상으로 분류해 정식(open) 승격하는 게이트·화면. 빈 등록은 needs_se_anchor 차단. owner 예시(CDR 자료 BOM 반영→과제·수정·산출물) preview 검증. node:test 106/106.
+- 다음(자율): slice5 과제 facet 맥락 컬럼(할 일이 과제 안에서 단계/연결대상/완료기준 붙어 보이게) → slice6 요청·회의 인입 채널 → B(_workspaces SE 폴더트리 ingest). slice4(완료게이트+증거)는 **owner 결정 #4(증거 모델) 대기**라 자율 빌드 보류.
+
+> 자율 빌드 정책: owner 결정 필요 항목(§6)은 건드리지 않고, 결정 불필요한 슬라이스만 진행. 각 슬라이스 commit+push, node:test 전건 + preview 검증.
