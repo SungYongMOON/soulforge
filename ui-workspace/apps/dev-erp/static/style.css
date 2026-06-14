@@ -134,6 +134,7 @@ td.num { text-align: right; font-variant-numeric: tabular-nums; }
 .classify-card .cc-form select, .classify-card .cc-form input { font-size: 12.5px; padding: 5px 8px; border: 1px solid var(--line); border-radius: 7px; background: var(--bg); color: var(--text); }
 .classify-card .cc-ref { width: 150px; } .classify-card .cc-cc { flex: 1; min-width: 180px; }
 .classify-card .cc-msg { color: var(--danger); font-size: 11.5px; }
+.cc-hint { font-size: 11px; color: var(--ok); margin-top: 2px; }
 .badge.teal { background: #d7efe9; color: #1d6f5e; }
 body[data-theme="dark"] .badge.teal { background: #173d35; color: #8fd4c2; }
 body[data-theme="dark"] .status.unclassified, body[data-theme="dark"] .status-chip.triage, body[data-theme="dark"] .triage-note { background: #4d3a13; color: #f0cd8a; border-color: #6b5320; }

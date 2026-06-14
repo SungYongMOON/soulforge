@@ -2052,11 +2052,21 @@ async function renderProjectHub() {
 // --- 과제 facet 렌더러(프로젝트 필터 실 API). 컴팩트 테이블 — 편집은 전역 모듈에서. ---
 async function hubItems(mount, p) {
   const L = state.lex, todayKey = new Date().toISOString().slice(0, 10);
-  const items = await api(`/api/items?project=${encodeURIComponent(p.id)}`);
-  mount.innerHTML = items.length
-    ? `<table><thead><tr><th>${L.col_title ?? "할 일"}</th><th>${L.col_status ?? "상태"}</th><th>${L.col_due ?? "마감"}</th><th>${L.col_assignee ?? "담당"}</th></tr></thead><tbody>${items.map((i) => `<tr>
-        <td>${esc(i.title)}</td><td>${statusBadge(i.status)}</td>${dueCell(i.due, todayKey)}<td class="dim">${esc(i.assignee_ref ?? "-")}</td></tr>`).join("")}</tbody></table>`
-    : `<div class="empty">${L.empty_items ?? "할 일 없음"}</div>`;
+  // 과제 맥락 뷰: 정식 할 일은 단계·연결대상·완료기준까지, 미분류는 카운트만(분류는 전역에서).
+  const [items, triage] = await Promise.all([
+    api(`/api/items?project=${encodeURIComponent(p.id)}`),
+    api(`/api/items?project=${encodeURIComponent(p.id)}&status=unclassified`)
+  ]);
+  const note = triage.length
+    ? `<div class="triage-note">${L.hub_triage_pre ?? "이 과제에 분류 필요 할 일"} ${triage.length}${L.hub_triage_post ?? "건 — 업무 관리 › 내 할 일 › 분류 필요에서 처리"}</div>`
+    : "";
+  mount.innerHTML = note + (items.length
+    ? `<table><thead><tr><th>${L.col_title ?? "할 일"}</th><th>${L.col_stage ?? "단계"}</th><th>${L.col_link ?? "유형·연결"}</th><th>${L.col_status ?? "상태"}</th><th>${L.col_due ?? "마감"}</th><th>${L.col_assignee ?? "담당"}</th></tr></thead><tbody>${items.map((i) => `<tr>
+        <td>${esc(i.title)}${i.completion_criteria ? `<div class="cc-hint">✓ ${esc(i.completion_criteria)}</div>` : ""}</td>
+        <td class="dim">${esc(i.anchor_stage_code ?? i.guide_stage_code ?? "-")}</td>
+        <td>${itemLinkCell(i)}</td>
+        <td>${statusBadge(i.status)}</td>${dueCell(i.due, todayKey)}<td class="dim">${esc(i.assignee_ref ?? "-")}</td></tr>`).join("")}</tbody></table>`
+    : `<div class="empty">${L.empty_items ?? "할 일 없음"}</div>`);
 }
 async function hubContacts(mount, p) {
   const L = state.lex;
