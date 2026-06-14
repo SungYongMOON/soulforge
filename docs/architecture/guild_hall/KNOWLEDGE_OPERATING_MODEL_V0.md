@@ -59,7 +59,11 @@ recorded on purpose.
 
 ## Current Workflow Stack
 
-- `monster_knowledge_preflight_v0` is the query-first front gate for
+- `$soulforge-knowledge-wiki-cell-launcher` is the current caller-facing route
+  for knowledge/RAG/wiki registration. It resolves `.party/knowledge_wiki_cell`,
+  defaults to `knowledge_wiki_pipeline_v0`, and inserts optional LLM wiki or RAG
+  support workflows only when the request needs them.
+- `monster_knowledge_preflight_v0` is the optional query-first front gate for
   source-heavy or ambiguity-heavy monsters.
 - `knowledge_candidate_triage_v0` is the explicit filter between candidate
   material and reusable wiki state.
@@ -68,7 +72,7 @@ recorded on purpose.
   and residual-gap update packets.
 - `llm_wiki_builder_v0` is the end-to-end orchestrator that ties preflight,
   candidate triage, optional sourcebound deepening, curation, usage capture,
-  and governance into one bounded route.
+  and governance into one bounded optional route.
 - `sourcebound_knowledge_packet_operating_loop_v0` remains the sourcebound
   deepening and concept-extraction lane.
 - `knowledge_access_event_capture_v0` remains the usage analytics and retention
@@ -81,6 +85,10 @@ recorded on purpose.
   cards, auto-registers public-safe metadata knowledge before backlog, prepares
   owner-review queues without reading source bodies, and routes insufficient
   evidence to sourcebound retrieval or owner review.
+- `rag_source_text_quality_review_v0` and `rag_work_card_router_v0` are
+  registered optional support workflows for approved source-text lane refs.
+  They remain below source truth, answer authority, project execution authority,
+  public canon promotion, and default-route safety.
 - `WIKI_CURATION_MAINTENANCE_V0.md` remains the current-default curation runbook
   for the same layer when a worker needs a human-readable checklist.
 - `owner_decision_packet_v0` and `post_development_review_gate_v0` remain the

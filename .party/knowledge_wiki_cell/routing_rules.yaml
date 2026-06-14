@@ -27,6 +27,20 @@ request_classes:
       - "source register and private question surface"
     route: route_to_party_chain
     note: "Use the same chain when the user explicitly frames the task as an LLM-wiki or sourcebound wiki request."
+  - request_class: query_first_llm_wiki_stack
+    trigger_signals:
+      - "use the existing project wiki first"
+      - "LLM wiki builder"
+      - "knowledge-heavy monster preflight"
+      - "triage and curate reusable wiki state"
+    route: insert_llm_wiki_stack_optional_routes
+    optional_workflows:
+      - workflow_knowledge_preflight_v0
+      - monster_knowledge_preflight_v0
+      - knowledge_candidate_triage_v0
+      - wiki_curation_maintenance_v0
+      - llm_wiki_builder_v0
+    note: "Use these registered optional routes when the request needs query-first wiki operation, candidate placement, curation, or end-to-end LLM wiki orchestration before or around the default party chain."
   - request_class: refresh_existing_projection
     trigger_signals:
       - "refresh an existing private wiki packet"
@@ -56,6 +70,25 @@ request_classes:
       - "canon-facing workflow or ontology promotion"
     route: insert_source_sufficiency_gate_and_owner_decision_gate
     note: "Promotion-sensitive requests require both stronger source review and owner-facing decision handling."
+  - request_class: rag_source_text_quality_review
+    trigger_signals:
+      - "source-text quality review"
+      - "page-level RAG citation quality"
+      - "source-supported/manual-review/blocked page classification"
+    route: insert_registered_rag_source_text_quality_review
+    optional_workflows:
+      - rag_source_text_quality_review_v0
+    note: "Only use after approved source-text lane refs already exist. The route writes support-trace quality packets and does not approve source truth, answer authority, public canon, or default-route safety."
+  - request_class: rag_work_card_request
+    trigger_signals:
+      - "RAG work card"
+      - "source-text-backed work-card"
+      - "turn approved RAG refs into a bounded task packet"
+    route: insert_registered_rag_work_card_router
+    optional_workflows:
+      - rag_source_text_quality_review_v0
+      - rag_work_card_router_v0
+    note: "Only use with public-safe labels/fingerprints, approved source/index refs, and visible manual-review/blocked status. The work card is a scoped task packet, not project execution authority."
 optional_gate_rules:
   - gate: source_packet_sufficiency_review_v0
     insert_when:
@@ -70,6 +103,14 @@ optional_gate_rules:
       - "blocked authority upgrade needs owner choice"
       - "owner must approve hold_private vs broader reuse"
       - "the packet would otherwise cross from private derivative use into a public-facing claim surface"
+  - gate: rag_source_text_quality_review_v0
+    insert_when:
+      - "approved source-text index, traceability sidecar, and answer-run refs need page-level support status"
+      - "RAG answer or citation evidence needs source_supported/manual_review/blocked labels before reuse"
+  - gate: rag_work_card_router_v0
+    insert_when:
+      - "a RAG-supported request should become a deterministic work card"
+      - "a raw work question must be reduced to a public-safe label and fingerprint before storage"
 hwp_handling_rules:
   - case: hwp_wikiization_general
     route: route_to_party_chain
@@ -102,3 +143,4 @@ notes:
   - This is a routing draft, not active autohunt state.
   - The currently routable surface is the registered composite workflow entry `knowledge_wiki_pipeline_v0`.
   - The older stage-first chain remains the downstream execution lane owned by the composite workflow.
+  - The LLM wiki stack and RAG source-text support routes are registered optional routes, not default route switches.

@@ -1,6 +1,6 @@
 # RAG Work Card Router v0
 
-`rag_work_card_router_v0` is a draft workflow for routing a free-form work
+`rag_work_card_router_v0` is a registered pilot-executed workflow for routing a free-form work
 request into a deterministic work-card packet using only a public-safe label,
 fingerprint, approved source card refs, approved index refs, and a page quality
 review packet.
@@ -29,8 +29,9 @@ project execution authority, or default-route safety.
 
 `output_state: pilot-executed`
 
-The package is intentionally unregistered and is not default-route-safe,
-canon-ready, owner-approved, or project-execution authority.
+The package is registered in `.workflow/index.yaml` for routing discovery and
+remains not default-route-safe, canon-ready, production-ready,
+owner-approved, or project-execution authority.
 
 A controlled DAPA fixture produced:
 

@@ -12,10 +12,10 @@
 
 ## One-line Rule
 
-- For source-heavy, ambiguity-heavy, or repeatable monsters, run
-  `monster_knowledge_preflight_v0` before the main workflow so the worker uses
-  the project wiki, NotebookLM binding, and source ledger first instead of
-  rereading raw sources blindly.
+- Route knowledge/RAG/wiki registration through
+  `$soulforge-knowledge-wiki-cell-launcher`, which defaults to
+  `knowledge_wiki_pipeline_v0`; insert the older LLM wiki stack workflows only
+  as optional query-first or curation routes when the request needs them.
 
 ## Stack
 
@@ -40,6 +40,8 @@
 ### Candidate Triage
 
 - `knowledge_candidate_triage_v0` is the explicit candidate filter layer.
+- When invoked from `knowledge_wiki_cell`, it is an optional route, not the
+  default party entry.
 - It does not decide source truth or owner approval; it classifies candidate
   material into a safe next route.
 - Use it when a source, candidate note, or knowledge artifact must be placed
@@ -52,6 +54,8 @@
 ### Research Preflight
 
 - `monster_knowledge_preflight_v0` is the explicit query-first front gate.
+- When invoked from `knowledge_wiki_cell`, it is an optional route before or
+  around the default `knowledge_wiki_pipeline_v0` route.
 - It reads only metadata surfaces first:
   - project NotebookLM binding
   - project NotebookLM source ledger
@@ -89,6 +93,8 @@
 - It ties together preflight, candidate triage, optional sourcebound deepening,
   curation, usage-capture handoff, and governance routing.
 - It still does not own source truth, owner approval, or final canon authority.
+- In the current registered party surface it is an optional compatibility route
+  behind `$soulforge-knowledge-wiki-cell-launcher`, not the party default.
 
 ### Governance
 
@@ -102,7 +108,8 @@
 
 ## Monster Integration
 
-Use the following default routing rule when a monster is knowledge-heavy:
+Use the following optional routing rule when a monster is knowledge-heavy and
+the launcher selects the query-first LLM wiki stack:
 
 ```text
 monster
@@ -163,7 +170,8 @@ product sense.
 - Scheduled maintenance binding for `knowledge_access_event_capture_v0` is still
   weaker than the manual and review-driven paths.
 - Query-first operation is usable now, but still depends on workers following
-  the preflight discipline or an explicit caller using `llm_wiki_builder_v0`.
+  the preflight discipline or an explicit caller using `llm_wiki_builder_v0`
+  through the `knowledge_wiki_cell` launcher.
 
 ## Related Surfaces
 

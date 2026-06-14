@@ -1,6 +1,6 @@
 workflow_id: rag_work_card_router_v0
 kind: workflow
-status: pilot-executed
+status: active
 title: RAG Work Card Router v0
 summary: Route a free-form work request label and fingerprint, approved source card and index refs, and a quality review packet into a deterministic work-card packet plus human-readable boundary text without persisting the raw question or claiming owner approval or canon authority.
 entrypoint: run
@@ -51,14 +51,14 @@ outputs:
   - text_boundary
   - boundary_review_note
 validation_level: pilot_executed_single_controlled_run
-registration_policy: not_registered_index_update_deferred
+registration_policy: owner_requested_registration
 output_state: pilot-executed
 readiness_posture:
-  package_state: pilot_executed_unregistered
+  package_state: registered-package-ready
   pilot_ready: true
   pilot_executed: true
   canon_ready: false
-  registered: false
+  registered: true
   default_route_safe: false
   default_route_safety_claimed: false
 pilot_execution_evidence:
@@ -206,4 +206,4 @@ notes:
   - The raw work request may be used only as transient runtime input to produce a public-safe label and fingerprint; it must not be persisted in workflow outputs.
   - The deterministic work card is a scoped task packet. It does not approve work, promote canon, validate source truth, or grant project execution authority.
   - Quality review status controls routing: blocked pages cannot be used for source-supported work cards, and manual-review pages must remain visibly marked.
-  - "This package is not registered in .workflow/index.yaml and is not default-route-safe; pilot execution evidence is recorded under history/pilot_execution_20260527.yaml."
+  - "This package is registered in .workflow/index.yaml by owner request on 2026-06-14 and remains not default-route-safe; pilot execution evidence is recorded under history/pilot_execution_20260527.yaml."

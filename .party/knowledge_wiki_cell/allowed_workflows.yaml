@@ -9,11 +9,20 @@ workflow_ids:
   - post_development_review_gate_v0
 optional_workflow_ids:
   - dual_deep_research_v0
+  - workflow_knowledge_preflight_v0
+  - monster_knowledge_preflight_v0
+  - knowledge_candidate_triage_v0
+  - wiki_curation_maintenance_v0
+  - llm_wiki_builder_v0
   - source_packet_sufficiency_review_v0
   - owner_decision_packet_v0
   - rag_metadata_refresh_v0
+  - rag_source_text_quality_review_v0
+  - rag_work_card_router_v0
 notes:
   - Required workflow ids include the registered composite entry plus the downstream workflows it owns.
-  - Optional workflow ids may be inserted when dual-path deep research, source sufficiency, owner promotion decisions, or metadata-only RAG refresh handoffs are needed.
+  - Optional workflow ids may be inserted when workflow/monster preflight, candidate triage, LLM wiki stack orchestration, dual-path deep research, source sufficiency, owner promotion decisions, metadata-only RAG refresh handoffs, source-text quality review, or work-card routing are needed.
   - "`knowledge_wiki_pipeline_v0` is now registered and selected as the party default entry by owner direction."
   - "`rag_metadata_refresh_v0` is an optional downstream workflow; `knowledge_wiki_cell` may prepare a metadata-only handoff but does not own RAG index refresh or answer authority."
+  - "`rag_source_text_quality_review_v0` and `rag_work_card_router_v0` are registered optional RAG source-text support routes. They remain not default-route-safe and do not grant source truth, answer authority, project execution authority, or public canon promotion."
+  - "`llm_wiki_builder_v0` and its preflight, triage, and curation stages are optional LLM/wiki stack routes for bounded knowledge-heavy work; they remain advisory/orchestration routes below owner decisions and review gates."

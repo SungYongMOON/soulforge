@@ -2,7 +2,12 @@ workflow_id: wiki_curation_maintenance_v0
 kind: party_compatibility
 status: active
 compatible_parties:
+  - party_id: knowledge_wiki_cell
+    status: optional_curation_maintenance_route
   - party_id: solo_operator
     status: supported
   - party_id: owner_plus_executor
     status: supported
+notes:
+  - `knowledge_wiki_cell` may call this workflow as an optional curation route for source-ledger, packet-map, notebook-binding, lifecycle, residual-gap, and review-handoff maintenance.
+  - Curation packets are metadata-only and do not approve source truth, NotebookLM authority, canon promotion, graph mutation, or default-route switching.

@@ -1,7 +1,9 @@
 workflow_id: rag_source_text_quality_review_v0
 kind: party_compatibility
-status: draft
+status: active
 compatible_parties:
+  - party_id: knowledge_wiki_cell
+    status: optional_rag_source_text_support_route
   - party_id: solo_operator
     status: supported_for_payload_free_draft_packet
   - party_id: owner_plus_executor
@@ -16,6 +18,7 @@ fit_tags:
   - page_warning_classification
   - source_supported_manual_review_blocked
 notes:
+  - `knowledge_wiki_cell` may call this workflow as an optional RAG source-text support route after approved source-text lane refs exist.
   - This package leaves execution binding unbound; party fit is a discovery hint only.
   - A solo operator can draft payload-free review packets, but owner approval, canon promotion, default-route switching, and source-truth claims require separate authority.
   - Model, species, class, reasoning, and project binding belong in project-local bindings or mission notes, not in this workflow package.

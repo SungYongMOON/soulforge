@@ -199,6 +199,17 @@ flowchart LR
 
 중요한 운영 규칙은 하나다.
 
+2026-06-14 route update: caller-facing wiki/RAG knowledge registration now starts
+from the installed Codex launcher `$soulforge-knowledge-wiki-cell-launcher`,
+which defaults to the registered `knowledge_wiki_pipeline_v0` composite. The older
+LLM/wiki workflows (`workflow_knowledge_preflight_v0`,
+`monster_knowledge_preflight_v0`, `knowledge_candidate_triage_v0`,
+`wiki_curation_maintenance_v0`, `llm_wiki_builder_v0`) and the RAG source-text
+support workflows (`rag_source_text_quality_review_v0`,
+`rag_work_card_router_v0`) are optional compatibility/narrow routes. They do not
+grant source truth, answer authority, owner approval, public canon promotion,
+default-route authority, or production-ready status.
+
 각 workflow 실행은 fresh subagent가 맡는다. party는 흐름만 기억하고, 각 workflow의 내부 단계와 최적 모델/강도/직업/종족/unit 선택은 workflow가 가진다.
 
 Drive 보관은 별도 정본 승인 단계가 아니라 이 체인을 둘러싼 파일 수명주기다. 처음 받은 후보/source는 intake 쪽 archive manifest에, 작업 bundle과 정본 package는 sourcebound/pipeline 쪽 archive manifest에 기록한다. archive policy가 `codex_skill_auto_sync`이면 승인된 Codex skill이나 Google Drive connector가 매 파일마다 다시 묻지 않고 업로드/동기화할 수 있다. 그래도 이 권한은 보관 권한이지 정본 승인, source truth 승인, secret/private 경계 우회 권한이 아니다.

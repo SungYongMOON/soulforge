@@ -2,7 +2,12 @@ workflow_id: llm_wiki_builder_v0
 kind: party_compatibility
 status: active
 compatible_parties:
+  - party_id: knowledge_wiki_cell
+    status: optional_llm_wiki_stack_route
   - party_id: solo_operator
     status: supported
   - party_id: owner_plus_executor
     status: supported
+notes:
+  - `knowledge_wiki_cell` may call this workflow as an optional compatibility/narrow route for bounded LLM wiki stack orchestration, not as the default party entry.
+  - Source truth, owner approval, canon promotion, and default-route switching remain outside this workflow.

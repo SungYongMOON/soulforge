@@ -1,7 +1,9 @@
 workflow_id: rag_work_card_router_v0
 kind: party_compatibility
-status: draft
+status: active
 compatible_parties:
+  - party_id: knowledge_wiki_cell
+    status: optional_rag_work_card_support_route
   - party_id: solo_operator
     status: supported_for_payload_free_draft_card
   - party_id: owner_plus_executor
@@ -16,6 +18,7 @@ fit_tags:
   - deterministic_work_card
   - sourcebound_task_scoping
 notes:
+  - `knowledge_wiki_cell` may call this workflow as an optional RAG work-card support route after approved source-text lane refs and page-quality review refs exist.
   - This package leaves execution binding unbound; party fit is a discovery hint only.
   - A solo operator can draft work-card packets, but owner approval, canon promotion, default-route switching, and execution authority require separate surfaces.
   - Model, species, class, reasoning, and project binding belong in project-local bindings or mission notes, not in this workflow package.

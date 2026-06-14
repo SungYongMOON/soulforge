@@ -2,6 +2,24 @@
 
 ## 2026-06-14
 
+### Revision `working` - knowledge wiki/RAG route registration consolidated
+
+- Registered `rag_source_text_quality_review_v0` and
+  `rag_work_card_router_v0` in `.workflow/index.yaml` as pilot-executed RAG
+  source-text support workflows while keeping them not default-route-safe and
+  below source truth, answer authority, project execution authority, owner
+  approval, and public canon promotion.
+- Extended `.party/knowledge_wiki_cell` and the
+  `knowledge_wiki_cell_launcher` Codex bridge so RAG quality/work-card routes
+  and the existing LLM wiki stack are optional routes behind the registered
+  `knowledge_wiki_pipeline_v0` default entry.
+- Updated knowledge/RAG operating docs and the ERP/BOM hierarchy map so the
+  launcher skill is the caller-facing route for wiki/RAG knowledge registration,
+  with older LLM wiki workflows treated as optional compatibility/narrow routes.
+- Kept raw source text, chunks, NotebookLM answers, private payloads, runtime
+  absolute paths, secrets, default-route switches, and production-ready claims
+  out of scope.
+
 ### Revision `working` - SE 폴더트리 ERP 일정 힌트 추가
 
 - Added compact `se_foldertree_generate` schedule hints in

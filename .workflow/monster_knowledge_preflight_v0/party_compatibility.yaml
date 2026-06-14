@@ -2,7 +2,12 @@ workflow_id: monster_knowledge_preflight_v0
 kind: party_compatibility
 status: active
 compatible_parties:
+  - party_id: knowledge_wiki_cell
+    status: optional_query_first_preflight_route
   - party_id: solo_operator
     status: supported
   - party_id: owner_plus_executor
     status: supported
+notes:
+  - `knowledge_wiki_cell` may call this workflow as an optional preflight route when a knowledge-heavy request should query existing wiki/source metadata before deeper sourcebound work.
+  - The preflight packet is metadata-only and does not approve source truth, owner decisions, canon promotion, or default-route switching.

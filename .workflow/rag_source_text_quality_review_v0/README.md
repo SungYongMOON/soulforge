@@ -1,6 +1,6 @@
 # RAG Source Text Quality Review v0
 
-`rag_source_text_quality_review_v0` is a draft workflow for turning a
+`rag_source_text_quality_review_v0` is a registered pilot-executed workflow for turning a
 payload-free view of a source-text index, traceability sidecar, and answer-run
 trace into page-level quality review packets.
 
@@ -28,8 +28,9 @@ promote canon, switch default routes, or make final answer-truth claims.
 
 `output_state: pilot-executed`
 
-The package is intentionally unregistered and is not default-route-safe,
-canon-ready, or owner-approved.
+The package is registered in `.workflow/index.yaml` for routing discovery and
+remains not default-route-safe, canon-ready, production-ready, or
+owner-approved.
 
 A controlled DAPA fixture produced:
 

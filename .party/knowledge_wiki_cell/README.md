@@ -17,13 +17,20 @@ prepare a RAG metadata refresh handoff, then close the work through the review
 gate.
 
 Optional pre-handoff or review routes include `dual_deep_research_v0`,
-`source_packet_sufficiency_review_v0`, `owner_decision_packet_v0`, and
-`rag_metadata_refresh_v0`.
+`workflow_knowledge_preflight_v0`, `monster_knowledge_preflight_v0`,
+`knowledge_candidate_triage_v0`, `wiki_curation_maintenance_v0`,
+`llm_wiki_builder_v0`, `source_packet_sufficiency_review_v0`,
+`owner_decision_packet_v0`, `rag_metadata_refresh_v0`,
+`rag_source_text_quality_review_v0`, and `rag_work_card_router_v0`.
 `dual_deep_research_v0` owns only the NotebookLM CLI plus Codex direct
 research comparison slice before sourcebound or wiki registration.
 `rag_metadata_refresh_v0` is a downstream metadata refresh route after wiki or
 sourcebound metadata changes; it owns RAG artifact refresh, while this party only
 prepares the handoff.
+The LLM wiki stack routes handle query-first project wiki use, candidate
+triage, curation, and bounded end-to-end orchestration. The RAG source-text
+routes handle support-trace quality review and deterministic work-card routing
+after approved source-text lane artifacts already exist.
 
 Google Drive or another owner-held archive can sit around that chain as the file
 archive and backup: incoming candidate files go to an inbox/candidate manifest,
@@ -77,4 +84,6 @@ A request-classification note now lives at `routing_rules.yaml`. It keeps:
 
 - `knowledge_wiki_cell` as the current registered route,
 - `knowledge_wiki_pipeline_v0` as the registered composite entry,
-- and the older stage-first description preserved as the downstream chain the composite still owns.
+- the older stage-first description preserved as the downstream chain the composite still owns,
+- the registered LLM wiki stack as optional query-first support routes,
+- and the registered RAG source-text review/work-card workflows as optional support routes that remain below source truth, answer authority, and default-route safety.

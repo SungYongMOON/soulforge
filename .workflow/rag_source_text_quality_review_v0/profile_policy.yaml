@@ -3,7 +3,7 @@ kind: workflow_profile_policy
 status: active
 optimizer_status: completed_public_safe_synthetic_quality_equivalence
 calibration_status: quality_gate_calibrated
-workflow_registration_status: pilot_executed_unregistered
+workflow_registration_status: registered_pilot_executed
 last_calibration_id: cal_20260611_rag_source_text_quality_review_quality_equiv_001
 calibration_mode: cli_quality_equivalence
 validation_level: public_safe_synthetic_quality_gate
@@ -108,10 +108,9 @@ non_claims:
   - no_project_private_payload_used
   - no_workspaces_content_used
   - no_secret_or_credential_used
-  - no_registration_change
   - no_default_route_claim
   - no_production_ready_claim
 notes:
   - This policy optimizes only the model-facing synthetic payload-free review packet production surface.
-  - The workflow remains draft/unregistered for routing purposes and is not default-route-safe.
-  - Any canon-ready, registered, production-ready, source-truth, answer-authority, or default-route-safe claim requires separate owner/review evidence.
+  - The workflow is now registered for routing discovery by owner request and remains not default-route-safe.
+  - Any canon-ready, production-ready, source-truth, answer-authority, or default-route-safe claim requires separate owner/review evidence.

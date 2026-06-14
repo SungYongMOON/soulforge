@@ -375,7 +375,7 @@ confirm the native page spans rather than relying on post-hoc token overlap. A
 sidecar can make citation review possible, but it does not approve OCR quality,
 figure semantics, owner approval, or canon promotion.
 
-`source_text_quality_review_v0` is the page/citation quality gate between a
+`rag_source_text_quality_review_v0` is the registered optional page/citation quality gate between a
 source-text answer run and reusable project work. It consumes refs to the
 source-text index, traceability sidecar, optional answer run, and explicit pages,
 then writes only page ids, chunk ids, citation ids, warning codes, status, and
@@ -384,7 +384,7 @@ blocker labels. It classifies each reviewed page or citation as
 warnings are operator attention signals, not owner approval or public canon
 promotion.
 
-`source_text_work_card_v0` is the first source-text-backed work-card artifact. It
+`rag_work_card_router_v0` is the registered optional source-text-backed work-card route. It
 consumes a validated answer run and quality review, persists labels and
 fingerprints rather than raw questions, and carries evidence pages, citation
 status, claim ceiling, manual-review state, and next actions. It is a private

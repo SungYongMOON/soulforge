@@ -24,7 +24,15 @@ Required workflow ids from the party:
 
 Optional workflow ids:
 
+- `dual_deep_research_v0`
 - `rag_metadata_refresh_v0`
+- `rag_source_text_quality_review_v0`
+- `rag_work_card_router_v0`
+- `workflow_knowledge_preflight_v0`
+- `monster_knowledge_preflight_v0`
+- `knowledge_candidate_triage_v0`
+- `wiki_curation_maintenance_v0`
+- `llm_wiki_builder_v0`
 - `source_packet_sufficiency_review_v0`
 - `owner_decision_packet_v0`
 
@@ -43,6 +51,14 @@ Observed current primary profile labels at creation time were:
 - `post_development_review_gate_v0`: `gpt-5.5|xhigh|dwarf|auditor`
 - `source_packet_sufficiency_review_v0`: `gpt-5.5|medium|dwarf|auditor`
 - `owner_decision_packet_v0`: `gpt-5.5|low|dwarf|auditor`
+- `dual_deep_research_v0`: `gpt-5.4-mini|low|dwarf|archivist`
+- `rag_source_text_quality_review_v0`: `gpt-5.4-mini|low|dwarf|auditor`
+- `rag_work_card_router_v0`: `gpt-5.4|low|dwarf|auditor`
+- `workflow_knowledge_preflight_v0`: `gpt-5.5|medium|dwarf|pathfinder`
+- `monster_knowledge_preflight_v0`: `gpt-5.5|low|dwarf|pathfinder`
+- `knowledge_candidate_triage_v0`: `gpt-5.5|low|dwarf|archivist`
+- `wiki_curation_maintenance_v0`: `gpt-5.5|medium|dwarf|archivist`
+- `llm_wiki_builder_v0`: `gpt-5.5|medium|dwarf|pathfinder`
 
 These labels are informational snapshots only. Re-read the workflow-owned policies before each real run.
 
@@ -57,8 +73,10 @@ The launcher should:
 5. Use `knowledge_access_event_capture_v0` for metadata-only knowledge usage or accumulation signals.
 6. Use `source_packet_sufficiency_review_v0` when evidence coverage or allowed claim ceiling is uncertain.
 7. Use `owner_decision_packet_v0` when owner approval, source approval, promotion, archive/retire, or default-route authority is needed.
-8. Prepare a `rag_metadata_refresh_v0` handoff when changed wiki/sourcebound metadata should refresh RAG manifests, graph lenses, metadata indexes, or retrieval smoke outputs.
-9. Use `post_development_review_gate_v0` before claiming a bounded development result is accepted.
+8. Use the registered LLM wiki stack routes when the request needs query-first wiki use, candidate triage, curation, or bounded end-to-end LLM wiki orchestration.
+9. Prepare a `rag_metadata_refresh_v0` handoff when changed wiki/sourcebound metadata should refresh RAG manifests, graph lenses, metadata indexes, or retrieval smoke outputs.
+10. Use `rag_source_text_quality_review_v0` and `rag_work_card_router_v0` only after approved source-text lane refs exist and the request needs support-trace quality review or deterministic work-card routing.
+11. Use `post_development_review_gate_v0` before claiming a bounded development result is accepted.
 
 ## Non-Claims
 
@@ -70,6 +88,7 @@ The launcher does not claim:
 - Species, class, model, or reasoning choices are runtime bindings beyond the available execution profile and explicit run setup.
 - Source truth can be approved by NotebookLM, Drive placement, Obsidian output, generated wiki projections, or advisory tool answers.
 - A RAG refresh handoff grants source-text retrieval, BM25/vector source-index build, NotebookLM packet membership, public canon promotion, ontology acceptance, owner approval, default-route authority, or answer authority.
+- RAG quality review or work-card routing grants source truth, answer authority, project execution authority, owner approval, default-route authority, or public canon promotion.
 - Project-local payloads, private evidence, raw source files, credentials, or runtime absolute paths are safe to store in public tracked skill files.
 
 ## Output Shape
@@ -79,7 +98,8 @@ Report:
 - `Target party: knowledge_wiki_cell`
 - `Launcher skill: knowledge_wiki_cell_launcher`
 - `Workflow chain checked: knowledge_wiki_pipeline_v0 plus required downstream workflows`
-- `Optional RAG refresh route: rag_metadata_refresh_v0 metadata-only handoff when needed`
+- `Optional LLM wiki stack routes: workflow_knowledge_preflight_v0, monster_knowledge_preflight_v0, knowledge_candidate_triage_v0, wiki_curation_maintenance_v0, llm_wiki_builder_v0 when needed`
+- `Optional RAG routes: rag_metadata_refresh_v0 metadata-only handoff, rag_source_text_quality_review_v0 support trace review, rag_work_card_router_v0 deterministic work card when needed`
 - `Profile resolve rule: workflow-owned profile_policy.yaml at execution time`
 - `Installed mirror: soulforge-knowledge-wiki-cell-launcher` when sync ran
 - `Validators: ...`

@@ -17,10 +17,11 @@ behavior:
     - the user asks Korean phrases such as "지식 위키", "위키화", "LLM 위키", "소스바운드 지식 패킷", or "NotebookLM 책장"
     - a knowledge wiki request should use the existing party chain instead of re-expanding workflow selection from scratch
     - wiki/sourcebound metadata changes may need a metadata-only RAG refresh handoff
+    - approved RAG source-text refs need page-level quality review or deterministic work-card routing through registered optional workflows
   avoid_when:
     - the user asks to create or change the `knowledge_wiki_cell` party itself
     - the request requires approving source truth, ontology canon, public promotion, archive/retire decisions, or default-route switching
-    - the request requires source-text retrieval, BM25/vector source-index building, NotebookLM packet mutation, or RAG answer authority
+    - the request requires source-text retrieval, BM25/vector source-index building, NotebookLM packet mutation, RAG answer authority, source truth approval, or project execution authority
     - the request would copy raw source payloads, NotebookLM answers, Drive payloads, private run truth, runtime absolute paths, or secrets into public skill canon
     - the request needs owner archive/upload authority that is not already declared by a workflow or owner-held archive policy
   expected_outcome:
@@ -30,6 +31,7 @@ behavior:
     - model, reasoning effort, species, and class are inherited as workflow-owned hints rather than copied as launcher authority
     - source truth, generated wiki projections, knowledge access metadata, and review packets stay in their proper owner surfaces
     - optional RAG refresh routing stays a metadata-only handoff to `rag_metadata_refresh_v0`
+    - optional RAG quality/work-card routing stays below source truth, answer authority, public canon promotion, and default-route safety
 execution_requirements:
   required_capabilities:
     - party_launcher_routing
@@ -37,6 +39,8 @@ execution_requirements:
     - sourcebound_knowledge_boundary_review
     - post_development_review_awareness
     - rag_metadata_refresh_handoff_awareness
+    - rag_source_text_quality_review_route_awareness
+    - rag_work_card_route_awareness
   preferred_capabilities:
     - yaml_review
     - knowledge_wiki_request_triage
@@ -50,6 +54,7 @@ execution_requirements:
     - "The launcher must resolve party and workflow-owned profile policies at execution time; do not copy optimizer profile values into `codex/SKILL.md` as binding authority."
     - "Drive, NotebookLM, and Obsidian are execution or viewing surfaces only; none of them become source truth or promotion authority through this skill."
     - "RAG metadata refresh is a downstream workflow route, not launcher authority; the launcher may prepare a metadata-only handoff but must not run source-text indexing or answer-engine steps."
+    - "RAG quality review and work-card routing are registered optional support routes; they do not grant source truth, answer authority, project execution authority, public canon promotion, or default-route safety."
     - "Actual local install paths, connector availability, archive policy bindings, and project payloads remain runtime concerns outside public skill canon."
 notes:
   - "`knowledge_wiki_cell_launcher` is a thin Codex bridge for the registered `.party/knowledge_wiki_cell` loadout."

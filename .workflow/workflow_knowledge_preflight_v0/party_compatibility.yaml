@@ -2,6 +2,8 @@ workflow_id: workflow_knowledge_preflight_v0
 kind: party_compatibility
 status: active
 compatible_parties:
+  - party_id: knowledge_wiki_cell
+    status: optional_cross_workflow_knowledge_preflight_route
   - party_id: solo_operator
     status: supported
   - party_id: owner_plus_executor
@@ -10,3 +12,4 @@ compatible_parties:
     status: supported_for_authoring_or_review_lane
 notes:
   - This workflow is cross-cutting and may run ahead of many workflows instead of belonging to one dedicated party.
+  - `knowledge_wiki_cell` may call it as an optional preflight route when the target workflow is not yet fixed or when the user asks to register reusable knowledge before a downstream workflow starts.

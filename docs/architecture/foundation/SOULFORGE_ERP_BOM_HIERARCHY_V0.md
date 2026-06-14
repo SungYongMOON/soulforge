@@ -196,7 +196,7 @@ entry로 본다. `docs/`와 `authoring/`은 보조 문서/작성 템플릿이다
 
 ### Canon workflow entries in `.workflow/index.yaml`
 
-현재 index 등록 workflow는 60개다.
+현재 index 등록 workflow는 62개다.
 
 1. `frontline_assault`
 2. `build_lineage_map`
@@ -258,11 +258,15 @@ entry로 본다. `docs/`와 `authoring/`은 보조 문서/작성 템플릿이다
 58. `long_thread_handoff_v0`
 59. `codex_thread_manager_v0`
 60. `daily_work_ledger_capture_v0`
+61. `rag_source_text_quality_review_v0`
+62. `rag_work_card_router_v0`
 
-### Workflow-shaped but not index-canon
+### Registered RAG source-text support workflows
 
-다음 폴더는 workflow shape가 관찰되지만 `index.yaml` 등록 entry가 아니므로 정본
-workflow로 단정하지 않는다.
+The following workflows are registered pilot-executed RAG support workflows in
+`index.yaml`. They do not claim source truth, answer authority, project
+execution authority, owner approval, public canon promotion, default-route-safe
+status, or production-ready status.
 
 - `rag_source_text_quality_review_v0`
 - `rag_work_card_router_v0`
@@ -513,12 +517,19 @@ stub이고 외부전송은 0이다.
 - `external_reasoning_workspace_v0`
 - `knowledge_access_event_capture_v0`
 - `rag_metadata_refresh_v0`
+- `rag_source_text_quality_review_v0`
+- `rag_work_card_router_v0`
 - `knowledge_wiki_pipeline_v0`
 
-관찰되지만 index-canon이 아닌 RAG workflow-shaped folders:
+Registered optional RAG source-text support workflows:
 
 - `rag_source_text_quality_review_v0`
 - `rag_work_card_router_v0`
+
+These workflows are optional `knowledge_wiki_cell` routes only. They do not
+claim source truth, answer authority, project execution authority, owner
+approval, public canon promotion, default-route-safe status, or production-ready
+status.
 
 ### Knowledge parties and launcher skills
 
@@ -652,7 +663,7 @@ repo에 넣지 않는 continuity data plane을 맡는다.
 
 본 지도는 다음 관찰/검증을 근거로 작성했다.
 
-- `.workflow/index.yaml`: 60 canon workflow entries
+- `.workflow/index.yaml`: 62 canon workflow entries
 - `.party/index.yaml`: 5 canon party entries
 - `.registry`: species 5, classes 10, skills 27, tools 5, knowledge 9
 - `ui-workspace/apps/dev-erp/src/modules.mjs`: 12 ERP module slots
@@ -661,6 +672,7 @@ repo에 넣지 않는 continuity data plane을 맡는다.
 - `ui-workspace/apps/dev-erp/static/app.js`: 31 widget slots, **15 ready, 16 soon** (v0.1; v0는 12/19)
 - local validation:
   - (v0) `npm run validate:canon`: pass, checked 119, errors 0, warnings 0
+  - (2026-06-14) `npm run validate:canon`: pass, checked 121, errors 0, warnings 0
   - `node --test ui-workspace/apps/dev-erp/test/core.test.mjs`: pass, **44 tests** (v0.1; v0는 31)
   - (v0) `npm run validate:knowledge-rag-candidate-ledger`: pass, 6 checks
 
@@ -669,8 +681,6 @@ repo에 넣지 않는 continuity data plane을 맡는다.
 - `dev-erp`의 purchase/inventory/boards/stockwatch는 module slot이 있으나
   dedicated persistent tables는 아직 없다.
 - `ai_jobs` 같은 비동기 AI job table은 아직 없다.
-- `rag_source_text_quality_review_v0`, `rag_work_card_router_v0`는 workflow-shaped
-  folder지만 index-canon 등록이 아니다.
 - `group_material` widget은 5개 모두 soon 상태다.
 - `_workspaces`와 `_workmeta`는 경로/metadata만 public-safe로 다루며, 실제 보호
   payload 내용은 이 문서의 범위가 아니다.

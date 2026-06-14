@@ -3,7 +3,7 @@ kind: workflow_profile_policy
 status: active
 optimizer_status: completed_public_safe_synthetic_quality_equivalence
 calibration_status: quality_gate_calibrated
-workflow_registration_status: draft_unregistered
+workflow_registration_status: registered_pilot_executed
 last_calibration_id: cal_20260611_rag_work_card_router_quality_equiv_001
 calibration_mode: cli_quality_equivalence
 validation_level: public_safe_synthetic_quality_gate
@@ -123,9 +123,8 @@ non_claims:
   - no_workspaces_content_used
   - no_owner_approval_claim
   - no_canon_ready_claim
-  - no_registration_claim
   - no_default_route_safe_claim
 notes:
   - The recommendation optimizes the model-facing routing and boundary review behavior on a public-safe synthetic fixture.
-  - The workflow remains intentionally absent from .workflow/index.yaml and not default-route-safe.
-  - Any canon-ready, registered, production-ready, owner-approved, canon, or default-route-safe claim requires separate evidence and review.
+  - The workflow is now registered for routing discovery by owner request and remains not default-route-safe.
+  - Any canon-ready, production-ready, owner-approved, canon, or default-route-safe claim requires separate evidence and review.
