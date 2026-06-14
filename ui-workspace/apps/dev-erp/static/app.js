@@ -518,7 +518,7 @@ async function renderCalculators() {
   $("#view").innerHTML = `${cards || `<div class="empty">-</div>`}
     <section class="calc-new"><h3>${L.calc_title}</h3>
       <div class="item-form">
-        <input id="calcName" placeholder="${L.item}" />
+        <input id="calcName" placeholder="${L.calc_name}" />
         <input id="calcFormula" placeholder="${L.calc_formula} (예: Math.sqrt(a*a+b*b))" size="24" />
         <input id="calcVars" placeholder="a,b" size="8" />
         <button id="calcAdd" class="fav-chip">${L.calc_add}</button>
