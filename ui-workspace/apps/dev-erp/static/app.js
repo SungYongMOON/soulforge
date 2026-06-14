@@ -7,6 +7,7 @@ const state = {
   projectFilter: "",
   navTop: localStorage.getItem("dev_erp_navtop") || "ops",       // L1 대분류(상단 가로)
   navGroup: localStorage.getItem("dev_erp_navgroup") || "group_project", // L2 중분류(상단 가로, 섹터)
+  navFold: new Set(JSON.parse(localStorage.getItem("dev_erp_navfold") || "[]")), // 좌측 L3 접힘 키
   pins: JSON.parse(localStorage.getItem("dev_erp_pins") || "[]"),
   // P2b: 계정/권한. 익명(account=null)이면 앱은 현행대로(전체 접근·localStorage).
   account: null, perms: [], accountCount: 0,
@@ -258,14 +259,27 @@ function renderNav() {
   const pinnedGroup = state.pins.length
     ? `<div class="nav-group"><div class="nav-sub-head">${state.lex.group_pinned}</div>${state.pins.map(navButton).join("")}</div>`
     : "";
-  // 좌측 = 선택 중분류(섹터)의 L3 분류 헤더 + L4 항목 (대분류명 중복 표기 제거)
+  // 좌측 = 선택 중분류(섹터)의 L3 분류 헤더(접기 가능) + L4 항목 (대분류명 중복 표기 제거)
   const sec = navSectorOf(state.navTop, state.navGroup);
-  const tree = sec.subs.map((sub) => {
+  const tree = sec.subs.map((sub, i) => {
     const btns = sub.items.map(navButton).join("");
     if (!btns.trim()) return ""; // RBAC 로 항목이 전부 숨으면 헤더도 생략
-    return `<div class="nav-group"><div class="nav-sub-head">${navTL(sub)}</div>${btns}</div>`;
+    const key = `${sec.g}:${i}`;
+    const collapsed = state.navFold.has(key) ? " collapsed" : "";
+    return `<div class="nav-group nav-sub-group${collapsed}" data-fold="${key}">
+      <div class="nav-sub-head"><i class="fold-ico">▾</i><span>${navTL(sub)}</span></div>
+      <div class="nav-items">${btns}</div></div>`;
   }).join("");
   $("#nav").innerHTML = pinnedGroup + tree;
+  // L3 헤더 클릭 → 접기/펼치기(상태 영속)
+  $("#nav").querySelectorAll(".nav-sub-group > .nav-sub-head").forEach((h) =>
+    h.addEventListener("click", () => {
+      const grp = h.closest(".nav-sub-group"); const k = grp.dataset.fold;
+      if (state.navFold.has(k)) state.navFold.delete(k); else state.navFold.add(k);
+      localStorage.setItem("dev_erp_navfold", JSON.stringify([...state.navFold]));
+      grp.classList.toggle("collapsed");
+    })
+  );
   $("#nav").querySelectorAll("button").forEach((b) =>
     b.addEventListener("click", () => { state.view = b.dataset.v; render(); })
   );
