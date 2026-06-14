@@ -1262,3 +1262,58 @@ test("P-4-ai: reject·미지원 kind·없는 id", () => {
   assert.equal(store.createProposal({ source: "x", kind: "drop_table", payload: {} }).error, "unknown_proposal_kind", "미지원 kind 거부");
   assert.equal(store.approveProposal("nope").error, "proposal_not_found", "없는 id");
 });
+
+// P-14: deliverable_input 미충족 fulfilled=false, 입력 첨부 후 true(read-only).
+test("P-14: inputFulfillment 충족 판정", () => {
+  const store = freshStore();
+  loadFixture(store);
+  store.setArtifactRequirement({ scope_kind: "deliverable_input", scope_key: "CDR 패키지", artifact_type: "schematic", label: "회로도", mode: "soft" });
+  store.setArtifactRequirement({ scope_kind: "deliverable_input", scope_key: "CDR 패키지", artifact_type: "bom", label: "BOM", mode: "soft" });
+  let f = store.inputFulfillment("PRJ-A").find((d) => d.scope_key === "CDR 패키지");
+  assert.equal(f.required.length, 2, "필요 2");
+  assert.equal(f.fulfilled, false, "미충족");
+  assert.equal(f.missing.length, 2, "누락 2");
+  store.addAttachment({ entity_type: "part", entity_id: "pt-board", name: "s.f", pointer: "/s", artifact_type: "schematic" });
+  store.addAttachment({ entity_type: "part", entity_id: "pt-board", name: "b.f", pointer: "/b", artifact_type: "bom" });
+  assert.equal(store.inputFulfillment("PRJ-A").find((d) => d.scope_key === "CDR 패키지").fulfilled, true, "충족");
+});
+
+// P-14: inputFulfillment 는 자동 생성 0(read-only).
+test("P-14: inputFulfillment read-only", () => {
+  const store = freshStore();
+  loadFixture(store);
+  store.setArtifactRequirement({ scope_kind: "deliverable_input", scope_key: "CDR 패키지", artifact_type: "schematic", label: "회로도", mode: "soft" });
+  const before = store.counts().items;
+  store.inputFulfillment("PRJ-A");
+  assert.equal(store.counts().items, before, "항목 생성 0");
+});
+
+// P-14: deliverable_input artifact_type 어휘 ⊂ 6종 사전.
+test("P-14: deliverable_input 어휘 정합(6종)", () => {
+  const store = freshStore();
+  loadFixture(store);
+  store.setArtifactRequirement({ scope_kind: "deliverable_input", scope_key: "CDR 패키지", artifact_type: "schematic", label: "회로도", mode: "soft" });
+  const inputs = store.artifactRequirements({ scope_kind: "deliverable_input" }).map((r) => r.artifact_type);
+  assert.ok(inputs.every((t) => ["bom", "gerber", "digikey", "schematic", "pcb", "block_diagram"].includes(t)), "6종 사전 내");
+});
+
+// P-14: 키스톤 통합 — 충족 시 generate 는 자동 생성 대신 ai_proposal 큐 적재(승인 전 쓰기 0).
+test("P-14: generate 충족 시 ai_proposal 큐 적재(자동생성 0)", () => {
+  const store = freshStore();
+  loadFixture(store);
+  store.setArtifactRequirement({ scope_kind: "deliverable_input", scope_key: "CDR 패키지", artifact_type: "schematic", label: "회로도", mode: "soft" });
+  store.addAttachment({ entity_type: "part", entity_id: "pt-board", name: "s.f", pointer: "/s", artifact_type: "schematic" });
+  const before = store.counts().items;
+  // generate 경로 모사: 충족 → createProposal(pending), 항목 생성 0
+  const f = store.inputFulfillment("PRJ-A").find((d) => d.scope_key === "CDR 패키지");
+  assert.equal(f.fulfilled, true, "충족");
+  const r = store.createProposal({ source: "input_fulfillment", kind: "create_item", payload: { project_id: "PRJ-A", title: "CDR 패키지 초안" }, used_refs: ["inputs"] });
+  assert.ok(r.ok && r.status === "pending", "제안 pending 적재");
+  assert.equal(store.counts().items, before, "승인 전 항목 생성 0");
+  assert.equal(store.proposals({ status: "pending" }).filter((p) => p.kind === "create_item").length, 1, "pending 1건");
+});
+
+// P-14: lexicon 양 모드 input_generate_btn.
+test("P-14: input_generate_btn 양 모드", () => {
+  assert.ok(getLexicon("business").input_generate_btn && getLexicon("fantasy").input_generate_btn, "양 모드 라벨");
+});

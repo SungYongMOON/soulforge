@@ -1596,6 +1596,31 @@ export class Store {
     const where = cond.length ? `WHERE ${cond.join(" AND ")}` : "";
     return this.db.prepare(`SELECT * FROM artifact_requirement ${where} ORDER BY scope_kind, scope_key, seq, artifact_type`).all(...args);
   }
+  // P-14 산출물 입력 충족(read-only) — deliverable_input 규칙 vs 과제 링크 보드 첨부 합집합.
+  // 충족 판정만 계산, createItem/자동 생성 0(생성은 ai_proposal 승인 후). gateEval 무변경(별 메서드).
+  inputFulfillment(project_id) {
+    const rules = this.db.prepare(
+      "SELECT scope_key, artifact_type, label FROM artifact_requirement WHERE scope_kind='deliverable_input' ORDER BY scope_key, seq, artifact_type"
+    ).all();
+    if (!rules.length) return [];
+    const boards = this.db.prepare(
+      "SELECT p.id FROM core_part p JOIN part_project_map m ON m.part_id=p.id WHERE m.project_id=? AND p.type='board'"
+    ).all(project_id);
+    const have = new Set();
+    for (const b of boards) {
+      for (const a of this.db.prepare("SELECT DISTINCT artifact_type FROM core_attachment WHERE entity_type='part' AND entity_id=? AND artifact_type IS NOT NULL").all(b.id)) {
+        have.add(a.artifact_type);
+      }
+    }
+    const byKey = {};
+    for (const r of rules) (byKey[r.scope_key] ||= []).push(r);
+    return Object.entries(byKey).map(([scope_key, reqs]) => {
+      const required = reqs.map((r) => r.artifact_type);
+      const satisfied = required.filter((t) => have.has(t));
+      const missing = reqs.filter((r) => !have.has(r.artifact_type)).map((r) => ({ artifact_type: r.artifact_type, label: r.label }));
+      return { deliverable_name: scope_key, scope_key, required, satisfied, missing, fulfilled: missing.length === 0 && required.length > 0 };
+    });
+  }
   // 보드 1개의 필수 기술자료 충족도(첨부 포인터 존재로 판정, 원문 미저장 유지)
   boardCompleteness(partId) {
     const board = this.db.prepare("SELECT * FROM core_part WHERE id=?").get(partId);

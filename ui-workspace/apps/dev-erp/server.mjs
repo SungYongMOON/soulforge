@@ -260,6 +260,16 @@ const server = createServer(async (req, res) => {
     }
     if (path === "/api/parts/completeness") { const r = store.boardCompleteness(qp.part); return send(res, r.error ? 404 : 200, r); }
     if (path === "/api/risk") return send(res, 200, store.riskAlerts({ project: qp.project ?? null }));
+    if (path === "/api/inputs/fulfillment") return send(res, 200, store.inputFulfillment(qp.project));
+    if (path === "/api/inputs/generate" && req.method === "POST") {
+      let body = ""; for await (const chunk of req) body += chunk;
+      const b = JSON.parse(body || "{}");
+      const ful = store.inputFulfillment(b.project_id).find((d) => d.scope_key === b.deliverable_name);
+      if (!ful || !ful.fulfilled) return send(res, 409, { error: "inputs_incomplete", missing: ful?.missing ?? [] });
+      // 키스톤(P-4-ai-A) 머지됨 → 자동 생성 대신 ai_proposal 큐에 pending 적재(사람 승인 후에만 실제 생성).
+      const r = store.createProposal({ source: "input_fulfillment", kind: "create_item", payload: { project_id: b.project_id, title: `${b.deliverable_name} 초안` }, summary: `입력 충족: ${b.deliverable_name}`, used_refs: ["inputs"], data_label: "real" });
+      return send(res, r.error ? 400 : 200, { ok: !r.error, queued: !r.error, proposal_id: r.id, status: "pending", note: "입력 충족 — ai_proposal 큐 적재(승인 후 생성)" });
+    }
     if (path === "/api/proposals" && req.method === "GET") return send(res, 200, store.proposals({ status: qp.status || "pending" }));
     if (path === "/api/proposals" && req.method === "POST") {
       let body = ""; for await (const chunk of req) body += chunk;
