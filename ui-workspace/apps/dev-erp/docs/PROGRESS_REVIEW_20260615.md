@@ -70,11 +70,14 @@ owner cross-cutting 원칙 대조:
 4. **완료 게이트 증거 모델(slice4)** — done 전 어떤 증거(답장/수정파일/검토/결정기록)를 필수로 할지.
 5. **DESIGN.md canon 갱신 승인** — IA·할일모델 정본화.
 6. **다음 큰 방향 우선순위**: A(SE 할일모델 완성) vs B(_workspaces 폴더 ingest) 중 먼저.
+7. **(신규) SE_산출물_목록.csv ingest** — P26-014 폴더에 산출물 **128건**(게이트·산출물명·완료기준 100%·경로 100%·마감)이 있음(`tools/scan_se_foldertree.mjs` 스캔). 이걸 ERP로 ingest 할지 + 표현(se_deliverable_template 시드 vs core_item vs core_artifact) + 원문 경로 포인터 취급. dry-run 스캔은 완료(DB 미변경), **--apply ingest 는 owner 확인 후**. ⇒ 이게 facet들을 실데이터로 채우는 가장 큰 레버.
 
 ## 7. 야간 자율 진행 로그 (이 루프가 빌드한 것)
 
 - (2026-06-15 야간 시작) 중간 점검 보고서 작성(commit 0f76b73).
 - **SE 할일모델 slice2 — confirmItem + 분류 UI** (commit 9c99aa0): 미분류 할 일을 업무유형+연결대상으로 분류해 정식(open) 승격하는 게이트·화면. 빈 등록은 needs_se_anchor 차단. owner 예시(CDR 자료 BOM 반영→과제·수정·산출물) preview 검증. node:test 106/106.
-- 다음(자율): slice5 과제 facet 맥락 컬럼(할 일이 과제 안에서 단계/연결대상/완료기준 붙어 보이게) → slice6 요청·회의 인입 채널 → B(_workspaces SE 폴더트리 ingest). slice4(완료게이트+증거)는 **owner 결정 #4(증거 모델) 대기**라 자율 빌드 보류.
+- **SE 할일모델 slice5 — 과제 허브 맥락 컬럼** (commit 236cb94): 과제 허브 '할 일' facet에 단계·유형·연결대상·완료기준 표시. 같은 할 일이 과제 안에선 맥락 붙어 보임.
+- **SE 폴더트리 dry-run 스캔 도구** (commit 5515e1c): `tools/scan_se_foldertree.mjs` — DB 미변경, 폴더에서 ingest 가능 구조 집계. **발견: P26-014 산출물 128건(완료기준·경로 100%, 8게이트)** = 실 SE 데이터 소스 확인(§6-7). --apply ingest 는 owner 확인 후.
+- 다음(자율): slice6 요청·회의 인입 채널 → ⑭ 간트/일정 뷰 등 결정 불필요 슬라이스. slice4(완료게이트+증거)·CSV --apply ingest 는 **owner 결정 대기**라 보류.
 
 > 자율 빌드 정책: owner 결정 필요 항목(§6)은 건드리지 않고, 결정 불필요한 슬라이스만 진행. 각 슬라이스 commit+push, node:test 전건 + preview 검증.
