@@ -1609,11 +1609,19 @@ async function renderItems() {
   // ECount식 상태 필터칩 (전체 + 각 상태). count 표시.
   const statuses = ["open", "doing", "waiting", "blocked", "done"];
   const statusCount = (s) => allItems.filter((i) => i.status === s).length;
-  const chip = (val, label, n) =>
-    `<button class="status-chip ${state.statusFilter === val ? "on" : ""}" data-st="${val}">${label}${n != null ? ` <em>${n}</em>` : ""}</button>`;
+  // 분류 필요(미분류) — 정식 목록에서 격리됨. SE 기준점 미연결 인입 할 일. 별도 조회로 개수.
+  const triageQ = new URLSearchParams({ status: "unclassified" });
+  if (state.projectFilter) triageQ.set("project", state.projectFilter);
+  const triage = await api(`/api/items?${triageQ}`);
+  const chip = (val, label, n, cls = "") =>
+    `<button class="status-chip ${cls} ${state.statusFilter === val ? "on" : ""}" data-st="${val}">${label}${n != null ? ` <em>${n}</em>` : ""}</button>`;
   const chipsHtml = [chip("", L.all_label, allItems.length)]
     .concat(statuses.map((s) => chip(s, L[`status_${s}`], statusCount(s))))
+    .concat(triage.length || state.statusFilter === "unclassified" ? [chip("unclassified", L.status_unclassified ?? "분류 필요", triage.length, "triage")] : [])
     .join("");
+  const triageNote = state.statusFilter === "unclassified"
+    ? `<div class="triage-note">${L.triage_note ?? "메일/요청에서 자동 추출됐지만 과제·단계·산출물 연결이 없는 임시 할 일입니다. 분류해야 정식 실행 목록에 들어갑니다."}</div>`
+    : "";
   const rows = items.map((i) => `<tr>
       <td>${esc(i.title)}${i.encounter_role === "boss" ? " 👑" : ""}</td>
       <td><span class="proj-link" data-hub="${esc(i.project_id)}">${esc(i.project_id)}</span></td>
@@ -1628,6 +1636,7 @@ async function renderItems() {
       <select id="fProject"><option value="">${L.project}: ${L.all_label}</option>${opts}</select>
     </div>
     <div class="status-chips">${chipsHtml}</div>
+    ${triageNote}
     <div class="item-form">
       <select id="niProject">${opts || `<option value="">${L.project}</option>`}</select>
       <input id="niTitle" placeholder="${L.item_new_ph}" />

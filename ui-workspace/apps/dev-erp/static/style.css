@@ -120,6 +120,12 @@ td.num { text-align: right; font-variant-numeric: tabular-nums; }
 .status { padding: 2px 8px; border-radius: 999px; font-size: 12px; background: var(--chip); white-space: nowrap; }
 .status.blocked { color: var(--danger); } .status.done { color: var(--ok); }
 .status.doing { color: var(--accent); } .status.waiting { color: var(--warn); }
+.status.unclassified { color: var(--warn); background: #fdf0d6; }
+/* 분류 필요(미분류) 필터칩 + 안내 배너 */
+.status-chip.triage { background: #fdf0d6; color: #9a6a12; border: 1px solid #e8c98a; }
+.status-chip.triage.on { background: #9a6a12; color: #fff; }
+.triage-note { font-size: 12.5px; color: #9a6a12; background: #fdf0d6; border: 1px solid #e8c98a; border-radius: 8px; padding: 8px 12px; margin: 8px 0; }
+body[data-theme="dark"] .status.unclassified, body[data-theme="dark"] .status-chip.triage, body[data-theme="dark"] .triage-note { background: #4d3a13; color: #f0cd8a; border-color: #6b5320; }
 .due-over { color: var(--danger); font-weight: 600; }
 .pointer { font-family: ui-monospace, monospace; font-size: 12px; color: var(--muted); }
 .empty { color: var(--muted); padding: 26px; text-align: center; background: var(--panel); border: 1px dashed var(--line); border-radius: 12px; }

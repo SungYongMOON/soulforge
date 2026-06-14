@@ -569,10 +569,36 @@ test("run17: 메일 과제 분류(재배정) — 단건/묶음/할일 동행 이
   assert.equal(r1.item_created, null);           // 중복 생성 없음
   assert.ok(r2.item_created);                    // 새 출몰
   const created = store.db.prepare("SELECT * FROM core_item WHERE id=?").get(r2.item_created);
-  assert.deepEqual([created.project_id, created.origin, created.status], [batchTarget, "mail", "open"]);
+  // slice1 계약: 메일 파생 할 일은 SE 기준점 미연결이면 'unclassified'(미분류) — 정식 'open' 아님
+  assert.deepEqual([created.project_id, created.origin, created.status], [batchTarget, "mail", "unclassified"]);
 
   assert.equal(store.assignMails([], pa).error, "mail_ids_required");
   assert.equal(store.assignMails([mails[0].id], "no-such").error, "project_not_found");
+});
+
+test("store: SE 기준점 자동분류 — 인입 미연결=미분류, 정식 격리 (SE-CLASSIFY slice1)", () => {
+  const store = freshStore();
+  loadFixture(store);
+  const today = new Date().toISOString().slice(0, 10);
+  // 1) 메일 출처 + SE 기준점 없음 → unclassified
+  const m1 = store.createItem({ project_id: "PRJ-A", title: "BOM 반영", origin: "mail", origin_mail_id: "m-x" });
+  assert.equal(m1.item.status, "unclassified", "인입+미연결 → 미분류");
+  // 2) 미분류는 활성 집계(summary.open)에 0 기여
+  const before = store.summary(today).find((p) => p.id === "PRJ-A").open;
+  store.createItem({ project_id: "PRJ-A", title: "또 미분류", origin: "mail" });
+  assert.equal(store.summary(today).find((p) => p.id === "PRJ-A").open, before, "미분류는 open 카운트 0 기여");
+  // 3) items() 기본 격리, status='unclassified' 명시 조회로만 노출
+  assert.equal(store.items({ project: "PRJ-A" }).some((i) => i.status === "unclassified"), false, "기본 목록 격리");
+  assert.ok(store.items({ project: "PRJ-A", status: "unclassified" }).length >= 2, "명시 조회로 보임");
+  // 4) SE 기준점(업무유형+연결대상) 붙으면 정식 open + 속성 보존
+  const linked = store.createItem({ project_id: "PRJ-A", title: "CDR BOM 수정", origin: "mail", work_type: "revise", link_kind: "artifact", link_ref: "art-1", completion_criteria: "최신 BOM 반영본 저장+검토요청" });
+  assert.equal(linked.item.status, "open", "기준점 연결 → 정식");
+  assert.deepEqual([linked.item.work_type, linked.item.link_kind, linked.item.completion_criteria], ["revise", "artifact", "최신 BOM 반영본 저장+검토요청"]);
+  // 5) 수동/스케줄 출처는 기존대로 open (회귀 방지)
+  assert.equal(store.createItem({ project_id: "PRJ-A", title: "수동 작업" }).item.status, "open", "수동 출처 open 유지");
+  // 6) enum 검증
+  assert.equal(store.createItem({ project_id: "PRJ-A", title: "x", origin: "mail", work_type: "bogus" }).error, "work_type_invalid");
+  assert.equal(store.createItem({ project_id: "PRJ-A", title: "x", origin: "mail", link_kind: "bogus" }).error, "link_kind_invalid");
 });
 
 test("B5: 라벨 감사기 — 커버리지 집계 + 결손 주입 검출", async () => {

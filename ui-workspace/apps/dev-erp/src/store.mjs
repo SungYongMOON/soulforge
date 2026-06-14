@@ -80,6 +80,10 @@ CREATE TABLE IF NOT EXISTS core_item (   -- 몬스터 = 할일 (동일 행)
   guide_step_key TEXT,                        -- P2a: 가이드 스텝 연결 (선택)
   origin_mail_id TEXT,                        -- P2a: 메일→할일 승격 출처 (메일 메타 id)
   created_by TEXT,                            -- P2a: RBAC 설계 자리 (강제는 P2b)
+  work_type TEXT,                             -- SE: 업무유형 answer|review|author|revise|purchase|verify|decide|schedule
+  link_kind TEXT,                             -- SE: 연결대상 종류 requirement|artifact|meeting|bom|part|vendor|risk
+  link_ref TEXT,                              -- SE: 연결대상 id(포인터)
+  completion_criteria TEXT,                   -- SE: 완료기준(close-when)
   data_label TEXT NOT NULL DEFAULT 'synthetic'
 );
 CREATE TABLE IF NOT EXISTS core_mail (   -- 메일 이력 metadata-only
@@ -555,6 +559,10 @@ export function openStore(path = ":memory:") {
     "ALTER TABLE core_item ADD COLUMN guide_step_key TEXT",
     "ALTER TABLE core_item ADD COLUMN origin_mail_id TEXT",
     "ALTER TABLE core_item ADD COLUMN created_by TEXT",
+    "ALTER TABLE core_item ADD COLUMN work_type TEXT",
+    "ALTER TABLE core_item ADD COLUMN link_kind TEXT",
+    "ALTER TABLE core_item ADD COLUMN link_ref TEXT",
+    "ALTER TABLE core_item ADD COLUMN completion_criteria TEXT",
     "ALTER TABLE event_log ADD COLUMN project_ref TEXT",
     "ALTER TABLE core_stage ADD COLUMN stage_code TEXT",
     "ALTER TABLE core_attachment ADD COLUMN artifact_type TEXT",
@@ -706,12 +714,12 @@ export class Store {
       .prepare(
         `SELECT project_id,
            COUNT(*) AS total_cnt,
-           SUM(CASE WHEN status NOT IN ('done') THEN 1 ELSE 0 END) AS open_cnt,
+           SUM(CASE WHEN status NOT IN ('done','unclassified') THEN 1 ELSE 0 END) AS open_cnt,
            SUM(CASE WHEN status='blocked' THEN 1 ELSE 0 END) AS blocked_cnt,
-           SUM(CASE WHEN status NOT IN ('done') AND due IS NOT NULL AND due < ? THEN 1 ELSE 0 END) AS overdue_cnt,
-           SUM(CASE WHEN status NOT IN ('done') AND due = ? THEN 1 ELSE 0 END) AS today_cnt,
-           SUM(CASE WHEN status NOT IN ('done') AND due > ? AND due <= ? THEN 1 ELSE 0 END) AS week_cnt,
-           SUM(CASE WHEN encounter_role='boss' AND status NOT IN ('done') THEN 1 ELSE 0 END) AS boss_cnt
+           SUM(CASE WHEN status NOT IN ('done','unclassified') AND due IS NOT NULL AND due < ? THEN 1 ELSE 0 END) AS overdue_cnt,
+           SUM(CASE WHEN status NOT IN ('done','unclassified') AND due = ? THEN 1 ELSE 0 END) AS today_cnt,
+           SUM(CASE WHEN status NOT IN ('done','unclassified') AND due > ? AND due <= ? THEN 1 ELSE 0 END) AS week_cnt,
+           SUM(CASE WHEN encounter_role='boss' AND status NOT IN ('done','unclassified') THEN 1 ELSE 0 END) AS boss_cnt
          FROM core_item GROUP BY project_id`
       )
       .all(todayKey, todayKey, todayKey, weekEndKey);
@@ -748,12 +756,13 @@ export class Store {
     });
   }
 
-  items({ project, status, q, due_before } = {}) {
+  items({ project, status, q, due_before, include_unclassified = false } = {}) {
     const cond = [];
     const args = [];
     if (project) { cond.push("i.project_id=?"); args.push(project); }
     if (status) { cond.push("i.status=?"); args.push(status); }
-    if (due_before) { cond.push("i.due IS NOT NULL AND i.due<=? AND i.status NOT IN ('done')"); args.push(due_before); }
+    else if (!include_unclassified) { cond.push("i.status != 'unclassified'"); } // 미분류는 기본 격리(분류 필요 화면만 명시 조회)
+    if (due_before) { cond.push("i.due IS NOT NULL AND i.due<=? AND i.status NOT IN ('done','unclassified')"); args.push(due_before); }
     if (q) { cond.push("i.title LIKE ?"); args.push(`%${q}%`); }
     const where = cond.length ? `WHERE ${cond.join(" AND ")}` : "";
     return this.db
@@ -766,31 +775,45 @@ export class Store {
   }
 
   // --- P2a 할일 쓰기 (run16): 생성/상태/담당/메일 승격 — 모든 변경은 server 가 event_log 에 기록 ---
-  static ITEM_STATUSES = ["open", "doing", "waiting", "blocked", "done"];
+  // 'unclassified'(미분류) = SE 기준점 미연결 임시 상태. 정식 실행 목록·활성 집계에서 격리(slice1).
+  static ITEM_STATUSES = ["unclassified", "open", "doing", "waiting", "blocked", "done"];
+  static WORK_TYPES = ["answer", "review", "author", "revise", "purchase", "verify", "decide", "schedule"];
+  static LINK_KINDS = ["requirement", "artifact", "meeting", "bom", "part", "vendor", "risk"];
 
-  createItem({ project_id, title, assignee_ref, due, urgency, guide_artifact_id, guide_step_key, origin_mail_id, origin, created_by }) {
+  createItem({ project_id, title, assignee_ref, due, urgency, guide_artifact_id, guide_step_key, origin_mail_id, origin, created_by,
+    work_type, link_kind, link_ref, completion_criteria, stage_id, anchor_stage_code }) {
     const trimmed = String(title ?? "").trim();
     if (!trimmed) return { error: "title_required" };
     if (!this.db.prepare("SELECT 1 FROM core_project WHERE id=?").get(project_id)) return { error: "project_not_found" };
     if (due && !/^\d{4}-\d{2}-\d{2}$/.test(due)) return { error: "due_format" };
+    if (work_type && !Store.WORK_TYPES.includes(work_type)) return { error: "work_type_invalid" };
+    if (link_kind && !Store.LINK_KINDS.includes(link_kind)) return { error: "link_kind_invalid" };
     let artifact = null;
     if (guide_artifact_id) {
       artifact = this.db.prepare("SELECT * FROM guide_artifact WHERE id=?").get(Number(guide_artifact_id));
       if (!artifact) return { error: "guide_artifact_not_found" };
       if (artifact.project_id !== project_id) return { error: "guide_artifact_project_mismatch" };
     }
+    // 자동 분류(slice1): 인입(메일/요청/회의) 출처 할 일이 SE 기준점(단계/연결대상)+업무유형 없으면 'unclassified'.
+    // 수동/스케줄 출처는 의도적 생성이라 'open' 유지(기존 동작 보존).
+    const inbound = ["mail", "request", "meeting"].includes(origin ?? "");
+    const hasAnchor = !!(stage_id || anchor_stage_code || link_kind || guide_artifact_id);
+    const status = inbound && !(hasAnchor && work_type) ? "unclassified" : "open";
     const id = `itm_${Date.now().toString(36)}${Math.random().toString(36).slice(2, 6)}`;
     this.db
       .prepare(
         `INSERT INTO core_item(id,project_id,title,origin,urgency,assignee_ref,status,due,
-           guide_artifact_id,guide_step_key,origin_mail_id,created_by,data_label)
-         VALUES (?,?,?,?,?,?,'open',?,?,?,?,?,'real')`
+           guide_artifact_id,guide_step_key,origin_mail_id,created_by,
+           work_type,link_kind,link_ref,completion_criteria,stage_id,anchor_stage_code,data_label)
+         VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,'real')`
       )
       .run(
         id, project_id, trimmed, origin ?? "manual", urgency ?? "normal",
-        assignee_ref ?? null, due ?? null,
+        assignee_ref ?? null, status, due ?? null,
         guide_artifact_id ? Number(guide_artifact_id) : null, guide_step_key ?? null,
-        origin_mail_id ?? null, created_by ?? null
+        origin_mail_id ?? null, created_by ?? null,
+        work_type ?? null, link_kind ?? null, link_ref ?? null, completion_criteria ?? null,
+        stage_id ?? null, anchor_stage_code ?? null
       );
     return { ok: true, item: this.db.prepare("SELECT * FROM core_item WHERE id=?").get(id) };
   }
@@ -1154,7 +1177,7 @@ export class Store {
     const key = person ?? "";
     return this.db.prepare(
       `SELECT id, title, project_id, due, status, assignee_ref FROM core_item
-       WHERE due IS NOT NULL AND status != 'done' AND (? = '' OR assignee_ref = ?) ORDER BY due`
+       WHERE due IS NOT NULL AND status NOT IN ('done','unclassified') AND (? = '' OR assignee_ref = ?) ORDER BY due`
     ).all(key, key);
   }
   calendarIcs({ person = null } = {}) {
@@ -1778,7 +1801,7 @@ export class Store {
     const today = new Date().toISOString().slice(0, 10);
     const key = person ?? "";
     const rows = this.db.prepare(
-      "SELECT id, title, project_id, due, status, assignee_ref FROM core_item WHERE status != 'done' AND (? = '' OR assignee_ref = ?)"
+      "SELECT id, title, project_id, due, status, assignee_ref FROM core_item WHERE status NOT IN ('done','unclassified') AND (? = '' OR assignee_ref = ?)"
     ).all(key, key);
     const rank = { overdue: 0, blocked: 1, due_today: 2, open: 3 };
     const out = rows.map((r) => {
@@ -1796,9 +1819,9 @@ export class Store {
     const rows = this.db.prepare(
       `SELECT assignee_ref,
          COUNT(*) AS total,
-         SUM(CASE WHEN status != 'done' THEN 1 ELSE 0 END) AS open_cnt,
+         SUM(CASE WHEN status NOT IN ('done','unclassified') THEN 1 ELSE 0 END) AS open_cnt,
          SUM(CASE WHEN status = 'blocked' THEN 1 ELSE 0 END) AS blocked_cnt,
-         SUM(CASE WHEN status NOT IN ('done') AND due IS NOT NULL AND due < ? THEN 1 ELSE 0 END) AS overdue_cnt
+         SUM(CASE WHEN status NOT IN ('done','unclassified') AND due IS NOT NULL AND due < ? THEN 1 ELSE 0 END) AS overdue_cnt
        FROM core_item GROUP BY assignee_ref`
     ).all(todayKey);
     const names = new Map(this.people().map((p) => [p.id, p.name]));
@@ -1813,7 +1836,7 @@ export class Store {
     return this.db.prepare(
       `SELECT m.id AS meeting_id, m.title, m.project_id,
          COUNT(map.item_id) AS total_actions,
-         SUM(CASE WHEN i.status != 'done' THEN 1 ELSE 0 END) AS open_actions
+         SUM(CASE WHEN i.status NOT IN ('done','unclassified') THEN 1 ELSE 0 END) AS open_actions
        FROM core_meeting m
        JOIN meeting_action_map map ON map.meeting_id = m.id
        JOIN core_item i ON i.id = map.item_id
