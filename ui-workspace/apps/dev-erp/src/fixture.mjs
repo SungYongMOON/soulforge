@@ -155,6 +155,9 @@ export function loadFixture(store) {
   // 과제 사용 링크
   store.linkPartProject("pt-board", "PRJ-A");
   store.linkPartProject("pt-ic1", "PRJ-A");
+  // P-1: 보드 필수 기술자료 6종 요구(미충족 시 단계 게이트 빨갛게). pt-board 는 첨부 0 → 6종 미충족 상태로 시작.
+  [["bom", "BOM"], ["gerber", "Gerber"], ["digikey", "Digikey 장바구니"], ["schematic", "회로도"], ["pcb", "PCB 파일"], ["block_diagram", "블록 다이어그램"]]
+    .forEach(([t, l], i) => store.setArtifactRequirement({ scope_kind: "board_type", scope_key: "board", artifact_type: t, label: l, seq: i }));
 
   // 챗봇 매뉴얼/FAQ 합성 시드 (로컬 검색용)
   const faqSeed = [

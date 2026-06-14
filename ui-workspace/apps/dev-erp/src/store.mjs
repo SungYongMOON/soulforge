@@ -284,6 +284,16 @@ CREATE TABLE IF NOT EXISTS part_project_map ( -- 부품↔과제 '사용' 링크
   project_id TEXT NOT NULL REFERENCES core_project(id),
   PRIMARY KEY (part_id, project_id)
 );
+CREATE TABLE IF NOT EXISTS artifact_requirement ( -- P-1 완결성 게이트: 단계/보드유형별 필수 기술자료 세트
+  id INTEGER PRIMARY KEY AUTOINCREMENT,
+  scope_kind TEXT NOT NULL,             -- stage|board_type
+  scope_key TEXT NOT NULL,              -- stage_code 또는 board type
+  artifact_type TEXT NOT NULL,          -- bom|gerber|digikey|schematic|pcb|block_diagram
+  label TEXT,
+  mode TEXT NOT NULL DEFAULT 'hard',    -- hard|soft
+  seq INTEGER NOT NULL DEFAULT 0,
+  UNIQUE(scope_kind, scope_key, artifact_type)
+);
 -- 챗봇 매뉴얼/FAQ (로컬 작은 모델의 '검색·읽기'용; 추론 아님). 야간 고급 LLM(tool_pc)이 질문로그로 갱신.
 CREATE TABLE IF NOT EXISTS core_faq (
   id TEXT PRIMARY KEY,
@@ -325,7 +335,8 @@ export function openStore(path = ":memory:") {
     "ALTER TABLE core_item ADD COLUMN origin_mail_id TEXT",
     "ALTER TABLE core_item ADD COLUMN created_by TEXT",
     "ALTER TABLE event_log ADD COLUMN project_ref TEXT",
-    "ALTER TABLE core_stage ADD COLUMN stage_code TEXT"
+    "ALTER TABLE core_stage ADD COLUMN stage_code TEXT",
+    "ALTER TABLE core_attachment ADD COLUMN artifact_type TEXT"
   ]) {
     try { db.exec(ddl); } catch { /* exists */ }
   }
@@ -690,13 +701,31 @@ export class Store {
     if (open > 0) reasons.push({ code: "open_items", n: open });
     if (blocked > 0) reasons.push({ code: "blocked_items", n: blocked });
     if (arts > 0 && stepsDone < stepsTotal) reasons.push({ code: "artifacts_incomplete", n: stepsTotal - stepsDone });
+    // P-1: 이 과제에 연결된 보드가 필수 기술자료 세트(BOM·Gerber 등)를 다 갖췄나. 요구가 정의된 경우만 평가.
+    let missingArtifacts = 0; const missingDetail = [];
+    const hasReq = this.db.prepare("SELECT 1 FROM artifact_requirement WHERE scope_kind='board_type' LIMIT 1").get();
+    if (hasReq) {
+      const boards = this.db.prepare(
+        `SELECT p.id, p.name FROM core_part p JOIN part_project_map m ON m.part_id=p.id
+         WHERE m.project_id=? AND p.type='board'`
+      ).all(stage.project_id);
+      for (const b of boards) {
+        const c = this.boardCompleteness(b.id);
+        if (c.missing && c.missing.length) {
+          missingArtifacts += c.missing.length;
+          missingDetail.push({ board_id: b.id, board: b.name, missing: c.missing.map((x) => x.artifact_type) });
+        }
+      }
+      if (missingArtifacts > 0) reasons.push({ code: "required_artifacts_missing", n: missingArtifacts, detail: missingDetail });
+    }
     const passable = stage.status === "cleared" ? true : reasons.length === 0;
     // A6 보스 연출용 잔여(보스 HP) = 미완+차단+미완 절차. 0이면 처치 가능. (게임상태 미저장=계산)
-    const remaining = open + blocked + Math.max(0, stepsTotal - stepsDone);
+    const remaining = open + blocked + Math.max(0, stepsTotal - stepsDone) + missingArtifacts;
     return {
       id: stage.id, project_id: stage.project_id, title: stage.title, stage_code: stageCode, seq: stage.seq,
       status: stage.status, gate_rule: stage.gate_rule,
       open_items: open, blocked_items: blocked, artifacts: arts, steps_done: stepsDone, steps_total: stepsTotal,
+      required_missing: missingArtifacts,
       remaining, passable, reasons
     };
   }
@@ -1094,17 +1123,48 @@ export class Store {
     for (const [cat, exts] of Object.entries(map)) if (exts.includes(ext)) return { category: cat, kind: cat, rule: `ext:${ext}`, proposed: true };
     return { category: "etc", kind: "etc", rule: ext ? `ext:${ext}` : "no_ext", proposed: true };
   }
-  addAttachment({ id, entity_type, entity_id, name, pointer, kind = null, created_by = "owner", data_label = "real" }) {
+  addAttachment({ id, entity_type, entity_id, name, pointer, kind = null, artifact_type = null, created_by = "owner", data_label = "real" }) {
     const t = String(name ?? "").trim(), ptr = String(pointer ?? "").trim();
     if (!t || !ptr) return { error: "name_pointer_required" };
-    if (!["item", "project", "purchase", "meeting"].includes(entity_type)) return { error: "bad_entity_type" };
+    if (!["item", "project", "purchase", "meeting", "part"].includes(entity_type)) return { error: "bad_entity_type" };
     const sug = this.suggestPlacement(t);
     const aid = id || `att_${randomBytes(5).toString("hex")}`;
     this.db.prepare(
-      `INSERT INTO core_attachment(id,entity_type,entity_id,name,pointer,kind,category,created_by,data_label,created_at)
-       VALUES(?,?,?,?,?,?,?,?,?,?)`
-    ).run(aid, entity_type, entity_id, t, ptr, kind ?? sug.kind, sug.category, created_by, data_label, new Date().toISOString());
+      `INSERT INTO core_attachment(id,entity_type,entity_id,name,pointer,kind,category,artifact_type,created_by,data_label,created_at)
+       VALUES(?,?,?,?,?,?,?,?,?,?,?)`
+    ).run(aid, entity_type, entity_id, t, ptr, kind ?? sug.kind, sug.category, artifact_type, created_by, data_label, new Date().toISOString());
     return { ok: true, id: aid, suggested: sug };
+  }
+  // P-1: 완결성 게이트 — 보드유형별 필수 기술자료 세트 정의/조회/판정
+  setArtifactRequirement({ scope_kind = "board_type", scope_key, artifact_type, label = null, mode = "hard", seq = 0 }) {
+    if (!scope_key || !artifact_type) return { error: "scope_key_and_artifact_type_required" };
+    this.db.prepare(
+      `INSERT INTO artifact_requirement(scope_kind,scope_key,artifact_type,label,mode,seq) VALUES(?,?,?,?,?,?)
+       ON CONFLICT(scope_kind,scope_key,artifact_type) DO UPDATE SET label=excluded.label, mode=excluded.mode, seq=excluded.seq`
+    ).run(scope_kind, scope_key, artifact_type, label, mode, seq);
+    return { ok: true };
+  }
+  artifactRequirements({ scope_kind, scope_key } = {}) {
+    const cond = [], args = [];
+    if (scope_kind) { cond.push("scope_kind=?"); args.push(scope_kind); }
+    if (scope_key) { cond.push("scope_key=?"); args.push(scope_key); }
+    const where = cond.length ? `WHERE ${cond.join(" AND ")}` : "";
+    return this.db.prepare(`SELECT * FROM artifact_requirement ${where} ORDER BY scope_kind, scope_key, seq, artifact_type`).all(...args);
+  }
+  // 보드 1개의 필수 기술자료 충족도(첨부 포인터 존재로 판정, 원문 미저장 유지)
+  boardCompleteness(partId) {
+    const board = this.db.prepare("SELECT * FROM core_part WHERE id=?").get(partId);
+    if (!board) return { error: "part_not_found" };
+    const bt = board.type || "board";
+    const reqs = this.db.prepare(
+      "SELECT artifact_type, label FROM artifact_requirement WHERE scope_kind='board_type' AND scope_key=? ORDER BY seq, artifact_type"
+    ).all(bt);
+    const have = new Set(this.db.prepare(
+      "SELECT DISTINCT artifact_type FROM core_attachment WHERE entity_type='part' AND entity_id=? AND artifact_type IS NOT NULL"
+    ).all(partId).map((r) => r.artifact_type));
+    const required = reqs.map((r) => r.artifact_type);
+    const missing = reqs.filter((r) => !have.has(r.artifact_type)).map((r) => ({ artifact_type: r.artifact_type, label: r.label }));
+    return { board_id: partId, board_type: bt, required, satisfied: required.filter((tp) => have.has(tp)), missing };
   }
   attachments({ entity_type, entity_id } = {}) {
     if (entity_type && entity_id) return this.db.prepare("SELECT * FROM core_attachment WHERE entity_type=? AND entity_id=? ORDER BY created_at DESC, id").all(entity_type, entity_id);
