@@ -163,9 +163,12 @@ const NAV_TREE = [
   // L2 중분류 = 과제시작년도(동적), L3 왼쪽 = 과제명, L4 = 과제 facet. dynamicYears 분기로 렌더.
   { id: "proj", b: "프로젝트 관리", f: "원정 관리", dynamicYears: true, sectors: [] },
   { id: "work", b: "업무 관리", f: "원정 본부", sectors: [
-    { g: "work_mine", b: "내 일", f: "내 일", subs: [
-      { b: "오늘 할 일", f: "오늘 할 일", items: ["items"] },
-      { b: "받은 일·메일", f: "전령함", items: ["mail", "mod:requests"] },
+    { g: "work_inbox", b: "받은 일", f: "전령함", subs: [
+      { b: "메일", f: "전령", items: ["mail"] },
+      { b: "개발 요청", f: "의뢰 게시판", items: ["mod:requests"] },
+    ] },
+    { g: "work_mine", b: "내 할 일", f: "내 할 일", subs: [
+      { b: "할 일", f: "할 일", items: ["items"] },
     ] },
     { g: "work_flow", b: "승인·현황", f: "재가·전황", subs: [
       { b: "승인 대기", f: "재가 대기", items: ["mod:proposals"] },
