@@ -1071,6 +1071,32 @@ export class Store {
     return { kind, project, artifacts: arts.length, text: lines.join("\n") };
   }
 
+  // #13 개인별 캘린더(.ics) 내보내기 — core_item 마감일을 종일 VEVENT 로(원문/첨부 미포함).
+  // person 미지정=전체. 마감 없는/완료 항목 제외. 점수·우선순위 미주입(단순 일정 피드).
+  calendarFeed({ person = null } = {}) {
+    const key = person ?? "";
+    return this.db.prepare(
+      `SELECT id, title, project_id, due, status, assignee_ref FROM core_item
+       WHERE due IS NOT NULL AND status != 'done' AND (? = '' OR assignee_ref = ?) ORDER BY due`
+    ).all(key, key);
+  }
+  calendarIcs({ person = null } = {}) {
+    const rows = this.calendarFeed({ person });
+    const esc = (s) => String(s ?? "").replace(/\\/g, "\\\\").replace(/;/g, "\\;").replace(/,/g, "\\,").replace(/\r?\n/g, "\\n");
+    const stamp = new Date().toISOString().replace(/[-:]/g, "").replace(/\.\d+Z$/, "Z");
+    const lines = ["BEGIN:VCALENDAR", "VERSION:2.0", "PRODID:-//Soulforge//dev-erp//KO", "CALSCALE:GREGORIAN",
+      `X-WR-CALNAME:dev-erp${person ? ` ${person}` : ""}`];
+    for (const r of rows) {
+      const d = String(r.due).replace(/-/g, "");
+      lines.push("BEGIN:VEVENT", `UID:${r.id}@dev-erp`, `DTSTAMP:${stamp}`,
+        `DTSTART;VALUE=DATE:${d}`,
+        `SUMMARY:${esc(r.title)}${r.status === "blocked" ? " [차단]" : ""}`,
+        `DESCRIPTION:${esc(r.project_id ?? "")}`, "END:VEVENT");
+    }
+    lines.push("END:VCALENDAR");
+    return lines.join("\r\n") + "\r\n";
+  }
+
   // ---------- 구매/발주 ----------
   PURCHASE_STAGES = ["request", "quote", "order", "receive", "inspect", "closed"];
   parties({ kind } = {}) {

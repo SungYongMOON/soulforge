@@ -1811,6 +1811,8 @@ async function renderSchedule() {
   const tpls = await api("/api/schedule/templates");
   const sum = await api("/api/summary");
   const projects = sum.projects || [];
+  const people = await api("/api/people");
+  const icsPersonOpts = `<option value="">${L.all_label}</option>` + (people || []).map((p) => `<option value="${esc(p.id)}">${esc(p.name)}</option>`).join("");
   state.schedProject ??= (projects.find((p) => p.class === "active") || projects[0])?.id;
   state.schedAnchors ??= {};
   const projOpts = projects.map((p) => `<option value="${esc(p.id)}" ${p.id === state.schedProject ? "selected" : ""}>${esc(p.title || p.id)}</option>`).join("");
@@ -1834,6 +1836,8 @@ async function renderSchedule() {
   $("#view").innerHTML = `<div class="sched-head">
       <button id="schedBack" class="fav-chip">${L.sched_back}</button>
       <label>${L.sched_pick_project}</label> <select id="schedProj">${projOpts}</select>
+      <span class="sched-ics"><label>${L.cal_export}</label> <select id="icsPerson">${icsPersonOpts}</select>
+        <button id="icsDl" class="fav-chip" title="${L.cal_export_hint}">⤓ .ics</button></span>
     </div>
     <div id="schedMsg" class="dim"></div>
     <div class="dim sched-note">${L.sched_timing_note}</div>
@@ -1841,6 +1845,7 @@ async function renderSchedule() {
     ${tplCards || `<div class="empty">-</div>`}`;
   $("#schedBack").addEventListener("click", () => { state.view = "mod:gates"; render(); });
   $("#schedProj").addEventListener("change", (e) => { state.schedProject = e.target.value; });
+  $("#icsDl").addEventListener("click", () => { const p = $("#icsPerson").value; window.location = "/api/calendar.ics" + (p ? `?person=${encodeURIComponent(p)}` : ""); });
   $("#view").querySelectorAll("[data-anchor]").forEach((inp) => inp.addEventListener("change", (e) => { state.schedAnchors[e.target.dataset.anchor] = e.target.value; }));
   $("#view").querySelectorAll(".sched-apply").forEach((b) => b.addEventListener("click", async () => {
     const r = await post("/api/schedule/apply", { project_id: state.schedProject, template_key: b.dataset.key, anchorDates: state.schedAnchors });

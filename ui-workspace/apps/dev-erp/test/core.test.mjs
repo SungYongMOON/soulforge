@@ -1007,3 +1007,22 @@ test("챗봇: answerFromManual stub=외부0 폴백", async () => {
   assert.equal(r.llm, false, "stub=LLM 표현 미사용");
   assert.equal(r.matched, true, "검색 매칭은 유지");
 });
+
+// #13 캘린더 .ics 내보내기 — 마감 있는 미완 항목만 종일 VEVENT, person 필터(원문 미포함).
+test("calendar: .ics 피드 VEVENT 구조 + person 필터", () => {
+  const store = freshStore();
+  loadFixture(store);
+  const r = store.createItem({ project_id: "PRJ-A", title: "ICS 검증 항목", assignee_ref: "p-icsuser", due: "2030-01-15", origin: "test", created_by: "test" });
+  assert.ok(r.ok, "테스트 항목 생성");
+  const ics = store.calendarIcs({});
+  assert.match(ics, /^BEGIN:VCALENDAR\r\n/, "VCALENDAR 헤더");
+  assert.match(ics, /END:VCALENDAR\r\n$/, "VCALENDAR 종료 + CRLF");
+  assert.match(ics, /DTSTART;VALUE=DATE:20300115/, "종일 DTSTART 날짜");
+  assert.match(ics, /SUMMARY:ICS 검증 항목/, "SUMMARY 본문");
+  const mine = store.calendarFeed({ person: "p-icsuser" });
+  assert.equal(mine.length, 1, "person 필터 1건");
+  assert.equal(mine[0].assignee_ref, "p-icsuser", "담당 일치");
+  const all = store.calendarFeed({});
+  assert.ok(all.length >= 1, "전체 피드 ≥1");
+  assert.ok(all.every((x) => x.due), "마감 없는 항목 미포함");
+});
