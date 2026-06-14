@@ -26,6 +26,7 @@ Scaffold SE project folders in owner order: confirm inputs first, prefer dry-run
 - Project-local `00_Temp/workflow_candidate/` is local candidate storage from concrete runs, not `.workflow` canon.
 - Keep project snapshot manifests metadata-only: source library/material pointer, project snapshot pointer, hash, snapshot time, and status.
 - Keep `form_revision`, `template_snapshot_id/version`, `input_bundle_version`, `artifact_version`, and `workflow_version` separate. Manual artifact edits require refreshed hash and validation metadata before closeout.
+- For ERP schedule hints, read `assets/schedule_rules.yaml`; do not infer artifact dates when no rule applies.
 - If gate numbering must change, transform a spec copy with `scripts/convert_gate_numbers.py` instead of editing the bundled asset in place.
 - Prefer `scripts/generate_tree.py --dry-run` before the real run unless the user explicitly asks to skip preview.
 - Use `--layout-mode in-place` for an existing project root and `--layout-mode new-root` for a fresh project root to be materialized under a parent path.

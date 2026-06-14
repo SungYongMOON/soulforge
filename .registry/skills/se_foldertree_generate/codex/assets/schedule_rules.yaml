@@ -1,0 +1,194 @@
+schema_version: se_foldertree_schedule_rules.v0
+status: active
+purpose: "Compact ERP schedule hints for SE foldertree artifacts; do not infer dates where no source-backed rule exists."
+owner_boundary:
+  generator_behavior: "generate_tree.py does not auto-fill dates from this file."
+  erp_use: "ERP/import tools may map these rule IDs to project milestone dates."
+  no_explicit_rule_policy: "Leave artifact dates blank unless a rule applies or the project contract/owner supplies a date."
+source_refs:
+  foldertree_spec: "assets/SE_FolderTree_Guide.md"
+  dapa_guidebook_registry: ".registry/knowledge/dapa_weapon_system_test_eval_guidebook/knowledge.yaml"
+  law_candidates_need_body_snapshot:
+    - "law.go.kr admRulSeq=2100000234406"
+    - "law.go.kr admRulSeq=2100000260924"
+rule_status_values:
+  source_supported: "Registered/local source text supports the offset."
+  observed_local_spec: "Bundled foldertree spec states the offset."
+  current_law_candidate: "Official current-law page/version found, but local body snapshot still needed before legal-authoritative ERP import."
+  non_numeric_dependency: "Ordering dependency only; cannot calculate from one date anchor."
+
+rules:
+  - rule_id: q2_contract_plus_30d
+    status: observed_local_spec
+    artifact: "협력개발실행계획서(Q2)"
+    applies_to:
+      gates: ["SRR"]
+      task_ids: [35]
+    anchor: contract_award
+    offset: { value: 30, unit: days, direction: after, constraint: within }
+
+  - rule_id: formal_review_material_t_minus_2w
+    status: current_law_candidate
+    artifact: "formal technical-review meeting materials"
+    applies_to:
+      gates: ["SRR", "SFR", "PDR", "CDR", "TRR_DT", "FCA_OT", "PCA"]
+      task_ids: [43, 70, 103, 139, 168, 192, 221]
+    anchor: formal_technical_review_meeting
+    offset: { value: 2, unit: weeks, direction: before, constraint: due_by }
+
+  - rule_id: review_readiness_notice_t_minus_1w
+    status: current_law_candidate
+    artifact: "technical-review readiness or entry-condition notice"
+    applies_to:
+      gates: ["SRR", "SFR", "PDR", "CDR", "TRR_DT", "FCA_OT", "PCA"]
+      task_ids: [43, 70, 103, 139, 168, 192, 221]
+    anchor: formal_technical_review_meeting
+    offset: { value: 1, unit: weeks, direction: before, constraint: due_by }
+
+  - rule_id: temp_cdr_plus_3m
+    status: source_supported
+    artifact: "시험평가기본계획서(TEMP)"
+    applies_to:
+      gates: ["SRR", "PDR", "TRR_DT"]
+      task_ids: [46, 102, 165]
+    anchor: CDR_completion
+    offset: { value: 3, unit: months, direction: after, constraint: within }
+
+  - rule_id: critical_test_targets_by_cdr
+    status: current_law_candidate
+    artifact: "selected critical part/component test targets"
+    applies_to:
+      gates: ["CDR", "TRR_DT"]
+      task_ids: [138, 165, 168]
+    anchor: CDR
+    offset: { value: 0, unit: gate, direction: by, constraint: due_by }
+
+  - rule_id: dt_plan_draft_t_minus_60d
+    status: source_supported
+    artifact: "개발시험평가 계획(안)"
+    applies_to:
+      gates: ["TRR_DT"]
+      task_ids: [165, 166, 168]
+    anchor: DT_start
+    offset: { value: 60, unit: days, direction: before, constraint: due_by }
+
+  - rule_id: dt_plan_final_t_minus_1m
+    status: source_supported
+    artifact: "개발시험평가 계획서"
+    applies_to:
+      gates: ["TRR_DT"]
+      task_ids: [165, 166, 168]
+    anchor: DT_start
+    offset: { value: 1, unit: months, direction: before, constraint: confirmation_due_by }
+
+  - rule_id: dt_trr_t_minus_15d
+    status: source_supported
+    artifact: "개발시험준비검토회의(DT-TRR)"
+    applies_to:
+      gates: ["TRR_DT"]
+      task_ids: [168]
+    anchor: DT_execution
+    offset: { value: 15, unit: days, direction: before, constraint: held_by }
+
+  - rule_id: dt_result_plus_1m
+    status: source_supported
+    artifact: "개발시험평가 결과보고서"
+    applies_to:
+      gates: ["TRR_DT", "FCA_OT"]
+      task_ids: [169, 193]
+    anchor: DT_end
+    offset: { value: 1, unit: months, direction: after, constraint: within }
+
+  - rule_id: ot_plan_draft_t_minus_60d
+    status: source_supported
+    artifact: "운용시험평가 계획(안)"
+    applies_to:
+      gates: ["FCA_OT"]
+      task_ids: [191, 192]
+    anchor: OT_start
+    offset: { value: 60, unit: days, direction: before, constraint: due_by }
+    branches:
+      integrated_test_and_evaluation: "anchor=DT_start, offset=60 days before"
+
+  - rule_id: ot_plan_final_t_minus_1m
+    status: source_supported
+    artifact: "운용시험평가 계획서"
+    applies_to:
+      gates: ["FCA_OT"]
+      task_ids: [191, 192]
+    anchor: OT_start
+    offset: { value: 1, unit: months, direction: before, constraint: confirmation_due_by }
+
+  - rule_id: ot_trr_t_minus_15d
+    status: source_supported
+    artifact: "운용시험준비검토회의(OT-TRR)"
+    applies_to:
+      gates: ["FCA_OT"]
+      task_ids: [191, 192]
+    anchor: OT_execution
+    offset: { value: 15, unit: days, direction: before, constraint: held_by }
+
+  - rule_id: ot_result_plus_1m_or_45d
+    status: source_supported
+    artifact: "운용시험평가 결과보고서"
+    applies_to:
+      gates: ["FCA_OT"]
+      task_ids: [191, 192, 194]
+    anchor: OT_end
+    offset: { value: 1, unit: months, direction: after, constraint: within }
+    branches:
+      battlefield_information_management_system: "OT_end + 45 days"
+
+  - rule_id: purchase_test_plan_draft_t_minus_2m
+    status: source_supported
+    artifact: "구매시험평가 계획(안)"
+    applies_to:
+      gates: ["purchase_lane"]
+    anchor: purchase_test_start
+    offset: { value: 2, unit: months, direction: before, constraint: due_by }
+
+  - rule_id: purchase_test_plan_final_t_minus_1m
+    status: source_supported
+    artifact: "구매시험평가 계획서"
+    applies_to:
+      gates: ["purchase_lane"]
+    anchor: purchase_test_start
+    offset: { value: 1, unit: months, direction: before, constraint: confirmation_due_by }
+
+  - rule_id: purchase_trr_t_minus_15d
+    status: source_supported
+    artifact: "구매시험평가 준비검토회의(TRR)"
+    applies_to:
+      gates: ["purchase_lane"]
+    anchor: purchase_test_start
+    offset: { value: 15, unit: days, direction: before, constraint: held_by }
+
+  - rule_id: purchase_test_result_plus_1m
+    status: source_supported
+    artifact: "구매시험평가 결과보고서"
+    applies_to:
+      gates: ["purchase_lane"]
+    anchor: purchase_test_end
+    offset: { value: 1, unit: months, direction: after, constraint: within }
+
+  - rule_id: system_dev_result_tdp_plus_2m
+    status: current_law_candidate
+    artifact: "체계개발결과보고서 and required technical-data package"
+    applies_to:
+      gates: ["PCA", "LL"]
+      task_ids: [220, 247]
+    anchor: system_development_completion
+    offset: { value: 2, unit: months, direction: after, constraint: within }
+
+  - rule_id: rtm_after_srr_sfr_before_sss_ssdd
+    status: non_numeric_dependency
+    artifact: "verification matrix final confirmation"
+    applies_to:
+      gates: ["SFR", "PDR", "CDR"]
+      task_ids: [66, 101, 137]
+    dependency: { after: ["SRR", "SFR"], before: ["SSS_publication", "SSDD_publication"] }
+
+coverage_note:
+  non_fixed_artifact_rows_checked: 104
+  explicit_date_rule_in_foldertree_spec: ["task_id=35"]
+  date_absence_policy: "Artifacts not matched by these rules have no skill-level explicit relative date; use project contract, owner-supplied milestone plan, or leave blank."

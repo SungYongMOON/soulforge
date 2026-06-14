@@ -2,6 +2,16 @@
 
 ## 2026-06-14
 
+### Revision `working` - SE 폴더트리 ERP 일정 힌트 추가
+
+- Added compact `se_foldertree_generate` schedule hints in
+  `.registry/skills/se_foldertree_generate/codex/assets/schedule_rules.yaml`
+  so ERP work can reuse source-backed relative date rules without bloating the
+  foldertree spec or guessing dates for artifacts with no explicit rule.
+- Linked the schedule rules from the Codex bridge, mapping reference, and
+  system-development bundled spec while keeping `generate_tree.py` behavior
+  unchanged.
+
 ### Revision `working` - Opus 2차 독립검증 후속 실행 (안전 batch + active slice 전환)
 
 - 검증 게이트 위신호 차단: `run_root_acceptance`(=`validate`/`done:check`)가

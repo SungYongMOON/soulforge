@@ -33,6 +33,7 @@ execution_requirements:
     - "For supported combinations, `generate_tree.py` can resolve the bundled default spec from the validated variant when `--spec` is omitted."
     - "Ask for layout mode, business type, prime contractor, quality grade, start date, project name, profile, and output root before generation."
     - "Use relative skill-root paths for bundled resources to keep the package portable."
+    - "Use `codex/assets/schedule_rules.yaml` only as compact ERP schedule hints; do not infer dates when no source-backed rule applies."
     - "Prefer `--dry-run` before materializing the project tree unless the user explicitly wants immediate generation."
     - "Use `in-place` when the output root is already the final project root and `new-root` when the output root is only the parent path."
     - "Stop if the requested business-type / prime-contractor / quality-grade combination is not supported by the bundled spec set."

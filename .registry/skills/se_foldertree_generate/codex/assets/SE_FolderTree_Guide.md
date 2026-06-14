@@ -4,6 +4,7 @@ version: '0.7'
 owner_team: 개발1팀
 variant_binding:
   support_key: system_dev_lig_grade_a
+schedule_rules_ref: assets/schedule_rules.yaml
 supported_input:
   business_type: 체계개발
   prime_contractor: LIG 넥스원
