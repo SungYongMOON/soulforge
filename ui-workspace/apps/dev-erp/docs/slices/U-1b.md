@@ -6,8 +6,8 @@
 - **owner_decision**: none (기본=board_type 'board' 필수 6종, 현 fixture 시드).
 
 ## allowed_write_paths
-- /Volumes/OPENCLAW_WS/Soulforge/ui-workspace/apps/dev-erp/static/app.js
-- /Volumes/OPENCLAW_WS/Soulforge/ui-workspace/apps/dev-erp/src/lexicon.mjs
+- ui-workspace/apps/dev-erp/static/app.js
+- ui-workspace/apps/dev-erp/src/lexicon.mjs
 
 ## summary
 renderBoards()(L453) BOM 화면에 '필수 기술자료 첨부' 섹션 추가. 선택 board(sel)에 대해: (1) GET /api/parts/completeness?part 로 required/satisfied/missing 표시 (2) 첨부 폼(name·pointer+artifact_type select 6종)→POST /api/attachments {entity_type:'part',entity_id:sel,name,pointer,artifact_type} (3) GET /api/attachments?entity_type=part&entity_id 목록. 원문 미저장(addAttachment 현 계약).

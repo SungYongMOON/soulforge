@@ -6,8 +6,8 @@
 - **owner_decision**: none (기본=120_CDR 단일 템플릿, 앵커 미입력 시 due=null 허용 — store 현 동작).
 
 ## allowed_write_paths
-- /Volumes/OPENCLAW_WS/Soulforge/ui-workspace/apps/dev-erp/static/app.js
-- /Volumes/OPENCLAW_WS/Soulforge/ui-workspace/apps/dev-erp/src/lexicon.mjs
+- ui-workspace/apps/dev-erp/static/app.js
+- ui-workspace/apps/dev-erp/src/lexicon.mjs
 
 ## summary
 이미 있는 라우트 /api/schedule/templates(GET)·/api/schedule/apply(POST)·/api/schedule/anchor(POST) 를 화면에 연결한다. 신규 가상 뷰 'mod:schedule' 를 render() 라우터에 등록하고 renderSchedule() 추가: 과제 select + 템플릿 카드(scheduleTemplates) + '템플릿 적용' + 마일스톤별 date input + '날짜 적용'. 모든 라벨 state.lex 경유. gates 화면 상단에 진입 버튼. NAV_LAYOUT 미편입(빈 버튼 회귀 회피).

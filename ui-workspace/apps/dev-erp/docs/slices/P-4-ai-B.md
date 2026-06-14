@@ -6,9 +6,9 @@
 - **owner_decision**: 키스톤 #1: 이 패킷은 'event_log 재사용' 대안. 기본 권고는 A. owner 가 명시적으로 '테이블 늘리지 말라' 한 경우에만 B 채택. A·B 동시 머지 금지.
 
 ## allowed_write_paths
-- /Volumes/OPENCLAW_WS/Soulforge/ui-workspace/apps/dev-erp/src/store.mjs
-- /Volumes/OPENCLAW_WS/Soulforge/ui-workspace/apps/dev-erp/server.mjs
-- /Volumes/OPENCLAW_WS/Soulforge/ui-workspace/apps/dev-erp/test/core.test.mjs
+- ui-workspace/apps/dev-erp/src/store.mjs
+- ui-workspace/apps/dev-erp/server.mjs
+- ui-workspace/apps/dev-erp/test/core.test.mjs
 
 ## summary
 전용 테이블 대신 event_log 를 제안 큐로 재사용한다. 제안 1건=event_log 행 kind='ai_proposal'(item_ref=prop_id, to_val='pending', note=JSON 메타). 상태 전이는 approve/reject 이벤트 append. 새 테이블 0. A 와 동일한 외부 시그니처(createProposal/approveProposal/rejectProposal/proposals)를 노출해 P-6/10/11/19 가 옵션 무관 호출. owner 가 '테이블 늘리지 말라' 할 때만 채택.

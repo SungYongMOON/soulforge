@@ -6,8 +6,8 @@
 - **owner_decision**: none (파일 부재 시 stub 유지가 안전 기본. 8단계 전체 시드 내용은 Codex 데이터 파일 책임 — 이 패킷은 '읽는 배선'만).
 
 ## allowed_write_paths
-- /Volumes/OPENCLAW_WS/Soulforge/ui-workspace/apps/dev-erp/src/store.mjs
-- /Volumes/OPENCLAW_WS/Soulforge/ui-workspace/apps/dev-erp/test/core.test.mjs
+- ui-workspace/apps/dev-erp/src/store.mjs
+- ui-workspace/apps/dev-erp/test/core.test.mjs
 
 ## summary
 openStore() 의 120_CDR 하드코딩 시드(store.mjs L378-383)를 외부 데이터 파일 data/se_process_seed.json(Codex 작성, 8단계 SE_STAGES + deliverable + board_requirements)을 읽어 소비하도록 배선한다. 파일 부재 시(현 상태) 기존 120_CDR stub 그대로 유지(하위호환). 모든 시드는 INSERT OR IGNORE / ON CONFLICT 라 재기동 멱등. node:fs 외 새 의존 0. default_artifact_type 와 artifact_requirement.artifact_type 는 동일 6종 사전 공유.

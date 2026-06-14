@@ -6,8 +6,8 @@
 - **owner_decision**: none (기본=1-hop·달력일, store setAnchor 현 동작).
 
 ## allowed_write_paths
-- /Volumes/OPENCLAW_WS/Soulforge/ui-workspace/apps/dev-erp/static/app.js
-- /Volumes/OPENCLAW_WS/Soulforge/ui-workspace/apps/dev-erp/src/lexicon.mjs
+- ui-workspace/apps/dev-erp/static/app.js
+- ui-workspace/apps/dev-erp/src/lexicon.mjs
 
 ## summary
 renderProjectHub() 탭 배열에 'schedule' 추가하고 hubSchedule(mount,p) 구현: 해당 과제 /api/items 중 anchor_stage_code 있는 산출물 할일을 anchor 별로 묶어 보여주고, 각 앵커마다 date input + '날짜 적용'→POST /api/schedule/anchor. U-1a 가 lexicon sched_* 를 먼저 추가하므로 depends_on. 같은 app.js scaffold(render·tabs) 편집이라 U-1a 와 동일 parallel_group(순차).

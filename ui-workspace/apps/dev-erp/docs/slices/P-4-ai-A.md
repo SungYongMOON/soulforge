@@ -6,9 +6,9 @@
 - **owner_decision**: 키스톤 #1: ai_proposal 전용 테이블 vs event_log 재사용. 기본=전용 테이블(권고). 가정: 제안은 자동 적재 가능, 쓰기는 항상 사람 approve 1회. A·B 동시 머지 금지.
 
 ## allowed_write_paths
-- /Volumes/OPENCLAW_WS/Soulforge/ui-workspace/apps/dev-erp/src/store.mjs
-- /Volumes/OPENCLAW_WS/Soulforge/ui-workspace/apps/dev-erp/server.mjs
-- /Volumes/OPENCLAW_WS/Soulforge/ui-workspace/apps/dev-erp/test/core.test.mjs
+- ui-workspace/apps/dev-erp/src/store.mjs
+- ui-workspace/apps/dev-erp/server.mjs
+- ui-workspace/apps/dev-erp/test/core.test.mjs
 
 ## summary
 AI/규칙 산출의 단일 착지면을 전용 테이블 ai_proposal 로 만든다. 코어 LLM 0% — 모든 제안은 pending 으로만 적재되고 사람 approveProposal 호출 시에만 화이트리스트 도메인 메서드(createItem/addAttachment/setArtifactRequirement/linkPartProject)가 실행된다. P-4-ai-B(event_log 재사용)와 둘 다 buildable 이나 owner 키스톤 #1 로 하나만 머지. 권고=A.

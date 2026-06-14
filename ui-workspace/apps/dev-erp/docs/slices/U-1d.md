@@ -6,8 +6,8 @@
 - **owner_decision**: none
 
 ## allowed_write_paths
-- /Volumes/OPENCLAW_WS/Soulforge/ui-workspace/apps/dev-erp/static/app.js
-- /Volumes/OPENCLAW_WS/Soulforge/ui-workspace/apps/dev-erp/src/lexicon.mjs
+- ui-workspace/apps/dev-erp/static/app.js
+- ui-workspace/apps/dev-erp/src/lexicon.mjs
 
 ## summary
 renderGates()(L1683 영역, render() 의 mod:gates) reason 렌더 강화. store gateEval 는 required_artifacts_missing reason 에 detail:[{board_id,board,missing:[artifact_type...]}] 반환(store.mjs L797 실측) → 빨강 badge + 보드별 누락 목록(details 폴침)으로 분리. 다른 reason 은 기존대로. at_* 라벨(U-1b) 있으면 재사용, 없을 때 state.lex[`at_${type}`]??type 폴백(의존 끊음).

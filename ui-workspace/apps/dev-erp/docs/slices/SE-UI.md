@@ -6,8 +6,8 @@
 - **owner_decision**: schedule UI 배치=게이트 화면 하위 섹션(기본, 새 nav 모듈 미등록). 새 nav 승격은 owner 요청 시.
 
 ## allowed_write_paths
-- /Volumes/OPENCLAW_WS/Soulforge/ui-workspace/apps/dev-erp/static/app.js
-- /Volumes/OPENCLAW_WS/Soulforge/ui-workspace/apps/dev-erp/src/lexicon.mjs
+- ui-workspace/apps/dev-erp/static/app.js
+- ui-workspace/apps/dev-erp/src/lexicon.mjs
 
 ## summary
 GATE/스케줄 백엔드(SE-DATA/P-5/P-14/P-9)를 app.js 에 와이어링한다. app.js 는 별 파일군(G-app)이라 G-store 와 동시 충돌 없이, depends_on 으로 백엔드 라우트 선행. (1) renderGates reason 매핑은 이미 L[`gate_reason_${r.code}`] 라 P-5 새 코드 자동 렌더 — 라벨 정합만 확인. (2) renderSchedule(또는 게이트 하위 섹션): /api/schedule/templates·apply·anchor. (3) input 충족 버튼: /api/inputs/fulfillment 읽어 deliverable 행 활성/비활성, 클릭 시 /api/inputs/generate→202 pending 토스트. (4) 납기위험: /api/risk severity 배지. 모든 라벨 lexicon 경유. ※ U-1a 가 renderSchedule 을 이미 만들면 SE-UI 는 입력충족·위험목록만 추가(중복 정의 금지, U-1a renderSchedule 재사용).
