@@ -4,6 +4,9 @@
 //       연결은 stable id + ref 문자열.
 import { DatabaseSync } from "node:sqlite";
 import { scryptSync, randomBytes, timingSafeEqual } from "node:crypto";
+import { readFileSync, existsSync } from "node:fs";
+import { dirname, join } from "node:path";
+import { fileURLToPath } from "node:url";
 
 // P2b 비밀번호 해시: scrypt. 형식 "scrypt$<saltHex>$<hashHex>". 평문 저장 금지.
 export function hashPassword(plain) {
@@ -351,6 +354,46 @@ function addDaysIso(isoDate, days) {
   return d.toISOString().slice(0, 10);
 }
 
+// SE-DATA: SE 프로세스 시드를 data/se_process_seed.json(Codex 작성)에서 읽어 채움.
+// 파일 부재/오류 시 120_CDR stub 유지(하위호환). 모든 시드 멱등(INSERT OR IGNORE / ON CONFLICT).
+// 방어: Codex 산출물의 필드명 변형(name|deliverable_name, artifact_type|default_artifact_type,
+//       중첩{board_type,artifacts[]} | 평면{scope_kind,scope_key,artifact_type})을 모두 허용.
+function seedSeProcess(db) {
+  const stub = () => {
+    db.exec("INSERT OR IGNORE INTO se_stage_template(key,name) VALUES('120_CDR','상세설계(CDR) 산출물 템플릿')");
+    db.exec("INSERT OR IGNORE INTO se_stage_template_stage(template_key,stage_code,seq,is_milestone) VALUES('120_CDR','120',1,1)");
+    const insDel = db.prepare("INSERT OR IGNORE INTO se_deliverable_template(template_key,anchor_stage_code,offset_days,deliverable_name,default_artifact_type) VALUES('120_CDR',?,?,?,?)");
+    for (const [an, off, nm, at] of [["120", -7, "회로도 초안", "schematic"], ["120", 0, "CDR 패키지", null], ["120", 14, "시험계획서", null]]) insDel.run(an, off, nm, at);
+  };
+  let seedPath;
+  try { seedPath = join(dirname(fileURLToPath(import.meta.url)), "..", "data", "se_process_seed.json"); } catch { stub(); return; }
+  if (!existsSync(seedPath)) { stub(); return; }
+  let data;
+  try { data = JSON.parse(readFileSync(seedPath, "utf-8")); } catch { stub(); return; }
+  if (!data || !Array.isArray(data.templates) || !data.templates.length) { stub(); return; }
+  const insT = db.prepare("INSERT OR IGNORE INTO se_stage_template(key,name) VALUES(?,?)");
+  const insS = db.prepare("INSERT OR IGNORE INTO se_stage_template_stage(template_key,stage_code,seq,is_milestone) VALUES(?,?,?,?)");
+  const insD = db.prepare("INSERT OR IGNORE INTO se_deliverable_template(template_key,anchor_stage_code,offset_days,deliverable_name,default_artifact_type) VALUES(?,?,?,?,?)");
+  for (const t of data.templates) {
+    if (!t || !t.key) continue;
+    insT.run(t.key, t.name ?? t.key);
+    for (const s of (t.stages || [])) { if (s && s.stage_code) insS.run(t.key, s.stage_code, s.seq ?? 0, s.is_milestone ? 1 : 0); }
+    for (const d of (t.deliverables || [])) {
+      const nm = d.deliverable_name ?? d.name;
+      if (d && d.anchor_stage_code && nm) insD.run(t.key, d.anchor_stage_code, d.offset_days ?? 0, nm, d.default_artifact_type ?? d.artifact_type ?? null);
+    }
+  }
+  const insR = db.prepare("INSERT INTO artifact_requirement(scope_kind,scope_key,artifact_type,label,mode,seq) VALUES(?,?,?,?,?,?) ON CONFLICT(scope_kind,scope_key,artifact_type) DO UPDATE SET label=excluded.label, mode=excluded.mode, seq=excluded.seq");
+  for (const r of (data.board_requirements || [])) {
+    if (!r) continue;
+    if (Array.isArray(r.artifacts)) {
+      r.artifacts.forEach((a, i) => { if (a && a.artifact_type) insR.run("board_type", r.board_type ?? r.scope_key ?? "board", a.artifact_type, a.label ?? null, a.mode ?? "hard", a.seq ?? i); });
+    } else if (r.artifact_type) {
+      insR.run(r.scope_kind ?? "board_type", r.scope_key ?? r.board_type ?? "board", r.artifact_type, r.label ?? null, r.mode ?? "hard", r.seq ?? 0);
+    }
+  }
+}
+
 export function openStore(path = ":memory:") {
   const db = new DatabaseSync(path);
   db.exec("PRAGMA journal_mode=WAL;");
@@ -374,13 +417,8 @@ export function openStore(path = ":memory:") {
   }
   // P-0: 단계 식별을 title 에서 분리한 stage_code 정본 컬럼. 기존 행 backfill=title.
   try { db.exec("UPDATE core_stage SET stage_code=title WHERE stage_code IS NULL OR stage_code=''"); } catch { /* noop */ }
-  // P-2: SE 스케줄러 시드 템플릿(120 CDR). 정의일 뿐 — 실제 spawn 은 명시 applyTemplate.
-  try {
-    db.exec("INSERT OR IGNORE INTO se_stage_template(key,name) VALUES('120_CDR','상세설계(CDR) 산출물 템플릿')");
-    db.exec("INSERT OR IGNORE INTO se_stage_template_stage(template_key,stage_code,seq,is_milestone) VALUES('120_CDR','120',1,1)");
-    const insDel = db.prepare("INSERT OR IGNORE INTO se_deliverable_template(template_key,anchor_stage_code,offset_days,deliverable_name,default_artifact_type) VALUES('120_CDR',?,?,?,?)");
-    for (const [an, off, nm, at] of [["120", -7, "회로도 초안", "schematic"], ["120", 0, "CDR 패키지", null], ["120", 14, "시험계획서", null]]) insDel.run(an, off, nm, at);
-  } catch { /* noop */ }
+  // P-2/SE-DATA: SE 스케줄러 시드 — data/se_process_seed.json 있으면 소비, 없으면 120_CDR stub.
+  try { seedSeProcess(db); } catch { /* noop */ }
   const cur = db.prepare("SELECT value FROM meta WHERE key='schema_version'").get();
   if (!cur) {
     db.prepare("INSERT INTO meta(key,value) VALUES('schema_version',?)").run(SCHEMA_VERSION);
