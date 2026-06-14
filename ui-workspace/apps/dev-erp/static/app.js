@@ -476,6 +476,30 @@ async function renderRecipe() {
   $("#recipeSel").addEventListener("change", (e) => { state.recipeKey = e.target.value; render(); });
 }
 
+// P-18 외부 시트 임베드(Smartsheet) read-only — 게시 URL 등록 + iframe 표시. 양방향/토큰 없음.
+async function renderEmbeds() {
+  const L = state.lex;
+  const embeds = await api("/api/embeds");
+  const frames = embeds.map((e) => `<section class="embed-card">
+    <h3>${esc(e.title)} <span class="dim">${esc(e.kind)}</span> <a href="${esc(e.url)}" target="_blank" rel="noopener" class="dim">↗</a></h3>
+    <iframe src="${esc(e.url)}" sandbox="allow-scripts allow-same-origin allow-popups" loading="lazy" class="embed-frame" title="${esc(e.title)}"></iframe>
+  </section>`).join("");
+  $("#view").innerHTML = `
+    <div class="item-form">
+      <input id="embTitle" placeholder="${L.th_subject}" size="10" />
+      <input id="embUrl" placeholder="${L.embed_url}" size="32" />
+      <button id="embAdd" class="fav-chip">${L.embed_add}</button>
+      <span id="embMsg" class="dim"></span>
+    </div>
+    ${frames || `<div class="empty">${L.embed_empty}</div>`}`;
+  $("#embAdd").addEventListener("click", async () => {
+    const title = $("#embTitle").value.trim(), url = $("#embUrl").value.trim();
+    if (!title || !url) return;
+    const r = await (await post("/api/embeds", { title, url })).json();
+    if (r.ok) render(); else $("#embMsg").textContent = r.error === "url_not_allowed" ? L.embed_url_bad : (r.error ?? "");
+  });
+}
+
 async function renderInventory() {
   const L = state.lex;
   const [summary, parts, locations] = await Promise.all([api("/api/summary"), api("/api/parts"), api("/api/locations")]);
@@ -1821,8 +1845,9 @@ async function renderGates() {
       <td>${s.status === "cleared" ? "" : `<button class="fav-chip gate-pass-btn" data-stage="${esc(s.id)}" data-passable="${s.passable}">${L.gate_pass}</button>${s.reasons.length ? `<div class="gate-reasons">${s.reasons.map(reasonChip).join(" ")}</div>${missingDetails(s.reasons)}` : ""}`}</td>
     </tr>`).join("")}
     </tbody></table></section>`).join("");
-  $("#view").innerHTML = `<div class="gate-head"><button id="openSched" class="fav-chip">${L.sched_open}</button></div>${modeBtns}${stages.length ? sec : `<div class="empty">${L.empty_gates}</div>`}`;
+  $("#view").innerHTML = `<div class="gate-head"><button id="openSched" class="fav-chip">${L.sched_open}</button><button id="openEmbeds" class="fav-chip">${L.embed_open}</button></div>${modeBtns}${stages.length ? sec : `<div class="empty">${L.empty_gates}</div>`}`;
   $("#openSched").addEventListener("click", () => { state.view = "mod:schedule"; render(); });
+  $("#openEmbeds").addEventListener("click", () => { state.view = "mod:embeds"; render(); });
   $("#view").querySelectorAll("[data-mode]").forEach((b) => b.addEventListener("click", async () => {
     await post("/api/settings/gate_mode", { mode: b.dataset.mode }); render();
   }));
@@ -1959,6 +1984,7 @@ async function render() {
   if (state.view === "mod:knowledge") { const m=(state.modules??[]).find(x=>x.id==="knowledge"); $("#viewTitle").textContent=m?.nav??"지식"; logView(state.view); return renderKnowledge(); }
   if (state.view === "mod:calculators") { const m=(state.modules??[]).find(x=>x.id==="calculators"); $("#viewTitle").textContent=m?.nav??"계산기"; logView(state.view); return renderCalculators(); }
   if (state.view === "mod:recipe") { $("#viewTitle").textContent = state.lex.recipe_title; logView(state.view); return renderRecipe(); }
+  if (state.view === "mod:embeds") { $("#viewTitle").textContent = state.lex.embed_title; logView(state.view); return renderEmbeds(); }
   if (state.view === "mod:inventory") { const m=(state.modules??[]).find(x=>x.id==="inventory"); $("#viewTitle").textContent=m?.nav??"재고"; logView(state.view); return renderInventory(); }
   if (state.view === "mod:boards") { const m=(state.modules??[]).find(x=>x.id==="boards"); $("#viewTitle").textContent=m?.nav??"보드/BOM"; logView(state.view); return renderBoards(); }
   if (state.view === "mod:stockwatch") { const m=(state.modules??[]).find(x=>x.id==="stockwatch"); $("#viewTitle").textContent=m?.nav??"부품감시"; logView(state.view); return renderStockwatch(); }

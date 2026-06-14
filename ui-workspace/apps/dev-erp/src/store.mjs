@@ -375,6 +375,15 @@ CREATE TABLE IF NOT EXISTS chat_query_log (
   matched_faq_id TEXT,
   data_label TEXT NOT NULL DEFAULT 'real'
 );
+CREATE TABLE IF NOT EXISTS embed_view ( -- P-18 외부 시트 임베드(Smartsheet 등) read-only URL 메타
+  id TEXT PRIMARY KEY,
+  kind TEXT NOT NULL DEFAULT 'smartsheet',
+  title TEXT NOT NULL,
+  url TEXT NOT NULL,
+  project_id TEXT REFERENCES core_project(id),
+  data_label TEXT NOT NULL DEFAULT 'real',
+  created_at TEXT
+);
 CREATE INDEX IF NOT EXISTS idx_attach_entity ON core_attachment(entity_type, entity_id);
 CREATE INDEX IF NOT EXISTS idx_chatlog_at ON chat_query_log(at);
 CREATE INDEX IF NOT EXISTS idx_stock_part ON core_stock(part_id);
@@ -1095,6 +1104,25 @@ export class Store {
     }
     lines.push("END:VCALENDAR");
     return lines.join("\r\n") + "\r\n";
+  }
+
+  // P-18 외부 시트 임베드(Smartsheet) read-only — 게시 URL 메타만 저장(토큰/원문 0). 화이트리스트 강제.
+  upsertEmbed({ id, kind = "smartsheet", title, url, project_id = null, data_label = "real" } = {}) {
+    const t = String(title ?? "").trim(), u = String(url ?? "").trim();
+    if (!t || !u) return { error: "title_url_required" };
+    if (!/^https:\/\/(app\.|publish\.)?smartsheet\.com\//.test(u)) return { error: "url_not_allowed" };
+    const eid = id || `emb_${randomBytes(5).toString("hex")}`;
+    this.db.prepare(
+      `INSERT INTO embed_view(id,kind,title,url,project_id,data_label,created_at)
+       VALUES(?,?,?,?,?,?,?)
+       ON CONFLICT(id) DO UPDATE SET title=excluded.title, url=excluded.url, project_id=excluded.project_id`
+    ).run(eid, kind, t, u, project_id, data_label, new Date().toISOString());
+    return { ok: true, id: eid };
+  }
+  listEmbeds({ project = null } = {}) {
+    return project
+      ? this.db.prepare("SELECT * FROM embed_view WHERE project_id=? ORDER BY created_at DESC").all(project)
+      : this.db.prepare("SELECT * FROM embed_view ORDER BY created_at DESC").all();
   }
 
   // ---------- 구매/발주 ----------

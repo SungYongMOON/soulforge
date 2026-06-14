@@ -147,6 +147,7 @@ const server = createServer(async (req, res) => {
     }));
     if (path === "/api/guide/templates") return send(res, 200, guideTemplates(qp.mode));
     if (path === "/api/doc/recipes") return send(res, 200, docRecipes(qp.mode));
+    if (path === "/api/embeds" && req.method === "GET") return send(res, 200, store.listEmbeds({ project: qp.project ?? null }));
     // ERP 챗봇 — RAG: 매뉴얼 검색 → (provider 연결 시) 로컬 작은 모델이 '그 근거 안에서만' 표현.
     // 매뉴얼 밖 추론 금지. provider 없으면 검색 기반 사람형 폴백(끊기지 않음). 질문은 로그에 저장.
     // provider는 ERP_CHAT_PROVIDER 환경변수로 주입(기본 stub=외부0). 야간 매뉴얼 갱신은 별도 고급 LLM.
@@ -181,6 +182,12 @@ const server = createServer(async (req, res) => {
     if (path === "/api/calculators" && req.method === "POST") {
       let body = ""; for await (const chunk of req) body += chunk;
       const r = store.upsertCalculator({ ...JSON.parse(body || "{}"), data_label: "real" });
+      return send(res, r.error ? 400 : 200, r);
+    }
+    if (path === "/api/embeds" && req.method === "POST") {
+      let body = ""; for await (const chunk of req) body += chunk;
+      const r = store.upsertEmbed({ ...JSON.parse(body || "{}"), data_label: "real" });
+      if (!r.error) store.appendEvent({ actor_ref: "owner", actor_kind: "human", kind: "embed_register", to: r.id, used_refs: ["embed_view"], data_label: "meta" });
       return send(res, r.error ? 400 : 200, r);
     }
     if (path === "/api/calculators/example" && req.method === "POST") {

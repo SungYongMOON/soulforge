@@ -1053,3 +1053,31 @@ test("P-13: docRecipes 7스텝·required_input·모드 전환", async () => {
   const keys = r[0].steps.map((s) => s.flow_key).sort();
   assert.deepEqual(keys, ARTIFACT_FLOW.map((s) => s.key).sort(), "flow_key 1:1 매핑");
 });
+
+// P-18: embed URL 화이트리스트(Smartsheet 만) + 필수 필드.
+test("P-18: embed URL 화이트리스트", () => {
+  const store = freshStore();
+  assert.equal(store.upsertEmbed({ title: "일정", url: "https://app.smartsheet.com/b/publish?x=1" }).ok, true, "smartsheet 허용");
+  assert.equal(store.upsertEmbed({ title: "bad", url: "https://evil.example.com/x" }).error, "url_not_allowed", "비-smartsheet 거부");
+  assert.equal(store.upsertEmbed({ title: "no-url", url: "" }).error, "title_url_required", "url 필수");
+});
+
+// P-18: listEmbeds 조회 + project 필터.
+test("P-18: listEmbeds 조회·project 필터", () => {
+  const store = freshStore();
+  loadFixture(store);
+  store.upsertEmbed({ title: "a", url: "https://app.smartsheet.com/b/1", project_id: "PRJ-A" });
+  store.upsertEmbed({ title: "b", url: "https://app.smartsheet.com/b/2" });
+  assert.equal(store.listEmbeds({}).length, 2, "전체 2건");
+  assert.equal(store.listEmbeds({ project: "PRJ-A" }).length, 1, "project 필터 1건");
+});
+
+// P-18: embed_view DDL 멱등 + 같은 id upsert 멱등.
+test("P-18: embed_view DDL·upsert 멱등", () => {
+  const a = freshStore(); const b = freshStore(); // openStore 2회 스키마 에러 0
+  assert.ok(a && b);
+  const r1 = a.upsertEmbed({ id: "emb-x", title: "t", url: "https://app.smartsheet.com/b/1" });
+  const r2 = a.upsertEmbed({ id: "emb-x", title: "t2", url: "https://app.smartsheet.com/b/2" });
+  assert.equal(r1.ok, true); assert.equal(r2.ok, true);
+  assert.equal(a.listEmbeds({}).length, 1, "같은 id=1행(ON CONFLICT)");
+});
