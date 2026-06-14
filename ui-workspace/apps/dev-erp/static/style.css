@@ -252,6 +252,18 @@ body[data-mode="fantasy"] tr.spawned td:first-child::before { content: "✦ "; c
 }
 @keyframes spawnFlash { 0%,40% { opacity: 1; } 100% { opacity: .65; } }
 
+/* P-6 콕핏 알림: '먼저 해야 할 일' — 연체/차단 행은 은은하게 번쩍여 우선순위를 알림 */
+tr.nudge-row.flash { animation: nudgePulse 1.8s ease-in-out infinite; }
+tr.nudge-row.flash td:first-child { border-left: 2px solid var(--danger); }
+@keyframes nudgePulse {
+  0%, 100% { background: transparent; }
+  50% { background: color-mix(in srgb, var(--danger) 14%, transparent); }
+}
+body[data-mode="fantasy"] tr.nudge-row.flash { animation-duration: 1.3s; }
+@media (prefers-reduced-motion: reduce) {
+  tr.nudge-row.flash { animation: none; background: color-mix(in srgb, var(--danger) 10%, transparent); }
+}
+
 /* A2: 목록 상태 필터칩 (ECount 전체/결재중/미확인/확인 식) */
 .status-chips { display: flex; flex-wrap: wrap; gap: 6px; margin: 2px 0 4px; }
 .status-chip { border: 1px solid var(--line); background: var(--panel); color: var(--muted);

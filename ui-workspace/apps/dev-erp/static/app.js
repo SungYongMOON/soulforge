@@ -280,6 +280,7 @@ const WIDGET_PLAN = [
   { id: "events", cat: "group_project", ready: true },
   { id: "gatewait", cat: "group_project", ready: true },
   { id: "artifact_progress", cat: "group_project", ready: true },
+  { id: "nudges", cat: "group_task", ready: true },
   { id: "today", cat: "group_task", ready: true },
   { id: "blocked", cat: "group_task", ready: true },
   { id: "mine", cat: "group_task" },
@@ -302,7 +303,7 @@ const WIDGET_PLAN = [
   { id: "buyapprove", cat: "group_material" },
   { id: "unassigned", cat: "group_team", ready: true },
   { id: "contacts", cat: "group_team", ready: true },
-  { id: "teamload", cat: "group_team" },
+  { id: "teamload", cat: "group_team", ready: true },
   { id: "throughput", cat: "group_team" },
   { id: "requests_w", cat: "group_team" },
   { id: "analytics_w", cat: "group_team" }
@@ -315,8 +316,9 @@ const DASH_ROW = 22;       // 세로 행 px
 const DASH_WMIN = 2, DASH_HMIN = 3;
 const DEFAULT_DASH = [
   { id: "projects", x: 0, y: 0, w: 12, h: 12 },
-  { id: "today", x: 0, y: 12, w: 3, h: 8 }, { id: "blocked", x: 3, y: 12, w: 3, h: 8 },
-  { id: "mail", x: 6, y: 12, w: 3, h: 8 }, { id: "events", x: 9, y: 12, w: 3, h: 8 }
+  { id: "nudges", x: 0, y: 12, w: 6, h: 8 }, { id: "teamload", x: 6, y: 12, w: 6, h: 8 },
+  { id: "today", x: 0, y: 20, w: 3, h: 8 }, { id: "blocked", x: 3, y: 20, w: 3, h: 8 },
+  { id: "mail", x: 6, y: 20, w: 3, h: 8 }, { id: "events", x: 9, y: 20, w: 3, h: 8 }
 ];
 
 function dashLayout() {
@@ -850,6 +852,27 @@ async function renderHome() {
     if (id === "blocked") {
       const blocked = (await api("/api/items?status=blocked")).slice(0, 6);
       return { title: L.tile_blocked, html: blocked.length ? `<table><tbody>${blocked.map((i) => miniRow([esc(i.title), esc(i.project_id), statusBadge(i.status)])).join("")}</tbody></table>` : `<div class="empty">${L.empty_items}</div>` };
+    }
+    if (id === "nudges") {
+      // P-6 콕핏 알림 — '먼저 해야 할 일' 우선순위(연체>차단>오늘>미완). 연체/차단은 번쩍임.
+      const ns = await api("/api/nudges?limit=6");
+      const rlabel = { overdue: L.overdue, blocked: L.blocked, due_today: L.today_due, open: L.open };
+      const rcls = { overdue: "red", blocked: "red", due_today: "amber", open: "" };
+      return { title: L.tile_nudges, html: ns.length
+        ? `<table><tbody>${ns.map((n) => `<tr class="nudge-row${n.reason === "overdue" || n.reason === "blocked" ? " flash" : ""}">
+            <td><span class="badge ${rcls[n.reason]}">${rlabel[n.reason] ?? esc(n.reason)}</span></td>
+            <td>${esc(n.title)}</td><td class="dim">${esc(n.project_id)}</td><td class="dim num">${esc(n.due ?? "-")}</td></tr>`).join("")}</tbody></table>`
+        : `<div class="empty">${L.empty_items}</div>` };
+    }
+    if (id === "teamload") {
+      // P-7 팀 부하 — 담당별 미완/차단/연체 건수(집계만, 개인 점수 미산출). NULL=(미배정).
+      const wl = await api("/api/workload");
+      return { title: L.tile_teamload, html: wl.length
+        ? `<table><thead><tr><th>${L.col_person}</th><th>${L.open}</th><th>${L.blocked}</th><th>${L.overdue}</th></tr></thead><tbody>${wl.map((w) => `<tr>
+            <td>${esc(w.name)}</td><td class="num">${w.open_cnt}</td>
+            <td class="num">${w.blocked_cnt || '<span class="dim">0</span>'}</td>
+            <td class="num">${w.overdue_cnt ? `<span class="badge red">${w.overdue_cnt}</span>` : '<span class="dim">0</span>'}</td></tr>`).join("")}</tbody></table>`
+        : `<div class="empty">-</div>` };
     }
     if (id === "mail") {
       const mail = (await api("/api/mail?days=90")).slice(0, 6);
