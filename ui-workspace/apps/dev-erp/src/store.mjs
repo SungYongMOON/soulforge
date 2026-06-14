@@ -375,6 +375,22 @@ CREATE TABLE IF NOT EXISTS chat_query_log (
   matched_faq_id TEXT,
   data_label TEXT NOT NULL DEFAULT 'real'
 );
+CREATE TABLE IF NOT EXISTS ai_proposal ( -- P-4 키스톤: AI/규칙 산출 착지면(pending→사람 approve 후에만 도메인 쓰기)
+  id TEXT PRIMARY KEY,
+  at TEXT NOT NULL,
+  source TEXT NOT NULL,
+  kind TEXT NOT NULL,
+  target_ref TEXT,
+  payload_json TEXT NOT NULL,
+  summary TEXT,
+  status TEXT NOT NULL DEFAULT 'pending',
+  decided_at TEXT,
+  decided_by TEXT,
+  applied_ref TEXT,
+  used_refs TEXT,
+  data_label TEXT NOT NULL DEFAULT 'real'
+);
+CREATE INDEX IF NOT EXISTS idx_proposal_status ON ai_proposal(status, at);
 CREATE TABLE IF NOT EXISTS embed_view ( -- P-18 외부 시트 임베드(Smartsheet 등) read-only URL 메타
   id TEXT PRIMARY KEY,
   kind TEXT NOT NULL DEFAULT 'smartsheet',
@@ -551,6 +567,9 @@ export function openStore(path = ":memory:") {
   }
   return new Store(db);
 }
+
+// P-4 키스톤: 승인 시 실행 가능한 도메인 쓰기 화이트리스트(임의 SQL/eval 금지).
+const PROPOSAL_KINDS = ["create_item", "add_attachment_type", "set_artifact_requirement", "link_part_project"];
 
 export class Store {
   constructor(db) {
@@ -1159,6 +1178,51 @@ export class Store {
     return project
       ? this.db.prepare("SELECT * FROM embed_view WHERE project_id=? ORDER BY created_at DESC").all(project)
       : this.db.prepare("SELECT * FROM embed_view ORDER BY created_at DESC").all();
+  }
+
+  // P-4 키스톤: ai_proposal 착지면. 코어 LLM 0% — 제안은 pending 으로만 적재(도메인 쓰기 0),
+  // 사람 approveProposal 1회 후에만 화이트리스트 도메인 메서드 실행(임의 SQL/eval 금지).
+  createProposal({ source, kind, target_ref = null, payload = {}, summary = null, used_refs = [], data_label = "real" } = {}) {
+    if (!PROPOSAL_KINDS.includes(kind)) return { error: "unknown_proposal_kind" };
+    const id = `prop_${randomBytes(5).toString("hex")}`;
+    this.db.prepare(
+      `INSERT INTO ai_proposal(id,at,source,kind,target_ref,payload_json,summary,status,used_refs,data_label)
+       VALUES(?,?,?,?,?,?,?,'pending',?,?)`
+    ).run(id, new Date().toISOString(), source ?? "unknown", kind, target_ref, JSON.stringify(payload ?? {}), summary, JSON.stringify(used_refs ?? []), data_label);
+    return { ok: true, id, status: "pending" };
+  }
+  approveProposal(id, { decided_by = "owner" } = {}) {
+    const row = this.db.prepare("SELECT * FROM ai_proposal WHERE id=?").get(id);
+    if (!row) return { error: "proposal_not_found" };
+    if (row.status !== "pending") return { error: "not_pending", status: row.status };
+    const payload = JSON.parse(row.payload_json || "{}");
+    let result;
+    switch (row.kind) {
+      case "create_item": result = this.createItem(payload); break;
+      case "add_attachment_type": result = this.addAttachment(payload); break;
+      case "set_artifact_requirement": result = this.setArtifactRequirement(payload); break;
+      case "link_part_project": result = this.linkPartProject(payload.part_id, payload.project_id); break;
+      default: return { error: "unknown_proposal_kind" };
+    }
+    if (result && result.error) return result; // 도메인 거부 시 상태 미변경(재시도 가능)
+    const applied_ref = result?.item?.id ?? row.target_ref ?? null;
+    this.db.prepare("UPDATE ai_proposal SET status='approved', decided_at=?, decided_by=?, applied_ref=? WHERE id=?")
+      .run(new Date().toISOString(), decided_by, applied_ref, id);
+    this.appendEvent({ actor_ref: decided_by, actor_kind: "human", kind: "ai_proposal_approve", item_ref: id, to: applied_ref, used_refs: row.used_refs ? JSON.parse(row.used_refs) : [], data_label: "real" });
+    return { ok: true, applied_ref, result };
+  }
+  rejectProposal(id, { decided_by = "owner", reason = null } = {}) {
+    const row = this.db.prepare("SELECT status FROM ai_proposal WHERE id=?").get(id);
+    if (!row) return { error: "proposal_not_found" };
+    if (row.status !== "pending") return { error: "not_pending", status: row.status };
+    this.db.prepare("UPDATE ai_proposal SET status='rejected', decided_at=?, decided_by=? WHERE id=?")
+      .run(new Date().toISOString(), decided_by, id);
+    this.appendEvent({ actor_ref: decided_by, actor_kind: "human", kind: "ai_proposal_reject", item_ref: id, note: reason, used_refs: [], data_label: "real" });
+    return { ok: true };
+  }
+  proposals({ status = "pending" } = {}) {
+    return this.db.prepare("SELECT * FROM ai_proposal WHERE status=? ORDER BY at DESC LIMIT 200").all(status)
+      .map((r) => ({ ...r, payload: JSON.parse(r.payload_json || "{}"), used_refs: r.used_refs ? JSON.parse(r.used_refs) : [] }));
   }
 
   // ---------- 구매/발주 ----------

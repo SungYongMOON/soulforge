@@ -1225,3 +1225,40 @@ test("U-1c: setAnchor 1-hop 전파 + 완료·수정 보호", () => {
   const r = store.setAnchor("PRJ-A", "120", "2026-09-01");
   assert.equal(r.shifted, rows.length - 2, "완료·수정 항목 제외하고 전파");
 });
+
+// P-4-ai-A: createProposal 은 pending 으로만 적재(도메인 쓰기 0).
+test("P-4-ai: createProposal 은 pending 으로만 적재", () => {
+  const store = freshStore();
+  loadFixture(store);
+  const N = store.items({ project: "PRJ-A" }).length;
+  store.createProposal({ source: "manual", kind: "create_item", payload: { project_id: "PRJ-A", title: "제안된 할일" } });
+  assert.equal(store.items({ project: "PRJ-A" }).length, N, "도메인 쓰기 0");
+  assert.equal(store.proposals({ status: "pending" }).length, 1, "pending 1건");
+});
+
+// P-4-ai-A: approveProposal 만이 실제 도메인 쓰기 + 사람 이벤트 1건.
+test("P-4-ai: approveProposal 만이 실제 쓰기", () => {
+  const store = freshStore();
+  loadFixture(store);
+  store.createProposal({ source: "manual", kind: "create_item", payload: { project_id: "PRJ-A", title: "제안된 할일" } });
+  const p = store.proposals()[0];
+  const r = store.approveProposal(p.id);
+  assert.ok(r.ok, "승인 ok");
+  assert.equal(store.items({ project: "PRJ-A" }).filter((i) => i.title === "제안된 할일").length, 1, "승인 후 1건 생성");
+  assert.equal(store.proposals({ status: "pending" }).length, 0, "pending 비움");
+  const [ev] = store.recentEvents(1);
+  assert.equal(ev.kind, "ai_proposal_approve", "승인 이벤트");
+  assert.equal(ev.actor_kind, "human", "사람 승인");
+});
+
+// P-4-ai-A: reject 쓰기 없음 + 미지원 kind 거부 + 없는 id.
+test("P-4-ai: reject·미지원 kind·없는 id", () => {
+  const store = freshStore();
+  loadFixture(store);
+  store.createProposal({ source: "manual", kind: "create_item", payload: { project_id: "PRJ-A", title: "반려될 것" } });
+  const pid = store.proposals()[0].id;
+  assert.ok(store.rejectProposal(pid, { reason: "중복" }).ok, "반려 ok");
+  assert.equal(store.items({ project: "PRJ-A" }).filter((i) => i.title === "반려될 것").length, 0, "반려는 쓰기 0");
+  assert.equal(store.createProposal({ source: "x", kind: "drop_table", payload: {} }).error, "unknown_proposal_kind", "미지원 kind 거부");
+  assert.equal(store.approveProposal("nope").error, "proposal_not_found", "없는 id");
+});

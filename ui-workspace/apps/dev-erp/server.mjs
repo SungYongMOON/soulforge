@@ -260,6 +260,23 @@ const server = createServer(async (req, res) => {
     }
     if (path === "/api/parts/completeness") { const r = store.boardCompleteness(qp.part); return send(res, r.error ? 404 : 200, r); }
     if (path === "/api/risk") return send(res, 200, store.riskAlerts({ project: qp.project ?? null }));
+    if (path === "/api/proposals" && req.method === "GET") return send(res, 200, store.proposals({ status: qp.status || "pending" }));
+    if (path === "/api/proposals" && req.method === "POST") {
+      let body = ""; for await (const chunk of req) body += chunk;
+      const r = store.createProposal({ ...JSON.parse(body || "{}"), data_label: "real" });
+      return send(res, r.error ? 400 : 200, r);
+    }
+    if (path === "/api/proposals/approve" && req.method === "POST") {
+      let body = ""; for await (const chunk of req) body += chunk;
+      const r = store.approveProposal(JSON.parse(body || "{}").id, { decided_by: "owner" });
+      return send(res, r.error ? 400 : 200, r);
+    }
+    if (path === "/api/proposals/reject" && req.method === "POST") {
+      let body = ""; for await (const chunk of req) body += chunk;
+      const b = JSON.parse(body || "{}");
+      const r = store.rejectProposal(b.id, { decided_by: "owner", reason: b.reason ?? null });
+      return send(res, r.error ? 400 : 200, r);
+    }
     // P3 재고/BOM/부품 (내부 판정만·외부전송 0)
     if (path === "/api/parts" && req.method === "GET") return send(res, 200, store.parts({ type: qp.type, grp: qp.grp, project: qp.project, q: qp.q }));
     if (path === "/api/parts" && req.method === "POST") {
