@@ -156,51 +156,68 @@ const navKey = { home: "nav_home", items: "nav_items", guide: "nav_guide", mail:
 // 분류 초안 = 3안(흐름/빈도/도메인) 병렬설계+심사 종합(2026-06-14): 도메인 골격 위에 SE 강제엔진
 // (게이트·제안·일정)을 '단계 운영'으로 좌상단 집중, 메일·요청은 '받은 일'(인입)로 분리.
 // 라벨은 {b 업무 / f 판타지}. 이 NAV_TREE 가 단일 편집 지점.
+// 일 흐름 순서(받은 일→과제·단계→공유마스터·조달→기록물·지식→운영·관리). owner 6섹터 비전 착지.
+// 콕핏(home)은 대분류 밖 좌상단 버튼 표면(ECount MyPage식). 단일 편집점.
 const NAV_TREE = [
-  { id: "task", b: "과제 운영", f: "원정 본부", sectors: [
+  { id: "inbox", b: "받은 일", f: "전령함", sectors: [
+    { g: "in_mail", b: "메일·요청", f: "전령·의뢰", subs: [
+      { b: "받은 메일", f: "받은 전령", items: ["mail"] },
+      { b: "개발 요청", f: "의뢰 게시판", items: ["mod:requests"] },
+    ] },
+  ] },
+  { id: "task", b: "과제·단계", f: "원정 본부", sectors: [
     { g: "sec_work", b: "내 작업", f: "내 작업", subs: [
       { b: "할 일", f: "할 일", items: ["items"] },
-      { b: "가이드·검색", f: "도구·탐색", items: ["guide", "search"] },
+      { b: "도구·탐색", f: "도구·탐색", items: ["guide", "search"] },
     ] },
-    { g: "sec_stage", b: "단계 운영", f: "관문 운영", subs: [
+    { g: "sec_stage", b: "단계·게이트", f: "관문 운영", subs: [
       { b: "게이트·제안", f: "관문·제안", items: ["mod:gates", "mod:proposals"] },
       { b: "일정", f: "운명표", items: ["mod:schedule"] },
     ] },
-    { g: "sec_inbox", b: "받은 일", f: "받은 일", subs: [
-      { b: "메일·요청", f: "전령·의뢰", items: ["mail", "mod:requests"] },
-    ] },
-  ] },
-  { id: "doc", b: "산출·문서", f: "전리·기록", sectors: [
     { g: "sec_artifact", b: "산출물", f: "전리품", subs: [
       { b: "산출물 목록", f: "전리 목록", items: ["artifacts"] },
-      { b: "작성 지원", f: "제작 지원", items: ["mod:recipe", "mod:calculators"] },
-    ] },
-    { g: "sec_record", b: "기록·보고", f: "기록·연대기", subs: [
-      { b: "보고·노트", f: "연대기", items: ["mod:reports"] },
-      { b: "회의", f: "원탁", items: ["mod:meetings"] },
     ] },
   ] },
-  { id: "material", b: "자재·조달", f: "병참·조달", sectors: [
+  { id: "material", b: "공유 마스터·조달", f: "병참·서고", sectors: [
+    { g: "sec_board", b: "보드·라이브러리", f: "설계 서고", subs: [
+      { b: "보드·BOM", f: "설계도", items: ["mod:boards"] },
+    ] },
     { g: "sec_procure", b: "구매·재고", f: "보급·창고", subs: [
       { b: "구매·발주", f: "보급", items: ["mod:purchase"] },
       { b: "재고·자산", f: "병참 창고", items: ["mod:inventory"] },
-    ] },
-    { g: "sec_board", b: "보드·부품", f: "설계·부품", subs: [
-      { b: "보드·BOM", f: "설계도", items: ["mod:boards"] },
       { b: "부품 감시", f: "보급 정찰", items: ["mod:stockwatch"] },
     ] },
-  ] },
-  { id: "people", b: "사람·지식", f: "길드·지식", sectors: [
-    { g: "sec_knowledge", b: "지식 기반", f: "대도서관", subs: [
-      { b: "지식·RAG", f: "전승 검색", items: ["mod:knowledge"] },
-      { b: "외부 자료", f: "외부 점술판", items: ["mod:embeds"] },
+    { g: "sec_vendor", b: "거래처·매뉴얼", f: "상단·율법", subs: [
+      { b: "거래처", f: "상단", items: ["mod:contacts"] },
     ] },
-    { g: "sec_team", b: "사람·현황", f: "길드·현황", subs: [
-      { b: "연락처", f: "인명록", items: ["mod:contacts"] },
+  ] },
+  { id: "doc", b: "기록물·지식", f: "대도서관", sectors: [
+    { g: "sec_record", b: "보고·회의", f: "연대기·원탁", subs: [
+      { b: "보고·노트", f: "연대기", items: ["mod:reports"] },
+      { b: "회의", f: "원탁", items: ["mod:meetings"] },
+    ] },
+    { g: "sec_knowledge", b: "작성·지식", f: "비전·전승", subs: [
+      { b: "작성 지원", f: "제작 지원", items: ["mod:recipe", "mod:calculators"] },
+      { b: "지식·자료", f: "전승 검색", items: ["mod:knowledge", "mod:embeds"] },
+    ] },
+  ] },
+  { id: "ops", b: "운영·관리", f: "길드 관제", sectors: [
+    { g: "sec_analytics", b: "분석", f: "전훈 분석", subs: [
       { b: "투입 분석", f: "전훈 분석", items: ["mod:analytics"] },
+    ] },
+    { g: "sec_ai", b: "AI·승인", f: "신탁·승인", subs: [
+      { b: "AI 제안·승인", f: "신탁·승인", items: ["soon:ai"] },
+    ] },
+    { g: "sec_admin", b: "권한·설정", f: "길드 율법", subs: [
+      { b: "권한·설정", f: "길드 율법", items: ["soon:perm"] },
     ] },
   ] },
 ];
+// 준비 중(모듈 0) 슬롯 — 구조 선점용 비활성 표면. owner 결정/후속 슬라이스 대기.
+const SOON_NAV = {
+  "soon:ai": { b: "AI 제안·승인", f: "신탁·승인" },   // ai_proposal 착지면 owner 결정 #1 후 활성
+  "soon:perm": { b: "권한·설정", f: "길드 율법" },     // RBAC·게이트모드 설정 표면화 후속
+};
 const navTL = (o) => (state.mode === "fantasy" ? o.f : o.b); // 모드별 라벨
 function navTopOf(id) { return NAV_TREE.find((t) => t.id === id) ?? NAV_TREE[0]; }
 function navSectorOf(topId, g) { const t = navTopOf(topId); return t.sectors.find((s) => s.g === g) ?? t.sectors[0]; }
@@ -220,6 +237,10 @@ const VIRTUAL_NAV = {
   "mod:proposals": { b: "제안 큐", f: "제안 두루마리" },
 };
 function navButton(v) {
+  if (v.startsWith("soon:")) {                          // 준비 중 슬롯 — 비활성, 구조만 노출
+    const sn = SOON_NAV[v];
+    return `<button class="soon" disabled><span>${navTL(sn)} <em class="phase-tag">${state.lex.nav_soon ?? "준비 중"}</em></span></button>`;
+  }
   const perm = permOf(v.startsWith("mod:") ? v : `view:${v}`);
   if (!perm.visible) return "";                       // RBAC: 숨김
   const locked = !perm.access;                        // RBAC: 보이되 잠김
@@ -331,6 +352,21 @@ function renderNav() {
     btn.title = pinnable ? (on ? state.lex.pin_remove : state.lex.pin_add) : "";
     btn.onclick = () => { if (pinnable) togglePin(cur); };
   }
+}
+
+// 준비 중 슬롯 화면 — 모듈 0인 운영·관리 칸(AI·승인/권한·설정)의 구조 선점 안내.
+function renderSoon(v) {
+  const sn = SOON_NAV[v] ?? { b: "준비 중", f: "준비 중" };
+  const notes = {
+    "soon:ai": state.lex.soon_ai ?? "AI 제안→사람 승인 단일 표면. ai_proposal 착지면 owner 결정 후 활성됩니다.",
+    "soon:perm": state.lex.soon_perm ?? "RBAC 권한·게이트모드(hard/soft) 설정 표면. 후속 슬라이스에서 활성됩니다.",
+  };
+  $("#view").innerHTML = `
+    <div class="module-head">
+      <span class="phase-tag big">${state.lex.nav_soon ?? "준비 중"}</span>
+      <p>${notes[v] ?? ""}</p>
+    </div>
+    <div class="empty">${navTL(sn)} — ${state.lex.nav_soon ?? "준비 중"}</div>`;
 }
 
 function renderModulePlaceholder(modId) {
@@ -2240,6 +2276,12 @@ async function render() {
     $("#viewTitle").textContent = m?.nav ?? state.lex.tab_mail;
     logView(state.view);
     return renderMeetings();
+  }
+  if (state.view.startsWith("soon:")) {                 // 준비 중 슬롯 진입(중분류 탭 클릭 등)
+    const sn = SOON_NAV[state.view];
+    $("#viewTitle").textContent = sn ? navTL(sn) : (state.lex.nav_soon ?? "준비 중");
+    logView(state.view);
+    return renderSoon(state.view);
   }
   const titles = { home: "nav_home", items: "nav_items", guide: "nav_guide", mail: "nav_mail", artifacts: "nav_artifacts", search: "nav_search" };
   if (state.view.startsWith("mod:")) {
