@@ -256,9 +256,7 @@ function renderNav() {
   renderTopBar();
   renderSubBar();
 
-  const pinnedGroup = state.pins.length
-    ? `<div class="nav-group"><div class="nav-sub-head">${state.lex.group_pinned}</div>${state.pins.map(navButton).join("")}</div>`
-    : "";
+  // 핀(내 메뉴)은 좌측 상단에 중복 표시하지 않음 — 우측 상단 바로가기 바(#favBar)가 담당(ECount식).
   // 좌측 = 선택 중분류(섹터)의 L3 분류 헤더(접기 가능) + L4 항목 (대분류명 중복 표기 제거)
   const sec = navSectorOf(state.navTop, state.navGroup);
   const tree = sec.subs.map((sub, i) => {
@@ -270,7 +268,7 @@ function renderNav() {
       <div class="nav-sub-head"><i class="fold-ico">▾</i><span>${navTL(sub)}</span></div>
       <div class="nav-items">${btns}</div></div>`;
   }).join("");
-  $("#nav").innerHTML = pinnedGroup + tree;
+  $("#nav").innerHTML = tree;
   // L3 헤더 클릭 → 접기/펼치기(상태 영속)
   $("#nav").querySelectorAll(".nav-sub-group > .nav-sub-head").forEach((h) =>
     h.addEventListener("click", () => {

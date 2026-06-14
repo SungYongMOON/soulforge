@@ -40,12 +40,13 @@ body { margin: 0; font-family: "Pretendard", "Apple SD Gothic Neo", system-ui, s
 .sub-tab.on { background: var(--panel); border-color: var(--line); color: var(--accent); font-weight: 600; }
 /* L3 분류 헤더 — L4 항목보다 큼, 클릭하면 접기/펼치기 */
 .nav-sub-head { display: flex; align-items: center; gap: 6px; font-size: 13.5px; font-weight: 600;
-  color: var(--text); padding: 8px 8px 4px; cursor: pointer; user-select: none; }
+  color: var(--text); padding: 8px 8px 4px 4px; cursor: pointer; user-select: none; }
 .nav-sub-head:hover { color: var(--accent); }
 .nav-sub-head .fold-ico { font-size: 10px; color: var(--muted); width: 10px; display: inline-block; transition: transform .15s; }
 .nav-sub-group.collapsed .fold-ico { transform: rotate(-90deg); }
 .nav-sub-group.collapsed .nav-items { display: none; }
-.nav-items { display: flex; flex-direction: column; gap: 2px; }
+/* L4 항목 블록 — L3 헤더보다 확실히 들여쓰기(헤더 아래 둥지처럼) */
+.nav-items { display: flex; flex-direction: column; gap: 2px; padding-left: 22px; }
 /* 우측 글로벌: 바로가기바 + 등록☆ + ⌘K + 검색 (ECount 최상단 영역) */
 .global-actions { display: flex; align-items: center; gap: 6px; margin-left: auto; min-width: 0; position: relative; }
 .search-dropdown { position: absolute; top: calc(100% + 4px); right: 0; width: 320px; max-width: 60vw;
@@ -180,8 +181,8 @@ nav button:hover .pin-btn { opacity: 1; }
 .nav-group-label { font-size: 11px; font-weight: 700; color: var(--muted); letter-spacing: .04em; padding: 4px 10px 2px; text-transform: uppercase; }
 /* 좌측열 항목(L4)만 전폭 리스트 — 상단 탭바(#groupBar/#subBar)에는 적용 안 함(탭 stretch 방지) */
 #nav button { display: flex; align-items: center; justify-content: space-between; gap: 6px; width: 100%; }
-/* L4 항목 — L3 분류 헤더보다 작게, 헤더 아래로 들여쓰기 */
-#nav .nav-items button { font-size: 12.5px; padding: 6px 10px 6px 20px; }
+/* L4 항목 — L3 분류 헤더보다 작게 (들여쓰기는 .nav-items padding-left 가 담당) */
+#nav .nav-items button { font-size: 12.5px; padding: 6px 10px; }
 .phase-tag { font-style: normal; font-size: 10px; color: var(--muted); background: var(--chip); border-radius: 999px; padding: 1px 6px; white-space: nowrap; }
 .phase-tag.big { font-size: 12px; padding: 4px 10px; color: var(--accent); }
 .module-head { background: var(--panel); border: 1px solid var(--line); border-radius: 12px; padding: 14px 16px; }
