@@ -1225,6 +1225,33 @@ export class Store {
       .map((r) => ({ ...r, payload: JSON.parse(r.payload_json || "{}"), used_refs: r.used_refs ? JSON.parse(r.used_refs) : [] }));
   }
 
+  // P-19 자동화 — 결정적 규칙 스캐너가 갭을 찾아 createProposal(pending)로만 적재. 자동 도메인 쓰기 0,
+  // 적용은 사람 approveProposal 1회. LLM 0·수동 트리거(cron 없음). 스캐너 1=슬라이스 1(나머지는 후속).
+  scanScheduleGaps(project_id) {
+    if (!this.db.prepare("SELECT 1 FROM core_project WHERE id=?").get(project_id)) return { ok: false, proposed: 0 };
+    const delivs = this.db.prepare("SELECT DISTINCT deliverable_name FROM se_deliverable_template").all();
+    const existing = new Set(this.db.prepare("SELECT title FROM core_item WHERE project_id=?").all(project_id).map((r) => r.title));
+    const pending = new Set(this.proposals({ status: "pending" })
+      .filter((p) => p.kind === "create_item" && p.payload?.project_id === project_id).map((p) => p.payload?.title));
+    let proposed = 0;
+    for (const d of delivs) {
+      if (existing.has(d.deliverable_name) || pending.has(d.deliverable_name)) continue; // dedup
+      this.createProposal({ source: "schedule_gap", kind: "create_item", payload: { project_id, title: d.deliverable_name, origin: "schedule" }, summary: `미생성 산출물: ${d.deliverable_name}`, used_refs: ["se_stage_template"], data_label: "real" });
+      proposed++;
+    }
+    return { ok: true, proposed };
+  }
+  // 후속 슬라이스 자리(스캐너 1=슬라이스 1, 모두 createProposal 로만 착지·자동쓰기 0):
+  //   scanArtifactGaps(보드 미정의 requirement→set_artifact_requirement), scanStockReorder(재발주, project 귀속 정책 선행),
+  //   scanMeetingActionGaps, scanCapabilityMismatch(P-6), scanKnowledgeUntagged(P-10), scanCalculatorDraft(P-11).
+  runRecommenders({ scope = "all", project = null } = {}) {
+    let total = 0;
+    const projects = project ? [{ id: project }] : this.db.prepare("SELECT id FROM core_project").all();
+    for (const p of projects) total += this.scanScheduleGaps(p.id).proposed || 0;
+    this.appendEvent({ actor_kind: "system", kind: "recommender_run", to: String(total), used_refs: ["ai_proposal"], data_label: "real" });
+    return { ok: true, proposed: total, scope };
+  }
+
   // ---------- 구매/발주 ----------
   PURCHASE_STAGES = ["request", "quote", "order", "receive", "inspect", "closed"];
   parties({ kind } = {}) {

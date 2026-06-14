@@ -306,7 +306,8 @@ const WIDGET_PLAN = [
   { id: "teamload", cat: "group_team", ready: true },
   { id: "throughput", cat: "group_team" },
   { id: "requests_w", cat: "group_team" },
-  { id: "analytics_w", cat: "group_team" }
+  { id: "analytics_w", cat: "group_team" },
+  { id: "proposals", cat: "group_team", ready: true }
 ];
 const WIDGET_CATALOG = WIDGET_PLAN.filter((w) => w.ready).map((w) => w.id); // 실제 보드에 올릴 수 있는 위젯
 const CREATE_WIDGETS = new Set(["today", "blocked", "unassigned"]); // 작성(✎) → 할일 생성 화면으로
@@ -1003,6 +1004,13 @@ async function renderHome() {
       return { title: L.tile_meetings_w, html: ms.length
         ? `<table><tbody>${ms.map((m) => miniRow([m.at ? localTime(m.at) : "-", esc(m.title)])).join("")}</tbody></table>`
         : `<div class="empty">${L.empty_meetings}</div>` };
+    }
+    if (id === "proposals") {
+      // P-19/P-4 키스톤: AI/규칙 제안 대기 큐(승인 필요). 게이트 화면에서 승인/반려·추천 스캔.
+      const props = await api("/api/proposals");
+      return { title: L.prop_queue_title, html: props.length
+        ? `<table><tbody>${props.slice(0, 8).map((p) => miniRow([esc(p.kind), esc(p.summary ?? p.payload?.title ?? p.id)])).join("")}</tbody></table>`
+        : `<div class="empty">${L.prop_empty}</div>` };
     }
     if (id === "reports_w") {
       // P-12 자동보고 노출 — 최근 7일 업무일지 초안 미리보기 + 보고서 화면 점프(자동발신 0).
@@ -1923,9 +1931,11 @@ async function renderGates() {
           <td><button class="fav-chip prop-approve">${L.prop_approve}</button> <button class="fav-chip prop-reject">${L.prop_reject}</button> <span class="prop-msg dim"></span></td>
         </tr>`).join("")}</tbody></table></section>`
     : `<section class="se-prop dim">${L.prop_queue_title}: ${L.prop_empty}</section>`;
-  $("#view").innerHTML = `<div class="gate-head"><button id="openSched" class="fav-chip">${L.sched_open}</button><button id="openEmbeds" class="fav-chip">${L.embed_open}</button></div>${riskSection}${propSection}${modeBtns}${stages.length ? sec : `<div class="empty">${L.empty_gates}</div>`}`;
+  $("#view").innerHTML = `<div class="gate-head"><button id="openSched" class="fav-chip">${L.sched_open}</button><button id="openEmbeds" class="fav-chip">${L.embed_open}</button><button id="runRec" class="fav-chip">${L.rec_run}</button></div>${riskSection}${propSection}${modeBtns}${stages.length ? sec : `<div class="empty">${L.empty_gates}</div>`}`;
   $("#openSched").addEventListener("click", () => { state.view = "mod:schedule"; render(); });
   $("#openEmbeds").addEventListener("click", () => { state.view = "mod:embeds"; render(); });
+  // P-19: 추천 스캔(수동 트리거) → 결정적 규칙이 갭을 제안 큐에 적재(자동 적용 0). 결과는 위 제안 큐에 표시.
+  $("#runRec").addEventListener("click", async () => { await post("/api/recommenders/run", { scope: "all" }); render(); });
   $("#view").querySelectorAll("[data-mode]").forEach((b) => b.addEventListener("click", async () => {
     await post("/api/settings/gate_mode", { mode: b.dataset.mode }); render();
   }));

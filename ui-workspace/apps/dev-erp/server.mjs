@@ -287,6 +287,12 @@ const server = createServer(async (req, res) => {
       const r = store.rejectProposal(b.id, { decided_by: "owner", reason: b.reason ?? null });
       return send(res, r.error ? 400 : 200, r);
     }
+    if (path === "/api/recommenders/run" && req.method === "POST") {
+      // 수동 트리거(자동 cron 아님). 추천은 createProposal pending 만 — 자동 도메인 쓰기 0.
+      let body = ""; for await (const chunk of req) body += chunk;
+      const b = JSON.parse(body || "{}");
+      return send(res, 200, store.runRecommenders({ scope: b.scope ?? "all", project: b.project ?? null }));
+    }
     // P3 재고/BOM/부품 (내부 판정만·외부전송 0)
     if (path === "/api/parts" && req.method === "GET") return send(res, 200, store.parts({ type: qp.type, grp: qp.grp, project: qp.project, q: qp.q }));
     if (path === "/api/parts" && req.method === "POST") {

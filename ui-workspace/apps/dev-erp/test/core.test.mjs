@@ -1317,3 +1317,47 @@ test("P-14: generate 충족 시 ai_proposal 큐 적재(자동생성 0)", () => {
 test("P-14: input_generate_btn 양 모드", () => {
   assert.ok(getLexicon("business").input_generate_btn && getLexicon("fantasy").input_generate_btn, "양 모드 라벨");
 });
+
+// P-19: scanScheduleGaps 는 제안만 적재(자동 spawn 0).
+test("P-19: scanScheduleGaps 제안만 적재", () => {
+  const store = freshStore();
+  loadFixture(store);
+  const before = store.items({ project: "PRJ-A" }).length;
+  store.scanScheduleGaps("PRJ-A");
+  assert.equal(store.items({ project: "PRJ-A" }).length, before, "자동 spawn 0");
+  assert.ok(store.proposals({ status: "pending" }).length > 0, "제안 적재됨");
+});
+
+// P-19: 추천→승인 고리 — 승인해야 실제 쓰기.
+test("P-19: 추천→승인해야 실제 쓰기", () => {
+  const store = freshStore();
+  loadFixture(store);
+  store.scanScheduleGaps("PRJ-A");
+  const p = store.proposals({ status: "pending" }).find((x) => x.payload?.project_id === "PRJ-A");
+  const before = store.items({ project: "PRJ-A" }).length;
+  store.approveProposal(p.id);
+  assert.equal(store.items({ project: "PRJ-A" }).length, before + 1, "승인 후 1건 생성");
+});
+
+// P-19: runRecommenders 도메인 쓰기 0 + system 이벤트.
+test("P-19: runRecommenders 쓰기 0·system 이벤트", () => {
+  const store = freshStore();
+  loadFixture(store);
+  const itemsBefore = store.counts().items;
+  const r = store.runRecommenders({ scope: "all" });
+  assert.equal(typeof r.proposed, "number", "proposed 수 반환");
+  assert.equal(store.counts().items, itemsBefore, "도메인 쓰기 0");
+  const [ev] = store.recentEvents(1);
+  assert.equal(ev.kind, "recommender_run", "recommender_run 이벤트");
+  assert.equal(ev.actor_kind, "system", "system 트리거");
+});
+
+// P-19: 추천 dedup — 두 번 스캔해도 중복 제안 0.
+test("P-19: scanScheduleGaps dedup", () => {
+  const store = freshStore();
+  loadFixture(store);
+  store.scanScheduleGaps("PRJ-A");
+  const after1 = store.proposals({ status: "pending" }).length;
+  store.scanScheduleGaps("PRJ-A");
+  assert.equal(store.proposals({ status: "pending" }).length, after1, "재스캔 중복 0");
+});
