@@ -1703,7 +1703,8 @@ async function renderGates() {
       <td>${s.status === "cleared" ? "" : `<button class="fav-chip gate-pass-btn" data-stage="${esc(s.id)}" data-passable="${s.passable}">${L.gate_pass}</button>${s.reasons.length ? `<div class="dim gate-reasons">${s.reasons.map(reason).join(", ")}</div>` : ""}`}</td>
     </tr>`).join("")}
     </tbody></table></section>`).join("");
-  $("#view").innerHTML = `${modeBtns}${stages.length ? sec : `<div class="empty">${L.empty_gates}</div>`}`;
+  $("#view").innerHTML = `<div class="gate-head"><button id="openSched" class="fav-chip">${L.sched_open}</button></div>${modeBtns}${stages.length ? sec : `<div class="empty">${L.empty_gates}</div>`}`;
+  $("#openSched").addEventListener("click", () => { state.view = "mod:schedule"; render(); });
   $("#view").querySelectorAll("[data-mode]").forEach((b) => b.addEventListener("click", async () => {
     await post("/api/settings/gate_mode", { mode: b.dataset.mode }); render();
   }));
@@ -1716,6 +1717,52 @@ async function renderGates() {
         render();
       }
     } else { render(); }
+  }));
+}
+
+// U-1a: SE 스케줄러 화면 — 템플릿 적용(산출물 자동 spawn) + 마일스톤 날짜 전파.
+async function renderSchedule() {
+  const L = state.lex;
+  const tpls = await api("/api/schedule/templates");
+  const sum = await api("/api/summary");
+  const projects = sum.projects || [];
+  state.schedProject ??= (projects.find((p) => p.class === "active") || projects[0])?.id;
+  state.schedAnchors ??= {};
+  const projOpts = projects.map((p) => `<option value="${esc(p.id)}" ${p.id === state.schedProject ? "selected" : ""}>${esc(p.title || p.id)}</option>`).join("");
+  const milestones = [];
+  const tplCards = (tpls || []).map((t) => {
+    const stageRows = (t.stages || []).map((s) => { if (s.is_milestone) milestones.push(s.stage_code); return `<li>${esc(s.stage_code)}${s.is_milestone ? ` <span class="badge">${L.sched_milestone}</span>` : ""}</li>`; }).join("");
+    const delRows = (t.deliverables || []).map((d) => `<tr><td>${esc(d.deliverable_name)}</td><td class="dim">${esc(d.anchor_stage_code)} ${d.offset_days >= 0 ? "+" : ""}${d.offset_days}</td><td class="dim">${esc(d.default_artifact_type ?? "")}</td></tr>`).join("");
+    return `<section class="sched-tpl"><h3>${esc(t.name)} <span class="dim">(${esc(t.key)})</span></h3>
+      <ul class="sched-stages">${stageRows}</ul>
+      <table><thead><tr><th>${L.sched_deliverable}</th><th>${L.sched_offset}</th><th></th></tr></thead><tbody>${delRows}</tbody></table>
+      <button class="fav-chip sched-apply" data-key="${esc(t.key)}">${L.sched_apply}</button></section>`;
+  }).join("");
+  const uniqMs = [...new Set(milestones)];
+  const anchorInputs = uniqMs.map((code) => `<div class="sched-anchor"><label>${L.sched_milestone} ${esc(code)}</label>
+    <input type="date" data-anchor="${esc(code)}" value="${state.schedAnchors[code] ?? ""}" />
+    <button class="fav-chip sched-anchor-apply" data-code="${esc(code)}">${L.sched_anchor_apply}</button></div>`).join("");
+  $("#view").innerHTML = `<div class="sched-head">
+      <button id="schedBack" class="fav-chip">${L.sched_back}</button>
+      <label>${L.sched_pick_project}</label> <select id="schedProj">${projOpts}</select>
+    </div>
+    <div id="schedMsg" class="dim"></div>
+    ${anchorInputs ? `<div class="sched-anchors">${anchorInputs}</div>` : ""}
+    ${tplCards || `<div class="empty">-</div>`}`;
+  $("#schedBack").addEventListener("click", () => { state.view = "mod:gates"; render(); });
+  $("#schedProj").addEventListener("change", (e) => { state.schedProject = e.target.value; });
+  $("#view").querySelectorAll("[data-anchor]").forEach((inp) => inp.addEventListener("change", (e) => { state.schedAnchors[e.target.dataset.anchor] = e.target.value; }));
+  $("#view").querySelectorAll(".sched-apply").forEach((b) => b.addEventListener("click", async () => {
+    const r = await post("/api/schedule/apply", { project_id: state.schedProject, template_key: b.dataset.key, anchorDates: state.schedAnchors });
+    let res; try { res = await r.json(); } catch { res = {}; }
+    $("#schedMsg").textContent = res.created ? `${res.created.length}${L.sched_created}` : (res.error ?? "");
+  }));
+  $("#view").querySelectorAll(".sched-anchor-apply").forEach((b) => b.addEventListener("click", async () => {
+    const date = state.schedAnchors[b.dataset.code];
+    if (!date) return;
+    const r = await post("/api/schedule/anchor", { project_id: state.schedProject, anchor_stage_code: b.dataset.code, date });
+    let res; try { res = await r.json(); } catch { res = {}; }
+    $("#schedMsg").textContent = res.shifted != null ? `${res.shifted}${L.sched_shifted}` : (res.error ?? "");
   }));
 }
 
@@ -1763,6 +1810,11 @@ async function render() {
     $("#viewTitle").textContent = m?.nav ?? "게이트";
     logView(state.view);
     return renderGates();
+  }
+  if (state.view === "mod:schedule") {
+    $("#viewTitle").textContent = state.lex.sched_title;
+    logView(state.view);
+    return renderSchedule();
   }
   if (state.view === "mod:reports") {
     const m = (state.modules ?? []).find((x) => x.id === "reports");

@@ -419,6 +419,15 @@ test("P-11: example 회귀검증 — 통과해야 active", () => {
   assert.equal(store.activateCalculator(id).error, "examples_failed");
 });
 
+test("U-1a: schedule 라우트가 화면 데이터로 충분", () => {
+  const store = freshStore();
+  loadFixture(store);
+  const today = new Date().toISOString().slice(0, 10);
+  const proj = store.summary(today, today)[0].id;
+  assert.equal(store.applyTemplate(proj, "120_CDR", { anchorDates: { "120": "2026-08-01" } }).created.length, 3);
+  assert.ok(store.scheduleTemplates()[0].deliverables.length >= 3);
+});
+
 test("run16: P2a 할일 쓰기 — 생성/검증/가이드 연결", () => {
   const store = freshStore();
   loadFixture(store);
