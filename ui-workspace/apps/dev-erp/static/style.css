@@ -228,13 +228,19 @@ nav button:hover .pin-btn { opacity: 1; }
 /* 준비 중(모듈 0) 슬롯 — 비활성 dim, 클릭 불가 */
 #nav .nav-items button.soon { opacity: .5; cursor: default; font-style: italic; }
 #nav .nav-items button.soon:hover { background: none; }
-/* 프로젝트 관리 좌측 트리(과제시작년도→과제) */
+/* 프로젝트 관리 좌측: 과제(L3 헤더) → facet(L4 항목) */
 .proj-tree-cap { font-size: 10.5px; color: var(--muted); padding: 2px 4px 6px; letter-spacing: .02em; }
 .nav-loading { font-size: 12px; color: var(--muted); padding: 8px 6px; }
-#nav .nav-items.proj-tree button.proj-nav { font-size: 12.5px; padding: 5px 8px; justify-content: flex-start; gap: 5px; }
-.proj-nav .pn-id { font-weight: 600; color: var(--text); }
-.proj-nav .pn-title { color: var(--muted); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
-.proj-nav.active .pn-title { color: var(--accent); }
+.nav-sub-head.proj-head { gap: 5px; }
+.nav-sub-head.proj-head .pn-id { font-weight: 600; color: var(--text); }
+.nav-sub-head.proj-head .pn-title { color: var(--muted); font-weight: 400; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.nav-sub-head.proj-head.on { color: var(--accent); }
+.nav-sub-head.proj-head.on .pn-id { color: var(--accent); }
+#nav .nav-items.proj-facets button.proj-facet { font-size: 12px; padding: 4px 8px; justify-content: flex-start; }
+#nav .nav-items.proj-facets button.proj-facet.active { background: var(--chip); color: var(--accent); font-weight: 600; }
+.hub-h3 { font-size: 13px; font-weight: 600; margin: 14px 0 6px; }
+.hub-note, .hub-h3:first-child { margin-top: 0; }
+.hub-note { font-size: 12px; color: var(--muted); margin: 0 0 8px; }
 .health-dot { width: 7px; height: 7px; border-radius: 50%; flex: 0 0 auto; background: var(--muted); }
 .health-dot.h-ok { background: #2e9e5b; } .health-dot.h-watch { background: #d99a1c; }
 .health-dot.h-risk { background: #d9462b; } .health-dot.h-stopped { background: #8a8f98; }

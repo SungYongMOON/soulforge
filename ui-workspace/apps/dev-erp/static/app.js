@@ -160,11 +160,8 @@ const navKey = { home: "nav_home", projects: "nav_projects", items: "nav_items",
 // 콕핏(home)은 대분류 밖 좌상단 버튼 표면(ECount MyPage식). 단일 편집점.
 // 프로젝트 관리는 정적 항목이 아니라 동적 트리: 과제시작년도 → 과제번호(과제명) → 허브. sector.tree="projects".
 const NAV_TREE = [
-  { id: "proj", b: "프로젝트 관리", f: "원정 관리", sectors: [
-    { g: "proj_active", b: "진행 과제", f: "진행 원정", tree: "projects", filter: "active" },
-    { g: "proj_archive", b: "완료·보류", f: "봉인·보류", tree: "projects", filter: "archive" },
-    { g: "proj_all", b: "전체", f: "전체", tree: "projects", filter: "all" },
-  ] },
+  // L2 중분류 = 과제시작년도(동적), L3 왼쪽 = 과제명, L4 = 과제 facet. dynamicYears 분기로 렌더.
+  { id: "proj", b: "프로젝트 관리", f: "원정 관리", dynamicYears: true, sectors: [] },
   { id: "work", b: "업무 관리", f: "원정 본부", sectors: [
     { g: "work_mine", b: "내 일", f: "내 일", subs: [
       { b: "오늘 할 일", f: "오늘 할 일", items: ["items"] },
@@ -211,18 +208,40 @@ const SOON_NAV = {
   "soon:ai": { b: "AI 제안·승인", f: "신탁·승인" },   // ai_proposal 착지면 owner 결정 #1 후 활성
   "soon:perm": { b: "권한·설정", f: "길드 율법" },     // RBAC·게이트모드 설정 표면화 후속
 };
+// 과제 facet(L4) — 프로젝트 관리에서 과제(L3) 밑에 펼쳐지는 항목. 클릭 시 과제 허브의 해당 탭 진입.
+const PROJ_FACETS = [
+  { key: "overview", b: "개요", f: "개요" },
+  { key: "contacts", b: "연락처", f: "관계자" },
+  { key: "schedule", b: "일정", f: "운명표" },
+  { key: "gates", b: "단계·게이트", f: "관문" },
+  { key: "items", b: "할 일", f: "할 일" },
+  { key: "requirements", b: "요구사항", f: "요구사항" },
+  { key: "artifacts", b: "산출물", f: "전리품" },
+  { key: "meetings", b: "회의·결정", f: "원탁" },
+  { key: "bom", b: "자재·BOM", f: "병참·설계" },
+  { key: "risk", b: "리스크·이슈", f: "위험" },
+  { key: "history", b: "이력", f: "연대기" },
+];
 const navTL = (o) => (state.mode === "fantasy" ? o.f : o.b); // 모드별 라벨
 function navTopOf(id) { return NAV_TREE.find((t) => t.id === id) ?? NAV_TREE[0]; }
-function navSectorOf(topId, g) { const t = navTopOf(topId); return t.sectors.find((s) => s.g === g) ?? t.sectors[0]; }
-function navFirstView(sec) { if (sec.tree === "projects") return "projects"; for (const sub of sec.subs ?? []) for (const it of sub.items) return it; return "home"; }
+function navSectorOf(topId, g) { const t = navTopOf(topId); const ss = t.sectors ?? []; return ss.find((s) => s.g === g) ?? ss[0]; }
+// 과제시작년도 목록(내림차순, 0=미지정 맨 뒤). 프로젝트 관리 L2 중분류 = 이 년도들.
+function projYears() {
+  const ys = new Set();
+  for (const p of state._projCache ?? []) ys.add(p.start_year ?? 0);
+  return [...ys].sort((a, b) => (b || -1) - (a || -1));
+}
+function projYearLabel(y) { return y ? `${y}${state.lex.proj_year_suffix ?? "년 시작"}` : (state.lex.proj_year_none ?? "시작년도 미지정"); }
+function curProjYear() { const m = String(state.navGroup ?? "").match(/^year:(\d+)$/); return m ? Number(m[1]) : null; }
+function navFirstView(sec) { for (const sub of sec?.subs ?? []) for (const it of sub.items) return it; return "home"; }
 // view → (대분류, 중분류) 위치 검색(팔레트/허브 점프 시 상단 탭 동기화)
 function navLocate(v) {
-  // 프로젝트 허브/목록은 '프로젝트 관리' 대분류로 동기화(현재 sector 가 proj 면 유지, 아니면 진행 과제)
+  // 프로젝트 허브/목록은 '프로젝트 관리' 대분류로 동기화(현재 year 중분류 유지, 없으면 최신 년도)
   if (v === "project" || v === "projects") {
-    const inProj = navTopOf("proj").sectors.some((s) => s.g === state.navGroup);
-    return { top: "proj", g: inProj ? state.navGroup : "proj_active" };
+    const y = curProjYear() ?? projYears()[0] ?? 0;
+    return { top: "proj", g: `year:${y}` };
   }
-  for (const top of NAV_TREE) for (const sec of top.sectors)
+  for (const top of NAV_TREE) for (const sec of top.sectors ?? [])
     for (const sub of sec.subs ?? []) if (sub.items.includes(v)) return { top: top.id, g: sec.g };
   return null;
 }
@@ -271,19 +290,27 @@ function renderTopBar() {
     b.addEventListener("click", () => {
       state.navTop = b.dataset.top;
       localStorage.setItem("dev_erp_navtop", state.navTop);
-      const sec = navTopOf(state.navTop).sectors[0];
-      state.navGroup = sec.g;
+      const top = navTopOf(state.navTop);
+      if (top.dynamicYears) {                        // 프로젝트 관리 → 최신 년도(L2) + 카드 랜딩
+        const y = projYears()[0] ?? 0;
+        state.navGroup = `year:${y}`;
+        state.view = "projects";
+      } else {
+        const sec = top.sectors[0];
+        state.navGroup = sec.g;
+        state.view = navFirstView(sec);
+      }
       localStorage.setItem("dev_erp_navgroup", state.navGroup);
-      state.view = navFirstView(sec);
       render();
     })
   );
 }
 
-// L2 중분류(상단 가로, 작은 글씨). 선택 대분류의 섹터들. 클릭 → 첫 화면 랜딩.
+// L2 중분류(상단 가로). 일반 대분류=정적 섹터, 프로젝트 관리=동적 과제시작년도.
 function renderSubBar() {
   const top = navTopOf(state.navTop);
-  if (!top.sectors.some((s) => s.g === state.navGroup)) state.navGroup = top.sectors[0].g;
+  if (top.dynamicYears) return renderYearSubBar();
+  if (!(top.sectors ?? []).some((s) => s.g === state.navGroup)) state.navGroup = top.sectors[0].g;
   $("#subBar").innerHTML = top.sectors.map((s) =>
     `<button class="sub-tab ${state.navGroup === s.g ? "on" : ""}" data-g="${s.g}">${navTL(s)}</button>`
   ).join("");
@@ -297,6 +324,23 @@ function renderSubBar() {
   );
 }
 
+// 프로젝트 관리 L2 = 과제시작년도 탭(동적). 클릭 → 그 년도 과제 카드(view=projects).
+function renderYearSubBar() {
+  const years = projYears();
+  if (curProjYear() === null || !years.includes(curProjYear())) state.navGroup = `year:${years[0] ?? 0}`;
+  $("#subBar").innerHTML = years.length
+    ? years.map((y) => `<button class="sub-tab ${state.navGroup === `year:${y}` ? "on" : ""}" data-g="year:${y}">${y || (state.lex.proj_year_none ?? "미지정")}</button>`).join("")
+    : `<span class="dim" style="padding:6px 10px;font-size:12px">${state.lex.proj_tree_loading ?? "불러오는 중…"}</span>`;
+  $("#subBar").querySelectorAll(".sub-tab").forEach((b) =>
+    b.addEventListener("click", () => {
+      state.navGroup = b.dataset.g;
+      localStorage.setItem("dev_erp_navgroup", state.navGroup);
+      state.view = "projects";
+      render();
+    })
+  );
+}
+
 function renderNav() {
   // 현재 view → 대분류/중분류 자동 동기화(팔레트/허브 점프 대응)
   const loc = navLocate(state.view);
@@ -305,20 +349,25 @@ function renderNav() {
   renderSubBar();
 
   // 핀(내 메뉴)은 좌측 상단에 중복 표시하지 않음 — 우측 상단 바로가기 바(#favBar)가 담당(ECount식).
-  // 좌측 = 선택 중분류(섹터)의 L3 분류 헤더(접기 가능) + L4 항목 (대분류명 중복 표기 제거)
-  const sec = navSectorOf(state.navTop, state.navGroup);
-  // 프로젝트 관리 = 동적 트리(과제시작년도→과제), 그 외 = 정적 L3 분류/L4 항목
-  const tree = sec.tree === "projects" ? renderProjectTreeHtml(sec) : (sec.subs ?? []).map((sub, i) => {
-    const btns = sub.items.map(navButton).join("");
-    if (!btns.trim()) return ""; // RBAC 로 항목이 전부 숨으면 헤더도 생략
-    const key = `${sec.g}:${i}`;
-    const collapsed = state.navFold.has(key) ? " collapsed" : "";
-    return `<div class="nav-group nav-sub-group${collapsed}" data-fold="${key}">
-      <div class="nav-sub-head"><i class="fold-ico">▾</i><span>${navTL(sub)}</span></div>
-      <div class="nav-items">${btns}</div></div>`;
-  }).join("");
+  // 좌측: 프로젝트 관리 = 과제(L3 헤더)→facet(L4 항목), 그 외 = 정적 L3 분류 + L4 항목
+  const top = navTopOf(state.navTop);
+  let tree;
+  if (top.dynamicYears) {
+    tree = renderProjectYearNav();
+  } else {
+    const sec = navSectorOf(state.navTop, state.navGroup);
+    tree = (sec.subs ?? []).map((sub, i) => {
+      const btns = sub.items.map(navButton).join("");
+      if (!btns.trim()) return ""; // RBAC 로 항목이 전부 숨으면 헤더도 생략
+      const key = `${sec.g}:${i}`;
+      const collapsed = state.navFold.has(key) ? " collapsed" : "";
+      return `<div class="nav-group nav-sub-group${collapsed}" data-fold="${key}">
+        <div class="nav-sub-head"><i class="fold-ico">▾</i><span>${navTL(sub)}</span></div>
+        <div class="nav-items">${btns}</div></div>`;
+    }).join("");
+  }
   $("#nav").innerHTML = tree;
-  // L3/년도 헤더 클릭 → 접기/펼치기(상태 영속)
+  // L3/과제 헤더 클릭 → 접기/펼치기(상태 영속)
   $("#nav").querySelectorAll(".nav-sub-group > .nav-sub-head").forEach((h) =>
     h.addEventListener("click", () => {
       const grp = h.closest(".nav-sub-group"); const k = grp.dataset.fold;
@@ -331,9 +380,9 @@ function renderNav() {
   $("#nav").querySelectorAll("button[data-v]").forEach((b) =>
     b.addEventListener("click", () => { state.view = b.dataset.v; render(); })
   );
-  // 프로젝트 트리 버튼(data-hub) → 과제 허브 열기
+  // 과제 facet 버튼(data-hub + data-facet) → 과제 허브의 해당 탭 진입
   $("#nav").querySelectorAll("button[data-hub]").forEach((b) =>
-    b.addEventListener("click", () => { state.hubProject = b.dataset.hub; state.hubTab = "overview"; state.view = "project"; render(); })
+    b.addEventListener("click", () => { state.hubProject = b.dataset.hub; state.hubTab = b.dataset.facet ?? "overview"; state.view = "project"; render(); })
   );
   $("#nav").querySelectorAll(".pin-btn").forEach((p) =>
     p.addEventListener("click", (e) => { e.stopPropagation(); togglePin(p.dataset.pin); })
@@ -358,70 +407,53 @@ function renderNav() {
   }
 }
 
-// --- 프로젝트 관리: 과제시작년도 계층 트리 + 카드(필터 진행/완료보류/전체) ---
-// 진행=활성, 완료·보류=class archive 또는 health stopped.
-function projFilterMatch(p, filter) {
-  const archived = p.class === "archive" || p.health === "stopped";
-  if (filter === "archive") return archived;
-  if (filter === "active") return !archived;
-  return true; // all
-}
+// --- 프로젝트 관리: L2 년도 선택 → L3 과제(헤더) → L4 facet ---
 const HEALTH_LABEL = { ok: ["진행중", "진행중"], watch: ["주의", "주의"], risk: ["위험", "위험"], stopped: ["보류", "봉인"] };
 function projHealthLabel(h) { const m = HEALTH_LABEL[h] ?? HEALTH_LABEL.ok; return state.mode === "fantasy" ? m[1] : m[0]; }
-// 시작년도별 그룹화(내림차순, null→0=미지정 맨 뒤)
-function projByYear(list) {
-  const m = new Map();
-  for (const p of list) { const y = p.start_year ?? 0; (m.get(y) ?? m.set(y, []).get(y)).push(p); }
-  return [...m.entries()].sort((a, b) => (b[0] || -1) - (a[0] || -1))
-    .map(([y, ps]) => [y, ps.sort((a, b) => String(a.id).localeCompare(String(b.id)))]);
+function projsOfYear(year) {
+  return (state._projCache ?? []).filter((p) => (p.start_year ?? 0) === year)
+    .sort((a, b) => String(a.id).localeCompare(String(b.id)));
 }
-function projTreeButton(p) {
-  const active = state.view === "project" && state.hubProject === p.id ? " active" : "";
-  const title = p.title && p.title !== p.id ? ` <span class="pn-title">${esc(p.title)}</span>` : "";
-  return `<button data-hub="${esc(p.id)}" class="proj-nav${active}" title="${esc(p.title ?? p.id)}">
-    <span class="health-dot h-${p.health ?? "ok"}"></span><span class="pn-id">${esc(p.id)}</span>${title}</button>`;
-}
-// 좌측열 동적 트리 HTML — 과제시작년도(접기) → 과제번호(과제명)
-function renderProjectTreeHtml(sec) {
+// 좌측열: 선택 년도의 과제(L3 접기 헤더) → 그 밑 facet(L4). facet 클릭 → 허브 해당 탭.
+function renderProjectYearNav() {
   if (!state._projCache) return `<div class="nav-loading">${state.lex.proj_tree_loading ?? "불러오는 중…"}</div>`;
-  const list = (state._projCache ?? []).filter((p) => projFilterMatch(p, sec.filter));
-  if (!list.length) return `<div class="nav-loading">${state.lex.proj_tree_empty ?? "해당 없음"}</div>`;
-  const cap = `<div class="proj-tree-cap">${state.lex.proj_year_label ?? "과제시작년도"}</div>`;
-  return cap + projByYear(list).map(([y, ps]) => {
-    const ylabel = y ? `${y}${state.lex.proj_year_suffix ?? "년 시작"}` : (state.lex.proj_year_none ?? "시작년도 미지정");
-    const key = `proj:${sec.filter}:${y}`;
+  const year = curProjYear() ?? projYears()[0] ?? 0;
+  const projs = projsOfYear(year);
+  if (!projs.length) return `<div class="nav-loading">${state.lex.proj_tree_empty ?? "해당 없음"}</div>`;
+  const cap = `<div class="proj-tree-cap">${projYearLabel(year)} · ${state.lex.proj_path_cap ?? "과제 > facet"}</div>`;
+  return cap + projs.map((p) => {
+    const key = `projf:${p.id}`;
+    const onThis = state.view === "project" && state.hubProject === p.id;
     const collapsed = state.navFold.has(key) ? " collapsed" : "";
+    const ptitle = p.title && p.title !== p.id ? ` <span class="pn-title">${esc(p.title)}</span>` : "";
+    const facets = PROJ_FACETS.map((f) => {
+      const on = onThis && (state.hubTab ?? "overview") === f.key ? " active" : "";
+      return `<button data-hub="${esc(p.id)}" data-facet="${f.key}" class="proj-facet${on}">${navTL(f)}</button>`;
+    }).join("");
     return `<div class="nav-group nav-sub-group${collapsed}" data-fold="${key}">
-      <div class="nav-sub-head"><i class="fold-ico">▾</i><span>${ylabel} <em class="phase-tag">${ps.length}</em></span></div>
-      <div class="nav-items proj-tree">${ps.map(projTreeButton).join("")}</div></div>`;
+      <div class="nav-sub-head proj-head${onThis ? " on" : ""}" title="${esc(p.title ?? p.id)}">
+        <i class="fold-ico">▾</i><span class="health-dot h-${p.health ?? "ok"}"></span><span class="pn-id">${esc(p.id)}</span>${ptitle}</div>
+      <div class="nav-items proj-facets">${facets}</div></div>`;
   }).join("");
 }
-// 메인 패널: 프로젝트 관리 랜딩 — 시작년도별 과제 카드(상태/단계/워크로드). 클릭→허브.
+// 메인 패널: 프로젝트 관리 랜딩 — 선택 년도의 과제 카드(상태/단계/워크로드). 클릭→허브 개요.
 async function renderProjectsList() {
   if (!state._projCache) { try { state._projCache = (await api("/api/summary")).projects; } catch { state._projCache = []; } }
-  const sec = navSectorOf(state.navTop, state.navGroup);
-  const filter = sec.tree === "projects" ? sec.filter : "all";
-  const list = (state._projCache ?? []).filter((p) => projFilterMatch(p, filter));
-  const groups = projByYear(list);
-  const body = !list.length
-    ? `<div class="empty">${state.lex.proj_tree_empty ?? "해당 없음"}</div>`
-    : groups.map(([y, ps]) => {
-      const ylabel = y ? `${y}${state.lex.proj_year_suffix ?? "년 시작"}` : (state.lex.proj_year_none ?? "시작년도 미지정");
-      const cards = ps.map((p) => {
-        const wl = [];
-        if (p.overdue) wl.push(`<em class="wl over">${state.lex.proj_wl_overdue ?? "연체"} ${p.overdue}</em>`);
-        if (p.due_today) wl.push(`<em class="wl due">${state.lex.proj_wl_today ?? "오늘"} ${p.due_today}</em>`);
-        if (p.open) wl.push(`<em class="wl open">${state.lex.proj_wl_open ?? "열림"} ${p.open}</em>`);
-        const ptitle = p.title && p.title !== p.id ? esc(p.title) : "";
-        return `<div class="proj-card" data-hub="${esc(p.id)}">
-          <div class="pc-head"><span class="pc-id">${esc(p.id)}</span><span class="status-chip s-${p.health ?? "ok"}">${projHealthLabel(p.health)}</span></div>
-          ${ptitle ? `<div class="pc-title">${ptitle}</div>` : `<div class="pc-title dim-title">—</div>`}
-          <div class="pc-meta">${state.lex.proj_start ?? "시작"} ${p.start_year ?? "—"} · ${state.lex.proj_stage ?? "현재"} ${esc(p.stage_current ?? "—")}</div>
-          <div class="pc-wl">${wl.join("") || `<em class="wl none">${state.lex.proj_wl_none ?? "열린 일 없음"}</em>`}</div></div>`;
-      }).join("");
-      return `<section class="proj-year-block"><h2 class="proj-year-h">${ylabel} <span class="dim">${ps.length}</span></h2><div class="proj-cards">${cards}</div></section>`;
-    }).join("");
-  $("#view").innerHTML = `<div class="proj-list-head">${state.lex.proj_year_label ?? "과제시작년도"} ${state.lex.proj_path_hint ?? "> 과제번호(과제명) — 클릭하면 과제 허브"}</div>${body}`;
+  const year = curProjYear() ?? projYears()[0] ?? 0;
+  const list = projsOfYear(year);
+  const cards = list.map((p) => {
+    const wl = [];
+    if (p.overdue) wl.push(`<em class="wl over">${state.lex.proj_wl_overdue ?? "연체"} ${p.overdue}</em>`);
+    if (p.due_today) wl.push(`<em class="wl due">${state.lex.proj_wl_today ?? "오늘"} ${p.due_today}</em>`);
+    if (p.open) wl.push(`<em class="wl open">${state.lex.proj_wl_open ?? "열림"} ${p.open}</em>`);
+    const ptitle = p.title && p.title !== p.id ? esc(p.title) : "";
+    return `<div class="proj-card" data-hub="${esc(p.id)}">
+      <div class="pc-head"><span class="pc-id">${esc(p.id)}</span><span class="status-chip s-${p.health ?? "ok"}">${projHealthLabel(p.health)}</span></div>
+      ${ptitle ? `<div class="pc-title">${ptitle}</div>` : `<div class="pc-title dim-title">—</div>`}
+      <div class="pc-meta">${state.lex.proj_start ?? "시작"} ${p.start_year ?? "—"} · ${state.lex.proj_stage ?? "현재"} ${esc(p.stage_current ?? "—")}</div>
+      <div class="pc-wl">${wl.join("") || `<em class="wl none">${state.lex.proj_wl_none ?? "열린 일 없음"}</em>`}</div></div>`;
+  }).join("");
+  $("#view").innerHTML = `<div class="proj-list-head">${state.lex.nav_projects ?? "프로젝트 관리"} › <strong>${projYearLabel(year)}</strong> · ${state.lex.proj_path_hint ?? "과제 클릭 → facet 열림"}</div>${list.length ? `<div class="proj-cards">${cards}</div>` : `<div class="empty">${state.lex.proj_tree_empty ?? "해당 없음"}</div>`}`;
   $("#view").querySelectorAll(".proj-card").forEach((c) =>
     c.addEventListener("click", () => { state.hubProject = c.dataset.hub; state.hubTab = "overview"; state.view = "project"; render(); }));
 }
@@ -1943,13 +1975,14 @@ async function renderProjectHub() {
   state._projCache = summary.projects;
   const p = summary.projects.find((x) => x.id === pid);
   if (!p) { state.view = "home"; return render(); }
-  const tab = state.hubTab ?? "overview";
-  const tabs = ["overview", "guide", "schedule", "mail", "history"];
+  let tab = state.hubTab ?? "overview";
+  if (!PROJ_FACETS.some((f) => f.key === tab)) tab = "overview"; // 구 탭키(guide/mail) 호환
+  const yr = p.start_year ? ` · ${p.start_year}${L.proj_year_suffix ?? "년 시작"}` : "";
   $("#view").innerHTML = `
     <div class="hub-tabs">
       <button id="hubBack" class="fav-chip">${L.back_home}</button>
-      ${tabs.map((t) => `<button class="hub-tab ${tab === t ? "on" : ""}" data-tab="${t}">${L[`tab_${t}`]}</button>`).join("")}
-      <span class="badge">${L[`class_${p.class}`] ?? esc(p.class)}</span>
+      ${PROJ_FACETS.map((f) => `<button class="hub-tab ${tab === f.key ? "on" : ""}" data-tab="${f.key}">${navTL(f)}</button>`).join("")}
+      <span class="badge">${L[`class_${p.class}`] ?? esc(p.class)}</span><span class="badge dim">${esc(p.id)}${yr}</span>
     </div>
     <div id="hubBody"></div>`;
   $("#hubBack").addEventListener("click", () => { state.view = "home"; render(); });
@@ -1957,11 +1990,79 @@ async function renderProjectHub() {
     b.addEventListener("click", () => { state.hubTab = b.dataset.tab; render(); })
   );
   const mount = $("#hubBody");
-  if (tab === "guide") return hubGuide(mount, p);
+  if (tab === "contacts") return hubContacts(mount, p);
   if (tab === "schedule") return hubSchedule(mount, p);
-  if (tab === "mail") return hubMail(mount, p);
+  if (tab === "gates") return hubGates(mount, p);
+  if (tab === "items") return hubItems(mount, p);
+  if (tab === "requirements") return hubRequirements(mount, p);
+  if (tab === "artifacts") return hubGuide(mount, p);
+  if (tab === "meetings") return hubMeetings(mount, p);
+  if (tab === "bom") return hubBom(mount, p);
+  if (tab === "risk") return hubRisk(mount, p);
   if (tab === "history") return hubHistory(mount, p);
   return hubOverview(mount, p);
+}
+
+// --- 과제 facet 렌더러(프로젝트 필터 실 API). 컴팩트 테이블 — 편집은 전역 모듈에서. ---
+async function hubItems(mount, p) {
+  const L = state.lex, todayKey = new Date().toISOString().slice(0, 10);
+  const items = await api(`/api/items?project=${encodeURIComponent(p.id)}`);
+  mount.innerHTML = items.length
+    ? `<table><thead><tr><th>${L.col_title ?? "할 일"}</th><th>${L.col_status ?? "상태"}</th><th>${L.col_due ?? "마감"}</th><th>${L.col_assignee ?? "담당"}</th></tr></thead><tbody>${items.map((i) => `<tr>
+        <td>${esc(i.title)}</td><td>${statusBadge(i.status)}</td>${dueCell(i.due, todayKey)}<td class="dim">${esc(i.assignee_ref ?? "-")}</td></tr>`).join("")}</tbody></table>`
+    : `<div class="empty">${L.empty_items ?? "할 일 없음"}</div>`;
+}
+async function hubContacts(mount, p) {
+  const L = state.lex;
+  const cs = await api(`/api/contacts?project=${encodeURIComponent(p.id)}`);
+  mount.innerHTML = cs.length
+    ? `<table><thead><tr><th>${L.ct_name ?? "이름"}</th><th>${L.ct_org ?? "소속"}</th><th>${L.ct_role ?? "역할"}</th><th>${L.ct_email ?? "메일"}</th></tr></thead><tbody>${cs.map((c) => `<tr>
+        <td>${esc(c.name)}</td><td class="dim">${esc(c.org ?? c.party_name ?? "-")}</td><td class="dim">${esc(c.role ?? "-")}</td><td class="dim">${esc(c.email ?? "-")}</td></tr>`).join("")}</tbody></table>`
+    : `<div class="empty">${L.hub_no_contacts ?? "연결된 연락처 없음"}</div>`;
+}
+async function hubGates(mount, p) {
+  const L = state.lex;
+  const r = await api(`/api/gates?project=${encodeURIComponent(p.id)}`);
+  const stages = r.stages ?? [];
+  mount.innerHTML = stages.length
+    ? `<table><thead><tr><th>${L.col_stage ?? "단계"}</th><th>${L.col_status ?? "상태"}</th><th>${L.gate_reason ?? "사유"}</th></tr></thead><tbody>${stages.map((s) => `<tr>
+        <td>${esc(s.stage_code ?? s.title)}</td><td>${s.status === "cleared" ? `<span class="badge green">✓</span>` : (s.blocked ? `<span class="status-chip s-risk">${L.gate_blocked ?? "차단"}</span>` : statusBadge(s.status))}</td>
+        <td class="dim">${esc((s.reasons ?? []).join(", ") || "-")}</td></tr>`).join("")}</tbody></table>`
+    : `<div class="empty">${L.hub_no_gates ?? "단계 없음"}</div>`;
+}
+async function hubMeetings(mount, p) {
+  const L = state.lex;
+  const ms = await api(`/api/meetings?project=${encodeURIComponent(p.id)}`);
+  mount.innerHTML = ms.length
+    ? `<table><thead><tr><th>${L.col_title ?? "회의"}</th><th>${L.col_date ?? "일자"}</th><th>${L.mt_actions ?? "액션"}</th></tr></thead><tbody>${ms.map((m) => `<tr>
+        <td>${esc(m.title)}</td><td class="dim">${esc(m.date ?? m.created_at ?? "-")}</td><td class="dim num">${m.action_count ?? 0}</td></tr>`).join("")}</tbody></table>`
+    : `<div class="empty">${L.hub_no_meetings ?? "회의 없음"}</div>`;
+}
+async function hubBom(mount, p) {
+  const L = state.lex;
+  const [parts, pos] = await Promise.all([
+    api(`/api/parts?project=${encodeURIComponent(p.id)}`),
+    api(`/api/purchases?project=${encodeURIComponent(p.id)}`)
+  ]);
+  const partRows = parts.length ? `<h3 class="hub-h3">${L.bom_parts ?? "부품·BOM"}</h3><table><thead><tr><th>${L.col_part ?? "부품"}</th><th>${L.col_type ?? "유형"}</th><th>${L.col_onhand ?? "재고"}</th></tr></thead><tbody>${parts.map((x) => `<tr><td>${esc(x.name ?? x.id)}</td><td class="dim">${esc(x.type ?? "-")}</td><td class="dim num">${x.on_hand ?? "-"}</td></tr>`).join("")}</tbody></table>` : "";
+  const poRows = pos.length ? `<h3 class="hub-h3">${L.bom_purchase ?? "구매·발주"}</h3><table><thead><tr><th>${L.col_item ?? "품목"}</th><th>${L.col_stage ?? "단계"}</th><th>${L.col_due ?? "납기"}</th></tr></thead><tbody>${pos.map((x) => `<tr><td>${esc(x.title)}</td><td class="dim">${esc(x.stage ?? "-")}</td><td class="dim">${esc(x.due ?? "-")}</td></tr>`).join("")}</tbody></table>` : "";
+  mount.innerHTML = (partRows + poRows) || `<div class="empty">${L.hub_no_bom ?? "자재·BOM 없음"}</div>`;
+}
+async function hubRisk(mount, p) {
+  const L = state.lex;
+  const risks = await api(`/api/risk?project=${encodeURIComponent(p.id)}`);
+  mount.innerHTML = risks.length
+    ? `<table><thead><tr><th>${L.col_title ?? "항목"}</th><th>${L.risk_score ?? "위험도"}</th><th>${L.col_due ?? "마감"}</th></tr></thead><tbody>${risks.map((r) => `<tr>
+        <td>${esc(r.title)}</td><td><span class="status-chip s-${r.score >= 70 ? "risk" : r.score >= 40 ? "watch" : "ok"}">${Math.round(r.score ?? 0)}</span></td><td class="dim">${esc(r.due ?? "-")}</td></tr>`).join("")}</tbody></table>`
+    : `<div class="empty">${L.hub_no_risk ?? "위험 항목 없음"}</div>`;
+}
+async function hubRequirements(mount, p) {
+  const L = state.lex;
+  const f = await api(`/api/inputs/fulfillment?project=${encodeURIComponent(p.id)}`);
+  mount.innerHTML = (f ?? []).length
+    ? `<p class="hub-note">${L.req_note ?? "산출물별 필수 입력(요구사항) 충족 현황."}</p><table><thead><tr><th>${L.req_scope ?? "산출물"}</th><th>${L.req_need ?? "필요"}</th><th>${L.req_have ?? "충족"}</th><th></th></tr></thead><tbody>${f.map((d) => `<tr>
+        <td>${esc(d.scope_key)}</td><td class="dim num">${d.required ?? d.need ?? "-"}</td><td class="dim num">${d.have ?? d.fulfilled_count ?? "-"}</td><td>${d.fulfilled ? `<span class="badge green">✓</span>` : `<span class="status-chip s-watch">${L.req_partial ?? "미충족"}</span>`}</td></tr>`).join("")}</tbody></table>`
+    : `<div class="empty">${L.hub_no_req ?? "요구사항(입력 규칙) 없음"}</div>`;
 }
 
 async function hubOverview(mount, p) {
