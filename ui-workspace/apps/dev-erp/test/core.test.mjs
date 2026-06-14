@@ -1081,3 +1081,14 @@ test("P-18: embed_view DDL·upsert 멱등", () => {
   assert.equal(r1.ok, true); assert.equal(r2.ok, true);
   assert.equal(a.listEmbeds({}).length, 1, "같은 id=1행(ON CONFLICT)");
 });
+
+// P-8: items 가 due 를 노출하고, 템플릿 적용이 마감 있는 할일을 늘린다(마감 버킷 소스).
+test("P-8: items due 노출 + 템플릿 적용으로 마감 항목 증가", () => {
+  const store = freshStore();
+  loadFixture(store);
+  assert.ok(store.items({}).some((i) => "due" in i), "items 가 due 필드 노출");
+  const before = store.items({}).filter((i) => i.due).length;
+  store.applyTemplate("PRJ-A", "120_CDR", { anchorDates: { "120": "2026-08-01" } });
+  const after = store.items({}).filter((i) => i.due).length;
+  assert.ok(after > before, "템플릿 적용 후 마감 항목 증가");
+});

@@ -284,7 +284,7 @@ const WIDGET_PLAN = [
   { id: "today", cat: "group_task", ready: true },
   { id: "blocked", cat: "group_task", ready: true },
   { id: "mine", cat: "group_task" },
-  { id: "deadline_cal", cat: "group_task" },
+  { id: "deadline_cal", cat: "group_task", ready: true },
   { id: "artifacts", cat: "group_doc", ready: true },
   { id: "reports_w", cat: "group_doc" },
   { id: "meetings_w", cat: "group_doc", ready: true },
@@ -906,6 +906,21 @@ async function renderHome() {
         ? `<table><tbody>${ns.map((n) => `<tr class="nudge-row${n.reason === "overdue" || n.reason === "blocked" ? " flash" : ""}">
             <td><span class="badge ${rcls[n.reason]}">${rlabel[n.reason] ?? esc(n.reason)}</span></td>
             <td>${esc(n.title)}</td><td class="dim">${esc(n.project_id)}</td><td class="dim num">${esc(n.due ?? "-")}</td></tr>`).join("")}</tbody></table>`
+        : `<div class="empty">${L.empty_items}</div>` };
+    }
+    if (id === "deadline_cal") {
+      // P-8 일정 카드 — 마감 있는 미완 할일만 3버킷(연체/이번주/이후). 휴가·due 없는 일정 제외.
+      const items = await api("/api/items");
+      const t = new Date().toISOString().slice(0, 10);
+      const wk = new Date(Date.now() + 6 * 86400000).toISOString().slice(0, 10);
+      const over = items.filter((i) => i.due && i.due < t && i.status !== "done");
+      const soon = items.filter((i) => i.due && i.due >= t && i.due <= wk && i.status !== "done");
+      const later = items.filter((i) => i.due && i.due > wk && i.status !== "done");
+      const sect = (lab, arr, cls) => arr.length
+        ? `<tr class="date-sep"><td colspan="3" class="${cls}">${lab} ${arr.length}</td></tr>` + arr.slice(0, 5).map((i) => miniRow([esc(i.title), esc(i.project_id), i.due])).join("")
+        : "";
+      return { title: L.tile_deadline_cal, html: (over.length || soon.length || later.length)
+        ? `<table><tbody>${sect(L.bucket_overdue, over, "due-over")}${sect(L.bucket_thisweek, soon, "")}${sect(L.bucket_later, later, "")}</tbody></table>`
         : `<div class="empty">${L.empty_items}</div>` };
     }
     if (id === "teamload") {
