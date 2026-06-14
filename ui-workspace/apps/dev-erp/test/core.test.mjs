@@ -1026,3 +1026,16 @@ test("calendar: .ics 피드 VEVENT 구조 + person 필터", () => {
   assert.ok(all.length >= 1, "전체 피드 ≥1");
   assert.ok(all.every((x) => x.due), "마감 없는 항목 미포함");
 });
+
+// U-1d: gateEval required_artifacts_missing 가 보드별 detail 을 동봉(렌더가 폴침으로 표시).
+test("U-1d: gateEval reason 에 보드별 detail 동봉", () => {
+  const store = freshStore();
+  loadFixture(store);
+  const stage = store.gates({ project: "PRJ-A" }).find((s) => s.stage_code === "상세설계");
+  assert.ok(stage, "상세설계 단계 존재");
+  const r = stage.reasons.find((x) => x.code === "required_artifacts_missing");
+  assert.ok(r, "required_artifacts_missing reason 존재");
+  assert.equal(r.n, 6, "누락 6종");
+  assert.ok(Array.isArray(r.detail) && r.detail[0].missing.length > 0, "보드별 detail 동봉");
+  assert.ok(r.detail[0].board && Array.isArray(r.detail[0].missing), "detail 구조 board/missing");
+});

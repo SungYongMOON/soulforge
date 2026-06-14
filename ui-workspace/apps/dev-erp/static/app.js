@@ -1776,7 +1776,18 @@ async function renderGates() {
     <button class="fav-chip ${data.mode === "hard" ? "active" : ""}" data-mode="hard">${L.gate_hard}</button>
     <button class="fav-chip ${data.mode === "soft" ? "active" : ""}" data-mode="soft">${L.gate_soft}</button>
   </div>`;
-  const reason = (r) => `${L[`gate_reason_${r.code}`] ?? r.code} ${r.n}`;
+  // U-1d: required_artifacts_missing 는 빨강 badge 로 강조, 그 외 reason 은 회색 텍스트.
+  const reasonChip = (r) => r.code === "required_artifacts_missing"
+    ? `<span class="badge red">${L.gate_reason_required_artifacts_missing} ${r.n}</span>`
+    : `<span class="dim">${L[`gate_reason_${r.code}`] ?? r.code} ${r.n}</span>`;
+  // 보드별 누락 기술자료 폴침(details). at_* 라벨 있으면 재사용, 없으면 타입코드 폴백.
+  const missingDetails = (reasons) => {
+    const r = reasons.find((x) => x.code === "required_artifacts_missing" && Array.isArray(x.detail) && x.detail.length);
+    if (!r) return "";
+    return `<details class="gate-missing"><summary>${L.gate_missing_summary} (${r.n})</summary>`
+      + r.detail.map((d) => `${esc(d.board)}: ${d.missing.map((t) => state.lex[`at_${t}`] ?? t).join(", ")}`).join("<br>")
+      + `</details>`;
+  };
   const sec = Object.entries(byProj).map(([pid, ss]) => `<section class="gate-proj"><h3>${esc(pid)}</h3>
     <table><thead><tr><th>${L.stage}</th><th>${L.th_status}</th><th>${L.col_remaining}</th><th>${L.blocked}</th><th>${L.tab_guide}</th><th></th></tr></thead><tbody>
     ${ss.map((s) => `<tr>
@@ -1785,7 +1796,7 @@ async function renderGates() {
       <td class="num">${s.open_items}</td>
       <td class="num">${s.blocked_items || '<span class="dim">0</span>'}</td>
       <td>${s.artifacts ? `${s.steps_done}/${s.steps_total}` : '<span class="dim">-</span>'}</td>
-      <td>${s.status === "cleared" ? "" : `<button class="fav-chip gate-pass-btn" data-stage="${esc(s.id)}" data-passable="${s.passable}">${L.gate_pass}</button>${s.reasons.length ? `<div class="dim gate-reasons">${s.reasons.map(reason).join(", ")}</div>` : ""}`}</td>
+      <td>${s.status === "cleared" ? "" : `<button class="fav-chip gate-pass-btn" data-stage="${esc(s.id)}" data-passable="${s.passable}">${L.gate_pass}</button>${s.reasons.length ? `<div class="gate-reasons">${s.reasons.map(reasonChip).join(" ")}</div>${missingDetails(s.reasons)}` : ""}`}</td>
     </tr>`).join("")}
     </tbody></table></section>`).join("");
   $("#view").innerHTML = `<div class="gate-head"><button id="openSched" class="fav-chip">${L.sched_open}</button></div>${modeBtns}${stages.length ? sec : `<div class="empty">${L.empty_gates}</div>`}`;
