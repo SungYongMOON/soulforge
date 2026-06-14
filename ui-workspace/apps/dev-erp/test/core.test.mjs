@@ -295,6 +295,34 @@ test("SE-DATA: se_process_seed.json 있으면 소비(Codex 변형 필드명·중
   }
 });
 
+test("P-10: 지식 등재 + _tokenize 재사용 검색", () => {
+  const store = freshStore();
+  store.upsertKnowledge({ title: "케이블 라벨 규칙", summary: "라벨은 양끝에", topic: "wiring", keywords: "케이블,라벨", source_ref: ".registry/knowledge/source_criticism" });
+  const hits = store.retrieveKnowledge("케이블 라벨");
+  assert.ok(hits.length >= 1);
+  assert.ok(hits[0].knowledge.title.includes("케이블"));
+  assert.equal(store.knowledge({ topic: "wiring" }).length, 1);
+  assert.equal(store.upsertKnowledge({ title: "  " }).error, "title_required");
+});
+
+test("P-10: catalogSearch FAQ+지식 통합(type)", () => {
+  const store = freshStore();
+  store.upsertFaq({ question: "재고 부족 처리", answer: "발주 요청", keywords: "재고,부족" });
+  store.upsertKnowledge({ title: "재고 안전기준", summary: "min_qty 기준", keywords: "재고,안전" });
+  const r = store.catalogSearch("재고");
+  assert.ok(r.some((x) => x.type === "faq"));
+  assert.ok(r.some((x) => x.type === "knowledge"));
+});
+
+test("P-10: knowledge 엔터티 첨부 포인터(원문 미저장)", () => {
+  const store = freshStore();
+  const id = store.upsertKnowledge({ title: "규격서" }).id;
+  const a = store.addAttachment({ entity_type: "knowledge", entity_id: id, name: "spec.pdf", pointer: "/proto/spec.pdf" });
+  assert.ok(a.ok);
+  assert.equal(store.attachments({ entity_type: "knowledge", entity_id: id }).length, 1);
+  assert.equal(store.addAttachment({ entity_type: "badtype", entity_id: "x", name: "n", pointer: "p" }).error, "bad_entity_type");
+});
+
 test("run16: P2a 할일 쓰기 — 생성/검증/가이드 연결", () => {
   const store = freshStore();
   loadFixture(store);

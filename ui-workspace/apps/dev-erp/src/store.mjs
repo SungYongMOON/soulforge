@@ -327,6 +327,18 @@ CREATE TABLE IF NOT EXISTS core_faq (
   keywords TEXT,                         -- 매칭 키워드(쉼표)
   data_label TEXT NOT NULL DEFAULT 'synthetic'
 );
+-- P-10 지식 카탈로그: 출처기반 지식 카드(FAQ 와 별 축). 원문 미저장(pointer+source_ref 문자열만).
+CREATE TABLE IF NOT EXISTS core_knowledge (
+  id TEXT PRIMARY KEY,
+  title TEXT NOT NULL,
+  summary TEXT,                          -- 요약(원문 아님)
+  topic TEXT,
+  source_ref TEXT,                       -- .registry/knowledge/<id> 등 정본 ref(미파싱)
+  claim_ceiling TEXT DEFAULT 'source_supported',
+  keywords TEXT,
+  pointer TEXT,                          -- 외부 원문 위치(원문 미저장)
+  data_label TEXT NOT NULL DEFAULT 'real'
+);
 -- 챗 질문 로그(소프트웨어적 저장) — 야간 매뉴얼 갱신 입력. 미응답(matched_faq_id NULL)=갱신 큐.
 CREATE TABLE IF NOT EXISTS chat_query_log (
   id INTEGER PRIMARY KEY AUTOINCREMENT,
@@ -1053,6 +1065,47 @@ export class Store {
     const top = this.retrieveFaqMany(question, 1);
     return top.length ? top[0] : null;
   }
+  // P-10 지식 카탈로그 — 등재/조회/검색(검색은 _tokenize 재사용·추론 0·외부전송 0).
+  upsertKnowledge({ id, title, summary = null, topic = null, source_ref = null, claim_ceiling = "source_supported", keywords = null, pointer = null, data_label = "real" }) {
+    const t = String(title ?? "").trim();
+    if (!t) return { error: "title_required" };
+    const kid = id || `kn_${randomBytes(4).toString("hex")}`;
+    this.db.prepare(
+      `INSERT INTO core_knowledge(id,title,summary,topic,source_ref,claim_ceiling,keywords,pointer,data_label)
+       VALUES(?,?,?,?,?,?,?,?,?)
+       ON CONFLICT(id) DO UPDATE SET title=excluded.title, summary=excluded.summary, topic=excluded.topic,
+         source_ref=excluded.source_ref, claim_ceiling=excluded.claim_ceiling, keywords=excluded.keywords, pointer=excluded.pointer`
+    ).run(kid, t, summary, topic, source_ref, claim_ceiling, keywords, pointer, data_label);
+    return { ok: true, id: kid };
+  }
+  knowledge({ topic = null, q = null } = {}) {
+    const cond = [], args = [];
+    if (topic) { cond.push("topic=?"); args.push(topic); }
+    if (q) { cond.push("(title LIKE ? OR summary LIKE ? OR keywords LIKE ?)"); const like = `%${q}%`; args.push(like, like, like); }
+    const where = cond.length ? `WHERE ${cond.join(" AND ")}` : "";
+    return this.db.prepare(`SELECT * FROM core_knowledge ${where} ORDER BY title LIMIT 300`).all(...args);
+  }
+  retrieveKnowledge(question, n = 5) {
+    const toks = this._tokenize(question);
+    if (!toks.length) return [];
+    const scored = [];
+    for (const k of this.knowledge()) {
+      const hay = this._tokenize(`${k.title} ${k.summary ?? ""} ${k.keywords ?? ""} ${k.topic ?? ""}`);
+      let raw = 0;
+      for (const t of toks) {
+        if (hay.includes(t)) { raw += 1; continue; }
+        if (hay.some((h) => h.includes(t) || t.includes(h))) raw += 0.6;
+      }
+      if (raw > 0) scored.push({ knowledge: k, score: raw, norm: raw / toks.length });
+    }
+    scored.sort((a, b) => b.score - a.score);
+    return scored.slice(0, n);
+  }
+  catalogSearch(question, n = 5) {
+    const faq = this.retrieveFaqMany(question, n).map((r) => ({ type: "faq", score: r.score, norm: r.norm, item: r.faq }));
+    const kn = this.retrieveKnowledge(question, n).map((r) => ({ type: "knowledge", score: r.score, norm: r.norm, item: r.knowledge }));
+    return [...faq, ...kn].sort((a, b) => b.score - a.score).slice(0, n);
+  }
   logChatQuery({ thread_id = null, question, matched_faq_id = null }) {
     this.db.prepare("INSERT INTO chat_query_log(at,thread_id,question,matched_faq_id,data_label) VALUES(?,?,?,?,?)")
       .run(new Date().toISOString(), thread_id, String(question ?? ""), matched_faq_id, "real");
@@ -1245,7 +1298,7 @@ export class Store {
   addAttachment({ id, entity_type, entity_id, name, pointer, kind = null, artifact_type = null, created_by = "owner", data_label = "real" }) {
     const t = String(name ?? "").trim(), ptr = String(pointer ?? "").trim();
     if (!t || !ptr) return { error: "name_pointer_required" };
-    if (!["item", "project", "purchase", "meeting", "part"].includes(entity_type)) return { error: "bad_entity_type" };
+    if (!["item", "project", "purchase", "meeting", "part", "knowledge"].includes(entity_type)) return { error: "bad_entity_type" };
     const sug = this.suggestPlacement(t);
     const aid = id || `att_${randomBytes(5).toString("hex")}`;
     this.db.prepare(

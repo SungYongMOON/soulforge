@@ -164,6 +164,17 @@ const server = createServer(async (req, res) => {
       const r = store.upsertFaq({ ...JSON.parse(body || "{}"), data_label: "real" });
       return send(res, r.error ? 400 : 200, r);
     }
+    // P-10 지식 카탈로그 (검색·등재·통합검색 — 추론 0·외부전송 0)
+    if (path === "/api/knowledge" && req.method === "GET") return send(res, 200, store.knowledge({ topic: qp.topic, q: qp.q }));
+    if (path === "/api/knowledge" && req.method === "POST") {
+      let body = ""; for await (const chunk of req) body += chunk;
+      const b = JSON.parse(body || "{}");
+      const r = store.upsertKnowledge({ ...b, data_label: "real" });
+      if (r.error) return send(res, 400, r);
+      store.appendEvent({ actor_ref: "owner", actor_kind: "human", kind: "knowledge_upsert", item_ref: r.id, to: b.title, used_refs: b.source_ref ? [b.source_ref] : [], data_label: "real" });
+      return send(res, 200, r);
+    }
+    if (path === "/api/knowledge/search") return send(res, 200, store.catalogSearch(qp.q ?? ""));
     if (path === "/api/chat/unanswered") return send(res, 200, store.unansweredQueries(qp.limit ? Number(qp.limit) : 50));
     if (path === "/api/gates") return send(res, 200, { mode: store.gateMode(), stages: store.gates({ project: qp.project }) });
     if (path === "/api/gates/clear" && req.method === "POST") {
