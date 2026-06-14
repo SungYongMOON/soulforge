@@ -228,6 +228,34 @@ test("P-1: 완결성 게이트 — 보드 필수 6종 미충족 시 단계 reaso
   assert.equal(store.addAttachment({ entity_type: "nope", entity_id: "x", name: "x", pointer: "/x" }).error, "bad_entity_type");
 });
 
+test("P-2: SE 스케줄러 — 템플릿 적용 자동 spawn + 마일스톤 날짜 전파(멱등·보호)", () => {
+  const store = freshStore();
+  loadFixture(store);
+  const proj = store.summary("2026-06-12", "2026-06-18")[0].id;
+  const byTitle = (t) => store.db.prepare("SELECT * FROM core_item WHERE project_id=? AND title=?").get(proj, t);
+  // 템플릿 적용 → 산출물 할일 자동 생성(메일 없이 일이 생김), due = 마일스톤 ± offset
+  const r = store.applyTemplate(proj, "120_CDR", { anchorDates: { "120": "2026-08-01" } });
+  assert.equal(r.ok, true);
+  assert.equal(r.created.length, 3, "산출물 3건 자동 spawn");
+  assert.equal(byTitle("회로도 초안").due, "2026-07-25", "-7일");
+  assert.equal(byTitle("CDR 패키지").due, "2026-08-01", "마일스톤 당일");
+  assert.equal(byTitle("시험계획서").due, "2026-08-15", "+14일");
+  // 멱등: 재적용은 0건
+  assert.equal(store.applyTemplate(proj, "120_CDR", { anchorDates: { "120": "2026-08-01" } }).created.length, 0);
+  // 사람이 손댄 마감 보호 + 완료 보호
+  store.db.prepare("UPDATE core_item SET due='2026-12-31', due_overridden=1 WHERE id=?").run(byTitle("시험계획서").id);
+  store.setItemStatus(byTitle("회로도 초안").id, "done");
+  // 마일스톤 이동 → 전파(보호 항목 제외)
+  const m = store.setAnchor(proj, "120", "2026-09-01");
+  assert.equal(byTitle("CDR 패키지").due, "2026-09-01", "전파됨");
+  assert.equal(byTitle("회로도 초안").due, "2026-07-25", "완료 항목 마감 유지");
+  assert.equal(byTitle("시험계획서").due, "2026-12-31", "사람이 손댄 마감 보호");
+  assert.equal(m.shifted, 1, "보호 2건 제외, 1건만 이동");
+  // 입력 검증
+  assert.equal(store.applyTemplate(proj, "no-such").error, "template_not_found");
+  assert.equal(store.setAnchor(proj, "120", "bad").error, "date_format");
+});
+
 test("run16: P2a 할일 쓰기 — 생성/검증/가이드 연결", () => {
   const store = freshStore();
   loadFixture(store);

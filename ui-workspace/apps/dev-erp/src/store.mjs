@@ -294,6 +294,26 @@ CREATE TABLE IF NOT EXISTS artifact_requirement ( -- P-1 완결성 게이트: �
   seq INTEGER NOT NULL DEFAULT 0,
   UNIQUE(scope_kind, scope_key, artifact_type)
 );
+CREATE TABLE IF NOT EXISTS se_stage_template ( -- P-2 SE 스케줄러: 단계 규칙 템플릿 헤더
+  key TEXT PRIMARY KEY,
+  name TEXT NOT NULL
+);
+CREATE TABLE IF NOT EXISTS se_stage_template_stage ( -- 템플릿의 단계(마일스톤 표시)
+  template_key TEXT NOT NULL REFERENCES se_stage_template(key),
+  stage_code TEXT NOT NULL,
+  seq INTEGER NOT NULL DEFAULT 0,
+  is_milestone INTEGER NOT NULL DEFAULT 0,
+  PRIMARY KEY (template_key, stage_code)
+);
+CREATE TABLE IF NOT EXISTS se_deliverable_template ( -- 단계별 산출물 + 마일스톤 기준 상대 오프셋
+  id INTEGER PRIMARY KEY AUTOINCREMENT,
+  template_key TEXT NOT NULL REFERENCES se_stage_template(key),
+  anchor_stage_code TEXT NOT NULL,
+  offset_days INTEGER NOT NULL DEFAULT 0,
+  deliverable_name TEXT NOT NULL,
+  default_artifact_type TEXT,
+  UNIQUE(template_key, anchor_stage_code, deliverable_name)
+);
 -- 챗봇 매뉴얼/FAQ (로컬 작은 모델의 '검색·읽기'용; 추론 아님). 야간 고급 LLM(tool_pc)이 질문로그로 갱신.
 CREATE TABLE IF NOT EXISTS core_faq (
   id TEXT PRIMARY KEY,
@@ -323,6 +343,14 @@ CREATE INDEX IF NOT EXISTS idx_mail_at ON core_mail(at);
 CREATE INDEX IF NOT EXISTS idx_event_at ON event_log(at);
 `;
 
+// P-2: ISO 날짜(YYYY-MM-DD)에 일수 가감 — 마일스톤 상대일정 계산(UTC 고정).
+function addDaysIso(isoDate, days) {
+  const d = new Date(`${String(isoDate).slice(0, 10)}T00:00:00Z`);
+  if (Number.isNaN(d.getTime())) return null;
+  d.setUTCDate(d.getUTCDate() + Number(days || 0));
+  return d.toISOString().slice(0, 10);
+}
+
 export function openStore(path = ":memory:") {
   const db = new DatabaseSync(path);
   db.exec("PRAGMA journal_mode=WAL;");
@@ -336,12 +364,23 @@ export function openStore(path = ":memory:") {
     "ALTER TABLE core_item ADD COLUMN created_by TEXT",
     "ALTER TABLE event_log ADD COLUMN project_ref TEXT",
     "ALTER TABLE core_stage ADD COLUMN stage_code TEXT",
-    "ALTER TABLE core_attachment ADD COLUMN artifact_type TEXT"
+    "ALTER TABLE core_attachment ADD COLUMN artifact_type TEXT",
+    "ALTER TABLE core_item ADD COLUMN anchor_date TEXT",
+    "ALTER TABLE core_item ADD COLUMN anchor_stage_code TEXT",
+    "ALTER TABLE core_item ADD COLUMN offset_days INTEGER",
+    "ALTER TABLE core_item ADD COLUMN due_overridden INTEGER NOT NULL DEFAULT 0"
   ]) {
     try { db.exec(ddl); } catch { /* exists */ }
   }
   // P-0: 단계 식별을 title 에서 분리한 stage_code 정본 컬럼. 기존 행 backfill=title.
   try { db.exec("UPDATE core_stage SET stage_code=title WHERE stage_code IS NULL OR stage_code=''"); } catch { /* noop */ }
+  // P-2: SE 스케줄러 시드 템플릿(120 CDR). 정의일 뿐 — 실제 spawn 은 명시 applyTemplate.
+  try {
+    db.exec("INSERT OR IGNORE INTO se_stage_template(key,name) VALUES('120_CDR','상세설계(CDR) 산출물 템플릿')");
+    db.exec("INSERT OR IGNORE INTO se_stage_template_stage(template_key,stage_code,seq,is_milestone) VALUES('120_CDR','120',1,1)");
+    const insDel = db.prepare("INSERT OR IGNORE INTO se_deliverable_template(template_key,anchor_stage_code,offset_days,deliverable_name,default_artifact_type) VALUES('120_CDR',?,?,?,?)");
+    for (const [an, off, nm, at] of [["120", -7, "회로도 초안", "schematic"], ["120", 0, "CDR 패키지", null], ["120", 14, "시험계획서", null]]) insDel.run(an, off, nm, at);
+  } catch { /* noop */ }
   const cur = db.prepare("SELECT value FROM meta WHERE key='schema_version'").get();
   if (!cur) {
     db.prepare("INSERT INTO meta(key,value) VALUES('schema_version',?)").run(SCHEMA_VERSION);
@@ -556,6 +595,41 @@ export class Store {
         origin_mail_id ?? null, created_by ?? null
       );
     return { ok: true, item: this.db.prepare("SELECT * FROM core_item WHERE id=?").get(id) };
+  }
+
+  // P-2: SE 스케줄러 — 단계 템플릿 적용(산출물 할일 자동 생성, 멱등) + 마일스톤 날짜 전파
+  applyTemplate(project_id, template_key, { anchorDates = {} } = {}) {
+    const tpl = this.db.prepare("SELECT * FROM se_stage_template WHERE key=?").get(template_key);
+    if (!tpl) return { error: "template_not_found" };
+    if (!this.db.prepare("SELECT 1 FROM core_project WHERE id=?").get(project_id)) return { error: "project_not_found" };
+    for (const st of this.db.prepare("SELECT * FROM se_stage_template_stage WHERE template_key=? ORDER BY seq").all(template_key)) {
+      this.upsertStage({ id: `${project_id}-T-${st.stage_code}`, project_id, title: st.stage_code, stage_code: st.stage_code, seq: st.seq });
+    }
+    const created = [];
+    for (const d of this.db.prepare("SELECT * FROM se_deliverable_template WHERE template_key=? ORDER BY id").all(template_key)) {
+      if (this.db.prepare("SELECT id FROM core_item WHERE project_id=? AND anchor_stage_code=? AND title=?").get(project_id, d.anchor_stage_code, d.deliverable_name)) continue;
+      const anchorDate = anchorDates[d.anchor_stage_code] || null;
+      const due = anchorDate ? addDaysIso(anchorDate, d.offset_days) : null;
+      const r = this.createItem({ project_id, title: d.deliverable_name, due, origin: "schedule", created_by: "system" });
+      if (!r.ok) continue;
+      this.db.prepare("UPDATE core_item SET stage_id=?, anchor_date=?, anchor_stage_code=?, offset_days=?, spawn_kind='fixed' WHERE id=?")
+        .run(`${project_id}-T-${d.anchor_stage_code}`, anchorDate, d.anchor_stage_code, d.offset_days, r.item.id);
+      this.appendEvent({ kind: "schedule_spawn", item_ref: r.item.id, project_ref: project_id, used_refs: ["se_stage_template", template_key], data_label: "real" });
+      created.push({ id: r.item.id, title: d.deliverable_name, due, anchor_stage_code: d.anchor_stage_code, offset_days: d.offset_days });
+    }
+    return { ok: true, template: template_key, created };
+  }
+  // 마일스톤 날짜 변경 → 같은 앵커의 산출물 할일 마감 재계산(사람이 손댄 마감·완료는 보호). MVP 1-hop.
+  setAnchor(project_id, anchor_stage_code, date) {
+    if (!date || !/^\d{4}-\d{2}-\d{2}$/.test(date)) return { error: "date_format" };
+    let shifted = 0;
+    for (const it of this.db.prepare("SELECT id, offset_days, status, due_overridden FROM core_item WHERE project_id=? AND anchor_stage_code=?").all(project_id, anchor_stage_code)) {
+      if (it.status === "done" || it.due_overridden) continue;
+      this.db.prepare("UPDATE core_item SET anchor_date=?, due=? WHERE id=?").run(date, addDaysIso(date, it.offset_days || 0), it.id);
+      shifted++;
+    }
+    this.appendEvent({ kind: "anchor_move", project_ref: project_id, to: `${anchor_stage_code}=${date}`, intervention_count: shifted, used_refs: ["se_stage_template"], data_label: "real" });
+    return { ok: true, anchor_stage_code, date, shifted };
   }
 
   setItemStatus(id, status) {
