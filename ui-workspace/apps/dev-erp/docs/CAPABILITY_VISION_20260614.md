@@ -59,3 +59,18 @@
 2. MVP-first 단계별 빌드 순서(SE 자동 스케줄러를 심장으로, 가장 작은 가치 슬라이스부터).
 3. owner 결정 필요 항목(SE 단계 정의, 게이트 hard 시점, 알림 채널, Smartsheet 동기 방향 등) 정리.
 4. 확정 시 DESIGN.md(canon) 갱신은 owner 서명 후.
+
+## owner 원칙·제약 (cross-cutting — 빠짐없이 저장, 2026-06-14)
+
+기능 ①~⑭ 위에 걸치는 owner 핵심 원칙. 어느 LLM이든 이걸 먼저 읽고 따른다.
+
+- **구조/섹터가 가장 중요**: "잘 쓸 수 있는 구조"가 기능보다 먼저. 큰 분류(섹터) → 챕터 → 과제 컨테이너가 실제 개발1팀 일에 "딱 적당"하게 나뉘어야. 6섹터(콕핏/받은일/과제·단계/공유마스터·조달/기록물·지식/운영·관리), 근거=BOM 인벤토리+이카운트 IA+SE 프로세스.
+- **팀장·팀원 한 화면**: 뷰를 쪼개지 않는다. 같은 화면을 팀원(내 일만 필터)·팀장(전체 롤업)이 각자 본다. RBAC 가시성·렌즈로 갈리되 별도 화면 금지(DESIGN "업무 뷰 1개를 모두가").
+- **정체성**: "메일이 아니라 SE 프로세스 규정이 스스로 일을 낳는" 단일 작업대 ERP. 메일은 입력 하나.
+- **ERP ↔ 레포 양방향**: 할 일을 ERP에 적고, 파일을 올리면 레포(`_workspaces`) 구조에 저장되고 ERP는 포인터로 연결(원문 미저장).
+- **핸드오프 최우선**: 빌드 전에 "어느 LLM(Codex/Claude)이든 의도를 안 빠뜨리고 실수 없이 그대로 실행 가능한 세분 계획"을 만들고 저장. owner 입력은 절대 잃지 않는다(이 문서·SE_ENGINE_BUILD_PLAN·MASTER_BUILD_PLAN·`docs/slices/` 패킷에 빠짐없이).
+- **AGENTS 규칙 준수**: 연속성(Codex 정본·도구 비종속·NIGHT_WORK_HANDOFF), public/private/secret 경계, AI 실행 계약, 슬라이스 commit(작업자+모델)+self-verify(node:test+verify_gate≥1), 종료 시 knowledge trigger.
+- **dev-erp 불변**: zero-dependency, 코어 LLM 0%(ai_proposal 큐→사람 승인), 원문 미저장 포인터, event_log 라벨링, ALTER 멱등, .registry/.unit 정본 read-only.
+- **병렬 작업**: Codex 동시 진행 시 파일 분담(Codex=새 데이터/문서, Claude=dev-erp 코드). 같은 파일 동시편집 금지, push 전 `git pull --rebase`.
+- **알림**: 능력·역할 기반 "먼저 할 것" 번쩍 리마인드(채널 콕핏/메일/텔레그램 미정 — owner 결정).
+- **자동 챙김 루프**: 작성법 위저드 → input 폴더 충족 → 게이트 통과 → 자동생성 버튼(LLM 스킬)으로 산출물 제작.
