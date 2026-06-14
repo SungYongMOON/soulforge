@@ -943,6 +943,36 @@ export class Store {
     }));
   }
 
+  // P-9 납기/CDR 위험 조기경보 — days_left × 산출물 진행률(pct) 결합 severity(결정적·미저장·read-only).
+  // 임계: days_left<0=critical; <=3&&pct<70 또는 <=7&&pct<50=risk; <=14&&pct<40=watch; 그 외 ok(제외).
+  // 마일스톤(anchor_stage_code≠null)은 한 단계 상향. INSERT/UPDATE/appendEvent 0.
+  riskAlerts({ project = null, today = null } = {}) {
+    const todayKey = today || new Date().toISOString().slice(0, 10);
+    const pctByProj = new Map(this.guideSummary().map((g) => [g.project_id, g.pct]));
+    const titleByProj = new Map(this.db.prepare("SELECT id, title FROM core_project").all().map((p) => [p.id, p.title]));
+    const ORDER = ["ok", "watch", "risk", "critical"];
+    const base = (dl, pct) => {
+      if (dl < 0) return "critical";
+      if (dl <= 3 && pct < 70) return "risk";
+      if (dl <= 7 && pct < 50) return "risk";
+      if (dl <= 14 && pct < 40) return "watch";
+      return "ok";
+    };
+    const out = [];
+    for (const i of this.items({ project })) {
+      if (!i.due || i.status === "done") continue;
+      const days_left = Math.round((Date.parse(`${i.due}T00:00:00Z`) - Date.parse(`${todayKey}T00:00:00Z`)) / 86400000);
+      const pct = pctByProj.get(i.project_id) ?? 0;
+      const is_milestone = !!i.anchor_stage_code;
+      let severity = base(days_left, pct);
+      if (is_milestone && severity !== "ok") severity = ORDER[Math.min(ORDER.length - 1, ORDER.indexOf(severity) + 1)];
+      if (severity === "ok") continue;
+      out.push({ project_id: i.project_id, project_title: titleByProj.get(i.project_id) ?? i.project_id, item_id: i.id, item_title: i.title, due: i.due, days_left, pct, severity, is_milestone });
+    }
+    out.sort((a, b) => a.days_left - b.days_left);
+    return out;
+  }
+
   // ---------- A1/A2: 게이트 판정·강제 ----------
   // 스테이지별 게이트 준비도: 미완/차단 할일 + 산출물 진행(stage_code 정본 매칭, P-0). passable + reasons.
   gateEval(stage) {

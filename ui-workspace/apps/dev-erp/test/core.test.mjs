@@ -1151,3 +1151,54 @@ test("P-5: gate_reason_blocking_items_open 양 모드 라벨", () => {
   assert.ok(getLexicon("business").gate_reason_blocking_items_open, "business 라벨");
   assert.ok(getLexicon("fantasy").gate_reason_blocking_items_open, "fantasy 라벨");
 });
+
+// P-9: 연체→critical, 여유→ok 제외, days_left 오름차순(read-only severity).
+test("P-9: 연체→critical, 여유 제외, 오름차순", () => {
+  const store = freshStore();
+  loadFixture(store);
+  store.createItem({ project_id: "PRJ-A", title: "연체작업", due: "2026-07-20" });
+  store.createItem({ project_id: "PRJ-A", title: "여유작업", due: "2026-12-01" });
+  const r = store.riskAlerts({ today: "2026-08-01" });
+  assert.equal(r.find((x) => x.due === "2026-07-20")?.severity, "critical", "연체=critical");
+  assert.ok(!r.find((x) => x.due === "2026-12-01"), "여유=ok 제외");
+  for (let i = 1; i < r.length; i++) assert.ok(r[i].days_left >= r[i - 1].days_left, "days_left 오름차순");
+});
+
+// P-9: 마일스톤(anchor_stage_code) severity 한 단계 상향.
+test("P-9: 마일스톤 severity 상향", () => {
+  const store = freshStore();
+  loadFixture(store);
+  const today = "2026-08-01", due = "2026-08-06"; // days_left=5, PRJ-C pct=0 → base risk
+  const a = store.createItem({ project_id: "PRJ-C", title: "비마일스톤", due });
+  const b = store.createItem({ project_id: "PRJ-C", title: "마일스톤", due });
+  store.db.prepare("UPDATE core_item SET anchor_stage_code='120' WHERE id=?").run(b.item.id);
+  const r = store.riskAlerts({ today });
+  const ORDER = ["ok", "watch", "risk", "critical"];
+  const sa = r.find((x) => x.item_id === a.item.id), sb = r.find((x) => x.item_id === b.item.id);
+  assert.equal(sa?.severity, "risk", "비마일스톤=risk");
+  assert.equal(sb?.severity, "critical", "마일스톤=한 단계 상향");
+  assert.ok(ORDER.indexOf(sb.severity) >= ORDER.indexOf(sa.severity), "마일스톤 같거나 높음");
+});
+
+// P-9: riskAlerts 는 DB 미저장(read-only).
+test("P-9: riskAlerts 미저장", () => {
+  const store = freshStore();
+  loadFixture(store);
+  const ev = store.recentEvents(1000).length, items = store.counts().items;
+  store.riskAlerts({});
+  assert.equal(store.recentEvents(1000).length, ev, "이벤트 증가 0");
+  assert.equal(store.counts().items, items, "항목 증가 0");
+});
+
+// P-9: pct 결합 — 진행률 높으면 위험 완화(같은 due 라도 severity 낮음/제외).
+test("P-9: pct 높으면 위험 완화", () => {
+  const store = freshStore();
+  loadFixture(store);
+  const today = "2026-08-01", due = "2026-08-04"; // days_left=3
+  const high = store.createItem({ project_id: "PRJ-A", title: "고진행", due }); // PRJ-A pct=71
+  const low = store.createItem({ project_id: "PRJ-C", title: "저진행", due });  // PRJ-C pct=0
+  const r = store.riskAlerts({ today });
+  const sl = r.find((x) => x.item_id === low.item.id), sh = r.find((x) => x.item_id === high.item.id);
+  assert.equal(sl?.severity, "risk", "저진행=risk");
+  assert.ok(!sh, "고진행(pct71)=ok 로 제외(완화)");
+});

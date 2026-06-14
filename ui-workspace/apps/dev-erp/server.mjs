@@ -259,6 +259,7 @@ const server = createServer(async (req, res) => {
       return send(res, r.error ? 400 : 200, r);
     }
     if (path === "/api/parts/completeness") { const r = store.boardCompleteness(qp.part); return send(res, r.error ? 404 : 200, r); }
+    if (path === "/api/risk") return send(res, 200, store.riskAlerts({ project: qp.project ?? null }));
     // P3 재고/BOM/부품 (내부 판정만·외부전송 0)
     if (path === "/api/parts" && req.method === "GET") return send(res, 200, store.parts({ type: qp.type, grp: qp.grp, project: qp.project, q: qp.q }));
     if (path === "/api/parts" && req.method === "POST") {
