@@ -11,7 +11,7 @@ import { openStore } from "./src/store.mjs";
 import { loadFixture } from "./src/fixture.mjs";
 import { ingestFromFile } from "./src/adapter.mjs";
 import { getLexicon, LEXICON } from "./src/lexicon.mjs";
-import { guideTemplates } from "./src/guide.mjs";
+import { guideTemplates, docRecipes } from "./src/guide.mjs";
 import { modulesFor } from "./src/modules.mjs";
 import { crossSearch } from "./src/search.mjs";
 import { buildMetaContext, runLlm, answerFromManual } from "./src/llm.mjs";
@@ -146,6 +146,7 @@ const server = createServer(async (req, res) => {
       q: qp.q, direction: qp.direction, label_id: qp.label_id
     }));
     if (path === "/api/guide/templates") return send(res, 200, guideTemplates(qp.mode));
+    if (path === "/api/doc/recipes") return send(res, 200, docRecipes(qp.mode));
     // ERP 챗봇 — RAG: 매뉴얼 검색 → (provider 연결 시) 로컬 작은 모델이 '그 근거 안에서만' 표현.
     // 매뉴얼 밖 추론 금지. provider 없으면 검색 기반 사람형 폴백(끊기지 않음). 질문은 로그에 저장.
     // provider는 ERP_CHAT_PROVIDER 환경변수로 주입(기본 stub=외부0). 야간 매뉴얼 갱신은 별도 고급 LLM.

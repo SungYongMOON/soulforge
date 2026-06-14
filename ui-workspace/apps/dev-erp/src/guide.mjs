@@ -31,3 +31,20 @@ export function guideTemplates(mode = "business") {
     flow: ARTIFACT_FLOW.map((s) => ({ key: s.key, name: s[k], hint: s.hint }))
   };
 }
+
+// P-13 작성법 위저드 — 문서 종류별 '작성 방법(절차)'. ARTIFACT_FLOW 7스텝 재사용, 읽기 전용 안내.
+export const DOC_RECIPES = [
+  {
+    key: "meeting_minutes", b: "회의록", f: "원탁 기록",
+    required_input: [{ b: "안건", f: "안건" }, { b: "참석자", f: "참석자" }, { b: "결정사항", f: "결의" }],
+    steps: ARTIFACT_FLOW.map((s) => ({ flow_key: s.key, name_b: s.b, name_f: s.f, tip_b: s.hint, tip_f: s.hint }))
+  }
+];
+export function docRecipes(mode = "business") {
+  const k = mode === "fantasy" ? "f" : "b";
+  return DOC_RECIPES.map((r) => ({
+    key: r.key, name: r[k],
+    required_input: r.required_input.map((x) => x[k]),
+    steps: r.steps.map((s) => ({ flow_key: s.flow_key, name: k === "f" ? s.name_f : s.name_b, tip: k === "f" ? s.tip_f : s.tip_b }))
+  }));
+}

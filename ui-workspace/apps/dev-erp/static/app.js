@@ -456,6 +456,26 @@ async function renderCalculators() {
   });
 }
 
+// P-13 작성법 위저드 — 문서 종류 select + 필요 입력 칩 + 7스텝 절차(읽기 전용 안내).
+async function renderRecipe() {
+  const L = state.lex;
+  const recipes = await api(`/api/doc/recipes?mode=${state.mode}`);
+  state.recipeKey ??= recipes[0]?.key;
+  const cur = recipes.find((r) => r.key === state.recipeKey) || recipes[0];
+  const opts = recipes.map((r) => `<option value="${esc(r.key)}" ${r.key === cur?.key ? "selected" : ""}>${esc(r.name)}</option>`).join("");
+  const inputChips = (cur?.required_input || []).map((x) => `<span class="badge">${esc(x)}</span>`).join(" ");
+  const steps = (cur?.steps || []).map((s, i) => `<li class="recipe-step"><strong>${i + 1}. ${esc(s.name)}</strong><div class="dim">${esc(s.tip)}</div></li>`).join("");
+  $("#view").innerHTML = `
+    <div class="filters">
+      <label>${L.recipe_pick}</label> <select id="recipeSel">${opts}</select>
+      <span class="dim">${L.recipe_readonly ?? ""}</span>
+    </div>
+    <div class="recipe-req"><span class="dim">${L.recipe_required}:</span> ${inputChips || '<span class="dim">-</span>'}</div>
+    <h3>${L.recipe_steps}</h3>
+    <ol class="recipe-steps">${steps || `<li class="dim">-</li>`}</ol>`;
+  $("#recipeSel").addEventListener("change", (e) => { state.recipeKey = e.target.value; render(); });
+}
+
 async function renderInventory() {
   const L = state.lex;
   const [summary, parts, locations] = await Promise.all([api("/api/summary"), api("/api/parts"), api("/api/locations")]);
@@ -1624,10 +1644,12 @@ async function renderGuide() {
       <select id="gProject">${actives.map((p) => `<option value="${esc(p.id)}" ${state.guideProject === p.id ? "selected" : ""}>${esc(p.title)}</option>`).join("")}</select>
       <span class="dim guide-principle">${L.guide_principle}</span>
       ${g.totalSteps ? `<span class="badge">${L.guide_progress} ${g.totalDone}/${g.totalSteps}</span>` : ""}
+      <button id="openRecipe" class="fav-chip">${L.recipe_open}</button>
     </div>
     ${g.html}`;
 
   $("#gProject").addEventListener("change", (e) => { state.guideProject = e.target.value; render(); });
+  $("#openRecipe")?.addEventListener("click", () => { state.view = "mod:recipe"; render(); });
   wireGuideSection($("#view"), state.guideProject);
 }
 
@@ -1936,6 +1958,7 @@ async function render() {
   }
   if (state.view === "mod:knowledge") { const m=(state.modules??[]).find(x=>x.id==="knowledge"); $("#viewTitle").textContent=m?.nav??"지식"; logView(state.view); return renderKnowledge(); }
   if (state.view === "mod:calculators") { const m=(state.modules??[]).find(x=>x.id==="calculators"); $("#viewTitle").textContent=m?.nav??"계산기"; logView(state.view); return renderCalculators(); }
+  if (state.view === "mod:recipe") { $("#viewTitle").textContent = state.lex.recipe_title; logView(state.view); return renderRecipe(); }
   if (state.view === "mod:inventory") { const m=(state.modules??[]).find(x=>x.id==="inventory"); $("#viewTitle").textContent=m?.nav??"재고"; logView(state.view); return renderInventory(); }
   if (state.view === "mod:boards") { const m=(state.modules??[]).find(x=>x.id==="boards"); $("#viewTitle").textContent=m?.nav??"보드/BOM"; logView(state.view); return renderBoards(); }
   if (state.view === "mod:stockwatch") { const m=(state.modules??[]).find(x=>x.id==="stockwatch"); $("#viewTitle").textContent=m?.nav??"부품감시"; logView(state.view); return renderStockwatch(); }

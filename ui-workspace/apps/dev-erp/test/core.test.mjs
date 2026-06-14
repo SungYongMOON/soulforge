@@ -1039,3 +1039,17 @@ test("U-1d: gateEval reason 에 보드별 detail 동봉", () => {
   assert.ok(Array.isArray(r.detail) && r.detail[0].missing.length > 0, "보드별 detail 동봉");
   assert.ok(r.detail[0].board && Array.isArray(r.detail[0].missing), "detail 구조 board/missing");
 });
+
+// P-13: docRecipes 가 ARTIFACT_FLOW 7스텝·required_input 반환 + 모드 전환.
+test("P-13: docRecipes 7스텝·required_input·모드 전환", async () => {
+  const { docRecipes, ARTIFACT_FLOW } = await import("../src/guide.mjs");
+  const r = docRecipes("business");
+  assert.ok(r.length >= 1, "레시피 ≥1");
+  assert.equal(r[0].steps.length, 7, "7스텝");
+  assert.ok(r[0].required_input.length >= 1, "필요 입력 ≥1");
+  const f = docRecipes("fantasy");
+  assert.notEqual(f[0].name, r[0].name, "모드별 명칭 전환");
+  // flow_key 가 ARTIFACT_FLOW 키와 1:1
+  const keys = r[0].steps.map((s) => s.flow_key).sort();
+  assert.deepEqual(keys, ARTIFACT_FLOW.map((s) => s.key).sort(), "flow_key 1:1 매핑");
+});
