@@ -323,6 +323,39 @@ test("P-10: knowledge 엔터티 첨부 포인터(원문 미저장)", () => {
   assert.equal(store.addAttachment({ entity_type: "badtype", entity_id: "x", name: "n", pointer: "p" }).error, "bad_entity_type");
 });
 
+test("P-6: person_skill 매핑 + capabilityMatrix(개인 점수 미저장)", () => {
+  const store = freshStore();
+  store.upsertPerson({ id: "p-kim", name: "김", role: "engineer", unit_ref: ".unit/vanguard_01", capability_label: "frontline" });
+  assert.ok(store.setPersonSkill("p-kim", "evidence", { source_ref: ".registry/skills/evidence_sift" }).ok);
+  const kim = store.capabilityMatrix().find((x) => x.person_id === "p-kim");
+  assert.equal(kim.unit_ref, ".unit/vanguard_01");
+  assert.ok(kim.skills.find((s) => s.capability_label === "evidence" && s.source_ref === ".registry/skills/evidence_sift"));
+  assert.equal(store.setPersonSkill("nope", "x").error, "person_not_found");
+  assert.ok(!("score" in kim), "개인 평가점수 필드 없음(감시경계)");
+});
+
+test("P-6: nudges 연체>오늘 우선 + 이벤트 미저장", () => {
+  const store = freshStore();
+  loadFixture(store);
+  store.upsertPerson({ id: "p-kim", name: "김" });
+  const today = new Date().toISOString().slice(0, 10);
+  const past = new Date(Date.now() - 3 * 86400000).toISOString().slice(0, 10);
+  store.createItem({ project_id: "PRJ-A", title: "연체할일", due: past, assignee_ref: "p-kim" });
+  store.createItem({ project_id: "PRJ-A", title: "오늘할일", due: today, assignee_ref: "p-kim" });
+  const n = store.nudges({ person: "p-kim" });
+  assert.equal(n[0].reason, "overdue");
+  assert.equal(n[0].title, "연체할일");
+  const e = store.counts().events;
+  store.nudges({ person: "p-kim" });
+  assert.equal(store.counts().events, e, "nudges 는 읽기 전용(이벤트 미저장)");
+});
+
+test("P-6: .registry/.unit ref 문자열 포인터로만(파일 미파싱)", () => {
+  const store = freshStore();
+  store.upsertPerson({ id: "p2", name: "박", unit_ref: ".unit/guild_master" });
+  assert.equal(store.people().find((x) => x.id === "p2").unit_ref, ".unit/guild_master");
+});
+
 test("run16: P2a 할일 쓰기 — 생성/검증/가이드 연결", () => {
   const store = freshStore();
   loadFixture(store);

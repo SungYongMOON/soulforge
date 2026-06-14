@@ -375,6 +375,17 @@ const server = createServer(async (req, res) => {
     }
     if (path === "/api/artifacts") return send(res, 200, store.artifacts({ project: qp.project, kind: qp.kind }));
     if (path === "/api/people") return send(res, 200, store.people());
+    // P-6 능력 매트릭스 + 콕핏 nudges (점수 미저장·감시 아닌 지원)
+    if (path === "/api/capability/matrix") return send(res, 200, store.capabilityMatrix());
+    if (path === "/api/people/skill" && req.method === "POST") {
+      let body = ""; for await (const chunk of req) body += chunk;
+      const b = JSON.parse(body || "{}");
+      const r = store.setPersonSkill(b.person_id, b.capability_label, { source_ref: b.source_ref ?? null, weight: b.weight ?? 1 });
+      if (r.error) return send(res, 400, r);
+      store.appendEvent({ actor_ref: "owner", actor_kind: "human", kind: "person_skill_set", item_ref: b.person_id, to: b.capability_label, used_refs: b.source_ref ? [b.source_ref] : [], data_label: "real" });
+      return send(res, 200, r);
+    }
+    if (path === "/api/nudges") return send(res, 200, store.nudges({ person: qp.person, limit: qp.limit ? Number(qp.limit) : 5 }));
     if (path === "/api/search") return send(res, 200, crossSearch(store, qp.q));
     if (path === "/api/lexicon") return send(res, 200, { mode: qp.mode ?? "business", modes: Object.keys(LEXICON), labels: getLexicon(qp.mode) });
     if (path === "/api/modules") return send(res, 200, modulesFor(qp.mode));

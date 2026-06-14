@@ -339,6 +339,14 @@ CREATE TABLE IF NOT EXISTS core_knowledge (
   pointer TEXT,                          -- 외부 원문 위치(원문 미저장)
   data_label TEXT NOT NULL DEFAULT 'real'
 );
+-- P-6 능력 매트릭스: 사람↔역량(capability) N:N. 개인 평가점수 컬럼 없음(감시경계). weight=정렬용.
+CREATE TABLE IF NOT EXISTS person_skill (
+  person_id TEXT NOT NULL REFERENCES core_person(id),
+  capability_label TEXT NOT NULL,
+  source_ref TEXT,                       -- .registry/skills|classes ref(미파싱)
+  weight REAL NOT NULL DEFAULT 1,
+  PRIMARY KEY (person_id, capability_label)
+);
 -- 챗 질문 로그(소프트웨어적 저장) — 야간 매뉴얼 갱신 입력. 미응답(matched_faq_id NULL)=갱신 큐.
 CREATE TABLE IF NOT EXISTS chat_query_log (
   id INTEGER PRIMARY KEY AUTOINCREMENT,
@@ -423,7 +431,9 @@ export function openStore(path = ":memory:") {
     "ALTER TABLE core_item ADD COLUMN anchor_date TEXT",
     "ALTER TABLE core_item ADD COLUMN anchor_stage_code TEXT",
     "ALTER TABLE core_item ADD COLUMN offset_days INTEGER",
-    "ALTER TABLE core_item ADD COLUMN due_overridden INTEGER NOT NULL DEFAULT 0"
+    "ALTER TABLE core_item ADD COLUMN due_overridden INTEGER NOT NULL DEFAULT 0",
+    "ALTER TABLE core_person ADD COLUMN unit_ref TEXT",
+    "ALTER TABLE core_person ADD COLUMN capability_label TEXT"
   ]) {
     try { db.exec(ddl); } catch { /* exists */ }
   }
@@ -503,10 +513,12 @@ export class Store {
   upsertPerson(p) {
     this.db
       .prepare(
-        `INSERT INTO core_person(id,name,role,data_label) VALUES (?,?,?,?)
-         ON CONFLICT(id) DO UPDATE SET name=excluded.name, role=excluded.role`
+        `INSERT INTO core_person(id,name,role,unit_ref,capability_label,data_label) VALUES (?,?,?,?,?,?)
+         ON CONFLICT(id) DO UPDATE SET name=excluded.name, role=excluded.role,
+           unit_ref=COALESCE(excluded.unit_ref, core_person.unit_ref),
+           capability_label=COALESCE(excluded.capability_label, core_person.capability_label)`
       )
-      .run(p.id, p.name, p.role ?? null, p.data_label ?? "synthetic");
+      .run(p.id, p.name, p.role ?? null, p.unit_ref ?? null, p.capability_label ?? null, p.data_label ?? "synthetic");
   }
 
   upsertItem(i) {
@@ -1398,6 +1410,40 @@ export class Store {
 
   people() {
     return this.db.prepare("SELECT * FROM core_person ORDER BY id").all();
+  }
+  // P-6 능력 매트릭스 — 사람↔역량 ref 링크(.registry/.unit 미파싱) + 콕핏 nudges(점수 미저장).
+  setPersonSkill(person_id, capability_label, { source_ref = null, weight = 1 } = {}) {
+    if (!this.db.prepare("SELECT 1 FROM core_person WHERE id=?").get(person_id)) return { error: "person_not_found" };
+    const cap = String(capability_label ?? "").trim();
+    if (!cap) return { error: "capability_required" };
+    this.db.prepare(
+      `INSERT INTO person_skill(person_id,capability_label,source_ref,weight) VALUES(?,?,?,?)
+       ON CONFLICT(person_id,capability_label) DO UPDATE SET source_ref=excluded.source_ref, weight=excluded.weight`
+    ).run(person_id, cap, source_ref, weight);
+    return { ok: true };
+  }
+  personSkills(person_id) {
+    return this.db.prepare("SELECT capability_label, source_ref, weight FROM person_skill WHERE person_id=? ORDER BY weight DESC, capability_label").all(person_id);
+  }
+  capabilityMatrix() {
+    return this.people().map((p) => ({ person_id: p.id, name: p.name, role: p.role, unit_ref: p.unit_ref ?? null, capability_label: p.capability_label ?? null, skills: this.personSkills(p.id) }));
+  }
+  nudges({ person = null, limit = 5 } = {}) {
+    const today = new Date().toISOString().slice(0, 10);
+    const key = person ?? "";
+    const rows = this.db.prepare(
+      "SELECT id, title, project_id, due, status, assignee_ref FROM core_item WHERE status != 'done' AND (? = '' OR assignee_ref = ?)"
+    ).all(key, key);
+    const rank = { overdue: 0, blocked: 1, due_today: 2, open: 3 };
+    const out = rows.map((r) => {
+      let reason = "open";
+      if (r.due === today) reason = "due_today";
+      if (r.status === "blocked") reason = "blocked";
+      if (r.due && r.due < today) reason = "overdue";
+      return { id: r.id, title: r.title, project_id: r.project_id, due: r.due, status: r.status, assignee_ref: r.assignee_ref, reason };
+    });
+    out.sort((a, b) => (rank[a.reason] - rank[b.reason]) || String(a.due ?? "9999-99-99").localeCompare(String(b.due ?? "9999-99-99")));
+    return out.slice(0, limit);
   }
 
   getMeta(key) {
