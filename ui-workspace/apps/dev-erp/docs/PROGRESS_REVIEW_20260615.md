@@ -76,8 +76,17 @@ owner cross-cutting 원칙 대조:
 
 - (2026-06-15 야간 시작) 중간 점검 보고서 작성(commit 0f76b73).
 - **SE 할일모델 slice2 — confirmItem + 분류 UI** (commit 9c99aa0): 미분류 할 일을 업무유형+연결대상으로 분류해 정식(open) 승격하는 게이트·화면. 빈 등록은 needs_se_anchor 차단. owner 예시(CDR 자료 BOM 반영→과제·수정·산출물) preview 검증. node:test 106/106.
-- **SE 할일모델 slice5 — 과제 허브 맥락 컬럼** (commit 236cb94): 과제 허브 '할 일' facet에 단계·유형·연결대상·완료기준 표시. 같은 할 일이 과제 안에선 맥락 붙어 보임.
-- **SE 폴더트리 dry-run 스캔 도구** (commit 5515e1c): `tools/scan_se_foldertree.mjs` — DB 미변경, 폴더에서 ingest 가능 구조 집계. **발견: P26-014 산출물 128건(완료기준·경로 100%, 8게이트)** = 실 SE 데이터 소스 확인(§6-7). --apply ingest 는 owner 확인 후.
-- 다음(자율): slice6 요청·회의 인입 채널 → ⑭ 간트/일정 뷰 등 결정 불필요 슬라이스. slice4(완료게이트+증거)·CSV --apply ingest 는 **owner 결정 대기**라 보류.
+- **SE 할일모델 slice5 — 과제 허브 맥락 컬럼** (commit 236cb94): 과제 허브 '할 일' facet에 단계·유형·연결대상·완료기준 표시.
+- **SE 폴더트리 dry-run 스캔 도구** (commit 5515e1c): `tools/scan_se_foldertree.mjs` — DB 미변경. **발견: P26-014 산출물 128건(완료기준·경로 100%, 8게이트)** = 실 SE 데이터 소스 확인. --apply ingest 는 owner 확인 후.
+- **SE 할일모델 slice3 — 받은 일(인입함)/내 할 일 분리** (commit 870ead2): 업무 관리 메뉴를 owner 구조로.
+- **SE 할일모델 slice6 — 개발요청 인입 채널** (commit 72298fd): 메일과 동일 패턴(요청→받은 일→미분류 할 일→분류). 인입 채널 메일·요청 통일.
 
-> 자율 빌드 정책: owner 결정 필요 항목(§6)은 건드리지 않고, 결정 불필요한 슬라이스만 진행. 각 슬라이스 commit+push, node:test 전건 + preview 검증.
+### ✅ 야간 자율 빌드 완료 (결정-불필요 작업 전부 소진)
+owner 승인 SE 할일모델의 **결정 불필요 슬라이스(1·2·3·5·6) + 나머지 결정-불필요 작업을 전부 완료**했다. node:test 107/107, 각 슬라이스 preview 검증·commit·push. 자율 빌드 정책(owner 결정 항목 미터치, priority-discipline)대로 진행했고, **남은 일은 전부 owner 결정 대기(§6)** 라 루프를 여기서 정리한다.
+
+### ⏳ owner가 깨어나서 정하면 이어서 빌드할 것 (전부 §6 결정 필요)
+1. **slice4 완료게이트+증거** — done 전 완료기준+증거(첨부 포인터) 필수화. **증거 모델 결정 필요**(§6-4).
+2. **SE_산출물_목록.csv ingest (--apply)** — 128건을 ERP로. **표현 결정 필요**(core_item vs core_artifact vs se_deliverable_template)(§6-7). ⇒ 이게 facet들을 실데이터로 채우는 최대 레버.
+3. mod:proposals 위치(§6-2) / 알림 채널(§6-3) / 영상 #1·#2 유지여부(§6-1) / DESIGN.md canon 갱신(§6-5).
+
+비-우선 후보(speculative, 자율 빌드 안 함): ⑭ 간트, ⑫ Smartsheet, ⑧ 능력·역할 wiring, ⑥ LLM 계산기 — owner 우선순위 확인 전 보류.
