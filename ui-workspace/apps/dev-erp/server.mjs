@@ -182,6 +182,27 @@ const server = createServer(async (req, res) => {
       store.appendEvent({ actor_ref: "owner", actor_kind: "human", kind: "gate_mode_set", to: r.mode, used_refs: ["gates", "settings"], data_label: "real" });
       return send(res, 200, r);
     }
+    // P-2 SE 스케줄러 + P-1 완결성 요구
+    if (path === "/api/schedule/templates") return send(res, 200, store.scheduleTemplates());
+    if (path === "/api/schedule/apply" && req.method === "POST") {
+      let body = ""; for await (const chunk of req) body += chunk;
+      const { project_id, template_key, anchorDates } = JSON.parse(body || "{}");
+      const r = store.applyTemplate(project_id, template_key, { anchorDates: anchorDates || {} });
+      return send(res, r.error ? 400 : 200, r);
+    }
+    if (path === "/api/schedule/anchor" && req.method === "POST") {
+      let body = ""; for await (const chunk of req) body += chunk;
+      const { project_id, anchor_stage_code, date } = JSON.parse(body || "{}");
+      const r = store.setAnchor(project_id, anchor_stage_code, date);
+      return send(res, r.error ? 400 : 200, r);
+    }
+    if (path === "/api/requirements" && req.method === "GET") return send(res, 200, store.artifactRequirements({ scope_kind: qp.scope_kind, scope_key: qp.scope_key }));
+    if (path === "/api/requirements" && req.method === "POST") {
+      let body = ""; for await (const chunk of req) body += chunk;
+      const r = store.setArtifactRequirement(JSON.parse(body || "{}"));
+      return send(res, r.error ? 400 : 200, r);
+    }
+    if (path === "/api/parts/completeness") { const r = store.boardCompleteness(qp.part); return send(res, r.error ? 404 : 200, r); }
     // P3 재고/BOM/부품 (내부 판정만·외부전송 0)
     if (path === "/api/parts" && req.method === "GET") return send(res, 200, store.parts({ type: qp.type, grp: qp.grp, project: qp.project, q: qp.q }));
     if (path === "/api/parts" && req.method === "POST") {

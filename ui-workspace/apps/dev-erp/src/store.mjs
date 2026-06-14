@@ -631,6 +631,13 @@ export class Store {
     this.appendEvent({ kind: "anchor_move", project_ref: project_id, to: `${anchor_stage_code}=${date}`, intervention_count: shifted, used_refs: ["se_stage_template"], data_label: "real" });
     return { ok: true, anchor_stage_code, date, shifted };
   }
+  scheduleTemplates() {
+    return this.db.prepare("SELECT * FROM se_stage_template ORDER BY key").all().map((t) => ({
+      key: t.key, name: t.name,
+      stages: this.db.prepare("SELECT stage_code, seq, is_milestone FROM se_stage_template_stage WHERE template_key=? ORDER BY seq").all(t.key),
+      deliverables: this.db.prepare("SELECT anchor_stage_code, offset_days, deliverable_name, default_artifact_type FROM se_deliverable_template WHERE template_key=? ORDER BY id").all(t.key),
+    }));
+  }
 
   setItemStatus(id, status) {
     if (!Store.ITEM_STATUSES.includes(status)) return { error: "bad_status" };
