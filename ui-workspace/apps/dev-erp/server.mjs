@@ -386,6 +386,8 @@ const server = createServer(async (req, res) => {
       return send(res, 200, r);
     }
     if (path === "/api/nudges") return send(res, 200, store.nudges({ person: qp.person, limit: qp.limit ? Number(qp.limit) : 5 }));
+    if (path === "/api/workload") return send(res, 200, store.workload(new Date().toISOString().slice(0, 10)));
+    if (path === "/api/meetings/open") return send(res, 200, store.meetingOpenRollup());
     if (path === "/api/search") return send(res, 200, crossSearch(store, qp.q));
     if (path === "/api/lexicon") return send(res, 200, { mode: qp.mode ?? "business", modes: Object.keys(LEXICON), labels: getLexicon(qp.mode) });
     if (path === "/api/modules") return send(res, 200, modulesFor(qp.mode));

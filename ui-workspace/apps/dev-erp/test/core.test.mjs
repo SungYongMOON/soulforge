@@ -356,6 +356,43 @@ test("P-6: .registry/.unit ref 문자열 포인터로만(파일 미파싱)", () 
   assert.equal(store.people().find((x) => x.id === "p2").unit_ref, ".unit/guild_master");
 });
 
+test("P-7: workload 사람별 GROUP BY(이벤트 미저장)", () => {
+  const store = freshStore();
+  loadFixture(store);
+  // 고유 id(fixture 미사용) — fixture 가 p-kim 을 담당자로 쓰므로 충돌 회피.
+  store.upsertPerson({ id: "p-zztest", name: "테스터" });
+  const today = new Date().toISOString().slice(0, 10);
+  const past = new Date(Date.now() - 2 * 86400000).toISOString().slice(0, 10);
+  store.createItem({ project_id: "PRJ-A", title: "a", assignee_ref: "p-zztest", due: past });
+  store.createItem({ project_id: "PRJ-A", title: "b", assignee_ref: "p-zztest" });
+  const kim = store.workload(today).find((x) => x.assignee_ref === "p-zztest");
+  assert.equal(kim.open_cnt, 2);
+  assert.equal(kim.overdue_cnt, 1);
+  assert.equal(kim.name, "테스터");
+  const e = store.counts().events;
+  store.workload(today);
+  assert.equal(store.counts().events, e, "workload 는 읽기 전용");
+});
+
+test("P-7: meetingOpenRollup 미완 액션 있는 회의만", () => {
+  const store = freshStore();
+  loadFixture(store);
+  const mid = store.createMeeting({ title: "주간회의", project_id: "PRJ-A" }).id;
+  const it = store.createItem({ project_id: "PRJ-A", title: "결의1" }).item;
+  store.linkActionItem(mid, it.id);
+  assert.equal(store.meetingOpenRollup().find((x) => x.meeting_id === mid).open_actions, 1);
+  store.setItemStatus(it.id, "done");
+  assert.ok(!store.meetingOpenRollup().find((x) => x.meeting_id === mid), "전부 done 이면 롤업 제외");
+});
+
+test("P-7: 미배정 버킷", () => {
+  const store = freshStore();
+  loadFixture(store);
+  store.createItem({ project_id: "PRJ-A", title: "무담당" });
+  const w = store.workload(new Date().toISOString().slice(0, 10));
+  assert.ok(w.find((x) => x.name === "(미배정)" || x.assignee_ref === null));
+});
+
 test("run16: P2a 할일 쓰기 — 생성/검증/가이드 연결", () => {
   const store = freshStore();
   loadFixture(store);

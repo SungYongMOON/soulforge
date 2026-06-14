@@ -1445,6 +1445,35 @@ export class Store {
     out.sort((a, b) => (rank[a.reason] - rank[b.reason]) || String(a.due ?? "9999-99-99").localeCompare(String(b.due ?? "9999-99-99")));
     return out.slice(0, limit);
   }
+  // P-7 사람별 부하(GROUP BY) — 건수 집계만(개인 점수 미산출·미저장). NULL=(미배정).
+  workload(todayKey) {
+    const rows = this.db.prepare(
+      `SELECT assignee_ref,
+         COUNT(*) AS total,
+         SUM(CASE WHEN status != 'done' THEN 1 ELSE 0 END) AS open_cnt,
+         SUM(CASE WHEN status = 'blocked' THEN 1 ELSE 0 END) AS blocked_cnt,
+         SUM(CASE WHEN status NOT IN ('done') AND due IS NOT NULL AND due < ? THEN 1 ELSE 0 END) AS overdue_cnt
+       FROM core_item GROUP BY assignee_ref`
+    ).all(todayKey);
+    const names = new Map(this.people().map((p) => [p.id, p.name]));
+    return rows.map((r) => ({
+      assignee_ref: r.assignee_ref ?? null,
+      name: r.assignee_ref == null ? "(미배정)" : (names.get(r.assignee_ref) ?? r.assignee_ref),
+      total: r.total, open_cnt: r.open_cnt, blocked_cnt: r.blocked_cnt, overdue_cnt: r.overdue_cnt,
+    })).sort((a, b) => b.open_cnt - a.open_cnt);
+  }
+  // P-7 회의 미결 롤업 — 미완 액션이 남은 회의만(집계만).
+  meetingOpenRollup() {
+    return this.db.prepare(
+      `SELECT m.id AS meeting_id, m.title, m.project_id,
+         COUNT(map.item_id) AS total_actions,
+         SUM(CASE WHEN i.status != 'done' THEN 1 ELSE 0 END) AS open_actions
+       FROM core_meeting m
+       JOIN meeting_action_map map ON map.meeting_id = m.id
+       JOIN core_item i ON i.id = map.item_id
+       GROUP BY m.id HAVING open_actions > 0 ORDER BY open_actions DESC`
+    ).all();
+  }
 
   getMeta(key) {
     return this.db.prepare("SELECT value FROM meta WHERE key=?").get(key)?.value ?? null;
