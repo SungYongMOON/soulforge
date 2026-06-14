@@ -406,6 +406,54 @@ async function renderKnowledge() {
 }
 
 // P3 재고/부품 화면(mod:inventory). 부품 마스터(공유)+가용재고+부족 강조+재고 조정. 외부전송 0.
+// P-11: 엔지니어링 계산기 — 안전 평가·검증·활성화. 공식 unsafe 면 등록 거부.
+async function renderCalculators() {
+  const L = state.lex;
+  const calcs = await api("/api/calculators");
+  const cards = calcs.map((c) => {
+    let vars = []; try { vars = JSON.parse(c.variables || "[]"); } catch { vars = []; }
+    const inputs = vars.map((v) => `<input class="calc-in" data-name="${esc(v.name)}" placeholder="${esc(v.name)}" size="6" />`).join(" ");
+    return `<section class="calc-card" data-id="${esc(c.id)}">
+      <h3>${esc(c.name)} <span class="badge ${c.status === "active" ? "green" : ""}">${c.status === "active" ? L.calc_active : L.calc_draft}</span></h3>
+      <div class="dim">${esc(c.formula)}</div>
+      <div class="item-form">${inputs} <button class="fav-chip calc-run">${L.calc_run}</button> <span class="calc-out"></span></div>
+      <div class="item-form"><button class="fav-chip calc-verify">${L.calc_verify}</button> <button class="fav-chip calc-activate">${L.calc_activate}</button> <span class="calc-vout dim"></span></div>
+    </section>`;
+  }).join("");
+  $("#view").innerHTML = `${cards || `<div class="empty">-</div>`}
+    <section class="calc-new"><h3>${L.calc_title}</h3>
+      <div class="item-form">
+        <input id="calcName" placeholder="${L.item}" />
+        <input id="calcFormula" placeholder="${L.calc_formula} (예: Math.sqrt(a*a+b*b))" size="24" />
+        <input id="calcVars" placeholder="a,b" size="8" />
+        <button id="calcAdd" class="fav-chip">${L.calc_add}</button>
+        <span id="calcMsg" class="dim"></span>
+      </div></section>`;
+  $("#view").querySelectorAll(".calc-card").forEach((card) => {
+    const id = card.dataset.id;
+    const vals = () => { const o = {}; card.querySelectorAll(".calc-in").forEach((i) => o[i.dataset.name] = Number(i.value) || 0); return o; };
+    card.querySelector(".calc-run").addEventListener("click", async () => {
+      const res = await (await post("/api/calculators/eval", { id, inputs: vals() })).json();
+      card.querySelector(".calc-out").textContent = res.ok ? `= ${res.value}` : (res.error ?? "");
+    });
+    card.querySelector(".calc-verify").addEventListener("click", async () => {
+      const res = await (await post("/api/calculators/verify", { id })).json();
+      card.querySelector(".calc-vout").textContent = res.ok ? `✓ ${res.passed}` : `✗ ${res.failed ?? res.error}`;
+    });
+    card.querySelector(".calc-activate").addEventListener("click", async () => {
+      const res = await (await post("/api/calculators/activate", { id })).json();
+      if (res.ok) render(); else card.querySelector(".calc-vout").textContent = `✗ ${res.error}`;
+    });
+  });
+  $("#calcAdd").addEventListener("click", async () => {
+    const name = $("#calcName").value.trim(), formula = $("#calcFormula").value.trim();
+    if (!name || !formula) return;
+    const variables = $("#calcVars").value.split(",").map((s) => s.trim()).filter(Boolean).map((n) => ({ name: n }));
+    const res = await (await post("/api/calculators", { name, formula, variables })).json();
+    if (res.ok) render(); else $("#calcMsg").textContent = res.error === "unsafe_formula" ? L.calc_unsafe : (res.error ?? "");
+  });
+}
+
 async function renderInventory() {
   const L = state.lex;
   const [summary, parts, locations] = await Promise.all([api("/api/summary"), api("/api/parts"), api("/api/locations")]);
@@ -1848,6 +1896,7 @@ async function render() {
     return renderReports();
   }
   if (state.view === "mod:knowledge") { const m=(state.modules??[]).find(x=>x.id==="knowledge"); $("#viewTitle").textContent=m?.nav??"지식"; logView(state.view); return renderKnowledge(); }
+  if (state.view === "mod:calculators") { const m=(state.modules??[]).find(x=>x.id==="calculators"); $("#viewTitle").textContent=m?.nav??"계산기"; logView(state.view); return renderCalculators(); }
   if (state.view === "mod:inventory") { const m=(state.modules??[]).find(x=>x.id==="inventory"); $("#viewTitle").textContent=m?.nav??"재고"; logView(state.view); return renderInventory(); }
   if (state.view === "mod:boards") { const m=(state.modules??[]).find(x=>x.id==="boards"); $("#viewTitle").textContent=m?.nav??"보드/BOM"; logView(state.view); return renderBoards(); }
   if (state.view === "mod:stockwatch") { const m=(state.modules??[]).find(x=>x.id==="stockwatch"); $("#viewTitle").textContent=m?.nav??"부품감시"; logView(state.view); return renderStockwatch(); }
