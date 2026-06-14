@@ -393,6 +393,32 @@ test("P-7: 미배정 버킷", () => {
   assert.ok(w.find((x) => x.name === "(미배정)" || x.assignee_ref === null));
 });
 
+test("P-11: safeEval 화이트리스트 — 산술/Math 만 평가", () => {
+  const store = freshStore();
+  const id = store.upsertCalculator({ name: "빗변", formula: "Math.sqrt(a*a+b*b)", variables: [{ name: "a" }, { name: "b" }] }).id;
+  assert.equal(Math.round(store.evalCalculator(id, { a: 3, b: 4 }).value), 5);
+  const id2 = store.upsertCalculator({ name: "거듭", formula: "a^2 + 2*(b-1)", variables: [{ name: "a" }, { name: "b" }] }).id;
+  assert.equal(store.evalCalculator(id2, { a: 3, b: 5 }).value, 17);
+});
+
+test("P-11: 위험 식 거부 — process/대괄호/할당 차단(저장 단계)", () => {
+  const store = freshStore();
+  assert.equal(store.upsertCalculator({ name: "x", formula: "process.exit(1)" }).error, "unsafe_formula");
+  assert.equal(store.upsertCalculator({ name: "y", formula: 'global["x"]' }).error, "unsafe_formula");
+  assert.equal(store.upsertCalculator({ name: "z", formula: "a=1" }).error, "unsafe_formula");
+});
+
+test("P-11: example 회귀검증 — 통과해야 active", () => {
+  const store = freshStore();
+  const id = store.upsertCalculator({ name: "합", formula: "a+b", variables: [{ name: "a" }, { name: "b" }] }).id;
+  store.addCalculatorExample(id, { a: 2, b: 3 }, 5);
+  assert.ok(store.verifyCalculator(id).ok);
+  assert.ok(store.activateCalculator(id).ok);
+  store.addCalculatorExample(id, { a: 1, b: 1 }, 99);
+  assert.equal(store.verifyCalculator(id).ok, false);
+  assert.equal(store.activateCalculator(id).error, "examples_failed");
+});
+
 test("run16: P2a 할일 쓰기 — 생성/검증/가이드 연결", () => {
   const store = freshStore();
   loadFixture(store);

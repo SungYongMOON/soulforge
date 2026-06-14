@@ -347,6 +347,25 @@ CREATE TABLE IF NOT EXISTS person_skill (
   weight REAL NOT NULL DEFAULT 1,
   PRIMARY KEY (person_id, capability_label)
 );
+-- P-11 계산기: 공식은 화이트리스트 식(safeEval), example 회귀검증 통과해야 active.
+CREATE TABLE IF NOT EXISTS core_calculator (
+  id TEXT PRIMARY KEY,
+  name TEXT NOT NULL,
+  category TEXT,
+  formula TEXT NOT NULL,                 -- 화이트리스트 식(자작 파서 평가, eval 미사용)
+  variables TEXT,                        -- JSON [{name,label}]
+  unit_out TEXT,
+  source_ref TEXT,                       -- .registry/knowledge ref(선택)
+  status TEXT NOT NULL DEFAULT 'draft',  -- draft|active(회귀 통과해야 active)
+  data_label TEXT NOT NULL DEFAULT 'real'
+);
+CREATE TABLE IF NOT EXISTS calculator_example (
+  id INTEGER PRIMARY KEY AUTOINCREMENT,
+  calculator_id TEXT NOT NULL REFERENCES core_calculator(id),
+  inputs_json TEXT NOT NULL,
+  expected REAL NOT NULL,
+  tolerance REAL NOT NULL DEFAULT 1e-6
+);
 -- 챗 질문 로그(소프트웨어적 저장) — 야간 매뉴얼 갱신 입력. 미응답(matched_faq_id NULL)=갱신 큐.
 CREATE TABLE IF NOT EXISTS chat_query_log (
   id INTEGER PRIMARY KEY AUTOINCREMENT,
@@ -412,6 +431,82 @@ function seedSeProcess(db) {
       insR.run(r.scope_kind ?? "board_type", r.scope_key ?? r.board_type ?? "board", r.artifact_type, r.label ?? null, r.mode ?? "hard", r.seq ?? 0);
     }
   }
+}
+
+// P-11: 안전 수식 평가 — eval/Function/new Function/vm 절대 미사용. 자작 토크나이저+재귀하강 파서.
+// 허용: 숫자·변수(vars 키)·사칙(+ - * /)·거듭제곱(^)·괄호·쉼표·화이트리스트 Math.{함수/상수}.
+// 그 외 식별자/문자([]=;'"$ 등) 발견 시 throw 'unsafe_token'(저장 거부에 사용).
+function safeEval(formula, vars = {}) {
+  const MATH_FN = { sin: Math.sin, cos: Math.cos, tan: Math.tan, log: Math.log, log10: Math.log10, sqrt: Math.sqrt, abs: Math.abs, pow: Math.pow, exp: Math.exp, min: Math.min, max: Math.max };
+  const MATH_CONST = { PI: Math.PI, E: Math.E };
+  const src = String(formula ?? "");
+  const tokens = [];
+  for (let i = 0; i < src.length;) {
+    const c = src[i];
+    if (/\s/.test(c)) { i++; continue; }
+    if (/[0-9.]/.test(c)) {
+      let j = i; while (j < src.length && /[0-9.]/.test(src[j])) j++;
+      const num = src.slice(i, j);
+      if (!/^[0-9]*\.?[0-9]+$/.test(num)) throw new Error("unsafe_token");
+      tokens.push({ t: "num", v: Number(num) }); i = j; continue;
+    }
+    if (/[A-Za-z_]/.test(c)) {
+      let j = i; while (j < src.length && /[A-Za-z0-9_.]/.test(src[j])) j++;
+      tokens.push({ t: "id", v: src.slice(i, j) }); i = j; continue;
+    }
+    if ("+-*/^(),".includes(c)) { tokens.push({ t: "op", v: c }); i++; continue; }
+    throw new Error("unsafe_token");
+  }
+  let p = 0;
+  const peek = () => tokens[p];
+  const next = () => tokens[p++];
+  const parseExpr = () => {
+    let v = parseTerm();
+    while (peek() && peek().t === "op" && (peek().v === "+" || peek().v === "-")) { const o = next().v; const r = parseTerm(); v = o === "+" ? v + r : v - r; }
+    return v;
+  };
+  const parseTerm = () => {
+    let v = parsePower();
+    while (peek() && peek().t === "op" && (peek().v === "*" || peek().v === "/")) { const o = next().v; const r = parsePower(); v = o === "*" ? v * r : v / r; }
+    return v;
+  };
+  const parsePower = () => {
+    const v = parseUnary();
+    if (peek() && peek().t === "op" && peek().v === "^") { next(); return Math.pow(v, parsePower()); }
+    return v;
+  };
+  const parseUnary = () => {
+    if (peek() && peek().t === "op" && (peek().v === "+" || peek().v === "-")) { const o = next().v; const v = parseUnary(); return o === "-" ? -v : v; }
+    return parsePrimary();
+  };
+  function parsePrimary() {
+    const tk = peek();
+    if (!tk) throw new Error("eval_error");
+    if (tk.t === "num") { next(); return tk.v; }
+    if (tk.t === "op" && tk.v === "(") { next(); const v = parseExpr(); const cl = next(); if (!cl || cl.v !== ")") throw new Error("eval_error"); return v; }
+    if (tk.t === "id") {
+      next();
+      const id = tk.v;
+      if (Object.prototype.hasOwnProperty.call(vars, id)) return Number(vars[id]);
+      if (id.startsWith("Math.")) {
+        const m = id.slice(5);
+        if (Object.prototype.hasOwnProperty.call(MATH_CONST, m)) return MATH_CONST[m];
+        if (Object.prototype.hasOwnProperty.call(MATH_FN, m)) {
+          const op = next(); if (!op || op.v !== "(") throw new Error("eval_error");
+          const args = [];
+          if (peek() && peek().v !== ")") { args.push(parseExpr()); while (peek() && peek().v === ",") { next(); args.push(parseExpr()); } }
+          const cl = next(); if (!cl || cl.v !== ")") throw new Error("eval_error");
+          return MATH_FN[m](...args);
+        }
+      }
+      throw new Error("unsafe_token");
+    }
+    throw new Error("eval_error");
+  }
+  const result = parseExpr();
+  if (peek()) throw new Error("eval_error");
+  if (!Number.isFinite(result)) throw new Error("eval_error");
+  return result;
 }
 
 export function openStore(path = ":memory:") {
@@ -1473,6 +1568,56 @@ export class Store {
        JOIN core_item i ON i.id = map.item_id
        GROUP BY m.id HAVING open_actions > 0 ORDER BY open_actions DESC`
     ).all();
+  }
+  // P-11 계산기 — 안전 평가(safeEval)·example 회귀검증·통과해야 active.
+  upsertCalculator({ id, name, category = null, formula, variables = [], unit_out = null, source_ref = null, data_label = "real" }) {
+    const nm = String(name ?? "").trim(), f = String(formula ?? "").trim();
+    if (!nm || !f) return { error: "name_formula_required" };
+    const vars = Array.isArray(variables) ? variables : [];
+    const dummy = {}; for (const v of vars) if (v && v.name) dummy[v.name] = 1;
+    try { safeEval(f, dummy); } catch (e) { if (e.message === "unsafe_token") return { error: "unsafe_formula" }; }
+    const cid = id || `calc_${randomBytes(4).toString("hex")}`;
+    this.db.prepare(
+      `INSERT INTO core_calculator(id,name,category,formula,variables,unit_out,source_ref,status,data_label)
+       VALUES(?,?,?,?,?,?,?,'draft',?)
+       ON CONFLICT(id) DO UPDATE SET name=excluded.name, category=excluded.category, formula=excluded.formula,
+         variables=excluded.variables, unit_out=excluded.unit_out, source_ref=excluded.source_ref`
+    ).run(cid, nm, category, f, JSON.stringify(vars), unit_out, source_ref, data_label);
+    return { ok: true, id: cid };
+  }
+  calculators({ category = null } = {}) {
+    const where = category ? "WHERE category=?" : "";
+    return this.db.prepare(`SELECT * FROM core_calculator ${where} ORDER BY name`).all(...(category ? [category] : []));
+  }
+  addCalculatorExample(calculator_id, inputs, expected, tolerance = 1e-6) {
+    if (!this.db.prepare("SELECT 1 FROM core_calculator WHERE id=?").get(calculator_id)) return { error: "calculator_not_found" };
+    this.db.prepare("INSERT INTO calculator_example(calculator_id,inputs_json,expected,tolerance) VALUES(?,?,?,?)")
+      .run(calculator_id, JSON.stringify(inputs ?? {}), Number(expected), Number(tolerance));
+    return { ok: true };
+  }
+  evalCalculator(id, inputs) {
+    const c = this.db.prepare("SELECT * FROM core_calculator WHERE id=?").get(id);
+    if (!c) return { error: "calculator_not_found" };
+    try { return { ok: true, value: safeEval(c.formula, inputs ?? {}) }; }
+    catch (e) { return { error: e.message === "unsafe_token" ? "unsafe_formula" : "eval_error" }; }
+  }
+  verifyCalculator(id) {
+    const c = this.db.prepare("SELECT * FROM core_calculator WHERE id=?").get(id);
+    if (!c) return { error: "calculator_not_found" };
+    const exs = this.db.prepare("SELECT * FROM calculator_example WHERE calculator_id=?").all(id);
+    const failures = [];
+    for (const ex of exs) {
+      let got; try { got = safeEval(c.formula, JSON.parse(ex.inputs_json)); } catch { got = NaN; }
+      if (!(Math.abs(got - ex.expected) <= ex.tolerance)) failures.push({ example_id: ex.id, got, expected: ex.expected });
+    }
+    return failures.length ? { ok: false, passed: exs.length - failures.length, failed: failures.length, failures } : { ok: true, passed: exs.length, failed: 0 };
+  }
+  activateCalculator(id) {
+    const v = this.verifyCalculator(id);
+    if (v.error) return v;
+    if (!v.ok) return { error: "examples_failed", failures: v.failures };
+    this.db.prepare("UPDATE core_calculator SET status='active' WHERE id=?").run(id);
+    return { ok: true };
   }
 
   getMeta(key) {

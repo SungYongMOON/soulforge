@@ -175,6 +175,35 @@ const server = createServer(async (req, res) => {
       return send(res, 200, r);
     }
     if (path === "/api/knowledge/search") return send(res, 200, store.catalogSearch(qp.q ?? ""));
+    // P-11 계산기 (안전 평가·회귀검증·통과해야 active)
+    if (path === "/api/calculators" && req.method === "GET") return send(res, 200, store.calculators({ category: qp.category }));
+    if (path === "/api/calculators" && req.method === "POST") {
+      let body = ""; for await (const chunk of req) body += chunk;
+      const r = store.upsertCalculator({ ...JSON.parse(body || "{}"), data_label: "real" });
+      return send(res, r.error ? 400 : 200, r);
+    }
+    if (path === "/api/calculators/example" && req.method === "POST") {
+      let body = ""; for await (const chunk of req) body += chunk;
+      const b = JSON.parse(body || "{}");
+      return send(res, 200, store.addCalculatorExample(b.calculator_id, b.inputs, b.expected, b.tolerance ?? 1e-6));
+    }
+    if (path === "/api/calculators/eval" && req.method === "POST") {
+      let body = ""; for await (const chunk of req) body += chunk;
+      const b = JSON.parse(body || "{}");
+      return send(res, 200, store.evalCalculator(b.id, b.inputs));
+    }
+    if (path === "/api/calculators/verify" && req.method === "POST") {
+      let body = ""; for await (const chunk of req) body += chunk;
+      return send(res, 200, store.verifyCalculator(JSON.parse(body || "{}").id));
+    }
+    if (path === "/api/calculators/activate" && req.method === "POST") {
+      let body = ""; for await (const chunk of req) body += chunk;
+      const id = JSON.parse(body || "{}").id;
+      const r = store.activateCalculator(id);
+      if (r.error) return send(res, 400, r);
+      store.appendEvent({ actor_ref: "owner", actor_kind: "human", kind: "calculator_activate", item_ref: id, used_refs: ["calculator"], data_label: "real" });
+      return send(res, 200, r);
+    }
     if (path === "/api/chat/unanswered") return send(res, 200, store.unansweredQueries(qp.limit ? Number(qp.limit) : 50));
     if (path === "/api/gates") return send(res, 200, { mode: store.gateMode(), stages: store.gates({ project: qp.project }) });
     if (path === "/api/gates/clear" && req.method === "POST") {
