@@ -1092,3 +1092,12 @@ test("P-8: items due 노출 + 템플릿 적용으로 마감 항목 증가", () =
   const after = store.items({}).filter((i) => i.due).length;
   assert.ok(after > before, "템플릿 적용 후 마감 항목 증가");
 });
+
+// P-12: worklogDraft/reportDraft 가 위젯 미리보기 텍스트를 제공(자동발신 0, 미리보기만).
+test("P-12: worklogDraft/reportDraft 텍스트 제공", () => {
+  const store = freshStore();
+  loadFixture(store);
+  const d = store.worklogDraft({ days: 7 });
+  assert.ok(typeof d.text === "string" && d.text.length > 0, "worklog 초안 텍스트");
+  assert.ok(store.reportDraft({ kind: "report" }).text.length > 0, "report 초안 텍스트");
+});

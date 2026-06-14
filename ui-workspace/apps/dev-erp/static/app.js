@@ -286,7 +286,7 @@ const WIDGET_PLAN = [
   { id: "mine", cat: "group_task" },
   { id: "deadline_cal", cat: "group_task", ready: true },
   { id: "artifacts", cat: "group_doc", ready: true },
-  { id: "reports_w", cat: "group_doc" },
+  { id: "reports_w", cat: "group_doc", ready: true },
   { id: "meetings_w", cat: "group_doc", ready: true },
   { id: "onboarding", cat: "group_doc" },
   { id: "training", cat: "group_doc" },
@@ -1004,6 +1004,12 @@ async function renderHome() {
         ? `<table><tbody>${ms.map((m) => miniRow([m.at ? localTime(m.at) : "-", esc(m.title)])).join("")}</tbody></table>`
         : `<div class="empty">${L.empty_meetings}</div>` };
     }
+    if (id === "reports_w") {
+      // P-12 자동보고 노출 — 최근 7일 업무일지 초안 미리보기 + 보고서 화면 점프(자동발신 0).
+      const d = await api("/api/worklog/draft?days=7");
+      const preview = (d.text || "").split("\n").slice(0, 6).join("\n");
+      return { title: L.tile_reports_w, html: `<pre class="gen-preview mini">${esc(preview) || L.gen_run}</pre><button class="fav-chip mini" data-goreports="1">${L.reports_open}</button>` };
+    }
     if (id === "inbox") {
       const ids = new Set(inbox.map((p) => p.id));
       const mails = (await api("/api/mail?days=3650")).filter((m) => ids.has(m.project_id)).slice(0, 8);
@@ -1251,6 +1257,8 @@ async function renderHome() {
       r.addEventListener("click", () => { state.hubProject = r.dataset.p; state.hubTab = "overview"; state.view = "project"; close(); render(); }));
     ov.querySelectorAll("[data-jump-mail]").forEach((b) =>
       b.addEventListener("click", (e) => { e.stopPropagation(); state.projectFilter = b.dataset.jumpMail; state.view = "mail"; close(); render(); }));
+    ov.querySelectorAll("[data-goreports]").forEach((b) =>
+      b.addEventListener("click", (e) => { e.stopPropagation(); state.view = "mod:reports"; close(); render(); }));
   }
 
   function bindWidgetInner() {
@@ -1258,6 +1266,8 @@ async function renderHome() {
       r.addEventListener("click", () => { state.hubProject = r.dataset.p; state.hubTab = "overview"; state.view = "project"; render(); }));
     $("#view").querySelectorAll("[data-jump-mail]").forEach((b) =>
       b.addEventListener("click", (e) => { e.stopPropagation(); state.projectFilter = b.dataset.jumpMail; state.view = "mail"; render(); }));
+    $("#view").querySelectorAll("[data-goreports]").forEach((b) =>
+      b.addEventListener("click", (e) => { e.stopPropagation(); state.view = "mod:reports"; render(); }));
   }
   bindWidgetInner();
 }
