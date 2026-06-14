@@ -1101,3 +1101,53 @@ test("P-12: worklogDraft/reportDraft 텍스트 제공", () => {
   assert.ok(typeof d.text === "string" && d.text.length > 0, "worklog 초안 텍스트");
   assert.ok(store.reportDraft({ kind: "report" }).text.length > 0, "report 초안 텍스트");
 });
+
+// P-5: item_blocking 규칙 + 차단 할일 → reason blocking_items_open + passable=false.
+test("P-5: item_blocking 규칙+차단할일 → 하드 차단", () => {
+  const store = freshStore();
+  loadFixture(store);
+  store.upsertStage({ id: "st-p5", project_id: "PRJ-A", title: "상세설계", stage_code: "120", seq: 1 });
+  const it = store.createItem({ project_id: "PRJ-A", title: "블록작업" });
+  store.db.prepare("UPDATE core_item SET stage_id='st-p5', status='blocked' WHERE id=?").run(it.item.id);
+  store.setArtifactRequirement({ scope_kind: "item_blocking", scope_key: "120", artifact_type: "any", label: "차단", mode: "hard" });
+  const stage = store.gates({ project: "PRJ-A" }).find((s) => s.id === "st-p5");
+  assert.equal(stage.reasons.find((x) => x.code === "blocking_items_open")?.n, 1, "차단 사유 n=1");
+  assert.equal(stage.passable, false, "passable=false");
+});
+
+// P-5: 규칙 없으면 blocking_items_open 미발생(하위호환).
+test("P-5: item_blocking 규칙 없으면 미발생(회귀 0)", () => {
+  const store = freshStore();
+  loadFixture(store);
+  store.upsertStage({ id: "st-p5b", project_id: "PRJ-A", title: "상세설계", stage_code: "121", seq: 1 });
+  const it = store.createItem({ project_id: "PRJ-A", title: "블록작업" });
+  store.db.prepare("UPDATE core_item SET stage_id='st-p5b', status='blocked' WHERE id=?").run(it.item.id);
+  const stage = store.gates({ project: "PRJ-A" }).find((s) => s.id === "st-p5b");
+  assert.ok(!stage.reasons.find((x) => x.code === "blocking_items_open"), "blocking_items_open 없음");
+  assert.ok(stage.reasons.find((x) => x.code === "blocked_items"), "기존 blocked_items 는 유지");
+});
+
+// P-5: hard 모드 item_blocking 미해결 → clearStage gate_blocked, 해결 후 통과.
+test("P-5: hard 모드 차단 → clearStage gate_blocked → 해결 후 통과", () => {
+  const store = freshStore();
+  loadFixture(store);
+  store.upsertStage({ id: "st-p5c", project_id: "PRJ-A", title: "상세설계", stage_code: "122", seq: 1 });
+  const it = store.createItem({ project_id: "PRJ-A", title: "블록작업" });
+  store.db.prepare("UPDATE core_item SET stage_id='st-p5c', status='blocked' WHERE id=?").run(it.item.id);
+  store.setArtifactRequirement({ scope_kind: "item_blocking", scope_key: "122", artifact_type: "any", label: "차단", mode: "hard" });
+  store.setGateMode("hard");
+  const r = store.clearStage("st-p5c");
+  assert.equal(r.error, "gate_blocked", "하드 차단");
+  assert.ok(r.reasons.find((x) => x.code === "blocking_items_open"), "차단 사유 포함");
+  store.setItemStatus(it.item.id, "done");
+  // 차단 할일 해결 → blocking_items_open 제거(P-5 본연). (PRJ-A 보드 미완결은 별도 사유라 force 로 통과 확인)
+  const stage2 = store.gates({ project: "PRJ-A" }).find((s) => s.id === "st-p5c");
+  assert.ok(!stage2.reasons.find((x) => x.code === "blocking_items_open"), "해결 후 차단 사유 제거");
+  assert.equal(store.clearStage("st-p5c", { force: true }).ok, true, "force 통과");
+});
+
+// P-5: lexicon 양 모드 라벨 존재.
+test("P-5: gate_reason_blocking_items_open 양 모드 라벨", () => {
+  assert.ok(getLexicon("business").gate_reason_blocking_items_open, "business 라벨");
+  assert.ok(getLexicon("fantasy").gate_reason_blocking_items_open, "fantasy 라벨");
+});

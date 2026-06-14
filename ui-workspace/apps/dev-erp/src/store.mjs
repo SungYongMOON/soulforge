@@ -977,6 +977,12 @@ export class Store {
       }
       if (missingArtifacts > 0) reasons.push({ code: "required_artifacts_missing", n: missingArtifacts, detail: missingDetail });
     }
+    // P-5: item_blocking 정책(artifact_requirement 재사용). 이 단계에 차단 규칙이 등록돼 있고
+    // 차단 할일(blocked)이 1개 이상이면 하드 차단 사유 추가 → passable=false(신규 게이트 함수 0).
+    const blockingRule = this.db.prepare(
+      "SELECT mode FROM artifact_requirement WHERE scope_kind='item_blocking' AND scope_key=? LIMIT 1"
+    ).get(stageCode);
+    if (blockingRule && blocked > 0) reasons.push({ code: "blocking_items_open", n: blocked, detail: { stage_code: stageCode, mode: blockingRule.mode } });
     const passable = stage.status === "cleared" ? true : reasons.length === 0;
     // A6 보스 연출용 잔여(보스 HP) = 미완+차단+미완 절차. 0이면 처치 가능. (게임상태 미저장=계산)
     const remaining = open + blocked + Math.max(0, stepsTotal - stepsDone) + missingArtifacts;
