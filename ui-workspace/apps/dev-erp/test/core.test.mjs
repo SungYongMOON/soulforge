@@ -621,6 +621,27 @@ test("store: confirmItem — 미분류→정식 확정 게이트 (SE-CONFIRM sli
   assert.equal(store.confirmItem("no-such", { work_type: "revise", link_kind: "risk" }).error, "item_not_found");
 });
 
+test("store: 개발요청 인입 채널 — createRequest→promoteRequest→미분류 할 일 (REQ slice6)", () => {
+  const store = freshStore();
+  loadFixture(store);
+  // 과제 없이 등록 → promote 거부(과제 필요)
+  const r0 = store.createRequest({ title: "다크모드 추가" });
+  assert.equal(r0.ok, true);
+  assert.equal(r0.request.status, "open");
+  assert.equal(store.promoteRequest(r0.id, "owner").error, "request_project_missing");
+  // 과제 연결 등록 → promote → origin=request, 자동 분류로 미분류
+  const r1 = store.createRequest({ title: "CDR 검토 의견 반영", project_id: "PRJ-A", requester: "김가람", category: "검토" });
+  const pr = store.promoteRequest(r1.id, "owner");
+  assert.equal(pr.ok, true);
+  assert.deepEqual([pr.item.origin, pr.item.status], ["request", "unclassified"]);
+  // 요청 상태 promoted + 중복 승격 차단
+  assert.equal(store.requests({ project: "PRJ-A" }).find((r) => r.id === r1.id).status, "promoted");
+  assert.equal(store.promoteRequest(r1.id, "owner").error, "already_promoted");
+  // 잘못된 과제 거부, 없는 요청 거부
+  assert.equal(store.createRequest({ title: "x", project_id: "no-such" }).error, "project_not_found");
+  assert.equal(store.promoteRequest("no-such", "owner").error, "request_not_found");
+});
+
 test("B5: 라벨 감사기 — 커버리지 집계 + 결손 주입 검출", async () => {
   const { audit, auditSince } = await import("../tools/label_audit.mjs");
   const good = (id, kind) => ({ id, kind, actor_ref: "owner", used_refs: '["items"]', data_label: "real", project_ref: "P1" });

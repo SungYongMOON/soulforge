@@ -530,6 +530,25 @@ const server = createServer(async (req, res) => {
       return send(res, 200, { ok: true });
     }
 
+    // ---------- 개발요청함(인입 채널) ----------
+    if (path === "/api/requests" && req.method === "GET") return send(res, 200, store.requests({ project: qp.project, status: qp.status }));
+    if (path === "/api/requests" && req.method === "POST") {
+      let body = ""; for await (const chunk of req) body += chunk;
+      const input = JSON.parse(body || "{}");
+      const result = store.createRequest({ ...input, data_label: "real" });
+      if (result.error) return send(res, 400, result);
+      store.appendEvent({ actor_ref: "owner", actor_kind: "human", kind: "request_create", to: result.id, project_ref: input.project_id ?? null, used_refs: ["requests"], data_label: "real" });
+      return send(res, 200, result);
+    }
+    if (path === "/api/requests/promote" && req.method === "POST") {
+      let body = ""; for await (const chunk of req) body += chunk;
+      const { id } = JSON.parse(body || "{}");
+      const result = store.promoteRequest(id, "owner");
+      if (result.error) return send(res, 400, result);
+      store.appendEvent({ actor_ref: "owner", actor_kind: "human", kind: "item_promote", item_ref: result.item.id, from: id, to: result.item.title, project_ref: result.item.project_id, used_refs: ["items", "requests"], data_label: "real" });
+      return send(res, 200, result);
+    }
+
     // ---------- 회의록(메타 전용) ----------
     if (path === "/api/meetings" && req.method === "GET") return send(res, 200, store.meetings({ project: qp.project }));
     if (path === "/api/meetings" && req.method === "POST") {

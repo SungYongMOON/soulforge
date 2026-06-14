@@ -411,6 +411,18 @@ CREATE TABLE IF NOT EXISTS embed_view ( -- P-18 외부 시트 임베드(Smartshe
   data_label TEXT NOT NULL DEFAULT 'real',
   created_at TEXT
 );
+CREATE TABLE IF NOT EXISTS core_request ( -- 개발요청함: 팀원 요청 인입(받은 일) → 할 일 승격
+  id TEXT PRIMARY KEY,
+  project_id TEXT,                 -- 연결 과제(없으면 인입 미분류)
+  title TEXT NOT NULL,
+  requester TEXT,                  -- 요청자
+  category TEXT,                   -- 분류(자유 텍스트)
+  status TEXT NOT NULL DEFAULT 'open',  -- open|promoted|closed
+  promoted_item_id TEXT,           -- 승격된 할 일 id
+  pointer_ref TEXT,                -- 원문 위치 포인터(원문 미저장)
+  data_label TEXT NOT NULL DEFAULT 'synthetic',
+  created_at TEXT NOT NULL
+);
 CREATE INDEX IF NOT EXISTS idx_attach_entity ON core_attachment(entity_type, entity_id);
 CREATE INDEX IF NOT EXISTS idx_chatlog_at ON chat_query_log(at);
 CREATE INDEX IF NOT EXISTS idx_stock_part ON core_stock(part_id);
@@ -2073,5 +2085,35 @@ export class Store {
     return this.db.prepare(
       `SELECT i.* FROM core_item i JOIN meeting_action_map m ON m.item_id=i.id WHERE m.meeting_id=? ORDER BY i.id`
     ).all(meeting_id);
+  }
+
+  // --- 개발요청함(slice6): 인입 채널(메일과 같은 패턴). 요청 → 받은 일 → 할 일 승격(미분류). ---
+  createRequest({ id, project_id = null, title, requester = null, category = null, pointer_ref = null, data_label = "real" }) {
+    const t = String(title ?? "").trim();
+    if (!t) return { error: "title_required" };
+    if (project_id && !this.db.prepare("SELECT 1 FROM core_project WHERE id=?").get(project_id)) return { error: "project_not_found" };
+    const rid = id || `req_${randomBytes(5).toString("hex")}`;
+    this.db.prepare(
+      "INSERT INTO core_request(id,project_id,title,requester,category,status,pointer_ref,data_label,created_at) VALUES (?,?,?,?,?,'open',?,?,?)"
+    ).run(rid, project_id, t, requester, category, pointer_ref, data_label, new Date().toISOString());
+    return { ok: true, id: rid, request: this.db.prepare("SELECT * FROM core_request WHERE id=?").get(rid) };
+  }
+  requests({ project, status } = {}) {
+    const cond = [], args = [];
+    if (project) { cond.push("project_id=?"); args.push(project); }
+    if (status) { cond.push("status=?"); args.push(status); }
+    const where = cond.length ? `WHERE ${cond.join(" AND ")}` : "";
+    return this.db.prepare(`SELECT * FROM core_request ${where} ORDER BY created_at DESC, id LIMIT 200`).all(...args);
+  }
+  // 요청 → 할 일 승격(메일 promote 패턴): 과제 필요, origin='request' → 자동분류로 unclassified 격리.
+  promoteRequest(id, created_by) {
+    const r = this.db.prepare("SELECT * FROM core_request WHERE id=?").get(id);
+    if (!r) return { error: "request_not_found" };
+    if (r.promoted_item_id) return { error: "already_promoted", item_id: r.promoted_item_id };
+    if (!r.project_id || !this.db.prepare("SELECT 1 FROM core_project WHERE id=?").get(r.project_id)) return { error: "request_project_missing" };
+    const res = this.createItem({ project_id: r.project_id, title: r.title, origin: "request", created_by });
+    if (!res.ok) return res;
+    this.db.prepare("UPDATE core_request SET status='promoted', promoted_item_id=? WHERE id=?").run(res.item.id, id);
+    return { ok: true, item: res.item, request_id: id };
   }
 }

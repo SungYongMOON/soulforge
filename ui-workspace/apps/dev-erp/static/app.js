@@ -2462,6 +2462,51 @@ async function renderMeetings() {
   $("#mtgTitle").addEventListener("keydown", (e) => { if (e.key === "Enter") $("#mtgAdd").click(); });
 }
 
+// 개발요청함(slice6): 인입 채널. 요청 등록 → 과제 연결 → '할 일로' 승격(미분류) → 분류 필요에서 SE 기준점 분류.
+async function renderRequests() {
+  const L = state.lex;
+  const [summary, reqs] = await Promise.all([api("/api/summary"), api("/api/requests")]);
+  const opts = summary.projects.map((p) => `<option value="${esc(p.id)}">${esc(p.title)}</option>`).join("");
+  const rows = reqs.map((r) => `<tr>
+    <td>${esc(r.title)}</td>
+    <td class="dim">${esc(r.requester ?? "-")}</td>
+    <td class="dim">${esc(r.category ?? "-")}</td>
+    <td>${r.project_id ? esc(r.project_id) : `<span class="dim">${L.req_no_project ?? "미연결"}</span>`}</td>
+    <td>${statusBadge(r.status)}</td>
+    <td class="acts">${r.promoted_item_id
+      ? `<span class="badge green">✓ ${L.item ?? "할 일"}</span>`
+      : (r.project_id
+        ? `<button class="fav-chip mini" data-promote-req="${esc(r.id)}">${L.req_promote ?? "할 일로"}</button>`
+        : `<span class="dim">${L.req_need_project ?? "과제 연결 필요"}</span>`)}</td>
+  </tr>`).join("");
+  $("#view").innerHTML = `
+    <div class="item-form">
+      <input id="reqTitle" placeholder="${L.req_title_ph ?? "개발 요청 내용"}" />
+      <input id="reqWho" placeholder="${L.req_requester_ph ?? "요청자"}" size="9" />
+      <input id="reqCat" placeholder="${L.req_category_ph ?? "분류"}" size="9" />
+      <select id="reqProject"><option value="">${L.project}: ${L.req_no_project ?? "미연결"}</option>${opts}</select>
+      <button id="reqAdd" class="fav-chip">${L.req_add ?? "요청 등록"}</button>
+    </div>
+    <p class="hub-note">${L.req_intake_note ?? "팀원 개발 요청 인입함. 과제에 연결해 '할 일로' 승격하면 분류 필요로 들어가 SE 기준점(단계·산출물·업무유형)에 거는 분류를 거칩니다."}</p>
+    ${reqs.length
+      ? `<table><thead><tr><th>${L.req_col_title ?? "요청"}</th><th>${L.req_col_who ?? "요청자"}</th><th>${L.req_col_cat ?? "분류"}</th><th>${L.project}</th><th>${L.th_status}</th><th>${L.th_actions}</th></tr></thead><tbody>${rows}</tbody></table>`
+      : `<div class="empty">${L.req_empty ?? "등록된 요청 없음"}</div>`}`;
+  $("#reqAdd").addEventListener("click", async () => {
+    const title = $("#reqTitle").value.trim();
+    if (!title) return;
+    const body = { title };
+    if ($("#reqWho").value.trim()) body.requester = $("#reqWho").value.trim();
+    if ($("#reqCat").value.trim()) body.category = $("#reqCat").value.trim();
+    if ($("#reqProject").value) body.project_id = $("#reqProject").value;
+    const r = await post("/api/requests", body);
+    if (r.ok) render();
+  });
+  $("#reqTitle").addEventListener("keydown", (e) => { if (e.key === "Enter") $("#reqAdd").click(); });
+  $("#view").querySelectorAll("[data-promote-req]").forEach((b) =>
+    b.addEventListener("click", async () => { const res = await post("/api/requests/promote", { id: b.dataset.promoteReq }); if (res.ok) render(); })
+  );
+}
+
 async function render() {
   document.getElementById("app").dataset.view = state.view; // 홈(위젯)에선 좌측 열 숨김용
   renderAuth();
@@ -2508,6 +2553,12 @@ async function render() {
     $("#viewTitle").textContent = m?.nav ?? state.lex.tab_mail;
     logView(state.view);
     return renderMeetings();
+  }
+  if (state.view === "mod:requests") {                  // 개발요청함(인입 채널)
+    const m = (state.modules ?? []).find((x) => x.id === "requests");
+    $("#viewTitle").textContent = m?.nav ?? "개발요청함";
+    logView(state.view);
+    return renderRequests();
   }
   if (state.view === "projects") {                      // 프로젝트 관리 랜딩(시작년도별 카드)
     $("#viewTitle").textContent = state.lex.nav_projects ?? "프로젝트 관리";
