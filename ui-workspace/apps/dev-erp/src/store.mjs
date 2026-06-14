@@ -1241,13 +1241,33 @@ export class Store {
     }
     return { ok: true, proposed };
   }
-  // 후속 슬라이스 자리(스캐너 1=슬라이스 1, 모두 createProposal 로만 착지·자동쓰기 0):
-  //   scanArtifactGaps(보드 미정의 requirement→set_artifact_requirement), scanStockReorder(재발주, project 귀속 정책 선행),
-  //   scanMeetingActionGaps, scanCapabilityMismatch(P-6), scanKnowledgeUntagged(P-10), scanCalculatorDraft(P-11).
+  // 자동 팔로업(영상 D 차용) — '회신 없으면 N일 뒤 팔로업'. 미완 단계(request/quote/order) 발주가
+  // 마감(due) 지났는데 진행 없으면 '팔로업 할 일'을 createProposal(pending)로 제안. 자동 쓰기 0(승인 후 생성).
+  scanFollowups(todayKey = null) {
+    const today = todayKey || new Date().toISOString().slice(0, 10);
+    const stale = this.db.prepare(
+      "SELECT id, title, stage, due FROM core_purchase WHERE stage IN ('request','quote','order') AND due IS NOT NULL AND due < ?"
+    ).all(today);
+    const pending = new Set(this.proposals({ status: "pending" }).filter((p) => p.source === "followup").map((p) => p.payload?.title));
+    let proposed = 0;
+    for (const po of stale) {
+      const proj = this.db.prepare("SELECT project_id FROM purchase_project_map WHERE purchase_id=? LIMIT 1").get(po.id)?.project_id;
+      if (!proj) continue; // 승인 시 createItem 이 프로젝트를 요구 → 링크 없으면 skip
+      const title = `팔로업: ${po.title} 회신·진행 확인`;
+      if (pending.has(title)) continue;
+      if (this.db.prepare("SELECT 1 FROM core_item WHERE project_id=? AND title=? AND status!='done'").get(proj, title)) continue;
+      const lateDays = Math.round((Date.parse(`${today}T00:00:00Z`) - Date.parse(`${po.due}T00:00:00Z`)) / 86400000);
+      this.createProposal({ source: "followup", kind: "create_item", payload: { project_id: proj, title, origin: "followup" }, summary: `발주 정체 ${lateDays}일(${po.stage})`, used_refs: ["core_purchase"], data_label: "real" });
+      proposed++;
+    }
+    return { ok: true, proposed };
+  }
+  // 후속 스캐너 자리: scanArtifactGaps, scanMeetingActionGaps, scanCapabilityMismatch(P-6) 등 (모두 createProposal 로만 착지).
   runRecommenders({ scope = "all", project = null } = {}) {
     let total = 0;
     const projects = project ? [{ id: project }] : this.db.prepare("SELECT id FROM core_project").all();
     for (const p of projects) total += this.scanScheduleGaps(p.id).proposed || 0;
+    total += this.scanFollowups().proposed || 0; // 자동 팔로업(전역, 발주 정체)
     this.appendEvent({ actor_kind: "system", kind: "recommender_run", to: String(total), used_refs: ["ai_proposal"], data_label: "real" });
     return { ok: true, proposed: total, scope };
   }

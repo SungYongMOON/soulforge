@@ -1361,3 +1361,32 @@ test("P-19: scanScheduleGaps dedup", () => {
   store.scanScheduleGaps("PRJ-A");
   assert.equal(store.proposals({ status: "pending" }).length, after1, "재스캔 중복 0");
 });
+
+// 자동 팔로업(영상 D): 마감 지난 미완 발주 → '팔로업 할 일' 제안(자동 쓰기 0, 승인 후 생성).
+test("자동 팔로업: 발주 정체→팔로업 제안→승인 시 생성", () => {
+  const store = freshStore();
+  loadFixture(store);
+  store.createPurchase({ title: "지연 발주", stage: "order", due: "2020-01-01", projects: ["PRJ-A"] });
+  const before = store.items({ project: "PRJ-A" }).length;
+  const r = store.scanFollowups("2026-08-01");
+  assert.ok(r.proposed >= 1, "팔로업 제안 생성");
+  assert.equal(store.items({ project: "PRJ-A" }).length, before, "자동 쓰기 0(제안만)");
+  const p = store.proposals({ status: "pending" }).find((x) => x.source === "followup");
+  assert.ok(p, "followup 제안 존재");
+  const cnt = store.proposals({ status: "pending" }).filter((x) => x.source === "followup").length;
+  store.scanFollowups("2026-08-01");
+  assert.equal(store.proposals({ status: "pending" }).filter((x) => x.source === "followup").length, cnt, "재스캔 dedup 0");
+  store.approveProposal(p.id);
+  assert.equal(store.items({ project: "PRJ-A" }).length, before + 1, "승인 후 팔로업 할일 생성");
+});
+
+// 자동 팔로업: 마감 안 지난/완료 단계 발주는 제안 안 함(오탐 0).
+test("자동 팔로업: 정상 발주는 미제안", () => {
+  const store = freshStore();
+  loadFixture(store);
+  store.createPurchase({ title: "정상 발주", stage: "order", due: "2099-01-01", projects: ["PRJ-A"] }); // 마감 미래
+  store.createPurchase({ title: "마감지남 수령", stage: "receive", due: "2020-01-01", projects: ["PRJ-A"] }); // 단계가 미완 아님
+  store.scanFollowups("2026-08-01");
+  const fu = store.proposals({ status: "pending" }).filter((x) => x.source === "followup").map((x) => x.payload?.title);
+  assert.ok(!fu.some((t) => /정상 발주|마감지남 수령/.test(t)), "정상/완료단계 발주는 팔로업 미제안");
+});
