@@ -1875,7 +1875,8 @@ async function hubSchedule(mount, p) {
 // A1/A2 게이트 판정·강제 화면. hard 기본(미충족 차단), soft 전환 가능. 게임코드 0.
 async function renderGates() {
   const L = state.lex;
-  const data = await api("/api/gates");
+  // SE-UI: 게이트 + 납기위험(P-9) + 제안 큐(P-4 키스톤) 를 한 화면에 표면화.
+  const [data, risks, props] = await Promise.all([api("/api/gates"), api("/api/risk"), api("/api/proposals")]);
   const stages = data.stages || [];
   const byProj = {};
   for (const s of stages) (byProj[s.project_id] ||= []).push(s);
@@ -1907,7 +1908,22 @@ async function renderGates() {
       <td>${s.status === "cleared" ? "" : `<button class="fav-chip gate-pass-btn" data-stage="${esc(s.id)}" data-passable="${s.passable}">${L.gate_pass}</button>${s.reasons.length ? `<div class="gate-reasons">${s.reasons.map(reasonChip).join(" ")}</div>${missingDetails(s.reasons)}` : ""}`}</td>
     </tr>`).join("")}
     </tbody></table></section>`).join("");
-  $("#view").innerHTML = `<div class="gate-head"><button id="openSched" class="fav-chip">${L.sched_open}</button><button id="openEmbeds" class="fav-chip">${L.embed_open}</button></div>${modeBtns}${stages.length ? sec : `<div class="empty">${L.empty_gates}</div>`}`;
+  // P-9 납기/CDR 위험 — severity 배지(critical/risk=빨강, watch=주황). 빈 목록이면 dim 안내.
+  const sevCls = { critical: "red", risk: "red", watch: "amber" };
+  const riskSection = risks.length
+    ? `<section class="se-risk"><h4>${L.risk_title}</h4>${risks.slice(0, 12).map((r) => `<span class="badge ${sevCls[r.severity] ?? ""}" title="${esc(r.project_title)} · ${L.risk_pct} ${r.pct}%${r.is_milestone ? ` · ${L.risk_milestone}` : ""}">${L[`risk_sev_${r.severity}`] ?? r.severity} · ${esc(r.item_title)} (${r.days_left}${L.risk_days_left})</span>`).join(" ")}</section>`
+    : `<section class="se-risk dim">${L.risk_title}: ${L.empty_risk}</section>`;
+  // P-4 키스톤 제안 큐 — AI/규칙 제안을 사람이 승인/반려(승인해야만 실제 쓰기).
+  const propSection = props.length
+    ? `<section class="se-prop"><h4>${L.prop_queue_title} (${props.length})</h4>
+        <table><tbody>${props.map((p) => `<tr data-prop="${esc(p.id)}">
+          <td><span class="badge">${esc(p.kind)}</span></td>
+          <td>${esc(p.summary ?? p.payload?.title ?? p.id)}</td>
+          <td class="dim">${esc(p.source)}</td>
+          <td><button class="fav-chip prop-approve">${L.prop_approve}</button> <button class="fav-chip prop-reject">${L.prop_reject}</button> <span class="prop-msg dim"></span></td>
+        </tr>`).join("")}</tbody></table></section>`
+    : `<section class="se-prop dim">${L.prop_queue_title}: ${L.prop_empty}</section>`;
+  $("#view").innerHTML = `<div class="gate-head"><button id="openSched" class="fav-chip">${L.sched_open}</button><button id="openEmbeds" class="fav-chip">${L.embed_open}</button></div>${riskSection}${propSection}${modeBtns}${stages.length ? sec : `<div class="empty">${L.empty_gates}</div>`}`;
   $("#openSched").addEventListener("click", () => { state.view = "mod:schedule"; render(); });
   $("#openEmbeds").addEventListener("click", () => { state.view = "mod:embeds"; render(); });
   $("#view").querySelectorAll("[data-mode]").forEach((b) => b.addEventListener("click", async () => {
@@ -1923,6 +1939,18 @@ async function renderGates() {
       }
     } else { render(); }
   }));
+  // P-4 키스톤: 제안 승인(→화이트리스트 도메인 쓰기)·반려. 승인 실패 시 사유만 표시.
+  $("#view").querySelectorAll("[data-prop]").forEach((tr) => {
+    const id = tr.dataset.prop;
+    tr.querySelector(".prop-approve").addEventListener("click", async () => {
+      const res = await (await post("/api/proposals/approve", { id })).json();
+      if (res.ok) render(); else tr.querySelector(".prop-msg").textContent = `✗ ${res.error ?? ""}`;
+    });
+    tr.querySelector(".prop-reject").addEventListener("click", async () => {
+      await post("/api/proposals/reject", { id, reason: "" });
+      render();
+    });
+  });
 }
 
 // U-1a: SE 스케줄러 화면 — 템플릿 적용(산출물 자동 spawn) + 마일스톤 날짜 전파.
@@ -1953,6 +1981,17 @@ async function renderSchedule() {
   const anchorInputs = uniqMs.map((code) => `<div class="sched-anchor"><label>${L.sched_milestone} ${esc(code)}</label>
     <input type="date" data-anchor="${esc(code)}" value="${state.schedAnchors[code] ?? ""}" />
     <button class="fav-chip sched-anchor-apply" data-code="${esc(code)}">${L.sched_anchor_apply}</button></div>`).join("");
+  // P-14 입력 충족 — 선택 과제의 deliverable_input 충족 시 '초안 생성'(→제안 큐, 자동 생성 0).
+  const fulfillment = state.schedProject ? await api(`/api/inputs/fulfillment?project=${encodeURIComponent(state.schedProject)}`) : [];
+  const inputSection = fulfillment.length
+    ? `<section class="sched-inputs"><h3>${L.input_generate_btn}</h3>
+        <table><thead><tr><th>${L.sched_deliverable}</th><th>${L.risk_pct}</th><th></th></tr></thead><tbody>
+        ${fulfillment.map((d) => `<tr data-deliv="${esc(d.deliverable_name)}">
+          <td>${esc(d.deliverable_name)}</td>
+          <td>${d.satisfied.length}/${d.required.length}${d.missing.length ? ` <span class="dim">(${d.missing.map((m) => state.lex[`at_${m.artifact_type}`] ?? m.artifact_type).join(", ")})</span>` : ""}</td>
+          <td>${d.fulfilled ? `<button class="fav-chip input-gen">${L.input_generate_btn}</button>` : `<button class="fav-chip" disabled>${L.input_generate_blocked}</button>`} <span class="input-msg dim"></span></td>
+        </tr>`).join("")}</tbody></table></section>`
+    : "";
   $("#view").innerHTML = `<div class="sched-head">
       <button id="schedBack" class="fav-chip">${L.sched_back}</button>
       <label>${L.sched_pick_project}</label> <select id="schedProj">${projOpts}</select>
@@ -1962,9 +2001,15 @@ async function renderSchedule() {
     <div id="schedMsg" class="dim"></div>
     <div class="dim sched-note">${L.sched_timing_note}</div>
     ${anchorInputs ? `<div class="sched-anchors">${anchorInputs}</div>` : ""}
+    ${inputSection}
     ${tplCards || `<div class="empty">-</div>`}`;
   $("#schedBack").addEventListener("click", () => { state.view = "mod:gates"; render(); });
-  $("#schedProj").addEventListener("change", (e) => { state.schedProject = e.target.value; });
+  $("#schedProj").addEventListener("change", (e) => { state.schedProject = e.target.value; render(); });
+  $("#view").querySelectorAll(".input-gen").forEach((b) => b.addEventListener("click", async () => {
+    const tr = b.closest("[data-deliv]");
+    const res = await (await post("/api/inputs/generate", { project_id: state.schedProject, deliverable_name: tr.dataset.deliv })).json();
+    tr.querySelector(".input-msg").textContent = res.queued ? `✓ ${L.input_pending_keystone}` : (L[`input_generate_blocked`] && res.error === "inputs_incomplete" ? L.input_generate_blocked : (res.error ?? ""));
+  }));
   $("#icsDl").addEventListener("click", () => { const p = $("#icsPerson").value; window.location = "/api/calendar.ics" + (p ? `?person=${encodeURIComponent(p)}` : ""); });
   $("#view").querySelectorAll("[data-anchor]").forEach((inp) => inp.addEventListener("change", (e) => { state.schedAnchors[e.target.dataset.anchor] = e.target.value; }));
   $("#view").querySelectorAll(".sched-apply").forEach((b) => b.addEventListener("click", async () => {
