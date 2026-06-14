@@ -1202,3 +1202,26 @@ test("P-9: pct 높으면 위험 완화", () => {
   assert.equal(sl?.severity, "risk", "저진행=risk");
   assert.ok(!sh, "고진행(pct71)=ok 로 제외(완화)");
 });
+
+// U-1c: items() 가 anchor_stage_code/anchor_date/offset_days 노출(허브 일정 탭 소스).
+test("U-1c: items 가 anchor 필드 노출", () => {
+  const store = freshStore();
+  loadFixture(store);
+  store.applyTemplate("PRJ-A", "120_CDR", { anchorDates: { "120": "2026-08-01" } });
+  const rows = store.items({ project: "PRJ-A" });
+  assert.ok(rows.some((r) => r.anchor_stage_code), "anchor_stage_code 노출");
+  assert.ok(rows.some((r) => "offset_days" in r), "offset_days 노출");
+});
+
+// U-1c: setAnchor 가 같은 앵커만 전파, 완료·사람수정(due_overridden) 보호.
+test("U-1c: setAnchor 1-hop 전파 + 완료·수정 보호", () => {
+  const store = freshStore();
+  loadFixture(store);
+  store.applyTemplate("PRJ-A", "120_CDR", { anchorDates: { "120": "2026-08-01" } });
+  const rows = store.items({ project: "PRJ-A" }).filter((r) => r.anchor_stage_code === "120");
+  assert.ok(rows.length >= 2, "앵커 산출물 ≥2");
+  store.setItemStatus(rows[0].id, "done");
+  store.db.prepare("UPDATE core_item SET due_overridden=1 WHERE id=?").run(rows[1].id);
+  const r = store.setAnchor("PRJ-A", "120", "2026-09-01");
+  assert.equal(r.shifted, rows.length - 2, "완료·수정 항목 제외하고 전파");
+});

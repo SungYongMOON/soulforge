@@ -1711,7 +1711,7 @@ async function renderProjectHub() {
   const p = summary.projects.find((x) => x.id === pid);
   if (!p) { state.view = "home"; return render(); }
   const tab = state.hubTab ?? "overview";
-  const tabs = ["overview", "guide", "mail", "history"];
+  const tabs = ["overview", "guide", "schedule", "mail", "history"];
   $("#view").innerHTML = `
     <div class="hub-tabs">
       <button id="hubBack" class="fav-chip">${L.back_home}</button>
@@ -1725,6 +1725,7 @@ async function renderProjectHub() {
   );
   const mount = $("#hubBody");
   if (tab === "guide") return hubGuide(mount, p);
+  if (tab === "schedule") return hubSchedule(mount, p);
   if (tab === "mail") return hubMail(mount, p);
   if (tab === "history") return hubHistory(mount, p);
   return hubOverview(mount, p);
@@ -1832,6 +1833,42 @@ async function hubHistory(mount, p) {
         <td>${esc(e.from_val ? `${e.from_val} → ` : "")}${esc(e.to_val ?? "")}${e.bottleneck_reason ? ` · ${esc(e.bottleneck_reason)}` : ""}</td>
         <td class="dim">${esc(e.actor_ref)}</td></tr>`).join("")}</tbody></table>`
     : `<div class="empty small">-</div>`;
+}
+
+// U-1c 과제 허브 '일정' 탭 — 마일스톤(anchor_stage_code)별 산출물 묶음 + 날짜 인라인 변경(setAnchor 1-hop).
+async function hubSchedule(mount, p) {
+  const L = state.lex;
+  const items = await api(`/api/items?project=${encodeURIComponent(p.id)}`);
+  const anchored = items.filter((i) => i.anchor_stage_code);
+  if (!anchored.length) {
+    mount.innerHTML = `<div class="empty">${L.hub_no_schedule} <button class="fav-chip" id="hubGoSched">${L.sched_open}</button></div>`;
+    mount.querySelector("#hubGoSched")?.addEventListener("click", () => { state.view = "mod:schedule"; render(); });
+    return;
+  }
+  const groups = {};
+  for (const i of anchored) (groups[i.anchor_stage_code] ||= []).push(i);
+  mount.innerHTML = Object.entries(groups).map(([code, arr]) => {
+    const anchorDate = arr.find((x) => x.anchor_date)?.anchor_date ?? "";
+    const rows = arr.map((i) => `<tr>
+      <td>${esc(i.title)}</td><td class="dim">${esc(i.due ?? "-")}</td><td class="dim num">${i.offset_days ?? 0}</td>
+      <td class="dim">${i.status === "done" ? "✓" : (i.due_overridden ? "✎" : "")}</td></tr>`).join("");
+    return `<section class="hub-sched-grp" data-code="${esc(code)}">
+      <div class="item-form"><strong>${L.risk_milestone} ${esc(code)}</strong>
+        <input type="date" class="hub-anchor-date" value="${esc(anchorDate)}" />
+        <button class="fav-chip hub-anchor-apply">${L.hub_anchor_apply}</button>
+        <span class="hub-anchor-msg dim"></span></div>
+      <table><thead><tr><th>${L.sched_deliverable}</th><th>${L.col_due}</th><th>${L.sched_offset}</th><th></th></tr></thead><tbody>${rows}</tbody></table>
+    </section>`;
+  }).join("");
+  mount.querySelectorAll(".hub-sched-grp").forEach((grp) => {
+    grp.querySelector(".hub-anchor-apply").addEventListener("click", async () => {
+      const date = grp.querySelector(".hub-anchor-date").value;
+      if (!date) return;
+      const r = await (await post("/api/schedule/anchor", { project_id: p.id, anchor_stage_code: grp.dataset.code, date })).json();
+      if (r.shifted != null) { grp.querySelector(".hub-anchor-msg").textContent = `${r.shifted}${L.sched_shifted}`; setTimeout(render, 600); }
+      else grp.querySelector(".hub-anchor-msg").textContent = r.error ?? "";
+    });
+  });
 }
 
 // 회의록(메타 전용 읽기+생성). 자동추출·원문첨부 없음 — 액션아이템은 기존 할일 수동 링크.
