@@ -1732,10 +1732,14 @@ async function renderSchedule() {
   const milestones = [];
   const tplCards = (tpls || []).map((t) => {
     const stageRows = (t.stages || []).map((s) => { if (s.is_milestone) milestones.push(s.stage_code); return `<li>${esc(s.stage_code)}${s.is_milestone ? ` <span class="badge">${L.sched_milestone}</span>` : ""}</li>`; }).join("");
-    const delRows = (t.deliverables || []).map((d) => `<tr><td>${esc(d.deliverable_name)}</td><td class="dim">${esc(d.anchor_stage_code)} ${d.offset_days >= 0 ? "+" : ""}${d.offset_days}</td><td class="dim">${esc(d.default_artifact_type ?? "")}</td></tr>`).join("");
+    const delRows = (t.deliverables || []).map((d) => `<tr>
+      <td>${esc(d.deliverable_name)}</td>
+      <td class="dim">${esc(d.anchor_stage_code)}</td>
+      <td><input type="number" class="sched-off" style="width:4.2em" value="${d.offset_days}" /> <span class="dim">${L.sched_offset_unit}</span></td>
+      <td><button class="fav-chip sched-off-save" data-key="${esc(t.key)}" data-stage="${esc(d.anchor_stage_code)}" data-name="${esc(d.deliverable_name)}">${L.sched_save}</button></td></tr>`).join("");
     return `<section class="sched-tpl"><h3>${esc(t.name)} <span class="dim">(${esc(t.key)})</span></h3>
       <ul class="sched-stages">${stageRows}</ul>
-      <table><thead><tr><th>${L.sched_deliverable}</th><th>${L.sched_offset}</th><th></th></tr></thead><tbody>${delRows}</tbody></table>
+      <table><thead><tr><th>${L.sched_deliverable}</th><th>${L.sched_milestone}</th><th>${L.sched_offset}</th><th></th></tr></thead><tbody>${delRows}</tbody></table>
       <button class="fav-chip sched-apply" data-key="${esc(t.key)}">${L.sched_apply}</button></section>`;
   }).join("");
   const uniqMs = [...new Set(milestones)];
@@ -1747,6 +1751,7 @@ async function renderSchedule() {
       <label>${L.sched_pick_project}</label> <select id="schedProj">${projOpts}</select>
     </div>
     <div id="schedMsg" class="dim"></div>
+    <div class="dim sched-note">${L.sched_timing_note}</div>
     ${anchorInputs ? `<div class="sched-anchors">${anchorInputs}</div>` : ""}
     ${tplCards || `<div class="empty">-</div>`}`;
   $("#schedBack").addEventListener("click", () => { state.view = "mod:gates"; render(); });
@@ -1763,6 +1768,12 @@ async function renderSchedule() {
     const r = await post("/api/schedule/anchor", { project_id: state.schedProject, anchor_stage_code: b.dataset.code, date });
     let res; try { res = await r.json(); } catch { res = {}; }
     $("#schedMsg").textContent = res.shifted != null ? `${res.shifted}${L.sched_shifted}` : (res.error ?? "");
+  }));
+  $("#view").querySelectorAll(".sched-off-save").forEach((b) => b.addEventListener("click", async () => {
+    const inp = b.closest("tr").querySelector(".sched-off");
+    const r = await post("/api/schedule/deliverable", { template_key: b.dataset.key, anchor_stage_code: b.dataset.stage, deliverable_name: b.dataset.name, offset_days: Number(inp.value) });
+    let res; try { res = await r.json(); } catch { res = {}; }
+    $("#schedMsg").textContent = res.ok ? L.sched_saved : (res.error ?? "");
   }));
 }
 

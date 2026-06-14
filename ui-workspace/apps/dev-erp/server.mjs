@@ -236,6 +236,14 @@ const server = createServer(async (req, res) => {
       const r = store.setAnchor(project_id, anchor_stage_code, date);
       return send(res, r.error ? 400 : 200, r);
     }
+    if (path === "/api/schedule/deliverable" && req.method === "POST") {
+      let body = ""; for await (const chunk of req) body += chunk;
+      const b = JSON.parse(body || "{}");
+      const r = store.upsertDeliverable(b.template_key, b.anchor_stage_code, b.deliverable_name, { offset_days: b.offset_days, default_artifact_type: b.default_artifact_type });
+      if (r.error) return send(res, 400, r);
+      store.appendEvent({ actor_ref: "owner", actor_kind: "human", kind: "deliverable_edit", to: `${b.template_key}/${b.deliverable_name}=${b.offset_days}`, used_refs: ["se_stage_template"], data_label: "real" });
+      return send(res, 200, r);
+    }
     if (path === "/api/requirements" && req.method === "GET") return send(res, 200, store.artifactRequirements({ scope_kind: qp.scope_kind, scope_key: qp.scope_key }));
     if (path === "/api/requirements" && req.method === "POST") {
       let body = ""; for await (const chunk of req) body += chunk;

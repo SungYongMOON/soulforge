@@ -428,6 +428,16 @@ test("U-1a: schedule 라우트가 화면 데이터로 충분", () => {
   assert.ok(store.scheduleTemplates()[0].deliverables.length >= 3);
 });
 
+test("UI-sched: 산출물 offset 편집/추가(upsertDeliverable)", () => {
+  const store = freshStore();
+  store.upsertDeliverable("120_CDR", "120", "회로도 초안", { offset_days: -10 });
+  const d = store.scheduleTemplates().find((t) => t.key === "120_CDR").deliverables.find((x) => x.deliverable_name === "회로도 초안");
+  assert.equal(d.offset_days, -10, "기존 산출물 offset 편집");
+  store.upsertDeliverable("120_CDR", "120", "신규산출물", { offset_days: 5, default_artifact_type: "bom" });
+  assert.ok(store.scheduleTemplates().find((t) => t.key === "120_CDR").deliverables.find((x) => x.deliverable_name === "신규산출물"), "신규 산출물 추가");
+  assert.equal(store.upsertDeliverable("nope", "120", "x").error, "template_not_found");
+});
+
 test("run16: P2a 할일 쓰기 — 생성/검증/가이드 연결", () => {
   const store = freshStore();
   loadFixture(store);

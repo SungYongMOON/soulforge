@@ -795,6 +795,18 @@ export class Store {
       deliverables: this.db.prepare("SELECT anchor_stage_code, offset_days, deliverable_name, default_artifact_type FROM se_deliverable_template WHERE template_key=? ORDER BY id").all(t.key),
     }));
   }
+  // 산출물 타이밍 편집/추가 — 지식/RAG 엔 '무엇'만 있고 '언제(offset)'는 없으므로 owner 가 직접 편집(추후 Codex 분석).
+  upsertDeliverable(template_key, anchor_stage_code, deliverable_name, { offset_days = 0, default_artifact_type = null } = {}) {
+    if (!this.db.prepare("SELECT 1 FROM se_stage_template WHERE key=?").get(template_key)) return { error: "template_not_found" };
+    const nm = String(deliverable_name ?? "").trim();
+    if (!nm || !anchor_stage_code) return { error: "deliverable_name_and_stage_required" };
+    this.db.prepare(
+      `INSERT INTO se_deliverable_template(template_key,anchor_stage_code,offset_days,deliverable_name,default_artifact_type)
+       VALUES(?,?,?,?,?)
+       ON CONFLICT(template_key,anchor_stage_code,deliverable_name) DO UPDATE SET offset_days=excluded.offset_days, default_artifact_type=excluded.default_artifact_type`
+    ).run(template_key, anchor_stage_code, Number(offset_days) || 0, nm, default_artifact_type);
+    return { ok: true };
+  }
 
   setItemStatus(id, status) {
     if (!Store.ITEM_STATUSES.includes(status)) return { error: "bad_status" };
