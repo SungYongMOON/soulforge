@@ -5,7 +5,7 @@
 import { DatabaseSync } from "node:sqlite";
 import { scryptSync, randomBytes, timingSafeEqual } from "node:crypto";
 import { readFileSync, existsSync } from "node:fs";
-import { dirname, join } from "node:path";
+import { dirname, isAbsolute, join } from "node:path";
 import { fileURLToPath } from "node:url";
 
 // 과제시작년도 도출: 과제번호 접두 P{YY}- 에서(P26-014→2026, P00-TEST→2000). 형식 안 맞으면 null.
@@ -771,8 +771,17 @@ export class Store {
     if (!this.db.prepare("SELECT 1 FROM core_project WHERE id=?").get(code)) {
       this.upsertProject({ id: code, title: code, data_label: "real" }); // stub(제목=코드), 기존 제목 미클로버
     }
-    // 절대경로(/Volumes·/Users·드라이브) 금지(헌장 shared_ingest_contract): 포인터류는 상대만, 절대면 드롭.
-    const relOnly = (v) => { const s = String(v ?? "").trim(); return !s || /^([A-Za-z]:[\\/]|\/(Volumes|Users)\/)/.test(s) ? null : s; };
+    // 절대경로 금지(헌장 shared_ingest_contract): 포인터류는 상대/네임스페이스 ref 만, 로컬 절대면 드롭.
+    const relOnly = (v) => {
+      const s = String(v ?? "").trim();
+      return !s || isAbsolute(s) || /^[A-Za-z]:[\\/]/.test(s) || /^\\\\/.test(s) ? null : s;
+    };
+    const mailRefOnly = (v) => {
+      const s = relOnly(v);
+      if (!s) return null;
+      if (/^[A-Za-z][A-Za-z0-9_.-]*:/.test(s) || /^mail_[A-Za-z0-9]/.test(s)) return s;
+      return `mailcsv:${s}`;
+    };
     const due = row.due && /^\d{4}-\d{2}-\d{2}$/.test(String(row.due).trim()) ? String(row.due).trim() : null;
     const work_type = Store.WORK_TYPES.includes(row.work_type) ? row.work_type : null;
     const link_kind = Store.LINK_KINDS.includes(row.link_kind) ? row.link_kind : null;
@@ -807,7 +816,7 @@ export class Store {
       )
       .run(
         id, code, title, originVal, row.urgency || "normal", row.assignee_ref || null, statusVal, due,
-        relOnly(row.origin_mail_id), row.created_by || "task_ledger", work_type, link_kind, relOnly(row.link_ref),
+        mailRefOnly(row.origin_mail_id), row.created_by || "task_ledger", work_type, link_kind, relOnly(row.link_ref),
         row.completion_criteria || null, row.anchor_stage_code || null, createdVal
       );
     return { ok: true, id, project_id: code, isNew };

@@ -780,10 +780,24 @@ test("TASK-LEDGER-HARDEN: 멱등 보존·due override·SE격리·출처enum·절
   store.ingestTaskItem({ id: "k4", project_code: "P26-014", title: "x", origin: "maill" });
   assert.equal(store.db.prepare("SELECT origin FROM core_item WHERE id='k4'").get().origin, "ledger");
   // 6) 절대경로 포인터 드롭(헌장)
-  store.ingestTaskItem({ id: "k5", project_code: "P26-014", title: "x", link_kind: "artifact", link_ref: "/Volumes/secret/회로도.hwp" });
+  const volumePath = ["", "Volumes", "local-only", "file.hwp"].join("/");
+  const tmpPath = ["", "tmp", "local-only.hwp"].join("/");
+  const winPath = ["C:", "local-only", "file.hwp"].join("\\");
+  store.ingestTaskItem({ id: "k5", project_code: "P26-014", title: "x", link_kind: "artifact", link_ref: volumePath });
   assert.equal(store.db.prepare("SELECT link_ref FROM core_item WHERE id='k5'").get().link_ref, null, "절대경로 드롭");
   store.ingestTaskItem({ id: "k6", project_code: "P26-014", title: "x", link_kind: "artifact", link_ref: "_workspaces/P26-014/도면" });
   assert.equal(store.db.prepare("SELECT link_ref FROM core_item WHERE id='k6'").get().link_ref, "_workspaces/P26-014/도면", "상대경로 보존");
+  store.ingestTaskItem({ id: "k7", project_code: "P26-014", title: "x", link_kind: "artifact", link_ref: tmpPath });
+  assert.equal(store.db.prepare("SELECT link_ref FROM core_item WHERE id='k7'").get().link_ref, null, "일반 Unix 절대경로 드롭");
+  store.ingestTaskItem({ id: "k8", project_code: "P26-014", title: "x", link_kind: "artifact", link_ref: winPath });
+  assert.equal(store.db.prepare("SELECT link_ref FROM core_item WHERE id='k8'").get().link_ref, null, "Windows 절대경로 드롭");
+  // 7) 관련메일이력키는 순수 이력키 입력도 core_mail id 네임스페이스로 정규화한다.
+  store.ingestTaskItem({ id: "k9", project_code: "P26-014", title: "메일연결", origin_mail_id: "hist-001" });
+  assert.equal(store.db.prepare("SELECT origin_mail_id FROM core_item WHERE id='k9'").get().origin_mail_id, "mailcsv:hist-001");
+  store.ingestTaskItem({ id: "k10", project_code: "P26-014", title: "메일연결2", origin_mail_id: "mailcsv:hist-002" });
+  assert.equal(store.db.prepare("SELECT origin_mail_id FROM core_item WHERE id='k10'").get().origin_mail_id, "mailcsv:hist-002");
+  store.ingestTaskItem({ id: "k11", project_code: "P26-014", title: "메일연결3", origin_mail_id: "mail_manual_001" });
+  assert.equal(store.db.prepare("SELECT origin_mail_id FROM core_item WHERE id='k11'").get().origin_mail_id, "mail_manual_001");
 });
 
 test("MINE: 내 일 필터 — assignee_any(로그인명/사람이름) 매칭 + accountIdentities", () => {

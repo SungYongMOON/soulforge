@@ -62,7 +62,7 @@ function itemToRow(i) {
   ];
 }
 
-const README = (code) => `# 할일 장부\n\n- Project code: \`${code}\`\n- Owner path: \`_workmeta/${code}/reports/할일_장부/\`\n- Ledger file: \`할일_장부.csv\`\n- Schema version: \`${SCHEMA}\`\n\n## Use\n\n- 한 행 = 하나의 할일(앞으로 할 일). 작업_장부(과거 로그)의 자매.\n- ERP(dev-erp)가 export 로 쓰고 ingest 로 읽는 왕복. 메일/요청 분류 + 수동으로 ERP 안에서 태어난 할일을 이식.\n- 원문/첨부/secret 미저장. 포인터(\`연결대상\`,\`산출물참조\`,\`관련메일이력키\`)만.\n- 완료 시 \`상태\`=\`done\`. \`원문복사여부\`=\`아니오\`.\n`;
+const README = (code) => `# 할일 장부\n\n- Project code: \`${code}\`\n- Owner path: \`_workmeta/${code}/reports/할일_장부/\`\n- Ledger file: \`할일_장부.csv\`\n- Schema version: \`${SCHEMA}\`\n\n## Use\n\n- 한 행 = 하나의 할일(앞으로 할 일). 작업_장부(과거 로그)의 자매지만, 작업_장부를 통째 할일로 변환하지 않는다.\n- ERP(dev-erp)가 export 로 쓰고 ingest 로 읽는 왕복. 메일/요청 분류 + 수동으로 ERP 안에서 태어난 할일을 이식.\n- 원문/첨부/secret 미저장. 포인터(\`연결대상\`,\`산출물참조\`,\`관련메일이력키\`)만.\n- \`관련메일이력키\` 는 \`mailcsv:<이력키>\` 권장. 순수 이력키는 ingest 때 \`mailcsv:\` 로 정규화된다.\n- 완료 시 \`상태\`=\`done\`. \`원문복사여부\`=\`아니오\`.\n`;
 
 // ---------- --export: core_item → 할일_장부.csv ----------
 if (doExport) {
