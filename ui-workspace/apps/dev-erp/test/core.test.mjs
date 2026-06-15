@@ -10,6 +10,7 @@ import { loadFixture } from "../src/fixture.mjs";
 import { ingestNormalized, mapSoulforgeSnapshot } from "../src/adapter.mjs";
 import { getLexicon, LEXICON } from "../src/lexicon.mjs";
 import { crossSearch } from "../src/search.mjs";
+import { runQueued, llmQueueStats } from "../src/llm.mjs";
 
 function freshStore() {
   return openStore(":memory:");
@@ -1925,4 +1926,26 @@ test("TEAM-ACCT: 메일 mailbox 필터 — 담당자별 메일 이력 분리", (
   assert.equal(store.mail({ mailbox: "b@corp.com" }).length, 1, "B 메일함 소문자 매칭 1건");
   assert.equal(store.mail({ mailbox: "team" }).length, 3, "team 전체");
   assert.equal(store.mail({}).length, 3, "미지정 전체");
+});
+
+// ───────── 다중 사용자 로컬 LLM 동시성 게이트(LLM-QUEUE) ─────────
+// 동시 질문이 몰려도 로컬 모델 호출은 동시 실행 수 제한(기본 1)으로 직렬화.
+test("LLM-QUEUE: 동시 질문 직렬화 — peak ≤ concurrency", async () => {
+  let active = 0, peak = 0;
+  const task = async () => { active++; peak = Math.max(peak, active); await new Promise((r) => setTimeout(r, 12)); active--; return { ok: true }; };
+  await Promise.all([runQueued(task), runQueued(task), runQueued(task), runQueued(task)]);
+  assert.ok(peak <= llmQueueStats().concurrency, `peak ${peak} ≤ 동시한도 ${llmQueueStats().concurrency}`);
+  assert.equal(llmQueueStats().active, 0, "끝나면 슬롯 0");
+  assert.equal(llmQueueStats().waiting, 0, "대기열 비움");
+});
+
+// 대기 한도를 넘으면 검색 폴백 신호(queued_timeout) — 무한 대기 방지.
+test("LLM-QUEUE: 대기 초과 → queued_timeout(폴백)", async () => {
+  let release;
+  const hold = runQueued(() => new Promise((r) => { release = r; })); // 슬롯 점유(미해제)
+  await new Promise((r) => setTimeout(r, 5));
+  const r = await runQueued(() => Promise.resolve({ ok: true }), { waitMs: 15 });
+  assert.equal(r.queued_timeout, true, "대기 초과 시 폴백 신호");
+  release({ ok: true }); await hold;                 // 정리: 점유 해제
+  assert.equal(llmQueueStats().active, 0, "정리 후 슬롯 0");
 });

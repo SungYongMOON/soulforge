@@ -2,6 +2,18 @@
 
 ## 2026-06-16
 
+### Revision `working` - dev-erp 팀 사용 백본(계정·다중접속·로컬LLM 동시성)
+
+- dev-erp 에 팀원 다중 접속 백본을 추가: 계정(이메일=메일 인입 키·실제 가입 이름),
+  관리자 모드, 인증 엔드포인트(`/api/auth/*`)·계정 관리(`/api/accounts*`), 담당자별
+  보기범위(`view=계정id|team`)로 할일·메일 이력 분리, 계정별 메일함(`core_mail.mailbox`).
+  비밀번호 해시는 어떤 응답에도 미노출. 계정 0개면 익명 모드로 현행 동작(하위호환).
+- 보조용 로컬 LLM 다중 사용자 기초설계: 단일 Ollama 공유 가정에서 ERP 서버가 LLM 호출을
+  동시성 게이트(`ERP_LLM_CONCURRENCY`)로 직렬화하고 대기 초과 시 검색 폴백(끊김 방지).
+- 설계 문서 추가: `MULTI_USER_TEAM_MODEL_20260616.md`,
+  `LOCAL_LLM_MULTIUSER_DESIGN_20260616.md`. 계정별 메일 인입 계약은 Codex 소유로 라우팅.
+- 데이터 경계 불변: 원문/첨부·자격증명 미저장, 코어 LLM 0%(제안/검색만), 메타 전송만.
+
 ### Revision `working` - standardization HWPX source-text indexes prepared
 
 - Updated the public-safe `standardization_document_samples` knowledge entry to

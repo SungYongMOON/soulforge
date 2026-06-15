@@ -5,6 +5,40 @@
 
 const WEEK_MS = 6 * 86400000;
 
+// ── 다중 사용자 동시 질문 게이트(로컬 작은 모델 보호) ───────────────────────
+// 다른 PC 의 단일 Ollama 인스턴스를 팀이 공유하면, 동시 요청이 몰릴 때 모델이
+// 과부하·지연된다. ERP 서버(단일 프로세스)에서 인프로세스 세마포어로 동시
+// 실행 수를 제한(기본 1)하고, 대기 한도를 넘으면 '검색 폴백'으로 떨어뜨려
+// 어떤 사용자도 무한 대기/끊김을 겪지 않게 한다(기초설계: LOCAL_LLM_MULTIUSER_DESIGN).
+const LLM_CONCURRENCY = Math.max(1, Number(process.env.ERP_LLM_CONCURRENCY || 1));
+const LLM_QUEUE_WAIT_MS = Number(process.env.ERP_LLM_QUEUE_WAIT_MS || 8000);
+let _llmActive = 0;
+const _llmWaiters = [];
+function _acquire(waitMs) {
+  if (_llmActive < LLM_CONCURRENCY) { _llmActive++; return Promise.resolve(true); }
+  return new Promise((resolve) => {
+    const w = { resolve, timer: null };
+    w.timer = setTimeout(() => {
+      const i = _llmWaiters.indexOf(w);
+      if (i >= 0) _llmWaiters.splice(i, 1);
+      resolve(false);                      // 대기 초과 → 폴백 신호
+    }, Math.max(0, waitMs));
+    _llmWaiters.push(w);
+  });
+}
+function _release() {
+  const w = _llmWaiters.shift();
+  if (w) { clearTimeout(w.timer); w.resolve(true); }  // 슬롯을 다음 대기자에게 인계(active 유지)
+  else _llmActive = Math.max(0, _llmActive - 1);
+}
+// 동시성 제한 큐. 슬롯을 얻으면 fn 실행, 대기 초과면 {queued_timeout:true} 반환(미실행).
+export async function runQueued(fn, { waitMs = LLM_QUEUE_WAIT_MS } = {}) {
+  const got = await _acquire(waitMs);
+  if (!got) return { queued_timeout: true };
+  try { return await fn(); } finally { _release(); }
+}
+export function llmQueueStats() { return { active: _llmActive, waiting: _llmWaiters.length, concurrency: LLM_CONCURRENCY }; }
+
 // 메타/요약 컨텍스트 — 과제 카운트·이벤트 종류·메일 메타(제목/방향/시각)만. 본문/첨부 0.
 export function buildMetaContext(store, { project = null, days = 30 } = {}) {
   const today = new Date().toISOString().slice(0, 10);
@@ -106,7 +140,9 @@ export async function runLlm({ provider = "stub", user = "", context = null } = 
   const internet = provider === "codex_cli"; // 인터넷 외부전송 가능 경로(tool_pc 승인분)
   let text, ok = true, delivered = false;
   if (provider === "ollama") {
-    const r = await callOllama(user);          // 로컬 호출 — 인터넷 egress 아님
+    // 다중 사용자 게이트: 동시 호출은 직렬화, 대기 초과면 검색 폴백(끊기지 않음).
+    const q = await runQueued(() => callOllama(user));   // 로컬 호출 — 인터넷 egress 아님
+    const r = q.queued_timeout ? { ok: false, text: "" } : q;
     text = r.ok ? r.text : stubAnswer(user, context);
     ok = r.ok; delivered = r.ok;
   } else if (internet) {
