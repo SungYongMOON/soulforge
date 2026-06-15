@@ -1099,6 +1099,16 @@ export class Store {
   }
 
   // 메일→할일 승격: 메일 메타(제목/과제)만 복사. 본문 없음(애초에 미적재).
+  // 메일/일정 기반 할일의 SE단계 = '프로젝트 현재상태'에서 읽는다(메일 내용 추론 금지 —
+  // autosync mail_history_to_task_generation_rule.field_authority.SE단계=project_current_state).
+  // stage_current 우선, 없으면 가장 앞선 open 단계, 그래도 없으면 null(→ 할일 unclassified 격리, 규칙대로).
+  projectCurrentStage(project_id) {
+    const p = this.db.prepare("SELECT stage_current FROM core_project WHERE id=?").get(project_id);
+    if (p?.stage_current) return p.stage_current;
+    const s = this.db.prepare("SELECT stage_code FROM core_stage WHERE project_id=? AND status='open' AND stage_code IS NOT NULL ORDER BY seq LIMIT 1").get(project_id);
+    return s?.stage_code ?? null;
+  }
+
   promoteMail(mail_id, created_by) {
     const mail = this.db.prepare("SELECT * FROM core_mail WHERE id=?").get(mail_id);
     if (!mail) return { error: "mail_not_found" };
@@ -1107,9 +1117,11 @@ export class Store {
     if (!mail.project_id || !this.db.prepare("SELECT 1 FROM core_project WHERE id=?").get(mail.project_id)) {
       return { error: "mail_project_missing" };
     }
+    // SE단계는 프로젝트 현재상태에서(결정적). 업무유형/완료기준은 사람/LLM 분류 단계로 남김 → unclassified 유지.
     return this.createItem({
       project_id: mail.project_id, title: mail.subject,
-      origin: "mail", origin_mail_id: mail_id, created_by
+      origin: "mail", origin_mail_id: mail_id, created_by,
+      anchor_stage_code: this.projectCurrentStage(mail.project_id)
     });
   }
 

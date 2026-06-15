@@ -753,6 +753,24 @@ test("TASK-LEDGER: 할일_장부 행 → core_item ingest(과제필수·enum검�
   assert.equal(u.title, "회로도 검토(수정)"); assert.equal(u.status, "done");
 });
 
+test("MAIL-STAGE: 메일→할일 SE단계=프로젝트 현재상태(메일 추론 금지) + 없으면 미분류", () => {
+  const store = freshStore();
+  store.upsertProject({ id: "P26-014", title: "K", stage_current: "120_CDR", data_label: "real" });
+  store.upsertMail({ id: "m1", project_id: "P26-014", at: "2026-06-15", subject: "회신 요청", data_label: "real" });
+  const r = store.promoteMail("m1", "owner");
+  assert.equal(r.ok, true);
+  assert.equal(r.item.anchor_stage_code, "120_CDR", "SE단계 = 프로젝트 현재상태");
+  assert.equal(r.item.status, "unclassified", "업무유형 없어 여전히 미분류(분류/검토 대기)");
+  store.upsertProject({ id: "P99-001", title: "N", data_label: "real" });
+  assert.equal(store.projectCurrentStage("P99-001"), null);
+  store.upsertStage({ id: "P99-001-T-030", project_id: "P99-001", title: "030", stage_code: "030_SRR", seq: 1, status: "open" });
+  assert.equal(store.projectCurrentStage("P99-001"), "030_SRR");
+  assert.equal(store.projectCurrentStage("P26-014"), "120_CDR", "stage_current 우선");
+  store.upsertProject({ id: "P88-001", title: "X", data_label: "real" });
+  store.upsertMail({ id: "m2", project_id: "P88-001", at: "2026-06-15", subject: "안내", data_label: "real" });
+  assert.equal(store.promoteMail("m2", "owner").item.anchor_stage_code, null);
+});
+
 test("DELIV-SPAWN: 일정→할일 — 산출물에서 할일 생성(앵커·마감 상속·분류완료·멱등)", () => {
   const store = freshStore();
   store.upsertProject({ id: "P26-014", title: "KVDS", data_label: "real" });
