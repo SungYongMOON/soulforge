@@ -1,6 +1,6 @@
 import assert from "node:assert/strict";
 import test from "node:test";
-import { mkdtempSync, mkdirSync, writeFileSync, rmSync } from "node:fs";
+import { mkdtempSync, mkdirSync, writeFileSync, readFileSync, rmSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 
@@ -782,6 +782,25 @@ test("AUTOSYNC-WT: ERP 할일 생성/수정 → 할일_장부 write-through(멱�
   // 다른 할일 추가 → 기존 행 보존(2건)
   store.createItem({ project_id: "P26-014", title: "두번째", origin: "manual" });
   assert.equal(readTaskLedgerRows(file).length, 2, "다른 할일 추가 시 기존 보존");
+  rmSync(root, { recursive: true, force: true });
+});
+
+test("AUTOSYNC-WT2: write-through 가 키없는 행·추가컬럼 보존(검토 반영)", () => {
+  const store = freshStore();
+  store.upsertProject({ id: "P26-014", title: "K", data_label: "real" });
+  const root = mkdtempSync(join(tmpdir(), "wt2-"));
+  const dir = join(root, "_workmeta", "P26-014", "reports", "할일_장부");
+  mkdirSync(dir, { recursive: true });
+  // 기존 장부: 키 없는 손편집 행 + HEADERS 외 추가컬럼(메모)
+  writeFileSync(join(dir, "할일_장부.csv"),
+    "﻿할일키,프로젝트코드,할일명,상태,메모\n,P26-014,손편집 키없는 할일,open,중요\nmailtask:x,P26-014,기존행,open,참고\n");
+  store.afterItemWrite = (id) => writeTaskToLedger(store, id, { root });
+  store.createItem({ project_id: "P26-014", title: "새 할일", origin: "manual" }); // write-through 발동
+  const raw = readFileSync(join(dir, "할일_장부.csv"), "utf8");
+  assert.ok(raw.includes("손편집 키없는 할일"), "키 없는 손편집 행 보존(조용한 삭제 방지)");
+  assert.ok(raw.includes("메모") && raw.includes("중요"), "HEADERS 외 추가컬럼 보존");
+  assert.ok(raw.includes("mailtask:x"), "기존 행 보존");
+  assert.ok(readTaskLedgerRows(join(dir, "할일_장부.csv")).some((r) => r.title === "새 할일"), "새 항목 write-through");
   rmSync(root, { recursive: true, force: true });
 });
 

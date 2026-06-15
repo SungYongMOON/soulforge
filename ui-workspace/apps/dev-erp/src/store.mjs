@@ -978,7 +978,7 @@ export class Store {
     const inbound = ["mail", "request", "meeting"].includes(origin ?? "");
     const hasAnchor = !!(stage_id || anchor_stage_code || link_kind || guide_artifact_id);
     const status = inbound && !(hasAnchor && work_type) ? "unclassified" : "open";
-    const id = `itm_${Date.now().toString(36)}${Math.random().toString(36).slice(2, 6)}`;
+    const id = `itm_${Date.now().toString(36)}${randomBytes(4).toString("hex")}`; // randomBytes(같은 ms 충돌 방지, 파일 관례)
     this.db
       .prepare(
         `INSERT INTO core_item(id,project_id,title,origin,urgency,assignee_ref,status,due,
@@ -1100,7 +1100,7 @@ export class Store {
     if (mail.project_id === project_id) return { ok: true, from: mail.project_id, unchanged: true, item_moved: null };
     this.db.prepare("UPDATE core_mail SET project_id=? WHERE id=?").run(project_id, mail_id);
     const linked = this.db.prepare("SELECT id FROM core_item WHERE origin_mail_id=?").get(mail_id);
-    if (linked) this.db.prepare("UPDATE core_item SET project_id=? WHERE id=?").run(project_id, linked.id);
+    if (linked) { this.db.prepare("UPDATE core_item SET project_id=? WHERE id=?").run(project_id, linked.id); this.afterItemWrite?.(linked.id); } // autosync: 새 과제 장부 반영(옛 장부 stale 행 정리는 후속)
     return { ok: true, from: mail.project_id, item_moved: linked?.id ?? null };
   }
 

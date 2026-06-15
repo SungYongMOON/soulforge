@@ -636,7 +636,10 @@ server.listen(PORT, HOST, () => {
     // Phase 2: 할일_장부 → ERP 자동 import 폴링.
     startAutosyncPoll(store, { root, intervalMs: Number(process.env.DEV_ERP_AUTOSYNC_MS) || 10000, log: console.log });
     // Phase 1: ERP 할일 생성/수정 → 할일_장부 write-through(동기 버튼 없이). 실패는 로그(향후 sync_error 표면화).
-    store.afterItemWrite = (id) => { try { writeTaskToLedger(store, id, { root }); } catch (e) { console.error("[autosync] write-through 오류:", e.message); } };
+    store.afterItemWrite = (id) => {
+      try { const r = writeTaskToLedger(store, id, { root }); if (r?.error && r.error !== "item_or_project_missing") console.error("[autosync] write-through 실패:", id, r.error); }
+      catch (e) { console.error("[autosync] write-through 오류:", id, e.message); } // TODO: 항목 sync_error 상태 + 재시도(Phase 3)
+    };
     console.log(`[dev-erp] autosync ON — 할일_장부 ↔ ERP 양방향(import 폴링 ${Number(process.env.DEV_ERP_AUTOSYNC_MS) || 10000}ms + write-through). root: ${root}`);
   }
 });

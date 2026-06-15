@@ -6,7 +6,7 @@
 //   Codex 흐름: 메일_이력.csv 읽기 → LLM 분석 → candidates JSON → 이 도구 --apply → 할일_장부.csv → ERP import.
 // 기본 dry-run(건수만). --apply 일 때만 할일_장부.csv 작성(멱등 머지). 원문/첨부/secret 미복사. 절대경로 금지.
 // zero-dependency: node:fs/path/sqlite. SE단계는 --db(프로젝트 현재상태) 또는 --stage 로 주거나 비우면 unclassified.
-import { readFileSync, writeFileSync, existsSync, mkdirSync } from "node:fs";
+import { readFileSync, writeFileSync, renameSync, existsSync, mkdirSync } from "node:fs";
 import { join, dirname, resolve } from "node:path";
 import { fileURLToPath } from "node:url";
 
@@ -106,33 +106,42 @@ function toRow(histKey, cand, splitIdx) {
 // 후보 → 행들(split 처리)
 const newRows = [];
 let skippedNoMail = 0;
+let skippedBadKey = 0;
 for (const [histKey, cand] of Object.entries(candidates)) {
-  if (!mailById.has(histKey)) { skippedNoMail++; continue; } // 메일 이력에 없는 키는 무시
-  if (Array.isArray(cand)) cand.forEach((c, i) => newRows.push(toRow(histKey, c || {}, i + 1)));
+  if (!mailById.has(histKey)) { skippedNoMail++; continue; }        // 메일 이력에 없는 키는 무시
+  if (!relPathOk(histKey) || /[,:\n]/.test(histKey)) { skippedBadKey++; continue; } // 절대경로/구분자 든 이력키는 할일키로 못 씀
+  if (Array.isArray(cand)) cand.forEach((c, i) => { if (c) newRows.push(toRow(histKey, c, i + 1)); }); // null 원소 스킵
   else newRows.push(toRow(histKey, cand || {}, null));
 }
 
-// 멱등 머지: 기존 할일_장부 읽어 할일키로 인덱싱, mailtask 행은 새 값으로 교체, 나머지(ERP itm_* 등) 보존.
+// 멱등 머지(이름 키 매핑·헤더 안전). 기존 행을 헤더명 객체로 읽어 컬럼순서/추가컬럼을 보존하고,
+// 처리한 메일의 mailtask:<이력키>* 행은 통째 교체(split 수 변경 시 orphan 방지). 다른 행(ERP itm_*·다른 메일)·키없는 행은 보존.
 const taskCsv = join(wmArg, project, TASK_REL);
-const existing = [];
-let header = HEADERS;
+let existHeader = HEADERS;
+const existObjs = [];
 if (existsSync(taskCsv)) {
   const recs = parseCsv(readFileSync(taskCsv, "utf8").replace(/^﻿/, "").normalize("NFC")).filter((r) => r.some((c) => String(c).trim()));
-  if (recs.length) { header = recs[0].map((x) => x.trim()); for (const r of recs.slice(1)) existing.push(r); }
+  if (recs.length) {
+    existHeader = recs[0].map((x) => x.trim());
+    for (const r of recs.slice(1)) { const o = {}; existHeader.forEach((c, i) => (o[c] = r[i] ?? "")); existObjs.push(o); }
+  }
 }
-const keyIdx = header.indexOf("할일키");
+const outHeader = [...HEADERS, ...existHeader.filter((c) => !HEADERS.includes(c))]; // 추가컬럼 보존
+const touched = new Set(Object.keys(candidates).filter((k) => mailById.has(k)));
+const isTouchedMailTask = (k) => { const m = /^mailtask:(.+?)(?::\d+)?$/.exec(k); return m && touched.has(m[1]); };
 const byKey = new Map();
-for (const r of existing) { const k = (keyIdx >= 0 ? r[keyIdx] : r[0]) || ""; if (k) byKey.set(k, r); }
-let added = 0, updated = 0;
-for (const row of newRows) {
-  const k = row[0];
-  if (byKey.has(k)) updated++; else added++;
-  byKey.set(k, row);
+let purged = 0;
+for (const o of existObjs) {
+  const k = o["할일키"] || "";
+  if (k && isTouchedMailTask(k)) { purged++; continue; }          // 처리 메일의 옛 mailtask 행 제거(통째 교체)
+  byKey.set(k || `__nokey_${byKey.size}`, o);                     // 키 없는 행도 패스스루 보존
 }
+for (const row of newRows) { const o = {}; HEADERS.forEach((c, i) => (o[c] = row[i])); byKey.set(o["할일키"], o); }
 
+const summary = `생성행 ${newRows.length} · 옛 mailtask 교체삭제 ${purged} · 총 ${byKey.size}행`;
 if (!apply) {
   console.log(`# mail→할일_장부 dry-run — ${project}`);
-  console.log(`  메일 이력 ${mailById.size}건 · 후보 ${Object.keys(candidates).length}(메일없음 스킵 ${skippedNoMail}) · 생성행 ${newRows.length}(신규 ${added}·갱신 ${updated})`);
+  console.log(`  메일 이력 ${mailById.size}건 · 후보 ${Object.keys(candidates).length}(메일없음 스킵 ${skippedNoMail}) · ${summary}`);
   console.log(`  SE단계(프로젝트 현재상태) = ${stage || "(없음→unclassified)"} · 출처=mail · 상태=${autoOpen ? "auto-open 정책" : "needs_review→unclassified"}`);
   const open = newRows.filter((r) => r[7] === "open").length;
   console.log(`  open ${open} · unclassified(검토대기) ${newRows.length - open}`);
@@ -141,7 +150,9 @@ if (!apply) {
 }
 
 mkdirSync(dirname(taskCsv), { recursive: true });
-const out = [header.join(","), ...[...byKey.values()].map((r) => r.map(csvEsc).join(","))];
-writeFileSync(taskCsv, "﻿" + out.join("\n") + "\n");
-console.log(`[apply] ${project}: 할일_장부 작성 ${newRows.length}행(신규 ${added}·갱신 ${updated}), 총 ${byKey.size}행 → ${join(project, TASK_REL)}`);
+const out = [outHeader.join(","), ...[...byKey.values()].map((o) => outHeader.map((c) => csvEsc(o[c] ?? "")).join(","))];
+const tmp = `${taskCsv}.tmp`;
+writeFileSync(tmp, "﻿" + out.join("\n") + "\n");
+renameSync(tmp, taskCsv); // atomic
+console.log(`[apply] ${project}: 할일_장부 ${summary} → ${join(project, TASK_REL)}`);
 console.log(`        SE단계=${stage || "(없음)"} · 상태=${autoOpen ? "auto-open" : "needs_review→unclassified"}. ERP import: tools/task_ledger.mjs --apply.`);

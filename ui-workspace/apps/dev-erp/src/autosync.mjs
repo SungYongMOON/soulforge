@@ -75,30 +75,38 @@ function itemToLedgerRow(i) {
 }
 
 // autosync Phase 1: ERP 할일 1건 → 할일_장부.csv write-through(멱등 upsert, atomic temp+rename).
-// 헤더 순서가 달라도 안전하게 컬럼명으로 매핑. 다른 행(다른 할일키)은 보존.
+// 헤더 순서 안전(컬럼명 매핑) + 추가컬럼 보존 + 키 없는 행 패스스루 + 낙관적 동시성(외부 변경 시 재시도).
 export function writeTaskToLedger(store, itemId, { root } = {}) {
   if (!root) return { error: "no_root" };
   const item = store.db.prepare("SELECT * FROM core_item WHERE id=?").get(itemId);
   if (!item || !item.project_id) return { error: "item_or_project_missing" };
   const dir = join(root, "_workmeta", item.project_id, "reports", "할일_장부");
   const file = join(dir, "할일_장부.csv");
-  const byKey = new Map();
-  if (existsSync(file)) {
-    const recs = parseCsv(readFileSync(file, "utf8").replace(/^﻿/, "").normalize("NFC")).filter((r) => r.some((c) => String(c).trim()));
-    if (recs.length) {
-      const h = recs[0].map((x) => x.trim());
-      for (const r of recs.slice(1)) { const o = {}; h.forEach((c, i) => (o[c] = r[i] ?? "")); const k = o["할일키"] || ""; if (k) byKey.set(k, o); }
-    }
-  }
   const row = itemToLedgerRow(item);
-  const obj = {}; HEADERS.forEach((c, i) => (obj[c] = row[i]));
-  byKey.set(item.id, obj);
+  const newObj = {}; HEADERS.forEach((c, i) => (newObj[c] = row[i]));
   mkdirSync(dir, { recursive: true });
-  const out = [HEADERS.join(","), ...[...byKey.values()].map((o) => HEADERS.map((c) => csvEsc(o[c] ?? "")).join(","))];
-  const tmp = `${file}.tmp`;
-  writeFileSync(tmp, "﻿" + out.join("\n") + "\n");
-  renameSync(tmp, file); // atomic
-  return { ok: true, file };
+  for (let attempt = 0; attempt < 3; attempt++) {
+    let mtimeAtRead = -1, outHeader = HEADERS;
+    const byKey = new Map();
+    if (existsSync(file)) {
+      mtimeAtRead = statSync(file).mtimeMs;
+      const recs = parseCsv(readFileSync(file, "utf8").replace(/^﻿/, "").normalize("NFC")).filter((r) => r.some((c) => String(c).trim()));
+      if (recs.length) {
+        const h = recs[0].map((x) => x.trim());
+        outHeader = [...HEADERS, ...h.filter((c) => !HEADERS.includes(c))];                 // 추가컬럼 보존
+        for (const r of recs.slice(1)) { const o = {}; h.forEach((c, i) => (o[c] = r[i] ?? "")); const k = o["할일키"] || ""; byKey.set(k || `__nokey_${byKey.size}`, o); } // 키없는 행 패스스루
+      }
+    }
+    byKey.set(item.id, newObj);
+    const out = [outHeader.join(","), ...[...byKey.values()].map((o) => outHeader.map((c) => csvEsc(o[c] ?? "")).join(","))];
+    // 낙관적 동시성: read 이후 외부(Codex 등)가 파일을 바꿨으면 재시도(cross-process lost write 완화).
+    if (existsSync(file) && statSync(file).mtimeMs !== mtimeAtRead) continue;
+    const tmp = `${file}.${process.pid}.tmp`;
+    writeFileSync(tmp, "﻿" + out.join("\n") + "\n");
+    renameSync(tmp, file); // atomic
+    return { ok: true, file };
+  }
+  return { error: "concurrent_write_retry" };
 }
 
 // 주기 폴링 시작(부팅 즉시 1회 + intervalMs 마다). 변경 없는 파일은 mtime 으로 건너뛴다.
