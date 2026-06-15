@@ -44,6 +44,11 @@ node server.mjs --port 4300
 #   data/real_meta.json 없으면 합성 fixture 자동 적재(챗봇 FAQ 시드 4건 포함).
 ```
 
+> **영속 실행(데이터가 재시작에도 살아남음)** = `node server.mjs --db data/dev-erp.db`(상대경로).
+> `--db` 기본값이 이미 `data/dev-erp.db`(상대)라 `node server.mjs`만으로도 파일DB로 영속된다.
+> 절대경로(`/Volumes`·`/Users`·OneDrive)를 `--db`에 넣지 말 것 — 다른 PC 이식을 위해 항상 상대.
+> 휘발(테스트·미리보기) 실행만 `--db :memory:`. WAL 모드라 같은 폴더에 `-wal`/`-shm` 동반 파일이 생긴다.
+
 브라우저로 `http://127.0.0.1:4300` → 우하단 💬 챗봇 → "게이트 통과 어떻게 해?" 입력.
 이 단계는 **검색 답변**(matched FAQ 원문)이 나오면 정상. `/new`로 대화 리셋도 확인.
 
