@@ -2483,4 +2483,26 @@ export class Store {
     if (r.error) return r;
     return { ok: true, item: r.item, deliverable_id };
   }
+
+  // owner 직접 산출물 등록 — 고정 단계 템플릿 밖의 중간번호(31·32…) 등 실제 산출물 추가.
+  // id=<과제>:<게이트>:<번호 또는 이름>. 같은 id 있으면 거부(덮어쓰기 방지). due 있으면 due_source='owner'.
+  // 입력 파일·폴더 연결(out/input pointer)은 후속(파일 장부 슬라이스)에서. 여기선 레지스터 행만.
+  addDeliverable({ project_id, stage_code, deliverable_no, name, completion_criteria, due, submit_type } = {}) {
+    const code = String(project_id ?? "").trim();
+    if (!/^P\d{2}-\d{3}$/.test(code)) return { error: "project_required" };
+    if (!this.db.prepare("SELECT 1 FROM core_project WHERE id=?").get(code)) return { error: "project_not_found" };
+    const nm = String(name ?? "").trim();
+    if (!nm) return { error: "name_required" };
+    const v = due == null ? "" : String(due).trim();
+    if (v && !/^\d{4}-\d{2}-\d{2}$/.test(v)) return { error: "due_format" };
+    const stage = String(stage_code ?? "").trim() || null;
+    const no = String(deliverable_no ?? "").trim() || null;
+    const id = `${code}:${stage ?? ""}:${no ?? nm}`;
+    if (this.db.prepare("SELECT 1 FROM core_deliverable WHERE id=?").get(id)) return { error: "deliverable_exists", id };
+    return this.upsertCoreDeliverable({
+      id, project_id: code, stage_code: stage, deliverable_no: no, name: nm,
+      submit_type: submit_type ?? null, completion_criteria: completion_criteria ?? null,
+      due: v || null, due_source: v ? "owner" : "ingest", produced: 0, review_stage: 0, data_label: "real"
+    });
+  }
 }

@@ -726,6 +726,32 @@ test("DELIV-DUE: 산출물 일정(due) owner 직접 지정 + 재-ingest 보존 (
   assert.equal(store.coreDeliverables({ project: "P26-014" })[0].due, null);
 });
 
+// DELIV-ADD: owner 직접 산출물 등록 — 고정 단계 밖 중간번호(31·32…) 추가.
+test("DELIV-ADD: owner 산출물 추가(중간번호) + 검증·중복 거부", () => {
+  const store = freshStore();
+  store.upsertProject({ id: "P26-014", title: "KVDS", data_label: "real" });
+  // 템플릿 밖 중간번호 31 등록(마감 지정 → due_source owner)
+  const r = store.addDeliverable({ project_id: "P26-014", stage_code: "120_CDR", deliverable_no: "31", name: "추가 시험치구", completion_criteria: "치구 제작완료", due: "2026-10-01" });
+  assert.ok(r.ok, "추가 ok");
+  assert.equal(r.id, "P26-014:120_CDR:31");
+  const row = store.coreDeliverables({ project: "P26-014" }).find((d) => d.id === r.id);
+  assert.equal(row.deliverable_no, "31");
+  assert.equal(row.name, "추가 시험치구");
+  assert.equal(row.due, "2026-10-01");
+  assert.equal(row.due_source, "owner", "마감 지정 시 owner 출처");
+  assert.equal(row.review_stage, 0);
+  // 또 다른 중간번호 32
+  assert.ok(store.addDeliverable({ project_id: "P26-014", stage_code: "120_CDR", deliverable_no: "32", name: "추가 보고서" }).ok);
+  // 같은 게이트·번호 중복 거부
+  assert.equal(store.addDeliverable({ project_id: "P26-014", stage_code: "120_CDR", deliverable_no: "31", name: "딴거" }).error, "deliverable_exists");
+  // 검증
+  assert.equal(store.addDeliverable({ project_id: "P26-014", name: "" }).error, "name_required");
+  assert.equal(store.addDeliverable({ project_id: "BAD", name: "x" }).error, "project_required");
+  assert.equal(store.addDeliverable({ project_id: "P26-999", name: "x" }).error, "project_not_found");
+  assert.equal(store.addDeliverable({ project_id: "P26-014", name: "x", due: "2026/01/01" }).error, "due_format");
+  assert.equal(store.coreDeliverables({ project: "P26-014" }).length, 2, "유효 2건만 등록");
+});
+
 test("TASK-LEDGER: 할일_장부 행 → core_item ingest(과제필수·enum검증·stub·멱등 왕복)", () => {
   const store = freshStore();
   store.upsertProject({ id: "P26-014", title: "KVDS", data_label: "real" });

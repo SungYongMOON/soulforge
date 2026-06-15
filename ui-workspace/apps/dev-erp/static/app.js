@@ -2443,8 +2443,21 @@ async function hubGuide(mount, p) {
     buildGuideSection(p.id),
     api(`/api/deliverables?project=${encodeURIComponent(p.id)}`)
   ]);
+  const gateList = [...new Set(delivs.map((d) => d.stage_code).filter(Boolean))].sort();
+  // 산출물 추가: 고정 단계 밖 중간번호(31·32…) 등 실제 산출물을 owner 가 직접 등록.
+  const addForm = `<div class="deliv-add filters">
+    <input id="ndStage" list="ndGates" size="7" placeholder="${L.deliv_stage}" />
+    <datalist id="ndGates">${gateList.map((g) => `<option value="${esc(g)}"></option>`).join("")}</datalist>
+    <input id="ndNo" size="4" placeholder="${L.deliv_no}" />
+    <input id="ndName" size="16" placeholder="${L.deliv_name}" />
+    <input id="ndCrit" size="16" placeholder="${L.deliv_criteria}" />
+    <input id="ndDue" type="date" />
+    <button id="ndAdd" class="fav-chip">${L.deliv_add}</button>
+    <span id="ndMsg" class="dim mini"></span>
+  </div>`;
   mount.innerHTML = `
     <div class="filters"><span class="badge">${L.deliv_section} ${delivs.length}</span></div>
+    ${addForm}
     ${delivs.length ? `<p class="hub-note">${L.deliv_due_note}</p>` : ""}
     ${deliverableRegisterHtml(delivs, L)}
     <div class="filters"><span class="dim guide-principle">${L.guide_principle}</span>
@@ -2453,6 +2466,18 @@ async function hubGuide(mount, p) {
   mount.querySelectorAll(".copy-btn").forEach((b) =>
     b.addEventListener("click", () => navigator.clipboard?.writeText(b.dataset.c))
   );
+  // 산출물 추가(중간번호 등): owner 직접 등록 → core_deliverable. 같은 게이트·번호면 거부.
+  mount.querySelector("#ndAdd")?.addEventListener("click", async () => {
+    const v = (s) => mount.querySelector(s).value.trim();
+    const msg = mount.querySelector("#ndMsg");
+    const name = v("#ndName");
+    if (!name) { msg.textContent = L.deliv_name; return; }
+    const body = { project_id: p.id, stage_code: v("#ndStage"), deliverable_no: v("#ndNo"), name,
+      completion_criteria: v("#ndCrit"), due: v("#ndDue") };
+    const resp = await post("/api/deliverables", body);
+    if (resp.ok) { msg.textContent = L.deliv_add_done; setTimeout(render, 350); }
+    else { const e = await resp.json().catch(() => ({})); msg.textContent = e.error === "deliverable_exists" ? L.deliv_exists : (e.error ?? "오류"); }
+  });
   // 일정(due) owner 직접 지정. '언제'는 RAG/스캔에 없어 사람이 바꾼다(나중에 Codex 자동 분석).
   mount.querySelectorAll(".dd-save").forEach((b) =>
     b.addEventListener("click", async () => {

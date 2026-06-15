@@ -665,6 +665,14 @@ const server = createServer(async (req, res) => {
 
     // ---------- SE 산출물 레지스터(목록은 ingest: tools/scan_se_foldertree.mjs --apply. 일정만 owner 편집 가능) ----------
     if (path === "/api/deliverables" && req.method === "GET") return send(res, 200, store.coreDeliverables({ project: qp.project, stage: qp.stage }));
+    // owner 직접 산출물 등록 — 고정 단계 밖 중간번호(31·32…) 등 실제 산출물 추가.
+    if (path === "/api/deliverables" && req.method === "POST") {
+      const input = await readJson(req);
+      const r = store.addDeliverable(input);
+      if (r.error) return send(res, 400, r);
+      store.appendEvent({ actor_ref: "owner", actor_kind: "human", kind: "deliverable_add", to: input.name, project_ref: input.project_id, used_refs: ["deliverables"], data_label: "real" });
+      return send(res, 200, r);
+    }
     // 일정(due) owner 직접 지정 — '언제'는 RAG/스캔에 없어 사람이 변경한다(나중에 Codex 자동 분석 예정).
     if (path === "/api/deliverables/due" && req.method === "POST") {
       let body = ""; for await (const chunk of req) body += chunk;
