@@ -44,6 +44,30 @@ async function pullServerLayout() {
   } catch { /* 무시: localStorage 폴백 */ }
 }
 
+// 보기 대상(팀/사용자별) 스코프 — 로그인 시 1회 로드. 관리자=팀+사용자별, 팀원=본인만(선택기 숨김).
+async function ensureScopes() {
+  if (!state.account) { state._scopes = null; return; }
+  if (state._scopes) return;
+  try {
+    const r = await api("/api/accounts/scopes");
+    state._scopes = r.scopes || [];
+    if (!state.viewScope) state.viewScope = r.is_admin ? "team" : (r.self ?? null);
+  } catch { state._scopes = []; }
+}
+// 선택기 노출 조건: 로그인 + 고를 대상 2개 이상(=관리자). 팀원 1인은 굳이 안 띄움.
+function showViewScope() { return !!(state.account && state._scopes && state._scopes.length > 1); }
+function viewSelectHtml(L) {
+  if (!showViewScope()) return "";
+  const opts = state._scopes.map((s) => `<option value="${esc(s.id)}" ${state.viewScope === s.id ? "selected" : ""}>${esc(s.label)}</option>`).join("");
+  return `<select id="fView" class="view-scope" title="${esc(L.view_scope ?? "보기 대상")}">${opts}</select>`;
+}
+function wireViewSelect() { $("#fView")?.addEventListener("change", (e) => { state.viewScope = e.target.value; render(); }); }
+// 현재 보기 스코프를 쿼리에 적용(team/미지정=전체). items·mail 공용.
+function applyViewScope(params) {
+  if (showViewScope() && state.viewScope && state.viewScope !== "team") params.set("view", state.viewScope);
+  return params;
+}
+
 // 상단 인증 UI. 계정 0(익명 파일럿)=숨김 / 로그인=사용자+로그아웃 / 계정 있고 미로그인=로그인 버튼.
 function renderAuth() {
   const box = $("#authBox"); if (!box) return;
@@ -1733,21 +1757,25 @@ function itemLinkCell(i) {
 
 async function renderItems() {
   const todayKey = new Date().toISOString().slice(0, 10);
+  await ensureScopes();
   const summary = await api("/api/summary");
   const projects = summary.projects;
   state._projCache = projects;
-  // 내 일 필터: 로그인 시에만 의미. '분류 필요'(미분류 인입함)는 팀 공용이라 mine 적용 안 함.
-  const mine = state.mineOnly && !!state.account;
+  // 보기범위 선택기(관리자)가 있으면 그걸로 담당자 스코프, 없으면 '내 일' 토글(팀원).
+  const useView = showViewScope();
+  // 내 일 필터: 로그인 시에만 의미. '분류 필요'(미분류 인입함)는 팀 공용이라 mine/view 적용 안 함.
+  const mine = !useView && state.mineOnly && !!state.account;
   const applyMine = mine && state.statusFilter !== "unclassified";
+  const scoped = state.statusFilter !== "unclassified"; // 미분류함은 팀 공용
   const q = new URLSearchParams();
   if (state.projectFilter) q.set("project", state.projectFilter);
   if (state.statusFilter) q.set("status", state.statusFilter);
-  if (applyMine) q.set("mine", "1");
+  if (useView && scoped) applyViewScope(q); else if (applyMine) q.set("mine", "1");
   const items = await api(`/api/items?${q}`);
-  // 칩 count 는 상태 무관(과제+내일 스코프)에서 계산 — 필터 걸려도 정확
+  // 칩 count 는 상태 무관(과제+담당자 스코프)에서 계산 — 필터 걸려도 정확
   const baseQ = new URLSearchParams();
   if (state.projectFilter) baseQ.set("project", state.projectFilter);
-  if (mine) baseQ.set("mine", "1");
+  if (useView) applyViewScope(baseQ); else if (mine) baseQ.set("mine", "1");
   const allItems = (state.statusFilter || mine) ? await api(`/api/items?${baseQ}`) : items;
   const opts = projects.map((p) => `<option value="${p.id}" ${state.projectFilter === p.id ? "selected" : ""}>${p.title}</option>`).join("");
   const L = state.lex;
@@ -1796,7 +1824,8 @@ async function renderItems() {
   $("#view").innerHTML = `
     <div class="filters">
       <select id="fProject"><option value="">${L.project}: ${L.all_label}</option>${opts}</select>
-      ${state.account ? `<button id="mineToggle" class="fav-chip ${mine ? "on" : ""}" title="${L.mine_hint ?? ""}">${mine ? L.mine_only : L.mine_all}</button>` : ""}
+      ${useView ? `<label class="view-scope-lab">${L.view_scope ?? "보기 대상"} ${viewSelectHtml(L)}</label>`
+        : (state.account ? `<button id="mineToggle" class="fav-chip ${mine ? "on" : ""}" title="${L.mine_hint ?? ""}">${mine ? L.mine_only : L.mine_all}</button>` : "")}
     </div>
     <div class="status-chips">${chipsHtml}</div>
     ${triageNote}
@@ -1809,6 +1838,7 @@ async function renderItems() {
     </div>`}
     ${isTriage ? triageBody : (rows ? `<table><thead><tr><th>${L.item}</th><th>${L.project}</th><th>${L.th_status}</th><th>${L.th_due}</th><th>${L.th_assignee}</th><th>${L.tab_guide}</th><th>${L.th_actions}</th></tr></thead><tbody>${rows}</tbody></table>` : `<div class="empty">${L.empty_items}</div>`)}`;
   $("#fProject").addEventListener("change", (e) => { state.projectFilter = e.target.value; render(); });
+  wireViewSelect();
   $("#mineToggle")?.addEventListener("click", () => {
     state.mineOnly = !state.mineOnly;
     localStorage.setItem("dev_erp_mine", state.mineOnly ? "1" : "0");
@@ -1866,12 +1896,14 @@ function projChip(projectId, cls) {
 
 async function renderMail() {
   const L = state.lex;
+  await ensureScopes();
   const f = state.mailFilters ?? (state.mailFilters = { days: 90, direction: "", q: "", label: null });
   const params = new URLSearchParams({ days: String(f.days) });
   if (state.projectFilter) params.set("project", state.projectFilter);
   if (f.q) params.set("q", f.q);
   if (f.direction) params.set("direction", f.direction);
   if (f.label) params.set("label_id", String(f.label));
+  applyViewScope(params); // 보기 대상(계정 메일함)별 메일 이력
   const [mail, labels, summary] = await Promise.all([
     api(`/api/mail?${params}`), api("/api/labels"), state._projCache ? Promise.resolve({ projects: state._projCache }) : api("/api/summary")
   ]);
@@ -1900,6 +1932,7 @@ async function renderMail() {
       <option value="out" ${f.direction === "out" ? "selected" : ""}>${L.mail_out}</option>
     </select>
     <input id="mSearch" type="search" placeholder="${L.search_placeholder}" value="${esc(f.q)}" />
+    ${showViewScope() ? `<label class="view-scope-lab">${L.view_scope ?? "보기 대상"} ${viewSelectHtml(L)}</label>` : ""}
   </div>`;
 
   const todayKey = new Date().toISOString().slice(0, 10);
@@ -1987,6 +2020,7 @@ async function renderMail() {
   $("#mDays").addEventListener("change", (e) => { f.days = Number(e.target.value); render(); });
   $("#mDir").addEventListener("change", (e) => { f.direction = e.target.value; render(); });
   $("#mSearch").addEventListener("keydown", (e) => { if (e.key === "Enter") { f.q = e.target.value; render(); } });
+  wireViewSelect();
   $("#view").querySelector("[data-clear]")?.addEventListener("click", () => { state.projectFilter = ""; render(); });
   $("#newLabelBtn").addEventListener("click", async () => {
     const name = $("#newLabelName").value.trim();

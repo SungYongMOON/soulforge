@@ -109,8 +109,9 @@ nav button.active { background: var(--chip); font-weight: 600; color: var(--acce
 .mob.boss { width: 14px; height: 14px; background: var(--danger); border-radius: 50%; }
 .mobmeter .label { font-size: 11px; color: var(--muted); margin-left: 4px; }
 
-.filters { display: flex; gap: 8px; flex-wrap: wrap; }
+.filters { display: flex; gap: 8px; flex-wrap: wrap; align-items: center; }
 .filters select, .filters input { padding: 7px 9px; border-radius: 8px; border: 1px solid var(--line); background: var(--panel); color: var(--text); font-size: 13px; }
+.view-scope-lab { display: inline-flex; align-items: center; gap: 5px; font-size: 12.5px; color: var(--muted); }
 
 table { width: 100%; border-collapse: collapse; background: var(--panel); border: 1px solid var(--line); border-radius: 12px; overflow: hidden; }
 th, td { text-align: left; padding: 9px 12px; border-bottom: 1px solid var(--line); font-size: 13.5px; }
@@ -254,9 +255,11 @@ nav button:hover .pin-btn { opacity: 1; }
 /* 프로젝트 관리 좌측: 과제(L3 헤더) → facet(L4 항목) */
 .proj-tree-cap { font-size: 10.5px; color: var(--muted); padding: 2px 4px 6px; letter-spacing: .02em; }
 .nav-loading { font-size: 12px; color: var(--muted); padding: 8px 6px; }
-.nav-sub-head.proj-head { gap: 5px; }
-.nav-sub-head.proj-head .pn-id { font-weight: 600; color: var(--text); }
-.nav-sub-head.proj-head .pn-title { color: var(--muted); font-weight: 400; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+/* 좁은 좌측 칸: 과제번호는 1행(절대 안 찌그러짐), 과제명은 그 아래 2행에 풀폭으로(넘치면 …). */
+.nav-sub-head.proj-head { gap: 5px; flex-wrap: wrap; row-gap: 1px; padding-bottom: 5px; }
+.nav-sub-head.proj-head .pn-id { font-weight: 600; color: var(--text); flex-shrink: 0; }
+.nav-sub-head.proj-head .pn-title { flex-basis: 100%; padding-left: 20px; font-size: 12px; line-height: 1.25;
+  color: var(--muted); font-weight: 400; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 .nav-sub-head.proj-head.on { color: var(--accent); }
 .nav-sub-head.proj-head.on .pn-id { color: var(--accent); }
 #nav .nav-items.proj-facets button.proj-facet { font-size: 12px; padding: 4px 8px; justify-content: flex-start; }
