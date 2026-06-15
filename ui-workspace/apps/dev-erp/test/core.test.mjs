@@ -721,6 +721,36 @@ test("DELIV-DUE: 산출물 일정(due) owner 직접 지정 + 재-ingest 보존 (
   assert.equal(store.coreDeliverables({ project: "P26-014" })[0].due, null);
 });
 
+test("MAIL-INGEST: 메일 장부 한 행 → core_mail(단계·소스·미배정·stub과제·제목폴백·멱등)", () => {
+  const store = freshStore();
+  // 미등록 과제코드 → stub 과제 생성 + 메일 1건(단계/소스 보존), 신규
+  const r = store.ingestMail({ id: "mailcsv:k1", project_code: "P21-062", at: "2026-05-01 09:30:00",
+    subject: "회신 요청", counterpart: "갑사 담당", stage_code: "030_SRR", source_ref: "src-1" });
+  assert.equal(r.ok, true);
+  assert.equal(r.project_id, "P21-062");
+  assert.equal(r.isNew, true);
+  const row = store.db.prepare("SELECT * FROM core_mail WHERE id='mailcsv:k1'").get();
+  assert.equal(row.stage_code, "030_SRR");
+  assert.equal(row.source_ref, "src-1");
+  assert.equal(row.subject, "회신 요청");
+  assert.ok(store.db.prepare("SELECT 1 FROM core_project WHERE id='P21-062'").get(), "미등록 과제는 stub 생성");
+  // 기존 과제 제목은 ingest 가 덮지 않음
+  store.upsertProject({ id: "P26-014", title: "KVDS 기뢰탐색", data_label: "real" });
+  store.ingestMail({ id: "mailcsv:k2", project_code: "P26-014", at: "2026-05-02", subject: "" });
+  assert.equal(store.db.prepare("SELECT title FROM core_project WHERE id='P26-014'").get().title, "KVDS 기뢰탐색", "기존 제목 보존");
+  assert.equal(store.db.prepare("SELECT subject FROM core_mail WHERE id='mailcsv:k2'").get().subject, "(제목 없음)", "제목 폴백");
+  // 인박스/미배정: project_code 없으면 project_id null
+  const inbox = store.ingestMail({ id: "mailcsv:k3", project_code: null, at: "2026-05-03", subject: "안내" });
+  assert.equal(inbox.project_id, null);
+  // 날짜 없으면 거부(at NOT NULL 보호)
+  assert.equal(store.ingestMail({ id: "mailcsv:x", project_code: null, at: "", subject: "x" }).error, "at_required");
+  // 멱등: 같은 id 재-ingest → 신규 아님 + 필드 갱신
+  const again = store.ingestMail({ id: "mailcsv:k1", project_code: "P21-062", at: "2026-05-01", subject: "회신 요청(수정)", stage_code: "060_PDR", source_ref: "src-1" });
+  assert.equal(again.isNew, false);
+  assert.equal(store.db.prepare("SELECT subject FROM core_mail WHERE id='mailcsv:k1'").get().subject, "회신 요청(수정)");
+  assert.equal(store.db.prepare("SELECT stage_code FROM core_mail WHERE id='mailcsv:k1'").get().stage_code, "060_PDR");
+});
+
 test("B5: 라벨 감사기 — 커버리지 집계 + 결손 주입 검출", async () => {
   const { audit, auditSince } = await import("../tools/label_audit.mjs");
   const good = (id, kind) => ({ id, kind, actor_ref: "owner", used_refs: '["items"]', data_label: "real", project_ref: "P1" });

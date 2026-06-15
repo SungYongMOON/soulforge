@@ -218,6 +218,7 @@ const PROJ_FACETS = [
   { key: "schedule", b: "일정", f: "운명표" },
   { key: "gates", b: "단계·게이트", f: "관문" },
   { key: "items", b: "할 일", f: "할 일" },
+  { key: "mail", b: "메일", f: "전령" },
   { key: "requirements", b: "요구사항", f: "요구사항" },
   { key: "artifacts", b: "산출물", f: "전리품" },
   { key: "meetings", b: "회의·결정", f: "원탁" },
@@ -2069,6 +2070,7 @@ async function renderProjectHub() {
   if (tab === "schedule") return hubSchedule(mount, p);
   if (tab === "gates") return hubGates(mount, p);
   if (tab === "items") return hubItems(mount, p);
+  if (tab === "mail") return hubMail(mount, p);
   if (tab === "requirements") return hubRequirements(mount, p);
   if (tab === "artifacts") return hubGuide(mount, p);
   if (tab === "meetings") return hubMeetings(mount, p);
@@ -2270,7 +2272,7 @@ async function hubGuide(mount, p) {
 async function hubMail(mount, p) {
   const L = state.lex;
   const [mail, items] = await Promise.all([
-    api(`/api/mail?project=${encodeURIComponent(p.id)}&days=365`),
+    api(`/api/mail?project=${encodeURIComponent(p.id)}&days=3650`), // 과제 장부 전체(연단위) — 1년 컷 금지
     api(`/api/items?project=${encodeURIComponent(p.id)}`)
   ]);
   const promoted = new Set(items.map((i) => i.origin_mail_id).filter(Boolean));

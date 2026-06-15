@@ -601,7 +601,10 @@ export function openStore(path = ":memory:") {
     "ALTER TABLE core_person ADD COLUMN capability_label TEXT",
     // SE 산출물 일정(due) 출처: 'ingest'(스캔 추출, 보통 비어있음) | 'owner'(사람이 직접 지정) | 'auto'(나중에 Codex 분석 채움).
     // owner 가 지정한 일정은 재-ingest 가 덮어쓰지 않는다(아래 upsertCoreDeliverable CASE 참고).
-    "ALTER TABLE core_deliverable ADD COLUMN due_source TEXT NOT NULL DEFAULT 'ingest'"
+    "ALTER TABLE core_deliverable ADD COLUMN due_source TEXT NOT NULL DEFAULT 'ingest'",
+    // 메일 장부 ingest(과제별 메일_이력.csv → core_mail): 단계 연결 + 출처(이력키/소스ID) 추적.
+    "ALTER TABLE core_mail ADD COLUMN stage_code TEXT",
+    "ALTER TABLE core_mail ADD COLUMN source_ref TEXT"
   ]) {
     try { db.exec(ddl); } catch { /* exists */ }
   }
@@ -718,11 +721,39 @@ export class Store {
   upsertMail(m) {
     this.db
       .prepare(
-        `INSERT INTO core_mail(id,project_id,at,direction,subject,counterpart,pointer_ref,data_label)
-         VALUES (?,?,?,?,?,?,?,?)
-         ON CONFLICT(id) DO UPDATE SET project_id=excluded.project_id, subject=excluded.subject`
+        `INSERT INTO core_mail(id,project_id,at,direction,subject,counterpart,pointer_ref,stage_code,source_ref,data_label)
+         VALUES (?,?,?,?,?,?,?,?,?,?)
+         ON CONFLICT(id) DO UPDATE SET project_id=excluded.project_id, at=excluded.at, direction=excluded.direction,
+           subject=excluded.subject, counterpart=excluded.counterpart, pointer_ref=excluded.pointer_ref,
+           stage_code=excluded.stage_code, source_ref=excluded.source_ref`
       )
-      .run(m.id, m.project_id ?? null, m.at, m.direction ?? "in", m.subject, m.counterpart ?? null, m.pointer_ref ?? null, m.data_label ?? "synthetic");
+      .run(m.id, m.project_id ?? null, m.at, m.direction ?? "in", m.subject, m.counterpart ?? null,
+        m.pointer_ref ?? null, m.stage_code ?? null, m.source_ref ?? null, m.data_label ?? "synthetic");
+  }
+
+  // 메일 장부 ingest 착지면(과제별 _workmeta/<code>/reports/메일_이력/메일_이력.csv 한 행 → core_mail).
+  // 원문 미저장: 제목·상대·시각·단계·포인터만. project_code 가 미등록이면 stub 과제를 만들되 기존 제목은 덮지 않는다.
+  // FK 안전: 모르는 코드/INBOX 는 project_id=null 로 둔다(미배정 메일).
+  ingestMail({ id, project_code = null, at = null, subject = null, counterpart = null, stage_code = null,
+               source_ref = null, direction = "in", pointer_ref = null, data_label = "real" }) {
+    if (!id) return { error: "id_required" };
+    const atVal = at && /^\d{4}-\d{2}-\d{2}/.test(at) ? at : null;
+    if (!atVal) return { error: "at_required" };
+    const subj = String(subject ?? "").trim() || "(제목 없음)";
+    let project_id = null;
+    const code = String(project_code ?? "").trim();
+    if (/^P\d{2}-\d{3}$/.test(code)) {
+      if (!this.db.prepare("SELECT 1 FROM core_project WHERE id=?").get(code)) {
+        // 미등록 과제 → 최소 stub(제목=코드). 실제 과제명은 sync_project_names 로 따로 채운다.
+        this.upsertProject({ id: code, title: code, data_label: "real" });
+      }
+      project_id = code;
+    }
+    const isNew = !this.db.prepare("SELECT 1 FROM core_mail WHERE id=?").get(id);
+    const dir = ["in", "out"].includes(direction) ? direction : "in";
+    this.upsertMail({ id, project_id, at: atVal, direction: dir, subject: subj, counterpart: counterpart || null,
+      pointer_ref, stage_code: stage_code || null, source_ref: source_ref || null, data_label });
+    return { ok: true, id, project_id, isNew };
   }
 
   // slice(베타1): 사용자가 직접 메일 등록(각자 계정에서 자기 메일을 장부에 쌓기). 원문 미저장 — 제목·상대·날짜·포인터만.
