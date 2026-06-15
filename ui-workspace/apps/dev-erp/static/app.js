@@ -2599,11 +2599,18 @@ async function renderRequests() {
     <div class="item-form">
       <input id="reqTitle" placeholder="${L.req_title_ph ?? "개발 요청 내용"}" />
       <input id="reqWho" placeholder="${L.req_requester_ph ?? "요청자"}" size="9" />
-      <input id="reqCat" placeholder="${L.req_category_ph ?? "분류"}" size="9" />
+      <select id="reqCat">
+        <option value="">${L.req_category_ph ?? "분류"}…</option>
+        <option value="요구사항">${L.req_cat_requirement ?? "요구사항"}</option>
+        <option value="기능 아이디어">${L.req_cat_feature ?? "기능 아이디어"}</option>
+        <option value="개선">${L.req_cat_improve ?? "개선"}</option>
+        <option value="버그">${L.req_cat_bug ?? "버그"}</option>
+        <option value="기타">${L.req_cat_etc ?? "기타"}</option>
+      </select>
       <select id="reqProject"><option value="">${L.project}: ${L.req_no_project ?? "미연결"}</option>${opts}</select>
       <button id="reqAdd" class="fav-chip">${L.req_add ?? "요청 등록"}</button>
     </div>
-    <p class="hub-note">${L.req_intake_note ?? "팀원 개발 요청 인입함. 과제에 연결해 '할 일로' 승격하면 분류 필요로 들어가 SE 기준점(단계·산출물·업무유형)에 거는 분류를 거칩니다."}</p>
+    <p class="hub-note">${L.req_intake_note ?? "팀원 인입함 — 개발 요청·요구사항·업데이트하면 좋은 기능 아이디어·개선·버그를 자유롭게 적습니다(분류로 구분). 그대로 목록에 쌓이고, 과제에 연결해 '할 일로' 승격하면 분류 필요로 들어가 SE 기준점(단계·산출물·업무유형)에 거는 분류를 거칩니다."}</p>
     ${reqs.length
       ? `<table><thead><tr><th>${L.req_col_title ?? "요청"}</th><th>${L.req_col_who ?? "요청자"}</th><th>${L.req_col_cat ?? "분류"}</th><th>${L.project}</th><th>${L.th_status}</th><th>${L.th_actions}</th></tr></thead><tbody>${rows}</tbody></table>`
       : `<div class="empty">${L.req_empty ?? "등록된 요청 없음"}</div>`}`;
