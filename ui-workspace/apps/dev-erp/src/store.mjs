@@ -604,7 +604,9 @@ export function openStore(path = ":memory:") {
     "ALTER TABLE core_deliverable ADD COLUMN due_source TEXT NOT NULL DEFAULT 'ingest'",
     // 메일 장부 ingest(과제별 메일_이력.csv → core_mail): 단계 연결 + 출처(이력키/소스ID) 추적.
     "ALTER TABLE core_mail ADD COLUMN stage_code TEXT",
-    "ALTER TABLE core_mail ADD COLUMN source_ref TEXT"
+    "ALTER TABLE core_mail ADD COLUMN source_ref TEXT",
+    // 할일 생성시각(할일_장부 '기록일' 컬럼의 실제 백킹). 마이그레이션 이전 행은 null(생성시각 불명), 신규 createItem 부터 채움.
+    "ALTER TABLE core_item ADD COLUMN created_at TEXT"
   ]) {
     try { db.exec(ddl); } catch { /* exists */ }
   }
@@ -769,25 +771,44 @@ export class Store {
     if (!this.db.prepare("SELECT 1 FROM core_project WHERE id=?").get(code)) {
       this.upsertProject({ id: code, title: code, data_label: "real" }); // stub(제목=코드), 기존 제목 미클로버
     }
+    // 절대경로(/Volumes·/Users·드라이브) 금지(헌장 shared_ingest_contract): 포인터류는 상대만, 절대면 드롭.
+    const relOnly = (v) => { const s = String(v ?? "").trim(); return !s || /^([A-Za-z]:[\\/]|\/(Volumes|Users)\/)/.test(s) ? null : s; };
     const due = row.due && /^\d{4}-\d{2}-\d{2}$/.test(String(row.due).trim()) ? String(row.due).trim() : null;
-    const status = Store.ITEM_STATUSES.includes(row.status) ? row.status : "open";
     const work_type = Store.WORK_TYPES.includes(row.work_type) ? row.work_type : null;
     const link_kind = Store.LINK_KINDS.includes(row.link_kind) ? row.link_kind : null;
+    const originVal = Store.ORIGINS.includes(row.origin) ? row.origin : "ledger"; // 출처도 enum 검증(자매 패턴)
     const isNew = !this.db.prepare("SELECT 1 FROM core_item WHERE id=?").get(id);
+    // SE 기준점 격리(slice1 미러): 인입(메일/요청/회의) 출처가 앵커(단계/연결)+업무유형 없으면 unclassified 강제 —
+    // 손편집 CSV 가 미분류 격리 게이트를 우회해 활성 목록에 진입하지 못하게.
+    const inbound = ["mail", "request", "meeting"].includes(originVal);
+    const hasAnchor = !!(row.anchor_stage_code || link_kind);
+    const statusIn = Store.ITEM_STATUSES.includes(row.status) ? row.status : null; // 빈/이상값은 ''(아래 NULLIF로 기존 보존)
+    // status 는 NOT NULL: 신규 빈값은 'open', 기존 빈값은 ''(센티넬)로 넣고 UPDATE 에서 NULLIF→기존 보존.
+    const statusVal = inbound && !(hasAnchor && work_type) ? "unclassified" : (statusIn ?? (isNew ? "open" : ""));
+    const createdVal = (row.created_at && String(row.created_at).trim()) || (isNew ? new Date().toISOString() : null);
+    // 멱등 보존(자매 upsertProject/Person 패턴): 빈 컬럼은 기존값 유지(COALESCE) — 손편집 부분행이 ERP 입력을 안 지움.
+    // owner 가 ERP 에서 직접 바꾼 마감(due_overridden=1)은 stale 장부 재-ingest 가 되돌리지 못함(CASE).
     this.db
       .prepare(
         `INSERT INTO core_item(id,project_id,title,origin,urgency,assignee_ref,status,due,
-           origin_mail_id,created_by,work_type,link_kind,link_ref,completion_criteria,anchor_stage_code,data_label)
-         VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,'real')
+           origin_mail_id,created_by,work_type,link_kind,link_ref,completion_criteria,anchor_stage_code,created_at,data_label)
+         VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,'real')
          ON CONFLICT(id) DO UPDATE SET project_id=excluded.project_id, title=excluded.title, origin=excluded.origin,
-           assignee_ref=excluded.assignee_ref, status=excluded.status, due=excluded.due, origin_mail_id=excluded.origin_mail_id,
-           work_type=excluded.work_type, link_kind=excluded.link_kind, link_ref=excluded.link_ref,
-           completion_criteria=excluded.completion_criteria, anchor_stage_code=excluded.anchor_stage_code`
+           assignee_ref=COALESCE(excluded.assignee_ref, core_item.assignee_ref),
+           status=COALESCE(NULLIF(excluded.status, ''), core_item.status),
+           due=CASE WHEN core_item.due_overridden=1 THEN core_item.due ELSE COALESCE(excluded.due, core_item.due) END,
+           origin_mail_id=COALESCE(excluded.origin_mail_id, core_item.origin_mail_id),
+           work_type=COALESCE(excluded.work_type, core_item.work_type),
+           link_kind=COALESCE(excluded.link_kind, core_item.link_kind),
+           link_ref=COALESCE(excluded.link_ref, core_item.link_ref),
+           completion_criteria=COALESCE(excluded.completion_criteria, core_item.completion_criteria),
+           anchor_stage_code=COALESCE(excluded.anchor_stage_code, core_item.anchor_stage_code),
+           created_at=COALESCE(core_item.created_at, excluded.created_at)`
       )
       .run(
-        id, code, title, row.origin || "ledger", row.urgency || "normal", row.assignee_ref || null, status, due,
-        row.origin_mail_id || null, row.created_by || "task_ledger", work_type, link_kind, row.link_ref || null,
-        row.completion_criteria || null, row.anchor_stage_code || null
+        id, code, title, originVal, row.urgency || "normal", row.assignee_ref || null, statusVal, due,
+        relOnly(row.origin_mail_id), row.created_by || "task_ledger", work_type, link_kind, relOnly(row.link_ref),
+        row.completion_criteria || null, row.anchor_stage_code || null, createdVal
       );
     return { ok: true, id, project_id: code, isNew };
   }
@@ -865,7 +886,7 @@ export class Store {
     });
   }
 
-  items({ project, status, q, due_before, include_unclassified = false, assignee_any } = {}) {
+  items({ project, status, q, due_before, include_unclassified = false, assignee_any, limit = 500 } = {}) {
     const cond = [];
     const args = [];
     if (project) { cond.push("i.project_id=?"); args.push(project); }
@@ -884,9 +905,9 @@ export class Store {
       .prepare(
         `SELECT i.*, ga.name AS guide_artifact_name, ga.stage_code AS guide_stage_code
          FROM core_item i LEFT JOIN guide_artifact ga ON ga.id = i.guide_artifact_id
-         ${where} ORDER BY (i.due IS NULL), i.due, i.id LIMIT 500`
+         ${where} ORDER BY (i.due IS NULL), i.due, i.id LIMIT ?`
       )
-      .all(...args);
+      .all(...args, Math.max(1, Number(limit) || 500));
   }
 
   // '내 일' 매칭 식별자: 로그인명 + 연결된 사람 이름. assignee_ref(자유 텍스트)가 둘 중 하나면 내 일.
@@ -904,6 +925,7 @@ export class Store {
   // --- P2a 할일 쓰기 (run16): 생성/상태/담당/메일 승격 — 모든 변경은 server 가 event_log 에 기록 ---
   // 'unclassified'(미분류) = SE 기준점 미연결 임시 상태. 정식 실행 목록·활성 집계에서 격리(slice1).
   static ITEM_STATUSES = ["unclassified", "open", "doing", "waiting", "blocked", "done"];
+  static ORIGINS = ["mail", "request", "meeting", "manual", "schedule", "ledger"]; // 할일 출처(장부 ingest 검증)
   static WORK_TYPES = ["answer", "review", "author", "revise", "purchase", "verify", "decide", "schedule"];
   static LINK_KINDS = ["requirement", "artifact", "meeting", "bom", "part", "vendor", "risk"];
 
@@ -931,8 +953,8 @@ export class Store {
       .prepare(
         `INSERT INTO core_item(id,project_id,title,origin,urgency,assignee_ref,status,due,
            guide_artifact_id,guide_step_key,origin_mail_id,created_by,
-           work_type,link_kind,link_ref,completion_criteria,stage_id,anchor_stage_code,data_label)
-         VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,'real')`
+           work_type,link_kind,link_ref,completion_criteria,stage_id,anchor_stage_code,created_at,data_label)
+         VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,'real')`
       )
       .run(
         id, project_id, trimmed, origin ?? "manual", urgency ?? "normal",
@@ -940,7 +962,7 @@ export class Store {
         guide_artifact_id ? Number(guide_artifact_id) : null, guide_step_key ?? null,
         origin_mail_id ?? null, created_by ?? null,
         work_type ?? null, link_kind ?? null, link_ref ?? null, completion_criteria ?? null,
-        stage_id ?? null, anchor_stage_code ?? null
+        stage_id ?? null, anchor_stage_code ?? null, new Date().toISOString()
       );
     return { ok: true, item: this.db.prepare("SELECT * FROM core_item WHERE id=?").get(id) };
   }

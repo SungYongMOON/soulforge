@@ -22,7 +22,7 @@ const outArg = arg("out", null);                         // export 대상 루트
 const doExport = has("export");
 const doApply = has("apply");
 
-const SCHEMA = "soulforge.project_task_ledger.private.v1";
+const SCHEMA = "soulforge.project_task_ledger.private.v0"; // v0=초안. Codex 정식 비준 시 v1 승격(단일 지점).
 const HEADERS = ["할일키","스키마버전","기록일","프로젝트코드","할일명","담당자","업무유형","상태","마감일","SE단계","연결유형","연결대상","완료기준","출처","관련메일이력키","관련메일소스ID","산출물참조","관련몬스터ID","다음액션","비고","원문복사여부"];
 const LEDGER_REL = join("reports", "할일_장부", "할일_장부.csv");
 const CODE_RE = /^P\d{2}-\d{3}/;
@@ -35,13 +35,15 @@ function parseCsv(text) {
     else if (c === '"') q = true;
     else if (c === ",") { row.push(cur); cur = ""; }
     else if (c === "\n") { row.push(cur); rows.push(row); row = []; cur = ""; }
-    else if (c === "\r") { }
+    else if (c === "\r") { if (text[i + 1] !== "\n") { row.push(cur); rows.push(row); row = []; cur = ""; } } // CR/CRLF 모두 레코드 종결(인용 밖)
     else cur += c;
   }
   if (cur !== "" || row.length) { row.push(cur); rows.push(row); }
   return rows;
 }
-const csvEsc = (v) => { const s = String(v ?? ""); return /[",\n]/.test(s) ? `"${s.replace(/"/g, '""')}"` : s; };
+// CSV 수식 인젝션 가드: 위험 선두문자(= + - @ tab cr)는 ' 접두로 무력화하고 ingest 에서 되돌려 왕복 보존.
+const csvEsc = (v) => { let s = String(v ?? ""); if (/^[=+\-@\t\r]/.test(s)) s = "'" + s; return /[",\r\n]/.test(s) ? `"${s.replace(/"/g, '""')}"` : s; };
+const unguard = (s) => s.replace(/^'(?=[=+\-@\t\r])/, ""); // export 수식가드 ' 복원
 
 function dbPathFrom(a) {
   if (!a) { console.error("--db <경로> 필요(예: --db data/dev-erp.db). 절대경로 금지·상대 권장."); process.exit(2); }
@@ -66,20 +68,20 @@ const README = (code) => `# 할일 장부\n\n- Project code: \`${code}\`\n- Owne
 if (doExport) {
   const store = openStore(dbPathFrom(dbArg));
   const outRoot = outArg ? (/^([A-Za-z]:[\\/]|\/)/.test(outArg) ? outArg : resolve(process.cwd(), outArg)) : join(REPO, "_workmeta");
-  const codes = store.db.prepare("SELECT DISTINCT project_id FROM core_item WHERE project_id IS NOT NULL ORDER BY project_id").all().map((r) => r.project_id).filter((c) => CODE_RE.test(c) && (!only || c === only));
+  const codes = store.db.prepare("SELECT DISTINCT project_id FROM core_item WHERE project_id IS NOT NULL ORDER BY project_id").all().map((r) => r.project_id).filter((c) => CODE_RE.test(c) && (!only || c === only || c.startsWith(only)));
   let wrote = 0;
   for (const code of codes) {
-    const items = store.items({ project: code, include_unclassified: true });
+    const items = store.items({ project: code, include_unclassified: true, limit: 1000000 }); // 전량 export(LIMIT 잘림 방지)
     if (!items.length) continue;
     const dir = join(outRoot, code, "reports", "할일_장부");
     mkdirSync(dir, { recursive: true });
     const lines = [HEADERS.join(","), ...items.map((i) => itemToRow(i).map(csvEsc).join(","))];
     writeFileSync(join(dir, "할일_장부.csv"), "﻿" + lines.join("\n") + "\n");
-    writeFileSync(join(dir, "README.md"), README(code));
+    if (!existsSync(join(dir, "README.md"))) writeFileSync(join(dir, "README.md"), README(code)); // 사람 메모 보존(있으면 미덮음)
     wrote += items.length;
     console.log(`[export] ${code}: ${items.length}건 → ${join(code, "reports", "할일_장부", "할일_장부.csv")}`);
   }
-  store.appendEvent({ actor_ref: "task_ledger", actor_kind: "system", kind: "task_ledger_export", to: String(wrote), used_refs: ["core_item"], data_label: "real" });
+  store.appendEvent({ actor_ref: "task_ledger", actor_kind: "system", kind: "task_ledger_export", to: String(wrote), used_refs: ["core_item"], data_label: "real", note: `${codes.length}개 과제·${wrote}건` });
   store.db.close();
   console.log(`[export] 완료: ${codes.length}개 과제 · 할일 ${wrote}건 → ${outArg ? outArg : "_workmeta"} (할일_장부.csv + README).`);
   process.exit(0);
@@ -95,44 +97,55 @@ const folders = (existsSync(srcRoot) ? readdirSync(srcRoot) : [])
 
 function readLedger(folder) {
   const recs = parseCsv(readFileSync(join(srcRoot, folder, LEDGER_REL), "utf8").replace(/^﻿/, "").normalize("NFC")).filter((r) => r.some((c) => String(c).trim()));
-  if (!recs.length) return { rows: 0, records: [] };
+  if (!recs.length) return { rows: 0, records: [], dropped: 0 };
   const h = recs[0].map((x) => x.trim().normalize("NFC"));
   const ix = (n) => h.indexOf(n);
+  // 헤더 검증: 필수 헤더(할일키/할일명) 없으면 전 행 조용히 드롭되는 대신 명시 에러(오타·인코딩 깨짐 탐지).
+  if (ix("할일키") < 0 || ix("할일명") < 0) {
+    return { rows: recs.length - 1, records: [], dropped: recs.length - 1, headerError: `필수 헤더 누락(할일키/할일명). 발견: ${h.join("|")}` };
+  }
   const c = { key: ix("할일키"), proj: ix("프로젝트코드"), title: ix("할일명"), who: ix("담당자"), wt: ix("업무유형"),
     st: ix("상태"), due: ix("마감일"), stage: ix("SE단계"), lk: ix("연결유형"), lr: ix("연결대상"),
-    cc: ix("완료기준"), org: ix("출처"), mail: ix("관련메일이력키"), art: ix("산출물참조") };
-  const g = (r, i) => (i >= 0 ? String(r[i] ?? "").trim() : "");
-  const records = recs.slice(1).map((r) => ({
+    cc: ix("완료기준"), org: ix("출처"), mail: ix("관련메일이력키"), art: ix("산출물참조"), created: ix("기록일") };
+  const g = (r, i) => unguard(i >= 0 ? String(r[i] ?? "").trim() : ""); // 수식가드 ' 복원
+  const all = recs.slice(1).map((r) => ({
     id: g(r, c.key), project_code: g(r, c.proj), title: g(r, c.title), assignee_ref: g(r, c.who),
     work_type: g(r, c.wt), status: g(r, c.st), due: g(r, c.due), anchor_stage_code: g(r, c.stage),
     link_kind: g(r, c.lk), link_ref: g(r, c.lr) || g(r, c.art), completion_criteria: g(r, c.cc),
-    origin: g(r, c.org) || "ledger", origin_mail_id: g(r, c.mail)
-  })).filter((x) => x.id && x.title);
-  return { rows: recs.length - 1, records };
+    origin: g(r, c.org) || "ledger", origin_mail_id: g(r, c.mail), created_at: g(r, c.created)
+  }));
+  const records = all.filter((x) => x.id && x.title); // 키·제목 빈 행 드롭
+  return { rows: recs.length - 1, records, dropped: all.length - records.length };
 }
 
 if (doApply) {
   const store = openStore(dbPathFrom(dbArg));
-  let wrote = 0, fresh = 0, skipped = 0, led = 0;
+  let wrote = 0, fresh = 0, skipped = 0, dropped = 0, led = 0, hdrErr = 0;
   for (const folder of folders) {
-    const { records } = readLedger(folder);
+    const { records, dropped: d, headerError } = readLedger(folder);
+    if (headerError) { hdrErr++; console.warn(`[apply] ${folder}: 건너뜀 — ${headerError}`); continue; }
+    dropped += d || 0;
     let n = 0, nf = 0;
     for (const rec of records) {
       const r = store.ingestTaskItem(rec);
       if (r.error) { skipped++; continue; }
       n++; wrote++; if (r.isNew) { nf++; fresh++; }
     }
-    if (n) { led++; console.log(`[apply] ${folder}: ${n}건 upsert(신규 ${nf})`); }
+    if (n || d) { led++; console.log(`[apply] ${folder}: ${n}건 upsert(신규 ${nf})${d ? ` · 키·제목 빈행 드롭 ${d}` : ""}`); }
   }
-  store.appendEvent({ actor_ref: "task_ledger", actor_kind: "system", kind: "task_ledger_ingest", to: String(wrote), used_refs: ["core_item"], data_label: "real", note: `신규 ${fresh}·스킵 ${skipped}` });
+  store.appendEvent({ actor_ref: "task_ledger", actor_kind: "system", kind: "task_ledger_ingest", to: String(wrote), used_refs: ["core_item"], data_label: "real", note: `신규 ${fresh}·스킵 ${skipped}·드롭 ${dropped}·헤더오류 ${hdrErr}` });
   store.db.close();
-  console.log(`[apply] 완료: ${led}개 장부 · 할일 ${wrote}건 ingest(신규 ${fresh}, 스킵 ${skipped}).`);
+  console.log(`[apply] 완료: ${led}개 장부 · 할일 ${wrote}건 ingest(신규 ${fresh}, ingest거부 ${skipped}, 빈행드롭 ${dropped}, 헤더오류장부 ${hdrErr}).`);
   process.exit(0);
 }
 
 // ---------- dry-run ----------
 console.log(`# 할일 장부 dry-run — ${folders.length}개 장부 발견 (${srcRoot})`);
 let total = 0;
-for (const folder of folders) { const { rows } = readLedger(folder); total += rows; console.log(`  ${folder}: ${rows}행`); }
+for (const folder of folders) {
+  const { rows, records, dropped, headerError } = readLedger(folder); total += rows;
+  if (headerError) console.log(`  ${folder}: ${rows}행 ⚠️ ${headerError}`);
+  else console.log(`  ${folder}: ${rows}행 → ingest 대상 ${records.length}건${dropped ? ` (키·제목 빈행 ${dropped} 드롭)` : ""}`);
+}
 console.log(`# 합계 ${total}행. export: node tools/task_ledger.mjs --export --db data/dev-erp.db [--out <dir>]`);
 console.log(`#         ingest: node tools/task_ledger.mjs --apply  --db data/dev-erp.db [--project <code>]`);
