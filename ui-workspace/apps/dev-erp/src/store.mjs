@@ -2199,7 +2199,7 @@ export class Store {
            due=CASE WHEN core_deliverable.due_source='owner' THEN core_deliverable.due ELSE excluded.due END,
            due_source=CASE WHEN core_deliverable.due_source='owner' THEN 'owner' ELSE excluded.due_source END,
            out_pointer=excluded.out_pointer, produced=excluded.produced,
-           review_stage=excluded.review_stage`
+           review_stage=CASE WHEN core_deliverable.review_stage>=2 THEN core_deliverable.review_stage ELSE excluded.review_stage END`
       )
       .run(
         id, d.project_id, d.stage_code ?? null, d.deliverable_no ?? null, d.name,
@@ -2218,6 +2218,19 @@ export class Store {
     if (v && !/^\d{4}-\d{2}-\d{2}$/.test(v)) return { error: "due_format" };
     this.db.prepare("UPDATE core_deliverable SET due=?, due_source='owner' WHERE id=?").run(v || null, id);
     return { ok: true, id, due: v || null };
+  }
+
+  // 완료게이트 검토단계 진행/되돌리기(owner 결정 2026-06-15): 0 미착수,1 작성됨,2 본인검토,3 팀검토,4 리드완료.
+  // 초안(_D)도 풀 3단계. 검토 2 이상으로 올리려면 03_Out 작성(produced)이 있어야 한다. 재-ingest 는 2↑ 보존.
+  static REVIEW_MAX = 4;
+  setDeliverableReview(id, stage) {
+    const row = this.db.prepare("SELECT produced FROM core_deliverable WHERE id=?").get(id);
+    if (!row) return { error: "deliverable_not_found" };
+    const s = Number(stage);
+    if (!Number.isInteger(s) || s < 0 || s > Store.REVIEW_MAX) return { error: "review_stage_range" };
+    if (s >= 2 && !row.produced) return { error: "needs_produced" }; // 파일(03_Out) 없으면 검토 진행 불가
+    this.db.prepare("UPDATE core_deliverable SET review_stage=? WHERE id=?").run(s, id);
+    return { ok: true, id, review_stage: s };
   }
 
   coreDeliverables({ project, stage } = {}) {

@@ -568,6 +568,15 @@ const server = createServer(async (req, res) => {
       store.appendEvent({ actor_ref: "owner", actor_kind: "human", kind: "deliverable_due_edit", to: `${b.id}=${r.due ?? "(해제)"}`, used_refs: ["deliverables"], data_label: "real" });
       return send(res, 200, r);
     }
+    // 완료게이트 검토단계 진행/되돌리기(작성됨→본인→팀→리드=완료). 검토자 식별은 이벤트 actor 에 기록.
+    if (path === "/api/deliverables/review" && req.method === "POST") {
+      let body = ""; for await (const chunk of req) body += chunk;
+      const b = JSON.parse(body || "{}");
+      const r = store.setDeliverableReview(b.id, b.stage);
+      if (r.error) return send(res, 400, r);
+      store.appendEvent({ actor_ref: currentAccount(req)?.username ?? "owner", actor_kind: "human", kind: "deliverable_review", to: `${b.id}=${r.review_stage}`, used_refs: ["deliverables"], data_label: "real" });
+      return send(res, 200, r);
+    }
 
     // ---------- 회의록(메타 전용) ----------
     if (path === "/api/meetings" && req.method === "GET") return send(res, 200, store.meetings({ project: qp.project }));

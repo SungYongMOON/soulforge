@@ -2207,9 +2207,21 @@ async function hubOverview(mount, p) {
 // 산출물 레지스터(ingest된 core_deliverable)를 게이트별로 묶어 표로 렌더. 읽기 위주(검토 진행 버튼은 슬라이스 C).
 function deliverableStateLabel(d, L) {
   if (d.review_stage >= 4) return { txt: L.deliv_state_done, cls: "green" };
-  if (d.review_stage >= 2) return { txt: L.deliv_state_review, cls: "" };
+  if (d.review_stage === 3) return { txt: L.deliv_rv_team, cls: "" };
+  if (d.review_stage === 2) return { txt: L.deliv_rv_self, cls: "" };
   if (d.produced || d.review_stage >= 1) return { txt: L.deliv_state_produced, cls: "" };
   return { txt: L.deliv_state_todo, cls: "dim" };
+}
+// 완료게이트 진행 컨트롤: 작성됨(1)→본인검토(2)→팀검토(3)→리드완료(4). 파일(03_Out) 없으면 검토 불가.
+function reviewControlHtml(d, L) {
+  const s = d.review_stage;
+  if (!d.produced && s < 1) return ""; // 미작성은 검토 진행 버튼 없음(파일 먼저)
+  const NEXT = { 1: L.deliv_rv_to_self, 2: L.deliv_rv_to_team, 3: L.deliv_rv_to_lead };
+  const fwd = s < 4
+    ? `<button class="fav-chip mini dr-adv" data-id="${esc(d.id)}" data-to="${s + 1}">▷ ${NEXT[s] ?? ""}</button>`
+    : "";
+  const back = s >= 2 ? `<button class="fav-chip mini ghost dr-adv" data-id="${esc(d.id)}" data-to="${s - 1}" title="${L.deliv_rv_back}">◁</button>` : "";
+  return `<div class="deliv-review">${fwd}${back}<span class="dr-msg dim mini"></span></div>`;
 }
 function deliverableRegisterHtml(rows, L) {
   if (!rows.length) return `<div class="empty small">${L.deliv_empty}</div>`;
@@ -2226,7 +2238,7 @@ function deliverableRegisterHtml(rows, L) {
       return `<tr>
         <td>${esc(d.name)}</td>
         <td class="dim">${submitTL(d.submit_type)}</td>
-        <td><span class="badge ${st.cls}">${st.txt}</span></td>
+        <td><span class="badge ${st.cls}">${st.txt}</span>${reviewControlHtml(d, L)}</td>
         <td class="deliv-due">
           <input type="date" class="dd-date" value="${esc(d.due ?? "")}" />
           <button class="fav-chip mini dd-save" data-id="${esc(d.id)}">${L.deliv_due_save}</button>
@@ -2264,6 +2276,15 @@ async function hubGuide(mount, p) {
       const resp = await post("/api/deliverables/due", { id: b.dataset.id, due: inp.value });
       if (resp.ok) { msg.textContent = L.deliv_due_saved; setTimeout(render, 500); }
       else { const e = await resp.json().catch(() => ({})); msg.textContent = e.error ?? "오류"; }
+    })
+  );
+  // 완료게이트 진행/되돌리기
+  mount.querySelectorAll(".dr-adv").forEach((b) =>
+    b.addEventListener("click", async () => {
+      const msg = b.closest(".deliv-review")?.querySelector(".dr-msg");
+      const resp = await post("/api/deliverables/review", { id: b.dataset.id, stage: Number(b.dataset.to) });
+      if (resp.ok) { setTimeout(render, 300); }
+      else if (msg) { const e = await resp.json().catch(() => ({})); msg.textContent = e.error === "needs_produced" ? L.deliv_rv_need_file : (e.error ?? "오류"); }
     })
   );
   wireGuideSection(mount, p.id);

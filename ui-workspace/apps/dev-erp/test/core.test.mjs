@@ -721,6 +721,32 @@ test("DELIV-DUE: 산출물 일정(due) owner 직접 지정 + 재-ingest 보존 (
   assert.equal(store.coreDeliverables({ project: "P26-014" })[0].due, null);
 });
 
+test("DELIV-REVIEW: 완료게이트 본인→팀→리드 진행 + 파일없으면 차단 + 재-ingest 보존", () => {
+  const store = freshStore();
+  store.upsertProject({ id: "P26-014", title: "P26-014", data_label: "real" });
+  // produced 산출물 → review_stage 1(작성됨)
+  store.upsertCoreDeliverable({ project_id: "P26-014", stage_code: "030_SRR", deliverable_no: "040", name: "SSRS", produced: 1 });
+  const id = "P26-014:030_SRR:040";
+  assert.equal(store.coreDeliverables({ project: "P26-014" })[0].review_stage, 1);
+  // 1→2→3→4 진행
+  assert.equal(store.setDeliverableReview(id, 2).review_stage, 2);
+  assert.equal(store.setDeliverableReview(id, 3).review_stage, 3);
+  assert.equal(store.setDeliverableReview(id, 4).review_stage, 4);
+  // 되돌리기
+  assert.equal(store.setDeliverableReview(id, 3).review_stage, 3);
+  // 범위/없는id
+  assert.equal(store.setDeliverableReview(id, 5).error, "review_stage_range");
+  assert.equal(store.setDeliverableReview("nope", 2).error, "deliverable_not_found");
+  // 파일(03_Out) 없는 산출물은 검토 2 이상 차단
+  store.upsertCoreDeliverable({ project_id: "P26-014", stage_code: "060_PDR", deliverable_no: "070", name: "초안", produced: 0 });
+  assert.equal(store.setDeliverableReview("P26-014:060_PDR:070", 2).error, "needs_produced");
+  // 재-ingest: 사람이 올린 검토(>=2)는 보존, 산출물명(뭘)은 갱신
+  store.upsertCoreDeliverable({ project_id: "P26-014", stage_code: "030_SRR", deliverable_no: "040", name: "SSRS v2", produced: 1 });
+  const row = store.coreDeliverables({ project: "P26-014", stage: "030_SRR" })[0];
+  assert.equal(row.name, "SSRS v2");
+  assert.equal(row.review_stage, 3, "사람 검토단계(>=2)는 재-ingest 가 덮지 않음");
+});
+
 test("MAIL-INGEST: 메일 장부 한 행 → core_mail(단계·소스·미배정·stub과제·제목폴백·멱등)", () => {
   const store = freshStore();
   // 미등록 과제코드 → stub 과제 생성 + 메일 1건(단계/소스 보존), 신규
