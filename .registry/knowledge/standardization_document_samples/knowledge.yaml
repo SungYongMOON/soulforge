@@ -2,7 +2,7 @@ knowledge_id: standardization_document_samples
 kind: knowledge
 status: active
 title: Standardization Document Sample Corpus
-summary: Public-safe routing knowledge for the owner-approved company standardization document sample corpus prepared for private Knowledge Wiki Cell routing, HWPX normalization planning, NotebookLM metadata-manifest materialization, and RAG source-card backlog tracking.
+summary: Public-safe routing knowledge for the owner-approved company standardization document sample corpus prepared for private Knowledge Wiki Cell routing, HWPX normalization planning, NotebookLM metadata-manifest materialization, and partial private HWPX source-text index tracking.
 claim_ceiling: canon_entry_public_safe_routing_only
 canon_registration:
   state: canon_entry
@@ -11,6 +11,7 @@ canon_registration:
     - public_safe_summary
     - private_packet_ref_index
     - notebooklm_metadata_manifest_ref
+    - private_hwpx_source_text_index_ref
     - registry_entry
 focus:
   primary_domain: standardization document samples, software technical documentation, test and reliability document families, and document-corpus preparation workflow
@@ -34,26 +35,34 @@ source_support:
     - _workmeta/system/runs/standardization_docs_knowledge_wiki_cell_20260615/claim_ceiling_and_promotion_route.json
     - _workmeta/system/runs/standardization_docs_knowledge_wiki_cell_20260615/hwpx_preprocessing/hwpx_preprocessing_report.json
     - _workmeta/system/runs/standardization_docs_knowledge_wiki_cell_20260615/notebooklm_drive_upload_report.json
+    - _workmeta/system/runs/standardization_docs_hangul_rag_20260616/RUN_MANIFEST.json
+    - _workmeta/system/runs/standardization_docs_hangul_rag_20260616/hangul_file_registration_report.json
+    - _workmeta/system/runs/standardization_docs_hangul_rag_20260616/rag_index_build_report.json
+    - _workmeta/system/runs/standardization_docs_hangul_rag_20260616/claim_ceiling_and_promotion_route.json
   validation_state:
     full_inventory_files: 26247
     document_candidates_hashed: 2308
     document_hash_failures: 0
     hwp_hwpx_queue_items: 1448
     hwp_body_blockers: 1446
-    strict_hwpx_validation_failures: 2
+    initial_strict_hwpx_validation_failures: 2
+    hwpx_repacked_validated: 2
+    hwpx_private_source_text_indexes_ready: 2
+    hwpx_private_rag_chunks: 11
     container_inventory_candidates: 112
 rag:
-  current_state: metadata_only_handoff_prepared
-  source_text_index_state: blocked_until_derived_text_source_cards_and_sync_ready_manifests
+  current_state: partial_private_source_text_index_ready_for_repacked_hwpx
+  source_text_index_state: ready_for_two_validated_repacked_hwpx_sources; blocked_for_hwp_until_true_hwpx_export
   allowed_use:
     - corpus discovery
     - dedupe and source-card planning
     - HWPX normalization backlog selection
+    - private sourcebound RAG over the two validated HWPX-derived indexes
     - private sourcebound review starting point
   blocked_use:
     - body-level HWP claims
-    - RAG answer authority
-    - source-text chunk authority
+    - full-corpus RAG answer authority
+    - public source-text chunk authority
     - public copying of source text, filenames, hashes, or private paths
 notebooklm:
   notebook_state: metadata_manifest_source_materialized
@@ -63,15 +72,15 @@ notebooklm:
   blocked_conditions:
     - Original document body upload is not materialized by this entry.
     - HWP body sources require true HWPX export before body use.
-    - Existing HWPX files need re-export or repack before body extraction.
+    - Additional or newly converted HWPX files require the same repack, validation, source-card, and source-text-index route before body use.
     - Drive upload target binding was not available in the execution environment.
 owner_decision_boundaries:
   hwp_preprocessing:
     state: blocked_until_true_hwpx_export
     required_route: owner-approved Hancom or HWP-capable export to HWPX before body analysis
   rag_source_text_index:
-    state: blocked_until_source_cards_and_derived_text
-    required_route: derived .md/.txt source text, source_card.json, source_sync_ready_manifest.json, then source-text-index validation
+    state: partial_private_ready_for_two_hwpx_sources
+    required_route: continue with derived .md/.txt source text, source_card.json, source_sync_ready_manifest.json, then source-text-index validation for each validated HWPX export
   drive_and_bulk_notebooklm_upload:
     state: blocked_until_target_surface_and_batch_policy
     required_route: authenticated target Drive warehouse or NotebookLM batch policy with supported source formats
@@ -80,13 +89,14 @@ claim_scope:
     - The corpus has a full private metadata inventory and a complete SHA-256 manifest for document candidates.
     - The corpus is prepared for private Knowledge Wiki Cell routing and metadata-only RAG handoff.
     - A NotebookLM notebook received a metadata-only manifest source for bookshelf awareness.
-    - HWP and invalid HWPX body use remains visibly blocked until normalization and validation.
+    - Two existing HWPX files were repacked, validated, extracted, and indexed in private source-text indexes.
+    - HWP body use remains visibly blocked until normalization and validation.
   excluded:
     - full document text, filenames, hash lists, source chunks, OCR body, NotebookLM answers, Drive payloads, or company-private source payloads in public canon
     - certification approval, customer acceptance, legal interpretation, or final project doctrine
-    - RAG answer authority or source-text index authority before derived text and validator evidence exist
+    - full-corpus RAG answer authority or HWP body source-text index authority before HWPX export and validator evidence exist
 notes:
   - This entry registers only a public-safe routing map and boundary posture for the private company corpus.
-  - `canon_entry` applies only to this public-safe routing entry, not to document body truth, source-text index authority, NotebookLM answer authority, or project/customer approval.
+  - `canon_entry` applies only to this public-safe routing entry, not to document body truth for unconverted HWP files, NotebookLM answer authority, or project/customer approval.
   - The actual source files, hashes, file names, and generated packet details remain in private workspace or workmeta surfaces.
   - Use private review refs before raising the claim ceiling beyond metadata routing.

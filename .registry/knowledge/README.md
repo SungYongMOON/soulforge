@@ -8,7 +8,8 @@
 - `standardization_document_samples/` is a public-safe routing entry for the
   private company standardization document sample corpus prepared on 2026-06-15.
   It records inventory/hash completion, HWPX blockers, NotebookLM metadata
-  manifest materialization, and RAG source-card backlog boundaries without
+  manifest materialization, and partial private HWPX source-text index readiness
+  while avoiding
   copying document bodies, filenames, hashes, chunks, or private paths.
 
 - `towed_body_sensor_stability/` is a public-safe source-supported reusable knowledge entry for towed-body stability, internal sensor-axis quieting, liquid damping, cable/body vibration, appendage case planning, and pointing-budget orientation.

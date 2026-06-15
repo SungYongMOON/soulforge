@@ -1,5 +1,18 @@
 # CHANGELOG
 
+## 2026-06-16
+
+### Revision `working` - standardization HWPX source-text indexes prepared
+
+- Updated the public-safe `standardization_document_samples` knowledge entry to
+  record that 2 existing HWPX files were repacked, validated, extracted, and
+  indexed in private source-text indexes.
+- Kept the 1,446 HWP files blocked until true HWPX export through a verified
+  converter or owner-approved GUI export.
+- Preserved the public claim ceiling: no document bodies, file names, hashes,
+  source chunks, NotebookLM answers, Drive payloads, or private source payloads
+  were added to public canon.
+
 ## 2026-06-15
 
 ### Revision `working` - standardization document sample corpus routed
