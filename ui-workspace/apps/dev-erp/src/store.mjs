@@ -2549,8 +2549,9 @@ export class Store {
     return Store.INPUT_SUBFOLDER_MAP[String(artifactType ?? "").trim()] ?? ["참고자료"];
   }
   // 입력파일 등록(포인터·메타). 절대경로 거부(상대만). source/status enum. 멱등(id=<산출물>:<해시|파일명>).
-  registerDeliverableInput({ deliverable_id, subfolder = null, file_name = null, pointer = null,
-    source = "erp", sha256 = null, size = null, status = "needed", mail_ref = null, note = null } = {}) {
+  // id 명시(장부 ingest 왕복용) 가능. sync=false 면 write-through 훅 미호출(import 경로 — 순환 차단).
+  registerDeliverableInput({ id = null, deliverable_id, subfolder = null, file_name = null, pointer = null,
+    source = "erp", sha256 = null, size = null, status = "needed", mail_ref = null, note = null } = {}, { sync = true } = {}) {
     const did = String(deliverable_id ?? "").trim();
     if (!did) return { error: "deliverable_required" };
     const d = this.db.prepare("SELECT project_id, stage_code FROM core_deliverable WHERE id=?").get(did);
@@ -2561,16 +2562,17 @@ export class Store {
     const st = Store.INPUT_STATUSES.includes(status) ? status : "needed";
     const fname = file_name == null ? null : String(file_name).trim() || null;
     const keyPart = sha256 || fname || randomBytes(4).toString("hex");
-    const id = `${did}:${keyPart}`;
+    const finalId = String(id ?? "").trim() || `${did}:${keyPart}`;
     this.db.prepare(
       `INSERT INTO deliverable_input(id,deliverable_id,project_id,stage_code,subfolder,file_name,pointer,source,sha256,size,status,mail_ref,note,created_at,data_label)
        VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?, 'real')
        ON CONFLICT(id) DO UPDATE SET subfolder=excluded.subfolder, file_name=excluded.file_name, pointer=excluded.pointer,
          source=excluded.source, sha256=excluded.sha256, size=excluded.size, status=excluded.status,
          mail_ref=excluded.mail_ref, note=excluded.note`
-    ).run(id, did, d.project_id ?? null, d.stage_code ?? null, subfolder ?? null, fname, ptr,
+    ).run(finalId, did, d.project_id ?? null, d.stage_code ?? null, subfolder ?? null, fname, ptr,
       src, sha256 ?? null, size != null ? Number(size) : null, st, mail_ref ?? null, note ?? null, new Date().toISOString());
-    return { ok: true, id };
+    if (sync) this.afterInputWrite?.(finalId); // autosync: ERP 등록 → 입력파일_장부 write-through
+    return { ok: true, id: finalId };
   }
   deliverableInputs({ deliverable_id, project } = {}) {
     const cond = [], args = [];
@@ -2583,6 +2585,11 @@ export class Store {
     if (!Store.INPUT_STATUSES.includes(status)) return { error: "bad_status" };
     const r = this.db.prepare("UPDATE deliverable_input SET status=? WHERE id=?").run(status, id);
     if (!r.changes) return { error: "input_not_found" };
+    this.afterInputWrite?.(id); // autosync: 상태 변경 → 입력파일_장부 write-through
     return { ok: true, id, status };
+  }
+  // 입력파일 1행 조회(write-through 용).
+  deliverableInput(id) {
+    return this.db.prepare("SELECT * FROM deliverable_input WHERE id=?").get(id) ?? null;
   }
 }

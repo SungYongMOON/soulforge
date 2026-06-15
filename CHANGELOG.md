@@ -6,11 +6,13 @@
 
 - 산출물 중간번호 등록: 고정 단계 밖 31·32 등 산출물을 ERP에서 직접 추가·관리
   (`addDeliverable`, `POST /api/deliverables`, 레지스터 추가 폼).
-- 산출물 입력파일 기초(설계우선): 산출물 종류별 In 하위폴더 매핑 + `deliverable_input`
-  장부(포인터·메타 전용·원문 미저장·절대경로 거부) + ERP/메일/Codex 3루트 출처.
-  `core_deliverable.in_pointer`(01_In 상대, out_pointer 대칭). 엔드포인트
-  `/api/deliverables/inputs`·`/input-subfolders`. 실제 파일 업/다운로드(서빙)는
-  경로탈출·LAN노출·다운로드권한 검토 후 별도 슬라이스로 분리.
+- 산출물 입력파일(설계+데이터층+UI+장부동기): 산출물 종류별 In 하위폴더 매핑 +
+  `deliverable_input` 장부(포인터·메타 전용·원문 미저장·절대경로 거부) + ERP/메일/Codex
+  3루트 출처. `core_deliverable.in_pointer`(01_In 상대, out_pointer 대칭). 엔드포인트
+  `/api/deliverables/inputs`·`/input-subfolders`. 산출물별 입력파일 UI 패널(종류별
+  하위폴더 제안·등록·상태토글). **입력파일_장부.csv write-through/read 동기**(autosync
+  패턴 — 할일_장부처럼 ERP↔장부 양방향, 신규행만 import·사람편집 보호). 실제 파일
+  업/다운로드(서빙)는 경로탈출·LAN노출·다운로드권한 검토 후 별도 슬라이스로 분리.
 - 설계 문서 `DELIVERABLE_INPUT_FILES_DESIGN_20260616.md`. 장부 정본·폴더 생성·파일
   라우팅은 Codex(se_foldertree/장부) 소유로 라우팅.
 

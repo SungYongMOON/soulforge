@@ -15,7 +15,7 @@ import { guideTemplates, docRecipes } from "./src/guide.mjs";
 import { modulesFor } from "./src/modules.mjs";
 import { crossSearch } from "./src/search.mjs";
 import { buildMetaContext, runLlm, answerFromManual } from "./src/llm.mjs";
-import { startAutosyncPoll, writeTaskToLedger } from "./src/autosync.mjs";
+import { startAutosyncPoll, writeTaskToLedger, writeInputToLedger } from "./src/autosync.mjs";
 
 const HERE = dirname(fileURLToPath(import.meta.url));
 const args = process.argv.slice(2);
@@ -763,6 +763,11 @@ server.listen(PORT, HOST, () => {
       try { const r = writeTaskToLedger(store, id, { root }); if (r?.error && r.error !== "item_or_project_missing") console.error("[autosync] write-through 실패:", id, r.error); }
       catch (e) { console.error("[autosync] write-through 오류:", id, e.message); } // TODO: 항목 sync_error 상태 + 재시도(Phase 3)
     };
-    console.log(`[dev-erp] autosync ON — 할일_장부 ↔ ERP 양방향(import 폴링 ${Number(process.env.DEV_ERP_AUTOSYNC_MS) || 10000}ms + write-through). root: ${root}`);
+    // 입력파일: ERP 등록/상태변경 → 입력파일_장부 write-through(같은 양방향 패턴).
+    store.afterInputWrite = (id) => {
+      try { const r = writeInputToLedger(store, id, { root }); if (r?.error && r.error !== "input_or_project_missing") console.error("[autosync] 입력 write-through 실패:", id, r.error); }
+      catch (e) { console.error("[autosync] 입력 write-through 오류:", id, e.message); }
+    };
+    console.log(`[dev-erp] autosync ON — 할일_장부·입력파일_장부 ↔ ERP 양방향(import 폴링 ${Number(process.env.DEV_ERP_AUTOSYNC_MS) || 10000}ms + write-through). root: ${root}`);
   }
 });

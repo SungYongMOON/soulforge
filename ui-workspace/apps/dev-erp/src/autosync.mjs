@@ -109,6 +109,88 @@ export function writeTaskToLedger(store, itemId, { root } = {}) {
   return { error: "concurrent_write_retry" };
 }
 
+// ── 입력파일_장부(산출물 입력파일) — 할일_장부와 동일 패턴(write-through + 신규행 import) ──
+const INPUT_REL = join("reports", "입력파일_장부", "입력파일_장부.csv");
+const INPUT_SCHEMA = "soulforge.deliverable_input_ledger.private.v0";
+const INPUT_HEADERS = ["입력키", "스키마버전", "기록일", "프로젝트코드", "산출물참조", "게이트", "입력하위폴더", "파일명", "파일포인터", "출처", "해시", "크기", "상태", "관련메일이력키", "비고", "원문복사여부"];
+
+// 입력파일_장부.csv → registerDeliverableInput 입력 행. 헤더 누락/빈 키·산출물 드롭.
+export function readInputLedgerRows(filePath) {
+  const recs = parseCsv(readFileSync(filePath, "utf8").replace(/^﻿/, "").normalize("NFC")).filter((r) => r.some((c) => String(c).trim()));
+  if (!recs.length) return [];
+  const h = recs[0].map((x) => x.trim().normalize("NFC"));
+  const ix = (n) => h.indexOf(n);
+  if (ix("입력키") < 0 || ix("산출물참조") < 0) return [];
+  const c = { key: ix("입력키"), deliv: ix("산출물참조"), sub: ix("입력하위폴더"), file: ix("파일명"),
+    ptr: ix("파일포인터"), src: ix("출처"), sha: ix("해시"), size: ix("크기"), st: ix("상태"), mail: ix("관련메일이력키"), note: ix("비고") };
+  const g = (r, i) => unguard(i >= 0 ? String(r[i] ?? "").trim() : "");
+  return recs.slice(1).map((r) => ({
+    id: g(r, c.key), deliverable_id: g(r, c.deliv), subfolder: g(r, c.sub) || null, file_name: g(r, c.file) || null,
+    pointer: g(r, c.ptr) || null, source: g(r, c.src) || "codex", sha256: g(r, c.sha) || null,
+    size: g(r, c.size) ? Number(g(r, c.size)) : null, status: g(r, c.st) || "needed",
+    mail_ref: g(r, c.mail) || null, note: g(r, c.note) || null,
+  })).filter((x) => x.id && x.deliverable_id);
+}
+
+// deliverable_input 1행 → 입력파일_장부 행(INPUT_HEADERS 순서).
+function inputToLedgerRow(x) {
+  return [x.id, INPUT_SCHEMA, (x.created_at || "").slice(0, 10), x.project_id || "", x.deliverable_id, x.stage_code || "",
+    x.subfolder || "", x.file_name || "", x.pointer || "", x.source || "", x.sha256 || "", x.size != null ? String(x.size) : "",
+    x.status || "", x.mail_ref || "", x.note || "", "아니오"];
+}
+
+// 신규 입력키만 import(기존=사람 편집 보호). 산출물 없으면 skip. import 경로는 write-through 안 함(순환 차단).
+export function importNewInputLedgers(store, { root } = {}) {
+  const wm = root ? join(root, "_workmeta") : null;
+  const out = { imported: 0, skipped: 0, files: 0 };
+  if (!wm || !existsSync(wm)) return out;
+  for (const code of readdirSync(wm)) {
+    if (!CODE_RE.test(code)) continue;
+    const f = join(wm, code, INPUT_REL);
+    if (!existsSync(f)) continue;
+    out.files++;
+    for (const row of readInputLedgerRows(f)) {
+      if (store.db.prepare("SELECT 1 FROM deliverable_input WHERE id=?").get(row.id)) { out.skipped++; continue; }
+      const r = store.registerDeliverableInput(row, { sync: false });
+      if (r.ok) out.imported++; else out.skipped++;
+    }
+  }
+  return out;
+}
+
+// ERP 입력파일 1건 → 입력파일_장부.csv write-through(멱등·atomic·추가컬럼 보존·키없는행 패스스루·낙관적 동시성).
+export function writeInputToLedger(store, inputId, { root } = {}) {
+  if (!root) return { error: "no_root" };
+  const x = store.deliverableInput ? store.deliverableInput(inputId) : store.db.prepare("SELECT * FROM deliverable_input WHERE id=?").get(inputId);
+  if (!x || !x.project_id) return { error: "input_or_project_missing" };
+  const dir = join(root, "_workmeta", x.project_id, "reports", "입력파일_장부");
+  const file = join(dir, "입력파일_장부.csv");
+  const row = inputToLedgerRow(x);
+  const newObj = {}; INPUT_HEADERS.forEach((c, i) => (newObj[c] = row[i]));
+  mkdirSync(dir, { recursive: true });
+  for (let attempt = 0; attempt < 3; attempt++) {
+    let mtimeAtRead = -1, outHeader = INPUT_HEADERS;
+    const byKey = new Map();
+    if (existsSync(file)) {
+      mtimeAtRead = statSync(file).mtimeMs;
+      const recs = parseCsv(readFileSync(file, "utf8").replace(/^﻿/, "").normalize("NFC")).filter((r) => r.some((c) => String(c).trim()));
+      if (recs.length) {
+        const h = recs[0].map((s) => s.trim());
+        outHeader = [...INPUT_HEADERS, ...h.filter((c) => !INPUT_HEADERS.includes(c))];   // 추가컬럼 보존
+        for (const r of recs.slice(1)) { const o = {}; h.forEach((c, i) => (o[c] = r[i] ?? "")); const k = o["입력키"] || ""; byKey.set(k || `__nokey_${byKey.size}`, o); } // 키없는 행 패스스루
+      }
+    }
+    byKey.set(x.id, newObj);
+    const out = [outHeader.join(","), ...[...byKey.values()].map((o) => outHeader.map((c) => csvEsc(o[c] ?? "")).join(","))];
+    if (existsSync(file) && statSync(file).mtimeMs !== mtimeAtRead) continue;   // 외부 변경 → 재시도
+    const tmp = `${file}.${process.pid}.tmp`;
+    writeFileSync(tmp, "﻿" + out.join("\n") + "\n");
+    renameSync(tmp, file); // atomic
+    return { ok: true, file };
+  }
+  return { error: "concurrent_write_retry" };
+}
+
 // 주기 폴링 시작(부팅 즉시 1회 + intervalMs 마다). 변경 없는 파일은 mtime 으로 건너뛴다.
 export function startAutosyncPoll(store, { root, intervalMs = 10000, log = () => {} } = {}) {
   const seen = new Map(); // file → mtimeMs
@@ -116,21 +198,36 @@ export function startAutosyncPoll(store, { root, intervalMs = 10000, log = () =>
     try {
       const wm = root ? join(root, "_workmeta") : null;
       if (!wm || !existsSync(wm)) return;
-      let imported = 0, files = 0, changed = false;
+      let imported = 0, importedInput = 0, files = 0, changed = false;
       for (const code of readdirSync(wm)) {
         if (!CODE_RE.test(code)) continue;
+        // 할일_장부
         const f = join(wm, code, TASK_REL);
-        if (!existsSync(f)) continue;
-        files++;
-        const m = statSync(f).mtimeMs;
-        if (seen.get(f) === m) continue;     // 변경 없음 → 스킵
-        seen.set(f, m); changed = true;
-        for (const row of readTaskLedgerRows(f)) {
-          if (store.db.prepare("SELECT 1 FROM core_item WHERE id=?").get(row.id)) continue;
-          if (store.ingestTaskItem(row).ok) imported++;
+        if (existsSync(f)) {
+          files++;
+          const m = statSync(f).mtimeMs;
+          if (seen.get(f) !== m) {
+            seen.set(f, m); changed = true;
+            for (const row of readTaskLedgerRows(f)) {
+              if (store.db.prepare("SELECT 1 FROM core_item WHERE id=?").get(row.id)) continue;
+              if (store.ingestTaskItem(row).ok) imported++;
+            }
+          }
+        }
+        // 입력파일_장부(신규 입력키만, 산출물 없으면 skip)
+        const fi = join(wm, code, INPUT_REL);
+        if (existsSync(fi)) {
+          const mi = statSync(fi).mtimeMs;
+          if (seen.get(fi) !== mi) {
+            seen.set(fi, mi); changed = true;
+            for (const row of readInputLedgerRows(fi)) {
+              if (store.db.prepare("SELECT 1 FROM deliverable_input WHERE id=?").get(row.id)) continue;
+              if (store.registerDeliverableInput(row, { sync: false }).ok) importedInput++;
+            }
+          }
         }
       }
-      if (changed && imported) log(`[autosync] 할일_장부 신규 ${imported}건 자동 import (${files}장부)`);
+      if (changed && (imported || importedInput)) log(`[autosync] 신규 import — 할일 ${imported} · 입력파일 ${importedInput} (${files}장부)`);
     } catch (e) { log(`[autosync] import 오류: ${e.message}`); }
   };
   tick();
