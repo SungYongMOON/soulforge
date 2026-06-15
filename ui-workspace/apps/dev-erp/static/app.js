@@ -589,9 +589,10 @@ function renderNav() {
       const btns = sub.items.map(navButton).join("");
       if (!btns.trim()) return ""; // RBAC 로 항목이 전부 숨으면 헤더도 생략
       const key = `${sec.g}:${i}`;
-      const collapsed = state.navFold.has(key) ? " collapsed" : "";
+      const active = sub.items.includes(state.view); // 이 분류에 현재 선택 항목 있음 → 헤더 강조·자동 펼침
+      const collapsed = !active && state.navFold.has(key) ? " collapsed" : "";
       return `<div class="nav-group nav-sub-group${collapsed}" data-fold="${key}">
-        <div class="nav-sub-head"><i class="fold-ico">▾</i><span>${navTL(sub)}</span></div>
+        <div class="nav-sub-head${active ? " has-active" : ""}"><i class="fold-ico"></i><span>${navTL(sub)}</span></div>
         <div class="nav-items">${btns}</div></div>`;
     }).join("");
   }
@@ -653,15 +654,15 @@ function renderProjectYearNav() {
   return cap + projs.map((p) => {
     const key = `projf:${p.id}`;
     const onThis = state.view === "project" && state.hubProject === p.id;
-    const collapsed = state.navFold.has(key) ? " collapsed" : "";
-    const ptitle = p.title && p.title !== p.id ? ` <span class="pn-title">${esc(p.title)}</span>` : "";
+    const collapsed = !onThis && state.navFold.has(key) ? " collapsed" : ""; // 선택 과제는 자동 펼침
+    const ptitle = p.title && p.title !== p.id ? `<span class="pn-title">${esc(p.title)}</span>` : "";
     const facets = PROJ_FACETS.map((f) => {
       const on = onThis && (state.hubTab ?? "overview") === f.key ? " active" : "";
       return `<button data-hub="${esc(p.id)}" data-facet="${f.key}" class="proj-facet${on}">${navTL(f)}</button>`;
     }).join("");
     return `<div class="nav-group nav-sub-group${collapsed}" data-fold="${key}">
       <div class="nav-sub-head proj-head${onThis ? " on" : ""}" title="${esc(p.title ?? p.id)}">
-        <i class="fold-ico">▾</i><span class="health-dot h-${p.health ?? "ok"}"></span><span class="pn-id">${esc(p.id)}</span>${ptitle}</div>
+        <i class="fold-ico"></i><span class="pn-id">${esc(p.id)}</span>${ptitle}</div>
       <div class="nav-items proj-facets">${facets}</div></div>`;
   }).join("");
 }
