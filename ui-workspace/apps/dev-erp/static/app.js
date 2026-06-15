@@ -1811,9 +1811,35 @@ async function renderMail() {
       </div>
     </aside>` : "";
 
-  $("#view").innerHTML = `${labelBar}${filterChips}${toolbar}${bulkBar}
+  // 베타1: 각자 메일 등록 폼(원문 미저장 — 제목·상대·날짜·포인터만). 등록 → 분류 → 할 일.
+  const regForm = `<details class="mail-reg" ${state.mailRegOpen ? "open" : ""}>
+    <summary>${L.mail_reg_open ?? "＋ 메일 등록"}</summary>
+    <div class="item-form">
+      <input id="mrSubject" placeholder="${L.mail_reg_subject ?? "제목"}" />
+      <input id="mrFrom" placeholder="${L.mail_reg_from ?? "상대(보낸/받는 사람)"}" size="12" />
+      <select id="mrDir"><option value="in">${L.mail_in}</option><option value="out">${L.mail_out}</option></select>
+      <input id="mrDate" type="date" />
+      <select id="mrProject"><option value="">${L.project}: ${L.req_no_project ?? "미연결"}</option>${assignOpts}</select>
+      <input id="mrPtr" placeholder="${L.mail_reg_ptr ?? "원문 위치 포인터(Outlook/파일 경로)"}" />
+      <button id="mrAdd" class="fav-chip active">${L.mail_reg_add ?? "등록"}</button>
+    </div>
+    <p class="hub-note">${L.mail_reg_note ?? "메일 본문은 저장 안 함 — 제목·상대·날짜·포인터만. 등록 후 분류해 할 일로 승격."}</p>
+  </details>`;
+  $("#view").innerHTML = `${labelBar}${filterChips}${toolbar}${regForm}${bulkBar}
     <div class="mail-split">${rows ? `<table class="mail-table"><tbody>${rows}</tbody></table>` : `<div class="empty">${L.empty_mail}</div>`}${detail}</div>`;
 
+  $("#view").querySelector(".mail-reg")?.addEventListener("toggle", (e) => { state.mailRegOpen = e.target.open; });
+  $("#mrAdd")?.addEventListener("click", async () => {
+    const subject = $("#mrSubject").value.trim();
+    if (!subject) return;
+    const body = { subject, direction: $("#mrDir").value || "in" };
+    if ($("#mrFrom").value.trim()) body.counterpart = $("#mrFrom").value.trim();
+    if ($("#mrDate").value) body.at = $("#mrDate").value;
+    if ($("#mrProject").value) body.project_id = $("#mrProject").value;
+    if ($("#mrPtr").value.trim()) body.pointer_ref = $("#mrPtr").value.trim();
+    const r = await post("/api/mail", body);
+    if (r.ok) { state.mailRegOpen = true; render(); }
+  });
   $("#mDays").addEventListener("change", (e) => { f.days = Number(e.target.value); render(); });
   $("#mDir").addEventListener("change", (e) => { f.direction = e.target.value; render(); });
   $("#mSearch").addEventListener("keydown", (e) => { if (e.key === "Enter") { f.q = e.target.value; render(); } });

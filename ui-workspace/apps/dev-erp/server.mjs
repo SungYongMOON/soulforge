@@ -153,6 +153,14 @@ const server = createServer(async (req, res) => {
       return send(res, 200, result);
     }
     if (path === "/api/items") return send(res, 200, store.items({ project: qp.project, status: qp.status, q: qp.q, due_before: qp.due === "soon" ? todayKey() : undefined }));
+    if (path === "/api/mail" && req.method === "POST") {
+      let body = ""; for await (const chunk of req) body += chunk;
+      const input = JSON.parse(body || "{}");
+      const result = store.createMail({ ...input, data_label: "real" });
+      if (result.error) return send(res, 400, result);
+      store.appendEvent({ actor_ref: "owner", actor_kind: "human", kind: "mail_register", to: result.mail.subject, project_ref: result.mail.project_id ?? null, used_refs: ["mail"], data_label: "real" });
+      return send(res, 200, result);
+    }
     if (path === "/api/mail") return send(res, 200, store.mail({
       project: qp.project, days: qp.days !== undefined ? Number(qp.days) : 90,
       q: qp.q, direction: qp.direction, label_id: qp.label_id

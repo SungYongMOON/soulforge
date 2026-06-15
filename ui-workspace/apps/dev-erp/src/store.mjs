@@ -722,6 +722,18 @@ export class Store {
       .run(m.id, m.project_id ?? null, m.at, m.direction ?? "in", m.subject, m.counterpart ?? null, m.pointer_ref ?? null, m.data_label ?? "synthetic");
   }
 
+  // slice(베타1): 사용자가 직접 메일 등록(각자 계정에서 자기 메일을 장부에 쌓기). 원문 미저장 — 제목·상대·날짜·포인터만.
+  createMail({ project_id = null, subject, counterpart = null, at = null, direction = "in", pointer_ref = null, data_label = "real" }) {
+    const s = String(subject ?? "").trim();
+    if (!s) return { error: "subject_required" };
+    if (project_id && !this.db.prepare("SELECT 1 FROM core_project WHERE id=?").get(project_id)) return { error: "project_not_found" };
+    const dir = ["in", "out"].includes(direction) ? direction : "in";
+    const id = `mail_${Date.now().toString(36)}${randomBytes(3).toString("hex")}`;
+    const atVal = (at && /^\d{4}-\d{2}-\d{2}/.test(at)) ? at : new Date().toISOString().slice(0, 10);
+    this.upsertMail({ id, project_id, at: atVal, direction: dir, subject: s, counterpart, pointer_ref, data_label });
+    return { ok: true, id, mail: this.db.prepare("SELECT * FROM core_mail WHERE id=?").get(id) };
+  }
+
   upsertArtifact(a) {
     this.db
       .prepare(

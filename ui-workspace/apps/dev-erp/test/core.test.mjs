@@ -642,6 +642,19 @@ test("store: 개발요청 인입 채널 — createRequest→promoteRequest→미
   assert.equal(store.promoteRequest("no-such", "owner").error, "request_not_found");
 });
 
+test("store: createMail — 사용자 메일 등록(원문 미저장) → 받은 일 → 분류 (MAIL-REG beta1)", () => {
+  const store = freshStore();
+  loadFixture(store);
+  assert.equal(store.createMail({}).error, "subject_required");
+  assert.equal(store.createMail({ subject: "x", project_id: "no-such" }).error, "project_not_found");
+  const r = store.createMail({ subject: "CDR 일정 문의", counterpart: "발주처", project_id: "PRJ-A", at: "2026-06-15", pointer_ref: "outlook://msg/123" });
+  assert.equal(r.ok, true);
+  assert.deepEqual([r.mail.subject, r.mail.project_id, r.mail.counterpart, r.mail.pointer_ref], ["CDR 일정 문의", "PRJ-A", "발주처", "outlook://msg/123"]);
+  assert.ok(store.mail({ project: "PRJ-A" }).some((m) => m.id === r.id), "받은 일 목록 노출");
+  const pr = store.promoteMail(r.id, "owner");
+  assert.deepEqual([pr.item.origin, pr.item.status], ["mail", "unclassified"]);
+});
+
 test("store: SE 산출물 레지스터 — upsertCoreDeliverable→coreDeliverables 조회·게이트필터·멱등 (deliverable slice B)", () => {
   const store = freshStore();
   store.upsertProject({ id: "P26-014", title: "P26-014", data_label: "real" });
