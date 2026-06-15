@@ -2167,9 +2167,12 @@ async function hubRequirements(mount, p) {
 async function hubOverview(mount, p) {
   const L = state.lex;
   const todayKey = new Date().toISOString().slice(0, 10);
-  const [items, mail] = await Promise.all([
+  // 과제 안에서 '불러온 장부'가 한눈에 보이게: 메일·산출물·분류필요 KPI(ERP=장부 통합 가시화).
+  const [items, mail, delivs, triage] = await Promise.all([
     api(`/api/items?project=${encodeURIComponent(p.id)}`),
-    api(`/api/mail?project=${encodeURIComponent(p.id)}&days=90`)
+    api(`/api/mail?project=${encodeURIComponent(p.id)}&days=3650`),
+    api(`/api/deliverables?project=${encodeURIComponent(p.id)}`),
+    api(`/api/items?project=${encodeURIComponent(p.id)}&status=unclassified`)
   ]);
   const openCnt = items.filter((i) => i.status !== "done").length;
   const spawn = state.spawnItems ?? new Set();
@@ -2192,6 +2195,9 @@ async function hubOverview(mount, p) {
       <div class="kpi red"><span>${L.kpi_blocked}</span><strong>${p.blocked}</strong></div>
       <div class="kpi red"><span>${L.kpi_overdue}</span><strong>${p.overdue}</strong></div>
       <div class="kpi amber"><span>${L.kpi_today}</span><strong>${p.due_today}</strong></div>
+      <div class="kpi ledger"><span>${L.kpi_mail ?? "메일"}</span><strong>${mail.length}</strong></div>
+      <div class="kpi ledger"><span>${L.deliv_name}</span><strong>${delivs.length}</strong></div>
+      ${triage.length ? `<div class="kpi amber"><span>${L.status_unclassified}</span><strong>${triage.length}</strong></div>` : ""}
     </div>
     <div class="item-form">
       <input id="niTitle" placeholder="${L.item_new_ph}" />
