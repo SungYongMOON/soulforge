@@ -53,7 +53,7 @@ body { margin: 0; font-family: "Pretendard", "Apple SD Gothic Neo", system-ui, s
 .sub-tab:hover { color: var(--text); }
 .sub-tab.on { background: var(--panel); border-color: var(--line); color: var(--accent); font-weight: 600; }
 /* L3 분류 헤더 — L4 항목보다 큼, 클릭하면 접기/펼치기 */
-.nav-sub-head { display: flex; align-items: center; gap: 5px; font-size: 13.5px; font-weight: 600;
+.nav-sub-head { display: flex; align-items: center; gap: 5px; font-size: 14.5px; font-weight: 700;
   color: var(--text); padding: 7px 8px; border-radius: 7px; cursor: pointer; user-select: none; }
 .nav-sub-head:hover { color: var(--accent); }
 /* L3 분류에 현재 선택 항목이 있으면 하늘색 바탕 강조(이카운트식) */
@@ -65,12 +65,12 @@ body { margin: 0; font-family: "Pretendard", "Apple SD Gothic Neo", system-ui, s
 .nav-sub-group.collapsed .fold-ico::before { content: "▸"; }
 .nav-sub-group.collapsed .nav-items { display: none; }
 /* L4 항목 블록 — L3 헤더보다 확실히 들여쓰기(헤더 아래 둥지처럼) */
-.nav-items { display: flex; flex-direction: column; gap: 2px; padding-left: 20px; position: relative; }
-/* L4 항목 왼쪽 수직 레일 + 선택 항목에 원(이카운트식, 선택 따라 이동) */
-.nav-items::before { content: ""; position: absolute; left: 8px; top: 5px; bottom: 5px; width: 2px; background: var(--line); border-radius: 2px; }
+.nav-items { display: flex; flex-direction: column; gap: 2px; padding-left: 26px; position: relative; }
+/* L4 항목 왼쪽 수직 레일 + 선택 항목에 원(이카운트식, 선택 따라 이동). 레일=12px, 원 중심도 12px */
+.nav-items::before { content: ""; position: absolute; left: 11px; top: 5px; bottom: 5px; width: 2px; background: var(--line); border-radius: 2px; }
 #nav .nav-items button { position: relative; }
 #nav .nav-items button.active { background: transparent; color: var(--accent); font-weight: 700; }
-#nav .nav-items button.active::before { content: ""; position: absolute; left: -16px; top: 50%; transform: translateY(-50%);
+#nav .nav-items button.active::before { content: ""; position: absolute; left: -18.5px; top: 50%; transform: translateY(-50%);
   width: 9px; height: 9px; border-radius: 50%; background: var(--accent); box-shadow: 0 0 0 2.5px var(--panel); transition: top .2s ease; }
 /* 우측 글로벌: 바로가기바 + 등록☆ + ⌘K + 검색 (ECount 최상단 영역) */
 .global-actions { display: flex; align-items: center; gap: 6px; margin-left: auto; min-width: 0; position: relative; }
@@ -268,7 +268,7 @@ nav button:hover .pin-btn { opacity: 1; }
 /* 좌측열 항목(L4)만 전폭 리스트 — 상단 탭바(#groupBar/#subBar)에는 적용 안 함(탭 stretch 방지) */
 #nav button { display: flex; align-items: center; justify-content: space-between; gap: 6px; width: 100%; }
 /* L4 항목 — L3 분류 헤더보다 작게 (들여쓰기는 .nav-items padding-left 가 담당) */
-#nav .nav-items button { font-size: 12.5px; padding: 6px 10px; }
+#nav .nav-items button { font-size: 11.5px; padding: 5px 9px; }
 /* 준비 중(모듈 0) 슬롯 — 비활성 dim, 클릭 불가 */
 #nav .nav-items button.soon { opacity: .5; cursor: default; font-style: italic; }
 #nav .nav-items button.soon:hover { background: none; }
@@ -282,7 +282,7 @@ nav button:hover .pin-btn { opacity: 1; }
   color: var(--text); font-weight: 600; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 .nav-sub-head.proj-head.on { color: var(--accent); }
 .nav-sub-head.proj-head.on .pn-id { color: var(--accent); }
-#nav .nav-items.proj-facets button.proj-facet { font-size: 12px; padding: 4px 8px; justify-content: flex-start; }
+#nav .nav-items.proj-facets button.proj-facet { font-size: 11px; padding: 4px 8px; justify-content: flex-start; }
 #nav .nav-items.proj-facets button.proj-facet.active { background: transparent; color: var(--accent); font-weight: 700; }
 .hub-h3 { font-size: 13px; font-weight: 600; margin: 14px 0 6px; }
 .hub-note, .hub-h3:first-child { margin-top: 0; }
