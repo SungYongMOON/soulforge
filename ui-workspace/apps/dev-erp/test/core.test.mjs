@@ -721,6 +721,38 @@ test("DELIV-DUE: 산출물 일정(due) owner 직접 지정 + 재-ingest 보존 (
   assert.equal(store.coreDeliverables({ project: "P26-014" })[0].due, null);
 });
 
+test("TASK-LEDGER: 할일_장부 행 → core_item ingest(과제필수·enum검증·stub·멱등 왕복)", () => {
+  const store = freshStore();
+  store.upsertProject({ id: "P26-014", title: "KVDS", data_label: "real" });
+  // 정상 행 → core_item, enum 매핑
+  const r = store.ingestTaskItem({ id: "itm_t1", project_code: "P26-014", title: "회로도 검토", assignee_ref: "kim",
+    work_type: "review", status: "doing", due: "2026-07-01", anchor_stage_code: "120_CDR", link_kind: "artifact",
+    link_ref: "회로도", completion_criteria: "검토의견 회신", origin: "ledger" });
+  assert.equal(r.ok, true); assert.equal(r.isNew, true);
+  const it = store.db.prepare("SELECT * FROM core_item WHERE id='itm_t1'").get();
+  assert.equal(it.title, "회로도 검토"); assert.equal(it.status, "doing"); assert.equal(it.work_type, "review");
+  assert.equal(it.assignee_ref, "kim"); assert.equal(it.anchor_stage_code, "120_CDR"); assert.equal(it.link_kind, "artifact");
+  // 과제 필수(메일과 다름): 코드 없거나 형식틀리면 거부
+  assert.equal(store.ingestTaskItem({ id: "x", title: "t", project_code: "" }).error, "project_required");
+  assert.equal(store.ingestTaskItem({ id: "x", title: "t", project_code: "INBOX" }).error, "project_required");
+  // id/title 필수
+  assert.equal(store.ingestTaskItem({ project_code: "P26-014", title: "t" }).error, "id_required");
+  assert.equal(store.ingestTaskItem({ id: "x", project_code: "P26-014" }).error, "title_required");
+  // 미등록 과제 → stub(제목=코드), 기존 제목 미클로버
+  store.ingestTaskItem({ id: "itm_t2", project_code: "P99-001", title: "신규" });
+  assert.equal(store.db.prepare("SELECT title FROM core_project WHERE id='P99-001'").get().title, "P99-001");
+  assert.equal(store.db.prepare("SELECT title FROM core_project WHERE id='P26-014'").get().title, "KVDS", "기존 제목 보존");
+  // enum 이상값 → 안전 폴백(상태 open, 업무유형/연결유형 null)
+  store.ingestTaskItem({ id: "itm_t3", project_code: "P26-014", title: "x", status: "weird", work_type: "nope", link_kind: "bad" });
+  const t3 = store.db.prepare("SELECT * FROM core_item WHERE id='itm_t3'").get();
+  assert.equal(t3.status, "open"); assert.equal(t3.work_type, null); assert.equal(t3.link_kind, null);
+  // 멱등: 같은 할일키 재-ingest → 신규 아님 + 갱신
+  const again = store.ingestTaskItem({ id: "itm_t1", project_code: "P26-014", title: "회로도 검토(수정)", status: "done" });
+  assert.equal(again.isNew, false);
+  const u = store.db.prepare("SELECT title,status FROM core_item WHERE id='itm_t1'").get();
+  assert.equal(u.title, "회로도 검토(수정)"); assert.equal(u.status, "done");
+});
+
 test("MINE: 내 일 필터 — assignee_any(로그인명/사람이름) 매칭 + accountIdentities", () => {
   const store = freshStore();
   store.upsertProject({ id: "PRJ-A", title: "A", data_label: "real" });

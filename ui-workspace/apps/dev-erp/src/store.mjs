@@ -756,6 +756,42 @@ export class Store {
     return { ok: true, id, project_id, isNew };
   }
 
+  // 할일 장부 ingest 착지면(_workmeta/<code>/reports/할일_장부/할일_장부.csv 한 행 → core_item).
+  // 작업_장부(과거 로그)의 자매 — '앞으로 할 일' 장부. ERP 가 export 로 쓰고 ingest 로 읽는 왕복.
+  // 할일키=id 로 멱등 upsert. 상태/업무유형/연결유형은 enum 검증(이상값은 안전 폴백). 원문 미저장.
+  ingestTaskItem(row = {}) {
+    const id = String(row.id ?? "").trim();
+    if (!id) return { error: "id_required" };
+    const title = String(row.title ?? "").trim();
+    if (!title) return { error: "title_required" };
+    const code = String(row.project_code ?? "").trim();
+    if (!/^P\d{2}-\d{3}$/.test(code)) return { error: "project_required" }; // 할일은 과제 필수(메일과 다름)
+    if (!this.db.prepare("SELECT 1 FROM core_project WHERE id=?").get(code)) {
+      this.upsertProject({ id: code, title: code, data_label: "real" }); // stub(제목=코드), 기존 제목 미클로버
+    }
+    const due = row.due && /^\d{4}-\d{2}-\d{2}$/.test(String(row.due).trim()) ? String(row.due).trim() : null;
+    const status = Store.ITEM_STATUSES.includes(row.status) ? row.status : "open";
+    const work_type = Store.WORK_TYPES.includes(row.work_type) ? row.work_type : null;
+    const link_kind = Store.LINK_KINDS.includes(row.link_kind) ? row.link_kind : null;
+    const isNew = !this.db.prepare("SELECT 1 FROM core_item WHERE id=?").get(id);
+    this.db
+      .prepare(
+        `INSERT INTO core_item(id,project_id,title,origin,urgency,assignee_ref,status,due,
+           origin_mail_id,created_by,work_type,link_kind,link_ref,completion_criteria,anchor_stage_code,data_label)
+         VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,'real')
+         ON CONFLICT(id) DO UPDATE SET project_id=excluded.project_id, title=excluded.title, origin=excluded.origin,
+           assignee_ref=excluded.assignee_ref, status=excluded.status, due=excluded.due, origin_mail_id=excluded.origin_mail_id,
+           work_type=excluded.work_type, link_kind=excluded.link_kind, link_ref=excluded.link_ref,
+           completion_criteria=excluded.completion_criteria, anchor_stage_code=excluded.anchor_stage_code`
+      )
+      .run(
+        id, code, title, row.origin || "ledger", row.urgency || "normal", row.assignee_ref || null, status, due,
+        row.origin_mail_id || null, row.created_by || "task_ledger", work_type, link_kind, row.link_ref || null,
+        row.completion_criteria || null, row.anchor_stage_code || null
+      );
+    return { ok: true, id, project_id: code, isNew };
+  }
+
   // slice(베타1): 사용자가 직접 메일 등록(각자 계정에서 자기 메일을 장부에 쌓기). 원문 미저장 — 제목·상대·날짜·포인터만.
   createMail({ project_id = null, subject, counterpart = null, at = null, direction = "in", pointer_ref = null, data_label = "real" }) {
     const s = String(subject ?? "").trim();
