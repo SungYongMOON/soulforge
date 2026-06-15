@@ -753,6 +753,30 @@ test("TASK-LEDGER: 할일_장부 행 → core_item ingest(과제필수·enum검�
   assert.equal(u.title, "회로도 검토(수정)"); assert.equal(u.status, "done");
 });
 
+test("DELIV-SPAWN: 일정→할일 — 산출물에서 할일 생성(앵커·마감 상속·분류완료·멱등)", () => {
+  const store = freshStore();
+  store.upsertProject({ id: "P26-014", title: "KVDS", data_label: "real" });
+  store.upsertCoreDeliverable({ project_id: "P26-014", stage_code: "120_CDR", deliverable_no: "125",
+    name: "HW설계기술서(HDD)", completion_criteria: "03_Out 결과물", due: "2026-08-01" });
+  const id = "P26-014:120_CDR:125";
+  const r = store.spawnTaskFromDeliverable(id);
+  assert.equal(r.ok, true);
+  const it = store.db.prepare("SELECT * FROM core_item WHERE id=?").get(r.item.id);
+  assert.equal(it.title, "HW설계기술서(HDD)");
+  assert.equal(it.status, "open", "일정→할일은 SE앵커 있어 분류완료(open)");
+  assert.equal(it.anchor_stage_code, "120_CDR");
+  assert.equal(it.link_kind, "artifact");
+  assert.equal(it.work_type, "author");
+  assert.equal(it.due, "2026-08-01", "산출물 마감(언제) 상속");
+  assert.equal(it.completion_criteria, "03_Out 결과물");
+  assert.equal(it.origin, "schedule");
+  assert.equal(store.coreDeliverables({ project: "P26-014" })[0].task_id, r.item.id);
+  const dup = store.spawnTaskFromDeliverable(id);
+  assert.equal(dup.error, "already_spawned");
+  assert.equal(dup.item_id, r.item.id);
+  assert.equal(store.spawnTaskFromDeliverable("nope").error, "deliverable_not_found");
+});
+
 test("TASK-LEDGER-HARDEN: 멱등 보존·due override·SE격리·출처enum·절대경로·created_at (검토 반영)", () => {
   const store = freshStore();
   store.upsertProject({ id: "P26-014", title: "KVDS", data_label: "real" });

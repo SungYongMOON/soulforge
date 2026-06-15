@@ -2264,8 +2264,11 @@ function deliverableRegisterHtml(rows, L) {
     const body = list.map((d) => {
       const st = deliverableStateLabel(d, L);
       const srcL = d.due_source === "owner" ? L.deliv_due_owner : d.due_source === "auto" ? L.deliv_due_auto : L.deliv_due_ingest;
+      const spawnCell = d.task_id
+        ? `<span class="badge green mini">✓ ${L.item}</span>`
+        : `<button class="fav-chip mini ds-spawn" data-id="${esc(d.id)}" title="${L.deliv_spawn_hint ?? ""}">${L.deliv_spawn_task ?? "할 일로"}</button>`;
       return `<tr>
-        <td>${esc(d.name)}</td>
+        <td>${esc(d.name)} ${spawnCell}<span class="ds-msg dim mini"></span></td>
         <td class="dim">${submitTL(d.submit_type)}</td>
         <td><span class="badge ${st.cls}">${st.txt}</span>${reviewControlHtml(d, L)}</td>
         <td class="deliv-due">
@@ -2305,6 +2308,15 @@ async function hubGuide(mount, p) {
       const resp = await post("/api/deliverables/due", { id: b.dataset.id, due: inp.value });
       if (resp.ok) { msg.textContent = L.deliv_due_saved; setTimeout(render, 500); }
       else { const e = await resp.json().catch(() => ({})); msg.textContent = e.error ?? "오류"; }
+    })
+  );
+  // 일정→할일: 산출물 → 작성 할일 생성(SE앵커·마감 상속). 중복이면 안내.
+  mount.querySelectorAll(".ds-spawn").forEach((b) =>
+    b.addEventListener("click", async () => {
+      const msg = b.parentElement?.querySelector(".ds-msg");
+      const resp = await post("/api/deliverables/spawn-task", { id: b.dataset.id });
+      if (resp.ok) { setTimeout(render, 300); }
+      else if (msg) { const e = await resp.json().catch(() => ({})); msg.textContent = e.error === "already_spawned" ? (L.deliv_already_task ?? "이미 할일 있음") : (e.error ?? "오류"); }
     })
   );
   // 완료게이트 진행/되돌리기

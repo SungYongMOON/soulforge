@@ -572,6 +572,15 @@ const server = createServer(async (req, res) => {
       store.appendEvent({ actor_ref: "owner", actor_kind: "human", kind: "deliverable_due_edit", to: `${b.id}=${r.due ?? "(해제)"}`, used_refs: ["deliverables"], data_label: "real" });
       return send(res, 200, r);
     }
+    // 일정→할일: 산출물 1건 → 그 산출물 작성 할일 생성(SE앵커·연결·마감 상속). 중복 spawn 방지.
+    if (path === "/api/deliverables/spawn-task" && req.method === "POST") {
+      let body = ""; for await (const chunk of req) body += chunk;
+      const b = JSON.parse(body || "{}");
+      const r = store.spawnTaskFromDeliverable(b.id, { work_type: b.work_type, created_by: currentAccount(req)?.username ?? "owner" });
+      if (r.error) return send(res, 400, r);
+      store.appendEvent({ actor_ref: currentAccount(req)?.username ?? "owner", actor_kind: "human", kind: "task_spawn_deliverable", item_ref: r.item.id, to: r.item.title, project_ref: r.item.project_id, used_refs: ["deliverables", "items"], data_label: "real" });
+      return send(res, 200, r);
+    }
     // 완료게이트 검토단계 진행/되돌리기(작성됨→본인→팀→리드=완료). 검토자 식별은 이벤트 actor 에 기록.
     if (path === "/api/deliverables/review" && req.method === "POST") {
       let body = ""; for await (const chunk of req) body += chunk;

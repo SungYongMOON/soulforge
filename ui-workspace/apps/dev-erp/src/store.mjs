@@ -2320,11 +2320,32 @@ export class Store {
 
   coreDeliverables({ project, stage } = {}) {
     const cond = [], args = [];
-    if (project) { cond.push("project_id=?"); args.push(project); }
-    if (stage) { cond.push("stage_code=?"); args.push(stage); }
+    if (project) { cond.push("d.project_id=?"); args.push(project); }
+    if (stage) { cond.push("d.stage_code=?"); args.push(stage); }
     const where = cond.length ? `WHERE ${cond.join(" AND ")}` : "";
+    // task_id: 이 산출물에서 spawn 된 할일(있으면). 일정→할일 버튼 ✓ 표시·중복 방지에 사용.
     return this.db
-      .prepare(`SELECT * FROM core_deliverable ${where} ORDER BY stage_code, deliverable_no, name LIMIT 500`)
+      .prepare(`SELECT d.*, (SELECT i.id FROM core_item i WHERE i.project_id=d.project_id AND i.title=d.name AND i.origin='schedule' LIMIT 1) AS task_id
+                FROM core_deliverable d ${where} ORDER BY d.stage_code, d.deliverable_no, d.name LIMIT 500`)
       .all(...args);
+  }
+
+  // 일정→할일: 산출물 레지스터의 한 산출물 → 그 산출물을 '작성'하는 할일 생성.
+  // '뭘'(산출물명·완료기준)은 산출물 ingest 에서, '언제(마감)'는 산출물 editable due 에서 상속. SE앵커(단계)·연결(artifact) 채워 분류 완료(open).
+  // 멱등: 같은 과제·이름·origin=schedule 할일 있으면 중복 생성 안 함. (메일→할일과 달리 일정→할일은 이미 SE 기준점 있어 unclassified 아님)
+  spawnTaskFromDeliverable(deliverable_id, { work_type = "author", assignee_ref = null, created_by = "owner" } = {}) {
+    const d = this.db.prepare("SELECT * FROM core_deliverable WHERE id=?").get(deliverable_id);
+    if (!d) return { error: "deliverable_not_found" };
+    const dup = this.db.prepare("SELECT id FROM core_item WHERE project_id=? AND title=? AND origin='schedule'").get(d.project_id, d.name);
+    if (dup) return { error: "already_spawned", item_id: dup.id };
+    const wt = Store.WORK_TYPES.includes(work_type) ? work_type : "author";
+    const r = this.createItem({
+      project_id: d.project_id, title: d.name, origin: "schedule",
+      anchor_stage_code: d.stage_code || null, link_kind: "artifact", link_ref: d.deliverable_no || d.name,
+      work_type: wt, completion_criteria: d.completion_criteria || null, due: d.due || null,
+      assignee_ref, created_by
+    });
+    if (r.error) return r;
+    return { ok: true, item: r.item, deliverable_id };
   }
 }
