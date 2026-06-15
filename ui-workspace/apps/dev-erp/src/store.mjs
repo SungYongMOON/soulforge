@@ -160,7 +160,9 @@ CREATE TABLE IF NOT EXISTS core_account (
   username TEXT NOT NULL UNIQUE,
   pw_hash TEXT NOT NULL,
   status TEXT NOT NULL DEFAULT 'active',
-  created_at TEXT NOT NULL
+  created_at TEXT NOT NULL,
+  email TEXT,                    -- 가입 이메일(=메일 들고오기 기준 mailbox). 계정별 메일 인입 키.
+  display_name TEXT             -- 실제 가입한 이름(화면 표기). 없으면 username 폴백.
 );
 CREATE TABLE IF NOT EXISTS auth_session (
   token TEXT PRIMARY KEY,
@@ -606,7 +608,13 @@ export function openStore(path = ":memory:") {
     "ALTER TABLE core_mail ADD COLUMN stage_code TEXT",
     "ALTER TABLE core_mail ADD COLUMN source_ref TEXT",
     // 할일 생성시각(할일_장부 '기록일' 컬럼의 실제 백킹). 마이그레이션 이전 행은 null(생성시각 불명), 신규 createItem 부터 채움.
-    "ALTER TABLE core_item ADD COLUMN created_at TEXT"
+    "ALTER TABLE core_item ADD COLUMN created_at TEXT",
+    // P2b 팀: 계정 이메일(메일 인입 mailbox 키) + 실제 가입 이름(화면 표기).
+    "ALTER TABLE core_account ADD COLUMN email TEXT",
+    "ALTER TABLE core_account ADD COLUMN display_name TEXT",
+    // 다중 사용자 메일: 어느 mailbox(계정 이메일)로 들어온 메일인지. 담당자별 메일 이력 분리 키.
+    // null = 단일(owner) 파일럿 메일. Codex 계정별 메일 인입 시 account.email 로 채운다.
+    "ALTER TABLE core_mail ADD COLUMN mailbox TEXT"
   ]) {
     try { db.exec(ddl); } catch { /* exists */ }
   }
@@ -614,6 +622,13 @@ export function openStore(path = ":memory:") {
   try { db.exec("UPDATE core_stage SET stage_code=title WHERE stage_code IS NULL OR stage_code=''"); } catch { /* noop */ }
   // P-2/SE-DATA: SE 스케줄러 시드 — data/se_process_seed.json 있으면 소비, 없으면 120_CDR stub.
   try { seedSeProcess(db); } catch { /* noop */ }
+  // P2b 팀: 기본 역할 2종(관리자/팀원) 시드 + 계정 이메일 조회 인덱스. 멱등.
+  try {
+    db.exec("INSERT INTO rbac_role(id,name) VALUES('admin','관리자') ON CONFLICT(id) DO NOTHING");
+    db.exec("INSERT INTO rbac_role(id,name) VALUES('member','팀원') ON CONFLICT(id) DO NOTHING");
+    db.exec("CREATE INDEX IF NOT EXISTS idx_account_email ON core_account(email)");
+    db.exec("CREATE INDEX IF NOT EXISTS idx_mail_mailbox ON core_mail(mailbox)");
+  } catch { /* noop */ }
   const cur = db.prepare("SELECT value FROM meta WHERE key='schema_version'").get();
   if (!cur) {
     db.prepare("INSERT INTO meta(key,value) VALUES('schema_version',?)").run(SCHEMA_VERSION);
@@ -723,21 +738,23 @@ export class Store {
   upsertMail(m) {
     this.db
       .prepare(
-        `INSERT INTO core_mail(id,project_id,at,direction,subject,counterpart,pointer_ref,stage_code,source_ref,data_label)
-         VALUES (?,?,?,?,?,?,?,?,?,?)
+        `INSERT INTO core_mail(id,project_id,at,direction,subject,counterpart,pointer_ref,stage_code,source_ref,mailbox,data_label)
+         VALUES (?,?,?,?,?,?,?,?,?,?,?)
          ON CONFLICT(id) DO UPDATE SET project_id=excluded.project_id, at=excluded.at, direction=excluded.direction,
            subject=excluded.subject, counterpart=excluded.counterpart, pointer_ref=excluded.pointer_ref,
-           stage_code=excluded.stage_code, source_ref=excluded.source_ref`
+           stage_code=excluded.stage_code, source_ref=excluded.source_ref,
+           mailbox=COALESCE(excluded.mailbox, core_mail.mailbox)`
       )
       .run(m.id, m.project_id ?? null, m.at, m.direction ?? "in", m.subject, m.counterpart ?? null,
-        m.pointer_ref ?? null, m.stage_code ?? null, m.source_ref ?? null, m.data_label ?? "synthetic");
+        m.pointer_ref ?? null, m.stage_code ?? null, m.source_ref ?? null,
+        (m.mailbox ? String(m.mailbox).trim().toLowerCase() : null) || null, m.data_label ?? "synthetic");
   }
 
   // 메일 장부 ingest 착지면(과제별 _workmeta/<code>/reports/메일_이력/메일_이력.csv 한 행 → core_mail).
   // 원문 미저장: 제목·상대·시각·단계·포인터만. project_code 가 미등록이면 stub 과제를 만들되 기존 제목은 덮지 않는다.
   // FK 안전: 모르는 코드/INBOX 는 project_id=null 로 둔다(미배정 메일).
   ingestMail({ id, project_code = null, at = null, subject = null, counterpart = null, stage_code = null,
-               source_ref = null, direction = "in", pointer_ref = null, data_label = "real" }) {
+               source_ref = null, direction = "in", pointer_ref = null, mailbox = null, data_label = "real" }) {
     if (!id) return { error: "id_required" };
     const atVal = at && /^\d{4}-\d{2}-\d{2}/.test(at) ? at : null;
     if (!atVal) return { error: "at_required" };
@@ -754,7 +771,7 @@ export class Store {
     const isNew = !this.db.prepare("SELECT 1 FROM core_mail WHERE id=?").get(id);
     const dir = ["in", "out"].includes(direction) ? direction : "in";
     this.upsertMail({ id, project_id, at: atVal, direction: dir, subject: subj, counterpart: counterpart || null,
-      pointer_ref, stage_code: stage_code || null, source_ref: source_ref || null, data_label });
+      pointer_ref, stage_code: stage_code || null, source_ref: source_ref || null, mailbox: mailbox || null, data_label });
     return { ok: true, id, project_id, isNew };
   }
 
@@ -945,11 +962,13 @@ export class Store {
     if (!account) return [];
     const ids = [];
     if (account.username) ids.push(account.username);
+    if (account.display_name) ids.push(account.display_name);   // 실제 가입 이름(담당자 표기와 매칭)
+    if (account.email) ids.push(account.email);                  // 이메일로 배정한 경우
     if (account.person_id) {
       const p = this.db.prepare("SELECT name FROM core_person WHERE id=?").get(account.person_id);
       if (p?.name) ids.push(p.name);
     }
-    return [...new Set(ids)];
+    return [...new Set(ids.filter((x) => x != null && String(x).trim() !== ""))];
   }
 
   // --- P2a 할일 쓰기 (run16): 생성/상태/담당/메일 승격 — 모든 변경은 server 가 event_log 에 기록 ---
@@ -1151,10 +1170,12 @@ export class Store {
   }
 
   // Gmail식 확장: 기간(0=전체)/검색(제목·상대)/방향/수동라벨 필터 + 라벨 동봉
-  mail({ project, days, q, direction, label_id } = {}) {
+  mail({ project, days, q, direction, label_id, mailbox } = {}) {
     const cond = [];
     const args = [];
     if (project) { cond.push("m.project_id=?"); args.push(project); }
+    // 담당자별 메일 이력: mailbox(=계정 이메일)로 필터. 'team'/미지정이면 전체.
+    if (mailbox && mailbox !== "team") { cond.push("m.mailbox=?"); args.push(String(mailbox).toLowerCase()); }
     if (days) {
       const cutoff = new Date(Date.now() - days * 86400000).toISOString();
       cond.push("m.at>=?"); args.push(cutoff);
@@ -2161,20 +2182,29 @@ export class Store {
   accountCount() {
     return this.db.prepare("SELECT COUNT(*) c FROM core_account").get().c;
   }
-  createAccount({ id, username, password, person_id = null, roles = [] }) {
+  // 이메일 형식 최소 검증(local@domain.tld). 빈 값은 허용(이메일 미등록 계정 가능).
+  static EMAIL_RE = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+  createAccount({ id, username, password, person_id = null, roles = [], email = null, display_name = null }) {
     const aid = id || `acc_${randomBytes(5).toString("hex")}`;
     if (!username || !password) return { error: "username_password_required" };
     if (this.db.prepare("SELECT 1 FROM core_account WHERE username=?").get(username)) return { error: "username_taken" };
+    const em = String(email ?? "").trim().toLowerCase() || null;
+    if (em) {
+      if (!Store.EMAIL_RE.test(em)) return { error: "email_format" };
+      if (this.db.prepare("SELECT 1 FROM core_account WHERE email=?").get(em)) return { error: "email_taken" };
+    }
+    const dn = String(display_name ?? "").trim() || null;
     this.db.prepare(
-      "INSERT INTO core_account(id,person_id,username,pw_hash,status,created_at) VALUES (?,?,?,?, 'active', ?)"
-    ).run(aid, person_id, username, hashPassword(password), new Date().toISOString());
-    for (const r of roles) this.assignRole(aid, r);
+      "INSERT INTO core_account(id,person_id,username,pw_hash,status,created_at,email,display_name) VALUES (?,?,?,?, 'active', ?,?,?)"
+    ).run(aid, person_id, username, hashPassword(password), new Date().toISOString(), em, dn);
+    const rs = (roles && roles.length) ? roles : ["member"]; // 역할 미지정이면 기본 '팀원'
+    for (const r of rs) this.assignRole(aid, r);
     return { ok: true, id: aid };
   }
   verifyLogin(username, password) {
     const a = this.db.prepare("SELECT * FROM core_account WHERE username=? AND status='active'").get(username);
     if (!a || !verifyPassword(password, a.pw_hash)) return null;
-    return { id: a.id, username: a.username, person_id: a.person_id };
+    return { id: a.id, username: a.username, person_id: a.person_id, email: a.email, display_name: a.display_name };
   }
   createSession(account_id, ttlHours = 12) {
     const token = randomBytes(24).toString("hex");
@@ -2189,9 +2219,9 @@ export class Store {
     const s = this.db.prepare("SELECT * FROM auth_session WHERE token=?").get(token);
     if (!s) return null;
     if (new Date(s.expires_at).getTime() < Date.now()) { this.deleteSession(token); return null; }
-    const a = this.db.prepare("SELECT id,username,person_id,status FROM core_account WHERE id=?").get(s.account_id);
+    const a = this.db.prepare("SELECT id,username,person_id,status,email,display_name FROM core_account WHERE id=?").get(s.account_id);
     if (!a || a.status !== "active") return null;
-    return { id: a.id, username: a.username, person_id: a.person_id };
+    return { id: a.id, username: a.username, person_id: a.person_id, email: a.email, display_name: a.display_name };
   }
   deleteSession(token) {
     this.db.prepare("DELETE FROM auth_session WHERE token=?").run(token);
@@ -2240,6 +2270,74 @@ export class Store {
   purgeExpiredSessions() {
     const r = this.db.prepare("DELETE FROM auth_session WHERE expires_at < ?").run(new Date().toISOString());
     return { removed: r.changes ?? 0 };
+  }
+  // 관리자 여부: 'admin' 역할 보유. (역할 0개=일반 팀원 취급)
+  isAdmin(account_id) {
+    if (!account_id) return false;
+    return !!this.db.prepare("SELECT 1 FROM rbac_account_role WHERE account_id=? AND role_id='admin'").get(account_id);
+  }
+  // 화면 표기명: display_name → person.name → username 순.
+  accountDisplayName(account) {
+    if (!account) return null;
+    if (account.display_name) return account.display_name;
+    if (account.person_id) {
+      const p = this.db.prepare("SELECT name FROM core_person WHERE id=?").get(account.person_id);
+      if (p?.name) return p.name;
+    }
+    return account.username ?? null;
+  }
+  // 로그인/me 응답용 프로필(비밀번호 해시 절대 미포함).
+  accountProfile(account) {
+    if (!account) return null;
+    const roles = this.rolesFor(account.id);
+    return {
+      id: account.id, username: account.username, email: account.email ?? null,
+      display_name: this.accountDisplayName(account),
+      roles, is_admin: roles.includes("admin"),
+      perms: this.permsFor(account.id)
+    };
+  }
+  // 관리자용 계정 목록(해시 제외). 역할 동봉.
+  listAccounts() {
+    const rows = this.db.prepare(
+      "SELECT id,username,email,display_name,status,created_at,person_id FROM core_account ORDER BY created_at, username"
+    ).all();
+    return rows.map((a) => ({ ...a, roles: this.rolesFor(a.id), is_admin: this.rolesFor(a.id).includes("admin") }));
+  }
+  accountByEmail(email) {
+    const em = String(email ?? "").trim().toLowerCase();
+    if (!em) return null;
+    return this.db.prepare("SELECT id,username,email,display_name,status FROM core_account WHERE email=?").get(em) ?? null;
+  }
+  setAccountStatus(account_id, status) {
+    if (!["active", "disabled"].includes(status)) return { error: "bad_status" };
+    const a = this.db.prepare("SELECT 1 FROM core_account WHERE id=?").get(account_id);
+    if (!a) return { error: "account_not_found" };
+    this.db.prepare("UPDATE core_account SET status=? WHERE id=?").run(status, account_id);
+    if (status === "disabled") this.db.prepare("DELETE FROM auth_session WHERE account_id=?").run(account_id); // 비활성=세션 무효
+    return { ok: true, status };
+  }
+  // 계정 프로필 수정(이메일/표기명/역할). 이메일은 형식+중복 검증, 자기 외 중복 거부.
+  updateAccount(account_id, { email, display_name, role } = {}) {
+    const a = this.db.prepare("SELECT * FROM core_account WHERE id=?").get(account_id);
+    if (!a) return { error: "account_not_found" };
+    if (email !== undefined) {
+      const em = String(email ?? "").trim().toLowerCase() || null;
+      if (em) {
+        if (!Store.EMAIL_RE.test(em)) return { error: "email_format" };
+        const dup = this.db.prepare("SELECT id FROM core_account WHERE email=? AND id<>?").get(em, account_id);
+        if (dup) return { error: "email_taken" };
+      }
+      this.db.prepare("UPDATE core_account SET email=? WHERE id=?").run(em, account_id);
+    }
+    if (display_name !== undefined) {
+      this.db.prepare("UPDATE core_account SET display_name=? WHERE id=?").run(String(display_name ?? "").trim() || null, account_id);
+    }
+    if (role !== undefined && ["admin", "member"].includes(role)) {
+      this.db.prepare("DELETE FROM rbac_account_role WHERE account_id=?").run(account_id);
+      this.assignRole(account_id, role);
+    }
+    return { ok: true };
   }
 
   // ---------- 회의록(메타 전용). 원문/첨부 미저장 — summary_pointer 는 위치만 ----------

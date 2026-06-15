@@ -1840,3 +1840,89 @@ test("자동 팔로업: 정상 발주는 미제안", () => {
   const fu = store.proposals({ status: "pending" }).filter((x) => x.source === "followup").map((x) => x.payload?.title);
   assert.ok(!fu.some((t) => /정상 발주|마감지남 수령/.test(t)), "정상/완료단계 발주는 팔로업 미제안");
 });
+
+// ───────── P2b 팀: 계정·인증·관리자·보기범위(TEAM-ACCT) ─────────
+// 계정 생성 — 이메일/표기명 저장, 기본 역할 '팀원', 중복(아이디/이메일)·형식 거부.
+test("TEAM-ACCT: createAccount 이메일·표기명·역할 + 중복/형식 가드", () => {
+  const store = freshStore();
+  const r = store.createAccount({ username: "u1", password: "pw123456", email: "U1@Corp.com", display_name: "김철수" });
+  assert.ok(r.ok, "생성 ok");
+  const prof = store.accountProfile(store.verifyLogin("u1", "pw123456"));
+  assert.equal(prof.email, "u1@corp.com", "이메일 소문자 정규화");
+  assert.equal(prof.display_name, "김철수", "실제 가입 이름");
+  assert.deepEqual(prof.roles, ["member"], "기본 역할 팀원");
+  assert.equal(prof.is_admin, false);
+  assert.equal(store.createAccount({ username: "u1", password: "x12345" }).error, "username_taken", "아이디 중복 거부");
+  assert.equal(store.createAccount({ username: "u2", password: "x12345", email: "u1@corp.com" }).error, "email_taken", "이메일 중복 거부");
+  assert.equal(store.createAccount({ username: "u3", password: "x12345", email: "bad-email" }).error, "email_format", "이메일 형식 거부");
+});
+
+// 관리자 — admin 역할이면 isAdmin/accountProfile.is_admin true.
+test("TEAM-ACCT: 관리자 역할 + 로그인 검증 + 세션 왕복", () => {
+  const store = freshStore();
+  const a = store.createAccount({ username: "boss", password: "secret77", email: "boss@corp.com", display_name: "이대표", roles: ["admin"] });
+  assert.ok(store.isAdmin(a.id), "admin 역할");
+  assert.equal(store.accountProfile(store.sessionAccount(store.createSession(a.id))).is_admin, true);
+  assert.equal(store.verifyLogin("boss", "wrong"), null, "틀린 비번 거부");
+  const me = store.verifyLogin("boss", "secret77");
+  assert.equal(me.display_name, "이대표");
+  const sess = store.sessionAccount(store.createSession(a.id));
+  assert.equal(sess.email, "boss@corp.com", "세션이 이메일 전달");
+});
+
+// 표기명 폴백 — display_name 없으면 username.
+test("TEAM-ACCT: 표기명 폴백(display_name→username) + listAccounts 해시 제외", () => {
+  const store = freshStore();
+  store.createAccount({ username: "noname", password: "pw123456" });
+  const prof = store.accountProfile(store.verifyLogin("noname", "pw123456"));
+  assert.equal(prof.display_name, "noname", "표기명 없으면 username");
+  const list = store.listAccounts();
+  assert.equal(list.length, 1);
+  assert.ok(!("pw_hash" in list[0]), "목록에 해시 미포함");
+  assert.deepEqual(list[0].roles, ["member"]);
+});
+
+// 계정 수정 — 이메일/역할 변경, 이메일 중복 거부.
+test("TEAM-ACCT: updateAccount 이메일·역할 변경 + 중복 거부", () => {
+  const store = freshStore();
+  const a = store.createAccount({ username: "a", password: "pw123456", email: "a@corp.com" });
+  const b = store.createAccount({ username: "b", password: "pw123456", email: "b@corp.com" });
+  assert.equal(store.updateAccount(a.id, { email: "b@corp.com" }).error, "email_taken", "타계정 이메일 거부");
+  assert.ok(store.updateAccount(a.id, { email: "a2@corp.com", role: "admin" }).ok);
+  assert.equal(store.accountByEmail("A2@CORP.COM").id, a.id, "이메일 대소문자 무시 조회");
+  assert.ok(store.isAdmin(a.id), "역할 admin 승격");
+  assert.ok(!store.isAdmin(b.id));
+});
+
+// 계정 비활성 — 세션 무효화.
+test("TEAM-ACCT: setAccountStatus disabled → 세션 무효 + 로그인 차단", () => {
+  const store = freshStore();
+  const a = store.createAccount({ username: "x", password: "pw123456" });
+  const tok = store.createSession(a.id);
+  assert.ok(store.sessionAccount(tok), "활성 세션");
+  store.setAccountStatus(a.id, "disabled");
+  assert.equal(store.sessionAccount(tok), null, "비활성 후 세션 무효");
+  assert.equal(store.verifyLogin("x", "pw123456"), null, "비활성 계정 로그인 차단");
+});
+
+// 담당자 식별자 — 로그인명·표기명·이메일·사람이름 모두 매칭 키.
+test("TEAM-ACCT: accountIdentities = 로그인명+표기명+이메일(+사람이름)", () => {
+  const store = freshStore();
+  store.upsertPerson({ id: "p1", name: "박영희" });
+  const a = store.createAccount({ username: "yh", password: "pw123456", email: "yh@corp.com", display_name: "영희", person_id: "p1" });
+  const acc = store.sessionAccount(store.createSession(a.id));
+  const ids = store.accountIdentities(acc);
+  for (const k of ["yh", "영희", "yh@corp.com", "박영희"]) assert.ok(ids.includes(k), `${k} 매칭 키 포함`);
+});
+
+// 메일함(mailbox) — 계정 이메일별 메일 이력 분리. team/미지정은 전체.
+test("TEAM-ACCT: 메일 mailbox 필터 — 담당자별 메일 이력 분리", () => {
+  const store = freshStore();
+  store.ingestMail({ id: "m-a1", project_code: "P26-001", at: "2026-06-10", subject: "A 메일", mailbox: "a@corp.com" });
+  store.ingestMail({ id: "m-b1", project_code: "P26-001", at: "2026-06-11", subject: "B 메일", mailbox: "B@Corp.com" });
+  store.ingestMail({ id: "m-x1", project_code: "P26-001", at: "2026-06-12", subject: "공용 메일" }); // mailbox 없음
+  assert.equal(store.mail({ mailbox: "a@corp.com" }).length, 1, "A 메일함 1건");
+  assert.equal(store.mail({ mailbox: "b@corp.com" }).length, 1, "B 메일함 소문자 매칭 1건");
+  assert.equal(store.mail({ mailbox: "team" }).length, 3, "team 전체");
+  assert.equal(store.mail({}).length, 3, "미지정 전체");
+});

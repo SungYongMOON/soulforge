@@ -76,6 +76,50 @@ function readCookie(req, name) {
 function currentAccount(req) {
   return store.sessionAccount(readCookie(req, SID));
 }
+// 세션 쿠키 문자열. HttpOnly+SameSite=Lax(로컬/사내망 http 파일럿이라 Secure 미설정).
+function sessionCookie(token, maxAgeSec) {
+  return `${SID}=${encodeURIComponent(token)}; Path=/; HttpOnly; SameSite=Lax; Max-Age=${maxAgeSec}`;
+}
+// 관리자 가드: admin 역할 계정만. 아니면 null.
+function requireAdmin(req) {
+  const a = currentAccount(req);
+  return a && store.isAdmin(a.id) ? a : null;
+}
+async function readJson(req) {
+  let body = ""; for await (const chunk of req) body += chunk;
+  try { return JSON.parse(body || "{}"); } catch { return {}; }
+}
+// 보기 대상(view) → 할일 담당자 식별자 배열. view=계정id|team, mine=1=본인.
+// 권한: 관리자=아무 계정, 팀원=본인만(타인 요청은 본인으로 강등). 익명/팀=전체(하위호환).
+function viewIdentities(req, qp) {
+  const me = currentAccount(req);
+  if (qp.mine === "1") return me ? store.accountIdentities(me) : [];
+  const v = qp.view;
+  if (!v || v === "team") {
+    if (!me || store.isAdmin(me.id)) return undefined; // 전체(필터 없음)
+    return store.accountIdentities(me);                // 일반 팀원의 '팀' 기본은 본인
+  }
+  if (me && (store.isAdmin(me.id) || me.id === v)) {
+    const acc = store.db.prepare("SELECT id,username,person_id,email,display_name FROM core_account WHERE id=?").get(v);
+    return acc ? store.accountIdentities(acc) : [];
+  }
+  return me ? store.accountIdentities(me) : [];
+}
+// 보기 대상(view) → 메일함(mailbox=계정 이메일). 전체는 undefined, 메일 없는 계정은 빈 결과 키.
+function viewMailbox(req, qp) {
+  const me = currentAccount(req);
+  const v = qp.view;
+  if (qp.mine === "1") return me?.email || "__none__";
+  if (!v || v === "team") {
+    if (!me || store.isAdmin(me.id)) return undefined; // 전체
+    return me.email || "__none__";
+  }
+  if (me && (store.isAdmin(me.id) || me.id === v)) {
+    const acc = store.db.prepare("SELECT email FROM core_account WHERE id=?").get(v);
+    return acc?.email || "__none__";
+  }
+  return me?.email || "__none__";
+}
 
 function lastIngestAt() {
   const rows = store.db.prepare("SELECT at FROM event_log WHERE kind='ingest' ORDER BY id DESC LIMIT 1").get();
@@ -88,6 +132,77 @@ const server = createServer(async (req, res) => {
   const qp = Object.fromEntries(url.searchParams.entries());
   try {
     if (path === "/api/health") return send(res, 200, { ok: true, schema: "dev_erp.v1", counts: store.counts() });
+
+    // ---------- P2b 팀: 계정·인증·관리자 ----------
+    // 익명(계정 0개) → needs_bootstrap. 첫 계정은 bootstrap 으로 관리자 생성(계정이 1개라도 있으면 차단).
+    if (path === "/api/auth/me") {
+      const a = currentAccount(req);
+      if (a) return send(res, 200, { anonymous: false, account: store.accountProfile(a) });
+      return send(res, 200, { anonymous: true, needs_bootstrap: store.accountCount() === 0 });
+    }
+    if (path === "/api/auth/login" && req.method === "POST") {
+      const { username, password } = await readJson(req);
+      const a = store.verifyLogin(username, password);
+      if (!a) return send(res, 401, { error: "invalid_login" });
+      const token = store.createSession(a.id);
+      store.appendEvent({ actor_ref: a.username, actor_kind: "human", kind: "auth_login", used_refs: ["auth"], data_label: "meta" });
+      return send(res, 200, { ok: true, account: store.accountProfile(store.sessionAccount(token)) }, "application/json", { "set-cookie": sessionCookie(token, 12 * 3600) });
+    }
+    if (path === "/api/auth/logout" && req.method === "POST") {
+      const tok = readCookie(req, SID);
+      if (tok) store.deleteSession(tok);
+      return send(res, 200, { ok: true }, "application/json", { "set-cookie": sessionCookie("", 0) });
+    }
+    if (path === "/api/auth/bootstrap" && req.method === "POST") {
+      if (store.accountCount() !== 0) return send(res, 409, { error: "already_initialized" });
+      const { username, password, email, display_name } = await readJson(req);
+      const r = store.createAccount({ username, password, email, display_name, roles: ["admin"] });
+      if (r.error) return send(res, 400, r);
+      const token = store.createSession(r.id);
+      store.appendEvent({ actor_ref: username, actor_kind: "human", kind: "auth_bootstrap", used_refs: ["auth"], data_label: "meta" });
+      return send(res, 200, { ok: true, account: store.accountProfile(store.sessionAccount(token)) }, "application/json", { "set-cookie": sessionCookie(token, 12 * 3600) });
+    }
+    // 계정 생성/조회/수정/상태 — 관리자 전용.
+    if (path === "/api/accounts" && req.method === "GET") {
+      if (!requireAdmin(req)) return send(res, 403, { error: "admin_only" });
+      return send(res, 200, { accounts: store.listAccounts(), roles: store.db.prepare("SELECT id,name FROM rbac_role ORDER BY id").all() });
+    }
+    if (path === "/api/accounts" && req.method === "POST") {
+      const admin = requireAdmin(req);
+      if (!admin) return send(res, 403, { error: "admin_only" });
+      const { username, password, email, display_name, role } = await readJson(req);
+      const r = store.createAccount({ username, password, email, display_name, roles: [role === "admin" ? "admin" : "member"] });
+      if (r.error) return send(res, 400, r);
+      store.appendEvent({ actor_ref: admin.username, actor_kind: "human", kind: "account_create", to: username, used_refs: ["auth"], data_label: "meta" });
+      return send(res, 200, r);
+    }
+    if (path === "/api/accounts/update" && req.method === "POST") {
+      const admin = requireAdmin(req);
+      if (!admin) return send(res, 403, { error: "admin_only" });
+      const { id, email, display_name, role } = await readJson(req);
+      const r = store.updateAccount(id, { email, display_name, role });
+      return send(res, r.error ? 400 : 200, r);
+    }
+    if (path === "/api/accounts/status" && req.method === "POST") {
+      const admin = requireAdmin(req);
+      if (!admin) return send(res, 403, { error: "admin_only" });
+      const { id, status } = await readJson(req);
+      if (id === admin.id && status === "disabled") return send(res, 400, { error: "cannot_disable_self" });
+      const r = store.setAccountStatus(id, status);
+      return send(res, r.error ? 400 : 200, r);
+    }
+    // 보기 대상(팀/사용자) 선택지: 관리자는 전체 계정, 팀원은 본인만.
+    if (path === "/api/accounts/scopes") {
+      const a = currentAccount(req);
+      if (!a) return send(res, 200, { scopes: [], self: null, is_admin: false });
+      if (store.isAdmin(a.id)) {
+        const scopes = store.listAccounts().filter((x) => x.status === "active")
+          .map((x) => ({ id: x.id, label: x.display_name || x.username, email: x.email || null }));
+        return send(res, 200, { scopes: [{ id: "team", label: "팀 전체", email: null }, ...scopes], self: a.id, is_admin: true });
+      }
+      const p = store.accountProfile(a);
+      return send(res, 200, { scopes: [{ id: a.id, label: p.display_name || a.username, email: p.email }], self: a.id, is_admin: false });
+    }
     if (path === "/api/summary") {
       const today = todayKey();
       const weekEnd = new Date(Date.now() + 6 * 86400000).toISOString().slice(0, 10);
@@ -155,8 +270,8 @@ const server = createServer(async (req, res) => {
       return send(res, 200, result);
     }
     if (path === "/api/items") {
-      // mine=1 → 내 일만(로그인 계정의 식별자=로그인명/사람이름 과 assignee_ref 일치). 익명이면 빈 결과.
-      const assignee_any = qp.mine === "1" ? store.accountIdentities(currentAccount(req)) : undefined;
+      // 보기 대상(view=계정id|team)·mine=1 → 담당자 식별자 필터. 없으면 전체(하위호환).
+      const assignee_any = (qp.mine === "1" || qp.view) ? viewIdentities(req, qp) : undefined;
       return send(res, 200, store.items({ project: qp.project, status: qp.status, q: qp.q, due_before: qp.due === "soon" ? todayKey() : undefined, assignee_any }));
     }
     if (path === "/api/mail" && req.method === "POST") {
@@ -169,7 +284,8 @@ const server = createServer(async (req, res) => {
     }
     if (path === "/api/mail") return send(res, 200, store.mail({
       project: qp.project, days: qp.days !== undefined ? Number(qp.days) : 90,
-      q: qp.q, direction: qp.direction, label_id: qp.label_id
+      q: qp.q, direction: qp.direction, label_id: qp.label_id,
+      mailbox: (qp.mine === "1" || qp.view) ? viewMailbox(req, qp) : undefined
     }));
     if (path === "/api/guide/templates") return send(res, 200, guideTemplates(qp.mode));
     if (path === "/api/doc/recipes") return send(res, 200, docRecipes(qp.mode));
