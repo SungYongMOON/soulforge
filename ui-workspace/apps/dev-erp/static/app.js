@@ -1660,18 +1660,21 @@ async function renderItems() {
       <td class="acts">${itemActionsHtml(i)}</td>
     </tr>`).join("");
   const isTriage = state.statusFilter === "unclassified";
-  const wtOpts = Object.entries(WORK_TYPE_LABELS).map(([k, v]) => `<option value="${k}">${v}</option>`).join("");
-  const lkOpts = Object.entries(LINK_KIND_LABELS).map(([k, v]) => `<option value="${k}">${v}</option>`).join("");
+  // 분류 카드는 항목의 기존값(메일/LLM 제안·결정적 SE단계)을 pre-fill → 사람은 확인만. (코어 LLM 0%: LLM은 제안, 확정은 사람)
+  const optsSel = (labels, sel) => Object.entries(labels).map(([k, v]) => `<option value="${k}" ${k === sel ? "selected" : ""}>${v}</option>`).join("");
   const triageBody = !isTriage ? "" : (items.length
-    ? `<div class="classify-list">${items.map((i) => `<div class="classify-card" data-id="${esc(i.id)}">
-        <div class="cc-head"><span class="cc-title">${esc(i.title)}</span><span class="proj-link label-chip" data-hub="${esc(i.project_id)}">${esc(i.project_id)}</span></div>
+    ? `<div class="classify-list">${items.map((i) => {
+        const suggested = !!(i.work_type || i.completion_criteria); // 제안값이 채워져 옴
+        return `<div class="classify-card" data-id="${esc(i.id)}">
+        <div class="cc-head"><span class="cc-title">${esc(i.title)}</span><span class="proj-link label-chip" data-hub="${esc(i.project_id)}">${esc(i.project_id)}</span>
+          ${suggested ? `<span class="badge mini">${L.cls_suggested ?? "제안"}</span>` : ""}${i.anchor_stage_code ? `<span class="dim mini">SE ${esc(i.anchor_stage_code)}</span>` : ""}</div>
         <div class="cc-form">
-          <select class="cc-wt"><option value="">${L.cls_work_type ?? "업무유형"}…</option>${wtOpts}</select>
-          <select class="cc-lk"><option value="">${L.cls_link_kind ?? "연결대상"}…</option>${lkOpts}</select>
-          <input class="cc-ref" placeholder="${L.cls_link_ref ?? "연결 대상(산출물/BOM/업체…)"}" />
-          <input class="cc-cc" placeholder="${L.cls_completion ?? "완료기준(무엇을 하면 닫히나)"}" />
+          <select class="cc-wt"><option value="">${L.cls_work_type ?? "업무유형"}…</option>${optsSel(WORK_TYPE_LABELS, i.work_type)}</select>
+          <select class="cc-lk"><option value="">${L.cls_link_kind ?? "연결대상"}…</option>${optsSel(LINK_KIND_LABELS, i.link_kind)}</select>
+          <input class="cc-ref" placeholder="${L.cls_link_ref ?? "연결 대상(산출물/BOM/업체…)"}" value="${esc(i.link_ref ?? "")}" />
+          <input class="cc-cc" placeholder="${L.cls_completion ?? "완료기준(무엇을 하면 닫히나)"}" value="${esc(i.completion_criteria ?? "")}" />
           <button class="fav-chip cc-go">${L.cls_confirm ?? "정식 등록"}</button><span class="cc-msg dim"></span>
-        </div></div>`).join("")}</div>`
+        </div></div>`; }).join("")}</div>`
     : `<div class="empty">${L.cls_none ?? "분류할 항목 없음"}</div>`);
   $("#view").innerHTML = `
     <div class="filters">
