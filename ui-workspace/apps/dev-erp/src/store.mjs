@@ -2434,18 +2434,19 @@ export class Store {
     this.db
       .prepare(
         `INSERT INTO core_deliverable(id,project_id,stage_code,deliverable_no,name,submit_type,
-           completion_criteria,due,due_source,out_pointer,produced,review_stage,data_label)
-         VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?)
+           completion_criteria,due,due_source,out_pointer,in_pointer,produced,review_stage,data_label)
+         VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?)
          ON CONFLICT(id) DO UPDATE SET stage_code=excluded.stage_code, deliverable_no=excluded.deliverable_no,
            name=excluded.name, submit_type=excluded.submit_type, completion_criteria=excluded.completion_criteria,
            due=CASE WHEN core_deliverable.due_source='owner' THEN core_deliverable.due ELSE excluded.due END,
            due_source=CASE WHEN core_deliverable.due_source='owner' THEN 'owner' ELSE excluded.due_source END,
-           out_pointer=excluded.out_pointer, produced=excluded.produced,
+           out_pointer=excluded.out_pointer,
+           in_pointer=COALESCE(excluded.in_pointer, core_deliverable.in_pointer), produced=excluded.produced,
            review_stage=CASE WHEN core_deliverable.review_stage>=2 THEN core_deliverable.review_stage ELSE excluded.review_stage END`
       )
       .run(
         id, d.project_id, d.stage_code ?? null, d.deliverable_no ?? null, d.name,
-        submit, d.completion_criteria ?? null, d.due ?? null, dueSource, d.out_pointer ?? null,
+        submit, d.completion_criteria ?? null, d.due ?? null, dueSource, d.out_pointer ?? null, d.in_pointer ?? null,
         produced, review, d.data_label ?? "real"
       );
     return { ok: true, id };
@@ -2513,7 +2514,7 @@ export class Store {
   // owner 직접 산출물 등록 — 고정 단계 템플릿 밖의 중간번호(31·32…) 등 실제 산출물 추가.
   // id=<과제>:<게이트>:<번호 또는 이름>. 같은 id 있으면 거부(덮어쓰기 방지). due 있으면 due_source='owner'.
   // 입력 파일·폴더 연결(out/input pointer)은 후속(파일 장부 슬라이스)에서. 여기선 레지스터 행만.
-  addDeliverable({ project_id, stage_code, deliverable_no, name, completion_criteria, due, submit_type } = {}) {
+  addDeliverable({ project_id, stage_code, deliverable_no, name, completion_criteria, due, submit_type, in_pointer } = {}) {
     const code = String(project_id ?? "").trim();
     if (!/^P\d{2}-\d{3}$/.test(code)) return { error: "project_required" };
     if (!this.db.prepare("SELECT 1 FROM core_project WHERE id=?").get(code)) return { error: "project_not_found" };
@@ -2521,6 +2522,10 @@ export class Store {
     if (!nm) return { error: "name_required" };
     const v = due == null ? "" : String(due).trim();
     if (v && !/^\d{4}-\d{2}-\d{2}$/.test(v)) return { error: "due_format" };
+    const ip = in_pointer == null ? null : String(in_pointer).trim() || null;
+    // 적대적 검토 반영: traversal/백슬래시/제어도 차단(_workspaces 접두 + 절대 외에).
+    if (ip && (isAbsolute(ip) || !ip.startsWith("_workspaces/") ||
+      /(^|\/)\.\.(\/|$)/.test(ip) || ip.includes("\\") || /[\x00-\x1f]/.test(ip))) return { error: "in_pointer_must_be_relative_workspace" };
     const stage = String(stage_code ?? "").trim() || null;
     const no = String(deliverable_no ?? "").trim() || null;
     const id = `${code}:${stage ?? ""}:${no ?? nm}`;
@@ -2528,7 +2533,7 @@ export class Store {
     return this.upsertCoreDeliverable({
       id, project_id: code, stage_code: stage, deliverable_no: no, name: nm,
       submit_type: submit_type ?? null, completion_criteria: completion_criteria ?? null,
-      due: v || null, due_source: v ? "owner" : "ingest", produced: 0, review_stage: 0, data_label: "real"
+      due: v || null, due_source: v ? "owner" : "ingest", in_pointer: ip, produced: 0, review_stage: 0, data_label: "real"
     });
   }
 
@@ -2557,7 +2562,9 @@ export class Store {
     const d = this.db.prepare("SELECT project_id, stage_code FROM core_deliverable WHERE id=?").get(did);
     if (!d) return { error: "deliverable_not_found" };
     const ptr = pointer == null ? null : String(pointer).trim() || null;
-    if (ptr && (isAbsolute(ptr) || /^[A-Za-z]:[\\/]/.test(ptr) || ptr.startsWith("\\\\"))) return { error: "pointer_must_be_relative" };
+    // 적대적 검토 반영: DB 에 traversal/절대/백슬래시/제어 포인터가 절대 저장되지 않게 쓰기 경계에서 차단.
+    if (ptr && (isAbsolute(ptr) || /^[A-Za-z]:[\\/]/.test(ptr) || ptr.startsWith("\\\\") ||
+      /(^|\/)\.\.(\/|$)/.test(ptr) || ptr.includes("\\") || /[\x00-\x1f]/.test(ptr))) return { error: "pointer_must_be_relative" };
     const src = Store.INPUT_SOURCES.includes(source) ? source : "erp";
     const st = Store.INPUT_STATUSES.includes(status) ? status : "needed";
     const fname = file_name == null ? null : String(file_name).trim() || null;

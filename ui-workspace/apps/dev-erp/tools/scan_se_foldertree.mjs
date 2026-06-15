@@ -101,8 +101,9 @@ function scanProject(dir, code) {
       if (delivDir) deliv.pathResolved++;
       const produced = outBoxProduced(delivDir);
       if (produced) deliv.produced++;
-      // out_pointer 는 항상 상대(_workspaces/<code>/<경로>/03_Out). 절대경로 저장 금지.
+      // out/in_pointer 는 항상 상대(_workspaces/<code>/<경로>/{03_Out,01_In}). 절대경로 저장 금지.
       const outPointer = relPath ? `_workspaces/${code}/${relPath}/03_Out` : null;
+      const inPointer = relPath ? `_workspaces/${code}/${relPath}/01_In` : null;
       deliv.records.push({
         id: `${code}:${gate}:${no || name}`,
         project_id: code,
@@ -113,6 +114,7 @@ function scanProject(dir, code) {
         completion_criteria: criteria || null,
         due: /^\d{4}-\d{2}-\d{2}$/.test(due) ? due : null,
         out_pointer: outPointer,
+        in_pointer: inPointer,
         produced: produced ? 1 : 0,
         review_stage: produced ? 1 : 0,
         data_label: "real"

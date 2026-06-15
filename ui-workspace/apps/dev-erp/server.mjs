@@ -16,6 +16,7 @@ import { modulesFor } from "./src/modules.mjs";
 import { crossSearch } from "./src/search.mjs";
 import { buildMetaContext, runLlm, answerFromManual } from "./src/llm.mjs";
 import { startAutosyncPoll, writeTaskToLedger, writeInputToLedger } from "./src/autosync.mjs";
+import { safeWorkspacePath, safeUploadTarget, commitUpload, readSafe } from "./src/filevault.mjs";
 
 const HERE = dirname(fileURLToPath(import.meta.url));
 const args = process.argv.slice(2);
@@ -24,6 +25,11 @@ const flag = (name, fallback) => {
   return i >= 0 ? args[i + 1] : fallback;
 };
 
+// 파일 IO(산출물 입력파일 업/다운로드)는 기본 OFF. 켜기: DEV_ERP_FILEIO=1 또는 --fileio.
+// 모든 경로는 <ROOT>/_workspaces 아래로만(filevault path-safety). 절대경로·../·심볼릭 탈출 차단.
+const ROOT = resolve(dirname(fileURLToPath(import.meta.url)), "..", "..", "..");
+const FILEIO = process.env.DEV_ERP_FILEIO === "1" || process.argv.includes("--fileio");
+const UPLOAD_MAX = Number(process.env.DEV_ERP_UPLOAD_MAX || 50 * 1024 * 1024); // 50MB 기본 상한
 const PORT = Number(flag("port", 4300));
 // 기본은 localhost 전용(안전). 같은 네트워크 공유가 필요할 때만 --host 0.0.0.0
 // (합성 데이터 파일럿 한정 권장 — 실데이터+팀 공개는 P2 RBAC 이후)
@@ -687,6 +693,41 @@ const server = createServer(async (req, res) => {
       const { id, status } = await readJson(req);
       const r = store.setDeliverableInputStatus(id, status);
       return send(res, r.error ? 400 : 200, r);
+    }
+    // 입력파일 다운로드/서빙 — 등록된 입력만(화이트리스트) + filevault 경로 봉쇄. 기본 OFF.
+    if (path === "/api/deliverables/inputs/file") {
+      if (!FILEIO) return send(res, 404, { error: "fileio_disabled" });
+      const inp = store.deliverableInput(qp.id);
+      if (!inp || !inp.pointer) return send(res, 404, { error: "input_or_pointer_missing" });
+      const safe = safeWorkspacePath(ROOT, inp.pointer, { mustExist: true }); // 등록 포인터만 + 봉쇄
+      if (safe.error) return send(res, 400, { error: `unsafe_${safe.error}` });
+      const r = readSafe(safe);
+      if (r.error) return send(res, 500, r);
+      store.appendEvent({ actor_ref: currentAccount(req)?.username || "anon", actor_kind: "human", kind: "input_download", to: qp.id, used_refs: ["fileio"], data_label: "meta" });
+      res.writeHead(200, { "content-type": "application/octet-stream", "cache-control": "no-store",
+        "content-disposition": `attachment; filename*=UTF-8''${encodeURIComponent(inp.file_name || "file")}` });
+      return res.end(r.bytes);
+    }
+    // 입력파일 업로드 — 산출물 in_pointer(01_In) 하위 subfolder/filename 으로 기록 + 장부 등록. 기본 OFF.
+    // body = 원본 바이트(브라우저 fetch 의 파일 blob). 메타(deliverable/subfolder/filename)는 쿼리.
+    if (path === "/api/deliverables/inputs/upload" && req.method === "POST") {
+      if (!FILEIO) return send(res, 404, { error: "fileio_disabled" });
+      const did = qp.deliverable, subfolder = qp.subfolder || "", filename = qp.filename || "";
+      const d = store.db.prepare("SELECT in_pointer, project_id FROM core_deliverable WHERE id=?").get(did);
+      if (!d) return send(res, 404, { error: "deliverable_not_found" });
+      if (!d.in_pointer) return send(res, 400, { error: "in_pointer_unset" }); // 01_In 경로 미설정(스캔/등록 필요)
+      // 원본 바이트 수신(상한 초과 시 중단 — 메모리 남용 방지).
+      const chunks = []; let total = 0;
+      for await (const c of req) { total += c.length; if (total > UPLOAD_MAX) return send(res, 413, { error: "too_large" }); chunks.push(c); }
+      const bytes = Buffer.concat(chunks);
+      if (!bytes.length) return send(res, 400, { error: "empty_body" });
+      const target = safeUploadTarget(ROOT, d.in_pointer, subfolder, filename);
+      if (target.error) return send(res, 400, { error: `unsafe_${target.error}` });
+      const w = commitUpload(ROOT, target, bytes);
+      if (w.error) return send(res, 400, { error: `write_${w.error}` });
+      const reg = store.registerDeliverableInput({ deliverable_id: did, subfolder, file_name: filename, pointer: w.rel, source: "erp", sha256: w.sha256, size: w.size, status: "received" });
+      store.appendEvent({ actor_ref: currentAccount(req)?.username || "owner", actor_kind: "human", kind: "input_upload", to: reg.id, project_ref: d.project_id, used_refs: ["fileio"], data_label: "real" });
+      return send(res, 200, { ok: true, id: reg.id, rel: w.rel, size: w.size, sha256: w.sha256 });
     }
     // 일정(due) owner 직접 지정 — '언제'는 RAG/스캔에 없어 사람이 변경한다(나중에 Codex 자동 분석 예정).
     if (path === "/api/deliverables/due" && req.method === "POST") {

@@ -11,8 +11,12 @@
   3루트 출처. `core_deliverable.in_pointer`(01_In 상대, out_pointer 대칭). 엔드포인트
   `/api/deliverables/inputs`·`/input-subfolders`. 산출물별 입력파일 UI 패널(종류별
   하위폴더 제안·등록·상태토글). **입력파일_장부.csv write-through/read 동기**(autosync
-  패턴 — 할일_장부처럼 ERP↔장부 양방향, 신규행만 import·사람편집 보호). 실제 파일
-  업/다운로드(서빙)는 경로탈출·LAN노출·다운로드권한 검토 후 별도 슬라이스로 분리.
+  패턴 — 할일_장부처럼 ERP↔장부 양방향, 신규행만 import·사람편집 보호).
+- 입력파일 업/다운로드(보안우선, 기본 OFF=`DEV_ERP_FILEIO`): `filevault.mjs` path-safety
+  게이트(절대/`../`/백슬래시/심볼릭탈출 TOCTOU/널/제어 차단, realpath 이중 봉쇄, _workspaces
+  안으로만). 다운로드=등록 입력 화이트리스트, 업로드=01_In 하위 기록+장부 등록(50MB 상한).
+  쓰기 경계에서 traversal 포인터 저장 차단. 적대적 검토(9벡터)로 read-outside/write-outside
+  없음 확인. 보안 문서 `FILE_IO_SECURITY_20260616.md`. `in_pointer`(01_In) 스캐너 도출.
 - 설계 문서 `DELIVERABLE_INPUT_FILES_DESIGN_20260616.md`. 장부 정본·폴더 생성·파일
   라우팅은 Codex(se_foldertree/장부) 소유로 라우팅.
 
