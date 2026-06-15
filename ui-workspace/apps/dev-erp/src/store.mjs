@@ -973,6 +973,7 @@ export class Store {
         work_type ?? null, link_kind ?? null, link_ref ?? null, completion_criteria ?? null,
         stage_id ?? null, anchor_stage_code ?? null, new Date().toISOString()
       );
+    this.afterItemWrite?.(id); // autosync Phase 1: ERP 생성 → 할일_장부 write-through
     return { ok: true, item: this.db.prepare("SELECT * FROM core_item WHERE id=?").get(id) };
   }
 
@@ -1035,6 +1036,7 @@ export class Store {
     const prev = this.db.prepare("SELECT status, project_id FROM core_item WHERE id=?").get(id);
     if (!prev) return { error: "item_not_found" };
     this.db.prepare("UPDATE core_item SET status=? WHERE id=?").run(status, id);
+    this.afterItemWrite?.(id); // autosync Phase 1: ERP 변경 → 할일_장부 write-through(서버가 훅 설정 시)
     return { ok: true, from: prev.status, project_id: prev.project_id };
   }
 
@@ -1042,6 +1044,7 @@ export class Store {
     const prev = this.db.prepare("SELECT assignee_ref, project_id FROM core_item WHERE id=?").get(id);
     if (!prev) return { error: "item_not_found" };
     this.db.prepare("UPDATE core_item SET assignee_ref=? WHERE id=?").run(assignee_ref || null, id);
+    this.afterItemWrite?.(id);
     return { ok: true, from: prev.assignee_ref, project_id: prev.project_id };
   }
 
@@ -1063,6 +1066,7 @@ export class Store {
     this.db.prepare(
       `UPDATE core_item SET status='open', work_type=?, link_kind=?, link_ref=?, completion_criteria=?, stage_id=?, anchor_stage_code=? WHERE id=?`
     ).run(wt, lk ?? null, link_ref ?? item.link_ref ?? null, completion_criteria ?? item.completion_criteria ?? null, sid ?? null, asc ?? null, id);
+    this.afterItemWrite?.(id); // autosync Phase 1: 분류 확정 → 할일_장부 write-through
     return { ok: true, item: this.db.prepare("SELECT * FROM core_item WHERE id=?").get(id) };
   }
 

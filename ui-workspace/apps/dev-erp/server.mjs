@@ -15,7 +15,7 @@ import { guideTemplates, docRecipes } from "./src/guide.mjs";
 import { modulesFor } from "./src/modules.mjs";
 import { crossSearch } from "./src/search.mjs";
 import { buildMetaContext, runLlm, answerFromManual } from "./src/llm.mjs";
-import { startAutosyncPoll } from "./src/autosync.mjs";
+import { startAutosyncPoll, writeTaskToLedger } from "./src/autosync.mjs";
 
 const HERE = dirname(fileURLToPath(import.meta.url));
 const args = process.argv.slice(2);
@@ -632,7 +632,10 @@ server.listen(PORT, HOST, () => {
   // 기본 OFF(테스트·:memory: 무영향). 켜기: 환경변수 DEV_ERP_AUTOSYNC=1 또는 --autosync. 간격 DEV_ERP_AUTOSYNC_MS(기본 10s).
   if (process.env.DEV_ERP_AUTOSYNC === "1" || args.includes("--autosync")) {
     const root = resolve(HERE, "..", "..", "..");
+    // Phase 2: 할일_장부 → ERP 자동 import 폴링.
     startAutosyncPoll(store, { root, intervalMs: Number(process.env.DEV_ERP_AUTOSYNC_MS) || 10000, log: console.log });
-    console.log(`[dev-erp] autosync 할일_장부 자동 import ON (root: ${root}, ${Number(process.env.DEV_ERP_AUTOSYNC_MS) || 10000}ms)`);
+    // Phase 1: ERP 할일 생성/수정 → 할일_장부 write-through(동기 버튼 없이). 실패는 로그(향후 sync_error 표면화).
+    store.afterItemWrite = (id) => { try { writeTaskToLedger(store, id, { root }); } catch (e) { console.error("[autosync] write-through 오류:", e.message); } };
+    console.log(`[dev-erp] autosync ON — 할일_장부 ↔ ERP 양방향(import 폴링 ${Number(process.env.DEV_ERP_AUTOSYNC_MS) || 10000}ms + write-through). root: ${root}`);
   }
 });

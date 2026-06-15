@@ -5,7 +5,7 @@ import { tmpdir } from "node:os";
 import { join } from "node:path";
 
 import { openStore, deriveStartYear } from "../src/store.mjs";
-import { importNewTaskLedgers } from "../src/autosync.mjs";
+import { importNewTaskLedgers, writeTaskToLedger, readTaskLedgerRows } from "../src/autosync.mjs";
 import { loadFixture } from "../src/fixture.mjs";
 import { ingestNormalized, mapSoulforgeSnapshot } from "../src/adapter.mjs";
 import { getLexicon, LEXICON } from "../src/lexicon.mjs";
@@ -755,6 +755,34 @@ test("TASK-LEDGER: 할일_장부 행 → core_item ingest(과제필수·enum검�
   assert.equal(again.isNew, false);
   const u = store.db.prepare("SELECT title,status FROM core_item WHERE id='itm_t1'").get();
   assert.equal(u.title, "회로도 검토(수정)"); assert.equal(u.status, "done");
+});
+
+test("AUTOSYNC-WT: ERP 할일 생성/수정 → 할일_장부 write-through(멱등·atomic)", () => {
+  const store = freshStore();
+  store.upsertProject({ id: "P26-014", title: "K", data_label: "real" });
+  const root = mkdtempSync(join(tmpdir(), "autosync-wt-"));
+  store.afterItemWrite = (id) => writeTaskToLedger(store, id, { root });
+  // 생성 → 장부에 행 생김(버튼 없이)
+  const r = store.createItem({ project_id: "P26-014", title: "써내려가기", origin: "manual", work_type: "author", assignee_ref: "kim", due: "2026-08-01" });
+  const file = join(root, "_workmeta", "P26-014", "reports", "할일_장부", "할일_장부.csv");
+  let rows = readTaskLedgerRows(file);
+  assert.equal(rows.length, 1);
+  assert.equal(rows[0].id, r.item.id);
+  assert.equal(rows[0].title, "써내려가기");
+  assert.equal(rows[0].status, "open");
+  assert.equal(rows[0].due, "2026-08-01");
+  // 상태 변경 → 같은 할일키 행 갱신(중복 없음)
+  store.setItemStatus(r.item.id, "doing");
+  rows = readTaskLedgerRows(file);
+  assert.equal(rows.length, 1, "같은 할일키 갱신, 중복 없음");
+  assert.equal(rows[0].status, "doing");
+  // 담당 변경도 반영
+  store.setItemAssignee(r.item.id, "lee");
+  assert.equal(readTaskLedgerRows(file)[0].assignee_ref, "lee");
+  // 다른 할일 추가 → 기존 행 보존(2건)
+  store.createItem({ project_id: "P26-014", title: "두번째", origin: "manual" });
+  assert.equal(readTaskLedgerRows(file).length, 2, "다른 할일 추가 시 기존 보존");
+  rmSync(root, { recursive: true, force: true });
 });
 
 test("AUTOSYNC: 할일_장부 → ERP 자동 import(신규만, 사람 편집 보호)", () => {

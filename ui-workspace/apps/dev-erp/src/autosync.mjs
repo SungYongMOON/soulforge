@@ -3,11 +3,14 @@
 // 안전 원칙: '신규 할일키만' import(기존 행은 사람 편집 가능성 → auto-import 가 건드리지 않음).
 //   기존 행 갱신(장부→ERP 전파)은 revision/conflict 비교가 필요한 후속 단계(Phase 3)로 둔다.
 // zero-dependency: node:fs/path.
-import { readFileSync, existsSync, readdirSync, statSync } from "node:fs";
+import { readFileSync, writeFileSync, renameSync, mkdirSync, existsSync, readdirSync, statSync } from "node:fs";
 import { join } from "node:path";
 
 const CODE_RE = /^P\d{2}-\d{3}/;
 const TASK_REL = join("reports", "할일_장부", "할일_장부.csv");
+const SCHEMA = "soulforge.project_task_ledger.private.v0";
+const HEADERS = ["할일키","스키마버전","기록일","프로젝트코드","할일명","담당자","업무유형","상태","마감일","SE단계","연결유형","연결대상","완료기준","출처","관련메일이력키","관련메일소스ID","산출물참조","관련몬스터ID","다음액션","비고","원문복사여부"];
+const csvEsc = (v) => { let s = String(v ?? ""); if (/^[=+\-@\t\r]/.test(s)) s = "'" + s; return /[",\r\n]/.test(s) ? `"${s.replace(/"/g, '""')}"` : s; };
 
 function parseCsv(text) {
   const rows = []; let row = [], cur = "", q = false;
@@ -61,6 +64,41 @@ export function importNewTaskLedgers(store, { root } = {}) {
     }
   }
   return out;
+}
+
+// core_item 1행 → 할일_장부 행(HEADERS 순서).
+function itemToLedgerRow(i) {
+  const isArtifact = i.link_kind === "artifact";
+  return [i.id, SCHEMA, (i.created_at || "").slice(0, 10), i.project_id, i.title, i.assignee_ref || "",
+    i.work_type || "", i.status || "", i.due || "", i.anchor_stage_code || "", i.link_kind || "", i.link_ref || "",
+    i.completion_criteria || "", i.origin || "", i.origin_mail_id || "", "", isArtifact ? (i.link_ref || "") : "", "", "", "", "아니오"];
+}
+
+// autosync Phase 1: ERP 할일 1건 → 할일_장부.csv write-through(멱등 upsert, atomic temp+rename).
+// 헤더 순서가 달라도 안전하게 컬럼명으로 매핑. 다른 행(다른 할일키)은 보존.
+export function writeTaskToLedger(store, itemId, { root } = {}) {
+  if (!root) return { error: "no_root" };
+  const item = store.db.prepare("SELECT * FROM core_item WHERE id=?").get(itemId);
+  if (!item || !item.project_id) return { error: "item_or_project_missing" };
+  const dir = join(root, "_workmeta", item.project_id, "reports", "할일_장부");
+  const file = join(dir, "할일_장부.csv");
+  const byKey = new Map();
+  if (existsSync(file)) {
+    const recs = parseCsv(readFileSync(file, "utf8").replace(/^﻿/, "").normalize("NFC")).filter((r) => r.some((c) => String(c).trim()));
+    if (recs.length) {
+      const h = recs[0].map((x) => x.trim());
+      for (const r of recs.slice(1)) { const o = {}; h.forEach((c, i) => (o[c] = r[i] ?? "")); const k = o["할일키"] || ""; if (k) byKey.set(k, o); }
+    }
+  }
+  const row = itemToLedgerRow(item);
+  const obj = {}; HEADERS.forEach((c, i) => (obj[c] = row[i]));
+  byKey.set(item.id, obj);
+  mkdirSync(dir, { recursive: true });
+  const out = [HEADERS.join(","), ...[...byKey.values()].map((o) => HEADERS.map((c) => csvEsc(o[c] ?? "")).join(","))];
+  const tmp = `${file}.tmp`;
+  writeFileSync(tmp, "﻿" + out.join("\n") + "\n");
+  renameSync(tmp, file); // atomic
+  return { ok: true, file };
 }
 
 // 주기 폴링 시작(부팅 즉시 1회 + intervalMs 마다). 변경 없는 파일은 mtime 으로 건너뛴다.
