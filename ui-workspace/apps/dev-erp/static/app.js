@@ -2220,11 +2220,15 @@ function deliverableRegisterHtml(rows, L) {
     const done = list.filter((d) => d.produced).length;
     const body = list.map((d) => {
       const st = deliverableStateLabel(d, L);
+      const srcL = d.due_source === "owner" ? L.deliv_due_owner : d.due_source === "auto" ? L.deliv_due_auto : L.deliv_due_ingest;
       return `<tr>
         <td>${esc(d.name)}</td>
         <td class="dim">${submitTL(d.submit_type)}</td>
         <td><span class="badge ${st.cls}">${st.txt}</span></td>
-        <td class="dim">${esc(d.due ?? "-")}</td>
+        <td class="deliv-due">
+          <input type="date" class="dd-date" value="${esc(d.due ?? "")}" />
+          <button class="fav-chip mini dd-save" data-id="${esc(d.id)}">${L.deliv_due_save}</button>
+          <span class="badge dim mini">${srcL}</span><span class="dd-msg dim mini"></span></td>
         <td class="pointer">${d.out_pointer ? `<span class="ptr-text">${esc(d.out_pointer)}</span><button class="copy-btn mini" data-c="${esc(d.out_pointer)}">${L.copy}</button>` : "-"}</td>
       </tr>`;
     }).join("");
@@ -2241,12 +2245,24 @@ async function hubGuide(mount, p) {
   ]);
   mount.innerHTML = `
     <div class="filters"><span class="badge">${L.deliv_section} ${delivs.length}</span></div>
+    ${delivs.length ? `<p class="hub-note">${L.deliv_due_note}</p>` : ""}
     ${deliverableRegisterHtml(delivs, L)}
     <div class="filters"><span class="dim guide-principle">${L.guide_principle}</span>
       ${g.totalSteps ? `<span class="badge">${L.guide_progress} ${g.totalDone}/${g.totalSteps}</span>` : ""}</div>
     ${g.html}`;
   mount.querySelectorAll(".copy-btn").forEach((b) =>
     b.addEventListener("click", () => navigator.clipboard?.writeText(b.dataset.c))
+  );
+  // 일정(due) owner 직접 지정. '언제'는 RAG/스캔에 없어 사람이 바꾼다(나중에 Codex 자동 분석).
+  mount.querySelectorAll(".dd-save").forEach((b) =>
+    b.addEventListener("click", async () => {
+      const cell = b.closest(".deliv-due");
+      const inp = cell.querySelector(".dd-date");
+      const msg = cell.querySelector(".dd-msg");
+      const resp = await post("/api/deliverables/due", { id: b.dataset.id, due: inp.value });
+      if (resp.ok) { msg.textContent = L.deliv_due_saved; setTimeout(render, 500); }
+      else { const e = await resp.json().catch(() => ({})); msg.textContent = e.error ?? "오류"; }
+    })
   );
   wireGuideSection(mount, p.id);
 }

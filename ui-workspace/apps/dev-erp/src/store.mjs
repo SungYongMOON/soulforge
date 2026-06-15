@@ -598,7 +598,10 @@ export function openStore(path = ":memory:") {
     "ALTER TABLE core_item ADD COLUMN offset_days INTEGER",
     "ALTER TABLE core_item ADD COLUMN due_overridden INTEGER NOT NULL DEFAULT 0",
     "ALTER TABLE core_person ADD COLUMN unit_ref TEXT",
-    "ALTER TABLE core_person ADD COLUMN capability_label TEXT"
+    "ALTER TABLE core_person ADD COLUMN capability_label TEXT",
+    // SE 산출물 일정(due) 출처: 'ingest'(스캔 추출, 보통 비어있음) | 'owner'(사람이 직접 지정) | 'auto'(나중에 Codex 분석 채움).
+    // owner 가 지정한 일정은 재-ingest 가 덮어쓰지 않는다(아래 upsertCoreDeliverable CASE 참고).
+    "ALTER TABLE core_deliverable ADD COLUMN due_source TEXT NOT NULL DEFAULT 'ingest'"
   ]) {
     try { db.exec(ddl); } catch { /* exists */ }
   }
@@ -2152,22 +2155,38 @@ export class Store {
     const submit = d.submit_type === "draft" || d.submit_type === "final" ? d.submit_type : null;
     const produced = d.produced ? 1 : 0;
     const review = Number.isInteger(d.review_stage) ? d.review_stage : (produced ? 1 : 0);
+    const dueSource = d.due_source === "owner" || d.due_source === "auto" ? d.due_source : "ingest";
+    // 일정(due)은 RAG/스캔으로 정확히 못 정하므로 보통 비어 온다(원천 'ingest'). owner 가 직접 지정하면 'owner'.
+    // 재-ingest 시 owner 가 지정한 일정은 보존한다 — '뭘(산출물)'은 도감이 갱신하되 '언제(일정)'는 사람 결정을 덮지 않는다.
     this.db
       .prepare(
         `INSERT INTO core_deliverable(id,project_id,stage_code,deliverable_no,name,submit_type,
-           completion_criteria,due,out_pointer,produced,review_stage,data_label)
-         VALUES (?,?,?,?,?,?,?,?,?,?,?,?)
+           completion_criteria,due,due_source,out_pointer,produced,review_stage,data_label)
+         VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?)
          ON CONFLICT(id) DO UPDATE SET stage_code=excluded.stage_code, deliverable_no=excluded.deliverable_no,
            name=excluded.name, submit_type=excluded.submit_type, completion_criteria=excluded.completion_criteria,
-           due=excluded.due, out_pointer=excluded.out_pointer, produced=excluded.produced,
+           due=CASE WHEN core_deliverable.due_source='owner' THEN core_deliverable.due ELSE excluded.due END,
+           due_source=CASE WHEN core_deliverable.due_source='owner' THEN 'owner' ELSE excluded.due_source END,
+           out_pointer=excluded.out_pointer, produced=excluded.produced,
            review_stage=excluded.review_stage`
       )
       .run(
         id, d.project_id, d.stage_code ?? null, d.deliverable_no ?? null, d.name,
-        submit, d.completion_criteria ?? null, d.due ?? null, d.out_pointer ?? null,
+        submit, d.completion_criteria ?? null, d.due ?? null, dueSource, d.out_pointer ?? null,
         produced, review, d.data_label ?? "real"
       );
     return { ok: true, id };
+  }
+
+  // SE 산출물 일정(due) owner 직접 지정. RAG/스캔으로는 '언제'를 못 채우므로(뭘만 있음) 사람이 변경한다.
+  // 빈 값('' 또는 null)은 일정 해제(미정으로). 지정/해제 모두 due_source='owner' 로 표시해 재-ingest 가 안 덮게 한다.
+  setDeliverableDue(id, due) {
+    const row = this.db.prepare("SELECT id FROM core_deliverable WHERE id=?").get(id);
+    if (!row) return { error: "deliverable_not_found" };
+    const v = due == null ? "" : String(due).trim();
+    if (v && !/^\d{4}-\d{2}-\d{2}$/.test(v)) return { error: "due_format" };
+    this.db.prepare("UPDATE core_deliverable SET due=?, due_source='owner' WHERE id=?").run(v || null, id);
+    return { ok: true, id, due: v || null };
   }
 
   coreDeliverables({ project, stage } = {}) {

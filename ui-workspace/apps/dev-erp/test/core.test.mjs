@@ -692,6 +692,35 @@ test("store: SE 산출물 레지스터 — upsertCoreDeliverable→coreDeliverab
   assert.equal(store.coreDeliverables({ project: "P26-014", stage: "240_LL" })[0].submit_type, null);
 });
 
+test("DELIV-DUE: 산출물 일정(due) owner 직접 지정 + 재-ingest 보존 (일정은 RAG에 없음)", () => {
+  const store = freshStore();
+  store.upsertProject({ id: "P26-014", title: "P26-014", data_label: "real" });
+  // ingest: 일정 없이 들어옴(보통 '언제'는 비어있음) → due_source 'ingest'
+  store.upsertCoreDeliverable({ project_id: "P26-014", stage_code: "030_SRR", deliverable_no: "040", name: "SSRS", submit_type: "draft" });
+  const id = "P26-014:030_SRR:040";
+  assert.equal(store.coreDeliverables({ project: "P26-014" })[0].due_source, "ingest", "스캔 인입 기본 출처 ingest");
+  assert.equal(store.coreDeliverables({ project: "P26-014" })[0].due, null);
+  // owner 가 일정 직접 지정 → due_source 'owner'
+  const r = store.setDeliverableDue(id, "2026-09-15");
+  assert.equal(r.ok, true);
+  let row = store.coreDeliverables({ project: "P26-014" })[0];
+  assert.equal(row.due, "2026-09-15");
+  assert.equal(row.due_source, "owner");
+  // 형식 검증 / 없는 id
+  assert.equal(store.setDeliverableDue(id, "2026/09/15").error, "due_format");
+  assert.equal(store.setDeliverableDue("nope", "2026-09-15").error, "deliverable_not_found");
+  // 재-ingest(스캔이 다시 돌아 일정 비거나 다른 값) → owner 지정 일정은 보존(덮지 않음)
+  store.upsertCoreDeliverable({ project_id: "P26-014", stage_code: "030_SRR", deliverable_no: "040", name: "SSRS v2", due: "2026-01-01" });
+  row = store.coreDeliverables({ project: "P26-014" })[0];
+  assert.equal(row.name, "SSRS v2", "산출물명(뭘)은 재-ingest 가 갱신");
+  assert.equal(row.due, "2026-09-15", "owner 일정(언제)은 재-ingest 가 덮지 않음");
+  assert.equal(row.due_source, "owner");
+  // 빈 값으로 일정 해제 → null, 출처는 owner(사람이 명시적으로 해제)
+  const c = store.setDeliverableDue(id, "");
+  assert.equal(c.ok, true);
+  assert.equal(store.coreDeliverables({ project: "P26-014" })[0].due, null);
+});
+
 test("B5: 라벨 감사기 — 커버리지 집계 + 결손 주입 검출", async () => {
   const { audit, auditSince } = await import("../tools/label_audit.mjs");
   const good = (id, kind) => ({ id, kind, actor_ref: "owner", used_refs: '["items"]', data_label: "real", project_ref: "P1" });
