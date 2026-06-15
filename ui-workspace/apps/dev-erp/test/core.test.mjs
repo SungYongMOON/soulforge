@@ -642,6 +642,43 @@ test("store: 개발요청 인입 채널 — createRequest→promoteRequest→미
   assert.equal(store.promoteRequest("no-such", "owner").error, "request_not_found");
 });
 
+test("store: SE 산출물 레지스터 — upsertCoreDeliverable→coreDeliverables 조회·게이트필터·멱등 (deliverable slice B)", () => {
+  const store = freshStore();
+  store.upsertProject({ id: "P26-014", title: "P26-014", data_label: "real" });
+  // ingest 행 1건(최종·작성됨) — out_pointer 는 상대경로
+  const r = store.upsertCoreDeliverable({
+    project_id: "P26-014", stage_code: "120_CDR", deliverable_no: "125",
+    name: "HW설계기술서(HDD)", submit_type: "final", completion_criteria: "03_Out 폴더에 결과물",
+    due: "2026-08-01", out_pointer: "_workspaces/P26-014/120_CDR/125_HW설계기술서(HDD)_F/03_Out",
+    produced: 1
+  });
+  assert.equal(r.ok, true);
+  assert.equal(r.id, "P26-014:120_CDR:125"); // <과제>:<게이트>:<산출물ID>
+  // 초안·미작성 1건(다른 게이트)
+  store.upsertCoreDeliverable({ project_id: "P26-014", stage_code: "030_SRR", deliverable_no: "040", name: "체계요구사항명세서(SSRS)", submit_type: "draft", produced: 0 });
+  const all = store.coreDeliverables({ project: "P26-014" });
+  assert.equal(all.length, 2);
+  // 게이트 필터
+  const cdr = store.coreDeliverables({ project: "P26-014", stage: "120_CDR" });
+  assert.equal(cdr.length, 1);
+  const d = cdr[0];
+  assert.equal(d.submit_type, "final");
+  assert.equal(d.produced, 1);
+  assert.equal(d.review_stage, 1); // produced → review_stage 1 자동
+  assert.ok(d.out_pointer.startsWith("_workspaces/"), "out_pointer 는 상대경로");
+  assert.ok(!/\/(Volumes|Users)\//.test(d.out_pointer ?? ""), "절대경로 미저장");
+  // draft·미작성은 review_stage 0
+  assert.equal(store.coreDeliverables({ project: "P26-014", stage: "030_SRR" })[0].review_stage, 0);
+  // 멱등: 같은 id 재upsert(이름 변경) → 행 증가 없이 갱신
+  store.upsertCoreDeliverable({ project_id: "P26-014", stage_code: "120_CDR", deliverable_no: "125", name: "HW설계기술서(HDD) v2", produced: 1 });
+  const again = store.coreDeliverables({ project: "P26-014", stage: "120_CDR" });
+  assert.equal(again.length, 1);
+  assert.equal(again[0].name, "HW설계기술서(HDD) v2");
+  // submit_type 화이트리스트(이상값 → null)
+  store.upsertCoreDeliverable({ project_id: "P26-014", stage_code: "240_LL", deliverable_no: "999", name: "x", submit_type: "weird" });
+  assert.equal(store.coreDeliverables({ project: "P26-014", stage: "240_LL" })[0].submit_type, null);
+});
+
 test("B5: 라벨 감사기 — 커버리지 집계 + 결손 주입 검출", async () => {
   const { audit, auditSince } = await import("../tools/label_audit.mjs");
   const good = (id, kind) => ({ id, kind, actor_ref: "owner", used_refs: '["items"]', data_label: "real", project_ref: "P1" });

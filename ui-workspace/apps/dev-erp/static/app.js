@@ -2176,13 +2176,52 @@ async function hubOverview(mount, p) {
   wireItemActions(mount);
 }
 
+// 산출물 레지스터(ingest된 core_deliverable)를 게이트별로 묶어 표로 렌더. 읽기 위주(검토 진행 버튼은 슬라이스 C).
+function deliverableStateLabel(d, L) {
+  if (d.review_stage >= 4) return { txt: L.deliv_state_done, cls: "green" };
+  if (d.review_stage >= 2) return { txt: L.deliv_state_review, cls: "" };
+  if (d.produced || d.review_stage >= 1) return { txt: L.deliv_state_produced, cls: "" };
+  return { txt: L.deliv_state_todo, cls: "dim" };
+}
+function deliverableRegisterHtml(rows, L) {
+  if (!rows.length) return `<div class="empty small">${L.deliv_empty}</div>`;
+  const byGate = new Map();
+  for (const d of rows) { const g = d.stage_code || "(미지정)"; if (!byGate.has(g)) byGate.set(g, []); byGate.get(g).push(d); }
+  const gates = [...byGate.keys()].sort();
+  const submitTL = (t) => t === "final" ? L.deliv_submit_final : t === "draft" ? L.deliv_submit_draft : "-";
+  return gates.map((g) => {
+    const list = byGate.get(g);
+    const done = list.filter((d) => d.produced).length;
+    const body = list.map((d) => {
+      const st = deliverableStateLabel(d, L);
+      return `<tr>
+        <td>${esc(d.name)}</td>
+        <td class="dim">${submitTL(d.submit_type)}</td>
+        <td><span class="badge ${st.cls}">${st.txt}</span></td>
+        <td class="dim">${esc(d.due ?? "-")}</td>
+        <td class="pointer">${d.out_pointer ? `<span class="ptr-text">${esc(d.out_pointer)}</span><button class="copy-btn mini" data-c="${esc(d.out_pointer)}">${L.copy}</button>` : "-"}</td>
+      </tr>`;
+    }).join("");
+    return `<div class="deliv-gate"><div class="deliv-gate-h"><b>${esc(g)}</b> <span class="badge dim">${done}/${list.length}</span></div>
+      <table><thead><tr><th>${L.deliv_name}</th><th>${L.deliv_submit}</th><th>${L.deliv_state}</th><th>${L.deliv_due}</th><th>${L.deliv_pointer}</th></tr></thead><tbody>${body}</tbody></table></div>`;
+  }).join("");
+}
+
 async function hubGuide(mount, p) {
   const L = state.lex;
-  const g = await buildGuideSection(p.id);
+  const [g, delivs] = await Promise.all([
+    buildGuideSection(p.id),
+    api(`/api/deliverables?project=${encodeURIComponent(p.id)}`)
+  ]);
   mount.innerHTML = `
+    <div class="filters"><span class="badge">${L.deliv_section} ${delivs.length}</span></div>
+    ${deliverableRegisterHtml(delivs, L)}
     <div class="filters"><span class="dim guide-principle">${L.guide_principle}</span>
       ${g.totalSteps ? `<span class="badge">${L.guide_progress} ${g.totalDone}/${g.totalSteps}</span>` : ""}</div>
     ${g.html}`;
+  mount.querySelectorAll(".copy-btn").forEach((b) =>
+    b.addEventListener("click", () => navigator.clipboard?.writeText(b.dataset.c))
+  );
   wireGuideSection(mount, p.id);
 }
 

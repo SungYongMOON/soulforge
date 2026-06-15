@@ -549,6 +549,9 @@ const server = createServer(async (req, res) => {
       return send(res, 200, result);
     }
 
+    // ---------- SE 산출물 레지스터(읽기 전용 — ingest 는 tools/scan_se_foldertree.mjs --apply) ----------
+    if (path === "/api/deliverables" && req.method === "GET") return send(res, 200, store.coreDeliverables({ project: qp.project, stage: qp.stage }));
+
     // ---------- 회의록(메타 전용) ----------
     if (path === "/api/meetings" && req.method === "GET") return send(res, 200, store.meetings({ project: qp.project }));
     if (path === "/api/meetings" && req.method === "POST") {
