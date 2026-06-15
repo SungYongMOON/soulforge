@@ -4,6 +4,7 @@ import { mkdtemp, readFile, rm, writeFile } from "node:fs/promises";
 import os from "node:os";
 import path from "node:path";
 import test from "node:test";
+import { fileURLToPath } from "node:url";
 import { parse as parseYaml } from "yaml";
 import {
   appendBattleEvent,
@@ -12,6 +13,8 @@ import {
   normalizeBattleEvent,
   renderBattleLog,
 } from "./battle_log.mjs";
+
+const BATTLE_LOG_CLI = path.relative(process.cwd(), fileURLToPath(new URL("./cli.mjs", import.meta.url)));
 
 const BATTLE_EVENT_SCHEMA_URL = new URL(
   "../../docs/architecture/workspace/schema/battle_event.schema.yaml",
@@ -266,10 +269,9 @@ test("cli append writes through the same project-local surfaces", async () => {
       "utf8",
     );
 
-    const cliPath = new URL("./cli.mjs", import.meta.url).pathname;
     const run = spawnSync(
       process.execPath,
-      [cliPath, "append", "--workmeta-root", workmetaRoot, "--event-file", eventPath, "--json"],
+      [BATTLE_LOG_CLI, "append", "--workmeta-root", workmetaRoot, "--event-file", eventPath, "--json"],
       { encoding: "utf8" },
     );
 

@@ -4,9 +4,12 @@ import { mkdir, mkdtemp, readFile, rm, writeFile } from "node:fs/promises";
 import os from "node:os";
 import path from "node:path";
 import test from "node:test";
+import { fileURLToPath } from "node:url";
 import YAML from "yaml";
 import { appendBattleEvent, buildSyntheticBattleEvent } from "../battle_log/battle_log.mjs";
 import { closeMissionFromBattleEvent } from "./mission_close.mjs";
+
+const MISSION_CLOSE_CLI = path.relative(process.cwd(), fileURLToPath(new URL("./cli.mjs", import.meta.url)));
 
 test("closeMissionFromBattleEvent writes terminal provenance only after battle and run evidence exist", async () => {
   const repoRoot = await mkdtemp(path.join(os.tmpdir(), "soulforge-mission-close-"));
@@ -332,11 +335,10 @@ test("cli close uses the same evidence gate", async () => {
       }),
     });
 
-    const cliPath = new URL("./cli.mjs", import.meta.url).pathname;
     const run = spawnSync(
       process.execPath,
       [
-        cliPath,
+        MISSION_CLOSE_CLI,
         "close",
         "--repo-root",
         repoRoot,
@@ -392,11 +394,10 @@ test("cli close supports the private mission surface", async () => {
       }),
     });
 
-    const cliPath = new URL("./cli.mjs", import.meta.url).pathname;
     const run = spawnSync(
       process.execPath,
       [
-        cliPath,
+        MISSION_CLOSE_CLI,
         "close",
         "--repo-root",
         repoRoot,

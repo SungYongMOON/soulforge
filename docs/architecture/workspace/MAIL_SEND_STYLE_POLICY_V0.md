@@ -48,11 +48,24 @@
 
 - 수신자, 참조, 숨은참조 중 하나라도 불명확하다.
 - 첨부 파일이 최신본인지, 외부 공유 가능한 파일인지, 실제 첨부할 파일인지 불명확하다.
+- 취합자료와 발송자료가 구분되지 않았거나, 같은 발신자/같은 양식의 여러 버전 중 어떤 파일이 최종 발송본인지 불명확하다.
 - `_workmeta` 파일을 외부에 첨부하려고 하지만 owner 가 그 파일의 외부 공유 가능성을 명시하지 않았다.
 - 본문에 추정, 미검증 수치, 미확정 일정, 내부 판단어가 들어간다.
 - secret, token, password, 계정 정보, raw mail body, attachment payload 읽기가 필요하다.
 - reply thread 가 필요한데 원본 subject/thread 를 확인하지 못했다.
 - 새 외부 수신자에게 AI가 임의로 첫 발송하려 한다.
+
+## 첨부 선별 규칙
+
+`_workspaces` 에 취합한 원첨부 묶음은 source packet 이고, 외부 또는 내부 담당자에게 실제 보내는 첨부 묶음은 send packet 이다.
+취합된 파일 전체를 그대로 보내면 안 되며, 발송 전에는 send packet 을 별도로 확정한다.
+
+- 같은 발신자 또는 같은 기관이 같은 목적의 파일을 여러 번 보낸 경우, 기본 발송 대상은 최신 시각의 1개 파일이다.
+- 파일명에 `최종`, `수정`, `재송부`, `v숫자` 같은 버전 신호가 있으면 그 신호와 수신 시각을 함께 보고 최신 후보를 고른다.
+- 최초 요청자, 고객사, 외부 이해관계자가 보낸 초기 양식이나 요청 메일 첨부는 작성 참고자료로만 취급한다. 그 파일을 다시 보내려면 owner 가 외부 공유/재전달 대상으로 명시해야 한다.
+- 내부 작성 담당자에게 자료를 넘길 때도 중복 버전, 초기 양식, 과거본은 제외하고 최종 후보만 보낸다.
+- 어떤 파일이 최신본인지, 요청자 자료인지, 담당자 작성자료인지 판단이 흔들리면 발송하지 않고 `ASSUMPTIONS` 에 후보 목록과 확인 질문을 남긴다.
+- owner 가 `전체 이력`, `모든 회신 원본`, `감사용 원첨부 전체` 처럼 명시한 경우에만 중복/과거본까지 보낼 수 있다.
 
 ## 제목 규칙
 
@@ -233,6 +246,8 @@ recipient_bcc:
 subject_source: owner_given | existing_thread | generated
 requested_action:
 attachment_refs:
+attachment_selection_basis: latest_only | owner_selected | all_history_explicitly_requested | unclear
+attachment_sender_roles: requester | contributor | internal_reviewer | external_stakeholder | unknown
 deadline_or_reply_need:
 source_basis:
 external_share_confirmed: true | false
@@ -274,11 +289,13 @@ ASSUMPTIONS
 2. 본문 첫 문장에 목적이 드러나는가.
 3. 요청사항, 첨부, 확인 필요일, 다음 행동이 빠지지 않았는가.
 4. 첨부 파일이 실제 존재하고 외부 공유 가능한 최신본인가.
-5. 수신자, 참조, 숨은참조가 owner 지시와 일치하는가.
-6. 내부 용어, private path, secret, raw mail/source 내용이 본문에 없는가.
-7. AI가 미검증 수치나 일정 약속을 만들어 넣지 않았는가.
-8. 발송 후 metadata 기록 위치가 정해졌는가.
-9. 서명 block 과 보안 문구 block 이 정확히 1회 포함되어 있는가.
+5. 취합자료 전체와 발송자료 선별본이 분리되어 있고, 중복/과거 버전이 제외되었는가.
+6. 요청자, 고객사, 외부 이해관계자 자료를 재전달하는 경우 owner 가 명시 승인했는가.
+7. 수신자, 참조, 숨은참조가 owner 지시와 일치하는가.
+8. 내부 용어, private path, secret, raw mail/source 내용이 본문에 없는가.
+9. AI가 미검증 수치나 일정 약속을 만들어 넣지 않았는가.
+10. 발송 후 metadata 기록 위치가 정해졌는가.
+11. 서명 block 과 보안 문구 block 이 정확히 1회 포함되어 있는가.
 
 ## 발송 후 기록
 

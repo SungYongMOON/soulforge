@@ -1,5 +1,32 @@
 # CHANGELOG
 
+## 2026-06-15
+
+### Revision `working` - outbound mail attachment selection guard
+
+- Added an outbound-mail guard that separates collected source attachments
+  from selected send attachments before any owner-approved send handoff.
+- Required duplicate/superseded versions to be excluded or explicitly approved,
+  and required requester/customer/external-stakeholder attachments to be
+  forwarded only when the owner has approved them as send material.
+- Updated the mail style policy and outbound-mail workflow checks so attachment
+  existence alone is not enough for send readiness.
+
+### Revision `working` - Windows relative CLI test paths
+
+- Fixed Windows CLI test invocation paths for mission close, morning report,
+  and battle log tests by passing repo-relative script paths to spawned Node
+  processes instead of URL pathname values.
+- This prevents drive-prefixed URL pathname values from being interpreted as
+  duplicated drive-prefixed module paths on Windows.
+
+### Revision `working` - UI fixture workspace notes
+
+- Clarified UI public fixture workspace notes so they explicitly describe the
+  local-only mount policy with scanning disabled.
+- Adjusted the dev ERP slice index wording so doc link checks do not interpret
+  an inline code-location note as a relative link.
+
 ## 2026-06-14
 
 ### Revision `working` - knowledge master inventory runner added

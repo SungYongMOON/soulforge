@@ -4,11 +4,14 @@ import { mkdtemp, mkdir, readFile, rm, writeFile } from "node:fs/promises";
 import os from "node:os";
 import path from "node:path";
 import test from "node:test";
+import { fileURLToPath } from "node:url";
 import {
   buildMorningReport,
   renderMorningReportMarkdown,
   writeMorningReport,
 } from "./morning_report.mjs";
+
+const MORNING_REPORT_CLI = path.relative(process.cwd(), fileURLToPath(new URL("./morning_report.mjs", import.meta.url)));
 
 test("writeMorningReport writes project-local daily and latest briefings", async () => {
   const repoRoot = await mkdtemp(path.join(os.tmpdir(), "soulforge-morning-report-"));
@@ -355,11 +358,10 @@ test("cli rejects unsafe battle-log source refs without writing the source value
       body: battleLogBodyWithSource(unsafeSource),
     });
 
-    const cliPath = new URL("./morning_report.mjs", import.meta.url).pathname;
     const run = spawnSync(
       process.execPath,
       [
-        cliPath,
+        MORNING_REPORT_CLI,
         "--repo-root",
         repoRoot,
         "--workmeta-root",
@@ -464,11 +466,10 @@ test("cli writes the project-local report", async () => {
       ].join("\n"),
     });
 
-    const cliPath = new URL("./morning_report.mjs", import.meta.url).pathname;
     const run = spawnSync(
       process.execPath,
       [
-        cliPath,
+        MORNING_REPORT_CLI,
         "--repo-root",
         repoRoot,
         "--workmeta-root",

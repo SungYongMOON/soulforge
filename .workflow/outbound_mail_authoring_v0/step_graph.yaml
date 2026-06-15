@@ -13,6 +13,7 @@ steps:
         - mail_kind_is_known_or_marked_other
         - project_code_is_internal_metadata_only_when_present
         - required_style_policy_ref_is_available
+        - attachment_selection_scope_is_bound_or_marked_unclear
       creates:
         - mail_authoring_scope
         - missing_input_register
@@ -85,6 +86,7 @@ steps:
         - purpose_first
         - concise_background
         - action_attachment_deadline_visible
+        - collected_attachments_are_not_treated_as_send_attachments_without_selection
         - use_review_confirm_modify_share_send_recheck_vocabulary
         - avoid_AI_internal_terms
         - avoid_unverified_numbers_or_dates
@@ -138,6 +140,9 @@ steps:
         - body_purpose_visible
         - requested_action_attachment_deadline_visible
         - attachments_exist_and_are_shareable_or_marked_none
+        - attachment_selection_basis_bound
+        - duplicate_or_superseded_attachments_excluded_or_owner_approved
+        - requester_or_external_stakeholder_attachments_forwarded_only_with_owner_approval
         - footer_signature_and_security_notice_present_once_or_gap_marked
         - no_private_paths_raw_source_secrets_or_internal_run_ids
         - owner_approval_state_named
@@ -163,7 +168,8 @@ steps:
         - recipients_explicitly_approved
         - subject_explicitly_approved
         - body_explicitly_approved
-        - attachments_explicitly_approved_or_none
+        - selected_attachments_explicitly_approved_or_none
+        - attachment_selection_basis_explicit
         - send_surface_explicitly_approved
         - footer_blocks_present_once
     summary: Decide the strongest allowed send authority state without inventing approval.
@@ -239,6 +245,9 @@ steps:
 stop_conditions:
   - project_keyword_authority_missing_for_new_subject
   - recipient_or_attachment_scope_unclear
+  - collected_attachments_not_reduced_to_selected_send_packet
+  - duplicate_or_superseded_attachment_version_unclear
+  - requester_or_external_stakeholder_attachment_forwarding_unclear
   - footer_template_missing_for_copy_ready_final_body
   - owner_approval_missing_for_external_send
   - raw_mail_body_or_attachment_or_secret_required

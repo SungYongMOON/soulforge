@@ -154,7 +154,7 @@
     "projects": [],
     "notes": [
       "Public fixtures never materialize _workspaces/<project_code>/.",
-      "Synthetic workspaces payloads describe the reserved workspace boundary mount only."
+      "Synthetic workspaces payloads describe the local-only mount policy with scanning disabled."
     ]
   },
   "overview": {

@@ -30,6 +30,7 @@ optional_inputs:
   - project_local_mail_subject_rule_ref
   - active_project_keyword_index_ref
   - attachment_metadata_refs
+  - attachment_selection_policy_ref
   - owner_provided_subject
   - owner_provided_body_facts
   - owner_decision_refs
@@ -39,6 +40,7 @@ outputs:
   - project_keyword_resolution
   - subject_candidate
   - owner_style_body_draft
+  - attachment_selection_basis
   - footer_application_state
   - pre_send_checklist
   - owner_approval_gate_result
@@ -96,6 +98,7 @@ outbound_mail_authoring_contract:
     - project_keyword_resolution
     - subject_candidate_generation
     - owner_style_body_draft_generation
+    - attachment_selection_gate
     - mandatory_footer_check
     - pre_send_checklist
     - owner_approval_gate
@@ -110,6 +113,7 @@ outbound_mail_authoring_contract:
     - raw_html_body_archive
     - msg_or_eml_export
     - attachment_payload_storage
+    - automatic_send_of_unselected_collected_attachments
     - secret_or_credential_inspection
     - project_keyword_canon_truth
     - footer_template_source_truth
@@ -170,7 +174,8 @@ outbound_mail_authoring_contract:
         - owner_approved_recipients
         - owner_approved_subject
         - owner_approved_body
-        - owner_approved_attachments_or_no_attachments
+        - owner_approved_selected_attachments_or_no_attachments
+        - duplicate_or_superseded_attachments_excluded_or_explicitly_approved
         - owner_approved_send_surface
         - footer_blocks_present_once
       forbidden:
