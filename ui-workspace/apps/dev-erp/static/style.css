@@ -112,6 +112,10 @@ nav button.active { background: var(--chip); font-weight: 600; color: var(--acce
 .filters { display: flex; gap: 8px; flex-wrap: wrap; align-items: center; }
 .filters select, .filters input { padding: 7px 9px; border-radius: 8px; border: 1px solid var(--line); background: var(--panel); color: var(--text); font-size: 13px; }
 .view-scope-lab { display: inline-flex; align-items: center; gap: 5px; font-size: 12.5px; color: var(--muted); }
+/* 위젯 내 클릭 가능한 할일/변경 행 — 클릭하면 인라인 빠른편집/이동 */
+.widget-body tr.wrow { cursor: pointer; }
+.widget-body tr.wrow:hover td { background: rgba(60,110,165,.10); }
+.qedit .qe-st { cursor: pointer; }
 /* 모달 표(관리자 계정·산출물 입력파일): 헤더 줄바꿈 방지 + 일관 패딩 */
 .admin-table th, .di-table th { white-space: nowrap; text-align: left; color: var(--muted); font-weight: 600; }
 .admin-table td, .admin-table th, .di-table td, .di-table th { padding: 4px 7px; border-bottom: 1px solid var(--line); font-size: 12.5px; vertical-align: top; }

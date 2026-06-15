@@ -833,6 +833,72 @@ function compactDash(layout) {
 function miniRow(cells) {
   return `<tr>${cells.map((c) => `<td>${c}</td>`).join("")}</tr>`;
 }
+// 위젯 할일 행 — 클릭하면 인라인 빠른편집(상태 변경/할일 이동). data-item 있으면 대시보드 click 위임이 처리.
+function itemMiniRow(i, tail = []) {
+  const cells = [`<td>${esc(i.title)}</td>`, `<td class="dim">${esc(i.project_id ?? "")}</td>`,
+    ...tail.map((c) => `<td class="dim num">${c}</td>`)];
+  return `<tr class="wrow" data-item="${esc(i.id)}" data-proj="${esc(i.project_id ?? "")}" data-title="${esc(i.title)}">${cells.join("")}</tr>`;
+}
+// 활동 이벤트 → 사람이 읽는 변경 설명(한국어). 변경 아닌 잡음(view/LLM/조회)은 호출부에서 제외.
+const EVENT_HIDE = new Set(["view", "llm_call", "chat_query", "recommender_run"]);
+function eventDesc(e, L) {
+  const st = (v) => (v ? (L["status_" + v] ?? v) : "");
+  switch (e.kind) {
+    case "item_status": return `할일 상태 ${st(e.from_val)} → ${st(e.to_val)}`;
+    case "item_create": return `할일 생성: ${e.to_val ?? ""}`;
+    case "item_assign": return `담당 지정 → ${e.to_val ?? "(해제)"}`;
+    case "item_confirm": return `할일 분류 확정${e.to_val ? ` (${e.to_val})` : ""}`;
+    case "item_promote": return `메일→할일 승격: ${e.to_val ?? ""}`;
+    case "deliverable_add": return `산출물 추가: ${e.to_val ?? ""}`;
+    case "deliverable_due": return "산출물 일정 변경";
+    case "deliverable_review": return "산출물 검토단계 변경";
+    case "deliverable_input": return "입력파일 등록";
+    case "input_upload": return "입력파일 업로드";
+    case "input_download": return "입력파일 다운로드";
+    case "mail_register": return `메일 등록: ${e.to_val ?? ""}`;
+    case "mail_assign": return "메일 과제 분류";
+    case "schedule_spawn": return "일정→할일 생성";
+    case "anchor_move": return `마일스톤 일정 이동 ${e.to_val ?? ""}`;
+    case "account_create": return `계정 생성: ${e.to_val ?? ""}`;
+    case "auth_bootstrap": return "첫 관리자 생성";
+    case "auth_login": return "로그인";
+    case "ingest": return "데이터 수집(ingest)";
+    case "proposal_approve": return "AI 제안 승인";
+    case "proposal_reject": return "AI 제안 반려";
+    default: return e.note || e.kind;
+  }
+}
+// 할일 인라인 빠른편집 — 상태 즉시 변경(거기서 바로 편집) + 할일 화면 이동.
+async function openItemQuickEdit(itemId, projectId, title) {
+  const L = state.lex;
+  const STATUSES = ["open", "doing", "waiting", "blocked", "done"];
+  document.querySelector(".ui-confirm-overlay")?.remove();
+  const ov = document.createElement("div");
+  ov.className = "ui-confirm-overlay";
+  ov.innerHTML = `<div class="ui-confirm qedit" role="dialog" aria-label="${esc(title ?? "")}" style="max-width:460px;text-align:left">
+    <p class="ui-confirm-msg">${esc(title ?? itemId)}</p>
+    <div class="qe-status" style="display:flex;gap:6px;flex-wrap:wrap;margin-bottom:8px">
+      ${STATUSES.map((s) => `<button class="fav-chip qe-st" data-st="${s}">${L["status_" + s] ?? s}</button>`).join("")}
+    </div>
+    <div class="qe-msg dim mini" style="min-height:1em"></div>
+    <div class="ui-confirm-btns">
+      <button class="ui-confirm-cancel">${L.btn_cancel}</button>
+      <button class="qe-goto fav-chip">${L.w_goto ?? "할일 화면으로"}</button>
+    </div>
+  </div>`;
+  document.body.appendChild(ov);
+  const close = () => ov.remove();
+  ov.addEventListener("click", (e) => { if (e.target === ov) close(); });
+  ov.querySelector(".ui-confirm-cancel").addEventListener("click", close);
+  ov.querySelectorAll(".qe-st").forEach((b) => b.addEventListener("click", async () => {
+    const r = await post("/api/items/status", { id: itemId, status: b.dataset.st });
+    if (r.ok) { close(); render(); }
+    else { const e = await r.json().catch(() => ({})); ov.querySelector(".qe-msg").textContent = e.error || "오류"; }
+  }));
+  ov.querySelector(".qe-goto").addEventListener("click", () => {
+    close(); state.projectFilter = projectId || ""; state.statusFilter = ""; state.view = "items"; render();
+  });
+}
 
 // 연락처 마스터 화면(mod:contacts). 거래처/과제 링크·필터. 메타 전용.
 // 매뉴얼/FAQ 관리(mod:knowledge). 챗봇 검색 소스 + 미응답 질문 큐(야간 갱신 대상). 메타 전용.
@@ -1378,17 +1444,17 @@ async function renderHome() {
       </tr></thead><tbody>${activeRows}</tbody></table>${inboxStrip}${internalBlock}` };
     if (id === "today") {
       const due = (await api("/api/items?due=soon")).slice(0, 8);
-      return { title: L.tile_today, html: due.length ? `<table><tbody>${due.map((i) => miniRow([esc(i.title), esc(i.project_id), i.due ?? "-"])).join("")}</tbody></table>` : `<div class="empty">${L.empty_items}</div>` };
+      return { title: L.tile_today, html: due.length ? `<table><tbody>${due.map((i) => itemMiniRow(i, [esc(i.due ?? "-")])).join("")}</tbody></table>` : `<div class="empty">${L.empty_items}</div>` };
     }
     if (id === "blocked") {
       const blocked = (await api("/api/items?status=blocked")).slice(0, 6);
-      return { title: L.tile_blocked, html: blocked.length ? `<table><tbody>${blocked.map((i) => miniRow([esc(i.title), esc(i.project_id), statusBadge(i.status)])).join("")}</tbody></table>` : `<div class="empty">${L.empty_items}</div>` };
+      return { title: L.tile_blocked, html: blocked.length ? `<table><tbody>${blocked.map((i) => itemMiniRow(i, [statusBadge(i.status)])).join("")}</tbody></table>` : `<div class="empty">${L.empty_items}</div>` };
     }
     if (id === "mine") {
       // 내 담당 할 일 — 로그인 계정 식별자(내 일 필터와 동일 경로). 익명이면 로그인 안내.
       if (!state.account) return { title: L.tile_mine, html: `<div class="empty">${L.mine_login ?? "로그인하면 내 담당 할 일이 보입니다"}</div>` };
       const mine = (await api("/api/items?mine=1")).filter((i) => i.status !== "done").slice(0, 8);
-      return { title: L.tile_mine, html: mine.length ? `<table><tbody>${mine.map((i) => miniRow([esc(i.title), esc(i.project_id), i.due ?? "-"])).join("")}</tbody></table>` : `<div class="empty">${L.empty_items}</div>` };
+      return { title: L.tile_mine, html: mine.length ? `<table><tbody>${mine.map((i) => itemMiniRow(i, [esc(i.due ?? "-")])).join("")}</tbody></table>` : `<div class="empty">${L.empty_items}</div>` };
     }
     if (id === "requests_w") {
       // 개발요청함 — 미승격 열린 요청(분류·요청자). api/requests 소비.
@@ -1411,7 +1477,7 @@ async function renderHome() {
       const rlabel = { overdue: L.overdue, blocked: L.blocked, due_today: L.today_due, open: L.open };
       const rcls = { overdue: "red", blocked: "red", due_today: "amber", open: "" };
       return { title: L.tile_nudges, html: ns.length
-        ? `<table><tbody>${ns.map((n) => `<tr class="nudge-row${n.reason === "overdue" || n.reason === "blocked" ? " flash" : ""}">
+        ? `<table><tbody>${ns.map((n) => `<tr class="wrow nudge-row${n.reason === "overdue" || n.reason === "blocked" ? " flash" : ""}" data-item="${esc(n.id)}" data-proj="${esc(n.project_id ?? "")}" data-title="${esc(n.title)}">
             <td><span class="badge ${rcls[n.reason]}">${rlabel[n.reason] ?? esc(n.reason)}</span></td>
             <td>${esc(n.title)}</td><td class="dim">${esc(n.project_id)}</td><td class="dim num">${esc(n.due ?? "-")}</td></tr>`).join("")}</tbody></table>`
         : `<div class="empty">${L.empty_items}</div>` };
@@ -1425,7 +1491,7 @@ async function renderHome() {
       const soon = items.filter((i) => i.due && i.due >= t && i.due <= wk && i.status !== "done");
       const later = items.filter((i) => i.due && i.due > wk && i.status !== "done");
       const sect = (lab, arr, cls) => arr.length
-        ? `<tr class="date-sep"><td colspan="3" class="${cls}">${lab} ${arr.length}</td></tr>` + arr.slice(0, 5).map((i) => miniRow([esc(i.title), esc(i.project_id), i.due])).join("")
+        ? `<tr class="date-sep"><td colspan="3" class="${cls}">${lab} ${arr.length}</td></tr>` + arr.slice(0, 5).map((i) => itemMiniRow(i, [esc(i.due)])).join("")
         : "";
       return { title: L.tile_deadline_cal, html: (over.length || soon.length || later.length)
         ? `<table><tbody>${sect(L.bucket_overdue, over, "due-over")}${sect(L.bucket_thisweek, soon, "")}${sect(L.bucket_later, later, "")}</tbody></table>`
@@ -1456,7 +1522,7 @@ async function renderHome() {
     if (id === "unassigned") {
       const open = await api("/api/items?status=open");
       const un = open.filter((i) => !i.assignee_ref).slice(0, 8);
-      return { title: L.tile_unassigned, html: un.length ? `<table><tbody>${un.map((i) => miniRow([esc(i.title), esc(i.project_id), i.due ?? "-"])).join("")}</tbody></table>` : `<div class="empty">${L.empty_items}</div>` };
+      return { title: L.tile_unassigned, html: un.length ? `<table><tbody>${un.map((i) => itemMiniRow(i, [esc(i.due ?? "-")])).join("")}</tbody></table>` : `<div class="empty">${L.empty_items}</div>` };
     }
     if (id === "artifacts") {
       const arts = (await api("/api/artifacts")).slice(0, 6);
@@ -1532,8 +1598,15 @@ async function renderHome() {
         ? `<table><tbody>${mails.map((m) => miniRow([localTime(m.at), esc(m.subject)])).join("")}</tbody></table>`
         : `<div class="empty">${L.empty_mail}</div>` };
     }
-    const events = await api("/api/events/recent");
-    return { title: L.tile_events, html: events.length ? `<table><tbody>${events.slice(0, 6).map((e) => miniRow([localTime(e.at), esc(e.actor_ref), esc(e.kind)])).join("")}</tbody></table>` : `<div class="empty">-</div>` };
+    // 최근 변경 = 사람이 읽는 변경 이력. 조회/잡음(view 등) 제외, kind 를 한국어 설명으로. 할일 변경은 클릭→빠른편집.
+    const events = (await api("/api/events/recent?limit=40")).filter((e) => !EVENT_HIDE.has(e.kind)).slice(0, 10);
+    return { title: L.tile_events, html: events.length
+      ? `<table class="evt-table"><tbody>${events.map((e) => {
+          const clickable = e.kind.startsWith("item") && e.item_ref;
+          return `<tr class="${clickable ? "wrow" : ""}"${clickable ? ` data-item="${esc(e.item_ref)}" data-proj="${esc(e.project_ref ?? "")}" data-title="${esc(eventDesc(e, L))}"` : ""}>
+            <td class="dim num">${localTime(e.at)}</td><td>${esc(eventDesc(e, L))}</td><td class="dim">${esc(e.actor_ref)}</td></tr>`;
+        }).join("")}</tbody></table>`
+      : `<div class="empty">${L.evt_empty ?? "최근 변경 없음"}</div>` };
   }
 
   // 위젯 카드 — 절대좌표(% 가로 + px 세로). 본문 고정 높이 → 내부 스크롤.
@@ -1593,6 +1666,11 @@ async function renderHome() {
     <div class="dashboard" style="height:${maxBottom}px;">${cards.join("")}</div>`;
 
   const grid = $("#view").querySelector(".dashboard");
+  // 위젯 내 할일 행 클릭 → 인라인 빠른편집(상태 변경/이동). 위임이라 위젯 새로고침 후에도 동작.
+  grid.addEventListener("click", (e) => {
+    const tr = e.target.closest("tr.wrow[data-item]");
+    if (tr && grid.contains(tr)) openItemQuickEdit(tr.dataset.item, tr.dataset.proj, tr.dataset.title);
+  });
   const colW = () => grid.getBoundingClientRect().width / DASH_GCOLS;
   // 드래그/리사이즈 도중 실시간으로 다른 위젯을 격자 위치로 재배치(겹치면 밀려나고, 줄이면 되돌아옴)
   const applyLiveLayout = (resolved, anchorId) => {
