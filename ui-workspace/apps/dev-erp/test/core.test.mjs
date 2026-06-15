@@ -899,6 +899,24 @@ test("TASK-LEDGER-HARDEN: 멱등 보존·due override·SE격리·출처enum·절
   assert.equal(store.db.prepare("SELECT origin_mail_id FROM core_item WHERE id='k11'").get().origin_mail_id, "mail_manual_001");
 });
 
+test("THROUGHPUT: 최근 N일 완료(→done) 일별 집계(done만·다른kind 제외·과제필터)", () => {
+  const store = freshStore();
+  const today = new Date().toISOString().slice(0, 10);
+  store.appendEvent({ kind: "item_status", to: "done", project_ref: "P1", data_label: "real", at: today + "T10:00:00Z" });
+  store.appendEvent({ kind: "item_status", to: "done", project_ref: "P1", data_label: "real", at: today + "T11:00:00Z" });
+  store.appendEvent({ kind: "item_status", to: "doing", project_ref: "P1", data_label: "real", at: today + "T12:00:00Z" }); // done 아님
+  store.appendEvent({ kind: "item_promote", to: "done", project_ref: "P1", data_label: "real", at: today + "T13:00:00Z" }); // 다른 kind
+  const t = store.throughput({ days: 7 });
+  assert.equal(t.daily.length, 7);
+  assert.equal(t.daily[t.daily.length - 1].d, today);
+  assert.equal(t.daily[t.daily.length - 1].n, 2, "오늘 완료 2건(done·item_status만)");
+  assert.equal(t.total, 2);
+  assert.equal(t.max, 2);
+  store.appendEvent({ kind: "item_status", to: "done", project_ref: "P2", data_label: "real", at: today + "T10:00:00Z" });
+  assert.equal(store.throughput({ days: 7, project: "P1" }).total, 2, "과제필터 P1");
+  assert.equal(store.throughput({ days: 7 }).total, 3, "전체");
+});
+
 test("MINE: 내 일 필터 — assignee_any(로그인명/사람이름) 매칭 + accountIdentities", () => {
   const store = freshStore();
   store.upsertProject({ id: "PRJ-A", title: "A", data_label: "real" });

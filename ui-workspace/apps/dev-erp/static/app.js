@@ -541,7 +541,7 @@ const WIDGET_PLAN = [
   { id: "unassigned", cat: "group_team", ready: true },
   { id: "contacts", cat: "group_team", ready: true },
   { id: "teamload", cat: "group_team", ready: true },
-  { id: "throughput", cat: "group_team" },
+  { id: "throughput", cat: "group_team", ready: true },
   { id: "requests_w", cat: "group_team", ready: true },
   { id: "analytics_w", cat: "group_team" },
   { id: "proposals", cat: "group_team", ready: true }
@@ -1170,6 +1170,16 @@ async function renderHome() {
       // 개발요청함 — 미승격 열린 요청(분류·요청자). api/requests 소비.
       const reqs = (await api("/api/requests")).filter((r) => r.status !== "done" && !r.promoted_item_id).slice(0, 8);
       return { title: L.tile_requests_w, html: reqs.length ? `<table><tbody>${reqs.map((r) => miniRow([esc(r.title), esc(r.category ?? "-"), esc(r.requester ?? "-")])).join("")}</tbody></table>` : `<div class="empty">${L.req_empty ?? "등록된 요청 없음"}</div>` };
+    }
+    if (id === "throughput") {
+      // 처리량 추세 — 최근 14일 완료(→done) 일별. 유니코드 스파크라인(zero-dep). 팀 합계(개인 점수 미산출).
+      const t = await api("/api/throughput?days=14");
+      const blocks = " ▁▂▃▄▅▆▇█";
+      const spark = (t.daily || []).map((x) => blocks[t.max ? Math.round((x.n / t.max) * 8) : 0]).join("");
+      return { title: L.tile_throughput ?? "완료 추세", html: t.total
+        ? `<div class="thr-spark" title="${(t.daily || []).map((x) => `${x.d}:${x.n}`).join("  ")}">${spark}</div>
+           <div class="dim mini">${L.thr_recent ?? "최근 14일"} ${t.total}${L.thr_done ?? "건 완료"} · ${L.thr_peak ?? "최고"} ${t.max}/${L.thr_day ?? "일"}</div>`
+        : `<div class="empty">${L.thr_none ?? "최근 완료 없음"}</div>` };
     }
     if (id === "nudges") {
       // P-6 콕핏 알림 — '먼저 해야 할 일' 우선순위(연체>차단>오늘>미완). 연체/차단은 번쩍임.

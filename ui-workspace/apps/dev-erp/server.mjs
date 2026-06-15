@@ -105,6 +105,7 @@ const server = createServer(async (req, res) => {
       });
       return send(res, 200, result);
     }
+    if (path === "/api/throughput") return send(res, 200, store.throughput({ days: Number(qp.days) || 14, project: qp.project }));
     if (path === "/api/items/status" && req.method === "POST") {
       let body = ""; for await (const chunk of req) body += chunk;
       const { id, status, bottleneck_reason } = JSON.parse(body || "{}");

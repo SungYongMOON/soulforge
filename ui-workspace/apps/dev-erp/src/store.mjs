@@ -919,6 +919,27 @@ export class Store {
       .all(...args, Math.max(1, Number(limit) || 500));
   }
 
+  // 처리량 추세(P-7 후속): 최근 N일 '완료(→done)' 이벤트 수를 일별 집계. 개인 점수 미산출(팀 합계만).
+  // event_log kind='item_status' AND to_val='done' 카운트. (재완료도 1건으로 — 완료 전이 기준)
+  throughput({ days = 14, project } = {}) {
+    const since = new Date(Date.now() - (days - 1) * 86400000).toISOString().slice(0, 10);
+    const cond = ["kind='item_status'", "to_val='done'", "substr(at,1,10) >= ?"];
+    const args = [since];
+    if (project) { cond.push("project_ref=?"); args.push(project); }
+    const rows = this.db.prepare(
+      `SELECT substr(at,1,10) AS d, COUNT(*) AS n FROM event_log WHERE ${cond.join(" AND ")} GROUP BY d`
+    ).all(...args);
+    const byDay = new Map(rows.map((r) => [r.d, r.n]));
+    const daily = [];
+    for (let i = days - 1; i >= 0; i--) {
+      const d = new Date(Date.now() - i * 86400000).toISOString().slice(0, 10);
+      daily.push({ d, n: byDay.get(d) ?? 0 });
+    }
+    const total = daily.reduce((s, x) => s + x.n, 0);
+    const max = daily.reduce((m, x) => Math.max(m, x.n), 0);
+    return { days, daily, total, max };
+  }
+
   // '내 일' 매칭 식별자: 로그인명 + 연결된 사람 이름. assignee_ref(자유 텍스트)가 둘 중 하나면 내 일.
   accountIdentities(account) {
     if (!account) return [];
