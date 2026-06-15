@@ -242,6 +242,12 @@ async function openDeliverableInputs(deliverableId, name) {
       <button id="diAdd" class="fav-chip">${L.di_register ?? "등록"}</button>
       <span id="diMsg" class="dim mini"></span>
     </div>
+    <div class="di-upload filters" style="gap:6px;align-items:center;margin-bottom:8px">
+      <input type="file" id="diUpload" />
+      <button id="diUploadBtn" class="fav-chip">${L.di_upload ?? "파일 업로드"}</button>
+      <span class="dim mini">${L.di_upload_hint ?? "선택한 하위폴더의 01_In 에 올립니다"}</span>
+      <span id="diUpMsg" class="dim mini"></span>
+    </div>
     <div id="diList"></div>
     <div class="ui-confirm-btns"><button class="ui-confirm-cancel">${L.btn_cancel ?? "닫기"}</button></div>
   </div>`;
@@ -268,7 +274,7 @@ async function openDeliverableInputs(deliverableId, name) {
           <td class="dim">${esc(x.subfolder ?? "-")}</td><td>${esc(x.file_name ?? "-")}</td>
           <td class="dim">${esc(x.source)}</td>
           <td><button class="fav-chip mini di-stat" data-id="${esc(x.id)}" data-to="${next}">${L["di_st_" + x.status] ?? x.status}</button></td>
-          <td class="pointer">${x.pointer ? `<span class="ptr-text">${esc(x.pointer)}</span><button class="copy-btn mini" data-c="${esc(x.pointer)}">${L.copy}</button>` : "-"}</td>
+          <td class="pointer">${x.pointer ? `<span class="ptr-text">${esc(x.pointer)}</span><button class="copy-btn mini" data-c="${esc(x.pointer)}">${L.copy}</button> <a class="fav-chip mini" href="/api/deliverables/inputs/file?id=${encodeURIComponent(x.id)}" download>${L.di_download ?? "다운로드"}</a>` : "-"}</td>
         </tr>`; }).join("")}</tbody></table>`;
     ov.querySelectorAll(".di-stat").forEach((b) => b.addEventListener("click", async () => {
       await post("/api/deliverables/inputs/status", { id: b.dataset.id, status: b.dataset.to }); renderList();
@@ -284,6 +290,23 @@ async function openDeliverableInputs(deliverableId, name) {
     const r = await post("/api/deliverables/inputs", body).then((x) => x.json()).catch(() => null);
     if (r && r.ok) { ["#diFile", "#diPtr"].forEach((s) => (ov.querySelector(s).value = "")); msg.textContent = L.di_added ?? "등록됨"; renderList(); }
     else { msg.textContent = (r && r.error === "pointer_must_be_relative") ? (L.di_abs ?? "상대경로만 가능") : (r?.error ?? "오류"); }
+  });
+  // 파일 업로드: 선택 파일을 01_In/<하위폴더> 에 올리고 장부 등록(서버 path-safety·기본 OFF).
+  ov.querySelector("#diUploadBtn").addEventListener("click", async () => {
+    const f = ov.querySelector("#diUpload").files?.[0];
+    const msg = ov.querySelector("#diUpMsg");
+    if (!f) { msg.textContent = L.di_pick ?? "파일을 선택하세요"; return; }
+    const sub = ov.querySelector("#diSub").value.trim();
+    const url = `/api/deliverables/inputs/upload?deliverable=${encodeURIComponent(deliverableId)}&subfolder=${encodeURIComponent(sub)}&filename=${encodeURIComponent(f.name)}`;
+    msg.textContent = L.di_uploading ?? "업로드 중…";
+    const r = await fetch(url, { method: "POST", body: f }).then((x) => x.json()).catch(() => null);
+    if (r && r.ok) { ov.querySelector("#diUpload").value = ""; msg.textContent = L.di_added ?? "등록됨"; renderList(); }
+    else {
+      const e = r?.error || "오류";
+      msg.textContent = e === "fileio_disabled" ? (L.di_fileio_off ?? "파일 IO 비활성")
+        : e === "in_pointer_unset" ? (L.di_no_folder ?? "산출물 폴더 경로 미설정")
+        : e === "too_large" ? (L.di_too_large ?? "용량 초과") : e;
+    }
   });
   await loadSubs();
   renderList();
