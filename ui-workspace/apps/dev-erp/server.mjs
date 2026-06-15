@@ -15,6 +15,7 @@ import { guideTemplates, docRecipes } from "./src/guide.mjs";
 import { modulesFor } from "./src/modules.mjs";
 import { crossSearch } from "./src/search.mjs";
 import { buildMetaContext, runLlm, answerFromManual } from "./src/llm.mjs";
+import { startAutosyncPoll } from "./src/autosync.mjs";
 
 const HERE = dirname(fileURLToPath(import.meta.url));
 const args = process.argv.slice(2);
@@ -626,5 +627,12 @@ server.listen(PORT, HOST, () => {
   console.log(`[dev-erp] http://${HOST}:${PORT} (db: ${DB_PATH})`);
   if (HOST !== "127.0.0.1") {
     console.log("[dev-erp] 주의: 같은 네트워크에 열려 있음 - 합성 데이터 파일럿 용도로만");
+  }
+  // autosync Phase 2: 할일_장부 → ERP 자동 import 폴링(결정적·LLM 무관). 동기 버튼 불필요.
+  // 기본 OFF(테스트·:memory: 무영향). 켜기: 환경변수 DEV_ERP_AUTOSYNC=1 또는 --autosync. 간격 DEV_ERP_AUTOSYNC_MS(기본 10s).
+  if (process.env.DEV_ERP_AUTOSYNC === "1" || args.includes("--autosync")) {
+    const root = resolve(HERE, "..", "..", "..");
+    startAutosyncPoll(store, { root, intervalMs: Number(process.env.DEV_ERP_AUTOSYNC_MS) || 10000, log: console.log });
+    console.log(`[dev-erp] autosync 할일_장부 자동 import ON (root: ${root}, ${Number(process.env.DEV_ERP_AUTOSYNC_MS) || 10000}ms)`);
   }
 });

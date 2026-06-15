@@ -1,7 +1,11 @@
 import assert from "node:assert/strict";
 import test from "node:test";
+import { mkdtempSync, mkdirSync, writeFileSync, rmSync } from "node:fs";
+import { tmpdir } from "node:os";
+import { join } from "node:path";
 
 import { openStore, deriveStartYear } from "../src/store.mjs";
+import { importNewTaskLedgers } from "../src/autosync.mjs";
 import { loadFixture } from "../src/fixture.mjs";
 import { ingestNormalized, mapSoulforgeSnapshot } from "../src/adapter.mjs";
 import { getLexicon, LEXICON } from "../src/lexicon.mjs";
@@ -751,6 +755,31 @@ test("TASK-LEDGER: 할일_장부 행 → core_item ingest(과제필수·enum검�
   assert.equal(again.isNew, false);
   const u = store.db.prepare("SELECT title,status FROM core_item WHERE id='itm_t1'").get();
   assert.equal(u.title, "회로도 검토(수정)"); assert.equal(u.status, "done");
+});
+
+test("AUTOSYNC: 할일_장부 → ERP 자동 import(신규만, 사람 편집 보호)", () => {
+  const store = freshStore();
+  store.upsertProject({ id: "P26-014", title: "K", data_label: "real" });
+  const root = mkdtempSync(join(tmpdir(), "autosync-"));
+  const dir = join(root, "_workmeta", "P26-014", "reports", "할일_장부");
+  mkdirSync(dir, { recursive: true });
+  const csv = "﻿할일키,스키마버전,기록일,프로젝트코드,할일명,담당자,업무유형,상태,마감일,SE단계,연결유형,연결대상,완료기준,출처,관련메일이력키,관련메일소스ID,산출물참조,관련몬스터ID,다음액션,비고,원문복사여부\n"
+    + "mailtask:hA,v0,,P26-014,설계 회신,kim,review,unclassified,,030_SRR,,,의견 회신,mail,mailcsv:hA,,,,,,아니오\n";
+  writeFileSync(join(dir, "할일_장부.csv"), csv);
+  // 1차: 신규 import
+  let r = importNewTaskLedgers(store, { root });
+  assert.equal(r.imported, 1);
+  const it = store.db.prepare("SELECT * FROM core_item WHERE id='mailtask:hA'").get();
+  assert.equal(it.title, "설계 회신");
+  assert.equal(it.status, "unclassified");
+  assert.equal(it.anchor_stage_code, "030_SRR");
+  assert.equal(it.origin, "mail");
+  // 사람이 ERP에서 분류(→open) 후 장부 재import → 신규 아님이라 안 덮음(사람 편집 보존)
+  store.db.prepare("UPDATE core_item SET status='open' WHERE id='mailtask:hA'").run();
+  r = importNewTaskLedgers(store, { root });
+  assert.equal(r.imported, 0, "기존 행은 auto-import 가 안 건드림");
+  assert.equal(store.db.prepare("SELECT status FROM core_item WHERE id='mailtask:hA'").get().status, "open", "사람 분류 보존");
+  rmSync(root, { recursive: true, force: true });
 });
 
 test("MAIL-STAGE: 메일→할일 SE단계=프로젝트 현재상태(메일 추론 금지) + 없으면 미분류", () => {
