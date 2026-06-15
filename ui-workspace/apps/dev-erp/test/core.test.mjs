@@ -752,6 +752,41 @@ test("DELIV-ADD: owner 산출물 추가(중간번호) + 검증·중복 거부", 
   assert.equal(store.coreDeliverables({ project: "P26-014" }).length, 2, "유효 2건만 등록");
 });
 
+// DELIV-INPUT: 산출물 입력파일 장부(포인터·메타 전용) — 종류별 하위폴더·등록·상태·절대경로 거부.
+test("DELIV-INPUT: 입력파일 등록·조회·상태 + 절대경로 거부 + 종류별 하위폴더", () => {
+  const store = freshStore();
+  store.upsertProject({ id: "P26-014", title: "KVDS", data_label: "real" });
+  const add = store.addDeliverable({ project_id: "P26-014", stage_code: "120_CDR", deliverable_no: "31", name: "회로도 초안" });
+  const did = add.id;
+  // 종류별 In 하위폴더 매핑(설계 §3) + 기본 폴백
+  assert.deepEqual(store.inputSubfoldersFor("schematic"), ["참고규격", "이전버전", "부품정보"]);
+  assert.deepEqual(store.inputSubfoldersFor("nope"), ["참고자료"], "미정 종류는 기본 폴백");
+  // 등록(상대 포인터·출처 erp)
+  const r = store.registerDeliverableInput({ deliverable_id: did, subfolder: "참고규격",
+    file_name: "규격서.pdf", pointer: "_workspaces/P26-014/120_CDR/회로도초안_D/01_In/참고규격/규격서.pdf",
+    source: "erp", sha256: "abc123", size: 2048, status: "received" });
+  assert.ok(r.ok, "등록 ok");
+  assert.equal(r.id, `${did}:abc123`);
+  // 절대경로 거부
+  assert.equal(store.registerDeliverableInput({ deliverable_id: did, pointer: "/Volumes/x/a.pdf" }).error, "pointer_must_be_relative");
+  assert.equal(store.registerDeliverableInput({ deliverable_id: did, pointer: "C:\\x\\a.pdf" }).error, "pointer_must_be_relative");
+  // 없는 산출물 / 누락
+  assert.equal(store.registerDeliverableInput({ deliverable_id: "nope", file_name: "x" }).error, "deliverable_not_found");
+  assert.equal(store.registerDeliverableInput({ file_name: "x" }).error, "deliverable_required");
+  // 출처 mail(메일 라우팅) + needed 상태
+  store.registerDeliverableInput({ deliverable_id: did, subfolder: "부품정보", file_name: "BOM참고.xlsx",
+    pointer: "_workspaces/P26-014/120_CDR/회로도초안_D/01_In/부품정보/BOM참고.xlsx", source: "mail", mail_ref: "mailcsv:k1", status: "needed" });
+  const list = store.deliverableInputs({ deliverable_id: did });
+  assert.equal(list.length, 2, "입력 2건");
+  assert.ok(list.some((x) => x.source === "mail" && x.mail_ref === "mailcsv:k1"));
+  // 상태 전이 received→used
+  const st = store.setDeliverableInputStatus(`${did}:abc123`, "used");
+  assert.ok(st.ok);
+  assert.equal(store.deliverableInputs({ deliverable_id: did }).find((x) => x.id === `${did}:abc123`).status, "used");
+  assert.equal(store.setDeliverableInputStatus(`${did}:abc123`, "weird").error, "bad_status");
+  assert.equal(store.setDeliverableInputStatus("nope", "used").error, "input_not_found");
+});
+
 test("TASK-LEDGER: 할일_장부 행 → core_item ingest(과제필수·enum검증·stub·멱등 왕복)", () => {
   const store = freshStore();
   store.upsertProject({ id: "P26-014", title: "KVDS", data_label: "real" });

@@ -673,6 +673,21 @@ const server = createServer(async (req, res) => {
       store.appendEvent({ actor_ref: "owner", actor_kind: "human", kind: "deliverable_add", to: input.name, project_ref: input.project_id, used_refs: ["deliverables"], data_label: "real" });
       return send(res, 200, r);
     }
+    // 산출물 입력파일(메타·포인터 전용). 종류별 In 하위폴더 제안 + 등록/조회/상태.
+    if (path === "/api/deliverables/input-subfolders") return send(res, 200, { subfolders: store.inputSubfoldersFor(qp.type) });
+    if (path === "/api/deliverables/inputs" && req.method === "GET")
+      return send(res, 200, store.deliverableInputs({ deliverable_id: qp.deliverable, project: qp.project }));
+    if (path === "/api/deliverables/inputs" && req.method === "POST") {
+      const r = store.registerDeliverableInput(await readJson(req));
+      if (r.error) return send(res, 400, r);
+      store.appendEvent({ actor_ref: "owner", actor_kind: "human", kind: "deliverable_input", to: r.id, used_refs: ["deliverables", "input"], data_label: "real" });
+      return send(res, 200, r);
+    }
+    if (path === "/api/deliverables/inputs/status" && req.method === "POST") {
+      const { id, status } = await readJson(req);
+      const r = store.setDeliverableInputStatus(id, status);
+      return send(res, r.error ? 400 : 200, r);
+    }
     // 일정(due) owner 직접 지정 — '언제'는 RAG/스캔에 없어 사람이 변경한다(나중에 Codex 자동 분석 예정).
     if (path === "/api/deliverables/due" && req.method === "POST") {
       let body = ""; for await (const chunk of req) body += chunk;
