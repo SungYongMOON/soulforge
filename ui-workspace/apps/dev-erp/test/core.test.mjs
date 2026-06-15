@@ -721,6 +721,28 @@ test("DELIV-DUE: 산출물 일정(due) owner 직접 지정 + 재-ingest 보존 (
   assert.equal(store.coreDeliverables({ project: "P26-014" })[0].due, null);
 });
 
+test("MINE: 내 일 필터 — assignee_any(로그인명/사람이름) 매칭 + accountIdentities", () => {
+  const store = freshStore();
+  store.upsertProject({ id: "PRJ-A", title: "A", data_label: "real" });
+  store.upsertPerson({ id: "p-kim", name: "김철수" });
+  store.createItem({ project_id: "PRJ-A", title: "내것(로그인명)", assignee_ref: "kim" });
+  store.createItem({ project_id: "PRJ-A", title: "내것(이름)", assignee_ref: "김철수" });
+  store.createItem({ project_id: "PRJ-A", title: "남의것", assignee_ref: "박영희" });
+  store.createItem({ project_id: "PRJ-A", title: "무담당" });
+  // 두 식별자 중 하나라도 매칭 → 내 일 2건
+  const mine = store.items({ assignee_any: ["kim", "김철수"] });
+  assert.equal(mine.length, 2);
+  assert.ok(mine.every((i) => ["kim", "김철수"].includes(i.assignee_ref)));
+  // 빈 식별자(익명) → 빈 결과(전체 노출 아님)
+  assert.equal(store.items({ assignee_any: [] }).length, 0);
+  // 필터 없음(전체) → 4건
+  assert.equal(store.items({}).length, 4);
+  // accountIdentities: 로그인명 + 연결된 사람 이름
+  assert.deepEqual(store.accountIdentities({ username: "kim", person_id: "p-kim" }), ["kim", "김철수"]);
+  assert.deepEqual(store.accountIdentities(null), []);
+  assert.deepEqual(store.accountIdentities({ username: "solo" }), ["solo"]);
+});
+
 test("DELIV-REVIEW: 완료게이트 본인→팀→리드 진행 + 파일없으면 차단 + 재-ingest 보존", () => {
   const store = freshStore();
   store.upsertProject({ id: "P26-014", title: "P26-014", data_label: "real" });

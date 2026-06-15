@@ -152,7 +152,11 @@ const server = createServer(async (req, res) => {
       });
       return send(res, 200, result);
     }
-    if (path === "/api/items") return send(res, 200, store.items({ project: qp.project, status: qp.status, q: qp.q, due_before: qp.due === "soon" ? todayKey() : undefined }));
+    if (path === "/api/items") {
+      // mine=1 → 내 일만(로그인 계정의 식별자=로그인명/사람이름 과 assignee_ref 일치). 익명이면 빈 결과.
+      const assignee_any = qp.mine === "1" ? store.accountIdentities(currentAccount(req)) : undefined;
+      return send(res, 200, store.items({ project: qp.project, status: qp.status, q: qp.q, due_before: qp.due === "soon" ? todayKey() : undefined, assignee_any }));
+    }
     if (path === "/api/mail" && req.method === "POST") {
       let body = ""; for await (const chunk of req) body += chunk;
       const input = JSON.parse(body || "{}");

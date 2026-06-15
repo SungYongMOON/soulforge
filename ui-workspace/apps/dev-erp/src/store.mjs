@@ -829,13 +829,19 @@ export class Store {
     });
   }
 
-  items({ project, status, q, due_before, include_unclassified = false } = {}) {
+  items({ project, status, q, due_before, include_unclassified = false, assignee_any } = {}) {
     const cond = [];
     const args = [];
     if (project) { cond.push("i.project_id=?"); args.push(project); }
     if (status) { cond.push("i.status=?"); args.push(status); }
     else if (!include_unclassified) { cond.push("i.status != 'unclassified'"); } // 미분류는 기본 격리(분류 필요 화면만 명시 조회)
     if (due_before) { cond.push("i.due IS NOT NULL AND i.due<=? AND i.status NOT IN ('done','unclassified')"); args.push(due_before); }
+    // 내 일 필터: assignee_ref 가 내 식별자(로그인명 또는 사람 이름) 중 하나와 일치. 빈 배열이면 '아무도 매칭 안 됨'(빈 결과).
+    if (Array.isArray(assignee_any)) {
+      const ids = assignee_any.filter((x) => x != null && String(x).trim() !== "");
+      if (ids.length) { cond.push(`i.assignee_ref IN (${ids.map(() => "?").join(",")})`); args.push(...ids); }
+      else cond.push("1=0");
+    }
     if (q) { cond.push("i.title LIKE ?"); args.push(`%${q}%`); }
     const where = cond.length ? `WHERE ${cond.join(" AND ")}` : "";
     return this.db
@@ -845,6 +851,18 @@ export class Store {
          ${where} ORDER BY (i.due IS NULL), i.due, i.id LIMIT 500`
       )
       .all(...args);
+  }
+
+  // '내 일' 매칭 식별자: 로그인명 + 연결된 사람 이름. assignee_ref(자유 텍스트)가 둘 중 하나면 내 일.
+  accountIdentities(account) {
+    if (!account) return [];
+    const ids = [];
+    if (account.username) ids.push(account.username);
+    if (account.person_id) {
+      const p = this.db.prepare("SELECT name FROM core_person WHERE id=?").get(account.person_id);
+      if (p?.name) ids.push(p.name);
+    }
+    return [...new Set(ids)];
   }
 
   // --- P2a 할일 쓰기 (run16): 생성/상태/담당/메일 승격 — 모든 변경은 server 가 event_log 에 기록 ---

@@ -11,6 +11,7 @@ const state = {
   pins: JSON.parse(localStorage.getItem("dev_erp_pins") || "[]"),
   // P2b: 계정/권한. 익명(account=null)이면 앱은 현행대로(전체 접근·localStorage).
   account: null, perms: [], accountCount: 0,
+  mineOnly: localStorage.getItem("dev_erp_mine") !== "0", // 내 할 일: 기본 '내 일만'(로그인 시). 익명이면 무시.
   chatLog: [],
   chatThread: null,
   poProject: "",
@@ -1607,14 +1608,19 @@ async function renderItems() {
   const summary = await api("/api/summary");
   const projects = summary.projects;
   state._projCache = projects;
+  // 내 일 필터: 로그인 시에만 의미. '분류 필요'(미분류 인입함)는 팀 공용이라 mine 적용 안 함.
+  const mine = state.mineOnly && !!state.account;
+  const applyMine = mine && state.statusFilter !== "unclassified";
   const q = new URLSearchParams();
   if (state.projectFilter) q.set("project", state.projectFilter);
   if (state.statusFilter) q.set("status", state.statusFilter);
+  if (applyMine) q.set("mine", "1");
   const items = await api(`/api/items?${q}`);
-  // 칩 count 는 상태 무관 전체(과제 필터만)에서 계산 — 필터 걸려도 정확
+  // 칩 count 는 상태 무관(과제+내일 스코프)에서 계산 — 필터 걸려도 정확
   const baseQ = new URLSearchParams();
   if (state.projectFilter) baseQ.set("project", state.projectFilter);
-  const allItems = state.statusFilter ? await api(`/api/items?${baseQ}`) : items;
+  if (mine) baseQ.set("mine", "1");
+  const allItems = (state.statusFilter || mine) ? await api(`/api/items?${baseQ}`) : items;
   const opts = projects.map((p) => `<option value="${p.id}" ${state.projectFilter === p.id ? "selected" : ""}>${p.title}</option>`).join("");
   const L = state.lex;
   // ECount식 상태 필터칩 (전체 + 각 상태). count 표시.
@@ -1659,6 +1665,7 @@ async function renderItems() {
   $("#view").innerHTML = `
     <div class="filters">
       <select id="fProject"><option value="">${L.project}: ${L.all_label}</option>${opts}</select>
+      ${state.account ? `<button id="mineToggle" class="fav-chip ${mine ? "on" : ""}" title="${L.mine_hint ?? ""}">${mine ? L.mine_only : L.mine_all}</button>` : ""}
     </div>
     <div class="status-chips">${chipsHtml}</div>
     ${triageNote}
@@ -1671,6 +1678,11 @@ async function renderItems() {
     </div>`}
     ${isTriage ? triageBody : (rows ? `<table><thead><tr><th>${L.item}</th><th>${L.project}</th><th>${L.th_status}</th><th>${L.th_due}</th><th>${L.th_assignee}</th><th>${L.tab_guide}</th><th>${L.th_actions}</th></tr></thead><tbody>${rows}</tbody></table>` : `<div class="empty">${L.empty_items}</div>`)}`;
   $("#fProject").addEventListener("change", (e) => { state.projectFilter = e.target.value; render(); });
+  $("#mineToggle")?.addEventListener("click", () => {
+    state.mineOnly = !state.mineOnly;
+    localStorage.setItem("dev_erp_mine", state.mineOnly ? "1" : "0");
+    render();
+  });
   $("#niAdd")?.addEventListener("click", async () => {
     const title = $("#niTitle").value.trim();
     const pid = $("#niProject").value;
