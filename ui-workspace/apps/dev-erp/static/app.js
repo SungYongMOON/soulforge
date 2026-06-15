@@ -520,7 +520,7 @@ const WIDGET_PLAN = [
   { id: "nudges", cat: "group_task", ready: true },
   { id: "today", cat: "group_task", ready: true },
   { id: "blocked", cat: "group_task", ready: true },
-  { id: "mine", cat: "group_task" },
+  { id: "mine", cat: "group_task", ready: true },
   { id: "deadline_cal", cat: "group_task", ready: true },
   { id: "artifacts", cat: "group_doc", ready: true },
   { id: "reports_w", cat: "group_doc", ready: true },
@@ -542,7 +542,7 @@ const WIDGET_PLAN = [
   { id: "contacts", cat: "group_team", ready: true },
   { id: "teamload", cat: "group_team", ready: true },
   { id: "throughput", cat: "group_team" },
-  { id: "requests_w", cat: "group_team" },
+  { id: "requests_w", cat: "group_team", ready: true },
   { id: "analytics_w", cat: "group_team" },
   { id: "proposals", cat: "group_team", ready: true }
 ];
@@ -1159,6 +1159,17 @@ async function renderHome() {
     if (id === "blocked") {
       const blocked = (await api("/api/items?status=blocked")).slice(0, 6);
       return { title: L.tile_blocked, html: blocked.length ? `<table><tbody>${blocked.map((i) => miniRow([esc(i.title), esc(i.project_id), statusBadge(i.status)])).join("")}</tbody></table>` : `<div class="empty">${L.empty_items}</div>` };
+    }
+    if (id === "mine") {
+      // 내 담당 할 일 — 로그인 계정 식별자(내 일 필터와 동일 경로). 익명이면 로그인 안내.
+      if (!state.account) return { title: L.tile_mine, html: `<div class="empty">${L.mine_login ?? "로그인하면 내 담당 할 일이 보입니다"}</div>` };
+      const mine = (await api("/api/items?mine=1")).filter((i) => i.status !== "done").slice(0, 8);
+      return { title: L.tile_mine, html: mine.length ? `<table><tbody>${mine.map((i) => miniRow([esc(i.title), esc(i.project_id), i.due ?? "-"])).join("")}</tbody></table>` : `<div class="empty">${L.empty_items}</div>` };
+    }
+    if (id === "requests_w") {
+      // 개발요청함 — 미승격 열린 요청(분류·요청자). api/requests 소비.
+      const reqs = (await api("/api/requests")).filter((r) => r.status !== "done" && !r.promoted_item_id).slice(0, 8);
+      return { title: L.tile_requests_w, html: reqs.length ? `<table><tbody>${reqs.map((r) => miniRow([esc(r.title), esc(r.category ?? "-"), esc(r.requester ?? "-")])).join("")}</tbody></table>` : `<div class="empty">${L.req_empty ?? "등록된 요청 없음"}</div>` };
     }
     if (id === "nudges") {
       // P-6 콕핏 알림 — '먼저 해야 할 일' 우선순위(연체>차단>오늘>미완). 연체/차단은 번쩍임.
