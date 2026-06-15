@@ -1,0 +1,92 @@
+knowledge_id: standardization_document_samples
+kind: knowledge
+status: active
+title: Standardization Document Sample Corpus
+summary: Public-safe routing knowledge for the owner-approved company standardization document sample corpus prepared for private Knowledge Wiki Cell routing, HWPX normalization planning, NotebookLM metadata-manifest materialization, and RAG source-card backlog tracking.
+claim_ceiling: canon_entry_public_safe_routing_only
+canon_registration:
+  state: canon_entry
+  registration_basis: owner_requested_public_safe_routing_entry_20260615_company_authored_standardization_samples_with_post_development_review
+  registered_surfaces:
+    - public_safe_summary
+    - private_packet_ref_index
+    - notebooklm_metadata_manifest_ref
+    - registry_entry
+focus:
+  primary_domain: standardization document samples, software technical documentation, test and reliability document families, and document-corpus preparation workflow
+  applied_to:
+    - private Knowledge Wiki Cell source packet selection
+    - HWP/HWPX normalization backlog planning
+    - LLM wiki navigation over metadata-only source packets
+    - RAG source-card and derived-text build planning
+    - NotebookLM bookshelf manifest routing
+source_support:
+  source_status: owner_approved_company_local_corpus_metadata
+  private_workspace_refs:
+    - _workspaces/knowledge/standardization_docs_20260615/manifests/inventory_summary.json
+    - _workspaces/knowledge/standardization_docs_20260615/manifests/document_hash_summary.json
+    - _workspaces/knowledge/standardization_docs_20260615/manifests/document_hash_manifest.jsonl
+    - _workspaces/knowledge/standardization_docs_20260615/manifests/hwp_hwpx_preprocessing_queue.jsonl
+  private_review_refs:
+    - _workmeta/system/runs/standardization_docs_knowledge_wiki_cell_20260615/source_packet_manifest.json
+    - _workmeta/system/runs/standardization_docs_knowledge_wiki_cell_20260615/source_inventory.json
+    - _workmeta/system/runs/standardization_docs_knowledge_wiki_cell_20260615/source_gap_report.json
+    - _workmeta/system/runs/standardization_docs_knowledge_wiki_cell_20260615/claim_ceiling_and_promotion_route.json
+    - _workmeta/system/runs/standardization_docs_knowledge_wiki_cell_20260615/hwpx_preprocessing/hwpx_preprocessing_report.json
+    - _workmeta/system/runs/standardization_docs_knowledge_wiki_cell_20260615/notebooklm_drive_upload_report.json
+  validation_state:
+    full_inventory_files: 26247
+    document_candidates_hashed: 2308
+    document_hash_failures: 0
+    hwp_hwpx_queue_items: 1448
+    hwp_body_blockers: 1446
+    strict_hwpx_validation_failures: 2
+    container_inventory_candidates: 112
+rag:
+  current_state: metadata_only_handoff_prepared
+  source_text_index_state: blocked_until_derived_text_source_cards_and_sync_ready_manifests
+  allowed_use:
+    - corpus discovery
+    - dedupe and source-card planning
+    - HWPX normalization backlog selection
+    - private sourcebound review starting point
+  blocked_use:
+    - body-level HWP claims
+    - RAG answer authority
+    - source-text chunk authority
+    - public copying of source text, filenames, hashes, or private paths
+notebooklm:
+  notebook_state: metadata_manifest_source_materialized
+  notebook_title: Standardization document sample corpus, Korean title in NotebookLM
+  source_materialized: hash-complete manifest summary only
+  output_authority: advisory_query_surface_only
+  blocked_conditions:
+    - Original document body upload is not materialized by this entry.
+    - HWP body sources require true HWPX export before body use.
+    - Existing HWPX files need re-export or repack before body extraction.
+    - Drive upload target binding was not available in the execution environment.
+owner_decision_boundaries:
+  hwp_preprocessing:
+    state: blocked_until_true_hwpx_export
+    required_route: owner-approved Hancom or HWP-capable export to HWPX before body analysis
+  rag_source_text_index:
+    state: blocked_until_source_cards_and_derived_text
+    required_route: derived .md/.txt source text, source_card.json, source_sync_ready_manifest.json, then source-text-index validation
+  drive_and_bulk_notebooklm_upload:
+    state: blocked_until_target_surface_and_batch_policy
+    required_route: authenticated target Drive warehouse or NotebookLM batch policy with supported source formats
+claim_scope:
+  supported:
+    - The corpus has a full private metadata inventory and a complete SHA-256 manifest for document candidates.
+    - The corpus is prepared for private Knowledge Wiki Cell routing and metadata-only RAG handoff.
+    - A NotebookLM notebook received a metadata-only manifest source for bookshelf awareness.
+    - HWP and invalid HWPX body use remains visibly blocked until normalization and validation.
+  excluded:
+    - full document text, filenames, hash lists, source chunks, OCR body, NotebookLM answers, Drive payloads, or company-private source payloads in public canon
+    - certification approval, customer acceptance, legal interpretation, or final project doctrine
+    - RAG answer authority or source-text index authority before derived text and validator evidence exist
+notes:
+  - This entry registers only a public-safe routing map and boundary posture for the private company corpus.
+  - `canon_entry` applies only to this public-safe routing entry, not to document body truth, source-text index authority, NotebookLM answer authority, or project/customer approval.
+  - The actual source files, hashes, file names, and generated packet details remain in private workspace or workmeta surfaces.
+  - Use private review refs before raising the claim ceiling beyond metadata routing.

@@ -2,6 +2,17 @@
 
 ## 2026-06-15
 
+### Revision `working` - standardization document sample corpus routed
+
+- Added a public-safe `.registry/knowledge/standardization_document_samples/`
+  routing entry for the private company standardization document sample corpus.
+- Recorded the public claim ceiling as metadata routing only: private packets
+  hold inventory/hash refs, HWPX blockers, NotebookLM manifest materialization,
+  and RAG source-card backlog state.
+- Kept document bodies, file names, hashes, source chunks, Drive payloads,
+  NotebookLM answers, private paths, and company source payloads out of public
+  canon.
+
 ### Revision `working` - defense quality standards knowledge entry
 
 - Added a public-safe `.registry/knowledge` entry for the prepared defense
