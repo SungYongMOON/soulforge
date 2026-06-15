@@ -236,7 +236,7 @@ async function openDeliverableInputs(deliverableId, name) {
       <input id="diSub" list="diSubs" size="9" placeholder="${L.di_subfolder ?? "하위폴더"}" />
       <datalist id="diSubs"></datalist>
       <input id="diFile" size="13" placeholder="${L.di_file ?? "파일명"}" />
-      <input id="diPtr" size="22" placeholder="${L.di_pointer ?? "상대 포인터(_workspaces/…/01_In/…)"}" />
+      <input id="diPtr" size="22" placeholder="${L.di_pointer ?? "상대 포인터(_workspaces/…/02_Input/…)"}" />
       <select id="diSrc">${SRC.map((s) => `<option value="${s}">${s}</option>`).join("")}</select>
       <select id="diStat">${STAT.map((s) => `<option value="${s}" ${s === "received" ? "selected" : ""}>${L["di_st_" + s] ?? s}</option>`).join("")}</select>
       <button id="diAdd" class="fav-chip">${L.di_register ?? "등록"}</button>
@@ -245,7 +245,7 @@ async function openDeliverableInputs(deliverableId, name) {
     <div class="di-upload filters" style="gap:6px;align-items:center;margin-bottom:8px">
       <input type="file" id="diUpload" />
       <button id="diUploadBtn" class="fav-chip">${L.di_upload ?? "파일 업로드"}</button>
-      <span class="dim mini">${L.di_upload_hint ?? "선택한 하위폴더의 01_In 에 올립니다"}</span>
+      <span class="dim mini">${L.di_upload_hint ?? "선택한 하위폴더의 02_Input 에 올립니다"}</span>
       <span id="diUpMsg" class="dim mini"></span>
     </div>
     <div id="diList"></div>
@@ -291,7 +291,7 @@ async function openDeliverableInputs(deliverableId, name) {
     if (r && r.ok) { ["#diFile", "#diPtr"].forEach((s) => (ov.querySelector(s).value = "")); msg.textContent = L.di_added ?? "등록됨"; renderList(); }
     else { msg.textContent = (r && r.error === "pointer_must_be_relative") ? (L.di_abs ?? "상대경로만 가능") : (r?.error ?? "오류"); }
   });
-  // 파일 업로드: 선택 파일을 01_In/<하위폴더> 에 올리고 장부 등록(서버 path-safety·기본 OFF).
+  // 파일 업로드: 선택 파일을 02_Input/<하위폴더> 에 올리고 장부 등록(서버 path-safety·기본 OFF).
   ov.querySelector("#diUploadBtn").addEventListener("click", async () => {
     const f = ov.querySelector("#diUpload").files?.[0];
     const msg = ov.querySelector("#diUpMsg");

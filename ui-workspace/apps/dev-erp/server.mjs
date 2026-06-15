@@ -708,14 +708,14 @@ const server = createServer(async (req, res) => {
         "content-disposition": `attachment; filename*=UTF-8''${encodeURIComponent(inp.file_name || "file")}` });
       return res.end(r.bytes);
     }
-    // 입력파일 업로드 — 산출물 in_pointer(01_In) 하위 subfolder/filename 으로 기록 + 장부 등록. 기본 OFF.
+    // 입력파일 업로드 — 산출물 in_pointer(02_Input) 하위 subfolder/filename 으로 기록 + 장부 등록. 기본 OFF.
     // body = 원본 바이트(브라우저 fetch 의 파일 blob). 메타(deliverable/subfolder/filename)는 쿼리.
     if (path === "/api/deliverables/inputs/upload" && req.method === "POST") {
       if (!FILEIO) return send(res, 404, { error: "fileio_disabled" });
       const did = qp.deliverable, subfolder = qp.subfolder || "", filename = qp.filename || "";
       const d = store.db.prepare("SELECT in_pointer, project_id FROM core_deliverable WHERE id=?").get(did);
       if (!d) return send(res, 404, { error: "deliverable_not_found" });
-      if (!d.in_pointer) return send(res, 400, { error: "in_pointer_unset" }); // 01_In 경로 미설정(스캔/등록 필요)
+      if (!d.in_pointer) return send(res, 400, { error: "in_pointer_unset" }); // 02_Input 경로 미설정(스캔/등록 필요)
       // 원본 바이트 수신(상한 초과 시 중단 — 메모리 남용 방지).
       const chunks = []; let total = 0;
       for await (const c of req) { total += c.length; if (total > UPLOAD_MAX) return send(res, 413, { error: "too_large" }); chunks.push(c); }

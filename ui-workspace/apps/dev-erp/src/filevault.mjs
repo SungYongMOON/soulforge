@@ -59,7 +59,7 @@ export function safeWorkspacePath(root, rel, { mustExist = true } = {}) {
   }
 }
 
-// 업로드 대상: baseRel(=in_pointer, 보통 .../01_In) 아래 subfolder/filename. base 는 존재해야.
+// 업로드 대상: baseRel(=in_pointer, 보통 .../02_Input) 아래 subfolder/filename. base 는 존재해야.
 // 반환: 절대 dir/path + 저장용 상대 포인터. (실제 쓰기·realpath 재확인은 commitUpload 에서)
 export function safeUploadTarget(root, baseRel, subfolder, filename) {
   const vb = safeWorkspacePath(root, baseRel, { mustExist: true });

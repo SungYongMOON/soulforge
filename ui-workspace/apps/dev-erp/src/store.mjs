@@ -449,7 +449,7 @@ CREATE TABLE IF NOT EXISTS deliverable_input (
   stage_code TEXT,
   subfolder TEXT,                          -- In 아래 산출물종류별 분류(§ 설계)
   file_name TEXT,                          -- 표시 메타(원문 아님)
-  pointer TEXT,                            -- 상대 _workspaces/<과제>/<경로>/01_In/<하위>/<파일> (원문 미저장)
+  pointer TEXT,                            -- 상대 _workspaces/<과제>/<경로>/02_Input/<하위>/<파일> (원문 미저장)
   source TEXT NOT NULL DEFAULT 'erp',      -- erp|mail|codex
   sha256 TEXT,
   size INTEGER,
@@ -635,7 +635,7 @@ export function openStore(path = ":memory:") {
     // 다중 사용자 메일: 어느 mailbox(계정 이메일)로 들어온 메일인지. 담당자별 메일 이력 분리 키.
     // null = 단일(owner) 파일럿 메일. Codex 계정별 메일 인입 시 account.email 로 채운다.
     "ALTER TABLE core_mail ADD COLUMN mailbox TEXT",
-    // 산출물 입력 포인터(01_In) — out_pointer 와 대칭. 상대경로(원문 미저장).
+    // 산출물 입력 포인터(02_Input) — out_pointer 와 대칭. 상대경로(원문 미저장).
     "ALTER TABLE core_deliverable ADD COLUMN in_pointer TEXT"
   ]) {
     try { db.exec(ddl); } catch { /* exists */ }
