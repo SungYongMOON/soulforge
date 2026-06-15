@@ -219,6 +219,76 @@ async function openAdminPanel() {
   renderList();
 }
 
+// 산출물 입력파일 패널: 종류→In 하위폴더 제안 + 등록(포인터·출처·상태) + 목록(상태토글·포인터복사).
+// 원문 미저장: 포인터·메타만. 실제 파일 업/다운로드는 보안 검토 후 별도(여기선 장부 등록).
+async function openDeliverableInputs(deliverableId, name) {
+  const L = state.lex;
+  const TYPES = ["schematic", "pcb", "bom", "gerber", "report", "test"];
+  const SRC = ["erp", "mail", "codex"];
+  const STAT = ["needed", "received", "used"];
+  document.querySelector(".ui-confirm-overlay")?.remove();
+  const ov = document.createElement("div");
+  ov.className = "ui-confirm-overlay";
+  ov.innerHTML = `<div class="ui-confirm di-panel" role="dialog" aria-label="${L.di_section ?? "입력파일"}" style="max-width:760px;text-align:left">
+    <p class="ui-confirm-msg">${L.di_section ?? "입력파일"} · ${esc(name ?? deliverableId)}</p>
+    <div class="di-create filters" style="gap:6px;flex-wrap:wrap;align-items:center;margin-bottom:6px">
+      <label class="dim mini">${L.di_type ?? "종류"} <select id="diType">${TYPES.map((t) => `<option value="${t}">${t}</option>`).join("")}</select></label>
+      <input id="diSub" list="diSubs" size="9" placeholder="${L.di_subfolder ?? "하위폴더"}" />
+      <datalist id="diSubs"></datalist>
+      <input id="diFile" size="13" placeholder="${L.di_file ?? "파일명"}" />
+      <input id="diPtr" size="22" placeholder="${L.di_pointer ?? "상대 포인터(_workspaces/…/01_In/…)"}" />
+      <select id="diSrc">${SRC.map((s) => `<option value="${s}">${s}</option>`).join("")}</select>
+      <select id="diStat">${STAT.map((s) => `<option value="${s}" ${s === "received" ? "selected" : ""}>${L["di_st_" + s] ?? s}</option>`).join("")}</select>
+      <button id="diAdd" class="fav-chip">${L.di_register ?? "등록"}</button>
+      <span id="diMsg" class="dim mini"></span>
+    </div>
+    <div id="diList"></div>
+    <div class="ui-confirm-btns"><button class="ui-confirm-cancel">${L.btn_cancel ?? "닫기"}</button></div>
+  </div>`;
+  document.body.appendChild(ov);
+  const close = () => ov.remove();
+  ov.addEventListener("click", (e) => { if (e.target === ov) close(); });
+  ov.querySelector(".ui-confirm-cancel").addEventListener("click", close);
+  // 종류 선택 → In 하위폴더 제안 채우기
+  const loadSubs = async () => {
+    const t = ov.querySelector("#diType").value;
+    const r = await api(`/api/deliverables/input-subfolders?type=${encodeURIComponent(t)}`).catch(() => ({ subfolders: [] }));
+    ov.querySelector("#diSubs").innerHTML = (r.subfolders || []).map((s) => `<option value="${esc(s)}"></option>`).join("");
+  };
+  ov.querySelector("#diType").addEventListener("change", loadSubs);
+  const renderList = async () => {
+    const rows = await api(`/api/deliverables/inputs?deliverable=${encodeURIComponent(deliverableId)}`).catch(() => []);
+    if (!rows.length) { ov.querySelector("#diList").innerHTML = `<div class="empty small">${L.di_none ?? "등록된 입력파일 없음"}</div>`; return; }
+    ov.querySelector("#diList").innerHTML =
+      `<table class="di-table" style="width:100%;border-collapse:collapse"><thead><tr>
+        <th>${L.di_subfolder ?? "하위폴더"}</th><th>${L.di_file ?? "파일명"}</th><th>${L.di_source ?? "출처"}</th><th>${L.di_status ?? "상태"}</th><th>${L.di_pointer ?? "포인터"}</th>
+      </tr></thead><tbody>${rows.map((x) => {
+        const next = x.status === "needed" ? "received" : x.status === "received" ? "used" : "needed";
+        return `<tr>
+          <td class="dim">${esc(x.subfolder ?? "-")}</td><td>${esc(x.file_name ?? "-")}</td>
+          <td class="dim">${esc(x.source)}</td>
+          <td><button class="fav-chip mini di-stat" data-id="${esc(x.id)}" data-to="${next}">${L["di_st_" + x.status] ?? x.status}</button></td>
+          <td class="pointer">${x.pointer ? `<span class="ptr-text">${esc(x.pointer)}</span><button class="copy-btn mini" data-c="${esc(x.pointer)}">${L.copy}</button>` : "-"}</td>
+        </tr>`; }).join("")}</tbody></table>`;
+    ov.querySelectorAll(".di-stat").forEach((b) => b.addEventListener("click", async () => {
+      await post("/api/deliverables/inputs/status", { id: b.dataset.id, status: b.dataset.to }); renderList();
+    }));
+    ov.querySelectorAll(".copy-btn").forEach((b) => b.addEventListener("click", () => navigator.clipboard?.writeText(b.dataset.c)));
+  };
+  ov.querySelector("#diAdd").addEventListener("click", async () => {
+    const v = (s) => ov.querySelector(s).value.trim();
+    const msg = ov.querySelector("#diMsg");
+    const body = { deliverable_id: deliverableId, subfolder: v("#diSub"), file_name: v("#diFile"),
+      pointer: v("#diPtr"), source: v("#diSrc"), status: v("#diStat") };
+    if (!body.file_name && !body.pointer) { msg.textContent = L.di_need ?? "파일명 또는 포인터 필요"; return; }
+    const r = await post("/api/deliverables/inputs", body).then((x) => x.json()).catch(() => null);
+    if (r && r.ok) { ["#diFile", "#diPtr"].forEach((s) => (ov.querySelector(s).value = "")); msg.textContent = L.di_added ?? "등록됨"; renderList(); }
+    else { msg.textContent = (r && r.error === "pointer_must_be_relative") ? (L.di_abs ?? "상대경로만 가능") : (r?.error ?? "오류"); }
+  });
+  await loadSubs();
+  renderList();
+}
+
 function togglePin(v) {
   const i = state.pins.indexOf(v);
   if (i >= 0) state.pins.splice(i, 1); else state.pins.push(v);
@@ -2421,8 +2491,10 @@ function deliverableRegisterHtml(rows, L) {
       const spawnCell = d.task_id
         ? `<span class="badge green mini">✓ ${L.item}</span>`
         : `<button class="fav-chip mini ds-spawn" data-id="${esc(d.id)}" title="${L.deliv_spawn_hint ?? ""}">${L.deliv_spawn_task ?? "할 일로"}</button>`;
+      const inN = d.input_count ?? 0, inR = d.input_received ?? 0;
+      const inputBtn = `<button class="fav-chip mini di-open" data-id="${esc(d.id)}" data-name="${esc(d.name)}" title="${esc(L.di_hint ?? "")}">${L.di_open ?? "입력"} ${inR}/${inN}</button>`;
       return `<tr>
-        <td>${esc(d.name)} ${spawnCell}<span class="ds-msg dim mini"></span></td>
+        <td>${esc(d.name)} ${spawnCell} ${inputBtn}<span class="ds-msg dim mini"></span></td>
         <td class="dim">${submitTL(d.submit_type)}</td>
         <td><span class="badge ${st.cls}">${st.txt}</span>${reviewControlHtml(d, L)}</td>
         <td class="deliv-due">
@@ -2497,6 +2569,10 @@ async function hubGuide(mount, p) {
       if (resp.ok) { setTimeout(render, 300); }
       else if (msg) { const e = await resp.json().catch(() => ({})); msg.textContent = e.error === "already_spawned" ? (L.deliv_already_task ?? "이미 할일 있음") : (e.error ?? "오류"); }
     })
+  );
+  // 산출물 입력파일 패널 열기(종류별 In 하위폴더·필요/수집 상태·포인터 등록)
+  mount.querySelectorAll(".di-open").forEach((b) =>
+    b.addEventListener("click", () => openDeliverableInputs(b.dataset.id, b.dataset.name))
   );
   // 완료게이트 진행/되돌리기
   mount.querySelectorAll(".dr-adv").forEach((b) =>

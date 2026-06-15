@@ -112,6 +112,11 @@ nav button.active { background: var(--chip); font-weight: 600; color: var(--acce
 .filters { display: flex; gap: 8px; flex-wrap: wrap; align-items: center; }
 .filters select, .filters input { padding: 7px 9px; border-radius: 8px; border: 1px solid var(--line); background: var(--panel); color: var(--text); font-size: 13px; }
 .view-scope-lab { display: inline-flex; align-items: center; gap: 5px; font-size: 12.5px; color: var(--muted); }
+/* 모달 표(관리자 계정·산출물 입력파일): 헤더 줄바꿈 방지 + 일관 패딩 */
+.admin-table th, .di-table th { white-space: nowrap; text-align: left; color: var(--muted); font-weight: 600; }
+.admin-table td, .admin-table th, .di-table td, .di-table th { padding: 4px 7px; border-bottom: 1px solid var(--line); font-size: 12.5px; vertical-align: top; }
+.di-table .ptr-text { word-break: break-all; font-size: 11.5px; }
+.di-panel .di-create input, .di-panel .di-create select { padding: 5px 7px; }
 
 table { width: 100%; border-collapse: collapse; background: var(--panel); border: 1px solid var(--line); border-radius: 12px; overflow: hidden; }
 th, td { text-align: left; padding: 9px 12px; border-bottom: 1px solid var(--line); font-size: 13.5px; }

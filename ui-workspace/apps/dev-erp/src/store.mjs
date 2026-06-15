@@ -2481,8 +2481,12 @@ export class Store {
     if (stage) { cond.push("d.stage_code=?"); args.push(stage); }
     const where = cond.length ? `WHERE ${cond.join(" AND ")}` : "";
     // task_id: 이 산출물에서 spawn 된 할일(있으면). 일정→할일 버튼 ✓ 표시·중복 방지에 사용.
+    // input_count/input_received: 입력파일 장부 집계(입력 버튼 N 표시).
     return this.db
-      .prepare(`SELECT d.*, (SELECT i.id FROM core_item i WHERE i.project_id=d.project_id AND i.title=d.name AND i.origin='schedule' LIMIT 1) AS task_id
+      .prepare(`SELECT d.*,
+                  (SELECT i.id FROM core_item i WHERE i.project_id=d.project_id AND i.title=d.name AND i.origin='schedule' LIMIT 1) AS task_id,
+                  (SELECT COUNT(*) FROM deliverable_input di WHERE di.deliverable_id=d.id) AS input_count,
+                  (SELECT COUNT(*) FROM deliverable_input di WHERE di.deliverable_id=d.id AND di.status<>'needed') AS input_received
                 FROM core_deliverable d ${where} ORDER BY d.stage_code, d.deliverable_no, d.name LIMIT 500`)
       .all(...args);
   }
