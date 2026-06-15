@@ -49,13 +49,19 @@ function renderAuth() {
   const box = $("#authBox"); if (!box) return;
   const L = state.lex;
   if (state.account) {
-    box.innerHTML = `<span class="auth-user">${esc(state.account.username)}</span><button id="logoutBtn" class="fav-chip">${L.logout}</button>`;
+    // 실제 가입 이름(display_name) 우선 표기, 없으면 아이디. 관리자면 관리 버튼.
+    const name = esc(state.account.display_name || state.account.username);
+    const adminBtn = state.account.is_admin ? `<button id="adminBtn" class="fav-chip">${L.admin_panel}</button>` : "";
+    box.innerHTML = `<span class="auth-user" title="${esc(state.account.email || "")}">${name}</span>${adminBtn}<button id="logoutBtn" class="fav-chip">${L.logout}</button>`;
+    if (state.account.is_admin) $("#adminBtn").addEventListener("click", openAdminPanel);
     $("#logoutBtn").addEventListener("click", async () => { await fetch("/api/auth/logout", { method: "POST" }).catch(() => {}); location.reload(); });
   } else if (state.accountCount > 0) {
     box.innerHTML = `<button id="loginBtn" class="fav-chip">${L.login}</button>`;
     $("#loginBtn").addEventListener("click", openLogin);
   } else {
-    box.innerHTML = ""; // 계정 0 = 익명 파일럿
+    // 계정 0 = 미초기화. 팀 사용 시작을 위한 '첫 관리자 만들기'(bootstrap) 노출.
+    box.innerHTML = `<button id="bootstrapBtn" class="fav-chip">${L.acct_create_admin}</button>`;
+    $("#bootstrapBtn").addEventListener("click", openBootstrap);
   }
 }
 
@@ -86,6 +92,107 @@ function openLogin() {
   ov.querySelector(".ui-confirm-ok").addEventListener("click", submit);
   ov.querySelector("#loginPw").addEventListener("keydown", (e) => { if (e.key === "Enter") submit(); });
   ov.querySelector("#loginUser").focus();
+}
+
+// 첫 관리자 만들기(bootstrap, 계정 0개일 때 1회). 아이디/비밀번호는 사용자가 직접 입력.
+function openBootstrap() {
+  const L = state.lex;
+  document.querySelector(".ui-confirm-overlay")?.remove();
+  const ov = document.createElement("div");
+  ov.className = "ui-confirm-overlay";
+  ov.innerHTML = `<div class="ui-confirm" role="dialog" aria-label="${L.acct_create_admin}">
+    <p class="ui-confirm-msg">${L.acct_create_admin}</p>
+    <input id="bsName" class="login-input" placeholder="${L.acct_name}" autocomplete="name" />
+    <input id="bsUser" class="login-input" placeholder="${L.acct_user}" autocomplete="username" />
+    <input id="bsEmail" class="login-input" placeholder="${L.acct_email}" autocomplete="email" />
+    <input id="bsPw" class="login-input" type="password" placeholder="${L.acct_pw}" autocomplete="new-password" />
+    <div class="login-err danger-text"></div>
+    <div class="ui-confirm-btns"><button class="ui-confirm-cancel">${L.btn_cancel}</button><button class="ui-confirm-ok">${L.btn_confirm}</button></div>
+  </div>`;
+  document.body.appendChild(ov);
+  const close = () => ov.remove();
+  ov.addEventListener("click", (e) => { if (e.target === ov) close(); });
+  ov.querySelector(".ui-confirm-cancel").addEventListener("click", close);
+  const submit = async () => {
+    const body = {
+      display_name: ov.querySelector("#bsName").value.trim(),
+      username: ov.querySelector("#bsUser").value.trim(),
+      email: ov.querySelector("#bsEmail").value.trim(),
+      password: ov.querySelector("#bsPw").value
+    };
+    const r = await post("/api/auth/bootstrap", body).catch(() => null);
+    if (r && r.ok) { close(); location.reload(); }
+    else ov.querySelector(".login-err").textContent = L.login_fail;
+  };
+  ov.querySelector(".ui-confirm-ok").addEventListener("click", submit);
+  ov.querySelector("#bsName").focus();
+}
+
+// 관리자 패널: 계정 목록 + 추가 + 역할/상태 관리(관리자 전용).
+async function openAdminPanel() {
+  const L = state.lex;
+  document.querySelector(".ui-confirm-overlay")?.remove();
+  const ov = document.createElement("div");
+  ov.className = "ui-confirm-overlay";
+  ov.innerHTML = `<div class="ui-confirm admin-panel" role="dialog" aria-label="${L.admin_panel}" style="max-width:720px;text-align:left">
+    <p class="ui-confirm-msg">${L.admin_panel} · ${L.acct_new}</p>
+    <div class="admin-create" style="display:flex;gap:6px;flex-wrap:wrap;align-items:center;margin-bottom:10px">
+      <input id="acName" class="login-input" style="width:96px" placeholder="${L.acct_name}" />
+      <input id="acUser" class="login-input" style="width:96px" placeholder="${L.acct_user}" autocomplete="off" />
+      <input id="acEmail" class="login-input" style="width:150px" placeholder="${L.acct_email}" autocomplete="off" />
+      <input id="acPw" class="login-input" style="width:110px" type="password" placeholder="${L.acct_pw}" autocomplete="new-password" />
+      <select id="acRole" class="login-input" style="width:84px"><option value="member">${L.acct_role_member}</option><option value="admin">${L.acct_role_admin}</option></select>
+      <button id="acAdd" class="fav-chip">${L.acct_new}</button>
+    </div>
+    <div class="admin-err danger-text" style="min-height:1em;margin-bottom:6px"></div>
+    <div id="acList"></div>
+    <div class="ui-confirm-btns"><button class="ui-confirm-cancel">${L.btn_cancel}</button></div>
+  </div>`;
+  document.body.appendChild(ov);
+  const close = () => ov.remove();
+  ov.addEventListener("click", (e) => { if (e.target === ov) close(); });
+  ov.querySelector(".ui-confirm-cancel").addEventListener("click", close);
+  const errBox = ov.querySelector(".admin-err");
+  const renderList = async () => {
+    const data = await api("/api/accounts").catch(() => ({ accounts: [] }));
+    const rows = (data.accounts || []).map((a) => {
+      const role = a.is_admin ? "admin" : "member";
+      const roleLbl = a.is_admin ? L.acct_role_admin : L.acct_role_member;
+      const statusLbl = a.status === "active" ? L.acct_active : L.acct_disabled;
+      const otherRole = a.is_admin ? "member" : "admin";
+      const isSelf = state.account && a.id === state.account.id;
+      return `<tr>
+        <td>${esc(a.display_name || a.username)}</td><td class="muted">${esc(a.username)}</td>
+        <td class="muted">${esc(a.email || "-")}</td>
+        <td><button class="fav-chip ac-role" data-id="${a.id}" data-role="${otherRole}">${roleLbl}</button></td>
+        <td><button class="fav-chip ac-status" data-id="${a.id}" data-status="${a.status === "active" ? "disabled" : "active"}" ${isSelf ? "disabled" : ""}>${statusLbl}</button></td>
+      </tr>`;
+    }).join("");
+    ov.querySelector("#acList").innerHTML =
+      `<table class="admin-table" style="width:100%;border-collapse:collapse"><thead><tr>
+        <th>${L.acct_name}</th><th>${L.acct_user}</th><th>${L.acct_email}</th><th>${L.acct_role}</th><th>${L.acct_status}</th>
+      </tr></thead><tbody>${rows}</tbody></table>`;
+    ov.querySelectorAll(".ac-role").forEach((b) => b.addEventListener("click", async () => {
+      await post("/api/accounts/update", { id: b.dataset.id, role: b.dataset.role }); renderList();
+    }));
+    ov.querySelectorAll(".ac-status").forEach((b) => b.addEventListener("click", async () => {
+      await post("/api/accounts/status", { id: b.dataset.id, status: b.dataset.status }); renderList();
+    }));
+  };
+  ov.querySelector("#acAdd").addEventListener("click", async () => {
+    errBox.textContent = "";
+    const body = {
+      display_name: ov.querySelector("#acName").value.trim(),
+      username: ov.querySelector("#acUser").value.trim(),
+      email: ov.querySelector("#acEmail").value.trim(),
+      password: ov.querySelector("#acPw").value,
+      role: ov.querySelector("#acRole").value
+    };
+    const r = await post("/api/accounts", body).then((x) => x.json()).catch(() => null);
+    if (r && r.ok) { ["#acName", "#acUser", "#acEmail", "#acPw"].forEach((s) => (ov.querySelector(s).value = "")); renderList(); }
+    else errBox.textContent = (r && /taken|format/.test(r.error || "")) ? L.acct_taken : L.login_fail;
+  });
+  renderList();
 }
 
 function togglePin(v) {

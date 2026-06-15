@@ -134,12 +134,8 @@ const server = createServer(async (req, res) => {
     if (path === "/api/health") return send(res, 200, { ok: true, schema: "dev_erp.v1", counts: store.counts() });
 
     // ---------- P2b 팀: 계정·인증·관리자 ----------
-    // 익명(계정 0개) → needs_bootstrap. 첫 계정은 bootstrap 으로 관리자 생성(계정이 1개라도 있으면 차단).
-    if (path === "/api/auth/me") {
-      const a = currentAccount(req);
-      if (a) return send(res, 200, { anonymous: false, account: store.accountProfile(a) });
-      return send(res, 200, { anonymous: true, needs_bootstrap: store.accountCount() === 0 });
-    }
+    // 정체성 조회는 /api/me(클라이언트 계약). 여기서는 로그인/로그아웃/bootstrap/계정관리.
+    // 첫 계정은 bootstrap 으로 관리자 생성(계정이 1개라도 있으면 차단).
     if (path === "/api/auth/login" && req.method === "POST") {
       const { username, password } = await readJson(req);
       const a = store.verifyLogin(username, password);
@@ -627,25 +623,13 @@ const server = createServer(async (req, res) => {
     }
     // ---------- P2b: 계정·권한·계정별 레이아웃 ----------
     if (path === "/api/me") {
+      // 클라이언트 정체성 계약. 익명이면 account_count 로 bootstrap 필요 여부 판단.
       const a = currentAccount(req);
       if (!a) return send(res, 200, { anonymous: true, account_count: store.accountCount() });
-      return send(res, 200, { account: { id: a.id, username: a.username }, person_id: a.person_id, roles: store.rolesFor(a.id), perms: store.permsFor(a.id) });
+      const prof = store.accountProfile(a);
+      return send(res, 200, { account: prof, person_id: a.person_id, roles: prof.roles, perms: prof.perms, account_count: store.accountCount() });
     }
-    if (path === "/api/auth/login" && req.method === "POST") {
-      let body = ""; for await (const chunk of req) body += chunk;
-      const { username, password } = JSON.parse(body || "{}");
-      const a = store.verifyLogin(username, password);
-      if (!a) return send(res, 401, { error: "invalid_credentials" });
-      const token = store.createSession(a.id);
-      store.appendEvent({ actor_ref: a.username, actor_kind: "human", kind: "login", used_refs: ["auth"], data_label: "real" });
-      const cookie = `${SID}=${token}; HttpOnly; SameSite=Lax; Path=/; Max-Age=43200`;
-      return send(res, 200, { ok: true, account: { id: a.id, username: a.username }, roles: store.rolesFor(a.id), perms: store.permsFor(a.id) }, "application/json", { "set-cookie": cookie });
-    }
-    if (path === "/api/auth/logout" && req.method === "POST") {
-      const tok = readCookie(req, SID);
-      if (tok) store.deleteSession(tok);
-      return send(res, 200, { ok: true }, "application/json", { "set-cookie": `${SID}=; HttpOnly; SameSite=Lax; Path=/; Max-Age=0` });
-    }
+    // (인증/계정 엔드포인트는 상단 P2b 블록에서 처리 — 여기 중복 제거됨)
     if (path === "/api/dashboard/layout" && req.method === "GET") {
       const a = currentAccount(req);
       return send(res, 200, { layout: a ? store.getLayout(a.id) : null });
