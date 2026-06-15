@@ -2,6 +2,15 @@
 
 ## 2026-06-15
 
+### Revision `working` - defense quality standards knowledge entry
+
+- Added a public-safe `.registry/knowledge` entry for the prepared defense
+  quality management standards source family.
+- Registered only source-family routing, RAG validation refs, and blocker
+  boundaries for the 56 official-public indexed sources, while keeping source
+  bodies, chunks, NotebookLM output, paid standards, HWP body claims, and
+  private payloads out of public canon.
+
 ### Revision `working` - outbound mail attachment selection guard
 
 - Added an outbound-mail guard that separates collected source attachments

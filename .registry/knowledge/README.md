@@ -1,5 +1,10 @@
 # .registry/knowledge
 
+- `defense_quality_management_standards/` is a public-safe source-family routing
+  entry for the 2026-06-15 official-public defense quality corpus. It records
+  validated private RAG index refs, HWP/acquisition/NotebookLM blockers, and
+  claim boundaries without copying source bodies or chunks.
+
 - `towed_body_sensor_stability/` is a public-safe source-supported reusable knowledge entry for towed-body stability, internal sensor-axis quieting, liquid damping, cable/body vibration, appendage case planning, and pointing-budget orientation.
 - `knowledge/` 는 reusable knowledge canon 을 두는 registry surface 다.
 - 각 knowledge folder 는 `knowledge.yaml` 을 canon entry 로 사용한다.

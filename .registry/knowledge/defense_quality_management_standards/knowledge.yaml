@@ -1,0 +1,102 @@
+knowledge_id: defense_quality_management_standards
+kind: knowledge
+status: active
+title: Defense Quality Management Standards Corpus
+summary: Public-safe reusable routing knowledge for the official-public defense quality management standards corpus prepared for Soulforge ERP standards lookup, private RAG navigation, and LLM wiki source-packet selection.
+claim_ceiling: source_supported
+canon_registration:
+  state: canon_entry
+  registration_basis: owner_requested_public_canon_followup_20260615_official_public_source_family
+  registered_surfaces:
+    - public_safe_summary
+    - source_family_ref_index
+    - rag_index_validation_ref
+    - registry_entry
+focus:
+  primary_domain: defense supplier quality management, AQAP/GQA, DQMS, electronics workmanship, ESD, counterfeit prevention, and certification-support standards routing
+  applied_to:
+    - ERP standards lookup and standards-research feature planning
+    - private RAG source navigation over approved source-text indexes
+    - LLM wiki and NotebookLM source-list preparation
+    - defense quality acquisition gap tracking
+    - certification and supplier-readiness question triage
+source_support:
+  source_status: owner_approved_official_public_source_family_metadata
+  source_collection_refs:
+    - _workspaces/knowledge/quality_management_standards_20260615/manifests/official_public_download_manifest.json
+    - _workspaces/knowledge/quality_management_standards_20260615/manifests/source_text_ingestion_manifest.json
+    - _workspaces/knowledge/quality_management_standards_20260615/manifests/source_text_index_build_manifest.json
+    - _workspaces/knowledge/quality_management_standards_20260615/manifests/rag_ready_source_inventory.csv
+    - _workspaces/knowledge/quality_management_standards_20260615/manifests/quality_management_standards_inventory.md
+  private_review_refs:
+    - _workmeta/system/runs/standards_knowledge_wiki_cell_20260615/source_packet_manifest.yaml
+    - _workmeta/system/runs/standards_knowledge_wiki_cell_20260615/source_inventory.yaml
+    - _workmeta/system/runs/standards_knowledge_wiki_cell_20260615/claim_ceiling_and_promotion_route.yaml
+    - _workmeta/system/runs/standards_followup_execution_20260615/rag_source_text_index/rag_source_text_index_execution_report.yaml
+    - _workmeta/system/runs/standards_followup_execution_20260615/hwpx_preprocessing/hwpx_preprocessing_report.yaml
+  validation_state:
+    official_public_sources_declared: 56
+    source_text_indexes_validated: 56
+    indexed_chunks_reported_private: 4957
+    hwp_body_blockers: 3
+    hwp_like_blockers: 1
+    acquisition_targets: 17
+  public_source_families:
+    - DAPA and Korean law/go.kr quality management rules
+    - DTaQ quality, DQMS, AQAP, and GQA public materials
+    - KDS/DQMS legacy public evidence where available
+    - NATO AQAP public metadata and national official PDFs
+    - FAR, DFARS, and DoD quality or counterfeit-prevention rules
+    - NASA workmanship and ESD standards
+    - DLA ASSIST MIL-STD and MIL-HDBK public standards
+    - KOLAS public commentary and certification context
+    - UK MOD, Bundeswehr, and public supplier-context references
+rag:
+  current_state: private_searchable_rag_index_validated
+  source_text_index_manifest_ref: _workspaces/knowledge/quality_management_standards_20260615/manifests/source_text_index_build_manifest.json
+  allowed_use:
+    - source ref lookup
+    - standards-family navigation
+    - gap triage
+    - private sourcebound review starting point
+  blocked_use:
+    - final compliance doctrine
+    - certification acceptance authority
+    - HWP body claims
+    - paid or controlled standard body claims
+    - public copying of source text, chunks, or answer payloads
+notebooklm:
+  packet_membership_state: candidate_only_until_authenticated_materialization
+  output_authority: advisory_query_surface_only
+  blocked_conditions:
+    - NotebookLM authentication expired during followup execution.
+    - No durable target notebook id was recorded in the source packet.
+    - HWP body blockers and paid/controlled targets are not packet eligible.
+owner_decision_boundaries:
+  hwp_preprocessing:
+    state: blocked_until_true_hwpx_export
+    required_route: owner-approved Hancom or HWP-capable export to HWPX before body analysis
+  paid_controlled_internal_acquisition:
+    state: blocked_until_authorized_channel
+    required_route: licensed standards purchase, supplier portal, authorized national standards access, or customer-approved internal channel
+  drive_and_notebooklm_upload:
+    state: blocked_until_auth_and_target_surface
+    required_route: authenticated owner account plus explicit warehouse/bookshelf target manifest
+claim_scope:
+  supported:
+    - The 2026-06-15 quality-management standards corpus has 56 official-public prepared source refs represented by manifests under the shared knowledge workspace.
+    - The current private RAG source-text index set for those 56 refs passed local source-text-index validation in the followup execution run.
+    - The corpus can route ERP standards-search questions across defense supplier quality, DQMS/DQ mark, AQAP/GQA, FAR/DFARS/DoD quality, electronics workmanship, ESD, counterfeit prevention, configuration management, marking, technical data, KOLAS, and public supplier-context lanes.
+    - Three DTaQ HWP source bodies and one HWP-like source remain body-level blockers until true HWPX preprocessing and sufficiency review are completed.
+    - Paid, controlled, internal, and locally blocked standards remain acquisition targets rather than source-supported claim material.
+  excluded:
+    - full standard text, chunk payload, OCR body, NotebookLM answers, or private project payloads
+    - certification readiness approval, legal interpretation, audit conclusion, KOLAS scope approval, or customer acceptance
+    - LIG supplier grade A internal scorecard authority
+    - current full-text authority for paid standards such as ISO, SAE, IPC, ANSI/ESD, or AS9100-family documents
+    - HWP body claims before HWPX export and parser-first review
+    - treating NotebookLM, Drive folder placement, or RAG validation as source truth or final answer authority
+notes:
+  - This entry registers only the public-safe routing map and boundary posture for the prepared source family.
+  - Source bodies, derived text, index chunks, and review payloads remain in the approved shared knowledge workspace or private metadata surfaces, not in public canon.
+  - Use the private review refs to reconstruct the acquisition queue, HWP blockers, RAG validation result, and NotebookLM/Drive materialization blockers before raising any claim ceiling.
