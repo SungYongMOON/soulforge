@@ -1110,6 +1110,37 @@ export class Store {
     return { ok: true, from: prev.assignee_ref, project_id: prev.project_id };
   }
 
+  // F2: 만든 할 일의 제목·마감 직접 수정(오타·잘못된 마감 교정). 사람이 손댄 마감은 due_overridden=1 로
+  // 표시해 마일스톤 재계산(setAnchor)이 되돌리지 못하게 한다. 변경 필드만 부분 갱신.
+  updateItem(id, { title, due } = {}) {
+    const prev = this.db.prepare("SELECT title, due, project_id FROM core_item WHERE id=?").get(id);
+    if (!prev) return { error: "item_not_found" };
+    const sets = []; const args = [];
+    if (title !== undefined) {
+      const t = String(title ?? "").trim();
+      if (!t) return { error: "title_required" };
+      sets.push("title=?"); args.push(t);
+    }
+    if (due !== undefined) {
+      if (due && !/^\d{4}-\d{2}-\d{2}$/.test(due)) return { error: "due_format" };
+      sets.push("due=?", "due_overridden=1"); args.push(due || null);
+    }
+    if (!sets.length) return { error: "no_change" };
+    this.db.prepare(`UPDATE core_item SET ${sets.join(",")} WHERE id=?`).run(...args, id);
+    this.afterItemWrite?.(id);
+    return { ok: true, item: this.db.prepare("SELECT * FROM core_item WHERE id=?").get(id) };
+  }
+
+  // F2: 할 일 소프트삭제 = status 'archived'(행 보존, 활성 목록·집계에서 제외). 하드 DELETE 안 함(감사·복구).
+  archiveItem(id) {
+    const prev = this.db.prepare("SELECT status, project_id FROM core_item WHERE id=?").get(id);
+    if (!prev) return { error: "item_not_found" };
+    if (prev.status === "archived") return { error: "already_archived" };
+    this.db.prepare("UPDATE core_item SET status='archived' WHERE id=?").run(id);
+    this.afterItemWrite?.(id);
+    return { ok: true, from: prev.status, project_id: prev.project_id };
+  }
+
   // SE 기준점 확정(slice2): 미분류 할 일에 단계/연결대상 + 업무유형을 붙여 정식(open) 승격.
   // SE 기준점(단계 또는 연결대상 또는 산출물) + 업무유형 둘 다 충족해야 통과(needs_se_anchor 게이트).
   confirmItem(id, { work_type, link_kind, link_ref, completion_criteria, stage_id, anchor_stage_code } = {}) {

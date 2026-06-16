@@ -17,7 +17,8 @@ const state = {
   poProject: "",
   poParty: "",
   ctProject: "",
-  bomBoard: ""
+  bomBoard: "",
+  itemEdit: null
 };
 
 // P2b 권한: 정의 없거나 익명이면 기본 허용(visible·access). 정의 있으면 그 값.
@@ -1906,7 +1907,7 @@ function itemActionsHtml(i) {
 }
 
 function wireItemActions(scope) {
-  scope.querySelectorAll(".act-btn").forEach((b) =>
+  scope.querySelectorAll(".act-btn[data-act]").forEach((b) =>
     b.addEventListener("click", async (e) => {
       e.stopPropagation();
       const body = { id: b.dataset.i, status: b.dataset.act };
@@ -1974,14 +1975,23 @@ async function renderItems() {
   const triageNote = state.statusFilter === "unclassified"
     ? `<div class="triage-note">${L.triage_note ?? "메일/요청에서 자동 추출됐지만 과제·단계·산출물 연결이 없는 임시 할 일입니다. 분류해야 정식 실행 목록에 들어갑니다."}</div>`
     : "";
-  const rows = items.map((i) => `<tr>
+  const rows = items.map((i) => state.itemEdit === i.id
+    ? `<tr class="item-edit-row"><td colspan="7"><div class="item-edit">
+        <input class="ie-title" value="${esc(i.title)}" placeholder="${L.col_title ?? "제목"}" />
+        <input class="ie-due" type="date" value="${i.due ?? ""}" />
+        <input class="ie-assignee" value="${esc(i.assignee_ref ?? "")}" placeholder="${L.col_assignee ?? "담당"}" size="10" />
+        <button class="fav-chip active ie-save" data-i="${esc(i.id)}">${L.act_save ?? "저장"}</button>
+        <button class="fav-chip ie-cancel">${L.act_cancel ?? "취소"}</button>
+        <button class="fav-chip ie-del" data-i="${esc(i.id)}">${L.act_delete ?? "삭제"}</button>
+      </div></td></tr>`
+    : `<tr>
       <td>${esc(i.title)}${i.encounter_role === "boss" ? " 👑" : ""}</td>
       <td><span class="proj-link" data-hub="${esc(i.project_id)}">${esc(i.project_id)}</span></td>
       <td>${statusBadge(i.status)}</td>
       ${dueCell(i.due, todayKey)}
       <td>${esc(i.assignee_ref ?? "-")}</td>
       <td>${itemLinkCell(i)}</td>
-      <td class="acts">${itemActionsHtml(i)}</td>
+      <td class="acts">${itemActionsHtml(i)}<button class="act-btn edit" data-edit="${esc(i.id)}">${L.act_edit ?? "수정"}</button></td>
     </tr>`).join("");
   const isTriage = state.statusFilter === "unclassified";
   // 분류 카드는 항목의 기존값(메일/LLM 제안·결정적 SE단계)을 pre-fill → 사람은 확인만. (코어 LLM 0%: LLM은 제안, 확정은 사람)
@@ -2059,6 +2069,44 @@ async function renderItems() {
     c.addEventListener("click", () => { state.hubProject = c.dataset.hub; state.hubTab = "overview"; state.view = "project"; render(); })
   );
   wireItemActions($("#view"));
+  wireItemEdit($("#view"));
+}
+
+// F2: 할 일 인라인 수정(제목·마감·담당) + 소프트삭제. 재배정은 기존 /api/items/assign 연결.
+function wireItemEdit(scope) {
+  scope.querySelectorAll(".edit[data-edit]").forEach((b) =>
+    b.addEventListener("click", (e) => { e.stopPropagation(); state.itemEdit = b.dataset.edit; render(); })
+  );
+  scope.querySelectorAll(".ie-cancel").forEach((b) =>
+    b.addEventListener("click", (e) => { e.stopPropagation(); state.itemEdit = null; render(); })
+  );
+  scope.querySelectorAll(".ie-save").forEach((b) =>
+    b.addEventListener("click", async (e) => {
+      e.stopPropagation();
+      const row = b.closest(".item-edit");
+      const id = b.dataset.i;
+      const title = row.querySelector(".ie-title").value.trim();
+      if (!title) { row.querySelector(".ie-title").focus(); return; }
+      const due = row.querySelector(".ie-due").value || "";
+      const assignee = row.querySelector(".ie-assignee").value.trim();
+      const r1 = await post("/api/items/update", { id, title, due });
+      if (!r1.ok) { const er = await r1.json().catch(() => ({})); alert(er.error || (state.lex.act_save_failed ?? "저장 실패")); return; }
+      const r2 = await post("/api/items/assign", { id, assignee_ref: assignee });
+      if (!r2.ok) { const er = await r2.json().catch(() => ({})); alert(er.error || (state.lex.act_save_failed ?? "저장 실패")); return; }
+      state.itemEdit = null;
+      render();
+    })
+  );
+  scope.querySelectorAll(".ie-del").forEach((b) =>
+    b.addEventListener("click", async (e) => {
+      e.stopPropagation();
+      if (!(await uiConfirm(state.lex.item_delete_confirm ?? "이 할 일을 삭제(보관)할까요? 활성 목록에서 사라집니다."))) return;
+      const r = await post("/api/items/delete", { id: b.dataset.i });
+      if (!r.ok) { const er = await r.json().catch(() => ({})); alert(er.error || (state.lex.act_delete_failed ?? "삭제 실패")); return; }
+      state.itemEdit = null;
+      render();
+    })
+  );
 }
 
 // 결정적 프로젝트 라벨 색 (저채도 12팔레트 — 파워유저 페르소나 제안)

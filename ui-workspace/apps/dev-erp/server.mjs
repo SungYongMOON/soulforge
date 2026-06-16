@@ -249,6 +249,33 @@ const server = createServer(async (req, res) => {
       });
       return send(res, 200, result);
     }
+    if (path === "/api/items/update" && req.method === "POST") {
+      let body = ""; for await (const chunk of req) body += chunk;
+      const { id, title, due } = JSON.parse(body || "{}");
+      const patch = {};
+      if (title !== undefined) patch.title = title;
+      if (due !== undefined) patch.due = due;
+      const result = store.updateItem(id, patch);
+      if (result.error) return send(res, 400, result);
+      store.appendEvent({
+        actor_ref: actor, actor_kind: "human", kind: "item_edit",
+        item_ref: id, to: result.item.title, project_ref: result.item.project_id,
+        used_refs: ["items"], data_label: "real"
+      });
+      return send(res, 200, result);
+    }
+    if (path === "/api/items/delete" && req.method === "POST") {
+      let body = ""; for await (const chunk of req) body += chunk;
+      const { id } = JSON.parse(body || "{}");
+      const result = store.archiveItem(id);
+      if (result.error) return send(res, 400, result);
+      store.appendEvent({
+        actor_ref: actor, actor_kind: "human", kind: "item_archive",
+        item_ref: id, from: result.from, to: "archived", project_ref: result.project_id,
+        used_refs: ["items"], data_label: "real"
+      });
+      return send(res, 200, result);
+    }
     if (path === "/api/items/confirm" && req.method === "POST") {
       let body = ""; for await (const chunk of req) body += chunk;
       const input = JSON.parse(body || "{}");
