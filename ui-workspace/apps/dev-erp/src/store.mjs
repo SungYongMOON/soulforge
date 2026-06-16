@@ -892,12 +892,12 @@ export class Store {
       .prepare(
         `SELECT project_id,
            COUNT(*) AS total_cnt,
-           SUM(CASE WHEN status NOT IN ('done','unclassified') THEN 1 ELSE 0 END) AS open_cnt,
+           SUM(CASE WHEN status NOT IN ('done','unclassified','archived') THEN 1 ELSE 0 END) AS open_cnt,
            SUM(CASE WHEN status='blocked' THEN 1 ELSE 0 END) AS blocked_cnt,
-           SUM(CASE WHEN status NOT IN ('done','unclassified') AND due IS NOT NULL AND due < ? THEN 1 ELSE 0 END) AS overdue_cnt,
-           SUM(CASE WHEN status NOT IN ('done','unclassified') AND due = ? THEN 1 ELSE 0 END) AS today_cnt,
-           SUM(CASE WHEN status NOT IN ('done','unclassified') AND due > ? AND due <= ? THEN 1 ELSE 0 END) AS week_cnt,
-           SUM(CASE WHEN encounter_role='boss' AND status NOT IN ('done','unclassified') THEN 1 ELSE 0 END) AS boss_cnt
+           SUM(CASE WHEN status NOT IN ('done','unclassified','archived') AND due IS NOT NULL AND due < ? THEN 1 ELSE 0 END) AS overdue_cnt,
+           SUM(CASE WHEN status NOT IN ('done','unclassified','archived') AND due = ? THEN 1 ELSE 0 END) AS today_cnt,
+           SUM(CASE WHEN status NOT IN ('done','unclassified','archived') AND due > ? AND due <= ? THEN 1 ELSE 0 END) AS week_cnt,
+           SUM(CASE WHEN encounter_role='boss' AND status NOT IN ('done','unclassified','archived') THEN 1 ELSE 0 END) AS boss_cnt
          FROM core_item GROUP BY project_id`
       )
       .all(todayKey, todayKey, todayKey, weekEndKey);
@@ -939,8 +939,8 @@ export class Store {
     const args = [];
     if (project) { cond.push("i.project_id=?"); args.push(project); }
     if (status) { cond.push("i.status=?"); args.push(status); }
-    else if (!include_unclassified) { cond.push("i.status != 'unclassified'"); } // 미분류는 기본 격리(분류 필요 화면만 명시 조회)
-    if (due_before) { cond.push("i.due IS NOT NULL AND i.due<=? AND i.status NOT IN ('done','unclassified')"); args.push(due_before); }
+    else if (!include_unclassified) { cond.push("i.status NOT IN ('unclassified','archived')"); } // 미분류는 기본 격리(분류 필요 화면만 명시 조회)
+    if (due_before) { cond.push("i.due IS NOT NULL AND i.due<=? AND i.status NOT IN ('done','unclassified','archived')"); args.push(due_before); }
     // 내 일 필터: assignee_ref 가 내 식별자(로그인명 또는 사람 이름) 중 하나와 일치. 빈 배열이면 '아무도 매칭 안 됨'(빈 결과).
     if (Array.isArray(assignee_any)) {
       const ids = assignee_any.filter((x) => x != null && String(x).trim() !== "");
@@ -995,7 +995,7 @@ export class Store {
 
   // --- P2a 할일 쓰기 (run16): 생성/상태/담당/메일 승격 — 모든 변경은 server 가 event_log 에 기록 ---
   // 'unclassified'(미분류) = SE 기준점 미연결 임시 상태. 정식 실행 목록·활성 집계에서 격리(slice1).
-  static ITEM_STATUSES = ["unclassified", "open", "doing", "waiting", "blocked", "done"];
+  static ITEM_STATUSES = ["unclassified", "open", "doing", "waiting", "blocked", "done", "archived"]; // archived=소프트삭제(활성 목록·집계 제외)
   static ORIGINS = ["mail", "request", "meeting", "manual", "schedule", "ledger"]; // 할일 출처(장부 ingest 검증)
   static WORK_TYPES = ["answer", "review", "author", "revise", "purchase", "verify", "decide", "schedule"];
   static LINK_KINDS = ["requirement", "artifact", "meeting", "bom", "part", "vendor", "risk"];
@@ -1436,7 +1436,7 @@ export class Store {
     const key = person ?? "";
     return this.db.prepare(
       `SELECT id, title, project_id, due, status, assignee_ref FROM core_item
-       WHERE due IS NOT NULL AND status NOT IN ('done','unclassified') AND (? = '' OR assignee_ref = ?) ORDER BY due`
+       WHERE due IS NOT NULL AND status NOT IN ('done','unclassified','archived') AND (? = '' OR assignee_ref = ?) ORDER BY due`
     ).all(key, key);
   }
   calendarIcs({ person = null } = {}) {
@@ -2060,7 +2060,7 @@ export class Store {
     const today = new Date().toISOString().slice(0, 10);
     const key = person ?? "";
     const rows = this.db.prepare(
-      "SELECT id, title, project_id, due, status, assignee_ref FROM core_item WHERE status NOT IN ('done','unclassified') AND (? = '' OR assignee_ref = ?)"
+      "SELECT id, title, project_id, due, status, assignee_ref FROM core_item WHERE status NOT IN ('done','unclassified','archived') AND (? = '' OR assignee_ref = ?)"
     ).all(key, key);
     const rank = { overdue: 0, blocked: 1, due_today: 2, open: 3 };
     const out = rows.map((r) => {
@@ -2078,9 +2078,9 @@ export class Store {
     const rows = this.db.prepare(
       `SELECT assignee_ref,
          COUNT(*) AS total,
-         SUM(CASE WHEN status NOT IN ('done','unclassified') THEN 1 ELSE 0 END) AS open_cnt,
+         SUM(CASE WHEN status NOT IN ('done','unclassified','archived') THEN 1 ELSE 0 END) AS open_cnt,
          SUM(CASE WHEN status = 'blocked' THEN 1 ELSE 0 END) AS blocked_cnt,
-         SUM(CASE WHEN status NOT IN ('done','unclassified') AND due IS NOT NULL AND due < ? THEN 1 ELSE 0 END) AS overdue_cnt
+         SUM(CASE WHEN status NOT IN ('done','unclassified','archived') AND due IS NOT NULL AND due < ? THEN 1 ELSE 0 END) AS overdue_cnt
        FROM core_item GROUP BY assignee_ref`
     ).all(todayKey);
     const names = new Map(this.people().map((p) => [p.id, p.name]));
@@ -2095,7 +2095,7 @@ export class Store {
     return this.db.prepare(
       `SELECT m.id AS meeting_id, m.title, m.project_id,
          COUNT(map.item_id) AS total_actions,
-         SUM(CASE WHEN i.status NOT IN ('done','unclassified') THEN 1 ELSE 0 END) AS open_actions
+         SUM(CASE WHEN i.status NOT IN ('done','unclassified','archived') THEN 1 ELSE 0 END) AS open_actions
        FROM core_meeting m
        JOIN meeting_action_map map ON map.meeting_id = m.id
        JOIN core_item i ON i.id = map.item_id
