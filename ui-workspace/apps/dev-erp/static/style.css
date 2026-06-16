@@ -77,6 +77,10 @@ body[data-mode="fantasy"][data-theme="dark"] .nav-sub-head.has-active, body[data
 body[data-mode="fantasy"][data-theme="dark"] #nav .nav-items button.active,
 body[data-mode="fantasy"][data-theme="dark"] .sub-tab.on { color: #ecc977; }
 body[data-mode="fantasy"][data-theme="dark"] .nav-sub-head.has-active, body[data-mode="fantasy"][data-theme="dark"] .group-tab.on { background: rgba(224,192,106,.16); }
+/* 콕핏(홈) 활성 버튼: base 파랑 틴트(rgba(31,72,212,.13))+네이비 글자(#19358c)가 야간에 새던 것 → 금빛. id 포함해 day 특이도(1,3,0) 이김. */
+body[data-mode="fantasy"][data-theme="dark"] #appTitle.brand-home.on { background: rgba(224,192,106,.16); color: #ecc977; }
+/* 위젯 헤더 하단선: 주간 금색(rgba(185,137,42,.24))이 야간 미재선언으로 새던 것 → 야간 톤 금빛. */
+body[data-mode="fantasy"][data-theme="dark"] .widget-head { border-bottom-color: rgba(224,192,106,.16); }
 body[data-mode="fantasy"][data-theme="dark"] #nav .nav-items button.active::before,
 body[data-mode="fantasy"][data-theme="dark"] .sub-tab.on { background: #e0c06a; }
 body[data-mode="fantasy"][data-theme="dark"] .sub-tab.on { background: transparent; border-bottom-color: #e0c06a; }
