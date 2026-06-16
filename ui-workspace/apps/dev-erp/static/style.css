@@ -18,13 +18,22 @@ body[data-theme="dark"] {
 * { box-sizing: border-box; }
 body { margin: 0; font-family: "Pretendard", "Apple SD Gothic Neo", system-ui, sans-serif; background: var(--bg); color: var(--text); }
 /* IA 2.5단: 상단 전폭 brand+그룹탭 / 좌측 선택그룹 하위 / 본문 (ECount 관찰 반영) */
-#app { display: grid; grid-template-columns: 200px 1fr; grid-template-rows: auto auto 1fr;
-  grid-template-areas: "brand brand" "subbar subbar" "side main"; min-height: 100vh; }
+#app { display: grid; grid-template-columns: 200px 1fr; grid-template-rows: auto auto auto 1fr;
+  grid-template-areas: "util util" "brand brand" "subbar subbar" "side main"; min-height: 100vh; }
 /* 홈(위젯) 화면 = 좌측 하위메뉴 열 숨김, 위젯 보드가 전폭 (ECount MyPage식). 상단 탭으로만 이동. */
-#app[data-view="home"] { grid-template-columns: 1fr; grid-template-areas: "brand" "subbar" "main"; }
+#app[data-view="home"] { grid-template-columns: 1fr; grid-template-areas: "util" "brand" "subbar" "main"; }
 /* 홈(위젯 콕핏)은 대분류 위의 진입면 — 중분류 바도 숨김(ECount MyPage 식). */
 #app[data-view="home"] .sub-bar { display: none; }
 #app[data-view="home"] .side { display: none; }
+
+/* Row 0: 최상단 유틸/바로가기 바 — ECount 최상단 단축영역식. 검색·바로가기 전용 전폭 행(1분류와 분리) */
+.util-bar { grid-area: util; display: flex; align-items: center; gap: 8px;
+  padding: 4px 16px; background: var(--bg); border-bottom: 1px solid var(--line); min-height: 32px; }
+.util-bar .search-wrap { position: relative; flex: 0 0 auto; }
+.util-bar #globalSearch { width: 220px; max-width: 30vw; padding: 5px 10px; border-radius: 7px;
+  border: 1px solid var(--line); background: var(--panel); color: var(--text); font-size: 12.5px; }
+.util-bar .fav-bar { flex: 1 1 auto; justify-content: flex-start; max-width: none; min-width: 0; }
+.util-bar .freshness { margin-left: 4px; flex: 0 0 auto; }
 
 .brand-bar { grid-area: brand; display: flex; align-items: center; gap: 16px;
   padding: 8px 16px; background: var(--panel); border-bottom: 1px solid var(--line); }
@@ -45,13 +54,13 @@ body { margin: 0; font-family: "Pretendard", "Apple SD Gothic Neo", system-ui, s
 .group-tab:hover { color: var(--text); background: var(--chip); }
 .group-tab.on { background: var(--chip); border-color: var(--line); color: var(--accent); font-weight: 600; }
 /* L2 중분류 — 전폭 가로바, 자연 크기 좌측 정렬(2개여도 전폭 분할 안 함), 튀어나온 탭(밑줄 아님) */
-.sub-bar { grid-area: subbar; display: flex; flex-direction: row; gap: 3px; justify-content: flex-start;
-  align-items: flex-end; padding: 5px 16px 0; background: var(--bg); border-bottom: 1px solid var(--line); overflow-x: auto; }
-.sub-tab { flex: 0 0 auto; border: 1px solid transparent; border-bottom: none; background: transparent;
-  color: var(--muted); padding: 6px 14px; font-size: 13px; cursor: pointer; white-space: nowrap;
-  border-radius: 7px 7px 0 0; margin-bottom: -1px; }
+/* L2 중분류 — ECount식 밑줄 탭: 흰 바탕, 선택 시 파란 밑줄(2px)+굵은 네이비, 좌측 정렬 */
+.sub-bar { grid-area: subbar; display: flex; flex-direction: row; gap: 2px; justify-content: flex-start;
+  align-items: stretch; padding: 0 16px; background: var(--panel); border-bottom: 1px solid var(--line); overflow-x: auto; }
+.sub-tab { flex: 0 0 auto; border: none; border-bottom: 2px solid transparent; background: transparent;
+  color: var(--muted); padding: 8px 14px; font-size: 13px; cursor: pointer; white-space: nowrap; border-radius: 0; }
 .sub-tab:hover { color: var(--text); }
-.sub-tab.on { background: var(--panel); border-color: var(--line); color: var(--accent); font-weight: 600; }
+.sub-tab.on { background: transparent; border-bottom-color: #19358c; color: #19358c; font-weight: 700; }
 /* L3 분류 헤더 — L4 항목보다 큼, 클릭하면 접기/펼치기 */
 .nav-sub-head { display: flex; align-items: center; gap: 6px; font-size: 12px; font-weight: 400;
   color: var(--text); padding: 7px 8px; border-radius: 7px; cursor: pointer; user-select: none; }
@@ -325,9 +334,10 @@ td.dim { color: var(--line); }
 .module-incoming li { margin: 3px 0; }
 
 @media (max-width: 800px) {
-  /* 모바일: brand(그룹탭) / side(가로 하위) / main 세로 적층 */
-  #app { grid-template-columns: 1fr; grid-template-rows: auto auto 1fr;
-    grid-template-areas: "brand" "side" "main"; }
+  /* 모바일: util(검색·바로가기) / brand(그룹탭) / side(가로 하위) / main 세로 적층 */
+  #app { grid-template-columns: 1fr; grid-template-rows: auto auto auto 1fr;
+    grid-template-areas: "util" "brand" "side" "main"; }
+  .util-bar { flex-wrap: wrap; }
   .brand-bar { flex-wrap: wrap; }
   .side { flex-direction: row; align-items: center; overflow-x: auto; }
   nav#nav { flex-direction: row; }
