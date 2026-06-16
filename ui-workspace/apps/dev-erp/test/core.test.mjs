@@ -2126,3 +2126,13 @@ test("LLM-QUEUE: 대기 초과 → queued_timeout(폴백)", async () => {
   release({ ok: true }); await hold;                 // 정리: 점유 해제
   assert.equal(llmQueueStats().active, 0, "정리 후 슬롯 0");
 });
+
+// F6: app.js 가 참조하는 사전 키가 모두 존재하는지(?? 한글 폴백 누수 방지). 키 패리티는 TEST-003 가 담당.
+test("lexicon: app.js 참조 키가 사전에 모두 존재", () => {
+  const app = readFileSync(join(import.meta.dirname, "..", "static", "app.js"), "utf8");
+  const refs = new Set();
+  for (const m of app.matchAll(/(?:state\.lex|\bL|\blex)\.([A-Za-z_][A-Za-z0-9_]*)/g)) refs.add(m[1]);
+  const biz = new Set(Object.keys(LEXICON.business));
+  const missing = [...refs].filter((k) => !biz.has(k));
+  assert.deepEqual(missing, [], "사전에 없는 참조 키: " + missing.join(","));
+});
