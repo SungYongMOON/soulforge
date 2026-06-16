@@ -3234,13 +3234,18 @@ async function renderRequests() {
 
 // 던전 배경: 판타지 모드 + 과제 허브 진입 시 과제별 배경 이미지(/skins/dungeons/<과제번호>.jpg, 로컬·비공개).
 // 파일 없으면 그냥 미스트 그라데이션(404 레이어는 투명 → 폴백). 과제마다 다른 '던전'.
+// 던전 배경 레이어 우선순위: owner 지정 이미지(<과제>.jpg/.png) → 게임 컨셉아트 풀(_pN, 과제별 배정) → 내 원본 SVG → 그라데이션.
+// 앞 레이어가 404면 투명 → 다음이 비침. 게임 이미지는 로컬·비공개(gitignore).
+const DUNGEON_POOL = 11; // /skins/dungeons/_p1..N.png
+function poolFor(id) { let h = 0; const s = String(id); for (let i = 0; i < s.length; i++) h = (h * 31 + s.charCodeAt(i)) >>> 0; return (h % DUNGEON_POOL) + 1; }
 function applyDungeonBg() {
-  // 레이어: owner 로컬 사진(jpg, 있으면 우선) → 내 원본 일러스트(regions/*.svg) → 그라데이션. jpg 404면 svg가 비침.
   let layers = null;
   if (state.mode === "fantasy") {
-    if (state.view === "home") layers = `url("/skins/main.jpg"), url("/skins/regions/guild.svg")`;            // 메인=길드 내부
-    else if (state.view === "project" && state.hubProject)                                                     // 과제=던전(샘플은 forest 공통)
-      layers = `url("/skins/dungeons/${encodeURIComponent(state.hubProject)}.jpg"), url("/skins/regions/forest.svg")`;
+    if (state.view === "home") layers = `url("/skins/main.png"), url("/skins/main.jpg"), url("/skins/regions/guild.svg")`;
+    else if (state.view === "project" && state.hubProject) {
+      const id = encodeURIComponent(state.hubProject);
+      layers = `url("/skins/dungeons/${id}.jpg"), url("/skins/dungeons/${id}.png"), url("/skins/dungeons/_p${poolFor(state.hubProject)}.png"), url("/skins/regions/forest.svg")`;
+    }
   }
   if (layers) {
     document.body.dataset.dungeon = "1";

@@ -60,7 +60,8 @@ if (existsSync(realMetaPath)) {
   }
 }
 
-const MIME = { ".html": "text/html", ".js": "text/javascript", ".css": "text/css", ".json": "application/json", ".svg": "image/svg+xml" };
+const MIME = { ".html": "text/html", ".js": "text/javascript", ".css": "text/css", ".json": "application/json", ".svg": "image/svg+xml",
+  ".png": "image/png", ".jpg": "image/jpeg", ".jpeg": "image/jpeg", ".webp": "image/webp", ".gif": "image/gif" };
 const todayKey = () => new Date().toISOString().slice(0, 10);
 
 function send(res, code, body, type = "application/json", extraHeaders = {}) {
@@ -850,7 +851,10 @@ const server = createServer(async (req, res) => {
     const file = path === "/" ? "/index.html" : path;
     const full = join(HERE, "static", file);
     if (!full.startsWith(join(HERE, "static")) || !existsSync(full)) return send(res, 404, "not found", "text/plain");
-    return send(res, 200, readFileSync(full, "utf-8"), MIME[extname(full)] ?? "text/plain");
+    const type = MIME[extname(full)] ?? "text/plain";
+    // 텍스트류는 utf-8, 이미지 등 바이너리는 Buffer 그대로(utf-8로 읽으면 깨짐).
+    const binary = !(type.startsWith("text/") || type === "application/json" || type === "image/svg+xml");
+    return send(res, 200, binary ? readFileSync(full) : readFileSync(full, "utf-8"), type);
   } catch (error) {
     // BE-3: 내부 예외 메시지(SQLite 바인드·JSON 파서 등)를 클라이언트에 노출하지 않음 — 서버 로그에만 남기고 일반화 응답.
     console.error("[dev-erp] unhandled:", req.method, path, error?.stack ?? error);
