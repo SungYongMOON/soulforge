@@ -61,6 +61,9 @@ body[data-mode="fantasy"][data-dungeon] table tbody tr { background: rgba(252,24
 body[data-mode="fantasy"][data-theme="dark"] {
   --bg: #0e1118; --panel: #171c28; --line: #2c3447; --text: #ece9dd;
   --muted: #9aa2b6; --accent: #e0c06a; --danger: #e07a64; --warn: #e0b45e; --ok: #79bf94; --chip: #232b3d;
+  /* 야간 base 배경 = 어두운 달밤 그라데이션. (주간 fantasy 그라데이션 line 22 가 background 속성을 잡고 있어,
+     변수만 바꾸면 빈 영역에 밝은 미스트가 비쳐 보였던 버그 수정. 던전 허브는 아래 [data-dungeon] 규칙이 덮음.) */
+  background: linear-gradient(180deg, #0e1118 0%, #141926 45%, #171c28 100%);
 }
 body[data-mode="fantasy"][data-theme="dark"] .brand-bar, body[data-mode="fantasy"][data-theme="dark"] .util-bar,
 body[data-mode="fantasy"][data-theme="dark"] .side, body[data-mode="fantasy"][data-theme="dark"] .topbar { background: rgba(20,25,38,.86); }
