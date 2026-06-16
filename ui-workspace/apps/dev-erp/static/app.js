@@ -3235,9 +3235,14 @@ async function renderRequests() {
 // 던전 배경: 판타지 모드 + 과제 허브 진입 시 과제별 배경 이미지(/skins/dungeons/<과제번호>.jpg, 로컬·비공개).
 // 파일 없으면 그냥 미스트 그라데이션(404 레이어는 투명 → 폴백). 과제마다 다른 '던전'.
 function applyDungeonBg() {
-  if (state.mode === "fantasy" && state.view === "project" && state.hubProject) {
+  let url = null;
+  if (state.mode === "fantasy") {
+    if (state.view === "home") url = "/skins/main.jpg";                                    // 메인=길드 내부 전경
+    else if (state.view === "project" && state.hubProject) url = `/skins/dungeons/${encodeURIComponent(state.hubProject)}.jpg`; // 과제=던전
+  }
+  if (url) {
     document.body.dataset.dungeon = "1";
-    document.body.style.setProperty("--dungeon-bg", `url("/skins/dungeons/${encodeURIComponent(state.hubProject)}.jpg")`);
+    document.body.style.setProperty("--dungeon-bg", `url("${url}")`);
   } else {
     document.body.removeAttribute("data-dungeon");
     document.body.style.removeProperty("--dungeon-bg");
