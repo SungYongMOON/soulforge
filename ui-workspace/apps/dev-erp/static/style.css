@@ -67,10 +67,10 @@ body { margin: 0; font-family: "Pretendard", "Apple SD Gothic Neo", system-ui, s
 /* L4 항목 블록 — L3 헤더보다 확실히 들여쓰기(헤더 아래 둥지처럼) */
 .nav-items { display: flex; flex-direction: column; gap: 2px; padding-left: 26px; position: relative; }
 /* L4 항목 왼쪽 수직 레일 + 선택 항목에 원(이카운트식, 선택 따라 이동). 레일=12px, 원 중심도 12px */
-.nav-items::before { content: ""; position: absolute; left: 11px; top: 5px; bottom: 5px; width: 2px; background: var(--line); border-radius: 2px; }
+.nav-items::before { content: ""; position: absolute; left: 25px; top: 5px; bottom: 5px; width: 2px; background: var(--line); border-radius: 2px; }
 #nav .nav-items button { position: relative; }
 #nav .nav-items button.active { background: transparent; color: #1d5fc4; font-weight: 700; }
-#nav .nav-items button.active::before { content: ""; position: absolute; left: -17.5px; top: 50%; transform: translateY(-50%);
+#nav .nav-items button.active::before { content: ""; position: absolute; left: -3.5px; top: 50%; transform: translateY(-50%);
   width: 7px; height: 7px; border-radius: 50%; background: #1d5fc4; transition: top .2s ease; }
 /* 우측 글로벌: 바로가기바 + 등록☆ + ⌘K + 검색 (ECount 최상단 영역) */
 .global-actions { display: flex; align-items: center; gap: 6px; margin-left: auto; min-width: 0; position: relative; }
@@ -282,7 +282,7 @@ nav button:hover .pin-btn { opacity: 1; }
   color: var(--text); font-weight: 600; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 .nav-sub-head.proj-head.on { color: var(--accent); }
 .nav-sub-head.proj-head.on .pn-id { color: var(--accent); }
-#nav .nav-items.proj-facets button.proj-facet { font-size: 12px; padding: 4px 8px; justify-content: flex-start; }
+#nav .nav-items.proj-facets button.proj-facet { font-size: 12px; padding: 4px 9px; justify-content: flex-start; }
 #nav .nav-items.proj-facets button.proj-facet.active { background: transparent; color: #1d5fc4; font-weight: 700; }
 .hub-h3 { font-size: 13px; font-weight: 600; margin: 14px 0 6px; }
 .hub-note, .hub-h3:first-child { margin-top: 0; }
