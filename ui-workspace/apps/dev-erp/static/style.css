@@ -70,8 +70,8 @@ body { margin: 0; font-family: "Pretendard", "Apple SD Gothic Neo", system-ui, s
 .nav-items::before { content: ""; position: absolute; left: 11px; top: 5px; bottom: 5px; width: 2px; background: var(--line); border-radius: 2px; }
 #nav .nav-items button { position: relative; }
 #nav .nav-items button.active { background: transparent; color: #1d5fc4; font-weight: 700; }
-#nav .nav-items button.active::before { content: ""; position: absolute; left: -18.5px; top: 50%; transform: translateY(-50%);
-  width: 8px; height: 8px; border-radius: 50%; background: #1d5fc4; box-shadow: 0 0 0 2.5px var(--panel); transition: top .2s ease; }
+#nav .nav-items button.active::before { content: ""; position: absolute; left: -17.5px; top: 50%; transform: translateY(-50%);
+  width: 7px; height: 7px; border-radius: 50%; background: #1d5fc4; transition: top .2s ease; }
 /* 우측 글로벌: 바로가기바 + 등록☆ + ⌘K + 검색 (ECount 최상단 영역) */
 .global-actions { display: flex; align-items: center; gap: 6px; margin-left: auto; min-width: 0; position: relative; }
 .search-dropdown { position: absolute; top: calc(100% + 4px); right: 0; width: 320px; max-width: 60vw;
