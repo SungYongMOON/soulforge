@@ -799,3 +799,22 @@ nav button[disabled]:hover { background: transparent; }
   background: radial-gradient(circle, rgba(25,53,140,.10), transparent 64%); }
 
 @media (max-width: 420px) { .gate-moon { width: 104px; height: 104px; top: 6%; right: 8%; } .gate-card { padding: 24px 20px; } .gate-mode { top: 12px; right: 12px; } }
+
+/* ═══ 지식 뷰 — 분야 그룹 카드 목록 + 항목 뷰어(canon 메타) ═══ */
+.know-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(240px, 1fr)); gap: 12px; }
+.know-card { text-align: left; display: flex; flex-direction: column; gap: 5px; padding: 14px 16px; background: var(--panel); border: 1px solid var(--line); border-radius: 12px; cursor: pointer; transition: border-color .15s, box-shadow .15s; }
+.know-card:hover { border-color: var(--accent); box-shadow: 0 2px 10px rgba(0,0,0,.08); }
+.know-card-t { font-size: 14px; font-weight: 700; color: var(--text); }
+.know-card-d { font-size: 11px; color: var(--accent); font-weight: 600; }
+.know-card-s { font-size: 12px; color: var(--muted); line-height: 1.45; }
+.know-view { max-width: 760px; }
+.know-back { background: none; border: 0; color: var(--muted); font-size: 12.5px; cursor: pointer; padding: 0 0 10px; }
+.know-back:hover { color: var(--accent); }
+.know-h { margin: 0 0 6px; font-size: 19px; }
+.know-domain { font-size: 12px; color: var(--accent); font-weight: 600; margin-bottom: 12px; }
+.know-summary { font-size: 13.5px; line-height: 1.65; color: var(--text); background: var(--panel); border: 1px solid var(--line); border-left: 3px solid var(--accent); border-radius: 8px; padding: 12px 14px; }
+.know-meta { margin: 16px 0 0; display: flex; flex-direction: column; gap: 8px; }
+.know-meta dt { font-size: 11px; color: var(--muted); }
+.know-meta dd { margin: 2px 0 0; font-size: 13px; word-break: break-all; }
+.know-meta a { color: var(--accent); }
+.know-note { margin-top: 16px; font-size: 11.5px; color: var(--muted); }

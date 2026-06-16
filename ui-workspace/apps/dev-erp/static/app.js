@@ -7,6 +7,7 @@ const state = {
   projectFilter: "",
   navTop: localStorage.getItem("dev_erp_navtop") || "work",       // L1 대분류(상단 가로)
   navGroup: localStorage.getItem("dev_erp_navgroup") || "work_mine", // L2 중분류(상단 가로, 섹터)
+  knowGroup: "standards", knowSel: null, _knowCache: null, // 지식: 현재 분야그룹 / 선택 항목 / canon 캐시
   navFold: new Set(JSON.parse(localStorage.getItem("dev_erp_navfold") || "[]")), // 좌측 L3 접힘 키
   pins: JSON.parse(localStorage.getItem("dev_erp_pins") || "[]"),
   // P2b: 계정/권한. 익명(account=null)이면 앱은 현행대로(전체 접근·localStorage).
@@ -511,12 +512,19 @@ const NAV_TREE = [
       { b: "거래처·연락처", f: "상단·인명록", items: ["mod:contacts"] },
     ] },
   ] },
-  { id: "kb", b: "지식·지원", f: "대도서관", sectors: [
-    { g: "kb_know", b: "지식·표준", f: "전승·율법", subs: [
+  // 지식 = 분야 4그룹(서브탭) + 항목은 canon 에서 동적으로 왼쪽 나열(knowGroup). 검색·지침은 정적.
+  { id: "know", b: "지식", f: "전승 서고", sectors: [
+    { g: "kg_standards", b: "표준·규격집", f: "율법·규격집", knowGroup: "standards", subs: [] },
+    { g: "kg_domain", b: "분야 기술", f: "분야 비술", knowGroup: "domain", subs: [] },
+    { g: "kg_method", b: "지식·RAG 방법", f: "지식 연성술", knowGroup: "method", subs: [] },
+    { g: "kg_doctrine", b: "운영 규범·교리", f: "교리·규범", knowGroup: "doctrine", subs: [] },
+    { g: "kg_search", b: "검색·지침", f: "전승 검색", subs: [
       { b: "지식·RAG·표준", f: "전승 검색", items: ["mod:knowledge"] },
       { b: "SE 가이드·검색", f: "원정 지침", items: ["guide", "search"] },
     ] },
-    { g: "kb_tool", b: "도구·템플릿", f: "제작 도구", subs: [
+  ] },
+  { id: "tool", b: "도구·지원", f: "제작 도구", sectors: [
+    { g: "tool_make", b: "도구·템플릿", f: "제작 도구", subs: [
       { b: "계산기", f: "계산 마법구", items: ["mod:calculators"] },
       { b: "템플릿·작성법", f: "제작 비법서", items: ["mod:recipe"] },
       { b: "외부 시트", f: "외부 점술판", items: ["mod:embeds"] },
@@ -619,7 +627,8 @@ function renderTopBar() {
       } else {
         const sec = top.sectors[0];
         state.navGroup = sec.g;
-        state.view = navFirstView(sec);
+        if (sec.knowGroup) { state.knowGroup = sec.knowGroup; state.knowSel = null; state.view = "knowledge"; }
+        else state.view = navFirstView(sec);
       }
       localStorage.setItem("dev_erp_navgroup", state.navGroup);
       render();
@@ -639,7 +648,9 @@ function renderSubBar() {
     b.addEventListener("click", () => {
       state.navGroup = b.dataset.g;
       localStorage.setItem("dev_erp_navgroup", state.navGroup);
-      state.view = navFirstView(navSectorOf(state.navTop, state.navGroup));
+      const sec = navSectorOf(state.navTop, state.navGroup);
+      if (sec.knowGroup) { state.knowGroup = sec.knowGroup; state.knowSel = null; state.view = "knowledge"; }
+      else state.view = navFirstView(sec);
       render();
     })
   );
@@ -675,6 +686,8 @@ function renderNav() {
   let tree;
   if (top.dynamicYears) {
     tree = renderProjectYearNav();
+  } else if (navSectorOf(state.navTop, state.navGroup)?.knowGroup) {
+    tree = renderKnowledgeNav(navSectorOf(state.navTop, state.navGroup).knowGroup);
   } else {
     const sec = navSectorOf(state.navTop, state.navGroup);
     tree = (sec.subs ?? []).map((sub, i) => {
@@ -709,6 +722,10 @@ function renderNav() {
   $("#nav").querySelectorAll("button[data-v]").forEach((b) =>
     b.addEventListener("click", () => { state.view = b.dataset.v; render(); })
   );
+  // 지식 항목(data-k) → 뷰어. 같은 항목 다시 누르면 그룹 목록으로(토글).
+  $("#nav").querySelectorAll("button[data-k]").forEach((b) =>
+    b.addEventListener("click", () => { state.knowSel = state.knowSel === b.dataset.k ? null : b.dataset.k; state.view = "knowledge"; render(); })
+  );
   // 과제 facet 버튼(data-hub + data-facet) → 과제 허브의 해당 탭 진입
   $("#nav").querySelectorAll("button[data-hub]").forEach((b) =>
     b.addEventListener("click", () => { state.hubProject = b.dataset.hub; state.hubTab = b.dataset.facet ?? "overview"; state.view = "project"; render(); })
@@ -734,6 +751,47 @@ function renderNav() {
     btn.title = pinnable ? (on ? state.lex.pin_remove : state.lex.pin_add) : "";
     btn.onclick = () => { if (pinnable) togglePin(cur); };
   }
+}
+
+// 지식 좌측 동적 leaves: 현재 분야그룹의 canon 항목(제목)을 왼쪽에 쭉. 캐시 미준비면 로딩 표시.
+function renderKnowledgeNav(groupKey) {
+  if (!state._knowCache) return `<div class="nav-group"><div class="nav-items"><span class="dim" style="padding:6px 10px;font-size:12px">${state.lex.proj_tree_loading ?? "불러오는 중…"}</span></div></div>`;
+  const entries = (state._knowCache.find((g) => g.key === groupKey)?.entries) ?? [];
+  if (!entries.length) return `<div class="nav-group"><div class="nav-items"><span class="dim" style="padding:6px 10px;font-size:12px">${state.lex.empty_knowledge ?? "지식 없음"}</span></div></div>`;
+  const btns = entries.map((e) => `<button data-k="${esc(e.id)}" class="${state.knowSel === e.id ? "active" : ""}"><span>${esc(e.title)}</span></button>`).join("");
+  return `<div class="nav-group"><div class="nav-items">${btns}</div></div>`;
+}
+
+// 지식 뷰: 선택 항목 없으면 그룹 카드 목록, 있으면 항목 뷰어(메타·요약·출처 포인터만 — 원문 미저장).
+async function renderKnowledgeEntry() {
+  if (!state._knowCache) { try { state._knowCache = (await api("/api/knowledge/registry")).groups; } catch { state._knowCache = []; } }
+  const L = state.lex;
+  const grp = (state._knowCache ?? []).find((g) => g.key === state.knowGroup) ?? state._knowCache?.[0];
+  if (!grp) { $("#view").innerHTML = `<div class="empty">${L.empty_knowledge ?? "지식 없음"}</div>`; return; }
+  const sel = state.knowSel ? grp.entries.find((e) => e.id === state.knowSel) : null;
+  if (!sel) {
+    const cards = grp.entries.map((e) => `<button class="know-card" data-k="${esc(e.id)}">
+      <span class="know-card-t">${esc(e.title)}</span>
+      ${e.primary_domain ? `<span class="know-card-d">${esc(e.primary_domain)}</span>` : ""}
+      ${e.summary ? `<span class="know-card-s">${esc(e.summary.slice(0, 120))}</span>` : ""}</button>`).join("");
+    $("#view").innerHTML = `<div class="know-grid">${cards || `<div class="empty">${L.empty_knowledge ?? "지식 없음"}</div>`}</div>`;
+    $("#view").querySelectorAll(".know-card").forEach((b) => b.addEventListener("click", () => { state.knowSel = b.dataset.k; render(); }));
+    return;
+  }
+  $("#view").innerHTML = `<article class="know-view">
+    <button class="know-back" id="knowBack">← ${esc(grp.label)}</button>
+    <h2 class="know-h">${esc(sel.title)}</h2>
+    ${sel.primary_domain ? `<div class="know-domain">${esc(sel.primary_domain)}</div>` : ""}
+    ${sel.summary ? `<p class="know-summary">${esc(sel.summary)}</p>` : ""}
+    <dl class="know-meta">
+      ${sel.public_ref ? `<div><dt>${L.know_source ?? "공개 출처"}</dt><dd><a href="${esc(sel.public_ref)}" target="_blank" rel="noopener">${esc(decodeURIComponent(sel.public_ref).slice(0, 90))}…</a></dd></div>` : ""}
+      ${sel.pointer ? `<div><dt>${L.know_pointer ?? "소스카드"}</dt><dd class="pointer">${esc(sel.pointer)} <button class="copy-btn" data-c="${esc(sel.pointer)}">${L.copy}</button></dd></div>` : ""}
+      <div><dt>id</dt><dd class="dim">${esc(sel.id)}</dd></div>
+    </dl>
+    <p class="know-note">${L.know_note ?? "원문 미저장 — canon 메타·요약·출처 포인터만 표시."}</p>
+  </article>`;
+  $("#knowBack")?.addEventListener("click", () => { state.knowSel = null; render(); });
+  $("#view").querySelector(".copy-btn")?.addEventListener("click", (e) => navigator.clipboard?.writeText(e.target.dataset.c));
 }
 
 // --- 프로젝트 관리: L2 년도 선택 → L3 과제(헤더) → L4 facet ---
@@ -3388,6 +3446,10 @@ function applyDungeonBg() {
 
 async function render() {
   document.getElementById("app").dataset.view = state.view; // 홈(위젯)에선 좌측 열 숨김용
+  // 지식 대분류면 canon 항목 캐시를 nav 렌더 전에 준비(동적 왼쪽 leaves 용).
+  if (state.navTop === "know" && !state._knowCache) {
+    try { state._knowCache = (await api("/api/knowledge/registry")).groups; } catch { state._knowCache = []; }
+  }
   applyDungeonBg();
   renderAuth();
   renderNav();
@@ -3408,6 +3470,7 @@ async function render() {
     logView(state.view);
     return renderReports();
   }
+  if (state.view === "knowledge") { $("#viewTitle").textContent = navTL(navTopOf("know")); logView(state.view); return renderKnowledgeEntry(); }
   if (state.view === "mod:knowledge") { const m=(state.modules??[]).find(x=>x.id==="knowledge"); $("#viewTitle").textContent=m?.nav??"지식"; logView(state.view); return renderKnowledge(); }
   if (state.view === "mod:calculators") { const m=(state.modules??[]).find(x=>x.id==="calculators"); $("#viewTitle").textContent=m?.nav??"계산기"; logView(state.view); return renderCalculators(); }
   if (state.view === "mod:recipe") { $("#viewTitle").textContent = state.lex.recipe_title; logView(state.view); return renderRecipe(); }
