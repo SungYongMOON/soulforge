@@ -1,6 +1,6 @@
 from __future__ import annotations
 
-from dataclasses import dataclass
+from dataclasses import dataclass, replace
 from datetime import datetime, timedelta, timezone
 import json
 import os
@@ -392,6 +392,7 @@ class CollectorConfig:
     link_download_retry_max: int = 3
     link_download_retry_backoff_sec: Sequence[int] = (1, 2, 4)
     denied_link_hosts: Sequence[str] = ()
+    mailbox_metadata: Optional[Dict[str, str]] = None
 
 
 def build_config_from_env(repo_root: Path, env_file: Path) -> CollectorConfig:
@@ -576,7 +577,7 @@ def _build_gmail_connector(config: CollectorConfig) -> GmailConnector:
         attachment_max_bytes=config.attachment_max_bytes,
         blocked_attachment_extensions=config.blocked_attachment_extensions,
         download_attachments=not config.dry_run,
-        attachment_root=config.inbox_root / "personal" / "mail" / "attachments",
+        attachment_root=_attachment_root_for_source(config, "gmail"),
         initial_after_epoch=config.gmail_initial_after_epoch,
     )
 
@@ -594,7 +595,7 @@ def _build_hiworks_connector(config: CollectorConfig) -> HiworksPop3Connector:
         attachment_max_bytes=config.attachment_max_bytes,
         blocked_attachment_extensions=config.blocked_attachment_extensions,
         download_attachments=not config.dry_run,
-        attachment_root=config.inbox_root / "company" / "mail" / "attachments",
+        attachment_root=_attachment_root_for_source(config, "hiworks"),
     )
 
 
@@ -609,6 +610,53 @@ def _workspace_for_source(config: CollectorConfig, source: str) -> str:
     if isinstance(config.source_workspace_map, dict):
         return str(config.source_workspace_map.get(source, "personal")).strip() or "personal"
     return "personal"
+
+
+def _mailbox_metadata_for_source(config: CollectorConfig, source: str) -> Optional[Dict[str, str]]:
+    if not isinstance(config.mailbox_metadata, dict):
+        return None
+
+    metadata: Dict[str, str] = {}
+    for key in ("id", "account_id", "email", "display_name", "provider", "workspace"):
+        value = str(config.mailbox_metadata.get(key, "") or "").strip()
+        if value:
+            metadata[key] = value
+
+    metadata["provider"] = str(metadata.get("provider") or source or "").strip()
+    metadata["workspace"] = _workspace_for_source(config, source)
+    return metadata if any(metadata.get(key) for key in ("id", "account_id", "email")) else None
+
+
+def _operator_mailbox_summary(config: CollectorConfig, source: Optional[str] = None) -> Optional[Dict[str, str]]:
+    metadata = _mailbox_metadata_for_source(config, source or str((config.mailbox_metadata or {}).get("provider", "")))
+    if not metadata:
+        return None
+    return {
+        key: metadata[key]
+        for key in ("id", "provider", "workspace")
+        if metadata.get(key)
+    }
+
+
+def _annotate_mailbox_metadata(
+    events: Sequence[Any],
+    *,
+    config: CollectorConfig,
+    source: str,
+) -> List[Any]:
+    mailbox_metadata = _mailbox_metadata_for_source(config, source)
+    if not mailbox_metadata:
+        return list(events)
+
+    annotated: List[Any] = []
+    for event in events:
+        if not hasattr(event, "metadata"):
+            annotated.append(event)
+            continue
+        metadata = dict(event.metadata or {})
+        metadata["mailbox"] = dict(mailbox_metadata)
+        annotated.append(replace(event, metadata=metadata))
+    return annotated
 
 
 def _run_with_retry(config: CollectorConfig, source: str, action) -> Tuple[Any, List[ConnectorError]]:
@@ -681,6 +729,9 @@ def run_once(config: CollectorConfig) -> Dict[str, Any]:
         "total_duplicates": 0,
         "errors": [],
     }
+    operator_mailbox = _operator_mailbox_summary(config)
+    if operator_mailbox:
+        summary["mailbox"] = operator_mailbox
 
     connectors: List[Tuple[str, Any]] = []
     if config.gmail_enabled:
@@ -718,6 +769,9 @@ def run_once(config: CollectorConfig) -> Dict[str, Any]:
             "errors": [error.to_dict() for error in fetch_errors],
             "cursor": None,
         }
+        operator_source_mailbox = _operator_mailbox_summary(config, source)
+        if operator_source_mailbox:
+            source_row["mailbox"] = operator_source_mailbox
 
         if result is None:
             source_row["partial"] = True
@@ -760,6 +814,7 @@ def run_once(config: CollectorConfig) -> Dict[str, Any]:
                 ad_keywords=config.ad_keywords,
                 ad_sender_domains=config.ad_sender_domains,
             )
+            fresh_events = _annotate_mailbox_metadata(fresh_events, config=config, source=source)
             source_row["link_download"] = link_result.to_dict()
             if link_result.errors:
                 source_row["errors"].extend(error.to_dict() for error in link_result.errors)

@@ -250,7 +250,7 @@ async function openAdminPanel() {
   document.querySelector(".ui-confirm-overlay")?.remove();
   const ov = document.createElement("div");
   ov.className = "ui-confirm-overlay";
-  ov.innerHTML = `<div class="ui-confirm admin-panel" role="dialog" aria-label="${L.admin_panel}" style="max-width:720px;text-align:left">
+  ov.innerHTML = `<div class="ui-confirm admin-panel" role="dialog" aria-label="${L.admin_panel}" style="max-width:1080px;text-align:left">
     <p class="ui-confirm-msg">${L.admin_panel} · ${L.acct_new}</p>
     <div class="admin-create" style="display:flex;gap:6px;flex-wrap:wrap;align-items:center;margin-bottom:10px">
       <input id="acName" class="login-input" style="width:96px" placeholder="${L.acct_name}" />
@@ -271,28 +271,74 @@ async function openAdminPanel() {
   const errBox = ov.querySelector(".admin-err");
   const renderList = async () => {
     const data = await api("/api/accounts").catch(() => ({ accounts: [] }));
+    const providerLabels = { none: L["mailbox_provider_none"] ?? "없음", gmail: "Gmail", hiworks: "Hiworks" };
+    const providerOptions = (value) => Object.entries(providerLabels)
+      .map(([k, label]) => `<option value="${k}" ${value === k ? "selected" : ""}>${esc(label)}</option>`).join("");
     const rows = (data.accounts || []).map((a) => {
       const role = a.is_admin ? "admin" : "member";
       const roleLbl = a.is_admin ? L.acct_role_admin : L.acct_role_member;
       const statusLbl = a.status === "active" ? L.acct_active : L.acct_disabled;
       const otherRole = a.is_admin ? "member" : "admin";
       const isSelf = state.account && a.id === state.account.id;
+      const mailboxEnabled = !!a.mailbox_enabled;
+      const mailboxStatus = a.mailbox_status || (mailboxEnabled ? "ready" : "disabled");
+      const mailboxAt = a.mailbox_last_fetch_at ? String(a.mailbox_last_fetch_at).replace("T", " ").slice(0, 16) : "-";
       return `<tr>
-        <td>${esc(a.display_name || a.username)}</td><td class="muted">${esc(a.username)}</td>
-        <td class="muted">${esc(a.email || "-")}</td>
-        <td><button class="fav-chip ac-role" data-id="${a.id}" data-role="${otherRole}">${roleLbl}</button></td>
-        <td><button class="fav-chip ac-status" data-id="${a.id}" data-status="${a.status === "active" ? "disabled" : "active"}" ${isSelf ? "disabled" : ""}>${statusLbl}</button></td>
+        <td><input class="login-input ac-name" style="width:110px" value="${esc(a.display_name || "")}" placeholder="${L.acct_name}" /></td>
+        <td class="muted">${esc(a.username)}</td>
+        <td><input class="login-input ac-email" style="width:155px" value="${esc(a.email || "")}" placeholder="${L.acct_email}" /></td>
+        <td><button class="fav-chip ac-role" data-id="${a.id}" data-role="${otherRole}">${roleLbl}</button>
+          <button class="fav-chip ac-status" data-id="${a.id}" data-status="${a.status === "active" ? "disabled" : "active"}" ${isSelf ? "disabled" : ""}>${statusLbl}</button>
+          <button class="fav-chip ac-save" data-id="${esc(a.id)}">${L.acct_save ?? "저장"}</button></td>
+        <td><div style="display:flex;gap:6px;flex-wrap:wrap;align-items:center">
+          <select class="login-input mb-provider" style="width:92px">${providerOptions(a.mailbox_provider || "none")}</select>
+          <label class="dim mini"><input type="checkbox" class="mb-enabled" ${mailboxEnabled ? "checked" : ""} /> ${mailboxEnabled ? (L.acct_active ?? "활성") : (L.acct_disabled ?? "비활성")}</label>
+          <input class="login-input mb-env" style="width:170px" value="${esc(a.mailbox_env_ref || "")}" placeholder="${L["mailbox_env_ref"] ?? "env ref"}" autocomplete="off" />
+          <button class="fav-chip mb-save" data-id="${esc(a.id)}">${L.acct_save ?? "저장"}</button>
+        </div></td>
+        <td class="muted" title="${esc(a.mailbox_last_error || "")}">${esc(mailboxStatus)}<div class="mini">${esc(mailboxAt)}</div></td>
       </tr>`;
     }).join("");
     ov.querySelector("#acList").innerHTML =
       `<table class="admin-table" style="width:100%;border-collapse:collapse"><thead><tr>
-        <th>${L.acct_name}</th><th>${L.acct_user}</th><th>${L.acct_email}</th><th>${L.acct_role}</th><th>${L.acct_status}</th>
+        <th>${L.acct_name}</th><th>${L.acct_user}</th><th>${L.acct_email}</th><th>${L.acct_role}·${L.acct_status}</th>
+        <th>${L["mailbox_provider"] ?? "메일함"}</th><th>${L["mailbox_status"] ?? "상태/시각"}</th>
       </tr></thead><tbody>${rows}</tbody></table>`;
     ov.querySelectorAll(".ac-role").forEach((b) => b.addEventListener("click", async () => {
       await post("/api/accounts/update", { id: b.dataset.id, role: b.dataset.role }); renderList();
     }));
     ov.querySelectorAll(".ac-status").forEach((b) => b.addEventListener("click", async () => {
       await post("/api/accounts/status", { id: b.dataset.id, status: b.dataset.status }); renderList();
+    }));
+    ov.querySelectorAll(".ac-save").forEach((b) => b.addEventListener("click", async () => {
+      errBox.textContent = "";
+      const tr = b.closest("tr");
+      const r = await post("/api/accounts/update", {
+        id: b.dataset.id,
+        display_name: tr.querySelector(".ac-name").value.trim(),
+        email: tr.querySelector(".ac-email").value.trim()
+      }).then((x) => x.json()).catch(() => null);
+      if (r && r.ok) { errBox.textContent = L.acct_save ?? "저장"; renderList(); }
+      else errBox.textContent = (r && /taken|format/.test(r.error || "")) ? L.acct_taken : (r?.error || L.login_fail);
+    }));
+    ov.querySelectorAll(".mb-save").forEach((b) => b.addEventListener("click", async () => {
+      errBox.textContent = "";
+      const tr = b.closest("tr");
+      const r = await post("/api/accounts/mailbox", {
+        id: b.dataset.id,
+        provider: tr.querySelector(".mb-provider").value,
+        enabled: tr.querySelector(".mb-enabled").checked,
+        env_ref: tr.querySelector(".mb-env").value.trim()
+      }).then((x) => x.json()).catch(() => null);
+      if (r && r.ok) { errBox.textContent = L.acct_save ?? "저장"; renderList(); }
+      else {
+        const e = r?.error || "";
+        errBox.textContent = e === "mailbox_env_ref_required" ? (L["mailbox_env_ref_required"] ?? "활성 메일함은 env ref가 필요합니다")
+          : e === "mailbox_env_ref_invalid" ? (L["mailbox_env_ref_invalid"] ?? "env ref는 상대경로만 가능합니다")
+          : e === "mailbox_secret_not_allowed" ? (L["mailbox_secret_not_allowed"] ?? "비밀값은 저장할 수 없습니다")
+          : e === "mailbox_provider_invalid" ? (L["mailbox_provider_invalid"] ?? "지원하지 않는 메일 provider입니다")
+          : (e || L.login_fail);
+      }
     }));
   };
   ov.querySelector("#acAdd").addEventListener("click", async () => {
@@ -2167,6 +2213,16 @@ function itemLinkCell(i) {
   return '<span class="dim">-</span>';
 }
 
+function itemAutomationHints(i) {
+  const hints = [];
+  if (i.review_reason) hints.push(`검토: ${i.review_reason}`);
+  if (i.route_candidate) hints.push(`라우트: ${i.route_candidate}${i.route_confidence ? `/${i.route_confidence}` : ""}`);
+  if (i.suggested_assignee_ref) hints.push(`추천담당: ${i.suggested_assignee_ref}${i.assignee_confidence ? `/${i.assignee_confidence}` : ""}`);
+  if (i.required_role || i.required_capability) hints.push(`필요: ${[i.required_role, i.required_capability].filter(Boolean).join(" · ")}`);
+  if (i.sync_state && !["synced", "pending"].includes(i.sync_state)) hints.push(`동기화: ${i.sync_state}${i.sync_error ? ` · ${i.sync_error}` : ""}`);
+  return hints.length ? `<div class="cc-hint">${hints.map(esc).join(" · ")}</div>` : "";
+}
+
 async function renderItems() {
   const todayKey = new Date().toISOString().slice(0, 10);
   await ensureScopes();
@@ -2222,7 +2278,7 @@ async function renderItems() {
         <button class="fav-chip ie-del" data-i="${esc(i.id)}">${L.act_delete ?? "삭제"}</button>
       </div></td></tr>`
     : `<tr>
-      <td>${esc(i.title)}${i.encounter_role === "boss" ? " 👑" : ""}</td>
+      <td>${esc(i.title)}${i.encounter_role === "boss" ? " 👑" : ""}${itemAutomationHints(i)}</td>
       <td><span class="proj-link" data-hub="${esc(i.project_id)}">${esc(i.project_id)}</span></td>
       <td>${statusBadge(i.status)}</td>
       ${dueCell(i.due, todayKey)}
@@ -2242,6 +2298,7 @@ async function renderItems() {
         return `<div class="classify-card" data-id="${esc(i.id)}">
         <div class="cc-head"><span class="cc-title">${esc(i.title)}</span><span class="proj-link label-chip" data-hub="${esc(i.project_id)}">${esc(i.project_id)}</span>
           ${suggested ? `<span class="badge mini">${L.cls_suggested ?? "제안"}</span>` : ""}${i.anchor_stage_code ? `<span class="dim mini">SE ${esc(i.anchor_stage_code)}</span>` : ""}</div>
+        ${itemAutomationHints(i)}
         <div class="cc-form">
           <select class="cc-wt"><option value="">${L.cls_work_type ?? "업무유형"}…</option>${optsSel(WORK_TYPE_LABELS, i.work_type)}</select>
           <select class="cc-lk"><option value="">${L.cls_link_kind ?? "연결대상"}…</option>${optsSel(LINK_KIND_LABELS, i.link_kind)}</select>
@@ -2841,7 +2898,7 @@ async function hubItems(mount, p) {
     : "";
   mount.innerHTML = note + (items.length
     ? `<table><thead><tr><th>${L.col_title ?? "할 일"}</th><th>${L.col_stage ?? "단계"}</th><th>${L.col_link ?? "유형·연결"}</th><th>${L.col_status ?? "상태"}</th><th>${L.col_due ?? "마감"}</th><th>${L.col_assignee ?? "담당"}</th></tr></thead><tbody>${items.map((i) => `<tr>
-        <td>${esc(i.title)}${i.completion_criteria ? `<div class="cc-hint">✓ ${esc(i.completion_criteria)}</div>` : ""}</td>
+        <td>${esc(i.title)}${i.completion_criteria ? `<div class="cc-hint">✓ ${esc(i.completion_criteria)}</div>` : ""}${itemAutomationHints(i)}</td>
         <td class="dim">${esc(i.anchor_stage_code ?? i.guide_stage_code ?? "-")}</td>
         <td>${itemLinkCell(i)}</td>
         <td>${statusBadge(i.status)}</td>${dueCell(i.due, todayKey)}<td class="dim">${esc(i.assignee_ref ?? "-")}</td></tr>`).join("")}</tbody></table>`
@@ -2913,7 +2970,7 @@ async function hubOverview(mount, p) {
   const openCnt = items.filter((i) => i.status !== "done").length;
   const spawn = state.spawnItems ?? new Set();
   const rows = items.map((i) => `<tr class="${spawn.has(i.id) ? "spawned" : ""}">
-      <td>${esc(i.title)}</td>
+      <td>${esc(i.title)}${itemAutomationHints(i)}</td>
       <td>${statusBadge(i.status)}</td>
       ${dueCell(i.due, todayKey)}
       <td>${esc(i.assignee_ref ?? "-")}</td>

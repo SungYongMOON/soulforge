@@ -2,6 +2,45 @@
 
 ## 2026-06-17
 
+### Revision `working` - dev-erp 기존 메일 이력 754건 할일 장부화
+
+- 기존 `_workmeta/*/reports/메일_이력/메일_이력.csv` 8개 장부의 754개 메일 이력에서
+  `mailtask:<이력키>` 할일 장부 행을 생성하고 dev-ERP DB에 수입할 수 있게 함.
+- 메일에 명시 기한이 있으면 해당 날짜를 우선 사용하고, 없으면 수신일+3일 첫 검토기한과
+  기한+2일 리마인드/급한 재검토 문구를 장부에 남기도록 `mail_to_task_ledger.mjs` 를 보강.
+- `P00-000_INBOX` 예약 코드를 dev-ERP의 인박스 프로젝트로 수입할 수 있게 해 회사 일반/미해결
+  메일도 메일 원장과 할일 원장에서 누락되지 않도록 함.
+- 메일 행의 스레드 헤더 alias, 소스 계보 해시, 생성런/규칙, 메일소스ID를 보존해
+  메일→할일 추적성을 강화.
+
+### Revision `working` - dev-erp 계정별 메일함 등록 메타데이터
+
+- `guild-hall:gateway:fetch:team` 과 `mail_fetch/team_cli.py` 를 추가해 metadata-only
+  `team_mailboxes.json` 등록부의 여러 메일함을 순회 수집할 수 있게 함. 메일함별 cursor/dedupe/run
+  로그를 분리하고, 후보 ID와 메일 후보 메타데이터에도 mailbox scope 를 반영.
+- `dev-erp:export-team-mailboxes` 를 추가해 dev-ERP 계정의 safe mailbox 메타데이터에서
+  `team_mailboxes.json` 등록부를 생성할 수 있게 함(비밀값 미포함).
+- `core_account` 에 메일함 provider/env ref/enabled/status/last-fetch/error/summary 메타데이터를
+  추가하고, env ref 는 repo-relative 포인터만 허용하도록 검증을 추가.
+- 관리자 계정 패널과 `/api/accounts/mailbox` 엔드포인트에서 계정별 메일함 메타데이터를
+  저장할 수 있게 하되 password/token/secret 값은 받거나 표시하지 않음.
+- 메일 장부 스캔이 `메일함` 값을 `core_mail.mailbox` 로 보존하고, 메일→할일 장부 생성은
+  기본적으로 메일함 수신자를 `제안담당자` 로만 넣으며 `--assign-mailbox-owner` 사용 시에만
+  확정 `담당자` 로 기록.
+- 팀원 계정의 기본 메일/검색/할일/대시보드 요약/최근 이벤트 조회는 본인 mailbox/담당자 범위로
+  좁히고, 메일 배정·라벨·승격 및 할일 변경 요청도 자기 범위 밖이면 거부하도록 서버 측 가드를 보강.
+
+### Revision `working` - dev-erp 메일 기반 할일 자동화 메타데이터 보강
+
+- 메일 후보 → 할일 장부 → ERP 인입 흐름에서 검토상태, 라우트 후보/신뢰도, 필요 역할·역량,
+  제안 담당자, 소스 메일/후보/스레드/그룹, 생성런/규칙, 동기화 상태/해시/리비전을
+  보존하도록 할일 장부와 `core_item` 메타데이터를 확장.
+- 할일 장부 인입은 기존 할일을 조용히 덮어쓰지 않고 해시 차이가 나면
+  `conflict` 로 표시해 사람 수정 이력을 보호하도록 정리.
+- dev-erp 화면의 할일 목록·허브·미분류 카드에 검토/라우트/담당자/동기화 힌트를 표시해
+  자동 생성된 할일을 사람이 바로 검토할 수 있게 함.
+- gateway 메일 후보/상태 집계가 원문·첨부명 없이 구조화된 후보 메타데이터만 전달하도록 보강.
+
 ### Revision `working` - dev-erp 지식 대분류 분리 + 분야 4그룹 + canon 뷰어
 
 - `지식·지원`(대도서관) 대분류를 **지식**(전승 서고) / **도구·지원**(제작 도구) **두

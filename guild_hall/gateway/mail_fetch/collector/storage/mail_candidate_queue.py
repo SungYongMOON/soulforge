@@ -105,6 +105,17 @@ class MailCandidateQueue:
         month_key = _month_key_for_event(event)
         event_file = _event_path(self.inbox_root / workspace, bucket, source, month_key)
         classification = _classification_summary(event)
+        mailbox = _mailbox_metadata(event, workspace=workspace)
+        source_event: Dict[str, Any] = {
+            "event_id": event.event_id,
+            "source": source,
+            "workspace": workspace,
+            "event_file": _repo_relative(self.repo_root, event_file),
+            "received_at": event.received_at,
+            "ingested_at": event.ingested_at,
+        }
+        if mailbox:
+            source_event["mailbox"] = mailbox
 
         return {
             "schema_version": MAIL_CANDIDATE_SCHEMA_VERSION,
@@ -114,14 +125,7 @@ class MailCandidateQueue:
             "updated_at": created_at,
             "created_by": "gateway_mail_fetch",
             "review_reason": "fresh_mail_event",
-            "source_event": {
-                "event_id": event.event_id,
-                "source": source,
-                "workspace": workspace,
-                "event_file": _repo_relative(self.repo_root, event_file),
-                "received_at": event.received_at,
-                "ingested_at": event.ingested_at,
-            },
+            "source_event": source_event,
             "mail_summary": {
                 "subject": str(event.subject or ""),
                 "from": [asdict(item) for item in event.from_addrs],
@@ -183,16 +187,42 @@ def _classification_summary(event: EmailEvent) -> Dict[str, Any]:
 
 def _candidate_id_for_event(event: EmailEvent) -> str:
     source = re.sub(r"[^A-Za-z0-9_.-]+", "_", str(event.source or "mail").strip()).strip("._-") or "mail"
+    mailbox_scope = _candidate_mailbox_scope(event)
     event_id = str(event.event_id or "").strip()
     if event_id:
-        raw = f"{source}_{event_id}"
+        raw = f"{source}_{mailbox_scope}_{event_id}" if mailbox_scope else f"{source}_{event_id}"
     else:
         digest = hashlib.sha256(
             f"{event.source}:{event.provider_message_id}:{event.received_at}".encode("utf-8")
         ).hexdigest()[:16]
-        raw = f"{source}_{digest}"
+        raw = f"{source}_{mailbox_scope}_{digest}" if mailbox_scope else f"{source}_{digest}"
     token = re.sub(r"[^A-Za-z0-9_.-]+", "_", raw).strip("._-")[:100] or source
     return f"mail_candidate_{token}"
+
+
+def _mailbox_metadata(event: EmailEvent, *, workspace: str) -> Dict[str, str]:
+    metadata = event.metadata if isinstance(event.metadata, dict) else {}
+    mailbox = metadata.get("mailbox")
+    if not isinstance(mailbox, dict):
+        return {}
+
+    result: Dict[str, str] = {}
+    for key in ("id", "account_id", "email", "display_name", "provider", "workspace"):
+        value = str(mailbox.get(key, "") or "").strip()
+        if value:
+            result[key] = value
+    result["workspace"] = str(result.get("workspace") or workspace or "").strip()
+    return result
+
+
+def _candidate_mailbox_scope(event: EmailEvent) -> str:
+    mailbox = _mailbox_metadata(event, workspace="")
+    for key in ("id", "account_id"):
+        value = str(mailbox.get(key, "") or "").strip()
+        token = re.sub(r"[^A-Za-z0-9_.-]+", "_", value).strip("._-")
+        if token:
+            return token[:40]
+    return ""
 
 
 def _now_iso() -> str:

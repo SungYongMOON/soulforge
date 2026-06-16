@@ -4,6 +4,7 @@ import path from "node:path";
 import YAML from "yaml";
 
 import { pathExists, readJson, relativeToRepo, writeJson } from "../shared/io.mjs";
+import { buildSafeCandidateAutomationMetadata } from "./mail_candidate.mjs";
 
 export const MAIL_WORK_STATUS_SCHEMA_VERSION = "soulforge.gateway.mail_work_status.v1";
 export const MAIL_WORK_PRIORITY_SCHEMA_VERSION = "soulforge.gateway.mail_work_priority.v1";
@@ -624,6 +625,7 @@ function finalizeProjectionRecord({ projectState, record }) {
   const receivedAt = firstNonEmpty(candidate?.received_at, gateway?.received_at);
   const dueState = firstNonEmpty(project?.due_state, gateway?.monster?.due_state);
   const dDay = firstNonEmpty(project?.d_day, gateway?.monster?.d_day);
+  const routeMetadata = candidate?.route_metadata ?? {};
   const updatedAt = latestTimestamp([
     candidate?.updated_at,
     gateway?.updated_at,
@@ -654,6 +656,25 @@ function finalizeProjectionRecord({ projectState, record }) {
     attachment_count: Number(candidate?.attachment_count ?? 0),
     attachment_types: normalizeArray(candidate?.attachment_types),
     classification_bucket: candidate?.classification_bucket ?? null,
+    classification_label: candidate?.classification_label ?? null,
+    classification_reasons: normalizeArray(candidate?.classification_reasons),
+    blocked_attachment_count: Number(candidate?.blocked_attachment_count ?? 0),
+    review_status: candidate?.review_status ?? null,
+    review_reason: candidate?.review_reason ?? null,
+    route_candidate: routeMetadata.route_candidate ?? null,
+    route_confidence: routeMetadata.route_confidence ?? null,
+    route_suggestion_confidence: routeMetadata.route_suggestion_confidence ?? null,
+    route_reason: routeMetadata.route_reason ?? null,
+    route_reason_codes: normalizeArray(routeMetadata.route_reason_codes),
+    route_source: routeMetadata.route_source ?? null,
+    route_status: routeMetadata.route_status ?? null,
+    route_id: routeMetadata.route_id ?? null,
+    route_stage: routeMetadata.route_stage ?? null,
+    routing_rule_ref: routeMetadata.routing_rule_ref ?? null,
+    route_matched_on: normalizeArray(routeMetadata.route_matched_on),
+    route_hint_candidates: normalizeArray(candidate?.route_hint_candidates),
+    owner_assignment_override: candidate?.owner_assignment_override ?? null,
+    suggested_assignee: candidate?.suggested_assignee ?? null,
     thread_ref: gateway?.thread_ref ?? null,
     refs: compactObject({
       candidate_ref: candidate?.candidate_ref ?? null,
@@ -774,7 +795,20 @@ async function loadCandidates(repoRoot, queueRoot) {
     const sourceEvent = candidate?.source_event ?? {};
     const mailSummary = candidate?.mail_summary ?? {};
     const eventId = sourceEvent.event_id ?? null;
-    const classification = mailSummary.classification ?? null;
+    const metadata = buildSafeCandidateAutomationMetadata(candidate);
+    const routeMetadata = {
+      route_candidate: metadata.route_candidate,
+      route_confidence: metadata.route_confidence,
+      route_suggestion_confidence: metadata.route_suggestion_confidence,
+      route_reason: metadata.route_reason,
+      route_reason_codes: metadata.route_reason_codes,
+      route_source: metadata.route_source,
+      route_status: metadata.route_status,
+      route_id: metadata.route_id,
+      route_stage: metadata.route_stage,
+      routing_rule_ref: metadata.routing_rule_ref,
+      route_matched_on: metadata.route_matched_on,
+    };
     const summary = {
       candidate_id: candidate.candidate_id ?? null,
       status: candidate.status ?? null,
@@ -783,10 +817,18 @@ async function loadCandidates(repoRoot, queueRoot) {
       workspace: sourceEvent.workspace ?? null,
       received_at: sourceEvent.received_at ?? null,
       subject: mailSummary.subject ?? null,
-      attachment_count: Number(mailSummary.attachment_count ?? 0),
-      attachment_types: normalizeArray(mailSummary.attachment_types),
-      classification_bucket:
-        typeof classification === "string" ? classification : classification?.bucket ?? null,
+      attachment_count: Number(metadata.attachment_count ?? 0),
+      attachment_types: normalizeArray(metadata.attachment_types),
+      classification_bucket: metadata.classification_bucket,
+      classification_label: metadata.classification_label,
+      classification_reasons: normalizeArray(metadata.classification_reasons),
+      blocked_attachment_count: Number(metadata.blocked_attachment_count ?? 0),
+      review_status: metadata.review_status,
+      review_reason: metadata.review_reason,
+      route_metadata: routeMetadata,
+      route_hint_candidates: normalizeArray(metadata.route_hint_candidates),
+      owner_assignment_override: metadata.owner_assignment_override,
+      suggested_assignee: metadata.suggested_assignee,
       candidate_ref: relativeToRepo(repoRoot, candidateFile),
       intake_request_ref: candidate?.business_review?.intake_request_ref ?? null,
       updated_at: latestTimestamp([candidate.updated_at, candidate.created_at]),
@@ -861,6 +903,15 @@ function buildPriorityRow(entry, threadGroup, threadCount, options = {}) {
     operating_state_ko: operatingState,
     route_candidate: route.route_candidate,
     route_confidence: route.route_confidence,
+    route_suggestion_confidence: route.route_suggestion_confidence ?? null,
+    route_reason: route.route_reason ?? null,
+    route_reason_codes: normalizeArray(route.route_reason_codes),
+    route_source: route.route_source ?? null,
+    route_status: route.route_status ?? null,
+    route_id: route.route_id ?? null,
+    route_stage: route.route_stage ?? null,
+    routing_rule_ref: route.routing_rule_ref ?? null,
+    route_matched_on: normalizeArray(route.route_matched_on),
     thread_group: threadGroup,
     due_date: planningFields.due_date,
     due_text: planningFields.due_text,
@@ -871,6 +922,13 @@ function buildPriorityRow(entry, threadGroup, threadCount, options = {}) {
     attachment_count: Number(entry.attachment_count ?? 0),
     attachment_types: sanitizeAttachmentTypeLabels(entry.attachment_types),
     classification_bucket: entry.classification_bucket ?? null,
+    classification_label: entry.classification_label ?? null,
+    classification_reasons: normalizeArray(entry.classification_reasons),
+    blocked_attachment_count: Number(entry.blocked_attachment_count ?? 0),
+    review_status: entry.review_status ?? null,
+    review_reason: entry.review_reason ?? null,
+    owner_assignment_override: entry.owner_assignment_override ?? null,
+    suggested_assignee: entry.suggested_assignee ?? null,
     priority_flags_ko: priorityFlags,
     next_action_ko: resolveNextActionKo(entry, operatingState, route, threadCount),
     owner_question_ko: resolveOwnerQuestionKo(entry, operatingState, route, threadCount),
@@ -946,7 +1004,7 @@ function buildVisibilityRowFromPriority(entry, weekWindow) {
     subject_hint: truncateText(entry.subject, 160),
     attachment_count: Number(entry.attachment_count ?? 0),
     attachment_types: sanitizeAttachmentTypeLabels(entry.attachment_types),
-    blocked_attachment_count: 0,
+    blocked_attachment_count: Number(entry.blocked_attachment_count ?? 0),
     work_status: entry.work_status ?? "unknown",
     why_visible: resolveVisibilityReason(entry),
     next_action: entry.next_action_ko ?? null,
@@ -1044,6 +1102,11 @@ function buildVisibilityRowFromMailboxEvent({ repoRoot, filePath, event, weekWin
 }
 
 function resolvePriorityRoute(entry) {
+  const structuredRoute = resolveStructuredPriorityRoute(entry);
+  if (structuredRoute) {
+    return structuredRoute;
+  }
+
   const subjectText = normalizeSearchText(entry.subject);
   if (isPromoLike(subjectText)) {
     return {
@@ -1077,6 +1140,52 @@ function resolvePriorityRoute(entry) {
     route_candidate: "none/personal",
     route_confidence: "none",
     route_kind: "non_work",
+  };
+}
+
+function resolveStructuredPriorityRoute(entry) {
+  const routeCandidate = stringOrNull(entry.route_candidate);
+  if (!routeCandidate) {
+    return null;
+  }
+
+  const routeConfidence = normalizePriorityRouteConfidence(entry.route_confidence, routeCandidate);
+  if (routeCandidate === "none/promo") {
+    return {
+      ...structuredRouteFields(entry),
+      route_candidate: routeCandidate,
+      route_confidence: "none",
+      route_kind: "non_work",
+    };
+  }
+  if (routeCandidate === "none/personal") {
+    return {
+      ...structuredRouteFields(entry),
+      route_candidate: routeCandidate,
+      route_confidence: "none",
+      route_kind: "personal_admin",
+    };
+  }
+
+  return {
+    ...structuredRouteFields(entry),
+    route_candidate: routeCandidate,
+    route_confidence: routeConfidence,
+    route_kind: routeConfidence === "exact" ? "exact_work" : "work_review",
+  };
+}
+
+function structuredRouteFields(entry) {
+  return {
+    route_suggestion_confidence: entry.route_suggestion_confidence ?? null,
+    route_reason: entry.route_reason ?? null,
+    route_reason_codes: normalizeArray(entry.route_reason_codes),
+    route_source: entry.route_source ?? null,
+    route_status: entry.route_status ?? null,
+    route_id: entry.route_id ?? null,
+    route_stage: entry.route_stage ?? null,
+    routing_rule_ref: entry.routing_rule_ref ?? null,
+    route_matched_on: normalizeArray(entry.route_matched_on),
   };
 }
 
@@ -1415,7 +1524,7 @@ function extractDueHintFromDday(value) {
 
 function resolveRouteHintCandidates(entry, route) {
   const subjectText = normalizeSearchText(entry.subject);
-  const hints = [];
+  const hints = [...normalizeArray(entry.route_hint_candidates)];
 
   if (isProjectRoute(route.route_candidate)) {
     hints.push(route.route_candidate);
@@ -1745,6 +1854,32 @@ function extractMissionId(ref) {
 
 function projectKey(projectCode, missionId) {
   return `${projectCode}:${missionId}`;
+}
+
+function stringOrNull(value) {
+  const text = String(value ?? "").trim();
+  return text ? text : null;
+}
+
+function normalizePriorityRouteConfidence(value, routeCandidate = null) {
+  if (String(routeCandidate ?? "").startsWith("none/")) {
+    return "none";
+  }
+  if (typeof value === "number") {
+    return value >= 0.9 ? "exact" : "review";
+  }
+
+  const normalized = normalizeSearchText(value);
+  if (normalized === "none") {
+    return "none";
+  }
+  if (["exact", "high", "confirmed", "owner_confirmed"].includes(normalized)) {
+    return "exact";
+  }
+  if (["review", "hint", "suggested", "defaulted", "manual_review", "medium", "low"].includes(normalized)) {
+    return "review";
+  }
+  return routeCandidate ? "review" : "none";
 }
 
 function normalizeArray(value) {

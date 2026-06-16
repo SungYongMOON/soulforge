@@ -30,6 +30,16 @@ export function verifyPassword(plain, stored) {
 }
 
 export const SCHEMA_VERSION = "dev_erp.v1";
+const INBOX_PROJECT_CODE = "P00-000_INBOX";
+const TASK_PROJECT_RE = /^P\d{2}-\d{3}$/;
+const isTaskProjectCode = (code) => TASK_PROJECT_RE.test(code) || code === INBOX_PROJECT_CODE;
+
+function scopedInClause(column, values) {
+  if (!Array.isArray(values)) return null;
+  const ids = values.filter((x) => x != null && String(x).trim() !== "");
+  if (!ids.length) return { sql: "1=0", args: [] };
+  return { sql: `${column} IN (${ids.map(() => "?").join(",")})`, args: ids };
+}
 
 const DDL = `
 CREATE TABLE IF NOT EXISTS meta (
@@ -85,6 +95,30 @@ CREATE TABLE IF NOT EXISTS core_item (   -- 몬스터 = 할일 (동일 행)
   link_kind TEXT,                             -- SE: 연결대상 종류 requirement|artifact|meeting|bom|part|vendor|risk
   link_ref TEXT,                              -- SE: 연결대상 id(포인터)
   completion_criteria TEXT,                   -- SE: 완료기준(close-when)
+  review_status TEXT,                         -- 메일→할일 자동화 검토 상태(needs_review|ready|reviewed...)
+  review_reason TEXT,                         -- 검토대기/보정 사유(본문 원문 금지, 요약 메타만)
+  correction_reason TEXT,
+  route_candidate TEXT,
+  route_confidence TEXT,
+  route_reason TEXT,
+  required_role TEXT,
+  required_capability TEXT,
+  suggested_assignee_ref TEXT,
+  assignee_confidence TEXT,
+  assignee_reason TEXT,
+  source_candidate_ref TEXT,
+  source_mail_ref TEXT,
+  source_mail_source_id TEXT,
+  source_thread_ref TEXT,
+  source_group_ref TEXT,
+  source_lineage_ref TEXT,
+  generation_run_ref TEXT,
+  generation_rule_ref TEXT,
+  sync_state TEXT,
+  sync_error TEXT,
+  sync_revision INTEGER,
+  sync_hash TEXT,
+  sync_at TEXT,
   data_label TEXT NOT NULL DEFAULT 'synthetic'
 );
 CREATE TABLE IF NOT EXISTS core_mail (   -- 메일 이력 metadata-only
@@ -163,7 +197,14 @@ CREATE TABLE IF NOT EXISTS core_account (
   status TEXT NOT NULL DEFAULT 'active',
   created_at TEXT NOT NULL,
   email TEXT,                    -- 가입 이메일(=메일 들고오기 기준 mailbox). 계정별 메일 인입 키.
-  display_name TEXT             -- 실제 가입한 이름(화면 표기). 없으면 username 폴백.
+  display_name TEXT,             -- 실제 가입한 이름(화면 표기). 없으면 username 폴백.
+  mailbox_provider TEXT NOT NULL DEFAULT 'none', -- none|gmail|hiworks. 자격증명 값이 아니라 provider 메타만.
+  mailbox_env_ref TEXT,          -- 계정별 인입 설정/env 파일의 repo-relative ref. secret 값 저장 금지.
+  mailbox_enabled INTEGER NOT NULL DEFAULT 0,
+  mailbox_status TEXT NOT NULL DEFAULT 'disabled',
+  mailbox_last_fetch_at TEXT,
+  mailbox_last_error TEXT,
+  mailbox_last_summary_ref TEXT
 );
 CREATE TABLE IF NOT EXISTS auth_session (
   token TEXT PRIMARY KEY,
@@ -631,9 +672,42 @@ export function openStore(path = ":memory:") {
     "ALTER TABLE core_mail ADD COLUMN source_ref TEXT",
     // 할일 생성시각(할일_장부 '기록일' 컬럼의 실제 백킹). 마이그레이션 이전 행은 null(생성시각 불명), 신규 createItem 부터 채움.
     "ALTER TABLE core_item ADD COLUMN created_at TEXT",
+    // 메일→할일 자동화 메타데이터: 검토/라우팅/배정/출처/생성/동기화 상태를 비고가 아닌 구조화 컬럼으로 보존.
+    "ALTER TABLE core_item ADD COLUMN review_status TEXT",
+    "ALTER TABLE core_item ADD COLUMN review_reason TEXT",
+    "ALTER TABLE core_item ADD COLUMN correction_reason TEXT",
+    "ALTER TABLE core_item ADD COLUMN route_candidate TEXT",
+    "ALTER TABLE core_item ADD COLUMN route_confidence TEXT",
+    "ALTER TABLE core_item ADD COLUMN route_reason TEXT",
+    "ALTER TABLE core_item ADD COLUMN required_role TEXT",
+    "ALTER TABLE core_item ADD COLUMN required_capability TEXT",
+    "ALTER TABLE core_item ADD COLUMN suggested_assignee_ref TEXT",
+    "ALTER TABLE core_item ADD COLUMN assignee_confidence TEXT",
+    "ALTER TABLE core_item ADD COLUMN assignee_reason TEXT",
+    "ALTER TABLE core_item ADD COLUMN source_candidate_ref TEXT",
+    "ALTER TABLE core_item ADD COLUMN source_mail_ref TEXT",
+    "ALTER TABLE core_item ADD COLUMN source_mail_source_id TEXT",
+    "ALTER TABLE core_item ADD COLUMN source_thread_ref TEXT",
+    "ALTER TABLE core_item ADD COLUMN source_group_ref TEXT",
+    "ALTER TABLE core_item ADD COLUMN source_lineage_ref TEXT",
+    "ALTER TABLE core_item ADD COLUMN generation_run_ref TEXT",
+    "ALTER TABLE core_item ADD COLUMN generation_rule_ref TEXT",
+    "ALTER TABLE core_item ADD COLUMN sync_state TEXT",
+    "ALTER TABLE core_item ADD COLUMN sync_error TEXT",
+    "ALTER TABLE core_item ADD COLUMN sync_revision INTEGER",
+    "ALTER TABLE core_item ADD COLUMN sync_hash TEXT",
+    "ALTER TABLE core_item ADD COLUMN sync_at TEXT",
     // P2b 팀: 계정 이메일(메일 인입 mailbox 키) + 실제 가입 이름(화면 표기).
     "ALTER TABLE core_account ADD COLUMN email TEXT",
     "ALTER TABLE core_account ADD COLUMN display_name TEXT",
+    // 계정별 mailbox 등록 메타데이터. secret/token 값은 저장하지 않고 repo-relative env/config ref 만 둔다.
+    "ALTER TABLE core_account ADD COLUMN mailbox_provider TEXT NOT NULL DEFAULT 'none'",
+    "ALTER TABLE core_account ADD COLUMN mailbox_env_ref TEXT",
+    "ALTER TABLE core_account ADD COLUMN mailbox_enabled INTEGER NOT NULL DEFAULT 0",
+    "ALTER TABLE core_account ADD COLUMN mailbox_status TEXT NOT NULL DEFAULT 'disabled'",
+    "ALTER TABLE core_account ADD COLUMN mailbox_last_fetch_at TEXT",
+    "ALTER TABLE core_account ADD COLUMN mailbox_last_error TEXT",
+    "ALTER TABLE core_account ADD COLUMN mailbox_last_summary_ref TEXT",
     // 다중 사용자 메일: 어느 mailbox(계정 이메일)로 들어온 메일인지. 담당자별 메일 이력 분리 키.
     // null = 단일(owner) 파일럿 메일. Codex 계정별 메일 인입 시 account.email 로 채운다.
     "ALTER TABLE core_mail ADD COLUMN mailbox TEXT",
@@ -694,17 +768,21 @@ export class Store {
       );
   }
 
-  recentEvents(limit = 20, project = null) {
-    const where = project ? "WHERE project_ref=?" : "";
-    const args = project ? [project, limit] : [limit];
+  recentEvents(limit = 20, project = null, scope = {}) {
+    const cond = [];
+    const args = [];
+    if (project) { cond.push("project_ref=?"); args.push(project); }
+    const scopeSql = this.eventScopeWhere(scope, args);
+    if (scopeSql) cond.push(scopeSql);
+    const where = cond.length ? `WHERE ${cond.join(" AND ")}` : "";
     return this.db
       .prepare(`SELECT * FROM event_log ${where} ORDER BY id DESC LIMIT ?`)
-      .all(...args)
+      .all(...args, limit)
       .map((row) => ({ ...row, used_refs: JSON.parse(row.used_refs ?? "[]") }));
   }
 
   // 전체 감사로그 조회 — 과제·종류·행위자·기간 필터(append-only event_log 원천). 조회 잡음도 포함(필터는 화면에서).
-  queryEvents({ project = null, kind = null, actor = null, since = null, limit = 200, excludeKinds = null } = {}) {
+  queryEvents({ project = null, kind = null, actor = null, since = null, limit = 200, excludeKinds = null, scope = null } = {}) {
     const cond = []; const args = [];
     if (project) { cond.push("project_ref=?"); args.push(project); }
     if (kind) { cond.push("kind=?"); args.push(kind); }
@@ -716,14 +794,40 @@ export class Store {
     }
     if (actor) { cond.push("actor_ref=?"); args.push(actor); }
     if (since) { cond.push("at>=?"); args.push(since); }
+    const scopeSql = this.eventScopeWhere(scope, args);
+    if (scopeSql) cond.push(scopeSql);
     const where = cond.length ? `WHERE ${cond.join(" AND ")}` : "";
     return this.db
       .prepare(`SELECT * FROM event_log ${where} ORDER BY id DESC LIMIT ?`)
       .all(...args, Math.max(1, Math.min(1000, Number(limit) || 200)))
       .map((row) => ({ ...row, used_refs: JSON.parse(row.used_refs ?? "[]") }));
   }
+  eventScopeWhere(scope, args) {
+    if (!scope || scope.all) return "";
+    const pieces = [];
+    const actor = String(scope.actor ?? "").trim();
+    if (actor) { pieces.push("actor_ref=?"); args.push(actor); }
+    const itemScope = scopedInClause("assignee_ref", scope.assignee_any);
+    if (itemScope) {
+      pieces.push(`item_ref IN (SELECT id FROM core_item WHERE ${itemScope.sql})`);
+      args.push(...itemScope.args);
+    }
+    const mailbox = String(scope.mailbox ?? "").trim().toLowerCase();
+    if (mailbox && mailbox !== "team" && mailbox !== "__none__") {
+      pieces.push("item_ref IN (SELECT id FROM core_mail WHERE mailbox=?)");
+      args.push(mailbox);
+    }
+    return pieces.length ? `(${pieces.join(" OR ")})` : "";
+  }
   // 감사로그 필터 선택지(distinct 종류·행위자).
-  eventFacets() {
+  eventFacets(scope = null) {
+    if (scope && !scope.all) {
+      const rows = this.queryEvents({ limit: 1000, scope });
+      return {
+        kinds: [...new Set(rows.map((r) => r.kind).filter(Boolean))].sort(),
+        actors: [...new Set(rows.map((r) => r.actor_ref).filter(Boolean))].sort(),
+      };
+    }
     return {
       kinds: this.db.prepare("SELECT DISTINCT kind FROM event_log ORDER BY kind").all().map((r) => r.kind),
       actors: this.db.prepare("SELECT DISTINCT actor_ref FROM event_log WHERE actor_ref IS NOT NULL ORDER BY actor_ref").all().map((r) => r.actor_ref),
@@ -821,7 +925,7 @@ export class Store {
 
   // 메일 장부 ingest 착지면(과제별 _workmeta/<code>/reports/메일_이력/메일_이력.csv 한 행 → core_mail).
   // 원문 미저장: 제목·상대·시각·단계·포인터만. project_code 가 미등록이면 stub 과제를 만들되 기존 제목은 덮지 않는다.
-  // FK 안전: 모르는 코드/INBOX 는 project_id=null 로 둔다(미배정 메일).
+  // FK 안전: 모르는 코드는 project_id=null 로 둔다. P00-000_INBOX 는 예약 인박스 프로젝트로 묶는다.
   ingestMail({ id, project_code = null, at = null, subject = null, counterpart = null, stage_code = null,
                source_ref = null, direction = "in", pointer_ref = null, mailbox = null, data_label = "real" }) {
     if (!id) return { error: "id_required" };
@@ -830,10 +934,15 @@ export class Store {
     const subj = String(subject ?? "").trim() || "(제목 없음)";
     let project_id = null;
     const code = String(project_code ?? "").trim();
-    if (/^P\d{2}-\d{3}$/.test(code)) {
+    if (isTaskProjectCode(code)) {
       if (!this.db.prepare("SELECT 1 FROM core_project WHERE id=?").get(code)) {
         // 미등록 과제 → 최소 stub(제목=코드). 실제 과제명은 sync_project_names 로 따로 채운다.
-        this.upsertProject({ id: code, title: code, data_label: "real" });
+        this.upsertProject({
+          id: code,
+          title: code === INBOX_PROJECT_CODE ? "미분류 메일함" : code,
+          class: code === INBOX_PROJECT_CODE ? "inbox" : "active",
+          data_label: "real"
+        });
       }
       project_id = code;
     }
@@ -853,9 +962,14 @@ export class Store {
     const title = String(row.title ?? "").trim();
     if (!title) return { error: "title_required" };
     const code = String(row.project_code ?? "").trim();
-    if (!/^P\d{2}-\d{3}$/.test(code)) return { error: "project_required" }; // 할일은 과제 필수(메일과 다름)
+    if (!isTaskProjectCode(code)) return { error: "project_required" }; // 할일은 과제 또는 예약 인박스 필수(메일과 다름)
     if (!this.db.prepare("SELECT 1 FROM core_project WHERE id=?").get(code)) {
-      this.upsertProject({ id: code, title: code, data_label: "real" }); // stub(제목=코드), 기존 제목 미클로버
+      this.upsertProject({
+        id: code,
+        title: code === INBOX_PROJECT_CODE ? "미분류 메일함" : code,
+        class: code === INBOX_PROJECT_CODE ? "inbox" : "active",
+        data_label: "real"
+      }); // stub(기존 제목 미클로버). P00-000_INBOX 는 회사 일반/미해결 예약함.
     }
     // 절대경로 금지(헌장 shared_ingest_contract): 포인터류는 상대/네임스페이스 ref 만, 로컬 절대면 드롭.
     const relOnly = (v) => {
@@ -881,13 +995,19 @@ export class Store {
     // status 는 NOT NULL: 신규 빈값은 'open', 기존 빈값은 ''(센티넬)로 넣고 UPDATE 에서 NULLIF→기존 보존.
     const statusVal = inbound && !(hasAnchor && work_type) ? "unclassified" : (statusIn ?? (isNew ? "open" : ""));
     const createdVal = (row.created_at && String(row.created_at).trim()) || (isNew ? new Date().toISOString() : null);
+    const originMailRef = mailRefOnly(row.origin_mail_id || row.source_mail_ref);
+    const automation = Store.normalizeTaskAutomation({ ...row, source_mail_ref: row.source_mail_ref || originMailRef }, { status: statusVal });
     // 멱등 보존(자매 upsertProject/Person 패턴): 빈 컬럼은 기존값 유지(COALESCE) — 손편집 부분행이 ERP 입력을 안 지움.
     // owner 가 ERP 에서 직접 바꾼 마감(due_overridden=1)은 stale 장부 재-ingest 가 되돌리지 못함(CASE).
     this.db
       .prepare(
         `INSERT INTO core_item(id,project_id,title,origin,urgency,assignee_ref,status,due,
-           origin_mail_id,created_by,work_type,link_kind,link_ref,completion_criteria,anchor_stage_code,created_at,data_label)
-         VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,'real')
+           origin_mail_id,created_by,work_type,link_kind,link_ref,completion_criteria,anchor_stage_code,created_at,
+           review_status,review_reason,correction_reason,route_candidate,route_confidence,route_reason,
+           required_role,required_capability,suggested_assignee_ref,assignee_confidence,assignee_reason,
+           source_candidate_ref,source_mail_ref,source_mail_source_id,source_thread_ref,source_group_ref,source_lineage_ref,
+           generation_run_ref,generation_rule_ref,sync_state,sync_error,sync_revision,sync_hash,sync_at,data_label)
+         VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,'real')
          ON CONFLICT(id) DO UPDATE SET project_id=excluded.project_id, title=excluded.title, origin=excluded.origin,
            assignee_ref=COALESCE(excluded.assignee_ref, core_item.assignee_ref),
            status=COALESCE(NULLIF(excluded.status, ''), core_item.status),
@@ -898,25 +1018,57 @@ export class Store {
            link_ref=COALESCE(excluded.link_ref, core_item.link_ref),
            completion_criteria=COALESCE(excluded.completion_criteria, core_item.completion_criteria),
            anchor_stage_code=COALESCE(excluded.anchor_stage_code, core_item.anchor_stage_code),
-           created_at=COALESCE(core_item.created_at, excluded.created_at)`
+           created_at=COALESCE(core_item.created_at, excluded.created_at),
+           review_status=COALESCE(excluded.review_status, core_item.review_status),
+           review_reason=COALESCE(excluded.review_reason, core_item.review_reason),
+           correction_reason=COALESCE(excluded.correction_reason, core_item.correction_reason),
+           route_candidate=COALESCE(excluded.route_candidate, core_item.route_candidate),
+           route_confidence=COALESCE(excluded.route_confidence, core_item.route_confidence),
+           route_reason=COALESCE(excluded.route_reason, core_item.route_reason),
+           required_role=COALESCE(excluded.required_role, core_item.required_role),
+           required_capability=COALESCE(excluded.required_capability, core_item.required_capability),
+           suggested_assignee_ref=COALESCE(excluded.suggested_assignee_ref, core_item.suggested_assignee_ref),
+           assignee_confidence=COALESCE(excluded.assignee_confidence, core_item.assignee_confidence),
+           assignee_reason=COALESCE(excluded.assignee_reason, core_item.assignee_reason),
+           source_candidate_ref=COALESCE(excluded.source_candidate_ref, core_item.source_candidate_ref),
+           source_mail_ref=COALESCE(excluded.source_mail_ref, core_item.source_mail_ref),
+           source_mail_source_id=COALESCE(excluded.source_mail_source_id, core_item.source_mail_source_id),
+           source_thread_ref=COALESCE(excluded.source_thread_ref, core_item.source_thread_ref),
+           source_group_ref=COALESCE(excluded.source_group_ref, core_item.source_group_ref),
+           source_lineage_ref=COALESCE(excluded.source_lineage_ref, core_item.source_lineage_ref),
+           generation_run_ref=COALESCE(excluded.generation_run_ref, core_item.generation_run_ref),
+           generation_rule_ref=COALESCE(excluded.generation_rule_ref, core_item.generation_rule_ref),
+           sync_state=COALESCE(excluded.sync_state, core_item.sync_state),
+           sync_error=COALESCE(excluded.sync_error, core_item.sync_error),
+           sync_revision=COALESCE(excluded.sync_revision, core_item.sync_revision),
+           sync_hash=COALESCE(excluded.sync_hash, core_item.sync_hash),
+           sync_at=COALESCE(excluded.sync_at, core_item.sync_at)`
       )
       .run(
         id, code, title, originVal, row.urgency || "normal", row.assignee_ref || null, statusVal, due,
-        mailRefOnly(row.origin_mail_id), row.created_by || "task_ledger", work_type, link_kind, relOnly(row.link_ref),
-        row.completion_criteria || null, row.anchor_stage_code || null, createdVal
+        originMailRef, row.created_by || "task_ledger", work_type, link_kind, relOnly(row.link_ref),
+        row.completion_criteria || null, row.anchor_stage_code || null, createdVal,
+        automation.review_status, automation.review_reason, automation.correction_reason,
+        automation.route_candidate, automation.route_confidence, automation.route_reason,
+        automation.required_role, automation.required_capability, automation.suggested_assignee_ref,
+        automation.assignee_confidence, automation.assignee_reason, automation.source_candidate_ref,
+        automation.source_mail_ref, automation.source_mail_source_id, automation.source_thread_ref,
+        automation.source_group_ref, automation.source_lineage_ref, automation.generation_run_ref,
+        automation.generation_rule_ref, automation.sync_state, automation.sync_error, automation.sync_revision,
+        automation.sync_hash, automation.sync_at
       );
     return { ok: true, id, project_id: code, isNew };
   }
 
   // slice(베타1): 사용자가 직접 메일 등록(각자 계정에서 자기 메일을 장부에 쌓기). 원문 미저장 — 제목·상대·날짜·포인터만.
-  createMail({ project_id = null, subject, counterpart = null, at = null, direction = "in", pointer_ref = null, data_label = "real" }) {
+  createMail({ project_id = null, subject, counterpart = null, at = null, direction = "in", pointer_ref = null, mailbox = null, data_label = "real" }) {
     const s = String(subject ?? "").trim();
     if (!s) return { error: "subject_required" };
     if (project_id && !this.db.prepare("SELECT 1 FROM core_project WHERE id=?").get(project_id)) return { error: "project_not_found" };
     const dir = ["in", "out"].includes(direction) ? direction : "in";
     const id = `mail_${Date.now().toString(36)}${randomBytes(3).toString("hex")}`;
     const atVal = (at && /^\d{4}-\d{2}-\d{2}/.test(at)) ? at : new Date().toISOString().slice(0, 10);
-    this.upsertMail({ id, project_id, at: atVal, direction: dir, subject: s, counterpart, pointer_ref, data_label });
+    this.upsertMail({ id, project_id, at: atVal, direction: dir, subject: s, counterpart, pointer_ref, mailbox, data_label });
     return { ok: true, id, mail: this.db.prepare("SELECT * FROM core_mail WHERE id=?").get(id) };
   }
 
@@ -933,8 +1085,10 @@ export class Store {
 
   // --- 조회 (읽기 콕핏) ---
   // 페르소나 합의: due 3버킷 분리(연체/오늘/주내), 마지막 움직임, 미연결(—) 구분
-  summary(todayKey, weekEndKey = todayKey) {
+  summary(todayKey, weekEndKey = todayKey, { assignee_any, mailbox } = {}) {
     const projects = this.db.prepare("SELECT * FROM core_project ORDER BY id").all();
+    const itemScope = scopedInClause("assignee_ref", assignee_any);
+    const itemScopeSql = itemScope ? ` WHERE ${itemScope.sql}` : "";
     const counts = this.db
       .prepare(
         `SELECT project_id,
@@ -945,24 +1099,27 @@ export class Store {
            SUM(CASE WHEN status NOT IN ('done','unclassified','archived') AND due = ? THEN 1 ELSE 0 END) AS today_cnt,
            SUM(CASE WHEN status NOT IN ('done','unclassified','archived') AND due > ? AND due <= ? THEN 1 ELSE 0 END) AS week_cnt,
            SUM(CASE WHEN encounter_role='boss' AND status NOT IN ('done','unclassified','archived') THEN 1 ELSE 0 END) AS boss_cnt
-         FROM core_item GROUP BY project_id`
+         FROM core_item${itemScopeSql} GROUP BY project_id`
       )
-      .all(todayKey, todayKey, todayKey, weekEndKey);
-    const lastMail = this.db
-      .prepare("SELECT project_id, MAX(at) AS last_at, COUNT(*) AS mail_cnt FROM core_mail GROUP BY project_id")
-      .all();
-    const lastSubject = new Map(
-      this.db
-        .prepare(
-          `SELECT m1.project_id, m1.subject FROM core_mail m1
-           JOIN (SELECT project_id, MAX(at) AS last_at FROM core_mail GROUP BY project_id) m2
-             ON m1.project_id = m2.project_id AND m1.at = m2.last_at`
-        )
-        .all()
-        .map((r) => [r.project_id, r.subject])
-    );
+      .all(todayKey, todayKey, todayKey, weekEndKey, ...(itemScope?.args ?? []));
+    const mailConds = [];
+    const mailArgs = [];
+    if (mailbox && mailbox !== "team") {
+      mailConds.push("mailbox=?");
+      mailArgs.push(String(mailbox).toLowerCase());
+    }
+    const mailWhere = mailConds.length ? `WHERE ${mailConds.join(" AND ")}` : "";
+    const mailRows = this.db
+      .prepare(`SELECT project_id, at, subject FROM core_mail ${mailWhere} ORDER BY project_id, at DESC, id DESC`)
+      .all(...mailArgs);
+    const mailById = new Map();
+    const lastSubject = new Map();
+    for (const row of mailRows) {
+      if (!mailById.has(row.project_id)) mailById.set(row.project_id, { project_id: row.project_id, last_at: row.at, mail_cnt: 0 });
+      mailById.get(row.project_id).mail_cnt += 1;
+      if (!lastSubject.has(row.project_id)) lastSubject.set(row.project_id, row.subject);
+    }
     const byId = new Map(counts.map((c) => [c.project_id, c]));
-    const mailById = new Map(lastMail.map((m) => [m.project_id, m]));
     return projects.map((p) => {
       const c = byId.get(p.id);
       return {
@@ -1046,6 +1203,84 @@ export class Store {
   static ORIGINS = ["mail", "request", "meeting", "manual", "schedule", "ledger"]; // 할일 출처(장부 ingest 검증)
   static WORK_TYPES = ["answer", "review", "author", "revise", "purchase", "verify", "decide", "schedule"];
   static LINK_KINDS = ["requirement", "artifact", "meeting", "bom", "part", "vendor", "risk"];
+  static REVIEW_STATUSES = ["pending_review", "needs_review", "triaged", "ready", "reviewed", "approved", "rejected", "corrected", "completed"];
+  static ROUTE_CONFIDENCES = ["exact", "review", "none"];
+  static CONFIDENCE_LEVELS = ["low", "medium", "high"];
+  static SYNC_STATES = ["pending", "synced", "error", "conflict", "skipped"];
+
+  static normalizeRouteConfidence(v, routeCandidate = null) {
+    const raw = String(v ?? "").trim().toLowerCase();
+    if (String(routeCandidate ?? "").startsWith("none/")) return "none";
+    if (!raw) return null;
+    if (Store.ROUTE_CONFIDENCES.includes(raw)) return raw;
+    if (["high", "confirmed", "owner_confirmed", "확정"].includes(raw)) return "exact";
+    if (["low", "medium", "hint", "suggested", "defaulted", "manual_review", "검토", "보류"].includes(raw)) return "review";
+    const n = Number(raw);
+    if (Number.isFinite(n) && n >= 0 && n <= 1) return n >= 0.9 ? "exact" : "review";
+    return routeCandidate ? "review" : null;
+  }
+
+  static normalizeConfidence(v) {
+    const raw = String(v ?? "").trim().toLowerCase();
+    if (!raw) return null;
+    if (Store.CONFIDENCE_LEVELS.includes(raw)) return raw;
+    if (["낮음", "하"].includes(raw)) return "low";
+    if (["보통", "중"].includes(raw)) return "medium";
+    if (["높음", "상"].includes(raw)) return "high";
+    const n = Number(raw);
+    if (Number.isFinite(n) && n >= 0 && n <= 1) return n >= 0.75 ? "high" : (n >= 0.4 ? "medium" : "low");
+    return null;
+  }
+
+  static normalizeTaskAutomation(row = {}, { status = null } = {}) {
+    const text = (v) => {
+      const s = String(v ?? "").trim();
+      return s || null;
+    };
+    const safeRef = (v) => {
+      const s = text(v);
+      if (!s || isAbsolute(s) || /^[A-Za-z]:[\\/]/.test(s) || /^\\\\/.test(s)) return null;
+      return s;
+    };
+    const reviewAliases = new Map([
+      ["review", "needs_review"], ["needs-review", "needs_review"], ["검토대기", "needs_review"], ["검토필요", "needs_review"],
+      ["ok", "ready"], ["open", "ready"], ["준비", "ready"], ["완료", "reviewed"]
+    ]);
+    const reviewRaw = String(row.review_status ?? "").trim().toLowerCase();
+    const reviewStatus = Store.REVIEW_STATUSES.includes(reviewRaw)
+      ? reviewRaw
+      : (reviewAliases.get(reviewRaw) ?? (status === "unclassified" ? "needs_review" : null));
+    const routeCandidate = safeRef(row.route_candidate);
+    const syncRaw = String(row.sync_state ?? "").trim().toLowerCase();
+    const revision = Number(row.sync_revision);
+    const syncHash = String(row.sync_hash ?? "").trim().toLowerCase();
+    return {
+      review_status: reviewStatus,
+      review_reason: text(row.review_reason),
+      correction_reason: text(row.correction_reason),
+      route_candidate: routeCandidate,
+      route_confidence: Store.normalizeRouteConfidence(row.route_confidence, routeCandidate),
+      route_reason: text(row.route_reason),
+      required_role: text(row.required_role),
+      required_capability: text(row.required_capability),
+      suggested_assignee_ref: safeRef(row.suggested_assignee_ref),
+      assignee_confidence: Store.normalizeConfidence(row.assignee_confidence),
+      assignee_reason: text(row.assignee_reason),
+      source_candidate_ref: safeRef(row.source_candidate_ref),
+      source_mail_ref: safeRef(row.source_mail_ref),
+      source_mail_source_id: safeRef(row.source_mail_source_id),
+      source_thread_ref: safeRef(row.source_thread_ref),
+      source_group_ref: safeRef(row.source_group_ref),
+      source_lineage_ref: safeRef(row.source_lineage_ref),
+      generation_run_ref: safeRef(row.generation_run_ref),
+      generation_rule_ref: safeRef(row.generation_rule_ref),
+      sync_state: Store.SYNC_STATES.includes(syncRaw) ? syncRaw : null,
+      sync_error: text(row.sync_error),
+      sync_revision: Number.isInteger(revision) && revision > 0 ? revision : null,
+      sync_hash: /^[a-f0-9]{16,64}$/.test(syncHash) ? syncHash : null,
+      sync_at: /^\d{4}-\d{2}-\d{2}/.test(String(row.sync_at ?? "").trim()) ? String(row.sync_at).trim() : null,
+    };
+  }
 
   createItem({ project_id, title, assignee_ref, due, urgency, guide_artifact_id, guide_step_key, origin_mail_id, origin, created_by,
     work_type, link_kind, link_ref, completion_criteria, stage_id, anchor_stage_code }) {
@@ -1349,7 +1584,7 @@ export class Store {
   // P-9 납기/CDR 위험 조기경보 — days_left × 산출물 진행률(pct) 결합 severity(결정적·미저장·read-only).
   // 임계: days_left<0=critical; <=3&&pct<70 또는 <=7&&pct<50=risk; <=14&&pct<40=watch; 그 외 ok(제외).
   // 마일스톤(anchor_stage_code≠null)은 한 단계 상향. INSERT/UPDATE/appendEvent 0.
-  riskAlerts({ project = null, today = null } = {}) {
+  riskAlerts({ project = null, today = null, assignee_any } = {}) {
     const todayKey = today || new Date().toISOString().slice(0, 10);
     const pctByProj = new Map(this.guideSummary().map((g) => [g.project_id, g.pct]));
     const titleByProj = new Map(this.db.prepare("SELECT id, title FROM core_project").all().map((p) => [p.id, p.title]));
@@ -1362,7 +1597,7 @@ export class Store {
       return "ok";
     };
     const out = [];
-    for (const i of this.items({ project })) {
+    for (const i of this.items({ project, assignee_any })) {
       if (!i.due || i.status === "done") continue;
       const days_left = Math.round((Date.parse(`${i.due}T00:00:00Z`) - Date.parse(`${todayKey}T00:00:00Z`)) / 86400000);
       const pct = pctByProj.get(i.project_id) ?? 0;
@@ -1448,9 +1683,10 @@ export class Store {
 
   // ---------- A4/A5: 업무일지·보고서 생성기 (메타 기반·템플릿, 원문 미사용) ----------
   _itemTitle(id) { return this.db.prepare("SELECT title FROM core_item WHERE id=?").get(id)?.title ?? id; }
-  worklogDraft({ project = null, days = 7 } = {}) {
+  worklogDraft({ project = null, days = 7, assignee_any, mailbox, scope = null } = {}) {
     const cutoff = new Date(Date.now() - days * 86400000).toISOString();
-    const evs = this.recentEvents(1000, project).filter((e) => (e.at ?? "") >= cutoff);
+    const eventScope = scope ?? (assignee_any || mailbox ? { assignee_any, mailbox } : null);
+    const evs = this.recentEvents(1000, project, eventScope).filter((e) => (e.at ?? "") >= cutoff);
     const created = evs.filter((e) => e.kind === "item_create").map((e) => e.to_val).filter(Boolean);
     const done = evs.filter((e) => e.kind === "item_status" && e.to_val === "done").map((e) => this._itemTitle(e.item_ref));
     const blocked = evs.filter((e) => e.kind === "item_status" && e.to_val === "blocked").map((e) => this._itemTitle(e.item_ref));
@@ -1464,7 +1700,7 @@ export class Store {
     }
     const gates = evs.filter((e) => e.kind === "gate_clear").map((e) => e.to_val);
     const meetings = evs.filter((e) => e.kind === "meeting_create").length;
-    const mail = this.mail({ project, days });
+    const mail = this.mail({ project, days, mailbox });
     const mailIn = mail.filter((m) => m.direction === "in").length;
     const mailOut = mail.filter((m) => m.direction === "out").length;
     const lines = [];
@@ -1496,10 +1732,10 @@ export class Store {
     };
   }
   // 보고서/연구노트 초안(미리보기 한정): 과제 메타 + 산출물 포인터(원문 미포함).
-  reportDraft({ project = null, kind = "report" } = {}) {
+  reportDraft({ project = null, kind = "report", assignee_any, mailbox } = {}) {
     const today = new Date().toISOString().slice(0, 10);
     const weekEnd = new Date(Date.now() + 6 * 86400000).toISOString().slice(0, 10);
-    const projs = this.summary(today, weekEnd).filter((p) => !project || p.id === project);
+    const projs = this.summary(today, weekEnd, { assignee_any, mailbox }).filter((p) => !project || p.id === project);
     const arts = this.artifacts({ project }).slice(0, 30);
     const gsum = this.guideSummary().filter((g) => !project || g.project_id === project);
     const title = kind === "note" ? "연구노트 초안" : "보고서 초안";
@@ -1521,15 +1757,20 @@ export class Store {
 
   // #13 개인별 캘린더(.ics) 내보내기 — core_item 마감일을 종일 VEVENT 로(원문/첨부 미포함).
   // person 미지정=전체. 마감 없는/완료 항목 제외. 점수·우선순위 미주입(단순 일정 피드).
-  calendarFeed({ person = null } = {}) {
+  calendarFeed({ person = null, assignee_any } = {}) {
     const key = person ?? "";
+    const scope = scopedInClause("assignee_ref", assignee_any);
+    const cond = ["due IS NOT NULL", "status NOT IN ('done','unclassified','archived')"];
+    const args = [];
+    if (key) { cond.push("assignee_ref = ?"); args.push(key); }
+    if (scope) { cond.push(scope.sql); args.push(...scope.args); }
     return this.db.prepare(
       `SELECT id, title, project_id, due, status, assignee_ref FROM core_item
-       WHERE due IS NOT NULL AND status NOT IN ('done','unclassified','archived') AND (? = '' OR assignee_ref = ?) ORDER BY due`
-    ).all(key, key);
+       WHERE ${cond.join(" AND ")} ORDER BY due`
+    ).all(...args);
   }
-  calendarIcs({ person = null } = {}) {
-    const rows = this.calendarFeed({ person });
+  calendarIcs({ person = null, assignee_any } = {}) {
+    const rows = this.calendarFeed({ person, assignee_any });
     const esc = (s) => String(s ?? "").replace(/\\/g, "\\\\").replace(/;/g, "\\;").replace(/,/g, "\\,").replace(/\r?\n/g, "\\n");
     const stamp = new Date().toISOString().replace(/[-:]/g, "").replace(/\.\d+Z$/, "Z");
     const lines = ["BEGIN:VCALENDAR", "VERSION:2.0", "PRODID:-//Soulforge//dev-erp//KO", "CALSCALE:GREGORIAN",
@@ -2153,12 +2394,17 @@ export class Store {
   capabilityMatrix() {
     return this.people().map((p) => ({ person_id: p.id, name: p.name, role: p.role, unit_ref: p.unit_ref ?? null, capability_label: p.capability_label ?? null, skills: this.personSkills(p.id) }));
   }
-  nudges({ person = null, limit = 5 } = {}) {
+  nudges({ person = null, limit = 5, assignee_any } = {}) {
     const today = new Date().toISOString().slice(0, 10);
     const key = person ?? "";
+    const scope = scopedInClause("assignee_ref", assignee_any);
+    const cond = ["status NOT IN ('done','unclassified','archived')"];
+    const args = [];
+    if (key) { cond.push("assignee_ref = ?"); args.push(key); }
+    if (scope) { cond.push(scope.sql); args.push(...scope.args); }
     const rows = this.db.prepare(
-      "SELECT id, title, project_id, due, status, assignee_ref FROM core_item WHERE status NOT IN ('done','unclassified','archived') AND (? = '' OR assignee_ref = ?)"
-    ).all(key, key);
+      `SELECT id, title, project_id, due, status, assignee_ref FROM core_item WHERE ${cond.join(" AND ")}`
+    ).all(...args);
     const rank = { overdue: 0, blocked: 1, due_today: 2, open: 3 };
     const out = rows.map((r) => {
       let reason = "open";
@@ -2171,15 +2417,17 @@ export class Store {
     return out.slice(0, limit);
   }
   // P-7 사람별 부하(GROUP BY) — 건수 집계만(개인 점수 미산출·미저장). NULL=(미배정).
-  workload(todayKey) {
+  workload(todayKey, { assignee_any } = {}) {
+    const scope = scopedInClause("assignee_ref", assignee_any);
+    const where = scope ? `WHERE ${scope.sql}` : "";
     const rows = this.db.prepare(
       `SELECT assignee_ref,
          COUNT(*) AS total,
          SUM(CASE WHEN status NOT IN ('done','unclassified','archived') THEN 1 ELSE 0 END) AS open_cnt,
          SUM(CASE WHEN status = 'blocked' THEN 1 ELSE 0 END) AS blocked_cnt,
          SUM(CASE WHEN status NOT IN ('done','unclassified','archived') AND due IS NOT NULL AND due < ? THEN 1 ELSE 0 END) AS overdue_cnt
-       FROM core_item GROUP BY assignee_ref`
-    ).all(todayKey);
+       FROM core_item ${where} GROUP BY assignee_ref`
+    ).all(todayKey, ...(scope?.args ?? []));
     const names = new Map(this.people().map((p) => [p.id, p.name]));
     return rows.map((r) => ({
       assignee_ref: r.assignee_ref ?? null,
@@ -2188,7 +2436,9 @@ export class Store {
     })).sort((a, b) => b.open_cnt - a.open_cnt);
   }
   // P-7 회의 미결 롤업 — 미완 액션이 남은 회의만(집계만).
-  meetingOpenRollup() {
+  meetingOpenRollup({ assignee_any } = {}) {
+    const scope = scopedInClause("i.assignee_ref", assignee_any);
+    const scopeSql = scope ? `WHERE ${scope.sql}` : "";
     return this.db.prepare(
       `SELECT m.id AS meeting_id, m.title, m.project_id,
          COUNT(map.item_id) AS total_actions,
@@ -2196,8 +2446,8 @@ export class Store {
        FROM core_meeting m
        JOIN meeting_action_map map ON map.meeting_id = m.id
        JOIN core_item i ON i.id = map.item_id
-       GROUP BY m.id HAVING open_actions > 0 ORDER BY open_actions DESC`
-    ).all();
+       ${scopeSql} GROUP BY m.id HAVING open_actions > 0 ORDER BY open_actions DESC`
+    ).all(...(scope?.args ?? []));
   }
   // P-11 계산기 — 안전 평가(safeEval)·example 회귀검증·통과해야 active.
   upsertCalculator({ id, name, category = null, formula, variables = [], unit_out = null, source_ref = null, data_label = "real" }) {
@@ -2303,6 +2553,79 @@ export class Store {
   }
   // 이메일 형식 최소 검증(local@domain.tld). 빈 값은 허용(이메일 미등록 계정 가능).
   static EMAIL_RE = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+  static MAILBOX_PROVIDERS = ["none", "gmail", "hiworks"];
+  static MAILBOX_STATUSES = ["disabled", "not_configured", "ready", "pending", "fetching", "ok", "error", "stale"];
+  static MAILBOX_SECRET_KEY_RE = /(password|passwd|token|secret|cookie|credential|client_secret|refresh_token|access_token|api_?key)/i;
+
+  static hasMailboxSecretPayload(obj = {}) {
+    return Object.keys(obj || {}).some((key) => Store.MAILBOX_SECRET_KEY_RE.test(key));
+  }
+
+  static safeRelativePathRef(v, { allowEmpty = false, error = "ref_invalid" } = {}) {
+    const s = String(v ?? "").trim();
+    if (!s) return allowEmpty ? { ok: true, value: null } : { error };
+    if (s.length > 240 || /[\0\r\n=]/.test(s)) return { error };
+    if (isAbsolute(s) || /^[A-Za-z]:[\\/]/.test(s) || /^\\\\/.test(s) || /^\/\//.test(s)) return { error };
+    if (/^[A-Za-z][A-Za-z0-9+.-]*:/.test(s)) return { error };
+    const parts = s.replace(/\\/g, "/").split("/");
+    if (parts.some((part) => part === "" || part === "." || part === "..")) return { error };
+    return { ok: true, value: s };
+  }
+
+  static safeMetadataRef(v, { allowEmpty = true, error = "ref_invalid" } = {}) {
+    const s = String(v ?? "").trim();
+    if (!s) return allowEmpty ? { ok: true, value: null } : { error };
+    if (s.length > 240 || /[\0\r\n]/.test(s)) return { error };
+    if (isAbsolute(s) || /^[A-Za-z]:[\\/]/.test(s) || /^\\\\/.test(s) || /^\/\//.test(s)) return { error };
+    const parts = s.replace(/\\/g, "/").split("/");
+    if (parts.some((part) => part === "..")) return { error };
+    return { ok: true, value: s };
+  }
+
+  static normalizeMailboxConfig(input = {}, existing = {}) {
+    if (Store.hasMailboxSecretPayload(input)) return { error: "mailbox_secret_not_allowed" };
+    const rawProvider = input.mailbox_provider ?? input.provider ?? existing.mailbox_provider ?? "none";
+    const provider = String(rawProvider || "none").trim().toLowerCase();
+    if (!Store.MAILBOX_PROVIDERS.includes(provider)) return { error: "mailbox_provider_invalid" };
+    const hasEnabled = input.mailbox_enabled !== undefined || input.enabled !== undefined;
+    const rawEnabled = input.mailbox_enabled ?? input.enabled;
+    const enabled = provider === "none" ? false
+      : (hasEnabled ? ["1", "true", "yes", "on"].includes(String(rawEnabled).trim().toLowerCase()) || rawEnabled === true || rawEnabled === 1
+        : !!existing.mailbox_enabled);
+    const hasEnv = input.mailbox_env_ref !== undefined || input.env_ref !== undefined;
+    const rawEnv = hasEnv ? (input.mailbox_env_ref ?? input.env_ref) : (existing.mailbox_env_ref ?? "");
+    let envRef = null;
+    if (provider !== "none") {
+      const normalizedEnv = Store.safeRelativePathRef(rawEnv, { allowEmpty: true, error: "mailbox_env_ref_invalid" });
+      if (normalizedEnv.error) return normalizedEnv;
+      envRef = normalizedEnv.value;
+      if (enabled && !envRef) return { error: "mailbox_env_ref_required" };
+    }
+    const hasStatus = input.mailbox_status !== undefined || input.status !== undefined;
+    const rawStatus = input.mailbox_status ?? input.status ?? existing.mailbox_status;
+    const normalizedStatus = String(rawStatus || "").trim().toLowerCase();
+    const status = provider === "none" || !enabled
+      ? "disabled"
+      : (hasStatus && Store.MAILBOX_STATUSES.includes(normalizedStatus) && normalizedStatus !== "disabled" ? normalizedStatus : "ready");
+    const rawFetchAt = input.mailbox_last_fetch_at ?? input.last_fetch_at ?? existing.mailbox_last_fetch_at;
+    const fetchAt = String(rawFetchAt ?? "").trim();
+    if (fetchAt && !/^\d{4}-\d{2}-\d{2}/.test(fetchAt)) return { error: "mailbox_last_fetch_at_invalid" };
+    const rawSummary = input.mailbox_last_summary_ref ?? input.last_summary_ref ?? existing.mailbox_last_summary_ref;
+    const summary = Store.safeMetadataRef(rawSummary, { allowEmpty: true, error: "mailbox_last_summary_ref_invalid" });
+    if (summary.error) return summary;
+    const lastError = String(input.mailbox_last_error ?? input.last_error ?? existing.mailbox_last_error ?? "").trim();
+    if (/[\0\r\n]/.test(lastError)) return { error: "mailbox_last_error_invalid" };
+    return {
+      mailbox_provider: provider,
+      mailbox_env_ref: envRef,
+      mailbox_enabled: enabled ? 1 : 0,
+      mailbox_status: status,
+      mailbox_last_fetch_at: fetchAt || null,
+      mailbox_last_error: lastError ? lastError.slice(0, 500) : null,
+      mailbox_last_summary_ref: summary.value,
+    };
+  }
+
   createAccount({ id, username, password, person_id = null, roles = [], email = null, display_name = null }) {
     const aid = id || `acc_${randomBytes(5).toString("hex")}`;
     if (!username || !password) return { error: "username_password_required" };
@@ -2416,12 +2739,43 @@ export class Store {
       perms: this.permsFor(account.id)
     };
   }
+  safeMailboxMetadata(row = {}) {
+    return {
+      mailbox_provider: row.mailbox_provider || "none",
+      mailbox_env_ref: row.mailbox_env_ref ?? null,
+      mailbox_enabled: !!row.mailbox_enabled,
+      mailbox_status: row.mailbox_status || "disabled",
+      mailbox_last_fetch_at: row.mailbox_last_fetch_at ?? null,
+      mailbox_last_error: row.mailbox_last_error ?? null,
+      mailbox_last_summary_ref: row.mailbox_last_summary_ref ?? null,
+    };
+  }
+  accountMailboxConfig(account_id) {
+    const row = this.db.prepare(
+      `SELECT id,username,email,display_name,status,mailbox_provider,mailbox_env_ref,mailbox_enabled,
+        mailbox_status,mailbox_last_fetch_at,mailbox_last_error,mailbox_last_summary_ref
+       FROM core_account WHERE id=?`
+    ).get(account_id);
+    return row ? { id: row.id, username: row.username, email: row.email ?? null, display_name: row.display_name ?? null, status: row.status, ...this.safeMailboxMetadata(row) } : null;
+  }
+  listAccountMailboxConfigs() {
+    return this.db.prepare(
+      `SELECT id,username,email,display_name,status,mailbox_provider,mailbox_env_ref,mailbox_enabled,
+        mailbox_status,mailbox_last_fetch_at,mailbox_last_error,mailbox_last_summary_ref
+       FROM core_account ORDER BY created_at, username`
+    ).all().map((row) => ({ id: row.id, username: row.username, email: row.email ?? null, display_name: row.display_name ?? null, status: row.status, ...this.safeMailboxMetadata(row) }));
+  }
   // 관리자용 계정 목록(해시 제외). 역할 동봉.
   listAccounts() {
     const rows = this.db.prepare(
-      "SELECT id,username,email,display_name,status,created_at,person_id FROM core_account ORDER BY created_at, username"
+      `SELECT id,username,email,display_name,status,created_at,person_id,mailbox_provider,mailbox_env_ref,
+        mailbox_enabled,mailbox_status,mailbox_last_fetch_at,mailbox_last_error,mailbox_last_summary_ref
+       FROM core_account ORDER BY created_at, username`
     ).all();
-    return rows.map((a) => ({ ...a, roles: this.rolesFor(a.id), is_admin: this.rolesFor(a.id).includes("admin") }));
+    return rows.map((a) => {
+      const roles = this.rolesFor(a.id);
+      return { ...a, ...this.safeMailboxMetadata(a), roles, is_admin: roles.includes("admin") };
+    });
   }
   accountByEmail(email) {
     const em = String(email ?? "").trim().toLowerCase();
@@ -2458,6 +2812,20 @@ export class Store {
     }
     return { ok: true };
   }
+  updateAccountMailbox(account_id, patch = {}) {
+    const a = this.db.prepare("SELECT * FROM core_account WHERE id=?").get(account_id);
+    if (!a) return { error: "account_not_found" };
+    const normalized = Store.normalizeMailboxConfig(patch, a);
+    if (normalized.error) return normalized;
+    this.db.prepare(
+      `UPDATE core_account SET mailbox_provider=?, mailbox_env_ref=?, mailbox_enabled=?, mailbox_status=?,
+        mailbox_last_fetch_at=?, mailbox_last_error=?, mailbox_last_summary_ref=? WHERE id=?`
+    ).run(
+      normalized.mailbox_provider, normalized.mailbox_env_ref, normalized.mailbox_enabled, normalized.mailbox_status,
+      normalized.mailbox_last_fetch_at, normalized.mailbox_last_error, normalized.mailbox_last_summary_ref, account_id
+    );
+    return { ok: true, mailbox: this.accountMailboxConfig(account_id) };
+  }
 
   // ---------- 회의록(메타 전용). 원문/첨부 미저장 — summary_pointer 는 위치만 ----------
   createMeeting({ id, project_id = null, title, at = null, attendees = null, summary_pointer = null, data_label = "real" }) {
@@ -2481,10 +2849,12 @@ export class Store {
     this.db.prepare("INSERT OR IGNORE INTO meeting_action_map(meeting_id,item_id) VALUES(?,?)").run(meeting_id, item_id);
     return { ok: true };
   }
-  meetingActions(meeting_id) {
+  meetingActions(meeting_id, { assignee_any } = {}) {
+    const scope = scopedInClause("i.assignee_ref", assignee_any);
+    const scopeSql = scope ? ` AND ${scope.sql}` : "";
     return this.db.prepare(
-      `SELECT i.* FROM core_item i JOIN meeting_action_map m ON m.item_id=i.id WHERE m.meeting_id=? ORDER BY i.id`
-    ).all(meeting_id);
+      `SELECT i.* FROM core_item i JOIN meeting_action_map m ON m.item_id=i.id WHERE m.meeting_id=?${scopeSql} ORDER BY i.id`
+    ).all(meeting_id, ...(scope?.args ?? []));
   }
 
   // --- 개발요청함(slice6): 인입 채널(메일과 같은 패턴). 요청 → 받은 일 → 할 일 승격(미분류). ---

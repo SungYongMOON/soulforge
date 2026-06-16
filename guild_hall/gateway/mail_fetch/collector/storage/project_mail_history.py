@@ -141,7 +141,7 @@ class ProjectMailHistoryWriter:
             "이벤트유형": "mail_received",
             "메일소스ID": source_ref,
             "메일수신시각": str(event.received_at or ""),
-            "메일함": f"{_workspace_for_source(event.source)}_mailbox",
+            "메일함": _mailbox_history_label(event),
             "스레드": str(event.thread_id or ""),
             "제목": str(event.subject or ""),
             "발신자": _format_addresses(event.from_addrs),
@@ -355,6 +355,17 @@ def _format_addresses(value: Any) -> str:
         elif address or name:
             rendered.append(address or name)
     return "; ".join(rendered)
+
+
+def _mailbox_history_label(event: EmailEvent) -> str:
+    metadata = event.metadata if isinstance(event.metadata, dict) else {}
+    mailbox = metadata.get("mailbox")
+    if isinstance(mailbox, dict):
+        for key in ("email", "id"):
+            value = str(mailbox.get(key, "") or "").strip()
+            if value:
+                return value
+    return f"{_workspace_for_source(event.source)}_mailbox"
 
 
 def _workspace_for_source(source: str) -> str:

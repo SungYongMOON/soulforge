@@ -188,6 +188,12 @@ export function buildMailIntakeRequest(candidate, eventRecord = {}) {
   const receivedAt = requireString(sourceEvent.received_at ?? eventRecord.received_at, "received_at");
   const eventFile = requireString(sourceEvent.event_file, "source_event.event_file");
   const subject = String(mailSummary.subject ?? eventRecord.subject ?? "").trim();
+  const candidateMetadata = buildSafeCandidateAutomationMetadata(candidate);
+  const projectHints = uniqueValues([
+    isProjectRoute(candidateMetadata.route_candidate) ? candidateMetadata.route_candidate : null,
+    candidateMetadata.route_hint_candidates,
+  ]);
+  const stageHints = uniqueValues([candidateMetadata.route_stage]);
 
   return {
     action: "mail_intake_request",
@@ -204,6 +210,7 @@ export function buildMailIntakeRequest(candidate, eventRecord = {}) {
     from: normalizeAddressEntries(mailSummary.from ?? eventRecord.from),
     to: normalizeAddressEntries(eventRecord.to),
     cc: normalizeAddressEntries(eventRecord.cc),
+    candidate_metadata: candidateMetadata,
     body_excerpt: null,
     monsters: [
       {
@@ -213,6 +220,8 @@ export function buildMailIntakeRequest(candidate, eventRecord = {}) {
         objective_ko: objectiveKoForSubject(subject),
         dedupe_key: `mail:${source}:${eventId}`,
         mail_role: "new_request",
+        project_hints: projectHints,
+        stage_hints: stageHints,
       },
     ],
   };
@@ -241,6 +250,7 @@ export function assertMailCandidateRequestOutput(repoRoot, outputFile) {
 export function summarizeMailCandidate(repoRoot, candidateFile, candidate) {
   const sourceEvent = candidate.source_event ?? {};
   const mailSummary = candidate.mail_summary ?? {};
+  const candidateMetadata = buildSafeCandidateAutomationMetadata(candidate);
   return {
     candidate_id: candidate.candidate_id,
     status: candidate.status,
@@ -251,6 +261,26 @@ export function summarizeMailCandidate(repoRoot, candidateFile, candidate) {
     subject: mailSummary.subject ?? null,
     from: normalizeAddressEntries(mailSummary.from),
     attachment_count: Number(mailSummary.attachment_count ?? 0),
+    attachment_types: candidateMetadata.attachment_types,
+    classification_label: candidateMetadata.classification_label,
+    classification_reasons: candidateMetadata.classification_reasons,
+    blocked_attachment_count: candidateMetadata.blocked_attachment_count,
+    review_status: candidateMetadata.review_status,
+    review_reason: candidateMetadata.review_reason,
+    route_candidate: candidateMetadata.route_candidate,
+    route_confidence: candidateMetadata.route_confidence,
+    route_suggestion_confidence: candidateMetadata.route_suggestion_confidence,
+    route_reason: candidateMetadata.route_reason,
+    route_reason_codes: candidateMetadata.route_reason_codes,
+    route_source: candidateMetadata.route_source,
+    route_status: candidateMetadata.route_status,
+    route_id: candidateMetadata.route_id,
+    route_stage: candidateMetadata.route_stage,
+    routing_rule_ref: candidateMetadata.routing_rule_ref,
+    route_matched_on: candidateMetadata.route_matched_on,
+    route_hint_candidates: candidateMetadata.route_hint_candidates,
+    owner_assignment_override: candidateMetadata.owner_assignment_override,
+    suggested_assignee: candidateMetadata.suggested_assignee,
     candidate_ref: relativeToRepo(repoRoot, candidateFile),
   };
 }
@@ -347,6 +377,258 @@ export function markCandidateTriaged(candidate, { suggestion, now }) {
   };
 }
 
+export function buildSafeCandidateAutomationMetadata(candidate) {
+  const mailSummary = candidate?.mail_summary ?? {};
+  const businessReview = candidate?.business_review ?? {};
+  const classification = summarizeCandidateClassification(mailSummary.classification);
+  const routeMetadata = summarizeRouteMetadata(candidate);
+
+  return {
+    schema_version: "mail_candidate.safe_automation_metadata.v1",
+    review_status: businessReview.status ?? null,
+    review_reason: firstNonEmpty(businessReview.reason, businessReview.review_reason, candidate?.review_reason),
+    classification_bucket: classification.bucket,
+    classification_label: classification.label,
+    classification_reasons: classification.reasons,
+    attachment_count: Number(mailSummary.attachment_count ?? 0),
+    attachment_types: sanitizeAttachmentTypeLabels(mailSummary.attachment_types),
+    blocked_attachment_count: classification.blocked_attachment_count,
+    route_candidate: routeMetadata.route_candidate,
+    route_confidence: routeMetadata.route_confidence,
+    route_suggestion_confidence: routeMetadata.route_suggestion_confidence,
+    route_reason: routeMetadata.route_reason,
+    route_reason_codes: routeMetadata.route_reason_codes,
+    route_source: routeMetadata.route_source,
+    route_status: routeMetadata.route_status,
+    route_id: routeMetadata.route_id,
+    route_stage: routeMetadata.route_stage,
+    routing_rule_ref: routeMetadata.routing_rule_ref,
+    route_matched_on: routeMetadata.route_matched_on,
+    route_hint_candidates: collectRouteHintCandidates(candidate, routeMetadata),
+    owner_assignment_override: sanitizeOwnerAssignmentMetadata(
+      firstPresent(
+        businessReview.owner_assignment_override,
+        businessReview.assignment_override,
+        businessReview.owner_override,
+        candidate?.owner_assignment_override,
+      ),
+    ),
+    suggested_assignee: sanitizeOwnerAssignmentMetadata(
+      firstPresent(
+        businessReview.suggested_assignee,
+        businessReview.assignee_suggestion,
+        candidate?.suggested_assignee,
+      ),
+    ),
+    boundary: {
+      raw_payload_copied: false,
+      body_copied: false,
+      attachment_payload_copied: false,
+      attachment_names_copied: false,
+      recipient_payload_copied_beyond_existing_metadata: false,
+    },
+  };
+}
+
+function summarizeCandidateClassification(classification) {
+  if (typeof classification === "string") {
+    const label = stringOrNull(classification);
+    return {
+      bucket: label,
+      label,
+      reasons: [],
+      blocked_attachment_count: 0,
+    };
+  }
+
+  if (!classification || typeof classification !== "object" || Array.isArray(classification)) {
+    return {
+      bucket: null,
+      label: null,
+      reasons: [],
+      blocked_attachment_count: 0,
+    };
+  }
+
+  const bucket = stringOrNull(classification.bucket);
+  return {
+    bucket,
+    label: stringOrNull(classification.label ?? classification.classification_label) ?? bucket,
+    reasons: normalizeStringArray(classification.reasons ?? classification.reason_codes),
+    blocked_attachment_count: safeNumber(classification.blocked_attachment_count),
+  };
+}
+
+function summarizeRouteMetadata(candidate) {
+  const businessReview = candidate?.business_review ?? {};
+  const suggestion = firstPresent(
+    businessReview.project_routing_suggestion,
+    businessReview.route_suggestion,
+    candidate?.project_routing_suggestion,
+  );
+  if (!suggestion || typeof suggestion !== "object" || Array.isArray(suggestion)) {
+    return emptyRouteMetadata();
+  }
+
+  const routeCandidate = stringOrNull(
+    suggestion.project_code ??
+      suggestion.route_candidate ??
+      suggestion.suggested_project_code,
+  );
+  const routeReasonCodes = normalizeStringArray(suggestion.reason_codes ?? suggestion.route_reason_codes);
+  const routeReason = firstNonEmpty(
+    suggestion.reason,
+    suggestion.route_reason,
+    routeReasonCodes.length > 0 ? routeReasonCodes.join(",") : null,
+  );
+
+  return {
+    route_candidate: routeCandidate,
+    route_confidence: routeCandidate
+      ? normalizePriorityRouteConfidence(suggestion.route_confidence ?? suggestion.confidence, routeCandidate)
+      : null,
+    route_suggestion_confidence: scalarOrNull(suggestion.confidence ?? suggestion.route_confidence),
+    route_reason: routeReason,
+    route_reason_codes: routeReasonCodes,
+    route_source: stringOrNull(suggestion.route_source ?? suggestion.source),
+    route_status: stringOrNull(suggestion.status),
+    route_id: stringOrNull(suggestion.route_id),
+    route_stage: stringOrNull(suggestion.stage ?? suggestion.project_stage),
+    routing_rule_ref: stringOrNull(suggestion.routing_rule_ref),
+    route_matched_on: normalizeStringArray(suggestion.matched_on),
+  };
+}
+
+function emptyRouteMetadata() {
+  return {
+    route_candidate: null,
+    route_confidence: null,
+    route_suggestion_confidence: null,
+    route_reason: null,
+    route_reason_codes: [],
+    route_source: null,
+    route_status: null,
+    route_id: null,
+    route_stage: null,
+    routing_rule_ref: null,
+    route_matched_on: [],
+  };
+}
+
+function collectRouteHintCandidates(candidate, routeMetadata) {
+  const businessReview = candidate?.business_review ?? {};
+  const mailSummary = candidate?.mail_summary ?? {};
+  return uniqueValues([
+    normalizeStringArray(candidate?.route_hint_candidates),
+    normalizeStringArray(mailSummary.route_hint_candidates),
+    normalizeStringArray(businessReview.route_hint_candidates),
+    normalizeStringArray(businessReview.project_hints),
+    normalizeStringArray(businessReview.project_routing_suggestion?.route_hint_candidates),
+    normalizeStringArray(businessReview.project_routing_suggestion?.project_hints),
+    isProjectRoute(routeMetadata.route_candidate) ? routeMetadata.route_candidate : null,
+  ]);
+}
+
+function sanitizeOwnerAssignmentMetadata(value) {
+  if (value === null || value === undefined) {
+    return null;
+  }
+  if (typeof value === "string" || typeof value === "number" || typeof value === "boolean") {
+    return scalarOrNull(value);
+  }
+  if (Array.isArray(value)) {
+    const entries = value.map((entry) => sanitizeOwnerAssignmentMetadata(entry)).filter((entry) => entry !== null);
+    return entries.length > 0 ? entries : null;
+  }
+  if (typeof value !== "object") {
+    return null;
+  }
+
+  const allowed = new Set([
+    "assignee",
+    "assignee_id",
+    "assignee_label",
+    "assignee_role",
+    "confidence",
+    "owner",
+    "owner_id",
+    "owner_label",
+    "owner_role",
+    "project_code",
+    "reason",
+    "reason_code",
+    "reason_codes",
+    "role_id",
+    "source",
+    "stage",
+    "status",
+    "suggested_assignee",
+    "suggested_assignee_id",
+    "suggested_assignee_label",
+    "team",
+    "team_id",
+    "unit_id",
+    "updated_at",
+  ]);
+  const output = {};
+
+  for (const [key, entry] of Object.entries(value)) {
+    if (!allowed.has(key)) {
+      continue;
+    }
+    if (key === "reason_codes") {
+      output[key] = normalizeStringArray(entry);
+      continue;
+    }
+    const sanitized = sanitizeOwnerAssignmentMetadata(entry);
+    if (sanitized !== null) {
+      output[key] = sanitized;
+    }
+  }
+
+  return Object.keys(output).length > 0 ? output : null;
+}
+
+function sanitizeAttachmentTypeLabels(values) {
+  const labels = [];
+  for (const value of normalizeArray(values)) {
+    const raw = String(value ?? "").trim().toLowerCase();
+    if (!raw) {
+      continue;
+    }
+    if (SAFE_ATTACHMENT_TYPE_LABELS.has(raw)) {
+      labels.push(raw);
+      continue;
+    }
+    if (raw.startsWith("image/")) {
+      labels.push("mime_image");
+      continue;
+    }
+    if (raw.startsWith("text/")) {
+      labels.push("mime_text");
+      continue;
+    }
+    if (raw.startsWith("application/")) {
+      labels.push("mime_application");
+      continue;
+    }
+    labels.push("attachment_metadata");
+  }
+  return uniqueValues(labels).sort();
+}
+
+const SAFE_ATTACHMENT_TYPE_LABELS = new Set([
+  "binary_attachment",
+  "body_link",
+  "inline_attachment",
+  "calendar_invite",
+  "message_part",
+  "attachment_metadata",
+  "mime_image",
+  "mime_text",
+  "mime_application",
+]);
+
 function rawRefForEvent({ eventFile, source, providerMessageId }) {
   const rawFile = eventFile.replace(`/mail/events/${source}/`, `/mail/raw/${source}/`);
   return `${rawFile}#provider_message_id=${providerMessageId}`;
@@ -418,6 +700,84 @@ function requireString(value, field) {
     throw new Error(`missing required field: ${field}`);
   }
   return raw;
+}
+
+function firstNonEmpty(...values) {
+  for (const value of values) {
+    if (typeof value === "string" && value.trim()) {
+      return value.trim();
+    }
+  }
+  return null;
+}
+
+function normalizeArray(value) {
+  if (!value) {
+    return [];
+  }
+  return Array.isArray(value) ? value : [value];
+}
+
+function normalizeStringArray(value) {
+  return uniqueValues(normalizeArray(value).map((entry) => stringOrNull(entry)).filter(Boolean));
+}
+
+function uniqueValues(values) {
+  return [...new Set(normalizeArray(values).flat().filter(Boolean))];
+}
+
+function safeNumber(value) {
+  const number = Number(value ?? 0);
+  return Number.isFinite(number) ? number : 0;
+}
+
+function firstPresent(...values) {
+  for (const value of values) {
+    if (value !== null && value !== undefined) {
+      return value;
+    }
+  }
+  return null;
+}
+
+function scalarOrNull(value) {
+  if (typeof value === "number") {
+    return Number.isFinite(value) ? value : null;
+  }
+  if (typeof value === "boolean") {
+    return value;
+  }
+  return stringOrNull(value);
+}
+
+function stringOrNull(value) {
+  const text = String(value ?? "").trim();
+  return text ? text : null;
+}
+
+function normalizePriorityRouteConfidence(value, routeCandidate = null) {
+  if (String(routeCandidate ?? "").startsWith("none/")) {
+    return "none";
+  }
+  if (typeof value === "number") {
+    return value >= 0.9 ? "exact" : "review";
+  }
+
+  const normalized = String(value ?? "").trim().toLowerCase();
+  if (normalized === "none") {
+    return "none";
+  }
+  if (["exact", "high", "confirmed", "owner_confirmed"].includes(normalized)) {
+    return "exact";
+  }
+  if (["review", "hint", "suggested", "defaulted", "manual_review", "medium", "low"].includes(normalized)) {
+    return "review";
+  }
+  return routeCandidate ? "review" : "none";
+}
+
+function isProjectRoute(value) {
+  return /^P\d{2}-\d{3}$/u.test(String(value ?? ""));
 }
 
 function isPathInside(rootPath, targetPath) {

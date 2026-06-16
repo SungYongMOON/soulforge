@@ -61,6 +61,113 @@ test("buildMailIntakeRequest creates body-safe unknown monster request", () => {
   assert(!rendered.includes("/private/path"));
 });
 
+test("buildMailIntakeRequest preserves safe automation metadata only", () => {
+  const baseCandidate = sampleCandidate();
+  const candidate = {
+    ...baseCandidate,
+    mail_summary: {
+      ...baseCandidate.mail_summary,
+      attachment_count: 2,
+      attachment_types: ["binary_attachment", "private-plan.xlsx"],
+      classification: {
+        bucket: "mail",
+        label: "erp_task",
+        reasons: ["business_review_ready"],
+        blocked_attachment_count: 2,
+      },
+      route_hint_candidates: ["P25-057"],
+    },
+    business_review: {
+      ...baseCandidate.business_review,
+      status: "triaged",
+      reason: "owner_triage",
+      project_routing_suggestion: {
+        schema_version: "mail_project_routing_suggestion.v1",
+        status: "suggested",
+        project_code: "P26-030",
+        stage: "erp_entry",
+        route_id: "p26030_owner",
+        routing_rule_ref: "_workmeta/system/bindings/rules/p26030.yaml",
+        confidence: 0.82,
+        route_source: "metadata_triage",
+        matched_on: ["classification_bucket", "subject"],
+        reason_codes: ["owner_route"],
+        route_hint_candidates: ["P26-030", "P25-057"],
+      },
+      owner_assignment_override: {
+        assignee_id: "owner-a",
+        assignee_label: "Owner A",
+        reason_codes: ["owner_override"],
+        source: "manual_triage",
+        raw_body: "DO_NOT_COPY_BODY",
+        attachment_name: "secret.xlsx",
+      },
+      suggested_assignee: {
+        assignee_id: "erp-ops",
+        assignee_label: "ERP Ops",
+        source: "router",
+      },
+    },
+  };
+
+  const request = buildMailIntakeRequest(candidate, {
+    provider_message_id: "<provider-001@example.test>",
+    thread_id: "thread-private-id",
+    to: [{ name: "Owner", address: "owner@example.test" }],
+    cc: [{ name: "Reviewer", address: "reviewer@example.test" }],
+    body_text: "private body must not be copied",
+    body_html: "<html>private html</html>",
+    raw: { body: "raw private body" },
+    attachments: [
+      {
+        type: "reference_attachment",
+        name: "private-plan.xlsx",
+        url: "https://example.test/private-plan.xlsx",
+        local_path: "/private/path/private-plan.xlsx",
+      },
+    ],
+  });
+  const rendered = JSON.stringify(request);
+
+  assert.equal(request.candidate_metadata.route_candidate, "P26-030");
+  assert.equal(request.candidate_metadata.route_confidence, "review");
+  assert.equal(request.candidate_metadata.route_suggestion_confidence, 0.82);
+  assert.equal(request.candidate_metadata.route_source, "metadata_triage");
+  assert.deepEqual(request.candidate_metadata.route_reason_codes, ["owner_route"]);
+  assert.deepEqual(request.candidate_metadata.route_hint_candidates, ["P25-057", "P26-030"]);
+  assert.equal(request.candidate_metadata.review_status, "triaged");
+  assert.equal(request.candidate_metadata.review_reason, "owner_triage");
+  assert.equal(request.candidate_metadata.classification_label, "erp_task");
+  assert.deepEqual(request.candidate_metadata.classification_reasons, ["business_review_ready"]);
+  assert.equal(request.candidate_metadata.blocked_attachment_count, 2);
+  assert.deepEqual(request.candidate_metadata.attachment_types, ["attachment_metadata", "binary_attachment"]);
+  assert.deepEqual(request.candidate_metadata.owner_assignment_override, {
+    assignee_id: "owner-a",
+    assignee_label: "Owner A",
+    reason_codes: ["owner_override"],
+    source: "manual_triage",
+  });
+  assert.deepEqual(request.candidate_metadata.suggested_assignee, {
+    assignee_id: "erp-ops",
+    assignee_label: "ERP Ops",
+    source: "router",
+  });
+  assert.deepEqual(request.monsters[0].project_hints, ["P26-030", "P25-057"]);
+  assert.deepEqual(request.monsters[0].stage_hints, ["erp_entry"]);
+  assert.equal(request.candidate_metadata.boundary.raw_payload_copied, false);
+  assert.equal(request.candidate_metadata.boundary.body_copied, false);
+  assert.equal(request.candidate_metadata.boundary.attachment_names_copied, false);
+
+  assert(!rendered.includes("private body"));
+  assert(!rendered.includes("private html"));
+  assert(!rendered.includes("raw private"));
+  assert(!rendered.includes("private-plan.xlsx"));
+  assert(!rendered.includes("example.test/private-plan.xlsx"));
+  assert(!rendered.includes("/private/path"));
+  assert(!rendered.includes("DO_NOT_COPY_BODY"));
+  assert(!rendered.includes("secret.xlsx"));
+});
+
 test("promoteMailCandidate writes request and marks candidate promoted", async () => {
   const repoRoot = await createRepoRoot();
   const candidateFile = path.join(

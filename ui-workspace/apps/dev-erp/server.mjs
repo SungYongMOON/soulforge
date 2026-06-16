@@ -133,6 +133,28 @@ function viewMailbox(req, qp) {
   return me?.email || "__none__";
 }
 
+function canAccessMail(req, mail_id) {
+  const mailbox = viewMailbox(req, {});
+  if (!mailbox || mailbox === "team") return true;
+  if (mailbox === "__none__") return false;
+  const row = store.db.prepare("SELECT mailbox FROM core_mail WHERE id=?").get(mail_id);
+  return String(row?.mailbox ?? "").trim().toLowerCase() === String(mailbox).toLowerCase();
+}
+
+function requestScope(req, qp = {}) {
+  const me = currentAccount(req);
+  if (!me || store.isAdmin(me.id)) return { all: true };
+  return { actor: me.username, assignee_any: viewIdentities(req, qp), mailbox: viewMailbox(req, qp) };
+}
+
+function canAccessItem(req, item_id) {
+  const me = currentAccount(req);
+  if (!me || store.isAdmin(me.id)) return true;
+  const row = store.db.prepare("SELECT assignee_ref FROM core_item WHERE id=?").get(item_id);
+  if (!row) return true;
+  return viewIdentities(req, {}).includes(row.assignee_ref);
+}
+
 function lastIngestAt() {
   const rows = store.db.prepare("SELECT at FROM event_log WHERE kind='ingest' ORDER BY id DESC LIMIT 1").get();
   return rows?.at ?? null;
@@ -223,6 +245,19 @@ const server = createServer(async (req, res) => {
       const r = store.updateAccount(id, { email, display_name, role });
       return send(res, r.error ? 400 : 200, r);
     }
+    if (path === "/api/accounts/mailbox" && req.method === "POST") {
+      const admin = requireAdmin(req);
+      if (!admin) return send(res, 403, { error: "admin_only" });
+      const body = await readJson(req);
+      const r = store.updateAccountMailbox(body.id, body);
+      if (r.error) return send(res, 400, r);
+      store.appendEvent({
+        actor_ref: admin.username, actor_kind: "human", kind: "account_mailbox_update",
+        to: `${r.mailbox.mailbox_provider}:${r.mailbox.mailbox_enabled ? "enabled" : "disabled"}`,
+        used_refs: ["auth", "mailbox_metadata"], data_label: "meta"
+      });
+      return send(res, 200, r);
+    }
     if (path === "/api/accounts/status" && req.method === "POST") {
       const admin = requireAdmin(req);
       if (!admin) return send(res, 403, { error: "admin_only" });
@@ -246,7 +281,8 @@ const server = createServer(async (req, res) => {
     if (path === "/api/summary") {
       const today = todayKey();
       const weekEnd = new Date(Date.now() + 6 * 86400000).toISOString().slice(0, 10);
-      return send(res, 200, { today, week_end: weekEnd, freshness: lastIngestAt(), projects: store.summary(today, weekEnd) });
+      const scope = requestScope(req, qp);
+      return send(res, 200, { today, week_end: weekEnd, freshness: lastIngestAt(), projects: store.summary(today, weekEnd, scope.all ? {} : scope) });
     }
     if (path === "/api/items" && req.method === "POST") {
       let body = ""; for await (const chunk of req) body += chunk;
@@ -275,6 +311,7 @@ const server = createServer(async (req, res) => {
     if (path === "/api/items/status" && req.method === "POST") {
       let body = ""; for await (const chunk of req) body += chunk;
       const { id, status, bottleneck_reason } = JSON.parse(body || "{}");
+      if (!canAccessItem(req, id)) return send(res, 403, { error: "item_forbidden" });
       const result = store.setItemStatus(id, status);
       if (result.error) return send(res, 400, result);
       store.appendEvent({
@@ -287,6 +324,7 @@ const server = createServer(async (req, res) => {
     if (path === "/api/items/assign" && req.method === "POST") {
       let body = ""; for await (const chunk of req) body += chunk;
       const { id, assignee_ref } = JSON.parse(body || "{}");
+      if (!canAccessItem(req, id)) return send(res, 403, { error: "item_forbidden" });
       const result = store.setItemAssignee(id, assignee_ref);
       if (result.error) return send(res, 400, result);
       store.appendEvent({
@@ -299,6 +337,7 @@ const server = createServer(async (req, res) => {
     if (path === "/api/items/update" && req.method === "POST") {
       let body = ""; for await (const chunk of req) body += chunk;
       const { id, title, due } = JSON.parse(body || "{}");
+      if (!canAccessItem(req, id)) return send(res, 403, { error: "item_forbidden" });
       const patch = {};
       if (title !== undefined) patch.title = title;
       if (due !== undefined) patch.due = due;
@@ -314,6 +353,7 @@ const server = createServer(async (req, res) => {
     if (path === "/api/items/delete" && req.method === "POST") {
       let body = ""; for await (const chunk of req) body += chunk;
       const { id, reason } = JSON.parse(body || "{}");
+      if (!canAccessItem(req, id)) return send(res, 403, { error: "item_forbidden" });
       const result = store.archiveItem(id);
       if (result.error) return send(res, 400, result);
       const rsn = String(reason ?? "").trim();
@@ -327,6 +367,7 @@ const server = createServer(async (req, res) => {
     if (path === "/api/items/restore" && req.method === "POST") {
       let body = ""; for await (const chunk of req) body += chunk;
       const { id } = JSON.parse(body || "{}");
+      if (!canAccessItem(req, id)) return send(res, 403, { error: "item_forbidden" });
       const result = store.restoreItem(id);
       if (result.error) return send(res, 400, result);
       store.appendEvent({
@@ -339,6 +380,7 @@ const server = createServer(async (req, res) => {
     if (path === "/api/items/confirm" && req.method === "POST") {
       let body = ""; for await (const chunk of req) body += chunk;
       const input = JSON.parse(body || "{}");
+      if (!canAccessItem(req, input.id)) return send(res, 403, { error: "item_forbidden" });
       const result = store.confirmItem(input.id, input);
       if (result.error) return send(res, 400, result);
       store.appendEvent({
@@ -351,6 +393,7 @@ const server = createServer(async (req, res) => {
     if (path === "/api/items/promote" && req.method === "POST") {
       let body = ""; for await (const chunk of req) body += chunk;
       const { mail_id } = JSON.parse(body || "{}");
+      if (!canAccessMail(req, mail_id)) return send(res, 403, { error: "mail_forbidden" });
       const result = store.promoteMail(mail_id, actor);
       if (result.error) return send(res, 400, result);
       store.appendEvent({
@@ -361,14 +404,16 @@ const server = createServer(async (req, res) => {
       return send(res, 200, result);
     }
     if (path === "/api/items") {
-      // 보기 대상(view=계정id|team)·mine=1 → 담당자 식별자 필터. 없으면 전체(하위호환).
-      const assignee_any = (qp.mine === "1" || qp.view) ? viewIdentities(req, qp) : undefined;
+      // 보기 대상(view=계정id|team)·mine=1 → 담당자 식별자 필터. 일반 팀원의 기본은 본인 범위.
+      const assignee_any = viewIdentities(req, qp);
       return send(res, 200, store.items({ project: qp.project, status: qp.status, q: qp.q, due_before: qp.due === "soon" ? todayKey() : undefined, assignee_any }));
     }
     if (path === "/api/mail" && req.method === "POST") {
       let body = ""; for await (const chunk of req) body += chunk;
       const input = JSON.parse(body || "{}");
-      const result = store.createMail({ ...input, data_label: "real" });
+      const me = currentAccount(req);
+      const mailbox = me ? (store.isAdmin(me.id) && input.mailbox ? input.mailbox : me.email || null) : input.mailbox;
+      const result = store.createMail({ ...input, mailbox, data_label: "real" });
       if (result.error) return send(res, 400, result);
       store.appendEvent({ actor_ref: actor, actor_kind: "human", kind: "mail_register", to: result.mail.subject, project_ref: result.mail.project_id ?? null, used_refs: ["mail"], data_label: "real" });
       return send(res, 200, result);
@@ -376,7 +421,7 @@ const server = createServer(async (req, res) => {
     if (path === "/api/mail") return send(res, 200, store.mail({
       project: qp.project, days: qp.days !== undefined ? Number(qp.days) : 90,
       q: qp.q, direction: qp.direction, label_id: qp.label_id,
-      mailbox: (qp.mine === "1" || qp.view) ? viewMailbox(req, qp) : undefined
+      mailbox: viewMailbox(req, qp)
     }));
     if (path === "/api/guide/templates") return send(res, 200, guideTemplates(qp.mode));
     if (path === "/api/doc/recipes") return send(res, 200, docRecipes(qp.mode));
@@ -497,7 +542,10 @@ const server = createServer(async (req, res) => {
       return send(res, r.error ? 400 : 200, r);
     }
     if (path === "/api/parts/completeness") { const r = store.boardCompleteness(qp.part); return send(res, r.error ? 404 : 200, r); }
-    if (path === "/api/risk") return send(res, 200, store.riskAlerts({ project: qp.project ?? null }));
+    if (path === "/api/risk") {
+      const scope = requestScope(req, qp);
+      return send(res, 200, store.riskAlerts({ project: qp.project ?? null, ...(scope.all ? {} : { assignee_any: scope.assignee_any }) }));
+    }
     if (path === "/api/inputs/fulfillment") return send(res, 200, store.inputFulfillment(qp.project));
     if (path === "/api/inputs/generate" && req.method === "POST") {
       let body = ""; for await (const chunk of req) body += chunk;
@@ -628,8 +676,14 @@ const server = createServer(async (req, res) => {
       if (r.error) return send(res, 400, r);
       return send(res, 200, r);
     }
-    if (path === "/api/worklog/draft") return send(res, 200, store.worklogDraft({ project: qp.project ?? null, days: qp.days ? Number(qp.days) : 7 }));
-    if (path === "/api/report/draft") return send(res, 200, store.reportDraft({ project: qp.project ?? null, kind: qp.kind === "note" ? "note" : "report" }));
+    if (path === "/api/worklog/draft") {
+      const scope = requestScope(req, qp);
+      return send(res, 200, store.worklogDraft({ project: qp.project ?? null, days: qp.days ? Number(qp.days) : 7, ...(scope.all ? {} : { scope, assignee_any: scope.assignee_any, mailbox: scope.mailbox }) }));
+    }
+    if (path === "/api/report/draft") {
+      const scope = requestScope(req, qp);
+      return send(res, 200, store.reportDraft({ project: qp.project ?? null, kind: qp.kind === "note" ? "note" : "report", ...(scope.all ? {} : { assignee_any: scope.assignee_any, mailbox: scope.mailbox }) }));
+    }
     if (path === "/api/guide/summary") return send(res, 200, store.guideSummary());
     if (path === "/api/guide") return send(res, 200, store.guideState(qp.project ?? ""));
     if (path === "/api/guide/artifact" && req.method === "POST") {
@@ -651,6 +705,8 @@ const server = createServer(async (req, res) => {
     if (path === "/api/mail/assign" && req.method === "POST") {
       let body = ""; for await (const chunk of req) body += chunk;
       const { mail_ids, project_id, make_items } = JSON.parse(body || "{}");
+      const requestedMailIds = Array.isArray(mail_ids) ? mail_ids : [];
+      if (requestedMailIds.some((mail_id) => !canAccessMail(req, mail_id))) return send(res, 403, { error: "mail_forbidden" });
       const result = store.assignMails(mail_ids, project_id, { make_items: make_items === true, created_by: actor });
       if (result.error) return send(res, 400, result);
       for (const r of result.results) {
@@ -685,6 +741,7 @@ const server = createServer(async (req, res) => {
     if (path === "/api/mail/label" && req.method === "POST") {
       let body = ""; for await (const chunk of req) body += chunk;
       const { mail_id, label_id, on } = JSON.parse(body || "{}");
+      if (!canAccessMail(req, mail_id)) return send(res, 403, { error: "mail_forbidden" });
       const result = store.setMailLabel(mail_id, label_id, on !== false);
       if (result.error) return send(res, 400, result);
       store.appendEvent({ actor_ref: actor, actor_kind: "human", kind: on !== false ? "label_add" : "label_remove", item_ref: mail_id, to: String(label_id), used_refs: ["mail_label_map"], data_label: "real" });
@@ -702,24 +759,34 @@ const server = createServer(async (req, res) => {
       store.appendEvent({ actor_ref: actor, actor_kind: "human", kind: "person_skill_set", item_ref: b.person_id, to: b.capability_label, used_refs: b.source_ref ? [b.source_ref] : [], data_label: "real" });
       return send(res, 200, r);
     }
-    if (path === "/api/nudges") return send(res, 200, store.nudges({ person: qp.person, limit: qp.limit ? Number(qp.limit) : 5 }));
-    if (path === "/api/workload") return send(res, 200, store.workload(new Date().toISOString().slice(0, 10)));
-    if (path === "/api/meetings/open") return send(res, 200, store.meetingOpenRollup());
+    if (path === "/api/nudges") {
+      const scope = requestScope(req, qp);
+      return send(res, 200, store.nudges({ person: qp.person, limit: qp.limit ? Number(qp.limit) : 5, ...(scope.all ? {} : { assignee_any: scope.assignee_any }) }));
+    }
+    if (path === "/api/workload") {
+      const scope = requestScope(req, qp);
+      return send(res, 200, store.workload(new Date().toISOString().slice(0, 10), scope.all ? {} : { assignee_any: scope.assignee_any }));
+    }
+    if (path === "/api/meetings/open") {
+      const scope = requestScope(req, qp);
+      return send(res, 200, store.meetingOpenRollup(scope.all ? {} : { assignee_any: scope.assignee_any }));
+    }
     if (path === "/api/calendar.ics") {
-      const ics = store.calendarIcs({ person: qp.person ?? null });
+      const scope = requestScope(req, qp);
+      const ics = store.calendarIcs({ person: qp.person ?? null, ...(scope.all ? {} : { assignee_any: scope.assignee_any }) });
       return send(res, 200, ics, "text/calendar", { "content-disposition": `attachment; filename="dev-erp${qp.person ? `-${qp.person}` : ""}.ics"` });
     }
-    if (path === "/api/search") return send(res, 200, crossSearch(store, qp.q));
+    if (path === "/api/search") return send(res, 200, crossSearch(store, qp.q, { assignee_any: viewIdentities(req, qp), mailbox: viewMailbox(req, qp) }));
     if (path === "/api/lexicon") return send(res, 200, { mode: qp.mode ?? "business", modes: Object.keys(LEXICON), labels: getLexicon(qp.mode) });
     if (path === "/api/modules") return send(res, 200, modulesFor(qp.mode));
     // canon 지식 저장소를 분야 그룹별로(메타만). 인증 필요(읽기 게이트 대상).
     if (path === "/api/knowledge/registry") return send(res, 200, { groups: groupedKnowledge(KNOW_DIR, qp.mode || "business") });
-    if (path === "/api/events/recent") return send(res, 200, store.recentEvents(qp.limit ? Number(qp.limit) : 30, qp.project ?? null));
+    if (path === "/api/events/recent") return send(res, 200, store.recentEvents(qp.limit ? Number(qp.limit) : 30, qp.project ?? null, requestScope(req, qp)));
     if (path === "/api/events/audit") return send(res, 200, {
       // noise=0(기본, UI '조회·잡음 포함' 해제) → 잡음을 서버에서 제외해 limit 이 의미 이벤트에만 적용.
       // noise param 없으면(타 호출자) 종전대로 전체 포함(백워드 호환).
-      events: store.queryEvents({ project: qp.project || null, kind: qp.kind || null, actor: qp.actor || null, since: qp.since || null, limit: qp.limit ? Number(qp.limit) : 300, excludeKinds: qp.noise === "0" ? AUDIT_NOISE_KINDS : null }),
-      facets: store.eventFacets(),
+      events: store.queryEvents({ project: qp.project || null, kind: qp.kind || null, actor: qp.actor || null, since: qp.since || null, limit: qp.limit ? Number(qp.limit) : 300, excludeKinds: qp.noise === "0" ? AUDIT_NOISE_KINDS : null, scope: requestScope(req, qp) }),
+      facets: store.eventFacets(requestScope(req, qp)),
     });
     if (path === "/api/events" && req.method === "POST") {
       let body = "";
@@ -869,10 +936,14 @@ const server = createServer(async (req, res) => {
       store.appendEvent({ actor_ref: actor, actor_kind: "human", kind: "meeting_create", to: result.id, project_ref: input.project_id ?? null, used_refs: ["meetings"], data_label: "real" });
       return send(res, 200, result);
     }
-    if (path === "/api/meetings/actions" && req.method === "GET") return send(res, 200, store.meetingActions(qp.meeting ?? ""));
+    if (path === "/api/meetings/actions" && req.method === "GET") {
+      const scope = requestScope(req, qp);
+      return send(res, 200, store.meetingActions(qp.meeting ?? "", scope.all ? {} : { assignee_any: scope.assignee_any }));
+    }
     if (path === "/api/meetings/action" && req.method === "POST") {
       let body = ""; for await (const chunk of req) body += chunk;
       const { meeting_id, item_id } = JSON.parse(body || "{}");
+      if (!canAccessItem(req, item_id)) return send(res, 403, { error: "item_forbidden" });
       const result = store.linkActionItem(meeting_id, item_id);
       if (result.error) return send(res, 400, result);
       return send(res, 200, result);

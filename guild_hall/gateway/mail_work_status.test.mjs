@@ -341,6 +341,109 @@ test("refreshMailWorkPriority routes exact P26-014, thread duplicates, admin hol
   assert.equal(promo.route_confidence, "none");
 });
 
+test("mail work projections preserve safe candidate route and assignment metadata", async () => {
+  const repoRoot = await createRepoRoot();
+  const baseCandidate = sampleCandidate({
+    candidate_id: "mail_candidate_structured_route",
+    event_id: "mail_evt_structured_route",
+    status: "pending_review",
+    subject: "Synthetic metadata-routed ERP task",
+    attachment_count: 2,
+    attachment_types: ["binary_attachment", "private-spec.xlsx"],
+  });
+  const candidate = {
+    ...baseCandidate,
+    mail_summary: {
+      ...baseCandidate.mail_summary,
+      classification: {
+        bucket: "mail",
+        label: "erp_task",
+        reasons: ["business_review_ready"],
+        blocked_attachment_count: 1,
+      },
+      route_hint_candidates: ["P25-057"],
+    },
+    business_review: {
+      ...baseCandidate.business_review,
+      status: "triaged",
+      reason: "owner_triage",
+      project_routing_suggestion: {
+        schema_version: "mail_project_routing_suggestion.v1",
+        status: "suggested",
+        project_code: "P26-030",
+        stage: "erp_entry",
+        route_id: "p26030_owner",
+        routing_rule_ref: "_workmeta/system/bindings/rules/p26030.yaml",
+        confidence: 0.82,
+        route_source: "metadata_triage",
+        matched_on: ["classification_bucket", "subject"],
+        reason_codes: ["owner_route"],
+        route_hint_candidates: ["P26-030", "P25-057"],
+        body_safe: true,
+      },
+      owner_assignment_override: {
+        assignee_id: "owner-a",
+        assignee_label: "Owner A",
+        reason_codes: ["owner_override"],
+        source: "manual_triage",
+        raw_body: "DO_NOT_COPY_BODY",
+        attachment_name: "secret.xlsx",
+      },
+      suggested_assignee: {
+        assignee_id: "erp-ops",
+        assignee_label: "ERP Ops",
+        source: "router",
+      },
+    },
+  };
+
+  await writeJson(
+    path.join(repoRoot, "guild_hall", "state", "gateway", "mail_candidate", "queue", "pending", `${candidate.candidate_id}.json`),
+    candidate,
+  );
+
+  await refreshMailWorkStatus({ repoRoot });
+  const statusProjection = JSON.parse(await readFile(defaultMailWorkStatusLatestFile(repoRoot), "utf8"));
+  const statusRow = statusProjection.entries.find((entry) => entry.candidate_id === "mail_candidate_structured_route");
+
+  assert.equal(statusRow.route_candidate, "P26-030");
+  assert.equal(statusRow.route_confidence, "review");
+  assert.equal(statusRow.route_suggestion_confidence, 0.82);
+  assert.equal(statusRow.route_source, "metadata_triage");
+  assert.equal(statusRow.route_stage, "erp_entry");
+  assert.deepEqual(statusRow.route_reason_codes, ["owner_route"]);
+  assert.deepEqual(statusRow.route_matched_on, ["classification_bucket", "subject"]);
+  assert.deepEqual(statusRow.route_hint_candidates, ["P25-057", "P26-030"]);
+  assert.equal(statusRow.review_status, "triaged");
+  assert.equal(statusRow.review_reason, "owner_triage");
+  assert.equal(statusRow.classification_label, "erp_task");
+  assert.deepEqual(statusRow.classification_reasons, ["business_review_ready"]);
+  assert.equal(statusRow.blocked_attachment_count, 1);
+  assert.deepEqual(statusRow.attachment_types, ["attachment_metadata", "binary_attachment"]);
+  assert.deepEqual(statusRow.owner_assignment_override, {
+    assignee_id: "owner-a",
+    assignee_label: "Owner A",
+    reason_codes: ["owner_override"],
+    source: "manual_triage",
+  });
+
+  await refreshMailWorkPriority({ repoRoot });
+  const priorityProjection = JSON.parse(await readFile(defaultMailWorkPriorityLatestFile(repoRoot), "utf8"));
+  const priorityRow = priorityProjection.entries.find((entry) => entry.candidate_id === "mail_candidate_structured_route");
+  const rendered = JSON.stringify(priorityProjection);
+
+  assert.equal(priorityRow.route_candidate, "P26-030");
+  assert.equal(priorityRow.route_confidence, "review");
+  assert.equal(priorityRow.route_suggestion_confidence, 0.82);
+  assert.equal(priorityRow.route_source, "metadata_triage");
+  assert.deepEqual(priorityRow.route_hint_candidates, ["P25-057", "P26-030"]);
+  assert.equal(priorityRow.blocked_attachment_count, 1);
+  assert.deepEqual(priorityRow.owner_assignment_override, statusRow.owner_assignment_override);
+  assert(!rendered.includes("DO_NOT_COPY_BODY"));
+  assert(!rendered.includes("secret.xlsx"));
+  assert(!rendered.includes("private-spec.xlsx"));
+});
+
 test("mail work priority exposes planning due fields and week window filtering", async () => {
   const repoRoot = await createRepoRoot();
   const candidates = [
