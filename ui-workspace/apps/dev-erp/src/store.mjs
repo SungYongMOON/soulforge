@@ -1004,6 +1004,7 @@ export class Store {
     work_type, link_kind, link_ref, completion_criteria, stage_id, anchor_stage_code }) {
     const trimmed = String(title ?? "").trim();
     if (!trimmed) return { error: "title_required" };
+    if (project_id == null) return { error: "project_required" }; // BE-3: undefined 바인드 500 방지(명확한 400)
     if (!this.db.prepare("SELECT 1 FROM core_project WHERE id=?").get(project_id)) return { error: "project_not_found" };
     if (due && !/^\d{4}-\d{2}-\d{2}$/.test(due)) return { error: "due_format" };
     if (work_type && !Store.WORK_TYPES.includes(work_type)) return { error: "work_type_invalid" };

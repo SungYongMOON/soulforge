@@ -816,7 +816,9 @@ const server = createServer(async (req, res) => {
     if (!full.startsWith(join(HERE, "static")) || !existsSync(full)) return send(res, 404, "not found", "text/plain");
     return send(res, 200, readFileSync(full, "utf-8"), MIME[extname(full)] ?? "text/plain");
   } catch (error) {
-    return send(res, 500, { error: String(error?.message ?? error) });
+    // BE-3: 내부 예외 메시지(SQLite 바인드·JSON 파서 등)를 클라이언트에 노출하지 않음 — 서버 로그에만 남기고 일반화 응답.
+    console.error("[dev-erp] unhandled:", req.method, path, error?.stack ?? error);
+    return send(res, 500, { error: "internal" });
   }
 });
 
