@@ -30,13 +30,10 @@ body[data-mode="fantasy"] .brand-bar { border-bottom-color: rgba(185,137,42,.34)
 body[data-mode="fantasy"] .widget { background: rgba(252,249,240,.96); border-color: #e3d8bf;
   box-shadow: 0 1px 0 rgba(185,137,42,.18), 0 4px 14px rgba(120,100,60,.12); }
 body[data-mode="fantasy"] .widget-head { border-bottom-color: rgba(185,137,42,.24); }
-/* 큰 제목 = 로고처럼 청록→금빛 그라데이션 글자(세리프). 위젯/허브 제목은 금갈색 세리프. */
-body[data-mode="fantasy"] #viewTitle {
-  font-family: "Iowan Old Style", "Palatino Linotype", Palatino, Georgia, serif; letter-spacing: .3px;
-  background: linear-gradient(92deg, #2aa3ab 0%, #b9892a 72%); -webkit-background-clip: text; background-clip: text; color: transparent; }
-body[data-mode="fantasy"] #appTitle, body[data-mode="fantasy"] .widget-head h4,
-body[data-mode="fantasy"] .proj-list-head strong, body[data-mode="fantasy"] .search-section h2 {
-  font-family: "Iowan Old Style", "Palatino Linotype", Palatino, Georgia, serif; letter-spacing: .2px; color: #a9781b; }
+/* 제목은 금갈색으로만 살짝(폰트 변경 없음 — owner 지시). 그라데이션 투명글자 제거(안 보이던 문제). */
+body[data-mode="fantasy"] #viewTitle, body[data-mode="fantasy"] #appTitle,
+body[data-mode="fantasy"] .widget-head h4, body[data-mode="fantasy"] .proj-list-head strong,
+body[data-mode="fantasy"] .search-section h2 { color: #9a6e16; }
 /* 네비/탭의 하드코딩 네이비(#19358c) → 금빛 강조 */
 body[data-mode="fantasy"] .group-tab.on,
 body[data-mode="fantasy"] .nav-sub-head.has-active, body[data-mode="fantasy"] .nav-sub-head.proj-head.on,
