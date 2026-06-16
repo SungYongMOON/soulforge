@@ -2,6 +2,13 @@
 
 ## 2026-06-16
 
+### Revision `working` - gateway mail history Python 3.9 compatibility
+
+- Changed the project mail history ICS writer to use `Path.open(...,
+  newline="")` instead of `Path.write_text(..., newline="")`, preserving
+  explicit ICS line endings on Python 3.9 runtimes used by the mail-fetch test
+  harness.
+
 ### Revision `working` - workspace-system report command added
 
 - Added `guild-hall:workspace-system:report` so another PC can create a
