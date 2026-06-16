@@ -47,16 +47,45 @@ body[data-mode="fantasy"] .sub-tab.on { border-bottom-color: #b9892a; }
    위에 크림 스크림 → 패널/글자 가독 유지. 이미지 없으면 미스트 그라데이션으로 폴백. */
 body[data-mode="fantasy"][data-dungeon] {
   background-image:
-    linear-gradient(rgba(240,234,219,.34), rgba(240,234,219,.50)),
+    linear-gradient(rgba(244,239,226,.10), rgba(244,239,226,.22)),
     var(--dungeon-bg, none),
     linear-gradient(180deg, #d6e7e9 0%, #e8eee5 40%, #f2ecdd 100%);
   background-size: cover; background-position: center center; background-attachment: fixed;
 }
-/* 던전 배경이 보이도록 패널을 살짝 반투명(글자는 진해서 유지). 던전 화면 한정. */
-body[data-mode="fantasy"][data-dungeon] .widget { background: rgba(252,249,240,.86); }
+/* 뿌옇지 않게: 스크림은 얇게(이미지 또렷), 글자 얹히는 패널은 진하게(가독). 던전 화면 한정. */
+body[data-mode="fantasy"][data-dungeon] .widget { background: rgba(252,249,240,.93); }
 body[data-mode="fantasy"][data-dungeon] .side,
-body[data-mode="fantasy"][data-dungeon] .topbar { background: rgba(251,247,236,.80); }
+body[data-mode="fantasy"][data-dungeon] .topbar { background: rgba(251,247,236,.90); }
 body[data-mode="fantasy"][data-dungeon] table tbody tr { background: rgba(252,249,240,.0); }
+/* 🌑 판타지 나이트 — 다크 토글(🌙) 시 어두운 달밤 버전. 게임 배경은 그대로, 어두운 스크림(뿌연 크림 대신). */
+body[data-mode="fantasy"][data-theme="dark"] {
+  --bg: #0e1118; --panel: #171c28; --line: #2c3447; --text: #ece9dd;
+  --muted: #9aa2b6; --accent: #e0c06a; --danger: #e07a64; --warn: #e0b45e; --ok: #79bf94; --chip: #232b3d;
+}
+body[data-mode="fantasy"][data-theme="dark"] .brand-bar, body[data-mode="fantasy"][data-theme="dark"] .util-bar,
+body[data-mode="fantasy"][data-theme="dark"] .side, body[data-mode="fantasy"][data-theme="dark"] .topbar { background: rgba(20,25,38,.86); }
+body[data-mode="fantasy"][data-theme="dark"] .widget { background: rgba(23,28,40,.92); border-color: #303a52; box-shadow: 0 0 0 1px rgba(224,192,106,.14), 0 6px 18px rgba(0,0,0,.42); }
+body[data-mode="fantasy"][data-theme="dark"] #viewTitle, body[data-mode="fantasy"][data-theme="dark"] #appTitle,
+body[data-mode="fantasy"][data-theme="dark"] .widget-head h4, body[data-mode="fantasy"][data-theme="dark"] .proj-list-head strong,
+body[data-mode="fantasy"][data-theme="dark"] .search-section h2 { color: #ecc977; }
+body[data-mode="fantasy"][data-theme="dark"] .group-tab.on,
+body[data-mode="fantasy"][data-theme="dark"] .nav-sub-head.has-active, body[data-mode="fantasy"][data-theme="dark"] .nav-sub-head.proj-head.on,
+body[data-mode="fantasy"][data-theme="dark"] #nav .nav-items button.active,
+body[data-mode="fantasy"][data-theme="dark"] .sub-tab.on { color: #ecc977; }
+body[data-mode="fantasy"][data-theme="dark"] .nav-sub-head.has-active, body[data-mode="fantasy"][data-theme="dark"] .group-tab.on { background: rgba(224,192,106,.16); }
+body[data-mode="fantasy"][data-theme="dark"] #nav .nav-items button.active::before,
+body[data-mode="fantasy"][data-theme="dark"] .sub-tab.on { background: #e0c06a; }
+body[data-mode="fantasy"][data-theme="dark"] .sub-tab.on { background: transparent; border-bottom-color: #e0c06a; }
+/* 나이트 던전 스크림 = 진한 달밤(뿌연 크림 아님). */
+body[data-mode="fantasy"][data-theme="dark"][data-dungeon] {
+  background-image:
+    linear-gradient(rgba(10,12,18,.40), rgba(10,12,18,.58)),
+    var(--dungeon-bg, none),
+    linear-gradient(180deg, #0e1118 0%, #171c28 100%);
+}
+body[data-mode="fantasy"][data-theme="dark"][data-dungeon] .widget { background: rgba(23,28,40,.88); }
+body[data-mode="fantasy"][data-theme="dark"][data-dungeon] .side,
+body[data-mode="fantasy"][data-theme="dark"][data-dungeon] .topbar { background: rgba(20,25,38,.84); }
 * { box-sizing: border-box; }
 body { margin: 0; font-family: "Pretendard", "Apple SD Gothic Neo", system-ui, sans-serif; background: var(--bg); color: var(--text); }
 /* IA 2.5단: 상단 전폭 brand+그룹탭 / 좌측 선택그룹 하위 / 본문 (ECount 관찰 반영) */
