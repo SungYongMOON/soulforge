@@ -13,6 +13,7 @@ import { ingestFromFile } from "./src/adapter.mjs";
 import { getLexicon, LEXICON } from "./src/lexicon.mjs";
 import { guideTemplates, docRecipes } from "./src/guide.mjs";
 import { modulesFor } from "./src/modules.mjs";
+import { groupedKnowledge, knowledgeRegistryDir } from "./src/knowledge_registry.mjs";
 import { crossSearch } from "./src/search.mjs";
 import { buildMetaContext, runLlm, answerFromManual } from "./src/llm.mjs";
 import { startAutosyncPoll, writeTaskToLedger, writeInputToLedger } from "./src/autosync.mjs";
@@ -36,6 +37,8 @@ const PORT = Number(flag("port", 4300));
 const HOST = flag("host", "127.0.0.1");
 const DB_PATH = flag("db", join(HERE, "data", "dev-erp.db"));
 if (DB_PATH !== ":memory:") mkdirSync(dirname(DB_PATH), { recursive: true });
+// Canon 지식 저장소(읽기 전용 소비). 기본 = repo 루트 .registry/knowledge (상대 resolve).
+const KNOW_DIR = flag("knowledge_dir", knowledgeRegistryDir(HERE));
 
 const store = openStore(DB_PATH);
 // 감사로그 '조회·잡음' kind — UI EVENT_HIDE 와 동일. noise=0 시 서버에서 제외.
@@ -709,6 +712,8 @@ const server = createServer(async (req, res) => {
     if (path === "/api/search") return send(res, 200, crossSearch(store, qp.q));
     if (path === "/api/lexicon") return send(res, 200, { mode: qp.mode ?? "business", modes: Object.keys(LEXICON), labels: getLexicon(qp.mode) });
     if (path === "/api/modules") return send(res, 200, modulesFor(qp.mode));
+    // canon 지식 저장소를 분야 그룹별로(메타만). 인증 필요(읽기 게이트 대상).
+    if (path === "/api/knowledge/registry") return send(res, 200, { groups: groupedKnowledge(KNOW_DIR, qp.mode || "business") });
     if (path === "/api/events/recent") return send(res, 200, store.recentEvents(qp.limit ? Number(qp.limit) : 30, qp.project ?? null));
     if (path === "/api/events/audit") return send(res, 200, {
       // noise=0(기본, UI '조회·잡음 포함' 해제) → 잡음을 서버에서 제외해 limit 이 의미 이벤트에만 적용.
