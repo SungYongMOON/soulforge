@@ -2021,7 +2021,7 @@ async function renderItems() {
     ${isTriage ? "" : `<div class="item-form">
       <select id="niProject">${opts || `<option value="">${L.project}</option>`}</select>
       <input id="niTitle" placeholder="${L.item_new_ph}" />
-      <input id="niAssignee" placeholder="${L.assignee_ph}" size="9" />
+      <input id="niAssignee" placeholder="${L.assignee_ph}" size="9" value="${esc(state.account?.display_name || state.account?.username || "")}" />
       <input id="niDue" type="date" />
       <button id="niAdd" class="fav-chip">${L.item_add}</button>
     </div>`}
@@ -2602,7 +2602,7 @@ async function hubOverview(mount, p) {
     </div>
     <div class="item-form">
       <input id="niTitle" placeholder="${L.item_new_ph}" />
-      <input id="niAssignee" placeholder="${L.assignee_ph}" size="9" />
+      <input id="niAssignee" placeholder="${L.assignee_ph}" size="9" value="${esc(state.account?.display_name || state.account?.username || "")}" />
       <input id="niDue" type="date" />
       <button id="niAdd" class="fav-chip">${L.item_add}</button>
     </div>

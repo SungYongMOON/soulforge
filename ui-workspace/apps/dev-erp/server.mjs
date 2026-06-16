@@ -215,6 +215,9 @@ const server = createServer(async (req, res) => {
     if (path === "/api/items" && req.method === "POST") {
       let body = ""; for await (const chunk of req) body += chunk;
       const input = JSON.parse(body || "{}");
+      // F3: 수동 생성 시 담당 미지정이면 작성자 본인으로 백필 — '내 할 일'에 본인 일이 안 뜨는 문제 방지.
+      const me = currentAccount(req);
+      if (!input.assignee_ref && me) input.assignee_ref = store.accountDisplayName(me) || me.username;
       const result = store.createItem({ ...input, created_by: actor });
       if (result.error) return send(res, 400, result);
       store.appendEvent({
