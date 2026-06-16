@@ -19,7 +19,11 @@ const state = {
   poParty: "",
   ctProject: "",
   bomBoard: "",
-  itemEdit: null
+  itemEdit: null,
+  itemLimit: 100,
+  itemOffset: 0,
+  mailLimit: 100,
+  mailOffset: 0
 };
 
 // P2b 권한: 정의 없거나 익명이면 기본 허용(visible·access). 정의 있으면 그 값.
@@ -63,12 +67,25 @@ function viewSelectHtml(L) {
   const opts = state._scopes.map((s) => `<option value="${esc(s.id)}" ${state.viewScope === s.id ? "selected" : ""}>${esc(s.label)}</option>`).join("");
   return `<select id="fView" class="view-scope" title="${esc(L.view_scope ?? "보기 대상")}">${opts}</select>`;
 }
-function wireViewSelect() { $("#fView")?.addEventListener("change", (e) => { state.viewScope = e.target.value; render(); }); }
+function wireViewSelect() { $("#fView")?.addEventListener("change", (e) => { state.viewScope = e.target.value; resetItemPaging(); resetMailPaging(); render(); }); }
 // 현재 보기 스코프를 쿼리에 적용(team/미지정=전체). items·mail 공용.
 function applyViewScope(params) {
   if (showViewScope() && state.viewScope && state.viewScope !== "team") params.set("view", state.viewScope);
   return params;
 }
+function asPage(data, fallbackLimit = 100, fallbackOffset = 0) {
+  if (Array.isArray(data)) return { rows: data, total: data.length, limit: fallbackLimit, offset: fallbackOffset, has_more: false };
+  const rows = Array.isArray(data?.rows) ? data.rows : [];
+  return {
+    rows,
+    total: Number.isFinite(Number(data?.total)) ? Number(data.total) : rows.length,
+    limit: Number.isFinite(Number(data?.limit)) ? Number(data.limit) : fallbackLimit,
+    offset: Number.isFinite(Number(data?.offset)) ? Number(data.offset) : fallbackOffset,
+    has_more: !!data?.has_more
+  };
+}
+function resetItemPaging() { state.itemOffset = 0; state.itemEdit = null; }
+function resetMailPaging() { state.mailOffset = 0; state.mailSel = null; }
 
 // 상단 인증 UI. 계정 0(익명 파일럿)=숨김 / 로그인=사용자+로그아웃 / 계정 있고 미로그인=로그인 버튼.
 function renderAuth() {
@@ -2223,6 +2240,23 @@ function itemAutomationHints(i) {
   return hints.length ? `<div class="cc-hint">${hints.map(esc).join(" · ")}</div>` : "";
 }
 
+function itemSourceTrace(i) {
+  const refs = [];
+  if (i.origin_mail_id || i.source_mail_ref) refs.push(`메일 ${i.source_mail_ref || i.origin_mail_id}`);
+  if (i.source_mail_source_id) refs.push(`소스 ${i.source_mail_source_id}`);
+  if (i.source_thread_ref) refs.push(`스레드 ${i.source_thread_ref}`);
+  if (i.source_lineage_ref && i.source_lineage_ref !== i.source_mail_ref) refs.push(`이력 ${i.source_lineage_ref}`);
+  return refs.length ? `<div class="cc-hint source-trace">${refs.map(esc).join(" · ")}</div>` : "";
+}
+
+function itemReviewTrace(i) {
+  const bits = [];
+  if (i.due) bits.push(`기한 ${i.due}`);
+  if (i.review_status) bits.push(`검토 ${i.review_status}`);
+  if (i.created_at) bits.push(`생성 ${String(i.created_at).slice(0, 10)}`);
+  return bits.length ? `<div class="cc-hint">${bits.map(esc).join(" · ")}</div>` : "";
+}
+
 async function renderItems() {
   const todayKey = new Date().toISOString().slice(0, 10);
   await ensureScopes();
@@ -2239,31 +2273,29 @@ async function renderItems() {
   if (state.projectFilter) q.set("project", state.projectFilter);
   if (state.statusFilter) q.set("status", state.statusFilter);
   if (useView && scoped) applyViewScope(q); else if (applyMine) q.set("mine", "1");
-  const items = await api(`/api/items?${q}`);
-  // 칩 count 는 상태 무관(과제+담당자 스코프)에서 계산 — 필터 걸려도 정확
+  q.set("page", "1");
+  q.set("limit", String(state.itemLimit));
+  q.set("offset", String(state.itemOffset));
+  const itemPage = asPage(await api(`/api/items?${q}`), state.itemLimit, state.itemOffset);
+  const items = itemPage.rows;
+  // 칩 count 는 상태 무관(과제+담당자 스코프)에서 서버 count 계약으로 계산 — 페이지 제한과 분리
   const baseQ = new URLSearchParams();
   if (state.projectFilter) baseQ.set("project", state.projectFilter);
   if (useView) applyViewScope(baseQ); else if (mine) baseQ.set("mine", "1");
-  const allItems = (state.statusFilter || mine) ? await api(`/api/items?${baseQ}`) : items;
+  const counts = await api(`/api/items/counts?${baseQ}`).catch(() => ({ total: itemPage.total, statuses: {} }));
   const opts = projects.map((p) => `<option value="${p.id}" ${state.projectFilter === p.id ? "selected" : ""}>${p.title}</option>`).join("");
   const L = state.lex;
   // ECount식 상태 필터칩 (전체 + 각 상태). count 표시.
   const statuses = ["open", "doing", "waiting", "blocked", "done"];
-  const statusCount = (s) => allItems.filter((i) => i.status === s).length;
-  // 분류 필요(미분류) — 정식 목록에서 격리됨. SE 기준점 미연결 인입 할 일. 별도 조회로 개수.
-  const triageQ = new URLSearchParams({ status: "unclassified" });
-  if (state.projectFilter) triageQ.set("project", state.projectFilter);
-  const triage = await api(`/api/items?${triageQ}`);
-  // 보관함(소프트삭제된 할 일) — 별도 조회로 개수. 활성 목록엔 안 뜨지만 여기서 보고 복구 가능.
-  const archivedQ = new URLSearchParams({ status: "archived" });
-  if (state.projectFilter) archivedQ.set("project", state.projectFilter);
-  const archived = await api(`/api/items?${archivedQ}`);
+  const statusCount = (s) => counts.statuses?.[s] ?? 0;
+  const triageTotal = counts.statuses?.unclassified ?? 0;
+  const archivedTotal = counts.statuses?.archived ?? 0;
   const chip = (val, label, n, cls = "") =>
     `<button class="status-chip ${cls} ${state.statusFilter === val ? "on" : ""}" data-st="${val}">${label}${n != null ? ` <em>${n}</em>` : ""}</button>`;
-  const chipsHtml = [chip("", L.all_label, allItems.length)]
+  const chipsHtml = [chip("", L.all_label, counts.total ?? itemPage.total)]
     .concat(statuses.map((s) => chip(s, L[`status_${s}`], statusCount(s))))
-    .concat(triage.length || state.statusFilter === "unclassified" ? [chip("unclassified", L.status_unclassified ?? "분류 필요", triage.length, "triage")] : [])
-    .concat(archived.length || state.statusFilter === "archived" ? [chip("archived", L.status_archived ?? "보관함", archived.length, "archived-chip")] : [])
+    .concat(triageTotal || state.statusFilter === "unclassified" ? [chip("unclassified", L.status_unclassified ?? "분류 필요", triageTotal, "triage")] : [])
+    .concat(archivedTotal || state.statusFilter === "archived" ? [chip("archived", L.status_archived ?? "보관함", archivedTotal, "archived-chip")] : [])
     .join("");
   const triageNote = state.statusFilter === "unclassified"
     ? `<div class="triage-note">${L.triage_note ?? "메일/요청에서 자동 추출됐지만 과제·단계·산출물 연결이 없는 임시 할 일입니다. 분류해야 정식 실행 목록에 들어갑니다."}</div>`
@@ -2278,7 +2310,7 @@ async function renderItems() {
         <button class="fav-chip ie-del" data-i="${esc(i.id)}">${L.act_delete ?? "삭제"}</button>
       </div></td></tr>`
     : `<tr>
-      <td>${esc(i.title)}${i.encounter_role === "boss" ? " 👑" : ""}${itemAutomationHints(i)}</td>
+	      <td>${esc(i.title)}${i.encounter_role === "boss" ? " 👑" : ""}${itemAutomationHints(i)}${itemSourceTrace(i)}</td>
       <td><span class="proj-link" data-hub="${esc(i.project_id)}">${esc(i.project_id)}</span></td>
       <td>${statusBadge(i.status)}</td>
       ${dueCell(i.due, todayKey)}
@@ -2292,22 +2324,33 @@ async function renderItems() {
   const isArchived = state.statusFilter === "archived";
   // 분류 카드는 항목의 기존값(메일/LLM 제안·결정적 SE단계)을 pre-fill → 사람은 확인만. (코어 LLM 0%: LLM은 제안, 확정은 사람)
   const optsSel = (labels, sel) => Object.entries(labels).map(([k, v]) => `<option value="${k}" ${k === sel ? "selected" : ""}>${v}</option>`).join("");
-  const triageBody = !isTriage ? "" : (items.length
-    ? `<div class="classify-list">${items.map((i) => {
-        const suggested = !!(i.work_type || i.completion_criteria); // 제안값이 채워져 옴
-        return `<div class="classify-card" data-id="${esc(i.id)}">
-        <div class="cc-head"><span class="cc-title">${esc(i.title)}</span><span class="proj-link label-chip" data-hub="${esc(i.project_id)}">${esc(i.project_id)}</span>
-          ${suggested ? `<span class="badge mini">${L.cls_suggested ?? "제안"}</span>` : ""}${i.anchor_stage_code ? `<span class="dim mini">SE ${esc(i.anchor_stage_code)}</span>` : ""}</div>
-        ${itemAutomationHints(i)}
-        <div class="cc-form">
-          <select class="cc-wt"><option value="">${L.cls_work_type ?? "업무유형"}…</option>${optsSel(WORK_TYPE_LABELS, i.work_type)}</select>
-          <select class="cc-lk"><option value="">${L.cls_link_kind ?? "연결대상"}…</option>${optsSel(LINK_KIND_LABELS, i.link_kind)}</select>
-          <input class="cc-ref" placeholder="${L.cls_link_ref ?? "연결 대상(산출물/BOM/업체…)"}" value="${esc(i.link_ref ?? "")}" />
-          <input class="cc-cc" placeholder="${L.cls_completion ?? "완료기준(무엇을 하면 닫히나)"}" value="${esc(i.completion_criteria ?? "")}" />
-          <button class="fav-chip cc-go">${L.cls_confirm ?? "정식 등록"}</button><span class="cc-msg dim"></span>
-        </div></div>`; }).join("")}</div>`
-    : `<div class="empty">${L.cls_none ?? "분류할 항목 없음"}</div>`);
-  $("#view").innerHTML = `
+	  const triageBody = !isTriage ? "" : (items.length
+	    ? `<div class="classify-list">${items.map((i) => {
+	        const suggested = !!(i.work_type || i.completion_criteria); // 제안값이 채워져 옴
+	        const assigneeDefault = i.assignee_ref || i.suggested_assignee_ref || state.account?.display_name || state.account?.username || state.account?.email || "";
+	        return `<div class="classify-card" data-id="${esc(i.id)}">
+	        <div class="cc-head"><span class="cc-title">${esc(i.title)}</span><span class="proj-link label-chip" data-hub="${esc(i.project_id)}">${esc(i.project_id)}</span>
+	          ${suggested ? `<span class="badge mini">${L.cls_suggested ?? "제안"}</span>` : ""}${i.anchor_stage_code ? `<span class="dim mini">SE ${esc(i.anchor_stage_code)}</span>` : ""}</div>
+	        ${itemAutomationHints(i)}
+	        ${itemReviewTrace(i)}
+	        ${itemSourceTrace(i)}
+	        <div class="cc-form">
+	          <select class="cc-wt"><option value="">${L.cls_work_type ?? "업무유형"}…</option>${optsSel(WORK_TYPE_LABELS, i.work_type)}</select>
+	          <select class="cc-lk"><option value="">${L.cls_link_kind ?? "연결대상"}…</option>${optsSel(LINK_KIND_LABELS, i.link_kind)}</select>
+	          <input class="cc-ref" placeholder="${L.cls_link_ref ?? "연결 대상(산출물/BOM/업체…)"}" value="${esc(i.link_ref ?? "")}" />
+	          <input class="cc-cc" placeholder="${L.cls_completion ?? "완료기준(무엇을 하면 닫히나)"}" value="${esc(i.completion_criteria ?? "")}" />
+	          <input class="cc-assignee" placeholder="${L.col_assignee ?? "담당"}" value="${esc(assigneeDefault)}" size="10" />
+	          <button class="fav-chip cc-go">${L.cls_confirm ?? "정식 등록"}</button><span class="cc-msg dim"></span>
+	        </div></div>`; }).join("")}</div>`
+	    : `<div class="empty">${L.cls_none ?? "분류할 항목 없음"}</div>`);
+	  const pageFrom = itemPage.total ? itemPage.offset + 1 : 0;
+	  const pageTo = itemPage.offset + items.length;
+	  const itemPager = itemPage.total > itemPage.limit
+	    ? `<div class="pager-row"><span class="dim">${pageFrom}-${pageTo} / ${itemPage.total}</span>
+	        <button id="itemPrev" class="fav-chip mini" ${itemPage.offset <= 0 ? "disabled" : ""}>이전</button>
+	        <button id="itemNext" class="fav-chip mini" ${!itemPage.has_more ? "disabled" : ""}>다음</button></div>`
+	    : "";
+	  $("#view").innerHTML = `
     <div class="filters">
       <select id="fProject"><option value="">${L.project}: ${L.all_label}</option>${opts}</select>
       ${useView ? `<label class="view-scope-lab">${L.view_scope ?? "보기 대상"} ${viewSelectHtml(L)}</label>`
@@ -2323,14 +2366,16 @@ async function renderItems() {
       <input id="niDue" type="date" />
       <button id="niAdd" class="fav-chip">${L.item_add}</button>
     </div>`}
-    ${isTriage ? triageBody : (rows ? `<table><thead><tr><th>${L.item}</th><th>${L.project}</th><th>${L.th_status}</th><th>${L.th_due}</th><th>${L.th_assignee}</th><th>${L.tab_guide}</th><th>${L.th_actions}</th></tr></thead><tbody>${rows}</tbody></table>` : `<div class="empty">${L.empty_items}</div>`)}`;
-  $("#fProject").addEventListener("change", (e) => { state.projectFilter = e.target.value; render(); });
+	    ${isTriage ? triageBody : (rows ? `<table><thead><tr><th>${L.item}</th><th>${L.project}</th><th>${L.th_status}</th><th>${L.th_due}</th><th>${L.th_assignee}</th><th>${L.tab_guide}</th><th>${L.th_actions}</th></tr></thead><tbody>${rows}</tbody></table>` : `<div class="empty">${L.empty_items}</div>`)}
+	    ${itemPager}`;
+	  $("#fProject").addEventListener("change", (e) => { state.projectFilter = e.target.value; resetItemPaging(); render(); });
   wireViewSelect();
-  $("#mineToggle")?.addEventListener("click", () => {
-    state.mineOnly = !state.mineOnly;
-    localStorage.setItem("dev_erp_mine", state.mineOnly ? "1" : "0");
-    render();
-  });
+	  $("#mineToggle")?.addEventListener("click", () => {
+	    state.mineOnly = !state.mineOnly;
+	    localStorage.setItem("dev_erp_mine", state.mineOnly ? "1" : "0");
+	    resetItemPaging();
+	    render();
+	  });
   $("#niAdd")?.addEventListener("click", async () => {
     const title = $("#niTitle").value.trim();
     const pid = $("#niProject").value;
@@ -2350,19 +2395,22 @@ async function renderItems() {
       const v = (sel) => card.querySelector(sel).value.trim();
       const body = { id: card.dataset.id };
       if (v(".cc-wt")) body.work_type = v(".cc-wt");
-      if (v(".cc-lk")) body.link_kind = v(".cc-lk");
-      if (v(".cc-ref")) body.link_ref = v(".cc-ref");
-      if (v(".cc-cc")) body.completion_criteria = v(".cc-cc");
-      const res = await post("/api/items/confirm", body);
+	      if (v(".cc-lk")) body.link_kind = v(".cc-lk");
+	      if (v(".cc-ref")) body.link_ref = v(".cc-ref");
+	      if (v(".cc-cc")) body.completion_criteria = v(".cc-cc");
+	      if (v(".cc-assignee")) body.assignee_ref = v(".cc-assignee");
+	      const res = await post("/api/items/confirm", body);
       if (res.ok) { render(); return; }
       const err = await res.json().catch(() => ({}));
       card.querySelector(".cc-msg").textContent = err.error === "needs_se_anchor"
         ? (L.cls_need ?? "업무유형 + 연결대상(또는 단계)이 있어야 정식 등록됩니다") : (err.error ?? "등록 실패");
     });
   });
-  $("#view").querySelectorAll(".status-chip").forEach((c) =>
-    c.addEventListener("click", () => { state.statusFilter = c.dataset.st || ""; render(); })
-  );
+	  $("#view").querySelectorAll(".status-chip").forEach((c) =>
+	    c.addEventListener("click", () => { state.statusFilter = c.dataset.st || ""; resetItemPaging(); render(); })
+	  );
+	  $("#itemPrev")?.addEventListener("click", () => { state.itemOffset = Math.max(0, state.itemOffset - state.itemLimit); render(); });
+	  $("#itemNext")?.addEventListener("click", () => { state.itemOffset += state.itemLimit; render(); });
   $("#view").querySelectorAll("[data-hub]").forEach((c) =>
     c.addEventListener("click", () => { state.hubProject = c.dataset.hub; state.hubTab = "overview"; state.view = "project"; render(); })
   );
@@ -2426,7 +2474,8 @@ function projColor(id) {
   return LABEL_PALETTE[h % LABEL_PALETTE.length];
 }
 function projChip(projectId, cls) {
-  if (!projectId || cls === "inbox") return `<span class="label-chip gray">${state.lex.unlabeled}</span>`;
+  if (!projectId) return `<span class="label-chip gray">${state.lex.unlabeled}</span>`;
+  if (cls === "inbox") return `<span class="label-chip gray" data-lp="${esc(projectId)}">${esc(projectId)}</span>`;
   return `<span class="label-chip" style="--lc:${projColor(projectId)}" data-lp="${esc(projectId)}">${esc(projectId)}</span>`;
 }
 
@@ -2441,9 +2490,14 @@ async function renderMail() {
   if (f.direction) params.set("direction", f.direction);
   if (f.label) params.set("label_id", String(f.label));
   applyViewScope(params); // 보기 대상(계정 메일함)별 메일 이력
-  const [mail, labels, summary] = await Promise.all([
+  params.set("page", "1");
+  params.set("limit", String(state.mailLimit));
+  params.set("offset", String(state.mailOffset));
+  const [mailData, labels, summary] = await Promise.all([
     api(`/api/mail?${params}`), api("/api/labels"), state._projCache ? Promise.resolve({ projects: state._projCache }) : api("/api/summary")
   ]);
+  const mailPage = asPage(mailData, state.mailLimit, state.mailOffset);
+  const mail = mailPage.rows;
   state._projCache = summary.projects;
   const clsById = new Map(summary.projects.map((p) => [p.id, p.class]));
   const labelById = new Map(labels.map((l) => [l.id, l]));
@@ -2510,7 +2564,7 @@ async function renderMail() {
     // 기본: 프로젝트별 구분. 미분류/inbox 는 맨 아래, 그룹은 최신 메일 순.
     const groups = new Map();
     for (const m of mail) {
-      const key = (m.project_id && clsById.get(m.project_id) !== "inbox") ? m.project_id : "__none__";
+      const key = m.project_id || "__none__";
       if (!groups.has(key)) groups.set(key, []);
       groups.get(key).push(m);
     }
@@ -2563,7 +2617,7 @@ async function renderMail() {
     </aside>` : "";
 
   // 베타1: 각자 메일 등록 폼(원문 미저장 — 제목·상대·날짜·포인터만). 등록 → 분류 → 할 일.
-  const regForm = `<details class="mail-reg" ${state.mailRegOpen ? "open" : ""}>
+	  const regForm = `<details class="mail-reg" ${state.mailRegOpen ? "open" : ""}>
     <summary>${L.mail_reg_open ?? "＋ 메일 등록"}</summary>
     <div class="item-form">
       <input id="mrSubject" placeholder="${L.mail_reg_subject ?? "제목"}" />
@@ -2576,8 +2630,15 @@ async function renderMail() {
     </div>
     <p class="hub-note">${L.mail_reg_note ?? "메일 본문은 저장 안 함 — 제목·상대·날짜·포인터만. 등록 후 분류해 할 일로 승격."}</p>
   </details>`;
-  $("#view").innerHTML = `${labelBar}${filterChips}${toolbar}${regForm}${bulkBar}
-    <div class="mail-split">${rows ? `<table class="mail-table"><tbody>${rows}</tbody></table>` : `<div class="empty">${L.empty_mail}</div>`}${detail}</div>`;
+	  const mailFrom = mailPage.total ? mailPage.offset + 1 : 0;
+	  const mailTo = mailPage.offset + mail.length;
+	  const mailPager = mailPage.total > mailPage.limit
+	    ? `<div class="pager-row"><span class="dim">${mailFrom}-${mailTo} / ${mailPage.total}</span>
+	        <button id="mailPrev" class="fav-chip mini" ${mailPage.offset <= 0 ? "disabled" : ""}>이전</button>
+	        <button id="mailNext" class="fav-chip mini" ${!mailPage.has_more ? "disabled" : ""}>다음</button></div>`
+	    : "";
+	  $("#view").innerHTML = `${labelBar}${filterChips}${toolbar}${regForm}${bulkBar}${mailPager}
+	    <div class="mail-split">${rows ? `<table class="mail-table"><tbody>${rows}</tbody></table>` : `<div class="empty">${L.empty_mail}</div>`}${detail}</div>`;
 
   $("#view").querySelector(".mail-reg")?.addEventListener("toggle", (e) => { state.mailRegOpen = e.target.open; });
   $("#mrAdd")?.addEventListener("click", async () => {
@@ -2591,28 +2652,30 @@ async function renderMail() {
     const r = await post("/api/mail", body);
     if (r.ok) { state.mailRegOpen = true; render(); }
   });
-  $("#mDays").addEventListener("change", (e) => { f.days = Number(e.target.value); render(); });
-  $("#mDir").addEventListener("change", (e) => { f.direction = e.target.value; render(); });
-  $("#mGroup")?.addEventListener("change", (e) => { f.groupBy = e.target.value; render(); });
-  $("#mSearch").addEventListener("keydown", (e) => { if (e.key === "Enter") { f.q = e.target.value; render(); } });
-  wireViewSelect();
-  $("#view").querySelector("[data-clear]")?.addEventListener("click", () => { state.projectFilter = ""; render(); });
+	  $("#mDays").addEventListener("change", (e) => { f.days = Number(e.target.value); resetMailPaging(); render(); });
+	  $("#mDir").addEventListener("change", (e) => { f.direction = e.target.value; resetMailPaging(); render(); });
+	  $("#mGroup")?.addEventListener("change", (e) => { f.groupBy = e.target.value; render(); });
+	  $("#mSearch").addEventListener("keydown", (e) => { if (e.key === "Enter") { f.q = e.target.value; resetMailPaging(); render(); } });
+	  wireViewSelect();
+	  $("#view").querySelector("[data-clear]")?.addEventListener("click", () => { state.projectFilter = ""; resetMailPaging(); render(); });
   $("#newLabelBtn").addEventListener("click", async () => {
     const name = $("#newLabelName").value.trim();
     if (!name) return;
     const r = await post("/api/labels", { name, color: LABEL_PALETTE[labels.length % LABEL_PALETTE.length] });
     if (r.ok) render();
   });
-  $("#view").querySelectorAll(".label-bar [data-l]").forEach((c) =>
-    c.addEventListener("click", () => { f.label = f.label === Number(c.dataset.l) ? null : Number(c.dataset.l); render(); })
-  );
+	  $("#view").querySelectorAll(".label-bar [data-l]").forEach((c) =>
+	    c.addEventListener("click", () => { f.label = f.label === Number(c.dataset.l) ? null : Number(c.dataset.l); resetMailPaging(); render(); })
+	  );
   $("#view").querySelectorAll(".mail-row").forEach((r) =>
     // 토글: 같은 메일 다시 누르면 오른쪽 설명 닫힘
     r.addEventListener("click", () => { state.mailSel = state.mailSel === r.dataset.m ? null : r.dataset.m; render(); })
   );
-  $("#view").querySelectorAll("[data-lp]").forEach((c) =>
-    c.addEventListener("click", (e) => { e.stopPropagation(); state.projectFilter = c.dataset.lp; render(); })
-  );
+	  $("#view").querySelectorAll("[data-lp]").forEach((c) =>
+	    c.addEventListener("click", (e) => { e.stopPropagation(); state.projectFilter = c.dataset.lp; resetMailPaging(); render(); })
+	  );
+	  $("#mailPrev")?.addEventListener("click", () => { state.mailOffset = Math.max(0, state.mailOffset - state.mailLimit); render(); });
+	  $("#mailNext")?.addEventListener("click", () => { state.mailOffset += state.mailLimit; render(); });
   $("#view").querySelectorAll("[data-toggle]").forEach((c) =>
     c.addEventListener("click", async () => {
       const on = !c.classList.contains("on");
@@ -2729,8 +2792,8 @@ async function renderSearch(term) {
   if (!data.q) { $("#view").innerHTML = `<div class="empty">${state.lex.search_hint}</div>`; return; }
   const sec = (title, rowsHtml, empty) =>
     `<div class="search-section"><h2>${title} </h2>${rowsHtml || `<div class="empty">${empty}</div>`}</div>`;
-  const items = data.items.map((i) => `<tr><td>${esc(i.title)}</td><td>${esc(i.project_id)}</td><td>${statusBadge(i.status)}</td><td>${i.due ?? "-"}</td></tr>`).join("");
-  const mail = data.mail.map((m) => `<tr><td>${m.at.slice(0, 10)}</td><td>${esc(m.subject)}</td><td>${esc(m.counterpart ?? "-")}</td></tr>`).join("");
+  const items = data.items.map((i) => `<tr><td>${esc(i.title)}${itemSourceTrace(i)}</td><td>${esc(i.project_id)}</td><td>${statusBadge(i.status)}</td><td>${i.due ?? "-"}</td></tr>`).join("");
+  const mail = data.mail.map((m) => `<tr><td>${m.at.slice(0, 10)}</td><td>${esc(m.subject)}${m.source_ref || m.pointer_ref ? `<div class="cc-hint">${esc(m.source_ref || m.pointer_ref)}</div>` : ""}</td><td>${esc(m.counterpart ?? "-")}</td></tr>`).join("");
   const arts = data.artifacts.map((a) => `<tr><td>${esc(a.title)}</td><td>${esc(a.kind)}</td><td class="pointer">${esc(a.pointer)}</td></tr>`).join("");
   $("#view").innerHTML =
     sec(state.lex.nav_items, items && `<table><tbody>${items}</tbody></table>`, state.lex.empty_items) +
@@ -3793,20 +3856,23 @@ $("#timelineBtn")?.addEventListener("click", openTimeline);
 
 // 🔔 알림 — 봐야 할 것 집계(대기 제안·차단/연체 할일·막힌 게이트·품절 부품). 전부 기존 API.
 async function loadNotifications() {
-  const today = new Date().toISOString().slice(0, 10);
-  const [props, blocked, allItems, gates, low] = await Promise.all([
+  const [props, blockedData, overdueData, triageOverdueData, gates, low] = await Promise.all([
     api("/api/proposals").catch(() => []),
-    api("/api/items?status=blocked").catch(() => []),
-    api("/api/items").catch(() => []),
+    api("/api/items?status=blocked&page=1&limit=1").catch(() => ({ rows: [], total: 0 })),
+    api("/api/items?due=overdue&page=1&limit=1").catch(() => ({ rows: [], total: 0 })),
+    api("/api/items?status=unclassified&due=overdue&page=1&limit=1").catch(() => ({ rows: [], total: 0 })),
     api("/api/gates").catch(() => ({ stages: [] })),
     api("/api/stock/low").catch(() => []),
   ]);
-  const overdue = (allItems || []).filter((i) => i.due && i.due < today && i.status !== "done");
+  const blocked = asPage(blockedData, 1, 0).total;
+  const overdue = asPage(overdueData, 1, 0).total;
+  const triageOverdue = asPage(triageOverdueData, 1, 0).total;
   const heldGates = (gates.stages || []).filter((s) => s.status !== "cleared" && !s.passable);
   const groups = [
     { label: "승인 대기 제안", n: props.length, view: "mod:proposals" },
-    { label: "차단된 할 일", n: blocked.length, view: "items" },
-    { label: "연체 할 일", n: overdue.length, view: "items" },
+    { label: "차단된 할 일", n: blocked, view: "items", status: "blocked" },
+    { label: "연체 할 일", n: overdue, view: "items" },
+    { label: "분류 필요 연체", n: triageOverdue, view: "items", status: "unclassified" },
     { label: "막힌 단계 게이트", n: heldGates.length, view: "mod:gates" },
     { label: "품절 임박 부품", n: low.length, view: "mod:stockwatch" },
   ].filter((g) => g.n > 0);
@@ -3825,10 +3891,15 @@ async function openNotifications() {
   const { groups, total } = await loadNotifications();
   if (!document.body.contains(dd)) return;
   const body = total
-    ? groups.map((g) => `<div class="nt-group" data-go="${g.view}"><span class="nt-cnt">${g.n}</span><span class="nt-label">${g.label}</span><span class="dim">→</span></div>`).join("")
+    ? groups.map((g) => `<div class="nt-group" data-go="${g.view}" data-status="${esc(g.status ?? "")}"><span class="nt-cnt">${g.n}</span><span class="nt-label">${g.label}</span><span class="dim">→</span></div>`).join("")
     : `<div class="empty small">새 알림 없음</div>`;
   dd.innerHTML = `<div class="dd-head">알림 (${total})</div>${body}`;
-  dd.querySelectorAll(".nt-group").forEach((g) => g.addEventListener("click", () => { closeTopDropdowns(); state.view = g.dataset.go; render(); }));
+  dd.querySelectorAll(".nt-group").forEach((g) => g.addEventListener("click", () => {
+    closeTopDropdowns();
+    state.view = g.dataset.go;
+    if (g.dataset.status) { state.statusFilter = g.dataset.status; resetItemPaging(); }
+    render();
+  }));
 }
 $("#notifBtn")?.addEventListener("click", openNotifications);
 

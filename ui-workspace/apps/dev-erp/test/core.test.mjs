@@ -621,14 +621,47 @@ test("store: confirmItem — 미분류→정식 확정 게이트 (SE-CONFIRM sli
   assert.equal(store.confirmItem(m.item.id, {}).error, "needs_se_anchor");
   assert.equal(store.confirmItem(m.item.id, { work_type: "revise" }).error, "needs_se_anchor", "기준점 없으면 거부");
   // 업무유형 + 연결대상 → 정식 open + 속성 반영
-  const r = store.confirmItem(m.item.id, { work_type: "revise", link_kind: "artifact", link_ref: "art-1", completion_criteria: "최신본 저장" });
+  const r = store.confirmItem(m.item.id, { work_type: "revise", link_kind: "artifact", link_ref: "art-1", completion_criteria: "최신본 저장", assignee_ref: "kim" });
   assert.equal(r.ok, true);
   assert.equal(r.item.status, "open");
-  assert.deepEqual([r.item.work_type, r.item.link_kind, r.item.completion_criteria], ["revise", "artifact", "최신본 저장"]);
+  assert.deepEqual([r.item.work_type, r.item.link_kind, r.item.completion_criteria, r.item.assignee_ref], ["revise", "artifact", "최신본 저장", "kim"]);
   assert.ok(store.items({ project: "PRJ-A" }).some((i) => i.id === m.item.id), "확정 후 정식 목록 노출");
   // 이미 정식이면 not_unclassified, 없는 id면 item_not_found
   assert.equal(store.confirmItem(m.item.id, { work_type: "review", link_kind: "risk" }).error, "not_unclassified");
   assert.equal(store.confirmItem("no-such", { work_type: "revise", link_kind: "risk" }).error, "item_not_found");
+});
+
+test("store: itemsPage/mailPage — 총량·다음페이지 계약으로 고정 500개 장벽 제거", () => {
+  const store = freshStore();
+  store.upsertProject({ id: "PRJ-A", title: "A", data_label: "real" });
+  for (let i = 0; i < 12; i += 1) {
+    store.createItem({ project_id: "PRJ-A", title: `메일 검토 ${String(i).padStart(2, "0")}`, origin: "mail", due: "2026-06-16" });
+    store.createMail({ subject: `페이지 메일 ${String(i).padStart(2, "0")}`, at: `2026-06-${String(10 + i).padStart(2, "0")}T00:00:00Z`, mailbox: "a@corp.com" });
+  }
+
+  const first = store.itemsPage({ project: "PRJ-A", status: "unclassified", limit: 5, offset: 0 });
+  assert.equal(first.rows.length, 5);
+  assert.equal(first.total, 12);
+  assert.equal(first.has_more, true);
+  const last = store.itemsPage({ project: "PRJ-A", status: "unclassified", limit: 5, offset: 10 });
+  assert.equal(last.rows.length, 2);
+  assert.equal(last.has_more, false);
+  const overdue = store.itemsPage({ status: "unclassified", due_before_exclusive: "2026-06-17", limit: 1 });
+  assert.equal(overdue.total, 12, "미분류 연체도 명시 조회하면 총량 산정");
+
+  const mailFirst = store.mailPage({ days: 0, mailbox: "a@corp.com", limit: 5, offset: 0 });
+  assert.equal(mailFirst.rows.length, 5);
+  assert.equal(mailFirst.total, 12);
+  assert.equal(mailFirst.has_more, true);
+  const mailLast = store.mailPage({ days: 0, mailbox: "a@corp.com", limit: 5, offset: 10 });
+  assert.equal(mailLast.rows.length, 2);
+  assert.equal(mailLast.has_more, false);
+
+  store.createItem({ project_id: "PRJ-A", title: "A 담당 정식", assignee_ref: "a@corp.com" });
+  store.createItem({ project_id: "PRJ-A", title: "B 담당 정식", assignee_ref: "b@corp.com" });
+  const counts = store.itemCounts({ project: "PRJ-A", assignee_any: ["a@corp.com"] });
+  assert.equal(counts.total, 1, "정식 할일 count 는 담당자 범위");
+  assert.equal(counts.statuses.unclassified, 12, "미분류 count 는 팀 공용 큐 총량");
 });
 
 test("store: 개발요청 인입 채널 — createRequest→promoteRequest→미분류 할 일 (REQ slice6)", () => {
@@ -2454,6 +2487,28 @@ test("TEAM-ACCT: crossSearch 범위 — 팀원은 자기 할일·메일함만", 
   const all = crossSearch(store, "범위 확인");
   assert.equal(all.mail.length, 2, "관리자/단독 전체 검색은 전체 메일");
   assert.equal(all.items.length, 2, "관리자/단독 전체 검색은 전체 할일");
+
+  store.ingestTaskItem({
+    id: "mailtask:trace-shared",
+    project_code: "P26-001",
+    title: "출처 추적 공유",
+    origin: "mail",
+    source_mail_ref: "mailcsv:trace-1",
+    source_mail_source_id: "mail-source-1",
+    source_thread_ref: "thread-1",
+    source_lineage_ref: "lineage-1"
+  });
+  store.ingestMail({
+    id: "mailcsv:trace-1",
+    project_code: "P26-001",
+    at: "2026-06-12",
+    subject: "추적 메일",
+    source_ref: "mail-source-1",
+    mailbox: "a@corp.com"
+  });
+  const sourceScoped = crossSearch(store, "mail-source-1", { mailbox: "a@corp.com", assignee_any: ["a@corp.com"] });
+  assert.equal(sourceScoped.items[0].id, "mailtask:trace-shared", "팀원 검색에서도 미분류 공용 큐 출처 추적 가능");
+  assert.equal(sourceScoped.mail[0].id, "mailcsv:trace-1", "메일 source_ref 검색 가능");
 });
 
 test("TEAM-ACCT: summary/events/nudges/workload/risk 범위 — 팀원 대시보드 보조 표면도 자기 범위만", () => {

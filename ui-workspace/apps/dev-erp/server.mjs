@@ -101,6 +101,14 @@ async function readJson(req) {
   let body = ""; for await (const chunk of req) body += chunk;
   try { return JSON.parse(body || "{}"); } catch { return {}; }
 }
+function intParam(value, fallback, { min = 0, max = 500 } = {}) {
+  const n = Math.trunc(Number(value));
+  if (!Number.isFinite(n)) return fallback;
+  return Math.min(max, Math.max(min, n));
+}
+function wantsPage(qp) {
+  return qp.page === "1" || qp.page === "true";
+}
 // 보기 대상(view) → 할일 담당자 식별자 배열. view=계정id|team, mine=1=본인.
 // 권한: 관리자=아무 계정, 팀원=본인만(타인 요청은 본인으로 강등). 익명/팀=전체(하위호환).
 function viewIdentities(req, qp) {
@@ -150,8 +158,9 @@ function requestScope(req, qp = {}) {
 function canAccessItem(req, item_id) {
   const me = currentAccount(req);
   if (!me || store.isAdmin(me.id)) return true;
-  const row = store.db.prepare("SELECT assignee_ref FROM core_item WHERE id=?").get(item_id);
+  const row = store.db.prepare("SELECT assignee_ref,status FROM core_item WHERE id=?").get(item_id);
   if (!row) return true;
+  if (row.status === "unclassified") return true; // 미분류 인입함은 로그인 팀원이 함께 분류하는 공용 큐.
   return viewIdentities(req, {}).includes(row.assignee_ref);
 }
 
@@ -381,6 +390,11 @@ const server = createServer(async (req, res) => {
       let body = ""; for await (const chunk of req) body += chunk;
       const input = JSON.parse(body || "{}");
       if (!canAccessItem(req, input.id)) return send(res, 403, { error: "item_forbidden" });
+      if (!String(input.assignee_ref ?? "").trim()) {
+        const item = store.db.prepare("SELECT assignee_ref,suggested_assignee_ref FROM core_item WHERE id=?").get(input.id);
+        const me = currentAccount(req);
+        input.assignee_ref = item?.assignee_ref || item?.suggested_assignee_ref || me?.display_name || me?.username || me?.email || null;
+      }
       const result = store.confirmItem(input.id, input);
       if (result.error) return send(res, 400, result);
       store.appendEvent({
@@ -403,10 +417,23 @@ const server = createServer(async (req, res) => {
       });
       return send(res, 200, result);
     }
+    if (path === "/api/items/counts") {
+      const assignee_any = viewIdentities(req, qp);
+      return send(res, 200, store.itemCounts({ project: qp.project, assignee_any }));
+    }
     if (path === "/api/items") {
       // 보기 대상(view=계정id|team)·mine=1 → 담당자 식별자 필터. 일반 팀원의 기본은 본인 범위.
-      const assignee_any = viewIdentities(req, qp);
-      return send(res, 200, store.items({ project: qp.project, status: qp.status, q: qp.q, due_before: qp.due === "soon" ? todayKey() : undefined, assignee_any }));
+      // 단, status=unclassified 는 팀 공용 분류 큐라 개인 담당자 필터를 걸지 않는다.
+      const assignee_any = qp.status === "unclassified" ? undefined : viewIdentities(req, qp);
+      const opts = {
+        project: qp.project, status: qp.status, q: qp.q,
+        due_before: qp.due === "soon" ? todayKey() : undefined,
+        due_before_exclusive: qp.due === "overdue" ? todayKey() : undefined,
+        assignee_any,
+        limit: intParam(qp.limit, wantsPage(qp) ? 100 : 500, { min: 1, max: wantsPage(qp) ? 500 : 1000 }),
+        offset: intParam(qp.offset, 0, { min: 0, max: 1_000_000 })
+      };
+      return send(res, 200, wantsPage(qp) ? store.itemsPage(opts) : store.items(opts));
     }
     if (path === "/api/mail" && req.method === "POST") {
       let body = ""; for await (const chunk of req) body += chunk;
@@ -418,11 +445,16 @@ const server = createServer(async (req, res) => {
       store.appendEvent({ actor_ref: actor, actor_kind: "human", kind: "mail_register", to: result.mail.subject, project_ref: result.mail.project_id ?? null, used_refs: ["mail"], data_label: "real" });
       return send(res, 200, result);
     }
-    if (path === "/api/mail") return send(res, 200, store.mail({
+    if (path === "/api/mail") {
+      const opts = {
       project: qp.project, days: qp.days !== undefined ? Number(qp.days) : 90,
       q: qp.q, direction: qp.direction, label_id: qp.label_id,
-      mailbox: viewMailbox(req, qp)
-    }));
+      mailbox: viewMailbox(req, qp),
+      limit: intParam(qp.limit, wantsPage(qp) ? 100 : 500, { min: 1, max: wantsPage(qp) ? 500 : 1000 }),
+      offset: intParam(qp.offset, 0, { min: 0, max: 1_000_000 })
+      };
+      return send(res, 200, wantsPage(qp) ? store.mailPage(opts) : store.mail(opts));
+    }
     if (path === "/api/guide/templates") return send(res, 200, guideTemplates(qp.mode));
     if (path === "/api/doc/recipes") return send(res, 200, docRecipes(qp.mode));
     if (path === "/api/embeds" && req.method === "GET") return send(res, 200, store.listEmbeds({ project: qp.project ?? null }));

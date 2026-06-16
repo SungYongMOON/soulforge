@@ -256,9 +256,12 @@ td.num { text-align: right; font-variant-numeric: tabular-nums; }
 .classify-card .cc-title { font-size: 13.5px; font-weight: 500; }
 .classify-card .cc-form { display: flex; flex-wrap: wrap; gap: 6px; align-items: center; }
 .classify-card .cc-form select, .classify-card .cc-form input { font-size: 12.5px; padding: 5px 8px; border: 1px solid var(--line); border-radius: 7px; background: var(--bg); color: var(--text); }
-.classify-card .cc-ref { width: 150px; } .classify-card .cc-cc { flex: 1; min-width: 180px; }
+.classify-card .cc-ref { width: 150px; } .classify-card .cc-cc { flex: 1; min-width: 180px; } .classify-card .cc-assignee { width: 120px; }
 .classify-card .cc-msg { color: var(--danger); font-size: 11.5px; }
 .cc-hint { font-size: 11px; color: var(--ok); margin-top: 2px; }
+.source-trace { color: var(--muted); }
+.pager-row { display: flex; align-items: center; justify-content: flex-end; gap: 8px; margin: 8px 0; }
+.pager-row .fav-chip:disabled { opacity: .45; cursor: default; }
 /* 메일 등록 폼(베타1) */
 .mail-reg { margin: 8px 0; border: 1px solid var(--line); border-radius: 8px; padding: 4px 10px; background: var(--panel); }
 .mail-reg > summary { cursor: pointer; font-size: 13px; font-weight: 500; padding: 5px 0; color: var(--accent); }

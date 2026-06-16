@@ -1138,28 +1138,80 @@ export class Store {
     });
   }
 
-  items({ project, status, q, due_before, include_unclassified = false, assignee_any, limit = 500 } = {}) {
+  _pageBounds(limit = 100, offset = 0, maxLimit = 500) {
+    const n = Math.trunc(Number(limit));
+    const o = Math.trunc(Number(offset));
+    return {
+      limit: Math.min(maxLimit, Math.max(1, Number.isFinite(n) ? n : 100)),
+      offset: Math.max(0, Number.isFinite(o) ? o : 0)
+    };
+  }
+
+  _itemWhere({ project, status, q, due_before, due_before_exclusive, include_unclassified = false, assignee_any } = {}) {
     const cond = [];
     const args = [];
     if (project) { cond.push("i.project_id=?"); args.push(project); }
     if (status) { cond.push("i.status=?"); args.push(status); }
     else if (!include_unclassified) { cond.push("i.status NOT IN ('unclassified','archived')"); } // 미분류는 기본 격리(분류 필요 화면만 명시 조회)
-    if (due_before) { cond.push("i.due IS NOT NULL AND i.due<=? AND i.status NOT IN ('done','unclassified','archived')"); args.push(due_before); }
+    if (due_before_exclusive) {
+      cond.push("i.due IS NOT NULL AND i.due<?");
+      args.push(due_before_exclusive);
+      if (!status) cond.push(include_unclassified ? "i.status NOT IN ('done','archived')" : "i.status NOT IN ('done','unclassified','archived')");
+    } else if (due_before) {
+      cond.push("i.due IS NOT NULL AND i.due<=?");
+      args.push(due_before);
+      if (!status) cond.push(include_unclassified ? "i.status NOT IN ('done','archived')" : "i.status NOT IN ('done','unclassified','archived')");
+    }
     // 내 일 필터: assignee_ref 가 내 식별자(로그인명 또는 사람 이름) 중 하나와 일치. 빈 배열이면 '아무도 매칭 안 됨'(빈 결과).
     if (Array.isArray(assignee_any)) {
       const ids = assignee_any.filter((x) => x != null && String(x).trim() !== "");
       if (ids.length) { cond.push(`i.assignee_ref IN (${ids.map(() => "?").join(",")})`); args.push(...ids); }
       else cond.push("1=0");
     }
-    if (q) { cond.push("i.title LIKE ?"); args.push(`%${q}%`); }
+    if (q) {
+      cond.push(`(i.title LIKE ? OR i.id LIKE ? OR i.project_id LIKE ? OR i.origin_mail_id LIKE ? OR i.source_mail_ref LIKE ? OR i.source_mail_source_id LIKE ? OR i.source_thread_ref LIKE ? OR i.source_lineage_ref LIKE ?)`);
+      args.push(...Array(8).fill(`%${q}%`));
+    }
     const where = cond.length ? `WHERE ${cond.join(" AND ")}` : "";
+    return { where, args };
+  }
+
+  items({ project, status, q, due_before, due_before_exclusive, include_unclassified = false, assignee_any, limit = 500, offset = 0 } = {}) {
+    const { where, args } = this._itemWhere({ project, status, q, due_before, due_before_exclusive, include_unclassified, assignee_any });
+    const page = this._pageBounds(limit, offset, 1000);
     return this.db
       .prepare(
         `SELECT i.*, ga.name AS guide_artifact_name, ga.stage_code AS guide_stage_code
          FROM core_item i LEFT JOIN guide_artifact ga ON ga.id = i.guide_artifact_id
-         ${where} ORDER BY (i.due IS NULL), i.due, i.id LIMIT ?`
+         ${where} ORDER BY (i.due IS NULL), i.due, i.id LIMIT ? OFFSET ?`
       )
-      .all(...args, Math.max(1, Number(limit) || 500));
+      .all(...args, page.limit, page.offset);
+  }
+
+  itemsPage(opts = {}) {
+    const page = this._pageBounds(opts.limit ?? 100, opts.offset ?? 0, 500);
+    const { where, args } = this._itemWhere({ ...opts, limit: undefined, offset: undefined });
+    const rows = this.db
+      .prepare(
+        `SELECT i.*, ga.name AS guide_artifact_name, ga.stage_code AS guide_stage_code
+         FROM core_item i LEFT JOIN guide_artifact ga ON ga.id = i.guide_artifact_id
+         ${where} ORDER BY (i.due IS NULL), i.due, i.id LIMIT ? OFFSET ?`
+      )
+      .all(...args, page.limit, page.offset);
+    const total = this.db.prepare(`SELECT COUNT(*) AS n FROM core_item i ${where}`).get(...args).n;
+    return { rows, total, limit: page.limit, offset: page.offset, has_more: page.offset + rows.length < total };
+  }
+
+  itemCounts({ project, assignee_any } = {}) {
+    const { where, args } = this._itemWhere({ project, include_unclassified: true, assignee_any });
+    const rows = this.db
+      .prepare(`SELECT i.status, COUNT(*) AS n FROM core_item i ${where} GROUP BY i.status`)
+      .all(...args);
+    const statuses = Object.fromEntries(rows.map((r) => [r.status, r.n]));
+    const triageWhere = this._itemWhere({ project, status: "unclassified" });
+    statuses.unclassified = this.db.prepare(`SELECT COUNT(*) AS n FROM core_item i ${triageWhere.where}`).get(...triageWhere.args).n;
+    const total = ["open", "doing", "waiting", "blocked", "done"].reduce((s, k) => s + (statuses[k] ?? 0), 0);
+    return { total, statuses };
   }
 
   // 처리량 추세(P-7 후속): 최근 N일 '완료(→done)' 이벤트 수를 일별 집계. 개인 점수 미산출(팀 합계만).
@@ -1436,7 +1488,7 @@ export class Store {
 
   // SE 기준점 확정(slice2): 미분류 할 일에 단계/연결대상 + 업무유형을 붙여 정식(open) 승격.
   // SE 기준점(단계 또는 연결대상 또는 산출물) + 업무유형 둘 다 충족해야 통과(needs_se_anchor 게이트).
-  confirmItem(id, { work_type, link_kind, link_ref, completion_criteria, stage_id, anchor_stage_code } = {}) {
+  confirmItem(id, { work_type, link_kind, link_ref, completion_criteria, stage_id, anchor_stage_code, assignee_ref } = {}) {
     const item = this.db.prepare("SELECT * FROM core_item WHERE id=?").get(id);
     if (!item) return { error: "item_not_found" };
     if (item.status !== "unclassified") return { error: "not_unclassified", status: item.status };
@@ -1449,9 +1501,10 @@ export class Store {
     const hasAnchor = !!(sid || asc || lk || item.guide_artifact_id);
     if (!wt || !hasAnchor) return { error: "needs_se_anchor", need: { work_type: !wt, se_anchor: !hasAnchor } };
     if (stage_id && !this.db.prepare("SELECT 1 FROM core_stage WHERE id=? AND project_id=?").get(stage_id, item.project_id)) return { error: "stage_not_found" };
+    const assignee = assignee_ref !== undefined ? String(assignee_ref ?? "").trim() : item.assignee_ref;
     this.db.prepare(
-      `UPDATE core_item SET status='open', work_type=?, link_kind=?, link_ref=?, completion_criteria=?, stage_id=?, anchor_stage_code=? WHERE id=?`
-    ).run(wt, lk ?? null, link_ref ?? item.link_ref ?? null, completion_criteria ?? item.completion_criteria ?? null, sid ?? null, asc ?? null, id);
+      `UPDATE core_item SET status='open', work_type=?, link_kind=?, link_ref=?, completion_criteria=?, stage_id=?, anchor_stage_code=?, assignee_ref=? WHERE id=?`
+    ).run(wt, lk ?? null, link_ref ?? item.link_ref ?? null, completion_criteria ?? item.completion_criteria ?? null, sid ?? null, asc ?? null, assignee || null, id);
     this.afterItemWrite?.(id); // autosync Phase 1: 분류 확정 → 할일_장부 write-through
     return { ok: true, item: this.db.prepare("SELECT * FROM core_item WHERE id=?").get(id) };
   }
@@ -1516,7 +1569,7 @@ export class Store {
   }
 
   // Gmail식 확장: 기간(0=전체)/검색(제목·상대)/방향/수동라벨 필터 + 라벨 동봉
-  mail({ project, days, q, direction, label_id, mailbox } = {}) {
+  _mailWhere({ project, days, q, direction, label_id, mailbox } = {}) {
     const cond = [];
     const args = [];
     if (project) { cond.push("m.project_id=?"); args.push(project); }
@@ -1526,17 +1579,37 @@ export class Store {
       const cutoff = new Date(Date.now() - days * 86400000).toISOString();
       cond.push("m.at>=?"); args.push(cutoff);
     }
-    if (q) { cond.push("(m.subject LIKE ? OR m.counterpart LIKE ?)"); args.push(`%${q}%`, `%${q}%`); }
+    if (q) { cond.push("(m.subject LIKE ? OR m.counterpart LIKE ? OR m.project_id LIKE ? OR m.id LIKE ? OR m.pointer_ref LIKE ? OR m.source_ref LIKE ?)"); args.push(...Array(6).fill(`%${q}%`)); }
     if (direction) { cond.push("m.direction=?"); args.push(direction); }
     if (label_id) { cond.push("EXISTS (SELECT 1 FROM mail_label_map x WHERE x.mail_id=m.id AND x.label_id=?)"); args.push(Number(label_id)); }
     const where = cond.length ? `WHERE ${cond.join(" AND ")}` : "";
+    return { where, args };
+  }
+
+  mail({ project, days, q, direction, label_id, mailbox, limit = 500, offset = 0 } = {}) {
+    const { where, args } = this._mailWhere({ project, days, q, direction, label_id, mailbox });
+    const page = this._pageBounds(limit, offset, 1000);
     const rows = this.db
       .prepare(
         `SELECT m.*, (SELECT GROUP_CONCAT(label_id) FROM mail_label_map mm WHERE mm.mail_id=m.id) AS label_ids
-         FROM core_mail m ${where} ORDER BY m.at DESC LIMIT 500`
+         FROM core_mail m ${where} ORDER BY m.at DESC, m.id DESC LIMIT ? OFFSET ?`
       )
-      .all(...args);
+      .all(...args, page.limit, page.offset);
     return rows.map((r) => ({ ...r, label_ids: r.label_ids ? String(r.label_ids).split(",").map(Number) : [] }));
+  }
+
+  mailPage(opts = {}) {
+    const page = this._pageBounds(opts.limit ?? 100, opts.offset ?? 0, 500);
+    const { where, args } = this._mailWhere(opts);
+    const rows = this.db
+      .prepare(
+        `SELECT m.*, (SELECT GROUP_CONCAT(label_id) FROM mail_label_map mm WHERE mm.mail_id=m.id) AS label_ids
+         FROM core_mail m ${where} ORDER BY m.at DESC, m.id DESC LIMIT ? OFFSET ?`
+      )
+      .all(...args, page.limit, page.offset)
+      .map((r) => ({ ...r, label_ids: r.label_ids ? String(r.label_ids).split(",").map(Number) : [] }));
+    const total = this.db.prepare(`SELECT COUNT(*) AS n FROM core_mail m ${where}`).get(...args).n;
+    return { rows, total, limit: page.limit, offset: page.offset, has_more: page.offset + rows.length < total };
   }
 
   // --- 가이드형 워크플로우 (run13): 산출물 등록 + 스텝 체크 (메타만) ---
