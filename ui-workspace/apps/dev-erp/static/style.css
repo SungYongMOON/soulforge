@@ -19,7 +19,7 @@ body[data-theme="dark"] {
 body { margin: 0; font-family: "Pretendard", "Apple SD Gothic Neo", system-ui, sans-serif; background: var(--bg); color: var(--text); }
 /* IA 2.5단: 상단 전폭 brand+그룹탭 / 좌측 선택그룹 하위 / 본문 (ECount 관찰 반영) */
 #app { display: grid; grid-template-columns: 200px 1fr; grid-template-rows: auto auto auto 1fr;
-  grid-template-areas: "util util" "brand brand" "subbar subbar" "side main"; min-height: 100vh; }
+  grid-template-areas: "util util" "brand brand" "side subbar" "side main"; min-height: 100vh; }
 /* 홈(위젯) 화면 = 좌측 하위메뉴 열 숨김, 위젯 보드가 전폭 (ECount MyPage식). 상단 탭으로만 이동. */
 #app[data-view="home"] { grid-template-columns: 1fr; grid-template-areas: "util" "brand" "subbar" "main"; }
 /* 홈(위젯 콕핏)은 대분류 위의 진입면 — 중분류 바도 숨김(ECount MyPage 식). */
@@ -60,9 +60,10 @@ body { margin: 0; font-family: "Pretendard", "Apple SD Gothic Neo", system-ui, s
 .group-tab:hover { background: rgba(31,72,212,.06); }
 .group-tab.on { background: rgba(31,72,212,.13); color: #19358c; font-weight: 700; }
 /* L2 중분류 — 전폭 가로바, 자연 크기 좌측 정렬(2개여도 전폭 분할 안 함), 튀어나온 탭(밑줄 아님) */
-/* L2 중분류 — ECount식 밑줄 탭: 흰 바탕, 선택 시 파란 밑줄(2px)+굵은 네이비, 좌측 정렬 */
+/* L2 중분류 — ECount 실측: 좌측 사이드바 뒤가 아니라 본문(main) 열 위에 떠 있는 띠. 전폭 채움 아님,
+   맨 왼쪽부터 안 채워짐(사이드바 다음 x에서 시작), 배경 투명, 선택 시 파란 밑줄(2px)+굵은 네이비. */
 .sub-bar { grid-area: subbar; display: flex; flex-direction: row; gap: 2px; justify-content: flex-start;
-  align-items: stretch; padding: 0 16px; background: var(--panel); border-bottom: 1px solid var(--line); overflow-x: auto; }
+  align-items: stretch; padding: 3px 16px 0; background: transparent; border-bottom: none; overflow-x: auto; }
 .sub-tab { flex: 0 0 auto; border: none; border-bottom: 2px solid transparent; background: transparent;
   color: var(--muted); padding: 6px 16px; font-size: 12px; cursor: pointer; white-space: nowrap; border-radius: 0; }
 .sub-tab:hover { color: var(--text); }
@@ -340,9 +341,9 @@ td.dim { color: var(--line); }
 .module-incoming li { margin: 3px 0; }
 
 @media (max-width: 800px) {
-  /* 모바일: util(검색·바로가기) / brand(그룹탭) / side(가로 하위) / main 세로 적층 */
-  #app { grid-template-columns: 1fr; grid-template-rows: auto auto auto 1fr;
-    grid-template-areas: "util" "brand" "side" "main"; }
+  /* 모바일: util(검색·바로가기) / brand(그룹탭) / subbar(2분류) / side(가로 하위) / main 세로 적층 */
+  #app { grid-template-columns: 1fr; grid-template-rows: auto auto auto auto 1fr;
+    grid-template-areas: "util" "brand" "subbar" "side" "main"; }
   .util-bar { flex-wrap: wrap; }
   .brand-bar { flex-wrap: wrap; }
   .side { flex-direction: row; align-items: center; overflow-x: auto; }
