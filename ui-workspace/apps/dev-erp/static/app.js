@@ -811,6 +811,21 @@ const DEFAULT_DASH = [
   { id: "today", x: 0, y: 20, w: 3, h: 8 }, { id: "blocked", x: 3, y: 20, w: 3, h: 8 },
   { id: "mail", x: 6, y: 20, w: 3, h: 8 }, { id: "events", x: 9, y: 20, w: 3, h: 8 }
 ];
+// 정해둔 위젯 배치(프리셋). 내 배치는 localStorage 자동저장 + '내 배치로 저장' 슬롯(SAVED_KEY).
+const SAVED_KEY = "dev_erp_widgets_saved";
+const DASH_PRESETS = {
+  basic: { label: "기본", layout: DEFAULT_DASH },
+  task: { label: "할일 집중", layout: [
+    { id: "today", x: 0, y: 0, w: 4, h: 10 }, { id: "mine", x: 4, y: 0, w: 4, h: 10 }, { id: "blocked", x: 8, y: 0, w: 4, h: 10 },
+    { id: "nudges", x: 0, y: 10, w: 6, h: 9 }, { id: "deadline_cal", x: 6, y: 10, w: 6, h: 9 },
+    { id: "projects", x: 0, y: 19, w: 12, h: 10 },
+  ] },
+  status: { label: "현황 요약", layout: [
+    { id: "kpi", x: 0, y: 0, w: 12, h: 6 },
+    { id: "projects", x: 0, y: 6, w: 8, h: 12 }, { id: "gatewait", x: 8, y: 6, w: 4, h: 12 },
+    { id: "events", x: 0, y: 18, w: 6, h: 8 }, { id: "teamload", x: 6, y: 18, w: 6, h: 8 },
+  ] },
+};
 
 function dashLayout() {
   const saved = JSON.parse(localStorage.getItem("dev_erp_widgets") || "null");
@@ -1645,8 +1660,9 @@ async function renderHome() {
   }
 
   // 위젯 카드 — 절대좌표(% 가로 + px 세로). 본문 고정 높이 → 내부 스크롤.
-  const cardStyle = (w) => `left:${(w.x / DASH_GCOLS) * 100}%; width:${(w.w / DASH_GCOLS) * 100}%;`
-    + `top:${w.y * DASH_ROW}px; height:${(w.c ? 2 : w.h) * DASH_ROW}px;`;
+  const GAP = 10; // 위젯 간 간격(px) — ECount식으로 살짝 떨어뜨림(너무 붙지 않게)
+  const cardStyle = (w) => `left:calc(${(w.x / DASH_GCOLS) * 100}% + ${GAP / 2}px); width:calc(${(w.w / DASH_GCOLS) * 100}% - ${GAP}px);`
+    + `top:${w.y * DASH_ROW + GAP / 2}px; height:${(w.c ? 2 : w.h) * DASH_ROW - GAP}px;`;
   const cards = [];
   for (const w of layout) {
     const { title, html } = await widgetBody(w.id);
@@ -1694,6 +1710,12 @@ async function renderHome() {
       <div class="widget-drawer-head">${L.widget_add}<span class="dim">${L.widget_drag_hint}</span></div>
       <div class="widget-drawer-list">${drawerItems}</div>
       <div class="widget-drawer-foot">
+        <select id="widgetPreset" title="${L.widget_preset ?? "정해둔 배치 적용"}">
+          <option value="">${L.widget_preset ?? "배치 프리셋"}…</option>
+          ${localStorage.getItem(SAVED_KEY) ? `<option value="saved">★ ${L.widget_my_saved ?? "내 저장 배치"}</option>` : ""}
+          ${Object.entries(DASH_PRESETS).map(([k, p]) => `<option value="${k}">${p.label}</option>`).join("")}
+        </select>
+        <button id="widgetSaveMine" class="fav-chip" title="${L.widget_save_mine ?? "현재 배치를 내 배치로 저장"}">★ ${L.widget_save_mine ?? "내 배치 저장"}</button>
         <button id="widgetArrangeBtn" class="fav-chip" title="${L.widget_arrange}">⊟ ${L.widget_arrange}</button>
         <button id="widgetResetBtn" class="fav-chip" title="${L.widget_reset}">↺ ${L.widget_reset}</button>
       </div>
@@ -1747,6 +1769,17 @@ async function renderHome() {
   });
   $("#widgetArrangeBtn").addEventListener("click", () => { saveDashLayout(compactDash(dashLayout())); render(); });
   $("#widgetResetBtn").addEventListener("click", async () => { if (!(await uiConfirm(L.confirm_reset))) return; localStorage.removeItem("dev_erp_widgets"); render(); });
+  // 프리셋 적용 / 내 배치 저장 — 내 배치(현재)는 자동저장(localStorage), 저장 슬롯은 되돌아올 스냅샷.
+  $("#widgetPreset")?.addEventListener("change", (e) => {
+    const v = e.target.value; if (!v) return;
+    const layout = v === "saved" ? JSON.parse(localStorage.getItem(SAVED_KEY) || "null") : DASH_PRESETS[v]?.layout;
+    if (Array.isArray(layout) && layout.length) { saveDashLayout(layout.map((x) => ({ ...x }))); render(); }
+  });
+  $("#widgetSaveMine")?.addEventListener("click", () => {
+    localStorage.setItem(SAVED_KEY, JSON.stringify(dashLayout()));
+    alert(L.widget_saved_ok ?? "현재 배치를 '내 저장 배치'로 저장했습니다. 프리셋 목록에서 언제든 불러올 수 있어요.");
+    render();
+  });
   // 서랍 항목: 드래그 시작 + 클릭(맨 아래 추가) 폴백
   $("#view").querySelectorAll(".drawer-widget:not(.placed):not(.soon)").forEach((d) => {
     d.addEventListener("dragstart", (e) => { e.dataTransfer.setData("text/plain", d.dataset.add); e.dataTransfer.effectAllowed = "copy"; d.classList.add("dragging"); });

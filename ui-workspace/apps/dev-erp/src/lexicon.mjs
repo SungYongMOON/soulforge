@@ -560,7 +560,11 @@ export const LEXICON = {
     al_d90: "최근 90일",
     al_all: "전체 기간",
     al_noise: "조회·잡음 포함",
-    al_more: "최근 300건만 — 필터로 좁혀보세요"
+    al_more: "최근 300건만 — 필터로 좁혀보세요",
+    widget_preset: "배치 프리셋",
+    widget_my_saved: "내 저장 배치",
+    widget_save_mine: "내 배치 저장",
+    widget_saved_ok: "현재 배치를 '내 저장 배치'로 저장했습니다. 프리셋 목록에서 불러올 수 있어요."
   },
   fantasy: {
     app_title: "길드 작전판",
@@ -1121,7 +1125,11 @@ export const LEXICON = {
     al_d90: "최근 90일",
     al_all: "전체 기간",
     al_noise: "조회·잡음 포함",
-    al_more: "최근 300건만 — 필터로 좁혀보세요"
+    al_more: "최근 300건만 — 필터로 좁혀보세요",
+    widget_preset: "진형 프리셋",
+    widget_my_saved: "내 저장 진형",
+    widget_save_mine: "내 진형 저장",
+    widget_saved_ok: "현재 진형을 '내 저장 진형'으로 저장했습니다. 프리셋 목록에서 불러올 수 있어요."
   }
 };
 
