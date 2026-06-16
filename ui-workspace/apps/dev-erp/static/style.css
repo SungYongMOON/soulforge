@@ -10,42 +10,42 @@ body[data-theme="dark"] {
   --muted: #99a0ae; --accent: #4a9fd8; --danger: #e0685a; --warn: #d6a84f;
   --ok: #6fae7c; --chip: #2a3040;
 }
-/* 🌙 판타지 = 달빛조각사 스킨 — 밤·달빛·금빛 RPG. 라벨(몬스터·던전)에 더해 비주얼도 전환(그라데이션 배경+세리프 금빛 제목+금 테두리). data-theme(다크)보다 뒤=우선. */
+/* ✨ 판타지 = 달빛조각사 스킨 — 실제 게임 키아트 기준(밝고 화사한 미스트 판타지). 로고색 청록→금빛 + 크림 양피지 + 세리프 제목.
+   라벨(몬스터·던전)에 더해 비주얼도 전환. data-theme(다크)보다 소스 뒤=우선. */
 body[data-mode="fantasy"] {
-  --bg: #0c0e18; --panel: #161b2e; --line: #36426d; --text: #ece9f4;
-  --muted: #9aa0c8; --accent: #d8b65f; --danger: #d96a55; --warn: #d8aa57;
-  --ok: #74b58e; --chip: #232b4d;
+  --bg: #e6edee; --panel: #fbf7ec; --line: #ddd2bb; --text: #2e2a22;
+  --muted: #837a64; --accent: #b9892a; --danger: #c0563a; --warn: #c08a2a;
+  --ok: #3f9a78; --chip: #efe7d4;
 }
-/* 달빛 그라데이션 배경(은은한 달무리 + 금빛 누리, 스크롤해도 고정) */
+/* 미스트 하늘(옅은 청록) → 따뜻한 양피지 그라데이션 — 키아트 분위기 */
 body[data-mode="fantasy"] {
-  background:
-    radial-gradient(900px 520px at 80% -10%, rgba(126,142,228,.20), transparent 62%),
-    radial-gradient(760px 520px at 8% 112%, rgba(216,182,95,.12), transparent 60%),
-    #0c0e18;
+  background: linear-gradient(180deg, #d6e7e9 0%, #e8eee5 40%, #f2ecdd 100%);
   background-attachment: fixed;
 }
 body[data-mode="fantasy"] #app { background: transparent; }
-/* 패널은 반투명 다크 → 뒤의 달빛이 살짝 비침 + 금빛 미세 테두리/그림자 */
+/* 패널 = 크림 양피지 + 금빛 미세 테두리/그림자 */
 body[data-mode="fantasy"] .brand-bar, body[data-mode="fantasy"] .util-bar,
-body[data-mode="fantasy"] .side, body[data-mode="fantasy"] .topbar { background: rgba(20,25,44,.82); }
-body[data-mode="fantasy"] .brand-bar { border-bottom-color: rgba(216,182,95,.30); }
-body[data-mode="fantasy"] .widget { background: rgba(22,27,46,.88); border-color: #3b4775;
-  box-shadow: 0 0 0 1px rgba(216,182,95,.16), 0 6px 20px rgba(0,0,0,.42); }
-body[data-mode="fantasy"] .widget-head { border-bottom-color: rgba(216,182,95,.22); }
-/* 제목·헤더는 세리프 + 금빛(RPG 명문 느낌) */
-body[data-mode="fantasy"] #appTitle, body[data-mode="fantasy"] #viewTitle,
-body[data-mode="fantasy"] .widget-head h4, body[data-mode="fantasy"] .proj-list-head strong,
-body[data-mode="fantasy"] .search-section h2 {
-  font-family: "Iowan Old Style", "Palatino Linotype", Palatino, Georgia, serif; letter-spacing: .3px; color: #e7c878; }
-/* 네비/탭의 하드코딩 네이비(#19358c) → 금빛(스킨 한정) */
+body[data-mode="fantasy"] .side, body[data-mode="fantasy"] .topbar { background: rgba(251,247,236,.92); }
+body[data-mode="fantasy"] .brand-bar { border-bottom-color: rgba(185,137,42,.34); }
+body[data-mode="fantasy"] .widget { background: rgba(252,249,240,.96); border-color: #e3d8bf;
+  box-shadow: 0 1px 0 rgba(185,137,42,.18), 0 4px 14px rgba(120,100,60,.12); }
+body[data-mode="fantasy"] .widget-head { border-bottom-color: rgba(185,137,42,.24); }
+/* 큰 제목 = 로고처럼 청록→금빛 그라데이션 글자(세리프). 위젯/허브 제목은 금갈색 세리프. */
+body[data-mode="fantasy"] #viewTitle {
+  font-family: "Iowan Old Style", "Palatino Linotype", Palatino, Georgia, serif; letter-spacing: .3px;
+  background: linear-gradient(92deg, #2aa3ab 0%, #b9892a 72%); -webkit-background-clip: text; background-clip: text; color: transparent; }
+body[data-mode="fantasy"] #appTitle, body[data-mode="fantasy"] .widget-head h4,
+body[data-mode="fantasy"] .proj-list-head strong, body[data-mode="fantasy"] .search-section h2 {
+  font-family: "Iowan Old Style", "Palatino Linotype", Palatino, Georgia, serif; letter-spacing: .2px; color: #a9781b; }
+/* 네비/탭의 하드코딩 네이비(#19358c) → 금빛 강조 */
 body[data-mode="fantasy"] .group-tab.on,
 body[data-mode="fantasy"] .nav-sub-head.has-active, body[data-mode="fantasy"] .nav-sub-head.proj-head.on,
 body[data-mode="fantasy"] #nav .nav-items button.active,
-body[data-mode="fantasy"] .sub-tab.on { color: #e7c878; }
+body[data-mode="fantasy"] .sub-tab.on { color: #a9781b; }
 body[data-mode="fantasy"] .nav-sub-head.has-active, body[data-mode="fantasy"] .nav-sub-head.proj-head.on,
-body[data-mode="fantasy"] .group-tab.on { background: rgba(216,182,95,.16); }
-body[data-mode="fantasy"] #nav .nav-items button.active::before { background: #d8b65f; }
-body[data-mode="fantasy"] .sub-tab.on { border-bottom-color: #d8b65f; }
+body[data-mode="fantasy"] .group-tab.on { background: rgba(185,137,42,.16); }
+body[data-mode="fantasy"] #nav .nav-items button.active::before { background: #b9892a; }
+body[data-mode="fantasy"] .sub-tab.on { border-bottom-color: #b9892a; }
 * { box-sizing: border-box; }
 body { margin: 0; font-family: "Pretendard", "Apple SD Gothic Neo", system-ui, sans-serif; background: var(--bg); color: var(--text); }
 /* IA 2.5단: 상단 전폭 brand+그룹탭 / 좌측 선택그룹 하위 / 본문 (ECount 관찰 반영) */
@@ -493,7 +493,7 @@ body[data-mode="fantasy"] tr.nudge-row.flash { animation-duration: 1.3s; }
    날짜 등 num 셀은 살짝만 톤다운해 위계만 유지. */
 .widget-body .dim { color: var(--text); }
 .widget-body .dim.num { color: #444c59; }
-body[data-theme="dark"] .widget-body .dim.num, body[data-mode="fantasy"] .widget-body .dim.num { color: #c2c8d2; }
+body[data-theme="dark"] .widget-body .dim.num { color: #c2c8d2; }
 .widget-preset, #widgetPreset { padding: 4px 7px; border-radius: 7px; border: 1px solid var(--line); background: var(--panel); color: var(--text); font-size: 12px; }
 .widget.dragging, .widget.resizing { transition: none; z-index: 30; box-shadow: 0 10px 30px rgba(0,0,0,.18); user-select: none; }
 .widget.dragging { cursor: grabbing; opacity: .92; }
