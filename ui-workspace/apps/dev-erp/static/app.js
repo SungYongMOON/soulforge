@@ -2263,9 +2263,9 @@ async function renderArtifacts() {
   const arts = await api(`/api/artifacts?${q}`);
   const L = state.lex;
   const rows = arts.map((a) => `<tr>
-      <td>${a.title}</td><td>${a.kind}</td><td>${a.project_id}</td>
+      <td>${esc(a.title)}</td><td>${esc(a.kind)}</td><td>${esc(a.project_id)}</td>
       <td>${a.updated_at ?? "-"}</td>
-      <td class="pointer">${a.pointer} <button class="copy-btn" data-c="${a.pointer}">${L.copy}</button></td>
+      <td class="pointer">${esc(a.pointer)} <button class="copy-btn" data-c="${esc(a.pointer)}">${L.copy}</button></td>
     </tr>`).join("");
   $("#view").innerHTML = rows
     ? `<table><thead><tr><th>${L.th_subject}</th><th>${L.th_kind}</th><th>${L.project}</th><th>${L.th_updated}</th><th>${L.th_pointer}</th></tr></thead><tbody>${rows}</tbody></table>`
@@ -2280,9 +2280,9 @@ async function renderSearch(term) {
   if (!data.q) { $("#view").innerHTML = `<div class="empty">${state.lex.search_hint}</div>`; return; }
   const sec = (title, rowsHtml, empty) =>
     `<div class="search-section"><h2>${title} </h2>${rowsHtml || `<div class="empty">${empty}</div>`}</div>`;
-  const items = data.items.map((i) => `<tr><td>${i.title}</td><td>${i.project_id}</td><td>${statusBadge(i.status)}</td><td>${i.due ?? "-"}</td></tr>`).join("");
-  const mail = data.mail.map((m) => `<tr><td>${m.at.slice(0, 10)}</td><td>${m.subject}</td><td>${m.counterpart ?? "-"}</td></tr>`).join("");
-  const arts = data.artifacts.map((a) => `<tr><td>${a.title}</td><td>${a.kind}</td><td class="pointer">${a.pointer}</td></tr>`).join("");
+  const items = data.items.map((i) => `<tr><td>${esc(i.title)}</td><td>${esc(i.project_id)}</td><td>${statusBadge(i.status)}</td><td>${i.due ?? "-"}</td></tr>`).join("");
+  const mail = data.mail.map((m) => `<tr><td>${m.at.slice(0, 10)}</td><td>${esc(m.subject)}</td><td>${esc(m.counterpart ?? "-")}</td></tr>`).join("");
+  const arts = data.artifacts.map((a) => `<tr><td>${esc(a.title)}</td><td>${esc(a.kind)}</td><td class="pointer">${esc(a.pointer)}</td></tr>`).join("");
   $("#view").innerHTML =
     sec(state.lex.nav_items, items && `<table><tbody>${items}</tbody></table>`, state.lex.empty_items) +
     sec(state.lex.nav_mail, mail && `<table><tbody>${mail}</tbody></table>`, state.lex.empty_mail) +
