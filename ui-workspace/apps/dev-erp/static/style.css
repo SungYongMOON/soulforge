@@ -43,6 +43,15 @@ body[data-mode="fantasy"] .nav-sub-head.has-active, body[data-mode="fantasy"] .n
 body[data-mode="fantasy"] .group-tab.on { background: rgba(185,137,42,.16); }
 body[data-mode="fantasy"] #nav .nav-items button.active::before { background: #b9892a; }
 body[data-mode="fantasy"] .sub-tab.on { border-bottom-color: #b9892a; }
+/* 던전 배경 — 판타지 + 과제 허브 진입 시 과제별 이미지(로컬 /skins/dungeons/<과제번호>.jpg, 공개 repo 제외).
+   위에 크림 스크림 → 패널/글자 가독 유지. 이미지 없으면 미스트 그라데이션으로 폴백. */
+body[data-mode="fantasy"][data-dungeon] {
+  background-image:
+    linear-gradient(rgba(242,236,221,.60), rgba(242,236,221,.74)),
+    var(--dungeon-bg, none),
+    linear-gradient(180deg, #d6e7e9 0%, #e8eee5 40%, #f2ecdd 100%);
+  background-size: cover; background-position: center center; background-attachment: fixed;
+}
 * { box-sizing: border-box; }
 body { margin: 0; font-family: "Pretendard", "Apple SD Gothic Neo", system-ui, sans-serif; background: var(--bg); color: var(--text); }
 /* IA 2.5단: 상단 전폭 brand+그룹탭 / 좌측 선택그룹 하위 / 본문 (ECount 관찰 반영) */

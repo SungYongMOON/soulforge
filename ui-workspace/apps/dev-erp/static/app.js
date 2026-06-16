@@ -3232,8 +3232,21 @@ async function renderRequests() {
   );
 }
 
+// 던전 배경: 판타지 모드 + 과제 허브 진입 시 과제별 배경 이미지(/skins/dungeons/<과제번호>.jpg, 로컬·비공개).
+// 파일 없으면 그냥 미스트 그라데이션(404 레이어는 투명 → 폴백). 과제마다 다른 '던전'.
+function applyDungeonBg() {
+  if (state.mode === "fantasy" && state.view === "project" && state.hubProject) {
+    document.body.dataset.dungeon = "1";
+    document.body.style.setProperty("--dungeon-bg", `url("/skins/dungeons/${encodeURIComponent(state.hubProject)}.jpg")`);
+  } else {
+    document.body.removeAttribute("data-dungeon");
+    document.body.style.removeProperty("--dungeon-bg");
+  }
+}
+
 async function render() {
   document.getElementById("app").dataset.view = state.view; // 홈(위젯)에선 좌측 열 숨김용
+  applyDungeonBg();
   renderAuth();
   renderNav();
   if (state.view === "mod:gates") {
