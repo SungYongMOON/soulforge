@@ -136,6 +136,8 @@ const server = createServer(async (req, res) => {
   const url = new URL(req.url, `http://127.0.0.1:${PORT}`);
   const path = url.pathname;
   const qp = Object.fromEntries(url.searchParams.entries());
+  // 작업 행위자 = 로그인 세션 사용자(없으면 익명 'anon'). event_log·created_by 출처를 실제 사용자로 기록(BE-2).
+  const actor = currentAccount(req)?.username ?? "anon";
   try {
     if (path === "/api/health") return send(res, 200, { ok: true, schema: "dev_erp.v1", counts: store.counts() });
 
@@ -213,10 +215,10 @@ const server = createServer(async (req, res) => {
     if (path === "/api/items" && req.method === "POST") {
       let body = ""; for await (const chunk of req) body += chunk;
       const input = JSON.parse(body || "{}");
-      const result = store.createItem({ ...input, created_by: "owner" });
+      const result = store.createItem({ ...input, created_by: actor });
       if (result.error) return send(res, 400, result);
       store.appendEvent({
-        actor_ref: "owner", actor_kind: "human", kind: "item_create",
+        actor_ref: actor, actor_kind: "human", kind: "item_create",
         item_ref: result.item.id, to: result.item.title, project_ref: result.item.project_id,
         used_refs: result.item.guide_artifact_id ? ["items", "guide"] : ["items"], data_label: "real"
       });
@@ -229,7 +231,7 @@ const server = createServer(async (req, res) => {
       const result = store.setItemStatus(id, status);
       if (result.error) return send(res, 400, result);
       store.appendEvent({
-        actor_ref: "owner", actor_kind: "human", kind: "item_status",
+        actor_ref: actor, actor_kind: "human", kind: "item_status",
         item_ref: id, from: result.from, to: status, project_ref: result.project_id,
         bottleneck_reason: bottleneck_reason ?? null, used_refs: ["items"], data_label: "real"
       });
@@ -241,7 +243,7 @@ const server = createServer(async (req, res) => {
       const result = store.setItemAssignee(id, assignee_ref);
       if (result.error) return send(res, 400, result);
       store.appendEvent({
-        actor_ref: "owner", actor_kind: "human", kind: "item_assign",
+        actor_ref: actor, actor_kind: "human", kind: "item_assign",
         item_ref: id, from: result.from, to: assignee_ref || null, project_ref: result.project_id,
         used_refs: ["items"], data_label: "real"
       });
@@ -253,7 +255,7 @@ const server = createServer(async (req, res) => {
       const result = store.confirmItem(input.id, input);
       if (result.error) return send(res, 400, result);
       store.appendEvent({
-        actor_ref: "owner", actor_kind: "human", kind: "item_confirm",
+        actor_ref: actor, actor_kind: "human", kind: "item_confirm",
         item_ref: result.item.id, to: result.item.work_type ?? "", project_ref: result.item.project_id,
         used_refs: ["items"], data_label: "real"
       });
@@ -262,10 +264,10 @@ const server = createServer(async (req, res) => {
     if (path === "/api/items/promote" && req.method === "POST") {
       let body = ""; for await (const chunk of req) body += chunk;
       const { mail_id } = JSON.parse(body || "{}");
-      const result = store.promoteMail(mail_id, "owner");
+      const result = store.promoteMail(mail_id, actor);
       if (result.error) return send(res, 400, result);
       store.appendEvent({
-        actor_ref: "owner", actor_kind: "human", kind: "item_promote",
+        actor_ref: actor, actor_kind: "human", kind: "item_promote",
         item_ref: result.item.id, from: mail_id, to: result.item.title,
         project_ref: result.item.project_id, used_refs: ["items", "mail"], data_label: "real"
       });
@@ -281,7 +283,7 @@ const server = createServer(async (req, res) => {
       const input = JSON.parse(body || "{}");
       const result = store.createMail({ ...input, data_label: "real" });
       if (result.error) return send(res, 400, result);
-      store.appendEvent({ actor_ref: "owner", actor_kind: "human", kind: "mail_register", to: result.mail.subject, project_ref: result.mail.project_id ?? null, used_refs: ["mail"], data_label: "real" });
+      store.appendEvent({ actor_ref: actor, actor_kind: "human", kind: "mail_register", to: result.mail.subject, project_ref: result.mail.project_id ?? null, used_refs: ["mail"], data_label: "real" });
       return send(res, 200, result);
     }
     if (path === "/api/mail") return send(res, 200, store.mail({
@@ -301,7 +303,7 @@ const server = createServer(async (req, res) => {
       const provider = process.env.ERP_CHAT_PROVIDER || "stub";
       const r = await answerFromManual({ store, question: message, thread_id, provider });
       if (r.error) return send(res, 400, r);
-      store.appendEvent({ actor_ref: "owner", actor_kind: "human", kind: "chat_query", to: r.matched ? "matched" : "unanswered", used_refs: ["chat", "faq"], data_label: "meta", note: thread_id ? `thread=${thread_id}` : null });
+      store.appendEvent({ actor_ref: actor, actor_kind: "human", kind: "chat_query", to: r.matched ? "matched" : "unanswered", used_refs: ["chat", "faq"], data_label: "meta", note: thread_id ? `thread=${thread_id}` : null });
       return send(res, 200, { text: r.text, matched: r.matched, source: r.source, candidates: r.candidates || [], mode: r.mode, external: r.external, llm: r.llm });
     }
     if (path === "/api/faq" && req.method === "GET") return send(res, 200, store.faqs({ topic: qp.topic }));
@@ -317,7 +319,7 @@ const server = createServer(async (req, res) => {
       const b = JSON.parse(body || "{}");
       const r = store.upsertKnowledge({ ...b, data_label: "real" });
       if (r.error) return send(res, 400, r);
-      store.appendEvent({ actor_ref: "owner", actor_kind: "human", kind: "knowledge_upsert", item_ref: r.id, to: b.title, used_refs: b.source_ref ? [b.source_ref] : [], data_label: "real" });
+      store.appendEvent({ actor_ref: actor, actor_kind: "human", kind: "knowledge_upsert", item_ref: r.id, to: b.title, used_refs: b.source_ref ? [b.source_ref] : [], data_label: "real" });
       return send(res, 200, r);
     }
     if (path === "/api/knowledge/search") return send(res, 200, store.catalogSearch(qp.q ?? ""));
@@ -331,7 +333,7 @@ const server = createServer(async (req, res) => {
     if (path === "/api/embeds" && req.method === "POST") {
       let body = ""; for await (const chunk of req) body += chunk;
       const r = store.upsertEmbed({ ...JSON.parse(body || "{}"), data_label: "real" });
-      if (!r.error) store.appendEvent({ actor_ref: "owner", actor_kind: "human", kind: "embed_register", to: r.id, used_refs: ["embed_view"], data_label: "meta" });
+      if (!r.error) store.appendEvent({ actor_ref: actor, actor_kind: "human", kind: "embed_register", to: r.id, used_refs: ["embed_view"], data_label: "meta" });
       return send(res, r.error ? 400 : 200, r);
     }
     if (path === "/api/calculators/example" && req.method === "POST") {
@@ -353,7 +355,7 @@ const server = createServer(async (req, res) => {
       const id = JSON.parse(body || "{}").id;
       const r = store.activateCalculator(id);
       if (r.error) return send(res, 400, r);
-      store.appendEvent({ actor_ref: "owner", actor_kind: "human", kind: "calculator_activate", item_ref: id, used_refs: ["calculator"], data_label: "real" });
+      store.appendEvent({ actor_ref: actor, actor_kind: "human", kind: "calculator_activate", item_ref: id, used_refs: ["calculator"], data_label: "real" });
       return send(res, 200, r);
     }
     if (path === "/api/chat/unanswered") return send(res, 200, store.unansweredQueries(qp.limit ? Number(qp.limit) : 50));
@@ -363,7 +365,7 @@ const server = createServer(async (req, res) => {
       const { stage_id, force } = JSON.parse(body || "{}");
       const result = store.clearStage(stage_id, { force: !!force });
       if (result.error) return send(res, result.error === "stage_not_found" ? 404 : 409, result);
-      store.appendEvent({ actor_ref: "owner", actor_kind: "human", kind: "gate_clear", to: stage_id, project_ref: result.project_id, used_refs: ["gates"], data_label: "real", note: result.forced ? `forced(${result.mode})` : result.mode });
+      store.appendEvent({ actor_ref: actor, actor_kind: "human", kind: "gate_clear", to: stage_id, project_ref: result.project_id, used_refs: ["gates"], data_label: "real", note: result.forced ? `forced(${result.mode})` : result.mode });
       return send(res, 200, result);
     }
     if (path === "/api/settings/gate_mode" && req.method === "GET") return send(res, 200, { mode: store.gateMode() });
@@ -371,7 +373,7 @@ const server = createServer(async (req, res) => {
       let body = ""; for await (const chunk of req) body += chunk;
       const { mode } = JSON.parse(body || "{}");
       const r = store.setGateMode(mode);
-      store.appendEvent({ actor_ref: "owner", actor_kind: "human", kind: "gate_mode_set", to: r.mode, used_refs: ["gates", "settings"], data_label: "real" });
+      store.appendEvent({ actor_ref: actor, actor_kind: "human", kind: "gate_mode_set", to: r.mode, used_refs: ["gates", "settings"], data_label: "real" });
       return send(res, 200, r);
     }
     // P-2 SE 스케줄러 + P-1 완결성 요구
@@ -393,7 +395,7 @@ const server = createServer(async (req, res) => {
       const b = JSON.parse(body || "{}");
       const r = store.upsertDeliverable(b.template_key, b.anchor_stage_code, b.deliverable_name, { offset_days: b.offset_days, default_artifact_type: b.default_artifact_type });
       if (r.error) return send(res, 400, r);
-      store.appendEvent({ actor_ref: "owner", actor_kind: "human", kind: "deliverable_edit", to: `${b.template_key}/${b.deliverable_name}=${b.offset_days}`, used_refs: ["se_stage_template"], data_label: "real" });
+      store.appendEvent({ actor_ref: actor, actor_kind: "human", kind: "deliverable_edit", to: `${b.template_key}/${b.deliverable_name}=${b.offset_days}`, used_refs: ["se_stage_template"], data_label: "real" });
       return send(res, 200, r);
     }
     if (path === "/api/requirements" && req.method === "GET") return send(res, 200, store.artifactRequirements({ scope_kind: qp.scope_kind, scope_key: qp.scope_key }));
@@ -422,13 +424,13 @@ const server = createServer(async (req, res) => {
     }
     if (path === "/api/proposals/approve" && req.method === "POST") {
       let body = ""; for await (const chunk of req) body += chunk;
-      const r = store.approveProposal(JSON.parse(body || "{}").id, { decided_by: "owner" });
+      const r = store.approveProposal(JSON.parse(body || "{}").id, { decided_by: actor });
       return send(res, r.error ? 400 : 200, r);
     }
     if (path === "/api/proposals/reject" && req.method === "POST") {
       let body = ""; for await (const chunk of req) body += chunk;
       const b = JSON.parse(body || "{}");
-      const r = store.rejectProposal(b.id, { decided_by: "owner", reason: b.reason ?? null });
+      const r = store.rejectProposal(b.id, { decided_by: actor, reason: b.reason ?? null });
       return send(res, r.error ? 400 : 200, r);
     }
     if (path === "/api/recommenders/run" && req.method === "POST") {
@@ -443,7 +445,7 @@ const server = createServer(async (req, res) => {
       let body = ""; for await (const chunk of req) body += chunk;
       const r = store.upsertPart({ ...JSON.parse(body || "{}"), data_label: "real" });
       if (r.error) return send(res, 400, r);
-      store.appendEvent({ actor_ref: "owner", actor_kind: "human", kind: "part_upsert", to: r.id, used_refs: ["parts"], data_label: "real" });
+      store.appendEvent({ actor_ref: actor, actor_kind: "human", kind: "part_upsert", to: r.id, used_refs: ["parts"], data_label: "real" });
       return send(res, 200, r);
     }
     if (path === "/api/parts/link" && req.method === "POST") {
@@ -471,7 +473,7 @@ const server = createServer(async (req, res) => {
       const { part_id, location_id, qty } = JSON.parse(body || "{}");
       const r = store.setStock(part_id, location_id, qty);
       if (r.error) return send(res, 400, r);
-      store.appendEvent({ actor_ref: "owner", actor_kind: "human", kind: "stock_set", item_ref: part_id, to: String(qty), used_refs: ["stock"], data_label: "real" });
+      store.appendEvent({ actor_ref: actor, actor_kind: "human", kind: "stock_set", item_ref: part_id, to: String(qty), used_refs: ["stock"], data_label: "real" });
       return send(res, 200, r);
     }
     if (path === "/api/stock/low") return send(res, 200, store.stockLow());
@@ -482,7 +484,7 @@ const server = createServer(async (req, res) => {
       let body = ""; for await (const chunk of req) body += chunk;
       const r = store.createContact({ ...JSON.parse(body || "{}"), data_label: "real" });
       if (r.error) return send(res, 400, r);
-      store.appendEvent({ actor_ref: "owner", actor_kind: "human", kind: "contact_create", to: r.id, used_refs: ["contacts"], data_label: "real" });
+      store.appendEvent({ actor_ref: actor, actor_kind: "human", kind: "contact_create", to: r.id, used_refs: ["contacts"], data_label: "real" });
       return send(res, 200, r);
     }
     if (path === "/api/contacts/link" && req.method === "POST") {
@@ -497,9 +499,9 @@ const server = createServer(async (req, res) => {
     if (path === "/api/attachments/suggest") return send(res, 200, store.suggestPlacement(qp.name ?? ""));
     if (path === "/api/attachments" && req.method === "POST") {
       let body = ""; for await (const chunk of req) body += chunk;
-      const r = store.addAttachment({ ...JSON.parse(body || "{}"), created_by: "owner", data_label: "real" });
+      const r = store.addAttachment({ ...JSON.parse(body || "{}"), created_by: actor, data_label: "real" });
       if (r.error) return send(res, 400, r);
-      store.appendEvent({ actor_ref: "owner", actor_kind: "human", kind: "attachment_add", to: r.id, used_refs: ["attachment"], data_label: "real" });
+      store.appendEvent({ actor_ref: actor, actor_kind: "human", kind: "attachment_add", to: r.id, used_refs: ["attachment"], data_label: "real" });
       return send(res, 200, r);
     }
     // 구매/발주
@@ -514,9 +516,9 @@ const server = createServer(async (req, res) => {
     if (path === "/api/purchases" && req.method === "GET") return send(res, 200, store.purchases({ project: qp.project, party: qp.party, stage: qp.stage }));
     if (path === "/api/purchases" && req.method === "POST") {
       let body = ""; for await (const chunk of req) body += chunk;
-      const r = store.createPurchase({ ...JSON.parse(body || "{}"), created_by: "owner", data_label: "real" });
+      const r = store.createPurchase({ ...JSON.parse(body || "{}"), created_by: actor, data_label: "real" });
       if (r.error) return send(res, 400, r);
-      store.appendEvent({ actor_ref: "owner", actor_kind: "human", kind: "purchase_create", to: r.id, used_refs: ["purchase"], data_label: "real" });
+      store.appendEvent({ actor_ref: actor, actor_kind: "human", kind: "purchase_create", to: r.id, used_refs: ["purchase"], data_label: "real" });
       return send(res, 200, r);
     }
     if (path === "/api/purchases/stage" && req.method === "POST") {
@@ -524,7 +526,7 @@ const server = createServer(async (req, res) => {
       const { id, stage } = JSON.parse(body || "{}");
       const r = store.setPurchaseStage(id, stage);
       if (r.error) return send(res, r.error === "purchase_not_found" ? 404 : 400, r);
-      store.appendEvent({ actor_ref: "owner", actor_kind: "human", kind: "purchase_stage", item_ref: id, from: r.from, to: r.to, used_refs: ["purchase"], data_label: "real" });
+      store.appendEvent({ actor_ref: actor, actor_kind: "human", kind: "purchase_stage", item_ref: id, from: r.from, to: r.to, used_refs: ["purchase"], data_label: "real" });
       return send(res, 200, r);
     }
     if (path === "/api/purchases/link" && req.method === "POST") {
@@ -543,7 +545,7 @@ const server = createServer(async (req, res) => {
       const { project_id, stage_code, name } = JSON.parse(body || "{}");
       const result = store.addGuideArtifact(project_id, stage_code, name);
       if (result.error) return send(res, 400, result);
-      store.appendEvent({ actor_ref: "owner", actor_kind: "human", kind: "guide_artifact_add", item_ref: `${project_id}:${stage_code}`, to: name, project_ref: project_id, used_refs: ["guide", ".registry/skills/se_foldertree_generate"], data_label: "real" });
+      store.appendEvent({ actor_ref: actor, actor_kind: "human", kind: "guide_artifact_add", item_ref: `${project_id}:${stage_code}`, to: name, project_ref: project_id, used_refs: ["guide", ".registry/skills/se_foldertree_generate"], data_label: "real" });
       return send(res, 200, result);
     }
     if (path === "/api/guide/step" && req.method === "POST") {
@@ -551,28 +553,28 @@ const server = createServer(async (req, res) => {
       const { artifact_id, step_key, on } = JSON.parse(body || "{}");
       const result = store.setGuideStep(artifact_id, step_key, on !== false);
       if (result.error) return send(res, 400, result);
-      store.appendEvent({ actor_ref: "owner", actor_kind: "human", kind: on !== false ? "guide_step_done" : "guide_step_undo", item_ref: `guide:${artifact_id}`, to: step_key, project_ref: result.project_id, used_refs: ["guide"], data_label: "real" });
+      store.appendEvent({ actor_ref: actor, actor_kind: "human", kind: on !== false ? "guide_step_done" : "guide_step_undo", item_ref: `guide:${artifact_id}`, to: step_key, project_ref: result.project_id, used_refs: ["guide"], data_label: "real" });
       return send(res, 200, result);
     }
     if (path === "/api/mail/assign" && req.method === "POST") {
       let body = ""; for await (const chunk of req) body += chunk;
       const { mail_ids, project_id, make_items } = JSON.parse(body || "{}");
-      const result = store.assignMails(mail_ids, project_id, { make_items: make_items === true, created_by: "owner" });
+      const result = store.assignMails(mail_ids, project_id, { make_items: make_items === true, created_by: actor });
       if (result.error) return send(res, 400, result);
       for (const r of result.results) {
         if (r.error || r.unchanged) continue;
         store.appendEvent({
-          actor_ref: "owner", actor_kind: "human", kind: "mail_assign",
+          actor_ref: actor, actor_kind: "human", kind: "mail_assign",
           item_ref: r.mail_id, from: r.from, to: project_id, project_ref: project_id,
           used_refs: ["mail"], data_label: "real"
         });
         if (r.item_moved) store.appendEvent({
-          actor_ref: "owner", actor_kind: "human", kind: "item_move",
+          actor_ref: actor, actor_kind: "human", kind: "item_move",
           item_ref: r.item_moved, from: r.from, to: project_id, project_ref: project_id,
           used_refs: ["items", "mail"], data_label: "real"
         });
         if (r.item_created) store.appendEvent({
-          actor_ref: "owner", actor_kind: "human", kind: "item_promote",
+          actor_ref: actor, actor_kind: "human", kind: "item_promote",
           item_ref: r.item_created, from: r.mail_id, project_ref: project_id,
           used_refs: ["items", "mail"], data_label: "real", note: "assign_spawn"
         });
@@ -585,7 +587,7 @@ const server = createServer(async (req, res) => {
       const { name, color } = JSON.parse(body || "{}");
       const result = store.createLabel(name, color);
       if (result.error) return send(res, 400, result);
-      store.appendEvent({ actor_ref: "owner", actor_kind: "human", kind: "label_create", to: result.label.name, used_refs: ["mail_label"], data_label: "real" });
+      store.appendEvent({ actor_ref: actor, actor_kind: "human", kind: "label_create", to: result.label.name, used_refs: ["mail_label"], data_label: "real" });
       return send(res, 200, result);
     }
     if (path === "/api/mail/label" && req.method === "POST") {
@@ -593,7 +595,7 @@ const server = createServer(async (req, res) => {
       const { mail_id, label_id, on } = JSON.parse(body || "{}");
       const result = store.setMailLabel(mail_id, label_id, on !== false);
       if (result.error) return send(res, 400, result);
-      store.appendEvent({ actor_ref: "owner", actor_kind: "human", kind: on !== false ? "label_add" : "label_remove", item_ref: mail_id, to: String(label_id), used_refs: ["mail_label_map"], data_label: "real" });
+      store.appendEvent({ actor_ref: actor, actor_kind: "human", kind: on !== false ? "label_add" : "label_remove", item_ref: mail_id, to: String(label_id), used_refs: ["mail_label_map"], data_label: "real" });
       return send(res, 200, result);
     }
     if (path === "/api/artifacts") return send(res, 200, store.artifacts({ project: qp.project, kind: qp.kind }));
@@ -605,7 +607,7 @@ const server = createServer(async (req, res) => {
       const b = JSON.parse(body || "{}");
       const r = store.setPersonSkill(b.person_id, b.capability_label, { source_ref: b.source_ref ?? null, weight: b.weight ?? 1 });
       if (r.error) return send(res, 400, r);
-      store.appendEvent({ actor_ref: "owner", actor_kind: "human", kind: "person_skill_set", item_ref: b.person_id, to: b.capability_label, used_refs: b.source_ref ? [b.source_ref] : [], data_label: "real" });
+      store.appendEvent({ actor_ref: actor, actor_kind: "human", kind: "person_skill_set", item_ref: b.person_id, to: b.capability_label, used_refs: b.source_ref ? [b.source_ref] : [], data_label: "real" });
       return send(res, 200, r);
     }
     if (path === "/api/nudges") return send(res, 200, store.nudges({ person: qp.person, limit: qp.limit ? Number(qp.limit) : 5 }));
@@ -657,15 +659,15 @@ const server = createServer(async (req, res) => {
       const input = JSON.parse(body || "{}");
       const result = store.createRequest({ ...input, data_label: "real" });
       if (result.error) return send(res, 400, result);
-      store.appendEvent({ actor_ref: "owner", actor_kind: "human", kind: "request_create", to: result.id, project_ref: input.project_id ?? null, used_refs: ["requests"], data_label: "real" });
+      store.appendEvent({ actor_ref: actor, actor_kind: "human", kind: "request_create", to: result.id, project_ref: input.project_id ?? null, used_refs: ["requests"], data_label: "real" });
       return send(res, 200, result);
     }
     if (path === "/api/requests/promote" && req.method === "POST") {
       let body = ""; for await (const chunk of req) body += chunk;
       const { id } = JSON.parse(body || "{}");
-      const result = store.promoteRequest(id, "owner");
+      const result = store.promoteRequest(id, actor);
       if (result.error) return send(res, 400, result);
-      store.appendEvent({ actor_ref: "owner", actor_kind: "human", kind: "item_promote", item_ref: result.item.id, from: id, to: result.item.title, project_ref: result.item.project_id, used_refs: ["items", "requests"], data_label: "real" });
+      store.appendEvent({ actor_ref: actor, actor_kind: "human", kind: "item_promote", item_ref: result.item.id, from: id, to: result.item.title, project_ref: result.item.project_id, used_refs: ["items", "requests"], data_label: "real" });
       return send(res, 200, result);
     }
 
@@ -676,7 +678,7 @@ const server = createServer(async (req, res) => {
       const input = await readJson(req);
       const r = store.addDeliverable(input);
       if (r.error) return send(res, 400, r);
-      store.appendEvent({ actor_ref: "owner", actor_kind: "human", kind: "deliverable_add", to: input.name, project_ref: input.project_id, used_refs: ["deliverables"], data_label: "real" });
+      store.appendEvent({ actor_ref: actor, actor_kind: "human", kind: "deliverable_add", to: input.name, project_ref: input.project_id, used_refs: ["deliverables"], data_label: "real" });
       return send(res, 200, r);
     }
     // 산출물 입력파일(메타·포인터 전용). 종류별 In 하위폴더 제안 + 등록/조회/상태.
@@ -686,7 +688,7 @@ const server = createServer(async (req, res) => {
     if (path === "/api/deliverables/inputs" && req.method === "POST") {
       const r = store.registerDeliverableInput(await readJson(req));
       if (r.error) return send(res, 400, r);
-      store.appendEvent({ actor_ref: "owner", actor_kind: "human", kind: "deliverable_input", to: r.id, used_refs: ["deliverables", "input"], data_label: "real" });
+      store.appendEvent({ actor_ref: actor, actor_kind: "human", kind: "deliverable_input", to: r.id, used_refs: ["deliverables", "input"], data_label: "real" });
       return send(res, 200, r);
     }
     if (path === "/api/deliverables/inputs/status" && req.method === "POST") {
@@ -703,7 +705,7 @@ const server = createServer(async (req, res) => {
       if (safe.error) return send(res, 400, { error: `unsafe_${safe.error}` });
       const r = readSafe(safe);
       if (r.error) return send(res, 500, r);
-      store.appendEvent({ actor_ref: currentAccount(req)?.username || "anon", actor_kind: "human", kind: "input_download", to: qp.id, used_refs: ["fileio"], data_label: "meta" });
+      store.appendEvent({ actor_ref: actor, actor_kind: "human", kind: "input_download", to: qp.id, used_refs: ["fileio"], data_label: "meta" });
       res.writeHead(200, { "content-type": "application/octet-stream", "cache-control": "no-store",
         "content-disposition": `attachment; filename*=UTF-8''${encodeURIComponent(inp.file_name || "file")}` });
       return res.end(r.bytes);
@@ -726,7 +728,7 @@ const server = createServer(async (req, res) => {
       const w = commitUpload(ROOT, target, bytes);
       if (w.error) return send(res, 400, { error: `write_${w.error}` });
       const reg = store.registerDeliverableInput({ deliverable_id: did, subfolder, file_name: filename, pointer: w.rel, source: "erp", sha256: w.sha256, size: w.size, status: "received" });
-      store.appendEvent({ actor_ref: currentAccount(req)?.username || "owner", actor_kind: "human", kind: "input_upload", to: reg.id, project_ref: d.project_id, used_refs: ["fileio"], data_label: "real" });
+      store.appendEvent({ actor_ref: actor, actor_kind: "human", kind: "input_upload", to: reg.id, project_ref: d.project_id, used_refs: ["fileio"], data_label: "real" });
       return send(res, 200, { ok: true, id: reg.id, rel: w.rel, size: w.size, sha256: w.sha256 });
     }
     // 일정(due) owner 직접 지정 — '언제'는 RAG/스캔에 없어 사람이 변경한다(나중에 Codex 자동 분석 예정).
@@ -735,16 +737,16 @@ const server = createServer(async (req, res) => {
       const b = JSON.parse(body || "{}");
       const r = store.setDeliverableDue(b.id, b.due);
       if (r.error) return send(res, 400, r);
-      store.appendEvent({ actor_ref: "owner", actor_kind: "human", kind: "deliverable_due_edit", to: `${b.id}=${r.due ?? "(해제)"}`, used_refs: ["deliverables"], data_label: "real" });
+      store.appendEvent({ actor_ref: actor, actor_kind: "human", kind: "deliverable_due_edit", to: `${b.id}=${r.due ?? "(해제)"}`, used_refs: ["deliverables"], data_label: "real" });
       return send(res, 200, r);
     }
     // 일정→할일: 산출물 1건 → 그 산출물 작성 할일 생성(SE앵커·연결·마감 상속). 중복 spawn 방지.
     if (path === "/api/deliverables/spawn-task" && req.method === "POST") {
       let body = ""; for await (const chunk of req) body += chunk;
       const b = JSON.parse(body || "{}");
-      const r = store.spawnTaskFromDeliverable(b.id, { work_type: b.work_type, created_by: currentAccount(req)?.username ?? "owner" });
+      const r = store.spawnTaskFromDeliverable(b.id, { work_type: b.work_type, created_by: actor });
       if (r.error) return send(res, 400, r);
-      store.appendEvent({ actor_ref: currentAccount(req)?.username ?? "owner", actor_kind: "human", kind: "task_spawn_deliverable", item_ref: r.item.id, to: r.item.title, project_ref: r.item.project_id, used_refs: ["deliverables", "items"], data_label: "real" });
+      store.appendEvent({ actor_ref: actor, actor_kind: "human", kind: "task_spawn_deliverable", item_ref: r.item.id, to: r.item.title, project_ref: r.item.project_id, used_refs: ["deliverables", "items"], data_label: "real" });
       return send(res, 200, r);
     }
     // 완료게이트 검토단계 진행/되돌리기(작성됨→본인→팀→리드=완료). 검토자 식별은 이벤트 actor 에 기록.
@@ -753,7 +755,7 @@ const server = createServer(async (req, res) => {
       const b = JSON.parse(body || "{}");
       const r = store.setDeliverableReview(b.id, b.stage);
       if (r.error) return send(res, 400, r);
-      store.appendEvent({ actor_ref: currentAccount(req)?.username ?? "owner", actor_kind: "human", kind: "deliverable_review", to: `${b.id}=${r.review_stage}`, used_refs: ["deliverables"], data_label: "real" });
+      store.appendEvent({ actor_ref: actor, actor_kind: "human", kind: "deliverable_review", to: `${b.id}=${r.review_stage}`, used_refs: ["deliverables"], data_label: "real" });
       return send(res, 200, r);
     }
 
@@ -764,7 +766,7 @@ const server = createServer(async (req, res) => {
       const input = JSON.parse(body || "{}");
       const result = store.createMeeting({ ...input, data_label: "real" });
       if (result.error) return send(res, 400, result);
-      store.appendEvent({ actor_ref: "owner", actor_kind: "human", kind: "meeting_create", to: result.id, project_ref: input.project_id ?? null, used_refs: ["meetings"], data_label: "real" });
+      store.appendEvent({ actor_ref: actor, actor_kind: "human", kind: "meeting_create", to: result.id, project_ref: input.project_id ?? null, used_refs: ["meetings"], data_label: "real" });
       return send(res, 200, result);
     }
     if (path === "/api/meetings/actions" && req.method === "GET") return send(res, 200, store.meetingActions(qp.meeting ?? ""));
