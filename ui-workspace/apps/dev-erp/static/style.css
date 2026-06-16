@@ -432,14 +432,23 @@ td.dim { color: var(--line); }
 .module-incoming li { margin: 3px 0; }
 
 @media (max-width: 800px) {
-  /* 모바일: util(검색·바로가기) / brand(그룹탭) / side(가로 하위) / main 세로 적층 */
-  #app { grid-template-columns: 1fr; grid-template-rows: auto auto auto 1fr;
-    grid-template-areas: "util" "brand" "side" "main"; }
+  /* 모바일/태블릿: util(검색·바로가기) / brand(그룹탭) / side(가로 하위) / main 세로 적층 */
+  #app { grid-template-columns: 1fr; grid-template-rows: auto auto auto auto 1fr;
+    grid-template-areas: "util" "brand" "subbar" "side" "main"; overflow-x: hidden; }
   .util-bar { flex-wrap: wrap; }
   .brand-bar { flex-wrap: wrap; }
   .side { flex-direction: row; align-items: center; overflow-x: auto; }
   nav#nav { flex-direction: row; }
   .side-bottom { margin: 0 0 0 auto; }
+  /* 넘치는 툴바·필터·라벨 줄은 줄바꿈 */
+  .topbar, .filters, .label-bar, .assign-bar, .item-form { flex-wrap: wrap; }
+  .view { padding: 14px 12px; }
+  #subBar { overflow-x: auto; }
+  /* 넓은 테이블: 가로 스크롤을 테이블 안으로 가둠(페이지 전체가 옆으로 밀리지 않게) */
+  .view table { display: block; overflow-x: auto; -webkit-overflow-scrolling: touch; max-width: 100%; }
+  /* 메일: 리스트+상세 2단 → 1단(상세는 리스트 아래, 화면고정 높이 해제) */
+  .mail-split:has(.mail-detail) { grid-template-columns: 1fr; }
+  .mail-detail { position: static; height: auto; }
 }
 
 /* 가이드형 워크플로우 (run13): 위→아래 스테퍼 */
