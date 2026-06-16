@@ -3,11 +3,11 @@
 import path from "node:path";
 import process from "node:process";
 import { auditWorkspaceJunctions } from "./audit.mjs";
-import { inventoryWorkspaceSystem } from "./system_inventory.mjs";
+import { inventoryWorkspaceSystem, writeWorkspaceSystemReport } from "./system_inventory.mjs";
 
 async function main() {
   const [command = "audit", ...rest] = process.argv.slice(2);
-  if (!["audit", "inventory-system"].includes(command)) {
+  if (!["audit", "inventory-system", "report-system"].includes(command)) {
     process.stderr.write(`unknown command: ${command}\n`);
     process.exitCode = 2;
     return;
@@ -28,6 +28,30 @@ async function main() {
       process.stdout.write(`${JSON.stringify(result, null, 2)}\n`);
     } else {
       process.stdout.write(formatInventoryText(result));
+    }
+
+    if (args.strict && result.status !== "passed") {
+      process.exitCode = 1;
+    }
+    return;
+  }
+
+  if (command === "report-system") {
+    const result = writeWorkspaceSystemReport({
+      repoRoot,
+      bindingRef: args.binding ?? "_workmeta/system/bindings/workspace_junctions.yaml",
+      sourceRootRef: args["source-root"] ?? "_workspaces/system",
+      maxDepth: args["max-depth"],
+      maxEntries: args["max-entries"],
+      nodeId: args["node-id"],
+      nodeIdentityRef: args["node-identity"] ?? "guild_hall/state/local/node_identity.yaml",
+      reportRootRef: args["report-root"] ?? "_workmeta/system/reports/workspace_system_inventory",
+    });
+
+    if (args.json) {
+      process.stdout.write(`${JSON.stringify(result, null, 2)}\n`);
+    } else {
+      process.stdout.write(formatReportText(result));
     }
 
     if (args.strict && result.status !== "passed") {
@@ -95,6 +119,23 @@ function formatInventoryText(result) {
   }
 
   return `${lines.join("\n")}\n`;
+}
+
+function formatReportText(result) {
+  return `${[
+    `workspace_system_report: ${result.status}`,
+    `reason: ${result.reason}`,
+    `node_id: ${result.node_id}`,
+    `source_root: ${result.source_root_ref}`,
+    `report: ${result.report_ref}`,
+    `json: ${result.report_files.json_ref}`,
+    `markdown: ${result.report_files.markdown_ref}`,
+    `csv: ${result.report_files.csv_ref}`,
+    `scan_complete: ${result.summary.scan_complete}`,
+    `scan_limited: ${result.summary.scan_limited_count}`,
+    `top_level_entries: ${result.summary.top_level_entry_count}`,
+    `blockers: ${result.summary.blocker_count}`,
+  ].join("\n")}\n`;
 }
 
 function parseArgs(argv) {

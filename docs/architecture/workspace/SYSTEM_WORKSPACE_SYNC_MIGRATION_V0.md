@@ -115,6 +115,34 @@ types, file sizes, modified timestamps, extension counts, and aggregate counts.
 It must not read file contents, print host-local absolute paths, create or
 repair junctions, move files, delete files, upload files, or change permissions.
 
+For the normal multi-PC collection path, generate a stored private report
+instead of pasting a long prompt:
+
+```text
+npm.cmd run guild-hall:workspace-system:report
+```
+
+If the PC has no local node identity file, pass a generic alias:
+
+```text
+npm.cmd run guild-hall:workspace-system:report -- --node-id node_alias
+```
+
+The report command creates this folder shape in the nested private `_workmeta`
+repo:
+
+```text
+_workmeta/system/reports/workspace_system_inventory/<timestamp>_<node_id>/
+  workspace_system_inventory.json
+  workspace_system_inventory_report.md
+  workspace_system_top_level.csv
+```
+
+The report folder is the portable evidence packet for comparison across PCs.
+The command refuses to write the report if `_workmeta/.git` is missing. Commit
+and push only that report folder from `_workmeta` when the owner wants to
+collect it centrally. Do not commit `_workspaces/system/**` payloads.
+
 The default inventory command must be a full recursive metadata scan. A bounded
 run using `--max-depth` or `--max-entries` is acceptable for debugging, but any
 `scan_limited` result is an activation blocker and cannot be treated as a
@@ -125,13 +153,20 @@ normal local `_workspaces/system` directory. This is expected during migration;
 it is not a failure of the runbook. It means the PC still needs preservation,
 classification, and link repair.
 
-Suggested private metadata location:
+Canonical private report location for the automated command:
+
+```text
+_workmeta/system/reports/workspace_system_inventory/
+```
+
+Manual aggregate comparison packets may still be written under a specific
+migration run folder after the per-PC reports are collected:
 
 ```text
 _workmeta/system/reports/system_workspace_sync/<migration_id>/
 ```
 
-Suggested public-safe manifest shape:
+Legacy or manual public-safe manifest shape:
 
 ```yaml
 schema_version: soulforge.system_workspace_manifest.v0

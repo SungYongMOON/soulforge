@@ -1,11 +1,14 @@
-import { existsSync, lstatSync, readdirSync, readFileSync, statSync } from "node:fs";
+import { existsSync, lstatSync, mkdirSync, readdirSync, readFileSync, writeFileSync } from "node:fs";
 import path from "node:path";
 import YAML from "yaml";
 
 export const SYSTEM_INVENTORY_SCHEMA_VERSION = "soulforge.workspace_system_inventory.v0";
+export const SYSTEM_INVENTORY_REPORT_SCHEMA_VERSION = "soulforge.workspace_system_inventory_report.v0";
 
 const DEFAULT_BINDING_REF = "_workmeta/system/bindings/workspace_junctions.yaml";
 const DEFAULT_SYSTEM_REF = "_workspaces/system";
+const DEFAULT_NODE_IDENTITY_REF = "guild_hall/state/local/node_identity.yaml";
+const DEFAULT_REPORT_ROOT_REF = "_workmeta/system/reports/workspace_system_inventory";
 const DEFAULT_MAX_DEPTH = Number.POSITIVE_INFINITY;
 const DEFAULT_MAX_ENTRIES = Number.POSITIVE_INFINITY;
 
@@ -25,7 +28,9 @@ const CLASS_NAMES = [
 export function inventoryWorkspaceSystem(options = {}) {
   const repoRoot = path.resolve(options.repoRoot ?? process.cwd());
   const bindingRef = normalizeRepoPath(options.bindingRef ?? DEFAULT_BINDING_REF);
+  assertSafeBindingRef(bindingRef);
   const sourceRootRef = normalizeRepoPath(options.sourceRootRef ?? DEFAULT_SYSTEM_REF);
+  assertSystemSourceRootRef(sourceRootRef);
   const binding = readBinding({ repoRoot, bindingRef });
   const bindingEntry = findSystemBinding(binding.data, sourceRootRef);
   const bindingState = bindingEntry?.state ?? "missing";
@@ -77,6 +82,87 @@ export function inventoryWorkspaceSystem(options = {}) {
     rows,
     blockers,
     next_actions: nextActionsFor({ status, observedLocalState, blockers }),
+  };
+}
+
+export function writeWorkspaceSystemReport(options = {}) {
+  const repoRoot = path.resolve(options.repoRoot ?? process.cwd());
+  const inventory = inventoryWorkspaceSystem(options);
+  const nodeIdentityRef = normalizeRepoPath(options.nodeIdentityRef ?? DEFAULT_NODE_IDENTITY_REF);
+  assertSafeNodeIdentityRef(nodeIdentityRef);
+  const nodeIdentity = readNodeIdentity({
+    repoRoot,
+    nodeIdentityRef,
+    nodeId: options.nodeId,
+  });
+  const collectedAtUtc = new Date();
+  const timestamp = compactUtcTimestamp(collectedAtUtc);
+  const safeNodeId = safePathSegment(nodeIdentity.node_id);
+  const reportRootRef = normalizeRepoPath(options.reportRootRef ?? DEFAULT_REPORT_ROOT_REF);
+  assertSafeReportRootRef(reportRootRef);
+  assertPrivateWorkmetaRepoPresent(repoRoot);
+  const reportRef = normalizeRepoPath(path.posix.join(reportRootRef, `${timestamp}_${safeNodeId}`));
+  const workmetaReportRef = stripRequiredPrefix(reportRef, "_workmeta/");
+  const reportDir = path.resolve(repoRoot, reportRef);
+  mkdirSync(reportDir, { recursive: true });
+
+  const context = {
+    schema_version: SYSTEM_INVENTORY_REPORT_SCHEMA_VERSION,
+    report_id: `${timestamp}_${safeNodeId}`,
+    collected_at_utc: collectedAtUtc.toISOString(),
+    node_id: nodeIdentity.node_id,
+    node_role: nodeIdentity.node_role,
+    bootstrap_profile: nodeIdentity.bootstrap_profile,
+    node_identity_ref: nodeIdentity.ref,
+    source_root_ref: inventory.source_root_ref,
+    report_ref: reportRef,
+    workmeta_report_ref: workmetaReportRef,
+  };
+
+  const jsonRef = normalizeRepoPath(path.posix.join(reportRef, "workspace_system_inventory.json"));
+  const markdownRef = normalizeRepoPath(path.posix.join(reportRef, "workspace_system_inventory_report.md"));
+  const csvRef = normalizeRepoPath(path.posix.join(reportRef, "workspace_system_top_level.csv"));
+  const reportPayload = {
+    ...context,
+    inventory,
+  };
+
+  writeFileSync(path.resolve(repoRoot, jsonRef), `${JSON.stringify(reportPayload, null, 2)}\n`, "utf8");
+  writeFileSync(path.resolve(repoRoot, markdownRef), formatWorkspaceSystemReportMarkdown({ context, inventory }), "utf8");
+  writeFileSync(path.resolve(repoRoot, csvRef), formatWorkspaceSystemTopLevelCsv(inventory.rows), "utf8");
+
+  return {
+    schema_version: SYSTEM_INVENTORY_REPORT_SCHEMA_VERSION,
+    report_id: context.report_id,
+    status: inventory.status,
+    reason: inventory.reason,
+    node_id: context.node_id,
+    node_role: context.node_role,
+    source_root_ref: inventory.source_root_ref,
+    report_ref: reportRef,
+    workmeta_report_ref: workmetaReportRef,
+    report_files: {
+      json_ref: jsonRef,
+      markdown_ref: markdownRef,
+      csv_ref: csvRef,
+    },
+    summary: {
+      scan_complete: inventory.counts.scan_complete,
+      scan_limited_count: inventory.counts.scan_limited_count,
+      top_level_entry_count: inventory.counts.top_level_entry_count,
+      blocker_count: inventory.counts.blocker_count,
+      recursive_file_count: inventory.counts.recursive_file_count,
+      recursive_directory_count: inventory.counts.recursive_directory_count,
+      recursive_size_bytes: inventory.counts.recursive_size_bytes,
+    },
+    boundary: {
+      metadata_only: true,
+      workspace_payload_contents_read: false,
+      source_tree_mutations_performed: false,
+      report_files_written: true,
+      host_local_absolute_paths_in_output: false,
+      secrets_or_sessions_read: false,
+    },
   };
 }
 
@@ -466,6 +552,254 @@ function nextActionsFor({ status, observedLocalState, blockers }) {
 
 function normalizeRepoPath(value) {
   return String(value ?? "").split(path.sep).join("/").replace(/\\/gu, "/").replace(/^\.\//u, "");
+}
+
+function readNodeIdentity({ repoRoot, nodeIdentityRef, nodeId }) {
+  if (nodeId) {
+    return {
+      ref: null,
+      node_id: normalizeNodeAlias(nodeId),
+      node_role: "unknown",
+      bootstrap_profile: "unknown",
+    };
+  }
+  const identityPath = path.resolve(repoRoot, nodeIdentityRef);
+  if (!existsSync(identityPath)) {
+    return {
+      ref: nodeIdentityRef,
+      node_id: "unknown_node",
+      node_role: "unknown",
+      bootstrap_profile: "unknown",
+    };
+  }
+  try {
+    const raw = readFileSync(identityPath, "utf8").replace(/^\uFEFF/u, "");
+    const parsed = YAML.parse(raw) ?? {};
+    return {
+      ref: nodeIdentityRef,
+      node_id: normalizeNodeAlias(parsed.node_id ?? "unknown_node"),
+      node_role: normalizeNodeAlias(parsed.node_role ?? "unknown"),
+      bootstrap_profile: normalizeNodeAlias(parsed.bootstrap_profile ?? "unknown"),
+    };
+  } catch {
+    return {
+      ref: nodeIdentityRef,
+      node_id: "unknown_node",
+      node_role: "unknown",
+      bootstrap_profile: "unknown",
+    };
+  }
+}
+
+function formatWorkspaceSystemReportMarkdown({ context, inventory }) {
+  const classLines = CLASS_NAMES
+    .map((className) => `| \`${className}\` | ${inventory.counts[`${className}_count`] ?? 0} |`)
+    .join("\n");
+  const rowLines = inventory.rows
+    .map((row) =>
+      [
+        escapeMarkdownTableCell(`\`${row.relative_path}\``),
+        `\`${row.class}\``,
+        String(row.file_count ?? 0),
+        String(row.directory_count ?? 0),
+        String(row.size_bytes ?? 0),
+        String(row.scan_complete ?? false),
+        escapeMarkdownTableCell(row.proposed_action),
+        String(row.needs_owner_check ?? false),
+      ].join(" | "),
+    )
+    .map((line) => `| ${line} |`)
+    .join("\n");
+  const blockerLines = inventory.blockers.length > 0
+    ? inventory.blockers.map((blocker) => `- \`${blocker}\``).join("\n")
+    : "- none";
+  const actionLines = inventory.next_actions.length > 0
+    ? inventory.next_actions.map((action) => `- ${action}`).join("\n")
+    : "- none";
+
+  return `# Workspace System Inventory Report
+
+## Summary
+
+| field | value |
+| --- | --- |
+| report_id | \`${context.report_id}\` |
+| collected_at_utc | \`${context.collected_at_utc}\` |
+| node_id | \`${context.node_id}\` |
+| node_role | \`${context.node_role}\` |
+| source_root_ref | \`${inventory.source_root_ref}\` |
+| status | \`${inventory.status}\` |
+| reason | \`${inventory.reason}\` |
+| binding_state | \`${inventory.binding_state}\` |
+| observed_local_state | \`${inventory.observed_local_state}\` |
+| migration_status | \`${inventory.migration_status}\` |
+| scan_complete | \`${inventory.counts.scan_complete}\` |
+| scan_limited_count | \`${inventory.counts.scan_limited_count}\` |
+| top_level_entry_count | \`${inventory.counts.top_level_entry_count}\` |
+| recursive_file_count | \`${inventory.counts.recursive_file_count}\` |
+| recursive_directory_count | \`${inventory.counts.recursive_directory_count}\` |
+| recursive_size_bytes | \`${inventory.counts.recursive_size_bytes}\` |
+
+## Boundary
+
+- Metadata-only report.
+- No workspace payload bodies, document contents, mail bodies, source chunks, or secrets were opened or printed.
+- Host-local absolute paths and cloud account paths are not recorded.
+- No source-tree move, copy, delete, upload, permission change, or junction creation was performed.
+
+## Class Counts
+
+| class | top-level rows |
+| --- | ---: |
+${classLines}
+
+## Top-Level Rows
+
+| path | class | files | dirs | bytes | scan_complete | proposed_action | owner_check |
+| --- | --- | ---: | ---: | ---: | --- | --- | --- |
+${rowLines}
+
+## Blockers
+
+${blockerLines}
+
+## Next Actions
+
+${actionLines}
+
+## Upload Hint
+
+After reviewing the report, commit only this report folder from the _workmeta repo if the owner wants to collect it centrally:
+
+\`\`\`text
+git -C _workmeta add ${context.workmeta_report_ref}
+git -C _workmeta commit -m "workspace-system inventory report (${context.node_id})"
+git -C _workmeta push origin main
+\`\`\`
+
+Claim ceiling: observed metadata only. This report is not owner approval, source truth, canon promotion, or migration execution.
+`;
+}
+
+function formatWorkspaceSystemTopLevelCsv(rows) {
+  const headers = [
+    "relative_path",
+    "class",
+    "reason_codes",
+    "proposed_action",
+    "needs_owner_check",
+    "file_count",
+    "directory_count",
+    "symlink_count",
+    "size_bytes",
+    "visited_count",
+    "scan_complete",
+    "scan_limited",
+    "scan_limited_reason",
+    "modified_at_utc",
+    "blockers",
+  ];
+  const lines = [headers.map(csvCell).join(",")];
+  for (const row of rows) {
+    lines.push(
+      [
+        row.relative_path,
+        row.class,
+        (row.reason_codes ?? []).join(";"),
+        row.proposed_action,
+        row.needs_owner_check,
+        row.file_count,
+        row.directory_count,
+        row.symlink_count,
+        row.size_bytes,
+        row.visited_count,
+        row.scan_complete,
+        row.scan_limited,
+        row.scan_limited_reason ?? "",
+        row.modified_at_utc,
+        (row.blockers ?? []).join(";"),
+      ]
+        .map(csvCell)
+        .join(","),
+    );
+  }
+  return `${lines.join("\n")}\n`;
+}
+
+function csvCell(value) {
+  const text = String(value ?? "");
+  return `"${text.replace(/"/gu, '""')}"`;
+}
+
+function escapeMarkdownTableCell(value) {
+  return String(value ?? "").replace(/\|/gu, "\\|").replace(/\r?\n/gu, " ");
+}
+
+function compactUtcTimestamp(date) {
+  return date.toISOString().replace(/[-:]/gu, "").replace(/\.\d{3}Z$/u, "Z");
+}
+
+function safePathSegment(value) {
+  const normalized = String(value ?? "unknown_node").replace(/[^A-Za-z0-9_.-]/gu, "_");
+  return normalized || "unknown_node";
+}
+
+function normalizeNodeAlias(value) {
+  const text = String(value ?? "unknown_node").trim();
+  const normalized = text
+    .replace(/[^A-Za-z0-9_.-]/gu, "_")
+    .replace(/_+/gu, "_")
+    .replace(/^[_.-]+|[_.-]+$/gu, "");
+  return (normalized || "unknown_node").slice(0, 64).replace(/[_.-]+$/gu, "") || "unknown_node";
+}
+
+function assertSystemSourceRootRef(sourceRootRef) {
+  assertSafeRepoRelativeRef(sourceRootRef, "source root");
+  if (sourceRootRef !== DEFAULT_SYSTEM_REF) {
+    throw new Error(`workspace system inventory source root must be ${DEFAULT_SYSTEM_REF}`);
+  }
+}
+
+function assertSafeBindingRef(bindingRef) {
+  assertSafeRepoRelativeRef(bindingRef, "binding ref");
+  if (!bindingRef.startsWith("_workmeta/system/bindings/")) {
+    throw new Error("workspace system inventory binding ref must stay under _workmeta/system/bindings/");
+  }
+}
+
+function assertSafeNodeIdentityRef(nodeIdentityRef) {
+  assertSafeRepoRelativeRef(nodeIdentityRef, "node identity ref");
+  if (nodeIdentityRef !== DEFAULT_NODE_IDENTITY_REF) {
+    throw new Error(`workspace system inventory node identity ref must be ${DEFAULT_NODE_IDENTITY_REF}`);
+  }
+}
+
+function assertSafeReportRootRef(reportRootRef) {
+  assertSafeRepoRelativeRef(reportRootRef, "report root");
+  if (!reportRootRef.startsWith("_workmeta/system/reports/")) {
+    throw new Error("workspace system inventory reports must stay under _workmeta/system/reports/");
+  }
+}
+
+function assertSafeRepoRelativeRef(repoRef, label) {
+  const value = String(repoRef ?? "");
+  const segments = value.split("/");
+  if (!value || /^(?:[A-Za-z]:|\/)/u.test(value) || segments.includes("..") || segments.includes("")) {
+    throw new Error(`workspace system inventory ${label} must be a safe repo-relative path`);
+  }
+}
+
+function assertPrivateWorkmetaRepoPresent(repoRoot) {
+  if (!existsSync(path.resolve(repoRoot, "_workmeta", ".git"))) {
+    throw new Error("workspace system inventory report requires the nested private _workmeta repo at _workmeta/.git");
+  }
+}
+
+function stripRequiredPrefix(value, prefix) {
+  if (!value.startsWith(prefix)) {
+    throw new Error(`expected ${value} to start with ${prefix}`);
+  }
+  return value.slice(prefix.length);
 }
 
 function normalizeScanLimit(value, fallback) {

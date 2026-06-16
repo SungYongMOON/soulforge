@@ -1,6 +1,6 @@
 import assert from "node:assert/strict";
 import { spawnSync } from "node:child_process";
-import { mkdirSync, mkdtempSync, symlinkSync, writeFileSync } from "node:fs";
+import { existsSync, mkdirSync, mkdtempSync, readFileSync, symlinkSync, writeFileSync } from "node:fs";
 import os from "node:os";
 import path from "node:path";
 import test from "node:test";
@@ -197,9 +197,137 @@ test("inventory-system CLI accepts bounded scan options and reports scan limits"
   assert.equal(cli.stdout.includes(repoRoot), false);
 });
 
-function makeFixture({ bindingState, localSystemDirectory = false } = {}) {
+test("report-system CLI writes metadata-only report files for another PC upload", () => {
+  const repoRoot = makeFixture({ bindingState: "planned", localSystemDirectory: true });
+  mkdirSync(path.join(repoRoot, "_workspaces", "system", "rag"), { recursive: true });
+  mkdirSync(path.join(repoRoot, "_workspaces", "system", "p25_054_reference_payloads"), { recursive: true });
+  writeFileSync(
+    path.join(repoRoot, "_workspaces", "system", "p25_054_reference_payloads", "payload.meta"),
+    "metadata\n",
+    "utf8",
+  );
+
+  const cli = spawnSync(
+    process.execPath,
+    [CLI_PATH, "report-system", "--repo-root", repoRoot, "--node-id", "pc-fixture", "--json"],
+    {
+      encoding: "utf8",
+    },
+  );
+
+  assert.equal(cli.status, 0);
+  assert.equal(cli.stderr, "");
+  const result = JSON.parse(cli.stdout);
+  assert.equal(result.status, "review_required");
+  assert.equal(result.node_id, "pc-fixture");
+  assert.equal(result.summary.scan_complete, true);
+  assert.equal(result.report_ref.startsWith("_workmeta/system/reports/workspace_system_inventory/"), true);
+  assert.equal(result.report_files.json_ref.startsWith(`${result.report_ref}/`), true);
+  assert.equal(result.report_files.markdown_ref.startsWith(`${result.report_ref}/`), true);
+  assert.equal(result.report_files.csv_ref.startsWith(`${result.report_ref}/`), true);
+
+  const jsonPath = path.join(repoRoot, result.report_files.json_ref);
+  const markdownPath = path.join(repoRoot, result.report_files.markdown_ref);
+  const csvPath = path.join(repoRoot, result.report_files.csv_ref);
+  assert.equal(existsSync(jsonPath), true);
+  assert.equal(existsSync(markdownPath), true);
+  assert.equal(existsSync(csvPath), true);
+
+  const jsonReport = JSON.parse(readFileSync(jsonPath, "utf8"));
+  const markdownReport = readFileSync(markdownPath, "utf8");
+  const csvReport = readFileSync(csvPath, "utf8");
+  assert.equal(jsonReport.inventory.counts.project_reference_payload_review_count, 1);
+  assert(markdownReport.includes("Metadata-only report."));
+  assert(markdownReport.includes(`git -C _workmeta add ${result.workmeta_report_ref}`));
+  assert.equal(markdownReport.includes(`git -C _workmeta add ${result.report_ref}`), false);
+  assert(csvReport.includes('"relative_path","class"'));
+  assert.equal(cli.stdout.includes(repoRoot), false);
+  assert.equal(JSON.stringify(jsonReport).includes(repoRoot), false);
+  assert.equal(markdownReport.includes(repoRoot), false);
+  assert.equal(csvReport.includes(repoRoot), false);
+});
+
+test("report-system CLI sanitizes node aliases before writing output", () => {
+  const repoRoot = makeFixture({ bindingState: "planned", localSystemDirectory: true });
+
+  const cli = spawnSync(
+    process.execPath,
+    [CLI_PATH, "report-system", "--repo-root", repoRoot, "--node-id", "bad/path name", "--json"],
+    {
+      encoding: "utf8",
+    },
+  );
+
+  assert.equal(cli.status, 0);
+  assert.equal(cli.stderr, "");
+  const result = JSON.parse(cli.stdout);
+  assert.equal(result.node_id, "bad_path_name");
+  assert.equal(cli.stdout.includes("bad/path name"), false);
+});
+
+test("report-system CLI refuses report roots outside private report metadata", () => {
+  const repoRoot = makeFixture({ bindingState: "planned", localSystemDirectory: true });
+
+  const cli = spawnSync(
+    process.execPath,
+    [CLI_PATH, "report-system", "--repo-root", repoRoot, "--report-root", "_workspaces/system"],
+    {
+      encoding: "utf8",
+    },
+  );
+
+  assert.notEqual(cli.status, 0);
+  assert(cli.stderr.includes("_workmeta/system/reports/"));
+});
+
+test("report-system CLI refuses source, binding, and identity refs outside the fixed safe surfaces", () => {
+  const repoRoot = makeFixture({ bindingState: "planned", localSystemDirectory: true });
+
+  const badSource = spawnSync(
+    process.execPath,
+    [CLI_PATH, "report-system", "--repo-root", repoRoot, "--source-root", "_workspaces"],
+    { encoding: "utf8" },
+  );
+  const badBinding = spawnSync(
+    process.execPath,
+    [CLI_PATH, "report-system", "--repo-root", repoRoot, "--binding", "_workmeta/system/NIGHT_WORK_HANDOFF.md"],
+    { encoding: "utf8" },
+  );
+  const badIdentity = spawnSync(
+    process.execPath,
+    [CLI_PATH, "report-system", "--repo-root", repoRoot, "--node-identity", "_workmeta/system/NIGHT_WORK_HANDOFF.md"],
+    { encoding: "utf8" },
+  );
+
+  assert.notEqual(badSource.status, 0);
+  assert(badSource.stderr.includes("_workspaces/system"));
+  assert.notEqual(badBinding.status, 0);
+  assert(badBinding.stderr.includes("_workmeta/system/bindings/"));
+  assert.notEqual(badIdentity.status, 0);
+  assert(badIdentity.stderr.includes("guild_hall/state/local/node_identity.yaml"));
+});
+
+test("report-system CLI requires the nested private _workmeta repo", () => {
+  const repoRoot = makeFixture({
+    bindingState: "planned",
+    localSystemDirectory: true,
+    privateWorkmetaRepo: false,
+  });
+
+  const cli = spawnSync(process.execPath, [CLI_PATH, "report-system", "--repo-root", repoRoot], {
+    encoding: "utf8",
+  });
+
+  assert.notEqual(cli.status, 0);
+  assert(cli.stderr.includes("_workmeta/.git"));
+});
+
+function makeFixture({ bindingState, localSystemDirectory = false, privateWorkmetaRepo = true } = {}) {
   const repoRoot = mkdtempSync(path.join(os.tmpdir(), "soulforge-system-inventory-"));
   mkdirSync(path.join(repoRoot, "_workmeta", "system", "bindings"), { recursive: true });
+  if (privateWorkmetaRepo) {
+    mkdirSync(path.join(repoRoot, "_workmeta", ".git"), { recursive: true });
+  }
   mkdirSync(path.join(repoRoot, "_workspaces"), { recursive: true });
   if (localSystemDirectory) {
     mkdirSync(path.join(repoRoot, "_workspaces", "system"), { recursive: true });

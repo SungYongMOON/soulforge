@@ -2,6 +2,18 @@
 
 ## 2026-06-16
 
+### Revision `working` - workspace-system report command added
+
+- Added `guild-hall:workspace-system:report` so another PC can create a
+  metadata-only `_workspaces/system` inventory report without pasting a long
+  prompt.
+- The report command writes JSON, Markdown, and CSV under
+  `_workmeta/system/reports/workspace_system_inventory/<timestamp>_<node_id>/`
+  and keeps payload bodies, local absolute paths, secrets, and workspace
+  mutations out of the capture.
+- Updated the workspace path identity and system migration runbooks to make the
+  report folder the normal private evidence packet for cross-PC comparison.
+
 ### Revision `working` - workspace-system full scan inventory hardened
 
 - Changed `guild-hall:workspace-system:inventory` so the default metadata

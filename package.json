@@ -65,6 +65,7 @@
     "guild-hall:codex-bridge": "node guild_hall/codex_bridge/cli.mjs",
     "guild-hall:workspace-junction:audit": "node guild_hall/workspace_junction/cli.mjs audit",
     "guild-hall:workspace-system:inventory": "node guild_hall/workspace_junction/cli.mjs inventory-system",
+    "guild-hall:workspace-system:report": "node guild_hall/workspace_junction/cli.mjs report-system",
     "guild-hall:healer:run": "node guild_hall/healer/cli.mjs run",
     "guild-hall:snapshot": "node guild_hall/snapshot/cli.mjs --write",
     "guild-hall:snapshot:check-fresh": "node guild_hall/snapshot/cli.mjs --check-fresh",

@@ -3,6 +3,35 @@
 Windows PowerShell 5.1 note: if Korean text is garbled, reopen with
 `Get-Content -Encoding UTF8 docs/ws.md`.
 
+## One-Line Report Command
+
+On another PC, first pull the latest public Soulforge repo and make sure the
+private `_workmeta` repo is present. Then run this from the Soulforge repo root:
+
+```text
+npm.cmd run guild-hall:workspace-system:report
+```
+
+If the local node identity file is missing, add a temporary node alias without
+recording the PC name:
+
+```text
+npm.cmd run guild-hall:workspace-system:report -- --node-id node_alias
+```
+
+The command writes a metadata-only report folder under:
+
+```text
+_workmeta/system/reports/workspace_system_inventory/
+```
+
+The command refuses to write the report if `_workmeta/.git` is missing. The
+report includes JSON, Markdown, and CSV files. It does not move, copy, delete,
+upload, create a junction, read payload bodies, print host-local absolute
+paths, or inspect secrets. To send the report back through the private metadata
+repo, review the generated folder and commit only that report folder inside
+`_workmeta`.
+
 다른 PC에서 `_workspaces/system` 공유 정션 전환 준비 상태를 점검할 때
 이 문서를 실행 지시로 사용한다.
 

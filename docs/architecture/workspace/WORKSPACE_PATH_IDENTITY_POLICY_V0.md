@@ -138,6 +138,26 @@ The command reads metadata only. It does not read file contents, print
 host-local absolute paths, create links, move files, delete files, or promote
 content.
 
+For cross-PC collection without a long prompt, each PC may also write the same
+metadata-only finding into the private metadata repo:
+
+```text
+npm.cmd run guild-hall:workspace-system:report
+```
+
+If `guild_hall/state/local/node_identity.yaml` is not available on that PC, use
+a generic owner-approved alias:
+
+```text
+npm.cmd run guild-hall:workspace-system:report -- --node-id node_alias
+```
+
+The report command writes JSON, Markdown, and CSV under
+`_workmeta/system/reports/workspace_system_inventory/<timestamp>_<node_id>/`.
+It refuses to run if `_workmeta/.git` is missing. It is a metadata capture step
+only; it does not execute migration, mutate `_workspaces/system`, or approve
+any content for the shared system worksite.
+
 The default command must perform a full recursive metadata scan. If an operator
 uses `--max-depth` or `--max-entries`, any `scan_limited` row is an activation
 blocker and the counts must not be used as complete migration evidence.
