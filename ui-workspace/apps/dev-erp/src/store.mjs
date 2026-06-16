@@ -1523,20 +1523,28 @@ export class Store {
     if (!row) return { error: "proposal_not_found" };
     if (row.status !== "pending") return { error: "not_pending", status: row.status };
     const payload = JSON.parse(row.payload_json || "{}");
-    let result;
-    switch (row.kind) {
-      case "create_item": result = this.createItem(payload); break;
-      case "add_attachment_type": result = this.addAttachment(payload); break;
-      case "set_artifact_requirement": result = this.setArtifactRequirement(payload); break;
-      case "link_part_project": result = this.linkPartProject(payload.part_id, payload.project_id); break;
-      default: return { error: "unknown_proposal_kind" };
+    // BE-4: 적용 + 상태전이 + 이벤트를 한 트랜잭션으로 — 중간 실패 시 부분 적용/재승인 중복 방지.
+    this.db.exec("BEGIN");
+    try {
+      let result;
+      switch (row.kind) {
+        case "create_item": result = this.createItem(payload); break;
+        case "add_attachment_type": result = this.addAttachment(payload); break;
+        case "set_artifact_requirement": result = this.setArtifactRequirement(payload); break;
+        case "link_part_project": result = this.linkPartProject(payload.part_id, payload.project_id); break;
+        default: this.db.exec("ROLLBACK"); return { error: "unknown_proposal_kind" };
+      }
+      if (result && result.error) { this.db.exec("ROLLBACK"); return result; } // 도메인 거부 시 상태 미변경(재시도 가능)
+      const applied_ref = result?.item?.id ?? row.target_ref ?? null;
+      this.db.prepare("UPDATE ai_proposal SET status='approved', decided_at=?, decided_by=?, applied_ref=? WHERE id=?")
+        .run(new Date().toISOString(), decided_by, applied_ref, id);
+      this.appendEvent({ actor_ref: decided_by, actor_kind: "human", kind: "ai_proposal_approve", item_ref: id, to: applied_ref, used_refs: row.used_refs ? JSON.parse(row.used_refs) : [], data_label: "real" });
+      this.db.exec("COMMIT");
+      return { ok: true, applied_ref, result };
+    } catch (e) {
+      try { this.db.exec("ROLLBACK"); } catch { /* 이미 롤백됨 */ }
+      throw e;
     }
-    if (result && result.error) return result; // 도메인 거부 시 상태 미변경(재시도 가능)
-    const applied_ref = result?.item?.id ?? row.target_ref ?? null;
-    this.db.prepare("UPDATE ai_proposal SET status='approved', decided_at=?, decided_by=?, applied_ref=? WHERE id=?")
-      .run(new Date().toISOString(), decided_by, applied_ref, id);
-    this.appendEvent({ actor_ref: decided_by, actor_kind: "human", kind: "ai_proposal_approve", item_ref: id, to: applied_ref, used_refs: row.used_refs ? JSON.parse(row.used_refs) : [], data_label: "real" });
-    return { ok: true, applied_ref, result };
   }
   rejectProposal(id, { decided_by = "owner", reason = null } = {}) {
     const row = this.db.prepare("SELECT status FROM ai_proposal WHERE id=?").get(id);

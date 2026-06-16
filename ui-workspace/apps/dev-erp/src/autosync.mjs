@@ -100,6 +100,9 @@ export function writeTaskToLedger(store, itemId, { root } = {}) {
     byKey.set(item.id, newObj);
     const out = [outHeader.join(","), ...[...byKey.values()].map((o) => outHeader.map((c) => csvEsc(o[c] ?? "")).join(","))];
     // 낙관적 동시성: read 이후 외부(Codex 등)가 파일을 바꿨으면 재시도(cross-process lost write 완화).
+    // BE-5 한계(문서화된 best-effort): mtime 재확인 ~ rename 사이의 미세 TOCTOU 창과 같은 mtimeMs 해상도 내
+    //   연속 쓰기는 감지 못 할 수 있음. autosync 는 기본 OFF(DEV_ERP_AUTOSYNC=1)라 현재 위험은 낮다.
+    //   교차 프로세스 안전이 중요해지면 O_EXCL 잠금파일 또는 콘텐츠 해시 CAS 로 승격(후속).
     if (existsSync(file) && statSync(file).mtimeMs !== mtimeAtRead) continue;
     const tmp = `${file}.${process.pid}.tmp`;
     writeFileSync(tmp, "﻿" + out.join("\n") + "\n");
