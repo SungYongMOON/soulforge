@@ -2492,7 +2492,8 @@ async function renderMail() {
     c.addEventListener("click", () => { f.label = f.label === Number(c.dataset.l) ? null : Number(c.dataset.l); render(); })
   );
   $("#view").querySelectorAll(".mail-row").forEach((r) =>
-    r.addEventListener("click", () => { state.mailSel = r.dataset.m; render(); })
+    // 토글: 같은 메일 다시 누르면 오른쪽 설명 닫힘
+    r.addEventListener("click", () => { state.mailSel = state.mailSel === r.dataset.m ? null : r.dataset.m; render(); })
   );
   $("#view").querySelectorAll("[data-lp]").forEach((c) =>
     c.addEventListener("click", (e) => { e.stopPropagation(); state.projectFilter = c.dataset.lp; render(); })
