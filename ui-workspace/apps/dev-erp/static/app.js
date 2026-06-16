@@ -1719,7 +1719,6 @@ async function renderHome() {
   $("#view").innerHTML = `${kpi}
     <button id="widgetEdge" class="widget-edge" title="${L.widget_add}" aria-label="${L.widget_add}">❙❙</button>
     <aside id="widgetDrawer" class="widget-drawer">
-      <div class="widget-drawer-head">${L.widget_add}<span class="dim">${L.widget_drag_hint}</span></div>
       <div class="widget-drawer-list">${drawerItems}</div>
       <div class="widget-drawer-foot">
         <select id="widgetPreset" title="${L.widget_preset ?? "정해둔/저장 배치 적용"}">
