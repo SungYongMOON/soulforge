@@ -2318,7 +2318,8 @@ function projChip(projectId, cls) {
 async function renderMail() {
   const L = state.lex;
   await ensureScopes();
-  const f = state.mailFilters ?? (state.mailFilters = { days: 90, direction: "", q: "", label: null });
+  const f = state.mailFilters ?? (state.mailFilters = { days: 90, direction: "", q: "", label: null, groupBy: "project" });
+  if (!f.groupBy) f.groupBy = "project"; // 기본: 프로젝트별 구분
   const params = new URLSearchParams({ days: String(f.days) });
   if (state.projectFilter) params.set("project", state.projectFilter);
   if (f.q) params.set("q", f.q);
@@ -2352,6 +2353,10 @@ async function renderMail() {
       <option value="in" ${f.direction === "in" ? "selected" : ""}>${L.mail_in}</option>
       <option value="out" ${f.direction === "out" ? "selected" : ""}>${L.mail_out}</option>
     </select>
+    <select id="mGroup" title="${L.mail_group_project}/${L.mail_group_date}">
+      <option value="project" ${f.groupBy === "project" ? "selected" : ""}>${L.mail_group_project}</option>
+      <option value="date" ${f.groupBy === "date" ? "selected" : ""}>${L.mail_group_date}</option>
+    </select>
     <input id="mSearch" type="search" placeholder="${L.search_placeholder}" value="${esc(f.q)}" />
     ${showViewScope() ? `<label class="view-scope-lab">${L.view_scope ?? "보기 대상"} ${viewSelectHtml(L)}</label>` : ""}
   </div>`;
@@ -2363,21 +2368,52 @@ async function renderMail() {
     return d === todayKey ? "sec_today" : d >= weekStart ? "sec_week" : "sec_older";
   };
   const checked = (state.mailChecked ??= new Set());
-  let lastSec = null;
-  const rows = mail.map((m) => {
-    const sec = section(m);
-    const head = sec !== lastSec ? `<tr class="date-sep"><td colspan="5">${L[sec]}</td></tr>` : "";
-    lastSec = sec;
+  const titleById = new Map(summary.projects.map((p) => [p.id, p.title]));
+  // 한 줄 렌더. showProj=false 면 프로젝트 칩 생략(프로젝트별 그룹에선 헤더가 이미 표시).
+  const mailRow = (m, showProj) => {
     const manual = m.label_ids.map((id) => labelById.get(id)).filter(Boolean)
       .map((l) => `<span class="label-chip manual mini" style="--lc:${esc(l.color)}">${esc(l.name)}</span>`).join("");
-    return `${head}<tr class="mail-row ${state.mailSel === m.id ? "sel" : ""}" data-m="${esc(m.id)}">
+    const meta = (showProj ? projChip(m.project_id, clsById.get(m.project_id)) : "") + manual;
+    return `<tr class="mail-row ${state.mailSel === m.id ? "sel" : ""}" data-m="${esc(m.id)}">
       <td class="mail-check"><input type="checkbox" data-chk="${esc(m.id)}" ${checked.has(m.id) ? "checked" : ""} /></td>
-      <td class="mail-meta">${projChip(m.project_id, clsById.get(m.project_id))}${manual}</td>
+      <td class="mail-meta">${meta}</td>
       <td class="mail-from">${m.direction === "out" ? `<i>→</i> ` : ""}${esc(m.counterpart ?? "-")}</td>
       <td class="mail-subj">${esc(m.subject)}</td>
       <td class="mail-time">${localTime(m.at)}</td>
     </tr>`;
-  }).join("");
+  };
+  let rows;
+  if (f.groupBy === "date") {
+    let lastSec = null;
+    rows = mail.map((m) => {
+      const sec = section(m);
+      const head = sec !== lastSec ? `<tr class="date-sep"><td colspan="5">${L[sec]}</td></tr>` : "";
+      lastSec = sec;
+      return head + mailRow(m, true);
+    }).join("");
+  } else {
+    // 기본: 프로젝트별 구분. 미분류/inbox 는 맨 아래, 그룹은 최신 메일 순.
+    const groups = new Map();
+    for (const m of mail) {
+      const key = (m.project_id && clsById.get(m.project_id) !== "inbox") ? m.project_id : "__none__";
+      if (!groups.has(key)) groups.set(key, []);
+      groups.get(key).push(m);
+    }
+    const ordered = [...groups.entries()].sort((a, b) => {
+      const an = a[0] === "__none__", bn = b[0] === "__none__";
+      if (an !== bn) return an ? 1 : -1;
+      return (b[1][0]?.at ?? "").localeCompare(a[1][0]?.at ?? "");
+    });
+    rows = ordered.map(([pid, ms]) => {
+      const none = pid === "__none__";
+      const title = titleById.get(pid);
+      const headInner = none
+        ? `<span class="label-chip gray">${L.unlabeled}</span>`
+        : `${projChip(pid, clsById.get(pid))}${title && title !== pid ? `<span class="proj-sep-title">${esc(title)}</span>` : ""}`;
+      const header = `<tr class="proj-sep"><td colspan="5">${headInner}<span class="proj-sep-n">${ms.length}</span></td></tr>`;
+      return header + ms.map((m) => mailRow(m, false)).join("");
+    }).join("");
+  }
 
   // run17: 분류(재배정) 대상 과제 — inbox 류 제외, 진행 과제 우선
   const assignables = summary.projects.filter((p) => p.class !== "inbox");
@@ -2442,6 +2478,7 @@ async function renderMail() {
   });
   $("#mDays").addEventListener("change", (e) => { f.days = Number(e.target.value); render(); });
   $("#mDir").addEventListener("change", (e) => { f.direction = e.target.value; render(); });
+  $("#mGroup")?.addEventListener("change", (e) => { f.groupBy = e.target.value; render(); });
   $("#mSearch").addEventListener("keydown", (e) => { if (e.key === "Enter") { f.q = e.target.value; render(); } });
   wireViewSelect();
   $("#view").querySelector("[data-clear]")?.addEventListener("click", () => { state.projectFilter = ""; render(); });

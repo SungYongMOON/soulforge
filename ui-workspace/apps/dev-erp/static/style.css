@@ -361,6 +361,10 @@ nav button:hover .pin-btn { opacity: 1; }
 .mail-subj { max-width: 420px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 .mail-time { color: var(--muted); font-size: 12px; white-space: nowrap; text-align: right; }
 .date-sep td { background: var(--bg); color: var(--muted); font-size: 11.5px; font-weight: 700; letter-spacing: .04em; padding: 6px 10px; }
+/* 프로젝트별 그룹 헤더(메일 이력 기본 구분) */
+.proj-sep td { background: var(--bg); padding: 7px 10px; border-top: 2px solid var(--line); }
+.proj-sep-title { color: var(--muted); font-size: 12px; margin-left: 7px; }
+.proj-sep-n { color: var(--muted); font-size: 11px; margin-left: 8px; background: var(--chip); border-radius: 999px; padding: 1px 8px; }
 .mail-detail { background: var(--panel); border: 1px solid var(--line); border-radius: 12px; padding: 14px 16px; align-self: start; position: sticky; top: 12px; }
 .mail-detail h3 { margin: 0 0 10px; font-size: 14.5px; }
 .mail-detail h4 { margin: 12px 0 6px; font-size: 12.5px; color: var(--muted); }
