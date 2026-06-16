@@ -1,0 +1,31 @@
+workflow_id: knowledge_source_audit_v0
+kind: monster_rules
+status: active
+rules:
+  - monster_id: source_payload_mutation_requested
+    response: stop_and_route_to_owner_decision_packet
+    summary: Copy, link, move, delete, upload, or source-of-record consolidation requires owner decision outside this workflow.
+  - monster_id: raw_source_text_requested
+    response: block_payload_read_and_route_to_sourcebound_or_source_text_workflow
+    summary: This audit reports metadata and file identity only; source text decoding is out of scope.
+  - monster_id: secret_like_path_requested
+    response: skip_secret_like_path_and_record_boundary_note
+    summary: Secret, session, token, or credential-like paths are skipped rather than inspected.
+  - monster_id: host_absolute_path_in_public_package
+    response: replace_with_repo_relative_ref_or_stable_id
+    summary: Public workflow and skill canon must not store PC-local paths.
+  - monster_id: external_pointer_only_source_found
+    response: record_owner_decision_item_without_mutating_source
+    summary: External pointer-only sources are findings for owner decision, not automatic copy/link commands.
+  - monster_id: orphan_workspace_file_found
+    response: record_source_ledger_review_candidate
+    summary: Orphan workspace files may need metadata source ledger rows if they are durable knowledge sources.
+  - monster_id: duplicate_recorded_hash_found
+    response: record_dedupe_review_candidate
+    summary: Duplicate hashes may be legitimate but require source-of-record review when needed.
+  - monster_id: default_route_switch_requested
+    response: block_default_route_change_and_require_separate_authority_review
+    summary: This workflow is registered but not default-route-safe.
+  - monster_id: notebooklm_or_drive_operation_requested
+    response: block_external_mutation_and_route_to_owner_approved_workflow
+    summary: NotebookLM and Drive mutation are out of scope for source storage audit.

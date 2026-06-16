@@ -1,0 +1,21 @@
+workflow_id: knowledge_source_audit_v0
+kind: party_compatibility
+status: active
+compatible_parties:
+  - party_id: solo_operator
+    status: supported_for_read_only_private_metadata_audit
+  - party_id: owner_plus_executor
+    status: recommended_for_storage_policy_decisions_after_audit
+  - party_id: knowledge_curator_pair
+    status: supported_for_orphan_source_ledger_review
+  - party_id: b_v_review_pair
+    status: required_for_production_ready_or_default_route_safety_claims
+fit_tags:
+  - knowledge_source_storage_audit
+  - metadata_only_source_inventory
+  - workspace_governance
+  - owner_decision_queue
+notes:
+  - This workflow leaves execution binding unbound; party fit is a discovery hint only.
+  - A solo operator may run the read-only audit and validate reports, but any storage mutation, source truth approval, or source-of-record consolidation needs owner authority.
+  - Model, species, class, reasoning, and project binding belong in workflow profile policy or private runtime bindings, not in party compatibility.

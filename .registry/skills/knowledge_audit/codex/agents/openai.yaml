@@ -1,0 +1,4 @@
+interface:
+  display_name: "Knowledge Audit"
+  short_description: "Audit knowledge source storage"
+  default_prompt: "Use $soulforge-knowledge-audit to run or summarize the read-only knowledge source audit."

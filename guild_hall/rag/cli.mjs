@@ -216,6 +216,12 @@ import {
   validateMasterKnowledgeInventoryRefresh,
   writeMasterKnowledgeInventoryRefresh,
 } from "./master_inventory_refresh.mjs";
+import {
+  buildKnowledgeSourceStorageAudit,
+  loadKnowledgeSourceStorageAudit,
+  validateKnowledgeSourceStorageAudit,
+  writeKnowledgeSourceStorageAudit,
+} from "./source_storage_audit.mjs";
 
 async function main() {
   const [command, ...rest] = process.argv.slice(2);
@@ -260,6 +266,54 @@ async function main() {
       inventoryRef: optionalStringArg(args, "inventory-ref"),
     });
     printJson(validateMasterKnowledgeInventoryRefresh(inventory));
+    return;
+  }
+
+  if (command === "knowledge-source-storage-audit" || command === "source-storage-audit") {
+    const options = {
+      repoRoot,
+      outputRootRef: optionalStringArg(args, "output-root-ref"),
+      auditId: optionalStringArg(args, "audit-id"),
+      now: optionalStringArg(args, "now"),
+      date: optionalStringArg(args, "date"),
+      workmetaRootRef: optionalStringArg(args, "workmeta-root-ref"),
+      workspaceRootRefs: arrayArg(args, "workspace-root-ref"),
+      scanWorkspace: args["skip-workspace-scan"] ? false : true,
+      hashFiles: args["hash-files"] === true,
+      maxOrphanRows: optionalNumberArg(args, "max-orphan-rows"),
+    };
+    if (options.workspaceRootRefs.length === 0) {
+      delete options.workspaceRootRefs;
+    }
+    if (args.write) {
+      printJson(await writeKnowledgeSourceStorageAudit(options));
+      return;
+    }
+    const result = await buildKnowledgeSourceStorageAudit(options);
+    if (args.full) {
+      printJson(result);
+      return;
+    }
+    printJson({
+      status: result.status,
+      output_dir_ref: result.output_dir_ref,
+      artifacts: result.artifacts,
+      summary: result.summary.counts,
+      validation: result.validation,
+    });
+    return;
+  }
+
+  if (command === "validate-knowledge-source-storage-audit" || command === "validate-source-storage-audit") {
+    const audit = await loadKnowledgeSourceStorageAudit({
+      repoRoot,
+      auditRef: optionalStringArg(args, "audit-ref"),
+    });
+    const validation = validateKnowledgeSourceStorageAudit(audit);
+    printJson(validation);
+    if (validation.status !== "pass") {
+      process.exitCode = 1;
+    }
     return;
   }
 
@@ -2134,6 +2188,16 @@ function arrayArg(args, key) {
   return Array.isArray(value) ? value.map(String) : [String(value)];
 }
 
+function optionalNumberArg(args, key) {
+  const value = optionalStringArg(args, key);
+  if (value === undefined) return undefined;
+  const parsed = Number(value);
+  if (!Number.isSafeInteger(parsed)) {
+    throw new Error(`--${key} requires an integer value`);
+  }
+  return parsed;
+}
+
 function parseFlagToken(token) {
   const raw = token.slice(2);
   const separatorIndex = raw.indexOf("=");
@@ -2156,6 +2220,8 @@ function printUsageAndExit() {
       "Usage:",
       "  node guild_hall/rag/cli.mjs master-inventory-refresh [--write] [--date YYYY-MM-DD | --now <iso>] [--inventory-id <id>] [--output-root-ref <repo-relative-dir>] [--notebooklm-metadata-ref <repo-relative-json>] [--full]",
       "  node guild_hall/rag/cli.mjs validate-master-inventory-refresh --inventory-ref <repo-relative-json>",
+      "  node guild_hall/rag/cli.mjs knowledge-source-storage-audit [--write] [--date YYYY-MM-DD | --now <iso>] [--audit-id <id>] [--output-root-ref <repo-relative-dir>] [--workmeta-root-ref <repo-relative-dir>] [--workspace-root-ref <repo-relative-dir> ...] [--skip-workspace-scan] [--hash-files] [--max-orphan-rows <n>] [--full]",
+      "  node guild_hall/rag/cli.mjs validate-knowledge-source-storage-audit --audit-ref <repo-relative-json>",
       "  node guild_hall/rag/cli.mjs manifest [--write] [--graph-ref <repo-relative-graph-json>] [--export-id <id>] [--output-ref <repo-relative-json>]",
       "  node guild_hall/rag/cli.mjs validate --manifest-ref <repo-relative-json>",
       "  node guild_hall/rag/cli.mjs source-slice-cards [--write] --manifest-ref <repo-relative-rag-manifest-json> [--slice-set-id <id>] [--project-code <code>] [--output-ref <repo-relative-json>]",
@@ -2260,6 +2326,7 @@ function printUsageAndExit() {
       "",
       "Notes:",
       "  master-inventory-refresh regenerates the private metadata-only knowledge control surface under _workmeta/system/reports/knowledge_wiki; it uses NotebookLM metadata mirrors only and does not query NotebookLM live.",
+      "  knowledge-source-storage-audit generates private metadata-only storage reports from _workmeta ledgers and workspace pointers; it does not copy, move, delete, upload, or decode source payloads.",
       "  The manifest/metadata commands stay metadata-only. The source-text commands read only owner-approved _workspaces/knowledge source cards and write private workspace payload artifacts.",
       "  Operational route candidate records persist only query fingerprints for unmatched labels; they do not update route registries or create default routes.",
       "  Operational route status combines registry validation, usage summaries, and candidate counts into one metadata-only operator dashboard.",

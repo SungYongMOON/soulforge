@@ -105,6 +105,28 @@
   bodies, chunks, NotebookLM output, paid standards, HWP body claims, and
   private payloads out of public canon.
 
+### Revision `working` - knowledge audit workflow and launcher added
+
+- Registered `knowledge_source_audit_v0` as the script-backed workflow for the
+  private metadata-only knowledge source storage audit runner.
+- Added the simple `knowledge_audit` Codex launcher package so the workflow can
+  be invoked as `$soulforge-knowledge-audit` after skill sync.
+- Kept source payload mutation, raw source decoding, NotebookLM/Drive mutation,
+  source truth approval, public canon promotion, and default-route safety out of
+  scope; owner decision queues remain advisory follow-up surfaces.
+
+### Revision `working` - knowledge source storage audit runner added
+
+- Added a metadata-only `guild_hall/rag` audit runner that compares `_workmeta`
+  source ledgers and source-root bindings against actual source file presence.
+- The runner emits private `_workmeta` reports for workspace-backed sources,
+  external pointer-only sources, missing originals, duplicate recorded hashes,
+  and orphan workspace files without copying, moving, uploading, deleting, or
+  decoding source payloads.
+- Wired the runner into `guild-hall:rag` plus focused and RAG-wide validation
+  scripts with fixture coverage for workspace, external, missing, and orphan
+  source storage states.
+
 ### Revision `working` - outbound mail attachment selection guard
 
 - Added an outbound-mail guard that separates collected source attachments

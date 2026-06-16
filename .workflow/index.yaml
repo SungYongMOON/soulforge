@@ -111,6 +111,8 @@ entries:
     path: knowledge_access_event_capture_v0/workflow.yaml
   - workflow_id: rag_metadata_refresh_v0
     path: rag_metadata_refresh_v0/workflow.yaml
+  - workflow_id: knowledge_source_audit_v0
+    path: knowledge_source_audit_v0/workflow.yaml
   - workflow_id: rag_source_text_quality_review_v0
     path: rag_source_text_quality_review_v0/workflow.yaml
   - workflow_id: rag_work_card_router_v0

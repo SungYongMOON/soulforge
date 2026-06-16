@@ -1,0 +1,148 @@
+workflow_id: knowledge_source_audit_v0
+kind: workflow
+status: active
+title: Knowledge Source Audit v0
+summary: Run the read-only knowledge source storage audit over _workmeta source ledgers and workspace roots, then generate private metadata-only reports for external pointer-only sources, missing originals, duplicate recorded hashes, orphan workspace files, and owner decision queues without mutating source payloads.
+entrypoint: run
+execution_mode: local_tool_sequence
+role_slots: role_slots.yaml
+step_graph: step_graph.yaml
+handoff_rules: handoff_rules.yaml
+monster_rules: monster_rules.yaml
+party_compatibility: party_compatibility.yaml
+profile_policy: profile_policy.yaml
+classification_lane:
+  primary: knowledge_management
+  primary_name_ko: 지식 관리
+  secondary:
+    - source_inventory
+    - rag_metadata
+    - workspace_governance
+  secondary_name_ko:
+    - 원본 재고
+    - RAG 메타데이터
+    - 워크스페이스 거버넌스
+  purpose: discovery_only
+  authority: none
+execution_binding:
+  party_required: false
+  candidate_party_id: null
+  bound_party_id: null
+  binding_authority: none
+inputs:
+  - workmeta_source_ledgers
+  - source_root_bindings
+  - workspace_root_refs
+  - audit_policy
+optional_inputs:
+  - audit_id
+  - output_root_ref
+  - date_or_now
+  - hash_files_policy
+  - max_orphan_rows
+outputs:
+  - knowledge_source_storage_audit_json
+  - source_storage_audit_csv
+  - missing_originals_csv
+  - pointer_only_sources_csv
+  - duplicate_recorded_hashes_csv
+  - orphan_workspace_files_csv
+  - owner_decision_queue
+  - summary_markdown
+  - validation_log
+validation_level: script_backed_private_pilot_executed
+registration_policy: owner_requested_registration
+output_state: pilot-executed
+readiness_posture:
+  package_state: registered-package-ready
+  pilot_ready: true
+  pilot_executed: true
+  canon_ready: false
+  registered: true
+  default_route_safe: false
+  default_route_safety_claimed: false
+implementation_refs:
+  audit_runner_module: guild_hall/rag/source_storage_audit.mjs
+  cli_entrypoint: guild_hall/rag/cli.mjs
+  focused_validator: validate:knowledge-source-storage-audit
+  rag_validator: validate:rag
+private_pilot_evidence:
+  report_ref: _workmeta/system/reports/knowledge_source_storage_audit/knowledge_source_storage_audit_20260615_codex/summary.md
+  handoff_ref: _workmeta/system/runs/knowledge_source_storage_audit_script_20260615/NIGHT_WORK_HANDOFF.md
+downstream_workflows:
+  - workflow_id: owner_decision_packet_v0
+    expected_input: owner_decision_queue
+    status: required_before_copy_link_move_or_source_of_record_decision
+  - workflow_id: source_packet_sufficiency_review_v0
+    expected_input: missing_unresolved_or_orphan_source_signal
+    status: optional_source_gap_review
+  - workflow_id: knowledge_access_event_capture_v0
+    expected_input: metadata_only_audit_run_or_usage_signal
+    status: optional_usage_lineage_capture
+  - workflow_id: post_development_review_gate_v0
+    expected_input: audit_runner_or_workflow_change_packet
+    status: required_before_claiming_development_completion
+operating_contract:
+  owns:
+    - audit_scope_binding_shape
+    - metadata_source_discovery_sequence
+    - read_only_storage_audit_execution_sequence
+    - audit_report_validation_sequence
+    - owner_decision_queue_routing_shape
+    - next_action_summary_shape
+  does_not_own:
+    - source_truth_approval
+    - raw_source_payload_storage
+    - source_payload_copy_move_delete_or_upload
+    - source_text_decoding
+    - notebooklm_upload_or_query
+    - google_drive_mutation
+    - owner_approval_authority
+    - public_canon_promotion
+    - ontology_acceptance
+    - default_route_switching
+    - default_route_safety_claim
+  command_surface:
+    run_command: npm.cmd run guild-hall:rag -- knowledge-source-storage-audit --write
+    validate_command: npm.cmd run guild-hall:rag -- validate-knowledge-source-storage-audit --audit-ref <repo-relative-audit-json-ref>
+    focused_validation: npm.cmd run validate:knowledge-source-storage-audit
+    broad_validation: npm.cmd run validate:rag
+  boundaries:
+    metadata_only_report: true
+    read_only: true
+    source_payload_mutation_allowed: false
+    source_text_decoding_allowed: false
+    notebooklm_operation_allowed: false
+    drive_mutation_allowed: false
+    public_package_runtime_absolute_paths_allowed: false
+    private_report_runtime_absolute_paths_allowed: true
+    hash_files_allowed_only_when_explicit: true
+    owner_approval_granted_here: false
+    public_canon_promotion_allowed: false
+    ontology_acceptance_allowed: false
+    default_route_switch_allowed: false
+    default_route_safe: false
+  report_contract:
+    private_output_root_default: _workmeta/system/reports/knowledge_source_storage_audit
+    generated_files:
+      - knowledge_source_storage_audit.json
+      - summary.json
+      - source_storage_audit.csv
+      - missing_originals.csv
+      - pointer_only_sources.csv
+      - duplicate_recorded_hashes.csv
+      - orphan_workspace_files.csv
+      - owner_decision_queue.yaml
+      - summary.md
+      - validation_log.md
+    next_action_surfaces:
+      - summary.md
+      - owner_decision_queue.yaml
+      - source_storage_audit.csv
+      - pointer_only_sources.csv
+      - orphan_workspace_files.csv
+      - duplicate_recorded_hashes.csv
+notes:
+  - This workflow wraps an existing deterministic audit runner. The workflow package is public-safe and portable; runtime file paths may appear only in private _workmeta reports.
+  - The audit can identify whether current records are workspace-backed, external pointer-only, missing, unresolved, unreadable, duplicate by recorded hash, or orphaned workspace candidates.
+  - Any copy, link, move, deletion, upload, source-of-record consolidation, or owner approval remains a downstream owner decision and is not performed by this workflow.

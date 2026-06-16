@@ -1,0 +1,34 @@
+workflow_id: knowledge_source_audit_v0
+kind: workflow_profile_policy
+status: active
+last_calibration_id: none
+calibration_mode: uncalibrated_script_backed_runner
+measurement_policy:
+  quality_source: deterministic_cli_validation
+  telemetry_source: local_validator_output
+  subagent_token_usage_available: false
+  telemetry_exact_for_subagent: false
+  telemetry_exact_for_cli: false
+  model_price_usd_measured: false
+  cost_confidence: not_measured
+primary_profile:
+  candidate_id: script_backed_default
+  model: inherit_current_codex_runtime
+  reasoning_effort: medium
+  species: dwarf
+  class: archivist
+  label: deterministic-cli-audit-with-boundary-review
+  quality_score: null
+  quality_class: uncalibrated
+shadow_top_k: []
+rerun_triggers:
+  - audit runner schema changed
+  - source ledger schema changed
+  - source root binding schema changed
+  - workspace path policy changed
+  - owner decision queue shape changed
+  - first controlled workflow run exposes a new failure mode
+calibration_archive_ref: null
+notes:
+  - The core audit is deterministic Node.js CLI work; model profile hints apply to report interpretation, owner-brief writing, and boundary review only.
+  - Any production-ready, canon-ready, source-truth, owner-decision, mutation-authority, or default-route-safe claim requires separate review evidence.

@@ -1,0 +1,151 @@
+workflow_id: knowledge_source_audit_v0
+kind: step_graph
+status: active
+steps:
+  - step_id: bind_audit_scope
+    title: Bind Audit Scope
+    actor_slot: audit_scope_binder
+    action:
+      kind: knowledge_source_audit_scope_binding
+      requires:
+        - workmeta_root_ref
+        - workspace_root_refs
+        - output_root_ref
+        - audit_policy
+      validates:
+        - refs_are_repo_relative
+        - public_package_has_no_host_absolute_paths
+        - source_mutation_not_requested
+        - hash_files_policy_explicit_when_enabled
+      artifact_out: audit_scope_binding
+    summary: Bind repo-relative input/output surfaces, orphan scan limit, hash policy, and explicit exclusions before running the audit.
+    next:
+      on_success: discover_metadata_sources
+      on_fail: stop
+  - step_id: discover_metadata_sources
+    title: Discover Metadata Sources
+    actor_slot: metadata_source_scout
+    action:
+      kind: workmeta_source_metadata_discovery
+      artifacts_in:
+        - audit_scope_binding
+      artifact_out: metadata_source_inventory
+      allowed_inputs:
+        - metadata_source_ledger.yaml
+        - source_roots.yaml
+        - document_probe.json
+        - file_hashes_sha256.csv
+        - extraction_status.csv
+      forbidden_inputs:
+        - raw_source_payload_body
+        - source_text_body
+        - secret_or_session_file
+    summary: Discover source ledgers, source-root bindings, probe metadata, hash metadata, and extraction status metadata under _workmeta without reading raw source payload bodies.
+    next:
+      on_success: run_storage_audit
+      on_fail: stop
+  - step_id: run_storage_audit
+    title: Run Storage Audit
+    actor_slot: storage_audit_runner
+    action:
+      kind: deterministic_rag_cli_audit_run
+      command_template: npm.cmd run guild-hall:rag -- knowledge-source-storage-audit --write
+      artifacts_in:
+        - audit_scope_binding
+        - metadata_source_inventory
+      artifacts_out:
+        - knowledge_source_storage_audit_json
+        - source_storage_audit_csv
+        - missing_originals_csv
+        - pointer_only_sources_csv
+        - duplicate_recorded_hashes_csv
+        - orphan_workspace_files_csv
+        - owner_decision_queue
+        - summary_markdown
+        - validation_log
+      execution_rules:
+        copy_move_delete_upload_source_payloads: false
+        decode_source_text: false
+        include_source_payload_bodies: false
+        skip_secret_like_paths: true
+        hash_file_bytes_only_when_explicit: true
+    summary: Run the deterministic CLI and write private metadata-only report artifacts under the approved _workmeta output root.
+    next:
+      on_success: validate_audit_report
+      on_fail: stop
+  - step_id: validate_audit_report
+    title: Validate Audit Report
+    actor_slot: audit_report_validator
+    action:
+      kind: knowledge_source_audit_report_validation
+      command_template: npm.cmd run guild-hall:rag -- validate-knowledge-source-storage-audit --audit-ref <audit_json_ref>
+      artifacts_in:
+        - knowledge_source_storage_audit_json
+      artifact_out: validation_result
+      checks:
+        - schema_version
+        - metadata_only_boundary
+        - read_only_boundary
+        - source_mutation_false
+        - source_payload_body_absent
+        - source_row_states_valid
+    summary: Validate the generated audit JSON before using counts, CSVs, or owner decision queues as planning evidence.
+    next:
+      on_success: summarize_next_actions
+      on_fail: stop
+  - step_id: summarize_next_actions
+    title: Summarize Next Actions
+    actor_slot: next_action_summarizer
+    action:
+      kind: audit_next_action_summary
+      artifacts_in:
+        - summary_markdown
+        - owner_decision_queue
+        - source_storage_audit_csv
+        - pointer_only_sources_csv
+        - orphan_workspace_files_csv
+        - duplicate_recorded_hashes_csv
+      artifact_out: owner_readable_next_action_brief
+      summary_rules:
+        report_counts: true
+        name_private_report_refs: true
+        do_not_echo_raw_payloads: true
+        do_not_auto_approve_mutation: true
+        separate_observed_findings_from_owner_decisions: true
+    summary: Turn the generated report into a short owner-readable next-action brief that points to review queues and keeps authority boundaries explicit.
+    next:
+      on_success: closeout_route
+      on_fail: stop
+  - step_id: closeout_route
+    title: Closeout Route
+    actor_slot: boundary_router
+    action:
+      kind: source_storage_audit_boundary_closeout
+      artifacts_in:
+        - validation_result
+        - owner_readable_next_action_brief
+        - owner_decision_queue
+      artifact_out: boundary_closeout_note
+      routes:
+        - owner_decision_packet_v0
+        - source_packet_sufficiency_review_v0
+        - knowledge_access_event_capture_v0
+        - post_development_review_gate_v0
+      non_claims:
+        - no_source_truth_approval
+        - no_source_file_mutation
+        - no_default_route_switch
+        - no_public_canon_promotion
+    summary: Close with validation status, owner decision requirements, and downstream routes without changing source storage or authority state.
+    next:
+      on_success: complete
+      on_fail: stop
+stop_conditions:
+  - source_payload_copy_move_delete_or_upload_requested
+  - raw_source_text_or_payload_body_requested_for_report
+  - secret_or_session_file_requested
+  - public_workflow_package_requires_host_absolute_path
+  - owner_approval_required_for_storage_mutation
+  - default_route_switch_requested
+  - notebooklm_or_drive_mutation_requested
+  - validator_fails

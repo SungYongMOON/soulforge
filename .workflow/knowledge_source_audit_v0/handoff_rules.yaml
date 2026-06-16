@@ -1,0 +1,24 @@
+workflow_id: knowledge_source_audit_v0
+kind: handoff_rules
+status: active
+rules:
+  - from: audit_scope_binder
+    to: metadata_source_scout
+    condition: audit_scope_bound
+    summary: Scout receives only repo-relative scan scope, private output root, hash policy, and explicit non-mutation boundaries.
+  - from: metadata_source_scout
+    to: storage_audit_runner
+    condition: metadata_source_inventory_ready
+    summary: Runner receives metadata file refs and source-root bindings, not source payload bodies or secrets.
+  - from: storage_audit_runner
+    to: audit_report_validator
+    condition: audit_artifacts_written
+    summary: Validator receives generated private report refs and validates schema plus metadata-only/read-only boundary flags.
+  - from: audit_report_validator
+    to: next_action_summarizer
+    condition: audit_validation_passed
+    summary: Summarizer receives validated report refs and may describe counts and next actions without approving storage mutation.
+  - from: next_action_summarizer
+    to: boundary_router
+    condition: owner_readable_next_action_brief_written
+    summary: Router receives the owner brief and decision queue, then recommends downstream owner/source/review routes.

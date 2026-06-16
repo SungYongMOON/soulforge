@@ -1,0 +1,22 @@
+workflow_id: knowledge_source_audit_v0
+kind: role_slots
+status: active
+slots:
+  - slot_id: audit_scope_binder
+    title: Audit Scope Binder
+    summary: Binds repo-relative workmeta, workspace, output, hash, and orphan-scan policy before execution.
+  - slot_id: metadata_source_scout
+    title: Metadata Source Scout
+    summary: Discovers source ledgers and source-root metadata under _workmeta without reading source payload bodies.
+  - slot_id: storage_audit_runner
+    title: Storage Audit Runner
+    summary: Runs the deterministic RAG CLI audit and writes private metadata-only report artifacts.
+  - slot_id: audit_report_validator
+    title: Audit Report Validator
+    summary: Validates the generated audit JSON and boundary flags before downstream use.
+  - slot_id: next_action_summarizer
+    title: Next Action Summarizer
+    summary: Summarizes counts, review queues, and next actions for owner-readable follow-up.
+  - slot_id: boundary_router
+    title: Boundary Router
+    summary: Routes owner decisions, source sufficiency review, knowledge access capture, or post-development review without upgrading authority.
