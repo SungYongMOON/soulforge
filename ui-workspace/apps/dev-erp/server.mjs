@@ -148,7 +148,19 @@ const server = createServer(async (req, res) => {
         && !path.startsWith("/api/auth/") && store.accountCount() > 0 && !currentAccount(req)) {
       return send(res, 401, { error: "login_required" });
     }
-    if (path === "/api/health") return send(res, 200, { ok: true, schema: "dev_erp.v1", counts: store.counts() });
+    // 읽기도 미인증 차단(팀 모드) — '무조건 로그인해야 보임'. 랜딩에 필요한 비민감 메타데이터만 예외:
+    // /api/me(정체성), /api/auth/*(로그인·가입), /api/health, /api/lexicon·/api/modules(UI 라벨/구조).
+    if (req.method === "GET" && path.startsWith("/api/")
+        && !["/api/me", "/api/health", "/api/lexicon", "/api/modules"].includes(path)
+        && !path.startsWith("/api/auth/")
+        && store.accountCount() > 0 && !currentAccount(req)) {
+      return send(res, 401, { error: "login_required" });
+    }
+    if (path === "/api/health") {
+      // liveness 는 항상 공개. counts(데이터 규모)는 미인증(팀 모드)엔 숨김 — '무조건 로그인해야 보임' 강화.
+      const seeCounts = store.accountCount() === 0 || !!currentAccount(req);
+      return send(res, 200, seeCounts ? { ok: true, schema: "dev_erp.v1", counts: store.counts() } : { ok: true, schema: "dev_erp.v1" });
+    }
 
     // ---------- P2b 팀: 계정·인증·관리자 ----------
     // 정체성 조회는 /api/me(클라이언트 계약). 여기서는 로그인/로그아웃/bootstrap/계정관리.
@@ -173,6 +185,18 @@ const server = createServer(async (req, res) => {
       if (r.error) return send(res, 400, r);
       const token = store.createSession(r.id);
       store.appendEvent({ actor_ref: username, actor_kind: "human", kind: "auth_bootstrap", used_refs: ["auth"], data_label: "meta" });
+      return send(res, 200, { ok: true, account: store.accountProfile(store.sessionAccount(token)) }, "application/json", { "set-cookie": sessionCookie(token, 12 * 3600) });
+    }
+    // 길드원 자가 가입(회원가입). 첫 계정은 길드마스터(bootstrap)여야 하므로 accountCount>0 필요.
+    // localhost 바인딩 전용으로 안전. 외부 노출 시 초대코드/관리자 승인으로 제한 권장.
+    if (path === "/api/auth/register" && req.method === "POST") {
+      if (store.accountCount() === 0) return send(res, 409, { error: "needs_bootstrap" });
+      const { username, password, email, display_name } = await readJson(req);
+      if (!username || !password) return send(res, 400, { error: "missing_fields" });
+      const r = store.createAccount({ username, password, email, display_name, roles: ["member"] });
+      if (r.error) return send(res, 400, r);
+      const token = store.createSession(r.id);
+      store.appendEvent({ actor_ref: username, actor_kind: "human", kind: "account_register", used_refs: ["auth"], data_label: "meta" });
       return send(res, 200, { ok: true, account: store.accountProfile(store.sessionAccount(token)) }, "application/json", { "set-cookie": sessionCookie(token, 12 * 3600) });
     }
     // 계정 생성/조회/수정/상태 — 관리자 전용.

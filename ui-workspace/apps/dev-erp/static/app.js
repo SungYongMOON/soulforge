@@ -153,6 +153,82 @@ function openBootstrap() {
   ov.querySelector("#bsName").focus();
 }
 
+// 🌙 인증 벽 + 첫 페이지(달빛 길드 입성). 미인증이면 앱 대신 이 풀스크린 게이트만.
+// 첫 실행(계정 0)=길드마스터 창설 / 이후=입성(로그인)·가입(회원가입) 탭. 성공 시 reload → 앱 진입.
+function renderGate() {
+  const L = state.lex;
+  document.querySelector(".ui-confirm-overlay")?.remove();
+  const app = document.getElementById("app"); if (app) app.style.display = "none";
+  document.getElementById("gate")?.remove();
+  const gate = document.createElement("div");
+  gate.id = "gate";
+  const firstRun = (state.accountCount ?? 0) === 0;
+  let tab = firstRun ? "master" : "login"; // master | login | register
+  const crest = `<svg viewBox="0 0 64 64" width="46" height="46" aria-hidden="true">
+      <defs><radialGradient id="gMoon" cx="50%" cy="42%" r="60%"><stop offset="0" stop-color="#fbf0c8"/><stop offset="1" stop-color="#d9b25a"/></radialGradient></defs>
+      <circle cx="32" cy="32" r="29" fill="none" stroke="#e0c06a" stroke-width="1.4" opacity="0.55"/>
+      <path d="M40 16a18 18 0 1 0 0 32 14 14 0 0 1 0-32z" fill="url(#gMoon)"/>
+      <g fill="#e9d79a"><circle cx="20" cy="20" r="1.5"/><circle cx="46" cy="44" r="1.2"/><circle cx="24" cy="46" r="1"/></g>
+    </svg>`;
+  const inp = (id, ph, type, ac) => `<input id="${id}" class="gate-input" type="${type}" placeholder="${esc(ph)}" autocomplete="${ac}" />`;
+  function formHtml() {
+    if (tab === "login") {
+      return `${inp("gUser", L.login_user, "text", "username")}${inp("gPw", L.login_pw, "password", "current-password")}
+        <div class="gate-err danger-text"></div>
+        <button class="gate-btn" id="gateSubmit">${L.gate_login_btn}</button>
+        <button class="gate-switch" data-go="register">${L.gate_to_register}</button>`;
+    }
+    const isMaster = tab === "master";
+    return `${isMaster ? `<div class="gate-formhead"><div class="gate-fh-title">${L.gate_master_title}</div><div class="gate-fh-sub">${L.gate_master_sub}</div></div>` : ""}
+      ${inp("gName", L.acct_name, "text", "name")}${inp("gUser", L.acct_user, "text", "username")}${inp("gEmail", L.acct_email, "email", "email")}${inp("gPw", L.acct_pw, "password", "new-password")}
+      <div class="gate-err danger-text"></div>
+      <button class="gate-btn" id="gateSubmit">${isMaster ? L.gate_master_btn : L.gate_register_btn}</button>
+      ${isMaster ? "" : `<button class="gate-switch" data-go="login">${L.gate_to_login}</button>`}`;
+  }
+  function paint() {
+    gate.innerHTML = `
+      <div class="gate-sky"></div>
+      <span class="gate-moon"></span>
+      <div class="gate-fog gate-fog-a"></div><div class="gate-fog gate-fog-b"></div>
+      <div class="gate-ridge"></div>
+      <div class="gate-card">
+        <div class="gate-crest">${crest}</div>
+        <div class="gate-brand">${L.gate_title}</div>
+        <div class="gate-tagline">${L.gate_sub}</div>
+        ${firstRun ? "" : `<div class="gate-tabs">
+          <button class="gate-tab ${tab === "login" ? "on" : ""}" data-tab="login">${L.gate_tab_login}</button>
+          <button class="gate-tab ${tab === "register" ? "on" : ""}" data-tab="register">${L.gate_tab_register}</button>
+        </div>`}
+        <div class="gate-form">${formHtml()}</div>
+      </div>`;
+    gate.querySelectorAll(".gate-tab").forEach((b) => b.addEventListener("click", () => { tab = b.dataset.tab; paint(); }));
+    gate.querySelectorAll(".gate-switch").forEach((s) => s.addEventListener("click", () => { tab = s.dataset.go; paint(); }));
+    gate.querySelector("#gateSubmit")?.addEventListener("click", submit);
+    gate.querySelector("#gPw")?.addEventListener("keydown", (e) => { if (e.key === "Enter") submit(); });
+    gate.querySelector(".gate-form input")?.focus();
+  }
+  async function submit() {
+    const err = gate.querySelector(".gate-err"); err.textContent = "";
+    const v = (id) => gate.querySelector("#" + id)?.value.trim() ?? "";
+    const pw = gate.querySelector("#gPw")?.value ?? "";
+    const J = (b) => ({ method: "POST", headers: { "content-type": "application/json" }, body: JSON.stringify(b) });
+    try {
+      let r;
+      if (tab === "login") {
+        r = await fetch("/api/auth/login", J({ username: v("gUser"), password: pw }));
+        if (!r.ok) { err.textContent = L.login_fail; return; }
+      } else {
+        const ep = tab === "master" ? "/api/auth/bootstrap" : "/api/auth/register";
+        r = await fetch(ep, J({ display_name: v("gName"), username: v("gUser"), email: v("gEmail"), password: pw }));
+        if (!r.ok) { err.textContent = tab === "master" ? L.login_fail : L.register_fail; return; }
+      }
+      location.reload();
+    } catch { err.textContent = L.login_fail; }
+  }
+  document.body.appendChild(gate);
+  paint();
+}
+
 // 관리자 패널: 계정 목록 + 추가 + 역할/상태 관리(관리자 전용).
 async function openAdminPanel() {
   const L = state.lex;
@@ -922,6 +998,7 @@ function eventDesc(e, L) {
     case "anchor_move": return `마일스톤 일정 이동 ${e.to_val ?? ""}`;
     case "account_create": return `계정 생성: ${e.to_val ?? ""}`;
     case "auth_bootstrap": return "첫 관리자 생성";
+    case "account_register": return `회원가입: ${e.actor_ref ?? ""}`;
     case "auth_login": return "로그인";
     case "ingest": return "데이터 수집(ingest)";
     case "proposal_approve": return "AI 제안 승인";
@@ -3584,7 +3661,12 @@ async function openNotifications() {
 $("#notifBtn")?.addEventListener("click", openNotifications);
 
 await loadMe();
-await pullServerLayout();
-await loadLexicon();
-render();
-refreshNotifBadge(); // 🔔 알림 배지 초기 집계
+await loadLexicon(); // 게이트 라벨에도 필요 — 인증 분기보다 먼저
+if (!state.account) {
+  // 인증 벽: 미로그인이면 앱 대신 첫 페이지(달빛 길드 입성)만 보인다. '무조건 회원가입해야 보임'.
+  renderGate();
+} else {
+  await pullServerLayout();
+  render();
+  refreshNotifBadge(); // 🔔 알림 배지 초기 집계
+}
