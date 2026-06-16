@@ -162,14 +162,24 @@ function renderGate() {
   document.getElementById("gate")?.remove();
   const gate = document.createElement("div");
   gate.id = "gate";
+  const fant = state.mode === "fantasy";       // 모드별 첫 화면: 판타지=달빛 / 실무=깔끔한 전문가용
+  gate.dataset.skin = fant ? "fantasy" : "business";
   const firstRun = (state.accountCount ?? 0) === 0;
   let tab = firstRun ? "master" : "login"; // master | login | register
-  const crest = `<svg viewBox="0 0 64 64" width="46" height="46" aria-hidden="true">
-      <defs><radialGradient id="gMoon" cx="50%" cy="42%" r="60%"><stop offset="0" stop-color="#fbf0c8"/><stop offset="1" stop-color="#d9b25a"/></radialGradient></defs>
-      <circle cx="32" cy="32" r="29" fill="none" stroke="#e0c06a" stroke-width="1.4" opacity="0.55"/>
-      <path d="M40 16a18 18 0 1 0 0 32 14 14 0 0 1 0-32z" fill="url(#gMoon)"/>
-      <g fill="#e9d79a"><circle cx="20" cy="20" r="1.5"/><circle cx="46" cy="44" r="1.2"/><circle cx="24" cy="46" r="1"/></g>
-    </svg>`;
+  const crest = fant
+    ? `<svg viewBox="0 0 64 64" width="46" height="46" aria-hidden="true">
+        <defs><radialGradient id="gMoon" cx="50%" cy="42%" r="60%"><stop offset="0" stop-color="#fbf0c8"/><stop offset="1" stop-color="#d9b25a"/></radialGradient></defs>
+        <circle cx="32" cy="32" r="29" fill="none" stroke="#e0c06a" stroke-width="1.4" opacity="0.55"/>
+        <path d="M40 16a18 18 0 1 0 0 32 14 14 0 0 1 0-32z" fill="url(#gMoon)"/>
+        <g fill="#e9d79a"><circle cx="20" cy="20" r="1.5"/><circle cx="46" cy="44" r="1.2"/><circle cx="24" cy="46" r="1"/></g>
+      </svg>`
+    : `<svg viewBox="0 0 64 64" width="42" height="42" aria-hidden="true">
+        <path d="M32 5 L54 17 V40 Q54 52 32 59 Q10 52 10 40 V17 Z" fill="none" stroke="#19358c" stroke-width="2.4"/>
+        <path d="M22 33 l7 7 14-15" fill="none" stroke="#19358c" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"/>
+      </svg>`;
+  const decor = fant
+    ? `<div class="gate-sky"></div><span class="gate-moon"></span><div class="gate-fog gate-fog-a"></div><div class="gate-fog gate-fog-b"></div><div class="gate-ridge"></div>`
+    : `<div class="gate-biz-bg"></div><div class="gate-biz-glow"></div>`;
   const inp = (id, ph, type, ac) => `<input id="${id}" class="gate-input" type="${type}" placeholder="${esc(ph)}" autocomplete="${ac}" />`;
   function formHtml() {
     if (tab === "login") {
@@ -187,10 +197,8 @@ function renderGate() {
   }
   function paint() {
     gate.innerHTML = `
-      <div class="gate-sky"></div>
-      <span class="gate-moon"></span>
-      <div class="gate-fog gate-fog-a"></div><div class="gate-fog gate-fog-b"></div>
-      <div class="gate-ridge"></div>
+      ${decor}
+      <button class="gate-mode" id="gateMode">${fant ? L.gate_mode_to_biz : L.gate_mode_to_fant}</button>
       <div class="gate-card">
         <div class="gate-crest">${crest}</div>
         <div class="gate-brand">${L.gate_title}</div>
@@ -201,6 +209,12 @@ function renderGate() {
         </div>`}
         <div class="gate-form">${formHtml()}</div>
       </div>`;
+    gate.querySelector("#gateMode")?.addEventListener("click", async () => {
+      state.mode = fant ? "business" : "fantasy"; // 첫 화면에서 실무 ⇄ 판타지 전환
+      localStorage.setItem("dev_erp_mode", state.mode);
+      await loadLexicon(); // 라벨 갱신(/api/lexicon 은 미인증 예외)
+      renderGate();
+    });
     gate.querySelectorAll(".gate-tab").forEach((b) => b.addEventListener("click", () => { tab = b.dataset.tab; paint(); }));
     gate.querySelectorAll(".gate-switch").forEach((s) => s.addEventListener("click", () => { tab = s.dataset.go; paint(); }));
     gate.querySelector("#gateSubmit")?.addEventListener("click", submit);
