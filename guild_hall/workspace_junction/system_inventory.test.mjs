@@ -19,6 +19,49 @@ test("reports planned local system directory as review required without absolute
   mkdirSync(path.join(repoRoot, "_workspaces", "system", "rag"), { recursive: true });
   mkdirSync(path.join(repoRoot, "_workspaces", "system", "knowledge_view"), { recursive: true });
   mkdirSync(path.join(repoRoot, "_workspaces", "system", "p25_054_reference_payloads"), { recursive: true });
+  mkdirSync(
+    path.join(
+      repoRoot,
+      "_workspaces",
+      "system",
+      "p25_054_reference_payloads",
+      "level1",
+      "level2",
+      "level3",
+      "level4",
+      "level5",
+      "level6",
+      "level7",
+      "level8",
+      "level9",
+    ),
+    { recursive: true },
+  );
+  writeFileSync(
+    path.join(
+      repoRoot,
+      "_workspaces",
+      "system",
+      "p25_054_reference_payloads",
+      "level1",
+      "level2",
+      "level3",
+      "level4",
+      "level5",
+      "level6",
+      "level7",
+      "level8",
+      "level9",
+      "payload.meta",
+    ),
+    "metadata\n",
+    "utf8",
+  );
+  writeFileSync(
+    path.join(repoRoot, "_workspaces", "system", "p25_054_reference_payloads", "payload_conversion.log"),
+    "log metadata\n",
+    "utf8",
+  );
   mkdirSync(path.join(repoRoot, "_workspaces", "system", "reference_payloads"), { recursive: true });
   mkdirSync(path.join(repoRoot, "_workspaces", "system", "scripts"), { recursive: true });
   mkdirSync(path.join(repoRoot, "_workspaces", "system", "unknown_box"), { recursive: true });
@@ -32,6 +75,9 @@ test("reports planned local system directory as review required without absolute
   assert.equal(result.migration_status, "migration_required");
   assert.equal(result.boundary.file_contents_read, false);
   assert.equal(result.boundary.host_local_absolute_paths_in_output, false);
+  assert.equal(result.scan_policy.full_scan, true);
+  assert.equal(result.counts.scan_complete, true);
+  assert.equal(result.counts.scan_limited_count, 0);
   assert.equal(result.counts.shared_generated_view_count, 2);
   assert.equal(result.rows.find((row) => row.relative_path === "local_llm_install").class, "pc_local_runtime_tool");
   assert.equal(
@@ -39,7 +85,10 @@ test("reports planned local system directory as review required without absolute
     "move_runtime_to__workspaces_local_or_owner_approved_os_tool_location",
   );
   assert.equal(result.next_actions.some((action) => action.includes("guild_hall/state/tools")), false);
-  assert.equal(result.rows.find((row) => row.relative_path === "p25_054_reference_payloads").class, "project_move");
+  const p25ReferenceRow = result.rows.find((row) => row.relative_path === "p25_054_reference_payloads");
+  assert.equal(p25ReferenceRow.class, "project_reference_payload_review");
+  assert.equal(p25ReferenceRow.file_count, 2);
+  assert.equal(p25ReferenceRow.scan_complete, true);
   assert.equal(result.rows.find((row) => row.relative_path === "reference_payloads").class, "shared_fixture_candidate");
   assert.equal(result.rows.find((row) => row.relative_path === "scripts").class, "repo_promote_review");
   assert.equal(result.rows.find((row) => row.relative_path === "unknown_box").class, "unknown_review");
@@ -47,6 +96,30 @@ test("reports planned local system directory as review required without absolute
   const jsonOutput = JSON.stringify(result);
   assert.equal(jsonOutput.includes(repoRoot), false);
   assert.equal(jsonOutput.includes(path.join(repoRoot, "_workspaces")), false);
+});
+
+test("bounded scans are reported as activation blockers", () => {
+  const repoRoot = makeFixture({ bindingState: "planned", localSystemDirectory: true });
+  mkdirSync(path.join(repoRoot, "_workspaces", "system", "reference_payloads", "level1", "level2"), {
+    recursive: true,
+  });
+  writeFileSync(
+    path.join(repoRoot, "_workspaces", "system", "reference_payloads", "level1", "level2", "payload.meta"),
+    "metadata\n",
+    "utf8",
+  );
+
+  const result = inventoryWorkspaceSystem({ repoRoot, maxDepth: 1 });
+  const row = result.rows.find((candidate) => candidate.relative_path === "reference_payloads");
+
+  assert.equal(result.scan_policy.full_scan, false);
+  assert.equal(result.counts.scan_complete, false);
+  assert.equal(result.counts.scan_limited_count, 1);
+  assert.equal(row.scan_complete, false);
+  assert.equal(row.scan_limited, true);
+  assert.equal(row.scan_limited_reason, "max_depth_exceeded");
+  assert(result.blockers.includes("system_inventory_scan_limited:reference_payloads"));
+  assert(result.next_actions.some((action) => action.includes("full scan")));
 });
 
 test("passes when active system binding is a link with only shared generated views", () => {
@@ -93,6 +166,34 @@ test("inventory-system CLI returns JSON and stays non-mutating by default", () =
   const result = JSON.parse(cli.stdout);
   assert.equal(result.status, "review_required");
   assert.equal(result.boundary.mutations_performed, false);
+  assert.equal(cli.stdout.includes(repoRoot), false);
+});
+
+test("inventory-system CLI accepts bounded scan options and reports scan limits", () => {
+  const repoRoot = makeFixture({ bindingState: "planned", localSystemDirectory: true });
+  mkdirSync(path.join(repoRoot, "_workspaces", "system", "reference_payloads", "level1", "level2"), {
+    recursive: true,
+  });
+  writeFileSync(
+    path.join(repoRoot, "_workspaces", "system", "reference_payloads", "level1", "level2", "payload.meta"),
+    "metadata\n",
+    "utf8",
+  );
+
+  const cli = spawnSync(
+    process.execPath,
+    [CLI_PATH, "inventory-system", "--repo-root", repoRoot, "--json", "--max-depth", "1"],
+    {
+      encoding: "utf8",
+    },
+  );
+
+  assert.equal(cli.status, 0);
+  assert.equal(cli.stderr, "");
+  const result = JSON.parse(cli.stdout);
+  assert.equal(result.counts.scan_complete, false);
+  assert.equal(result.counts.scan_limited_count, 1);
+  assert(result.blockers.includes("system_inventory_scan_limited:reference_payloads"));
   assert.equal(cli.stdout.includes(repoRoot), false);
 });
 

@@ -115,6 +115,11 @@ types, file sizes, modified timestamps, extension counts, and aggregate counts.
 It must not read file contents, print host-local absolute paths, create or
 repair junctions, move files, delete files, upload files, or change permissions.
 
+The default inventory command must be a full recursive metadata scan. A bounded
+run using `--max-depth` or `--max-entries` is acceptable for debugging, but any
+`scan_limited` result is an activation blocker and cannot be treated as a
+complete manifest for migration planning.
+
 The inventory command must return `review_required` while a PC still has a
 normal local `_workspaces/system` directory. This is expected during migration;
 it is not a failure of the runbook. It means the PC still needs preservation,
@@ -163,7 +168,8 @@ any migration action:
 | --- | --- | --- |
 | `shared_generated_view` | Generated RAG or knowledge-view output that can be shared or regenerated. | No, unless the owner wants exact output preservation. |
 | `shared_fixture_candidate` | Reusable fixture/reference/materialization candidate. | Yes, until owner-classified. |
-| `project_move` | Project-owned material found under `system`. | Yes, until mapped to `_workspaces/<project_code>/...`. |
+| `project_reference_payload_review` | Project-code-like reference payloads found under `system`. | Yes, until owner-mapped to a project payload relocation or reference surface; do not move directly to the project root. |
+| `project_move` | Project-owned material found under `system` that is not specifically a reference payload review case. | Yes, until mapped to `_workspaces/<project_code>/...`. |
 | `knowledge_move` | Cross-project knowledge payload candidate. | Yes, until mapped to `_workspaces/knowledge/...`. |
 | `pc_local_runtime_tool` | Local installs, venvs, tool drops, executable runtime, or machine-only tooling. | Yes, runtime/install material must move local or to an owner-approved OS/tool location. Reinstallable repo-local bootstrap tools may be recreated under ignored `guild_hall/state/tools/**` from install docs, but migrated tool payloads and license-bound toolchains must not be moved there. |
 | `pc_local_cache_temp` | Logs, pid files, locks, caches, scratch, temp output. | Yes, keep local or discard only after review. |
@@ -175,6 +181,7 @@ any migration action:
 
 - `_workspaces/system` is a link view on that PC.
 - the read-only inventory has no activation blockers.
+- the read-only inventory has no `scan_limited` rows.
 - all PC-local tools, caches, logs, pid files, and temp outputs are outside
   `_workspaces/system`.
 - project-specific payloads are mapped to their owning project workspaces.

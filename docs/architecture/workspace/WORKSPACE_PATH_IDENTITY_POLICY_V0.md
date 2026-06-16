@@ -138,13 +138,18 @@ The command reads metadata only. It does not read file contents, print
 host-local absolute paths, create links, move files, delete files, or promote
 content.
 
+The default command must perform a full recursive metadata scan. If an operator
+uses `--max-depth` or `--max-entries`, any `scan_limited` row is an activation
+blocker and the counts must not be used as complete migration evidence.
+
 Inventory rows use these classes:
 
 | class | meaning | default action |
 | --- | --- | --- |
 | `shared_generated_view` | Generated system views such as `_workspaces/system/rag/**` and `_workspaces/system/knowledge_view/**`. | Keep or regenerate after the shared link is ready. |
 | `shared_fixture_candidate` | Project-agnostic fixture, reference, XML, or materialization candidates. | Preserve and owner-classify before sharing. |
-| `project_move` | Project-code-like payloads or project-owned reference material. | Move to the owning `_workspaces/<project_code>/...` after owner mapping. |
+| `project_reference_payload_review` | Project-code-like reference payloads such as `p25_054_reference_payloads`. | Do not move directly to the project root. Owner-map to the project payload relocation or reference surface first. |
+| `project_move` | Project-code-like payloads or project-owned material that is not specifically a reference-payload review case. | Move to the owning `_workspaces/<project_code>/...` after owner mapping. |
 | `knowledge_move` | Cross-project knowledge payload candidates. | Move to `_workspaces/knowledge/...` after owner mapping. |
 | `pc_local_runtime_tool` | Local LLM installs, venvs, tool drops, executable runtime folders, or machine-only tooling. | Move runtime/install material to `_workspaces/_local/<node_id>/...` or an owner-approved OS/tool location. Reinstallable repo-local bootstrap tools may be recreated under ignored `guild_hall/state/tools/**` from install docs, but migrated tool payloads and license-bound toolchains must not be moved there. |
 | `pc_local_cache_temp` | Logs, pid files, locks, caches, temp/scratch output, and rebuildable local state. | Keep local or discard only after owner review. |

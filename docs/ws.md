@@ -24,6 +24,9 @@ view 로 전환하기 전 상태만 점검한다. owner 승인 전에는 이동,
 npm.cmd run guild-hall:workspace-system:inventory -- --json
 ```
 
+기본 실행은 full scan 이어야 한다. `--max-depth` 또는 `--max-entries` 로 제한된
+결과는 `scan_limited` blocker 로 보고, 이동/정션 계획의 전체 수량 근거로 쓰지 않는다.
+
 명령이 없거나 실패하면 metadata-only 수동 점검으로 대체하고, 파일 본문은
 읽지 않는다.
 
@@ -58,6 +61,9 @@ npm.cmd run guild-hall:workspace-system:inventory -- --json
 - `shared_generated_view`: `_workspaces/system/rag/**`,
   `_workspaces/system/knowledge_view/**`
 - `shared_fixture_candidate`: 공통 fixture, reference, XML/materials 후보
+- `project_reference_payload_review`: project code 와 reference payload 성격이
+  함께 보이는 항목. 프로젝트 루트로 바로 이동하지 말고 owner mapping 후
+  project payload relocation/reference surface 로 분류한다.
 - `project_move`: 특정 project code 또는 project 전용 자료로 보이는 항목
 - `knowledge_move`: `_workspaces/knowledge` 로 가야 하는 cross-project 지식 후보
 - `pc_local_runtime_tool`: local LLM, venv, tools, EDA/CAD tool runtime,

@@ -6,12 +6,13 @@ export const SYSTEM_INVENTORY_SCHEMA_VERSION = "soulforge.workspace_system_inven
 
 const DEFAULT_BINDING_REF = "_workmeta/system/bindings/workspace_junctions.yaml";
 const DEFAULT_SYSTEM_REF = "_workspaces/system";
-const DEFAULT_MAX_DEPTH = 8;
-const DEFAULT_MAX_ENTRIES = 100_000;
+const DEFAULT_MAX_DEPTH = Number.POSITIVE_INFINITY;
+const DEFAULT_MAX_ENTRIES = Number.POSITIVE_INFINITY;
 
 const CLASS_NAMES = [
   "shared_generated_view",
   "shared_fixture_candidate",
+  "project_reference_payload_review",
   "project_move",
   "knowledge_move",
   "pc_local_runtime_tool",
@@ -30,13 +31,15 @@ export function inventoryWorkspaceSystem(options = {}) {
   const bindingState = bindingEntry?.state ?? "missing";
   const sourceRoot = path.resolve(repoRoot, sourceRootRef);
   const observedLocalState = observeLocalState(sourceRoot);
+  const maxDepth = normalizeScanLimit(options.maxDepth, DEFAULT_MAX_DEPTH);
+  const maxEntries = normalizeScanLimit(options.maxEntries, DEFAULT_MAX_ENTRIES);
   const rows = observedLocalState === "missing" || observedLocalState === "file_not_link" || observedLocalState === "link_broken"
     ? []
     : listTopLevelRows({
         sourceRoot,
         sourceRootRef,
-        maxDepth: options.maxDepth ?? DEFAULT_MAX_DEPTH,
-        maxEntries: options.maxEntries ?? DEFAULT_MAX_ENTRIES,
+        maxDepth,
+        maxEntries,
       });
   const summaryCounts = summarizeRows(rows);
   const blockers = buildBlockers({ binding, bindingState, observedLocalState, rows });
@@ -52,6 +55,12 @@ export function inventoryWorkspaceSystem(options = {}) {
     binding_state: bindingState,
     observed_local_state: observedLocalState,
     migration_status: migrationStatusFor({ bindingState, observedLocalState, blockers }),
+    scan_policy: {
+      full_scan: !Number.isFinite(maxDepth) && !Number.isFinite(maxEntries),
+      max_depth: formatScanLimit(maxDepth),
+      max_entries: formatScanLimit(maxEntries),
+      scan_limited_is_blocker: true,
+    },
     boundary: {
       metadata_only: true,
       file_contents_read: false,
@@ -173,7 +182,10 @@ function listTopLevelRows({ sourceRoot, sourceRootRef, maxDepth, maxEntries }) {
         symlink_count: scan.symlink_count,
         size_bytes: scan.size_bytes,
         extension_counts: scan.extension_counts,
+        visited_count: scan.visited_count,
+        scan_complete: !scan.scan_limited,
         scan_limited: scan.scan_limited,
+        scan_limited_reason: scan.scan_limited_reason,
         modified_at_utc: st.mtime.toISOString(),
       };
     });
@@ -195,6 +207,7 @@ function scanEntry(entryPath, { maxDepth, maxEntries }) {
     extension_counts: {},
     visited_count: 0,
     scan_limited: false,
+    scan_limited_reason: null,
   };
   scanPath(entryPath, state, { depth: 0, maxDepth, maxEntries });
   state.extension_counts = Object.fromEntries(
@@ -206,8 +219,14 @@ function scanEntry(entryPath, { maxDepth, maxEntries }) {
 function scanPath(currentPath, state, { depth, maxDepth, maxEntries }) {
   if (state.scan_limited) return;
   state.visited_count += 1;
-  if (state.visited_count > maxEntries || depth > maxDepth) {
+  if (state.visited_count > maxEntries) {
     state.scan_limited = true;
+    state.scan_limited_reason = "max_entries_exceeded";
+    return;
+  }
+  if (depth > maxDepth) {
+    state.scan_limited = true;
+    state.scan_limited_reason = "max_depth_exceeded";
     return;
   }
 
@@ -246,13 +265,22 @@ export function classifySystemEntry(name, entryType = "directory", scan = {}) {
       "pc_local_runtime_tool_under_system",
     ]);
   }
+  if (normalized === "rag" || normalized === "knowledge_view") {
+    return classification("shared_generated_view", ["known_generated_system_view"], "keep_shared_view_or_regenerate_after_migration", false, []);
+  }
+  if (isProjectReferencePayloadCandidate(normalized)) {
+    return classification(
+      "project_reference_payload_review",
+      ["project_code_plus_reference_payload_name"],
+      "owner_map_to_project_payload_relocation_or_system_fixture",
+      true,
+      ["project_reference_payload_candidate_under_system"],
+    );
+  }
   if (isPcLocalCacheTemp(normalized, extensionNames)) {
     return classification("pc_local_cache_temp", ["cache_temp_log_or_pid_pattern"], "move_to_local_or_discard_after_owner_check", true, [
       "pc_local_cache_temp_under_system",
     ]);
-  }
-  if (normalized === "rag" || normalized === "knowledge_view") {
-    return classification("shared_generated_view", ["known_generated_system_view"], "keep_shared_view_or_regenerate_after_migration", false, []);
   }
   if (/^p\d{2}[-_]\d{3}/u.test(normalized) || /^p\d{2}[-_]\d{3}[_-]/u.test(normalized)) {
     return classification("project_move", ["project_code_like_name"], "move_to_project_workspace_after_owner_mapping", true, [
@@ -332,6 +360,10 @@ function isSharedFixtureCandidate(name) {
   );
 }
 
+function isProjectReferencePayloadCandidate(name) {
+  return /^p\d{2}[-_]\d{3}/u.test(name) && name.includes("reference_payload");
+}
+
 function classification(className, reasonCodes, proposedAction, needsOwnerCheck, blockers) {
   return {
     class_name: className,
@@ -347,18 +379,22 @@ function summarizeRows(rows) {
   let fileCount = 0;
   let directoryCount = 0;
   let sizeBytes = 0;
+  let scanLimitedCount = 0;
   for (const row of rows) {
     const key = `${row.class}_count`;
     summary[key] = (summary[key] ?? 0) + 1;
     fileCount += row.file_count ?? 0;
     directoryCount += row.directory_count ?? 0;
     sizeBytes += row.size_bytes ?? 0;
+    if (row.scan_limited) scanLimitedCount += 1;
   }
   return {
     ...summary,
     recursive_file_count: fileCount,
     recursive_directory_count: directoryCount,
     recursive_size_bytes: sizeBytes,
+    scan_limited_count: scanLimitedCount,
+    scan_complete: scanLimitedCount === 0,
   };
 }
 
@@ -373,6 +409,7 @@ function buildBlockers({ binding, bindingState, observedLocalState, rows }) {
   if (observedLocalState === "file_not_link" || observedLocalState === "other_not_link") blockers.push("system_path_is_not_link_or_directory");
   if (observedLocalState === "link_broken") blockers.push("system_link_target_missing");
   for (const row of rows) {
+    if (row.scan_limited) blockers.push(`system_inventory_scan_limited:${row.relative_path}`);
     blockers.push(...row.blockers.map((code) => `${code}:${row.relative_path}`));
   }
   return blockers;
@@ -410,13 +447,16 @@ function nextActionsFor({ status, observedLocalState, blockers }) {
     actions.push("freeze default writes to _workspaces/system");
     actions.push("preserve local folder under _workspaces/_local_hold/system/<timestamp>_<node_id> before junction repair");
   }
+  if (blockers.some((code) => code.includes("system_inventory_scan_limited"))) {
+    actions.push("rerun workspace-system inventory as a full scan before using counts for migration or movement planning");
+  }
   if (blockers.some((code) => code.includes("pc_local"))) {
     actions.push(
       "move PC-local runtime, cache, logs, and tool installs to _workspaces/_local/<node_id>/ or an owner-approved OS/tool location; recreate reinstallable repo tools separately from bootstrap docs",
     );
   }
-  if (blockers.some((code) => code.includes("project_payload"))) {
-    actions.push("map project-like material to the owning _workspaces/<project_code> path before sharing");
+  if (blockers.some((code) => code.includes("project_payload") || code.includes("project_reference_payload"))) {
+    actions.push("map project-like material to the owning _workspaces/<project_code> payload surface before sharing");
   }
   if (blockers.some((code) => code.includes("shared_fixture_candidate") || code.includes("unknown"))) {
     actions.push("owner-classify fixture, reference, and unknown entries before activation");
@@ -426,4 +466,22 @@ function nextActionsFor({ status, observedLocalState, blockers }) {
 
 function normalizeRepoPath(value) {
   return String(value ?? "").split(path.sep).join("/").replace(/\\/gu, "/").replace(/^\.\//u, "");
+}
+
+function normalizeScanLimit(value, fallback) {
+  if (value === undefined || value === null || value === false || value === "") return fallback;
+  if (value === true) return fallback;
+  const normalized = String(value).toLowerCase();
+  if (["full", "none", "unlimited", "infinity"].includes(normalized)) {
+    return Number.POSITIVE_INFINITY;
+  }
+  const parsed = Number(value);
+  if (!Number.isInteger(parsed) || parsed < 0) {
+    throw new Error(`invalid scan limit: ${value}`);
+  }
+  return parsed;
+}
+
+function formatScanLimit(value) {
+  return Number.isFinite(value) ? value : "unlimited";
 }

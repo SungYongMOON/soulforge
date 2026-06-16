@@ -20,6 +20,8 @@ async function main() {
       repoRoot,
       bindingRef: args.binding ?? "_workmeta/system/bindings/workspace_junctions.yaml",
       sourceRootRef: args["source-root"] ?? "_workspaces/system",
+      maxDepth: args["max-depth"],
+      maxEntries: args["max-entries"],
     });
 
     if (args.json) {
@@ -80,6 +82,8 @@ function formatInventoryText(result) {
     `binding_state: ${result.binding_state}`,
     `observed_local_state: ${result.observed_local_state}`,
     `migration_status: ${result.migration_status}`,
+    `scan_complete: ${result.counts.scan_complete}`,
+    `scan_limited: ${result.counts.scan_limited_count}`,
     `top_level_entries: ${result.counts.top_level_entry_count}`,
     `blockers: ${result.counts.blocker_count}`,
   ];

@@ -2,6 +2,19 @@
 
 ## 2026-06-16
 
+### Revision `working` - workspace-system full scan inventory hardened
+
+- Changed `guild-hall:workspace-system:inventory` so the default metadata
+  inventory is an unrestricted recursive scan instead of a bounded sample.
+- Added `scan_policy`, row-level `scan_complete`/`scan_limited` fields, and
+  activation blockers for any bounded inventory result.
+- Split project-coded reference payload folders such as
+  `p25_054_reference_payloads` into `project_reference_payload_review` so they
+  require owner mapping to a project payload relocation/reference surface rather
+  than direct project-root movement.
+- Updated workspace migration docs and tests so full-scan evidence is required
+  before `_workspaces/system` migration or junction activation decisions.
+
 ### Revision `working` - system workspace tool-worker procedure saved
 
 - Rewrote `docs/ws.md` as a readable public-safe prompt for per-PC
