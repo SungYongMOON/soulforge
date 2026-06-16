@@ -28,37 +28,43 @@ body { margin: 0; font-family: "Pretendard", "Apple SD Gothic Neo", system-ui, s
 
 /* Row 0: 최상단 유틸/바로가기 바 — ECount 최상단 단축영역식. 검색·바로가기 전용 전폭 행(1분류와 분리) */
 .util-bar { grid-area: util; display: flex; align-items: center; gap: 8px;
-  padding: 4px 16px; background: var(--bg); border-bottom: 1px solid var(--line); min-height: 32px; }
+  padding: 3px 16px; background: var(--bg); border-bottom: 1px solid var(--line); min-height: 28px; }
 .util-bar .search-wrap { position: relative; flex: 0 0 auto; }
 .util-bar #globalSearch { width: 220px; max-width: 30vw; padding: 5px 10px; border-radius: 7px;
   border: 1px solid var(--line); background: var(--panel); color: var(--text); font-size: 12.5px; }
-.util-bar .fav-bar { flex: 1 1 auto; justify-content: flex-start; max-width: none; min-width: 0; }
+.util-bar .fav-bar { flex: 1 1 auto; justify-content: flex-start; max-width: none; min-width: 0; gap: 2px; }
 .util-bar .freshness { margin-left: 4px; flex: 0 0 auto; }
+/* Row 0 바로가기 = ECount 실측: 텍스트 링크(알약칩 아님) — 보더·radius·bg 없음, 회색, 더 많이 들어감 */
+#favBar .fav-chip { border: none; background: transparent; border-radius: 0; color: #495057;
+  padding: 3px 10px; font-size: 12.5px; font-weight: 400; }
+#favBar .fav-chip:hover { color: #19358c; background: rgba(31,72,212,.06); border-radius: 5px; }
+#favBar .fav-chip.active { color: #19358c; font-weight: 700; background: transparent; }
 
 .brand-bar { grid-area: brand; display: flex; align-items: center; gap: 16px;
-  padding: 8px 16px; background: var(--panel); border-bottom: 1px solid var(--line); }
+  padding: 5px 16px; background: var(--panel); border-bottom: 1px solid var(--line); }
 /* 맨 왼쪽 콕핏(위젯 대시보드) 버튼 — 대분류 탭 왼쪽의 진입 아이콘+라벨, 홈일 때 활성(raised) */
 .brand-bar > #appTitle.brand-home { display: inline-flex; align-items: center; gap: 7px; font-size: 14px; font-weight: 600;
-  white-space: nowrap; cursor: pointer; padding: 7px 14px; border: 1px solid transparent; border-bottom: none;
-  border-radius: 8px 8px 0 0; color: var(--muted); }
-.brand-bar > #appTitle.brand-home:hover { color: var(--text); background: var(--chip); }
-.brand-bar > #appTitle.brand-home.on { background: var(--chip); border-color: var(--line); color: var(--accent); }
+  white-space: nowrap; cursor: pointer; padding: 4px 12px; border: none;
+  border-radius: 5px; color: var(--text); }
+.brand-bar > #appTitle.brand-home:hover { background: rgba(31,72,212,.06); }
+.brand-bar > #appTitle.brand-home.on { background: rgba(31,72,212,.13); color: #19358c; }
 .cockpit-ico { font-size: 16px; line-height: 1; }
 /* 그룹탭(L1 대분류): 자연 폭 유지(절대 잘리지 않음). 공간 부족 시 우측 툴바가 줄고, 정 좁으면 brand-bar wrap */
 .group-bar { display: flex; flex-direction: row; gap: 2px; flex: 0 0 auto;
   overflow-x: visible; min-width: 0; }
 /* L1 대분류 — 가장 큼, 튀어나온 탭(밑줄 아님). 자연 크기·좌측 정렬(개수 적어도 안 늘림). */
-.group-tab { flex: 0 0 auto; border: 1px solid transparent; border-bottom: none; background: transparent;
-  color: var(--muted); padding: 7px 16px; font-size: 15px; cursor: pointer; white-space: nowrap;
-  border-radius: 8px 8px 0 0; }
-.group-tab:hover { color: var(--text); background: var(--chip); }
-.group-tab.on { background: var(--chip); border-color: var(--line); color: var(--accent); font-weight: 600; }
+/* L1 대분류 — ECount 실측: 텍스트 탭(박스 아님). 14px, off=일반/투명, sel=#19358c·700 + 옅은파랑 bg·radius5, 보더 없음 */
+.group-tab { flex: 0 0 auto; border: none; background: transparent; color: var(--text);
+  padding: 3px 14px; font-size: 14px; font-weight: 400; cursor: pointer; white-space: nowrap;
+  border-radius: 5px; line-height: 1.9; }
+.group-tab:hover { background: rgba(31,72,212,.06); }
+.group-tab.on { background: rgba(31,72,212,.13); color: #19358c; font-weight: 700; }
 /* L2 중분류 — 전폭 가로바, 자연 크기 좌측 정렬(2개여도 전폭 분할 안 함), 튀어나온 탭(밑줄 아님) */
 /* L2 중분류 — ECount식 밑줄 탭: 흰 바탕, 선택 시 파란 밑줄(2px)+굵은 네이비, 좌측 정렬 */
 .sub-bar { grid-area: subbar; display: flex; flex-direction: row; gap: 2px; justify-content: flex-start;
   align-items: stretch; padding: 0 16px; background: var(--panel); border-bottom: 1px solid var(--line); overflow-x: auto; }
 .sub-tab { flex: 0 0 auto; border: none; border-bottom: 2px solid transparent; background: transparent;
-  color: var(--muted); padding: 8px 14px; font-size: 13px; cursor: pointer; white-space: nowrap; border-radius: 0; }
+  color: var(--muted); padding: 6px 16px; font-size: 12px; cursor: pointer; white-space: nowrap; border-radius: 0; }
 .sub-tab:hover { color: var(--text); }
 .sub-tab.on { background: transparent; border-bottom-color: #19358c; color: #19358c; font-weight: 700; }
 /* L3 분류 헤더 — L4 항목보다 큼, 클릭하면 접기/펼치기 */
