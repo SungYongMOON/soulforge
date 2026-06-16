@@ -88,6 +88,10 @@ body[data-mode="fantasy"][data-theme="dark"][data-dungeon] .side,
 body[data-mode="fantasy"][data-theme="dark"][data-dungeon] .topbar { background: rgba(20,25,38,.84); }
 * { box-sizing: border-box; }
 body { margin: 0; font-family: "Pretendard", "Apple SD Gothic Neo", system-ui, sans-serif; background: var(--bg); color: var(--text); }
+/* 폼 컨트롤 기본을 테마색으로 — 브라우저 기본 흰색이라 다크/판타지 나이트에서 밝게 떠 보이던 것 수정. 특정 규칙은 그대로 우선. */
+select, textarea, input[type="text"], input[type="search"], input[type="date"], input[type="number"],
+input[type="email"], input[type="password"], input[type="time"], input:not([type]) {
+  background: var(--panel); color: var(--text); border: 1px solid var(--line); }
 /* IA 2.5단: 상단 전폭 brand+그룹탭 / 좌측 선택그룹 하위 / 본문 (ECount 관찰 반영) */
 #app { display: grid; grid-template-columns: 200px 1fr; grid-template-rows: auto auto auto 1fr;
   grid-template-areas: "util util" "brand brand" "subbar subbar" "side main"; min-height: 100vh; }
