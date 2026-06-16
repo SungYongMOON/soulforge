@@ -561,10 +561,15 @@ export const LEXICON = {
     al_all: "전체 기간",
     al_noise: "조회·잡음 포함",
     al_more: "최근 300건만 — 필터로 좁혀보세요",
-    widget_preset: "배치 프리셋",
+    widget_preset: "배치 불러오기",
     widget_my_saved: "내 저장 배치",
-    widget_save_mine: "내 배치 저장",
-    widget_saved_ok: "현재 배치를 '내 저장 배치'로 저장했습니다. 프리셋 목록에서 불러올 수 있어요."
+    widget_save_mine: "배치 저장",
+    widget_saved_ok: "현재 배치를 저장했습니다.",
+    widget_preset_group: "기본 프리셋",
+    widget_del_slot: "선택한 저장 배치 삭제",
+    widget_save_name: "저장할 배치 이름",
+    widget_del_pick: "삭제할 저장 배치를 드롭다운에서 먼저 고르세요",
+    widget_del_confirm: "이 저장 배치를 삭제할까요?"
   },
   fantasy: {
     app_title: "길드 작전판",
@@ -1126,10 +1131,15 @@ export const LEXICON = {
     al_all: "전체 기간",
     al_noise: "조회·잡음 포함",
     al_more: "최근 300건만 — 필터로 좁혀보세요",
-    widget_preset: "진형 프리셋",
+    widget_preset: "진형 불러오기",
     widget_my_saved: "내 저장 진형",
-    widget_save_mine: "내 진형 저장",
-    widget_saved_ok: "현재 진형을 '내 저장 진형'으로 저장했습니다. 프리셋 목록에서 불러올 수 있어요."
+    widget_save_mine: "진형 저장",
+    widget_saved_ok: "현재 진형을 저장했습니다.",
+    widget_preset_group: "기본 진형",
+    widget_del_slot: "선택한 저장 진형 삭제",
+    widget_save_name: "저장할 진형 이름",
+    widget_del_pick: "삭제할 저장 진형을 드롭다운에서 먼저 고르세요",
+    widget_del_confirm: "이 저장 진형을 삭제할까요?"
   }
 };
 

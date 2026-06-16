@@ -811,8 +811,9 @@ const DEFAULT_DASH = [
   { id: "today", x: 0, y: 20, w: 3, h: 8 }, { id: "blocked", x: 3, y: 20, w: 3, h: 8 },
   { id: "mail", x: 6, y: 20, w: 3, h: 8 }, { id: "events", x: 9, y: 20, w: 3, h: 8 }
 ];
-// 정해둔 위젯 배치(프리셋). 내 배치는 localStorage 자동저장 + '내 배치로 저장' 슬롯(SAVED_KEY).
-const SAVED_KEY = "dev_erp_widgets_saved";
+// 정해둔 위젯 배치(프리셋). 내 배치는 localStorage 자동저장 + 이름 붙인 저장 슬롯(SLOTS_KEY, 여러 개).
+const SAVED_KEY = "dev_erp_widgets_saved"; // (구) 단일 슬롯 — 첫 로드 시 SLOTS_KEY로 마이그레이션
+const SLOTS_KEY = "dev_erp_widget_slots";
 const DASH_PRESETS = {
   basic: { label: "기본", layout: DEFAULT_DASH },
   task: { label: "할일 집중", layout: [
@@ -846,6 +847,16 @@ function saveDashLayout(arr) {
   // 로그인 상태면 계정별 서버 저장(logout 내성). 미로그인=localStorage 만.
   if (state.account) fetch("/api/dashboard/layout", { method: "PUT", headers: { "content-type": "application/json" }, body: JSON.stringify({ layout: arr }) }).catch(() => {});
 }
+// 이름 붙인 저장 배치 슬롯들. 구버전 단일 슬롯(SAVED_KEY)은 첫 로드 시 '내 배치'로 마이그레이션.
+function savedSlots() {
+  let a; try { a = JSON.parse(localStorage.getItem(SLOTS_KEY) || "null"); } catch { a = null; }
+  if (!Array.isArray(a)) {
+    a = [];
+    try { const old = JSON.parse(localStorage.getItem(SAVED_KEY) || "null"); if (Array.isArray(old) && old.length) { a = [{ name: "내 배치", layout: old }]; localStorage.setItem(SLOTS_KEY, JSON.stringify(a)); } } catch { /* noop */ }
+  }
+  return a.filter((s) => s && s.name && Array.isArray(s.layout) && s.layout.length);
+}
+function setSavedSlots(arr) { localStorage.setItem(SLOTS_KEY, JSON.stringify(arr)); }
 // 충돌 해소: anchor(방금 옮기거나 키운 위젯)는 고정, 겹치는 나머지는 아래로 밀어냄(겹침 금지).
 function dashEffH(w) { return w.c ? 2 : w.h; }
 function dashOverlap(a, b) {
@@ -1689,6 +1700,7 @@ async function renderHome() {
     </section>`);
   }
   const maxBottom = Math.max(0, ...layout.map((w) => (w.y + (w.c ? 2 : w.h)))) * DASH_ROW + 20;
+  const slots = savedSlots(); // 이름 붙인 저장 배치들(드롭다운 + 삭제 대상)
   // 서랍 = 전체 위젯을 대분류(객체축)별로 묶어 항상 표시(ECount식). 보드에 올라간 건 ● 동그라미.
   const widgetChip = (w) => {
     if (!w.ready) // 준비 중 슬롯: 비활성, 드래그 불가
@@ -1710,12 +1722,13 @@ async function renderHome() {
       <div class="widget-drawer-head">${L.widget_add}<span class="dim">${L.widget_drag_hint}</span></div>
       <div class="widget-drawer-list">${drawerItems}</div>
       <div class="widget-drawer-foot">
-        <select id="widgetPreset" title="${L.widget_preset ?? "정해둔 배치 적용"}">
-          <option value="">${L.widget_preset ?? "배치 프리셋"}…</option>
-          ${localStorage.getItem(SAVED_KEY) ? `<option value="saved">★ ${L.widget_my_saved ?? "내 저장 배치"}</option>` : ""}
-          ${Object.entries(DASH_PRESETS).map(([k, p]) => `<option value="${k}">${p.label}</option>`).join("")}
+        <select id="widgetPreset" title="${L.widget_preset ?? "정해둔/저장 배치 적용"}">
+          <option value="">${L.widget_preset ?? "배치 불러오기"}…</option>
+          ${slots.length ? `<optgroup label="${L.widget_my_saved ?? "내 저장 배치"}">${slots.map((s, i) => `<option value="slot:${i}">${esc(s.name)}</option>`).join("")}</optgroup>` : ""}
+          <optgroup label="${L.widget_preset_group ?? "기본 프리셋"}">${Object.entries(DASH_PRESETS).map(([k, p]) => `<option value="${k}">${p.label}</option>`).join("")}</optgroup>
         </select>
-        <button id="widgetSaveMine" class="fav-chip" title="${L.widget_save_mine ?? "현재 배치를 내 배치로 저장"}">★ ${L.widget_save_mine ?? "내 배치 저장"}</button>
+        <button id="widgetSaveMine" class="fav-chip" title="${L.widget_save_mine ?? "현재 배치를 이름 붙여 저장"}">💾 ${L.widget_save_mine ?? "배치 저장"}</button>
+        <button id="widgetDelSlot" class="fav-chip" title="${L.widget_del_slot ?? "선택한 저장 배치 삭제"}">🗑</button>
         <button id="widgetArrangeBtn" class="fav-chip" title="${L.widget_arrange}">⊟ ${L.widget_arrange}</button>
         <button id="widgetResetBtn" class="fav-chip" title="${L.widget_reset}">↺ ${L.widget_reset}</button>
       </div>
@@ -1772,13 +1785,25 @@ async function renderHome() {
   // 프리셋 적용 / 내 배치 저장 — 내 배치(현재)는 자동저장(localStorage), 저장 슬롯은 되돌아올 스냅샷.
   $("#widgetPreset")?.addEventListener("change", (e) => {
     const v = e.target.value; if (!v) return;
-    const layout = v === "saved" ? JSON.parse(localStorage.getItem(SAVED_KEY) || "null") : DASH_PRESETS[v]?.layout;
+    const layout = v.startsWith("slot:") ? savedSlots()[Number(v.slice(5))]?.layout : DASH_PRESETS[v]?.layout;
     if (Array.isArray(layout) && layout.length) { saveDashLayout(layout.map((x) => ({ ...x }))); render(); }
   });
   $("#widgetSaveMine")?.addEventListener("click", () => {
-    localStorage.setItem(SAVED_KEY, JSON.stringify(dashLayout()));
-    alert(L.widget_saved_ok ?? "현재 배치를 '내 저장 배치'로 저장했습니다. 프리셋 목록에서 언제든 불러올 수 있어요.");
-    render();
+    const sl = savedSlots();
+    const name = (window.prompt(L.widget_save_name ?? "저장할 배치 이름", `배치${sl.length + 1}`) || "").trim();
+    if (!name) return;
+    const i = sl.findIndex((s) => s.name === name);
+    const entry = { name, layout: dashLayout() };
+    if (i >= 0) sl[i] = entry; else sl.push(entry); // 같은 이름이면 덮어쓰기
+    setSavedSlots(sl); render();
+  });
+  $("#widgetDelSlot")?.addEventListener("click", async () => {
+    const v = $("#widgetPreset")?.value || "";
+    if (!v.startsWith("slot:")) { alert(L.widget_del_pick ?? "삭제할 저장 배치를 드롭다운에서 먼저 고르세요"); return; }
+    const sl = savedSlots(); const i = Number(v.slice(5));
+    if (!sl[i]) return;
+    if (!(await uiConfirm(`${L.widget_del_confirm ?? "이 저장 배치를 삭제할까요?"} (${sl[i].name})`))) return;
+    sl.splice(i, 1); setSavedSlots(sl); render();
   });
   // 서랍 항목: 드래그 시작 + 클릭(맨 아래 추가) 폴백
   $("#view").querySelectorAll(".drawer-widget:not(.placed):not(.soon)").forEach((d) => {
