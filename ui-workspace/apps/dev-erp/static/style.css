@@ -57,7 +57,7 @@ body { margin: 0; font-family: "Pretendard", "Apple SD Gothic Neo", system-ui, s
   color: var(--text); padding: 7px 8px; border-radius: 7px; cursor: pointer; user-select: none; }
 .nav-sub-head:hover { color: var(--accent); }
 /* L3 분류에 현재 선택 항목이 있으면 하늘색 바탕 강조(이카운트식) */
-.nav-sub-head.has-active, .nav-sub-head.proj-head.on { background: rgba(31,72,212,.13); color: #19358c; }
+.nav-sub-head.has-active, .nav-sub-head.proj-head.on { background: rgba(31,72,212,.13); color: #19358c; font-weight: 700; }
 /* 접기/펴기 = 쉐브론(이카운트식): 접힘 › (오른쪽), 펼침 ⌄ (90° 회전, 아래). 회색, 크게 */
 .nav-sub-head .fold-ico { width: 14px; height: 14px; display: inline-flex; align-items: center; justify-content: center;
   font-size: 15px; color: var(--muted); flex: 0 0 auto; line-height: 1; transition: transform .15s; transform: rotate(90deg); }
@@ -268,7 +268,7 @@ nav button:hover .pin-btn { opacity: 1; }
 /* 좌측열 항목(L4)만 전폭 리스트 — 상단 탭바(#groupBar/#subBar)에는 적용 안 함(탭 stretch 방지) */
 #nav button { display: flex; align-items: center; justify-content: space-between; gap: 6px; width: 100%; }
 /* L4 항목 — L3 분류 헤더보다 작게 (들여쓰기는 .nav-items padding-left 가 담당) */
-#nav .nav-items button { font-size: 12px; padding: 5px 9px; }
+#nav .nav-items button { font-size: 12px; padding: 5px 9px; color: #6c757d; }
 /* 준비 중(모듈 0) 슬롯 — 비활성 dim, 클릭 불가 */
 #nav .nav-items button.soon { opacity: .5; cursor: default; font-style: italic; }
 #nav .nav-items button.soon:hover { background: none; }
@@ -281,7 +281,7 @@ nav button:hover .pin-btn { opacity: 1; }
 .nav-sub-head.proj-head .pn-title { flex-basis: 100%; padding-left: 21px; font-size: 12px; line-height: 1.3;
   color: var(--text); font-weight: 600; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 .nav-sub-head.proj-head.on { color: var(--accent); }
-.nav-sub-head.proj-head.on .pn-id { color: var(--accent); }
+.nav-sub-head.proj-head.on .pn-id { color: #19358c; }
 #nav .nav-items.proj-facets button.proj-facet { font-size: 12px; padding: 4px 9px; justify-content: flex-start; }
 #nav .nav-items.proj-facets button.proj-facet.active { background: transparent; color: #19358c; font-weight: 700; }
 .hub-h3 { font-size: 13px; font-weight: 600; margin: 14px 0 6px; }
