@@ -43,6 +43,7 @@ CREATE TABLE IF NOT EXISTS core_project (
   stage_current TEXT,
   start_year INTEGER,             -- 과제시작년도(착수). 기본=ID 접두 P{YY} 도출, 명시 override 가능
   source_ref TEXT,                -- soulforge ref (있다면)
+  provisional INTEGER NOT NULL DEFAULT 0, -- F7: 앱에서 만든 임시 과제(정션 미연결). 정션 동기화 시 0으로 머지.
   data_label TEXT NOT NULL DEFAULT 'synthetic'
 );
 CREATE TABLE IF NOT EXISTS core_stage (
@@ -601,6 +602,7 @@ export function openStore(path = ":memory:") {
   // 경량 마이그레이션: 기존 DB 에 새 컬럼 추가 (있으면 무시)
   try { db.exec("ALTER TABLE core_project ADD COLUMN class TEXT NOT NULL DEFAULT 'active'"); } catch { /* exists */ }
   try { db.exec("ALTER TABLE core_project ADD COLUMN start_year INTEGER"); } catch { /* exists */ }
+  try { db.exec("ALTER TABLE core_project ADD COLUMN provisional INTEGER NOT NULL DEFAULT 0"); } catch { /* exists */ }
   // 기존 행 backfill: 과제번호 P{YY}- 접두 → 과제시작년도(idempotent, 명시값 보존)
   try { db.exec("UPDATE core_project SET start_year = 2000 + CAST(SUBSTR(id,2,2) AS INTEGER) WHERE start_year IS NULL AND id GLOB 'P[0-9][0-9]-*'"); } catch { /* no-op */ }
   for (const ddl of [
@@ -707,13 +709,31 @@ export class Store {
     const startYear = p.start_year ?? deriveStartYear(p.id);
     this.db
       .prepare(
-        `INSERT INTO core_project(id,title,health,class,stage_current,start_year,source_ref,data_label)
-         VALUES (?,?,?,?,?,?,?,?)
+        `INSERT INTO core_project(id,title,health,class,stage_current,start_year,source_ref,data_label,provisional)
+         VALUES (?,?,?,?,?,?,?,?,0)
          ON CONFLICT(id) DO UPDATE SET title=excluded.title, health=excluded.health,
            class=excluded.class, stage_current=excluded.stage_current,
-           start_year=COALESCE(excluded.start_year, core_project.start_year), source_ref=excluded.source_ref`
+           start_year=COALESCE(excluded.start_year, core_project.start_year), source_ref=excluded.source_ref,
+           provisional=0`
       )
       .run(p.id, p.title, p.health ?? "ok", p.class ?? "active", p.stage_current ?? null, startYear, p.source_ref ?? null, p.data_label ?? "synthetic");
+  }
+
+  // F7: 앱에서 임시 과제 생성 — 정션(_workspaces)이 진실 소스라, 앱 생성분은 provisional=1('정션 미연결')로 표시.
+  // 이후 정션 동기화(upsertProject)가 같은 코드로 들어오면 provisional=0 으로 머지된다(정션이 권위).
+  createProject({ id, title, start_year } = {}) {
+    const code = String(id ?? "").trim().toUpperCase();
+    const nm = String(title ?? "").trim();
+    if (!code) return { error: "project_id_required" };
+    if (!/^[A-Z0-9][A-Z0-9_-]{1,30}$/.test(code)) return { error: "project_id_format" };
+    if (!nm) return { error: "title_required" };
+    if (this.db.prepare("SELECT 1 FROM core_project WHERE id=?").get(code)) return { error: "project_exists" };
+    const sy = start_year ?? deriveStartYear(code);
+    this.db.prepare(
+      `INSERT INTO core_project(id,title,health,class,start_year,source_ref,data_label,provisional)
+       VALUES(?,?,?,?,?,?,?,1)`
+    ).run(code, nm, "ok", "active", sy, null, "real");
+    return { ok: true, project: this.db.prepare("SELECT * FROM core_project WHERE id=?").get(code) };
   }
 
   upsertStage(s) {

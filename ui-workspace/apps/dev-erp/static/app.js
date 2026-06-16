@@ -686,12 +686,31 @@ async function renderProjectsList() {
     if (p.open) wl.push(`<em class="wl open">${state.lex.proj_wl_open ?? "열림"} ${p.open}</em>`);
     const ptitle = p.title && p.title !== p.id ? esc(p.title) : "";
     return `<div class="proj-card" data-hub="${esc(p.id)}">
-      <div class="pc-head"><span class="pc-id">${esc(p.id)}</span><span class="status-chip s-${p.health ?? "ok"}">${projHealthLabel(p.health)}</span></div>
+      <div class="pc-head"><span class="pc-id">${esc(p.id)}</span>${p.provisional ? `<span class="badge mini warn">${state.lex.proj_provisional ?? "정션 미연결"}</span>` : ""}<span class="status-chip s-${p.health ?? "ok"}">${projHealthLabel(p.health)}</span></div>
       ${ptitle ? `<div class="pc-title">${ptitle}</div>` : `<div class="pc-title dim-title">—</div>`}
       <div class="pc-meta">${state.lex.proj_start ?? "시작"} ${p.start_year ?? "—"} · ${state.lex.proj_stage ?? "현재"} ${esc(p.stage_current ?? "—")}</div>
       <div class="pc-wl">${wl.join("") || `<em class="wl none">${state.lex.proj_wl_none ?? "열린 일 없음"}</em>`}</div></div>`;
   }).join("");
-  $("#view").innerHTML = `<div class="proj-list-head">${state.lex.nav_projects ?? "프로젝트 관리"} › <strong>${projYearLabel(year)}</strong> · ${state.lex.proj_path_hint ?? "과제 클릭 → facet 열림"}</div>${list.length ? `<div class="proj-cards">${cards}</div>` : `<div class="empty">${state.lex.proj_tree_empty ?? "해당 없음"}</div>`}`;
+  const newForm = `<div class="proj-new item-form">
+    <input id="npId" placeholder="${state.lex.proj_new_id_ph ?? "과제코드 (예: P26-099)"}" size="14" />
+    <input id="npTitle" placeholder="${state.lex.proj_new_title_ph ?? "과제명"}" />
+    <button id="npAdd" class="fav-chip">${state.lex.proj_new_btn ?? "＋ 임시 과제"}</button>
+    <span class="dim mini">${state.lex.proj_new_hint ?? "정션 동기화 전까지 '정션 미연결'로 표시됩니다"}</span>
+  </div>`;
+  $("#view").innerHTML = `<div class="proj-list-head">${state.lex.nav_projects ?? "프로젝트 관리"} › <strong>${projYearLabel(year)}</strong> · ${state.lex.proj_path_hint ?? "과제 클릭 → facet 열림"}</div>${newForm}${list.length ? `<div class="proj-cards">${cards}</div>` : `<div class="empty">${state.lex.proj_tree_empty ?? "해당 없음"}</div>`}`;
+  $("#npAdd")?.addEventListener("click", async () => {
+    const id = $("#npId").value.trim(), title = $("#npTitle").value.trim();
+    if (!id || !title) return;
+    const r = await post("/api/projects", { id, title });
+    const d = await r.json().catch(() => ({}));
+    if (r.ok && d.project) {
+      state._projCache = null; state.hubProject = d.project.id; state.hubTab = "overview"; state.view = "project"; render(); return;
+    }
+    alert(d.error === "admin_only" ? (state.lex.proj_new_admin ?? "임시 과제 생성은 관리자만 가능합니다")
+      : d.error === "project_exists" ? (state.lex.proj_new_dup ?? "이미 있는 과제 코드입니다")
+      : d.error === "project_id_format" ? (state.lex.proj_new_fmt ?? "코드 형식: 영문/숫자/-/_ (예 P26-099)")
+      : (d.error || "생성 실패"));
+  });
   $("#view").querySelectorAll(".proj-card").forEach((c) =>
     c.addEventListener("click", () => { state.hubProject = c.dataset.hub; state.hubTab = "overview"; state.view = "project"; render(); }));
 }

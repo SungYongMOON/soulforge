@@ -233,6 +233,14 @@ const server = createServer(async (req, res) => {
       });
       return send(res, 200, result);
     }
+    if (path === "/api/projects" && req.method === "POST") {
+      // F7: 앱에서 임시 과제 생성(정션 미연결). 팀 모드(계정 있음)에서는 관리자만.
+      if (store.accountCount() > 0 && !requireAdmin(req)) return send(res, 403, { error: "admin_only" });
+      const result = store.createProject(await readJson(req));
+      if (result.error) return send(res, 400, result);
+      store.appendEvent({ actor_ref: actor, actor_kind: "human", kind: "project_create", project_ref: result.project.id, to: result.project.title, used_refs: ["projects"], data_label: "real" });
+      return send(res, 200, result);
+    }
     if (path === "/api/throughput") return send(res, 200, store.throughput({ days: Number(qp.days) || 14, project: qp.project }));
     if (path === "/api/items/status" && req.method === "POST") {
       let body = ""; for await (const chunk of req) body += chunk;
