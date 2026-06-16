@@ -599,11 +599,18 @@ function renderNav() {
   $("#nav").innerHTML = tree;
   // L3/과제 헤더 클릭 → 접기/펼치기(상태 영속)
   $("#nav").querySelectorAll(".nav-sub-group > .nav-sub-head").forEach((h) =>
-    h.addEventListener("click", () => {
-      const grp = h.closest(".nav-sub-group"); const k = grp.dataset.fold;
-      if (state.navFold.has(k)) state.navFold.delete(k); else state.navFold.add(k);
-      localStorage.setItem("dev_erp_navfold", JSON.stringify([...state.navFold]));
-      grp.classList.toggle("collapsed");
+    h.addEventListener("click", (e) => {
+      const grp = h.closest(".nav-sub-group");
+      // 쉐브론 클릭 = 접기/펴기. 라벨(나머지) 클릭 = 첫 항목으로 바로 이동·선택(이카운트식).
+      if (e.target.closest(".fold-ico")) {
+        const k = grp.dataset.fold;
+        if (state.navFold.has(k)) state.navFold.delete(k); else state.navFold.add(k);
+        localStorage.setItem("dev_erp_navfold", JSON.stringify([...state.navFold]));
+        grp.classList.toggle("collapsed");
+        return;
+      }
+      const first = grp.querySelector(".nav-items button[data-v], .nav-items button[data-hub]");
+      if (first) first.click();
     })
   );
   // 정적 항목 버튼(data-v) → view 전환
