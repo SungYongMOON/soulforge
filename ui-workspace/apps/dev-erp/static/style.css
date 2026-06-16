@@ -53,7 +53,7 @@ body { margin: 0; font-family: "Pretendard", "Apple SD Gothic Neo", system-ui, s
 .sub-tab:hover { color: var(--text); }
 .sub-tab.on { background: var(--panel); border-color: var(--line); color: var(--accent); font-weight: 600; }
 /* L3 분류 헤더 — L4 항목보다 큼, 클릭하면 접기/펼치기 */
-.nav-sub-head { display: flex; align-items: center; gap: 6px; font-size: 14px; font-weight: 600;
+.nav-sub-head { display: flex; align-items: center; gap: 6px; font-size: 12px; font-weight: 400;
   color: var(--text); padding: 7px 8px; border-radius: 7px; cursor: pointer; user-select: none; }
 .nav-sub-head:hover { color: var(--accent); }
 /* L3 분류에 현재 선택 항목이 있으면 하늘색 바탕 강조(이카운트식) */
