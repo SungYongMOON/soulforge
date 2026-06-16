@@ -877,7 +877,8 @@ function eventDesc(e, L) {
     case "item_assign": return `담당 지정 → ${e.to_val ?? "(해제)"}`;
     case "item_confirm": return `할일 분류 확정${e.to_val ? ` (${e.to_val})` : ""}`;
     case "item_edit": return `할일 수정: ${e.to_val ?? ""}`;
-    case "item_archive": return `할일 보관(삭제): ${e.to_val ?? ""}`;
+    case "item_archive": return `할일 보관(삭제): ${e.to_val ?? ""}${e.note ? ` — 사유: ${e.note}` : ""}`;
+    case "item_restore": return `할일 복구: ${e.to_val ?? ""}`;
     case "item_promote": return `메일→할일 승격: ${e.to_val ?? ""}`;
     case "project_create": return `과제 생성: ${e.to_val ?? ""}`;
     case "gate_clear": return `게이트 통과: ${e.to_val ?? ""}${e.note ? ` (${e.note})` : ""}`;
@@ -1990,11 +1991,16 @@ async function renderItems() {
   const triageQ = new URLSearchParams({ status: "unclassified" });
   if (state.projectFilter) triageQ.set("project", state.projectFilter);
   const triage = await api(`/api/items?${triageQ}`);
+  // 보관함(소프트삭제된 할 일) — 별도 조회로 개수. 활성 목록엔 안 뜨지만 여기서 보고 복구 가능.
+  const archivedQ = new URLSearchParams({ status: "archived" });
+  if (state.projectFilter) archivedQ.set("project", state.projectFilter);
+  const archived = await api(`/api/items?${archivedQ}`);
   const chip = (val, label, n, cls = "") =>
     `<button class="status-chip ${cls} ${state.statusFilter === val ? "on" : ""}" data-st="${val}">${label}${n != null ? ` <em>${n}</em>` : ""}</button>`;
   const chipsHtml = [chip("", L.all_label, allItems.length)]
     .concat(statuses.map((s) => chip(s, L[`status_${s}`], statusCount(s))))
     .concat(triage.length || state.statusFilter === "unclassified" ? [chip("unclassified", L.status_unclassified ?? "분류 필요", triage.length, "triage")] : [])
+    .concat(archived.length || state.statusFilter === "archived" ? [chip("archived", L.status_archived ?? "보관함", archived.length, "archived-chip")] : [])
     .join("");
   const triageNote = state.statusFilter === "unclassified"
     ? `<div class="triage-note">${L.triage_note ?? "메일/요청에서 자동 추출됐지만 과제·단계·산출물 연결이 없는 임시 할 일입니다. 분류해야 정식 실행 목록에 들어갑니다."}</div>`
@@ -2015,9 +2021,12 @@ async function renderItems() {
       ${dueCell(i.due, todayKey)}
       <td>${esc(i.assignee_ref ?? "-")}</td>
       <td>${itemLinkCell(i)}</td>
-      <td class="acts">${itemActionsHtml(i)}<button class="act-btn edit" data-edit="${esc(i.id)}">${L.act_edit ?? "수정"}</button></td>
+      <td class="acts">${i.status === "archived"
+        ? `<button class="act-btn restore-btn" data-restore="${esc(i.id)}">${L.act_restore ?? "복구"}</button>`
+        : `${itemActionsHtml(i)}<button class="act-btn edit" data-edit="${esc(i.id)}">${L.act_edit ?? "수정"}</button>`}</td>
     </tr>`).join("");
   const isTriage = state.statusFilter === "unclassified";
+  const isArchived = state.statusFilter === "archived";
   // 분류 카드는 항목의 기존값(메일/LLM 제안·결정적 SE단계)을 pre-fill → 사람은 확인만. (코어 LLM 0%: LLM은 제안, 확정은 사람)
   const optsSel = (labels, sel) => Object.entries(labels).map(([k, v]) => `<option value="${k}" ${k === sel ? "selected" : ""}>${v}</option>`).join("");
   const triageBody = !isTriage ? "" : (items.length
@@ -2042,7 +2051,8 @@ async function renderItems() {
     </div>
     <div class="status-chips">${chipsHtml}</div>
     ${triageNote}
-    ${isTriage ? "" : `<div class="item-form">
+    ${isArchived ? `<div class="triage-note">${L.archived_note ?? "보관(삭제)된 할 일입니다. '복구'를 누르면 활성 목록으로 되돌아갑니다. 이력은 event_log에 그대로 남습니다."}</div>` : ""}
+    ${(isTriage || isArchived) ? "" : `<div class="item-form">
       <select id="niProject">${opts || `<option value="">${L.project}</option>`}</select>
       <input id="niTitle" placeholder="${L.item_new_ph}" />
       <input id="niAssignee" placeholder="${L.assignee_ph}" size="9" value="${esc(state.account?.display_name || state.account?.username || "")}" />
@@ -2124,10 +2134,21 @@ function wireItemEdit(scope) {
   scope.querySelectorAll(".ie-del").forEach((b) =>
     b.addEventListener("click", async (e) => {
       e.stopPropagation();
-      if (!(await uiConfirm(state.lex.item_delete_confirm ?? "이 할 일을 삭제(보관)할까요? 활성 목록에서 사라집니다."))) return;
-      const r = await post("/api/items/delete", { id: b.dataset.i });
+      // 사유 입력 = 확인 겸용(취소=Esc/취소, 빈칸 확인=사유 없이 보관). 사유는 event_log 이력에 남음.
+      const reason = window.prompt(state.lex.item_delete_reason ?? "삭제(보관) 사유 — 비워도 됩니다. 이력에 남습니다. (취소하려면 Esc)", "");
+      if (reason === null) return;
+      const r = await post("/api/items/delete", { id: b.dataset.i, reason: reason.trim() });
       if (!r.ok) { const er = await r.json().catch(() => ({})); alert(er.error || (state.lex.act_delete_failed ?? "삭제 실패")); return; }
       state.itemEdit = null;
+      render();
+    })
+  );
+  // 보관함 복구: archived → open(활성 목록 복귀)
+  scope.querySelectorAll(".restore-btn[data-restore]").forEach((b) =>
+    b.addEventListener("click", async (e) => {
+      e.stopPropagation();
+      const r = await post("/api/items/restore", { id: b.dataset.restore });
+      if (!r.ok) { const er = await r.json().catch(() => ({})); alert(er.error || (state.lex.act_restore_failed ?? "복구 실패")); return; }
       render();
     })
   );

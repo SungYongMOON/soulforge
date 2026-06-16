@@ -545,7 +545,12 @@ export const LEXICON = {
     req_intake_note: "팀원 인입함 — 개발 요청·요구사항·업데이트하면 좋은 기능 아이디어·개선·버그를 자유롭게 적습니다(분류로 구분). 그대로 목록에 쌓이고, 과제에 연결해 '할 일로' 승격하면 분류 필요로 들어가 SE 기준점(단계·산출물·업무유형)에 거는 분류를 거칩니다.",
     req_col_title: "요청",
     req_col_who: "요청자",
-    req_col_cat: "분류"
+    req_col_cat: "분류",
+    status_archived: "보관함",
+    act_restore: "복구",
+    act_restore_failed: "복구 실패",
+    item_delete_reason: "삭제(보관) 사유 — 비워도 됩니다. 이력에 남습니다. (취소하려면 Esc)",
+    archived_note: "보관(삭제)된 할 일입니다. '복구'를 누르면 활성 목록으로 되돌아갑니다. 이력은 event_log에 그대로 남습니다."
   },
   fantasy: {
     app_title: "길드 작전판",
@@ -1091,7 +1096,12 @@ export const LEXICON = {
     req_intake_note: "팀원 인입함 — 개발 요청·요구사항·업데이트하면 좋은 기능 아이디어·개선·버그를 자유롭게 적습니다(분류로 구분). 그대로 목록에 쌓이고, 과제에 연결해 '할 일로' 승격하면 분류 필요로 들어가 SE 기준점(단계·산출물·업무유형)에 거는 분류를 거칩니다.",
     req_col_title: "요청",
     req_col_who: "요청자",
-    req_col_cat: "분류"
+    req_col_cat: "분류",
+    status_archived: "봉인고",
+    act_restore: "되살리기",
+    act_restore_failed: "되살리기 실패",
+    item_delete_reason: "봉인 사유 — 비워도 됩니다. 연대기에 남습니다. (취소하려면 Esc)",
+    archived_note: "봉인된 몬스터입니다. '되살리기'를 누르면 활성 목록으로 돌아갑니다. 이력은 연대기에 그대로 남습니다."
   }
 };
 

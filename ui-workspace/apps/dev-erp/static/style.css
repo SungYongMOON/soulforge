@@ -160,6 +160,10 @@ td.num { text-align: right; font-variant-numeric: tabular-nums; }
 /* 분류 필요(미분류) 필터칩 + 안내 배너 */
 .status-chip.triage { background: #fdf0d6; color: #9a6a12; border: 1px solid #e8c98a; }
 .status-chip.triage.on { background: #9a6a12; color: #fff; }
+/* 보관함(소프트삭제) 칩 — 활성 상태칩과 구분되는 회색 */
+.status-chip.archived-chip { background: var(--chip); color: var(--muted); border: 1px solid var(--line); }
+.status-chip.archived-chip.on { background: var(--muted); color: #fff; }
+.act-btn.restore-btn { color: var(--accent); }
 .triage-note { font-size: 12.5px; color: #9a6a12; background: #fdf0d6; border: 1px solid #e8c98a; border-radius: 8px; padding: 8px 12px; margin: 8px 0; }
 /* 분류 폼(미분류→정식 등록) */
 .classify-list { display: flex; flex-direction: column; gap: 8px; }

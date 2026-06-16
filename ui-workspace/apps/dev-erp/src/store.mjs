@@ -1162,6 +1162,16 @@ export class Store {
     return { ok: true, from: prev.status, project_id: prev.project_id, title: prev.title };
   }
 
+  // F2 보강: 보관(삭제)된 할 일 복구 — status 'archived' → 'open'(활성 목록 복귀). 행은 계속 보존돼 있었음.
+  restoreItem(id) {
+    const prev = this.db.prepare("SELECT status, project_id, title FROM core_item WHERE id=?").get(id);
+    if (!prev) return { error: "item_not_found" };
+    if (prev.status !== "archived") return { error: "not_archived", status: prev.status };
+    this.db.prepare("UPDATE core_item SET status='open' WHERE id=?").run(id);
+    this.afterItemWrite?.(id);
+    return { ok: true, project_id: prev.project_id, title: prev.title };
+  }
+
   // SE 기준점 확정(slice2): 미분류 할 일에 단계/연결대상 + 업무유형을 붙여 정식(open) 승격.
   // SE 기준점(단계 또는 연결대상 또는 산출물) + 업무유형 둘 다 충족해야 통과(needs_se_anchor 게이트).
   confirmItem(id, { work_type, link_kind, link_ref, completion_criteria, stage_id, anchor_stage_code } = {}) {
