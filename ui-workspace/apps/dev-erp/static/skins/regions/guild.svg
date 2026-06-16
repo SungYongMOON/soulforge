@@ -1,0 +1,41 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1600 900" preserveAspectRatio="xMidYMid slice">
+  <defs>
+    <linearGradient id="hall" x1="0" y1="0" x2="0" y2="1">
+      <stop offset="0" stop-color="#e7dcc1"/>
+      <stop offset="0.55" stop-color="#ddcfb0"/>
+      <stop offset="1" stop-color="#cdbd9b"/>
+    </linearGradient>
+    <linearGradient id="floor" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="#b69e76"/><stop offset="1" stop-color="#9c855f"/></linearGradient>
+    <radialGradient id="night" cx="0.5" cy="0.4" r="0.6"><stop offset="0" stop-color="#b9d4d8"/><stop offset="1" stop-color="#5d7b8e"/></radialGradient>
+    <radialGradient id="torch" cx="0.5" cy="0.5" r="0.5"><stop offset="0" stop-color="#ffd27a" stop-opacity="0.55"/><stop offset="1" stop-color="#ffd27a" stop-opacity="0"/></radialGradient>
+    <linearGradient id="col" x1="0" y1="0" x2="1" y2="0"><stop offset="0" stop-color="#cdbb95"/><stop offset="0.5" stop-color="#e6d8b8"/><stop offset="1" stop-color="#bfa97f"/></linearGradient>
+  </defs>
+  <rect width="1600" height="900" fill="url(#hall)"/>
+  <!-- 큰 아치 창 + 달빛 밤하늘 -->
+  <path d="M600 720 L600 320 Q800 140 1000 320 L1000 720 Z" fill="url(#night)"/>
+  <circle cx="800" cy="300" r="62" fill="#f3ecd0"/>
+  <circle cx="800" cy="300" r="150" fill="#f3ecd0" opacity="0.12"/>
+  <g fill="#eaf0ec" opacity="0.8"><circle cx="690" cy="360" r="2"/><circle cx="900" cy="340" r="1.8"/><circle cx="740" cy="430" r="1.6"/><circle cx="870" cy="450" r="2"/></g>
+  <!-- 창틀 -->
+  <path d="M600 720 L600 320 Q800 140 1000 320 L1000 720" fill="none" stroke="#7d6a47" stroke-width="14"/>
+  <line x1="800" y1="180" x2="800" y2="720" stroke="#7d6a47" stroke-width="10"/>
+  <line x1="600" y1="470" x2="1000" y2="470" stroke="#7d6a47" stroke-width="10"/>
+  <!-- 좌우 기둥 -->
+  <rect x="120" y="180" width="120" height="600" fill="url(#col)"/>
+  <rect x="100" y="150" width="160" height="44" fill="#c7b48d"/>
+  <rect x="1360" y="180" width="120" height="600" fill="url(#col)"/>
+  <rect x="1340" y="150" width="160" height="44" fill="#c7b48d"/>
+  <!-- 현수막(길드 깃발) -->
+  <path d="M330 180 L470 180 L470 470 L400 430 L330 470 Z" fill="#2f7d86"/>
+  <path d="M330 180 L470 180 L470 210 L330 210 Z" fill="#256871"/>
+  <circle cx="400" cy="290" r="34" fill="#d8b65f"/>
+  <path d="M1130 180 L1270 180 L1270 470 L1200 430 L1130 470 Z" fill="#9a6a3a"/>
+  <path d="M1130 180 L1270 180 L1270 210 L1130 210 Z" fill="#80552c"/>
+  <circle cx="1200" cy="290" r="34" fill="#d8b65f"/>
+  <!-- 횃불 글로우 -->
+  <circle cx="300" cy="430" r="150" fill="url(#torch)"/>
+  <circle cx="1300" cy="430" r="150" fill="url(#torch)"/>
+  <!-- 바닥 -->
+  <rect x="0" y="740" width="1600" height="160" fill="url(#floor)"/>
+  <g stroke="#8a7350" stroke-width="2" opacity="0.5"><line x1="0" y1="790" x2="1600" y2="790"/><line x1="0" y1="840" x2="1600" y2="840"/></g>
+</svg>

@@ -31,5 +31,5 @@ private-state/
 *credential*
 
 # 달빛조각사 던전 배경(로컬·비공개) — 게임 저작물이라 공개 repo 제외. README만 추적.
-ui-workspace/apps/dev-erp/static/skins/*
-!ui-workspace/apps/dev-erp/static/skins/README.md
+ui-workspace/apps/dev-erp/static/skins/dungeons/
+ui-workspace/apps/dev-erp/static/skins/main.jpg

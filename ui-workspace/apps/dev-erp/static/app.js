@@ -3235,14 +3235,16 @@ async function renderRequests() {
 // 던전 배경: 판타지 모드 + 과제 허브 진입 시 과제별 배경 이미지(/skins/dungeons/<과제번호>.jpg, 로컬·비공개).
 // 파일 없으면 그냥 미스트 그라데이션(404 레이어는 투명 → 폴백). 과제마다 다른 '던전'.
 function applyDungeonBg() {
-  let url = null;
+  // 레이어: owner 로컬 사진(jpg, 있으면 우선) → 내 원본 일러스트(regions/*.svg) → 그라데이션. jpg 404면 svg가 비침.
+  let layers = null;
   if (state.mode === "fantasy") {
-    if (state.view === "home") url = "/skins/main.jpg";                                    // 메인=길드 내부 전경
-    else if (state.view === "project" && state.hubProject) url = `/skins/dungeons/${encodeURIComponent(state.hubProject)}.jpg`; // 과제=던전
+    if (state.view === "home") layers = `url("/skins/main.jpg"), url("/skins/regions/guild.svg")`;            // 메인=길드 내부
+    else if (state.view === "project" && state.hubProject)                                                     // 과제=던전(샘플은 forest 공통)
+      layers = `url("/skins/dungeons/${encodeURIComponent(state.hubProject)}.jpg"), url("/skins/regions/forest.svg")`;
   }
-  if (url) {
+  if (layers) {
     document.body.dataset.dungeon = "1";
-    document.body.style.setProperty("--dungeon-bg", `url("${url}")`);
+    document.body.style.setProperty("--dungeon-bg", layers);
   } else {
     document.body.removeAttribute("data-dungeon");
     document.body.style.removeProperty("--dungeon-bg");

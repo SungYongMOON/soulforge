@@ -1,0 +1,37 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1600 900" preserveAspectRatio="xMidYMid slice">
+  <defs>
+    <linearGradient id="sky" x1="0" y1="0" x2="0" y2="1">
+      <stop offset="0" stop-color="#a9cfca"/>
+      <stop offset="0.45" stop-color="#cfe2d8"/>
+      <stop offset="1" stop-color="#eef0e2"/>
+    </linearGradient>
+    <radialGradient id="moon" cx="0.5" cy="0.5" r="0.5">
+      <stop offset="0" stop-color="#fbf6e6"/>
+      <stop offset="0.6" stop-color="#f3ecd4"/>
+      <stop offset="1" stop-color="#f3ecd4" stop-opacity="0"/>
+    </radialGradient>
+    <linearGradient id="hillA" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="#86b39c"/><stop offset="1" stop-color="#9cbfa6"/></linearGradient>
+    <linearGradient id="hillB" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="#5e8f78"/><stop offset="1" stop-color="#74a085"/></linearGradient>
+    <linearGradient id="fore" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="#33614f"/><stop offset="1" stop-color="#27503f"/></linearGradient>
+  </defs>
+  <rect width="1600" height="900" fill="url(#sky)"/>
+  <!-- 달무리 + 달 -->
+  <circle cx="1230" cy="210" r="300" fill="url(#moon)"/>
+  <circle cx="1230" cy="210" r="92" fill="#fbf7e8"/>
+  <!-- 별 -->
+  <g fill="#fdfbef" opacity="0.85"><circle cx="300" cy="120" r="2.4"/><circle cx="520" cy="80" r="1.8"/><circle cx="760" cy="150" r="2.2"/><circle cx="980" cy="90" r="1.6"/><circle cx="180" cy="210" r="1.8"/><circle cx="640" cy="60" r="1.6"/></g>
+  <!-- 먼 산 -->
+  <path d="M0 560 L220 470 L430 540 L640 450 L880 540 L1120 460 L1380 540 L1600 480 L1600 900 L0 900 Z" fill="url(#hillA)" opacity="0.9"/>
+  <path d="M0 640 L260 560 L520 630 L820 545 L1100 630 L1380 560 L1600 620 L1600 900 L0 900 Z" fill="url(#hillB)"/>
+  <!-- 안개 띠 -->
+  <rect x="0" y="610" width="1600" height="120" fill="#eef2ea" opacity="0.35"/>
+  <!-- 앞 숲(나무 실루엣) -->
+  <path d="M0 760 L1600 760 L1600 900 L0 900 Z" fill="url(#fore)"/>
+  <g fill="#27503f">
+    <path d="M120 770 l34 -150 l34 150 z"/><path d="M138 700 l16 -70 l16 70 z"/>
+    <path d="M360 775 l40 -180 l40 180 z"/><path d="M382 695 l18 -82 l18 82 z"/>
+    <path d="M640 772 l30 -130 l30 130 z"/>
+    <path d="M980 776 l44 -190 l44 190 z"/><path d="M1004 690 l20 -88 l20 88 z"/>
+    <path d="M1320 773 l36 -160 l36 160 z"/><path d="M1340 700 l16 -74 l16 74 z"/>
+  </g>
+</svg>
