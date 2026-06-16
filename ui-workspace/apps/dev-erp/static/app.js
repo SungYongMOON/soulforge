@@ -3483,6 +3483,15 @@ function applyTheme(t) {
 applyTheme(localStorage.getItem("dev_erp_theme") || "light");
 $("#themeBtn")?.addEventListener("click", () => applyTheme(document.body.dataset.theme === "dark" ? "light" : "dark"));
 
+// 🎨 스킨 — 비주얼 팔레트 교체(라벨/모드와 독립). body[data-skin]. 기본=''(현행). 스킨 추가는 CSS 한 블록 + index.html 옵션만.
+function applySkin(s) {
+  document.body.dataset.skin = s || "";
+  localStorage.setItem("dev_erp_skin", s || "");
+  const sel = $("#skinSelect"); if (sel) sel.value = s || "";
+}
+applySkin(localStorage.getItem("dev_erp_skin") || "");
+$("#skinSelect")?.addEventListener("change", (e) => applySkin(e.target.value));
+
 // 📝 개인 메모(E Note) — 어느 화면에서나 여는 개인 메모. 이 기기(localStorage)에만 저장.
 function openNote() {
   document.querySelector(".note-overlay")?.remove();

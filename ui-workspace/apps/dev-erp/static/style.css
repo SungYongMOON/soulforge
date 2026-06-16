@@ -15,6 +15,23 @@ body[data-theme="dark"] {
   --muted: #99a0ae; --accent: #4a9fd8; --danger: #e0685a; --warn: #d6a84f;
   --ok: #6fae7c; --chip: #2a3040;
 }
+/* 🌙 스킨: 달빛조각사 — 밤·달빛·금빛 RPG 팔레트(비주얼만, 라벨/모드와 독립). 소스 순서상 data-theme보다 뒤=우선. */
+body[data-skin="moonlight"] {
+  --bg: #0f111b; --panel: #181c2b; --line: #2c3350; --text: #ece9f4;
+  --muted: #969cc0; --accent: #cda85a; --danger: #d96a55; --warn: #d8aa57;
+  --ok: #74b58e; --chip: #222948;
+}
+body[data-skin="moonlight"] .brand-bar, body[data-skin="moonlight"] .util-bar { background: #131726; }
+body[data-skin="moonlight"] .side { background: #141828; }
+/* 네비/탭의 하드코딩 네이비(#19358c)를 금빛으로 — 스킨 한정 */
+body[data-skin="moonlight"] .group-tab.on,
+body[data-skin="moonlight"] .nav-sub-head.has-active, body[data-skin="moonlight"] .nav-sub-head.proj-head.on,
+body[data-skin="moonlight"] #nav .nav-items button.active,
+body[data-skin="moonlight"] .sub-tab.on { color: #e7c878; }
+body[data-skin="moonlight"] .nav-sub-head.has-active, body[data-skin="moonlight"] .nav-sub-head.proj-head.on { background: rgba(205,168,90,.15); }
+body[data-skin="moonlight"] #nav .nav-items button.active::before { background: #cda85a; }
+body[data-skin="moonlight"] .sub-tab.on { border-bottom-color: #cda85a; }
+body[data-skin="moonlight"] .group-tab.on { background: rgba(205,168,90,.15); }
 * { box-sizing: border-box; }
 body { margin: 0; font-family: "Pretendard", "Apple SD Gothic Neo", system-ui, sans-serif; background: var(--bg); color: var(--text); }
 /* IA 2.5단: 상단 전폭 brand+그룹탭 / 좌측 선택그룹 하위 / 본문 (ECount 관찰 반영) */
@@ -114,7 +131,8 @@ nav button.active { background: var(--chip); font-weight: 600; color: var(--acce
 /* 상단바에 인라인 배치(좌측 열 제거에 따라 이동) */
 .mode-toggle { display: flex; flex-direction: row; align-items: center; gap: 5px; font-size: 12px; color: var(--muted); flex: 0 0 auto; }
 .mode-toggle #modeLabel { display: none; }
-.mode-toggle select { padding: 5px 7px; border-radius: 8px; border: 1px solid var(--line); background: var(--panel); color: var(--text); font-size: 12px; }
+.mode-toggle select, #skinSelect { padding: 5px 7px; border-radius: 8px; border: 1px solid var(--line); background: var(--panel); color: var(--text); font-size: 12px; }
+#skinSelect { flex: 0 0 auto; }
 
 .main { display: flex; flex-direction: column; }
 .topbar { display: flex; align-items: center; justify-content: space-between; gap: 12px; padding: 14px 20px; border-bottom: 1px solid var(--line); background: var(--panel); }
