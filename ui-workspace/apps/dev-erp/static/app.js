@@ -375,7 +375,7 @@ function localTime(iso) {
 }
 
 const VIEWS = ["home", "projects", "items", "guide", "mail", "artifacts", "search"];
-const navKey = { home: "nav_home", projects: "nav_projects", items: "nav_items", guide: "nav_guide", mail: "nav_mail", artifacts: "nav_artifacts", search: "nav_search" };
+const navKey = { home: "nav_home", projects: "nav_projects", items: "nav_items", guide: "nav_guide", mail: "nav_mail", artifacts: "nav_artifacts", search: "nav_search", auditlog: "nav_audit" };
 
 // 대분류 = 다루는 '대상(객체)'축 (owner 결정 2026-06-13). IA 4단(ECount식):
 // ① 대분류(상단 가로, 큰글씨) → ② 중분류(상단 가로, 작은글씨) → ③ 분류(좌측 헤더) → ④ 항목(좌측 하위).
@@ -403,6 +403,7 @@ const NAV_TREE = [
     ] },
     { g: "work_record", b: "보고·회의", f: "연대기·원탁", subs: [
       { b: "보고·일지", f: "연대기", items: ["mod:reports"] },
+      { b: "전체 이력", f: "대연대기", items: ["auditlog"] },
       { b: "회의·결정", f: "원탁", items: ["mod:meetings"] },
       { b: "산출물", f: "전리품", items: ["artifacts"] },
     ] },
@@ -2359,6 +2360,50 @@ async function renderMail() {
     doAssign([state.mailSel], $("#assignOne").value, true));
 }
 
+// 전체 감사로그(event_log 원천) — 과제·종류·행위자·기간 필터 + 조회잡음 토글. 가공된 '이력 탭'과 달리 전부 표시.
+async function renderAuditLog() {
+  const L = state.lex;
+  $("#viewTitle").textContent = L.nav_audit ?? "전체 이력(감사로그)";
+  logView(state.view);
+  const f = (state.audit ??= { kind: "", actor: "", project: "", days: "30", noise: false });
+  if (!state._projCache) { try { state._projCache = (await api("/api/summary")).projects; } catch { state._projCache = []; } }
+  const since = f.days ? new Date(Date.now() - Number(f.days) * 86400000).toISOString().slice(0, 10) : null;
+  const q = new URLSearchParams();
+  if (f.project) q.set("project", f.project);
+  if (f.kind) q.set("kind", f.kind);
+  if (f.actor) q.set("actor", f.actor);
+  if (since) q.set("since", since);
+  q.set("limit", "300");
+  const data = await api(`/api/events/audit?${q}`);
+  const events = f.noise ? data.events : data.events.filter((e) => !EVENT_HIDE.has(e.kind));
+  const projOpts = (state._projCache ?? []).map((p) => `<option value="${esc(p.id)}" ${f.project === p.id ? "selected" : ""}>${esc(p.id)}</option>`).join("");
+  const kindOpts = data.facets.kinds.map((k) => `<option value="${esc(k)}" ${f.kind === k ? "selected" : ""}>${esc(k)}</option>`).join("");
+  const dayOpt = (v, lab) => `<option value="${v}" ${f.days === v ? "selected" : ""}>${lab}</option>`;
+  const rows = events.map((e) => `<tr>
+      <td class="dim num">${localTime(e.at)}</td>
+      <td><span class="badge mini">${esc(e.kind)}</span></td>
+      <td>${esc(eventDesc(e, L))}${e.bottleneck_reason ? ` · ${esc(e.bottleneck_reason)}` : ""}</td>
+      <td class="dim">${esc(e.actor_ref)}</td>
+      <td class="dim">${esc(e.project_ref ?? "")}</td>
+    </tr>`).join("");
+  $("#view").innerHTML = `
+    <div class="filters">
+      <select id="alProject"><option value="">${L.project}: ${L.all_label}</option>${projOpts}</select>
+      <select id="alKind"><option value="">${L.al_kind ?? "종류"}: ${L.all_label}</option>${kindOpts}</select>
+      <input id="alActor" placeholder="${L.al_actor ?? "행위자"}" size="8" value="${esc(f.actor)}" />
+      <select id="alDays">${dayOpt("7", L.al_d7 ?? "최근 7일")}${dayOpt("30", L.al_d30 ?? "최근 30일")}${dayOpt("90", L.al_d90 ?? "최근 90일")}${dayOpt("", L.al_all ?? "전체 기간")}</select>
+      <label class="al-noise"><input type="checkbox" id="alNoise" ${f.noise ? "checked" : ""}/> ${L.al_noise ?? "조회·잡음 포함"}</label>
+    </div>
+    ${events.length
+      ? `<table class="evt-table"><thead><tr><th>${L.th_time ?? "시각"}</th><th>${L.al_kind ?? "종류"}</th><th>${L.al_desc ?? "설명"}</th><th>${L.al_actor ?? "행위자"}</th><th>${L.project}</th></tr></thead><tbody>${rows}</tbody></table>${data.events.length >= 300 ? `<div class="dim small">${L.al_more ?? "최근 300건만 — 필터로 좁혀보세요"}</div>` : ""}`
+      : `<div class="empty">${L.evt_empty ?? "이벤트 없음"}</div>`}`;
+  $("#alProject").addEventListener("change", (e) => { f.project = e.target.value; render(); });
+  $("#alKind").addEventListener("change", (e) => { f.kind = e.target.value; render(); });
+  $("#alActor").addEventListener("keydown", (e) => { if (e.key === "Enter") { f.actor = e.target.value.trim(); render(); } });
+  $("#alDays").addEventListener("change", (e) => { f.days = e.target.value; render(); });
+  $("#alNoise").addEventListener("change", (e) => { f.noise = e.target.checked; render(); });
+}
+
 async function renderArtifacts() {
   const q = new URLSearchParams();
   if (state.projectFilter) q.set("project", state.projectFilter);
@@ -3214,6 +3259,7 @@ async function render() {
   if (state.view === "items") return renderItems();
   if (state.view === "mail") return renderMail();
   if (state.view === "artifacts") return renderArtifacts();
+  if (state.view === "auditlog") return renderAuditLog();
   if (state.view === "search") return renderSearch(state.searchTerm);
 }
 

@@ -683,6 +683,10 @@ const server = createServer(async (req, res) => {
     if (path === "/api/lexicon") return send(res, 200, { mode: qp.mode ?? "business", modes: Object.keys(LEXICON), labels: getLexicon(qp.mode) });
     if (path === "/api/modules") return send(res, 200, modulesFor(qp.mode));
     if (path === "/api/events/recent") return send(res, 200, store.recentEvents(qp.limit ? Number(qp.limit) : 30, qp.project ?? null));
+    if (path === "/api/events/audit") return send(res, 200, {
+      events: store.queryEvents({ project: qp.project || null, kind: qp.kind || null, actor: qp.actor || null, since: qp.since || null, limit: qp.limit ? Number(qp.limit) : 300 }),
+      facets: store.eventFacets(),
+    });
     if (path === "/api/events" && req.method === "POST") {
       let body = "";
       for await (const chunk of req) body += chunk;

@@ -550,7 +550,17 @@ export const LEXICON = {
     act_restore: "복구",
     act_restore_failed: "복구 실패",
     item_delete_reason: "삭제(보관) 사유 — 비워도 됩니다. 이력에 남습니다. (취소하려면 Esc)",
-    archived_note: "보관(삭제)된 할 일입니다. '복구'를 누르면 활성 목록으로 되돌아갑니다. 이력은 event_log에 그대로 남습니다."
+    archived_note: "보관(삭제)된 할 일입니다. '복구'를 누르면 활성 목록으로 되돌아갑니다. 이력은 event_log에 그대로 남습니다.",
+    nav_audit: "전체 이력(감사로그)",
+    al_kind: "종류",
+    al_actor: "행위자",
+    al_desc: "설명",
+    al_d7: "최근 7일",
+    al_d30: "최근 30일",
+    al_d90: "최근 90일",
+    al_all: "전체 기간",
+    al_noise: "조회·잡음 포함",
+    al_more: "최근 300건만 — 필터로 좁혀보세요"
   },
   fantasy: {
     app_title: "길드 작전판",
@@ -1101,7 +1111,17 @@ export const LEXICON = {
     act_restore: "되살리기",
     act_restore_failed: "되살리기 실패",
     item_delete_reason: "봉인 사유 — 비워도 됩니다. 연대기에 남습니다. (취소하려면 Esc)",
-    archived_note: "봉인된 몬스터입니다. '되살리기'를 누르면 활성 목록으로 돌아갑니다. 이력은 연대기에 그대로 남습니다."
+    archived_note: "봉인된 몬스터입니다. '되살리기'를 누르면 활성 목록으로 돌아갑니다. 이력은 연대기에 그대로 남습니다.",
+    nav_audit: "대연대기(전체 기록)",
+    al_kind: "종류",
+    al_actor: "행위자",
+    al_desc: "설명",
+    al_d7: "최근 7일",
+    al_d30: "최근 30일",
+    al_d90: "최근 90일",
+    al_all: "전체 기간",
+    al_noise: "조회·잡음 포함",
+    al_more: "최근 300건만 — 필터로 좁혀보세요"
   }
 };
 

@@ -703,6 +703,27 @@ export class Store {
       .map((row) => ({ ...row, used_refs: JSON.parse(row.used_refs ?? "[]") }));
   }
 
+  // 전체 감사로그 조회 — 과제·종류·행위자·기간 필터(append-only event_log 원천). 조회 잡음도 포함(필터는 화면에서).
+  queryEvents({ project = null, kind = null, actor = null, since = null, limit = 200 } = {}) {
+    const cond = []; const args = [];
+    if (project) { cond.push("project_ref=?"); args.push(project); }
+    if (kind) { cond.push("kind=?"); args.push(kind); }
+    if (actor) { cond.push("actor_ref=?"); args.push(actor); }
+    if (since) { cond.push("at>=?"); args.push(since); }
+    const where = cond.length ? `WHERE ${cond.join(" AND ")}` : "";
+    return this.db
+      .prepare(`SELECT * FROM event_log ${where} ORDER BY id DESC LIMIT ?`)
+      .all(...args, Math.max(1, Math.min(1000, Number(limit) || 200)))
+      .map((row) => ({ ...row, used_refs: JSON.parse(row.used_refs ?? "[]") }));
+  }
+  // 감사로그 필터 선택지(distinct 종류·행위자).
+  eventFacets() {
+    return {
+      kinds: this.db.prepare("SELECT DISTINCT kind FROM event_log ORDER BY kind").all().map((r) => r.kind),
+      actors: this.db.prepare("SELECT DISTINCT actor_ref FROM event_log WHERE actor_ref IS NOT NULL ORDER BY actor_ref").all().map((r) => r.actor_ref),
+    };
+  }
+
   // --- upserts (adapter/fixture 용) ---
   upsertProject(p) {
     // 과제시작년도: 명시값 우선, 없으면 과제번호 접두 P{YY}-에서 도출(P26-→2026), 그래도 없으면 null.
