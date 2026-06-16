@@ -1154,12 +1154,12 @@ export class Store {
 
   // F2: 할 일 소프트삭제 = status 'archived'(행 보존, 활성 목록·집계에서 제외). 하드 DELETE 안 함(감사·복구).
   archiveItem(id) {
-    const prev = this.db.prepare("SELECT status, project_id FROM core_item WHERE id=?").get(id);
+    const prev = this.db.prepare("SELECT status, project_id, title FROM core_item WHERE id=?").get(id);
     if (!prev) return { error: "item_not_found" };
     if (prev.status === "archived") return { error: "already_archived" };
     this.db.prepare("UPDATE core_item SET status='archived' WHERE id=?").run(id);
     this.afterItemWrite?.(id);
-    return { ok: true, from: prev.status, project_id: prev.project_id };
+    return { ok: true, from: prev.status, project_id: prev.project_id, title: prev.title };
   }
 
   // SE 기준점 확정(slice2): 미분류 할 일에 단계/연결대상 + 업무유형을 붙여 정식(open) 승격.

@@ -876,7 +876,12 @@ function eventDesc(e, L) {
     case "item_create": return `할일 생성: ${e.to_val ?? ""}`;
     case "item_assign": return `담당 지정 → ${e.to_val ?? "(해제)"}`;
     case "item_confirm": return `할일 분류 확정${e.to_val ? ` (${e.to_val})` : ""}`;
+    case "item_edit": return `할일 수정: ${e.to_val ?? ""}`;
+    case "item_archive": return `할일 보관(삭제): ${e.to_val ?? ""}`;
     case "item_promote": return `메일→할일 승격: ${e.to_val ?? ""}`;
+    case "project_create": return `과제 생성: ${e.to_val ?? ""}`;
+    case "gate_clear": return `게이트 통과: ${e.to_val ?? ""}${e.note ? ` (${e.note})` : ""}`;
+    case "gate_mode_set": return `게이트 모드 → ${e.to_val ?? ""}`;
     case "deliverable_add": return `산출물 추가: ${e.to_val ?? ""}`;
     case "deliverable_due": return "산출물 일정 변경";
     case "deliverable_review": return "산출물 검토단계 변경";
@@ -2803,14 +2808,14 @@ async function hubMail(mount, p) {
 
 async function hubHistory(mount, p) {
   const L = state.lex;
-  const events = await api(`/api/events/recent?project=${encodeURIComponent(p.id)}&limit=50`);
+  // 변경 이력: 조회/잡음(view·llm) 제외, kind 를 사람이 읽는 설명(eventDesc)으로. 누가(actor)·시각 표시.
+  const events = (await api(`/api/events/recent?project=${encodeURIComponent(p.id)}&limit=80`)).filter((e) => !EVENT_HIDE.has(e.kind));
   mount.innerHTML = events.length
-    ? `<table><tbody>${events.map((e) => `<tr>
-        <td class="mail-time">${localTime(e.at)}</td>
-        <td><span class="badge">${esc(e.kind)}</span></td>
-        <td>${esc(e.from_val ? `${e.from_val} → ` : "")}${esc(e.to_val ?? "")}${e.bottleneck_reason ? ` · ${esc(e.bottleneck_reason)}` : ""}</td>
+    ? `<table class="evt-table"><tbody>${events.map((e) => `<tr>
+        <td class="dim num">${localTime(e.at)}</td>
+        <td>${esc(eventDesc(e, L))}${e.bottleneck_reason ? ` · ${esc(e.bottleneck_reason)}` : ""}</td>
         <td class="dim">${esc(e.actor_ref)}</td></tr>`).join("")}</tbody></table>`
-    : `<div class="empty small">-</div>`;
+    : `<div class="empty small">${L.evt_empty ?? "변경 이력 없음"}</div>`;
 }
 
 // U-1c 과제 허브 '일정' 탭 — 마일스톤(anchor_stage_code)별 산출물 묶음 + 날짜 인라인 변경(setAnchor 1-hop).

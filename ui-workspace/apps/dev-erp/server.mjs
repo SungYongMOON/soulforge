@@ -288,7 +288,7 @@ const server = createServer(async (req, res) => {
       if (result.error) return send(res, 400, result);
       store.appendEvent({
         actor_ref: actor, actor_kind: "human", kind: "item_archive",
-        item_ref: id, from: result.from, to: "archived", project_ref: result.project_id,
+        item_ref: id, from: result.from, to: result.title, project_ref: result.project_id,
         used_refs: ["items"], data_label: "real"
       });
       return send(res, 200, result);
