@@ -64,6 +64,7 @@ body[data-mode="fantasy"][data-theme="dark"] {
   /* 야간 base 배경 = 어두운 달밤 그라데이션. (주간 fantasy 그라데이션 line 22 가 background 속성을 잡고 있어,
      변수만 바꾸면 빈 영역에 밝은 미스트가 비쳐 보였던 버그 수정. 던전 허브는 아래 [data-dungeon] 규칙이 덮음.) */
   background: linear-gradient(180deg, #0e1118 0%, #141926 45%, #171c28 100%);
+  background-attachment: fixed;
 }
 body[data-mode="fantasy"][data-theme="dark"] .brand-bar, body[data-mode="fantasy"][data-theme="dark"] .util-bar,
 body[data-mode="fantasy"][data-theme="dark"] .side, body[data-mode="fantasy"][data-theme="dark"] .topbar { background: rgba(20,25,38,.86); }
@@ -161,6 +162,7 @@ input[type="email"], input[type="password"], input[type="time"], input:not([type
 .nav-items { display: flex; flex-direction: column; gap: 2px; padding-left: 26px; position: relative; }
 /* L4 항목 왼쪽 수직 레일 + 선택 항목에 원(이카운트식, 선택 따라 이동). 레일=12px, 원 중심도 12px */
 .nav-items::before { content: ""; position: absolute; left: 25px; top: 4px; bottom: 4px; width: 1px; background: #e9ecef; }
+body[data-theme="dark"] .nav-items::before { background: var(--line); } /* 다크/판타지나이트: 밝은 세로 구분선 → 테마 라인색 */
 #nav .nav-items button { position: relative; }
 #nav .nav-items button.active { background: transparent; color: #19358c; font-weight: 700; }
 #nav .nav-items button.active::before { content: ""; position: absolute; left: -3px; top: 50%; transform: translateY(-50%);
