@@ -38,6 +38,8 @@ const DB_PATH = flag("db", join(HERE, "data", "dev-erp.db"));
 if (DB_PATH !== ":memory:") mkdirSync(dirname(DB_PATH), { recursive: true });
 
 const store = openStore(DB_PATH);
+// 감사로그 '조회·잡음' kind — UI EVENT_HIDE 와 동일. noise=0 시 서버에서 제외.
+const AUDIT_NOISE_KINDS = ["view", "llm_call", "chat_query", "recommender_run"];
 // P1b: data/real_meta.json 이 있으면 (갱신 시각 기준) 자동 ingest.
 // 최초 실데이터 도착 시 합성 표본은 제거한다 (가짜/실제 혼합 방지).
 const realMetaPath = join(HERE, "data", "real_meta.json");
@@ -685,7 +687,9 @@ const server = createServer(async (req, res) => {
     if (path === "/api/modules") return send(res, 200, modulesFor(qp.mode));
     if (path === "/api/events/recent") return send(res, 200, store.recentEvents(qp.limit ? Number(qp.limit) : 30, qp.project ?? null));
     if (path === "/api/events/audit") return send(res, 200, {
-      events: store.queryEvents({ project: qp.project || null, kind: qp.kind || null, actor: qp.actor || null, since: qp.since || null, limit: qp.limit ? Number(qp.limit) : 300 }),
+      // noise=0(기본, UI '조회·잡음 포함' 해제) → 잡음을 서버에서 제외해 limit 이 의미 이벤트에만 적용.
+      // noise param 없으면(타 호출자) 종전대로 전체 포함(백워드 호환).
+      events: store.queryEvents({ project: qp.project || null, kind: qp.kind || null, actor: qp.actor || null, since: qp.since || null, limit: qp.limit ? Number(qp.limit) : 300, excludeKinds: qp.noise === "0" ? AUDIT_NOISE_KINDS : null }),
       facets: store.eventFacets(),
     });
     if (path === "/api/events" && req.method === "POST") {

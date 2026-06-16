@@ -704,10 +704,16 @@ export class Store {
   }
 
   // 전체 감사로그 조회 — 과제·종류·행위자·기간 필터(append-only event_log 원천). 조회 잡음도 포함(필터는 화면에서).
-  queryEvents({ project = null, kind = null, actor = null, since = null, limit = 200 } = {}) {
+  queryEvents({ project = null, kind = null, actor = null, since = null, limit = 200, excludeKinds = null } = {}) {
     const cond = []; const args = [];
     if (project) { cond.push("project_ref=?"); args.push(project); }
     if (kind) { cond.push("kind=?"); args.push(kind); }
+    // 잡음(view 등) 서버측 제외: limit 이 의미 이벤트에만 걸리게 해 오래된 가입·승인이 묻히지 않게.
+    // 특정 kind 필터가 있으면 그게 우선이라 제외는 적용 안 함.
+    else if (Array.isArray(excludeKinds) && excludeKinds.length) {
+      cond.push(`kind NOT IN (${excludeKinds.map(() => "?").join(",")})`);
+      args.push(...excludeKinds);
+    }
     if (actor) { cond.push("actor_ref=?"); args.push(actor); }
     if (since) { cond.push("at>=?"); args.push(since); }
     const where = cond.length ? `WHERE ${cond.join(" AND ")}` : "";

@@ -2431,6 +2431,7 @@ async function renderAuditLog() {
   if (f.actor) q.set("actor", f.actor);
   if (since) q.set("since", since);
   q.set("limit", "300");
+  q.set("noise", f.noise ? "1" : "0"); // noise=0 → 서버가 잡음 제외(limit 이 의미 이벤트에만 걸림). 1 → 전체 포함.
   const data = await api(`/api/events/audit?${q}`);
   const events = f.noise ? data.events : data.events.filter((e) => !EVENT_HIDE.has(e.kind));
   const projOpts = (state._projCache ?? []).map((p) => `<option value="${esc(p.id)}" ${f.project === p.id ? "selected" : ""}>${esc(p.id)}</option>`).join("");
