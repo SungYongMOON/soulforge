@@ -139,6 +139,12 @@ const server = createServer(async (req, res) => {
   // 작업 행위자 = 로그인 세션 사용자(없으면 익명 'anon'). event_log·created_by 출처를 실제 사용자로 기록(BE-2).
   const actor = currentAccount(req)?.username ?? "anon";
   try {
+    // F1/BE-1: 팀 모드(계정 1개 이상)에서는 도메인 쓰기에 로그인 필수 — 익명 우회 차단.
+    // 계정 0개(단독 localhost 파일럿)는 현행 전체허용(하위호환). 로그인/부트스트랩(/api/auth/*)은 예외.
+    if ((req.method === "POST" || req.method === "PUT") && path.startsWith("/api/")
+        && !path.startsWith("/api/auth/") && store.accountCount() > 0 && !currentAccount(req)) {
+      return send(res, 401, { error: "login_required" });
+    }
     if (path === "/api/health") return send(res, 200, { ok: true, schema: "dev_erp.v1", counts: store.counts() });
 
     // ---------- P2b 팀: 계정·인증·관리자 ----------
@@ -392,15 +398,20 @@ const server = createServer(async (req, res) => {
     if (path === "/api/gates") return send(res, 200, { mode: store.gateMode(), stages: store.gates({ project: qp.project }) });
     if (path === "/api/gates/clear" && req.method === "POST") {
       let body = ""; for await (const chunk of req) body += chunk;
-      const { stage_id, force } = JSON.parse(body || "{}");
+      const { stage_id, force, reason } = JSON.parse(body || "{}");
+      // F8: 하드 게이트 강제통과는 SE 통제 우회 — 팀 모드(계정 있음)에서는 관리자만. 사유는 event_log에 기록.
+      if (force && store.accountCount() > 0 && !requireAdmin(req)) return send(res, 403, { error: "admin_only" });
       const result = store.clearStage(stage_id, { force: !!force });
       if (result.error) return send(res, result.error === "stage_not_found" ? 404 : 409, result);
-      store.appendEvent({ actor_ref: actor, actor_kind: "human", kind: "gate_clear", to: stage_id, project_ref: result.project_id, used_refs: ["gates"], data_label: "real", note: result.forced ? `forced(${result.mode})` : result.mode });
+      const rsn = String(reason ?? "").trim();
+      store.appendEvent({ actor_ref: actor, actor_kind: "human", kind: "gate_clear", to: stage_id, project_ref: result.project_id, used_refs: ["gates"], data_label: "real", note: result.forced ? `forced(${result.mode})${rsn ? `: ${rsn}` : ""}` : result.mode });
       return send(res, 200, result);
     }
     if (path === "/api/settings/gate_mode" && req.method === "GET") return send(res, 200, { mode: store.gateMode() });
     if (path === "/api/settings/gate_mode" && req.method === "POST") {
       let body = ""; for await (const chunk of req) body += chunk;
+      // F8: hard↔soft 게이트 모드 전환도 팀 모드에서는 관리자만(강제 게이트 취지 보호).
+      if (store.accountCount() > 0 && !requireAdmin(req)) return send(res, 403, { error: "admin_only" });
       const { mode } = JSON.parse(body || "{}");
       const r = store.setGateMode(mode);
       store.appendEvent({ actor_ref: actor, actor_kind: "human", kind: "gate_mode_set", to: r.mode, used_refs: ["gates", "settings"], data_label: "real" });

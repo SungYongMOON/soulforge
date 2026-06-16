@@ -2888,14 +2888,19 @@ async function renderGates() {
   // P-19: 추천 스캔(수동 트리거) → 결정적 규칙이 갭을 제안 큐에 적재(자동 적용 0). 결과는 위 제안 큐에 표시.
   $("#runRec").addEventListener("click", async () => { await post("/api/recommenders/run", { scope: "all" }); render(); });
   $("#view").querySelectorAll("[data-mode]").forEach((b) => b.addEventListener("click", async () => {
-    await post("/api/settings/gate_mode", { mode: b.dataset.mode }); render();
+    const r = await post("/api/settings/gate_mode", { mode: b.dataset.mode });
+    if (!r.ok) { const e = await r.json().catch(() => ({})); alert(e.error === "admin_only" ? (L.gate_admin_only ?? "게이트 모드는 관리자만 변경할 수 있습니다") : (e.error || "변경 실패")); }
+    render();
   }));
   $("#view").querySelectorAll(".gate-pass-btn").forEach((b) => b.addEventListener("click", async () => {
     const r = await post("/api/gates/clear", { stage_id: b.dataset.stage });
     let res; try { res = await r.json(); } catch { res = {}; }
     if (res.error === "gate_blocked") {
       if (await uiConfirm(L.gate_force_confirm)) {
-        await post("/api/gates/clear", { stage_id: b.dataset.stage, force: true });
+        const reason = window.prompt(L.gate_force_reason ?? "강제 통과 사유를 입력하세요 (기록에 남습니다)", "");
+        if (reason === null) return;
+        const fr = await post("/api/gates/clear", { stage_id: b.dataset.stage, force: true, reason: reason.trim() });
+        if (!fr.ok) { const e = await fr.json().catch(() => ({})); alert(e.error === "admin_only" ? (L.gate_admin_only ?? "강제 통과는 관리자만 가능합니다") : (e.error || "실패")); }
         render();
       }
     } else { render(); }
