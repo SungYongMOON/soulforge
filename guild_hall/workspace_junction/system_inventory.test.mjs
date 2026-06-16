@@ -34,6 +34,11 @@ test("reports planned local system directory as review required without absolute
   assert.equal(result.boundary.host_local_absolute_paths_in_output, false);
   assert.equal(result.counts.shared_generated_view_count, 2);
   assert.equal(result.rows.find((row) => row.relative_path === "local_llm_install").class, "pc_local_runtime_tool");
+  assert.equal(
+    result.rows.find((row) => row.relative_path === "local_llm_install").proposed_action,
+    "move_runtime_to__workspaces_local_or_owner_approved_os_tool_location",
+  );
+  assert.equal(result.next_actions.some((action) => action.includes("guild_hall/state/tools")), false);
   assert.equal(result.rows.find((row) => row.relative_path === "p25_054_reference_payloads").class, "project_move");
   assert.equal(result.rows.find((row) => row.relative_path === "reference_payloads").class, "shared_fixture_candidate");
   assert.equal(result.rows.find((row) => row.relative_path === "scripts").class, "repo_promote_review");

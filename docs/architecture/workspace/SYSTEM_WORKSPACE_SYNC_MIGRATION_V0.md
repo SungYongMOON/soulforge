@@ -52,6 +52,40 @@ If a workflow needs temporary output during the freeze, write it to a clearly
 temporary local scratch location and do not treat it as migration input unless
 the owner explicitly approves it.
 
+## Tool-Worker PC Procedure
+
+A PC that has Allegro, Cadence, OrCAD, GPU/large-memory local LLM, or another
+licensed/local-only toolchain is a tool-worker node.
+
+That toolchain does not make `_workspaces/system` local-only. The installation,
+license-bound runtime, scratch, cache, temporary exports, and machine-only logs
+stay local under:
+
+```text
+_workspaces/_local/<node_id>/system/<tool_or_run>/
+```
+
+or under an owner-approved OS/tool location outside `_workspaces/system`.
+
+For each tool-worker run:
+
+1. Keep the tool install and runtime state local.
+2. Write temporary output under `_workspaces/_local/<node_id>/...`.
+3. Record metadata-only evidence in `_workmeta/system` or the owning
+   `_workmeta/<project_code>`.
+4. Promote only owner-classified outputs:
+   - project-specific outputs to `_workspaces/<project_code>/...`
+   - project-agnostic reusable fixtures or exports to the shared
+     `_workspaces/system` view
+   - knowledge/RAG source-text work to `_workspaces/knowledge/...`
+5. Keep hashes, sizes, source refs, tool profile, and blocker notes in
+   `_workmeta`; do not copy raw payloads into `_workmeta`.
+
+On a PC without the toolchain, absence of the tool is expected. That PC should
+read the shared outputs and metadata, or request a rerun from the tool-worker
+node. It should not create a divergent local `_workspaces/system` folder just
+to emulate missing tools.
+
 ## Inventory Rule
 
 Each PC should generate a metadata-only manifest for its local
@@ -131,7 +165,7 @@ any migration action:
 | `shared_fixture_candidate` | Reusable fixture/reference/materialization candidate. | Yes, until owner-classified. |
 | `project_move` | Project-owned material found under `system`. | Yes, until mapped to `_workspaces/<project_code>/...`. |
 | `knowledge_move` | Cross-project knowledge payload candidate. | Yes, until mapped to `_workspaces/knowledge/...`. |
-| `pc_local_runtime_tool` | Local installs, venvs, tool drops, executable runtime, or machine-only tooling. | Yes, must move local or to `guild_hall/state/tools/**`. |
+| `pc_local_runtime_tool` | Local installs, venvs, tool drops, executable runtime, or machine-only tooling. | Yes, runtime/install material must move local or to an owner-approved OS/tool location. Reinstallable repo-local bootstrap tools may be recreated under ignored `guild_hall/state/tools/**` from install docs, but migrated tool payloads and license-bound toolchains must not be moved there. |
 | `pc_local_cache_temp` | Logs, pid files, locks, caches, scratch, temp output. | Yes, keep local or discard only after review. |
 | `repo_promote_review` | Portable scripts or reusable helpers found under `system`. | Yes, until promoted to a repo owner surface or moved local. |
 | `conflict_review` | Same-path/different-hash or conflict-like material. | Yes, never auto-merge. |
@@ -163,20 +197,29 @@ Store actual target paths only in owner-only local binding or private metadata.
 
 1. Freeze writes to `_workspaces/system/` on all participating PCs.
 2. Generate metadata-only manifests on each PC.
-3. Copy each PC's current `system` folder into a private migration holding area
+3. Identify any tool-worker-only entries and place them in the dry-run plan for
+   `_workspaces/_local/<node_id>/...`, not to the shared system target.
+4. Produce the dry-run classification table, shared-target alias, local hold
+   alias, and conflict disposition proposal.
+5. Stop until the owner explicitly approves the dry-run plan and the allowed
+   mutation set. Approval is required before any copy, rename, junction/symlink
+   creation, shared-tree build, upload, delete, or permission change.
+6. After approval, copy each PC's current `system` folder into a private migration holding area
    without deleting the original local folder.
-4. Compare manifests and produce a review table grouped by comparison class.
-5. Split contents into:
+7. Compare manifests and produce a review table grouped by comparison class.
+8. Split contents into:
    - shared keep
    - conflict review
    - local archive
    - regenerate or discard
-6. Build the owner-approved shared `system` tree from the shared keep set.
-7. Rename each original local folder to a dated local backup name.
-8. Create the local junction or symlink from `_workspaces/system/` to the shared
+9. Stop until the owner accepts the shared keep, project move, local keep,
+   regenerate/discard, and conflict disposition decisions.
+10. Build the owner-approved shared `system` tree from the shared keep set.
+11. Rename each original local folder to a dated local backup name.
+12. Create the local junction or symlink from `_workspaces/system/` to the shared
    target on each PC.
-9. Run a dry read check from each PC.
-10. Resume writes only after the owner accepts the shared root and conflict
+13. Run a dry read check from each PC.
+14. Resume writes only after the owner accepts the shared root and conflict
     disposition.
 
 No step should delete original local material until backup and manifest checks
@@ -202,6 +245,8 @@ Owner decisions still needed:
 - Which subtrees are source or reusable fixture material versus generated
   runtime output.
 - How long local pre-migration backups are retained.
+- Which tool-worker outputs are worth promoting to shared system or project
+  workspaces after local execution.
 - Whether the existing `WORKSPACE_PROJECT_MODEL.md` local-only wording should
   be revised after the migration decision.
 

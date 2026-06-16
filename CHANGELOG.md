@@ -2,6 +2,22 @@
 
 ## 2026-06-16
 
+### Revision `working` - system workspace tool-worker procedure saved
+
+- Rewrote `docs/ws.md` as a readable public-safe prompt for per-PC
+  `_workspaces/system` junction preflight checks.
+- Clarified that licensed or high-performance tool-worker runtimes such as
+  Allegro, Cadence, and OrCAD stay PC-local under `_workspaces/_local/<node_id>/...`
+  or an owner-approved OS/tool location.
+- Documented that only owner-classified outputs move to shared
+  `_workspaces/system`, project workspaces, or `_workspaces/knowledge`, while
+  execution evidence stays in `_workmeta` as metadata only.
+- Added explicit owner approval gates before copy, rename, link creation,
+  shared-tree build, upload, delete, or permission changes.
+- Updated the system inventory action text so migrated runtime/tool payloads
+  point to `_workspaces/_local/<node_id>/...` or owner-approved OS/tool
+  locations, while reinstallable repo tools remain a separate bootstrap flow.
+
 ### Revision `working` - dev-erp 산출물(중간번호 등록 + 입력파일 폴더/장부 기초)
 
 - 산출물 중간번호 등록: 고정 단계 밖 31·32 등 산출물을 ERP에서 직접 추가·관리
@@ -31,7 +47,6 @@
 - 설계 문서 추가: `MULTI_USER_TEAM_MODEL_20260616.md`,
   `LOCAL_LLM_MULTIUSER_DESIGN_20260616.md`. 계정별 메일 인입 계약은 Codex 소유로 라우팅.
 - 데이터 경계 불변: 원문/첨부·자격증명 미저장, 코어 LLM 0%(제안/검색만), 메타 전송만.
-
 ### Revision `working` - standardization HWPX source-text indexes prepared
 
 - Updated the public-safe `standardization_document_samples` knowledge entry to

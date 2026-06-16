@@ -242,7 +242,7 @@ export function classifySystemEntry(name, entryType = "directory", scan = {}) {
   const extCounts = scan.extension_counts ?? {};
   const extensionNames = Object.keys(extCounts);
   if (isPcLocalRuntimeTool(normalized, entryType)) {
-    return classification("pc_local_runtime_tool", ["pc_local_runtime_or_tool_name"], "move_to__workspaces_local_or_guild_hall_state_tools", true, [
+    return classification("pc_local_runtime_tool", ["pc_local_runtime_or_tool_name"], "move_runtime_to__workspaces_local_or_owner_approved_os_tool_location", true, [
       "pc_local_runtime_tool_under_system",
     ]);
   }
@@ -411,7 +411,9 @@ function nextActionsFor({ status, observedLocalState, blockers }) {
     actions.push("preserve local folder under _workspaces/_local_hold/system/<timestamp>_<node_id> before junction repair");
   }
   if (blockers.some((code) => code.includes("pc_local"))) {
-    actions.push("move PC-local runtime, cache, logs, and tool installs to _workspaces/_local/<node_id>/ or guild_hall/state/tools");
+    actions.push(
+      "move PC-local runtime, cache, logs, and tool installs to _workspaces/_local/<node_id>/ or an owner-approved OS/tool location; recreate reinstallable repo tools separately from bootstrap docs",
+    );
   }
   if (blockers.some((code) => code.includes("project_payload"))) {
     actions.push("map project-like material to the owning _workspaces/<project_code> path before sharing");
