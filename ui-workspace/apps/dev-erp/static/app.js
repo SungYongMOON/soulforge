@@ -2159,7 +2159,9 @@ async function renderMail() {
       <div class="label-bar">${labels.map((l) => `<span class="label-chip manual ${sel.label_ids.includes(l.id) ? "on" : ""}" style="--lc:${esc(l.color)}" data-toggle="${l.id}">${esc(l.name)}</span>`).join("") || `<span class="dim">-</span>`}</div>
       <div class="detail-actions">${state._promotedMails?.has(sel.id)
         ? `<span class="badge green">✓ ${L.item}</span>`
-        : `<button id="promoteBtn" class="fav-chip">${L.promote_item}</button>`}</div>
+        : sel.project_id
+          ? `<button id="promoteBtn" class="fav-chip">${L.promote_item}</button>`
+          : `<span class="dim">${L.promote_need_project ?? "과제로 분류 후 할 일로 승격"}</span>`}</div>
       <h4>${L.assign_to}</h4>
       <div class="assign-bar inline">
         <select id="assignOne">${assignOpts}</select>
@@ -2227,8 +2229,15 @@ async function renderMail() {
     b.addEventListener("click", () => navigator.clipboard?.writeText(b.dataset.c))
   );
   $("#promoteBtn")?.addEventListener("click", async () => {
-    await post("/api/items/promote", { mail_id: state.mailSel });
-    (state._promotedMails ??= new Set()).add(state.mailSel);
+    const r = await post("/api/items/promote", { mail_id: state.mailSel });
+    if (r.ok) {
+      (state._promotedMails ??= new Set()).add(state.mailSel);
+    } else {
+      const e = await r.json().catch(() => ({}));
+      alert(e.error === "mail_project_missing" ? (L.promote_need_project ?? "먼저 메일을 과제로 분류하세요")
+        : e.error === "already_promoted" ? (L.promote_already ?? "이미 할 일로 등록된 메일입니다")
+        : (e.error || "승격 실패"));
+    }
     render();
   });
   // run17: 분류(재배정) — 체크박스/묶음 바/상세 단건
