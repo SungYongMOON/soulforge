@@ -15,23 +15,42 @@ body[data-theme="dark"] {
   --muted: #99a0ae; --accent: #4a9fd8; --danger: #e0685a; --warn: #d6a84f;
   --ok: #6fae7c; --chip: #2a3040;
 }
-/* 🌙 스킨: 달빛조각사 — 밤·달빛·금빛 RPG 팔레트(비주얼만, 라벨/모드와 독립). 소스 순서상 data-theme보다 뒤=우선. */
+/* 🌙 스킨: 달빛조각사 — 밤·달빛·금빛 RPG. 다크모드와 확실히 구분: 달빛 그라데이션 배경 + 세리프 금빛 제목 + 금 테두리. */
 body[data-skin="moonlight"] {
-  --bg: #0f111b; --panel: #181c2b; --line: #2c3350; --text: #ece9f4;
-  --muted: #969cc0; --accent: #cda85a; --danger: #d96a55; --warn: #d8aa57;
-  --ok: #74b58e; --chip: #222948;
+  --bg: #0c0e18; --panel: #161b2e; --line: #36426d; --text: #ece9f4;
+  --muted: #9aa0c8; --accent: #d8b65f; --danger: #d96a55; --warn: #d8aa57;
+  --ok: #74b58e; --chip: #232b4d;
 }
-body[data-skin="moonlight"] .brand-bar, body[data-skin="moonlight"] .util-bar { background: #131726; }
-body[data-skin="moonlight"] .side { background: #141828; }
-/* 네비/탭의 하드코딩 네이비(#19358c)를 금빛으로 — 스킨 한정 */
+/* 달빛 그라데이션 배경(은은한 달무리 + 금빛 누리, 스크롤해도 고정) */
+body[data-skin="moonlight"] {
+  background:
+    radial-gradient(900px 520px at 80% -10%, rgba(126,142,228,.20), transparent 62%),
+    radial-gradient(760px 520px at 8% 112%, rgba(216,182,95,.12), transparent 60%),
+    #0c0e18;
+  background-attachment: fixed;
+}
+body[data-skin="moonlight"] #app { background: transparent; }
+/* 패널은 반투명 다크 → 뒤의 달빛이 살짝 비침 + 금빛 미세 테두리/그림자 */
+body[data-skin="moonlight"] .brand-bar, body[data-skin="moonlight"] .util-bar,
+body[data-skin="moonlight"] .side, body[data-skin="moonlight"] .topbar { background: rgba(20,25,44,.82); }
+body[data-skin="moonlight"] .brand-bar { border-bottom-color: rgba(216,182,95,.30); }
+body[data-skin="moonlight"] .widget { background: rgba(22,27,46,.88); border-color: #3b4775;
+  box-shadow: 0 0 0 1px rgba(216,182,95,.16), 0 6px 20px rgba(0,0,0,.42); }
+body[data-skin="moonlight"] .widget-head { border-bottom-color: rgba(216,182,95,.22); }
+/* 제목·헤더는 세리프 + 금빛(RPG 명문 느낌) */
+body[data-skin="moonlight"] #appTitle, body[data-skin="moonlight"] #viewTitle,
+body[data-skin="moonlight"] .widget-head h4, body[data-skin="moonlight"] .proj-list-head strong,
+body[data-skin="moonlight"] .search-section h2 {
+  font-family: "Iowan Old Style", "Palatino Linotype", Palatino, Georgia, serif; letter-spacing: .3px; color: #e7c878; }
+/* 네비/탭의 하드코딩 네이비(#19358c) → 금빛(스킨 한정) */
 body[data-skin="moonlight"] .group-tab.on,
 body[data-skin="moonlight"] .nav-sub-head.has-active, body[data-skin="moonlight"] .nav-sub-head.proj-head.on,
 body[data-skin="moonlight"] #nav .nav-items button.active,
 body[data-skin="moonlight"] .sub-tab.on { color: #e7c878; }
-body[data-skin="moonlight"] .nav-sub-head.has-active, body[data-skin="moonlight"] .nav-sub-head.proj-head.on { background: rgba(205,168,90,.15); }
-body[data-skin="moonlight"] #nav .nav-items button.active::before { background: #cda85a; }
-body[data-skin="moonlight"] .sub-tab.on { border-bottom-color: #cda85a; }
-body[data-skin="moonlight"] .group-tab.on { background: rgba(205,168,90,.15); }
+body[data-skin="moonlight"] .nav-sub-head.has-active, body[data-skin="moonlight"] .nav-sub-head.proj-head.on,
+body[data-skin="moonlight"] .group-tab.on { background: rgba(216,182,95,.16); }
+body[data-skin="moonlight"] #nav .nav-items button.active::before { background: #d8b65f; }
+body[data-skin="moonlight"] .sub-tab.on { border-bottom-color: #d8b65f; }
 * { box-sizing: border-box; }
 body { margin: 0; font-family: "Pretendard", "Apple SD Gothic Neo", system-ui, sans-serif; background: var(--bg); color: var(--text); }
 /* IA 2.5단: 상단 전폭 brand+그룹탭 / 좌측 선택그룹 하위 / 본문 (ECount 관찰 반영) */
