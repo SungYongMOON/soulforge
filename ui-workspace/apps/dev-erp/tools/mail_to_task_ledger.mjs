@@ -67,6 +67,8 @@ const TASK_REL = join("reports", "할일_장부", "할일_장부.csv");
 
 if (!project) { console.error("--project <코드> 필요."); process.exit(2); }
 
+const MAIL_REF_REL = MAIL_REL.replaceAll("\\", "/");
+
 function parseCsv(text) {
   const rows = []; let row = [], cur = "", q = false;
   for (let i = 0; i < text.length; i++) {
@@ -250,7 +252,7 @@ function toRow(histKey, cand, splitIdx) {
   const sourceCandidate = safeRef(pick(cand, ["source_candidate_ref", "candidate_ref", "candidate_id"], key));
   const sourceThread = safeRef(pick(cand, ["source_thread_ref", "thread_ref", "thread_id"], mail.thread || ""));
   const sourceGroup = safeRef(pick(cand, ["source_group_ref", "group_ref", "group_id"], mail.group || ""));
-  const lineageDefault = `mailhistory:${project}/${MAIL_REL}#${histKey}${mail.row_hash ? `@${mail.row_hash.slice(0, 16)}` : ""}`;
+  const lineageDefault = `mailhistory:${project}/${MAIL_REF_REL}#${histKey}${mail.row_hash ? `@${mail.row_hash.slice(0, 16)}` : ""}`;
   const sourceLineage = safeRef(pick(cand, ["source_lineage_ref", "lineage_ref"], mail.lineage || lineageDefault));
   const routeCandidate = safeRef(pick(cand, ["route_candidate", "route_ref"], project));
   const meta = {

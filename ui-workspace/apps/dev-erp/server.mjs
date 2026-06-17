@@ -14,6 +14,7 @@ import { getLexicon, LEXICON } from "./src/lexicon.mjs";
 import { guideTemplates, docRecipes } from "./src/guide.mjs";
 import { modulesFor } from "./src/modules.mjs";
 import { groupedKnowledge, knowledgeRegistryDir } from "./src/knowledge_registry.mjs";
+import { scanKnowledgeLedgers, scanKnowledgeSpaces, scanRagRoutes, scanRagWorkCards, scanWikiPageRefs } from "./src/knowledge_shell.mjs";
 import { crossSearch } from "./src/search.mjs";
 import { buildMetaContext, runLlm, answerFromManual } from "./src/llm.mjs";
 import { startAutosyncPoll, writeTaskToLedger, writeInputToLedger } from "./src/autosync.mjs";
@@ -29,6 +30,7 @@ const flag = (name, fallback) => {
 // 파일 IO(산출물 입력파일 업/다운로드)는 기본 OFF. 켜기: DEV_ERP_FILEIO=1 또는 --fileio.
 // 모든 경로는 <ROOT>/_workspaces 아래로만(filevault path-safety). 절대경로·../·심볼릭 탈출 차단.
 const ROOT = resolve(dirname(fileURLToPath(import.meta.url)), "..", "..", "..");
+const KNOWLEDGE_SHELL_ROOT = resolve(flag("knowledge_shell_root", ROOT));
 const FILEIO = process.env.DEV_ERP_FILEIO === "1" || process.argv.includes("--fileio");
 const UPLOAD_MAX = Number(process.env.DEV_ERP_UPLOAD_MAX || 50 * 1024 * 1024); // 50MB 기본 상한
 const PORT = Number(flag("port", 4300));
@@ -43,6 +45,7 @@ const DB_PATH = flag("db", join(HERE, "data", "dev-erp.db"));
 if (DB_PATH !== ":memory:") mkdirSync(dirname(DB_PATH), { recursive: true });
 // Canon 지식 저장소(읽기 전용 소비). 기본 = repo 루트 .registry/knowledge (상대 resolve).
 const KNOW_DIR = flag("knowledge_dir", knowledgeRegistryDir(HERE));
+const KNOWLEDGE_SHELL = { root: KNOWLEDGE_SHELL_ROOT };
 
 const store = openStore(DB_PATH);
 // 감사로그 '조회·잡음' kind — UI EVENT_HIDE 와 동일. noise=0 시 서버에서 제외.
@@ -850,6 +853,11 @@ const server = createServer(async (req, res) => {
     if (path === "/api/modules") return send(res, 200, modulesFor(qp.mode));
     // canon 지식 저장소를 분야 그룹별로(메타만). 인증 필요(읽기 게이트 대상).
     if (path === "/api/knowledge/registry") return send(res, 200, { groups: groupedKnowledge(KNOW_DIR, qp.mode || "business") });
+    if (path === "/api/knowledge/spaces" && req.method === "GET") return send(res, 200, scanKnowledgeSpaces(KNOWLEDGE_SHELL));
+    if (path === "/api/knowledge/wiki/pages" && req.method === "GET") return send(res, 200, scanWikiPageRefs(KNOWLEDGE_SHELL));
+    if (path === "/api/knowledge/rag/routes" && req.method === "GET") return send(res, 200, scanRagRoutes(KNOWLEDGE_SHELL));
+    if (path === "/api/knowledge/rag/work-cards" && req.method === "GET") return send(res, 200, scanRagWorkCards(KNOWLEDGE_SHELL));
+    if (path === "/api/knowledge/ledgers" && req.method === "GET") return send(res, 200, scanKnowledgeLedgers(KNOWLEDGE_SHELL));
     if (path === "/api/events/recent") return send(res, 200, store.recentEvents(qp.limit ? Number(qp.limit) : 30, qp.project ?? null, requestScope(req, qp)));
     if (path === "/api/events/audit") return send(res, 200, {
       // noise=0(기본, UI '조회·잡음 포함' 해제) → 잡음을 서버에서 제외해 limit 이 의미 이벤트에만 적용.

@@ -2,6 +2,14 @@
 
 ## 2026-06-17
 
+### Revision `working` - dev-ERP knowledge shell adapter
+
+- Added metadata-only dev-ERP knowledge shell routes for Soulforge knowledge spaces, wiki page refs, RAG route refs, RAG work-card refs, and focused ledger refs.
+- Added `src/knowledge_shell.mjs` with allowlisted roots, no body reads, raw/secret/chunk-name blocking, and owner-approved `_workspaces/knowledge` junction root support.
+- Kept `.registry/knowledge` as public-safe metadata and narrowed private ledger exposure to focused knowledge/RAG/access report surfaces instead of broad `_workmeta/system/runs`.
+- Added tests proving body exclusion, allowlist behavior, legacy registry route compatibility, and route output shape.
+- Normalized mail-history lineage refs to POSIX-style `/` refs and made symlink tests tolerate Windows environments that cannot create symlinks.
+
 ### Revision `working` - dev-ERP 회사 PC 팀 호스트 사전점검
 
 - `dev-erp:team-preflight` 를 추가해 회사 PC 한 대가 메일 credential env 파일과 ERP 서버를 보유하고,

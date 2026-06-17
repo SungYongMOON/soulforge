@@ -15,6 +15,7 @@ import { ingestNormalized, mapSoulforgeSnapshot } from "../src/adapter.mjs";
 import { getLexicon, LEXICON } from "../src/lexicon.mjs";
 import { crossSearch } from "../src/search.mjs";
 import { runQueued, llmQueueStats } from "../src/llm.mjs";
+import { KNOWLEDGE_SHELL_SCHEMA, scanKnowledgeLedgers, scanKnowledgeSpaces, scanRagRoutes, scanRagWorkCards, scanWikiPageRefs } from "../src/knowledge_shell.mjs";
 import { parseRosterText, planTeamRosterImport, applyTeamRosterImport } from "../tools/import_team_roster.mjs";
 import { buildTeamHostPreflight } from "../tools/team_preflight.mjs";
 
@@ -40,6 +41,57 @@ function testServerEnv(extra = {}) {
   if (!("DEV_ERP_ALLOW_SELF_REGISTER" in extra)) delete env.DEV_ERP_ALLOW_SELF_REGISTER;
   if (!("DEV_ERP_COOKIE_SECURE" in extra)) delete env.DEV_ERP_COOKIE_SECURE;
   return env;
+}
+
+function makeKnowledgeShellFixture() {
+  const root = mkdtempSync(join(tmpdir(), "dev-erp-knowledge-shell-"));
+  mkdirSync(join(root, ".registry", "knowledge", "public_entry"), { recursive: true });
+  mkdirSync(join(root, "_workspaces", "knowledge", "P26-014", "wiki", "chunks"), { recursive: true });
+  mkdirSync(join(root, "_workspaces", "not_allowed", "wiki"), { recursive: true });
+  mkdirSync(join(root, "guild_hall", "rag", "routes"), { recursive: true });
+  mkdirSync(join(root, "guild_hall", "rag", "work_cards"), { recursive: true });
+  mkdirSync(join(root, "guild_hall", "knowledge_access", "ledger"), { recursive: true });
+  mkdirSync(join(root, "_workmeta", "system", "knowledge_rag_candidate_ledger", "runs"), { recursive: true });
+  mkdirSync(join(root, "_workmeta", "system", "reports", "rag", "operator_health"), { recursive: true });
+  mkdirSync(join(root, "_workmeta", "system", "runs", "knowledge_shell_test"), { recursive: true });
+
+  writeFileSync(join(root, ".registry", "knowledge", "public_entry", "knowledge.yaml"), "title: registry metadata\nbody: REGISTRY_BODY_SHOULD_NOT_LEAK\n");
+  writeFileSync(join(root, "_workspaces", "knowledge", "P26-014", "wiki", "page.md"), "# page\nRAW_BODY_SHOULD_NOT_LEAK\n");
+  writeFileSync(join(root, "_workspaces", "knowledge", "P26-014", "wiki", "chunks", "chunk-001.txt"), "CHUNK_BODY_SHOULD_NOT_LEAK\n");
+  writeFileSync(join(root, "_workspaces", "knowledge", "P26-014", "wiki", ".env"), "TOKEN=SECRET_SHOULD_NOT_LEAK\n");
+  writeFileSync(join(root, "_workspaces", "not_allowed", "wiki", "outside.md"), "OUTSIDE_ALLOWLIST_SHOULD_NOT_LEAK\n");
+  writeFileSync(join(root, "guild_hall", "rag", "routes", "project.route.yaml"), "answer_text: NOTEBOOKLM_ANSWER_SHOULD_NOT_LEAK\n");
+  writeFileSync(join(root, "guild_hall", "rag", "work_cards", "project.source_card.json"), JSON.stringify({ body: "SOURCE_CARD_BODY_SHOULD_NOT_LEAK" }));
+  writeFileSync(join(root, "guild_hall", "knowledge_access", "ledger", "access_ledger.md"), "QUERY_TEXT_SHOULD_NOT_LEAK\n");
+  writeFileSync(join(root, "_workmeta", "system", "knowledge_rag_candidate_ledger", "runs", "candidate_packet.yaml"), "raw: CANDIDATE_RAW_SHOULD_NOT_LEAK\n");
+  writeFileSync(join(root, "_workmeta", "system", "reports", "rag", "operator_health", "health_report.json"), "{\"body\":\"RAG_REPORT_BODY_SHOULD_NOT_LEAK\"}\n");
+  writeFileSync(join(root, "_workmeta", "system", "runs", "knowledge_shell_test", "NIGHT_WORK_HANDOFF.md"), "handoff: HANDOFF_BODY_SHOULD_NOT_LEAK\n");
+  return root;
+}
+
+function assertKnowledgeShellSafe(payload) {
+  const raw = JSON.stringify(payload);
+  for (const forbidden of [
+    "REGISTRY_BODY_SHOULD_NOT_LEAK",
+    "RAW_BODY_SHOULD_NOT_LEAK",
+    "CHUNK_BODY_SHOULD_NOT_LEAK",
+    "SECRET_SHOULD_NOT_LEAK",
+    "OUTSIDE_ALLOWLIST_SHOULD_NOT_LEAK",
+    "NOTEBOOKLM_ANSWER_SHOULD_NOT_LEAK",
+    "SOURCE_CARD_BODY_SHOULD_NOT_LEAK",
+    "QUERY_TEXT_SHOULD_NOT_LEAK",
+    "CANDIDATE_RAW_SHOULD_NOT_LEAK",
+    "RAG_REPORT_BODY_SHOULD_NOT_LEAK",
+    "HANDOFF_BODY_SHOULD_NOT_LEAK",
+    "chunk-001.txt",
+    ".env",
+  ]) {
+    assert.equal(raw.includes(forbidden), false, `metadata shell leaked ${forbidden}`);
+  }
+}
+
+function isSymlinkPrivilegeError(err) {
+  return ["EPERM", "EACCES", "ENOTSUP"].includes(err?.code);
 }
 
 async function startDevErpServer(args = [], env = {}) {
@@ -398,6 +450,72 @@ test("P-10: knowledge 엔터티 첨부 포인터(원문 미저장)", () => {
   assert.ok(a.ok);
   assert.equal(store.attachments({ entity_type: "knowledge", entity_id: id }).length, 1);
   assert.equal(store.addAttachment({ entity_type: "badtype", entity_id: "x", name: "n", pointer: "p" }).error, "bad_entity_type");
+});
+
+test("knowledge shell: scanners expose allowlisted metadata only", () => {
+  const root = makeKnowledgeShellFixture();
+  try {
+    const spaces = scanKnowledgeSpaces({ root });
+    const pages = scanWikiPageRefs({ root });
+    const routes = scanRagRoutes({ root });
+    const workCards = scanRagWorkCards({ root });
+    const ledgers = scanKnowledgeLedgers({ root });
+    const payload = { spaces, pages, routes, workCards, ledgers };
+
+    for (const part of Object.values(payload)) {
+      assert.equal(part.schema, KNOWLEDGE_SHELL_SCHEMA);
+      assert.equal(part.content_policy, "metadata_only");
+      assert.equal(part.body_included, false);
+    }
+    assert.ok(spaces.spaces.some((x) => x.path === "_workspaces/knowledge/P26-014"), "allowlisted knowledge space is visible");
+    assert.ok(pages.pages.some((x) => x.page_ref === "_workspaces/knowledge/P26-014/wiki/page.md"), "wiki page ref is visible");
+    assert.ok(routes.routes.some((x) => x.route_ref === "guild_hall/rag/routes/project.route.yaml"), "RAG route ref is visible");
+    assert.ok(workCards.work_cards.some((x) => x.work_card_ref === "guild_hall/rag/work_cards/project.source_card.json" && x.chunk_count === 0), "work-card ref has no chunks");
+    assert.ok(ledgers.ledgers.some((x) => x.ledger_ref === "guild_hall/knowledge_access/ledger/access_ledger.md"), "ledger ref is visible");
+    assert.ok(ledgers.ledgers.some((x) => x.ledger_ref === "_workmeta/system/reports/rag/operator_health/health_report.json"), "narrow RAG report ledger ref is visible");
+
+    const raw = JSON.stringify(payload);
+    assert.equal(raw.includes("_workspaces/not_allowed"), false, "non-allowlisted root is not scanned");
+    assert.equal(raw.includes("_workmeta/system/runs"), false, "broad system runs are not exposed");
+    assertKnowledgeShellSafe(payload);
+  } finally {
+    rmSync(root, { recursive: true, force: true });
+  }
+});
+
+test("knowledge shell: API routes return metadata-only shapes", async () => {
+  const root = makeKnowledgeShellFixture();
+  const port = await freePort();
+  const dbPath = join(root, "dev-erp.db");
+  const srv = await startDevErpServer(["--db", dbPath, "--port", String(port), "--knowledge_shell_root", root]);
+  const base = `http://127.0.0.1:${port}`;
+  try {
+    await waitForHttp(`${base}/api/health`, srv.child, srv.stderr);
+    const registry = await fetch(`${base}/api/knowledge/registry`);
+    assert.equal(registry.status, 200, "legacy registry route");
+    assert.ok(Array.isArray((await registry.json()).groups), "legacy registry groups");
+    const endpoints = [
+      ["/api/knowledge/spaces", "spaces"],
+      ["/api/knowledge/wiki/pages", "pages"],
+      ["/api/knowledge/rag/routes", "routes"],
+      ["/api/knowledge/rag/work-cards", "work_cards"],
+      ["/api/knowledge/ledgers", "ledgers"],
+    ];
+    for (const [endpoint, field] of endpoints) {
+      const r = await fetch(`${base}${endpoint}`);
+      assert.equal(r.status, 200, endpoint);
+      const body = await r.json();
+      assert.equal(body.schema, KNOWLEDGE_SHELL_SCHEMA);
+      assert.equal(body.content_policy, "metadata_only");
+      assert.equal(body.body_included, false);
+      assert.ok(Array.isArray(body[field]), `${field} array`);
+      assert.ok(body.counts && typeof body.counts === "object", "counts object");
+      assertKnowledgeShellSafe(body);
+    }
+  } finally {
+    await srv.stop();
+    rmSync(root, { recursive: true, force: true });
+  }
 });
 
 test("P-6: person_skill 매핑 + capabilityMatrix(개인 점수 미저장)", () => {
@@ -959,8 +1077,12 @@ test("FILEVAULT: safeWorkspacePath — 봉쇄·심볼릭 탈출 차단·정상 �
   assert.ok(safeWorkspacePath(root, "_workspaces/P26-014/../../secret/passwd").error, "../ 탈출 거부");
   assert.equal(safeWorkspacePath(root, "_workspaces/P26-014/01_In/none.pdf").error, "not_found");
   // 심볼릭 탈출: 과제 안에 _workspaces 밖으로 향하는 심볼릭 → realpath 봉쇄로 거부
-  symlinkSync(join(root, "secret"), join(root, "_workspaces", "P26-014", "evil"));
-  assert.equal(safeWorkspacePath(root, "_workspaces/P26-014/evil/passwd").error, "symlink_escape", "심볼릭 탈출 차단");
+  try {
+    symlinkSync(join(root, "secret"), join(root, "_workspaces", "P26-014", "evil"));
+    assert.equal(safeWorkspacePath(root, "_workspaces/P26-014/evil/passwd").error, "symlink_escape", "심볼릭 탈출 차단");
+  } catch (err) {
+    if (!isSymlinkPrivilegeError(err)) throw err;
+  }
   rmSync(root, { recursive: true, force: true });
 });
 
@@ -969,9 +1091,13 @@ test("FILEVAULT: 정상 심볼릭 과제(OneDrive식)는 허용", () => {
   mkdirSync(join(root, "_workspaces"), { recursive: true });
   mkdirSync(join(root, "onedrive", "P26-014", "01_In"), { recursive: true });
   writeFileSync(join(root, "onedrive", "P26-014", "01_In", "a.pdf"), "X");
-  symlinkSync(join(root, "onedrive", "P26-014"), join(root, "_workspaces", "P26-014")); // 과제=심볼릭(실환경)
-  const r = safeWorkspacePath(root, "_workspaces/P26-014/01_In/a.pdf");
-  assert.ok(r.ok, "심볼릭 과제 내부 파일은 허용(realBase=심볼릭 타깃)");
+  try {
+    symlinkSync(join(root, "onedrive", "P26-014"), join(root, "_workspaces", "P26-014")); // 과제=심볼릭(실환경)
+    const r = safeWorkspacePath(root, "_workspaces/P26-014/01_In/a.pdf");
+    assert.ok(r.ok, "심볼릭 과제 내부 파일은 허용(realBase=심볼릭 타깃)");
+  } catch (err) {
+    if (!isSymlinkPrivilegeError(err)) throw err;
+  }
   rmSync(root, { recursive: true, force: true });
 });
 
