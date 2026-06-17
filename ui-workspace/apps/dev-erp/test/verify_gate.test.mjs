@@ -49,6 +49,8 @@ test("B1: 게이트 개별 체크 — 통과/고의 실패 양쪽", () => {
   // 테스트 러너 파싱
   assert.equal(checkTests(() => "# pass 15\n# fail 0").ok, true);
   assert.equal(checkTests(() => "# pass 14\n# fail 1").ok, false);
+  assert.equal(checkTests(() => "ℹ pass 15\nℹ fail 0").ok, true);
+  assert.equal(checkTests(() => "ℹ pass 14\nℹ fail 1").ok, false);
   assert.equal(checkTests(() => { throw new Error("boom"); }).ok, false);
 
   // packet

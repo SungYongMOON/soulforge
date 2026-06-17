@@ -84,10 +84,14 @@ export function checkDocsPresent(fileExists) {
 export function checkTests(runner) {
   try {
     const out = runner();
-    const fail = /# fail (\d+)/.exec(out);
-    const pass = /# pass (\d+)/.exec(out);
-    const ok = fail && Number(fail[1]) === 0 && pass && Number(pass[1]) > 0;
-    return { id: "node_test", ok, note: ok ? `pass ${pass[1]} / fail 0` : `테스트 실패 (${fail ? fail[1] : "?"})` };
+    const count = (label) => {
+      const m = new RegExp(`(?:#|ℹ)\\s+${label}\\s+(\\d+)`).exec(out);
+      return m ? Number(m[1]) : null;
+    };
+    const fail = count("fail");
+    const pass = count("pass");
+    const ok = fail === 0 && pass > 0;
+    return { id: "node_test", ok, note: ok ? `pass ${pass} / fail 0` : `테스트 실패 (${fail ?? "?"})` };
   } catch (e) {
     return { id: "node_test", ok: false, note: `실행 실패: ${String(e.message).slice(0, 120)}` };
   }

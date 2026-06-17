@@ -7,6 +7,12 @@
 
 ---
 
+운영 PC에서 실제 팀에게 열 때는 `<dev-checkout>` 개발 checkout 을 직접 서비스로
+쓰지 않는다. 승인된 commit 을 별도 runtime clone 인 `<runtime-checkout>` 에
+반영한 뒤 그 clone 에서 서비스를 실행한다. 운영 경계, Tailscale HTTPS, secret 경계,
+owner 승인 gate 는 [`RUNTIME_OPERATING_CONTRACT_20260617.md`](RUNTIME_OPERATING_CONTRACT_20260617.md)를
+정본으로 둔다.
+
 ## 0. 최신 코드 받기 (Windows 서버 PC — Soulforge 이미 설치됨)
 수동 복사 불필요. 그 PC에서 **`/soulforge-github-down`** 실행 → 공개 repo 최신(개발 PC에서 올린 변경)
 · 설치된 Codex 스킬 · `_workmeta`/`private-state` private repo 신선도 · 워크스페이스 정션을
@@ -39,6 +45,31 @@ node server.mjs --host 0.0.0.0
     ```
     netsh advfirewall firewall add rule name="dev-erp 4300" dir=in action=allow protocol=TCP localport=4300
     ```
+
+## 3.5 Tailscale HTTPS 파일럿
+
+Tailscale Serve 로 `127.0.0.1:4300` 만 HTTPS 로 노출하면 broad LAN inbound rule 없이도
+owner 휴대폰과 승인된 팀 device 에서 pilot 이 가능하다.
+
+앱을 localhost 로 실행한다.
+
+```powershell
+$env:DEV_ERP_HOST="127.0.0.1"
+$env:DEV_ERP_PORT="4300"
+$env:DEV_ERP_COOKIE_SECURE="1"
+node server.mjs
+```
+
+다른 관리자 PowerShell 에서 Tailscale Serve 를 켠다.
+
+```powershell
+tailscale serve --bg 4300
+tailscale serve status
+```
+
+팀 초대 전에는 owner 휴대폰의 Tailscale 앱으로 `tailscale serve status` 가 알려주는
+HTTPS URL 에 접속해 로그인, 세션 유지, 주요 화면 접근을 확인한다. Tailscale Funnel 은
+public internet exposure 이므로 owner 가 명시 승인하기 전에는 사용하지 않는다.
 
 ## 4. 상시 운영 (부팅 자동시작 + 죽으면 자동복구)
 터미널 닫거나 재부팅하면 멈추므로 서비스로 등록한다. 둘 중 하나:
