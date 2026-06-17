@@ -1,0 +1,13 @@
+party_id: knowledge_ingest_cell
+kind: appserver_profile
+status: active
+profile:
+  mode: owner_gated_subagent_chain
+  summary: Resolve the knowledge ingest chain, then dispatch each material workflow stage to a fresh subagent while preserving explicit owner gates for stronger actions.
+  public_payload_policy: metadata_and_orchestration_only
+  private_output_policy: source_audit_wiki_projection_and_runtime_truth
+  default_route_safe: false
+notes:
+  - Public party files must remain portable and payload-free.
+  - Runtime paths, copied documents, unlocked outputs, private projections, source hashes, and owner decision evidence belong in private or project-local evidence.
+  - The appserver profile is not upload, NotebookLM, promotion, index-build, migration, or replacement authority.

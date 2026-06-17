@@ -1,0 +1,75 @@
+party_id: knowledge_ingest_cell
+kind: routing_rules
+status: active
+current_default_route:
+  route_surface: registered_owner_gated_party
+  party_id: knowledge_ingest_cell
+  default_workflow_id: knowledge_ingest_pipeline_v0
+  default_route_safe: false
+request_classes:
+  - request_class: knowledge_ingest_request
+    trigger_signals:
+      - "ingest these source files into the knowledge wiki"
+      - "run source audit then wiki/RAG preparation"
+      - "prepare knowledge sources for wiki or RAG"
+    route: route_to_owner_gated_ingest_pipeline
+    note: "Use the registered composite workflow when the owner asks for an end-to-end ingest chain."
+  - request_class: existing_unlocked_manifest_ingest
+    trigger_signals:
+      - "use this unlocked_output_manifest"
+      - "already unlocked copies are ready"
+    route: route_to_ingest_pipeline_with_existing_manifest
+    note: "Treat the manifest as an input pointer only; it does not grant replacement or migration authority."
+  - request_class: copy_only_unlock_preprocess_request
+    trigger_signals:
+      - "unlock these encrypted files first"
+      - "use owner-provided passwords"
+    route: require_owner_approved_project_password_unlock_copy_only_v0
+    note: "Only owner-approved copy-only execution is allowed; brute force, guessing, and original mutation remain blocked."
+  - request_class: external_upload_or_bookshelf_request
+    trigger_signals:
+      - "upload to Drive"
+      - "put this in NotebookLM"
+      - "add to a notebook"
+    route: require_owner_decision_packet_and_downstream_tool_authority
+    note: "The party may model the gate, but it does not upload or mutate external services."
+  - request_class: public_canon_promotion_request
+    trigger_signals:
+      - "promote to public canon"
+      - "make this a registry entry"
+      - "publish the canon package"
+    route: require_owner_decision_packet_source_review_and_target_owner_surface
+    note: "Promotion requires owner decision, source support, target surface guards, and review closeout."
+  - request_class: source_text_or_index_build_request
+    trigger_signals:
+      - "build a RAG index"
+      - "extract source text for search"
+      - "BM25 or vector index"
+    route: require_owner_decision_packet_and_registered_rag_source_text_workflow
+    note: "Index and source-text work must be owned by downstream RAG/source-text workflows."
+  - request_class: replacement_or_migration_request
+    trigger_signals:
+      - "replace originals"
+      - "move unlocked outputs into the project"
+      - "migrate the source of record"
+    route: require_owner_decision_packet_and_project_apply_handoff
+    note: "Unlocked outputs are not source-of-record replacements until a separate owner-approved apply route runs."
+  - request_class: controlled_internal_source_request
+    trigger_signals:
+      - "controlled source"
+      - "internal-only source"
+      - "restricted handling"
+    route: require_owner_decision_packet_before_payload_handoff
+    note: "Stop before source payload handling unless an approved controlled/internal source policy is present."
+blocked_routes:
+  - blocked_case: default_route_safe_claim
+    response: "Keep `default_route_safe: false` and require explicit owner routing."
+  - blocked_case: brute_force_or_password_guessing
+    response: "Reject and limit preprocessing to owner-provided copy-only candidates."
+  - blocked_case: upload_without_owner_decision
+    response: "Route to `owner_decision_packet_v0`; do not upload from this party."
+  - blocked_case: index_build_without_downstream_authority
+    response: "Route to a registered RAG/source-text workflow with explicit authority."
+notes:
+  - Routing rules are hints only and do not execute side effects.
+  - Owner decision refs and downstream workflow/tool authority are required before any external mutation, promotion, index build, or source replacement.

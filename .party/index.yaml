@@ -7,6 +7,8 @@ entries:
     path: guild_master_cell/party.yaml
   - party_id: knowledge_wiki_cell
     path: knowledge_wiki_cell/party.yaml
+  - party_id: knowledge_ingest_cell
+    path: knowledge_ingest_cell/party.yaml
   - party_id: systems_engineering_cell
     path: systems_engineering_cell/party.yaml
   - party_id: pcb_revision_library_cell

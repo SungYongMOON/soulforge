@@ -1,0 +1,55 @@
+workflow_id: knowledge_ingest_pipeline_v0
+kind: handoff_rules
+status: active
+rules:
+  - from: ingest_scope_binder
+    to: preprocessing_router
+    condition: ingest_scope_bound
+    summary: Preprocessing receives source scope, encrypted-input hints, and owner gate posture only; it does not receive password values or source payload bodies.
+  - from: preprocessing_router
+    to: source_audit_coordinator
+    condition: preprocessing_skipped_or_manifest_ready
+    summary: Source audit receives the preprocessing decision and optional unlocked-output manifest pointer, not authority to replace project originals.
+  - from: source_audit_coordinator
+    to: wiki_rag_preparation_coordinator
+    condition: source_storage_audit_refs_ready
+    summary: Wiki/RAG preparation receives validated audit refs, source packet refs, and unresolved source-state labels without treating the audit as source truth.
+  - from: wiki_rag_preparation_coordinator
+    to: owner_decision_gate_router
+    condition: wiki_rag_preparation_refs_ready_or_blocked
+    summary: Owner gate receives preparation refs plus requested stronger actions; it creates decision routing, not upload, promotion, indexing, or migration execution.
+  - from: owner_decision_gate_router
+    to: review_closeout_coordinator
+    condition: owner_decision_refs_or_blocked_authority_register_written
+    summary: Closeout receives owner-decision refs, no-action receipts, or blocked authority rows and lowers claims when any requested authority is absent.
+  - from: review_closeout_coordinator
+    to: boundary_reviewer
+    condition: closeout_review_refs_ready
+    summary: Boundary review receives only orchestration evidence and validates that no downstream authority was implied by the chain.
+external_handoff_limits:
+  drive_or_notebooklm_upload:
+    permitted_here: false
+    required_before_external_action:
+      - owner_decision_packet_v0
+      - downstream_tool_or_workflow_authority
+  public_canon_promotion:
+    permitted_here: false
+    required_before_action:
+      - owner_decision_packet_v0
+      - source_support_or_review_route
+      - target_owner_surface_guard
+  source_text_or_index_build:
+    permitted_here: false
+    required_before_action:
+      - owner_decision_packet_v0
+      - registered_rag_or_source_text_workflow_authority
+  replacement_or_migration:
+    permitted_here: false
+    required_before_action:
+      - owner_decision_packet_v0
+      - project_owner_apply_handoff
+  controlled_internal_source_handling:
+    permitted_here: false
+    required_before_payload_handoff:
+      - owner_decision_packet_v0
+      - approved_controlled_internal_source_policy

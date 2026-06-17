@@ -1,0 +1,37 @@
+party_id: knowledge_ingest_cell
+kind: member_slots
+status: active
+slots:
+  - slot_id: ingest_pipeline_stage
+    title: Ingest Pipeline Stage
+    workflow_id: knowledge_ingest_pipeline_v0
+    execution_contract: subagent_required
+    summary: Fresh subagent stage that binds the ingest scope, chain order, gate matrix, and closeout route.
+  - slot_id: optional_unlock_preprocess_stage
+    title: Optional Unlock Preprocess Stage
+    workflow_id: project_password_unlock_copy_only_v0
+    execution_contract: owner_approval_required_before_execution
+    summary: Optional copy-only preprocessing stage that accepts owner-approved execution or an existing unlocked output manifest.
+  - slot_id: source_audit_stage
+    title: Source Audit Stage
+    workflow_id: knowledge_source_audit_v0
+    execution_contract: subagent_required
+    summary: Fresh read-only audit stage for source storage and workspace/source metadata.
+  - slot_id: wiki_rag_preparation_stage
+    title: Wiki RAG Preparation Stage
+    workflow_id: knowledge_wiki_pipeline_v0
+    execution_contract: subagent_required
+    summary: Fresh stage for sourcebound wiki/RAG preparation below source truth, index-build, and public-promotion authority.
+  - slot_id: owner_decision_gate_stage
+    title: Owner Decision Gate Stage
+    workflow_id: owner_decision_packet_v0
+    execution_contract: owner_decision_required_when_triggered
+    summary: Gate stage for upload, NotebookLM placement, public canon promotion, source-text/index build, replacement/migration, and controlled/internal source handling.
+  - slot_id: review_closeout_stage
+    title: Review Closeout Stage
+    workflow_id: post_development_review_gate_v0
+    execution_contract: subagent_required
+    summary: Fresh closeout review for validators, boundaries, claim ceiling, and knowledge-trigger check.
+notes:
+  - Slots mirror the workflow chain for display and validator compatibility only.
+  - Model, reasoning effort, species, class, and unit choices remain workflow-owned profile data.

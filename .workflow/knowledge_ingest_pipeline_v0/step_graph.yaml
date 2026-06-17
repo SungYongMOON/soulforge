@@ -1,0 +1,188 @@
+workflow_id: knowledge_ingest_pipeline_v0
+kind: step_graph
+status: active
+steps:
+  - step_id: bind_ingest_scope
+    title: Bind Ingest Scope
+    actor_slot: ingest_scope_binder
+    action:
+      kind: knowledge_ingest_scope_binding
+      validates:
+        - repo_relative_refs_for_public_package
+        - owner_scope_policy_present
+        - controlled_internal_source_policy_present_when_needed
+        - stronger_actions_marked_owner_gated
+        - secret_values_absent
+    inputs:
+      - knowledge_ingest_request_packet
+      - owner_scope_policy
+      - source_scope_binding
+    optional_inputs:
+      - controlled_internal_source_policy
+      - drive_or_notebooklm_target_policy
+      - public_canon_promotion_request
+      - source_text_or_index_build_request
+      - replacement_or_migration_request
+    outputs:
+      - ingest_scope_packet
+      - authority_gate_matrix
+    next:
+      - optional_preprocess_unlock_route
+  - step_id: optional_preprocess_unlock_route
+    title: Optional Preprocess Unlock Route
+    actor_slot: preprocessing_router
+    action:
+      kind: copy_only_unlock_preprocessing_route
+      delegates_to_workflow_id: project_password_unlock_copy_only_v0
+      accepts_existing_unlocked_output_manifest: true
+      owner_approval_required_for_execution: true
+      execution_allowed_by_default: false
+    inputs:
+      - ingest_scope_packet
+    optional_inputs:
+      - unlocked_output_manifest
+      - owner_approved_copy_only_unlock_request
+      - target_project_workspace_ref
+    outputs:
+      - preprocessing_decision
+      - unlocked_output_manifest_ref
+    rules:
+      skip_when_no_encrypted_inputs: true
+      use_existing_manifest_when_valid: true
+      delegate_only_when_owner_approved: true
+      never_bruteforce_or_guess_passwords: true
+      never_mutate_originals: true
+      never_log_secret_values: true
+    next:
+      - source_storage_audit_stage
+  - step_id: source_storage_audit_stage
+    title: Source Storage Audit Stage
+    actor_slot: source_audit_coordinator
+    delegates_to_workflow_id: knowledge_source_audit_v0
+    action:
+      kind: read_only_source_storage_audit_handoff
+    inputs:
+      - ingest_scope_packet
+      - preprocessing_decision
+    optional_inputs:
+      - unlocked_output_manifest_ref
+      - prior_source_inventory_refs
+    outputs:
+      - source_storage_audit_refs
+    rules:
+      metadata_only: true
+      source_payload_mutation_allowed: false
+      source_text_decoding_granted_here: false
+      drive_or_notebooklm_mutation_granted_here: false
+    next:
+      - wiki_rag_preparation_stage
+  - step_id: wiki_rag_preparation_stage
+    title: Wiki RAG Preparation Stage
+    actor_slot: wiki_rag_preparation_coordinator
+    delegates_to_workflow_id: knowledge_wiki_pipeline_v0
+    action:
+      kind: knowledge_wiki_pipeline_handoff
+    inputs:
+      - ingest_scope_packet
+      - source_storage_audit_refs
+    optional_inputs:
+      - unlocked_output_manifest_ref
+      - existing_projection_refs
+      - existing_source_packet_refs
+      - owner_decision_refs
+    outputs:
+      - wiki_rag_preparation_refs
+    rules:
+      private_projection_only_until_reviewed: true
+      rag_refresh_handoff_metadata_only: true
+      notebooklm_answers_are_advisory_only: true
+      source_text_or_index_build_granted_here: false
+      public_canon_promotion_granted_here: false
+    next:
+      - owner_decision_gate_stage
+  - step_id: owner_decision_gate_stage
+    title: Owner Decision Gate Stage
+    actor_slot: owner_decision_gate_router
+    delegates_to_workflow_id: owner_decision_packet_v0
+    action:
+      kind: authority_gate_matrix_review
+    inputs:
+      - ingest_scope_packet
+      - authority_gate_matrix
+      - source_storage_audit_refs
+      - wiki_rag_preparation_refs
+    optional_inputs:
+      - drive_or_notebooklm_target_policy
+      - public_canon_promotion_request
+      - source_text_or_index_build_request
+      - replacement_or_migration_request
+      - controlled_internal_source_policy
+      - owner_decision_refs
+    outputs:
+      - owner_decision_refs
+      - blocked_authority_register
+    rules:
+      required_for_drive_or_notebooklm_upload: true
+      required_for_public_canon_promotion: true
+      required_for_source_text_or_index_build: true
+      required_for_replacement_or_migration: true
+      required_for_controlled_internal_source_handling: true
+      no_action_when_no_stronger_authority_requested: true
+      decision_packet_is_gate_not_execution: true
+    next:
+      - closeout_review_stage
+  - step_id: closeout_review_stage
+    title: Closeout Review Stage
+    actor_slot: review_closeout_coordinator
+    delegates_to_workflow_id: post_development_review_gate_v0
+    action:
+      kind: post_development_review_closeout
+    inputs:
+      - ingest_scope_packet
+      - preprocessing_decision
+      - source_storage_audit_refs
+      - wiki_rag_preparation_refs
+      - owner_decision_refs
+      - blocked_authority_register
+    outputs:
+      - closeout_review_refs
+    rules:
+      deterministic_validation_before_claim: true
+      boundary_review_required: true
+      knowledge_trigger_check_required: true
+      no_production_ready_claim_without_fresh_b_v: true
+    next:
+      - boundary_review
+  - step_id: boundary_review
+    title: Boundary Review
+    actor_slot: boundary_reviewer
+    action:
+      kind: knowledge_ingest_pipeline_boundary_review
+    inputs:
+      - ingest_scope_packet
+      - authority_gate_matrix
+      - preprocessing_decision
+      - source_storage_audit_refs
+      - wiki_rag_preparation_refs
+      - owner_decision_refs
+      - closeout_review_refs
+    outputs:
+      - boundary_review_note
+    rules:
+      default_route_safe_false: true
+      stronger_actions_remain_downstream_owner_gated: true
+      public_package_payload_free: true
+    next: []
+stop_conditions:
+  - controlled_internal_source_requested_without_owner_policy
+  - password_guessing_or_bruteforce_requested
+  - password_or_secret_value_would_be_logged
+  - original_file_mutation_requested
+  - unlock_execution_requested_without_owner_approval
+  - source_payload_copy_move_delete_or_upload_requested_here
+  - drive_or_notebooklm_upload_requested_without_owner_decision
+  - public_canon_promotion_requested_without_owner_decision
+  - source_text_or_index_build_requested_without_owner_decision_and_downstream_authority
+  - replacement_or_migration_requested_without_owner_decision
+  - default_route_safe_claim_requested
+  - downstream_stage_reports_blocked

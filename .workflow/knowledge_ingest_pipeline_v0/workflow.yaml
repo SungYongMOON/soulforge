@@ -1,0 +1,162 @@
+workflow_id: knowledge_ingest_pipeline_v0
+kind: workflow
+status: active
+title: Knowledge Ingest Pipeline v0
+summary: Registered owner-gated orchestration workflow for knowledge ingest requests that may need copy-only unlock preprocessing, source storage audit, wiki/RAG preparation, explicit owner decision gates, and closeout review without granting upload, promotion, index-build, migration, secret, or original-mutation authority.
+entrypoint: run
+execution_mode: party_sequence_owner_gated
+role_slots: role_slots.yaml
+step_graph: step_graph.yaml
+handoff_rules: handoff_rules.yaml
+monster_rules: monster_rules.yaml
+party_compatibility: party_compatibility.yaml
+profile_policy: profile_policy.yaml
+inputs:
+  - knowledge_ingest_request_packet
+  - owner_scope_policy
+  - source_scope_binding
+optional_inputs:
+  - unlocked_output_manifest
+  - owner_approved_copy_only_unlock_request
+  - target_project_workspace_ref
+  - prior_source_inventory_refs
+  - existing_projection_refs
+  - existing_source_packet_refs
+  - controlled_internal_source_policy
+  - drive_or_notebooklm_target_policy
+  - public_canon_promotion_request
+  - source_text_or_index_build_request
+  - replacement_or_migration_request
+  - owner_decision_refs
+outputs:
+  - ingest_scope_packet
+  - preprocessing_decision
+  - unlocked_output_manifest_ref
+  - source_storage_audit_refs
+  - wiki_rag_preparation_refs
+  - authority_gate_matrix
+  - owner_decision_refs
+  - blocked_authority_register
+  - closeout_review_refs
+  - boundary_review_note
+validation_level: structure_only_public_safe
+registration_policy: owner_requested_registration
+output_state: registered
+readiness_posture:
+  package_state: registered-structure-ready
+  pilot_ready: true
+  pilot_executed: false
+  canon_ready: false
+  registered: true
+  default_route_safe: false
+  default_route_safety_claimed: false
+classification_lane:
+  primary: knowledge_management
+  primary_name_ko: knowledge_management
+  secondary:
+    - source_inventory
+    - rag_metadata
+    - workflow_orchestration
+    - security_boundary
+  secondary_name_ko:
+    - source_inventory
+    - rag_metadata
+    - workflow_orchestration
+    - security_boundary
+  purpose: discovery_only
+  authority: none
+execution_binding:
+  party_required: false
+  candidate_party_id: knowledge_ingest_cell
+  bound_party_id: null
+  binding_authority: none
+constituent_workflows:
+  required:
+    - knowledge_source_audit_v0
+    - knowledge_wiki_pipeline_v0
+    - owner_decision_packet_v0
+    - post_development_review_gate_v0
+  optional:
+    - project_password_unlock_copy_only_v0
+workflow_modes:
+  - metadata_only_ingest_planning
+  - existing_unlocked_manifest_ingest
+  - owner_approved_copy_only_preprocess_then_ingest
+  - controlled_internal_source_gate_review
+  - drive_or_notebooklm_upload_decision
+  - public_canon_promotion_decision
+  - source_text_or_index_build_decision
+  - replacement_or_migration_decision
+operating_contract:
+  owns:
+    - ingest_scope_packet_shape
+    - preprocessing_route_decision_shape
+    - source_audit_to_wiki_handoff_shape
+    - authority_gate_matrix_shape
+    - owner_decision_gate_routing
+    - closeout_boundary_review_shape
+  does_not_own:
+    - password_guessing
+    - brute_force_attack
+    - password_or_secret_value_exposure
+    - original_file_mutation
+    - source_truth_approval
+    - raw_source_payload_storage
+    - controlled_source_handling_authority
+    - google_drive_upload_or_mutation
+    - notebooklm_upload_query_or_notebook_mutation
+    - public_canon_promotion
+    - source_text_extraction_or_index_build_authority
+    - rag_index_build_or_answer_authority
+    - replacement_or_migration_authority
+    - owner_approval_authority
+    - default_route_switching
+  gate_families:
+    drive_or_notebooklm_upload:
+      workflow_id: owner_decision_packet_v0
+      required_before_action: true
+      granted_by_this_workflow: false
+    public_canon_promotion:
+      workflow_id: owner_decision_packet_v0
+      required_before_action: true
+      granted_by_this_workflow: false
+    source_text_or_index_build:
+      workflow_id: owner_decision_packet_v0
+      required_before_action: true
+      granted_by_this_workflow: false
+    replacement_or_migration:
+      workflow_id: owner_decision_packet_v0
+      required_before_action: true
+      granted_by_this_workflow: false
+    controlled_internal_source_handling:
+      workflow_id: owner_decision_packet_v0
+      required_before_source_payload_handoff: true
+      granted_by_this_workflow: false
+  preprocessing_contract:
+    accepts_existing_unlocked_output_manifest: true
+    may_delegate_copy_only_unlock_workflow: true
+    delegated_workflow_id: project_password_unlock_copy_only_v0
+    owner_approval_required_for_unlock_execution: true
+    brute_force_or_guessing_allowed: false
+    original_mutation_allowed: false
+    unlocked_outputs_are_inputs_not_replacements: true
+  boundaries:
+    orchestration_only: true
+    metadata_only_public_package: true
+    default_route_safe: false
+    owner_gated: true
+    source_payload_mutation_allowed: false
+    password_values_logged: false
+    llm_password_guessing_allowed: false
+    drive_upload_allowed_here: false
+    notebooklm_upload_allowed_here: false
+    public_canon_promotion_allowed_here: false
+    source_text_index_build_allowed_here: false
+    replacement_or_migration_allowed_here: false
+    controlled_internal_source_handling_allowed_without_owner_policy: false
+    downstream_workflow_authority_required: true
+notes:
+  - Registration means the public-safe orchestration package is discoverable through `.workflow/index.yaml`.
+  - The pipeline models the chain and owner gates only. It does not execute uploads, NotebookLM mutations, canon promotion, RAG index builds, source replacement, or source migration.
+  - Copy-only unlock preprocessing is optional and may be satisfied by an existing `unlocked_output_manifest`; otherwise execution must route through `project_password_unlock_copy_only_v0` with explicit owner approval.
+  - Any downstream tool or workflow that performs side effects must carry its own owner-approved authority and validation evidence.

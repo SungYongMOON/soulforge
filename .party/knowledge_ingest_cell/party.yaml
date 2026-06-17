@@ -1,0 +1,76 @@
+party_id: knowledge_ingest_cell
+kind: party_template
+status: active
+title: Knowledge Ingest Cell
+summary: Registered owner-gated party for knowledge ingest chains that coordinate optional copy-only preprocessing, source storage audit, wiki/RAG preparation, owner decision gates, and closeout review without granting upload, promotion, indexing, migration, secret, or original-mutation authority.
+service_lane:
+  primary: knowledge_management
+  primary_name_ko: knowledge_management
+  secondary:
+    - source_inventory
+    - rag_metadata
+    - workflow_orchestration
+    - security_boundary
+  secondary_name_ko:
+    - source_inventory
+    - rag_metadata
+    - workflow_orchestration
+    - security_boundary
+  purpose: execution_fit
+  authority: routing_hint_only
+default_workflow_id: knowledge_ingest_pipeline_v0
+workflow_chain:
+  - order: 1
+    workflow_id: knowledge_ingest_pipeline_v0
+    role: composite_owner_gated_ingest_router
+    execution_contract: subagent_required
+  - order: 2
+    workflow_id: project_password_unlock_copy_only_v0
+    role: optional_copy_only_preprocessing_when_owner_approved
+    execution_contract: owner_approval_required_before_execution
+  - order: 3
+    workflow_id: knowledge_source_audit_v0
+    role: read_only_storage_source_audit
+    execution_contract: subagent_required
+  - order: 4
+    workflow_id: knowledge_wiki_pipeline_v0
+    role: wiki_rag_preparation
+    execution_contract: subagent_required
+  - order: 5
+    workflow_id: owner_decision_packet_v0
+    role: upload_promotion_index_migration_controlled_source_gate
+    execution_contract: owner_decision_required_when_triggered
+  - order: 6
+    workflow_id: post_development_review_gate_v0
+    role: closeout_review
+    execution_contract: subagent_required
+preferred_monster_types:
+  - knowledge_ingest_request
+  - source_storage_audit_request
+  - knowledge_wiki_ingest_request
+  - copy_only_unlock_preprocess_request
+  - drive_notebooklm_upload_gate_request
+  - rag_index_build_gate_request
+  - controlled_internal_source_gate_request
+member_slots: member_slots.yaml
+allowed_species: allowed_species.yaml
+allowed_classes: allowed_classes.yaml
+allowed_workflows: allowed_workflows.yaml
+appserver_profile: appserver_profile.yaml
+routing_rules: routing_rules.yaml
+boundary_flags:
+  default_route_safe: false
+  owner_gated: true
+  orchestration_only: true
+  upload_authority_granted: false
+  notebooklm_authority_granted: false
+  public_canon_promotion_granted: false
+  source_text_or_index_build_granted: false
+  replacement_or_migration_granted: false
+  password_guessing_or_secret_exposure_allowed: false
+  original_mutation_allowed: false
+notes:
+  - Party owns the reusable chain/loadout only; each workflow owns its own steps and profile policy.
+  - Real runs should dispatch each material stage to a fresh subagent and record private evidence under `_workmeta/<project_code>/runs/<run_id>/` or `_workmeta/system/runs/<run_id>/`.
+  - Optional copy-only unlock preprocessing may use an existing manifest or owner-approved execution, but this party never grants brute-force, secret logging, or original mutation authority.
+  - Drive, NotebookLM, public canon promotion, source-text/index build, replacement, migration, and controlled/internal source handling require explicit owner decisions and downstream authority.

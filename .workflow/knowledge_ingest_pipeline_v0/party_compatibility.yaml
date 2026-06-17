@@ -1,0 +1,27 @@
+workflow_id: knowledge_ingest_pipeline_v0
+kind: party_compatibility
+status: active
+execution_binding:
+  party_required: false
+  candidate_party_id: knowledge_ingest_cell
+  bound_party_id: null
+  binding_authority: none
+compatible_parties:
+  - party_id: knowledge_ingest_cell
+    status: registered_owner_gated_default_entry
+  - party_id: knowledge_wiki_cell
+    status: supported_downstream_for_wiki_preparation_only
+  - party_id: owner_plus_executor
+    status: recommended_when_external_side_effects_or_migration_are_requested
+  - party_id: b_v_review_pair
+    status: required_for_production_ready_or_reference_claims
+fit_tags:
+  - knowledge_ingest
+  - source_storage_audit
+  - owner_gated_wiki_preparation
+  - copy_only_preprocessing
+  - upload_promotion_index_gate
+notes:
+  - Party compatibility is advisory. Real execution binding belongs in mission or project-local run evidence.
+  - "knowledge_ingest_cell may use this workflow as its default entry, but that does not make the route default-route-safe."
+  - The workflow package registers the chain shape only; side effects require downstream owner-approved authority.

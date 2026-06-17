@@ -1,0 +1,34 @@
+workflow_id: knowledge_ingest_pipeline_v0
+kind: monster_rules
+status: active
+rules:
+  - monster_id: password_guessing_or_bruteforce_requested
+    response: reject_and_route_only_owner_provided_copy_only_preprocessing
+    summary: This pipeline may delegate owner-approved copy-only unlock attempts, but it never guesses, generates, brute-forces, or exposes passwords.
+  - monster_id: secret_value_or_password_would_be_logged
+    response: stop_and_redact_before_any_handoff
+    summary: Secret values, password candidates, cookies, tokens, and credential contents must not enter public packages, chat, LLM prompts, or reports.
+  - monster_id: original_file_mutation_requested
+    response: block_and_require_owner_apply_decision
+    summary: Original source/project files remain read-only inputs; replacement or migration requires a separate owner decision and apply route.
+  - monster_id: upload_requested_without_owner_decision
+    response: route_to_owner_decision_packet_and_hold
+    summary: Drive or NotebookLM upload is an external side effect and is not granted by this workflow package.
+  - monster_id: public_canon_promotion_requested_without_authority
+    response: route_to_owner_decision_and_source_review
+    summary: Public canon promotion needs owner decision, source support, target owner-surface guards, and closeout review.
+  - monster_id: source_text_or_index_build_requested_without_authority
+    response: block_or_route_to_registered_rag_source_text_workflow
+    summary: Source text extraction, BM25/vector index build, and RAG answer authority belong to downstream workflows with explicit approval.
+  - monster_id: controlled_internal_source_without_policy
+    response: stop_before_payload_handoff
+    summary: Controlled or internal sources require an approved handling policy before any source payload processing or external placement.
+  - monster_id: unlocked_manifest_treated_as_replacement_authority
+    response: downgrade_to_input_pointer_only
+    summary: An unlocked output manifest is an ingest input pointer, not permission to overwrite project originals or promote source of record.
+  - monster_id: default_route_safety_claimed
+    response: remove_claim_and_mark_owner_gated
+    summary: The pipeline is explicitly not default-route-safe and must stay owner-gated.
+  - monster_id: downstream_blocker_suppressed
+    response: propagate_blocked_status_to_closeout
+    summary: Any blocked downstream workflow or missing authority lowers the final claim ceiling.

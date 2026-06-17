@@ -14,6 +14,19 @@
 - Made the SE seed fixture test create its ignored data directory so clean runtime
   clones can run `npm test` and `verify_gate`.
 
+### Revision `working` - knowledge ingest owner-gated workflow and party
+
+- Added `.workflow/knowledge_ingest_pipeline_v0/` as a registered
+  public-safe orchestration workflow for chaining optional copy-only unlock
+  preprocessing, `knowledge_source_audit_v0`, `knowledge_wiki_pipeline_v0`,
+  `owner_decision_packet_v0`, and `post_development_review_gate_v0`.
+- Added `.party/knowledge_ingest_cell/` as the owner-gated party loadout for
+  the pipeline and registered it in `.party/index.yaml`.
+- Kept the route explicitly not default-route-safe and below downstream
+  authority for password handling, Drive/NotebookLM upload, public canon
+  promotion, source-text/index build, replacement, migration, and
+  controlled/internal source handling.
+
 ### Revision `working` - project password unlock copy-only workflow
 
 - Added `.workflow/project_password_unlock_copy_only_v0/` as a registered

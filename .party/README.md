@@ -100,6 +100,7 @@ sequenceDiagram
 
 - [`guild_master_cell/party.yaml`](guild_master_cell/party.yaml): guild-master authoring/review workflow chain.
 - [`knowledge_wiki_cell/party.yaml`](knowledge_wiki_cell/party.yaml): Karpathy-style sourcebound wikiization workflow chain.
+- [`knowledge_ingest_cell/party.yaml`](knowledge_ingest_cell/party.yaml): owner-gated knowledge ingest chain for optional copy-only preprocessing, source audit, wiki/RAG preparation, owner decision gates, and closeout review.
 - [`systems_engineering_cell/party.yaml`](systems_engineering_cell/party.yaml): systems-engineering assistant workflow chain for scaffold, stage-gap, source, readiness, owner-decision, and closeout routing.
 - [`pcb_revision_library_cell/party.yaml`](pcb_revision_library_cell/party.yaml): Cadence Allegro PCB DB Doctor uprev followed by dlib board-library export and organization.
 - [`daily_automation_party/party.yaml`](daily_automation_party/party.yaml): local daily automation chain that runs activity sync before daily work ledger capture, snapshot refresh, metadata-boundary validation, and downstream reports.

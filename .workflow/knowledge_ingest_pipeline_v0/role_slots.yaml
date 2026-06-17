@@ -1,0 +1,25 @@
+workflow_id: knowledge_ingest_pipeline_v0
+kind: role_slots
+status: active
+slots:
+  - slot_id: ingest_scope_binder
+    title: Ingest Scope Binder
+    summary: Binds the source scope, owner gate posture, controlled/internal source policy, and stronger-action requests before any downstream handoff.
+  - slot_id: preprocessing_router
+    title: Preprocessing Router
+    summary: Accepts an existing unlocked output manifest or routes to owner-approved copy-only unlock preprocessing without exposing secrets or mutating originals.
+  - slot_id: source_audit_coordinator
+    title: Source Audit Coordinator
+    summary: Routes metadata-only storage/source audit work through `knowledge_source_audit_v0`.
+  - slot_id: wiki_rag_preparation_coordinator
+    title: Wiki RAG Preparation Coordinator
+    summary: Routes source-backed wiki/RAG preparation through `knowledge_wiki_pipeline_v0` while keeping private projection and RAG handoff limits explicit.
+  - slot_id: owner_decision_gate_router
+    title: Owner Decision Gate Router
+    summary: Converts upload, promotion, index-build, migration, replacement, and controlled-source requests into explicit `owner_decision_packet_v0` gate refs.
+  - slot_id: review_closeout_coordinator
+    title: Review Closeout Coordinator
+    summary: Routes final evidence and blocked-authority rows through `post_development_review_gate_v0`.
+  - slot_id: boundary_reviewer
+    title: Boundary Reviewer
+    summary: Confirms the package stayed orchestration-only, owner-gated, payload-free, and not default-route-safe.

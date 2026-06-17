@@ -1,0 +1,20 @@
+party_id: knowledge_ingest_cell
+kind: allowed_workflows
+status: active
+workflow_ids:
+  - knowledge_ingest_pipeline_v0
+  - knowledge_source_audit_v0
+  - knowledge_wiki_pipeline_v0
+  - owner_decision_packet_v0
+  - post_development_review_gate_v0
+optional_workflow_ids:
+  - project_password_unlock_copy_only_v0
+  - source_packet_sufficiency_review_v0
+  - knowledge_access_event_capture_v0
+  - rag_metadata_refresh_v0
+  - rag_source_text_quality_review_v0
+  - rag_work_card_router_v0
+notes:
+  - Required workflow ids are the registered composite entry and the downstream audit, wiki, owner-decision, and review stages.
+  - "project_password_unlock_copy_only_v0 is optional preprocessing and requires owner-approved execution when no existing unlocked manifest is supplied."
+  - RAG and source-text support workflows remain optional downstream routes and do not grant index-build, answer, source-truth, or public-promotion authority by party membership.

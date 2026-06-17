@@ -1,0 +1,43 @@
+workflow_id: knowledge_ingest_pipeline_v0
+kind: workflow_profile_policy
+status: active
+last_calibration_id: none
+calibration_mode: uncalibrated_structure_only
+measurement_policy:
+  quality_source: deterministic_structure_validation
+  telemetry_source: not_measured
+  subagent_token_usage_available: false
+  telemetry_exact_for_subagent: false
+  telemetry_exact_for_cli: false
+  model_price_usd_measured: false
+  cost_confidence: not_measured
+primary_profile:
+  candidate_id: owner_gated_pipeline_default
+  model: inherit_current_codex_runtime
+  reasoning_effort: medium
+  species: dwarf
+  class: archivist
+  label: owner-gated-knowledge-ingest-orchestration
+  quality_score: null
+  quality_class: uncalibrated
+shadow_top_k: []
+rerun_triggers:
+  - workflow chain shape changes
+  - owner decision gate families change
+  - project password unlock workflow changes authority boundaries
+  - knowledge source audit report contract changes
+  - knowledge wiki pipeline handoff contract changes
+  - RAG source-text or index-build authority policy changes
+  - first controlled pilot run produces validation evidence
+calibration_archive_ref: null
+non_claims:
+  - no_pilot_execution_claim
+  - no_production_ready_claim
+  - no_default_route_safety_claim
+  - no_upload_or_notebooklm_authority
+  - no_public_canon_promotion_authority
+  - no_source_text_or_index_build_authority
+  - no_password_guessing_or_secret_exposure
+notes:
+  - The model profile is a placeholder for manager-facing orchestration and boundary review only.
+  - Real runs should use fresh subagent stages through the party and record private evidence under the appropriate `_workmeta` run surface.
