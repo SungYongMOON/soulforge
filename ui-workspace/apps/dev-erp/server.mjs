@@ -14,7 +14,14 @@ import { getLexicon, LEXICON } from "./src/lexicon.mjs";
 import { guideTemplates, docRecipes } from "./src/guide.mjs";
 import { modulesFor } from "./src/modules.mjs";
 import { groupedKnowledge, knowledgeRegistryDir } from "./src/knowledge_registry.mjs";
-import { scanKnowledgeLedgers, scanKnowledgeSpaces, scanRagRoutes, scanRagWorkCards, scanWikiPageRefs } from "./src/knowledge_shell.mjs";
+import {
+  scanKnowledgeLedgers,
+  scanKnowledgeShellContract,
+  scanKnowledgeSpaces,
+  scanRagRoutes,
+  scanRagWorkCards,
+  scanWikiPageRefs,
+} from "./src/knowledge_shell.mjs";
 import { crossSearch } from "./src/search.mjs";
 import { buildMetaContext, runLlm, answerFromManual } from "./src/llm.mjs";
 import { startAutosyncPoll, writeTaskToLedger, writeInputToLedger } from "./src/autosync.mjs";
@@ -853,6 +860,7 @@ const server = createServer(async (req, res) => {
     if (path === "/api/modules") return send(res, 200, modulesFor(qp.mode));
     // canon 지식 저장소를 분야 그룹별로(메타만). 인증 필요(읽기 게이트 대상).
     if (path === "/api/knowledge/registry") return send(res, 200, { groups: groupedKnowledge(KNOW_DIR, qp.mode || "business") });
+    if (path === "/api/knowledge/shell/contract" && req.method === "GET") return send(res, 200, scanKnowledgeShellContract(KNOWLEDGE_SHELL));
     if (path === "/api/knowledge/spaces" && req.method === "GET") return send(res, 200, scanKnowledgeSpaces(KNOWLEDGE_SHELL));
     if (path === "/api/knowledge/wiki/pages" && req.method === "GET") return send(res, 200, scanWikiPageRefs(KNOWLEDGE_SHELL));
     if (path === "/api/knowledge/rag/routes" && req.method === "GET") return send(res, 200, scanRagRoutes(KNOWLEDGE_SHELL));

@@ -2,6 +2,12 @@
 
 챗봇은 **RAG** 방식이다: 매뉴얼(FAQ)을 검색해 근거를 찾고, LLM은 **그 근거 안에서만** 답을 표현한다(매뉴얼 밖 사실은 지어내지 않음). LLM이 없으면 검색 결과를 그대로 사람형 문장으로 보여주는 폴백으로 동작한다(절대 끊기지 않음).
 
+## 0. Karpathy LLM 설치 판단
+
+ERP 지식/RAG 목적에서는 Andrej Karpathy 계열 런타임(`llm.c`, `nanoGPT`, `minGPT`, `micrograd`, `makemore`)을 설치하지 않는다. 여기서 가져오는 것은 **Karpathy-style sourcebound wiki 운영 방식**뿐이다: 작은 wiki page, source card, provenance, claim ceiling, review 후 승격.
+
+실제 답변 표현 런타임은 이 문서의 Ollama 또는 승인된 LLM 어댑터를 사용한다. ERP는 원문을 직접 읽는 LLM이 아니라 `knowledge_shell` metadata endpoint를 읽는 껍데기다. 운영 계약은 `docs/architecture/guild_hall/KARPATHY_STYLE_WIKI_RAG_ERP_CONTRACT_V0.md`에 둔다.
+
 ## 1. Ollama 설치 + 모델 받기 (PC별)
 
 ERP 코드는 두 PC가 동일하다. **다른 건 설치 방법(OS)과 모델 크기(하드웨어)뿐.**
@@ -49,7 +55,7 @@ set ERP_CHAT_PROVIDER=ollama && set ERP_CHAT_MODEL=gemma3:4b && node server.mjs
 | 환경변수 | 기본값 | 설명 |
 |---|---|---|
 | `ERP_CHAT_PROVIDER` | `stub` | `ollama`로 설정 시 로컬 LLM 표현 활성화 |
-| `ERP_CHAT_MODEL` | `gemma2:2b` | 받아 둔 Ollama 모델 태그 |
+| `ERP_CHAT_MODEL` | `gemma3:4b` | 받아 둔 Ollama 모델 태그 |
 | `OLLAMA_HOST` | `http://127.0.0.1:11434` | Ollama 데몬 주소. **다른 PC에서 돌리면** 그 PC IP로(예: `http://192.168.0.20:11434`) |
 | `ERP_CHAT_TIMEOUT_MS` | `20000` | 응답 대기 한도(초과 시 검색 폴백) |
 | `ERP_CHAT_MAX_TOKENS` | `320` | 응답 최대 토큰 — 줄이면 더 빠름 |

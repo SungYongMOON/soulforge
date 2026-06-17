@@ -15,7 +15,16 @@ import { ingestNormalized, mapSoulforgeSnapshot } from "../src/adapter.mjs";
 import { getLexicon, LEXICON } from "../src/lexicon.mjs";
 import { crossSearch } from "../src/search.mjs";
 import { runQueued, llmQueueStats } from "../src/llm.mjs";
-import { KNOWLEDGE_SHELL_SCHEMA, scanKnowledgeLedgers, scanKnowledgeSpaces, scanRagRoutes, scanRagWorkCards, scanWikiPageRefs } from "../src/knowledge_shell.mjs";
+import {
+  KNOWLEDGE_SHELL_CONTRACT_KIND,
+  KNOWLEDGE_SHELL_SCHEMA,
+  scanKnowledgeLedgers,
+  scanKnowledgeShellContract,
+  scanKnowledgeSpaces,
+  scanRagRoutes,
+  scanRagWorkCards,
+  scanWikiPageRefs,
+} from "../src/knowledge_shell.mjs";
 import { parseRosterText, planTeamRosterImport, applyTeamRosterImport } from "../tools/import_team_roster.mjs";
 import { buildTeamHostPreflight } from "../tools/team_preflight.mjs";
 
@@ -460,7 +469,8 @@ test("knowledge shell: scanners expose allowlisted metadata only", () => {
     const routes = scanRagRoutes({ root });
     const workCards = scanRagWorkCards({ root });
     const ledgers = scanKnowledgeLedgers({ root });
-    const payload = { spaces, pages, routes, workCards, ledgers };
+    const contract = scanKnowledgeShellContract({ root });
+    const payload = { spaces, pages, routes, workCards, ledgers, contract };
 
     for (const part of Object.values(payload)) {
       assert.equal(part.schema, KNOWLEDGE_SHELL_SCHEMA);
@@ -473,6 +483,11 @@ test("knowledge shell: scanners expose allowlisted metadata only", () => {
     assert.ok(workCards.work_cards.some((x) => x.work_card_ref === "guild_hall/rag/work_cards/project.source_card.json" && x.chunk_count === 0), "work-card ref has no chunks");
     assert.ok(ledgers.ledgers.some((x) => x.ledger_ref === "guild_hall/knowledge_access/ledger/access_ledger.md"), "ledger ref is visible");
     assert.ok(ledgers.ledgers.some((x) => x.ledger_ref === "_workmeta/system/reports/rag/operator_health/health_report.json"), "narrow RAG report ledger ref is visible");
+    assert.equal(contract.kind, KNOWLEDGE_SHELL_CONTRACT_KIND);
+    assert.equal(contract.contract.llm_runtime_policy.karpathy_llm_runtime_required, false);
+    assert.equal(contract.contract.llm_runtime_policy.karpathy_reference_role, "wiki_operating_pattern_only");
+    assert.equal(contract.contract.erp_role.reads_source_bodies, false);
+    assert.equal(contract.contract.wiki_role.default_workflow, "knowledge_wiki_pipeline_v0");
 
     const raw = JSON.stringify(payload);
     assert.equal(raw.includes("_workspaces/not_allowed"), false, "non-allowlisted root is not scanned");
@@ -494,6 +509,16 @@ test("knowledge shell: API routes return metadata-only shapes", async () => {
     const registry = await fetch(`${base}/api/knowledge/registry`);
     assert.equal(registry.status, 200, "legacy registry route");
     assert.ok(Array.isArray((await registry.json()).groups), "legacy registry groups");
+    const contractResponse = await fetch(`${base}/api/knowledge/shell/contract`);
+    assert.equal(contractResponse.status, 200, "knowledge shell contract route");
+    const contract = await contractResponse.json();
+    assert.equal(contract.schema, KNOWLEDGE_SHELL_SCHEMA);
+    assert.equal(contract.kind, KNOWLEDGE_SHELL_CONTRACT_KIND);
+    assert.equal(contract.content_policy, "metadata_only");
+    assert.equal(contract.body_included, false);
+    assert.equal(contract.contract.llm_runtime_policy.karpathy_llm_runtime_required, false);
+    assert.equal(contract.contract.erp_role.role, "metadata_shell_consumer");
+    assertKnowledgeShellSafe(contract);
     const endpoints = [
       ["/api/knowledge/spaces", "spaces"],
       ["/api/knowledge/wiki/pages", "pages"],

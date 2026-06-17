@@ -13,6 +13,13 @@
 - 모바일/태블릿: 3단 560px 이하 세로 스택, 모달·계정표 스크롤로 안 잘림.
 - secret(비밀번호·env ref·경로)·원문 미표시(상태·카운트만).
 
+### Revision `working` - Karpathy-style wiki/RAG ERP contract fixed
+
+- Added `KARPATHY_STYLE_WIKI_RAG_ERP_CONTRACT_V0.md` to record that dev-ERP uses Karpathy-style sourcebound wiki/RAG metadata, not a Karpathy LLM runtime install.
+- Exposed `/api/knowledge/shell/contract` from dev-ERP so the ERP can report the metadata-only shell boundary, Ollama/adapter runtime policy, and non-authority claims.
+- Extended knowledge shell tests to guard `karpathy_llm_runtime_required=false`, `reads_source_bodies=false`, and the `knowledge_wiki_pipeline_v0` route contract.
+- Clarified the Ollama setup doc so `gemma3:4b` remains the default runtime model and Karpathy code families are not install prerequisites.
+
 ### Revision `working` - dev-ERP knowledge shell adapter
 
 - Added metadata-only dev-ERP knowledge shell routes for Soulforge knowledge spaces, wiki page refs, RAG route refs, RAG work-card refs, and focused ledger refs.

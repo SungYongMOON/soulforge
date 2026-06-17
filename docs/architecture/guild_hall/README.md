@@ -21,6 +21,7 @@
 | `CODEX_APP_AUTOMATION_CATALOG_V0.md` | Tracks the human-readable Codex app automation catalog, source-of-truth split, reader tiers, and current default automation concepts. |
 | `EXTERNAL_REASONING_WORKSPACE_V0.md` | Captures the public-safe candidate operating model for using ChatGPT Pro / Thinking through Chrome as a session-aware external advisory workspace. |
 | `KNOWLEDGE_WIKI_WORLDVIEW_V0.md` / `knowledge_wiki_worldview_v0.html` | Teammate-facing overview of the Soulforge knowledge wiki worldview, current status, operating rules, and next steps. |
+| `KARPATHY_STYLE_WIKI_RAG_ERP_CONTRACT_V0.md` | Fixes the ERP decision to use Karpathy-style sourcebound wiki/RAG metadata, not a Karpathy LLM runtime install. |
 | `SOULFORGE_ACTIVITY_LOG_V0.md` | cross-project recent-context 와 carry-forward event surface 를 설명한다. |
 | `SOULFORGE_SNAPSHOT_V0.md` | UI/external host 가 읽을 sanitized read-only snapshot 계약이다. |
 | `TRIAGE_BOARD_V0.md` | INBOX/pending monster 분류 대기량을 보여주는 read-only triage board projection 계약이다. |
@@ -84,6 +85,7 @@
 - [`EXTERNAL_REASONING_WORKSPACE_V0.md`](EXTERNAL_REASONING_WORKSPACE_V0.md)
 - [`KNOWLEDGE_WIKI_WORLDVIEW_V0.md`](KNOWLEDGE_WIKI_WORLDVIEW_V0.md)
 - [`knowledge_wiki_worldview_v0.html`](knowledge_wiki_worldview_v0.html)
+- [`KARPATHY_STYLE_WIKI_RAG_ERP_CONTRACT_V0.md`](KARPATHY_STYLE_WIKI_RAG_ERP_CONTRACT_V0.md)
 - [`SOULFORGE_ACTIVITY_LOG_V0.md`](SOULFORGE_ACTIVITY_LOG_V0.md)
 - [`SOULFORGE_SNAPSHOT_V0.md`](SOULFORGE_SNAPSHOT_V0.md)
 - [`NIGHT_WATCH_AUTOMATION_V0.md`](NIGHT_WATCH_AUTOMATION_V0.md)

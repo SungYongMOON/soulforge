@@ -2,6 +2,40 @@ import { existsSync, lstatSync, readdirSync, realpathSync } from "node:fs";
 import { basename, extname, isAbsolute, join, relative, resolve } from "node:path";
 
 export const KNOWLEDGE_SHELL_SCHEMA = "dev_erp.knowledge_shell.v1";
+export const KNOWLEDGE_SHELL_CONTRACT_KIND = "knowledge_shell_contract";
+
+export const KNOWLEDGE_SHELL_OPERATION_CONTRACT = {
+  contract_ref: "docs/architecture/guild_hall/KARPATHY_STYLE_WIKI_RAG_ERP_CONTRACT_V0.md",
+  architecture: "karpathy_style_sourcebound_wiki_metadata_shell",
+  content_policy: "metadata_only",
+  body_included: false,
+  llm_runtime_policy: {
+    karpathy_llm_runtime_required: false,
+    karpathy_llm_runtime_installed_by_contract: false,
+    karpathy_reference_role: "wiki_operating_pattern_only",
+    preferred_runtime_surface: "ollama_or_configured_llm_adapter",
+    disallowed_install_assumption_refs: ["llm.c", "nanoGPT", "minGPT", "micrograd", "makemore"],
+  },
+  erp_role: {
+    role: "metadata_shell_consumer",
+    owns_source_truth: false,
+    reads_source_bodies: false,
+    mutates_public_canon: false,
+    treats_notebooklm_as_authority: false,
+  },
+  wiki_role: {
+    route: "knowledge_wiki_cell",
+    default_workflow: "knowledge_wiki_pipeline_v0",
+    generated_wiki_state: "private_derivative_projection_until_review",
+    source_truth_owner: "source_packets_or_owner_held_files",
+  },
+  rag_role: {
+    default_stage: "metadata_only",
+    source_text_lane_requires_owner_approval: true,
+    index_build_requires_source_card_permission: true,
+    public_canon_requires_owner_decision_and_review: true,
+  },
+};
 
 export const DEFAULT_KNOWLEDGE_SHELL_ROOTS = [
   {
@@ -305,6 +339,32 @@ function envelope(kind, roots, payload, counts) {
     counts,
     ...payload,
   };
+}
+
+function contractCounts(roots) {
+  return {
+    root_count: roots.length,
+    present_root_count: roots.filter((root) => root.status === "present").length,
+    missing_root_count: roots.filter((root) => root.status === "missing").length,
+    blocked_root_count: roots.filter((root) => root.status === "blocked").length,
+    dir_count: 0,
+    file_count: 0,
+    scanned_ref_count: 0,
+    blocked_ref_count: 0,
+    chunk_ref_count: 0,
+    truncated: false,
+  };
+}
+
+export function scanKnowledgeShellContract(options = {}) {
+  const repoRoot = optionsRoot(options);
+  const roots = normalizeAllowedRoots(repoRoot, options.allowedRoots);
+  return envelope(
+    KNOWLEDGE_SHELL_CONTRACT_KIND,
+    roots,
+    { contract: KNOWLEDGE_SHELL_OPERATION_CONTRACT },
+    contractCounts(roots),
+  );
 }
 
 function rootsFor(repoRoot, options, use) {
