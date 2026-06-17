@@ -267,6 +267,13 @@ const server = createServer(async (req, res) => {
       });
       return send(res, 200, r);
     }
+    if (path === "/api/accounts/readiness" && req.method === "GET") {
+      if (!requireAdmin(req)) return send(res, 403, { error: "admin_only" });
+      return send(res, 200, store.teamReadiness({
+        target_members: intParam(qp.target_members ?? qp.target, 5, { min: 1, max: 50 }),
+        today: /^\d{4}-\d{2}-\d{2}$/.test(String(qp.today ?? "")) ? String(qp.today) : todayKey(),
+      }));
+    }
     if (path === "/api/accounts/status" && req.method === "POST") {
       const admin = requireAdmin(req);
       if (!admin) return send(res, 403, { error: "admin_only" });

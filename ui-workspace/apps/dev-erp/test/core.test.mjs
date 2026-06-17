@@ -2436,6 +2436,42 @@ test("TEAM-ACCT: mailbox metadata update/list + 상대 env ref/secret 가드", (
   assert.equal(disabled.mailbox_status, "disabled");
 });
 
+test("TEAM-ACCT: teamReadiness 가 팀 사용 전 계정·메일함·장부 누락을 집계", () => {
+  const store = freshStore();
+  store.upsertProject({ id: "P26-001", title: "팀 준비", data_label: "real" });
+  store.createAccount({ username: "admin", password: "pw123456", email: "admin@corp.com", roles: ["admin"] });
+  const readyMember = store.createAccount({ username: "mail-a", password: "pw123456", email: "mail-a@corp.com", display_name: "메일A" });
+  const missingMailbox = store.createAccount({ username: "mail-b", password: "pw123456", email: "mail-b@corp.com", display_name: "메일B" });
+  const disabled = store.createAccount({ username: "disabled", password: "pw123456", email: "disabled@corp.com", display_name: "비활성" });
+  store.setAccountStatus(disabled.id, "disabled");
+  assert.equal(store.updateAccountMailbox(readyMember.id, {
+    provider: "gmail",
+    enabled: true,
+    env_ref: "private-state/mail/mail-a.env",
+    last_fetch_at: "2026-06-17T09:00:00+09:00",
+  }).ok, true);
+  store.ingestMail({ id: "m-ready", project_code: "P26-001", at: "2026-06-17T09:30:00+09:00", subject: "준비 메일", mailbox: "mail-a@corp.com" });
+  store.createItem({ project_id: "P26-001", title: "A 담당 실행", assignee_ref: "mail-a@corp.com" });
+  store.ingestTaskItem({ id: "mailtask:triage-old", project_code: "P26-001", title: "분류 대기", origin: "mail", due: "2026-06-16" });
+
+  const ready = store.teamReadiness({ target_members: 3, today: "2026-06-17" });
+  assert.equal(ready.ready, false, "메일함 누락이 있으면 팀 메일 자동화 준비 완료가 아님");
+  assert.deepEqual(ready.counts.active_admin_count, 1);
+  assert.deepEqual(ready.counts.active_member_count, 2);
+  assert.deepEqual(ready.counts.configured_mailbox_count, 1);
+  assert.ok(ready.warnings.some((x) => x.code === "target_members_short" && x.actual === 2 && x.expected === 3), "목표 팀원 수 미달은 경고");
+  assert.ok(ready.warnings.some((x) => x.code === "unclassified_queue" && x.count >= 1), "공용 분류 큐는 경고");
+  assert.ok(ready.warnings.some((x) => x.code === "unclassified_overdue" && x.count >= 1), "기한 지난 미분류도 경고");
+  assert.ok(ready.blockers.some((x) => x.code === "account_mailbox_disabled" && x.account_label === "메일B"), "팀원 메일함 미설정은 차단");
+  const a = ready.accounts.find((x) => x.username === "mail-a");
+  assert.equal(a.mail_count, 1);
+  assert.equal(a.open_item_count, 1);
+  assert.equal(a.ready, true);
+  const b = ready.accounts.find((x) => x.username === "mail-b");
+  assert.deepEqual(b.issues.map((x) => x.code), ["mailbox_disabled"]);
+  assert.equal(ready.accounts.find((x) => x.username === "disabled").issues.length, 0, "비활성 계정은 팀 사용 준비 차단 사유에서 제외");
+});
+
 // 계정 비활성 — 세션 무효화.
 test("TEAM-ACCT: setAccountStatus disabled → 세션 무효 + 로그인 차단", () => {
   const store = freshStore();

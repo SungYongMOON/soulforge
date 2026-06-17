@@ -278,6 +278,7 @@ async function openAdminPanel() {
       <button id="acAdd" class="fav-chip">${L.acct_new}</button>
     </div>
     <div class="admin-err danger-text" style="min-height:1em;margin-bottom:6px"></div>
+    <div id="teamReady" class="admin-readiness"></div>
     <div id="acList"></div>
     <div class="ui-confirm-btns"><button class="ui-confirm-cancel">${L.btn_cancel}</button></div>
   </div>`;
@@ -286,8 +287,79 @@ async function openAdminPanel() {
   ov.addEventListener("click", (e) => { if (e.target === ov) close(); });
   ov.querySelector(".ui-confirm-cancel").addEventListener("click", close);
   const errBox = ov.querySelector(".admin-err");
+  const issueLabel = (issue) => {
+    const labels = {
+      admin_missing: "관리자 계정 없음",
+      member_missing: "활성 팀원 없음",
+      target_members_short: "목표 팀원 수 미달",
+      unclassified_queue: "분류 대기 할일 있음",
+      unclassified_overdue: "기한 지난 분류 대기 있음",
+      email_missing: "이메일 없음",
+      mailbox_disabled: "메일함 꺼짐",
+      mailbox_env_ref_missing: "env ref 없음",
+      mailbox_error: "메일함 오류",
+      mailbox_stale: "메일함 오래됨",
+      mailbox_never_fetched: "수집 이력 없음",
+      mailbox_no_mail_rows: "메일 원장 0건",
+      account_email_missing: "이메일 없음",
+      account_mailbox_disabled: "메일함 꺼짐",
+      account_mailbox_env_ref_missing: "env ref 없음",
+      account_mailbox_error: "메일함 오류",
+      account_mailbox_stale: "메일함 오래됨",
+      account_mailbox_never_fetched: "수집 이력 없음",
+      account_mailbox_no_mail_rows: "메일 원장 0건",
+    };
+    const base = labels[issue.code] || issue.code;
+    const detail = issue.expected ? ` ${issue.actual}/${issue.expected}` : issue.count ? ` ${issue.count}` : "";
+    return `${issue.account_label ? `${issue.account_label}: ` : ""}${base}${detail}`;
+  };
+  const renderReadiness = (ready) => {
+    if (!ready) return `<div class="readiness-panel muted">${L["team_ready_unavailable"] ?? "팀 준비상태를 불러오지 못했습니다"}</div>`;
+    const counts = ready.counts || {};
+    const queues = ready.queues || {};
+    const statusText = ready.ready ? (L["team_ready_ready"] ?? "팀 메일 자동화 준비됨") : (L["team_ready_blocked"] ?? "보강 필요");
+    const statusClass = ready.ready ? "ok" : "danger";
+    const chips = [
+      `${L.acct_role_admin}: ${counts.active_admin_count ?? 0}`,
+      `${L.acct_role_member}: ${counts.active_member_count ?? 0}/${ready.target_members ?? 5}`,
+      `${L["mailbox_provider"] ?? "메일함"}: ${counts.configured_mailbox_count ?? 0}/${counts.active_member_count ?? 0}`,
+      `${L["mailbox_status"] ?? "수집"}: ${counts.fetch_seen_count ?? 0}/${counts.active_member_count ?? 0}`,
+      `${L["triage_queue"] ?? "분류대기"}: ${queues.unclassified ?? 0}`,
+    ];
+    const issueHtml = (items, klass) => (items || []).slice(0, 8)
+      .map((x) => `<span class="ready-issue ${klass}">${esc(issueLabel(x))}</span>`).join("");
+    const rows = (ready.accounts || []).map((a) => {
+      const issues = (a.issues || []).map((x) => `<span class="ready-issue ${x.level === "blocker" ? "danger" : "warn"}">${esc(issueLabel(x))}</span>`).join("");
+      const at = a.mailbox_last_fetch_at ? String(a.mailbox_last_fetch_at).replace("T", " ").slice(0, 16) : "-";
+      return `<tr>
+        <td>${esc(a.display_name || a.username)}<div class="mini muted">${esc(a.username)}</div></td>
+        <td class="muted">${esc(a.email || "-")}</td>
+        <td>${a.mailbox_enabled ? "ON" : "OFF"}<div class="mini muted">${esc(a.mailbox_provider || "none")}</div></td>
+        <td class="muted">${esc(at)}</td>
+        <td>${Number(a.mail_count || 0)}</td>
+        <td>${Number(a.open_item_count || 0)}</td>
+        <td>${issues || `<span class="ready-issue ok">${L["team_ready_ok"] ?? "정상"}</span>`}</td>
+      </tr>`;
+    }).join("");
+    return `<div class="readiness-panel">
+      <div class="readiness-head">
+        <strong>${L["team_ready_title"] ?? "팀 사용 준비"}</strong>
+        <span class="ready-pill ${statusClass}">${esc(statusText)}</span>
+      </div>
+      <div class="ready-chips">${chips.map((x) => `<span>${esc(x)}</span>`).join("")}</div>
+      <div class="ready-issues">${issueHtml(ready.blockers, "danger")}${issueHtml(ready.warnings, "warn")}</div>
+      <table class="admin-table readiness-table" style="width:100%;border-collapse:collapse"><thead><tr>
+        <th>${L.acct_name}</th><th>${L.acct_email}</th><th>${L["mailbox_provider"] ?? "메일함"}</th>
+        <th>${L["mailbox_status"] ?? "수집"}</th><th>${L["mail_count"] ?? "메일"}</th><th>${L["item_count"] ?? "할일"}</th><th>${L.acct_status}</th>
+      </tr></thead><tbody>${rows}</tbody></table>
+    </div>`;
+  };
   const renderList = async () => {
-    const data = await api("/api/accounts").catch(() => ({ accounts: [] }));
+    const [data, readiness] = await Promise.all([
+      api("/api/accounts").catch(() => ({ accounts: [] })),
+      api("/api/accounts/readiness").catch(() => null),
+    ]);
+    ov.querySelector("#teamReady").innerHTML = renderReadiness(readiness);
     const providerLabels = { none: L["mailbox_provider_none"] ?? "없음", gmail: "Gmail", hiworks: "Hiworks" };
     const providerOptions = (value) => Object.entries(providerLabels)
       .map(([k, label]) => `<option value="${k}" ${value === k ? "selected" : ""}>${esc(label)}</option>`).join("");

@@ -2850,6 +2850,115 @@ export class Store {
       return { ...a, ...this.safeMailboxMetadata(a), roles, is_admin: roles.includes("admin") };
     });
   }
+  teamReadiness({ target_members = 5, today = new Date().toISOString().slice(0, 10) } = {}) {
+    const target = Math.min(50, Math.max(1, Math.trunc(Number(target_members) || 5)));
+    const accounts = this.listAccounts();
+    const activeAccounts = accounts.filter((a) => a.status === "active");
+    const activeAdmins = activeAccounts.filter((a) => a.is_admin);
+    const activeMembers = activeAccounts.filter((a) => !a.is_admin);
+    const mailRows = this.db
+      .prepare("SELECT LOWER(COALESCE(mailbox,'')) AS mailbox, COUNT(*) AS n, MAX(at) AS last_at FROM core_mail GROUP BY LOWER(COALESCE(mailbox,''))")
+      .all();
+    const mailByMailbox = new Map(mailRows.map((r) => [r.mailbox, { count: r.n, last_at: r.last_at ?? null }]));
+    const unclassified = this.db.prepare("SELECT COUNT(*) AS n FROM core_item WHERE status='unclassified'").get().n;
+    const unclassifiedOverdue = this.db
+      .prepare("SELECT COUNT(*) AS n FROM core_item WHERE status='unclassified' AND due IS NOT NULL AND due < ?")
+      .get(today).n;
+    const openItemCount = (account) => {
+      const identities = this.accountIdentities(account);
+      const scoped = scopedInClause("i.assignee_ref", identities);
+      if (!scoped) return 0;
+      return this.db
+        .prepare(`SELECT COUNT(*) AS n FROM core_item i WHERE i.status NOT IN ('done','unclassified','archived') AND ${scoped.sql}`)
+        .get(...scoped.args).n;
+    };
+    const rows = accounts.map((account) => {
+      const email = String(account.email ?? "").trim().toLowerCase();
+      const mailboxStats = email ? mailByMailbox.get(email) : null;
+      const mailRequired = account.status === "active" && !account.is_admin;
+      const issues = [];
+      if (mailRequired && !email) issues.push({ level: "blocker", code: "email_missing" });
+      if (mailRequired && (!account.mailbox_enabled || account.mailbox_provider === "none")) {
+        issues.push({ level: "blocker", code: "mailbox_disabled" });
+      }
+      if (mailRequired && account.mailbox_enabled && !account.mailbox_env_ref) {
+        issues.push({ level: "blocker", code: "mailbox_env_ref_missing" });
+      }
+      if (mailRequired && account.mailbox_enabled && account.mailbox_status === "error") {
+        issues.push({ level: "blocker", code: "mailbox_error" });
+      }
+      if (mailRequired && account.mailbox_enabled && account.mailbox_status === "stale") {
+        issues.push({ level: "warning", code: "mailbox_stale" });
+      }
+      if (mailRequired && account.mailbox_enabled && !account.mailbox_last_fetch_at) {
+        issues.push({ level: "warning", code: "mailbox_never_fetched" });
+      }
+      if (mailRequired && account.mailbox_enabled && (mailboxStats?.count ?? 0) === 0) {
+        issues.push({ level: "warning", code: "mailbox_no_mail_rows" });
+      }
+      return {
+        id: account.id,
+        username: account.username,
+        display_name: account.display_name ?? account.username,
+        email: account.email ?? null,
+        status: account.status,
+        roles: account.roles,
+        is_admin: account.is_admin,
+        mailbox_provider: account.mailbox_provider,
+        mailbox_enabled: account.mailbox_enabled,
+        mailbox_status: account.mailbox_status,
+        mailbox_env_ref: account.mailbox_env_ref,
+        mailbox_last_fetch_at: account.mailbox_last_fetch_at,
+        mailbox_last_error: account.mailbox_last_error,
+        mail_count: mailboxStats?.count ?? 0,
+        mailbox_last_mail_at: mailboxStats?.last_at ?? null,
+        open_item_count: openItemCount(account),
+        issues,
+        ready: issues.every((x) => x.level !== "blocker"),
+      };
+    });
+    const blockers = [];
+    const warnings = [];
+    if (!activeAdmins.length) blockers.push({ code: "admin_missing" });
+    if (!activeMembers.length) blockers.push({ code: "member_missing" });
+    if (activeMembers.length < target) warnings.push({ code: "target_members_short", expected: target, actual: activeMembers.length });
+    for (const account of rows) {
+      if (account.status !== "active" || account.is_admin) continue;
+      for (const issue of account.issues) {
+        const entry = { code: `account_${issue.code}`, account_id: account.id, account_label: account.display_name || account.username };
+        if (issue.level === "blocker") blockers.push(entry);
+        else warnings.push(entry);
+      }
+    }
+    if (unclassified > 0) warnings.push({ code: "unclassified_queue", count: unclassified });
+    if (unclassifiedOverdue > 0) warnings.push({ code: "unclassified_overdue", count: unclassifiedOverdue });
+    const mailRequiredRows = rows.filter((a) => a.status === "active" && !a.is_admin);
+    const configuredMailboxCount = mailRequiredRows.filter((a) => a.email && a.mailbox_enabled && a.mailbox_provider !== "none" && a.mailbox_env_ref).length;
+    const fetchSeenCount = mailRequiredRows.filter((a) => a.mailbox_last_fetch_at).length;
+    return {
+      generated_at: new Date().toISOString(),
+      target_members: target,
+      manual_ready: activeAdmins.length > 0 && activeAccounts.length > 0,
+      mail_config_ready: blockers.length === 0,
+      fetch_observed: mailRequiredRows.length > 0 && fetchSeenCount === mailRequiredRows.length,
+      ready: blockers.length === 0,
+      counts: {
+        account_count: accounts.length,
+        active_account_count: activeAccounts.length,
+        active_admin_count: activeAdmins.length,
+        active_member_count: activeMembers.length,
+        configured_mailbox_count: configuredMailboxCount,
+        fetch_seen_count: fetchSeenCount,
+      },
+      queues: {
+        unclassified,
+        unclassified_overdue: unclassifiedOverdue,
+      },
+      blockers,
+      warnings,
+      accounts: rows,
+    };
+  }
   accountByEmail(email) {
     const em = String(email ?? "").trim().toLowerCase();
     if (!em) return null;
