@@ -1056,6 +1056,19 @@ server.listen(PORT, HOST, () => {
   if (HOST !== "127.0.0.1") {
     console.log("[dev-erp] 주의: 같은 네트워크에 열려 있음 - 계정/RBAC와 trusted LAN 전제");
   }
+  // 챗봇 매뉴얼: tracked manual/manual_faq.json 을 startup 에 upsert(data_label="manual"). 멱등.
+  // 챗봇(answerFromManual)이 core_faq 를 검색하므로, 이 파일이 '로컬 LLM 챗봇이 보고 답하는 매뉴얼'.
+  try {
+    const manualPath = join(HERE, "manual", "manual_faq.json");
+    if (existsSync(manualPath)) {
+      const entries = JSON.parse(readFileSync(manualPath, "utf-8"));
+      let n = 0;
+      for (const f of (Array.isArray(entries) ? entries : entries.faqs || [])) {
+        if (f && f.question && f.answer) { store.upsertFaq({ ...f, data_label: "manual" }); n++; }
+      }
+      if (n) console.log(`[dev-erp] 챗봇 매뉴얼 FAQ ${n}건 적재(manual_faq.json)`);
+    }
+  } catch (e) { console.error("[dev-erp] 매뉴얼 FAQ 적재 오류:", e.message); }
   // 자동화(기본 자동 / 수동 폴백): '각자 메일=각자 일' 시작 시 1회 backfill. 팀 모드 아니면 no-op.
   try { const r = store.applyMailboxAutoAssign(); if (r.applied) console.log(`[dev-erp] 메일 자동배정(각자 메일=각자 일): 시작 backfill ${r.applied}건`); }
   catch (e) { console.error("[dev-erp] 메일 자동배정 backfill 오류:", e.message); }
