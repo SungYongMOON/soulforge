@@ -82,13 +82,15 @@ internet exposure 이므로 owner 가 명시 승인하기 전에는 사용하지
 2. Tailscale Serve 로 local port 를 tailnet 내부 HTTPS 로 노출한다.
 3. PC 와 휴대폰은 Tailscale app 으로 같은 tailnet 에 연결한 뒤 접속한다.
 
-브라우저 URL 이 HTTPS 일 때 runtime 환경:
+브라우저 URL 이 HTTPS 일 때 runtime 실행:
 
 ```powershell
-$env:DEV_ERP_HOST="127.0.0.1"
-$env:DEV_ERP_PORT="4300"
 $env:DEV_ERP_COOKIE_SECURE="1"
+node server.mjs --host 127.0.0.1 --port 4300
 ```
+
+`server.mjs` 의 host/port 는 environment variable 이 아니라 CLI flag 로 지정한다.
+`DEV_ERP_COOKIE_SECURE=1` 만 HTTPS cookie 용 runtime environment 이다.
 
 앱이 local 에서 실행 중이면 Tailscale Serve 를 켠다.
 
@@ -140,6 +142,16 @@ tailscale serve status
 - NSSM service install: 관리자 권한 필요.
 - Task Scheduler boot task with elevated privilege: 관리자 권한이 필요할 수 있음.
 - direct LAN access 용 TCP `4300` inbound firewall rule: 관리자 권한 필요.
+
+Tailscale HTTPS 우선 운영의 NSSM 설정은 runtime clone 과 localhost bind 를 가리켜야 한다.
+
+```powershell
+nssm install dev-erp "<node_exe_path>" server.mjs --host 127.0.0.1 --port 4300
+nssm set dev-erp AppDirectory "<runtime-checkout>\ui-workspace\apps\dev-erp"
+nssm set dev-erp AppEnvironmentExtra DEV_ERP_COOKIE_SECURE=1
+nssm set dev-erp Start SERVICE_AUTO_START
+nssm start dev-erp
+```
 
 앱을 `127.0.0.1` 로만 bind 하고 Tailscale Serve 로 노출하면, broad LAN inbound
 firewall rule 없이도 pilot 이 가능하다. 앱을 `0.0.0.0` 로 bind 해서 LAN 직접 접속을

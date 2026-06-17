@@ -2,6 +2,17 @@
 
 ## 2026-06-17
 
+### Revision `working` - dev-erp Tailscale service posture clarification
+
+- Corrected the dev-erp Windows runtime docs so Tailscale HTTPS service examples
+  bind `server.mjs` to `127.0.0.1` in `<runtime-checkout>`, set only
+  `DEV_ERP_COOKIE_SECURE=1` for HTTPS cookies, and keep direct `0.0.0.0` LAN HTTP
+  as an explicit owner-approved pilot path.
+- Added an NSSM example that points at the runtime checkout and uses localhost
+  bind plus Tailscale Serve instead of broad LAN exposure by default.
+- Added `start-tailscale-windows.bat` as the Task Scheduler target for the
+  Tailscale HTTPS backend, leaving `start-windows.bat` as LAN HTTP pilot-only.
+
 ### Revision `working` - dev-erp runtime operation boundary
 
 - Added the dev-erp runtime operating contract for the first company-PC release:
