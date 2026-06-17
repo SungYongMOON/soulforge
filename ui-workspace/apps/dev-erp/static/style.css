@@ -238,7 +238,8 @@ nav button.active { background: var(--chip); font-weight: 600; color: var(--acce
 .ready-pill.ok, .ready-issue.ok { color: var(--ok); background: rgba(45,132,75,.12); }
 .ready-pill.danger, .ready-issue.danger { color: var(--danger); background: rgba(176,58,46,.12); }
 .ready-issue.warn { color: var(--warn); background: rgba(188,123,24,.13); }
-.ready-chips, .ready-issues { display: flex; gap: 6px; flex-wrap: wrap; margin-bottom: 8px; }
+.ready-chips, .ready-issues, .ready-actions { display: flex; gap: 6px; flex-wrap: wrap; margin-bottom: 8px; align-items: center; }
+.ready-actions strong { font-size: 11.5px; color: var(--muted); }
 .ready-chips span { border: 1px solid var(--line); border-radius: 999px; padding: 3px 9px; color: var(--muted); font-size: 11.5px; white-space: nowrap; }
 .readiness-table { min-width: 760px; }
 .di-table .ptr-text { word-break: break-all; font-size: 11.5px; }
@@ -451,6 +452,8 @@ td.dim { color: var(--line); }
   #app { grid-template-columns: 1fr; grid-template-rows: auto auto auto auto 1fr;
     grid-template-areas: "util" "brand" "subbar" "side" "main"; overflow-x: hidden; }
   .util-bar { flex-wrap: wrap; }
+  .global-actions { flex-wrap: wrap; margin-left: 0; width: 100%; justify-content: flex-start; }
+  .auth-box { flex: 1 1 240px; flex-wrap: wrap; min-width: 0; }
   .brand-bar { flex-wrap: wrap; }
   .side { flex-direction: row; align-items: center; overflow-x: auto; }
   nav#nav { flex-direction: row; }

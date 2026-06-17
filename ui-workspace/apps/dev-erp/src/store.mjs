@@ -2753,6 +2753,20 @@ export class Store {
     for (const r of rs) this.assignRole(aid, r);
     return { ok: true, id: aid };
   }
+  setAccountPassword(account_id, password) {
+    const plain = String(password ?? "");
+    if (plain.length < 6) return { error: "password_too_short" };
+    const a = this.db.prepare("SELECT 1 FROM core_account WHERE id=?").get(account_id);
+    if (!a) return { error: "account_not_found" };
+    this.db.prepare("UPDATE core_account SET pw_hash=? WHERE id=?").run(hashPassword(plain), account_id);
+    return { ok: true };
+  }
+  changeAccountPassword(account_id, { current_password, new_password } = {}) {
+    const a = this.db.prepare("SELECT pw_hash FROM core_account WHERE id=?").get(account_id);
+    if (!a) return { error: "account_not_found" };
+    if (!verifyPassword(current_password ?? "", a.pw_hash)) return { error: "current_password_invalid" };
+    return this.setAccountPassword(account_id, new_password);
+  }
   verifyLogin(username, password) {
     const a = this.db.prepare("SELECT * FROM core_account WHERE username=? AND status='active'").get(username);
     if (!a || !verifyPassword(password, a.pw_hash)) return null;
@@ -2777,6 +2791,14 @@ export class Store {
   }
   deleteSession(token) {
     this.db.prepare("DELETE FROM auth_session WHERE token=?").run(token);
+    return { ok: true };
+  }
+  deleteAccountSessions(account_id, exceptToken = null) {
+    if (exceptToken) {
+      this.db.prepare("DELETE FROM auth_session WHERE account_id=? AND token<>?").run(account_id, exceptToken);
+    } else {
+      this.db.prepare("DELETE FROM auth_session WHERE account_id=?").run(account_id);
+    }
     return { ok: true };
   }
   upsertRole(id, name) {
@@ -2975,6 +2997,19 @@ export class Store {
     const mailRequiredRows = rows.filter((a) => a.status === "active" && !a.is_admin);
     const configuredMailboxCount = mailRequiredRows.filter((a) => a.email && a.mailbox_enabled && a.mailbox_provider !== "none" && a.mailbox_env_ref).length;
     const fetchSeenCount = mailRequiredRows.filter((a) => a.mailbox_last_fetch_at).length;
+    const mailboxErrorCount = mailRequiredRows.filter((a) => a.mailbox_enabled && a.mailbox_status === "error").length;
+    const nextActions = [];
+    if (!activeAdmins.length) nextActions.push({ code: "create_admin_account", priority: "blocker" });
+    if (activeMembers.length < target) nextActions.push({ code: "add_member_accounts", priority: activeMembers.length ? "warning" : "blocker", expected: target, actual: activeMembers.length });
+    if (mailRequiredRows.some((a) => !a.email)) nextActions.push({ code: "fill_member_emails", priority: "blocker" });
+    if (mailboxErrorCount > 0) nextActions.push({ code: "fix_member_mailbox_errors", priority: "blocker", count: mailboxErrorCount });
+    if (configuredMailboxCount < mailRequiredRows.length) nextActions.push({ code: "configure_member_mailboxes", priority: "blocker", expected: mailRequiredRows.length, actual: configuredMailboxCount });
+    if (configuredMailboxCount > 0 && fetchSeenCount < configuredMailboxCount) nextActions.push({ code: "export_and_fetch_team_mailboxes", priority: "warning", expected: configuredMailboxCount, actual: fetchSeenCount });
+    if (unclassifiedOverdue > 0) nextActions.push({ code: "triage_overdue_unclassified", priority: "warning", count: unclassifiedOverdue });
+    else if (unclassified > 0) nextActions.push({ code: "triage_unclassified", priority: "warning", count: unclassified });
+    if (!nextActions.length) nextActions.push(blockers.length
+      ? { code: "resolve_readiness_blockers", priority: "blocker", count: blockers.length }
+      : { code: "ready_for_team_pilot", priority: "ok" });
     return {
       generated_at: new Date().toISOString(),
       target_members: target,
@@ -2996,6 +3031,7 @@ export class Store {
       },
       blockers,
       warnings,
+      next_actions: nextActions,
       accounts: rows,
     };
   }

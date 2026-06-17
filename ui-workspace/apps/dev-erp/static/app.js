@@ -95,8 +95,9 @@ function renderAuth() {
     // 실제 가입 이름(display_name) 우선 표기, 없으면 아이디. 관리자면 관리 버튼.
     const name = esc(state.account.display_name || state.account.username);
     const adminBtn = state.account.is_admin ? `<button id="adminBtn" class="fav-chip">${L.admin_panel}</button>` : "";
-    box.innerHTML = `<span class="auth-user" title="${esc(state.account.email || "")}">${name}</span>${adminBtn}<button id="logoutBtn" class="fav-chip">${L.logout}</button>`;
+    box.innerHTML = `<span class="auth-user" title="${esc(state.account.email || "")}">${name}</span>${adminBtn}<button id="pwBtn" class="fav-chip">${L.password_change}</button><button id="logoutBtn" class="fav-chip">${L.logout}</button>`;
     if (state.account.is_admin) $("#adminBtn").addEventListener("click", openAdminPanel);
+    $("#pwBtn").addEventListener("click", openPasswordChange);
     $("#logoutBtn").addEventListener("click", async () => { await fetch("/api/auth/logout", { method: "POST" }).catch(() => {}); location.reload(); });
   } else if (state.accountCount > 0) {
     box.innerHTML = `<button id="loginBtn" class="fav-chip">${L.login}</button>`;
@@ -135,6 +136,41 @@ function openLogin() {
   ov.querySelector(".ui-confirm-ok").addEventListener("click", submit);
   ov.querySelector("#loginPw").addEventListener("keydown", (e) => { if (e.key === "Enter") submit(); });
   ov.querySelector("#loginUser").focus();
+}
+
+function openPasswordChange() {
+  const L = state.lex;
+  document.querySelector(".ui-confirm-overlay")?.remove();
+  const ov = document.createElement("div");
+  ov.className = "ui-confirm-overlay";
+  ov.innerHTML = `<div class="ui-confirm" role="dialog" aria-label="${L.password_change}">
+    <p class="ui-confirm-msg">${L.password_change}</p>
+    <input id="pwCurrent" class="login-input" type="password" placeholder="${L.password_current}" autocomplete="current-password" />
+    <input id="pwNew" class="login-input" type="password" placeholder="${L.password_new}" autocomplete="new-password" />
+    <input id="pwConfirm" class="login-input" type="password" placeholder="${L.password_confirm}" autocomplete="new-password" />
+    <div class="login-err danger-text"></div>
+    <div class="ui-confirm-btns"><button class="ui-confirm-cancel">${L.btn_cancel}</button><button class="ui-confirm-ok">${L.btn_confirm}</button></div>
+  </div>`;
+  document.body.appendChild(ov);
+  const close = () => ov.remove();
+  ov.addEventListener("click", (e) => { if (e.target === ov) close(); });
+  ov.querySelector(".ui-confirm-cancel").addEventListener("click", close);
+  const submit = async () => {
+    const err = ov.querySelector(".login-err");
+    err.textContent = "";
+    const current = ov.querySelector("#pwCurrent").value;
+    const next = ov.querySelector("#pwNew").value;
+    const confirm = ov.querySelector("#pwConfirm").value;
+    if (next !== confirm) { err.textContent = L.password_mismatch; return; }
+    const r = await post("/api/auth/password", { current_password: current, new_password: next }).then((x) => x.json()).catch(() => null);
+    if (r && r.ok) { err.textContent = L.password_changed; setTimeout(close, 500); }
+    else err.textContent = r?.error === "current_password_invalid" ? L.password_wrong
+      : r?.error === "password_too_short" ? L.password_too_short
+      : L.login_fail;
+  };
+  ov.querySelector(".ui-confirm-ok").addEventListener("click", submit);
+  ov.querySelector("#pwConfirm").addEventListener("keydown", (e) => { if (e.key === "Enter") submit(); });
+  ov.querySelector("#pwCurrent").focus();
 }
 
 // 첫 관리자 만들기(bootstrap, 계정 0개일 때 1회). 아이디/비밀번호는 사용자가 직접 입력.
@@ -308,6 +344,16 @@ async function openAdminPanel() {
       account_mailbox_stale: "메일함 오래됨",
       account_mailbox_never_fetched: "수집 이력 없음",
       account_mailbox_no_mail_rows: "메일 원장 0건",
+      create_admin_account: "관리자 계정 만들기",
+      add_member_accounts: "팀원 계정 추가",
+      fill_member_emails: "팀원 이메일 입력",
+      fix_member_mailbox_errors: "메일함 오류 해결",
+      configure_member_mailboxes: "팀원 메일함 설정",
+      export_and_fetch_team_mailboxes: "메일함 등록부 export 후 수집 실행",
+      triage_overdue_unclassified: "기한 지난 분류 대기 처리",
+      triage_unclassified: "분류 대기 처리",
+      resolve_readiness_blockers: "준비 차단 사유 해결",
+      ready_for_team_pilot: "팀 파일럿 사용 가능",
     };
     const base = labels[issue.code] || issue.code;
     const detail = issue.expected ? ` ${issue.actual}/${issue.expected}` : issue.count ? ` ${issue.count}` : "";
@@ -328,6 +374,9 @@ async function openAdminPanel() {
     ];
     const issueHtml = (items, klass) => (items || []).slice(0, 8)
       .map((x) => `<span class="ready-issue ${klass}">${esc(issueLabel(x))}</span>`).join("");
+    const actionHtml = (ready.next_actions || []).slice(0, 6)
+      .map((x) => `<span class="ready-issue ${x.priority === "blocker" ? "danger" : x.priority === "ok" ? "ok" : "warn"}">${esc(issueLabel(x))}</span>`)
+      .join("");
     const rows = (ready.accounts || []).map((a) => {
       const issues = (a.issues || []).map((x) => `<span class="ready-issue ${x.level === "blocker" ? "danger" : "warn"}">${esc(issueLabel(x))}</span>`).join("");
       const at = a.mailbox_last_fetch_at ? String(a.mailbox_last_fetch_at).replace("T", " ").slice(0, 16) : "-";
@@ -348,6 +397,7 @@ async function openAdminPanel() {
       </div>
       <div class="ready-chips">${chips.map((x) => `<span>${esc(x)}</span>`).join("")}</div>
       <div class="ready-issues">${issueHtml(ready.blockers, "danger")}${issueHtml(ready.warnings, "warn")}</div>
+      <div class="ready-actions"><strong>${esc(L.next_actions ?? "다음 행동")}</strong>${actionHtml}</div>
       <table class="admin-table readiness-table" style="width:100%;border-collapse:collapse"><thead><tr>
         <th>${L.acct_name}</th><th>${L.acct_email}</th><th>${L["mailbox_provider"] ?? "메일함"}</th>
         <th>${L["mailbox_status"] ?? "수집"}</th><th>${L["mail_count"] ?? "메일"}</th><th>${L["item_count"] ?? "할일"}</th><th>${L.acct_status}</th>
@@ -378,7 +428,11 @@ async function openAdminPanel() {
         <td><input class="login-input ac-email" style="width:155px" value="${esc(a.email || "")}" placeholder="${L.acct_email}" /></td>
         <td><button class="fav-chip ac-role" data-id="${a.id}" data-role="${otherRole}">${roleLbl}</button>
           <button class="fav-chip ac-status" data-id="${a.id}" data-status="${a.status === "active" ? "disabled" : "active"}" ${isSelf ? "disabled" : ""}>${statusLbl}</button>
-          <button class="fav-chip ac-save" data-id="${esc(a.id)}">${L.acct_save ?? "저장"}</button></td>
+          <button class="fav-chip ac-save" data-id="${esc(a.id)}">${L.acct_save ?? "저장"}</button>
+          <div style="display:flex;gap:6px;flex-wrap:wrap;margin-top:6px">
+            <input class="login-input ac-reset-pw" style="width:112px" type="password" placeholder="${L.password_reset}" autocomplete="new-password" />
+            <button class="fav-chip ac-reset" data-id="${esc(a.id)}">${L.password_reset}</button>
+          </div></td>
         <td><div style="display:flex;gap:6px;flex-wrap:wrap;align-items:center">
           <select class="login-input mb-provider" style="width:92px">${providerOptions(a.mailbox_provider || "none")}</select>
           <label class="dim mini"><input type="checkbox" class="mb-enabled" ${mailboxEnabled ? "checked" : ""} /> ${mailboxEnabled ? (L.acct_active ?? "활성") : (L.acct_disabled ?? "비활성")}</label>
@@ -409,6 +463,14 @@ async function openAdminPanel() {
       }).then((x) => x.json()).catch(() => null);
       if (r && r.ok) { errBox.textContent = L.acct_save ?? "저장"; renderList(); }
       else errBox.textContent = (r && /taken|format/.test(r.error || "")) ? L.acct_taken : (r?.error || L.login_fail);
+    }));
+    ov.querySelectorAll(".ac-reset").forEach((b) => b.addEventListener("click", async () => {
+      errBox.textContent = "";
+      const tr = b.closest("tr");
+      const password = tr.querySelector(".ac-reset-pw").value;
+      const r = await post("/api/accounts/password", { id: b.dataset.id, password }).then((x) => x.json()).catch(() => null);
+      if (r && r.ok) { tr.querySelector(".ac-reset-pw").value = ""; errBox.textContent = L.password_reset_done; }
+      else errBox.textContent = r?.error === "password_too_short" ? L.password_too_short : (r?.error || L.login_fail);
     }));
     ov.querySelectorAll(".mb-save").forEach((b) => b.addEventListener("click", async () => {
       errBox.textContent = "";

@@ -35,6 +35,8 @@ const PORT = Number(flag("port", 4300));
 // 기본은 localhost 전용(안전). 같은 네트워크 공유가 필요할 때만 --host 0.0.0.0
 // (합성 데이터 파일럿 한정 권장 — 실데이터+팀 공개는 P2 RBAC 이후)
 const HOST = flag("host", "127.0.0.1");
+// HTTPS reverse proxy/tunnel 뒤에서 팀 공개 시 켠다. 로컬 http 파일럿은 기본 OFF.
+const COOKIE_SECURE = process.env.DEV_ERP_COOKIE_SECURE === "1" || args.includes("--secure-cookie");
 const DB_PATH = flag("db", join(HERE, "data", "dev-erp.db"));
 if (DB_PATH !== ":memory:") mkdirSync(dirname(DB_PATH), { recursive: true });
 // Canon 지식 저장소(읽기 전용 소비). 기본 = repo 루트 .registry/knowledge (상대 resolve).
@@ -88,9 +90,9 @@ function readCookie(req, name) {
 function currentAccount(req) {
   return store.sessionAccount(readCookie(req, SID));
 }
-// 세션 쿠키 문자열. HttpOnly+SameSite=Lax(로컬/사내망 http 파일럿이라 Secure 미설정).
+// 세션 쿠키 문자열. HttpOnly+SameSite=Lax, 팀 공개 HTTPS proxy/tunnel 에서는 Secure 옵션 사용.
 function sessionCookie(token, maxAgeSec) {
-  return `${SID}=${encodeURIComponent(token)}; Path=/; HttpOnly; SameSite=Lax; Max-Age=${maxAgeSec}`;
+  return `${SID}=${encodeURIComponent(token)}; Path=/; HttpOnly; SameSite=Lax; Max-Age=${maxAgeSec}${COOKIE_SECURE ? "; Secure" : ""}`;
 }
 // 관리자 가드: admin 역할 계정만. 아니면 null.
 function requireAdmin(req) {
@@ -212,6 +214,17 @@ const server = createServer(async (req, res) => {
       if (tok) store.deleteSession(tok);
       return send(res, 200, { ok: true }, "application/json", { "set-cookie": sessionCookie("", 0) });
     }
+    if (path === "/api/auth/password" && req.method === "POST") {
+      const me = currentAccount(req);
+      if (!me) return send(res, 401, { error: "login_required" });
+      const { current_password, new_password } = await readJson(req);
+      const r = store.changeAccountPassword(me.id, { current_password, new_password });
+      if (r.error) return send(res, 400, r);
+      store.deleteAccountSessions(me.id);
+      const token = store.createSession(me.id);
+      store.appendEvent({ actor_ref: me.username, actor_kind: "human", kind: "auth_password_change", used_refs: ["auth"], data_label: "meta" });
+      return send(res, 200, { ok: true, account: store.accountProfile(store.sessionAccount(token)) }, "application/json", { "set-cookie": sessionCookie(token, 12 * 3600) });
+    }
     if (path === "/api/auth/bootstrap" && req.method === "POST") {
       if (store.accountCount() !== 0) return send(res, 409, { error: "already_initialized" });
       const { username, password, email, display_name } = await readJson(req);
@@ -253,6 +266,20 @@ const server = createServer(async (req, res) => {
       const { id, email, display_name, role } = await readJson(req);
       const r = store.updateAccount(id, { email, display_name, role });
       return send(res, r.error ? 400 : 200, r);
+    }
+    if (path === "/api/accounts/password" && req.method === "POST") {
+      const admin = requireAdmin(req);
+      if (!admin) return send(res, 403, { error: "admin_only" });
+      const { id, password } = await readJson(req);
+      const r = store.setAccountPassword(id, password);
+      if (r.error) return send(res, 400, r);
+      store.deleteAccountSessions(id);
+      store.appendEvent({ actor_ref: admin.username, actor_kind: "human", kind: "account_password_reset", item_ref: id, used_refs: ["auth"], data_label: "meta" });
+      if (id === admin.id) {
+        const token = store.createSession(id);
+        return send(res, 200, { ok: true, account: store.accountProfile(store.sessionAccount(token)) }, "application/json", { "set-cookie": sessionCookie(token, 12 * 3600) });
+      }
+      return send(res, 200, r);
     }
     if (path === "/api/accounts/mailbox" && req.method === "POST") {
       const admin = requireAdmin(req);
