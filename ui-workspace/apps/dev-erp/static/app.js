@@ -445,6 +445,7 @@ async function openAdminPanel() {
       const statusLbl = a.status === "active" ? L.acct_active : L.acct_disabled;
       const otherRole = a.is_admin ? "member" : "admin";
       const isSelf = state.account && a.id === state.account.id;
+      const selfRoleDisabled = isSelf ? "disabled" : "";
       const mailboxEnabled = !!a.mailbox_enabled;
       const mailboxStatus = a.mailbox_status || (mailboxEnabled ? "ready" : "disabled");
       const mailboxAt = a.mailbox_last_fetch_at ? String(a.mailbox_last_fetch_at).replace("T", " ").slice(0, 16) : "-";
@@ -452,7 +453,7 @@ async function openAdminPanel() {
         <td><input class="login-input ac-name" style="width:110px" value="${esc(a.display_name || "")}" placeholder="${L.acct_name}" /></td>
         <td class="muted">${esc(a.username)}</td>
         <td><input class="login-input ac-email" style="width:155px" value="${esc(a.email || "")}" placeholder="${L.acct_email}" /></td>
-        <td><button class="fav-chip ac-role" data-id="${a.id}" data-role="${otherRole}">${roleLbl}</button>
+        <td><button class="fav-chip ac-role" data-id="${a.id}" data-role="${otherRole}" ${selfRoleDisabled}>${roleLbl}</button>
           <button class="fav-chip ac-status" data-id="${a.id}" data-status="${a.status === "active" ? "disabled" : "active"}" ${isSelf ? "disabled" : ""}>${statusLbl}</button>
           <button class="fav-chip ac-save" data-id="${esc(a.id)}">${L.acct_save ?? "저장"}</button>
           <div style="display:flex;gap:6px;flex-wrap:wrap;margin-top:6px">

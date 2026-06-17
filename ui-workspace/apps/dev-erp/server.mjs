@@ -277,6 +277,7 @@ const server = createServer(async (req, res) => {
       const admin = requireAdmin(req);
       if (!admin) return send(res, 403, { error: "admin_only" });
       const { id, email, display_name, role } = await readJson(req);
+      if (id === admin.id && role === "member") return send(res, 400, { error: "cannot_change_own_role" });
       const r = store.updateAccount(id, { email, display_name, role });
       return send(res, r.error ? 400 : 200, r);
     }

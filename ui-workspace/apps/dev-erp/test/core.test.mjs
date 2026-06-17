@@ -1773,10 +1773,11 @@ test("P2b: 비밀번호 해시 roundtrip (평문 미저장)", () => {
 test("P2b: 계정 생성·로그인·세션 검증/만료/삭제", () => {
   const store = freshStore();
   assert.equal(store.accountCount(), 0, "기본 익명(계정 0)");
-  const r = store.createAccount({ username: "owner", password: "pw123", roles: [] });
+  const r = store.createAccount({ username: "owner", password: "pw1234", roles: [] });
   assert.ok(r.ok && r.id);
   assert.equal(store.createAccount({ username: "owner", password: "x" }).error, "username_taken");
-  assert.equal(store.verifyLogin("owner", "pw123").username, "owner");
+  assert.equal(store.createAccount({ username: "short", password: "12345" }).error, "password_too_short");
+  assert.equal(store.verifyLogin("owner", "pw1234").username, "owner");
   assert.equal(store.verifyLogin("owner", "bad"), null);
   const tok = store.createSession(r.id);
   assert.equal(store.sessionAccount(tok).id, r.id);
@@ -1806,6 +1807,16 @@ test("P2b: 팀 공개 기본값은 자가 가입 차단, 명시 옵션일 때만
         body: JSON.stringify({ username: "owner", password: "ownerpass", display_name: "Owner" }),
       });
       assert.equal(r.status, 200);
+      body = await r.json();
+      const ownerCookie = r.headers.get("set-cookie")?.split(";")[0] ?? "";
+      r = await fetch(`${base}/api/accounts/update`, {
+        method: "POST",
+        headers: { "content-type": "application/json", cookie: ownerCookie },
+        body: JSON.stringify({ id: body.account.id, role: "member" }),
+      });
+      body = await r.json();
+      assert.equal(r.status, 400);
+      assert.equal(body.error, "cannot_change_own_role");
 
       r = await fetch(`${base}/api/auth/register`, {
         method: "POST",
@@ -1869,7 +1880,7 @@ test("P2b: 팀원 비밀번호 변경·관리자 초기화 — 평문 미저장,
 
 test("P2b: RBAC visible-but-locked 권한 합집합", () => {
   const store = freshStore();
-  const a = store.createAccount({ username: "u", password: "p" }).id;
+  const a = store.createAccount({ username: "u", password: "p12345" }).id;
   store.upsertRole("member", "팀원");
   store.assignRole(a, "member");
   store.setPermission("member", "mod:gates", true, false);  // 보이되 잠김
@@ -1882,7 +1893,7 @@ test("P2b: RBAC visible-but-locked 권한 합집합", () => {
 
 test("P2b: 계정별 레이아웃 저장/로드 roundtrip", () => {
   const store = freshStore();
-  const a = store.createAccount({ username: "u2", password: "p" }).id;
+  const a = store.createAccount({ username: "u2", password: "p12345" }).id;
   assert.equal(store.getLayout(a), null, "초기 없음 → 기본 사용");
   const layout = [{ id: "projects", x: 0, y: 0, w: 12, h: 12 }, { id: "kpi", x: 0, y: 12, w: 3, h: 7 }];
   store.setLayout(a, layout);
@@ -1895,7 +1906,7 @@ test("P2b 엣지: 세션 토큰 빈값/오염/만료정리", () => {
   assert.equal(store.sessionAccount(null), null);
   assert.equal(store.sessionAccount(""), null);
   assert.equal(store.sessionAccount("nonexistent-token"), null);
-  const a = store.createAccount({ username: "e1", password: "p" }).id;
+  const a = store.createAccount({ username: "e1", password: "p12345" }).id;
   store.createSession(a, -1);           // 이미 만료
   const live = store.createSession(a);  // 유효
   const purged = store.purgeExpiredSessions();
@@ -1907,13 +1918,14 @@ test("P2b 엣지: 로그인 빈 입력·없는 사용자 안전", () => {
   const store = freshStore();
   assert.equal(store.verifyLogin("", ""), null);
   assert.equal(store.verifyLogin("ghost", "x"), null);
-  assert.equal(store.createAccount({ username: "", password: "p" }).error, "username_password_required");
+  assert.equal(store.createAccount({ username: "", password: "p12345" }).error, "username_password_required");
   assert.equal(store.createAccount({ username: "u", password: "" }).error, "username_password_required");
+  assert.equal(store.createAccount({ username: "short", password: "12345" }).error, "password_too_short");
 });
 
 test("P2b 엣지: 레이아웃 비배열/오염 방어", () => {
   const store = freshStore();
-  const a = store.createAccount({ username: "e2", password: "p" }).id;
+  const a = store.createAccount({ username: "e2", password: "p12345" }).id;
   store.setLayout(a, { not: "array" });          // 비배열 → []
   assert.deepEqual(store.getLayout(a), []);
   store.setLayout(a, null);                       // null → []
@@ -1925,7 +1937,7 @@ test("P2b 엣지: 레이아웃 비배열/오염 방어", () => {
 
 test("P2b 엣지: 권한 다중역할 union(하나라도 access면 허용)", () => {
   const store = freshStore();
-  const a = store.createAccount({ username: "e3", password: "p" }).id;
+  const a = store.createAccount({ username: "e3", password: "p12345" }).id;
   store.upsertRole("r_deny"); store.upsertRole("r_allow");
   store.assignRole(a, "r_deny"); store.assignRole(a, "r_allow");
   store.setPermission("r_deny", "mod:gates", true, false);
@@ -2692,6 +2704,18 @@ test("TEAM-ACCT: updateAccount 이메일·역할 변경 + 중복 거부", () => 
   assert.ok(!store.isAdmin(b.id));
 });
 
+test("TEAM-ACCT: last active admin role cannot be removed", () => {
+  const store = freshStore();
+  const owner = store.createAccount({ username: "owner-admin", password: "pw123456", roles: ["admin"] });
+  assert.equal(store.updateAccount(owner.id, { role: "member" }).error, "last_admin_role_required");
+  assert.ok(store.isAdmin(owner.id));
+
+  const backup = store.createAccount({ username: "backup-admin", password: "pw123456", roles: ["admin"] });
+  assert.equal(store.updateAccount(owner.id, { role: "member" }).ok, true);
+  assert.equal(store.isAdmin(owner.id), false);
+  assert.equal(store.isAdmin(backup.id), true);
+});
+
 // 계정별 메일함 등록 메타데이터 — secret 값 없이 provider/env ref/status 만 저장.
 test("TEAM-ACCT: mailbox metadata update/list + 상대 env ref/secret 가드", () => {
   const store = freshStore();
@@ -2802,7 +2826,9 @@ test("TEAM-ROSTER: admin role and mailbox refs require explicit safe inputs", ()
 test("TEAM-ROSTER: existing account role is preserved unless role is explicit", () => {
   const store = freshStore();
   const created = store.createAccount({ username: "lead", password: "leadpass", roles: ["admin"], email: "lead@corp.com" });
+  const backup = store.createAccount({ username: "backup", password: "leadpass", roles: ["admin"], email: "backup@corp.com" });
   assert.ok(created.ok);
+  assert.ok(backup.ok);
 
   const plan = planTeamRosterImport(store, [{ username: "lead", display_name: "Lead", email: "lead@corp.com" }]);
   assert.equal(plan.entries[0].role_action, "unchanged");

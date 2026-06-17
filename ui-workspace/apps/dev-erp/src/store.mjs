@@ -2738,8 +2738,10 @@ export class Store {
 
   createAccount({ id, username, password, person_id = null, roles = [], email = null, display_name = null }) {
     const aid = id || `acc_${randomBytes(5).toString("hex")}`;
-    if (!username || !password) return { error: "username_password_required" };
+    const plain = String(password ?? "");
+    if (!username || !plain) return { error: "username_password_required" };
     if (this.db.prepare("SELECT 1 FROM core_account WHERE username=?").get(username)) return { error: "username_taken" };
+    if (plain.length < 6) return { error: "password_too_short" };
     const em = String(email ?? "").trim().toLowerCase() || null;
     if (em) {
       if (!Store.EMAIL_RE.test(em)) return { error: "email_format" };
@@ -2748,7 +2750,7 @@ export class Store {
     const dn = String(display_name ?? "").trim() || null;
     this.db.prepare(
       "INSERT INTO core_account(id,person_id,username,pw_hash,status,created_at,email,display_name) VALUES (?,?,?,?, 'active', ?,?,?)"
-    ).run(aid, person_id, username, hashPassword(password), new Date().toISOString(), em, dn);
+    ).run(aid, person_id, username, hashPassword(plain), new Date().toISOString(), em, dn);
     const rs = (roles && roles.length) ? roles : ["member"]; // 역할 미지정이면 기본 '팀원'
     for (const r of rs) this.assignRole(aid, r);
     return { ok: true, id: aid };
@@ -3093,6 +3095,15 @@ export class Store {
       this.db.prepare("UPDATE core_account SET display_name=? WHERE id=?").run(String(display_name ?? "").trim() || null, account_id);
     }
     if (role !== undefined && ["admin", "member"].includes(role)) {
+      if (role !== "admin" && this.isAdmin(account_id) && a.status === "active") {
+        const activeAdminCount = this.db.prepare(
+          `SELECT COUNT(*) AS c
+           FROM core_account a
+           JOIN rbac_account_role rr ON rr.account_id=a.id AND rr.role_id='admin'
+           WHERE a.status='active'`
+        ).get().c;
+        if (activeAdminCount <= 1) return { error: "last_admin_role_required" };
+      }
       this.db.prepare("DELETE FROM rbac_account_role WHERE account_id=?").run(account_id);
       this.assignRole(account_id, role);
     }

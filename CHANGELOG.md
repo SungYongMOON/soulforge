@@ -2,6 +2,15 @@
 
 ## 2026-06-17
 
+### Revision `working` - dev-erp first-release account safety
+
+- Enforced the existing six-character minimum password rule during account
+  creation, not only password reset/change.
+- Blocked self role demotion through the account API and protected the last
+  active admin from being demoted at the store layer.
+- Disabled the current user's role toggle in the admin panel and added account
+  safety regression tests for the first team-facing release.
+
 ### Revision `working` - dev-erp Tailscale service posture clarification
 
 - Corrected the dev-erp Windows runtime docs so Tailscale HTTPS service examples
