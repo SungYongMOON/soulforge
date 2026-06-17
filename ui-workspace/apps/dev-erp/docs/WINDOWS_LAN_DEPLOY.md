@@ -46,8 +46,8 @@ node server.mjs --host 0.0.0.0
 **A) NSSM (권장 — 로그인 안 해도 서비스로 상시)**
 - https://nssm.cc 에서 nssm.exe 다운로드. 관리자 명령 프롬프트:
   ```
-  nssm install dev-erp "C:\Program Files\nodejs\node.exe" server.mjs --host 0.0.0.0
-  nssm set dev-erp AppDirectory "C:\경로\Soulforge\ui-workspace\apps\dev-erp"
+  nssm install dev-erp "<node_exe_path>" server.mjs --host 0.0.0.0
+  nssm set dev-erp AppDirectory "<Soulforge_repo>\\ui-workspace\\apps\\dev-erp"
   nssm set dev-erp Start SERVICE_AUTO_START
   nssm start dev-erp
   ```
