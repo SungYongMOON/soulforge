@@ -2,6 +2,19 @@
 
 ## 2026-06-17
 
+### Revision `working` - dev-ERP 회사 PC 팀 호스트 사전점검
+
+- `dev-erp:team-preflight` 를 추가해 회사 PC 한 대가 메일 credential env 파일과 ERP 서버를 보유하고,
+  팀원은 브라우저로 접속하는 운영 모델을 한 번에 점검할 수 있게 함.
+- 점검은 DB·활성 관리자/팀원·메일함 metadata·`team_mailboxes.json` 등록부·메일 env 파일 존재 여부만
+  확인하며, credential env 파일 내용은 읽지 않고 출력에도 env 경로나 비밀번호를 표시하지 않음.
+- `configuration_ready` 와 `team_use_ready` 를 분리해 실제 팀 메일 수집이 관측되기 전에는 팀 사용
+  준비 완료로 닫지 않게 하고, 등록부의 `env_file` 이 ERP DB의 `mailbox_env_ref` 와 일치하는지도 검증.
+- 기본 목표 5명 미만이면 preflight 차단 사유로 보고하고, 1명 파일럿은 `--target-members 1` 처럼
+  목표 인원을 명시하도록 함.
+- 팀 온보딩 문서의 실행 순서에 preflight 단계를 추가해 roster import 이후 팀 공개 전 차단 사유를
+  운영자가 바로 확인하도록 정리.
+
 ### Revision `working` - dev-ERP 팀 로스터 일괄 등록 도구
 
 - `dev-erp:import-team-roster` 를 추가해 회사 PC 호스트에서 private roster(JSON/CSV)를 dry-run 후
