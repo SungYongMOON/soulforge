@@ -51,6 +51,23 @@ The command checks that the packet is metadata-only, keeps stronger permissions
 false by default, and excludes raw material, account state, local host paths, and
 secret-like values.
 
+When a packet includes `sources[].source_sync_ready_ref`, validate the linked
+ready manifests without checking local source files. Run this against a real
+workspace handoff packet whose referenced ready manifest exists:
+
+```bash
+npm run guild-hall:rag -- validate-company-knowledge-intake-packet --packet-ref _workspaces/knowledge/intake/<packet_id>/company_knowledge_intake_packet.json --validate-source-sync-ready-refs
+```
+
+This linked validation confirms that the ready manifest matches the packet
+source id and source-card ref. It is still metadata-only; it is not owner
+approval, source truth, source-text retrieval permission, or index-build
+permission.
+
+Do not use the checked-in placeholder packet template for a passing linked
+readiness check unless you also provide the matching workspace ready manifest.
+The template command above validates packet shape only.
+
 Validate a ready manifest shape without checking local files:
 
 ```bash

@@ -31,6 +31,24 @@
   재배정하면 그 팀원의 '내 할 일'(본인 스코프)로 이동. 비관리자는 기존 표시 유지.
 - assignee_ref 는 팀원 display_name(=accountIdentities 매칭)으로 설정. item_assign 이벤트 기록.
 
+### Revision `working` - company knowledge intake linked ready validation
+
+- Added an explicit `--validate-source-sync-ready-refs` option to
+  `validate-company-knowledge-intake-packet` so company intake packets can
+  metadata-check linked `source_sync_ready_ref` manifests before later
+  source-text indexing.
+- Kept the linked check below owner approval/source truth/index-build authority:
+  it validates source id and source-card ref alignment without reading source
+  bodies, NotebookLM answers, chunks, secrets, or local runtime paths.
+- Kept source file hashing on the dedicated `validate-source-sync-ready` command;
+  intake linked validation stays metadata-only and does not expose a file-check
+  mode.
+- Redacted unsafe linked ready refs before ready-manifest validation so blocked
+  CLI output does not echo local paths or secret-like ref values.
+- Added fixture coverage for linked pass, missing ready manifest, source-id
+  mismatch, source-card mismatch, unsafe linked-ref redaction, CLI output, and
+  raw/private payload hygiene.
+
 ### Revision `working` - dev-erp 릴리즈 마감: 팀 사용 준비 상태 UI 명확화
 
 - Codex 가 추가한 팀 준비점검(`store.teamReadiness` / `GET /api/accounts/readiness`)을

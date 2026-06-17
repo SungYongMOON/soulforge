@@ -1,5 +1,6 @@
 import path from "node:path";
 import { normalizeRepoPath, readJson } from "../shared/io.mjs";
+import { validateSourceSyncReadyRef } from "./source_sync_ready_manifest.mjs";
 
 export const COMPANY_KNOWLEDGE_INTAKE_PACKET_SCHEMA_VERSION =
   "soulforge.company_knowledge_intake_packet.v0";
@@ -324,6 +325,142 @@ export function validateCompanyKnowledgeIntakePacket(packet) {
   };
 }
 
+export async function validateCompanyKnowledgeIntakePacketWithLinkedReadyManifests(packet, {
+  repoRoot = process.cwd(),
+} = {}) {
+  const baseValidation = validateCompanyKnowledgeIntakePacket(packet);
+  const sources = Array.isArray(packet?.sources) ? packet.sources : [];
+  const linkedSources = [];
+  const linkedBlockers = [];
+
+  for (const [index, source] of sources.entries()) {
+    const trail = `sources[${index}]`;
+    if (!source?.source_sync_ready_ref) {
+      linkedSources.push({
+        source_id: safeLinkedSourceId(source?.source_id),
+        source_sync_ready_ref: null,
+        status: "not_present",
+        ready_for_index: false,
+        blocker_count: 0,
+        blockers: [],
+        source_refs: {},
+        boundary: linkedReadyBoundarySummary({}),
+      });
+      continue;
+    }
+
+    const readyRefBlockers = linkedReadyRefBlockers(source.source_sync_ready_ref);
+    const sourceCardRef = linkedReadySourceCardRef(source.source_ref);
+    if (!sourceCardRef) readyRefBlockers.push("source_sync_ready_requires_json_source_card_ref");
+    const precheckBlockers = [...new Set(readyRefBlockers)].sort();
+    if (precheckBlockers.length > 0) {
+      linkedBlockers.push(...precheckBlockers.map((blocker) => `source_sync_ready_link:${trail}:${blocker}`));
+      linkedSources.push({
+        source_id: safeLinkedSourceId(source?.source_id),
+        source_sync_ready_ref: null,
+        status: "blocked",
+        ready_for_index: false,
+        ready_manifest_status: "not_checked",
+        blocker_count: precheckBlockers.length,
+        blockers: precheckBlockers,
+        source_refs: {},
+        boundary: linkedReadyBoundarySummary({}),
+      });
+      continue;
+    }
+
+    const readyRef = normalizeRepoPath(String(source.source_sync_ready_ref).trim());
+    const readyValidation = await validateSourceSyncReadyRef({
+      repoRoot,
+      readyRef,
+      sourceCardRef,
+      checkFiles: false,
+    });
+    const itemBlockers = [...(readyValidation.blockers ?? [])];
+    if (readyValidation.source_id !== source.source_id) itemBlockers.push("source_sync_ready_source_id_mismatch");
+    if (readyValidation.status !== "pass") itemBlockers.push("source_sync_ready_manifest_not_passed");
+    const dedupedItemBlockers = [...new Set(itemBlockers)].sort();
+    if (dedupedItemBlockers.length > 0) {
+      linkedBlockers.push(...dedupedItemBlockers.map((blocker) => `source_sync_ready_link:${trail}:${blocker}`));
+    }
+    linkedSources.push({
+      source_id: safeLinkedSourceId(source?.source_id),
+      source_sync_ready_ref: readyRef,
+      status: dedupedItemBlockers.length === 0 ? "pass" : "blocked",
+      ready_for_index: readyValidation.ready_for_index === true && dedupedItemBlockers.length === 0,
+      ready_manifest_status: readyValidation.status,
+      blocker_count: dedupedItemBlockers.length,
+      blockers: dedupedItemBlockers,
+      source_refs: sanitizeLinkedReadySourceRefs(readyValidation.source_refs ?? {}),
+      boundary: linkedReadyBoundarySummary(readyValidation.boundary ?? {}),
+    });
+  }
+
+  const blockers = [...new Set([...(baseValidation.blockers ?? []), ...linkedBlockers])].sort();
+  const passCount = linkedSources.filter((source) => source.status === "pass").length;
+  const blockedCount = linkedSources.filter((source) => source.status === "blocked").length;
+  const notPresentCount = linkedSources.filter((source) => source.status === "not_present").length;
+
+  return {
+    ...baseValidation,
+    status: blockers.length === 0 ? "pass" : "blocked",
+    blocker_count: blockers.length,
+    blockers,
+    linked_source_sync_ready_validation: {
+      enabled: true,
+      check_files: false,
+      source_count: linkedSources.length,
+      linked_count: linkedSources.length - notPresentCount,
+      pass_count: passCount,
+      blocked_count: blockedCount,
+      not_present_count: notPresentCount,
+      sources: linkedSources,
+      boundary: {
+        metadata_only: true,
+        ready_file_is_not_owner_approval: true,
+        ready_file_is_not_source_truth: true,
+        source_text_retrieval_allowed: false,
+        index_build_allowed: false,
+        no_raw_payloads: true,
+        no_source_payloads: true,
+        no_source_text: true,
+        no_chunk_payloads: true,
+        no_notebooklm_answers: true,
+        no_secrets_or_session: true,
+        no_runtime_absolute_paths: true,
+      },
+    },
+  };
+}
+
+function linkedReadyRefBlockers(value) {
+  const blockers = [];
+  if (!isSafeRef(value)) blockers.push("source_sync_ready_ref_unsafe");
+  if (!isSafeCompanySourceRef(value)) blockers.push("source_sync_ready_ref_must_be_soulforge_knowledge_relative");
+  if (!String(value ?? "").trim().endsWith(".json")) blockers.push("source_sync_ready_ref_must_be_json");
+  return blockers;
+}
+
+function linkedReadySourceCardRef(value) {
+  const ref = normalizeRepoPath(String(value ?? "").trim());
+  if (!isSafeCompanySourceRef(ref)) return null;
+  if (!ref.endsWith(".json")) return null;
+  return ref;
+}
+
+function safeLinkedSourceId(value) {
+  return isSafeId(value) ? value : null;
+}
+
+function sanitizeLinkedReadySourceRefs(sourceRefs) {
+  const refs = {};
+  for (const key of ["ready_ref", "source_card_ref", "source_text_ref"]) {
+    const value = sourceRefs?.[key];
+    if (isSafeCompanySourceRef(value)) refs[key] = normalizeRepoPath(String(value).trim());
+  }
+  return refs;
+}
+
 function validateSourcePermissions(source, blockers, trail) {
   const permissions = source.permissions ?? {};
   if (!permissions || typeof permissions !== "object" || Array.isArray(permissions)) {
@@ -420,6 +557,21 @@ function boundarySummary(boundary) {
     no_index_build: boundary.index_build_allowed === false,
     no_notebooklm_packet: boundary.notebooklm_packet_allowed === false,
     no_public_canon_promotion: boundary.public_canon_promotion_allowed === false,
+  };
+}
+
+function linkedReadyBoundarySummary(boundary) {
+  return {
+    metadata_only: boundary.metadata_only === true,
+    ready_file_is_not_owner_approval: boundary.ready_file_is_not_owner_approval === true,
+    ready_file_is_not_source_truth: boundary.ready_file_is_not_source_truth === true,
+    no_raw_payloads: boundary.no_raw_payloads === true,
+    no_source_payloads: boundary.no_source_payloads === true,
+    no_source_text: boundary.no_source_text === true,
+    no_chunk_payloads: boundary.no_chunk_payloads === true,
+    no_notebooklm_answers: boundary.no_notebooklm_answers === true,
+    no_secrets_or_session: boundary.no_secrets_or_session === true,
+    no_runtime_absolute_paths: boundary.no_runtime_absolute_paths === true,
   };
 }
 

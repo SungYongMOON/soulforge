@@ -24,6 +24,7 @@ import {
 import {
   loadCompanyKnowledgeIntakePacket,
   validateCompanyKnowledgeIntakePacket,
+  validateCompanyKnowledgeIntakePacketWithLinkedReadyManifests,
 } from "./company_knowledge_intake_packet.mjs";
 import {
   validateSourceSyncReadyRef,
@@ -2105,7 +2106,11 @@ async function main() {
       repoRoot,
       packetRef: optionalStringArg(args, "packet-ref"),
     });
-    const validation = validateCompanyKnowledgeIntakePacket(packet);
+    const validation = args["validate-source-sync-ready-refs"]
+      ? await validateCompanyKnowledgeIntakePacketWithLinkedReadyManifests(packet, {
+        repoRoot,
+      })
+      : validateCompanyKnowledgeIntakePacket(packet);
     printJson(validation);
     if (validation.status !== "pass") {
       process.exitCode = 1;
@@ -2321,7 +2326,7 @@ function printUsageAndExit() {
       "  node guild_hall/rag/cli.mjs validate-retrieval-trace --retrieval-trace-ref <repo-relative-json>",
       "  node guild_hall/rag/cli.mjs retrieval-evaluation [--write] --metadata-index-ref <repo-relative-json> [--evaluation-id <id>] [--output-ref <repo-relative-json>]",
       "  node guild_hall/rag/cli.mjs validate-retrieval-evaluation --retrieval-evaluation-ref <repo-relative-json>",
-      "  node guild_hall/rag/cli.mjs validate-company-knowledge-intake-packet --packet-ref <repo-relative-json>",
+      "  node guild_hall/rag/cli.mjs validate-company-knowledge-intake-packet --packet-ref <repo-relative-json> [--validate-source-sync-ready-refs]",
       "  node guild_hall/rag/cli.mjs answer --question <question> [--manifest-ref <repo-relative-json> | --metadata-index-ref <repo-relative-json>] [--graph-ref <repo-relative-graph-json>] [--export-id <id>] [--text]",
       "",
       "Notes:",

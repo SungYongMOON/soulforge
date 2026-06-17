@@ -106,6 +106,7 @@ import {
   COMPANY_KNOWLEDGE_INTAKE_PACKET_SCHEMA_VERSION,
   loadCompanyKnowledgeIntakePacket,
   validateCompanyKnowledgeIntakePacket,
+  validateCompanyKnowledgeIntakePacketWithLinkedReadyManifests,
 } from "./company_knowledge_intake_packet.mjs";
 import {
   SOURCE_SYNC_READY_MANIFEST_SCHEMA_VERSION,
@@ -1744,6 +1745,219 @@ test("company knowledge intake packet validator accepts metadata-only packets an
     });
     assert.equal(packetWithFileUrl.status, "blocked");
     assert.ok(packetWithFileUrl.blockers.some((item) => item.startsWith("company_packet_url_string:")));
+  } finally {
+    await rm(repoRoot, { recursive: true, force: true });
+  }
+});
+
+test("company knowledge intake linked ready validation checks source sync ready refs", async () => {
+  const repoRoot = await mkdtemp(path.join(os.tmpdir(), "soulforge-company-intake-linked-ready-"));
+  try {
+    const sourceId = "company_private_source_001";
+    const sourceCardRef = `_workspaces/knowledge/source_cards/${sourceId}.source_card.json`;
+    const readyRef = `_workspaces/knowledge/common/${sourceId}/source_sync_ready_manifest.json`;
+    const sourceTextRef = `_workspaces/knowledge/common/${sourceId}/derived_text/${sourceId}.md`;
+    const packet = {
+      schema_version: COMPANY_KNOWLEDGE_INTAKE_PACKET_SCHEMA_VERSION,
+      kind: "company_knowledge_intake_packet",
+      packet_id: "company_intake_linked_ready_fixture",
+      packet_status: "draft",
+      generated_at_utc: "2026-05-26T00:00:00Z",
+      handoff: {
+        origin_label: "company_pc",
+        return_label: "soulforge_local",
+        purpose_label: "metadata_intake",
+        prepared_by_role: "owner",
+      },
+      boundary: {
+        metadata_only: true,
+        packet_is_not_owner_approval: true,
+        raw_payloads_included: false,
+        source_payloads_included: false,
+        source_text_included: false,
+        chunk_payloads_included: false,
+        mail_bodies_included: false,
+        attachments_included: false,
+        notebooklm_answers_included: false,
+        notebooklm_questions_included: false,
+        notebooklm_conversation_ids_included: false,
+        secrets_or_session_included: false,
+        live_account_state_included: false,
+        runtime_absolute_paths_included: false,
+        source_text_retrieval_allowed: false,
+        index_build_allowed: false,
+        notebooklm_packet_allowed: false,
+        public_canon_promotion_allowed: false,
+      },
+      question_refs: [
+        {
+          question_label: "question_label_001",
+          question_fingerprint: "b".repeat(64),
+          query_token_count: 1,
+          query_token_fingerprints: ["c".repeat(32)],
+        },
+      ],
+      sources: [
+        {
+          source_id: sourceId,
+          source_label: "Company private metadata reference 001",
+          source_ref: sourceCardRef,
+          source_sync_ready_ref: readyRef,
+          source_hash: `sha256:${"a".repeat(64)}`,
+          source_size_bytes: 0,
+          source_class: "company_private",
+          locator_kind: "owner_label",
+          locator_label: sourceId,
+          approval_status: "pending_owner_review",
+          permissions: {
+            metadata_only: true,
+            source_text_retrieval_allowed: false,
+            index_build_allowed: false,
+            notebooklm_packet_allowed: false,
+            public_canon_promotion_allowed: false,
+            attachment_access_allowed: false,
+            live_account_access_allowed: false,
+            secret_access_allowed: false,
+            raw_payload_access_allowed: false,
+          },
+        },
+      ],
+      handoff_state: {
+        claim_ceiling: "observed",
+        next_action: "owner_review",
+      },
+    };
+    const readyManifest = {
+      schema_version: SOURCE_SYNC_READY_MANIFEST_SCHEMA_VERSION,
+      kind: "source_sync_ready_manifest",
+      manifest_id: `${sourceId}_ready`,
+      source_id: sourceId,
+      source_card_ref: sourceCardRef,
+      status: "ready_for_index",
+      created_at_utc: "2026-05-26T00:00:00Z",
+      producer: {
+        origin_label: "company_pc",
+        tool_label: "local_export_program_label",
+        prepared_by_role: "owner",
+      },
+      boundary: {
+        metadata_only: true,
+        ready_file_is_not_owner_approval: true,
+        ready_file_is_not_source_truth: true,
+        raw_payloads_included: false,
+        source_payloads_included: false,
+        source_text_included: false,
+        chunk_payloads_included: false,
+        notebooklm_answers_included: false,
+        secrets_or_session_included: false,
+        runtime_absolute_paths_included: false,
+      },
+      indexing_gate: {
+        source_text_ref: sourceTextRef,
+        min_stable_ms: 2000,
+        requires_source_card_validation: true,
+        requires_hash_match: true,
+      },
+      files: [
+        {
+          role: "source_card",
+          repo_relative_path: sourceCardRef,
+          size_bytes: 0,
+          sha256: `sha256:${"a".repeat(64)}`,
+          required: true,
+          media_type_label: "application_json",
+        },
+        {
+          role: "derived_text",
+          repo_relative_path: sourceTextRef,
+          size_bytes: 0,
+          sha256: `sha256:${"b".repeat(64)}`,
+          required: true,
+          media_type_label: "text_markdown",
+        },
+      ],
+    };
+
+    await writeFileWithParents(repoRoot, readyRef, JSON.stringify(readyManifest, null, 2));
+    const validation = await validateCompanyKnowledgeIntakePacketWithLinkedReadyManifests(packet, { repoRoot });
+    assert.equal(validation.status, "pass");
+    assert.equal(validation.linked_source_sync_ready_validation.enabled, true);
+    assert.equal(validation.linked_source_sync_ready_validation.check_files, false);
+    assert.equal(validation.linked_source_sync_ready_validation.linked_count, 1);
+    assert.equal(validation.linked_source_sync_ready_validation.pass_count, 1);
+    assert.equal(validation.linked_source_sync_ready_validation.boundary.index_build_allowed, false);
+    assert.equal(validation.linked_source_sync_ready_validation.sources[0].ready_for_index, true);
+    assert.equal(validation.linked_source_sync_ready_validation.sources[0].blocker_count, 0);
+    assert.doesNotMatch(
+      JSON.stringify(validation),
+      /"source_text"\s*:|"chunk_text"\s*:|"excerpt"\s*:|"payload"\s*:|"notebooklm_answer"\s*:|\/Users\/|[A-Za-z]:[\\/]/,
+    );
+
+    const packetRef = "company_intake_linked_ready_fixture.json";
+    await writeFileWithParents(repoRoot, packetRef, JSON.stringify(packet, null, 2));
+    const cliResult = await runRagCli([
+      "validate-company-knowledge-intake-packet",
+      "--repo-root",
+      repoRoot,
+      "--packet-ref",
+      packetRef,
+      "--validate-source-sync-ready-refs",
+    ]);
+    assert.equal(cliResult.exitCode, 0);
+    const cliValidation = JSON.parse(cliResult.stdout);
+    assert.equal(cliValidation.linked_source_sync_ready_validation.pass_count, 1);
+    assert.equal(cliValidation.linked_source_sync_ready_validation.boundary.ready_file_is_not_owner_approval, true);
+
+    const missingReady = await validateCompanyKnowledgeIntakePacketWithLinkedReadyManifests(
+      {
+        ...packet,
+        sources: [{ ...packet.sources[0], source_sync_ready_ref: "_workspaces/knowledge/common/missing/source_sync_ready_manifest.json" }],
+      },
+      { repoRoot },
+    );
+    assert.equal(missingReady.status, "blocked");
+    assert.ok(missingReady.blockers.some((item) => item.includes("source_sync_ready_manifest_unreadable")));
+
+    const mismatchedSourceIdRef = `_workspaces/knowledge/common/${sourceId}/mismatched_source_id_ready.json`;
+    await writeFileWithParents(
+      repoRoot,
+      mismatchedSourceIdRef,
+      JSON.stringify({ ...readyManifest, manifest_id: "mismatched_source_id_ready", source_id: "other_source" }, null, 2),
+    );
+    const mismatchedSourceId = await validateCompanyKnowledgeIntakePacketWithLinkedReadyManifests(
+      { ...packet, sources: [{ ...packet.sources[0], source_sync_ready_ref: mismatchedSourceIdRef }] },
+      { repoRoot },
+    );
+    assert.equal(mismatchedSourceId.status, "blocked");
+    assert.ok(mismatchedSourceId.blockers.some((item) => item.includes("source_sync_ready_source_id_mismatch")));
+
+    const mismatchedSourceCardRef = `_workspaces/knowledge/common/${sourceId}/mismatched_source_card_ready.json`;
+    await writeFileWithParents(
+      repoRoot,
+      mismatchedSourceCardRef,
+      JSON.stringify({
+        ...readyManifest,
+        manifest_id: "mismatched_source_card_ready",
+        source_card_ref: "_workspaces/knowledge/source_cards/other_source.source_card.json",
+      }, null, 2),
+    );
+    const mismatchedSourceCard = await validateCompanyKnowledgeIntakePacketWithLinkedReadyManifests(
+      { ...packet, sources: [{ ...packet.sources[0], source_sync_ready_ref: mismatchedSourceCardRef }] },
+      { repoRoot },
+    );
+    assert.equal(mismatchedSourceCard.status, "blocked");
+    assert.ok(mismatchedSourceCard.blockers.some((item) => item.includes("source_card_ref_mismatch")));
+
+    const unsafeReadyRef = ["", "Users", "owner", "private_ready_manifest.json"].join("/");
+    const unsafeLinkedRef = await validateCompanyKnowledgeIntakePacketWithLinkedReadyManifests(
+      { ...packet, sources: [{ ...packet.sources[0], source_sync_ready_ref: unsafeReadyRef }] },
+      { repoRoot },
+    );
+    assert.equal(unsafeLinkedRef.status, "blocked");
+    assert.ok(unsafeLinkedRef.blockers.some((item) => item.includes("source_sync_ready_ref_unsafe")));
+    assert.equal(unsafeLinkedRef.linked_source_sync_ready_validation.sources[0].source_sync_ready_ref, null);
+    assert.deepEqual(unsafeLinkedRef.linked_source_sync_ready_validation.sources[0].source_refs, {});
+    assert.doesNotMatch(JSON.stringify(unsafeLinkedRef), /\/Users\/|private_ready_manifest\.json|[A-Za-z]:[\\/]/);
   } finally {
     await rm(repoRoot, { recursive: true, force: true });
   }
