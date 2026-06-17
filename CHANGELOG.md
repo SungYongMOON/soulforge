@@ -11,6 +11,8 @@
 - Updated dev-erp README, Windows LAN deployment, and multi-user team model docs to
   route runtime operation through the new contract.
 - Fixed `dev-erp` `verify_gate` test summary parsing for the Node 24 summary format.
+- Made the SE seed fixture test create its ignored data directory so clean runtime
+  clones can run `npm test` and `verify_gate`.
 
 ### Revision `working` - project password unlock copy-only workflow
 
