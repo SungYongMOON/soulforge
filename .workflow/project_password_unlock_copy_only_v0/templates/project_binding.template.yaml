@@ -1,0 +1,23 @@
+schema_version: project_password_unlock_copy_only_v0.project_binding
+workflow_id: project_password_unlock_copy_only_v0
+project_scope:
+  project_code: ""
+  project_code_source: "owner_hint | folder_name | workspace_binding | manifest"
+  project_workspace_ref: "project_workspace_root"
+  project_identity_ambiguous: false
+workspace_policy:
+  metadata_report_root: "_workmeta/<project_code>/reports/password_unlock"
+  lab_root: "_workspaces/system/password_unlock_lab_v0/<project_code>/<run_id>"
+  unlocked_outputs_may_replace_project_files: false
+candidate_file_policy:
+  relative_search_paths:
+    - "020_MGMT/021_자동화설정_운영규칙/password_unlock_local/password_candidates.local.txt"
+    - "_project_local/password_unlock_local/password_candidates.local.txt"
+  values_logged: false
+  values_sent_to_llm: false
+  values_committed: false
+owner_gate:
+  dry_run_allowed: true
+  smoke_unlock_allowed: false
+  batch_unlock_allowed: false
+  project_tree_mutation_allowed: false

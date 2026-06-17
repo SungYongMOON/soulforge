@@ -1,0 +1,213 @@
+workflow_id: project_password_unlock_copy_only_v0
+kind: workflow
+status: active
+title: Project Password Unlock Copy Only v0
+summary: Bind a project folder, use its project-local owner-provided password candidate file, and run dry-run plus owner-approved copy-only unlock attempts for encrypted project files without modifying originals or exposing secrets.
+entrypoint: run
+execution_mode: local_tool_sequence_owner_gated
+role_slots: role_slots.yaml
+step_graph: step_graph.yaml
+handoff_rules: handoff_rules.yaml
+monster_rules: monster_rules.yaml
+party_compatibility: party_compatibility.yaml
+profile_policy: profile_policy.yaml
+history: history/
+calibrations: calibrations/
+inputs:
+  - target_project_workspace_ref
+  - password_candidate_policy
+  - copy_only_unlock_policy
+optional_inputs:
+  - project_code_hint
+  - workspace_junction_binding_ref
+  - prior_project_inventory_refs
+  - approved_unlock_tool_inventory_ref
+  - owner_batch_limit
+  - owner_file_type_filter
+outputs:
+  - project_context_binding_packet
+  - password_candidate_file_receipt
+  - encrypted_file_route_dry_run
+  - copy_only_unlock_smoke_report
+  - copy_only_unlock_batch_report
+  - original_integrity_receipt
+  - unlocked_output_manifest
+  - blocked_file_register
+  - owner_apply_handoff
+  - boundary_review_note
+validation_level: registered_structure_with_private_pilot_evidence
+registration_policy: owner_requested_registration_from_private_pilot
+output_state: registered
+readiness_posture:
+  package_state: registered-package-ready
+  pilot_ready: true
+  pilot_executed: true
+  canon_ready: false
+  registered: true
+  default_route_safe: false
+  default_route_safety_claimed: false
+classification_lane:
+  primary: project_management
+  primary_name_ko: 프로젝트 관리
+  secondary:
+    - file_operations
+    - document_management
+    - security_boundary
+  secondary_name_ko:
+    - 파일 작업
+    - 문서 관리
+    - 보안 경계
+  purpose: discovery_only
+  authority: none
+execution_binding:
+  party_required: false
+  candidate_party_id: null
+  bound_party_id: null
+  binding_authority: none
+workflow_modes:
+  - dry_run_route_only
+  - smoke_unlock_copy_only
+  - batch_unlock_copy_only
+  - owner_apply_handoff_only
+private_pilot_evidence:
+  extraction_packet_ref: _workmeta/system/runs/project_password_unlock_copy_only_workflow_20260617/run_evidence/WORKFLOW_EXTRACTION_PACKET.yaml
+  run_manifest_ref: _workmeta/system/runs/project_password_unlock_copy_only_workflow_20260617/run_evidence/RUN_MANIFEST.yaml
+  review_packet_ref: _workmeta/system/reports/post_development_review/20260617_project_password_unlock_copy_only_workflow.yaml
+upstream_workflows:
+  - workflow_id: knowledge_source_audit_v0
+    expected_outputs:
+      - source_storage_audit_csv
+      - orphan_workspace_files_csv
+    status: optional_pre_inventory_context
+  - workflow_id: owner_decision_packet_v0
+    expected_outputs:
+      - scoped_owner_decision
+    status: required_before_original_mutation_or_project_replacement
+downstream_workflows:
+  - workflow_id: knowledge_access_event_capture_v0
+    expected_input: metadata_only_unlock_run_or_usage_signal
+    status: optional_usage_lineage_capture
+  - workflow_id: owner_decision_packet_v0
+    expected_input: owner_apply_handoff
+    status: required_before_moving_outputs_into_project_source_tree
+  - workflow_id: post_development_review_gate_v0
+    expected_input: unlock_execution_or_workflow_change_packet
+    status: required_before_completion_claim
+operating_contract:
+  owns:
+    - project_context_binding_shape
+    - project_local_password_candidate_file_resolution
+    - encrypted_file_route_dry_run_shape
+    - copy_only_lab_staging_sequence
+    - owner_approval_gate_before_unlock_attempts
+    - original_integrity_verification_sequence
+    - unlocked_output_manifest_shape
+    - blocked_file_register_shape
+    - owner_apply_handoff_shape
+    - boundary_review_note_shape
+  does_not_own:
+    - password_guessing
+    - brute_force_attack
+    - LLM_generated_password_candidates
+    - secret_storage_or_secret_logging
+    - document_body_summarization
+    - raw_source_payload_storage
+    - original_file_modification_move_delete_or_overwrite
+    - unlocked_output_replacement_in_project_source_tree
+    - owner_approval_authority
+    - legal_or_policy_authorization
+    - default_route_switching
+  default_relative_paths:
+    candidate_file_candidates:
+      - "020_MGMT/021_자동화설정_운영규칙/password_unlock_local/password_candidates.local.txt"
+      - "_project_local/password_unlock_local/password_candidates.local.txt"
+    lab_root_template: "_workspaces/system/password_unlock_lab_v0/<project_code>/<run_id>"
+    metadata_report_root_template: "_workmeta/<project_code>/reports/password_unlock"
+  project_detection_order:
+    - explicit_project_code_hint
+    - project_workspace_manifest_or_binding
+    - workspace_folder_name_matching_project_code_pattern
+    - workspace_junction_binding_lookup
+    - stop_if_project_identity_is_ambiguous
+  supported_file_routes:
+    - route_id: archive_7zip
+      extensions:
+        - ".zip"
+        - ".7z"
+        - ".rar"
+      tools:
+        - 7zip
+      output_policy: lab_copy_only
+    - route_id: pdf_qpdf_or_python_pdf
+      extensions:
+        - ".pdf"
+      tools:
+        - qpdf
+        - python_pdf_library
+      output_policy: lab_copy_only
+    - route_id: office_msoffcrypto_libreoffice
+      extensions:
+        - ".doc"
+        - ".docx"
+        - ".xls"
+        - ".xlsx"
+        - ".ppt"
+        - ".pptx"
+      tools:
+        - msoffcrypto
+        - libreoffice
+      output_policy: lab_copy_only
+    - route_id: hwp_hwpx_owner_or_com
+      extensions:
+        - ".hwp"
+        - ".hwpx"
+      tools:
+        - hwp_com_when_available
+        - manual_owner_input_when_required
+      output_policy: lab_copy_only
+  candidate_file_rules:
+    comments_start_with: "#"
+    blank_lines_ignored: true
+    values_must_not_be_logged: true
+    values_must_not_be_committed: true
+    values_must_not_be_sent_to_llm: true
+    count_only_reporting_allowed: true
+    candidate_file_hash_reporting_allowed: false
+  execution_gates:
+    dry_run_required_before_unlock_attempt: true
+    owner_approval_required_after_dry_run: true
+    smoke_batch_size_default_max: 5
+    batch_requires_successful_or_owner_accepted_smoke: true
+    source_hash_before_after_required_when_hashing_allowed: true
+    unlocked_outputs_must_not_overwrite_originals: true
+    owner_apply_handoff_required_before_project_tree_mutation: true
+  report_contract:
+    private_output_root_template: "_workmeta/<project_code>/reports/password_unlock"
+    metadata_only: true
+    forbidden_report_payloads:
+      - password_candidate_values
+      - document_body_text
+      - raw_extracted_text
+      - raw_file_payload
+      - local_absolute_paths_in_public_outputs
+      - credential_token_cookie_or_session
+    generated_files:
+      - encrypted_file_route_dry_run.csv
+      - unlock_smoke_result.csv
+      - unlock_batch_result.csv
+      - unlock_execution_summary.md
+      - blocked_file_register.csv
+      - owner_apply_handoff.md
+      - boundary_review_note.md
+  boundary_flags:
+    copy_only: true
+    original_mutation_allowed: false
+    password_values_logged: false
+    llm_password_guessing_allowed: false
+    unlocked_output_project_replacement_allowed_here: false
+    default_route_safe: false
+notes:
+  - This workflow can be reused across projects because it derives project identity from the provided workspace binding and then reads only that project's local candidate file.
+  - If project identity, candidate file location, or owner authority is ambiguous, the workflow stops with a review-needed packet instead of guessing.
+  - Local tools may require runtime-specific absolute paths, but reusable workflow outputs must keep only project-relative paths, repo-relative paths, or stable ids.
+  - The workflow is registered from private pilot evidence and deterministic validation, not from a public synthetic password fixture or a production-ready automation claim.

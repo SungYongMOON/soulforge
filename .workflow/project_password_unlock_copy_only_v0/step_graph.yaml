@@ -1,0 +1,120 @@
+workflow_id: project_password_unlock_copy_only_v0
+kind: step_graph
+status: active
+steps:
+  - step_id: bind_project_context
+    title: Bind Project Context
+    actor_slot: project_context_binder
+    action: Resolve project code, target workspace root, allowed metadata report root, and copy-only lab root from explicit input, project-local manifests, folder naming, or private workspace binding; stop if the project identity is ambiguous.
+    inputs:
+      - target_project_workspace_ref
+      - project_code_hint
+      - workspace_junction_binding_ref
+    outputs:
+      - project_context_binding_packet
+    next:
+      - locate_password_candidate_file
+  - step_id: locate_password_candidate_file
+    title: Locate Password Candidate File
+    actor_slot: password_candidate_guard
+    action: Locate the project-local password candidate file, count usable non-comment lines, confirm it is excluded from Git and `_workmeta`, and record only path pointer, existence, line count, and read status without printing or hashing candidate values.
+    inputs:
+      - project_context_binding_packet
+      - password_candidate_policy
+    outputs:
+      - password_candidate_file_receipt
+    next:
+      - inventory_encrypted_file_candidates
+  - step_id: inventory_encrypted_file_candidates
+    title: Inventory Encrypted File Candidates
+    actor_slot: encrypted_file_inventory_auditor
+    action: Scan supported archive, PDF, Office, HWP, and HWPX extensions under the bound project workspace and classify route candidates without modifying originals or storing raw document contents.
+    inputs:
+      - project_context_binding_packet
+      - prior_project_inventory_refs
+    outputs:
+      - encrypted_file_candidate_inventory
+    next:
+      - plan_route_dry_run
+  - step_id: plan_route_dry_run
+    title: Plan Route Dry-run
+    actor_slot: route_dry_run_planner
+    action: Produce a route dry-run that maps each candidate to a tool route, expected lab-copy path, required tool, verification method, and blocker status before any unlock attempt.
+    inputs:
+      - encrypted_file_candidate_inventory
+      - approved_unlock_tool_inventory_ref
+    outputs:
+      - encrypted_file_route_dry_run
+    next:
+      - require_owner_execution_approval
+  - step_id: require_owner_execution_approval
+    title: Require Owner Execution Approval
+    actor_slot: owner_gatekeeper
+    action: Stop after dry-run unless the latest owner instruction approves a smoke or batch copy-only unlock attempt for the declared scope.
+    inputs:
+      - encrypted_file_route_dry_run
+      - copy_only_unlock_policy
+    outputs:
+      - owner_execution_gate_receipt
+    next:
+      - run_copy_only_smoke_unlock
+  - step_id: run_copy_only_smoke_unlock
+    title: Run Copy-only Smoke Unlock
+    actor_slot: copy_lab_unlock_runner
+    action: Copy a bounded sample set into the lab workspace and attempt unlock using only owner-provided candidates kept out of logs; preserve per-file route, result class, and output pointer metadata.
+    inputs:
+      - owner_execution_gate_receipt
+      - password_candidate_file_receipt
+      - encrypted_file_route_dry_run
+    outputs:
+      - copy_only_unlock_smoke_report
+    next:
+      - decide_batch_execution
+  - step_id: decide_batch_execution
+    title: Decide Batch Execution
+    actor_slot: owner_gatekeeper
+    action: Continue to batch only when smoke passed for the route or the owner explicitly accepts the remaining route risk; otherwise write blocked status and handoff.
+    inputs:
+      - copy_only_unlock_smoke_report
+      - owner_batch_limit
+    outputs:
+      - batch_execution_gate_receipt
+    next:
+      - run_copy_only_batch_unlock
+  - step_id: run_copy_only_batch_unlock
+    title: Run Copy-only Batch Unlock
+    actor_slot: copy_lab_unlock_runner
+    action: Attempt approved batch unlocks in the lab workspace without overwriting originals, while suppressing password values from command output, logs, and reports.
+    inputs:
+      - batch_execution_gate_receipt
+      - password_candidate_file_receipt
+      - encrypted_file_route_dry_run
+    outputs:
+      - copy_only_unlock_batch_report
+    next:
+      - verify_original_integrity_and_outputs
+  - step_id: verify_original_integrity_and_outputs
+    title: Verify Original Integrity And Outputs
+    actor_slot: integrity_and_output_verifier
+    action: Verify original files remain unchanged where hashing is allowed, verify unlocked outputs open without a password where supported, and classify failed, unsupported, or manual-owner cases.
+    inputs:
+      - copy_only_unlock_smoke_report
+      - copy_only_unlock_batch_report
+    outputs:
+      - original_integrity_receipt
+      - unlocked_output_manifest
+      - blocked_file_register
+    next:
+      - write_metadata_reports_and_handoff
+  - step_id: write_metadata_reports_and_handoff
+    title: Write Metadata Reports And Handoff
+    actor_slot: metadata_reporter
+    action: Write metadata-only reports, owner apply handoff, and boundary review note to the private project report surface; do not move unlocked outputs into the project tree without a separate owner decision.
+    inputs:
+      - original_integrity_receipt
+      - unlocked_output_manifest
+      - blocked_file_register
+    outputs:
+      - owner_apply_handoff
+      - boundary_review_note
+    next: []

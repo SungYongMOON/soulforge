@@ -1,0 +1,26 @@
+schema_version: project_password_unlock_copy_only_v0.unlock_execution_report
+workflow_id: project_password_unlock_copy_only_v0
+project_code: ""
+run_id: ""
+mode: "smoke | batch"
+source_integrity:
+  before_after_hash_check_performed: false
+  changed_original_count: 0
+  mutation_detected: false
+attempt_summary:
+  attempted_count: 0
+  unlocked_count: 0
+  failed_count: 0
+  blocked_count: 0
+  manual_owner_count: 0
+outputs:
+  lab_output_root: "_workspaces/system/password_unlock_lab_v0/<project_code>/<run_id>/unlocked_output"
+  output_manifest_ref: ""
+  project_tree_replacement_done: false
+secret_boundary:
+  password_values_logged: false
+  password_values_committed: false
+  password_values_sent_to_llm: false
+  document_body_saved_to_workmeta: false
+owner_handoff:
+  next_decision: "review_outputs | approve_project_tree_move | provide_more_candidates | hold_blocked_files"

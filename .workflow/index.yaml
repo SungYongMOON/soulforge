@@ -129,6 +129,8 @@ entries:
     path: codex_thread_manager_v0/workflow.yaml
   - workflow_id: daily_work_ledger_capture_v0
     path: daily_work_ledger_capture_v0/workflow.yaml
+  - workflow_id: project_password_unlock_copy_only_v0
+    path: project_password_unlock_copy_only_v0/workflow.yaml
 notes:
   - Workflow catalog only. Raw run ids and execution dumps do not belong here.
   - Authoring templates live under `authoring/` and are not workflow canon entries.

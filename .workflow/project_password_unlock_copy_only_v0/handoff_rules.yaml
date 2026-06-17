@@ -1,0 +1,32 @@
+workflow_id: project_password_unlock_copy_only_v0
+kind: handoff_rules
+status: active
+rules:
+  - from: project_context_binder
+    to: password_candidate_guard
+    condition: project_context_bound_without_ambiguity
+    summary: Candidate-file handling receives only the bound project identity, workspace pointer, and approved relative search paths.
+  - from: password_candidate_guard
+    to: encrypted_file_inventory_auditor
+    condition: candidate_file_receipt_written
+    summary: Inventory receives candidate count and secret-file readiness status, never candidate values.
+  - from: encrypted_file_inventory_auditor
+    to: route_dry_run_planner
+    condition: encrypted_candidate_inventory_written
+    summary: Dry-run planning receives metadata-only file refs, extensions, size, route hints, and blocker status.
+  - from: route_dry_run_planner
+    to: owner_gatekeeper
+    condition: route_dry_run_written
+    summary: Owner gate receives route counts, sample proposal, required tools, risks, and blocked cases before any unlock attempt.
+  - from: owner_gatekeeper
+    to: copy_lab_unlock_runner
+    condition: owner_approved_copy_only_smoke_or_batch
+    summary: The runner receives only approved file refs, lab-copy destinations, route ids, and a pointer to the local candidate file.
+  - from: copy_lab_unlock_runner
+    to: integrity_and_output_verifier
+    condition: copy_only_attempts_completed_or_blocked
+    summary: Verification receives output pointers, result classes, and source refs, but not passwords or document text.
+  - from: integrity_and_output_verifier
+    to: metadata_reporter
+    condition: integrity_and_output_checks_recorded
+    summary: Reporting receives metadata-only checks, blocked-file rows, output manifest pointers, and remaining owner decisions.

@@ -1,0 +1,34 @@
+workflow_id: project_password_unlock_copy_only_v0
+kind: monster_rules
+status: active
+rules:
+  - monster_id: project_identity_ambiguous
+    response: stop_and_request_project_code_or_binding
+    summary: Do not infer the project when folder name, workspace binding, or owner hint conflicts.
+  - monster_id: password_candidate_value_logged
+    response: stop_redact_logs_and_rotate_candidate_file_if_needed
+    summary: Password values must not appear in chat, command output, `_workmeta`, Git, or LLM prompts.
+  - monster_id: password_guessing_or_bruteforce_requested
+    response: reject_and_limit_to_owner_provided_candidates
+    summary: The workflow only tries owner-provided candidates and never generates, guesses, or brute-forces passwords.
+  - monster_id: original_file_mutation_detected
+    response: stop_report_integrity_failure_and_preserve_evidence
+    summary: Original project files are read-only inputs; any before/after mismatch is a hard failure.
+  - monster_id: raw_payload_written_to_workmeta
+    response: move_to_approved_workspace_or_delete_copy_after_owner_review
+    summary: `_workmeta` may contain metadata only, not raw documents, unlocked files, extracted text, or password files.
+  - monster_id: unlocked_output_overwrites_original
+    response: stop_and_restore_from_owner_backup_policy
+    summary: Unlocked outputs must be written to lab/output paths and never overwrite source files during this workflow.
+  - monster_id: candidate_file_missing_or_not_gitignored
+    response: block_unlock_and_create_owner_setup_handoff
+    summary: A missing or unprotected candidate file prevents unlock attempts until the owner creates or protects it.
+  - monster_id: unsupported_or_unverified_tool_route
+    response: mark_file_blocked_or_manual_owner_route
+    summary: Unsupported tools, unreadable formats, or unverified HWP/HWPX automation become blocked/manual rows instead of silent failures.
+  - monster_id: host_absolute_path_promoted_to_public_package
+    response: remove_path_and_keep_runtime_pointer_private
+    summary: Reusable workflow files must contain only repo-relative, project-relative, or stable placeholder paths.
+  - monster_id: owner_apply_handoff_skipped
+    response: block_project_tree_replacement
+    summary: Moving unlocked outputs into the managed project tree requires a separate owner decision and follow-up workflow.

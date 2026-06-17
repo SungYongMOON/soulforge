@@ -1,0 +1,33 @@
+workflow_id: project_password_unlock_copy_only_v0
+kind: workflow_profile_policy
+status: draft
+validation_level: no_public_synthetic_profile_calibration
+optimizer_status: not_run
+profile_binding_policy:
+  model: runtime_default_or_project_binding
+  reasoning_effort: runtime_default_or_project_binding
+  species: runtime_default_or_project_binding
+  class: runtime_default_or_project_binding
+  party: runtime_binding_or_unbound
+selection_rules:
+  - Do not hard-code local tool executable paths, drive-letter roots, project names, password values, or user-specific cloud roots into this workflow package.
+  - Prefer deterministic local tools for file probing, copy staging, unlock attempts, and output verification.
+  - Use LLM reasoning only for metadata report drafting, boundary review, route explanation, or owner handoff wording; never for password generation or secret handling.
+  - Raise reasoning effort only when project binding, owner handoff, or blocked-route classification is ambiguous.
+rerun_triggers:
+  - password candidate file policy changes
+  - supported file routes or local unlock tools change
+  - project workspace folder convention changes
+  - `_workmeta` metadata-only boundary changes
+  - copy-only lab root policy changes
+  - a live project pilot exposes route ambiguity or secret-boundary risk
+non_claims:
+  - no_public_synthetic_profile_calibration
+  - no_default_route_claim
+  - no_unattended_automation_claim
+  - no_password_guessing_claim
+  - no_original_mutation_authority
+  - no_project_tree_replacement_authority
+notes:
+  - Profile optimization is intentionally deferred because the risky portion is deterministic local tool execution and secret-boundary control, not model creativity.
+  - Real execution must resolve tool availability from the current machine and record that in private metadata-only evidence.

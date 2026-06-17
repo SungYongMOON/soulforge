@@ -1,0 +1,27 @@
+schema_version: project_password_unlock_copy_only_v0.encrypted_file_route_dry_run
+workflow_id: project_password_unlock_copy_only_v0
+project_code: ""
+run_id: ""
+summary:
+  total_candidate_files: 0
+  route_ready_files: 0
+  blocked_files: 0
+  password_candidate_count: 0
+  password_values_logged: false
+routes:
+  - route_id: ""
+    extension_group: ""
+    file_count: 0
+    required_tools: []
+    tool_status: "available | missing | blocked | manual"
+    expected_output_policy: lab_copy_only
+owner_gate:
+  dry_run_complete: false
+  approval_required_before_unlock: true
+  proposed_smoke_count: 0
+  proposed_batch_count: 0
+non_claims:
+  - no_unlock_attempt_executed_by_dry_run
+  - no_original_file_mutation
+  - no_password_value_logged
+  - no_document_body_saved

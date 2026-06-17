@@ -2,6 +2,18 @@
 
 ## 2026-06-17
 
+### Revision `working` - project password unlock copy-only workflow
+
+- Added `.workflow/project_password_unlock_copy_only_v0/` as a registered
+  public-safe workflow for binding a project folder, using its project-local
+  owner-provided password candidate file, dry-running encrypted-file routes,
+  and running owner-approved copy-only unlock attempts in a lab workspace.
+- Registered the workflow in `.workflow/index.yaml` and documented it in
+  `.workflow/README.md`.
+- Kept password values, raw project documents, unlocked outputs, and
+  host-local absolute paths out of the public workflow package; runtime evidence
+  is metadata-only under `_workmeta/system/runs/`.
+
 ### Revision `working` - dev-erp Windows 사내 LAN 배포 런북 + 시작 스크립트
 
 - 회사 고성능 Windows PC 1대를 서버로, 팀원이 각자 PC에서 사내 LAN 접속하는 구성용
@@ -74,7 +86,6 @@
 - Kept `.registry/knowledge` as public-safe metadata and narrowed private ledger exposure to focused knowledge/RAG/access report surfaces instead of broad `_workmeta/system/runs`.
 - Added tests proving body exclusion, allowlist behavior, legacy registry route compatibility, and route output shape.
 - Normalized mail-history lineage refs to POSIX-style `/` refs and made symlink tests tolerate Windows environments that cannot create symlinks.
-
 ### Revision `working` - dev-ERP 회사 PC 팀 호스트 사전점검
 
 - `dev-erp:team-preflight` 를 추가해 회사 PC 한 대가 메일 credential env 파일과 ERP 서버를 보유하고,

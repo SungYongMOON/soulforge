@@ -1,0 +1,28 @@
+workflow_id: project_password_unlock_copy_only_v0
+kind: role_slots
+status: active
+slots:
+  - slot_id: project_context_binder
+    title: Project Context Binder
+    summary: Resolves the target workspace, project code, owner-approved workspace binding, metadata report root, and lab root without guessing when the identity is ambiguous.
+  - slot_id: password_candidate_guard
+    title: Password Candidate Guard
+    summary: Locates the project-local password candidate file, counts usable candidate lines, and enforces no logging, no copying, and no LLM exposure of candidate values.
+  - slot_id: encrypted_file_inventory_auditor
+    title: Encrypted File Inventory Auditor
+    summary: Finds supported encrypted-file candidates, probes route readiness, and records metadata-only counts and classifications.
+  - slot_id: route_dry_run_planner
+    title: Route Dry-run Planner
+    summary: Maps each candidate file to a tool route, expected copy-only path, and blocker class before any unlock attempt.
+  - slot_id: owner_gatekeeper
+    title: Owner Gatekeeper
+    summary: Confirms whether the owner approved smoke or batch copy-only unlock execution after reviewing dry-run scope.
+  - slot_id: copy_lab_unlock_runner
+    title: Copy Lab Unlock Runner
+    summary: Stages selected files into a lab workspace and attempts unlock using only owner-provided candidates kept in memory and out of logs.
+  - slot_id: integrity_and_output_verifier
+    title: Integrity And Output Verifier
+    summary: Verifies source files were unchanged and unlocked outputs open without password where the route supports verification.
+  - slot_id: metadata_reporter
+    title: Metadata Reporter
+    summary: Writes metadata-only reports, blocked-file registers, owner handoff, and boundary review notes to the appropriate private report surface.
