@@ -95,9 +95,19 @@ function renderAuth() {
   if (state.account) {
     // 실제 가입 이름(display_name) 우선 표기, 없으면 아이디. 관리자면 관리 버튼.
     const name = esc(state.account.display_name || state.account.username);
-    const adminBtn = state.account.is_admin ? `<button id="adminBtn" class="fav-chip">${L.admin_panel}</button>` : "";
+    // 관리자 버튼에 팀 준비상태 점(빨강=막힘, 노랑=준비됐으나 메일 수집 전, 초록=준비+수집됨) — 안 열어도 한눈에.
+    const trd = state._teamReady;
+    const dot = state.account.is_admin && trd ? `<i class="ready-dot ${trd.ready ? (trd.fetch_observed ? "ok" : "warn") : "danger"}" title="${L.team_ready_title ?? "팀 사용 준비"}"></i>` : "";
+    const adminBtn = state.account.is_admin ? `<button id="adminBtn" class="fav-chip">${dot}${L.admin_panel}</button>` : "";
     box.innerHTML = `<span class="auth-user" title="${esc(state.account.email || "")}">${name}</span>${adminBtn}<button id="pwBtn" class="fav-chip">${L.password_change}</button><button id="logoutBtn" class="fav-chip">${L.logout}</button>`;
-    if (state.account.is_admin) $("#adminBtn").addEventListener("click", openAdminPanel);
+    if (state.account.is_admin) {
+      $("#adminBtn").addEventListener("click", openAdminPanel);
+      // 관리자면 준비상태 1회 조회해 점 갱신(읽기 전용, 백엔드 변경 없음).
+      if (state._teamReady === undefined) {
+        state._teamReady = null;
+        api("/api/accounts/readiness").then((r) => { state._teamReady = r; renderAuth(); }).catch(() => {});
+      }
+    }
     $("#pwBtn").addEventListener("click", openPasswordChange);
     $("#logoutBtn").addEventListener("click", async () => { await fetch("/api/auth/logout", { method: "POST" }).catch(() => {}); location.reload(); });
   } else if (state.accountCount > 0) {
@@ -322,7 +332,7 @@ async function openAdminPanel() {
     <div class="ui-confirm-btns"><button class="ui-confirm-cancel">${L.btn_cancel}</button></div>
   </div>`;
   document.body.appendChild(ov);
-  const close = () => ov.remove();
+  const close = () => { ov.remove(); renderAuth(); }; // 닫을 때 관리자 버튼 준비상태 점 갱신
   ov.addEventListener("click", (e) => { if (e.target === ov) close(); });
   ov.querySelector(".ui-confirm-cancel").addEventListener("click", close);
   const errBox = ov.querySelector(".admin-err");
@@ -377,9 +387,6 @@ async function openAdminPanel() {
     ];
     const issueHtml = (items, klass) => (items || []).slice(0, 8)
       .map((x) => `<span class="ready-issue ${klass}">${esc(issueLabel(x))}</span>`).join("");
-    const actionHtml = (ready.next_actions || []).slice(0, 6)
-      .map((x) => `<span class="ready-issue ${x.priority === "blocker" ? "danger" : x.priority === "ok" ? "ok" : "warn"}">${esc(issueLabel(x))}</span>`)
-      .join("");
     const rows = (ready.accounts || []).map((a) => {
       const issues = (a.issues || []).map((x) => `<span class="ready-issue ${x.level === "blocker" ? "danger" : "warn"}">${esc(issueLabel(x))}</span>`).join("");
       const at = a.mailbox_last_fetch_at ? String(a.mailbox_last_fetch_at).replace("T", " ").slice(0, 16) : "-";
@@ -393,14 +400,29 @@ async function openAdminPanel() {
         <td>${issues || `<span class="ready-issue ok">${L["team_ready_ok"] ?? "정상"}</span>`}</td>
       </tr>`;
     }).join("");
+    // owner 명시 3상태를 신호등처럼: 설정 준비(mail_config_ready) → 메일 수집 관측(fetch_observed) → 팀 사용 준비(ready).
+    const stage = (name, on, onTxt, offTxt, offDanger) =>
+      `<div class="ready-stage ${on ? "ok" : (offDanger ? "danger" : "warn")}">
+        <span class="ready-stage-ico">${on ? "✓" : (offDanger ? "✕" : "⏳")}</span>
+        <span class="ready-stage-body"><b>${esc(name)}</b><span>${on ? onTxt : offTxt}</span></span></div>`;
+    const checklist = (ready.next_actions || []).map((x) => {
+      const kind = x.priority === "blocker" ? "danger" : x.priority === "ok" ? "ok" : "warn";
+      return `<li class="ready-check ${kind}"><span class="ready-check-box">${x.priority === "ok" ? "✓" : "▢"}</span>${esc(issueLabel(x))}</li>`;
+    }).join("");
     return `<div class="readiness-panel">
       <div class="readiness-head">
         <strong>${L["team_ready_title"] ?? "팀 사용 준비"}</strong>
         <span class="ready-pill ${statusClass}">${esc(statusText)}</span>
       </div>
+      <div class="ready-stages">
+        ${stage(L.stage_config ?? "① 설정 준비", ready.mail_config_ready, L.stage_config_ok ?? "준비됨", L.stage_config_off ?? "미완", true)}
+        ${stage(L.stage_fetch ?? "② 메일 수집", ready.fetch_observed, L.stage_fetch_ok ?? "관측됨", L.stage_fetch_off ?? "수집 전", false)}
+        ${stage(L.stage_team ?? "③ 팀 사용", ready.ready, L.stage_team_ok ?? "준비됨", L.stage_team_off ?? "막힘", true)}
+      </div>
       <div class="ready-chips">${chips.map((x) => `<span>${esc(x)}</span>`).join("")}</div>
       <div class="ready-issues">${issueHtml(ready.blockers, "danger")}${issueHtml(ready.warnings, "warn")}</div>
-      <div class="ready-actions"><strong>${esc(L.next_actions ?? "다음 행동")}</strong>${actionHtml}</div>
+      <div class="ready-actions"><strong>${esc(L.next_actions ?? "다음 행동")}</strong></div>
+      <ul class="ready-checklist">${checklist}</ul>
       <table class="admin-table readiness-table" style="width:100%;border-collapse:collapse"><thead><tr>
         <th>${L.acct_name}</th><th>${L.acct_email}</th><th>${L["mailbox_provider"] ?? "메일함"}</th>
         <th>${L["mailbox_status"] ?? "수집"}</th><th>${L["mail_count"] ?? "메일"}</th><th>${L["item_count"] ?? "할일"}</th><th>${L.acct_status}</th>
@@ -412,6 +434,7 @@ async function openAdminPanel() {
       api("/api/accounts").catch(() => ({ accounts: [] })),
       api("/api/accounts/readiness").catch(() => null),
     ]);
+    if (readiness) state._teamReady = readiness; // 관리자 버튼 점도 최신으로
     ov.querySelector("#teamReady").innerHTML = renderReadiness(readiness);
     const providerLabels = { none: L["mailbox_provider_none"] ?? "없음", gmail: "Gmail", hiworks: "Hiworks" };
     const providerOptions = (value) => Object.entries(providerLabels)

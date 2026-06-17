@@ -242,6 +242,26 @@ nav button.active { background: var(--chip); font-weight: 600; color: var(--acce
 .ready-actions strong { font-size: 11.5px; color: var(--muted); }
 .ready-chips span { border: 1px solid var(--line); border-radius: 999px; padding: 3px 9px; color: var(--muted); font-size: 11.5px; white-space: nowrap; }
 .readiness-table { min-width: 760px; }
+/* 팀 준비 3단 신호등(설정→수집→사용) + next_actions 체크리스트 + 관리자 버튼 점 */
+.ready-stages { display: grid; grid-template-columns: repeat(3, 1fr); gap: 8px; margin-bottom: 10px; }
+.ready-stage { display: flex; align-items: center; gap: 8px; padding: 8px 10px; border-radius: 8px; border: 1px solid var(--line); }
+.ready-stage.ok { border-color: rgba(45,132,75,.4); background: rgba(45,132,75,.08); }
+.ready-stage.warn { border-color: rgba(188,123,24,.4); background: rgba(188,123,24,.08); }
+.ready-stage.danger { border-color: rgba(176,58,46,.4); background: rgba(176,58,46,.08); }
+.ready-stage-ico { font-size: 15px; font-weight: 700; }
+.ready-stage.ok .ready-stage-ico { color: var(--ok); }
+.ready-stage.warn .ready-stage-ico { color: var(--warn); }
+.ready-stage.danger .ready-stage-ico { color: var(--danger); }
+.ready-stage-body { display: flex; flex-direction: column; line-height: 1.25; min-width: 0; }
+.ready-stage-body b { font-size: 12px; }
+.ready-stage-body span { font-size: 11px; color: var(--muted); }
+.ready-checklist { list-style: none; margin: 0 0 10px; padding: 0; display: flex; flex-direction: column; gap: 4px; }
+.ready-check { display: flex; align-items: center; gap: 8px; font-size: 12.5px; padding: 4px 8px; border-radius: 6px; background: var(--bg); }
+.ready-check-box { font-size: 13px; flex: 0 0 auto; }
+.ready-check.danger { color: var(--danger); } .ready-check.warn { color: var(--warn); } .ready-check.ok { color: var(--ok); }
+.ready-dot { display: inline-block; width: 7px; height: 7px; border-radius: 50%; margin-right: 5px; vertical-align: middle; }
+.ready-dot.ok { background: var(--ok); } .ready-dot.warn { background: var(--warn); } .ready-dot.danger { background: var(--danger); }
+@media (max-width: 560px) { .ready-stages { grid-template-columns: 1fr; } }
 .di-table .ptr-text { word-break: break-all; font-size: 11.5px; }
 .di-panel .di-create input, .di-panel .di-create select { padding: 5px 7px; }
 

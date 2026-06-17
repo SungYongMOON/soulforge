@@ -2,6 +2,17 @@
 
 ## 2026-06-17
 
+### Revision `working` - dev-erp 릴리즈 마감: 팀 사용 준비 상태 UI 명확화
+
+- Codex 가 추가한 팀 준비점검(`store.teamReadiness` / `GET /api/accounts/readiness`)을
+  **표시만** 명확화(백엔드 의미 변경 없음, Codex readiness 패널에 추가).
+- 관리자 패널에 **3단 신호등**: ① 설정 준비(mail_config_ready) → ② 메일 수집(fetch_observed,
+  수집 전/관측됨으로 메일 수집 전후 차이 표시) → ③ 팀 사용(ready). next_actions 는 **체크리스트**.
+  Codex 의 chips·이슈·계정표는 유지.
+- 관리자 버튼에 준비상태 **점**(빨강 막힘 / 노랑 준비됐으나 수집 전 / 초록 준비+수집).
+- 모바일/태블릿: 3단 560px 이하 세로 스택, 모달·계정표 스크롤로 안 잘림.
+- secret(비밀번호·env ref·경로)·원문 미표시(상태·카운트만).
+
 ### Revision `working` - dev-ERP knowledge shell adapter
 
 - Added metadata-only dev-ERP knowledge shell routes for Soulforge knowledge spaces, wiki page refs, RAG route refs, RAG work-card refs, and focused ledger refs.
