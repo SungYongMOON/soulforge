@@ -7,15 +7,17 @@
 
 ---
 
-## 0. 옮길 것 (맥 → Windows PC)
-공개 repo 코드만으로는 메일·팀 데이터가 안 따라온다. **작업 트리 전체**를 옮긴다:
+## 0. 최신 코드 받기 (Windows 서버 PC — Soulforge 이미 설치됨)
+수동 복사 불필요. 그 PC에서 **`/soulforge-github-down`** 실행 → 공개 repo 최신(개발 PC에서 올린 변경)
+· 설치된 Codex 스킬 · `_workmeta`/`private-state` private repo 신선도 · 워크스페이스 정션을
+한 번에 동기화한다(경계별로 처리, PowerShell/Windows 지원).
 
-- `Soulforge/` (앱 + `.registry/knowledge/` + `ui-workspace/apps/dev-erp/` + `tools/`)
-- `ui-workspace/apps/dev-erp/data/dev-erp.db` — **현재 데이터 유지하려면 같이 복사**(관리자 계정·과제·메일). 새로 시작이면 빼고 → 새 PC에서 부트스트랩.
-- 메일/팀 도구가 읽는 사내 데이터: `guild_hall/state/...`(메일 등록부 `team_mailboxes.json`), `_workmeta/...`(메일 장부). 메일 수집·preflight 쓰려면 함께.
-- **메일함 자격증명 env 파일**: repo 에 두지 말고 그 PC의 비공개 경로에 둔다. ERP DB 엔 `mailbox_env_ref` 포인터만(도구가 내용 안 읽음).
-
-> repo 를 git clone 으로 받아도 되지만, DB·`_workmeta`·`guild_hall/state` 같은 비공개 데이터는 별도로 복사해야 한다(공개 repo 에 없음).
+- **DB는 git 제외**(`ui-workspace/apps/dev-erp/data/dev-erp.db`) → 동기화가 그 PC의 **로컬 데이터
+  (관리자·과제·메일)를 덮지 않는다**. 안전. (처음이면 DB 없음 → 부트스트랩에서 생성.)
+- 메일/팀 데이터(`_workmeta`, `guild_hall/state` 등)는 private repo 신선도 체크로 따라온다.
+- **메일함 자격증명 env 파일**은 어느 repo 에도 안 올린다 — 그 PC 비공개 경로에 직접 둔다.
+  ERP DB 엔 `mailbox_env_ref` 포인터만(도구가 내용 안 읽음).
+- 코드를 받은 뒤에는 **서버를 재시작**해야 새 코드가 적용된다(아래 4 NSSM 이면 `nssm restart dev-erp`).
 
 ## 1. Node 설치
 - https://nodejs.org → **22.5 이상**(LTS 22.x 또는 그 이상) 설치.
@@ -71,3 +73,14 @@ node server.mjs --host 0.0.0.0
 
 ## 7. 일단 릴리즈 최소 기준
 preflight `configuration_ready` OK + 관리자·팀원 로그인 + 팀원이 자기 일 봄. (`team_use_ready`는 메일 수집 후 확인이어도 초기버전 충분.)
+
+## 8. 평소 업데이트 절차 (개발 PC → 서버 PC)
+새 기능·수정이 생기면:
+1. **(개발 PC)** 변경 → **`/soulforge-github-up`** 으로 GitHub 푸시.
+2. **(서버 Windows PC)** **`/soulforge-github-down`** 으로 풀(코드·스킬·private 신선도·정션 동기화).
+3. **(서버 PC)** dev-erp 서버 **재시작** → 새 코드 적용:
+   - NSSM 서비스면 `nssm restart dev-erp`
+   - `start-windows.bat` 창이면 Ctrl+C 후 다시 더블클릭
+   - 개발/즉시반영용이면 `node --watch server.mjs --host 0.0.0.0`(파일 변경 시 자동 재시작)
+
+> DB·로컬 데이터·메일함 env 는 그대로 유지된다(git 제외). 코드만 갱신된다.
