@@ -13,11 +13,11 @@ Soulforge 정본 구조의 authority 는 아니다.
 
 회사 PC 최초 릴리즈는 개발 checkout 과 분리된 runtime checkout 에서 실행한다.
 
-- 개발 checkout: `C:\Soulforge`
-- 운영 checkout: `C:\Soulforge-runtime`
+- 개발 checkout: `<dev-checkout>`
+- 운영 checkout: `<runtime-checkout>`
 - 앱 루트: `ui-workspace/apps/dev-erp`
 
-`C:\Soulforge` 는 개발, 패치, 검토, commit/push 의 자리다. `C:\Soulforge-runtime`
+`<dev-checkout>` 는 개발, 패치, 검토, commit/push 의 자리다. `<runtime-checkout>`
 은 승인된 commit 을 받아 실제 서버 프로세스를 돌리는 자리다.
 
 ## 2. 권한 경계
@@ -63,8 +63,8 @@ owner 가 `owner.env` 를 직접 만들고 값을 입력한다. agent 는 파일
 
 ## 5. runtime clone 모델
 
-1. `C:\Soulforge` 에서 개발, 패치, review, commit/push 를 한다.
-2. `C:\Soulforge-runtime` 은 실제 서버 process 만 돌린다.
+1. `<dev-checkout>` 에서 개발, 패치, review, commit/push 를 한다.
+2. `<runtime-checkout>` 은 실제 서버 process 만 돌린다.
 3. 팀에게 열기 전 승인된 commit 만 runtime clone 으로 pull 한다.
 4. runtime DB, upload, log, local `.env`, service 설정은 Git 에 올리지 않는다.
 5. 업데이트 때는 service stop, DB backup, git pull, focused check, service start 순서로 진행한다.
