@@ -2,6 +2,16 @@
 
 ## 2026-06-17
 
+### Revision `working` - dev-erp Windows 사내 LAN 배포 런북 + 시작 스크립트
+
+- 회사 고성능 Windows PC 1대를 서버로, 팀원이 각자 PC에서 사내 LAN 접속하는 구성용
+  배포 문서/도구 추가(코드 동작 변경 없음).
+- `docs/WINDOWS_LAN_DEPLOY.md`: 옮길 데이터(앱+DB+`guild_hall/state`·`_workmeta`),
+  Node 22.5+, `--host 0.0.0.0` 실행, IP·방화벽(netsh), 상시운영(NSSM/작업스케줄러),
+  부트스트랩·팀·preflight, 보안(HTTP 평문·COOKIE_SECURE off·HTTPS 업그레이드 경로).
+- `start-windows.bat`: dev-erp 폴더에서 더블클릭 시 `node server.mjs --host 0.0.0.0`.
+- 서버/도구는 절대경로 하드코딩 없이 상대 resolve 라 Windows 크로스플랫폼 동작 확인.
+
 ### Revision `working` - dev-erp 자동화: '각자 메일=각자 일' 자동 담당 확정
 
 - 원칙(기본 자동 / 수동 폴백)에 따라 담당 배정의 기본을 자동화. ERP 소비 측에서
