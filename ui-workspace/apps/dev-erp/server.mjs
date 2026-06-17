@@ -37,6 +37,8 @@ const PORT = Number(flag("port", 4300));
 const HOST = flag("host", "127.0.0.1");
 // HTTPS reverse proxy/tunnel 뒤에서 팀 공개 시 켠다. 로컬 http 파일럿은 기본 OFF.
 const COOKIE_SECURE = process.env.DEV_ERP_COOKIE_SECURE === "1" || args.includes("--secure-cookie");
+// 팀 운영 기본값은 관리자/roster 생성 계정만 허용. localhost 자가가입 파일럿 때만 명시적으로 켠다.
+const ALLOW_SELF_REGISTER = process.env.DEV_ERP_ALLOW_SELF_REGISTER === "1" || args.includes("--allow-self-register");
 const DB_PATH = flag("db", join(HERE, "data", "dev-erp.db"));
 if (DB_PATH !== ":memory:") mkdirSync(dirname(DB_PATH), { recursive: true });
 // Canon 지식 저장소(읽기 전용 소비). 기본 = repo 루트 .registry/knowledge (상대 resolve).
@@ -235,9 +237,10 @@ const server = createServer(async (req, res) => {
       return send(res, 200, { ok: true, account: store.accountProfile(store.sessionAccount(token)) }, "application/json", { "set-cookie": sessionCookie(token, 12 * 3600) });
     }
     // 길드원 자가 가입(회원가입). 첫 계정은 길드마스터(bootstrap)여야 하므로 accountCount>0 필요.
-    // localhost 바인딩 전용으로 안전. 외부 노출 시 초대코드/관리자 승인으로 제한 권장.
+    // 팀 운영 기본은 닫힘. localhost 파일럿에서만 --allow-self-register 로 명시 개방.
     if (path === "/api/auth/register" && req.method === "POST") {
       if (store.accountCount() === 0) return send(res, 409, { error: "needs_bootstrap" });
+      if (!ALLOW_SELF_REGISTER) return send(res, 403, { error: "self_register_disabled" });
       const { username, password, email, display_name } = await readJson(req);
       if (!username || !password) return send(res, 400, { error: "missing_fields" });
       const r = store.createAccount({ username, password, email, display_name, roles: ["member"] });
@@ -866,9 +869,9 @@ const server = createServer(async (req, res) => {
     if (path === "/api/me") {
       // 클라이언트 정체성 계약. 익명이면 account_count 로 bootstrap 필요 여부 판단.
       const a = currentAccount(req);
-      if (!a) return send(res, 200, { anonymous: true, account_count: store.accountCount() });
+      if (!a) return send(res, 200, { anonymous: true, account_count: store.accountCount(), allow_self_register: ALLOW_SELF_REGISTER });
       const prof = store.accountProfile(a);
-      return send(res, 200, { account: prof, person_id: a.person_id, roles: prof.roles, perms: prof.perms, account_count: store.accountCount() });
+      return send(res, 200, { account: prof, person_id: a.person_id, roles: prof.roles, perms: prof.perms, account_count: store.accountCount(), allow_self_register: ALLOW_SELF_REGISTER });
     }
     // (인증/계정 엔드포인트는 상단 P2b 블록에서 처리 — 여기 중복 제거됨)
     if (path === "/api/dashboard/layout" && req.method === "GET") {
@@ -1035,7 +1038,7 @@ const server = createServer(async (req, res) => {
 server.listen(PORT, HOST, () => {
   console.log(`[dev-erp] http://${HOST}:${PORT} (db: ${DB_PATH})`);
   if (HOST !== "127.0.0.1") {
-    console.log("[dev-erp] 주의: 같은 네트워크에 열려 있음 - 합성 데이터 파일럿 용도로만");
+    console.log("[dev-erp] 주의: 같은 네트워크에 열려 있음 - 계정/RBAC와 trusted LAN 전제");
   }
   // autosync Phase 2: 할일_장부 → ERP 자동 import 폴링(결정적·LLM 무관). 동기 버튼 불필요.
   // 기본 OFF(테스트·:memory: 무영향). 켜기: 환경변수 DEV_ERP_AUTOSYNC=1 또는 --autosync. 간격 DEV_ERP_AUTOSYNC_MS(기본 10s).

@@ -11,7 +11,7 @@ const state = {
   navFold: new Set(JSON.parse(localStorage.getItem("dev_erp_navfold") || "[]")), // 좌측 L3 접힘 키
   pins: JSON.parse(localStorage.getItem("dev_erp_pins") || "[]"),
   // P2b: 계정/권한. 익명(account=null)이면 앱은 현행대로(전체 접근·localStorage).
-  account: null, perms: [], accountCount: 0,
+  account: null, perms: [], accountCount: 0, allowSelfRegister: false,
   mineOnly: localStorage.getItem("dev_erp_mine") !== "0", // 내 할 일: 기본 '내 일만'(로그인 시). 익명이면 무시.
   chatLog: [],
   chatThread: null,
@@ -39,7 +39,8 @@ async function loadMe() {
     state.account = me.anonymous ? null : (me.account ?? null);
     state.perms = me.perms ?? [];
     state.accountCount = me.account_count ?? (me.anonymous ? me.account_count : state.accountCount) ?? 0;
-  } catch { state.account = null; state.perms = []; }
+    state.allowSelfRegister = !!me.allow_self_register;
+  } catch { state.account = null; state.perms = []; state.allowSelfRegister = false; }
 }
 // 로그인 시 서버 레이아웃을 localStorage 로 동기화(이후 dashLayout()이 그대로 사용 → sync 코드 무변경)
 async function pullServerLayout() {
@@ -219,6 +220,7 @@ function renderGate() {
   const fant = state.mode === "fantasy";       // 모드별 첫 화면: 판타지=달빛 / 실무=깔끔한 전문가용
   gate.dataset.skin = fant ? "fantasy" : "business";
   const firstRun = (state.accountCount ?? 0) === 0;
+  const canRegister = !firstRun && !!state.allowSelfRegister;
   let tab = firstRun ? "master" : "login"; // master | login | register
   const crest = fant
     ? `<svg viewBox="0 0 64 64" width="46" height="46" aria-hidden="true">
@@ -240,7 +242,7 @@ function renderGate() {
       return `${inp("gUser", L.login_user, "text", "username")}${inp("gPw", L.login_pw, "password", "current-password")}
         <div class="gate-err danger-text"></div>
         <button class="gate-btn" id="gateSubmit">${L.gate_login_btn}</button>
-        <button class="gate-switch" data-go="register">${L.gate_to_register}</button>`;
+        ${canRegister ? `<button class="gate-switch" data-go="register">${L.gate_to_register}</button>` : ""}`;
     }
     const isMaster = tab === "master";
     return `${isMaster ? `<div class="gate-formhead"><div class="gate-fh-title">${L.gate_master_title}</div><div class="gate-fh-sub">${L.gate_master_sub}</div></div>` : ""}
@@ -259,7 +261,7 @@ function renderGate() {
         <div class="gate-tagline">${L.gate_sub}</div>
         ${firstRun ? "" : `<div class="gate-tabs">
           <button class="gate-tab ${tab === "login" ? "on" : ""}" data-tab="login">${L.gate_tab_login}</button>
-          <button class="gate-tab ${tab === "register" ? "on" : ""}" data-tab="register">${L.gate_tab_register}</button>
+          ${canRegister ? `<button class="gate-tab ${tab === "register" ? "on" : ""}" data-tab="register">${L.gate_tab_register}</button>` : ""}
         </div>`}
         <div class="gate-form">${formHtml()}</div>
       </div>`;
@@ -277,6 +279,7 @@ function renderGate() {
   }
   async function submit() {
     const err = gate.querySelector(".gate-err"); err.textContent = "";
+    if (tab === "register" && !canRegister) { err.textContent = L.register_fail; return; }
     const v = (id) => gate.querySelector("#" + id)?.value.trim() ?? "";
     const pw = gate.querySelector("#gPw")?.value ?? "";
     const J = (b) => ({ method: "POST", headers: { "content-type": "application/json" }, body: JSON.stringify(b) });

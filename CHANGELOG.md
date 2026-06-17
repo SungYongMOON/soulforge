@@ -2,6 +2,21 @@
 
 ## 2026-06-17
 
+### Revision `working` - dev-ERP 팀 로스터 일괄 등록 도구
+
+- `dev-erp:import-team-roster` 를 추가해 회사 PC 호스트에서 private roster(JSON/CSV)를 dry-run 후
+  팀원 계정과 메일함 metadata 를 일괄 생성·수정할 수 있게 함.
+- roster 의 임시 비밀번호는 계정 해시 생성/초기화에만 사용하고 dry-run/apply 출력에는 노출하지 않음.
+  기존 계정 비밀번호는 `--reset-passwords` 를 명시한 경우에만 초기화.
+- 기존 계정의 역할은 roster 에 `role` 을 명시한 경우에만 변경하고, 생략 시 기존 관리자/팀원 역할을 보존.
+- 팀 운영 기본값에서 첫 관리자 이후 자가 가입을 차단하고, localhost 파일럿에서만
+  `DEV_ERP_ALLOW_SELF_REGISTER=1` 또는 `--allow-self-register` 로 명시 개방하도록 변경.
+- `dev-erp:scan-mail-ledger`, `dev-erp:mail-to-task-ledger`, `dev-erp:task-ledger` 루트 스크립트를 추가해
+  메일 수집 이후 장부 반영과 3일 검토 폴백 할일 생성을 운영 명령으로 호출할 수 있게 함.
+- 팀 공개 모델을 회사 PC 신뢰 호스트 기준으로 문서화하고, 메일 ID/비밀번호/토큰은 호스트의
+  비공개 env 파일에만 두며 ERP DB에는 `mailbox_env_ref` 포인터만 저장하도록 절차를 정리.
+  HTTP 직접 LAN 과 HTTPS proxy/tunnel 실행 모드도 분리해 Secure cookie 오사용을 방지.
+
 ### Revision `working` - dev-ERP 팀원 계정 온보딩 보강
 
 - 로그인한 사용자가 현재 비밀번호를 확인한 뒤 본인 비밀번호를 변경할 수 있는

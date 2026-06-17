@@ -1,7 +1,8 @@
 import assert from "node:assert/strict";
 import test from "node:test";
 import { mkdtempSync, mkdirSync, writeFileSync, readFileSync, rmSync, existsSync, symlinkSync } from "node:fs";
-import { execFileSync } from "node:child_process";
+import { execFileSync, spawn } from "node:child_process";
+import { createServer as createNetServer } from "node:net";
 import { validateRelPointer, safeSegment, safeWorkspacePath, safeUploadTarget, commitUpload } from "../src/filevault.mjs";
 import { tmpdir } from "node:os";
 import { dirname, join } from "node:path";
@@ -14,11 +15,65 @@ import { ingestNormalized, mapSoulforgeSnapshot } from "../src/adapter.mjs";
 import { getLexicon, LEXICON } from "../src/lexicon.mjs";
 import { crossSearch } from "../src/search.mjs";
 import { runQueued, llmQueueStats } from "../src/llm.mjs";
+import { parseRosterText, planTeamRosterImport, applyTeamRosterImport } from "../tools/import_team_roster.mjs";
 
 const APP_DIR = dirname(dirname(fileURLToPath(import.meta.url)));
 
 function freshStore() {
   return openStore(":memory:");
+}
+
+function freePort() {
+  return new Promise((resolve, reject) => {
+    const s = createNetServer();
+    s.on("error", reject);
+    s.listen(0, "127.0.0.1", () => {
+      const port = s.address().port;
+      s.close(() => resolve(port));
+    });
+  });
+}
+
+function testServerEnv(extra = {}) {
+  const env = { ...process.env, DEV_ERP_AUTOSYNC: "0", ...extra };
+  if (!("DEV_ERP_ALLOW_SELF_REGISTER" in extra)) delete env.DEV_ERP_ALLOW_SELF_REGISTER;
+  if (!("DEV_ERP_COOKIE_SECURE" in extra)) delete env.DEV_ERP_COOKIE_SECURE;
+  return env;
+}
+
+async function startDevErpServer(args = [], env = {}) {
+  const child = spawn(process.execPath, ["server.mjs", ...args], {
+    cwd: APP_DIR,
+    env: testServerEnv(env),
+    stdio: ["ignore", "pipe", "pipe"],
+  });
+  let stderr = "";
+  child.stderr.on("data", (d) => { stderr += d.toString(); });
+  child.stdout.resume();
+  child.stderr.resume();
+  return {
+    child,
+    stop: async () => {
+      if (child.exitCode !== null || child.signalCode !== null) return;
+      child.kill();
+      await new Promise((resolve) => child.once("exit", resolve));
+    },
+    stderr: () => stderr,
+  };
+}
+
+async function waitForHttp(url, child, stderrFn) {
+  for (let i = 0; i < 60; i++) {
+    if (child.exitCode !== null) throw new Error(`server_exited:${child.exitCode}:${stderrFn()}`);
+    try {
+      const r = await fetch(url);
+      if (r.ok) return;
+    } catch {
+      // retry while the server starts
+    }
+    await new Promise((resolve) => setTimeout(resolve, 50));
+  }
+  throw new Error(`server_not_ready:${stderrFn()}`);
 }
 
 test("store: 스키마 3구역 생성과 fixture 적재 (TEST-001)", () => {
@@ -1579,6 +1634,70 @@ test("P2b: 계정 생성·로그인·세션 검증/만료/삭제", () => {
   assert.equal(store.sessionAccount(tok), null, "삭제 후 무효(logout)");
 });
 
+test("P2b: 팀 공개 기본값은 자가 가입 차단, 명시 옵션일 때만 허용", async () => {
+  const root = mkdtempSync(join(tmpdir(), "dev-erp-auth-"));
+  try {
+    const dbPath = join(root, "dev-erp.db");
+    const port = await freePort();
+    const srv = await startDevErpServer(["--db", dbPath, "--port", String(port)]);
+    const base = `http://127.0.0.1:${port}`;
+    try {
+      await waitForHttp(`${base}/api/me`, srv.child, srv.stderr);
+      let r = await fetch(`${base}/api/me`);
+      let body = await r.json();
+      assert.equal(body.allow_self_register, false);
+
+      r = await fetch(`${base}/api/auth/bootstrap`, {
+        method: "POST",
+        headers: { "content-type": "application/json" },
+        body: JSON.stringify({ username: "owner", password: "ownerpass", display_name: "Owner" }),
+      });
+      assert.equal(r.status, 200);
+
+      r = await fetch(`${base}/api/auth/register`, {
+        method: "POST",
+        headers: { "content-type": "application/json" },
+        body: JSON.stringify({ username: "member", password: "memberpass" }),
+      });
+      body = await r.json();
+      assert.equal(r.status, 403);
+      assert.equal(body.error, "self_register_disabled");
+    } finally {
+      await srv.stop();
+    }
+
+    const dbPath2 = join(root, "dev-erp-open.db");
+    const port2 = await freePort();
+    const srv2 = await startDevErpServer(["--db", dbPath2, "--port", String(port2), "--allow-self-register"]);
+    const base2 = `http://127.0.0.1:${port2}`;
+    try {
+      await waitForHttp(`${base2}/api/me`, srv2.child, srv2.stderr);
+      let r = await fetch(`${base2}/api/auth/bootstrap`, {
+        method: "POST",
+        headers: { "content-type": "application/json" },
+        body: JSON.stringify({ username: "owner", password: "ownerpass", display_name: "Owner" }),
+      });
+      assert.equal(r.status, 200);
+      r = await fetch(`${base2}/api/me`);
+      const me = await r.json();
+      assert.equal(me.allow_self_register, true);
+
+      r = await fetch(`${base2}/api/auth/register`, {
+        method: "POST",
+        headers: { "content-type": "application/json" },
+        body: JSON.stringify({ username: "member", password: "memberpass", display_name: "Member" }),
+      });
+      assert.equal(r.status, 200);
+      const body = await r.json();
+      assert.equal(body.account.username, "member");
+    } finally {
+      await srv2.stop();
+    }
+  } finally {
+    rmSync(root, { recursive: true, force: true });
+  }
+});
+
 test("P2b: 팀원 비밀번호 변경·관리자 초기화 — 평문 미저장, 기존 비번 거부", () => {
   const store = freshStore();
   const r = store.createAccount({ username: "member1", password: "oldpass", roles: ["member"] });
@@ -2450,6 +2569,108 @@ test("TEAM-ACCT: mailbox metadata update/list + 상대 env ref/secret 가드", (
   assert.equal(disabled.mailbox_enabled, false);
   assert.equal(disabled.mailbox_env_ref, null);
   assert.equal(disabled.mailbox_status, "disabled");
+});
+
+test("TEAM-ROSTER: private roster dry-run/apply — 계정·메일함 메타 일괄 등록, 비밀번호 출력 금지", () => {
+  const store = freshStore();
+  const rows = parseRosterText(JSON.stringify({
+    accounts: [
+      {
+        username: "mail-a",
+        display_name: "메일A",
+        email: "mail-a@corp.com",
+        role: "member",
+        temp_password: "temp-pass-a",
+        mailbox_provider: "gmail",
+        mailbox_enabled: true,
+        mailbox_env_ref: "private-state/mail/mail-a.env",
+      },
+      {
+        username: "mail-b",
+        display_name: "메일B",
+        email: "mail-b@corp.com",
+        role: "member",
+        password: "temp-pass-b",
+        provider: "hiworks",
+        enabled: "yes",
+        env_ref: "private-state/mail/mail-b.env",
+      },
+    ],
+  }), "team_roster.json");
+
+  const dry = planTeamRosterImport(store, rows);
+  assert.equal(dry.apply_ready, true);
+  assert.equal(dry.totals.create, 2);
+  assert.equal(dry.totals.mailbox_update, 2);
+  assert.equal(dry.entries[0].mailbox_env_ref, "[relative-ref]");
+  assert.equal(JSON.stringify(dry).includes("temp-pass-a"), false, "dry-run output must not leak temp password");
+  assert.equal(JSON.stringify(dry).includes("private-state/mail/mail-a.env"), false, "dry-run output must not echo private env ref");
+
+  const applied = applyTeamRosterImport(store, rows);
+  assert.equal(applied.applied, true);
+  assert.equal(applied.entries[1].mailbox_env_ref, "[relative-ref]");
+  assert.equal(JSON.stringify(applied).includes("temp-pass-b"), false, "apply output must not leak temp password");
+  assert.equal(JSON.stringify(applied).includes("private-state/mail/mail-b.env"), false, "apply output must not echo private env ref");
+  assert.equal(store.verifyLogin("mail-a", "temp-pass-a").email, "mail-a@corp.com");
+  assert.equal(store.verifyLogin("mail-b", "temp-pass-b").email, "mail-b@corp.com");
+  const mb = store.accountMailboxConfig(store.verifyLogin("mail-b", "temp-pass-b").id);
+  assert.equal(mb.mailbox_provider, "hiworks");
+  assert.equal(mb.mailbox_enabled, true);
+  assert.equal(mb.mailbox_env_ref, "private-state/mail/mail-b.env");
+
+  const resetPlan = planTeamRosterImport(store, [{ username: "mail-a", email: "mail-a@corp.com", password: "new-pass-a" }]);
+  assert.equal(resetPlan.entries[0].password_action, "ignored");
+  assert.ok(resetPlan.entries[0].warnings.includes("password_ignored_without_reset_passwords"));
+  applyTeamRosterImport(store, [{ username: "mail-a", email: "mail-a@corp.com", password: "new-pass-a" }]);
+  assert.equal(store.verifyLogin("mail-a", "temp-pass-a").username, "mail-a", "existing password is unchanged without reset flag");
+  assert.equal(store.verifyLogin("mail-a", "new-pass-a"), null);
+
+  const reset = applyTeamRosterImport(store, [{ username: "mail-a", email: "mail-a@corp.com", password: "new-pass-a" }], { resetPasswords: true });
+  assert.equal(reset.applied, true);
+  assert.equal(store.verifyLogin("mail-a", "temp-pass-a"), null);
+  assert.equal(store.verifyLogin("mail-a", "new-pass-a").username, "mail-a");
+});
+
+test("TEAM-ROSTER: admin role and mailbox refs require explicit safe inputs", () => {
+  const store = freshStore();
+  const blocked = planTeamRosterImport(store, [{ username: "boss", password: "secret1", role: "admin" }]);
+  assert.ok(blocked.entries[0].errors.includes("admin_role_requires_allow_admin"));
+  const badRef = planTeamRosterImport(store, [{
+    username: "mail-c",
+    password: "secret1",
+    email: "mail-c@corp.com",
+    provider: "gmail",
+    enabled: true,
+    env_ref: "../mail-c.env",
+  }]);
+  assert.ok(badRef.entries[0].errors.includes("mailbox_env_ref_invalid"));
+});
+
+test("TEAM-ROSTER: existing account role is preserved unless role is explicit", () => {
+  const store = freshStore();
+  const created = store.createAccount({ username: "lead", password: "leadpass", roles: ["admin"], email: "lead@corp.com" });
+  assert.ok(created.ok);
+
+  const plan = planTeamRosterImport(store, [{ username: "lead", display_name: "Lead", email: "lead@corp.com" }]);
+  assert.equal(plan.entries[0].role_action, "unchanged");
+  applyTeamRosterImport(store, [{ username: "lead", display_name: "Lead", email: "lead@corp.com" }]);
+  assert.equal(store.isAdmin(created.id), true, "omitted role must not demote an existing admin");
+
+  const demote = applyTeamRosterImport(store, [{ username: "lead", email: "lead@corp.com", role: "member" }]);
+  assert.equal(demote.entries[0].role_action, "update");
+  assert.equal(store.isAdmin(created.id), false, "explicit role can update the account");
+});
+
+test("TEAM-ROSTER: blank CSV role cell does not demote existing admin", () => {
+  const store = freshStore();
+  const created = store.createAccount({ username: "leadcsv", password: "leadpass", roles: ["admin"], email: "leadcsv@corp.com" });
+  assert.ok(created.ok);
+  const rows = parseRosterText("username,email,role\nleadcsv,leadcsv@corp.com,\n", "team_roster.csv");
+  const plan = planTeamRosterImport(store, rows);
+  assert.equal(plan.entries[0].role_supplied, false);
+  assert.equal(plan.entries[0].role_action, "unchanged");
+  applyTeamRosterImport(store, rows);
+  assert.equal(store.isAdmin(created.id), true);
 });
 
 test("TEAM-ACCT: teamReadiness 가 팀 사용 전 계정·메일함·장부 누락을 집계", () => {
