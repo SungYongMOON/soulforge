@@ -3040,6 +3040,34 @@ export class Store {
     if (!em) return null;
     return this.db.prepare("SELECT id,username,email,display_name,status FROM core_account WHERE email=?").get(em) ?? null;
   }
+  // 자동화(기본 자동 / 수동 폴백): '각자 메일=각자 일'. 메일함 기반 제안담당(suggested_assignee_ref=
+  // 메일주소)이 있고 확정 담당이 비었으며 그 주소가 활성 계정과 매칭되는 할 일을, 그 계정 담당으로
+  // 자동 확정한다. 결정적·LLM 무관. 계정 매칭 안 되면 손대지 않음(=수동 분배 대상). 기존 담당은 보존.
+  // owner 인박스로 몰린 건 owner 담당이 되며, 그건 수동 재배정(드롭다운)으로 나눈다(폴백).
+  applyMailboxAutoAssign() {
+    let activeAccounts = 0;
+    try { activeAccounts = this.db.prepare("SELECT COUNT(*) c FROM core_account WHERE status='active'").get().c; } catch { return { applied: 0, skipped: 0 }; }
+    if (!activeAccounts) return { applied: 0, skipped: 0 }; // 팀 모드 아닐 때(파일럿/테스트) no-op
+    let rows = [];
+    try {
+      rows = this.db.prepare(
+        "SELECT id, suggested_assignee_ref FROM core_item WHERE (assignee_ref IS NULL OR assignee_ref='') " +
+        "AND suggested_assignee_ref IS NOT NULL AND suggested_assignee_ref<>'' AND status<>'archived'"
+      ).all();
+    } catch { return { applied: 0, skipped: 0 }; }
+    let applied = 0, skipped = 0;
+    for (const r of rows) {
+      const ref = String(r.suggested_assignee_ref).trim();
+      const acct = ref.includes("@") ? this.accountByEmail(ref) : null;
+      const assignee = acct && acct.status === "active" ? (acct.display_name || acct.username) : null;
+      if (!assignee) { skipped++; continue; } // 알 수 없는 메일함 → 자동확정 안 함, 수동 분배로
+      this.db.prepare("UPDATE core_item SET assignee_ref=? WHERE id=?").run(assignee, r.id);
+      this.afterItemWrite?.(r.id);
+      this.appendEvent?.({ actor_kind: "system", kind: "item_assign", item_ref: r.id, to: assignee, used_refs: ["mailbox_auto_assign"], data_label: "real", note: "각자 메일=각자 일 자동 배정" });
+      applied++;
+    }
+    return { applied, skipped };
+  }
   setAccountStatus(account_id, status) {
     if (!["active", "disabled"].includes(status)) return { error: "bad_status" };
     const a = this.db.prepare("SELECT 1 FROM core_account WHERE id=?").get(account_id);

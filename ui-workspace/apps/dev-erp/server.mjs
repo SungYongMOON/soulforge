@@ -1056,12 +1056,17 @@ server.listen(PORT, HOST, () => {
   if (HOST !== "127.0.0.1") {
     console.log("[dev-erp] 주의: 같은 네트워크에 열려 있음 - 계정/RBAC와 trusted LAN 전제");
   }
+  // 자동화(기본 자동 / 수동 폴백): '각자 메일=각자 일' 시작 시 1회 backfill. 팀 모드 아니면 no-op.
+  try { const r = store.applyMailboxAutoAssign(); if (r.applied) console.log(`[dev-erp] 메일 자동배정(각자 메일=각자 일): 시작 backfill ${r.applied}건`); }
+  catch (e) { console.error("[dev-erp] 메일 자동배정 backfill 오류:", e.message); }
   // autosync Phase 2: 할일_장부 → ERP 자동 import 폴링(결정적·LLM 무관). 동기 버튼 불필요.
   // 기본 OFF(테스트·:memory: 무영향). 켜기: 환경변수 DEV_ERP_AUTOSYNC=1 또는 --autosync. 간격 DEV_ERP_AUTOSYNC_MS(기본 10s).
   if (process.env.DEV_ERP_AUTOSYNC === "1" || args.includes("--autosync")) {
     const root = resolve(HERE, "..", "..", "..");
     // Phase 2: 할일_장부 → ERP 자동 import 폴링.
     startAutosyncPoll(store, { root, intervalMs: Number(process.env.DEV_ERP_AUTOSYNC_MS) || 10000, log: console.log });
+    // 자동화: import 폴링과 같은 간격으로 '각자 메일=각자 일' 재적용(신규 import 분 자동 확정). 수동 재배정은 폴백.
+    setInterval(() => { try { store.applyMailboxAutoAssign(); } catch (e) { console.error("[dev-erp] 메일 자동배정 오류:", e.message); } }, Number(process.env.DEV_ERP_AUTOSYNC_MS) || 10000);
     // Phase 1: ERP 할일 생성/수정 → 할일_장부 write-through(동기 버튼 없이). 실패는 로그(향후 sync_error 표면화).
     store.afterItemWrite = (id) => {
       try { const r = writeTaskToLedger(store, id, { root }); if (r?.error && r.error !== "item_or_project_missing") console.error("[autosync] write-through 실패:", id, r.error); }

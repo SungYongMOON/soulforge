@@ -2,6 +2,17 @@
 
 ## 2026-06-17
 
+### Revision `working` - dev-erp 자동화: '각자 메일=각자 일' 자동 담당 확정
+
+- 원칙(기본 자동 / 수동 폴백)에 따라 담당 배정의 기본을 자동화. ERP 소비 측에서
+  결정적·LLM 무관 reconcile: `store.applyMailboxAutoAssign()` — 메일함 기반 제안담당
+  (suggested_assignee_ref=메일주소)이 있고 확정 담당이 비었으며 그 주소가 **활성 계정**과
+  매칭되는 할 일을 그 계정 담당으로 자동 확정. 기존(사람) 담당은 보존, 알 수 없는 메일함은
+  손대지 않음(=수동 분배 대상), 멱등.
+- 트리거(server.mjs): 시작 시 1회 backfill + autosync ON 이면 import 폴링 간격마다 재적용.
+  Codex 의 ingest/autosync 도구는 미변경(소비 측에서만 정책 적용). item_assign 이벤트로 감사.
+- owner 인박스로 몰린 일은 owner 담당이 되며, 그건 담당 드롭다운(수동 재배정)으로 나눔(폴백).
+
 ### Revision `working` - dev-erp 할 일 담당 나누기(팀원 드롭다운 재배정)
 
 - 메일은 각자 인박스로 와 각자 일이 되지만, 한 곳에 몰린 일은 실제 담당에게 나눠야 하므로
