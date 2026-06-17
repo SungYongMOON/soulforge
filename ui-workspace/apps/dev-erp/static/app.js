@@ -2460,6 +2460,18 @@ async function renderItems() {
   const triageNote = state.statusFilter === "unclassified"
     ? `<div class="triage-note">${L.triage_note ?? "메일/요청에서 자동 추출됐지만 과제·단계·산출물 연결이 없는 임시 할 일입니다. 분류해야 정식 실행 목록에 들어갑니다."}</div>`
     : "";
+  // 담당 나누기: 관리자면 담당 칸을 팀원 드롭다운으로(클릭 한 번에 재배정 → 그 팀원 '내 할 일'로 이동).
+  // 메일은 각자 인박스로 와 각자 일이 되지만, 한 곳(인박스)에 몰린 일은 실제 담당에게 나눠야 하므로.
+  const reassignMembers = (state._scopes ?? []).filter((s) => s.id !== "team");
+  const canReassign = showViewScope() && reassignMembers.length > 0;
+  const reassignCell = (i) => {
+    if (!canReassign || i.status === "archived") return esc(i.assignee_ref ?? "-");
+    const cur = i.assignee_ref ?? "";
+    const matched = reassignMembers.some((m) => m.label === cur);
+    const memberOpts = reassignMembers.map((m) => `<option value="${esc(m.label)}" ${m.label === cur ? "selected" : ""}>${esc(m.label)}</option>`).join("");
+    const customOpt = cur && !matched ? `<option value="${esc(cur)}" selected>${esc(cur)}</option>` : "";
+    return `<select class="reassign" data-i="${esc(i.id)}" title="${L.reassign_hint ?? "담당 나누기"}"><option value="" ${!cur ? "selected" : ""}>${L.assignee_none ?? "미배정"}</option>${customOpt}${memberOpts}</select>`;
+  };
   const rows = items.map((i) => state.itemEdit === i.id
     ? `<tr class="item-edit-row"><td colspan="7"><div class="item-edit">
         <input class="ie-title" value="${esc(i.title)}" placeholder="${L.col_title ?? "제목"}" />
@@ -2474,7 +2486,7 @@ async function renderItems() {
       <td><span class="proj-link" data-hub="${esc(i.project_id)}">${esc(i.project_id)}</span></td>
       <td>${statusBadge(i.status)}</td>
       ${dueCell(i.due, todayKey)}
-      <td>${esc(i.assignee_ref ?? "-")}</td>
+      <td>${reassignCell(i)}</td>
       <td>${itemLinkCell(i)}</td>
       <td class="acts">${i.status === "archived"
         ? `<button class="act-btn restore-btn" data-restore="${esc(i.id)}">${L.act_restore ?? "복구"}</button>`
@@ -2576,6 +2588,15 @@ async function renderItems() {
   );
   wireItemActions($("#view"));
   wireItemEdit($("#view"));
+  // 담당 드롭다운 → 즉시 재배정(/api/items/assign). 그 팀원 '내 할 일'로 이동.
+  $("#view").querySelectorAll("select.reassign").forEach((sel) =>
+    sel.addEventListener("change", async (e) => {
+      e.stopPropagation();
+      const r = await post("/api/items/assign", { id: sel.dataset.i, assignee_ref: e.target.value });
+      if (r.ok) render();
+      else { const er = await r.json().catch(() => ({})); alert(er.error || (state.lex.act_save_failed ?? "저장 실패")); render(); }
+    })
+  );
 }
 
 // F2: 할 일 인라인 수정(제목·마감·담당) + 소프트삭제. 재배정은 기존 /api/items/assign 연결.

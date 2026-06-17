@@ -2,6 +2,14 @@
 
 ## 2026-06-17
 
+### Revision `working` - dev-erp 할 일 담당 나누기(팀원 드롭다운 재배정)
+
+- 메일은 각자 인박스로 와 각자 일이 되지만, 한 곳에 몰린 일은 실제 담당에게 나눠야 하므로
+  관리자의 할 일 화면에서 **담당 칸을 팀원 드롭다운**으로(클릭 한 번에 재배정).
+- 기존 백엔드만 사용(`/api/items/assign` + `/api/accounts/scopes` 팀원 목록). 새 백엔드 없음.
+  재배정하면 그 팀원의 '내 할 일'(본인 스코프)로 이동. 비관리자는 기존 표시 유지.
+- assignee_ref 는 팀원 display_name(=accountIdentities 매칭)으로 설정. item_assign 이벤트 기록.
+
 ### Revision `working` - dev-erp 릴리즈 마감: 팀 사용 준비 상태 UI 명확화
 
 - Codex 가 추가한 팀 준비점검(`store.teamReadiness` / `GET /api/accounts/readiness`)을
