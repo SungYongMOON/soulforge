@@ -41,6 +41,23 @@ function scopedInClause(column, values) {
   return { sql: `${column} IN (${ids.map(() => "?").join(",")})`, args: ids };
 }
 
+function normalizeMailboxKey(mailbox) {
+  return String(mailbox ?? "").trim().toLowerCase();
+}
+
+function mailboxScopeClause(column, mailbox) {
+  const key = normalizeMailboxKey(mailbox);
+  if (!key || key === "team") return null;
+  if (key === "__none__") return { sql: "0=1", args: [] };
+  const expr = `LOWER(COALESCE(${column},''))`;
+  const slashPrefix = `${key}/`;
+  const backslashPrefix = `${key}\\`;
+  return {
+    sql: `(${expr}=? OR substr(${expr},1,?)=? OR substr(${expr},1,?)=?)`,
+    args: [key, slashPrefix.length, slashPrefix, backslashPrefix.length, backslashPrefix],
+  };
+}
+
 const DDL = `
 CREATE TABLE IF NOT EXISTS meta (
   key TEXT PRIMARY KEY, value TEXT NOT NULL
@@ -738,6 +755,20 @@ export function openStore(path = ":memory:") {
 const PROPOSAL_KINDS = ["create_item", "add_attachment_type", "set_artifact_requirement", "link_part_project"];
 
 export class Store {
+  static normalizeMailboxKey = normalizeMailboxKey;
+  static mailboxScopeClause = mailboxScopeClause;
+
+  mailboxScopeClause(column, mailbox) {
+    return Store.mailboxScopeClause(column, mailbox);
+  }
+
+  mailboxMatches(mailboxValue, mailboxKey) {
+    const key = Store.normalizeMailboxKey(mailboxKey);
+    if (!key || key === "team" || key === "__none__") return false;
+    const value = Store.normalizeMailboxKey(mailboxValue);
+    return value === key || value.startsWith(`${key}/`) || value.startsWith(`${key}\\`);
+  }
+
   constructor(db) {
     this.db = db;
   }
@@ -814,8 +845,11 @@ export class Store {
     }
     const mailbox = String(scope.mailbox ?? "").trim().toLowerCase();
     if (mailbox && mailbox !== "team" && mailbox !== "__none__") {
-      pieces.push("item_ref IN (SELECT id FROM core_mail WHERE mailbox=?)");
-      args.push(mailbox);
+      const mailScope = this.mailboxScopeClause("mailbox", mailbox);
+      if (mailScope) {
+        pieces.push(`item_ref IN (SELECT id FROM core_mail WHERE ${mailScope.sql})`);
+        args.push(...mailScope.args);
+      }
     }
     return pieces.length ? `(${pieces.join(" OR ")})` : "";
   }
@@ -1105,8 +1139,8 @@ export class Store {
     const mailConds = [];
     const mailArgs = [];
     if (mailbox && mailbox !== "team") {
-      mailConds.push("mailbox=?");
-      mailArgs.push(String(mailbox).toLowerCase());
+      const mailScope = this.mailboxScopeClause("mailbox", mailbox);
+      if (mailScope) { mailConds.push(mailScope.sql); mailArgs.push(...mailScope.args); }
     }
     const mailWhere = mailConds.length ? `WHERE ${mailConds.join(" AND ")}` : "";
     const mailRows = this.db
@@ -1573,8 +1607,11 @@ export class Store {
     const cond = [];
     const args = [];
     if (project) { cond.push("m.project_id=?"); args.push(project); }
-    // 담당자별 메일 이력: mailbox(=계정 이메일)로 필터. 'team'/미지정이면 전체.
-    if (mailbox && mailbox !== "team") { cond.push("m.mailbox=?"); args.push(String(mailbox).toLowerCase()); }
+    // 담당자별 메일 이력: mailbox=계정 이메일 또는 계정 이메일 하위 폴더(prefix)로 필터. 'team'/미지정이면 전체.
+    if (mailbox && mailbox !== "team") {
+      const mailScope = this.mailboxScopeClause("m.mailbox", mailbox);
+      if (mailScope) { cond.push(mailScope.sql); args.push(...mailScope.args); }
+    }
     if (days) {
       const cutoff = new Date(Date.now() - days * 86400000).toISOString();
       cond.push("m.at>=?"); args.push(cutoff);
@@ -2856,14 +2893,17 @@ export class Store {
     const activeAccounts = accounts.filter((a) => a.status === "active");
     const activeAdmins = activeAccounts.filter((a) => a.is_admin);
     const activeMembers = activeAccounts.filter((a) => !a.is_admin);
-    const mailRows = this.db
-      .prepare("SELECT LOWER(COALESCE(mailbox,'')) AS mailbox, COUNT(*) AS n, MAX(at) AS last_at FROM core_mail GROUP BY LOWER(COALESCE(mailbox,''))")
-      .all();
-    const mailByMailbox = new Map(mailRows.map((r) => [r.mailbox, { count: r.n, last_at: r.last_at ?? null }]));
     const unclassified = this.db.prepare("SELECT COUNT(*) AS n FROM core_item WHERE status='unclassified'").get().n;
     const unclassifiedOverdue = this.db
       .prepare("SELECT COUNT(*) AS n FROM core_item WHERE status='unclassified' AND due IS NOT NULL AND due < ?")
       .get(today).n;
+    const mailboxStatsFor = (email) => {
+      const mailScope = this.mailboxScopeClause("mailbox", email);
+      if (!mailScope) return null;
+      return this.db
+        .prepare(`SELECT COUNT(*) AS count, MAX(at) AS last_at FROM core_mail WHERE ${mailScope.sql}`)
+        .get(...mailScope.args);
+    };
     const openItemCount = (account) => {
       const identities = this.accountIdentities(account);
       const scoped = scopedInClause("i.assignee_ref", identities);
@@ -2874,7 +2914,7 @@ export class Store {
     };
     const rows = accounts.map((account) => {
       const email = String(account.email ?? "").trim().toLowerCase();
-      const mailboxStats = email ? mailByMailbox.get(email) : null;
+      const mailboxStats = email ? mailboxStatsFor(email) : null;
       const mailRequired = account.status === "active" && !account.is_admin;
       const issues = [];
       if (mailRequired && !email) issues.push({ level: "blocker", code: "email_missing" });

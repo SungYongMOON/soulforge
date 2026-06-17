@@ -146,7 +146,7 @@ function canAccessMail(req, mail_id) {
   if (!mailbox || mailbox === "team") return true;
   if (mailbox === "__none__") return false;
   const row = store.db.prepare("SELECT mailbox FROM core_mail WHERE id=?").get(mail_id);
-  return String(row?.mailbox ?? "").trim().toLowerCase() === String(mailbox).toLowerCase();
+  return store.mailboxMatches(row?.mailbox, mailbox);
 }
 
 function requestScope(req, qp = {}) {

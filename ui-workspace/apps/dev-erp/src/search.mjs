@@ -25,8 +25,8 @@ export function crossSearch(store, q, { assignee_any, mailbox } = {}) {
   const mailConds = ["(subject LIKE ? OR counterpart LIKE ? OR project_id LIKE ? OR id LIKE ? OR pointer_ref LIKE ? OR source_ref LIKE ?)"];
   const mailArgs = [like, like, like, like, like, like];
   if (mailbox && mailbox !== "team") {
-    mailConds.push("mailbox=?");
-    mailArgs.push(String(mailbox).toLowerCase());
+    const mailScope = typeof store.mailboxScopeClause === "function" ? store.mailboxScopeClause("mailbox", mailbox) : null;
+    if (mailScope) { mailConds.push(mailScope.sql); mailArgs.push(...mailScope.args); }
   }
   const mail = store.db
     .prepare(`SELECT * FROM core_mail WHERE ${mailConds.join(" AND ")} ORDER BY at DESC LIMIT 50`)
