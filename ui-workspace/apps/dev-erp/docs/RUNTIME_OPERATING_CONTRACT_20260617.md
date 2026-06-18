@@ -5,6 +5,26 @@ Date: 2026-06-17
 Owner: Soulforge owner
 Scope: `ui-workspace/apps/dev-erp`
 
+## Runtime Release Audit Gate
+
+Before inviting team members, run the read-only release audit from the
+development checkout against the runtime checkout:
+
+```powershell
+npm run dev-erp:audit-runtime -- --runtime-root <runtime-checkout> --workspaces <dev-checkout>\_workspaces --nas-root <nas-root> --live --allow-lan-http
+```
+
+The audit must report zero blockers before the owner gives final team-opening
+approval. It checks DB/schema integrity, `real_meta.json` sync, project/mail set
+drift, account/admin readiness, synthetic/demo leakage, WAL-aware backup
+posture, NAS latest backup freshness, live health, and selected fantasy skin
+assets. The audit is read-only: it must not write the DB and must not read raw
+project files, mail bodies, or secret env values.
+
+Use `--target-members <n>` when the approval gate requires a minimum number of
+active non-admin accounts. Use `--allow-lan-http` only for an owner-approved
+trusted-LAN pilot; omit it for the default Tailscale/localhost posture.
+
 ## Runtime Correction Patch Rule
 
 Runtime DB drift is corrected with a tool, not by committing the DB file.

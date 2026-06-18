@@ -10,6 +10,7 @@
   "scripts": {
     "start": "node server.mjs",
     "dev": "node --watch server.mjs",
+    "audit:runtime": "node tools/runtime_release_audit.mjs",
     "correct:runtime": "node tools/runtime_corrections.mjs",
     "test": "node --test test/core.test.mjs"
   }

@@ -28,6 +28,7 @@ import {
 import { parseRosterText, planTeamRosterImport, applyTeamRosterImport } from "../tools/import_team_roster.mjs";
 import { buildTeamHostPreflight } from "../tools/team_preflight.mjs";
 import { applyRuntimeCorrections, planRuntimeCorrections } from "../tools/runtime_corrections.mjs";
+import { runRuntimeReleaseAudit } from "../tools/runtime_release_audit.mjs";
 
 const APP_DIR = dirname(dirname(fileURLToPath(import.meta.url)));
 
@@ -203,6 +204,83 @@ test("runtime corrections: project names dry-run, backup, meta/db apply", () => 
     assert.equal(verify.db.prepare("PRAGMA integrity_check").get().integrity_check, "ok");
     assert.equal(verify.db.prepare("SELECT COUNT(*) AS n FROM event_log WHERE kind='project_name_sync'").get().n, 1);
     verify.db.close();
+  } finally {
+    rmSync(root, { recursive: true, force: true });
+  }
+});
+
+
+test("runtime release audit: read-only DB/meta gate passes a synced pilot DB", async () => {
+  const root = mkdtempSync(join(tmpdir(), "dev-erp-runtime-audit-pass-"));
+  try {
+    const workspaces = join(root, "_workspaces");
+    const data = join(root, "data");
+    mkdirSync(join(workspaces, "P24-049 Project Alpha"), { recursive: true });
+    mkdirSync(data, { recursive: true });
+    const metaPath = join(data, "real_meta.json");
+    const dbPath = join(data, "dev-erp.db");
+    writeFileSync(metaPath, JSON.stringify({
+      projects: [{ id: "P24-049", title: "Project Alpha", health: "ok", class: "active", data_label: "real" }],
+      items: [],
+      mail: [{ id: "mail-1", project_id: "P24-049", at: "2026-06-18T09:00:00+09:00", subject: "metadata only" }],
+      artifacts: [],
+    }, null, 2));
+
+    const store = openStore(dbPath);
+    store.upsertProject({ id: "P24-049", title: "Project Alpha", health: "ok", class: "active", data_label: "real" });
+    store.ingestMail({ id: "mail-1", project_code: "P24-049", at: "2026-06-18T09:00:00+09:00", subject: "metadata only", data_label: "real" });
+    store.createAccount({ username: "admin", password: "pw123456", roles: ["admin"] });
+    store.db.close();
+
+    const result = await runRuntimeReleaseAudit({
+      sourceRoot: root,
+      runtimeRoot: root,
+      appRoot: APP_DIR,
+      dbPath,
+      metaPath,
+      workspacesDir: workspaces,
+      nasRoot: false,
+      skipGit: true,
+      skipNas: true,
+      targetMembers: 0,
+    });
+    assert.equal(result.ok, true);
+    assert.equal(result.blockers.length, 0);
+    assert.equal(result.checks.real_meta.project_id_diff.meta_only, 0);
+    assert.equal(result.checks.real_meta.mail_id_diff.db_only, 0);
+    assert.equal(result.checks.workspace_projects.count, 1);
+  } finally {
+    rmSync(root, { recursive: true, force: true });
+  }
+});
+
+test("runtime release audit: blocks anonymous runtime and missing NAS latest backup", async () => {
+  const root = mkdtempSync(join(tmpdir(), "dev-erp-runtime-audit-block-"));
+  try {
+    const data = join(root, "data");
+    const nas = join(root, "nas");
+    mkdirSync(data, { recursive: true });
+    mkdirSync(nas, { recursive: true });
+    const metaPath = join(data, "real_meta.json");
+    const dbPath = join(data, "dev-erp.db");
+    writeFileSync(metaPath, JSON.stringify({ projects: [], items: [], mail: [], artifacts: [] }, null, 2));
+    const store = openStore(dbPath);
+    store.db.close();
+
+    const result = await runRuntimeReleaseAudit({
+      sourceRoot: root,
+      runtimeRoot: root,
+      appRoot: APP_DIR,
+      dbPath,
+      metaPath,
+      workspacesDir: join(root, "_workspaces"),
+      nasRoot: nas,
+      skipGit: true,
+      targetMembers: 0,
+    });
+    const codes = result.blockers.map((issue) => issue.code);
+    assert.ok(codes.includes("auth_anonymous_mode"));
+    assert.ok(codes.includes("nas_latest_db_backup_missing"));
   } finally {
     rmSync(root, { recursive: true, force: true });
   }

@@ -12,6 +12,19 @@
 - Wired the new guard into `validate:knowledge-access` and documented the paired
   Stop hook setup next to the existing knowledge trigger guard.
 
+### Revision `working` - dev-erp runtime release audit gate
+
+- Added `tools/runtime_release_audit.mjs`, `npm run audit:runtime`, and root
+  `npm run dev-erp:audit-runtime` as a read-only first-release gate for the
+  company-PC runtime.
+- The audit checks DB/schema integrity, `real_meta.json` sync, project/mail set
+  drift, account/admin readiness, synthetic/demo leakage, WAL-aware backup
+  posture, NAS latest backup freshness, live health, and fantasy skin assets
+  without reading raw project files, mail bodies, or secret env values.
+- Ran the gate against the company runtime checkout; the only initial blocker
+  was a stale NAS latest DB backup, then refreshed the NAS DB backup with
+  SQLite `VACUUM INTO` and reran the gate with zero blockers.
+
 ### Revision `working` - dev-erp runtime correction patch tool
 
 - Added `tools/runtime_corrections.mjs`, `npm run correct:runtime`, and root

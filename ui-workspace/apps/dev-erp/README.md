@@ -77,6 +77,25 @@ npm run dev-erp:task-ledger -- --db ui-workspace/apps/dev-erp/data/dev-erp.db --
 npm test
 ```
 
+## Runtime Release Audit
+
+Before opening the company-PC runtime to the team, run the read-only release
+audit. It checks runtime DB/schema integrity, `real_meta.json` sync, project
+set drift, account/admin readiness, synthetic/demo leakage, WAL-aware backup
+posture, NAS latest backup freshness, live health, and fantasy skin assets.
+It does not write to the DB and does not read raw project files, mail bodies,
+or secret env values.
+
+```bash
+npm run audit:runtime -- --runtime-root <runtime-checkout> --workspaces <dev-checkout>\_workspaces --nas-root <nas-root> --live --allow-lan-http
+# from Soulforge repo root:
+npm run dev-erp:audit-runtime -- --runtime-root <runtime-checkout> --workspaces <dev-checkout>\_workspaces --nas-root <nas-root> --live --allow-lan-http
+```
+
+Use `--target-members <n>` when the release must include at least that many
+active non-admin team accounts. Omit `--allow-lan-http` unless the owner has
+approved direct trusted-LAN HTTP exposure for the current pilot.
+
 ## Runtime Corrections
 
 Runtime DB data is not shared through Git. When another PC's code patch exposes
