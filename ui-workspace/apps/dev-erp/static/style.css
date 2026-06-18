@@ -131,6 +131,8 @@ input[type="email"], input[type="password"], input[type="time"], input:not([type
   border-radius: 5px; color: var(--text); }
 .brand-bar > #appTitle.brand-home:hover { background: rgba(31,72,212,.06); }
 .brand-bar > #appTitle.brand-home.on { background: rgba(31,72,212,.13); color: #19358c; }
+.version-strip { display: inline-flex; align-items: center; gap: 5px; flex: 0 1 auto; min-width: 0; }
+.util-bar .version-strip { margin-left: 8px; justify-content: flex-end; }
 .version-chip { display: inline-flex; align-items: center; max-width: 240px; padding: 1px 6px; border: 1px solid var(--line);
   border-radius: 5px; color: var(--muted); font-size: 10.5px; font-weight: 500; line-height: 1.5; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 .cockpit-ico { font-size: 16px; line-height: 1; }
@@ -780,6 +782,7 @@ nav button[disabled]:hover { background: transparent; }
 .chat-resize { position: absolute; right: 0; bottom: 0; z-index: 3; width: 18px; height: 18px; cursor: nwse-resize; pointer-events: auto; opacity: .85; border-top-left-radius: 8px; background: linear-gradient(135deg, transparent 0 40%, var(--line) 40% 48%, transparent 48% 58%, var(--line) 58% 66%, transparent 66%), rgba(255,255,255,.05); }
 @media (max-width: 640px) {
   .brand-bar > #appTitle.brand-home { max-width: 100%; min-width: 0; }
+  .version-strip { flex-wrap: wrap; }
   .version-chip { max-width: 132px; }
   .chat-overlay { left: 8px; right: 8px; bottom: 8px; width: auto; height: min(70vh, 520px); }
   .chat-panel { min-width: 0; min-height: 320px; max-width: none; max-height: calc(100vh - 16px); resize: none; }

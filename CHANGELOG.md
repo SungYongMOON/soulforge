@@ -7,6 +7,8 @@
 - Added visible version markers for release verification: the app title now
   shows the loaded UI build and browser engine version, and the chatbot header
   shows the loaded chatbot UI build.
+- Moved the app version markers into the right side of the top utility bar so
+  the home title and primary menu row stay clean.
 - Documented the operator check that production acceptance must probe `4300`,
   not temporary verification ports.
 

@@ -705,7 +705,8 @@ async function loadLexicon() {
   // 맨 왼쪽 콕핏 버튼 = 위젯 대시보드 진입(ECount 로고/MyPage 식). 아이콘+라벨, 홈일 때 활성.
   const browserVersion = browserVersionText();
   const ua = navigator.userAgent || browserVersion;
-  $("#appTitle").innerHTML = `<span class="cockpit-ico" aria-hidden="true">▦</span><span>${esc(state.lex.app_title)}</span><span class="version-chip" title="${esc(state.lex.app_version_label)} ${ERP_UI_VERSION}">${esc(state.lex.app_version_label)} ${ERP_UI_VERSION}</span><span class="version-chip" title="${esc(ua)}">${esc(state.lex.browser_version_label)} ${esc(browserVersion)}</span>`;
+  $("#appTitle").innerHTML = `<span class="cockpit-ico" aria-hidden="true">▦</span><span>${esc(state.lex.app_title)}</span>`;
+  $("#appVersionChips").innerHTML = `<span class="version-chip" title="${esc(state.lex.app_version_label)} ${ERP_UI_VERSION}">${esc(state.lex.app_version_label)} ${ERP_UI_VERSION}</span><span class="version-chip" title="${esc(ua)}">${esc(state.lex.browser_version_label)} ${esc(browserVersion)}</span>`;
   $("#appTitle").classList.add("brand-home");
   $("#appTitle").title = state.lex.nav_home;
   $("#appTitle").onclick = () => { state.view = "home"; render(); };
