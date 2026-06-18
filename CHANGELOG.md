@@ -2,6 +2,13 @@
 
 ## 2026-06-18
 
+### Revision `working` - dev-erp component version split
+
+- Split the compact visible release badges into separate component versions:
+  `ERP v1.0.2` for the main app and `챗봇 v1.1.0` for the chatbot component.
+- Kept the full internal UI/chatbot build identifiers in hover titles so
+  operators can verify the exact loaded artifact without crowding the header.
+
 ### Revision `working` - dev-erp port boundary guard
 
 - Reserved port `4300` for the `C:\Soulforge-runtime` checkout and changed

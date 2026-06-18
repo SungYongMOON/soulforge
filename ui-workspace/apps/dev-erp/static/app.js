@@ -1,9 +1,9 @@
 // dev-erp P1 클라이언트 (no-build vanilla JS).
 // 모든 라벨은 /api/lexicon 사전을 거친다 (하드코딩 금지, INFRA-004).
-const ERP_RELEASE_VERSION = "v1.0.1";
-const ERP_UI_VERSION = "ui-2026.06.18-mail-readable.7";
-const ERP_CHATBOT_RELEASE_VERSION = "v1.0.1";
-const ERP_CHATBOT_UI_VERSION = "chatbot-2026.06.18-mail-readable.7";
+const ERP_RELEASE_VERSION = "v1.0.2";
+const ERP_UI_VERSION = "ui-2026.06.18-version-split.8";
+const ERP_CHATBOT_RELEASE_VERSION = "v1.1.0";
+const ERP_CHATBOT_UI_VERSION = "chatbot-2026.06.18-version-split.8";
 
 function browserVersionText(ua = navigator.userAgent || "") {
   const rules = [
@@ -708,8 +708,9 @@ async function loadLexicon() {
   const browserVersion = browserVersionText();
   const ua = navigator.userAgent || browserVersion;
   $("#appTitle").innerHTML = `<span class="cockpit-ico" aria-hidden="true">▦</span><span>${esc(state.lex.app_title)}</span>`;
-  const releaseTitle = `${state.lex.app_version_label} ${ERP_UI_VERSION} · ${state.lex.browser_version_label} ${browserVersion} · ${ua}`;
-  $("#appVersionChips").innerHTML = `<span class="version-chip" title="${esc(releaseTitle)}">ERP ${ERP_RELEASE_VERSION}</span>`;
+  const erpReleaseTitle = `ERP ${ERP_RELEASE_VERSION} · ${state.lex.app_version_label} ${ERP_UI_VERSION} · ${state.lex.browser_version_label} ${browserVersion} · ${ua}`;
+  const chatbotReleaseTitle = `${state.lex.chat_version_label} ${ERP_CHATBOT_RELEASE_VERSION} · ${ERP_CHATBOT_UI_VERSION}`;
+  $("#appVersionChips").innerHTML = `<span class="version-chip" title="${esc(erpReleaseTitle)}">ERP ${ERP_RELEASE_VERSION}</span><span class="version-chip" title="${esc(chatbotReleaseTitle)}">${esc(state.lex.chat_version_label)} ${ERP_CHATBOT_RELEASE_VERSION}</span>`;
   $("#appTitle").classList.add("brand-home");
   $("#appTitle").title = state.lex.nav_home;
   $("#appTitle").onclick = () => { state.view = "home"; render(); };
