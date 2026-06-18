@@ -2,6 +2,14 @@
 
 ## 2026-06-18
 
+### Revision `working` - dev-erp release data cleanup
+
+- Excluded demo/sample/fixture/synthetic projects and missions from the
+  `build_real_meta.mjs` runtime metadata export used for the first dev-ERP
+  team release.
+- Added `logs/` to the dev-ERP app gitignore so local runtime server logs do
+  not appear as source changes.
+
 ### Revision `working` - knowledge launcher skill consolidation
 
 - Removed the duplicate caller-facing knowledge Codex launchers

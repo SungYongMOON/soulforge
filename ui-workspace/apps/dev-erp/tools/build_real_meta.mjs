@@ -37,6 +37,18 @@ function parseCsv(text) {
 const report = { projects: 0, missions_as_items: 0, mail_files: 0, mail_rows: 0, skipped: [] };
 const out = { projects: [], items: [], mail: [] };
 
+function isReleaseSampleProject(code) {
+  const s = String(code ?? "").trim();
+  if (!s) return false;
+  return /(^demo_project$|sample|fixture|synthetic|^P00-TEST$)/i.test(s);
+}
+
+function isReleaseSampleMission(m = {}) {
+  if (isReleaseSampleProject(m.project_code)) return true;
+  const s = `${m.mission_id ?? ""} ${m.title ?? ""}`;
+  return /\b(demo|sample|fixture|synthetic)\b/i.test(s);
+}
+
 // 페르소나 합의 분류: active(실과제 P2x) / inbox(미분류함) / internal(내부·데모) / archive(후속)
 function classifyProject(code) {
   if (code === "P00-000_INBOX") return "inbox";
@@ -50,6 +62,10 @@ if (existsSync(snapPath)) {
   const snap = JSON.parse(readFileSync(snapPath, "utf-8"));
   for (const p of snap.projects ?? []) {
     if (!p.project_code) continue;
+    if (isReleaseSampleProject(p.project_code)) {
+      report.skipped.push(`sample_project:${p.project_code}`);
+      continue;
+    }
     out.projects.push({
       id: p.project_code,
       title: p.project_code, // 사람용 이름은 보호 영역일 수 있어 코드 유지 (owner 가 P2 에서 별칭 부여)
@@ -61,6 +77,10 @@ if (existsSync(snapPath)) {
   }
   for (const m of snap.missions?.items ?? []) {
     if (!m.mission_id) continue;
+    if (isReleaseSampleMission(m)) {
+      report.skipped.push(`sample_mission:${m.mission_id}`);
+      continue;
+    }
     const projectId = m.project_code ?? "P00-000_INBOX";
     out.items.push({
       id: m.mission_id,
