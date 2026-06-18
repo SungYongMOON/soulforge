@@ -16,7 +16,7 @@ import { ingestNormalized, mapSoulforgeSnapshot } from "../src/adapter.mjs";
 import { getLexicon, LEXICON } from "../src/lexicon.mjs";
 import { crossSearch } from "../src/search.mjs";
 import { runQueued, llmQueueStats } from "../src/llm.mjs";
-import { chatPipelineConfig } from "../src/chat_pipeline.mjs";
+import { chatPipelineConfig, runManualAnswerPipeline } from "../src/chat_pipeline.mjs";
 import {
   KNOWLEDGE_SHELL_CONTRACT_KIND,
   KNOWLEDGE_SHELL_SCHEMA,
@@ -2555,6 +2555,14 @@ test("챗봇 파이프라인: 이어묻기는 단독 검색 오답보다 같은 
   const meetingFollow = switched.chatAnswer({ question: "그거 다시 하려면 어디서 해요?", thread_id: "th-switch", actor_ref: "alice" });
   assert.equal(meetingFollow.context_used, true);
   assert.equal(meetingFollow.source.id, "man-meeting-action-items", "주제 전환 뒤에는 최신 회의 주제를 우선");
+
+  const currentStrong = freshStore();
+  loadManualFaq(currentStrong);
+  currentStrong.chatAnswer({ question: "회의 액션아이템은 자동으로 할 일이 돼요?", thread_id: "th-current", actor_ref: "alice" });
+  currentStrong.chatAnswer({ question: "실수했거나 누가 바꿨는지 확인하려면 어디를 봐요?", thread_id: "th-current", actor_ref: "alice" });
+  const gateMeaning = currentStrong.chatAnswer({ question: "게이트 통과가 무슨 뜻이에요?", thread_id: "th-current", actor_ref: "alice" });
+  assert.equal(gateMeaning.source.id, "man-gate-meaning", "현재 질문이 강하게 맞으면 이전 문맥이 source를 덮지 않음");
+  assert.equal(gateMeaning.context_used, false);
 });
 
 test("챗봇: 기존 DB에도 질문자 로그 컬럼을 마이그레이션한다", () => {
@@ -2667,20 +2675,61 @@ test("챗봇: 초보 팀원 질문은 매뉴얼 FAQ로 안정 매칭된다", () 
   for (const [question, expectedId] of cases) {
     const top = store.retrieveFaqMany(question, 1)[0];
     assert.equal(top?.faq.id, expectedId, question);
-    assert.equal(store.chatAnswer({ question }).source.id, expectedId, question);
+    assert.equal(store.chatAnswer({ question }).source?.id, expectedId, question);
   }
 });
 
-test("챗봇: 약매칭은 LLM 표현 호출 없이 후보만 제시한다", async () => {
+test("챗봇 LLM 프롬프트: FAQ 끼워맞춤 대신 런타임 원칙으로 자유 발화를 해석한다", async () => {
+  const { buildManualPrompt } = await import("../src/llm.mjs");
+  const store = freshStore();
+  loadManualFaq(store);
+  const hits = store.retrieveFaqMany("그런건 내가 설정할수 있는게 아닌데?", 3);
+  const prompt = buildManualPrompt("그런건 내가 설정할수 있는게 아닌데?", hits, ["챗봇이 너무 느려요"], { matched: false, mode: "assist" });
+  assert.match(prompt, /챗봇 런타임 원칙/);
+  assert.match(prompt, /끼워 맞추지 마라/);
+  assert.match(prompt, /관리자\/운영자에게 전달할 항목/);
+  assert.match(prompt, /강한 매뉴얼 매칭은 없음/);
+  assert.match(prompt, /단순 상태 확인/);
+  assert.match(prompt, /멈춤·오류 대응은 사용자가 실제로 멈춤\/오류를 말할 때만/);
+  assert.match(prompt, /연속으로 계속 보내지 말기/);
+  assert.doesNotMatch(JSON.stringify(store.faqs()), /man-chatbot-alive|man-chatbot-too-fast-or-short|man-chatbot-settings-not-mine/);
+});
+
+test("챗봇: 자유 발화는 특정 FAQ 없이 LLM assist 단계로 처리된다", async () => {
+  const { buildManualPrompt } = await import("../src/llm.mjs");
+  const store = freshStore();
+  loadManualFaq(store);
+  const questions = ["너 살아있어?", "와 답변이 너무 빠른데", "그런건 내가 설정할수 있는게 아닌데?", "계속 질문하니 멈추네."];
+  for (const question of questions) {
+    let prompt = "";
+    const r = await runManualAnswerPipeline({
+      store,
+      question,
+      provider: "ollama",
+      buildPrompt: buildManualPrompt,
+      runLlm: async ({ user }) => {
+        prompt = user;
+        return { delivered: true, text: "런타임 원칙으로 답변", external: false, model: "fake-local" };
+      },
+    });
+    assert.equal(r.llm, true, question);
+    assert.equal(r.handled_by_llm, true, question);
+    assert.equal(r.mode, "llm_assist", question);
+    assert.equal(r.source, null, "자유 발화를 FAQ source에 끼워맞추지 않음");
+    assert.match(prompt, /런타임 원칙/);
+  }
+});
+
+test("챗봇: stub 약매칭은 LLM 없이 후보만 제시한다", async () => {
   const { answerFromManual } = await import("../src/llm.mjs");
   const store = freshStore();
   loadManualFaq(store);
-  const r = await answerFromManual({ store, question: "처음 와서 좀 막막해요", provider: "codex_cli" });
+  const r = await answerFromManual({ store, question: "처음 와서 좀 막막해요", provider: "stub" });
   assert.equal(r.llm, false);
   assert.equal(r.matched, false);
   assert.ok(r.candidates.length > 0, "약매칭 후보는 유지");
   const llmCalls = store.db.prepare("SELECT COUNT(*) c FROM event_log WHERE kind='llm_call'").get().c;
-  assert.equal(llmCalls, 0, "약매칭은 LLM 호출 자체를 하지 않음");
+  assert.equal(llmCalls, 0, "stub 약매칭은 LLM 호출 자체를 하지 않음");
 });
 
 test("LLM 어댑터: Ollama 호출은 thinking 출력을 끄고 모델 태그를 기록한다", async () => {
@@ -2716,6 +2765,61 @@ test("챗봇 UI: 새 대화 thread id 는 timestamp 단독이 아니라 랜덤 s
   assert.match(app, /function newChatThreadId\(\)/);
   assert.match(app, /crypto\.getRandomValues|Math\.random/);
   assert.doesNotMatch(app, /state\.chatThread = `th_\$\{Date\.now\(\)\.toString\(36\)\}`/);
+});
+
+test("챗봇 UI: 추천 질문은 말풍선 밖에 두고 응답 중 중복 전송을 막는다", () => {
+  const app = readFileSync(join(APP_DIR, "static", "app.js"), "utf8");
+  const css = readFileSync(join(APP_DIR, "static", "style.css"), "utf8");
+  assert.match(app, /let pending = false/);
+  assert.match(app, /sendBtn\.disabled = v/);
+  assert.match(app, /chat-status/);
+  assert.match(app, /role="status" aria-live="polite"/);
+  assert.match(app, /role="log" aria-live="polite" aria-busy="false"/);
+  assert.match(app, /chat_wait_queued_status/);
+  assert.match(app, /chat_wait_preparing_status/);
+  assert.match(app, /chat_wait_slow_status/);
+  assert.match(app, /CHAT_PENDING_MIN_MS = 700/);
+  assert.match(app, /nextPaintFrame/);
+  assert.match(app, /waitPendingMinimum/);
+  assert.match(app, /await nextPaintFrame\(\)/);
+  assert.match(app, /await waitPendingMinimum\(pendingStartedAt\)/);
+  assert.match(app, /waitTimers = \[/);
+  assert.match(app, /replacePending/);
+  assert.match(app, /finalStatus = L\.chat_error_retry/);
+  assert.match(app, /if \(finalStatus\) statusEl\.textContent = finalStatus/);
+  assert.match(app, /chat-typing/);
+  assert.match(app, /handled_by_llm/);
+  assert.match(app, /<div class="chat-row \$\{m\.role\}"><div class="chat-msg \$\{m\.role\}">/);
+  assert.doesNotMatch(app, /\$\{src\}\$\{cand\}<\/div>`/, "후보 버튼을 말풍선 내부에 붙이지 않음");
+  assert.match(css, /\.chat-row/);
+  assert.match(css, /\.chat-msg\.pending/);
+  assert.match(css, /@keyframes chatTyping/);
+  assert.match(css, /prefers-reduced-motion: reduce/);
+  assert.match(css, /\.chat-cands \{[^}]*flex-wrap: wrap/s);
+  assert.match(css, /\.chat-input \{[^}]*flex: 0 0 auto/s);
+});
+
+test("챗봇 API: 처리 예외가 나도 사용자에게 안전한 JSON 폴백을 주는 경로가 있다", () => {
+  const server = readFileSync(join(APP_DIR, "server.mjs"), "utf8");
+  assert.match(server, /\[dev-erp\] chat failed:/);
+  assert.match(server, /chat_error_fallback/);
+  assert.match(server, /챗봇 응답이 잠깐 실패했어요/);
+});
+
+test("챗봇 UI: 플로팅 패널은 이동·접기·크기조절이 가능하고 화면 작업을 막지 않는다", () => {
+  const app = readFileSync(join(APP_DIR, "static", "app.js"), "utf8");
+  const css = readFileSync(join(APP_DIR, "static", "style.css"), "utf8");
+  const chat = app.slice(app.indexOf("function openChat()"), app.indexOf("function uiConfirm("));
+  assert.match(app, /dev_erp_chat_dock/);
+  assert.match(chat, /class="chat-collapse"/);
+  assert.match(chat, /addEventListener\("pointerdown"/);
+  assert.match(chat, /addEventListener\("pointermove"/);
+  assert.match(chat, /ResizeObserver/);
+  assert.doesNotMatch(chat, /if \(e\.target === ov\) close\(\)/, "챗봇은 패널 밖 클릭으로 닫히지 않아야 함");
+  assert.match(css, /\.chat-overlay \{[^}]*pointer-events: none/s);
+  assert.match(css, /\.chat-panel \{[^}]*resize: both/s);
+  assert.match(css, /\.chat-panel\.collapsed/);
+  assert.match(css, /\.chat-head \{[^}]*cursor: move/s);
 });
 
 // #13 캘린더 .ics 내보내기 — 마감 있는 미완 항목만 종일 VEVENT, person 필터(원문 미포함).

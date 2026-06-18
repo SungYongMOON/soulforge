@@ -15,6 +15,7 @@ const state = {
   mineOnly: localStorage.getItem("dev_erp_mine") !== "0", // 내 할 일: 기본 '내 일만'(로그인 시). 익명이면 무시.
   chatLog: [],
   chatThread: null,
+  chatDock: JSON.parse(localStorage.getItem("dev_erp_chat_dock") || "{}"),
   poProject: "",
   poParty: "",
   ctProject: "",
@@ -1754,52 +1755,199 @@ function openChat() {
   const ov = document.createElement("div");
   ov.className = "chat-overlay";
   if (!state.chatThread) state.chatThread = newChatThreadId();
-  ov.innerHTML = `<div class="chat-panel" role="dialog" aria-label="${L.chat_title}">
+  ov.innerHTML = `<div class="chat-panel" role="complementary" aria-label="${L.chat_title}" aria-busy="false">
     <div class="chat-head"><strong>${L.chat_title}</strong><span class="dim">${L.chat_note}</span>
-      <button class="chat-new" title="${L.chat_new}">${L.chat_new}</button><button class="chat-x">✕</button></div>
-    <div class="chat-log"></div>
+      <button class="chat-new" title="${L.chat_new}">${L.chat_new}</button><button class="chat-collapse" title="접기/펼치기" aria-label="접기/펼치기" aria-expanded="true">-</button><button class="chat-x">✕</button></div>
+    <div class="chat-log" role="log" aria-live="polite" aria-busy="false"></div>
+    <div class="chat-status" role="status" aria-live="polite"></div>
     <div class="chat-input"><input id="chatMsg" placeholder="${L.chat_placeholder}" /><button id="chatSend" class="fav-chip">${L.chat_send}</button></div>
   </div>`;
   document.body.appendChild(ov);
+  const panel = ov.querySelector(".chat-panel");
+  const headEl = ov.querySelector(".chat-head");
+  const headNote = ov.querySelector(".chat-head .dim");
   const logEl = ov.querySelector(".chat-log");
+  const statusEl = ov.querySelector(".chat-status");
+  const inputEl = ov.querySelector("#chatMsg");
+  const sendBtn = ov.querySelector("#chatSend");
+  const collapseBtn = ov.querySelector(".chat-collapse");
+  const saveDock = () => localStorage.setItem("dev_erp_chat_dock", JSON.stringify(state.chatDock || {}));
+  const clamp = (n, min, max) => Math.min(Math.max(n, min), max);
+  const applyDock = () => {
+    const d = state.chatDock || {};
+    if (Number.isFinite(d.x) && Number.isFinite(d.y)) {
+      ov.style.left = `${d.x}px`; ov.style.top = `${d.y}px`; ov.style.right = "auto"; ov.style.bottom = "auto";
+    }
+    if (Number.isFinite(d.w)) panel.style.width = `${clamp(d.w, 320, window.innerWidth - 16)}px`;
+    if (Number.isFinite(d.h)) panel.style.height = `${clamp(d.h, 360, window.innerHeight - 16)}px`;
+  };
+  const setCollapsed = (v) => {
+    state.chatDock = { ...(state.chatDock || {}), collapsed: !!v };
+    panel.classList.toggle("collapsed", !!v);
+    collapseBtn.textContent = v ? "+" : "-";
+    collapseBtn.setAttribute("aria-expanded", String(!v));
+    saveDock();
+  };
+  applyDock();
+  setCollapsed(!!state.chatDock?.collapsed);
+  let pending = false;
+  let activePendingId = null;
+  let waitTimers = [];
+  const CHAT_PENDING_MIN_MS = 700;
+  const nextPaintFrame = () => new Promise((resolve) => {
+    if (typeof window.requestAnimationFrame === "function") window.requestAnimationFrame(() => resolve());
+    else setTimeout(resolve, 16);
+  });
+  const waitPendingMinimum = (startedAt) => new Promise((resolve) => {
+    const elapsed = performance.now() - startedAt;
+    setTimeout(resolve, Math.max(0, CHAT_PENDING_MIN_MS - elapsed));
+  });
+  const pendingLabel = (stage) => stage === "slow" ? L.chat_wait_slow : (stage === "working" ? L.chat_wait_working : (stage === "queued" ? L.chat_wait_queued : L.chat_wait_preparing));
+  const pendingStatus = (stage) => stage === "slow" ? L.chat_wait_slow_status : (stage === "working" ? L.chat_wait_working_status : (stage === "queued" ? L.chat_wait_queued_status : L.chat_wait_preparing_status));
+  const clearWaitTimers = () => { waitTimers.forEach(clearTimeout); waitTimers = []; };
+  const setWaitStage = (stage) => {
+    const m = state.chatLog.find((x) => x.pending && x.id === activePendingId);
+    if (!m) return;
+    m.wait_stage = stage;
+    statusEl.textContent = pendingStatus(stage);
+    headNote.textContent = pendingLabel(stage);
+    paint();
+  };
+  const setPending = (v) => {
+    pending = v;
+    sendBtn.disabled = v;
+    panel.setAttribute("aria-busy", String(v));
+    logEl.setAttribute("aria-busy", String(v));
+    clearWaitTimers();
+    if (v) {
+      statusEl.textContent = pendingStatus("queued");
+      headNote.textContent = pendingLabel("queued");
+      waitTimers = [
+        setTimeout(() => setWaitStage("preparing"), 600),
+        setTimeout(() => setWaitStage("working"), 1600),
+        setTimeout(() => setWaitStage("slow"), 8000),
+      ];
+    } else {
+      statusEl.textContent = "";
+      headNote.textContent = L.chat_note;
+      activePendingId = null;
+    }
+  };
   const paint = () => {
     logEl.innerHTML = state.chatLog.length
       ? state.chatLog.map((m) => {
+          if (m.pending) {
+            const txt = pendingLabel(m.wait_stage);
+            return `<div class="chat-row ai pending"><div class="chat-msg ai pending" aria-label="${esc(txt)}"><span>${esc(txt)}</span><span class="chat-typing" aria-hidden="true"><i></i><i></i><i></i></span></div></div>`;
+          }
           const src = m.source ? `<div class="chat-src">📖 ${esc(m.source.topic ?? "")} · ${esc(m.source.question ?? "")}</div>`
-            : (m.role === "ai" && m.matched === false ? `<div class="chat-src dim">${L.chat_unmatched}</div>` : "");
+            : (m.role === "ai" && m.matched === false && !m.handled_by_llm ? `<div class="chat-src dim">${L.chat_unmatched}</div>` : "");
           // 약매칭/미매칭 후보 → 눌러서 바로 그 매뉴얼 질문으로 다시 묻기(끊기지 않게).
           const cand = (m.role === "ai" && !m.matched && Array.isArray(m.candidates) && m.candidates.length)
             ? `<div class="chat-cands">${m.candidates.map((c) => `<button class="fav-chip chat-cand" data-q="${esc(c.question)}">${esc(c.question)}</button>`).join("")}</div>` : "";
-          return `<div class="chat-msg ${m.role}"><span>${esc(m.text)}</span>${src}${cand}</div>`;
+          return `<div class="chat-row ${m.role}"><div class="chat-msg ${m.role}"><span>${esc(m.text)}</span>${src}</div>${cand}</div>`;
         }).join("")
       : `<div class="empty small">${L.chat_empty}</div>`;
     logEl.scrollTop = logEl.scrollHeight;
   };
   paint();
   const close = () => ov.remove();
-  ov.addEventListener("click", (e) => { if (e.target === ov) close(); });
   ov.querySelector(".chat-x").addEventListener("click", close);
+  collapseBtn.addEventListener("click", () => {
+    setCollapsed(!state.chatDock?.collapsed);
+    if (!state.chatDock?.collapsed) inputEl.focus();
+  });
+  let suppressHeadClick = false;
+  let drag = null;
+  const rememberSize = () => {
+    if (state.chatDock?.collapsed) return;
+    const r = panel.getBoundingClientRect();
+    state.chatDock = { ...(state.chatDock || {}), w: Math.round(r.width), h: Math.round(r.height) };
+    saveDock();
+  };
+  new ResizeObserver(rememberSize).observe(panel);
+  const moveDock = (x, y, w, h) => {
+    const nx = clamp(x, 8, Math.max(8, window.innerWidth - w - 8));
+    const ny = clamp(y, 8, Math.max(8, window.innerHeight - h - 8));
+    ov.style.left = `${nx}px`; ov.style.top = `${ny}px`; ov.style.right = "auto"; ov.style.bottom = "auto";
+    state.chatDock = { ...(state.chatDock || {}), x: Math.round(nx), y: Math.round(ny) };
+    saveDock();
+  };
+  const onDragMove = (e) => {
+    if (!drag) return;
+    const dx = e.clientX - drag.startX;
+    const dy = e.clientY - drag.startY;
+    if (Math.abs(dx) + Math.abs(dy) > 4) drag.moved = true;
+    moveDock(e.clientX - drag.offsetX, e.clientY - drag.offsetY, drag.width, drag.height);
+  };
+  const onDragUp = () => {
+    if (drag?.moved) suppressHeadClick = true;
+    drag = null;
+    document.removeEventListener("pointermove", onDragMove);
+    document.removeEventListener("pointerup", onDragUp);
+  };
+  headEl.addEventListener("pointerdown", (e) => {
+    if (e.button !== 0 || e.target.closest("button")) return;
+    const r = panel.getBoundingClientRect();
+    drag = { startX: e.clientX, startY: e.clientY, offsetX: e.clientX - r.left, offsetY: e.clientY - r.top, width: r.width, height: r.height, moved: false };
+    document.addEventListener("pointermove", onDragMove);
+    document.addEventListener("pointerup", onDragUp);
+  });
+  headEl.addEventListener("click", (e) => {
+    if (e.target.closest("button")) return;
+    if (suppressHeadClick) { suppressHeadClick = false; return; }
+    setCollapsed(!state.chatDock?.collapsed);
+    if (!state.chatDock?.collapsed) inputEl.focus();
+  });
   // /new: 새 대화 — 스레드 리셋(로컬 LLM 스레드 오염 방지). 로그는 서버에 남아 야간 갱신에 쓰임.
   ov.querySelector(".chat-new").addEventListener("click", () => {
+    if (pending) return;
     state.chatLog = []; state.chatThread = newChatThreadId(); paint();
-    ov.querySelector("#chatMsg").focus();
+    inputEl.focus();
   });
   const send = async () => {
-    const inp = ov.querySelector("#chatMsg");
-    const msg = inp.value.trim(); if (!msg) return;
-    if (msg === "/new") { state.chatLog = []; state.chatThread = newChatThreadId(); inp.value = ""; paint(); return; }
-    state.chatLog.push({ role: "user", text: msg }); inp.value = ""; paint();
-    const r = await post("/api/chat", { message: msg, thread_id: state.chatThread }).then((x) => x.json()).catch(() => ({ text: "(오류)" }));
-    state.chatLog.push({ role: "ai", text: r.text || "(응답 없음)", source: r.source, matched: r.matched, candidates: r.candidates }); paint();
+    if (pending) return;
+    const msg = inputEl.value.trim(); if (!msg) return;
+    if (msg === "/new") { state.chatLog = []; state.chatThread = newChatThreadId(); inputEl.value = ""; paint(); return; }
+    const pendingId = `pending_${Date.now().toString(36)}_${Math.random().toString(36).slice(2, 7)}`;
+    const replacePending = (entry) => {
+      const i = state.chatLog.findIndex((m) => m.pending && m.id === pendingId);
+      if (i >= 0) state.chatLog.splice(i, 1, entry);
+      else state.chatLog.push(entry);
+    };
+    activePendingId = pendingId;
+    let finalStatus = "";
+    let finalEntry = null;
+    const pendingStartedAt = performance.now();
+    state.chatLog.push({ role: "user", text: msg }, { role: "ai", pending: true, wait_stage: "queued", id: pendingId });
+    inputEl.value = ""; paint(); setPending(true);
+    try {
+      await nextPaintFrame();
+      const resp = await post("/api/chat", { message: msg, thread_id: state.chatThread });
+      const r = await resp.json().catch(() => ({}));
+      if (!resp.ok) throw new Error(r.error || "chat_failed");
+      finalEntry = { role: "ai", text: r.text || L.chat_empty_reply, source: r.source, matched: r.matched, candidates: r.candidates || [], llm: r.llm, handled_by_llm: r.handled_by_llm };
+    } catch {
+      finalEntry = { role: "ai", text: L.chat_error_retry, matched: false, candidates: [] };
+      finalStatus = L.chat_error_retry;
+    } finally {
+      await waitPendingMinimum(pendingStartedAt);
+      if (finalEntry) replacePending(finalEntry);
+      setPending(false);
+      if (finalStatus) statusEl.textContent = finalStatus;
+      paint();
+      inputEl.focus();
+    }
   };
-  ov.querySelector("#chatSend").addEventListener("click", send);
-  ov.querySelector("#chatMsg").addEventListener("keydown", (e) => { if (e.key === "Enter") send(); });
+  sendBtn.addEventListener("click", send);
+  inputEl.addEventListener("keydown", (e) => { if (e.key === "Enter") send(); });
   // 후보 칩 클릭 → 그 질문으로 즉시 재질의(끊기지 않는 흐름).
   logEl.addEventListener("click", (e) => {
     const b = e.target.closest(".chat-cand"); if (!b) return;
-    const inp = ov.querySelector("#chatMsg"); inp.value = b.dataset.q || ""; send();
+    if (pending) return;
+    inputEl.value = b.dataset.q || ""; send();
   });
-  ov.querySelector("#chatMsg").focus();
+  if (!state.chatDock?.collapsed) inputEl.focus();
 }
 
 // 화면 정중앙 확인 모달 (native confirm 은 위치 제어 불가 → 커스텀). Promise<boolean> 반환.

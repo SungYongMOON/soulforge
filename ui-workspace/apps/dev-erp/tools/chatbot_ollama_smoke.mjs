@@ -31,6 +31,13 @@ const CASES = {
     ["회의 액션아이템은 자동으로 할 일이 돼요?", "man-meeting-action-items"],
     ["올라마나 젬마가 너무 느릴 때는 어떻게 해요?", "man-llm-slow"],
   ],
+  meta: [
+    { question: "너 살아있어?", must: /살아|응답|답변|챗봇|질문/ },
+    { question: "너 뭐 할수있어?", must: /ERP|매뉴얼|과제|메일|사용법|화면/ },
+    { question: "와 답변이 너무 빠른데", must: /자세히|예시|단계|설정.*필요.*없|직접.*변경.*필요.*없/, mustNot: /ERP_CHAT_MAX_TOKENS|OLLAMA_HOST/ },
+    { question: "그런건 내가 설정할수 있는게 아닌데?", must: /관리자|운영자|전달|직접.*(바꾸|변경).*없/, mustNot: /직접.*ERP_CHAT|직접.*OLLAMA_HOST/ },
+    { question: "계속 질문하니 멈추네.", must: /한\s*번만|새 대화|관리자|반복/ },
+  ],
 };
 
 function loadManual(store) {
@@ -46,6 +53,15 @@ function evaluate(result, expectedId, provider) {
   const sourceId = result.source?.id ?? null;
   const providerOk = provider === "stub" || result.llm === true;
   return Boolean(result.ok !== false && result.matched && providerOk && sourceId === expectedId);
+}
+
+function evaluateMeta(result, spec, provider) {
+  const text = visibleText(result).replace(/\s+/g, " ");
+  const providerOk = provider === "stub" || result.llm === true;
+  const assistOk = provider === "stub" || result.handled_by_llm === true;
+  const mustOk = spec.must ? spec.must.test(text) : true;
+  const mustNotOk = spec.mustNot ? !spec.mustNot.test(text) : true;
+  return Boolean(result.ok !== false && providerOk && assistOk && mustOk && mustNotOk);
 }
 
 async function askSequential({ store, label, cases, provider, failures }) {
@@ -97,6 +113,30 @@ async function askConcurrent({ store, cases, provider, failures }) {
   console.log(`concurrent: ${results.filter((result) => result.ok).length}/${cases.length}`);
 }
 
+async function askMeta({ store, cases, provider, failures }) {
+  console.log("\n## meta");
+  let pass = 0;
+  for (const spec of cases) {
+    const result = await answerFromManual({ store, question: spec.question, provider });
+    const ok = evaluateMeta(result, spec, provider);
+    if (ok) pass += 1;
+    else failures.push({ label: "meta", question: spec.question, mode: result.mode, handled_by_llm: result.handled_by_llm, answer: visibleText(result).slice(0, 220) });
+    console.log(JSON.stringify({
+      ok,
+      question: spec.question,
+      sourceId: result.source?.id ?? null,
+      matched: result.matched,
+      mode: result.mode,
+      handled_by_llm: result.handled_by_llm,
+      llm: result.llm,
+      provider: result.provider,
+      model: result.model,
+      answer: visibleText(result).replace(/\s+/g, " ").slice(0, 220),
+    }, null, 2));
+  }
+  console.log(`meta: ${pass}/${cases.length}`);
+}
+
 async function main() {
   const provider = process.argv.includes("--stub") ? "stub" : "ollama";
   const store = openStore(":memory:");
@@ -105,6 +145,7 @@ async function main() {
   await askSequential({ store, label: "learner", cases: CASES.learner, provider, failures });
   await askSequential({ store, label: "power", cases: CASES.power, provider, failures });
   await askConcurrent({ store, cases: CASES.concurrent, provider, failures });
+  await askMeta({ store, cases: CASES.meta, provider, failures });
   if (failures.length) {
     console.error("\nchatbot smoke failures");
     console.error(JSON.stringify(failures, null, 2));

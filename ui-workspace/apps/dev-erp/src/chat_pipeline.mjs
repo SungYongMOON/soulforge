@@ -4,6 +4,11 @@ export const CHAT_CONTEXT_TURNS_MAX = 10;
 export const CHAT_RETRIEVAL_LIMIT_DEFAULT = 3;
 export const CHAT_RETRIEVAL_LIMIT_MAX = 10;
 
+function envBool(value, fallback) {
+  if (value === undefined || value === null || value === "") return fallback;
+  return !/^(0|false|off|no)$/i.test(String(value).trim());
+}
+
 function clampInt(value, fallback, min, max) {
   const n = Number(value);
   if (!Number.isFinite(n)) return fallback;
@@ -17,6 +22,7 @@ export function chatPipelineConfig(env = process.env) {
     strong_norm: Number.isFinite(Number(env.ERP_CHAT_STRONG_NORM)) ? Number(env.ERP_CHAT_STRONG_NORM) : 0.5,
     strong_score: Number.isFinite(Number(env.ERP_CHAT_STRONG_SCORE)) ? Number(env.ERP_CHAT_STRONG_SCORE) : 2,
     followup_score: Number.isFinite(Number(env.ERP_CHAT_FOLLOWUP_SCORE)) ? Number(env.ERP_CHAT_FOLLOWUP_SCORE) : 0.6,
+    llm_assist_weak: envBool(env.ERP_CHAT_LLM_ASSIST_WEAK, true),
   };
 }
 
@@ -92,6 +98,21 @@ function rerankHitsForFollowup(store, hits = [], weights = new Map(), currentQue
   });
 }
 
+function isStrongHit(hit, config, contextual = false) {
+  return !!hit && (
+    hit.norm >= config.strong_norm ||
+    hit.score >= config.strong_score ||
+    (contextual && hit.score >= config.followup_score)
+  );
+}
+
+function isPinnedCurrentHit(hit, config) {
+  return !!hit && (
+    hit.norm >= Math.max(0.85, config.strong_norm) ||
+    hit.score >= Math.max(3, config.strong_score)
+  );
+}
+
 function makeRetrievalAnswer({ q, hits, top, strong, context_used, contextQuestions, effectiveQuestion, trace }) {
   const candidates = hits.map((h) => ({ id: h.faq.id, topic: h.faq.topic, question: h.faq.question }));
   if (strong) {
@@ -143,7 +164,7 @@ function makeRetrievalAnswer({ q, hits, top, strong, context_used, contextQuesti
 export function runManualRetrievalPipeline({ store, question, thread_id = null, actor_ref = null, config = chatPipelineConfig() } = {}) {
   const trace = {
     id: PIPELINE_ID,
-    config: { context_turns: config.context_turns, retrieval_limit: config.retrieval_limit },
+    config: { context_turns: config.context_turns, retrieval_limit: config.retrieval_limit, llm_assist_weak: config.llm_assist_weak },
     steps: [],
     context_used: false,
     matched_faq_id: null,
@@ -166,21 +187,25 @@ export function runManualRetrievalPipeline({ store, question, thread_id = null, 
   const poolLimit = contextAllowed ? Math.max(config.retrieval_limit, 8) : config.retrieval_limit;
   let hits = rerankHitsForFollowup(store, store.retrieveFaqMany(q, poolLimit), contextAllowed ? weights : new Map(), contextAllowed ? q : "")
     .slice(0, config.retrieval_limit);
+  const directPinned = isPinnedCurrentHit(hits[0], config);
   trace.steps.push(step("retrieve", hits.length ? "ok" : "empty", { n: hits.length }));
 
   if (contextAllowed) {
-    trace.context_used = true;
-    effectiveQuestion = contextRetrievalQuestion(q, contextQuestions, config.context_turns);
-    const contextHits = rerankHitsForFollowup(store, store.retrieveFaqMany(effectiveQuestion, poolLimit), weights, q)
+    const contextQuestion = contextRetrievalQuestion(q, contextQuestions, config.context_turns);
+    const contextHits = rerankHitsForFollowup(store, store.retrieveFaqMany(contextQuestion, poolLimit), weights, q)
       .slice(0, config.retrieval_limit);
-    if (contextHits.length) hits = contextHits;
+    if (contextHits.length && !directPinned) {
+      hits = contextHits;
+      effectiveQuestion = contextQuestion;
+      trace.context_used = true;
+    }
     trace.steps.push(step("context_retrieve", contextHits.length ? "ok" : "empty", { n: contextHits.length }));
   } else {
     trace.steps.push(step("context_retrieve", "skipped"));
   }
 
   const top = hits[0] || null;
-  const strong = top && (top.norm >= config.strong_norm || top.score >= config.strong_score || (trace.context_used && top.score >= config.followup_score));
+  const strong = isStrongHit(top, config, trace.context_used);
   const matchedId = strong ? top.faq.id : null;
   trace.matched_faq_id = matchedId;
   trace.steps.push(step("match", strong ? "ok" : "weak_or_empty", { matched_faq_id: matchedId }));
@@ -190,9 +215,9 @@ export function runManualRetrievalPipeline({ store, question, thread_id = null, 
 
   const result = makeRetrievalAnswer({ q, hits, top, strong, context_used: trace.context_used, contextQuestions, effectiveQuestion, trace });
   if (!result.text) {
-    const topics = [...new Set(store.faqs().map((f) => f.topic).filter(Boolean))];
-    const hint = topics.length ? ` 참고로 지금 정리된 주제는 ${topics.join(", ")} 쪽이에요.` : "";
-    result.text = `아직 매뉴얼에 정리되지 않은 내용이라 정확히 답드리긴 어렵네요. 질문은 저장해 두었고, 야간에 매뉴얼이 보강됩니다.${hint} 혹시 관련된 주제로 다시 여쭤봐 주실래요?`;
+    const topics = [...new Set(store.faqs().map((f) => f.topic).filter(Boolean))].slice(0, 8);
+    const hint = topics.length ? ` 지금은 ${topics.join(", ")} 같은 주제를 잘 답합니다.` : "";
+    result.text = `아직 매뉴얼에 정리되지 않은 질문이에요. 질문은 저장해 두었고 야간 보강 대상에 들어갑니다.${hint} 화면 이름이나 하고 싶은 일을 한 단어만 더 붙여 다시 물어봐 주세요.`;
   }
   trace.mode = result.matched ? "retrieval_match" : (hits.length ? "retrieval_candidates" : "retrieval_empty");
   trace.steps.push(step("compose_retrieval", "ok"));
@@ -213,22 +238,42 @@ export async function runManualAnswerPipeline({
   const base = runManualRetrievalPipeline({ store, question, thread_id, actor_ref, config });
   if (base.error) return base;
   const wantLlm = provider && provider !== "stub";
-  const hits = store.retrieveFaqMany(base.effective_question || question, config.retrieval_limit);
-  base.pipeline.steps.push(step("llm_gate", wantLlm && base.matched && hits.length ? "ok" : "skipped"));
-  if (wantLlm && base.matched && hits.length && typeof runLlm === "function" && typeof buildPrompt === "function") {
-    const prompt = buildPrompt(question, hits, base.context_questions || []);
+  const promptHits = (base.candidates || [])
+    .map((c) => faqById(store, c.id))
+    .filter(Boolean)
+    .map((faq, idx) => ({ faq, score: Math.max(0, config.retrieval_limit - idx), norm: 1 }));
+  const canLlm = wantLlm && typeof runLlm === "function" && typeof buildPrompt === "function";
+  const shouldLlm = canLlm && (base.matched || config.llm_assist_weak);
+  base.pipeline.steps.push(step("llm_gate", shouldLlm ? "ok" : "skipped", { matched: base.matched, weak_assist: !base.matched && !!config.llm_assist_weak }));
+  if (shouldLlm) {
+    const prompt = buildPrompt(question, promptHits, base.context_questions || [], {
+      matched: base.matched,
+      source_id: base.source?.id ?? null,
+      candidates: base.candidates || [],
+      mode: base.matched ? "grounded" : "assist",
+    });
     const r = await runLlm({ provider, user: prompt, context: null }, { store });
     if (r.delivered) {
-      base.pipeline.mode = "rag";
+      base.pipeline.mode = base.matched ? "rag" : "llm_assist";
       base.pipeline.steps.push(step("llm_answer", "ok", { provider, model: r.model ?? null }));
       base.pipeline_public = publicTrace(base.pipeline);
-      return { ...base, text: r.text, mode: "rag", external: r.external, provider, model: r.model ?? null, llm: true };
+      return {
+        ...base,
+        text: r.text,
+        candidates: base.matched ? base.candidates : [],
+        mode: base.pipeline.mode,
+        external: r.external,
+        provider,
+        model: r.model ?? null,
+        llm: true,
+        handled_by_llm: !base.matched,
+      };
     }
     base.pipeline.steps.push(step("llm_answer", "fallback"));
   } else {
     base.pipeline.steps.push(step("llm_answer", "skipped"));
   }
-  base.pipeline.mode = hits.length ? "retrieval" : "retrieval_empty";
+  base.pipeline.mode = promptHits.length ? "retrieval" : "retrieval_empty";
   base.pipeline_public = publicTrace(base.pipeline);
   return { ...base, mode: base.pipeline.mode, external: false, provider, model: null, llm: false };
 }

@@ -907,8 +907,8 @@
     "id": "man-llm-slow",
     "topic": "챗봇",
     "question": "Ollama나 Gemma 챗봇 답변이 너무 느리면 어떻게 하나요?",
-    "answer": "챗봇은 먼저 매뉴얼을 검색하고, 로컬 Ollama/Gemma가 붙어 있으면 그 근거 안에서 표현만 다듬습니다. 느리면 운영자가 `ERP_CHAT_MAX_TOKENS`를 160~240 정도로 낮추거나, 더 작은 모델을 쓰거나, `ERP_LLM_CONCURRENCY=1`로 동시 호출을 제한해 검색 폴백으로 끊기지 않게 운영합니다. GPU PC와 ERP 서버가 다른 머신이면 같은 LAN/Tailscale 안에서 `OLLAMA_HOST`를 신뢰 가능한 주소로만 둡니다.",
-    "keywords": "올라마 느림, Ollama 느림, 젬마 느림, Gemma 느림, 챗봇 느림, 답변 느림, 로컬 LLM, ERP_CHAT_MAX_TOKENS, ERP_LLM_CONCURRENCY, OLLAMA_HOST, timeout, queue, 토큰 줄이기",
+    "answer": "일반 팀원은 속도 설정을 직접 바꾸지 않습니다. 답이 너무 느리면 같은 질문을 여러 번 보내기보다 잠시 기다린 뒤 한 번만 다시 보내고, 반복되면 질문 내용과 시간을 관리자에게 알려 주세요. 운영자는 필요할 때 `ERP_CHAT_MAX_TOKENS`를 160~240 정도로 낮추거나, 더 작은 모델을 쓰거나, `ERP_LLM_CONCURRENCY=1`로 동시 호출을 제한해 검색 폴백으로 끊기지 않게 조정합니다. GPU PC와 ERP 서버가 다른 머신이면 같은 LAN/Tailscale 안에서 `OLLAMA_HOST`를 신뢰 가능한 주소로만 둡니다.",
+    "keywords": "올라마 느림, Ollama 느림, 젬마 느림, Gemma 느림, 챗봇 느림, 답변 느림, 느릴 때, 느려요, 느린 답변, 로컬 LLM, ERP_CHAT_MAX_TOKENS, ERP_LLM_CONCURRENCY, OLLAMA_HOST, timeout, queue, 토큰 줄이기, 팀원은 설정 못함",
     "pointer": "mod:knowledge"
   },
   {

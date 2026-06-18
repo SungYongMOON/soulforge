@@ -2,6 +2,12 @@
 
 ## 2026-06-18
 
+### Revision `working` - dev-erp floating chatbot window
+
+- Changed the chatbot from a blocking modal overlay into an always-on-top
+  floating utility window that can be moved, collapsed/expanded, and resized
+  while the rest of the ERP remains usable.
+
 ### Revision `working` - dev-erp runtime maintenance and recovery
 
 - Added `tools/runtime_ops.mjs` and npm scripts for runtime health checks,
@@ -61,6 +67,25 @@
   questions run contextual retrieval even when the standalone question has a
   weak-but-wrong match, with topic-recency reranking to prefer the current
   conversation topic.
+- Replaced phrase-specific chatbot FAQs for "alive?", "what can you do?",
+  too-fast/too-short answers, non-user-changeable settings, and stuck/error
+  reports with an LLM assist path: manuals stay focused on ERP feature facts,
+  while the local model interprets chatbot/runtime/user-feedback utterances
+  from bounded runtime principles.
+- Updated the LLM prompt and answer pipeline to transform operator-only
+  `ERP_CHAT_*`/Ollama settings into administrator escalation guidance when the
+  user is asking as a team member, without forcing those utterances into manual
+  FAQ source ids.
+- Moved weak-match recommended questions outside the chat message bubble,
+  added an in-progress status line, disabled duplicate sends while a reply is
+  pending, and added a `/api/chat` JSON fallback for chatbot processing errors.
+- Added visible chatbot waiting states: an immediate "answer preparing" AI
+  placeholder bubble, explicit sent/queued state, timed "checking manual/local
+  model" and "taking longer" status updates, `role=status`/`aria-busy`
+  accessibility hints, reduced-motion typing dots, and in-place replacement
+  with the final answer or retry guidance. Fast fallback replies now keep the
+  pending bubble visible for a short minimum so punctuation-only test messages
+  such as `.....` or `~~~` do not look frozen.
 
 ### Revision `working` - dev-erp runtime release audit gate
 

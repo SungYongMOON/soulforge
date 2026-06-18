@@ -545,12 +545,34 @@ const server = createServer(async (req, res) => {
     // provider는 ERP_CHAT_PROVIDER 환경변수로 주입(기본 stub=외부0). 야간 매뉴얼 갱신은 별도 고급 LLM.
     if (path === "/api/chat" && req.method === "POST") {
       let body = ""; for await (const chunk of req) body += chunk;
-      const { message, thread_id } = JSON.parse(body || "{}");
+      let parsed = {};
+      try { parsed = JSON.parse(body || "{}"); }
+      catch { return send(res, 400, { error: "invalid_json" }); }
+      const { message, thread_id } = parsed;
       const provider = process.env.ERP_CHAT_PROVIDER || "stub";
-      const r = await answerFromManual({ store, question: message, thread_id, actor_ref: actor, provider });
+      let r;
+      try {
+        r = await answerFromManual({ store, question: message, thread_id, actor_ref: actor, provider });
+      } catch (error) {
+        console.error("[dev-erp] chat failed:", error?.stack ?? error);
+        try { store.logChatQuery({ actor_ref: actor, thread_id, question: message, matched_faq_id: null }); } catch { /* best effort */ }
+        r = {
+          text: "챗봇 응답이 잠깐 실패했어요. 같은 질문을 한 번만 다시 보내고, 반복되면 새 대화로 다시 시작해 주세요.",
+          matched: false,
+          source: null,
+          candidates: [],
+          mode: "chat_error_fallback",
+          external: false,
+          provider,
+          model: null,
+          llm: false,
+          handled_by_llm: false,
+          context_used: false,
+        };
+      }
       if (r.error) return send(res, 400, r);
       store.appendEvent({ actor_ref: actor, actor_kind: "human", kind: "chat_query", to: r.matched ? "matched" : "unanswered", used_refs: ["chat", "faq"], data_label: "meta", note: thread_id ? `thread=${thread_id}` : null });
-      return send(res, 200, { text: r.text, matched: r.matched, source: r.source, candidates: r.candidates || [], mode: r.mode, external: r.external, provider: r.provider, model: r.model, llm: r.llm, context_used: r.context_used || false, pipeline: r.pipeline_public || null });
+      return send(res, 200, { text: r.text, matched: r.matched, source: r.source, candidates: r.candidates || [], mode: r.mode, external: r.external, provider: r.provider, model: r.model, llm: r.llm, handled_by_llm: r.handled_by_llm || false, context_used: r.context_used || false, pipeline: r.pipeline_public || null });
     }
     if (path === "/api/faq" && req.method === "GET") return send(res, 200, store.faqs({ topic: qp.topic }));
     if (path === "/api/faq" && req.method === "POST") {

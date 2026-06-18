@@ -721,17 +721,36 @@ nav button[disabled]:hover { background: transparent; }
 .gate-mode { display: flex; align-items: center; gap: 6px; margin-bottom: 12px; }
 .gate-reasons { font-size: 11px; margin-top: 3px; }
 /* A7 ERP 챗봇 패널 */
-.chat-overlay { position: fixed; inset: 0; background: rgba(0,0,0,.35); z-index: 220; display: flex; align-items: flex-end; justify-content: flex-end; padding: 16px; }
-.chat-panel { background: var(--panel); border: 1px solid var(--line); border-radius: 14px; width: min(420px, 94vw); height: min(560px, 80vh); display: flex; flex-direction: column; box-shadow: 0 18px 50px rgba(0,0,0,.35); overflow: hidden; }
-.chat-head { display: flex; align-items: center; gap: 8px; padding: 12px 14px; border-bottom: 1px solid var(--line); }
+.chat-overlay { position: fixed; right: 16px; bottom: 16px; z-index: 720; width: min(420px, calc(100vw - 32px)); height: min(560px, calc(100vh - 32px)); pointer-events: none; }
+.chat-panel { pointer-events: auto; background: var(--panel); border: 1px solid var(--line); border-radius: 14px; width: 100%; height: 100%; display: flex; flex-direction: column; box-shadow: 0 18px 50px rgba(0,0,0,.35); overflow: hidden; resize: both; min-width: 320px; min-height: 360px; max-width: calc(100vw - 32px); max-height: calc(100vh - 32px); }
+.chat-panel.collapsed { height: 46px !important; min-height: 46px; resize: none; }
+.chat-panel.collapsed .chat-log, .chat-panel.collapsed .chat-status, .chat-panel.collapsed .chat-input { display: none; }
+.chat-panel.collapsed .chat-head { border-bottom: 0; }
+.chat-head { display: flex; align-items: center; gap: 8px; padding: 12px 14px; border-bottom: 1px solid var(--line); cursor: move; user-select: none; touch-action: none; }
 .chat-head .dim { font-size: 10.5px; flex: 1; }
-.chat-x { border: 0; background: transparent; color: var(--muted); font-size: 16px; cursor: pointer; }
+.chat-x, .chat-collapse { border: 0; background: transparent; color: var(--muted); font-size: 16px; cursor: pointer; width: 24px; height: 24px; display: inline-grid; place-items: center; border-radius: 6px; }
+.chat-x:hover, .chat-collapse:hover { background: var(--chip); color: var(--accent); }
 .chat-log { flex: 1 1 auto; overflow-y: auto; padding: 12px 14px; display: flex; flex-direction: column; gap: 8px; }
+.chat-row { display: flex; flex-direction: column; gap: 6px; max-width: 100%; }
+.chat-row.user { align-items: flex-end; }
+.chat-row.ai { align-items: flex-start; }
 .chat-msg { max-width: 85%; padding: 8px 11px; border-radius: 10px; font-size: 13px; white-space: pre-wrap; }
 .chat-msg.user { align-self: flex-end; background: var(--accent); color: #fff; }
 .chat-msg.ai { align-self: flex-start; background: var(--chip); color: var(--text); }
-.chat-input { display: flex; gap: 8px; padding: 10px 12px; border-top: 1px solid var(--line); }
+.chat-msg.pending { display: inline-flex; align-items: center; gap: 8px; min-height: 32px; color: var(--muted); }
+.chat-typing { display: inline-flex; align-items: center; gap: 3px; width: 24px; height: 10px; }
+.chat-typing i { width: 5px; height: 5px; border-radius: 50%; background: currentColor; opacity: .35; animation: chatTyping 1s infinite ease-in-out; }
+.chat-typing i:nth-child(2) { animation-delay: .14s; }
+.chat-typing i:nth-child(3) { animation-delay: .28s; }
+@keyframes chatTyping { 0%, 80%, 100% { transform: translateY(0); opacity: .3; } 40% { transform: translateY(-3px); opacity: .9; } }
+@media (prefers-reduced-motion: reduce) {
+  .chat-typing i { animation: none; opacity: .7; }
+}
+.chat-row .chat-msg { align-self: auto; }
+.chat-status { min-height: 18px; padding: 0 12px 4px; font-size: 11.5px; color: var(--muted); line-height: 1.35; }
+.chat-input { flex: 0 0 auto; display: flex; gap: 8px; padding: 10px 12px; border-top: 1px solid var(--line); }
 .chat-input input { flex: 1; padding: 9px 11px; border: 1px solid var(--line); border-radius: 8px; background: var(--bg); color: var(--text); }
+.chat-input button:disabled { opacity: .55; cursor: wait; }
 /* A4/A5 생성기 미리보기 */
 .gen-preview { background: var(--panel); border: 1px solid var(--line); border-radius: 12px; padding: 16px; white-space: pre-wrap; font-size: 13px; line-height: 1.6; max-height: 70vh; overflow: auto; font-family: inherit; }
 .gen-preview.empty { color: var(--muted); }
@@ -748,6 +767,12 @@ nav button[disabled]:hover { background: transparent; }
 .chat-new { border: 1px solid var(--line); background: transparent; color: var(--muted); font-size: 11px; border-radius: 6px; padding: 2px 7px; cursor: pointer; margin-left: auto; }
 .chat-new:hover { color: var(--accent); }
 .chat-src { font-size: 10.5px; color: var(--muted); margin-top: 4px; }
+.chat-cands { display: flex; flex-wrap: wrap; gap: 6px; max-width: 100%; padding-left: 2px; }
+.chat-cand { max-width: 100%; white-space: normal; text-align: left; line-height: 1.35; }
+@media (max-width: 640px) {
+  .chat-overlay { left: 8px; right: 8px; bottom: 8px; width: auto; height: min(70vh, 520px); }
+  .chat-panel { min-width: 0; min-height: 320px; max-width: none; max-height: calc(100vh - 16px); resize: vertical; }
+}
 
 /* ═══════ 인증 게이트 / 첫 페이지 — 모드별 스킨(판타지=달빛 / 실무=전문가용) ═══════ */
 /* ── 구조(스킨 공통) ── */
