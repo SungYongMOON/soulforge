@@ -4,6 +4,18 @@
 
 매뉴얼은 실제 ERP 기능·화면·운영 지식을 담는 곳이지, 사용자의 모든 말투를 FAQ로 끼워 맞추는 곳이 아니다. "너 살아있어?", "답이 너무 빠른데", "그건 내가 설정 못 하는데" 같은 자유 발화는 FAQ 항목으로 증식시키지 않고, 로컬 LLM이 챗봇 런타임 원칙을 보고 해석한다.
 
+## 패치 적용 확인
+
+운영자가 실제로 보는 포트는 `4300`이다. `4301`/`4302` 같은 확인용 서버가
+떠 있어도 운영 반영으로 보지 않는다.
+
+- ERP 상단 제목 옆에 `UI ui-2026.06.18-release-visible.6`와
+  `브라우저 Chrome ...` 또는 접속 브라우저 버전이 보여야 한다.
+- 챗봇을 열면 헤더에 `챗봇 chatbot-2026.06.18-release-visible.6`이 보여야 한다.
+- 화면이 의심스러우면 `http://127.0.0.1:4300/app.js` 또는
+  `http://<회사PC-IP>:4300/app.js`에서 `ERP_UI_VERSION`을 검색한다.
+  이 문자열이 없으면 아직 운영 포트가 최신 checkout을 서빙하지 않는 상태다.
+
 ## 0. Karpathy LLM 설치 판단
 
 ERP 지식/RAG 목적에서는 Andrej Karpathy 계열 런타임(`llm.c`, `nanoGPT`, `minGPT`, `micrograd`, `makemore`)을 설치하지 않는다. 여기서 가져오는 것은 **Karpathy-style sourcebound wiki 운영 방식**뿐이다: 작은 wiki page, source card, provenance, claim ceiling, review 후 승격.

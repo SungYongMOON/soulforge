@@ -1,5 +1,22 @@
 // dev-erp P1 클라이언트 (no-build vanilla JS).
 // 모든 라벨은 /api/lexicon 사전을 거친다 (하드코딩 금지, INFRA-004).
+const ERP_UI_VERSION = "ui-2026.06.18-release-visible.6";
+const ERP_CHATBOT_UI_VERSION = "chatbot-2026.06.18-release-visible.6";
+
+function browserVersionText(ua = navigator.userAgent || "") {
+  const rules = [
+    ["Edge", /Edg\/([\d.]+)/],
+    ["Chrome", /Chrome\/([\d.]+)/],
+    ["Firefox", /Firefox\/([\d.]+)/],
+    ["Safari", /Version\/([\d.]+).*Safari/],
+  ];
+  for (const [name, re] of rules) {
+    const m = String(ua).match(re);
+    if (m) return `${name} ${m[1]}`;
+  }
+  return "unknown";
+}
+
 const state = {
   mode: localStorage.getItem("dev_erp_mode") || "business",
   view: "home",
@@ -686,7 +703,9 @@ async function loadLexicon() {
   state.modules = mods;
   document.body.dataset.mode = state.mode;
   // 맨 왼쪽 콕핏 버튼 = 위젯 대시보드 진입(ECount 로고/MyPage 식). 아이콘+라벨, 홈일 때 활성.
-  $("#appTitle").innerHTML = `<span class="cockpit-ico" aria-hidden="true">▦</span><span>${esc(state.lex.app_title)}</span>`;
+  const browserVersion = browserVersionText();
+  const ua = navigator.userAgent || browserVersion;
+  $("#appTitle").innerHTML = `<span class="cockpit-ico" aria-hidden="true">▦</span><span>${esc(state.lex.app_title)}</span><span class="version-chip" title="${esc(state.lex.app_version_label)} ${ERP_UI_VERSION}">${esc(state.lex.app_version_label)} ${ERP_UI_VERSION}</span><span class="version-chip" title="${esc(ua)}">${esc(state.lex.browser_version_label)} ${esc(browserVersion)}</span>`;
   $("#appTitle").classList.add("brand-home");
   $("#appTitle").title = state.lex.nav_home;
   $("#appTitle").onclick = () => { state.view = "home"; render(); };
@@ -1757,7 +1776,7 @@ function openChat() {
   if (!state.chatThread) state.chatThread = newChatThreadId();
   ov.innerHTML = `<div class="chat-panel" role="complementary" aria-label="${L.chat_title}" aria-busy="false">
     <div class="chat-head"><strong>${L.chat_title}</strong><span class="dim">${L.chat_note}</span>
-      <button class="chat-new" title="${L.chat_new}">${L.chat_new}</button><button class="chat-collapse" title="접기/펼치기" aria-label="접기/펼치기" aria-expanded="true">-</button><button class="chat-x">✕</button></div>
+      <span class="chat-ver" title="${esc(L.chat_version_label)} ${ERP_CHATBOT_UI_VERSION}">${esc(L.chat_version_label)} ${ERP_CHATBOT_UI_VERSION}</span><button class="chat-new" title="${L.chat_new}">${L.chat_new}</button><button class="chat-collapse" title="접기/펼치기" aria-label="접기/펼치기" aria-expanded="true">-</button><button class="chat-x">✕</button></div>
     <div class="chat-log" role="log" aria-live="polite" aria-busy="false"></div>
     <div class="chat-status" role="status" aria-live="polite"></div>
     <div class="chat-input"><input id="chatMsg" placeholder="${L.chat_placeholder}" /><button id="chatSend" class="fav-chip">${L.chat_send}</button></div>

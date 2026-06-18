@@ -3,6 +3,8 @@
 export const LEXICON = {
   business: {
     app_title: "개발팀 운영 콕핏",
+    app_version_label: "UI",
+    browser_version_label: "브라우저",
     nav_home: "프로젝트 홈",
     nav_items: "할 일",
     nav_mail: "메일 이력",
@@ -349,6 +351,7 @@ export const LEXICON = {
     rec_run: "추천 스캔",
     prop_empty: "대기 중 제안 없음",
     chat_title: "ERP 챗봇",
+    chat_version_label: "챗봇",
     chat_placeholder: "메타 기반 질문 (원문 미전송)",
     chat_send: "보내기",
     chat_note: "매뉴얼 검색 기반 · 로컬 모델 연결 후 자연스러운 답변",
@@ -619,6 +622,8 @@ export const LEXICON = {
   },
   fantasy: {
     app_title: "길드 작전판",
+    app_version_label: "UI",
+    browser_version_label: "브라우저",
     nav_home: "던전 지도",
     nav_items: "몬스터",
     nav_mail: "전령 기록",
@@ -965,6 +970,7 @@ export const LEXICON = {
     rec_run: "정찰 소집",
     prop_empty: "대기 중 제안 없음",
     chat_title: "길드 조언자",
+    chat_version_label: "조언자",
     chat_placeholder: "메타 기반 질문 (원문 미전송)",
     chat_send: "전송",
     chat_note: "매뉴얼 검색 기반 · 로컬 모델 연결 후 자연스러운 답변",
