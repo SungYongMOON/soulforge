@@ -10,6 +10,19 @@
 - Added `logs/` to the dev-ERP app gitignore so local runtime server logs do
   not appear as source changes.
 
+### Revision `working` - dev-erp shared fantasy skins and fixture opt-in
+
+- Made dev-erp serve fantasy skin images from the shared
+  `_workspaces/system/dev-erp/skins/` worksite before falling back to local
+  `static/skins/`, so owner-provided backgrounds can sync across PCs without
+  entering the public Git repo.
+- Changed empty-DB startup to leave the database empty by default; synthetic
+  demo data now loads only with `--fixture` or `DEV_ERP_LOAD_FIXTURE=1`.
+- Limited `data/real_meta.json` auto-ingest to the default DB unless an ingest
+  path or explicit auto-real-meta environment flag is provided.
+- Documented the shared skin location and fixture opt-in startup path, with
+  regression coverage for both behaviors.
+
 ### Revision `working` - knowledge launcher skill consolidation
 
 - Removed the duplicate caller-facing knowledge Codex launchers

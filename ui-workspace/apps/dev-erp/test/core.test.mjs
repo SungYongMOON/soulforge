@@ -544,6 +544,60 @@ test("knowledge shell: API routes return metadata-only shapes", async () => {
   }
 });
 
+test("server: shared skin directory serves fantasy backgrounds before local fallback", async () => {
+  const root = mkdtempSync(join(tmpdir(), "dev-erp-skins-"));
+  try {
+    const skinsDir = join(root, "skins");
+    mkdirSync(skinsDir, { recursive: true });
+    writeFileSync(join(skinsDir, "main.png"), Buffer.from("shared-main-skin"));
+    const port = await freePort();
+    const srv = await startDevErpServer(["--db", join(root, "dev-erp.db"), "--port", String(port), "--skins_dir", skinsDir]);
+    const base = `http://127.0.0.1:${port}`;
+    try {
+      await waitForHttp(`${base}/api/health`, srv.child, srv.stderr);
+      const r = await fetch(`${base}/skins/main.png`);
+      assert.equal(r.status, 200);
+      assert.match(r.headers.get("content-type") ?? "", /^image\/png/);
+      assert.equal(await r.text(), "shared-main-skin");
+    } finally {
+      await srv.stop();
+    }
+  } finally {
+    rmSync(root, { recursive: true, force: true });
+  }
+});
+
+test("server: empty DB stays empty unless fixture loading is explicit", async () => {
+  const root = mkdtempSync(join(tmpdir(), "dev-erp-empty-fixture-"));
+  try {
+    const port = await freePort();
+    const srv = await startDevErpServer(["--db", join(root, "empty.db"), "--port", String(port)]);
+    const base = `http://127.0.0.1:${port}`;
+    try {
+      await waitForHttp(`${base}/api/health`, srv.child, srv.stderr);
+      const body = await (await fetch(`${base}/api/health`)).json();
+      assert.equal(body.counts.projects, 0);
+      assert.equal(body.counts.items, 0);
+    } finally {
+      await srv.stop();
+    }
+
+    const fixturePort = await freePort();
+    const fixtureSrv = await startDevErpServer(["--db", join(root, "fixture.db"), "--port", String(fixturePort), "--fixture"]);
+    const fixtureBase = `http://127.0.0.1:${fixturePort}`;
+    try {
+      await waitForHttp(`${fixtureBase}/api/health`, fixtureSrv.child, fixtureSrv.stderr);
+      const body = await (await fetch(`${fixtureBase}/api/health`)).json();
+      assert.ok(body.counts.projects > 0);
+      assert.ok(body.counts.items > 0);
+    } finally {
+      await fixtureSrv.stop();
+    }
+  } finally {
+    rmSync(root, { recursive: true, force: true });
+  }
+});
+
 test("P-6: person_skill 매핑 + capabilityMatrix(개인 점수 미저장)", () => {
   const store = freshStore();
   store.upsertPerson({ id: "p-kim", name: "김", role: "engineer", unit_ref: ".unit/vanguard_01", capability_label: "frontline" });

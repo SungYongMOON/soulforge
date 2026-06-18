@@ -1,10 +1,10 @@
 #!/usr/bin/env node
 // dev-erp P1 서버: 외부 의존성 0 (node:http + node:sqlite).
-// 사용: node server.mjs [--port 4300] [--db data/dev-erp.db] [--ingest <json>]
-// 기본: DB 가 비어 있으면 synthetic fixture 를 자동 적재 (data_label=synthetic).
+// 사용: node server.mjs [--port 4300] [--db data/dev-erp.db] [--ingest <json>] [--fixture]
+// 기본: 빈 DB 는 비워 둔다. 데모 데이터는 --fixture 또는 DEV_ERP_LOAD_FIXTURE=1 일 때만 적재.
 import { createServer } from "node:http";
 import { readFileSync, existsSync, mkdirSync, statSync } from "node:fs";
-import { dirname, join, extname, resolve } from "node:path";
+import { dirname, join, extname, resolve, sep } from "node:path";
 import { fileURLToPath } from "node:url";
 
 import { openStore } from "./src/store.mjs";
@@ -48,11 +48,24 @@ const HOST = flag("host", "127.0.0.1");
 const COOKIE_SECURE = process.env.DEV_ERP_COOKIE_SECURE === "1" || args.includes("--secure-cookie");
 // 팀 운영 기본값은 관리자/roster 생성 계정만 허용. localhost 자가가입 파일럿 때만 명시적으로 켠다.
 const ALLOW_SELF_REGISTER = process.env.DEV_ERP_ALLOW_SELF_REGISTER === "1" || args.includes("--allow-self-register");
-const DB_PATH = flag("db", join(HERE, "data", "dev-erp.db"));
+// 빈 DB 는 실제 운영/PC 동기화에서 샘플이 되살아나지 않게 기본 비움. 데모/테스트만 명시적으로 켠다.
+const LOAD_FIXTURE = (process.env.DEV_ERP_LOAD_FIXTURE === "1" || args.includes("--fixture")) && !args.includes("--no-fixture") && process.env.DEV_ERP_NO_FIXTURE !== "1";
+const DEFAULT_DB_PATH = join(HERE, "data", "dev-erp.db");
+const DB_PATH = flag("db", DEFAULT_DB_PATH);
+const DB_IS_DEFAULT = DB_PATH !== ":memory:" && resolve(DB_PATH) === resolve(DEFAULT_DB_PATH);
+const INGEST_PATH = flag("ingest", null);
+const AUTO_REAL_META = (DB_IS_DEFAULT || process.env.DEV_ERP_AUTO_REAL_META === "1") && !args.includes("--no-real-meta") && process.env.DEV_ERP_NO_REAL_META !== "1";
 if (DB_PATH !== ":memory:") mkdirSync(dirname(DB_PATH), { recursive: true });
 // Canon 지식 저장소(읽기 전용 소비). 기본 = repo 루트 .registry/knowledge (상대 resolve).
 const KNOW_DIR = flag("knowledge_dir", knowledgeRegistryDir(HERE));
 const KNOWLEDGE_SHELL = { root: KNOWLEDGE_SHELL_ROOT };
+const STATIC_ROOT = resolve(HERE, "static");
+const SKIN_ROOTS = [...new Set([
+  flag("skins_dir", null),
+  process.env.DEV_ERP_SKINS_DIR || null,
+  join(ROOT, "_workspaces", "system", "dev-erp", "skins"),
+  join(HERE, "static", "skins"),
+].filter(Boolean).map((p) => resolve(p)))];
 
 const store = openStore(DB_PATH);
 // 감사로그 '조회·잡음' kind — UI EVENT_HIDE 와 동일. noise=0 시 서버에서 제외.
@@ -60,7 +73,10 @@ const AUDIT_NOISE_KINDS = ["view", "llm_call", "chat_query", "recommender_run"];
 // P1b: data/real_meta.json 이 있으면 (갱신 시각 기준) 자동 ingest.
 // 최초 실데이터 도착 시 합성 표본은 제거한다 (가짜/실제 혼합 방지).
 const realMetaPath = join(HERE, "data", "real_meta.json");
-if (existsSync(realMetaPath)) {
+if (INGEST_PATH) {
+  const report = ingestFromFile(store, resolve(INGEST_PATH));
+  console.log("[dev-erp] ingest:", JSON.stringify(report));
+} else if (AUTO_REAL_META && existsSync(realMetaPath)) {
   const mtime = String(statSync(realMetaPath).mtimeMs);
   if (store.getMeta("real_ingest_mtime") !== mtime) {
     const purged = store.purgeSynthetic();
@@ -69,13 +85,11 @@ if (existsSync(realMetaPath)) {
     console.log("[dev-erp] real meta ingested:", JSON.stringify({ purged_synthetic: purged, ...report }));
   }
 } else if (store.counts().projects === 0) {
-  const ingestPath = flag("ingest", null);
-  if (ingestPath) {
-    const report = ingestFromFile(store, resolve(ingestPath));
-    console.log("[dev-erp] ingest:", JSON.stringify(report));
-  } else {
+  if (LOAD_FIXTURE) {
     const counts = loadFixture(store);
     console.log("[dev-erp] synthetic fixture loaded:", JSON.stringify(counts));
+  } else {
+    console.log("[dev-erp] empty db: synthetic fixture skipped (use --fixture to load demo data)");
   }
 }
 
@@ -87,6 +101,26 @@ function send(res, code, body, type = "application/json", extraHeaders = {}) {
   const payload = type === "application/json" ? JSON.stringify(body) : body;
   res.writeHead(code, { "content-type": `${type}; charset=utf-8`, "cache-control": "no-store", ...extraHeaders });
   res.end(payload);
+}
+function isInside(root, target) {
+  return target === root || target.startsWith(`${root}${sep}`);
+}
+function serveFile(res, full) {
+  const type = MIME[extname(full)] ?? "text/plain";
+  // 텍스트류는 utf-8, 이미지 등 바이너리는 Buffer 그대로(utf-8로 읽으면 깨짐).
+  const binary = !(type.startsWith("text/") || type === "application/json" || type === "image/svg+xml");
+  return send(res, 200, binary ? readFileSync(full) : readFileSync(full, "utf-8"), type);
+}
+function serveFromRoot(res, root, relPath) {
+  const full = resolve(root, relPath);
+  if (!isInside(root, full) || !existsSync(full)) return false;
+  try {
+    if (!statSync(full).isFile()) return false;
+  } catch {
+    return false;
+  }
+  serveFile(res, full);
+  return true;
 }
 
 const SID = "dev_erp_sid";
@@ -1037,14 +1071,19 @@ const server = createServer(async (req, res) => {
 
     if (path.startsWith("/api/")) return send(res, 404, { error: "not_found" });
 
+    // 스킨 이미지는 공유 워크스페이스(OneDrive) → 로컬 fallback 순서로 찾는다.
+    if (path.startsWith("/skins/")) {
+      const rel = path.slice("/skins/".length);
+      for (const root of SKIN_ROOTS) {
+        if (serveFromRoot(res, root, rel)) return;
+      }
+      return send(res, 404, "not found", "text/plain");
+    }
+
     // 정적 파일 (no-build 클라이언트)
-    const file = path === "/" ? "/index.html" : path;
-    const full = join(HERE, "static", file);
-    if (!full.startsWith(join(HERE, "static")) || !existsSync(full)) return send(res, 404, "not found", "text/plain");
-    const type = MIME[extname(full)] ?? "text/plain";
-    // 텍스트류는 utf-8, 이미지 등 바이너리는 Buffer 그대로(utf-8로 읽으면 깨짐).
-    const binary = !(type.startsWith("text/") || type === "application/json" || type === "image/svg+xml");
-    return send(res, 200, binary ? readFileSync(full) : readFileSync(full, "utf-8"), type);
+    const file = path === "/" ? "index.html" : path.replace(/^\/+/, "");
+    if (serveFromRoot(res, STATIC_ROOT, file)) return;
+    return send(res, 404, "not found", "text/plain");
   } catch (error) {
     // BE-3: 내부 예외 메시지(SQLite 바인드·JSON 파서 등)를 클라이언트에 노출하지 않음 — 서버 로그에만 남기고 일반화 응답.
     console.error("[dev-erp] unhandled:", req.method, path, error?.stack ?? error);
