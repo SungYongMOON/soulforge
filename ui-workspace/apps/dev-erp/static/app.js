@@ -2935,14 +2935,18 @@ async function renderMail() {
     return d === todayKey ? "sec_today" : d >= weekStart ? "sec_week" : "sec_older";
   };
   const checked = (state.mailChecked ??= new Set());
+  const pageIds = mail.map((m) => String(m.id));
+  const pageSelected = pageIds.filter((id) => checked.has(id)).length;
   const titleById = new Map(summary.projects.map((p) => [p.id, p.title]));
   // 한 줄 렌더. showProj=false 면 프로젝트 칩 생략(프로젝트별 그룹에선 헤더가 이미 표시).
   const mailRow = (m, showProj) => {
+    const picked = checked.has(String(m.id));
     const manual = m.label_ids.map((id) => labelById.get(id)).filter(Boolean)
       .map((l) => `<span class="label-chip manual mini" style="--lc:${esc(l.color)}">${esc(l.name)}</span>`).join("");
     const meta = (showProj ? projChip(m.project_id, clsById.get(m.project_id)) : "") + manual;
     return `<tr class="mail-row ${state.mailSel === m.id ? "sel" : ""}" data-m="${esc(m.id)}">
-      <td class="mail-check"><input type="checkbox" data-chk="${esc(m.id)}" ${checked.has(m.id) ? "checked" : ""} /></td>
+      <td class="mail-check"><input type="checkbox" data-chk="${esc(m.id)}" ${picked ? "checked" : ""} />
+        <button class="mail-pick ${picked ? "on" : ""}" data-pick="${esc(m.id)}" title="${picked ? "선택 해제" : "선택"}">${picked ? "해제" : "선택"}</button></td>
       <td class="mail-meta">${meta}</td>
       <td class="mail-from">${m.direction === "out" ? `<i>→</i> ` : ""}${esc(m.counterpart ?? "-")}</td>
       <td class="mail-subj">${esc(m.subject)}</td>
@@ -2986,6 +2990,12 @@ async function renderMail() {
   const assignables = summary.projects.filter((p) => p.class !== "inbox");
   const assignOpts = assignables.map((p) =>
     `<option value="${esc(p.id)}">${esc(p.title === p.id ? p.id : `${p.id} · ${p.title}`)}</option>`).join("");
+  const selectBar = `<div class="mail-selectbar">
+      <span class="dim">${pageSelected}/${mail.length} 선택 · 전체 선택 ${checked.size}</span>
+      <button id="mailSelectPage" class="fav-chip mini" ${mail.length ? "" : "disabled"}>현재 페이지 전체 선택</button>
+      <button id="mailClearPage" class="fav-chip mini" ${pageSelected ? "" : "disabled"}>현재 페이지 해제</button>
+      <button id="mailClearAll" class="fav-chip mini" ${checked.size ? "" : "disabled"}>선택 전체 해제</button>
+    </div>`;
   const bulkBar = checked.size ? `<div class="assign-bar">
       <strong>${checked.size}${L.assign_unit}</strong>
       <select id="assignTarget">${assignOpts}</select>
@@ -3035,7 +3045,7 @@ async function renderMail() {
 	        <button id="mailPrev" class="fav-chip mini" ${mailPage.offset <= 0 ? "disabled" : ""}>이전</button>
 	        <button id="mailNext" class="fav-chip mini" ${!mailPage.has_more ? "disabled" : ""}>다음</button></div>`
 	    : "";
-	  $("#view").innerHTML = `${labelBar}${filterChips}${toolbar}${regForm}${bulkBar}${mailPager}
+	  $("#view").innerHTML = `${labelBar}${filterChips}${toolbar}${selectBar}${regForm}${bulkBar}${mailPager}
 	    <div class="mail-split">${rows ? `<table class="mail-table"><tbody>${rows}</tbody></table>` : `<div class="empty">${L.empty_mail}</div>`}${detail}</div>`;
 
   $("#view").querySelector(".mail-reg")?.addEventListener("toggle", (e) => { state.mailRegOpen = e.target.open; });
@@ -3074,6 +3084,18 @@ async function renderMail() {
 	  );
 	  $("#mailPrev")?.addEventListener("click", () => { state.mailOffset = Math.max(0, state.mailOffset - state.mailLimit); render(); });
 	  $("#mailNext")?.addEventListener("click", () => { state.mailOffset += state.mailLimit; render(); });
+  $("#mailSelectPage")?.addEventListener("click", () => {
+    for (const id of pageIds) checked.add(id);
+    render();
+  });
+  $("#mailClearPage")?.addEventListener("click", () => {
+    for (const id of pageIds) checked.delete(id);
+    render();
+  });
+  $("#mailClearAll")?.addEventListener("click", () => {
+    checked.clear();
+    render();
+  });
   $("#view").querySelectorAll("[data-toggle]").forEach((c) =>
     c.addEventListener("click", async () => {
       const on = !c.classList.contains("on");
@@ -3101,6 +3123,13 @@ async function renderMail() {
     cb.addEventListener("click", (e) => {
       e.stopPropagation();
       cb.checked ? checked.add(cb.dataset.chk) : checked.delete(cb.dataset.chk);
+      render();
+    })
+  );
+  $("#view").querySelectorAll("[data-pick]").forEach((b) =>
+    b.addEventListener("click", (e) => {
+      e.stopPropagation();
+      checked.has(b.dataset.pick) ? checked.delete(b.dataset.pick) : checked.add(b.dataset.pick);
       render();
     })
   );

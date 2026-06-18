@@ -1048,6 +1048,22 @@ test("mail UI: assign keeps the operator in mail history", () => {
   assert.doesNotMatch(block, /state\.hubTab/);
 });
 
+test("mail UI: history exposes page selection controls", () => {
+  const app = readFileSync(join(APP_DIR, "static", "app.js"), "utf8");
+  const css = readFileSync(join(APP_DIR, "static", "style.css"), "utf8");
+  const mailStart = app.indexOf("async function renderMail()");
+  const mailEnd = app.indexOf("async function renderAuditLog()", mailStart);
+  assert.ok(mailStart > 0 && mailEnd > mailStart, "renderMail block must be present");
+  const block = app.slice(mailStart, mailEnd);
+  assert.match(block, /mailSelectPage/);
+  assert.match(block, /mailClearPage/);
+  assert.match(block, /mailClearAll/);
+  assert.match(block, /data-pick/);
+  assert.match(block, /pageIds = mail\.map/);
+  assert.match(css, /\.mail-selectbar/);
+  assert.match(css, /\.mail-pick/);
+});
+
 test("store: SE 기준점 자동분류 — 인입 미연결=미분류, 정식 격리 (SE-CLASSIFY slice1)", () => {
   const store = freshStore();
   loadFixture(store);

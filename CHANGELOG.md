@@ -2,6 +2,11 @@
 
 ## 2026-06-18
 
+### Revision `working` - dev-erp mail selection controls
+
+- Added visible page-level selection controls and larger row-level select/deselect
+  buttons to the mail history view, keeping selection actions non-destructive.
+
 ### Revision `working` - dev-erp mail assign stays in history
 
 - Kept the mail classification flow on the mail history view after assigning

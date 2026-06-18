@@ -542,8 +542,11 @@ td.acts { white-space: nowrap; }
 .detail-actions { margin-top: 12px; }
 
 /* run17: 메일 과제 분류(재배정) + 몬스터 출몰 연출 */
-.mail-check { width: 28px; text-align: center; }
-.mail-check input { cursor: pointer; }
+.mail-selectbar { display: flex; align-items: center; gap: 8px; margin: 8px 0 10px; flex-wrap: wrap; }
+.mail-check { width: 74px; text-align: center; white-space: nowrap; }
+.mail-check input { cursor: pointer; vertical-align: middle; }
+.mail-pick { margin-left: 4px; border: 1px solid var(--line); background: transparent; color: var(--muted); border-radius: 6px; padding: 2px 6px; font-size: 11px; cursor: pointer; }
+.mail-pick.on, .mail-pick:hover { color: var(--accent); background: var(--chip); }
 .assign-bar { display: flex; align-items: center; gap: 10px; padding: 9px 12px; margin-bottom: 10px;
   background: color-mix(in srgb, var(--accent) 8%, var(--panel)); border: 1px solid var(--accent); border-radius: 10px; }
 .assign-bar.inline { background: var(--panel); border-color: var(--line); margin: 6px 0 0; }
