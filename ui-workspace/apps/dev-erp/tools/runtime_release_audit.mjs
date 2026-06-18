@@ -595,18 +595,29 @@ function checkNasBackup(result, paths, { skipNas = false } = {}) {
   ].filter((p) => existsSync(p));
   result.checks.nas_backup.latest_candidates = latestCandidates;
   const dbStat = safeStat(paths.dbPath);
+  const walStat = safeStat(`${paths.dbPath}-wal`);
+  const liveMtimeMs = Math.max(dbStat?.mtimeMs ?? 0, walStat?.mtimeMs ?? 0);
   if (!latestCandidates.length) {
     add(result, "blocker", "nas_latest_db_backup_missing", "No latest NAS runtime DB backup was found", { nasRoot });
   } else if (dbStat) {
     const latest = latestCandidates
       .map((p) => ({ path: p, stat: statSync(p) }))
       .sort((a, b) => b.stat.mtimeMs - a.stat.mtimeMs)[0];
-    result.checks.nas_backup.latest = { path: latest.path, bytes: latest.stat.size, mtime_ms: latest.stat.mtimeMs };
-    if (latest.stat.mtimeMs + 1000 < dbStat.mtimeMs) {
-      add(result, "blocker", "nas_latest_db_backup_stale", "Latest NAS DB backup is older than the live DB", {
+    result.checks.nas_backup.latest = {
+      path: latest.path,
+      bytes: latest.stat.size,
+      mtime_ms: latest.stat.mtimeMs,
+      live_mtime_ms: liveMtimeMs,
+      db_mtime_ms: dbStat?.mtimeMs ?? null,
+      wal_mtime_ms: walStat?.mtimeMs ?? null,
+    };
+    if (latest.stat.mtimeMs + 1000 < liveMtimeMs) {
+      add(result, "blocker", "nas_latest_db_backup_stale", "Latest NAS DB backup is older than the live DB/WAL state", {
         latest_backup: latest.path,
         backup_mtime_ms: latest.stat.mtimeMs,
-        db_mtime_ms: dbStat.mtimeMs,
+        live_mtime_ms: liveMtimeMs,
+        db_mtime_ms: dbStat?.mtimeMs ?? null,
+        wal_mtime_ms: walStat?.mtimeMs ?? null,
       });
     }
   }

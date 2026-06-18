@@ -25,6 +25,22 @@ Use `--target-members <n>` when the approval gate requires a minimum number of
 active non-admin accounts. Use `--allow-lan-http` only for an owner-approved
 trusted-LAN pilot; omit it for the default Tailscale/localhost posture.
 
+## Runtime Maintenance Runbook
+
+The first-release maintenance procedure is documented in
+[`RUNTIME_MAINTENANCE_RUNBOOK_20260618.md`](RUNTIME_MAINTENANCE_RUNBOOK_20260618.md).
+It covers service restart, watchdog behavior, optional last-resort reboot,
+health checks, WAL-safe DB backups, NAS restore-test reports, update procedure,
+and troubleshooting.
+
+Operational helpers:
+
+```powershell
+npm run dev-erp:health -- --json
+npm run dev-erp:backup-runtime -- --db <runtime-db> --nas-root <nas-root> --json
+npm run dev-erp:restore-test -- --nas-root <nas-root> --json
+```
+
 ## Runtime Correction Patch Rule
 
 Runtime DB drift is corrected with a tool, not by committing the DB file.

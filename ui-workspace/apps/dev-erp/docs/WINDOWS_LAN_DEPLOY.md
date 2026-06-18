@@ -11,7 +11,9 @@
 쓰지 않는다. 승인된 commit 을 별도 runtime clone 인 `<runtime-checkout>` 에
 반영한 뒤 그 clone 에서 서비스를 실행한다. 운영 경계, Tailscale HTTPS, secret 경계,
 owner 승인 gate 는 [`RUNTIME_OPERATING_CONTRACT_20260617.md`](RUNTIME_OPERATING_CONTRACT_20260617.md)를
-정본으로 둔다.
+정본으로 둔다. Runtime maintenance, watchdog recovery, NSSM setup,
+backup/restore-test, and incident troubleshooting are tracked in
+[`RUNTIME_MAINTENANCE_RUNBOOK_20260618.md`](RUNTIME_MAINTENANCE_RUNBOOK_20260618.md).
 
 ## 0. 최신 코드 받기 (Windows 서버 PC — Soulforge 이미 설치됨)
 수동 복사 불필요. 그 PC에서 **`/soulforge-github-down`** 실행 → 공개 repo 최신(개발 PC에서 올린 변경)

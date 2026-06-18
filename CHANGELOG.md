@@ -2,6 +2,20 @@
 
 ## 2026-06-18
 
+### Revision `working` - dev-erp runtime maintenance and recovery
+
+- Added `tools/runtime_ops.mjs` and npm scripts for runtime health checks,
+  WAL-safe SQLite `VACUUM INTO` DB backups, NAS latest backup refresh, and
+  read-only restore-test reports.
+- Added Windows ops scripts for NSSM service configuration and watchdog
+  recovery with maintenance marker support, JSONL logs, failure counting, and
+  opt-in last-resort reboot gating.
+- Added the first-release runtime maintenance runbook covering service
+  restart, health checks, backup schedule, restore-test evidence, update
+  procedure, troubleshooting, and owner approval gates.
+- Hardened the release audit NAS freshness check to compare the latest backup
+  against the live DB/WAL state instead of the base DB file mtime alone.
+
 ### Revision `working` - conversation rule hardening closeout guard
 
 - Added a local Codex `conversation-rule-hardening` skill for extracting repeated

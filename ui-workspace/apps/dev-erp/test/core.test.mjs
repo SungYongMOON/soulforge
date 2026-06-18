@@ -30,6 +30,7 @@ import {
 import { parseRosterText, planTeamRosterImport, applyTeamRosterImport } from "../tools/import_team_roster.mjs";
 import { buildTeamHostPreflight } from "../tools/team_preflight.mjs";
 import { applyRuntimeCorrections, planRuntimeCorrections } from "../tools/runtime_corrections.mjs";
+import { backupRuntimeDb, restoreTestRuntimeDb, runtimeHealthCheck } from "../tools/runtime_ops.mjs";
 import { runRuntimeReleaseAudit } from "../tools/runtime_release_audit.mjs";
 
 const APP_DIR = dirname(dirname(fileURLToPath(import.meta.url)));
@@ -287,6 +288,72 @@ test("runtime release audit: blocks anonymous runtime and missing NAS latest bac
     const codes = result.blockers.map((issue) => issue.code);
     assert.ok(codes.includes("auth_anonymous_mode"));
     assert.ok(codes.includes("nas_latest_db_backup_missing"));
+  } finally {
+    rmSync(root, { recursive: true, force: true });
+  }
+});
+
+test("runtime ops: health check classifies ok and down states", async () => {
+  const ok = await runtimeHealthCheck({
+    url: "http://unit.test/api/health",
+    fetcher: async () => ({
+      ok: true,
+      status: 200,
+      json: async () => ({ ok: true, schema: "dev_erp.health.v1" }),
+    }),
+  });
+  assert.equal(ok.ok, true);
+  assert.equal(ok.status, "ok");
+  assert.equal(ok.http_status, 200);
+
+  const down = await runtimeHealthCheck({
+    url: "http://unit.test/api/health",
+    fetcher: async () => {
+      throw new Error("connection refused");
+    },
+  });
+  assert.equal(down.ok, false);
+  assert.equal(down.status, "down");
+});
+
+test("runtime ops: SQLite backup and restore test write metadata-only reports", () => {
+  const root = mkdtempSync(join(tmpdir(), "dev-erp-runtime-ops-"));
+  try {
+    const data = join(root, "data");
+    const scheduled = join(root, "nas", "01_db_backups", "scheduled");
+    const latest = join(root, "nas", "01_db_backups", "latest", "runtime_live");
+    const restoreReports = join(root, "nas", "02_restore_tests");
+    mkdirSync(data, { recursive: true });
+    const dbPath = join(data, "dev-erp.db");
+    const store = openStore(dbPath);
+    store.upsertProject({ id: "P26-001", title: "Project One", health: "ok", class: "active", data_label: "real" });
+    store.createAccount({ username: "admin", password: "pw123456", roles: ["admin"] });
+    store.db.close();
+
+    const backup = backupRuntimeDb({
+      dbPath,
+      outDir: scheduled,
+      latestDir: latest,
+      tag: "unit",
+      now: new Date("2026-06-18T00:00:00Z"),
+    });
+    assert.equal(backup.ok, true);
+    assert.equal(backup.kind, "backup_db");
+    assert.equal(existsSync(backup.backupPath), true);
+    assert.equal(existsSync(backup.latestPath), true);
+    assert.equal(existsSync(backup.manifestPath), true);
+    assert.equal(existsSync(backup.latestManifestPath), true);
+    assert.match(backup.sha256, /^[a-f0-9]{64}$/);
+
+    const restore = restoreTestRuntimeDb({
+      backupPath: backup.latestPath,
+      reportDir: restoreReports,
+      now: new Date("2026-06-18T00:05:00Z"),
+    });
+    assert.equal(restore.ok, true);
+    assert.equal(restore.quick_check, "ok");
+    assert.equal(restore.schema_version, "dev_erp.v1");
+    assert.equal(existsSync(restore.reportPath), true);
   } finally {
     rmSync(root, { recursive: true, force: true });
   }

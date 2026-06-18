@@ -96,6 +96,26 @@ Use `--target-members <n>` when the release must include at least that many
 active non-admin team accounts. Omit `--allow-lan-http` unless the owner has
 approved direct trusted-LAN HTTP exposure for the current pilot.
 
+## Runtime Operations
+
+Runtime operations are documented in
+[`docs/RUNTIME_MAINTENANCE_RUNBOOK_20260618.md`](docs/RUNTIME_MAINTENANCE_RUNBOOK_20260618.md).
+The small ops helpers are:
+
+```bash
+npm run ops:health -- --json
+npm run ops:backup-db -- --db data/dev-erp.db --nas-root <nas-root> --json
+npm run ops:restore-test -- --nas-root <nas-root> --json
+```
+
+From the Soulforge repo root:
+
+```bash
+npm run dev-erp:health -- --json
+npm run dev-erp:backup-runtime -- --db <runtime-db> --nas-root <nas-root> --json
+npm run dev-erp:restore-test -- --nas-root <nas-root> --json
+```
+
 ## Runtime Corrections
 
 Runtime DB data is not shared through Git. When another PC's code patch exposes
