@@ -1064,6 +1064,28 @@ test("mail UI: history exposes page selection controls", () => {
   assert.match(css, /\.mail-pick/);
 });
 
+test("mail UI: history shows metadata preview and thread grouping without storing bodies", () => {
+  const app = readFileSync(join(APP_DIR, "static", "app.js"), "utf8");
+  const css = readFileSync(join(APP_DIR, "static", "style.css"), "utf8");
+  const mailStart = app.indexOf("async function renderMail()");
+  const mailEnd = app.indexOf("async function renderAuditLog()", mailStart);
+  assert.ok(mailStart > 0 && mailEnd > mailStart, "renderMail block must be present");
+  const block = app.slice(mailStart, mailEnd);
+  assert.match(app, /MAIL_THREAD_PREFIX_RE/);
+  assert.match(app, /function mailPreviewLine/);
+  assert.match(block, /mail_group_thread/);
+  assert.match(block, /f\.groupBy === "thread"/);
+  assert.match(block, /mailThreadSubject\(m\.subject\)/);
+  assert.match(block, /mail-preview/);
+  assert.match(block, /mail-dupe/);
+  assert.match(block, /sel\.source_ref/);
+  assert.match(block, /sel\.mailbox/);
+  assert.match(css, /\.mail-preview/);
+  assert.match(css, /\.mail-row\.thread-child/);
+  assert.equal(LEXICON.business.mail_group_thread, "대화별");
+  assert.equal(LEXICON.business.mail_preview_meta, "식별 정보");
+});
+
 test("store: SE 기준점 자동분류 — 인입 미연결=미분류, 정식 격리 (SE-CLASSIFY slice1)", () => {
   const store = freshStore();
   loadFixture(store);
@@ -2836,17 +2858,20 @@ test("챗봇 UI: 추천 질문은 말풍선 밖에 두고 응답 중 중복 전�
   assert.match(css, /\.chat-input \{[^}]*flex: 0 0 auto/s);
 });
 
-test("챗봇 UI: 실제 로드된 UI/브라우저/챗봇 버전을 화면에 표시한다", () => {
+test("챗봇 UI: 짧은 릴리즈 번호를 표시하고 내부 빌드 정보는 title에 둔다", () => {
   const app = readFileSync(join(APP_DIR, "static", "app.js"), "utf8");
   const css = readFileSync(join(APP_DIR, "static", "style.css"), "utf8");
   const html = readFileSync(join(APP_DIR, "static", "index.html"), "utf8");
-  assert.match(app, /const ERP_UI_VERSION = "ui-2026\.06\.18-release-visible\.6"/);
-  assert.match(app, /const ERP_CHATBOT_UI_VERSION = "chatbot-2026\.06\.18-release-visible\.6"/);
+  assert.match(app, /const ERP_RELEASE_VERSION = "v1\.0\.1"/);
+  assert.match(app, /const ERP_UI_VERSION = "ui-2026\.06\.18-mail-readable\.7"/);
+  assert.match(app, /const ERP_CHATBOT_RELEASE_VERSION = "v1\.0\.1"/);
+  assert.match(app, /const ERP_CHATBOT_UI_VERSION = "chatbot-2026\.06\.18-mail-readable\.7"/);
   assert.match(app, /function browserVersionText/);
   assert.match(app, /Edg\\\/\(\[\\d\.\]\+\)/);
   assert.match(app, /Chrome\\\/\(\[\\d\.\]\+\)/);
-  assert.match(app, /state\.lex\.app_version_label/);
-  assert.match(app, /state\.lex\.browser_version_label/);
+  assert.match(app, /releaseTitle/);
+  assert.match(app, /ERP \$\{ERP_RELEASE_VERSION\}/);
+  assert.match(app, /\$\{esc\(L\.chat_version_label\)\} \$\{ERP_CHATBOT_RELEASE_VERSION\}/);
   assert.match(app, /L\.chat_version_label/);
   assert.match(app, /\$\("#appVersionChips"\)\.innerHTML/);
   assert.doesNotMatch(app, /\$\("#appTitle"\)\.innerHTML[^\n]*version-chip/);

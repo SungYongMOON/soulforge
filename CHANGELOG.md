@@ -2,6 +2,14 @@
 
 ## 2026-06-18
 
+### Revision `working` - dev-erp compact version and readable mail history
+
+- Shortened the visible app/chatbot version badges to semver-style release
+  numbers while keeping full internal build and browser details in tooltips.
+- Added mail-history metadata previews, duplicate subject markers, and a
+  title-prefix-based conversation grouping option so forwarded/replied mail can
+  be triaged without storing raw mail bodies.
+
 ### Revision `working` - dev-erp visible version markers
 
 - Added visible version markers for release verification: the app title now

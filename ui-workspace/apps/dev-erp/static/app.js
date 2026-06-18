@@ -1,7 +1,9 @@
 // dev-erp P1 클라이언트 (no-build vanilla JS).
 // 모든 라벨은 /api/lexicon 사전을 거친다 (하드코딩 금지, INFRA-004).
-const ERP_UI_VERSION = "ui-2026.06.18-release-visible.6";
-const ERP_CHATBOT_UI_VERSION = "chatbot-2026.06.18-release-visible.6";
+const ERP_RELEASE_VERSION = "v1.0.1";
+const ERP_UI_VERSION = "ui-2026.06.18-mail-readable.7";
+const ERP_CHATBOT_RELEASE_VERSION = "v1.0.1";
+const ERP_CHATBOT_UI_VERSION = "chatbot-2026.06.18-mail-readable.7";
 
 function browserVersionText(ua = navigator.userAgent || "") {
   const rules = [
@@ -706,7 +708,8 @@ async function loadLexicon() {
   const browserVersion = browserVersionText();
   const ua = navigator.userAgent || browserVersion;
   $("#appTitle").innerHTML = `<span class="cockpit-ico" aria-hidden="true">▦</span><span>${esc(state.lex.app_title)}</span>`;
-  $("#appVersionChips").innerHTML = `<span class="version-chip" title="${esc(state.lex.app_version_label)} ${ERP_UI_VERSION}">${esc(state.lex.app_version_label)} ${ERP_UI_VERSION}</span><span class="version-chip" title="${esc(ua)}">${esc(state.lex.browser_version_label)} ${esc(browserVersion)}</span>`;
+  const releaseTitle = `${state.lex.app_version_label} ${ERP_UI_VERSION} · ${state.lex.browser_version_label} ${browserVersion} · ${ua}`;
+  $("#appVersionChips").innerHTML = `<span class="version-chip" title="${esc(releaseTitle)}">ERP ${ERP_RELEASE_VERSION}</span>`;
   $("#appTitle").classList.add("brand-home");
   $("#appTitle").title = state.lex.nav_home;
   $("#appTitle").onclick = () => { state.view = "home"; render(); };
@@ -1777,7 +1780,7 @@ function openChat() {
   if (!state.chatThread) state.chatThread = newChatThreadId();
   ov.innerHTML = `<div class="chat-panel" role="complementary" aria-label="${L.chat_title}" aria-busy="false">
     <div class="chat-head"><strong>${L.chat_title}</strong><span class="dim">${L.chat_note}</span>
-      <span class="chat-ver" title="${esc(L.chat_version_label)} ${ERP_CHATBOT_UI_VERSION}">${esc(L.chat_version_label)} ${ERP_CHATBOT_UI_VERSION}</span><button class="chat-new" title="${L.chat_new}">${L.chat_new}</button><button class="chat-collapse" title="접기/펼치기" aria-label="접기/펼치기" aria-expanded="true">-</button><button class="chat-x">✕</button></div>
+      <span class="chat-ver" title="${esc(L.chat_version_label)} ${ERP_CHATBOT_UI_VERSION}">${esc(L.chat_version_label)} ${ERP_CHATBOT_RELEASE_VERSION}</span><button class="chat-new" title="${L.chat_new}">${L.chat_new}</button><button class="chat-collapse" title="접기/펼치기" aria-label="접기/펼치기" aria-expanded="true">-</button><button class="chat-x">✕</button></div>
     <div class="chat-log" role="log" aria-live="polite" aria-busy="false"></div>
     <div class="chat-status" role="status" aria-live="polite"></div>
     <div class="chat-input"><input id="chatMsg" placeholder="${L.chat_placeholder}" /><button id="chatSend" class="fav-chip">${L.chat_send}</button></div>
@@ -2897,6 +2900,34 @@ function projChip(projectId, cls) {
   return `<span class="label-chip" style="--lc:${projColor(projectId)}" data-lp="${esc(projectId)}">${esc(projectId)}</span>`;
 }
 
+const MAIL_THREAD_PREFIX_RE = /^(\s*(?:re|fw|fwd|전달|회신)\s*[:：]\s*)+/i;
+function mailThreadSubject(subject) {
+  return String(subject ?? "").replace(MAIL_THREAD_PREFIX_RE, "").trim() || String(subject ?? "").trim() || "(제목 없음)";
+}
+function mailThreadKind(subject) {
+  const s = String(subject ?? "").trim();
+  if (/^(fw|fwd|전달)\s*[:：]/i.test(s)) return "전달";
+  if (/^(re|회신)\s*[:：]/i.test(s)) return "회신";
+  return "";
+}
+function mailShortRef(value, max = 42) {
+  const s = String(value ?? "").trim();
+  if (!s) return "";
+  return s.length > max ? `${s.slice(0, max - 1)}…` : s;
+}
+function mailIdTail(id) {
+  const s = String(id ?? "").trim();
+  return s.length <= 8 ? s : s.slice(-8);
+}
+function mailPreviewLine(m) {
+  return [
+    m.mailbox ? `메일함 ${m.mailbox}` : "",
+    m.source_ref ? `소스 ${m.source_ref}` : "",
+    m.pointer_ref ? `원문 ${m.pointer_ref}` : "",
+    m.id ? `ID ${mailIdTail(m.id)}` : ""
+  ].filter(Boolean).map((x) => mailShortRef(x, 54)).join(" · ");
+}
+
 async function renderMail() {
   const L = state.lex;
   await ensureScopes();
@@ -2940,9 +2971,10 @@ async function renderMail() {
       <option value="in" ${f.direction === "in" ? "selected" : ""}>${L.mail_in}</option>
       <option value="out" ${f.direction === "out" ? "selected" : ""}>${L.mail_out}</option>
     </select>
-    <select id="mGroup" title="${L.mail_group_project}/${L.mail_group_date}">
+    <select id="mGroup" title="${L.mail_group_project}/${L.mail_group_date}/${L.mail_group_thread}">
       <option value="project" ${f.groupBy === "project" ? "selected" : ""}>${L.mail_group_project}</option>
       <option value="date" ${f.groupBy === "date" ? "selected" : ""}>${L.mail_group_date}</option>
+      <option value="thread" ${f.groupBy === "thread" ? "selected" : ""}>${L.mail_group_thread}</option>
     </select>
     <input id="mSearch" type="search" placeholder="${L.search_placeholder}" value="${esc(f.q)}" />
     ${showViewScope() ? `<label class="view-scope-lab">${L.view_scope ?? "보기 대상"} ${viewSelectHtml(L)}</label>` : ""}
@@ -2958,18 +2990,30 @@ async function renderMail() {
   const pageIds = mail.map((m) => String(m.id));
   const pageSelected = pageIds.filter((id) => checked.has(id)).length;
   const titleById = new Map(summary.projects.map((p) => [p.id, p.title]));
+  const subjectCounts = new Map();
+  for (const m of mail) {
+    const key = mailThreadSubject(m.subject).toLowerCase();
+    subjectCounts.set(key, (subjectCounts.get(key) ?? 0) + 1);
+  }
   // 한 줄 렌더. showProj=false 면 프로젝트 칩 생략(프로젝트별 그룹에선 헤더가 이미 표시).
   const mailRow = (m, showProj) => {
     const picked = checked.has(String(m.id));
     const manual = m.label_ids.map((id) => labelById.get(id)).filter(Boolean)
       .map((l) => `<span class="label-chip manual mini" style="--lc:${esc(l.color)}">${esc(l.name)}</span>`).join("");
     const meta = (showProj ? projChip(m.project_id, clsById.get(m.project_id)) : "") + manual;
-    return `<tr class="mail-row ${state.mailSel === m.id ? "sel" : ""}" data-m="${esc(m.id)}">
+    const threadSubject = mailThreadSubject(m.subject);
+    const kind = mailThreadKind(m.subject);
+    const dupe = subjectCounts.get(threadSubject.toLowerCase()) > 1;
+    const preview = mailPreviewLine(m);
+    return `<tr class="mail-row ${kind ? "thread-child" : ""} ${state.mailSel === m.id ? "sel" : ""}" data-m="${esc(m.id)}">
       <td class="mail-check"><input type="checkbox" data-chk="${esc(m.id)}" ${picked ? "checked" : ""} />
         <button class="mail-pick ${picked ? "on" : ""}" data-pick="${esc(m.id)}" title="${picked ? "선택 해제" : "선택"}">${picked ? "해제" : "선택"}</button></td>
       <td class="mail-meta">${meta}</td>
       <td class="mail-from">${m.direction === "out" ? `<i>→</i> ` : ""}${esc(m.counterpart ?? "-")}</td>
-      <td class="mail-subj">${esc(m.subject)}</td>
+      <td class="mail-subj" title="${esc([m.subject, preview].filter(Boolean).join(" · "))}">
+        <div class="mail-subj-main">${kind ? `<span class="mail-thread-kind">${esc(kind)}</span>` : ""}${esc(m.subject)}${dupe ? `<span class="mail-dupe" title="같은 대화/제목의 다른 메일">#${esc(mailIdTail(m.id))}</span>` : ""}</div>
+        ${preview ? `<div class="mail-preview">${esc(preview)}</div>` : ""}
+      </td>
       <td class="mail-time">${localTime(m.at)}</td>
     </tr>`;
   };
@@ -2981,6 +3025,18 @@ async function renderMail() {
       const head = sec !== lastSec ? `<tr class="date-sep"><td colspan="5">${L[sec]}</td></tr>` : "";
       lastSec = sec;
       return head + mailRow(m, true);
+    }).join("");
+  } else if (f.groupBy === "thread") {
+    const groups = new Map();
+    for (const m of mail) {
+      const key = mailThreadSubject(m.subject);
+      if (!groups.has(key)) groups.set(key, []);
+      groups.get(key).push(m);
+    }
+    const ordered = [...groups.entries()].sort((a, b) => (b[1][0]?.at ?? "").localeCompare(a[1][0]?.at ?? ""));
+    rows = ordered.map(([subject, ms]) => {
+      const header = `<tr class="proj-sep thread-sep"><td colspan="5"><span class="mail-thread-title">${esc(subject)}</span><span class="proj-sep-n">${ms.length}</span></td></tr>`;
+      return header + ms.map((m) => mailRow(m, true)).join("");
     }).join("");
   } else {
     // 기본: 프로젝트별 구분. 미분류/inbox 는 맨 아래, 그룹은 최신 메일 순.
@@ -3024,11 +3080,17 @@ async function renderMail() {
     </div>` : "";
 
   const sel = mail.find((m) => m.id === state.mailSel);
+  const selPreview = sel ? mailPreviewLine(sel) : "";
+  const selKind = sel ? mailThreadKind(sel.subject) : "";
   const detail = sel ? `<aside class="mail-detail">
       <h3>${esc(sel.subject)}</h3>
       <dl><div><dt>${L.th_counterpart}</dt><dd>${esc(sel.counterpart ?? "-")}</dd></div>
         <div><dt>${L.th_time}</dt><dd>${localTime(sel.at)} · ${sel.direction === "in" ? L.mail_in : L.mail_out}</dd></div>
         <div><dt>${L.project}</dt><dd>${esc(sel.project_id ?? "-")}</dd></div>
+        ${selKind ? `<div><dt>${L.mail_thread_kind ?? "대화 유형"}</dt><dd>${esc(selKind)} · ${esc(mailThreadSubject(sel.subject))}</dd></div>` : ""}
+        ${sel.mailbox ? `<div><dt>${L.mailbox_provider ?? "메일함"}</dt><dd>${esc(sel.mailbox)}</dd></div>` : ""}
+        ${sel.source_ref ? `<div><dt>${L.mail_source_ref ?? "소스"}</dt><dd>${esc(sel.source_ref)}</dd></div>` : ""}
+        ${selPreview ? `<div><dt>${L.mail_preview_meta ?? "식별 정보"}</dt><dd>${esc(selPreview)}</dd></div>` : ""}
         <div><dt>${L.detail_pointer}</dt><dd class="pointer">${esc(sel.pointer_ref ?? "-")} <button class="copy-btn" data-c="${esc(sel.pointer_ref ?? "")}">${L.copy}</button></dd></div></dl>
       <h4>${L.detail_labels}</h4>
       <div class="label-bar">${labels.map((l) => `<span class="label-chip manual ${sel.label_ids.includes(l.id) ? "on" : ""}" style="--lc:${esc(l.color)}" data-toggle="${l.id}">${esc(l.name)}</span>`).join("") || `<span class="dim">-</span>`}</div>
