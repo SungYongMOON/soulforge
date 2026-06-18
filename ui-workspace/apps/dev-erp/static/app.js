@@ -1760,10 +1760,12 @@ function openChat() {
       <button class="chat-new" title="${L.chat_new}">${L.chat_new}</button><button class="chat-collapse" title="접기/펼치기" aria-label="접기/펼치기" aria-expanded="true">-</button><button class="chat-x">✕</button></div>
     <div class="chat-log"></div>
     <div class="chat-input"><input id="chatMsg" placeholder="${L.chat_placeholder}" /><button id="chatSend" class="fav-chip">${L.chat_send}</button></div>
+    <div class="chat-resize" title="크기 조절" aria-hidden="true"></div>
   </div>`;
   document.body.appendChild(ov);
   const panel = ov.querySelector(".chat-panel");
   const headEl = ov.querySelector(".chat-head");
+  const resizeEl = ov.querySelector(".chat-resize");
   const logEl = ov.querySelector(".chat-log");
   const inputEl = ov.querySelector("#chatMsg");
   const collapseBtn = ov.querySelector(".chat-collapse");
@@ -1847,6 +1849,33 @@ function openChat() {
     if (suppressHeadClick) { suppressHeadClick = false; return; }
     setCollapsed(!state.chatDock?.collapsed);
     if (!state.chatDock?.collapsed) inputEl.focus();
+  });
+  let resizeDrag = null;
+  const resizeDock = (w, h, left, top) => {
+    const nw = clamp(w, 320, Math.max(320, window.innerWidth - left - 8));
+    const nh = clamp(h, 360, Math.max(360, window.innerHeight - top - 8));
+    panel.style.width = `${nw}px`;
+    panel.style.height = `${nh}px`;
+    state.chatDock = { ...(state.chatDock || {}), w: Math.round(nw), h: Math.round(nh) };
+    saveDock();
+  };
+  const onResizeMove = (e) => {
+    if (!resizeDrag) return;
+    resizeDock(resizeDrag.startW + e.clientX - resizeDrag.startX, resizeDrag.startH + e.clientY - resizeDrag.startY, resizeDrag.left, resizeDrag.top);
+  };
+  const onResizeUp = () => {
+    resizeDrag = null;
+    document.removeEventListener("pointermove", onResizeMove);
+    document.removeEventListener("pointerup", onResizeUp);
+  };
+  resizeEl.addEventListener("pointerdown", (e) => {
+    if (state.chatDock?.collapsed) return;
+    e.preventDefault();
+    e.stopPropagation();
+    const r = panel.getBoundingClientRect();
+    resizeDrag = { startX: e.clientX, startY: e.clientY, startW: r.width, startH: r.height, left: r.left, top: r.top };
+    document.addEventListener("pointermove", onResizeMove);
+    document.addEventListener("pointerup", onResizeUp);
   });
   // /new: 새 대화 — 스레드 리셋(로컬 LLM 스레드 오염 방지). 로그는 서버에 남아 야간 갱신에 쓰임.
   ov.querySelector(".chat-new").addEventListener("click", () => {
