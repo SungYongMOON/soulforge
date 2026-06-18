@@ -1,5 +1,17 @@
 # CHANGELOG
 
+## 2026-06-18
+
+### Revision `working` - knowledge ingest party launcher skill
+
+- Added `.registry/skills/knowledge_ingest_cell_launcher/` as a thin Codex
+  launcher for the registered `.party/knowledge_ingest_cell` loadout.
+- Kept the launcher below party, workflow, profile-policy, owner-decision,
+  upload, NotebookLM, source-text/index-build, password, and project-mutation
+  authority; the skill resolves workflow-owned policies at execution time.
+- Documented the installed mirror name
+  `soulforge-knowledge-ingest-cell-launcher` for skill sync.
+
 ## 2026-06-17
 
 ### Revision `working` - dev-erp first-release account safety

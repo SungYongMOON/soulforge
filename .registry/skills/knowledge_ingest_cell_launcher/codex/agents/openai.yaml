@@ -1,0 +1,4 @@
+interface:
+  display_name: "Knowledge Ingest Cell Launcher"
+  short_description: "Route owner-gated knowledge ingest through the party"
+  default_prompt: "Use $soulforge-knowledge-ingest-cell-launcher to route this knowledge ingest request through the Knowledge Ingest Cell party."

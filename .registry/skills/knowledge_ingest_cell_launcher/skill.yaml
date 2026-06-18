@@ -1,0 +1,63 @@
+skill_id: knowledge_ingest_cell_launcher
+kind: skill
+status: active
+title: Knowledge Ingest Cell Launcher
+summary: Route owner-gated knowledge ingest requests through the existing Knowledge Ingest Cell party without moving party, workflow, profile policy, project payload, upload authority, index-build authority, or owner decisions into the skill.
+behavior:
+  intent: >
+    Provide a thin Codex launcher for `.party/knowledge_ingest_cell`. The
+    launcher helps a future Codex run resolve the registered party, composite
+    ingest workflow, optional preprocessing route, downstream audit/wiki/RAG
+    preparation routes, owner decision gates, and workflow-owned profile
+    policies at execution time. It is an invocation bridge only; the party
+    remains the reusable orchestration template and each workflow remains the
+    owner of its own steps, profile policy, review posture, and output contract.
+  use_when:
+    - the user asks to run or route `knowledge_ingest_cell`
+    - the user asks for a Soulforge knowledge ingest chain rather than only wikiization
+    - the user asks to connect password-unlock preprocessing, source audit, wiki/RAG preparation, owner gates, and closeout review
+    - the user asks Korean phrases such as "지식 ingest 파티", "지식 등록 체인", "RAG 등록 파티", "전처리부터 위키/RAG까지", or "규격집 지식화 파티"
+    - a request may have encrypted files, unlocked output manifests, controlled/internal source handling, Drive or NotebookLM placement questions, public canon promotion, or source-text/index-build gate questions
+  avoid_when:
+    - the user asks to create or change the `knowledge_ingest_cell` party itself
+    - the request can be safely handled by the narrower `knowledge_wiki_cell_launcher` without preprocessing, source audit, or owner-gated stronger actions
+    - the request requires approving source truth, public canon promotion, owner approval, Drive or NotebookLM upload, source-text extraction, RAG index build, original replacement, migration, or default-route switching from the launcher alone
+    - the request would copy raw source payloads, password values, private run truth, local absolute paths, credentials, or secrets into public skill canon
+  expected_outcome:
+    - Codex reads `.party/knowledge_ingest_cell/party.yaml` and `allowed_workflows.yaml`
+    - Codex resolves `knowledge_ingest_pipeline_v0` as the default party workflow
+    - Codex reads each selected workflow's `workflow.yaml` and `profile_policy.yaml` before planning execution
+    - Codex routes optional `project_password_unlock_copy_only_v0` preprocessing only when owner-approved or an existing unlocked output manifest is supplied
+    - Codex routes source audit through `knowledge_source_audit_v0`
+    - Codex routes wiki/RAG preparation through `knowledge_wiki_pipeline_v0`
+    - Codex inserts `owner_decision_packet_v0` before upload, NotebookLM placement, public canon promotion, source-text/index build, replacement, migration, or controlled/internal source handling
+    - Codex closes bounded development or registration work through `post_development_review_gate_v0`
+    - model, reasoning effort, species, class, and runtime tools are inherited as workflow-owned hints rather than copied as launcher authority
+execution_requirements:
+  required_capabilities:
+    - party_launcher_routing
+    - workflow_profile_policy_resolution
+    - knowledge_ingest_boundary_review
+    - owner_decision_gate_awareness
+    - post_development_review_awareness
+  preferred_capabilities:
+    - yaml_review
+    - source_storage_audit_awareness
+    - wiki_rag_preparation_routing
+    - copy_only_password_preprocess_awareness
+    - rag_source_text_gate_awareness
+    - public_private_boundary_review
+  preferred_tools:
+    - rg
+    - yaml_reader
+    - markdown_editor
+    - soulforge_validators
+  notes:
+    - "The launcher must resolve party and workflow-owned profile policies at execution time; do not copy optimizer profile values into `codex/SKILL.md` as binding authority."
+    - "The launcher is not default-route-safe and must not grant unattended automation authority."
+    - "Password unlock preprocessing is optional, copy-only, and owner-gated through `project_password_unlock_copy_only_v0`."
+    - "Drive, NotebookLM, public canon promotion, source-text/index build, replacement, migration, and controlled/internal source handling require owner decision plus downstream authority."
+    - "Actual project paths, source payloads, password candidate values, connector availability, and local runtime values remain outside public skill canon."
+notes:
+  - "`knowledge_ingest_cell_launcher` is a thin Codex bridge for the registered `.party/knowledge_ingest_cell` loadout."
+  - "The installed Codex mirror name is normally `soulforge-knowledge-ingest-cell-launcher` after `npm run skills:sync -- knowledge_ingest_cell_launcher`."
