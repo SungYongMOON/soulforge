@@ -1035,6 +1035,19 @@ test("run17: 메일 과제 분류(재배정) — 단건/묶음/할일 동행 이
   assert.equal(store.assignMails([mails[0].id], "no-such").error, "project_not_found");
 });
 
+test("mail UI: assign keeps the operator in mail history", () => {
+  const app = readFileSync(join(APP_DIR, "static", "app.js"), "utf8");
+  const start = app.indexOf("const doAssign = async");
+  const end = app.indexOf("$(\"#assignGo\")", start);
+  assert.ok(start > 0 && end > start, "doAssign block must be present");
+  const block = app.slice(start, end);
+  assert.match(block, /post\("\/api\/mail\/assign"/);
+  assert.match(block, /state\.mailSel = null/);
+  assert.doesNotMatch(block, /state\.view\s*=\s*"project"/);
+  assert.doesNotMatch(block, /state\.hubProject\s*=\s*target/);
+  assert.doesNotMatch(block, /state\.hubTab/);
+});
+
 test("store: SE 기준점 자동분류 — 인입 미연결=미분류, 정식 격리 (SE-CLASSIFY slice1)", () => {
   const store = freshStore();
   loadFixture(store);

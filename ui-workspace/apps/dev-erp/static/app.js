@@ -3107,13 +3107,8 @@ async function renderMail() {
   const doAssign = async (mailIds, target, makeItems) => {
     const r = await post("/api/mail/assign", { mail_ids: mailIds, project_id: target, make_items: makeItems });
     if (!r.ok) return;
-    const data = await r.json();
     checked.clear();
-    // 출몰 연출 대상: 이번 분류로 생긴/이동한 할일들
-    state.spawnItems = new Set(data.results.flatMap((x) => [x.item_created, x.item_moved].filter(Boolean)));
-    state.hubProject = target;
-    state.hubTab = state.mode === "fantasy" ? "overview" : "mail";
-    state.view = "project";
+    state.mailSel = null;
     render();
   };
   $("#assignGo")?.addEventListener("click", () =>

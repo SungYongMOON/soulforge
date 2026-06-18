@@ -2,6 +2,12 @@
 
 ## 2026-06-18
 
+### Revision `working` - dev-erp mail assign stays in history
+
+- Kept the mail classification flow on the mail history view after assigning
+  selected messages to a project, so operators can continue triaging the same
+  mailbox/filter without being moved into the project hub.
+
 ### Revision `working` - dev-erp floating chatbot window
 
 - Changed the chatbot from a blocking modal overlay into an always-on-top
