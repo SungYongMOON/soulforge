@@ -722,9 +722,9 @@ nav button[disabled]:hover { background: transparent; }
 .gate-reasons { font-size: 11px; margin-top: 3px; }
 /* A7 ERP 챗봇 패널 */
 .chat-overlay { position: fixed; right: 16px; bottom: 16px; z-index: 720; width: min(420px, calc(100vw - 32px)); height: min(560px, calc(100vh - 32px)); pointer-events: none; }
-.chat-panel { pointer-events: auto; background: var(--panel); border: 1px solid var(--line); border-radius: 14px; width: 100%; height: 100%; display: flex; flex-direction: column; box-shadow: 0 18px 50px rgba(0,0,0,.35); overflow: hidden; resize: both; min-width: 320px; min-height: 360px; max-width: calc(100vw - 32px); max-height: calc(100vh - 32px); }
+.chat-panel { pointer-events: auto; position: relative; background: var(--panel); border: 1px solid var(--line); border-radius: 14px; width: 100%; height: 100%; display: flex; flex-direction: column; box-shadow: 0 18px 50px rgba(0,0,0,.35); overflow: hidden; resize: none; min-width: 320px; min-height: 360px; max-width: calc(100vw - 32px); max-height: calc(100vh - 32px); }
 .chat-panel.collapsed { height: 46px !important; min-height: 46px; resize: none; }
-.chat-panel.collapsed .chat-log, .chat-panel.collapsed .chat-status, .chat-panel.collapsed .chat-input { display: none; }
+.chat-panel.collapsed .chat-log, .chat-panel.collapsed .chat-status, .chat-panel.collapsed .chat-input, .chat-panel.collapsed .chat-resize { display: none; }
 .chat-panel.collapsed .chat-head { border-bottom: 0; }
 .chat-head { display: flex; align-items: center; gap: 8px; padding: 12px 14px; border-bottom: 1px solid var(--line); cursor: move; user-select: none; touch-action: none; }
 .chat-head .dim { font-size: 10.5px; flex: 1; }
@@ -734,7 +734,8 @@ nav button[disabled]:hover { background: transparent; }
 .chat-row { display: flex; flex-direction: column; gap: 6px; max-width: 100%; }
 .chat-row.user { align-items: flex-end; }
 .chat-row.ai { align-items: flex-start; }
-.chat-msg { max-width: 85%; padding: 8px 11px; border-radius: 10px; font-size: 13px; white-space: pre-wrap; }
+.chat-msg { max-width: 85%; padding: 8px 11px; border-radius: 10px; font-size: 13px; line-height: 1.55; white-space: pre-wrap; overflow-wrap: anywhere; }
+.chat-msg > span { display: block; }
 .chat-msg.user { align-self: flex-end; background: var(--accent); color: #fff; }
 .chat-msg.ai { align-self: flex-start; background: var(--chip); color: var(--text); }
 .chat-msg.pending { display: inline-flex; align-items: center; gap: 8px; min-height: 32px; color: var(--muted); }
@@ -769,9 +770,10 @@ nav button[disabled]:hover { background: transparent; }
 .chat-src { font-size: 10.5px; color: var(--muted); margin-top: 4px; }
 .chat-cands { display: flex; flex-wrap: wrap; gap: 6px; max-width: 100%; padding-left: 2px; }
 .chat-cand { max-width: 100%; white-space: normal; text-align: left; line-height: 1.35; }
+.chat-resize { position: absolute; right: 0; bottom: 0; z-index: 3; width: 18px; height: 18px; cursor: nwse-resize; pointer-events: auto; opacity: .85; border-top-left-radius: 8px; background: linear-gradient(135deg, transparent 0 40%, var(--line) 40% 48%, transparent 48% 58%, var(--line) 58% 66%, transparent 66%), rgba(255,255,255,.05); }
 @media (max-width: 640px) {
   .chat-overlay { left: 8px; right: 8px; bottom: 8px; width: auto; height: min(70vh, 520px); }
-  .chat-panel { min-width: 0; min-height: 320px; max-width: none; max-height: calc(100vh - 16px); resize: vertical; }
+  .chat-panel { min-width: 0; min-height: 320px; max-width: none; max-height: calc(100vh - 16px); resize: none; }
 }
 
 /* ═══════ 인증 게이트 / 첫 페이지 — 모드별 스킨(판타지=달빛 / 실무=전문가용) ═══════ */

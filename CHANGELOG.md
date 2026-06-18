@@ -86,6 +86,10 @@
   with the final answer or retry guidance. Fast fallback replies now keep the
   pending bubble visible for a short minimum so punctuation-only test messages
   such as `.....` or `~~~` do not look frozen.
+- Tightened chatbot answer readability: local LLM replies are instructed to use
+  short separated paragraphs and roughly 250-character answers, while the chat
+  UI automatically inserts readable paragraph breaks for long one-paragraph AI
+  messages.
 
 ### Revision `working` - dev-erp runtime release audit gate
 

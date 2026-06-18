@@ -1761,11 +1761,13 @@ function openChat() {
     <div class="chat-log" role="log" aria-live="polite" aria-busy="false"></div>
     <div class="chat-status" role="status" aria-live="polite"></div>
     <div class="chat-input"><input id="chatMsg" placeholder="${L.chat_placeholder}" /><button id="chatSend" class="fav-chip">${L.chat_send}</button></div>
+    <div class="chat-resize" title="크기 조절" aria-hidden="true"></div>
   </div>`;
   document.body.appendChild(ov);
   const panel = ov.querySelector(".chat-panel");
   const headEl = ov.querySelector(".chat-head");
   const headNote = ov.querySelector(".chat-head .dim");
+  const resizeEl = ov.querySelector(".chat-resize");
   const logEl = ov.querySelector(".chat-log");
   const statusEl = ov.querySelector(".chat-status");
   const inputEl = ov.querySelector("#chatMsg");
@@ -1833,6 +1835,33 @@ function openChat() {
       activePendingId = null;
     }
   };
+  const wrapLongText = (text) => {
+    const words = String(text ?? "").trim().split(/\s+/).filter(Boolean);
+    const lines = [];
+    let line = "";
+    for (const word of words) {
+      const next = line ? `${line} ${word}` : word;
+      if (line && next.length > 96) { lines.push(line); line = word; }
+      else line = next;
+    }
+    if (line) lines.push(line);
+    return lines.join("\n\n");
+  };
+  const readableChatText = (text, role) => {
+    const raw = String(text ?? "").replace(/\r\n/g, "\n").replace(/\n{3,}/g, "\n\n").trim();
+    if (role !== "ai" || raw.includes("\n")) return raw;
+    const sentences = raw.match(/[^.!?。！？]+[.!?。！？]+["')\]]*|[^.!?。！？]+$/g)?.map((s) => s.trim()).filter(Boolean) || [];
+    if (sentences.length <= 1) return raw.length > 120 ? wrapLongText(raw) : raw;
+    const chunks = [];
+    let chunk = "";
+    for (const sentence of sentences) {
+      const next = chunk ? `${chunk} ${sentence}` : sentence;
+      if (chunk && next.length > 110) { chunks.push(chunk); chunk = sentence; }
+      else chunk = next;
+    }
+    if (chunk) chunks.push(chunk);
+    return chunks.join("\n\n");
+  };
   const paint = () => {
     logEl.innerHTML = state.chatLog.length
       ? state.chatLog.map((m) => {
@@ -1845,7 +1874,7 @@ function openChat() {
           // 약매칭/미매칭 후보 → 눌러서 바로 그 매뉴얼 질문으로 다시 묻기(끊기지 않게).
           const cand = (m.role === "ai" && !m.matched && Array.isArray(m.candidates) && m.candidates.length)
             ? `<div class="chat-cands">${m.candidates.map((c) => `<button class="fav-chip chat-cand" data-q="${esc(c.question)}">${esc(c.question)}</button>`).join("")}</div>` : "";
-          return `<div class="chat-row ${m.role}"><div class="chat-msg ${m.role}"><span>${esc(m.text)}</span>${src}</div>${cand}</div>`;
+          return `<div class="chat-row ${m.role}"><div class="chat-msg ${m.role}"><span>${esc(readableChatText(m.text, m.role))}</span>${src}</div>${cand}</div>`;
         }).join("")
       : `<div class="empty small">${L.chat_empty}</div>`;
     logEl.scrollTop = logEl.scrollHeight;
@@ -1898,6 +1927,33 @@ function openChat() {
     if (suppressHeadClick) { suppressHeadClick = false; return; }
     setCollapsed(!state.chatDock?.collapsed);
     if (!state.chatDock?.collapsed) inputEl.focus();
+  });
+  let resizeDrag = null;
+  const resizeDock = (w, h, left, top) => {
+    const nw = clamp(w, 320, Math.max(320, window.innerWidth - left - 8));
+    const nh = clamp(h, 360, Math.max(360, window.innerHeight - top - 8));
+    panel.style.width = `${nw}px`;
+    panel.style.height = `${nh}px`;
+    state.chatDock = { ...(state.chatDock || {}), w: Math.round(nw), h: Math.round(nh) };
+    saveDock();
+  };
+  const onResizeMove = (e) => {
+    if (!resizeDrag) return;
+    resizeDock(resizeDrag.startW + e.clientX - resizeDrag.startX, resizeDrag.startH + e.clientY - resizeDrag.startY, resizeDrag.left, resizeDrag.top);
+  };
+  const onResizeUp = () => {
+    resizeDrag = null;
+    document.removeEventListener("pointermove", onResizeMove);
+    document.removeEventListener("pointerup", onResizeUp);
+  };
+  resizeEl.addEventListener("pointerdown", (e) => {
+    if (state.chatDock?.collapsed) return;
+    e.preventDefault();
+    e.stopPropagation();
+    const r = panel.getBoundingClientRect();
+    resizeDrag = { startX: e.clientX, startY: e.clientY, startW: r.width, startH: r.height, left: r.left, top: r.top };
+    document.addEventListener("pointermove", onResizeMove);
+    document.addEventListener("pointerup", onResizeUp);
   });
   // /new: 새 대화 — 스레드 리셋(로컬 LLM 스레드 오염 방지). 로그는 서버에 남아 야간 갱신에 쓰임.
   ov.querySelector(".chat-new").addEventListener("click", () => {
