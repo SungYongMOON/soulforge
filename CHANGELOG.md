@@ -12,6 +12,41 @@
 - Wired the new guard into `validate:knowledge-access` and documented the paired
   Stop hook setup next to the existing knowledge trigger guard.
 
+### Revision `working` - dev-erp chatbot first-user hardening
+
+- Fixed the Ollama adapter for thinking-capable local models such as
+  `gemma4:e4b` by sending `think:false`, stripping hidden thinking text from
+  visible replies, and recording the model tag in LLM call metadata.
+- Prevented weak FAQ matches from being rewritten by the LLM; weak matches now
+  stay in candidate/clarification mode instead of becoming confident answers.
+- Expanded `manual/manual_faq.json` with first-user FAQ coverage for password
+  reset, role/permission visibility, mail-to-task flow, attachment boundaries,
+  deliverable review, gate blockers, AI proposal approval/undo, alerts,
+  meetings, search, and Ollama/Gemma speed troubleshooting.
+- Added regression coverage that loads the tracked production manual and checks
+  beginner-style questions against stable FAQ top matches plus Ollama request
+  payload guards.
+- Hardened the manual for team-member workflow questions around first-use
+  onboarding, daily work triage, mail-to-task processing, deliverable review
+  loops, audit/mistake checks, meeting action item history, and AI proposal
+  boundaries.
+- Added `npm run smoke:chatbot:ollama` as a repeatable local Gemma/Ollama
+  smoke test for learner, power-user, and concurrent team-member chatbot
+  questions.
+- Made UI-created chat thread ids include a random suffix so separate team
+  members or rapid `/new` conversations do not collide in chat logs.
+- Added per-user chatbot question logging (`actor_ref` + `thread_id`) and a
+  bounded same-user/same-thread follow-up context so short questions such as
+  "그럼 막히면요?" can be resolved without mixing team members' conversations.
+- Split the chatbot runtime into `manual_chat_pipeline_v1` with explicit
+  normalize/context/retrieve/log/compose/LLM stages, safe pipeline summaries in
+  `/api/chat`, and configurable `ERP_CHAT_CONTEXT_TURNS` /
+  `ERP_CHAT_RETRIEVAL_LIMIT` knobs.
+- Raised the default follow-up context window to 5 turns and made follow-up
+  questions run contextual retrieval even when the standalone question has a
+  weak-but-wrong match, with topic-recency reranking to prefer the current
+  conversation topic.
+
 ### Revision `working` - dev-erp runtime release audit gate
 
 - Added `tools/runtime_release_audit.mjs`, `npm run audit:runtime`, and root

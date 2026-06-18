@@ -12,7 +12,7 @@ ERP 지식/RAG 목적에서는 Andrej Karpathy 계열 런타임(`llm.c`, `nanoGP
 
 ERP 코드는 두 PC가 동일하다. **다른 건 설치 방법(OS)과 모델 크기(하드웨어)뿐.**
 두 PC에서 **같은 모델 태그**를 쓰면 맥미니에서 고치고 회사 PC에서 같은 결과로 검증할 수 있다.
-**공통 권장 기본값: `gemma3:4b`** (M4 32GB·회사 NVIDIA 16GB 둘 다 빠름). 회사 PC에서 품질을 더 원하면 `gemma2:9b`/`gemma3:12b`.
+**공통 권장 기본값: `gemma3:4b`** (M4 32GB·회사 NVIDIA 16GB 둘 다 빠름). 회사 PC에서 품질을 더 원하면 `gemma2:9b`/`gemma3:12b`를 먼저 보고, 이미 받아 둔 thinking 계열 모델(`gemma4:e4b` 등)을 쓸 수도 있다.
 
 ### 맥미니 (Mac mini 4 / M4, 32GB · 24h 개발·테스트기)
 
@@ -31,6 +31,7 @@ ollama pull gemma3:4b        # 메모리는 넉넉(9b/12b도 가능). 단 M4 기
 ```powershell
 ollama pull gemma3:4b        # 공통 기본값
 # 품질 원하면: ollama pull gemma2:9b   (~5.5GB, 16GB VRAM 여유)
+# 이미 설치돼 있다면: ollama pull gemma4:e4b  # thinking 계열, ERP 어댑터는 think:false로 답변 본문만 사용
 ```
 
 VRAM 가이드(Q4_K_M, 권장은 KV캐시 헤드룸 포함): 4B≈최소4GB, 12B≈최소8GB(권장12GB), 27B≈16GB+.
@@ -59,6 +60,10 @@ set ERP_CHAT_PROVIDER=ollama && set ERP_CHAT_MODEL=gemma3:4b && node server.mjs
 | `OLLAMA_HOST` | `http://127.0.0.1:11434` | Ollama 데몬 주소. **다른 PC에서 돌리면** 그 PC IP로(예: `http://192.168.0.20:11434`) |
 | `ERP_CHAT_TIMEOUT_MS` | `20000` | 응답 대기 한도(초과 시 검색 폴백) |
 | `ERP_CHAT_MAX_TOKENS` | `320` | 응답 최대 토큰 — 줄이면 더 빠름 |
+| `ERP_CHAT_CONTEXT_TURNS` | `5` | 같은 로그인 사용자 + 같은 `thread_id`에서 이어묻기 해석에 쓸 최근 질문 수. `0`이면 문맥 OFF, 최대 10 |
+| `ERP_CHAT_RETRIEVAL_LIMIT` | `3` | 매뉴얼 검색 후보 수. 기본 3, 최대 10 |
+
+thinking 지원 모델(`gemma4:e4b` 등)은 Ollama가 사고 토큰을 먼저 생성할 수 있다. dev-ERP 어댑터는 `/api/generate` 호출에 `think:false`를 넣어 사용자에게 보이는 답변 본문만 받도록 한다. 그래도 모델이 빈 답을 주거나 타임아웃되면 검색 기반 답변으로 폴백한다.
 
 ## 속도 팁
 
@@ -73,4 +78,8 @@ set ERP_CHAT_PROVIDER=ollama && set ERP_CHAT_MODEL=gemma3:4b && node server.mjs
 - LLM 호출은 `src/llm.mjs` 어댑터 한 곳에서만. Ollama는 **localhost**(이 PC) 호출이라 인터넷 외부전송이 아니다.
 - 모델이 안 떠 있거나 타임아웃이면 → 검색 기반 답변으로 자동 폴백(끊기지 않음).
 - LLM은 검색된 매뉴얼 조각만 근거로 답한다. 매뉴얼이 비면 "정리 안 됨"으로 안내하고 질문을 미응답 큐에 기록(야간 고급 LLM 갱신 입력).
+- 질문 로그는 `actor_ref`와 `thread_id`를 함께 저장한다. 야간 매뉴얼 갱신은 어떤 팀원이 어느 대화에서 막혔는지 볼 수 있지만, 실제 업무 원문/첨부 본문은 저장하지 않는다.
+- 이어묻기 문맥은 같은 로그인 사용자 + 같은 `thread_id`의 최근 질문만 사용한다. 새 대화(`/new`) 또는 다른 팀원의 대화는 답변 문맥에 섞지 않는다.
+- 이전 질문은 "그거/아까/그러면" 같은 짧은 질문을 해석하는 보조 신호일 뿐이며, 답변 근거는 항상 검색된 매뉴얼 조각이다.
+- 챗봇 답변은 `manual_chat_pipeline_v1` 단계로 돈다: 질문 정규화 → 같은 대화 문맥 조회 → 매뉴얼 검색 → 질문 로그 저장 → 검색 답변 구성 → 필요 시 로컬 LLM 표현. API 응답에는 raw 이전 질문이 아니라 안전한 pipeline 단계 요약만 노출한다.
 - 작은 모델(2B 등)은 표현을 다듬는 수준. 품질이 아쉬우면 4B~9B로 키운다.

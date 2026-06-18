@@ -26,6 +26,18 @@ const state = {
   mailOffset: 0
 };
 
+function newChatThreadId() {
+  let suffix = "";
+  try {
+    const buf = new Uint32Array(1);
+    crypto.getRandomValues(buf);
+    suffix = buf[0].toString(36);
+  } catch {
+    suffix = Math.random().toString(36).slice(2, 10);
+  }
+  return `th_${Date.now().toString(36)}_${suffix}`;
+}
+
 // P2b 권한: 정의 없거나 익명이면 기본 허용(visible·access). 정의 있으면 그 값.
 function permOf(resource) {
   if (!state.account) return { visible: true, access: true };
@@ -1741,7 +1753,7 @@ function openChat() {
   document.querySelector(".chat-overlay")?.remove();
   const ov = document.createElement("div");
   ov.className = "chat-overlay";
-  if (!state.chatThread) state.chatThread = `th_${Date.now().toString(36)}`;
+  if (!state.chatThread) state.chatThread = newChatThreadId();
   ov.innerHTML = `<div class="chat-panel" role="dialog" aria-label="${L.chat_title}">
     <div class="chat-head"><strong>${L.chat_title}</strong><span class="dim">${L.chat_note}</span>
       <button class="chat-new" title="${L.chat_new}">${L.chat_new}</button><button class="chat-x">✕</button></div>
@@ -1769,13 +1781,13 @@ function openChat() {
   ov.querySelector(".chat-x").addEventListener("click", close);
   // /new: 새 대화 — 스레드 리셋(로컬 LLM 스레드 오염 방지). 로그는 서버에 남아 야간 갱신에 쓰임.
   ov.querySelector(".chat-new").addEventListener("click", () => {
-    state.chatLog = []; state.chatThread = `th_${Date.now().toString(36)}`; paint();
+    state.chatLog = []; state.chatThread = newChatThreadId(); paint();
     ov.querySelector("#chatMsg").focus();
   });
   const send = async () => {
     const inp = ov.querySelector("#chatMsg");
     const msg = inp.value.trim(); if (!msg) return;
-    if (msg === "/new") { state.chatLog = []; state.chatThread = `th_${Date.now().toString(36)}`; inp.value = ""; paint(); return; }
+    if (msg === "/new") { state.chatLog = []; state.chatThread = newChatThreadId(); inp.value = ""; paint(); return; }
     state.chatLog.push({ role: "user", text: msg }); inp.value = ""; paint();
     const r = await post("/api/chat", { message: msg, thread_id: state.chatThread }).then((x) => x.json()).catch(() => ({ text: "(오류)" }));
     state.chatLog.push({ role: "ai", text: r.text || "(응답 없음)", source: r.source, matched: r.matched, candidates: r.candidates }); paint();

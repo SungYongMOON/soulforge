@@ -3,6 +3,7 @@ import test from "node:test";
 import { mkdtempSync, mkdirSync, writeFileSync, readFileSync, rmSync, existsSync, symlinkSync } from "node:fs";
 import { execFileSync, spawn } from "node:child_process";
 import { createServer as createNetServer } from "node:net";
+import { DatabaseSync } from "node:sqlite";
 import { validateRelPointer, safeSegment, safeWorkspacePath, safeUploadTarget, commitUpload } from "../src/filevault.mjs";
 import { tmpdir } from "node:os";
 import { dirname, join } from "node:path";
@@ -15,6 +16,7 @@ import { ingestNormalized, mapSoulforgeSnapshot } from "../src/adapter.mjs";
 import { getLexicon, LEXICON } from "../src/lexicon.mjs";
 import { crossSearch } from "../src/search.mjs";
 import { runQueued, llmQueueStats } from "../src/llm.mjs";
+import { chatPipelineConfig } from "../src/chat_pipeline.mjs";
 import {
   KNOWLEDGE_SHELL_CONTRACT_KIND,
   KNOWLEDGE_SHELL_SCHEMA,
@@ -34,6 +36,11 @@ const APP_DIR = dirname(dirname(fileURLToPath(import.meta.url)));
 
 function freshStore() {
   return openStore(":memory:");
+}
+
+function loadManualFaq(store) {
+  const manual = JSON.parse(readFileSync(join(APP_DIR, "manual", "manual_faq.json"), "utf8"));
+  for (const item of manual) store.upsertFaq({ ...item, data_label: "manual" });
 }
 
 function freePort() {
@@ -208,7 +215,6 @@ test("runtime corrections: project names dry-run, backup, meta/db apply", () => 
     rmSync(root, { recursive: true, force: true });
   }
 });
-
 
 test("runtime release audit: read-only DB/meta gate passes a synced pilot DB", async () => {
   const root = mkdtempSync(join(tmpdir(), "dev-erp-runtime-audit-pass-"));
@@ -2399,12 +2405,15 @@ test("챗봇: FAQ 검색 매칭 답변 + 미응답 로그/큐", () => {
   const store = freshStore();
   loadFixture(store);
   // 매칭
-  const r1 = store.chatAnswer({ question: "게이트 통과 어떻게 해?", thread_id: "t1" });
+  const r1 = store.chatAnswer({ question: "게이트 통과 어떻게 해?", thread_id: "t1", actor_ref: "alice" });
   assert.equal(r1.matched, true);
   assert.equal(r1.source.id, "faq-gate");
   assert.ok(r1.text.includes("통과 가능"));
+  assert.equal(r1.pipeline.id, "manual_chat_pipeline_v1");
+  assert.ok(r1.pipeline.steps.some((s) => s.id === "retrieve"), "검색 단계 trace");
+  assert.ok(r1.pipeline.steps.some((s) => s.id === "log"), "로그 단계 trace");
   // 미매칭 → 끊기지 않는 사람형 안내 + 미응답 큐 적재
-  const r2 = store.chatAnswer({ question: "점심 우주여행 추천", thread_id: "t1" });
+  const r2 = store.chatAnswer({ question: "점심 우주여행 추천", thread_id: "t1", actor_ref: "alice" });
   assert.equal(r2.matched, false);
   assert.ok(r2.text.includes("매뉴얼"), "사람형 안내 텍스트");
   const un = store.unansweredQueries(10);
@@ -2413,6 +2422,101 @@ test("챗봇: FAQ 검색 매칭 답변 + 미응답 로그/큐", () => {
   // 질문 로그 저장됨(매칭 1 + 미매칭 1)
   const cnt = store.db.prepare("SELECT COUNT(*) c FROM chat_query_log").get().c;
   assert.ok(cnt >= 2, "질문 로그 누적");
+  const saved = store.db.prepare("SELECT actor_ref, thread_id FROM chat_query_log ORDER BY id LIMIT 1").get();
+  assert.equal(saved.actor_ref, "alice", "질문자 저장");
+  assert.equal(saved.thread_id, "t1", "대화방 저장");
+});
+
+test("챗봇: 같은 팀원·같은 대화의 최근 질문만 이어묻기 문맥으로 쓴다", () => {
+  const store = freshStore();
+  loadManualFaq(store);
+
+  store.chatAnswer({ question: "게이트 통과가 무슨 뜻이에요?", thread_id: "alice-th", actor_ref: "alice" });
+  const follow = store.chatAnswer({ question: "그럼 막히면요?", thread_id: "alice-th", actor_ref: "alice" });
+  assert.equal(follow.context_used, true, "같은 대화의 이전 질문을 해석 보조로 사용");
+  assert.equal(follow.source.id, "man-gate-blocked-next");
+  assert.equal(follow.pipeline.config.context_turns, 5, "기본 문맥 턴은 pipeline 설정으로 관리");
+
+  const bob = store.chatAnswer({ question: "그럼 막히면요?", thread_id: "alice-th", actor_ref: "bob" });
+  assert.equal(bob.context_used, false, "다른 팀원의 질문 이력은 섞지 않음");
+  assert.equal(bob.matched, false, "남의 문맥 없이 단독 확답하지 않음");
+
+  const freshThread = store.chatAnswer({ question: "그럼 막히면요?", thread_id: "alice-new", actor_ref: "alice" });
+  assert.equal(freshThread.context_used, false, "새 대화는 이전 대화 문맥을 이어받지 않음");
+});
+
+test("챗봇 파이프라인: ERP_CHAT_CONTEXT_TURNS=0 이면 이어묻기 문맥을 끈다", () => {
+  const store = freshStore();
+  loadManualFaq(store);
+  const oldTurns = process.env.ERP_CHAT_CONTEXT_TURNS;
+  try {
+    process.env.ERP_CHAT_CONTEXT_TURNS = "0";
+    const cfg = chatPipelineConfig();
+    assert.equal(cfg.context_turns, 0);
+    store.chatAnswer({ question: "게이트 통과가 무슨 뜻이에요?", thread_id: "alice-th", actor_ref: "alice" });
+    const follow = store.chatAnswer({ question: "그럼 막히면요?", thread_id: "alice-th", actor_ref: "alice" });
+    assert.equal(follow.context_used, false);
+    assert.equal(follow.matched, false);
+    assert.equal(follow.pipeline.steps.find((s) => s.id === "context").enabled, false);
+  } finally {
+    if (oldTurns === undefined) delete process.env.ERP_CHAT_CONTEXT_TURNS;
+    else process.env.ERP_CHAT_CONTEXT_TURNS = oldTurns;
+  }
+});
+
+test("챗봇 파이프라인: 이어묻기는 단독 검색 오답보다 같은 대화 주제를 우선한다", () => {
+  const store = freshStore();
+  loadManualFaq(store);
+  store.chatAnswer({ question: "게이트 통과가 무슨 뜻이에요?", thread_id: "th-gate", actor_ref: "alice" });
+  store.chatAnswer({ question: "게이트에서 막히면 제가 뭘 해야 해요?", thread_id: "th-gate", actor_ref: "alice" });
+  const gateFollow = store.chatAnswer({ question: "그럼 다시 통과는요?", thread_id: "th-gate", actor_ref: "alice" });
+  assert.equal(gateFollow.context_used, true);
+  assert.notEqual(gateFollow.source.id, "man-audit-filters", "단독 검색의 감사로그 오답을 피함");
+  assert.ok(["man-gate-rerun-review", "man-gate-blocked-next"].includes(gateFollow.source.id));
+  assert.equal(gateFollow.pipeline.steps.find((s) => s.id === "context_retrieve").status, "ok");
+
+  const switched = freshStore();
+  loadManualFaq(switched);
+  switched.chatAnswer({ question: "게이트 통과가 무슨 뜻이에요?", thread_id: "th-switch", actor_ref: "alice" });
+  switched.chatAnswer({ question: "회의 액션아이템은 자동으로 할 일이 돼요?", thread_id: "th-switch", actor_ref: "alice" });
+  const meetingFollow = switched.chatAnswer({ question: "그거 다시 하려면 어디서 해요?", thread_id: "th-switch", actor_ref: "alice" });
+  assert.equal(meetingFollow.context_used, true);
+  assert.equal(meetingFollow.source.id, "man-meeting-action-items", "주제 전환 뒤에는 최신 회의 주제를 우선");
+});
+
+test("챗봇: 기존 DB에도 질문자 로그 컬럼을 마이그레이션한다", () => {
+  const root = mkdtempSync(join(tmpdir(), "dev-erp-chatlog-migration-"));
+  const dbPath = join(root, "legacy.db");
+  let store = null;
+  try {
+    const legacy = new DatabaseSync(dbPath);
+    legacy.exec(`
+      CREATE TABLE meta(key TEXT PRIMARY KEY, value TEXT NOT NULL);
+      CREATE TABLE chat_query_log (
+        id INTEGER PRIMARY KEY AUTOINCREMENT,
+        at TEXT NOT NULL,
+        thread_id TEXT,
+        question TEXT NOT NULL,
+        matched_faq_id TEXT,
+        data_label TEXT NOT NULL DEFAULT 'real'
+      );
+    `);
+    legacy.close();
+
+    store = openStore(dbPath);
+    const cols = store.db.prepare("PRAGMA table_info(chat_query_log)").all().map((c) => c.name);
+    assert.ok(cols.includes("actor_ref"), "actor_ref 컬럼 추가");
+    store.logChatQuery({ actor_ref: "alice", thread_id: "t1", question: "테스트" });
+    const row = store.db.prepare("SELECT actor_ref, thread_id, question FROM chat_query_log").get();
+    assert.equal(row.actor_ref, "alice");
+    assert.equal(row.thread_id, "t1");
+    assert.equal(row.question, "테스트");
+    store.db.close();
+    store = null;
+  } finally {
+    try { store?.db.close(); } catch { /* already closed */ }
+    rmSync(root, { recursive: true, force: true });
+  }
 });
 
 // 퍼지 검색: 단어가 글자그대로 같지 않아도(조사/부분일치) 후보를 찾는다.
@@ -2436,6 +2540,109 @@ test("챗봇: answerFromManual stub=외부0 폴백", async () => {
   assert.equal(r.external, false, "외부전송 0");
   assert.equal(r.llm, false, "stub=LLM 표현 미사용");
   assert.equal(r.matched, true, "검색 매칭은 유지");
+});
+
+test("챗봇: 초보 팀원 질문은 매뉴얼 FAQ로 안정 매칭된다", () => {
+  const store = freshStore();
+  loadManualFaq(store);
+  const cases = [
+    ["처음 ERP 들어가려면 어디서 로그인해요?", "man-login-entry-help"],
+    ["ERP를 잘 쓰고 싶은데 처음에 뭘 보면 돼요?", "man-onboarding-start-here"],
+    ["로그인이 안돼요. 비번을 까먹은 것 같아요.", "man-password-reset"],
+    ["로그인은 되는데 화면이 비어 보여요.", "man-login-entry-help"],
+    ["팀원이 자기 것만 보게 권한을 줄 수 있나요?", "man-role-visibility"],
+    ["오늘 제가 해야 할 일만 볼 수 있나요?", "man-today-my-work"],
+    ["오늘 제 할 일과 마감 지난 일은 어디서 봐요?", "man-today-my-work"],
+    ["오늘 내 일 확인하고 메일로 온 일을 처리하는 기본 흐름 알려줘요.", "man-basic-daily-flow"],
+    ["이 과제가 제 담당인지 어떻게 알아요?", "man-assignee-check"],
+    ["내가 맡은 과제랑 다른 사람이 맡은 과제를 어떻게 구분해요?", "man-assignee-check"],
+    ["마감 지난 할 일은 어디에 표시돼요?", "man-today-my-work"],
+    ["제가 과제를 수정할 수 있는 사람인지 어떻게 알아요?", "man-permission-edit-request"],
+    ["다른 팀 자료를 봐도 되는 건가요?", "man-permission-edit-request"],
+    ["메일로 온 일을 과제로 어떻게 등록해요?", "man-mail-to-project-task"],
+    ["메일 첨부파일도 과제에 같이 붙나요?", "man-mail-attachment-boundary"],
+    ["메일에서 만든 할 일의 담당자는 누가 되나요?", "man-mail-task-assignee"],
+    ["작업한 파일은 어디에 올려야 하나요?", "man-deliverable-file-review-start"],
+    ["산출물 파일을 어디에 올리고 검토 요청하나요?", "man-deliverable-file-review-start"],
+    ["작업 파일을 올리고 검토까지 넘기는 흐름을 한 번에 알려줘요.", "man-deliverable-review-flow"],
+    ["03_Out 산출물을 올리고 본인검토, 팀검토, 반려 후 재검토까지 어떻게 돌려요?", "man-deliverable-review-loop"],
+    ["검토 요청은 어떤 버튼으로 보내요?", "man-deliverable-file-review-start"],
+    ["검토 반려되면 뭘 고쳐야 하는지 어디서 봐요?", "man-review-reject-comments"],
+    ["BOM 파일은 어디에 넣어야 해요?", "man-boards-bom-add"],
+    ["refdes가 뭔지 몰라도 입력해야 하나요?", "man-refdes-help"],
+    ["input 파일이 여러 개인데 어떤 걸 기준으로 삼아요?", "man-input-latest-source"],
+    ["게이트 통과가 무슨 뜻이에요?", "man-gate-meaning"],
+    ["게이트에서 막히면 제가 뭘 해야 해요?", "man-gate-blocked-next"],
+    ["게이트를 다시 실행하거나 재검토 요청할 수 있나요?", "man-gate-rerun-review"],
+    ["AI가 자동으로 바꾼 내용은 어디서 확인해요?", "man-ai-change-approval"],
+    ["AI가 제 허락 없이 파일이나 데이터를 바꾸나요?", "man-ai-change-approval"],
+    ["AI한테 맡겨도 되는 일과 맡기면 안 되는 일이 뭐예요?", "man-ai-appropriate-use"],
+    ["AI 제안이 올라오면 검토, 승인, 취소, 이력 확인까지 어떤 순서로 보면 돼요?", "man-ai-proposal-lifecycle"],
+    ["AI가 바꾼 내용을 취소할 수 있나요?", "man-ai-change-undo"],
+    ["제게 온 알림은 어디서 확인해요?", "man-alerts-supported"],
+    ["마감 전에 알림을 받을 수 있나요?", "man-alerts-deadline"],
+    ["회의록을 과제랑 연결할 수 있나요?", "man-meeting-project-link"],
+    ["회의록에서 나온 액션 아이템을 할 일로 만들 수 있나요?", "man-meeting-action-items"],
+    ["회의 액션아이템은 자동으로 할 일이 돼요?", "man-meeting-action-items"],
+    ["회의 액션아이템을 과제 할 일로 연결하고 나중에 감사로그로 확인하려면 어떻게 해요?", "man-meeting-action-audit-flow"],
+    ["누가 언제 수정했는지 볼 수 있나요?", "man-audit-who-when"],
+    ["실수했거나 누가 바꿨는지 확인하려면 어디를 봐요?", "man-audit-mistake-check"],
+    ["예전에 올린 파일이나 과제를 어떻게 검색해요?", "man-search-files-projects"],
+    ["카카오톡이나 슬랙 알림도 보내나요?", "man-alerts-supported"],
+    ["올라마나 젬마가 너무 느릴 때는 어떻게 해요?", "man-llm-slow"],
+  ];
+  for (const [question, expectedId] of cases) {
+    const top = store.retrieveFaqMany(question, 1)[0];
+    assert.equal(top?.faq.id, expectedId, question);
+    assert.equal(store.chatAnswer({ question }).source.id, expectedId, question);
+  }
+});
+
+test("챗봇: 약매칭은 LLM 표현 호출 없이 후보만 제시한다", async () => {
+  const { answerFromManual } = await import("../src/llm.mjs");
+  const store = freshStore();
+  loadManualFaq(store);
+  const r = await answerFromManual({ store, question: "처음 와서 좀 막막해요", provider: "codex_cli" });
+  assert.equal(r.llm, false);
+  assert.equal(r.matched, false);
+  assert.ok(r.candidates.length > 0, "약매칭 후보는 유지");
+  const llmCalls = store.db.prepare("SELECT COUNT(*) c FROM event_log WHERE kind='llm_call'").get().c;
+  assert.equal(llmCalls, 0, "약매칭은 LLM 호출 자체를 하지 않음");
+});
+
+test("LLM 어댑터: Ollama 호출은 thinking 출력을 끄고 모델 태그를 기록한다", async () => {
+  const { runLlm } = await import("../src/llm.mjs");
+  const oldFetch = globalThis.fetch;
+  const oldModel = process.env.ERP_CHAT_MODEL;
+  let body = null;
+  try {
+    process.env.ERP_CHAT_MODEL = "gemma4:e4b";
+    globalThis.fetch = async (_url, opts) => {
+      body = JSON.parse(opts.body);
+      return { json: async () => ({ response: "<think>숨은 사고</think>\n근거 기반 답변" }) };
+    };
+    const store = freshStore();
+    const r = await runLlm({ provider: "ollama", user: "prompt" }, { store });
+    assert.equal(r.delivered, true);
+    assert.equal(r.model, "gemma4:e4b");
+    assert.equal(body.think, false);
+    assert.equal(body.model, "gemma4:e4b");
+    assert.equal(r.text, "근거 기반 답변");
+    const note = store.db.prepare("SELECT note FROM event_log WHERE kind='llm_call'").get().note;
+    assert.match(note, /model=gemma4:e4b/);
+    assert.match(note, /delivered=true/);
+  } finally {
+    globalThis.fetch = oldFetch;
+    if (oldModel === undefined) delete process.env.ERP_CHAT_MODEL;
+    else process.env.ERP_CHAT_MODEL = oldModel;
+  }
+});
+
+test("챗봇 UI: 새 대화 thread id 는 timestamp 단독이 아니라 랜덤 suffix 를 포함한다", () => {
+  const app = readFileSync(join(APP_DIR, "static", "app.js"), "utf8");
+  assert.match(app, /function newChatThreadId\(\)/);
+  assert.match(app, /crypto\.getRandomValues|Math\.random/);
+  assert.doesNotMatch(app, /state\.chatThread = `th_\$\{Date\.now\(\)\.toString\(36\)\}`/);
 });
 
 // #13 캘린더 .ics 내보내기 — 마감 있는 미완 항목만 종일 VEVENT, person 필터(원문 미포함).

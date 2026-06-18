@@ -547,10 +547,10 @@ const server = createServer(async (req, res) => {
       let body = ""; for await (const chunk of req) body += chunk;
       const { message, thread_id } = JSON.parse(body || "{}");
       const provider = process.env.ERP_CHAT_PROVIDER || "stub";
-      const r = await answerFromManual({ store, question: message, thread_id, provider });
+      const r = await answerFromManual({ store, question: message, thread_id, actor_ref: actor, provider });
       if (r.error) return send(res, 400, r);
       store.appendEvent({ actor_ref: actor, actor_kind: "human", kind: "chat_query", to: r.matched ? "matched" : "unanswered", used_refs: ["chat", "faq"], data_label: "meta", note: thread_id ? `thread=${thread_id}` : null });
-      return send(res, 200, { text: r.text, matched: r.matched, source: r.source, candidates: r.candidates || [], mode: r.mode, external: r.external, llm: r.llm });
+      return send(res, 200, { text: r.text, matched: r.matched, source: r.source, candidates: r.candidates || [], mode: r.mode, external: r.external, provider: r.provider, model: r.model, llm: r.llm, context_used: r.context_used || false, pipeline: r.pipeline_public || null });
     }
     if (path === "/api/faq" && req.method === "GET") return send(res, 200, store.faqs({ topic: qp.topic }));
     if (path === "/api/faq" && req.method === "POST") {

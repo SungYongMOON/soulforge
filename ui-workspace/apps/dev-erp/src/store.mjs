@@ -7,6 +7,7 @@ import { scryptSync, randomBytes, timingSafeEqual } from "node:crypto";
 import { readFileSync, existsSync } from "node:fs";
 import { dirname, isAbsolute, join } from "node:path";
 import { fileURLToPath } from "node:url";
+import { CHAT_CONTEXT_TURNS_DEFAULT, CHAT_CONTEXT_TURNS_MAX, runManualRetrievalPipeline } from "./chat_pipeline.mjs";
 
 // 과제시작년도 도출: 과제번호 접두 P{YY}- 에서(P26-014→2026, P00-TEST→2000). 형식 안 맞으면 null.
 export function deriveStartYear(id) {
@@ -442,6 +443,7 @@ CREATE TABLE IF NOT EXISTS calculator_example (
 CREATE TABLE IF NOT EXISTS chat_query_log (
   id INTEGER PRIMARY KEY AUTOINCREMENT,
   at TEXT NOT NULL,
+  actor_ref TEXT,
   thread_id TEXT,
   question TEXT NOT NULL,
   matched_faq_id TEXT,
@@ -729,7 +731,9 @@ export function openStore(path = ":memory:") {
     // null = 단일(owner) 파일럿 메일. Codex 계정별 메일 인입 시 account.email 로 채운다.
     "ALTER TABLE core_mail ADD COLUMN mailbox TEXT",
     // 산출물 입력 포인터(02_Input) — out_pointer 와 대칭. 상대경로(원문 미저장).
-    "ALTER TABLE core_deliverable ADD COLUMN in_pointer TEXT"
+    "ALTER TABLE core_deliverable ADD COLUMN in_pointer TEXT",
+    // 챗봇 질문 로그는 야간 매뉴얼 갱신 입력이므로 질문자/대화방을 함께 보존한다.
+    "ALTER TABLE chat_query_log ADD COLUMN actor_ref TEXT"
   ]) {
     try { db.exec(ddl); } catch { /* exists */ }
   }
@@ -743,6 +747,7 @@ export function openStore(path = ":memory:") {
     db.exec("INSERT INTO rbac_role(id,name) VALUES('member','팀원') ON CONFLICT(id) DO NOTHING");
     db.exec("CREATE INDEX IF NOT EXISTS idx_account_email ON core_account(email)");
     db.exec("CREATE INDEX IF NOT EXISTS idx_mail_mailbox ON core_mail(mailbox)");
+    db.exec("CREATE INDEX IF NOT EXISTS idx_chatlog_actor_thread ON chat_query_log(actor_ref, thread_id, at)");
   } catch { /* noop */ }
   const cur = db.prepare("SELECT value FROM meta WHERE key='schema_version'").get();
   if (!cur) {
@@ -2103,7 +2108,14 @@ export class Store {
   // 로컬 키워드 검색(추론 X): 질문 토큰이 FAQ의 question/keywords/answer와 겹치는 정도로 최고 1건.
   // 검색 토큰화: 2글자+ 단어. 한국어는 조사/어미가 붙으므로 양방향 부분일치를 본다.
   _tokenize(s) {
-    return String(s ?? "").toLowerCase().split(/[\s,./()\[\]?!~"'·]+/).filter((w) => w.length >= 2);
+    const stop = new Set([
+      "어떻게", "어디서", "무엇을", "무슨", "뭔가요", "뭐예요", "뭐에요", "뭘",
+      "제가", "저는", "나는", "내가", "이거", "그거", "저거",
+      "있나요", "되나요", "되는", "하나요", "해요", "해야", "하면", "때는", "같아요", "건가요",
+      "볼", "수", "있는지", "알아요", "알려줘", "알려주세요"
+    ]);
+    return String(s ?? "").toLowerCase().split(/[\s,./()\[\]?!~"'·]+/)
+      .filter((w) => w.length >= 2 && !stop.has(w));
   }
   // 상위 N개 후보를 정규화 점수(0~1)와 함께 반환. 단어가 글자그대로 같지 않아도
   // 한쪽이 다른쪽의 부분문자열이면(예: "재고"⊂"재고부족") 부분점수를 준다.
@@ -2169,9 +2181,22 @@ export class Store {
     const kn = this.retrieveKnowledge(question, n).map((r) => ({ type: "knowledge", score: r.score, norm: r.norm, item: r.knowledge }));
     return [...faq, ...kn].sort((a, b) => b.score - a.score).slice(0, n);
   }
-  logChatQuery({ thread_id = null, question, matched_faq_id = null }) {
-    this.db.prepare("INSERT INTO chat_query_log(at,thread_id,question,matched_faq_id,data_label) VALUES(?,?,?,?,?)")
-      .run(new Date().toISOString(), thread_id, String(question ?? ""), matched_faq_id, "real");
+  recentChatQueries({ actor_ref = null, thread_id = null, limit = CHAT_CONTEXT_TURNS_DEFAULT } = {}) {
+    const actor = actor_ref == null ? null : String(actor_ref).trim();
+    const thread = thread_id == null ? null : String(thread_id).trim();
+    if (!actor || !thread) return [];
+    const count = Math.floor(Number(limit));
+    if (!Number.isFinite(count) || count <= 0) return [];
+    const rows = this.db.prepare(
+      `SELECT id, at, actor_ref, thread_id, question, matched_faq_id FROM chat_query_log
+       WHERE actor_ref=? AND thread_id=?
+       ORDER BY id DESC LIMIT ?`
+    ).all(actor, thread, Math.min(CHAT_CONTEXT_TURNS_MAX, count));
+    return rows.reverse();
+  }
+  logChatQuery({ actor_ref = null, thread_id = null, question, matched_faq_id = null }) {
+    this.db.prepare("INSERT INTO chat_query_log(at,actor_ref,thread_id,question,matched_faq_id,data_label) VALUES(?,?,?,?,?,?)")
+      .run(new Date().toISOString(), actor_ref, thread_id, String(question ?? ""), matched_faq_id, "real");
     return { ok: true };
   }
   // 야간 매뉴얼 갱신 입력: 미응답(매칭 FAQ 없음) 질문 + 빈도.
@@ -2186,30 +2211,8 @@ export class Store {
   //  - 약한 매칭 → 가까운 항목들을 제시하며 되묻기(끊지 않음).
   //  - 매칭 0   → 알려진 주제를 안내하며 구체화 요청 + 미응답 기록(야간 갱신 입력).
   // 강한 매칭 기준: norm≥0.5 또는 score≥2. 매칭 FAQ 없으면 unanswered 로그.
-  chatAnswer({ question, thread_id = null } = {}) {
-    const q = String(question ?? "").trim();
-    if (!q) return { error: "question_required" };
-    const hits = this.retrieveFaqMany(q, 3);
-    const top = hits[0] || null;
-    const strong = top && (top.norm >= 0.5 || top.score >= 2);
-    const matchedId = strong ? top.faq.id : null;
-    this.logChatQuery({ thread_id, question: q, matched_faq_id: matchedId });
-    const candidates = hits.map((h) => ({ id: h.faq.id, topic: h.faq.topic, question: h.faq.question }));
-
-    if (strong) {
-      const f = top.faq;
-      const text = `${f.answer}${f.pointer ? `\n\n📎 참고: ${f.pointer}` : ""}`;
-      return { matched: true, grounded: true, source: { id: f.id, topic: f.topic, question: f.question }, candidates, text };
-    }
-    if (hits.length) {
-      const lines = hits.map((h) => `· ${h.faq.question}${h.faq.topic ? ` (${h.faq.topic})` : ""}`).join("\n");
-      const text = `딱 맞는 매뉴얼 항목을 못 찾았지만, 이런 게 관련 있어 보여요:\n${lines}\n\n이 중 가까운 게 있을까요? 아니면 조금 더 구체적으로 말씀해 주시면 찾아볼게요.`;
-      return { matched: false, grounded: false, source: null, candidates, text };
-    }
-    const topics = [...new Set(this.faqs().map((f) => f.topic).filter(Boolean))];
-    const hint = topics.length ? ` 참고로 지금 정리된 주제는 ${topics.join(", ")} 쪽이에요.` : "";
-    const text = `아직 매뉴얼에 정리되지 않은 내용이라 정확히 답드리긴 어렵네요. 질문은 저장해 두었고, 야간에 매뉴얼이 보강됩니다.${hint} 혹시 관련된 주제로 다시 여쭤봐 주실래요?`;
-    return { matched: false, grounded: false, source: null, candidates: [], text };
+  chatAnswer({ question, thread_id = null, actor_ref = null } = {}) {
+    return runManualRetrievalPipeline({ store: this, question, thread_id, actor_ref });
   }
 
   // ---------- P3 부품/BOM/위치/재고 (공유 마스터·내부 판정만) ----------
