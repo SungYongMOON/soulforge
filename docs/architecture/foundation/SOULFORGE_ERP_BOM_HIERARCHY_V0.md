@@ -144,7 +144,7 @@ entry로 본다. `docs/`와 `authoring/`은 보조 문서/작성 템플릿이다
 - `github_up`
 - `grill_me`
 - `hwpx_document`
-- `knowledge_wiki_cell_launcher`
+- `knowledge_ingest_cell_launcher`
 - `long_thread_handoff`
 - `mission_check`
 - `outbound_mail_authoring`
@@ -278,13 +278,14 @@ status, or production-ready status.
 
 ## L4 `.party` BOM
 
-현재 `.party/index.yaml` 등록 party는 5개다.
+현재 `.party/index.yaml` 등록 party는 6개다.
 
 1. `guild_master_cell`
 2. `knowledge_wiki_cell`
-3. `systems_engineering_cell`
-4. `pcb_revision_library_cell`
-5. `daily_automation_party`
+3. `knowledge_ingest_cell`
+4. `systems_engineering_cell`
+5. `pcb_revision_library_cell`
+6. `daily_automation_party`
 
 관찰된 보조 party 폴더:
 
@@ -526,15 +527,15 @@ Registered optional RAG source-text support workflows:
 - `rag_source_text_quality_review_v0`
 - `rag_work_card_router_v0`
 
-These workflows are optional `knowledge_wiki_cell` routes only. They do not
+These workflows are optional `knowledge_ingest_cell` routes only. They do not
 claim source truth, answer authority, project execution authority, owner
 approval, public canon promotion, default-route-safe status, or production-ready
 status.
 
 ### Knowledge parties and launcher skills
 
-- party: `knowledge_wiki_cell`
-- launcher skill: `knowledge_wiki_cell_launcher`
+- party: `knowledge_ingest_cell`
+- launcher skill: `knowledge_ingest_cell_launcher`
 - related skills:
   - `dual_deep_research`
   - `evidence_sift`
@@ -664,7 +665,7 @@ repo에 넣지 않는 continuity data plane을 맡는다.
 본 지도는 다음 관찰/검증을 근거로 작성했다.
 
 - `.workflow/index.yaml`: 62 canon workflow entries
-- `.party/index.yaml`: 5 canon party entries
+- `.party/index.yaml`: 6 canon party entries
 - `.registry`: species 5, classes 10, skills 27, tools 5, knowledge 9
 - `ui-workspace/apps/dev-erp/src/modules.mjs`: 12 ERP module slots
 - `ui-workspace/apps/dev-erp/src/store.mjs`: **25 tables** (v0.1; v0는 21), 6 indexes

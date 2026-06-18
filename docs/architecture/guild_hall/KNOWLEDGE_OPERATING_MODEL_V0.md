@@ -60,10 +60,11 @@ recorded on purpose.
 
 ## Current Workflow Stack
 
-- `$soulforge-knowledge-wiki-cell-launcher` is the current caller-facing route
-  for knowledge/RAG/wiki registration. It resolves `.party/knowledge_wiki_cell`,
-  defaults to `knowledge_wiki_pipeline_v0`, and inserts optional LLM wiki or RAG
-  support workflows only when the request needs them.
+- `$soulforge-knowledge-ingest-cell-launcher` is the single caller-facing route
+  for knowledge ingest, audit, RAG, and wiki registration. It resolves
+  `.party/knowledge_ingest_cell`, defaults to `knowledge_ingest_pipeline_v0`,
+  and inserts audit, wiki/RAG preparation, owner decision, or optional support
+  workflows only when the request needs them.
 - `monster_knowledge_preflight_v0` is the optional query-first front gate for
   source-heavy or ambiguity-heavy monsters.
 - `knowledge_candidate_triage_v0` is the explicit filter between candidate

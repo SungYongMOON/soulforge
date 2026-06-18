@@ -12,10 +12,11 @@
 
 ## One-line Rule
 
-- Route knowledge/RAG/wiki registration through
-  `$soulforge-knowledge-wiki-cell-launcher`, which defaults to
-  `knowledge_wiki_pipeline_v0`; insert the older LLM wiki stack workflows only
-  as optional query-first or curation routes when the request needs them.
+- Route knowledge ingest, audit, RAG, and wiki registration through
+  `$soulforge-knowledge-ingest-cell-launcher`, which defaults to
+  `knowledge_ingest_pipeline_v0`; insert audit, wiki/RAG preparation, owner
+  decision, or older LLM wiki stack workflows only as optional routes when the
+  request needs them.
 
 ## Stack
 
@@ -94,7 +95,7 @@
   curation, usage-capture handoff, and governance routing.
 - It still does not own source truth, owner approval, or final canon authority.
 - In the current registered party surface it is an optional compatibility route
-  behind `$soulforge-knowledge-wiki-cell-launcher`, not the party default.
+  behind `$soulforge-knowledge-ingest-cell-launcher`, not the party default.
 
 ### Governance
 
@@ -171,7 +172,7 @@ product sense.
   weaker than the manual and review-driven paths.
 - Query-first operation is usable now, but still depends on workers following
   the preflight discipline or an explicit caller using `llm_wiki_builder_v0`
-  through the `knowledge_wiki_cell` launcher.
+  through the unified knowledge ingest launcher.
 
 ## Related Surfaces
 

@@ -2,6 +2,17 @@
 
 ## 2026-06-18
 
+### Revision `working` - knowledge launcher skill consolidation
+
+- Removed the duplicate caller-facing knowledge Codex launchers
+  `.registry/skills/knowledge_audit/` and
+  `.registry/skills/knowledge_wiki_cell_launcher/`.
+- Kept `$soulforge-knowledge-ingest-cell-launcher` as the single knowledge
+  entry skill; the underlying audit, wiki/RAG, owner-decision, and review
+  workflows remain available through `knowledge_ingest_cell`.
+- Updated knowledge operating docs so caller-facing examples point at the
+  unified launcher instead of the retired narrow launchers.
+
 ### Revision `working` - knowledge ingest party launcher skill
 
 - Added `.registry/skills/knowledge_ingest_cell_launcher/` as a thin Codex

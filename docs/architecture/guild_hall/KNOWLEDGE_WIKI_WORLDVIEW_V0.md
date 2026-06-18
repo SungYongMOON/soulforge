@@ -199,9 +199,10 @@ flowchart LR
 
 중요한 운영 규칙은 하나다.
 
-2026-06-14 route update: caller-facing wiki/RAG knowledge registration now starts
-from the installed Codex launcher `$soulforge-knowledge-wiki-cell-launcher`,
-which defaults to the registered `knowledge_wiki_pipeline_v0` composite. The older
+2026-06-18 route update: caller-facing knowledge ingest, audit, wiki/RAG
+registration now starts from the installed Codex launcher
+`$soulforge-knowledge-ingest-cell-launcher`, which defaults to the registered
+`knowledge_ingest_pipeline_v0` composite. The older
 LLM/wiki workflows (`workflow_knowledge_preflight_v0`,
 `monster_knowledge_preflight_v0`, `knowledge_candidate_triage_v0`,
 `wiki_curation_maintenance_v0`, `llm_wiki_builder_v0`) and the RAG source-text

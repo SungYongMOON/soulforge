@@ -20,7 +20,7 @@ behavior:
     - a request may have encrypted files, unlocked output manifests, controlled/internal source handling, Drive or NotebookLM placement questions, public canon promotion, or source-text/index-build gate questions
   avoid_when:
     - the user asks to create or change the `knowledge_ingest_cell` party itself
-    - the request can be safely handled by the narrower `knowledge_wiki_cell_launcher` without preprocessing, source audit, or owner-gated stronger actions
+    - the user explicitly asks to bypass the unified ingest launcher and route a narrower internal workflow or party manually
     - the request requires approving source truth, public canon promotion, owner approval, Drive or NotebookLM upload, source-text extraction, RAG index build, original replacement, migration, or default-route switching from the launcher alone
     - the request would copy raw source payloads, password values, private run truth, local absolute paths, credentials, or secrets into public skill canon
   expected_outcome:
