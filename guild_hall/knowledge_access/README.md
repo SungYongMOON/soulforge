@@ -26,15 +26,20 @@ npm run validate:knowledge-access
 npm run validate:knowledge-rag-candidate-ledger
 ```
 
-## Optional Stop Hook Guard
+## Optional Stop Hook Guards
 
 `knowledge_trigger_stop_guard.mjs` is a low-noise Codex `Stop` hook helper. It does not judge knowledge and does not read transcripts. It only inspects the hook payload's final assistant message and blocks bounded Soulforge completion reports that forgot the Korean `지식 트리거 확인:` closeout line. New reports should use user-facing Korean labels such as `지식 트리거 확인: 책임자 판단 필요`; legacy `지식 트리거 확인: 오너 판단 필요` and `Knowledge trigger check:` lines are still accepted for compatibility.
+
+`rule_hardening_stop_guard.mjs` is the matching low-noise guard for conversation rule hardening. It does not scan transcripts, decide whether a candidate is valid, or write records. It only blocks bounded Soulforge completion-like reports that forgot the `규칙 강화 체크:` closeout block. The actual extraction procedure lives in the local Codex skill `conversation-rule-hardening`.
 
 Preferred closeout wording:
 
 ```text
 지식 트리거 확인: 책임자 판단 필요
 주장 한계: 관찰됨 - 자료를 찾고 정리했지만 아직 검증/승인된 지식은 아님
+
+규칙 강화 체크:
+- 새 규칙 후보: 없음
 ```
 
 Example user-local Codex hook config:
@@ -46,15 +51,22 @@ type = "command"
 command = 'node "$(git rev-parse --show-toplevel)/guild_hall/knowledge_access/knowledge_trigger_stop_guard.mjs"'
 timeout = 10
 statusMessage = "Checking Soulforge closeout line"
+
+[[hooks.Stop.hooks]]
+type = "command"
+command = 'node "$(git rev-parse --show-toplevel)/guild_hall/knowledge_access/rule_hardening_stop_guard.mjs"'
+timeout = 10
+statusMessage = "Checking Soulforge rule hardening closeout"
 ```
 
-Keep this in user/project Codex hook config, not in public runtime ledger data. The guard stays silent on normal conversation, non-Soulforge cwd, and responses that already include `지식 트리거 확인: ...`.
+Keep this in user/project Codex hook config, not in public runtime ledger data. The guards stay silent on normal conversation, non-Soulforge cwd, and responses that already include the required closeout lines.
 
 ## Boundary
 
 - Ledger rows include refs and metadata only: event id, timestamp, capture mode, ledger ref, actor, target knowledge ref, access type, reason, output ref, work context, outcome state, and redaction flags.
 - End-of-task trigger flags only populate `accumulation_delta_hint` metadata for already-used refs; they do not validate source truth, approve ontology/owner decisions, mutate graphs, archive/retire refs, or promote canon.
 - Stop hook guard output is a compact missing-line continuation request only; it does not evaluate candidate quality, scan transcripts, or store `없음` / legacy `no_trigger` rows.
+- Rule-hardening Stop hook output is also a compact missing-line continuation request only; it does not judge candidate quality, scan transcripts, write indexes, or promote rules.
 - Source file payloads are returned only by `read`; they are never copied into the JSONL row.
 - `analyze`/`rollup` reads only explicit `.jsonl` ledger files or repo-relative ledger refs. It does not scan directories, follow ledger roots, read target payloads, or mutate canon/ontology/graph state.
 - `notebooklm-bridge` reads only explicit metadata files. It does not call `nlm`, inspect NotebookLM auth/session files, copy source/query payloads or free-form query-log reason prose, or infer events when the query log has no importable rows.

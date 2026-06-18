@@ -2,6 +2,16 @@
 
 ## 2026-06-18
 
+### Revision `working` - conversation rule hardening closeout guard
+
+- Added a local Codex `conversation-rule-hardening` skill for extracting repeated
+  correction signals, unresolved conventions, subject keyword gaps, team aliases,
+  attachment handling guards, and next-time automation candidates at task close.
+- Added `rule_hardening_stop_guard.mjs` plus tests so bounded Soulforge completion
+  reports can be blocked when they omit the `규칙 강화 체크:` closeout block.
+- Wired the new guard into `validate:knowledge-access` and documented the paired
+  Stop hook setup next to the existing knowledge trigger guard.
+
 ### Revision `working` - dev-erp runtime correction patch tool
 
 - Added `tools/runtime_corrections.mjs`, `npm run correct:runtime`, and root
@@ -4231,6 +4241,28 @@ Git log 는 원문 이력을 남기고, 이 문서는 사람이 읽는 patch not
 - 목적은 public `pull/push` 동작 검증이며, 기능 변화는 없다.
 - 관련 경로:
   - `docs/architecture/bootstrap/SYNC_PROBE_PUBLIC_2026-03-23.md`
+
+## 2026-06-18
+
+### Unreleased
+
+- Added `PROJECT_FOLDER_INDEXING_POLICY_V0.md` so active project worksites keep a
+  project-local file search index before folder cleanup, RAG, wiki, or
+  source-supported knowledge work.
+- Documented the boundary between folder indexing, raw source storage,
+  `_workmeta` metadata, blocked/encrypted-file queues, and later knowledge
+  promotion.
+- Clarified that newly created or downloaded project files should be captured by
+  incremental indexing after they are accepted into the project worksite.
+- Added the daily dawn indexing check rule: detect missing or stale project
+  indexes first, index only queued folders, keep the run non-destructive, and
+  leave password unlock work outside the default automation.
+- Updated `outlook_mail_reconcile_v0` and the installed Codex launcher skill so
+  the Outlook automation may run `Send/Receive All Folders` once as an
+  owner-requested preflight immediately before metadata collection.
+- Updated the local Codex `outlook` automation prompt to require that preflight
+  refresh while keeping all other Outlook mutation, raw-body, and attachment
+  boundaries unchanged.
 
 ## 2026-03-22
 
