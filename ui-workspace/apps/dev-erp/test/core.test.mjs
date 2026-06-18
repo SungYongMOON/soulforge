@@ -2891,6 +2891,21 @@ test("챗봇 UI: 짧은 릴리즈 번호를 표시하고 내부 빌드 정보는
   assert.match(css, /\.chat-head \.dim \{[^}]*min-width: 0/s);
 });
 
+test("server: 운영 4300은 runtime checkout 전용이고 개발 기본 포트는 4310이다", () => {
+  const server = readFileSync(join(APP_DIR, "server.mjs"), "utf8");
+  const startBat = readFileSync(join(APP_DIR, "start-windows.bat"), "utf8");
+  const tailscaleBat = readFileSync(join(APP_DIR, "start-tailscale-windows.bat"), "utf8");
+  assert.match(server, /Soulforge-runtime/);
+  assert.match(server, /DEV_PORT = Number\(process\.env\.DEV_ERP_DEV_PORT \|\| 4310\)/);
+  assert.match(server, /PORT === RUNTIME_PORT && !IS_RUNTIME_CHECKOUT/);
+  assert.match(server, /DEV_ERP_ALLOW_DEV_4300/);
+  assert.match(server, /port \$\{RUNTIME_PORT\} is reserved/);
+  assert.match(startBat, /set "DEV_ERP_PORT=4310"/);
+  assert.match(startBat, /Soulforge-runtime/);
+  assert.match(startBat, /--port %DEV_ERP_PORT%/);
+  assert.match(tailscaleBat, /Tailscale backend 4300 must be started from C:\\Soulforge-runtime/);
+});
+
 test("챗봇 API: 처리 예외가 나도 사용자에게 안전한 JSON 폴백을 주는 경로가 있다", () => {
   const server = readFileSync(join(APP_DIR, "server.mjs"), "utf8");
   assert.match(server, /\[dev-erp\] chat failed:/);

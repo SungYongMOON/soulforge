@@ -2,6 +2,15 @@
 
 ## 2026-06-18
 
+### Revision `working` - dev-erp port boundary guard
+
+- Reserved port `4300` for the `C:\Soulforge-runtime` checkout and changed
+  non-runtime development checkouts to default to port `4310`.
+- Added a server-side refusal guard so development checkouts cannot accidentally
+  take over the production port unless an explicit emergency override is set.
+- Updated Windows start scripts and QA/deployment docs so runtime and development
+  browser checks use different ports by default.
+
 ### Revision `working` - dev-erp compact version and readable mail history
 
 - Shortened the visible app/chatbot version badges to semver-style release

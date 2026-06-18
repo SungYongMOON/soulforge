@@ -1,6 +1,7 @@
 #!/usr/bin/env node
 // dev-erp P1 서버: 외부 의존성 0 (node:http + node:sqlite).
-// 사용: node server.mjs [--port 4300] [--db data/dev-erp.db] [--ingest <json>] [--fixture]
+// 사용: node server.mjs [--port 4310] [--db data/dev-erp.db] [--ingest <json>] [--fixture]
+// 포트 원칙: C:\Soulforge-runtime 운영본만 4300, 개발/작업본 기본은 4310.
 // 기본: 빈 DB 는 비워 둔다. 데모 데이터는 --fixture 또는 DEV_ERP_LOAD_FIXTURE=1 일 때만 적재.
 import { createServer } from "node:http";
 import { readFileSync, existsSync, mkdirSync, statSync } from "node:fs";
@@ -40,7 +41,17 @@ const ROOT = resolve(dirname(fileURLToPath(import.meta.url)), "..", "..", "..");
 const KNOWLEDGE_SHELL_ROOT = resolve(flag("knowledge_shell_root", ROOT));
 const FILEIO = process.env.DEV_ERP_FILEIO === "1" || process.argv.includes("--fileio");
 const UPLOAD_MAX = Number(process.env.DEV_ERP_UPLOAD_MAX || 50 * 1024 * 1024); // 50MB 기본 상한
-const PORT = Number(flag("port", 4300));
+const isRuntimeCheckout = (p) => /(^|[\\/])Soulforge-runtime([\\/]|$)/i.test(resolve(p));
+const IS_RUNTIME_CHECKOUT = isRuntimeCheckout(ROOT) || isRuntimeCheckout(HERE);
+const RUNTIME_PORT = Number(process.env.DEV_ERP_RUNTIME_PORT || 4300);
+const DEV_PORT = Number(process.env.DEV_ERP_DEV_PORT || 4310);
+const DEFAULT_PORT = IS_RUNTIME_CHECKOUT ? RUNTIME_PORT : DEV_PORT;
+const PORT = Number(flag("port", DEFAULT_PORT));
+const ALLOW_NON_RUNTIME_4300 = process.env.DEV_ERP_ALLOW_DEV_4300 === "1" || args.includes("--allow-dev-4300");
+if (PORT === RUNTIME_PORT && !IS_RUNTIME_CHECKOUT && !ALLOW_NON_RUNTIME_4300) {
+  console.error(`[dev-erp] refused: port ${RUNTIME_PORT} is reserved for C:\\Soulforge-runtime. Use --port ${DEV_PORT} for C:\\Soulforge development, or set DEV_ERP_ALLOW_DEV_4300=1 for an explicit emergency override.`);
+  process.exit(2);
+}
 // 기본은 localhost 전용(안전). 같은 네트워크 공유가 필요할 때만 --host 0.0.0.0
 // (합성 데이터 파일럿 한정 권장 — 실데이터+팀 공개는 P2 RBAC 이후)
 const HOST = flag("host", "127.0.0.1");
