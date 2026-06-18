@@ -58,6 +58,11 @@ function sha256File(path) {
   return hash.digest("hex");
 }
 
+function removeSqliteSidecars(path) {
+  rmSync(`${path}-wal`, { force: true });
+  rmSync(`${path}-shm`, { force: true });
+}
+
 function readSchemaVersion(db) {
   try {
     return db.prepare("SELECT value FROM meta WHERE key='schema_version'").get()?.value ?? null;
@@ -123,6 +128,7 @@ export function backupRuntimeDb({
   const tmpPath = `${backupPath}.tmp`;
   rmSync(tmpPath, { force: true });
   rmSync(backupPath, { force: true });
+  removeSqliteSidecars(backupPath);
 
   const db = new DatabaseSync(source);
   let quickCheck = null;
@@ -152,6 +158,8 @@ export function backupRuntimeDb({
     const latest = resolve(latestDir);
     mkdirSync(latest, { recursive: true });
     latestPath = join(latest, basename(source));
+    rmSync(latestPath, { force: true });
+    removeSqliteSidecars(latestPath);
     copyFileSync(backupPath, latestPath);
   }
 

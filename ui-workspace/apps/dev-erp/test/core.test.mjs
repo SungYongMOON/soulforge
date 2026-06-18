@@ -324,7 +324,11 @@ test("runtime ops: SQLite backup and restore test write metadata-only reports", 
     const latest = join(root, "nas", "01_db_backups", "latest", "runtime_live");
     const restoreReports = join(root, "nas", "02_restore_tests");
     mkdirSync(data, { recursive: true });
+    mkdirSync(latest, { recursive: true });
     const dbPath = join(data, "dev-erp.db");
+    const latestPath = join(latest, "dev-erp.db");
+    writeFileSync(`${latestPath}-wal`, "stale wal sidecar");
+    writeFileSync(`${latestPath}-shm`, "stale shm sidecar");
     const store = openStore(dbPath);
     store.upsertProject({ id: "P26-001", title: "Project One", health: "ok", class: "active", data_label: "real" });
     store.createAccount({ username: "admin", password: "pw123456", roles: ["admin"] });
@@ -341,6 +345,8 @@ test("runtime ops: SQLite backup and restore test write metadata-only reports", 
     assert.equal(backup.kind, "backup_db");
     assert.equal(existsSync(backup.backupPath), true);
     assert.equal(existsSync(backup.latestPath), true);
+    assert.equal(existsSync(`${backup.latestPath}-wal`), false);
+    assert.equal(existsSync(`${backup.latestPath}-shm`), false);
     assert.equal(existsSync(backup.manifestPath), true);
     assert.equal(existsSync(backup.latestManifestPath), true);
     assert.match(backup.sha256, /^[a-f0-9]{64}$/);

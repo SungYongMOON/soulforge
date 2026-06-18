@@ -6,7 +6,8 @@
 
 - Added `tools/runtime_ops.mjs` and npm scripts for runtime health checks,
   WAL-safe SQLite `VACUUM INTO` DB backups, NAS latest backup refresh, and
-  read-only restore-test reports.
+  read-only restore-test reports, with stale latest-folder SQLite sidecars
+  pruned before replacing the latest DB copy.
 - Added Windows ops scripts for NSSM service configuration and watchdog
   recovery with maintenance marker support, JSONL logs, failure counting, and
   opt-in last-resort reboot gating.
