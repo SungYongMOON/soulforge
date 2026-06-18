@@ -77,6 +77,33 @@ npm run dev-erp:task-ledger -- --db ui-workspace/apps/dev-erp/data/dev-erp.db --
 npm test
 ```
 
+## Runtime Corrections
+
+Runtime DB data is not shared through Git. When another PC's code patch exposes
+metadata drift in the company runtime DB, use the correction tool instead of
+copying a DB file through Git.
+
+Dry-run first:
+
+```bash
+npm run correct:runtime -- --workspaces <dev-checkout>/_workspaces
+# from Soulforge repo root:
+npm run dev-erp:correct-runtime -- --workspaces <dev-checkout>/_workspaces
+```
+
+Apply with a SQLite backup:
+
+```bash
+npm run correct:runtime -- --apply --workspaces <dev-checkout>/_workspaces
+# from Soulforge repo root:
+npm run dev-erp:correct-runtime -- --apply --workspaces <dev-checkout>/_workspaces
+```
+
+The first supported correction is `project_names`: it reads approved workspace
+folder or junction names, updates `data/real_meta.json`, backs up
+`data/dev-erp.db`, updates blank/code-only project titles in the live DB, and
+records an app event. It does not read raw project files or secret values.
+
 ## 구조 (DESIGN.md 7절)
 
 - `src/store.mjs` — core_*(업무 진실) / event_log(append-only, used_refs+data_label

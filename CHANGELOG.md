@@ -2,6 +2,17 @@
 
 ## 2026-06-18
 
+### Revision `working` - dev-erp runtime correction patch tool
+
+- Added `tools/runtime_corrections.mjs`, `npm run correct:runtime`, and root
+  `npm run dev-erp:correct-runtime` as dry-run-first runtime DB correction
+  surfaces for first-release drift fixes.
+- Implemented the first correction, `project_names`, which reads approved
+  workspace folder or junction names, updates local `real_meta.json`, creates a
+  SQLite backup, and updates only blank/code-only live DB project titles.
+- Documented the correction patch path so runtime DB changes stay out of Git
+  while still being repeatable from code.
+
 ### Revision `working` - dev-erp release data cleanup
 
 - Excluded demo/sample/fixture/synthetic projects and missions from the

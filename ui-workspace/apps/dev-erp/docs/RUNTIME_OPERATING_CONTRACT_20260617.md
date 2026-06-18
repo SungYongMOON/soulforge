@@ -5,6 +5,30 @@ Date: 2026-06-17
 Owner: Soulforge owner
 Scope: `ui-workspace/apps/dev-erp`
 
+## Runtime Correction Patch Rule
+
+Runtime DB drift is corrected with a tool, not by committing the DB file.
+Dry-run first:
+
+```powershell
+npm run correct:runtime -- --workspaces <dev-checkout>/_workspaces
+# from Soulforge repo root:
+npm run dev-erp:correct-runtime -- --workspaces <dev-checkout>/_workspaces
+```
+
+Apply only after reviewing the plan:
+
+```powershell
+npm run correct:runtime -- --apply --workspaces <dev-checkout>/_workspaces
+# from Soulforge repo root:
+npm run dev-erp:correct-runtime -- --apply --workspaces <dev-checkout>/_workspaces
+```
+
+The tool creates a SQLite backup before DB writes, updates local
+`data/real_meta.json`, updates only safe blank/code-only project titles in the
+live DB, and appends a metadata event. It must not read raw workspace files or
+secret values.
+
 ## 1. 목적
 
 `dev-erp` 는 Soulforge 팀이 실제로 접속하는 ERP 껍데기다. 계정, 세션, RBAC,

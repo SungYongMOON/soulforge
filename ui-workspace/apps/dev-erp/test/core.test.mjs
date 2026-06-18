@@ -27,6 +27,7 @@ import {
 } from "../src/knowledge_shell.mjs";
 import { parseRosterText, planTeamRosterImport, applyTeamRosterImport } from "../tools/import_team_roster.mjs";
 import { buildTeamHostPreflight } from "../tools/team_preflight.mjs";
+import { applyRuntimeCorrections, planRuntimeCorrections } from "../tools/runtime_corrections.mjs";
 
 const APP_DIR = dirname(dirname(fileURLToPath(import.meta.url)));
 
@@ -168,6 +169,43 @@ test("store: deriveStartYear — 과제번호 P{YY}- 접두에서 과제시작�
   assert.equal(deriveStartYear("PRJ-A"), null, "P{2자리}- 아니면 null(명시값 사용)");
   assert.equal(deriveStartYear("general_work"), null);
   assert.equal(deriveStartYear(null), null);
+});
+
+test("runtime corrections: project names dry-run, backup, meta/db apply", () => {
+  const root = mkdtempSync(join(tmpdir(), "dev-erp-runtime-corrections-"));
+  try {
+    const workspaces = join(root, "_workspaces");
+    const data = join(root, "data");
+    const backups = join(data, "backups");
+    mkdirSync(join(workspaces, "P24-049 저주파SAS"), { recursive: true });
+    mkdirSync(data, { recursive: true });
+    const metaPath = join(data, "real_meta.json");
+    const dbPath = join(data, "dev-erp.db");
+    writeFileSync(metaPath, JSON.stringify({ projects: [{ id: "P24-049", title: "P24-049", health: "ok", class: "active" }] }, null, 2));
+    const store = openStore(dbPath);
+    store.upsertProject({ id: "P24-049", title: "P24-049", health: "ok", class: "active", data_label: "real" });
+    store.db.close();
+
+    const options = { workspacesDir: workspaces, metaPath, dbPath, backupDir: backups };
+    const planned = planRuntimeCorrections(options);
+    assert.equal(planned.errors.length, 0);
+    assert.equal(planned.plan.project_names.meta.changes.length, 1);
+    assert.equal(planned.plan.project_names.db.changes.length, 1);
+
+    const applied = applyRuntimeCorrections({ ...options, apply: true });
+    assert.equal(applied.applied, true);
+    assert.ok(applied.backup);
+    assert.equal(existsSync(applied.backup), true);
+    const meta = JSON.parse(readFileSync(metaPath, "utf8"));
+    assert.equal(meta.projects[0].title, "저주파SAS");
+    const verify = openStore(dbPath);
+    assert.equal(verify.db.prepare("SELECT title FROM core_project WHERE id='P24-049'").get().title, "저주파SAS");
+    assert.equal(verify.db.prepare("PRAGMA integrity_check").get().integrity_check, "ok");
+    assert.equal(verify.db.prepare("SELECT COUNT(*) AS n FROM event_log WHERE kind='project_name_sync'").get().n, 1);
+    verify.db.close();
+  } finally {
+    rmSync(root, { recursive: true, force: true });
+  }
 });
 
 test("event_log: 라벨링 우선 원칙 — used_refs/data_label/actor_kind (INFRA-003)", () => {
