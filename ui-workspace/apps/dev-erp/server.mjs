@@ -24,7 +24,7 @@ import {
   scanWikiPageRefs,
 } from "./src/knowledge_shell.mjs";
 import { crossSearch } from "./src/search.mjs";
-import { buildMetaContext, runLlm, answerFromManual } from "./src/llm.mjs";
+import { buildMetaContext, runLlm, answerFromManual, CHATBOT_VERSION } from "./src/llm.mjs";
 import { startAutosyncPoll, writeTaskToLedger, writeInputToLedger } from "./src/autosync.mjs";
 import { safeWorkspacePath, safeUploadTarget, commitUpload, readSafe } from "./src/filevault.mjs";
 
@@ -77,6 +77,11 @@ const SKIN_ROOTS = [...new Set([
   join(ROOT, "_workspaces", "system", "dev-erp", "skins"),
   join(HERE, "static", "skins"),
 ].filter(Boolean).map((p) => resolve(p)))];
+const ERP_VERSION = Object.freeze({
+  release: "v1.0.3",
+  build: "ui-2026.06.18-version-source.9",
+  source: "server.mjs"
+});
 
 const store = openStore(DB_PATH);
 // 감사로그 '조회·잡음' kind — UI EVENT_HIDE 와 동일. noise=0 시 서버에서 제외.
@@ -227,6 +232,17 @@ function lastIngestAt() {
   const rows = store.db.prepare("SELECT at FROM event_log WHERE kind='ingest' ORDER BY id DESC LIMIT 1").get();
   return rows?.at ?? null;
 }
+function runtimeVersion() {
+  return {
+    schema: "dev_erp.version.v1",
+    erp: ERP_VERSION,
+    chatbot: CHATBOT_VERSION,
+    runtime: {
+      port: PORT,
+      checkout: IS_RUNTIME_CHECKOUT ? "runtime" : "development"
+    }
+  };
+}
 
 const server = createServer(async (req, res) => {
   const url = new URL(req.url, `http://127.0.0.1:${PORT}`);
@@ -242,9 +258,9 @@ const server = createServer(async (req, res) => {
       return send(res, 401, { error: "login_required" });
     }
     // 읽기도 미인증 차단(팀 모드) — '무조건 로그인해야 보임'. 랜딩에 필요한 비민감 메타데이터만 예외:
-    // /api/me(정체성), /api/auth/*(로그인·가입), /api/health, /api/lexicon·/api/modules(UI 라벨/구조).
+    // /api/me(정체성), /api/auth/*(로그인·가입), /api/health, /api/version, /api/lexicon·/api/modules(UI 라벨/구조).
     if (req.method === "GET" && path.startsWith("/api/")
-        && !["/api/me", "/api/health", "/api/lexicon", "/api/modules"].includes(path)
+        && !["/api/me", "/api/health", "/api/version", "/api/lexicon", "/api/modules"].includes(path)
         && !path.startsWith("/api/auth/")
         && store.accountCount() > 0 && !currentAccount(req)) {
       return send(res, 401, { error: "login_required" });
@@ -254,6 +270,7 @@ const server = createServer(async (req, res) => {
       const seeCounts = store.accountCount() === 0 || !!currentAccount(req);
       return send(res, 200, seeCounts ? { ok: true, schema: "dev_erp.v1", counts: store.counts() } : { ok: true, schema: "dev_erp.v1" });
     }
+    if (path === "/api/version") return send(res, 200, runtimeVersion());
 
     // ---------- P2b 팀: 계정·인증·관리자 ----------
     // 정체성 조회는 /api/me(클라이언트 계약). 여기서는 로그인/로그아웃/bootstrap/계정관리.
@@ -583,7 +600,7 @@ const server = createServer(async (req, res) => {
       }
       if (r.error) return send(res, 400, r);
       store.appendEvent({ actor_ref: actor, actor_kind: "human", kind: "chat_query", to: r.matched ? "matched" : "unanswered", used_refs: ["chat", "faq"], data_label: "meta", note: thread_id ? `thread=${thread_id}` : null });
-      return send(res, 200, { text: r.text, matched: r.matched, source: r.source, candidates: r.candidates || [], mode: r.mode, external: r.external, provider: r.provider, model: r.model, llm: r.llm, handled_by_llm: r.handled_by_llm || false, context_used: r.context_used || false, pipeline: r.pipeline_public || null });
+      return send(res, 200, { text: r.text, matched: r.matched, source: r.source, candidates: r.candidates || [], mode: r.mode, external: r.external, provider: r.provider, model: r.model, llm: r.llm, handled_by_llm: r.handled_by_llm || false, context_used: r.context_used || false, pipeline: r.pipeline_public || null, chatbot_version: CHATBOT_VERSION });
     }
     if (path === "/api/faq" && req.method === "GET") return send(res, 200, store.faqs({ topic: qp.topic }));
     if (path === "/api/faq" && req.method === "POST") {

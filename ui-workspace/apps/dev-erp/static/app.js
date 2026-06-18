@@ -1,9 +1,9 @@
 // dev-erp P1 클라이언트 (no-build vanilla JS).
 // 모든 라벨은 /api/lexicon 사전을 거친다 (하드코딩 금지, INFRA-004).
-const ERP_RELEASE_VERSION = "v1.0.2";
-const ERP_UI_VERSION = "ui-2026.06.18-version-split.8";
-const ERP_CHATBOT_RELEASE_VERSION = "v1.1.0";
-const ERP_CHATBOT_UI_VERSION = "chatbot-2026.06.18-version-split.8";
+const VERSION_FALLBACK = Object.freeze({
+  erp: Object.freeze({ release: "v?", build: "unknown", source: "unavailable" }),
+  chatbot: Object.freeze({ release: "v?", build: "unknown", source: "unavailable" })
+});
 
 function browserVersionText(ua = navigator.userAgent || "") {
   const rules = [
@@ -23,6 +23,7 @@ const state = {
   mode: localStorage.getItem("dev_erp_mode") || "business",
   view: "home",
   lex: {},
+  version: VERSION_FALLBACK,
   projectFilter: "",
   navTop: localStorage.getItem("dev_erp_navtop") || "work",       // L1 대분류(상단 가로)
   navGroup: localStorage.getItem("dev_erp_navgroup") || "work_mine", // L2 중분류(상단 가로, 섹터)
@@ -45,6 +46,16 @@ const state = {
   mailLimit: 100,
   mailOffset: 0
 };
+
+function versionPart(kind) {
+  const fallback = VERSION_FALLBACK[kind] || VERSION_FALLBACK.erp;
+  const v = state.version?.[kind] || fallback;
+  return {
+    release: String(v.release || fallback.release),
+    build: String(v.build || fallback.build),
+    source: String(v.source || fallback.source)
+  };
+}
 
 function newChatThreadId() {
   let suffix = "";
@@ -697,20 +708,24 @@ function logView(view) {
 }
 
 async function loadLexicon() {
-  const [data, mods] = await Promise.all([
+  const [data, mods, version] = await Promise.all([
     api(`/api/lexicon?mode=${state.mode}`),
-    api(`/api/modules?mode=${state.mode}`)
+    api(`/api/modules?mode=${state.mode}`),
+    api("/api/version").catch(() => VERSION_FALLBACK)
   ]);
   state.lex = data.labels;
   state.modules = mods;
+  state.version = version || VERSION_FALLBACK;
   document.body.dataset.mode = state.mode;
   // 맨 왼쪽 콕핏 버튼 = 위젯 대시보드 진입(ECount 로고/MyPage 식). 아이콘+라벨, 홈일 때 활성.
   const browserVersion = browserVersionText();
   const ua = navigator.userAgent || browserVersion;
   $("#appTitle").innerHTML = `<span class="cockpit-ico" aria-hidden="true">▦</span><span>${esc(state.lex.app_title)}</span>`;
-  const erpReleaseTitle = `ERP ${ERP_RELEASE_VERSION} · ${state.lex.app_version_label} ${ERP_UI_VERSION} · ${state.lex.browser_version_label} ${browserVersion} · ${ua}`;
-  const chatbotReleaseTitle = `${state.lex.chat_version_label} ${ERP_CHATBOT_RELEASE_VERSION} · ${ERP_CHATBOT_UI_VERSION}`;
-  $("#appVersionChips").innerHTML = `<span class="version-chip" title="${esc(erpReleaseTitle)}">ERP ${ERP_RELEASE_VERSION}</span><span class="version-chip" title="${esc(chatbotReleaseTitle)}">${esc(state.lex.chat_version_label)} ${ERP_CHATBOT_RELEASE_VERSION}</span>`;
+  const erpVersion = versionPart("erp");
+  const chatbotVersion = versionPart("chatbot");
+  const erpReleaseTitle = `ERP ${erpVersion.release} · ${state.lex.app_version_label} ${erpVersion.build} · ${erpVersion.source} · ${state.lex.browser_version_label} ${browserVersion} · ${ua}`;
+  const chatbotReleaseTitle = `${state.lex.chat_version_label} ${chatbotVersion.release} · ${chatbotVersion.build} · ${chatbotVersion.source}`;
+  $("#appVersionChips").innerHTML = `<span class="version-chip" title="${esc(erpReleaseTitle)}">ERP ${esc(erpVersion.release)}</span><span class="version-chip" title="${esc(chatbotReleaseTitle)}">${esc(state.lex.chat_version_label)} ${esc(chatbotVersion.release)}</span>`;
   $("#appTitle").classList.add("brand-home");
   $("#appTitle").title = state.lex.nav_home;
   $("#appTitle").onclick = () => { state.view = "home"; render(); };
@@ -1775,13 +1790,14 @@ async function renderReports() {
 // A7 ERP 챗봇 패널(메타 컨텍스트, 원문 미전송). 외부전송은 어댑터의 codex_cli만(tool_pc).
 function openChat() {
   const L = state.lex;
+  const chatVersion = versionPart("chatbot");
   document.querySelector(".chat-overlay")?.remove();
   const ov = document.createElement("div");
   ov.className = "chat-overlay";
   if (!state.chatThread) state.chatThread = newChatThreadId();
   ov.innerHTML = `<div class="chat-panel" role="complementary" aria-label="${L.chat_title}" aria-busy="false">
     <div class="chat-head"><strong>${L.chat_title}</strong><span class="dim">${L.chat_note}</span>
-      <span class="chat-ver" title="${esc(L.chat_version_label)} ${ERP_CHATBOT_UI_VERSION}">${esc(L.chat_version_label)} ${ERP_CHATBOT_RELEASE_VERSION}</span><button class="chat-new" title="${L.chat_new}">${L.chat_new}</button><button class="chat-collapse" title="접기/펼치기" aria-label="접기/펼치기" aria-expanded="true">-</button><button class="chat-x">✕</button></div>
+      <span class="chat-ver" title="${esc(`${L.chat_version_label} ${chatVersion.build} · ${chatVersion.source}`)}">${esc(L.chat_version_label)} ${esc(chatVersion.release)}</span><button class="chat-new" title="${L.chat_new}">${L.chat_new}</button><button class="chat-collapse" title="접기/펼치기" aria-label="접기/펼치기" aria-expanded="true">-</button><button class="chat-x">✕</button></div>
     <div class="chat-log" role="log" aria-live="polite" aria-busy="false"></div>
     <div class="chat-status" role="status" aria-live="polite"></div>
     <div class="chat-input"><input id="chatMsg" placeholder="${L.chat_placeholder}" /><button id="chatSend" class="fav-chip">${L.chat_send}</button></div>

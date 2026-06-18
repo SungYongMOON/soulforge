@@ -5,6 +5,12 @@
 
 import { runManualAnswerPipeline } from "./chat_pipeline.mjs";
 
+export const CHATBOT_VERSION = Object.freeze({
+  release: "v1.1.1",
+  build: "chatbot-2026.06.18-version-source.9",
+  source: "src/llm.mjs"
+});
+
 const WEEK_MS = 6 * 86400000;
 
 // ── 다중 사용자 동시 질문 게이트(로컬 작은 모델 보호) ───────────────────────

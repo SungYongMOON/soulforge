@@ -2,6 +2,13 @@
 
 ## 2026-06-18
 
+### Revision `working` - dev-erp version source endpoint
+
+- Moved visible ERP/chatbot version display behind `/api/version` so the UI reads
+  runtime component metadata instead of keeping release strings in `app.js`.
+- Exported the chatbot version from `src/llm.mjs` and included it in chat API
+  responses for operational verification of the actual responding chatbot code.
+
 ### Revision `working` - dev-erp component version split
 
 - Split the compact visible release badges into separate component versions:
