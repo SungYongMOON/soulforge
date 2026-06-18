@@ -15,6 +15,7 @@ const state = {
   mineOnly: localStorage.getItem("dev_erp_mine") !== "0", // 내 할 일: 기본 '내 일만'(로그인 시). 익명이면 무시.
   chatLog: [],
   chatThread: null,
+  chatDock: JSON.parse(localStorage.getItem("dev_erp_chat_dock") || "{}"),
   poProject: "",
   poParty: "",
   ctProject: "",
@@ -1754,14 +1755,37 @@ function openChat() {
   const ov = document.createElement("div");
   ov.className = "chat-overlay";
   if (!state.chatThread) state.chatThread = newChatThreadId();
-  ov.innerHTML = `<div class="chat-panel" role="dialog" aria-label="${L.chat_title}">
+  ov.innerHTML = `<div class="chat-panel" role="complementary" aria-label="${L.chat_title}">
     <div class="chat-head"><strong>${L.chat_title}</strong><span class="dim">${L.chat_note}</span>
-      <button class="chat-new" title="${L.chat_new}">${L.chat_new}</button><button class="chat-x">✕</button></div>
+      <button class="chat-new" title="${L.chat_new}">${L.chat_new}</button><button class="chat-collapse" title="접기/펼치기" aria-label="접기/펼치기" aria-expanded="true">-</button><button class="chat-x">✕</button></div>
     <div class="chat-log"></div>
     <div class="chat-input"><input id="chatMsg" placeholder="${L.chat_placeholder}" /><button id="chatSend" class="fav-chip">${L.chat_send}</button></div>
   </div>`;
   document.body.appendChild(ov);
+  const panel = ov.querySelector(".chat-panel");
+  const headEl = ov.querySelector(".chat-head");
   const logEl = ov.querySelector(".chat-log");
+  const inputEl = ov.querySelector("#chatMsg");
+  const collapseBtn = ov.querySelector(".chat-collapse");
+  const saveDock = () => localStorage.setItem("dev_erp_chat_dock", JSON.stringify(state.chatDock || {}));
+  const clamp = (n, min, max) => Math.min(Math.max(n, min), max);
+  const applyDock = () => {
+    const d = state.chatDock || {};
+    if (Number.isFinite(d.x) && Number.isFinite(d.y)) {
+      ov.style.left = `${d.x}px`; ov.style.top = `${d.y}px`; ov.style.right = "auto"; ov.style.bottom = "auto";
+    }
+    if (Number.isFinite(d.w)) panel.style.width = `${clamp(d.w, 320, window.innerWidth - 16)}px`;
+    if (Number.isFinite(d.h)) panel.style.height = `${clamp(d.h, 360, window.innerHeight - 16)}px`;
+  };
+  const setCollapsed = (v) => {
+    state.chatDock = { ...(state.chatDock || {}), collapsed: !!v };
+    panel.classList.toggle("collapsed", !!v);
+    collapseBtn.textContent = v ? "+" : "-";
+    collapseBtn.setAttribute("aria-expanded", String(!v));
+    saveDock();
+  };
+  applyDock();
+  setCollapsed(!!state.chatDock?.collapsed);
   const paint = () => {
     logEl.innerHTML = state.chatLog.length
       ? state.chatLog.map((m) => {
@@ -1777,8 +1801,53 @@ function openChat() {
   };
   paint();
   const close = () => ov.remove();
-  ov.addEventListener("click", (e) => { if (e.target === ov) close(); });
   ov.querySelector(".chat-x").addEventListener("click", close);
+  collapseBtn.addEventListener("click", () => {
+    setCollapsed(!state.chatDock?.collapsed);
+    if (!state.chatDock?.collapsed) inputEl.focus();
+  });
+  let suppressHeadClick = false;
+  let drag = null;
+  const rememberSize = () => {
+    if (state.chatDock?.collapsed) return;
+    const r = panel.getBoundingClientRect();
+    state.chatDock = { ...(state.chatDock || {}), w: Math.round(r.width), h: Math.round(r.height) };
+    saveDock();
+  };
+  new ResizeObserver(rememberSize).observe(panel);
+  const moveDock = (x, y, w, h) => {
+    const nx = clamp(x, 8, Math.max(8, window.innerWidth - w - 8));
+    const ny = clamp(y, 8, Math.max(8, window.innerHeight - h - 8));
+    ov.style.left = `${nx}px`; ov.style.top = `${ny}px`; ov.style.right = "auto"; ov.style.bottom = "auto";
+    state.chatDock = { ...(state.chatDock || {}), x: Math.round(nx), y: Math.round(ny) };
+    saveDock();
+  };
+  const onDragMove = (e) => {
+    if (!drag) return;
+    const dx = e.clientX - drag.startX;
+    const dy = e.clientY - drag.startY;
+    if (Math.abs(dx) + Math.abs(dy) > 4) drag.moved = true;
+    moveDock(e.clientX - drag.offsetX, e.clientY - drag.offsetY, drag.width, drag.height);
+  };
+  const onDragUp = () => {
+    if (drag?.moved) suppressHeadClick = true;
+    drag = null;
+    document.removeEventListener("pointermove", onDragMove);
+    document.removeEventListener("pointerup", onDragUp);
+  };
+  headEl.addEventListener("pointerdown", (e) => {
+    if (e.button !== 0 || e.target.closest("button")) return;
+    const r = panel.getBoundingClientRect();
+    drag = { startX: e.clientX, startY: e.clientY, offsetX: e.clientX - r.left, offsetY: e.clientY - r.top, width: r.width, height: r.height, moved: false };
+    document.addEventListener("pointermove", onDragMove);
+    document.addEventListener("pointerup", onDragUp);
+  });
+  headEl.addEventListener("click", (e) => {
+    if (e.target.closest("button")) return;
+    if (suppressHeadClick) { suppressHeadClick = false; return; }
+    setCollapsed(!state.chatDock?.collapsed);
+    if (!state.chatDock?.collapsed) inputEl.focus();
+  });
   // /new: 새 대화 — 스레드 리셋(로컬 LLM 스레드 오염 방지). 로그는 서버에 남아 야간 갱신에 쓰임.
   ov.querySelector(".chat-new").addEventListener("click", () => {
     state.chatLog = []; state.chatThread = newChatThreadId(); paint();
@@ -1799,7 +1868,7 @@ function openChat() {
     const b = e.target.closest(".chat-cand"); if (!b) return;
     const inp = ov.querySelector("#chatMsg"); inp.value = b.dataset.q || ""; send();
   });
-  ov.querySelector("#chatMsg").focus();
+  if (!state.chatDock?.collapsed) inputEl.focus();
 }
 
 // 화면 정중앙 확인 모달 (native confirm 은 위치 제어 불가 → 커스텀). Promise<boolean> 반환.

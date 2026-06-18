@@ -2718,6 +2718,22 @@ test("챗봇 UI: 새 대화 thread id 는 timestamp 단독이 아니라 랜덤 s
   assert.doesNotMatch(app, /state\.chatThread = `th_\$\{Date\.now\(\)\.toString\(36\)\}`/);
 });
 
+test("챗봇 UI: 플로팅 패널은 이동·접기·크기조절이 가능하고 화면 작업을 막지 않는다", () => {
+  const app = readFileSync(join(APP_DIR, "static", "app.js"), "utf8");
+  const css = readFileSync(join(APP_DIR, "static", "style.css"), "utf8");
+  const chat = app.slice(app.indexOf("function openChat()"), app.indexOf("function uiConfirm("));
+  assert.match(app, /dev_erp_chat_dock/);
+  assert.match(chat, /class="chat-collapse"/);
+  assert.match(chat, /addEventListener\("pointerdown"/);
+  assert.match(chat, /addEventListener\("pointermove"/);
+  assert.match(chat, /ResizeObserver/);
+  assert.doesNotMatch(chat, /if \(e\.target === ov\) close\(\)/, "챗봇은 패널 밖 클릭으로 닫히지 않아야 함");
+  assert.match(css, /\.chat-overlay \{[^}]*pointer-events: none/s);
+  assert.match(css, /\.chat-panel \{[^}]*resize: both/s);
+  assert.match(css, /\.chat-panel\.collapsed/);
+  assert.match(css, /\.chat-head \{[^}]*cursor: move/s);
+});
+
 // #13 캘린더 .ics 내보내기 — 마감 있는 미완 항목만 종일 VEVENT, person 필터(원문 미포함).
 test("calendar: .ics 피드 VEVENT 구조 + person 필터", () => {
   const store = freshStore();

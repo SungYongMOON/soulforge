@@ -2,6 +2,12 @@
 
 ## 2026-06-18
 
+### Revision `working` - dev-erp floating chatbot window
+
+- Changed the chatbot from a blocking modal overlay into an always-on-top
+  floating utility window that can be moved, collapsed/expanded, and resized
+  while the rest of the ERP remains usable.
+
 ### Revision `working` - dev-erp runtime maintenance and recovery
 
 - Added `tools/runtime_ops.mjs` and npm scripts for runtime health checks,
