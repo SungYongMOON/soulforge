@@ -58,6 +58,33 @@
   Docker 불필요(파일럿). 프론트는 단일 웹앱.
 - LLM 분리: 코어는 LLM 0%. AI 는 `ai_jobs` 큐(테이블)로만 — 워커가 구독
   CLI/API 로 처리해 "제안" 으로 반환, 사람이 승인해야 DB 반영.
+- Codex 할일 스레드 연결 규칙(2026-06-19 owner): ERP 할일의 `대화` 버튼이
+  Codex 스레드를 만들 때, 사람이 보는 스레드 제목은 `[과제번호] 할일명` 으로
+  한다. 같은 과제 안에 같은 할일명이 중복될 때만 제목 끝에 `· 짧은할일ID`
+  를 붙인다. 실제 연결 정본은 제목이 아니라 `core_item.id -> codex_thread_id`
+  저장값이다. 할일명이 바뀌어도 같은 Codex 스레드를 계속 재사용하고,
+  ERP 는 `project_code`, `task_title`, `thread_title`, `last_synced_at` 같은
+  보조 메타만 함께 보존한다. 기존 ERP 챗봇 로그와 할일 전용 Codex 스레드는
+  섞지 않는다.
+- Codex 할일 bridge 기본 운영형(2026-06-19 pilot): 작업용 PC 브라우저는 ERP
+  서버의 `/api/codex-task/*` 만 호출하고, ERP 서버 PC 가 내부 stdio
+  `codex app-server` 프로세스를 시작/재개한다. 기본값은 실제 `app-server`
+  bridge 이며, UI/API smoke test 는 `DEV_ERP_CODEX_TASK_BRIDGE=mock` 으로만
+  켠다. Codex 호스트 설정에 과거 `service_tier=priority` 값이 남아 있는
+  테스트 PC 는 전역 설정 파일을 바로 수정하지 않고
+  `DEV_ERP_CODEX_SERVICE_TIER=fast` 또는 `flex` 로 app-server 실행만 보정할
+  수 있다. bridge 는 기본 읽기 전용/승인 없음으로 시작하며, 실제 파일 수정
+  권한은 별도 운영 정책으로 승격한다.
+- Codex task panel capability rule (2026-06-19 pilot): the small task panel may
+  pass model, reasoning effort, and service tier overrides to `codex app-server`;
+  `/` or `$` skill autocomplete is backed by local `SKILL.md` metadata and is
+  sent as real `skill` input. Image attachments are saved under
+  `_workspaces/system/dev-erp/codex-task-attachments/**` and sent as `localImage`
+  input. Arbitrary file attachments are not converted into prompt text. Real
+  collab subagents work in app-server turns, but durable Codex worker-thread
+  creation is not exposed to this app-server runtime; `$soulforge-codex-thread-manager`
+  therefore reports `thread tools unavailable` unless a future host-side broker
+  is explicitly designed and authorized.
 - 권한: 파일럿은 localhost 단독(로그인 없음) → 팀 공개 시 Google Workspace
   도메인 제한 + RBAC(팀장/팀원) + 열람·삭제 감사로그.
 - 데이터 보관: ERP DB 는 매일 dump 백업(3-2-1), 파일은 DB 에 넣지 않음,
@@ -173,6 +200,9 @@ event_log 는 그 라벨의 수집기 역할을 겸한다.
   이동(item_move 이벤트, PLAY_LOOP id 유지 준수). 출몰 연출은 표시 계층
   (CSS, 진실 무관). 분류 후 랜딩: 업무=허브 메일 탭(owner 지시),
   판타지=전황 탭(출몰 연출) — 뷰 2개 원칙 안에서의 모드별 분기.
+- 2026-06-19: Codex 할일 스레드 연결 규칙 추가 — 스레드 제목은
+  `[과제번호] 할일명`, 저장 정본은 `core_item.id -> codex_thread_id`.
+  기존 ERP 챗봇과 할일 전용 Codex 스레드를 분리한다.
 
 ## 9. owner 방향 (기록만 — 구현 금지 상태)
 

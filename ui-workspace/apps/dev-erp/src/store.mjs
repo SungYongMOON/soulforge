@@ -465,6 +465,30 @@ CREATE TABLE IF NOT EXISTS ai_proposal ( -- P-4 키스톤: AI/규칙 산출 착�
   data_label TEXT NOT NULL DEFAULT 'real'
 );
 CREATE INDEX IF NOT EXISTS idx_proposal_status ON ai_proposal(status, at);
+CREATE TABLE IF NOT EXISTS codex_thread_binding (
+  item_id TEXT PRIMARY KEY REFERENCES core_item(id),
+  thread_id TEXT NOT NULL,
+  thread_title TEXT NOT NULL,
+  project_id TEXT,
+  mode TEXT NOT NULL DEFAULT 'app-server',
+  sync_state TEXT NOT NULL DEFAULT 'linked',
+  last_synced_item_revision INTEGER,
+  last_sync_at TEXT NOT NULL,
+  last_error TEXT,
+  data_label TEXT NOT NULL DEFAULT 'meta'
+);
+CREATE TABLE IF NOT EXISTS codex_thread_message (
+  id INTEGER PRIMARY KEY AUTOINCREMENT,
+  at TEXT NOT NULL,
+  item_id TEXT NOT NULL REFERENCES core_item(id),
+  thread_id TEXT,
+  role TEXT NOT NULL,
+  text TEXT NOT NULL,
+  actor_ref TEXT,
+  mode TEXT,
+  data_label TEXT NOT NULL DEFAULT 'meta'
+);
+CREATE INDEX IF NOT EXISTS idx_codex_thread_message_item ON codex_thread_message(item_id, id);
 CREATE TABLE IF NOT EXISTS embed_view ( -- P-18 외부 시트 임베드(Smartsheet 등) read-only URL 메타
   id TEXT PRIMARY KEY,
   kind TEXT NOT NULL DEFAULT 'smartsheet',
@@ -2215,6 +2239,81 @@ export class Store {
   // 강한 매칭 기준: norm≥0.5 또는 score≥2. 매칭 FAQ 없으면 unanswered 로그.
   chatAnswer({ question, thread_id = null, actor_ref = null } = {}) {
     return runManualRetrievalPipeline({ store: this, question, thread_id, actor_ref });
+  }
+
+  itemById(id) {
+    return this.db.prepare("SELECT * FROM core_item WHERE id=?").get(id);
+  }
+
+  codexThreadTitle(item) {
+    if (!item) return null;
+    const project = String(item.project_id || "INBOX").trim() || "INBOX";
+    const title = String(item.title || "untitled").replace(/\s+/g, " ").trim() || "untitled";
+    let threadTitle = `[${project}] ${title}`;
+    const dup = this.db.prepare(
+      "SELECT COUNT(*) AS n FROM core_item WHERE project_id=? AND title=? AND id<>?"
+    ).get(item.project_id, item.title, item.id)?.n ?? 0;
+    if (dup > 0) threadTitle += ` · ${String(item.id).slice(-6)}`;
+    return threadTitle;
+  }
+
+  codexTaskBinding(item_id) {
+    return this.db.prepare("SELECT * FROM codex_thread_binding WHERE item_id=?").get(item_id);
+  }
+
+  codexTaskMessages(item_id, limit = 80) {
+    const n = Math.max(1, Math.min(200, Number(limit) || 80));
+    return this.db.prepare(
+      `SELECT * FROM (
+         SELECT * FROM codex_thread_message WHERE item_id=? ORDER BY id DESC LIMIT ?
+       ) ORDER BY id`
+    ).all(item_id, n);
+  }
+
+  upsertCodexTaskBinding({ item_id, thread_id, thread_title = null, mode = "app-server", last_error = null } = {}) {
+    const item = this.itemById(item_id);
+    if (!item) return { error: "item_not_found" };
+    const tid = String(thread_id ?? "").trim();
+    if (!tid) return { error: "thread_id_required" };
+    const title = String(thread_title || this.codexThreadTitle(item) || tid).trim();
+    const at = new Date().toISOString();
+    this.db.prepare(
+      `INSERT INTO codex_thread_binding(item_id,thread_id,thread_title,project_id,mode,sync_state,last_sync_at,last_error,data_label)
+       VALUES(?,?,?,?,?,'linked',?,?,'meta')
+       ON CONFLICT(item_id) DO UPDATE SET
+         thread_id=excluded.thread_id,
+         thread_title=excluded.thread_title,
+         project_id=excluded.project_id,
+         mode=excluded.mode,
+         sync_state='linked',
+         last_sync_at=excluded.last_sync_at,
+         last_error=excluded.last_error`
+    ).run(item.id, tid, title, item.project_id, mode, at, last_error);
+    return { ok: true, binding: this.codexTaskBinding(item.id), item };
+  }
+
+  markCodexTaskError(item_id, error) {
+    const msg = String(error?.message || error || "codex_error").slice(0, 1000);
+    this.db.prepare(
+      "UPDATE codex_thread_binding SET sync_state='error', last_error=?, last_sync_at=? WHERE item_id=?"
+    ).run(msg, new Date().toISOString(), item_id);
+    return { ok: true };
+  }
+
+  appendCodexTaskMessage({ item_id, thread_id = null, role, text, actor_ref = null, mode = "app-server", data_label = "meta" } = {}) {
+    const r = String(role || "").trim();
+    const body = String(text ?? "").trim();
+    if (!item_id) return { error: "item_required" };
+    if (!["system", "user", "assistant", "error"].includes(r)) return { error: "role_invalid" };
+    if (!body) return { error: "text_required" };
+    this.db.prepare(
+      `INSERT INTO codex_thread_message(at,item_id,thread_id,role,text,actor_ref,mode,data_label)
+       VALUES(?,?,?,?,?,?,?,?)`
+    ).run(new Date().toISOString(), item_id, thread_id, r, body, actor_ref, mode, data_label);
+    return {
+      ok: true,
+      message: this.db.prepare("SELECT * FROM codex_thread_message WHERE id=last_insert_rowid()").get(),
+    };
   }
 
   // ---------- P3 부품/BOM/위치/재고 (공유 마스터·내부 판정만) ----------

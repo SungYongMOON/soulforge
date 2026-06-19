@@ -1,9 +1,43 @@
 // dev-erp P1 클라이언트 (no-build vanilla JS).
 // 모든 라벨은 /api/lexicon 사전을 거친다 (하드코딩 금지, INFRA-004).
+const VERSION_FALLBACK = Object.freeze({
+  erp: Object.freeze({ release: "v?", build: "unknown", source: "unavailable" }),
+  chatbot: Object.freeze({ release: "v?", build: "unknown", source: "unavailable" }),
+  runtime: Object.freeze({ port: "?", checkout: "unknown", llm: Object.freeze({}) })
+});
+const CHAT_REQUEST_TIMEOUT_MS = 130000;
+
+function browserVersionText(ua = navigator.userAgent || "") {
+  const rules = [
+    ["Edge", /Edg\/([\d.]+)/],
+    ["Chrome", /Chrome\/([\d.]+)/],
+    ["Firefox", /Firefox\/([\d.]+)/],
+    ["Safari", /Version\/([\d.]+).*Safari/],
+  ];
+  for (const [name, re] of rules) {
+    const m = String(ua).match(re);
+    if (m) return `${name} ${m[1]}`;
+  }
+  return "Unknown";
+}
+
+const isMobileViewport = () => window.matchMedia?.("(max-width: 640px)")?.matches || window.innerWidth <= 640;
+
+function versionPart(kind) {
+  const fallback = VERSION_FALLBACK[kind] || VERSION_FALLBACK.erp;
+  const v = state.version?.[kind] || fallback;
+  return {
+    release: String(v.release || fallback.release),
+    build: String(v.build || fallback.build),
+    source: String(v.source || fallback.source)
+  };
+}
+
 const state = {
   mode: localStorage.getItem("dev_erp_mode") || "business",
   view: "home",
   lex: {},
+  version: VERSION_FALLBACK,
   projectFilter: "",
   navTop: localStorage.getItem("dev_erp_navtop") || "work",       // L1 대분류(상단 가로)
   navGroup: localStorage.getItem("dev_erp_navgroup") || "work_mine", // L2 중분류(상단 가로, 섹터)
@@ -16,6 +50,8 @@ const state = {
   chatLog: [],
   chatThread: null,
   chatDock: JSON.parse(localStorage.getItem("dev_erp_chat_dock") || "{}"),
+  taskCodexDock: JSON.parse(localStorage.getItem("dev_erp_task_codex_dock") || "{}"),
+  taskCodexOptions: JSON.parse(localStorage.getItem("dev_erp_task_codex_options") || "{}"),
   poProject: "",
   poParty: "",
   ctProject: "",
@@ -37,6 +73,71 @@ function newChatThreadId() {
     suffix = Math.random().toString(36).slice(2, 10);
   }
   return `th_${Date.now().toString(36)}_${suffix}`;
+}
+
+function chatOwnerKey() {
+  const raw = state.account?.username || state.account?.id || "anon";
+  try {
+    return encodeURIComponent(String(raw)).replace(/%/g, "_").slice(0, 120) || "anon";
+  } catch {
+    return String(raw).replace(/[^\w.-]+/g, "_").slice(0, 80) || "anon";
+  }
+}
+
+function chatThreadStorageKey() {
+  return `dev_erp_chat_thread_${chatOwnerKey()}`;
+}
+
+function chatLogStorageKey(thread = state.chatThread) {
+  return `dev_erp_chat_log_${chatOwnerKey()}_${thread || "none"}`;
+}
+
+function ensureChatThread() {
+  if (state.chatThread) return state.chatThread;
+  const saved = localStorage.getItem(chatThreadStorageKey());
+  state.chatThread = saved || newChatThreadId();
+  localStorage.setItem(chatThreadStorageKey(), state.chatThread);
+  return state.chatThread;
+}
+
+function saveChatLog() {
+  if (!state.chatThread) return;
+  try {
+    const compact = state.chatLog
+      .filter((m) => !m.pending)
+      .slice(-40)
+      .map((m) => ({
+        role: m.role,
+        text: m.text,
+        source: m.source || null,
+        matched: m.matched,
+        candidates: Array.isArray(m.candidates) ? m.candidates.slice(0, 5) : [],
+        llm: !!m.llm,
+        handled_by_llm: !!m.handled_by_llm,
+        handled_by_runtime: !!m.handled_by_runtime,
+        context_used: !!m.context_used,
+        mode: m.mode || null,
+      }));
+    localStorage.setItem(chatLogStorageKey(), JSON.stringify(compact));
+  } catch { /* storage best effort */ }
+}
+
+function restoreChatLog() {
+  if (!state.chatThread || state.chatLog.length) return;
+  try {
+    const rows = JSON.parse(localStorage.getItem(chatLogStorageKey()) || "[]");
+    state.chatLog = Array.isArray(rows) ? rows.filter((m) => m && (m.role === "user" || m.role === "ai") && typeof m.text === "string").slice(-40) : [];
+  } catch { state.chatLog = []; }
+}
+
+function startFreshChatThread() {
+  const oldKey = state.chatThread ? chatLogStorageKey(state.chatThread) : null;
+  state.chatThread = newChatThreadId();
+  state.chatLog = [];
+  localStorage.setItem(chatThreadStorageKey(), state.chatThread);
+  if (oldKey) localStorage.removeItem(oldKey);
+  saveChatLog();
+  return state.chatThread;
 }
 
 // P2b 권한: 정의 없거나 익명이면 기본 허용(visible·access). 정의 있으면 그 값.
@@ -275,6 +376,10 @@ function renderGate() {
       ${isMaster ? "" : `<button class="gate-switch" data-go="login">${L.gate_to_login}</button>`}`;
   }
   function paint() {
+    const browserVersion = browserVersionText();
+    const ua = navigator.userAgent || browserVersion;
+    const erpVersion = versionPart("erp");
+    const chatbotVersion = versionPart("chatbot");
     gate.innerHTML = `
       ${decor}
       <button class="gate-mode" id="gateMode">${fant ? L.gate_mode_to_biz : L.gate_mode_to_fant}</button>
@@ -282,6 +387,11 @@ function renderGate() {
         <div class="gate-crest">${crest}</div>
         <div class="gate-brand">${L.gate_title}</div>
         <div class="gate-tagline">${L.gate_sub}</div>
+        <div class="gate-version-row">
+          <span class="gate-version-chip" title="${esc(`${L.app_version_label} ${erpVersion.build} · ${erpVersion.source}`)}">${esc(L.app_version_label)} ${esc(erpVersion.release)}</span>
+          <span class="gate-version-chip" title="${esc(ua)}">${esc(L.browser_version_label)} ${esc(browserVersion)}</span>
+          <span class="gate-version-chip" title="${esc(`${L.chat_version_label} ${chatbotVersion.build} · ${chatbotVersion.source}`)}">${esc(L.chat_version_label)} ${esc(chatbotVersion.release)}</span>
+        </div>
         ${firstRun ? "" : `<div class="gate-tabs">
           <button class="gate-tab ${tab === "login" ? "on" : ""}" data-tab="login">${L.gate_tab_login}</button>
           ${canRegister ? `<button class="gate-tab ${tab === "register" ? "on" : ""}" data-tab="register">${L.gate_tab_register}</button>` : ""}
@@ -667,6 +777,21 @@ const daysAgo = (iso, lex) => {
 const post = (path, body) =>
   fetch(path, { method: "POST", headers: { "content-type": "application/json" }, body: JSON.stringify(body) });
 
+const postJsonWithTimeout = async (path, body, timeoutMs = CHAT_REQUEST_TIMEOUT_MS) => {
+  const ctl = new AbortController();
+  const timer = setTimeout(() => ctl.abort(), timeoutMs);
+  try {
+    return await fetch(path, {
+      method: "POST",
+      headers: { "content-type": "application/json" },
+      signal: ctl.signal,
+      body: JSON.stringify(body)
+    });
+  } finally {
+    clearTimeout(timer);
+  }
+};
+
 function logView(view) {
   // B5 라벨 감사 발견 반영: 과제 화면 조회에는 project_ref 차원을 단다
   const projectRef = state.view === "project" ? state.hubProject : (state.projectFilter || null);
@@ -678,15 +803,26 @@ function logView(view) {
 }
 
 async function loadLexicon() {
-  const [data, mods] = await Promise.all([
+  const [data, mods, version] = await Promise.all([
     api(`/api/lexicon?mode=${state.mode}`),
-    api(`/api/modules?mode=${state.mode}`)
+    api(`/api/modules?mode=${state.mode}`),
+    api("/api/version").catch(() => VERSION_FALLBACK)
   ]);
   state.lex = data.labels;
   state.modules = mods;
+  state.version = version || VERSION_FALLBACK;
   document.body.dataset.mode = state.mode;
   // 맨 왼쪽 콕핏 버튼 = 위젯 대시보드 진입(ECount 로고/MyPage 식). 아이콘+라벨, 홈일 때 활성.
+  const browserVersion = browserVersionText();
+  const ua = navigator.userAgent || browserVersion;
+  const erpVersion = versionPart("erp");
+  const chatbotVersion = versionPart("chatbot");
+  const runtime = state.version?.runtime || {};
+  const llm = runtime.llm || {};
+  const erpReleaseTitle = `ERP ${erpVersion.release} · ${state.lex.app_version_label} ${erpVersion.build} · ${erpVersion.source} · ${state.lex.browser_version_label} ${browserVersion} · ${ua}`;
+  const chatbotReleaseTitle = `${state.lex.chat_version_label} ${chatbotVersion.release} · ${chatbotVersion.build} · ${chatbotVersion.source} · ${runtime.checkout || "unknown"}:${runtime.port ?? "?"} · ${llm.provider || "?"}/${llm.model || "?"} · thinking=${llm.thinking === true}`;
   $("#appTitle").innerHTML = `<span class="cockpit-ico" aria-hidden="true">▦</span><span>${esc(state.lex.app_title)}</span>`;
+  $("#appVersionChips").innerHTML = `<span class="version-chip" title="${esc(erpReleaseTitle)}">ERP ${esc(erpVersion.release)}</span><span class="version-chip" title="${esc(chatbotReleaseTitle)}">${esc(state.lex.chat_version_label)} ${esc(chatbotVersion.release)}</span>`;
   $("#appTitle").classList.add("brand-home");
   $("#appTitle").title = state.lex.nav_home;
   $("#appTitle").onclick = () => { state.view = "home"; render(); };
@@ -1751,13 +1887,17 @@ async function renderReports() {
 // A7 ERP 챗봇 패널(메타 컨텍스트, 원문 미전송). 외부전송은 어댑터의 codex_cli만(tool_pc).
 function openChat() {
   const L = state.lex;
+  const chatVersion = versionPart("chatbot");
+  const runtime = state.version?.runtime || {};
+  const llm = runtime.llm || {};
   document.querySelector(".chat-overlay")?.remove();
   const ov = document.createElement("div");
   ov.className = "chat-overlay";
-  if (!state.chatThread) state.chatThread = newChatThreadId();
+  ensureChatThread();
+  restoreChatLog();
   ov.innerHTML = `<div class="chat-panel" role="complementary" aria-label="${L.chat_title}" aria-busy="false">
     <div class="chat-head"><strong>${L.chat_title}</strong><span class="dim">${L.chat_note}</span>
-      <button class="chat-new" title="${L.chat_new}">${L.chat_new}</button><button class="chat-collapse" title="접기/펼치기" aria-label="접기/펼치기" aria-expanded="true">-</button><button class="chat-x">✕</button></div>
+      <span class="chat-ver" title="${esc(`${L.chat_version_label} ${chatVersion.build} · ${chatVersion.source} · ${runtime.checkout || "unknown"}:${runtime.port ?? "?"} · ${llm.provider || "?"}/${llm.model || "?"} · thinking=${llm.thinking === true}`)}">${esc(L.chat_version_label)} ${esc(chatVersion.release)}</span><button class="chat-new" title="${L.chat_new}">${L.chat_new}</button><button class="chat-collapse" title="접기/펼치기" aria-label="접기/펼치기" aria-expanded="true">-</button><button class="chat-x">✕</button></div>
     <div class="chat-log" role="log" aria-live="polite" aria-busy="false"></div>
     <div class="chat-status" role="status" aria-live="polite"></div>
     <div class="chat-input"><input id="chatMsg" placeholder="${L.chat_placeholder}" /><button id="chatSend" class="fav-chip">${L.chat_send}</button></div>
@@ -1775,13 +1915,37 @@ function openChat() {
   const collapseBtn = ov.querySelector(".chat-collapse");
   const saveDock = () => localStorage.setItem("dev_erp_chat_dock", JSON.stringify(state.chatDock || {}));
   const clamp = (n, min, max) => Math.min(Math.max(n, min), max);
+  const resetMobileDockFrame = () => {
+    ov.style.left = "";
+    ov.style.top = "";
+    ov.style.right = "";
+    ov.style.bottom = "";
+    panel.style.width = "";
+    panel.style.height = "";
+  };
   const applyDock = () => {
-    const d = state.chatDock || {};
-    if (Number.isFinite(d.x) && Number.isFinite(d.y)) {
-      ov.style.left = `${d.x}px`; ov.style.top = `${d.y}px`; ov.style.right = "auto"; ov.style.bottom = "auto";
+    if (isMobileViewport()) {
+      resetMobileDockFrame();
+      return;
     }
-    if (Number.isFinite(d.w)) panel.style.width = `${clamp(d.w, 320, window.innerWidth - 16)}px`;
-    if (Number.isFinite(d.h)) panel.style.height = `${clamp(d.h, 360, window.innerHeight - 16)}px`;
+    const d = state.chatDock || {};
+    const nextW = Number.isFinite(d.w)
+      ? clamp(d.w, 320, Math.max(320, window.innerWidth - 16))
+      : Math.min(420, Math.max(320, window.innerWidth - 32));
+    const nextH = Number.isFinite(d.h)
+      ? clamp(d.h, 360, Math.max(260, window.innerHeight - 16))
+      : Math.min(560, Math.max(260, window.innerHeight - 32));
+    if (Number.isFinite(d.w)) panel.style.width = `${nextW}px`;
+    if (Number.isFinite(d.h)) panel.style.height = `${nextH}px`;
+    if (Number.isFinite(d.x) && Number.isFinite(d.y)) {
+      const nx = clamp(d.x, 8, Math.max(8, window.innerWidth - nextW - 8));
+      const ny = clamp(d.y, 8, Math.max(8, window.innerHeight - nextH - 8));
+      ov.style.left = `${nx}px`; ov.style.top = `${ny}px`; ov.style.right = "auto"; ov.style.bottom = "auto";
+      if (nx !== d.x || ny !== d.y) {
+        state.chatDock = { ...(state.chatDock || {}), x: nx, y: ny };
+        saveDock();
+      }
+    }
   };
   const setCollapsed = (v) => {
     state.chatDock = { ...(state.chatDock || {}), collapsed: !!v };
@@ -1862,6 +2026,17 @@ function openChat() {
     if (chunk) chunks.push(chunk);
     return chunks.join("\n\n");
   };
+  const chatMeta = (m) => {
+    if (m.role !== "ai") return "";
+    const bits = [];
+    if (m.handled_by_runtime) bits.push("즉답");
+    else if (m.llm) bits.push((m.thinking || m.reasoning) ? "LLM 추론" : "LLM");
+    else if (m.matched === false) bits.push("검색/폴백");
+    if (m.provider && m.model) bits.push(`${m.provider}/${m.model}`);
+    const ver = m.chatbot_version?.release || m.chatbot_version?.build;
+    if (ver) bits.push(ver);
+    return bits.length ? `<div class="chat-meta">${esc(bits.join(" · "))}</div>` : "";
+  };
   const paint = () => {
     logEl.innerHTML = state.chatLog.length
       ? state.chatLog.map((m) => {
@@ -1870,11 +2045,12 @@ function openChat() {
             return `<div class="chat-row ai pending"><div class="chat-msg ai pending" aria-label="${esc(txt)}"><span>${esc(txt)}</span><span class="chat-typing" aria-hidden="true"><i></i><i></i><i></i></span></div></div>`;
           }
           const src = m.source ? `<div class="chat-src">📖 ${esc(m.source.topic ?? "")} · ${esc(m.source.question ?? "")}</div>`
-            : (m.role === "ai" && m.matched === false && !m.handled_by_llm ? `<div class="chat-src dim">${L.chat_unmatched}</div>` : "");
+            : (m.role === "ai" && m.matched === false && !m.handled_by_llm && !m.handled_by_runtime ? `<div class="chat-src dim">${L.chat_unmatched}</div>` : "");
+          const meta = chatMeta(m);
           // 약매칭/미매칭 후보 → 눌러서 바로 그 매뉴얼 질문으로 다시 묻기(끊기지 않게).
           const cand = (m.role === "ai" && !m.matched && Array.isArray(m.candidates) && m.candidates.length)
             ? `<div class="chat-cands">${m.candidates.map((c) => `<button class="fav-chip chat-cand" data-q="${esc(c.question)}">${esc(c.question)}</button>`).join("")}</div>` : "";
-          return `<div class="chat-row ${m.role}"><div class="chat-msg ${m.role}"><span>${esc(readableChatText(m.text, m.role))}</span>${src}</div>${cand}</div>`;
+          return `<div class="chat-row ${m.role}"><div class="chat-msg ${m.role}"><span>${esc(readableChatText(m.text, m.role))}</span>${src}${meta}</div>${cand}</div>`;
         }).join("")
       : `<div class="empty small">${L.chat_empty}</div>`;
     logEl.scrollTop = logEl.scrollHeight;
@@ -1883,12 +2059,14 @@ function openChat() {
   const close = () => ov.remove();
   ov.querySelector(".chat-x").addEventListener("click", close);
   collapseBtn.addEventListener("click", () => {
+    if (pending) { statusEl.textContent = pendingStatus("working"); return; }
     setCollapsed(!state.chatDock?.collapsed);
     if (!state.chatDock?.collapsed) inputEl.focus();
   });
   let suppressHeadClick = false;
   let drag = null;
   const rememberSize = () => {
+    if (isMobileViewport()) return;
     if (state.chatDock?.collapsed) return;
     const r = panel.getBoundingClientRect();
     state.chatDock = { ...(state.chatDock || {}), w: Math.round(r.width), h: Math.round(r.height) };
@@ -1896,6 +2074,10 @@ function openChat() {
   };
   new ResizeObserver(rememberSize).observe(panel);
   const moveDock = (x, y, w, h) => {
+    if (isMobileViewport()) {
+      resetMobileDockFrame();
+      return;
+    }
     const nx = clamp(x, 8, Math.max(8, window.innerWidth - w - 8));
     const ny = clamp(y, 8, Math.max(8, window.innerHeight - h - 8));
     ov.style.left = `${nx}px`; ov.style.top = `${ny}px`; ov.style.right = "auto"; ov.style.bottom = "auto";
@@ -1917,6 +2099,7 @@ function openChat() {
   };
   headEl.addEventListener("pointerdown", (e) => {
     if (e.button !== 0 || e.target.closest("button")) return;
+    if (isMobileViewport()) return;
     const r = panel.getBoundingClientRect();
     drag = { startX: e.clientX, startY: e.clientY, offsetX: e.clientX - r.left, offsetY: e.clientY - r.top, width: r.width, height: r.height, moved: false };
     document.addEventListener("pointermove", onDragMove);
@@ -1925,11 +2108,16 @@ function openChat() {
   headEl.addEventListener("click", (e) => {
     if (e.target.closest("button")) return;
     if (suppressHeadClick) { suppressHeadClick = false; return; }
+    if (pending) { statusEl.textContent = pendingStatus("working"); return; }
     setCollapsed(!state.chatDock?.collapsed);
     if (!state.chatDock?.collapsed) inputEl.focus();
   });
   let resizeDrag = null;
   const resizeDock = (w, h, left, top) => {
+    if (isMobileViewport()) {
+      resetMobileDockFrame();
+      return;
+    }
     const nw = clamp(w, 320, Math.max(320, window.innerWidth - left - 8));
     const nh = clamp(h, 360, Math.max(360, window.innerHeight - top - 8));
     panel.style.width = `${nw}px`;
@@ -1947,6 +2135,7 @@ function openChat() {
     document.removeEventListener("pointerup", onResizeUp);
   };
   resizeEl.addEventListener("pointerdown", (e) => {
+    if (isMobileViewport()) return;
     if (state.chatDock?.collapsed) return;
     e.preventDefault();
     e.stopPropagation();
@@ -1955,37 +2144,46 @@ function openChat() {
     document.addEventListener("pointermove", onResizeMove);
     document.addEventListener("pointerup", onResizeUp);
   });
+  window.addEventListener("resize", () => { if (isMobileViewport()) resetMobileDockFrame(); }, { passive: true });
   // /new: 새 대화 — 스레드 리셋(로컬 LLM 스레드 오염 방지). 로그는 서버에 남아 야간 갱신에 쓰임.
   ov.querySelector(".chat-new").addEventListener("click", () => {
     if (pending) return;
-    state.chatLog = []; state.chatThread = newChatThreadId(); paint();
+    startFreshChatThread(); paint();
     inputEl.focus();
   });
   const send = async () => {
     if (pending) return;
     const msg = inputEl.value.trim(); if (!msg) return;
-    if (msg === "/new") { state.chatLog = []; state.chatThread = newChatThreadId(); inputEl.value = ""; paint(); return; }
+    if (msg === "/new") { startFreshChatThread(); inputEl.value = ""; paint(); return; }
     const pendingId = `pending_${Date.now().toString(36)}_${Math.random().toString(36).slice(2, 7)}`;
     const replacePending = (entry) => {
       const i = state.chatLog.findIndex((m) => m.pending && m.id === pendingId);
       if (i >= 0) state.chatLog.splice(i, 1, entry);
       else state.chatLog.push(entry);
+      saveChatLog();
     };
     activePendingId = pendingId;
     let finalStatus = "";
     let finalEntry = null;
     const pendingStartedAt = performance.now();
     state.chatLog.push({ role: "user", text: msg }, { role: "ai", pending: true, wait_stage: "queued", id: pendingId });
+    saveChatLog();
     inputEl.value = ""; paint(); setPending(true);
     try {
       await nextPaintFrame();
-      const resp = await post("/api/chat", { message: msg, thread_id: state.chatThread });
+      const resp = await postJsonWithTimeout("/api/chat", { message: msg, thread_id: state.chatThread });
       const r = await resp.json().catch(() => ({}));
       if (!resp.ok) throw new Error(r.error || "chat_failed");
-      finalEntry = { role: "ai", text: r.text || L.chat_empty_reply, source: r.source, matched: r.matched, candidates: r.candidates || [], llm: r.llm, handled_by_llm: r.handled_by_llm };
-    } catch {
-      finalEntry = { role: "ai", text: L.chat_error_retry, matched: false, candidates: [] };
-      finalStatus = L.chat_error_retry;
+      finalEntry = { role: "ai", text: r.text || L.chat_empty_reply, source: r.source, matched: r.matched, candidates: r.candidates || [], llm: r.llm, thinking: r.thinking, reasoning: r.reasoning, provider: r.provider, model: r.model, chatbot_version: r.chatbot_version, handled_by_llm: r.handled_by_llm, handled_by_runtime: r.handled_by_runtime, context_used: r.context_used, mode: r.mode };
+      finalStatus = L.chat_done_status || "답변 완료";
+    } catch (error) {
+      const msgText = error?.name === "AbortError"
+        ? (L.chat_timeout_retry || "답변이 오래 걸려 중단했어요. 입력창은 다시 열렸으니 같은 질문을 한 번만 다시 보내 주세요.")
+        : (error?.message === "login_required"
+          ? (L.chat_login_required || "로그인이 풀렸어요. 다시 로그인한 뒤 질문해 주세요.")
+          : L.chat_error_retry);
+      finalEntry = { role: "ai", text: msgText, matched: false, candidates: [] };
+      finalStatus = msgText;
     } finally {
       await waitPendingMinimum(pendingStartedAt);
       if (finalEntry) replacePending(finalEntry);
@@ -1996,7 +2194,12 @@ function openChat() {
     }
   };
   sendBtn.addEventListener("click", send);
-  inputEl.addEventListener("keydown", (e) => { if (e.key === "Enter") send(); });
+  inputEl.addEventListener("keydown", (e) => {
+    if (e.key === "Enter" && !e.isComposing) {
+      e.preventDefault();
+      send();
+    }
+  });
   // 후보 칩 클릭 → 그 질문으로 즉시 재질의(끊기지 않는 흐름).
   logEl.addEventListener("click", (e) => {
     const b = e.target.closest(".chat-cand"); if (!b) return;
@@ -2007,6 +2210,517 @@ function openChat() {
 }
 
 // 화면 정중앙 확인 모달 (native confirm 은 위치 제어 불가 → 커스텀). Promise<boolean> 반환.
+let taskCodexStackZ = 730;
+
+function taskCodexOverlays() {
+  return Array.from(document.querySelectorAll(".task-codex-overlay"));
+}
+
+function taskCodexClamp(n, min, max) {
+  return Math.min(Math.max(n, min), max);
+}
+
+function taskCodexDockStore() {
+  const current = state.taskCodexDock || {};
+  if (Number.isFinite(current.x) || Number.isFinite(current.y) || Number.isFinite(current.w) || Number.isFinite(current.h)) {
+    return { __last: { ...current }, byItem: {} };
+  }
+  return {
+    __last: current.__last || {},
+    byItem: current.byItem || {},
+  };
+}
+
+function saveTaskCodexDockStore(store) {
+  state.taskCodexDock = { __last: store.__last || {}, byItem: store.byItem || {} };
+  localStorage.setItem("dev_erp_task_codex_dock", JSON.stringify(state.taskCodexDock));
+}
+
+function taskCodexDockFor(itemId) {
+  const store = taskCodexDockStore();
+  const key = String(itemId);
+  if (Object.prototype.hasOwnProperty.call(store.byItem || {}, key)) return store.byItem[key] || {};
+  return Object.keys(store.byItem || {}).length ? {} : (store.__last || {});
+}
+
+function saveTaskCodexDockFor(itemId, layout) {
+  const clean = {};
+  for (const key of ["x", "y", "w", "h"]) {
+    if (Number.isFinite(layout?.[key])) clean[key] = Math.round(layout[key]);
+  }
+  const store = taskCodexDockStore();
+  store.byItem[String(itemId)] = { ...(store.byItem[String(itemId)] || {}), ...clean };
+  store.__last = { ...(store.__last || {}), ...clean };
+  saveTaskCodexDockStore(store);
+}
+
+function bringTaskCodexToFront(ov) {
+  taskCodexStackZ += 1;
+  ov.style.zIndex = String(taskCodexStackZ);
+}
+
+function tileTaskCodexPanels() {
+  const panels = taskCodexOverlays();
+  if (!panels.length) return;
+  if (isMobileViewport()) {
+    panels.forEach((panel) => {
+      panel.style.left = "";
+      panel.style.top = "";
+      panel.style.right = "";
+      panel.style.bottom = "";
+      panel.style.width = "";
+      panel.style.height = "";
+    });
+    bringTaskCodexToFront(panels[panels.length - 1]);
+    return;
+  }
+  const gap = 10;
+  const margin = 10;
+  const count = panels.length;
+  const cols = window.innerWidth < 800 ? 1 : (count <= 1 ? 1 : (count <= 4 ? 2 : Math.ceil(Math.sqrt(count))));
+  const rows = Math.ceil(count / cols);
+  const rawW = Math.floor((window.innerWidth - margin * 2 - gap * (cols - 1)) / cols);
+  const rawH = Math.floor((window.innerHeight - margin * 2 - gap * (rows - 1)) / rows);
+  const minW = 300;
+  const minH = 340;
+  const clampTile = (n, min, max) => Math.min(Math.max(n, min), Math.max(min, max));
+  if (rawW < minW || rawH < minH) {
+    const w = Math.min(Math.max(minW, Math.min(390, window.innerWidth - margin * 2)), window.innerWidth - margin * 2);
+    const h = Math.min(Math.max(minH, Math.floor(window.innerHeight * 0.62)), window.innerHeight - margin * 2);
+    panels.forEach((panel, index) => {
+      const offset = (index % 4) * 28;
+      const x = clampTile(margin + offset, margin, window.innerWidth - w - margin);
+      const y = clampTile(margin + offset, margin, window.innerHeight - h - margin);
+      panel.style.left = `${x}px`;
+      panel.style.top = `${y}px`;
+      panel.style.right = "auto";
+      panel.style.bottom = "auto";
+      panel.style.width = `${w}px`;
+      panel.style.height = `${h}px`;
+      saveTaskCodexDockFor(panel.dataset.itemId || `panel-${index}`, { x, y, w, h });
+    });
+    bringTaskCodexToFront(panels[panels.length - 1]);
+    return;
+  }
+  const w = Math.max(minW, rawW);
+  const h = Math.max(minH, rawH);
+  panels.forEach((panel, index) => {
+    const col = index % cols;
+    const row = Math.floor(index / cols);
+    const x = margin + col * (w + gap);
+    const y = margin + row * (h + gap);
+    panel.style.left = `${x}px`;
+    panel.style.top = `${y}px`;
+    panel.style.right = "auto";
+    panel.style.bottom = "auto";
+    panel.style.width = `${w}px`;
+    panel.style.height = `${h}px`;
+    saveTaskCodexDockFor(panel.dataset.itemId || `panel-${index}`, { x, y, w, h });
+  });
+  bringTaskCodexToFront(panels[panels.length - 1]);
+}
+
+function openTaskCodex(itemId) {
+  const existing = taskCodexOverlays().find((node) => node.dataset.itemId === String(itemId));
+  if (existing) {
+    bringTaskCodexToFront(existing);
+    existing.querySelector("#taskCodexMsg")?.focus();
+    return;
+  }
+  const ov = document.createElement("div");
+  ov.className = "task-codex-overlay";
+  ov.dataset.itemId = String(itemId);
+  ov.innerHTML = `<div class="task-codex-panel" role="complementary" aria-label="Codex task thread" aria-busy="false">
+    <div class="task-codex-head">
+      <div><strong>Codex 대화</strong><span class="task-codex-sub">할일 전용 스레드</span></div>
+      <div class="task-codex-actions">
+        <button class="task-codex-tile" title="열린 대화 4분할" aria-label="열린 대화 4분할">▦</button>
+        <button class="task-codex-x" title="닫기" aria-label="닫기">×</button>
+      </div>
+    </div>
+    <div class="task-codex-meta"></div>
+    <div class="task-codex-tools">
+      <select id="taskCodexModel" title="Codex model"></select>
+      <select id="taskCodexEffort" title="Reasoning effort"></select>
+      <select id="taskCodexTier" title="Service tier"></select>
+      <label class="task-codex-attach" title="Attach image">
+        <input id="taskCodexImage" type="file" accept="image/*" multiple />
+        <span>이미지</span>
+      </label>
+    </div>
+    <div class="task-codex-attachments"></div>
+    <div class="task-codex-log" role="log" aria-live="polite"></div>
+    <div class="task-codex-status" role="status" aria-live="polite"></div>
+    <div class="task-codex-suggest" hidden></div>
+    <div class="task-codex-input"><input id="taskCodexMsg" placeholder="이 할일에 대해 Codex에게 지시" /><button id="taskCodexSend" class="fav-chip">보내기</button></div>
+    <div class="task-codex-resize" title="크기 조절" aria-hidden="true"></div>
+  </div>`;
+  document.body.appendChild(ov);
+  bringTaskCodexToFront(ov);
+  const panel = ov.querySelector(".task-codex-panel");
+  const resizeEl = ov.querySelector(".task-codex-resize");
+  const logEl = ov.querySelector(".task-codex-log");
+  const metaEl = ov.querySelector(".task-codex-meta");
+  const statusEl = ov.querySelector(".task-codex-status");
+  const suggestEl = ov.querySelector(".task-codex-suggest");
+  const attachEl = ov.querySelector(".task-codex-attachments");
+  const inputEl = ov.querySelector("#taskCodexMsg");
+  const sendBtn = ov.querySelector("#taskCodexSend");
+  const modelEl = ov.querySelector("#taskCodexModel");
+  const effortEl = ov.querySelector("#taskCodexEffort");
+  const tierEl = ov.querySelector("#taskCodexTier");
+  const imageEl = ov.querySelector("#taskCodexImage");
+  let payload = null;
+  let pending = false;
+  let pendingTimer = null;
+  let pendingStartedAt = 0;
+  let capabilities = { skills: [], model_options: [""], effort_options: [""], service_tier_options: [""] };
+  let stagedImages = [];
+  const taskCodexWaitStages = {
+    open: [
+      [0, "Codex 스레드 연결 중", "서버 PC의 Codex app-server에 연결하고 있어요."],
+      [8000, "스레드 생성/재사용 중", "처음 여는 할일은 보통 20-60초 걸릴 수 있어요."],
+      [25000, "Codex 첫 응답 작성 중", "스레드 제목과 할일 메타데이터를 맞추고 있어요."],
+      [60000, "아직 처리 중", "창을 닫지 않아도 요청은 계속 기다립니다."]
+    ],
+    send: [
+      [0, "Codex에 메시지 전달 중", "할일 전용 스레드로 요청을 보내고 있어요."],
+      [8000, "Codex 응답 작성 중", "스킬이나 파일 확인이 있으면 조금 더 걸릴 수 있어요."],
+      [25000, "아직 작업 중", "긴 응답이나 스킬 적용은 1분 안팎 걸릴 수 있어요."],
+      [60000, "응답을 계속 기다리는 중", "네트워크나 Codex 앱 상태에 따라 지연될 수 있어요."]
+    ]
+  };
+  const taskCodexOptionLabels = {
+    model: { "": "모델 기본", "gpt-5.5": "GPT-5.5", "gpt-5.4": "GPT-5.4", "gpt-5.3": "GPT-5.3" },
+    effort: { "": "추론 기본", low: "낮음", medium: "보통", high: "높음", xhigh: "매우 높음" },
+    tier: { "": "속도 기본", fast: "fast", flex: "flex" },
+  };
+  const saveTaskCodexOptions = () => {
+    state.taskCodexOptions = {
+      model: modelEl.value || "",
+      effort: effortEl.value || "",
+      service_tier: tierEl.value || "",
+    };
+    localStorage.setItem("dev_erp_task_codex_options", JSON.stringify(state.taskCodexOptions));
+  };
+  const fillSelect = (el, values, labels, selected) => {
+    const list = Array.isArray(values) && values.length ? values : [""];
+    el.innerHTML = list.map((v) => `<option value="${esc(v)}" ${String(selected || "") === String(v) ? "selected" : ""}>${esc(labels[v] || v || "기본")}</option>`).join("");
+  };
+  const renderTools = () => {
+    const opt = state.taskCodexOptions || {};
+    fillSelect(modelEl, capabilities.model_options, taskCodexOptionLabels.model, opt.model);
+    fillSelect(effortEl, capabilities.effort_options, taskCodexOptionLabels.effort, opt.effort);
+    fillSelect(tierEl, capabilities.service_tier_options, taskCodexOptionLabels.tier, opt.service_tier);
+  };
+  const loadCapabilities = async () => {
+    try {
+      capabilities = await api("/api/codex-task/capabilities");
+    } catch {
+      capabilities = { skills: [], model_options: [""], effort_options: [""], service_tier_options: [""] };
+    }
+    renderTools();
+  };
+  const renderAttachments = () => {
+    attachEl.innerHTML = stagedImages.length
+      ? stagedImages.map((f, idx) => `<button class="task-codex-chip" data-img-remove="${idx}" title="${esc(f.name)}">${esc(f.name)}</button>`).join("")
+      : "";
+  };
+  const uploadStagedImages = async () => {
+    const uploaded = [];
+    for (const file of stagedImages) {
+      const url = `/api/codex-task/attachment?item_id=${encodeURIComponent(itemId)}&filename=${encodeURIComponent(file.name)}`;
+      const resp = await fetch(url, { method: "POST", headers: { "content-type": file.type || "application/octet-stream" }, body: file });
+      const body = await resp.json().catch(() => ({}));
+      if (!resp.ok) throw new Error(body.error || "image_upload_failed");
+      if (body.attachment) uploaded.push(body.attachment);
+    }
+    stagedImages = [];
+    renderAttachments();
+    return uploaded;
+  };
+  const currentSkillToken = () => {
+    const left = inputEl.value.slice(0, inputEl.selectionStart ?? inputEl.value.length);
+    const m = left.match(/(^|\s)([$/])([A-Za-z0-9_.:-]*)$/);
+    if (!m) return null;
+    return { prefix: m[3] || "", start: left.length - m[0].trimStart().length, sigil: m[2] };
+  };
+  const renderSkillSuggest = () => {
+    const token = currentSkillToken();
+    const prefix = token?.prefix?.toLowerCase() || "";
+    if (!token || !capabilities.skills?.length) {
+      suggestEl.hidden = true;
+      suggestEl.innerHTML = "";
+      return;
+    }
+    const matches = capabilities.skills
+      .filter((s) => s.name.toLowerCase().includes(prefix))
+      .slice(0, 8);
+    if (!matches.length) {
+      suggestEl.hidden = true;
+      suggestEl.innerHTML = "";
+      return;
+    }
+    suggestEl.hidden = false;
+    suggestEl.innerHTML = matches.map((s) => `<button type="button" data-skill="${esc(s.name)}"><b>${esc(s.name)}</b><span>${esc(s.description || "")}</span></button>`).join("");
+  };
+  const saveDock = (layout) => saveTaskCodexDockFor(itemId, layout);
+  const resetMobileFrame = () => {
+    ov.style.left = "";
+    ov.style.top = "";
+    ov.style.right = "";
+    ov.style.bottom = "";
+    ov.style.width = "";
+    ov.style.height = "";
+  };
+  const minPanelWidth = () => Math.min(300, Math.max(240, window.innerWidth - 16));
+  const minPanelHeight = () => Math.min(window.innerWidth <= 640 ? 320 : 340, Math.max(260, window.innerHeight - 16));
+  const clampSize = (w, h, left = 8, top = 8) => {
+    const minW = minPanelWidth();
+    const minH = minPanelHeight();
+    return {
+      w: taskCodexClamp(w, minW, Math.max(minW, window.innerWidth - left - 8)),
+      h: taskCodexClamp(h, minH, Math.max(minH, window.innerHeight - top - 8)),
+    };
+  };
+  const clampDock = (x, y, w, h) => ({
+    x: Math.min(Math.max(x, 8), Math.max(8, window.innerWidth - w - 8)),
+    y: Math.min(Math.max(y, 8), Math.max(8, window.innerHeight - h - 8)),
+  });
+  const applyPanelFrame = (x, y, w, h, { save = true } = {}) => {
+    if (isMobileViewport()) {
+      resetMobileFrame();
+      return;
+    }
+    const sized = clampSize(w, h);
+    const p = clampDock(x, y, sized.w, sized.h);
+    const finalSize = clampSize(sized.w, sized.h, p.x, p.y);
+    ov.style.left = `${p.x}px`;
+    ov.style.top = `${p.y}px`;
+    ov.style.right = "auto";
+    ov.style.bottom = "auto";
+    ov.style.width = `${finalSize.w}px`;
+    ov.style.height = `${finalSize.h}px`;
+    if (save) {
+      saveDock({ x: p.x, y: p.y, w: finalSize.w, h: finalSize.h });
+    }
+  };
+  const applyDockPosition = (x, y, w, h, options) => applyPanelFrame(x, y, w, h, options);
+  const restoreDockPosition = () => {
+    if (isMobileViewport()) {
+      resetMobileFrame();
+      return;
+    }
+    const d = taskCodexDockFor(itemId);
+    const r = panel.getBoundingClientRect();
+    const w = Number.isFinite(d.w) ? d.w : r.width;
+    const h = Number.isFinite(d.h) ? d.h : r.height;
+    if (Number.isFinite(d.x) && Number.isFinite(d.y)) {
+      applyDockPosition(d.x, d.y, w, h, { save: false });
+      return;
+    }
+    const idx = Math.max(0, taskCodexOverlays().indexOf(ov));
+    applyDockPosition(window.innerWidth - w - 18 - idx * 28, window.innerHeight - h - 18 - idx * 28, w, h, { save: false });
+  };
+  restoreDockPosition();
+  const elapsedLabel = (ms) => {
+    const s = Math.max(0, Math.floor(ms / 1000));
+    return s < 60 ? `${s}초` : `${Math.floor(s / 60)}분 ${String(s % 60).padStart(2, "0")}초`;
+  };
+  const pendingStage = (kind, elapsedMs) => {
+    const stages = taskCodexWaitStages[kind] || taskCodexWaitStages.send;
+    return stages.reduce((current, stage) => (elapsedMs >= stage[0] ? stage : current), stages[0]);
+  };
+  const stopPendingTimer = () => {
+    if (pendingTimer) clearInterval(pendingTimer);
+    pendingTimer = null;
+  };
+  const paintPendingStatus = (kind) => {
+    const elapsed = performance.now() - pendingStartedAt;
+    const [, title, note] = pendingStage(kind, elapsed);
+    statusEl.classList.add("is-pending");
+    statusEl.innerHTML = `<span class="task-codex-progress"><span>${esc(title)} · ${esc(elapsedLabel(elapsed))}</span><span class="chat-typing" aria-hidden="true"><i></i><i></i><i></i></span></span><small>${esc(note)}</small>`;
+  };
+  const startPendingTimer = (kind) => {
+    pendingStartedAt = performance.now();
+    paintPendingStatus(kind);
+    stopPendingTimer();
+    pendingTimer = setInterval(() => paintPendingStatus(kind), 1000);
+  };
+  const setPending = (v, kindOrText = "") => {
+    pending = !!v;
+    panel.setAttribute("aria-busy", String(pending));
+    sendBtn.disabled = pending;
+    if (pending) {
+      startPendingTimer(kindOrText || "send");
+    } else {
+      stopPendingTimer();
+      statusEl.classList.remove("is-pending");
+      statusEl.textContent = kindOrText || "";
+    }
+  };
+  const roleLabel = (role) => role === "assistant" ? "Codex" : (role === "user" ? "나" : (role === "error" ? "오류" : "시스템"));
+  const render = () => {
+    const item = payload?.item;
+    const binding = payload?.binding;
+    const mode = payload?.mode || state.version?.runtime?.codex_task?.mode || "?";
+    metaEl.innerHTML = item
+      ? `<span>${esc(item.project_id)}</span><strong>${esc(item.title)}</strong><small>${esc(mode)}${binding?.thread_id ? ` · ${esc(binding.thread_id)}` : ""}</small>`
+      : `<span>연결 준비 중</span>`;
+    const rows = payload?.messages || [];
+    logEl.innerHTML = rows.length
+      ? rows.map((m) => `<div class="task-codex-row ${esc(m.role)}"><div class="task-codex-msg ${esc(m.role)}"><b>${roleLabel(m.role)}</b><span>${esc(m.text)}</span></div></div>`).join("")
+      : `<div class="empty small">이 할일의 Codex 대화가 아직 없습니다.</div>`;
+    if (payload?.detail) statusEl.textContent = payload.detail;
+    logEl.scrollTop = logEl.scrollHeight;
+  };
+  const load = async () => {
+    setPending(true, "open");
+    try {
+      const resp = await postJsonWithTimeout("/api/codex-task/open", { item_id: itemId }, CHAT_REQUEST_TIMEOUT_MS);
+      payload = await resp.json().catch(() => ({}));
+      render();
+      if (!resp.ok) throw new Error(payload.detail || payload.error || "codex_task_open_failed");
+      setPending(false, payload.binding?.thread_id ? "연결됨" : "");
+    } catch (error) {
+      payload = payload || { messages: [] };
+      payload.detail = error?.message || "Codex 연결 실패";
+      render();
+      setPending(false, payload.detail);
+    }
+  };
+  const send = async () => {
+    if (pending) return;
+    const msg = inputEl.value.trim();
+    if (!msg) return;
+    inputEl.value = "";
+    suggestEl.hidden = true;
+    setPending(true, "send");
+    try {
+      saveTaskCodexOptions();
+      const attachments = await uploadStagedImages();
+      const resp = await postJsonWithTimeout("/api/codex-task/message", {
+        item_id: itemId,
+        message: msg,
+        model: modelEl.value || null,
+        effort: effortEl.value || null,
+        service_tier: tierEl.value || null,
+        attachments,
+      }, CHAT_REQUEST_TIMEOUT_MS);
+      payload = await resp.json().catch(() => ({}));
+      render();
+      if (!resp.ok) throw new Error(payload.detail || payload.error || "codex_task_message_failed");
+      setPending(false, "응답 완료");
+    } catch (error) {
+      payload = payload || { messages: [] };
+      payload.detail = error?.message || "Codex 응답 실패";
+      render();
+      setPending(false, payload.detail);
+    } finally {
+      inputEl.focus();
+    }
+  };
+  ov.addEventListener("pointerdown", () => bringTaskCodexToFront(ov));
+  let drag = null;
+  const moveDock = (x, y, w, h) => {
+    applyDockPosition(x, y, w, h);
+  };
+  const onMove = (e) => {
+    if (!drag) return;
+    moveDock(e.clientX - drag.offsetX, e.clientY - drag.offsetY, drag.width, drag.height);
+  };
+  const onUp = () => {
+    drag = null;
+    document.removeEventListener("pointermove", onMove);
+    document.removeEventListener("pointerup", onUp);
+  };
+  ov.querySelector(".task-codex-head").addEventListener("pointerdown", (e) => {
+    if (e.button !== 0 || e.target.closest("button")) return;
+    if (isMobileViewport()) return;
+    const r = panel.getBoundingClientRect();
+    drag = { offsetX: e.clientX - r.left, offsetY: e.clientY - r.top, width: r.width, height: r.height };
+    document.addEventListener("pointermove", onMove);
+    document.addEventListener("pointerup", onUp);
+  });
+  let resizeDrag = null;
+  const onResizeMove = (e) => {
+    if (!resizeDrag) return;
+    applyPanelFrame(
+      resizeDrag.left,
+      resizeDrag.top,
+      resizeDrag.startW + e.clientX - resizeDrag.startX,
+      resizeDrag.startH + e.clientY - resizeDrag.startY
+    );
+  };
+  const onResizeUp = () => {
+    resizeDrag = null;
+    document.removeEventListener("pointermove", onResizeMove);
+    document.removeEventListener("pointerup", onResizeUp);
+  };
+  resizeEl.addEventListener("pointerdown", (e) => {
+    if (isMobileViewport()) return;
+    e.preventDefault();
+    e.stopPropagation();
+    bringTaskCodexToFront(ov);
+    const r = panel.getBoundingClientRect();
+    resizeDrag = { startX: e.clientX, startY: e.clientY, startW: r.width, startH: r.height, left: r.left, top: r.top };
+    document.addEventListener("pointermove", onResizeMove);
+    document.addEventListener("pointerup", onResizeUp);
+  });
+  const closePanel = () => {
+    stopPendingTimer();
+    window.removeEventListener("resize", restoreDockPosition);
+    document.removeEventListener("pointermove", onMove);
+    document.removeEventListener("pointerup", onUp);
+    document.removeEventListener("pointermove", onResizeMove);
+    document.removeEventListener("pointerup", onResizeUp);
+    ov.remove();
+  };
+  ov.querySelector(".task-codex-tile").addEventListener("click", tileTaskCodexPanels);
+  ov.querySelector(".task-codex-x").addEventListener("click", closePanel);
+  window.addEventListener("resize", restoreDockPosition, { passive: true });
+  for (const el of [modelEl, effortEl, tierEl]) el.addEventListener("change", saveTaskCodexOptions);
+  imageEl.addEventListener("change", () => {
+    stagedImages = [...stagedImages, ...Array.from(imageEl.files || [])].slice(0, 6);
+    imageEl.value = "";
+    renderAttachments();
+  });
+  attachEl.addEventListener("click", (e) => {
+    const b = e.target.closest("[data-img-remove]");
+    if (!b) return;
+    stagedImages.splice(Number(b.dataset.imgRemove), 1);
+    renderAttachments();
+  });
+  suggestEl.addEventListener("click", (e) => {
+    const b = e.target.closest("[data-skill]");
+    if (!b) return;
+    const token = currentSkillToken();
+    const cursor = inputEl.selectionStart ?? inputEl.value.length;
+    const start = token ? token.start : cursor;
+    const before = inputEl.value.slice(0, start);
+    const after = inputEl.value.slice(cursor);
+    const inserted = `$${b.dataset.skill} `;
+    inputEl.value = `${before}${inserted}${after}`;
+    inputEl.focus();
+    inputEl.setSelectionRange((before + inserted).length, (before + inserted).length);
+    renderSkillSuggest();
+  });
+  sendBtn.addEventListener("click", send);
+  inputEl.addEventListener("input", renderSkillSuggest);
+  inputEl.addEventListener("keydown", (e) => {
+    if (e.key === "Escape" && !suggestEl.hidden) {
+      suggestEl.hidden = true;
+      e.preventDefault();
+      return;
+    }
+    if (e.key === "Enter" && !e.isComposing) {
+      e.preventDefault();
+      send();
+    }
+  });
+  Promise.all([loadCapabilities(), load()]).then(() => inputEl.focus());
+}
+
 function uiConfirm(message) {
   return new Promise((resolve) => {
     const L = state.lex;
@@ -2707,7 +3421,7 @@ async function renderItems() {
       <td>${itemLinkCell(i)}</td>
       <td class="acts">${i.status === "archived"
         ? `<button class="act-btn restore-btn" data-restore="${esc(i.id)}">${L.act_restore ?? "복구"}</button>`
-        : `${itemActionsHtml(i)}<button class="act-btn edit" data-edit="${esc(i.id)}">${L.act_edit ?? "수정"}</button>`}</td>
+        : `${itemActionsHtml(i)}<button class="act-btn codex-task-chat" data-codex-task="${esc(i.id)}">대화</button><button class="act-btn edit" data-edit="${esc(i.id)}">${L.act_edit ?? "수정"}</button>`}</td>
     </tr>`).join("");
   const isTriage = state.statusFilter === "unclassified";
   const isArchived = state.statusFilter === "archived";
@@ -2804,6 +3518,12 @@ async function renderItems() {
     c.addEventListener("click", () => { state.hubProject = c.dataset.hub; state.hubTab = "overview"; state.view = "project"; render(); })
   );
   wireItemActions($("#view"));
+  $("#view").querySelectorAll(".codex-task-chat[data-codex-task]").forEach((b) =>
+    b.addEventListener("click", (e) => {
+      e.stopPropagation();
+      openTaskCodex(b.dataset.codexTask);
+    })
+  );
   wireItemEdit($("#view"));
   // 담당 드롭다운 → 즉시 재배정(/api/items/assign). 그 팀원 '내 할 일'로 이동.
   $("#view").querySelectorAll("select.reassign").forEach((sel) =>

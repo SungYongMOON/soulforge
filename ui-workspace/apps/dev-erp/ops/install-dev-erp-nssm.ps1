@@ -7,6 +7,7 @@ param(
   [string]$NssmExe = "nssm.exe",
   [string]$ChatProvider = "ollama",
   [string]$ChatModel = "gemma4:e4b",
+  [int]$ChatThink = 1,
   [int]$ChatContextTurns = 5,
   [int]$ChatTimeoutMs = 45000,
   [int]$QueueWaitMs = 60000,
@@ -40,6 +41,7 @@ if (-not $service) {
 & $NssmExe set $ServiceName AppEnvironmentExtra `
   "ERP_CHAT_PROVIDER=$ChatProvider" `
   "ERP_CHAT_MODEL=$ChatModel" `
+  "ERP_CHAT_THINK=$ChatThink" `
   "ERP_CHAT_CONTEXT_TURNS=$ChatContextTurns" `
   "ERP_CHAT_TIMEOUT_MS=$ChatTimeoutMs" `
   "ERP_LLM_QUEUE_WAIT_MS=$QueueWaitMs" `

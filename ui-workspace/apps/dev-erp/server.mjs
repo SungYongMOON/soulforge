@@ -3,8 +3,10 @@
 // 사용: node server.mjs [--port 4300] [--db data/dev-erp.db] [--ingest <json>] [--fixture]
 // 기본: 빈 DB 는 비워 둔다. 데모 데이터는 --fixture 또는 DEV_ERP_LOAD_FIXTURE=1 일 때만 적재.
 import { createServer } from "node:http";
-import { readFileSync, existsSync, mkdirSync, statSync } from "node:fs";
-import { dirname, join, extname, resolve, sep } from "node:path";
+import { randomUUID } from "node:crypto";
+import { readFileSync, existsSync, mkdirSync, statSync, readdirSync, writeFileSync } from "node:fs";
+import { homedir } from "node:os";
+import { dirname, join, extname, resolve, sep, basename } from "node:path";
 import { fileURLToPath } from "node:url";
 
 import { openStore } from "./src/store.mjs";
@@ -23,9 +25,10 @@ import {
   scanWikiPageRefs,
 } from "./src/knowledge_shell.mjs";
 import { crossSearch } from "./src/search.mjs";
-import { buildMetaContext, runLlm, answerFromManual } from "./src/llm.mjs";
+import { buildMetaContext, runLlm, answerFromManual, CHATBOT_VERSION, llmThinkEnabled } from "./src/llm.mjs";
 import { startAutosyncPoll, writeTaskToLedger, writeInputToLedger } from "./src/autosync.mjs";
 import { safeWorkspacePath, safeUploadTarget, commitUpload, readSafe } from "./src/filevault.mjs";
+import { CODEX_TASK_BRIDGE_VERSION, runCodexTaskTurn } from "./src/codex_bridge.mjs";
 
 const HERE = dirname(fileURLToPath(import.meta.url));
 const args = process.argv.slice(2);
@@ -37,10 +40,27 @@ const flag = (name, fallback) => {
 // 파일 IO(산출물 입력파일 업/다운로드)는 기본 OFF. 켜기: DEV_ERP_FILEIO=1 또는 --fileio.
 // 모든 경로는 <ROOT>/_workspaces 아래로만(filevault path-safety). 절대경로·../·심볼릭 탈출 차단.
 const ROOT = resolve(dirname(fileURLToPath(import.meta.url)), "..", "..", "..");
+const CODEX_TASK_BRIDGE_MODE = process.env.DEV_ERP_CODEX_TASK_BRIDGE || "app-server";
+const CODEX_TASK_BRIDGE_CWD = resolve(process.env.DEV_ERP_CODEX_TASK_CWD || ROOT);
+const CODEX_TASK_TIMEOUT_MS = Number(process.env.DEV_ERP_CODEX_TASK_TIMEOUT_MS || 120000);
+const CODEX_HOME = resolve(process.env.CODEX_HOME || join(homedir(), ".codex"));
+const CODEX_TASK_ATTACHMENT_ROOT = resolve(process.env.DEV_ERP_CODEX_TASK_ATTACHMENT_ROOT || join(ROOT, "_workspaces", "system", "dev-erp", "codex-task-attachments"));
+const CODEX_TASK_IMAGE_MAX = Number(process.env.DEV_ERP_CODEX_TASK_IMAGE_MAX || 8 * 1024 * 1024);
+const CODEX_TASK_IMAGE_EXTS = new Set([".png", ".jpg", ".jpeg", ".webp", ".gif"]);
 const KNOWLEDGE_SHELL_ROOT = resolve(flag("knowledge_shell_root", ROOT));
 const FILEIO = process.env.DEV_ERP_FILEIO === "1" || process.argv.includes("--fileio");
 const UPLOAD_MAX = Number(process.env.DEV_ERP_UPLOAD_MAX || 50 * 1024 * 1024); // 50MB 기본 상한
-const PORT = Number(flag("port", 4300));
+const isRuntimeCheckout = (p) => /(^|[\\/])Soulforge-runtime([\\/]|$)/i.test(resolve(p));
+const IS_RUNTIME_CHECKOUT = isRuntimeCheckout(ROOT) || isRuntimeCheckout(HERE);
+const RUNTIME_PORT = Number(process.env.DEV_ERP_RUNTIME_PORT || 4300);
+const DEV_PORT = Number(process.env.DEV_ERP_DEV_PORT || 4310);
+const DEFAULT_PORT = IS_RUNTIME_CHECKOUT ? RUNTIME_PORT : DEV_PORT;
+const PORT = Number(flag("port", DEFAULT_PORT));
+const ALLOW_NON_RUNTIME_4300 = process.env.DEV_ERP_ALLOW_DEV_4300 === "1" || args.includes("--allow-dev-4300");
+if (PORT === RUNTIME_PORT && !IS_RUNTIME_CHECKOUT && !ALLOW_NON_RUNTIME_4300) {
+  console.error(`[dev-erp] refused: port ${RUNTIME_PORT} is reserved for C:\\Soulforge-runtime. Use --port ${DEV_PORT} for C:\\Soulforge development, or set DEV_ERP_ALLOW_DEV_4300=1 for an explicit emergency override.`);
+  process.exit(2);
+}
 // 기본은 localhost 전용(안전). 같은 네트워크 공유가 필요할 때만 --host 0.0.0.0
 // (합성 데이터 파일럿 한정 권장 — 실데이터+팀 공개는 P2 RBAC 이후)
 const HOST = flag("host", "127.0.0.1");
@@ -66,6 +86,11 @@ const SKIN_ROOTS = [...new Set([
   join(ROOT, "_workspaces", "system", "dev-erp", "skins"),
   join(HERE, "static", "skins"),
 ].filter(Boolean).map((p) => resolve(p)))];
+const ERP_VERSION = Object.freeze({
+  release: "v1.0.4",
+  build: "ui-2026.06.18-chat-stability.11",
+  source: "server.mjs"
+});
 
 const store = openStore(DB_PATH);
 // 감사로그 '조회·잡음' kind — UI EVENT_HIDE 와 동일. noise=0 시 서버에서 제외.
@@ -123,7 +148,8 @@ function serveFromRoot(res, root, relPath) {
   return true;
 }
 
-const SID = "dev_erp_sid";
+const SID_BASE = "dev_erp_sid";
+const SID = `${SID_BASE}_${PORT}`;
 function readCookie(req, name) {
   const raw = req.headers.cookie || "";
   for (const part of raw.split(";")) {
@@ -138,7 +164,10 @@ function currentAccount(req) {
 }
 // 세션 쿠키 문자열. HttpOnly+SameSite=Lax, 팀 공개 HTTPS proxy/tunnel 에서는 Secure 옵션 사용.
 function sessionCookie(token, maxAgeSec) {
-  return `${SID}=${encodeURIComponent(token)}; Path=/; HttpOnly; SameSite=Lax; Max-Age=${maxAgeSec}${COOKIE_SECURE ? "; Secure" : ""}`;
+  const attrs = `Path=/; HttpOnly; SameSite=Lax; Max-Age=${maxAgeSec}${COOKIE_SECURE ? "; Secure" : ""}`;
+  const primary = `${SID}=${encodeURIComponent(token)}; ${attrs}`;
+  const clearLegacy = `${SID_BASE}=; Path=/; HttpOnly; SameSite=Lax; Max-Age=0${COOKIE_SECURE ? "; Secure" : ""}`;
+  return SID === SID_BASE ? primary : [primary, clearLegacy];
 }
 // 관리자 가드: admin 역할 계정만. 아니면 null.
 function requireAdmin(req) {
@@ -148,6 +177,20 @@ function requireAdmin(req) {
 async function readJson(req) {
   let body = ""; for await (const chunk of req) body += chunk;
   try { return JSON.parse(body || "{}"); } catch { return {}; }
+}
+async function readRawBody(req, maxBytes) {
+  const chunks = [];
+  let total = 0;
+  for await (const chunk of req) {
+    total += chunk.length;
+    if (total > maxBytes) {
+      const err = new Error("too_large");
+      err.code = "too_large";
+      throw err;
+    }
+    chunks.push(chunk);
+  }
+  return Buffer.concat(chunks);
 }
 function intParam(value, fallback, { min = 0, max = 500 } = {}) {
   const n = Math.trunc(Number(value));
@@ -216,6 +259,195 @@ function lastIngestAt() {
   const rows = store.db.prepare("SELECT at FROM event_log WHERE kind='ingest' ORDER BY id DESC LIMIT 1").get();
   return rows?.at ?? null;
 }
+function runtimeVersion() {
+  return {
+    schema: "dev_erp.version.v1",
+    erp: ERP_VERSION,
+    chatbot: CHATBOT_VERSION,
+    runtime: {
+      port: PORT,
+      checkout: IS_RUNTIME_CHECKOUT ? "runtime" : "development",
+      llm: {
+        provider: process.env.ERP_CHAT_PROVIDER || "stub",
+        model: process.env.ERP_CHAT_MODEL || "gemma3:4b",
+        thinking: llmThinkEnabled()
+      },
+      codex_task: {
+        mode: CODEX_TASK_BRIDGE_MODE,
+        bridge: CODEX_TASK_BRIDGE_VERSION.release,
+        cwd: CODEX_TASK_BRIDGE_CWD
+      }
+    }
+  };
+}
+
+let codexSkillCache = { at: 0, rows: [] };
+function cleanFrontmatterValue(value) {
+  return String(value || "").trim().replace(/^["']|["']$/g, "");
+}
+function parseSkillMeta(skillPath) {
+  let text = "";
+  try { text = readFileSync(skillPath, "utf8"); } catch { return null; }
+  const head = text.startsWith("---") ? text.slice(3, text.indexOf("\n---", 3) > 0 ? text.indexOf("\n---", 3) : 3000) : text.slice(0, 3000);
+  const name = cleanFrontmatterValue(head.match(/^name:\s*(.+)$/m)?.[1]) || basename(dirname(skillPath));
+  const description = cleanFrontmatterValue(head.match(/^description:\s*(.+)$/m)?.[1]);
+  if (!name) return null;
+  return { name, description, path: skillPath };
+}
+function collectSkillFiles(root, { maxDepth = 8, maxFiles = 500 } = {}) {
+  const found = [];
+  const walk = (dir, depth) => {
+    if (found.length >= maxFiles || depth > maxDepth) return;
+    let entries = [];
+    try { entries = readdirSync(dir, { withFileTypes: true }); } catch { return; }
+    for (const entry of entries) {
+      if (found.length >= maxFiles) break;
+      if (entry.name === ".git" || entry.name === "node_modules") continue;
+      const full = join(dir, entry.name);
+      if (entry.isFile() && entry.name === "SKILL.md") found.push(full);
+      else if (entry.isDirectory()) walk(full, depth + 1);
+    }
+  };
+  if (existsSync(root)) walk(root, 0);
+  return found;
+}
+function listCodexSkills({ refresh = false } = {}) {
+  const now = Date.now();
+  if (!refresh && codexSkillCache.rows.length && now - codexSkillCache.at < 30000) return codexSkillCache.rows;
+  const roots = [
+    join(CODEX_HOME, "skills"),
+    join(CODEX_HOME, "plugins", "cache"),
+  ];
+  const byName = new Map();
+  for (const root of roots) {
+    for (const file of collectSkillFiles(root)) {
+      const meta = parseSkillMeta(file);
+      if (!meta) continue;
+      const prev = byName.get(meta.name);
+      if (!prev || file.includes(`${sep}skills${sep}`)) byName.set(meta.name, meta);
+    }
+  }
+  codexSkillCache = {
+    at: now,
+    rows: [...byName.values()].sort((a, b) => a.name.localeCompare(b.name)).slice(0, 400),
+  };
+  return codexSkillCache.rows;
+}
+function codexTaskCapabilities() {
+  return {
+    ok: true,
+    model_options: ["", "gpt-5.5", "gpt-5.4", "gpt-5.3"],
+    effort_options: ["", "low", "medium", "high", "xhigh"],
+    service_tier_options: ["", "fast", "flex"],
+    attachments: {
+      local_image: true,
+      arbitrary_file: false,
+      max_image_bytes: CODEX_TASK_IMAGE_MAX,
+      note: "Codex app-server input supports localImage paths; arbitrary file upload is intentionally not converted into prompt text.",
+    },
+    skills: listCodexSkills(),
+  };
+}
+function mentionedCodexSkills(text) {
+  const skills = listCodexSkills();
+  const byName = new Map(skills.map((s) => [s.name, s]));
+  const picked = new Map();
+  const re = /(^|\s)[$/]([A-Za-z0-9_.:-]{2,})/g;
+  for (const m of String(text || "").matchAll(re)) {
+    const name = m[2];
+    const skill = byName.get(name) || skills.find((s) => s.name.endsWith(`:${name}`));
+    if (skill) picked.set(skill.name, skill);
+    if (picked.size >= 8) break;
+  }
+  return [...picked.values()];
+}
+function safeAttachmentFilename(name) {
+  const base = basename(String(name || "image")).replace(/[<>:"/\\|?*\x00-\x1F]+/g, "_").replace(/\s+/g, " ").trim();
+  return (base || "image").slice(0, 120);
+}
+function codexTaskAttachmentDir(itemId) {
+  const safeId = String(itemId || "unknown").replace(/[^A-Za-z0-9_.-]+/g, "_").slice(0, 80) || "unknown";
+  const dir = resolve(CODEX_TASK_ATTACHMENT_ROOT, safeId);
+  if (!isInside(CODEX_TASK_ATTACHMENT_ROOT, dir)) return null;
+  mkdirSync(dir, { recursive: true });
+  return dir;
+}
+function localImagesFromAttachments(attachments) {
+  const rows = Array.isArray(attachments) ? attachments : [];
+  const out = [];
+  for (const a of rows) {
+    if (a?.type !== "localImage" || !a.path) continue;
+    const full = resolve(String(a.path));
+    if (!isInside(CODEX_TASK_ATTACHMENT_ROOT, full)) continue;
+    if (!CODEX_TASK_IMAGE_EXTS.has(extname(full).toLowerCase())) continue;
+    if (!existsSync(full)) continue;
+    out.push({ path: full });
+    if (out.length >= 6) break;
+  }
+  return out;
+}
+
+function codexTaskState(item, extra = {}) {
+  return {
+    ok: true,
+    mode: CODEX_TASK_BRIDGE_MODE,
+    bridge: CODEX_TASK_BRIDGE_VERSION,
+    item,
+    binding: store.codexTaskBinding(item.id) ?? null,
+    messages: store.codexTaskMessages(item.id),
+    ...extra,
+  };
+}
+
+function codexTaskErrorPayload(item, error) {
+  return codexTaskState(item, {
+    ok: false,
+    error: "codex_task_bridge_failed",
+    detail: String(error?.message || error || "codex_error").slice(0, 2000),
+  });
+}
+
+async function createCodexTaskThread({ item, actor }) {
+  const title = store.codexThreadTitle(item);
+  const result = await runCodexTaskTurn({
+    mode: CODEX_TASK_BRIDGE_MODE,
+    threadTitle: title,
+    cwd: CODEX_TASK_BRIDGE_CWD,
+    item,
+    userMessage: "",
+    initial: true,
+    timeoutMs: CODEX_TASK_TIMEOUT_MS,
+  });
+  const up = store.upsertCodexTaskBinding({
+    item_id: item.id,
+    thread_id: result.threadId,
+    thread_title: title,
+    mode: result.mode,
+  });
+  if (up.error) return up;
+  store.appendCodexTaskMessage({
+    item_id: item.id,
+    thread_id: result.threadId,
+    role: "system",
+    text: `ERP task thread opened: ${title}`,
+    actor_ref: actor,
+    mode: result.mode,
+  });
+  if (result.text) store.appendCodexTaskMessage({
+    item_id: item.id,
+    thread_id: result.threadId,
+    role: "assistant",
+    text: result.text,
+    actor_ref: "codex",
+    mode: result.mode,
+  });
+  store.appendEvent({
+    actor_ref: actor, actor_kind: "human", kind: "codex_task_thread_open",
+    item_ref: item.id, project_ref: item.project_id, to: result.threadId,
+    used_refs: ["items", "codex_task_thread"], data_label: "meta"
+  });
+  return { ok: true, binding: up.binding, result };
+}
 
 const server = createServer(async (req, res) => {
   const url = new URL(req.url, `http://127.0.0.1:${PORT}`);
@@ -233,7 +465,7 @@ const server = createServer(async (req, res) => {
     // 읽기도 미인증 차단(팀 모드) — '무조건 로그인해야 보임'. 랜딩에 필요한 비민감 메타데이터만 예외:
     // /api/me(정체성), /api/auth/*(로그인·가입), /api/health, /api/lexicon·/api/modules(UI 라벨/구조).
     if (req.method === "GET" && path.startsWith("/api/")
-        && !["/api/me", "/api/health", "/api/lexicon", "/api/modules"].includes(path)
+        && !["/api/me", "/api/health", "/api/version", "/api/lexicon", "/api/modules"].includes(path)
         && !path.startsWith("/api/auth/")
         && store.accountCount() > 0 && !currentAccount(req)) {
       return send(res, 401, { error: "login_required" });
@@ -243,6 +475,7 @@ const server = createServer(async (req, res) => {
       const seeCounts = store.accountCount() === 0 || !!currentAccount(req);
       return send(res, 200, seeCounts ? { ok: true, schema: "dev_erp.v1", counts: store.counts() } : { ok: true, schema: "dev_erp.v1" });
     }
+    if (path === "/api/version") return send(res, 200, runtimeVersion());
 
     // ---------- P2b 팀: 계정·인증·관리자 ----------
     // 정체성 조회는 /api/me(클라이언트 계약). 여기서는 로그인/로그아웃/bootstrap/계정관리.
@@ -517,6 +750,136 @@ const server = createServer(async (req, res) => {
       };
       return send(res, 200, wantsPage(qp) ? store.itemsPage(opts) : store.items(opts));
     }
+    if (path === "/api/codex-task/capabilities" && req.method === "GET") {
+      return send(res, 200, codexTaskCapabilities());
+    }
+    if (path === "/api/codex-task/attachment" && req.method === "POST") {
+      const item_id = qp.item_id || qp.id;
+      const item = store.itemById(item_id);
+      if (!item) return send(res, 404, { error: "item_not_found" });
+      if (!canAccessItem(req, item.id)) return send(res, 403, { error: "item_forbidden" });
+      const filename = safeAttachmentFilename(qp.filename || "image");
+      const ext = extname(filename).toLowerCase();
+      if (!CODEX_TASK_IMAGE_EXTS.has(ext)) return send(res, 400, { error: "unsupported_image_type" });
+      try {
+        const bytes = await readRawBody(req, CODEX_TASK_IMAGE_MAX);
+        if (!bytes.length) return send(res, 400, { error: "empty_body" });
+        const dir = codexTaskAttachmentDir(item.id);
+        if (!dir) return send(res, 400, { error: "unsafe_attachment_dir" });
+        const target = resolve(dir, `${new Date().toISOString().replace(/[:.]/g, "-")}-${randomUUID().slice(0, 8)}-${filename}`);
+        if (!isInside(dir, target)) return send(res, 400, { error: "unsafe_attachment_path" });
+        writeFileSync(target, bytes);
+        store.appendEvent({
+          actor_ref: actor, actor_kind: "human", kind: "codex_task_image_attach",
+          item_ref: item.id, project_ref: item.project_id, to: target,
+          used_refs: ["items", "codex_task_thread", "localImage"], data_label: "meta"
+        });
+        return send(res, 200, {
+          ok: true,
+          attachment: { type: "localImage", path: target, name: filename, size: bytes.length, mime: req.headers["content-type"] || null },
+        });
+      } catch (error) {
+        return send(res, error?.code === "too_large" ? 413 : 500, { error: error?.code || "attachment_failed" });
+      }
+    }
+    if (path === "/api/codex-task/thread" && req.method === "GET") {
+      const item_id = qp.item_id || qp.id;
+      const item = store.itemById(item_id);
+      if (!item) return send(res, 404, { error: "item_not_found" });
+      if (!canAccessItem(req, item.id)) return send(res, 403, { error: "item_forbidden" });
+      return send(res, 200, codexTaskState(item));
+    }
+    if (path === "/api/codex-task/open" && req.method === "POST") {
+      const { item_id } = await readJson(req);
+      const item = store.itemById(item_id);
+      if (!item) return send(res, 404, { error: "item_not_found" });
+      if (!canAccessItem(req, item.id)) return send(res, 403, { error: "item_forbidden" });
+      const existing = store.codexTaskBinding(item.id);
+      if (existing) return send(res, 200, codexTaskState(item));
+      try {
+        const created = await createCodexTaskThread({ item, actor });
+        if (created.error) return send(res, 400, created);
+        return send(res, 200, codexTaskState(item, { created: true }));
+      } catch (error) {
+        store.markCodexTaskError(item.id, error);
+        store.appendCodexTaskMessage({
+          item_id: item.id,
+          role: "error",
+          text: String(error?.message || error || "codex_error"),
+          actor_ref: "server",
+          mode: CODEX_TASK_BRIDGE_MODE,
+        });
+        return send(res, 502, codexTaskErrorPayload(item, error));
+      }
+    }
+    if (path === "/api/codex-task/message" && req.method === "POST") {
+      const { item_id, message, model, effort, service_tier, attachments } = await readJson(req);
+      const text = String(message ?? "").trim();
+      if (!text) return send(res, 400, { error: "message_required" });
+      const item = store.itemById(item_id);
+      if (!item) return send(res, 404, { error: "item_not_found" });
+      if (!canAccessItem(req, item.id)) return send(res, 403, { error: "item_forbidden" });
+      const binding = store.codexTaskBinding(item.id);
+      const skills = mentionedCodexSkills(text);
+      const localImages = localImagesFromAttachments(attachments);
+      store.appendCodexTaskMessage({
+        item_id: item.id,
+        thread_id: binding?.thread_id ?? null,
+        role: "user",
+        text,
+        actor_ref: actor,
+        mode: binding?.mode ?? CODEX_TASK_BRIDGE_MODE,
+      });
+      try {
+        const result = await runCodexTaskTurn({
+          mode: CODEX_TASK_BRIDGE_MODE,
+          threadId: binding?.thread_id ?? null,
+          threadTitle: store.codexThreadTitle(item),
+          cwd: CODEX_TASK_BRIDGE_CWD,
+          item,
+          userMessage: text,
+          initial: false,
+          timeoutMs: CODEX_TASK_TIMEOUT_MS,
+          model,
+          effort,
+          serviceTier: service_tier,
+          skills,
+          localImages,
+        });
+        const up = store.upsertCodexTaskBinding({
+          item_id: item.id,
+          thread_id: result.threadId,
+          thread_title: binding?.thread_title || store.codexThreadTitle(item),
+          mode: result.mode,
+        });
+        if (up.error) return send(res, 400, up);
+        store.appendCodexTaskMessage({
+          item_id: item.id,
+          thread_id: result.threadId,
+          role: "assistant",
+          text: result.text || "Codex turn completed.",
+          actor_ref: "codex",
+          mode: result.mode,
+        });
+        store.appendEvent({
+          actor_ref: actor, actor_kind: "human", kind: "codex_task_message",
+          item_ref: item.id, project_ref: item.project_id, to: result.threadId,
+          used_refs: ["items", "codex_task_thread"], data_label: "meta"
+        });
+        return send(res, 200, codexTaskState(item));
+      } catch (error) {
+        store.markCodexTaskError(item.id, error);
+        store.appendCodexTaskMessage({
+          item_id: item.id,
+          thread_id: binding?.thread_id ?? null,
+          role: "error",
+          text: String(error?.message || error || "codex_error"),
+          actor_ref: "server",
+          mode: binding?.mode ?? CODEX_TASK_BRIDGE_MODE,
+        });
+        return send(res, 502, codexTaskErrorPayload(item, error));
+      }
+    }
     if (path === "/api/mail" && req.method === "POST") {
       let body = ""; for await (const chunk of req) body += chunk;
       const input = JSON.parse(body || "{}");
@@ -567,12 +930,32 @@ const server = createServer(async (req, res) => {
           model: null,
           llm: false,
           handled_by_llm: false,
+          handled_by_runtime: false,
           context_used: false,
         };
       }
       if (r.error) return send(res, 400, r);
       store.appendEvent({ actor_ref: actor, actor_kind: "human", kind: "chat_query", to: r.matched ? "matched" : "unanswered", used_refs: ["chat", "faq"], data_label: "meta", note: thread_id ? `thread=${thread_id}` : null });
-      return send(res, 200, { text: r.text, matched: r.matched, source: r.source, candidates: r.candidates || [], mode: r.mode, external: r.external, provider: r.provider, model: r.model, llm: r.llm, handled_by_llm: r.handled_by_llm || false, context_used: r.context_used || false, pipeline: r.pipeline_public || null });
+      const thinking = Boolean(r.thinking ?? r.reasoning ?? false);
+      return send(res, 200, {
+        text: r.text,
+        matched: r.matched,
+        source: r.source,
+        candidates: r.candidates || [],
+        mode: r.mode,
+        external: r.external,
+        provider: r.provider,
+        model: r.model,
+        thinking,
+        reasoning: thinking,
+        llm: r.llm,
+        handled_by_llm: r.handled_by_llm || false,
+        handled_by_runtime: r.handled_by_runtime || false,
+        context_used: r.context_used || false,
+        pipeline: r.pipeline_public || null,
+        chatbot_version: CHATBOT_VERSION,
+        runtime: runtimeVersion().runtime
+      });
     }
     if (path === "/api/faq" && req.method === "GET") return send(res, 200, store.faqs({ topic: qp.topic }));
     if (path === "/api/faq" && req.method === "POST") {

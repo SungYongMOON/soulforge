@@ -17,6 +17,7 @@ import { getLexicon, LEXICON } from "../src/lexicon.mjs";
 import { crossSearch } from "../src/search.mjs";
 import { runQueued, llmQueueStats } from "../src/llm.mjs";
 import { chatPipelineConfig, runManualAnswerPipeline } from "../src/chat_pipeline.mjs";
+import { buildCodexAppServerArgs, buildCodexTurnInput, buildTaskDeveloperInstructions, buildTaskPrompt, buildTaskThreadTitle } from "../src/codex_bridge.mjs";
 import {
   KNOWLEDGE_SHELL_CONTRACT_KIND,
   KNOWLEDGE_SHELL_SCHEMA,
@@ -178,6 +179,62 @@ test("store: deriveStartYear — 과제번호 P{YY}- 접두에서 과제시작�
   assert.equal(deriveStartYear("PRJ-A"), null, "P{2자리}- 아니면 null(명시값 사용)");
   assert.equal(deriveStartYear("general_work"), null);
   assert.equal(deriveStartYear(null), null);
+});
+
+test("store: Codex task binding keeps item id as durable thread key", () => {
+  const store = freshStore();
+  loadFixture(store);
+  const first = store.createItem({ project_id: "PRJ-A", title: "테스트 대화", created_by: "tester" }).item;
+  const second = store.createItem({ project_id: "PRJ-A", title: "테스트 대화", created_by: "tester" }).item;
+  assert.match(store.codexThreadTitle(second), /^\[PRJ-A\] 테스트 대화 · /);
+
+  const title = store.codexThreadTitle(first);
+  const up = store.upsertCodexTaskBinding({ item_id: first.id, thread_id: "thread_test_1", thread_title: title, mode: "mock" });
+  assert.equal(up.ok, true);
+  assert.equal(up.binding.thread_id, "thread_test_1");
+  assert.equal(up.binding.item_id, first.id);
+  assert.equal(up.binding.data_label, "meta");
+
+  store.appendCodexTaskMessage({ item_id: first.id, thread_id: "thread_test_1", role: "user", text: "진행해줘", actor_ref: "tester", mode: "mock" });
+  store.appendCodexTaskMessage({ item_id: first.id, thread_id: "thread_test_1", role: "assistant", text: "확인했습니다.", actor_ref: "codex", mode: "mock" });
+  assert.deepEqual(store.codexTaskMessages(first.id).map((m) => m.role), ["user", "assistant"]);
+
+  store.updateItem(first.id, { title: "바뀐 할일명" });
+  assert.equal(store.codexTaskBinding(first.id).thread_id, "thread_test_1");
+});
+
+test("codex bridge: task metadata is hidden from visible user prompts", () => {
+  const item = { id: "itm_1", project_id: "P26-001", title: "자료 검토", status: "open", due: "2026-06-30" };
+  assert.equal(buildTaskThreadTitle(item), "[P26-001] 자료 검토");
+  const prompt = buildTaskPrompt(item, "스킬 써서 검토해줘");
+  assert.equal(prompt, "스킬 써서 검토해줘");
+  assert.doesNotMatch(prompt, /item_id: itm_1/);
+  assert.doesNotMatch(prompt, /Task metadata|User message:/);
+  assert.doesNotMatch(prompt, /attachment body|mail body/i);
+  const initial = buildTaskPrompt(item, "", { initial: true });
+  assert.doesNotMatch(initial, /item_id: itm_1|Task metadata|User message:/);
+
+  const instructions = buildTaskDeveloperInstructions(item);
+  assert.match(instructions, /item_id: itm_1/);
+  assert.match(instructions, /Do not claim raw mail/);
+});
+
+test("codex bridge: app-server turn input can carry skill and localImage items", () => {
+  const input = buildCodexTurnInput({
+    text: "$soulforge-shield-wall 이미지 확인",
+    skills: [{ name: "soulforge-shield-wall", path: "C:\\Users\\user\\.codex\\skills\\soulforge-shield-wall\\SKILL.md" }],
+    localImages: [{ path: "C:\\Soulforge\\_workspaces\\system\\dev-erp\\codex-task-attachments\\IT-001\\shot.png" }],
+  });
+  assert.deepEqual(input.map((x) => x.type), ["skill", "text", "localImage"]);
+  assert.equal(input[0].name, "soulforge-shield-wall");
+  assert.equal(input[1].text, "$soulforge-shield-wall 이미지 확인");
+  assert.doesNotMatch(input[1].text, /Task metadata|item_id:/);
+  assert.match(input[2].path, /shot\.png$/);
+});
+
+test("codex bridge: app-server service tier override is opt-in", () => {
+  assert.deepEqual(buildCodexAppServerArgs(), ["app-server"]);
+  assert.deepEqual(buildCodexAppServerArgs({ serviceTier: "fast" }), ["app-server", "-c", "service_tier=fast"]);
 });
 
 test("runtime corrections: project names dry-run, backup, meta/db apply", () => {
@@ -787,6 +844,77 @@ test("server: empty DB stays empty unless fixture loading is explicit", async ()
       assert.ok(body.counts.items > 0);
     } finally {
       await fixtureSrv.stop();
+    }
+  } finally {
+    rmSync(root, { recursive: true, force: true });
+  }
+});
+
+test("server: Codex task mock bridge opens a separate task thread API", async () => {
+  const root = mkdtempSync(join(tmpdir(), "dev-erp-codex-task-"));
+  try {
+    const codexHome = join(root, "codex-home");
+    mkdirSync(join(codexHome, "skills", "test-skill"), { recursive: true });
+    writeFileSync(join(codexHome, "skills", "test-skill", "SKILL.md"), "---\nname: test-skill\ndescription: Test skill for ERP task chat.\n---\n");
+    const port = await freePort();
+    const srv = await startDevErpServer(["--db", join(root, "codex-task.db"), "--port", String(port), "--fixture"], {
+      DEV_ERP_CODEX_TASK_BRIDGE: "mock",
+      DEV_ERP_CODEX_TASK_ATTACHMENT_ROOT: join(root, "codex-task-attachments"),
+      CODEX_HOME: codexHome,
+    });
+    const base = `http://127.0.0.1:${port}`;
+    try {
+      await waitForHttp(`${base}/api/health`, srv.child, srv.stderr);
+      const version = await (await fetch(`${base}/api/version`)).json();
+      assert.equal(version.runtime.codex_task.mode, "mock");
+
+      const items = await (await fetch(`${base}/api/items`)).json();
+      const item = items.find((x) => x.status !== "archived");
+      assert.ok(item?.id);
+
+      let caps = await (await fetch(`${base}/api/codex-task/capabilities`)).json();
+      assert.equal(caps.attachments.local_image, true);
+      assert.equal(caps.attachments.arbitrary_file, false);
+      assert.ok(caps.skills.some((s) => s.name === "test-skill"));
+
+      let r = await fetch(`${base}/api/codex-task/open`, {
+        method: "POST",
+        headers: { "content-type": "application/json" },
+        body: JSON.stringify({ item_id: item.id }),
+      });
+      let body = await r.json();
+      assert.equal(r.status, 200);
+      assert.equal(body.binding.thread_id, `mock_${item.id}`);
+      assert.ok(body.messages.some((m) => m.role === "assistant"));
+
+      r = await fetch(`${base}/api/codex-task/attachment?item_id=${encodeURIComponent(item.id)}&filename=test.png`, {
+        method: "POST",
+        headers: { "content-type": "image/png" },
+        body: new Uint8Array([0x89, 0x50, 0x4e, 0x47]),
+      });
+      const upload = await r.json();
+      assert.equal(r.status, 200);
+      assert.equal(upload.attachment.type, "localImage");
+      assert.match(upload.attachment.path, /codex-task-attachments/);
+
+      r = await fetch(`${base}/api/codex-task/message`, {
+        method: "POST",
+        headers: { "content-type": "application/json" },
+        body: JSON.stringify({
+          item_id: item.id,
+          message: "/test-skill 다음 액션 정리해줘",
+          model: "gpt-5.5",
+          effort: "xhigh",
+          service_tier: "fast",
+          attachments: [upload.attachment],
+        }),
+      });
+      body = await r.json();
+      assert.equal(r.status, 200);
+      assert.deepEqual(body.messages.slice(-2).map((m) => m.role), ["user", "assistant"]);
+      assert.equal(body.binding.item_id, item.id);
+    } finally {
+      await srv.stop();
     }
   } finally {
     rmSync(root, { recursive: true, force: true });
@@ -2537,6 +2665,27 @@ test("챗봇 파이프라인: ERP_CHAT_CONTEXT_TURNS=0 이면 이어묻기 문�
   }
 });
 
+test("챗봇 파이프라인: reasoning 품질 모드는 매뉴얼 후보 기본값을 늘린다", () => {
+  const oldThink = process.env.ERP_CHAT_THINK;
+  const oldReasoning = process.env.ERP_CHAT_REASONING;
+  const oldLimit = process.env.ERP_CHAT_RETRIEVAL_LIMIT;
+  try {
+    process.env.ERP_CHAT_THINK = "1";
+    delete process.env.ERP_CHAT_REASONING;
+    delete process.env.ERP_CHAT_RETRIEVAL_LIMIT;
+    const cfg = chatPipelineConfig();
+    assert.equal(cfg.reasoning, true);
+    assert.equal(cfg.retrieval_limit, 5);
+  } finally {
+    if (oldThink === undefined) delete process.env.ERP_CHAT_THINK;
+    else process.env.ERP_CHAT_THINK = oldThink;
+    if (oldReasoning === undefined) delete process.env.ERP_CHAT_REASONING;
+    else process.env.ERP_CHAT_REASONING = oldReasoning;
+    if (oldLimit === undefined) delete process.env.ERP_CHAT_RETRIEVAL_LIMIT;
+    else process.env.ERP_CHAT_RETRIEVAL_LIMIT = oldLimit;
+  }
+});
+
 test("챗봇 파이프라인: 이어묻기는 단독 검색 오답보다 같은 대화 주제를 우선한다", () => {
   const store = freshStore();
   loadManualFaq(store);
@@ -2689,12 +2838,17 @@ test("챗봇 LLM 프롬프트: FAQ 끼워맞춤 대신 런타임 원칙으로 �
   assert.match(prompt, /끼워 맞추지 마라/);
   assert.match(prompt, /관리자\/운영자에게 전달할 항목/);
   assert.match(prompt, /강한 매뉴얼 매칭은 없음/);
+  assert.match(prompt, /반드시 자연스러운 한국어/);
+  assert.match(prompt, /현재 사용자 의도 힌트가 있으면/);
+  assert.match(buildManualPrompt("답변이 너무 빠르고 질이 떨어져. 추론 켜면 안돼?", [], [], { matched: false }), /챗봇 답변 품질과 추론\/품질 모드/);
+  assert.match(buildManualPrompt("답변이 너무 빠르고 질이 떨어져. 추론 켜면 안돼?", [], [], { matched: false }), /operator setting/);
   assert.match(prompt, /단순 상태 확인/);
   assert.match(prompt, /멈춤·오류 대응은 사용자가 실제로 멈춤\/오류를 말할 때만/);
   assert.match(prompt, /연속으로 계속 보내지 말기/);
   assert.match(prompt, /한 문단으로 길게 붙여 쓰지 마라/);
   assert.match(prompt, /짧은 문단 2~3개/);
   assert.match(prompt, /250자 안팎/);
+  assert.match(prompt, /400~600자/);
   assert.doesNotMatch(JSON.stringify(store.faqs()), /man-chatbot-alive|man-chatbot-too-fast-or-short|man-chatbot-settings-not-mine/);
 });
 
@@ -2702,7 +2856,7 @@ test("챗봇: 자유 발화는 특정 FAQ 없이 LLM assist 단계로 처리된�
   const { buildManualPrompt } = await import("../src/llm.mjs");
   const store = freshStore();
   loadManualFaq(store);
-  const questions = ["너 살아있어?", "와 답변이 너무 빠른데", "그런건 내가 설정할수 있는게 아닌데?", "계속 질문하니 멈추네."];
+  const questions = ["그런건 내가 설정할수 있는게 아닌데?", "계속 질문하니 멈추네.", "이거 어떻게 사용해야해?"];
   for (const question of questions) {
     let prompt = "";
     const r = await runManualAnswerPipeline({
@@ -2723,6 +2877,28 @@ test("챗봇: 자유 발화는 특정 FAQ 없이 LLM assist 단계로 처리된�
   }
 });
 
+test("챗봇: 답변 품질·추론 모드 질문은 매뉴얼 FAQ가 아니라 런타임 원칙으로 직접 답한다", async () => {
+  const store = freshStore();
+  loadManualFaq(store);
+  let called = false;
+  const r = await runManualAnswerPipeline({
+    store,
+    question: "답변이 너무 빠르고 질이 떨어져. 추론 켜면 안돼?",
+    provider: "ollama",
+    buildPrompt: () => "unused",
+    runLlm: async () => {
+      called = true;
+      return { delivered: true, text: "should not be used", external: false, model: "fake" };
+    },
+  });
+  assert.equal(called, false);
+  assert.equal(r.mode, "runtime_direct");
+  assert.equal(r.handled_by_runtime, true);
+  assert.equal(r.source, null);
+  assert.match(r.text, /ERP_CHAT_THINK=1/);
+  assert.match(r.text, /운영자/);
+});
+
 test("챗봇: stub 약매칭은 LLM 없이 후보만 제시한다", async () => {
   const { answerFromManual } = await import("../src/llm.mjs");
   const store = freshStore();
@@ -2735,13 +2911,38 @@ test("챗봇: stub 약매칭은 LLM 없이 후보만 제시한다", async () => 
   assert.equal(llmCalls, 0, "stub 약매칭은 LLM 호출 자체를 하지 않음");
 });
 
+test("챗봇 파이프라인: 생존 확인 질문은 LLM을 거치지 않고 즉답한다", async () => {
+  const store = freshStore();
+  loadManualFaq(store);
+  let called = false;
+  const r = await runManualAnswerPipeline({
+    store,
+    question: "되니?",
+    thread_id: "alive-th",
+    actor_ref: "alice",
+    provider: "ollama",
+    buildPrompt: () => "should-not-build",
+    runLlm: async () => { called = true; return { delivered: true, text: "bad" }; },
+  });
+  assert.equal(called, false);
+  assert.equal(r.mode, "runtime_direct");
+  assert.equal(r.handled_by_runtime, true);
+  assert.equal(r.llm, false);
+  assert.match(r.text, /응답하고 있어요/);
+  assert.ok(r.pipeline.steps.some((s) => s.id === "llm_gate" && s.status === "skipped"));
+});
+
 test("LLM 어댑터: Ollama 호출은 thinking 출력을 끄고 모델 태그를 기록한다", async () => {
   const { runLlm } = await import("../src/llm.mjs");
   const oldFetch = globalThis.fetch;
   const oldModel = process.env.ERP_CHAT_MODEL;
+  const oldThink = process.env.ERP_CHAT_THINK;
+  const oldReasoning = process.env.ERP_CHAT_REASONING;
   let body = null;
   try {
     process.env.ERP_CHAT_MODEL = "gemma4:e4b";
+    process.env.ERP_CHAT_THINK = "0";
+    delete process.env.ERP_CHAT_REASONING;
     globalThis.fetch = async (_url, opts) => {
       body = JSON.parse(opts.body);
       return { json: async () => ({ response: "<think>숨은 사고</think>\n근거 기반 답변" }) };
@@ -2755,11 +2956,96 @@ test("LLM 어댑터: Ollama 호출은 thinking 출력을 끄고 모델 태그를
     assert.equal(r.text, "근거 기반 답변");
     const note = store.db.prepare("SELECT note FROM event_log WHERE kind='llm_call'").get().note;
     assert.match(note, /model=gemma4:e4b/);
+    assert.match(note, /think=false/);
     assert.match(note, /delivered=true/);
   } finally {
     globalThis.fetch = oldFetch;
     if (oldModel === undefined) delete process.env.ERP_CHAT_MODEL;
     else process.env.ERP_CHAT_MODEL = oldModel;
+    if (oldThink === undefined) delete process.env.ERP_CHAT_THINK;
+    else process.env.ERP_CHAT_THINK = oldThink;
+    if (oldReasoning === undefined) delete process.env.ERP_CHAT_REASONING;
+    else process.env.ERP_CHAT_REASONING = oldReasoning;
+  }
+});
+
+test("LLM 어댑터: ERP_CHAT_THINK=1 이면 reasoning 품질 모드로 Ollama를 호출한다", async () => {
+  const { runLlm } = await import("../src/llm.mjs");
+  const oldFetch = globalThis.fetch;
+  const oldModel = process.env.ERP_CHAT_MODEL;
+  const oldThink = process.env.ERP_CHAT_THINK;
+  const oldReasoning = process.env.ERP_CHAT_REASONING;
+  const oldMax = process.env.ERP_CHAT_MAX_TOKENS;
+  const oldTimeout = process.env.ERP_CHAT_TIMEOUT_MS;
+  const oldTemp = process.env.ERP_CHAT_TEMPERATURE;
+  let body = null;
+  try {
+    process.env.ERP_CHAT_MODEL = "gemma4:e4b";
+    process.env.ERP_CHAT_THINK = "1";
+    delete process.env.ERP_CHAT_REASONING;
+    delete process.env.ERP_CHAT_MAX_TOKENS;
+    delete process.env.ERP_CHAT_TIMEOUT_MS;
+    delete process.env.ERP_CHAT_TEMPERATURE;
+    globalThis.fetch = async (_url, opts) => {
+      body = JSON.parse(opts.body);
+      return { json: async () => ({ response: "<think>내부 추론</think>\n추론 후 답변" }) };
+    };
+    const store = freshStore();
+    const r = await runLlm({ provider: "ollama", user: "prompt" }, { store });
+    assert.equal(r.delivered, true);
+    assert.equal(r.reasoning, true);
+    assert.equal(body.think, true);
+    assert.equal(body.options.num_predict, 1536);
+    assert.equal(body.options.temperature, 0.15);
+    assert.equal(r.text, "추론 후 답변");
+    const note = store.db.prepare("SELECT note FROM event_log WHERE kind='llm_call'").get().note;
+    assert.match(note, /think=true/);
+  } finally {
+    globalThis.fetch = oldFetch;
+    if (oldModel === undefined) delete process.env.ERP_CHAT_MODEL;
+    else process.env.ERP_CHAT_MODEL = oldModel;
+    if (oldThink === undefined) delete process.env.ERP_CHAT_THINK;
+    else process.env.ERP_CHAT_THINK = oldThink;
+    if (oldReasoning === undefined) delete process.env.ERP_CHAT_REASONING;
+    else process.env.ERP_CHAT_REASONING = oldReasoning;
+    if (oldMax === undefined) delete process.env.ERP_CHAT_MAX_TOKENS;
+    else process.env.ERP_CHAT_MAX_TOKENS = oldMax;
+    if (oldTimeout === undefined) delete process.env.ERP_CHAT_TIMEOUT_MS;
+    else process.env.ERP_CHAT_TIMEOUT_MS = oldTimeout;
+    if (oldTemp === undefined) delete process.env.ERP_CHAT_TEMPERATURE;
+    else process.env.ERP_CHAT_TEMPERATURE = oldTemp;
+  }
+});
+
+test("LLM 어댑터: thinking 모델이 내부 사고만 반환하면 최종 답변을 한 번 재시도한다", async () => {
+  const { runLlm } = await import("../src/llm.mjs");
+  const oldFetch = globalThis.fetch;
+  const oldModel = process.env.ERP_CHAT_MODEL;
+  const oldThink = process.env.ERP_CHAT_THINK;
+  let calls = [];
+  try {
+    process.env.ERP_CHAT_MODEL = "gemma4:e4b";
+    process.env.ERP_CHAT_THINK = "1";
+    globalThis.fetch = async (_url, opts) => {
+      const body = JSON.parse(opts.body);
+      calls.push(body);
+      if (calls.length === 1) return { json: async () => ({ response: "", thinking: "내부 추론만 있음" }) };
+      return { json: async () => ({ response: "최종 답변만 출력" }) };
+    };
+    const r = await runLlm({ provider: "ollama", user: "prompt" }, {});
+    assert.equal(r.delivered, true);
+    assert.equal(r.reasoning, true);
+    assert.equal(calls.length, 2);
+    assert.equal(calls[0].think, true);
+    assert.equal(calls[1].think, false);
+    assert.match(calls[1].prompt, /최종 답변만 한국어/);
+    assert.equal(r.text, "최종 답변만 출력");
+  } finally {
+    globalThis.fetch = oldFetch;
+    if (oldModel === undefined) delete process.env.ERP_CHAT_MODEL;
+    else process.env.ERP_CHAT_MODEL = oldModel;
+    if (oldThink === undefined) delete process.env.ERP_CHAT_THINK;
+    else process.env.ERP_CHAT_THINK = oldThink;
   }
 });
 
@@ -2788,13 +3074,27 @@ test("챗봇 UI: 추천 질문은 말풍선 밖에 두고 응답 중 중복 전�
   assert.match(app, /await waitPendingMinimum\(pendingStartedAt\)/);
   assert.match(app, /waitTimers = \[/);
   assert.match(app, /replacePending/);
-  assert.match(app, /finalStatus = L\.chat_error_retry/);
+  assert.match(app, /CHAT_REQUEST_TIMEOUT_MS = 130000/);
+  assert.match(app, /postJsonWithTimeout/);
+  assert.match(app, /AbortController/);
+  assert.match(app, /postJsonWithTimeout\("\/api\/chat"/);
+  assert.match(app, /chat_done_status/);
+  assert.match(app, /chat_timeout_retry/);
+  assert.match(app, /chat_login_required/);
   assert.match(app, /if \(finalStatus\) statusEl\.textContent = finalStatus/);
   assert.match(app, /chat-typing/);
   assert.match(app, /readableChatText/);
   assert.match(app, /wrapLongText/);
   assert.match(app, /readableChatText\(m\.text, m\.role\)/);
+  assert.match(app, /chatMeta/);
   assert.match(app, /handled_by_llm/);
+  assert.match(app, /handled_by_runtime/);
+  assert.match(app, /!m\.handled_by_llm && !m\.handled_by_runtime/);
+  assert.match(app, /saveChatLog/);
+  assert.match(app, /restoreChatLog/);
+  assert.match(app, /startFreshChatThread/);
+  assert.match(app, /e\.isComposing/);
+  assert.match(app, /e\.preventDefault\(\)/);
   assert.match(app, /<div class="chat-row \$\{m\.role\}"><div class="chat-msg \$\{m\.role\}">/);
   assert.doesNotMatch(app, /\$\{src\}\$\{cand\}<\/div>`/, "후보 버튼을 말풍선 내부에 붙이지 않음");
   assert.match(css, /\.chat-row/);
@@ -2803,8 +3103,137 @@ test("챗봇 UI: 추천 질문은 말풍선 밖에 두고 응답 중 중복 전�
   assert.match(css, /\.chat-msg\.pending/);
   assert.match(css, /@keyframes chatTyping/);
   assert.match(css, /prefers-reduced-motion: reduce/);
+  assert.match(css, /\.chat-meta/);
   assert.match(css, /\.chat-cands \{[^}]*flex-wrap: wrap/s);
   assert.match(css, /\.chat-input \{[^}]*flex: 0 0 auto/s);
+});
+
+test("Codex task UI: 대기 중 단계와 경과시간을 보여준다", () => {
+  const app = readFileSync(join(APP_DIR, "static", "app.js"), "utf8");
+  const css = readFileSync(join(APP_DIR, "static", "style.css"), "utf8");
+  assert.match(app, /taskCodexWaitStages/);
+  assert.match(app, /elapsedLabel/);
+  assert.match(app, /paintPendingStatus/);
+  assert.match(app, /setPending\(true, "open"\)/);
+  assert.match(app, /setPending\(true, "send"\)/);
+  assert.match(app, /taskCodexOverlays/);
+  assert.match(app, /bringTaskCodexToFront/);
+  assert.match(app, /tileTaskCodexPanels/);
+  assert.match(app, /saveTaskCodexDockFor/);
+  assert.doesNotMatch(app, /document\.querySelector\("\.task-codex-overlay"\)\?\.remove\(\)/);
+  assert.match(app, /clampDock/);
+  assert.match(app, /restoreDockPosition/);
+  assert.match(app, /task-codex-tile/);
+  assert.match(app, /task-codex-resize/);
+  assert.match(app, /resizeDrag/);
+  assert.match(app, /window\.addEventListener\("resize", restoreDockPosition/);
+  assert.match(app, /window\.removeEventListener\("resize", restoreDockPosition\)/);
+  assert.match(app, /\/api\/codex-task\/capabilities/);
+  assert.match(app, /\/api\/codex-task\/attachment/);
+  assert.match(app, /taskCodexModel/);
+  assert.match(app, /taskCodexEffort/);
+  assert.match(app, /taskCodexTier/);
+  assert.match(app, /taskCodexImage/);
+  assert.match(app, /renderSkillSuggest/);
+  assert.match(app, /data-skill/);
+  assert.match(app, /Codex 응답 작성 중/);
+  assert.match(app, /스킬이나 파일 확인/);
+  assert.match(app, /task-codex-progress/);
+  assert.match(css, /\.task-codex-status\.is-pending/);
+  assert.match(css, /\.task-codex-progress/);
+  assert.match(css, /\.task-codex-tools/);
+  assert.match(css, /\.task-codex-suggest/);
+  assert.match(css, /\.task-codex-attachments/);
+  assert.match(css, /\.task-codex-actions/);
+  assert.match(css, /\.task-codex-tile/);
+  assert.match(css, /\.task-codex-resize/);
+  assert.match(css, /\.task-codex-status \{[^}]*font-size: 12\.5px/s);
+  assert.match(css, /\.task-codex-status small \{[^}]*font-size: 12px/s);
+  assert.match(css, /\.task-codex-overlay \{[^}]*72vh/s);
+  assert.match(css, /\.task-codex-input \{[^}]*flex: 0 0 auto/s);
+});
+
+test("챗봇 UI: ERP와 챗봇 릴리즈 번호를 별도 컴포넌트 버전으로 표시한다", () => {
+  const app = readFileSync(join(APP_DIR, "static", "app.js"), "utf8");
+  const css = readFileSync(join(APP_DIR, "static", "style.css"), "utf8");
+  const html = readFileSync(join(APP_DIR, "static", "index.html"), "utf8");
+  const server = readFileSync(join(APP_DIR, "server.mjs"), "utf8");
+  const llm = readFileSync(join(APP_DIR, "src", "llm.mjs"), "utf8");
+  assert.doesNotMatch(app, /const ERP_RELEASE_VERSION/);
+  assert.doesNotMatch(app, /const ERP_UI_VERSION/);
+  assert.doesNotMatch(app, /const ERP_CHATBOT_RELEASE_VERSION/);
+  assert.doesNotMatch(app, /const ERP_CHATBOT_UI_VERSION/);
+  assert.match(llm, /export const CHATBOT_VERSION = Object\.freeze/);
+  assert.match(llm, /export function llmThinkEnabled/);
+  assert.match(server, /CHATBOT_VERSION/);
+  assert.match(server, /llmThinkEnabled/);
+  assert.match(server, /if \(path === "\/api\/version"\)/);
+  assert.match(server, /chatbot: CHATBOT_VERSION/);
+  assert.match(server, /chatbot_version: CHATBOT_VERSION/);
+  assert.match(server, /runtime: runtimeVersion\(\)\.runtime/);
+  assert.match(server, /thinking: llmThinkEnabled\(\)/);
+  assert.match(server, /"\/api\/version"/);
+  assert.match(app, /api\("\/api\/version"\)\.catch\(\(\) => VERSION_FALLBACK\)/);
+  assert.match(app, /function versionPart/);
+  assert.match(app, /versionPart\("erp"\)/);
+  assert.match(app, /versionPart\("chatbot"\)/);
+  assert.doesNotMatch(app, /ERP_CHATBOT_RELEASE_VERSION/);
+  assert.doesNotMatch(app, /v1\.0\.1/i);
+  assert.match(app, /function browserVersionText/);
+  assert.match(app, /Edg\\\/\(\[\\d\.\]\+\)/);
+  assert.match(app, /Chrome\\\/\(\[\\d\.\]\+\)/);
+  assert.match(app, /erpReleaseTitle/);
+  assert.match(app, /chatbotReleaseTitle/);
+  assert.match(app, /runtime\.checkout/);
+  assert.match(app, /llm\.provider/);
+  assert.match(app, /thinking=\$\{llm\.thinking === true\}/);
+  assert.match(app, /ERP \$\{esc\(erpVersion\.release\)\}/);
+  assert.match(app, /\$\{esc\(state\.lex\.chat_version_label\)\} \$\{esc\(chatbotVersion\.release\)\}/);
+  assert.match(app, /\$\{esc\(L\.chat_version_label\)\} \$\{esc\(chatVersion\.release\)\}/);
+  assert.match(app, /L\.chat_version_label/);
+  assert.match(app, /\$\("#appVersionChips"\)\.innerHTML/);
+  assert.doesNotMatch(app, /\$\("#appTitle"\)\.innerHTML[^\n]*version-chip/);
+  assert.match(html, /id="appVersionChips"/);
+  assert.ok(html.indexOf('class="util-bar"') < html.indexOf('id="appVersionChips"'), "version chips must live in the top utility bar");
+  assert.ok(html.indexOf('id="appVersionChips"') < html.indexOf('class="brand-bar"'), "version chips must stay above the brand/menu bar");
+  assert.match(css, /\.version-strip/);
+  assert.match(css, /\.util-bar \.version-strip/);
+  assert.match(app, /class="version-chip"/);
+  assert.match(app, /class="chat-ver"/);
+  assert.equal(LEXICON.business.app_version_label, "UI");
+  assert.equal(LEXICON.business.browser_version_label, "브라우저");
+  assert.equal(LEXICON.business.chat_version_label, "챗봇");
+  assert.equal(LEXICON.fantasy.chat_version_label, "조언자");
+  assert.match(css, /\.version-chip \{[^}]*text-overflow: ellipsis/s);
+  assert.match(css, /\.chat-ver \{[^}]*text-overflow: ellipsis/s);
+  assert.match(css, /\.chat-head \.dim \{[^}]*min-width: 0/s);
+});
+
+test("server: 운영 4300은 runtime checkout 전용이고 개발 기본 포트는 4310이다", () => {
+  const server = readFileSync(join(APP_DIR, "server.mjs"), "utf8");
+  const startBat = readFileSync(join(APP_DIR, "start-windows.bat"), "utf8");
+  const tailscaleBat = readFileSync(join(APP_DIR, "start-tailscale-windows.bat"), "utf8");
+  const watchdog = readFileSync(join(APP_DIR, "ops", "dev-erp-watchdog.ps1"), "utf8");
+  const nssm = readFileSync(join(APP_DIR, "ops", "install-dev-erp-nssm.ps1"), "utf8");
+  assert.match(server, /Soulforge-runtime/);
+  assert.match(server, /DEV_PORT = Number\(process\.env\.DEV_ERP_DEV_PORT \|\| 4310\)/);
+  assert.match(server, /PORT === RUNTIME_PORT && !IS_RUNTIME_CHECKOUT/);
+  assert.match(server, /DEV_ERP_ALLOW_DEV_4300/);
+  assert.match(server, /port \$\{RUNTIME_PORT\} is reserved/);
+  assert.match(server, /const SID_BASE = "dev_erp_sid"/);
+  assert.match(server, /const SID = `\$\{SID_BASE\}_\$\{PORT\}`/);
+  assert.match(server, /clearLegacy/);
+  assert.match(startBat, /set "DEV_ERP_PORT=4310"/);
+  assert.match(startBat, /Soulforge-runtime/);
+  assert.match(startBat, /ERP_CHAT_PROVIDER=ollama/);
+  assert.match(startBat, /ERP_CHAT_MODEL=gemma4:e4b/);
+  assert.match(startBat, /ERP_CHAT_THINK=1/);
+  assert.match(startBat, /--port %DEV_ERP_PORT%/);
+  assert.match(watchdog, /\$ChatThink = 1/);
+  assert.match(watchdog, /set ERP_CHAT_THINK=\$ChatThink/);
+  assert.match(nssm, /\$ChatThink = 1/);
+  assert.match(nssm, /ERP_CHAT_THINK=\$ChatThink/);
+  assert.match(tailscaleBat, /Tailscale backend 4300 must be started from C:\\Soulforge-runtime/);
 });
 
 test("챗봇 API: 처리 예외가 나도 사용자에게 안전한 JSON 폴백을 주는 경로가 있다", () => {
@@ -3898,4 +4327,41 @@ test("lexicon: app.js 참조 키가 사전에 모두 존재", () => {
   const biz = new Set(Object.keys(LEXICON.business));
   const missing = [...refs].filter((k) => !biz.has(k));
   assert.deepEqual(missing, [], "사전에 없는 참조 키: " + missing.join(","));
+});
+test("chatbot UI: keeps one local thread until explicit new chat", () => {
+  const app = readFileSync(join(APP_DIR, "static", "app.js"), "utf8");
+  assert.match(app, /function ensureChatThread/);
+  assert.match(app, /encodeURIComponent\(String\(raw\)\)/);
+  assert.match(app, /localStorage\.getItem\(chatThreadStorageKey\(\)\)/);
+  assert.match(app, /localStorage\.setItem\(chatThreadStorageKey\(\), state\.chatThread\)/);
+  assert.match(app, /function startFreshChatThread/);
+  assert.match(app, /startFreshChatThread\(\); paint\(\)/);
+  assert.match(app, /if \(msg === "\/new"\) \{ startFreshChatThread\(\);/);
+  assert.match(app, /function restoreChatLog/);
+  assert.match(app, /function saveChatLog/);
+  assert.match(app, /context_used: r\.context_used/);
+});
+
+test("chatbot context: short imperative follow-up keeps the same thread context", () => {
+  const store = freshStore();
+  loadManualFaq(store);
+  store.chatAnswer({ question: "개발요청함은 어디에 쓰는 건가요?", thread_id: "ctx-keep", actor_ref: "alice" });
+  const follow = store.chatAnswer({ question: "너가 직접 적어줘.", thread_id: "ctx-keep", actor_ref: "alice" });
+  assert.equal(follow.context_used, true);
+  assert.match(follow.effective_question, /개발요청함/);
+
+  const fresh = store.chatAnswer({ question: "너가 직접 적어줘.", thread_id: "ctx-new", actor_ref: "alice" });
+  assert.equal(fresh.context_used, false);
+});
+
+test("chatbot runtime: memory and new-chat questions explain the actual context rule", () => {
+  const store = freshStore();
+  loadManualFaq(store);
+  store.chatAnswer({ question: "할일을 챗봇이 지워주는 기능을 개발요청함에 작성해줘", thread_id: "ctx-memory", actor_ref: "alice" });
+  const r = store.chatAnswer({ question: "실제 문맥을 몇개나 기억하는거야? 계속 새로운 채팅을 여는것 같은데.", thread_id: "ctx-memory", actor_ref: "alice" });
+  assert.equal(r.runtime_direct, true);
+  assert.equal(r.matched, false);
+  assert.equal(r.context_used, true);
+  assert.match(r.text, /최근 5개 질문/);
+  assert.match(r.text, /새 대화 버튼/);
 });

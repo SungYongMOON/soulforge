@@ -5,15 +5,49 @@
 
 import { runManualAnswerPipeline } from "./chat_pipeline.mjs";
 
+export const CHATBOT_VERSION = Object.freeze({
+  release: "v1.1.3",
+  build: "chatbot-2026.06.18-stability.11",
+  source: "src/llm.mjs"
+});
+
 const WEEK_MS = 6 * 86400000;
+
+function envBool(value, fallback = false) {
+  if (value === undefined || value === null || value === "") return fallback;
+  return !/^(0|false|off|no)$/i.test(String(value).trim());
+}
+
+function numberEnv(value, fallback, { min = 0, max = Number.MAX_SAFE_INTEGER } = {}) {
+  const n = Number(value);
+  if (!Number.isFinite(n)) return fallback;
+  return Math.max(min, Math.min(max, n));
+}
+
+export function chatLlmRuntimeConfig(env = process.env) {
+  const think = envBool(env.ERP_CHAT_THINK ?? env.ERP_CHAT_REASONING, false);
+  return {
+    think,
+    model: env.ERP_CHAT_MODEL || "gemma3:4b",
+    timeout_ms: numberEnv(env.ERP_CHAT_TIMEOUT_MS, think ? 45000 : 20000, { min: 1000, max: 180000 }),
+    max_tokens: numberEnv(env.ERP_CHAT_MAX_TOKENS, think ? 1536 : 320, { min: 64, max: 4096 }),
+    temperature: numberEnv(env.ERP_CHAT_TEMPERATURE, think ? 0.15 : 0.2, { min: 0, max: 2 }),
+    keep_alive: env.ERP_CHAT_KEEP_ALIVE || "30m",
+  };
+}
 
 // ── 다중 사용자 동시 질문 게이트(로컬 작은 모델 보호) ───────────────────────
 // 다른 PC 의 단일 Ollama 인스턴스를 팀이 공유하면, 동시 요청이 몰릴 때 모델이
 // 과부하·지연된다. ERP 서버(단일 프로세스)에서 인프로세스 세마포어로 동시
 // 실행 수를 제한(기본 1)하고, 대기 한도를 넘으면 '검색 폴백'으로 떨어뜨려
 // 어떤 사용자도 무한 대기/끊김을 겪지 않게 한다(기초설계: LOCAL_LLM_MULTIUSER_DESIGN).
+export function llmThinkEnabled(env = process.env) {
+  return chatLlmRuntimeConfig(env).think;
+}
+
+const CHAT_THINK_ENABLED = chatLlmRuntimeConfig().think;
 const LLM_CONCURRENCY = Math.max(1, Number(process.env.ERP_LLM_CONCURRENCY || 1));
-const LLM_QUEUE_WAIT_MS = Number(process.env.ERP_LLM_QUEUE_WAIT_MS || 8000);
+const LLM_QUEUE_WAIT_MS = Number(process.env.ERP_LLM_QUEUE_WAIT_MS || (CHAT_THINK_ENABLED ? 45000 : 8000));
 let _llmActive = 0;
 const _llmWaiters = [];
 function _acquire(waitMs) {
@@ -83,13 +117,71 @@ function visibleOllamaText(json) {
   return text;
 }
 
+async function fetchOllamaGenerate(host, payload, timeoutMs) {
+  const ctl = new AbortController();
+  const timer = setTimeout(() => ctl.abort(), timeoutMs);
+  try {
+    const resp = await fetch(`${host}/api/generate`, {
+      method: "POST",
+      headers: { "content-type": "application/json" },
+      signal: ctl.signal,
+      body: JSON.stringify(payload),
+    });
+    return await resp.json();
+  } finally {
+    clearTimeout(timer);
+  }
+}
+
 // ── RAG 챗봇: 검색(매뉴얼) → LLM이 '그 근거 안에서만' 표현 ──────────────
 // owner 의도: LLM은 기본 동작하되 '메뉴얼을 보고' 답한다(추론으로 새 사실 X).
 // 로컬 작은 모델이 붙으면 grounded 프롬프트로 사람처럼 표현, 없으면 검색 폴백.
 
 // 검색된 매뉴얼 조각 + 런타임 원칙을 담는 프롬프트.
 // ERP 사실은 매뉴얼 근거 안에서만, 챗봇 자체/사용자 반응은 런타임 원칙으로 답하게 한다.
+function runtimeIntentKind(question) {
+  const q = String(question ?? "");
+  if (/(추론|reasoning|think|품질|질\s*.*떨어|너무\s*빠르|답변.*빠르|답.*짧|더\s*자세)/i.test(q)) {
+    return "quality";
+  }
+  if (/(설정할\s*수\s*없|내가\s*설정|권한.*없)/i.test(q)) {
+    return "settings";
+  }
+  return "";
+}
+
+function runtimeIntentHint(question) {
+  const kind = runtimeIntentKind(question);
+  if (kind === "quality") {
+    return [
+      "현재 사용자 의도 힌트: 사용자는 ERP 기능 사실이 아니라 챗봇 답변 품질과 추론/품질 모드 가능 여부를 묻고 있다.",
+      "Intent hint: the user asks whether reasoning/quality mode can be enabled because answers feel too fast or low quality; answer in Korean that it is possible as an operator setting, slower, and not a normal team-member action.",
+    ].join("\n");
+  }
+  if (kind === "settings") {
+    return "현재 사용자 의도 힌트: 사용자는 팀원이 직접 바꿀 수 없는 설정을 지적하고 있으므로, 먼저 인정하고 관리자/운영자 전달 항목으로 안내한다.";
+  }
+  return "";
+}
+
 export function buildManualPrompt(question, hits, history = [], options = {}) {
+  const intentKind = runtimeIntentKind(question);
+  const intentHint = runtimeIntentHint(question);
+  if (intentKind === "quality" && !options.matched) {
+    return [
+      "너는 사내 ERP 챗봇의 로컬 LLM 안내원이다.",
+      "반드시 자연스러운 한국어로만 답한다.",
+      "사용자 의도: 답변이 너무 빠르고 품질이 낮아 보여서 추론/품질 모드를 켤 수 있는지 묻고 있다.",
+      "답변해야 할 핵심: 가능하다. 운영자가 ERP_CHAT_THINK=1 품질 모드로 켤 수 있다.",
+      "주의: 일반 팀원에게 서버 환경변수나 Ollama 설정을 직접 바꾸라고 말하지 말고, 운영자 설정 또는 관리자에게 전달할 항목이라고 말한다.",
+      "트레이드오프: 품질 모드는 더 느려질 수 있으므로 답변 준비중 표시와 충분한 대기 시간이 필요하다.",
+      "형식: 2~3개의 짧은 문단으로 답하고, 내부 사고 과정이나 [자료] 라벨은 쓰지 마라.",
+      "",
+      intentHint,
+      "",
+      `질문: ${question}`,
+    ].join("\n");
+  }
   const snippets = hits.map((h, i) =>
     `[자료 ${i + 1}] (${h.faq.topic ?? "일반"}) Q:${h.faq.question}\nA:${h.faq.answer}`).join("\n\n");
   const prior = history.length
@@ -100,6 +192,7 @@ export function buildManualPrompt(question, hits, history = [], options = {}) {
     : "검색 상태: 강한 매뉴얼 매칭은 없음. 후보는 참고만 하고, 억지로 특정 항목에 끼워 맞추지 말 것.";
   return [
     "너는 사내 ERP 사용을 돕는 로컬 LLM 안내원이다.",
+    "반드시 자연스러운 한국어로 답하고, 영어로 답하지 마라.",
     "답변은 다음 두 근거 중 하나로만 한다: (1) 아래 [자료]의 ERP 매뉴얼 조각, (2) 아래 [챗봇 런타임 원칙].",
     "ERP 기능·화면·권한·데이터 사실은 [자료]에 있을 때만 답하고, 자료에 없는 ERP 사실은 지어내지 마라.",
     "사용자가 챗봇 자체의 상태·능력·답변 품질·오류·멈춤·설정 불가·질문 방법을 말하면 [챗봇 런타임 원칙]으로 자연스럽게 답해라. 이런 말을 매뉴얼 FAQ에 끼워 맞추지 마라.",
@@ -108,15 +201,18 @@ export function buildManualPrompt(question, hits, history = [], options = {}) {
     "멈춤/오류 답변에는 연속으로 계속 보내지 말기, 잠시 기다린 뒤 같은 질문 한 번만 다시 보내기, 반복되면 새 대화 또는 관리자 전달을 포함해라.",
     "사용자가 '너무 빠름/너무 짧음/더 자세히'를 말할 때만 답변 길이·자세함 문제로 해석해라.",
     "사용자가 '내가 설정할 수 없는 것'이라고 반박하면 먼저 그 지적을 인정하고, 팀원이 직접 바꾸는 설정이 아니라면 관리자/운영자에게 전달해야 한다고 말해라.",
+    "현재 사용자 의도 힌트가 있으면 강한 매뉴얼 매칭이 없어도 그 힌트를 우선하고, 화면 이름을 더 달라고 되묻지 마라.",
     "강한 매뉴얼 매칭이 없으면 후보 질문을 정답처럼 단정하지 마라. 사용자가 어떤 화면/업무를 말하는지 모르면 한 단어만 더 달라고 물어봐라.",
     "일반 팀원에게 서버 환경변수·Ollama·LLM 설정을 직접 하라고 말하지 마라. 그런 내용은 관리자/운영자에게 전달할 항목으로 바꿔 말해라.",
     "이전 질문은 '그거/아까/그러면' 같은 말을 해석할 때만 참고하고, 답변 근거로 쓰지 마라.",
     "한 문단으로 길게 붙여 쓰지 마라. 답변은 짧은 문단 2~3개로 나누고, 각 문단은 1문장만 써라.",
     "전체 답변은 가능하면 250자 안팎으로 줄이고, 절차가 필요할 때만 최대 3줄 목록으로 말해라.",
+    "다만 사용자가 답변 품질이 낮다, 너무 짧다, 더 자세히 말해 달라고 하거나 질문이 복합적이면 400~600자까지 허용하고 핵심/이유/다음 행동을 나눠라.",
     "더 긴 설명이 필요하면 마지막에 어느 부분을 더 볼지 한 가지만 물어봐라.",
     "답변에는 '[자료 1]' 같은 내부 근거 라벨을 쓰지 마라.",
     "",
     searchState,
+    intentHint,
     "",
     "[챗봇 런타임 원칙]",
     "- 이 챗봇은 ERP 매뉴얼과 운영 원칙을 바탕으로 사용법을 안내한다.",
@@ -131,6 +227,8 @@ export function buildManualPrompt(question, hits, history = [], options = {}) {
     prior,
     snippets ? `[자료]\n${snippets}` : "[자료]\n(강한 관련 자료 없음)",
     "",
+    intentHint ? `[질문 의도]\n${intentHint}` : "",
+    "",
     `질문: ${question}`
   ].join("\n");
 }
@@ -143,38 +241,45 @@ export async function answerFromManual({ store, question, thread_id = null, acto
 
 // 로컬 Ollama 호출(owner PC의 localhost — 인터넷 외부전송 아님). 타임아웃+실패 시 폴백.
 // 모델은 ERP_CHAT_MODEL(예: gemma2:2b / gemma2:9b / gemma3:4b 등), 호스트는 OLLAMA_HOST.
-async function callOllama(prompt) {
+async function callOllama(prompt, runtime = chatLlmRuntimeConfig()) {
   const host = process.env.OLLAMA_HOST || "http://127.0.0.1:11434";
-  const model = process.env.ERP_CHAT_MODEL || "gemma3:4b"; // 공통 기본값(맥미니 M4·회사 NVIDIA 둘 다 적합)
-  const ms = Number(process.env.ERP_CHAT_TIMEOUT_MS || 20000);
-  const numPredict = Number(process.env.ERP_CHAT_MAX_TOKENS || 320); // 출력 상한 — 짧을수록 빠름
-  const ctl = new AbortController();
-  const timer = setTimeout(() => ctl.abort(), ms);
+  const model = runtime.model; // 공통 기본값(맥미니 M4·회사 NVIDIA 둘 다 적합)
   try {
-    const resp = await fetch(`${host}/api/generate`, {
-      method: "POST", headers: { "content-type": "application/json" }, signal: ctl.signal,
-      // num_predict로 응답 길이를 제한해 지연을 줄인다. think=false는 Gemma4 계열이 사고 토큰만 쓰고 빈 response를 돌려주는 일을 막는다.
-      body: JSON.stringify({ model, prompt, stream: false, think: false, keep_alive: "30m", options: { temperature: 0.2, num_predict: numPredict } })
-    });
-    const j = await resp.json();
-    const text = visibleOllamaText(j);
-    return text ? { text, ok: true, model } : { text: "", ok: false, model };
+    // 기본은 안정 모드(think=false). ERP_CHAT_THINK=1이면 thinking 계열 모델의 추론을 켜되 visibleOllamaText에서 내부 사고는 숨긴다.
+    const j = await fetchOllamaGenerate(host, {
+      model, prompt, stream: false, think: runtime.think, keep_alive: runtime.keep_alive,
+      options: { temperature: runtime.temperature, num_predict: runtime.max_tokens },
+    }, runtime.timeout_ms);
+    let text = visibleOllamaText(j);
+    if (!text && runtime.think && String(j?.thinking ?? "").trim()) {
+      const finalPrompt = `${prompt}\n\n위 지침을 지켜 최종 답변만 한국어로 출력해라. 내부 사고 과정, 영어, [자료] 라벨은 쓰지 마라.`;
+      const retry = await fetchOllamaGenerate(host, {
+        model, prompt: finalPrompt, stream: false, think: false, keep_alive: runtime.keep_alive,
+        options: { temperature: runtime.temperature, num_predict: Math.min(runtime.max_tokens, 700) },
+      }, Math.min(runtime.timeout_ms, 30000));
+      text = visibleOllamaText(retry);
+    }
+    return text ? { text, ok: true, model, reasoning: runtime.think } : { text: "", ok: false, model, reasoning: runtime.think };
   } catch {
-    return { text: "", ok: false, model };   // 미기동/타임아웃 → 폴백(끊기지 않음)
-  } finally { clearTimeout(timer); }
+    return { text: "", ok: false, model, reasoning: runtime.think };   // 미기동/타임아웃 → 폴백(끊기지 않음)
+  }
 }
 
 // 어댑터. provider: "stub"(기본, 외부0) | "ollama"(owner PC 로컬) | "codex_cli"(tool_pc 전용).
 export async function runLlm({ provider = "stub", user = "", context = null } = {}, { store = null } = {}) {
   const internet = provider === "codex_cli"; // 인터넷 외부전송 가능 경로(tool_pc 승인분)
   let text, ok = true, delivered = false, model = null;
+  let reasoning = false;
   if (provider === "ollama") {
+    const runtime = chatLlmRuntimeConfig();
+    reasoning = runtime.think;
     // 다중 사용자 게이트: 동시 호출은 직렬화, 대기 초과면 검색 폴백(끊기지 않음).
-    const q = await runQueued(() => callOllama(user));   // 로컬 호출 — 인터넷 egress 아님
+    const q = await runQueued(() => callOllama(user, runtime));   // 로컬 호출 — 인터넷 egress 아님
     const r = q.queued_timeout ? { ok: false, text: "" } : q;
     text = r.ok ? r.text : stubAnswer(user, context);
     ok = r.ok; delivered = r.ok;
-    model = r.model ?? (process.env.ERP_CHAT_MODEL || "gemma3:4b");
+    model = r.model ?? runtime.model;
+    reasoning = r.reasoning ?? runtime.think;
   } else if (internet) {
     // tool_pc 로컬 백엔드에서 Codex CLI 호출 지점. sandbox/localhost 파일럿은 미가용 → stub 폴백.
     text = stubAnswer(user, context);
@@ -187,8 +292,8 @@ export async function runLlm({ provider = "stub", user = "", context = null } = 
     store.appendEvent({
       actor_ref: "erp", actor_kind: "ai", kind: "llm_call",
       to: provider, used_refs: ["llm", context ? `ctx:${context.kind}` : "llm"],
-      data_label: "meta", note: `provider=${provider} model=${model ?? ""} internet=${internet} delivered=${delivered}`
+      data_label: "meta", note: `provider=${provider} model=${model ?? ""} think=${reasoning} internet=${internet} delivered=${delivered}`
     });
   }
-  return { text, provider, model: model ?? null, external: internet, delivered };
+  return { text, provider, model: model ?? null, external: internet, delivered, reasoning };
 }

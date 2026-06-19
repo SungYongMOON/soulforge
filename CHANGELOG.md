@@ -1,5 +1,67 @@
 # CHANGELOG
 
+## 2026-06-19
+
+### Revision `working` - dev-erp chatbot stability 11
+
+- Bumped the runtime-visible ERP/chatbot build to `ui-2026.06.18-chat-stability.11`
+  and `chatbot-2026.06.18-stability.11` so browser version chips identify the
+  actual server and chatbot code answering the user.
+- Namespaced session cookies by port (`dev_erp_sid_<port>`) and clear the legacy
+  cookie to stop `4300` runtime and `4310` development sessions from overwriting
+  each other on `127.0.0.1`.
+- Added a frontend `/api/chat` AbortController timeout, explicit login/timeout
+  retry states, and chat metadata badges so stalled local LLM calls do not leave
+  the input looking permanently frozen.
+- Answered simple liveness pings such as "되니?" directly in the runtime path
+  without sending them to Ollama, while keeping real usage/quality questions on
+  the manual/LLM pipeline.
+
+### Revision `working` - dev-erp Codex task bridge pilot
+
+- Added the default server-owned Codex task bridge for option 2: work PCs use
+  the ERP UI/API only, while the ERP server starts/resumes Codex threads through
+  `codex app-server` over stdio.
+- Added `/api/codex-task/thread`, `/api/codex-task/open`, and
+  `/api/codex-task/message` with `core_item.id -> codex_thread_binding` storage
+  and a separate `codex_thread_message` cache for the small task conversation
+  panel.
+- Added a per-task `대화` button in the task list that opens a separate
+  `task-codex-*` floating panel instead of reusing the ERP chatbot window.
+- Kept `DEV_ERP_CODEX_TASK_BRIDGE=mock` as a UI/API smoke-test mode; the default
+  remains the real `app-server` bridge.
+- Added `DEV_ERP_CODEX_SERVICE_TIER=fast|flex` as an app-server-only launch
+  override for hosts whose Codex config still contains an older
+  `service_tier=priority` value, and fixed Windows startup to run the Codex shim
+  through `cmd.exe`.
+- Added staged progress text and elapsed time in the per-task Codex panel so
+  long app-server turns no longer sit on a single opaque "waiting" message.
+- Let multiple per-task Codex panels stay open at once, with drag/resize
+  persistence and a header tile button for monitoring open task chats together.
+- Added task-panel controls for model, reasoning effort, and service tier
+  overrides, plus `/` and `$` skill autocomplete backed by local `SKILL.md`
+  metadata and real `skill` user-input items.
+- Added image-only attachment support for Codex task turns by uploading browser
+  images into `_workspaces/system/dev-erp/codex-task-attachments/**` and passing
+  them to app-server as `localImage` inputs; arbitrary file prompt-injection is
+  intentionally not supported.
+- Confirmed app-server task turns can invoke real collab subagents, but the
+  app-server runtime does not expose durable Codex thread creation tools to the
+  task thread manager skill, so worker-thread fanout remains blocked unless a
+  separate host-side broker is designed.
+- Filtered app-server turn completion and message delta events by parent
+  `threadId` so subagent turn completions do not prematurely finish the ERP task
+  chat turn.
+
+### Revision `working` - dev-erp Codex task thread rule
+
+- Documented the owner-approved Codex task-thread naming and persistence rule:
+  visible thread titles use `[project_code] task_title`, duplicate titles add a
+  short task id suffix, and the durable mapping is `core_item.id ->
+  codex_thread_id` rather than the mutable title.
+- Clarified that ERP chatbot logs and task-specific Codex threads remain
+  separate conversation surfaces.
+
 ## 2026-06-18
 
 ### Revision `working` - dev-erp floating chatbot window
@@ -90,6 +152,28 @@
   short separated paragraphs and roughly 250-character answers, while the chat
   UI automatically inserts readable paragraph breaks for long one-paragraph AI
   messages.
+- Added visible version chips for cache/debug verification: the top app title
+  now shows the loaded UI build plus browser engine version, and the chatbot
+  header shows the loaded chatbot UI build.
+- Added an operator-controlled chatbot quality mode: `ERP_CHAT_THINK=1` enables
+  Ollama thinking-model reasoning, raises unset timeout/token defaults for that
+  mode, raises the default retrieval window, forces Korean final answers,
+  strips hidden thinking text from visible replies, retries once for final-only
+  output when a thinking model returns hidden thinking without a visible answer,
+  and records `think=true/false` in LLM call metadata.
+- Routed chatbot quality/reasoning complaints such as "answers are too fast/low
+  quality, can reasoning be enabled?" through runtime principles instead of
+  FAQ matching, so the UI answers with the operator quality-mode tradeoff and
+  does not show the "manual unorganized" badge.
+- Moved the visible UI/chatbot build markers to `quality.6` and also render
+  them on the pre-login gate, so cached or stale browser sessions can be
+  identified before sign-in.
+- Tightened chatbot conversation continuity: short follow-up requests such as
+  "write that directly" now force same-thread context, memory/new-chat questions
+  answer with the real context rule, and the browser keeps the current chat
+  thread until the user explicitly presses new chat or sends `/new`.
+- Bumped the visible UI/chatbot build markers to `quality.7` for the same-thread
+  chat persistence and follow-up-memory fix.
 
 ### Revision `working` - dev-erp runtime release audit gate
 

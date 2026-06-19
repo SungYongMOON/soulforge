@@ -16,13 +16,15 @@ function clampInt(value, fallback, min, max) {
 }
 
 export function chatPipelineConfig(env = process.env) {
+  const think = envBool(env.ERP_CHAT_THINK ?? env.ERP_CHAT_REASONING, false);
   return {
     context_turns: clampInt(env.ERP_CHAT_CONTEXT_TURNS, CHAT_CONTEXT_TURNS_DEFAULT, 0, CHAT_CONTEXT_TURNS_MAX),
-    retrieval_limit: clampInt(env.ERP_CHAT_RETRIEVAL_LIMIT, CHAT_RETRIEVAL_LIMIT_DEFAULT, 1, CHAT_RETRIEVAL_LIMIT_MAX),
+    retrieval_limit: clampInt(env.ERP_CHAT_RETRIEVAL_LIMIT, think ? 5 : CHAT_RETRIEVAL_LIMIT_DEFAULT, 1, CHAT_RETRIEVAL_LIMIT_MAX),
     strong_norm: Number.isFinite(Number(env.ERP_CHAT_STRONG_NORM)) ? Number(env.ERP_CHAT_STRONG_NORM) : 0.5,
     strong_score: Number.isFinite(Number(env.ERP_CHAT_STRONG_SCORE)) ? Number(env.ERP_CHAT_STRONG_SCORE) : 2,
     followup_score: Number.isFinite(Number(env.ERP_CHAT_FOLLOWUP_SCORE)) ? Number(env.ERP_CHAT_FOLLOWUP_SCORE) : 0.6,
     llm_assist_weak: envBool(env.ERP_CHAT_LLM_ASSIST_WEAK, true),
+    reasoning: think,
   };
 }
 
@@ -40,10 +42,28 @@ function publicTrace(trace) {
   };
 }
 
+function hasFollowupMarker(question) {
+  const q = String(question ?? "").trim();
+  return /(그거|그건|그게|그걸|이거|이건|이게|이걸|저거|아까|방금|이전|앞에서|위에서|전에|방금전|그럼|그러면|그렇게|거기|다음|이어|다시|직접|적어줘|작성해줘|등록해줘|추가해줘|만들어줘|처리해줘|해줘|너가|네가|내용|기억|문맥)/i.test(q);
+}
+
+function isContextPriorityQuestion(question) {
+  const q = String(question ?? "").trim();
+  return hasFollowupMarker(q) || /(계속|방금|아까|이전|같은\s*대화|새\s*대화|새\s*채팅|thread|스레드)/i.test(q);
+}
+
+function isChatMemoryQuestion(question) {
+  const q = String(question ?? "").trim();
+  return /(문맥|기억|이전\s*대화|새\s*대화|새\s*채팅|같은\s*대화|대화방|thread|스레드|몇\s*개|몇개)/i.test(q)
+    && /(기억|문맥|대화|채팅|thread|스레드|이어|계속|몇)/i.test(q);
+}
+
 function shouldUseChatHistory(store, question, history = []) {
   if (!history.length) return false;
   const q = String(question ?? "").trim();
   if (!q) return false;
+  if (hasFollowupMarker(q)) return true;
+  if (q.length <= 36 && /(줘|해줘|해봐|적어|작성|등록|추가|만들|처리|기억|문맥)/i.test(q)) return true;
   if (/(그거|그건|그게|그걸|이거|이건|이게|저거|아까|방금|위에서|앞에서|이전|그럼|그러면|그렇게|거기서|다음은|다음엔|이어|다시)/i.test(q)) return true;
   return q.length <= 24 && store._tokenize(q).length <= 2;
 }
@@ -161,10 +181,45 @@ function makeRetrievalAnswer({ q, hits, top, strong, context_used, contextQuesti
   };
 }
 
+function isChatAlivePing(question) {
+  const q = String(question ?? "").trim().toLowerCase();
+  const compact = q.replace(/[?!?.。！？~\s]/g, "");
+  return /^(너)?(되니|되냐|돼|살아있어|살아있니|작동해|응답해|응답가능|대답해|대답가능|연결됐어|테스트|핑|ping|alive|online)$/.test(compact);
+}
+
+function runtimeDirectAnswer(question, config = chatPipelineConfig(), contextQuestions = []) {
+  const q = String(question ?? "");
+  if (isChatAlivePing(q)) {
+    return [
+      "네, 응답하고 있어요.",
+      "ERP 사용법, 화면 위치, 과제/메일/산출물 처리처럼 실제 업무 질문을 이어서 물어보시면 바로 안내할게요.",
+    ].join("\n\n");
+  }
+  if (isChatMemoryQuestion(q)) {
+    const turns = Number.isFinite(Number(config.context_turns)) ? Number(config.context_turns) : CHAT_CONTEXT_TURNS_DEFAULT;
+    const current = contextQuestions.length;
+    return [
+      `지금 설정은 같은 로그인 사용자와 같은 대화에서 최근 ${turns}개 질문을 이어묻기 문맥으로 봅니다.`,
+      "새 대화 버튼이나 `/new`를 누르면 새 대화가 시작되어 이전 문맥을 일부러 섞지 않습니다. 반대로 버튼을 누르지 않으면 같은 대화로 이어져야 합니다.",
+      current
+        ? `이번 요청에서는 이 대화에 저장된 이전 질문 ${Math.min(current, turns)}개를 확인할 수 있습니다.`
+        : "이번 요청에서는 아직 같은 대화의 이전 질문이 없거나, 새 대화로 시작된 상태입니다.",
+    ].join("\n\n");
+  }
+  if (/(추론|reasoning|think|품질|질\s*.*떨어|답변.*빠르|답.*짧|더\s*자세)/i.test(q)) {
+    return [
+      "가능해요. 운영자가 품질 모드로 켜면 로컬 Gemma/Ollama 호출에 추론을 사용하게 할 수 있습니다.",
+      "다만 팀원이 직접 바꾸는 설정은 아니고, 켜면 답변은 더 느려질 수 있어요.",
+      "운영자에게는 `ERP_CHAT_THINK=1`, 충분한 timeout/queue wait, 더 넉넉한 토큰 설정으로 전달하면 됩니다.",
+    ].join("\n\n");
+  }
+  return null;
+}
+
 export function runManualRetrievalPipeline({ store, question, thread_id = null, actor_ref = null, config = chatPipelineConfig() } = {}) {
   const trace = {
     id: PIPELINE_ID,
-    config: { context_turns: config.context_turns, retrieval_limit: config.retrieval_limit, llm_assist_weak: config.llm_assist_weak },
+    config: { context_turns: config.context_turns, retrieval_limit: config.retrieval_limit, llm_assist_weak: config.llm_assist_weak, reasoning: config.reasoning || false },
     steps: [],
     context_used: false,
     matched_faq_id: null,
@@ -181,7 +236,8 @@ export function runManualRetrievalPipeline({ store, question, thread_id = null, 
   const contextQuestions = historyRows.map((x) => x.question);
   const weights = topicWeights(store, historyRows);
   const contextAllowed = config.context_turns > 0 && shouldUseChatHistory(store, q, contextQuestions);
-  trace.steps.push(step("context", "ok", { enabled: config.context_turns > 0, turns: contextQuestions.length, allowed: contextAllowed }));
+  const contextPriority = isContextPriorityQuestion(q);
+  trace.steps.push(step("context", "ok", { enabled: config.context_turns > 0, turns: contextQuestions.length, allowed: contextAllowed, priority: contextPriority }));
 
   let effectiveQuestion = q;
   const poolLimit = contextAllowed ? Math.max(config.retrieval_limit, 8) : config.retrieval_limit;
@@ -194,7 +250,7 @@ export function runManualRetrievalPipeline({ store, question, thread_id = null, 
     const contextQuestion = contextRetrievalQuestion(q, contextQuestions, config.context_turns);
     const contextHits = rerankHitsForFollowup(store, store.retrieveFaqMany(contextQuestion, poolLimit), weights, q)
       .slice(0, config.retrieval_limit);
-    if (contextHits.length && !directPinned) {
+    if (contextHits.length && (contextPriority || !directPinned)) {
       hits = contextHits;
       effectiveQuestion = contextQuestion;
       trace.context_used = true;
@@ -205,13 +261,32 @@ export function runManualRetrievalPipeline({ store, question, thread_id = null, 
   }
 
   const top = hits[0] || null;
-  const strong = isStrongHit(top, config, trace.context_used);
+  const runtimeText = runtimeDirectAnswer(q, config, contextQuestions);
+  const strong = runtimeText ? false : isStrongHit(top, config, trace.context_used);
   const matchedId = strong ? top.faq.id : null;
   trace.matched_faq_id = matchedId;
   trace.steps.push(step("match", strong ? "ok" : "weak_or_empty", { matched_faq_id: matchedId }));
 
   store.logChatQuery({ actor_ref, thread_id, question: q, matched_faq_id: matchedId });
   trace.steps.push(step("log", "ok"));
+
+  if (runtimeText) {
+    trace.mode = "runtime_direct";
+    trace.steps.push(step("compose_runtime", "ok"));
+    return {
+      matched: false,
+      grounded: false,
+      source: null,
+      candidates: [],
+      text: runtimeText,
+      runtime_direct: true,
+      context_used: trace.context_used,
+      context_questions: contextQuestions,
+      effective_question: effectiveQuestion,
+      pipeline: trace,
+      pipeline_public: publicTrace(trace),
+    };
+  }
 
   const result = makeRetrievalAnswer({ q, hits, top, strong, context_used: trace.context_used, contextQuestions, effectiveQuestion, trace });
   if (!result.text) {
@@ -238,6 +313,12 @@ export async function runManualAnswerPipeline({
   const base = runManualRetrievalPipeline({ store, question, thread_id, actor_ref, config });
   if (base.error) return base;
   const wantLlm = provider && provider !== "stub";
+  if (base.runtime_direct) {
+    base.pipeline.steps.push(step("llm_gate", "skipped", { reason: "runtime_direct" }));
+    base.pipeline.steps.push(step("llm_answer", "skipped"));
+    base.pipeline_public = publicTrace(base.pipeline);
+    return { ...base, mode: "runtime_direct", external: false, provider, model: null, llm: false, handled_by_runtime: true };
+  }
   const promptHits = (base.candidates || [])
     .map((c) => faqById(store, c.id))
     .filter(Boolean)
@@ -265,6 +346,7 @@ export async function runManualAnswerPipeline({
         external: r.external,
         provider,
         model: r.model ?? null,
+        reasoning: r.reasoning || false,
         llm: true,
         handled_by_llm: !base.matched,
       };
