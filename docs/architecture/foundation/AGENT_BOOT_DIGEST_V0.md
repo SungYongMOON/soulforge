@@ -47,6 +47,8 @@
   hold/reject) / L3 full B/V(skill·production-ready·canon 승격·자동화 권한).
 - bounded task 완료 보고 전 knowledge trigger check closeout 필수
   (`지식 트리거 확인: 없음` 또는 후보 기록).
+- bounded task 완료 보고 전 conversation-rule-hardening 설치 여부/결과를
+  `규칙 강화 체크:` 로 닫는다.
 - claim ceiling: 관찰됨/출처로 뒷받침됨/비공개 검증됨/정본 후보/정본 등록됨/
   막힘·보류 — 근거 없이 위 단계 주장 금지. LLM 출력은 authority 아님.
 

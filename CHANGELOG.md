@@ -2,6 +2,14 @@
 
 ## 2026-06-19
 
+### Revision `working` - boot digest rule-hardening closeout synced
+
+- Refreshed the agent boot digest companion so the AGENTS.md
+  `conversation-rule-hardening` closeout rule is represented in the compact
+  startup summary.
+- Re-signed the boot digest source manifest after reviewing the AGENTS.md drift
+  detected by `npm run validate`.
+
 ### Revision `working` - dev-erp chatbot stability 11
 
 - Bumped the runtime-visible ERP/chatbot build to `ui-2026.06.18-chat-stability.11`
