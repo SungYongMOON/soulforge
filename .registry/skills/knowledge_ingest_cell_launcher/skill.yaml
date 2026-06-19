@@ -31,6 +31,7 @@ behavior:
     - Codex routes source audit through `knowledge_source_audit_v0`
     - Codex routes wiki/RAG preparation through `knowledge_wiki_pipeline_v0`
     - Codex inserts `owner_decision_packet_v0` before upload, NotebookLM placement, public canon promotion, source-text/index build, replacement, migration, or controlled/internal source handling
+    - Codex records metadata-only knowledge ingest receipt and missing-audit refs when a bounded ingest request creates, advances, blocks, or reviews a candidate
     - Codex closes bounded development or registration work through `post_development_review_gate_v0`
     - model, reasoning effort, species, class, and runtime tools are inherited as workflow-owned hints rather than copied as launcher authority
 execution_requirements:
@@ -39,6 +40,7 @@ execution_requirements:
     - workflow_profile_policy_resolution
     - knowledge_ingest_boundary_review
     - owner_decision_gate_awareness
+    - knowledge_ingest_receipt_awareness
     - post_development_review_awareness
   preferred_capabilities:
     - yaml_review
@@ -57,6 +59,7 @@ execution_requirements:
     - "The launcher is not default-route-safe and must not grant unattended automation authority."
     - "Password unlock preprocessing is optional, copy-only, and owner-gated through `project_password_unlock_copy_only_v0`."
     - "Drive, NotebookLM, public canon promotion, source-text/index build, replacement, migration, and controlled/internal source handling require owner decision plus downstream authority."
+    - "Knowledge ingest receipts and missing audits are recovery metadata only; they do not validate source truth, approve owner decisions, place NotebookLM sources, build indexes, upload, or promote canon."
     - "Actual project paths, source payloads, password candidate values, connector availability, and local runtime values remain outside public skill canon."
 notes:
   - "`knowledge_ingest_cell_launcher` is a thin Codex bridge for the registered `.party/knowledge_ingest_cell` loadout."

@@ -8,6 +8,12 @@ import {
   triageKnowledgeRagCandidates,
   validateKnowledgeRagCandidateLedgers,
 } from "./knowledge_rag_candidate_ledger.mjs";
+import {
+  appendKnowledgeIngestReceipt,
+  buildKnowledgeIngestMissingAudit,
+  validateKnowledgeIngestMissingAuditRef,
+  validateKnowledgeIngestReceiptLedgers,
+} from "./knowledge_ingest_receipt.mjs";
 import { importNotebookLmBridgeMetadata } from "./notebooklm_bridge.mjs";
 
 async function main() {
@@ -155,6 +161,73 @@ async function main() {
     return;
   }
 
+  if (command === "ingest-receipt-append") {
+    const result = await appendKnowledgeIngestReceipt({
+      repoRoot,
+      ledgerFile: args["ledger-file"],
+      ledgerRef: args["ledger-ref"],
+      receiptId: args["receipt-id"],
+      createdAt: args["created-at"] ?? args.now,
+      projectCode: args["project-code"],
+      captureSurface: args["capture-surface"],
+      ingestRequestRef: args["ingest-request-ref"],
+      summaryLabel: args["summary-label"],
+      triggerSkillId: args["trigger-skill-id"],
+      sourceThreadRef: args["source-thread-ref"],
+      sourcePcLabel: args["source-pc-label"],
+      requiredLayers: args["required-layer"],
+      layerStates: buildKnowledgeIngestLayerStatesFromArgs(args),
+      claimCeiling: args["claim-ceiling"],
+    });
+    printResult(args, {
+      status: "recorded",
+      mode: "ingest-receipt-append",
+      receipt_id: result.receipt.receipt_id,
+      receipt: result.receipt,
+      ledger_ref: result.ledger_ref,
+    });
+    return;
+  }
+
+  if (command === "ingest-receipt-validate") {
+    const result = await validateKnowledgeIngestReceiptLedgers({
+      repoRoot,
+      ledgerFiles: args["ledger-file"],
+      ledgerRefs: args["ledger-ref"],
+    });
+    printJson(result);
+    if (result.status !== "pass") {
+      process.exitCode = 1;
+    }
+    return;
+  }
+
+  if (command === "ingest-receipt-missing-audit") {
+    const result = await buildKnowledgeIngestMissingAudit({
+      repoRoot,
+      ledgerFiles: args["ledger-file"],
+      ledgerRefs: args["ledger-ref"],
+      now: args.now,
+      auditId: args["audit-id"],
+      outputRootRef: args["output-root-ref"],
+      write: Boolean(args.write),
+    });
+    printJson(result);
+    return;
+  }
+
+  if (command === "ingest-receipt-missing-audit-validate") {
+    const result = await validateKnowledgeIngestMissingAuditRef({
+      repoRoot,
+      auditRef: args["audit-ref"],
+    });
+    printJson(result);
+    if (result.status !== "pass") {
+      process.exitCode = 1;
+    }
+    return;
+  }
+
   printUsageAndExit();
 }
 
@@ -234,6 +307,22 @@ function buildRepeatedUseSignalFromArgs(args) {
   return signal;
 }
 
+function buildKnowledgeIngestLayerStatesFromArgs(args) {
+  const layers = {};
+
+  for (const layer of ["candidate", "source", "wiki", "rag", "canon"]) {
+    layers[layer] = {
+      status: args[`${layer}-status`],
+      ref: args[`${layer}-ref`],
+      next_action: args[`${layer}-next-action`],
+      note: args[`${layer}-note`],
+      owner_decision_ref: args[`${layer}-owner-decision-ref`],
+    };
+  }
+
+  return layers;
+}
+
 function printResult(args, payload) {
   if (args.json) {
     printJson(payload);
@@ -245,6 +334,17 @@ function printResult(args, payload) {
         `knowledge RAG candidate ${payload.status}`,
         `mode: ${payload.mode}`,
         `candidate_id: ${payload.candidate_id}`,
+        `ledger: ${payload.ledger_ref}`,
+      ].join("\n") + "\n",
+    );
+    return;
+  }
+  if (payload.mode === "ingest-receipt-append") {
+    process.stdout.write(
+      [
+        `knowledge ingest receipt ${payload.status}`,
+        `mode: ${payload.mode}`,
+        `receipt_id: ${payload.receipt_id}`,
         `ledger: ${payload.ledger_ref}`,
       ].join("\n") + "\n",
     );
@@ -276,6 +376,10 @@ function printUsageAndExit() {
       "  node guild_hall/knowledge_access/cli.mjs candidate-ledger-append (--ledger-file <path.jsonl> | --ledger-ref _workmeta/<project>/knowledge_rag_candidate_ledger/<file.jsonl>) --project-code <system|Pxx-xxx> --source-context-ref <metadata-ref> --candidate-kind <kind> --short-reason <metadata-only reason> --suggested-route <route> [--missing-input <label> ...] [--owner-question <metadata-only question>] [--json]",
       "  node guild_hall/knowledge_access/cli.mjs candidate-ledger-validate (--ledger-file <path.jsonl> | --ledger-ref _workmeta/<project>/knowledge_rag_candidate_ledger/<file.jsonl>)...",
       "  node guild_hall/knowledge_access/cli.mjs candidate-ledger-triage (--ledger-file <path.jsonl> | --ledger-ref _workmeta/<project>/knowledge_rag_candidate_ledger/<file.jsonl>)... [--now <timestamp>]",
+      "  node guild_hall/knowledge_access/cli.mjs ingest-receipt-append (--ledger-file <path.jsonl> | --ledger-ref _workmeta/<project>/knowledge_ingest_receipts/<file.jsonl>) --project-code <system|Pxx-xxx> --ingest-request-ref <metadata-ref> --summary-label <metadata-only label> [--candidate-status <status>] [--candidate-ref <metadata-ref>] ... [--json]",
+      "  node guild_hall/knowledge_access/cli.mjs ingest-receipt-validate (--ledger-file <path.jsonl> | --ledger-ref _workmeta/<project>/knowledge_ingest_receipts/<file.jsonl>)...",
+      "  node guild_hall/knowledge_access/cli.mjs ingest-receipt-missing-audit (--ledger-file <path.jsonl> | --ledger-ref _workmeta/<project>/knowledge_ingest_receipts/<file.jsonl>)... [--write] [--audit-id <id>] [--output-root-ref _workmeta/<project>/reports/knowledge_ingest_missing_audit/<id>]",
+      "  node guild_hall/knowledge_access/cli.mjs ingest-receipt-missing-audit-validate --audit-ref _workmeta/<project>/reports/knowledge_ingest_missing_audit/<id>/missing_audit.json",
       "",
       "Notes:",
       "  The ledger row is metadata-only. read mode returns file content to stdout/JSON but never stores it in the JSONL ledger.",
@@ -283,6 +387,7 @@ function printUsageAndExit() {
       "  notebooklm-bridge mode reads explicit metadata files only, never calls nlm, never reads auth/session files, and blocks empty query logs instead of fabricating events.",
       "  End-of-task trigger flags append only accumulation_delta_hint metadata; they do not validate source truth, approve owner decisions, mutate graphs, archive/retire refs, or promote canon.",
       "  Candidate ledger commands read/write only explicit candidate JSONL metadata rows; triage performs no sourcebound review, RAG ingestion, ontology/canon promotion, graph mutation, archive, or retire action.",
+      "  Ingest receipt commands write only explicit metadata-only receipt JSONL rows and missing-audit tables; they do not read source payloads, upload to Drive/NotebookLM, build indexes, or promote canon.",
       "  Targets must be repo-relative public knowledge refs; secret-like, private, runtime, absolute, and traversal paths are blocked.",
     ].join("\n"),
   );

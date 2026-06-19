@@ -130,6 +130,34 @@ steps:
       no_action_when_no_stronger_authority_requested: true
       decision_packet_is_gate_not_execution: true
     next:
+      - receipt_capture_stage
+  - step_id: receipt_capture_stage
+    title: Receipt Capture Stage
+    actor_slot: receipt_curator
+    action:
+      kind: metadata_only_knowledge_ingest_receipt_capture
+      command_surface: guild_hall/knowledge_access/cli.mjs
+    inputs:
+      - ingest_scope_packet
+      - source_storage_audit_refs
+      - wiki_rag_preparation_refs
+      - owner_decision_refs
+      - blocked_authority_register
+    outputs:
+      - knowledge_ingest_receipt_refs
+      - knowledge_ingest_missing_audit_refs
+    rules:
+      metadata_only: true
+      receipt_jsonl_under_workmeta: true
+      missing_audit_table_under_workmeta_reports: true
+      cross_pc_requires_workmeta_sync: true
+      source_payloads_read: false
+      raw_transcripts_stored: false
+      notebooklm_answers_stored: false
+      drive_or_notebooklm_mutation_granted_here: false
+      source_text_or_index_build_granted_here: false
+      public_canon_promotion_granted_here: false
+    next:
       - closeout_review_stage
   - step_id: closeout_review_stage
     title: Closeout Review Stage
@@ -144,6 +172,8 @@ steps:
       - wiki_rag_preparation_refs
       - owner_decision_refs
       - blocked_authority_register
+      - knowledge_ingest_receipt_refs
+      - knowledge_ingest_missing_audit_refs
     outputs:
       - closeout_review_refs
     rules:
@@ -166,6 +196,8 @@ steps:
       - wiki_rag_preparation_refs
       - owner_decision_refs
       - closeout_review_refs
+      - knowledge_ingest_receipt_refs
+      - knowledge_ingest_missing_audit_refs
     outputs:
       - boundary_review_note
     rules:

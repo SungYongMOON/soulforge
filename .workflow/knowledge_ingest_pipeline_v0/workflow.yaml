@@ -34,6 +34,8 @@ outputs:
   - unlocked_output_manifest_ref
   - source_storage_audit_refs
   - wiki_rag_preparation_refs
+  - knowledge_ingest_receipt_refs
+  - knowledge_ingest_missing_audit_refs
   - authority_gate_matrix
   - owner_decision_refs
   - blocked_authority_register
@@ -92,6 +94,8 @@ operating_contract:
     - ingest_scope_packet_shape
     - preprocessing_route_decision_shape
     - source_audit_to_wiki_handoff_shape
+    - knowledge_ingest_receipt_shape
+    - knowledge_ingest_missing_audit_table_shape
     - authority_gate_matrix_shape
     - owner_decision_gate_routing
     - closeout_boundary_review_shape
@@ -152,6 +156,7 @@ operating_contract:
     notebooklm_upload_allowed_here: false
     public_canon_promotion_allowed_here: false
     source_text_index_build_allowed_here: false
+    knowledge_ingest_receipt_required_before_closeout: true
     replacement_or_migration_allowed_here: false
     controlled_internal_source_handling_allowed_without_owner_policy: false
     downstream_workflow_authority_required: true
@@ -160,3 +165,4 @@ notes:
   - The pipeline models the chain and owner gates only. It does not execute uploads, NotebookLM mutations, canon promotion, RAG index builds, source replacement, or source migration.
   - Copy-only unlock preprocessing is optional and may be satisfied by an existing `unlocked_output_manifest`; otherwise execution must route through `project_password_unlock_copy_only_v0` with explicit owner approval.
   - Any downstream tool or workflow that performs side effects must carry its own owner-approved authority and validation evidence.
+  - Every bounded ingest run should emit a metadata-only receipt and missing-audit view before closeout so cross-PC follow-up can see whether the candidate, source, wiki, RAG, and canon layers are still missing, blocked, owner-gated, or complete.

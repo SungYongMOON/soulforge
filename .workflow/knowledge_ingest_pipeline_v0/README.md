@@ -7,7 +7,8 @@ workflow for taking a bounded knowledge ingest request through:
 2. `knowledge_source_audit_v0`,
 3. `knowledge_wiki_pipeline_v0`,
 4. `owner_decision_packet_v0` authority gates,
-5. `post_development_review_gate_v0` closeout.
+5. metadata-only knowledge ingest receipt and missing-audit capture,
+6. `post_development_review_gate_v0` closeout.
 
 The preprocessing stage accepts either an existing `unlocked_output_manifest`
 or an explicit owner-approved request to delegate copy-only unlock work to
@@ -25,6 +26,10 @@ passwords, or mutates originals.
 - Stronger actions must route through `owner_decision_packet_v0` plus the
   downstream workflow or tool that actually owns that authority.
 - Unlocked output manifests are input pointers, not replacement authority.
+- Each bounded ingest run should write a metadata-only receipt row and missing
+  audit table under `_workmeta/**` before closeout. The receipt shows whether
+  candidate, source, wiki, RAG, and canon layers are missing, owner-gated,
+  blocked, or backed by refs; it does not read or store source payloads.
 
 ## Current State
 

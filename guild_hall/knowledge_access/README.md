@@ -7,6 +7,7 @@
 - It supports `analyze`/`rollup` for explicit JSONL ledger files or repo-relative ledger refs, producing metadata-only usage rollup and boundary review note JSON.
 - It supports `notebooklm-bridge` for importing explicit NotebookLM-like metadata binding/source-ledger/query-log files into `imported_log_entry` rows plus a metadata-only summary.
 - It supports `candidate-ledger-append`, `candidate-ledger-validate`, and `candidate-ledger-triage` for deferred knowledge/RAG candidates under the workspace contract at `docs/architecture/workspace/KNOWLEDGE_RAG_CANDIDATE_LEDGER_V0.md`.
+- It supports `ingest-receipt-append`, `ingest-receipt-validate`, and `ingest-receipt-missing-audit` for metadata-only knowledge ingest receipts under the workspace contract at `docs/architecture/workspace/KNOWLEDGE_INGEST_RECEIPT_V0.md`.
 - The synthetic NotebookLM bridge fixture at `docs/architecture/workspace/examples/notebooklm_bridge/` covers positive advisory imports and blocked no-query/no-fabrication behavior without real source payloads.
 - The ledger target is always explicit: pass either `--ledger-root` or `--ledger-file`. Use `_workmeta/**`, `guild_hall/state/**`, `private-state/**`, or a temp path outside the repo for actual runtime rows.
 - The combined operating model is documented at `docs/architecture/guild_hall/KNOWLEDGE_OPERATING_MODEL_V0.md`.
@@ -22,8 +23,12 @@ npm run guild-hall:knowledge-access -- notebooklm-bridge --binding-ref docs/arch
 npm run guild-hall:knowledge-access -- candidate-ledger-append --ledger-ref _workmeta/system/knowledge_rag_candidate_ledger/events/2026-06.jsonl --project-code system --source-context-ref _workmeta/system/reports/procedure_capture/example.md --candidate-kind manual_candidate --short-reason "metadata-only deferred candidate" --suggested-route owner_decision_needed --missing-input owner_decision_ref --owner-question "Should this stay metadata-only?"
 npm run guild-hall:knowledge-access -- candidate-ledger-validate --ledger-ref _workmeta/system/knowledge_rag_candidate_ledger/events/2026-06.jsonl
 npm run guild-hall:knowledge-access -- candidate-ledger-triage --ledger-ref _workmeta/system/knowledge_rag_candidate_ledger/events/2026-06.jsonl
+npm run guild-hall:knowledge-access -- ingest-receipt-append --ledger-ref _workmeta/system/knowledge_ingest_receipts/events/2026-06.jsonl --project-code system --ingest-request-ref _workmeta/system/reports/procedure_capture/example.md --summary-label "metadata-only deferred ingest" --candidate-status recorded --candidate-ref _workmeta/system/knowledge_rag_candidate_ledger/events/2026-06.jsonl#L1 --source-status missing --wiki-status missing --rag-status owner_decision_needed --canon-status missing
+npm run guild-hall:knowledge-access -- ingest-receipt-validate --ledger-ref _workmeta/system/knowledge_ingest_receipts/events/2026-06.jsonl
+npm run guild-hall:knowledge-access -- ingest-receipt-missing-audit --ledger-ref _workmeta/system/knowledge_ingest_receipts/events/2026-06.jsonl --write --audit-id knowledge_ingest_missing_audit_20260619
 npm run validate:knowledge-access
 npm run validate:knowledge-rag-candidate-ledger
+npm run validate:knowledge-ingest-receipt
 ```
 
 ## Optional Stop Hook Guards
@@ -75,6 +80,7 @@ Keep this in user/project Codex hook config, not in public runtime ledger data. 
 - NotebookLM-like imported rows remain advisory signals only; analyzer output is not canon validation, owner approval, or graph mutation.
 - Candidate ledger rows are metadata-only deferred signals; validation rejects raw payload-like fields, raw payload refs/extensions, absolute runtime paths, traversal, secret-like values, invalid project codes, and routes/claim ceilings that imply automatic source truth, graph mutation, canon promotion, or RAG ingestion.
 - Candidate ledger triage reads only explicit candidate JSONL rows and emits dry-run grouping, owner questions, and recommended next actions; it performs no sourcebound review, RAG ingestion, ontology/canon promotion, graph mutation, archive, or retire action.
+- Ingest receipt rows are metadata-only recovery handles for candidate, source, wiki, RAG, and canon layer status. Missing-audit tables read explicit receipt JSONL rows only and perform no sourcebound review, source-text extraction, index build, Drive/NotebookLM upload, NotebookLM query, ontology/public canon promotion, graph mutation, archive, retire, or owner-decision application.
 - Secret-like filenames, private/runtime roots, absolute paths, and path traversal refs are blocked before any read or append.
 - Public tracked canon is not a runtime ledger owner. If the ledger target is inside the repo, it must be under `_workmeta/**`, `guild_hall/state/**`, or `private-state/**`.
 - Analysis outputs report source ledgers as repo-relative refs or `ledger_file:<basename>` for external temp paths; runtime absolute source paths are not emitted.

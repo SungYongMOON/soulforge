@@ -19,9 +19,13 @@ rules:
     condition: wiki_rag_preparation_refs_ready_or_blocked
     summary: Owner gate receives preparation refs plus requested stronger actions; it creates decision routing, not upload, promotion, indexing, or migration execution.
   - from: owner_decision_gate_router
-    to: review_closeout_coordinator
+    to: receipt_curator
     condition: owner_decision_refs_or_blocked_authority_register_written
-    summary: Closeout receives owner-decision refs, no-action receipts, or blocked authority rows and lowers claims when any requested authority is absent.
+    summary: Receipt capture receives owner-decision refs, no-action receipts, or blocked authority rows and records metadata-only layer status without copying source payloads or raw transcript text.
+  - from: receipt_curator
+    to: review_closeout_coordinator
+    condition: knowledge_ingest_receipt_and_missing_audit_refs_ready
+    summary: Closeout receives receipt and missing-audit refs so the final review can name unresolved candidate, source, wiki, RAG, canon, owner-gate, and blocker states.
   - from: review_closeout_coordinator
     to: boundary_reviewer
     condition: closeout_review_refs_ready

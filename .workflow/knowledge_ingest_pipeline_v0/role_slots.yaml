@@ -17,6 +17,9 @@ slots:
   - slot_id: owner_decision_gate_router
     title: Owner Decision Gate Router
     summary: Converts upload, promotion, index-build, migration, replacement, and controlled-source requests into explicit `owner_decision_packet_v0` gate refs.
+  - slot_id: receipt_curator
+    title: Receipt Curator
+    summary: Emits metadata-only knowledge ingest receipt refs and missing-audit refs before closeout so later PCs can see unresolved candidate, source, wiki, RAG, and canon layers.
   - slot_id: review_closeout_coordinator
     title: Review Closeout Coordinator
     summary: Routes final evidence and blocked-authority rows through `post_development_review_gate_v0`.

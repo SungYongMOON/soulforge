@@ -15,14 +15,15 @@
 - Route knowledge ingest, audit, RAG, and wiki registration through
   `$soulforge-knowledge-ingest-cell-launcher`, which defaults to
   `knowledge_ingest_pipeline_v0`; insert audit, wiki/RAG preparation, owner
-  decision, or older LLM wiki stack workflows only as optional routes when the
-  request needs them.
+  decision, receipt/missing-audit capture, or older LLM wiki stack workflows
+  only as optional routes when the request needs them.
 
 ## Stack
 
 | Layer | Role | Primary surface now | Current state |
 | --- | --- | --- | --- |
 | Intake | Receive raw or candidate material without overclaim. | `AUTOHUNT_MODEL`, source packets, Drive warehouse, manual capture | existing, split |
+| Ingest receipt / missing audit | Preserve cross-PC layer status for candidate, source, wiki, RAG, and canon follow-up. | `guild_hall/knowledge_access` `ingest-receipt-*` commands + `_workmeta/**/knowledge_ingest_receipts/**` | added as metadata-only recovery surface |
 | Candidate triage | Decide whether material stays candidate, becomes CANON, needs owner review, or is rejected. | `knowledge_candidate_triage_v0` | added as dedicated workflow |
 | Research preflight | Check project wiki and query-first routes before the main monster workflow runs. | `monster_knowledge_preflight_v0` | added as dedicated workflow |
 | Curation | Turn approved sources and bounded query results into reusable project wiki state. | `wiki_curation_maintenance_v0` + `WIKI_CURATION_MAINTENANCE_V0.md` | existing |
@@ -37,6 +38,11 @@
 - The Drive warehouse stores candidate and CANON source files or refs.
 - `_workmeta/**/reports/procedure_capture/**` owns manual candidate capture when
   a worker notices a reusable pattern during bounded work.
+- `knowledge_ingest_pipeline_v0` should emit a metadata-only ingest receipt and
+  missing-audit ref before closeout. This records whether candidate, source,
+  wiki, RAG, and canon layers are missing, owner-gated, blocked, or complete.
+- Other PCs must sync `_workmeta` after writing receipt rows; local-only chat
+  memory or unpushed receipt files are not visible to this PC.
 
 ### Candidate Triage
 
@@ -156,9 +162,11 @@ This is a role recommendation, not a locked runtime assignment.
 4. If no, route to approved-source deepening through the sourcebound loop.
 5. Record only metadata after use: refs used, purpose, gap found, and next
    route.
-6. Curate the result back into the project wiki state if it is likely to be
+6. Append or update a knowledge ingest receipt so missing layers and owner gates
+   survive cross-PC handoff.
+7. Curate the result back into the project wiki state if it is likely to be
    reused.
-7. Close through the review gate at the weakest supported claim ceiling and
+8. Close through the review gate at the weakest supported claim ceiling and
    register the matching result in that ceiling's owner surface.
 
 ## Residual Gaps

@@ -26,7 +26,8 @@ runtime bindings.
 10. Insert `owner_decision_packet_v0` before Drive upload, NotebookLM placement, public canon promotion, source-text extraction, index build, replacement, migration, controlled/internal source handling, or default-route authority.
 11. Prepare only a metadata-only `rag_metadata_refresh_v0` handoff when wiki/sourcebound metadata changes should refresh RAG metadata surfaces.
 12. Insert `rag_source_text_quality_review_v0` or `rag_work_card_router_v0` only when approved source-text lane refs already exist and the request needs support-trace quality review or deterministic work-card routing.
-13. Close bounded development, registration, promotion-candidate, or completed workflow work through `post_development_review_gate_v0`.
+13. Before closeout, write or update a metadata-only knowledge ingest receipt and missing-audit view through `guild_hall/knowledge_access` when the request created, advanced, blocked, or reviewed a knowledge candidate. The receipt belongs under `_workmeta/**/knowledge_ingest_receipts/**`; it must show candidate/source/wiki/RAG/canon layer status without copying raw payload.
+14. Close bounded development, registration, promotion-candidate, or completed workflow work through `post_development_review_gate_v0`.
 
 ## Boundary Rules
 
@@ -37,6 +38,7 @@ runtime bindings.
 - Do not upload to Drive or NotebookLM, mutate external services, promote public canon, extract source text, build BM25/vector indexes, or claim answer authority from this launcher alone.
 - Do not copy raw source text, private packets, NotebookLM answers, Drive payloads, password candidate values, secrets, credentials, runtime absolute paths, or project-local run truth into public tracked files.
 - Keep source truth in source packets or owner-held files, unlocked output manifests as input pointers only, private derivative projections in private evidence, and public promotion behind owner decision plus review.
+- Receipt and missing-audit rows are recovery metadata only. They do not grant Drive upload, NotebookLM placement, source-text extraction, index build, public canon promotion, ontology acceptance, owner approval, or answer authority.
 
 ## Load On Demand
 

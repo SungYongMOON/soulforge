@@ -57,7 +57,8 @@ The launcher should:
 9. Prepare a `rag_metadata_refresh_v0` handoff only for metadata-only RAG surface refresh.
 10. Use `rag_source_text_quality_review_v0` and `rag_work_card_router_v0` only after approved source-text lane refs exist and the request needs support-trace quality review or deterministic work-card routing.
 11. Use `knowledge_access_event_capture_v0` for metadata-only usage or accumulation signals when knowledge refs are used or changed.
-12. Use `post_development_review_gate_v0` before claiming a bounded development result is accepted.
+12. Use `guild_hall/knowledge_access` `ingest-receipt-*` commands to write or refresh a metadata-only receipt and missing-audit view before closeout when the run created, advanced, blocked, or reviewed a knowledge candidate.
+13. Use `post_development_review_gate_v0` before claiming a bounded development result is accepted.
 
 ## Non-Claims
 
@@ -72,6 +73,7 @@ The launcher does not claim that:
 - Drive placement, NotebookLM notebooks, advisory tool output, generated wiki projections, or RAG metadata are source truth.
 - RAG refresh handoff grants source-text retrieval, BM25/vector source-index build, NotebookLM packet membership, public canon promotion, ontology acceptance, owner approval, default-route authority, or answer authority.
 - RAG quality review or work-card routing grants source truth, answer authority, project execution authority, owner approval, default-route authority, or public canon promotion.
+- Knowledge ingest receipts or missing-audit tables do not validate source truth, approve owner decisions, build indexes, place NotebookLM sources, upload to Drive, or promote canon.
 - Project-local payloads, private evidence, raw source files, credentials, or runtime absolute paths are safe to store in public tracked skill files.
 
 ## Output Shape
@@ -83,6 +85,7 @@ Report:
 - `Workflow chain checked: knowledge_ingest_pipeline_v0 plus required downstream workflows`
 - `Optional preprocessing route: project_password_unlock_copy_only_v0 when owner-approved or existing manifest supplied`
 - `Optional RAG routes: rag_metadata_refresh_v0 metadata-only handoff, rag_source_text_quality_review_v0 support trace review, rag_work_card_router_v0 deterministic work card when needed`
+- `Receipt refs: _workmeta/**/knowledge_ingest_receipts/** and missing-audit refs under _workmeta/**/reports/knowledge_ingest_missing_audit/** when applicable`
 - `Profile resolve rule: workflow-owned profile_policy.yaml at execution time`
 - `Installed mirror: soulforge-knowledge-ingest-cell-launcher` when sync ran
 - `Validators: ...`
@@ -94,4 +97,5 @@ Report:
 - `agents/openai.yaml` keeps UI metadata only and the default prompt mentions `$soulforge-knowledge-ingest-cell-launcher`.
 - Public tracked files contain no raw payloads, password values, secrets, private evidence, host-local absolute paths, or NotebookLM answers.
 - The launcher keeps party, workflow, profile policy, runtime binding, owner decision, upload, index-build, and mutation boundaries separate.
+- The launcher records receipt/audit refs when applicable and keeps those records metadata-only.
 - `npm.cmd run skills:sync -- knowledge_ingest_cell_launcher` materializes the installed mirror before claiming it can be invoked by Codex.

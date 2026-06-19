@@ -2,6 +2,17 @@
 
 ## 2026-06-19
 
+### Revision `working` - knowledge ingest receipt and missing audit
+
+- Added a metadata-only knowledge ingest receipt ledger and missing-audit table
+  so cross-PC knowledge candidates can show candidate/source/wiki/RAG/canon
+  layer status instead of disappearing into chat memory.
+- Added `guild-hall:knowledge-access` receipt append, validate, missing-audit,
+  and missing-audit validation commands plus focused tests and validation script.
+- Updated the knowledge ingest pipeline, party, launcher skill, and operating
+  docs so bounded ingest work records receipt/audit refs before closeout without
+  granting upload, NotebookLM, index-build, source-text, or canon authority.
+
 ### Revision `working` - boot digest rule-hardening closeout synced
 
 - Refreshed the agent boot digest companion so the AGENTS.md
