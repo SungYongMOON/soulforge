@@ -30,7 +30,7 @@ npm run validate:knowledge-rag-candidate-ledger
 
 `knowledge_trigger_stop_guard.mjs` is a low-noise Codex `Stop` hook helper. It does not judge knowledge and does not read transcripts. It only inspects the hook payload's final assistant message and blocks bounded Soulforge completion reports that forgot the Korean `지식 트리거 확인:` closeout line. New reports should use user-facing Korean labels such as `지식 트리거 확인: 책임자 판단 필요`; legacy `지식 트리거 확인: 오너 판단 필요` and `Knowledge trigger check:` lines are still accepted for compatibility.
 
-`rule_hardening_stop_guard.mjs` is the matching low-noise guard for conversation rule hardening. It does not scan transcripts, decide whether a candidate is valid, or write records. It only blocks bounded Soulforge completion-like reports that forgot the `규칙 강화 체크:` closeout block. The actual extraction procedure lives in the local Codex skill `conversation-rule-hardening`.
+`rule_hardening_stop_guard.mjs` is the matching low-noise guard for conversation rule hardening. It does not scan transcripts or decide whether a candidate is valid. It blocks bounded Soulforge completion-like reports that forgot the `규칙 강화 체크:` closeout block, and when that closeout contains real candidate bullets it appends a sanitized candidate JSONL row under `private-state/guild_hall/state/operations/soulforge_activity/rule_hardening_candidates/`. The row keeps metadata needed to rediscover the situation later, such as thread/run ids when present, project-code hints, a short sanitized task hint, message hash, closeout hash, and candidate bullets. The actual extraction procedure lives in the local Codex skill `conversation-rule-hardening`; the hook record is a follow-up queue, not a canon or project-rule promotion.
 
 Preferred closeout wording:
 

@@ -1,0 +1,14 @@
+workflow_id: project_folder_indexing_v0
+kind: party_compatibility
+status: active
+compatible_parties:
+  - party_id: solo_operator
+    status: supported_for_manual_or_ad_hoc_indexing
+  - party_id: owner_plus_executor
+    status: supported_when_owner_worksite_or_full_reindex_gate_is_needed
+  - party_id: guild_master_cell
+    status: supported_for_cross_project_queue_visibility_only
+notes:
+  - This workflow does not require a dedicated party binding.
+  - A party, mission, or manager may bind it later for a project onboarding or housekeeping campaign, but that binding must not grant secret reading, original mutation, scheduler registration, or default-route authority.
+  - Owner involvement is required when project identity, shared worksite authority, full re-index reason, password route, or private report destination is ambiguous.

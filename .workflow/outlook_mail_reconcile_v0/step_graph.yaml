@@ -19,6 +19,33 @@ steps:
         - output_root_refs
     summary: Bind project scope, date range, Outlook source alias, and write mode before reading any Outlook metadata. If no project is named, default to Codex-managed project ledgers.
     next:
+      on_success: refresh_outlook_send_receive
+      on_fail: stop
+  - step_id: refresh_outlook_send_receive
+    title: Refresh Outlook Send Receive
+    actor_slot: outlook_metadata_reader
+    action:
+      kind: outlook_send_receive_preflight
+      artifacts_in:
+        - reconcile_scope
+      records:
+        - preflight_requested
+        - preflight_attempted_at
+        - preflight_result
+      allowed_actions:
+        - trigger_outlook_send_receive_all_folders
+      denied_actions:
+        - send_composed_mail
+        - move_mail
+        - delete_mail
+        - mark_read_or_unread
+        - edit_categories
+        - edit_rules
+        - export_msg_file
+        - copy_attachment
+        - read_body_text_or_html
+    summary: Trigger Outlook Send/Receive immediately before metadata collection when the scoped run requires mailbox refresh, then continue without any other Outlook mutation.
+    next:
       on_success: discover_codex_managed_projects
       on_fail: stop
   - step_id: discover_codex_managed_projects
@@ -290,7 +317,7 @@ steps:
       artifact_out: boundary_review_note
       checks:
         - codex_managed_scope_inventory_excludes_unresolved_inbox_holding_ledger
-        - no_outlook_mutation
+        - no_outlook_mutation_except_owner_requested_send_receive_preflight
         - no_outlook_rule_mutation
         - no_outlook_folder_tree_creation_or_rename
         - no_mail_body_or_html_read

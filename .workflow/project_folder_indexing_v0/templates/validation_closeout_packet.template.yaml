@@ -1,0 +1,18 @@
+template_id: validation_closeout_packet
+kind: output_template
+workflow_id: project_folder_indexing_v0
+run_id: "<run_id>"
+project_code: "<project_code>"
+checks:
+  catalog_has_target_folder_file_list: pending
+  each_file_has_extraction_status: pending
+  blocked_files_are_separated: pending
+  extracted_text_output_is_project_local: pending
+  workmeta_report_is_metadata_only: pending
+  password_and_secret_boundary_held: pending
+  hwp_body_not_read_directly: pending
+  no_source_truth_or_knowledge_promotion_claim: pending
+  no_scheduler_or_default_route_change: pending
+result: pending
+claim_ceiling: observed
+next_action: manager_review_or_private_pilot

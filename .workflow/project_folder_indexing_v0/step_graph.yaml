@@ -1,0 +1,118 @@
+workflow_id: project_folder_indexing_v0
+kind: step_graph
+status: active
+steps:
+  - step_id: bind_project_context
+    title: Bind Project Context
+    actor_slot: project_context_binder
+    action: Resolve the project code, project worksite root, allowed index output root, and metadata report root from explicit input, owner-approved shared worksite refs, or project workspace binding; stop if identity or worksite ownership is ambiguous.
+    inputs:
+      - project_indexing_scope
+      - project_code_hint
+      - owner_approved_shared_worksite_ref
+    outputs:
+      - project_index_binding_packet
+    next:
+      - inventory_project_files
+  - step_id: inventory_project_files
+    title: Inventory Project Files
+    actor_slot: file_inventory_auditor
+    action: Walk the bound project worksite, collect metadata-only file rows, skip partial/scratch/conversion intermediates, exclude or mark secret paths, and avoid reading private source bodies unless a format-specific extractor is explicitly allowed later.
+    inputs:
+      - project_index_binding_packet
+      - approved_inventory_policy
+    outputs:
+      - file_inventory_snapshot
+    next:
+      - check_index_freshness
+  - step_id: check_index_freshness
+    title: Check Freshness And Missing Index
+    actor_slot: freshness_checker
+    action: Compare the inventory against prior catalog, extraction status, and blocked queue refs when available; classify no-op, missing index, stale index, incremental update, or full re-index candidate.
+    inputs:
+      - file_inventory_snapshot
+      - prior_file_search_catalog_ref
+      - prior_extraction_status_ref
+      - prior_blocked_queue_ref
+    outputs:
+      - freshness_and_missing_index_check
+    next:
+      - plan_index_update
+  - step_id: plan_index_update
+    title: Plan Index Update
+    actor_slot: index_update_planner
+    action: Prefer incremental indexing for new or changed files; prepare a controlled full re-index gate only for initial onboarding, bulk moves, corrupt or missing catalog, unreconcilable hash/count mismatch, extraction-policy changes, or explicit owner approval.
+    inputs:
+      - freshness_and_missing_index_check
+      - file_delta_refs
+      - owner_full_reindex_approval_ref
+    outputs:
+      - incremental_index_plan
+      - full_reindex_gate_packet
+    next:
+      - extract_search_text_and_status
+  - step_id: extract_search_text_and_status
+    title: Extract Search Text And Status
+    actor_slot: extraction_status_runner
+    action: For the approved incremental set or owner-gated full set, create project-local searchable text outputs where supported and record file-level status such as ok, unsupported, encrypted, password_needed, manual_review, ocr_needed, hwpx_conversion_needed, secret_excluded, or error.
+    inputs:
+      - incremental_index_plan
+      - full_reindex_gate_packet
+      - extraction_tool_inventory_ref
+    outputs:
+      - extracted_text_manifest
+      - extraction_status_register
+    next:
+      - update_catalog_and_queues
+  - step_id: update_catalog_and_queues
+    title: Update Catalog And Queues
+    actor_slot: catalog_and_queue_curator
+    action: Write or update the project-local file search catalog, duplicate candidate register, and blocked file queue using relative paths, status, size, mtime, hashes when allowed, output pointers, and blocker reason codes.
+    inputs:
+      - file_inventory_snapshot
+      - extracted_text_manifest
+      - extraction_status_register
+    outputs:
+      - file_search_catalog_update
+      - blocked_file_queue
+      - duplicate_candidate_register
+    next:
+      - prepare_dawn_housekeeping_queue
+  - step_id: prepare_dawn_housekeeping_queue
+    title: Prepare Dawn Housekeeping Queue
+    actor_slot: housekeeping_queue_planner
+    action: When a dawn housekeeping policy is present, produce queue rows for stale or missing project indexes and bounded follow-up runs; do not register scheduled tasks, watchers, services, or external automation.
+    inputs:
+      - freshness_and_missing_index_check
+      - blocked_file_queue
+      - dawn_housekeeping_policy_ref
+    outputs:
+      - dawn_housekeeping_queue
+    next:
+      - write_metadata_report
+  - step_id: write_metadata_report
+    title: Write Metadata-only Report
+    actor_slot: metadata_reporter
+    action: Write a `_workmeta/<project_code>/reports/project_folder_indexing` summary containing run scope, index output pointer, counts, extractor inventory, blocked counts, validation result, re-index reason, and next action without raw file contents or extracted text.
+    inputs:
+      - project_index_binding_packet
+      - file_search_catalog_update
+      - extraction_status_register
+      - blocked_file_queue
+      - dawn_housekeeping_queue
+    outputs:
+      - metadata_only_workmeta_report
+    next:
+      - validate_and_closeout
+  - step_id: validate_and_closeout
+    title: Validate And Close Out
+    actor_slot: validation_reviewer
+    action: Check that catalog rows have file-level extraction status, blocked rows are separated, project-local text output pointers exist when applicable, `_workmeta` is metadata-only, password and secret boundaries held, and no source-truth or default-route claim was made.
+    inputs:
+      - metadata_only_workmeta_report
+      - file_search_catalog_update
+      - blocked_file_queue
+    outputs:
+      - validation_closeout_packet
+      - boundary_review_note
+    next: []

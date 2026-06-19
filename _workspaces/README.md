@@ -7,6 +7,7 @@
 - 실제 `_workspaces/<project_code>/` 는 로컬 환경에서만 materialize 되는 private project worksite view 다.
 - 여러 owner PC 에서 같은 실자료를 읽어야 하는 프로젝트는 실제 파일을 owner-approved shared worksite 에 두고, `_workspaces/<project_code>/` 는 그 위치를 가리키는 local-only directory link 로 둔다.
 - reserved `_workspaces/system/` 은 특정 프로젝트에 속하지 않는 reusable workflow lab pilot output, fixture materialization, downloaded reference file 을 두는 path-identity controlled workspace 다. 여러 PC 에서 같은 이름을 사용할 때는 같은 owner-approved shared worksite 를 가리키는 local-only link view 여야 한다.
+- reserved `_workspaces/knowledge/` 는 특정 프로젝트에 속하지 않는 회사 공통 또는 cross-project source packet, source card, local RAG 준비물을 두는 owner-approved non-project alias 다.
 - cross-project ingress/runtime 은 `_workspaces/` 가 아니라 `guild_hall/state/**` 가 맡는다.
 - `company/`, `personal` 분기는 새 정본에 포함하지 않는다.
 - cloud/company root 는 project worksite 의 link target 을 해석하기 위한 외부 루트일 수는 있지만, `_workspaces/company` 같은 direct child junction 으로 materialize 하지 않는다.
@@ -48,6 +49,9 @@ _workspaces/
 ├── system/
 │   └── <run_family_or_pilot_id>/
 │       └── ... reusable workflow lab and fixture outputs ...
+├── knowledge/
+│   └── common/
+│       └── ... company or cross-project source packets ...
 └── <project_code>/
     ├── <stage>/<artifact>/00_Temp/
     │   ├── template_snapshot/
@@ -60,6 +64,7 @@ _workspaces/
 - `_workspaces/<project_code>/` 는 실제 프로젝트 파일, 산출물, 로컬 운영 상태를 보여주는 materialization site 다.
 - `_workspaces/SE_TEMPLATE_LIBRARY/` 는 reusable SE artifact materials 의 canonical actual-file library/store 다. pointer-only reference folder 도 아니고 project execution baseline 도 아니다.
 - `_workspaces/system/` 은 특정 프로젝트 owner 가 없는 reusable workflow 실험, fixture 출력, pilot 산출물을 담는 reserved lab workspace 다. 참여 PC 에서는 같은 shared target 을 보는 link view 로 맞추고, PC-local 실험이나 cache 는 `_workspaces/_local/<node_id>/` 로 분리한다.
+- `_workspaces/knowledge/` 는 특정 프로젝트가 아닌 회사 공통 자료와 cross-project 지식 준비물을 위한 reserved workspace 다. 실제 프로젝트 자료를 이곳으로 옮겨 project owner 경계를 흐리지 않는다.
 - library 의 canonical reusable files 는 owner-approved templates/forms, executable artifact workflows, artifact-specific authoring rules, sample output files 를 포함할 수 있다. provenance, hash, version, classification 은 `manifests/` 또는 catalog docs 에 기록한다.
 - library 의 `workflow/` 는 executable workflow procedure 만 담는다. folder layout, source path, copy history, hash, catalog/provenance 는 workflow 본문이 아니라 `manifests/` 또는 catalog docs 에 둔다.
 - common document rules 는 artifact-specific `authoring_rules/` 와 섞지 않고 `common_document_rules/` 같은 별도 common-rule surface 에 둔다.
@@ -97,6 +102,7 @@ _workspaces/
 - shared worksite link target 의 실제 host path 는 public tracked 문서에 쓰지 않고 project-local binding 이나 owner note 에만 둔다.
 - 첫 실제 프로젝트 온보딩 절차와 short `project_code` / full `display_name` 규칙은 `PROJECT_ONBOARDING_V0.md` 를 따른다.
 - 주기적으로 전달되는 회사 PJT 관리 대장으로 project registration 을 갱신할 때는 `PROJECT_LEDGER_UPDATE_V0.md` 를 따른다.
+- 특정 프로젝트가 아닌 회사 공통 조직/연락처/자리배치/운영 참조 자료를 보관할 때는 `COMPANY_COMMON_SOURCE_STORAGE_V0.md` 를 따른다.
 - 다른 PC 에서 pull 후 `_workspaces/company` 또는 `_workspaces/personal` 같은 root junction 이 남아 있으면, 먼저 target 을 확인한 뒤 junction pointer 만 제거하고 원본 shared worksite 는 보존한다.
 - first run/use 중 생기는 local-only working note 는 `_workmeta/<project_code>/reports/onboarding/`, 근거 artifact 는 `_workmeta/<project_code>/artifacts/onboarding/` 를 기본안으로 둔다.
 - 사람과 Codex 가 같이 진행한 시작 단계 기록은 `_workmeta/<project_code>/reports/onboarding/project_start_worklog.md` 를 기본안으로 둔다.
@@ -115,6 +121,7 @@ _workspaces/
 - [`docs/architecture/workspace/WORKSPACE_PROJECT_MODEL.md`](../docs/architecture/workspace/WORKSPACE_PROJECT_MODEL.md)
 - [`docs/architecture/workspace/PROJECT_ONBOARDING_V0.md`](../docs/architecture/workspace/PROJECT_ONBOARDING_V0.md)
 - [`docs/architecture/workspace/PROJECT_LEDGER_UPDATE_V0.md`](../docs/architecture/workspace/PROJECT_LEDGER_UPDATE_V0.md)
+- [`docs/architecture/workspace/COMPANY_COMMON_SOURCE_STORAGE_V0.md`](../docs/architecture/workspace/COMPANY_COMMON_SOURCE_STORAGE_V0.md)
 - [`docs/architecture/workspace/HWP_NORMALIZATION_V0.md`](../docs/architecture/workspace/HWP_NORMALIZATION_V0.md)
 - [`docs/architecture/workspace/PROJECT_START_WORKFLOW_V0.md`](../docs/architecture/workspace/PROJECT_START_WORKFLOW_V0.md)
 - [`docs/architecture/workspace/MULTI_PC_DEVELOPMENT_V0.md`](../docs/architecture/workspace/MULTI_PC_DEVELOPMENT_V0.md)

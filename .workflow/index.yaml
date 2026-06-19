@@ -129,6 +129,8 @@ entries:
     path: codex_thread_manager_v0/workflow.yaml
   - workflow_id: daily_work_ledger_capture_v0
     path: daily_work_ledger_capture_v0/workflow.yaml
+  - workflow_id: project_folder_indexing_v0
+    path: project_folder_indexing_v0/workflow.yaml
   - workflow_id: project_password_unlock_copy_only_v0
     path: project_password_unlock_copy_only_v0/workflow.yaml
   - workflow_id: knowledge_ingest_pipeline_v0

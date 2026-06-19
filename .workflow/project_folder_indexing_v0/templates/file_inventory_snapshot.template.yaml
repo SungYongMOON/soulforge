@@ -1,0 +1,27 @@
+template_id: file_inventory_snapshot
+kind: output_template
+workflow_id: project_folder_indexing_v0
+run_id: "<run_id>"
+project_code: "<project_code>"
+worksite_ref: "<project_worksite_ref>"
+snapshot_created_at: "<iso8601>"
+inventory_policy_ref: docs/architecture/workspace/PROJECT_FOLDER_INDEXING_POLICY_V0.md
+counts:
+  total_files_seen: 0
+  stable_files_in_scope: 0
+  skipped_transient_files: 0
+  secret_excluded_files: 0
+rows:
+  - file_ref: "<project_relative_file_ref>"
+    project_relative_path: "<relative/path.ext>"
+    extension: "<.ext>"
+    file_size_bytes: 0
+    modified_time: "<iso8601_or_filesystem_timestamp>"
+    hash_when_allowed: null
+    inventory_state: in_scope
+    skip_reason: null
+boundary:
+  metadata_only: true
+  no_raw_file_payload: true
+  no_secret_value_reading: true
+  no_original_mutation: true

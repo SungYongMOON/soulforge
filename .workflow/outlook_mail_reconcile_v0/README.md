@@ -4,9 +4,10 @@ Registered workflow for reconciling project mail history from Outlook metadata.
 
 This workflow reads owner-approved Outlook metadata, updates project sent-mail
 history candidates, and cross-validates existing received/inbox history. It is
-metadata-only. It does not read mail body content, copy `.msg` files, copy
-attachments, change Outlook folders, change Outlook rules, or make itself a
-default workflow route.
+metadata-only except for an owner-requested Outlook Send/Receive preflight that
+may run immediately before metadata collection. It does not read mail body
+content, copy `.msg` files, copy attachments, change Outlook folders, change
+Outlook rules, or make itself a default workflow route.
 
 ## Status
 
@@ -27,6 +28,7 @@ an unresolved inbox and mapping-review bucket.
 Use this when a project has a maintained mail ledger under
 `_workmeta/<project_code>/reports/메일_이력/메일_이력.csv` and the owner wants to:
 
+- refresh Outlook mailbox state with Send/Receive before reading metadata
 - add missing sent-mail rows from Outlook sent-folder metadata
 - compare inbox/received metadata against the existing received-mail ledger
 - produce an owner review queue for uncertain project matches

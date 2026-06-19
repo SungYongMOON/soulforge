@@ -157,6 +157,10 @@
   attachment handling guards, and next-time automation candidates at task close.
 - Added `rule_hardening_stop_guard.mjs` plus tests so bounded Soulforge completion
   reports can be blocked when they omit the `규칙 강화 체크:` closeout block.
+- Extended the guard to append sanitized closeout candidate bullets to a private
+  rule-hardening candidate JSONL queue with rediscovery metadata such as
+  thread/run ids when present, project-code hints, task hints, and hashes,
+  without promoting them to canon or project rules automatically.
 - Wired the new guard into `validate:knowledge-access` and documented the paired
   Stop hook setup next to the existing knowledge trigger guard.
 

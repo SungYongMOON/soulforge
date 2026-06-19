@@ -1,0 +1,22 @@
+template_id: freshness_and_missing_index_check
+kind: output_template
+workflow_id: project_folder_indexing_v0
+run_id: "<run_id>"
+project_code: "<project_code>"
+prior_catalog_ref: null
+prior_status_ref: null
+inventory_snapshot_ref: "<file_inventory_snapshot_ref>"
+freshness_state: incremental_update_needed
+freshness_reason_codes:
+  - new_or_changed_files_detected
+counts:
+  current_file_count: 0
+  prior_catalog_file_count: 0
+  new_file_count: 0
+  changed_file_count: 0
+  missing_from_worksite_count: 0
+  blocked_file_count: 0
+recommended_mode: incremental
+full_reindex_candidate: false
+full_reindex_reason_codes: []
+notes: []

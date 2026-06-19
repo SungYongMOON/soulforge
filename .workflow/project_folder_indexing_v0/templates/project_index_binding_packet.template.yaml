@@ -1,0 +1,19 @@
+template_id: project_index_binding_packet
+kind: output_template
+workflow_id: project_folder_indexing_v0
+run_id: "<run_id>"
+project_code: "<project_code>"
+project_worksite_ref: "_workspaces/<project_code>"
+owner_approved_shared_worksite_ref: null
+index_output_root_ref: "020_MGMT/021_자동화설정_운영규칙/file_search_index/<run_id>/"
+metadata_report_root_ref: "_workmeta/<project_code>/reports/project_folder_indexing"
+binding_source: explicit_project_indexing_scope
+binding_status: bound
+ambiguity:
+  present: false
+  notes: []
+boundary:
+  project_local_index_only: true
+  workmeta_metadata_only: true
+  original_mutation_allowed: false
+  default_route_switch_allowed: false

@@ -1,0 +1,37 @@
+workflow_id: project_folder_indexing_v0
+kind: monster_rules
+status: active
+rules:
+  - monster_id: project_identity_ambiguous
+    response: stop_and_request_project_code_or_owner_approved_worksite_binding
+    summary: Do not index when project code, worksite root, or shared worksite authority conflicts or cannot be resolved.
+  - monster_id: raw_payload_written_to_workmeta
+    response: stop_remove_payload_from_report_and_restore_metadata_only_shape
+    summary: "`_workmeta` may contain pointers, counts, hashes when allowed, status, and review notes, not raw files or extracted text."
+  - monster_id: password_or_secret_value_exposed
+    response: stop_redact_output_and_route_to_secret_boundary_review
+    summary: Passwords, credentials, tokens, cookies, sessions, `.env` contents, and secret file bodies must not enter logs, Git, chat, or reports.
+  - monster_id: default_route_switch_requested
+    response: reject_in_this_workflow_and_route_to_owner_decision
+    summary: This workflow cannot make project folder indexing a default route or change any runner/router behavior.
+  - monster_id: scheduler_or_service_requested
+    response: write_queue_only_and_require_separate_automation_workflow
+    summary: Dawn housekeeping is a queue contract here, not Windows Task Scheduler, cron, watcher, daemon, or service implementation.
+  - monster_id: full_reindex_without_gate
+    response: stop_and_write_full_reindex_gate_packet
+    summary: Whole-folder re-indexing requires a reason code and owner or policy gate when the scope is not an initial safe binding.
+  - monster_id: direct_hwp_body_analysis_requested
+    response: block_until_owner_approved_hwpx_derivative_exists
+    summary: HWP originals are preprocessing targets; HWPX derivatives must be created in an approved worksite before text extraction.
+  - monster_id: scratch_or_partial_file_indexed
+    response: remove_from_catalog_and_record_skip_reason
+    summary: Download partials, conversion intermediates, and one-off scratch files are not stable project index inputs.
+  - monster_id: index_claimed_as_source_truth
+    response: downgrade_to_search_readiness_and_route_knowledge_candidate_separately
+    summary: File index output can point to evidence but cannot establish accepted knowledge, design truth, or source-supported claims.
+  - monster_id: central_text_copy_requested
+    response: reject_and_keep_extracted_text_project_local
+    summary: Extracted text belongs to the project-local index output and must not be copied into a central cross-project text store by this workflow.
+  - monster_id: host_absolute_path_promoted_to_public_package
+    response: replace_with_repo_relative_project_relative_or_stable_placeholder_ref
+    summary: Reusable workflow package files must not contain host-specific absolute paths.

@@ -1,0 +1,23 @@
+template_id: file_search_catalog_row
+kind: row_template
+workflow_id: project_folder_indexing_v0
+columns:
+  project_code: "<project_code>"
+  source_ref: "<project_relative_file_ref>"
+  current_path_ref: "<project_relative_file_ref>"
+  file_name: "<file_name>"
+  extension: "<extension>"
+  file_type_family: unknown
+  size_bytes: 0
+  modified_time_utc: "<timestamp_utc>"
+  hash_algorithm: sha256
+  hash_value: "<hash_when_allowed>"
+  extraction_status: manual_review
+  extracted_text_ref: null
+  blocked_queue_ref: null
+  duplicate_group_id: null
+  source_pointer_ref: null
+  last_indexed_time_utc: "<timestamp_utc>"
+boundary:
+  row_is_metadata_only: true
+  row_is_not_source_truth: true

@@ -1,0 +1,256 @@
+workflow_id: project_folder_indexing_v0
+kind: workflow
+status: active
+title: Project Folder Indexing v0
+summary: Public-safe registered workflow for binding a project worksite and maintaining a project-local file/search-readiness index through inventory, freshness checks, incremental updates, controlled full re-index gates, extraction status queues, and metadata-only reporting without reading secrets, mutating originals, installing schedulers, or claiming source truth.
+entrypoint: run
+execution_mode: local_tool_sequence_owner_gated
+role_slots: role_slots.yaml
+step_graph: step_graph.yaml
+handoff_rules: handoff_rules.yaml
+monster_rules: monster_rules.yaml
+party_compatibility: party_compatibility.yaml
+profile_policy: profile_policy.yaml
+history: history/
+calibrations: calibrations/
+policy_refs:
+  - docs/architecture/workspace/PROJECT_FOLDER_INDEXING_POLICY_V0.md
+inputs:
+  - project_indexing_scope
+  - project_folder_indexing_policy_ref
+  - approved_inventory_policy
+optional_inputs:
+  - project_code_hint
+  - owner_approved_shared_worksite_ref
+  - prior_file_search_catalog_ref
+  - prior_extraction_status_ref
+  - prior_blocked_queue_ref
+  - file_delta_refs
+  - extraction_tool_inventory_ref
+  - dawn_housekeeping_policy_ref
+  - owner_full_reindex_approval_ref
+outputs:
+  - project_index_binding_packet
+  - file_inventory_snapshot
+  - freshness_and_missing_index_check
+  - incremental_index_plan
+  - full_reindex_gate_packet
+  - file_search_catalog_update
+  - extracted_text_manifest
+  - extraction_status_register
+  - blocked_file_queue
+  - duplicate_candidate_register
+  - metadata_only_workmeta_report
+  - dawn_housekeeping_queue
+  - validation_closeout_packet
+  - boundary_review_note
+validation_level: private_pilot_executed_first_pass
+registration_policy: owner_requested_registration
+output_state: pilot-executed
+readiness_posture:
+  package_state: registered-package-ready
+  pilot_ready: true
+  pilot_executed: true
+  canon_ready: false
+  registered: true
+  default_route_safe: false
+  default_route_safety_claimed: false
+private_pilot_evidence:
+  run_manifest_ref: _workmeta/P23-VDS-EXPLORE/runs/project_folder_indexing_P23-VDS-EXPLORE_20260618_1950KST/run_evidence/RUN_MANIFEST.yaml
+  summary_ref: _workmeta/P23-VDS-EXPLORE/reports/project_folder_indexing/20260618_index_run_summary.md
+  review_packet_ref: _workmeta/P23-VDS-EXPLORE/reports/post_development_review/20260618_project_folder_indexing_pilot.yaml
+classification_lane:
+  primary: project_management
+  primary_name_ko: 프로젝트 관리
+  secondary:
+    - file_operations
+    - document_management
+    - search_readiness
+    - metadata_management
+  secondary_name_ko:
+    - 파일 작업
+    - 문서 관리
+    - 검색 준비
+    - 메타데이터 관리
+  purpose: discovery_only
+  authority: none
+execution_binding:
+  party_required: false
+  candidate_party_id: null
+  bound_party_id: null
+  binding_authority: none
+workflow_modes:
+  - initial_project_binding
+  - freshness_check_only
+  - incremental_index_update
+  - controlled_full_reindex
+  - dawn_housekeeping_queue_only
+upstream_workflows:
+  - workflow_id: project_password_unlock_copy_only_v0
+    expected_outputs:
+      - unlocked_output_manifest
+      - blocked_file_register
+      - owner_apply_handoff
+    status: optional_after_owner_approved_unlock_outputs_are_adopted
+  - workflow_id: knowledge_source_audit_v0
+    expected_outputs:
+      - source_storage_audit_csv
+      - orphan_workspace_files_csv
+    status: optional_project_file_context
+  - workflow_id: owner_decision_packet_v0
+    expected_outputs:
+      - scoped_owner_decision
+    status: required_before_full_reindex_when_policy_or_scope_is_ambiguous
+downstream_workflows:
+  - workflow_id: project_password_unlock_copy_only_v0
+    expected_input: password_needed_or_encrypted_blocked_queue_rows
+    status: optional_owner_gated_unlock_route
+  - workflow_id: rag_metadata_refresh_v0
+    expected_input: metadata_only_index_refresh_signal
+    status: optional_after_index_metadata_changes
+  - workflow_id: sourcebound_knowledge_packet_operating_loop_v0
+    expected_input: source_pointer_hash_and_claim_seed_only
+    status: optional_when_index_exposes_reusable_knowledge_candidate
+  - workflow_id: post_development_review_gate_v0
+    expected_input: workflow_change_or_indexing_boundary_review_packet
+    status: required_before_completion_claim_or_registration
+operating_contract:
+  owns:
+    - project_index_binding_shape
+    - project_local_index_location_resolution
+    - file_inventory_snapshot_shape
+    - freshness_and_missing_index_check_shape
+    - incremental_index_plan_shape
+    - controlled_full_reindex_gate_shape
+    - extraction_status_register_shape
+    - blocked_file_queue_shape
+    - duplicate_candidate_register_shape
+    - metadata_only_workmeta_report_shape
+    - optional_dawn_housekeeping_queue_shape
+    - validation_closeout_shape
+    - boundary_review_note_shape
+  does_not_own:
+    - scheduler_or_service_implementation
+    - watcher_or_daemon_registration
+    - default_route_switching
+    - source_truth
+    - knowledge_promotion
+    - rag_embedding_generation
+    - notebooklm_upload
+    - cross_project_text_centralization
+    - raw_project_payload_storage_in_workmeta
+    - password_or_secret_value_reading
+    - password_unlock_attempts
+    - original_file_move_delete_rename_or_overwrite
+    - direct_hwp_body_analysis
+    - owner_approval_authority
+  default_relative_paths:
+    se_workspace_index_root_template: "020_MGMT/021_자동화설정_운영규칙/file_search_index/<run_id>/"
+    non_se_workspace_index_root_rule: project_local_management_or_operations_folder
+    metadata_report_root_template: "_workmeta/<project_code>/reports/project_folder_indexing"
+  project_detection_order:
+    - explicit_project_code_hint
+    - project_indexing_scope_binding
+    - owner_approved_shared_worksite_ref
+    - workspace_folder_name_matching_project_code_pattern
+    - stop_if_project_identity_or_worksite_is_ambiguous
+  inventory_policy:
+    include_only_project_worksite_files: true
+    skip_download_partials: true
+    skip_conversion_intermediates: true
+    skip_one_off_scratch_files: true
+    secret_files_are_excluded_or_marked_secret_excluded: true
+    file_names_do_not_imply_content_truth: true
+    hwp_requires_owner_approved_hwpx_derivative_before_text_read: true
+  index_update_policy:
+    prefer_incremental_for_new_or_changed_files: true
+    compare_by_relative_path_size_mtime_and_hash_when_allowed: true
+    full_reindex_requires_reason_code: true
+    full_reindex_allowed_reason_codes:
+      - initial_onboarding_unknown_state
+      - bulk_move_or_folder_merge
+      - catalog_missing_or_corrupt
+      - extraction_policy_changed
+      - hash_or_file_count_mismatch_cannot_be_reconciled_incrementally
+      - owner_approved_full_reindex
+    original_file_mutation_allowed: false
+  extraction_status_values:
+    - ok
+    - unsupported
+    - encrypted
+    - password_needed
+    - manual_review
+    - ocr_needed
+    - hwpx_conversion_needed
+    - secret_excluded
+    - error
+  dawn_housekeeping_contract:
+    optional_queue_only: true
+    default_window: local_dawn_window
+    no_scheduler_registration_here: true
+    no_file_move_delete_or_rename: true
+    no_password_read_or_unlock: true
+    budget_by_time_or_file_count: true
+    no_op_summary_when_nothing_is_due: true
+  report_contract:
+    metadata_only: true
+    private_output_root_template: "_workmeta/<project_code>/reports/project_folder_indexing"
+    allowed_report_fields:
+      - run_id
+      - project_code
+      - worksite_ref
+      - index_output_ref
+      - file_count
+      - file_type_counts
+      - extraction_status_counts
+      - blocked_counts
+      - duplicate_candidate_counts
+      - hash_or_size_pointer
+      - extractor_inventory
+      - validation_result
+      - reindex_reason
+      - next_action
+    forbidden_report_payloads:
+      - raw_project_file_payload
+      - raw_extracted_text
+      - copied_document_body
+      - password_value
+      - credential_token_cookie_or_session
+      - secret_file_content
+      - host_absolute_path_in_public_outputs
+  boundaries:
+    project_local_index_only: true
+    workmeta_metadata_only: true
+    index_is_not_source_truth: true
+    extracted_text_is_project_local_index_output_not_public_payload: true
+    password_values_logged: false
+    secrets_read_allowed: false
+    original_mutation_allowed: false
+    scheduler_or_service_code_allowed: false
+    default_route_switch_allowed: false
+    public_package_payload_free: true
+  required_input_shapes:
+    project_indexing_scope: templates/project_indexing_scope.template.yaml
+  required_output_shapes:
+    project_index_binding_packet: templates/project_index_binding_packet.template.yaml
+    file_inventory_snapshot: templates/file_inventory_snapshot.template.yaml
+    freshness_and_missing_index_check: templates/freshness_and_missing_index_check.template.yaml
+    incremental_index_plan: templates/incremental_index_plan.template.yaml
+    full_reindex_gate_packet: templates/full_reindex_gate_packet.template.yaml
+    file_search_catalog_update: templates/file_search_catalog_update.template.yaml
+    file_search_catalog_row: templates/file_search_catalog_row.template.yaml
+    extracted_text_manifest: templates/extracted_text_manifest.template.yaml
+    extraction_status_register: templates/extraction_status_register.template.yaml
+    blocked_file_queue: templates/blocked_file_queue.template.yaml
+    duplicate_candidate_register: templates/duplicate_candidate_register.template.yaml
+    metadata_only_workmeta_report: templates/metadata_only_workmeta_report.template.md
+    dawn_housekeeping_queue: templates/dawn_housekeeping_queue.template.yaml
+    validation_closeout_packet: templates/validation_closeout_packet.template.yaml
+    boundary_review_note: templates/boundary_review_note.template.md
+notes:
+  - This package is registered in `.workflow/index.yaml` by owner request and has a private first-pass pilot over `P23-VDS-EXPLORE`.
+  - It does not implement a scanner, scheduler, watcher, service, or default route.
+  - Index rows and extracted text are search-readiness outputs, not source truth or accepted knowledge.
+  - "`_workmeta` receives only metadata summaries, pointers, counts, status, hashes when allowed, and review notes; raw files and extracted text remain project-local index outputs."
+  - Password-protected, secret, HWP, OCR-needed, unsupported, or broken files become blocked queue rows unless a separate owner-approved workflow handles them.
+  - Catalog registration, README documentation, changelog update, and private review evidence are handled by the manager integration for the creating task.

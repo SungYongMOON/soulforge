@@ -2,7 +2,7 @@ workflow_id: outlook_mail_reconcile_v0
 kind: workflow
 status: active
 title: Outlook Mail Reconcile v0
-summary: Metadata-only registered workflow for updating Codex-managed project sent-mail history from Outlook sent-folder metadata and cross-validating received-mail history against inbox metadata.
+summary: Metadata-only registered workflow for refreshing Outlook send-receive state, updating Codex-managed project sent-mail history from Outlook sent-folder metadata, and cross-validating received-mail history against inbox metadata.
 entrypoint: run
 execution_mode: local_tool_sequence
 role_slots: role_slots.yaml
@@ -89,6 +89,7 @@ ledger_contract:
   public_commit_allowed: false
 outlook_boundary:
   read_only_metadata_access: true
+  preflight_send_receive_sync: owner_requested_allowed
   mutate_outlook_folders: false
   mutate_outlook_rules: false
   send_mail: false
@@ -122,6 +123,7 @@ reconcile_contract:
     - public_publication_of_project_mail_data
   authority_boundary:
     existing_received_ledger_is_read_only_context: true
+    preflight_send_receive_sync_allowed_before_metadata_read: true
     sent_rows_require_metadata_match_or_owner_review: true
     uncertain_project_matches_are_not_auto_upserted: true
     inbox_cross_validation_does_not_delete_received_rows: true
@@ -144,6 +146,7 @@ reconcile_contract:
 notes:
   - This package is registered in .workflow/index.yaml as a workflow canon entry.
   - Use /outlook-reconcile as the short human invocation alias; resolve it to workflow_id outlook_mail_reconcile_v0 before execution.
+  - When the owner or automation policy asks for mailbox refresh, trigger Outlook Send/Receive immediately before metadata collection and record that preflight in the run outputs.
   - Outlook metadata access must be owner-approved and read-only before any local pilot run.
   - The workflow may update project mail history metadata only when run in apply_metadata_ledger_delta mode.
   - Received-mail reconciliation reports discrepancies; it must not erase or rewrite received history without a separate owner decision.

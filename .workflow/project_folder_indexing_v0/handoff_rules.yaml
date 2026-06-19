@@ -1,0 +1,36 @@
+workflow_id: project_folder_indexing_v0
+kind: handoff_rules
+status: active
+rules:
+  - from: project_context_binder
+    to: file_inventory_auditor
+    condition: project_context_bound_without_ambiguity
+    summary: Inventory receives only the bound project code, project worksite pointer, index root, and approved skip/exclusion policy.
+  - from: file_inventory_auditor
+    to: freshness_checker
+    condition: metadata_only_inventory_written
+    summary: Freshness checking receives metadata rows and prior index refs, not document bodies or extracted text payloads.
+  - from: freshness_checker
+    to: index_update_planner
+    condition: freshness_classification_written
+    summary: Planning receives missing/stale/no-op/delta classification plus reason codes for any full re-index candidate.
+  - from: index_update_planner
+    to: extraction_status_runner
+    condition: incremental_plan_or_full_reindex_gate_written
+    summary: Extraction receives approved file refs and route hints only; full re-index candidates require a gate packet before broad traversal.
+  - from: extraction_status_runner
+    to: catalog_and_queue_curator
+    condition: extraction_status_recorded
+    summary: Catalog curation receives status rows, output pointers, and blocker classes without secret values or copied source bodies.
+  - from: catalog_and_queue_curator
+    to: housekeeping_queue_planner
+    condition: catalog_and_blocked_queues_updated
+    summary: Optional housekeeping receives staleness and blocked summaries to prepare future queue rows, not scheduler instructions.
+  - from: housekeeping_queue_planner
+    to: metadata_reporter
+    condition: housekeeping_queue_written_or_not_applicable
+    summary: Reporting receives queue refs, counts, and no-op state; no raw index payload is copied into `_workmeta`.
+  - from: metadata_reporter
+    to: validation_reviewer
+    condition: metadata_only_report_written
+    summary: Review receives report refs, catalog refs, and boundary evidence needed to close the workflow without promoting source truth.

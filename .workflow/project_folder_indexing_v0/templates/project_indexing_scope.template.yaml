@@ -1,0 +1,23 @@
+template_id: project_indexing_scope
+kind: input_template
+workflow_id: project_folder_indexing_v0
+project_code: "<project_code>"
+project_worksite_ref: "_workspaces/<project_code>"
+owner_approved_shared_worksite_ref: null
+index_mode: incremental
+requested_scope:
+  include_refs: []
+  exclude_refs:
+    - "**/.env"
+    - "**/*credential*"
+    - "**/*token*"
+    - "**/*.partial"
+    - "**/*.tmp"
+policy_refs:
+  - docs/architecture/workspace/PROJECT_FOLDER_INDEXING_POLICY_V0.md
+boundary:
+  workmeta_metadata_only: true
+  no_secret_value_reading: true
+  no_original_mutation: true
+  no_scheduler_or_service_change: true
+  no_default_route_switch: true

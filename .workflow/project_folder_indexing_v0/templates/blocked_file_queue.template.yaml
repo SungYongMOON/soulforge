@@ -1,0 +1,26 @@
+template_id: blocked_file_queue
+kind: output_template
+workflow_id: project_folder_indexing_v0
+run_id: "<run_id>"
+project_code: "<project_code>"
+rows:
+  - file_ref: "<project_relative_file_ref>"
+    blocked_reason: manual_review
+    extraction_status: manual_review
+    downstream_route_hint: owner_review
+    owner_action_needed: true
+    source_pointer_ref: null
+    hash_pointer: "<hash_when_allowed>"
+    raw_payload_copied: false
+allowed_blocked_reasons:
+  - unsupported
+  - encrypted
+  - password_needed
+  - manual_review
+  - ocr_needed
+  - hwpx_conversion_needed
+  - secret_excluded
+  - error
+boundary:
+  password_values_included: false
+  document_body_included: false

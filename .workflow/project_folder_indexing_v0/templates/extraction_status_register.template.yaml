@@ -1,0 +1,33 @@
+template_id: extraction_status_register
+kind: output_template
+workflow_id: project_folder_indexing_v0
+run_id: "<run_id>"
+project_code: "<project_code>"
+status_values:
+  - ok
+  - unsupported
+  - encrypted
+  - password_needed
+  - manual_review
+  - ocr_needed
+  - hwpx_conversion_needed
+  - secret_excluded
+  - error
+rows:
+  - file_ref: "<project_relative_file_ref>"
+    extraction_status: manual_review
+    extractor_id: metadata_only_probe
+    extracted_text_ref: null
+    status_reason: needs_route_selection
+    error_summary: null
+    body_payload_stored: false
+summary_counts:
+  ok: 0
+  unsupported: 0
+  encrypted: 0
+  password_needed: 0
+  manual_review: 0
+  ocr_needed: 0
+  hwpx_conversion_needed: 0
+  secret_excluded: 0
+  error: 0

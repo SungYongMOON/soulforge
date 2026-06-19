@@ -42,6 +42,14 @@
 11. procedure capture 와 post-development review packet 을 `_workmeta/system/reports/**` 에 남긴다.
 12. public 문서 변경이 동반되면 public `CHANGELOG.md` 를 갱신한다.
 
+## PC별 주기 실행 권한
+
+- PJT 관리 대장의 주기 확인 주기는 manifest 에 metadata 로 기록할 수 있다.
+- 사용자가 다른 PC 에서 주기 실행을 설정한다고 말하면 현재 PC 에서는 local automation, scheduler, watcher 를 만들거나 유지하지 않는다.
+- 이 경우 현재 PC 의 산출물은 source pointer, refresh policy, 검증 방법, 다음 PC 가 따라야 할 setup note 로 제한한다.
+- automation 생성, 삭제, scheduler 등록은 node assignment 또는 owner 지시가 있을 때 별도 작업으로 수행한다.
+- 주기 정보만으로 workbook 최신성, source truth, project registration 갱신 완료, local automation 권한을 주장하지 않는다.
+
 ## `_workmeta` contract projection
 
 반복 대장에서 추출해 private contract 에 넣을 수 있는 public-safe field shape 는 아래와 같다. 실제 값은 private `_workmeta/<project_code>/contract.yaml` 에만 둔다.

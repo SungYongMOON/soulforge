@@ -1,0 +1,24 @@
+template_id: incremental_index_plan
+kind: output_template
+workflow_id: project_folder_indexing_v0
+run_id: "<run_id>"
+project_code: "<project_code>"
+mode: incremental
+delta_selection_rule: new_or_changed_files_only
+selected_file_refs: []
+skipped_file_refs: []
+skip_reason_codes:
+  - download_partial
+  - conversion_intermediate
+  - scratch_file
+  - secret_excluded
+extraction_routes:
+  - route_id: metadata_only_probe
+    file_ref: "<project_relative_file_ref>"
+    expected_status: manual_review
+budget:
+  max_files: null
+  max_runtime_minutes: null
+boundary:
+  original_mutation_allowed: false
+  raw_payload_to_workmeta_allowed: false

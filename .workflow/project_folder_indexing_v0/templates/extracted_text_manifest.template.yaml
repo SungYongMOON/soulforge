@@ -1,0 +1,18 @@
+template_id: extracted_text_manifest
+kind: output_template
+workflow_id: project_folder_indexing_v0
+run_id: "<run_id>"
+project_code: "<project_code>"
+text_output_root_ref: "<project_local_index_text_root_ref>"
+manifest_created_at: "<iso8601>"
+entries:
+  - file_ref: "<project_relative_file_ref>"
+    index_text_ref: "<project_local_index_text_ref_or_null>"
+    extraction_status: "<ok|no_text|unsupported|encrypted|password_needed|manual_review|ocr_needed|hwpx_conversion_needed|secret_excluded|error>"
+    extractor_route: "<route_id_or_null>"
+    blocker_class: null
+boundary:
+  project_local_index_output: true
+  not_copied_to_workmeta: true
+  not_public_payload: true
+  not_source_truth: true

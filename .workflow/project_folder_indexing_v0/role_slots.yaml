@@ -1,0 +1,31 @@
+workflow_id: project_folder_indexing_v0
+kind: role_slots
+status: active
+slots:
+  - slot_id: project_context_binder
+    title: Project Context Binder
+    summary: Resolves project identity, project worksite, project-local index output root, and `_workmeta` metadata report root without guessing ambiguous bindings.
+  - slot_id: file_inventory_auditor
+    title: File Inventory Auditor
+    summary: Collects metadata-only file rows from the bound project worksite and applies skip/exclusion rules for scratch, partial, conversion, and secret material.
+  - slot_id: freshness_checker
+    title: Freshness Checker
+    summary: Compares the current inventory to prior catalog and queue refs to classify missing, stale, no-op, incremental, or full re-index candidate states.
+  - slot_id: index_update_planner
+    title: Index Update Planner
+    summary: Chooses incremental indexing by default and prepares a controlled full re-index gate only when policy reason codes or owner approval justify it.
+  - slot_id: extraction_status_runner
+    title: Extraction Status Runner
+    summary: Runs or routes approved file-level extraction attempts and records supported, unsupported, encrypted, OCR, HWPX conversion, secret, or error status.
+  - slot_id: catalog_and_queue_curator
+    title: Catalog And Queue Curator
+    summary: Updates catalog rows, duplicate candidate rows, extracted text pointers, and blocked queues without treating index output as source truth.
+  - slot_id: housekeeping_queue_planner
+    title: Housekeeping Queue Planner
+    summary: Writes optional dawn housekeeping queue rows for missing or stale indexes without implementing or registering scheduler/service code.
+  - slot_id: metadata_reporter
+    title: Metadata Reporter
+    summary: Produces metadata-only `_workmeta` reports with pointers, counts, status, hashes when allowed, blocked reasons, and next action.
+  - slot_id: validation_reviewer
+    title: Validation Reviewer
+    summary: Confirms catalog completeness, extraction status coverage, blocked queue separation, metadata-only reporting, secret boundaries, and non-claim posture.

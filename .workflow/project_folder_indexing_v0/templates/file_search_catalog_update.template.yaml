@@ -1,0 +1,21 @@
+template_id: file_search_catalog_update
+kind: output_template
+workflow_id: project_folder_indexing_v0
+run_id: "<run_id>"
+project_code: "<project_code>"
+catalog_ref: "<project_local_file_search_catalog_ref>"
+manifest_ref: "<project_local_file_search_manifest_ref>"
+update_mode: "<no_op|incremental|controlled_full_reindex>"
+rows_added: 0
+rows_updated: 0
+rows_removed_or_marked_missing: 0
+row_shape_ref: templates/file_search_catalog_row.template.yaml
+coverage_summary:
+  intended_scope_count: 0
+  catalog_covered_count: 0
+  blocked_count: 0
+  excluded_count: 0
+boundary:
+  project_local_output: true
+  workmeta_stores_pointer_only: true
+  catalog_is_not_source_truth: true

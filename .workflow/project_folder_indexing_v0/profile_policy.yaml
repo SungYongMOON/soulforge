@@ -1,0 +1,35 @@
+workflow_id: project_folder_indexing_v0
+kind: workflow_profile_policy
+status: draft
+validation_level: no_public_synthetic_profile_calibration
+optimizer_status: not_run
+profile_binding_policy:
+  model: runtime_default_or_project_binding
+  reasoning_effort: runtime_default_or_project_binding
+  species: runtime_default_or_project_binding
+  class: runtime_default_or_project_binding
+  party: runtime_binding_or_unbound
+selection_rules:
+  - Do not hard-code local executable paths, drive-letter roots, project names, cloud roots, passwords, or secret paths into this workflow package.
+  - Prefer deterministic local tools for inventory, hashing, format probing, extraction, catalog writing, and validation.
+  - Use LLM reasoning only for boundary review wording, blocked reason normalization, owner handoff wording, and metadata report drafting.
+  - Do not send raw project file bodies, extracted text payloads, password values, secret files, or credential material to an LLM.
+  - Raise reasoning effort only when project binding, full re-index gating, blocked queue classification, or public/private boundary review is ambiguous.
+rerun_triggers:
+  - project folder indexing policy changes
+  - SE workspace folder conventions change
+  - extraction status values or blocked reason codes change
+  - "`_workmeta` metadata-only report contract changes"
+  - dawn housekeeping queue policy changes
+  - a live pilot exposes stale-index, secret-boundary, or full-reindex ambiguity
+non_claims:
+  - no_scheduler_implementation_claim
+  - no_default_route_claim
+  - no_unattended_automation_claim
+  - no_source_truth_claim
+  - no_knowledge_promotion_claim
+  - no_password_unlock_claim
+  - no_public_payload_index_claim
+notes:
+  - Profile optimization is deferred because this package defines controller boundaries and artifact shapes, not a concrete scanner or extraction implementation.
+  - Live execution must resolve tool availability from the current machine and record tool inventory in private metadata-only evidence.

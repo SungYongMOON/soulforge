@@ -1,0 +1,26 @@
+template_id: duplicate_candidate_register
+kind: output_template
+workflow_id: project_folder_indexing_v0
+run_id: "<run_id>"
+project_code: "<project_code>"
+register_ref: "<project_local_duplicate_candidate_register_ref>"
+duplicate_basis:
+  allowed_signals:
+    - exact_hash_when_allowed
+    - same_size_and_name_candidate
+    - same_modified_time_and_name_candidate
+    - owner_declared_version_relation
+  forbidden_claims:
+    - delete_recommendation_without_owner_review
+    - source_of_truth_selection_without_owner_decision
+groups:
+  - duplicate_group_ref: "<group_id>"
+    confidence: "<exact|candidate|weak>"
+    basis: "<basis>"
+    file_refs:
+      - "<project_relative_file_ref>"
+    recommended_next_action: owner_review
+boundary:
+  metadata_only: true
+  no_file_deletion: true
+  no_source_truth_selection: true

@@ -1,0 +1,24 @@
+template_id: dawn_housekeeping_queue
+kind: output_template
+workflow_id: project_folder_indexing_v0
+run_id: "<run_id>"
+project_code: "<project_code>"
+queue_mode: optional_housekeeping
+scheduler_registration_requested: false
+rows:
+  - project_code: "<project_code>"
+    worksite_ref: "_workspaces/<project_code>"
+    queue_reason: stale_or_missing_index
+    recommended_mode: incremental
+    budget_hint:
+      max_files: null
+      max_runtime_minutes: null
+    next_run_window: local_dawn_window
+    owner_action_needed: false
+no_op_summary:
+  no_indexing_due: false
+boundary:
+  queue_only: true
+  no_scheduler_service_or_watcher_code: true
+  no_file_move_delete_or_rename: true
+  no_password_read_or_unlock: true

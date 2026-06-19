@@ -1,0 +1,25 @@
+template_id: full_reindex_gate_packet
+kind: output_template
+workflow_id: project_folder_indexing_v0
+run_id: "<run_id>"
+project_code: "<project_code>"
+full_reindex_requested: false
+gate_status: not_required
+allowed_reason_codes:
+  - initial_onboarding_unknown_state
+  - bulk_move_or_folder_merge
+  - catalog_missing_or_corrupt
+  - extraction_policy_changed
+  - hash_or_file_count_mismatch_cannot_be_reconciled_incrementally
+  - owner_approved_full_reindex
+selected_reason_codes: []
+owner_approval_ref: null
+scope_ref: "<project_worksite_ref>"
+expected_outputs:
+  - file_search_catalog_update
+  - extraction_status_register
+  - blocked_file_queue
+boundary:
+  prefer_incremental_when_possible: true
+  no_original_mutation: true
+  no_secret_value_reading: true

@@ -13,7 +13,9 @@
 | `WORKSPACE_PROJECT_MODEL.md` | `_workspaces`, `_workmeta`, `.mission`, gateway handoff 의 owner 경계를 고정한다. |
 | `WORKSPACE_PATH_IDENTITY_POLICY_V0.md` | `_workspaces/<name>` 이 PC마다 다른 실체를 가리키지 않도록 shared view 와 PC-local namespace 경계를 고정한다. |
 | `PROJECT_ONBOARDING_V0.md` | 실제 프로젝트를 `_workspaces/<project_code>/` 로 처음 붙이는 절차를 둔다. |
+| `PROJECT_FOLDER_INDEXING_POLICY_V0.md` | 프로젝트 폴더마다 검색 가능한 파일 색인을 project-local 로 유지하고, 색인과 지식화를 분리하는 운영 규칙이다. |
 | `PROJECT_LEDGER_UPDATE_V0.md` | 주기적으로 전달되는 회사 PJT 관리 대장을 private source 로 받아 project registration 을 갱신하는 public-safe 절차다. |
+| `COMPANY_COMMON_SOURCE_STORAGE_V0.md` | 회사 공통 조직/연락처/자리배치/운영 참조 자료를 project worksite 와 분리해 knowledge common source packet 으로 보관하는 규칙이다. |
 | `DAILY_WORK_LEDGER_TAXONOMY_V0.md` | 일일 업무장부의 회사 프로젝트, P00 회사 일반업무, Soulforge 하위 장부 분류 기준이다. |
 | `DAILY_WORK_LEDGER_AUTOMATION_V0.md` | daily ledger validator/renderer command surface 와 ledger-only report boundary 를 정의한다. |
 | `SE_WORKSPACE_FOLDER_NAMING_CONVENTION_V0.md` | 사람이 보는 SE 프로젝트 워크스페이스 폴더명을 한글 중심, 짧은 의미 중심으로 정하고 provenance 를 metadata 로 분리하는 규칙이다. |
@@ -67,7 +69,9 @@
 - [`WORKSPACE_PROJECT_MODEL.md`](WORKSPACE_PROJECT_MODEL.md)
 - [`WORKSPACE_PATH_IDENTITY_POLICY_V0.md`](WORKSPACE_PATH_IDENTITY_POLICY_V0.md)
 - [`PROJECT_ONBOARDING_V0.md`](PROJECT_ONBOARDING_V0.md)
+- [`PROJECT_FOLDER_INDEXING_POLICY_V0.md`](PROJECT_FOLDER_INDEXING_POLICY_V0.md)
 - [`PROJECT_LEDGER_UPDATE_V0.md`](PROJECT_LEDGER_UPDATE_V0.md)
+- [`COMPANY_COMMON_SOURCE_STORAGE_V0.md`](COMPANY_COMMON_SOURCE_STORAGE_V0.md)
 - [`DAILY_WORK_LEDGER_TAXONOMY_V0.md`](DAILY_WORK_LEDGER_TAXONOMY_V0.md)
 - [`DAILY_WORK_LEDGER_AUTOMATION_V0.md`](DAILY_WORK_LEDGER_AUTOMATION_V0.md)
 - [`SE_WORKSPACE_FOLDER_NAMING_CONVENTION_V0.md`](SE_WORKSPACE_FOLDER_NAMING_CONVENTION_V0.md)
@@ -126,7 +130,9 @@
 - `WORKFLOW_EVOLUTION_HARNESS_INSTALL_V0.md` 는 owner PC 에서 Codex `/goal` 과 promptfoo 같은 harness 후보를 설치하고, workflow evolution 실험을 운영 clone 과 분리하는 절차를 둔다.
 - `INSTALLATION_MANUAL_V0.md` 는 다른 PC 에서 clone 후 무엇을 어떤 순서로 설치해야 하는지 한 장짜리 상위 bootstrap 문서다.
 - `PROJECT_ONBOARDING_V0.md` 는 첫 실제 프로젝트를 `_workspaces/<project_code>/` 에 붙일 때 short `project_code`, full `display_name`, read-only first, local-only link materialization 규칙을 잠근다.
+- `PROJECT_FOLDER_INDEXING_POLICY_V0.md` 는 프로젝트 자료 정리, RAG, 지식화 전에 project-local 파일 색인을 만들고, `_workmeta` 에는 원문이 아니라 실행 기록과 포인터만 남기는 규칙을 잠근다.
 - `PROJECT_LEDGER_UPDATE_V0.md` 는 owner 가 주기적으로 전달하는 회사 PJT 관리 대장을 private source 로 보관하고 current/open project metadata 를 갱신하는 절차를 잠근다.
+- `COMPANY_COMMON_SOURCE_STORAGE_V0.md` 는 특정 프로젝트가 아닌 회사 공통 조직/연락처/자리배치/운영 참조 자료를 `_workspaces/knowledge/common/company/` 아래 source packet 으로 보관하고, `_workmeta` 에는 metadata-only 기록만 남기는 규칙을 잠근다.
 - `SE_WORKSPACE_FOLDER_NAMING_CONVENTION_V0.md` 는 사람에게 보이는 SE workspace 폴더명은 짧은 한글 의미명으로 두고, 날짜/source/mail/hash/import provenance 는 `_workmeta` metadata 또는 manifest 로 분리하는 기준을 잠근다.
 - shared project payload 는 owner-approved shared worksite 에 두고 `_workspaces/<project_code>/` 는 junction/symlink view 로 materialize 하는 것을 current-default 로 둔다.
 - `PROJECT_START_WORKFLOW_V0.md` 는 첫 과제 시작 시 사람과 Codex 가 어디에 기록하고 어떤 순서로 bounded task 를 열지 잠근다.
