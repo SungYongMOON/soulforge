@@ -11,7 +11,7 @@ Before inviting team members, run the read-only release audit from the
 development checkout against the runtime checkout:
 
 ```powershell
-npm run dev-erp:audit-runtime -- --runtime-root <runtime-checkout> --workspaces <dev-checkout>\_workspaces --nas-root <nas-root> --live --allow-lan-http
+npm run dev-erp:audit-runtime -- --runtime-root <runtime-checkout> --workspaces <dev-checkout>\_workspaces --nas-root <nas-root> --require-live
 ```
 
 The audit must report zero blockers before the owner gives final team-opening
@@ -23,7 +23,10 @@ project files, mail bodies, or secret env values.
 
 Use `--target-members <n>` when the approval gate requires a minimum number of
 active non-admin accounts. Use `--allow-lan-http` only for an owner-approved
-trusted-LAN pilot; omit it for the default Tailscale/localhost posture.
+trusted-LAN pilot; omit it for the default Tailscale/localhost posture. With
+`--require-live`, unreachable health, missing NAS root, missing restore-test
+evidence, dirty source/runtime checkout, and unapproved broad LAN listening are
+release blockers rather than warnings.
 
 ## Runtime Maintenance Runbook
 

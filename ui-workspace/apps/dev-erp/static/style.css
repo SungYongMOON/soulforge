@@ -1124,9 +1124,12 @@ nav button[disabled]:hover { background: transparent; }
   }
   .fav-chip, button, select, input { min-height: 30px; }
   th, td { padding: 8px 9px; font-size: 12.5px; }
+  .widget-body { max-height: min(420px, 54dvh); overflow: auto; }
+  .widget-body table { display: table; width: max-content; min-width: 520px; max-width: none; }
+  .widget-body table.proj-table { min-width: 760px; }
+  .widget-body th, .widget-body td { white-space: nowrap; }
   .mail-snip, .mail-subj, .mail-from { max-width: 68vw; }
   .inbox-strip { flex-wrap: wrap; gap: 6px; }
-  .widget-body { max-height: none; }
   .widget-head { padding: 8px 10px; }
   .widget-ctrls { gap: 2px; }
   .wfold, .wdots, .wrefresh, .wpop, .wcreate { padding: 4px 5px; }

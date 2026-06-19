@@ -7,8 +7,8 @@ REM ----------------------------------------------------------------
 cd /d "%~dp0"
 echo %CD% | findstr /I "\\Soulforge-runtime\\" >nul
 if errorlevel 1 (
-  echo [dev-erp] refused: Tailscale backend 4300 must be started from C:\Soulforge-runtime.
-  echo [dev-erp] For C:\Soulforge development use: node server.mjs --host 127.0.0.1 --port 4310
+  echo [dev-erp] refused: Tailscale backend 4300 must be started from the runtime checkout.
+  echo [dev-erp] For development use: node server.mjs --host 127.0.0.1 --port 4310
   exit /b 2
 )
 set "DEV_ERP_COOKIE_SECURE=1"

@@ -392,10 +392,10 @@ function renderGate() {
           <span class="gate-version-chip" title="${esc(ua)}">${esc(L.browser_version_label)} ${esc(browserVersion)}</span>
           <span class="gate-version-chip" title="${esc(`${L.chat_version_label} ${chatbotVersion.build} · ${chatbotVersion.source}`)}">${esc(L.chat_version_label)} ${esc(chatbotVersion.release)}</span>
         </div>
-        ${firstRun ? "" : `<div class="gate-tabs">
+        ${canRegister ? `<div class="gate-tabs">
           <button class="gate-tab ${tab === "login" ? "on" : ""}" data-tab="login">${L.gate_tab_login}</button>
-          ${canRegister ? `<button class="gate-tab ${tab === "register" ? "on" : ""}" data-tab="register">${L.gate_tab_register}</button>` : ""}
-        </div>`}
+          <button class="gate-tab ${tab === "register" ? "on" : ""}" data-tab="register">${L.gate_tab_register}</button>
+        </div>` : ""}
         <div class="gate-form">${formHtml()}</div>
       </div>`;
     gate.querySelector("#gateMode")?.addEventListener("click", async () => {
@@ -1885,11 +1885,21 @@ async function renderReports() {
 }
 
 // A7 ERP 챗봇 패널(메타 컨텍스트, 원문 미전송). 외부전송은 어댑터의 codex_cli만(tool_pc).
+function closeMobileFloatingOverlays({ keepChat = false, keepTaskCodexItemId = null } = {}) {
+  if (!isMobileViewport()) return;
+  if (!keepChat) document.querySelector(".chat-overlay")?.remove();
+  for (const node of taskCodexOverlays()) {
+    if (keepTaskCodexItemId !== null && node.dataset.itemId === String(keepTaskCodexItemId)) continue;
+    node.remove();
+  }
+}
+
 function openChat() {
   const L = state.lex;
   const chatVersion = versionPart("chatbot");
   const runtime = state.version?.runtime || {};
   const llm = runtime.llm || {};
+  closeMobileFloatingOverlays({ keepChat: true });
   document.querySelector(".chat-overlay")?.remove();
   const ov = document.createElement("div");
   ov.className = "chat-overlay";
@@ -2321,6 +2331,7 @@ function tileTaskCodexPanels() {
 }
 
 function openTaskCodex(itemId) {
+  closeMobileFloatingOverlays({ keepTaskCodexItemId: itemId });
   const existing = taskCodexOverlays().find((node) => node.dataset.itemId === String(itemId));
   if (existing) {
     bringTaskCodexToFront(existing);
@@ -2374,7 +2385,13 @@ function openTaskCodex(itemId) {
   let pending = false;
   let pendingTimer = null;
   let pendingStartedAt = 0;
-  let capabilities = { skills: [], model_options: [""], effort_options: [""], service_tier_options: [""] };
+  let capabilities = {
+    skills: [],
+    defaults: { model: "gpt-5.5", effort: "medium", service_tier: "flex" },
+    model_options: ["gpt-5.5"],
+    effort_options: ["medium"],
+    service_tier_options: ["flex"],
+  };
   let stagedImages = [];
   const taskCodexWaitStages = {
     open: [
@@ -2391,24 +2408,50 @@ function openTaskCodex(itemId) {
     ]
   };
   const taskCodexOptionLabels = {
-    model: { "": "모델 기본", "gpt-5.5": "GPT-5.5", "gpt-5.4": "GPT-5.4", "gpt-5.3": "GPT-5.3" },
-    effort: { "": "추론 기본", low: "낮음", medium: "보통", high: "높음", xhigh: "매우 높음" },
-    tier: { "": "속도 기본", fast: "fast", flex: "flex" },
+    model: { "gpt-5.5": "GPT-5.5", "gpt-5.4": "GPT-5.4", "gpt-5.3": "GPT-5.3" },
+    effort: { low: "낮음", medium: "보통", high: "높음", xhigh: "매우 높음" },
+    tier: { fast: "fast", flex: "flex" },
   };
-  const saveTaskCodexOptions = () => {
-    state.taskCodexOptions = {
-      model: modelEl.value || "",
-      effort: effortEl.value || "",
-      service_tier: tierEl.value || "",
+  const normalizeTaskCodexOptions = (raw = {}) => {
+    const defaults = capabilities.defaults || {};
+    const pick = (key, values, fallback = "") => {
+      const selected = String(raw[key] || "").trim();
+      const list = Array.isArray(values) ? values.map(String) : [];
+      if (selected && (!list.length || list.includes(selected))) return selected;
+      const fromDefaults = String(defaults[key] || "").trim();
+      if (fromDefaults) return fromDefaults;
+      return list[0] || fallback;
     };
+    return {
+      model: pick("model", capabilities.model_options, "gpt-5.5"),
+      effort: pick("effort", capabilities.effort_options, "medium"),
+      service_tier: pick("service_tier", capabilities.service_tier_options, "flex"),
+    };
+  };
+  const currentTaskCodexOptions = () => ({
+    model: modelEl.value || "",
+    effort: effortEl.value || "",
+    service_tier: tierEl.value || "",
+  });
+  const describeTaskCodexOptions = (opt = currentTaskCodexOptions()) => [
+    taskCodexOptionLabels.model[opt.model] || opt.model,
+    taskCodexOptionLabels.effort[opt.effort] || opt.effort,
+    taskCodexOptionLabels.tier[opt.service_tier] || opt.service_tier,
+  ].filter(Boolean).join(" / ");
+  const saveTaskCodexOptions = () => {
+    state.taskCodexOptions = currentTaskCodexOptions();
     localStorage.setItem("dev_erp_task_codex_options", JSON.stringify(state.taskCodexOptions));
   };
   const fillSelect = (el, values, labels, selected) => {
     const list = Array.isArray(values) && values.length ? values : [""];
-    el.innerHTML = list.map((v) => `<option value="${esc(v)}" ${String(selected || "") === String(v) ? "selected" : ""}>${esc(labels[v] || v || "기본")}</option>`).join("");
+    const selectedValue = String(selected || "");
+    const fullList = selectedValue && !list.map(String).includes(selectedValue) ? [selectedValue, ...list] : list;
+    el.innerHTML = fullList.map((v) => `<option value="${esc(v)}" ${selectedValue === String(v) ? "selected" : ""}>${esc(labels[v] || v || "기본")}</option>`).join("");
   };
   const renderTools = () => {
-    const opt = state.taskCodexOptions || {};
+    const opt = normalizeTaskCodexOptions(state.taskCodexOptions || {});
+    state.taskCodexOptions = opt;
+    localStorage.setItem("dev_erp_task_codex_options", JSON.stringify(opt));
     fillSelect(modelEl, capabilities.model_options, taskCodexOptionLabels.model, opt.model);
     fillSelect(effortEl, capabilities.effort_options, taskCodexOptionLabels.effort, opt.effort);
     fillSelect(tierEl, capabilities.service_tier_options, taskCodexOptionLabels.tier, opt.service_tier);
@@ -2417,7 +2460,13 @@ function openTaskCodex(itemId) {
     try {
       capabilities = await api("/api/codex-task/capabilities");
     } catch {
-      capabilities = { skills: [], model_options: [""], effort_options: [""], service_tier_options: [""] };
+      capabilities = {
+        skills: [],
+        defaults: { model: "gpt-5.5", effort: "medium", service_tier: "flex" },
+        model_options: ["gpt-5.5"],
+        effort_options: ["medium"],
+        service_tier_options: ["flex"],
+      };
     }
     renderTools();
   };
@@ -2564,8 +2613,9 @@ function openTaskCodex(itemId) {
     const item = payload?.item;
     const binding = payload?.binding;
     const mode = payload?.mode || state.version?.runtime?.codex_task?.mode || "?";
+    const configLabel = describeTaskCodexOptions();
     metaEl.innerHTML = item
-      ? `<span>${esc(item.project_id)}</span><strong>${esc(item.title)}</strong><small>${esc(mode)}${binding?.thread_id ? ` · ${esc(binding.thread_id)}` : ""}</small>`
+      ? `<span>${esc(item.project_id)}</span><strong>${esc(item.title)}</strong><small>${esc(mode)} · ${esc(configLabel)}${binding?.thread_id ? ` · ${esc(binding.thread_id)}` : ""}</small>`
       : `<span>연결 준비 중</span>`;
     const rows = payload?.messages || [];
     logEl.innerHTML = rows.length
@@ -2577,7 +2627,14 @@ function openTaskCodex(itemId) {
   const load = async () => {
     setPending(true, "open");
     try {
-      const resp = await postJsonWithTimeout("/api/codex-task/open", { item_id: itemId }, CHAT_REQUEST_TIMEOUT_MS);
+      saveTaskCodexOptions();
+      const opt = currentTaskCodexOptions();
+      const resp = await postJsonWithTimeout("/api/codex-task/open", {
+        item_id: itemId,
+        model: opt.model || null,
+        effort: opt.effort || null,
+        service_tier: opt.service_tier || null,
+      }, CHAT_REQUEST_TIMEOUT_MS);
       payload = await resp.json().catch(() => ({}));
       render();
       if (!resp.ok) throw new Error(payload.detail || payload.error || "codex_task_open_failed");
@@ -2598,13 +2655,14 @@ function openTaskCodex(itemId) {
     setPending(true, "send");
     try {
       saveTaskCodexOptions();
+      const opt = currentTaskCodexOptions();
       const attachments = await uploadStagedImages();
       const resp = await postJsonWithTimeout("/api/codex-task/message", {
         item_id: itemId,
         message: msg,
-        model: modelEl.value || null,
-        effort: effortEl.value || null,
-        service_tier: tierEl.value || null,
+        model: opt.model || null,
+        effort: opt.effort || null,
+        service_tier: opt.service_tier || null,
         attachments,
       }, CHAT_REQUEST_TIMEOUT_MS);
       payload = await resp.json().catch(() => ({}));
@@ -2679,7 +2737,12 @@ function openTaskCodex(itemId) {
   ov.querySelector(".task-codex-tile").addEventListener("click", tileTaskCodexPanels);
   ov.querySelector(".task-codex-x").addEventListener("click", closePanel);
   window.addEventListener("resize", restoreDockPosition, { passive: true });
-  for (const el of [modelEl, effortEl, tierEl]) el.addEventListener("change", saveTaskCodexOptions);
+  for (const el of [modelEl, effortEl, tierEl]) {
+    el.addEventListener("change", () => {
+      saveTaskCodexOptions();
+      render();
+    });
+  }
   imageEl.addEventListener("change", () => {
     stagedImages = [...stagedImages, ...Array.from(imageEl.files || [])].slice(0, 6);
     imageEl.value = "";
@@ -2718,7 +2781,7 @@ function openTaskCodex(itemId) {
       send();
     }
   });
-  Promise.all([loadCapabilities(), load()]).then(() => inputEl.focus());
+  loadCapabilities().then(load).then(() => inputEl.focus());
 }
 
 function uiConfirm(message) {

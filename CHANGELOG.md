@@ -22,6 +22,9 @@
 - Added the default server-owned Codex task bridge for option 2: work PCs use
   the ERP UI/API only, while the ERP server starts/resumes Codex threads through
   `codex app-server` over stdio.
+- Set Codex task chat defaults to `gpt-5.5` / `medium` / `flex`; the API now
+  exposes only `flex` unless `DEV_ERP_CODEX_TASK_ALLOW_FAST=1` is set, and
+  normalizes unapproved `fast` requests back to the server default.
 - Added `/api/codex-task/thread`, `/api/codex-task/open`, and
   `/api/codex-task/message` with `core_item.id -> codex_thread_binding` storage
   and a separate `codex_thread_message` cache for the small task conversation
@@ -52,6 +55,16 @@
 - Filtered app-server turn completion and message delta events by parent
   `threadId` so subagent turn completions do not prematurely finish the ERP task
   chat turn.
+- Updated release-facing LLM, remote-PC, and browser QA runbooks so they match
+  the current `/api/version` source of truth, 4300 runtime / 4310 development
+  port split, mobile/tablet smoke checks, and Codex task panel defaults.
+- Hardened the first-release pilot posture: `/api/version` no longer exposes
+  the Codex task cwd path, mobile opens only one floating chat/task panel at a
+  time, shared configuration/write surfaces are admin-only in team mode, and
+  NSSM/watchdog defaults now match the Tailscale-first localhost runtime.
+- Tightened runtime release audit semantics so `--require-live` treats live
+  health, NAS backup/restore evidence, clean git state, and unapproved broad
+  LAN listening as blockers rather than warnings.
 
 ### Revision `working` - dev-erp Codex task thread rule
 
@@ -80,7 +93,7 @@
 
 ### Revision `working` - dev-erp port boundary guard
 
-- Reserved port `4300` for the `C:\Soulforge-runtime` checkout and changed
+- Reserved port `4300` for the runtime checkout and changed
   non-runtime development checkouts to default to port `4310`.
 - Added a server-side refusal guard so development checkouts cannot accidentally
   take over the production port unless an explicit emergency override is set.

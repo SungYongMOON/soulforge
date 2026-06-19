@@ -15,8 +15,8 @@ owner 승인 gate 는 [`RUNTIME_OPERATING_CONTRACT_20260617.md`](RUNTIME_OPERATI
 backup/restore-test, and incident troubleshooting are tracked in
 [`RUNTIME_MAINTENANCE_RUNBOOK_20260618.md`](RUNTIME_MAINTENANCE_RUNBOOK_20260618.md).
 
-포트는 checkout 경계를 겸한다. `<runtime-checkout>`(`C:\Soulforge-runtime`)만
-운영 포트 `4300`을 사용한다. `<dev-checkout>`(`C:\Soulforge` 등 개발/작업본)은
+포트는 checkout 경계를 겸한다. `<runtime-checkout>`만
+운영 포트 `4300`을 사용한다. `<dev-checkout>` 등 개발/작업본은
 기본 `4310`을 사용하고, `4300` 실행은 서버가 기본 거부한다. 따라서 4300에
 보이는 화면은 항상 운영본이어야 한다.
 
@@ -42,7 +42,7 @@ runtime dev-erp 폴더에서:
 node server.mjs --host 0.0.0.0 --port 4300
 ```
 또는 같은 폴더의 **`start-windows.bat` 더블클릭**. 이 배치 파일은
-`C:\Soulforge-runtime`에서는 `4300`, 개발 checkout 에서는 `4310`으로 자동 분리한다.
+runtime checkout 에서는 `4300`, 개발 checkout 에서는 `4310`으로 자동 분리한다.
 (`--host 0.0.0.0` = 사내 네트워크에서 접속 허용. 기본은 127.0.0.1 = 이 PC만.)
 
 ## 3. 접속 주소 + 방화벽

@@ -1,10 +1,11 @@
 param(
-  [string]$RuntimeRoot = "C:\Soulforge-runtime",
+  [string]$RuntimeRoot = (Resolve-Path -LiteralPath (Join-Path $PSScriptRoot "..\..\..\..")).Path,
   [string]$ServiceName = "dev-erp",
-  [string]$HostName = "0.0.0.0",
+  [string]$HostName = "127.0.0.1",
   [int]$Port = 4300,
   [string]$NodeExe = "node.exe",
   [string]$NssmExe = "nssm.exe",
+  [int]$CookieSecure = 1,
   [string]$ChatProvider = "ollama",
   [string]$ChatModel = "gemma4:e4b",
   [int]$ChatThink = 1,
@@ -45,7 +46,8 @@ if (-not $service) {
   "ERP_CHAT_CONTEXT_TURNS=$ChatContextTurns" `
   "ERP_CHAT_TIMEOUT_MS=$ChatTimeoutMs" `
   "ERP_LLM_QUEUE_WAIT_MS=$QueueWaitMs" `
-  "ERP_LLM_CONCURRENCY=$LlmConcurrency"
+  "ERP_LLM_CONCURRENCY=$LlmConcurrency" `
+  "DEV_ERP_COOKIE_SECURE=$CookieSecure"
 & $NssmExe set $ServiceName AppStdout $Stdout
 & $NssmExe set $ServiceName AppStderr $Stderr
 & $NssmExe set $ServiceName AppRotateFiles 1

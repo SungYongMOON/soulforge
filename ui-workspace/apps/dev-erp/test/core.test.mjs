@@ -860,6 +860,11 @@ test("server: Codex task mock bridge opens a separate task thread API", async ()
     const srv = await startDevErpServer(["--db", join(root, "codex-task.db"), "--port", String(port), "--fixture"], {
       DEV_ERP_CODEX_TASK_BRIDGE: "mock",
       DEV_ERP_CODEX_TASK_ATTACHMENT_ROOT: join(root, "codex-task-attachments"),
+      DEV_ERP_CODEX_TASK_ALLOW_FAST: "0",
+      DEV_ERP_CODEX_TASK_MODEL: "gpt-5.5",
+      DEV_ERP_CODEX_TASK_EFFORT: "medium",
+      DEV_ERP_CODEX_TASK_SERVICE_TIER: "flex",
+      DEV_ERP_CODEX_SERVICE_TIER: "",
       CODEX_HOME: codexHome,
     });
     const base = `http://127.0.0.1:${port}`;
@@ -867,12 +872,17 @@ test("server: Codex task mock bridge opens a separate task thread API", async ()
       await waitForHttp(`${base}/api/health`, srv.child, srv.stderr);
       const version = await (await fetch(`${base}/api/version`)).json();
       assert.equal(version.runtime.codex_task.mode, "mock");
+      assert.equal("cwd" in version.runtime.codex_task, false);
 
       const items = await (await fetch(`${base}/api/items`)).json();
       const item = items.find((x) => x.status !== "archived");
       assert.ok(item?.id);
 
       let caps = await (await fetch(`${base}/api/codex-task/capabilities`)).json();
+      assert.deepEqual(caps.defaults, { model: "gpt-5.5", effort: "medium", service_tier: "flex" });
+      assert.deepEqual(caps.model_options, ["gpt-5.5", "gpt-5.4", "gpt-5.3"]);
+      assert.deepEqual(caps.effort_options, ["low", "medium", "high", "xhigh"]);
+      assert.deepEqual(caps.service_tier_options, ["flex"]);
       assert.equal(caps.attachments.local_image, true);
       assert.equal(caps.attachments.arbitrary_file, false);
       assert.ok(caps.skills.some((s) => s.name === "test-skill"));
@@ -913,6 +923,28 @@ test("server: Codex task mock bridge opens a separate task thread API", async ()
       assert.equal(r.status, 200);
       assert.deepEqual(body.messages.slice(-2).map((m) => m.role), ["user", "assistant"]);
       assert.equal(body.binding.item_id, item.id);
+    } finally {
+      await srv.stop();
+    }
+  } finally {
+    rmSync(root, { recursive: true, force: true });
+  }
+});
+
+test("server: Codex task fast service tier is hidden unless explicitly allowed", async () => {
+  const root = mkdtempSync(join(tmpdir(), "dev-erp-codex-tier-"));
+  try {
+    const port = await freePort();
+    const srv = await startDevErpServer(["--db", join(root, "codex-tier.db"), "--port", String(port), "--fixture"], {
+      DEV_ERP_CODEX_TASK_BRIDGE: "mock",
+      DEV_ERP_CODEX_TASK_ALLOW_FAST: "1",
+    });
+    const base = `http://127.0.0.1:${port}`;
+    try {
+      await waitForHttp(`${base}/api/health`, srv.child, srv.stderr);
+      const caps = await (await fetch(`${base}/api/codex-task/capabilities`)).json();
+      assert.deepEqual(caps.defaults.service_tier, "flex");
+      assert.deepEqual(caps.service_tier_options, ["flex", "fast"]);
     } finally {
       await srv.stop();
     }
@@ -2290,6 +2322,70 @@ test("P2b: 팀 공개 기본값은 자가 가입 차단, 명시 옵션일 때만
   }
 });
 
+test("TEAM-ACCT: 팀원은 공유 설정/운영성 쓰기를 직접 변경할 수 없다", async () => {
+  const root = mkdtempSync(join(tmpdir(), "dev-erp-shared-write-"));
+  try {
+    const dbPath = join(root, "dev-erp.db");
+    const port = await freePort();
+    const srv = await startDevErpServer(["--db", dbPath, "--port", String(port), "--fixture"]);
+    const base = `http://127.0.0.1:${port}`;
+    try {
+      await waitForHttp(`${base}/api/me`, srv.child, srv.stderr);
+      let r = await fetch(`${base}/api/auth/bootstrap`, {
+        method: "POST",
+        headers: { "content-type": "application/json" },
+        body: JSON.stringify({ username: "owner", password: "ownerpass", display_name: "Owner" }),
+      });
+      assert.equal(r.status, 200);
+      const ownerCookie = r.headers.get("set-cookie")?.split(";")[0] ?? "";
+      r = await fetch(`${base}/api/accounts`, {
+        method: "POST",
+        headers: { "content-type": "application/json", cookie: ownerCookie },
+        body: JSON.stringify({ username: "member", password: "memberpass", display_name: "Member", role: "member" }),
+      });
+      assert.equal(r.status, 200);
+      r = await fetch(`${base}/api/auth/login`, {
+        method: "POST",
+        headers: { "content-type": "application/json" },
+        body: JSON.stringify({ username: "member", password: "memberpass" }),
+      });
+      assert.equal(r.status, 200);
+      const memberCookie = r.headers.get("set-cookie")?.split(";")[0] ?? "";
+
+      for (const [endpoint, body] of [
+        ["/api/faq", { topic: "운영", question: "q", answer: "a" }],
+        ["/api/schedule/anchor", { project_id: "PRJ-A", anchor_stage_code: "030", date: "2026-06-19" }],
+        ["/api/proposals", { source: "unit", kind: "create_item", payload: { project_id: "PRJ-A", title: "x" } }],
+        ["/api/parts", { id: "pt-new", name: "신규 부품" }],
+        ["/api/purchases", { title: "신규 발주" }],
+        ["/api/guide/step", { artifact_id: 1, step_key: "draft", on: true }],
+        ["/api/labels", { name: "중요", color: "#ff0000" }],
+        ["/api/people/skill", { person_id: "p-kim", capability_label: "review" }],
+      ]) {
+        const denied = await fetch(`${base}${endpoint}`, {
+          method: "POST",
+          headers: { "content-type": "application/json", cookie: memberCookie },
+          body: JSON.stringify(body),
+        });
+        const deniedBody = await denied.json();
+        assert.equal(denied.status, 403, `${endpoint} must be admin-only for members`);
+        assert.equal(deniedBody.error, "admin_only");
+      }
+
+      const ok = await fetch(`${base}/api/faq`, {
+        method: "POST",
+        headers: { "content-type": "application/json", cookie: ownerCookie },
+        body: JSON.stringify({ topic: "운영", question: "관리자 q", answer: "관리자 a" }),
+      });
+      assert.equal(ok.status, 200);
+    } finally {
+      await srv.stop();
+    }
+  } finally {
+    rmSync(root, { recursive: true, force: true });
+  }
+});
+
 test("P2b: 팀원 비밀번호 변경·관리자 초기화 — 평문 미저장, 기존 비번 거부", () => {
   const store = freshStore();
   const r = store.createAccount({ username: "member1", password: "oldpass", roles: ["member"] });
@@ -3168,6 +3264,8 @@ test("Codex task UI: 대기 중 단계와 경과시간을 보여준다", () => {
   assert.match(app, /setPending\(true, "open"\)/);
   assert.match(app, /setPending\(true, "send"\)/);
   assert.match(app, /taskCodexOverlays/);
+  assert.match(app, /function closeMobileFloatingOverlays/);
+  assert.match(app, /closeMobileFloatingOverlays\(\{ keepTaskCodexItemId: itemId \}\)/);
   assert.match(app, /bringTaskCodexToFront/);
   assert.match(app, /tileTaskCodexPanels/);
   assert.match(app, /saveTaskCodexDockFor/);
@@ -3184,6 +3282,10 @@ test("Codex task UI: 대기 중 단계와 경과시간을 보여준다", () => {
   assert.match(app, /taskCodexModel/);
   assert.match(app, /taskCodexEffort/);
   assert.match(app, /taskCodexTier/);
+  assert.match(app, /defaults: \{ model: "gpt-5\.5", effort: "medium", service_tier: "flex" \}/);
+  assert.match(app, /describeTaskCodexOptions/);
+  assert.match(app, /loadCapabilities\(\)\.then\(load\)/);
+  assert.match(app, /service_tier: opt\.service_tier \|\| null/);
   assert.match(app, /taskCodexImage/);
   assert.match(app, /renderSkillSuggest/);
   assert.match(app, /data-skill/);
@@ -3260,6 +3362,44 @@ test("챗봇 UI: ERP와 챗봇 릴리즈 번호를 별도 컴포넌트 버전으
   assert.match(css, /\.chat-head \.dim \{[^}]*min-width: 0/s);
 });
 
+test("docs: 릴리즈 런북은 /api/version과 4300/4310 포트 경계를 안내한다", () => {
+  const chatbotDoc = readFileSync(join(APP_DIR, "docs", "CHATBOT_LLM_SETUP.md"), "utf8");
+  const remoteDoc = readFileSync(join(APP_DIR, "docs", "REMOTE_PC_RUNBOOK.md"), "utf8");
+  const browserQa = readFileSync(join(APP_DIR, "docs", "BROWSER_QA_PROCEDURE.md"), "utf8");
+  const readme = readFileSync(join(APP_DIR, "README.md"), "utf8");
+  const contract = readFileSync(join(APP_DIR, "docs", "RUNTIME_OPERATING_CONTRACT_20260617.md"), "utf8");
+  const runbook = readFileSync(join(APP_DIR, "docs", "RUNTIME_MAINTENANCE_RUNBOOK_20260618.md"), "utf8");
+  const audit = readFileSync(join(APP_DIR, "tools", "runtime_release_audit.mjs"), "utf8");
+  assert.match(chatbotDoc, /\/api\/version/);
+  assert.match(chatbotDoc, /erp\.release\/build\/source/);
+  assert.match(chatbotDoc, /chatbot\.release\/build\/source/);
+  assert.match(chatbotDoc, /runtime\.checkout/);
+  assert.match(chatbotDoc, /runtime\.port/);
+  assert.doesNotMatch(chatbotDoc, /ERP_UI_VERSION/);
+  assert.doesNotMatch(chatbotDoc, /release-visible|quality\.7/);
+  assert.match(remoteDoc, /node server\.mjs --port 4310/);
+  assert.match(remoteDoc, /http:\/\/127\.0\.0\.1:4310/);
+  assert.doesNotMatch(remoteDoc, /node server\.mjs --port 4300/);
+  assert.match(browserQa, /모바일/);
+  assert.match(browserQa, /태블릿/);
+  assert.match(browserQa, /챗봇/);
+  assert.match(browserQa, /Codex task panel/);
+  assert.match(browserQa, /gpt-5\.5 \/ medium \/ flex/);
+  assert.match(readme, /--require-live/);
+  assert.match(contract, /--require-live/);
+  assert.match(runbook, /--require-live/);
+  assert.doesNotMatch(readme, /--live --allow-lan-http/);
+  assert.doesNotMatch(contract, /--live --allow-lan-http/);
+  assert.doesNotMatch(runbook, /--live --allow-lan-http/);
+  assert.match(runbook, /-HostName 127\.0\.0\.1/);
+  assert.match(runbook, /-CookieSecure 0/);
+  assert.match(audit, /requireNas \? "blocker" : "warning"/);
+  assert.match(audit, /requireLive \? "blocker" : "warning", "lan_http_exposure_observed"/);
+  assert.match(audit, /strict: options\.requireLive/);
+  assert.doesNotMatch(audit, /join\(nasRoot, "DB_BACKUP", "latest"/);
+  assert.doesNotMatch(audit, /join\(nasRoot, "RESTORE_TEST"\)/);
+});
+
 test("server: 운영 4300은 runtime checkout 전용이고 개발 기본 포트는 4310이다", () => {
   const server = readFileSync(join(APP_DIR, "server.mjs"), "utf8");
   const startBat = readFileSync(join(APP_DIR, "start-windows.bat"), "utf8");
@@ -3282,9 +3422,15 @@ test("server: 운영 4300은 runtime checkout 전용이고 개발 기본 포트�
   assert.match(startBat, /--port %DEV_ERP_PORT%/);
   assert.match(watchdog, /\$ChatThink = 1/);
   assert.match(watchdog, /set ERP_CHAT_THINK=\$ChatThink/);
+  assert.match(watchdog, /\[string\]\$HostName = "127\.0\.0\.1"/);
+  assert.match(watchdog, /\[int\]\$CookieSecure = 1/);
+  assert.match(watchdog, /set DEV_ERP_COOKIE_SECURE=\$CookieSecure/);
   assert.match(nssm, /\$ChatThink = 1/);
   assert.match(nssm, /ERP_CHAT_THINK=\$ChatThink/);
-  assert.match(tailscaleBat, /Tailscale backend 4300 must be started from C:\\Soulforge-runtime/);
+  assert.match(nssm, /\[string\]\$HostName = "127\.0\.0\.1"/);
+  assert.match(nssm, /\[int\]\$CookieSecure = 1/);
+  assert.match(nssm, /DEV_ERP_COOKIE_SECURE=\$CookieSecure/);
+  assert.match(tailscaleBat, /Tailscale backend 4300 must be started from the runtime checkout/);
 });
 
 test("챗봇 API: 처리 예외가 나도 사용자에게 안전한 JSON 폴백을 주는 경로가 있다", () => {
@@ -3305,6 +3451,8 @@ test("챗봇 UI: 플로팅 패널은 이동·접기·크기조절이 가능하�
   assert.match(chat, /addEventListener\("pointermove"/);
   assert.match(chat, /resizeDock/);
   assert.match(chat, /ResizeObserver/);
+  assert.match(app, /closeMobileFloatingOverlays\(\{ keepChat: true \}\)/);
+  assert.match(app, /document\.querySelector\("\.chat-overlay"\)\?\.remove\(\)/);
   assert.doesNotMatch(chat, /if \(e\.target === ov\) close\(\)/, "챗봇은 패널 밖 클릭으로 닫히지 않아야 함");
   assert.match(css, /\.chat-overlay \{[^}]*pointer-events: none/s);
   assert.match(css, /\.chat-panel \{[^}]*resize: none/s);

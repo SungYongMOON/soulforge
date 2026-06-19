@@ -2,7 +2,7 @@
 
 Status: first-release operating draft
 Date: 2026-06-18
-Scope: company-PC runtime checkout, `C:\Soulforge-runtime`
+Scope: company-PC runtime checkout, `<runtime-root>`
 
 ## Operating Rule
 
@@ -11,12 +11,12 @@ patches. The runtime DB is not shared through Git.
 
 Canonical runtime data:
 
-- Live app and DB: `C:\Soulforge-runtime\ui-workspace\apps\dev-erp`
-- Live DB: `C:\Soulforge-runtime\ui-workspace\apps\dev-erp\data\dev-erp.db`
-- Local runtime logs: `C:\Soulforge-runtime\ui-workspace\apps\dev-erp\logs`
-- NAS backup root: `Z:\ERP_DB_DEVTEAM1`
-- Canonical DB backup namespace: `Z:\ERP_DB_DEVTEAM1\01_db_backups`
-- Restore-test reports: `Z:\ERP_DB_DEVTEAM1\02_restore_tests`
+- Live app and DB: `<runtime-root>\ui-workspace\apps\dev-erp`
+- Live DB: `<runtime-root>\ui-workspace\apps\dev-erp\data\dev-erp.db`
+- Local runtime logs: `<runtime-root>\ui-workspace\apps\dev-erp\logs`
+- NAS backup root: `<nas-root>`
+- Canonical DB backup namespace: `<nas-root>\01_db_backups`
+- Restore-test reports: `<nas-root>\02_restore_tests`
 
 Do not run the live DB directly from the NAS. Keep the live DB local to the
 company PC, then back it up to the NAS with SQLite-safe tooling.
@@ -34,7 +34,7 @@ restore-test evidence or incomplete optional mail setup.
 `maintenance`: an operator intentionally pauses watchdog recovery by creating:
 
 ```text
-C:\Soulforge-runtime\ui-workspace\apps\dev-erp\logs\maintenance.lock
+<runtime-root>\ui-workspace\apps\dev-erp\logs\maintenance.lock
 ```
 
 Remove that file after maintenance.
@@ -46,7 +46,7 @@ Preferred service runner: NSSM.
 Install or update from an elevated PowerShell window after NSSM is available:
 
 ```powershell
-C:\Soulforge-runtime\ui-workspace\apps\dev-erp\ops\install-dev-erp-nssm.ps1 -RuntimeRoot C:\Soulforge-runtime -HostName 0.0.0.0 -Port 4300
+<runtime-root>\ui-workspace\apps\dev-erp\ops\install-dev-erp-nssm.ps1 -RuntimeRoot <runtime-root> -HostName 127.0.0.1 -Port 4300
 nssm start dev-erp
 ```
 
@@ -57,8 +57,9 @@ NSSM responsibilities:
 - write service stdout/stderr logs under `logs\service`
 - keep runtime environment knobs together with the service
 
-Use `127.0.0.1` plus HTTPS/Tailscale for a tunnel-only posture. Use `0.0.0.0`
-only for owner-approved trusted LAN HTTP.
+Use `127.0.0.1` plus HTTPS/Tailscale for the default tunnel-only posture.
+Use `0.0.0.0` only for owner-approved trusted LAN HTTP, and pass
+`-CookieSecure 0` for that HTTP-only pilot so login cookies work.
 
 ## Watchdog
 
@@ -78,13 +79,13 @@ It does this:
 Suggested scheduled task action:
 
 ```powershell
-powershell.exe -NoProfile -ExecutionPolicy Bypass -File C:\Soulforge-runtime\ui-workspace\apps\dev-erp\ops\dev-erp-watchdog.ps1 -RuntimeRoot C:\Soulforge-runtime
+powershell.exe -NoProfile -ExecutionPolicy Bypass -File <runtime-root>\ui-workspace\apps\dev-erp\ops\dev-erp-watchdog.ps1 -RuntimeRoot <runtime-root>
 ```
 
 Optional last-resort reboot action:
 
 ```powershell
-powershell.exe -NoProfile -ExecutionPolicy Bypass -File C:\Soulforge-runtime\ui-workspace\apps\dev-erp\ops\dev-erp-watchdog.ps1 -RuntimeRoot C:\Soulforge-runtime -AllowReboot -FailureThreshold 3 -RebootCooldownHours 6
+powershell.exe -NoProfile -ExecutionPolicy Bypass -File <runtime-root>\ui-workspace\apps\dev-erp\ops\dev-erp-watchdog.ps1 -RuntimeRoot <runtime-root> -AllowReboot -FailureThreshold 3 -RebootCooldownHours 6
 ```
 
 Do not enable `-AllowReboot` until the owner approves it. A NAS outage, audit
@@ -101,10 +102,11 @@ npm.cmd run dev-erp:health -- --json
 Release-grade check:
 
 ```powershell
-npm.cmd run dev-erp:audit-runtime -- --runtime-root C:\Soulforge-runtime --workspaces C:\Soulforge-runtime\_workspaces --nas-root Z:\ERP_DB_DEVTEAM1 --require-live --allow-lan-http --target-members 0
+npm.cmd run dev-erp:audit-runtime -- --runtime-root <runtime-root> --workspaces <dev-checkout>\_workspaces --nas-root <nas-root> --require-live --target-members 0
 ```
 
-Use `--target-members <n>` after team accounts are created.
+Use `--target-members <n>` after team accounts are created. Add
+`--allow-lan-http` only after the owner approves direct LAN HTTP exposure.
 
 ## Backup Policy
 
@@ -114,13 +116,13 @@ exist.
 Manual backup:
 
 ```powershell
-npm.cmd run dev-erp:backup-runtime -- --db C:\Soulforge-runtime\ui-workspace\apps\dev-erp\data\dev-erp.db --nas-root Z:\ERP_DB_DEVTEAM1 --tag manual --json
+npm.cmd run dev-erp:backup-runtime -- --db <runtime-root>\ui-workspace\apps\dev-erp\data\dev-erp.db --nas-root <nas-root> --tag manual --json
 ```
 
 Restore-test latest backup:
 
 ```powershell
-npm.cmd run dev-erp:restore-test -- --nas-root Z:\ERP_DB_DEVTEAM1 --json
+npm.cmd run dev-erp:restore-test -- --nas-root <nas-root> --json
 ```
 
 Pilot schedule:
@@ -144,7 +146,7 @@ folders are the history.
 1. Confirm development patch is committed and pushed.
 2. Create maintenance marker if the change needs a quiet window.
 3. Run a pre-update backup and restore-test.
-4. Pull the approved commit into `C:\Soulforge-runtime`.
+4. Pull the approved commit into `<runtime-root>`.
 5. Restart `dev-erp` service or Node process.
 6. Run health and runtime audit.
 7. Run a post-update backup and restore-test.

@@ -6,15 +6,19 @@
 
 ## 패치 적용 확인
 
-운영자가 실제로 보는 포트는 `4300`이다. `4301`/`4302` 같은 확인용 서버가
-떠 있어도 운영 반영으로 보지 않는다.
+포트는 checkout 경계를 뜻한다. 운영자가 팀에게 실제로 여는 포트는
+runtime checkout 의 `4300`이고, 개발 checkout 은 `4310`을
+쓴다. `4301`/`4302` 같은 확인용 서버가 떠 있어도 운영 반영으로 보지 않는다.
 
-- ERP 상단 제목 옆에 `UI ui-2026.06.18-release-visible.6`와
-  `브라우저 Chrome ...` 또는 접속 브라우저 버전이 보여야 한다.
-- 챗봇을 열면 헤더에 `챗봇 chatbot-2026.06.18-release-visible.6`이 보여야 한다.
-- 화면이 의심스러우면 `http://127.0.0.1:4300/app.js` 또는
-  `http://<회사PC-IP>:4300/app.js`에서 `ERP_UI_VERSION`을 검색한다.
-  이 문자열이 없으면 아직 운영 포트가 최신 checkout을 서빙하지 않는 상태다.
+- 화면 상단 버전 줄에는 짧은 release 값만 보인다. 예: `ERP v1.0.4`,
+  `챗봇 v1.1.3`.
+- 긴 build/source 값은 각 버전 칩 hover title 과 `/api/version` 응답이
+  정본이다. ERP 버전은 `erp.release/build/source`, 챗봇 버전은
+  `chatbot.release/build/source`에서 따로 읽는다.
+- 화면이 의심스러우면 `http://127.0.0.1:4300/api/version` 또는
+  `http://<회사PC-IP>:4300/api/version`을 확인한다. `runtime.checkout`이
+  `runtime`, `runtime.port`가 `4300`이어야 운영본이다. 개발 확인은
+  `http://127.0.0.1:4310/api/version`에서 `runtime.checkout=development`로 본다.
 
 ## 0. Karpathy LLM 설치 판단
 
@@ -118,9 +122,12 @@ ERP_CHAT_PROVIDER=ollama ERP_CHAT_MODEL=gemma4:e4b ERP_CHAT_THINK=1 ERP_CHAT_TIM
 
 브라우저가 예전 JS/CSS를 캐시하면 패치가 안 된 것처럼 보일 수 있다. 현재 패치가 실제로 로드됐는지는 화면에서 바로 확인한다.
 
-- 로그인 전 화면 또는 상단 앱 제목 옆에 `UI ui-2026.06.18-quality.7`와 `브라우저 Chrome ...` 또는 `브라우저 Edge ...`가 보이면 최신 UI 파일이 로드된 것이다.
-- 로그인 전 화면 또는 챗봇 창 헤더에 `챗봇 chatbot-2026.06.18-quality.7`가 보이면 최신 챗봇 UI 파일이 로드된 것이다.
-- 값이 안 보이거나 예전 값이면 브라우저에서 강력 새로고침(`Ctrl+F5`)을 먼저 하고, 그래도 같으면 서버가 다른 checkout/포트를 보고 있는지 확인한다.
+- 로그인 전 화면 또는 상단 버전 줄에 `ERP v...`와 `챗봇 v...`가 따로 보이면
+  최신 버전 표시 구조가 로드된 것이다. 짧은 release 값만 보이는 것이 정상이다.
+- 챗봇 창 헤더에도 `챗봇 v...`가 보여야 한다. hover title 또는 `/api/version`
+  응답에서 build/source와 LLM provider/model/thinking 상태를 확인한다.
+- 값이 안 보이거나 예전 값이면 브라우저에서 강력 새로고침(`Ctrl+F5`)을 먼저 하고,
+  그래도 같으면 서버가 다른 checkout/포트를 보고 있는지 확인한다.
 
 ## 동작 규칙(가드레일)
 

@@ -1,8 +1,9 @@
 param(
-  [string]$RuntimeRoot = "C:\Soulforge-runtime",
+  [string]$RuntimeRoot = (Resolve-Path -LiteralPath (Join-Path $PSScriptRoot "..\..\..\..")).Path,
   [string]$ServiceName = "dev-erp",
-  [string]$HostName = "0.0.0.0",
+  [string]$HostName = "127.0.0.1",
   [int]$Port = 4300,
+  [int]$CookieSecure = 1,
   [string]$ChatProvider = "ollama",
   [string]$ChatModel = "gemma4:e4b",
   [int]$ChatThink = 1,
@@ -142,7 +143,7 @@ if ($service) {
   $stamp = Get-Date -Format "yyyyMMdd_HHmmss"
   $out = Join-Path $App "logs\manual-watchdog-$stamp.out.log"
   $err = Join-Path $App "logs\manual-watchdog-$stamp.err.log"
-  $cmd = "set ERP_CHAT_PROVIDER=$ChatProvider&& set ERP_CHAT_MODEL=$ChatModel&& set ERP_CHAT_THINK=$ChatThink&& set ERP_CHAT_CONTEXT_TURNS=$ChatContextTurns&& set ERP_CHAT_TIMEOUT_MS=$ChatTimeoutMs&& set ERP_LLM_QUEUE_WAIT_MS=$QueueWaitMs&& set ERP_LLM_CONCURRENCY=$LlmConcurrency&& node server.mjs --host $HostName --port $Port"
+  $cmd = "set ERP_CHAT_PROVIDER=$ChatProvider&& set ERP_CHAT_MODEL=$ChatModel&& set ERP_CHAT_THINK=$ChatThink&& set ERP_CHAT_CONTEXT_TURNS=$ChatContextTurns&& set ERP_CHAT_TIMEOUT_MS=$ChatTimeoutMs&& set ERP_LLM_QUEUE_WAIT_MS=$QueueWaitMs&& set ERP_LLM_CONCURRENCY=$LlmConcurrency&& set DEV_ERP_COOKIE_SECURE=$CookieSecure&& node server.mjs --host $HostName --port $Port"
   try {
     $p = Start-Process -FilePath "cmd.exe" -ArgumentList @("/c", $cmd) -WorkingDirectory $App -WindowStyle Hidden -RedirectStandardOutput $out -RedirectStandardError $err -PassThru
     Write-WatchdogLog "started" "manual node process started" @{ pid = $p.Id; stdout = $out; stderr = $err }

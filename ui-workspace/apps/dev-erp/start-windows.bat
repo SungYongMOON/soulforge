@@ -2,7 +2,7 @@
 chcp 65001 >nul
 REM ───────────────────────────────────────────────────────────────
 REM dev-erp 사내 LAN 서버 시작 (HTTP 파일럿)
-REM 포트 원칙: C:\Soulforge-runtime 운영본은 4300, C:\Soulforge 개발본은 4310.
+REM 포트 원칙: runtime checkout 운영본은 4300, development checkout 은 4310.
 REM 팀원은 운영본에서만 브라우저에 http://<이 PC의 IPv4>:4300 입력해 접속.
 REM 전제: Node.js 22.5+ 설치됨(외부 패키지 0). 이 .bat 은 dev-erp 폴더에 둔다.
 REM 이 PC의 IP 확인: 명령창에서  ipconfig  → 활성 어댑터의 "IPv4 주소".

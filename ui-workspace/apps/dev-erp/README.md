@@ -26,8 +26,8 @@ HTTPS proxy/tunnel 뒤에서만 로그인 세션이 정상 유지된다. 첫 관
 
 포트 운영 원칙:
 
-- `C:\Soulforge-runtime` 운영본만 `4300`을 쓴다.
-- `C:\Soulforge` 또는 다른 개발 checkout 은 기본 `4310`을 쓴다.
+- runtime checkout 운영본만 `4300`을 쓴다.
+- 개발 checkout 은 기본 `4310`을 쓴다.
 - 개발/작업본에서 `4300`을 쓰려 하면 서버가 기본 거부한다. 긴급 예외만
   `DEV_ERP_ALLOW_DEV_4300=1` 또는 `--allow-dev-4300`으로 명시한다.
 
@@ -95,9 +95,9 @@ It does not write to the DB and does not read raw project files, mail bodies,
 or secret env values.
 
 ```bash
-npm run audit:runtime -- --runtime-root <runtime-checkout> --workspaces <dev-checkout>\_workspaces --nas-root <nas-root> --live --allow-lan-http
+npm run audit:runtime -- --runtime-root <runtime-checkout> --workspaces <dev-checkout>\_workspaces --nas-root <nas-root> --require-live
 # from Soulforge repo root:
-npm run dev-erp:audit-runtime -- --runtime-root <runtime-checkout> --workspaces <dev-checkout>\_workspaces --nas-root <nas-root> --live --allow-lan-http
+npm run dev-erp:audit-runtime -- --runtime-root <runtime-checkout> --workspaces <dev-checkout>\_workspaces --nas-root <nas-root> --require-live
 ```
 
 Use `--target-members <n>` when the release must include at least that many

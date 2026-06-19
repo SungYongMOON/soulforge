@@ -1,7 +1,7 @@
 #!/usr/bin/env node
 // dev-erp P1 서버: 외부 의존성 0 (node:http + node:sqlite).
 // 사용: node server.mjs [--port 4310] [--db data/dev-erp.db] [--ingest <json>] [--fixture]
-// 포트 원칙: C:\Soulforge-runtime 운영본만 4300, 개발/작업본 기본은 4310.
+// 포트 원칙: runtime checkout 운영본만 4300, 개발/작업본 기본은 4310.
 // 기본: 빈 DB 는 비워 둔다. 데모 데이터는 --fixture 또는 DEV_ERP_LOAD_FIXTURE=1 일 때만 적재.
 import { createServer } from "node:http";
 import { randomUUID } from "node:crypto";
@@ -48,6 +48,20 @@ const CODEX_HOME = resolve(process.env.CODEX_HOME || join(homedir(), ".codex"));
 const CODEX_TASK_ATTACHMENT_ROOT = resolve(process.env.DEV_ERP_CODEX_TASK_ATTACHMENT_ROOT || join(ROOT, "_workspaces", "system", "dev-erp", "codex-task-attachments"));
 const CODEX_TASK_IMAGE_MAX = Number(process.env.DEV_ERP_CODEX_TASK_IMAGE_MAX || 8 * 1024 * 1024);
 const CODEX_TASK_IMAGE_EXTS = new Set([".png", ".jpg", ".jpeg", ".webp", ".gif"]);
+const CODEX_TASK_BASE_MODEL_OPTIONS = ["gpt-5.5", "gpt-5.4", "gpt-5.3"];
+const CODEX_TASK_EFFORT_OPTIONS = ["low", "medium", "high", "xhigh"];
+const CODEX_TASK_ALLOW_FAST = process.env.DEV_ERP_CODEX_TASK_ALLOW_FAST === "1";
+const CODEX_TASK_SERVICE_TIER_OPTIONS = CODEX_TASK_ALLOW_FAST ? ["flex", "fast"] : ["flex"];
+const CODEX_TASK_DEFAULT_MODEL = String(process.env.DEV_ERP_CODEX_TASK_MODEL || CODEX_TASK_BASE_MODEL_OPTIONS[0]).trim() || CODEX_TASK_BASE_MODEL_OPTIONS[0];
+const CODEX_TASK_DEFAULT_EFFORT_RAW = String(process.env.DEV_ERP_CODEX_TASK_EFFORT || "").trim().toLowerCase();
+const CODEX_TASK_DEFAULT_EFFORT = CODEX_TASK_EFFORT_OPTIONS.includes(CODEX_TASK_DEFAULT_EFFORT_RAW) ? CODEX_TASK_DEFAULT_EFFORT_RAW : "medium";
+const CODEX_TASK_DEFAULT_SERVICE_TIER_RAW = String(process.env.DEV_ERP_CODEX_TASK_SERVICE_TIER || process.env.DEV_ERP_CODEX_SERVICE_TIER || "").trim().toLowerCase();
+const CODEX_TASK_DEFAULT_SERVICE_TIER = CODEX_TASK_SERVICE_TIER_OPTIONS.includes(CODEX_TASK_DEFAULT_SERVICE_TIER_RAW) ? CODEX_TASK_DEFAULT_SERVICE_TIER_RAW : "flex";
+const CODEX_TASK_DEFAULTS = Object.freeze({
+  model: CODEX_TASK_DEFAULT_MODEL,
+  effort: CODEX_TASK_DEFAULT_EFFORT,
+  service_tier: CODEX_TASK_DEFAULT_SERVICE_TIER,
+});
 const KNOWLEDGE_SHELL_ROOT = resolve(flag("knowledge_shell_root", ROOT));
 const FILEIO = process.env.DEV_ERP_FILEIO === "1" || process.argv.includes("--fileio");
 const UPLOAD_MAX = Number(process.env.DEV_ERP_UPLOAD_MAX || 50 * 1024 * 1024); // 50MB 기본 상한
@@ -59,7 +73,7 @@ const DEFAULT_PORT = IS_RUNTIME_CHECKOUT ? RUNTIME_PORT : DEV_PORT;
 const PORT = Number(flag("port", DEFAULT_PORT));
 const ALLOW_NON_RUNTIME_4300 = process.env.DEV_ERP_ALLOW_DEV_4300 === "1" || args.includes("--allow-dev-4300");
 if (PORT === RUNTIME_PORT && !IS_RUNTIME_CHECKOUT && !ALLOW_NON_RUNTIME_4300) {
-  console.error(`[dev-erp] refused: port ${RUNTIME_PORT} is reserved for C:\\Soulforge-runtime. Use --port ${DEV_PORT} for C:\\Soulforge development, or set DEV_ERP_ALLOW_DEV_4300=1 for an explicit emergency override.`);
+  console.error(`[dev-erp] refused: port ${RUNTIME_PORT} is reserved for the runtime checkout. Use --port ${DEV_PORT} for development, or set DEV_ERP_ALLOW_DEV_4300=1 for an explicit emergency override.`);
   process.exit(2);
 }
 // 기본은 localhost 전용(안전). 같은 네트워크 공유가 필요할 때만 --host 0.0.0.0
@@ -175,6 +189,11 @@ function requireAdmin(req) {
   const a = currentAccount(req);
   return a && store.isAdmin(a.id) ? a : null;
 }
+function allowSharedWrite(req, res) {
+  if (store.accountCount() === 0 || requireAdmin(req)) return true;
+  send(res, 403, { error: "admin_only" });
+  return false;
+}
 async function readJson(req) {
   let body = ""; for await (const chunk of req) body += chunk;
   try { return JSON.parse(body || "{}"); } catch { return {}; }
@@ -275,8 +294,7 @@ function runtimeVersion() {
       },
       codex_task: {
         mode: CODEX_TASK_BRIDGE_MODE,
-        bridge: CODEX_TASK_BRIDGE_VERSION.release,
-        cwd: CODEX_TASK_BRIDGE_CWD
+        bridge: CODEX_TASK_BRIDGE_VERSION.release
       }
     }
   };
@@ -337,9 +355,10 @@ function listCodexSkills({ refresh = false } = {}) {
 function codexTaskCapabilities() {
   return {
     ok: true,
-    model_options: ["", "gpt-5.5", "gpt-5.4", "gpt-5.3"],
-    effort_options: ["", "low", "medium", "high", "xhigh"],
-    service_tier_options: ["", "fast", "flex"],
+    defaults: CODEX_TASK_DEFAULTS,
+    model_options: [...new Set([CODEX_TASK_DEFAULT_MODEL, ...CODEX_TASK_BASE_MODEL_OPTIONS])],
+    effort_options: CODEX_TASK_EFFORT_OPTIONS,
+    service_tier_options: CODEX_TASK_SERVICE_TIER_OPTIONS,
     attachments: {
       local_image: true,
       arbitrary_file: false,
@@ -348,6 +367,10 @@ function codexTaskCapabilities() {
     },
     skills: listCodexSkills(),
   };
+}
+function normalizeCodexTaskServiceTier(value) {
+  const tier = String(value || "").trim().toLowerCase();
+  return CODEX_TASK_SERVICE_TIER_OPTIONS.includes(tier) ? tier : CODEX_TASK_DEFAULT_SERVICE_TIER;
 }
 function mentionedCodexSkills(text) {
   const skills = listCodexSkills();
@@ -408,7 +431,7 @@ function codexTaskErrorPayload(item, error) {
   });
 }
 
-async function createCodexTaskThread({ item, actor }) {
+async function createCodexTaskThread({ item, actor, model, effort, serviceTier }) {
   const title = store.codexThreadTitle(item);
   const result = await runCodexTaskTurn({
     mode: CODEX_TASK_BRIDGE_MODE,
@@ -418,6 +441,9 @@ async function createCodexTaskThread({ item, actor }) {
     userMessage: "",
     initial: true,
     timeoutMs: CODEX_TASK_TIMEOUT_MS,
+    model,
+    effort,
+    serviceTier,
   });
   const up = store.upsertCodexTaskBinding({
     item_id: item.id,
@@ -791,14 +817,15 @@ const server = createServer(async (req, res) => {
       return send(res, 200, codexTaskState(item));
     }
     if (path === "/api/codex-task/open" && req.method === "POST") {
-      const { item_id } = await readJson(req);
+      const { item_id, model, effort, service_tier } = await readJson(req);
+      const serviceTier = normalizeCodexTaskServiceTier(service_tier);
       const item = store.itemById(item_id);
       if (!item) return send(res, 404, { error: "item_not_found" });
       if (!canAccessItem(req, item.id)) return send(res, 403, { error: "item_forbidden" });
       const existing = store.codexTaskBinding(item.id);
       if (existing) return send(res, 200, codexTaskState(item));
       try {
-        const created = await createCodexTaskThread({ item, actor });
+        const created = await createCodexTaskThread({ item, actor, model, effort, serviceTier });
         if (created.error) return send(res, 400, created);
         return send(res, 200, codexTaskState(item, { created: true }));
       } catch (error) {
@@ -817,6 +844,7 @@ const server = createServer(async (req, res) => {
       const { item_id, message, model, effort, service_tier, attachments } = await readJson(req);
       const text = String(message ?? "").trim();
       if (!text) return send(res, 400, { error: "message_required" });
+      const serviceTier = normalizeCodexTaskServiceTier(service_tier);
       const item = store.itemById(item_id);
       if (!item) return send(res, 404, { error: "item_not_found" });
       if (!canAccessItem(req, item.id)) return send(res, 403, { error: "item_forbidden" });
@@ -843,7 +871,7 @@ const server = createServer(async (req, res) => {
           timeoutMs: CODEX_TASK_TIMEOUT_MS,
           model,
           effort,
-          serviceTier: service_tier,
+          serviceTier,
           skills,
           localImages,
         });
@@ -960,6 +988,7 @@ const server = createServer(async (req, res) => {
     }
     if (path === "/api/faq" && req.method === "GET") return send(res, 200, store.faqs({ topic: qp.topic }));
     if (path === "/api/faq" && req.method === "POST") {
+      if (!allowSharedWrite(req, res)) return;
       let body = ""; for await (const chunk of req) body += chunk;
       const r = store.upsertFaq({ ...JSON.parse(body || "{}"), data_label: "real" });
       return send(res, r.error ? 400 : 200, r);
@@ -967,6 +996,7 @@ const server = createServer(async (req, res) => {
     // P-10 지식 카탈로그 (검색·등재·통합검색 — 추론 0·외부전송 0)
     if (path === "/api/knowledge" && req.method === "GET") return send(res, 200, store.knowledge({ topic: qp.topic, q: qp.q }));
     if (path === "/api/knowledge" && req.method === "POST") {
+      if (!allowSharedWrite(req, res)) return;
       let body = ""; for await (const chunk of req) body += chunk;
       const b = JSON.parse(body || "{}");
       const r = store.upsertKnowledge({ ...b, data_label: "real" });
@@ -978,17 +1008,20 @@ const server = createServer(async (req, res) => {
     // P-11 계산기 (안전 평가·회귀검증·통과해야 active)
     if (path === "/api/calculators" && req.method === "GET") return send(res, 200, store.calculators({ category: qp.category }));
     if (path === "/api/calculators" && req.method === "POST") {
+      if (!allowSharedWrite(req, res)) return;
       let body = ""; for await (const chunk of req) body += chunk;
       const r = store.upsertCalculator({ ...JSON.parse(body || "{}"), data_label: "real" });
       return send(res, r.error ? 400 : 200, r);
     }
     if (path === "/api/embeds" && req.method === "POST") {
+      if (!allowSharedWrite(req, res)) return;
       let body = ""; for await (const chunk of req) body += chunk;
       const r = store.upsertEmbed({ ...JSON.parse(body || "{}"), data_label: "real" });
       if (!r.error) store.appendEvent({ actor_ref: actor, actor_kind: "human", kind: "embed_register", to: r.id, used_refs: ["embed_view"], data_label: "meta" });
       return send(res, r.error ? 400 : 200, r);
     }
     if (path === "/api/calculators/example" && req.method === "POST") {
+      if (!allowSharedWrite(req, res)) return;
       let body = ""; for await (const chunk of req) body += chunk;
       const b = JSON.parse(body || "{}");
       return send(res, 200, store.addCalculatorExample(b.calculator_id, b.inputs, b.expected, b.tolerance ?? 1e-6));
@@ -999,10 +1032,12 @@ const server = createServer(async (req, res) => {
       return send(res, 200, store.evalCalculator(b.id, b.inputs));
     }
     if (path === "/api/calculators/verify" && req.method === "POST") {
+      if (!allowSharedWrite(req, res)) return;
       let body = ""; for await (const chunk of req) body += chunk;
       return send(res, 200, store.verifyCalculator(JSON.parse(body || "{}").id));
     }
     if (path === "/api/calculators/activate" && req.method === "POST") {
+      if (!allowSharedWrite(req, res)) return;
       let body = ""; for await (const chunk of req) body += chunk;
       const id = JSON.parse(body || "{}").id;
       const r = store.activateCalculator(id);
@@ -1036,18 +1071,21 @@ const server = createServer(async (req, res) => {
     // P-2 SE 스케줄러 + P-1 완결성 요구
     if (path === "/api/schedule/templates") return send(res, 200, store.scheduleTemplates());
     if (path === "/api/schedule/apply" && req.method === "POST") {
+      if (!allowSharedWrite(req, res)) return;
       let body = ""; for await (const chunk of req) body += chunk;
       const { project_id, template_key, anchorDates } = JSON.parse(body || "{}");
       const r = store.applyTemplate(project_id, template_key, { anchorDates: anchorDates || {} });
       return send(res, r.error ? 400 : 200, r);
     }
     if (path === "/api/schedule/anchor" && req.method === "POST") {
+      if (!allowSharedWrite(req, res)) return;
       let body = ""; for await (const chunk of req) body += chunk;
       const { project_id, anchor_stage_code, date } = JSON.parse(body || "{}");
       const r = store.setAnchor(project_id, anchor_stage_code, date);
       return send(res, r.error ? 400 : 200, r);
     }
     if (path === "/api/schedule/deliverable" && req.method === "POST") {
+      if (!allowSharedWrite(req, res)) return;
       let body = ""; for await (const chunk of req) body += chunk;
       const b = JSON.parse(body || "{}");
       const r = store.upsertDeliverable(b.template_key, b.anchor_stage_code, b.deliverable_name, { offset_days: b.offset_days, default_artifact_type: b.default_artifact_type });
@@ -1057,6 +1095,7 @@ const server = createServer(async (req, res) => {
     }
     if (path === "/api/requirements" && req.method === "GET") return send(res, 200, store.artifactRequirements({ scope_kind: qp.scope_kind, scope_key: qp.scope_key }));
     if (path === "/api/requirements" && req.method === "POST") {
+      if (!allowSharedWrite(req, res)) return;
       let body = ""; for await (const chunk of req) body += chunk;
       const r = store.setArtifactRequirement(JSON.parse(body || "{}"));
       return send(res, r.error ? 400 : 200, r);
@@ -1078,22 +1117,26 @@ const server = createServer(async (req, res) => {
     }
     if (path === "/api/proposals" && req.method === "GET") return send(res, 200, store.proposals({ status: qp.status || "pending" }));
     if (path === "/api/proposals" && req.method === "POST") {
+      if (!allowSharedWrite(req, res)) return;
       let body = ""; for await (const chunk of req) body += chunk;
       const r = store.createProposal({ ...JSON.parse(body || "{}"), data_label: "real" });
       return send(res, r.error ? 400 : 200, r);
     }
     if (path === "/api/proposals/approve" && req.method === "POST") {
+      if (!allowSharedWrite(req, res)) return;
       let body = ""; for await (const chunk of req) body += chunk;
       const r = store.approveProposal(JSON.parse(body || "{}").id, { decided_by: actor });
       return send(res, r.error ? 400 : 200, r);
     }
     if (path === "/api/proposals/reject" && req.method === "POST") {
+      if (!allowSharedWrite(req, res)) return;
       let body = ""; for await (const chunk of req) body += chunk;
       const b = JSON.parse(body || "{}");
       const r = store.rejectProposal(b.id, { decided_by: actor, reason: b.reason ?? null });
       return send(res, r.error ? 400 : 200, r);
     }
     if (path === "/api/recommenders/run" && req.method === "POST") {
+      if (!allowSharedWrite(req, res)) return;
       // 수동 트리거(자동 cron 아님). 추천은 createProposal pending 만 — 자동 도메인 쓰기 0.
       let body = ""; for await (const chunk of req) body += chunk;
       const b = JSON.parse(body || "{}");
@@ -1102,6 +1145,7 @@ const server = createServer(async (req, res) => {
     // P3 재고/BOM/부품 (내부 판정만·외부전송 0)
     if (path === "/api/parts" && req.method === "GET") return send(res, 200, store.parts({ type: qp.type, grp: qp.grp, project: qp.project, q: qp.q }));
     if (path === "/api/parts" && req.method === "POST") {
+      if (!allowSharedWrite(req, res)) return;
       let body = ""; for await (const chunk of req) body += chunk;
       const r = store.upsertPart({ ...JSON.parse(body || "{}"), data_label: "real" });
       if (r.error) return send(res, 400, r);
@@ -1109,6 +1153,7 @@ const server = createServer(async (req, res) => {
       return send(res, 200, r);
     }
     if (path === "/api/parts/link" && req.method === "POST") {
+      if (!allowSharedWrite(req, res)) return;
       let body = ""; for await (const chunk of req) body += chunk;
       const { part_id, project_id } = JSON.parse(body || "{}");
       const r = store.linkPartProject(part_id, project_id);
@@ -1116,6 +1161,7 @@ const server = createServer(async (req, res) => {
     }
     if (path === "/api/bom" && req.method === "GET") return send(res, 200, store.bom(qp.parent ?? ""));
     if (path === "/api/bom" && req.method === "POST") {
+      if (!allowSharedWrite(req, res)) return;
       let body = ""; for await (const chunk of req) body += chunk;
       const { parent_part_id, child_part_id, qty, ref_des } = JSON.parse(body || "{}");
       const r = store.addBomEdge(parent_part_id, child_part_id, qty, ref_des);
@@ -1123,12 +1169,14 @@ const server = createServer(async (req, res) => {
     }
     if (path === "/api/locations" && req.method === "GET") return send(res, 200, store.locations());
     if (path === "/api/locations" && req.method === "POST") {
+      if (!allowSharedWrite(req, res)) return;
       let body = ""; for await (const chunk of req) body += chunk;
       const r = store.upsertLocation({ ...JSON.parse(body || "{}"), data_label: "real" });
       return send(res, r.error ? 400 : 200, r);
     }
     if (path === "/api/stock" && req.method === "GET") return send(res, 200, store.stock({ part: qp.part, location: qp.location }));
     if (path === "/api/stock" && req.method === "POST") {
+      if (!allowSharedWrite(req, res)) return;
       let body = ""; for await (const chunk of req) body += chunk;
       const { part_id, location_id, qty } = JSON.parse(body || "{}");
       const r = store.setStock(part_id, location_id, qty);
@@ -1141,6 +1189,7 @@ const server = createServer(async (req, res) => {
     // 연락처 마스터
     if (path === "/api/contacts" && req.method === "GET") return send(res, 200, store.contacts({ project: qp.project, party: qp.party }));
     if (path === "/api/contacts" && req.method === "POST") {
+      if (!allowSharedWrite(req, res)) return;
       let body = ""; for await (const chunk of req) body += chunk;
       const r = store.createContact({ ...JSON.parse(body || "{}"), data_label: "real" });
       if (r.error) return send(res, 400, r);
@@ -1148,6 +1197,7 @@ const server = createServer(async (req, res) => {
       return send(res, 200, r);
     }
     if (path === "/api/contacts/link" && req.method === "POST") {
+      if (!allowSharedWrite(req, res)) return;
       let body = ""; for await (const chunk of req) body += chunk;
       const { contact_id, project_id } = JSON.parse(body || "{}");
       const r = store.linkContactProject(contact_id, project_id);
@@ -1158,6 +1208,7 @@ const server = createServer(async (req, res) => {
     if (path === "/api/attachments" && req.method === "GET") return send(res, 200, store.attachments({ entity_type: qp.entity_type, entity_id: qp.entity_id }));
     if (path === "/api/attachments/suggest") return send(res, 200, store.suggestPlacement(qp.name ?? ""));
     if (path === "/api/attachments" && req.method === "POST") {
+      if (!allowSharedWrite(req, res)) return;
       let body = ""; for await (const chunk of req) body += chunk;
       const r = store.addAttachment({ ...JSON.parse(body || "{}"), created_by: actor, data_label: "real" });
       if (r.error) return send(res, 400, r);
@@ -1168,6 +1219,7 @@ const server = createServer(async (req, res) => {
     if (path === "/api/parties/ledger") return send(res, 200, store.partyLedger());
     if (path === "/api/parties" && req.method === "GET") return send(res, 200, store.parties({ kind: qp.kind }));
     if (path === "/api/parties" && req.method === "POST") {
+      if (!allowSharedWrite(req, res)) return;
       let body = ""; for await (const chunk of req) body += chunk;
       const r = store.upsertParty({ ...JSON.parse(body || "{}"), data_label: "real" });
       if (r.error) return send(res, 400, r);
@@ -1175,6 +1227,7 @@ const server = createServer(async (req, res) => {
     }
     if (path === "/api/purchases" && req.method === "GET") return send(res, 200, store.purchases({ project: qp.project, party: qp.party, stage: qp.stage }));
     if (path === "/api/purchases" && req.method === "POST") {
+      if (!allowSharedWrite(req, res)) return;
       let body = ""; for await (const chunk of req) body += chunk;
       const r = store.createPurchase({ ...JSON.parse(body || "{}"), created_by: actor, data_label: "real" });
       if (r.error) return send(res, 400, r);
@@ -1182,6 +1235,7 @@ const server = createServer(async (req, res) => {
       return send(res, 200, r);
     }
     if (path === "/api/purchases/stage" && req.method === "POST") {
+      if (!allowSharedWrite(req, res)) return;
       let body = ""; for await (const chunk of req) body += chunk;
       const { id, stage } = JSON.parse(body || "{}");
       const r = store.setPurchaseStage(id, stage);
@@ -1190,6 +1244,7 @@ const server = createServer(async (req, res) => {
       return send(res, 200, r);
     }
     if (path === "/api/purchases/link" && req.method === "POST") {
+      if (!allowSharedWrite(req, res)) return;
       let body = ""; for await (const chunk of req) body += chunk;
       const { purchase_id, project_id } = JSON.parse(body || "{}");
       const r = store.linkPurchaseProject(purchase_id, project_id);
@@ -1207,6 +1262,7 @@ const server = createServer(async (req, res) => {
     if (path === "/api/guide/summary") return send(res, 200, store.guideSummary());
     if (path === "/api/guide") return send(res, 200, store.guideState(qp.project ?? ""));
     if (path === "/api/guide/artifact" && req.method === "POST") {
+      if (!allowSharedWrite(req, res)) return;
       let body = ""; for await (const chunk of req) body += chunk;
       const { project_id, stage_code, name } = JSON.parse(body || "{}");
       const result = store.addGuideArtifact(project_id, stage_code, name);
@@ -1215,6 +1271,7 @@ const server = createServer(async (req, res) => {
       return send(res, 200, result);
     }
     if (path === "/api/guide/step" && req.method === "POST") {
+      if (!allowSharedWrite(req, res)) return;
       let body = ""; for await (const chunk of req) body += chunk;
       const { artifact_id, step_key, on } = JSON.parse(body || "{}");
       const result = store.setGuideStep(artifact_id, step_key, on !== false);
@@ -1251,6 +1308,7 @@ const server = createServer(async (req, res) => {
     }
     if (path === "/api/labels" && req.method === "GET") return send(res, 200, store.labels());
     if (path === "/api/labels" && req.method === "POST") {
+      if (!allowSharedWrite(req, res)) return;
       let body = ""; for await (const chunk of req) body += chunk;
       const { name, color } = JSON.parse(body || "{}");
       const result = store.createLabel(name, color);
@@ -1272,6 +1330,7 @@ const server = createServer(async (req, res) => {
     // P-6 능력 매트릭스 + 콕핏 nudges (점수 미저장·감시 아닌 지원)
     if (path === "/api/capability/matrix") return send(res, 200, store.capabilityMatrix());
     if (path === "/api/people/skill" && req.method === "POST") {
+      if (!allowSharedWrite(req, res)) return;
       let body = ""; for await (const chunk of req) body += chunk;
       const b = JSON.parse(body || "{}");
       const r = store.setPersonSkill(b.person_id, b.capability_label, { source_ref: b.source_ref ?? null, weight: b.weight ?? 1 });

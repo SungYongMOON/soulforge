@@ -39,17 +39,20 @@ node tools/verify_gate.mjs --packet ../../../_workmeta/system/dev_worker_queue/d
 ### 1-2. 서버 띄우기 (먼저 검색 모드 = LLM 없이)
 
 ```bash
-node server.mjs --port 4300
-#   → [dev-erp] http://127.0.0.1:4300 (db: data/dev-erp.db)
+node server.mjs --port 4310
+#   → [dev-erp] http://127.0.0.1:4310 (db: data/dev-erp.db)
 #   data/real_meta.json 없으면 합성 fixture 자동 적재(챗봇 FAQ 시드 4건 포함).
 ```
+
+`4300`은 runtime 운영 checkout 전용이다. 개발 checkout에서
+4300으로 띄우려 하면 기본적으로 거부되므로, 원격 개발/실험 PC는 `4310`을 쓴다.
 
 > **영속 실행(데이터가 재시작에도 살아남음)** = `node server.mjs --db data/dev-erp.db`(상대경로).
 > `--db` 기본값이 이미 `data/dev-erp.db`(상대)라 `node server.mjs`만으로도 파일DB로 영속된다.
 > 절대경로(`/Volumes`·`/Users`·OneDrive)를 `--db`에 넣지 말 것 — 다른 PC 이식을 위해 항상 상대.
 > 휘발(테스트·미리보기) 실행만 `--db :memory:`. WAL 모드라 같은 폴더에 `-wal`/`-shm` 동반 파일이 생긴다.
 
-브라우저로 `http://127.0.0.1:4300` → 우하단 💬 챗봇 → "게이트 통과 어떻게 해?" 입력.
+브라우저로 `http://127.0.0.1:4310` → 우하단 💬 챗봇 → "게이트 통과 어떻게 해?" 입력.
 이 단계는 **검색 답변**(matched FAQ 원문)이 나오면 정상. `/new`로 대화 리셋도 확인.
 
 ### 1-3. Ollama + Gemma 연결 (LLM 표현 켜기)
@@ -60,7 +63,7 @@ node server.mjs --port 4300
 ollama pull gemma3:4b          # 공통 기본값(맥미니와 동일 태그). 품질 원하면 gemma2:9b
 
 # 서버를 LLM 모드로 재기동 (PowerShell)
-$env:ERP_CHAT_PROVIDER="ollama"; $env:ERP_CHAT_MODEL="gemma3:4b"; node server.mjs --port 4300
+$env:ERP_CHAT_PROVIDER="ollama"; $env:ERP_CHAT_MODEL="gemma3:4b"; node server.mjs --port 4310
 ```
 
 > 맥미니(개발기)는 같은 태그를 `brew` + bash 문법으로 실행. 설치/문법 차이만 있고 ERP 코드·동작은 동일.

@@ -166,7 +166,7 @@ export function resolveAuditPaths(options = {}) {
   return { sourceRoot, runtimeRoot, appRoot, dbPath, metaPath, workspacesDir, nasRoot, skinRoots };
 }
 
-function checkGit(result, root, id, { skipGit = false, required = false } = {}) {
+function checkGit(result, root, id, { skipGit = false, required = false, strict = false } = {}) {
   if (skipGit) return;
   if (!existsSync(join(root, ".git"))) {
     add(result, required ? "blocker" : "warning", `${id}_git_missing`, `${id} is not a git checkout`, { root });
@@ -188,7 +188,7 @@ function checkGit(result, root, id, { skipGit = false, required = false } = {}) 
     dirty_count: dirty.length,
     origin_main_divergence: divergence.ok ? divergence.stdout.trim() : null,
   };
-  if (dirty.length) add(result, required ? "blocker" : "warning", `${id}_git_dirty`, `${id} checkout is dirty`, { root, dirty_count: dirty.length });
+  if (dirty.length) add(result, required || strict ? "blocker" : "warning", `${id}_git_dirty`, `${id} checkout is dirty`, { root, dirty_count: dirty.length });
   if (divergence.ok && divergence.stdout.trim() !== "0\t0") {
     add(result, "warning", `${id}_git_not_at_origin_main`, `${id} differs from origin/main`, { divergence: divergence.stdout.trim() });
   }
@@ -570,12 +570,12 @@ function listDirNames(path) {
   }
 }
 
-function checkNasBackup(result, paths, { skipNas = false } = {}) {
+function checkNasBackup(result, paths, { skipNas = false, requireNas = false } = {}) {
   if (skipNas) return;
   const nasRoot = paths.nasRoot;
   result.checks.nas_backup = { root: nasRoot, configured: !!nasRoot };
   if (!nasRoot) {
-    add(result, "warning", "nas_root_not_configured", "NAS root was not provided and default NAS path was not found");
+    add(result, requireNas ? "blocker" : "warning", "nas_root_not_configured", "NAS root was not provided and default NAS path was not found");
     return;
   }
   if (!existsSync(nasRoot)) {
@@ -585,12 +585,12 @@ function checkNasBackup(result, paths, { skipNas = false } = {}) {
   const namespaces = ["DB_BACKUP", "01_db_backups", "RESTORE_TEST", "02_restore_tests", "RELEASE", "03_release_snapshots"]
     .filter((name) => existsSync(join(nasRoot, name)));
   result.checks.nas_backup.namespaces = namespaces;
-  if (namespaces.includes("DB_BACKUP") && namespaces.includes("01_db_backups")) {
-    add(result, "warning", "nas_backup_namespace_drift", "Both DB_BACKUP and 01_db_backups exist; choose one canonical backup namespace", { namespaces });
+  const legacyNamespaces = namespaces.filter((name) => ["DB_BACKUP", "RESTORE_TEST"].includes(name));
+  if (legacyNamespaces.length) {
+    add(result, requireNas ? "blocker" : "warning", "nas_backup_namespace_drift", "Legacy NAS backup namespace is present; use canonical 01_db_backups/02_restore_tests", { namespaces, legacy_namespaces: legacyNamespaces });
   }
 
   const latestCandidates = [
-    join(nasRoot, "DB_BACKUP", "latest", "runtime_live", "dev-erp.db"),
     join(nasRoot, "01_db_backups", "latest", "runtime_live", "dev-erp.db"),
   ].filter((p) => existsSync(p));
   result.checks.nas_backup.latest_candidates = latestCandidates;
@@ -622,10 +622,10 @@ function checkNasBackup(result, paths, { skipNas = false } = {}) {
     }
   }
 
-  const restoreDirs = [join(nasRoot, "RESTORE_TEST"), join(nasRoot, "02_restore_tests")].filter((p) => existsSync(p));
+  const restoreDirs = [join(nasRoot, "02_restore_tests")].filter((p) => existsSync(p));
   const restoreEntries = restoreDirs.flatMap((p) => listDirNames(p).map((name) => join(p, name)));
   result.checks.nas_backup.restore_test_entries = restoreEntries.length;
-  if (!restoreEntries.length) add(result, "warning", "restore_test_missing", "No NAS restore-test entry was found");
+  if (!restoreEntries.length) add(result, requireNas ? "blocker" : "warning", "restore_test_missing", "No NAS restore-test entry was found");
 }
 
 async function checkLiveServer(result, { live = false, requireLive = false, port = 4300, allowLanHttp = false } = {}) {
@@ -653,14 +653,14 @@ async function checkLiveServer(result, { live = false, requireLive = false, port
     result.checks.live_server.listeners = listeners;
     const broad = listeners.filter((addr) => addr.startsWith("0.0.0.0:") || addr.startsWith("[::]:") || addr.startsWith(":::"));
     if (broad.length && !allowLanHttp) {
-      add(result, "warning", "lan_http_exposure_observed", "Server appears to listen on a broad LAN address; pass --allow-lan-http only for owner-approved LAN pilot", { listeners: broad });
+      add(result, requireLive ? "blocker" : "warning", "lan_http_exposure_observed", "Server appears to listen on a broad LAN address; pass --allow-lan-http only for owner-approved LAN pilot", { listeners: broad });
     }
   }
 }
 
 function recommendedCommands(paths) {
   return [
-    `npm.cmd run dev-erp:audit-runtime -- --runtime-root ${paths.runtimeRoot} --workspaces ${paths.workspacesDir} --nas-root ${paths.nasRoot ?? "<nas-root>"}`,
+    `npm.cmd run dev-erp:audit-runtime -- --runtime-root ${paths.runtimeRoot} --workspaces ${paths.workspacesDir} --nas-root ${paths.nasRoot ?? "<nas-root>"} --require-live`,
     `npm.cmd run dev-erp:correct-runtime -- --dry-run --workspaces ${paths.workspacesDir} --db ${paths.dbPath} --meta ${paths.metaPath}`,
     "npm.cmd run guild-hall:snapshot:check-fresh",
     "npm.cmd run guild-hall:workspace-junction:audit -- --json",
@@ -683,15 +683,15 @@ export async function runRuntimeReleaseAudit(options = {}) {
     recommended_commands: recommendedCommands(paths),
   };
 
-  checkGit(result, paths.sourceRoot, "source", { skipGit: options.skipGit });
-  if (paths.runtimeRoot !== paths.sourceRoot) checkGit(result, paths.runtimeRoot, "runtime", { skipGit: options.skipGit, required: true });
+  checkGit(result, paths.sourceRoot, "source", { skipGit: options.skipGit, strict: options.requireLive });
+  if (paths.runtimeRoot !== paths.sourceRoot) checkGit(result, paths.runtimeRoot, "runtime", { skipGit: options.skipGit, required: true, strict: options.requireLive });
 
   const db = checkDbAndSchema(result, paths);
   try {
     checkRealMeta(result, paths, db);
     checkWorkspaceProjects(result, paths, db);
     checkStaticAssets(result, paths);
-    checkNasBackup(result, paths, { skipNas: options.skipNas });
+    checkNasBackup(result, paths, { skipNas: options.skipNas, requireNas: options.requireLive });
     await checkLiveServer(result, options);
   } finally {
     db?.close();
@@ -746,7 +746,7 @@ function parseCli(argv) {
 function printHelp() {
   console.log(`Usage:
   node tools/runtime_release_audit.mjs [--json]
-  node tools/runtime_release_audit.mjs --runtime-root <runtime-checkout> --workspaces <dev-checkout>\\_workspaces --nas-root <nas-root> --live --allow-lan-http
+  node tools/runtime_release_audit.mjs --runtime-root <runtime-checkout> --workspaces <dev-checkout>\\_workspaces --nas-root <nas-root> --require-live
 
 Purpose:
   Read-only release gate for the company-PC dev-ERP runtime. It checks the
@@ -764,7 +764,8 @@ Common options:
   --nas-root <path>       NAS backup root. Use --no-nas to skip.
   --target-members <n>    Block unless at least n active non-admin users exist.
   --live                  Check http://127.0.0.1:<port>/api/health.
-  --require-live          Same as --live, but unreachable health is a blocker.
+  --require-live          First-release gate: live health, NAS evidence, clean git,
+                          and no unapproved broad LAN listener are blockers.
   --allow-lan-http        Treat broad 0.0.0.0 LAN listening as owner-approved.
 `);
 }
