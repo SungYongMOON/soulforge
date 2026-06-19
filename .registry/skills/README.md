@@ -14,6 +14,7 @@
 - `workflow_launcher_skill_author/` is the tracked Codex authoring aid for turning an existing `.workflow/<workflow_id>` package into a thin launcher skill without moving workflow, profile policy, or runtime bindings into the skill.
 - `outbound_mail_authoring/` is the tracked Codex launcher for `/outbound-mail`, resolving to `.workflow/outbound_mail_authoring_v0` for owner-style outbound mail drafting, project keyword subject resolution, mandatory signature/security footer checks, and owner-approved send handoff.
 - `knowledge_ingest_cell_launcher/` is the tracked Codex launcher for invoking the existing owner-gated `.party/knowledge_ingest_cell` loadout while preserving upload, NotebookLM, promotion, source-text/index-build, replacement, migration, password, and original-mutation boundaries.
+- `knowledge_ingest_cross_pc/` is the tracked Codex wrapper for side-PC knowledge ingest sessions that must leave metadata-only receipt, missing-audit, validation, and `_workmeta` push evidence so another PC can recover the state.
 - `systems_engineering_cell_launcher/` is the tracked Codex launcher for routing SE assistant requests through the existing `.party/systems_engineering_cell` loadout while preserving design, review, verification, and owner-decision boundaries.
 - `pcb_revision_library_cell_launcher/` is the tracked Codex launcher for routing Cadence Allegro PCB revision/library requests through the existing `.party/pcb_revision_library_cell` loadout while preserving workflow-owned profile policy, runtime, mutation, and engineering-approval boundaries.
 
@@ -48,6 +49,7 @@
 - `outbound_mail_authoring/` is the tracked Codex bridge for routing outbound mail drafting and send-readiness requests through `outbound_mail_authoring_v0` without copying project keyword truth, footer payloads, Outlook state, or send authority into the skill.
 - `outlook_mail_reconcile/` is the tracked Codex bridge for routing `/outlook-reconcile` requests through `outlook_mail_reconcile_v0` without copying Outlook runtime state or mail payloads into the skill.
 - `knowledge_ingest_cell_launcher/` is the tracked Codex bridge for routing owner-gated knowledge/source ingest requests through `knowledge_ingest_cell`.
+- `knowledge_ingest_cross_pc/` is the tracked Codex bridge for running cross-PC or side-chat knowledge ingest sessions with start/end sync, metadata-only receipt capture, missing-audit generation, and `_workmeta` publication.
 - `systems_engineering_cell_launcher/` is the tracked Codex bridge for routing project-start, stage-gap, source-gap, readiness, owner-decision, review, and closeout requests through `systems_engineering_cell`.
 - `pcb_revision_library_cell_launcher/` is the tracked Codex bridge for routing PCB DB Doctor uprev and dlib export/organization requests through `pcb_revision_library_cell`.
 - boundary 규칙은 [`.registry/docs/architecture/SKILL_CANON_BOUNDARY.md`](../docs/architecture/SKILL_CANON_BOUNDARY.md) 를 따른다.

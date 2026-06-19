@@ -1,0 +1,7 @@
+interface:
+  display_name: "Knowledge Ingest Cross-PC"
+  short_description: "Make side-PC knowledge ingest recoverable."
+  default_prompt: "Use $soulforge-knowledge-ingest-cross-pc to run this side-PC knowledge ingest session with repo sync, Knowledge Ingest Cell routing, metadata-only receipt capture, missing-audit generation, validation, and _workmeta commit/push."
+
+policy:
+  allow_implicit_invocation: true

@@ -2,6 +2,16 @@
 
 ## 2026-06-19
 
+### Revision `working` - cross-PC knowledge ingest launcher skill
+
+- Added `knowledge_ingest_cross_pc`, a Codex launcher skill for side-PC
+  knowledge ingest sessions that must pull/sync, invoke the Knowledge Ingest
+  Cell, capture metadata-only receipts, generate missing audits, validate
+  boundaries, and push `_workmeta` evidence for later recovery.
+- Kept the new launcher as operational glue only; it does not grant source
+  truth, owner approval, upload, NotebookLM, RAG index-build, public canon
+  promotion, or default-route authority.
+
 ### Revision `working` - knowledge ingest receipt and missing audit
 
 - Added a metadata-only knowledge ingest receipt ledger and missing-audit table

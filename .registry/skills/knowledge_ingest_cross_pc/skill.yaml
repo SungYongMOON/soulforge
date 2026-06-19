@@ -1,0 +1,63 @@
+skill_id: knowledge_ingest_cross_pc
+kind: skill
+status: active
+title: Knowledge Ingest Cross-PC
+summary: Run knowledge ingest side sessions on another PC or Codex chat with start/end sync, metadata-only receipt capture, missing-audit generation, and `_workmeta` push discipline.
+behavior:
+  intent: >
+    Provide a Codex-facing wrapper for cross-PC or side-thread knowledge ingest
+    work. The skill keeps the existing Knowledge Ingest Cell and
+    `knowledge_ingest_pipeline_v0` as the owner of ingest orchestration, while
+    adding the operational discipline that makes another PC's chat work visible
+    later: pull current repos, sync installed skills, capture a metadata-only
+    receipt, build a missing-audit view, validate boundaries, and commit/push
+    `_workmeta` evidence before closeout.
+  use_when:
+    - the user starts a knowledge ingest side session from another PC or another Codex chat
+    - the user says another PC must leave knowledge candidates recoverable on this PC
+    - the user asks to use `soulforge-knowledge-ingest-cell-launcher` and also make the result visible across PCs
+    - the user asks Korean phrases such as "다른 PC 지식화", "사이드에서 지식 인입", "지식 영수증 남겨", "누락 감사표까지", or "이 PC에서 나중에 회수"
+  avoid_when:
+    - the user only wants to update/downsync Soulforge without doing knowledge ingest work
+    - the user only wants to upload/publish already completed repo changes
+    - the request requires raw source payload storage, raw transcript storage, secret inspection, owner approval, Drive or NotebookLM mutation, source-text or RAG index build, or public canon promotion from this wrapper alone
+  expected_outcome:
+    - public, `_workmeta`, and `private-state` repo state is inspected and pulled only when safe
+    - installed Soulforge skills are synced after public repo updates
+    - the knowledge ingest request is routed through `knowledge_ingest_cell_launcher` and `knowledge_ingest_pipeline_v0`
+    - a metadata-only receipt records candidate/source/wiki/RAG/canon layer status under `_workmeta/**/knowledge_ingest_receipts/**`
+    - a missing-audit view is written under `_workmeta/**/reports/knowledge_ingest_missing_audit/**`
+    - relevant validators pass or blockers are recorded
+    - `_workmeta` metadata evidence is committed and pushed so another PC can recover the state
+execution_requirements:
+  required_capabilities:
+    - git_status_review
+    - safe_fast_forward_pull
+    - skill_sync
+    - knowledge_ingest_launcher_routing
+    - knowledge_ingest_receipt_capture
+    - missing_audit_generation
+    - workmeta_publish
+    - boundary_review
+  preferred_capabilities:
+    - nested_repo_publish
+    - post_development_review_awareness
+    - knowledge_source_audit_awareness
+    - wiki_rag_preparation_routing
+  preferred_tools:
+    - rg
+    - git_status
+    - git_pull
+    - git_add
+    - git_commit
+    - git_push
+    - npm_validate
+    - guild_hall_knowledge_access_cli
+  notes:
+    - "This skill is operational glue; the ingest party, workflows, and profile policies remain source of truth."
+    - "The installed mirror name after sync is normally `soulforge-knowledge-ingest-cross-pc`."
+    - "Cross-PC recovery requires `_workmeta` commit/push. A receipt left only in local chat memory is not recoverable."
+    - "Receipts and missing audits are metadata-only and do not validate source truth or promote canon."
+notes:
+  - "`knowledge_ingest_cross_pc` is the canonical Soulforge skill package for cross-PC knowledge ingest side sessions."
+  - "Run `npm run skills:sync -- knowledge_ingest_cross_pc` or `npm run skills:sync -- --all` to materialize the installed Codex wrapper."
