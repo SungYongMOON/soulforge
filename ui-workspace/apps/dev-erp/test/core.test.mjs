@@ -1163,6 +1163,57 @@ test("run17: 메일 과제 분류(재배정) — 단건/묶음/할일 동행 이
   assert.equal(store.assignMails([mails[0].id], "no-such").error, "project_not_found");
 });
 
+test("mail UI: assign keeps the operator in mail history", () => {
+  const app = readFileSync(join(APP_DIR, "static", "app.js"), "utf8");
+  const start = app.indexOf("const doAssign = async");
+  const end = app.indexOf("$(\"#assignGo\")", start);
+  assert.ok(start > 0 && end > start, "doAssign block must be present");
+  const block = app.slice(start, end);
+  assert.match(block, /post\("\/api\/mail\/assign"/);
+  assert.match(block, /state\.mailSel = null/);
+  assert.doesNotMatch(block, /state\.view\s*=\s*"project"/);
+  assert.doesNotMatch(block, /state\.hubProject\s*=\s*target/);
+  assert.doesNotMatch(block, /state\.hubTab/);
+});
+
+test("mail UI: history exposes page selection controls", () => {
+  const app = readFileSync(join(APP_DIR, "static", "app.js"), "utf8");
+  const css = readFileSync(join(APP_DIR, "static", "style.css"), "utf8");
+  const mailStart = app.indexOf("async function renderMail()");
+  const mailEnd = app.indexOf("async function renderAuditLog()", mailStart);
+  assert.ok(mailStart > 0 && mailEnd > mailStart, "renderMail block must be present");
+  const block = app.slice(mailStart, mailEnd);
+  assert.match(block, /mailSelectPage/);
+  assert.match(block, /mailClearPage/);
+  assert.match(block, /mailClearAll/);
+  assert.match(block, /data-pick/);
+  assert.match(block, /pageIds = mail\.map/);
+  assert.match(css, /\.mail-selectbar/);
+  assert.match(css, /\.mail-pick/);
+});
+
+test("mail UI: history shows metadata preview and thread grouping without storing bodies", () => {
+  const app = readFileSync(join(APP_DIR, "static", "app.js"), "utf8");
+  const css = readFileSync(join(APP_DIR, "static", "style.css"), "utf8");
+  const mailStart = app.indexOf("async function renderMail()");
+  const mailEnd = app.indexOf("async function renderAuditLog()", mailStart);
+  assert.ok(mailStart > 0 && mailEnd > mailStart, "renderMail block must be present");
+  const block = app.slice(mailStart, mailEnd);
+  assert.match(app, /MAIL_THREAD_PREFIX_RE/);
+  assert.match(app, /function mailPreviewLine/);
+  assert.match(block, /mail_group_thread/);
+  assert.match(block, /f\.groupBy === "thread"/);
+  assert.match(block, /mailThreadSubject\(m\.subject\)/);
+  assert.match(block, /mail-preview/);
+  assert.match(block, /mail-dupe/);
+  assert.match(block, /sel\.source_ref/);
+  assert.match(block, /sel\.mailbox/);
+  assert.match(css, /\.mail-preview/);
+  assert.match(css, /\.mail-row\.thread-child/);
+  assert.equal(LEXICON.business.mail_group_thread, "대화별");
+  assert.equal(LEXICON.business.mail_preview_meta, "식별 정보");
+});
+
 test("store: SE 기준점 자동분류 — 인입 미연결=미분류, 정식 격리 (SE-CLASSIFY slice1)", () => {
   const store = freshStore();
   loadFixture(store);

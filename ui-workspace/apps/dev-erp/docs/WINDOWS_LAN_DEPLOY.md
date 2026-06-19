@@ -15,6 +15,11 @@ owner 승인 gate 는 [`RUNTIME_OPERATING_CONTRACT_20260617.md`](RUNTIME_OPERATI
 backup/restore-test, and incident troubleshooting are tracked in
 [`RUNTIME_MAINTENANCE_RUNBOOK_20260618.md`](RUNTIME_MAINTENANCE_RUNBOOK_20260618.md).
 
+포트는 checkout 경계를 겸한다. `<runtime-checkout>`(`C:\Soulforge-runtime`)만
+운영 포트 `4300`을 사용한다. `<dev-checkout>`(`C:\Soulforge` 등 개발/작업본)은
+기본 `4310`을 사용하고, `4300` 실행은 서버가 기본 거부한다. 따라서 4300에
+보이는 화면은 항상 운영본이어야 한다.
+
 ## 0. 최신 코드 받기 (Windows 서버 PC — Soulforge 이미 설치됨)
 수동 복사 불필요. 그 PC에서 **`/soulforge-github-down`** 실행 → 공개 repo 최신(개발 PC에서 올린 변경)
 · 설치된 Codex 스킬 · `_workmeta`/`private-state` private repo 신선도 · 워크스페이스 정션을
@@ -32,11 +37,13 @@ backup/restore-test, and incident troubleshooting are tracked in
 - 확인(명령 프롬프트): `node -v` → v22.5.0 이상.
 
 ## 2. 실행 (LAN HTTP 파일럿)
-dev-erp 폴더에서:
+runtime dev-erp 폴더에서:
 ```
-node server.mjs --host 0.0.0.0
+node server.mjs --host 0.0.0.0 --port 4300
 ```
-또는 같은 폴더의 **`start-windows.bat` 더블클릭**. (`--host 0.0.0.0` = 사내 네트워크에서 접속 허용. 기본은 127.0.0.1 = 이 PC만.)
+또는 같은 폴더의 **`start-windows.bat` 더블클릭**. 이 배치 파일은
+`C:\Soulforge-runtime`에서는 `4300`, 개발 checkout 에서는 `4310`으로 자동 분리한다.
+(`--host 0.0.0.0` = 사내 네트워크에서 접속 허용. 기본은 127.0.0.1 = 이 PC만.)
 
 ## 3. 접속 주소 + 방화벽
 - 이 PC IP 확인: `ipconfig` → 활성 어댑터의 **IPv4 주소**(예 192.168.0.50). 팀원은 **`http://192.168.0.50:4300`**.
@@ -125,6 +132,7 @@ preflight `configuration_ready` OK + 관리자·팀원 로그인 + 팀원이 자
    - NSSM 서비스면 `nssm restart dev-erp`
    - `start-tailscale-windows.bat` 창이면 Ctrl+C 후 다시 더블클릭
    - LAN HTTP 파일럿의 `start-windows.bat` 창이면 Ctrl+C 후 다시 더블클릭
-   - 개발/즉시반영용이면 `node --watch server.mjs --host 0.0.0.0`(파일 변경 시 자동 재시작)
+   - 개발/즉시반영용이면 `node --watch server.mjs --host 127.0.0.1 --port 4310`
+     (파일 변경 시 자동 재시작, 운영 4300과 분리)
 
 > DB·로컬 데이터·메일함 env 는 그대로 유지된다(git 제외). 코드만 갱신된다.

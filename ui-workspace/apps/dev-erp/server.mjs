@@ -1,6 +1,7 @@
 #!/usr/bin/env node
 // dev-erp P1 서버: 외부 의존성 0 (node:http + node:sqlite).
-// 사용: node server.mjs [--port 4300] [--db data/dev-erp.db] [--ingest <json>] [--fixture]
+// 사용: node server.mjs [--port 4310] [--db data/dev-erp.db] [--ingest <json>] [--fixture]
+// 포트 원칙: C:\Soulforge-runtime 운영본만 4300, 개발/작업본 기본은 4310.
 // 기본: 빈 DB 는 비워 둔다. 데모 데이터는 --fixture 또는 DEV_ERP_LOAD_FIXTURE=1 일 때만 적재.
 import { createServer } from "node:http";
 import { randomUUID } from "node:crypto";
@@ -463,7 +464,7 @@ const server = createServer(async (req, res) => {
       return send(res, 401, { error: "login_required" });
     }
     // 읽기도 미인증 차단(팀 모드) — '무조건 로그인해야 보임'. 랜딩에 필요한 비민감 메타데이터만 예외:
-    // /api/me(정체성), /api/auth/*(로그인·가입), /api/health, /api/lexicon·/api/modules(UI 라벨/구조).
+    // /api/me(정체성), /api/auth/*(로그인·가입), /api/health, /api/version, /api/lexicon·/api/modules(UI 라벨/구조).
     if (req.method === "GET" && path.startsWith("/api/")
         && !["/api/me", "/api/health", "/api/version", "/api/lexicon", "/api/modules"].includes(path)
         && !path.startsWith("/api/auth/")

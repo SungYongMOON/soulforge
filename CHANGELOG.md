@@ -64,6 +64,58 @@
 
 ## 2026-06-18
 
+### Revision `working` - dev-erp version source endpoint
+
+- Moved visible ERP/chatbot version display behind `/api/version` so the UI reads
+  runtime component metadata instead of keeping release strings in `app.js`.
+- Exported the chatbot version from `src/llm.mjs` and included it in chat API
+  responses for operational verification of the actual responding chatbot code.
+
+### Revision `working` - dev-erp component version split
+
+- Split the compact visible release badges into separate component versions:
+  `ERP v1.0.2` for the main app and `챗봇 v1.1.0` for the chatbot component.
+- Kept the full internal UI/chatbot build identifiers in hover titles so
+  operators can verify the exact loaded artifact without crowding the header.
+
+### Revision `working` - dev-erp port boundary guard
+
+- Reserved port `4300` for the `C:\Soulforge-runtime` checkout and changed
+  non-runtime development checkouts to default to port `4310`.
+- Added a server-side refusal guard so development checkouts cannot accidentally
+  take over the production port unless an explicit emergency override is set.
+- Updated Windows start scripts and QA/deployment docs so runtime and development
+  browser checks use different ports by default.
+
+### Revision `working` - dev-erp compact version and readable mail history
+
+- Shortened the visible app/chatbot version badges to semver-style release
+  numbers while keeping full internal build and browser details in tooltips.
+- Added mail-history metadata previews, duplicate subject markers, and a
+  title-prefix-based conversation grouping option so forwarded/replied mail can
+  be triaged without storing raw mail bodies.
+
+### Revision `working` - dev-erp visible version markers
+
+- Added visible version markers for release verification: the app title now
+  shows the loaded UI build and browser engine version, and the chatbot header
+  shows the loaded chatbot UI build.
+- Moved the app version markers into the right side of the top utility bar so
+  the home title and primary menu row stay clean.
+- Documented the operator check that production acceptance must probe `4300`,
+  not temporary verification ports.
+
+### Revision `working` - dev-erp mail selection controls
+
+- Added visible page-level selection controls and larger row-level select/deselect
+  buttons to the mail history view, keeping selection actions non-destructive.
+
+### Revision `working` - dev-erp mail assign stays in history
+
+- Kept the mail classification flow on the mail history view after assigning
+  selected messages to a project, so operators can continue triaging the same
+  mailbox/filter without being moved into the project hub.
+
 ### Revision `working` - dev-erp floating chatbot window
 
 - Changed the chatbot from a blocking modal overlay into an always-on-top
