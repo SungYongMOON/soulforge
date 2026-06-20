@@ -60,7 +60,10 @@ steps:
       - delegation_packet_set
       - local_manager_tasks
     rules:
-      prefer_fresh_subagents: true
+      explicit_invocation_requires_active_subagent_delegation: true
+      substantive_material_work_uses_subagent_by_default: true
+      no_subagent_exception_must_be_recorded: true
+      fresh_subagents_are_default: true
       fork_context_preferred: false
       pass_only_bounded_context: true
       delegation_packet_minimum_required: true

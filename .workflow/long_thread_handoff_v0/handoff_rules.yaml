@@ -13,7 +13,7 @@ rules:
   - from: delegation_router
     to: integration_controller
     condition: delegation_packets_prepared_or_local_task_selected
-    summary: Delegation packets carry objective, context refs, current state, acceptance criteria, allowed read/write scope, side-effect limits, verification, output shape, execution-contract claim ceiling, stop conditions, explicit write ownership, and bounded context; the manager keeps raw transcript and intermediate source dumps out of its context.
+    summary: Explicit invocation defaults to active fresh-subagent delegation for substantive work; if local manager work is selected instead, the manager records a named no-subagent exception. Delegation packets carry objective, context refs, current state, acceptance criteria, allowed read/write scope, side-effect limits, verification, output shape, execution-contract claim ceiling, stop conditions, explicit write ownership, and bounded context; the manager keeps raw transcript and intermediate source dumps out of its context.
   - from: integration_controller
     to: validation_controller
     condition: actual_file_state_refreshed

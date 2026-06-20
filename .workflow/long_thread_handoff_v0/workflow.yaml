@@ -102,6 +102,17 @@ long_thread_handoff_contract:
     - next_actions
     - durable_user_instructions
     - unknowns
+  subagent_delegation_default_policy:
+    explicit_invocation_means_active_subagent_delegation: true
+    substantive_material_work_uses_fresh_subagents_by_default: true
+    same_thread_direct_work_requires_named_no_subagent_exception: true
+    no_subagent_exceptions:
+      - unclear_goal
+      - trivial_status_or_preflight
+      - small_deterministic_local_check
+      - unavailable_subagent_tool_or_model
+      - unsafe_minimal_packet_boundary
+      - owner_decision_or_stop_condition
   autonomous_context_policy:
     refresh_handoff_frequently: true
     compact_sparingly: true

@@ -8,7 +8,7 @@ behavior:
     Provide a Codex-facing bridge for long Soulforge thread closeout and continuation.
     The skill compresses the user's repeated prompt into an explicit invocation that
     declares the goal, writes or refreshes a compact handoff checkpoint, delegates
-    material work and review to fresh subagents when available, and keeps Telegram
+    material work and review to fresh subagents by default when available, and keeps Telegram
     completion notification behind safe delivery and authorization boundaries.
   use_when:
     - the user explicitly asks for Soulforge long-thread handoff mode
@@ -21,6 +21,7 @@ behavior:
   expected_outcome:
     - the current thread is summarized into a compact `NIGHT_WORK_HANDOFF`-style checkpoint
     - checkpoint refresh, compact, and fresh-session decisions preserve only durable state needed for the next phase
+    - explicit invocation actively uses fresh subagents for non-trivial bounded work, unless a named no-subagent exception is recorded
     - fresh subagents receive only the checkpoint, target files, boundaries, and acceptance criteria
     - fresh subagents receive a bounded delegation packet with objective, context refs, acceptance criteria, read/write scope, side-effect limits, validators, result packet shape, execution-contract claim ceiling, and stop conditions
     - workflow creation or material evolution is routed through `soulforge-workflow-generator`

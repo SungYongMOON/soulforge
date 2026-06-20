@@ -4,8 +4,10 @@
 overnight, cross-PC, or context-reset-prone work.
 
 It keeps the main controller focused on goal, boundary, checkpoint, delegation,
-integration, validation, context reset, and closeout. Material work should be
-delegated to fresh subagents when the runtime and user authorization allow it.
+integration, validation, context reset, and closeout. Explicit invocation makes
+fresh subagent delegation the default for substantive work, subject only to
+runtime availability and user authorization boundaries; local manager work
+requires a named no-subagent exception.
 
 ## Current State
 
@@ -24,6 +26,8 @@ delegated to fresh subagents when the runtime and user authorization allow it.
 - Fresh subagent delegation packet shape, including objective, context refs,
   acceptance criteria, allowed scope, side-effect limits, verification, output
   shape, execution-contract claim ceiling, and stop conditions.
+- No-subagent exception policy for cases where direct manager work replaces the
+  default fresh-subagent path.
 - Autonomous handoff refresh, compact, and clear decision policy.
 - Integration validation route.
 - Conservative closeout and knowledge trigger check.
@@ -46,7 +50,8 @@ delegated to fresh subagents when the runtime and user authorization allow it.
 3. Prepare bounded fresh-subagent delegation packets with objective, context
    refs, current state, acceptance criteria, read/write scope, side-effect
    limits, validators or validation gap, result packet shape, claim ceiling,
-   and stop conditions.
+   and stop conditions; if direct manager work is used instead, record the
+   no-subagent exception.
 4. Integrate returned work by checking actual status, diffs, and files.
 5. Run deterministic validators and boundary checks.
 6. Decide whether to refresh handoff, compact, clear, or continue.

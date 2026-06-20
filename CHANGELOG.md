@@ -2,6 +2,13 @@
 
 ## 2026-06-20
 
+### Revision `working` - long-thread subagent default clarified
+
+- Clarified that explicit `soulforge-long-thread-handoff` invocation makes
+  fresh subagent delegation the default for non-trivial bounded work.
+- Added a named no-subagent exception rule so direct same-thread execution is
+  treated as an exception, not an ambiguous "when useful" choice.
+
 ### Revision `working` - delegation packet minimum hardening
 
 - Added compact delegation packet minimum fields to the long-thread handoff and

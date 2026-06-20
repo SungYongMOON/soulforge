@@ -11,13 +11,13 @@ For context-management rationale and optional tactics, read `references/context-
 
 ## Core Contract
 
-- Treat explicit invocation of this skill as authorization to use subagents for the bounded handoff task when the current tool environment supports them.
+- Treat explicit invocation of this skill as a request to actively use fresh subagents for non-trivial bounded work, subject only to current tool environment support. Direct same-thread execution is allowed only for a named no-subagent exception, and the exception must be reported.
 - Act as manager/controller A: own goal declaration, boundaries, evidence, integration, validation routing, and final reporting.
 - Do not deep-analyze the full old context yourself unless needed to produce a safe checkpoint. Convert the thread into a compact handoff, then delegate material analysis, implementation, and review.
 - Keep the manager context clean: carry forward structured state and final findings, not raw exploration, failed attempts, or unneeded source text.
 - Prefer a structured checkpoint over prose-only compaction for fragile work. The checkpoint should make omitted or unknown items explicit.
 - During long phases, periodically re-anchor the work by restating the current goal, constraints, completed work, blockers, and next action before continuing or delegating.
-- Prefer fresh subagents with `fork_context=false`. Pass only the handoff summary, target files, constraints, and acceptance criteria.
+- Use fresh subagents with `fork_context=false` by default for delegated work. Pass only the handoff summary, target files, constraints, and acceptance criteria.
 - In overnight or continued-work mode, decide when to refresh handoff, compact, or start clean without asking the user unless a stop condition or owner decision is involved.
 - Request `gpt-5.5` with `xhigh` reasoning for subagents when available. If the runtime cannot provide that profile, use the strongest available profile and state the downgrade.
 - Continue until the declared goal is complete or a real stop condition is reached.
@@ -45,7 +45,7 @@ If the user gives only the trigger and the current goal is unclear, ask one conc
 5. Do not copy raw transcript, secrets, credentials, private payloads, or unneeded source text into the handoff. Mark unknowns explicitly.
 6. Treat `NIGHT_WORK_HANDOFF` as durable continuity state during overnight work. Refresh it after each meaningful unit, before compacting, before clearing, after subagent integration, and before ending a substantial phase.
 7. If the next phase should start clean, use the checkpoint as the continuity anchor for a fresh session instead of carrying the full conversation forward.
-8. Spawn analysis, implementation, and verification subagents as separate roles when useful. Use subagents especially when the manager only needs final findings or a bounded patch, not the intermediate source material.
+8. Create separate analysis, implementation, and verification subagent lanes for substantive work. Skip subagents only for a named no-subagent exception: unclear goal, trivial status or preflight, small deterministic local check, unavailable subagent tool/model, unsafe minimal-packet boundary, owner decision, or stop condition. Use subagents especially when the manager only needs final findings or a bounded patch, not the intermediate source material.
 9. For workers, specify write ownership, tell them they are not alone in the codebase, and tell them not to revert others' changes.
 10. After subagents return, inspect the actual file/status state before integrating so stale manager memory does not override fresh work.
 11. Integrate returned work, run appropriate deterministic validators, and keep the final claim ceiling conservative when verification is partial.
@@ -81,6 +81,23 @@ For verifier or review subagents, include the changed refs, acceptance criteria,
 validators, claims to check, and suspected risk areas. Do not pass hidden
 reasoning, raw transcript, private payloads, or the intended fix unless it is
 necessary evidence.
+
+## No-Subagent Exceptions
+
+Explicit invocation means fresh subagents are the default for material work.
+Same-thread direct execution is allowed only when one of these exceptions is
+named in the manager notes or closeout:
+
+- the current goal is unclear enough that one concise user question is required
+  before work can be safely delegated
+- the task is only a trivial status check, preflight, or small deterministic
+  local check
+- the runtime does not expose usable subagent tools or the requested
+  subagent/model profile is unavailable and no safe fallback exists
+- a safe minimal packet cannot be prepared without raw transcript, private
+  payload, secret, or overbroad source material
+- an owner decision, unsafe boundary, conflicting write scope, failed validator,
+  or other stop condition blocks delegation
 
 ## Autonomous Context Reset Policy
 
