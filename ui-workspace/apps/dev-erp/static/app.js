@@ -3193,7 +3193,7 @@ async function renderHome() {
   }
 
   // 위젯 인라인 검색: 리스트(테이블 행) 위젯 본문 앞에 검색 input 주입 → 행 텍스트 클라 필터(드래그 전 빨리 찾기).
-  const widgetSearchHtml = (id, bodyHtml) => bodyHtml.includes("<tr")
+  const widgetSearchHtml = (id, bodyHtml) => /<tbody>[\s\S]*?<tr/.test(bodyHtml) // tbody에 실제 행이 있을 때만(빈 표 제외)
     ? `<input class="widget-search" data-wsearch="${id}" placeholder="${L.widget_search_ph ?? "이 위젯에서 검색…"}" />${bodyHtml}`
     : bodyHtml;
   // 위젯 카드 — 절대좌표(% 가로 + px 세로). 본문 고정 높이 → 내부 스크롤.
@@ -3365,8 +3365,10 @@ async function renderHome() {
       r.classList.add("spinning");
       const { html } = await widgetBody(r.dataset.refresh);
       const body = $("#view").querySelector(`[data-body="${r.dataset.refresh}"]`);
+      const prevQ = body?.querySelector(".widget-search")?.value ?? ""; // 새로고침 전 검색어 보존
       if (body) body.innerHTML = widgetSearchHtml(r.dataset.refresh, html);
       bindWidgetInner();
+      if (body && prevQ) { const ni = body.querySelector(".widget-search"); if (ni) { ni.value = prevQ; ni.dispatchEvent(new Event("input")); } } // 검색어·필터 복원
       setTimeout(() => r.classList.remove("spinning"), 400);
     });
   });
@@ -3490,60 +3492,70 @@ async function renderHome() {
     $("#view").querySelectorAll("[data-goreports]").forEach((b) =>
       b.addEventListener("click", (e) => { e.stopPropagation(); state.view = "mod:reports"; render(); }));
     $("#view").querySelectorAll(".widget-search").forEach((inp) => {
+      if (inp.dataset.wsBound === "1") return; // 새로고침 시 리스너 중복 누적 방지
+      inp.dataset.wsBound = "1";
       inp.addEventListener("mousedown", (e) => e.stopPropagation()); // 위젯 드래그와 분리
       inp.addEventListener("input", () => {
         const q = inp.value.trim().toLowerCase();
         const body = inp.closest(".widget-body");
         if (!body) return;
         body.querySelectorAll("tbody tr").forEach((tr) => {
+          if (tr.classList.contains("date-sep") || tr.classList.contains("proj-sep")) return; // 그룹 헤더는 필터 제외
           tr.style.display = (!q || tr.textContent.toLowerCase().includes(q)) ? "" : "none";
+        });
+        // 표 밖 보조 목록(예: projects 위젯 inbox-strip)도 같은 질의로 숨김
+        body.querySelectorAll(".inbox-strip").forEach((el) => {
+          el.style.display = (!q || el.textContent.toLowerCase().includes(q)) ? "" : "none";
         });
       });
     });
-    // 행-레벨 DnD: 미배정 할일/메일 행을 '내 할 일(mine)' 위젯에 드롭 → 내 일(재배정 / 메일은 즉시 open).
-    $("#view").querySelectorAll('[data-body="unassigned"] tr[data-item], [data-body="mail"] tr[data-mail], [data-body="inbox"] tr[data-mail]').forEach((tr) => {
-      if (tr.dataset.dndBound === "1") return; // 새로고침 시 재바인드 방지
-      tr.dataset.dndBound = "1";
-      tr.setAttribute("draggable", "true");
-      tr.classList.add("dnd-row");
-      tr.addEventListener("dragstart", (e) => {
-        e.dataTransfer.setData("text/plain", tr.dataset.item ? `claim-item:${tr.dataset.item}` : `claim-mail:${tr.dataset.mail}`);
-        e.dataTransfer.effectAllowed = "move";
-        document.body.classList.add("dnd-active"); // 드래그 중 드롭존 강조
-      });
-      tr.addEventListener("dragend", () => document.body.classList.remove("dnd-active"));
-    });
+    // 행-레벨 DnD: 미배정 할일/메일 행을 '내 할 일(mine)' 위젯에 드롭 → 내 일.
+    // 드롭 타깃(mine 위젯)이 보드에 있고 로그인일 때만 draggable 부여(없으면 '끌리는데 못 놓는' 혼란 방지).
     const mineBody = $("#view").querySelector('[data-body="mine"]');
-    if (mineBody && state.account && mineBody.dataset.dropBound !== "1") {
-      mineBody.dataset.dropBound = "1";
-      mineBody.classList.add("dnd-target");
-      mineBody.addEventListener("dragover", (e) => { e.preventDefault(); e.dataTransfer.dropEffect = "move"; mineBody.classList.add("drop-active"); });
-      mineBody.addEventListener("dragleave", (e) => { if (e.target === mineBody) mineBody.classList.remove("drop-active"); });
-      mineBody.addEventListener("drop", async (e) => {
-        e.preventDefault();
-        mineBody.classList.remove("drop-active");
-        document.body.classList.remove("dnd-active");
-        const data = e.dataTransfer.getData("text/plain") || "";
-        const me = state.account.display_name || state.account.username || state.account.email || "";
-        if (data.startsWith("claim-item:")) {
-          const r = await post("/api/items/assign", { id: data.slice(11), assignee_ref: me });
-          toast(r.ok ? (L.claim_done ?? "내 일로 가져왔습니다") : (L.claim_fail ?? "가져오기 실패"), r.ok ? "ok" : "error");
-          if (r.ok) render();
-        } else if (data.startsWith("claim-mail:")) {
-          // 즉시 내 open 할일(owner 승인): 승격(unclassified 생성) → open 전이 → 담당=나. 메일내용 자동분류는 안 함.
-          const pr = await post("/api/items/promote", { mail_id: data.slice(11) });
-          const body = await pr.json().catch(() => ({}));
-          const itemId = body.item?.id || body.item_id;
-          if (pr.ok && itemId) {
-            await post("/api/items/status", { id: itemId, status: "open" });
-            await post("/api/items/assign", { id: itemId, assignee_ref: me });
-            toast(L.claim_mail_done ?? "메일을 내 할 일로 만들었습니다", "ok");
-            render();
-          } else {
-            toast(mailPromoteErrorText(body.error, L), "error");
-          }
-        }
+    if (mineBody && state.account) {
+      $("#view").querySelectorAll('[data-body="unassigned"] tr[data-item], [data-body="mail"] tr[data-mail], [data-body="inbox"] tr[data-mail]').forEach((tr) => {
+        if (tr.dataset.dndBound === "1") return; // 새로고침 시 재바인드 방지
+        tr.dataset.dndBound = "1";
+        tr.setAttribute("draggable", "true");
+        tr.classList.add("dnd-row");
+        tr.addEventListener("dragstart", (e) => {
+          e.dataTransfer.setData("text/plain", tr.dataset.item ? `claim-item:${tr.dataset.item}` : `claim-mail:${tr.dataset.mail}`);
+          e.dataTransfer.effectAllowed = "move";
+          document.body.classList.add("dnd-active"); // 드래그 중 드롭존 강조
+        });
+        tr.addEventListener("dragend", () => document.body.classList.remove("dnd-active"));
       });
+      if (mineBody.dataset.dropBound !== "1") {
+        mineBody.dataset.dropBound = "1";
+        mineBody.classList.add("dnd-target");
+        mineBody.addEventListener("dragover", (e) => { e.preventDefault(); e.dataTransfer.dropEffect = "move"; mineBody.classList.add("drop-active"); });
+        mineBody.addEventListener("dragleave", (e) => { if (e.target === mineBody) mineBody.classList.remove("drop-active"); });
+        mineBody.addEventListener("drop", async (e) => {
+          e.preventDefault();
+          mineBody.classList.remove("drop-active");
+          document.body.classList.remove("dnd-active");
+          const data = e.dataTransfer.getData("text/plain") || "";
+          const me = state.account.display_name || state.account.username || state.account.email || "";
+          if (data.startsWith("claim-item:")) {
+            const r = await post("/api/items/assign", { id: data.slice(11), assignee_ref: me });
+            toast(r.ok ? (L.claim_done ?? "내 일로 가져왔습니다") : (L.claim_fail ?? "가져오기 실패"), r.ok ? "ok" : "error");
+            if (r.ok) render();
+          } else if (data.startsWith("claim-mail:")) {
+            // 즉시 내 open 할일(owner 승인). 신규 승격 또는 already_promoted 기존 항목을 클레임.
+            const pr = await post("/api/items/promote", { mail_id: data.slice(11) });
+            const body = await pr.json().catch(() => ({}));
+            const itemId = body.item?.id || body.item_id; // 신규(item) / already_promoted(item_id) 모두
+            if (!itemId) { toast(mailPromoteErrorText(body.error, L), "error"); return; }
+            // assign 먼저: 이 시점 신규/기존이 unclassified·미배정이면 권한 통과, 타인 open 항목이면 403 → 가로채기 방지.
+            const ar = await post("/api/items/assign", { id: itemId, assignee_ref: me });
+            if (!ar.ok) { toast(L.claim_taken ?? "이미 다른 사람의 할 일입니다", "error"); render(); return; }
+            const sr = await post("/api/items/status", { id: itemId, status: "open" });
+            if (!sr.ok) { toast(L.claim_fail ?? "가져오기 실패", "error"); render(); return; }
+            toast(body.error === "already_promoted" ? (L.claim_existing ?? "기존 할 일을 내 일로 가져왔습니다") : (L.claim_mail_done ?? "메일을 내 할 일로 만들었습니다"), "ok");
+            render();
+          }
+        });
+      }
     }
     wireItemActions($("#view"));
     wireTaskCodexButtons($("#view"));
@@ -3730,11 +3742,13 @@ async function renderItems() {
     const sorted = [...items].sort((a, b) => (b.done_at ?? "").localeCompare(a.done_at ?? ""));
     let lastDay = null;
     rows = sorted.map((i) => {
-      const day = i.done_at ? i.done_at.slice(0, 10) : "";
+      // 로컬 달력일 기준 — done_at(UTC ISO) 을 slice 하면 KST 저녁 완료분이 하루 밀리므로 로컬 Date 에서 일자·요일을 함께 뽑음.
+      const dt = i.done_at ? new Date(i.done_at) : null;
+      const day = dt ? `${dt.getFullYear()}-${String(dt.getMonth() + 1).padStart(2, "0")}-${String(dt.getDate()).padStart(2, "0")}` : "";
       let head = "";
       if (day !== lastDay) {
         lastDay = day;
-        const lbl = day ? `${day} (${wk[new Date(day + "T00:00:00").getDay()]})` : (L.done_no_date ?? "완료일 미상(이전 완료분)");
+        const lbl = dt ? `${day} (${wk[dt.getDay()]})` : (L.done_no_date ?? "완료일 미상(이전 완료분)");
         head = `<tr class="date-sep"><td colspan="7">${esc(lbl)}</td></tr>`;
       }
       return head + renderItemRow(i);
@@ -3952,16 +3966,17 @@ async function renderMail() {
   params.set("page", "1");
   params.set("limit", String(state.mailLimit));
   params.set("offset", String(state.mailOffset));
-  const [mailData, labels, summary, itemsForPromote] = await Promise.all([
+  const [mailData, labels, summary, promotedRes] = await Promise.all([
     api(`/api/mail?${params}`), api("/api/labels"),
     state._projCache ? Promise.resolve({ projects: state._projCache }) : api("/api/summary"),
-    api(state.projectFilter ? `/api/items?project=${encodeURIComponent(state.projectFilter)}` : "/api/items")
+    api(state.projectFilter ? `/api/mail/promoted?project=${encodeURIComponent(state.projectFilter)}` : "/api/mail/promoted")
   ]);
   const mailPage = asPage(mailData, state.mailLimit, state.mailOffset);
   const mail = mailPage.rows;
   state._projCache = summary.projects;
-  // 승격 표시는 서버 진실원(items.origin_mail_id) 기준 — 새로고침/다른 PC에서도 ✓ 유지(이전: 인메모리 Set만이라 소실).
-  const promotedSet = new Set((itemsForPromote ?? []).map((i) => i.origin_mail_id).filter(Boolean));
+  // 승격 표시는 전용 진실원(/api/mail/promoted = origin_mail_id) 기준 — assignee 스코프·unclassified 격리·limit 무관이라
+  // 새로고침/다른 PC에서도 ✓ 유지(이전 /api/items 재사용은 unclassified 격리에 걸려 단일유저도 소실됐음).
+  const promotedSet = new Set(promotedRes?.ids ?? []);
   for (const id of state._promotedMails ?? []) promotedSet.add(id);
   const clsById = new Map(summary.projects.map((p) => [p.id, p.class]));
   const labelById = new Map(labels.map((l) => [l.id, l]));
@@ -4214,7 +4229,7 @@ async function renderMail() {
       render();
     }
   });
-  $("#promoteGoTriage")?.addEventListener("click", () => { state.statusFilter = "unclassified"; state.view = "items"; render(); });
+  $("#promoteGoTriage")?.addEventListener("click", () => { state.statusFilter = "unclassified"; resetItemPaging(); state.view = "items"; render(); });
   // run17: 분류(재배정) — 체크박스/묶음 바/상세 단건
   $("#view").querySelectorAll("[data-chk]").forEach((cb) =>
     cb.addEventListener("click", (e) => {
@@ -4780,11 +4795,11 @@ async function hubGuide(mount, p) {
 
 async function hubMail(mount, p) {
   const L = state.lex;
-  const [mail, items] = await Promise.all([
+  const [mail, promotedRes] = await Promise.all([
     api(`/api/mail?project=${encodeURIComponent(p.id)}&days=3650`), // 과제 장부 전체(연단위) — 1년 컷 금지
-    api(`/api/items?project=${encodeURIComponent(p.id)}`)
+    api(`/api/mail/promoted?project=${encodeURIComponent(p.id)}`) // 승격 진실원(격리·스코프 무관)
   ]);
-  const promoted = new Set(items.map((i) => i.origin_mail_id).filter(Boolean));
+  const promoted = new Set(promotedRes?.ids ?? []);
   for (const id of state._promotedMails ?? []) promoted.add(id);
   const rows = mail.map((m) => `<tr class="mail-row">
       <td class="mail-time">${localTime(m.at)}</td>

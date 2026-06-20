@@ -1616,9 +1616,18 @@ export class Store {
     const prev = this.db.prepare("SELECT status, project_id, title FROM core_item WHERE id=?").get(id);
     if (!prev) return { error: "item_not_found" };
     if (prev.status !== "archived") return { error: "not_archived", status: prev.status };
-    this.db.prepare("UPDATE core_item SET status='open' WHERE id=?").run(id);
+    // 복구는 항상 open → done_at 도 함께 초기화(status='done' ↔ done_at 불변식 유지).
+    this.db.prepare("UPDATE core_item SET status='open', done_at=NULL WHERE id=?").run(id);
     this.afterItemWrite?.(id);
     return { ok: true, project_id: prev.project_id, title: prev.title };
+  }
+
+  // 메일 승격 표시 전용 진실원: origin_mail_id 가 붙은(=할일로 승격된) 메일 id 목록.
+  // assignee 스코프·unclassified 격리·limit 과 무관하게 조회 → 메일 화면 '✓' 판정이 새로고침/다른 PC에서도 유지.
+  promotedMailIds(project = null) {
+    const sql = "SELECT DISTINCT origin_mail_id FROM core_item WHERE origin_mail_id IS NOT NULL AND status<>'archived'"
+      + (project ? " AND project_id=?" : "");
+    return this.db.prepare(sql).all(...(project ? [project] : [])).map((r) => r.origin_mail_id);
   }
 
   // SE 기준점 확정(slice2): 미분류 할 일에 단계/연결대상 + 업무유형을 붙여 정식(open) 승격.
