@@ -2941,6 +2941,29 @@ function uiConfirm(message) {
   });
 }
 
+// 전역 피드백 토스트 — 영속 액션의 성공/실패를 잠깐 띄우고 자동으로 사라짐. kind: "ok"|"error"|"info".
+// (이전엔 전역 피드백 함수가 없어 액션 결과가 render() 재그림으로만 표현 → "눌러도 됐는지 모름" 발생)
+function toast(message, kind = "ok") {
+  if (!message) return;
+  let host = document.querySelector(".toast-host");
+  if (!host) {
+    host = document.createElement("div");
+    host.className = "toast-host";
+    document.body.appendChild(host);
+  }
+  const el = document.createElement("div");
+  el.className = `toast toast-${kind}`;
+  el.setAttribute("role", "status");
+  el.textContent = message;
+  host.appendChild(el);
+  requestAnimationFrame(() => el.classList.add("show"));
+  const ttl = kind === "error" ? 4200 : 2400;
+  setTimeout(() => {
+    el.classList.remove("show");
+    setTimeout(() => el.remove(), 260);
+  }, ttl);
+}
+
 async function renderHome() {
   const layout = dashLayout();
   const todayKey = new Date().toISOString().slice(0, 10);
@@ -3069,7 +3092,7 @@ async function renderHome() {
     }
     if (id === "mail") {
       const mail = (await api("/api/mail?days=90")).slice(0, 6);
-      return { title: L.tile_mail, html: mail.length ? `<table><tbody>${mail.map((m) => miniRow([localTime(m.at), esc(m.subject)])).join("")}</tbody></table>` : `<div class="empty">${L.empty_mail}</div>` };
+      return { title: L.tile_mail, html: mail.length ? `<table><tbody>${mail.map((m) => `<tr data-mail="${esc(m.id)}"><td>${localTime(m.at)}</td><td>${esc(m.subject)}</td></tr>`).join("")}</tbody></table>` : `<div class="empty">${L.empty_mail}</div>` };
     }
     if (id === "kpi") {
       return { title: L.tile_kpi, html: `<div class="kpi-row mini">
@@ -3155,7 +3178,7 @@ async function renderHome() {
       const ids = new Set(inbox.map((p) => p.id));
       const mails = (await api("/api/mail?days=3650")).filter((m) => ids.has(m.project_id)).slice(0, 8);
       return { title: L.tile_inbox, html: mails.length
-        ? `<table><tbody>${mails.map((m) => miniRow([localTime(m.at), esc(m.subject)])).join("")}</tbody></table>`
+        ? `<table><tbody>${mails.map((m) => `<tr data-mail="${esc(m.id)}"><td>${localTime(m.at)}</td><td>${esc(m.subject)}</td></tr>`).join("")}</tbody></table>`
         : `<div class="empty">${L.empty_mail}</div>` };
     }
     // 최근 변경 = 사람이 읽는 변경 이력. 조회/잡음(view 등) 제외, kind 를 한국어 설명으로. 할일 변경은 클릭→빠른편집.
@@ -3169,6 +3192,10 @@ async function renderHome() {
       : `<div class="empty">${L.evt_empty ?? "최근 변경 없음"}</div>` };
   }
 
+  // 위젯 인라인 검색: 리스트(테이블 행) 위젯 본문 앞에 검색 input 주입 → 행 텍스트 클라 필터(드래그 전 빨리 찾기).
+  const widgetSearchHtml = (id, bodyHtml) => /<tbody>[\s\S]*?<tr/.test(bodyHtml) // tbody에 실제 행이 있을 때만(빈 표 제외)
+    ? `<input class="widget-search" data-wsearch="${id}" placeholder="${L.widget_search_ph ?? "이 위젯에서 검색…"}" />${bodyHtml}`
+    : bodyHtml;
   // 위젯 카드 — 절대좌표(% 가로 + px 세로). 본문 고정 높이 → 내부 스크롤.
   const GAP = 10; // 위젯 간 간격(px) — ECount식으로 살짝 떨어뜨림(너무 붙지 않게)
   const cardStyle = (w) => `left:calc(${(w.x / DASH_GCOLS) * 100}% + ${GAP / 2}px); width:calc(${(w.w / DASH_GCOLS) * 100}% - ${GAP}px);`
@@ -3194,7 +3221,7 @@ async function renderHome() {
           </span>
         </span>
       </div>
-      <div class="widget-body" data-body="${w.id}">${html}</div>
+      <div class="widget-body" data-body="${w.id}">${widgetSearchHtml(w.id, html)}</div>
       <i class="widget-resize" data-rid="${w.id}" title="${L.widget_resize}"></i>
     </section>`);
   }
@@ -3338,8 +3365,10 @@ async function renderHome() {
       r.classList.add("spinning");
       const { html } = await widgetBody(r.dataset.refresh);
       const body = $("#view").querySelector(`[data-body="${r.dataset.refresh}"]`);
-      if (body) body.innerHTML = html;
+      const prevQ = body?.querySelector(".widget-search")?.value ?? ""; // 새로고침 전 검색어 보존
+      if (body) body.innerHTML = widgetSearchHtml(r.dataset.refresh, html);
       bindWidgetInner();
+      if (body && prevQ) { const ni = body.querySelector(".widget-search"); if (ni) { ni.value = prevQ; ni.dispatchEvent(new Event("input")); } } // 검색어·필터 복원
       setTimeout(() => r.classList.remove("spinning"), 400);
     });
   });
@@ -3457,8 +3486,77 @@ async function renderHome() {
       r.addEventListener("click", () => { state.hubProject = r.dataset.p; state.hubTab = "overview"; state.view = "project"; render(); }));
     $("#view").querySelectorAll("[data-jump-mail]").forEach((b) =>
       b.addEventListener("click", (e) => { e.stopPropagation(); state.projectFilter = b.dataset.jumpMail; state.view = "mail"; render(); }));
+    // 콕핏 홈 '메일' KPI 타일: 핸들러가 없어 dead-click 이던 것 → 메일 화면(전체 메일함)으로 이동.
+    $("#view").querySelectorAll("[data-jump='inbox-mail']").forEach((b) =>
+      b.addEventListener("click", (e) => { e.stopPropagation(); state.projectFilter = ""; state.view = "mail"; render(); }));
     $("#view").querySelectorAll("[data-goreports]").forEach((b) =>
       b.addEventListener("click", (e) => { e.stopPropagation(); state.view = "mod:reports"; render(); }));
+    $("#view").querySelectorAll(".widget-search").forEach((inp) => {
+      if (inp.dataset.wsBound === "1") return; // 새로고침 시 리스너 중복 누적 방지
+      inp.dataset.wsBound = "1";
+      inp.addEventListener("mousedown", (e) => e.stopPropagation()); // 위젯 드래그와 분리
+      inp.addEventListener("input", () => {
+        const q = inp.value.trim().toLowerCase();
+        const body = inp.closest(".widget-body");
+        if (!body) return;
+        body.querySelectorAll("tbody tr").forEach((tr) => {
+          if (tr.classList.contains("date-sep") || tr.classList.contains("proj-sep")) return; // 그룹 헤더는 필터 제외
+          tr.style.display = (!q || tr.textContent.toLowerCase().includes(q)) ? "" : "none";
+        });
+        // 표 밖 보조 목록(예: projects 위젯 inbox-strip)도 같은 질의로 숨김
+        body.querySelectorAll(".inbox-strip").forEach((el) => {
+          el.style.display = (!q || el.textContent.toLowerCase().includes(q)) ? "" : "none";
+        });
+      });
+    });
+    // 행-레벨 DnD: 미배정 할일/메일 행을 '내 할 일(mine)' 위젯에 드롭 → 내 일.
+    // 드롭 타깃(mine 위젯)이 보드에 있고 로그인일 때만 draggable 부여(없으면 '끌리는데 못 놓는' 혼란 방지).
+    const mineBody = $("#view").querySelector('[data-body="mine"]');
+    if (mineBody && state.account) {
+      $("#view").querySelectorAll('[data-body="unassigned"] tr[data-item], [data-body="mail"] tr[data-mail], [data-body="inbox"] tr[data-mail]').forEach((tr) => {
+        if (tr.dataset.dndBound === "1") return; // 새로고침 시 재바인드 방지
+        tr.dataset.dndBound = "1";
+        tr.setAttribute("draggable", "true");
+        tr.classList.add("dnd-row");
+        tr.addEventListener("dragstart", (e) => {
+          e.dataTransfer.setData("text/plain", tr.dataset.item ? `claim-item:${tr.dataset.item}` : `claim-mail:${tr.dataset.mail}`);
+          e.dataTransfer.effectAllowed = "move";
+          document.body.classList.add("dnd-active"); // 드래그 중 드롭존 강조
+        });
+        tr.addEventListener("dragend", () => document.body.classList.remove("dnd-active"));
+      });
+      if (mineBody.dataset.dropBound !== "1") {
+        mineBody.dataset.dropBound = "1";
+        mineBody.classList.add("dnd-target");
+        mineBody.addEventListener("dragover", (e) => { e.preventDefault(); e.dataTransfer.dropEffect = "move"; mineBody.classList.add("drop-active"); });
+        mineBody.addEventListener("dragleave", (e) => { if (e.target === mineBody) mineBody.classList.remove("drop-active"); });
+        mineBody.addEventListener("drop", async (e) => {
+          e.preventDefault();
+          mineBody.classList.remove("drop-active");
+          document.body.classList.remove("dnd-active");
+          const data = e.dataTransfer.getData("text/plain") || "";
+          const me = state.account.display_name || state.account.username || state.account.email || "";
+          if (data.startsWith("claim-item:")) {
+            const r = await post("/api/items/assign", { id: data.slice(11), assignee_ref: me });
+            toast(r.ok ? (L.claim_done ?? "내 일로 가져왔습니다") : (L.claim_fail ?? "가져오기 실패"), r.ok ? "ok" : "error");
+            if (r.ok) render();
+          } else if (data.startsWith("claim-mail:")) {
+            // 즉시 내 open 할일(owner 승인). 신규 승격 또는 already_promoted 기존 항목을 클레임.
+            const pr = await post("/api/items/promote", { mail_id: data.slice(11) });
+            const body = await pr.json().catch(() => ({}));
+            const itemId = body.item?.id || body.item_id; // 신규(item) / already_promoted(item_id) 모두
+            if (!itemId) { toast(mailPromoteErrorText(body.error, L), "error"); return; }
+            // assign 먼저: 이 시점 신규/기존이 unclassified·미배정이면 권한 통과, 타인 open 항목이면 403 → 가로채기 방지.
+            const ar = await post("/api/items/assign", { id: itemId, assignee_ref: me });
+            if (!ar.ok) { toast(L.claim_taken ?? "이미 다른 사람의 할 일입니다", "error"); render(); return; }
+            const sr = await post("/api/items/status", { id: itemId, status: "open" });
+            if (!sr.ok) { toast(L.claim_fail ?? "가져오기 실패", "error"); render(); return; }
+            toast(body.error === "already_promoted" ? (L.claim_existing ?? "기존 할 일을 내 일로 가져왔습니다") : (L.claim_mail_done ?? "메일을 내 할 일로 만들었습니다"), "ok");
+            render();
+          }
+        });
+      }
+    }
     wireItemActions($("#view"));
     wireTaskCodexButtons($("#view"));
   }
@@ -3509,7 +3607,11 @@ function wireItemActions(scope) {
         if (reason === null) return;
         if (reason.trim()) body.bottleneck_reason = reason.trim();
       }
-      await post("/api/items/status", body);
+      const r = await post("/api/items/status", body);
+      if (r.ok) toast(body.status === "done"
+        ? (state.lex.item_done_toast ?? "완료 처리됨 — '완료' 탭에서 '다시 열기'로 되돌릴 수 있어요")
+        : (state.lex.item_status_toast ?? "상태가 변경되었습니다"), "ok");
+      else toast(state.lex.item_status_fail ?? "상태 변경 실패", "error");
       render();
     });
   });
@@ -3610,7 +3712,7 @@ async function renderItems() {
     const customOpt = cur && !matched ? `<option value="${esc(cur)}" selected>${esc(cur)}</option>` : "";
     return `<select class="reassign" data-i="${esc(i.id)}" title="${L.reassign_hint ?? "담당 나누기"}"><option value="" ${!cur ? "selected" : ""}>${L.assignee_none ?? "미배정"}</option>${customOpt}${memberOpts}</select>`;
   };
-  const rows = items.map((i) => state.itemEdit === i.id
+  const renderItemRow = (i) => state.itemEdit === i.id
     ? `<tr class="item-edit-row"><td colspan="7"><div class="item-edit">
         <input class="ie-title" value="${esc(i.title)}" placeholder="${L.col_title ?? "제목"}" />
         <input class="ie-due" type="date" value="${i.due ?? ""}" />
@@ -3629,9 +3731,31 @@ async function renderItems() {
       <td class="acts">${i.status === "archived"
         ? `<button class="act-btn restore-btn" data-restore="${esc(i.id)}">${L.act_restore ?? "복구"}</button>`
         : `${itemActionsHtml(i)}${codexTaskButtonHtml(i.id)}<button class="act-btn edit" data-edit="${esc(i.id)}">${L.act_edit ?? "수정"}</button>`}</td>
-    </tr>`).join("");
+    </tr>`;
   const isTriage = state.statusFilter === "unclassified";
   const isArchived = state.statusFilter === "archived";
+  const isDone = state.statusFilter === "done";
+  let rows;
+  if (isDone) {
+    // '한 일'을 완료 날짜(요일)별로 묶어 최근순으로 — 무엇을 언제 끝냈는지 돌아보게. done_at 없는 이전 완료분은 맨 아래.
+    const wk = ["일", "월", "화", "수", "목", "금", "토"];
+    const sorted = [...items].sort((a, b) => (b.done_at ?? "").localeCompare(a.done_at ?? ""));
+    let lastDay = null;
+    rows = sorted.map((i) => {
+      // 로컬 달력일 기준 — done_at(UTC ISO) 을 slice 하면 KST 저녁 완료분이 하루 밀리므로 로컬 Date 에서 일자·요일을 함께 뽑음.
+      const dt = i.done_at ? new Date(i.done_at) : null;
+      const day = dt ? `${dt.getFullYear()}-${String(dt.getMonth() + 1).padStart(2, "0")}-${String(dt.getDate()).padStart(2, "0")}` : "";
+      let head = "";
+      if (day !== lastDay) {
+        lastDay = day;
+        const lbl = dt ? `${day} (${wk[dt.getDay()]})` : (L.done_no_date ?? "완료일 미상(이전 완료분)");
+        head = `<tr class="date-sep"><td colspan="7">${esc(lbl)}</td></tr>`;
+      }
+      return head + renderItemRow(i);
+    }).join("");
+  } else {
+    rows = items.map(renderItemRow).join("");
+  }
   // 분류 카드는 항목의 기존값(메일/LLM 제안·결정적 SE단계)을 pre-fill → 사람은 확인만. (코어 LLM 0%: LLM은 제안, 확정은 사람)
   const optsSel = (labels, sel) => Object.entries(labels).map(([k, v]) => `<option value="${k}" ${k === sel ? "selected" : ""}>${v}</option>`).join("");
 	  const triageBody = !isTriage ? "" : (items.length
@@ -3669,6 +3793,7 @@ async function renderItems() {
     <div class="status-chips">${chipsHtml}</div>
     ${triageNote}
     ${isArchived ? `<div class="triage-note">${L.archived_note ?? "보관(삭제)된 할 일입니다. '복구'를 누르면 활성 목록으로 되돌아갑니다. 이력은 event_log에 그대로 남습니다."}</div>` : ""}
+    ${isDone ? `<div class="triage-note">${L.done_view_note ?? "완료한 일을 완료 날짜별로 모았습니다. 각 항목의 '다시 열기'로 되돌릴 수 있어요."}</div>` : ""}
     ${(isTriage || isArchived) ? "" : `<div class="item-form">
       <select id="niProject">${opts || `<option value="">${L.project}</option>`}</select>
       <input id="niTitle" placeholder="${L.item_new_ph}" />
@@ -3841,12 +3966,18 @@ async function renderMail() {
   params.set("page", "1");
   params.set("limit", String(state.mailLimit));
   params.set("offset", String(state.mailOffset));
-  const [mailData, labels, summary] = await Promise.all([
-    api(`/api/mail?${params}`), api("/api/labels"), state._projCache ? Promise.resolve({ projects: state._projCache }) : api("/api/summary")
+  const [mailData, labels, summary, promotedRes] = await Promise.all([
+    api(`/api/mail?${params}`), api("/api/labels"),
+    state._projCache ? Promise.resolve({ projects: state._projCache }) : api("/api/summary"),
+    api(state.projectFilter ? `/api/mail/promoted?project=${encodeURIComponent(state.projectFilter)}` : "/api/mail/promoted")
   ]);
   const mailPage = asPage(mailData, state.mailLimit, state.mailOffset);
   const mail = mailPage.rows;
   state._projCache = summary.projects;
+  // 승격 표시는 전용 진실원(/api/mail/promoted = origin_mail_id) 기준 — assignee 스코프·unclassified 격리·limit 무관이라
+  // 새로고침/다른 PC에서도 ✓ 유지(이전 /api/items 재사용은 unclassified 격리에 걸려 단일유저도 소실됐음).
+  const promotedSet = new Set(promotedRes?.ids ?? []);
+  for (const id of state._promotedMails ?? []) promotedSet.add(id);
   const clsById = new Map(summary.projects.map((p) => [p.id, p.class]));
   const labelById = new Map(labels.map((l) => [l.id, l]));
 
@@ -3910,7 +4041,7 @@ async function renderMail() {
       <td class="mail-meta">${meta}</td>
       <td class="mail-from">${m.direction === "out" ? `<i>→</i> ` : ""}${esc(m.counterpart ?? "-")}</td>
       <td class="mail-subj" title="${esc([m.subject, preview].filter(Boolean).join(" · "))}">
-        <div class="mail-subj-main">${kind ? `<span class="mail-thread-kind">${esc(kind)}</span>` : ""}${esc(m.subject)}${dupe ? `<span class="mail-dupe" title="같은 대화/제목의 다른 메일">#${esc(mailIdTail(m.id))}</span>` : ""}</div>
+        <div class="mail-subj-main">${kind ? `<span class="mail-thread-kind">${esc(kind)}</span>` : ""}${esc(m.subject)}${dupe ? `<span class="mail-dupe" title="같은 대화/제목의 다른 메일">#${esc(mailIdTail(m.id))}</span>` : ""}${promotedSet.has(m.id) ? `<span class="mail-promoted" title="${L.promote_done ?? "할 일로 등록됨"}">✓ ${L.item}</span>` : ""}</div>
         ${preview ? `<div class="mail-preview">${esc(preview)}</div>` : ""}
       </td>
       <td class="mail-time">${localTime(m.at)}</td>
@@ -3993,8 +4124,8 @@ async function renderMail() {
         <div><dt>${L.detail_pointer}</dt><dd class="pointer">${esc(sel.pointer_ref ?? "-")} <button class="copy-btn" data-c="${esc(sel.pointer_ref ?? "")}">${L.copy}</button></dd></div></dl>
       <h4>${L.detail_labels}</h4>
       <div class="label-bar">${labels.map((l) => `<span class="label-chip manual ${sel.label_ids.includes(l.id) ? "on" : ""}" style="--lc:${esc(l.color)}" data-toggle="${l.id}">${esc(l.name)}</span>`).join("") || `<span class="dim">-</span>`}</div>
-      <div class="detail-actions">${state._promotedMails?.has(sel.id)
-        ? `<span class="badge green">✓ ${L.item}</span>`
+      <div class="detail-actions">${promotedSet.has(sel.id)
+        ? `<span class="badge green">✓ ${L.item}</span> <button id="promoteGoTriage" class="fav-chip mini">${L.promote_go_triage ?? "분류하러 가기 →"}</button>`
         : sel.project_id
           ? `<button id="promoteBtn" class="fav-chip">${L.promote_item}</button>`
           : `<span class="dim">${L.promote_need_project ?? "과제로 분류 후 할 일로 승격"}</span>`}</div>
@@ -4032,14 +4163,15 @@ async function renderMail() {
   $("#view").querySelector(".mail-reg")?.addEventListener("toggle", (e) => { state.mailRegOpen = e.target.open; });
   $("#mrAdd")?.addEventListener("click", async () => {
     const subject = $("#mrSubject").value.trim();
-    if (!subject) return;
+    if (!subject) { toast(L.mail_reg_need_subject ?? "제목을 입력하세요", "error"); $("#mrSubject")?.focus(); return; }
     const body = { subject, direction: $("#mrDir").value || "in" };
     if ($("#mrFrom").value.trim()) body.counterpart = $("#mrFrom").value.trim();
     if ($("#mrDate").value) body.at = $("#mrDate").value;
     if ($("#mrProject").value) body.project_id = $("#mrProject").value;
     if ($("#mrPtr").value.trim()) body.pointer_ref = $("#mrPtr").value.trim();
     const r = await post("/api/mail", body);
-    if (r.ok) { state.mailRegOpen = true; render(); }
+    if (r.ok) { state.mailRegOpen = true; toast(L.mail_reg_done ?? "메일이 등록되었습니다", "ok"); render(); }
+    else toast(L.mail_reg_fail ?? "메일 등록에 실패했습니다", "error");
   });
 	  $("#mDays").addEventListener("change", (e) => { f.days = Number(e.target.value); resetMailPaging(); render(); });
 	  $("#mDir").addEventListener("change", (e) => { f.direction = e.target.value; resetMailPaging(); render(); });
@@ -4085,12 +4217,19 @@ async function renderMail() {
     })
   );
   $("#view").querySelectorAll(".copy-btn").forEach((b) =>
-    b.addEventListener("click", () => navigator.clipboard?.writeText(b.dataset.c))
+    b.addEventListener("click", () => {
+      if (navigator.clipboard) { navigator.clipboard.writeText(b.dataset.c); toast(L.copied ?? "복사됨", "ok"); }
+      else toast(L.copy_unsupported ?? "이 브라우저에서 복사가 지원되지 않습니다", "error");
+    })
   );
   $("#promoteBtn")?.addEventListener("click", async () => {
     const result = await promoteMailToItem(state.mailSel, { button: $("#promoteBtn") });
-    if (result.ok) render();
+    if (result.ok) {
+      toast(result.already ? (L.promote_already ?? "이미 할 일로 등록됨") : (L.promote_done_next ?? "할 일로 등록됨 — '분류 필요'에서 분류하세요"), "ok");
+      render();
+    }
   });
+  $("#promoteGoTriage")?.addEventListener("click", () => { state.statusFilter = "unclassified"; resetItemPaging(); state.view = "items"; render(); });
   // run17: 분류(재배정) — 체크박스/묶음 바/상세 단건
   $("#view").querySelectorAll("[data-chk]").forEach((cb) =>
     cb.addEventListener("click", (e) => {
@@ -4455,7 +4594,7 @@ async function hubRisk(mount, p) {
   const risks = await api(`/api/risk?project=${encodeURIComponent(p.id)}`);
   mount.innerHTML = risks.length
     ? `<table><thead><tr><th>${L.col_title ?? "항목"}</th><th>${L.risk_score ?? "위험도"}</th><th>${L.col_due ?? "마감"}</th></tr></thead><tbody>${risks.map((r) => `<tr>
-        <td>${esc(r.title)}</td><td><span class="status-chip s-${r.score >= 70 ? "risk" : r.score >= 40 ? "watch" : "ok"}">${Math.round(r.score ?? 0)}</span></td><td class="dim">${esc(r.due ?? "-")}</td></tr>`).join("")}</tbody></table>`
+        <td>${esc(r.item_title ?? "-")}</td><td><span class="status-chip s-${r.severity === "watch" ? "watch" : "risk"}">${esc(L[`risk_sev_${r.severity}`] ?? r.severity ?? "-")}</span></td><td class="dim">${esc(r.due ?? "-")}${Number.isFinite(r.days_left) ? ` <span class="dim">(${r.days_left >= 0 ? `D-${r.days_left}` : (L.risk_overdue ?? "지남")})</span>` : ""}</td></tr>`).join("")}</tbody></table>`
     : `<div class="empty">${L.hub_no_risk ?? "위험 항목 없음"}</div>`;
 }
 async function hubRequirements(mount, p) {
@@ -4463,7 +4602,7 @@ async function hubRequirements(mount, p) {
   const f = await api(`/api/inputs/fulfillment?project=${encodeURIComponent(p.id)}`);
   mount.innerHTML = (f ?? []).length
     ? `<p class="hub-note">${L.req_note ?? "산출물별 필수 입력(요구사항) 충족 현황."}</p><table><thead><tr><th>${L.req_scope ?? "산출물"}</th><th>${L.req_need ?? "필요"}</th><th>${L.req_have ?? "충족"}</th><th></th></tr></thead><tbody>${f.map((d) => `<tr>
-        <td>${esc(d.scope_key)}</td><td class="dim num">${d.required ?? d.need ?? "-"}</td><td class="dim num">${d.have ?? d.fulfilled_count ?? "-"}</td><td>${d.fulfilled ? `<span class="badge green">✓</span>` : `<span class="status-chip s-watch">${L.req_partial ?? "미충족"}</span>`}</td></tr>`).join("")}</tbody></table>`
+        <td>${esc(d.scope_key)}</td><td class="dim num">${(d.required ?? []).length}</td><td class="dim num">${(d.satisfied ?? []).length}</td><td>${d.fulfilled ? `<span class="badge green">✓</span>` : `<span class="status-chip s-watch">${L.req_partial ?? "미충족"}</span>`}</td></tr>`).join("")}</tbody></table>`
     : `<div class="empty">${L.hub_no_req ?? "요구사항(입력 규칙) 없음"}</div>`;
 }
 
@@ -4656,11 +4795,11 @@ async function hubGuide(mount, p) {
 
 async function hubMail(mount, p) {
   const L = state.lex;
-  const [mail, items] = await Promise.all([
+  const [mail, promotedRes] = await Promise.all([
     api(`/api/mail?project=${encodeURIComponent(p.id)}&days=3650`), // 과제 장부 전체(연단위) — 1년 컷 금지
-    api(`/api/items?project=${encodeURIComponent(p.id)}`)
+    api(`/api/mail/promoted?project=${encodeURIComponent(p.id)}`) // 승격 진실원(격리·스코프 무관)
   ]);
-  const promoted = new Set(items.map((i) => i.origin_mail_id).filter(Boolean));
+  const promoted = new Set(promotedRes?.ids ?? []);
   for (const id of state._promotedMails ?? []) promoted.add(id);
   const rows = mail.map((m) => `<tr class="mail-row">
       <td class="mail-time">${localTime(m.at)}</td>

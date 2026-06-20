@@ -929,6 +929,10 @@ const server = createServer(async (req, res) => {
       };
       return send(res, 200, wantsPage(qp) ? store.mailPage(opts) : store.mail(opts));
     }
+    if (path === "/api/mail/promoted") {
+      // 메일 화면 '✓ 할 일' 판정 전용(승격 진실원). 미분류 격리·assignee 스코프 우회.
+      return send(res, 200, { ids: store.promotedMailIds(qp.project ?? null) });
+    }
     if (path === "/api/guide/templates") return send(res, 200, guideTemplates(qp.mode));
     if (path === "/api/doc/recipes") return send(res, 200, docRecipes(qp.mode));
     if (path === "/api/embeds" && req.method === "GET") return send(res, 200, store.listEmbeds({ project: qp.project ?? null }));
