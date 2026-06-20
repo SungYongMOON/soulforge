@@ -21,7 +21,16 @@ export function ingestNormalized(store, data, { label = "real", source = "normal
   }
   for (const i of data.items ?? []) {
     if (!i.id || !i.project_id || !i.title) { report.skipped.push(`item:${i.id ?? "?"}`); continue; }
-    store.upsertItem({ ...i, data_label: label }); report.items += 1;
+    // 할일류(메일/회의/요청 변환물)는 full-fidelity writer 로 — upsertItem 은 work_type/완료기준/origin_mail_id/
+    // anchor_stage_code/review_status 를 안 써서 손실됨. 미션류(단순 item)는 기존 upsertItem 유지.
+    const isTask = !!(i.work_type || i.completion_criteria || i.origin_mail_id || i.anchor_stage_code || i.review_status)
+      || /^(mailtask|manualtask):/.test(String(i.id));
+    if (isTask && typeof store.ingestTaskItem === "function") {
+      const r = store.ingestTaskItem({ ...i, project_code: i.project_code ?? i.project_id });
+      if (r && !r.error) report.items += 1; else report.skipped.push(`task:${i.id}:${r?.error ?? "?"}`);
+    } else {
+      store.upsertItem({ ...i, data_label: label }); report.items += 1;
+    }
   }
   for (const m of data.mail ?? []) {
     if (!m.id || !m.at || !m.subject) { report.skipped.push(`mail:${m.id ?? "?"}`); continue; }

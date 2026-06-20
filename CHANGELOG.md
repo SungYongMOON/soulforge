@@ -2,6 +2,13 @@
 
 ## 2026-06-20
 
+### Revision `working` - dev-erp 할일_장부 → real_meta 전달 복구
+
+- 운영본 인입 경로의 끊김 수정: 소스 할일_장부(메일/회의/요청 변환 할일)가 운영 ERP까지 도달하지 못하던 문제. `build_real_meta.mjs`가 할일_장부를 전혀 안 읽어(items를 snapshot 미션에서만 빌드) 754개 변환 할일이 스냅샷에서 누락됐었다.
+- `tools/build_real_meta.mjs`: `_workmeta/<코드>/reports/할일_장부/할일_장부.csv`를 읽어(readTaskLedgerRows 재사용) `real_meta.items`에 싣는다(샘플 제외, id dedup). 실데이터 검증: items 0 → 785(754 mailtask+30 voicetask+1 manualtask).
+- `src/adapter.mjs`: `ingestNormalized`가 할일류 item(work_type·완료기준·origin_mail_id·anchor_stage_code·review_status 보유, 또는 mailtask:/manualtask: 키)을 `ingestTaskItem`(전체 컬럼+SE앵커 게이트+멱등 보존)으로 라우팅. `upsertItem` 경로는 그 필드들을 못 써서 손실되던 것을 방지. 미션류 단순 item은 기존 경로 유지.
+- node:test 2건 추가(라우팅 필드 보존 + 빌더 할일 적재). 메일 원문·secret 미열람, real_meta는 runtime data(gitignore).
+
 ### Revision `working` - dev-erp 메일→할일 LLM 판단 인입
 
 - dev-erp 운영 병목("메일은 오는데 할일로 안 변함")의 ③ 변환 단계를 채웠다. 결정적 엔진(`mail_to_task_ledger.mjs`)은 그대로 두고, 빠져 있던 LLM 판단(어떤 메일이 할일인가 + 필드)을 반복 가능한 증분 실행으로 패키징.

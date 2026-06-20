@@ -6,6 +6,7 @@
 import { readFileSync, readdirSync, existsSync, mkdirSync, writeFileSync } from "node:fs";
 import { join, dirname } from "node:path";
 import { fileURLToPath } from "node:url";
+import { readTaskLedgerRows } from "../src/autosync.mjs"; // 할일_장부 → items (full task fidelity)
 
 const HERE = dirname(fileURLToPath(import.meta.url));
 const args = process.argv.slice(2);
@@ -34,7 +35,7 @@ function parseCsv(text) {
   return rows;
 }
 
-const report = { projects: 0, missions_as_items: 0, mail_files: 0, mail_rows: 0, skipped: [] };
+const report = { projects: 0, missions_as_items: 0, task_files: 0, task_rows: 0, mail_files: 0, mail_rows: 0, skipped: [] };
 const out = { projects: [], items: [], mail: [] };
 
 function isReleaseSampleProject(code) {
@@ -144,6 +145,27 @@ for (const code of existsSync(wmRoot) ? readdirSync(wmRoot) : []) {
     }
   }
 }
+
+// 3) 할일_장부 → items (full task fidelity: work_type/완료기준/origin_mail_id/anchor/route 등).
+//    ingestNormalized 가 할일류 item 을 ingestTaskItem(전체 컬럼+SE앵커 게이트)으로 라우팅한다.
+for (const code of existsSync(wmRoot) ? readdirSync(wmRoot) : []) {
+  if (isReleaseSampleProject(code)) continue;
+  const taskCsv = join(wmRoot, code, "reports", "할일_장부", "할일_장부.csv");
+  if (!existsSync(taskCsv)) continue;
+  report.task_files += 1;
+  for (const row of readTaskLedgerRows(taskCsv)) {
+    out.items.push({ ...row, project_id: row.project_code }); // project_id=검증용, project_code=ingestTaskItem용 둘 다 보존
+    report.task_rows += 1;
+    if (!known.has(row.project_code)) {
+      out.projects.push({ id: row.project_code, title: row.project_code, health: "ok", class: classifyProject(row.project_code), source_ref: "task_ledger" });
+      known.add(row.project_code); report.projects += 1;
+    }
+  }
+}
+// items dedup by id (미션 vs 장부 키 충돌 방지, 마지막=장부 우선)
+const seenItem = new Map();
+for (const it of out.items) seenItem.set(it.id, it);
+out.items = [...seenItem.values()];
 
 mkdirSync(dirname(OUT), { recursive: true });
 writeFileSync(OUT, JSON.stringify(out, null, 1));
