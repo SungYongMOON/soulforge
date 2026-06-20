@@ -1,0 +1,112 @@
+workflow_id: report_authoring_v0
+kind: workflow
+status: active
+title: Report Authoring v0 (So-What 보고 골격 + 빈칸 채움)
+summary: Public-safe workflow for turning experiment/test/analysis/progress results into a conclusion-driven Soulforge report or briefing. Interviews the author grill-style to fill the missing So-What pieces (왜/뭘/뭘얻/그래서/다음), drafts by report type with practitioner register, runs a separate de-slop pass (bans ungrounded hedging only, keeps grounded judgment), and closes with a self-check and boundary review. Style and structure only — facts, numbers, and verdicts stay owner/source authority; the workflow never invents values.
+entrypoint: run
+execution_mode: local_tool_sequence
+role_slots: role_slots.yaml
+step_graph: step_graph.yaml
+handoff_rules: handoff_rules.yaml
+monster_rules: monster_rules.yaml
+party_compatibility: party_compatibility.yaml
+profile_policy: profile_policy.yaml
+history: history/
+calibrations: calibrations/
+global_invocation:
+  primary_alias: report_writer
+  slash_alias: /report-writer
+  resolves_to_workflow_id: report_authoring_v0
+  status: owner_requested_registration_alias
+  notes:
+    - The alias is a human invocation label. It does not grant fact, number, or verdict authority; those remain owner/source.
+inputs:
+  - report_authoring_request
+  - report_writing_guide_ref
+  - report_format_ref
+optional_inputs:
+  - raw_measurement_or_draft_material
+  - report_type_hint
+  - applicable_spec_or_requirement_ref
+  - owner_answers_to_gap_questions
+  - audience_hint
+  - prior_report_or_template_ref
+outputs:
+  - report_authoring_scope
+  - so_what_gap_register
+  - filled_so_what
+  - report_draft
+  - de_slop_change_log
+  - self_check_result
+  - boundary_review_note
+validation_level: structure_plus_fresh_eval_pilot_public_safe
+registration_policy: owner_requested_registration
+output_state: pilot-executed
+classification_lane:
+  primary: project_management
+  primary_name_ko: 프로젝트 관리
+  secondary:
+    - documentation
+    - quality_review
+  secondary_name_ko:
+    - 문서화
+    - 품질 검토
+  purpose: discovery_only
+  authority: none
+execution_binding:
+  party_required: false
+  candidate_party_id: null
+  bound_party_id: null
+  binding_authority: none
+workflow_modes:
+  - interview_gap_fill
+  - direct_draft
+  - experiment_report
+  - analysis_report
+  - progress_report
+  - presentation_brief
+downstream_workflows:
+  - workflow_id: post_development_review_gate_v0
+    expected_input: workflow_or_doctrine_change_packet
+    status: required_before_public_or_canon_policy_change
+report_authoring_contract:
+  owns:
+    - report_scope_and_type_binding
+    - so_what_gap_scan
+    - grill_style_gap_interview
+    - report_draft_by_type_spine
+    - separate_de_slop_pass
+    - self_check
+    - boundary_review_note
+  does_not_own:
+    - fact_number_or_test_result_creation
+    - overall_pass_fail_verdict_without_source
+    - measurement_uncertainty_or_spec_id_without_source
+    - claim_ceiling_promotion_beyond_evidence
+    - private_raw_payload_or_secret_inclusion
+    - legal_or_customer_mandated_form_override
+  doctrine_refs:
+    report_writing_guide: docs/architecture/workspace/SOULFORGE_REPORT_WRITING_GUIDE_V0.md
+    report_format: docs/architecture/workspace/SOULFORGE_REPORT_FORMAT_V0.md
+    interview_protocol: .registry/skills/report_writer/codex/references/interview.md
+    scaffold_and_register: .registry/skills/report_writer/codex/references/scaffold_and_register.md
+    filled_examples: .registry/skills/report_writer/codex/references/examples.md
+    launcher_skill: .registry/skills/report_writer
+  required_input_shapes:
+    report_authoring_request: templates/report_authoring_request.template.yaml
+  required_output_shapes:
+    report_packet: templates/report_packet.template.yaml
+    self_check_checklist: templates/self_check_checklist.template.yaml
+    boundary_review_note: templates/boundary_review_note.template.md
+  authority_boundary:
+    facts_numbers_verdicts_remain_owner_or_source: true
+    missing_value_marked_unconfirmed_not_invented: true
+    overall_verdict_requires_named_spec_or_source: true
+    de_slop_keeps_grounded_judgment_verbs: true
+    public_package_contains_no_private_payload: true
+    public_package_contains_no_runtime_absolute_paths: true
+notes:
+  - This package is registered in `.workflow/index.yaml` by owner request (build via workflow-generator + workflow-check).
+  - It covers report logic, register, and gap interview — not fact, number, or verdict creation.
+  - Detailed doctrine lives in `SOULFORGE_REPORT_WRITING_GUIDE_V0.md`; structure lives in `SOULFORGE_REPORT_FORMAT_V0.md`. The workflow references them at runtime and does not duplicate them as authority.
+  - `output_state: pilot-executed` rests on fresh-context evaluator/judge runs over experiment/analysis/progress/presentation/interview scenarios; no CLI model calibration was run (see profile_policy.yaml). Default route remains off.

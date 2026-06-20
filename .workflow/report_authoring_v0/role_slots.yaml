@@ -1,0 +1,47 @@
+workflow_id: report_authoring_v0
+kind: role_slots
+status: active
+role_slots:
+  - slot_id: intake_scanner
+    title: Intake and Gap Scanner
+    responsibilities:
+      - bind report type, audience, and available material
+      - map the So-What 5 and required fields onto the input and list the gaps
+      - stop early when an overall verdict would need a missing spec or source
+    suggested_classes:
+      - archivist
+  - slot_id: gap_interviewer
+    title: Gap Interviewer
+    responsibilities:
+      - ask the author one question at a time to fill 왜/그래서/다음 and missing fields
+      - never invent facts, numbers, or verdicts; mark unknowns as 미확인
+    suggested_classes:
+      - auditor
+  - slot_id: report_drafter
+    title: Report Drafter
+    responsibilities:
+      - expand the filled scaffold into the report type spine using the guide register
+      - keep conclusion-first and map recommendation to a decision
+    suggested_classes:
+      - writer
+  - slot_id: de_slop_reviewer
+    title: De-slop Reviewer
+    responsibilities:
+      - run a separate de-slop pass after drafting
+      - flag hedging only when ungrounded; keep grounded judgment verbs and 미확인 labels
+    suggested_classes:
+      - auditor
+  - slot_id: report_checker
+    title: Report Checker
+    responsibilities:
+      - confirm the report answers 왜/그래서/다음, carries a one-sentence verdict and a decision request
+      - confirm it is deliverable-only with no working notes or scaffold labels leaking
+    suggested_classes:
+      - auditor
+  - slot_id: boundary_reviewer
+    title: Boundary Reviewer
+    responsibilities:
+      - check fact/number/verdict attribution, unconfirmed marking, and public/private boundary
+      - name the final output state and claim ceiling
+    suggested_classes:
+      - auditor

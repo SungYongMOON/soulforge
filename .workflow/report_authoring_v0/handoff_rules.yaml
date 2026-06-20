@@ -1,0 +1,39 @@
+workflow_id: report_authoring_v0
+kind: handoff_rules
+status: active
+rules:
+  - rule_id: from_report_writing_guide
+    from_surface: docs/architecture/workspace/SOULFORGE_REPORT_WRITING_GUIDE_V0.md
+    consume:
+      - so_what_scaffold
+      - register_rules
+      - conditioned_de_slop_rules
+      - report_type_spines
+    requirement: The guide supplies doctrine only. The workflow references it at runtime and does not duplicate it as authority.
+  - rule_id: from_report_format
+    from_surface: docs/architecture/workspace/SOULFORGE_REPORT_FORMAT_V0.md
+    consume:
+      - required_sections
+      - md_plus_html_companion_pair_rule
+      - owner_facing_terms
+      - storage_boundary
+    requirement: Report structure and storage boundary come from the format doc.
+  - rule_id: from_skill_references
+    from_surface: .registry/skills/report_writer/codex/references/
+    consume:
+      - interview_protocol
+      - scaffold_quick_card
+      - filled_examples
+    requirement: The launcher skill references carry the interview question bank and worked examples consumed by the steps.
+  - rule_id: to_owner_review
+    provide:
+      - report_draft
+      - filled_so_what
+      - so_what_gap_register
+      - self_check_result
+    requirement: Drafts with missing facts, missing verdict source, or missing approval stay draft and mark the gaps as 미확인 or owner question.
+  - rule_id: to_post_development_review_gate
+    to_surface: .workflow/post_development_review_gate_v0/
+    provide:
+      - workflow_or_doctrine_change_packet
+    requirement: Any public or canon change to the workflow or the writing guide is closed through the post-development review gate.

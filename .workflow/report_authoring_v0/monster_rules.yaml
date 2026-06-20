@@ -1,0 +1,19 @@
+workflow_id: report_authoring_v0
+kind: monster_rules
+status: active
+triggers:
+  - a teammate has measurement data or a draft but the report/briefing has no conclusion
+  - the owner asks to turn experiment/test/analysis/progress results into a report or briefing
+  - a report draws "이 실험 왜 했어요" or "그래서 어떻게 하겠다는 거예요" feedback
+  - an AI draft reads with hedging/과장 that does not match practitioner reports
+  - a teammate needs the report logic scaffold filled by interview
+non_triggers:
+  - the fact, number, or test result itself must be created (owner/source authority)
+  - a legal 별지 form or customer-mandated form is already strictly required (use that form; this is content check only)
+  - a simple text memo or non-report document
+classification_rules:
+  - if the input is measurement data/graphs/draft with no conclusion, route to interview_gap_fill mode.
+  - if ①왜/④그래서/⑤다음 are present and source-backed, route to direct_draft mode.
+  - if an overall verdict is needed but no spec/source is available, stop for owner/source rather than inventing a verdict.
+  - if measurement uncertainty or spec ID is missing, mark 미확인 and keep the in-range result stated, do not fabricate.
+  - if a legal/customer form is mandated, keep that form and use the So-What scaffold only to check that 왜/그래서/다음 are present.

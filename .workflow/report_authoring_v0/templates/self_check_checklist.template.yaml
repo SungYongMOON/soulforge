@@ -1,0 +1,26 @@
+kind: self_check_checklist
+workflow_id: report_authoring_v0
+checks:
+  - id: why_answered
+    question: "① 왜 했나(목적/결정 질문)가 한 줄로 있나?"
+    pass: "{{yes|no}}"
+  - id: so_what_verdict
+    question: "④ 종합 판정 1문장이 있나(기준 대비 합/부, 가설 입증/반증)?"
+    pass: "{{yes|no}}"
+  - id: next_decision
+    question: "⑤ 무엇을 하겠다 / 무엇을 결정해 달라가 있나?"
+    pass: "{{yes|no}}"
+  - id: numbers_units_uncertainty
+    question: "결과 수치에 단위(+가능 시 불확도)가 붙나?"
+    pass: "{{yes|no|n/a}}"
+  - id: not_data_dump
+    question: "헤드라인/요약이 결론을 담나(자료 나열로 끝나지 않나)?"
+    pass: "{{yes|no}}"
+  - id: no_fabrication
+    question: "없는 값을 지어내지 않고 미확인으로 뒀나?"
+    pass: "{{yes|no}}"
+  - id: output_hygiene
+    question: "산출물만 있나(작업 메모/사고과정/①②③ 라벨이 발표 본문에 안 새나)?"
+    pass: "{{yes|no}}"
+overall_pass: "{{yes|no}}"
+notes: "{{미충족 항목과 보완}}"

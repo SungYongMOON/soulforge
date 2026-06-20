@@ -1,0 +1,140 @@
+workflow_id: report_authoring_v0
+kind: step_graph
+status: active
+steps:
+  - step_id: intake_and_gap_scan
+    title: Intake and So-What Gap Scan
+    actor_slot: intake_scanner
+    action:
+      kind: report_scope_and_gap_scan
+      artifacts_in:
+        - report_authoring_request
+        - raw_measurement_or_draft_material
+        - report_type_hint
+        - audience_hint
+      validates:
+        - report_type_is_experiment_analysis_progress_or_presentation_or_marked_other
+        - available_material_is_identified
+        - applicable_spec_or_requirement_ref_is_present_or_marked_unconfirmed
+      creates:
+        - report_authoring_scope
+        - so_what_gap_register
+    summary: Bind report type, audience, and available material; map the So-What 5 (왜/뭘/뭘얻/그래서/다음) and required fields (종합 판정, 불확도, 규격 ID, 권고) onto the input and list the gaps.
+    next:
+      on_gaps_present: elicit_missing
+      on_input_complete: draft_by_type
+      on_fail: stop
+  - step_id: elicit_missing
+    title: Elicit Missing Pieces (grill-style)
+    actor_slot: gap_interviewer
+    action:
+      kind: grill_style_gap_interview
+      artifacts_in:
+        - so_what_gap_register
+        - owner_answers_to_gap_questions
+        - interview_protocol_ref
+      artifact_out: filled_so_what
+      rules:
+        - one_question_at_a_time
+        - priority_order_why_then_so_what_then_next
+        - update_scaffold_after_each_answer
+        - do_not_invent_facts_numbers_or_verdicts
+        - unknown_answer_marked_unconfirmed_with_close_condition
+    summary: Ask the author one question at a time to fill ①왜/④그래서/⑤다음 and missing fields. Never fabricate; unknowns become 미확인.
+    next:
+      on_core_filled: draft_by_type
+      on_owner_input_needed: stop
+      on_fail: stop
+  - step_id: draft_by_type
+    title: Draft by Report Type
+    actor_slot: report_drafter
+    action:
+      kind: report_draft_by_type_spine
+      artifacts_in:
+        - report_authoring_scope
+        - filled_so_what
+        - report_writing_guide_ref
+        - report_format_ref
+      artifact_out: report_draft
+      type_spines:
+        - experiment_report
+        - analysis_report
+        - progress_report
+        - presentation_brief
+      rules:
+        - conclusion_first_so_what_summary
+        - register_gaesik_nominal_endings
+        - numbers_with_units_and_uncertainty_when_source_available
+        - overall_verdict_one_sentence_with_named_spec_when_applicable
+        - recommendation_maps_to_decision
+        - legal_or_customer_form_takes_precedence_when_mandated
+    summary: Expand the filled scaffold into the type spine using the guide register. Conclusion-first; recommendation maps to a decision.
+    next:
+      on_success: de_slop_pass
+      on_fail: stop
+  - step_id: de_slop_pass
+    title: De-slop Pass (separate)
+    actor_slot: de_slop_reviewer
+    action:
+      kind: conditioned_de_slop_review
+      artifacts_in:
+        - report_draft
+        - scaffold_and_register_ref
+      artifacts_out:
+        - de_slopped_draft
+        - de_slop_change_log
+      rules:
+        - run_as_a_separate_pass_not_in_the_drafting_call
+        - flag_hedge_only_when_no_grounding_evidence_named_cause_quantified_bound_or_unconfirmed_label
+        - keep_grounded_judgment_verbs
+        - remove_overclaim_boosters_and_empty_transitions
+        - keep_explicit_unconfirmed_labels
+    summary: In a separate pass, remove ungrounded hedging, boosters, and empty transitions; keep grounded judgment and 미확인 labels.
+    next:
+      on_success: self_check
+      on_fail: stop
+  - step_id: self_check
+    title: Self Check
+    actor_slot: report_checker
+    action:
+      kind: report_self_check
+      artifacts_in:
+        - de_slopped_draft
+      artifact_out: self_check_result
+      required_checks:
+        - why_answered
+        - so_what_overall_verdict_present
+        - next_or_decision_request_present
+        - numbers_have_units_and_uncertainty_when_applicable
+        - not_a_data_dump_headline_carries_conclusion
+        - no_invented_facts_unknowns_marked_unconfirmed
+        - output_is_deliverable_only_no_working_notes_or_scaffold_labels_in_presentation
+    summary: Confirm the report answers 왜/그래서/다음, carries a one-sentence verdict and a decision request, and is deliverable-only.
+    next:
+      on_success: boundary_review
+      on_fail: draft_by_type
+  - step_id: boundary_review
+    title: Boundary Review
+    actor_slot: boundary_reviewer
+    action:
+      kind: report_authoring_boundary_review
+      artifacts_in:
+        - report_authoring_scope
+        - self_check_result
+      artifact_out: boundary_review_note
+      checks:
+        - facts_numbers_verdicts_attributed_to_owner_or_source
+        - missing_values_marked_unconfirmed_not_invented
+        - overall_verdict_traces_to_named_spec_or_source
+        - no_private_raw_payload_or_secret
+        - no_runtime_absolute_paths_in_public_output
+        - output_state_and_claim_ceiling_named
+    summary: Close with a conservative boundary and claim review.
+    next: []
+stop_conditions:
+  - a_fact_number_or_test_result_must_be_created_and_owner_has_not_supplied_it
+  - an_overall_pass_fail_verdict_is_needed_but_no_spec_or_source_is_available
+  - measurement_uncertainty_or_spec_id_is_required_but_unconfirmed
+  - a_legal_or_customer_mandated_form_conflicts_with_the_so_what_spine
+  - private_raw_payload_or_secret_would_be_required
+  - public_private_boundary_unclear

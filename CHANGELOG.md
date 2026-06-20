@@ -2,6 +2,35 @@
 
 ## 2026-06-20
 
+### Revision `working` - drag coefficient CFD result package workflow
+
+- Added `.workflow/drag_coefficient_cfd_result_package_v0/` for packaging drag-coefficient CFD results with Cd/drag tables, analysis conditions, mesh/residual summaries, raw force and solver logs, report-ready ParaView top/side visuals, manifest, ZIP, and handoff as one closeout bundle.
+- Registered the workflow in `.workflow/index.yaml` and kept private project paths, raw CFD files, company payloads, and runtime-specific scripts out of the public workflow package.
+- Recorded private extraction evidence under `_workmeta/P26-014/runs/drag_coefficient_cfd_result_package_workflow_extraction_20260620_01/` so the KVDS case can be recovered without putting raw project data in public canon.
+
+### Revision `working` - report_authoring_v0 workflow + report_writer launcher + 작성 가이드
+
+- Added `.workflow/report_authoring_v0/` (registered in `.workflow/index.yaml`, built via the
+  workflow-generator + workflow-check pattern): a workflow that stops measurement-only
+  data-dump reports by interviewing the author grill-style (one question at a time) to fill the
+  missing So-What pieces (왜/뭘/뭘얻/그래서/다음), drafting by report type with practitioner
+  register (개조식 종결, 근거 있는 단정, 수치+불확도 k=2/95%, 종합 판정 1문장, 권고→의사결정),
+  running a SEPARATE conditioned de-slop pass (bans ungrounded hedging only, keeps grounded
+  judgment verbs), a self-check, and a boundary review. Package carries workflow.yaml,
+  step_graph, role_slots, handoff_rules, monster_rules, party_compatibility, profile_policy,
+  and templates.
+- Converted `.registry/skills/report_writer/` (status: candidate) into a thin launcher for that
+  workflow, keeping the interview question bank, scaffold quick-card, and filled synthetic
+  examples (incl. a data-dump→conclusion Before/After) as references the workflow consumes.
+- Restored `docs/architecture/workspace/SOULFORGE_REPORT_WRITING_GUIDE_V0.md` as the writing
+  doctrine: So-What scaffold, register rules and type spines grounded in real public reports
+  (NTSB, NIST, NASA, NREL, Sandia, KRISS, KISTEP, 환경부) verified against fabrication,
+  conditioned de-slop, and the AI collaboration pipeline. Re-indexed workspace and skills READMEs.
+- Style/structure only — facts, numbers, and verdicts stay owner/source authority; never invents
+  values (missing → 미확인). `output_state: pilot-executed` via fresh-context evaluator/judge over
+  experiment/analysis/progress/presentation/interview scenarios; no model-cost calibration;
+  default route off; not production-ready or canon-promoted.
+
 ### Revision `working` - long-thread subagent default clarified
 
 - Clarified that explicit `soulforge-long-thread-handoff` invocation makes

@@ -59,6 +59,7 @@
 | `WORKMETA_MINIMUM_SCHEMA.md` | `_workmeta/<project_code>/` 최소 contract/binding/report shape 다. |
 | `WORKMETA_RESOLVE_CONTRACT.md` | `_workmeta` 가 `.unit`, `.workflow`, `.party`, `.mission` 을 resolve 하는 기준이다. |
 | `SOULFORGE_REPORT_FORMAT_V0.md` | owner-facing 보고서를 Markdown 정본과 standalone HTML companion 쌍으로 만드는 기본 양식이다. |
+| `SOULFORGE_REPORT_WRITING_GUIDE_V0.md` | 결론 없는 데이터 덤프를 막는 So-What 골격, 실제 보고서 근거 register 규칙, 조건부 de-slop, 타입별 골격을 둔 작성 doctrine 이며 `report_writer` 스킬이 소비한다. |
 | `schema/` | workspace contract, binding, local-only event stream schema 설명 묶음이다. |
 | `examples/` | public-safe workspace/gateway/private-state sample 묶음이다. |
 | `WORKMETA_SCHEMA_FIELD_MATRIX.md` | `_workmeta` schema field 를 사람이 읽는 표로 요약한다. |
@@ -116,6 +117,7 @@
 - [`WORKMETA_MINIMUM_SCHEMA.md`](WORKMETA_MINIMUM_SCHEMA.md)
 - [`WORKMETA_RESOLVE_CONTRACT.md`](WORKMETA_RESOLVE_CONTRACT.md)
 - [`SOULFORGE_REPORT_FORMAT_V0.md`](SOULFORGE_REPORT_FORMAT_V0.md)
+- [`SOULFORGE_REPORT_WRITING_GUIDE_V0.md`](SOULFORGE_REPORT_WRITING_GUIDE_V0.md)
 - [`schema/README.md`](schema/README.md)
 - [`examples/README.md`](examples/README.md)
 - [`WORKMETA_SCHEMA_FIELD_MATRIX.md`](WORKMETA_SCHEMA_FIELD_MATRIX.md)

@@ -1,0 +1,16 @@
+kind: report_authoring_request
+workflow_id: report_authoring_v0
+# 보고서 작성 요청 입력. 빈 칸은 미확인으로 두고 인터뷰로 채운다 (지어내지 않음).
+report_type: "{{experiment|analysis|progress|presentation|other}}"
+audience: "{{보고 대상 (예: 내부 검토 / 경영진 / 고객 / 발주처)}}"
+available_material: "{{측정 자료 / 그래프 / 초안 / 회의록 등 가진 것}}"
+applicable_spec_or_requirement_ref: "{{적용 규격·요구사항 문서 ID 또는 미확인}}"
+so_what:
+  why: "{{① 이 작업을 안 했으면 무엇을 모르거나 못 정하나 / 미확인}}"
+  what_done: "{{② 대상·조건·횟수 / 미확인}}"
+  what_got: "{{③ 핵심 수치 1~2개(단위 포함) / 미확인}}"
+  so_what: "{{④ 종합 판정(기준 대비 합/부) / 미확인}}"
+  next: "{{⑤ 무엇을 하겠다 / 무엇을 결정해 달라 / 미확인}}"
+constraints:
+  mandated_form_ref: "{{법정 별지/고객 양식 강제 시 경로, 없으면 none}}"
+  output_format: "{{md | md+html | slide}}"

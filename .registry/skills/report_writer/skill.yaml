@@ -1,0 +1,57 @@
+skill_id: report_writer
+kind: skill
+status: candidate
+title: Report Writer (launcher for report_authoring_v0)
+summary: Thin Codex launcher for `.workflow/report_authoring_v0`. Routes "측정 자료만 있고 결론 없는 보고", "이 실험 왜 했어요/그래서요" feedback, and experiment/analysis/progress/presentation reporting requests into the workflow that owns the So-What gap interview, type-spine drafting, conditioned de-slop, self-check, and boundary review. The workflow body, doctrine, and examples are not copied into this skill.
+behavior:
+  intent: >
+    Provide a thin launcher for `.workflow/report_authoring_v0`. The workflow owns
+    the actual procedure (intake/gap-scan, grill-style interview, draft by type,
+    separate de-slop pass, self-check, boundary review). Writing doctrine lives in
+    `docs/architecture/workspace/SOULFORGE_REPORT_WRITING_GUIDE_V0.md` and structure in
+    `SOULFORGE_REPORT_FORMAT_V0.md`. This skill maps `$soulforge-report-writer`,
+    `/report-writer`, and related user language to that workflow and carries the
+    interview question bank, scaffold quick-card, and filled examples as references
+    the workflow consumes. It does not move the workflow body or fact/number/verdict
+    authority into the skill; missing values stay 미확인, never invented.
+  use_when:
+    - 팀원이 측정 자료/그래프/초안만 들고 왔고 보고에 결론이 없을 때
+    - 보고/발표가 "측정 자료만 모았고 결론이 없다"는 지적을 받을 때
+    - "이 실험을 왜 했나", "그래서 어떻게 하겠다는 건가"에 답이 없을 때
+    - 실험/시험/분석/진도 결과를 보고서나 발표자료로 정리해야 할 때
+    - the user asks for `/report-writer` or report drafting in the owner's practitioner register
+  avoid_when:
+    - 사실, 수치, 시험결과 자체를 만들어내야 할 때 (owner/source authority)
+    - 법정 별지 서식, 고객 지정 양식이 이미 강제될 때 — 그 양식을 우선하고 본 골격은 내용 점검용으로만 쓴다
+    - 보고가 아닌 단순 텍스트 메모, 일반 문서
+  expected_outcome:
+    - Codex resolves the invocation to `report_authoring_v0`
+    - Codex reads the workflow package, the writing guide, and the interview reference at runtime
+    - 불완전 입력은 한 번에 한 질문씩 인터뷰로 빠진 So-What 조각이 채워짐
+    - 보고가 왜/그래서/다음에 답하고 종합 판정 1문장 + 권고 -> 의사결정을 가짐
+    - 문체가 개조식·근거 있는 단정·수치+불확도로 정리되고 근거 없는 헤지/과장이 제거됨
+    - 자료에 없는 값은 미확인으로 남고 날조되지 않음
+execution_requirements:
+  required_capabilities:
+    - workflow_launcher_routing
+    - report_authoring_scope_binding
+    - interactive_gap_interview
+    - korean_practitioner_register
+    - de_slop_review
+  preferred_capabilities:
+    - markdown_drafting
+    - trade_study_framing
+    - uncertainty_reporting_review
+    - boundary_review
+  preferred_tools:
+    - rg
+    - markdown_editor
+  notes:
+    - "The workflow package owns the procedure; this launcher must not copy step graphs into `codex/SKILL.md` as binding authority."
+    - "Doctrine is `SOULFORGE_REPORT_WRITING_GUIDE_V0.md`; structure is `SOULFORGE_REPORT_FORMAT_V0.md`. Resolve them at runtime."
+    - "Fact, number, test-result, and verdict authority remain owner/source. The skill never invents values."
+    - "actual model, runtime context, attached tools, installed skill name resolve in local runtime bindings."
+notes:
+  - "`report_writer` is a thin Codex bridge for `.workflow/report_authoring_v0`."
+  - "The installed Codex mirror name is expected to be `soulforge-report-writer` after skill sync."
+  - "candidate: pilot-executed via fresh-context evaluator/judge scenarios; not production-ready or default-route until owner decides."

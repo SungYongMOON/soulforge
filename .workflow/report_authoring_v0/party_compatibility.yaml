@@ -1,0 +1,14 @@
+workflow_id: report_authoring_v0
+kind: party_compatibility
+status: active
+party_required: false
+candidate_parties:
+  - party_id: systems_engineering_cell
+    fit: future_candidate_only
+    reason: Report authoring can later sit in the SE assistant chain after stage-gap and review steps, but no allowed-workflow binding is registered yet.
+compatibility_rules:
+  - The workflow is runnable directly by a Codex controller or the report_writer launcher skill.
+  - A future party may call this workflow after results exist, but that binding must be explicit.
+  - Party binding cannot grant fact, number, or verdict authority; those stay owner/source.
+default_route_safe: no
+default_route_reason: Report authoring needs per-task material and owner-confirmed facts/verdicts; it is not a default scheduled automation stage.
