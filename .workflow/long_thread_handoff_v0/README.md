@@ -21,7 +21,9 @@ delegated to fresh subagents when the runtime and user authorization allow it.
 - Goal and scope declaration.
 - `NIGHT_WORK_HANDOFF` checkpoint shape.
 - Manager context hygiene.
-- Fresh subagent delegation packet shape.
+- Fresh subagent delegation packet shape, including objective, context refs,
+  acceptance criteria, allowed scope, side-effect limits, verification, output
+  shape, execution-contract claim ceiling, and stop conditions.
 - Autonomous handoff refresh, compact, and clear decision policy.
 - Integration validation route.
 - Conservative closeout and knowledge trigger check.
@@ -41,7 +43,10 @@ delegated to fresh subagents when the runtime and user authorization allow it.
 
 1. Declare the goal, success criteria, stop conditions, and boundary.
 2. Create or refresh `NIGHT_WORK_HANDOFF`.
-3. Prepare bounded fresh-subagent delegation packets where useful.
+3. Prepare bounded fresh-subagent delegation packets with objective, context
+   refs, current state, acceptance criteria, read/write scope, side-effect
+   limits, validators or validation gap, result packet shape, claim ceiling,
+   and stop conditions.
 4. Integrate returned work by checking actual status, diffs, and files.
 5. Run deterministic validators and boundary checks.
 6. Decide whether to refresh handoff, compact, clear, or continue.

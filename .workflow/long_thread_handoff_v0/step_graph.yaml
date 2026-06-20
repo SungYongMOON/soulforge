@@ -63,6 +63,11 @@ steps:
       prefer_fresh_subagents: true
       fork_context_preferred: false
       pass_only_bounded_context: true
+      delegation_packet_minimum_required: true
+      acceptance_criteria_named_or_unknown_recorded: true
+      target_file_refs_required_for_file_edit: true
+      validation_command_refs_named_or_gap_recorded: true
+      result_packet_shape_required: true
       worker_write_ownership_required: true
       no_raw_source_dump: true
     next:

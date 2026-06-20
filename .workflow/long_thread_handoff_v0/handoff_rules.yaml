@@ -9,11 +9,11 @@ rules:
   - from: checkpoint_curator
     to: delegation_router
     condition: night_work_handoff_refreshed
-    summary: Pass only the durable checkpoint, target refs, constraints, and acceptance criteria needed for delegation.
+    summary: Pass only the durable checkpoint, target refs, constraints, acceptance criteria, validator refs or validation gap, and execution-contract claim ceiling needed for delegation.
   - from: delegation_router
     to: integration_controller
     condition: delegation_packets_prepared_or_local_task_selected
-    summary: Worker packets carry explicit write ownership and bounded context; the manager keeps intermediate source dumps out of its context.
+    summary: Delegation packets carry objective, context refs, current state, acceptance criteria, allowed read/write scope, side-effect limits, verification, output shape, execution-contract claim ceiling, stop conditions, explicit write ownership, and bounded context; the manager keeps raw transcript and intermediate source dumps out of its context.
   - from: integration_controller
     to: validation_controller
     condition: actual_file_state_refreshed

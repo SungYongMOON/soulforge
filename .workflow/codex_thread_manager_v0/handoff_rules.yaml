@@ -17,7 +17,7 @@ rules:
   - from: worker_packet_author
     to: manager_rollover_controller
     condition: manager_or_worker_packet_prepared
-    summary: Pass self-contained prompts containing title, role lane, objective, allowed paths, handoff context, stop conditions, compact report shape, subagent-first worker-subagent authority, any count limit or denial, no-subagent exceptions, side-effect limits, and for verifier/judge lanes the minimal evidence packet plus non-fork independence guard.
+    summary: Pass self-contained prompts containing title or packet id, role lane, objective, context refs, current state, acceptance criteria, allowed read/write scope, handoff context, stop conditions, execution-contract claim ceiling, compact report shape, subagent-first worker-subagent authority, any count limit or denial, no-subagent exceptions, side-effect limits, conflict protocol, and for verifier/judge lanes the minimal evidence packet plus non-fork independence guard.
   - from: manager_rollover_controller
     to: integration_controller
     condition: acceptance_or_worker_result_available

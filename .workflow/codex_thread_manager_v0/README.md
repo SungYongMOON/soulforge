@@ -32,7 +32,8 @@ safety, or party binding.
   thread, worktree worker thread, and subagent.
 - Manager lifecycle and rollover policy.
 - Role worker topology, worker prompt packet shape, worker subagent bounds
-  policy, no-subagent exception policy, and thread id/title recording.
+  policy, no-subagent exception policy, thread id/title recording, and compact
+  delegation packet minimum fields.
 - Fresh-context verifier/judge/reviewer routing for independent acceptance,
   workflow-check, and readiness claims.
 - Cross-worker result routing, integration, and validation closeout.
@@ -79,8 +80,10 @@ safety, or party binding.
   edits, unavailable or blocked subagent tools, or cases where a safe minimal
   packet cannot be created without boundary risk. Workers record the exception.
 - The worker subagent count is scope-driven, not fixed. Worker prompts state
-  the subagent-first posture, scope, reporting shape, any count limit or
-  denial, side-effect limits, and no-subagent exceptions.
+  objective, context refs, current state, acceptance criteria, allowed
+  read/write scope, side-effect limits, subagent-first posture, reporting shape,
+  any count limit or denial, execution-contract claim ceiling, stop conditions,
+  and no-subagent exceptions.
 - Manager may route bounded result packets between worker threads or ask one
   fresh, non-implementer worker to review another worker's result.
 - Fresh manager threads are for rollover, continuity transfer, mission boundary
@@ -106,8 +109,9 @@ safety, or party binding.
 5. Choose the continuation surface using the subagent-vs-thread routing rules.
 6. Prepare role worker, worktree worker, or fresh manager packets with bounded
    scope, handoff context, compact report shape, subagent-first bounded
-   subagent authority, any count limit or denial, no-subagent exceptions, and
-   side-effect limits.
+   subagent authority, any count limit or denial, no-subagent exceptions,
+   side-effect limits, execution-contract claim ceiling, stop conditions, and
+   conflict protocol.
 7. Prepare verifier or judge packets from minimal evidence: objective, changed
    refs, acceptance criteria, validators, claims, and risk areas; exclude raw
    transcript and avoid leaking the intended fix except where necessary.

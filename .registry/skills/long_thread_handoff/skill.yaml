@@ -22,6 +22,7 @@ behavior:
     - the current thread is summarized into a compact `NIGHT_WORK_HANDOFF`-style checkpoint
     - checkpoint refresh, compact, and fresh-session decisions preserve only durable state needed for the next phase
     - fresh subagents receive only the checkpoint, target files, boundaries, and acceptance criteria
+    - fresh subagents receive a bounded delegation packet with objective, context refs, acceptance criteria, read/write scope, side-effect limits, validators, result packet shape, execution-contract claim ceiling, and stop conditions
     - workflow creation or material evolution is routed through `soulforge-workflow-generator`
     - workflow review is routed through `soulforge-workflow-check`
     - completion reports name subagent roles, validation status, Telegram sent/not-sent status, and remaining blockers

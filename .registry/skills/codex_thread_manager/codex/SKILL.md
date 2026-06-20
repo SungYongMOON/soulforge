@@ -123,6 +123,43 @@ tool behavior.
   summaries, changed refs, validator outputs, and explicit questions over raw
   logs.
 
+## Delegation Packet Minimum
+
+Use the workflow's worker packet policy as the canonical contract. Every worker,
+worktree worker, verifier, judge, or worker-created subagent packet must include:
+
+- `title_or_packet_id`: thread title or stable packet id.
+- `objective`: one bounded task goal and lane role.
+- `context_refs`: exact checkpoint, files, sections, or command outputs to read.
+- `current_state`: decisions, unknowns, blockers, worker state, and relevant
+  prior results.
+- `acceptance_criteria`: concrete pass conditions or the explicit reason they
+  are not yet known.
+- `allowed_scope`: read paths, write paths or read-only status, ownership, and
+  conflict protocol for foreground or peer-worker edits.
+- `constraints`: public/private boundary, secret and raw-payload exclusions, and
+  forbidden paths or data classes.
+- `side_effect_limits`: allowed and forbidden file, git, network, external,
+  notification, thread, canon, party, automation, and default-route actions.
+- `subagent_policy`: subagent-first posture, allowed purpose, count limit or no
+  hardcoded count, and named no-subagent exceptions.
+- `verification`: validators or checks to run, or the reason validation is not
+  applicable.
+- `output_shape`: subagents used or exception, changed or inspected refs,
+  commands and exit status, validator results, blockers, residual risks, and
+  next action.
+- `claim_ceiling`: use the execution-contract vocabulary: observed,
+  source_supported, validated_private, canon_candidate, canon_entry, or
+  rejected_or_blocked; choose the weakest value supported by evidence.
+- `stop_conditions`: owner decision, secret, unsafe boundary, overlapping write
+  scope without worktree isolation, unavailable tool/model, unbounded fan-out,
+  or failed validator outside scope.
+
+For verifier, judge, review, workflow-check, or acceptance lanes, use a minimal
+evidence packet with objective, changed refs, acceptance criteria, validators,
+claims, and risk areas. The verifier must inspect actual files or status when
+available and must not rely only on worker narrative.
+
 ## Operating Steps
 
 1. Read `docs/architecture/foundation/AGENT_EXECUTION_CONTRACT_V0.md`.
@@ -139,9 +176,10 @@ tool behavior.
 6. Use thread tools when explicit skill invocation, explicit user wording, or
    durable worker/worktree needs authorize an actual thread lane and the
    runtime tools are available.
-7. For worker threads, provide title, objective, allowed paths, stop conditions,
-   claim ceiling, report shape, subagent-first default, and no-subagent
-   exception rules.
+7. For worker threads, provide the Delegation Packet Minimum: title, objective,
+   context refs, current state, allowed read/write scope, side-effect limits,
+   stop conditions, claim ceiling, report shape, subagent-first default, and
+   no-subagent exception rules.
 8. For verifier, judge, review, workflow-check, or acceptance lanes, use a
    fresh-context thread or fresh bounded subagent with a minimal evidence
    packet. Do not fork or continue the implementer for independent judgment.

@@ -108,9 +108,13 @@ steps:
       worker_subagent_count_is_scope_driven_unless_manager_sets_limit: true
       worker_subagent_first_bounds_or_denial_must_be_written_in_packet: true
       no_subagent_exception_must_be_named_when_worker_does_substantive_work_directly: true
+      delegation_packet_minimum_required: true
+      worker_prompt_names_context_refs_current_state_acceptance_criteria_allowed_scope_and_side_effect_limits: true
+      worker_result_packet_shape_required: true
       verifier_packet_must_be_fresh_context_minimal_evidence: true
       verifier_or_judge_must_not_be_fork_or_continuation_of_implementer: true
       implementer_self_check_not_independent_verification: true
+      verifier_inspects_actual_files_or_status_when_available: true
       worker_prompt_includes_handoff_context_and_compact_report_shape: true
       recursive_subagent_fanout_requires_bounds_and_reporting: true
       nested_worker_thread_automation_or_canon_creation_requires_manager_permission: true

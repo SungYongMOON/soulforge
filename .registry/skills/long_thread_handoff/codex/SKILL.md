@@ -51,6 +51,37 @@ If the user gives only the trigger and the current goal is unclear, ask one conc
 11. Integrate returned work, run appropriate deterministic validators, and keep the final claim ceiling conservative when verification is partial.
 12. Refresh `NIGHT_WORK_HANDOFF` before ending a substantial phase, before a context reset, or when the user asks for checkpoint continuity.
 
+## Delegation Packet Minimum
+
+Every fresh subagent packet must be self-contained enough to work without the
+old thread, but compact enough to avoid recreating the transcript. Include:
+
+- `objective`: one bounded task goal and role.
+- `context_refs`: exact checkpoint, files, sections, or command outputs to read.
+- `current_state`: decisions, unknowns, blockers, and relevant prior results.
+- `acceptance_criteria`: concrete pass conditions or the explicit reason they
+  are not yet known.
+- `allowed_scope`: read paths, write paths or read-only status, ownership, and
+  "do not revert others' changes".
+- `constraints`: public/private boundary, secret and raw-payload exclusions, and
+  forbidden paths or data classes.
+- `side_effect_limits`: allowed and forbidden file, git, network, external,
+  notification, thread, canon, or party actions.
+- `verification`: validators or checks to run, or the reason validation is not
+  applicable.
+- `output_shape`: findings, changed or inspected refs, commands and exit status,
+  blockers, residual risks, and next action.
+- `claim_ceiling`: use the execution-contract vocabulary: observed,
+  source_supported, validated_private, canon_candidate, canon_entry, or
+  rejected_or_blocked; choose the weakest value supported by evidence.
+- `stop_conditions`: owner decision, secret, unsafe boundary, overlapping write
+  scope, unavailable tool/model, or failed validator outside scope.
+
+For verifier or review subagents, include the changed refs, acceptance criteria,
+validators, claims to check, and suspected risk areas. Do not pass hidden
+reasoning, raw transcript, private payloads, or the intended fix unless it is
+necessary evidence.
+
 ## Autonomous Context Reset Policy
 
 - Refresh `NIGHT_WORK_HANDOFF` frequently; compact sparingly; clear at phase boundaries.

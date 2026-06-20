@@ -47,6 +47,7 @@ behavior:
     - Codex uses fresh-context verifier/judge/reviewer lanes for independent acceptance and does not fork or continue the implementer for that judgment
     - Codex requires worker threads to be subagent-first for substantive lane work and to record any no-subagent exception
     - Codex allows worker threads to create bounded subagents inside their assigned lane by default, with the count determined by lane scope unless the packet sets a specific limit
+    - Codex worker and verifier packets include objective, lane role, current state, acceptance criteria, allowed read/write scope, side-effect limits, validator expectations, result packet shape, execution-contract claim ceiling, stop conditions, and conflict protocol
     - Codex can pass bounded result packets between worker threads or route all results through the manager
     - Codex records thread titles/ids when available, integrates worker summaries after checking actual state, and closes with validators plus workflow-check posture
 execution_requirements:

@@ -195,6 +195,58 @@ codex_thread_manager_contract:
     recursive_subagent_fanout_allowed_when_bounded_and_reported: true
     worker_thread_automation_or_canon_creation_requires_manager_permission: true
     overlapping_write_scope_requires_worktree_or_stop: true
+    delegation_packet_minimum:
+      required_for:
+        - role_worker_thread_packet
+        - worktree_worker_thread_packet
+        - worker_created_subagent_packet
+        - verifier_or_judge_packet
+      fields:
+        - title_or_packet_id
+        - objective
+        - context_refs
+        - current_state
+        - acceptance_criteria
+        - allowed_scope
+        - constraints
+        - side_effect_limits
+        - subagent_policy
+        - verification
+        - output_shape
+        - claim_ceiling
+        - stop_conditions
+      claim_ceiling_values:
+        - observed
+        - source_supported
+        - validated_private
+        - canon_candidate
+        - canon_entry
+        - rejected_or_blocked
+      allowed_scope_must_include:
+        - read_paths_or_refs
+        - write_paths_or_read_only_status
+        - write_ownership
+        - conflict_protocol_for_foreground_or_peer_edits
+        - do_not_revert_others_changes
+      subagent_policy_must_include:
+        - subagent_first_posture
+        - allowed_purpose
+        - count_limit_or_no_hardcoded_count
+        - named_no_subagent_exceptions
+      output_shape_must_include:
+        - subagents_used_or_exception
+        - changed_or_inspected_refs
+        - commands_run_and_exit_status
+        - validators_or_gap
+        - blockers
+        - residual_risks
+        - next_action
+      forbidden_packet_contents:
+        - raw_thread_transcript
+        - hidden_reasoning
+        - private_payload
+        - secret_value
+        - unneeded_source_dump
   verifier_judge_policy:
     implementer_self_check_is_not_independent_verification: true
     independent_verifier_must_be_fresh_context: true
@@ -202,6 +254,7 @@ codex_thread_manager_contract:
     verifier_or_judge_must_not_be_manager_rollover_from_implementation_context: true
     verifier_packet_uses_minimal_evidence_not_raw_transcript: true
     verifier_packet_includes_objective_changed_refs_acceptance_criteria_validators_claims_and_risks: true
+    verifier_inspects_actual_files_or_status_when_available: true
     unavailable_fresh_verifier_lowers_claim_ceiling_or_blocks_stronger_claim: true
   observed_private_pilot_refs:
     - _workmeta/system/reports/post_development_review/20260608_thread_orchestrator_live_pilot_one_worker.yaml

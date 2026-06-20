@@ -1,5 +1,17 @@
 # CHANGELOG
 
+## 2026-06-20
+
+### Revision `working` - delegation packet minimum hardening
+
+- Added compact delegation packet minimum fields to the long-thread handoff and
+  Codex thread manager skill/workflow contracts so fresh subagents and worker
+  threads receive objective, context refs, acceptance criteria, read/write
+  scope, side-effect limits, verification, result shape, execution-contract
+  claim ceiling, and stop conditions instead of a prose-only folder handoff.
+- Kept raw transcripts, hidden reasoning, private payloads, secrets, and
+  unneeded source dumps excluded from handoff and worker packets.
+
 ## 2026-06-19
 
 ### Revision `working` - cross-PC knowledge ingest launcher skill

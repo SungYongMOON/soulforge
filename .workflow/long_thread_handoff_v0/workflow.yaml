@@ -116,6 +116,54 @@ long_thread_handoff_contract:
     local_runtime_paths_in_public_package: false
     handoff_is_context_not_authority: true
     subagent_reports_are_evidence_not_source_truth: true
+  delegation_packet_minimum:
+    required_for:
+      - fresh_subagent_packet
+      - verifier_or_review_subagent_packet
+    fields:
+      - objective
+      - context_refs
+      - current_state
+      - acceptance_criteria
+      - allowed_scope
+      - constraints
+      - side_effect_limits
+      - verification
+      - output_shape
+      - claim_ceiling
+      - stop_conditions
+    claim_ceiling_values:
+      - observed
+      - source_supported
+      - validated_private
+      - canon_candidate
+      - canon_entry
+      - rejected_or_blocked
+    allowed_scope_must_include:
+      - read_paths_or_refs
+      - write_paths_or_read_only_status
+      - write_ownership
+      - do_not_revert_others_changes
+    output_shape_must_include:
+      - findings
+      - changed_or_inspected_refs
+      - commands_run_and_exit_status
+      - validators_or_gap
+      - blockers
+      - residual_risks
+      - next_action
+    verifier_packet_must_include:
+      - changed_refs
+      - acceptance_criteria
+      - validators
+      - claims_to_check
+      - suspected_risk_areas
+    forbidden_packet_contents:
+      - raw_thread_transcript
+      - hidden_reasoning
+      - private_payload
+      - secret_value
+      - unneeded_source_dump
 notes:
   - "Registration means the public-safe orchestration structure is available in .workflow/index.yaml."
   - "This package does not claim pilot execution, production readiness, default-route safety, or external notification authority."
