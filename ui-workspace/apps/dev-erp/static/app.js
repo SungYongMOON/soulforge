@@ -3480,6 +3480,9 @@ async function renderHome() {
       r.addEventListener("click", () => { state.hubProject = r.dataset.p; state.hubTab = "overview"; state.view = "project"; render(); }));
     $("#view").querySelectorAll("[data-jump-mail]").forEach((b) =>
       b.addEventListener("click", (e) => { e.stopPropagation(); state.projectFilter = b.dataset.jumpMail; state.view = "mail"; render(); }));
+    // 콕핏 홈 '메일' KPI 타일: 핸들러가 없어 dead-click 이던 것 → 메일 화면(전체 메일함)으로 이동.
+    $("#view").querySelectorAll("[data-jump='inbox-mail']").forEach((b) =>
+      b.addEventListener("click", (e) => { e.stopPropagation(); state.projectFilter = ""; state.view = "mail"; render(); }));
     $("#view").querySelectorAll("[data-goreports]").forEach((b) =>
       b.addEventListener("click", (e) => { e.stopPropagation(); state.view = "mod:reports"; render(); }));
     wireItemActions($("#view"));

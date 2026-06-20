@@ -229,6 +229,9 @@ nav button.active { background: var(--chip); font-weight: 600; color: var(--acce
 .toast-info { background: var(--accent); }
 /* 메일 목록 행 승격 표시 — 목록만 봐도 ✓ 보이게(상세 패널 배지 외에). */
 .mail-promoted { margin-left: 6px; font-size: 11px; color: var(--ok); font-weight: 600; white-space: nowrap; }
+/* 클릭 가능한 KPI 타일(예: 메일 KPI → 메일 화면) affordance. */
+.kpi[data-jump] { cursor: pointer; }
+.kpi[data-jump]:hover { outline: 1px solid var(--accent); outline-offset: 1px; }
 
 .mobmeter { display: flex; align-items: center; gap: 4px; margin-top: 10px; flex-wrap: wrap; }
 .mob { width: 10px; height: 10px; border-radius: 3px; background: var(--accent); opacity: .75; }
