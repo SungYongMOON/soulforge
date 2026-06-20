@@ -2941,6 +2941,29 @@ function uiConfirm(message) {
   });
 }
 
+// 전역 피드백 토스트 — 영속 액션의 성공/실패를 잠깐 띄우고 자동으로 사라짐. kind: "ok"|"error"|"info".
+// (이전엔 전역 피드백 함수가 없어 액션 결과가 render() 재그림으로만 표현 → "눌러도 됐는지 모름" 발생)
+function toast(message, kind = "ok") {
+  if (!message) return;
+  let host = document.querySelector(".toast-host");
+  if (!host) {
+    host = document.createElement("div");
+    host.className = "toast-host";
+    document.body.appendChild(host);
+  }
+  const el = document.createElement("div");
+  el.className = `toast toast-${kind}`;
+  el.setAttribute("role", "status");
+  el.textContent = message;
+  host.appendChild(el);
+  requestAnimationFrame(() => el.classList.add("show"));
+  const ttl = kind === "error" ? 4200 : 2400;
+  setTimeout(() => {
+    el.classList.remove("show");
+    setTimeout(() => el.remove(), 260);
+  }, ttl);
+}
+
 async function renderHome() {
   const layout = dashLayout();
   const todayKey = new Date().toISOString().slice(0, 10);
@@ -3841,12 +3864,17 @@ async function renderMail() {
   params.set("page", "1");
   params.set("limit", String(state.mailLimit));
   params.set("offset", String(state.mailOffset));
-  const [mailData, labels, summary] = await Promise.all([
-    api(`/api/mail?${params}`), api("/api/labels"), state._projCache ? Promise.resolve({ projects: state._projCache }) : api("/api/summary")
+  const [mailData, labels, summary, itemsForPromote] = await Promise.all([
+    api(`/api/mail?${params}`), api("/api/labels"),
+    state._projCache ? Promise.resolve({ projects: state._projCache }) : api("/api/summary"),
+    api(state.projectFilter ? `/api/items?project=${encodeURIComponent(state.projectFilter)}` : "/api/items")
   ]);
   const mailPage = asPage(mailData, state.mailLimit, state.mailOffset);
   const mail = mailPage.rows;
   state._projCache = summary.projects;
+  // 승격 표시는 서버 진실원(items.origin_mail_id) 기준 — 새로고침/다른 PC에서도 ✓ 유지(이전: 인메모리 Set만이라 소실).
+  const promotedSet = new Set((itemsForPromote ?? []).map((i) => i.origin_mail_id).filter(Boolean));
+  for (const id of state._promotedMails ?? []) promotedSet.add(id);
   const clsById = new Map(summary.projects.map((p) => [p.id, p.class]));
   const labelById = new Map(labels.map((l) => [l.id, l]));
 
@@ -3910,7 +3938,7 @@ async function renderMail() {
       <td class="mail-meta">${meta}</td>
       <td class="mail-from">${m.direction === "out" ? `<i>→</i> ` : ""}${esc(m.counterpart ?? "-")}</td>
       <td class="mail-subj" title="${esc([m.subject, preview].filter(Boolean).join(" · "))}">
-        <div class="mail-subj-main">${kind ? `<span class="mail-thread-kind">${esc(kind)}</span>` : ""}${esc(m.subject)}${dupe ? `<span class="mail-dupe" title="같은 대화/제목의 다른 메일">#${esc(mailIdTail(m.id))}</span>` : ""}</div>
+        <div class="mail-subj-main">${kind ? `<span class="mail-thread-kind">${esc(kind)}</span>` : ""}${esc(m.subject)}${dupe ? `<span class="mail-dupe" title="같은 대화/제목의 다른 메일">#${esc(mailIdTail(m.id))}</span>` : ""}${promotedSet.has(m.id) ? `<span class="mail-promoted" title="${L.promote_done ?? "할 일로 등록됨"}">✓ ${L.item}</span>` : ""}</div>
         ${preview ? `<div class="mail-preview">${esc(preview)}</div>` : ""}
       </td>
       <td class="mail-time">${localTime(m.at)}</td>
@@ -3993,8 +4021,8 @@ async function renderMail() {
         <div><dt>${L.detail_pointer}</dt><dd class="pointer">${esc(sel.pointer_ref ?? "-")} <button class="copy-btn" data-c="${esc(sel.pointer_ref ?? "")}">${L.copy}</button></dd></div></dl>
       <h4>${L.detail_labels}</h4>
       <div class="label-bar">${labels.map((l) => `<span class="label-chip manual ${sel.label_ids.includes(l.id) ? "on" : ""}" style="--lc:${esc(l.color)}" data-toggle="${l.id}">${esc(l.name)}</span>`).join("") || `<span class="dim">-</span>`}</div>
-      <div class="detail-actions">${state._promotedMails?.has(sel.id)
-        ? `<span class="badge green">✓ ${L.item}</span>`
+      <div class="detail-actions">${promotedSet.has(sel.id)
+        ? `<span class="badge green">✓ ${L.item}</span> <button id="promoteGoTriage" class="fav-chip mini">${L.promote_go_triage ?? "분류하러 가기 →"}</button>`
         : sel.project_id
           ? `<button id="promoteBtn" class="fav-chip">${L.promote_item}</button>`
           : `<span class="dim">${L.promote_need_project ?? "과제로 분류 후 할 일로 승격"}</span>`}</div>
@@ -4032,14 +4060,15 @@ async function renderMail() {
   $("#view").querySelector(".mail-reg")?.addEventListener("toggle", (e) => { state.mailRegOpen = e.target.open; });
   $("#mrAdd")?.addEventListener("click", async () => {
     const subject = $("#mrSubject").value.trim();
-    if (!subject) return;
+    if (!subject) { toast(L.mail_reg_need_subject ?? "제목을 입력하세요", "error"); $("#mrSubject")?.focus(); return; }
     const body = { subject, direction: $("#mrDir").value || "in" };
     if ($("#mrFrom").value.trim()) body.counterpart = $("#mrFrom").value.trim();
     if ($("#mrDate").value) body.at = $("#mrDate").value;
     if ($("#mrProject").value) body.project_id = $("#mrProject").value;
     if ($("#mrPtr").value.trim()) body.pointer_ref = $("#mrPtr").value.trim();
     const r = await post("/api/mail", body);
-    if (r.ok) { state.mailRegOpen = true; render(); }
+    if (r.ok) { state.mailRegOpen = true; toast(L.mail_reg_done ?? "메일이 등록되었습니다", "ok"); render(); }
+    else toast(L.mail_reg_fail ?? "메일 등록에 실패했습니다", "error");
   });
 	  $("#mDays").addEventListener("change", (e) => { f.days = Number(e.target.value); resetMailPaging(); render(); });
 	  $("#mDir").addEventListener("change", (e) => { f.direction = e.target.value; resetMailPaging(); render(); });
@@ -4085,12 +4114,19 @@ async function renderMail() {
     })
   );
   $("#view").querySelectorAll(".copy-btn").forEach((b) =>
-    b.addEventListener("click", () => navigator.clipboard?.writeText(b.dataset.c))
+    b.addEventListener("click", () => {
+      if (navigator.clipboard) { navigator.clipboard.writeText(b.dataset.c); toast(L.copied ?? "복사됨", "ok"); }
+      else toast(L.copy_unsupported ?? "이 브라우저에서 복사가 지원되지 않습니다", "error");
+    })
   );
   $("#promoteBtn")?.addEventListener("click", async () => {
     const result = await promoteMailToItem(state.mailSel, { button: $("#promoteBtn") });
-    if (result.ok) render();
+    if (result.ok) {
+      toast(result.already ? (L.promote_already ?? "이미 할 일로 등록됨") : (L.promote_done_next ?? "할 일로 등록됨 — '분류 필요'에서 분류하세요"), "ok");
+      render();
+    }
   });
+  $("#promoteGoTriage")?.addEventListener("click", () => { state.statusFilter = "unclassified"; state.view = "items"; render(); });
   // run17: 분류(재배정) — 체크박스/묶음 바/상세 단건
   $("#view").querySelectorAll("[data-chk]").forEach((cb) =>
     cb.addEventListener("click", (e) => {
@@ -4455,7 +4491,7 @@ async function hubRisk(mount, p) {
   const risks = await api(`/api/risk?project=${encodeURIComponent(p.id)}`);
   mount.innerHTML = risks.length
     ? `<table><thead><tr><th>${L.col_title ?? "항목"}</th><th>${L.risk_score ?? "위험도"}</th><th>${L.col_due ?? "마감"}</th></tr></thead><tbody>${risks.map((r) => `<tr>
-        <td>${esc(r.title)}</td><td><span class="status-chip s-${r.score >= 70 ? "risk" : r.score >= 40 ? "watch" : "ok"}">${Math.round(r.score ?? 0)}</span></td><td class="dim">${esc(r.due ?? "-")}</td></tr>`).join("")}</tbody></table>`
+        <td>${esc(r.item_title ?? "-")}</td><td><span class="status-chip s-${r.severity === "watch" ? "watch" : "risk"}">${esc(L[`risk_sev_${r.severity}`] ?? r.severity ?? "-")}</span></td><td class="dim">${esc(r.due ?? "-")}${Number.isFinite(r.days_left) ? ` <span class="dim">(${r.days_left >= 0 ? `D-${r.days_left}` : (L.risk_overdue ?? "지남")})</span>` : ""}</td></tr>`).join("")}</tbody></table>`
     : `<div class="empty">${L.hub_no_risk ?? "위험 항목 없음"}</div>`;
 }
 async function hubRequirements(mount, p) {
@@ -4463,7 +4499,7 @@ async function hubRequirements(mount, p) {
   const f = await api(`/api/inputs/fulfillment?project=${encodeURIComponent(p.id)}`);
   mount.innerHTML = (f ?? []).length
     ? `<p class="hub-note">${L.req_note ?? "산출물별 필수 입력(요구사항) 충족 현황."}</p><table><thead><tr><th>${L.req_scope ?? "산출물"}</th><th>${L.req_need ?? "필요"}</th><th>${L.req_have ?? "충족"}</th><th></th></tr></thead><tbody>${f.map((d) => `<tr>
-        <td>${esc(d.scope_key)}</td><td class="dim num">${d.required ?? d.need ?? "-"}</td><td class="dim num">${d.have ?? d.fulfilled_count ?? "-"}</td><td>${d.fulfilled ? `<span class="badge green">✓</span>` : `<span class="status-chip s-watch">${L.req_partial ?? "미충족"}</span>`}</td></tr>`).join("")}</tbody></table>`
+        <td>${esc(d.scope_key)}</td><td class="dim num">${(d.required ?? []).length}</td><td class="dim num">${(d.satisfied ?? []).length}</td><td>${d.fulfilled ? `<span class="badge green">✓</span>` : `<span class="status-chip s-watch">${L.req_partial ?? "미충족"}</span>`}</td></tr>`).join("")}</tbody></table>`
     : `<div class="empty">${L.hub_no_req ?? "요구사항(입력 규칙) 없음"}</div>`;
 }
 

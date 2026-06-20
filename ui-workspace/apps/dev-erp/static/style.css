@@ -218,6 +218,18 @@ nav button.active { background: var(--chip); font-weight: 600; color: var(--acce
 .badge { font-size: 12px; padding: 3px 8px; border-radius: 999px; background: var(--chip); }
 .badge.red { color: var(--danger); } .badge.amber { color: var(--warn); } .badge.green { color: var(--ok); }
 
+/* 전역 피드백 토스트 — 영속 액션 성공/실패 알림(자동 사라짐). 이전엔 전역 피드백 함수가 없어 "눌러도 됐는지 모름" 발생. */
+.toast-host { position: fixed; right: 16px; bottom: 16px; z-index: 9999; display: flex; flex-direction: column; gap: 8px; pointer-events: none; }
+.toast { min-width: 180px; max-width: 60vw; padding: 10px 14px; border-radius: 8px; font-size: 13px; color: #fff;
+  background: var(--accent); box-shadow: 0 8px 24px rgba(0,0,0,.22); opacity: 0; transform: translateY(8px);
+  transition: opacity .2s ease, transform .2s ease; }
+.toast.show { opacity: 1; transform: translateY(0); }
+.toast-ok { background: var(--ok); }
+.toast-error { background: var(--danger); }
+.toast-info { background: var(--accent); }
+/* 메일 목록 행 승격 표시 — 목록만 봐도 ✓ 보이게(상세 패널 배지 외에). */
+.mail-promoted { margin-left: 6px; font-size: 11px; color: var(--ok); font-weight: 600; white-space: nowrap; }
+
 .mobmeter { display: flex; align-items: center; gap: 4px; margin-top: 10px; flex-wrap: wrap; }
 .mob { width: 10px; height: 10px; border-radius: 3px; background: var(--accent); opacity: .75; }
 .mob.boss { width: 14px; height: 14px; background: var(--danger); border-radius: 50%; }
