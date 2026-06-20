@@ -2,7 +2,7 @@ import { spawn } from "node:child_process";
 import { createInterface } from "node:readline";
 
 export const CODEX_TASK_BRIDGE_VERSION = Object.freeze({
-  release: "v0.2.0",
+  release: "v0.2.1",
   source: "src/codex_bridge.mjs",
 });
 
@@ -19,9 +19,14 @@ function quoteCmdArg(value) {
   return /[\s"&|<>^]/.test(s) ? `"${s.replace(/"/g, '\\"')}"` : s;
 }
 
+export function codexAppServerServiceTierOverride(serviceTier) {
+  const tier = cleanTurnOption(serviceTier, new Set(["fast", "flex"]));
+  return tier === "fast" ? tier : null;
+}
+
 export function buildCodexAppServerArgs({ serviceTier = process.env.DEV_ERP_CODEX_SERVICE_TIER || "" } = {}) {
   const args = ["app-server"];
-  const tier = String(serviceTier || "").trim();
+  const tier = codexAppServerServiceTierOverride(serviceTier);
   if (tier) args.push("-c", `service_tier=${tier}`);
   return args;
 }
@@ -240,7 +245,7 @@ function runCodexAppServerTurn({ threadId, threadTitle, cwd, item, userMessage, 
       const developerInstructions = buildTaskDeveloperInstructions(item);
       const selectedModel = cleanTurnOption(model);
       const selectedEffort = cleanTurnOption(effort, new Set(["none", "minimal", "low", "medium", "high", "xhigh"]));
-      const selectedTier = cleanTurnOption(serviceTier, new Set(["fast", "flex"]));
+      const selectedTier = codexAppServerServiceTierOverride(serviceTier);
       if (activeThreadId) {
         await request("thread/resume", {
           threadId: activeThreadId,

@@ -3,7 +3,7 @@
 const VERSION_FALLBACK = Object.freeze({
   erp: Object.freeze({ release: "v?", build: "unknown", source: "unavailable" }),
   chatbot: Object.freeze({ release: "v?", build: "unknown", source: "unavailable" }),
-  runtime: Object.freeze({ port: "?", checkout: "unknown", llm: Object.freeze({}) })
+  runtime: Object.freeze({ port: "?", checkout: "unknown", llm: Object.freeze({}), codex_task: Object.freeze({ mode: "?", bridge: "v?" }) })
 });
 const CHAT_REQUEST_TIMEOUT_MS = 130000;
 
@@ -30,6 +30,15 @@ function versionPart(kind) {
     release: String(v.release || fallback.release),
     build: String(v.build || fallback.build),
     source: String(v.source || fallback.source)
+  };
+}
+
+function codexBridgePart(source = state.version?.runtime?.codex_task) {
+  const c = source || VERSION_FALLBACK.runtime.codex_task;
+  return {
+    mode: String(c.mode || "?"),
+    release: String(c.release || c.bridge || "v?"),
+    source: String(c.source || "runtime.codex_task")
   };
 }
 
@@ -380,6 +389,7 @@ function renderGate() {
     const ua = navigator.userAgent || browserVersion;
     const erpVersion = versionPart("erp");
     const chatbotVersion = versionPart("chatbot");
+    const bridgeVersion = codexBridgePart();
     gate.innerHTML = `
       ${decor}
       <button class="gate-mode" id="gateMode">${fant ? L.gate_mode_to_biz : L.gate_mode_to_fant}</button>
@@ -391,6 +401,7 @@ function renderGate() {
           <span class="gate-version-chip" title="${esc(`${L.app_version_label} ${erpVersion.build} · ${erpVersion.source}`)}">${esc(L.app_version_label)} ${esc(erpVersion.release)}</span>
           <span class="gate-version-chip" title="${esc(ua)}">${esc(L.browser_version_label)} ${esc(browserVersion)}</span>
           <span class="gate-version-chip" title="${esc(`${L.chat_version_label} ${chatbotVersion.build} · ${chatbotVersion.source}`)}">${esc(L.chat_version_label)} ${esc(chatbotVersion.release)}</span>
+          <span class="gate-version-chip" title="${esc(`${bridgeVersion.mode} · ${bridgeVersion.source}`)}">브리지 ${esc(bridgeVersion.release)}</span>
         </div>
         ${canRegister ? `<div class="gate-tabs">
           <button class="gate-tab ${tab === "login" ? "on" : ""}" data-tab="login">${L.gate_tab_login}</button>
@@ -819,10 +830,12 @@ async function loadLexicon() {
   const chatbotVersion = versionPart("chatbot");
   const runtime = state.version?.runtime || {};
   const llm = runtime.llm || {};
+  const bridgeVersion = codexBridgePart(runtime.codex_task);
   const erpReleaseTitle = `ERP ${erpVersion.release} · ${state.lex.app_version_label} ${erpVersion.build} · ${erpVersion.source} · ${state.lex.browser_version_label} ${browserVersion} · ${ua}`;
   const chatbotReleaseTitle = `${state.lex.chat_version_label} ${chatbotVersion.release} · ${chatbotVersion.build} · ${chatbotVersion.source} · ${runtime.checkout || "unknown"}:${runtime.port ?? "?"} · ${llm.provider || "?"}/${llm.model || "?"} · thinking=${llm.thinking === true}`;
+  const bridgeReleaseTitle = `Codex ${bridgeVersion.mode} · bridge ${bridgeVersion.release} · ${bridgeVersion.source} · ${runtime.checkout || "unknown"}:${runtime.port ?? "?"}`;
   $("#appTitle").innerHTML = `<span class="cockpit-ico" aria-hidden="true">▦</span><span>${esc(state.lex.app_title)}</span>`;
-  $("#appVersionChips").innerHTML = `<span class="version-chip" title="${esc(erpReleaseTitle)}">ERP ${esc(erpVersion.release)}</span><span class="version-chip" title="${esc(chatbotReleaseTitle)}">${esc(state.lex.chat_version_label)} ${esc(chatbotVersion.release)}</span>`;
+  $("#appVersionChips").innerHTML = `<span class="version-chip" title="${esc(erpReleaseTitle)}">ERP ${esc(erpVersion.release)}</span><span class="version-chip" title="${esc(chatbotReleaseTitle)}">${esc(state.lex.chat_version_label)} ${esc(chatbotVersion.release)}</span><span class="version-chip" title="${esc(bridgeReleaseTitle)}">브리지 ${esc(bridgeVersion.release)}</span>`;
   $("#appTitle").classList.add("brand-home");
   $("#appTitle").title = state.lex.nav_home;
   $("#appTitle").onclick = () => { state.view = "home"; render(); };
@@ -1409,10 +1422,116 @@ function compactDash(layout) {
 function miniRow(cells) {
   return `<tr>${cells.map((c) => `<td>${c}</td>`).join("")}</tr>`;
 }
+
+function taskCodexSeenStore() {
+  try {
+    const v = JSON.parse(localStorage.getItem("dev_erp_task_codex_seen") || "{}");
+    return v && typeof v === "object" && !Array.isArray(v) ? v : {};
+  } catch {
+    return {};
+  }
+}
+
+function saveTaskCodexSeenStore(store) {
+  localStorage.setItem("dev_erp_task_codex_seen", JSON.stringify(store || {}));
+}
+
+function latestAssistantMessageIdFromItem(item) {
+  if (!item || item.codex_last_message_role !== "assistant") return 0;
+  const n = Number(item.codex_last_message_id);
+  return Number.isFinite(n) && n > 0 ? n : 0;
+}
+
+function latestAssistantMessageIdFromPayload(payload) {
+  const rows = Array.isArray(payload?.messages) ? payload.messages : [];
+  for (let i = rows.length - 1; i >= 0; i -= 1) {
+    if (rows[i]?.role === "assistant") {
+      const n = Number(rows[i].id);
+      return Number.isFinite(n) && n > 0 ? n : 0;
+    }
+  }
+  return 0;
+}
+
+function markTaskCodexSeen(itemId, messageId) {
+  const id = String(itemId || "");
+  const mid = Number(messageId);
+  if (!id || !Number.isFinite(mid) || mid <= 0) return;
+  const store = taskCodexSeenStore();
+  if ((Number(store[id]) || 0) >= mid) return;
+  store[id] = mid;
+  saveTaskCodexSeenStore(store);
+}
+
+function codexTaskBadgeHtml(state) {
+  if (state === "error") return `<span class="codex-task-badge error" title="Codex 대화 오류">오류</span>`;
+  if (state === "waiting") return `<span class="codex-task-badge waiting" title="Codex 답변 작성 중"><i class="codex-task-spin" aria-hidden="true"></i>대기</span>`;
+  if (state === "reply-fresh") return `<span class="codex-task-badge fresh" title="새 Codex 답변">답변</span>`;
+  if (state === "reply") return `<span class="codex-task-badge" title="Codex 답변 있음">답변</span>`;
+  return "";
+}
+
+function codexTaskIndicatorHtml(i) {
+  if (i?.codex_has_error) return codexTaskBadgeHtml("error");
+  if (i?.codex_waiting_reply) return codexTaskBadgeHtml("waiting");
+  const replyId = latestAssistantMessageIdFromItem(i);
+  if (!replyId) return "";
+  const seen = Number(taskCodexSeenStore()[i.id]) || 0;
+  return codexTaskBadgeHtml(replyId > seen ? "reply-fresh" : "reply");
+}
+
+function attrSelectorValue(value) {
+  return String(value ?? "").replace(/\\/g, "\\\\").replace(/"/g, '\\"');
+}
+
+function updateTaskCodexRowBadge(itemId, badgeState) {
+  const id = String(itemId || "");
+  if (!id) return;
+  const selector = attrSelectorValue(id);
+  const rows = new Set();
+  document.querySelectorAll(`tr[data-item="${selector}"]`).forEach((row) => rows.add(row));
+  document.querySelectorAll(`.codex-task-chat[data-codex-task="${selector}"]`).forEach((button) => {
+    const row = button.closest("tr");
+    if (row) rows.add(row);
+  });
+  const badge = codexTaskBadgeHtml(badgeState);
+  rows.forEach((row) => {
+    const cell = row.querySelector("td");
+    if (!cell) return;
+    cell.querySelectorAll(".codex-task-badge").forEach((node) => node.remove());
+    if (!badge) return;
+    const title = cell.querySelector(".mini-title");
+    if (title) title.insertAdjacentHTML("afterend", badge);
+    else {
+      const firstHint = cell.querySelector(".cc-hint");
+      if (firstHint) firstHint.insertAdjacentHTML("beforebegin", badge);
+      else cell.insertAdjacentHTML("beforeend", badge);
+    }
+  });
+}
+
+function codexTaskButtonHtml(itemId, extraClass = "") {
+  return `<button class="act-btn codex-task-chat ${extraClass}" data-codex-task="${esc(itemId)}" title="Codex 대화">대화</button>`;
+}
+
+function wireTaskCodexButtons(scope) {
+  scope.querySelectorAll(".codex-task-chat[data-codex-task]").forEach((b) => {
+    if (b.dataset.codexBound === "1") return;
+    b.dataset.codexBound = "1";
+    b.addEventListener("click", (e) => {
+      e.preventDefault();
+      e.stopPropagation();
+      openTaskCodex(b.dataset.codexTask);
+    });
+  });
+}
+
 // 위젯 할일 행 — 클릭하면 인라인 빠른편집(상태 변경/할일 이동). data-item 있으면 대시보드 click 위임이 처리.
 function itemMiniRow(i, tail = []) {
-  const cells = [`<td>${esc(i.title)}</td>`, `<td class="dim">${esc(i.project_id ?? "")}</td>`,
-    ...tail.map((c) => `<td class="dim num">${c}</td>`)];
+  const title = `<span class="mini-title">${esc(i.title)}</span>${codexTaskIndicatorHtml(i)}`;
+  const cells = [`<td>${title}</td>`, `<td class="dim">${esc(i.project_id ?? "")}</td>`,
+    ...tail.map((c) => `<td class="dim num">${c}</td>`),
+    `<td class="mini-actions">${itemActionsHtml(i)}${codexTaskButtonHtml(i.id, "mini")}</td>`];
   return `<tr class="wrow" data-item="${esc(i.id)}" data-proj="${esc(i.project_id ?? "")}" data-title="${esc(i.title)}">${cells.join("")}</tr>`;
 }
 // 활동 이벤트 → 사람이 읽는 변경 설명(한국어). 변경 아닌 잡음(view/LLM/조회)은 호출부에서 제외.
@@ -2613,11 +2732,19 @@ function openTaskCodex(itemId) {
     const item = payload?.item;
     const binding = payload?.binding;
     const mode = payload?.mode || state.version?.runtime?.codex_task?.mode || "?";
+    const bridgeVersion = codexBridgePart(payload?.bridge || state.version?.runtime?.codex_task);
+    const bridgeLabel = bridgeVersion.release && bridgeVersion.release !== "v?" ? `브리지 ${bridgeVersion.release}` : "";
     const configLabel = describeTaskCodexOptions();
     metaEl.innerHTML = item
-      ? `<span>${esc(item.project_id)}</span><strong>${esc(item.title)}</strong><small>${esc(mode)} · ${esc(configLabel)}${binding?.thread_id ? ` · ${esc(binding.thread_id)}` : ""}</small>`
+      ? `<span>${esc(item.project_id)}</span><strong>${esc(item.title)}</strong><small>${esc([mode, bridgeLabel, configLabel, binding?.thread_id].filter(Boolean).join(" · "))}</small>`
       : `<span>연결 준비 중</span>`;
     const rows = payload?.messages || [];
+    const latestAssistantId = latestAssistantMessageIdFromPayload(payload);
+    const latestRole = rows.length ? rows[rows.length - 1]?.role : null;
+    markTaskCodexSeen(item?.id || itemId, latestAssistantId);
+    if (latestRole === "assistant") updateTaskCodexRowBadge(item?.id || itemId, "reply");
+    else if (latestRole === "error" || payload?.detail) updateTaskCodexRowBadge(item?.id || itemId, "error");
+    else if (latestRole === "user" || latestRole === "system") updateTaskCodexRowBadge(item?.id || itemId, "waiting");
     logEl.innerHTML = rows.length
       ? rows.map((m) => `<div class="task-codex-row ${esc(m.role)}"><div class="task-codex-msg ${esc(m.role)}"><b>${roleLabel(m.role)}</b><span>${esc(m.text)}</span></div></div>`).join("")
       : `<div class="empty small">이 할일의 Codex 대화가 아직 없습니다.</div>`;
@@ -2653,6 +2780,7 @@ function openTaskCodex(itemId) {
     inputEl.value = "";
     suggestEl.hidden = true;
     setPending(true, "send");
+    updateTaskCodexRowBadge(itemId, "waiting");
     try {
       saveTaskCodexOptions();
       const opt = currentTaskCodexOptions();
@@ -2667,12 +2795,17 @@ function openTaskCodex(itemId) {
       }, CHAT_REQUEST_TIMEOUT_MS);
       payload = await resp.json().catch(() => ({}));
       render();
-      if (!resp.ok) throw new Error(payload.detail || payload.error || "codex_task_message_failed");
+      if (!resp.ok) {
+        updateTaskCodexRowBadge(itemId, "error");
+        throw new Error(payload.detail || payload.error || "codex_task_message_failed");
+      }
+      updateTaskCodexRowBadge(itemId, "reply");
       setPending(false, "응답 완료");
     } catch (error) {
       payload = payload || { messages: [] };
       payload.detail = error?.message || "Codex 응답 실패";
       render();
+      updateTaskCodexRowBadge(itemId, "error");
       setPending(false, payload.detail);
     } finally {
       inputEl.focus();
@@ -2918,7 +3051,7 @@ async function renderHome() {
       const soon = items.filter((i) => i.due && i.due >= t && i.due <= wk && i.status !== "done");
       const later = items.filter((i) => i.due && i.due > wk && i.status !== "done");
       const sect = (lab, arr, cls) => arr.length
-        ? `<tr class="date-sep"><td colspan="3" class="${cls}">${lab} ${arr.length}</td></tr>` + arr.slice(0, 5).map((i) => itemMiniRow(i, [esc(i.due)])).join("")
+        ? `<tr class="date-sep"><td colspan="4" class="${cls}">${lab} ${arr.length}</td></tr>` + arr.slice(0, 5).map((i) => itemMiniRow(i, [esc(i.due)])).join("")
         : "";
       return { title: L.tile_deadline_cal, html: (over.length || soon.length || later.length)
         ? `<table><tbody>${sect(L.bucket_overdue, over, "due-over")}${sect(L.bucket_thisweek, soon, "")}${sect(L.bucket_later, later, "")}</tbody></table>`
@@ -3310,6 +3443,13 @@ async function renderHome() {
       b.addEventListener("click", (e) => { e.stopPropagation(); state.projectFilter = b.dataset.jumpMail; state.view = "mail"; close(); render(); }));
     ov.querySelectorAll("[data-goreports]").forEach((b) =>
       b.addEventListener("click", (e) => { e.stopPropagation(); state.view = "mod:reports"; close(); render(); }));
+    ov.querySelectorAll("tr.wrow[data-item]").forEach((tr) =>
+      tr.addEventListener("click", (e) => {
+        if (e.target.closest(".act-btn")) return;
+        openItemQuickEdit(tr.dataset.item, tr.dataset.proj, tr.dataset.title);
+      }));
+    wireItemActions(ov);
+    wireTaskCodexButtons(ov);
   }
 
   function bindWidgetInner() {
@@ -3319,6 +3459,8 @@ async function renderHome() {
       b.addEventListener("click", (e) => { e.stopPropagation(); state.projectFilter = b.dataset.jumpMail; state.view = "mail"; render(); }));
     $("#view").querySelectorAll("[data-goreports]").forEach((b) =>
       b.addEventListener("click", (e) => { e.stopPropagation(); state.view = "mod:reports"; render(); }));
+    wireItemActions($("#view"));
+    wireTaskCodexButtons($("#view"));
   }
   bindWidgetInner();
 }
@@ -3356,7 +3498,9 @@ function itemActionsHtml(i) {
 }
 
 function wireItemActions(scope) {
-  scope.querySelectorAll(".act-btn[data-act]").forEach((b) =>
+  scope.querySelectorAll(".act-btn[data-act]").forEach((b) => {
+    if (b.dataset.actionBound === "1") return;
+    b.dataset.actionBound = "1";
     b.addEventListener("click", async (e) => {
       e.stopPropagation();
       const body = { id: b.dataset.i, status: b.dataset.act };
@@ -3367,8 +3511,8 @@ function wireItemActions(scope) {
       }
       await post("/api/items/status", body);
       render();
-    })
-  );
+    });
+  });
 }
 
 // SE 업무유형·연결대상 라벨(분류 폼 + 배지)
@@ -3476,7 +3620,7 @@ async function renderItems() {
         <button class="fav-chip ie-del" data-i="${esc(i.id)}">${L.act_delete ?? "삭제"}</button>
       </div></td></tr>`
     : `<tr>
-	      <td>${esc(i.title)}${i.encounter_role === "boss" ? " 👑" : ""}${itemAutomationHints(i)}${itemSourceTrace(i)}</td>
+	      <td>${esc(i.title)}${i.encounter_role === "boss" ? " 👑" : ""}${codexTaskIndicatorHtml(i)}${itemAutomationHints(i)}${itemSourceTrace(i)}</td>
       <td><span class="proj-link" data-hub="${esc(i.project_id)}">${esc(i.project_id)}</span></td>
       <td>${statusBadge(i.status)}</td>
       ${dueCell(i.due, todayKey)}
@@ -3484,7 +3628,7 @@ async function renderItems() {
       <td>${itemLinkCell(i)}</td>
       <td class="acts">${i.status === "archived"
         ? `<button class="act-btn restore-btn" data-restore="${esc(i.id)}">${L.act_restore ?? "복구"}</button>`
-        : `${itemActionsHtml(i)}<button class="act-btn codex-task-chat" data-codex-task="${esc(i.id)}">대화</button><button class="act-btn edit" data-edit="${esc(i.id)}">${L.act_edit ?? "수정"}</button>`}</td>
+        : `${itemActionsHtml(i)}${codexTaskButtonHtml(i.id)}<button class="act-btn edit" data-edit="${esc(i.id)}">${L.act_edit ?? "수정"}</button>`}</td>
     </tr>`).join("");
   const isTriage = state.statusFilter === "unclassified";
   const isArchived = state.statusFilter === "archived";
@@ -3581,12 +3725,7 @@ async function renderItems() {
     c.addEventListener("click", () => { state.hubProject = c.dataset.hub; state.hubTab = "overview"; state.view = "project"; render(); })
   );
   wireItemActions($("#view"));
-  $("#view").querySelectorAll(".codex-task-chat[data-codex-task]").forEach((b) =>
-    b.addEventListener("click", (e) => {
-      e.stopPropagation();
-      openTaskCodex(b.dataset.codexTask);
-    })
-  );
+  wireTaskCodexButtons($("#view"));
   wireItemEdit($("#view"));
   // 담당 드롭다운 → 즉시 재배정(/api/items/assign). 그 팀원 '내 할 일'로 이동.
   $("#view").querySelectorAll("select.reassign").forEach((sel) =>
@@ -3949,16 +4088,8 @@ async function renderMail() {
     b.addEventListener("click", () => navigator.clipboard?.writeText(b.dataset.c))
   );
   $("#promoteBtn")?.addEventListener("click", async () => {
-    const r = await post("/api/items/promote", { mail_id: state.mailSel });
-    if (r.ok) {
-      (state._promotedMails ??= new Set()).add(state.mailSel);
-    } else {
-      const e = await r.json().catch(() => ({}));
-      alert(e.error === "mail_project_missing" ? (L.promote_need_project ?? "먼저 메일을 과제로 분류하세요")
-        : e.error === "already_promoted" ? (L.promote_already ?? "이미 할 일로 등록된 메일입니다")
-        : (e.error || "승격 실패"));
-    }
-    render();
+    const result = await promoteMailToItem(state.mailSel, { button: $("#promoteBtn") });
+    if (result.ok) render();
   });
   // run17: 분류(재배정) — 체크박스/묶음 바/상세 단건
   $("#view").querySelectorAll("[data-chk]").forEach((cb) =>
@@ -3986,6 +4117,58 @@ async function renderMail() {
     doAssign([...checked], $("#assignTarget").value, $("#assignMk").checked));
   $("#assignOneGo")?.addEventListener("click", () =>
     doAssign([state.mailSel], $("#assignOne").value, true));
+}
+
+function mailPromoteErrorText(error, L = state.lex) {
+  if (error === "mail_project_missing") return L.promote_need_project ?? "먼저 메일을 과제로 분류하세요";
+  if (error === "already_promoted") return L.promote_already ?? "이미 할 일로 등록된 메일입니다";
+  if (error === "mail_forbidden") return "이 메일을 할 일로 만들 권한이 없습니다";
+  if (error === "login_required") return "다시 로그인한 뒤 시도하세요";
+  if (error === "network_error") return "서버 연결 오류입니다";
+  return error || "할 일 승격 실패";
+}
+
+async function promoteMailToItem(mailId, { button = null, messageEl = null } = {}) {
+  const L = state.lex;
+  const oldText = button?.textContent || L.promote_item || "할일로 승격";
+  if (button) {
+    button.disabled = true;
+    button.textContent = "승격 중...";
+  }
+  if (messageEl) {
+    messageEl.textContent = "";
+    messageEl.className = "mail-promote-msg";
+  }
+  let resp = null;
+  let body = {};
+  try {
+    resp = await post("/api/items/promote", { mail_id: mailId });
+    body = await resp.json().catch(() => ({}));
+  } catch {
+    body = { error: "network_error" };
+  }
+  const ok = !!(resp?.ok && (body.ok || body.item));
+  const already = body.error === "already_promoted";
+  if (ok || already) {
+    (state._promotedMails ??= new Set()).add(mailId);
+    if (messageEl) {
+      messageEl.textContent = already ? (L.promote_already ?? "이미 할 일로 등록됨") : "할 일 등록됨";
+      messageEl.classList.add("ok");
+    }
+    return { ok: true, already, body };
+  }
+  const message = mailPromoteErrorText(body.error, L);
+  if (messageEl) {
+    messageEl.textContent = message;
+    messageEl.classList.add("error");
+  } else {
+    alert(message);
+  }
+  if (button) {
+    button.disabled = false;
+    button.textContent = oldText;
+  }
+  return { ok: false, error: body.error || "promote_failed", body };
 }
 
 // 전체 감사로그(event_log 원천) — 과제·종류·행위자·기간 필터 + 조회잡음 토글. 가공된 '이력 탭'과 달리 전부 표시.
@@ -4478,26 +4661,34 @@ async function hubMail(mount, p) {
     api(`/api/items?project=${encodeURIComponent(p.id)}`)
   ]);
   const promoted = new Set(items.map((i) => i.origin_mail_id).filter(Boolean));
+  for (const id of state._promotedMails ?? []) promoted.add(id);
   const rows = mail.map((m) => `<tr class="mail-row">
       <td class="mail-time">${localTime(m.at)}</td>
       <td class="mail-from">${m.direction === "out" ? "<i>→</i> " : ""}${esc(m.counterpart ?? "-")}</td>
       <td class="mail-subj">${esc(m.subject)}</td>
       <td class="acts">${promoted.has(m.id)
         ? `<span class="badge green">✓ ${L.item}</span>`
-        : `<button class="fav-chip mini" data-promote="${esc(m.id)}">${L.promote_item}</button>`}
+        : `<button type="button" class="fav-chip mini" data-promote="${esc(m.id)}">${L.promote_item}</button><span class="mail-promote-msg" data-promote-msg="${esc(m.id)}"></span>`}
         ${m.pointer_ref ? `<button class="copy-btn" data-c="${esc(m.pointer_ref)}">${L.copy}</button>` : ""}</td>
     </tr>`).join("");
   mount.innerHTML = rows
     ? `<table class="mail-table"><tbody>${rows}</tbody></table>`
     : `<div class="empty">${L.empty_mail}</div>`;
   mount.querySelectorAll("[data-promote]").forEach((b) =>
-    b.addEventListener("click", async () => {
-      await post("/api/items/promote", { mail_id: b.dataset.promote });
-      render();
+    b.addEventListener("click", async (e) => {
+      e.preventDefault();
+      e.stopPropagation();
+      const mailId = b.dataset.promote;
+      const result = await promoteMailToItem(mailId, { button: b, messageEl: mount.querySelector(`[data-promote-msg="${attrSelectorValue(mailId)}"]`) });
+      if (result.ok) setTimeout(render, 250);
     })
   );
   mount.querySelectorAll(".copy-btn").forEach((b) =>
-    b.addEventListener("click", () => navigator.clipboard?.writeText(b.dataset.c))
+    b.addEventListener("click", (e) => {
+      e.preventDefault();
+      e.stopPropagation();
+      navigator.clipboard?.writeText(b.dataset.c);
+    })
   );
 }
 

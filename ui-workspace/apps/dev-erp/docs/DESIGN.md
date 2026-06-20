@@ -72,11 +72,13 @@
   bridge 이며, UI/API smoke test 는 `DEV_ERP_CODEX_TASK_BRIDGE=mock` 으로만
   켠다. Codex 호스트 설정에 과거 `service_tier=priority` 값이 남아 있는
   테스트 PC 는 전역 설정 파일을 바로 수정하지 않고
-  `DEV_ERP_CODEX_SERVICE_TIER=fast` 또는 `flex` 로 app-server 실행만 보정할
-  수 있다. bridge 는 기본 읽기 전용/승인 없음으로 시작하며, 실제 파일 수정
-  권한은 별도 운영 정책으로 승격한다.
+  `DEV_ERP_CODEX_SERVICE_TIER=fast` 로 app-server 실행만 보정할 수 있다.
+  `flex` 는 기본 비용 정책으로 UI/API 에 표시하지만 app-server turn 요청에는
+  명시 override 로 보내지 않는다. bridge 는 기본 읽기 전용/승인 없음으로
+  시작하며, 실제 파일 수정 권한은 별도 운영 정책으로 승격한다.
 - Codex task panel capability rule (2026-06-19 pilot): the small task panel may
-  pass model, reasoning effort, and service tier overrides to `codex app-server`;
+  pass model and reasoning effort overrides to `codex app-server`, and pass only
+  non-default service tier overrides that the host app-server accepts;
   `/` or `$` skill autocomplete is backed by local `SKILL.md` metadata and is
   sent as real `skill` input. Image attachments are saved under
   `_workspaces/system/dev-erp/codex-task-attachments/**` and sent as `localImage`

@@ -70,6 +70,32 @@
 - Added the default server-owned Codex task bridge for option 2: work PCs use
   the ERP UI/API only, while the ERP server starts/resumes Codex threads through
   `codex app-server` over stdio.
+- Added lightweight Codex task reply indicators to item list APIs and the home
+  dashboard so operators can see reply/waiting/error state and open a task
+  conversation directly from the first screen without exposing message text in
+  list rows.
+- Bumped the runtime-visible ERP release to `v1.0.5` with build
+  `ui-2026.06.20-home-task-actions.1` for the home task action patch.
+- Bumped the runtime-visible ERP release to `v1.0.6` with build
+  `ui-2026.06.20-codex-badge-live.1`; task rows now optimistically switch the
+  Codex badge to waiting as soon as a message is sent, then to reply or error
+  when the Codex turn finishes.
+- Bumped the runtime-visible ERP release to `v1.0.7` with build
+  `ui-2026.06.20-codex-wait-spinner.1`; waiting Codex task badges now show a
+  compact spinner while a turn is pending.
+- Bumped the runtime-visible ERP release to `v1.0.8` with build
+  `ui-2026.06.20-mail-promote-feedback.1`; project mail-tab promote buttons now
+  show pending/success/error feedback, stop row-click propagation, and treat
+  already-promoted mail as a completed state instead of silently doing nothing.
+- Bumped the runtime-visible ERP release to `v1.0.9` with build
+  `ui-2026.06.20-mail-ledger-sync.1`; mail-ledger ingest now uses the same
+  ledger-folder mail IDs as the runtime DB and preserves already-classified
+  project assignments when the reserved inbox ledger is re-ingested.
+- Updated the bridge to treat `flex` as the default cost policy instead of
+  sending it as an app-server turn override, fixing hosts where app-server
+  rejects explicit `serviceTier: flex`.
+- Show the Codex task bridge version beside the ERP and chatbot versions so
+  operators can tell whether a runtime is serving the latest task-chat bridge.
 - Set Codex task chat defaults to `gpt-5.5` / `medium` / `flex`; the API now
   exposes only `flex` unless `DEV_ERP_CODEX_TASK_ALLOW_FAST=1` is set, and
   normalizes unapproved `fast` requests back to the server default.

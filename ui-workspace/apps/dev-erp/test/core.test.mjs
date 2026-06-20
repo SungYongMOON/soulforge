@@ -17,7 +17,7 @@ import { getLexicon, LEXICON } from "../src/lexicon.mjs";
 import { crossSearch } from "../src/search.mjs";
 import { runQueued, llmQueueStats } from "../src/llm.mjs";
 import { chatPipelineConfig, runManualAnswerPipeline } from "../src/chat_pipeline.mjs";
-import { buildCodexAppServerArgs, buildCodexTurnInput, buildTaskDeveloperInstructions, buildTaskPrompt, buildTaskThreadTitle } from "../src/codex_bridge.mjs";
+import { buildCodexAppServerArgs, buildCodexTurnInput, buildTaskDeveloperInstructions, buildTaskPrompt, buildTaskThreadTitle, codexAppServerServiceTierOverride } from "../src/codex_bridge.mjs";
 import {
   KNOWLEDGE_SHELL_CONTRACT_KIND,
   KNOWLEDGE_SHELL_SCHEMA,
@@ -203,6 +203,26 @@ test("store: Codex task binding keeps item id as durable thread key", () => {
   assert.equal(store.codexTaskBinding(first.id).thread_id, "thread_test_1");
 });
 
+test("store: item lists expose Codex task reply metadata without message text", () => {
+  const store = freshStore();
+  loadFixture(store);
+  const item = store.createItem({ project_id: "PRJ-A", title: "codex reply marker", created_by: "tester" }).item;
+  store.upsertCodexTaskBinding({ item_id: item.id, thread_id: "thread_reply_1", mode: "mock" });
+  store.appendCodexTaskMessage({ item_id: item.id, thread_id: "thread_reply_1", role: "user", text: "what should I do", actor_ref: "tester", mode: "mock" });
+  let row = store.items({ project: "PRJ-A", q: "codex reply marker" }).find((r) => r.id === item.id);
+  assert.equal(row.codex_waiting_reply, 1);
+  assert.equal(row.codex_has_reply, 0);
+
+  store.appendCodexTaskMessage({ item_id: item.id, thread_id: "thread_reply_1", role: "assistant", text: "check the acceptance criteria first", actor_ref: "codex", mode: "mock" });
+  row = store.itemsPage({ project: "PRJ-A", q: "codex reply marker", limit: 10 }).rows.find((r) => r.id === item.id);
+  assert.equal(row.codex_thread_id, "thread_reply_1");
+  assert.equal(row.codex_last_message_role, "assistant");
+  assert.equal(row.codex_has_reply, 1);
+  assert.ok(row.codex_last_message_id > 0);
+  assert.equal("text" in row, false);
+  assert.equal("codex_last_message_text" in row, false);
+});
+
 test("codex bridge: task metadata is hidden from visible user prompts", () => {
   const item = { id: "itm_1", project_id: "P26-001", title: "자료 검토", status: "open", due: "2026-06-30" };
   assert.equal(buildTaskThreadTitle(item), "[P26-001] 자료 검토");
@@ -234,6 +254,8 @@ test("codex bridge: app-server turn input can carry skill and localImage items",
 
 test("codex bridge: app-server service tier override is opt-in", () => {
   assert.deepEqual(buildCodexAppServerArgs(), ["app-server"]);
+  assert.equal(codexAppServerServiceTierOverride("flex"), null);
+  assert.deepEqual(buildCodexAppServerArgs({ serviceTier: "flex" }), ["app-server"]);
   assert.deepEqual(buildCodexAppServerArgs({ serviceTier: "fast" }), ["app-server", "-c", "service_tier=fast"]);
 });
 
@@ -1208,6 +1230,27 @@ test("mail UI: assign keeps the operator in mail history", () => {
   assert.doesNotMatch(block, /state\.hubTab/);
 });
 
+test("mail UI: project mail promote buttons surface result state", () => {
+  const app = readFileSync(join(APP_DIR, "static", "app.js"), "utf8");
+  const css = readFileSync(join(APP_DIR, "static", "style.css"), "utf8");
+  const hubStart = app.indexOf("async function hubMail");
+  const hubEnd = app.indexOf("async function hubHistory", hubStart);
+  assert.ok(hubStart > 0 && hubEnd > hubStart, "hubMail block must be present");
+  const block = app.slice(hubStart, hubEnd);
+  assert.match(app, /function mailPromoteErrorText/);
+  assert.match(app, /async function promoteMailToItem/);
+  assert.match(app, /mail_project_missing/);
+  assert.match(app, /already_promoted/);
+  assert.match(app, /mail_forbidden/);
+  assert.match(block, /state\._promotedMails/);
+  assert.match(block, /data-promote-msg/);
+  assert.match(block, /promoteMailToItem\(mailId/);
+  assert.match(block, /e\.stopPropagation\(\)/);
+  assert.match(block, /setTimeout\(render, 250\)/);
+  assert.match(css, /\.mail-promote-msg/);
+  assert.match(css, /\.mail-promote-msg\.error/);
+});
+
 test("mail UI: history exposes page selection controls", () => {
   const app = readFileSync(join(APP_DIR, "static", "app.js"), "utf8");
   const css = readFileSync(join(APP_DIR, "static", "style.css"), "utf8");
@@ -2171,6 +2214,12 @@ test("MAIL-INGEST: 메일 장부 한 행 → core_mail(단계·소스·예약인
   assert.equal(again.isNew, false);
   assert.equal(store.db.prepare("SELECT subject FROM core_mail WHERE id='mailcsv:k1'").get().subject, "회신 요청(수정)");
   assert.equal(store.db.prepare("SELECT stage_code FROM core_mail WHERE id='mailcsv:k1'").get().stage_code, "060_PDR");
+  store.ingestMail({ id: "P00-000_INBOX:assigned", project_code: "P26-014", at: "2026-06-18", subject: "already assigned" });
+  const inboxAgain = store.ingestMail({ id: "P00-000_INBOX:assigned", project_code: "P00-000_INBOX", at: "2026-06-18", subject: "already assigned", source_ref: "src-assigned" });
+  assert.equal(inboxAgain.project_id, "P26-014");
+  const assigned = store.db.prepare("SELECT project_id,source_ref FROM core_mail WHERE id='P00-000_INBOX:assigned'").get();
+  assert.equal(assigned.project_id, "P26-014");
+  assert.equal(assigned.source_ref, "src-assigned");
 });
 
 test("MAIL-INGEST: scan_mail_ledger 가 메일함 컬럼을 core_mail.mailbox 로 보존", () => {
@@ -2185,7 +2234,7 @@ test("MAIL-INGEST: scan_mail_ledger 가 메일함 컬럼을 core_mail.mailbox �
   execFileSync(process.execPath, [join(APP_DIR, "tools", "scan_mail_ledger.mjs"),
     "--apply", "--db", dbPath, "--workmeta", wm, "--project", "P26-014"], { cwd: APP_DIR, encoding: "utf8" });
   const store = openStore(dbPath);
-  const row = store.db.prepare("SELECT mailbox,direction FROM core_mail WHERE id='mailcsv:hist-1'").get();
+  const row = store.db.prepare("SELECT mailbox,direction FROM core_mail WHERE id='P26-014:hist-1'").get();
   assert.equal(row.mailbox, "team@corp.com");
   assert.equal(row.direction, "in");
   store.db.close();
@@ -3306,6 +3355,36 @@ test("Codex task UI: 대기 중 단계와 경과시간을 보여준다", () => {
   assert.match(css, /\.task-codex-input \{[^}]*flex: 0 0 auto/s);
 });
 
+test("Codex task UI: home rows show reply state and open task chat", () => {
+  const app = readFileSync(join(APP_DIR, "static", "app.js"), "utf8");
+  const css = readFileSync(join(APP_DIR, "static", "style.css"), "utf8");
+  assert.match(app, /function codexTaskIndicatorHtml/);
+  assert.match(app, /function codexTaskBadgeHtml/);
+  assert.match(app, /function updateTaskCodexRowBadge/);
+  assert.match(app, /function wireTaskCodexButtons/);
+  assert.match(app, /function markTaskCodexSeen/);
+  assert.match(app, /dev_erp_task_codex_seen/);
+  assert.match(app, /latestAssistantMessageIdFromPayload/);
+  assert.match(app, /codex_last_message_role/);
+  assert.match(app, /updateTaskCodexRowBadge\(itemId, "waiting"\)/);
+  assert.match(app, /updateTaskCodexRowBadge\(itemId, "reply"\)/);
+  assert.match(app, /updateTaskCodexRowBadge\(itemId, "error"\)/);
+  assert.match(app, /codex-task-badge/);
+  assert.match(app, /codex-task-spin/);
+  assert.match(app, /itemActionsHtml\(i\)\}\$\{codexTaskButtonHtml\(i\.id, "mini"\)\}/);
+  assert.match(app, /dataset\.actionBound/);
+  assert.match(app, /dataset\.codexBound/);
+  assert.match(app, /wireTaskCodexButtons\(\$\("#view"\)\)/);
+  assert.match(app, /wireTaskCodexButtons\(ov\)/);
+  assert.match(app, /wireItemActions\(ov\)/);
+  assert.match(css, /\.codex-task-badge/);
+  assert.match(css, /\.codex-task-badge\.fresh/);
+  assert.match(css, /\.codex-task-spin/);
+  assert.match(css, /@keyframes codex-task-spin/);
+  assert.match(css, /\.mini-actions/);
+  assert.match(css, /\.act-btn\.mini/);
+});
+
 test("챗봇 UI: ERP와 챗봇 릴리즈 번호를 별도 컴포넌트 버전으로 표시한다", () => {
   const app = readFileSync(join(APP_DIR, "static", "app.js"), "utf8");
   const css = readFileSync(join(APP_DIR, "static", "style.css"), "utf8");
@@ -3330,6 +3409,7 @@ test("챗봇 UI: ERP와 챗봇 릴리즈 번호를 별도 컴포넌트 버전으
   assert.match(app, /function versionPart/);
   assert.match(app, /versionPart\("erp"\)/);
   assert.match(app, /versionPart\("chatbot"\)/);
+  assert.match(app, /function codexBridgePart/);
   assert.doesNotMatch(app, /ERP_CHATBOT_RELEASE_VERSION/);
   assert.doesNotMatch(app, /v1\.0\.1/i);
   assert.match(app, /function browserVersionText/);
@@ -3337,11 +3417,15 @@ test("챗봇 UI: ERP와 챗봇 릴리즈 번호를 별도 컴포넌트 버전으
   assert.match(app, /Chrome\\\/\(\[\\d\.\]\+\)/);
   assert.match(app, /erpReleaseTitle/);
   assert.match(app, /chatbotReleaseTitle/);
+  assert.match(app, /bridgeReleaseTitle/);
+  assert.match(app, /runtime\.codex_task/);
   assert.match(app, /runtime\.checkout/);
   assert.match(app, /llm\.provider/);
   assert.match(app, /thinking=\$\{llm\.thinking === true\}/);
   assert.match(app, /ERP \$\{esc\(erpVersion\.release\)\}/);
   assert.match(app, /\$\{esc\(state\.lex\.chat_version_label\)\} \$\{esc\(chatbotVersion\.release\)\}/);
+  assert.match(app, /브리지 \$\{esc\(bridgeVersion\.release\)\}/);
+  assert.match(app, /브리지 \$\{bridgeVersion\.release\}/);
   assert.match(app, /\$\{esc\(L\.chat_version_label\)\} \$\{esc\(chatVersion\.release\)\}/);
   assert.match(app, /L\.chat_version_label/);
   assert.match(app, /\$\("#appVersionChips"\)\.innerHTML/);

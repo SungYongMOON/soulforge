@@ -102,8 +102,8 @@ const SKIN_ROOTS = [...new Set([
   join(HERE, "static", "skins"),
 ].filter(Boolean).map((p) => resolve(p)))];
 const ERP_VERSION = Object.freeze({
-  release: "v1.0.4",
-  build: "ui-2026.06.18-chat-stability.11",
+  release: "v1.0.9",
+  build: "ui-2026.06.20-mail-ledger-sync.1",
   source: "server.mjs"
 });
 
@@ -276,7 +276,7 @@ function canAccessItem(req, item_id) {
 }
 
 function lastIngestAt() {
-  const rows = store.db.prepare("SELECT at FROM event_log WHERE kind='ingest' ORDER BY id DESC LIMIT 1").get();
+  const rows = store.db.prepare("SELECT at FROM event_log WHERE kind IN ('ingest','mail_ingest') ORDER BY id DESC LIMIT 1").get();
   return rows?.at ?? null;
 }
 function runtimeVersion() {

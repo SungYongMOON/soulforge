@@ -995,6 +995,7 @@ export class Store {
     const atVal = at && /^\d{4}-\d{2}-\d{2}/.test(at) ? at : null;
     if (!atVal) return { error: "at_required" };
     const subj = String(subject ?? "").trim() || "(제목 없음)";
+    const existing = this.db.prepare("SELECT project_id FROM core_mail WHERE id=?").get(id);
     let project_id = null;
     const code = String(project_code ?? "").trim();
     if (isTaskProjectCode(code)) {
@@ -1009,7 +1010,10 @@ export class Store {
       }
       project_id = code;
     }
-    const isNew = !this.db.prepare("SELECT 1 FROM core_mail WHERE id=?").get(id);
+    if (project_id === INBOX_PROJECT_CODE && existing?.project_id && existing.project_id !== INBOX_PROJECT_CODE) {
+      project_id = existing.project_id;
+    }
+    const isNew = !existing;
     const dir = ["in", "out"].includes(direction) ? direction : "in";
     this.upsertMail({ id, project_id, at: atVal, direction: dir, subject: subj, counterpart: counterpart || null,
       pointer_ref, stage_code: stage_code || null, source_ref: source_ref || null, mailbox: mailbox || null, data_label });
@@ -1242,13 +1246,14 @@ export class Store {
   items({ project, status, q, due_before, due_before_exclusive, include_unclassified = false, assignee_any, limit = 500, offset = 0 } = {}) {
     const { where, args } = this._itemWhere({ project, status, q, due_before, due_before_exclusive, include_unclassified, assignee_any });
     const page = this._pageBounds(limit, offset, 1000);
-    return this.db
+    const rows = this.db
       .prepare(
         `SELECT i.*, ga.name AS guide_artifact_name, ga.stage_code AS guide_stage_code
          FROM core_item i LEFT JOIN guide_artifact ga ON ga.id = i.guide_artifact_id
          ${where} ORDER BY (i.due IS NULL), i.due, i.id LIMIT ? OFFSET ?`
       )
       .all(...args, page.limit, page.offset);
+    return this._withCodexTaskMeta(rows);
   }
 
   itemsPage(opts = {}) {
@@ -1262,7 +1267,47 @@ export class Store {
       )
       .all(...args, page.limit, page.offset);
     const total = this.db.prepare(`SELECT COUNT(*) AS n FROM core_item i ${where}`).get(...args).n;
-    return { rows, total, limit: page.limit, offset: page.offset, has_more: page.offset + rows.length < total };
+    return { rows: this._withCodexTaskMeta(rows), total, limit: page.limit, offset: page.offset, has_more: page.offset + rows.length < total };
+  }
+
+  _withCodexTaskMeta(rows) {
+    if (!Array.isArray(rows) || rows.length === 0) return rows;
+    const ids = [...new Set(rows.map((r) => r?.id).filter(Boolean))];
+    if (!ids.length) return rows;
+    const marks = ids.map(() => "?").join(",");
+    const bindings = this.db.prepare(
+      `SELECT item_id, thread_id, mode, sync_state, last_sync_at
+       FROM codex_thread_binding WHERE item_id IN (${marks})`
+    ).all(...ids);
+    const latest = this.db.prepare(
+      `SELECT m.item_id, m.id, m.at, m.role, m.mode
+       FROM codex_thread_message m
+       JOIN (
+         SELECT item_id, MAX(id) AS id
+         FROM codex_thread_message
+         WHERE item_id IN (${marks})
+         GROUP BY item_id
+       ) x ON x.item_id=m.item_id AND x.id=m.id`
+    ).all(...ids);
+    const bindingByItem = new Map(bindings.map((b) => [b.item_id, b]));
+    const latestByItem = new Map(latest.map((m) => [m.item_id, m]));
+    return rows.map((row) => {
+      const binding = bindingByItem.get(row.id);
+      const msg = latestByItem.get(row.id);
+      const role = msg?.role ?? null;
+      return {
+        ...row,
+        codex_thread_id: binding?.thread_id ?? null,
+        codex_task_mode: binding?.mode ?? null,
+        codex_task_sync_state: binding?.sync_state ?? null,
+        codex_last_message_id: msg?.id ?? null,
+        codex_last_message_role: role,
+        codex_last_message_at: msg?.at ?? binding?.last_sync_at ?? null,
+        codex_has_reply: role === "assistant" ? 1 : 0,
+        codex_waiting_reply: role === "user" || role === "system" ? 1 : 0,
+        codex_has_error: role === "error" || binding?.sync_state === "error" ? 1 : 0,
+      };
+    });
   }
 
   itemCounts({ project, assignee_any } = {}) {

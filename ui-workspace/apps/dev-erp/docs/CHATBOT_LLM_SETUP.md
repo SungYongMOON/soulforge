@@ -10,7 +10,7 @@
 runtime checkout 의 `4300`이고, 개발 checkout 은 `4310`을
 쓴다. `4301`/`4302` 같은 확인용 서버가 떠 있어도 운영 반영으로 보지 않는다.
 
-- 화면 상단 버전 줄에는 짧은 release 값만 보인다. 예: `ERP v1.0.4`,
+- 화면 상단 버전 줄에는 짧은 release 값만 보인다. 예: `ERP v1.0.8`,
   `챗봇 v1.1.3`.
 - 긴 build/source 값은 각 버전 칩 hover title 과 `/api/version` 응답이
   정본이다. ERP 버전은 `erp.release/build/source`, 챗봇 버전은

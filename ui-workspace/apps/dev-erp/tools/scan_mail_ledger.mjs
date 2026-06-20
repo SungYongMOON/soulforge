@@ -52,6 +52,7 @@ function scanLedger(folder) {
   const csvPath = join(wmDir, folder, LEDGER_REL);
   const folderCode = (folder.match(CODE_RE) || [])[0] || null;
   const isInbox = /INBOX/i.test(folder) || folderCode === "P00-000";
+  const idPrefix = isInbox ? "P00-000_INBOX" : (folderCode || folder);
   // 주의: 이 장부의 '단계' 컬럼은 SE 게이트(030_SRR…)가 아니라 메일 수집 파이프라인 상태 라벨이다
   // (mail_candidate_queue, outlook_received_folder_reconcile 등). 그래서 core_mail.stage_code 에 SE게이트로
   // 흘려넣지 않는다 — stage_code 는 사람이 메일→할일 분류 때 SE 기준점으로 직접 건다(unclassified 격리 모델).
@@ -82,7 +83,7 @@ function scanLedger(folder) {
     const sk = route || "(미지정)";
     out.byRoute[sk] = (out.byRoute[sk] || 0) + 1;
     out.records.push({
-      id: `mailcsv:${key}`,
+      id: `${idPrefix}:${key}`,
       project_code: CODE_RE.test(rowCode) ? rowCode : null,
       at,
       subject,
@@ -147,6 +148,6 @@ for (const L of ledgers) {
   console.log(`    수집경로별(파이프라인, SE게이트 아님): ${Object.entries(L.byRoute).sort().map(([s, n]) => `${s}=${n}`).join(", ")}`);
 }
 console.log(`\n# 합계 메일 ${total}건(과제배정 ${totalRouted}). ingest: node tools/scan_mail_ledger.mjs --apply --db data/dev-erp.db [--project <코드>]`);
-console.log(`#   이력키→id(mailcsv:), 프로젝트코드→project_id(미등록은 stub·P00-000_INBOX는 예약 인박스), 메일수신시각→at, 제목→subject,`);
+console.log(`#   이력키→id(<ledger-folder>:), 프로젝트코드→project_id(미등록은 stub·P00-000_INBOX는 예약 인박스), 메일수신시각→at, 제목→subject,`);
 console.log(`#   발신자→counterpart, 메일소스ID→source_ref, 장부 상대경로#소스ID→pointer_ref(원문 미저장).`);
 console.log(`#   주의: 장부 '단계'는 수집 파이프라인 라벨(SE게이트 아님) → stage_code 에 안 넣음. SE게이트는 메일→할일 분류 때 사람이 건다.`);

@@ -229,6 +229,41 @@ nav button.active { background: var(--chip); font-weight: 600; color: var(--acce
 /* 위젯 내 클릭 가능한 할일/변경 행 — 클릭하면 인라인 빠른편집/이동 */
 .widget-body tr.wrow { cursor: pointer; }
 .widget-body tr.wrow:hover td { background: rgba(60,110,165,.10); }
+.mini-title { display: inline; }
+.mini-actions { text-align: right; white-space: nowrap; width: 1%; }
+.mini-actions .act-btn { margin-left: 4px; padding: 3px 8px; font-size: 11.5px; }
+.act-btn.mini { padding: 3px 8px; font-size: 11.5px; }
+.codex-task-badge {
+  display: inline-flex;
+  align-items: center;
+  margin-left: 6px;
+  padding: 2px 7px;
+  border-radius: 999px;
+  border: 1px solid var(--line);
+  background: var(--chip);
+  color: var(--muted);
+  font-size: 11px;
+  line-height: 1.2;
+  white-space: nowrap;
+  vertical-align: 1px;
+}
+.codex-task-badge.fresh { color: var(--accent); border-color: rgba(46,104,180,.35); background: rgba(46,104,180,.10); font-weight: 700; }
+.codex-task-badge.waiting { color: var(--warn); border-color: rgba(188,123,24,.35); background: rgba(188,123,24,.10); }
+.codex-task-badge.error { color: var(--danger); border-color: rgba(176,58,46,.35); background: rgba(176,58,46,.10); }
+.codex-task-spin {
+  width: 9px;
+  height: 9px;
+  margin-right: 5px;
+  border: 2px solid rgba(188,123,24,.28);
+  border-top-color: var(--warn);
+  border-radius: 50%;
+  animation: codex-task-spin .8s linear infinite;
+  flex: 0 0 auto;
+}
+@keyframes codex-task-spin { to { transform: rotate(360deg); } }
+@media (prefers-reduced-motion: reduce) {
+  .codex-task-spin { animation: none; }
+}
 .qedit .qe-st { cursor: pointer; }
 /* 모달 표(관리자 계정·산출물 입력파일): 헤더 줄바꿈 방지 + 일관 패딩 */
 .ui-confirm.admin-panel { width: min(1080px, calc(100vw - 32px)); max-height: calc(100vh - 32px); overflow: auto; }
@@ -315,6 +350,9 @@ body[data-theme="dark"] .status.unclassified, body[data-theme="dark"] .status-ch
 
 .search-section h2 { font-size: 14px; margin: 14px 0 8px; color: var(--muted); }
 .copy-btn { border: 1px solid var(--line); background: var(--chip); color: var(--text); border-radius: 6px; font-size: 11px; padding: 2px 7px; cursor: pointer; }
+.mail-promote-msg { display: inline-block; margin-left: 6px; font-size: 11px; color: var(--muted); vertical-align: middle; }
+.mail-promote-msg.ok { color: var(--ok); }
+.mail-promote-msg.error { color: var(--danger); }
 
 .nav-divider { border-top: 1px solid var(--line); margin: 8px 4px; }
 .nav-group { margin-bottom: 10px; }
