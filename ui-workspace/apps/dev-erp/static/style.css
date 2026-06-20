@@ -232,6 +232,10 @@ nav button.active { background: var(--chip); font-weight: 600; color: var(--acce
 /* 클릭 가능한 KPI 타일(예: 메일 KPI → 메일 화면) affordance. */
 .kpi[data-jump] { cursor: pointer; }
 .kpi[data-jump]:hover { outline: 1px solid var(--accent); outline-offset: 1px; }
+/* 위젯 인라인 검색창 — 위젯 본문 상단, 행 필터용. */
+.widget-search { width: 100%; box-sizing: border-box; margin: 0 0 6px; padding: 4px 8px; font-size: 12px;
+  border: 1px solid var(--line); border-radius: 6px; background: var(--bg); color: var(--text); }
+.widget-search:focus { outline: none; border-color: var(--accent); }
 
 .mobmeter { display: flex; align-items: center; gap: 4px; margin-top: 10px; flex-wrap: wrap; }
 .mob { width: 10px; height: 10px; border-radius: 3px; background: var(--accent); opacity: .75; }

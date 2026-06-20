@@ -3192,6 +3192,10 @@ async function renderHome() {
       : `<div class="empty">${L.evt_empty ?? "최근 변경 없음"}</div>` };
   }
 
+  // 위젯 인라인 검색: 리스트(테이블 행) 위젯 본문 앞에 검색 input 주입 → 행 텍스트 클라 필터(드래그 전 빨리 찾기).
+  const widgetSearchHtml = (id, bodyHtml) => bodyHtml.includes("<tr")
+    ? `<input class="widget-search" data-wsearch="${id}" placeholder="${L.widget_search_ph ?? "이 위젯에서 검색…"}" />${bodyHtml}`
+    : bodyHtml;
   // 위젯 카드 — 절대좌표(% 가로 + px 세로). 본문 고정 높이 → 내부 스크롤.
   const GAP = 10; // 위젯 간 간격(px) — ECount식으로 살짝 떨어뜨림(너무 붙지 않게)
   const cardStyle = (w) => `left:calc(${(w.x / DASH_GCOLS) * 100}% + ${GAP / 2}px); width:calc(${(w.w / DASH_GCOLS) * 100}% - ${GAP}px);`
@@ -3217,7 +3221,7 @@ async function renderHome() {
           </span>
         </span>
       </div>
-      <div class="widget-body" data-body="${w.id}">${html}</div>
+      <div class="widget-body" data-body="${w.id}">${widgetSearchHtml(w.id, html)}</div>
       <i class="widget-resize" data-rid="${w.id}" title="${L.widget_resize}"></i>
     </section>`);
   }
@@ -3361,7 +3365,7 @@ async function renderHome() {
       r.classList.add("spinning");
       const { html } = await widgetBody(r.dataset.refresh);
       const body = $("#view").querySelector(`[data-body="${r.dataset.refresh}"]`);
-      if (body) body.innerHTML = html;
+      if (body) body.innerHTML = widgetSearchHtml(r.dataset.refresh, html);
       bindWidgetInner();
       setTimeout(() => r.classList.remove("spinning"), 400);
     });
@@ -3485,6 +3489,17 @@ async function renderHome() {
       b.addEventListener("click", (e) => { e.stopPropagation(); state.projectFilter = ""; state.view = "mail"; render(); }));
     $("#view").querySelectorAll("[data-goreports]").forEach((b) =>
       b.addEventListener("click", (e) => { e.stopPropagation(); state.view = "mod:reports"; render(); }));
+    $("#view").querySelectorAll(".widget-search").forEach((inp) => {
+      inp.addEventListener("mousedown", (e) => e.stopPropagation()); // 위젯 드래그와 분리
+      inp.addEventListener("input", () => {
+        const q = inp.value.trim().toLowerCase();
+        const body = inp.closest(".widget-body");
+        if (!body) return;
+        body.querySelectorAll("tbody tr").forEach((tr) => {
+          tr.style.display = (!q || tr.textContent.toLowerCase().includes(q)) ? "" : "none";
+        });
+      });
+    });
     wireItemActions($("#view"));
     wireTaskCodexButtons($("#view"));
   }
