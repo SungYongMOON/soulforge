@@ -3535,7 +3535,11 @@ function wireItemActions(scope) {
         if (reason === null) return;
         if (reason.trim()) body.bottleneck_reason = reason.trim();
       }
-      await post("/api/items/status", body);
+      const r = await post("/api/items/status", body);
+      if (r.ok) toast(body.status === "done"
+        ? (state.lex.item_done_toast ?? "완료 처리됨 — '완료' 탭에서 '다시 열기'로 되돌릴 수 있어요")
+        : (state.lex.item_status_toast ?? "상태가 변경되었습니다"), "ok");
+      else toast(state.lex.item_status_fail ?? "상태 변경 실패", "error");
       render();
     });
   });
@@ -3636,7 +3640,7 @@ async function renderItems() {
     const customOpt = cur && !matched ? `<option value="${esc(cur)}" selected>${esc(cur)}</option>` : "";
     return `<select class="reassign" data-i="${esc(i.id)}" title="${L.reassign_hint ?? "담당 나누기"}"><option value="" ${!cur ? "selected" : ""}>${L.assignee_none ?? "미배정"}</option>${customOpt}${memberOpts}</select>`;
   };
-  const rows = items.map((i) => state.itemEdit === i.id
+  const renderItemRow = (i) => state.itemEdit === i.id
     ? `<tr class="item-edit-row"><td colspan="7"><div class="item-edit">
         <input class="ie-title" value="${esc(i.title)}" placeholder="${L.col_title ?? "제목"}" />
         <input class="ie-due" type="date" value="${i.due ?? ""}" />
@@ -3655,9 +3659,29 @@ async function renderItems() {
       <td class="acts">${i.status === "archived"
         ? `<button class="act-btn restore-btn" data-restore="${esc(i.id)}">${L.act_restore ?? "복구"}</button>`
         : `${itemActionsHtml(i)}${codexTaskButtonHtml(i.id)}<button class="act-btn edit" data-edit="${esc(i.id)}">${L.act_edit ?? "수정"}</button>`}</td>
-    </tr>`).join("");
+    </tr>`;
   const isTriage = state.statusFilter === "unclassified";
   const isArchived = state.statusFilter === "archived";
+  const isDone = state.statusFilter === "done";
+  let rows;
+  if (isDone) {
+    // '한 일'을 완료 날짜(요일)별로 묶어 최근순으로 — 무엇을 언제 끝냈는지 돌아보게. done_at 없는 이전 완료분은 맨 아래.
+    const wk = ["일", "월", "화", "수", "목", "금", "토"];
+    const sorted = [...items].sort((a, b) => (b.done_at ?? "").localeCompare(a.done_at ?? ""));
+    let lastDay = null;
+    rows = sorted.map((i) => {
+      const day = i.done_at ? i.done_at.slice(0, 10) : "";
+      let head = "";
+      if (day !== lastDay) {
+        lastDay = day;
+        const lbl = day ? `${day} (${wk[new Date(day + "T00:00:00").getDay()]})` : (L.done_no_date ?? "완료일 미상(이전 완료분)");
+        head = `<tr class="date-sep"><td colspan="7">${esc(lbl)}</td></tr>`;
+      }
+      return head + renderItemRow(i);
+    }).join("");
+  } else {
+    rows = items.map(renderItemRow).join("");
+  }
   // 분류 카드는 항목의 기존값(메일/LLM 제안·결정적 SE단계)을 pre-fill → 사람은 확인만. (코어 LLM 0%: LLM은 제안, 확정은 사람)
   const optsSel = (labels, sel) => Object.entries(labels).map(([k, v]) => `<option value="${k}" ${k === sel ? "selected" : ""}>${v}</option>`).join("");
 	  const triageBody = !isTriage ? "" : (items.length
@@ -3695,6 +3719,7 @@ async function renderItems() {
     <div class="status-chips">${chipsHtml}</div>
     ${triageNote}
     ${isArchived ? `<div class="triage-note">${L.archived_note ?? "보관(삭제)된 할 일입니다. '복구'를 누르면 활성 목록으로 되돌아갑니다. 이력은 event_log에 그대로 남습니다."}</div>` : ""}
+    ${isDone ? `<div class="triage-note">${L.done_view_note ?? "완료한 일을 완료 날짜별로 모았습니다. 각 항목의 '다시 열기'로 되돌릴 수 있어요."}</div>` : ""}
     ${(isTriage || isArchived) ? "" : `<div class="item-form">
       <select id="niProject">${opts || `<option value="">${L.project}</option>`}</select>
       <input id="niTitle" placeholder="${L.item_new_ph}" />

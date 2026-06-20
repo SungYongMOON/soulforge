@@ -718,6 +718,8 @@ export function openStore(path = ":memory:") {
     "ALTER TABLE core_mail ADD COLUMN source_ref TEXT",
     // 할일 생성시각(할일_장부 '기록일' 컬럼의 실제 백킹). 마이그레이션 이전 행은 null(생성시각 불명), 신규 createItem 부터 채움.
     "ALTER TABLE core_item ADD COLUMN created_at TEXT",
+    // 완료 시각: done 진입 시 기록(되돌리면 초기화) — '요일별 한 일' 집계 근거. 마이그레이션 이전 완료 행은 null.
+    "ALTER TABLE core_item ADD COLUMN done_at TEXT",
     // 메일→할일 자동화 메타데이터: 검토/라우팅/배정/출처/생성/동기화 상태를 비고가 아닌 구조화 컬럼으로 보존.
     "ALTER TABLE core_item ADD COLUMN review_status TEXT",
     "ALTER TABLE core_item ADD COLUMN review_reason TEXT",
@@ -1558,7 +1560,14 @@ export class Store {
     if (!Store.ITEM_STATUSES.includes(status)) return { error: "bad_status" };
     const prev = this.db.prepare("SELECT status, project_id FROM core_item WHERE id=?").get(id);
     if (!prev) return { error: "item_not_found" };
-    this.db.prepare("UPDATE core_item SET status=? WHERE id=?").run(status, id);
+    // 완료 시각 기록: done 진입 시 현재 시각, done 이탈(되돌리기) 시 초기화 → '요일별 한 일' 집계 근거.
+    if (status === "done" && prev.status !== "done") {
+      this.db.prepare("UPDATE core_item SET status=?, done_at=? WHERE id=?").run(status, new Date().toISOString(), id);
+    } else if (status !== "done" && prev.status === "done") {
+      this.db.prepare("UPDATE core_item SET status=?, done_at=NULL WHERE id=?").run(status, id);
+    } else {
+      this.db.prepare("UPDATE core_item SET status=? WHERE id=?").run(status, id);
+    }
     this.afterItemWrite?.(id); // autosync Phase 1: ERP 변경 → 할일_장부 write-through(서버가 훅 설정 시)
     return { ok: true, from: prev.status, project_id: prev.project_id };
   }
