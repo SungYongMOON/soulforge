@@ -2,6 +2,13 @@
 
 ## 2026-06-20
 
+### Revision `working` - dev-erp 메일→할일 LLM 판단 인입
+
+- dev-erp 운영 병목("메일은 오는데 할일로 안 변함")의 ③ 변환 단계를 채웠다. 결정적 엔진(`mail_to_task_ledger.mjs`)은 그대로 두고, 빠져 있던 LLM 판단(어떤 메일이 할일인가 + 필드)을 반복 가능한 증분 실행으로 패키징.
+- `ui-workspace/apps/dev-erp/tools/mail_to_task_pending.mjs` 추가: 아직 할일로 변환 안 된 메일만 결정적으로 추려(LLM 입력 한정·증분 스케줄 가능) `--json` 출력. node:test 3건 추가(멱등·split·집계).
+- `.registry/skills/mail_to_task_classify/` 추가: candidates 분류 계약(`codex/references/rubric.md`)을 소유하는 self-contained dev-erp 인입 스킬. `skills:sync` 로 materialize 검증. 메타데이터 전용·멱등.
+- `ui-workspace/apps/dev-erp/docs/MAIL_TO_TASK_INTAKE.md` 운영자 맵 추가(4단계 체인·끊김·도구). 실제 메일 fetch/자격증명/스케줄과 팀 hard-assign 은 owner 경계로 분리, 메일 원문·secret 미열람.
+
 ### Revision `working` - drag coefficient CFD result package workflow
 
 - Added `.workflow/drag_coefficient_cfd_result_package_v0/` for packaging drag-coefficient CFD results with Cd/drag tables, analysis conditions, mesh/residual summaries, raw force and solver logs, report-ready ParaView top/side visuals, manifest, ZIP, and handoff as one closeout bundle.

@@ -9,6 +9,7 @@
 - `charge_breaker/` is the tracked Codex bridge for `knight.breach_entry`, converting a localized opening into a small controlled forward action.
 - `evidence_sift/` is the tracked Codex bridge for `archivist.evidence_scan`, separating confirmed facts from weak claims before drafting or deciding.
 - `outlook_mail_reconcile/` is the tracked Codex launcher for `/outlook-reconcile`, resolving to `.workflow/outlook_mail_reconcile_v0` for metadata-only Outlook sent-mail ledger updates and received-mail cross-validation.
+- `mail_to_task_classify/` is the tracked Codex skill for the dev-erp 메일→할일 intake: deterministically detect unconverted mail (`tools/mail_to_task_pending.mjs`), judge which mail is a real task and fill fields per the classification contract, then apply via the deterministic ledger engine with `--auto-open` so new tasks surface in the ERP. Metadata-only and idempotent.
 - `long_thread_handoff/` is the tracked Codex wrapper for explicit long-thread contamination-free handoff requests.
 - `party_launcher_skill_author/` is the tracked Codex authoring aid for turning an existing `.party/<party_id>` loadout into a thin launcher skill without moving party, workflow, or profile policy into the skill.
 - `workflow_launcher_skill_author/` is the tracked Codex authoring aid for turning an existing `.workflow/<workflow_id>` package into a thin launcher skill without moving workflow, profile policy, or runtime bindings into the skill.

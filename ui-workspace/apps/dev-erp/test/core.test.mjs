@@ -11,6 +11,7 @@ import { fileURLToPath } from "node:url";
 
 import { openStore, deriveStartYear } from "../src/store.mjs";
 import { importNewTaskLedgers, writeTaskToLedger, readTaskLedgerRows, importNewInputLedgers, writeInputToLedger, readInputLedgerRows } from "../src/autosync.mjs";
+import { pendingForProject, scanPending } from "../tools/mail_to_task_pending.mjs";
 import { loadFixture } from "../src/fixture.mjs";
 import { ingestNormalized, mapSoulforgeSnapshot } from "../src/adapter.mjs";
 import { getLexicon, LEXICON } from "../src/lexicon.mjs";
@@ -4722,4 +4723,75 @@ test("chatbot runtime: memory and new-chat questions explain the actual context 
   assert.equal(r.context_used, true);
   assert.match(r.text, /최근 5개 질문/);
   assert.match(r.text, /새 대화 버튼/);
+});
+
+// ── MAIL-PENDING: 메일→할일 미변환 델타 검출기(LLM 판단 입력 한정용) ──
+function writeMailTaskFixtures(dir, { mailRows, taskRows = [] }) {
+  const mailDir = join(dir, "reports", "메일_이력");
+  const taskDir = join(dir, "reports", "할일_장부");
+  mkdirSync(mailDir, { recursive: true });
+  mkdirSync(taskDir, { recursive: true });
+  const mailHeader = ["이력키", "제목", "메일수신시각", "발신자", "메일소스ID", "메일함", "마감일"];
+  const mailCsv = [mailHeader.join(","), ...mailRows.map((r) => mailHeader.map((h) => r[h] ?? "").join(","))].join("\n");
+  writeFileSync(join(mailDir, "메일_이력.csv"), "﻿" + mailCsv + "\n");
+  const taskHeader = ["할일키", "할일명", "관련메일이력키"];
+  const taskCsv = [taskHeader.join(","), ...taskRows.map((r) => taskHeader.map((h) => r[h] ?? "").join(","))].join("\n");
+  writeFileSync(join(taskDir, "할일_장부.csv"), "﻿" + taskCsv + "\n");
+  return { mailCsv: join(mailDir, "메일_이력.csv"), taskCsv: join(taskDir, "할일_장부.csv") };
+}
+
+test("MAIL-PENDING: 변환된 메일(mailtask:키)은 빠지고 미변환만 남는다", () => {
+  const dir = mkdtempSync(join(tmpdir(), "mail-pending-"));
+  try {
+    const { mailCsv, taskCsv } = writeMailTaskFixtures(dir, {
+      mailRows: [
+        { 이력키: "mh001", 제목: "견적 회신 요청", 발신자: "a@x.com", 메일함: "me@sonartech.com", 메일소스ID: "s1" },
+        { 이력키: "mh002", 제목: "도면 검토 요청", 발신자: "b@x.com", 메일함: "me@sonartech.com", 메일소스ID: "s2" },
+        { 이력키: "mh003", 제목: "뉴스레터", 발신자: "news@x.com", 메일함: "me@sonartech.com", 메일소스ID: "s3" },
+      ],
+      taskRows: [
+        { 할일키: "mailtask:mh001", 할일명: "견적 회신", 관련메일이력키: "mailcsv:mh001" }, // mh001 변환됨
+      ],
+    });
+    const pending = pendingForProject(mailCsv, taskCsv);
+    assert.equal(pending.length, 2, "mh001 제외, mh002·mh003 미변환");
+    assert.deepEqual(pending.map((p) => p.history_key).sort(), ["mh002", "mh003"]);
+    const p2 = pending.find((p) => p.history_key === "mh002");
+    assert.equal(p2.subject, "도면 검토 요청");
+    assert.equal(p2.mailbox, "me@sonartech.com");
+  } finally { rmSync(dir, { recursive: true, force: true }); }
+});
+
+test("MAIL-PENDING: split(mailtask:키:n)도 변환됨으로 인정", () => {
+  const dir = mkdtempSync(join(tmpdir(), "mail-pending-"));
+  try {
+    const { mailCsv, taskCsv } = writeMailTaskFixtures(dir, {
+      mailRows: [{ 이력키: "mh010", 제목: "복수 액션 메일", 발신자: "a@x.com", 메일함: "me@x.com" }],
+      taskRows: [
+        { 할일키: "mailtask:mh010:1", 할일명: "액션1" },
+        { 할일키: "mailtask:mh010:2", 할일명: "액션2" },
+      ],
+    });
+    assert.equal(pendingForProject(mailCsv, taskCsv).length, 0, "split 변환된 메일은 미변환 아님");
+  } finally { rmSync(dir, { recursive: true, force: true }); }
+});
+
+test("MAIL-PENDING: 할일_장부 없으면 전건 미변환, scanPending 은 프로젝트별 집계", () => {
+  const root = mkdtempSync(join(tmpdir(), "mail-pending-wm-"));
+  try {
+    const wm = join(root, "_workmeta");
+    const projDir = join(wm, "P26-014");
+    writeMailTaskFixtures(projDir, {
+      mailRows: [
+        { 이력키: "mh001", 제목: "A", 발신자: "a@x.com", 메일함: "me@x.com" },
+        { 이력키: "mh002", 제목: "B", 발신자: "b@x.com", 메일함: "me@x.com" },
+      ],
+      taskRows: [],
+    });
+    // 할일_장부.csv 를 비워 미변환 전건 처리 — writeMailTaskFixtures 가 빈 task csv 생성함
+    const scanned = scanPending(wm, {});
+    assert.equal(scanned.length, 1);
+    assert.equal(scanned[0].project, "P26-014");
+    assert.equal(scanned[0].pending.length, 2, "할일_장부 비어있으면 전건 미변환");
+  } finally { rmSync(root, { recursive: true, force: true }); }
 });
