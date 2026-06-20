@@ -109,6 +109,7 @@
     "guild-hall:notify:mission": "node guild_hall/gateway/cli.mjs notify-mission",
     "guild-hall:notify:status": "node guild_hall/gateway/cli.mjs notify-status",
     "guild-hall:notify:emit": "node guild_hall/gateway/cli.mjs notify-emit",
+    "guild-hall:notify:assign-scan": "node guild_hall/town_crier/assign_notify_bridge.mjs",
     "guild-hall:town-crier:run": "node guild_hall/town_crier/cli.mjs run",
     "guild-hall:town-crier:status": "node guild_hall/town_crier/cli.mjs status",
     "guild-hall:town-crier:send": "node guild_hall/town_crier/cli.mjs send",
