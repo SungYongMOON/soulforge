@@ -682,6 +682,9 @@ function safeEval(formula, vars = {}) {
 export function openStore(path = ":memory:") {
   const db = new DatabaseSync(path);
   db.exec("PRAGMA journal_mode=WAL;");
+  // 멀티 writer(외부 CLI/autosync/별도 커넥션) 동시 접근 대비: 즉시 SQLITE_BUSY 대신 5s 재시도 + WAL 권장 동기화 수준.
+  db.exec("PRAGMA busy_timeout=5000;");
+  db.exec("PRAGMA synchronous=NORMAL;");
   db.exec(DDL);
   // 경량 마이그레이션: 기존 DB 에 새 컬럼 추가 (있으면 무시)
   try { db.exec("ALTER TABLE core_project ADD COLUMN class TEXT NOT NULL DEFAULT 'active'"); } catch { /* exists */ }
@@ -773,6 +776,12 @@ export function openStore(path = ":memory:") {
     db.exec("CREATE INDEX IF NOT EXISTS idx_mail_mailbox ON core_mail(mailbox)");
     db.exec("CREATE INDEX IF NOT EXISTS idx_chatlog_actor_thread ON chat_query_log(actor_ref, thread_id, at)");
   } catch { /* noop */ }
+  // 동시성 백스톱(DB 레벨): 메일→할일 중복 승격과 계정 이메일 중복을 DB가 거부. 앱레벨 가드(already_promoted/email_taken)와 이중 방어.
+  // 기존 데이터에 중복이 있으면 인덱스 생성이 실패하므로 각각 격리(생략돼도 앱레벨 가드는 유지 — 정리 후 재시작 시 활성).
+  try { db.exec("CREATE UNIQUE INDEX IF NOT EXISTS idx_item_origin_mail_unique ON core_item(origin_mail_id) WHERE origin_mail_id IS NOT NULL"); }
+  catch { /* 기존 중복 origin_mail_id 존재 → dedup 후 재시작 시 활성 */ }
+  try { db.exec("CREATE UNIQUE INDEX IF NOT EXISTS idx_account_email_unique ON core_account(email) WHERE email IS NOT NULL"); }
+  catch { /* 기존 중복 email 존재 → dedup 후 재시작 시 활성 */ }
   const cur = db.prepare("SELECT value FROM meta WHERE key='schema_version'").get();
   if (!cur) {
     db.prepare("INSERT INTO meta(key,value) VALUES('schema_version',?)").run(SCHEMA_VERSION);
@@ -1463,21 +1472,30 @@ export class Store {
     const hasAnchor = !!(stage_id || anchor_stage_code || link_kind || guide_artifact_id);
     const status = inbound && !(hasAnchor && work_type) ? "unclassified" : "open";
     const id = `itm_${Date.now().toString(36)}${randomBytes(4).toString("hex")}`; // randomBytes(같은 ms 충돌 방지, 파일 관례)
-    this.db
-      .prepare(
-        `INSERT INTO core_item(id,project_id,title,origin,urgency,assignee_ref,status,due,
-           guide_artifact_id,guide_step_key,origin_mail_id,created_by,
-           work_type,link_kind,link_ref,completion_criteria,stage_id,anchor_stage_code,created_at,data_label)
-         VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,'real')`
-      )
-      .run(
-        id, project_id, trimmed, origin ?? "manual", urgency ?? "normal",
-        assignee_ref ?? null, status, due ?? null,
-        guide_artifact_id ? Number(guide_artifact_id) : null, guide_step_key ?? null,
-        origin_mail_id ?? null, created_by ?? null,
-        work_type ?? null, link_kind ?? null, link_ref ?? null, completion_criteria ?? null,
-        stage_id ?? null, anchor_stage_code ?? null, new Date().toISOString()
-      );
+    try {
+      this.db
+        .prepare(
+          `INSERT INTO core_item(id,project_id,title,origin,urgency,assignee_ref,status,due,
+             guide_artifact_id,guide_step_key,origin_mail_id,created_by,
+             work_type,link_kind,link_ref,completion_criteria,stage_id,anchor_stage_code,created_at,data_label)
+           VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,'real')`
+        )
+        .run(
+          id, project_id, trimmed, origin ?? "manual", urgency ?? "normal",
+          assignee_ref ?? null, status, due ?? null,
+          guide_artifact_id ? Number(guide_artifact_id) : null, guide_step_key ?? null,
+          origin_mail_id ?? null, created_by ?? null,
+          work_type ?? null, link_kind ?? null, link_ref ?? null, completion_criteria ?? null,
+          stage_id ?? null, anchor_stage_code ?? null, new Date().toISOString()
+        );
+    } catch (e) {
+      // 동시 승격 경합: UNIQUE(origin_mail_id) 백스톱 위반 → 이미 만들어진 할일로 수렴(앱레벨 already_promoted 와 동일 결과).
+      if (origin_mail_id != null) {
+        const existing = this.db.prepare("SELECT id FROM core_item WHERE origin_mail_id=?").get(origin_mail_id);
+        if (existing) return { error: "already_promoted", item_id: existing.id };
+      }
+      throw e;
+    }
     this.afterItemWrite?.(id); // autosync Phase 1: ERP 생성 → 할일_장부 write-through
     return { ok: true, item: this.db.prepare("SELECT * FROM core_item WHERE id=?").get(id) };
   }
@@ -2897,9 +2915,16 @@ export class Store {
       if (this.db.prepare("SELECT 1 FROM core_account WHERE email=?").get(em)) return { error: "email_taken" };
     }
     const dn = String(display_name ?? "").trim() || null;
-    this.db.prepare(
-      "INSERT INTO core_account(id,person_id,username,pw_hash,status,created_at,email,display_name) VALUES (?,?,?,?, 'active', ?,?,?)"
-    ).run(aid, person_id, username, hashPassword(plain), new Date().toISOString(), em, dn);
+    try {
+      this.db.prepare(
+        "INSERT INTO core_account(id,person_id,username,pw_hash,status,created_at,email,display_name) VALUES (?,?,?,?, 'active', ?,?,?)"
+      ).run(aid, person_id, username, hashPassword(plain), new Date().toISOString(), em, dn);
+    } catch (e) {
+      // 동시 생성 경합: username(테이블 UNIQUE)/email(부분 UNIQUE) 위반 → 앱레벨과 동일한 _taken 으로 수렴.
+      if (this.db.prepare("SELECT 1 FROM core_account WHERE username=?").get(username)) return { error: "username_taken" };
+      if (em && this.db.prepare("SELECT 1 FROM core_account WHERE email=?").get(em)) return { error: "email_taken" };
+      throw e;
+    }
     const rs = (roles && roles.length) ? roles : ["member"]; // 역할 미지정이면 기본 '팀원'
     for (const r of rs) this.assignRole(aid, r);
     return { ok: true, id: aid };
@@ -3238,23 +3263,33 @@ export class Store {
         const dup = this.db.prepare("SELECT id FROM core_account WHERE email=? AND id<>?").get(em, account_id);
         if (dup) return { error: "email_taken" };
       }
-      this.db.prepare("UPDATE core_account SET email=? WHERE id=?").run(em, account_id);
+      try {
+        this.db.prepare("UPDATE core_account SET email=? WHERE id=?").run(em, account_id);
+      } catch (e) {
+        if (em && this.db.prepare("SELECT 1 FROM core_account WHERE email=? AND id<>?").get(em, account_id)) return { error: "email_taken" };
+        throw e;
+      }
     }
     if (display_name !== undefined) {
       this.db.prepare("UPDATE core_account SET display_name=? WHERE id=?").run(String(display_name ?? "").trim() || null, account_id);
     }
     if (role !== undefined && ["admin", "member"].includes(role)) {
-      if (role !== "admin" && this.isAdmin(account_id) && a.status === "active") {
-        const activeAdminCount = this.db.prepare(
-          `SELECT COUNT(*) AS c
-           FROM core_account a
-           JOIN rbac_account_role rr ON rr.account_id=a.id AND rr.role_id='admin'
-           WHERE a.status='active'`
-        ).get().c;
-        if (activeAdminCount <= 1) return { error: "last_admin_role_required" };
-      }
-      this.db.prepare("DELETE FROM rbac_account_role WHERE account_id=?").run(account_id);
-      this.assignRole(account_id, role);
+      // last-admin 가드(count 확인)와 역할 교체(DELETE+assignRole)를 원자화. SAVEPOINT 라 roster import 의 BEGIN IMMEDIATE 안에서도 중첩 안전.
+      this.db.exec("SAVEPOINT upd_role");
+      try {
+        if (role !== "admin" && this.isAdmin(account_id) && a.status === "active") {
+          const activeAdminCount = this.db.prepare(
+            `SELECT COUNT(*) AS c
+             FROM core_account a
+             JOIN rbac_account_role rr ON rr.account_id=a.id AND rr.role_id='admin'
+             WHERE a.status='active'`
+          ).get().c;
+          if (activeAdminCount <= 1) { this.db.exec("ROLLBACK TO upd_role"); this.db.exec("RELEASE upd_role"); return { error: "last_admin_role_required" }; }
+        }
+        this.db.prepare("DELETE FROM rbac_account_role WHERE account_id=?").run(account_id);
+        this.assignRole(account_id, role);
+        this.db.exec("RELEASE upd_role");
+      } catch (e) { this.db.exec("ROLLBACK TO upd_role"); this.db.exec("RELEASE upd_role"); throw e; }
     }
     return { ok: true };
   }
