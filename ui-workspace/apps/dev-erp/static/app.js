@@ -3092,7 +3092,7 @@ async function renderHome() {
     }
     if (id === "mail") {
       const mail = (await api("/api/mail?days=90")).slice(0, 6);
-      return { title: L.tile_mail, html: mail.length ? `<table><tbody>${mail.map((m) => miniRow([localTime(m.at), esc(m.subject)])).join("")}</tbody></table>` : `<div class="empty">${L.empty_mail}</div>` };
+      return { title: L.tile_mail, html: mail.length ? `<table><tbody>${mail.map((m) => `<tr data-mail="${esc(m.id)}"><td>${localTime(m.at)}</td><td>${esc(m.subject)}</td></tr>`).join("")}</tbody></table>` : `<div class="empty">${L.empty_mail}</div>` };
     }
     if (id === "kpi") {
       return { title: L.tile_kpi, html: `<div class="kpi-row mini">
@@ -3178,7 +3178,7 @@ async function renderHome() {
       const ids = new Set(inbox.map((p) => p.id));
       const mails = (await api("/api/mail?days=3650")).filter((m) => ids.has(m.project_id)).slice(0, 8);
       return { title: L.tile_inbox, html: mails.length
-        ? `<table><tbody>${mails.map((m) => miniRow([localTime(m.at), esc(m.subject)])).join("")}</tbody></table>`
+        ? `<table><tbody>${mails.map((m) => `<tr data-mail="${esc(m.id)}"><td>${localTime(m.at)}</td><td>${esc(m.subject)}</td></tr>`).join("")}</tbody></table>`
         : `<div class="empty">${L.empty_mail}</div>` };
     }
     // 최근 변경 = 사람이 읽는 변경 이력. 조회/잡음(view 등) 제외, kind 를 한국어 설명으로. 할일 변경은 클릭→빠른편집.
@@ -3500,6 +3500,51 @@ async function renderHome() {
         });
       });
     });
+    // 행-레벨 DnD: 미배정 할일/메일 행을 '내 할 일(mine)' 위젯에 드롭 → 내 일(재배정 / 메일은 즉시 open).
+    $("#view").querySelectorAll('[data-body="unassigned"] tr[data-item], [data-body="mail"] tr[data-mail], [data-body="inbox"] tr[data-mail]').forEach((tr) => {
+      if (tr.dataset.dndBound === "1") return; // 새로고침 시 재바인드 방지
+      tr.dataset.dndBound = "1";
+      tr.setAttribute("draggable", "true");
+      tr.classList.add("dnd-row");
+      tr.addEventListener("dragstart", (e) => {
+        e.dataTransfer.setData("text/plain", tr.dataset.item ? `claim-item:${tr.dataset.item}` : `claim-mail:${tr.dataset.mail}`);
+        e.dataTransfer.effectAllowed = "move";
+        document.body.classList.add("dnd-active"); // 드래그 중 드롭존 강조
+      });
+      tr.addEventListener("dragend", () => document.body.classList.remove("dnd-active"));
+    });
+    const mineBody = $("#view").querySelector('[data-body="mine"]');
+    if (mineBody && state.account && mineBody.dataset.dropBound !== "1") {
+      mineBody.dataset.dropBound = "1";
+      mineBody.classList.add("dnd-target");
+      mineBody.addEventListener("dragover", (e) => { e.preventDefault(); e.dataTransfer.dropEffect = "move"; mineBody.classList.add("drop-active"); });
+      mineBody.addEventListener("dragleave", (e) => { if (e.target === mineBody) mineBody.classList.remove("drop-active"); });
+      mineBody.addEventListener("drop", async (e) => {
+        e.preventDefault();
+        mineBody.classList.remove("drop-active");
+        document.body.classList.remove("dnd-active");
+        const data = e.dataTransfer.getData("text/plain") || "";
+        const me = state.account.display_name || state.account.username || state.account.email || "";
+        if (data.startsWith("claim-item:")) {
+          const r = await post("/api/items/assign", { id: data.slice(11), assignee_ref: me });
+          toast(r.ok ? (L.claim_done ?? "내 일로 가져왔습니다") : (L.claim_fail ?? "가져오기 실패"), r.ok ? "ok" : "error");
+          if (r.ok) render();
+        } else if (data.startsWith("claim-mail:")) {
+          // 즉시 내 open 할일(owner 승인): 승격(unclassified 생성) → open 전이 → 담당=나. 메일내용 자동분류는 안 함.
+          const pr = await post("/api/items/promote", { mail_id: data.slice(11) });
+          const body = await pr.json().catch(() => ({}));
+          const itemId = body.item?.id || body.item_id;
+          if (pr.ok && itemId) {
+            await post("/api/items/status", { id: itemId, status: "open" });
+            await post("/api/items/assign", { id: itemId, assignee_ref: me });
+            toast(L.claim_mail_done ?? "메일을 내 할 일로 만들었습니다", "ok");
+            render();
+          } else {
+            toast(mailPromoteErrorText(body.error, L), "error");
+          }
+        }
+      });
+    }
     wireItemActions($("#view"));
     wireTaskCodexButtons($("#view"));
   }

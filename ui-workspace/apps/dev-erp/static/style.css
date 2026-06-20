@@ -236,6 +236,11 @@ nav button.active { background: var(--chip); font-weight: 600; color: var(--acce
 .widget-search { width: 100%; box-sizing: border-box; margin: 0 0 6px; padding: 4px 8px; font-size: 12px;
   border: 1px solid var(--line); border-radius: 6px; background: var(--bg); color: var(--text); }
 .widget-search:focus { outline: none; border-color: var(--accent); }
+/* 행-레벨 드래그(미배정 할일/메일 → '내 할 일' 위젯에 드롭). */
+.dnd-row { cursor: grab; }
+.dnd-row:active { cursor: grabbing; }
+body.dnd-active .dnd-target { outline: 2px dashed var(--accent); outline-offset: -2px; }
+.widget-body.dnd-target.drop-active { background: rgba(25,90,142,.10); outline: 2px solid var(--accent); }
 
 .mobmeter { display: flex; align-items: center; gap: 4px; margin-top: 10px; flex-wrap: wrap; }
 .mob { width: 10px; height: 10px; border-radius: 3px; background: var(--accent); opacity: .75; }
