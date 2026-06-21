@@ -408,6 +408,12 @@ test("분해 버그수정 5R: suggestSplit monster_type 허용목록 필터 + es
   assert.doesNotMatch(app, /document\.addEventListener\("keydown", escClose\)/); // 누수 패턴 제거 확인
 });
 
+test("분해 버그수정 6R: 부분 실패 후 성공분 textarea 제거(재클릭 중복 생성 방지)", () => {
+  const app = readFileSync(join(APP_DIR, "static", "app.js"), "utf8");
+  assert.match(app, /const failedTitles = new Set\(failed\.map/);
+  assert.match(app, /ta\.value = lines\.filter\(\(l\) => failedTitles\.has\(l\)\)/);
+});
+
 test("codex bridge: task metadata is hidden from visible user prompts", () => {
   const item = { id: "itm_1", project_id: "P26-001", title: "자료 검토", status: "open", due: "2026-06-30" };
   assert.equal(buildTaskThreadTitle(item), "[P26-001] 자료 검토");

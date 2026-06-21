@@ -827,7 +827,9 @@ function openSplitModal(itemId, projectId, parentTitle, onDone) {
     if (failed.length) { // 부분 실패를 조용히 넘기지 않음 — 실패 목록 보이고 모달 유지
       errBox.style.color = "var(--danger)";
       errBox.textContent = `${ok}${L.split_done ?? "개 생성"} · ${failed.length}${L.split_failed ?? "개 실패"}: ${failed.map((f) => f.title).join(", ")}`;
-      okBtn.disabled = false; // 실패분 재시도 허용
+      const failedTitles = new Set(failed.map((f) => f.title));
+      ta.value = lines.filter((l) => failedTitles.has(l)).join("\n"); // 성공분 제거 → 재클릭해도 중복 생성 안 함
+      okBtn.disabled = false; // 실패분만 재시도 허용
       onDone?.(); // 성공분은 반영
       return;
     }
