@@ -1485,7 +1485,7 @@ export class Store {
   }
 
   createItem({ project_id, title, assignee_ref, due, urgency, guide_artifact_id, guide_step_key, origin_mail_id, origin, created_by,
-    work_type, link_kind, link_ref, completion_criteria, stage_id, anchor_stage_code, parent_item_id }) {
+    work_type, link_kind, link_ref, completion_criteria, stage_id, anchor_stage_code, parent_item_id, party_ref }) {
     const trimmed = String(title ?? "").trim();
     if (!trimmed) return { error: "title_required" };
     if (project_id == null) return { error: "project_required" }; // BE-3: undefined 바인드 500 방지(명확한 400)
@@ -1517,8 +1517,8 @@ export class Store {
         .prepare(
           `INSERT INTO core_item(id,project_id,title,origin,urgency,assignee_ref,status,due,
              guide_artifact_id,guide_step_key,origin_mail_id,created_by,
-             work_type,link_kind,link_ref,completion_criteria,stage_id,anchor_stage_code,parent_item_id,created_at,data_label)
-           VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,'real')`
+             work_type,link_kind,link_ref,completion_criteria,stage_id,anchor_stage_code,parent_item_id,party_ref,created_at,data_label)
+           VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,'real')`
         )
         .run(
           id, project_id, trimmed, origin ?? "manual", urgency ?? "normal",
@@ -1526,7 +1526,7 @@ export class Store {
           guide_artifact_id ? Number(guide_artifact_id) : null, guide_step_key ?? null,
           origin_mail_id ?? null, created_by ?? null,
           work_type ?? null, link_kind ?? null, link_ref ?? null, completion_criteria ?? null,
-          stage_id ?? null, anchor_stage_code ?? null, parent_item_id ?? null, new Date().toISOString()
+          stage_id ?? null, anchor_stage_code ?? null, parent_item_id ?? null, party_ref ?? null, new Date().toISOString()
         );
     } catch (e) {
       // 동시 승격 경합: UNIQUE(origin_mail_id) 백스톱 위반 → 이미 만들어진 할일로 수렴(앱레벨 already_promoted 와 동일 결과).

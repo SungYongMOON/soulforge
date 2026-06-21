@@ -764,14 +764,18 @@ function openMailConnect(acct, onDone) {
   });
 }
 
-// 분해(수동): 부모 할일을 세부할일 여러 개로 나누기 — 한 줄에 하나씩 입력 → 각각 자식으로 생성(parent_item_id).
+// 분해: 부모 할일을 세부할일로 나누기 — 한 줄에 하나씩(수동) 또는 'AI 제안'(로컬 LLM이 채움, owner 확인 후 생성).
+// AI 제안은 monster_type→party 매핑까지 받아 생성 시 party_ref 기록(S5). LLM은 제안만, 확정은 사람.
 function openSplitModal(itemId, projectId, parentTitle, onDone) {
   const L = state.lex;
+  let aiMap = {}; // title → { monster_type, party_ref } (AI 제안분만; 수동 입력 줄은 매핑 없음)
   const ov = document.createElement("div");
   ov.className = "ui-confirm-overlay";
   ov.innerHTML = `<div class="ui-confirm" role="dialog" aria-label="${esc(L.split_subtasks ?? "세부할일로 나누기")}" style="text-align:left">
     <p class="ui-confirm-msg">${esc(L.split_subtasks ?? "세부할일로 나누기")} · ${esc(parentTitle || "")}</p>
     <div class="dim mini" style="margin:0 0 6px">${esc(L.split_hint ?? "한 줄에 하나씩 세부할일을 적으세요")}</div>
+    <div class="ui-confirm-btns" style="justify-content:flex-start;margin:0 0 6px"><button class="sp-ai fav-chip">${esc(L.split_ai_btn ?? "🤖 AI 제안")}</button></div>
+    <div class="sp-ai-result dim mini" style="min-height:1.2em"></div>
     <textarea id="splitLines" class="login-input" rows="5" style="width:100%;resize:vertical" placeholder="${esc(L.split_hint ?? "한 줄에 하나씩")}"></textarea>
     <div class="login-err" style="min-height:1.2em"></div>
     <div class="ui-confirm-btns">
@@ -784,14 +788,32 @@ function openSplitModal(itemId, projectId, parentTitle, onDone) {
   ov.addEventListener("click", (e) => { if (e.target === ov) close(); });
   ov.querySelector(".ui-confirm-cancel").addEventListener("click", close);
   const errBox = ov.querySelector(".login-err");
-  ov.querySelector("#splitLines").focus();
+  const ta = ov.querySelector("#splitLines");
+  const aiRes = ov.querySelector(".sp-ai-result");
+  const aiBtn = ov.querySelector(".sp-ai");
+  ta.focus();
+  aiBtn.addEventListener("click", async () => {
+    aiBtn.disabled = true; aiRes.style.color = "var(--muted)"; aiRes.textContent = L.split_ai_wait ?? "AI 분석 중…";
+    const r = await post("/api/items/split-suggest", { id: itemId }).then((x) => x.json()).catch(() => null);
+    aiBtn.disabled = false;
+    if (!r) { aiRes.style.color = "var(--danger)"; aiRes.textContent = L.split_ai_off ?? "AI 미연결 — 수동 입력하세요"; return; }
+    if (r.reason === "llm_unavailable") { aiRes.textContent = L.split_ai_off ?? "로컬 AI 미연결 — 수동 입력하세요"; return; }
+    if (r.is_task === false) { aiRes.textContent = `${L.split_ai_notask ?? "AI: 처리할 업무가 아닐 수 있음"}`; return; }
+    if (!r.should_split || !(r.sub_tasks || []).length) { aiRes.textContent = `${L.split_ai_nosplit ?? "AI: 쪼갤 필요 없음"}${r.reason ? ` — ${esc(r.reason)}` : ""}`; return; }
+    ta.value = r.sub_tasks.map((s) => s.title).join("\n");
+    aiMap = {}; for (const s of r.sub_tasks) aiMap[s.title] = { monster_type: s.monster_type, party_ref: s.party_ref };
+    const parties = [...new Set(r.sub_tasks.map((s) => s.party_ref).filter(Boolean))];
+    aiRes.style.color = "var(--ok)";
+    aiRes.textContent = `${L.split_ai_suggested ?? "AI 제안"} ${r.sub_tasks.length}${parties.length ? ` · ${parties.join(", ")}` : ""}`;
+  });
   ov.querySelector(".ui-confirm-ok").addEventListener("click", async () => {
-    const lines = ov.querySelector("#splitLines").value.split("\n").map((s) => s.trim()).filter(Boolean);
+    const lines = ta.value.split("\n").map((s) => s.trim()).filter(Boolean);
     if (!lines.length) { errBox.style.color = "var(--danger)"; errBox.textContent = L.split_empty ?? "세부할일을 한 줄 이상 적으세요"; return; }
     errBox.style.color = "var(--muted)"; errBox.textContent = "…";
     let ok = 0;
     for (const title of lines) {
-      const r = await post("/api/items", { project_id: projectId, title, parent_item_id: itemId });
+      const a = aiMap[title];
+      const r = await post("/api/items", { project_id: projectId, title, parent_item_id: itemId, ...(a && a.party_ref ? { party_ref: a.party_ref } : {}) });
       if (r.ok) ok++;
     }
     toast(`${ok}${L.split_done ?? "개 세부할일을 만들었습니다"}`, ok ? "ok" : "error");
@@ -3716,6 +3738,7 @@ function itemLinkCell(i) {
   const se = [];
   if (i.work_type) se.push(`<span class="badge">${WORK_TYPE_LABELS[i.work_type] ?? i.work_type}</span>`);
   if (i.link_kind) se.push(`<span class="badge teal">${LINK_KIND_LABELS[i.link_kind] ?? i.link_kind}${i.link_ref ? `: ${esc(i.link_ref)}` : ""}</span>`);
+  if (i.party_ref) se.push(`<span class="badge party" title="${esc(state.lex.party_label ?? "파티")}">🧩 ${esc(i.party_ref)}</span>`);
   if (se.length) return se.join(" ");
   if (i.guide_artifact_name) return `<span class="badge">${esc(i.guide_stage_code)} ${esc(i.guide_artifact_name)}</span>`;
   if (i.origin === "mail") return `<span class="badge blue">${state.lex.origin_mail_badge}</span>`;

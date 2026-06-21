@@ -297,3 +297,46 @@ export async function runLlm({ provider = "stub", user = "", context = null } = 
   }
   return { text, provider, model: model ?? null, external: internet, delivered, reasoning };
 }
+
+// 분해 제안(S4): 로컬 LLM이 할일 메타를 보고 {is_task, should_split, sub_tasks:[{title, monster_type}]} 제안.
+// LLM은 제안만 — 실제 자식 생성은 owner 확인 후(UI). 본문 미전달(메타-온리). 로컬 ollama만(외부 egress 없음).
+export async function suggestSplit(item = {}, monsterTypes = [], { provider = "stub" } = {}) {
+  const empty = { is_task: true, should_split: false, reason: "", sub_tasks: [] };
+  if (provider !== "ollama") return { ...empty, reason: "llm_unavailable" }; // stub/codex 파일럿: 제안 없음
+  const runtime = chatLlmRuntimeConfig();
+  const host = process.env.OLLAMA_HOST || "http://127.0.0.1:11434";
+  const types = monsterTypes.length ? monsterTypes.join(", ") : "(없음)";
+  const prompt = `당신은 업무를 "할 일"로 분해하는 분류기다. 아래 할일을 보고 JSON으로만 답하라. 본문은 없고 메타만 있다.
+할일:
+- 제목: ${item.title ?? ""}
+- 프로젝트: ${item.project_id ?? "-"}
+- 업무유형: ${item.work_type ?? "-"}
+- 완료기준: ${item.completion_criteria ?? "-"}
+규칙:
+- is_task: 실제 처리할 업무면 true, 단순 공지/안내면 false.
+- should_split: 한 번에 끝낼 수 있으면 false, 여러 단계가 필요하면 true.
+- sub_tasks: should_split=true일 때만 2~5개. 각 title(한국어 한 줄)과 monster_type.
+- monster_type 은 반드시 다음 중 하나: ${types}
+형식만 출력: {"is_task":bool,"should_split":bool,"reason":"한 문장","sub_tasks":[{"title":"...","monster_type":"..."}]}`;
+  try {
+    const q = await runQueued(() => fetchOllamaGenerate(host, {
+      model: runtime.model, prompt, stream: false, format: "json",
+      options: { temperature: 0.2, num_predict: 500 },
+    }, runtime.timeout_ms));
+    if (q && q.queued_timeout) return { ...empty, reason: "busy" };
+    const parsed = JSON.parse(q?.response ?? "{}");
+    const subs = Array.isArray(parsed.sub_tasks) ? parsed.sub_tasks : [];
+    return {
+      is_task: parsed.is_task !== false,
+      should_split: !!parsed.should_split,
+      reason: String(parsed.reason ?? "").slice(0, 200),
+      sub_tasks: subs.slice(0, 8).map((s) => ({
+        title: String(s?.title ?? "").trim().slice(0, 200),
+        monster_type: String(s?.monster_type ?? "").trim(),
+      })).filter((s) => s.title),
+      model: runtime.model,
+    };
+  } catch (e) {
+    return { ...empty, reason: "llm_error", error: String(e?.message ?? e) };
+  }
+}

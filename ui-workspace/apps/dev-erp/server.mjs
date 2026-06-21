@@ -28,7 +28,8 @@ import {
   scanWikiPageRefs,
 } from "./src/knowledge_shell.mjs";
 import { crossSearch } from "./src/search.mjs";
-import { buildMetaContext, runLlm, answerFromManual, CHATBOT_VERSION, llmThinkEnabled } from "./src/llm.mjs";
+import { buildMetaContext, runLlm, answerFromManual, CHATBOT_VERSION, llmThinkEnabled, suggestSplit } from "./src/llm.mjs";
+import { loadPartyMonsterTypes } from "./src/party_match.mjs";
 import { startAutosyncPoll, writeTaskToLedger, writeInputToLedger } from "./src/autosync.mjs";
 import { mailboxEnvRelPath, hiworksEnvUpdates, writeMailboxEnv, deleteMailboxEnv, parseMailTestResult } from "./src/mailbox_env.mjs";
 const execFileP = promisify(execFile);
@@ -107,7 +108,7 @@ const SKIN_ROOTS = [...new Set([
 ].filter(Boolean).map((p) => resolve(p)))];
 const ERP_VERSION = Object.freeze({
   release: "v1.1.0",
-  build: "ui-2026.06.21-decompose.10",
+  build: "ui-2026.06.21-decompose.11",
   source: "server.mjs"
 });
 
@@ -738,6 +739,25 @@ const server = createServer(async (req, res) => {
         bottleneck_reason: bottleneck_reason ?? null, used_refs: ["items"], data_label: "real"
       });
       return send(res, 200, result);
+    }
+    if (path === "/api/items/split-suggest" && req.method === "POST") {
+      // S4: 로컬 LLM이 분해 '제안'만 — 자식 생성은 owner가 확인 후(/api/items). 본문 미전달, 외부 egress 없음.
+      let body = ""; for await (const chunk of req) body += chunk;
+      const { id } = JSON.parse(body || "{}");
+      if (!canAccessItem(req, id)) return send(res, 403, { error: "item_forbidden" });
+      const item = store.itemById(id);
+      if (!item) return send(res, 404, { error: "item_not_found" });
+      const { types, typeToParty } = loadPartyMonsterTypes(ROOT);
+      const provider = process.env.ERP_CHAT_PROVIDER || "stub";
+      const sug = await suggestSplit(item, types, { provider });
+      const sub_tasks = (sug.sub_tasks || []).map((s) => ({ ...s, party_ref: typeToParty[s.monster_type] ?? null }));
+      store.appendEvent({
+        actor_ref: actor, actor_kind: "ai", kind: "split_suggest",
+        item_ref: id, project_ref: item.project_id, to: String(sub_tasks.length),
+        used_refs: ["items", "llm"], data_label: "meta",
+        note: `provider=${provider} should_split=${sug.should_split} n=${sub_tasks.length}`
+      });
+      return send(res, 200, { ...sug, sub_tasks });
     }
     if (path === "/api/items/assign" && req.method === "POST") {
       let body = ""; for await (const chunk of req) body += chunk;

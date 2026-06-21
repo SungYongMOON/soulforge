@@ -616,6 +616,7 @@ td.dim { color: var(--line); }
 tr.item-child > td:first-child { padding-left: 26px; }
 .child-twig { color: var(--muted, #8a8f98); margin-right: 2px; }
 .badge.child-prog { background: var(--chip, #eef); color: var(--accent, #195a8e); font-variant-numeric: tabular-nums; margin-left: 6px; }
+.badge.party { background: rgba(124,77,196,.12); color: #7c4dc4; } /* S5: 매칭된 파티(워크플로우 체인) */
 .act-btn.edit { color: var(--muted); }
 .act-btn:hover { border-color: currentColor; }
 /* F2 할 일 인라인 수정 행 */
