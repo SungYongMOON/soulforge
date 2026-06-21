@@ -3062,6 +3062,7 @@ function toast(message, kind = "ok") {
 async function renderHome() {
   const layout = dashLayout();
   const todayKey = new Date().toISOString().slice(0, 10);
+  await ensureScopes(); // 담당자별 드롭 레인 멤버 소스
   const data = await api("/api/summary");
   state._projCache = data.projects;
   $("#freshness").textContent = data.freshness ? `${state.lex.freshness}: ${localTime(data.freshness)}` : "";
@@ -3338,6 +3339,7 @@ async function renderHome() {
   }).join("");
 
   $("#view").innerHTML = `${kpi}
+    ${claimDropBarHtml()}
     <button id="widgetEdge" class="widget-edge" title="${L.widget_add}" aria-label="${L.widget_add}">❙❙</button>
     <aside id="widgetDrawer" class="widget-drawer">
       <div class="widget-drawer-list">${drawerItems}</div>
@@ -3604,8 +3606,9 @@ async function renderHome() {
         });
       });
     });
-    // 행-레벨 DnD: 미배정 할일/메일 행 → '내 할 일(mine)' 위젯 드롭(공통 헬퍼 dndMakeRows/dndWireDrop).
-    if (state.account) { dndMakeRows($("#view")); dndWireDrop($("#view").querySelector('[data-body="mine"]')); }
+    // 행-레벨 DnD: 미배정 할일/메일 행 → 담당자별 드롭 레인(콕핏 상단 바) + '내 할 일(mine)' 위젯.
+    wireClaimDropBar($("#view"));
+    if (state.account) dndWireDrop($("#view").querySelector('[data-body="mine"]'));
     wireItemActions($("#view"));
     wireTaskCodexButtons($("#view"));
   }
@@ -4058,6 +4061,25 @@ function dndWireDrop(el, assignee) {
     await dndHandleDrop(e.dataTransfer.getData("text/plain") || "", assignee);
   });
 }
+// 담당자별 드롭 바(콕핏+메일함 공용) — 드래그 중에만 노출. 멤버 = 활성 계정(scopes). 관리자=전체, 그 외=본인.
+function claimDropBarHtml() {
+  if (!state.account) return "";
+  const L = state.lex;
+  const members = (state._scopes ?? []).filter((s) => s.id !== "team");
+  const myId = state.account.id;
+  const lanes = members.map((m) =>
+    `<button class="claim-lane" data-assignee="${esc(m.label)}">${esc(m.label)}${m.id === myId ? ` (${L.claim_me ?? "나"})` : ""}</button>`).join("");
+  return `<div class="claim-drop" id="claimDropBar">
+    <span class="claim-drop-hint">📥 ${esc(L.mail_claim_drop_multi ?? "끌어다 담당자에게 놓으면 그 사람 할 일이 됩니다")}</span>
+    <div class="claim-lanes">${lanes}</div></div>`;
+}
+function wireClaimDropBar(scope) {
+  if (!state.account) return;
+  dndMakeRows(scope); // 끌 수 있는 행(미배정 할일/메일) 바인딩
+  const lanes = scope.querySelectorAll(".claim-lane");
+  if (lanes.length) lanes.forEach((el) => dndWireDrop(el, el.dataset.assignee));
+  else dndWireDrop(scope.querySelector("#claimDropBar")); // 레인 0(폴백)=나
+}
 
 async function renderMail() {
   const L = state.lex;
@@ -4264,16 +4286,8 @@ async function renderMail() {
 	        <button id="mailPrev" class="fav-chip mini" ${mailPage.offset <= 0 ? "disabled" : ""}>이전</button>
 	        <button id="mailNext" class="fav-chip mini" ${!mailPage.has_more ? "disabled" : ""}>다음</button></div>`
 	    : "";
-	  // 팀원별 드롭 레인: 메일을 끌어 담당자 레인에 놓으면 그 사람 할 일이 됨(승격→배정→open). 멤버 = 활성 계정(scopes).
-	  const dropMembers = (state._scopes ?? []).filter((s) => s.id !== "team");
-	  const myId = state.account?.id;
-	  const claimLanes = dropMembers.map((m) => {
-	    const meTag = m.id === myId ? ` (${L.claim_me ?? "나"})` : "";
-	    return `<button class="claim-lane" data-assignee="${esc(m.label)}">${esc(m.label)}${meTag}</button>`;
-	  }).join("");
-	  const claimDrop = state.account ? `<div class="claim-drop" id="mailClaimDrop">
-	    <span class="claim-drop-hint">📥 ${esc(L.mail_claim_drop_multi ?? "메일을 담당자에게 끌어다 놓으면 그 사람 할 일이 됩니다")}</span>
-	    <div class="claim-lanes">${claimLanes}</div></div>` : "";
+	  // 팀원별 드롭 레인(콕핏·메일함 공용 헬퍼). 메일을 끌어 담당자 레인에 놓으면 승격→배정→open.
+	  const claimDrop = claimDropBarHtml();
 	  $("#view").innerHTML = `${labelBar}${filterChips}${toolbar}${selectBar}${regForm}${bulkBar}${claimDrop}${mailPager}
 	    <div class="mail-split">${rows ? `<table class="mail-table"><tbody>${rows}</tbody></table>` : `<div class="empty">${L.empty_mail}</div>`}${detail}</div>`;
 
@@ -4309,13 +4323,8 @@ async function renderMail() {
     // 토글: 같은 메일 다시 누르면 오른쪽 설명 닫힘
     r.addEventListener("click", () => { state.mailSel = state.mailSel === r.dataset.m ? null : r.dataset.m; render(); })
   );
-  // 메일함 화면 DnD: 메일 행을 끌어 담당자 레인에 놓으면 그 사람 할 일로(레인 없으면 컨테이너=나).
-  if (state.account) {
-    dndMakeRows($("#view"));
-    const lanes = $("#view").querySelectorAll(".claim-lane");
-    if (lanes.length) lanes.forEach((el) => dndWireDrop(el, el.dataset.assignee));
-    else dndWireDrop($("#view").querySelector("#mailClaimDrop")); // 폴백(레인 0=나)
-  }
+  // 메일함 화면 DnD: 메일 행을 끌어 담당자 레인에 놓으면 그 사람 할 일로(공용 헬퍼).
+  wireClaimDropBar($("#view"));
 	  $("#view").querySelectorAll("[data-lp]").forEach((c) =>
 	    c.addEventListener("click", (e) => { e.stopPropagation(); state.projectFilter = c.dataset.lp; resetMailPaging(); render(); })
 	  );
