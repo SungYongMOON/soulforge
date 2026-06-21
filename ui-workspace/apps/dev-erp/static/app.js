@@ -3440,7 +3440,7 @@ async function renderHome() {
   grid.addEventListener("drop", (e) => {
     e.preventDefault(); grid.classList.remove("drop-active");
     const id = e.dataTransfer.getData("text/plain");
-    if (!id) return;
+    if (!id || id.startsWith("claim-")) return; // claim-(행→내할일) 드래그는 위젯 추가가 아님 — 무시
     const r = grid.getBoundingClientRect();
     addWidgetAt(id, Math.round((e.clientX - r.left) / colW()), Math.round((e.clientY - r.top) / DASH_ROW));
   });
@@ -3604,54 +3604,8 @@ async function renderHome() {
         });
       });
     });
-    // 행-레벨 DnD: 미배정 할일/메일 행을 '내 할 일(mine)' 위젯에 드롭 → 내 일.
-    // 드롭 타깃(mine 위젯)이 보드에 있고 로그인일 때만 draggable 부여(없으면 '끌리는데 못 놓는' 혼란 방지).
-    const mineBody = $("#view").querySelector('[data-body="mine"]');
-    if (mineBody && state.account) {
-      $("#view").querySelectorAll('[data-body="unassigned"] tr[data-item], [data-body="mail"] tr[data-mail], [data-body="inbox"] tr[data-mail]').forEach((tr) => {
-        if (tr.dataset.dndBound === "1") return; // 새로고침 시 재바인드 방지
-        tr.dataset.dndBound = "1";
-        tr.setAttribute("draggable", "true");
-        tr.classList.add("dnd-row");
-        tr.addEventListener("dragstart", (e) => {
-          e.dataTransfer.setData("text/plain", tr.dataset.item ? `claim-item:${tr.dataset.item}` : `claim-mail:${tr.dataset.mail}`);
-          e.dataTransfer.effectAllowed = "move";
-          document.body.classList.add("dnd-active"); // 드래그 중 드롭존 강조
-        });
-        tr.addEventListener("dragend", () => document.body.classList.remove("dnd-active"));
-      });
-      if (mineBody.dataset.dropBound !== "1") {
-        mineBody.dataset.dropBound = "1";
-        mineBody.classList.add("dnd-target");
-        mineBody.addEventListener("dragover", (e) => { e.preventDefault(); e.dataTransfer.dropEffect = "move"; mineBody.classList.add("drop-active"); });
-        mineBody.addEventListener("dragleave", (e) => { if (e.target === mineBody) mineBody.classList.remove("drop-active"); });
-        mineBody.addEventListener("drop", async (e) => {
-          e.preventDefault();
-          mineBody.classList.remove("drop-active");
-          document.body.classList.remove("dnd-active");
-          const data = e.dataTransfer.getData("text/plain") || "";
-          const me = state.account.display_name || state.account.username || state.account.email || "";
-          if (data.startsWith("claim-item:")) {
-            const r = await post("/api/items/assign", { id: data.slice(11), assignee_ref: me });
-            toast(r.ok ? (L.claim_done ?? "내 일로 가져왔습니다") : (L.claim_fail ?? "가져오기 실패"), r.ok ? "ok" : "error");
-            if (r.ok) render();
-          } else if (data.startsWith("claim-mail:")) {
-            // 즉시 내 open 할일(owner 승인). 신규 승격 또는 already_promoted 기존 항목을 클레임.
-            const pr = await post("/api/items/promote", { mail_id: data.slice(11) });
-            const body = await pr.json().catch(() => ({}));
-            const itemId = body.item?.id || body.item_id; // 신규(item) / already_promoted(item_id) 모두
-            if (!itemId) { toast(mailPromoteErrorText(body.error, L), "error"); return; }
-            // assign 먼저: 이 시점 신규/기존이 unclassified·미배정이면 권한 통과, 타인 open 항목이면 403 → 가로채기 방지.
-            const ar = await post("/api/items/assign", { id: itemId, assignee_ref: me });
-            if (!ar.ok) { toast(L.claim_taken ?? "이미 다른 사람의 할 일입니다", "error"); render(); return; }
-            const sr = await post("/api/items/status", { id: itemId, status: "open" });
-            if (!sr.ok) { toast(L.claim_fail ?? "가져오기 실패", "error"); render(); return; }
-            toast(body.error === "already_promoted" ? (L.claim_existing ?? "기존 할 일을 내 일로 가져왔습니다") : (L.claim_mail_done ?? "메일을 내 할 일로 만들었습니다"), "ok");
-            render();
-          }
-        });
-      }
-    }
+    // 행-레벨 DnD: 미배정 할일/메일 행 → '내 할 일(mine)' 위젯 드롭(공통 헬퍼 dndMakeRows/dndWireDrop).
+    if (state.account) { dndMakeRows($("#view")); dndWireDrop($("#view").querySelector('[data-body="mine"]')); }
     wireItemActions($("#view"));
     wireTaskCodexButtons($("#view"));
   }
@@ -4047,6 +4001,62 @@ function mailPreviewLine(m) {
   ].filter(Boolean).map((x) => mailShortRef(x, 54)).join(" · ");
 }
 
+// ── 공통 DnD: 행(미배정 할일/메일)을 '내 할일' 드롭존에 놓으면 내 일로. 대시보드 mine 위젯 + 미분류 메일함 화면 공용. ──
+function dndPayload(tr) {
+  if (tr.dataset.item) return `claim-item:${tr.dataset.item}`;
+  const mid = tr.dataset.mail || tr.dataset.m; // 대시보드=data-mail, 메일함 화면=data-m
+  return mid ? `claim-mail:${mid}` : "";
+}
+function dndMakeRows(scope) {
+  scope.querySelectorAll('[data-body="unassigned"] tr[data-item], [data-body="mail"] tr[data-mail], [data-body="inbox"] tr[data-mail], .mail-table tr.mail-row[data-m]').forEach((tr) => {
+    if (tr.dataset.dndBound === "1") return; // 재바인드 방지
+    tr.dataset.dndBound = "1";
+    tr.setAttribute("draggable", "true");
+    tr.classList.add("dnd-row");
+    tr.addEventListener("dragstart", (e) => {
+      const p = dndPayload(tr); if (!p) return;
+      e.stopPropagation(); // 위젯 재배치/grid 로 버블 차단
+      e.dataTransfer.setData("text/plain", p);
+      e.dataTransfer.effectAllowed = "move";
+      document.body.classList.add("dnd-active"); // 드롭존 노출/강조
+    });
+    tr.addEventListener("dragend", () => document.body.classList.remove("dnd-active"));
+  });
+}
+async function dndHandleDrop(data) {
+  const L = state.lex;
+  const me = state.account?.display_name || state.account?.username || state.account?.email || "";
+  if (data.startsWith("claim-item:")) {
+    const r = await post("/api/items/assign", { id: data.slice(11), assignee_ref: me });
+    toast(r.ok ? (L.claim_done ?? "내 일로 가져왔습니다") : (L.claim_fail ?? "가져오기 실패"), r.ok ? "ok" : "error");
+    if (r.ok) render();
+  } else if (data.startsWith("claim-mail:")) {
+    // 즉시 내 open 할일: 신규 승격 또는 already_promoted 기존 항목 클레임. 타인 open 항목이면 assign 403 → 가로채기 방지.
+    const pr = await post("/api/items/promote", { mail_id: data.slice(11) });
+    const body = await pr.json().catch(() => ({}));
+    const itemId = body.item?.id || body.item_id;
+    if (!itemId) { toast(mailPromoteErrorText(body.error, L), "error"); return; }
+    const ar = await post("/api/items/assign", { id: itemId, assignee_ref: me });
+    if (!ar.ok) { toast(L.claim_taken ?? "이미 다른 사람의 할 일입니다", "error"); render(); return; }
+    const sr = await post("/api/items/status", { id: itemId, status: "open" });
+    if (!sr.ok) { toast(L.claim_fail ?? "가져오기 실패", "error"); render(); return; }
+    toast(body.error === "already_promoted" ? (L.claim_existing ?? "기존 할 일을 내 일로 가져왔습니다") : (L.claim_mail_done ?? "메일을 내 할 일로 만들었습니다"), "ok");
+    render();
+  }
+}
+function dndWireDrop(el) {
+  if (!el || el.dataset.dropBound === "1") return;
+  el.dataset.dropBound = "1";
+  el.classList.add("dnd-target");
+  el.addEventListener("dragover", (e) => { e.preventDefault(); e.stopPropagation(); e.dataTransfer.dropEffect = "move"; el.classList.add("drop-active"); });
+  el.addEventListener("dragleave", (e) => { if (e.target === el) el.classList.remove("drop-active"); });
+  el.addEventListener("drop", async (e) => {
+    e.preventDefault(); e.stopPropagation();
+    el.classList.remove("drop-active"); document.body.classList.remove("dnd-active");
+    await dndHandleDrop(e.dataTransfer.getData("text/plain") || "");
+  });
+}
+
 async function renderMail() {
   const L = state.lex;
   await ensureScopes();
@@ -4252,7 +4262,8 @@ async function renderMail() {
 	        <button id="mailPrev" class="fav-chip mini" ${mailPage.offset <= 0 ? "disabled" : ""}>이전</button>
 	        <button id="mailNext" class="fav-chip mini" ${!mailPage.has_more ? "disabled" : ""}>다음</button></div>`
 	    : "";
-	  $("#view").innerHTML = `${labelBar}${filterChips}${toolbar}${selectBar}${regForm}${bulkBar}${mailPager}
+	  const claimDrop = state.account ? `<div class="claim-drop" id="mailClaimDrop">📥 ${esc(L.mail_claim_drop ?? "메일을 여기로 끌어다 놓으면 내 할 일이 됩니다")}</div>` : "";
+	  $("#view").innerHTML = `${labelBar}${filterChips}${toolbar}${selectBar}${regForm}${bulkBar}${claimDrop}${mailPager}
 	    <div class="mail-split">${rows ? `<table class="mail-table"><tbody>${rows}</tbody></table>` : `<div class="empty">${L.empty_mail}</div>`}${detail}</div>`;
 
   $("#view").querySelector(".mail-reg")?.addEventListener("toggle", (e) => { state.mailRegOpen = e.target.open; });
@@ -4287,6 +4298,8 @@ async function renderMail() {
     // 토글: 같은 메일 다시 누르면 오른쪽 설명 닫힘
     r.addEventListener("click", () => { state.mailSel = state.mailSel === r.dataset.m ? null : r.dataset.m; render(); })
   );
+  // 메일함 화면 DnD: 메일 행을 끌어 '내 할일' 드롭존(#mailClaimDrop)에 놓으면 내 일로.
+  if (state.account) { dndMakeRows($("#view")); dndWireDrop($("#view").querySelector("#mailClaimDrop")); }
 	  $("#view").querySelectorAll("[data-lp]").forEach((c) =>
 	    c.addEventListener("click", (e) => { e.stopPropagation(); state.projectFilter = c.dataset.lp; resetMailPaging(); render(); })
 	  );

@@ -239,8 +239,13 @@ nav button.active { background: var(--chip); font-weight: 600; color: var(--acce
 /* 행-레벨 드래그(미배정 할일/메일 → '내 할 일' 위젯에 드롭). */
 .dnd-row { cursor: grab; }
 .dnd-row:active { cursor: grabbing; }
-body.dnd-active .dnd-target { outline: 2px dashed var(--accent); outline-offset: -2px; }
-.widget-body.dnd-target.drop-active { background: rgba(25,90,142,.10); outline: 2px solid var(--accent); }
+/* 드롭존 강조는 초록(--ok)으로 — accent(파랑) 위젯 편집/리사이즈 외곽선과 구분해 '편집 점선' 오인 방지 */
+body.dnd-active .dnd-target { outline: 2px dashed var(--ok); outline-offset: -2px; }
+.widget-body.dnd-target.drop-active { background: rgba(44,122,75,.12); outline: 2px solid var(--ok); }
+/* 메일함 화면 전용 '내 할일' 드롭 바 — 드래그 중에만 노출 */
+.claim-drop { display: none; margin: 8px 0; padding: 12px; text-align: center; border: 2px dashed var(--ok); border-radius: 8px; color: var(--ok); font-weight: 600; font-size: 13px; background: rgba(44,122,75,.05); }
+body.dnd-active .claim-drop { display: block; }
+.claim-drop.drop-active { background: rgba(44,122,75,.18); outline: 2px solid var(--ok); }
 
 .mobmeter { display: flex; align-items: center; gap: 4px; margin-top: 10px; flex-wrap: wrap; }
 .mob { width: 10px; height: 10px; border-radius: 3px; background: var(--accent); opacity: .75; }
