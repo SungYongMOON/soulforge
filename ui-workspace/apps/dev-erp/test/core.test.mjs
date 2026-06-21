@@ -3391,6 +3391,49 @@ test("Codex task UI: home rows show reply state and open task chat", () => {
   assert.match(css, /\.act-btn\.mini/);
 });
 
+// 자가검증(기능): 라이브 app.js에서 순수 함수를 추출·실행해 동작을 검증(패턴매칭이 아닌 실제 결과).
+// 락 게이트(itemStarted/codexTaskButtonHtml), DnD payload(dndPayload), 담당자 레인(claimDropBarHtml) 회귀 방지.
+test("자가검증: 락 게이트·DnD payload·담당자 레인 함수 동작 (라이브 추출 실행)", () => {
+  const app = readFileSync(join(APP_DIR, "static", "app.js"), "utf8");
+  const sliceA = app.slice(app.indexOf("function itemStarted"), app.indexOf("function wireTaskCodexButtons"));
+  const sliceB = app.slice(app.indexOf("function dndPayload"), app.indexOf("async function renderMail"));
+  assert.ok(sliceA.includes("codexTaskButtonHtml") && sliceB.includes("claimDropBarHtml"), "함수 슬라이스 추출");
+  const esc = (x) => String(x ?? "");
+  const state = { account: { id: "me", display_name: "나" }, lex: {}, _scopes: [] };
+  // 직접 eval(외부 esc/state 참조), 함수는 반환객체로 회수
+  const A = eval(sliceA + "\n;({ itemStarted, codexTaskButtonHtml });");
+  const B = eval(sliceB + "\n;({ dndPayload, claimDropBarHtml });");
+
+  // 락 게이트: open/unclassified=미시작(잠금), 그 외=시작됨(열림)
+  assert.equal(A.itemStarted({ status: "open" }), false);
+  assert.equal(A.itemStarted({ status: "unclassified" }), false);
+  assert.equal(A.itemStarted({ status: "doing" }), true);
+  assert.equal(A.itemStarted({ status: "done" }), true);
+  const locked = A.codexTaskButtonHtml("x", "", false);
+  const open = A.codexTaskButtonHtml("x", "", true);
+  assert.match(locked, /codex-task-locked/);
+  assert.match(locked, /disabled/);
+  assert.doesNotMatch(locked, /codex-task-chat/);   // 잠금엔 클릭 클래스 없음
+  assert.doesNotMatch(locked, /data-codex-task/);    // 핸들러 미바인딩 보장
+  assert.match(open, /codex-task-chat/);
+  assert.match(open, /data-codex-task="x"/);
+
+  // DnD payload: item→claim-item, mail/data-m→claim-mail, 없으면 빈 문자열
+  assert.equal(B.dndPayload({ dataset: { item: "i1" } }), "claim-item:i1");
+  assert.equal(B.dndPayload({ dataset: { mail: "m1" } }), "claim-mail:m1");
+  assert.equal(B.dndPayload({ dataset: { m: "m2" } }), "claim-mail:m2");
+  assert.equal(B.dndPayload({ dataset: {} }), "");
+
+  // 담당자 레인: 멤버 있으면 레인 렌더, scopes 비면 빈 문자열(가드)
+  state.account = { id: "me" };
+  state._scopes = [{ id: "team", label: "팀" }, { id: "u1", label: "김철수" }];
+  const bar = B.claimDropBarHtml();
+  assert.match(bar, /claim-lane/);
+  assert.match(bar, /data-assignee="김철수"/);
+  state._scopes = [];
+  assert.equal(B.claimDropBarHtml(), ""); // 멤버 0 → 바 미표시
+});
+
 test("챗봇 UI: ERP와 챗봇 릴리즈 번호를 별도 컴포넌트 버전으로 표시한다", () => {
   const app = readFileSync(join(APP_DIR, "static", "app.js"), "utf8");
   const css = readFileSync(join(APP_DIR, "static", "style.css"), "utf8");

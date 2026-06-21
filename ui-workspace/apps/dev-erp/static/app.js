@@ -4070,6 +4070,7 @@ function claimDropBarHtml() {
   if (!state.account) return "";
   const L = state.lex;
   const members = (state._scopes ?? []).filter((s) => s.id !== "team");
+  if (!members.length) return ""; // scopes 미로드/빈 경우 빈 드롭 바 노출 안 함
   const myId = state.account.id;
   const lanes = members.map((m) =>
     `<button class="claim-lane" data-assignee="${esc(m.label)}">${esc(m.label)}${m.id === myId ? ` (${L.claim_me ?? "나"})` : ""}</button>`).join("");
