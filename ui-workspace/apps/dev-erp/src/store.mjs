@@ -3270,6 +3270,30 @@ export class Store {
     if (status === "disabled") this.db.prepare("DELETE FROM auth_session WHERE account_id=?").run(account_id); // 비활성=세션 무효
     return { ok: true, status };
   }
+  // 계정 영구 삭제: 계정/세션/역할/대시보드 제거. 메일·할일(문자열 라벨 참조)은 보존(전 담당으로 남김).
+  // 비번 env 파일 삭제는 서버 라우트가 deleteMailboxEnv 로 별도 수행. 마지막 활성 관리자는 보호(잠금 방지).
+  deleteAccount(account_id) {
+    const a = this.db.prepare("SELECT id, username, mailbox_env_ref FROM core_account WHERE id=?").get(account_id);
+    if (!a) return { error: "account_not_found" };
+    if (this.isAdmin(account_id)) {
+      const others = this.db.prepare(
+        "SELECT COUNT(*) AS n FROM rbac_account_role r JOIN core_account c ON c.id=r.account_id WHERE r.role_id='admin' AND c.status='active' AND c.id<>?"
+      ).get(account_id).n;
+      if (others === 0) return { error: "cannot_delete_last_admin" };
+    }
+    this.db.exec("BEGIN IMMEDIATE");
+    try {
+      this.db.prepare("DELETE FROM auth_session WHERE account_id=?").run(account_id);
+      this.db.prepare("DELETE FROM rbac_account_role WHERE account_id=?").run(account_id);
+      this.db.prepare("DELETE FROM user_dashboard_layout WHERE account_id=?").run(account_id);
+      this.db.prepare("DELETE FROM core_account WHERE id=?").run(account_id);
+      this.db.exec("COMMIT");
+    } catch (e) {
+      this.db.exec("ROLLBACK");
+      return { error: "delete_failed", detail: String(e?.message || e).slice(0, 200) };
+    }
+    return { ok: true, username: a.username, mailbox_env_ref: a.mailbox_env_ref || null };
+  }
   // 계정 프로필 수정(이메일/표기명/역할). 이메일은 형식+중복 검증, 자기 외 중복 거부.
   updateAccount(account_id, { email, display_name, role } = {}) {
     const a = this.db.prepare("SELECT * FROM core_account WHERE id=?").get(account_id);

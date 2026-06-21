@@ -12,7 +12,7 @@ import { fileURLToPath } from "node:url";
 import { openStore, deriveStartYear } from "../src/store.mjs";
 import { importNewTaskLedgers, writeTaskToLedger, readTaskLedgerRows, importNewInputLedgers, writeInputToLedger, readInputLedgerRows } from "../src/autosync.mjs";
 import { pendingForProject, scanPending } from "../tools/mail_to_task_pending.mjs";
-import { safeAccountEnvName, mailboxEnvRelPath, upsertEnv, hiworksEnvUpdates, writeMailboxEnv } from "../src/mailbox_env.mjs";
+import { safeAccountEnvName, mailboxEnvRelPath, upsertEnv, hiworksEnvUpdates, writeMailboxEnv, deleteMailboxEnv } from "../src/mailbox_env.mjs";
 import { loadFixture } from "../src/fixture.mjs";
 import { ingestNormalized, mapSoulforgeSnapshot } from "../src/adapter.mjs";
 import { getLexicon, LEXICON } from "../src/lexicon.mjs";
@@ -4860,5 +4860,35 @@ test("MAILBOX-ENV: 허용 디렉터리에만 atomic 기록, traversal/타 경로
     assert.match(written, /HIWORKS_POP3_USERNAME=kim@x\.com/);
     assert.equal(writeMailboxEnv(root, "../../../etc/evil.env", { X: "1" }).error, "mailbox_env_path_unsafe");
     assert.equal(writeMailboxEnv(root, "ui-workspace/apps/dev-erp/data/x.env", { X: "1" }).error, "mailbox_env_path_unsafe");
+    // 삭제: 허용 디렉터리 내 파일은 지우고, 밖이면 거부
+    assert.equal(deleteMailboxEnv(root, mailboxEnvRelPath("kim")).deleted, true);
+    assert.equal(deleteMailboxEnv(root, mailboxEnvRelPath("kim")).deleted, false); // 이미 없음
+    assert.equal(deleteMailboxEnv(root, "../../../etc/evil.env").error, "mailbox_env_path_unsafe");
   } finally { rmSync(root, { recursive: true, force: true }); }
+});
+
+// ── ACCOUNT-DELETE: 계정 영구 삭제 — 연결 데이터 제거, 메일·할일 보존, 마지막 관리자 보호 ──
+test("ACCOUNT-DELETE: 계정·세션·역할·대시보드 제거 / 메일·할일 보존 / 마지막 관리자 보호", () => {
+  const store = freshStore();
+  store.createAccount({ username: "admin1", password: "pw123456", roles: ["admin"], display_name: "관리자1" });
+  store.createAccount({ username: "kim", password: "pw123456", roles: ["member"], email: "kim@x.com" });
+  const adminId = store.listAccounts().find((a) => a.username === "admin1").id;
+  const memberId = store.listAccounts().find((a) => a.username === "kim").id;
+  store.db.prepare("INSERT INTO auth_session(token,account_id,created_at,expires_at) VALUES('tk1',?,?,?)").run(memberId, "2026-01-01", "2030-01-01");
+  store.db.prepare("INSERT INTO user_dashboard_layout(account_id,layout_json,updated_at) VALUES(?,?,?)").run(memberId, "{}", "2026-01-01");
+  store.upsertProject({ id: "P26-014", title: "KVDS", data_label: "real" }); // FK 대상 프로젝트 선등록
+  store.upsertMail({ id: "m1", project_id: "P26-014", at: "2026-06-01", subject: "s", mailbox: "kim@x.com", data_label: "real" });
+  store.upsertItem({ id: "it1", project_id: "P26-014", title: "t", assignee_ref: "kim", status: "open", data_label: "real" });
+
+  // 마지막 활성 관리자(admin1) 삭제 거부
+  assert.equal(store.deleteAccount(adminId).error, "cannot_delete_last_admin");
+  // member 삭제 성공
+  assert.equal(store.deleteAccount(memberId).ok, true);
+  assert.equal(store.listAccounts().some((a) => a.username === "kim"), false);
+  assert.equal(store.db.prepare("SELECT COUNT(*) AS n FROM auth_session WHERE account_id=?").get(memberId).n, 0);
+  assert.equal(store.db.prepare("SELECT COUNT(*) AS n FROM rbac_account_role WHERE account_id=?").get(memberId).n, 0);
+  assert.equal(store.db.prepare("SELECT COUNT(*) AS n FROM user_dashboard_layout WHERE account_id=?").get(memberId).n, 0);
+  // 메일·할일은 보존(전 담당 라벨로 남음)
+  assert.equal(store.db.prepare("SELECT COUNT(*) AS n FROM core_mail WHERE id='m1'").get().n, 1);
+  assert.equal(store.db.prepare("SELECT COUNT(*) AS n FROM core_item WHERE id='it1'").get().n, 1);
 });

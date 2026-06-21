@@ -2,6 +2,11 @@
 
 ## 2026-06-20
 
+### Revision `working` - dev-erp 계정 삭제(자격증명 정리, 업무 데이터 보존)
+
+- 관리자 패널에서 계정 **영구 삭제**: 계정·세션·역할·대시보드 + **비번 env 파일** 제거. **메일·할일은 프로젝트 기록으로 보존**(전 담당 라벨로 남김). 마지막 활성 관리자·본인 계정 삭제는 차단(잠금 방지).
+- `store.deleteAccount`(트랜잭션, auth_session·rbac_account_role·user_dashboard_layout·core_account 정리, 마지막 admin 보호) + `mailbox_env.deleteMailboxEnv`(per-account env만 삭제 — 공유 `email_fetch.env` 미접촉) + `POST /api/accounts/delete`(admin·not-self) + UI "삭제" 버튼(uiConfirm). lexicon 5키 parity. node:test 217/0.
+
 ### Revision `working` - dev-erp ERP에서 메일 자격증명 등록(env 기록)
 
 - ERP 관리자 패널에서 계정별 **이메일+비밀번호+호스트**를 입력해 메일함을 연결하는 "메일 연결" 기능. 비밀번호는 **env 파일에만** 기록되고 DB·이벤트·응답엔 남지 않는다. 수신(fetch)은 별도 수집기 프로세스가 하므로 웹서버 외부접속 0(`no_server_egress`) 유지.

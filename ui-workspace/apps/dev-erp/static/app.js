@@ -603,6 +603,7 @@ async function openAdminPanel() {
         <td><input class="login-input ac-email" style="width:155px" value="${esc(a.email || "")}" placeholder="${L.acct_email}" /></td>
         <td><button class="fav-chip ac-role" data-id="${a.id}" data-role="${otherRole}" ${selfRoleDisabled}>${roleLbl}</button>
           <button class="fav-chip ac-status" data-id="${a.id}" data-status="${a.status === "active" ? "disabled" : "active"}" ${isSelf ? "disabled" : ""}>${statusLbl}</button>
+          <button class="fav-chip ac-delete" data-id="${a.id}" ${isSelf ? "disabled" : ""} title="${esc(L.acct_delete_confirm ?? "")}">${L.acct_delete ?? "삭제"}</button>
           <button class="fav-chip ac-save" data-id="${esc(a.id)}">${L.acct_save ?? "저장"}</button>
           <div style="display:flex;gap:6px;flex-wrap:wrap;margin-top:6px">
             <input class="login-input ac-reset-pw" style="width:112px" type="password" placeholder="${L.password_reset}" autocomplete="new-password" />
@@ -628,6 +629,15 @@ async function openAdminPanel() {
     }));
     ov.querySelectorAll(".ac-status").forEach((b) => b.addEventListener("click", async () => {
       await post("/api/accounts/status", { id: b.dataset.id, status: b.dataset.status }); renderList();
+    }));
+    ov.querySelectorAll(".ac-delete").forEach((b) => b.addEventListener("click", async () => {
+      if (!(await uiConfirm(L.acct_delete_confirm ?? "이 계정을 삭제할까요?"))) return;
+      errBox.textContent = "";
+      const r = await post("/api/accounts/delete", { id: b.dataset.id }).then((x) => x.json()).catch(() => null);
+      if (r && r.ok) { errBox.textContent = L.acct_delete_done ?? "삭제됨"; renderList(); }
+      else errBox.textContent = r?.error === "cannot_delete_self" ? (L.cannot_delete_self ?? "본인 삭제 불가")
+        : r?.error === "cannot_delete_last_admin" ? (L.cannot_delete_last_admin ?? "마지막 관리자 삭제 불가")
+        : (r?.error || L.login_fail);
     }));
     ov.querySelectorAll(".ac-save").forEach((b) => b.addEventListener("click", async () => {
       errBox.textContent = "";

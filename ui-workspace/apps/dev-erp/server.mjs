@@ -28,7 +28,7 @@ import {
 import { crossSearch } from "./src/search.mjs";
 import { buildMetaContext, runLlm, answerFromManual, CHATBOT_VERSION, llmThinkEnabled } from "./src/llm.mjs";
 import { startAutosyncPoll, writeTaskToLedger, writeInputToLedger } from "./src/autosync.mjs";
-import { mailboxEnvRelPath, hiworksEnvUpdates, writeMailboxEnv } from "./src/mailbox_env.mjs";
+import { mailboxEnvRelPath, hiworksEnvUpdates, writeMailboxEnv, deleteMailboxEnv } from "./src/mailbox_env.mjs";
 import { safeWorkspacePath, safeUploadTarget, commitUpload, readSafe } from "./src/filevault.mjs";
 import { CODEX_TASK_BRIDGE_VERSION, runCodexTaskTurn } from "./src/codex_bridge.mjs";
 
@@ -643,6 +643,23 @@ const server = createServer(async (req, res) => {
       if (id === admin.id && status === "disabled") return send(res, 400, { error: "cannot_disable_self" });
       const r = store.setAccountStatus(id, status);
       return send(res, r.error ? 400 : 200, r);
+    }
+    // 계정 영구 삭제(admin): 계정/세션/역할/대시보드 제거 + 비번 env 파일 삭제. 메일·할일은 보존(전 담당 라벨로 남김).
+    if (path === "/api/accounts/delete" && req.method === "POST") {
+      const admin = requireAdmin(req);
+      if (!admin) return send(res, 403, { error: "admin_only" });
+      const { id } = await readJson(req);
+      if (id === admin.id) return send(res, 400, { error: "cannot_delete_self" });
+      const r = store.deleteAccount(id);
+      if (r.error) return send(res, 400, r);
+      const repoRoot = resolve(HERE, "..", "..", "..");
+      let envDeleted = false;
+      try { envDeleted = !!deleteMailboxEnv(repoRoot, mailboxEnvRelPath(r.username || id)).deleted; } catch { /* env 정리 실패가 계정 삭제를 막지 않음 */ }
+      store.appendEvent({
+        actor_ref: admin.username, actor_kind: "human", kind: "account_deleted",
+        to: r.username, used_refs: ["auth"], data_label: "meta"
+      });
+      return send(res, 200, { ok: true, env_deleted: envDeleted, mail_kept: true });
     }
     // 보기 대상(팀/사용자) 선택지: 관리자는 전체 계정, 팀원은 본인만.
     if (path === "/api/accounts/scopes") {

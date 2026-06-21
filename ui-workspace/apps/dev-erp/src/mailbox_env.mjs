@@ -4,7 +4,7 @@
 //   · 비밀번호는 이 env 파일 텍스트에만 들어가고 DB/로그/응답엔 절대 넣지 않는다.
 //   · 수신(fetch)은 이 모듈이 아니라 별도 수집기 프로세스가 한다(no_server_egress 유지).
 // zero-dependency: node:fs/path.
-import { readFileSync, writeFileSync, renameSync, mkdirSync, existsSync } from "node:fs";
+import { readFileSync, writeFileSync, renameSync, mkdirSync, existsSync, rmSync } from "node:fs";
 import { dirname, resolve, sep } from "node:path";
 
 export const MAILBOX_ENV_DIR_REL = "guild_hall/state/gateway/mailbox/state";
@@ -57,4 +57,15 @@ export function writeMailboxEnv(repoRoot, relPath, updates) {
   writeFileSync(tmp, content);
   renameSync(tmp, target);
   return { ok: true, path: target };
+}
+
+// 계정 삭제 시 그 계정의 env 파일(자격증명) 제거. 허용 디렉터리 밖이면 거부.
+// 호출부는 per-account 파생 경로(acct_<user>.env)만 넘겨 공유 파일(email_fetch.env 등)을 절대 지우지 않게 한다.
+export function deleteMailboxEnv(repoRoot, relPath) {
+  const root = resolve(repoRoot);
+  const target = resolve(root, relPath);
+  const allowedPrefix = resolve(root, MAILBOX_ENV_DIR_REL) + sep;
+  if (!`${target}`.startsWith(allowedPrefix)) return { error: "mailbox_env_path_unsafe" };
+  if (existsSync(target)) { rmSync(target, { force: true }); return { ok: true, deleted: true }; }
+  return { ok: true, deleted: false };
 }
