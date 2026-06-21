@@ -103,8 +103,8 @@ const SKIN_ROOTS = [...new Set([
   join(HERE, "static", "skins"),
 ].filter(Boolean).map((p) => resolve(p)))];
 const ERP_VERSION = Object.freeze({
-  release: "v1.0.9",
-  build: "ui-2026.06.20-mail-ledger-sync.1",
+  release: "v1.1.0",
+  build: "ui-2026.06.21-mailbox-team.1",
   source: "server.mjs"
 });
 
