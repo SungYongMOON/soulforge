@@ -4023,28 +4023,30 @@ function dndMakeRows(scope) {
     tr.addEventListener("dragend", () => document.body.classList.remove("dnd-active"));
   });
 }
-async function dndHandleDrop(data) {
+async function dndHandleDrop(data, assignee) {
   const L = state.lex;
   const me = state.account?.display_name || state.account?.username || state.account?.email || "";
+  const who = (assignee && String(assignee).trim()) || me; // 드롭 레인이 담당자를 지정하면 그 사람, 아니면 나
+  const okMsg = who === me ? (L.claim_done ?? "내 일로 가져왔습니다") : `${who}${L.claim_assigned_suffix ?? " 님에게 배정했습니다"}`;
   if (data.startsWith("claim-item:")) {
-    const r = await post("/api/items/assign", { id: data.slice(11), assignee_ref: me });
-    toast(r.ok ? (L.claim_done ?? "내 일로 가져왔습니다") : (L.claim_fail ?? "가져오기 실패"), r.ok ? "ok" : "error");
+    const r = await post("/api/items/assign", { id: data.slice(11), assignee_ref: who });
+    toast(r.ok ? okMsg : (L.claim_fail ?? "배정 실패"), r.ok ? "ok" : "error");
     if (r.ok) render();
   } else if (data.startsWith("claim-mail:")) {
-    // 즉시 내 open 할일: 신규 승격 또는 already_promoted 기존 항목 클레임. 타인 open 항목이면 assign 403 → 가로채기 방지.
+    // 메일 승격(unclassified) → 담당 배정 → open. 타인 open 항목이면 assign 403 → 가로채기 방지.
     const pr = await post("/api/items/promote", { mail_id: data.slice(11) });
     const body = await pr.json().catch(() => ({}));
     const itemId = body.item?.id || body.item_id;
     if (!itemId) { toast(mailPromoteErrorText(body.error, L), "error"); return; }
-    const ar = await post("/api/items/assign", { id: itemId, assignee_ref: me });
+    const ar = await post("/api/items/assign", { id: itemId, assignee_ref: who });
     if (!ar.ok) { toast(L.claim_taken ?? "이미 다른 사람의 할 일입니다", "error"); render(); return; }
     const sr = await post("/api/items/status", { id: itemId, status: "open" });
-    if (!sr.ok) { toast(L.claim_fail ?? "가져오기 실패", "error"); render(); return; }
-    toast(body.error === "already_promoted" ? (L.claim_existing ?? "기존 할 일을 내 일로 가져왔습니다") : (L.claim_mail_done ?? "메일을 내 할 일로 만들었습니다"), "ok");
+    if (!sr.ok) { toast(L.claim_fail ?? "배정 실패", "error"); render(); return; }
+    toast(okMsg, "ok");
     render();
   }
 }
-function dndWireDrop(el) {
+function dndWireDrop(el, assignee) {
   if (!el || el.dataset.dropBound === "1") return;
   el.dataset.dropBound = "1";
   el.classList.add("dnd-target");
@@ -4053,7 +4055,7 @@ function dndWireDrop(el) {
   el.addEventListener("drop", async (e) => {
     e.preventDefault(); e.stopPropagation();
     el.classList.remove("drop-active"); document.body.classList.remove("dnd-active");
-    await dndHandleDrop(e.dataTransfer.getData("text/plain") || "");
+    await dndHandleDrop(e.dataTransfer.getData("text/plain") || "", assignee);
   });
 }
 
@@ -4262,7 +4264,16 @@ async function renderMail() {
 	        <button id="mailPrev" class="fav-chip mini" ${mailPage.offset <= 0 ? "disabled" : ""}>이전</button>
 	        <button id="mailNext" class="fav-chip mini" ${!mailPage.has_more ? "disabled" : ""}>다음</button></div>`
 	    : "";
-	  const claimDrop = state.account ? `<div class="claim-drop" id="mailClaimDrop">📥 ${esc(L.mail_claim_drop ?? "메일을 여기로 끌어다 놓으면 내 할 일이 됩니다")}</div>` : "";
+	  // 팀원별 드롭 레인: 메일을 끌어 담당자 레인에 놓으면 그 사람 할 일이 됨(승격→배정→open). 멤버 = 활성 계정(scopes).
+	  const dropMembers = (state._scopes ?? []).filter((s) => s.id !== "team");
+	  const myId = state.account?.id;
+	  const claimLanes = dropMembers.map((m) => {
+	    const meTag = m.id === myId ? ` (${L.claim_me ?? "나"})` : "";
+	    return `<button class="claim-lane" data-assignee="${esc(m.label)}">${esc(m.label)}${meTag}</button>`;
+	  }).join("");
+	  const claimDrop = state.account ? `<div class="claim-drop" id="mailClaimDrop">
+	    <span class="claim-drop-hint">📥 ${esc(L.mail_claim_drop_multi ?? "메일을 담당자에게 끌어다 놓으면 그 사람 할 일이 됩니다")}</span>
+	    <div class="claim-lanes">${claimLanes}</div></div>` : "";
 	  $("#view").innerHTML = `${labelBar}${filterChips}${toolbar}${selectBar}${regForm}${bulkBar}${claimDrop}${mailPager}
 	    <div class="mail-split">${rows ? `<table class="mail-table"><tbody>${rows}</tbody></table>` : `<div class="empty">${L.empty_mail}</div>`}${detail}</div>`;
 
@@ -4298,8 +4309,13 @@ async function renderMail() {
     // 토글: 같은 메일 다시 누르면 오른쪽 설명 닫힘
     r.addEventListener("click", () => { state.mailSel = state.mailSel === r.dataset.m ? null : r.dataset.m; render(); })
   );
-  // 메일함 화면 DnD: 메일 행을 끌어 '내 할일' 드롭존(#mailClaimDrop)에 놓으면 내 일로.
-  if (state.account) { dndMakeRows($("#view")); dndWireDrop($("#view").querySelector("#mailClaimDrop")); }
+  // 메일함 화면 DnD: 메일 행을 끌어 담당자 레인에 놓으면 그 사람 할 일로(레인 없으면 컨테이너=나).
+  if (state.account) {
+    dndMakeRows($("#view"));
+    const lanes = $("#view").querySelectorAll(".claim-lane");
+    if (lanes.length) lanes.forEach((el) => dndWireDrop(el, el.dataset.assignee));
+    else dndWireDrop($("#view").querySelector("#mailClaimDrop")); // 폴백(레인 0=나)
+  }
 	  $("#view").querySelectorAll("[data-lp]").forEach((c) =>
 	    c.addEventListener("click", (e) => { e.stopPropagation(); state.projectFilter = c.dataset.lp; resetMailPaging(); render(); })
 	  );
