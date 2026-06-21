@@ -13,7 +13,7 @@ export function loadPartyMonsterTypes(root) {
     let y;
     try { y = readFileSync(join(dir, d, "party.yaml"), "utf8"); } catch { continue; }
     // preferred_monster_types: 블록의 '  - xxx' 항목만 수집(다음 최상위 키 전까지).
-    const m = y.match(/preferred_monster_types:\s*([\s\S]*?)(?:\n[A-Za-z_]+:|\nmember_slots|\nallowed_|\nappserver|\nnotes|$)/);
+    const m = y.match(/preferred_monster_types:\s*([\s\S]*?)(?:\n[A-Za-z0-9_-]+:|\nmember_slots|\nallowed_|\nappserver|\nnotes|$)/);
     if (!m) continue;
     for (const line of m[1].split(/\r?\n/)) {
       const mm = line.match(/^\s*-\s*([A-Za-z0-9_]+)\s*$/);

@@ -307,15 +307,14 @@ export async function runLlm({ provider = "stub", user = "", context = null } = 
 export async function suggestSplit(item = {}, monsterTypes = [], { provider = "stub" } = {}) {
   const empty = { is_task: true, should_split: false, reason: "", sub_tasks: [] };
   if (provider !== "ollama") return { ...empty, reason: "llm_unavailable" }; // stub/codex 파일럿: 제안 없음
+  if (!monsterTypes.length) return { ...empty, reason: "party_match_unavailable" }; // 매칭할 파티 어휘 없음 → 모순 프롬프트 방지
   const runtime = chatLlmRuntimeConfig();
   const host = process.env.OLLAMA_HOST || "http://127.0.0.1:11434";
-  const types = monsterTypes.length ? monsterTypes.join(", ") : "(없음)";
-  const prompt = `당신은 업무를 "할 일"로 분해하는 분류기다. 아래 할일을 보고 JSON으로만 답하라. 본문은 없고 메타만 있다.
-할일:
-- 제목: ${item.title ?? ""}
-- 프로젝트: ${item.project_id ?? "-"}
-- 업무유형: ${item.work_type ?? "-"}
-- 완료기준: ${item.completion_criteria ?? "-"}
+  const types = monsterTypes.join(", ");
+  // 사용자 입력 필드는 JSON 인코딩해 전달 — 제목 등에 개행/지시문이 있어도 프롬프트 규칙을 못 흔들게(인젝션 방지).
+  const itemData = JSON.stringify({ title: item.title ?? "", project_id: item.project_id ?? "-", work_type: item.work_type ?? "-", completion_criteria: item.completion_criteria ?? "-" });
+  const prompt = `당신은 업무를 "할 일"로 분해하는 분류기다. 아래 할일(JSON)을 보고 JSON으로만 답하라. 본문은 없고 메타만 있다.
+할일: ${itemData}
 규칙:
 - is_task: 실제 처리할 업무면 true, 단순 공지/안내면 false.
 - should_split: 한 번에 끝낼 수 있으면 false, 여러 단계가 필요하면 true.

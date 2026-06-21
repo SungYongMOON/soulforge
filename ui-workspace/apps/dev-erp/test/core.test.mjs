@@ -351,6 +351,23 @@ test("분해 버그수정 2R: archive/restore 자식 cascade + party_ref 검증 
   assert.match(app, /failed\.push\(\{ title, error: data\.error \}\)/);
 });
 
+test("분해 버그수정 3R: done뷰 orphan·Esc닫기·regex경계·빈types조기반환·프롬프트JSON", () => {
+  const app = readFileSync(join(APP_DIR, "static", "app.js"), "utf8");
+  const llmSrc = readFileSync(join(APP_DIR, "src", "llm.mjs"), "utf8");
+  const pm = readFileSync(join(APP_DIR, "src", "party_match.mjs"), "utf8");
+  assert.match(app, /const topIds0 = new Set/);                    // orphanIds를 done 포함 모든 뷰 공통 계산
+  assert.match(app, /const escClose = \(e\) =>/);                  // 분해 모달 Esc 닫기
+  assert.match(pm, /\[A-Za-z0-9_-\]\+:/);                          // YAML 키 경계(하이픈/숫자 포함)
+  assert.match(llmSrc, /party_match_unavailable/);                 // 빈 monster_types 조기반환(모순 프롬프트 방지)
+  assert.match(llmSrc, /const itemData = JSON\.stringify/);        // 사용자 필드 JSON 인코딩(프롬프트 인젝션 방지)
+});
+
+test("분해 버그수정 3R(기능): suggestSplit — 파티 어휘 없으면 호출 없이 party_match_unavailable", async () => {
+  const r = await suggestSplit({ title: "x" }, [], { provider: "ollama" });
+  assert.equal(r.should_split, false);
+  assert.equal(r.reason, "party_match_unavailable");
+});
+
 test("codex bridge: task metadata is hidden from visible user prompts", () => {
   const item = { id: "itm_1", project_id: "P26-001", title: "자료 검토", status: "open", due: "2026-06-30" };
   assert.equal(buildTaskThreadTitle(item), "[P26-001] 자료 검토");

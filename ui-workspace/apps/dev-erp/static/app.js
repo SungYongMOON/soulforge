@@ -785,7 +785,9 @@ function openSplitModal(itemId, projectId, parentTitle, onDone) {
     </div>
   </div>`;
   document.body.appendChild(ov);
-  const close = () => ov.remove();
+  const close = () => { document.removeEventListener("keydown", escClose); ov.remove(); };
+  const escClose = (e) => { if (e.key === "Escape") close(); }; // Esc로 닫기(다른 모달과 일관)
+  document.addEventListener("keydown", escClose);
   ov.addEventListener("click", (e) => { if (e.target === ov) close(); });
   ov.querySelector(".ui-confirm-cancel").addEventListener("click", close);
   const errBox = ov.querySelector(".login-err");
@@ -3859,6 +3861,12 @@ async function renderItems() {
   const isTriage = state.statusFilter === "unclassified";
   const isArchived = state.statusFilter === "archived";
   const isDone = state.statusFilter === "done";
+  // 분해: 부모가 현재 목록 밖(상태필터/페이지)인 자식 = 평면 처리. done 뷰 포함 모든 뷰 공통으로 먼저 계산(들여쓰기 오인 방지).
+  {
+    const topIds0 = new Set(items.filter((i) => !i.parent_item_id).map((i) => i.id));
+    orphanIds.clear();
+    for (const i of items) if (i.parent_item_id && !topIds0.has(i.parent_item_id)) orphanIds.add(i.id);
+  }
   let rows;
   if (isDone) {
     // '한 일'을 완료 날짜(요일)별로 묶어 최근순으로 — 무엇을 언제 끝냈는지 돌아보게. done_at 없는 이전 완료분은 맨 아래.
@@ -3885,9 +3893,7 @@ async function renderItems() {
       if (!byParent.has(i.parent_item_id)) byParent.set(i.parent_item_id, []);
       byParent.get(i.parent_item_id).push(i);
     }
-    const topIds = new Set(items.filter((i) => !i.parent_item_id).map((i) => i.id));
-    orphanIds.clear();
-    for (const i of items) if (i.parent_item_id && !topIds.has(i.parent_item_id)) orphanIds.add(i.id); // 부모 부재 자식 = 평면(들여쓰기 X)
+    const topIds = new Set(items.filter((i) => !i.parent_item_id).map((i) => i.id)); // 그룹핑용(orphanIds는 위에서 이미 계산)
     const out = [];
     for (const i of items) {
       if (i.parent_item_id && topIds.has(i.parent_item_id)) continue; // 자식은 부모 밑에서 렌더
