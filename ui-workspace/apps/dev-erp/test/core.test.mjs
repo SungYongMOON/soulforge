@@ -12,6 +12,7 @@ import { fileURLToPath } from "node:url";
 import { openStore, deriveStartYear } from "../src/store.mjs";
 import { importNewTaskLedgers, writeTaskToLedger, readTaskLedgerRows, importNewInputLedgers, writeInputToLedger, readInputLedgerRows } from "../src/autosync.mjs";
 import { pendingForProject, scanPending } from "../tools/mail_to_task_pending.mjs";
+import { safeAccountEnvName, mailboxEnvRelPath, upsertEnv, hiworksEnvUpdates, writeMailboxEnv } from "../src/mailbox_env.mjs";
 import { loadFixture } from "../src/fixture.mjs";
 import { ingestNormalized, mapSoulforgeSnapshot } from "../src/adapter.mjs";
 import { getLexicon, LEXICON } from "../src/lexicon.mjs";
@@ -4832,4 +4833,32 @@ test("REAL-META-TASKS: build_real_meta 가 할일_장부를 items 에 싣는다"
     assert.equal(task.completion_criteria, "견적 작성 후 회신");
     assert.equal(task.project_id, "P26-014");
   } finally { rmSync(repo, { recursive: true, force: true }); }
+});
+
+// ── MAILBOX-ENV: ERP에서 입력한 메일 자격증명을 env 파일에 기록(DB 아님) ──
+test("MAILBOX-ENV: 경로 파생·env upsert·hiworks 키 묶음", () => {
+  assert.equal(safeAccountEnvName("Kim.Lee@x.com"), "acct_kim.lee_x.com.env");
+  assert.match(mailboxEnvRelPath("kim"), /guild_hall\/state\/gateway\/mailbox\/state\/acct_kim\.env$/);
+  const merged = upsertEnv("# c\nHIWORKS_POP3_HOST=old\nOTHER=keep\n", { HIWORKS_POP3_HOST: "pop3s.hiworks.com", HIWORKS_POP3_PASSWORD: "pw" });
+  assert.match(merged, /HIWORKS_POP3_HOST=pop3s\.hiworks\.com/);
+  assert.match(merged, /OTHER=keep/);                // 타 키 보존
+  assert.match(merged, /# c/);                        // 주석 보존
+  assert.match(merged, /HIWORKS_POP3_PASSWORD=pw/);   // 새 키 추가
+  const u = hiworksEnvUpdates({ host: "h", username: "u@x", password: "secret123" });
+  assert.equal(u.HIWORKS_POP3_PASSWORD, "secret123");
+  assert.equal(u.EMAIL_FETCH_SOURCE_HIWORKS_ENABLED, "true");
+  assert.equal(u.EMAIL_FETCH_SOURCE_GMAIL_ENABLED, "false");
+});
+
+test("MAILBOX-ENV: 허용 디렉터리에만 atomic 기록, traversal/타 경로 거부, 비번은 파일에만", () => {
+  const root = mkdtempSync(join(tmpdir(), "mbenv-"));
+  try {
+    const r = writeMailboxEnv(root, mailboxEnvRelPath("kim"), hiworksEnvUpdates({ host: "pop3s.hiworks.com", username: "kim@x.com", password: "p@ss!" }));
+    assert.equal(r.ok, true);
+    const written = readFileSync(r.path, "utf-8");
+    assert.match(written, /HIWORKS_POP3_PASSWORD=p@ss!/);       // 비번은 env 파일에
+    assert.match(written, /HIWORKS_POP3_USERNAME=kim@x\.com/);
+    assert.equal(writeMailboxEnv(root, "../../../etc/evil.env", { X: "1" }).error, "mailbox_env_path_unsafe");
+    assert.equal(writeMailboxEnv(root, "ui-workspace/apps/dev-erp/data/x.env", { X: "1" }).error, "mailbox_env_path_unsafe");
+  } finally { rmSync(root, { recursive: true, force: true }); }
 });

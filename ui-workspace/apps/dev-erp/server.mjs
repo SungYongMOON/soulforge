@@ -28,6 +28,7 @@ import {
 import { crossSearch } from "./src/search.mjs";
 import { buildMetaContext, runLlm, answerFromManual, CHATBOT_VERSION, llmThinkEnabled } from "./src/llm.mjs";
 import { startAutosyncPoll, writeTaskToLedger, writeInputToLedger } from "./src/autosync.mjs";
+import { mailboxEnvRelPath, hiworksEnvUpdates, writeMailboxEnv } from "./src/mailbox_env.mjs";
 import { safeWorkspacePath, safeUploadTarget, commitUpload, readSafe } from "./src/filevault.mjs";
 import { CODEX_TASK_BRIDGE_VERSION, runCodexTaskTurn } from "./src/codex_bridge.mjs";
 
@@ -601,6 +602,32 @@ const server = createServer(async (req, res) => {
         used_refs: ["auth", "mailbox_metadata"], data_label: "meta"
       });
       return send(res, 200, r);
+    }
+    // 메일 자격증명 등록: ERP에서 이메일+비번 입력 → env 파일에 기록(DB 아님) + 메일함 활성.
+    // 비밀번호는 env 파일에만 들어가고 DB/이벤트/응답엔 남기지 않는다. 수신(fetch)은 별도 수집기 프로세스가 함(서버 외부접속 0).
+    if (path === "/api/accounts/mailbox/credentials" && req.method === "POST") {
+      const admin = requireAdmin(req);
+      if (!admin) return send(res, 403, { error: "admin_only" });
+      const body = await readJson(req);
+      const acct = store.listAccounts().find((a) => a.id === body.id);
+      if (!acct) return send(res, 400, { error: "account_not_found" });
+      const provider = String(body.provider || "hiworks").trim().toLowerCase();
+      if (provider !== "hiworks") return send(res, 400, { error: "mailbox_provider_unsupported_for_credentials" }); // POP 비번 흐름은 Hiworks
+      const host = String(body.host || "").trim();
+      const username = String(body.username || acct.email || "").trim();
+      const password = String(body.password ?? "");
+      if (!host || !username || !password) return send(res, 400, { error: "mailbox_credentials_incomplete" });
+      const rel = mailboxEnvRelPath(acct.username || acct.id);
+      const repoRoot = resolve(HERE, "..", "..", "..");
+      const w = writeMailboxEnv(repoRoot, rel, hiworksEnvUpdates({ host, username, password, port: body.port }));
+      if (w.error) return send(res, 400, { error: w.error });
+      const r = store.updateAccountMailbox(body.id, { provider: "hiworks", env_ref: rel, enabled: true });
+      if (r.error) return send(res, 400, r);
+      store.appendEvent({
+        actor_ref: admin.username, actor_kind: "human", kind: "account_mailbox_credentials_set",
+        to: `hiworks:${rel}`, used_refs: ["auth", "mailbox_env"], data_label: "meta"
+      }); // 비밀번호는 로그/이벤트/DB에 남기지 않음 — env 파일에만
+      return send(res, 200, { ok: true, env_ref: rel, mailbox: r.mailbox });
     }
     if (path === "/api/accounts/readiness" && req.method === "GET") {
       if (!requireAdmin(req)) return send(res, 403, { error: "admin_only" });

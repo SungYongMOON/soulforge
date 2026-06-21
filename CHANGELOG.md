@@ -2,6 +2,13 @@
 
 ## 2026-06-20
 
+### Revision `working` - dev-erp ERP에서 메일 자격증명 등록(env 기록)
+
+- ERP 관리자 패널에서 계정별 **이메일+비밀번호+호스트**를 입력해 메일함을 연결하는 "메일 연결" 기능. 비밀번호는 **env 파일에만** 기록되고 DB·이벤트·응답엔 남지 않는다. 수신(fetch)은 별도 수집기 프로세스가 하므로 웹서버 외부접속 0(`no_server_egress`) 유지.
+- `src/mailbox_env.mjs`: 계정 username 파생 경로(traversal 금지, `guild_hall/state/gateway/mailbox/state/acct_<user>.env`)에 Hiworks POP3 자격증명을 atomic upsert. 허용 디렉터리 밖이면 거부. node:test 2건.
+- `server.mjs`: `POST /api/accounts/mailbox/credentials`(admin) — env 파일 기록 + `updateAccountMailbox`로 메타(provider/env_ref/enabled)만 갱신. 비번 미저장·미로그.
+- `static/app.js`: 관리자 패널 계정 행에 "메일 연결" 버튼 + 모달(호스트/이메일/비번). `src/lexicon.mjs`: 관련 키 7개(business/fantasy parity).
+
 ### Revision `working` - dev-erp 할일_장부 → real_meta 전달 복구
 
 - 운영본 인입 경로의 끊김 수정: 소스 할일_장부(메일/회의/요청 변환 할일)가 운영 ERP까지 도달하지 못하던 문제. `build_real_meta.mjs`가 할일_장부를 전혀 안 읽어(items를 snapshot 미션에서만 빌드) 754개 변환 할일이 스냅샷에서 누락됐었다.
