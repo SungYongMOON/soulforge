@@ -614,7 +614,7 @@ async function openAdminPanel() {
           <label class="dim mini"><input type="checkbox" class="mb-enabled" ${mailboxEnabled ? "checked" : ""} /> ${mailboxEnabled ? (L.acct_active ?? "활성") : (L.acct_disabled ?? "비활성")}</label>
           <input class="login-input mb-env" style="width:170px" value="${esc(a.mailbox_env_ref || "")}" placeholder="${L["mailbox_env_ref"] ?? "env ref"}" autocomplete="off" />
           <button class="fav-chip mb-save" data-id="${esc(a.id)}">${L.acct_save ?? "저장"}</button>
-          <button class="fav-chip mb-connect" data-id="${esc(a.id)}" data-user="${esc(a.username)}" data-email="${esc(a.email || "")}">${L.mailbox_connect ?? "메일 연결"}</button>
+          <button class="fav-chip mb-connect" data-id="${esc(a.id)}" data-user="${esc(a.username)}" data-email="${esc(a.email || "")}" data-provider="${esc(a.mailbox_provider || "none")}">${L.mailbox_connect ?? "메일 연결"}</button>
         </div></td>
         <td class="muted" title="${esc(a.mailbox_last_error || "")}">${esc(mailboxStatus)}<div class="mini">${esc(mailboxAt)}</div></td>
       </tr>`;
@@ -691,7 +691,7 @@ async function openAdminPanel() {
       }
     }));
     ov.querySelectorAll(".mb-connect").forEach((b) => b.addEventListener("click", () =>
-      openMailConnect({ id: b.dataset.id, username: b.dataset.user, email: b.dataset.email }, renderList)));
+      openMailConnect({ id: b.dataset.id, username: b.dataset.user, email: b.dataset.email, provider: b.dataset.provider }, renderList)));
   };
   ov.querySelector("#acAdd").addEventListener("click", async () => {
     errBox.textContent = "";
@@ -712,48 +712,55 @@ async function openAdminPanel() {
 // 메일 연결: 계정에 이메일+비밀번호+호스트 입력 → 서버가 env 파일에 기록(DB 아님). 수신은 별도 수집기.
 function openMailConnect(acct, onDone) {
   const L = state.lex;
+  const configured = acct.provider && acct.provider !== "none"; // 이미 메일 연결됨?(덮어쓰기 안내용)
   const ov = document.createElement("div");
   ov.className = "ui-confirm-overlay";
   ov.innerHTML = `<div class="ui-confirm" role="dialog" aria-label="${esc(L.mailbox_connect_title ?? "메일 연결")}" style="text-align:left">
     <p class="ui-confirm-msg">${esc(L.mailbox_connect_title ?? "메일 연결")} · ${esc(acct.username || "")}</p>
+    ${configured ? `<div class="triage-note">${esc(L.mailbox_overwrite_note ?? "이미 메일이 연결돼 있습니다 — 저장하면 기존 설정을 덮어씁니다.")}</div>` : ""}
     <input id="mcHost" class="login-input" value="pop3s.hiworks.com" placeholder="${esc(L.mailbox_host ?? "POP3 호스트")}" autocomplete="off" />
     <input id="mcUser" class="login-input" value="${esc(acct.email || "")}" placeholder="${esc(L.acct_email ?? "이메일")}" autocomplete="off" />
     <input id="mcPw" class="login-input" type="password" placeholder="${esc(L.acct_pw ?? L.login_pw ?? "비밀번호")}" autocomplete="new-password" />
     <div class="dim mini" style="margin:4px 0 6px">${esc(L.mailbox_connect_hint ?? "")}</div>
-    <div class="login-err danger-text" style="min-height:1em"></div>
-    <div class="ui-confirm-btns"><button class="ui-confirm-cancel">${L.btn_cancel}</button><button class="ui-confirm-ok">${esc(L.mailbox_connect_save ?? "연결 저장")}</button></div>
+    <div class="login-err" style="min-height:1.2em"></div>
+    <div class="ui-confirm-btns">
+      <button class="ui-confirm-cancel">${L.btn_cancel}</button>
+      <button class="mc-test fav-chip" ${configured ? "" : "disabled"}>${esc(L.mailbox_test_btn ?? "연결 테스트")}</button>
+      <button class="ui-confirm-ok">${esc(L.mailbox_connect_save ?? "연결 저장")}</button>
+    </div>
   </div>`;
   document.body.appendChild(ov);
   const close = () => ov.remove();
   ov.addEventListener("click", (e) => { if (e.target === ov) close(); });
   ov.querySelector(".ui-confirm-cancel").addEventListener("click", close);
   const errBox = ov.querySelector(".login-err");
+  const testBtn = ov.querySelector(".mc-test");
+  const runTest = async () => {
+    errBox.style.color = "var(--muted)"; errBox.textContent = L.mailbox_testing ?? "연결 테스트 중…"; testBtn.disabled = true;
+    const t = await post("/api/accounts/mailbox/test", { id: acct.id }).then((x) => x.json()).catch(() => null);
+    testBtn.disabled = false;
+    if (t && t.ok) { errBox.style.color = "var(--ok)"; errBox.textContent = `${L.mailbox_test_ok ?? "✅ 연결 성공"}${t.fetched ? ` (${t.fetched})` : ""}`; }
+    else { errBox.style.color = "var(--danger)"; const code = t?.error || ""; errBox.textContent = `${L.mailbox_test_fail ?? "❌ 연결 실패"}${code ? `: ${code === "auth_failed" ? "아이디/비번/POP3설정 확인" : code}` : ""}`; }
+  };
+  testBtn.addEventListener("click", runTest);
   ov.querySelector(".ui-confirm-ok").addEventListener("click", async () => {
-    errBox.textContent = "";
+    errBox.style.color = ""; errBox.textContent = "";
     const host = ov.querySelector("#mcHost").value.trim();
     const username = ov.querySelector("#mcUser").value.trim();
     const password = ov.querySelector("#mcPw").value;
-    if (!host || !username || !password) { errBox.textContent = L.mailbox_connect_incomplete ?? "호스트·이메일·비밀번호를 모두 입력하세요"; return; }
+    if (!host || !username || !password) { errBox.style.color = "var(--danger)"; errBox.textContent = L.mailbox_connect_incomplete ?? "호스트·이메일·비밀번호를 모두 입력하세요"; return; }
     const r = await post("/api/accounts/mailbox/credentials", { id: acct.id, provider: "hiworks", host, username, password })
       .then((x) => x.json()).catch(() => null);
     if (r && r.ok) {
       toast(L.mailbox_connect_done ?? "저장됨");
       onDone?.(); // 목록 갱신(provider/env 반영)
-      errBox.style.color = "var(--muted)"; errBox.textContent = L.mailbox_testing ?? "저장됨 · 연결 테스트 중…";
-      const t = await post("/api/accounts/mailbox/test", { id: acct.id }).then((x) => x.json()).catch(() => null);
-      if (t && t.ok) {
-        errBox.style.color = "var(--ok)";
-        errBox.textContent = `${L.mailbox_test_ok ?? "✅ 연결 성공"}${t.fetched ? ` (${t.fetched})` : ""}`;
-        setTimeout(close, 1600);
-      } else {
-        errBox.style.color = "var(--danger)";
-        const code = t?.error || "";
-        errBox.textContent = `${L.mailbox_test_fail ?? "❌ 연결 실패"}${code ? `: ${code === "auth_failed" ? "아이디/비번/POP3설정 확인" : code}` : ""}`;
-        // 실패 시 모달 열어둠 — 비번 고쳐 다시 저장 가능
-      }
+      errBox.style.color = "var(--ok)";
+      errBox.textContent = `${L.mailbox_saved ?? "✅ 저장되었습니다"} — ${L.mailbox_test_prompt ?? "연결을 테스트할까요?"}`;
+      testBtn.disabled = false; testBtn.focus(); // "연결 테스트" 버튼으로 안내(자동 아님, 눌러서 테스트)
+    } else {
+      errBox.style.color = "var(--danger)";
+      errBox.textContent = r?.error === "mailbox_credentials_incomplete" ? (L.mailbox_connect_incomplete ?? "입력 누락") : (r?.error || L.login_fail);
     }
-    else errBox.textContent = r?.error === "mailbox_credentials_incomplete" ? (L.mailbox_connect_incomplete ?? "입력 누락")
-      : (r?.error || L.login_fail);
   });
 }
 
