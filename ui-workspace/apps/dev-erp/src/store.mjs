@@ -1077,6 +1077,12 @@ export class Store {
     const statusVal = inbound && !(hasAnchor && work_type) ? "unclassified" : (statusIn ?? (isNew ? "open" : ""));
     const createdVal = (row.created_at && String(row.created_at).trim()) || (isNew ? new Date().toISOString() : null);
     const originMailRef = mailRefOnly(row.origin_mail_id || row.source_mail_ref);
+    // 분해 부모참조 검증(createItem 과 동일): 존재·동일 프로젝트·1단계만. 손편집 CSV의 무효 부모는 조용히 드롭(work_type/link_kind 패턴).
+    let parentRef = null;
+    if (row.parent_item_id) {
+      const p = this.db.prepare("SELECT project_id, parent_item_id FROM core_item WHERE id=?").get(row.parent_item_id);
+      if (p && p.project_id === code && !p.parent_item_id) parentRef = row.parent_item_id;
+    }
     const automation = Store.normalizeTaskAutomation({ ...row, source_mail_ref: row.source_mail_ref || originMailRef }, { status: statusVal });
     // 멱등 보존(자매 upsertProject/Person 패턴): 빈 컬럼은 기존값 유지(COALESCE) — 손편집 부분행이 ERP 입력을 안 지움.
     // owner 가 ERP 에서 직접 바꾼 마감(due_overridden=1)은 stale 장부 재-ingest 가 되돌리지 못함(CASE).
@@ -1130,7 +1136,7 @@ export class Store {
       .run(
         id, code, title, originVal, row.urgency || "normal", row.assignee_ref || null, statusVal, due,
         originMailRef, row.created_by || "task_ledger", work_type, link_kind, relOnly(row.link_ref),
-        row.completion_criteria || null, row.anchor_stage_code || null, row.parent_item_id || null, row.party_ref || null, createdVal,
+        row.completion_criteria || null, row.anchor_stage_code || null, parentRef, row.party_ref || null, createdVal,
         automation.review_status, automation.review_reason, automation.correction_reason,
         automation.route_candidate, automation.route_confidence, automation.route_reason,
         automation.required_role, automation.required_capability, automation.suggested_assignee_ref,

@@ -16,7 +16,7 @@ export function loadPartyMonsterTypes(root) {
     const m = y.match(/preferred_monster_types:\s*([\s\S]*?)(?:\n[A-Za-z0-9_-]+:|\nmember_slots|\nallowed_|\nappserver|\nnotes|$)/);
     if (!m) continue;
     for (const line of m[1].split(/\r?\n/)) {
-      const mm = line.match(/^\s*-\s*([A-Za-z0-9_]+)\s*$/);
+      const mm = line.match(/^\s*-\s*([A-Za-z0-9_-]+)\s*$/); // 블록경계 regex(16줄)와 동일하게 하이픈 허용
       if (mm && !(mm[1] in typeToParty)) typeToParty[mm[1]] = d; // 첫 선언 파티 우선
     }
   }

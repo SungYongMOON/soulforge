@@ -386,6 +386,20 @@ test("분해 autosync: ingestTaskItem 이 parent_item_id·party_ref 보존(INSER
   assert.match(autosyncSrc, /parent_item_id: obj\.parent_item_id/); // stableTaskHash 포함
 });
 
+test("분해 버그수정 4R: ingest 무효부모 드롭 + 제출버튼 가드 + party 줄-regex 하이픈", () => {
+  const store = freshStore();
+  loadFixture(store);
+  store.ingestTaskItem({ id: "itm_p2", project_code: "P26-014", title: "부모2", origin: "manual" });
+  store.ingestTaskItem({ id: "itm_bad", project_code: "P26-014", title: "나쁜자식", origin: "manual", parent_item_id: "nonexistent" });
+  assert.equal(store.itemById("itm_bad").parent_item_id, null);     // 무효 부모(존재X) 조용히 드롭
+  store.ingestTaskItem({ id: "itm_good", project_code: "P26-014", title: "좋은자식", origin: "manual", parent_item_id: "itm_p2" });
+  assert.equal(store.itemById("itm_good").parent_item_id, "itm_p2"); // 유효 부모 유지
+  const app = readFileSync(join(APP_DIR, "static", "app.js"), "utf8");
+  const pm = readFileSync(join(APP_DIR, "src", "party_match.mjs"), "utf8");
+  assert.match(app, /okBtn\.disabled = true/);                      // 만들기 중복 제출 방지
+  assert.ok((pm.match(/\[A-Za-z0-9_-\]/g) || []).length >= 2, "블록+줄 regex 모두 하이픈 허용");
+});
+
 test("codex bridge: task metadata is hidden from visible user prompts", () => {
   const item = { id: "itm_1", project_id: "P26-001", title: "자료 검토", status: "open", due: "2026-06-30" };
   assert.equal(buildTaskThreadTitle(item), "[P26-001] 자료 검토");

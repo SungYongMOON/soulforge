@@ -809,9 +809,12 @@ function openSplitModal(itemId, projectId, parentTitle, onDone) {
     aiRes.style.color = "var(--ok)";
     aiRes.textContent = `${L.split_ai_suggested ?? "AI 제안"} ${r.sub_tasks.length}${parties.length ? ` · ${parties.join(", ")}` : ""}`;
   });
-  ov.querySelector(".ui-confirm-ok").addEventListener("click", async () => {
+  const okBtn = ov.querySelector(".ui-confirm-ok");
+  okBtn.addEventListener("click", async () => {
+    if (okBtn.disabled) return;
     const lines = ta.value.split("\n").map((s) => s.trim()).filter(Boolean);
     if (!lines.length) { errBox.style.color = "var(--danger)"; errBox.textContent = L.split_empty ?? "세부할일을 한 줄 이상 적으세요"; return; }
+    okBtn.disabled = true; // 더블클릭→중복 자식 생성 방지(성공 시 close, 실패 시 아래서 재활성)
     errBox.style.color = "var(--muted)"; errBox.textContent = "…";
     let ok = 0; const failed = [];
     for (const title of lines) {
@@ -823,6 +826,7 @@ function openSplitModal(itemId, projectId, parentTitle, onDone) {
     if (failed.length) { // 부분 실패를 조용히 넘기지 않음 — 실패 목록 보이고 모달 유지
       errBox.style.color = "var(--danger)";
       errBox.textContent = `${ok}${L.split_done ?? "개 생성"} · ${failed.length}${L.split_failed ?? "개 실패"}: ${failed.map((f) => f.title).join(", ")}`;
+      okBtn.disabled = false; // 실패분 재시도 허용
       onDone?.(); // 성공분은 반영
       return;
     }
