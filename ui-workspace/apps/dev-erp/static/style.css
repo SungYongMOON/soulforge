@@ -415,6 +415,9 @@ nav button:hover .pin-btn { opacity: 1; }
 #noteText { display: block; width: 100%; height: 260px; border: 0; padding: 12px 14px; background: var(--panel); color: var(--text);
   font-size: 13.5px; line-height: 1.6; resize: vertical; outline: none; font-family: inherit; box-sizing: border-box; }
 .fav-chip.active { color: var(--accent); border-color: var(--accent); }
+/* 보기 대상 이름 로스터: 인원 이름 클릭으로 그 사람 메일/할일만. 선택된 이름은 채움 강조. */
+.view-roster { display: inline-flex; gap: 4px; flex-wrap: wrap; vertical-align: middle; }
+.view-name-chip.on { background: var(--accent); color: #fff; border-color: var(--accent); font-weight: 600; }
 .palette-backdrop { position: fixed; inset: 0; background: rgba(10,12,18,.45); display: flex; justify-content: center; align-items: flex-start; padding-top: 12vh; z-index: 50; }
 .palette { width: 520px; max-width: 92vw; background: var(--panel); border: 1px solid var(--line); border-radius: 14px; overflow: hidden; box-shadow: 0 18px 50px rgba(0,0,0,.35); }
 .palette input { width: 100%; border: 0; border-bottom: 1px solid var(--line); background: var(--panel); color: var(--text); padding: 14px 16px; font-size: 15px; outline: none; }

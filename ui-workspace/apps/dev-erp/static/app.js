@@ -192,6 +192,20 @@ function viewSelectHtml(L) {
   return `<select id="fView" class="view-scope" title="${esc(L.view_scope ?? "보기 대상")}">${opts}</select>`;
 }
 function wireViewSelect() { $("#fView")?.addEventListener("change", (e) => { state.viewScope = e.target.value; resetItemPaging(); resetMailPaging(); render(); }); }
+// 이름 클릭 로스터: 같은 메일함/할일 화면에서 인원 이름을 눌러 그 사람 것만 보기(드롭다운 대체, 같은 state.viewScope 사용).
+function viewRosterHtml(L) {
+  if (!showViewScope()) return "";
+  const chips = state._scopes.map((s) =>
+    `<button type="button" class="fav-chip view-name-chip${state.viewScope === s.id ? " on" : ""}" data-scope="${esc(s.id)}" title="${esc(s.email || s.label)}">${esc(s.label)}</button>`
+  ).join("");
+  return `<span class="view-roster" title="${esc(L.view_scope ?? "보기 대상")}">${chips}</span>`;
+}
+function wireViewRoster() {
+  document.querySelectorAll(".view-name-chip").forEach((b) => b.addEventListener("click", () => {
+    if (state.viewScope === b.dataset.scope) return;
+    state.viewScope = b.dataset.scope; resetItemPaging(); resetMailPaging(); render();
+  }));
+}
 // 현재 보기 스코프를 쿼리에 적용(team/미지정=전체). items·mail 공용.
 function applyViewScope(params) {
   if (showViewScope() && state.viewScope && state.viewScope !== "team") params.set("view", state.viewScope);
@@ -3800,7 +3814,7 @@ async function renderItems() {
 	  $("#view").innerHTML = `
     <div class="filters">
       <select id="fProject"><option value="">${L.project}: ${L.all_label}</option>${opts}</select>
-      ${useView ? `<label class="view-scope-lab">${L.view_scope ?? "보기 대상"} ${viewSelectHtml(L)}</label>`
+      ${useView ? `<label class="view-scope-lab">${L.view_scope ?? "보기 대상"} ${viewRosterHtml(L)}</label>`
         : (state.account ? `<button id="mineToggle" class="fav-chip ${mine ? "on" : ""}" title="${L.mine_hint ?? ""}">${mine ? L.mine_only : L.mine_all}</button>` : "")}
     </div>
     <div class="status-chips">${chipsHtml}</div>
@@ -3817,7 +3831,7 @@ async function renderItems() {
 	    ${isTriage ? triageBody : (rows ? `<table><thead><tr><th>${L.item}</th><th>${L.project}</th><th>${L.th_status}</th><th>${L.th_due}</th><th>${L.th_assignee}</th><th>${L.tab_guide}</th><th>${L.th_actions}</th></tr></thead><tbody>${rows}</tbody></table>` : `<div class="empty">${L.empty_items}</div>`)}
 	    ${itemPager}`;
 	  $("#fProject").addEventListener("change", (e) => { state.projectFilter = e.target.value; resetItemPaging(); render(); });
-  wireViewSelect();
+  wireViewRoster();
 	  $("#mineToggle")?.addEventListener("click", () => {
 	    state.mineOnly = !state.mineOnly;
 	    localStorage.setItem("dev_erp_mine", state.mineOnly ? "1" : "0");
@@ -4020,7 +4034,7 @@ async function renderMail() {
       <option value="thread" ${f.groupBy === "thread" ? "selected" : ""}>${L.mail_group_thread}</option>
     </select>
     <input id="mSearch" type="search" placeholder="${L.search_placeholder}" value="${esc(f.q)}" />
-    ${showViewScope() ? `<label class="view-scope-lab">${L.view_scope ?? "보기 대상"} ${viewSelectHtml(L)}</label>` : ""}
+    ${showViewScope() ? `<label class="view-scope-lab">${L.view_scope ?? "보기 대상"} ${viewRosterHtml(L)}</label>` : ""}
   </div>`;
 
   const todayKey = new Date().toISOString().slice(0, 10);
@@ -4190,7 +4204,7 @@ async function renderMail() {
 	  $("#mDir").addEventListener("change", (e) => { f.direction = e.target.value; resetMailPaging(); render(); });
 	  $("#mGroup")?.addEventListener("change", (e) => { f.groupBy = e.target.value; render(); });
 	  $("#mSearch").addEventListener("keydown", (e) => { if (e.key === "Enter") { f.q = e.target.value; resetMailPaging(); render(); } });
-	  wireViewSelect();
+	  wireViewRoster();
 	  $("#view").querySelector("[data-clear]")?.addEventListener("click", () => { state.projectFilter = ""; resetMailPaging(); render(); });
   $("#newLabelBtn").addEventListener("click", async () => {
     const name = $("#newLabelName").value.trim();
