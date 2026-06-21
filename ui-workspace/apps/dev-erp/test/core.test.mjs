@@ -225,6 +225,47 @@ test("store: item lists expose Codex task reply metadata without message text", 
   assert.equal("codex_last_message_text" in row, false);
 });
 
+test("분해 S1: 부모-자식 생성·검증 + 자식 done/total 진행률 rollup", () => {
+  const store = freshStore();
+  loadFixture(store);
+  const parent = store.createItem({ project_id: "PRJ-A", title: "부모 할일", created_by: "t" }).item;
+  const c1 = store.createItem({ project_id: "PRJ-A", title: "자식1", parent_item_id: parent.id, created_by: "t" });
+  const c2 = store.createItem({ project_id: "PRJ-A", title: "자식2", parent_item_id: parent.id, created_by: "t" });
+  assert.equal(c1.item.parent_item_id, parent.id);
+  assert.equal(c2.item.parent_item_id, parent.id);
+  // childItems: 부모의 자식 2개
+  assert.equal(store.childItems(parent.id).length, 2);
+  // rollup: 처음 0/2
+  let prow = store.items({ project: "PRJ-A" }).find((r) => r.id === parent.id);
+  assert.equal(prow.child_total, 2);
+  assert.equal(prow.child_done, 0);
+  // 자식1 완료 → 1/2
+  store.setItemStatus(c1.item.id, "done");
+  prow = store.itemsPage({ project: "PRJ-A", limit: 500 }).rows.find((r) => r.id === parent.id);
+  assert.equal(prow.child_total, 2);
+  assert.equal(prow.child_done, 1);
+  // 자식엔 자식 없음(0/0)
+  const crow = store.items({ project: "PRJ-A" }).find((r) => r.id === c2.item.id);
+  assert.equal(crow.child_total, 0);
+  // 검증: 없는 부모 / 1단계 초과(자식의 자식) / 다른 프로젝트
+  assert.equal(store.createItem({ project_id: "PRJ-A", title: "x", parent_item_id: "nope" }).error, "parent_not_found");
+  assert.equal(store.createItem({ project_id: "PRJ-A", title: "손주", parent_item_id: c1.item.id }).error, "parent_is_child");
+  assert.equal(store.createItem({ project_id: "PRJ-B", title: "y", parent_item_id: parent.id }).error, "parent_project_mismatch");
+});
+
+test("분해 S2: 수동 나누기 버튼·모달·와이어링 + 자식 들여쓰기 렌더", () => {
+  const app = readFileSync(join(APP_DIR, "static", "app.js"), "utf8");
+  const css = readFileSync(join(APP_DIR, "static", "style.css"), "utf8");
+  assert.match(app, /function openSplitModal/);                         // 분해 모달
+  assert.match(app, /data-split="\$\{esc\(i\.id\)\}"/);                 // 나누기 버튼
+  assert.match(app, /i\.parent_item_id \? "" :/);                       // 자식엔 버튼 미표시(1단계)
+  assert.match(app, /\.split\[data-split\]/);                           // wireItemEdit 와이어링
+  assert.match(app, /parent_item_id: itemId/);                          // 자식 생성 시 부모 연결
+  assert.match(app, /tr class="\$\{i\.parent_item_id \? "item-child" : ""\}"/); // 자식 행 클래스
+  assert.match(app, /child-prog/);                                      // 부모 진행률 배지
+  assert.match(css, /tr\.item-child/);                                  // 들여쓰기 스타일
+});
+
 test("codex bridge: task metadata is hidden from visible user prompts", () => {
   const item = { id: "itm_1", project_id: "P26-001", title: "자료 검토", status: "open", due: "2026-06-30" };
   assert.equal(buildTaskThreadTitle(item), "[P26-001] 자료 검토");

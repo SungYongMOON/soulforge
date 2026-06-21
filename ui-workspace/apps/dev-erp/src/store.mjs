@@ -101,6 +101,7 @@ CREATE TABLE IF NOT EXISTS core_item (   -- 몬스터 = 할일 (동일 행)
   automation_level TEXT NOT NULL DEFAULT 'manual', -- manual|assisted|semi|auto
   assignee_ref TEXT,                          -- core_person.id 또는 unit ref
   party_ref TEXT,
+  parent_item_id TEXT,                        -- 분해: 이 할일의 부모(같은 프로젝트, 1단계만). null=최상위
   status TEXT NOT NULL DEFAULT 'open',        -- open|doing|waiting|blocked|done
   due TEXT,                                   -- YYYY-MM-DD
   result TEXT,
@@ -745,6 +746,8 @@ export function openStore(path = ":memory:") {
     "ALTER TABLE core_item ADD COLUMN sync_revision INTEGER",
     "ALTER TABLE core_item ADD COLUMN sync_hash TEXT",
     "ALTER TABLE core_item ADD COLUMN sync_at TEXT",
+    // 분해(할일 쪼개기): 부모 할일 참조(같은 프로젝트, 1단계만). 자식 done/total 진행률 집계 근거.
+    "ALTER TABLE core_item ADD COLUMN parent_item_id TEXT",
     // P2b 팀: 계정 이메일(메일 인입 mailbox 키) + 실제 가입 이름(화면 표기).
     "ALTER TABLE core_account ADD COLUMN email TEXT",
     "ALTER TABLE core_account ADD COLUMN display_name TEXT",
@@ -1264,7 +1267,7 @@ export class Store {
          ${where} ORDER BY (i.due IS NULL), i.due, i.id LIMIT ? OFFSET ?`
       )
       .all(...args, page.limit, page.offset);
-    return this._withCodexTaskMeta(rows);
+    return this._withChildProgress(this._withCodexTaskMeta(rows));
   }
 
   itemsPage(opts = {}) {
@@ -1278,7 +1281,7 @@ export class Store {
       )
       .all(...args, page.limit, page.offset);
     const total = this.db.prepare(`SELECT COUNT(*) AS n FROM core_item i ${where}`).get(...args).n;
-    return { rows: this._withCodexTaskMeta(rows), total, limit: page.limit, offset: page.offset, has_more: page.offset + rows.length < total };
+    return { rows: this._withChildProgress(this._withCodexTaskMeta(rows)), total, limit: page.limit, offset: page.offset, has_more: page.offset + rows.length < total };
   }
 
   _withCodexTaskMeta(rows) {
@@ -1319,6 +1322,34 @@ export class Store {
         codex_has_error: role === "error" || binding?.sync_state === "error" ? 1 : 0,
       };
     });
+  }
+
+  // 분해 진행률: 각 행에 자식 done/total 부착(부모 행만 의미 있음; 자식 없으면 0/0).
+  _withChildProgress(rows) {
+    if (!Array.isArray(rows) || rows.length === 0) return rows;
+    const ids = [...new Set(rows.map((r) => r?.id).filter(Boolean))];
+    if (!ids.length) return rows;
+    const marks = ids.map(() => "?").join(",");
+    const agg = this.db.prepare(
+      `SELECT parent_item_id AS pid, COUNT(*) AS total, SUM(CASE WHEN status='done' THEN 1 ELSE 0 END) AS done
+       FROM core_item WHERE parent_item_id IN (${marks}) GROUP BY parent_item_id`
+    ).all(...ids);
+    const byParent = new Map(agg.map((a) => [a.pid, a]));
+    return rows.map((r) => {
+      const a = byParent.get(r.id);
+      return { ...r, child_total: a ? a.total : 0, child_done: a ? (a.done ?? 0) : 0 };
+    });
+  }
+
+  // 부모의 자식 할일 목록(필터 무관, due/생성 순). 분해 화면·진행률 상세에서 사용.
+  childItems(parent_item_id) {
+    if (!parent_item_id) return [];
+    const rows = this.db.prepare(
+      `SELECT i.*, ga.name AS guide_artifact_name, ga.stage_code AS guide_stage_code
+       FROM core_item i LEFT JOIN guide_artifact ga ON ga.id = i.guide_artifact_id
+       WHERE i.parent_item_id=? ORDER BY (i.due IS NULL), i.due, i.id`
+    ).all(parent_item_id);
+    return this._withChildProgress(this._withCodexTaskMeta(rows));
   }
 
   itemCounts({ project, assignee_any } = {}) {
@@ -1454,13 +1485,20 @@ export class Store {
   }
 
   createItem({ project_id, title, assignee_ref, due, urgency, guide_artifact_id, guide_step_key, origin_mail_id, origin, created_by,
-    work_type, link_kind, link_ref, completion_criteria, stage_id, anchor_stage_code }) {
+    work_type, link_kind, link_ref, completion_criteria, stage_id, anchor_stage_code, parent_item_id }) {
     const trimmed = String(title ?? "").trim();
     if (!trimmed) return { error: "title_required" };
     if (project_id == null) return { error: "project_required" }; // BE-3: undefined 바인드 500 방지(명확한 400)
     if (!this.db.prepare("SELECT 1 FROM core_project WHERE id=?").get(project_id)) return { error: "project_not_found" };
     if (due && !/^\d{4}-\d{2}-\d{2}$/.test(due)) return { error: "due_format" };
     if (work_type && !Store.WORK_TYPES.includes(work_type)) return { error: "work_type_invalid" };
+    // 분해: 부모 검증 — 존재·동일 프로젝트·1단계만(부모가 또 자식이면 거부, 무한 분해 방지).
+    if (parent_item_id) {
+      const parent = this.db.prepare("SELECT project_id, parent_item_id FROM core_item WHERE id=?").get(parent_item_id);
+      if (!parent) return { error: "parent_not_found" };
+      if (parent.project_id !== project_id) return { error: "parent_project_mismatch" };
+      if (parent.parent_item_id) return { error: "parent_is_child" }; // 1단계 고정
+    }
     if (link_kind && !Store.LINK_KINDS.includes(link_kind)) return { error: "link_kind_invalid" };
     let artifact = null;
     if (guide_artifact_id) {
@@ -1479,8 +1517,8 @@ export class Store {
         .prepare(
           `INSERT INTO core_item(id,project_id,title,origin,urgency,assignee_ref,status,due,
              guide_artifact_id,guide_step_key,origin_mail_id,created_by,
-             work_type,link_kind,link_ref,completion_criteria,stage_id,anchor_stage_code,created_at,data_label)
-           VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,'real')`
+             work_type,link_kind,link_ref,completion_criteria,stage_id,anchor_stage_code,parent_item_id,created_at,data_label)
+           VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,'real')`
         )
         .run(
           id, project_id, trimmed, origin ?? "manual", urgency ?? "normal",
@@ -1488,7 +1526,7 @@ export class Store {
           guide_artifact_id ? Number(guide_artifact_id) : null, guide_step_key ?? null,
           origin_mail_id ?? null, created_by ?? null,
           work_type ?? null, link_kind ?? null, link_ref ?? null, completion_criteria ?? null,
-          stage_id ?? null, anchor_stage_code ?? null, new Date().toISOString()
+          stage_id ?? null, anchor_stage_code ?? null, parent_item_id ?? null, new Date().toISOString()
         );
     } catch (e) {
       // 동시 승격 경합: UNIQUE(origin_mail_id) 백스톱 위반 → 이미 만들어진 할일로 수렴(앱레벨 already_promoted 와 동일 결과).

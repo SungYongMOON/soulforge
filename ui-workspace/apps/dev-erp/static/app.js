@@ -764,6 +764,42 @@ function openMailConnect(acct, onDone) {
   });
 }
 
+// 분해(수동): 부모 할일을 세부할일 여러 개로 나누기 — 한 줄에 하나씩 입력 → 각각 자식으로 생성(parent_item_id).
+function openSplitModal(itemId, projectId, parentTitle, onDone) {
+  const L = state.lex;
+  const ov = document.createElement("div");
+  ov.className = "ui-confirm-overlay";
+  ov.innerHTML = `<div class="ui-confirm" role="dialog" aria-label="${esc(L.split_subtasks ?? "세부할일로 나누기")}" style="text-align:left">
+    <p class="ui-confirm-msg">${esc(L.split_subtasks ?? "세부할일로 나누기")} · ${esc(parentTitle || "")}</p>
+    <div class="dim mini" style="margin:0 0 6px">${esc(L.split_hint ?? "한 줄에 하나씩 세부할일을 적으세요")}</div>
+    <textarea id="splitLines" class="login-input" rows="5" style="width:100%;resize:vertical" placeholder="${esc(L.split_hint ?? "한 줄에 하나씩")}"></textarea>
+    <div class="login-err" style="min-height:1.2em"></div>
+    <div class="ui-confirm-btns">
+      <button class="ui-confirm-cancel">${L.btn_cancel ?? "취소"}</button>
+      <button class="ui-confirm-ok">${esc(L.split_subtasks ?? "만들기")}</button>
+    </div>
+  </div>`;
+  document.body.appendChild(ov);
+  const close = () => ov.remove();
+  ov.addEventListener("click", (e) => { if (e.target === ov) close(); });
+  ov.querySelector(".ui-confirm-cancel").addEventListener("click", close);
+  const errBox = ov.querySelector(".login-err");
+  ov.querySelector("#splitLines").focus();
+  ov.querySelector(".ui-confirm-ok").addEventListener("click", async () => {
+    const lines = ov.querySelector("#splitLines").value.split("\n").map((s) => s.trim()).filter(Boolean);
+    if (!lines.length) { errBox.style.color = "var(--danger)"; errBox.textContent = L.split_empty ?? "세부할일을 한 줄 이상 적으세요"; return; }
+    errBox.style.color = "var(--muted)"; errBox.textContent = "…";
+    let ok = 0;
+    for (const title of lines) {
+      const r = await post("/api/items", { project_id: projectId, title, parent_item_id: itemId });
+      if (r.ok) ok++;
+    }
+    toast(`${ok}${L.split_done ?? "개 세부할일을 만들었습니다"}`, ok ? "ok" : "error");
+    close();
+    onDone?.();
+  });
+}
+
 // 산출물 입력파일 패널: 종류→In 하위폴더 제안 + 등록(포인터·출처·상태) + 목록(상태토글·포인터복사).
 // 원문 미저장: 포인터·메타만. 실제 파일 업/다운로드는 보안 검토 후 별도(여기선 장부 등록).
 async function openDeliverableInputs(deliverableId, name) {
@@ -3777,8 +3813,8 @@ async function renderItems() {
         <button class="fav-chip ie-cancel">${L.act_cancel ?? "취소"}</button>
         <button class="fav-chip ie-del" data-i="${esc(i.id)}">${L.act_delete ?? "삭제"}</button>
       </div></td></tr>`
-    : `<tr>
-	      <td>${esc(i.title)}${i.encounter_role === "boss" ? " 👑" : ""}${codexTaskIndicatorHtml(i)}${itemAutomationHints(i)}${itemSourceTrace(i)}</td>
+    : `<tr class="${i.parent_item_id ? "item-child" : ""}">
+	      <td>${i.parent_item_id ? '<span class="child-twig">↳</span> ' : ""}${esc(i.title)}${i.child_total > 0 ? ` <span class="badge child-prog" title="${esc(L.child_progress ?? "세부할일")}">${i.child_done}/${i.child_total}</span>` : ""}${i.encounter_role === "boss" ? " 👑" : ""}${codexTaskIndicatorHtml(i)}${itemAutomationHints(i)}${itemSourceTrace(i)}</td>
       <td><span class="proj-link" data-hub="${esc(i.project_id)}">${esc(i.project_id)}</span></td>
       <td>${statusBadge(i.status)}</td>
       ${dueCell(i.due, todayKey)}
@@ -3786,7 +3822,7 @@ async function renderItems() {
       <td>${itemLinkCell(i)}</td>
       <td class="acts">${i.status === "archived"
         ? `<button class="act-btn restore-btn" data-restore="${esc(i.id)}">${L.act_restore ?? "복구"}</button>`
-        : `${itemActionsHtml(i)}${codexTaskButtonHtml(i.id, "", itemStarted(i))}<button class="act-btn edit" data-edit="${esc(i.id)}">${L.act_edit ?? "수정"}</button>`}</td>
+        : `${itemActionsHtml(i)}${codexTaskButtonHtml(i.id, "", itemStarted(i))}${i.parent_item_id ? "" : `<button class="act-btn split" data-split="${esc(i.id)}" data-sp-proj="${esc(i.project_id)}" data-sp-title="${esc(i.title)}">${L.split_subtasks ?? "나누기"}</button>`}<button class="act-btn edit" data-edit="${esc(i.id)}">${L.act_edit ?? "수정"}</button>`}</td>
     </tr>`;
   const isTriage = state.statusFilter === "unclassified";
   const isArchived = state.statusFilter === "archived";
@@ -3810,7 +3846,21 @@ async function renderItems() {
       return head + renderItemRow(i);
     }).join("");
   } else {
-    rows = items.map(renderItemRow).join("");
+    // 분해: 부모를 먼저, 그 자식들을 바로 밑에 들여쓰기로. 부모가 이 목록에 없는 자식은 제자리에 평면 표시.
+    const byParent = new Map();
+    for (const i of items) {
+      if (!i.parent_item_id) continue;
+      if (!byParent.has(i.parent_item_id)) byParent.set(i.parent_item_id, []);
+      byParent.get(i.parent_item_id).push(i);
+    }
+    const topIds = new Set(items.filter((i) => !i.parent_item_id).map((i) => i.id));
+    const out = [];
+    for (const i of items) {
+      if (i.parent_item_id && topIds.has(i.parent_item_id)) continue; // 자식은 부모 밑에서 렌더
+      out.push(renderItemRow(i));
+      for (const c of byParent.get(i.id) ?? []) out.push(renderItemRow(c));
+    }
+    rows = out.join("");
   }
   // 분류 카드는 항목의 기존값(메일/LLM 제안·결정적 SE단계)을 pre-fill → 사람은 확인만. (코어 LLM 0%: LLM은 제안, 확정은 사람)
   const optsSel = (labels, sel) => Object.entries(labels).map(([k, v]) => `<option value="${k}" ${k === sel ? "selected" : ""}>${v}</option>`).join("");
@@ -3923,6 +3973,9 @@ async function renderItems() {
 function wireItemEdit(scope) {
   scope.querySelectorAll(".edit[data-edit]").forEach((b) =>
     b.addEventListener("click", (e) => { e.stopPropagation(); state.itemEdit = b.dataset.edit; render(); })
+  );
+  scope.querySelectorAll(".split[data-split]").forEach((b) =>
+    b.addEventListener("click", (e) => { e.stopPropagation(); openSplitModal(b.dataset.split, b.dataset.spProj, b.dataset.spTitle, () => render()); })
   );
   scope.querySelectorAll(".ie-cancel").forEach((b) =>
     b.addEventListener("click", (e) => { e.stopPropagation(); state.itemEdit = null; render(); })
