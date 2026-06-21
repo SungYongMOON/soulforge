@@ -595,7 +595,7 @@ async function openAdminPanel() {
             <button class="fav-chip ac-reset" data-id="${esc(a.id)}">${L.password_reset}</button>
           </div></td>
         <td><div style="display:flex;gap:6px;flex-wrap:wrap;align-items:center">
-          <select class="login-input mb-provider" style="width:92px">${providerOptions(a.mailbox_provider || "none")}</select>
+          <select class="login-input mb-provider" style="width:92px" data-user="${esc(a.username)}">${providerOptions(a.mailbox_provider || "none")}</select>
           <label class="dim mini"><input type="checkbox" class="mb-enabled" ${mailboxEnabled ? "checked" : ""} /> ${mailboxEnabled ? (L.acct_active ?? "활성") : (L.acct_disabled ?? "비활성")}</label>
           <input class="login-input mb-env" style="width:170px" value="${esc(a.mailbox_env_ref || "")}" placeholder="${L["mailbox_env_ref"] ?? "env ref"}" autocomplete="off" />
           <button class="fav-chip mb-save" data-id="${esc(a.id)}">${L.acct_save ?? "저장"}</button>
@@ -650,6 +650,19 @@ async function openAdminPanel() {
           : e === "mailbox_secret_not_allowed" ? (L["mailbox_secret_not_allowed"] ?? "비밀값은 저장할 수 없습니다")
           : e === "mailbox_provider_invalid" ? (L["mailbox_provider_invalid"] ?? "지원하지 않는 메일 provider입니다")
           : (e || L.login_fail);
+      }
+    }));
+    // provider 선택 시 env ref 가 비어 있으면 표준 경로를 제안(손 타이핑 제거). 사용자가 덮어쓸 수 있음.
+    ov.querySelectorAll(".mb-provider").forEach((sel) => sel.addEventListener("change", () => {
+      const tr = sel.closest("tr");
+      const envInput = tr.querySelector(".mb-env");
+      const enabledBox = tr.querySelector(".mb-enabled");
+      if (sel.value !== "none") {
+        if (envInput && !envInput.value.trim()) {
+          const user = String(sel.dataset.user || "mailbox").toLowerCase().replace(/[^a-z0-9_.-]+/g, "_").replace(/^[_.\-]+|[_.\-]+$/g, "") || "mailbox";
+          envInput.value = `guild_hall/state/gateway/mailbox/state/${user}.env`;
+        }
+        if (enabledBox && !enabledBox.checked) enabledBox.checked = true; // provider 고르면 보통 켜려는 의도
       }
     }));
   };
