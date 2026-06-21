@@ -3373,7 +3373,11 @@ test("Codex task UI: home rows show reply state and open task chat", () => {
   assert.match(app, /updateTaskCodexRowBadge\(itemId, "error"\)/);
   assert.match(app, /codex-task-badge/);
   assert.match(app, /codex-task-spin/);
-  assert.match(app, /itemActionsHtml\(i\)\}\$\{codexTaskButtonHtml\(i\.id, "mini"\)\}/);
+  assert.match(app, /itemActionsHtml\(i\)\}\$\{codexTaskButtonHtml\(i\.id, "mini", itemStarted\(i\)\)\}/);
+  assert.match(app, /function itemStarted/); // 시작 전(open/unclassified)엔 대화 잠금
+  assert.match(app, /codex-task-locked/);    // 잠금 버튼 마크업
+  assert.match(app, /codex_chat_locked/);    // 잠금 안내는 사전 경유
+  assert.match(css, /\.codex-task-locked/);  // 잠금 스타일
   assert.match(app, /dataset\.actionBound/);
   assert.match(app, /dataset\.codexBound/);
   assert.match(app, /wireTaskCodexButtons\(\$\("#view"\)\)/);

@@ -1605,7 +1605,11 @@ function updateTaskCodexRowBadge(itemId, badgeState) {
   });
 }
 
-function codexTaskButtonHtml(itemId, extraClass = "") {
+// 시작 전(open/unclassified=미시작)이면 대화 잠금 — 시작이 스레드를 준비하므로 그 전엔 열 게 없음.
+function itemStarted(i) { return !["open", "unclassified"].includes(i?.status); }
+function codexTaskButtonHtml(itemId, extraClass = "", started = true) {
+  if (!started)
+    return `<button class="act-btn codex-task-locked ${extraClass}" disabled title="${esc(state.lex.codex_chat_locked ?? "먼저 '시작'을 누르세요")}">🔒 대화</button>`;
   return `<button class="act-btn codex-task-chat ${extraClass}" data-codex-task="${esc(itemId)}" title="Codex 대화">대화</button>`;
 }
 
@@ -1626,7 +1630,7 @@ function itemMiniRow(i, tail = []) {
   const title = `<span class="mini-title">${esc(i.title)}</span>${codexTaskIndicatorHtml(i)}`;
   const cells = [`<td>${title}</td>`, `<td class="dim">${esc(i.project_id ?? "")}</td>`,
     ...tail.map((c) => `<td class="dim num">${c}</td>`),
-    `<td class="mini-actions">${itemActionsHtml(i)}${codexTaskButtonHtml(i.id, "mini")}</td>`];
+    `<td class="mini-actions">${itemActionsHtml(i)}${codexTaskButtonHtml(i.id, "mini", itemStarted(i))}</td>`];
   return `<tr class="wrow" data-item="${esc(i.id)}" data-proj="${esc(i.project_id ?? "")}" data-title="${esc(i.title)}">${cells.join("")}</tr>`;
 }
 // 활동 이벤트 → 사람이 읽는 변경 설명(한국어). 변경 아닌 잡음(view/LLM/조회)은 호출부에서 제외.
@@ -3782,7 +3786,7 @@ async function renderItems() {
       <td>${itemLinkCell(i)}</td>
       <td class="acts">${i.status === "archived"
         ? `<button class="act-btn restore-btn" data-restore="${esc(i.id)}">${L.act_restore ?? "복구"}</button>`
-        : `${itemActionsHtml(i)}${codexTaskButtonHtml(i.id)}<button class="act-btn edit" data-edit="${esc(i.id)}">${L.act_edit ?? "수정"}</button>`}</td>
+        : `${itemActionsHtml(i)}${codexTaskButtonHtml(i.id, "", itemStarted(i))}<button class="act-btn edit" data-edit="${esc(i.id)}">${L.act_edit ?? "수정"}</button>`}</td>
     </tr>`;
   const isTriage = state.statusFilter === "unclassified";
   const isArchived = state.statusFilter === "archived";

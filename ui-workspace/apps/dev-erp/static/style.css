@@ -610,6 +610,7 @@ td.dim { color: var(--line); }
 .item-form #niTitle { flex: 1; min-width: 180px; }
 .act-btn { border: 1px solid var(--line); background: var(--chip); color: var(--text); border-radius: 6px; padding: 3px 9px; font-size: 12px; cursor: pointer; margin-right: 4px; white-space: nowrap; }
 .act-btn.done { color: var(--ok); } .act-btn.blocked { color: var(--danger); }
+.act-btn.codex-task-locked { opacity: .45; cursor: not-allowed; } /* 시작 전 대화 잠금 */
 .act-btn.doing, .act-btn.open { color: var(--accent); }
 .act-btn.edit { color: var(--muted); }
 .act-btn:hover { border-color: currentColor; }
