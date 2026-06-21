@@ -108,7 +108,7 @@ const SKIN_ROOTS = [...new Set([
 ].filter(Boolean).map((p) => resolve(p)))];
 const ERP_VERSION = Object.freeze({
   release: "v1.1.0",
-  build: "ui-2026.06.21-decompose.16",
+  build: "ui-2026.06.21-decompose.17",
   source: "server.mjs"
 });
 

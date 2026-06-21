@@ -400,6 +400,14 @@ test("분해 버그수정 4R: ingest 무효부모 드롭 + 제출버튼 가드 +
   assert.ok((pm.match(/\[A-Za-z0-9_-\]/g) || []).length >= 2, "블록+줄 regex 모두 하이픈 허용");
 });
 
+test("분해 버그수정 5R: suggestSplit monster_type 허용목록 필터 + escClose ov부착(누수방지)", () => {
+  const app = readFileSync(join(APP_DIR, "static", "app.js"), "utf8");
+  const llmSrc = readFileSync(join(APP_DIR, "src", "llm.mjs"), "utf8");
+  assert.match(llmSrc, /monsterTypes\.includes\(s\.monster_type\)/);  // LLM 할루시네이션 타입 제외
+  assert.match(app, /ov\.addEventListener\("keydown", escClose\)/);   // document 아닌 ov에 부착(GC)
+  assert.doesNotMatch(app, /document\.addEventListener\("keydown", escClose\)/); // 누수 패턴 제거 확인
+});
+
 test("codex bridge: task metadata is hidden from visible user prompts", () => {
   const item = { id: "itm_1", project_id: "P26-001", title: "자료 검토", status: "open", due: "2026-06-30" };
   assert.equal(buildTaskThreadTitle(item), "[P26-001] 자료 검토");

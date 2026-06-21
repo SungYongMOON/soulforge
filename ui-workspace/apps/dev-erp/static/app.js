@@ -785,9 +785,10 @@ function openSplitModal(itemId, projectId, parentTitle, onDone) {
     </div>
   </div>`;
   document.body.appendChild(ov);
-  const close = () => { document.removeEventListener("keydown", escClose); ov.remove(); };
+  const close = () => ov.remove(); // escClose는 ov에 달려 ov 제거 시 자동 GC(누수 방지)
   const escClose = (e) => { if (e.key === "Escape") close(); }; // Esc로 닫기(다른 모달과 일관)
-  document.addEventListener("keydown", escClose);
+  ov.addEventListener("keydown", escClose);
+  ov.tabIndex = -1; // ov가 keydown 받도록(자식 textarea 포커스에서 버블 + ov 자체 포커스 가능)
   ov.addEventListener("click", (e) => { if (e.target === ov) close(); });
   ov.querySelector(".ui-confirm-cancel").addEventListener("click", close);
   const errBox = ov.querySelector(".login-err");

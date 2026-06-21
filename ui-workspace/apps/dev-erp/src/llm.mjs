@@ -336,7 +336,7 @@ export async function suggestSplit(item = {}, monsterTypes = [], { provider = "s
       sub_tasks: subs.slice(0, 8).map((s) => ({
         title: String(s?.title ?? "").trim().slice(0, 200),
         monster_type: String(s?.monster_type ?? "").trim(),
-      })).filter((s) => s.title),
+      })).filter((s) => s.title && monsterTypes.includes(s.monster_type)), // LLM 할루시네이션 타입은 제외(허용목록 검증)
       model: runtime.model,
     };
   } catch (e) {
