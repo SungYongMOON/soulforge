@@ -1,0 +1,18 @@
+﻿workflow_id: drag_coefficient_cfd_result_package_v0
+kind: role_slots
+status: active
+slots:
+  - slot_id: package_scope_binder
+    role: Bind project-local case scope and output authority.
+  - slot_id: cfd_evidence_auditor
+    role: Check required CFD evidence and preserve source traceability.
+  - slot_id: result_reducer
+    role: Reduce private evidence into package tables and summaries.
+  - slot_id: report_visual_renderer
+    role: Produce or collect report-ready top and side visuals.
+  - slot_id: visual_quality_reviewer
+    role: Review visual completeness, labels, framing, and direction cues.
+  - slot_id: package_assembler
+    role: Assemble the result package and archive in the project worksite.
+  - slot_id: boundary_handoff_reviewer
+    role: Close public/private boundary, claim ceiling, validation, and handoff.

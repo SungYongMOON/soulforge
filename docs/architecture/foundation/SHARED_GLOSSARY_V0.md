@@ -16,11 +16,12 @@
 
 | 용어 | 함께 쓰는 표기 | 뜻 | 주의 |
 | --- | --- | --- | --- |
-| 개발 후보 | `development candidate`, `candidate` | 구현할 만한 가능성이 보이지만 아직 실행 조건, owner, 입력, 출력, 검증이 모두 닫히지 않은 항목 | 후보는 승인, 실행, 정본 등록과 다르다. |
+| 개발 후보 | `development candidate`, `candidate` | 구현할 만한 가능성이 보이지만 아직 실행 조건, owner, 입력, 출력, 검증이 모두 닫히지 않은 항목 | 후보는 승인, 실행, 정본 등록과 다르다. 별도 후보 장부에 흩어두지 않고 개발 작업 장부에 `status: proposed` 로 둔다. |
 | 승인 | `approval`, `approved` | owner 또는 owner 가 위임한 정책이 특정 bounded action 을 진행해도 된다고 정한 상태 | 승인은 성공, 검증 통과, merge, canon entry 를 자동으로 뜻하지 않는다. |
-| 실행 대기열 | `execution queue`, `dev-worker queue` | worker 가 바로 claim 해서 작업할 수 있는 task packet 묶음 | candidate queue 와 구분한다. 실행 대기열 항목은 allowed write scope 와 acceptance checks 가 있어야 한다. |
-| dev-worker queue | `_workmeta/<project_code>/dev_worker_queue/*.yaml`, public-safe `.mission/**/dev_worker_request.yaml` | bounded dev worker 가 task packet 을 읽고 branch/report 를 만드는 lane | dev worker 는 reviewable branch/report 까지 만들며 auto-merge 나 main 직접 push 권한을 갖지 않는다. |
-| dev-worker candidate queue | `_workmeta/<project_code>/dev_worker_candidate_queue/*.yaml` | agent 또는 owner 가 발견했지만 아직 실행 대기열로 올리지 않은 개발 후보 저장소 | owner approval 또는 추적된 low-risk auto-approval 정책 없이는 실행 대상으로 보지 않는다. |
+| 개발 작업 장부 | `development work ledger`, `dev-worker queue` | 제안, 승인, 대기, 진행, 완료, 보류된 개발 작업 packet 을 한곳에 모으는 장부. 기본 위치는 `_workmeta/<project_code>/dev_worker_queue/*.yaml` 이며 system 공통 작업은 `_workmeta/system/dev_worker_queue/*.yaml` 에 둔다. | 후보/실행을 폴더 두 개로 나누지 않는다. 준비도는 `status` 값으로 구분한다. |
+| 실행 대기열 | `execution queue`, `queued work` | 개발 작업 장부 안에서 owner, 입력, 출력, 경계, 완료 기준, validator 가 닫혀 `approved` 또는 `queued` 상태가 된 항목 | 별도 장부 이름이 아니다. 실행 대기 항목은 allowed write scope 와 acceptance checks 가 있어야 한다. |
+| dev-worker queue | `_workmeta/<project_code>/dev_worker_queue/*.yaml`, public-safe `.mission/**/dev_worker_request.yaml` | bounded dev worker 가 task packet 을 읽고 branch/report 를 만드는 lane 이자 개발 작업 장부의 canonical storage | dev worker 는 reviewable branch/report 까지 만들며 auto-merge 나 main 직접 push 권한을 갖지 않는다. |
+| dev-worker candidate queue | legacy `_workmeta/<project_code>/dev_worker_candidate_queue/*.yaml` | 과거에 개발 후보를 따로 두던 legacy path | 새 항목을 넣지 않는다. 기존 항목은 내용 보존과 reader 호환성을 확인한 뒤 `dev_worker_queue` 로 이관한다. |
 | 시작 | `start`, `claim`, `in progress` | worker 가 특정 task packet 을 잡고 allowed scope 안에서 실행을 시작한 상태 | 시작은 결과 보장이나 승인 변경이 아니다. |
 | 완료 | `done`, `completed` | 요청된 산출물, 문서 동기화, 검증 기록, closeout 보고가 끝난 상태 | merge, 배포, 정본 승격, owner acceptance 는 별도일 수 있다. |
 | 보류 | `hold`, `blocked` | source gap, owner decision, validator failure, private/public boundary, secret/raw 요구 때문에 안전하게 진행할 수 없는 상태 | 보류는 실패 낙인이 아니라 다음 필요한 결정을 드러내는 상태다. |
@@ -73,9 +74,9 @@ Soulforge 화면과 문서에 나오는 게임식 이름을 일반 업무 용어
 
 ```text
 아이디어
-  -> 개발 후보
+  -> 개발 작업 장부(status: proposed)
   -> 승인
-  -> 실행 대기열
+  -> 실행 대기열(status: approved/queued)
   -> 시작
   -> 완료 또는 보류
   -> review

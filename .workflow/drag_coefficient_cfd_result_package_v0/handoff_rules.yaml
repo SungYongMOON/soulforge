@@ -1,0 +1,28 @@
+﻿workflow_id: drag_coefficient_cfd_result_package_v0
+kind: handoff_rules
+status: active
+rules:
+  - from: package_scope_binder
+    to: cfd_evidence_auditor
+    condition: case_scope_packet_written
+    summary: Evidence audit receives project code, case ids, source refs, and output policy without raw payload copies.
+  - from: cfd_evidence_auditor
+    to: result_reducer
+    condition: cfd_evidence_audit_written
+    summary: Reduction proceeds only after required input gaps are named.
+  - from: result_reducer
+    to: report_visual_renderer
+    condition: reduced_tables_written
+    summary: Visual rendering receives reduced table refs and final case list.
+  - from: report_visual_renderer
+    to: visual_quality_reviewer
+    condition: visual_gallery_written
+    summary: Review receives figure refs and expected visual criteria.
+  - from: visual_quality_reviewer
+    to: package_assembler
+    condition: visual_quality_review_written
+    summary: Assembly proceeds only after accepted visuals or explicit figure gaps are recorded.
+  - from: package_assembler
+    to: boundary_handoff_reviewer
+    condition: result_package_manifest_written
+    summary: Closeout receives manifest, archive ref, handoff ref, validation results, and known gaps.

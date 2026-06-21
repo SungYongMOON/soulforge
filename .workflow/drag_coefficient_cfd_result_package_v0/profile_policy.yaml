@@ -1,0 +1,15 @@
+﻿workflow_id: drag_coefficient_cfd_result_package_v0
+kind: workflow_profile_policy
+status: active
+selection_policy:
+  default_profile: balanced_auditor
+  reason: Packaging requires boundary review and source traceability more than broad creative generation.
+rerun_triggers:
+  - output contract template changes
+  - visual quality criteria changes
+  - CFD evidence sufficiency criteria changes
+  - public/private boundary policy changes
+non_claims:
+  - no_solver_correctness_claim
+  - no_raw_project_payload_publication
+  - no_production_ready_simulation_claim

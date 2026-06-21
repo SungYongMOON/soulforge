@@ -1,5 +1,18 @@
 # CHANGELOG
 
+## 2026-06-21
+
+### Revision `working` - repo sync validation repair
+
+- Restored `.workflow/drag_coefficient_cfd_result_package_v0/` after the synced
+  workflow index pointed to the package but the public files were absent.
+- Kept the restored workflow public-safe: process contract and templates only,
+  with raw solver payloads, company files, runtime paths, and case values left
+  outside public canon.
+- Replaced one local runtime DB example in the town-crier assignment setup note
+  with a portable `<DEV_ERP_DB_PATH>` placeholder so path-policy validation can
+  pass on other machines.
+
 ## 2026-06-20
 
 ### Revision `working` - dev-erp 계정 삭제(자격증명 정리, 업무 데이터 보존)
@@ -56,6 +69,15 @@
   values (missing → 미확인). `output_state: pilot-executed` via fresh-context evaluator/judge over
   experiment/analysis/progress/presentation/interview scenarios; no model-cost calibration;
   default route off; not production-ready or canon-promoted.
+
+### Revision `working` - dev-worker ledger terminology unified
+
+- Clarified that development candidates and executable dev-worker items should
+  live in one `dev_worker_queue` surface and be distinguished by `status`
+  values instead of split candidate/execution ledgers.
+- Marked `dev_worker_candidate_queue` as a legacy migration input and updated
+  the shared glossary so future work does not scatter new packets across both
+  paths.
 
 ### Revision `working` - long-thread subagent default clarified
 

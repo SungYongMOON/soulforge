@@ -1,0 +1,11 @@
+﻿workflow_id: drag_coefficient_cfd_result_package_v0
+kind: party_compatibility
+status: active
+compatible_party_templates:
+  - party_id: systems_engineering_cell
+    use_when: CFD result package needs SE-style evidence, acceptance, or handoff review.
+  - party_id: workflow_check
+    use_when: Workflow registration or package contract changes need independent workflow review.
+incompatible_or_limited:
+  - party_id: unattended_solver_runner
+    reason: This workflow packages evidence and does not authorize unattended CFD solver execution.

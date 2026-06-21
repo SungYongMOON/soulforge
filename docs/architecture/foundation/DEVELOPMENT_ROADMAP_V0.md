@@ -24,9 +24,10 @@
 2. public-safe 이고 Soulforge 전체 우선순위에 영향을 주면 이 문서에 한 줄 후보로만 남긴다.
 3. 특정 owner 로 내려갈 만큼 구체적이면 아래 `구체화 규칙` 표의 저장 위치로 보낸다.
 4. project-local 이거나 raw/private 근거가 섞이면 `_workmeta/<project_code>/reports/procedure_capture/` 또는 해당 project 의 queue 로 보낸다.
-5. agent 가 발견했지만 아직 owner-approved 가 아닌 구현 작업은 `_workmeta/<project_code>/dev_worker_candidate_queue/*.yaml` 에 `status: proposed` 로만 둔다.
-6. project 가 불명확하지만 Soulforge system/reusable 후보가 분명하면 `_workmeta/system/dev_worker_candidate_queue/*.yaml` 에 `status: proposed` 로 둔다.
-7. 바로 실행 가능한 public-safe 개발 작업은 `.mission/<mission_id>/dev_worker_request.yaml` 처럼 명시 task packet 으로 만들고, private 작업은 `_workmeta/<project_code>/dev_worker_queue/*.yaml` 에 둔다.
+5. agent 가 발견했지만 아직 owner-approved 가 아닌 구현 작업도 별도 후보 장부에 흩어두지 않고 `_workmeta/<project_code>/dev_worker_queue/*.yaml` 에 `status: proposed` 로 둔다.
+6. project 가 불명확하지만 Soulforge system/reusable 후보가 분명하면 `_workmeta/system/dev_worker_queue/*.yaml` 에 `status: proposed` 로 둔다.
+7. 바로 실행 가능한 public-safe 개발 작업은 `.mission/<mission_id>/dev_worker_request.yaml` 처럼 명시 task packet 으로 만들 수 있고, private/system 작업은 같은 `dev_worker_queue` packet 을 `status: approved` 또는 `status: queued` 로 올린다.
+8. 기존 `dev_worker_candidate_queue` 는 legacy migration input 으로만 취급한다. 새 개발 항목은 넣지 않고, 기존 항목은 내용 보존과 reader 호환성을 확인한 뒤 `dev_worker_queue` 로 이관한다.
 
 ### 아이디어 캡처 계단
 
@@ -35,12 +36,12 @@
 | 상태 | 판단 기준 | 저장 위치 | 금지 |
 | --- | --- | --- | --- |
 | 말로 던진 아이디어 | owner, 입력, 출력, 검증 중 하나라도 불명확함 | 이 문서의 `다음 후보` 또는 `현재 보류` 한 줄 | 별도 `TODO`, 임의 `*_plan.md`, README backlog |
-| system/reusable 후보 | Soulforge 공통 개발 후보지만 아직 승인/실행 조건이 덜 닫힘 | `_workmeta/system/dev_worker_candidate_queue/*.yaml` with `status: proposed` | public canon 승격 주장 |
-| project-local 후보 | 특정 project 의 private 근거, 업무 맥락, raw/source 포인터가 필요함 | `_workmeta/<project_code>/dev_worker_candidate_queue/*.yaml` with `status: proposed` | public repo 기록, raw payload 복사 |
-| 실행 준비 완료 | owner, 입력, 출력, 경계, 완료 기준, validator 가 닫힘 | public-safe 는 `.mission/<mission_id>/dev_worker_request.yaml`, private 는 `_workmeta/<project_code>/dev_worker_queue/*.yaml` | owner 선택이 필요한 항목을 실행 큐로 밀어 넣기 |
+| system/reusable 후보 | Soulforge 공통 개발 후보지만 아직 승인/실행 조건이 덜 닫힘 | `_workmeta/system/dev_worker_queue/*.yaml` with `status: proposed` | 별도 후보 장부 생성, public canon 승격 주장 |
+| project-local 후보 | 특정 project 의 private 근거, 업무 맥락, raw/source 포인터가 필요함 | `_workmeta/<project_code>/dev_worker_queue/*.yaml` with `status: proposed` | public repo 기록, raw payload 복사, 후보/실행 장부 분산 |
+| 실행 준비 완료 | owner, 입력, 출력, 경계, 완료 기준, validator 가 닫힘 | public-safe 는 `.mission/<mission_id>/dev_worker_request.yaml`, private/system 은 같은 `dev_worker_queue` packet 을 `status: approved` 또는 `status: queued` 로 승격 | owner 선택이 필요한 항목을 실행 상태로 밀어 넣기 |
 | 지식/RAG 후보 | 개발할 코드보다 source 사용, 반복 질문, 지식 접근, RAG metadata 정리가 핵심임 | `_workmeta/<project_code>/reports/procedure_capture/**`, `_workmeta/<project_code>/reports/knowledge_access/**`, 또는 system/reusable 은 `_workmeta/system/**` | source text/chunk/body 를 public repo 또는 `_workmeta` 에 저장 |
 
-닫힌 후보(`completed`/`promoted`/`rejected`/`dropped`/`cancelled`)는 큐 가시성을 위해 `dev_worker_candidate_queue/archive/<year>/` 로 이동만 한다(내용 불변, `archive/ARCHIVE_INDEX.md` 에 이동 기록). 실행: `node guild_hall/dev_worker/candidate_queue.mjs --archive-closed [--apply]`.
+닫힌 항목(`completed`/`promoted`/`rejected`/`dropped`/`cancelled`)은 큐 가시성을 위해 `dev_worker_queue/archive/<year>/` 로 이동만 한다(내용 불변, `archive/ARCHIVE_INDEX.md` 에 이동 기록). 기존 `dev_worker_candidate_queue/archive/**` 는 legacy archive 로 보존하되 새 이동 대상이 아니다.
 
 실행 준비 완료로 올릴 때 최소 필드는 `task_id`, `status`, `project_code`, `summary`, `allowed_write_paths`, `acceptance_checks`, `stop_conditions`, `origin.evidence_refs` 다.
 `owner_approval.required: true` 이고 `approved: false` 인 후보는 사용자의 새 명시 승인이나 같은 파일의 start condition 충족 증거가 없으면 실행 큐로 승격하지 않는다.
@@ -559,7 +560,7 @@ Non-goals:
 
 Development packet:
 
-- `_workmeta/system/dev_worker_candidate_queue/team_ops_board_clickable_mockup_v0.yaml`
+- `_workmeta/system/dev_worker_queue/team_ops_board_clickable_mockup_v0.yaml`
 - `_workmeta/system/reports/procedure_capture/team_ops_board_fresh_design_20260602.md`
 
 Start condition:
@@ -632,7 +633,7 @@ Start condition:
 | 13 | foundation 문서 staleness 정리 (roadmap 구조/완료 잔존, PROJECT_MAP 표, 개선계획 현행화) | owner 가 정리 범위를 승인함 | `docs/architecture/foundation` |
 | 14 | CHANGELOG rotation 규칙과 1차 분할 | owner 가 크기 예산과 분할 단위를 정함 | `docs/architecture/foundation`, `CHANGELOG.md` |
 | 15 | `.workflow` lifecycle 정책과 calibrations 실행 기록 위치 재결정 | owner 가 calibration 보존 위치를 정함 | `.workflow`, `docs/architecture/foundation`, `_workmeta/system` |
-| 16 | candidate queue archive 규칙 (completed 패킷 이동) | dev_worker 큐 reader 의 flat-path 의존 확인 | `_workmeta`, `guild_hall/dev_worker` |
+| 16 | dev-worker queue archive 와 legacy candidate queue 이관 규칙 | dev_worker 큐 reader 의 flat-path 의존 확인 | `_workmeta`, `guild_hall/dev_worker` |
 | 17 | doctor 플랫폼 native binary 점검 (esbuild 등) | 없음 - public-safe 단독 작업 | `guild_hall/doctor`, `docs/architecture/bootstrap` |
 | 18 | bounded task 종료 절차(ceremony) 경량화 검토 | owner 가 유지/축소 방침을 정함 | `docs/architecture/foundation`, `AGENTS.md` |
 | 19 | V0 문서 버전 승격/유지 기준 정의 | 없음 - 기준 한 장이면 충분 | `docs/architecture/foundation` |
@@ -640,8 +641,8 @@ Start condition:
 | 21 | Python 테스트 커버리지 확장 (town_crier, mail_send 등) | 없음 - synthetic fixture 로 가능 | `guild_hall` |
 
 후보 10~21 의 출처는 2026-06-12 Fable5 심층 검증이다. 10~17 의 상세 후보
-패킷은 `_workmeta/system/dev_worker_candidate_queue/` 에 `status: proposed`
-로 있으며, owner 승인 전에는 실행 큐로 승격하지 않는다.
+패킷은 `_workmeta/system/dev_worker_queue/` 에 `status: proposed`
+로 두며, owner 승인 전에는 `approved` 또는 `queued` 상태로 승격하지 않는다. 기존 `dev_worker_candidate_queue` 참조는 legacy path 로 이관 대상이다.
 
 추가(2026-06-14, Opus 2차 검증 + owner 결정): `snapshot_to_operation_board_v0`
 는 과거 active slice 였으나 active 가 dev-erp 로 바뀌며 다음 후보로 내려갔다.

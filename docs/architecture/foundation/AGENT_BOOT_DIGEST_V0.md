@@ -54,15 +54,16 @@
 
 ## 6. 개발 예정 저장 규칙 (DEVELOPMENT_ROADMAP_V0)
 
-아이디어 계단: 불명확 → 로드맵 한 줄 / system 후보 →
-`_workmeta/system/dev_worker_candidate_queue/*.yaml status: proposed` /
-project 후보 → `_workmeta/<project>/dev_worker_candidate_queue/` /
-실행 준비 완료(owner·입출력·완료기준·validator 닫힘) → `.mission/` 또는
-`_workmeta/<project>/dev_worker_queue/`. 실행 packet 최소 필드: task_id,
-status, project_code, summary, allowed_write_paths, acceptance_checks,
-stop_conditions, origin.evidence_refs. `owner_approval.required && !approved`
-면 새 명시 승인 없이 실행 큐 승격 금지(무해한 하위 slice 만).
-닫힌 후보는 `archive/<year>/` 로 이동만 (`candidate_queue.mjs --archive-closed`).
+아이디어 계단: 불명확 → 로드맵 한 줄 / 개발 후보·실행 항목 →
+단일 개발 작업 장부 `_workmeta/<project>/dev_worker_queue/*.yaml`
+(`system` 공통은 `_workmeta/system/dev_worker_queue/*.yaml`). 후보/실행은
+폴더가 아니라 `status: proposed/approved/queued/completed/...` 로 구분한다.
+public-safe 실행 계획은 `.mission/` 으로 둘 수 있다. 실행 packet 최소 필드:
+task_id, status, project_code, summary, allowed_write_paths,
+acceptance_checks, stop_conditions, origin.evidence_refs.
+`owner_approval.required && !approved` 면 새 명시 승인 없이 `approved/queued`
+승격 금지(무해한 하위 slice 만). 기존 `dev_worker_candidate_queue` 는 legacy
+migration input 이며 새 항목 금지. 닫힌 항목은 `dev_worker_queue/archive/<year>/`.
 금지: 임시 TODO·임의 plan.md·backlog 중복 복제·transcript/raw 저장.
 
 ## 7. 처음 잡을 때 읽는 순서 (원본)

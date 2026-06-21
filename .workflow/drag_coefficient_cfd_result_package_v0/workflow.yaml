@@ -1,0 +1,61 @@
+﻿workflow_id: drag_coefficient_cfd_result_package_v0
+kind: workflow
+status: active
+title: Drag Coefficient CFD Result Package v0
+summary: Package drag-coefficient CFD outputs with source traceability, conditions, reduced Cd/drag tables, mesh and residual summaries, report-ready visuals, manifest, archive, and handoff while keeping raw project payloads out of public canon.
+entrypoint: run
+execution_mode: local_tool_sequence
+role_slots: role_slots.yaml
+step_graph: step_graph.yaml
+handoff_rules: handoff_rules.yaml
+monster_rules: monster_rules.yaml
+party_compatibility: party_compatibility.yaml
+profile_policy: profile_policy.yaml
+inputs:
+  - project_cfd_case_binding
+  - cfd_result_source_manifest
+  - drag_coefficient_reduction_policy
+  - package_output_policy
+optional_inputs:
+  - report_visual_policy
+  - solver_log_summary_policy
+  - mesh_quality_summary_policy
+  - owner_style_or_report_format
+outputs:
+  - cfd_result_package_manifest
+  - reduced_drag_coefficient_tables
+  - report_ready_visual_gallery
+  - raw_evidence_pointer_manifest
+  - result_package_archive
+  - package_handoff_note
+  - boundary_review_note
+validation_level: private_case_extracted_report_only_public_safe
+registration_policy: owner_requested_registration
+operating_contract:
+  owns:
+    - package_manifest_shape
+    - drag_coefficient_table_shape
+    - report_visual_gallery_requirements
+    - raw_evidence_pointer_shape
+    - package_handoff_shape
+    - boundary_review_note_shape
+  does_not_own:
+    - CFD solver execution
+    - raw solver log storage
+    - company project payloads
+    - local output root configuration
+    - final engineering approval
+    - production-ready simulation doctrine
+  boundaries:
+    no_raw_solver_payloads_in_public_workflow: true
+    no_company_project_files_in_public_workflow: true
+    no_runtime_absolute_paths_in_public_workflow: true
+    private_case_values_stay_in_project_worksite_or_workmeta: true
+    report_ready_visuals_require_human_or_visual_review: true
+  required_output_shapes:
+    output_contract: templates/output_contract.template.yaml
+notes:
+  - Extracted from an owner-accepted private KVDS CFD-lite result package.
+  - Public workflow claims only the repeatable packaging procedure.
+  - Cd values, force logs, mesh files, solver outputs, and generated image files are project evidence, not public canon content.
+  - This workflow does not validate CFD correctness by itself; it verifies packaging completeness and boundary hygiene.

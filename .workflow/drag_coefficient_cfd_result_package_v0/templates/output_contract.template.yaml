@@ -1,0 +1,39 @@
+﻿schema_version: drag_coefficient_cfd_result_package_v0.output_contract
+project_code: ""
+case_scope:
+  case_ids: []
+  source_manifest_ref: ""
+  output_root_ref: ""
+evidence_audit:
+  flow_direction_verified: false
+  drag_direction_verified: false
+  speed_density_reference_area_verified: false
+  solver_identity_verified: false
+  averaging_window_verified: false
+  raw_force_or_coefficient_refs: []
+  mesh_summary_ref: ""
+  residual_summary_ref: ""
+reduced_outputs:
+  drag_coefficient_table_ref: ""
+  drag_force_table_ref: ""
+  conditions_table_ref: ""
+  mesh_table_ref: ""
+  residual_table_ref: ""
+visual_gallery:
+  top_view_refs: []
+  side_view_refs: []
+  label_review: pending
+  framing_review: pending
+  direction_arrow_review: pending
+package:
+  manifest_ref: ""
+  archive_ref: ""
+  handoff_ref: ""
+boundary:
+  raw_solver_payloads_excluded: false
+  company_payloads_excluded: false
+  runtime_absolute_paths_excluded: false
+  secret_values_excluded: false
+claim_ceiling: observed
+known_gaps: []
+next_actions: []

@@ -1,0 +1,16 @@
+﻿workflow_id: drag_coefficient_cfd_result_package_v0
+kind: monster_rules
+status: active
+rules:
+  - monster_id: missing_raw_force_or_coefficient_evidence
+    trigger: A reported case lacks force, coefficient, or averaging-window evidence.
+    action: Stop reduction for that case and record the missing evidence.
+  - monster_id: direction_or_reference_area_ambiguous
+    trigger: Flow direction, drag direction, density, speed, or reference area is unclear.
+    action: Hold Cd/drag claims at observed and request owner or source clarification.
+  - monster_id: diagnostic_visual_used_as_report_visual
+    trigger: Point diagnostics or poorly framed screenshots are proposed as final report figures.
+    action: Route back to visual rendering and require top/side report-ready replacements or a named exception.
+  - monster_id: raw_payload_leak_risk
+    trigger: Raw solver logs, company files, local absolute paths, or secrets would enter public workflow canon.
+    action: Block public write and keep only private refs or redacted pointers.

@@ -1,0 +1,73 @@
+﻿workflow_id: drag_coefficient_cfd_result_package_v0
+kind: step_graph
+status: active
+steps:
+  - step_id: bind_case_scope
+    title: Bind Case Scope
+    actor_slot: package_scope_binder
+    action: Bind the project code, final CFD cases, source result locations, output root, owner report target, and package mutation authority.
+    outputs:
+      - case_scope_packet
+    next:
+      - verify_case_inputs
+  - step_id: verify_case_inputs
+    title: Verify Case Inputs
+    actor_slot: cfd_evidence_auditor
+    action: Check that each reported case has direction, speed, density, reference area, solver identity, iteration or averaging window, raw force or coefficient evidence, mesh summary, and residual evidence.
+    inputs:
+      - case_scope_packet
+    outputs:
+      - cfd_evidence_audit
+    next:
+      - reduce_drag_tables
+  - step_id: reduce_drag_tables
+    title: Reduce Drag Tables
+    actor_slot: result_reducer
+    action: Produce Cd, drag force, conditions, mesh, and residual tables from the bound private evidence without copying raw solver payloads into public surfaces.
+    inputs:
+      - cfd_evidence_audit
+    outputs:
+      - reduced_drag_coefficient_tables
+    next:
+      - render_report_visuals
+  - step_id: render_report_visuals
+    title: Render Report Visuals
+    actor_slot: report_visual_renderer
+    action: Generate or collect report-ready top and side visuals, direction arrows, labels, and framing for each final case.
+    inputs:
+      - reduced_drag_coefficient_tables
+    outputs:
+      - report_ready_visual_gallery
+    next:
+      - review_visual_quality
+  - step_id: review_visual_quality
+    title: Review Visual Quality
+    actor_slot: visual_quality_reviewer
+    action: Verify top and side coverage, framing consistency, readable labels, direction arrows, and that diagnostic-only point plots are not used as report-ready figures.
+    inputs:
+      - report_ready_visual_gallery
+    outputs:
+      - visual_quality_review
+    next:
+      - assemble_result_package
+  - step_id: assemble_result_package
+    title: Assemble Result Package
+    actor_slot: package_assembler
+    action: Assemble index, tables, figures, raw-evidence pointers, manifest, archive, and handoff in the approved project worksite.
+    inputs:
+      - visual_quality_review
+    outputs:
+      - cfd_result_package_manifest
+      - result_package_archive
+      - package_handoff_note
+    next:
+      - review_boundary_and_handoff
+  - step_id: review_boundary_and_handoff
+    title: Review Boundary And Handoff
+    actor_slot: boundary_handoff_reviewer
+    action: Confirm raw/private/secret exclusion, record validation status, weakest supported claim ceiling, remaining blockers, and next actions.
+    inputs:
+      - package_handoff_note
+    outputs:
+      - boundary_review_note
+    next: []
