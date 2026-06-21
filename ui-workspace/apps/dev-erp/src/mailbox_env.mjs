@@ -30,15 +30,29 @@ export function upsertEnv(existingText, updates) {
   return out.join("\n").replace(/\n{3,}/g, "\n\n").replace(/\n*$/, "\n");
 }
 
-// Hiworks POP3 자격증명 → env 키 묶음. (Gmail 은 OAuth 토큰이라 이 단순 비번 흐름 대상 아님.)
-export function hiworksEnvUpdates({ host, username, password, port = 995, useSsl = true, gmailOff = true }) {
+// Hiworks 자격증명 → env 키 묶음(받기 POP3 + 보내기 SMTP). 같은 이메일·비번 공유.
+// (Gmail 은 OAuth 토큰이라 이 단순 비번 흐름 대상 아님.)
+export function hiworksEnvUpdates({ host, username, password, port = 995, useSsl = true, gmailOff = true, smtpHost, smtpPort = 465 }) {
+  const popHost = String(host || "").trim();
+  const user = String(username || "").trim();
+  const pass = String(password ?? "");
+  // SMTP 호스트: 지정 없으면 POP3 호스트에서 유추(pop3s.hiworks.com → smtps.hiworks.com), 그도 없으면 Hiworks 표준.
+  const sHost = String(smtpHost || (popHost ? popHost.replace(/pop3/i, "smtp") : "") || "smtps.hiworks.com").trim();
   const u = {
     EMAIL_FETCH_SOURCE_HIWORKS_ENABLED: "true",
-    HIWORKS_POP3_HOST: String(host || "").trim(),
+    HIWORKS_POP3_HOST: popHost,
     HIWORKS_POP3_PORT: String(Number(port) || 995),
     HIWORKS_POP3_USE_SSL: useSsl ? "true" : "false",
-    HIWORKS_POP3_USERNAME: String(username || "").trim(),
-    HIWORKS_POP3_PASSWORD: String(password ?? ""),
+    HIWORKS_POP3_USERNAME: user,
+    HIWORKS_POP3_PASSWORD: pass,
+    // 보내기(SMTP) — 받기와 동일 자격증명, Hiworks 표준 smtps:465. guild_hall/gateway/mail_send/send_mail.py 가 읽음.
+    EMAIL_SEND_PROVIDER: "hiworks",
+    HIWORKS_SMTP_HOST: sHost,
+    HIWORKS_SMTP_PORT: String(Number(smtpPort) || 465),
+    HIWORKS_SMTP_USE_SSL: "true",
+    HIWORKS_SMTP_USERNAME: user,
+    HIWORKS_SMTP_PASSWORD: pass,
+    HIWORKS_SMTP_FROM: user,
   };
   if (gmailOff) u.EMAIL_FETCH_SOURCE_GMAIL_ENABLED = "false"; // 계정별 단일 메일함은 Gmail 끔
   return u;

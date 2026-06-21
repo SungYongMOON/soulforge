@@ -4844,10 +4844,17 @@ test("MAILBOX-ENV: 경로 파생·env upsert·hiworks 키 묶음", () => {
   assert.match(merged, /OTHER=keep/);                // 타 키 보존
   assert.match(merged, /# c/);                        // 주석 보존
   assert.match(merged, /HIWORKS_POP3_PASSWORD=pw/);   // 새 키 추가
-  const u = hiworksEnvUpdates({ host: "h", username: "u@x", password: "secret123" });
+  const u = hiworksEnvUpdates({ host: "pop3s.hiworks.com", username: "u@x", password: "secret123" });
   assert.equal(u.HIWORKS_POP3_PASSWORD, "secret123");
   assert.equal(u.EMAIL_FETCH_SOURCE_HIWORKS_ENABLED, "true");
   assert.equal(u.EMAIL_FETCH_SOURCE_GMAIL_ENABLED, "false");
+  // 보내기(SMTP)도 같은 자격증명으로 묶임 + 호스트 유추(pop3s→smtps)
+  assert.equal(u.EMAIL_SEND_PROVIDER, "hiworks");
+  assert.equal(u.HIWORKS_SMTP_HOST, "smtps.hiworks.com");
+  assert.equal(u.HIWORKS_SMTP_PORT, "465");
+  assert.equal(u.HIWORKS_SMTP_USERNAME, "u@x");
+  assert.equal(u.HIWORKS_SMTP_PASSWORD, "secret123");
+  assert.equal(u.HIWORKS_SMTP_FROM, "u@x");
 });
 
 test("MAILBOX-ENV: 허용 디렉터리에만 atomic 기록, traversal/타 경로 거부, 비번은 파일에만", () => {
