@@ -811,13 +811,20 @@ function openSplitModal(itemId, projectId, parentTitle, onDone) {
     const lines = ta.value.split("\n").map((s) => s.trim()).filter(Boolean);
     if (!lines.length) { errBox.style.color = "var(--danger)"; errBox.textContent = L.split_empty ?? "세부할일을 한 줄 이상 적으세요"; return; }
     errBox.style.color = "var(--muted)"; errBox.textContent = "…";
-    let ok = 0;
+    let ok = 0; const failed = [];
     for (const title of lines) {
       const a = aiMap[title];
       const r = await post("/api/items", { project_id: projectId, title, parent_item_id: itemId, ...(a && a.party_ref ? { party_ref: a.party_ref } : {}) });
-      if (r.ok) ok++;
+      const data = await r.json().catch(() => ({})); // 응답 바디 소비(커넥션 누수 방지) + 에러 수집
+      if (r.ok) ok++; else failed.push({ title, error: data.error });
     }
-    toast(`${ok}${L.split_done ?? "개 세부할일을 만들었습니다"}`, ok ? "ok" : "error");
+    if (failed.length) { // 부분 실패를 조용히 넘기지 않음 — 실패 목록 보이고 모달 유지
+      errBox.style.color = "var(--danger)";
+      errBox.textContent = `${ok}${L.split_done ?? "개 생성"} · ${failed.length}${L.split_failed ?? "개 실패"}: ${failed.map((f) => f.title).join(", ")}`;
+      onDone?.(); // 성공분은 반영
+      return;
+    }
+    toast(`${ok}${L.split_done ?? "개 세부할일을 만들었습니다"}`, "ok");
     close();
     onDone?.();
   });

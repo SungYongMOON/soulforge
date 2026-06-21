@@ -108,11 +108,14 @@ const SKIN_ROOTS = [...new Set([
 ].filter(Boolean).map((p) => resolve(p)))];
 const ERP_VERSION = Object.freeze({
   release: "v1.1.0",
-  build: "ui-2026.06.21-decompose.12",
+  build: "ui-2026.06.21-decompose.13",
   source: "server.mjs"
 });
 
 const store = openStore(DB_PATH);
+// 분해: 정본 파티 허용목록(.party) — createItem party_ref 검증 + split-suggest 매칭에 재사용(시작 시 1회 로드).
+const PARTY_MATCH = loadPartyMonsterTypes(ROOT);
+store.setValidParties(new Set(Object.values(PARTY_MATCH.typeToParty)));
 // 감사로그 '조회·잡음' kind — UI EVENT_HIDE 와 동일. noise=0 시 서버에서 제외.
 const AUDIT_NOISE_KINDS = ["view", "llm_call", "chat_query", "recommender_run"];
 // P1b: data/real_meta.json 이 있으면 (갱신 시각 기준) 자동 ingest.
@@ -747,7 +750,7 @@ const server = createServer(async (req, res) => {
       if (!canAccessItem(req, id)) return send(res, 403, { error: "item_forbidden" });
       const item = store.itemById(id);
       if (!item) return send(res, 404, { error: "item_not_found" });
-      const { types, typeToParty } = loadPartyMonsterTypes(ROOT);
+      const { types, typeToParty } = PARTY_MATCH; // 시작 시 캐시(검증 허용목록과 동일 소스 — 일관)
       const provider = process.env.ERP_CHAT_PROVIDER || "stub";
       const sug = await suggestSplit(item, types, { provider });
       const sub_tasks = (sug.sub_tasks || []).map((s) => ({ ...s, party_ref: typeToParty[s.monster_type] ?? null }));

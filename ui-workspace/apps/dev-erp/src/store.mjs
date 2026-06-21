@@ -1484,6 +1484,9 @@ export class Store {
     };
   }
 
+  // 서버가 정본 파티 id 허용목록을 주입(createItem party_ref 검증용). 미설정이면 검증 생략.
+  setValidParties(set) { this._validParties = set instanceof Set ? set : new Set(Array.isArray(set) ? set : []); }
+
   createItem({ project_id, title, assignee_ref, due, urgency, guide_artifact_id, guide_step_key, origin_mail_id, origin, created_by,
     work_type, link_kind, link_ref, completion_criteria, stage_id, anchor_stage_code, parent_item_id, party_ref }) {
     const trimmed = String(title ?? "").trim();
@@ -1500,6 +1503,8 @@ export class Store {
       if (parent.parent_item_id) return { error: "parent_is_child" }; // 1단계 고정
     }
     if (link_kind && !Store.LINK_KINDS.includes(link_kind)) return { error: "link_kind_invalid" };
+    // party_ref 는 정본 파티(.party) id 만 — 서버가 setValidParties 로 허용목록 주입한 경우 검증(직접 HTTP 임의값 차단).
+    if (party_ref && this._validParties && !this._validParties.has(party_ref)) return { error: "party_ref_invalid" };
     let artifact = null;
     if (guide_artifact_id) {
       artifact = this.db.prepare("SELECT * FROM guide_artifact WHERE id=?").get(Number(guide_artifact_id));
@@ -1644,6 +1649,8 @@ export class Store {
     const prev = this.db.prepare("SELECT status, project_id, title FROM core_item WHERE id=?").get(id);
     if (!prev) return { error: "item_not_found" };
     if (prev.status === "archived") return { error: "already_archived" };
+    // 분해: 부모 보관 시 자식(세부할일)도 함께 보관 — orphan 방지(부모 상태가 자식 가시성 제어).
+    this.db.prepare("UPDATE core_item SET status='archived' WHERE parent_item_id=? AND status!='archived'").run(id);
     this.db.prepare("UPDATE core_item SET status='archived' WHERE id=?").run(id);
     this.afterItemWrite?.(id);
     return { ok: true, from: prev.status, project_id: prev.project_id, title: prev.title };
@@ -1655,6 +1662,8 @@ export class Store {
     if (!prev) return { error: "item_not_found" };
     if (prev.status !== "archived") return { error: "not_archived", status: prev.status };
     // 복구는 항상 open → done_at 도 함께 초기화(status='done' ↔ done_at 불변식 유지).
+    // 분해: 함께 보관됐던 자식도 복구(부모 상태가 자식 제어, archiveItem 대칭).
+    this.db.prepare("UPDATE core_item SET status='open', done_at=NULL WHERE parent_item_id=? AND status='archived'").run(id);
     this.db.prepare("UPDATE core_item SET status='open', done_at=NULL WHERE id=?").run(id);
     this.afterItemWrite?.(id);
     return { ok: true, project_id: prev.project_id, title: prev.title };
