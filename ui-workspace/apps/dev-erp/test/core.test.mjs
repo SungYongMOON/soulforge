@@ -12,7 +12,7 @@ import { fileURLToPath } from "node:url";
 import { openStore, deriveStartYear } from "../src/store.mjs";
 import { importNewTaskLedgers, writeTaskToLedger, readTaskLedgerRows, importNewInputLedgers, writeInputToLedger, readInputLedgerRows } from "../src/autosync.mjs";
 import { pendingForProject, scanPending } from "../tools/mail_to_task_pending.mjs";
-import { safeAccountEnvName, mailboxEnvRelPath, upsertEnv, hiworksEnvUpdates, writeMailboxEnv, deleteMailboxEnv } from "../src/mailbox_env.mjs";
+import { safeAccountEnvName, mailboxEnvRelPath, upsertEnv, hiworksEnvUpdates, writeMailboxEnv, deleteMailboxEnv, parseMailTestResult } from "../src/mailbox_env.mjs";
 import { loadFixture } from "../src/fixture.mjs";
 import { ingestNormalized, mapSoulforgeSnapshot } from "../src/adapter.mjs";
 import { getLexicon, LEXICON } from "../src/lexicon.mjs";
@@ -4855,6 +4855,14 @@ test("MAILBOX-ENV: 경로 파생·env upsert·hiworks 키 묶음", () => {
   assert.equal(u.HIWORKS_SMTP_USERNAME, "u@x");
   assert.equal(u.HIWORKS_SMTP_PASSWORD, "secret123");
   assert.equal(u.HIWORKS_SMTP_FROM, "u@x");
+});
+
+test("MAILBOX-TEST: 수집기 dry-run JSON → 연결 성공/인증실패 판정", () => {
+  const ok = parseMailTestResult(JSON.stringify({ sources: [{ source: "hiworks", fetched: 3, errors: [] }] }));
+  assert.equal(ok.ok, true); assert.equal(ok.fetched, 3);
+  const fail = parseMailTestResult(JSON.stringify({ sources: [{ source: "hiworks", fetched: 0, errors: [{ code: "auth_failed", message: "Access denied" }] }] }));
+  assert.equal(fail.ok, false); assert.equal(fail.error, "auth_failed");
+  assert.equal(parseMailTestResult("not json").ok, false);
 });
 
 test("MAILBOX-ENV: 허용 디렉터리에만 atomic 기록, traversal/타 경로 거부, 비번은 파일에만", () => {

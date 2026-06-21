@@ -83,3 +83,16 @@ export function deleteMailboxEnv(repoRoot, relPath) {
   if (existsSync(target)) { rmSync(target, { force: true }); return { ok: true, deleted: true }; }
   return { ok: true, deleted: false };
 }
+
+// 수집기 dry-run JSON → 연결 테스트 결과 {ok, fetched, error, message}. ERP "메일 연결" ✅/❌ 표시용.
+export function parseMailTestResult(jsonText) {
+  let d;
+  try { d = JSON.parse(String(jsonText || "")); } catch { return { ok: false, fetched: 0, error: "parse_error", message: "" }; }
+  const sources = Array.isArray(d?.sources) ? d.sources : [];
+  const s = sources.find((x) => x && x.source === "hiworks") || sources[0] || {};
+  const errs = Array.isArray(s.errors) ? s.errors : [];
+  const BAD = ["auth_failed", "missing_config", "network_error", "connect_error", "uidl_error", "unexpected_error"];
+  const bad = errs.find((e) => BAD.includes(e?.code));
+  if (bad) return { ok: false, fetched: Number(s.fetched) || 0, error: bad.code, message: String(bad.message || "").slice(0, 200) };
+  return { ok: true, fetched: Number(s.fetched) || 0, error: null, message: "" };
+}

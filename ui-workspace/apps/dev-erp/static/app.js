@@ -736,7 +736,22 @@ function openMailConnect(acct, onDone) {
     if (!host || !username || !password) { errBox.textContent = L.mailbox_connect_incomplete ?? "호스트·이메일·비밀번호를 모두 입력하세요"; return; }
     const r = await post("/api/accounts/mailbox/credentials", { id: acct.id, provider: "hiworks", host, username, password })
       .then((x) => x.json()).catch(() => null);
-    if (r && r.ok) { close(); onDone?.(); }
+    if (r && r.ok) {
+      toast(L.mailbox_connect_done ?? "저장됨");
+      onDone?.(); // 목록 갱신(provider/env 반영)
+      errBox.style.color = "var(--muted)"; errBox.textContent = L.mailbox_testing ?? "저장됨 · 연결 테스트 중…";
+      const t = await post("/api/accounts/mailbox/test", { id: acct.id }).then((x) => x.json()).catch(() => null);
+      if (t && t.ok) {
+        errBox.style.color = "var(--ok)";
+        errBox.textContent = `${L.mailbox_test_ok ?? "✅ 연결 성공"}${t.fetched ? ` (${t.fetched})` : ""}`;
+        setTimeout(close, 1600);
+      } else {
+        errBox.style.color = "var(--danger)";
+        const code = t?.error || "";
+        errBox.textContent = `${L.mailbox_test_fail ?? "❌ 연결 실패"}${code ? `: ${code === "auth_failed" ? "아이디/비번/POP3설정 확인" : code}` : ""}`;
+        // 실패 시 모달 열어둠 — 비번 고쳐 다시 저장 가능
+      }
+    }
     else errBox.textContent = r?.error === "mailbox_credentials_incomplete" ? (L.mailbox_connect_incomplete ?? "입력 누락")
       : (r?.error || L.login_fail);
   });

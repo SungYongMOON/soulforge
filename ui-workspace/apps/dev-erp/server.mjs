@@ -5,6 +5,8 @@
 // 기본: 빈 DB 는 비워 둔다. 데모 데이터는 --fixture 또는 DEV_ERP_LOAD_FIXTURE=1 일 때만 적재.
 import { createServer } from "node:http";
 import { randomUUID } from "node:crypto";
+import { execFile } from "node:child_process";
+import { promisify } from "node:util";
 import { readFileSync, existsSync, mkdirSync, statSync, readdirSync, writeFileSync } from "node:fs";
 import { homedir } from "node:os";
 import { dirname, join, extname, resolve, sep, basename } from "node:path";
@@ -28,7 +30,8 @@ import {
 import { crossSearch } from "./src/search.mjs";
 import { buildMetaContext, runLlm, answerFromManual, CHATBOT_VERSION, llmThinkEnabled } from "./src/llm.mjs";
 import { startAutosyncPoll, writeTaskToLedger, writeInputToLedger } from "./src/autosync.mjs";
-import { mailboxEnvRelPath, hiworksEnvUpdates, writeMailboxEnv, deleteMailboxEnv } from "./src/mailbox_env.mjs";
+import { mailboxEnvRelPath, hiworksEnvUpdates, writeMailboxEnv, deleteMailboxEnv, parseMailTestResult } from "./src/mailbox_env.mjs";
+const execFileP = promisify(execFile);
 import { safeWorkspacePath, safeUploadTarget, commitUpload, readSafe } from "./src/filevault.mjs";
 import { CODEX_TASK_BRIDGE_VERSION, runCodexTaskTurn } from "./src/codex_bridge.mjs";
 
@@ -104,7 +107,7 @@ const SKIN_ROOTS = [...new Set([
 ].filter(Boolean).map((p) => resolve(p)))];
 const ERP_VERSION = Object.freeze({
   release: "v1.1.0",
-  build: "ui-2026.06.21-mailbox-team.2",
+  build: "ui-2026.06.21-mailbox-team.3",
   source: "server.mjs"
 });
 
@@ -628,6 +631,26 @@ const server = createServer(async (req, res) => {
         to: `hiworks:${rel}`, used_refs: ["auth", "mailbox_env"], data_label: "meta"
       }); // 비밀번호는 로그/이벤트/DB에 남기지 않음 — env 파일에만
       return send(res, 200, { ok: true, env_ref: rel, mailbox: r.mailbox });
+    }
+    // 메일 연결 테스트(admin): 별도 수집기 프로세스를 dry-run 으로 띄워 접속·인증만 확인(메일 미저장).
+    // 웹서버는 직접 외부접속 안 함 — 자식 프로세스(수집기)가 접속하고 결과만 받아 표시.
+    if (path === "/api/accounts/mailbox/test" && req.method === "POST") {
+      const admin = requireAdmin(req);
+      if (!admin) return send(res, 403, { error: "admin_only" });
+      const { id } = await readJson(req);
+      const acct = store.listAccounts().find((a) => a.id === id);
+      if (!acct || !acct.mailbox_env_ref) return send(res, 400, { error: "no_mailbox_env" });
+      const repoRoot = resolve(HERE, "..", "..", "..");
+      try {
+        const { stdout } = await execFileP(
+          process.platform === "win32" ? "python" : "python3",
+          ["guild_hall/gateway/mail_fetch/cli.py", "--env-file", acct.mailbox_env_ref, "--dry-run", "--limit", "3", "--once", "--json"],
+          { cwd: repoRoot, timeout: 25000, maxBuffer: 4 * 1024 * 1024 },
+        );
+        return send(res, 200, parseMailTestResult(stdout));
+      } catch (e) {
+        return send(res, 200, { ok: false, error: "test_run_error", message: String(e?.message || e).slice(0, 200) });
+      }
     }
     if (path === "/api/accounts/readiness" && req.method === "GET") {
       if (!requireAdmin(req)) return send(res, 403, { error: "admin_only" });
