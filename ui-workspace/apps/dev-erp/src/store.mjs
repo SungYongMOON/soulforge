@@ -1083,12 +1083,12 @@ export class Store {
     this.db
       .prepare(
         `INSERT INTO core_item(id,project_id,title,origin,urgency,assignee_ref,status,due,
-           origin_mail_id,created_by,work_type,link_kind,link_ref,completion_criteria,anchor_stage_code,created_at,
+           origin_mail_id,created_by,work_type,link_kind,link_ref,completion_criteria,anchor_stage_code,parent_item_id,party_ref,created_at,
            review_status,review_reason,correction_reason,route_candidate,route_confidence,route_reason,
            required_role,required_capability,suggested_assignee_ref,assignee_confidence,assignee_reason,
            source_candidate_ref,source_mail_ref,source_mail_source_id,source_thread_ref,source_group_ref,source_lineage_ref,
            generation_run_ref,generation_rule_ref,sync_state,sync_error,sync_revision,sync_hash,sync_at,data_label)
-         VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,'real')
+         VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,'real')
          ON CONFLICT(id) DO UPDATE SET project_id=excluded.project_id, title=excluded.title, origin=excluded.origin,
            assignee_ref=COALESCE(excluded.assignee_ref, core_item.assignee_ref),
            status=COALESCE(NULLIF(excluded.status, ''), core_item.status),
@@ -1099,6 +1099,8 @@ export class Store {
            link_ref=COALESCE(excluded.link_ref, core_item.link_ref),
            completion_criteria=COALESCE(excluded.completion_criteria, core_item.completion_criteria),
            anchor_stage_code=COALESCE(excluded.anchor_stage_code, core_item.anchor_stage_code),
+           parent_item_id=COALESCE(excluded.parent_item_id, core_item.parent_item_id),
+           party_ref=COALESCE(excluded.party_ref, core_item.party_ref),
            created_at=COALESCE(core_item.created_at, excluded.created_at),
            review_status=COALESCE(excluded.review_status, core_item.review_status),
            review_reason=COALESCE(excluded.review_reason, core_item.review_reason),
@@ -1128,7 +1130,7 @@ export class Store {
       .run(
         id, code, title, originVal, row.urgency || "normal", row.assignee_ref || null, statusVal, due,
         originMailRef, row.created_by || "task_ledger", work_type, link_kind, relOnly(row.link_ref),
-        row.completion_criteria || null, row.anchor_stage_code || null, createdVal,
+        row.completion_criteria || null, row.anchor_stage_code || null, row.parent_item_id || null, row.party_ref || null, createdVal,
         automation.review_status, automation.review_reason, automation.correction_reason,
         automation.route_candidate, automation.route_confidence, automation.route_reason,
         automation.required_role, automation.required_capability, automation.suggested_assignee_ref,

@@ -36,6 +36,8 @@ const AUTOMATION_HEADERS = [
   ["동기화리비전", "sync_revision"],
   ["동기화해시", "sync_hash"],
   ["동기화시각", "sync_at"],
+  ["부모할일ID", "parent_item_id"],
+  ["파티참조", "party_ref"],
 ];
 const HEADERS = [...BASE_HEADERS, ...AUTOMATION_HEADERS.map(([h]) => h)];
 const csvEsc = (v) => { let s = String(v ?? ""); if (/^[=+\-@\t\r]/.test(s)) s = "'" + s; return /[",\r\n]/.test(s) ? `"${s.replace(/"/g, '""')}"` : s; };
@@ -71,6 +73,7 @@ const stableTaskHash = (obj) => createHash("sha256").update(JSON.stringify({
   source_candidate_ref: obj.source_candidate_ref ?? "", source_group_ref: obj.source_group_ref ?? "",
   source_lineage_ref: obj.source_lineage_ref ?? "", generation_run_ref: obj.generation_run_ref ?? "",
   generation_rule_ref: obj.generation_rule_ref ?? "",
+  parent_item_id: obj.parent_item_id ?? "", party_ref: obj.party_ref ?? "",
 })).digest("hex");
 
 function automationToObj(i, { syncAt = null, syncHash = null, syncRevision = null } = {}) {
