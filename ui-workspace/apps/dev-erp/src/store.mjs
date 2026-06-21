@@ -1332,7 +1332,7 @@ export class Store {
     const marks = ids.map(() => "?").join(",");
     const agg = this.db.prepare(
       `SELECT parent_item_id AS pid, COUNT(*) AS total, SUM(CASE WHEN status='done' THEN 1 ELSE 0 END) AS done
-       FROM core_item WHERE parent_item_id IN (${marks}) GROUP BY parent_item_id`
+       FROM core_item WHERE parent_item_id IN (${marks}) AND status NOT IN ('archived','unclassified') GROUP BY parent_item_id`
     ).all(...ids);
     const byParent = new Map(agg.map((a) => [a.pid, a]));
     return rows.map((r) => {

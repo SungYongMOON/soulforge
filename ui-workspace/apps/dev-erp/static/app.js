@@ -768,6 +768,7 @@ function openMailConnect(acct, onDone) {
 // AI 제안은 monster_type→party 매핑까지 받아 생성 시 party_ref 기록(S5). LLM은 제안만, 확정은 사람.
 function openSplitModal(itemId, projectId, parentTitle, onDone) {
   const L = state.lex;
+  document.querySelector(".ui-confirm-overlay")?.remove(); // 기존 모달 중복 스택 방지(다른 모달과 동일 패턴)
   let aiMap = {}; // title → { monster_type, party_ref } (AI 제안분만; 수동 입력 줄은 매핑 없음)
   const ov = document.createElement("div");
   ov.className = "ui-confirm-overlay";
@@ -801,7 +802,7 @@ function openSplitModal(itemId, projectId, parentTitle, onDone) {
     if (r.is_task === false) { aiRes.textContent = `${L.split_ai_notask ?? "AI: 처리할 업무가 아닐 수 있음"}`; return; }
     if (!r.should_split || !(r.sub_tasks || []).length) { aiRes.textContent = `${L.split_ai_nosplit ?? "AI: 쪼갤 필요 없음"}${r.reason ? ` — ${esc(r.reason)}` : ""}`; return; }
     ta.value = r.sub_tasks.map((s) => s.title).join("\n");
-    aiMap = {}; for (const s of r.sub_tasks) aiMap[s.title] = { monster_type: s.monster_type, party_ref: s.party_ref };
+    aiMap = {}; for (const s of r.sub_tasks) aiMap[String(s.title).trim()] = { monster_type: s.monster_type, party_ref: s.party_ref }; // trim 키로 textarea 줄(trim)과 일치
     const parties = [...new Set(r.sub_tasks.map((s) => s.party_ref).filter(Boolean))];
     aiRes.style.color = "var(--ok)";
     aiRes.textContent = `${L.split_ai_suggested ?? "AI 제안"} ${r.sub_tasks.length}${parties.length ? ` · ${parties.join(", ")}` : ""}`;
@@ -3827,6 +3828,7 @@ async function renderItems() {
     const customOpt = cur && !matched ? `<option value="${esc(cur)}" selected>${esc(cur)}</option>` : "";
     return `<select class="reassign" data-i="${esc(i.id)}" title="${L.reassign_hint ?? "담당 나누기"}"><option value="" ${!cur ? "selected" : ""}>${L.assignee_none ?? "미배정"}</option>${customOpt}${memberOpts}</select>`;
   };
+  const orphanIds = new Set(); // 부모가 현재 목록 밖(상태필터/페이지)인 자식 — 들여쓰기 오인 방지 위해 평면 처리
   const renderItemRow = (i) => state.itemEdit === i.id
     ? `<tr class="item-edit-row"><td colspan="7"><div class="item-edit">
         <input class="ie-title" value="${esc(i.title)}" placeholder="${L.col_title ?? "제목"}" />
@@ -3836,8 +3838,8 @@ async function renderItems() {
         <button class="fav-chip ie-cancel">${L.act_cancel ?? "취소"}</button>
         <button class="fav-chip ie-del" data-i="${esc(i.id)}">${L.act_delete ?? "삭제"}</button>
       </div></td></tr>`
-    : `<tr class="${i.parent_item_id ? "item-child" : ""}">
-	      <td>${i.parent_item_id ? '<span class="child-twig">↳</span> ' : ""}${esc(i.title)}${i.child_total > 0 ? ` <span class="badge child-prog" title="${esc(L.child_progress ?? "세부할일")}">${i.child_done}/${i.child_total}</span>` : ""}${i.encounter_role === "boss" ? " 👑" : ""}${codexTaskIndicatorHtml(i)}${itemAutomationHints(i)}${itemSourceTrace(i)}</td>
+    : `<tr class="${i.parent_item_id && !orphanIds.has(i.id) ? "item-child" : ""}">
+	      <td>${i.parent_item_id && !orphanIds.has(i.id) ? '<span class="child-twig">↳</span> ' : ""}${esc(i.title)}${i.child_total > 0 ? ` <span class="badge child-prog" title="${esc(L.child_progress ?? "세부할일")}">${i.child_done}/${i.child_total}</span>` : ""}${i.encounter_role === "boss" ? " 👑" : ""}${codexTaskIndicatorHtml(i)}${itemAutomationHints(i)}${itemSourceTrace(i)}</td>
       <td><span class="proj-link" data-hub="${esc(i.project_id)}">${esc(i.project_id)}</span></td>
       <td>${statusBadge(i.status)}</td>
       ${dueCell(i.due, todayKey)}
@@ -3877,6 +3879,8 @@ async function renderItems() {
       byParent.get(i.parent_item_id).push(i);
     }
     const topIds = new Set(items.filter((i) => !i.parent_item_id).map((i) => i.id));
+    orphanIds.clear();
+    for (const i of items) if (i.parent_item_id && !topIds.has(i.parent_item_id)) orphanIds.add(i.id); // 부모 부재 자식 = 평면(들여쓰기 X)
     const out = [];
     for (const i of items) {
       if (i.parent_item_id && topIds.has(i.parent_item_id)) continue; // 자식은 부모 밑에서 렌더

@@ -127,6 +127,10 @@ async function fetchOllamaGenerate(host, payload, timeoutMs) {
       signal: ctl.signal,
       body: JSON.stringify(payload),
     });
+    if (resp.ok === false) { // HTTP 404/500(모델 없음·OOM)을 성공으로 위장하지 않음 — 호출부 catch 로 전파(실 Response만; mock은 ok undefined)
+      const err = await resp.json().catch(() => ({}));
+      throw new Error(err.error || `ollama HTTP ${resp.status}`);
+    }
     return await resp.json();
   } finally {
     clearTimeout(timer);
