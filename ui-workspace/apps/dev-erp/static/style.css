@@ -472,6 +472,8 @@ nav button:hover .pin-btn { opacity: 1; }
 .mail-row { cursor: pointer; }
 .mail-row:hover td, .mail-row.sel td { background: var(--chip); }
 .mail-meta { display: flex; gap: 4px; flex-wrap: wrap; max-width: 180px; }
+/* 프로젝트별 그룹 보기 등에서 프로젝트칩·라벨이 없으면 mail-meta 가 비는데, 빈 셀이 폭을 먹어 발신자 열이 밀린다. 비면 접는다. */
+.mail-meta:empty { display: none; }
 .mail-from { font-weight: 600; max-width: 180px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 .mail-from i { font-style: normal; color: var(--muted); }
 .mail-subj { max-width: 520px; min-width: 260px; }
