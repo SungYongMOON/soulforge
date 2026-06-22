@@ -2,6 +2,14 @@
 
 ## 2026-06-22
 
+### Revision `working` - 미흡 기능 감사 후속 4: 피드백 토스트(MED)
+
+- "동작했는지 모르겠다" 유발하던 무피드백 변이 액션에 토스트 추가.
+- 메일 분류(doAssign): 성공 시 'N건 분류 완료', 실패/대상미선택 시 안내(기존 무반응).
+- 라벨 생성(newLabelBtn): 성공/중복/빈입력 토스트(기존 무반응).
+- 메일 수집 버튼: HTTP 4xx/5xx 도 실패로 처리(resp.ok 검사 추가 — 오류를 '완료'로 보이던 것 수정).
+- 정적(app.js)+lexicon 추가, 새 문자열은 정확한 fallback 동반(비즈니스 모드 무중단). node:test 235/0.
+
 ### Revision `working` - 미흡 기능 감사 후속 3: 메일 삭제(soft-hide) — HIGH 6/6 완료
 
 - 마지막 high: 메일 삭제. core_mail 에 `hidden` 컬럼 추가(soft-delete). upsertMail 의 ON CONFLICT

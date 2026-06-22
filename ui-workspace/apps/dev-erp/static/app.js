@@ -3579,7 +3579,7 @@ async function renderHome() {
       c.classList.add("spinning");
       toast(L.mail_collect_running ?? "메일 수집 중…", "ok");
       let r = {};
-      try { const resp = await post("/api/mail/collect", {}); r = await resp.json().catch(() => ({})); }
+      try { const resp = await post("/api/mail/collect", {}); r = await resp.json().catch(() => ({})); if (!resp.ok && !r.error) r.error = "http_" + resp.status; } // HTTP 4xx/5xx 도 실패로
       catch { r = { error: "net" }; }
       c.classList.remove("spinning");
       if (r.error === "admin_only") { toast(L.mail_collect_admin ?? "관리자만 수집할 수 있습니다", "error"); return; }
@@ -4475,9 +4475,11 @@ async function renderMail() {
 	  $("#view").querySelector("[data-clear]")?.addEventListener("click", () => { state.projectFilter = ""; resetMailPaging(); render(); });
   $("#newLabelBtn").addEventListener("click", async () => {
     const name = $("#newLabelName").value.trim();
-    if (!name) return;
+    if (!name) { toast(L.label_need_name ?? "라벨 이름을 입력하세요", "error"); $("#newLabelName")?.focus(); return; }
     const r = await post("/api/labels", { name, color: LABEL_PALETTE[labels.length % LABEL_PALETTE.length] });
-    if (r.ok) render();
+    const d = await r.json().catch(() => ({}));
+    if (r.ok && !d.error) { toast(L.label_created ?? "라벨 생성됨", "ok"); render(); }
+    else toast(d.error === "label_exists" ? (L.label_exists ?? "이미 있는 라벨입니다") : (L.label_create_fail ?? "라벨 생성 실패"), "error");
   });
 	  $("#view").querySelectorAll(".label-bar [data-l]").forEach((c) =>
 	    c.addEventListener("click", () => { f.label = f.label === Number(c.dataset.l) ? null : Number(c.dataset.l); resetMailPaging(); render(); })
@@ -4553,8 +4555,11 @@ async function renderMail() {
     })
   );
   const doAssign = async (mailIds, target, makeItems) => {
+    if (!target) { toast(L.assign_need_target ?? "분류할 과제를 고르세요", "error"); return; }
     const r = await post("/api/mail/assign", { mail_ids: mailIds, project_id: target, make_items: makeItems });
-    if (!r.ok) return;
+    const d = await r.json().catch(() => ({}));
+    if (!r.ok || d.error) { toast(L.assign_fail ?? "분류 실패", "error"); return; }
+    toast(`${mailIds.length}${L.assign_unit ?? "건"} ${L.assign_done ?? "분류 완료"}${makeItems ? ` · ${L.assign_made_short ?? "할일 생성"}` : ""}`, "ok");
     checked.clear();
     state.mailSel = null;
     render();
