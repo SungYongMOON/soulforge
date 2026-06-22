@@ -1,5 +1,15 @@
 # CHANGELOG
 
+## 2026-06-22
+
+### Revision `working` - dev-erp 콕핏 드래그앤드롭 취소 버그 수정
+
+- 담당자 드롭바 `.claim-drop`을 `position: sticky` → `position: fixed` 오버레이로 변경.
+  sticky 일 때는 드래그 시작(`body.dnd-active`) 순간 바가 `#view` 최상단 흐름에
+  끼어들어 드래그 소스(미분류 메일/할일 행)를 ~122px 아래로 밀어냈고, 소스가 커서
+  밑에서 빠지자 Chrome 이 네이티브 드래그를 즉시 취소(dragstart→dragend, drop 0)해
+  "메일이 안 잡히는" 증상이 났다. fixed 오버레이로 흐름에서 빼 reflow 를 없애 해결.
+
 ## 2026-06-21
 
 ### Revision `working` - repo sync validation repair

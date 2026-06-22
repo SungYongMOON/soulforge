@@ -243,7 +243,8 @@ nav button.active { background: var(--chip); font-weight: 600; color: var(--acce
 body.dnd-active .dnd-target { outline: 2px dashed var(--ok); outline-offset: -2px; }
 .widget-body.dnd-target.drop-active { background: rgba(44,122,75,.12); outline: 2px solid var(--ok); }
 /* 콕핏·메일함 공용 '담당자별' 드롭 레인 — 드래그 중에만 노출, 상단 고정 */
-.claim-drop { display: none; position: sticky; top: 4px; z-index: 50; margin: 8px 0; padding: 10px 12px; border: 2px dashed var(--ok); border-radius: 8px; background: var(--surface, #fff); box-shadow: 0 4px 16px rgba(0,0,0,.12); }
+/* fixed 오버레이 — 드래그 시작 시 흐름에 끼어들어 드래그 소스(메일/할일 행)를 밀어내면 Chrome이 드래그를 즉시 취소함. sticky→fixed 로 흐름에서 빼 reflow 제거. */
+.claim-drop { display: none; position: fixed; top: 6px; left: 50%; transform: translateX(-50%); max-width: 90vw; z-index: 50; margin: 0; padding: 10px 12px; border: 2px dashed var(--ok); border-radius: 8px; background: var(--surface, #fff); box-shadow: 0 4px 16px rgba(0,0,0,.12); }
 body.dnd-active .claim-drop { display: block; }
 .claim-drop-hint { display: block; color: var(--ok); font-weight: 600; font-size: 13px; margin-bottom: 8px; }
 .claim-lanes { display: flex; flex-wrap: wrap; gap: 8px; }
