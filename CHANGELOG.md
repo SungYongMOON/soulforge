@@ -1,5 +1,12 @@
 # CHANGELOG
 
+## 2026-06-23
+
+### Revision `working` - 라벨 색 변경 UI — 라벨 CRUD 100% 완성
+
+- 라벨칩에 색 스와치 추가: 클릭하면 LABEL_PALETTE 다음 색으로 순환(`/api/labels/update` 재사용, 지난 라운드 배포).
+- 라벨 CRUD 완전 종료: 생성·부착/해제·삭제·이름변경·색변경. 정적(무중단). node:test 235/0.
+
 ## 2026-06-22
 
 ### Revision `working` - 메일 편집(MED) — 잘못 등록한 메일 메타 정정

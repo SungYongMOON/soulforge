@@ -4267,7 +4267,7 @@ async function renderMail() {
   const labelById = new Map(labels.map((l) => [l.id, l]));
 
   const labelBar = `<div class="label-bar">
-    ${labels.map((l) => `<span class="label-chip manual ${f.label === l.id ? "on" : ""}" style="--lc:${esc(l.color)}" data-l="${l.id}">${esc(l.name)}<b class="chip-edit" data-edit-label="${l.id}" title="${L.label_rename ?? "이름 변경"}">✎</b><b class="chip-del" data-del-label="${l.id}" title="${L.label_delete ?? "라벨 삭제"}">×</b></span>`).join("")}
+    ${labels.map((l) => `<span class="label-chip manual ${f.label === l.id ? "on" : ""}" style="--lc:${esc(l.color)}" data-l="${l.id}">${esc(l.name)}<b class="chip-color" data-color-label="${l.id}" style="background:${esc(l.color)}" title="${L.label_color ?? "색 변경(클릭)"}"></b><b class="chip-edit" data-edit-label="${l.id}" title="${L.label_rename ?? "이름 변경"}">✎</b><b class="chip-del" data-del-label="${l.id}" title="${L.label_delete ?? "라벨 삭제"}">×</b></span>`).join("")}
     <input id="newLabelName" placeholder="${L.label_new_ph}" size="10" />
     <button id="newLabelBtn" class="fav-chip">${L.label_add}</button>
   </div>`;
@@ -4500,6 +4500,17 @@ async function renderMail() {
 	  $("#view").querySelectorAll(".label-bar [data-l]").forEach((c) =>
 	    c.addEventListener("click", () => { f.label = f.label === Number(c.dataset.l) ? null : Number(c.dataset.l); resetMailPaging(); render(); })
 	  );
+	  $("#view").querySelectorAll("[data-color-label]").forEach((b) =>
+	    b.addEventListener("click", async (e) => {
+	      e.stopPropagation();
+	      const id = Number(b.dataset.colorLabel);
+	      const lab = labels.find((l) => l.id === id);
+	      const idx = LABEL_PALETTE.indexOf(lab?.color);
+	      const next = LABEL_PALETTE[(idx + 1) % LABEL_PALETTE.length]; // 클릭마다 다음 색으로 순환
+	      const r = await post("/api/labels/update", { id, color: next });
+	      if (r.ok) render();
+	      else toast(L.label_color_fail ?? "색 변경 실패", "error");
+	    }));
 	  $("#view").querySelectorAll("[data-edit-label]").forEach((b) =>
 	    b.addEventListener("click", async (e) => {
 	      e.stopPropagation(); // 칩 본체(필터 토글)로 안 번지게

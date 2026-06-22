@@ -470,6 +470,8 @@ nav button:hover .pin-btn { opacity: 1; }
 .chip-del { margin-left: 5px; opacity: 0.5; font-weight: 700; cursor: pointer; }
 .chip-edit { margin-left: 5px; opacity: 0.5; cursor: pointer; } /* 라벨 이름 변경 */
 .chip-edit:hover { opacity: 1; color: var(--accent); }
+/* 라벨 색 스와치 — 클릭하면 다음 팔레트 색으로 순환. */
+.chip-color { display: inline-block; width: 10px; height: 10px; border-radius: 50%; margin-left: 5px; cursor: pointer; vertical-align: middle; border: 1px solid rgba(0,0,0,.25); }
 .chip-del:hover { opacity: 1; color: #c0392b; }
 .label-bar { display: flex; flex-wrap: wrap; gap: 6px; align-items: center; }
 .label-bar input { border: 1px solid var(--line); border-radius: 8px; padding: 5px 8px; font-size: 12px; background: var(--panel); color: var(--text); }
