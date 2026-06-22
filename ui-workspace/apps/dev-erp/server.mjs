@@ -797,7 +797,7 @@ const server = createServer(async (req, res) => {
             store.createProposal({
               source: "completion_hook", kind: "completion_digest", target_ref: id,
               summary: digest.summary || `${it?.title ?? id} 완료`,
-              payload: { item_id: id, item_title: it?.title ?? "", summary: digest.summary, next_actions: digest.next_actions, knowledge: digest.knowledge },
+              payload: { item_id: id, item_title: it?.title ?? "", project_id: it?.project_id ?? null, summary: digest.summary, next_actions: digest.next_actions, knowledge: digest.knowledge },
               used_refs: ["items", "codex_thread_message"], data_label: "real",
             });
             store.appendEvent({ actor_ref: "completion_hook", actor_kind: "system", kind: "completion_digest", item_ref: id, used_refs: ["ai_proposal"], data_label: "real" });

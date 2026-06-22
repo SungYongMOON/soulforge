@@ -1912,7 +1912,7 @@ async function renderProposals() {
     ? `<table><tbody>${props.map((p) => `<tr data-prop="${esc(p.id)}">
         <td><span class="badge">${esc(p.kind === "completion_digest" ? (L.prop_kind_digest ?? "완료 요약") : p.kind)}</span></td>
         <td>${p.kind === "completion_digest"
-          ? `${esc(p.payload?.summary ?? p.summary ?? "")}${(p.payload?.next_actions || []).length ? `<div class="dim mini">→ ${p.payload.next_actions.map(esc).join(" · ")}</div>` : ""}${p.payload?.knowledge ? `<div class="dim mini">💡 ${esc(p.payload.knowledge)}</div>` : ""}`
+          ? `${esc(p.payload?.summary ?? p.summary ?? "")}${(p.payload?.next_actions || []).length ? `<div class="dim mini">${L.prop_next_actions ?? "다음 할 일"}</div>${p.payload.next_actions.map((a) => `<div class="digest-na"><span>${esc(a)}</span><button class="fav-chip na-add" data-na-proj="${esc(p.payload?.project_id ?? "")}" data-na-title="${esc(a)}">${L.prop_na_add ?? "+ 할일로"}</button></div>`).join("")}` : ""}${p.payload?.knowledge ? `<div class="dim mini">💡 ${esc(p.payload.knowledge)}</div>` : ""}`
           : esc(p.summary ?? p.payload?.title ?? p.id)}</td>
         <td class="dim">${esc(p.source)}</td>
         <td><button class="fav-chip prop-approve">${L.prop_approve}</button> <button class="fav-chip prop-reject">${L.prop_reject}</button> <span class="prop-msg dim"></span></td>
@@ -1928,6 +1928,17 @@ async function renderProposals() {
       if (res.ok) render(); else tr.querySelector(".prop-msg").textContent = `✗ ${res.error ?? ""}`;
     });
     tr.querySelector(".prop-reject").addEventListener("click", async () => { await post("/api/proposals/reject", { id, reason: "" }); render(); });
+  });
+  // S7 핸드오프: 완료 요약의 '다음 할 일'을 한 클릭으로 실제 할일로 생성(같은 프로젝트). AI가 완료를 분석→사람이 한 번에 이어받기.
+  $("#view").querySelectorAll(".na-add").forEach((b) => {
+    b.addEventListener("click", async (e) => {
+      e.stopPropagation();
+      const proj = b.dataset.naProj, title = b.dataset.naTitle;
+      if (!proj) { toast(L.prop_na_noproj ?? "프로젝트를 알 수 없어 생성할 수 없어요", "error"); return; }
+      const resp = await post("/api/items", { project_id: proj, title });
+      if (resp.ok) { b.disabled = true; b.textContent = L.prop_na_added ?? "✓ 생성됨"; toast(L.prop_na_done ?? "할 일로 만들었어요", "ok"); }
+      else { const er = await resp.json().catch(() => ({})); toast((L.prop_na_fail ?? "생성 실패") + (er.error ? ` (${er.error})` : ""), "error"); }
+    });
   });
 }
 

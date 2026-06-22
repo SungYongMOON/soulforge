@@ -190,6 +190,9 @@ body[data-theme="dark"] .nav-items::before { background: var(--line); } /* 다�
 .fav-chip.pin-cur.on { color: var(--accent); border-color: var(--accent); }
 .fav-chip.danger { color: var(--danger); border-color: rgba(176,58,46,.4); } /* 파괴적 동작(메일 삭제 등) */
 .fav-chip.pin-cur:disabled { opacity: .35; cursor: default; }
+.digest-na { display: flex; align-items: center; justify-content: space-between; gap: 8px; margin: 3px 0; } /* S7: 완료요약 '다음 할 일' 한 줄 + 할일화 버튼 */
+.digest-na > span { flex: 1; }
+.na-add:disabled { opacity: .5; cursor: default; }
 .brand-bar .fav-bar { flex: 0 1 auto; max-width: 40vw; }
 
 .side { grid-area: side; background: var(--panel); border-right: 1px solid var(--line);
