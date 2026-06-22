@@ -32,6 +32,7 @@ import { buildMetaContext, runLlm, answerFromManual, CHATBOT_VERSION, llmThinkEn
 import { loadPartyMonsterTypes } from "./src/party_match.mjs";
 import { startAutosyncPoll, writeTaskToLedger, writeInputToLedger } from "./src/autosync.mjs";
 import { mailboxEnvRelPath, hiworksEnvUpdates, writeMailboxEnv, deleteMailboxEnv, parseMailTestResult } from "./src/mailbox_env.mjs";
+import { collectAllMailboxes, isCollecting } from "./src/mail_collect.mjs";
 const execFileP = promisify(execFile);
 import { safeWorkspacePath, safeUploadTarget, commitUpload, readSafe } from "./src/filevault.mjs";
 import { CODEX_TASK_BRIDGE_VERSION, runCodexTaskTurn } from "./src/codex_bridge.mjs";
@@ -655,6 +656,16 @@ const server = createServer(async (req, res) => {
       } catch (e) {
         return send(res, 200, { ok: false, error: "test_run_error", message: String(e?.message || e).slice(0, 200) });
       }
+    }
+    // 메일 수집(수동 버튼 + 자동 인터벌 공용). 웹서버는 직접 egress 안 함 — 자식 수집기가 fetch 후 원장→core_mail ingest.
+    if (path === "/api/mail/collect" && req.method === "POST") {
+      const admin = requireAdmin(req);
+      if (!admin) return send(res, 403, { error: "admin_only" });
+      if (isCollecting()) return send(res, 200, { ok: false, error: "already_collecting" });
+      const repoRoot = resolve(HERE, "..", "..", "..");
+      const r = await collectAllMailboxes(store, { repoRoot, appDir: HERE, dbRel: DB_IS_DEFAULT ? "data/dev-erp.db" : DB_PATH, log: console.log });
+      store.appendEvent({ actor_ref: admin.username, actor_kind: "human", kind: "mail_collect_manual", used_refs: ["mail", "mailbox_env"], data_label: "meta" });
+      return send(res, 200, r);
     }
     if (path === "/api/accounts/readiness" && req.method === "GET") {
       if (!requireAdmin(req)) return send(res, 403, { error: "admin_only" });
@@ -1690,5 +1701,17 @@ server.listen(PORT, HOST, () => {
       catch (e) { console.error("[autosync] 입력 write-through 오류:", id, e.message); }
     };
     console.log(`[dev-erp] autosync ON — 할일_장부·입력파일_장부 ↔ ERP 양방향(import 폴링 ${Number(process.env.DEV_ERP_AUTOSYNC_MS) || 10000}ms + write-through). root: ${root}`);
+  }
+  // 메일 자동 수집: 활성 메일함을 주기적으로 fetch → 원장 → core_mail ingest(수동 버튼과 같은 경로).
+  // 기본 OFF(테스트·:memory: 무영향). 켜기: DEV_ERP_MAIL_COLLECT_SEC=<초>(예: 900=15분).
+  const mailCollectSec = Number(process.env.DEV_ERP_MAIL_COLLECT_SEC) || 0;
+  if (mailCollectSec > 0) {
+    const repoRoot = resolve(HERE, "..", "..", "..");
+    const collectDbRel = DB_IS_DEFAULT ? "data/dev-erp.db" : DB_PATH;
+    setInterval(() => {
+      collectAllMailboxes(store, { repoRoot, appDir: HERE, dbRel: collectDbRel, log: console.log })
+        .catch((e) => console.error("[mail-collect] 자동수집 오류:", e.message));
+    }, mailCollectSec * 1000);
+    console.log(`[dev-erp] 메일 자동수집 ON: ${mailCollectSec}s 간격`);
   }
 });

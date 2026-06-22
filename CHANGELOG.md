@@ -2,6 +2,14 @@
 
 ## 2026-06-22
 
+### Revision `working` - dev-erp 메일 수집 통합(수동 버튼 + 자동 주기)
+
+- `src/mail_collect.mjs`: 활성·메일함 enabled 계정마다 수집기(자식 프로세스, gateway mail_fetch)로
+  fetch 후 `scan_mail_ledger`로 원장 → core_mail 인입. 동시/중복 수집 락. 웹서버는 직접 외부접속하지
+  않는다(no_server_egress) — egress·ingest 모두 자식 프로세스가 수행. 요약은 건수만(원문 미노출).
+- `POST /api/mail/collect`(관리자) + 미분류 메일함 위젯 헤더 '📥 메일 수집' 버튼(관리자만 노출).
+- 자동 주기 수집: `DEV_ERP_MAIL_COLLECT_SEC=<초>` env(기본 OFF·테스트/:memory: 무영향). 운영본은 켠다.
+
 ### Revision `working` - 메일함 env 파일명 계정 id 기반(한글 이름 충돌 수정)
 
 - `safeAccountEnvName` 이 username 을 `[a-z0-9_.-]` 로 sanitize 했는데, 한글 등 비ASCII

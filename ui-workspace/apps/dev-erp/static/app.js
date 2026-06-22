@@ -3386,6 +3386,7 @@ async function renderHome() {
         <span class="widget-ctrls">
           <i class="wpop" data-pop="${w.id}" title="${L.widget_popout}">⤢</i>
           <i class="wrefresh" data-refresh="${w.id}" title="${L.widget_refresh}">⟳</i>
+          ${(w.id === "inbox" && state.account?.is_admin) ? `<i class="wcollect" data-collect="1" title="${L.mail_collect ?? "메일 수집"}">📥</i>` : ""}
           ${canCreate ? `<i class="wcreate" data-create="${w.id}" title="${L.widget_create}">✎</i>` : ""}
           <span class="widget-menu-wrap">
             <i class="wdots" data-menu="${w.id}" title="${L.widget_menu}">⋮</i>
@@ -3546,6 +3547,26 @@ async function renderHome() {
       bindWidgetInner();
       if (body && prevQ) { const ni = body.querySelector(".widget-search"); if (ni) { ni.value = prevQ; ni.dispatchEvent(new Event("input")); } } // 검색어·필터 복원
       setTimeout(() => r.classList.remove("spinning"), 400);
+    });
+  });
+  // 메일 수집 버튼(미분류함·관리자) — 수집기 호출(서버가 자식프로세스로 fetch→ingest) 후 화면 갱신
+  $("#view").querySelectorAll("[data-collect]").forEach((c) => {
+    c.addEventListener("mousedown", (e) => e.stopPropagation());
+    c.addEventListener("click", async (e) => {
+      e.stopPropagation();
+      if (c.classList.contains("spinning")) return; // 중복 클릭 방지
+      c.classList.add("spinning");
+      toast(L.mail_collect_running ?? "메일 수집 중…", "ok");
+      let r = {};
+      try { const resp = await post("/api/mail/collect", {}); r = await resp.json().catch(() => ({})); }
+      catch { r = { error: "net" }; }
+      c.classList.remove("spinning");
+      if (r.error === "admin_only") { toast(L.mail_collect_admin ?? "관리자만 수집할 수 있습니다", "error"); return; }
+      if (r.error === "already_collecting") { toast(L.mail_collect_busy ?? "이미 수집 중입니다", "error"); return; }
+      if (r.error) { toast(L.mail_collect_fail ?? "메일 수집 실패", "error"); return; }
+      const newN = (r.ingest && r.ingest.new) ?? (r.mailboxes || []).reduce((s, m) => s + (m.new_events ?? 0), 0);
+      toast(`${L.mail_collect_done ?? "메일 수집 완료"} · ${L.mail_collect_new ?? "신규"} ${newN}`, "ok");
+      render(); // 미분류 메일함 등 갱신
     });
   });
   // ⋮ 메뉴

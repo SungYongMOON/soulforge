@@ -5112,6 +5112,27 @@ test("MAILBOX-TEST: 수집기 dry-run JSON → 연결 성공/인증실패 판정
   assert.equal(parseMailTestResult("not json").ok, false);
 });
 
+test("MAIL-COLLECT: enabled 메일함 없으면 자식프로세스 없이 조기반환 + 락 해제", async () => {
+  const { collectAllMailboxes, isCollecting } = await import("../src/mail_collect.mjs");
+  assert.equal(typeof collectAllMailboxes, "function");
+  assert.equal(isCollecting(), false);
+  const store = openStore(":memory:");
+  const r = await collectAllMailboxes(store, { repoRoot: ".", appDir: "." });
+  assert.equal(r.ok, true);
+  assert.equal(r.note, "no_enabled_mailbox");
+  assert.deepEqual(r.mailboxes, []);
+  assert.equal(isCollecting(), false); // 조기반환 후 락 해제
+});
+
+test("MAIL-COLLECT: 서버 엔드포인트 + 자동 인터벌 env + UI 버튼 배선", () => {
+  const srv = readFileSync(join(APP_DIR, "server.mjs"), "utf8");
+  assert.match(srv, /path === "\/api\/mail\/collect"/);
+  assert.match(srv, /DEV_ERP_MAIL_COLLECT_SEC/);
+  const app = readFileSync(join(APP_DIR, "static", "app.js"), "utf8");
+  assert.match(app, /data-collect/);              // 수집 버튼
+  assert.match(app, /\/api\/mail\/collect/);      // 버튼 → 엔드포인트 호출
+});
+
 test("MAILBOX-ENV: 허용 디렉터리에만 atomic 기록, traversal/타 경로 거부, 비번은 파일에만", () => {
   const root = mkdtempSync(join(tmpdir(), "mbenv-"));
   try {
