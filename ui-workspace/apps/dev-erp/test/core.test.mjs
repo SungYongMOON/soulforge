@@ -5093,6 +5093,17 @@ test("MAILBOX-ENV: 경로 파생·env upsert·hiworks 키 묶음", () => {
   assert.equal(u.HIWORKS_SMTP_FROM, "u@x");
 });
 
+test("MAILBOX-ENV: 계정 id 기반 고유 파일명 — 한글/비ASCII 이름도 계정마다 분리(충돌 방지)", () => {
+  // 호출부는 acct.id 를 넘긴다 → ASCII·고유 → 사람마다 다른 파일.
+  assert.notEqual(mailboxEnvRelPath("acc_279211a373"), mailboxEnvRelPath("acc_145a8edf2e"));
+  assert.equal(safeAccountEnvName("acc_279211a373"), "acct_acc_279211a373.env");
+  // 방어: 한글 username 을 직접 넘겨도 sanitize 후 빈 문자열이면 해시로 고유화 → 더 이상 공용 acct_mailbox.env 로 뭉치지 않음.
+  assert.notEqual(safeAccountEnvName("차오름"), safeAccountEnvName("문성용"));
+  assert.doesNotMatch(safeAccountEnvName("차오름"), /acct_mailbox\.env$/);
+  assert.doesNotMatch(safeAccountEnvName("문성용"), /acct_mailbox\.env$/);
+  assert.match(safeAccountEnvName("차오름"), /^acct_x[0-9a-f]{12}\.env$/); // 해시 폴백 형식
+});
+
 test("MAILBOX-TEST: 수집기 dry-run JSON → 연결 성공/인증실패 판정", () => {
   const ok = parseMailTestResult(JSON.stringify({ sources: [{ source: "hiworks", fetched: 3, errors: [] }] }));
   assert.equal(ok.ok, true); assert.equal(ok.fetched, 3);

@@ -624,7 +624,7 @@ const server = createServer(async (req, res) => {
       const username = String(body.username || acct.email || "").trim();
       const password = String(body.password ?? "");
       if (!host || !username || !password) return send(res, 400, { error: "mailbox_credentials_incomplete" });
-      const rel = mailboxEnvRelPath(acct.username || acct.id);
+      const rel = mailboxEnvRelPath(acct.id); // 파일명은 계정 id 기반(ASCII·고유) — 한글 등 username 충돌 방지
       const repoRoot = resolve(HERE, "..", "..", "..");
       const w = writeMailboxEnv(repoRoot, rel, hiworksEnvUpdates({ host, username, password, port: body.port }));
       if (w.error) return send(res, 400, { error: w.error });
@@ -681,7 +681,7 @@ const server = createServer(async (req, res) => {
       if (r.error) return send(res, 400, r);
       const repoRoot = resolve(HERE, "..", "..", "..");
       let envDeleted = false;
-      try { envDeleted = !!deleteMailboxEnv(repoRoot, mailboxEnvRelPath(r.username || id)).deleted; } catch { /* env 정리 실패가 계정 삭제를 막지 않음 */ }
+      try { envDeleted = !!deleteMailboxEnv(repoRoot, r.mailbox_env_ref || mailboxEnvRelPath(id)).deleted; } catch { /* env 정리 실패가 계정 삭제를 막지 않음 */ }
       store.appendEvent({
         actor_ref: admin.username, actor_kind: "human", kind: "account_deleted",
         to: r.username, used_refs: ["auth"], data_label: "meta"

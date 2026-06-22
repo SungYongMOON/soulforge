@@ -2,6 +2,15 @@
 
 ## 2026-06-22
 
+### Revision `working` - 메일함 env 파일명 계정 id 기반(한글 이름 충돌 수정)
+
+- `safeAccountEnvName` 이 username 을 `[a-z0-9_.-]` 로 sanitize 했는데, 한글 등 비ASCII
+  이름은 전부 깎여 빈 문자열 → 폴백 `acct_mailbox.env` 로 통일돼, 한글 이름 계정들이
+  같은 자격증명 env 파일을 공유(나중 등록이 앞 사람 자격증명을 덮어씀)하는 문제가 있었다.
+- env 파일명을 계정 id(항상 ASCII·고유)에서 파생하도록 변경(등록 호출부가 `acct.id` 사용),
+  sanitize 결과가 비면 raw 입력 해시로 고유화. 계정 삭제는 저장된 `mailbox_env_ref` 로
+  실제 파일을 지운다. 한글/중복 이름 팀원도 각자 분리된 env 파일을 갖는다.
+
 ### Revision `working` - dev-erp 콕핏 드래그앤드롭 취소 버그 수정
 
 - 담당자 드롭바 `.claim-drop`을 `position: sticky` → `position: fixed` 오버레이로 변경.

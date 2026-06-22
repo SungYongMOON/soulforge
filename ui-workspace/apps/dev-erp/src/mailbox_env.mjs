@@ -6,15 +6,19 @@
 // zero-dependency: node:fs/path.
 import { readFileSync, writeFileSync, renameSync, mkdirSync, existsSync, rmSync } from "node:fs";
 import { dirname, resolve, sep } from "node:path";
+import { createHash } from "node:crypto";
 
 export const MAILBOX_ENV_DIR_REL = "guild_hall/state/gateway/mailbox/state";
 
-export function safeAccountEnvName(username) {
-  const s = String(username || "").toLowerCase().replace(/[^a-z0-9_.-]+/g, "_").replace(/^[_.\-]+|[_.\-]+$/g, "").slice(0, 80);
-  return `acct_${s || "mailbox"}.env`;
+// 파일명 키는 계정 id(항상 ASCII·고유)를 넘긴다 — 호출부는 acct.id 사용. 한글 등으로 sanitize 결과가
+// 비면 raw 입력의 해시로 고유 파일명을 만들어, 비ASCII 이름 계정들이 같은 acct_mailbox.env 로 충돌하는 것을 막는다.
+export function safeAccountEnvName(accountKey) {
+  const s = String(accountKey || "").toLowerCase().replace(/[^a-z0-9_.-]+/g, "_").replace(/^[_.\-]+|[_.\-]+$/g, "").slice(0, 80);
+  if (s) return `acct_${s}.env`;
+  return `acct_x${createHash("sha1").update(String(accountKey || "")).digest("hex").slice(0, 12)}.env`;
 }
-export function mailboxEnvRelPath(username) {
-  return `${MAILBOX_ENV_DIR_REL}/${safeAccountEnvName(username)}`;
+export function mailboxEnvRelPath(accountKey) {
+  return `${MAILBOX_ENV_DIR_REL}/${safeAccountEnvName(accountKey)}`;
 }
 
 // 기존 env 텍스트에 key=value upsert(주석/타 키 보존). 새 키는 끝에 추가.
