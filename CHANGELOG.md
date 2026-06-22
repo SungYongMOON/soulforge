@@ -2,6 +2,15 @@
 
 ## 2026-06-23
 
+### Revision `working` - 완료 훅 S6 — done 순간 AI가 다음을 준비 (자동화 핵심 레버)
+
+- 할일을 done 하는 순간 그 일의 Codex 대화 로그를 로컬 AI(ollama)가 1회 요약 → {완료요약·다음액션
+  후보·지식후보}를 기존 ai_proposal 큐에 자동 적재('completion_digest'). '승인 대기'(mod:proposals)에서
+  사람이 검토/승인. "완료=정보 소멸"을 "완료=비서가 다음을 준비"로.
+- 죽은 배선 잇기: 기존 codex_thread_message·runLlm·ai_proposal 재사용. 신규 화면 0.
+- 안전: 비차단(fire-and-forget), Codex 대화 없거나 ollama 미가용/오류면 graceful(완료 자체는 영향 0),
+  외부 egress 0(로컬 ollama). 도그푸딩 6페르소나 중 4명 top_wish. node:test 235/0.
+
 ### Revision `working` - UX 마찰 제거 1: 메일→분류 자동진입 + 선택잔존 정리
 
 - 페르소나 도그푸딩(6역할) 결과로 매일-루프 마찰 우선 제거. ① 메일 할일 승격 직후 '분류 필요'로

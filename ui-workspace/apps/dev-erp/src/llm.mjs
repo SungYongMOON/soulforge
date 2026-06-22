@@ -343,3 +343,39 @@ export async function suggestSplit(item = {}, monsterTypes = [], { provider = "s
     return { ...empty, reason: "llm_error", error: String(e?.message ?? e) };
   }
 }
+
+// S6 완료 훅: 완료된 할일의 Codex 대화 로그를 1회 요약 → {완료요약, 다음액션후보, 지식후보}. 제안일 뿐(사람 검토). 외부 egress 없음(로컬 ollama). ollama 미가용/대화없음/오류면 빈 결과로 graceful.
+export async function summarizeCompletion(item = {}, messages = [], { provider = "stub" } = {}) {
+  const empty = { summary: "", next_actions: [], knowledge: "" };
+  if (provider !== "ollama") return { ...empty, reason: "llm_unavailable" };
+  if (!messages.length) return { ...empty, reason: "no_thread" };
+  const runtime = chatLlmRuntimeConfig();
+  const host = process.env.OLLAMA_HOST || "http://127.0.0.1:11434";
+  const log = messages.map((m) => `[${m.role}] ${String(m.text ?? "").replace(/\s+/g, " ").slice(0, 600)}`).join("\n").slice(0, 5000);
+  const itemData = JSON.stringify({ title: item.title ?? "", project_id: item.project_id ?? "-", work_type: item.work_type ?? "-" });
+  const prompt = `당신은 완료된 업무를 정리하는 비서다. 아래 할일(JSON)과 Codex 대화 로그를 보고 JSON으로만 답하라. 로그에 없는 내용은 지어내지 마라.
+할일: ${itemData}
+대화로그:
+${log}
+규칙:
+- summary: 무엇을 했고 결과가 무엇인지 2~3문장(한국어).
+- next_actions: 이어서 할 일 후보 0~3개(각 한국어 한 줄). 없으면 [].
+- knowledge: 다음에 재사용할 지식/주의점 한 줄. 없으면 "".
+형식만 출력: {"summary":"...","next_actions":["..."],"knowledge":"..."}`;
+  try {
+    const q = await runQueued(() => fetchOllamaGenerate(host, {
+      model: runtime.model, prompt, stream: false, format: "json",
+      options: { temperature: 0.2, num_predict: 600 },
+    }, runtime.timeout_ms));
+    if (q && q.queued_timeout) return { ...empty, reason: "busy" };
+    const parsed = JSON.parse(q?.response ?? "{}");
+    return {
+      summary: String(parsed.summary ?? "").trim().slice(0, 1000),
+      next_actions: (Array.isArray(parsed.next_actions) ? parsed.next_actions : []).slice(0, 3).map((s) => String(s ?? "").trim().slice(0, 200)).filter(Boolean),
+      knowledge: String(parsed.knowledge ?? "").trim().slice(0, 500),
+      model: runtime.model,
+    };
+  } catch (e) {
+    return { ...empty, reason: "llm_error", error: String(e?.message ?? e) };
+  }
+}

@@ -28,7 +28,7 @@ import {
   scanWikiPageRefs,
 } from "./src/knowledge_shell.mjs";
 import { crossSearch } from "./src/search.mjs";
-import { buildMetaContext, runLlm, answerFromManual, CHATBOT_VERSION, llmThinkEnabled, suggestSplit } from "./src/llm.mjs";
+import { buildMetaContext, runLlm, answerFromManual, CHATBOT_VERSION, llmThinkEnabled, suggestSplit, summarizeCompletion } from "./src/llm.mjs";
 import { loadPartyMonsterTypes } from "./src/party_match.mjs";
 import { startAutosyncPoll, writeTaskToLedger, writeInputToLedger } from "./src/autosync.mjs";
 import { mailboxEnvRelPath, hiworksEnvUpdates, writeMailboxEnv, deleteMailboxEnv, parseMailTestResult } from "./src/mailbox_env.mjs";
@@ -783,6 +783,27 @@ const server = createServer(async (req, res) => {
         item_ref: id, from: result.from, to: status, project_ref: result.project_id,
         bottleneck_reason: bottleneck_reason ?? null, used_refs: ["items"], data_label: "real"
       });
+      if (status === "done" && result.from !== "done") {
+        // S6 완료 훅: Codex 대화가 있으면 로컬 AI로 요약 → ai_proposal(completion_digest) 적재. 비차단·실패무시·외부 egress 0. '완료=비서가 다음을 준비'.
+        (async () => {
+          try {
+            const provider = process.env.ERP_CHAT_PROVIDER || "stub";
+            if (provider !== "ollama") return;
+            const msgs = store.codexTaskMessages(id);
+            if (!msgs.length) return; // Codex 대화 없으면 요약할 것 없음
+            const it = store.itemById(id);
+            const digest = await summarizeCompletion(it, msgs, { provider });
+            if (!digest.summary && !(digest.next_actions || []).length) return;
+            store.createProposal({
+              source: "completion_hook", kind: "completion_digest", target_ref: id,
+              summary: digest.summary || `${it?.title ?? id} 완료`,
+              payload: { item_id: id, item_title: it?.title ?? "", summary: digest.summary, next_actions: digest.next_actions, knowledge: digest.knowledge },
+              used_refs: ["items", "codex_thread_message"], data_label: "real",
+            });
+            store.appendEvent({ actor_ref: "completion_hook", actor_kind: "system", kind: "completion_digest", item_ref: id, used_refs: ["ai_proposal"], data_label: "real" });
+          } catch { /* 완료 훅 실패가 완료를 막지 않음 */ }
+        })();
+      }
       return send(res, 200, result);
     }
     if (path === "/api/items/split-suggest" && req.method === "POST") {

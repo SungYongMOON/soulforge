@@ -796,7 +796,7 @@ export function openStore(path = ":memory:") {
 }
 
 // P-4 키스톤: 승인 시 실행 가능한 도메인 쓰기 화이트리스트(임의 SQL/eval 금지).
-const PROPOSAL_KINDS = ["create_item", "add_attachment_type", "set_artifact_requirement", "link_part_project"];
+const PROPOSAL_KINDS = ["create_item", "add_attachment_type", "set_artifact_requirement", "link_part_project", "completion_digest"];
 
 export class Store {
   static normalizeMailboxKey = normalizeMailboxKey;
@@ -2160,6 +2160,7 @@ export class Store {
         case "add_attachment_type": result = this.addAttachment(payload); break;
         case "set_artifact_requirement": result = this.setArtifactRequirement(payload); break;
         case "link_part_project": result = this.linkPartProject(payload.part_id, payload.project_id); break;
+        case "completion_digest": result = { ok: true }; break; // 정보성 요약 — 승인=확인(읽음). 다음액션/지식 적용은 후속(S7).
         default: this.db.exec("ROLLBACK"); return { error: "unknown_proposal_kind" };
       }
       if (result && result.error) { this.db.exec("ROLLBACK"); return result; } // 도메인 거부 시 상태 미변경(재시도 가능)
