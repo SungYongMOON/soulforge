@@ -2,6 +2,15 @@
 
 ## 2026-06-22
 
+### Revision `working` - Codex 대화 속도(service_tier) 선택 제거 — codex 기본값 사용
+
+- "failed to load configuration ... unknown variant `priority`" 오류가 반복되던 건의 근본 차단:
+  속도(tier) 선택(flex·fast) 자체를 ERP에서 제거하고 codex 기본 tier 를 쓰게 함.
+- 서버: `CODEX_TASK_SERVICE_TIER_OPTIONS=[]`, 기본 tier `""`(override 미전송, ALLOW_FAST 여도 fast 불가).
+- UI: Codex 대화창의 service tier 드롭다운(taskCodexTier) 및 관련 참조 제거, 폴백 flex 정리.
+- (운영 PC) 전역 `~/.codex/config.toml` 의 `service_tier` 줄 제거 → codex 기본값. tier 값이 없으니
+  파싱 오류가 다시 안 남. node:test 235/0(관련 3개 테스트를 새 설계에 맞게 갱신).
+
 ### Revision `working` - 미흡 기능 감사 후속 1: 메일 분류 취소 + 메일함 해제
 
 - 미흡 기능 전수 감사(워크플로) 결과 확정 55건(high 6) 중 high 처리 1차.

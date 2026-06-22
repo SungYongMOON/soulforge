@@ -57,12 +57,12 @@ const CODEX_TASK_IMAGE_EXTS = new Set([".png", ".jpg", ".jpeg", ".webp", ".gif"]
 const CODEX_TASK_BASE_MODEL_OPTIONS = ["gpt-5.5", "gpt-5.4", "gpt-5.3"];
 const CODEX_TASK_EFFORT_OPTIONS = ["low", "medium", "high", "xhigh"];
 const CODEX_TASK_ALLOW_FAST = process.env.DEV_ERP_CODEX_TASK_ALLOW_FAST === "1";
-const CODEX_TASK_SERVICE_TIER_OPTIONS = CODEX_TASK_ALLOW_FAST ? ["flex", "fast"] : ["flex"];
+const CODEX_TASK_SERVICE_TIER_OPTIONS = []; // 속도(tier) 선택 제거 — flex·fast 안 씀. codex 기본 tier 사용(config.toml 에 service_tier 없음) → "unknown variant" 오류 영구 차단.
 const CODEX_TASK_DEFAULT_MODEL = String(process.env.DEV_ERP_CODEX_TASK_MODEL || CODEX_TASK_BASE_MODEL_OPTIONS[0]).trim() || CODEX_TASK_BASE_MODEL_OPTIONS[0];
 const CODEX_TASK_DEFAULT_EFFORT_RAW = String(process.env.DEV_ERP_CODEX_TASK_EFFORT || "").trim().toLowerCase();
 const CODEX_TASK_DEFAULT_EFFORT = CODEX_TASK_EFFORT_OPTIONS.includes(CODEX_TASK_DEFAULT_EFFORT_RAW) ? CODEX_TASK_DEFAULT_EFFORT_RAW : "medium";
 const CODEX_TASK_DEFAULT_SERVICE_TIER_RAW = String(process.env.DEV_ERP_CODEX_TASK_SERVICE_TIER || process.env.DEV_ERP_CODEX_SERVICE_TIER || "").trim().toLowerCase();
-const CODEX_TASK_DEFAULT_SERVICE_TIER = CODEX_TASK_SERVICE_TIER_OPTIONS.includes(CODEX_TASK_DEFAULT_SERVICE_TIER_RAW) ? CODEX_TASK_DEFAULT_SERVICE_TIER_RAW : "flex";
+const CODEX_TASK_DEFAULT_SERVICE_TIER = CODEX_TASK_SERVICE_TIER_OPTIONS.includes(CODEX_TASK_DEFAULT_SERVICE_TIER_RAW) ? CODEX_TASK_DEFAULT_SERVICE_TIER_RAW : ""; // tier override 안 보냄 → codex 기본값
 const CODEX_TASK_DEFAULTS = Object.freeze({
   model: CODEX_TASK_DEFAULT_MODEL,
   effort: CODEX_TASK_DEFAULT_EFFORT,

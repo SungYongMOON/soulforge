@@ -2667,7 +2667,6 @@ function openTaskCodex(itemId) {
     <div class="task-codex-tools">
       <select id="taskCodexModel" title="Codex model"></select>
       <select id="taskCodexEffort" title="Reasoning effort"></select>
-      <select id="taskCodexTier" title="Service tier"></select>
       <label class="task-codex-attach" title="Attach image">
         <input id="taskCodexImage" type="file" accept="image/*" multiple />
         <span>이미지</span>
@@ -2693,7 +2692,6 @@ function openTaskCodex(itemId) {
   const sendBtn = ov.querySelector("#taskCodexSend");
   const modelEl = ov.querySelector("#taskCodexModel");
   const effortEl = ov.querySelector("#taskCodexEffort");
-  const tierEl = ov.querySelector("#taskCodexTier");
   const imageEl = ov.querySelector("#taskCodexImage");
   let payload = null;
   let pending = false;
@@ -2701,7 +2699,7 @@ function openTaskCodex(itemId) {
   let pendingStartedAt = 0;
   let capabilities = {
     skills: [],
-    defaults: { model: "gpt-5.5", effort: "medium", service_tier: "flex" },
+    defaults: { model: "gpt-5.5", effort: "medium" },
     model_options: ["gpt-5.5"],
     effort_options: ["medium"],
     service_tier_options: ["flex"],
@@ -2739,13 +2737,13 @@ function openTaskCodex(itemId) {
     return {
       model: pick("model", capabilities.model_options, "gpt-5.5"),
       effort: pick("effort", capabilities.effort_options, "medium"),
-      service_tier: pick("service_tier", capabilities.service_tier_options, "flex"),
+      service_tier: "", // 속도(tier) 미사용 — codex 기본값(flex·fast 제거)
     };
   };
   const currentTaskCodexOptions = () => ({
     model: modelEl.value || "",
     effort: effortEl.value || "",
-    service_tier: tierEl.value || "",
+    service_tier: "", // 속도(tier) 미사용 — codex 기본값
   });
   const describeTaskCodexOptions = (opt = currentTaskCodexOptions()) => [
     taskCodexOptionLabels.model[opt.model] || opt.model,
@@ -2768,7 +2766,6 @@ function openTaskCodex(itemId) {
     localStorage.setItem("dev_erp_task_codex_options", JSON.stringify(opt));
     fillSelect(modelEl, capabilities.model_options, taskCodexOptionLabels.model, opt.model);
     fillSelect(effortEl, capabilities.effort_options, taskCodexOptionLabels.effort, opt.effort);
-    fillSelect(tierEl, capabilities.service_tier_options, taskCodexOptionLabels.tier, opt.service_tier);
   };
   const loadCapabilities = async () => {
     try {
@@ -2776,10 +2773,10 @@ function openTaskCodex(itemId) {
     } catch {
       capabilities = {
         skills: [],
-        defaults: { model: "gpt-5.5", effort: "medium", service_tier: "flex" },
+        defaults: { model: "gpt-5.5", effort: "medium" },
         model_options: ["gpt-5.5"],
         effort_options: ["medium"],
-        service_tier_options: ["flex"],
+        service_tier_options: [],
       };
     }
     renderTools();
@@ -3065,7 +3062,7 @@ function openTaskCodex(itemId) {
   ov.querySelector(".task-codex-tile").addEventListener("click", tileTaskCodexPanels);
   ov.querySelector(".task-codex-x").addEventListener("click", closePanel);
   window.addEventListener("resize", restoreDockPosition, { passive: true });
-  for (const el of [modelEl, effortEl, tierEl]) {
+  for (const el of [modelEl, effortEl]) {
     el.addEventListener("change", () => {
       saveTaskCodexOptions();
       render();

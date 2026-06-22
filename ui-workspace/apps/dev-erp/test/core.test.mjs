@@ -1092,10 +1092,10 @@ test("server: Codex task mock bridge opens a separate task thread API", async ()
       assert.ok(item?.id);
 
       let caps = await (await fetch(`${base}/api/codex-task/capabilities`)).json();
-      assert.deepEqual(caps.defaults, { model: "gpt-5.5", effort: "medium", service_tier: "flex" });
+      assert.deepEqual(caps.defaults, { model: "gpt-5.5", effort: "medium", service_tier: "" });
       assert.deepEqual(caps.model_options, ["gpt-5.5", "gpt-5.4", "gpt-5.3"]);
       assert.deepEqual(caps.effort_options, ["low", "medium", "high", "xhigh"]);
-      assert.deepEqual(caps.service_tier_options, ["flex"]);
+      assert.deepEqual(caps.service_tier_options, []); // 속도(tier) 제거 — codex 기본값
       assert.equal(caps.attachments.local_image, true);
       assert.equal(caps.attachments.arbitrary_file, false);
       assert.ok(caps.skills.some((s) => s.name === "test-skill"));
@@ -1144,7 +1144,7 @@ test("server: Codex task mock bridge opens a separate task thread API", async ()
   }
 });
 
-test("server: Codex task fast service tier is hidden unless explicitly allowed", async () => {
+test("server: Codex task service tier 제거 — ALLOW_FAST 여도 tier 옵션 없음(fast 못 켬)", async () => {
   const root = mkdtempSync(join(tmpdir(), "dev-erp-codex-tier-"));
   try {
     const port = await freePort();
@@ -1156,8 +1156,9 @@ test("server: Codex task fast service tier is hidden unless explicitly allowed",
     try {
       await waitForHttp(`${base}/api/health`, srv.child, srv.stderr);
       const caps = await (await fetch(`${base}/api/codex-task/capabilities`)).json();
-      assert.deepEqual(caps.defaults.service_tier, "flex");
-      assert.deepEqual(caps.service_tier_options, ["flex", "fast"]);
+      // 속도(tier) 선택 자체를 제거 → ALLOW_FAST=1 이어도 옵션 없음. codex 기본 tier 사용.
+      assert.deepEqual(caps.defaults.service_tier, "");
+      assert.deepEqual(caps.service_tier_options, []);
     } finally {
       await srv.stop();
     }
@@ -3521,8 +3522,8 @@ test("Codex task UI: 대기 중 단계와 경과시간을 보여준다", () => {
   assert.match(app, /\/api\/codex-task\/attachment/);
   assert.match(app, /taskCodexModel/);
   assert.match(app, /taskCodexEffort/);
-  assert.match(app, /taskCodexTier/);
-  assert.match(app, /defaults: \{ model: "gpt-5\.5", effort: "medium", service_tier: "flex" \}/);
+  assert.doesNotMatch(app, /taskCodexTier/); // 속도(tier) 드롭다운 제거됨
+  assert.match(app, /defaults: \{ model: "gpt-5\.5", effort: "medium" \}/);
   assert.match(app, /describeTaskCodexOptions/);
   assert.match(app, /loadCapabilities\(\)\.then\(load\)/);
   assert.match(app, /service_tier: opt\.service_tier \|\| null/);
