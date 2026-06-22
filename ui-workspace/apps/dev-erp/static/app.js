@@ -3213,6 +3213,24 @@ async function renderHome() {
     <div class="kpi blue" data-jump="inbox-mail"><span>${L.kpi_inbox}</span><strong>${inbox.reduce((s, p) => s + p.mail_cnt, 0)}</strong></div>
   </div>`;
 
+  // #6 팀 건강 신호등 — 흩어진 숫자를 한눈 위험/주의/정상 + '왜'로 종합(관리자 판단부하 해소). 기존 summary 데이터만 사용.
+  const blockedTotal = actives.reduce((s, p) => s + p.blocked, 0);
+  const overdueTotal = actives.reduce((s, p) => s + p.overdue, 0);
+  const dueTodayTotal = actives.reduce((s, p) => s + p.due_today, 0);
+  const teamHealth = (blockedTotal > 0 || overdueTotal > 2) ? "risk" : (overdueTotal > 0 || dueTodayTotal > 0) ? "watch" : "ok";
+  const healthTop = teamHealth !== "ok" ? actives[0] : null; // actives 는 risk() 내림차순 정렬 → 첫 항목이 최우선
+  const healthParts = [];
+  if (blockedTotal) healthParts.push(`${L.kpi_blocked} ${blockedTotal}`);
+  if (overdueTotal) healthParts.push(`${L.kpi_overdue} ${overdueTotal}`);
+  if (dueTodayTotal) healthParts.push(`${L.kpi_today} ${dueTodayTotal}`);
+  const healthLabel = teamHealth === "risk" ? (L.team_health_risk ?? "위험") : teamHealth === "watch" ? (L.team_health_watch ?? "주의") : (L.team_health_ok ?? "정상");
+  const healthBanner = `<div class="team-health th-${teamHealth}"${healthTop ? ` data-p="${esc(healthTop.id)}" role="button" tabindex="0" title="${L.team_health_jump ?? "가장 시급한 과제로 이동"}"` : ""}>
+    <span class="th-dot"></span>
+    <strong>${L.team_health_label ?? "팀 상태"}: ${healthLabel}</strong>
+    <span class="dim">${healthParts.length ? healthParts.join(" · ") : (L.team_health_clear ?? "막힘·연체 없음 — 정상 운영")}</span>
+    ${healthTop ? `<span class="th-top">→ ${esc(healthTop.title)}</span>` : ""}
+  </div>`;
+
   const remainCell = (p) => {
     if (!p.has_items) return `<td class="dim" title="${L.not_connected}">—</td>`;
     const mobs = state.mode === "fantasy"
@@ -3470,7 +3488,7 @@ async function renderHome() {
     return `<div class="drawer-cat"><div class="drawer-cat-head">${L[cat]}</div>${body}</div>`;
   }).join("");
 
-  $("#view").innerHTML = `${kpi}
+  $("#view").innerHTML = `${healthBanner}${kpi}
     ${claimDropBarHtml()}
     <button id="widgetEdge" class="widget-edge" title="${L.widget_add}" aria-label="${L.widget_add}">❙❙</button>
     <aside id="widgetDrawer" class="widget-drawer">
@@ -3733,6 +3751,9 @@ async function renderHome() {
   function bindWidgetInner() {
     $("#view").querySelectorAll(".proj-row").forEach((r) =>
       r.addEventListener("click", () => { state.hubProject = r.dataset.p; state.hubTab = "overview"; state.view = "project"; render(); }));
+    $("#view").querySelector(".team-health[data-p]")?.addEventListener("click", (ev) => {
+      state.hubProject = ev.currentTarget.dataset.p; state.hubTab = "overview"; state.view = "project"; render();
+    });
     $("#view").querySelectorAll("[data-jump-mail]").forEach((b) =>
       b.addEventListener("click", (e) => { e.stopPropagation(); state.projectFilter = b.dataset.jumpMail; state.view = "mail"; render(); }));
     // 콕핏 홈 '메일' KPI 타일: 핸들러가 없어 dead-click 이던 것 → 메일 화면(전체 메일함)으로 이동.
