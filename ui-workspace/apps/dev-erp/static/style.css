@@ -473,8 +473,8 @@ nav button:hover .pin-btn { opacity: 1; }
 .mail-row:hover td, .mail-row.sel td { background: var(--chip); }
 /* 메일함 주인·프로젝트·라벨 칩은 발신자 칸 앞에 인라인으로(별도 meta 컬럼이 빈 띠를 만들던 줄 버그 제거). */
 .mail-chips { display: inline-flex; gap: 4px; vertical-align: middle; margin-right: 6px; }
-/* 팀 전체 보기: 메일함 주인(차오름/문성용) 칩 — accent 색으로 구분. */
-.label-chip.mailbox-owner { background: var(--accent); color: #fff; border-color: var(--accent); }
+/* 팀 전체 보기: 메일함 주인 칩 — 팀원별로 다른 색(--lc, 인라인 지정)으로 구분. */
+.label-chip.mailbox-owner { background: var(--lc); color: #fff; border-color: var(--lc); }
 /* 주인 미상(개인귀속 전 옛 수집분, 서버에 없어 재수신 불가) — 회색으로 약하게. */
 .label-chip.mailbox-owner.shared { background: #94a3b8; color: #fff; border-color: #94a3b8; }
 .mail-from { font-weight: 600; max-width: 180px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }

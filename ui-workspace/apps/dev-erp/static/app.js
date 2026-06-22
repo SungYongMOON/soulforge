@@ -4296,11 +4296,13 @@ async function renderMail() {
   // 팀 전체 보기일 때 각 메일이 누구 메일함인지(차오름/문성용)를 칩으로 표시(개인 뷰에선 중복이라 생략).
   const teamView = !state.viewScope || state.viewScope === "team";
   const ownerScopes = (state._scopes ?? []).filter((s) => s.email && s.id !== "team");
+  // 팀원별로 칩 색을 다르게(구분용). 팔레트 인덱스 = scopes 순서 → 인접 멤버 색 보장(과제 칩과 같은 LABEL_PALETTE).
+  const ownerColorById = new Map(ownerScopes.map((s, i) => [s.id, LABEL_PALETTE[i % LABEL_PALETTE.length]]));
   const ownerInfoFor = (mailbox) => {
     const mb = String(mailbox || "");
     if (!mb) return null;
     const s = ownerScopes.find((x) => mb === x.email || mb.startsWith(`${x.email}/`) || mb.startsWith(`${x.email}\\`));
-    if (s) return { label: s.label, shared: false };
+    if (s) return { label: s.label, shared: false, color: ownerColorById.get(s.id) };
     if (mb === "company_mailbox") return { label: L.mailbox_shared ?? "공용함", shared: true }; // 옛 메일: 주인 미상(개인귀속 전 초기 수집분, 서버에 없어 재수신 불가)
     return null;
   };
@@ -4310,7 +4312,7 @@ async function renderMail() {
     const manual = m.label_ids.map((id) => labelById.get(id)).filter(Boolean)
       .map((l) => `<span class="label-chip manual mini" style="--lc:${esc(l.color)}">${esc(l.name)}</span>`).join("");
     const oi = teamView ? ownerInfoFor(m.mailbox) : null;
-    const ownerChip = oi ? `<span class="label-chip mailbox-owner mini${oi.shared ? " shared" : ""}" title="${L.mailbox_owner ?? "메일함 주인"}">${esc(oi.label)}</span>` : "";
+    const ownerChip = oi ? `<span class="label-chip mailbox-owner mini${oi.shared ? " shared" : ""}"${oi.color ? ` style="--lc:${oi.color}"` : ""} title="${L.mailbox_owner ?? "메일함 주인"}">${esc(oi.label)}</span>` : "";
     const meta = ownerChip + (showProj ? projChip(m.project_id, clsById.get(m.project_id)) : "") + manual;
     const threadSubject = mailThreadSubject(m.subject);
     const kind = mailThreadKind(m.subject);
