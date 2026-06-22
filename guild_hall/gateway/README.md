@@ -1,5 +1,22 @@
 # guild_hall/gateway
 
+## Outlook reconcile command
+
+- `guild-hall:gateway:outlook-reconcile`
+  - Runs the metadata-only `outlook_mail_reconcile_v0` runner.
+  - Default mode is dry-run. Use `--apply` to write sent-mail metadata deltas to
+    `_workmeta/<project_code>/reports/메일_이력/메일_이력.csv`.
+  - `guild-hall:gateway:outlook-reconcile:apply` is the automation alias for
+    `--apply --send-receive`.
+  - Use `--send-receive` to trigger Outlook Send/Receive once before metadata
+    collection. This is the only Outlook mutation allowed by this runner.
+  - Received-mail metadata is cross-validation only; it does not rewrite
+    received history.
+  - The runner never reads body text, HTML, `.msg`/`.eml`, attachment payloads,
+    secrets, rules, or category state.
+  - Ambiguous project matches are written to owner-follow-up run output instead
+    of being upserted.
+
 ## 목적
 
 - `gateway/` 는 cross-project ingress owner 다.

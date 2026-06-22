@@ -47,6 +47,9 @@ import {
   upsertProjectMailHistory,
 } from "./project_mail_history_writer.mjs";
 import {
+  runOutlookMailReconcile,
+} from "./outlook_mail_reconcile.mjs";
+import {
   appendJsonl,
   pathExists,
   readJson,
@@ -146,6 +149,11 @@ async function main() {
     return;
   }
 
+  if (command === "outlook-reconcile") {
+    await runOutlookReconcile(args);
+    return;
+  }
+
   if (command === "triage-mail-candidate") {
     await runTriageMailCandidate(args);
     return;
@@ -216,6 +224,7 @@ function printUsageAndExit() {
       "  node guild_hall/gateway/cli.mjs register-mail-tasks [--latest-file <path>] [--workmeta-root <path>] [--apply] [--notify] [--local-root <path>]",
       "  node guild_hall/gateway/cli.mjs validate-deadline-watch",
       "  node guild_hall/gateway/cli.mjs deadline-watchdog-reminders [--workmeta-root <path>] [--due-window-hours <hours>] [--cooldown-hours <hours>] [--max-nudge-count <count>] [--output-file <path>] [--write-preview]",
+      "  node guild_hall/gateway/cli.mjs outlook-reconcile [--apply] [--send-receive] [--project-code <code>] [--window-start <iso>] [--window-end <iso>] [--fallback-hours <hours>] [--outlook-source <alias>] [--include-inbox-subfolders] [--fixture-outlook <json>]",
       "  node guild_hall/gateway/cli.mjs triage-mail-candidate (--candidate-file <path> | --all-pending) [--queue-root <path>] [--binding-file <path>] [--private-deep] [--force]",
       "  node guild_hall/gateway/cli.mjs notify-gateway --event <event> (--on | --off)",
       "  node guild_hall/gateway/cli.mjs notify-mission --mission-id <id> --event <event> (--on | --off)",
@@ -224,6 +233,29 @@ function printUsageAndExit() {
     ].join("\n"),
   );
   process.exit(1);
+}
+
+async function runOutlookReconcile(args) {
+  const projectCodes = [args["project-code"], args["project-codes"]]
+    .filter((value) => typeof value === "string")
+    .flatMap((value) => value.split(","))
+    .map((value) => value.trim())
+    .filter(Boolean);
+  const result = await runOutlookMailReconcile({
+    repoRoot: args["local-root"] ? path.resolve(args["local-root"]) : repoRoot,
+    apply: Boolean(args.apply),
+    sendReceive: Boolean(args["send-receive"]),
+    projectCodes,
+    windowStart: args["window-start"] || null,
+    windowEnd: args["window-end"] || null,
+    fallbackHours: args["fallback-hours"] ? Number(args["fallback-hours"]) : undefined,
+    outlookSourceAlias: args["outlook-source"] || "seabot.moon@sonartech.com",
+    includeInboxSubfolders: Boolean(args["include-inbox-subfolders"]),
+    fixtureOutlookPath: args["fixture-outlook"] ? path.resolve(args["fixture-outlook"]) : null,
+    maxItems: args["max-items"] ? Number(args["max-items"]) : undefined,
+    runId: args["run-id"] || null,
+  });
+  console.log(JSON.stringify(result, null, 2));
 }
 
 async function runListMailCandidates(args) {

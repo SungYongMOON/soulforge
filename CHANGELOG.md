@@ -13,6 +13,18 @@
   with a portable `<DEV_ERP_DB_PATH>` placeholder so path-policy validation can
   pass on other machines.
 
+### Revision `working` - Outlook mail reconcile runner added
+
+- Added `guild_hall/gateway/outlook_mail_reconcile.mjs` and
+  `guild-hall:gateway:outlook-reconcile` for metadata-only Outlook sent-mail
+  ledger reconciliation. The runner supports optional Send/Receive preflight,
+  previous-run date-window fallback, Codex-managed project discovery excluding
+  `P00-000_INBOX`, private sent-mail ledger deltas, received-mail
+  cross-validation, and owner follow-up rows for ambiguous matches.
+- Added fixture-based tests for apply and dry-run modes without touching live
+  Outlook, message bodies, HTML, `.msg`/`.eml`, attachments, rules, categories,
+  or secrets.
+
 ## 2026-06-20
 
 ### Revision `working` - dev-erp 계정 삭제(자격증명 정리, 업무 데이터 보존)
