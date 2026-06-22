@@ -468,6 +468,8 @@ nav button:hover .pin-btn { opacity: 1; }
 .label-chip.mini { font-size: 10.5px; padding: 1px 7px; }
 /* 라벨칩 삭제 × — 라벨 정의를 지운다(메일 부착도 함께 제거). */
 .chip-del { margin-left: 5px; opacity: 0.5; font-weight: 700; cursor: pointer; }
+.chip-edit { margin-left: 5px; opacity: 0.5; cursor: pointer; } /* 라벨 이름 변경 */
+.chip-edit:hover { opacity: 1; color: var(--accent); }
 .chip-del:hover { opacity: 1; color: #c0392b; }
 .label-bar { display: flex; flex-wrap: wrap; gap: 6px; align-items: center; }
 .label-bar input { border: 1px solid var(--line); border-radius: 8px; padding: 5px 8px; font-size: 12px; background: var(--panel); color: var(--text); }

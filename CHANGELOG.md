@@ -2,6 +2,12 @@
 
 ## 2026-06-22
 
+### Revision `working` - 라벨 이름 변경(MED) — 라벨 CRUD 완성
+
+- 라벨칩에 ✎(이름 변경) 추가 → prompt 로 이름 수정. `store.updateLabel`(name/color, 중복 거부),
+  `POST /api/labels/update`. 색 변경은 백엔드(updateLabel color)만 준비, UI는 후속.
+- 이로써 라벨 CRUD: 생성·부착/해제·삭제·이름변경 완비. node:test 235/0.
+
 ### Revision `working` - 콕핏 메일/미분류 위젯 행 → 분류 진입(설계 #1·감사 갭)
 
 - 메일/미분류 위젯 행이 클릭 액션 0개이던 갭: 행 클릭 시 메일 화면에서 그 메일 선택

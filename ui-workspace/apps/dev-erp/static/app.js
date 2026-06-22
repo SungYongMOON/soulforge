@@ -4267,7 +4267,7 @@ async function renderMail() {
   const labelById = new Map(labels.map((l) => [l.id, l]));
 
   const labelBar = `<div class="label-bar">
-    ${labels.map((l) => `<span class="label-chip manual ${f.label === l.id ? "on" : ""}" style="--lc:${esc(l.color)}" data-l="${l.id}">${esc(l.name)}<b class="chip-del" data-del-label="${l.id}" title="${L.label_delete ?? "라벨 삭제"}">×</b></span>`).join("")}
+    ${labels.map((l) => `<span class="label-chip manual ${f.label === l.id ? "on" : ""}" style="--lc:${esc(l.color)}" data-l="${l.id}">${esc(l.name)}<b class="chip-edit" data-edit-label="${l.id}" title="${L.label_rename ?? "이름 변경"}">✎</b><b class="chip-del" data-del-label="${l.id}" title="${L.label_delete ?? "라벨 삭제"}">×</b></span>`).join("")}
     <input id="newLabelName" placeholder="${L.label_new_ph}" size="10" />
     <button id="newLabelBtn" class="fav-chip">${L.label_add}</button>
   </div>`;
@@ -4493,6 +4493,19 @@ async function renderMail() {
 	  $("#view").querySelectorAll(".label-bar [data-l]").forEach((c) =>
 	    c.addEventListener("click", () => { f.label = f.label === Number(c.dataset.l) ? null : Number(c.dataset.l); resetMailPaging(); render(); })
 	  );
+	  $("#view").querySelectorAll("[data-edit-label]").forEach((b) =>
+	    b.addEventListener("click", async (e) => {
+	      e.stopPropagation(); // 칩 본체(필터 토글)로 안 번지게
+	      const id = Number(b.dataset.editLabel);
+	      const lab = labels.find((l) => l.id === id);
+	      const nt = prompt(L.label_rename_ph ?? "라벨 이름 변경", lab?.name ?? "");
+	      if (nt === null) return;
+	      if (!nt.trim()) { toast(L.label_need_name ?? "라벨 이름을 입력하세요", "error"); return; }
+	      const r = await post("/api/labels/update", { id, name: nt.trim() });
+	      const d = await r.json().catch(() => ({}));
+	      if (r.ok && !d.error) { toast(L.label_renamed ?? "라벨 이름 변경됨", "ok"); render(); }
+	      else toast(d.error === "label_exists" ? (L.label_exists ?? "이미 있는 라벨입니다") : (L.label_rename_fail ?? "라벨 변경 실패"), "error");
+	    }));
 	  $("#view").querySelectorAll("[data-del-label]").forEach((b) =>
 	    b.addEventListener("click", async (e) => {
 	      e.stopPropagation(); // 칩 본체(필터 토글)로 안 번지게

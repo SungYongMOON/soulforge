@@ -2755,6 +2755,19 @@ export class Store {
     return { ok: true, id: row.id, name: row.name };
   }
 
+  // 라벨 이름·색 변경. name/color 둘 다 선택(없으면 기존 유지). 이름 중복은 거부.
+  updateLabel(labelId, patch = {}) {
+    const row = this.db.prepare("SELECT * FROM mail_label WHERE id=?").get(Number(labelId));
+    if (!row) return { error: "label_not_found" };
+    const name = patch.name !== undefined ? String(patch.name).trim() : row.name;
+    if (!name) return { error: "label_name_required" };
+    const dup = this.db.prepare("SELECT 1 FROM mail_label WHERE name=? AND id<>?").get(name, Number(labelId));
+    if (dup) return { error: "label_exists" };
+    const color = patch.color !== undefined && /^#[0-9a-fA-F]{6}$/.test(String(patch.color)) ? String(patch.color) : row.color;
+    this.db.prepare("UPDATE mail_label SET name=?, color=? WHERE id=?").run(name, color, Number(labelId));
+    return { ok: true, label: this.db.prepare("SELECT * FROM mail_label WHERE id=?").get(Number(labelId)) };
+  }
+
   setMailLabel(mailId, labelId, on) {
     if (!this.db.prepare("SELECT 1 FROM core_mail WHERE id=?").get(mailId)) return { error: "mail_not_found" };
     if (!this.db.prepare("SELECT 1 FROM mail_label WHERE id=?").get(labelId)) return { error: "label_not_found" };

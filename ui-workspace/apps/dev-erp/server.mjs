@@ -1461,6 +1461,15 @@ const server = createServer(async (req, res) => {
       store.appendEvent({ actor_ref: actor, actor_kind: "human", kind: "label_delete", to: result.name, used_refs: ["mail_label"], data_label: "real" });
       return send(res, 200, result);
     }
+    if (path === "/api/labels/update" && req.method === "POST") {
+      if (!allowSharedWrite(req, res)) return;
+      let body = ""; for await (const chunk of req) body += chunk;
+      const { id, name, color } = JSON.parse(body || "{}");
+      const result = store.updateLabel(id, { name, color });
+      if (result.error) return send(res, 400, result);
+      store.appendEvent({ actor_ref: actor, actor_kind: "human", kind: "label_update", to: result.label.name, used_refs: ["mail_label"], data_label: "real" });
+      return send(res, 200, result);
+    }
     if (path === "/api/mail/unassign" && req.method === "POST") {
       let body = ""; for await (const chunk of req) body += chunk;
       const { mail_id } = JSON.parse(body || "{}");
