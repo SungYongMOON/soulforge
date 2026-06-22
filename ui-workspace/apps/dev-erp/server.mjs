@@ -919,12 +919,14 @@ const server = createServer(async (req, res) => {
     if (path === "/api/items") {
       // 보기 대상(view=계정id|team)·mine=1 → 담당자 식별자 필터. 일반 팀원의 기본은 본인 범위.
       // 단, status=unclassified 는 팀 공용 분류 큐라 개인 담당자 필터를 걸지 않는다.
-      const assignee_any = qp.status === "unclassified" ? undefined : viewIdentities(req, qp);
+      // #8 미배정 전용뷰: unassigned=1 이면 담당자 스코프(view/mine) 미적용 — '주인 없는 일'은 팀 전체에서 본다.
+      const unassigned = qp.unassigned === "1";
+      const assignee_any = (qp.status === "unclassified" || unassigned) ? undefined : viewIdentities(req, qp);
       const opts = {
         project: qp.project, status: qp.status, q: qp.q,
         due_before: qp.due === "soon" ? todayKey() : undefined,
         due_before_exclusive: qp.due === "overdue" ? todayKey() : undefined,
-        assignee_any,
+        assignee_any, unassigned,
         limit: intParam(qp.limit, wantsPage(qp) ? 100 : 500, { min: 1, max: wantsPage(qp) ? 500 : 1000 }),
         offset: intParam(qp.offset, 0, { min: 0, max: 1_000_000 })
       };

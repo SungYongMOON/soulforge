@@ -2,6 +2,13 @@
 
 ## 2026-06-23
 
+### Revision `working` - 미배정 전용뷰 — 주인 없는 일을 한 곳에
+
+- 할 일 화면에 '미배정' 상태칩 추가(카운트 포함): 담당자 없는(assignee NULL/공백) 일만 모아봄. 자동배정이
+  메일함 매칭 실패로 무음 방치한 일을 리더가 한눈에 발견해 분배. 미배정뷰는 담당자 스코프(내일/보기범위)
+  미적용 = 팀 전체에서 조회. 미배정 카운트도 팀 전체(assignee 무관)·done 제외.
+- store _itemWhere/items/itemCounts + /api/items·counts 라우트에 unassigned 파라미터. 서버 변경(재시작). node:test 235/0.
+
 ### Revision `working` - 신규 첫 화면 member-first — '내 할 일' 최상단 노출
 
 - 기본 대시보드(DEFAULT_DASH)를 member-first로 재배치: 로그인 직후 '내 할 일'(mine)+'먼저 할 일'(nudges)을

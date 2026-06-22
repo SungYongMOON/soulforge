@@ -1280,10 +1280,11 @@ export class Store {
     };
   }
 
-  _itemWhere({ project, status, q, due_before, due_before_exclusive, include_unclassified = false, assignee_any } = {}) {
+  _itemWhere({ project, status, q, due_before, due_before_exclusive, include_unclassified = false, assignee_any, unassigned = false } = {}) {
     const cond = [];
     const args = [];
     if (project) { cond.push("i.project_id=?"); args.push(project); }
+    if (unassigned) { cond.push("(i.assignee_ref IS NULL OR TRIM(i.assignee_ref)='')"); } // #8 미배정 전용뷰: 주인 없는 일
     if (status) { cond.push("i.status=?"); args.push(status); }
     else if (!include_unclassified) { cond.push("i.status NOT IN ('unclassified','archived')"); } // 미분류는 기본 격리(분류 필요 화면만 명시 조회)
     if (due_before_exclusive) {
@@ -1309,8 +1310,8 @@ export class Store {
     return { where, args };
   }
 
-  items({ project, status, q, due_before, due_before_exclusive, include_unclassified = false, assignee_any, limit = 500, offset = 0 } = {}) {
-    const { where, args } = this._itemWhere({ project, status, q, due_before, due_before_exclusive, include_unclassified, assignee_any });
+  items({ project, status, q, due_before, due_before_exclusive, include_unclassified = false, assignee_any, unassigned = false, limit = 500, offset = 0 } = {}) {
+    const { where, args } = this._itemWhere({ project, status, q, due_before, due_before_exclusive, include_unclassified, assignee_any, unassigned });
     const page = this._pageBounds(limit, offset, 1000);
     const rows = this.db
       .prepare(
@@ -1412,6 +1413,9 @@ export class Store {
     const statuses = Object.fromEntries(rows.map((r) => [r.status, r.n]));
     const triageWhere = this._itemWhere({ project, status: "unclassified" });
     statuses.unclassified = this.db.prepare(`SELECT COUNT(*) AS n FROM core_item i ${triageWhere.where}`).get(...triageWhere.args).n;
+    // #8 미배정 카운트는 팀 전체(assignee 스코프 무관 — '주인 없는 일'이 본질). done/미분류/보관 제외.
+    const unWhere = this._itemWhere({ project, unassigned: true });
+    statuses.unassigned = this.db.prepare(`SELECT COUNT(*) AS n FROM core_item i ${unWhere.where} AND i.status!='done'`).get(...unWhere.args).n;
     const total = ["open", "doing", "waiting", "blocked", "done"].reduce((s, k) => s + (statuses[k] ?? 0), 0);
     return { total, statuses };
   }

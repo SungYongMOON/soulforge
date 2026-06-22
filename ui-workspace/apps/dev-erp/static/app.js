@@ -3903,11 +3903,13 @@ async function renderItems() {
   const useView = showViewScope();
   // 내 일 필터: 로그인 시에만 의미. '분류 필요'(미분류 인입함)는 팀 공용이라 mine/view 적용 안 함.
   const mine = !useView && state.mineOnly && !!state.account;
-  const applyMine = mine && state.statusFilter !== "unclassified";
-  const scoped = state.statusFilter !== "unclassified"; // 미분류함은 팀 공용
+  const isUnassigned = state.statusFilter === "unassigned"; // #8 미배정 전용뷰: 담당자 스코프 미적용(주인 없는 일=팀 전체)
+  const applyMine = mine && state.statusFilter !== "unclassified" && !isUnassigned;
+  const scoped = state.statusFilter !== "unclassified" && !isUnassigned; // 미분류함·미배정뷰는 팀 공용
   const q = new URLSearchParams();
   if (state.projectFilter) q.set("project", state.projectFilter);
-  if (state.statusFilter) q.set("status", state.statusFilter);
+  if (isUnassigned) q.set("unassigned", "1");
+  else if (state.statusFilter) q.set("status", state.statusFilter);
   if (useView && scoped) applyViewScope(q); else if (applyMine) q.set("mine", "1");
   q.set("page", "1");
   q.set("limit", String(state.itemLimit));
@@ -3926,11 +3928,13 @@ async function renderItems() {
   const statusCount = (s) => counts.statuses?.[s] ?? 0;
   const triageTotal = counts.statuses?.unclassified ?? 0;
   const archivedTotal = counts.statuses?.archived ?? 0;
+  const unassignedTotal = counts.statuses?.unassigned ?? 0;
   const chip = (val, label, n, cls = "") =>
     `<button class="status-chip ${cls} ${state.statusFilter === val ? "on" : ""}" data-st="${val}">${label}${n != null ? ` <em>${n}</em>` : ""}</button>`;
   const chipsHtml = [chip("", L.all_label, counts.total ?? itemPage.total)]
     .concat(statuses.map((s) => chip(s, L[`status_${s}`], statusCount(s))))
     .concat(triageTotal || state.statusFilter === "unclassified" ? [chip("unclassified", L.status_unclassified ?? "분류 필요", triageTotal, "triage")] : [])
+    .concat(unassignedTotal || state.statusFilter === "unassigned" ? [chip("unassigned", L.status_unassigned ?? "미배정", unassignedTotal, "unassigned-chip")] : [])
     .concat(archivedTotal || state.statusFilter === "archived" ? [chip("archived", L.status_archived ?? "보관함", archivedTotal, "archived-chip")] : [])
     .join("");
   const triageNote = state.statusFilter === "unclassified"
