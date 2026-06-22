@@ -3915,7 +3915,7 @@ async function renderItems() {
         <button class="fav-chip ie-cancel">${L.act_cancel ?? "취소"}</button>
         <button class="fav-chip ie-del" data-i="${esc(i.id)}">${L.act_delete ?? "삭제"}</button>
       </div></td></tr>`
-    : `<tr class="${i.parent_item_id && !orphanIds.has(i.id) ? "item-child" : ""}">
+    : `<tr class="${i.parent_item_id && !orphanIds.has(i.id) ? "item-child" : ""}" data-item="${esc(i.id)}">
 	      <td>${i.parent_item_id && !orphanIds.has(i.id) ? '<span class="child-twig">↳</span> ' : ""}${esc(i.title)}${i.child_total > 0 ? ` <span class="badge child-prog" title="${esc(L.child_progress ?? "세부할일")}">${i.child_done}/${i.child_total}</span>` : ""}${i.encounter_role === "boss" ? " 👑" : ""}${codexTaskIndicatorHtml(i)}${itemAutomationHints(i)}${itemSourceTrace(i)}</td>
       <td><span class="proj-link" data-hub="${esc(i.project_id)}">${esc(i.project_id)}</span></td>
       <td>${statusBadge(i.status)}</td>
@@ -4081,6 +4081,13 @@ async function renderItems() {
 function wireItemEdit(scope) {
   scope.querySelectorAll(".edit[data-edit]").forEach((b) =>
     b.addEventListener("click", (e) => { e.stopPropagation(); state.itemEdit = b.dataset.edit; render(); })
+  );
+  // 행 클릭 → 인라인 편집 열기(버튼·셀렉트·과제링크 등 컨트롤 클릭은 제외). 일반 표 UX(행 클릭=편집).
+  scope.querySelectorAll("tr[data-item]").forEach((tr) =>
+    tr.addEventListener("click", (e) => {
+      if (e.target.closest("button, select, input, a, .proj-link")) return;
+      state.itemEdit = tr.dataset.item; render();
+    })
   );
   scope.querySelectorAll(".split[data-split]").forEach((b) =>
     b.addEventListener("click", (e) => { e.stopPropagation(); openSplitModal(b.dataset.split, b.dataset.spProj, b.dataset.spTitle, () => render()); })
