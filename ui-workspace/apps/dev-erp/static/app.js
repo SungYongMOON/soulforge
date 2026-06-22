@@ -3707,6 +3707,15 @@ async function renderHome() {
     // 콕핏 홈 '메일' KPI 타일: 핸들러가 없어 dead-click 이던 것 → 메일 화면(전체 메일함)으로 이동.
     $("#view").querySelectorAll("[data-jump='inbox-mail']").forEach((b) =>
       b.addEventListener("click", (e) => { e.stopPropagation(); state.projectFilter = ""; state.view = "mail"; render(); }));
+    // 콕핏 메일/미분류 위젯 행 클릭 → 메일 화면에서 그 메일 선택(우측 '과제로 분류' 진입). 행이 클릭 액션 0개이던 갭(감사 + 설계 #1).
+    $("#view").querySelectorAll('[data-body="mail"] tr[data-mail], [data-body="inbox"] tr[data-mail]').forEach((tr) =>
+      tr.addEventListener("click", (e) => {
+        e.stopPropagation();
+        state.mailSel = tr.dataset.mail;
+        state.viewScope = "team"; state.projectFilter = ""; state.mailOffset = 0;
+        if (state.mailFilters) state.mailFilters.q = "";
+        state.view = "mail"; render();
+      }));
     $("#view").querySelectorAll("[data-goreports]").forEach((b) =>
       b.addEventListener("click", (e) => { e.stopPropagation(); state.view = "mod:reports"; render(); }));
     $("#view").querySelectorAll(".widget-search").forEach((inp) => {
